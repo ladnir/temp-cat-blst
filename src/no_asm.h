@@ -3,13 +3,32 @@
  * Licensed under the Apache License, Version 2.0, see LICENSE for details.
  * SPDX-License-Identifier: Apache-2.0
  */
+#ifndef __BLS12_NO_ASM_H__
+#define __BLS12_NO_ASM_H__
+
+#include "bytes.h"
+#include "config.h"
 
 #if LIMB_T_BITS==32
 typedef unsigned long long llimb_t;
+#else
+typedef unsigned __int128 llimb_t;
 #endif
 
-#if !defined(__STDC_VERSION__) || __STDC_VERSION__<199901 || defined(__STDC_NO_VLA__)
-# error "unsupported compiler"
+
+
+#if defined(_MSC_VER)
+#include <malloc.h>
+#define BLST_VLA_NEW(T, name, n) T* name = (T*)_alloca((n) * sizeof(T))
+#define BLST_VLA_FREE(name)      ((void)0)
+#elif defined(__GNUC__) || defined(__clang__)
+#include <alloca.h>
+#define BLST_VLA_NEW(T, name, n) T name[n]
+#define BLST_VLA_FREE(name)      ((void)0)
+#else
+#include <stdlib.h>
+#define BLST_VLA_NEW(T, name, n) T* name = (T*)malloc((n) * sizeof(T))
+#define BLST_VLA_FREE(name)      free(name)
 #endif
 
 #if defined(__clang__)
@@ -26,12 +45,13 @@ typedef unsigned long long llimb_t;
 # endif
 #endif
 
-static void mul_mont_n(limb_t ret[], const limb_t a[], const limb_t b[],
+inline void mul_mont_n(limb_t ret[], const limb_t a[], const limb_t b[],
                        const limb_t p[], limb_t n0, size_t n)
 {
     __builtin_assume(n != 0 && n%2 == 0);
     llimb_t limbx;
-    limb_t mask, borrow, mx, hi, tmp[n+1], carry;
+    limb_t mask, borrow, mx, hi, carry;
+	BLST_VLA_NEW(limb_t, tmp, n + 1);
     size_t i, j;
 
     for (mx=b[0], hi=0, i=0; i<n; i++) {
@@ -79,6 +99,8 @@ static void mul_mont_n(limb_t ret[], const limb_t a[], const limb_t b[],
 
     for(i=0; i<n; i++)
         ret[i] = (ret[i] & ~mask) | (tmp[i] & mask);
+
+    BLST_VLA_FREE(tmp);
 }
 
 #define MUL_MONT_IMPL(bits) \
@@ -101,12 +123,13 @@ MUL_MONT_IMPL(256)
 #undef sqr_mont_256
 MUL_MONT_IMPL(384)
 
-static void add_mod_n(limb_t ret[], const limb_t a[], const limb_t b[],
+inline void add_mod_n(limb_t ret[], const limb_t a[], const limb_t b[],
                       const limb_t p[], size_t n)
 {
     __builtin_assume(n != 0);
     llimb_t limbx;
-    limb_t mask, carry, borrow, tmp[n];
+    limb_t mask, carry, borrow;
+    BLST_VLA_NEW(limb_t, tmp, n);
     size_t i;
 
     for (carry=0, i=0; i<n; i++) {
@@ -126,6 +149,8 @@ static void add_mod_n(limb_t ret[], const limb_t a[], const limb_t b[],
 
     for(i=0; i<n; i++)
         ret[i] = (ret[i] & ~mask) | (tmp[i] & mask);
+
+    BLST_VLA_FREE(tmp);
 }
 
 #define ADD_MOD_IMPL(bits) \
@@ -136,7 +161,7 @@ inline void add_mod_##bits(vec##bits ret, const vec##bits a, \
 ADD_MOD_IMPL(256)
 ADD_MOD_IMPL(384)
 
-static void sub_mod_n(limb_t ret[], const limb_t a[], const limb_t b[],
+inline void sub_mod_n(limb_t ret[], const limb_t a[], const limb_t b[],
                       const limb_t p[], size_t n)
 {
     __builtin_assume(n != 0);
@@ -168,12 +193,15 @@ inline void sub_mod_##bits(vec##bits ret, const vec##bits a, \
 SUB_MOD_IMPL(256)
 SUB_MOD_IMPL(384)
 
-static void mul_by_3_mod_n(limb_t ret[], const limb_t a[], const limb_t p[],
+inline void mul_by_3_mod_n(limb_t ret[], const limb_t a[], const limb_t p[],
                            size_t n)
 {
     __builtin_assume(n != 0);
     llimb_t limbx;
-    limb_t mask, carry, borrow, tmp[n], two_a[n];
+    limb_t mask, carry, borrow;
+    BLST_VLA_NEW(limb_t, tmp, n);
+    BLST_VLA_NEW(limb_t, two_a, n);
+    
     size_t i;
 
     for (carry=0, i=0; i<n; i++) {
@@ -211,6 +239,10 @@ static void mul_by_3_mod_n(limb_t ret[], const limb_t a[], const limb_t p[],
 
     for(i=0; i<n; i++)
         ret[i] = (ret[i] & ~mask) | (tmp[i] & mask);
+
+
+    BLST_VLA_FREE(tmp);
+    BLST_VLA_FREE(two_a);
 }
 
 #define MUL_BY_3_MOD_IMPL(bits) \
@@ -221,13 +253,14 @@ inline void mul_by_3_mod_##bits(vec##bits ret, const vec##bits a, \
 MUL_BY_3_MOD_IMPL(256)
 MUL_BY_3_MOD_IMPL(384)
 
-static void lshift_mod_n(limb_t ret[], const limb_t a[], size_t count,
+inline void lshift_mod_n(limb_t ret[], const limb_t a[], size_t count,
                          const limb_t p[], size_t n)
 {
     __builtin_assume(count != 0);
     __builtin_assume(n != 0);
     llimb_t limbx;
-    limb_t mask, carry, borrow, tmp[n];
+    limb_t mask, carry, borrow;
+    BLST_VLA_NEW(limb_t, tmp, n);
     size_t i;
 
     while (count--) {
@@ -251,6 +284,8 @@ static void lshift_mod_n(limb_t ret[], const limb_t a[], size_t count,
 
         a = ret;
     }
+
+    BLST_VLA_FREE(tmp);
 }
 
 #define LSHIFT_MOD_IMPL(bits) \
@@ -261,12 +296,13 @@ inline void lshift_mod_##bits(vec##bits ret, const vec##bits a, size_t count, \
 LSHIFT_MOD_IMPL(256)
 LSHIFT_MOD_IMPL(384)
 
-static void cneg_mod_n(limb_t ret[], const limb_t a[], bool_t flag,
+inline void cneg_mod_n(limb_t ret[], const limb_t a[], bool_t flag,
                        const limb_t p[], size_t n)
 {
     __builtin_assume(n != 0);
     llimb_t limbx;
-    limb_t borrow, mask, tmp[n];
+    limb_t borrow, mask;
+    BLST_VLA_NEW(limb_t, tmp, n);
     size_t i;
 
     for (borrow=0, i=0; i<n; i++) {
@@ -275,11 +311,12 @@ static void cneg_mod_n(limb_t ret[], const limb_t a[], bool_t flag,
         borrow = (limb_t)(limbx >> LIMB_T_BITS) & 1;
     }
 
-    flag &= vec_is_zero(a, sizeof(tmp)) ^ 1;
+    flag &= vec_is_zero(a, n * sizeof(limb_t)) ^ 1;
     mask = (limb_t)0 - flag;
 
     for(i=0; i<n; i++)
         ret[i] = (a[i] & ~mask) | (tmp[i] & mask);
+    BLST_VLA_FREE(tmp);
 }
 
 #define CNEG_MOD_IMPL(bits) \
@@ -290,7 +327,7 @@ inline void cneg_mod_##bits(vec##bits ret, const vec##bits a, bool_t flag, \
 CNEG_MOD_IMPL(256)
 CNEG_MOD_IMPL(384)
 
-static limb_t check_mod_n(const byte a[], const limb_t p[], size_t n)
+inline limb_t check_mod_n(const byte a[], const limb_t p[], size_t n)
 {
     __builtin_assume(n != 0);
     llimb_t limbx;
@@ -314,19 +351,26 @@ inline limb_t check_mod_##bits(const pow##bits a, const vec##bits p) \
 
 CHECK_MOD_IMPL(256)
 
-static limb_t add_n_check_mod_n(byte ret[], const byte a[], const byte b[],
+inline limb_t add_n_check_mod_n(byte ret[], const byte a[], const byte b[],
                                             const limb_t p[], size_t n)
 {
     __builtin_assume(n != 0);
-    limb_t ret_[n], a_[n], b_[n], zero;
+    limb_t zero;
+    BLST_VLA_NEW(limb_t, ret_, n);
+    BLST_VLA_NEW(limb_t, a_, n);
+    BLST_VLA_NEW(limb_t, b_, n);
 
-    limbs_from_le_bytes(a_, a, sizeof(a_));
-    limbs_from_le_bytes(b_, b, sizeof(b_));
+    limbs_from_le_bytes(a_, a, n * sizeof(limb_t));
+    limbs_from_le_bytes(b_, b, n * sizeof(limb_t));
 
     add_mod_n(ret_, a_, b_, p, n);
-    zero = vec_is_zero(ret_, sizeof(ret_));
+    zero = vec_is_zero(ret_, n * sizeof(limb_t));
 
-    le_bytes_from_limbs(ret, ret_, sizeof(ret_));
+    le_bytes_from_limbs(ret, ret_, n * sizeof(limb_t));
+
+	BLST_VLA_FREE(ret_);
+	BLST_VLA_FREE(a_);
+	BLST_VLA_FREE(b_);
 
     return zero^1;
 }
@@ -338,19 +382,26 @@ inline limb_t add_n_check_mod_##bits(pow##bits ret, const pow##bits a, \
 
 ADD_N_CHECK_MOD_IMPL(256)
 
-static limb_t sub_n_check_mod_n(byte ret[], const byte a[], const byte b[],
+inline limb_t sub_n_check_mod_n(byte ret[], const byte a[], const byte b[],
                                             const limb_t p[], size_t n)
 {
     __builtin_assume(n != 0);
-    limb_t ret_[n], a_[n], b_[n], zero;
+    limb_t zero;
+    BLST_VLA_NEW(limb_t, ret_, n);
+    BLST_VLA_NEW(limb_t, a_, n);
+    BLST_VLA_NEW(limb_t, b_, n);
 
-    limbs_from_le_bytes(a_, a, sizeof(a_));
-    limbs_from_le_bytes(b_, b, sizeof(b_));
+    limbs_from_le_bytes(a_, a, n * sizeof(limb_t));
+    limbs_from_le_bytes(b_, b, n * sizeof(limb_t));
 
     sub_mod_n(ret_, a_, b_, p, n);
-    zero = vec_is_zero(ret_, sizeof(ret_));
+    zero = vec_is_zero(ret_, n * sizeof(limb_t));
 
-    le_bytes_from_limbs(ret, ret_, sizeof(ret_));
+    le_bytes_from_limbs(ret, ret_, n * sizeof(limb_t));
+
+    BLST_VLA_FREE(ret_);
+    BLST_VLA_FREE(a_);
+    BLST_VLA_FREE(b_);
 
     return zero^1;
 }
@@ -362,13 +413,14 @@ inline limb_t sub_n_check_mod_##bits(pow##bits ret, const pow##bits a, \
 
 SUB_N_CHECK_MOD_IMPL(256)
 
-static void from_mont_n(limb_t ret[], const limb_t a[],
+inline void from_mont_n(limb_t ret[], const limb_t a[],
                         const limb_t p[], limb_t n0, size_t n)
 {
     __builtin_assume(n != 0 && n%2 == 0);
     llimb_t limbx;
-    limb_t mask, borrow, mx, hi, tmp[n];
+    limb_t mask, borrow, mx, hi;
     size_t i, j;
+    BLST_VLA_NEW(limb_t, tmp, n);
 
     for (j=0; j<n; j++) {
         mx = n0*a[0];
@@ -395,6 +447,8 @@ static void from_mont_n(limb_t ret[], const limb_t a[],
 
     for(i=0; i<n; i++)
         ret[i] = (ret[i] & ~mask) | (tmp[i] & mask);
+
+    BLST_VLA_FREE(tmp);
 }
 
 #define FROM_MONT_IMPL(bits) \
@@ -405,12 +459,14 @@ inline void from_mont_##bits(vec##bits ret, const vec##bits a, \
 FROM_MONT_IMPL(256)
 FROM_MONT_IMPL(384)
 
-static void redc_mont_n(limb_t ret[], const limb_t a[],
+inline void redc_mont_n(limb_t ret[], const limb_t a[],
                         const limb_t p[], limb_t n0, size_t n)
 {
     __builtin_assume(n != 0 && n%2 == 0);
     llimb_t limbx;
-    limb_t mask, carry, borrow, mx, hi, tmp[n];
+    limb_t mask, carry, borrow, mx, hi;
+    BLST_VLA_NEW(limb_t, tmp, n);
+
     const limb_t *b = a;
     size_t i, j;
 
@@ -444,6 +500,8 @@ static void redc_mont_n(limb_t ret[], const limb_t a[],
 
     for(i=0; i<n; i++)
         ret[i] = (ret[i] & ~mask) | (tmp[i] & mask);
+
+    BLST_VLA_FREE(tmp);
 }
 
 #define REDC_MONT_IMPL(bits, bits2) \
@@ -454,7 +512,7 @@ inline void redc_mont_##bits(vec##bits ret, const vec##bits2 a, \
 REDC_MONT_IMPL(256, 512)
 REDC_MONT_IMPL(384, 768)
 
-static void rshift_mod_n(limb_t ret[], const limb_t a[], size_t count,
+inline void rshift_mod_n(limb_t ret[], const limb_t a[], size_t count,
                          const limb_t p[], size_t n)
 {
     __builtin_assume(count != 0);
@@ -498,11 +556,13 @@ inline void div_by_2_mod_##bits(vec##bits ret, const vec##bits a, \
 
 DIV_BY_2_MOD_IMPL(384)
 
-static limb_t sgn0_pty_mod_n(const limb_t a[], const limb_t p[], size_t n)
+inline limb_t sgn0_pty_mod_n(const limb_t a[], const limb_t p[], size_t n)
 {
     __builtin_assume(n != 0);
     llimb_t limbx;
-    limb_t carry, borrow, ret, tmp[n];
+    limb_t carry, borrow, ret;
+    BLST_VLA_NEW(limb_t, tmp, n);
+
     size_t i;
 
     ret = a[0] & 1; /* parity */
@@ -520,6 +580,7 @@ static limb_t sgn0_pty_mod_n(const limb_t a[], const limb_t p[], size_t n)
 
     ret |= ((carry - borrow) & 2) ^ 2;
 
+    BLST_VLA_FREE(tmp);
     return ret;
 }
 
@@ -563,7 +624,7 @@ inline limb_t sgn0_pty_mont_384x(const vec384x a, const vec384 p, limb_t n0)
     return sgn0_pty_mod_384x(tmp, p);
 }
 
-void mul_mont_384x(vec384x ret, const vec384x a, const vec384x b,
+inline void mul_mont_384x(vec384x ret, const vec384x a, const vec384x b,
                           const vec384 p, limb_t n0)
 {
     vec384 aa, bb, cc;
@@ -578,17 +639,27 @@ void mul_mont_384x(vec384x ret, const vec384x a, const vec384x b,
     sub_mod_n(ret[1], ret[1], cc, p, NLIMBS(384));
 }
 
+inline void printHex2(const void* data, int byteSize)
+{
+    unsigned char* byteData = (unsigned char*)data;
+    for (int i = 0; i < byteSize; i++) {
+        printf("%02x", byteData[i]);
+    }
+    printf("\n");
+}
 /*
  * mul_mont_n without final conditional subtraction, which implies
  * that modulus is one bit short, which in turn means that there are
  * no carries to handle between iterations...
  */
-static void mul_mont_nonred_n(limb_t ret[], const limb_t a[], const limb_t b[],
+inline void mul_mont_nonred_n(limb_t ret[], const limb_t a[], const limb_t b[],
                               const limb_t p[], limb_t n0, size_t n)
 {
     __builtin_assume(n != 0 && n%2 == 0);
     llimb_t limbx;
-    limb_t mx, hi, tmp[n+1];
+    limb_t mx, hi;
+    BLST_VLA_NEW(limb_t, tmp, n+1);
+
     size_t i, j;
 
     for (mx=b[0], hi=0, i=0; i<n; i++) {
@@ -619,12 +690,17 @@ static void mul_mont_nonred_n(limb_t ret[], const limb_t a[], const limb_t b[],
         }
         mx = n0*tmp[0];
         tmp[i] = hi;
+
     }
 
-    vec_copy(ret, tmp, sizeof(tmp)-sizeof(limb_t));
+    vec_copy(ret, tmp,  n*sizeof(limb_t));
+
+    BLST_VLA_FREE(tmp);
+
 }
 
-void sqr_n_mul_mont_383(vec384 ret, const vec384 a, size_t count,
+
+inline void sqr_n_mul_mont_383(vec384 ret, const vec384 a, size_t count,
                         const vec384 p, limb_t n0, const vec384 b)
 {
     __builtin_assume(count != 0);
@@ -635,7 +711,7 @@ void sqr_n_mul_mont_383(vec384 ret, const vec384 a, size_t count,
     mul_mont_n(ret, ret, b, p, n0, NLIMBS(384));
 }
 
-void sqr_mont_382x(vec384x ret, const vec384x a,
+inline void sqr_mont_382x(vec384x ret, const vec384x a,
                           const vec384 p, limb_t n0)
 {
     llimb_t limbx;
@@ -693,7 +769,7 @@ void sqr_mont_382x(vec384x ret, const vec384x a,
 # define MSB(x) ((x) >> (LIMB_T_BITS-1))
 #endif
 
-static size_t num_bits(limb_t l)
+inline size_t num_bits(limb_t l)
 {
     limb_t x, mask;
     size_t bits = is_zero(l) ^ 1;
@@ -733,7 +809,7 @@ static size_t num_bits(limb_t l)
 #if defined(__clang_major__) && __clang_major__>7
 __attribute__((optnone))
 #endif
-static limb_t lshift_2(limb_t hi, limb_t lo, size_t l)
+inline  limb_t lshift_2(limb_t hi, limb_t lo, size_t l)
 {
     size_t r = LIMB_T_BITS - l;
     limb_t mask = 0 - (is_zero(l)^1);
@@ -743,7 +819,7 @@ static limb_t lshift_2(limb_t hi, limb_t lo, size_t l)
 /*
  * https://eprint.iacr.org/2020/972 with 'k' being LIMB_T_BITS-1.
  */
-static void ab_approximation_n(limb_t a_[2], const limb_t a[],
+inline void ab_approximation_n(limb_t a_[2], const limb_t a[],
                                limb_t b_[2], const limb_t b[], size_t n)
 {
     __builtin_assume(n != 0 && n%2 == 0);
@@ -769,7 +845,7 @@ static void ab_approximation_n(limb_t a_[2], const limb_t a[],
 
 typedef struct { limb_t f0, g0, f1, g1; } factors;
 
-static void inner_loop_n(factors *fg, const limb_t a_[2], const limb_t b_[2],
+inline void inner_loop_n(factors *fg, const limb_t a_[2], const limb_t b_[2],
                          size_t n)
 {
     __builtin_assume(n != 0);
@@ -826,7 +902,7 @@ static void inner_loop_n(factors *fg, const limb_t a_[2], const limb_t b_[2],
     fg->f0 = f0, fg->g0 = g0, fg->f1 = f1, fg->g1= g1;
 }
 
-static limb_t cneg_n(limb_t ret[], const limb_t a[], limb_t neg, size_t n)
+inline limb_t cneg_n(limb_t ret[], const limb_t a[], limb_t neg, size_t n)
 {
     __builtin_assume(n != 0);
     llimb_t limbx = 0;
@@ -842,7 +918,7 @@ static limb_t cneg_n(limb_t ret[], const limb_t a[], limb_t neg, size_t n)
     return 0 - MSB((limb_t)limbx);
 }
 
-static limb_t add_n(limb_t ret[], const limb_t a[], limb_t b[], size_t n)
+inline limb_t add_n(limb_t ret[], const limb_t a[], limb_t b[], size_t n)
 {
     __builtin_assume(n != 0);
     llimb_t limbx;
@@ -858,7 +934,7 @@ static limb_t add_n(limb_t ret[], const limb_t a[], limb_t b[], size_t n)
     return carry;
 }
 
-static limb_t umul_n(limb_t ret[], const limb_t a[], limb_t b, size_t n)
+inline limb_t umul_n(limb_t ret[], const limb_t a[], limb_t b, size_t n)
 {
     __builtin_assume(n != 0);
     llimb_t limbx;
@@ -874,12 +950,14 @@ static limb_t umul_n(limb_t ret[], const limb_t a[], limb_t b, size_t n)
     return hi;
 }
 
-static limb_t smul_n_shift_n(limb_t ret[], const limb_t a[], limb_t *f_,
+inline limb_t smul_n_shift_n(limb_t ret[], const limb_t a[], limb_t *f_,
                                            const limb_t b[], limb_t *g_,
                                            size_t n)
 {
     __builtin_assume(n != 0);
-    limb_t a_[n+1], b_[n+1], f, g, neg, carry, hi;
+    limb_t f, g, neg, carry, hi;
+    BLST_VLA_NEW(limb_t, a_, n + 1);
+    BLST_VLA_NEW(limb_t, b_, n + 1);
     size_t i;
 
     /* |a|*|f_| */
@@ -914,14 +992,20 @@ static limb_t smul_n_shift_n(limb_t ret[], const limb_t a[], limb_t *f_,
     *g_ = (*g_ ^ neg) - neg;
     (void)cneg_n(ret, ret, neg, n);
 
+	BLST_VLA_FREE(a_);
+	BLST_VLA_FREE(b_);
+
     return neg;
 }
 
-static limb_t smul_2n(limb_t ret[], const limb_t u[], limb_t f,
+inline limb_t smul_2n(limb_t ret[], const limb_t u[], limb_t f,
                                     const limb_t v[], limb_t g, size_t n)
 {
     __builtin_assume(n != 0);
-    limb_t u_[n], v_[n], neg, hi;
+    limb_t neg, hi;
+
+    BLST_VLA_NEW(limb_t, u_, n);
+    BLST_VLA_NEW(limb_t, v_, n);
 
     /* |u|*|f_| */
     neg = 0 - MSB(f);
@@ -938,33 +1022,41 @@ static limb_t smul_2n(limb_t ret[], const limb_t u[], limb_t f,
     /* |u|*|f_| + |v|*|g_| */
     hi += add_n(ret, u_, v_, n);
 
+    BLST_VLA_FREE(u_);
+    BLST_VLA_FREE(v_);
+
     return hi;
 }
 
-static void ct_inverse_mod_n(limb_t ret[], const limb_t inp[],
+inline void ct_inverse_mod_n(limb_t ret[], const limb_t inp[],
                              const limb_t mod[], const limb_t modx[], size_t n)
 {
     __builtin_assume(n != 0 && n%2 == 0);
     llimb_t limbx;
-    limb_t a[n], b[n], u[2*n], v[2*n], t[2*n];
+	BLST_VLA_NEW(limb_t, a, n);
+	BLST_VLA_NEW(limb_t, b, n);
+	BLST_VLA_NEW(limb_t, u, 2 * n);
+	BLST_VLA_NEW(limb_t, v, 2 * n);
+	BLST_VLA_NEW(limb_t, t, 2 * n);
+
     limb_t a_[2], b_[2], sign, carry, top;
     factors fg;
     size_t i;
 
-    vec_copy(a, inp, sizeof(a));
-    vec_copy(b, mod, sizeof(b));
-    vec_zero(u, sizeof(u)); u[0] = 1;
-    vec_zero(v, sizeof(v));
+    vec_copy(a, inp, n * sizeof(limb_t));
+    vec_copy(b, mod, n * sizeof(limb_t));
+    vec_zero(u, n*2); u[0] = 1;
+    vec_zero(v, n*2 * sizeof(limb_t));
 
     for (i=0; i<(2*n*LIMB_T_BITS)/(LIMB_T_BITS-2); i++) {
         ab_approximation_n(a_, a, b_, b, n);
         inner_loop_n(&fg, a_, b_, LIMB_T_BITS-2);
         (void)smul_n_shift_n(t, a, &fg.f0, b, &fg.g0, n);
         (void)smul_n_shift_n(b, a, &fg.f1, b, &fg.g1, n);
-        vec_copy(a, t, sizeof(a));
+        vec_copy(a, t, n * sizeof(limb_t));
         smul_2n(t, u, fg.f0, v, fg.g0, 2*n);
         smul_2n(v, u, fg.f1, v, fg.g1, 2*n);
-        vec_copy(u, t, sizeof(u));
+        vec_copy(u, t, 2*n * sizeof(limb_t));
     }
 
     inner_loop_n(&fg, a, b, (2*n*LIMB_T_BITS)%(LIMB_T_BITS-2));
@@ -983,6 +1075,12 @@ static void ct_inverse_mod_n(limb_t ret[], const limb_t inp[],
         a[i] = modx[i] & top;
     (void)cneg_n(a, a, 0 - MSB(sign), n);
     add_n(ret+n, ret+n, a, n);
+
+    BLST_VLA_FREE(a);
+	BLST_VLA_FREE(b);
+	BLST_VLA_FREE(u);
+	BLST_VLA_FREE(v);
+	BLST_VLA_FREE(t);
 }
 
 #define CT_INVERSE_MOD_IMPL(bits, bits2) \
@@ -996,7 +1094,7 @@ CT_INVERSE_MOD_IMPL(384, 768)
 /*
  * Copy of inner_loop_n above, but with |L| updates.
  */
-static limb_t legendre_loop_n(limb_t L, factors *fg, const limb_t a_[2],
+inline limb_t legendre_loop_n(limb_t L, factors *fg, const limb_t a_[2],
                               const limb_t b_[2], size_t n)
 {
     __builtin_assume(n != 0);
@@ -1059,27 +1157,33 @@ static limb_t legendre_loop_n(limb_t L, factors *fg, const limb_t a_[2],
     return L;
 }
 
-static bool_t ct_is_sqr_mod_n(const limb_t inp[], const limb_t mod[], size_t n)
+inline bool_t ct_is_sqr_mod_n(const limb_t inp[], const limb_t mod[], size_t n)
 {
     __builtin_assume(n != 0 && n%2 == 0);
-    limb_t a[n], b[n], t[n];
+	BLST_VLA_NEW(limb_t, a, n);
+	BLST_VLA_NEW(limb_t, b, n);
+	BLST_VLA_NEW(limb_t, t, n);
     limb_t a_[2], b_[2], neg, L = 0;
     factors fg;
     size_t i;
 
-    vec_copy(a, inp, sizeof(a));
-    vec_copy(b, mod, sizeof(b));
+    vec_copy(a, inp, n * sizeof(limb_t));
+    vec_copy(b, mod, n * sizeof(limb_t));
 
     for (i=0; i<(2*n*LIMB_T_BITS)/(LIMB_T_BITS-2); i++) {
         ab_approximation_n(a_, a, b_, b, n);
         L = legendre_loop_n(L, &fg, a_, b_, LIMB_T_BITS-2);
         neg = smul_n_shift_n(t, a, &fg.f0, b, &fg.g0, n);
         (void)smul_n_shift_n(b, a, &fg.f1, b, &fg.g1, n);
-        vec_copy(a, t, sizeof(a));
+        vec_copy(a, t, n * sizeof(limb_t));
         L += (b[0] >> 1) & neg;
     }
 
     L = legendre_loop_n(L, &fg, a, b, (2*n*LIMB_T_BITS)%(LIMB_T_BITS-2));
+
+    BLST_VLA_FREE(a);
+    BLST_VLA_FREE(b);
+    BLST_VLA_FREE(t);
 
     return (L & 1) ^ 1;
 }
@@ -1109,7 +1213,7 @@ CT_IS_SQR_MOD_IMPL(384)
  * D         |       |       |
  *           +-------+-------+
  */
-limb_t div_3_limbs(const limb_t div_top[2], limb_t d_lo, limb_t d_hi)
+inline limb_t div_3_limbs(const limb_t div_top[2], limb_t d_lo, limb_t d_hi)
 {
     llimb_t Rx;
     limb_t r_lo = div_top[0], r_hi = div_top[1];
@@ -1152,12 +1256,13 @@ limb_t div_3_limbs(const limb_t div_top[2], limb_t d_lo, limb_t d_hi)
     return (Q | mask);
 }
 
-static limb_t quot_rem_n(limb_t *div_rem, const limb_t *divisor,
+inline limb_t quot_rem_n(limb_t *div_rem, const limb_t *divisor,
                                           limb_t quotient, size_t n)
 {
     __builtin_assume(n != 0 && n%2 == 0);
     llimb_t limbx;
-    limb_t tmp[n+1], carry, mask, borrow;
+    limb_t carry, mask, borrow;
+	BLST_VLA_NEW(limb_t, tmp, n + 1);
     size_t i;
 
     /* divisor*quotient */
@@ -1185,6 +1290,8 @@ static limb_t quot_rem_n(limb_t *div_rem, const limb_t *divisor,
         carry = (limb_t)(limbx >> LIMB_T_BITS) & 1;
     }
 
+	BLST_VLA_FREE(tmp);
+
     return (div_rem[i] = quotient + mask);
 }
 
@@ -1199,14 +1306,14 @@ inline limb_t quot_rem_64(limb_t *div_rem, const limb_t *divisor,
 /*
  * Unlock reference implementations in vect.c
  */
-#define mul_by_8_mod_384 mul_by_8_mod_384
-#define mul_by_8_mod_384x mul_by_8_mod_384x
-#define mul_by_3_mod_384x mul_by_3_mod_384x
-#define mul_by_1_plus_i_mod_384x mul_by_1_plus_i_mod_384x
-#define add_mod_384x add_mod_384x
-#define sub_mod_384x sub_mod_384x
-#define lshift_mod_384x lshift_mod_384x
-#define sqr_mont_384x sqr_mont_384x
+//#define mul_by_8_mod_384 mul_by_8_mod_384
+//#define mul_by_8_mod_384x mul_by_8_mod_384x
+//#define mul_by_3_mod_384x mul_by_3_mod_384x
+//#define mul_by_1_plus_i_mod_384x mul_by_1_plus_i_mod_384x
+//#define add_mod_384x add_mod_384x
+//#define sub_mod_384x sub_mod_384x
+//#define lshift_mod_384x lshift_mod_384x
+//#define sqr_mont_384x sqr_mont_384x
 
 inline void vec_prefetch(const void *ptr, size_t len)
 {   (void)ptr; (void)len;   }
@@ -1222,10 +1329,10 @@ inline void vec_prefetch(const void *ptr, size_t len)
 #define Ch(x,y,z)	(((x) & (y)) ^ ((~(x)) & (z)))
 #define Maj(x,y,z)	(((x) & (y)) ^ ((x) & (z)) ^ ((y) & (z)))
 
-void blst_sha256_block_data_order(unsigned int *v, const void *inp,
+inline void blst_sha256_block_data_order(unsigned int *v, const void *inp,
                                                    size_t blocks)
 {
-    static const unsigned int K256[64] = {
+    const unsigned int K256[64] = {
         0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
         0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
         0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
@@ -1244,7 +1351,7 @@ void blst_sha256_block_data_order(unsigned int *v, const void *inp,
         0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
     };
     unsigned int X[16], l, a, b, c, d, e, f, g, h, s0, s1, T1, T2;
-    const unsigned char *data = inp;
+    const unsigned char *data = (const unsigned char*)inp;
     size_t round;
 
     a = v[0];
@@ -1313,7 +1420,7 @@ void blst_sha256_block_data_order(unsigned int *v, const void *inp,
 #undef Ch
 #undef Maj
 
-void blst_sha256_hcopy(unsigned int dst[8], const unsigned int src[8])
+inline void blst_sha256_hcopy(unsigned int dst[8], const unsigned int src[8])
 {
     size_t i;
 
@@ -1321,7 +1428,7 @@ void blst_sha256_hcopy(unsigned int dst[8], const unsigned int src[8])
         dst[i] = src[i];
 }
 
-void blst_sha256_emit(unsigned char md[32], const unsigned int h[8])
+inline void blst_sha256_emit(unsigned char md[32], const unsigned int h[8])
 {
     size_t i;
 
@@ -1334,12 +1441,18 @@ void blst_sha256_emit(unsigned char md[32], const unsigned int h[8])
     }
 }
 
-void blst_sha256_bcopy(void *dst_, const void *src_, size_t len)
+inline void blst_sha256_bcopy(void *dst_, const void *src_, size_t len)
 {
-    unsigned char *dst = dst_;
-    const unsigned char *src = src_;
+    unsigned char *dst = (unsigned char*)dst_;
+    const unsigned char *src = (const unsigned char*)src_;
     size_t i;
 
     for (i=0; i<len; i++)
         dst[i] = src[i];
 }
+
+
+#undef BLST_VLA_NEW
+#undef BLST_VLA_FREE
+
+#endif

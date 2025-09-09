@@ -38,8 +38,8 @@ mod mt {
     use threadpool::ThreadPool;
 
     pub fn da_pool() -> ThreadPool {
-        static INIT: Once = Once::new();
-        static mut POOL: *const Mutex<ThreadPool> = ptr::null();
+        INIT: Once = Once::new();
+        mut POOL: *const Mutex<ThreadPool> = ptr::null();
 
         INIT.call_once(|| {
             let pool = Mutex::new(ThreadPool::default());

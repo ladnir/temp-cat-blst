@@ -8,7 +8,7 @@
 #include "point.h"
 
 #define POINTS_TO_AFFINE_IMPL(prefix, ptype, bits, field) \
-static void ptype##s_to_affine(ptype##_affine dst[], \
+void ptype##s_to_affine(ptype##_affine dst[], \
                                const ptype *const points[], size_t npoints) \
 { \
     size_t i; \
@@ -83,7 +83,7 @@ POINTS_TO_AFFINE_IMPL(blst_p2, POINTonE2, 384x, fp2)
 /* The intermediate infinity points are encoded as [0, 0, 1]. */
 
 #define PRECOMPUTE_WBITS_IMPL(prefix, ptype, bits, field, one) \
-static void ptype##_precompute_row_wbits(ptype row[], size_t wbits, \
+void ptype##_precompute_row_wbits(ptype row[], size_t wbits, \
                                          const ptype##_affine *point) \
 { \
     size_t i, j, n = (size_t)1 << (wbits-1); \
@@ -99,7 +99,7 @@ static void ptype##_precompute_row_wbits(ptype row[], size_t wbits, \
         vec_select(&row[i+1].Z, one, &row[i+1].Z, sizeof(row[i+1].Z), inf); \
 }                                                       /* row[4] ...     */\
 \
-static void ptype##s_to_affine_row_wbits(ptype##_affine dst[], ptype src[], \
+void ptype##s_to_affine_row_wbits(ptype##_affine dst[], ptype src[], \
                                          size_t wbits, size_t npoints) \
 { \
     size_t total = npoints << (wbits-1); \
@@ -130,7 +130,7 @@ static void ptype##s_to_affine_row_wbits(ptype##_affine dst[], ptype src[], \
 } \
 \
 /* flat |points[n]| can be placed at the end of |table[n<<(wbits-1)]| */\
-static void ptype##s_precompute_wbits(ptype##_affine table[], size_t wbits, \
+void ptype##s_precompute_wbits(ptype##_affine table[], size_t wbits, \
                                       const ptype##_affine *const points[], \
                                       size_t npoints) \
 { \
@@ -173,12 +173,12 @@ void prefix##s_mult_wbits_precompute(ptype##_affine table[], size_t wbits, \
 { ptype##s_precompute_wbits(table, wbits, points, npoints); }
 
 #define POINTS_MULT_WBITS_IMPL(prefix, ptype, bits, field, one) \
-static void ptype##_gather_booth_wbits(ptype *p, const ptype##_affine row[], \
+void ptype##_gather_booth_wbits(ptype *p, const ptype##_affine row[], \
                                        size_t wbits, limb_t booth_idx) \
 { \
     bool_t booth_sign = (booth_idx >> wbits) & 1; \
     bool_t idx_is_zero; \
-    static const ptype##_affine infinity = { 0 }; \
+    const ptype##_affine infinity = { 0 }; \
 \
     booth_idx &= ((limb_t)1 << wbits) - 1; \
     idx_is_zero = is_zero(booth_idx); \
@@ -187,7 +187,7 @@ static void ptype##_gather_booth_wbits(ptype *p, const ptype##_affine row[], \
     ptype##_cneg(p, booth_sign); \
 } \
 \
-static void ptype##s_mult_wbits(ptype *ret, const ptype##_affine table[], \
+void ptype##s_mult_wbits(ptype *ret, const ptype##_affine table[], \
                                 size_t wbits, size_t npoints, \
                                 const byte *const scalars[], size_t nbits, \
                                 ptype scratch[]) \
@@ -272,7 +272,7 @@ POINTS_MULT_WBITS_IMPL(blst_p2, POINTonE2, 384x, fp2, BLS12_381_Rx.p2)
  * of points...
  */
 
-static size_t pippenger_window_size(size_t npoints)
+size_t pippenger_window_size(size_t npoints)
 {
     size_t wbits;
 
@@ -292,7 +292,7 @@ static size_t pippenger_window_size(size_t npoints)
 typedef struct { vec##bits X,Y,ZZZ,ZZ; } ptype##xyzz;
 
 #define POINTS_MULT_PIPPENGER_IMPL(prefix, ptype) \
-static void ptype##_integrate_buckets(ptype *out, ptype##xyzz buckets[], \
+void ptype##_integrate_buckets(ptype *out, ptype##xyzz buckets[], \
                                                   size_t wbits) \
 { \
     ptype##xyzz ret[1], acc[1]; \
@@ -310,7 +310,7 @@ static void ptype##_integrate_buckets(ptype *out, ptype##xyzz buckets[], \
     ptype##xyzz_to_Jacobian(out, ret); \
 } \
 \
-static void ptype##_bucket(ptype##xyzz buckets[], limb_t booth_idx, \
+void ptype##_bucket(ptype##xyzz buckets[], limb_t booth_idx, \
                            size_t wbits, const ptype##_affine *p) \
 { \
     bool_t booth_sign = (booth_idx >> wbits) & 1; \
@@ -321,7 +321,7 @@ static void ptype##_bucket(ptype##xyzz buckets[], limb_t booth_idx, \
                                                      p, booth_sign); \
 } \
 \
-static void ptype##_prefetch(const ptype##xyzz buckets[], limb_t booth_idx, \
+void ptype##_prefetch(const ptype##xyzz buckets[], limb_t booth_idx, \
                              size_t wbits) \
 { \
     booth_idx &= (1<<wbits) - 1; \
@@ -329,7 +329,7 @@ static void ptype##_prefetch(const ptype##xyzz buckets[], limb_t booth_idx, \
         vec_prefetch(&buckets[booth_idx], sizeof(buckets[booth_idx])); \
 } \
 \
-static void ptype##s_tile_pippenger(ptype *ret, \
+void ptype##s_tile_pippenger(ptype *ret, \
                                     const ptype##_affine *const points[], \
                                     size_t npoints, \
                                     const byte *const scalars[], size_t nbits, \
@@ -367,7 +367,7 @@ static void ptype##s_tile_pippenger(ptype *ret, \
     ptype##_integrate_buckets(ret, buckets, cbits - 1); \
 } \
 \
-static void ptype##s_mult_pippenger(ptype *ret, \
+void ptype##s_mult_pippenger(ptype *ret, \
                                     const ptype##_affine *const points[], \
                                     size_t npoints, \
                                     const byte *const scalars[], size_t nbits, \

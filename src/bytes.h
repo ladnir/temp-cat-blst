@@ -5,8 +5,9 @@
  */
 #ifndef __BLS12_381_ASM_BYTES_H__
 #define __BLS12_381_ASM_BYTES_H__
+#include "config.h"
 
-static inline void bytes_zero(unsigned char *a, size_t num)
+inline void bytes_zero(unsigned char *a, size_t num)
 {
     size_t i;
 
@@ -14,7 +15,7 @@ static inline void bytes_zero(unsigned char *a, size_t num)
         a[i] = 0;
 }
 
-static inline void limbs_from_be_bytes(limb_t *restrict ret,
+inline void limbs_from_be_bytes(limb_t *restrict ret,
                                        const unsigned char *in, size_t n)
 {
     limb_t limb = 0;
@@ -32,7 +33,7 @@ static inline void limbs_from_be_bytes(limb_t *restrict ret,
     }
 }
 
-static inline void be_bytes_from_limbs(unsigned char *out, const limb_t *in,
+inline void be_bytes_from_limbs(unsigned char *out, const limb_t *in,
                                        size_t n)
 {
     limb_t limb;
@@ -43,7 +44,7 @@ static inline void be_bytes_from_limbs(unsigned char *out, const limb_t *in,
     }
 }
 
-static inline void limbs_from_le_bytes(limb_t *restrict ret,
+inline void limbs_from_le_bytes(limb_t *restrict ret,
                                        const unsigned char *in, size_t n)
 {
     limb_t limb = 0;
@@ -61,7 +62,7 @@ static inline void limbs_from_le_bytes(limb_t *restrict ret,
     }
 }
 
-static inline void le_bytes_from_limbs(unsigned char *out, const limb_t *in,
+inline void le_bytes_from_limbs(unsigned char *out, const limb_t *in,
                                        size_t n)
 {
     const union {
@@ -87,13 +88,13 @@ static inline void le_bytes_from_limbs(unsigned char *out, const limb_t *in,
     }
 }
 
-static inline char hex_from_nibble(unsigned char nibble)
+inline char hex_from_nibble(unsigned char nibble)
 {
     int mask = (9 - (nibble &= 0xf)) >> 31;
     return (char)(nibble + ((('a'-10) & mask) | ('0' & ~mask)));
 }
 
-static unsigned char nibble_from_hex(char c)
+inline unsigned char nibble_from_hex(char c)
 {
     int mask, ret;
 
@@ -109,7 +110,7 @@ static unsigned char nibble_from_hex(char c)
     return (unsigned char)ret;
 }
 
-static void bytes_from_hexascii(unsigned char *ret, size_t sz, const char *hex)
+inline void bytes_from_hexascii(unsigned char *ret, size_t sz, const char *hex)
 {
     size_t len;
     unsigned char b = 0;
@@ -129,7 +130,7 @@ static void bytes_from_hexascii(unsigned char *ret, size_t sz, const char *hex)
     }
 }
 
-static void limbs_from_hexascii(limb_t *ret, size_t sz, const char *hex)
+inline void limbs_from_hexascii(limb_t *ret, size_t sz, const char *hex)
 {
     size_t len;
     limb_t limb = 0;

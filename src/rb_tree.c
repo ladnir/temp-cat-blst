@@ -24,7 +24,7 @@ struct rb_tree {
     struct node nodes[1];
 };
 
-static long bytes_compare(const unsigned char *ptr0, size_t len0,
+long bytes_compare(const unsigned char *ptr0, size_t len0,
                           const unsigned char *ptr1, size_t len1)
 {
     size_t i, len = len0<len1 ? len0 : len1;
@@ -42,7 +42,7 @@ static long bytes_compare(const unsigned char *ptr0, size_t len0,
 #define PAINT_RED(p)    ((p)->len_n_colour |= 1)
 #define IS_RED(p)       ((p)->len_n_colour & 1)
 
-static int rb_tree_insert(struct rb_tree *tree, const void *data, size_t len)
+int rb_tree_insert(struct rb_tree *tree, const void *data, size_t len)
 {
     struct node *nodes[8*sizeof(void *)];   /* visited nodes    */
     unsigned char dirs[8*sizeof(void *)];   /* taken directions */

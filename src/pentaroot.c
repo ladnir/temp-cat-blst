@@ -6,16 +6,16 @@
 
 #include "fields.h"
 
-static inline void mul_fr(vec256 ret, const vec256 a, const vec256 b)
+inline void mul_fr(vec256 ret, const vec256 a, const vec256 b)
 {   mul_mont_sparse_256(ret, a, b, BLS12_381_r, r0);   }
 
-static inline void sqr_fr(vec256 ret, const vec256 a)
+inline void sqr_fr(vec256 ret, const vec256 a)
 {   sqr_mont_sparse_256(ret, a, BLS12_381_r, r0);   }
 
 #ifdef __OPTIMIZE_SIZE__
 void blst_fr_pentaroot(vec256 out, const vec256 inp)
 {
-    static const byte pow[] = {
+    const byte pow[] = {
         TO_BYTES(0x33333332cccccccd), TO_BYTES(0x217f0e679998f199),
         TO_BYTES(0xe14a56699d73f002), TO_BYTES(0x2e5f0fbadd72321c)
     };
@@ -37,11 +37,11 @@ void blst_fr_pentaroot(vec256 out, const vec256 inp)
  * "255"-bit variant omits full reductions at the ends of squarings,
  * not implemented yet[?].
  */
-static inline void sqr_n_mul_fr(vec256 out, const vec256 a, size_t count,
+inline void sqr_n_mul_fr(vec256 out, const vec256 a, size_t count,
                                 const vec256 b)
 {   sqr_n_mul_mont_255(out, a, count, BLS12_381_r, r0, b);   }
 # else
-static void sqr_n_mul_fr(vec256 out, const vec256 a, size_t count,
+void sqr_n_mul_fr(vec256 out, const vec256 a, size_t count,
                          const vec256 b)
 {
     do {

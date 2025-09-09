@@ -11,7 +11,7 @@
  * Line evaluations from  https://eprint.iacr.org/2010/354.pdf
  * with a twist moving common expression to line_by_Px2.
  */
-static void line_add(vec384fp6 line, POINTonE2 *T, const POINTonE2 *R,
+void line_add(vec384fp6 line, POINTonE2 *T, const POINTonE2 *R,
                                                    const POINTonE2_affine *Q)
 {
     vec384x Z1Z1, U2, S2, H, HH, I, J, V;
@@ -75,7 +75,7 @@ static void line_add(vec384fp6 line, POINTonE2 *T, const POINTonE2 *R,
     vec_copy(line[2], T->Z, sizeof(T->Z));
 }
 
-static void line_dbl(vec384fp6 line, POINTonE2 *T, const POINTonE2 *Q)
+void line_dbl(vec384fp6 line, POINTonE2 *T, const POINTonE2 *Q)
 {
     vec384x ZZ, A, B, C, D, E, F;
 
@@ -125,7 +125,7 @@ static void line_dbl(vec384fp6 line, POINTonE2 *T, const POINTonE2 *Q)
     mul_fp2(line[2], T->Z, ZZ);         /* Z3 * Z1^2 */
 }
 
-static void line_by_Px2(vec384fp6 line, const POINTonE1_affine *Px2)
+void line_by_Px2(vec384fp6 line, const POINTonE1_affine *Px2)
 {
     mul_fp(line[1][0], line[1][0], Px2->X);   /* "b01" *= -2*P->X */
     mul_fp(line[1][1], line[1][1], Px2->X);
@@ -135,7 +135,7 @@ static void line_by_Px2(vec384fp6 line, const POINTonE1_affine *Px2)
 }
 
 #if 0
-static void add_n_dbl(vec384fp12 ret, POINTonE2 *T, const POINTonE2_affine *Q,
+void add_n_dbl(vec384fp12 ret, POINTonE2 *T, const POINTonE2_affine *Q,
                       const POINTonE1_affine *Px2, vec384fp6 line, size_t n)
 {
     line_add(line, T, T, Q);    line_by_Px2(line, Px2);
@@ -147,7 +147,7 @@ static void add_n_dbl(vec384fp12 ret, POINTonE2 *T, const POINTonE2_affine *Q,
     }
 }
 
-static void miller_loop(vec384fp12 ret, const POINTonE2 *Q, const POINTonE1 *P)
+void miller_loop(vec384fp12 ret, const POINTonE2 *Q, const POINTonE1 *P)
 {
 #define Q ((const POINTonE2_affine *)Q)
     POINTonE2 T[1];
@@ -178,7 +178,7 @@ static void miller_loop(vec384fp12 ret, const POINTonE2 *Q, const POINTonE1 *P)
 }
 #endif
 
-static void start_dbl_n(vec384fp12 ret, POINTonE2 T[],
+void start_dbl_n(vec384fp12 ret, POINTonE2 T[],
                                         const POINTonE1_affine Px2[], size_t n)
 {
     size_t i;
@@ -196,7 +196,7 @@ static void start_dbl_n(vec384fp12 ret, POINTonE2 T[],
     }
 }
 
-static void add_n_dbl_n(vec384fp12 ret, POINTonE2 T[],
+void add_n_dbl_n(vec384fp12 ret, POINTonE2 T[],
                                         const POINTonE2_affine Q[],
                                         const POINTonE1_affine Px2[],
                                         size_t n, size_t k)
@@ -217,7 +217,7 @@ static void add_n_dbl_n(vec384fp12 ret, POINTonE2 T[],
     }
 }
 
-static void miller_loop_n(vec384fp12 ret, const POINTonE2_affine Q[],
+void miller_loop_n(vec384fp12 ret, const POINTonE2_affine Q[],
                                           const POINTonE1_affine P[], size_t n)
 {
 #if !defined(__STDC_VERSION__) || __STDC_VERSION__<199901 \
@@ -260,7 +260,7 @@ static void miller_loop_n(vec384fp12 ret, const POINTonE2_affine Q[],
     conjugate_fp12(ret);                /* account for z being negative */
 }
 
-static void pre_add_n_dbl(vec384fp6 lines[], POINTonE2 *T,
+void pre_add_n_dbl(vec384fp6 lines[], POINTonE2 *T,
                                              const POINTonE2_affine *Q,
                                              size_t n)
 {
@@ -269,7 +269,7 @@ static void pre_add_n_dbl(vec384fp6 lines[], POINTonE2 *T,
         line_dbl(lines++[0], T, T);
 }
 
-static void precompute_lines(vec384fp6 Qlines[68], const POINTonE2_affine *Q)
+void precompute_lines(vec384fp6 Qlines[68], const POINTonE2_affine *Q)
 {
     POINTonE2 T[1];
 
@@ -284,7 +284,7 @@ static void precompute_lines(vec384fp6 Qlines[68], const POINTonE2_affine *Q)
     pre_add_n_dbl(&Qlines[51], T, Q, 16);       /* ..0xd201000000010000 */
 }
 
-static void post_line_by_Px2(vec384fp6 out, const vec384fp6 in,
+void post_line_by_Px2(vec384fp6 out, const vec384fp6 in,
                                             const POINTonE1_affine *Px2)
 {
     vec_copy(out[0], in[0], sizeof(out[0]));
@@ -296,7 +296,7 @@ static void post_line_by_Px2(vec384fp6 out, const vec384fp6 in,
     mul_fp(out[2][1], in[2][1], Px2->Y);
 }
 
-static void post_add_n_dbl(vec384fp12 ret, const vec384fp6 lines[],
+void post_add_n_dbl(vec384fp12 ret, const vec384fp6 lines[],
                            const POINTonE1_affine *Px2, size_t n)
 {
     vec384fp6 line;
@@ -310,7 +310,7 @@ static void post_add_n_dbl(vec384fp12 ret, const vec384fp6 lines[],
     }
 }
 
-static void miller_loop_lines(vec384fp12 ret, const vec384fp6 Qlines[68],
+void miller_loop_lines(vec384fp12 ret, const vec384fp6 Qlines[68],
                                               const POINTonE1_affine *P)
 {
     POINTonE1_affine Px2[1];
@@ -335,7 +335,7 @@ static void miller_loop_lines(vec384fp12 ret, const vec384fp6 Qlines[68],
 }
 
 #ifdef INTERNAL_TESTMODE
-static void miller_loop_alt(vec384fp12 ret, const POINTonE2_affine *Q,
+void miller_loop_alt(vec384fp12 ret, const POINTonE2_affine *Q,
                                             const POINTonE1_affine *P)
 {
     vec384fp6 lines[68];
@@ -345,14 +345,14 @@ static void miller_loop_alt(vec384fp12 ret, const POINTonE2_affine *Q,
 }
 #endif
 
-static void mul_n_sqr(vec384fp12 ret, const vec384fp12 a, size_t n)
+void mul_n_sqr(vec384fp12 ret, const vec384fp12 a, size_t n)
 {
     mul_fp12(ret, ret, a);
     while (n--)
         cyclotomic_sqr_fp12(ret, ret);
 }
 
-static void raise_to_z_div_by_2(vec384fp12 ret, const vec384fp12 a)
+void raise_to_z_div_by_2(vec384fp12 ret, const vec384fp12 a)
 {
     cyclotomic_sqr_fp12(ret, a);                /* 0x2                  */
     mul_n_sqr(ret, a, 2);                       /* ..0xc                */
@@ -368,7 +368,7 @@ static void raise_to_z_div_by_2(vec384fp12 ret, const vec384fp12 a)
 /*
  * Adaptation from <zkcrypto>/pairing/src/bls12_381/mod.rs
  */
-static void final_exp(vec384fp12 ret, const vec384fp12 f)
+void final_exp(vec384fp12 ret, const vec384fp12 f)
 {
     vec384fp12 y0, y1, y2, y3;
 
@@ -468,7 +468,7 @@ void blst_miller_loop_lines(vec384fp12 ret, const vec384fp6 Qlines[68],
                                             const POINTonE1_affine *P)
 {   miller_loop_lines(ret, Qlines, P);   }
 
-static bool_t is_cyclotomic(const vec384fp12 f)
+bool_t is_cyclotomic(const vec384fp12 f)
 {
     vec384fp12 a, b;
 

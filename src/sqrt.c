@@ -7,9 +7,9 @@
 #include "fields.h"
 
 #ifdef __OPTIMIZE_SIZE__
-static void recip_sqrt_fp_3mod4(vec384 out, const vec384 inp)
+void recip_sqrt_fp_3mod4(vec384 out, const vec384 inp)
 {
-    static const byte BLS_12_381_P_minus_3_div_4[] = {
+    const byte BLS_12_381_P_minus_3_div_4[] = {
         TO_BYTES(0xee7fbfffffffeaaa), TO_BYTES(0x07aaffffac54ffff),
         TO_BYTES(0xd9cc34a83dac3d89), TO_BYTES(0xd91dd2e13ce144af),
         TO_BYTES(0x92c6e9ed90d2eb35), TO_BYTES(0x0680447a8e5ff9a6)
@@ -25,11 +25,11 @@ static void recip_sqrt_fp_3mod4(vec384 out, const vec384 inp)
  * by omitting full reductions even after multiplications and
  * performing final reduction at the very end of the chain.]
  */
-static inline void sqr_n_mul_fp(vec384 out, const vec384 a, size_t count,
+void sqr_n_mul_fp(vec384 out, const vec384 a, size_t count,
                                 const vec384 b)
 {   sqr_n_mul_mont_383(out, a, count, BLS12_381_P, p0, b);   }
 # else
-static void sqr_n_mul_fp(vec384 out, const vec384 a, size_t count,
+void sqr_n_mul_fp(vec384 out, const vec384 a, size_t count,
                          const vec384 b)
 {
     while(count--) {
@@ -45,7 +45,7 @@ static void sqr_n_mul_fp(vec384 out, const vec384 a, size_t count,
 # define sqr_n_mul(ret,a,n,b)	sqr_n_mul_fp(ret,a,n,b)
 
 # include "sqrt-addchain.h"
-static void recip_sqrt_fp_3mod4(vec384 out, const vec384 inp)
+void recip_sqrt_fp_3mod4(vec384 out, const vec384 inp)
 {
     RECIP_SQRT_MOD_BLS12_381_P(out, inp, vec384);
 }
@@ -56,7 +56,7 @@ static void recip_sqrt_fp_3mod4(vec384 out, const vec384 inp)
 # undef mul
 #endif
 
-static bool_t recip_sqrt_fp(vec384 out, const vec384 inp)
+bool_t recip_sqrt_fp(vec384 out, const vec384 inp)
 {
     vec384 t0, t1;
     bool_t ret;
@@ -71,7 +71,7 @@ static bool_t recip_sqrt_fp(vec384 out, const vec384 inp)
     return ret;
 }
 
-static bool_t sqrt_fp(vec384 out, const vec384 inp)
+bool_t sqrt_fp(vec384 out, const vec384 inp)
 {
     vec384 t0, t1;
     bool_t ret;
@@ -94,11 +94,11 @@ int blst_fp_is_square(const vec384 inp)
     return (int)ct_is_square_mod_384(inp, BLS12_381_P);
 }
 
-static bool_t sqrt_align_fp2(vec384x out, const vec384x ret,
+bool_t sqrt_align_fp2(vec384x out, const vec384x ret,
                              const vec384x sqrt, const vec384x inp)
 {
-    static const vec384x sqrt_minus_1 = { { 0 }, { ONE_MONT_P } };
-    static const vec384x sqrt_sqrt_minus_1 = {
+    const vec384x sqrt_minus_1 = { { 0 }, { ONE_MONT_P } };
+    const vec384x sqrt_sqrt_minus_1 = {
       /*
        * "magic" number is ±2^((p-3)/4)%p, which is "1/sqrt(2)",
        * in quotes because 2*"1/sqrt(2)"^2 == -1 mod p, not 1,
@@ -111,7 +111,7 @@ static bool_t sqrt_align_fp2(vec384x out, const vec384x ret,
         TO_LIMB_T(0x2f088dd86b4ebef1), TO_LIMB_T(0xd1ca2087da74d4a7),
         TO_LIMB_T(0x2da2596696cebc1d), TO_LIMB_T(0x0e2b7eedbbfd87d2) }
     };
-    static const vec384x sqrt_minus_sqrt_minus_1 = {
+    const vec384x sqrt_minus_sqrt_minus_1 = {
       { TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),
         TO_LIMB_T(0x2f088dd86b4ebef1), TO_LIMB_T(0xd1ca2087da74d4a7),
         TO_LIMB_T(0x2da2596696cebc1d), TO_LIMB_T(0x0e2b7eedbbfd87d2) },
@@ -164,7 +164,7 @@ static bool_t sqrt_align_fp2(vec384x out, const vec384x ret,
 /*
  * |inp| = a + b*i
  */
-static bool_t recip_sqrt_fp2(vec384x out, const vec384x inp,
+bool_t recip_sqrt_fp2(vec384x out, const vec384x inp,
                                           const vec384x recip_ZZZ,
                                           const vec384x magic_ZZZ)
 {
@@ -215,7 +215,7 @@ static bool_t recip_sqrt_fp2(vec384x out, const vec384x inp,
     return is_sqrt;
 }
 
-static bool_t sqrt_fp2(vec384x out, const vec384x inp)
+bool_t sqrt_fp2(vec384x out, const vec384x inp)
 {
     vec384x ret;
     vec384 aa, bb;

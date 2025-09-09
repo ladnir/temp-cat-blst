@@ -10,14 +10,14 @@
 /*
  * y^2 = x^3 + A'*x + B', isogenous one
  */
-static const vec384 Aprime_E1 = {
+const vec384 Aprime_E1 = {
     /* (0x00144698a3b8e9433d693a02c96d4982b0ea985383ee66a8
           d8e8981aefd881ac98936f8da0e0f97f5cf428082d584c1d << 384) % P */
     TO_LIMB_T(0x2f65aa0e9af5aa51), TO_LIMB_T(0x86464c2d1e8416c3),
     TO_LIMB_T(0xb85ce591b7bd31e2), TO_LIMB_T(0x27e11c91b5f24e7c),
     TO_LIMB_T(0x28376eda6bfc1835), TO_LIMB_T(0x155455c3e5071d85)
 };
-static const vec384 Bprime_E1 = {
+const vec384 Bprime_E1 = {
     /* (0x12e2908d11688030018b12e8753eee3b2016c1f0f24f4070
           a0b9c14fcef35ef55a23215a316ceaa5d1cc48e98e172be0 << 384) % P */
     TO_LIMB_T(0xfb996971fe22a1e0), TO_LIMB_T(0x9aa93eb35b742d6f),
@@ -25,14 +25,14 @@ static const vec384 Bprime_E1 = {
     TO_LIMB_T(0xca72b5e45a52d888), TO_LIMB_T(0x06824061418a386b)
 };
 
-static void map_fp_times_Zz(vec384 map[], const vec384 isogeny_map[],
+void map_fp_times_Zz(vec384 map[], const vec384 isogeny_map[],
                             const vec384 Zz_powers[], size_t n)
 {
     while (n--)
         mul_fp(map[n], isogeny_map[n], Zz_powers[n]);
 }
 
-static void map_fp(vec384 acc, const vec384 x, const vec384 map[], size_t n)
+void map_fp(vec384 acc, const vec384 x, const vec384 map[], size_t n)
 {
     while (n--) {
         mul_fp(acc, acc, x);
@@ -40,7 +40,7 @@ static void map_fp(vec384 acc, const vec384 x, const vec384 map[], size_t n)
     }
 }
 
-static void isogeny_map_to_E1(POINTonE1 *out, const POINTonE1 *p)
+void isogeny_map_to_E1(POINTonE1 *out, const POINTonE1 *p)
 {
     /*
      * x = x_num / x_den, where
@@ -48,7 +48,7 @@ static void isogeny_map_to_E1(POINTonE1 *out, const POINTonE1 *p)
      *         ... + k_(1,0)
      * ...
      */
-    static const vec384 isogeny_map_x_num[] = { /*  (k_(1,*)<<384) % P  */
+    const vec384 isogeny_map_x_num[] = { /*  (k_(1,*)<<384) % P  */
       { TO_LIMB_T(0x4d18b6f3af00131c), TO_LIMB_T(0x19fa219793fee28c),
         TO_LIMB_T(0x3f2885f1467f19ae), TO_LIMB_T(0x23dcea34f2ffb304),
         TO_LIMB_T(0xd15b58d2ffc00054), TO_LIMB_T(0x0913be200a20bef4)  },
@@ -89,7 +89,7 @@ static void isogeny_map_to_E1(POINTonE1 *out, const POINTonE1 *p)
     /* ...
      * x_den = x'^10 + k_(2,9) * x'^9 + k_(2,8) * x'^8 + ... + k_(2,0)
      */
-    static const vec384 isogeny_map_x_den[] = { /*  (k_(2,*)<<384) % P  */
+    const vec384 isogeny_map_x_den[] = { /*  (k_(2,*)<<384) % P  */
       { TO_LIMB_T(0xb962a077fdb0f945), TO_LIMB_T(0xa6a9740fefda13a0),
         TO_LIMB_T(0xc14d568c3ed6c544), TO_LIMB_T(0xb43fc37b908b133e),
         TO_LIMB_T(0x9c0b3ac929599016), TO_LIMB_T(0x0165aa6c93ad115f)  },
@@ -127,7 +127,7 @@ static void isogeny_map_to_E1(POINTonE1 *out, const POINTonE1 *p)
      *         ... + k_(3,0)
      * ...
      */
-    static const vec384 isogeny_map_y_num[] = { /*  (k_(3,*)<<384) % P  */
+    const vec384 isogeny_map_y_num[] = { /*  (k_(3,*)<<384) % P  */
       { TO_LIMB_T(0x2b567ff3e2837267), TO_LIMB_T(0x1d4d9e57b958a767),
         TO_LIMB_T(0xce028fea04bd7373), TO_LIMB_T(0xcc31a30a0b6cd3df),
         TO_LIMB_T(0x7d7b18a682692693), TO_LIMB_T(0x0d300744d42a0310)  },
@@ -180,7 +180,7 @@ static void isogeny_map_to_E1(POINTonE1 *out, const POINTonE1 *p)
     /* ...
      * y_den = x'^15 + k_(4,14) * x'^14 + k_(4,13) * x'^13 + ... + k_(4,0)
      */
-    static const vec384 isogeny_map_y_den[] = { /*  (k_(4,*)<<384) % P  */
+    const vec384 isogeny_map_y_den[] = { /*  (k_(4,*)<<384) % P  */
       { TO_LIMB_T(0xeb6c359d47e52b1c), TO_LIMB_T(0x18ef5f8a10634d60),
         TO_LIMB_T(0xddfa71a0889d5b7e), TO_LIMB_T(0x723e71dcc5fc1323),
         TO_LIMB_T(0x52f45700b70d5c69), TO_LIMB_T(0x0a8b981ee47691f1)  },
@@ -282,24 +282,24 @@ static void isogeny_map_to_E1(POINTonE1 *out, const POINTonE1 *p)
     mul_fp(out->Y, out->Y, yn);         /* Y = yn * xd^3 * yd^2         */
 }
 
-static void map_to_isogenous_E1(POINTonE1 *p, const vec384 u)
+void map_to_isogenous_E1(POINTonE1 *p, const vec384 u)
 {
-    static const vec384 minus_A = { /* P - A */
+    const vec384 minus_A = { /* P - A */
         TO_LIMB_T(0x8a9955f1650a005a), TO_LIMB_T(0x9865b3d192cfe93c),
         TO_LIMB_T(0xaed3ed0f3ef3c441), TO_LIMB_T(0x3c962ef33d92c442),
         TO_LIMB_T(0x22e438dbd74f94a2), TO_LIMB_T(0x04acbc265478c915)
     };
-    static const vec384 Z = {       /* (11<<384) % P */
+    const vec384 Z = {       /* (11<<384) % P */
         TO_LIMB_T(0x886c00000023ffdc), TO_LIMB_T(0x0f70008d3090001d),
         TO_LIMB_T(0x77672417ed5828c3), TO_LIMB_T(0x9dac23e943dc1740),
         TO_LIMB_T(0x50553f1b9c131521), TO_LIMB_T(0x078c712fbe0ab6e8)
     };
-    static const vec384 sqrt_minus_ZZZ = {
+    const vec384 sqrt_minus_ZZZ = {
         TO_LIMB_T(0x43b571cad3215f1f), TO_LIMB_T(0xccb460ef1c702dc2),
         TO_LIMB_T(0x742d884f4f97100b), TO_LIMB_T(0xdb2c3e3238a3382b),
         TO_LIMB_T(0xe40f3fa13fce8f88), TO_LIMB_T(0x0073a2af9892a2ff)
     };
-    static const vec384 ZxA = {
+    const vec384 ZxA = {
         TO_LIMB_T(0x7f674ea0a8915178), TO_LIMB_T(0xb0f945fc13b8fa65),
         TO_LIMB_T(0x4b46759a38e87d76), TO_LIMB_T(0x2e7a929641bbb6a1),
         TO_LIMB_T(0x1668ddfa462bf6b6), TO_LIMB_T(0x00960e2ed1cf294c)
@@ -381,14 +381,14 @@ static void map_to_isogenous_E1(POINTonE1 *p, const vec384 u)
 #undef sgn0_fp
 }
 
-static void POINTonE1_add_n_dbl(POINTonE1 *out, const POINTonE1 *p, size_t n)
+void POINTonE1_add_n_dbl(POINTonE1 *out, const POINTonE1 *p, size_t n)
 {
     POINTonE1_dadd(out, out, p, NULL);
     while(n--)
         POINTonE1_double(out, out);
 }
 
-static void POINTonE1_times_minus_z(POINTonE1 *out, const POINTonE1 *in)
+void POINTonE1_times_minus_z(POINTonE1 *out, const POINTonE1 *in)
 {
     POINTonE1_double(out, in);          /*      1: 0x2                  */
     POINTonE1_add_n_dbl(out, in, 2);    /*   2..4: 0x3..0xc             */
@@ -401,7 +401,7 @@ static void POINTonE1_times_minus_z(POINTonE1 *out, const POINTonE1 *in)
 /*
  * |u|, |v| are expected to be in Montgomery representation
  */
-static void map_to_g1(POINTonE1 *out, const vec384 u, const vec384 v)
+void map_to_g1(POINTonE1 *out, const vec384 u, const vec384 v)
 {
     POINTonE1 p;
 
@@ -422,7 +422,7 @@ static void map_to_g1(POINTonE1 *out, const vec384 u, const vec384 v)
 void blst_map_to_g1(POINTonE1 *out, const vec384 u, const vec384 v)
 {   map_to_g1(out, u, v);   }
 
-static void Encode_to_G1(POINTonE1 *p, const unsigned char *msg, size_t msg_len,
+void Encode_to_G1(POINTonE1 *p, const unsigned char *msg, size_t msg_len,
                                        const unsigned char *DST, size_t DST_len,
                                        const unsigned char *aug, size_t aug_len)
 {
@@ -437,7 +437,7 @@ void blst_encode_to_g1(POINTonE1 *p, const unsigned char *msg, size_t msg_len,
                                      const unsigned char *aug, size_t aug_len)
 {   Encode_to_G1(p, msg, msg_len, DST, DST_len, aug, aug_len);   }
 
-static void Hash_to_G1(POINTonE1 *p, const unsigned char *msg, size_t msg_len,
+void Hash_to_G1(POINTonE1 *p, const unsigned char *msg, size_t msg_len,
                                      const unsigned char *DST, size_t DST_len,
                                      const unsigned char *aug, size_t aug_len)
 {
@@ -452,14 +452,14 @@ void blst_hash_to_g1(POINTonE1 *p, const unsigned char *msg, size_t msg_len,
                                    const unsigned char *aug, size_t aug_len)
 {   Hash_to_G1(p, msg, msg_len, DST, DST_len, aug, aug_len);   }
 
-static void sigma(POINTonE1 *out, const POINTonE1 *in);
+void sigma(POINTonE1 *out, const POINTonE1 *in);
 
 #if 0
 #ifdef __OPTIMIZE_SIZE__
-static void POINTonE1_times_zz_minus_1_div_by_3(POINTonE1 *out,
+void POINTonE1_times_zz_minus_1_div_by_3(POINTonE1 *out,
                                                 const POINTonE1 *in)
 {
-    static const byte zz_minus_1_div_by_3[] = {
+    const byte zz_minus_1_div_by_3[] = {
         TO_BYTES(0x0000000055555555ULL), TO_BYTES(0x396c8c005555e156)
     };
     size_t n = 126-1;
@@ -472,14 +472,14 @@ static void POINTonE1_times_zz_minus_1_div_by_3(POINTonE1 *out,
     }
 }
 #else
-static void POINTonE1_dbl_n_add(POINTonE1 *out, size_t n, const POINTonE1 *p)
+void POINTonE1_dbl_n_add(POINTonE1 *out, size_t n, const POINTonE1 *p)
 {
     while(n--)
         POINTonE1_double(out, out);
     POINTonE1_dadd(out, out, p, NULL);
 }
 
-static void POINTonE1_times_zz_minus_1_div_by_3(POINTonE1 *out,
+void POINTonE1_times_zz_minus_1_div_by_3(POINTonE1 *out,
                                                 const POINTonE1 *in)
 {
     POINTonE1 t3, t5, t7, t11, t85;
@@ -509,7 +509,7 @@ static void POINTonE1_times_zz_minus_1_div_by_3(POINTonE1 *out,
 }
 #endif
 
-static bool_t POINTonE1_in_G1(const POINTonE1 *P)
+bool_t POINTonE1_in_G1(const POINTonE1 *P)
 {
     POINTonE1 t0, t1, t2;
 
@@ -528,7 +528,7 @@ static bool_t POINTonE1_in_G1(const POINTonE1 *P)
     return vec_is_zero(t0.Z, sizeof(t0.Z));
 }
 #else
-static bool_t POINTonE1_in_G1(const POINTonE1 *P)
+bool_t POINTonE1_in_G1(const POINTonE1 *P)
 {
     POINTonE1 t0, t1;
 

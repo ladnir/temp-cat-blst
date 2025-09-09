@@ -7,6 +7,7 @@
 #define __BLS12_381_ASM_SHA256_H__
 
 #include "vect.h"
+#include "config.h"
 
 #if (defined(__x86_64__) || defined(__x86_64) || defined(_M_X64)) && \
      defined(__SHA__) /* -msha */ && !defined(__BLST_PORTABLE__)
@@ -37,7 +38,7 @@ typedef struct {
 } SHA256_CTX;
 
 
-static void sha256_init_h(unsigned int h[8])
+void sha256_init_h(unsigned int h[8])
 {
     h[0] = 0x6a09e667U;
     h[1] = 0xbb67ae85U;
@@ -49,7 +50,7 @@ static void sha256_init_h(unsigned int h[8])
     h[7] = 0x5be0cd19U;
 }
 
-static void sha256_init(SHA256_CTX *ctx)
+void sha256_init(SHA256_CTX *ctx)
 {
     sha256_init_h(ctx->h);
     ctx->N = 0;
@@ -57,7 +58,7 @@ static void sha256_init(SHA256_CTX *ctx)
     ctx->off = 0;
 }
 
-static void sha256_update(SHA256_CTX *ctx, const void *_inp, size_t len)
+void sha256_update(SHA256_CTX *ctx, const void *_inp, size_t len)
 {
     size_t n;
     const unsigned char *inp = _inp;
@@ -101,7 +102,7 @@ static void sha256_update(SHA256_CTX *ctx, const void *_inp, size_t len)
 #if 1
 void sha256_emit(unsigned char md[32], const unsigned int h[8]);
 #else
-static void sha256_emit(unsigned char md[32], const unsigned int h[8])
+void sha256_emit(unsigned char md[32], const unsigned int h[8])
 {
     unsigned int h_i;
 
@@ -116,7 +117,7 @@ static void sha256_emit(unsigned char md[32], const unsigned int h[8])
 }
 #endif
 
-static void sha256_final(unsigned char md[32], SHA256_CTX *ctx)
+void sha256_final(unsigned char md[32], SHA256_CTX *ctx)
 {
     unsigned long long bits = ctx->N * 8;
     size_t n = ctx->off;

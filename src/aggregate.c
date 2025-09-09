@@ -60,7 +60,7 @@ enum { AGGR_UNDEFINED      = 0,
        AGGR_HASH_OR_ENCODE = 0x40 };
 #define MIN_SIG_OR_PK (AGGR_MIN_SIG | AGGR_MIN_PK)
 
-static const size_t sizeof_pairing = (sizeof(PAIRING) + 7) & ~(size_t)7;
+const size_t sizeof_pairing = (sizeof(PAIRING) + 7) & ~(size_t)7;
 
 size_t blst_pairing_sizeof(void)
 {   return sizeof_pairing;   }
@@ -75,7 +75,7 @@ void blst_pairing_init(PAIRING *ctx, int hash_or_encode,
     ctx->DST_len = DST_len;
 }
 
-static const void *pairing_get_dst(const PAIRING *ctx)
+const void *pairing_get_dst(const PAIRING *ctx)
 {   return (uptr_t)ctx->DST==(uptr_t)42 ? (const byte *)ctx+sizeof_pairing
                                         : ctx->DST;
 }
@@ -95,7 +95,7 @@ const void *blst_pairing_get_dst(const PAIRING *ctx)
  * Usage pattern is not finalized yet, because (sig != NULL) is better and
  * will be handled separately...
  */
-static BLST_ERROR PAIRING_Aggregate_PK_in_G2(PAIRING *ctx,
+BLST_ERROR PAIRING_Aggregate_PK_in_G2(PAIRING *ctx,
                                              const POINTonE2_affine *PK,
                                              size_t pk_groupcheck,
                                              const POINTonE1_affine *sig,
@@ -238,7 +238,7 @@ BLST_ERROR blst_pairing_chk_n_mul_n_aggr_pk_in_g2(PAIRING *ctx,
                                       msg, msg_len, aug, aug_len);
 }
 
-static BLST_ERROR PAIRING_Aggregate_PK_in_G1(PAIRING *ctx,
+BLST_ERROR PAIRING_Aggregate_PK_in_G1(PAIRING *ctx,
                                              const POINTonE1_affine *PK,
                                              size_t pk_groupcheck,
                                              const POINTonE2_affine *sig,
@@ -387,7 +387,7 @@ BLST_ERROR blst_pairing_chk_n_mul_n_aggr_pk_in_g1(PAIRING *ctx,
                                       msg, msg_len, aug, aug_len);
 }
 
-static void PAIRING_Commit(PAIRING *ctx)
+void PAIRING_Commit(PAIRING *ctx)
 {
     unsigned int n;
 
@@ -457,7 +457,7 @@ BLST_ERROR blst_pairing_merge(PAIRING *ctx, const PAIRING *ctx1)
     return BLST_SUCCESS;
 }
 
-static bool_t PAIRING_FinalVerify(const PAIRING *ctx, const vec384fp12 GTsig)
+bool_t PAIRING_FinalVerify(const PAIRING *ctx, const vec384fp12 GTsig)
 {
     vec384fp12 GT;
 

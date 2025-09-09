@@ -12,7 +12,7 @@ int __blst_platform_cap = 0;
 #if defined(__x86_64__) || defined(__x86_64) || (defined(_M_X64) && !defined(_M_ARM64EC))
 
 # if defined(__GNUC__) || defined(__clang__) || defined(__SUNPRO_C)
-static void __cpuidex(int info[4], int func, int sub)
+void __cpuidex(int info[4], int func, int sub)
 {
     int eax, ebx, ecx, edx;
 
@@ -31,7 +31,7 @@ static void __cpuidex(int info[4], int func, int sub)
 # if defined(__GNUC__) || defined(__clang__)
 __attribute__((constructor))
 # endif
-static int __blst_cpuid(void)
+int __blst_cpuid(void)
 {
     int info[4], cap = 0;
 
@@ -49,7 +49,7 @@ static int __blst_cpuid(void)
 
 # if defined(_MSC_VER) && !defined(__clang__) && !defined(__BLST_DLL_MAIN__)
 #  pragma section(".CRT$XCU",read)
-__declspec(allocate(".CRT$XCU")) static int (*p)(void) = __blst_cpuid;
+__declspec(allocate(".CRT$XCU")) int (*p)(void) = __blst_cpuid;
 # elif defined(__SUNPRO_C)
 #  pragma init(__blst_cpuid)
 # endif
@@ -60,7 +60,7 @@ __declspec(allocate(".CRT$XCU")) static int (*p)(void) = __blst_cpuid;
 extern unsigned long getauxval(unsigned long type) __attribute__ ((weak));
 
 __attribute__((constructor))
-static int __blst_cpuid(void)
+int __blst_cpuid(void)
 {
     int cap = 0;
 
@@ -75,7 +75,7 @@ static int __blst_cpuid(void)
 }
 # elif defined(__APPLE__) && (defined(__GNUC__) || defined(__clang__))
 __attribute__((constructor))
-static int __blst_cpuid()
+int __blst_cpuid()
 {
     __blst_platform_cap = 1; /* SHA256 */
     return 0;
@@ -83,7 +83,7 @@ static int __blst_cpuid()
 # elif defined(__FreeBSD__) && __FreeBSD__ >= 12
 #  include <sys/auxv.h>
 __attribute__((constructor))
-static int __blst_cpuid()
+int __blst_cpuid()
 {
     unsigned long cap;
 
@@ -98,7 +98,7 @@ int IsProcessorFeaturePresent(int);
 #  if defined(__GNUC__) || defined(__clang__)
 __attribute__((constructor))
 #  endif
-static int __blst_cpuid(void)
+int __blst_cpuid(void)
 {
     __blst_platform_cap = IsProcessorFeaturePresent(30); /* AES, SHA1, SHA2 */
 
@@ -107,7 +107,7 @@ static int __blst_cpuid(void)
 
 #  if defined(_MSC_VER) && !defined(__clang__) && !defined(__BLST_DLL_MAIN__)
 #   pragma section(".CRT$XCU",read)
-__declspec(allocate(".CRT$XCU")) static int (*p)(void) = __blst_cpuid;
+__declspec(allocate(".CRT$XCU")) int (*p)(void) = __blst_cpuid;
 #  endif
 # endif
 

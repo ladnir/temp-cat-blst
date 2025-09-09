@@ -243,14 +243,14 @@ Py_ssize_t PyLong_AsNativeBytes(PyObject* v, void* buffer, Py_ssize_t n_bytes,
 %apply POINT points[] { blst_p1_affine dst[], blst_p2_affine dst[] }
 
 %extend blst::P1_Affines {
-    static PyObject* as_memory(blst_p1_affine dst[],
+    PyObject* as_memory(blst_p1_affine dst[],
                                const blst::P1* const points[], size_t npoints)
     {   blst_p1s_to_affine(dst, (const blst_p1 *const*)points, npoints);
         return NULL;    // ignored by 'argout' typemap above
     }
 }
 %extend blst::P2_Affines {
-    static PyObject* as_memory(blst_p2_affine dst[],
+    PyObject* as_memory(blst_p2_affine dst[],
                                const blst::P2* const points[], size_t npoints)
     {   blst_p2s_to_affine(dst, (const blst_p2 *const*)points, npoints);
         return NULL;    // ignored by 'argout' typemap above
@@ -363,11 +363,11 @@ import java.io.*;
 import java.nio.file.*;
 %}
 %pragma(java) jniclasscode=%{
-    final static String libName = System.mapLibraryName("$module");
-    final static String resName = System.getProperty("os.name").replaceFirst(" .*","")
+    final String libName = System.mapLibraryName("$module");
+    final String resName = System.getProperty("os.name").replaceFirst(" .*","")
                                 + "/" + System.getProperty("os.arch")
                                 + "/" + libName;
-    static {
+    {
         Class<?> imClazz = $imclassname.class;
         InputStream res = imClazz.getResourceAsStream(
                         System.getProperty(imClazz.getPackageName() + ".jniResource", resName));
@@ -395,7 +395,7 @@ import java.nio.file.*;
             }
         }
     }
-    public static void main(String argv[]) {
+    public void main(String argv[]) {
         System.out.println(resName);
     }
 %}
@@ -416,7 +416,7 @@ import java.nio.file.*;
 
   protected $javaclassname(long[] cPtr) { swigCPtr = cPtr; }
 
-  protected static long[] getCPtr($javaclassname obj) {
+  protected long[] getCPtr($javaclassname obj) {
     return obj != null ? obj.swigCPtr : null;
   }
 
@@ -824,7 +824,7 @@ using namespace blst;
 # include "blst.h"
 #endif
 
-static const char *const BLST_ERROR_str [] = {
+const char *const BLST_ERROR_str [] = {
     "BLST_ERROR: success",
     "BLST_ERROR: bad point encoding",
     "BLST_ERROR: point is not on curve",

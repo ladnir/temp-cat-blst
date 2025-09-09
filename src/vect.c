@@ -26,22 +26,22 @@ inline void lshift_mod_384(vec384 ret, const vec384 a, size_t n,
 }
 #endif
 
-#ifdef mul_by_8_mod_384
-inline void mul_by_8_mod_384(vec384 ret, const vec384 a, const vec384 mod)
+//#ifdef __BLST_NO_ASM__
+void mul_by_8_mod_384(vec384 ret, const vec384 a, const vec384 mod)
 {   lshift_mod_384(ret, a, 3, mod);   }
-#endif
+//#endif
+ 
+//#ifdef __BLST_NO_ASM__
+//inline void mul_by_3_mod_384(vec384 ret, const vec384 a, const vec384 mod)
+//{
+//    vec384 t;
+//
+//    add_mod_384(t, a, a, mod);
+//    add_mod_384(ret, t, a, mod);
+//}
+//#endif
 
-#ifdef mul_by_3_mod_384
-inline void mul_by_3_mod_384(vec384 ret, const vec384 a, const vec384 mod)
-{
-    vec384 t;
-
-    add_mod_384(t, a, a, mod);
-    add_mod_384(ret, t, a, mod);
-}
-#endif
-
-#ifdef mul_by_3_mod_384x
+#ifdef __BLST_NO_ASM__
 inline void mul_by_3_mod_384x(vec384x ret, const vec384x a, const vec384 mod)
 {
     mul_by_3_mod_384(ret[0], a[0], mod);
@@ -49,7 +49,7 @@ inline void mul_by_3_mod_384x(vec384x ret, const vec384x a, const vec384 mod)
 }
 #endif
 
-#ifdef mul_by_8_mod_384x
+#ifdef __BLST_NO_ASM__
 inline void mul_by_8_mod_384x(vec384x ret, const vec384x a, const vec384 mod)
 {
     mul_by_8_mod_384(ret[0], a[0], mod);
@@ -57,7 +57,7 @@ inline void mul_by_8_mod_384x(vec384x ret, const vec384x a, const vec384 mod)
 }
 #endif
 
-#ifdef mul_by_1_plus_i_mod_384x
+#ifdef __BLST_NO_ASM__
 inline void mul_by_1_plus_i_mod_384x(vec384x ret, const vec384x a,
                                      const vec384 mod)
 {
@@ -69,8 +69,8 @@ inline void mul_by_1_plus_i_mod_384x(vec384x ret, const vec384x a,
 }
 #endif
 
-#ifdef add_mod_384x
-inline void add_mod_384x(vec384x ret, const vec384x a, const vec384x b,
+#ifdef __BLST_NO_ASM__
+void add_mod_384x(vec384x ret, const vec384x a, const vec384x b,
                          const vec384 mod)
 {
     add_mod_384(ret[0], a[0], b[0], mod);
@@ -78,7 +78,7 @@ inline void add_mod_384x(vec384x ret, const vec384x a, const vec384x b,
 }
 #endif
 
-#ifdef sub_mod_384x
+#ifdef __BLST_NO_ASM__
 inline void sub_mod_384x(vec384x ret, const vec384x a, const vec384x b,
                          const vec384 mod)
 {
@@ -87,7 +87,7 @@ inline void sub_mod_384x(vec384x ret, const vec384x a, const vec384x b,
 }
 #endif
 
-#ifdef lshift_mod_384x
+#ifdef __BLST_NO_ASM__
 inline void lshift_mod_384x(vec384x ret, const vec384x a, size_t n,
                             const vec384 mod)
 {
@@ -95,31 +95,47 @@ inline void lshift_mod_384x(vec384x ret, const vec384x a, size_t n,
     lshift_mod_384(ret[1], a[1], n, mod);
 }
 #endif
+//
+//#if defined(__BLST_NO_ASM__) && !(defined(__ADX__) && !defined(__BLST_PORTABLE__))
+//void mul_mont_384x(vec384x ret, const vec384x a, const vec384x b,
+//                   const vec384 mod, limb_t n0)
+//{
+//    vec768 t0, t1, t2;
+//    vec384 aa, bb;
+//
+//    mul_384(t0, a[0], b[0]);
+//    mul_384(t1, a[1], b[1]);
+//
+//    add_mod_384(aa, a[0], a[1], mod);
+//    add_mod_384(bb, b[0], b[1], mod);
+//    mul_384(t2, aa, bb);
+//    sub_mod_384x384(t2, t2, t0, mod);
+//    sub_mod_384x384(t2, t2, t1, mod);
+//
+//    sub_mod_384x384(t0, t0, t1, mod);
+//
+//    redc_mont_384(ret[0], t0, mod, n0);
+//    redc_mont_384(ret[1], t2, mod, n0);
+//}
+//#endif
+//
 
-#if defined(mul_mont_384x) && !(defined(__ADX__) && !defined(__BLST_PORTABLE__))
-void mul_mont_384x(vec384x ret, const vec384x a, const vec384x b,
-                   const vec384 mod, limb_t n0)
-{
-    vec768 t0, t1, t2;
-    vec384 aa, bb;
+//void mul_mont_384x(vec384x ret, const vec384x a, const vec384x b,
+//    const vec384 p, limb_t n0)
+//{
+//    vec384 aa, bb, cc;
+//
+//    add_mod_n(aa, a[0], a[1], p, NLIMBS(384));
+//    add_mod_n(bb, b[0], b[1], p, NLIMBS(384));
+//    mul_mont_n(bb, bb, aa, p, n0, NLIMBS(384));
+//    mul_mont_n(aa, a[0], b[0], p, n0, NLIMBS(384));
+//    mul_mont_n(cc, a[1], b[1], p, n0, NLIMBS(384));
+//    sub_mod_n(ret[0], aa, cc, p, NLIMBS(384));
+//    sub_mod_n(ret[1], bb, aa, p, NLIMBS(384));
+//    sub_mod_n(ret[1], ret[1], cc, p, NLIMBS(384));
+//}
 
-    mul_384(t0, a[0], b[0]);
-    mul_384(t1, a[1], b[1]);
-
-    add_mod_384(aa, a[0], a[1], mod);
-    add_mod_384(bb, b[0], b[1], mod);
-    mul_384(t2, aa, bb);
-    sub_mod_384x384(t2, t2, t0, mod);
-    sub_mod_384x384(t2, t2, t1, mod);
-
-    sub_mod_384x384(t0, t0, t1, mod);
-
-    redc_mont_384(ret[0], t0, mod, n0);
-    redc_mont_384(ret[1], t2, mod, n0);
-}
-#endif
-
-#if defined(sqr_mont_384x) && !(defined(__ADX__) && !defined(__BLST_PORTABLE__))
+#if defined(__BLST_NO_ASM__) && !(defined(__ADX__) && !defined(__BLST_PORTABLE__))
 void sqr_mont_384x(vec384x ret, const vec384x a, const vec384 mod, limb_t n0)
 {
     vec384 t0, t1;
@@ -141,9 +157,9 @@ limb_t quot_rem_64(limb_t *quot_rem, const limb_t *divisor, limb_t quotient);
 /*
  * Divide 255-bit |val| by z^2 yielding 128-bit quotient and remainder in place.
  */
-static void div_by_zz(limb_t val[])
+void div_by_zz(limb_t val[])
 {
-    static const limb_t zz[] = { TO_LIMB_T(0x0000000100000000),
+    const limb_t zz[] = { TO_LIMB_T(0x0000000100000000),
                                  TO_LIMB_T(0xac45a4010001a402) };
     size_t loop, zz_len = sizeof(zz)/sizeof(zz[0]);
     limb_t d_lo, d_hi;
@@ -160,9 +176,9 @@ static void div_by_zz(limb_t val[])
 /*
  * Divide 128-bit |val| by z yielding 64-bit quotient and remainder in place.
  */
-static void div_by_z(limb_t val[])
+void div_by_z(limb_t val[])
 {
-    static const limb_t z[] = { TO_LIMB_T(0xd201000000010000) };
+    const limb_t z[] = { TO_LIMB_T(0xd201000000010000) };
     size_t loop, z_len = sizeof(z)/sizeof(z[0]);
     limb_t d_lo, d_hi;
 

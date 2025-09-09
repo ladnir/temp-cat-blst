@@ -49,12 +49,12 @@
  *		B	0	3*x^2	0
  */
 #define HEAD(ptype, bits, field, one) \
-static void ptype##_head(ptype AB[2], const vec##bits mul_acc) \
+void ptype##_head(ptype AB[2], const vec##bits mul_acc) \
 { \
     ptype *A = AB, *B = AB+1; \
     limb_t inf = vec_is_zero(A, sizeof(ptype##_affine)) | \
                  vec_is_zero(B, sizeof(ptype##_affine));  \
-    static const vec##bits zero = { 0 }; \
+    const vec##bits zero = { 0 }; \
 \
     sub_##field(B->Z, B->X, A->X);		/* X2-X1  */ \
     add_##field(B->X, B->X, A->X);		/* X2+X1  */ \
@@ -85,7 +85,7 @@ static void ptype##_head(ptype AB[2], const vec##bits mul_acc) \
  * output:	D		x3=(nom/den)^2-(x2+x1)	y3=(nom/den)(x1-x3)-y1
  */
 #define TAIL(ptype, bits, field, one) \
-static void ptype##_tail(ptype *D, ptype AB[2], vec##bits lambda) \
+void ptype##_tail(ptype *D, ptype AB[2], vec##bits lambda) \
 { \
     ptype *A = AB, *B = AB+1; \
     vec##bits llambda; \
@@ -113,7 +113,7 @@ static void ptype##_tail(ptype *D, ptype AB[2], vec##bits lambda) \
 #define ADDITION_BTREE(prefix, ptype, bits, field, one) \
 HEAD(ptype, bits, field, one) \
 TAIL(ptype, bits, field, one) \
-static void ptype##s_accumulate(ptype *sum, ptype points[], size_t n) \
+void ptype##s_accumulate(ptype *sum, ptype points[], size_t n) \
 { \
     ptype *dst; \
     void *mul_acc; \

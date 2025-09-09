@@ -1183,16 +1183,16 @@ extern "C" {
     ) -> BLST_ERROR;
 }
 extern "C" {
-    pub static BLS12_381_G1: blst_p1_affine;
+    pub BLS12_381_G1: blst_p1_affine;
 }
 extern "C" {
-    pub static BLS12_381_NEG_G1: blst_p1_affine;
+    pub BLS12_381_NEG_G1: blst_p1_affine;
 }
 extern "C" {
-    pub static BLS12_381_G2: blst_p2_affine;
+    pub BLS12_381_G2: blst_p2_affine;
 }
 extern "C" {
-    pub static BLS12_381_NEG_G2: blst_p2_affine;
+    pub BLS12_381_NEG_G2: blst_p2_affine;
 }
 extern "C" {
     pub fn blst_fr_ct_bfly(x0: *mut blst_fr, x1: *mut blst_fr, twiddle: *const blst_fr);

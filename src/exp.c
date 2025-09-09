@@ -9,7 +9,7 @@
 /*
  * |out| = |inp|^|pow|, small footprint, public exponent
  */
-static void exp_mont_384(vec384 out, const vec384 inp, const byte *pow,
+void exp_mont_384(vec384 out, const vec384 inp, const byte *pow,
                          size_t pow_bits, const vec384 p, limb_t n0)
 {
 #if 1
@@ -39,7 +39,7 @@ static void exp_mont_384(vec384 out, const vec384 inp, const byte *pow,
 #endif
 }
 
-static void exp_mont_384x(vec384x out, const vec384x inp, const byte *pow,
+void exp_mont_384x(vec384x out, const vec384x inp, const byte *pow,
                           size_t pow_bits, const vec384 p, limb_t n0)
 {
     vec384x ret;

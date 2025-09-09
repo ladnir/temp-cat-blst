@@ -11,7 +11,7 @@
 /*
  * y^2 = x^3 + B
  */
-static const vec384 B_E1 = {        /* (4 << 384) % P */
+const vec384 B_E1 = {        /* (4 << 384) % P */
     TO_LIMB_T(0xaa270000000cfff3), TO_LIMB_T(0x53cc0032fc34000a),
     TO_LIMB_T(0x478fe97a6b0a807f), TO_LIMB_T(0xb1d37ebee6ba24d7),
     TO_LIMB_T(0x8ec9733bbf78ab2f), TO_LIMB_T(0x09d645513d83de7e)
@@ -45,19 +45,19 @@ const POINTonE1 BLS12_381_NEG_G1 = { /* negative generator [in Montgomery] */
   { ONE_MONT_P }
 };
 
-static inline void mul_by_b_onE1(vec384 out, const vec384 in)
+inline void mul_by_b_onE1(vec384 out, const vec384 in)
 {   lshift_fp(out, in, 2);   }
 
-static inline void mul_by_4b_onE1(vec384 out, const vec384 in)
+inline void mul_by_4b_onE1(vec384 out, const vec384 in)
 {   lshift_fp(out, in, 4);   }
 
-static void POINTonE1_cneg(POINTonE1 *p, bool_t cbit)
+inline void POINTonE1_cneg(POINTonE1 *p, bool_t cbit)
 {   cneg_fp(p->Y, p->Y, cbit);   }
 
-void blst_p1_cneg(POINTonE1 *a, int cbit)
+inline void blst_p1_cneg(POINTonE1 *a, int cbit)
 {   POINTonE1_cneg(a, is_zero(cbit) ^ 1);   }
 
-static void POINTonE1_from_Jacobian(POINTonE1 *out, const POINTonE1 *in)
+inline void POINTonE1_from_Jacobian(POINTonE1 *out, const POINTonE1 *in)
 {
     vec384 Z, ZZ;
     limb_t inf = vec_is_zero(in->Z, sizeof(in->Z));
@@ -74,10 +74,10 @@ static void POINTonE1_from_Jacobian(POINTonE1 *out, const POINTonE1 *in)
                        sizeof(BLS12_381_G1.Z), inf);    /* Z = inf ? 0 : 1 */
 }
 
-void blst_p1_from_jacobian(POINTonE1 *out, const POINTonE1 *a)
+inline void blst_p1_from_jacobian(POINTonE1 *out, const POINTonE1 *a)
 {   POINTonE1_from_Jacobian(out, a);   }
 
-static void POINTonE1_to_affine(POINTonE1_affine *out, const POINTonE1 *in)
+inline void POINTonE1_to_affine(POINTonE1_affine *out, const POINTonE1 *in)
 {
     POINTonE1 p;
 
@@ -88,17 +88,17 @@ static void POINTonE1_to_affine(POINTonE1_affine *out, const POINTonE1 *in)
     vec_copy(out, in, sizeof(*out));
 }
 
-void blst_p1_to_affine(POINTonE1_affine *out, const POINTonE1 *a)
+inline void blst_p1_to_affine(POINTonE1_affine *out, const POINTonE1 *a)
 {   POINTonE1_to_affine(out, a);   }
 
-void blst_p1_from_affine(POINTonE1 *out, const POINTonE1_affine *a)
+inline void blst_p1_from_affine(POINTonE1 *out, const POINTonE1_affine *a)
 {
     vec_copy(out, a, sizeof(*a));
     vec_select(out->Z, a->X, BLS12_381_Rx.p, sizeof(out->Z),
                        vec_is_zero(a, sizeof(*a)));
 }
 
-static bool_t POINTonE1_affine_on_curve(const POINTonE1_affine *p)
+inline bool_t POINTonE1_affine_on_curve(const POINTonE1_affine *p)
 {
     vec384 XXX, YY;
 
@@ -111,10 +111,10 @@ static bool_t POINTonE1_affine_on_curve(const POINTonE1_affine *p)
     return vec_is_equal(XXX, YY, sizeof(XXX));
 }
 
-int blst_p1_affine_on_curve(const POINTonE1_affine *p)
+inline int blst_p1_affine_on_curve(const POINTonE1_affine *p)
 {   return (int)(POINTonE1_affine_on_curve(p) | vec_is_zero(p, sizeof(*p)));   }
 
-static bool_t POINTonE1_on_curve(const POINTonE1 *p)
+inline  bool_t POINTonE1_on_curve(const POINTonE1 *p)
 {
     vec384 XXX, YY, BZ6;
     limb_t inf = vec_is_zero(p->Z, sizeof(p->Z));
@@ -133,10 +133,10 @@ static bool_t POINTonE1_on_curve(const POINTonE1 *p)
     return vec_is_equal(XXX, YY, sizeof(XXX)) | inf;
 }
 
-int blst_p1_on_curve(const POINTonE1 *p)
+inline int blst_p1_on_curve(const POINTonE1 *p)
 {   return (int)POINTonE1_on_curve(p);   }
 
-static limb_t POINTonE1_affine_Serialize_BE(unsigned char out[96],
+inline limb_t POINTonE1_affine_Serialize_BE(unsigned char out[96],
                                             const POINTonE1_affine *in)
 {
     vec384 temp;
@@ -150,7 +150,7 @@ static limb_t POINTonE1_affine_Serialize_BE(unsigned char out[96],
     return sgn0_pty_mod_384(temp, BLS12_381_P);
 }
 
-void blst_p1_affine_serialize(unsigned char out[96],
+inline void blst_p1_affine_serialize(unsigned char out[96],
                               const POINTonE1_affine *in)
 {
     if (vec_is_zero(in->X, 2*sizeof(in->X))) {
@@ -161,7 +161,7 @@ void blst_p1_affine_serialize(unsigned char out[96],
     }
 }
 
-static limb_t POINTonE1_Serialize_BE(unsigned char out[96],
+inline limb_t POINTonE1_Serialize_BE(unsigned char out[96],
                                      const POINTonE1 *in)
 {
     POINTonE1 p;
@@ -174,7 +174,7 @@ static limb_t POINTonE1_Serialize_BE(unsigned char out[96],
     return POINTonE1_affine_Serialize_BE(out, (const POINTonE1_affine *)in);
 }
 
-static void POINTonE1_Serialize(unsigned char out[96], const POINTonE1 *in)
+inline void POINTonE1_Serialize(unsigned char out[96], const POINTonE1 *in)
 {
     if (vec_is_zero(in->Z, sizeof(in->Z))) {
         bytes_zero(out, 96);
@@ -184,10 +184,11 @@ static void POINTonE1_Serialize(unsigned char out[96], const POINTonE1 *in)
     }
 }
 
-void blst_p1_serialize(unsigned char out[96], const POINTonE1 *in)
+inline void blst_p1_serialize(unsigned char out[96], const POINTonE1 *in)
 {   POINTonE1_Serialize(out, in);   }
 
-static limb_t POINTonE1_affine_Compress_BE(unsigned char out[48],
+
+inline limb_t POINTonE1_affine_Compress_BE(unsigned char out[48],
                                            const POINTonE1_affine *in)
 {
     vec384 temp;
@@ -198,7 +199,7 @@ static limb_t POINTonE1_affine_Compress_BE(unsigned char out[48],
     return sgn0_pty_mont_384(in->Y, BLS12_381_P, p0);
 }
 
-void blst_p1_affine_compress(unsigned char out[48], const POINTonE1_affine *in)
+inline void blst_p1_affine_compress(unsigned char out[48], const POINTonE1_affine *in)
 {
     if (vec_is_zero(in->X, 2*sizeof(in->X))) {
         bytes_zero(out, 48);
@@ -209,7 +210,7 @@ void blst_p1_affine_compress(unsigned char out[48], const POINTonE1_affine *in)
     }
 }
 
-static limb_t POINTonE1_Compress_BE(unsigned char out[48],
+inline limb_t POINTonE1_Compress_BE(unsigned char out[48],
                                     const POINTonE1 *in)
 {
     POINTonE1 p;
@@ -222,7 +223,7 @@ static limb_t POINTonE1_Compress_BE(unsigned char out[48],
     return POINTonE1_affine_Compress_BE(out, (const POINTonE1_affine *)in);
 }
 
-void blst_p1_compress(unsigned char out[48], const POINTonE1 *in)
+inline void blst_p1_compress(unsigned char out[48], const POINTonE1 *in)
 {
     if (vec_is_zero(in->Z, sizeof(in->Z))) {
         bytes_zero(out, 48);
@@ -233,7 +234,8 @@ void blst_p1_compress(unsigned char out[48], const POINTonE1 *in)
     }
 }
 
-static limb_t POINTonE1_Uncompress_BE(POINTonE1_affine *out,
+
+inline limb_t POINTonE1_Uncompress_BE(POINTonE1_affine *out,
                                       const unsigned char in[48])
 {
     POINTonE1_affine ret;
@@ -258,7 +260,7 @@ static limb_t POINTonE1_Uncompress_BE(POINTonE1_affine *out,
     return sgn0_pty_mont_384(out->Y, BLS12_381_P, p0);
 }
 
-static BLST_ERROR POINTonE1_Uncompress_Z(POINTonE1_affine *out,
+inline BLST_ERROR POINTonE1_Uncompress_Z(POINTonE1_affine *out,
                                          const unsigned char in[48])
 {
     unsigned char in0 = in[0];
@@ -290,10 +292,10 @@ static BLST_ERROR POINTonE1_Uncompress_Z(POINTonE1_affine *out,
                                                : BLST_SUCCESS;
 }
 
-BLST_ERROR blst_p1_uncompress(POINTonE1_affine *out, const unsigned char in[48])
+inline BLST_ERROR blst_p1_uncompress(POINTonE1_affine *out, const unsigned char in[48])
 {   return POINTonE1_Uncompress_Z(out, in);   }
 
-static BLST_ERROR POINTonE1_Deserialize_BE(POINTonE1_affine *out,
+inline BLST_ERROR POINTonE1_Deserialize_BE(POINTonE1_affine *out,
                                            const unsigned char in[96])
 {
     POINTonE1_affine ret;
@@ -325,7 +327,7 @@ static BLST_ERROR POINTonE1_Deserialize_BE(POINTonE1_affine *out,
                                                : BLST_SUCCESS;
 }
 
-static BLST_ERROR POINTonE1_Deserialize_Z(POINTonE1_affine *out,
+inline BLST_ERROR POINTonE1_Deserialize_Z(POINTonE1_affine *out,
                                           const unsigned char in[96])
 {
     unsigned char in0 = in[0];
@@ -346,7 +348,7 @@ static BLST_ERROR POINTonE1_Deserialize_Z(POINTonE1_affine *out,
     return BLST_BAD_ENCODING;
 }
 
-BLST_ERROR blst_p1_deserialize(POINTonE1_affine *out,
+inline BLST_ERROR blst_p1_deserialize(POINTonE1_affine *out,
                                const unsigned char in[96])
 {   return POINTonE1_Deserialize_Z(out, in);   }
 
@@ -358,25 +360,95 @@ POINT_ADD_AFFINE_IMPL(POINTonE1, 384, fp, BLS12_381_Rx.p)
 POINT_DOUBLE_IMPL_A0(POINTonE1, 384, fp)
 POINT_IS_EQUAL_IMPL(POINTonE1, 384, fp)
 
-void blst_p1_add(POINTonE1 *out, const POINTonE1 *a, const POINTonE1 *b)
-{   POINTonE1_add(out, a, b);   }
+inline void blst_p1_add(POINTonE1 *out, const POINTonE1 *a, const POINTonE1 *b)
+{  
+#if defined(DEBUG) || !defined(NDEBUG)
+    // Check if we're trying to add a point to itself in debug builds
+    if (!vec_is_zero(a->Z, sizeof(a->Z)) && !vec_is_zero(b->Z, sizeof(b->Z))) { // If neither point is infinity
+        // Convert both points to affine to check if they're the same
+        POINTonE1_affine a_affine, b_affine;
+        vec384 Z_a, ZZ_a, Z_b, ZZ_b;
 
-void blst_p1_add_or_double(POINTonE1 *out, const POINTonE1 *a,
+        // Convert a to affine
+        reciprocal_fp(Z_a, a->Z);            // 1/Z_a
+        sqr_fp(ZZ_a, Z_a);                   // 1/Z_a^2
+        vec384 a_X_affine, a_Y_affine;
+        mul_fp(a_X_affine, a->X, ZZ_a);      // X_a/Z_a^2
+
+        // Convert b to affine
+        reciprocal_fp(Z_b, b->Z);            // 1/Z_b
+        sqr_fp(ZZ_b, Z_b);                   // 1/Z_b^2
+        vec384 b_X_affine, b_Y_affine;
+        mul_fp(b_X_affine, b->X, ZZ_b);      // X_b/Z_b^2
+
+        // Compare X coordinates
+        if (vec_is_equal(a_X_affine, b_X_affine, sizeof(vec384))) {
+            // Also check Y coordinates
+            mul_fp(ZZ_a, ZZ_a, Z_a);         // 1/Z_a^3
+            mul_fp(a_Y_affine, a->Y, ZZ_a);  // Y_a/Z_a^3
+
+            mul_fp(ZZ_b, ZZ_b, Z_b);         // 1/Z_b^3
+            mul_fp(b_Y_affine, b->Y, ZZ_b);  // Y_b/Z_b^3
+
+            if (vec_is_equal(a_Y_affine, b_Y_affine, sizeof(vec384))) {
+                printf("ERROR: blst_p1_add called with the same point. "
+                    "Use blst_p1_add_or_double instead.\n");
+                exit(1);
+            }
+        }
+    }
+#endif
+
+    POINTonE1_add(out, a, b);   
+}
+
+inline void blst_p1_add_or_double(POINTonE1 *out, const POINTonE1 *a,
                                            const POINTonE1 *b)
 {   POINTonE1_dadd(out, a, b, NULL);   }
 
-void blst_p1_add_affine(POINTonE1 *out, const POINTonE1 *a,
+inline void blst_p1_add_affine(POINTonE1 *out, const POINTonE1 *a,
                                         const POINTonE1_affine *b)
-{   POINTonE1_add_affine(out, a, b);   }
+{   
+#if defined(DEBUG) || !defined(NDEBUG)
+    // Check if we're trying to add a point to itself in debug builds
+    POINTonE1_affine a_affine;
+    if (!vec_is_zero(a->Z, sizeof(a->Z))) {  // If a is not infinity
+        vec384 Z, ZZ;
+        reciprocal_fp(Z, a->Z);              // 1/Z
+        sqr_fp(ZZ, Z);                       // 1/Z^2
 
-void blst_p1_add_or_double_affine(POINTonE1 *out, const POINTonE1 *a,
+        // Compare X coordinates: a->X/Z^2 == b->X?
+        vec384 a_X_affine;
+        mul_fp(a_X_affine, a->X, ZZ);        // X/Z^2
+
+        if (vec_is_equal(a_X_affine, b->X, sizeof(vec384))) {
+            // Check Y coordinates as well
+            vec384 a_Y_affine;
+            mul_fp(ZZ, ZZ, Z);               // 1/Z^3
+            mul_fp(a_Y_affine, a->Y, ZZ);    // Y/Z^3
+
+            if (vec_is_equal(a_Y_affine, b->Y, sizeof(vec384))) {
+                printf("ERROR: blst_p1_add_affine called with the same point. "
+                    "Use blst_p1_add_or_double_affine instead.\n");
+                exit(1);
+                // We could assert here, but let's just warn and proceed
+                // assert(0 && "blst_p1_add_affine called with same point");
+            }
+        }
+    }
+#endif
+
+    POINTonE1_add_affine(out, a, b);   
+}
+
+inline void blst_p1_add_or_double_affine(POINTonE1 *out, const POINTonE1 *a,
                                                   const POINTonE1_affine *b)
 {   POINTonE1_dadd_affine(out, a, b);   }
 
-void blst_p1_double(POINTonE1 *out, const POINTonE1 *a)
+inline void blst_p1_double(POINTonE1 *out, const POINTonE1 *a)
 {   POINTonE1_double(out, a);   }
 
-int blst_p1_is_equal(const POINTonE1 *a, const POINTonE1 *b)
+inline int blst_p1_is_equal(const POINTonE1 *a, const POINTonE1 *b)
 {   return (int)POINTonE1_is_equal(a, b);   }
 
 #include "ec_mult.h"
@@ -393,7 +465,7 @@ POINT_LADDER_POST_IMPL_A0(POINTonE1, 384, fp, onE1)
 POINT_MULT_SCALAR_LADDER_IMPL(POINTonE1)
 #endif
 
-static const vec384 beta = {            /* such that beta^3 - 1 = 0  */
+const vec384 beta = {            /* such that beta^3 - 1 = 0  */
     /* -1/2 * (1 + sqrt(-3)) = ((P-2)^(P-2)) * (1 + (P-3)^((P+1)/4)) */
     /* (0x1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4
           897d29650fb85f9b409427eb4f49fffd8bfd00000000aaac << 384) % P */
@@ -402,14 +474,14 @@ static const vec384 beta = {            /* such that beta^3 - 1 = 0  */
     TO_LIMB_T(0x03f97d6e83d050d2), TO_LIMB_T(0x18f0206554638741)
 };
 
-static void sigma(POINTonE1 *out, const POINTonE1 *in)
+inline void sigma(POINTonE1 *out, const POINTonE1 *in)
 {
     vec_copy(out->X, in->X, 2*sizeof(out->X));
     mul_fp(out->Z, in->Z, beta);
 }
 
 /* Gallant-Lambert-Vanstone, ~45% faster than POINTonE1_mult_w5 */
-static void POINTonE1_mult_glv(POINTonE1 *out, const POINTonE1 *in,
+inline void POINTonE1_mult_glv(POINTonE1 *out, const POINTonE1 *in,
                                const pow256 SK)
 {
     union { vec256 l; pow256 s; } val;
@@ -441,7 +513,7 @@ static void POINTonE1_mult_glv(POINTonE1 *out, const POINTonE1 *in,
     vec_zero(val.l, sizeof(val));   /* scrub the copy of SK */
 }
 
-static void POINTonE1_sign(POINTonE1 *out, const POINTonE1 *in, const pow256 SK)
+inline void POINTonE1_sign(POINTonE1 *out, const POINTonE1 *in, const pow256 SK)
 {
     vec384 Z, ZZ;
     limb_t inf;
@@ -466,13 +538,13 @@ static void POINTonE1_sign(POINTonE1 *out, const POINTonE1 *in, const pow256 SK)
                        inf);                            /* Z = inf ? 0 : 1 */
 }
 
-void blst_sk_to_pk_in_g1(POINTonE1 *out, const pow256 SK)
+inline void blst_sk_to_pk_in_g1(POINTonE1 *out, const pow256 SK)
 {   POINTonE1_sign(out, &BLS12_381_G1, SK);   }
 
-void blst_sign_pk_in_g2(POINTonE1 *out, const POINTonE1 *msg, const pow256 SK)
+inline void blst_sign_pk_in_g2(POINTonE1 *out, const POINTonE1 *msg, const pow256 SK)
 {   POINTonE1_sign(out, msg, SK);   }
 
-void blst_sk_to_pk2_in_g1(unsigned char out[96], POINTonE1_affine *PK,
+inline void blst_sk_to_pk2_in_g1(unsigned char out[96], POINTonE1_affine *PK,
                           const pow256 SK)
 {
     POINTonE1 P[1];
@@ -487,7 +559,7 @@ void blst_sk_to_pk2_in_g1(unsigned char out[96], POINTonE1_affine *PK,
     }
 }
 
-void blst_sign_pk2_in_g2(unsigned char out[96], POINTonE1_affine *sig,
+inline void blst_sign_pk2_in_g2(unsigned char out[96], POINTonE1_affine *sig,
                          const POINTonE1 *hash, const pow256 SK)
 {
     POINTonE1 P[1];
@@ -502,7 +574,7 @@ void blst_sign_pk2_in_g2(unsigned char out[96], POINTonE1_affine *sig,
     }
 }
 
-void blst_p1_mult(POINTonE1 *out, const POINTonE1 *a,
+inline void blst_p1_mult(POINTonE1 *out, const POINTonE1 *a,
                                   const byte *scalar, size_t nbits)
 {
     if (nbits < 176) {
@@ -532,7 +604,7 @@ void blst_p1_mult(POINTonE1 *out, const POINTonE1 *a,
     }
 }
 
-void blst_p1_unchecked_mult(POINTonE1 *out, const POINTonE1 *a,
+inline void blst_p1_unchecked_mult(POINTonE1 *out, const POINTonE1 *a,
                                             const byte *scalar, size_t nbits)
 {
     if (nbits)
@@ -541,24 +613,24 @@ void blst_p1_unchecked_mult(POINTonE1 *out, const POINTonE1 *a,
         vec_zero(out, sizeof(*out));
 }
 
-int blst_p1_affine_is_equal(const POINTonE1_affine *a,
+inline int blst_p1_affine_is_equal(const POINTonE1_affine *a,
                             const POINTonE1_affine *b)
 {   return (int)vec_is_equal(a, b, sizeof(*a));   }
 
-int blst_p1_is_inf(const POINTonE1 *p)
+inline int blst_p1_is_inf(const POINTonE1 *p)
 {   return (int)vec_is_zero(p->Z, sizeof(p->Z));   }
 
-const POINTonE1 *blst_p1_generator(void)
+inline const POINTonE1 *blst_p1_generator(void)
 {   return &BLS12_381_G1;   }
 
-int blst_p1_affine_is_inf(const POINTonE1_affine *p)
+inline int blst_p1_affine_is_inf(const POINTonE1_affine *p)
 {   return (int)vec_is_zero(p, sizeof(*p));   }
 
-const POINTonE1_affine *blst_p1_affine_generator(void)
+inline const POINTonE1_affine *blst_p1_affine_generator(void)
 {   return (const POINTonE1_affine *)&BLS12_381_G1;   }
 
-size_t blst_p1_sizeof(void)
+inline size_t blst_p1_sizeof(void)
 {   return sizeof(POINTonE1);   }
 
-size_t blst_p1_affine_sizeof(void)
+inline size_t blst_p1_affine_sizeof(void)
 {   return sizeof(POINTonE1_affine);   }

@@ -6,65 +6,11 @@
 #ifndef __BLS12_381_ASM_VECT_H__
 #define __BLS12_381_ASM_VECT_H__
 
+#include "config.h"
 #include <stddef.h>
+#include "defines.h"
 
-#if defined(__x86_64__) || defined(__aarch64__)
-/* These are available even in ILP32 flavours, but even then they are
- * capable of performing 64-bit operations as efficiently as in *P64. */
-typedef unsigned long long limb_t;
-# define LIMB_T_BITS    64
 
-#elif defined(_WIN64)   /* Win64 is P64 */
-typedef unsigned __int64 limb_t;
-# define LIMB_T_BITS    64
-
-#elif defined(__BLST_NO_ASM__) || defined(__wasm64__)
-typedef unsigned int limb_t;
-# define LIMB_T_BITS    32
-# ifndef __BLST_NO_ASM__
-#  define __BLST_NO_ASM__
-# endif
-
-#else                   /* 32 bits on 32-bit platforms, 64 - on 64-bit */
-typedef unsigned long limb_t;
-#  ifdef _LP64
-#   define LIMB_T_BITS   64
-#  else
-#   define LIMB_T_BITS   32
-#   define __BLST_NO_ASM__
-#  endif
-#endif
-
-/*
- * Why isn't LIMB_T_BITS defined as 8*sizeof(limb_t)? Because pre-processor
- * knows nothing about sizeof(anything)...
- */
-#if LIMB_T_BITS == 64
-# define TO_LIMB_T(limb64)     limb64
-#else
-# define TO_LIMB_T(limb64)     (limb_t)limb64,(limb_t)(limb64>>32)
-#endif
-
-#define NLIMBS(bits)   (bits/LIMB_T_BITS)
-
-typedef limb_t vec256[NLIMBS(256)];
-typedef limb_t vec512[NLIMBS(512)];
-typedef limb_t vec384[NLIMBS(384)];
-typedef limb_t vec768[NLIMBS(768)];
-typedef vec384 vec384x[2];      /* 0 is "real" part, 1 is "imaginary" */
-
-typedef unsigned char byte;
-#define TO_BYTES(limb64)    (byte)limb64,(byte)(limb64>>8),\
-                            (byte)(limb64>>16),(byte)(limb64>>24),\
-                            (byte)(limb64>>32),(byte)(limb64>>40),\
-                            (byte)(limb64>>48),(byte)(limb64>>56)
-typedef byte pow256[256/8];
-
-/*
- * Internal Boolean type, Boolean by value, hence safe to cast to or
- * reinterpret as 'bool'.
- */
-typedef limb_t bool_t;
 
 /*
  * Assembly subroutines...
@@ -171,12 +117,12 @@ void sub_mod_384x384(vec768 ret, const vec768 a, const vec768 b,
 /*
  * C subroutines
  */
-static void exp_mont_384(vec384 out, const vec384 inp, const byte *pow,
+void exp_mont_384(vec384 out, const vec384 inp, const byte *pow,
                          size_t pow_bits, const vec384 p, limb_t n0);
-static void exp_mont_384x(vec384x out, const vec384x inp, const byte *pow,
+void exp_mont_384x(vec384x out, const vec384x inp, const byte *pow,
                           size_t pow_bits, const vec384 p, limb_t n0);
-static void div_by_zz(limb_t val[]);
-static void div_by_z(limb_t val[]);
+void div_by_zz(limb_t val[]);
+void div_by_z(limb_t val[]);
 
 #ifdef __UINTPTR_TYPE__
 typedef __UINTPTR_TYPE__ uptr_t;
@@ -214,21 +160,21 @@ typedef const void *uptr_t;
 # define launder(var)
 #endif
 
-static inline bool_t is_bit_set(const byte *v, size_t i)
+inline bool_t is_bit_set(const byte *v, size_t i)
 {
     bool_t ret = (v[i/8] >> (i%8)) & 1;
     launder(ret);
     return ret;
 }
 
-static inline bool_t byte_is_zero(unsigned char c)
+inline bool_t byte_is_zero(unsigned char c)
 {
     limb_t ret = ((limb_t)(c) - 1) >> (LIMB_T_BITS - 1);
     launder(ret);
     return ret;
 }
 
-static inline bool_t bytes_are_zero(const unsigned char *a, size_t num)
+inline bool_t bytes_are_zero(const unsigned char *a, size_t num)
 {
     unsigned char acc;
     size_t i;
@@ -239,7 +185,7 @@ static inline bool_t bytes_are_zero(const unsigned char *a, size_t num)
     return byte_is_zero(acc);
 }
 
-static inline void vec_cswap(void *restrict a, void *restrict b, size_t num,
+inline void vec_cswap(void *restrict a, void *restrict b, size_t num,
                              bool_t cbit)
 {
     limb_t ai, *ap = (limb_t *)a;
@@ -266,7 +212,7 @@ void vec_select_96(void *ret, const void *a, const void *b, bool_t sel_a);
 void vec_select_144(void *ret, const void *a, const void *b, bool_t sel_a);
 void vec_select_192(void *ret, const void *a, const void *b, bool_t sel_a);
 void vec_select_288(void *ret, const void *a, const void *b, bool_t sel_a);
-static inline void vec_select(void *ret, const void *a, const void *b,
+inline void vec_select(void *ret, const void *a, const void *b,
                               size_t num, bool_t sel_a)
 {
     launder(sel_a);
@@ -297,14 +243,14 @@ static inline void vec_select(void *ret, const void *a, const void *b,
     }
 }
 
-static inline bool_t is_zero(limb_t l)
+inline bool_t is_zero(limb_t l)
 {
     limb_t ret = (~l & (l - 1)) >> (LIMB_T_BITS - 1);
     launder(ret);
     return ret;
 }
 
-static inline bool_t vec_is_zero(const void *a, size_t num)
+inline bool_t vec_is_zero(const void *a, size_t num)
 {
     const limb_t *ap = (const limb_t *)a;
     limb_t acc;
@@ -324,7 +270,7 @@ static inline bool_t vec_is_zero(const void *a, size_t num)
     return is_zero(acc);
 }
 
-static inline bool_t vec_is_equal(const void *a, const void *b, size_t num)
+inline bool_t vec_is_equal(const void *a, const void *b, size_t num)
 {
     const limb_t *ap = (const limb_t *)a;
     const limb_t *bp = (const limb_t *)b;
@@ -345,7 +291,7 @@ static inline bool_t vec_is_equal(const void *a, const void *b, size_t num)
     return is_zero(acc);
 }
 
-static inline void cneg_mod_384x(vec384x ret, const vec384x a, bool_t flag,
+inline void cneg_mod_384x(vec384x ret, const vec384x a, bool_t flag,
                                  const vec384 p)
 {
     cneg_mod_384(ret[0], a[0], flag, p);
@@ -364,7 +310,7 @@ static inline void vec_copy(void *restrict ret, const void *a, size_t num)
         rp[i] = ap[i];
 }
 
-static inline void vec_zero(void *ret, size_t num)
+inline void vec_zero(void *ret, size_t num)
 {
     volatile limb_t *rp = (volatile limb_t *)ret;
     size_t i;
@@ -379,7 +325,7 @@ static inline void vec_zero(void *ret, size_t num)
 #endif
 }
 
-static inline void vec_czero(void *ret, size_t num, bool_t cbit)
+inline void vec_czero(void *ret, size_t num, bool_t cbit)
 {
     limb_t *rp = (limb_t *)ret;
     size_t i;
@@ -393,6 +339,7 @@ static inline void vec_czero(void *ret, size_t num, bool_t cbit)
     for (i = 0; i < num; i++)
         rp[i] &= mask;
 }
+
 
 /*
  * Some compilers get arguably overzealous(*) when passing pointer to
@@ -427,5 +374,6 @@ static inline void vec_czero(void *ret, size_t num, bool_t cbit)
 #  define alloca(s) _alloca(s)
 # endif
 #endif
+
 
 #endif /* __BLS12_381_ASM_VECT_H__ */

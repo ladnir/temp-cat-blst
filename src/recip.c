@@ -13,9 +13,9 @@
  * branch penalties on top of that... The addition chain below was
  * measured to be >50% faster.
  */
-static void flt_reciprocal_fp(vec384 out, const vec384 inp)
+void flt_reciprocal_fp(vec384 out, const vec384 inp)
 {
-    static const byte BLS12_381_P_minus_2[] = {
+    const byte BLS12_381_P_minus_2[] = {
         TO_BYTES(0xb9feffffffffaaa9), TO_BYTES(0x1eabfffeb153ffff),
         TO_BYTES(0x6730d2a0f6b0f624), TO_BYTES(0x64774b84f38512bf),
         TO_BYTES(0x4b1ba7b6434bacd7), TO_BYTES(0x1a0111ea397fe69a)
@@ -29,7 +29,7 @@ static void flt_reciprocal_fp(vec384 out, const vec384 inp)
 # define sqr_n_mul(ret,a,n,b)	sqr_n_mul_fp(ret,a,n,b)
 
 # include "recip-addchain.h"
-static void flt_reciprocal_fp(vec384 out, const vec384 inp)
+void flt_reciprocal_fp(vec384 out, const vec384 inp)
 {
     RECIPROCAL_MOD_BLS12_381_P(out, inp, vec384);
 }
@@ -39,7 +39,7 @@ static void flt_reciprocal_fp(vec384 out, const vec384 inp)
 # undef sqr
 #endif
 
-static void flt_reciprocal_fp2(vec384x out, const vec384x inp)
+void flt_reciprocal_fp2(vec384x out, const vec384x inp)
 {
     vec384 t0, t1;
 
@@ -55,9 +55,9 @@ static void flt_reciprocal_fp2(vec384x out, const vec384x inp)
     neg_fp(out[1], out[1]);
 }
 
-static void reciprocal_fp(vec384 out, const vec384 inp)
+void reciprocal_fp(vec384 out, const vec384 inp)
 {
-    static const vec384 Px8 = {    /* left-aligned value of the modulus */
+    const vec384 Px8 = {    /* left-aligned value of the modulus */
         TO_LIMB_T(0xcff7fffffffd5558), TO_LIMB_T(0xf55ffff58a9ffffd),
         TO_LIMB_T(0x39869507b587b120), TO_LIMB_T(0x23ba5c279c2895fb),
         TO_LIMB_T(0x58dd3db21a5d66bb), TO_LIMB_T(0xd0088f51cbff34d2)
@@ -87,7 +87,7 @@ void blst_fp_inverse(vec384 out, const vec384 inp)
 void blst_fp_eucl_inverse(vec384 ret, const vec384 a)
 {   reciprocal_fp(ret, a);   }
 
-static void reciprocal_fp2(vec384x out, const vec384x inp)
+void reciprocal_fp2(vec384x out, const vec384x inp)
 {
     vec384 t0, t1;
 
@@ -109,9 +109,9 @@ void blst_fp2_inverse(vec384x out, const vec384x inp)
 void blst_fp2_eucl_inverse(vec384x out, const vec384x inp)
 {   reciprocal_fp2(out, inp);   }
 
-static void reciprocal_fr(vec256 out, const vec256 inp)
+void reciprocal_fr(vec256 out, const vec256 inp)
 {
-    static const vec256 rx2 = { /* left-aligned value of the modulus */
+    const vec256 rx2 = { /* left-aligned value of the modulus */
         TO_LIMB_T(0xfffffffe00000002), TO_LIMB_T(0xa77b4805fffcb7fd),
         TO_LIMB_T(0x6673b0101343b00a), TO_LIMB_T(0xe7db4ea6533afa90),
     };

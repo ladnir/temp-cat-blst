@@ -15,7 +15,7 @@ typedef struct {
     union { limb_t l[64/sizeof(limb_t)]; unsigned char c[64]; } tail;
 } HMAC_SHA256_CTX;
 
-static void HMAC_init(HMAC_SHA256_CTX *ctx, const void *K, size_t K_len)
+void HMAC_init(HMAC_SHA256_CTX *ctx, const void *K, size_t K_len)
 {
     size_t i;
 
@@ -56,11 +56,11 @@ static void HMAC_init(HMAC_SHA256_CTX *ctx, const void *K, size_t K_len)
     ctx->tail.c[63] = 0;
 }
 
-static void HMAC_update(HMAC_SHA256_CTX *ctx, const unsigned char *inp,
+void HMAC_update(HMAC_SHA256_CTX *ctx, const unsigned char *inp,
                                               size_t len)
 {   sha256_update(&ctx->ctx, inp, len);   }
 
-static void HMAC_final(unsigned char md[32], HMAC_SHA256_CTX *ctx)
+void HMAC_final(unsigned char md[32], HMAC_SHA256_CTX *ctx)
 {
     sha256_final(ctx->tail.c, &ctx->ctx);
     sha256_hcopy(ctx->ctx.h, ctx->h_opad);
@@ -68,7 +68,7 @@ static void HMAC_final(unsigned char md[32], HMAC_SHA256_CTX *ctx)
     sha256_emit(md, ctx->ctx.h);
 }
 
-static void HKDF_Extract(unsigned char PRK[32],
+void HKDF_Extract(unsigned char PRK[32],
                          const void *salt, size_t salt_len,
                          const void *IKM,  size_t IKM_len,
 #ifndef __BLST_HKDF_TESTMODE__
@@ -89,7 +89,7 @@ static void HKDF_Extract(unsigned char PRK[32],
     HMAC_final(PRK, ctx);
 }
 
-static void HKDF_Expand(unsigned char *OKM, size_t L,
+void HKDF_Expand(unsigned char *OKM, size_t L,
                         const unsigned char PRK[32],
                         const void *info, size_t info_len,
 #ifndef __BLST_HKDF_TESTMODE__
@@ -132,7 +132,7 @@ static void HKDF_Expand(unsigned char *OKM, size_t L,
 }
 
 #ifndef __BLST_HKDF_TESTMODE__
-static void keygen(pow256 SK, const void *IKM, size_t IKM_len,
+void keygen(pow256 SK, const void *IKM, size_t IKM_len,
                               const void *salt, size_t salt_len,
                               const void *info, size_t info_len,
                               int version)
@@ -235,7 +235,7 @@ void blst_keygen_v5(pow256 SK, const void *IKM, size_t IKM_len,
 void blst_derive_master_eip2333(pow256 SK, const void *seed, size_t seed_len)
 {   keygen(SK, seed, seed_len, NULL, 0, NULL, 0, 4);   }
 
-static void parent_SK_to_lamport_PK(pow256 PK, const pow256 parent_SK,
+void parent_SK_to_lamport_PK(pow256 PK, const pow256 parent_SK,
                                     unsigned int index)
 {
     size_t i;

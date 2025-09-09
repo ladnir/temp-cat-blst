@@ -9,7 +9,7 @@
 #include "point.h"
 
 /* Works up to 9 bits */
-static limb_t get_wval(const byte *d, size_t off, size_t bits)
+inline limb_t get_wval(const byte *d, size_t off, size_t bits)
 {
     size_t top = off + bits - 1;
     limb_t ret;
@@ -20,7 +20,7 @@ static limb_t get_wval(const byte *d, size_t off, size_t bits)
 }
 
 /* Works up to 25 bits. */
-static limb_t get_wval_limb(const byte *d, size_t off, size_t bits)
+inline limb_t get_wval_limb(const byte *d, size_t off, size_t bits)
 {
     size_t i, top = (off + bits - 1)/8;
     limb_t ret, mask = (limb_t)0 - 1;
@@ -43,7 +43,7 @@ static limb_t get_wval_limb(const byte *d, size_t off, size_t bits)
  * calculated, which allows to halve the size of pre-computed table,
  * is attributed to A. D. Booth, hence the name of the subroutines...
  */
-static limb_t booth_encode(limb_t wval, size_t sz)
+inline limb_t booth_encode(limb_t wval, size_t sz)
 {
     limb_t mask = 0 - (wval >> sz);     /* "sign" bit -> mask */
     launder(mask);
@@ -66,7 +66,7 @@ static limb_t booth_encode(limb_t wval, size_t sz)
  * infinity "naturally," since resulting Z is product of original Z.]
  */
 #define POINT_MULT_SCALAR_WX_IMPL(ptype, SZ) \
-static bool_t ptype##_gather_booth_w##SZ(ptype *restrict p, \
+inline bool_t ptype##_gather_booth_w##SZ(ptype *restrict p, \
                                          const ptype table[1<<(SZ-1)], \
                                          limb_t booth_idx) \
 { \
@@ -84,7 +84,7 @@ static bool_t ptype##_gather_booth_w##SZ(ptype *restrict p, \
     return byte_is_zero((byte)booth_idx); \
 } \
 \
-static void ptype##_precompute_w##SZ(ptype row[], const ptype *point) \
+inline void ptype##_precompute_w##SZ(ptype row[], const ptype *point) \
 { \
     size_t i, j; \
                                       /* row[-1] is implicit infinity */\
@@ -95,7 +95,7 @@ static void ptype##_precompute_w##SZ(ptype row[], const ptype *point) \
         ptype##_double(&row[i+1], &row[j]);         /* row[3]=p*(2+2) */\
 }                                                   /* row[4] ...     */\
 \
-static void ptype##s_mult_w##SZ(ptype *ret, \
+inline void ptype##s_mult_w##SZ(ptype *ret, \
                                 const ptype *points[], size_t npoints, \
                                 const byte *scalars[], size_t bits, \
                                 ptype table[][1<<(SZ-1)]) \
@@ -175,7 +175,7 @@ static void ptype##s_mult_w##SZ(ptype *ret, \
     vec_czero(ret->Z, sizeof(ret->Z), ret_is_inf); \
 } \
 \
-static void ptype##_mult_w##SZ(ptype *ret, const ptype *point, \
+inline void ptype##_mult_w##SZ(ptype *ret, const ptype *point, \
                                const byte *scalar, size_t bits) \
 { \
     limb_t wmask, wval; \
@@ -225,7 +225,7 @@ static void ptype##_mult_w##SZ(ptype *ret, const ptype *point, \
 #if 0
 /* ~50%, or ~2x[!] slower than w5... */
 #define POINT_MULT_SCALAR_LADDER_IMPL(ptype) \
-static void ptype##_mult_ladder(ptype *ret, const ptype *p, \
+void ptype##_mult_ladder(ptype *ret, const ptype *p, \
                                 const byte *scalar, size_t bits) \
 { \
     ptype sum[1]; \
@@ -247,7 +247,7 @@ static void ptype##_mult_ladder(ptype *ret, const ptype *p, \
 #else
 /* >40% better performance than above, [and ~30% slower than w5]... */
 #define POINT_MULT_SCALAR_LADDER_IMPL(ptype) \
-static void ptype##_mult_ladder(ptype *out, const ptype *p, \
+inline void ptype##_mult_ladder(ptype *out, const ptype *p, \
                                 const byte *scalar, size_t bits) \
 { \
     ptype##xz sum[1]; \
@@ -296,7 +296,7 @@ static void ptype##_mult_ladder(ptype *out, const ptype *p, \
  * not a problem...
  */
 #define POINT_AFFINE_MULT_SCALAR_IMPL(ptype) \
-static void ptype##_affine_mult_ladder(ptype *ret, \
+inline void ptype##_affine_mult_ladder(ptype *ret, \
                                        const ptype##_affine *p_affine, \
                                        const byte *scalar, size_t bits) \
 { \

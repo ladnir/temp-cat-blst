@@ -30,7 +30,7 @@ extern "C" {
 
 #include <cstdint>
 
-static inline void vec_left_align(limb_t *out, const limb_t *inp, size_t N)
+inline void vec_left_align(limb_t *out, const limb_t *inp, size_t N)
 {
     const unsigned int nbits = sizeof(inp[0])*8;
     const unsigned int align = (0 - N) % nbits;
@@ -62,11 +62,11 @@ private:
     inline limb_t& operator[](size_t i)             { return val[i]; }
     inline const limb_t& operator[](size_t i) const { return val[i]; }
 
-    static const size_t n = sizeof(vec384)/sizeof(limb_t);
+    const size_t n = sizeof(vec384)/sizeof(limb_t);
 public:
-    static const size_t nbits = N;
-    static constexpr size_t bit_length() { return N; }
-    static const unsigned int degree = 1;
+    const size_t nbits = N;
+    constexpr size_t bit_length() { return N; }
+    const unsigned int degree = 1;
     typedef byte pow_t[384/8];
     typedef blst_384_t mem_t;
 
@@ -133,10 +133,10 @@ public:
         }
     }
 
-    static inline const blst_384_t& one()
+    inline const blst_384_t& one()
     {   return *reinterpret_cast<const blst_384_t*>(ONE);   }
 
-    static inline blst_384_t one(bool or_zero)
+    inline blst_384_t one(bool or_zero)
     {
         blst_384_t ret;
         limb_t mask = ~((limb_t)0 - or_zero);
@@ -275,7 +275,7 @@ public:
         return ret;
     }
 
-    static inline blst_384_t csel(const blst_384_t& a, const blst_384_t& b,
+    inline blst_384_t csel(const blst_384_t& a, const blst_384_t& b,
                                   int sel_a)
     {   blst_384_t ret;
         vec_select(ret, a, b, sizeof(ret), sel_a);
@@ -284,7 +284,7 @@ public:
 
     blst_384_t reciprocal() const
     {
-        static const blst_384_t MODx{MOD, true};
+        const blst_384_t MODx{MOD, true};
         union { vec768 x; vec384 r[2]; } temp;
 
         ct_inverse_mod_384(temp.x, val, MOD, MODx);
@@ -339,11 +339,11 @@ class blst_256_t {
     inline limb_t& operator[](size_t i)             { return val[i]; }
     inline const limb_t& operator[](size_t i) const { return val[i]; }
 
-    static const size_t n = sizeof(vec256)/sizeof(limb_t);
+    const size_t n = sizeof(vec256)/sizeof(limb_t);
 public:
-    static const size_t nbits = N;
-    static constexpr size_t bit_length() { return N; }
-    static const unsigned int degree = 1;
+    const size_t nbits = N;
+    constexpr size_t bit_length() { return N; }
+    const unsigned int degree = 1;
     typedef byte pow_t[256/8];
     typedef blst_256_t mem_t;
 
@@ -406,10 +406,10 @@ public:
         }
     }
 
-    static inline const blst_256_t& one()
+    inline const blst_256_t& one()
     {   return *reinterpret_cast<const blst_256_t*>(ONE);   }
 
-    static inline blst_256_t one(bool or_zero)
+    inline blst_256_t one(bool or_zero)
     {
         blst_256_t ret;
         limb_t mask = ~((limb_t)0 - or_zero);
@@ -616,7 +616,7 @@ public:
         return ret;
     }
 
-    static inline blst_256_t csel(const blst_256_t& a, const blst_256_t& b,
+    inline blst_256_t csel(const blst_256_t& a, const blst_256_t& b,
                                   int sel_a)
     {   blst_256_t ret;
         vec_select(ret, a, b, sizeof(ret), sel_a);
@@ -625,7 +625,7 @@ public:
 
     blst_256_t reciprocal() const
     {
-        static const blst_256_t MODx{MOD, true};
+        const blst_256_t MODx{MOD, true};
         union { vec512 x; vec256 r[2]; } temp;
 
         ct_inverse_mod_256(temp.x, val, MOD, MODx);

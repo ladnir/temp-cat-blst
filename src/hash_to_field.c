@@ -7,7 +7,7 @@
 #include "consts.h"
 #include "sha256.h"
 
-static const vec384 BLS12_381_RRRR = {  /* RR^2 */
+const vec384 BLS12_381_RRRR = {  /* RR^2 */
     TO_LIMB_T(0xed48ac6bd94ca1e0), TO_LIMB_T(0x315f831e03a7adf8),
     TO_LIMB_T(0x9a53352a615e29dd), TO_LIMB_T(0x34c04e5e921e1761),
     TO_LIMB_T(0x2512d43565724728), TO_LIMB_T(0x0aa6346091755d4d)
@@ -19,7 +19,7 @@ void expand_message_xmd(unsigned char *bytes, size_t len_in_bytes,
                         const unsigned char *msg, size_t msg_len,
                         const unsigned char *DST, size_t DST_len);
 #else
-static void sha256_init_Zpad(SHA256_CTX *ctx)
+void sha256_init_Zpad(SHA256_CTX *ctx)
 {
     ctx->h[0] = 0xda5698beU;
     ctx->h[1] = 0x17b9b469U;
@@ -34,7 +34,7 @@ static void sha256_init_Zpad(SHA256_CTX *ctx)
     ctx->off = 0;
 }
 
-static void vec_xor(void *restrict ret, const void *restrict a,
+void vec_xor(void *restrict ret, const void *restrict a,
                                         const void *restrict b, size_t num)
 {
     limb_t *rp = (limb_t *)ret;
@@ -48,7 +48,7 @@ static void vec_xor(void *restrict ret, const void *restrict a,
         rp[i] = ap[i] ^ bp[i];
 }
 
-static void expand_message_xmd(unsigned char *bytes, size_t len_in_bytes,
+void expand_message_xmd(unsigned char *bytes, size_t len_in_bytes,
                                const unsigned char *aug, size_t aug_len,
                                const unsigned char *msg, size_t msg_len,
                                const unsigned char *DST, size_t DST_len)
@@ -117,7 +117,7 @@ static void expand_message_xmd(unsigned char *bytes, size_t len_in_bytes,
 /*
  * |nelems| is 'count * m' from spec
  */
-static void hash_to_field(vec384 elems[], size_t nelems,
+void hash_to_field(vec384 elems[], size_t nelems,
                           const unsigned char *aug, size_t aug_len,
                           const unsigned char *msg, size_t msg_len,
                           const unsigned char *DST, size_t DST_len)

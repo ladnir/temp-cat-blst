@@ -18,7 +18,7 @@ blst (pronounced 'blast') is a BLS12-381 signature library focused on performanc
     + [Signature Aggregation](#signature-aggregation)
     + [Serialization Format](#serialization-format)
   * [Build](#build)
-    + [C static library](#c-static-library)
+    + [C library](#c-static-library)
   * [Language-specific notes](#language-specific-notes)
     + [Go](#go)
     + [Rust](#rust)
@@ -138,8 +138,8 @@ The most-significant three bits of a G1 or G2 encoding should be masked away bef
 ## Build
 The build process is very simple and only requires a C compiler. It's integrated into the Go and Rust ecosystems, so that respective users would go about as they would with any other external module. Otherwise, a binary library would have to be compiled.
 
-### C static library
-A static library called libblst.a can be built in the current working directory of the user's choice:
+### C library
+A library called libblst.a can be built in the current working directory of the user's choice:
 
 Linux, Mac, and Windows (in MinGW or Cygwin environments)
 ```
