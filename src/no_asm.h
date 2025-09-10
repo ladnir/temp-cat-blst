@@ -21,6 +21,12 @@ typedef unsigned __int128 llimb_t;
 #include <malloc.h>
 #define BLST_VLA_NEW(T, name, n) T* name = (T*)_alloca((n) * sizeof(T))
 #define BLST_VLA_FREE(name)      ((void)0)
+
+
+#if defined(_M_X64) || defined(_M_IX86)
+#include <immintrin.h>
+#endif
+
 #elif defined(__GNUC__) || defined(__clang__)
 #include <alloca.h>
 #define BLST_VLA_NEW(T, name, n) T name[n]
@@ -45,7 +51,8 @@ typedef unsigned __int128 llimb_t;
 # endif
 #endif
 
-HOST_DEVICE_FUNC inline void mul_mont_n(limb_t ret[], const limb_t a[], const limb_t b[],
+
+HOST_DEVICE_FUNC inline void cc_mul_mont_n(limb_t ret[], const limb_t a[], const limb_t b[],
                        const limb_t p[], limb_t n0, size_t n)
 {
     __builtin_assume(n != 0 && n%2 == 0);
@@ -95,7 +102,7 @@ HOST_DEVICE_FUNC inline void mul_mont_n(limb_t ret[], const limb_t a[], const li
     }
 
     mask = carry - borrow;
-    launder(mask);
+    BLST_launder(mask);
 
     for(i=0; i<n; i++)
         ret[i] = (ret[i] & ~mask) | (tmp[i] & mask);
@@ -103,27 +110,23 @@ HOST_DEVICE_FUNC inline void mul_mont_n(limb_t ret[], const limb_t a[], const li
     BLST_VLA_FREE(tmp);
 }
 
-#define MUL_MONT_IMPL(bits) \
-HOST_DEVICE_FUNC inline void mul_mont_##bits(vec##bits ret, const vec##bits a, \
+#define MUL_MONT_IMPL(fn1, fn2, bits) \
+HOST_DEVICE_FUNC inline void fn1(vec##bits ret, const vec##bits a, \
                             const vec##bits b, const vec##bits p, limb_t n0) \
-{   mul_mont_n(ret, a, b, p, n0, NLIMBS(bits));   } \
+{   cc_mul_mont_n(ret, a, b, p, n0, NLIMBS(bits));   } \
 \
-HOST_DEVICE_FUNC inline void sqr_mont_##bits(vec##bits ret, const vec##bits a, \
+HOST_DEVICE_FUNC inline void fn2(vec##bits ret, const vec##bits a, \
                             const vec##bits p, limb_t n0) \
-{   mul_mont_n(ret, a, a, p, n0, NLIMBS(bits));   }
+{   cc_mul_mont_n(ret, a, a, p, n0, NLIMBS(bits));   }
 
 /*
  * 256-bit subroutines can handle arbitrary modulus, even non-"sparse",
  * but we have to harmonize the naming with assembly.
  */
-#define mul_mont_256 mul_mont_sparse_256
-#define sqr_mont_256 sqr_mont_sparse_256
-MUL_MONT_IMPL(256)
-#undef mul_mont_256
-#undef sqr_mont_256
-MUL_MONT_IMPL(384)
+MUL_MONT_IMPL(cc_mul_mont_sparse_256, cc_sqr_mont_sparse_256, 256)
+MUL_MONT_IMPL(cc_mul_mont_384, cc_sqr_mont_384, 384)
 
-HOST_DEVICE_FUNC inline void add_mod_n(limb_t ret[], const limb_t a[], const limb_t b[],
+HOST_DEVICE_FUNC inline void cc_add_mod_n(limb_t ret[], const limb_t a[], const limb_t b[],
                       const limb_t p[], size_t n)
 {
     __builtin_assume(n != 0);
@@ -145,7 +148,7 @@ HOST_DEVICE_FUNC inline void add_mod_n(limb_t ret[], const limb_t a[], const lim
     }
 
     mask = carry - borrow;
-    launder(mask);
+    BLST_launder(mask);
 
     for(i=0; i<n; i++)
         ret[i] = (ret[i] & ~mask) | (tmp[i] & mask);
@@ -154,14 +157,14 @@ HOST_DEVICE_FUNC inline void add_mod_n(limb_t ret[], const limb_t a[], const lim
 }
 
 #define ADD_MOD_IMPL(bits) \
-HOST_DEVICE_FUNC inline void add_mod_##bits(vec##bits ret, const vec##bits a, \
+HOST_DEVICE_FUNC inline void cc_add_mod_##bits(vec##bits ret, const vec##bits a, \
                            const vec##bits b, const vec##bits p) \
-{   add_mod_n(ret, a, b, p, NLIMBS(bits));   }
+{   cc_add_mod_n(ret, a, b, p, NLIMBS(bits));   }
 
 ADD_MOD_IMPL(256)
 ADD_MOD_IMPL(384)
 
-inline void sub_mod_n(limb_t ret[], const limb_t a[], const limb_t b[],
+inline void cc_sub_mod_n(limb_t ret[], const limb_t a[], const limb_t b[],
                       const limb_t p[], size_t n)
 {
     __builtin_assume(n != 0);
@@ -176,7 +179,7 @@ inline void sub_mod_n(limb_t ret[], const limb_t a[], const limb_t b[],
     }
 
     mask = 0 - borrow;
-    launder(mask);
+    BLST_launder(mask);
 
     for (carry=0, i=0; i<n; i++) {
         limbx = ret[i] + ((p[i] & mask) + (llimb_t)carry);
@@ -186,14 +189,14 @@ inline void sub_mod_n(limb_t ret[], const limb_t a[], const limb_t b[],
 }
 
 #define SUB_MOD_IMPL(bits) \
-HOST_DEVICE_FUNC inline void sub_mod_##bits(vec##bits ret, const vec##bits a, \
+HOST_DEVICE_FUNC inline void cc_sub_mod_##bits(vec##bits ret, const vec##bits a, \
                            const vec##bits b, const vec##bits p) \
-{   sub_mod_n(ret, a, b, p, NLIMBS(bits));   }
+{   cc_sub_mod_n(ret, a, b, p, NLIMBS(bits));   }
 
 SUB_MOD_IMPL(256)
 SUB_MOD_IMPL(384)
 
-inline void mul_by_3_mod_n(limb_t ret[], const limb_t a[], const limb_t p[],
+inline void cc_mul_by_3_mod_n(limb_t ret[], const limb_t a[], const limb_t p[],
                            size_t n)
 {
     __builtin_assume(n != 0);
@@ -217,7 +220,7 @@ inline void mul_by_3_mod_n(limb_t ret[], const limb_t a[], const limb_t p[],
     }
 
     mask = carry - borrow;
-    launder(mask);
+    BLST_launder(mask);
 
     for(i=0; i<n; i++)
         two_a[i] = (two_a[i] & ~mask) | (tmp[i] & mask);
@@ -235,7 +238,7 @@ inline void mul_by_3_mod_n(limb_t ret[], const limb_t a[], const limb_t p[],
     }
 
     mask = carry - borrow;
-    launder(mask);
+    BLST_launder(mask);
 
     for(i=0; i<n; i++)
         ret[i] = (ret[i] & ~mask) | (tmp[i] & mask);
@@ -246,14 +249,14 @@ inline void mul_by_3_mod_n(limb_t ret[], const limb_t a[], const limb_t p[],
 }
 
 #define MUL_BY_3_MOD_IMPL(bits) \
-HOST_DEVICE_FUNC inline void mul_by_3_mod_##bits(vec##bits ret, const vec##bits a, \
+HOST_DEVICE_FUNC inline void cc_mul_by_3_mod_##bits(vec##bits ret, const vec##bits a, \
                                 const vec##bits p) \
-{   mul_by_3_mod_n(ret, a, p, NLIMBS(bits));   }
+{   cc_mul_by_3_mod_n(ret, a, p, NLIMBS(bits));   }
 
 MUL_BY_3_MOD_IMPL(256)
 MUL_BY_3_MOD_IMPL(384)
 
-inline void lshift_mod_n(limb_t ret[], const limb_t a[], size_t count,
+inline void cc_lshift_mod_n(limb_t ret[], const limb_t a[], size_t count,
                          const limb_t p[], size_t n)
 {
     __builtin_assume(count != 0);
@@ -277,7 +280,7 @@ inline void lshift_mod_n(limb_t ret[], const limb_t a[], size_t count,
         }
 
         mask = carry - borrow;
-        launder(mask);
+        BLST_launder(mask);
 
         for(i=0; i<n; i++)
             ret[i] = (ret[i] & ~mask) | (tmp[i] & mask);
@@ -289,14 +292,14 @@ inline void lshift_mod_n(limb_t ret[], const limb_t a[], size_t count,
 }
 
 #define LSHIFT_MOD_IMPL(bits) \
-HOST_DEVICE_FUNC inline void lshift_mod_##bits(vec##bits ret, const vec##bits a, size_t count, \
+HOST_DEVICE_FUNC inline void cc_lshift_mod_##bits(vec##bits ret, const vec##bits a, size_t count, \
                               const vec##bits p) \
-{   lshift_mod_n(ret, a, count, p, NLIMBS(bits));   }
+{   cc_lshift_mod_n(ret, a, count, p, NLIMBS(bits));   }
 
 LSHIFT_MOD_IMPL(256)
 LSHIFT_MOD_IMPL(384)
 
-inline void cneg_mod_n(limb_t ret[], const limb_t a[], bool_t flag,
+inline void cc_cneg_mod_n(limb_t ret[], const limb_t a[], bool_t flag,
                        const limb_t p[], size_t n)
 {
     __builtin_assume(n != 0);
@@ -320,14 +323,14 @@ inline void cneg_mod_n(limb_t ret[], const limb_t a[], bool_t flag,
 }
 
 #define CNEG_MOD_IMPL(bits) \
-HOST_DEVICE_FUNC inline void cneg_mod_##bits(vec##bits ret, const vec##bits a, bool_t flag, \
+HOST_DEVICE_FUNC inline void cc_cneg_mod_##bits(vec##bits ret, const vec##bits a, bool_t flag, \
                             const vec##bits p) \
-{   cneg_mod_n(ret, a, flag, p, NLIMBS(bits));   }
+{   cc_cneg_mod_n(ret, a, flag, p, NLIMBS(bits));   }
 
 CNEG_MOD_IMPL(256)
 CNEG_MOD_IMPL(384)
 
-inline limb_t check_mod_n(const byte a[], const limb_t p[], size_t n)
+inline limb_t cc_check_mod_n(const byte a[], const limb_t p[], size_t n)
 {
     __builtin_assume(n != 0);
     llimb_t limbx;
@@ -346,12 +349,12 @@ inline limb_t check_mod_n(const byte a[], const limb_t p[], size_t n)
 }
 
 #define CHECK_MOD_IMPL(bits) \
-HOST_DEVICE_FUNC inline limb_t check_mod_##bits(const pow##bits a, const vec##bits p) \
-{   return check_mod_n(a, p, NLIMBS(bits));   }
+HOST_DEVICE_FUNC inline limb_t cc_check_mod_##bits(const pow##bits a, const vec##bits p) \
+{   return cc_check_mod_n(a, p, NLIMBS(bits));   }
 
 CHECK_MOD_IMPL(256)
 
-inline limb_t add_n_check_mod_n(byte ret[], const byte a[], const byte b[],
+inline limb_t cc_add_n_check_mod_n(byte ret[], const byte a[], const byte b[],
                                             const limb_t p[], size_t n)
 {
     __builtin_assume(n != 0);
@@ -363,7 +366,7 @@ inline limb_t add_n_check_mod_n(byte ret[], const byte a[], const byte b[],
     limbs_from_le_bytes(a_, a, n * sizeof(limb_t));
     limbs_from_le_bytes(b_, b, n * sizeof(limb_t));
 
-    add_mod_n(ret_, a_, b_, p, n);
+    cc_add_mod_n(ret_, a_, b_, p, n);
     zero = vec_is_zero(ret_, n * sizeof(limb_t));
 
     le_bytes_from_limbs(ret, ret_, n * sizeof(limb_t));
@@ -376,13 +379,13 @@ inline limb_t add_n_check_mod_n(byte ret[], const byte a[], const byte b[],
 }
 
 #define ADD_N_CHECK_MOD_IMPL(bits) \
-HOST_DEVICE_FUNC inline limb_t add_n_check_mod_##bits(pow##bits ret, const pow##bits a, \
+HOST_DEVICE_FUNC inline limb_t cc_add_n_check_mod_##bits(pow##bits ret, const pow##bits a, \
                                      const pow##bits b, const vec##bits p) \
-{   return add_n_check_mod_n(ret, a, b, p, NLIMBS(bits));   }
+{   return cc_add_n_check_mod_n(ret, a, b, p, NLIMBS(bits));   }
 
 ADD_N_CHECK_MOD_IMPL(256)
 
-inline limb_t sub_n_check_mod_n(byte ret[], const byte a[], const byte b[],
+inline limb_t cc_sub_n_check_mod_n(byte ret[], const byte a[], const byte b[],
                                             const limb_t p[], size_t n)
 {
     __builtin_assume(n != 0);
@@ -394,7 +397,7 @@ inline limb_t sub_n_check_mod_n(byte ret[], const byte a[], const byte b[],
     limbs_from_le_bytes(a_, a, n * sizeof(limb_t));
     limbs_from_le_bytes(b_, b, n * sizeof(limb_t));
 
-    sub_mod_n(ret_, a_, b_, p, n);
+    cc_sub_mod_n(ret_, a_, b_, p, n);
     zero = vec_is_zero(ret_, n * sizeof(limb_t));
 
     le_bytes_from_limbs(ret, ret_, n * sizeof(limb_t));
@@ -407,13 +410,13 @@ inline limb_t sub_n_check_mod_n(byte ret[], const byte a[], const byte b[],
 }
 
 #define SUB_N_CHECK_MOD_IMPL(bits) \
-HOST_DEVICE_FUNC inline limb_t sub_n_check_mod_##bits(pow##bits ret, const pow##bits a, \
+HOST_DEVICE_FUNC inline limb_t cc_sub_n_check_mod_##bits(pow##bits ret, const pow##bits a, \
                                      const pow##bits b, const vec##bits p) \
-{   return sub_n_check_mod_n(ret, a, b, p, NLIMBS(bits));   }
+{   return cc_sub_n_check_mod_n(ret, a, b, p, NLIMBS(bits));   }
 
 SUB_N_CHECK_MOD_IMPL(256)
 
-inline void from_mont_n(limb_t ret[], const limb_t a[],
+inline void cc_from_mont_n(limb_t ret[], const limb_t a[],
                         const limb_t p[], limb_t n0, size_t n)
 {
     __builtin_assume(n != 0 && n%2 == 0);
@@ -443,7 +446,7 @@ inline void from_mont_n(limb_t ret[], const limb_t a[],
     }
 
     mask = 0 - borrow;
-    launder(mask);
+    BLST_launder(mask);
 
     for(i=0; i<n; i++)
         ret[i] = (ret[i] & ~mask) | (tmp[i] & mask);
@@ -452,14 +455,14 @@ inline void from_mont_n(limb_t ret[], const limb_t a[],
 }
 
 #define FROM_MONT_IMPL(bits) \
-HOST_DEVICE_FUNC inline void from_mont_##bits(vec##bits ret, const vec##bits a, \
+HOST_DEVICE_FUNC inline void cc_from_mont_##bits(vec##bits ret, const vec##bits a, \
                              const vec##bits p, limb_t n0) \
-{   from_mont_n(ret, a, p, n0, NLIMBS(bits));   }
+{   cc_from_mont_n(ret, a, p, n0, NLIMBS(bits));   }
 
 FROM_MONT_IMPL(256)
 FROM_MONT_IMPL(384)
 
-inline void redc_mont_n(limb_t ret[], const limb_t a[],
+inline void cc_redc_mont_n(limb_t ret[], const limb_t a[],
                         const limb_t p[], limb_t n0, size_t n)
 {
     __builtin_assume(n != 0 && n%2 == 0);
@@ -496,7 +499,7 @@ inline void redc_mont_n(limb_t ret[], const limb_t a[],
     }
 
     mask = carry - borrow;
-    launder(mask);
+    BLST_launder(mask);
 
     for(i=0; i<n; i++)
         ret[i] = (ret[i] & ~mask) | (tmp[i] & mask);
@@ -505,14 +508,14 @@ inline void redc_mont_n(limb_t ret[], const limb_t a[],
 }
 
 #define REDC_MONT_IMPL(bits, bits2) \
-HOST_DEVICE_FUNC inline void redc_mont_##bits(vec##bits ret, const vec##bits2 a, \
+HOST_DEVICE_FUNC inline void cc_redc_mont_##bits(vec##bits ret, const vec##bits2 a, \
                              const vec##bits p, limb_t n0) \
-{   redc_mont_n(ret, a, p, n0, NLIMBS(bits));   }
+{   cc_redc_mont_n(ret, a, p, n0, NLIMBS(bits));   }
 
 REDC_MONT_IMPL(256, 512)
 REDC_MONT_IMPL(384, 768)
 
-inline void rshift_mod_n(limb_t ret[], const limb_t a[], size_t count,
+inline void cc_rshift_mod_n(limb_t ret[], const limb_t a[], size_t count,
                          const limb_t p[], size_t n)
 {
     __builtin_assume(count != 0);
@@ -523,7 +526,7 @@ inline void rshift_mod_n(limb_t ret[], const limb_t a[], size_t count,
 
     while (count--) {
         mask = 0 - (a[0] & 1);
-        launder(mask);
+        BLST_launder(mask);
         for (carry=0, i=0; i<n; i++) {
             limbx = a[i] + ((p[i]&mask) + (llimb_t)carry);
             ret[i] = (limb_t)limbx;
@@ -542,21 +545,21 @@ inline void rshift_mod_n(limb_t ret[], const limb_t a[], size_t count,
 }
 
 #define RSHIFT_MOD_IMPL(bits) \
-HOST_DEVICE_FUNC inline void rshift_mod_##bits(vec##bits ret, const vec##bits a, size_t count, \
+HOST_DEVICE_FUNC inline void cc_rshift_mod_##bits(vec##bits ret, const vec##bits a, size_t count, \
                               const vec##bits p) \
-{   rshift_mod_n(ret, a, count, p, NLIMBS(bits));   }
+{   cc_rshift_mod_n(ret, a, count, p, NLIMBS(bits));   }
 
 RSHIFT_MOD_IMPL(256)
 RSHIFT_MOD_IMPL(384)
 
 #define DIV_BY_2_MOD_IMPL(bits) \
-HOST_DEVICE_FUNC inline void div_by_2_mod_##bits(vec##bits ret, const vec##bits a, \
+HOST_DEVICE_FUNC inline void cc_div_by_2_mod_##bits(vec##bits ret, const vec##bits a, \
                                 const vec##bits p) \
-{   rshift_mod_n(ret, a, 1, p, NLIMBS(bits));   }
+{   cc_rshift_mod_n(ret, a, 1, p, NLIMBS(bits));   }
 
 DIV_BY_2_MOD_IMPL(384)
 
-inline limb_t sgn0_pty_mod_n(const limb_t a[], const limb_t p[], size_t n)
+inline limb_t cc_sgn0_pty_mod_n(const limb_t a[], const limb_t p[], size_t n)
 {
     __builtin_assume(n != 0);
     llimb_t limbx;
@@ -584,24 +587,24 @@ inline limb_t sgn0_pty_mod_n(const limb_t a[], const limb_t p[], size_t n)
     return ret;
 }
 
-HOST_DEVICE_FUNC inline limb_t sgn0_pty_mod_384(const vec384 a, const vec384 p)
-{   return sgn0_pty_mod_n(a, p, NLIMBS(384));   }
+HOST_DEVICE_FUNC inline limb_t cc_sgn0_pty_mod_384(const vec384 a, const vec384 p)
+{   return cc_sgn0_pty_mod_n(a, p, NLIMBS(384));   }
 
-HOST_DEVICE_FUNC inline limb_t sgn0_pty_mont_384(const vec384 a, const vec384 p, limb_t n0)
+HOST_DEVICE_FUNC inline limb_t cc_sgn0_pty_mont_384(const vec384 a, const vec384 p, limb_t n0)
 {
     vec384 tmp;
 
-    from_mont_n(tmp, a, p, n0, NLIMBS(384));
+    cc_from_mont_n(tmp, a, p, n0, NLIMBS(384));
 
-    return sgn0_pty_mod_n(tmp, p, NLIMBS(384));
+    return cc_sgn0_pty_mod_n(tmp, p, NLIMBS(384));
 }
 
-HOST_DEVICE_FUNC inline limb_t sgn0_pty_mod_384x(const vec384x a, const vec384 p)
+HOST_DEVICE_FUNC inline limb_t cc_sgn0_pty_mod_384x(const vec384x a, const vec384 p)
 {
     limb_t re, im, sign, prty;
 
-    re = sgn0_pty_mod_n(a[0], p, NLIMBS(384));
-    im = sgn0_pty_mod_n(a[1], p, NLIMBS(384));
+    re = cc_sgn0_pty_mod_n(a[0], p, NLIMBS(384));
+    im = cc_sgn0_pty_mod_n(a[1], p, NLIMBS(384));
 
     /* a->im!=0 ? sgn0(a->im) : sgn0(a->re) */
     sign = (limb_t)0 - vec_is_zero(a[1], sizeof(vec384));
@@ -614,45 +617,38 @@ HOST_DEVICE_FUNC inline limb_t sgn0_pty_mod_384x(const vec384x a, const vec384 p
     return (sign & 2) | (prty & 1);
 }
 
-HOST_DEVICE_FUNC inline limb_t sgn0_pty_mont_384x(const vec384x a, const vec384 p, limb_t n0)
+HOST_DEVICE_FUNC inline limb_t cc_sgn0_pty_mont_384x(const vec384x a, const vec384 p, limb_t n0)
 {
     vec384x tmp;
 
-    from_mont_n(tmp[0], a[0], p, n0, NLIMBS(384));
-    from_mont_n(tmp[1], a[1], p, n0, NLIMBS(384));
+    cc_from_mont_n(tmp[0], a[0], p, n0, NLIMBS(384));
+    cc_from_mont_n(tmp[1], a[1], p, n0, NLIMBS(384));
 
-    return sgn0_pty_mod_384x(tmp, p);
+    return cc_sgn0_pty_mod_384x(tmp, p);
 }
 
-HOST_DEVICE_FUNC inline void mul_mont_384x(vec384x ret, const vec384x a, const vec384x b,
+HOST_DEVICE_FUNC inline void cc_mul_mont_384x(vec384x ret, const vec384x a, const vec384x b,
                           const vec384 p, limb_t n0)
 {
     vec384 aa, bb, cc;
 
-    add_mod_n(aa, a[0], a[1], p, NLIMBS(384));
-    add_mod_n(bb, b[0], b[1], p, NLIMBS(384));
-    mul_mont_n(bb, bb, aa, p, n0, NLIMBS(384));
-    mul_mont_n(aa, a[0], b[0], p, n0, NLIMBS(384));
-    mul_mont_n(cc, a[1], b[1], p, n0, NLIMBS(384));
-    sub_mod_n(ret[0], aa, cc, p, NLIMBS(384));
-    sub_mod_n(ret[1], bb, aa, p, NLIMBS(384));
-    sub_mod_n(ret[1], ret[1], cc, p, NLIMBS(384));
+    cc_add_mod_n(aa, a[0], a[1], p, NLIMBS(384));
+    cc_add_mod_n(bb, b[0], b[1], p, NLIMBS(384));
+    cc_mul_mont_n(bb, bb, aa, p, n0, NLIMBS(384));
+    cc_mul_mont_n(aa, a[0], b[0], p, n0, NLIMBS(384));
+    cc_mul_mont_n(cc, a[1], b[1], p, n0, NLIMBS(384));
+    cc_sub_mod_n(ret[0], aa, cc, p, NLIMBS(384));
+    cc_sub_mod_n(ret[1], bb, aa, p, NLIMBS(384));
+    cc_sub_mod_n(ret[1], ret[1], cc, p, NLIMBS(384));
 }
 
-HOST_DEVICE_FUNC inline void printHex2(const void* data, int byteSize)
-{
-    unsigned char* byteData = (unsigned char*)data;
-    for (int i = 0; i < byteSize; i++) {
-        printf("%02x", byteData[i]);
-    }
-    printf("\n");
-}
+
 /*
  * mul_mont_n without final conditional subtraction, which implies
  * that modulus is one bit short, which in turn means that there are
  * no carries to handle between iterations...
  */
-HOST_DEVICE_FUNC inline void mul_mont_nonred_n(limb_t ret[], const limb_t a[], const limb_t b[],
+HOST_DEVICE_FUNC inline void cc_mul_mont_nonred_n(limb_t ret[], const limb_t a[], const limb_t b[],
                               const limb_t p[], limb_t n0, size_t n)
 {
     __builtin_assume(n != 0 && n%2 == 0);
@@ -700,18 +696,18 @@ HOST_DEVICE_FUNC inline void mul_mont_nonred_n(limb_t ret[], const limb_t a[], c
 }
 
 
-HOST_DEVICE_FUNC inline void sqr_n_mul_mont_383(vec384 ret, const vec384 a, size_t count,
+HOST_DEVICE_FUNC inline void cc_sqr_n_mul_mont_384(vec384 ret, const vec384 a, size_t count,
                         const vec384 p, limb_t n0, const vec384 b)
 {
     __builtin_assume(count != 0);
     while(count--) {
-        mul_mont_nonred_n(ret, a, a, p, n0, NLIMBS(384));
+        cc_mul_mont_nonred_n(ret, a, a, p, n0, NLIMBS(384));
         a = ret;
     }
-    mul_mont_n(ret, ret, b, p, n0, NLIMBS(384));
+    cc_mul_mont_n(ret, ret, b, p, n0, NLIMBS(384));
 }
 
-HOST_DEVICE_FUNC inline void sqr_mont_382x(vec384x ret, const vec384x a,
+HOST_DEVICE_FUNC inline void cc_sqr_mont_382x(vec384x ret, const vec384x a,
                           const vec384 p, limb_t n0)
 {
     llimb_t limbx;
@@ -733,10 +729,10 @@ HOST_DEVICE_FUNC inline void sqr_mont_382x(vec384x ret, const vec384x a,
         borrow = (limb_t)(limbx >> LIMB_T_BITS) & 1;
     }
     mask = 0 - borrow;
-    launder(mask);
+    BLST_launder(mask);
 
     /* "mul_mont_n(ret[1], a[0], a[1], p, n0, NLIMBS(384));" */
-    mul_mont_nonred_n(ret[1], a[0], a[1], p, n0, NLIMBS(384));
+    cc_mul_mont_nonred_n(ret[1], a[0], a[1], p, n0, NLIMBS(384));
 
     /* "add_mod_n(ret[1], ret[1], ret[1], p, NLIMBS(384));" */
     for (carry=0, i=0; i<NLIMBS(384); i++) {
@@ -746,7 +742,7 @@ HOST_DEVICE_FUNC inline void sqr_mont_382x(vec384x ret, const vec384x a,
     }
 
     /* "mul_mont_n(ret[0], t0, t1, p, n0, NLIMBS(384));" */
-    mul_mont_nonred_n(ret[0], t0, t1, p, n0, NLIMBS(384));
+    cc_mul_mont_nonred_n(ret[0], t0, t1, p, n0, NLIMBS(384));
 
     /* account for t1's sign... */
     for (borrow=0, i=0; i<NLIMBS(384); i++) {
@@ -755,7 +751,7 @@ HOST_DEVICE_FUNC inline void sqr_mont_382x(vec384x ret, const vec384x a,
         borrow = (limb_t)(limbx >> LIMB_T_BITS) & 1;
     }
     mask = 0 - borrow;
-    launder(mask);
+    BLST_launder(mask);
     for (carry=0, i=0; i<NLIMBS(384); i++) {
         limbx = ret[0][i] + ((p[i] & mask) + (llimb_t)carry);
         ret[0][i] = (limb_t)limbx;
@@ -763,13 +759,79 @@ HOST_DEVICE_FUNC inline void sqr_mont_382x(vec384x ret, const vec384x a,
     }
 }
 
+HOST_DEVICE_FUNC inline void lshift_mod_v384(vec384 ret, const vec384 a, size_t n,
+    const vec384 mod)
+{
+    while (n--)
+        cc_add_mod_384(ret, a, a, mod), a = ret;
+}
+
+HOST_DEVICE_FUNC inline void cc_mul_by_8_mod_384(vec384 ret, const vec384 a, const vec384 mod)
+{
+    lshift_mod_v384(ret, a, 3, mod);
+}
+
+HOST_DEVICE_FUNC inline void cc_mul_by_3_mod_384x(vec384x ret, const vec384x a, const vec384 mod)
+{
+    cc_mul_by_3_mod_384(ret[0], a[0], mod);
+    cc_mul_by_3_mod_384(ret[1], a[1], mod);
+}
+HOST_DEVICE_FUNC inline  void cc_mul_by_8_mod_384x(vec384x ret, const vec384x a, const vec384 mod)
+{
+    cc_mul_by_8_mod_384(ret[0], a[0], mod);
+    cc_mul_by_8_mod_384(ret[1], a[1], mod);
+}
+HOST_DEVICE_FUNC inline  void cc_mul_by_1_plus_i_mod_384x(vec384x ret, const vec384x a,
+    const vec384 mod)
+{
+    vec384 t;
+
+    cc_add_mod_384(t, a[0], a[1], mod);
+    cc_sub_mod_384(ret[0], a[0], a[1], mod);
+    vec_copy(ret[1], t, sizeof(t));
+}
+HOST_DEVICE_FUNC inline void cc_add_mod_384x(vec384x ret, const vec384x a, const vec384x b,
+    const vec384 mod)
+{
+    cc_add_mod_384(ret[0], a[0], b[0], mod);
+    cc_add_mod_384(ret[1], a[1], b[1], mod);
+}
+HOST_DEVICE_FUNC inline void cc_sub_mod_384x(vec384x ret, const vec384x a, const vec384x b,
+    const vec384 mod)
+{
+    cc_sub_mod_384(ret[0], a[0], b[0], mod);
+    cc_sub_mod_384(ret[1], a[1], b[1], mod);
+}
+HOST_DEVICE_FUNC inline void cc_lshift_mod_384x(vec384x ret, const vec384x a, size_t n,
+    const vec384 mod)
+{
+    cc_lshift_mod_384(ret[0], a[0], n, mod);
+    cc_lshift_mod_384(ret[1], a[1], n, mod);
+}
+
+//#if defined(__BLST_NO_ASM__) && !(defined(__ADX__) && !defined(__BLST_PORTABLE__))
+HOST_DEVICE_FUNC inline void cc_sqr_mont_384x(vec384x ret, const vec384x a, const vec384 mod, limb_t n0)
+{
+    vec384 t0, t1;
+
+    cc_add_mod_384(t0, a[0], a[1], mod);
+    cc_sub_mod_384(t1, a[0], a[1], mod);
+
+    cc_mul_mont_384(ret[1], a[0], a[1], mod, n0);
+    cc_add_mod_384(ret[1], ret[1], ret[1], mod);
+
+    cc_mul_mont_384(ret[0], t0, t1, mod, n0);
+}
+//#endif
+
+
 #if defined(__GNUC__) || defined(__clang__)
-# define MSB(x) ({ limb_t ret = (x) >> (LIMB_T_BITS-1); launder(ret); ret; })
+# define MSB(x) ({ limb_t ret = (x) >> (LIMB_T_BITS-1); BLST_launder(ret); ret; })
 #else
 # define MSB(x) ((x) >> (LIMB_T_BITS-1))
 #endif
 
-HOST_DEVICE_FUNC inline size_t num_bits(limb_t l)
+HOST_DEVICE_FUNC inline size_t cc_num_bits(limb_t l)
 {
     limb_t x, mask;
     size_t bits = is_zero(l) ^ 1;
@@ -809,7 +871,7 @@ HOST_DEVICE_FUNC inline size_t num_bits(limb_t l)
 #if defined(__clang_major__) && __clang_major__>7
 __attribute__((optnone))
 #endif
-HOST_DEVICE_FUNC inline  limb_t lshift_2(limb_t hi, limb_t lo, size_t l)
+HOST_DEVICE_FUNC inline  limb_t cc_lshift_2(limb_t hi, limb_t lo, size_t l)
 {
     size_t r = LIMB_T_BITS - l;
     limb_t mask = 0 - (is_zero(l)^1);
@@ -819,7 +881,7 @@ HOST_DEVICE_FUNC inline  limb_t lshift_2(limb_t hi, limb_t lo, size_t l)
 /*
  * https://eprint.iacr.org/2020/972 with 'k' being LIMB_T_BITS-1.
  */
-HOST_DEVICE_FUNC inline void ab_approximation_n(limb_t a_[2], const limb_t a[],
+HOST_DEVICE_FUNC inline void cc_ab_approximation_n(limb_t a_[2], const limb_t a[],
                                limb_t b_[2], const limb_t b[], size_t n)
 {
     __builtin_assume(n != 0 && n%2 == 0);
@@ -836,16 +898,16 @@ HOST_DEVICE_FUNC inline void ab_approximation_n(limb_t a_[2], const limb_t a[],
         a_lo = ((a[i] ^ a_lo) & mask) ^ a_lo;
         b_lo = ((b[i] ^ b_lo) & mask) ^ b_lo;
     }
-    i = LIMB_T_BITS - num_bits(a_hi | b_hi);
+    i = LIMB_T_BITS - cc_num_bits(a_hi | b_hi);
     /* |i| can be LIMB_T_BITS if all a[2..]|b[2..] were zeros */
 
-    a_[0] = a[0], a_[1] = lshift_2(a_hi, a_lo, i);
-    b_[0] = b[0], b_[1] = lshift_2(b_hi, b_lo, i);
+    a_[0] = a[0], a_[1] = cc_lshift_2(a_hi, a_lo, i);
+    b_[0] = b[0], b_[1] = cc_lshift_2(b_hi, b_lo, i);
 }
 
 typedef struct { limb_t f0, g0, f1, g1; } factors;
 
-HOST_DEVICE_FUNC inline void inner_loop_n(factors *fg, const limb_t a_[2], const limb_t b_[2],
+HOST_DEVICE_FUNC inline void cc_inner_loop_n(factors *fg, const limb_t a_[2], const limb_t b_[2],
                          size_t n)
 {
     __builtin_assume(n != 0);
@@ -902,7 +964,7 @@ HOST_DEVICE_FUNC inline void inner_loop_n(factors *fg, const limb_t a_[2], const
     fg->f0 = f0, fg->g0 = g0, fg->f1 = f1, fg->g1= g1;
 }
 
-HOST_DEVICE_FUNC inline limb_t cneg_n(limb_t ret[], const limb_t a[], limb_t neg, size_t n)
+HOST_DEVICE_FUNC inline limb_t cc_cneg_n(limb_t ret[], const limb_t a[], limb_t neg, size_t n)
 {
     __builtin_assume(n != 0);
     llimb_t limbx = 0;
@@ -918,7 +980,7 @@ HOST_DEVICE_FUNC inline limb_t cneg_n(limb_t ret[], const limb_t a[], limb_t neg
     return 0 - MSB((limb_t)limbx);
 }
 
-HOST_DEVICE_FUNC inline limb_t add_n(limb_t ret[], const limb_t a[], limb_t b[], size_t n)
+HOST_DEVICE_FUNC inline limb_t cc_add_n(limb_t ret[], const limb_t a[], limb_t b[], size_t n)
 {
     __builtin_assume(n != 0);
     llimb_t limbx;
@@ -934,7 +996,7 @@ HOST_DEVICE_FUNC inline limb_t add_n(limb_t ret[], const limb_t a[], limb_t b[],
     return carry;
 }
 
-HOST_DEVICE_FUNC inline limb_t umul_n(limb_t ret[], const limb_t a[], limb_t b, size_t n)
+HOST_DEVICE_FUNC inline limb_t cc_umul_n(limb_t ret[], const limb_t a[], limb_t b, size_t n)
 {
     __builtin_assume(n != 0);
     llimb_t limbx;
@@ -950,7 +1012,7 @@ HOST_DEVICE_FUNC inline limb_t umul_n(limb_t ret[], const limb_t a[], limb_t b, 
     return hi;
 }
 
-HOST_DEVICE_FUNC inline limb_t smul_n_shift_n(limb_t ret[], const limb_t a[], limb_t *f_,
+HOST_DEVICE_FUNC inline limb_t cc_smul_n_shift_n(limb_t ret[], const limb_t a[], limb_t *f_,
                                            const limb_t b[], limb_t *g_,
                                            size_t n)
 {
@@ -964,20 +1026,20 @@ HOST_DEVICE_FUNC inline limb_t smul_n_shift_n(limb_t ret[], const limb_t a[], li
     f = *f_;
     neg = 0 - MSB(f);
     f = (f ^ neg) - neg;            /* ensure |f| is positive */
-    (void)cneg_n(a_, a, neg, n);
-    hi = umul_n(a_, a_, f, n);
+    (void)cc_cneg_n(a_, a, neg, n);
+    hi = cc_umul_n(a_, a_, f, n);
     a_[n] = hi - (f & neg);
 
     /* |b|*|g_| */
     g = *g_;
     neg = 0 - MSB(g);
     g = (g ^ neg) - neg;            /* ensure |g| is positive */
-    (void)cneg_n(b_, b, neg, n);
-    hi = umul_n(b_, b_, g, n);
+    (void)cc_cneg_n(b_, b, neg, n);
+    hi = cc_umul_n(b_, b_, g, n);
     b_[n] = hi - (g & neg);
 
     /* |a|*|f_| + |b|*|g_| */
-    (void)add_n(a_, a_, b_, n+1);
+    (void)cc_add_n(a_, a_, b_, n+1);
 
     /* (|a|*|f_| + |b|*|g_|) >> k */
     for (carry=a_[0], i=0; i<n; i++) {
@@ -990,7 +1052,7 @@ HOST_DEVICE_FUNC inline limb_t smul_n_shift_n(limb_t ret[], const limb_t a[], li
     neg = 0 - MSB(carry);
     *f_ = (*f_ ^ neg) - neg;
     *g_ = (*g_ ^ neg) - neg;
-    (void)cneg_n(ret, ret, neg, n);
+    (void)cc_cneg_n(ret, ret, neg, n);
 
 	BLST_VLA_FREE(a_);
 	BLST_VLA_FREE(b_);
@@ -998,7 +1060,7 @@ HOST_DEVICE_FUNC inline limb_t smul_n_shift_n(limb_t ret[], const limb_t a[], li
     return neg;
 }
 
-HOST_DEVICE_FUNC inline limb_t smul_2n(limb_t ret[], const limb_t u[], limb_t f,
+HOST_DEVICE_FUNC inline limb_t cc_smul_2n(limb_t ret[], const limb_t u[], limb_t f,
                                     const limb_t v[], limb_t g, size_t n)
 {
     __builtin_assume(n != 0);
@@ -1010,17 +1072,17 @@ HOST_DEVICE_FUNC inline limb_t smul_2n(limb_t ret[], const limb_t u[], limb_t f,
     /* |u|*|f_| */
     neg = 0 - MSB(f);
     f = (f ^ neg) - neg;            /* ensure |f| is positive */
-    neg = cneg_n(u_, u, neg, n);
-    hi = umul_n(u_, u_, f, n) - (f&neg);
+    neg = cc_cneg_n(u_, u, neg, n);
+    hi = cc_umul_n(u_, u_, f, n) - (f&neg);
 
     /* |v|*|g_| */
     neg = 0 - MSB(g);
     g = (g ^ neg) - neg;            /* ensure |g| is positive */
-    neg = cneg_n(v_, v, neg, n);
-    hi += umul_n(v_, v_, g, n) - (g&neg);
+    neg = cc_cneg_n(v_, v, neg, n);
+    hi += cc_umul_n(v_, v_, g, n) - (g&neg);
 
     /* |u|*|f_| + |v|*|g_| */
-    hi += add_n(ret, u_, v_, n);
+    hi += cc_add_n(ret, u_, v_, n);
 
     BLST_VLA_FREE(u_);
     BLST_VLA_FREE(v_);
@@ -1028,7 +1090,7 @@ HOST_DEVICE_FUNC inline limb_t smul_2n(limb_t ret[], const limb_t u[], limb_t f,
     return hi;
 }
 
-HOST_DEVICE_FUNC inline void ct_inverse_mod_n(limb_t ret[], const limb_t inp[],
+HOST_DEVICE_FUNC inline void cc_ct_inverse_mod_n(limb_t ret[], const limb_t inp[],
                              const limb_t mod[], const limb_t modx[], size_t n)
 {
     __builtin_assume(n != 0 && n%2 == 0);
@@ -1049,18 +1111,18 @@ HOST_DEVICE_FUNC inline void ct_inverse_mod_n(limb_t ret[], const limb_t inp[],
     vec_zero(v, n*2 * sizeof(limb_t));
 
     for (i=0; i<(2*n*LIMB_T_BITS)/(LIMB_T_BITS-2); i++) {
-        ab_approximation_n(a_, a, b_, b, n);
-        inner_loop_n(&fg, a_, b_, LIMB_T_BITS-2);
-        (void)smul_n_shift_n(t, a, &fg.f0, b, &fg.g0, n);
-        (void)smul_n_shift_n(b, a, &fg.f1, b, &fg.g1, n);
+        cc_ab_approximation_n(a_, a, b_, b, n);
+        cc_inner_loop_n(&fg, a_, b_, LIMB_T_BITS-2);
+        (void)cc_smul_n_shift_n(t, a, &fg.f0, b, &fg.g0, n);
+        (void)cc_smul_n_shift_n(b, a, &fg.f1, b, &fg.g1, n);
         vec_copy(a, t, n * sizeof(limb_t));
-        smul_2n(t, u, fg.f0, v, fg.g0, 2*n);
-        smul_2n(v, u, fg.f1, v, fg.g1, 2*n);
+        cc_smul_2n(t, u, fg.f0, v, fg.g0, 2*n);
+        cc_smul_2n(v, u, fg.f1, v, fg.g1, 2*n);
         vec_copy(u, t, 2*n * sizeof(limb_t));
     }
 
-    inner_loop_n(&fg, a, b, (2*n*LIMB_T_BITS)%(LIMB_T_BITS-2));
-    top = smul_2n(ret, u, fg.f1, v, fg.g1, 2*n);
+    cc_inner_loop_n(&fg, a, b, (2*n*LIMB_T_BITS)%(LIMB_T_BITS-2));
+    top = cc_smul_2n(ret, u, fg.f1, v, fg.g1, 2*n);
 
     sign = 0 - MSB(top);    /* top is 1, 0 or -1 */
     for (carry=0, i=0; i<n; i++) {
@@ -1073,8 +1135,8 @@ HOST_DEVICE_FUNC inline void ct_inverse_mod_n(limb_t ret[], const limb_t inp[],
     top |= sign;
     for (i=0; i<n; i++)
         a[i] = modx[i] & top;
-    (void)cneg_n(a, a, 0 - MSB(sign), n);
-    add_n(ret+n, ret+n, a, n);
+    (void)cc_cneg_n(a, a, 0 - MSB(sign), n);
+    cc_add_n(ret+n, ret+n, a, n);
 
     BLST_VLA_FREE(a);
 	BLST_VLA_FREE(b);
@@ -1084,9 +1146,9 @@ HOST_DEVICE_FUNC inline void ct_inverse_mod_n(limb_t ret[], const limb_t inp[],
 }
 
 #define CT_INVERSE_MOD_IMPL(bits, bits2) \
-HOST_DEVICE_FUNC inline void ct_inverse_mod_##bits(vec##bits2 ret, const vec##bits inp, \
+HOST_DEVICE_FUNC inline void cc_ct_inverse_mod_##bits(vec##bits2 ret, const vec##bits inp, \
                                   const vec##bits mod, const vec##bits modx) \
-{   ct_inverse_mod_n(ret, inp, mod, modx, NLIMBS(bits));   }
+{   cc_ct_inverse_mod_n(ret, inp, mod, modx, NLIMBS(bits));   }
 
 CT_INVERSE_MOD_IMPL(256, 512)
 CT_INVERSE_MOD_IMPL(384, 768)
@@ -1094,7 +1156,7 @@ CT_INVERSE_MOD_IMPL(384, 768)
 /*
  * Copy of inner_loop_n above, but with |L| updates.
  */
-HOST_DEVICE_FUNC inline limb_t legendre_loop_n(limb_t L, factors *fg, const limb_t a_[2],
+HOST_DEVICE_FUNC inline limb_t cc_legendre_loop_n(limb_t L, factors *fg, const limb_t a_[2],
                               const limb_t b_[2], size_t n)
 {
     __builtin_assume(n != 0);
@@ -1157,7 +1219,7 @@ HOST_DEVICE_FUNC inline limb_t legendre_loop_n(limb_t L, factors *fg, const limb
     return L;
 }
 
-HOST_DEVICE_FUNC inline bool_t ct_is_sqr_mod_n(const limb_t inp[], const limb_t mod[], size_t n)
+HOST_DEVICE_FUNC inline bool_t cc_ct_is_sqr_mod_n(const limb_t inp[], const limb_t mod[], size_t n)
 {
     __builtin_assume(n != 0 && n%2 == 0);
 	BLST_VLA_NEW(limb_t, a, n);
@@ -1171,15 +1233,15 @@ HOST_DEVICE_FUNC inline bool_t ct_is_sqr_mod_n(const limb_t inp[], const limb_t 
     vec_copy(b, mod, n * sizeof(limb_t));
 
     for (i=0; i<(2*n*LIMB_T_BITS)/(LIMB_T_BITS-2); i++) {
-        ab_approximation_n(a_, a, b_, b, n);
-        L = legendre_loop_n(L, &fg, a_, b_, LIMB_T_BITS-2);
-        neg = smul_n_shift_n(t, a, &fg.f0, b, &fg.g0, n);
-        (void)smul_n_shift_n(b, a, &fg.f1, b, &fg.g1, n);
+        cc_ab_approximation_n(a_, a, b_, b, n);
+        L = cc_legendre_loop_n(L, &fg, a_, b_, LIMB_T_BITS-2);
+        neg = cc_smul_n_shift_n(t, a, &fg.f0, b, &fg.g0, n);
+        (void)cc_smul_n_shift_n(b, a, &fg.f1, b, &fg.g1, n);
         vec_copy(a, t, n * sizeof(limb_t));
         L += (b[0] >> 1) & neg;
     }
 
-    L = legendre_loop_n(L, &fg, a, b, (2*n*LIMB_T_BITS)%(LIMB_T_BITS-2));
+    L = cc_legendre_loop_n(L, &fg, a, b, (2*n*LIMB_T_BITS)%(LIMB_T_BITS-2));
 
     BLST_VLA_FREE(a);
     BLST_VLA_FREE(b);
@@ -1189,9 +1251,9 @@ HOST_DEVICE_FUNC inline bool_t ct_is_sqr_mod_n(const limb_t inp[], const limb_t 
 }
 
 #define CT_IS_SQR_MOD_IMPL(bits) \
-HOST_DEVICE_FUNC inline bool_t ct_is_square_mod_##bits(const vec##bits inp, \
+HOST_DEVICE_FUNC inline bool_t cc_ct_is_square_mod_##bits(const vec##bits inp, \
                                       const vec##bits mod) \
-{   return ct_is_sqr_mod_n(inp, mod, NLIMBS(bits));   }
+{   return cc_ct_is_sqr_mod_n(inp, mod, NLIMBS(bits));   }
 
 CT_IS_SQR_MOD_IMPL(384)
 
@@ -1213,7 +1275,7 @@ CT_IS_SQR_MOD_IMPL(384)
  * D         |       |       |
  *           +-------+-------+
  */
-HOST_DEVICE_FUNC inline limb_t div_3_limbs(const limb_t div_top[2], limb_t d_lo, limb_t d_hi)
+HOST_DEVICE_FUNC inline limb_t cc_div_3_limbs(const limb_t div_top[2], limb_t d_lo, limb_t d_hi)
 {
     llimb_t Rx;
     limb_t r_lo = div_top[0], r_hi = div_top[1];
@@ -1256,7 +1318,7 @@ HOST_DEVICE_FUNC inline limb_t div_3_limbs(const limb_t div_top[2], limb_t d_lo,
     return (Q | mask);
 }
 
-HOST_DEVICE_FUNC inline limb_t quot_rem_n(limb_t *div_rem, const limb_t *divisor,
+HOST_DEVICE_FUNC inline limb_t cc_quot_rem_n(limb_t *div_rem, const limb_t *divisor,
                                           limb_t quotient, size_t n)
 {
     __builtin_assume(n != 0 && n%2 == 0);
@@ -1281,7 +1343,7 @@ HOST_DEVICE_FUNC inline limb_t quot_rem_n(limb_t *div_rem, const limb_t *divisor
     }
 
     mask = 0 - borrow;
-    launder(mask);
+    BLST_launder(mask);
 
     /* if quotient was off by one, add divisor to the remainder */
     for (carry=0, i=0; i<n; i++) {
@@ -1295,13 +1357,13 @@ HOST_DEVICE_FUNC inline limb_t quot_rem_n(limb_t *div_rem, const limb_t *divisor
     return (div_rem[i] = quotient + mask);
 }
 
-HOST_DEVICE_FUNC inline limb_t quot_rem_128(limb_t *div_rem, const limb_t *divisor,
+HOST_DEVICE_FUNC inline limb_t cc_quot_rem_128(limb_t *div_rem, const limb_t *divisor,
                                             limb_t quotient)
-{   return quot_rem_n(div_rem, divisor, quotient, NLIMBS(128));   }
+{   return cc_quot_rem_n(div_rem, divisor, quotient, NLIMBS(128));   }
 
-HOST_DEVICE_FUNC inline limb_t quot_rem_64(limb_t *div_rem, const limb_t *divisor,
+HOST_DEVICE_FUNC inline limb_t cc_quot_rem_64(limb_t *div_rem, const limb_t *divisor,
                                            limb_t quotient)
-{   return quot_rem_n(div_rem, divisor, quotient, NLIMBS(64));   }
+{   return cc_quot_rem_n(div_rem, divisor, quotient, NLIMBS(64));   }
 
 /*
  * Unlock reference implementations in vect.c
@@ -1315,8 +1377,17 @@ HOST_DEVICE_FUNC inline limb_t quot_rem_64(limb_t *div_rem, const limb_t *diviso
 //#define lshift_mod_384x lshift_mod_384x
 //#define sqr_mont_384x sqr_mont_384x
 
-HOST_DEVICE_FUNC inline void vec_prefetch(const void *ptr, size_t len)
-{   (void)ptr; (void)len;   }
+HOST_DEVICE_FUNC inline void cc_vec_prefetch(const void *ptr, size_t len)
+{  
+	// prefetch if we have the intrinsic
+#if defined(__GNUC__) || defined(__clang__)
+	__builtin_prefetch(ptr, 0, 3);
+#elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
+	_mm_prefetch((const char*)ptr, _MM_HINT_T0);
+#else
+    (void)ptr; (void)len;
+#endif
+}
 
 /*
  * SHA-256
@@ -1329,7 +1400,7 @@ HOST_DEVICE_FUNC inline void vec_prefetch(const void *ptr, size_t len)
 #define Ch(x,y,z)	(((x) & (y)) ^ ((~(x)) & (z)))
 #define Maj(x,y,z)	(((x) & (y)) ^ ((x) & (z)) ^ ((y) & (z)))
 
-HOST_DEVICE_FUNC inline void blst_sha256_block_data_order(unsigned int *v, const void *inp,
+HOST_DEVICE_FUNC inline void cc_blst_sha256_block_data_order(unsigned int *v, const void *inp,
                                                    size_t blocks)
 {
     const unsigned int K256[64] = {
@@ -1420,7 +1491,7 @@ HOST_DEVICE_FUNC inline void blst_sha256_block_data_order(unsigned int *v, const
 #undef Ch
 #undef Maj
 
-HOST_DEVICE_FUNC inline void blst_sha256_hcopy(unsigned int dst[8], const unsigned int src[8])
+HOST_DEVICE_FUNC inline void cc_blst_sha256_hcopy(unsigned int dst[8], const unsigned int src[8])
 {
     size_t i;
 
@@ -1428,7 +1499,7 @@ HOST_DEVICE_FUNC inline void blst_sha256_hcopy(unsigned int dst[8], const unsign
         dst[i] = src[i];
 }
 
-HOST_DEVICE_FUNC inline void blst_sha256_emit(unsigned char md[32], const unsigned int h[8])
+HOST_DEVICE_FUNC inline void cc_blst_sha256_emit(unsigned char md[32], const unsigned int h[8])
 {
     size_t i;
 
@@ -1441,7 +1512,7 @@ HOST_DEVICE_FUNC inline void blst_sha256_emit(unsigned char md[32], const unsign
     }
 }
 
-HOST_DEVICE_FUNC inline void blst_sha256_bcopy(void *dst_, const void *src_, size_t len)
+HOST_DEVICE_FUNC inline void cc_blst_sha256_bcopy(void *dst_, const void *src_, size_t len)
 {
     unsigned char *dst = (unsigned char*)dst_;
     const unsigned char *src = (const unsigned char*)src_;

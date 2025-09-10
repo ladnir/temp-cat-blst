@@ -46,7 +46,7 @@ inline limb_t get_wval_limb(const byte *d, size_t off, size_t bits)
 inline limb_t booth_encode(limb_t wval, size_t sz)
 {
     limb_t mask = 0 - (wval >> sz);     /* "sign" bit -> mask */
-    launder(mask);
+    BLST_launder(mask);
 
     wval = (wval + 1) >> 1;
     wval = (wval ^ mask) - mask;

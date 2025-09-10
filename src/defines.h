@@ -67,5 +67,43 @@ typedef byte pow256[256 / 8];
  */
 typedef limb_t bool_t;
 
+
+
+#ifdef __UINTPTR_TYPE__
+typedef __UINTPTR_TYPE__ uptr_t;
+#else
+typedef const void *uptr_t;
+#endif
+
+#if !defined(restrict)
+# if !defined(__STDC_VERSION__) || __STDC_VERSION__<199901
+#  if defined(__GNUC__) && __GNUC__>=2
+#   define restrict __restrict__
+#  elif defined(_MSC_VER)
+#   define restrict __restrict
+#  else
+#   define restrict
+#  endif
+# endif
+#endif
+
+#if !defined(inline) && !defined(__cplusplus)
+# if !defined(__STDC_VERSION__) || __STDC_VERSION__<199901
+#  if defined(__GNUC__) && __GNUC__>=2
+#   define inline __inline__
+#  elif defined(_MSC_VER)
+#   define inline __inline
+#  else
+#   define inline
+#  endif
+# endif
+#endif
+
+#if defined(__GNUC__) || defined(__clang__)
+# define BLST_launder(var) __asm__ __volatile__("" : "+r"(var))
+#else
+# define BLST_launder(var)
+#endif
+
 #endif
 

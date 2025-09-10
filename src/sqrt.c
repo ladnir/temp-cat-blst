@@ -27,7 +27,7 @@ void recip_sqrt_fp_3mod4(vec384 out, const vec384 inp)
  */
 void sqr_n_mul_fp(vec384 out, const vec384 a, size_t count,
                                 const vec384 b)
-{   sqr_n_mul_mont_383(out, a, count, BLS12_381_P, p0, b);   }
+{   sqr_n_mul_mont_v383(out, a, count, BLS12_381_P, p0, b);   }
 # else
 void sqr_n_mul_fp(vec384 out, const vec384 a, size_t count,
                          const vec384 b)
@@ -91,7 +91,7 @@ int blst_fp_sqrt(vec384 out, const vec384 inp)
 
 int blst_fp_is_square(const vec384 inp)
 {
-    return (int)ct_is_square_mod_384(inp, BLS12_381_P);
+    return (int)ct_is_square_mod_v384(inp, BLS12_381_P);
 }
 
 bool_t sqrt_align_fp2(vec384x out, const vec384x ret,
@@ -257,5 +257,5 @@ int blst_fp2_is_square(const vec384x inp)
     sqr_fp(bb, inp[1]);
     add_fp(aa, aa, bb);
 
-    return (int)ct_is_square_mod_384(aa, BLS12_381_P);
+    return (int)ct_is_square_mod_v384(aa, BLS12_381_P);
 }

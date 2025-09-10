@@ -188,7 +188,7 @@ inline limb_t POINTonE2_affine_Serialize_BE(unsigned char out[192],
     from_fp(temp[0], in->Y[0]);
     be_bytes_from_limbs(out + 144, temp[0], sizeof(temp[0]));
 
-    return sgn0_pty_mod_384x(temp, BLS12_381_P);
+    return sgn0_pty_mod_v384x(temp, BLS12_381_P);
 }
 
 inline void blst_p2_affine_serialize(unsigned char out[192],
@@ -238,7 +238,7 @@ inline limb_t POINTonE2_affine_Compress_BE(unsigned char out[96],
     from_fp(temp, in->X[0]);
     be_bytes_from_limbs(out + 48, temp, sizeof(temp));
 
-    return sgn0_pty_mont_384x(in->Y, BLS12_381_P, p0);
+    return sgn0_pty_mont_v384x(in->Y, BLS12_381_P, p0);
 }
 
 inline void blst_p2_affine_compress(unsigned char out[96], const POINTonE2_affine *in)
@@ -306,7 +306,7 @@ inline limb_t POINTonE2_Uncompress_BE(POINTonE2_affine *out,
 
     vec_copy(out, &ret, sizeof(ret));
 
-    return sgn0_pty_mont_384x(out->Y, BLS12_381_P, p0);
+    return sgn0_pty_mont_v384x(out->Y, BLS12_381_P, p0);
 }
 
 inline BLST_ERROR POINTonE2_Uncompress_Z(POINTonE2_affine *out,
@@ -595,7 +595,7 @@ inline void blst_p2_mult(POINTonE2 *out, const POINTonE2 *a,
             j += 1 & mask;
         }
 
-        if (check_mod_256(val.s, BLS12_381_r))  /* z^4 is the formal limit */
+        if (check_mod_v256(val.s, BLS12_381_r))  /* z^4 is the formal limit */
             POINTonE2_mult_gls(out, a, val.s);
         else    /* should never be the case, added for formal completeness */
             POINTonE2_mult_w5(out, a, scalar, nbits);

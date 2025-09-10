@@ -16,11 +16,11 @@
       defined(__ARM_FEATURE_CRYPTO) && !defined(__BLST_PORTABLE__)
 # define sha256_block_data_order blst_sha256_block_armv8
 #else
-# define sha256_block_data_order blst_sha256_block_data_order
+# define sha256_block_data_order blst_sha256_block_data_order_v
 #endif
-#define sha256_hcopy blst_sha256_hcopy
-#define sha256_bcopy blst_sha256_bcopy
-#define sha256_emit  blst_sha256_emit
+#define sha256_hcopy blst_sha256_hcopy_v
+#define sha256_bcopy blst_sha256_bcopy_v
+#define sha256_emit  blst_sha256_emit_v
 
 void sha256_block_data_order(unsigned int *h, const void *inp, size_t blocks);
 void sha256_hcopy(unsigned int dst[8], const unsigned int src[8]);

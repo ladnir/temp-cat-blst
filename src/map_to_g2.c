@@ -223,7 +223,7 @@ void map_to_isogenous_E2(POINTonE2 *p, const vec384x u)
 # define y1     y
 # define Zuu    x2n
 #endif
-#define sgn0_fp2(a) (sgn0_pty_mont_384x((a), BLS12_381_P, p0) & 1)
+#define sgn0_fp2(a) (sgn0_pty_mont_v384x((a), BLS12_381_P, p0) & 1)
     bool_t e1, e2;
 
     /*

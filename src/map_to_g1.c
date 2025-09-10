@@ -316,7 +316,7 @@ void map_to_isogenous_E1(POINTonE1 *p, const vec384 u)
 # define Zuu    x2n
 # define tv4    y1
 #endif
-#define sgn0_fp(a) (sgn0_pty_mont_384((a), BLS12_381_P, p0) & 1)
+#define sgn0_fp(a) (sgn0_pty_mont_v384((a), BLS12_381_P, p0) & 1)
     bool_t e1, e2;
 
     /*

@@ -18,9 +18,9 @@ void exp_mont_384(vec384 out, const vec384 inp, const byte *pow,
     vec_copy(ret, inp, sizeof(ret));  /* ret = inp^1 */
     --pow_bits; /* most significant bit is set, skip over */
     while (pow_bits--) {
-        sqr_mont_384(ret, ret, p, n0);
+        sqr_mont_v384(ret, ret, p, n0);
         if (is_bit_set(pow, pow_bits))
-            mul_mont_384(ret, ret, inp, p, n0);
+            mul_mont_v384(ret, ret, inp, p, n0);
     }
     vec_copy(out, ret, sizeof(ret));  /* out = ret */
 #else
@@ -47,9 +47,9 @@ void exp_mont_384x(vec384x out, const vec384x inp, const byte *pow,
     vec_copy(ret, inp, sizeof(ret));  /* |ret| = |inp|^1 */
     --pow_bits; /* most significant bit is accounted for, skip over */
     while (pow_bits--) {
-        sqr_mont_384x(ret, ret, p, n0);
+        sqr_mont_v384x(ret, ret, p, n0);
         if (is_bit_set(pow, pow_bits))
-            mul_mont_384x(ret, ret, inp, p, n0);
+            mul_mont_v384x(ret, ret, inp, p, n0);
     }
     vec_copy(out, ret, sizeof(ret));  /* |out| = |ret| */
 }
