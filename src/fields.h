@@ -51,6 +51,9 @@ inline void cneg_fp(vec384 ret, const vec384 a, bool_t flag)
 inline void from_fp(vec384 ret, const vec384 a)
 {   from_mont_384(ret, a, BLS12_381_P, p0);   }
 
+inline void to_fp(vec384 ret, const vec384 a)
+{ mul_fp(ret, a, BLS12_381_RR); }
+
 inline void redc_fp(vec384 ret, const vec768 a)
 {   redc_mont_384(ret, a, BLS12_381_P, p0);   }
 
@@ -111,6 +114,12 @@ void cyclotomic_sqr_fp12(vec384fp12 ret, const vec384fp12 a);
 void mul_fp12(vec384fp12 ret, const vec384fp12 a, const vec384fp12 b);
 void mul_by_xy00z0_fp12(vec384fp12 ret, const vec384fp12 a,
                                                const vec384fp6 xy00z0);
+inline void conjugate_fp2(vec384x ret, const vec384x a)
+{
+    vec_copy(ret[0], a[0], sizeof(vec384));  /* Re(ret) = Re(a) */
+    cneg_fp(ret[1], a[1], 1);               /* Im(ret) = -Im(a) */
+}
+
 void conjugate_fp12(vec384fp12 a);
 void inverse_fp12(vec384fp12 ret, const vec384fp12 a);
 /* caveat lector! |n| has to be non-zero and not more than 3! */

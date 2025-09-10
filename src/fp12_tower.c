@@ -664,7 +664,7 @@ void cyclotomic_sqr_fp12(vec384fp12 ret, const vec384fp12 a)
 /*
  * caveat lector! |n| has to be non-zero and not more than 3!
  */
-inline void frobenius_map_fp2(vec384x ret, const vec384x a, size_t n)
+void frobenius_map_fp2(vec384x ret, const vec384x a, size_t n)
 {
     vec_copy(ret[0], a[0], sizeof(ret[0]));
     cneg_fp(ret[1], a[1], n & 1);
@@ -767,8 +767,37 @@ int blst_fp12_is_one(const vec384fp12 a)
                  vec_is_zero(a[0][1], sizeof(vec384fp12) - sizeof(a[0][0])));
 }
 
+
 const vec384fp12 *blst_fp12_one(void)
 {   return (const vec384fp12 *)BLS12_381_Rx.p12;   }
+
+void blst_fp12_one_copy(vec384fp12 ret)
+{
+	memcpy(ret, BLS12_381_Rx.p12, sizeof(vec384fp12));
+}
+
+void blst_fp12_from_bendian(vec384fp12 ret, const unsigned char serialized[12 * 48]) {
+    // Clear the output first
+    memset(ret, 0, sizeof(vec384fp12));
+
+    // vec384fp12 is structured as ret[2][3][2] representing:
+    // - 2 components of Fp6 (for Fp12 = Fp6[w])
+    // - 3 components of Fp2 each (for Fp6 = Fp2[v])  
+    // - 2 components of Fp each (for Fp2 = Fp[u])
+
+    size_t byte_offset = 0;
+    for (size_t fp6_comp = 0; fp6_comp < 3; fp6_comp++) {      // Fp6 components  
+        for (size_t fp12_comp = 0; fp12_comp < 2; fp12_comp++) {       // Fp12 components
+            for (size_t fp2_comp = 0; fp2_comp < 2; fp2_comp++) {  // Fp2 components
+                vec384 r;
+                // Convert from big-endian bytes to vec384 (limbs)
+                limbs_from_be_bytes(r, &serialized[byte_offset], 48);
+                to_fp(ret[fp12_comp][fp6_comp][fp2_comp], r);
+                byte_offset += 48;
+            }
+        }
+    }
+}
 
 void blst_bendian_from_fp12(unsigned char ret[48*12], const vec384fp12 a)
 {
@@ -777,13 +806,58 @@ void blst_bendian_from_fp12(unsigned char ret[48*12], const vec384fp12 a)
 
     for (i = 0; i < 3; i++) {
         for (j = 0; j < 2; j++) {
-            from_fp(out, a[j][i][0]);
-            be_bytes_from_limbs(ret, out, sizeof(vec384));  ret += 48;
-            from_fp(out, a[j][i][1]);
-            be_bytes_from_limbs(ret, out, sizeof(vec384));  ret += 48;
+            for (int k = 0; k < 2; ++k)
+            {
+                from_fp(out, a[j][i][k]);
+                be_bytes_from_limbs(ret, out, sizeof(vec384));  
+                ret += 48;
+            }
         }
     }
 }
 
 size_t blst_fp12_sizeof(void)
 {   return sizeof(vec384fp12);   }
+
+
+void blst_fp12_pow(vec384fp12 ret, const vec384fp12 a, const limb_t* exp, size_t bits)
+{
+    // For bits=0 or if exponent is 0, return 1
+    bool_t is_zero = 1;
+    for (size_t i = 0; i < (bits + 8 * sizeof(limb_t) - 1) / (8 * sizeof(limb_t)); i++) {
+        if (exp[i] != 0) {
+            is_zero = 0;
+            break;
+        }
+    }
+
+    if (bits == 0 || is_zero) {
+        blst_fp12_one_copy(ret);
+        return;
+    }
+
+    // Make a copy of the base to prevent issues if a == ret
+    vec384fp12 base;
+    memcpy(base, a, sizeof(vec384fp12));
+
+    // Start with 1
+    blst_fp12_one_copy(ret);
+
+    // Process bits from least to most significant
+    for (size_t i = 0; i < bits; i++) {
+        // If the current bit is set
+        size_t limb_idx = i / (8 * sizeof(limb_t));
+        size_t bit_idx = i % (8 * sizeof(limb_t));
+
+        if ((exp[limb_idx] >> bit_idx) & 1) {
+            blst_fp12_mul(ret, ret, base);
+        }
+
+        // Square the base for the next bit position (if not the last bit)
+        if (i < bits - 1) {
+            blst_fp12_sqr(base, base);
+        }
+
+
+    }
+}

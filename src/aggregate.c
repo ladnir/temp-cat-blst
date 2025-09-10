@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include "aggregate.h"
+
 /*
  * Usage pattern on single-processor system is
  *
@@ -36,21 +38,6 @@
  *   blst_pairing_finalverify(pk[0], gtsig);
  */
 
-#ifndef N_MAX
-# define N_MAX 8
-#endif
-
-typedef union { POINTonE1 e1; POINTonE2 e2; } AggregatedSignature;
-typedef struct {
-    unsigned int ctrl;
-    unsigned int nelems;
-    const void *DST;
-    size_t DST_len;
-    vec384fp12 GT;
-    AggregatedSignature AggrSign;
-    POINTonE2_affine Q[N_MAX];
-    POINTonE1_affine P[N_MAX];
-} PAIRING;
 
 enum { AGGR_UNDEFINED      = 0,
        AGGR_MIN_SIG        = 1,

@@ -196,15 +196,6 @@ TEST(FpOps, FromFp) {
 	EXPECT_TRUE(vec384_equal(r, expected));
 }
 
-TEST(Fp2Ops, Add) {
-	vec384x a, b, r, expected;
-	set_vec384x(a, 1, 2);
-	set_vec384x(b, 3, 4);
-	add_fp2(r, a, b);
-	set_vec384x(expected, 4, 6);
-	EXPECT_TRUE(vec384_equal(r[0], expected[0]));
-	EXPECT_TRUE(vec384_equal(r[1], expected[1]));
-}
 
 // Test converting to/from Montgomery representation
 TEST(FpOps, MontgomeryConversion) {
@@ -498,40 +489,6 @@ TEST(FpOps, MultiplyWithModulus) {
 void vec384_copy(vec384 dst, const vec384 src) {
 	for (int i = 0; i < LIMBS; ++i)
 		dst[i] = src[i];
-}
-
-// Extended tests for Fp2 operations
-TEST(Fp2Ops, ComplexFieldOperations) {
-	vec384x a, b, c, result, expected;
-
-	// Test addition with zero element
-	set_vec384x(a, 5, 7);
-	set_vec384x(b, 0, 0);
-	add_fp2(result, a, b);
-	EXPECT_TRUE(vec384_equal(result[0], a[0]) && vec384_equal(result[1], a[1]))
-		<< "a + 0 should equal a in Fp2";
-
-	// Test subtraction
-	set_vec384x(a, 10, 15);
-	set_vec384x(b, 3, 7);
-	sub_fp2(result, a, b);
-	set_vec384x(expected, 7, 8);
-	EXPECT_TRUE(vec384_equal(result[0], expected[0]) && vec384_equal(result[1], expected[1]))
-		<< "Incorrect Fp2 subtraction";
-
-	// Test conjugate (complex conjugate: (a+bi) -> (a-bi))
-	set_vec384x(a, 12, 34);
-	// Implement this with negation of imaginary part
-	vec384 neg_im;
-	cneg_fp(neg_im, a[1], 1);  // Negate the imaginary part
-	vec384_copy(result[0], a[0]);
-	vec384_copy(result[1], neg_im);
-
-	set_vec384x(expected, 12, 0);
-	sub_fp(expected[1], expected[1], a[1]);
-
-	EXPECT_TRUE(vec384_equal(result[0], expected[0]) && vec384_equal(result[1], expected[1]))
-		<< "Incorrect Fp2 conjugate";
 }
 
 // Test the security properties of constant-time operations

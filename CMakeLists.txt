@@ -110,10 +110,14 @@ FetchContent_MakeAvailable(googletest)
 enable_testing()
 add_executable(blst_tests 
 "test/Fp_tests.cpp" 
+"test/Fp2_tests.cpp" 
+"test/Fp12_tests.cpp" 
 "test/Fr_tests.cpp" 
 "test/BindingCpp_tests.cpp"
 "test/G1_tests.cpp"
-
+"test/G2_tests.cpp"
+"test/GT_tests.cpp"
+"test/Pairing_tests.cpp"
 )
 target_include_directories(blst_tests PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_link_libraries(blst_tests PRIVATE gtest_main blst_static)
