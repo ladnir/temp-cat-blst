@@ -7,49 +7,49 @@
 #include "fields.h"
 #include "point.h"
 
-/*
- * This implementation uses explicit addition formula:
- *
- * λ = (Y₂-Y₁)/(X₂-X₁)
- * X₃ = λ²-(X₁+X₂)
- * Y₃ = λ⋅(X₁-X₃)-Y₁
- *
- * But since we don't know if we'll have to add point to itself, we need
- * to eventually resort to corresponding doubling formula:
- *
- * λ = 3X₁²/2Y₁
- * X₃ = λ²-2X₁
- * Y₃ = λ⋅(X₁-X₃)-Y₁
- *
- * The formulae use prohibitively expensive inversion, but whenever we
- * have a lot of affine points to accumulate, we can amortize the cost
- * by applying Montgomery's batch inversion approach. As a result,
- * asymptotic[!] per-point cost for addition is as small as 5M+1S. For
- * comparison, ptype##_dadd_affine takes 8M+5S. In practice, all things
- * considered, the improvement coefficient varies from 60% to 85%
- * depending on platform and curve.
- *
- * THIS IMPLEMENTATION IS *NOT* CONSTANT-TIME. [But if there is an
- * application that requires constant time-ness, speak up!]
- */
+ /*
+  * This implementation uses explicit addition formula:
+  *
+  * λ = (Y₂-Y₁)/(X₂-X₁)
+  * X₃ = λ²-(X₁+X₂)
+  * Y₃ = λ⋅(X₁-X₃)-Y₁
+  *
+  * But since we don't know if we'll have to add point to itself, we need
+  * to eventually resort to corresponding doubling formula:
+  *
+  * λ = 3X₁²/2Y₁
+  * X₃ = λ²-2X₁
+  * Y₃ = λ⋅(X₁-X₃)-Y₁
+  *
+  * The formulae use prohibitively expensive inversion, but whenever we
+  * have a lot of affine points to accumulate, we can amortize the cost
+  * by applying Montgomery's batch inversion approach. As a result,
+  * asymptotic[!] per-point cost for addition is as small as 5M+1S. For
+  * comparison, ptype##_dadd_affine takes 8M+5S. In practice, all things
+  * considered, the improvement coefficient varies from 60% to 85%
+  * depending on platform and curve.
+  *
+  * THIS IMPLEMENTATION IS *NOT* CONSTANT-TIME. [But if there is an
+  * application that requires constant time-ness, speak up!]
+  */
 
-/*
- * Calculate λ's numerator and denominator.
- *
- * input:	A	x1	y1	-
- *		B	x2	y2	-
- * output:
- * if A!=B:	A	x1	y1	(x2-x1)*mul_acc
- *		B	x2+x1	y2-y1	(x2-x1)
- *
- * if A==B:	A	x	y	2y*mul_acc
- *		B	2x	3*x^2	2y
- *
- * if A==-B:	A	0	0	1*mul_acc
- *		B	0	3*x^2	0
- */
-#define HEAD(ptype, bits, field, one) \
-void ptype##_head(ptype AB[2], const vec##bits mul_acc) \
+  /*
+   * Calculate λ's numerator and denominator.
+   *
+   * input:	A	x1	y1	-
+   *		B	x2	y2	-
+   * output:
+   * if A!=B:	A	x1	y1	(x2-x1)*mul_acc
+   *		B	x2+x1	y2-y1	(x2-x1)
+   *
+   * if A==B:	A	x	y	2y*mul_acc
+   *		B	2x	3*x^2	2y
+   *
+   * if A==-B:	A	0	0	1*mul_acc
+   *		B	0	3*x^2	0
+   */
+#define HEAD(ptype, bits, field, field_ptr, one) \
+void ptype##_head(ptype AB[2], const field_ptr* mul_acc) \
 { \
     ptype *A = AB, *B = AB+1; \
     limb_t inf = vec_is_zero(A, sizeof(ptype##_affine)) | \
@@ -76,14 +76,14 @@ void ptype##_head(ptype AB[2], const vec##bits mul_acc) \
         mul_##field(A->Z, A->Z, mul_acc);	/* chain multiplication */\
 }
 
-/*
- * Calculate λ and resulting coordinates.
- *
- * input:	A		x1			y1		-
- *		B		x2+x1			nominator	-
- * 		lambda		1/denominator
- * output:	D		x3=(nom/den)^2-(x2+x1)	y3=(nom/den)(x1-x3)-y1
- */
+   /*
+	* Calculate λ and resulting coordinates.
+	*
+	* input:	A		x1			y1		-
+	*		B		x2+x1			nominator	-
+	* 		lambda		1/denominator
+	* output:	D		x3=(nom/den)^2-(x2+x1)	y3=(nom/den)(x1-x3)-y1
+	*/
 #define TAIL(ptype, bits, field, one) \
 void ptype##_tail(ptype *D, ptype AB[2], vec##bits lambda) \
 { \
@@ -104,14 +104,14 @@ void ptype##_tail(ptype *D, ptype AB[2], vec##bits lambda) \
     vec_select(B->Z, one, B->Z, sizeof(B->Z), inf); \
 }
 
-/*
- * |points[]| is volatile buffer with |X|s and |Y|s initially holding
- * input affine coordinates, and with |Z|s being used as additional
- * temporary storage [unrelated to Jacobian coordinates]. |sum| is
- * in-/output, initialize to infinity accordingly.
- */
-#define ADDITION_BTREE(prefix, ptype, bits, field, one) \
-HEAD(ptype, bits, field, one) \
+	/*
+	 * |points[]| is volatile buffer with |X|s and |Y|s initially holding
+	 * input affine coordinates, and with |Z|s being used as additional
+	 * temporary storage [unrelated to Jacobian coordinates]. |sum| is
+	 * in-/output, initialize to infinity accordingly.
+	 */
+#define ADDITION_BTREE(prefix, ptype, bits, field, field_ptr, one) \
+HEAD(ptype, bits, field, field_ptr, one) \
 TAIL(ptype, bits, field, one) \
 void ptype##s_accumulate(ptype *sum, ptype points[], size_t n) \
 { \
@@ -124,7 +124,7 @@ void ptype##s_accumulate(ptype *sum, ptype points[], size_t n) \
             ptype##_dadd_affine(sum, sum, (const ptype##_affine *)points++); \
         n /= 2; \
         for (mul_acc = NULL, i = n; i--; mul_acc = points->Z, points += 2) \
-            ptype##_head(points, mul_acc); \
+            ptype##_head(points, (const field_ptr*)mul_acc); \
 \
         reciprocal_##field(points[-2].Z, points[-2].Z); /* 1/∏ Zi */ \
 \
@@ -146,7 +146,7 @@ void prefix##s_add(ptype *sum, const ptype##_affine *const points[], \
                                size_t npoints) \
 { \
     const size_t stride = SCRATCH_LIMIT / sizeof(ptype); \
-    ptype *scratch = alloca((npoints > stride ? stride : npoints) * \
+    ptype *scratch = (ptype*)alloca((npoints > stride ? stride : npoints) * \
                             sizeof(ptype)); \
     const ptype##_affine *point = NULL; \
 \
@@ -166,11 +166,10 @@ void prefix##s_add(ptype *sum, const ptype##_affine *const points[], \
 # ifdef __wasm__
 #  define SCRATCH_LIMIT (45 * 1024)
 # else
-   /* Performance with 144K scratch is within 1-2-3% from optimal */
+	 /* Performance with 144K scratch is within 1-2-3% from optimal */
 #  define SCRATCH_LIMIT (144 * 1024)
 # endif
 #endif
 
-ADDITION_BTREE(blst_p1, POINTonE1, 384, fp, BLS12_381_Rx.p2)
-
-ADDITION_BTREE(blst_p2, POINTonE2, 384x, fp2, BLS12_381_Rx.p2)
+ADDITION_BTREE(blst_p1, POINTonE1, 384, fp, limb_t, BLS12_381_Rx.p2)
+ADDITION_BTREE(blst_p2, POINTonE2, 384x, fp2, vec384, BLS12_381_Rx.p2)

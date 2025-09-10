@@ -4,8 +4,8 @@
 #include <stdio.h>
 
 extern "C" {
-#include "src/fields.h"
-#include "src/exports.h"
+#include "../src/fields.h"
+#include "../src/exports.h"
 }
 
 #define FR_LIMBS NLIMBS(256)

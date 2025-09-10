@@ -147,9 +147,15 @@ BLST_ERROR PAIRING_Aggregate_PK_in_G2(PAIRING *ctx,
         }
 
         if (ctx->ctrl & AGGR_HASH_OR_ENCODE)
-            Hash_to_G1(H, msg, msg_len, DST, ctx->DST_len, aug, aug_len);
+            Hash_to_G1(H, 
+                (const unsigned char*)msg, msg_len, 
+                (const unsigned char*)DST, ctx->DST_len, 
+                (const unsigned char*)aug, aug_len);
         else
-            Encode_to_G1(H, msg, msg_len, DST, ctx->DST_len, aug, aug_len);
+            Encode_to_G1(H, 
+                (const unsigned char*)msg, msg_len, 
+                (const unsigned char*)DST, ctx->DST_len, 
+                (const unsigned char*)aug, aug_len);
 
         if (nbits != 0 && scalar != NULL)
             POINTonE1_mult_w5(H, H, scalar, nbits);
@@ -292,9 +298,15 @@ BLST_ERROR PAIRING_Aggregate_PK_in_G1(PAIRING *ctx,
         }
 
         if (ctx->ctrl & AGGR_HASH_OR_ENCODE)
-            Hash_to_G2(H, msg, msg_len, DST, ctx->DST_len, aug, aug_len);
+            Hash_to_G2(H, 
+                (const unsigned char*)msg, msg_len, 
+                (const unsigned char*)DST, ctx->DST_len, 
+                (const unsigned char*)aug, aug_len);
         else
-            Encode_to_G2(H, msg, msg_len, DST, ctx->DST_len, aug, aug_len);
+            Encode_to_G2(H, 
+                (const unsigned char*)msg, msg_len, 
+                (const unsigned char*)DST, ctx->DST_len, 
+                (const unsigned char*)aug, aug_len);
 
         POINTonE2_from_Jacobian(H, H);
 

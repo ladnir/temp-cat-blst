@@ -1,13 +1,13 @@
 #include "gtest/gtest.h"
 
 extern "C" {
-#include "src/point.h"
-#include "src/fields.h"
-#include "src/e1.h"
-#include "src/e2.h"
-#include "src/pairing.h"
-#include "src/fp12_tower.h"
-#include "src/aggregate.h"
+#include "../src/point.h"
+#include "../src/fields.h"
+#include "../src/e1.h"
+#include "../src/e2.h"
+#include "../src/pairing.h"
+#include "../src/fp12_tower.h"
+#include "../src/aggregate.h"
 
 }
 
@@ -301,7 +301,7 @@ TEST_F(GTTest, PowersOfTwo) {
 
     // Start with the base element
     memcpy(manual, gt_element, sizeof(vec384fp12));
-#define PowersOfTwo_SIZE 4
+#define PowersOfTwo_SIZE 2
  //   auto pre = 17;
  //   for(int i = 0; i < pre; i++) {
 

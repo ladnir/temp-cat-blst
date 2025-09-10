@@ -80,7 +80,7 @@ POINTS_TO_AFFINE_IMPL(blst_p2, POINTonE2, 384x, fp2)
 
 #define SCRATCH_SZ(ptype) (sizeof(ptype)==sizeof(POINTonE1) ? 8192 : 4096)
 
-/* The intermediate infinity points are encoded as [0, 0, 1]. */
+ /* The intermediate infinity points are encoded as [0, 0, 1]. */
 
 #define PRECOMPUTE_WBITS_IMPL(prefix, ptype, bits, field, one) \
 void ptype##_precompute_row_wbits(ptype row[], size_t wbits, \
@@ -158,7 +158,7 @@ void ptype##s_precompute_wbits(ptype##_affine table[], size_t wbits, \
         top += stride << (wbits-1); \
         npoints -= stride; \
     } \
-    rows = row = alloca(2*sizeof(ptype##_affine) * npoints * nwin); \
+    rows = row = (ptype*)alloca(2*sizeof(ptype##_affine) * npoints * nwin); \
     for (i = 0; i < npoints; i++, row += nwin) \
         point = *points ? *points++ : point+1, \
         ptype##_precompute_row_wbits(row, wbits, point); \
@@ -201,7 +201,7 @@ void ptype##s_mult_wbits(ptype *ret, const ptype##_affine table[], \
     if (scratch == NULL) { \
         scratch_sz /= 4; /* limit to 288K */ \
         scratch_sz = scratch_sz < npoints ? scratch_sz : npoints; \
-        scratch = alloca(sizeof(ptype) * scratch_sz); \
+        scratch = (ptype*)alloca(sizeof(ptype) * scratch_sz); \
     } \
 \
     nbytes = (nbits + 7)/8; /* convert |nbits| to bytes */ \
@@ -264,6 +264,8 @@ void prefix##s_mult_wbits(ptype *ret, const ptype##_affine table[], \
 PRECOMPUTE_WBITS_IMPL(blst_p1, POINTonE1, 384, fp, BLS12_381_Rx.p)
 POINTS_MULT_WBITS_IMPL(blst_p1, POINTonE1, 384, fp, BLS12_381_Rx.p)
 
+
+
 PRECOMPUTE_WBITS_IMPL(blst_p2, POINTonE2, 384x, fp2, BLS12_381_Rx.p2)
 POINTS_MULT_WBITS_IMPL(blst_p2, POINTonE2, 384x, fp2, BLS12_381_Rx.p2)
 
@@ -272,20 +274,20 @@ POINTS_MULT_WBITS_IMPL(blst_p2, POINTonE2, 384x, fp2, BLS12_381_Rx.p2)
  * of points...
  */
 
-size_t pippenger_window_size(size_t npoints)
+	size_t pippenger_window_size(size_t npoints)
 {
-    size_t wbits;
+	size_t wbits;
 
-    for (wbits=0; npoints>>=1; wbits++) ;
+	for (wbits = 0; npoints >>= 1; wbits++);
 
-    if (wbits > 12)
-        return wbits - 3;
-    else if (wbits > 8)
-        return wbits - 2;
-    else if (wbits > 4)
-        return wbits - 1;
+	if (wbits > 12)
+		return wbits - 3;
+	else if (wbits > 8)
+		return wbits - 2;
+	else if (wbits > 4)
+		return wbits - 1;
 
-    return wbits ? 2 : 1;
+	return wbits ? 2 : 1;
 }
 
 #define DECLARE_PRIVATE_POINTXYZZ(ptype, bits) \
@@ -425,7 +427,7 @@ void prefix##s_mult_pippenger(ptype *ret, \
     } \
     if ((npoints * sizeof(ptype##_affine) * 8 * 3) <= SCRATCH_LIMIT && \
         npoints < 32) { \
-        ptype##_affine *table = alloca(npoints * sizeof(ptype##_affine) * 8); \
+        ptype##_affine *table = (ptype##_affine *)alloca(npoints * sizeof(ptype##_affine) * 8); \
         ptype##s_precompute_wbits(table, 4, points, npoints); \
         ptype##s_mult_wbits(ret, table, 4, npoints, scalars, nbits, NULL); \
         return; \

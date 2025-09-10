@@ -79,7 +79,7 @@ void HKDF_Extract(unsigned char PRK[32],
     unsigned char zero[1] = { 0 };
 
     HMAC_init(ctx, salt != NULL ? salt : zero, salt_len);
-    HMAC_update(ctx, IKM, IKM_len);
+    HMAC_update(ctx, (const unsigned char*)IKM, IKM_len);
 #ifndef __BLST_HKDF_TESTMODE__
     if (IKM_fixup) {
         /* Section 2.3 KeyGen in BLS-signature draft */
@@ -99,7 +99,7 @@ void HKDF_Expand(unsigned char *OKM, size_t L,
 {
 #if !defined(__STDC_VERSION__) || __STDC_VERSION__<199901 \
                                || defined(__STDC_NO_VLA__)
-    unsigned char *info_prime = alloca(info_len + 2 + 1);
+    unsigned char *info_prime = (unsigned char*)alloca(info_len + 2 + 1);
 #else
     unsigned char info_prime[info_len + 2 + 1];
 #endif

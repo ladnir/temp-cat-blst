@@ -222,8 +222,8 @@ void miller_loop_n(vec384fp12 ret, const POINTonE2_affine Q[],
 {
 #if !defined(__STDC_VERSION__) || __STDC_VERSION__<199901 \
                                || defined(__STDC_NO_VLA__)
-    POINTonE2 *T = alloca(n*sizeof(POINTonE2));
-    POINTonE1_affine *Px2 = alloca(n*sizeof(POINTonE1_affine));
+    POINTonE2 *T = (POINTonE2*)alloca(n*sizeof(POINTonE2));
+    POINTonE1_affine *Px2 = (POINTonE1_affine*)alloca(n*sizeof(POINTonE1_affine));
 #else
     POINTonE2 T[n];
     POINTonE1_affine Px2[n];

@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 extern "C" {
-#include "src/fields.h"
+#include "../src/fields.h"
 }
 
 #define LIMBS NLIMBS(384)
@@ -46,11 +46,11 @@ void print_vec384(const vec384 v) {
 		printf("%016llx%s", (unsigned long long)v[i], i ? " " : "\n");
 }
 
-// Helper: Convert standard integer to Montgomery form 
-void to_mont_fp(vec384 r, const vec384 a) {
-	// Use the library's precomputed R² mod p constant for proper conversion to Montgomery form
-	mul_mont_384(r, a, BLS12_381_RR, BLS12_381_P, p0);
-}
+//// Helper: Convert standard integer to Montgomery form 
+//void to_mont_fp(vec384 r, const vec384 a) {
+//	// Use the library's precomputed R² mod p constant for proper conversion to Montgomery form
+//	mul_mont_384(r, a, BLS12_381_RR, BLS12_381_P, p0);
+//}
 
 
 TEST(FpOps, Add) {
@@ -143,8 +143,8 @@ TEST(FpOps, Mul) {
 	set_vec384(b, 4);
 
 	// Convert to Montgomery form
-	to_mont_fp(a, a);
-	to_mont_fp(b, b);
+	to_fp(a, a);
+	to_fp(b, b);
 
 	// Multiply in Montgomery form
 	mul_fp(r, a, b);
@@ -170,7 +170,7 @@ TEST(FpOps, Sqr) {
 	set_vec384(a, 5);
 
 	// Convert to Montgomery form
-	to_mont_fp(a, a);
+	to_fp(a, a);
 
 	// Square in Montgomery form
 	sqr_fp(r, a);
@@ -187,7 +187,7 @@ TEST(FpOps, FromFp) {
 
 	// Set raw value and convert to Montgomery form
 	set_vec384(a, 9);
-	to_mont_fp(a, a);
+	to_fp(a, a);
 
 	// Test converting from Montgomery form
 	from_fp(r, a);
@@ -205,7 +205,7 @@ TEST(FpOps, MontgomeryConversion) {
 	set_vec384(a, 1);
 
 	// Convert to Montgomery form using the helper function
-	to_mont_fp(mont_a, a);
+	to_fp(mont_a, a);
 
 	// Convert back from Montgomery form
 	from_fp(back_a, mont_a);
@@ -224,8 +224,8 @@ TEST(FpOps, MontgomeryConversion) {
 	set_vec384(b, 4);
 
 	// Convert to Montgomery form using the helper function
-	to_mont_fp(mont_a, a);
-	to_mont_fp(mont_b, b);
+	to_fp(mont_a, a);
+	to_fp(mont_b, b);
 
 	// Multiply in Montgomery form
 	mul_fp(result, mont_a, mont_b);
@@ -254,12 +254,12 @@ TEST(FpOps, MontgomeryArithmetic) {
 	set_vec384(b, 23);
 
 	// Convert to Montgomery form
-	to_mont_fp(mont_a, a);
-	to_mont_fp(mont_b, b);
+	to_fp(mont_a, a);
+	to_fp(mont_b, b);
 
 	// Test associativity: a * (b * c) = (a * b) * c
 	set_vec384(c, 19);
-	to_mont_fp(mont_c, c);
+	to_fp(mont_c, c);
 
 	// Calculate a * (b * c) in Montgomery form
 	mul_fp(result1, mont_b, mont_c); // result1 = b * c
@@ -279,7 +279,7 @@ TEST(FpOps, MontgomeryArithmetic) {
 
 	// Test identity: a * 1 = a
 	set_vec384(b, 1);
-	to_mont_fp(mont_b, b);
+	to_fp(mont_b, b);
 
 	mul_fp(result1, mont_a, mont_b);
 	from_fp(std_result1, result1);
@@ -351,8 +351,8 @@ TEST(FpOps, MontgomeryEdgeCases) {
 	set_vec384(one, 1);
 
 	// Convert 0 and 1 to Montgomery form
-	to_mont_fp(mont_zero, zero);
-	to_mont_fp(mont_one, one);
+	to_fp(mont_zero, zero);
+	to_fp(mont_one, one);
 
 	// Test multiplication with 0
 	mul_fp(r, mont_zero, mont_one);
@@ -368,7 +368,7 @@ TEST(FpOps, MontgomeryEdgeCases) {
 	large[0] = 0xFFFFFFFFFFFFFFFFULL;
 	large[1] = 0xFFFFFFFFFFFFFFFFULL;
 
-	to_mont_fp(mont_large, large);
+	to_fp(mont_large, large);
 
 	// Multiply large * 1
 	mul_fp(result, mont_large, mont_one);
@@ -384,7 +384,7 @@ TEST(FpOps, MontgomeryEdgeCases) {
 	// Test squaring with special value
 	vec384 two, mont_two, squared, squared_result;
 	set_vec384(two, 2);
-	to_mont_fp(mont_two, two);
+	to_fp(mont_two, two);
 
 	// Square 2 (should be 4)
 	sqr_fp(result, mont_two);
@@ -405,7 +405,7 @@ TEST(FpOps, MontgomeryRoundTrip) {
 		set_vec384(original, TEST_VALUES[i]);
 
 		// Convert to Montgomery form and back
-		to_mont_fp(mont_form, original);
+		to_fp(mont_form, original);
 		from_fp(result, mont_form);
 
 		if (!vec384_equal(result, original)) {
@@ -432,9 +432,9 @@ TEST(FpOps, MontgomeryDistributive) {
 	set_vec384(c, 17);
 
 	// Convert to Montgomery form
-	to_mont_fp(mont_a, a);
-	to_mont_fp(mont_b, b);
-	to_mont_fp(mont_c, c);
+	to_fp(mont_a, a);
+	to_fp(mont_b, b);
+	to_fp(mont_c, c);
 
 	// Left side: a * (b + c)
 	vec384 sum;
@@ -471,8 +471,8 @@ TEST(FpOps, MultiplyWithModulus) {
 	memcpy(p, BLS12_381_P, sizeof(vec384));
 
 	// Convert to Montgomery form
-	to_mont_fp(mont_a, a);
-	to_mont_fp(mont_p, p);
+	to_fp(mont_a, a);
+	to_fp(mont_p, p);
 
 	// Multiply a * p
 	mul_fp(result, mont_a, mont_p);
@@ -503,8 +503,8 @@ TEST(FpOps, ConstantTimeOperations) {
 	set_vec384(b, 0x12345678);  // Another arbitrary value
 
 	// Perform Montgomery conversion and multiplication
-	to_mont_fp(mont_a, a);
-	to_mont_fp(mont_b, b);
+	to_fp(mont_a, a);
+	to_fp(mont_b, b);
 	mul_fp(result, mont_a, mont_b);
 	from_fp(expected, result);
 

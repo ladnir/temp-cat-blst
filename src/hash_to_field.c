@@ -69,7 +69,7 @@ void expand_message_xmd(unsigned char *bytes, size_t len_in_bytes,
         sha256_final(b_0.c, &ctx);
         DST = b_0.c, DST_len = 32;
     }
-    b_i_blocks = ((33 + DST_len + 1 + 9) + 63) & -64;
+    b_i_blocks = ((33 + DST_len + 1 + 9) + 63) & (size_t) - 64;
     vec_zero(b_i.c + b_i_blocks - 64, 64);
 
     p = b_i.c + 33;
@@ -126,7 +126,7 @@ void hash_to_field(vec384 elems[], size_t nelems,
     size_t len_in_bytes = L * nelems;   /* divisible by 64, hurray!      */
 #if !defined(__STDC_VERSION__) || __STDC_VERSION__<199901 \
                                || defined(__STDC_NO_VLA__)
-    limb_t *pseudo_random = alloca(len_in_bytes);
+    limb_t *pseudo_random = (limb_t*)alloca(len_in_bytes);
 #else
     limb_t pseudo_random[len_in_bytes/sizeof(limb_t)];
 #endif
@@ -164,7 +164,7 @@ void blst_expand_message_xmd(unsigned char *bytes, size_t len_in_bytes,
         return;
 
     if (buf_len != len_in_bytes)
-        buf_ptr = alloca(buf_len);
+        buf_ptr = (unsigned char*)alloca(buf_len);
 
     expand_message_xmd(buf_ptr, len_in_bytes, NULL, 0, msg, msg_len,
                                               DST, DST_len);

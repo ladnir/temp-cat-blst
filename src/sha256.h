@@ -61,7 +61,7 @@ void sha256_init(SHA256_CTX *ctx)
 void sha256_update(SHA256_CTX *ctx, const void *_inp, size_t len)
 {
     size_t n;
-    const unsigned char *inp = _inp;
+    const unsigned char *inp = (const unsigned char*)_inp;
 
     ctx->N += len;
 

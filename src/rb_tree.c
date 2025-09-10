@@ -50,7 +50,7 @@ int rb_tree_insert(struct rb_tree *tree, const void *data, size_t len)
     struct node *p, *y, *z;
 
     for (p = tree->root; p != NULL; k++) {
-        long cmp = bytes_compare(data, len, p->data, p->len_n_colour>>1);
+        long cmp = bytes_compare((const unsigned char*)data, len, (const unsigned char*)p->data, p->len_n_colour>>1);
 
         if (cmp == 0)
             return 0;   /* already in tree, no insertion */
