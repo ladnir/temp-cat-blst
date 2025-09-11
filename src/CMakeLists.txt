@@ -68,49 +68,8 @@ add_library(blst_static ${BLST_STATIC_SRC})
 set_target_properties(blst_static PROPERTIES OUTPUT_NAME blst)
 target_compile_options(blst_static PRIVATE ${BLST_STATIC_OPTS})
 
-# ---- Shared Library Configuration ----
-#if(BLST_BUILD_SHARED)
-#    set(BLST_SHARED_SRC ${BLST_SRC})
-#    set(BLST_SHARED_DEFS "")
-#    set(BLST_SHARED_OPTS "")
-#    set(BLST_SHARED_PROPS OUTPUT_NAME blst)
-#
-#    if(MSVC)
-#        if(ASM_SRC AND NOT BLST_PORTABLE)
-#            list(APPEND BLST_SHARED_SRC ${ASM_SRC})
-#        endif()
-#        list(APPEND BLST_SHARED_DEFS __BLST_DLL_MAIN__)
-#        set(BLST_SHARED_OPTS /MD)
-#        set(BLST_SHARED_PROPS ${BLST_SHARED_PROPS} LINK_FLAGS "/DEF:${CMAKE_CURRENT_SOURCE_DIR}/build/win64/#blst.def")
-#    else()
-#        if(EXISTS ${ASM_SRC} AND NOT BLST_PORTABLE)
-#            list(APPEND BLST_SHARED_SRC ${ASM_SRC})
-#        endif()
-#        set(BLST_SHARED_OPTS -fPIC)
-#        if(APPLE)
-#            set(BLST_SHARED_PROPS ${BLST_SHARED_PROPS} SUFFIX ".dylib")
-#        endif()
-#    endif()
-#
-#    add_library(blst_shared SHARED ${BLST_SHARED_SRC})
-#    set_target_properties(blst_shared PROPERTIES ${BLST_SHARED_PROPS})
-#    target_compile_options(blst_shared PRIVATE ${BLST_SHARED_OPTS})
-#endif()
 
-# ---- Configure config.h ----
-if(BLST_PORTABLE)
-    set(__BLST_PORTABLE__ 1)
-    set(__BLST_NO_ASM__ 1)
-else()
-    unset(__BLST_PORTABLE__)
-    unset(__BLST_NO_ASM__)
-endif()
 
-#if(MSVC AND BLST_BUILD_SHARED)
-#    set(__BLST_DLL_MAIN__ 1)
-#else()
-#    unset(__BLST_DLL_MAIN__)
-#endif()
 
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/config.h.in

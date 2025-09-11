@@ -41,6 +41,9 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "BLST_PORTABLE": true,
         "BLST_CUDA": false,
+        "BLST_ASM": false,
+        "BLST_ADX": true,
+        "BLST_LIMB_SIZE": "64",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
       },
       "vendor": {

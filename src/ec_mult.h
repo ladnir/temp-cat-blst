@@ -308,7 +308,7 @@ inline void ptype##_affine_mult_ladder(ptype *ret, \
     while (bits--) { \
         ptype##_double(ret, ret); \
         ptype##_add_affine(sum, ret, p_affine); \
-        bit = (scalar[bits / LIMB_T_BITS] >> (bits % LIMB_T_BITS)) & 1; \
+        bit = (scalar[bits / BLST_LIMB_SIZE] >> (bits % BLST_LIMB_SIZE)) & 1; \
         ptype##_ccopy(ret, sum, bit); \
     } \
 }

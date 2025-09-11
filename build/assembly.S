@@ -133,7 +133,7 @@
 #  include "mach-o/div3w-armv8.S"
 #  include "mach-o/ct_is_square_mod_384-armv8.S"
 # endif
-#elif defined(__BLST_NO_ASM__) || \
+#elif !defined(BLST_ASM) || \
       (defined(__SIZEOF_POINTER__) && __SIZEOF_POINTER__==4)
 /* inaccurate way to detect a 32-bit processor, but it's close enough */
 #else

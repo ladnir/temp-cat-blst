@@ -6,7 +6,7 @@
 
 #include "vect.h"
  //
- //#ifdef __BLST_NO_ASM__
+ //#ifndef BLST_ASM
  //# include "no_asm.h"
  //#endif
 
@@ -19,10 +19,10 @@
 
 
 
-  //#ifdef __BLST_NO_ASM__
+  //#ifndef BLST_ASM
   //#endif
 
-  //#ifdef __BLST_NO_ASM__
+  //#ifndef BLST_ASM
   //inline void mul_by_3_mod_384(vec384 ret, const vec384 a, const vec384 mod)
   //{
   //    vec384 t;

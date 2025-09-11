@@ -39,12 +39,24 @@ inline void vec_zero(void* ret, size_t num)
 #endif
 }
 
+#ifdef BLST_ASM
+
+/* ret = bit ? a : b */
+void vec_select_32(void* ret, const void* a, const void* b, bool_t sel_a);	// asm
+void vec_select_48(void* ret, const void* a, const void* b, bool_t sel_a);	// asm
+void vec_select_96(void* ret, const void* a, const void* b, bool_t sel_a);	// asm
+void vec_select_144(void* ret, const void* a, const void* b, bool_t sel_a);	// asm
+void vec_select_192(void* ret, const void* a, const void* b, bool_t sel_a);	// asm
+void vec_select_288(void* ret, const void* a, const void* b, bool_t sel_a);	// asm
+
+#endif // BLST_ASM
+
 
 inline void vec_select(void* ret, const void* a, const void* b,
 	size_t num, bool_t sel_a)
 {
 	BLST_launder(sel_a);
-#ifndef __BLST_NO_ASM__
+#ifdef BLST_ASM
 	if (num == 32)          vec_select_32(ret, a, b, sel_a);
 	else if (num == 48)     vec_select_48(ret, a, b, sel_a);
 	else if (num == 96)     vec_select_96(ret, a, b, sel_a);
@@ -73,7 +85,7 @@ inline void vec_select(void* ret, const void* a, const void* b,
 
 inline bool_t is_zero(limb_t l)
 {
-	limb_t ret = (~l & (l - 1)) >> (LIMB_T_BITS - 1);
+	limb_t ret = (~l & (l - 1)) >> (BLST_LIMB_SIZE - 1);
 	BLST_launder(ret);
 	return ret;
 }
@@ -84,7 +96,7 @@ inline bool_t vec_is_zero(const void* a, size_t num)
 	limb_t acc;
 	size_t i;
 
-#ifndef __BLST_NO_ASM__
+#ifdef BLST_ASM
 	bool_t vec_is_zero_16x(const void* a, size_t num);
 	if ((num & 15) == 0)
 		return vec_is_zero_16x(a, num);
@@ -105,7 +117,7 @@ inline bool_t vec_is_equal(const void* a, const void* b, size_t num)
 	limb_t acc;
 	size_t i;
 
-#ifndef __BLST_NO_ASM__
+#ifdef BLST_ASM
 	bool_t vec_is_equal_16x(const void* a, const void* b, size_t num);
 	if ((num & 15) == 0)
 		return vec_is_equal_16x(a, b, num);
@@ -137,27 +149,27 @@ inline void vec_czero(void* ret, size_t num, bool_t cbit)
 
 #include "no_asm.h"
 
-/*
- * Assembly subroutines...
- */
-#if defined(__ADX__) /* e.g. -march=broadwell */ && !defined(__BLST_PORTABLE__)\
-                                                 && !defined(__BLST_NO_ASM__)
-# define mul_mont_sparse_256 mulx_mont_sparse_256
-# define sqr_mont_sparse_256 sqrx_mont_sparse_256
-# define from_mont_256 fromx_mont_256
-# define redc_mont_256 redcx_mont_256
-# define mul_mont_384 mulx_mont_384
-# define sqr_mont_384 sqrx_mont_384
-# define sqr_n_mul_mont_384 sqrx_n_mul_mont_384
-# define sqr_n_mul_mont_383 sqrx_n_mul_mont_383
-# define mul_384 mulx_384
-# define sqr_384 sqrx_384
-# define redc_mont_384 redcx_mont_384
-# define from_mont_384 fromx_mont_384
-# define sgn0_pty_mont_384 sgn0x_pty_mont_384
-# define sgn0_pty_mont_384x sgn0x_pty_mont_384x
-# define ct_inverse_mod_384 ctx_inverse_mod_384
-#endif
+///*
+// * Assembly subroutines...
+// */
+//#if defined(__ADX__) /* e.g. -march=broadwell */ && !defined(__BLST_PORTABLE__)\
+//                                                 && !defined(__BLST_NO_ASM__)
+//# define mul_mont_sparse_256 mulx_mont_sparse_256
+//# define sqr_mont_sparse_256 sqrx_mont_sparse_256
+//# define from_mont_256 fromx_mont_256
+//# define redc_mont_256 redcx_mont_256
+//# define mul_mont_384 mulx_mont_384
+//# define sqr_mont_384 sqrx_mont_384
+//# define sqr_n_mul_mont_384 sqrx_n_mul_mont_384
+//# define sqr_n_mul_mont_383 sqrx_n_mul_mont_383
+//# define mul_384 mulx_384
+//# define sqr_384 sqrx_384
+//# define redc_mont_384 redcx_mont_384
+//# define from_mont_384 fromx_mont_384
+//# define sgn0_pty_mont_384 sgn0x_pty_mont_384
+//# define sgn0_pty_mont_384x sgn0x_pty_mont_384x
+//# define ct_inverse_mod_384 ctx_inverse_mod_384
+//#endif
 
 inline void mul_mont_sparse_v256(vec256 ret, const vec256 a, const vec256 b,
 	const vec256 p, limb_t n0)
@@ -295,7 +307,7 @@ inline limb_t sub_n_check_mod_v256(pow256 ret, const pow256 a, const pow256 b,
 }
 
 
-#ifdef __BLST_NO_ASM__
+#ifndef BLST_ASM
 inline void vec_prefetch(const void* ptr, size_t len)
 {
 	cc_vec_prefetch(ptr, len);
@@ -499,13 +511,13 @@ inline bool_t ct_is_square_mod_v384(const vec384 inp, const vec384 mod)
 #endif
 }
 
-#if defined(__ADX__) /* e.g. -march=broadwell */ && !defined(__BLST_PORTABLE__)
-# define mul_mont_384x mulx_mont_384x
-# define sqr_mont_384x sqrx_mont_384x
-# define sqr_mont_382x sqrx_mont_382x
-# define mul_382x mulx_382x
-# define sqr_382x sqrx_382x
-#endif
+//#if defined(__ADX__) /* e.g. -march=broadwell */ && !defined(__BLST_PORTABLE__)
+//# define mul_mont_384x mulx_mont_384x
+//# define sqr_mont_384x sqrx_mont_384x
+//# define sqr_mont_382x sqrx_mont_382x
+//# define mul_382x mulx_382x
+//# define sqr_382x sqrx_382x
+//#endif
 
 inline void mul_mont_v384x(vec384x ret, const vec384x a, const vec384x b,
 	const vec384 p, limb_t n0)
@@ -666,7 +678,7 @@ inline bool_t is_bit_set(const byte* v, size_t i)
 
 inline bool_t byte_is_zero(unsigned char c)
 {
-	limb_t ret = ((limb_t)(c)-1) >> (LIMB_T_BITS - 1);
+	limb_t ret = ((limb_t)(c)-1) >> (BLST_LIMB_SIZE - 1);
 	BLST_launder(ret);
 	return ret;
 }

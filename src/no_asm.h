@@ -8,14 +8,10 @@
 
 #include "bytes.h"
 #include "config.h"
+#include <assert.h>
 
-#if LIMB_T_BITS==32
-typedef unsigned long long llimb_t;
-#else
-typedef unsigned __int128 llimb_t;
-#endif
-
-
+typedef struct { limb_t lo, hi; } wide_limb_t;
+//static_assert(((wide_limb_t*)0));
 
 #if defined(_MSC_VER)
 #include <malloc.h>
@@ -52,53 +48,199 @@ typedef unsigned __int128 llimb_t;
 #endif
 
 
+#if BLST_LIMB_SIZE == 64 && defined(BLST_ADX)
+// 64 bit with wide operations
+#define cc_mul_wide_limb_limb(ret, a, b)\
+    (ret)->lo = _mulx_u64(a, b, &(ret)->hi)
+
+#define cc_add_wide_wide_limb(ret, a, b)\
+    (ret)->hi = a.hi + _addcarry_u64(0, (a).lo, b, (unsigned long long*) &(ret)->lo)
+
+#define cc_add_wide_limb_limb(ret, a, b)\
+    (ret)->hi = _addcarry_u64(0, a, b, (unsigned long long*) &(ret)->lo)
+
+#define cc_add_carry_wide_limb_limb(ret, a, b, carry) \
+    do{ assert(carry <= 1); __assume(carry <=1); \
+    (ret)->hi = _addcarry_u64(carry, a, b, (unsigned long long*) &(ret)->lo); } while(0)
+
+#define cc_sub_borrow_wide_limb_limb(ret, a, b, borrow) \
+    do{ assert(borrow <= 1); __assume(borrow <=1); \
+    (ret)->hi = _subborrow_u64(borrow, a, b, (unsigned long long*) &(ret)->lo); } while(0)
+
+
+#elif BLST_LIMB_SIZE == 32 && (defined(_M_X64) || defined(__x86_64__)) && 0
+// 32 bit with 64 bit support
+
+static_assert(&((wide_limb_t*)0)->lo < &((wide_limb_t*)0)->hi, 
+    "this implementation assumes we can cast to 64 bit");
+#define cc_mul_wide_limb_limb(ret, a, b)\
+    do{*(unsigned long long*)(ret) = (unsigned long long)(a) * (unsigned long long)(b);}while(0)
+
+#define cc_add_wide_wide_limb(ret, a, b)\
+    do{*(unsigned long long*)(ret) = *(unsigned long long*)&(a) + (unsigned long long)(b);}while(0)
+
+#define cc_add_wide_limb_limb(ret, a, b)\
+    do{*(unsigned long long*)(ret) = (a) + (unsigned long long)(b);}while(0)
+
+#define cc_sub_wide_limb_wide(ret, a, b)\
+    do{*(unsigned long long*)(ret) = (a) - *(unsigned long long*)(&(b));}while(0)
+
+#define cc_add_carry_wide_limb_limb(ret, a, b, carry) \
+    do{ assert(carry <= 1); __assume(carry <=1); \
+    *(unsigned long long*)(ret) = (a) + (unsigned long long)(b) + carry; } while(0)
+
+#define cc_sub_borrow_wide_limb_limb(ret, a, b, borrow) \
+    do{ assert(borrow <= 1); __assume(borrow <=1); \
+    *(unsigned long long*)(ret) = (a) - (unsigned long long)(b) - borrow; } while(0)
+
+#else
+// generic
+
+#define cc_mul_wide_limb_limb(ret, a, b)\
+    do{int half = sizeof(limb_t) * 4;                                  \
+    limb_t low_mask = ((limb_t)1 << half) - 1;                         \
+    /* Portable C implementation for 64-bit limbs*/                    \
+    /* Break operands into 32-bit halves        */                     \
+    limb_t a_lo = (a) & low_mask;                                      \
+    limb_t a_hi = (a) >> half;                                         \
+    limb_t b_lo = (b) & low_mask;                                      \
+    limb_t b_hi = (b) >> half;                                         \
+                                                                       \
+    /* Four partial products: */                                       \
+    limb_t p0 = a_lo * b_lo;                                           \
+    limb_t p1 = a_lo * b_hi;                                           \
+    limb_t p2 = a_hi * b_lo;                                           \
+    limb_t p3 = a_hi * b_hi;                                           \
+                                                                       \
+    /* Combine middle products with carry propagation */               \
+    limb_t middle = (p0 >> half) + (p1 & low_mask) + (p2 & low_mask);  \
+    limb_t carry = middle >> half;                                     \
+                                                                       \
+    /* Assemble final result    */                                     \
+    (ret)->lo = (p0 & low_mask) + (middle << half);                    \
+    (ret)->hi = p3 + (p1 >> half) + (p2 >> half) + carry;}while(0)
+
+#define cc_add_wide_wide_limb(ret, a, b)\
+    do{ \
+    wide_limb_t aa = a;\
+    (ret)->lo = aa.lo + (b);\
+    (ret)->hi = aa.hi + (((ret)->lo < aa.lo) ? 1 : 0);}while(0)
+
+#define cc_add_wide_limb_limb(ret, a, b)\
+    do{ \
+    limb_t aa = a;\
+    (ret)->lo = (a) + (b);\
+    (ret)->hi = ((ret)->lo < aa) ? 1 : 0;\
+    }while(0)
+
+// wide subtraction *ret = a - b
+// with wide a and limb b
+#define cc_sub_wide_wide_limb(ret, a, b)\
+do {                                                                           \
+    wide_limb_t _aa = (a);                                                     \
+    limb_t      _bb = (limb_t)(b);                                            \
+    limb_t      _old = _aa.lo;                                                 \
+    (ret)->lo = (limb_t)(_old - _bb);                                          \
+    limb_t _borrow = (limb_t)(_old < _bb);    /* correct borrow test */        \
+    (ret)->hi = (limb_t)(_aa.hi - _borrow);                                    \
+} while (0)
+
+// wide subtraction *ret = a - b
+// with limb a and b
+#define cc_sub_wide_limb_limb(ret, a, b)\
+do {                                                                           \
+    limb_t _aa = (limb_t)(a);                                                  \
+    limb_t _bb = (limb_t)(b);                                                  \
+    (ret)->lo = (limb_t)(_aa - _bb);                                           \
+    limb_t _borrow = (limb_t)(_aa < _bb);                                      \
+    (ret)->hi = (limb_t)(-(limb_t)_borrow); /* 0 or 0xFFFFFFFF */              \
+} while (0)
+
+// ret = a + b + c
+#define cc_add_carry_wide_limb_limb(ret, a, b, c)\
+    cc_add_wide_limb_limb(ret, a, b);\
+    cc_add_wide_wide_limb(ret, *ret, c)
+
+// ret = a - b - c
+#define cc_sub_borrow_wide_limb_limb(ret, a, b, c)\
+    cc_sub_wide_limb_limb(ret, a, b);\
+    cc_sub_wide_wide_limb(ret, *ret, c)
+#endif
+
+// ret = a * b + c
+#define cc_mul_add_wide_limb_limb(ret, a, b, c)\
+    cc_mul_wide_limb_limb(ret, a, b);\
+    cc_add_wide_wide_limb(ret, *ret, c)
+
+// ret = a * b + c + d
+#define cc_mul_add_add_wide_limb_limb(ret, a, b, c, d)\
+    cc_mul_wide_limb_limb(ret, a, b);\
+    cc_add_wide_wide_limb(ret, *ret, c);\
+    cc_add_wide_wide_limb(ret, *ret, d)
+
+// ret = a + b + c
+#define cc_add_add_wide_limb_limb(ret, a, b, c)\
+    cc_add_wide_limb_limb(ret, a, b);\
+    cc_add_wide_wide_limb(ret, *ret, c)
+
+
 HOST_DEVICE_FUNC inline void cc_mul_mont_n(limb_t ret[], const limb_t a[], const limb_t b[],
                        const limb_t p[], limb_t n0, size_t n)
 {
     __builtin_assume(n != 0 && n%2 == 0);
-    llimb_t limbx;
     limb_t mask, borrow, mx, hi, carry;
 	BLST_VLA_NEW(limb_t, tmp, n + 1);
     size_t i, j;
 
     for (mx=b[0], hi=0, i=0; i<n; i++) {
-        limbx = (mx * (llimb_t)a[i]) + hi;
-        tmp[i] = (limb_t)limbx;
-        hi = (limb_t)(limbx >> LIMB_T_BITS);
+        wide_limb_t  wide;
+
+		cc_mul_add_wide_limb_limb(&wide, mx, a[i], hi);
+		tmp[i] = (limb_t)wide.lo;
+		hi = (limb_t)(wide.hi);
     }
     mx = n0*tmp[0];
     tmp[i] = hi;
 
     for (carry=0, j=0; ; ) {
-        limbx = (mx * (llimb_t)p[0]) + tmp[0];
-        hi = (limb_t)(limbx >> LIMB_T_BITS);
+		wide_limb_t  wide;
+        // wide = mx * p + tmp
+		cc_mul_add_wide_limb_limb(&wide, mx, p[0], tmp[0]);
+		hi = wide.hi;
+
         for (i=1; i<n; i++) {
-            limbx = (mx * (llimb_t)p[i] + hi) + tmp[i];
-            tmp[i-1] = (limb_t)limbx;
-            hi = (limb_t)(limbx >> LIMB_T_BITS);
+            // wide = mx * p + hi + tmp;
+			cc_mul_add_add_wide_limb_limb(&wide, mx, p[i], hi, tmp[i]); 
+			tmp[i - 1] = wide.lo;
+			hi = wide.hi;
         }
-        limbx = tmp[i] + (hi + (llimb_t)carry);
-        tmp[i-1] = (limb_t)limbx;
-        carry = (limb_t)(limbx >> LIMB_T_BITS);
+        // wide = hi + carry + tmp
+        cc_add_carry_wide_limb_limb(&wide, hi, tmp[i], carry);
+		tmp[i - 1] = wide.lo;
+		carry = wide.hi;
+
 
         if (++j==n)
             break;
 
         for (mx=b[j], hi=0, i=0; i<n; i++) {
-            limbx = (mx * (llimb_t)a[i] + hi) + tmp[i];
-            tmp[i] = (limb_t)limbx;
-            hi = (limb_t)(limbx >> LIMB_T_BITS);
+            // wide = mx * a + hi + tmp
+            cc_mul_add_add_wide_limb_limb(&wide, mx, a[i], hi, tmp[i]);
+			tmp[i] = wide.lo;
+			hi = wide.hi;
         }
         mx = n0*tmp[0];
-        limbx = hi + (llimb_t)carry;
-        tmp[i] = (limb_t)limbx;
-        carry = (limb_t)(limbx >> LIMB_T_BITS);
+		cc_add_wide_limb_limb(&wide, hi, carry);
+		tmp[i] = wide.lo;
+		carry = wide.hi;
     }
 
     for (borrow=0, i=0; i<n; i++) {
-        limbx = tmp[i] - (p[i] + (llimb_t)borrow);
-        ret[i] = (limb_t)limbx;
-        borrow = (limb_t)(limbx >> LIMB_T_BITS) & 1;
+        // wide = tmp - (p + borrow)
+        wide_limb_t wide;
+        cc_sub_borrow_wide_limb_limb(&wide, tmp[i], p[i], borrow);
+        ret[i] = wide.lo;
+        borrow = wide.hi & 1;
     }
 
     mask = carry - borrow;
@@ -130,21 +272,22 @@ HOST_DEVICE_FUNC inline void cc_add_mod_n(limb_t ret[], const limb_t a[], const 
                       const limb_t p[], size_t n)
 {
     __builtin_assume(n != 0);
-    llimb_t limbx;
     limb_t mask, carry, borrow;
     BLST_VLA_NEW(limb_t, tmp, n);
     size_t i;
 
     for (carry=0, i=0; i<n; i++) {
-        limbx = a[i] + (b[i] + (llimb_t)carry);
-        tmp[i] = (limb_t)limbx;
-        carry = (limb_t)(limbx >> LIMB_T_BITS);
+        wide_limb_t wide;
+        cc_add_carry_wide_limb_limb(&wide, a[i], b[i], carry);
+        tmp[i] = wide.lo;
+        carry = wide.hi;
     }
 
     for (borrow=0, i=0; i<n; i++) {
-        limbx = tmp[i] - (p[i] + (llimb_t)borrow);
-        ret[i] = (limb_t)limbx;
-        borrow = (limb_t)(limbx >> LIMB_T_BITS) & 1;
+        wide_limb_t wide;
+        cc_sub_borrow_wide_limb_limb(&wide, tmp[i], p[i], borrow);
+        ret[i] = wide.lo;
+        borrow = wide.hi & 1;
     }
 
     mask = carry - borrow;
@@ -168,23 +311,24 @@ inline void cc_sub_mod_n(limb_t ret[], const limb_t a[], const limb_t b[],
                       const limb_t p[], size_t n)
 {
     __builtin_assume(n != 0);
-    llimb_t limbx;
     limb_t mask, carry, borrow;
     size_t i;
 
     for (borrow=0, i=0; i<n; i++) {
-        limbx = a[i] - (b[i] + (llimb_t)borrow);
-        ret[i] = (limb_t)limbx;
-        borrow = (limb_t)(limbx >> LIMB_T_BITS) & 1;
+        wide_limb_t wide;
+        cc_sub_borrow_wide_limb_limb(&wide, a[i], b[i], borrow);
+        ret[i] = wide.lo;
+        borrow = wide.hi & 1;
     }
 
     mask = 0 - borrow;
     BLST_launder(mask);
 
     for (carry=0, i=0; i<n; i++) {
-        limbx = ret[i] + ((p[i] & mask) + (llimb_t)carry);
-        ret[i] = (limb_t)limbx;
-        carry = (limb_t)(limbx >> LIMB_T_BITS);
+        wide_limb_t wide;
+        cc_add_carry_wide_limb_limb(&wide, ret[i], p[i] & mask, carry);
+        ret[i] = wide.lo;
+        carry = wide.hi;
     }
 }
 
@@ -200,7 +344,6 @@ inline void cc_mul_by_3_mod_n(limb_t ret[], const limb_t a[], const limb_t p[],
                            size_t n)
 {
     __builtin_assume(n != 0);
-    llimb_t limbx;
     limb_t mask, carry, borrow;
     BLST_VLA_NEW(limb_t, tmp, n);
     BLST_VLA_NEW(limb_t, two_a, n);
@@ -210,13 +353,14 @@ inline void cc_mul_by_3_mod_n(limb_t ret[], const limb_t a[], const limb_t p[],
     for (carry=0, i=0; i<n; i++) {
         limb_t a_i = a[i];
         tmp[i] = a_i<<1 | carry;
-        carry = a_i>>(LIMB_T_BITS-1);
+        carry = a_i>>(BLST_LIMB_SIZE-1);
     }
 
     for (borrow=0, i=0; i<n; i++) {
-        limbx = tmp[i] - (p[i] + (llimb_t)borrow);
-        two_a[i] = (limb_t)limbx;
-        borrow = (limb_t)(limbx >> LIMB_T_BITS) & 1;
+        wide_limb_t wide;
+        cc_sub_borrow_wide_limb_limb(&wide, tmp[i], p[i], borrow);
+        two_a[i] = wide.lo;
+        borrow = wide.hi & 1;
     }
 
     mask = carry - borrow;
@@ -226,15 +370,17 @@ inline void cc_mul_by_3_mod_n(limb_t ret[], const limb_t a[], const limb_t p[],
         two_a[i] = (two_a[i] & ~mask) | (tmp[i] & mask);
 
     for (carry=0, i=0; i<n; i++) {
-        limbx = a[i] + (two_a[i] + (llimb_t)carry);
-        tmp[i] = (limb_t)limbx;
-        carry = (limb_t)(limbx >> LIMB_T_BITS);
+        wide_limb_t wide;
+        cc_add_carry_wide_limb_limb(&wide, a[i], two_a[i], carry);
+        tmp[i] = wide.lo;
+        carry = wide.hi;
     }
 
     for (borrow=0, i=0; i<n; i++) {
-        limbx = tmp[i] - (p[i] + (llimb_t)borrow);
-        ret[i] = (limb_t)limbx;
-        borrow = (limb_t)(limbx >> LIMB_T_BITS) & 1;
+        wide_limb_t wide;
+        cc_sub_borrow_wide_limb_limb(&wide, tmp[i], p[i], borrow);
+        ret[i] = wide.lo;
+        borrow = wide.hi & 1;
     }
 
     mask = carry - borrow;
@@ -261,7 +407,6 @@ inline void cc_lshift_mod_n(limb_t ret[], const limb_t a[], size_t count,
 {
     __builtin_assume(count != 0);
     __builtin_assume(n != 0);
-    llimb_t limbx;
     limb_t mask, carry, borrow;
     BLST_VLA_NEW(limb_t, tmp, n);
     size_t i;
@@ -270,13 +415,14 @@ inline void cc_lshift_mod_n(limb_t ret[], const limb_t a[], size_t count,
         for (carry=0, i=0; i<n; i++) {
             limb_t a_i = a[i];
             tmp[i] = a_i<<1 | carry;
-            carry = a_i>>(LIMB_T_BITS-1);
+            carry = a_i>>(BLST_LIMB_SIZE-1);
         }
 
         for (borrow=0, i=0; i<n; i++) {
-            limbx = tmp[i] - (p[i] + (llimb_t)borrow);
-            ret[i] = (limb_t)limbx;
-            borrow = (limb_t)(limbx >> LIMB_T_BITS) & 1;
+            wide_limb_t wide;
+            cc_sub_borrow_wide_limb_limb(&wide, tmp[i], p[i], borrow);
+            ret[i] = wide.lo;
+            borrow = wide.hi & 1;
         }
 
         mask = carry - borrow;
@@ -303,15 +449,15 @@ inline void cc_cneg_mod_n(limb_t ret[], const limb_t a[], bool_t flag,
                        const limb_t p[], size_t n)
 {
     __builtin_assume(n != 0);
-    llimb_t limbx;
     limb_t borrow, mask;
     BLST_VLA_NEW(limb_t, tmp, n);
     size_t i;
 
     for (borrow=0, i=0; i<n; i++) {
-        limbx = p[i] - (a[i] + (llimb_t)borrow);
-        tmp[i] = (limb_t)limbx;
-        borrow = (limb_t)(limbx >> LIMB_T_BITS) & 1;
+        wide_limb_t wide;
+        cc_sub_borrow_wide_limb_limb(&wide, p[i], a[i], borrow);
+        tmp[i] = wide.lo;
+        borrow = wide.hi & 1;
     }
 
     flag &= vec_is_zero(a, n * sizeof(limb_t)) ^ 1;
@@ -333,7 +479,6 @@ CNEG_MOD_IMPL(384)
 inline limb_t cc_check_mod_n(const byte a[], const limb_t p[], size_t n)
 {
     __builtin_assume(n != 0);
-    llimb_t limbx;
     limb_t borrow, ai, acc;
     size_t i, j;
 
@@ -341,8 +486,9 @@ inline limb_t cc_check_mod_n(const byte a[], const limb_t p[], size_t n)
         for (ai=0, j=0; j<8*sizeof(limb_t); j+=8)
             ai |= (limb_t)(*a++) << j;
         acc |= ai;
-        limbx = ai - (p[i] + (llimb_t)borrow);
-        borrow = (limb_t)(limbx >> LIMB_T_BITS) & 1;
+        wide_limb_t wide;
+        cc_sub_borrow_wide_limb_limb(&wide, ai, p[i], borrow);
+        borrow = wide.hi & 1;
     }
 
     return borrow & (is_zero(acc) ^ 1);
@@ -420,19 +566,20 @@ inline void cc_from_mont_n(limb_t ret[], const limb_t a[],
                         const limb_t p[], limb_t n0, size_t n)
 {
     __builtin_assume(n != 0 && n%2 == 0);
-    llimb_t limbx;
+    wide_limb_t wide;
     limb_t mask, borrow, mx, hi;
     size_t i, j;
     BLST_VLA_NEW(limb_t, tmp, n);
 
     for (j=0; j<n; j++) {
         mx = n0*a[0];
-        limbx = (mx * (llimb_t)p[0]) + a[0];
-        hi = (limb_t)(limbx >> LIMB_T_BITS);
+        cc_mul_add_wide_limb_limb(&wide, mx, p[0], a[0]);
+        hi = wide.hi;
+
         for (i=1; i<n; i++) {
-            limbx = (mx * (llimb_t)p[i] + hi) + a[i];
-            tmp[i-1] = (limb_t)limbx;
-            hi = (limb_t)(limbx >> LIMB_T_BITS);
+            cc_mul_add_add_wide_limb_limb(&wide, mx, p[i], hi, a[i]);
+            tmp[i - 1] = wide.lo;
+            hi = wide.hi;
         }
         tmp[i-1] = hi;
         a = tmp;
@@ -440,9 +587,9 @@ inline void cc_from_mont_n(limb_t ret[], const limb_t a[],
 
     /* this is needed only if input can be non-fully-reduced */
     for (borrow=0, i=0; i<n; i++) {
-        limbx = tmp[i] - (p[i] + (llimb_t)borrow);
-        ret[i] = (limb_t)limbx;
-        borrow = (limb_t)(limbx >> LIMB_T_BITS) & 1;
+        cc_sub_borrow_wide_limb_limb(&wide, tmp[i], p[i], borrow);
+        ret[i] = wide.lo;
+        borrow = wide.hi & 1;
     }
 
     mask = 0 - borrow;
@@ -466,7 +613,7 @@ inline void cc_redc_mont_n(limb_t ret[], const limb_t a[],
                         const limb_t p[], limb_t n0, size_t n)
 {
     __builtin_assume(n != 0 && n%2 == 0);
-    llimb_t limbx;
+    wide_limb_t wide;
     limb_t mask, carry, borrow, mx, hi;
     BLST_VLA_NEW(limb_t, tmp, n);
 
@@ -475,27 +622,27 @@ inline void cc_redc_mont_n(limb_t ret[], const limb_t a[],
 
     for (j=0; j<n; j++) {
         mx = n0*b[0];
-        limbx = (mx * (llimb_t)p[0]) + b[0];
-        hi = (limb_t)(limbx >> LIMB_T_BITS);
+        cc_mul_add_wide_limb_limb(&wide, mx, p[0], b[0]);
+        hi = wide.hi;
         for (i=1; i<n; i++) {
-            limbx = (mx * (llimb_t)p[i] + hi) + b[i];
-            tmp[i-1] = (limb_t)limbx;
-            hi = (limb_t)(limbx >> LIMB_T_BITS);
+			cc_mul_add_add_wide_limb_limb(&wide, mx, p[i], hi, b[i]);
+			tmp[i - 1] = wide.lo;
+			hi = wide.hi;
         }
         tmp[i-1] = hi;
         b = tmp;
     }
 
     for (carry=0, i=0; i<n; i++) {
-        limbx = a[n+i] + (tmp[i] + (llimb_t)carry);
-        tmp[i] = (limb_t)limbx;
-        carry = (limb_t)(limbx >> LIMB_T_BITS);
+		cc_add_carry_wide_limb_limb(&wide, a[n + i], tmp[i], carry);
+		tmp[i] = wide.lo;
+		carry = wide.hi;
     }
 
     for (borrow=0, i=0; i<n; i++) {
-        limbx = tmp[i] - (p[i] + (llimb_t)borrow);
-        ret[i] = (limb_t)limbx;
-        borrow = (limb_t)(limbx >> LIMB_T_BITS) & 1;
+		cc_sub_borrow_wide_limb_limb(&wide, tmp[i], p[i], borrow);
+		ret[i] = wide.lo;
+		borrow = wide.hi & 1;
     }
 
     mask = carry - borrow;
@@ -520,7 +667,6 @@ inline void cc_rshift_mod_n(limb_t ret[], const limb_t a[], size_t count,
 {
     __builtin_assume(count != 0);
     __builtin_assume(n != 0 && n%2 == 0);
-    llimb_t limbx;
     limb_t mask, carry, limb, next;
     size_t i;
 
@@ -528,17 +674,18 @@ inline void cc_rshift_mod_n(limb_t ret[], const limb_t a[], size_t count,
         mask = 0 - (a[0] & 1);
         BLST_launder(mask);
         for (carry=0, i=0; i<n; i++) {
-            limbx = a[i] + ((p[i]&mask) + (llimb_t)carry);
-            ret[i] = (limb_t)limbx;
-            carry = (limb_t)(limbx >> LIMB_T_BITS);
+			wide_limb_t wide;
+			cc_add_carry_wide_limb_limb(&wide, a[i], p[i] & mask, carry);
+			ret[i] = wide.lo;
+			carry = wide.hi;
         }
 
         for (next=ret[0], i=0; i<n-1; i++) {
             limb = next >> 1;
             next = ret[i+1];
-            ret[i] = limb | next << (LIMB_T_BITS-1);
+            ret[i] = limb | next << (BLST_LIMB_SIZE-1);
         }
-        ret[i] = next >> 1 | carry << (LIMB_T_BITS-1);
+        ret[i] = next >> 1 | carry << (BLST_LIMB_SIZE-1);
 
         a = ret;
     }
@@ -562,7 +709,6 @@ DIV_BY_2_MOD_IMPL(384)
 inline limb_t cc_sgn0_pty_mod_n(const limb_t a[], const limb_t p[], size_t n)
 {
     __builtin_assume(n != 0);
-    llimb_t limbx;
     limb_t carry, borrow, ret;
     BLST_VLA_NEW(limb_t, tmp, n);
 
@@ -573,12 +719,13 @@ inline limb_t cc_sgn0_pty_mod_n(const limb_t a[], const limb_t p[], size_t n)
     for (carry=0, i=0; i<n; i++) {
         limb_t a_i = a[i];
         tmp[i] = a_i<<1 | carry;
-        carry = a_i>>(LIMB_T_BITS-1);
+        carry = a_i>>(BLST_LIMB_SIZE-1);
     }
 
     for (borrow=0, i=0; i<n; i++) {
-        limbx = tmp[i] - (p[i] + (llimb_t)borrow);
-        borrow = (limb_t)(limbx >> LIMB_T_BITS) & 1;
+		wide_limb_t wide;
+		cc_sub_borrow_wide_limb_limb(&wide, tmp[i], p[i], borrow);
+		borrow = wide.hi & 1;
     }
 
     ret |= ((carry - borrow) & 2) ^ 2;
@@ -652,27 +799,28 @@ HOST_DEVICE_FUNC inline void cc_mul_mont_nonred_n(limb_t ret[], const limb_t a[]
                               const limb_t p[], limb_t n0, size_t n)
 {
     __builtin_assume(n != 0 && n%2 == 0);
-    llimb_t limbx;
+	wide_limb_t wide;
     limb_t mx, hi;
     BLST_VLA_NEW(limb_t, tmp, n+1);
 
     size_t i, j;
 
     for (mx=b[0], hi=0, i=0; i<n; i++) {
-        limbx = (mx * (llimb_t)a[i]) + hi;
-        tmp[i] = (limb_t)limbx;
-        hi = (limb_t)(limbx >> LIMB_T_BITS);
+		cc_mul_add_wide_limb_limb(&wide, mx, a[i], hi);
+		tmp[i] = wide.lo;
+		hi = wide.hi;
     }
     mx = n0*tmp[0];
     tmp[i] = hi;
 
     for (j=0; ; ) {
-        limbx = (mx * (llimb_t)p[0]) + tmp[0];
-        hi = (limb_t)(limbx >> LIMB_T_BITS);
+		cc_mul_add_wide_limb_limb(&wide, mx, p[0], tmp[0]);
+		hi = wide.hi;
+
         for (i=1; i<n; i++) {
-            limbx = (mx * (llimb_t)p[i] + hi) + tmp[i];
-            tmp[i-1] = (limb_t)limbx;
-            hi = (limb_t)(limbx >> LIMB_T_BITS);
+			cc_mul_add_add_wide_limb_limb(&wide, mx, p[i], hi, tmp[i]);
+			tmp[i - 1] = wide.lo;
+			hi = wide.hi;
         }
         tmp[i-1] = tmp[i] + hi;
 
@@ -680,9 +828,9 @@ HOST_DEVICE_FUNC inline void cc_mul_mont_nonred_n(limb_t ret[], const limb_t a[]
             break;
 
         for (mx=b[j], hi=0, i=0; i<n; i++) {
-            limbx = (mx * (llimb_t)a[i] + hi) + tmp[i];
-            tmp[i] = (limb_t)limbx;
-            hi = (limb_t)(limbx >> LIMB_T_BITS);
+			cc_mul_add_add_wide_limb_limb(&wide, mx, a[i], hi, tmp[i]);
+			tmp[i] = wide.lo;
+			hi = wide.hi;
         }
         mx = n0*tmp[0];
         tmp[i] = hi;
@@ -710,23 +858,23 @@ HOST_DEVICE_FUNC inline void cc_sqr_n_mul_mont_384(vec384 ret, const vec384 a, s
 HOST_DEVICE_FUNC inline void cc_sqr_mont_382x(vec384x ret, const vec384x a,
                           const vec384 p, limb_t n0)
 {
-    llimb_t limbx;
+	wide_limb_t wide;
     limb_t mask, carry, borrow;
     size_t i;
     vec384 t0, t1;
 
     /* "add_mod_n(t0, a[0], a[1], p, NLIMBS(384));" */
     for (carry=0, i=0; i<NLIMBS(384); i++) {
-        limbx = a[0][i] + (a[1][i] + (llimb_t)carry);
-        t0[i] = (limb_t)limbx;
-        carry = (limb_t)(limbx >> LIMB_T_BITS);
+		cc_add_carry_wide_limb_limb(&wide, a[0][i], a[1][i], carry);
+		t0[i] = wide.lo;
+		carry = wide.hi;
     }
 
     /* "sub_mod_n(t1, a[0], a[1], p, NLIMBS(384));" */
     for (borrow=0, i=0; i<NLIMBS(384); i++) {
-        limbx = a[0][i] - (a[1][i] + (llimb_t)borrow);
-        t1[i] = (limb_t)limbx;
-        borrow = (limb_t)(limbx >> LIMB_T_BITS) & 1;
+		cc_sub_borrow_wide_limb_limb(&wide, a[0][i], a[1][i], borrow);
+		t1[i] = wide.lo;
+		borrow = wide.hi & 1;
     }
     mask = 0 - borrow;
     BLST_launder(mask);
@@ -738,7 +886,7 @@ HOST_DEVICE_FUNC inline void cc_sqr_mont_382x(vec384x ret, const vec384x a,
     for (carry=0, i=0; i<NLIMBS(384); i++) {
         limb_t a_i = ret[1][i];
         ret[1][i] = a_i<<1 | carry;
-        carry = a_i>>(LIMB_T_BITS-1);
+        carry = a_i>>(BLST_LIMB_SIZE-1);
     }
 
     /* "mul_mont_n(ret[0], t0, t1, p, n0, NLIMBS(384));" */
@@ -746,16 +894,16 @@ HOST_DEVICE_FUNC inline void cc_sqr_mont_382x(vec384x ret, const vec384x a,
 
     /* account for t1's sign... */
     for (borrow=0, i=0; i<NLIMBS(384); i++) {
-        limbx = ret[0][i] - ((t0[i] & mask) + (llimb_t)borrow);
-        ret[0][i] = (limb_t)limbx;
-        borrow = (limb_t)(limbx >> LIMB_T_BITS) & 1;
+		cc_sub_borrow_wide_limb_limb(&wide, ret[0][i], t0[i] & mask, borrow);
+		ret[0][i] = wide.lo;
+		borrow = wide.hi & 1;
     }
     mask = 0 - borrow;
     BLST_launder(mask);
     for (carry=0, i=0; i<NLIMBS(384); i++) {
-        limbx = ret[0][i] + ((p[i] & mask) + (llimb_t)carry);
-        ret[0][i] = (limb_t)limbx;
-        carry = (limb_t)(limbx >> LIMB_T_BITS);
+		cc_add_carry_wide_limb_limb(&wide, ret[0][i], p[i] & mask, carry);
+		ret[0][i] = wide.lo;
+		carry = wide.hi;
     }
 }
 
@@ -826,9 +974,9 @@ HOST_DEVICE_FUNC inline void cc_sqr_mont_384x(vec384x ret, const vec384x a, cons
 
 
 #if defined(__GNUC__) || defined(__clang__)
-# define MSB(x) ({ limb_t ret = (x) >> (LIMB_T_BITS-1); BLST_launder(ret); ret; })
+# define MSB(x) ({ limb_t ret = (x) >> (BLST_LIMB_SIZE-1); BLST_launder(ret); ret; })
 #else
-# define MSB(x) ((x) >> (LIMB_T_BITS-1))
+# define MSB(x) ((x) >> (BLST_LIMB_SIZE-1))
 #endif
 
 HOST_DEVICE_FUNC inline size_t cc_num_bits(limb_t l)
@@ -873,13 +1021,13 @@ __attribute__((optnone))
 #endif
 HOST_DEVICE_FUNC inline  limb_t cc_lshift_2(limb_t hi, limb_t lo, size_t l)
 {
-    size_t r = LIMB_T_BITS - l;
+    size_t r = BLST_LIMB_SIZE - l;
     limb_t mask = 0 - (is_zero(l)^1);
-    return (hi << (l&(LIMB_T_BITS-1))) | ((lo & mask) >> (r&(LIMB_T_BITS-1)));
+    return (hi << (l&(BLST_LIMB_SIZE-1))) | ((lo & mask) >> (r&(BLST_LIMB_SIZE-1)));
 }
 
 /*
- * https://eprint.iacr.org/2020/972 with 'k' being LIMB_T_BITS-1.
+ * https://eprint.iacr.org/2020/972 with 'k' being BLST_LIMB_SIZE-1.
  */
 HOST_DEVICE_FUNC inline void cc_ab_approximation_n(limb_t a_[2], const limb_t a[],
                                limb_t b_[2], const limb_t b[], size_t n)
@@ -898,8 +1046,8 @@ HOST_DEVICE_FUNC inline void cc_ab_approximation_n(limb_t a_[2], const limb_t a[
         a_lo = ((a[i] ^ a_lo) & mask) ^ a_lo;
         b_lo = ((b[i] ^ b_lo) & mask) ^ b_lo;
     }
-    i = LIMB_T_BITS - cc_num_bits(a_hi | b_hi);
-    /* |i| can be LIMB_T_BITS if all a[2..]|b[2..] were zeros */
+    i = BLST_LIMB_SIZE - cc_num_bits(a_hi | b_hi);
+    /* |i| can be BLST_LIMB_SIZE if all a[2..]|b[2..] were zeros */
 
     a_[0] = a[0], a_[1] = cc_lshift_2(a_hi, a_lo, i);
     b_[0] = b[0], b_[1] = cc_lshift_2(b_hi, b_lo, i);
@@ -911,7 +1059,7 @@ HOST_DEVICE_FUNC inline void cc_inner_loop_n(factors *fg, const limb_t a_[2], co
                          size_t n)
 {
     __builtin_assume(n != 0);
-    llimb_t limbx;
+	wide_limb_t wide;
     limb_t f0 = 1, g0 = 0, f1 = 0, g1 = 1;
     limb_t a_lo, a_hi, b_lo, b_hi, t_lo, t_hi, odd, borrow, xorm;
 
@@ -923,19 +1071,20 @@ HOST_DEVICE_FUNC inline void cc_inner_loop_n(factors *fg, const limb_t a_[2], co
 
         /* a_ -= b_ if a_ is odd */
         t_lo = a_lo, t_hi = a_hi;
-        limbx = a_lo - (llimb_t)(b_lo & odd);
-        a_lo = (limb_t)limbx;
-        borrow = (limb_t)(limbx >> LIMB_T_BITS) & 1;
-        limbx = a_hi - ((llimb_t)(b_hi & odd) + borrow);
-        a_hi = (limb_t)limbx;
-        borrow = (limb_t)(limbx >> LIMB_T_BITS);
+		cc_sub_borrow_wide_limb_limb(&wide, a_lo, b_lo & odd, 0);
+		a_lo = wide.lo;
+		borrow = wide.hi & 1;
+
+		cc_sub_borrow_wide_limb_limb(&wide, a_hi, (b_hi & odd), borrow);
+		a_hi = wide.lo;
+		borrow = wide.hi;
 
         /* negate a_-b_ if it borrowed */
         a_lo ^= borrow;
         a_hi ^= borrow;
-        limbx = a_lo + (llimb_t)(borrow & 1);
-        a_lo = (limb_t)limbx;
-        a_hi += (limb_t)(limbx >> LIMB_T_BITS) & 1;
+		cc_add_wide_limb_limb(&wide, a_lo, borrow & 1);
+		a_lo = wide.lo;
+		a_hi += wide.hi & 1;
 
         /* b_=a_ if a_-b_ borrowed */
         b_lo = ((t_lo ^ b_lo) & borrow) ^ b_lo;
@@ -957,7 +1106,7 @@ HOST_DEVICE_FUNC inline void cc_inner_loop_n(factors *fg, const limb_t a_[2], co
 
         f1 <<= 1;
         g1 <<= 1;
-        a_lo >>= 1; a_lo |= a_hi << (LIMB_T_BITS-1);
+        a_lo >>= 1; a_lo |= a_hi << (BLST_LIMB_SIZE-1);
         a_hi >>= 1;
     }
 
@@ -967,30 +1116,30 @@ HOST_DEVICE_FUNC inline void cc_inner_loop_n(factors *fg, const limb_t a_[2], co
 HOST_DEVICE_FUNC inline limb_t cc_cneg_n(limb_t ret[], const limb_t a[], limb_t neg, size_t n)
 {
     __builtin_assume(n != 0);
-    llimb_t limbx = 0;
+	wide_limb_t wide;
     limb_t carry;
     size_t i;
 
     for (carry=neg&1, i=0; i<n; i++) {
-        limbx = (llimb_t)(a[i] ^ neg) + carry;
-        ret[i] = (limb_t)limbx;
-        carry = (limb_t)(limbx >> LIMB_T_BITS);
+		cc_add_wide_limb_limb(&wide, a[i] ^ neg, carry);
+		ret[i] = wide.lo;
+		carry = wide.hi;
     }
 
-    return 0 - MSB((limb_t)limbx);
+    return 0 - MSB(wide.lo);
 }
 
 HOST_DEVICE_FUNC inline limb_t cc_add_n(limb_t ret[], const limb_t a[], limb_t b[], size_t n)
 {
     __builtin_assume(n != 0);
-    llimb_t limbx;
+	wide_limb_t wide;
     limb_t carry;
     size_t i;
 
     for (carry=0, i=0; i<n; i++) {
-        limbx = a[i] + (b[i] + (llimb_t)carry);
-        ret[i] = (limb_t)limbx;
-        carry = (limb_t)(limbx >> LIMB_T_BITS);
+		cc_add_carry_wide_limb_limb(&wide, a[i], b[i], carry);
+		ret[i] = wide.lo;
+		carry = wide.hi;
     }
 
     return carry;
@@ -999,14 +1148,14 @@ HOST_DEVICE_FUNC inline limb_t cc_add_n(limb_t ret[], const limb_t a[], limb_t b
 HOST_DEVICE_FUNC inline limb_t cc_umul_n(limb_t ret[], const limb_t a[], limb_t b, size_t n)
 {
     __builtin_assume(n != 0);
-    llimb_t limbx;
+	wide_limb_t wide;
     limb_t hi;
     size_t i;
 
     for (hi=0, i=0; i<n; i++) {
-        limbx = (b * (llimb_t)a[i]) + hi;
-        ret[i] = (limb_t)limbx;
-        hi = (limb_t)(limbx >> LIMB_T_BITS);
+		cc_mul_add_wide_limb_limb(&wide, b, a[i], hi);
+		ret[i] = wide.lo;
+		hi = wide.hi;
     }
 
     return hi;
@@ -1043,7 +1192,7 @@ HOST_DEVICE_FUNC inline limb_t cc_smul_n_shift_n(limb_t ret[], const limb_t a[],
 
     /* (|a|*|f_| + |b|*|g_|) >> k */
     for (carry=a_[0], i=0; i<n; i++) {
-        hi = carry >> (LIMB_T_BITS-2);
+        hi = carry >> (BLST_LIMB_SIZE-2);
         carry = a_[i+1];
         ret[i] = hi | (carry << 2);
     }
@@ -1094,7 +1243,7 @@ HOST_DEVICE_FUNC inline void cc_ct_inverse_mod_n(limb_t ret[], const limb_t inp[
                              const limb_t mod[], const limb_t modx[], size_t n)
 {
     __builtin_assume(n != 0 && n%2 == 0);
-    llimb_t limbx;
+	wide_limb_t wide;
 	BLST_VLA_NEW(limb_t, a, n);
 	BLST_VLA_NEW(limb_t, b, n);
 	BLST_VLA_NEW(limb_t, u, 2 * n);
@@ -1110,9 +1259,9 @@ HOST_DEVICE_FUNC inline void cc_ct_inverse_mod_n(limb_t ret[], const limb_t inp[
     vec_zero(u, n*2); u[0] = 1;
     vec_zero(v, n*2 * sizeof(limb_t));
 
-    for (i=0; i<(2*n*LIMB_T_BITS)/(LIMB_T_BITS-2); i++) {
+    for (i=0; i<(2*n*BLST_LIMB_SIZE)/(BLST_LIMB_SIZE-2); i++) {
         cc_ab_approximation_n(a_, a, b_, b, n);
-        cc_inner_loop_n(&fg, a_, b_, LIMB_T_BITS-2);
+        cc_inner_loop_n(&fg, a_, b_, BLST_LIMB_SIZE-2);
         (void)cc_smul_n_shift_n(t, a, &fg.f0, b, &fg.g0, n);
         (void)cc_smul_n_shift_n(b, a, &fg.f1, b, &fg.g1, n);
         vec_copy(a, t, n * sizeof(limb_t));
@@ -1121,14 +1270,14 @@ HOST_DEVICE_FUNC inline void cc_ct_inverse_mod_n(limb_t ret[], const limb_t inp[
         vec_copy(u, t, 2*n * sizeof(limb_t));
     }
 
-    cc_inner_loop_n(&fg, a, b, (2*n*LIMB_T_BITS)%(LIMB_T_BITS-2));
+    cc_inner_loop_n(&fg, a, b, (2*n*BLST_LIMB_SIZE)%(BLST_LIMB_SIZE-2));
     top = cc_smul_2n(ret, u, fg.f1, v, fg.g1, 2*n);
 
     sign = 0 - MSB(top);    /* top is 1, 0 or -1 */
     for (carry=0, i=0; i<n; i++) {
-        limbx = ret[n+i] + ((modx[i] & sign) + (llimb_t)carry);
-        ret[n+i] = (limb_t)limbx;
-        carry = (limb_t)(limbx >> LIMB_T_BITS);
+		cc_add_carry_wide_limb_limb(&wide, ret[n + i], modx[i] & sign, carry);
+		ret[n + i] = wide.lo;
+		carry = wide.hi;
     }
     top += carry;
     sign = 0 - top;         /* top is 1, 0 or -1 */
@@ -1160,7 +1309,7 @@ HOST_DEVICE_FUNC inline limb_t cc_legendre_loop_n(limb_t L, factors *fg, const l
                               const limb_t b_[2], size_t n)
 {
     __builtin_assume(n != 0);
-    llimb_t limbx;
+	wide_limb_t wide;
     limb_t f0 = 1, g0 = 0, f1 = 0, g1 = 1;
     limb_t a_lo, a_hi, b_lo, b_hi, t_lo, t_hi, odd, borrow, xorm;
 
@@ -1172,21 +1321,22 @@ HOST_DEVICE_FUNC inline limb_t cc_legendre_loop_n(limb_t L, factors *fg, const l
 
         /* a_ -= b_ if a_ is odd */
         t_lo = a_lo, t_hi = a_hi;
-        limbx = a_lo - (llimb_t)(b_lo & odd);
-        a_lo = (limb_t)limbx;
-        borrow = (limb_t)(limbx >> LIMB_T_BITS) & 1;
-        limbx = a_hi - ((llimb_t)(b_hi & odd) + borrow);
-        a_hi = (limb_t)limbx;
-        borrow = (limb_t)(limbx >> LIMB_T_BITS);
+		cc_sub_borrow_wide_limb_limb(&wide, a_lo, b_lo & odd, 0);
+		a_lo = wide.lo;
+		borrow = wide.hi & 1;
+
+		cc_sub_borrow_wide_limb_limb(&wide, a_hi, (b_hi & odd), borrow);
+		a_hi = wide.lo;
+		borrow = wide.hi;
 
         L += ((t_lo & b_lo) >> 1) & borrow;
 
         /* negate a_-b_ if it borrowed */
         a_lo ^= borrow;
         a_hi ^= borrow;
-        limbx = a_lo + (llimb_t)(borrow & 1);
-        a_lo = (limb_t)limbx;
-        a_hi += (limb_t)(limbx >> LIMB_T_BITS) & 1;
+		cc_add_wide_limb_limb(&wide, a_lo, borrow & 1);
+		a_lo = wide.lo;
+		a_hi += wide.hi & 1;
 
         /* b_=a_ if a_-b_ borrowed */
         b_lo = ((t_lo ^ b_lo) & borrow) ^ b_lo;
@@ -1208,7 +1358,7 @@ HOST_DEVICE_FUNC inline limb_t cc_legendre_loop_n(limb_t L, factors *fg, const l
 
         f1 <<= 1;
         g1 <<= 1;
-        a_lo >>= 1; a_lo |= a_hi << (LIMB_T_BITS-1);
+        a_lo >>= 1; a_lo |= a_hi << (BLST_LIMB_SIZE-1);
         a_hi >>= 1;
 
         L += (b_lo + 2) >> 2;
@@ -1232,16 +1382,16 @@ HOST_DEVICE_FUNC inline bool_t cc_ct_is_sqr_mod_n(const limb_t inp[], const limb
     vec_copy(a, inp, n * sizeof(limb_t));
     vec_copy(b, mod, n * sizeof(limb_t));
 
-    for (i=0; i<(2*n*LIMB_T_BITS)/(LIMB_T_BITS-2); i++) {
+    for (i=0; i<(2*n*BLST_LIMB_SIZE)/(BLST_LIMB_SIZE-2); i++) {
         cc_ab_approximation_n(a_, a, b_, b, n);
-        L = cc_legendre_loop_n(L, &fg, a_, b_, LIMB_T_BITS-2);
+        L = cc_legendre_loop_n(L, &fg, a_, b_, BLST_LIMB_SIZE-2);
         neg = cc_smul_n_shift_n(t, a, &fg.f0, b, &fg.g0, n);
         (void)cc_smul_n_shift_n(b, a, &fg.f1, b, &fg.g1, n);
         vec_copy(a, t, n * sizeof(limb_t));
         L += (b[0] >> 1) & neg;
     }
 
-    L = cc_legendre_loop_n(L, &fg, a, b, (2*n*LIMB_T_BITS)%(LIMB_T_BITS-2));
+    L = cc_legendre_loop_n(L, &fg, a, b, (2*n*BLST_LIMB_SIZE)%(BLST_LIMB_SIZE-2));
 
     BLST_VLA_FREE(a);
     BLST_VLA_FREE(b);
@@ -1277,40 +1427,41 @@ CT_IS_SQR_MOD_IMPL(384)
  */
 HOST_DEVICE_FUNC inline limb_t cc_div_3_limbs(const limb_t div_top[2], limb_t d_lo, limb_t d_hi)
 {
-    llimb_t Rx;
+	wide_limb_t wide;
     limb_t r_lo = div_top[0], r_hi = div_top[1];
     limb_t Q = 0, mask, borrow, rx;
     size_t i;
 
-    for (i = 0; i < LIMB_T_BITS; i++) {
+    for (i = 0; i < BLST_LIMB_SIZE; i++) {
         /* "borrow, Rx = R - D" */
-        Rx = (llimb_t)r_lo - d_lo;
-        rx = (limb_t)Rx;
-        borrow = (limb_t)(Rx >> LIMB_T_BITS) & 1;
-        Rx = r_hi - (d_hi + (llimb_t)borrow);
-        borrow = (limb_t)(Rx >> LIMB_T_BITS);
+		cc_sub_borrow_wide_limb_limb(&wide, r_lo, d_lo, 0);
+		rx = wide.lo;
+		borrow = wide.hi & 1;
+		cc_sub_borrow_wide_limb_limb(&wide, r_hi, d_hi, borrow);
+		r_hi = wide.lo;
+		borrow = wide.hi & 1;
 
         /* "if (R >= D) R -= D" */
         r_lo = ((r_lo ^ rx) & borrow) ^ rx;
-        rx = (limb_t)Rx;
         r_hi = ((r_hi ^ rx) & borrow) ^ rx;
 
         Q <<= 1;
         Q |= ~borrow & 1;
 
         /* "D >>= 1" */
-        d_lo >>= 1; d_lo |= d_hi << (LIMB_T_BITS - 1);
+        d_lo >>= 1; d_lo |= d_hi << (BLST_LIMB_SIZE - 1);
         d_hi >>= 1;
     }
 
     mask = 0 - MSB(Q);  /* does it overflow? */
 
     /* "borrow, Rx = R - D" */
-    Rx = (llimb_t)r_lo - d_lo;
-    rx = (limb_t)Rx;
-    borrow = (limb_t)(Rx >> LIMB_T_BITS) & 1;
-    Rx = r_hi - (d_hi + (llimb_t)borrow);
-    borrow = (limb_t)(Rx >> LIMB_T_BITS) & 1;
+	cc_sub_borrow_wide_limb_limb(&wide, r_lo, d_lo, 0);
+	rx = wide.lo;
+	borrow = wide.hi & 1;
+	cc_sub_borrow_wide_limb_limb(&wide, r_hi, d_hi, borrow);
+	rx = wide.lo;
+	borrow = wide.hi & 1;
 
     Q <<= 1;
     Q |= borrow ^ 1;
@@ -1322,24 +1473,24 @@ HOST_DEVICE_FUNC inline limb_t cc_quot_rem_n(limb_t *div_rem, const limb_t *divi
                                           limb_t quotient, size_t n)
 {
     __builtin_assume(n != 0 && n%2 == 0);
-    llimb_t limbx;
+	wide_limb_t wide;
     limb_t carry, mask, borrow;
 	BLST_VLA_NEW(limb_t, tmp, n + 1);
     size_t i;
 
     /* divisor*quotient */
     for (carry=0, i=0; i<n; i++) {
-        limbx = (quotient * (llimb_t)divisor[i]) + carry;
-        tmp[i] = (limb_t)limbx;
-        carry = (limb_t)(limbx >> LIMB_T_BITS);
+		cc_mul_add_wide_limb_limb(&wide, quotient, divisor[i], carry);
+		tmp[i] = wide.lo;
+		carry = wide.hi;
     }
     tmp[i] = carry;
 
     /* remainder = dividend - divisor*quotient */
     for (borrow=0, i=0; i<=n; i++) {
-        limbx = div_rem[i] - (tmp[i] + (llimb_t)borrow);
-        tmp[i] = (limb_t)limbx;
-        borrow = (limb_t)(limbx >> LIMB_T_BITS) & 1;
+		cc_sub_borrow_wide_limb_limb(&wide, div_rem[i], tmp[i] + borrow, 0);
+		tmp[i] = wide.lo;
+		borrow = wide.hi & 1;
     }
 
     mask = 0 - borrow;
@@ -1347,9 +1498,9 @@ HOST_DEVICE_FUNC inline limb_t cc_quot_rem_n(limb_t *div_rem, const limb_t *divi
 
     /* if quotient was off by one, add divisor to the remainder */
     for (carry=0, i=0; i<n; i++) {
-        limbx = tmp[i] + ((divisor[i] & mask) + (llimb_t)carry);
-        div_rem[i] = (limb_t)limbx;
-        carry = (limb_t)(limbx >> LIMB_T_BITS) & 1;
+		cc_add_carry_wide_limb_limb(&wide, tmp[i], divisor[i] & mask, carry);
+		div_rem[i] = wide.lo;
+		carry = wide.hi & 1;
     }
 
 	BLST_VLA_FREE(tmp);
