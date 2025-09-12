@@ -8,6 +8,11 @@
 #include "fields.h"
 #include "errors.h"
 
+
+#if defined(DEBUG) || !defined(NDEBUG)
+#include <stdio.h>
+#endif
+
 /*
  * y^2 = x^3 + B
  */
@@ -366,7 +371,6 @@ inline void blst_p1_add(POINTonE1 *out, const POINTonE1 *a, const POINTonE1 *b)
     // Check if we're trying to add a point to itself in debug builds
     if (!vec_is_zero(a->Z, sizeof(a->Z)) && !vec_is_zero(b->Z, sizeof(b->Z))) { // If neither point is infinity
         // Convert both points to affine to check if they're the same
-        POINTonE1_affine a_affine, b_affine;
         vec384 Z_a, ZZ_a, Z_b, ZZ_b;
 
         // Convert a to affine
@@ -411,7 +415,6 @@ inline void blst_p1_add_affine(POINTonE1 *out, const POINTonE1 *a,
 {   
 #if defined(DEBUG) || !defined(NDEBUG)
     // Check if we're trying to add a point to itself in debug builds
-    POINTonE1_affine a_affine;
     if (!vec_is_zero(a->Z, sizeof(a->Z))) {  // If a is not infinity
         vec384 Z, ZZ;
         reciprocal_fp(Z, a->Z);              // 1/Z

@@ -5,7 +5,7 @@
  */
 #ifndef __BLS12_381_ASM_CONST_H__
 #define __BLS12_381_ASM_CONST_H__
-#include "vect.h"
+#include "defines.h"
 #include "config.h"
 
 extern const vec384 BLS12_381_P;

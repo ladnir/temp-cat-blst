@@ -7,26 +7,36 @@ set(BLST_STATIC_SRC ${BLST_SRC})
 
 
 if(MSVC)
-    set(BLST_DEBUG_OPT /Zi /Od /MDd /DEBUG)
+    set(BLST_DEBUG_OPT /Zi /Od /MDd /DEBUG /W4 /WX)
     set(BLST_RELEASE_OPT /O2 /MD)
     set(BLST_RELWITHDEBINFO_OPT /Zi /O2 /MD /DEBUG)
     if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-        set(ASM_PATTERN "${CMAKE_CURRENT_SOURCE_DIR}/build/win64/*-x86_64.asm")
+        set(ASM_PATTERN "${CMAKE_CURRENT_SOURCE_DIR}/../build/win64/*-x86_64.asm")
     else()
-        set(ASM_PATTERN "${CMAKE_CURRENT_SOURCE_DIR}/build/win64/*-armv8.asm")
+        set(ASM_PATTERN "${CMAKE_CURRENT_SOURCE_DIR}/../build/win64/*-armv8.asm")
     endif()
 else()
     set(BLST_DEBUG_OPT -g -O0 -fPIC)
     set(BLST_RELEASE_OPT -O2 -Wall -Wextra -fPIC)
     set(BLST_RELWITHDEBINFO_OPT -g -O2 -Wall -Wextra -fPIC)
 
-    set(ASM_PATTERN  ${CMAKE_CURRENT_SOURCE_DIR}/build/assembly.S)
+    set(ASM_PATTERN  ${CMAKE_CURRENT_SOURCE_DIR}/../build/assembly.S)
 endif()
 
 
-file(GLOB ASM_SRC ${ASM_PATTERN})
-if(ASM_SRC AND NOT BLST_PORTABLE)
-    list(APPEND BLST_STATIC_SRC ${ASM_SRC})
+if(BLST_ASM)
+    file(GLOB ASM_SRC ${ASM_PATTERN})
+    #list(APPEND BLST_STATIC_SRC ${ASM_SRC})
+    message(STATUS "Assembly optimizations enabled, searching for ${ASM_PATTERN}")
+    message("found: ${ASM_SRC}")
+    
+    if(MSVC)
+        enable_language(ASM_MASM)
+
+    endif()
+
+
+    set_source_files_properties(${ASM_SRC} PROPERTIES LANGUAGE ASM_MASM)
 endif()
 
 if(BLST_CUDA)
@@ -57,14 +67,20 @@ if(BLST_CUDA)
 else()
 
     
+    #set(BLST_STATIC_OPTS 
+    #    $<$<CONFIG:Debug>:${BLST_DEBUG_OPT}>
+    #    $<$<CONFIG:Release>:${BLST_RELEASE_OPT}>
+    #    $<$<CONFIG:RelWithDebInfo>:${BLST_RELWITHDEBINFO_OPT}>
+    #)
+    # Apply MSVC flags only to C files
     set(BLST_STATIC_OPTS 
-        $<$<CONFIG:Debug>:${BLST_DEBUG_OPT}>
-        $<$<CONFIG:Release>:${BLST_RELEASE_OPT}>
-        $<$<CONFIG:RelWithDebInfo>:${BLST_RELWITHDEBINFO_OPT}>
+        $<$<AND:$<CONFIG:Debug>,$<COMPILE_LANGUAGE:C>>:${BLST_DEBUG_OPT}>
+        $<$<AND:$<CONFIG:Release>,$<COMPILE_LANGUAGE:C>>:${BLST_RELEASE_OPT}>
+        $<$<AND:$<CONFIG:RelWithDebInfo>,$<COMPILE_LANGUAGE:C>>:${BLST_RELWITHDEBINFO_OPT}>
     )
 endif()
 
-add_library(blst_static ${BLST_STATIC_SRC})
+add_library(blst_static ${BLST_STATIC_SRC} ${ASM_SRC})
 set_target_properties(blst_static PROPERTIES OUTPUT_NAME blst)
 target_compile_options(blst_static PRIVATE ${BLST_STATIC_OPTS})
 

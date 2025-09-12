@@ -29,6 +29,7 @@ typedef limb_t vec512[NLIMBS(512)];
 typedef limb_t vec384[NLIMBS(384)];
 typedef limb_t vec768[NLIMBS(768)];
 typedef vec384 vec384x[2];      /* 0 is "real" part, 1 is "imaginary" */
+typedef vec768 vec768x[2];      /* 0 is "real" part, 1 is "imaginary" */
 
 #define TO_BYTES(limb64)    (byte)limb64,(byte)(limb64>>8),\
                             (byte)(limb64>>16),(byte)(limb64>>24),\
@@ -41,6 +42,7 @@ typedef byte pow256[256 / 8];
  * reinterpret as 'bool'.
  */
 typedef limb_t bool_t;
+
 
 
 
@@ -76,8 +78,45 @@ typedef const void *uptr_t;
 
 #if defined(__GNUC__) || defined(__clang__)
 # define BLST_launder(var) __asm__ __volatile__("" : "+r"(var))
+#elif defined(_MSC_VER)
+# include <intrin.h>
+# define BLST_launder(var) do { _ReadWriteBarrier(); (void)(var); } while (0)
 #else
 # define BLST_launder(var)
+#endif
+
+/*
+ * Some compilers get arguably overzealous(*) when passing pointer to
+ * multi-dimensional array [such as vec384x] as 'const' argument.
+ * General direction seems to be to legitimize such constification,
+ * so it's argued that suppressing the warning is appropriate.
+ *
+ * (*)  http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1923.htm
+ */
+#if defined(__INTEL_COMPILER)
+# pragma warning(disable:167)
+# pragma warning(disable:556)
+#elif defined(__GNUC__) && !defined(__clang__) && (__STDC_VERSION__-0) < 202311
+# pragma GCC diagnostic ignored "-Wpedantic"
+#elif defined(_MSC_VER)
+# pragma warning(disable: 4127 4189)
+#endif
+
+#if !defined(__wasm__) && __STDC_HOSTED__-0 != 0
+# include <stdlib.h>
+#endif
+
+#if defined(__GNUC__)
+# ifndef alloca
+#  define alloca(s) __builtin_alloca(s)
+# endif
+#elif defined(__sun)
+# include <alloca.h>
+#elif defined(_WIN32)
+# include <malloc.h>
+# ifndef alloca
+#  define alloca(s) _alloca(s)
+# endif
 #endif
 
 #endif

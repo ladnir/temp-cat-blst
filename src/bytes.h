@@ -6,6 +6,7 @@
 #ifndef __BLS12_381_ASM_BYTES_H__
 #define __BLS12_381_ASM_BYTES_H__
 #include "config.h"
+#include "vect.h"
 
 inline void bytes_zero(unsigned char *a, size_t num)
 {

@@ -61,11 +61,11 @@ typedef struct { limb_t lo, hi; } wide_limb_t;
 
 #define cc_add_carry_wide_limb_limb(ret, a, b, carry) \
     do{ assert(carry <= 1); __assume(carry <=1); \
-    (ret)->hi = _addcarry_u64(carry, a, b, (unsigned long long*) &(ret)->lo); } while(0)
+    (ret)->hi = _addcarry_u64((unsigned char)carry, a, b, (unsigned long long*) &(ret)->lo); } while(0)
 
 #define cc_sub_borrow_wide_limb_limb(ret, a, b, borrow) \
     do{ assert(borrow <= 1); __assume(borrow <=1); \
-    (ret)->hi = _subborrow_u64(borrow, a, b, (unsigned long long*) &(ret)->lo); } while(0)
+    (ret)->hi = _subborrow_u64((unsigned char)borrow, a, b, (unsigned long long*) &(ret)->lo); } while(0)
 
 
 #elif BLST_LIMB_SIZE == 32 && (defined(_M_X64) || defined(__x86_64__)) && 0
@@ -183,7 +183,13 @@ do {                                                                           \
     cc_add_wide_limb_limb(ret, a, b);\
     cc_add_wide_wide_limb(ret, *ret, c)
 
-
+/**
+ * @brief Performs Montgomery multiplication of two large integers.
+ *
+ * Computes `(a * b * R^(-1)) mod p` using the Montgomery multiplication algorithm,
+ * where `R = 2^(BLST_LIMB_SIZE * n)`. The result is stored in `ret`. Assumes `n > 0`
+ * and `n` is even.
+ */
 HOST_DEVICE_FUNC inline void cc_mul_mont_n(limb_t ret[], const limb_t a[], const limb_t b[],
                        const limb_t p[], limb_t n0, size_t n)
 {
@@ -268,6 +274,7 @@ HOST_DEVICE_FUNC inline void fn2(vec##bits ret, const vec##bits a, \
 MUL_MONT_IMPL(cc_mul_mont_sparse_256, cc_sqr_mont_sparse_256, 256)
 MUL_MONT_IMPL(cc_mul_mont_384, cc_sqr_mont_384, 384)
 
+
 HOST_DEVICE_FUNC inline void cc_add_mod_n(limb_t ret[], const limb_t a[], const limb_t b[],
                       const limb_t p[], size_t n)
 {
@@ -307,6 +314,12 @@ HOST_DEVICE_FUNC inline void cc_add_mod_##bits(vec##bits ret, const vec##bits a,
 ADD_MOD_IMPL(256)
 ADD_MOD_IMPL(384)
 
+/**
+ * @brief Subtracts two large integers modulo a given modulus.
+ *
+ * Computes `(a - b) mod p` and stores the result in `ret`. Handles borrow propagation
+ * and ensures the result is reduced modulo `p`. Assumes `n > 0`.
+ */
 inline void cc_sub_mod_n(limb_t ret[], const limb_t a[], const limb_t b[],
                       const limb_t p[], size_t n)
 {
@@ -340,6 +353,12 @@ HOST_DEVICE_FUNC inline void cc_sub_mod_##bits(vec##bits ret, const vec##bits a,
 SUB_MOD_IMPL(256)
 SUB_MOD_IMPL(384)
 
+/**
+ * @brief Multiplies a large integer by 3 modulo a given modulus.
+ *
+ * Computes `(3 * a) mod p` and stores the result in `ret`. Handles carry propagation
+ * and ensures the result is reduced modulo `p`. Assumes `n > 0`.
+ */
 inline void cc_mul_by_3_mod_n(limb_t ret[], const limb_t a[], const limb_t p[],
                            size_t n)
 {
@@ -402,6 +421,12 @@ HOST_DEVICE_FUNC inline void cc_mul_by_3_mod_##bits(vec##bits ret, const vec##bi
 MUL_BY_3_MOD_IMPL(256)
 MUL_BY_3_MOD_IMPL(384)
 
+/**
+ * @brief Performs a left shift modulo operation on a large integer.
+ *
+ * Computes `(a << count) mod p` iteratively, ensuring the result remains within
+ * the range `[0, p)`. Assumes `count > 0` and `n > 0`.
+ */
 inline void cc_lshift_mod_n(limb_t ret[], const limb_t a[], size_t count,
                          const limb_t p[], size_t n)
 {
@@ -445,6 +470,12 @@ HOST_DEVICE_FUNC inline void cc_lshift_mod_##bits(vec##bits ret, const vec##bits
 LSHIFT_MOD_IMPL(256)
 LSHIFT_MOD_IMPL(384)
 
+/**
+ * @brief Conditionally negates a large integer modulo a given modulus.
+ *
+ * If `flag` is true, computes `(-a) mod p`; otherwise, returns `a mod p`.
+ * The result is stored in `ret`. Assumes `n > 0`.
+ */
 inline void cc_cneg_mod_n(limb_t ret[], const limb_t a[], bool_t flag,
                        const limb_t p[], size_t n)
 {
@@ -476,6 +507,12 @@ HOST_DEVICE_FUNC inline void cc_cneg_mod_##bits(vec##bits ret, const vec##bits a
 CNEG_MOD_IMPL(256)
 CNEG_MOD_IMPL(384)
 
+/**
+ * @brief Checks if a large integer is reduced modulo a given modulus.
+ *
+ * Returns 1 if `a` is greater than or equal to `p`, otherwise returns 0.
+ * Assumes `n > 0`.
+ */
 inline limb_t cc_check_mod_n(const byte a[], const limb_t p[], size_t n)
 {
     __builtin_assume(n != 0);
@@ -500,6 +537,12 @@ HOST_DEVICE_FUNC inline limb_t cc_check_mod_##bits(const pow##bits a, const vec#
 
 CHECK_MOD_IMPL(256)
 
+/**
+ * @brief Adds two large integers modulo a given modulus and checks if the result is zero.
+ *
+ * Computes `(a + b) mod p` and stores the result in `ret`. Returns 1 if the result is zero,
+ * otherwise returns 0. Assumes `n > 0`.
+ */
 inline limb_t cc_add_n_check_mod_n(byte ret[], const byte a[], const byte b[],
                                             const limb_t p[], size_t n)
 {
@@ -531,6 +574,12 @@ HOST_DEVICE_FUNC inline limb_t cc_add_n_check_mod_##bits(pow##bits ret, const po
 
 ADD_N_CHECK_MOD_IMPL(256)
 
+/**
+ * @brief Subtracts two large integers modulo a given modulus and checks if the result is zero.
+ *
+ * Computes `(a - b) mod p` and stores the result in `ret`. Returns 1 if the result is zero,
+ * otherwise returns 0. Assumes `n > 0`.
+ */
 inline limb_t cc_sub_n_check_mod_n(byte ret[], const byte a[], const byte b[],
                                             const limb_t p[], size_t n)
 {
@@ -562,6 +611,12 @@ HOST_DEVICE_FUNC inline limb_t cc_sub_n_check_mod_##bits(pow##bits ret, const po
 
 SUB_N_CHECK_MOD_IMPL(256)
 
+/**
+ * @brief Converts a large integer from Montgomery form.
+ *
+ * Computes `a * R^(-1) mod p` to convert `a` from Montgomery form to standard form.
+ * The result is stored in `ret`. Assumes `n > 0` and `n` is even.
+ */
 inline void cc_from_mont_n(limb_t ret[], const limb_t a[],
                         const limb_t p[], limb_t n0, size_t n)
 {
@@ -609,6 +664,18 @@ HOST_DEVICE_FUNC inline void cc_from_mont_##bits(vec##bits ret, const vec##bits 
 FROM_MONT_IMPL(256)
 FROM_MONT_IMPL(384)
 
+/**
+ * @brief Performs Montgomery reduction on a large integer.
+ *
+ * Computes `ret = a / R mod p`, where `R = 2^(BLST_LIMB_SIZE * n)`, 
+ * using the Montgomery reduction algorithm. This avoids explicit division 
+ * by leveraging the precomputed Montgomery constant `n0`. The function 
+ * iteratively reduces the input `a` (2n limbs) modulo `p` (n limbs) by 
+ * calculating intermediate products and discarding the least significant 
+ * limbs. After the reduction loop, it ensures the result is fully reduced 
+ * by conditionally subtracting `p`. The result is stored in `ret` (n limbs).
+ * Assumes `n` is non-zero and even.
+ */
 inline void cc_redc_mont_n(limb_t ret[], const limb_t a[],
                         const limb_t p[], limb_t n0, size_t n)
 {
@@ -662,6 +729,22 @@ HOST_DEVICE_FUNC inline void cc_redc_mont_##bits(vec##bits ret, const vec##bits2
 REDC_MONT_IMPL(256, 512)
 REDC_MONT_IMPL(384, 768)
 
+/**
+ * @brief Performs a right shift modulo operation on a large integer.
+ *
+ * This function computes `(a >> count) mod p` iteratively, ensuring the result
+ * remains within the range `[0, p)`. For each bit shifted, the modulus `p` is
+ * conditionally added back if the least significant bit of `a` is set before
+ * the shift. This ensures the result is non-negative and properly reduced.
+ *
+ * @param[out] ret The output array to store the result.
+ * @param[in]  a   The input array representing the large integer.
+ * @param[in]  count The number of bits to shift.
+ * @param[in]  p   The modulus array.
+ * @param[in]  n   The number of limbs in `a` and `p`.
+ *
+ * @note Assumes `count > 0`, `n > 0`, and `n` is even.
+ */
 inline void cc_rshift_mod_n(limb_t ret[], const limb_t a[], size_t count,
                          const limb_t p[], size_t n)
 {
@@ -706,6 +789,21 @@ HOST_DEVICE_FUNC inline void cc_div_by_2_mod_##bits(vec##bits ret, const vec##bi
 
 DIV_BY_2_MOD_IMPL(384)
 
+/* @brief Compute sign and parity of a mod p
+ *
+ * Returns:
+ *  - bit 1: sign, 0 if a is zero or even, 1 if a is odd and positive,
+ *           2 if a is odd and negative
+ *  - bit 0: parity, 0 if a is even, 1 if a is odd
+ *
+ * Note that zero is considered even and non-negative.
+ *
+ * @param a   The input array representing the large integer.
+ * @param p   The modulus array.
+ * @param n   The number of limbs in `a` and `p`.
+ *
+ * @note Assumes `n > 0`.
+ */
 inline limb_t cc_sgn0_pty_mod_n(const limb_t a[], const limb_t p[], size_t n)
 {
     __builtin_assume(n != 0);
@@ -734,9 +832,12 @@ inline limb_t cc_sgn0_pty_mod_n(const limb_t a[], const limb_t p[], size_t n)
     return ret;
 }
 
+/* @brief Compute sign and parity of a in Montgomery form mod p. see cc_sgn0_pty_mod_n */
 HOST_DEVICE_FUNC inline limb_t cc_sgn0_pty_mod_384(const vec384 a, const vec384 p)
 {   return cc_sgn0_pty_mod_n(a, p, NLIMBS(384));   }
 
+/* @brief Compute sign and parity of a in Montgomery form mod p. see cc_sgn0_pty_mod_n
+ */
 HOST_DEVICE_FUNC inline limb_t cc_sgn0_pty_mont_384(const vec384 a, const vec384 p, limb_t n0)
 {
     vec384 tmp;
@@ -746,6 +847,23 @@ HOST_DEVICE_FUNC inline limb_t cc_sgn0_pty_mont_384(const vec384 a, const vec384
     return cc_sgn0_pty_mod_n(tmp, p, NLIMBS(384));
 }
 
+/**
+ * @brief Computes the sign and parity of a 384-bit complex number modulo a given modulus.
+ *
+ * This function determines the sign and parity of a complex number `a` modulo `p`.
+ * The sign is determined based on the imaginary part (`a[1]`) if it is non-zero;
+ * otherwise, the real part (`a[0]`) is used. The parity is determined based on
+ * the least significant bit of the selected part.
+ *
+ * @param[in]  a The input complex number represented as two 384-bit integers.
+ * @param[in]  p The modulus.
+ *
+ * @return A 2-bit value:
+ *         - Bit 1: Sign (0 if non-negative, 1 if negative).
+ *         - Bit 0: Parity (0 if even, 1 if odd).
+ *
+ * @note Assumes `a` and `p` are valid 384-bit integers.
+ */
 HOST_DEVICE_FUNC inline limb_t cc_sgn0_pty_mod_384x(const vec384x a, const vec384 p)
 {
     limb_t re, im, sign, prty;
@@ -764,6 +882,24 @@ HOST_DEVICE_FUNC inline limb_t cc_sgn0_pty_mod_384x(const vec384x a, const vec38
     return (sign & 2) | (prty & 1);
 }
 
+
+/**
+ * @brief Computes the sign and parity of a 384-bit complex number in Montgomery form modulo a given modulus.
+ *
+ * This function converts the complex number `a` from Montgomery form to standard form
+ * and then determines its sign and parity modulo `p`. The sign and parity are computed
+ * in the same way as `cc_sgn0_pty_mod_384x`.
+ *
+ * @param[in]  a   The input complex number in Montgomery form.
+ * @param[in]  p   The modulus.
+ * @param[in]  n0  The Montgomery constant.
+ *
+ * @return A 2-bit value:
+ *         - Bit 1: Sign (0 if non-negative, 1 if negative).
+ *         - Bit 0: Parity (0 if even, 1 if odd).
+ *
+ * @note Assumes `a` and `p` are valid 384-bit integers.
+ */
 HOST_DEVICE_FUNC inline limb_t cc_sgn0_pty_mont_384x(const vec384x a, const vec384 p, limb_t n0)
 {
     vec384x tmp;
@@ -774,6 +910,12 @@ HOST_DEVICE_FUNC inline limb_t cc_sgn0_pty_mont_384x(const vec384x a, const vec3
     return cc_sgn0_pty_mod_384x(tmp, p);
 }
 
+/**
+ * @brief Performs Montgomery multiplication on two 384-bit complex numbers.
+ *
+ * Computes `(a * b * R^(-1)) mod p` for complex numbers `a` and `b` in Montgomery form.
+ * The result is stored in `ret`.
+ */
 HOST_DEVICE_FUNC inline void cc_mul_mont_384x(vec384x ret, const vec384x a, const vec384x b,
                           const vec384 p, limb_t n0)
 {
@@ -843,7 +985,21 @@ HOST_DEVICE_FUNC inline void cc_mul_mont_nonred_n(limb_t ret[], const limb_t a[]
 
 }
 
-
+/**
+ * @brief Squares a 384-bit integer multiple times and multiplies the result in Montgomery form.
+ *
+ * This function computes `(a^(2^count) * b * R^(-1)) mod p` in Montgomery form, where `R` is the Montgomery constant.
+ * The input `a` is squared `count` times, and the result is multiplied by `b` modulo `p`.
+ *
+ * @param[out] ret   The output 384-bit integer in Montgomery form.
+ * @param[in]  a     The input 384-bit integer in Montgomery form.
+ * @param[in]  count The number of squaring operations to perform.
+ * @param[in]  p     The modulus.
+ * @param[in]  n0    The Montgomery constant.
+ * @param[in]  b     The multiplier in Montgomery form.
+ *
+ * @note Assumes `count > 0` and `a`, `b`, and `p` are valid 384-bit integers.
+ */
 HOST_DEVICE_FUNC inline void cc_sqr_n_mul_mont_384(vec384 ret, const vec384 a, size_t count,
                         const vec384 p, limb_t n0, const vec384 b)
 {
@@ -855,6 +1011,20 @@ HOST_DEVICE_FUNC inline void cc_sqr_n_mul_mont_384(vec384 ret, const vec384 a, s
     cc_mul_mont_n(ret, ret, b, p, n0, NLIMBS(384));
 }
 
+
+/**
+ * @brief Squares a 384-bit complex number in Montgomery form modulo a given modulus.
+ *
+ * Computes `(a^2 * R^(-1)) mod p` for a complex number `a` in Montgomery form.
+ * The result is stored in `ret`.
+ *
+ * @param[out] ret The output complex number in Montgomery form.
+ * @param[in]  a   The input complex number in Montgomery form.
+ * @param[in]  p   The modulus.
+ * @param[in]  n0  The Montgomery constant.
+ *
+ * @note Assumes `a` and `p` are valid 384-bit integers.
+ */
 HOST_DEVICE_FUNC inline void cc_sqr_mont_382x(vec384x ret, const vec384x a,
                           const vec384 p, limb_t n0)
 {
@@ -907,6 +1077,18 @@ HOST_DEVICE_FUNC inline void cc_sqr_mont_382x(vec384x ret, const vec384x a,
     }
 }
 
+/**
+ * @brief Performs a left shift modulo operation on a 384-bit integer.
+ *
+ * Computes `(a << n) mod mod` iteratively, ensuring the result remains within the range `[0, mod)`.
+ *
+ * @param[out] ret The output 384-bit integer.
+ * @param[in]  a   The input 384-bit integer.
+ * @param[in]  n   The number of left shifts to perform.
+ * @param[in]  mod The modulus.
+ *
+ * @note Assumes `n > 0` and `a` and `mod` are valid 384-bit integers.
+ */
 HOST_DEVICE_FUNC inline void lshift_mod_v384(vec384 ret, const vec384 a, size_t n,
     const vec384 mod)
 {
@@ -914,10 +1096,12 @@ HOST_DEVICE_FUNC inline void lshift_mod_v384(vec384 ret, const vec384 a, size_t 
         cc_add_mod_384(ret, a, a, mod), a = ret;
 }
 
+/* @brief Multiply by 8 modulo mod */
 HOST_DEVICE_FUNC inline void cc_mul_by_8_mod_384(vec384 ret, const vec384 a, const vec384 mod)
 {
     lshift_mod_v384(ret, a, 3, mod);
 }
+
 
 HOST_DEVICE_FUNC inline void cc_mul_by_3_mod_384x(vec384x ret, const vec384x a, const vec384 mod)
 {
@@ -929,6 +1113,7 @@ HOST_DEVICE_FUNC inline  void cc_mul_by_8_mod_384x(vec384x ret, const vec384x a,
     cc_mul_by_8_mod_384(ret[0], a[0], mod);
     cc_mul_by_8_mod_384(ret[1], a[1], mod);
 }
+
 HOST_DEVICE_FUNC inline  void cc_mul_by_1_plus_i_mod_384x(vec384x ret, const vec384x a,
     const vec384 mod)
 {
@@ -957,7 +1142,18 @@ HOST_DEVICE_FUNC inline void cc_lshift_mod_384x(vec384x ret, const vec384x a, si
     cc_lshift_mod_384(ret[1], a[1], n, mod);
 }
 
-//#if defined(__BLST_NO_ASM__) && !(defined(__ADX__) && !defined(__BLST_PORTABLE__))
+/* @brief Squares a 384-bit complex number in Montgomery form modulo a given modulus.
+ *
+ * Computes `(a^2 * R^(-1)) mod p` for a complex number `a` in Montgomery form.
+ * The result is stored in `ret`.
+ *
+ * @param[out] ret The output complex number in Montgomery form.
+ * @param[in]  a   The input complex number in Montgomery form.
+ * @param[in]  mod The modulus.
+ * @param[in]  n0  The Montgomery constant.
+ *
+ * @note Assumes `a` and `mod` are valid 384-bit integers.
+ */
 HOST_DEVICE_FUNC inline void cc_sqr_mont_384x(vec384x ret, const vec384x a, const vec384 mod, limb_t n0)
 {
     vec384 t0, t1;
@@ -979,8 +1175,41 @@ HOST_DEVICE_FUNC inline void cc_sqr_mont_384x(vec384x ret, const vec384x a, cons
 # define MSB(x) ((x) >> (BLST_LIMB_SIZE-1))
 #endif
 
+/**
+ * @brief Computes the number of significant bits in a limb.
+ *
+ * This function calculates the number of bits required to represent the given limb `l`.
+ * It efficiently determines the position of the most significant bit set to `1`.
+ *
+ * @param[in] l The input limb whose significant bits are to be counted.
+ *
+ * @return The number of significant bits in `l`. Returns `0` if `l` is `0`.
+ *
+ * @note This function assumes that `limb_t` is either 32-bit or 64-bit.
+ */
 HOST_DEVICE_FUNC inline size_t cc_num_bits(limb_t l)
 {
+
+#if defined(__GNUC__) || defined(__clang__)
+    // Use GCC/Clang built-in functions for counting leading zeros
+#if BLST_LIMB_SIZE == 64
+    return 64 - __builtin_clzll(l);
+#else
+    return 32 - __builtin_clz(l);
+#endif
+
+#elif defined(_MSC_VER)
+    // Use MSVC intrinsics for counting leading zeros
+    unsigned long index;
+#if BLST_LIMB_SIZE == 64
+    _BitScanReverse64(&index, l);
+#else
+    _BitScanReverse(&index, l);
+#endif
+    return index + 1;
+
+#else
+    // Fallback to portable implementation
     limb_t x, mask;
     size_t bits = is_zero(l) ^ 1;
 
@@ -1014,6 +1243,7 @@ HOST_DEVICE_FUNC inline size_t cc_num_bits(limb_t l)
     bits += l >> 1;
 
     return bits;
+#endif
 }
 
 #if defined(__clang_major__) && __clang_major__>7
@@ -1026,8 +1256,22 @@ HOST_DEVICE_FUNC inline  limb_t cc_lshift_2(limb_t hi, limb_t lo, size_t l)
     return (hi << (l&(BLST_LIMB_SIZE-1))) | ((lo & mask) >> (r&(BLST_LIMB_SIZE-1)));
 }
 
-/*
+/**
+ * @brief Approximates two large integers for the extended Euclidean algorithm.
  * https://eprint.iacr.org/2020/972 with 'k' being BLST_LIMB_SIZE-1.
+ *
+ * This function computes a 2-limb approximation of two large integers `a` and `b`.
+ * The approximation is performed by extracting the most significant limbs of `a` and `b`,
+ * aligning them, and storing the results in `a_` and `b_`. This is used to optimize
+ * the extended Euclidean algorithm by reducing the size of the operands.
+ *
+ * @param[out] a_ The 2-limb approximation of the first large integer.
+ * @param[in]  a  The first large integer.
+ * @param[out] b_ The 2-limb approximation of the second large integer.
+ * @param[in]  b  The second large integer.
+ * @param[in]  n  The number of limbs in `a` and `b`.
+ *
+ * @note Assumes `n > 0` and `n` is even.
  */
 HOST_DEVICE_FUNC inline void cc_ab_approximation_n(limb_t a_[2], const limb_t a[],
                                limb_t b_[2], const limb_t b[], size_t n)
@@ -1055,6 +1299,20 @@ HOST_DEVICE_FUNC inline void cc_ab_approximation_n(limb_t a_[2], const limb_t a[
 
 typedef struct { limb_t f0, g0, f1, g1; } factors;
 
+/**
+ * @brief Performs an inner loop operation for the extended Euclidean algorithm.
+ *
+ * This function performs a series of operations on two 2-limb integers `a_` and `b_`
+ * to compute updated coefficients `f0`, `g0`, `f1`, and `g1` for the extended Euclidean
+ * algorithm. The results are stored in the `factors` structure.
+ *
+ * @param[out] fg  The structure to store the updated coefficients.
+ * @param[in]  a_  The first 2-limb integer.
+ * @param[in]  b_  The second 2-limb integer.
+ * @param[in]  n   The number of iterations to perform.
+ *
+ * @note Assumes `n > 0`.
+ */
 HOST_DEVICE_FUNC inline void cc_inner_loop_n(factors *fg, const limb_t a_[2], const limb_t b_[2],
                          size_t n)
 {
@@ -1113,6 +1371,23 @@ HOST_DEVICE_FUNC inline void cc_inner_loop_n(factors *fg, const limb_t a_[2], co
     fg->f0 = f0, fg->g0 = g0, fg->f1 = f1, fg->g1= g1;
 }
 
+
+/**
+ * @brief Conditionally negates a large integer.
+ *
+ * This function conditionally negates the large integer `a` based on the `neg` flag.
+ * If `neg` is non-zero, the result is `-a`; otherwise, the result is `a`. The result
+ * is stored in `ret`.
+ *
+ * @param[out] ret The output array to store the result.
+ * @param[in]  a   The large integer to be conditionally negated.
+ * @param[in]  neg The flag indicating whether to negate (`1`) or not (`0`).
+ * @param[in]  n   The number of limbs in `a`.
+ *
+ * @return The sign of the result (0 for non-negative, 1 for negative).
+ *
+ * @note Assumes `n > 0`.
+ */
 HOST_DEVICE_FUNC inline limb_t cc_cneg_n(limb_t ret[], const limb_t a[], limb_t neg, size_t n)
 {
     __builtin_assume(n != 0);
@@ -1129,6 +1404,22 @@ HOST_DEVICE_FUNC inline limb_t cc_cneg_n(limb_t ret[], const limb_t a[], limb_t 
     return 0 - MSB(wide.lo);
 }
 
+
+/**
+ * @brief Adds two large integers and returns the carry.
+ *
+ * This function computes the sum of two large integers `a` and `b`, storing the result
+ * in `ret`. It also returns the carry resulting from the addition.
+ *
+ * @param[out] ret The output array to store the result.
+ * @param[in]  a   The first large integer.
+ * @param[in]  b   The second large integer.
+ * @param[in]  n   The number of limbs in `a` and `b`.
+ *
+ * @return The carry resulting from the addition.
+ *
+ * @note Assumes `n > 0`.
+ */
 HOST_DEVICE_FUNC inline limb_t cc_add_n(limb_t ret[], const limb_t a[], limb_t b[], size_t n)
 {
     __builtin_assume(n != 0);
@@ -1145,6 +1436,22 @@ HOST_DEVICE_FUNC inline limb_t cc_add_n(limb_t ret[], const limb_t a[], limb_t b
     return carry;
 }
 
+/**
+ * @brief Multiplies a large integer by a single limb and accumulates the result.
+ *
+ * This function computes the product of a large integer `a` and a single limb `b`,
+ * while adding any carry from the previous operation. The result is stored in `ret`,
+ * and the final carry is returned.
+ *
+ * @param[out] ret The output array to store the result.
+ * @param[in]  a   The large integer to be multiplied.
+ * @param[in]  b   The single limb multiplier.
+ * @param[in]  n   The number of limbs in `a`.
+ *
+ * @return The final carry after the multiplication and addition.
+ *
+ * @note Assumes `n > 0`.
+ */
 HOST_DEVICE_FUNC inline limb_t cc_umul_n(limb_t ret[], const limb_t a[], limb_t b, size_t n)
 {
     __builtin_assume(n != 0);
@@ -1161,6 +1468,25 @@ HOST_DEVICE_FUNC inline limb_t cc_umul_n(limb_t ret[], const limb_t a[], limb_t 
     return hi;
 }
 
+/**
+ * @brief Computes a signed modular linear combination of two large integers, followed by a right shift.
+ *
+ * This function calculates `(a * |f| + b * |g|) >> k`, where `k` is `BLST_LIMB_SIZE - 2`.
+ * The coefficients `f` and `g` are adjusted to be positive, and the corresponding integers
+ * `a` and `b` are conditionally negated if their coefficients are negative. The result is
+ * stored in `ret`, and the signs of `f` and `g` are updated to reflect the adjustments.
+ *
+ * @param[out] ret The output array to store the result.
+ * @param[in]  a   The first large integer.
+ * @param[in,out] f_ Pointer to the signed coefficient for `a`, updated to reflect its sign adjustment.
+ * @param[in]  b   The second large integer.
+ * @param[in,out] g_ Pointer to the signed coefficient for `b`, updated to reflect its sign adjustment.
+ * @param[in]  n   The number of limbs in `a` and `b`.
+ *
+ * @return Returns the sign of the result (0 for non-negative, 1 for negative).
+ *
+ * @note Assumes `n > 0`.
+ */
 HOST_DEVICE_FUNC inline limb_t cc_smul_n_shift_n(limb_t ret[], const limb_t a[], limb_t *f_,
                                            const limb_t b[], limb_t *g_,
                                            size_t n)
@@ -1209,6 +1535,10 @@ HOST_DEVICE_FUNC inline limb_t cc_smul_n_shift_n(limb_t ret[], const limb_t a[],
     return neg;
 }
 
+/* @brief Computes |u|*|f_| + |v|*|g_|
+ *
+ * Assumes n>0.
+ */
 HOST_DEVICE_FUNC inline limb_t cc_smul_2n(limb_t ret[], const limb_t u[], limb_t f,
                                     const limb_t v[], limb_t g, size_t n)
 {
@@ -1239,6 +1569,12 @@ HOST_DEVICE_FUNC inline limb_t cc_smul_2n(limb_t ret[], const limb_t u[], limb_t
     return hi;
 }
 
+/**
+ * @brief Computes the modular inverse of a large integer.
+ *
+ * Computes `ret = a^(-1) mod p` using the constant-time extended Euclidean algorithm.
+ * Assumes `n > 0` and `n` is even. modx should be `-p^(-1) mod R` where `R=2^(n*BLST_LIMB_SIZE)`.
+ */
 HOST_DEVICE_FUNC inline void cc_ct_inverse_mod_n(limb_t ret[], const limb_t inp[],
                              const limb_t mod[], const limb_t modx[], size_t n)
 {
@@ -1369,6 +1705,12 @@ HOST_DEVICE_FUNC inline limb_t cc_legendre_loop_n(limb_t L, factors *fg, const l
     return L;
 }
 
+/**
+ * @brief Checks if a large integer is a quadratic residue modulo a given modulus.
+ *
+ * Returns 1 if `a` is a quadratic residue modulo `p`, otherwise returns 0.
+ * Assumes `n > 0` and `n` is even.
+ */
 HOST_DEVICE_FUNC inline bool_t cc_ct_is_sqr_mod_n(const limb_t inp[], const limb_t mod[], size_t n)
 {
     __builtin_assume(n != 0 && n%2 == 0);
@@ -1408,6 +1750,11 @@ HOST_DEVICE_FUNC inline bool_t cc_ct_is_square_mod_##bits(const vec##bits inp, \
 CT_IS_SQR_MOD_IMPL(384)
 
 /*
+ * @brief Divides a 3-limb dividend by a 2-limb divisor.
+ *
+ * Computes the quotient of a 3-limb dividend divided by a 2-limb divisor.
+ * Assumes the divisor is left-aligned and the dividend is not larger than the divisor.
+ *
  * |div_top| points at two most significant limbs of the dividend, |d_hi|
  * and |d_lo| are two most significant limbs of the divisor. If divisor
  * is only one limb, it is to be passed in |d_hi| with zero in |d_lo|.
@@ -1469,6 +1816,12 @@ HOST_DEVICE_FUNC inline limb_t cc_div_3_limbs(const limb_t div_top[2], limb_t d_
     return (Q | mask);
 }
 
+/**
+ * @brief Computes the quotient and remainder of a large integer division.
+ *
+ * Computes `quotient = dividend / divisor` and updates `div_rem` with the remainder.
+ * Assumes `n > 0` and `n` is even.
+ */
 HOST_DEVICE_FUNC inline limb_t cc_quot_rem_n(limb_t *div_rem, const limb_t *divisor,
                                           limb_t quotient, size_t n)
 {
@@ -1508,26 +1861,29 @@ HOST_DEVICE_FUNC inline limb_t cc_quot_rem_n(limb_t *div_rem, const limb_t *divi
     return (div_rem[i] = quotient + mask);
 }
 
+/**
+ * @brief Computes the quotient and remainder of a large integer division.
+ *
+ * Computes `quotient = dividend / divisor` and updates `div_rem` with the remainder.
+ */
 HOST_DEVICE_FUNC inline limb_t cc_quot_rem_128(limb_t *div_rem, const limb_t *divisor,
                                             limb_t quotient)
 {   return cc_quot_rem_n(div_rem, divisor, quotient, NLIMBS(128));   }
 
+
+/**
+ * @brief Computes the quotient and remainder of a large integer division.
+ *
+ * Computes `quotient = dividend / divisor` and updates `div_rem` with the remainder.
+ */
 HOST_DEVICE_FUNC inline limb_t cc_quot_rem_64(limb_t *div_rem, const limb_t *divisor,
                                            limb_t quotient)
 {   return cc_quot_rem_n(div_rem, divisor, quotient, NLIMBS(64));   }
 
-/*
- * Unlock reference implementations in vect.c
- */
-//#define mul_by_8_mod_384 mul_by_8_mod_384
-//#define mul_by_8_mod_384x mul_by_8_mod_384x
-//#define mul_by_3_mod_384x mul_by_3_mod_384x
-//#define mul_by_1_plus_i_mod_384x mul_by_1_plus_i_mod_384x
-//#define add_mod_384x add_mod_384x
-//#define sub_mod_384x sub_mod_384x
-//#define lshift_mod_384x lshift_mod_384x
-//#define sqr_mont_384x sqr_mont_384x
 
+/*
+ * Prefetching
+ */
 HOST_DEVICE_FUNC inline void cc_vec_prefetch(const void *ptr, size_t len)
 {  
 	// prefetch if we have the intrinsic
@@ -1535,6 +1891,7 @@ HOST_DEVICE_FUNC inline void cc_vec_prefetch(const void *ptr, size_t len)
 	__builtin_prefetch(ptr, 0, 3);
 #elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
 	_mm_prefetch((const char*)ptr, _MM_HINT_T0);
+    (void)ptr; (void)len;
 #else
     (void)ptr; (void)len;
 #endif
@@ -1551,6 +1908,12 @@ HOST_DEVICE_FUNC inline void cc_vec_prefetch(const void *ptr, size_t len)
 #define Ch(x,y,z)	(((x) & (y)) ^ ((~(x)) & (z)))
 #define Maj(x,y,z)	(((x) & (y)) ^ ((x) & (z)) ^ ((y) & (z)))
 
+/* @brief SHA-256 block compression function.
+ *
+ * Processes `blocks` number of 64-byte blocks from `inp`, updating the state `v`.
+ * The implementation is based on the public domain code from
+ *
+*/
 HOST_DEVICE_FUNC inline void cc_blst_sha256_block_data_order(unsigned int *v, const void *inp,
                                                    size_t blocks)
 {
@@ -1642,6 +2005,7 @@ HOST_DEVICE_FUNC inline void cc_blst_sha256_block_data_order(unsigned int *v, co
 #undef Ch
 #undef Maj
 
+/* @brief SHA-256 state manipulation functions. */
 HOST_DEVICE_FUNC inline void cc_blst_sha256_hcopy(unsigned int dst[8], const unsigned int src[8])
 {
     size_t i;
@@ -1649,6 +2013,7 @@ HOST_DEVICE_FUNC inline void cc_blst_sha256_hcopy(unsigned int dst[8], const uns
     for (i=0; i<8; i++)
         dst[i] = src[i];
 }
+
 
 HOST_DEVICE_FUNC inline void cc_blst_sha256_emit(unsigned char md[32], const unsigned int h[8])
 {

@@ -6,6 +6,7 @@
 
 #include "fields.h"
 
+
 /*
  * Fp2  = Fp[u]  / (u^2 + 1)
  * Fp6  = Fp2[v] / (v^3 - u - 1)
@@ -13,7 +14,7 @@
  */
 
 inline void mul_by_u_plus_1_fp2(vec384x ret, const vec384x a)
-{   mul_by_1_plus_i_mod_384x(ret, a, BLS12_381_P);   }
+{   mul_by_1_plus_i_mod_v384x(ret, a, BLS12_381_P);   }
 
 #if 1 && defined(BLST_ASM)
 #define __FP2x2__
@@ -24,7 +25,6 @@ inline void mul_by_u_plus_1_fp2(vec384x ret, const vec384x a)
  * addition is double-width... To be more specific this gives ~7-10%
  * faster pairing depending on platform...
  */
-typedef vec768 vec768x[2];
 
 inline void add_fp2x2(vec768x ret, const vec768x a, const vec768x b)
 {
@@ -770,6 +770,9 @@ int blst_fp12_is_one(const vec384fp12 a)
 
 const vec384fp12 *blst_fp12_one(void)
 {   return (const vec384fp12 *)BLS12_381_Rx.p12;   }
+
+void memcpy(void* dest, const void* src, size_t n);
+void memset(void* s, int c, size_t n);
 
 void blst_fp12_one_copy(vec384fp12 ret)
 {
