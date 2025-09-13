@@ -1640,15 +1640,7 @@ HOST_DEVICE_FUNC inline void cc_ct_inverse_mod_n(limb_t ret[], const limb_t inp[
 	for (i = 0; i < (2 * n * BLST_LIMB_SIZE) / (BLST_LIMB_SIZE - 2); i++) {
 		cc_ab_approximation_n(a_, a, b_, b, n);
 
-
-		//print_vec_n("a", a, (int)n);
-		//print_vec_n("b", b, (int)n);
-		//print_vec_n("a_", a_, 2);
-		//print_vec_n("b_", b_, 2);
-
 		cc_inner_loop_n(&fg, a_, b_, BLST_LIMB_SIZE - 2);
-
-		//printf("%d  factors: f0=%llx g0=%llx f1=%llx g1=%llx\n", (int)i, fg.f0, fg.g0, fg.f1, fg.g1);
 
 		(void)cc_smul_n_shift_n(t, a, &fg.f0, b, &fg.g0, n);
 		(void)cc_smul_n_shift_n(b, a, &fg.f1, b, &fg.g1, n);
@@ -1705,7 +1697,6 @@ CT_INVERSE_MOD_IMPL(384, 768)
 	b_lo = b_[0], b_hi = b_[1];
 
 	while (n--) {
-		//printf("%d\n", (int)n);
 		odd = 0 - (a_lo & 1);
 
 		/* a_ -= b_ if a_ is odd */
@@ -1713,23 +1704,12 @@ CT_INVERSE_MOD_IMPL(384, 768)
 		cc_sub_borrow_wide_limb_limb(&wide, a_lo, b_lo & odd, 0);
 		a_lo = wide.lo;
 		borrow = wide.hi & 1;
-		//printf("  a-=b if odd: a=%llx%llx b=%llx%llx odd=%llx borrow=%llx\n",
-		//	a_hi, a_lo, b_hi, b_lo, odd, borrow);
-
-		//limb_t op = (b_hi & odd);
-		//printf("  op=%llx %llx\n", op, borrow);
-		//printf("  sub %llx - %llx - %llx\n", a_hi, op, borrow);
-		//cc_add_wide_limb_limb(&wide, b_hi & odd, borrow);
-		//cc_sub_wide_limb_wide(&wide, a_hi, wide);
 		cc_sub_borrow_wide_limb_limb(&wide, a_hi, (b_hi & odd), borrow);
-		//printf("  = %llx %llx\n", wide.hi, wide.lo);
 
 		a_hi = wide.lo;
 		borrow = wide.hi;
-		//printf("  a-=b if odd: a=%llx%llx b=%llx%llx odd=%llx borrow=%llx\n", a_hi, a_lo, b_hi, b_lo, odd, borrow);
 
 		L += ((t_lo & b_lo) >> 1) & borrow;
-		//printf("  L+=%llx\n", ((t_lo & b_lo) >> 1) & borrow);
 
 		/* negate a_-b_ if it borrowed */
 		a_lo ^= borrow;
@@ -1762,7 +1742,6 @@ CT_INVERSE_MOD_IMPL(384, 768)
 		a_hi >>= 1;
 
 		L += (b_lo + 2) >> 2;
-		//printf("  L+=%llx\n", (b_lo + 2) >> 2);
 	}
 
 	fg->f0 = f0, fg->g0 = g0, fg->f1 = f1, fg->g1 = g1;
@@ -1792,16 +1771,7 @@ HOST_DEVICE_FUNC inline bool_t cc_ct_is_sqr_mod_n(const limb_t inp[], const limb
 	for (i = 0; i < (2 * n * BLST_LIMB_SIZE) / (BLST_LIMB_SIZE - 2); i++) {
 		cc_ab_approximation_n(a_, a, b_, b, n);
 
-		//printf("%d\n", (int)i);
-		//print_vec_n("a", a, (int)n);
-		//print_vec_n("b", b, (int)n);
-		//print_vec_n("a_", a_, 2);
-		//print_vec_n("b_", b_, 2);
-
-
 		L = cc_legendre_loop_n(L, &fg, a_, b_, BLST_LIMB_SIZE - 2);
-
-		//printf("  L=%llx factors: f0=%llx g0=%llx f1=%llx g1=%llx\n", L, fg.f0, fg.g0, fg.f1, fg.g1);
 
 		neg = cc_smul_n_shift_n(t, a, &fg.f0, b, &fg.g0, n);
 		(void)cc_smul_n_shift_n(b, a, &fg.f1, b, &fg.g1, n);
@@ -1858,22 +1828,12 @@ CT_IS_SQR_MOD_IMPL(384)
 
 	for (i = 0; i < BLST_LIMB_SIZE; i++) {
 		/* "borrow, Rx = R - D" */
-		//Rx = (llimb_t)r_lo - d_lo;
-		//rx = (limb_t)Rx;
-		//borrow = (limb_t)(Rx >> BLST_LIMB_SIZE) & 1;
 		cc_sub_borrow_wide_limb_limb(&Rx, r_lo, d_lo, 0);
 		rx = Rx.lo;
 		borrow = Rx.hi & 1;
-		//printf("  R1=%llx%llx - D=%llx%llx = %llx%llx borrow=%llx\n",
-		//	r_hi, r_lo, d_hi, d_lo, (limb_t)(Rx.hi), rx, borrow);
 
-
-		//Rx = r_hi - (d_hi + (llimb_t)borrow);
-		//borrow = (limb_t)(Rx >> BLST_LIMB_SIZE);
 		cc_sub_borrow_wide_limb_limb(&Rx, r_hi, d_hi + (limb_t)borrow, 0);
 		borrow = Rx.hi;// not & 1. want 0000 or 1111
-		//printf("  R2=%llx%llx - D=%llx%llx = %llx%llx borrow=%llx\n",
-		//	r_hi, r_lo, d_hi, d_lo, (limb_t)(Rx.hi), (limb_t)Rx.lo, borrow);
 
 
 		/* "if (R >= D) R -= D" */
@@ -1893,15 +1853,10 @@ CT_IS_SQR_MOD_IMPL(384)
 	mask = 0 - MSB(Q);  /* does it overflow? */
 
 	/* "borrow, Rx = R - D" */
-	//Rx = (llimb_t)r_lo - d_lo;
-	//rx = (limb_t)Rx;
-	//borrow = (limb_t)(Rx >> BLST_LIMB_SIZE) & 1;
 	cc_sub_borrow_wide_limb_limb(&Rx, r_lo, d_lo, 0);
 	rx = Rx.lo;
 	borrow = Rx.hi & 1;
 
-	//Rx = r_hi - (d_hi + (llimb_t)borrow);
-	//borrow = (limb_t)(Rx >> BLST_LIMB_SIZE) & 1;
 	cc_sub_borrow_wide_limb_limb(&Rx, r_hi, d_hi + (limb_t)borrow, 0);
 	borrow = Rx.hi & 1;
 
