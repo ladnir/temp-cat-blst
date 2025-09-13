@@ -38,7 +38,7 @@
  * infinity by virtue of Z3 = (U2-U1)*zz = H*zz = 0*zz == 0.
  */
 #define POINT_DADD_IMPL(ptype, bits, field) \
-inline void ptype##_dadd(ptype *out, const ptype *p1, const ptype *p2, \
+BLST_FORCEINLINE void ptype##_dadd(ptype *out, const ptype *p1, const ptype *p2, \
                          const vec##bits a4) \
 { \
     ptype p3; /* starts as (U1, S1, zz) from addition side */\
@@ -127,7 +127,7 @@ inline void ptype##_dadd(ptype *out, const ptype *p1, const ptype *p2, \
  * infinity by virtue of Z3 = (U2-U1)*zz = H*zz = 0*zz == 0.
  */
 #define POINT_DADD_AFFINE_IMPL_A0(ptype, bits, field, one) \
-inline void ptype##_dadd_affine(ptype *out, const ptype *p1, \
+BLST_FORCEINLINE void ptype##_dadd_affine(ptype *out, const ptype *p1, \
                                             const ptype##_affine *p2) \
 { \
     ptype p3; /* starts as (,, H*Z1) from addition side */\
@@ -183,7 +183,7 @@ inline void ptype##_dadd_affine(ptype *out, const ptype *p1, \
  * with twist to handle either input at infinity, which are encoded as Z==0.
  */
 #define POINT_ADD_IMPL(ptype, bits, field) \
-inline void ptype##_add(ptype *out, const ptype *p1, const ptype *p2) \
+BLST_FORCEINLINE void ptype##_add(ptype *out, const ptype *p1, const ptype *p2) \
 { \
     ptype p3; \
     vec##bits Z1Z1, Z2Z2, U1, S1, H, I, J; \
@@ -243,7 +243,7 @@ inline void ptype##_add(ptype *out, const ptype *p1, const ptype *p2) \
  * and |p2| as X==Y==0.
  */
 #define POINT_ADD_AFFINE_IMPL(ptype, bits, field, one) \
-inline void ptype##_add_affine(ptype *out, const ptype *p1, \
+BLST_FORCEINLINE void ptype##_add_affine(ptype *out, const ptype *p1, \
                                            const ptype##_affine *p2) \
 { \
     ptype p3; \
@@ -297,7 +297,7 @@ inline void ptype##_add_affine(ptype *out, const ptype *p1, \
  * https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
  */
 #define POINT_DOUBLE_IMPL_A0(ptype, bits, field) \
-inline void ptype##_double(ptype *p3, const ptype *p1) \
+BLST_FORCEINLINE void ptype##_double(ptype *p3, const ptype *p1) \
 { \
     vec##bits A, B, C; \
 \
@@ -327,7 +327,7 @@ inline void ptype##_double(ptype *p3, const ptype *p1) \
 }
 
 #define POINT_LADDER_PRE_IMPL(ptype, bits, field) \
-inline void ptype##xz_ladder_pre(ptype##xz *pxz, const ptype *p) \
+BLST_FORCEINLINE void ptype##xz_ladder_pre(ptype##xz *pxz, const ptype *p) \
 { \
     mul_##field(pxz->X, p->X, p->Z);    /* X2 = X1*Z1 */\
     sqr_##field(pxz->Z, p->Z);          \
@@ -343,7 +343,7 @@ inline void ptype##xz_ladder_pre(ptype##xz *pxz, const ptype *p) \
  * XZ1 is |p|, XZ2&XZ4 are in&out |r|, XZ3&XZ5 are in&out |s|.
  */
 #define POINT_LADDER_STEP_IMPL_A0(ptype, bits, field, suffix4b) \
-inline void ptype##xz_ladder_step(ptype##xz *r, ptype##xz *s, \
+BLST_FORCEINLINE void ptype##xz_ladder_step(ptype##xz *r, ptype##xz *s, \
                                   const ptype##xz *p) \
 { \
     ptype##xz p5; \
@@ -418,7 +418,7 @@ inline void ptype##xz_ladder_step(ptype##xz *r, ptype##xz *s, \
  * XZ1 is |p|, XZ2 is |r|, XZ3 is |s|, 'a' is 0.
  */
 #define POINT_LADDER_POST_IMPL_A0(ptype, bits, field, suffixb) \
-inline void ptype##xz_ladder_post(ptype *p4, \
+BLST_FORCEINLINE void ptype##xz_ladder_post(ptype *p4, \
                                   const ptype##xz *r, const ptype##xz *s, \
                                   const ptype##xz *p, const vec##bits Y1) \
 { \
@@ -465,7 +465,7 @@ inline void ptype##xz_ladder_post(ptype *p4, \
 }
 
 #define POINT_IS_EQUAL_IMPL(ptype, bits, field) \
-inline  limb_t ptype##_is_equal(const ptype *p1, const ptype *p2) \
+BLST_FORCEINLINE  limb_t ptype##_is_equal(const ptype *p1, const ptype *p2) \
 { \
     vec##bits Z1Z1, Z2Z2; \
     ptype##_affine a1, a2; \
@@ -495,7 +495,7 @@ inline  limb_t ptype##_is_equal(const ptype *p1, const ptype *p2) \
  * formula itself. Infinity is to be encoded as [0, !0, 0].
  */
 #define POINT_PROJ_DADD_IMPL_A0(ptype, bits, field, suffixb) \
-inline void ptype##proj_dadd(ptype##proj *p3, const ptype##proj *p1, \
+BLST_FORCEINLINE void ptype##proj_dadd(ptype##proj *p3, const ptype##proj *p1, \
                                               const ptype##proj *p2) \
 { \
     vec##bits t0, t1, t2, t3, t4, t5; \
@@ -541,7 +541,7 @@ inline void ptype##proj_dadd(ptype##proj *p3, const ptype##proj *p1, \
  * |p2| being infinity encoded as [0, 0]. 11M[+21A].
  */
 #define POINT_PROJ_DADD_AFFINE_IMPL_A0(ptype, bits, field, suffixb) \
-inline void ptype##proj_dadd_affine(ptype##proj *out, const ptype##proj *p1, \
+BLST_FORCEINLINE void ptype##proj_dadd_affine(ptype##proj *out, const ptype##proj *p1, \
                                                       const ptype##_affine *p2) \
 { \
     ptype##proj p3[1]; \
@@ -586,7 +586,7 @@ inline void ptype##proj_dadd_affine(ptype##proj *out, const ptype##proj *p1, \
  * 6M+2S[+13A].
  */
 #define POINT_PROJ_DOUBLE_IMPL_A0(ptype, bits, field, suffixb) \
-inline void ptype##proj_double(ptype##proj *p3, const ptype##proj *p1) \
+BLST_FORCEINLINE void ptype##proj_double(ptype##proj *p3, const ptype##proj *p1) \
 { \
     vec##bits t0, t1, t2, t3; \
 \
@@ -609,7 +609,7 @@ inline void ptype##proj_double(ptype##proj *p3, const ptype##proj *p1) \
 }
 
 #define POINT_PROJ_TO_JACOBIAN_IMPL(ptype, bits, field) \
-inline void ptype##proj_to_Jacobian(ptype *out, const ptype##proj *in) \
+BLST_FORCEINLINE void ptype##proj_to_Jacobian(ptype *out, const ptype##proj *in) \
 { \
     vec##bits ZZ; \
 \
@@ -620,7 +620,7 @@ inline void ptype##proj_to_Jacobian(ptype *out, const ptype##proj *in) \
 }
 
 #define POINT_TO_PROJECTIVE_IMPL(ptype, bits, field, one) \
-inline void ptype##_to_projective(ptype##proj *out, const ptype *in) \
+BLST_FORCEINLINE void ptype##_to_projective(ptype##proj *out, const ptype *in) \
 { \
     vec##bits ZZ; \
     limb_t is_inf = vec_is_zero(in->Z, sizeof(in->Z)); \
@@ -640,7 +640,7 @@ inline void ptype##_to_projective(ptype##proj *out, const ptype *in) \
  * while conditional doubling - 4M+6M+3S.
  */
 #define POINTXYZZ_DADD_IMPL(ptype, bits, field) \
-inline void ptype##xyzz_dadd(ptype##xyzz *p3, const ptype##xyzz *p1, \
+BLST_FORCEINLINE void ptype##xyzz_dadd(ptype##xyzz *p3, const ptype##xyzz *p1, \
                                               const ptype##xyzz *p2) \
 { \
     vec##bits U, S, P, R; \
@@ -708,7 +708,7 @@ inline void ptype##xyzz_dadd(ptype##xyzz *p3, const ptype##xyzz *p1, \
  * Addition costs 8M+2S, while conditional doubling - 2M+4M+3S.
  */
 #define POINTXYZZ_DADD_AFFINE_IMPL(ptype, bits, field, one) \
-inline void ptype##xyzz_dadd_affine(ptype##xyzz *p3, const ptype##xyzz *p1, \
+BLST_FORCEINLINE void ptype##xyzz_dadd_affine(ptype##xyzz *p3, const ptype##xyzz *p1, \
                                                      const ptype##_affine *p2, \
                                                      bool_t subtract) \
 { \
@@ -769,7 +769,7 @@ inline void ptype##xyzz_dadd_affine(ptype##xyzz *p3, const ptype##xyzz *p1, \
 }
 
 #define POINTXYZZ_TO_JACOBIAN_IMPL(ptype, bits, field) \
-inline void ptype##xyzz_to_Jacobian(ptype *out, const ptype##xyzz *in) \
+BLST_FORCEINLINE void ptype##xyzz_to_Jacobian(ptype *out, const ptype##xyzz *in) \
 { \
     mul_##field(out->X, in->X, in->ZZ); \
     mul_##field(out->Y, in->Y, in->ZZZ); \
@@ -777,7 +777,7 @@ inline void ptype##xyzz_to_Jacobian(ptype *out, const ptype##xyzz *in) \
 }
 
 #define POINT_TO_XYZZ_IMPL(ptype, bits, field) \
-inline void ptype##_to_xyzz(ptype##xyzz *out, const ptype *in) \
+BLST_FORCEINLINE void ptype##_to_xyzz(ptype##xyzz *out, const ptype *in) \
 { \
     vec_copy(out->X, in->X, 2*sizeof(out->X)); \
     sqr_##field(out->ZZ, in->Z); \

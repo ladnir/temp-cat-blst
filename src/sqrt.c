@@ -15,7 +15,7 @@ void recip_sqrt_fp_3mod4(vec384 out, const vec384 inp)
         TO_BYTES(0x92c6e9ed90d2eb35), TO_BYTES(0x0680447a8e5ff9a6)
     };
 
-    exp_mont_384(out, inp, BLS_12_381_P_minus_3_div_4, 379, BLS12_381_P, p0);
+    exp_mont_384(out, inp, BLS_12_381_P_minus_3_div_4, 379, BLS12_381_P, BLS12_381_p0);
 }
 #else
 # if 1
@@ -27,7 +27,7 @@ void recip_sqrt_fp_3mod4(vec384 out, const vec384 inp)
  */
 void sqr_n_mul_fp(vec384 out, const vec384 a, size_t count,
                                 const vec384 b)
-{   sqr_n_mul_mont_v383(out, a, count, BLS12_381_P, p0, b);   }
+{   sqr_n_mul_mont_v383(out, a, count, BLS12_381_P, BLS12_381_p0, b);   }
 # else
 void sqr_n_mul_fp(vec384 out, const vec384 a, size_t count,
                          const vec384 b)

@@ -201,7 +201,7 @@ inline limb_t POINTonE1_affine_Compress_BE(unsigned char out[48],
     from_fp(temp, in->X);
     be_bytes_from_limbs(out, temp, sizeof(temp));
 
-    return sgn0_pty_mont_v384(in->Y, BLS12_381_P, p0);
+    return sgn0_pty_mont_v384(in->Y, BLS12_381_P, BLS12_381_p0);
 }
 
 inline void blst_p1_affine_compress(unsigned char out[48], const POINTonE1_affine *in)
@@ -262,7 +262,7 @@ inline limb_t POINTonE1_Uncompress_BE(POINTonE1_affine *out,
 
     vec_copy(out, &ret, sizeof(ret));
 
-    return sgn0_pty_mont_v384(out->Y, BLS12_381_P, p0);
+    return sgn0_pty_mont_v384(out->Y, BLS12_381_P, BLS12_381_p0);
 }
 
 inline BLST_ERROR POINTonE1_Uncompress_Z(POINTonE1_affine *out,

@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 
+
 extern "C" {
 #include "../src/point.h"
 #include "../src/fields.h"
@@ -42,12 +43,15 @@ void print_point_e2(const POINTonE2* p, const char* name) {
 }
 
 // Helper: Convert hex string to bytes
-void hex_to_bytes_e2(unsigned char* bytes, const char* hex) {
-    size_t len = strlen(hex) / 2;
-    for (size_t i = 0; i < len; i++) {
-        sscanf(hex + (i * 2), "%2hhx", &bytes[i]);
-    }
-}
+//void hex_to_bytes_e2(unsigned char* bytes, const char* hex) {
+//    size_t len = strlen(hex) / 2;
+//    for (size_t i = 0; i < len; i++) {
+//        // unsafe
+//        //sscanf(hex + (i * 2), "%2hhx", &bytes[i]);
+//		
+//
+//    }
+//}
 
 TEST(E2PointTest, PointAddition) {
     POINTonE2 p1, p2, result, temp;

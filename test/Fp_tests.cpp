@@ -49,7 +49,7 @@ void print_vec384(const vec384 v) {
 //// Helper: Convert standard integer to Montgomery form 
 //void to_mont_fp(vec384 r, const vec384 a) {
 //	// Use the library's precomputed R² mod p constant for proper conversion to Montgomery form
-//	mul_mont_384(r, a, BLS12_381_RR, BLS12_381_P, p0);
+//	mul_mont_384(r, a, BLS12_381_RR, BLS12_381_P, BLS12_381_p0);
 //}
 
 
@@ -612,7 +612,7 @@ TEST(FpOps, ConstantTimeOperations) {
 //
 //	printf("--- Testing direct call to sqr_n_mul_mont_383 ---\n");
 //	// This tests if the assembly/low-level implementation has issues
-//	sqr_n_mul_mont_383(result, a, 1, BLS12_381_P, p0, b);
+//	sqr_n_mul_mont_383(result, a, 1, BLS12_381_P, BLS12_381_p0, b);
 //
 //	//printVec384(result, "Direct result");
 //	EXPECT_TRUE(vec_is_equal(a, result, sizeof(vec384)));

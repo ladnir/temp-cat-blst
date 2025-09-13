@@ -4,7 +4,7 @@ set(BLST_SRC server.c)
 
 # ---- Static Library Configuration ----
 set(BLST_STATIC_SRC ${BLST_SRC})
-
+add_compile_options(-save-temps=obj)
 
 if(MSVC)
     set(BLST_DEBUG_OPT /Zi /Od /MDd /DEBUG /W4 /WX)
@@ -32,11 +32,12 @@ if(BLST_ASM)
     
     if(MSVC)
         enable_language(ASM_MASM)
-
+        set_source_files_properties(${ASM_SRC} PROPERTIES LANGUAGE ASM_MASM)
+    else()
+        enable_language(ASM)
+        set_source_files_properties(${ASM_SRC} PROPERTIES LANGUAGE ASM)
     endif()
 
-
-    set_source_files_properties(${ASM_SRC} PROPERTIES LANGUAGE ASM_MASM)
 endif()
 
 if(BLST_CUDA)
@@ -101,3 +102,35 @@ if(BLST_CUDA)
     find_package(CUDAToolkit REQUIRED)
     target_link_libraries(blst_static PRIVATE CUDA::cudart)
 endif()
+
+
+
+# Function to enable ASan for a target
+if(BLST_ASAN)
+    if(MSVC)
+        # Enable ASan for Visual Studio
+        target_compile_options(blst_static PRIVATE /fsanitize=address)
+            
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        # For GCC and Clang
+        target_compile_options(blst_static PRIVATE -fsanitize=address -fno-omit-frame-pointer)
+        target_link_options(blst_static PRIVATE -fsanitize=address)
+    endif()
+endif()
+
+
+if(BLST_ADX)
+    if (MSVC)
+      target_compile_options(blst_static PUBLIC /arch:AVX2)
+    else()
+      target_compile_options(blst_static PUBLIC -mbmi2 -madx)
+    endif()
+endif()
+
+
+#arch native
+if (MSVC)
+else()
+    target_compile_options(blst_static PUBLIC -march=native)
+endif()
+

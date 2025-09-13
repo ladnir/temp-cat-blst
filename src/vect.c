@@ -33,7 +33,7 @@
   //#endif
 
   //
-  //#if defined(__BLST_NO_ASM__) && !(defined(__ADX__) && !defined(__BLST_PORTABLE__))
+  //#if defined(__BLST_NO_ASM__) && !(defined(BLST_ADX) && !defined(BLST_PORTABLE))
   //void mul_mont_384x(vec384x ret, const vec384x a, const vec384x b,
   //                   const vec384 mod, limb_t n0)
   //{

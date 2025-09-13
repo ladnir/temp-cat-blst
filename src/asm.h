@@ -3,6 +3,38 @@
 
 #ifdef BLST_ASM
 
+
+///*
+// * Assembly subroutines...
+// */
+//#if defined(__ADX__) /* e.g. -march=broadwell */ && !defined(__BLST_PORTABLE__)\
+//                                                 && !defined(__BLST_NO_ASM__)
+//# define mul_mont_sparse_256 mulx_mont_sparse_256
+//# define sqr_mont_sparse_256 sqrx_mont_sparse_256
+//# define from_mont_256 fromx_mont_256
+//# define redc_mont_256 redcx_mont_256
+//# define mul_mont_384 mulx_mont_384
+//# define sqr_mont_384 sqrx_mont_384
+//# define sqr_n_mul_mont_384 sqrx_n_mul_mont_384
+//# define sqr_n_mul_mont_383 sqrx_n_mul_mont_383
+//# define mul_384 mulx_384
+//# define sqr_384 sqrx_384
+//# define redc_mont_384 redcx_mont_384
+//# define from_mont_384 fromx_mont_384
+//# define sgn0_pty_mont_384 sgn0x_pty_mont_384
+//# define sgn0_pty_mont_384x sgn0x_pty_mont_384x
+//# define ct_inverse_mod_384 ctx_inverse_mod_384
+//#endif
+//
+//#if defined(__ADX__) /* e.g. -march=broadwell */ && !defined(__BLST_PORTABLE__)
+//# define mul_mont_384x mulx_mont_384x
+//# define sqr_mont_384x sqrx_mont_384x
+//# define sqr_mont_382x sqrx_mont_382x
+//# define mul_382x mulx_382x
+//# define sqr_382x sqrx_382x
+//#endif
+
+
 /* ret = bit ? a : b */
 void vec_select_32(void* ret, const void* a, const void* b, bool_t sel_a);	// asm
 void vec_select_48(void* ret, const void* a, const void* b, bool_t sel_a);	// asm
@@ -87,19 +119,31 @@ void mulx_mont_384(vec384 ret, const vec384 a, const vec384 b, const vec384 p, l
 /* @brief asm: 384 bit montgomery squaring mod p. n0 is the montgomery constant. */
 void sqrx_mont_384(vec384 ret, const vec384 a, const vec384 p, limb_t n0);
 
-/* @brief asm: Squares a 384-bit integer multiple times and multiplies the result in Montgomery form. */
-void sqrx_n_mul_mont_384(vec384 ret, const vec384 a, size_t count,
-	const vec384 p, limb_t n0, const vec384 b);
+///* @brief asm: Squares a 384-bit integer multiple times and multiplies the result in Montgomery form. */
+//void sqrx_n_mul_mont_384(vec384 ret, const vec384 a, size_t count,
+//	const vec384 p, limb_t n0, const vec384 b);
 
-/* @brief asm: 382 bit montgomery repeated squaring (a^(2^count) * b * R^(-1)) mod p. n0 is the montgomery constant. */
+/* @brief asm: 382 bit montgomery repeated squaring (a^(2^count) * b * R^(-1)) mod p. n0 is the montgomery constant. 
+ *
+*"383" - bit variant omits full reductions at the ends of squarings,
+* which results in up to ~15 % improvement.[One can improve further
+* by omitting full reductions even after multiplications and
+*performing final reduction at the very end of the chain.]
+* 
+* see sqr_n_mul_fp
+*/
 void sqrx_n_mul_mont_383(vec384 ret, const vec384 a, size_t count,
 	const vec384 p, limb_t n0, const vec384 b);
 
+#if defined(BLST_ADX) || defined(__MSC_VER)
 /* @brief asm: Performs Montgomery reduction on a 384 bit integer. n0 is the montgomery constant. */
 void redcx_mont_384(vec384 ret, const vec768 a, const vec384 p, limb_t n0);
+#endif
 
+#if !defined(BLST_ADX) || defined(__MSC_VER)
 /* @brief asm: Performs Montgomery reduction on a 384 bit integer. n0 is the montgomery constant.  */
 void redc_mont_384(vec384 ret, const vec768 a, const vec384 p, limb_t n0);
+#endif
 
 /* @brief asm: Converts a large integer from Montgomery form. n0 is the montgomery constant. */
 void fromx_mont_384(vec384 ret, const vec384 a, const vec384 p, limb_t n0);
@@ -151,7 +195,7 @@ void ct_inverse_mod_256(vec512 ret, const vec256 inp, const vec256 mod, const ve
 bool_t ct_is_square_mod_384(const vec384 inp, const vec384 mod);
 
 /* @brief asm: Performs Montgomery multiplication on two 384-bit complex numbers. */
-inline void mulx_mont_384x(vec384x ret, const vec384x a, const vec384x b,
+void mulx_mont_384x(vec384x ret, const vec384x a, const vec384x b,
 	const vec384 p, limb_t n0);
 
 /* @brief asm: Squares a 384-bit complex number in Montgomery form . */
@@ -204,10 +248,19 @@ void add_mod_384x384(vec768 ret, const vec768 a, const vec768 b,
 void sub_mod_384x384(vec768 ret, const vec768 a, const vec768 b,
 	const vec384 p);
 
+
+#ifdef BLST_ADX
+
+void mulx_382x(vec768x ret, const vec384x a, const vec384x b, const vec384 p);   /* +~6% in Miller loop */
+
+void sqrx_382x(vec768x ret, const vec384x a, const vec384 p);      /* +~5% in final exponentiation */
+
+#else
+
 void mul_382x(vec768x ret, const vec384x a, const vec384x b, const vec384 p);   /* +~6% in Miller loop */
 
 void sqr_382x(vec768x ret, const vec384x a, const vec384 p);      /* +~5% in final exponentiation */
 
-
+#endif // BLST_ADX
 
 #endif // BLST_ASM

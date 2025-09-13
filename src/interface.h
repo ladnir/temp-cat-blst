@@ -6,7 +6,7 @@
 
 // montgomery multiply: ret = a * b * R^-1 mod p, where R montgomery radix
 // optimized for "spare" modulus p, i.e. with many zero limbs
-inline void mul_mont_sparse_v256(vec256 ret, const vec256 a, const vec256 b,
+BLST_FORCEINLINE void mul_mont_sparse_v256(vec256 ret, const vec256 a, const vec256 b,
 	const vec256 p, limb_t n0)
 {
 #ifdef BLST_DEFAULT_ASM
@@ -18,7 +18,7 @@ inline void mul_mont_sparse_v256(vec256 ret, const vec256 a, const vec256 b,
 
 // montgomery squaring: ret = a^2 * R^-1 mod p, where R montgomery radix
 // optimized for "spare" modulus p, i.e. with many zero limbs
-inline void sqr_mont_sparse_v256(vec256 ret, const vec256 a, const vec256 p, limb_t n0)
+BLST_FORCEINLINE void sqr_mont_sparse_v256(vec256 ret, const vec256 a, const vec256 p, limb_t n0)
 {
 #ifdef BLST_DEFAULT_ASM
 	sqrx_mont_sparse_256(ret, a, p, n0);// linked by asm
@@ -28,7 +28,7 @@ inline void sqr_mont_sparse_v256(vec256 ret, const vec256 a, const vec256 p, lim
 }
 
 // montgomery multiply: ret = a * b * R^-1 mod p, where R montgomery radix
-inline void redc_mont_v256(vec256 ret, const vec512 a, const vec256 p, limb_t n0)
+BLST_FORCEINLINE void redc_mont_v256(vec256 ret, const vec512 a, const vec256 p, limb_t n0)
 {
 #ifdef BLST_DEFAULT_ASM
 	redcx_mont_256(ret, a, p, n0);// linked by asm
@@ -38,7 +38,7 @@ inline void redc_mont_v256(vec256 ret, const vec512 a, const vec256 p, limb_t n0
 }
 
 // from montgomery domain: ret = a * R^-1 mod p, where R montgomery radix
-inline void from_mont_v256(vec256 ret, const vec256 a, const vec256 p, limb_t n0)
+BLST_FORCEINLINE void from_mont_v256(vec256 ret, const vec256 a, const vec256 p, limb_t n0)
 {
 #ifdef BLST_DEFAULT_ASM
 	fromx_mont_256(ret, a, p, n0);// linked by asm
@@ -48,17 +48,17 @@ inline void from_mont_v256(vec256 ret, const vec256 a, const vec256 p, limb_t n0
 }
 
 
-inline void add_mod_v256(vec256 ret, const vec256 a, const vec256 b, const vec256 p)
+BLST_FORCEINLINE void add_mod_v256(vec256 ret, const vec256 a, const vec256 b, const vec256 p)
 {
 #ifdef BLST_DEFAULT_ASM
-	add_mod_256(ret, a, b, p);// linked by asm, //?
+	add_mod_256(ret, a, b, p);// linked by asm, 
 #else
 	cc_add_mod_256(ret, a, b, p);
 #endif
 
 }
 
-inline void sub_mod_v256(vec256 ret, const vec256 a, const vec256 b, const vec256 p)
+BLST_FORCEINLINE void sub_mod_v256(vec256 ret, const vec256 a, const vec256 b, const vec256 p)
 {
 #ifdef BLST_DEFAULT_ASM
 	sub_mod_256(ret, a, b, p);// linked by asm
@@ -67,16 +67,16 @@ inline void sub_mod_v256(vec256 ret, const vec256 a, const vec256 b, const vec25
 #endif
 }
 
-inline void mul_by_3_mod_v256(vec256 ret, const vec256 a, const vec256 p)
+BLST_FORCEINLINE void mul_by_3_mod_v256(vec256 ret, const vec256 a, const vec256 p)
 {
 #ifdef BLST_DEFAULT_ASM
-	mul_by_3_mod_256(ret, a, p);//?
+	mul_by_3_mod_256(ret, a, p);
 #else
 	cc_mul_by_3_mod_256(ret, a, p);
 #endif
 }
 
-inline void cneg_mod_v256(vec256 ret, const vec256 a, bool_t flag, const vec256 p)
+BLST_FORCEINLINE void cneg_mod_v256(vec256 ret, const vec256 a, bool_t flag, const vec256 p)
 {
 #ifdef BLST_DEFAULT_ASM
 	cneg_mod_256(ret, a, flag, p);
@@ -85,7 +85,7 @@ inline void cneg_mod_v256(vec256 ret, const vec256 a, bool_t flag, const vec256 
 #endif // BLST_DEFAULT_ASM
 
 }
-inline void lshift_mod_v256(vec256 ret, const vec256 a, size_t count, const vec256 p)
+BLST_FORCEINLINE void lshift_mod_v256(vec256 ret, const vec256 a, size_t count, const vec256 p)
 {
 #ifdef BLST_DEFAULT_ASM
 	lshift_mod_256(ret, a, count, p);
@@ -94,7 +94,7 @@ inline void lshift_mod_v256(vec256 ret, const vec256 a, size_t count, const vec2
 #endif
 }
 
-inline void rshift_mod_v256(vec256 ret, const vec256 a, size_t count, const vec256 p)
+BLST_FORCEINLINE void rshift_mod_v256(vec256 ret, const vec256 a, size_t count, const vec256 p)
 {
 #ifdef BLST_DEFAULT_ASM
 	rshift_mod_256(ret, a, count, p);
@@ -116,7 +116,7 @@ inline void rshift_mod_v256(vec256 ret, const vec256 a, size_t count, const vec2
 
 
 
-inline limb_t check_mod_v256(const pow256 a, const vec256 p)
+BLST_FORCEINLINE limb_t check_mod_v256(const pow256 a, const vec256 p)
 {
 #ifdef BLST_DEFAULT_ASM
 	return check_mod_256(a, p);
@@ -125,7 +125,7 @@ inline limb_t check_mod_v256(const pow256 a, const vec256 p)
 #endif
 }
 
-inline limb_t add_n_check_mod_v256(pow256 ret, const pow256 a, const pow256 b,
+BLST_FORCEINLINE limb_t add_n_check_mod_v256(pow256 ret, const pow256 a, const pow256 b,
 	const vec256 p)
 {
 #ifdef BLST_DEFAULT_ASM
@@ -137,7 +137,7 @@ inline limb_t add_n_check_mod_v256(pow256 ret, const pow256 a, const pow256 b,
 
 // performs modular subtraction with zero-checking - 
 // it computes (a - b) mod p and returns whether the result is non-zero.
-inline limb_t sub_n_check_mod_v256(pow256 ret, const pow256 a, const pow256 b,
+BLST_FORCEINLINE limb_t sub_n_check_mod_v256(pow256 ret, const pow256 a, const pow256 b,
 	const vec256 p)
 {
 #ifdef BLST_DEFAULT_ASM
@@ -149,7 +149,7 @@ inline limb_t sub_n_check_mod_v256(pow256 ret, const pow256 a, const pow256 b,
 
 
 #ifndef BLST_ASM
-inline void vec_prefetch(const void* ptr, size_t len)
+BLST_FORCEINLINE void vec_prefetch(const void* ptr, size_t len)
 {
 	cc_vec_prefetch(ptr, len);
 }
@@ -158,7 +158,7 @@ void vec_prefetch(const void* ptr, size_t len); // linked by asm
 #endif
 
 // 
-inline void mul_mont_v384(vec384 ret, const vec384 a, const vec384 b,
+BLST_FORCEINLINE void mul_mont_v384(vec384 ret, const vec384 a, const vec384 b,
 	const vec384 p, limb_t n0)
 {
 #ifdef BLST_DEFAULT_ASM
@@ -168,7 +168,7 @@ inline void mul_mont_v384(vec384 ret, const vec384 a, const vec384 b,
 #endif
 }
 
-inline void sqr_mont_v384(vec384 ret, const vec384 a, const vec384 p, limb_t n0)
+BLST_FORCEINLINE void sqr_mont_v384(vec384 ret, const vec384 a, const vec384 p, limb_t n0)
 {
 #ifdef BLST_DEFAULT_ASM
 	sqrx_mont_384(ret, a, p, n0);
@@ -177,17 +177,25 @@ inline void sqr_mont_v384(vec384 ret, const vec384 a, const vec384 p, limb_t n0)
 #endif
 }
 
-inline void sqr_n_mul_mont_v384(vec384 ret, const vec384 a, size_t count,
-	const vec384 p, limb_t n0, const vec384 b)
-{
-#ifdef BLST_DEFAULT_ASM
-	sqrx_n_mul_mont_384(ret, a, count, p, n0, b);
-#else
-	cc_sqr_n_mul_mont_384(ret, a, count, p, n0, b);
-#endif
-}
+//BLST_FORCEINLINE void sqr_n_mul_mont_v384(vec384 ret, const vec384 a, size_t count,
+//	const vec384 p, limb_t n0, const vec384 b)
+//{
+//#ifdef BLST_DEFAULT_ASM
+//	sqrx_n_mul_mont_384(ret, a, count, p, n0, b);
+//#else
+//	cc_sqr_n_mul_mont_384(ret, a, count, p, n0, b);
+//#endif
+//}
 
-inline void sqr_n_mul_mont_v383(vec384 ret, const vec384 a, size_t count,
+/*
+ * "383"-bit variant omits full reductions at the ends of squarings,
+ * which results in up to ~15% improvement. [One can improve further
+ * by omitting full reductions even after multiplications and
+ * performing final reduction at the very end of the chain.]
+ * 
+ * see sqr_n_mul_fp
+ */
+BLST_FORCEINLINE void sqr_n_mul_mont_v383(vec384 ret, const vec384 a, size_t count,
 	const vec384 p, limb_t n0, const vec384 b)
 {
 #ifdef BLST_DEFAULT_ASM
@@ -207,16 +215,20 @@ inline void sqr_n_mul_mont_v383(vec384 ret, const vec384 a, size_t count,
 //}
 //void sqr_384(vec768 ret, const vec384 a);
 
-inline void redc_mont_v384(vec384 ret, const vec768 a, const vec384 p, limb_t n0)
+BLST_FORCEINLINE void redc_mont_v384(vec384 ret, const vec768 a, const vec384 p, limb_t n0)
 {
 #ifdef BLST_DEFAULT_ASM
+#ifdef BLST_ADX
 	redcx_mont_384(ret, a, p, n0);
+#else
+	redc_mont_384(ret, a, p, n0);
+#endif
 #else
 	cc_redc_mont_384(ret, a, p, n0);
 #endif
 }
 
-inline void from_mont_v384(vec384 ret, const vec384 a, const vec384 p, limb_t n0)
+BLST_FORCEINLINE void from_mont_v384(vec384 ret, const vec384 a, const vec384 p, limb_t n0)
 {
 #ifdef BLST_DEFAULT_ASM
 	fromx_mont_384(ret, a, p, n0);
@@ -226,7 +238,7 @@ inline void from_mont_v384(vec384 ret, const vec384 a, const vec384 p, limb_t n0
 }
 
 
-inline limb_t sgn0_pty_mont_v384(const vec384 a, const vec384 p, limb_t n0)
+BLST_FORCEINLINE limb_t sgn0_pty_mont_v384(const vec384 a, const vec384 p, limb_t n0)
 {
 #ifdef BLST_DEFAULT_ASM
 	return sgn0x_pty_mont_384(a, p, n0);
@@ -235,7 +247,7 @@ inline limb_t sgn0_pty_mont_v384(const vec384 a, const vec384 p, limb_t n0)
 #endif
 }
 
-inline limb_t sgn0_pty_mont_v384x(const vec384x a, const vec384 p, limb_t n0)
+BLST_FORCEINLINE limb_t sgn0_pty_mont_v384x(const vec384x a, const vec384 p, limb_t n0)
 {
 #ifdef BLST_DEFAULT_ASM
 	return sgn0x_pty_mont_384x(a, p, n0);
@@ -243,34 +255,34 @@ inline limb_t sgn0_pty_mont_v384x(const vec384x a, const vec384 p, limb_t n0)
 	return cc_sgn0_pty_mont_384x(a, p, n0);
 #endif
 }
-inline limb_t sgn0_pty_mod_v384(const vec384 a, const vec384 p)
+BLST_FORCEINLINE limb_t sgn0_pty_mod_v384(const vec384 a, const vec384 p)
 {
 #ifdef BLST_DEFAULT_ASM
-	return sgn0_pty_mod_384(a, p);//?
+	return sgn0_pty_mod_384(a, p);
 #else
 	return cc_sgn0_pty_mod_384(a, p);
 #endif
 }
 
-inline limb_t sgn0_pty_mod_v384x(const vec384x a, const vec384 p)
+BLST_FORCEINLINE limb_t sgn0_pty_mod_v384x(const vec384x a, const vec384 p)
 {
 #ifdef BLST_DEFAULT_ASM
-	return sgn0_pty_mod_384x(a, p);//?
+	return sgn0_pty_mod_384x(a, p);
 #else
 	return cc_sgn0_pty_mod_384x(a, p);
 #endif
 }
 
-inline void add_mod_v384(vec384 ret, const vec384 a, const vec384 b, const vec384 p)
+BLST_FORCEINLINE void add_mod_v384(vec384 ret, const vec384 a, const vec384 b, const vec384 p)
 {
 #ifdef BLST_DEFAULT_ASM
-	add_mod_384(ret, a, b, p);//?
+	add_mod_384(ret, a, b, p);
 #else
 	cc_add_mod_384(ret, a, b, p);
 #endif
 }
 
-inline void sub_mod_v384(vec384 ret, const vec384 a, const vec384 b, const vec384 p)
+BLST_FORCEINLINE void sub_mod_v384(vec384 ret, const vec384 a, const vec384 b, const vec384 p)
 {
 #ifdef BLST_DEFAULT_ASM
 	sub_mod_384(ret, a, b, p);
@@ -278,7 +290,7 @@ inline void sub_mod_v384(vec384 ret, const vec384 a, const vec384 b, const vec38
 	cc_sub_mod_n(ret, a, b, p, NLIMBS(384));
 #endif
 }
-inline void mul_by_8_mod_v384(vec384 ret, const vec384 a, const vec384 p)
+BLST_FORCEINLINE void mul_by_8_mod_v384(vec384 ret, const vec384 a, const vec384 p)
 {
 #ifdef BLST_DEFAULT_ASM
 	mul_by_8_mod_384(ret, a, p);
@@ -287,16 +299,16 @@ inline void mul_by_8_mod_v384(vec384 ret, const vec384 a, const vec384 p)
 #endif
 
 }
-inline void mul_by_3_mod_v384(vec384 ret, const vec384 a, const vec384 p)
+BLST_FORCEINLINE void mul_by_3_mod_v384(vec384 ret, const vec384 a, const vec384 p)
 {
 #ifdef BLST_DEFAULT_ASM
-	mul_by_3_mod_384(ret, a, p);//?
+	mul_by_3_mod_384(ret, a, p);
 #else
 	cc_mul_by_3_mod_384(ret, a, p);
 #endif
 }
 
-inline void cneg_mod_v384(vec384 ret, const vec384 a, bool_t flag, const vec384 p)
+BLST_FORCEINLINE void cneg_mod_v384(vec384 ret, const vec384 a, bool_t flag, const vec384 p)
 {
 #ifdef BLST_DEFAULT_ASM
 	cneg_mod_384(ret, a, flag, p);
@@ -307,7 +319,7 @@ inline void cneg_mod_v384(vec384 ret, const vec384 a, bool_t flag, const vec384 
 
 void lshift_mod_v384(vec384 ret, const vec384 a, size_t count, const vec384 p);
 
-inline void rshift_mod_v384(vec384 ret, const vec384 a, size_t count, const vec384 p)
+BLST_FORCEINLINE void rshift_mod_v384(vec384 ret, const vec384 a, size_t count, const vec384 p)
 {
 #ifdef BLST_DEFAULT_ASM
 	rshift_mod_384(ret, a, count, p);
@@ -315,7 +327,7 @@ inline void rshift_mod_v384(vec384 ret, const vec384 a, size_t count, const vec3
 	cc_rshift_mod_384(ret, a, count, p);
 #endif
 }
-inline void div_by_2_mod_v384(vec384 ret, const vec384 a, const vec384 p)
+BLST_FORCEINLINE void div_by_2_mod_v384(vec384 ret, const vec384 a, const vec384 p)
 {
 #ifdef BLST_DEFAULT_ASM
 	div_by_2_mod_384(ret, a, p);
@@ -325,7 +337,7 @@ inline void div_by_2_mod_v384(vec384 ret, const vec384 a, const vec384 p)
 }
 
 
-inline void ct_inverse_mod_v384(vec768 ret, const vec384 inp, const vec384 mod,
+BLST_FORCEINLINE void ct_inverse_mod_v384(vec768 ret, const vec384 inp, const vec384 mod,
 	const vec384 modx)
 {
 #ifdef BLST_DEFAULT_ASM
@@ -335,17 +347,17 @@ inline void ct_inverse_mod_v384(vec768 ret, const vec384 inp, const vec384 mod,
 #endif
 }
 
-inline void ct_inverse_mod_v256(vec512 ret, const vec256 inp, const vec256 mod,
+BLST_FORCEINLINE void ct_inverse_mod_v256(vec512 ret, const vec256 inp, const vec256 mod,
 	const vec256 modx)
 {
 #ifdef BLST_DEFAULT_ASM
-	ct_inverse_mod_256(ret, inp, mod, modx);//?
+	ct_inverse_mod_256(ret, inp, mod, modx);
 #else	
 	cc_ct_inverse_mod_256(ret, inp, mod, modx);
 #endif
 }
 
-inline bool_t ct_is_square_mod_v384(const vec384 inp, const vec384 mod)
+BLST_FORCEINLINE bool_t ct_is_square_mod_v384(const vec384 inp, const vec384 mod)
 {
 #ifdef BLST_DEFAULT_ASM
 	return ct_is_square_mod_384(inp, mod);
@@ -354,7 +366,7 @@ inline bool_t ct_is_square_mod_v384(const vec384 inp, const vec384 mod)
 #endif
 }
 
-inline void mul_mont_v384x(vec384x ret, const vec384x a, const vec384x b,
+BLST_FORCEINLINE void mul_mont_v384x(vec384x ret, const vec384x a, const vec384x b,
 	const vec384 p, limb_t n0)
 {
 #ifdef BLST_DEFAULT_ASM
@@ -363,7 +375,7 @@ inline void mul_mont_v384x(vec384x ret, const vec384x a, const vec384x b,
 	cc_mul_mont_384x(ret, a, b, p, n0);
 #endif
 }
-inline void sqr_mont_v384x(vec384x ret, const vec384x a, const vec384 p, limb_t n0)
+BLST_FORCEINLINE void sqr_mont_v384x(vec384x ret, const vec384x a, const vec384 p, limb_t n0)
 {
 #ifdef BLST_DEFAULT_ASM
 	sqrx_mont_384x(ret, a, p, n0);
@@ -372,7 +384,7 @@ inline void sqr_mont_v384x(vec384x ret, const vec384x a, const vec384 p, limb_t 
 #endif
 
 }
-inline void sqr_mont_v382x(vec384x ret, const vec384x a, const vec384 p, limb_t n0)
+BLST_FORCEINLINE void sqr_mont_v382x(vec384x ret, const vec384x a, const vec384 p, limb_t n0)
 {
 #ifdef BLST_DEFAULT_ASM
 	sqrx_mont_382x(ret, a, p, n0);
@@ -380,25 +392,28 @@ inline void sqr_mont_v382x(vec384x ret, const vec384x a, const vec384 p, limb_t 
 	cc_sqr_mont_382x(ret, a, p, n0);
 #endif
 }
-//void mul_v382x(vec768 ret[2], const vec384x a, const vec384x b, const vec384 p)
-//{
-//#ifdef BLST_DEFAULT_ASM
-//	mulx_382x(ret, a, b, p);
-//#else
-//	exit(1); // not implemented
-//	//cc_mul_382x(ret, a, b, p);
-//#endif
-//}
-//void sqr_v382x(vec768 ret[2], const vec384x a, const vec384 p)
-//{
-//	#ifdef BLST_DEFAULT_ASM
-//	sqrx_382x(ret, a, p);
-//#else
-//	exit(1); // not implemented
-//	//cc_sqr_382x(ret, a, p);
-//}
 
-inline void add_mod_v384x(vec384x ret, const vec384x a, const vec384x b,
+#ifdef BLST_ASM
+BLST_FORCEINLINE void mul_v382x(vec768 ret[2], const vec384x a, const vec384x b, const vec384 p)
+{
+#ifdef BLST_ADX
+	mulx_382x(ret, a, b, p);
+#else
+	mul_382x(ret, a, b, p);
+#endif
+}
+BLST_FORCEINLINE void sqr_v382x(vec768 ret[2], const vec384x a, const vec384 p)
+{
+#ifdef BLST_ADX
+	sqrx_382x(ret, a, p);
+#else
+	sqr_382x(ret, a, p);
+#endif
+}
+
+#endif
+
+BLST_FORCEINLINE void add_mod_v384x(vec384x ret, const vec384x a, const vec384x b,
 	const vec384 p)
 {
 #ifdef BLST_DEFAULT_ASM
@@ -407,7 +422,7 @@ inline void add_mod_v384x(vec384x ret, const vec384x a, const vec384x b,
 	cc_add_mod_384x(ret, a, b, p);
 #endif
 }
-inline void sub_mod_v384x(vec384x ret, const vec384x a, const vec384x b,
+BLST_FORCEINLINE void sub_mod_v384x(vec384x ret, const vec384x a, const vec384x b,
 	const vec384 p)
 {
 #ifdef BLST_DEFAULT_ASM
@@ -416,7 +431,7 @@ inline void sub_mod_v384x(vec384x ret, const vec384x a, const vec384x b,
 	cc_sub_mod_384x(ret, a, b, p);
 #endif
 }
-inline void mul_by_8_mod_v384x(vec384x ret, const vec384x a, const vec384 p)
+BLST_FORCEINLINE void mul_by_8_mod_v384x(vec384x ret, const vec384x a, const vec384 p)
 {
 #ifdef BLST_DEFAULT_ASM
 	mul_by_8_mod_384x(ret, a, p);
@@ -424,7 +439,7 @@ inline void mul_by_8_mod_v384x(vec384x ret, const vec384x a, const vec384 p)
 	cc_mul_by_8_mod_384x(ret, a, p);
 #endif
 }
-inline void mul_by_3_mod_v384x(vec384x ret, const vec384x a, const vec384 p)
+BLST_FORCEINLINE void mul_by_3_mod_v384x(vec384x ret, const vec384x a, const vec384 p)
 {
 #ifdef BLST_DEFAULT_ASM
 	mul_by_3_mod_384x(ret, a, p);
@@ -433,7 +448,7 @@ inline void mul_by_3_mod_v384x(vec384x ret, const vec384x a, const vec384 p)
 #endif
 }
 
-inline void mul_by_1_plus_i_mod_v384x(vec384x ret, const vec384x a, const vec384 p)
+BLST_FORCEINLINE void mul_by_1_plus_i_mod_v384x(vec384x ret, const vec384x a, const vec384 p)
 {
 #ifdef BLST_DEFAULT_ASM
 	mul_by_1_plus_i_mod_384x(ret, a, p);
@@ -445,7 +460,7 @@ inline void mul_by_1_plus_i_mod_v384x(vec384x ret, const vec384x a, const vec384
 
 
 
-HOST_DEVICE_FUNC inline void blst_sha256_block_data_order_v(unsigned int* v, const void* inp,
+HOST_DEVICE_FUNC BLST_FORCEINLINE void blst_sha256_block_data_order_v(unsigned int* v, const void* inp,
 	size_t blocks)
 {
 #ifdef BLST_DEFAULT_ASM
@@ -456,7 +471,7 @@ HOST_DEVICE_FUNC inline void blst_sha256_block_data_order_v(unsigned int* v, con
 }
 
 
-HOST_DEVICE_FUNC inline void blst_sha256_hcopy_v(unsigned int dst[8], const unsigned int src[8])
+HOST_DEVICE_FUNC BLST_FORCEINLINE void blst_sha256_hcopy_v(unsigned int dst[8], const unsigned int src[8])
 {
 #ifdef BLST_DEFAULT_ASM
 	blst_sha256_hcopy(dst, src);
@@ -465,7 +480,7 @@ HOST_DEVICE_FUNC inline void blst_sha256_hcopy_v(unsigned int dst[8], const unsi
 #endif
 }
 
-HOST_DEVICE_FUNC inline void blst_sha256_emit_v(unsigned char md[32], const unsigned int h[8])
+HOST_DEVICE_FUNC BLST_FORCEINLINE void blst_sha256_emit_v(unsigned char md[32], const unsigned int h[8])
 {
 #ifdef BLST_DEFAULT_ASM
 	blst_sha256_emit(md, h);
@@ -474,7 +489,7 @@ HOST_DEVICE_FUNC inline void blst_sha256_emit_v(unsigned char md[32], const unsi
 #endif
 }
 
-HOST_DEVICE_FUNC inline void blst_sha256_bcopy_v(void* dst_, const void* src_, size_t len)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void blst_sha256_bcopy_v(void* dst_, const void* src_, size_t len)
 {
 #ifdef BLST_DEFAULT_ASM
 	blst_sha256_bcopy(dst_, src_, len);
@@ -495,7 +510,7 @@ void exp_mont_384x(vec384x out, const vec384x inp, const byte* pow,
 
 
 
-inline void cneg_mod_v384x(vec384x ret, const vec384x a, bool_t flag,
+BLST_FORCEINLINE void cneg_mod_v384x(vec384x ret, const vec384x a, bool_t flag,
 	const vec384 p)
 {
 	cneg_mod_v384(ret[0], a[0], flag, p);
@@ -503,7 +518,7 @@ inline void cneg_mod_v384x(vec384x ret, const vec384x a, bool_t flag,
 }
 
 
-inline limb_t div_3_limbs_v(const limb_t dividend_top[2], limb_t d_lo, limb_t d_hi)
+BLST_FORCEINLINE limb_t div_3_limbs_v(const limb_t dividend_top[2], limb_t d_lo, limb_t d_hi)
 {
 #ifdef BLST_DEFAULT_ASM
 	return div_3_limbs(dividend_top, d_lo, d_hi);
@@ -512,7 +527,7 @@ inline limb_t div_3_limbs_v(const limb_t dividend_top[2], limb_t d_lo, limb_t d_
 #endif
 }
 
-inline limb_t quot_rem_128_v(limb_t* quot_rem, const limb_t* divisor, limb_t quotient)
+BLST_FORCEINLINE limb_t quot_rem_128_v(limb_t* quot_rem, const limb_t* divisor, limb_t quotient)
 {
 #ifdef BLST_DEFAULT_ASM
 	return quot_rem_128(quot_rem, divisor, quotient);
@@ -521,7 +536,7 @@ inline limb_t quot_rem_128_v(limb_t* quot_rem, const limb_t* divisor, limb_t quo
 #endif
 }
 
-inline limb_t quot_rem_64_v(limb_t* quot_rem, const limb_t* divisor, limb_t quotient)
+BLST_FORCEINLINE limb_t quot_rem_64_v(limb_t* quot_rem, const limb_t* divisor, limb_t quotient)
 {
 #ifdef BLST_DEFAULT_ASM
 	return quot_rem_64(quot_rem, divisor, quotient);
@@ -533,7 +548,7 @@ inline limb_t quot_rem_64_v(limb_t* quot_rem, const limb_t* divisor, limb_t quot
 /*
  * Divide 255-bit |val| by z^2 yielding 128-bit quotient and remainder in place.
  */
-inline void div_by_zz(limb_t val[])
+BLST_FORCEINLINE void div_by_zz(limb_t val[])
 {
 	const limb_t zz[] = { TO_LIMB_T(0x0000000100000000),
 								 TO_LIMB_T(0xac45a4010001a402) };
@@ -552,7 +567,7 @@ inline void div_by_zz(limb_t val[])
 /*
  * Divide 128-bit |val| by z yielding 64-bit quotient and remainder in place.
  */
-inline void div_by_z(limb_t val[])
+BLST_FORCEINLINE void div_by_z(limb_t val[])
 {
 	const limb_t z[] = { TO_LIMB_T(0xd201000000010000) };
 	size_t loop, z_len = sizeof(z) / sizeof(z[0]);

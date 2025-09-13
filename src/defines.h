@@ -64,17 +64,20 @@ typedef const void *uptr_t;
 # endif
 #endif
 
-#if !defined(inline) && !defined(__cplusplus)
-# if !defined(__STDC_VERSION__) || __STDC_VERSION__<199901
-#  if defined(__GNUC__) && __GNUC__>=2
-#   define inline __inline__
-#  elif defined(_MSC_VER)
-#   define inline __inline
+
+// OC_FORCEINLINE ---------------------------------------------//
+// Macro to use in place of 'inline' to force a function to be inline
+#if !defined(BLST_FORCEINLINE)
+#  if defined(_MSC_VER)
+#    define BLST_FORCEINLINE __forceinline
+#  elif defined(__GNUC__) && __GNUC__ > 3
+     // Clang also defines __GNUC__ (as 4)
+#    define BLST_FORCEINLINE inline __attribute__ ((__always_inline__))
 #  else
-#   define inline
+#    define BLST_FORCEINLINE static inline
 #  endif
-# endif
 #endif
+
 
 #if defined(__GNUC__) || defined(__clang__)
 # define BLST_launder(var) __asm__ __volatile__("" : "+r"(var))

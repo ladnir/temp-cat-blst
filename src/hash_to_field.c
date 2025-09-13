@@ -147,8 +147,8 @@ void hash_to_field(vec384 elems[], size_t nelems,
         /*
          * L-bytes block % P, output is in Montgomery domain...
          */
-        redc_mont_v384(elems[0], elem, BLS12_381_P, p0);
-        mul_mont_v384(elems[0], elems[0], BLS12_381_RRRR, BLS12_381_P, p0);
+        redc_mont_v384(elems[0], elem, BLS12_381_P, BLS12_381_p0);
+        mul_mont_v384(elems[0], elems[0], BLS12_381_RRRR, BLS12_381_P, BLS12_381_p0);
         elems++;
     }
 }

@@ -21,7 +21,7 @@ void flt_reciprocal_fp(vec384 out, const vec384 inp)
         TO_BYTES(0x4b1ba7b6434bacd7), TO_BYTES(0x1a0111ea397fe69a)
     };
 
-    exp_mont_384(out, inp, BLS12_381_P_minus_2, 381, BLS12_381_P, p0);
+    exp_mont_384(out, inp, BLS12_381_P_minus_2, 381, BLS12_381_P, BLS12_381_p0);
 }
 #else
 # define sqr(ret,a)		sqr_fp(ret,a)
@@ -65,12 +65,12 @@ void reciprocal_fp(vec384 out, const vec384 inp)
     union { vec768 x; vec384 r[2]; } temp;
 
     ct_inverse_mod_v384(temp.x, inp, BLS12_381_P, Px8);
-    redc_mont_v384(temp.r[0], temp.x, BLS12_381_P, p0);
-    mul_mont_v384(temp.r[0], temp.r[0], BLS12_381_RR, BLS12_381_P, p0);
+    redc_mont_v384(temp.r[0], temp.x, BLS12_381_P, BLS12_381_p0);
+    mul_mont_v384(temp.r[0], temp.r[0], BLS12_381_RR, BLS12_381_P, BLS12_381_p0);
 
 #ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     /* sign goes straight to flt_reciprocal */
-    mul_mont_v384(temp.r[1], temp.r[0], inp, BLS12_381_P, p0);
+    mul_mont_v384(temp.r[1], temp.r[0], inp, BLS12_381_P, BLS12_381_p0);
     if (vec_is_equal(temp.r[1],  BLS12_381_Rx.p, sizeof(vec384)) |
         vec_is_zero(temp.r[1], sizeof(vec384)))
         vec_copy(out, temp.r[0], sizeof(vec384));

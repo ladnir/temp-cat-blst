@@ -7,6 +7,7 @@ option(BLST_PORTABLE     "Force portable C implementation (no assembly)" ON)
 option(BLST_ASM          "Enable assembly optimizations" ON)
 option(BLST_ADX          "Enable ADX in the c code" ON)
 option(BLST_DEFAULT_ASM  "Enable assembly optimizations by default" ON)
+option(BLST_ASAN        "Enable Address Sanitizer" OFF)
 
 if( NOT DEFINED BLST_LIMB_SIZE)
 	set(BLST_LIMB_SIZE 64)
@@ -24,6 +25,6 @@ message("BLST_CUDA         = ${BLST_CUDA}")
 message("BLST_LIMB_SIZE    = ${BLST_LIMB_SIZE}")
 
 
+#add_subdirectory(check)
 add_subdirectory(src)
-
 add_subdirectory(test)

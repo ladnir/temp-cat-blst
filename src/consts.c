@@ -13,7 +13,6 @@ HOST_DEVICE_FUNC const vec384 BLS12_381_P = {    /* (z-1)^2 * (z^4 - z^2 + 1)/3 
     TO_LIMB_T(0x6730d2a0f6b0f624), TO_LIMB_T(0x64774b84f38512bf),
     TO_LIMB_T(0x4b1ba7b6434bacd7), TO_LIMB_T(0x1a0111ea397fe69a)
 };
-HOST_DEVICE_FUNC const limb_t BLS12_381_p0 = (limb_t)0x89f3fffcfffcfffd;  /* -1/P */
 
 HOST_DEVICE_FUNC const radix384 BLS12_381_Rx = { /* (1<<384)%P, "radix", one-in-Montgomery */
   { { ONE_MONT_P },

@@ -30,13 +30,13 @@ void print_point(const POINTonE1* p, const char* name) {
     printf("\n");
 }
 
-// Helper: Convert hex string to bytes
-void hex_to_bytes(unsigned char* bytes, const char* hex) {
-    size_t len = strlen(hex) / 2;
-    for (size_t i = 0; i < len; i++) {
-        sscanf(hex + (i * 2), "%2hhx", &bytes[i]);
-    }
-}
+//// Helper: Convert hex string to bytes
+//void hex_to_bytes(unsigned char* bytes, const char* hex) {
+//    size_t len = strlen(hex) / 2;
+//    for (size_t i = 0; i < len; i++) {
+//        sscanf(hex + (i * 2), "%2hhx", &bytes[i]);
+//    }
+//}
 
 TEST(E1PointTest, PointAddition) {
     POINTonE1 p1, p2, result, temp;
@@ -583,7 +583,7 @@ TEST(E1PointTest, MultiplePointAddition) {
 
 TEST(E1PointTest, MultiScalarMultiplication) {
     const size_t n = 3;
-    POINTonE1 points[n], result;
+    POINTonE1 points[n];
     byte scalars[n][32] = { 0 };
 
     // Generate n different points
@@ -637,7 +637,7 @@ TEST(E1PointTest, AdditionEdgeCases) {
 }
 
 TEST(E1PointTest, EndomorphismAcceleration) {
-    POINTonE1 p1, result1, result2;
+    POINTonE1 p1, result1;
     unsigned char scalar[32];
 
     // Fill with non-trivial scalar

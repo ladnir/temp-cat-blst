@@ -12,7 +12,7 @@
 #include "asm.h"
 
 
-static inline void vec_copy(void* restrict ret, const void* a, size_t num)
+BLST_FORCEINLINE void vec_copy(void* restrict ret, const void* a, size_t num)
 {
 	limb_t* rp = (limb_t*)ret;
 	const limb_t* ap = (const limb_t*)a;
@@ -24,7 +24,7 @@ static inline void vec_copy(void* restrict ret, const void* a, size_t num)
 		rp[i] = ap[i];
 }
 
-inline void vec_zero(void* ret, size_t num)
+BLST_FORCEINLINE void vec_zero(void* ret, size_t num)
 {
 	volatile limb_t* rp = (volatile limb_t*)ret;
 	size_t i;
@@ -44,7 +44,7 @@ inline void vec_zero(void* ret, size_t num)
 }
 
 
-inline void vec_select(void* ret, const void* a, const void* b,
+BLST_FORCEINLINE void vec_select(void* ret, const void* a, const void* b,
 	size_t num, bool_t sel_a)
 {
 	BLST_launder(sel_a);
@@ -75,14 +75,14 @@ inline void vec_select(void* ret, const void* a, const void* b,
 	}
 }
 
-inline bool_t is_zero(limb_t l)
+BLST_FORCEINLINE bool_t is_zero(limb_t l)
 {
 	limb_t ret = (~l & (l - 1)) >> (BLST_LIMB_SIZE - 1);
 	BLST_launder(ret);
 	return ret;
 }
 
-inline bool_t vec_is_zero(const void* a, size_t num)
+BLST_FORCEINLINE bool_t vec_is_zero(const void* a, size_t num)
 {
 	const limb_t* ap = (const limb_t*)a;
 	limb_t acc;
@@ -101,7 +101,7 @@ inline bool_t vec_is_zero(const void* a, size_t num)
 	return is_zero(acc);
 }
 
-inline bool_t vec_is_equal(const void* a, const void* b, size_t num)
+BLST_FORCEINLINE bool_t vec_is_equal(const void* a, const void* b, size_t num)
 {
 	const limb_t* ap = (const limb_t*)a;
 	const limb_t* bp = (const limb_t*)b;
@@ -121,7 +121,7 @@ inline bool_t vec_is_equal(const void* a, const void* b, size_t num)
 	return is_zero(acc);
 }
 
-inline void vec_czero(void* ret, size_t num, bool_t cbit)
+BLST_FORCEINLINE void vec_czero(void* ret, size_t num, bool_t cbit)
 {
 	limb_t* rp = (limb_t*)ret;
 	size_t i;
@@ -137,21 +137,21 @@ inline void vec_czero(void* ret, size_t num, bool_t cbit)
 }
 
 
-inline bool_t is_bit_set(const byte* v, size_t i)
+BLST_FORCEINLINE bool_t is_bit_set(const byte* v, size_t i)
 {
 	bool_t ret = (v[i / 8] >> (i % 8)) & 1;
 	BLST_launder(ret);
 	return ret;
 }
 
-inline bool_t byte_is_zero(unsigned char c)
+BLST_FORCEINLINE bool_t byte_is_zero(unsigned char c)
 {
 	limb_t ret = ((limb_t)(c)-1) >> (BLST_LIMB_SIZE - 1);
 	BLST_launder(ret);
 	return ret;
 }
 
-inline bool_t bytes_are_zero(const unsigned char* a, size_t num)
+BLST_FORCEINLINE bool_t bytes_are_zero(const unsigned char* a, size_t num)
 {
 	unsigned char acc;
 	size_t i;
@@ -162,7 +162,7 @@ inline bool_t bytes_are_zero(const unsigned char* a, size_t num)
 	return byte_is_zero(acc);
 }
 
-inline void vec_cswap(void* restrict a, void* restrict b, size_t num,
+BLST_FORCEINLINE void vec_cswap(void* restrict a, void* restrict b, size_t num,
 	bool_t cbit)
 {
 	limb_t ai, * ap = (limb_t*)a;

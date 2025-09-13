@@ -16,73 +16,73 @@
 /*
  * BLS12-381-specific Fp shortcuts to assembly.
  */
-HOST_DEVICE_FUNC inline void add_fp(vec384 ret, const vec384 a, const vec384 b)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void add_fp(vec384 ret, const vec384 a, const vec384 b)
 {   add_mod_v384(ret, a, b, BLS12_381_P);   }
 
-HOST_DEVICE_FUNC inline void sub_fp(vec384 ret, const vec384 a, const vec384 b)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void sub_fp(vec384 ret, const vec384 a, const vec384 b)
 {   sub_mod_v384(ret, a, b, BLS12_381_P);   }
 
-HOST_DEVICE_FUNC inline void mul_by_3_fp(vec384 ret, const vec384 a)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void mul_by_3_fp(vec384 ret, const vec384 a)
 {   mul_by_3_mod_v384(ret, a, BLS12_381_P);   }
 
-HOST_DEVICE_FUNC inline void mul_by_8_fp(vec384 ret, const vec384 a)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void mul_by_8_fp(vec384 ret, const vec384 a)
 {   mul_by_8_mod_v384(ret, a, BLS12_381_P);   }
 
-HOST_DEVICE_FUNC inline void lshift_fp(vec384 ret, const vec384 a, size_t count)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void lshift_fp(vec384 ret, const vec384 a, size_t count)
 {   lshift_mod_v384(ret, a, count, BLS12_381_P);   }
 
-HOST_DEVICE_FUNC inline void rshift_fp(vec384 ret, const vec384 a, size_t count)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void rshift_fp(vec384 ret, const vec384 a, size_t count)
 {   rshift_mod_v384(ret, a, count, BLS12_381_P);   }
 
-HOST_DEVICE_FUNC inline void div_by_2_fp(vec384 ret, const vec384 a)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void div_by_2_fp(vec384 ret, const vec384 a)
 {   div_by_2_mod_v384(ret, a, BLS12_381_P);   }
 
-HOST_DEVICE_FUNC inline void mul_fp(vec384 ret, const vec384 a, const vec384 b)
-{   mul_mont_v384(ret, a, b, BLS12_381_P, p0);   }
+HOST_DEVICE_FUNC BLST_FORCEINLINE void mul_fp(vec384 ret, const vec384 a, const vec384 b)
+{   mul_mont_v384(ret, a, b, BLS12_381_P, BLS12_381_p0);   }
 
-HOST_DEVICE_FUNC inline void sqr_fp(vec384 ret, const vec384 a)
-{   sqr_mont_v384(ret, a, BLS12_381_P, p0);   }
+HOST_DEVICE_FUNC BLST_FORCEINLINE void sqr_fp(vec384 ret, const vec384 a)
+{   sqr_mont_v384(ret, a, BLS12_381_P, BLS12_381_p0);   }
 
-HOST_DEVICE_FUNC inline void cneg_fp(vec384 ret, const vec384 a, bool_t flag)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void cneg_fp(vec384 ret, const vec384 a, bool_t flag)
 {   cneg_mod_v384(ret, a, flag, BLS12_381_P);   }
 
-HOST_DEVICE_FUNC inline void from_fp(vec384 ret, const vec384 a)
-{   from_mont_v384(ret, a, BLS12_381_P, p0);   }
+HOST_DEVICE_FUNC BLST_FORCEINLINE void from_fp(vec384 ret, const vec384 a)
+{   from_mont_v384(ret, a, BLS12_381_P, BLS12_381_p0);   }
 
-HOST_DEVICE_FUNC inline void to_fp(vec384 ret, const vec384 a)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void to_fp(vec384 ret, const vec384 a)
 { mul_fp(ret, a, BLS12_381_RR); }
 
-HOST_DEVICE_FUNC inline void redc_fp(vec384 ret, const vec768 a)
-{   redc_mont_v384(ret, a, BLS12_381_P, p0);   }
+HOST_DEVICE_FUNC BLST_FORCEINLINE void redc_fp(vec384 ret, const vec768 a)
+{   redc_mont_v384(ret, a, BLS12_381_P, BLS12_381_p0);   }
 
 /*
  * BLS12-381-specific Fp2 shortcuts to assembly.
  */
-HOST_DEVICE_FUNC inline void add_fp2(vec384x ret, const vec384x a, const vec384x b)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void add_fp2(vec384x ret, const vec384x a, const vec384x b)
 {   add_mod_v384x(ret, a, b, BLS12_381_P);   }
 
-HOST_DEVICE_FUNC inline void sub_fp2(vec384x ret, const vec384x a, const vec384x b)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void sub_fp2(vec384x ret, const vec384x a, const vec384x b)
 {   sub_mod_v384x(ret, a, b, BLS12_381_P);   }
 
-HOST_DEVICE_FUNC inline void mul_by_3_fp2(vec384x ret, const vec384x a)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void mul_by_3_fp2(vec384x ret, const vec384x a)
 {   mul_by_3_mod_v384x(ret, a, BLS12_381_P);   }
 
-HOST_DEVICE_FUNC inline void mul_by_8_fp2(vec384x ret, const vec384x a)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void mul_by_8_fp2(vec384x ret, const vec384x a)
 {   mul_by_8_mod_v384x(ret, a, BLS12_381_P);   }
 
-HOST_DEVICE_FUNC inline void lshift_fp2(vec384x ret, const vec384x a, size_t count)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void lshift_fp2(vec384x ret, const vec384x a, size_t count)
 {
     lshift_mod_v384(ret[0], a[0], count, BLS12_381_P);
     lshift_mod_v384(ret[1], a[1], count, BLS12_381_P);
 }
 
-HOST_DEVICE_FUNC inline void mul_fp2(vec384x ret, const vec384x a, const vec384x b)
-{   mul_mont_v384x(ret, a, b, BLS12_381_P, p0);   }
+HOST_DEVICE_FUNC BLST_FORCEINLINE void mul_fp2(vec384x ret, const vec384x a, const vec384x b)
+{   mul_mont_v384x(ret, a, b, BLS12_381_P, BLS12_381_p0);   }
 
-HOST_DEVICE_FUNC inline void sqr_fp2(vec384x ret, const vec384x a)
-{   sqr_mont_v384x(ret, a, BLS12_381_P, p0);   }
+HOST_DEVICE_FUNC BLST_FORCEINLINE void sqr_fp2(vec384x ret, const vec384x a)
+{   sqr_mont_v384x(ret, a, BLS12_381_P, BLS12_381_p0);   }
 
-HOST_DEVICE_FUNC inline void cneg_fp2(vec384x ret, const vec384x a, bool_t flag)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void cneg_fp2(vec384x ret, const vec384x a, bool_t flag)
 {
     cneg_mod_v384(ret[0], a[0], flag, BLS12_381_P);
     cneg_mod_v384(ret[1], a[1], flag, BLS12_381_P);
@@ -112,7 +112,7 @@ HOST_DEVICE_FUNC void cyclotomic_sqr_fp12(vec384fp12 ret, const vec384fp12 a);
 HOST_DEVICE_FUNC void mul_fp12(vec384fp12 ret, const vec384fp12 a, const vec384fp12 b);
 HOST_DEVICE_FUNC void mul_by_xy00z0_fp12(vec384fp12 ret, const vec384fp12 a,
                                                const vec384fp6 xy00z0);
-HOST_DEVICE_FUNC inline void conjugate_fp2(vec384x ret, const vec384x a)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void conjugate_fp2(vec384x ret, const vec384x a)
 {
     vec_copy(ret[0], a[0], sizeof(vec384));  /* Re(ret) = Re(a) */
     cneg_fp(ret[1], a[1], 1);               /* Im(ret) = -Im(a) */

@@ -341,7 +341,7 @@ TEST(FrOps, ArithmeticProperties) {
     blst_fr_to(mont_c, c);
     
     // Associativity: (a + b) + c = a + (b + c)
-    vec256 temp1, temp2, std_result1, std_result2;
+    vec256 temp1, temp2;// , std_result1, std_result2;
     
     blst_fr_add(temp1, a, b);
     blst_fr_add(result1, temp1, c);
@@ -363,7 +363,7 @@ TEST(FrOps, ArithmeticProperties) {
 }
 
 TEST(FrOps, EdgeCases) {
-    vec256 zero, one, a, result, expected;
+    vec256 zero, one, a, result;// , expected;
     
     // Test with zero and one
     set_fr(zero, 0);

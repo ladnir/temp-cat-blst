@@ -499,7 +499,7 @@ TEST_F(GTTest, FinalVerify) {
 
     // Create two different pairings that should be equal after final_exp
     POINTonE1 g1_double;
-    POINTonE2 g2_half;
+    //POINTonE2 g2_half;
     blst_p1_double(&g1_double, &g1_point);
 
     // Create a "half" point in G2 by multiplying by inverse of 2 (if available)

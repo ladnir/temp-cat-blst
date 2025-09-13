@@ -44,6 +44,7 @@
         "BLST_ASM": true,
         "BLST_ADX": true,
         "BLST_DEFAULT_ASM": true,
+        "BLST_ASAN": true,
         "BLST_LIMB_SIZE": "64",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
       },
