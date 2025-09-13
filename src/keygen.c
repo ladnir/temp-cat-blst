@@ -7,7 +7,7 @@
 #include "consts.h"
 #include "bytes.h"
 #include "sha256.h"
-#include "interface.h"
+#include "backend.h"
 
 typedef struct {
     SHA256_CTX ctx;

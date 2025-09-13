@@ -7,7 +7,7 @@
 #include "vect.h"
  //
  //#ifndef BLST_ASM
- //# include "no_asm.h"
+ //# include "backend_portable.h"
  //#endif
 
  /*

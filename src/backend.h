@@ -1,8 +1,8 @@
 #ifndef BLST_INTERFACE_H
 #define BLST_INTERFACE_H
 
-#include "no_asm.h"
-#include "asm.h"
+#include "backend_portable.h"
+#include "backend_asm.h"
 
 // montgomery multiply: ret = a * b * R^-1 mod p, where R montgomery radix
 // optimized for "spare" modulus p, i.e. with many zero limbs

@@ -9,7 +9,7 @@
 #include "config.h"
 #include <stddef.h>
 #include "defines.h"
-#include "asm.h"
+#include "backend_asm.h"
 
 
 BLST_FORCEINLINE void vec_copy(void* restrict ret, const void* a, size_t num)
