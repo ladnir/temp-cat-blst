@@ -5,11 +5,11 @@
  */
 
 #include "vect.h"
-
+BLST_EXTERN_C_BEGIN
 /*
  * |out| = |inp|^|pow|, small footprint, public exponent
  */
-void exp_mont_384(vec384 out, const vec384 inp, const byte *pow,
+HOST_DEVICE_FUNC void exp_mont_384(vec384 out, const vec384 inp, const byte *pow,
                          size_t pow_bits, const vec384 p, limb_t n0)
 {
 #if 1
@@ -39,7 +39,7 @@ void exp_mont_384(vec384 out, const vec384 inp, const byte *pow,
 #endif
 }
 
-void exp_mont_384x(vec384x out, const vec384x inp, const byte *pow,
+HOST_DEVICE_FUNC void exp_mont_384x(vec384x out, const vec384x inp, const byte *pow,
                           size_t pow_bits, const vec384 p, limb_t n0)
 {
     vec384x ret;
@@ -53,3 +53,4 @@ void exp_mont_384x(vec384x out, const vec384x inp, const byte *pow,
     }
     vec_copy(out, ret, sizeof(ret));  /* |out| = |ret| */
 }
+BLST_EXTERN_C_END

@@ -1,5 +1,5 @@
 #include "fields.h"
-
+BLST_EXTERN_C_BEGIN
 const vec384fp12* blst_fp12_one(void);
 void blst_fp12_mul(vec384fp12 ret, const vec384fp12 a, const vec384fp12 b);
 int blst_fp12_is_one(const vec384fp12 a);
@@ -19,6 +19,7 @@ void blst_fp12_one_copy(vec384fp12 ret);
 
 void blst_fp12_pow(vec384fp12 result, const vec384fp12 base, const limb_t* exponent, size_t bits_in_exponent);
 
+BLST_EXTERN_C_END
 
 
 

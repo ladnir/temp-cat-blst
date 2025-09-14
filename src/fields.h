@@ -11,7 +11,7 @@
 #include "config.h"
 #include "defines.h"
 #include "backend.h"
-
+BLST_EXTERN_C_BEGIN
 
 /*
  * BLS12-381-specific Fp shortcuts to assembly.
@@ -125,5 +125,6 @@ HOST_DEVICE_FUNC void frobenius_map_fp12(vec384fp12 ret, const vec384fp12 a, siz
 
 #define neg_fp(r,a) cneg_fp((r),(a),1)
 #define neg_fp2(r,a) cneg_fp2((r),(a),1)
+BLST_EXTERN_C_END
 
 #endif /* __BLS12_381_ASM_FIELDS_H__ */

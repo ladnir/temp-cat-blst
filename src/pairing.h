@@ -3,7 +3,7 @@
 #pragma once
 #include "point.h"
 #include "fields.h"
-
+BLST_EXTERN_C_BEGIN
 void blst_miller_loop(vec384fp12 ret, const POINTonE2_affine* Q,
     const POINTonE1_affine* P);
 void blst_final_exp(vec384fp12 ret, const vec384fp12 f);
@@ -21,3 +21,4 @@ void blst_precompute_lines(vec384fp6 Qlines[68], const POINTonE2_affine* Q);
 
 void blst_miller_loop_lines(vec384fp12 ret, const vec384fp6 Qlines[68],
     const POINTonE1_affine* P);
+BLST_EXTERN_C_END

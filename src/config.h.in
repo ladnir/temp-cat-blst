@@ -4,6 +4,7 @@
 #cmakedefine BLST_ASM
 #cmakedefine BLST_ADX
 #cmakedefine BLST_DEFAULT_ASM
+#cmakedefine BLST_CUDA
 #cmakedefine __BLST_DLL_MAIN__
 #define BLST_LIMB_SIZE ${BLST_LIMB_SIZE}
 
@@ -16,3 +17,13 @@
 #  define HOST_DEVICE_FUNC
 #  define GLOBAL_FUNC
 # endif
+
+
+#ifdef __cplusplus
+	#define BLST_EXTERN_C_BEGIN extern "C" {
+	#define BLST_EXTERN_C_END }
+#else
+
+	#define BLST_EXTERN_C_BEGIN
+	#define BLST_EXTERN_C_END
+#endif

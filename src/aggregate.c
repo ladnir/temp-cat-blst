@@ -5,7 +5,7 @@
  */
 
 #include "aggregate.h"
-
+BLST_EXTERN_C_BEGIN
 /*
  * Usage pattern on single-processor system is
  *
@@ -670,3 +670,4 @@ BLST_ERROR blst_core_verify_pk_in_g2(const POINTonE2_affine *pk,
 
     return PAIRING_FinalVerify(&ctx, NULL) ? BLST_SUCCESS : BLST_VERIFY_FAIL;
 }
+BLST_EXTERN_C_END

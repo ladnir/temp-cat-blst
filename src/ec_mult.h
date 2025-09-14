@@ -7,7 +7,7 @@
 #define __BLS12_381_ASM_EC_MULT_H__
 
 #include "point.h"
-
+BLST_EXTERN_C_BEGIN
 /* Works up to 9 bits */
 BLST_FORCEINLINE limb_t get_wval(const byte *d, size_t off, size_t bits)
 {
@@ -312,4 +312,7 @@ BLST_FORCEINLINE void ptype##_affine_mult_ladder(ptype *ret, \
         ptype##_ccopy(ret, sum, bit); \
     } \
 }
+
+BLST_EXTERN_C_END
+
 #endif

@@ -71,12 +71,13 @@ if(BLST_CUDA)
         $<LIST:TRANSFORM,${BLST_RELWITHDEBINFO_OPT},PREPEND,-Xcompiler=>>
 
         # CUDA device/linkage flags (CUDA-only)
-        $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr>
-        $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda>
-        $<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_70>
-        $<$<COMPILE_LANGUAGE:CUDA>:-rdc=true>
+        #$<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr>
+        #$<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda>
+        $<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_89>
+        $<$<COMPILE_LANGUAGE:CUDA>:-rdc=false>
     )
-
+    
+set(CMAKE_CUDA_ARCHITECTURES 89)
 else()
 
     

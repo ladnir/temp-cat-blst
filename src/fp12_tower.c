@@ -6,6 +6,7 @@
 
 #include "fields.h"
 
+BLST_EXTERN_C_BEGIN
 
 /*
  * Fp2  = Fp[u]  / (u^2 + 1)
@@ -13,10 +14,10 @@
  * Fp12 = Fp6[w] / (w^2 - v)
  */
 
-BLST_FORCEINLINE void mul_by_u_plus_1_fp2(vec384x ret, const vec384x a)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void mul_by_u_plus_1_fp2(vec384x ret, const vec384x a)
 {   mul_by_1_plus_i_mod_v384x(ret, a, *get_BLST_P());   }
 
-#if defined(BLST_ASM)
+#if defined(BLST_ASM) && !defined(__CUDA_ARCH__)
 #define __FP2x2__
 /*
  * Fp2x2 is a "widened" version of Fp2, which allows to consolidate
@@ -26,32 +27,32 @@ BLST_FORCEINLINE void mul_by_u_plus_1_fp2(vec384x ret, const vec384x a)
  * faster pairing depending on platform...
  */
 
-BLST_FORCEINLINE void add_fp2x2(vec768x ret, const vec768x a, const vec768x b)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void add_fp2x2(vec768x ret, const vec768x a, const vec768x b)
 {
     add_mod_384x384(ret[0], a[0], b[0], *get_BLST_P());
     add_mod_384x384(ret[1], a[1], b[1], *get_BLST_P());
 }
 
-BLST_FORCEINLINE void sub_fp2x2(vec768x ret, const vec768x a, const vec768x b)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void sub_fp2x2(vec768x ret, const vec768x a, const vec768x b)
 {
     sub_mod_384x384(ret[0], a[0], b[0], *get_BLST_P());
     sub_mod_384x384(ret[1], a[1], b[1], *get_BLST_P());
 }
 
-BLST_FORCEINLINE void mul_by_u_plus_1_fp2x2(vec768x ret, const vec768x a)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void mul_by_u_plus_1_fp2x2(vec768x ret, const vec768x a)
 {
     /* caveat lector! |ret| may not be same as |a| */
     sub_mod_384x384(ret[0], a[0], a[1], *get_BLST_P());
     add_mod_384x384(ret[1], a[0], a[1], *get_BLST_P());
 }
 
-BLST_FORCEINLINE void redc_fp2x2(vec384x ret, const vec768x a)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void redc_fp2x2(vec384x ret, const vec768x a)
 {
     redc_mont_v384(ret[0], a[0], *get_BLST_P(), BLST_p0);
     redc_mont_v384(ret[1], a[1], *get_BLST_P(), BLST_p0);
 }
 
-void mul_fp2x2(vec768x ret, const vec384x a, const vec384x b)
+HOST_DEVICE_FUNC void mul_fp2x2(vec768x ret, const vec384x a, const vec384x b)
 {
 #if 1
     mul_v382x(ret, a, b, *get_BLST_P());   /* +~6% in Miller loop */
@@ -72,7 +73,7 @@ void mul_fp2x2(vec768x ret, const vec384x a, const vec384x b)
 #endif
 }
 
-void sqr_fp2x2(vec768x ret, const vec384x a)
+HOST_DEVICE_FUNC void sqr_fp2x2(vec768x ret, const vec384x a)
 {
 #if 1
     sqr_v382x(ret, a, *get_BLST_P());      /* +~5% in final exponentiation */
@@ -91,7 +92,7 @@ void sqr_fp2x2(vec768x ret, const vec384x a)
 
 typedef vec768x vec768fp6[3];
 
-BLST_FORCEINLINE void sub_fp6x2(vec768fp6 ret, const vec768fp6 a,
+HOST_DEVICE_FUNC BLST_FORCEINLINE void sub_fp6x2(vec768fp6 ret, const vec768fp6 a,
                                             const vec768fp6 b)
 {
     sub_fp2x2(ret[0], a[0], b[0]);
@@ -99,7 +100,7 @@ BLST_FORCEINLINE void sub_fp6x2(vec768fp6 ret, const vec768fp6 a,
     sub_fp2x2(ret[2], a[2], b[2]);
 }
 
-void mul_fp6x2(vec768fp6 ret, const vec384fp6 a, const vec384fp6 b)
+HOST_DEVICE_FUNC void mul_fp6x2(vec768fp6 ret, const vec384fp6 a, const vec384fp6 b)
 {
     vec768x t0, t1, t2;
     vec384x aa, bb;
@@ -138,14 +139,14 @@ void mul_fp6x2(vec768fp6 ret, const vec384fp6 a, const vec384fp6 b)
     add_fp2x2(ret[2], ret[2], t1);
 }
 
-BLST_FORCEINLINE void redc_fp6x2(vec384fp6 ret, const vec768fp6 a)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void redc_fp6x2(vec384fp6 ret, const vec768fp6 a)
 {
     redc_fp2x2(ret[0], a[0]);
     redc_fp2x2(ret[1], a[1]);
     redc_fp2x2(ret[2], a[2]);
 }
 
-void mul_fp6(vec384fp6 ret, const vec384fp6 a, const vec384fp6 b)
+HOST_DEVICE_FUNC void mul_fp6(vec384fp6 ret, const vec384fp6 a, const vec384fp6 b)
 {
     vec768fp6 r;
 
@@ -153,7 +154,7 @@ void mul_fp6(vec384fp6 ret, const vec384fp6 a, const vec384fp6 b)
     redc_fp6x2(ret, r); /* narrow to normal width */
 }
 
-void sqr_fp6(vec384fp6 ret, const vec384fp6 a)
+HOST_DEVICE_FUNC void sqr_fp6(vec384fp6 ret, const vec384fp6 a)
 {
     vec768x s0, m01, m12, s2, rx;
 
@@ -189,7 +190,7 @@ void sqr_fp6(vec384fp6 ret, const vec384fp6 a)
     redc_fp2x2(ret[1], rx);
 }
 #else
-void mul_fp6(vec384fp6 ret, const vec384fp6 a, const vec384fp6 b)
+HOST_DEVICE_FUNC void mul_fp6(vec384fp6 ret, const vec384fp6 a, const vec384fp6 b)
 {
     vec384x t0, t1, t2, t3, t4, t5;
 
@@ -229,7 +230,7 @@ void mul_fp6(vec384fp6 ret, const vec384fp6 a, const vec384fp6 b)
     add_fp2(ret[0], t3, t0);    /* ... moved from above */
 }
 
-void sqr_fp6(vec384fp6 ret, const vec384fp6 a)
+HOST_DEVICE_FUNC void sqr_fp6(vec384fp6 ret, const vec384fp6 a)
 {
     vec384x s0, m01, m12, s2;
 
@@ -263,21 +264,21 @@ void sqr_fp6(vec384fp6 ret, const vec384fp6 a)
 }
 #endif
 
-void add_fp6(vec384fp6 ret, const vec384fp6 a, const vec384fp6 b)
+HOST_DEVICE_FUNC void add_fp6(vec384fp6 ret, const vec384fp6 a, const vec384fp6 b)
 {
     add_fp2(ret[0], a[0], b[0]);
     add_fp2(ret[1], a[1], b[1]);
     add_fp2(ret[2], a[2], b[2]);
 }
 
-void sub_fp6(vec384fp6 ret, const vec384fp6 a, const vec384fp6 b)
+HOST_DEVICE_FUNC void sub_fp6(vec384fp6 ret, const vec384fp6 a, const vec384fp6 b)
 {
     sub_fp2(ret[0], a[0], b[0]);
     sub_fp2(ret[1], a[1], b[1]);
     sub_fp2(ret[2], a[2], b[2]);
 }
 
-void neg_fp6(vec384fp6 ret, const vec384fp6 a)
+HOST_DEVICE_FUNC void neg_fp6(vec384fp6 ret, const vec384fp6 a)
 {
     neg_fp2(ret[0], a[0]);
     neg_fp2(ret[1], a[1]);
@@ -286,7 +287,7 @@ void neg_fp6(vec384fp6 ret, const vec384fp6 a)
 
 #if 0
 #define mul_by_v_fp6 mul_by_v_fp6
-void mul_by_v_fp6(vec384fp6 ret, const vec384fp6 a)
+HOST_DEVICE_FUNC void mul_by_v_fp6(vec384fp6 ret, const vec384fp6 a)
 {
     vec384x t;
 
@@ -301,7 +302,7 @@ void mul_by_v_fp6(vec384fp6 ret, const vec384fp6 a)
  * Fp12 extension
  */
 #if defined(__FP2x2__)
-void mul_fp12(vec384fp12 ret, const vec384fp12 a, const vec384fp12 b)
+HOST_DEVICE_FUNC void mul_fp12(vec384fp12 ret, const vec384fp12 a, const vec384fp12 b)
 {
     vec768fp6 t0, t1, rx;
     vec384fp6 t2;
@@ -326,7 +327,7 @@ void mul_fp12(vec384fp12 ret, const vec384fp12 a, const vec384fp12 b)
     redc_fp6x2(ret[0], rx);
 }
 
-BLST_FORCEINLINE void mul_by_0y0_fp6x2(vec768fp6 ret, const vec384fp6 a,
+HOST_DEVICE_FUNC BLST_FORCEINLINE void mul_by_0y0_fp6x2(vec768fp6 ret, const vec384fp6 a,
                                                    const vec384fp2 b)
 {
     mul_fp2x2(ret[1], a[2], b);     /* borrow ret[1] for a moment */
@@ -335,7 +336,7 @@ BLST_FORCEINLINE void mul_by_0y0_fp6x2(vec768fp6 ret, const vec384fp6 a,
     mul_fp2x2(ret[2], a[1], b);
 }
 
-void mul_by_xy0_fp6x2(vec768fp6 ret, const vec384fp6 a,
+HOST_DEVICE_FUNC void mul_by_xy0_fp6x2(vec768fp6 ret, const vec384fp6 a,
                                             const vec384fp6 b)
 {
     vec768x t0, t1;
@@ -364,7 +365,7 @@ void mul_by_xy0_fp6x2(vec768fp6 ret, const vec384fp6 a,
     add_fp2x2(ret[2], ret[2], t1);
 }
 
-void mul_by_xy00z0_fp12(vec384fp12 ret, const vec384fp12 a,
+HOST_DEVICE_FUNC void mul_by_xy00z0_fp12(vec384fp12 ret, const vec384fp12 a,
                                                const vec384fp6 xy00z0)
 {
     vec768fp6 t0, t1, rr;
@@ -391,7 +392,7 @@ void mul_by_xy00z0_fp12(vec384fp12 ret, const vec384fp12 a,
     redc_fp6x2(ret[0], rr);
 }
 #else
-void mul_fp12(vec384fp12 ret, const vec384fp12 a, const vec384fp12 b)
+HOST_DEVICE_FUNC void mul_fp12(vec384fp12 ret, const vec384fp12 a, const vec384fp12 b)
 {
     vec384fp6 t0, t1, t2;
 
@@ -418,7 +419,7 @@ void mul_fp12(vec384fp12 ret, const vec384fp12 a, const vec384fp12 b)
 #endif
 }
 
-BLST_FORCEINLINE void mul_by_0y0_fp6(vec384fp6 ret, const vec384fp6 a,
+HOST_DEVICE_FUNC BLST_FORCEINLINE void mul_by_0y0_fp6(vec384fp6 ret, const vec384fp6 a,
                                                  const vec384fp2 b)
 {
     vec384x t;
@@ -429,7 +430,7 @@ BLST_FORCEINLINE void mul_by_0y0_fp6(vec384fp6 ret, const vec384fp6 a,
     mul_by_u_plus_1_fp2(ret[0], t);
 }
 
-void mul_by_xy0_fp6(vec384fp6 ret, const vec384fp6 a, const vec384fp6 b)
+HOST_DEVICE_FUNC void mul_by_xy0_fp6(vec384fp6 ret, const vec384fp6 a, const vec384fp6 b)
 {
     vec384x t0, t1, /*t2,*/ t3, t4, t5;
 
@@ -458,7 +459,7 @@ void mul_by_xy0_fp6(vec384fp6 ret, const vec384fp6 a, const vec384fp6 b)
     add_fp2(ret[0], t3, t0);    /* ... moved from above */
 }
 
-void mul_by_xy00z0_fp12(vec384fp12 ret, const vec384fp12 a,
+HOST_DEVICE_FUNC void mul_by_xy00z0_fp12(vec384fp12 ret, const vec384fp12 a,
                                                const vec384fp6 xy00z0)
 {
     vec384fp6 t0, t1, t2;
@@ -488,7 +489,7 @@ void mul_by_xy00z0_fp12(vec384fp12 ret, const vec384fp12 a,
 }
 #endif
 
-void sqr_fp12(vec384fp12 ret, const vec384fp12 a)
+HOST_DEVICE_FUNC void sqr_fp12(vec384fp12 ret, const vec384fp12 a)
 {
     vec384fp6 t0, t1;
 
@@ -522,10 +523,10 @@ void sqr_fp12(vec384fp12 ret, const vec384fp12 a)
 #endif
 }
 
-void conjugate_fp12(vec384fp12 a)
+HOST_DEVICE_FUNC void conjugate_fp12(vec384fp12 a)
 {   neg_fp6(a[1], a[1]);   }
 
-void inverse_fp6(vec384fp6 ret, const vec384fp6 a)
+HOST_DEVICE_FUNC void inverse_fp6(vec384fp6 ret, const vec384fp6 a)
 {
     vec384x c0, c1, c2, t0, t1;
 
@@ -561,7 +562,7 @@ void inverse_fp6(vec384fp6 ret, const vec384fp6 a)
     mul_fp2(ret[2], c2, t1);
 }
 
-void inverse_fp12(vec384fp12 ret, const vec384fp12 a)
+HOST_DEVICE_FUNC void inverse_fp12(vec384fp12 ret, const vec384fp12 a)
 {
     vec384fp6 t0, t1;
 
@@ -587,7 +588,7 @@ void inverse_fp12(vec384fp12 ret, const vec384fp12 a)
 typedef vec384x vec384fp4[2];
 
 #if defined(__FP2x2__)
-void sqr_fp4(vec384fp4 ret, const vec384x a0, const vec384x a1)
+HOST_DEVICE_FUNC void sqr_fp4(vec384fp4 ret, const vec384x a0, const vec384x a1)
 {
     vec768x t0, t1, t2;
 
@@ -605,7 +606,7 @@ void sqr_fp4(vec384fp4 ret, const vec384x a0, const vec384x a1)
     redc_fp2x2(ret[1], t2);
 }
 #else
-void sqr_fp4(vec384fp4 ret, const vec384x a0, const vec384x a1)
+HOST_DEVICE_FUNC void sqr_fp4(vec384fp4 ret, const vec384x a0, const vec384x a1)
 {
     vec384x t0, t1;
 
@@ -622,7 +623,7 @@ void sqr_fp4(vec384fp4 ret, const vec384x a0, const vec384x a1)
 }
 #endif
 
-void cyclotomic_sqr_fp12(vec384fp12 ret, const vec384fp12 a)
+HOST_DEVICE_FUNC void cyclotomic_sqr_fp12(vec384fp12 ret, const vec384fp12 a)
 {
     vec384fp4 t0, t1, t2;
 
@@ -659,13 +660,13 @@ void cyclotomic_sqr_fp12(vec384fp12 ret, const vec384fp12 a)
 /*
  * caveat lector! |n| has to be non-zero and not more than 3!
  */
-void frobenius_map_fp2(vec384x ret, const vec384x a, size_t n)
+HOST_DEVICE_FUNC void frobenius_map_fp2(vec384x ret, const vec384x a, size_t n)
 {
     vec_copy(ret[0], a[0], sizeof(ret[0]));
     cneg_fp(ret[1], a[1], n & 1);
 }
 
-void frobenius_map_fp6(vec384fp6 ret, const vec384fp6 a, size_t n)
+HOST_DEVICE_FUNC void frobenius_map_fp6(vec384fp6 ret, const vec384fp6 a, size_t n)
 {
     const vec384x coeffs1[] = {  /* (u + 1)^((P^n - 1) / 3) */
       { { 0 },
@@ -675,7 +676,7 @@ void frobenius_map_fp6(vec384fp6 ret, const vec384fp6 a, size_t n)
       { { TO_LIMB_T(0x30f1361b798a64e8), TO_LIMB_T(0xf3b8ddab7ece5a2a),
           TO_LIMB_T(0x16a8ca3ac61577f7), TO_LIMB_T(0xc26a2ff874fd029b),
           TO_LIMB_T(0x3636b76660701c6e), TO_LIMB_T(0x051ba4ab241b6160) } },
-      { { 0 }, { ONE_MONT_P } }
+      { { 0 }, { ONE_MONT_P_LIMBS } }
     };
     const vec384 coeffs2[] = {  /* (u + 1)^((2P^n - 2) / 3) */
       {   TO_LIMB_T(0x890dc9e4867545c3), TO_LIMB_T(0x2af322533285a5d5),
@@ -698,7 +699,7 @@ void frobenius_map_fp6(vec384fp6 ret, const vec384fp6 a, size_t n)
     mul_fp(ret[2][1], ret[2][1], coeffs2[n]);
 }
 
-void frobenius_map_fp12(vec384fp12 ret, const vec384fp12 a, size_t n)
+HOST_DEVICE_FUNC void frobenius_map_fp12(vec384fp12 ret, const vec384fp12 a, size_t n)
 {
     const vec384x coeffs[] = {  /* (u + 1)^((P^n - 1) / 6) */
       { { TO_LIMB_T(0x07089552b319d465), TO_LIMB_T(0xc6695f92b50a8313),
@@ -730,44 +731,44 @@ void frobenius_map_fp12(vec384fp12 ret, const vec384fp12 a, size_t n)
 /*
  * BLS12-381-specific Fp12 shortcuts.
  */
-void blst_fp12_sqr(vec384fp12 ret, const vec384fp12 a)
+HOST_DEVICE_FUNC void blst_fp12_sqr(vec384fp12 ret, const vec384fp12 a)
 {   sqr_fp12(ret, a);   }
 
-void blst_fp12_cyclotomic_sqr(vec384fp12 ret, const vec384fp12 a)
+HOST_DEVICE_FUNC void blst_fp12_cyclotomic_sqr(vec384fp12 ret, const vec384fp12 a)
 {   cyclotomic_sqr_fp12(ret, a);   }
 
-void blst_fp12_mul(vec384fp12 ret, const vec384fp12 a, const vec384fp12 b)
+HOST_DEVICE_FUNC void blst_fp12_mul(vec384fp12 ret, const vec384fp12 a, const vec384fp12 b)
 {   mul_fp12(ret, a, b);   }
 
-void blst_fp12_mul_by_xy00z0(vec384fp12 ret, const vec384fp12 a,
+HOST_DEVICE_FUNC void blst_fp12_mul_by_xy00z0(vec384fp12 ret, const vec384fp12 a,
                                              const vec384fp6 xy00z0)
 {   mul_by_xy00z0_fp12(ret, a, xy00z0);   }
 
-void blst_fp12_conjugate(vec384fp12 a)
+HOST_DEVICE_FUNC void blst_fp12_conjugate(vec384fp12 a)
 {   conjugate_fp12(a);   }
 
-void blst_fp12_inverse(vec384fp12 ret, const vec384fp12 a)
+HOST_DEVICE_FUNC void blst_fp12_inverse(vec384fp12 ret, const vec384fp12 a)
 {   inverse_fp12(ret, a);   }
 
 /* caveat lector! |n| has to be non-zero and not more than 3! */
-void blst_fp12_frobenius_map(vec384fp12 ret, const vec384fp12 a, size_t n)
+HOST_DEVICE_FUNC void blst_fp12_frobenius_map(vec384fp12 ret, const vec384fp12 a, size_t n)
 {   frobenius_map_fp12(ret, a, n);   }
 
-int blst_fp12_is_equal(const vec384fp12 a, const vec384fp12 b)
+HOST_DEVICE_FUNC int blst_fp12_is_equal(const vec384fp12 a, const vec384fp12 b)
 {   return (int)vec_is_equal(a, b, sizeof(vec384fp12));   }
 
-int blst_fp12_is_one(const vec384fp12 a)
+HOST_DEVICE_FUNC int blst_fp12_is_one(const vec384fp12 a)
 {
     return (int)(vec_is_equal(a[0][0], get_BLST_Rx()->p2, sizeof(a[0][0])) &
                  vec_is_zero(a[0][1], sizeof(vec384fp12) - sizeof(a[0][0])));
 }
 
 
-const vec384fp12 *blst_fp12_one(void)
+HOST_DEVICE_FUNC const vec384fp12 *blst_fp12_one(void)
 {   return (const vec384fp12 *)get_BLST_Rx()->p12;   }
 
 
-void blst_fp12_one_copy(vec384fp12 ret)
+HOST_DEVICE_FUNC void blst_fp12_one_copy(vec384fp12 ret)
 {
 	char* src = (char*)get_BLST_Rx()->p12;
 	char* dst = (char*)ret;
@@ -776,7 +777,7 @@ void blst_fp12_one_copy(vec384fp12 ret)
 		dst[i] = src[i];
 }
 
-void blst_fp12_from_bendian(vec384fp12 ret, const unsigned char serialized[12 * 48]) {
+HOST_DEVICE_FUNC void blst_fp12_from_bendian(vec384fp12 ret, const unsigned char serialized[12 * 48]) {
     // Clear the output first
     for(int i =0; i < sizeof(vec384fp12); ++i)
 		((unsigned char*)ret)[i] = 0;
@@ -800,7 +801,7 @@ void blst_fp12_from_bendian(vec384fp12 ret, const unsigned char serialized[12 * 
     }
 }
 
-void blst_bendian_from_fp12(unsigned char ret[48*12], const vec384fp12 a)
+HOST_DEVICE_FUNC void blst_bendian_from_fp12(unsigned char ret[48*12], const vec384fp12 a)
 {
     size_t i, j;
     vec384 out;
@@ -817,11 +818,11 @@ void blst_bendian_from_fp12(unsigned char ret[48*12], const vec384fp12 a)
     }
 }
 
-size_t blst_fp12_sizeof(void)
+HOST_DEVICE_FUNC size_t blst_fp12_sizeof(void)
 {   return sizeof(vec384fp12);   }
 
 
-void blst_fp12_pow(vec384fp12 ret, const vec384fp12 a, const limb_t* exp, size_t bits)
+HOST_DEVICE_FUNC void blst_fp12_pow(vec384fp12 ret, const vec384fp12 a, const limb_t* exp, size_t bits)
 {
     // For bits=0 or if exponent is 0, return 1
     bool_t is_zero = 1;
@@ -864,3 +865,5 @@ void blst_fp12_pow(vec384fp12 ret, const vec384fp12 a, const limb_t* exp, size_t
 
     }
 }
+
+BLST_EXTERN_C_END

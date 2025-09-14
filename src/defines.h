@@ -2,6 +2,8 @@
 #define __BLS12_381_DEFINES_H__
 
 #include "config.h"
+BLST_EXTERN_C_BEGIN
+
 
 #if BLST_LIMB_SIZE == 64
 typedef unsigned long long limb_t;
@@ -81,7 +83,7 @@ typedef const void *uptr_t;
 
 #if defined(__GNUC__) || defined(__clang__)
 # define BLST_launder(var) __asm__ __volatile__("" : "+r"(var))
-#elif defined(_MSC_VER)
+#elif defined(_MSC_VER) && !defined(__CUDA_ARCH__)
 # include <intrin.h>
 # define BLST_launder(var) do { _ReadWriteBarrier(); (void)(var); } while (0)
 #else
@@ -122,5 +124,6 @@ typedef const void *uptr_t;
 # endif
 #endif
 
+BLST_EXTERN_C_END
 #endif
 

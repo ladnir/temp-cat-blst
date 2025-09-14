@@ -8,7 +8,9 @@
 #include "config.h"
 #include "vect.h"
 
-BLST_FORCEINLINE void bytes_zero(unsigned char *a, size_t num)
+BLST_EXTERN_C_BEGIN
+
+HOST_DEVICE_FUNC BLST_FORCEINLINE void bytes_zero(unsigned char *a, size_t num)
 {
     size_t i;
 
@@ -16,7 +18,7 @@ BLST_FORCEINLINE void bytes_zero(unsigned char *a, size_t num)
         a[i] = 0;
 }
 
-BLST_FORCEINLINE void limbs_from_be_bytes(limb_t *restrict ret,
+HOST_DEVICE_FUNC BLST_FORCEINLINE void limbs_from_be_bytes(limb_t *restrict ret,
                                        const unsigned char *in, size_t n)
 {
     limb_t limb = 0;
@@ -34,7 +36,7 @@ BLST_FORCEINLINE void limbs_from_be_bytes(limb_t *restrict ret,
     }
 }
 
-BLST_FORCEINLINE void be_bytes_from_limbs(unsigned char *out, const limb_t *in,
+HOST_DEVICE_FUNC BLST_FORCEINLINE void be_bytes_from_limbs(unsigned char *out, const limb_t *in,
                                        size_t n)
 {
     limb_t limb;
@@ -45,7 +47,7 @@ BLST_FORCEINLINE void be_bytes_from_limbs(unsigned char *out, const limb_t *in,
     }
 }
 
-BLST_FORCEINLINE void limbs_from_le_bytes(limb_t *restrict ret,
+HOST_DEVICE_FUNC BLST_FORCEINLINE void limbs_from_le_bytes(limb_t *restrict ret,
                                        const unsigned char *in, size_t n)
 {
     limb_t limb = 0;
@@ -63,7 +65,7 @@ BLST_FORCEINLINE void limbs_from_le_bytes(limb_t *restrict ret,
     }
 }
 
-BLST_FORCEINLINE void le_bytes_from_limbs(unsigned char *out, const limb_t *in,
+HOST_DEVICE_FUNC BLST_FORCEINLINE void le_bytes_from_limbs(unsigned char *out, const limb_t *in,
                                        size_t n)
 {
     const union {
@@ -89,13 +91,13 @@ BLST_FORCEINLINE void le_bytes_from_limbs(unsigned char *out, const limb_t *in,
     }
 }
 
-BLST_FORCEINLINE char hex_from_nibble(unsigned char nibble)
+HOST_DEVICE_FUNC BLST_FORCEINLINE char hex_from_nibble(unsigned char nibble)
 {
     int mask = (9 - (nibble &= 0xf)) >> 31;
     return (char)(nibble + ((('a'-10) & mask) | ('0' & ~mask)));
 }
 
-BLST_FORCEINLINE unsigned char nibble_from_hex(char c)
+HOST_DEVICE_FUNC BLST_FORCEINLINE unsigned char nibble_from_hex(char c)
 {
     int mask, ret;
 
@@ -111,7 +113,7 @@ BLST_FORCEINLINE unsigned char nibble_from_hex(char c)
     return (unsigned char)ret;
 }
 
-BLST_FORCEINLINE void bytes_from_hexascii(unsigned char *ret, size_t sz, const char *hex)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void bytes_from_hexascii(unsigned char *ret, size_t sz, const char *hex)
 {
     size_t len;
     unsigned char b = 0;
@@ -131,7 +133,7 @@ BLST_FORCEINLINE void bytes_from_hexascii(unsigned char *ret, size_t sz, const c
     }
 }
 
-BLST_FORCEINLINE void limbs_from_hexascii(limb_t *ret, size_t sz, const char *hex)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void limbs_from_hexascii(limb_t *ret, size_t sz, const char *hex)
 {
     size_t len;
     limb_t limb = 0;
@@ -150,5 +152,6 @@ BLST_FORCEINLINE void limbs_from_hexascii(limb_t *ret, size_t sz, const char *he
             ret[len / (2*sizeof(limb_t))] = limb;
     }
 }
+BLST_EXTERN_C_END
 
 #endif

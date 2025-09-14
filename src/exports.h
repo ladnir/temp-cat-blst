@@ -1,5 +1,5 @@
 #include "defines.h"
-
+BLST_EXTERN_C_BEGIN
 
 /*
  * BLS12-381-specific Fr shortcuts to assembly.
@@ -90,3 +90,4 @@ void blst_sha256(unsigned char md[32], const void* msg, size_t len);
 void blst_scalar_from_hexascii(pow256 ret, const char* hex);
 void blst_fr_from_hexascii(vec256 ret, const char* hex);
 void blst_fp_from_hexascii(vec384 ret, const char* hex);
+BLST_EXTERN_C_END

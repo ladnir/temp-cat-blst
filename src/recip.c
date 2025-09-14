@@ -5,7 +5,7 @@
  */
 
 #include "fields.h"
-
+BLST_EXTERN_C_BEGIN
 #ifdef __OPTIMIZE_SIZE__
 /*
  * 608 multiplications for scalar inversion modulo BLS12-381 prime, 32%
@@ -127,3 +127,4 @@ void blst_fr_inverse(vec256 out, const vec256 inp)
 
 void blst_fr_eucl_inverse(vec256 out, const vec256 inp)
 {   reciprocal_fr(out, inp);   }
+BLST_EXTERN_C_END

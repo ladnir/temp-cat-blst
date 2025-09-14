@@ -8,23 +8,24 @@
 
 #include "vect.h"
 #include "config.h"
+#include "backend.h"
+BLST_EXTERN_C_BEGIN
+//#if (defined(__x86_64__) || defined(__x86_64) || defined(_M_X64)) && \
+//     defined(__SHA__) /* -msha */ && !defined(BLST_PORTABLE)
+//# define sha256_block_data_order blst_sha256_block_data_order_shaext
+//#elif defined(__aarch64__) && \
+//      defined(__ARM_FEATURE_CRYPTO) && !defined(BLST_PORTABLE)
+//# define sha256_block_data_order blst_sha256_block_armv8
+//#else
+//# define sha256_block_data_order blst_sha256_block_data_order_v
+//#endif
+//#define sha256_hcopy blst_sha256_hcopy_v
+//#define sha256_bcopy blst_sha256_bcopy_v
+//#define sha256_emit  blst_sha256_emit_v
 
-#if (defined(__x86_64__) || defined(__x86_64) || defined(_M_X64)) && \
-     defined(__SHA__) /* -msha */ && !defined(BLST_PORTABLE)
-# define sha256_block_data_order blst_sha256_block_data_order_shaext
-#elif defined(__aarch64__) && \
-      defined(__ARM_FEATURE_CRYPTO) && !defined(BLST_PORTABLE)
-# define sha256_block_data_order blst_sha256_block_armv8
-#else
-# define sha256_block_data_order blst_sha256_block_data_order_v
-#endif
-#define sha256_hcopy blst_sha256_hcopy_v
-#define sha256_bcopy blst_sha256_bcopy_v
-#define sha256_emit  blst_sha256_emit_v
-
-void sha256_block_data_order(unsigned int *h, const void *inp, size_t blocks);
-void sha256_hcopy(unsigned int dst[8], const unsigned int src[8]);
-void sha256_bcopy(void *dst, const void *src, size_t len);
+//void sha256_block_data_order(unsigned int *h, const void *inp, size_t blocks);
+//void sha256_hcopy(unsigned int dst[8], const unsigned int src[8]);
+//void sha256_bcopy(void *dst, const void *src, size_t len);
 
 /*
  * If SHA256_CTX conflicts with something, just redefine it to alternative
@@ -69,14 +70,14 @@ void sha256_update(SHA256_CTX *ctx, const void *_inp, size_t len)
         size_t rem = sizeof(ctx->buf) - n;
 
         if (rem > len) {
-            sha256_bcopy(ctx->buf + n, inp, len);
+            blst_sha256_bcopy_v(ctx->buf + n, inp, len);
             ctx->off += len;
             return;
         } else {
-            sha256_bcopy(ctx->buf + n, inp, rem);
+            blst_sha256_bcopy_v(ctx->buf + n, inp, rem);
             inp += rem;
             len -= rem;
-            sha256_block_data_order(ctx->h, ctx->buf, 1);
+            blst_sha256_block_data_order_v(ctx->h, ctx->buf, 1);
             vec_zero(ctx->buf, sizeof(ctx->buf));
             ctx->off = 0;
         }
@@ -84,14 +85,14 @@ void sha256_update(SHA256_CTX *ctx, const void *_inp, size_t len)
 
     n = len / sizeof(ctx->buf);
     if (n > 0) {
-        sha256_block_data_order(ctx->h, inp, n);
+        blst_sha256_block_data_order_v(ctx->h, inp, n);
         n *= sizeof(ctx->buf);
         inp += n;
         len -= n;
     }
 
     if (len)
-        sha256_bcopy(ctx->buf, inp, ctx->off = len);
+        blst_sha256_bcopy_v(ctx->buf, inp, ctx->off = len);
 }
 
 #define __TOBE32(ptr, val) ((ptr)[0] = (unsigned char)((val)>>24), \
@@ -99,23 +100,23 @@ void sha256_update(SHA256_CTX *ctx, const void *_inp, size_t len)
                             (ptr)[2] = (unsigned char)((val)>>8),  \
                             (ptr)[3] = (unsigned char)(val))
 
-#if 1
-void sha256_emit(unsigned char md[32], const unsigned int h[8]);
-#else
-void sha256_emit(unsigned char md[32], const unsigned int h[8])
-{
-    unsigned int h_i;
-
-    h_i = h[0]; __TOBE32(md + 0, h_i);
-    h_i = h[1]; __TOBE32(md + 4, h_i);
-    h_i = h[2]; __TOBE32(md + 8, h_i);
-    h_i = h[3]; __TOBE32(md + 12, h_i);
-    h_i = h[4]; __TOBE32(md + 16, h_i);
-    h_i = h[5]; __TOBE32(md + 20, h_i);
-    h_i = h[6]; __TOBE32(md + 24, h_i);
-    h_i = h[7]; __TOBE32(md + 28, h_i);
-}
-#endif
+//#if 1
+//void sha256_emit(unsigned char md[32], const unsigned int h[8]);
+//#else
+//void sha256_emit(unsigned char md[32], const unsigned int h[8])
+//{
+//    unsigned int h_i;
+//
+//    h_i = h[0]; __TOBE32(md + 0, h_i);
+//    h_i = h[1]; __TOBE32(md + 4, h_i);
+//    h_i = h[2]; __TOBE32(md + 8, h_i);
+//    h_i = h[3]; __TOBE32(md + 12, h_i);
+//    h_i = h[4]; __TOBE32(md + 16, h_i);
+//    h_i = h[5]; __TOBE32(md + 20, h_i);
+//    h_i = h[6]; __TOBE32(md + 24, h_i);
+//    h_i = h[7]; __TOBE32(md + 28, h_i);
+//}
+//#endif
 
 void sha256_final(unsigned char md[32], SHA256_CTX *ctx)
 {
@@ -126,16 +127,18 @@ void sha256_final(unsigned char md[32], SHA256_CTX *ctx)
     ctx->buf[n++] = 0x80;
 
     if (n > (sizeof(ctx->buf) - 8)) {
-        sha256_block_data_order(ctx->h, ctx->buf, 1);
+        blst_sha256_block_data_order_v(ctx->h, ctx->buf, 1);
         vec_zero(ctx->buf, sizeof(ctx->buf));
     }
 
     tail = ctx->buf + sizeof(ctx->buf) - 8;
     __TOBE32(tail, (unsigned int)(bits >> 32));
     __TOBE32(tail + 4, (unsigned int)bits);
-    sha256_block_data_order(ctx->h, ctx->buf, 1);
-    sha256_emit(md, ctx->h);
+    blst_sha256_block_data_order_v(ctx->h, ctx->buf, 1);
+    blst_sha256_emit_v(md, ctx->h);
 }
 
 #undef __TOBE32
+BLST_EXTERN_C_END
+
 #endif

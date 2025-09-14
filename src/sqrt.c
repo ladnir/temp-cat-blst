@@ -5,9 +5,9 @@
  */
 
 #include "fields.h"
-
+BLST_EXTERN_C_BEGIN
 #ifdef __OPTIMIZE_SIZE__
-void recip_sqrt_fp_3mod4(vec384 out, const vec384 inp)
+HOST_DEVICE_FUNC void recip_sqrt_fp_3mod4(vec384 out, const vec384 inp)
 {
     const byte BLS_12_381_P_minus_3_div_4[] = {
         TO_BYTES(0xee7fbfffffffeaaa), TO_BYTES(0x07aaffffac54ffff),
@@ -25,11 +25,11 @@ void recip_sqrt_fp_3mod4(vec384 out, const vec384 inp)
  * by omitting full reductions even after multiplications and
  * performing final reduction at the very end of the chain.]
  */
-void sqr_n_mul_fp(vec384 out, const vec384 a, size_t count,
+HOST_DEVICE_FUNC void sqr_n_mul_fp(vec384 out, const vec384 a, size_t count,
                                 const vec384 b)
 {   sqr_n_mul_mont_v383(out, a, count, *get_BLST_P(), BLST_p0, b);   }
 # else
-void sqr_n_mul_fp(vec384 out, const vec384 a, size_t count,
+HOST_DEVICE_FUNC void sqr_n_mul_fp(vec384 out, const vec384 a, size_t count,
                          const vec384 b)
 {
     while(count--) {
@@ -45,7 +45,7 @@ void sqr_n_mul_fp(vec384 out, const vec384 a, size_t count,
 # define sqr_n_mul(ret,a,n,b)	sqr_n_mul_fp(ret,a,n,b)
 
 # include "sqrt-addchain.h"
-void recip_sqrt_fp_3mod4(vec384 out, const vec384 inp)
+HOST_DEVICE_FUNC void recip_sqrt_fp_3mod4(vec384 out, const vec384 inp)
 {
     RECIP_SQRT_MOD_BLS12_381_P(out, inp, vec384);
 }
@@ -56,7 +56,7 @@ void recip_sqrt_fp_3mod4(vec384 out, const vec384 inp)
 # undef mul
 #endif
 
-bool_t recip_sqrt_fp(vec384 out, const vec384 inp)
+HOST_DEVICE_FUNC bool_t recip_sqrt_fp(vec384 out, const vec384 inp)
 {
     vec384 t0, t1;
     bool_t ret;
@@ -71,7 +71,7 @@ bool_t recip_sqrt_fp(vec384 out, const vec384 inp)
     return ret;
 }
 
-bool_t sqrt_fp(vec384 out, const vec384 inp)
+HOST_DEVICE_FUNC bool_t sqrt_fp(vec384 out, const vec384 inp)
 {
     vec384 t0, t1;
     bool_t ret;
@@ -86,30 +86,30 @@ bool_t sqrt_fp(vec384 out, const vec384 inp)
     return ret;
 }
 
-int blst_fp_sqrt(vec384 out, const vec384 inp)
+HOST_DEVICE_FUNC int blst_fp_sqrt(vec384 out, const vec384 inp)
 {   return (int)sqrt_fp(out, inp);   }
 
-int blst_fp_is_square(const vec384 inp)
+HOST_DEVICE_FUNC int blst_fp_is_square(const vec384 inp)
 {
     return (int)ct_is_square_mod_v384(inp, *get_BLST_P());
 }
 
-bool_t sqrt_align_fp2(vec384x out, const vec384x ret,
-                             const vec384x sqrt, const vec384x inp)
+HOST_DEVICE_FUNC bool_t sqrt_align_fp2(vec384x out, const vec384x ret,
+    const vec384x sqrt, const vec384x inp)
 {
-    const vec384x sqrt_minus_1 = { { 0 }, { ONE_MONT_P } };
+    const vec384x sqrt_minus_1 = { { 0 }, { ONE_MONT_P_LIMBS } };
     const vec384x sqrt_sqrt_minus_1 = {
-      /*
-       * "magic" number is ±2^((p-3)/4)%p, which is "1/sqrt(2)",
-       * in quotes because 2*"1/sqrt(2)"^2 == -1 mod p, not 1,
-       * but it pivots into "complex" plane nevertheless...
-       */
-      { TO_LIMB_T(0x3e2f585da55c9ad1), TO_LIMB_T(0x4294213d86c18183),
-        TO_LIMB_T(0x382844c88b623732), TO_LIMB_T(0x92ad2afd19103e18),
-        TO_LIMB_T(0x1d794e4fac7cf0b9), TO_LIMB_T(0x0bd592fc7d825ec8) },
-      { TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),
-        TO_LIMB_T(0x2f088dd86b4ebef1), TO_LIMB_T(0xd1ca2087da74d4a7),
-        TO_LIMB_T(0x2da2596696cebc1d), TO_LIMB_T(0x0e2b7eedbbfd87d2) }
+        /*
+         * "magic" number is ±2^((p-3)/4)%p, which is "1/sqrt(2)",
+         * in quotes because 2*"1/sqrt(2)"^2 == -1 mod p, not 1,
+         * but it pivots into "complex" plane nevertheless...
+         */
+        { TO_LIMB_T(0x3e2f585da55c9ad1), TO_LIMB_T(0x4294213d86c18183),
+          TO_LIMB_T(0x382844c88b623732), TO_LIMB_T(0x92ad2afd19103e18),
+          TO_LIMB_T(0x1d794e4fac7cf0b9), TO_LIMB_T(0x0bd592fc7d825ec8) },
+        { TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),
+          TO_LIMB_T(0x2f088dd86b4ebef1), TO_LIMB_T(0xd1ca2087da74d4a7),
+          TO_LIMB_T(0x2da2596696cebc1d), TO_LIMB_T(0x0e2b7eedbbfd87d2) }
     };
     const vec384x sqrt_minus_sqrt_minus_1 = {
       { TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),
@@ -138,21 +138,21 @@ bool_t sqrt_align_fp2(vec384x out, const vec384x ret,
     /* -(a^2-b^2) - 2ab*i == |inp| ? "rotate |ret| by 90°" */
     add_fp2(t1, t0, inp);
     vec_select(coeff, sqrt_minus_1, coeff, sizeof(coeff),
-               flag = vec_is_zero(t1, sizeof(t1)));
+        flag = vec_is_zero(t1, sizeof(t1)));
     is_sqrt |= flag;
 
     /* 2ab - (a^2-b^2)*i == |inp| ? "rotate |ret| by 135°" */
     sub_fp(t1[0], t0[0], inp[1]);
     add_fp(t1[1], t0[1], inp[0]);
     vec_select(coeff, sqrt_sqrt_minus_1, coeff, sizeof(coeff),
-               flag = vec_is_zero(t1, sizeof(t1)));
+        flag = vec_is_zero(t1, sizeof(t1)));
     is_sqrt |= flag;
 
     /* -2ab + (a^2-b^2)*i == |inp| ? "rotate |ret| by 45°" */
     add_fp(t1[0], t0[0], inp[1]);
     sub_fp(t1[1], t0[1], inp[0]);
     vec_select(coeff, sqrt_minus_sqrt_minus_1, coeff, sizeof(coeff),
-               flag = vec_is_zero(t1, sizeof(t1)));
+        flag = vec_is_zero(t1, sizeof(t1)));
     is_sqrt |= flag;
 
     /* actual "rotation" */
@@ -164,9 +164,9 @@ bool_t sqrt_align_fp2(vec384x out, const vec384x ret,
 /*
  * |inp| = a + b*i
  */
-bool_t recip_sqrt_fp2(vec384x out, const vec384x inp,
-                                          const vec384x recip_ZZZ,
-                                          const vec384x magic_ZZZ)
+HOST_DEVICE_FUNC bool_t recip_sqrt_fp2(vec384x out, const vec384x inp,
+    const vec384x recip_ZZZ,
+    const vec384x magic_ZZZ)
 {
     vec384 aa, bb, cc;
     vec384x inp_;
@@ -215,7 +215,7 @@ bool_t recip_sqrt_fp2(vec384x out, const vec384x inp,
     return is_sqrt;
 }
 
-bool_t sqrt_fp2(vec384x out, const vec384x inp)
+HOST_DEVICE_FUNC bool_t sqrt_fp2(vec384x out, const vec384x inp)
 {
     vec384x ret;
     vec384 aa, bb;
@@ -246,10 +246,10 @@ bool_t sqrt_fp2(vec384x out, const vec384x inp)
     return sqrt_align_fp2(out, ret, ret, inp);
 }
 
-int blst_fp2_sqrt(vec384x out, const vec384x inp)
+HOST_DEVICE_FUNC int blst_fp2_sqrt(vec384x out, const vec384x inp)
 {   return (int)sqrt_fp2(out, inp);   }
 
-int blst_fp2_is_square(const vec384x inp)
+HOST_DEVICE_FUNC int blst_fp2_is_square(const vec384x inp)
 {
     vec384 aa, bb;
 
@@ -259,3 +259,4 @@ int blst_fp2_is_square(const vec384x inp)
 
     return (int)ct_is_square_mod_v384(aa, *get_BLST_P());
 }
+BLST_EXTERN_C_END

@@ -17,6 +17,7 @@
 
 #include "fields.h"
 #include "bytes.h"
+BLST_EXTERN_C_BEGIN
 
 /*
  * BLS12-381-specific Fr shortcuts to assembly.
@@ -581,3 +582,4 @@ void blst_fp_from_hexascii(vec384 ret, const char *hex)
     limbs_from_hexascii(ret, sizeof(vec384), hex);
     mul_fp(ret, ret, *get_BLST_RR());
 }
+BLST_EXTERN_C_END

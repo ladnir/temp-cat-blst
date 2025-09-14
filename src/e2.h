@@ -7,7 +7,7 @@
 #include "point.h"
 #include "fields.h"
 #include "errors.h"
-
+BLST_EXTERN_C_BEGIN
 /*
  * y^2 = x^3 + B
  */
@@ -43,7 +43,7 @@ const POINTonE2 BLS12_381_G2 = {    /* generator point [in Montgomery] */
     TO_LIMB_T(0x86adac6a3be4eba0), TO_LIMB_T(0x79495c4ec93da33a),
     TO_LIMB_T(0xe7175850a43ccaed), TO_LIMB_T(0x0b2bc2a163de1bf2) },
 },
-{ { ONE_MONT_P }, { 0 } }
+{ { ONE_MONT_P_LIMBS }, { 0 } }
 };
 
 const POINTonE2 BLS12_381_NEG_G2 = { /* negative generator [in Montgomery] */
@@ -69,7 +69,7 @@ const POINTonE2 BLS12_381_NEG_G2 = { /* negative generator [in Montgomery] */
     TO_LIMB_T(0xe0832636bacc0a84), TO_LIMB_T(0xeb2def362a476f84),
     TO_LIMB_T(0x64044f659f0ee1e9), TO_LIMB_T(0x0ed54f48d5a1caa7) }
 },
-{ { ONE_MONT_P }, { 0 } }
+{ { ONE_MONT_P_LIMBS }, { 0 } }
 };
 
 inline void mul_by_b_onE2(vec384x out, const vec384x in)
@@ -636,3 +636,4 @@ inline size_t blst_p2_sizeof(void)
 
 inline size_t blst_p2_affine_sizeof(void)
 {   return sizeof(POINTonE2_affine);   }
+BLST_EXTERN_C_END

@@ -11,8 +11,9 @@
 #include "defines.h"
 #include "backend_asm.h"
 
+BLST_EXTERN_C_BEGIN
 
-BLST_FORCEINLINE void vec_copy(void* restrict ret, const void* a, size_t num)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void vec_copy(void* restrict ret, const void* a, size_t num)
 {
 	limb_t* rp = (limb_t*)ret;
 	const limb_t* ap = (const limb_t*)a;
@@ -24,7 +25,7 @@ BLST_FORCEINLINE void vec_copy(void* restrict ret, const void* a, size_t num)
 		rp[i] = ap[i];
 }
 
-BLST_FORCEINLINE void vec_zero(void* ret, size_t num)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void vec_zero(void* ret, size_t num)
 {
 	volatile limb_t* rp = (volatile limb_t*)ret;
 	size_t i;
@@ -37,18 +38,18 @@ BLST_FORCEINLINE void vec_zero(void* ret, size_t num)
 	// do not optimize this away
 #if defined(_MSC_VER)
 	// Compiler barrier for MSVC
-	_ReadWriteBarrier();
+	BLST_launder(i);
 #elif defined(__GNUC__) || defined(__clang__)
 	__asm__ __volatile__("" : : "r"(ret) : "memory");
 #endif
 }
 
 
-BLST_FORCEINLINE void vec_select(void* ret, const void* a, const void* b,
+HOST_DEVICE_FUNC BLST_FORCEINLINE void vec_select(void* ret, const void* a, const void* b,
 	size_t num, bool_t sel_a)
 {
 	BLST_launder(sel_a);
-#ifdef BLST_ASM
+#if defined(BLST_ASM) && !defined(__CUDA_ARCH__)
 	if (num == 32)          vec_select_32(ret, a, b, sel_a);
 	else if (num == 48)     vec_select_48(ret, a, b, sel_a);
 	else if (num == 96)     vec_select_96(ret, a, b, sel_a);
@@ -75,20 +76,20 @@ BLST_FORCEINLINE void vec_select(void* ret, const void* a, const void* b,
 	}
 }
 
-BLST_FORCEINLINE bool_t is_zero(limb_t l)
+HOST_DEVICE_FUNC BLST_FORCEINLINE bool_t is_zero(limb_t l)
 {
 	limb_t ret = (~l & (l - 1)) >> (BLST_LIMB_SIZE - 1);
 	BLST_launder(ret);
 	return ret;
 }
 
-BLST_FORCEINLINE bool_t vec_is_zero(const void* a, size_t num)
+HOST_DEVICE_FUNC BLST_FORCEINLINE bool_t vec_is_zero(const void* a, size_t num)
 {
 	const limb_t* ap = (const limb_t*)a;
 	limb_t acc;
 	size_t i;
 
-#ifdef BLST_ASM
+#if defined(BLST_ASM) && !defined(__CUDA_ARCH__)
 	if ((num & 15) == 0)
 		return vec_is_zero_16x(a, num);
 #endif
@@ -101,14 +102,14 @@ BLST_FORCEINLINE bool_t vec_is_zero(const void* a, size_t num)
 	return is_zero(acc);
 }
 
-BLST_FORCEINLINE bool_t vec_is_equal(const void* a, const void* b, size_t num)
+HOST_DEVICE_FUNC BLST_FORCEINLINE bool_t vec_is_equal(const void* a, const void* b, size_t num)
 {
 	const limb_t* ap = (const limb_t*)a;
 	const limb_t* bp = (const limb_t*)b;
 	limb_t acc;
 	size_t i;
 
-#ifdef BLST_ASM
+#if defined(BLST_ASM) && !defined(__CUDA_ARCH__)
 	if ((num & 15) == 0)
 		return vec_is_equal_16x(a, b, num);
 #endif
@@ -121,7 +122,7 @@ BLST_FORCEINLINE bool_t vec_is_equal(const void* a, const void* b, size_t num)
 	return is_zero(acc);
 }
 
-BLST_FORCEINLINE void vec_czero(void* ret, size_t num, bool_t cbit)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void vec_czero(void* ret, size_t num, bool_t cbit)
 {
 	limb_t* rp = (limb_t*)ret;
 	size_t i;
@@ -137,21 +138,21 @@ BLST_FORCEINLINE void vec_czero(void* ret, size_t num, bool_t cbit)
 }
 
 
-BLST_FORCEINLINE bool_t is_bit_set(const byte* v, size_t i)
+HOST_DEVICE_FUNC BLST_FORCEINLINE bool_t is_bit_set(const byte* v, size_t i)
 {
 	bool_t ret = (v[i / 8] >> (i % 8)) & 1;
 	BLST_launder(ret);
 	return ret;
 }
 
-BLST_FORCEINLINE bool_t byte_is_zero(unsigned char c)
+HOST_DEVICE_FUNC BLST_FORCEINLINE bool_t byte_is_zero(unsigned char c)
 {
 	limb_t ret = ((limb_t)(c)-1) >> (BLST_LIMB_SIZE - 1);
 	BLST_launder(ret);
 	return ret;
 }
 
-BLST_FORCEINLINE bool_t bytes_are_zero(const unsigned char* a, size_t num)
+HOST_DEVICE_FUNC BLST_FORCEINLINE bool_t bytes_are_zero(const unsigned char* a, size_t num)
 {
 	unsigned char acc;
 	size_t i;
@@ -162,7 +163,7 @@ BLST_FORCEINLINE bool_t bytes_are_zero(const unsigned char* a, size_t num)
 	return byte_is_zero(acc);
 }
 
-BLST_FORCEINLINE void vec_cswap(void* restrict a, void* restrict b, size_t num,
+HOST_DEVICE_FUNC BLST_FORCEINLINE void vec_cswap(void* restrict a, void* restrict b, size_t num,
 	bool_t cbit)
 {
 	limb_t ai, * ap = (limb_t*)a;
@@ -182,6 +183,7 @@ BLST_FORCEINLINE void vec_cswap(void* restrict a, void* restrict b, size_t num,
 	}
 }
 
+BLST_EXTERN_C_END
 
 
 

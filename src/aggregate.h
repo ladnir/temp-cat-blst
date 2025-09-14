@@ -1,4 +1,5 @@
 #include "point.h"
+BLST_EXTERN_C_BEGIN
 
 #ifndef N_MAX
 # define N_MAX 8
@@ -18,3 +19,5 @@ typedef struct {
 } PAIRING;
 
 int blst_fp12_finalverify(const vec384fp12 GT1, const vec384fp12 GT2);
+
+BLST_EXTERN_C_END

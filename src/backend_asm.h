@@ -2,7 +2,7 @@
 #include "defines.h"
 
 #ifdef BLST_ASM
-
+BLST_EXTERN_C_BEGIN
 
 ///*
 // * Assembly subroutines...
@@ -58,7 +58,7 @@ void mulx_mont_sparse_256(vec256 ret, const vec256 a, const vec256 b,
 void sqrx_mont_sparse_256(vec256 ret, const vec256 a, const vec256 p, limb_t n0);
 
 // asm: 256 bit montgomery squaring, sparse modulus version
-void cc_sqr_mont_sparse_256(vec256 ret, const vec256 a, const vec256 p, limb_t n0);
+//void cc_sqr_mont_sparse_256(vec256 ret, const vec256 a, const vec256 p, limb_t n0);
 
 /* @brief asm: Performs Montgomery reduction on a 256 bit integer.
 *
@@ -263,4 +263,5 @@ void sqr_382x(vec768x ret, const vec384x a, const vec384 p);      /* +~5% in fin
 
 #endif // BLST_ADX
 
+BLST_EXTERN_C_END
 #endif // BLST_ASM

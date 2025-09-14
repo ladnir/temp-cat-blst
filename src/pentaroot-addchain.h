@@ -22,7 +22,7 @@
  * # Bergeron-Berstel-Brlek-Duboc :  334 ( 5)
  */
 
-#define PENTAROOT_MOD_*get_BLST_r()(out, inp, ptype) do { \
+#define PENTAROOT_MOD_BLS12_381_r(out, inp, ptype) do { \
 ptype t[19]; \
 vec_copy(t[1], inp, sizeof(ptype)); /*    0: 1 */\
 sqr(t[7], t[1]);                    /*    1: 2 */\

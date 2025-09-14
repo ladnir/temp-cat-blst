@@ -6,7 +6,7 @@
 
 #include "fields.h"
 #include "point.h"
-
+BLST_EXTERN_C_BEGIN
 #define POINTS_TO_AFFINE_IMPL(prefix, ptype, bits, field) \
 void ptype##s_to_affine(ptype##_affine dst[], \
                                const ptype *const points[], size_t npoints) \
@@ -446,3 +446,4 @@ POINTXYZZ_TO_JACOBIAN_IMPL(POINTonE2, 384x, fp2)
 POINTXYZZ_DADD_IMPL(POINTonE2, 384x, fp2)
 POINTXYZZ_DADD_AFFINE_IMPL(POINTonE2, 384x, fp2, get_BLST_Rx()->p2)
 POINTS_MULT_PIPPENGER_IMPL(blst_p2, POINTonE2)
+BLST_EXTERN_C_END

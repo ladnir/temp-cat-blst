@@ -6,7 +6,7 @@
 
 #include "point.h"
 #include "fields.h"
-
+BLST_EXTERN_C_BEGIN
 /*
  * y^2 = x^3 + A'*x + B', isogenous one
  */
@@ -557,3 +557,4 @@ int blst_p1_affine_in_g1(const POINTonE1_affine *p)
 
     return (int)POINTonE1_in_G1(&P);
 }
+BLST_EXTERN_C_END

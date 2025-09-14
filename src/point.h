@@ -11,6 +11,8 @@
 #include "vect.h"
 #include "bytes.h"
 
+BLST_EXTERN_C_BEGIN
+
 #define DECLARE_POINT(ptype, bits) \
 typedef struct { vec##bits X,Y,Z; } ptype; \
 typedef struct { vec##bits X,Y; } ptype##_affine; \
@@ -60,5 +62,6 @@ DECLARE_POINT(POINTonE2, 384x)
 #ifdef __GNUC__
 # pragma GCC diagnostic ignored "-Wunused-function"
 #endif
+BLST_EXTERN_C_END
 
 #endif

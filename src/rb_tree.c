@@ -5,7 +5,7 @@
  */
 
 #include <stddef.h>
-
+BLST_EXTERN_C_BEGIN
 /*
  * Red-black tree tailored for uniqueness test. Amount of messages to be
  * checked is known prior context initialization, implementation is
@@ -143,3 +143,4 @@ void blst_uniq_init(struct rb_tree *tree)
 
 int blst_uniq_test(struct rb_tree *tree, const void *data, size_t len)
 {   return (int)rb_tree_insert(tree, data, len);   }
+BLST_EXTERN_C_END

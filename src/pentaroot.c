@@ -5,12 +5,12 @@
  */
 
 #include "fields.h"
-
+BLST_EXTERN_C_BEGIN
 inline void mul_fr(vec256 ret, const vec256 a, const vec256 b)
-{   mul_mont_sparse_256(ret, a, b, *get_BLST_r(), r0);   }
+{   mul_mont_sparse_256(ret, a, b, *get_BLST_r(), BLST_r0);   }
 
 inline void sqr_fr(vec256 ret, const vec256 a)
-{   sqr_mont_sparse_256(ret, a, *get_BLST_r(), r0);   }
+{   sqr_mont_sparse_256(ret, a, *get_BLST_r(), BLST_r0);   }
 
 #ifdef __OPTIMIZE_SIZE__
 void blst_fr_pentaroot(vec256 out, const vec256 inp)
@@ -58,8 +58,8 @@ void sqr_n_mul_fr(vec256 out, const vec256 a, size_t count,
 
 # include "pentaroot-addchain.h"
 void blst_fr_pentaroot(vec256 out, const vec256 inp)
-{   PENTAROOT_MOD_*get_BLST_r()(out, inp, vec256);   }
-# undef PENTAROOT_MOD_*get_BLST_r()
+{  PENTAROOT_MOD_BLS12_381_r(out, inp, vec256);   }
+# undef PENTAROOT_MOD_BLS12_381_r()
 
 # undef sqr_n_mul
 # undef sqr
@@ -74,3 +74,4 @@ void blst_fr_pentapow(vec256 out, const vec256 inp)
     sqr_fr(tmp, tmp);
     mul_fr(out, tmp, inp);
 }
+BLST_EXTERN_C_END

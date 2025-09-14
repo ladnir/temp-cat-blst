@@ -6,7 +6,7 @@
 
 #include "consts.h"
 #include "sha256.h"
-
+BLST_EXTERN_C_BEGIN
 
 #ifdef expand_message_xmd
 void expand_message_xmd(unsigned char *bytes, size_t len_in_bytes,
@@ -91,8 +91,8 @@ void expand_message_xmd(unsigned char *bytes, size_t len_in_bytes,
     sha256_init_h(ctx.h);
     vec_copy(b_i.c, b_0.c, 32);
     ++b_i.c[32];
-    sha256_block_data_order(ctx.h, b_i.c, b_i_blocks / 64);
-    sha256_emit(bytes, ctx.h);
+    blst_sha256_block_data_order_v(ctx.h, b_i.c, b_i_blocks / 64);
+    blst_sha256_emit_v(bytes, ctx.h);
 
     len_in_bytes += 31; /* ell = ceil(len_in_bytes / b_in_bytes), with */
     len_in_bytes /= 32; /* caller being responsible for accordingly large
@@ -103,8 +103,8 @@ void expand_message_xmd(unsigned char *bytes, size_t len_in_bytes,
         vec_xor(b_i.c, b_0.c, bytes, 32);
         bytes += 32;
         ++b_i.c[32];
-        sha256_block_data_order(ctx.h, b_i.c, b_i_blocks / 64);
-        sha256_emit(bytes, ctx.h);
+        blst_sha256_block_data_order_v(ctx.h, b_i.c, b_i_blocks / 64);
+        blst_sha256_emit_v(bytes, ctx.h);
     }
 }
 #endif
@@ -170,3 +170,4 @@ void blst_expand_message_xmd(unsigned char *bytes, size_t len_in_bytes,
         vec_zero(buf_ptr, buf_len);
     }
 }
+BLST_EXTERN_C_END

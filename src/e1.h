@@ -12,7 +12,7 @@
 #if defined(DEBUG) || !defined(NDEBUG)
 #include <stdio.h>
 #endif
-
+BLST_EXTERN_C_BEGIN
 /*
  * y^2 = x^3 + B
  */
@@ -33,7 +33,7 @@ const POINTonE1 BLS12_381_G1 = {    /* generator point [in Montgomery] */
   { TO_LIMB_T(0xbaac93d50ce72271), TO_LIMB_T(0x8c22631a7918fd8e),
     TO_LIMB_T(0xdd595f13570725ce), TO_LIMB_T(0x51ac582950405194),
     TO_LIMB_T(0x0e1c8c3fad0059c0), TO_LIMB_T(0x0bbc3efc5008a26a) },
-  { ONE_MONT_P }
+  { ONE_MONT_P_LIMBS }
 };
 
 const POINTonE1 BLS12_381_NEG_G1 = { /* negative generator [in Montgomery] */
@@ -47,7 +47,7 @@ const POINTonE1 BLS12_381_NEG_G1 = { /* negative generator [in Montgomery] */
   { TO_LIMB_T(0xff526c2af318883a), TO_LIMB_T(0x92899ce4383b0270),
     TO_LIMB_T(0x89d7738d9fa9d055), TO_LIMB_T(0x12caf35ba344c12a),
     TO_LIMB_T(0x3cff1b76964b5317), TO_LIMB_T(0x0e44d2ede9774430) },
-  { ONE_MONT_P }
+  { ONE_MONT_P_LIMBS }
 };
 
 inline void mul_by_b_onE1(vec384 out, const vec384 in)
@@ -637,3 +637,4 @@ inline size_t blst_p1_sizeof(void)
 
 inline size_t blst_p1_affine_sizeof(void)
 {   return sizeof(POINTonE1_affine);   }
+BLST_EXTERN_C_END

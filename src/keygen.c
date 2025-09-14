@@ -9,6 +9,8 @@
 #include "sha256.h"
 #include "backend.h"
 
+BLST_EXTERN_C_BEGIN
+
 typedef struct {
     SHA256_CTX ctx;
     unsigned int h_ipad[8];
@@ -21,7 +23,7 @@ void HMAC_init(HMAC_SHA256_CTX *ctx, const void *K, size_t K_len)
     size_t i;
 
     if (K == NULL) {            /* reuse h_ipad and h_opad */
-        sha256_hcopy(ctx->ctx.h, ctx->h_ipad);
+        blst_sha256_hcopy_v(ctx->ctx.h, ctx->h_ipad);
         ctx->ctx.N = 64;
         vec_zero(ctx->ctx.buf, sizeof(ctx->ctx.buf));
         ctx->ctx.off = 0;
@@ -35,7 +37,7 @@ void HMAC_init(HMAC_SHA256_CTX *ctx, const void *K, size_t K_len)
         sha256_update(&ctx->ctx, K, K_len);
         sha256_final(ctx->tail.c, &ctx->ctx);
     } else {
-        sha256_bcopy(ctx->tail.c, K, K_len);
+        blst_sha256_bcopy_v(ctx->tail.c, K, K_len);
     }
 
     for (i = 0; i < 64/sizeof(limb_t); i++)
@@ -43,13 +45,13 @@ void HMAC_init(HMAC_SHA256_CTX *ctx, const void *K, size_t K_len)
 
     sha256_init(&ctx->ctx);
     sha256_update(&ctx->ctx, ctx->tail.c, 64);
-    sha256_hcopy(ctx->h_ipad, ctx->ctx.h);
+    blst_sha256_hcopy_v(ctx->h_ipad, ctx->ctx.h);
 
     for (i = 0; i < 64/sizeof(limb_t); i++)
         ctx->tail.l[i] ^= (limb_t)(0x3636363636363636 ^ 0x5c5c5c5c5c5c5c5c);
 
     sha256_init_h(ctx->h_opad);
-    sha256_block_data_order(ctx->h_opad, ctx->tail.c, 1);
+    blst_sha256_block_data_order_v(ctx->h_opad, ctx->tail.c, 1);
 
     vec_zero(ctx->tail.c, sizeof(ctx->tail));
     ctx->tail.c[32] = 0x80;
@@ -64,9 +66,9 @@ void HMAC_update(HMAC_SHA256_CTX *ctx, const unsigned char *inp,
 void HMAC_final(unsigned char md[32], HMAC_SHA256_CTX *ctx)
 {
     sha256_final(ctx->tail.c, &ctx->ctx);
-    sha256_hcopy(ctx->ctx.h, ctx->h_opad);
-    sha256_block_data_order(ctx->ctx.h, ctx->tail.c, 1);
-    sha256_emit(md, ctx->ctx.h);
+    blst_sha256_hcopy_v(ctx->ctx.h, ctx->h_opad);
+    blst_sha256_block_data_order_v(ctx->ctx.h, ctx->tail.c, 1);
+    blst_sha256_emit_v(md, ctx->ctx.h);
 }
 
 void HKDF_Extract(unsigned char PRK[32],
@@ -108,7 +110,7 @@ void HKDF_Expand(unsigned char *OKM, size_t L,
     HMAC_init(ctx, PRK, 32);
 
     if (info_len != 0)
-        sha256_bcopy(info_prime, info, info_len);
+        blst_sha256_bcopy_v(info_prime, info, info_len);
 #ifndef __BLST_HKDF_TESTMODE__
     if (info_fixup) {
         /* Section 2.3 KeyGen in BLS-signature draft */
@@ -121,7 +123,7 @@ void HKDF_Expand(unsigned char *OKM, size_t L,
     HMAC_update(ctx, info_prime, info_len + 1);
     HMAC_final(ctx->tail.c, ctx);
     while (L > 32) {
-        sha256_hcopy((unsigned int *)OKM, (const unsigned int *)ctx->tail.c);
+        blst_sha256_hcopy_v((unsigned int *)OKM, (const unsigned int *)ctx->tail.c);
         OKM += 32; L -= 32;
         ++info_prime[info_len]; /* counter */
         HMAC_init(ctx, NULL, 0);
@@ -129,7 +131,7 @@ void HKDF_Expand(unsigned char *OKM, size_t L,
         HMAC_update(ctx, info_prime, info_len + 1);
         HMAC_final(ctx->tail.c, ctx);
     }
-    sha256_bcopy(OKM, ctx->tail.c, L);
+    blst_sha256_bcopy_v(OKM, ctx->tail.c, L);
 }
 
 #ifndef __BLST_HKDF_TESTMODE__
@@ -270,9 +272,9 @@ void parent_SK_to_lamport_PK(pow256 PK, const pow256 parent_SK,
     for (i = 0; i < 255; i++) {
         /* lamport_PK = lamport_PK | SHA256(lamport_0[i]) */
         sha256_init_h(scratch.ctx.ctx.h);
-        sha256_bcopy(scratch.ctx.ctx.buf, scratch.lamport[i], 32);
-        sha256_block_data_order(scratch.ctx.ctx.h, scratch.ctx.ctx.buf, 1);
-        sha256_emit(scratch.lamport[i], scratch.ctx.ctx.h);
+        blst_sha256_bcopy_v(scratch.ctx.ctx.buf, scratch.lamport[i], 32);
+        blst_sha256_block_data_order_v(scratch.ctx.ctx.h, scratch.ctx.ctx.buf, 1);
+        blst_sha256_emit_v(scratch.lamport[i], scratch.ctx.ctx.h);
     }
 
     /* compressed_lamport_PK = SHA256(lamport_PK) */
@@ -295,9 +297,9 @@ void parent_SK_to_lamport_PK(pow256 PK, const pow256 parent_SK,
     for (i = 0; i < 255; i++) {
         /* lamport_PK = lamport_PK | SHA256(lamport_1[i]) */
         sha256_init_h(scratch.ctx.ctx.h);
-        sha256_bcopy(scratch.ctx.ctx.buf, scratch.lamport[i], 32);
-        sha256_block_data_order(scratch.ctx.ctx.h, scratch.ctx.ctx.buf, 1);
-        sha256_emit(scratch.lamport[i], scratch.ctx.ctx.h);
+        blst_sha256_bcopy_v(scratch.ctx.ctx.buf, scratch.lamport[i], 32);
+        blst_sha256_block_data_order_v(scratch.ctx.ctx.h, scratch.ctx.ctx.buf, 1);
+        blst_sha256_emit_v(scratch.lamport[i], scratch.ctx.ctx.h);
     }
 
     /* compressed_lamport_PK = SHA256(lamport_PK) */
@@ -317,4 +319,7 @@ void blst_derive_child_eip2333(pow256 SK, const pow256 parent_SK,
     parent_SK_to_lamport_PK(SK, parent_SK, child_index);
     keygen(SK, SK, sizeof(pow256), NULL, 0, NULL, 0, 4);
 }
+
+BLST_EXTERN_C_END
+
 #endif
