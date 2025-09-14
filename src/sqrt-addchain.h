@@ -3,28 +3,28 @@
  * Licensed under the Apache License, Version 2.0, see LICENSE for details.
  * SPDX-License-Identifier: Apache-2.0
  */
-/*
- * The "magic" number is (BLS12_381_P-3)/4. Exponentiation to which
- * yields reciprocal of sqrt(x), which is used in simplified Shallue-
- * van de Woestijne-Ulas map-to-curve method, but it's trivial to adapt
- * it for more "traditional" sqrt(x) as 'x*ret' (or for is_square(x)
- * as 'x*ret^2==1').
- *
- * Generated with 'addchain 1000602388805416848354447456433976039139220704984751971333014534031007912622709466110671907282253916009473568139946'
- * https://github.com/kwantam/addchain
- *
- * # Bos-Coster (win=4)           :  458 (16) <<<
- * # Bos-Coster (win=5)           :  460 (28)
- * # Bos-Coster (win=6)           :  461 (33)
- * # Bos-Coster (win=7)           :  460 (28)
- * # Bos-Coster (win=3)           :  462 ( 9)
- * # Bos-Coster (win=8)           :  466 (34)
- * # Bos-Coster (win=9)           :  464 (31)
- * # Yacobi                       :  478 (31)
- * # Bos-Coster (win=10)          :  473 (30)
- * # Bos-Coster (win=2)           :  486 ( 5)
- * # Bergeron-Berstel-Brlek-Duboc :  489 ( 5)
- */
+ /*
+  * The "magic" number is (BLS12_381_P-3)/4. Exponentiation to which
+  * yields reciprocal of sqrt(x), which is used in simplified Shallue-
+  * van de Woestijne-Ulas map-to-curve method, but it's trivial to adapt
+  * it for more "traditional" sqrt(x) as 'x*ret' (or for is_square(x)
+  * as 'x*ret^2==1').
+  *
+  * Generated with 'addchain 1000602388805416848354447456433976039139220704984751971333014534031007912622709466110671907282253916009473568139946'
+  * https://github.com/kwantam/addchain
+  *
+  * # Bos-Coster (win=4)           :  458 (16) <<<
+  * # Bos-Coster (win=5)           :  460 (28)
+  * # Bos-Coster (win=6)           :  461 (33)
+  * # Bos-Coster (win=7)           :  460 (28)
+  * # Bos-Coster (win=3)           :  462 ( 9)
+  * # Bos-Coster (win=8)           :  466 (34)
+  * # Bos-Coster (win=9)           :  464 (31)
+  * # Yacobi                       :  478 (31)
+  * # Bos-Coster (win=10)          :  473 (30)
+  * # Bos-Coster (win=2)           :  486 ( 5)
+  * # Bergeron-Berstel-Brlek-Duboc :  489 ( 5)
+  */
 
 #define RECIP_SQRT_MOD_BLS12_381_P(out, inp, ptype) do { \
 ptype t[16]; \

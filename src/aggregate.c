@@ -72,7 +72,7 @@ const void *blst_pairing_get_dst(const PAIRING *ctx)
 
 #define FROM_AFFINE(out,in) do { \
     vec_copy((out)->X, in->X, 2*sizeof(in->X)), \
-    vec_select((out)->Z, in->X, BLS12_381_Rx.p, sizeof(in->X), \
+    vec_select((out)->Z, in->X, get_BLST_Rx()->p, sizeof(in->X), \
                          vec_is_zero(in->X, 2*sizeof(in->X))); } while(0)
 
 /*
@@ -487,7 +487,7 @@ bool_t PAIRING_FinalVerify(const PAIRING *ctx, const vec384fp12 GTsig)
          * The aggregated signature was infinite, relation between the
          * hashes and the public keys has to be VERY special...
          */
-        vec_copy(GT, BLS12_381_Rx.p12, sizeof(GT));
+        vec_copy(GT, get_BLST_Rx()->p12, sizeof(GT));
     }
 
     conjugate_fp12(GT);
@@ -495,7 +495,7 @@ bool_t PAIRING_FinalVerify(const PAIRING *ctx, const vec384fp12 GTsig)
     final_exp(GT, GT);
 
     /* return GT==1 */
-    return vec_is_equal(GT[0][0], BLS12_381_Rx.p2, sizeof(GT[0][0])) &
+    return vec_is_equal(GT[0][0], get_BLST_Rx()->p2, sizeof(GT[0][0])) &
            vec_is_zero(GT[0][1], sizeof(GT) - sizeof(GT[0][0]));
 }
 
@@ -512,7 +512,7 @@ int blst_fp12_finalverify(const vec384fp12 GT1, const vec384fp12 GT2)
     final_exp(GT, GT);
 
     /* return GT==1 */
-    return (int)(vec_is_equal(GT[0][0], BLS12_381_Rx.p2, sizeof(GT[0][0])) &
+    return (int)(vec_is_equal(GT[0][0], get_BLST_Rx()->p2, sizeof(GT[0][0])) &
                  vec_is_zero(GT[0][1], sizeof(GT) - sizeof(GT[0][0])));
 }
 
@@ -572,7 +572,7 @@ BLST_ERROR blst_aggregate_in_g1(POINTonE1 *out, const POINTonE1 *in,
         return BLST_SUCCESS;
     }
 
-    vec_copy(P->Z, BLS12_381_Rx.p, sizeof(P->Z));
+    vec_copy(P->Z, get_BLST_Rx()->p, sizeof(P->Z));
 
     if (!POINTonE1_in_G1(P))
         return BLST_POINT_NOT_IN_GROUP;
@@ -602,7 +602,7 @@ BLST_ERROR blst_aggregate_in_g2(POINTonE2 *out, const POINTonE2 *in,
         return BLST_SUCCESS;
     }
 
-    vec_copy(P->Z, BLS12_381_Rx.p, sizeof(P->Z));
+    vec_copy(P->Z, get_BLST_Rx()->p, sizeof(P->Z));
 
     if (!POINTonE2_in_G2(P))
         return BLST_POINT_NOT_IN_GROUP;

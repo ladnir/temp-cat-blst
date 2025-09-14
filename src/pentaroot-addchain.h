@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 /*
- * The "magic" number is 1/5 modulo BLS12_381_r-1. Exponentiation to which
+ * The "magic" number is 1/5 modulo *get_BLST_r()-1. Exponentiation to which
  * yields 5th root of the base.
  *
  * Generated with 'addchain 20974350070050476191779096203274386335076221000211055129041463479975432473805'
@@ -22,7 +22,7 @@
  * # Bergeron-Berstel-Brlek-Duboc :  334 ( 5)
  */
 
-#define PENTAROOT_MOD_BLS12_381_r(out, inp, ptype) do { \
+#define PENTAROOT_MOD_*get_BLST_r()(out, inp, ptype) do { \
 ptype t[19]; \
 vec_copy(t[1], inp, sizeof(ptype)); /*    0: 1 */\
 sqr(t[7], t[1]);                    /*    1: 2 */\

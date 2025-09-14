@@ -86,7 +86,7 @@ inline void POINTonE1_to_affine(POINTonE1_affine *out, const POINTonE1 *in)
 {
     POINTonE1 p;
 
-    if (!vec_is_equal(in->Z, BLS12_381_Rx.p, sizeof(in->Z))) {
+    if (!vec_is_equal(in->Z, get_BLST_Rx()->p, sizeof(in->Z))) {
         POINTonE1_from_Jacobian(&p, in);
         in = &p;
     }
@@ -99,7 +99,7 @@ inline void blst_p1_to_affine(POINTonE1_affine *out, const POINTonE1 *a)
 inline void blst_p1_from_affine(POINTonE1 *out, const POINTonE1_affine *a)
 {
     vec_copy(out, a, sizeof(*a));
-    vec_select(out->Z, a->X, BLS12_381_Rx.p, sizeof(out->Z),
+    vec_select(out->Z, a->X, get_BLST_Rx()->p, sizeof(out->Z),
                        vec_is_zero(a, sizeof(*a)));
 }
 
@@ -152,7 +152,7 @@ inline limb_t POINTonE1_affine_Serialize_BE(unsigned char out[96],
     from_fp(temp, in->Y);
     be_bytes_from_limbs(out + 48, temp, sizeof(temp));
 
-    return sgn0_pty_mod_v384(temp, BLS12_381_P);
+    return sgn0_pty_mod_v384(temp, *get_BLST_P());
 }
 
 inline void blst_p1_affine_serialize(unsigned char out[96],
@@ -171,7 +171,7 @@ inline limb_t POINTonE1_Serialize_BE(unsigned char out[96],
 {
     POINTonE1 p;
 
-    if (!vec_is_equal(in->Z, BLS12_381_Rx.p, sizeof(in->Z))) {
+    if (!vec_is_equal(in->Z, get_BLST_Rx()->p, sizeof(in->Z))) {
         POINTonE1_from_Jacobian(&p, in);
         in = &p;
     }
@@ -201,7 +201,7 @@ inline limb_t POINTonE1_affine_Compress_BE(unsigned char out[48],
     from_fp(temp, in->X);
     be_bytes_from_limbs(out, temp, sizeof(temp));
 
-    return sgn0_pty_mont_v384(in->Y, BLS12_381_P, BLS12_381_p0);
+    return sgn0_pty_mont_v384(in->Y, *get_BLST_P(), BLST_p0);
 }
 
 inline void blst_p1_affine_compress(unsigned char out[48], const POINTonE1_affine *in)
@@ -220,7 +220,7 @@ inline limb_t POINTonE1_Compress_BE(unsigned char out[48],
 {
     POINTonE1 p;
 
-    if (!vec_is_equal(in->Z, BLS12_381_Rx.p, sizeof(in->Z))) {
+    if (!vec_is_equal(in->Z, get_BLST_Rx()->p, sizeof(in->Z))) {
         POINTonE1_from_Jacobian(&p, in);
         in = &p;
     }
@@ -252,7 +252,7 @@ inline limb_t POINTonE1_Uncompress_BE(POINTonE1_affine *out,
     add_fp(temp, ret.X, ZERO_384);  /* less than modulus? */
     if (!vec_is_equal(temp, ret.X, sizeof(temp)))
         return (limb_t)0 - BLST_BAD_ENCODING;
-    mul_fp(ret.X, ret.X, BLS12_381_RR);
+    mul_fp(ret.X, ret.X, *get_BLST_RR());
 
     sqr_fp(ret.Y, ret.X);
     mul_fp(ret.Y, ret.Y, ret.X);
@@ -262,7 +262,7 @@ inline limb_t POINTonE1_Uncompress_BE(POINTonE1_affine *out,
 
     vec_copy(out, &ret, sizeof(ret));
 
-    return sgn0_pty_mont_v384(out->Y, BLS12_381_P, BLS12_381_p0);
+    return sgn0_pty_mont_v384(out->Y, *get_BLST_P(), BLST_p0);
 }
 
 inline BLST_ERROR POINTonE1_Uncompress_Z(POINTonE1_affine *out,
@@ -319,8 +319,8 @@ inline BLST_ERROR POINTonE1_Deserialize_BE(POINTonE1_affine *out,
     if (!vec_is_equal(temp, ret.Y, sizeof(temp)))
         return BLST_BAD_ENCODING;
 
-    mul_fp(ret.X, ret.X, BLS12_381_RR);
-    mul_fp(ret.Y, ret.Y, BLS12_381_RR);
+    mul_fp(ret.X, ret.X, *get_BLST_RR());
+    mul_fp(ret.Y, ret.Y, *get_BLST_RR());
 
     if (!POINTonE1_affine_on_curve(&ret))
         return BLST_POINT_NOT_ON_CURVE;
@@ -359,9 +359,9 @@ inline BLST_ERROR blst_p1_deserialize(POINTonE1_affine *out,
 
 #include "ec_ops.h"
 POINT_DADD_IMPL(POINTonE1, 384, fp)
-POINT_DADD_AFFINE_IMPL_A0(POINTonE1, 384, fp, BLS12_381_Rx.p)
+POINT_DADD_AFFINE_IMPL_A0(POINTonE1, 384, fp, get_BLST_Rx()->p)
 POINT_ADD_IMPL(POINTonE1, 384, fp)
-POINT_ADD_AFFINE_IMPL(POINTonE1, 384, fp, BLS12_381_Rx.p)
+POINT_ADD_AFFINE_IMPL(POINTonE1, 384, fp, get_BLST_Rx()->p)
 POINT_DOUBLE_IMPL_A0(POINTonE1, 384, fp)
 POINT_IS_EQUAL_IMPL(POINTonE1, 384, fp)
 
@@ -596,7 +596,7 @@ inline void blst_p1_mult(POINTonE1 *out, const POINTonE1 *a,
             j += 1 & mask;
         }
 
-        if (check_mod_v256(val.s, BLS12_381_r))  /* z^4 is the formal limit */
+        if (check_mod_v256(val.s, *get_BLST_r()))  /* z^4 is the formal limit */
             POINTonE1_mult_glv(out, a, val.s);
         else    /* should never be the case, added for formal completeness */
             POINTonE1_mult_w5(out, a, scalar, nbits);

@@ -12,7 +12,7 @@ extern "C" {
 
 // BLS12-381 prime: p = 0x1a0111ea397fe69a4b1ba7b6434bacd7
 //                  64774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab
-//const uint64_t BLS12_381_P[6] = {
+//const uint64_t *get_BLST_P()[6] = {
 //    0xb9feffffffffaaabULL,
 //    0x1eabfffeb153ffffULL,
 //    0x6730d2a0f6b0f624ULL,
@@ -49,7 +49,7 @@ void print_vec384(const vec384 v) {
 //// Helper: Convert standard integer to Montgomery form 
 //void to_mont_fp(vec384 r, const vec384 a) {
 //	// Use the library's precomputed R² mod p constant for proper conversion to Montgomery form
-//	mul_mont_384(r, a, BLS12_381_RR, BLS12_381_P, BLS12_381_p0);
+//	mul_mont_384(r, a, *get_BLST_RR(), *get_BLST_P(), BLST_p0);
 //}
 
 
@@ -67,7 +67,7 @@ TEST(FpOps, Add) {
 TEST(FpOps, AddOverflow) {
 	vec384 a, b, r, expected;
 	// a = p - 1, b = 2, expect 1
-	memcpy(a, BLS12_381_P, sizeof(vec384));
+	memcpy(a, *get_BLST_P(), sizeof(vec384));
 	for (int i = 0; i < LIMBS; ++i) a[i] -= (i == 0 ? 1 : 0);
 	set_vec384(b, 2);
 	add_fp(r, a, b);
@@ -90,7 +90,7 @@ TEST(FpOps, SubUnderflow) {
 	set_vec384(b, 10);
 	sub_fp(r, a, b);
 	// expected = (3 - 10) mod p = p - 7
-	memcpy(expected, BLS12_381_P, sizeof(vec384));
+	memcpy(expected, *get_BLST_P(), sizeof(vec384));
 	expected[0] -= 7;
 	EXPECT_TRUE(vec384_equal(r, expected));
 }
@@ -324,21 +324,21 @@ TEST(FpOps, EdgeCases) {
 
 	// Test with values near modulus
 	vec384 near_p, temp;
-	memcpy(near_p, BLS12_381_P, sizeof(vec384));
+	memcpy(near_p, *get_BLST_P(), sizeof(vec384));
 	for (int i = 0; i < LIMBS; ++i) near_p[i] -= (i == 0 ? 2 : 0);
 
 	// near_p + 1 should be p-1
 	add_fp(r, near_p, one);
-	memcpy(expected, BLS12_381_P, sizeof(vec384));
+	memcpy(expected, *get_BLST_P(), sizeof(vec384));
 	for (int i = 0; i < LIMBS; ++i) expected[i] -= (i == 0 ? 1 : 0);
 	EXPECT_TRUE(vec384_equal(r, expected)) << "(p-2) + 1 should equal (p-1)";
 
 	// Test modular subtraction with underflow
 	// (p-1) - p should equal p-1
-	memcpy(temp, BLS12_381_P, sizeof(vec384));
+	memcpy(temp, *get_BLST_P(), sizeof(vec384));
 	for (int i = 0; i < LIMBS; ++i) temp[i] -= (i == 0 ? 1 : 0);
-	sub_fp(r, temp, BLS12_381_P);
-	memcpy(expected, BLS12_381_P, sizeof(vec384));
+	sub_fp(r, temp, *get_BLST_P());
+	memcpy(expected, *get_BLST_P(), sizeof(vec384));
 	for (int i = 0; i < LIMBS; ++i) expected[i] -= (i == 0 ? 1 : 0);
 	EXPECT_TRUE(vec384_equal(r, expected)) << "(p-1) - p should equal (p-1)";
 }
@@ -468,7 +468,7 @@ TEST(FpOps, MultiplyWithModulus) {
 	set_vec384(a, 42);
 
 	// Copy the modulus
-	memcpy(p, BLS12_381_P, sizeof(vec384));
+	memcpy(p, *get_BLST_P(), sizeof(vec384));
 
 	// Convert to Montgomery form
 	to_fp(mont_a, a);
@@ -514,13 +514,13 @@ TEST(FpOps, ConstantTimeOperations) {
 
 	// Verify multiplication result by comparing with a direct computation
 	// (not practical for large numbers but serves as a test concept)
-	uint64_t simple_result = (0xDEADBEEF * 0x12345678) % BLS12_381_P[0];
+	uint64_t simple_result = (0xDEADBEEF * 0x12345678) % *get_BLST_P()[0];
 	vec384 simple;
 	set_vec384(simple, simple_result);
 
 	// This comparison is only meaningful for small values that don't overflow
 	// It's just a conceptual test for constant-time operations
-	if (simple_result < BLS12_381_P[0]) {
+	if (simple_result < *get_BLST_P()[0]) {
 		EXPECT_EQ(expected[0] & 0xFFFFFFFF, simple_result & 0xFFFFFFFF)
 			<< "Lower bits should match for small values";
 	}
@@ -612,7 +612,7 @@ TEST(FpOps, ConstantTimeOperations) {
 //
 //	printf("--- Testing direct call to sqr_n_mul_mont_383 ---\n");
 //	// This tests if the assembly/low-level implementation has issues
-//	sqr_n_mul_mont_383(result, a, 1, BLS12_381_P, BLS12_381_p0, b);
+//	sqr_n_mul_mont_383(result, a, 1, *get_BLST_P(), BLST_p0, b);
 //
 //	//printVec384(result, "Direct result");
 //	EXPECT_TRUE(vec_is_equal(a, result, sizeof(vec384)));

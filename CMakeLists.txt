@@ -25,6 +25,19 @@ message("BLST_CUDA         = ${BLST_CUDA}")
 message("BLST_LIMB_SIZE    = ${BLST_LIMB_SIZE}")
 
 
+# Make sure these vars are copied into the try-compile's cache.
+set(CMAKE_TRY_COMPILE_PLATFORM_VARIABLES
+    CMAKE_CUDA_FLAGS
+    CMAKE_CUDA_HOST_COMPILER
+)
+
+# Force the flag into cache so try-compile sees it.
+set(CMAKE_CUDA_FLAGS "-allow-unsupported-compiler" CACHE STRING "nvcc flags" FORCE)
+
+
+# applies to all targets
+add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:--allow-unsupported-compiler>)
+
 #add_subdirectory(check)
 add_subdirectory(src)
 add_subdirectory(test)

@@ -14,7 +14,7 @@
  */
 
 BLST_FORCEINLINE void mul_by_u_plus_1_fp2(vec384x ret, const vec384x a)
-{   mul_by_1_plus_i_mod_v384x(ret, a, BLS12_381_P);   }
+{   mul_by_1_plus_i_mod_v384x(ret, a, *get_BLST_P());   }
 
 #if defined(BLST_ASM)
 #define __FP2x2__
@@ -28,62 +28,62 @@ BLST_FORCEINLINE void mul_by_u_plus_1_fp2(vec384x ret, const vec384x a)
 
 BLST_FORCEINLINE void add_fp2x2(vec768x ret, const vec768x a, const vec768x b)
 {
-    add_mod_384x384(ret[0], a[0], b[0], BLS12_381_P);
-    add_mod_384x384(ret[1], a[1], b[1], BLS12_381_P);
+    add_mod_384x384(ret[0], a[0], b[0], *get_BLST_P());
+    add_mod_384x384(ret[1], a[1], b[1], *get_BLST_P());
 }
 
 BLST_FORCEINLINE void sub_fp2x2(vec768x ret, const vec768x a, const vec768x b)
 {
-    sub_mod_384x384(ret[0], a[0], b[0], BLS12_381_P);
-    sub_mod_384x384(ret[1], a[1], b[1], BLS12_381_P);
+    sub_mod_384x384(ret[0], a[0], b[0], *get_BLST_P());
+    sub_mod_384x384(ret[1], a[1], b[1], *get_BLST_P());
 }
 
 BLST_FORCEINLINE void mul_by_u_plus_1_fp2x2(vec768x ret, const vec768x a)
 {
     /* caveat lector! |ret| may not be same as |a| */
-    sub_mod_384x384(ret[0], a[0], a[1], BLS12_381_P);
-    add_mod_384x384(ret[1], a[0], a[1], BLS12_381_P);
+    sub_mod_384x384(ret[0], a[0], a[1], *get_BLST_P());
+    add_mod_384x384(ret[1], a[0], a[1], *get_BLST_P());
 }
 
 BLST_FORCEINLINE void redc_fp2x2(vec384x ret, const vec768x a)
 {
-    redc_mont_v384(ret[0], a[0], BLS12_381_P, BLS12_381_p0);
-    redc_mont_v384(ret[1], a[1], BLS12_381_P, BLS12_381_p0);
+    redc_mont_v384(ret[0], a[0], *get_BLST_P(), BLST_p0);
+    redc_mont_v384(ret[1], a[1], *get_BLST_P(), BLST_p0);
 }
 
 void mul_fp2x2(vec768x ret, const vec384x a, const vec384x b)
 {
 #if 1
-    mul_v382x(ret, a, b, BLS12_381_P);   /* +~6% in Miller loop */
+    mul_v382x(ret, a, b, *get_BLST_P());   /* +~6% in Miller loop */
 #else
     union { vec384 x[2]; vec768 x2; } t;
 
-    add_mod_384(t.x[0], a[0], a[1], BLS12_381_P);
-    add_mod_384(t.x[1], b[0], b[1], BLS12_381_P);
+    add_mod_384(t.x[0], a[0], a[1], *get_BLST_P());
+    add_mod_384(t.x[1], b[0], b[1], *get_BLST_P());
     mul_384(ret[1], t.x[0], t.x[1]);
 
     mul_384(ret[0], a[0], b[0]);
     mul_384(t.x2,   a[1], b[1]);
 
-    sub_mod_384x384(ret[1], ret[1], ret[0], BLS12_381_P);
-    sub_mod_384x384(ret[1], ret[1], t.x2, BLS12_381_P);
+    sub_mod_384x384(ret[1], ret[1], ret[0], *get_BLST_P());
+    sub_mod_384x384(ret[1], ret[1], t.x2, *get_BLST_P());
 
-    sub_mod_384x384(ret[0], ret[0], t.x2, BLS12_381_P);
+    sub_mod_384x384(ret[0], ret[0], t.x2, *get_BLST_P());
 #endif
 }
 
 void sqr_fp2x2(vec768x ret, const vec384x a)
 {
 #if 1
-    sqr_v382x(ret, a, BLS12_381_P);      /* +~5% in final exponentiation */
+    sqr_v382x(ret, a, *get_BLST_P());      /* +~5% in final exponentiation */
 #else
     vec384 t0, t1;
 
-    add_mod_384(t0, a[0], a[1], BLS12_381_P);
-    sub_mod_384(t1, a[0], a[1], BLS12_381_P);
+    add_mod_384(t0, a[0], a[1], *get_BLST_P());
+    sub_mod_384(t1, a[0], a[1], *get_BLST_P());
 
     mul_384(ret[1], a[0], a[1]);
-    add_mod_384x384(ret[1], ret[1], ret[1], BLS12_381_P);
+    add_mod_384x384(ret[1], ret[1], ret[1], *get_BLST_P());
 
     mul_384(ret[0], t0, t1);
 #endif
@@ -758,18 +758,18 @@ int blst_fp12_is_equal(const vec384fp12 a, const vec384fp12 b)
 
 int blst_fp12_is_one(const vec384fp12 a)
 {
-    return (int)(vec_is_equal(a[0][0], BLS12_381_Rx.p2, sizeof(a[0][0])) &
+    return (int)(vec_is_equal(a[0][0], get_BLST_Rx()->p2, sizeof(a[0][0])) &
                  vec_is_zero(a[0][1], sizeof(vec384fp12) - sizeof(a[0][0])));
 }
 
 
 const vec384fp12 *blst_fp12_one(void)
-{   return (const vec384fp12 *)BLS12_381_Rx.p12;   }
+{   return (const vec384fp12 *)get_BLST_Rx()->p12;   }
 
 
 void blst_fp12_one_copy(vec384fp12 ret)
 {
-	char* src = (char*)BLS12_381_Rx.p12;
+	char* src = (char*)get_BLST_Rx()->p12;
 	char* dst = (char*)ret;
 	int size = sizeof(vec384fp12);
     for(int i = 0; i < size; ++i)

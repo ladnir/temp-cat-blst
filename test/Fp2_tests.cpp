@@ -30,7 +30,7 @@ TEST(Fp2Test, ZeroAndOne) {
     // Initialize zero and one
     vec_zero(zero, sizeof(zero));
     vec_zero(one, sizeof(one));
-    vec_copy(one[0], BLS12_381_Rx.p, sizeof(vec384));  // Re(1) = 1
+    vec_copy(one[0], get_BLST_Rx()->p, sizeof(vec384));  // Re(1) = 1
 
     // Check zero properties
     vec384x result;
@@ -62,23 +62,23 @@ TEST(Fp2Test, Addition) {
     // Initialize with some values
     // a = 2 + 3i (in Montgomery representation)
     vec_zero(a, sizeof(a));
-    lshift_fp(a[0], BLS12_381_Rx.p, 1);     // Re(a) = 2
-    mul_by_3_fp(a[1], BLS12_381_Rx.p);      // Im(a) = 3
+    lshift_fp(a[0], get_BLST_Rx()->p, 1);     // Re(a) = 2
+    mul_by_3_fp(a[1], get_BLST_Rx()->p);      // Im(a) = 3
 
     // b = 4 + 5i (in Montgomery representation)
     vec_zero(b, sizeof(b));
-    lshift_fp(b[0], BLS12_381_Rx.p, 2);     // Re(b) = 4
-    add_fp(b[1], BLS12_381_Rx.p, b[0]);     // Im(b) = 1 + 4 = 5
+    lshift_fp(b[0], get_BLST_Rx()->p, 2);     // Re(b) = 4
+    add_fp(b[1], get_BLST_Rx()->p, b[0]);     // Im(b) = 1 + 4 = 5
 
     // c = a + b should be 6 + 8i
     add_fp2(c, a, b);
 
     vec_zero(expected, sizeof(expected));
     // Calculate Re(expected) = 6
-    mul_by_3_fp(expected[0], BLS12_381_Rx.p);       // Re(expected) = 3
+    mul_by_3_fp(expected[0], get_BLST_Rx()->p);       // Re(expected) = 3
     lshift_fp(expected[0], expected[0], 1);         // Re(expected) = 6
     // Calculate Im(expected) = 8
-    lshift_fp(expected[1], BLS12_381_Rx.p, 3);      // Im(expected) = 8
+    lshift_fp(expected[1], get_BLST_Rx()->p, 3);      // Im(expected) = 8
 
     EXPECT_TRUE(vec_is_equal(c, expected, sizeof(vec384x)))
         << "(2+3i) + (4+5i) = (6+8i)";
@@ -95,27 +95,27 @@ TEST(Fp2Test, Subtraction) {
     // Initialize with some values
     // a = 7 + 4i (in Montgomery representation)
     vec_zero(a, sizeof(a));
-    mul_by_3_fp(a[0], BLS12_381_Rx.p);      // Re(a) = 3
-    add_fp(a[0], a[0], BLS12_381_Rx.p);     // Re(a) = 3+1 = 4
-    add_fp(a[0], a[0], BLS12_381_Rx.p);     // Re(a) = 4+1 = 5
-    add_fp(a[0], a[0], BLS12_381_Rx.p);     // Re(a) = 5+1 = 6
-    add_fp(a[0], a[0], BLS12_381_Rx.p);     // Re(a) = 6+1 = 7
-    lshift_fp(a[1], BLS12_381_Rx.p, 2);     // Im(a) = 4
+    mul_by_3_fp(a[0], get_BLST_Rx()->p);      // Re(a) = 3
+    add_fp(a[0], a[0], get_BLST_Rx()->p);     // Re(a) = 3+1 = 4
+    add_fp(a[0], a[0], get_BLST_Rx()->p);     // Re(a) = 4+1 = 5
+    add_fp(a[0], a[0], get_BLST_Rx()->p);     // Re(a) = 5+1 = 6
+    add_fp(a[0], a[0], get_BLST_Rx()->p);     // Re(a) = 6+1 = 7
+    lshift_fp(a[1], get_BLST_Rx()->p, 2);     // Im(a) = 4
 
     // b = 2 + 3i (in Montgomery representation)
     vec_zero(b, sizeof(b));
-    lshift_fp(b[0], BLS12_381_Rx.p, 1);     // Re(b) = 2
-    mul_by_3_fp(b[1], BLS12_381_Rx.p);      // Im(b) = 3
+    lshift_fp(b[0], get_BLST_Rx()->p, 1);     // Re(b) = 2
+    mul_by_3_fp(b[1], get_BLST_Rx()->p);      // Im(b) = 3
 
     // c = a - b should be 5 + 1i
     sub_fp2(c, a, b);
 
     vec_zero(expected, sizeof(expected));
-    add_fp(expected[0], BLS12_381_Rx.p, BLS12_381_Rx.p);  // Re(expected) = 2
-    add_fp(expected[0], expected[0], BLS12_381_Rx.p);     // Re(expected) = 2+1 = 3
-    add_fp(expected[0], expected[0], BLS12_381_Rx.p);     // Re(expected) = 3+1 = 4
-    add_fp(expected[0], expected[0], BLS12_381_Rx.p);     // Re(expected) = 4+1 = 5
-    vec_copy(expected[1], BLS12_381_Rx.p, sizeof(vec384));  // Im(expected) = 1
+    add_fp(expected[0], get_BLST_Rx()->p, get_BLST_Rx()->p);  // Re(expected) = 2
+    add_fp(expected[0], expected[0], get_BLST_Rx()->p);     // Re(expected) = 2+1 = 3
+    add_fp(expected[0], expected[0], get_BLST_Rx()->p);     // Re(expected) = 3+1 = 4
+    add_fp(expected[0], expected[0], get_BLST_Rx()->p);     // Re(expected) = 4+1 = 5
+    vec_copy(expected[1], get_BLST_Rx()->p, sizeof(vec384));  // Im(expected) = 1
 
     EXPECT_TRUE(vec_is_equal(c, expected, sizeof(vec384x)))
         << "(7+4i) - (2+3i) = (5+1i)";
@@ -135,28 +135,28 @@ TEST(Fp2Test, Multiplication) {
 
     // a = 2 + 3i
     vec_zero(a, sizeof(a));
-    lshift_fp(a[0], BLS12_381_Rx.p, 1);     // Re(a) = 2
-    mul_by_3_fp(a[1], BLS12_381_Rx.p);      // Im(a) = 3
+    lshift_fp(a[0], get_BLST_Rx()->p, 1);     // Re(a) = 2
+    mul_by_3_fp(a[1], get_BLST_Rx()->p);      // Im(a) = 3
 
     // b = 4 + 5i
     vec_zero(b, sizeof(b));
-    lshift_fp(b[0], BLS12_381_Rx.p, 2);     // Re(b) = 4
-    add_fp(b[1], BLS12_381_Rx.p, b[0]);     // Im(b) = 1 + 4 = 5
+    lshift_fp(b[0], get_BLST_Rx()->p, 2);     // Re(b) = 4
+    add_fp(b[1], get_BLST_Rx()->p, b[0]);     // Im(b) = 1 + 4 = 5
 
     // c = a * b should be (2*4 - 3*5) + (2*5 + 3*4)i = (8 - 15) + (10 + 12)i = -7 + 22i
     mul_fp2(c, a, b);
 
     vec_zero(expected, sizeof(expected));
     // Re(expected) = -7
-    mul_by_3_fp(expected[0], BLS12_381_Rx.p);      // 3
+    mul_by_3_fp(expected[0], get_BLST_Rx()->p);      // 3
     lshift_fp(expected[0], expected[0], 1);        // 6
-    add_fp(expected[0], expected[0], BLS12_381_Rx.p); // 7
+    add_fp(expected[0], expected[0], get_BLST_Rx()->p); // 7
     cneg_fp(expected[0], expected[0], 1);           // -7
 
     // Im(expected) = 22
     vec384 temp;
-    lshift_fp(temp, BLS12_381_Rx.p, 1);             // 2
-    mul_by_3_fp(expected[1], BLS12_381_Rx.p);       // 3
+    lshift_fp(temp, get_BLST_Rx()->p, 1);             // 2
+    mul_by_3_fp(expected[1], get_BLST_Rx()->p);       // 3
     lshift_fp(expected[1], expected[1], 3);         // 24
     sub_fp(expected[1], expected[1], temp);         // 22
 
@@ -174,8 +174,8 @@ TEST(Fp2Test, SquareAndMultiply) {
 
     // a = 2 + 3i
     vec_zero(a, sizeof(a));
-    lshift_fp(a[0], BLS12_381_Rx.p, 1);     // Re(a) = 2
-    mul_by_3_fp(a[1], BLS12_381_Rx.p);      // Im(a) = 3
+    lshift_fp(a[0], get_BLST_Rx()->p, 1);     // Re(a) = 2
+    mul_by_3_fp(a[1], get_BLST_Rx()->p);      // Im(a) = 3
 
     // Compute a² using multiplication
     mul_fp2(a_squared1, a, a);
@@ -193,8 +193,8 @@ TEST(Fp2Test, Inversion) {
 
     // a = 2 + 3i
     vec_zero(a, sizeof(a));
-    lshift_fp(a[0], BLS12_381_Rx.p, 1);     // Re(a) = 2
-    mul_by_3_fp(a[1], BLS12_381_Rx.p);      // Im(a) = 3
+    lshift_fp(a[0], get_BLST_Rx()->p, 1);     // Re(a) = 2
+    mul_by_3_fp(a[1], get_BLST_Rx()->p);      // Im(a) = 3
 
     // Compute 1/a
     reciprocal_fp2(a_inv, a);
@@ -205,7 +205,7 @@ TEST(Fp2Test, Inversion) {
     // Should equal 1 (real part 1, imaginary part 0)
     vec384x one;
     vec_zero(one, sizeof(one));
-    vec_copy(one[0], BLS12_381_Rx.p, sizeof(vec384));
+    vec_copy(one[0], get_BLST_Rx()->p, sizeof(vec384));
 
     EXPECT_TRUE(vec_is_equal(result, one, sizeof(vec384x)))
         << "a * (1/a) should equal 1";
@@ -216,8 +216,8 @@ TEST(Fp2Test, Frobenius) {
 
     // a = 2 + 3i
     vec_zero(a, sizeof(a));
-    lshift_fp(a[0], BLS12_381_Rx.p, 1);     // Re(a) = 2
-    mul_by_3_fp(a[1], BLS12_381_Rx.p);      // Im(a) = 3
+    lshift_fp(a[0], get_BLST_Rx()->p, 1);     // Re(a) = 2
+    mul_by_3_fp(a[1], get_BLST_Rx()->p);      // Im(a) = 3
 
     // Frobenius map in Fp2 is complex conjugation: (a+bi) -> (a-bi)
     // expected = 2 - 3i
@@ -237,8 +237,8 @@ TEST(Fp2Test, SquareRoot) {
     // Let's try with a perfect square: a = (2+3i)²
     vec384x temp;
     vec_zero(temp, sizeof(temp));
-    lshift_fp(temp[0], BLS12_381_Rx.p, 1);    // Re(temp) = 2
-    mul_by_3_fp(temp[1], BLS12_381_Rx.p);     // Im(temp) = 3
+    lshift_fp(temp[0], get_BLST_Rx()->p, 1);    // Re(temp) = 2
+    mul_by_3_fp(temp[1], get_BLST_Rx()->p);     // Im(temp) = 3
 
     sqr_fp2(a, temp);  // a = (2+3i)²
 
@@ -267,8 +267,8 @@ TEST(Fp2Test, Serialization) {
 
     // a = 2 + 3i
     vec_zero(a, sizeof(a));
-    lshift_fp(a[0], BLS12_381_Rx.p, 1);     // Re(a) = 2
-    mul_by_3_fp(a[1], BLS12_381_Rx.p);      // Im(a) = 3
+    lshift_fp(a[0], get_BLST_Rx()->p, 1);     // Re(a) = 2
+    mul_by_3_fp(a[1], get_BLST_Rx()->p);      // Im(a) = 3
 
     // Serialize to bytes: convert from Montgomery to standard form
     vec384 temp_re, temp_im;
@@ -285,8 +285,8 @@ TEST(Fp2Test, Serialization) {
     memcpy(raw_im, serialized + 48, 48);
 
     // Convert to Montgomery form by multiplying by R^2
-    mul_fp(b[0], raw_re, BLS12_381_RR);
-    mul_fp(b[1], raw_im, BLS12_381_RR);
+    mul_fp(b[0], raw_re, *get_BLST_RR());
+    mul_fp(b[1], raw_im, *get_BLST_RR());
 
     // Should get back our original value
     EXPECT_TRUE(vec_is_equal(a, b, sizeof(vec384x)))

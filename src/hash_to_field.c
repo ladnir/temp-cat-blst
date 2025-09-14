@@ -7,11 +7,6 @@
 #include "consts.h"
 #include "sha256.h"
 
-const vec384 BLS12_381_RRRR = {  /* RR^2 */
-    TO_LIMB_T(0xed48ac6bd94ca1e0), TO_LIMB_T(0x315f831e03a7adf8),
-    TO_LIMB_T(0x9a53352a615e29dd), TO_LIMB_T(0x34c04e5e921e1761),
-    TO_LIMB_T(0x2512d43565724728), TO_LIMB_T(0x0aa6346091755d4d)
-};
 
 #ifdef expand_message_xmd
 void expand_message_xmd(unsigned char *bytes, size_t len_in_bytes,
@@ -147,8 +142,8 @@ void hash_to_field(vec384 elems[], size_t nelems,
         /*
          * L-bytes block % P, output is in Montgomery domain...
          */
-        redc_mont_v384(elems[0], elem, BLS12_381_P, BLS12_381_p0);
-        mul_mont_v384(elems[0], elems[0], BLS12_381_RRRR, BLS12_381_P, BLS12_381_p0);
+        redc_mont_v384(elems[0], elem, *get_BLST_P(), BLST_p0);
+        mul_mont_v384(elems[0], elems[0], *get_BLST_RRRR(), *get_BLST_P(), BLST_p0);
         elems++;
     }
 }

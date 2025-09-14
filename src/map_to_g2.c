@@ -223,7 +223,7 @@ void map_to_isogenous_E2(POINTonE2 *p, const vec384x u)
 # define y1     y
 # define Zuu    x2n
 #endif
-#define sgn0_fp2(a) (sgn0_pty_mont_v384x((a), BLS12_381_P, BLS12_381_p0) & 1)
+#define sgn0_fp2(a) (sgn0_pty_mont_v384x((a), *get_BLST_P(), BLST_p0) & 1)
     bool_t e1, e2;
 
     /*
@@ -236,7 +236,7 @@ void map_to_isogenous_E2(POINTonE2 *p, const vec384x u)
     mul_fp2(Zuu, Z, uu);                /* Zuu = Z * uu                 */
     sqr_fp2(tv2, Zuu);                  /* tv2 = Zuu^2                  */
     add_fp2(tv2, tv2, Zuu);             /* tv2 = tv2 + Zuu              */
-    add_fp2(x1n, tv2, BLS12_381_Rx.p2); /* x1n = tv2 + 1                */
+    add_fp2(x1n, tv2, get_BLST_Rx()->p2); /* x1n = tv2 + 1                */
     mul_fp2(x1n, x1n, Bprime_E2);       /* x1n = x1n * B                */
     mul_fp2(x2n, Zuu, x1n);             /* x2n = Zuu * x1n              */
 
@@ -437,7 +437,7 @@ int blst_p2_affine_in_g2(const POINTonE2_affine *p)
     POINTonE2 P;
 
     vec_copy(P.X, p->X, 2*sizeof(P.X));
-    vec_select(P.Z, p->X, BLS12_381_Rx.p, sizeof(P.Z),
+    vec_select(P.Z, p->X, get_BLST_Rx()->p, sizeof(P.Z),
                      vec_is_zero(p, sizeof(*p)));
 
     return (int)POINTonE2_in_G2(&P);

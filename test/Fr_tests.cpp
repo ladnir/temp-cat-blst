@@ -32,7 +32,7 @@ void print_fr(const vec256 v) {
 
 // Helper: Convert standard integer to Montgomery form
 void to_mont_fr(vec256 r, const vec256 a) {
-    // Use BLS12_381_rRR for conversion to Montgomery form
+    // Use *get_*get_BLST_r()()RR for conversion to Montgomery form
     blst_fr_to(r, a);
 }
 
@@ -71,7 +71,7 @@ TEST(FrOps, AddOverflow) {
     vec256 a, b, result, expected;
     
     // Set a = r - 1 (order minus 1)
-    fr_copy(a, BLS12_381_r);
+    fr_copy(a, *get_BLST_r());
     vec256 one;
     set_fr(one, 1);
     blst_fr_sub(a, a, one);
@@ -111,7 +111,7 @@ TEST(FrOps, SubUnderflow) {
     
     // Expected: r - 7
     vec256 expected;
-    fr_copy(expected, BLS12_381_r);
+    fr_copy(expected, *get_BLST_r());
     vec256 seven;
     set_fr(seven, 7);
     blst_fr_sub(expected, expected, seven);
@@ -273,7 +273,7 @@ TEST(FrOps, CNeg) {
     blst_fr_cneg(result, a, 1);
     
     // Expected: r - 5
-    fr_copy(expected, BLS12_381_r);
+    fr_copy(expected, *get_BLST_r());
     vec256 five;
     set_fr(five, 5);
     blst_fr_sub(expected, expected, five);

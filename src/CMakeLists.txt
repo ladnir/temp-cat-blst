@@ -4,10 +4,10 @@ set(BLST_SRC server.c)
 
 # ---- Static Library Configuration ----
 set(BLST_STATIC_SRC ${BLST_SRC})
-add_compile_options(-save-temps=obj)
 
 if(MSVC)
-    set(BLST_DEBUG_OPT /Zi /Od /MDd /DEBUG /W4 /WX)
+    set(BLST_OPTS )
+    set(BLST_DEBUG_OPT /Zi /Od /MDd /DEBUG ) #/W4 /WX
     set(BLST_RELEASE_OPT /O2 /MD)
     set(BLST_RELWITHDEBINFO_OPT /Zi /O2 /MD /DEBUG)
     if(CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -16,11 +16,21 @@ if(MSVC)
         set(ASM_PATTERN "${CMAKE_CURRENT_SOURCE_DIR}/../build/win64/*-armv8.asm")
     endif()
 else()
-    set(BLST_DEBUG_OPT -g -O0 -fPIC)
-    set(BLST_RELEASE_OPT -O2 -Wall -Wextra -fPIC)
-    set(BLST_RELWITHDEBINFO_OPT -g -O2 -Wall -Wextra -fPIC)
+    set(BLST_OPTS -fPIC)
+    set(BLST_DEBUG_OPT -g -O0)
+    set(BLST_RELEASE_OPT -O2 -Wall -Wextra)
+    set(BLST_RELWITHDEBINFO_OPT -g -O2 -Wall -Wextra)
 
     set(ASM_PATTERN  ${CMAKE_CURRENT_SOURCE_DIR}/../build/assembly.S)
+endif()
+
+
+if(BLST_ADX)
+    if (MSVC)
+      set(BLST_OPTS  ${BLST_OPTS} /arch:AVX2)
+    else()
+      set(BLST_OPTS  ${BLST_OPTS} -mbmi2 -madx)
+    endif()
 endif()
 
 
@@ -47,33 +57,29 @@ if(BLST_CUDA)
     
     # Tell CMake to compile .c files with NVCC
     set_source_files_properties(${BLST_SRC} PROPERTIES LANGUAGE CUDA)
-    
-    set(BLST_STATIC_OPTS 
-        $<$<AND:$<CONFIG:Debug>,$<COMPILE_LANGUAGE:CUDA>>:
-          $<LIST:TRANSFORM,${BLST_DEBUG_OPT},PREPEND,-Xcompiler=>>
-        $<$<AND:$<CONFIG:Release>,$<COMPILE_LANGUAGE:CUDA>>:
-          $<LIST:TRANSFORM,${BLST_RELEASE_OPT},PREPEND,-Xcompiler=>>
-        $<$<AND:$<CONFIG:RelWithDebInfo>,$<COMPILE_LANGUAGE:CUDA>>:
-          $<LIST:TRANSFORM,${BLST_RELWITHDEBINFO_OPT},PREPEND,-Xcompiler=>>
+    set(BLST_STATIC_OPTS
+        # CPU flags forwarded to NVCC's host compiler (only when list non-empty)
+        $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<BOOL:${BLST_OPTS}>>:
+        $<LIST:TRANSFORM,${BLST_OPTS},PREPEND,-Xcompiler=>>
 
-        --expt-relaxed-constexpr
-        --extended-lambda
-        -arch=sm_70
-        -rdc=true
-        # Add verbose compilation flags
-        #--verbose
-        #--ptxas-options=-v
+        # Config-specific CPU flags forwarded to NVCC's host compiler
+        $<$<AND:$<CONFIG:Debug>,$<COMPILE_LANGUAGE:CUDA>>:
+        $<LIST:TRANSFORM,${BLST_DEBUG_OPT},PREPEND,-Xcompiler=>>
+        $<$<AND:$<CONFIG:Release>,$<COMPILE_LANGUAGE:CUDA>>:
+        $<LIST:TRANSFORM,${BLST_RELEASE_OPT},PREPEND,-Xcompiler=>>
+        $<$<AND:$<CONFIG:RelWithDebInfo>,$<COMPILE_LANGUAGE:CUDA>>:
+        $<LIST:TRANSFORM,${BLST_RELWITHDEBINFO_OPT},PREPEND,-Xcompiler=>>
+
+        # CUDA device/linkage flags (CUDA-only)
+        $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr>
+        $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda>
+        $<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_70>
+        $<$<COMPILE_LANGUAGE:CUDA>:-rdc=true>
     )
 
 else()
 
     
-    #set(BLST_STATIC_OPTS 
-    #    $<$<CONFIG:Debug>:${BLST_DEBUG_OPT}>
-    #    $<$<CONFIG:Release>:${BLST_RELEASE_OPT}>
-    #    $<$<CONFIG:RelWithDebInfo>:${BLST_RELWITHDEBINFO_OPT}>
-    #)
-    # Apply MSVC flags only to C files
     set(BLST_STATIC_OPTS 
         $<$<AND:$<CONFIG:Debug>,$<COMPILE_LANGUAGE:C>>:${BLST_DEBUG_OPT}>
         $<$<AND:$<CONFIG:Release>,$<COMPILE_LANGUAGE:C>>:${BLST_RELEASE_OPT}>
@@ -101,6 +107,7 @@ if(BLST_CUDA)
     enable_language(CUDA)
     find_package(CUDAToolkit REQUIRED)
     target_link_libraries(blst_static PRIVATE CUDA::cudart)
+
 endif()
 
 
@@ -119,13 +126,6 @@ if(BLST_ASAN)
 endif()
 
 
-if(BLST_ADX)
-    if (MSVC)
-      target_compile_options(blst_static PUBLIC /arch:AVX2)
-    else()
-      target_compile_options(blst_static PUBLIC -mbmi2 -madx)
-    endif()
-endif()
 
 
 #arch native

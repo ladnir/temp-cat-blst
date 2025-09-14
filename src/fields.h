@@ -17,75 +17,75 @@
  * BLS12-381-specific Fp shortcuts to assembly.
  */
 HOST_DEVICE_FUNC BLST_FORCEINLINE void add_fp(vec384 ret, const vec384 a, const vec384 b)
-{   add_mod_v384(ret, a, b, BLS12_381_P);   }
+{   add_mod_v384(ret, a, b, *get_BLST_P());   }
 
 HOST_DEVICE_FUNC BLST_FORCEINLINE void sub_fp(vec384 ret, const vec384 a, const vec384 b)
-{   sub_mod_v384(ret, a, b, BLS12_381_P);   }
+{   sub_mod_v384(ret, a, b, *get_BLST_P());   }
 
 HOST_DEVICE_FUNC BLST_FORCEINLINE void mul_by_3_fp(vec384 ret, const vec384 a)
-{   mul_by_3_mod_v384(ret, a, BLS12_381_P);   }
+{   mul_by_3_mod_v384(ret, a, *get_BLST_P());   }
 
 HOST_DEVICE_FUNC BLST_FORCEINLINE void mul_by_8_fp(vec384 ret, const vec384 a)
-{   mul_by_8_mod_v384(ret, a, BLS12_381_P);   }
+{   mul_by_8_mod_v384(ret, a, *get_BLST_P());   }
 
 HOST_DEVICE_FUNC BLST_FORCEINLINE void lshift_fp(vec384 ret, const vec384 a, size_t count)
-{   lshift_mod_v384(ret, a, count, BLS12_381_P);   }
+{   lshift_mod_v384(ret, a, count, *get_BLST_P());   }
 
 HOST_DEVICE_FUNC BLST_FORCEINLINE void rshift_fp(vec384 ret, const vec384 a, size_t count)
-{   rshift_mod_v384(ret, a, count, BLS12_381_P);   }
+{   rshift_mod_v384(ret, a, count, *get_BLST_P());   }
 
 HOST_DEVICE_FUNC BLST_FORCEINLINE void div_by_2_fp(vec384 ret, const vec384 a)
-{   div_by_2_mod_v384(ret, a, BLS12_381_P);   }
+{   div_by_2_mod_v384(ret, a, *get_BLST_P());   }
 
 HOST_DEVICE_FUNC BLST_FORCEINLINE void mul_fp(vec384 ret, const vec384 a, const vec384 b)
-{   mul_mont_v384(ret, a, b, BLS12_381_P, BLS12_381_p0);   }
+{   mul_mont_v384(ret, a, b, *get_BLST_P(), BLST_p0);   }
 
 HOST_DEVICE_FUNC BLST_FORCEINLINE void sqr_fp(vec384 ret, const vec384 a)
-{   sqr_mont_v384(ret, a, BLS12_381_P, BLS12_381_p0);   }
+{   sqr_mont_v384(ret, a, *get_BLST_P(), BLST_p0);   }
 
 HOST_DEVICE_FUNC BLST_FORCEINLINE void cneg_fp(vec384 ret, const vec384 a, bool_t flag)
-{   cneg_mod_v384(ret, a, flag, BLS12_381_P);   }
+{   cneg_mod_v384(ret, a, flag, *get_BLST_P());   }
 
 HOST_DEVICE_FUNC BLST_FORCEINLINE void from_fp(vec384 ret, const vec384 a)
-{   from_mont_v384(ret, a, BLS12_381_P, BLS12_381_p0);   }
+{   from_mont_v384(ret, a, *get_BLST_P(), BLST_p0);   }
 
 HOST_DEVICE_FUNC BLST_FORCEINLINE void to_fp(vec384 ret, const vec384 a)
-{ mul_fp(ret, a, BLS12_381_RR); }
+{ mul_fp(ret, a, *get_BLST_RR()); }
 
 HOST_DEVICE_FUNC BLST_FORCEINLINE void redc_fp(vec384 ret, const vec768 a)
-{   redc_mont_v384(ret, a, BLS12_381_P, BLS12_381_p0);   }
+{   redc_mont_v384(ret, a, *get_BLST_P(), BLST_p0);   }
 
 /*
  * BLS12-381-specific Fp2 shortcuts to assembly.
  */
 HOST_DEVICE_FUNC BLST_FORCEINLINE void add_fp2(vec384x ret, const vec384x a, const vec384x b)
-{   add_mod_v384x(ret, a, b, BLS12_381_P);   }
+{   add_mod_v384x(ret, a, b, *get_BLST_P());   }
 
 HOST_DEVICE_FUNC BLST_FORCEINLINE void sub_fp2(vec384x ret, const vec384x a, const vec384x b)
-{   sub_mod_v384x(ret, a, b, BLS12_381_P);   }
+{   sub_mod_v384x(ret, a, b, *get_BLST_P());   }
 
 HOST_DEVICE_FUNC BLST_FORCEINLINE void mul_by_3_fp2(vec384x ret, const vec384x a)
-{   mul_by_3_mod_v384x(ret, a, BLS12_381_P);   }
+{   mul_by_3_mod_v384x(ret, a, *get_BLST_P());   }
 
 HOST_DEVICE_FUNC BLST_FORCEINLINE void mul_by_8_fp2(vec384x ret, const vec384x a)
-{   mul_by_8_mod_v384x(ret, a, BLS12_381_P);   }
+{   mul_by_8_mod_v384x(ret, a, *get_BLST_P());   }
 
 HOST_DEVICE_FUNC BLST_FORCEINLINE void lshift_fp2(vec384x ret, const vec384x a, size_t count)
 {
-    lshift_mod_v384(ret[0], a[0], count, BLS12_381_P);
-    lshift_mod_v384(ret[1], a[1], count, BLS12_381_P);
+    lshift_mod_v384(ret[0], a[0], count, *get_BLST_P());
+    lshift_mod_v384(ret[1], a[1], count, *get_BLST_P());
 }
 
 HOST_DEVICE_FUNC BLST_FORCEINLINE void mul_fp2(vec384x ret, const vec384x a, const vec384x b)
-{   mul_mont_v384x(ret, a, b, BLS12_381_P, BLS12_381_p0);   }
+{   mul_mont_v384x(ret, a, b, *get_BLST_P(), BLST_p0);   }
 
 HOST_DEVICE_FUNC BLST_FORCEINLINE void sqr_fp2(vec384x ret, const vec384x a)
-{   sqr_mont_v384x(ret, a, BLS12_381_P, BLS12_381_p0);   }
+{   sqr_mont_v384x(ret, a, *get_BLST_P(), BLST_p0);   }
 
 HOST_DEVICE_FUNC BLST_FORCEINLINE void cneg_fp2(vec384x ret, const vec384x a, bool_t flag)
 {
-    cneg_mod_v384(ret[0], a[0], flag, BLS12_381_P);
-    cneg_mod_v384(ret[1], a[1], flag, BLS12_381_P);
+    cneg_mod_v384(ret[0], a[0], flag, *get_BLST_P());
+    cneg_mod_v384(ret[1], a[1], flag, *get_BLST_P());
 }
 
 #define vec_load_global vec_copy

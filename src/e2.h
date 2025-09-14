@@ -118,7 +118,7 @@ inline void POINTonE2_to_affine(POINTonE2_affine *out, const POINTonE2 *in)
 {
     POINTonE2 p;
 
-    if (!vec_is_equal(in->Z, BLS12_381_Rx.p2, sizeof(in->Z))) {
+    if (!vec_is_equal(in->Z, get_BLST_Rx()->p2, sizeof(in->Z))) {
         POINTonE2_from_Jacobian(&p, in);
         in = &p;
     }
@@ -131,7 +131,7 @@ inline void blst_p2_to_affine(POINTonE2_affine *out, const POINTonE2 *a)
 inline void blst_p2_from_affine(POINTonE2 *out, const POINTonE2_affine *a)
 {
     vec_copy(out, a, sizeof(*a));
-    vec_select(out->Z, a->X, BLS12_381_Rx.p2, sizeof(out->Z),
+    vec_select(out->Z, a->X, get_BLST_Rx()->p2, sizeof(out->Z),
                        vec_is_zero(a, sizeof(*a)));
 }
 
@@ -188,7 +188,7 @@ inline limb_t POINTonE2_affine_Serialize_BE(unsigned char out[192],
     from_fp(temp[0], in->Y[0]);
     be_bytes_from_limbs(out + 144, temp[0], sizeof(temp[0]));
 
-    return sgn0_pty_mod_v384x(temp, BLS12_381_P);
+    return sgn0_pty_mod_v384x(temp, *get_BLST_P());
 }
 
 inline void blst_p2_affine_serialize(unsigned char out[192],
@@ -207,7 +207,7 @@ inline  limb_t POINTonE2_Serialize_BE(unsigned char out[192],
 {
     POINTonE2 p;
 
-    if (!vec_is_equal(in->Z, BLS12_381_Rx.p2, sizeof(in->Z))) {
+    if (!vec_is_equal(in->Z, get_BLST_Rx()->p2, sizeof(in->Z))) {
         POINTonE2_from_Jacobian(&p, in);
         in = &p;
     }
@@ -238,7 +238,7 @@ inline limb_t POINTonE2_affine_Compress_BE(unsigned char out[96],
     from_fp(temp, in->X[0]);
     be_bytes_from_limbs(out + 48, temp, sizeof(temp));
 
-    return sgn0_pty_mont_v384x(in->Y, BLS12_381_P, BLS12_381_p0);
+    return sgn0_pty_mont_v384x(in->Y, *get_BLST_P(), BLST_p0);
 }
 
 inline void blst_p2_affine_compress(unsigned char out[96], const POINTonE2_affine *in)
@@ -257,7 +257,7 @@ inline limb_t POINTonE2_Compress_BE(unsigned char out[96],
 {
     POINTonE2 p;
 
-    if (!vec_is_equal(in->Z, BLS12_381_Rx.p, sizeof(in->Z))) {
+    if (!vec_is_equal(in->Z, get_BLST_Rx()->p, sizeof(in->Z))) {
         POINTonE2_from_Jacobian(&p, in);
         in = &p;
     }
@@ -295,8 +295,8 @@ inline limb_t POINTonE2_Uncompress_BE(POINTonE2_affine *out,
     if (!vec_is_equal(temp, ret.X[0], sizeof(temp)))
         return (limb_t)0 - BLST_BAD_ENCODING;
 
-    mul_fp(ret.X[0], ret.X[0], BLS12_381_RR);
-    mul_fp(ret.X[1], ret.X[1], BLS12_381_RR);
+    mul_fp(ret.X[0], ret.X[0], *get_BLST_RR());
+    mul_fp(ret.X[1], ret.X[1], *get_BLST_RR());
 
     sqr_fp2(ret.Y, ret.X);
     mul_fp2(ret.Y, ret.Y, ret.X);
@@ -306,7 +306,7 @@ inline limb_t POINTonE2_Uncompress_BE(POINTonE2_affine *out,
 
     vec_copy(out, &ret, sizeof(ret));
 
-    return sgn0_pty_mont_v384x(out->Y, BLS12_381_P, BLS12_381_p0);
+    return sgn0_pty_mont_v384x(out->Y, *get_BLST_P(), BLST_p0);
 }
 
 inline BLST_ERROR POINTonE2_Uncompress_Z(POINTonE2_affine *out,
@@ -371,10 +371,10 @@ inline BLST_ERROR POINTonE2_Deserialize_BE(POINTonE2_affine *out,
     if (!vec_is_equal(temp, ret.Y[0], sizeof(temp)))
         return BLST_BAD_ENCODING;
 
-    mul_fp(ret.X[0], ret.X[0], BLS12_381_RR);
-    mul_fp(ret.X[1], ret.X[1], BLS12_381_RR);
-    mul_fp(ret.Y[0], ret.Y[0], BLS12_381_RR);
-    mul_fp(ret.Y[1], ret.Y[1], BLS12_381_RR);
+    mul_fp(ret.X[0], ret.X[0], *get_BLST_RR());
+    mul_fp(ret.X[1], ret.X[1], *get_BLST_RR());
+    mul_fp(ret.Y[0], ret.Y[0], *get_BLST_RR());
+    mul_fp(ret.Y[1], ret.Y[1], *get_BLST_RR());
 
     if (!POINTonE2_affine_on_curve(&ret))
         return BLST_POINT_NOT_ON_CURVE;
@@ -411,9 +411,9 @@ inline BLST_ERROR blst_p2_deserialize(POINTonE2_affine *out,
 
 #include "ec_ops.h"
 POINT_DADD_IMPL(POINTonE2, 384x, fp2)
-POINT_DADD_AFFINE_IMPL_A0(POINTonE2, 384x, fp2, BLS12_381_Rx.p2)
+POINT_DADD_AFFINE_IMPL_A0(POINTonE2, 384x, fp2, get_BLST_Rx()->p2)
 POINT_ADD_IMPL(POINTonE2, 384x, fp2)
-POINT_ADD_AFFINE_IMPL(POINTonE2, 384x, fp2, BLS12_381_Rx.p2)
+POINT_ADD_AFFINE_IMPL(POINTonE2, 384x, fp2, get_BLST_Rx()->p2)
 POINT_DOUBLE_IMPL_A0(POINTonE2, 384x, fp2)
 POINT_IS_EQUAL_IMPL(POINTonE2, 384x, fp2)
 
@@ -595,7 +595,7 @@ inline void blst_p2_mult(POINTonE2 *out, const POINTonE2 *a,
             j += 1 & mask;
         }
 
-        if (check_mod_v256(val.s, BLS12_381_r))  /* z^4 is the formal limit */
+        if (check_mod_v256(val.s, *get_BLST_r()))  /* z^4 is the formal limit */
             POINTonE2_mult_gls(out, a, val.s);
         else    /* should never be the case, added for formal completeness */
             POINTonE2_mult_w5(out, a, scalar, nbits);

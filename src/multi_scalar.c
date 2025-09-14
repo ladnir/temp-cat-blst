@@ -22,11 +22,11 @@ void ptype##s_to_affine(ptype##_affine dst[], \
 \
         point = *points ? *points++ : point+1; \
         acc = (vec##bits *)dst; \
-        vec_select(acc++, BLS12_381_Rx.p, point->Z, sizeof(vec##bits), \
+        vec_select(acc++, get_BLST_Rx()->p, point->Z, sizeof(vec##bits), \
                           vec_is_zero(point->Z, sizeof(point->Z))); \
         for (i = 1; i < delta; i++, acc++) { \
             point = *points ? *points++ : point+1; \
-            vec_select(acc[0], BLS12_381_Rx.p, point->Z, sizeof(vec##bits), \
+            vec_select(acc[0], get_BLST_Rx()->p, point->Z, sizeof(vec##bits), \
                                vec_is_zero(point->Z, sizeof(point->Z))); \
             mul_##field(acc[0], acc[0], acc[-1]); \
         } \
@@ -39,7 +39,7 @@ void ptype##s_to_affine(ptype##_affine dst[], \
             mul_##field(acc[-1], acc[-1], acc[0]);  /* 1/Z        */\
             sqr_##field(ZZ, acc[-1]);               /* 1/Z^2      */\
             mul_##field(ZZZ, ZZ, acc[-1]);          /* 1/Z^3      */\
-            vec_select(acc[-1], BLS12_381_Rx.p, p->Z, sizeof(vec##bits), \
+            vec_select(acc[-1], get_BLST_Rx()->p, p->Z, sizeof(vec##bits), \
                                 is_inf); \
             mul_##field(acc[-1], acc[-1], acc[0]);  \
             mul_##field(dst->X,  p->X, ZZ);         /* X = X'/Z^2 */\
@@ -261,13 +261,13 @@ void prefix##s_mult_wbits(ptype *ret, const ptype##_affine table[], \
                           ptype scratch[]) \
 { ptype##s_mult_wbits(ret, table, wbits, npoints, scalars, nbits, scratch); }
 
-PRECOMPUTE_WBITS_IMPL(blst_p1, POINTonE1, 384, fp, BLS12_381_Rx.p)
-POINTS_MULT_WBITS_IMPL(blst_p1, POINTonE1, 384, fp, BLS12_381_Rx.p)
+PRECOMPUTE_WBITS_IMPL(blst_p1, POINTonE1, 384, fp, get_BLST_Rx()->p)
+POINTS_MULT_WBITS_IMPL(blst_p1, POINTonE1, 384, fp, get_BLST_Rx()->p)
 
 
 
-PRECOMPUTE_WBITS_IMPL(blst_p2, POINTonE2, 384x, fp2, BLS12_381_Rx.p2)
-POINTS_MULT_WBITS_IMPL(blst_p2, POINTonE2, 384x, fp2, BLS12_381_Rx.p2)
+PRECOMPUTE_WBITS_IMPL(blst_p2, POINTonE2, 384x, fp2, get_BLST_Rx()->p2)
+POINTS_MULT_WBITS_IMPL(blst_p2, POINTonE2, 384x, fp2, get_BLST_Rx()->p2)
 
 /*
  * Pippenger algorithm implementation, fastest option for larger amount
@@ -438,11 +438,11 @@ void prefix##s_mult_pippenger(ptype *ret, \
 DECLARE_PRIVATE_POINTXYZZ(POINTonE1, 384)
 POINTXYZZ_TO_JACOBIAN_IMPL(POINTonE1, 384, fp)
 POINTXYZZ_DADD_IMPL(POINTonE1, 384, fp)
-POINTXYZZ_DADD_AFFINE_IMPL(POINTonE1, 384, fp, BLS12_381_Rx.p)
+POINTXYZZ_DADD_AFFINE_IMPL(POINTonE1, 384, fp, get_BLST_Rx()->p)
 POINTS_MULT_PIPPENGER_IMPL(blst_p1, POINTonE1)
 
 DECLARE_PRIVATE_POINTXYZZ(POINTonE2, 384x)
 POINTXYZZ_TO_JACOBIAN_IMPL(POINTonE2, 384x, fp2)
 POINTXYZZ_DADD_IMPL(POINTonE2, 384x, fp2)
-POINTXYZZ_DADD_AFFINE_IMPL(POINTonE2, 384x, fp2, BLS12_381_Rx.p2)
+POINTXYZZ_DADD_AFFINE_IMPL(POINTonE2, 384x, fp2, get_BLST_Rx()->p2)
 POINTS_MULT_PIPPENGER_IMPL(blst_p2, POINTonE2)

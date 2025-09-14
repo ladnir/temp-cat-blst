@@ -160,7 +160,7 @@ void miller_loop(vec384fp12 ret, const POINTonE2 *Q, const POINTonE1 *P)
     add_fp(Px2->Y, P->Y, P->Y);
 
     vec_copy(T->X, Q->X, 2*sizeof(T->X));
-    vec_copy(T->Z, BLS12_381_Rx.p2, sizeof(T->Z));
+    vec_copy(T->Z, get_BLST_Rx()->p2, sizeof(T->Z));
 
     /* first step is ret = 1^2*line, which is replaced with ret = line  */
     line_dbl(line, T, T);                       /* 0x2                  */
@@ -236,7 +236,7 @@ void miller_loop_n(vec384fp12 ret, const POINTonE2_affine Q[],
          * Special case of infinite aggregated signature, pair the additive
          * group's identity with the multiplicative group's identity.
          */
-        vec_copy(ret, BLS12_381_Rx.p12, sizeof(vec384fp12));
+        vec_copy(ret, get_BLST_Rx()->p12, sizeof(vec384fp12));
         return;
     }
 
@@ -247,7 +247,7 @@ void miller_loop_n(vec384fp12 ret, const POINTonE2_affine Q[],
         add_fp(Px2[i].Y, P[i].Y, P[i].Y);
 
         vec_copy(T[i].X, Q[i].X, 2*sizeof(T[i].X));
-        vec_copy(T[i].Z, BLS12_381_Rx.p2, sizeof(T[i].Z));
+        vec_copy(T[i].Z, get_BLST_Rx()->p2, sizeof(T[i].Z));
     }
 
     /* first step is ret = 1^2*line, which is replaced with ret = line  */
@@ -274,7 +274,7 @@ void precompute_lines(vec384fp6 Qlines[68], const POINTonE2_affine *Q)
     POINTonE2 T[1];
 
     vec_copy(T->X, Q->X, 2*sizeof(T->X));
-    vec_copy(T->Z, BLS12_381_Rx.p2, sizeof(T->Z));
+    vec_copy(T->Z, get_BLST_Rx()->p2, sizeof(T->Z));
 
     line_dbl(Qlines[0], T, T);                  /* 0x2                  */
     pre_add_n_dbl(&Qlines[1],  T, Q, 2);        /* ..0xc                */
@@ -435,7 +435,7 @@ void blst_miller_loop_n(vec384fp12 out, const POINTonE2_affine *const Qs[],
 
         vec_copy(Q[i].X, Qptr->X, 2*sizeof(Q[i].X));
         vec_copy(T[i].X, Qptr->X, 2*sizeof(T[i].X));
-        vec_copy(T[i].Z, BLS12_381_Rx.p2, sizeof(T[i].Z));
+        vec_copy(T[i].Z, get_BLST_Rx()->p2, sizeof(T[i].Z));
 
         if (++i == MILLER_LOOP_N_MAX || j == n-1) {
             vec384fp12 tmp;

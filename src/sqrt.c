@@ -15,7 +15,7 @@ void recip_sqrt_fp_3mod4(vec384 out, const vec384 inp)
         TO_BYTES(0x92c6e9ed90d2eb35), TO_BYTES(0x0680447a8e5ff9a6)
     };
 
-    exp_mont_384(out, inp, BLS_12_381_P_minus_3_div_4, 379, BLS12_381_P, BLS12_381_p0);
+    exp_mont_384(out, inp, BLS_12_381_P_minus_3_div_4, 379, *get_BLST_P(), BLST_p0);
 }
 #else
 # if 1
@@ -27,7 +27,7 @@ void recip_sqrt_fp_3mod4(vec384 out, const vec384 inp)
  */
 void sqr_n_mul_fp(vec384 out, const vec384 a, size_t count,
                                 const vec384 b)
-{   sqr_n_mul_mont_v383(out, a, count, BLS12_381_P, BLS12_381_p0, b);   }
+{   sqr_n_mul_mont_v383(out, a, count, *get_BLST_P(), BLST_p0, b);   }
 # else
 void sqr_n_mul_fp(vec384 out, const vec384 a, size_t count,
                          const vec384 b)
@@ -91,7 +91,7 @@ int blst_fp_sqrt(vec384 out, const vec384 inp)
 
 int blst_fp_is_square(const vec384 inp)
 {
-    return (int)ct_is_square_mod_v384(inp, BLS12_381_P);
+    return (int)ct_is_square_mod_v384(inp, *get_BLST_P());
 }
 
 bool_t sqrt_align_fp2(vec384x out, const vec384x ret,
@@ -133,7 +133,7 @@ bool_t sqrt_align_fp2(vec384x out, const vec384x ret,
     /* (a^2-b^2) + 2ab*i == |inp| ? |ret| is spot on */
     sub_fp2(t1, t0, inp);
     is_sqrt = vec_is_zero(t1, sizeof(t1));
-    vec_copy(coeff, BLS12_381_Rx.p2, sizeof(coeff));
+    vec_copy(coeff, get_BLST_Rx()->p2, sizeof(coeff));
 
     /* -(a^2-b^2) - 2ab*i == |inp| ? "rotate |ret| by 90°" */
     add_fp2(t1, t0, inp);
@@ -257,5 +257,5 @@ int blst_fp2_is_square(const vec384x inp)
     sqr_fp(bb, inp[1]);
     add_fp(aa, aa, bb);
 
-    return (int)ct_is_square_mod_v384(aa, BLS12_381_P);
+    return (int)ct_is_square_mod_v384(aa, *get_BLST_P());
 }

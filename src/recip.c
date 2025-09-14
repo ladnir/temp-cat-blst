@@ -64,14 +64,14 @@ void reciprocal_fp(vec384 out, const vec384 inp)
     };
     union { vec768 x; vec384 r[2]; } temp;
 
-    ct_inverse_mod_v384(temp.x, inp, BLS12_381_P, Px8);
-    redc_mont_v384(temp.r[0], temp.x, BLS12_381_P, BLS12_381_p0);
-    mul_mont_v384(temp.r[0], temp.r[0], BLS12_381_RR, BLS12_381_P, BLS12_381_p0);
+    ct_inverse_mod_v384(temp.x, inp, *get_BLST_P(), Px8);
+    redc_mont_v384(temp.r[0], temp.x, *get_BLST_P(), BLST_p0);
+    mul_mont_v384(temp.r[0], temp.r[0], *get_BLST_RR(), *get_BLST_P(), BLST_p0);
 
 #ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     /* sign goes straight to flt_reciprocal */
-    mul_mont_v384(temp.r[1], temp.r[0], inp, BLS12_381_P, BLS12_381_p0);
-    if (vec_is_equal(temp.r[1],  BLS12_381_Rx.p, sizeof(vec384)) |
+    mul_mont_v384(temp.r[1], temp.r[0], inp, *get_BLST_P(), BLST_p0);
+    if (vec_is_equal(temp.r[1],  get_BLST_Rx()->p, sizeof(vec384)) |
         vec_is_zero(temp.r[1], sizeof(vec384)))
         vec_copy(out, temp.r[0], sizeof(vec384));
     else
@@ -117,9 +117,9 @@ void reciprocal_fr(vec256 out, const vec256 inp)
     };
     vec512 temp;
 
-    ct_inverse_mod_v256(temp, inp, BLS12_381_r, rx2);
-    redc_mont_v256(out, temp, BLS12_381_r, r0);
-    mul_mont_sparse_v256(out, out, BLS12_381_rRR, BLS12_381_r, r0);
+    ct_inverse_mod_v256(temp, inp, *get_BLST_r(), rx2);
+    redc_mont_v256(out, temp, *get_BLST_r(), BLST_r0);
+    mul_mont_sparse_v256(out, out, *get_BLST_rRR(), *get_BLST_r(), BLST_r0);
 }
 
 void blst_fr_inverse(vec256 out, const vec256 inp)
