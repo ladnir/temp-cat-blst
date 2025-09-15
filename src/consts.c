@@ -31,4 +31,20 @@ const vec256 BLST_rRR_HOST = { BLST_rRR_LIMBS };
 const vec384 BLST_RRRR_HOST = { BLST_RRRR_LIMBS };
 
 
+
+#if defined(BLST_CUDA) && defined(__CUDACC__)
+
+//__constant__ vec384 BLST_P_DEV = { BLST_P_LIMBS };
+//__constant__ vec384 BLST_RR_DEV = { BLST_RR_LIMBS };
+//__constant__ vec256 BLST_r_DEV = { BLST_r_LIMBS };
+//__constant__ vec256 BLST_rRR_DEV = { BLST_rRR_LIMBS };
+//__constant__ vec384 BLST_RRRR_DEV = { BLST_RRRR_LIMBS };
+//__constant__ radix384 BLST_Rx_DEV = { {
+//    { ONE_MONT_P_LIMBS },
+//    { 0 }
+//} };
+
+#endif // __CUDA_ARCH__
+
+
 BLST_EXTERN_C_END

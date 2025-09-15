@@ -5,6 +5,9 @@
  */
 
 #include "aggregate.h"
+#include "map_to_g1.h"
+#include "map_to_g2.h"
+
 BLST_EXTERN_C_BEGIN
 /*
  * Usage pattern on single-processor system is
@@ -471,13 +474,13 @@ bool_t PAIRING_FinalVerify(const PAIRING *ctx, const vec384fp12 GTsig)
         switch (ctx->ctrl & MIN_SIG_OR_PK) {
             case AGGR_MIN_SIG:
                 POINTonE1_from_Jacobian(&AggrSign.e1, &ctx->AggrSign.e1);
-                miller_loop_n(GT, (const POINTonE2_affine *)&BLS12_381_G2,
+                miller_loop_n(GT, (const POINTonE2_affine *)get_BLST_G2(),
                                   (const POINTonE1_affine *)&AggrSign.e1, 1);
                 break;
             case AGGR_MIN_PK:
                 POINTonE2_from_Jacobian(&AggrSign.e2, &ctx->AggrSign.e2);
                 miller_loop_n(GT, (const POINTonE2_affine *)&AggrSign.e2,
-                                  (const POINTonE1_affine *)&BLS12_381_G1, 1);
+                                  (const POINTonE1_affine *)get_BLST_G1(), 1);
                 break;
             default:
                 return 0;
@@ -616,10 +619,10 @@ BLST_ERROR blst_aggregate_in_g2(POINTonE2 *out, const POINTonE2 *in,
 }
 
 void blst_aggregated_in_g1(vec384fp12 ret, const POINTonE1_affine *sig)
-{   miller_loop_n(ret, (const POINTonE2_affine *)&BLS12_381_G2, sig, 1);   }
+{   miller_loop_n(ret, (const POINTonE2_affine *)get_BLST_G2(), sig, 1);   }
 
 void blst_aggregated_in_g2(vec384fp12 ret, const POINTonE2_affine *sig)
-{   miller_loop_n(ret, sig, (const POINTonE1_affine *)&BLS12_381_G1, 1);   }
+{   miller_loop_n(ret, sig, (const POINTonE1_affine *)get_BLST_G1(), 1);   }
 
 BLST_ERROR blst_core_verify_pk_in_g1(const POINTonE1_affine *pk,
                                      const POINTonE2_affine *signature,

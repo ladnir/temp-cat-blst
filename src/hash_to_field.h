@@ -3,18 +3,20 @@
  * Licensed under the Apache License, Version 2.0, see LICENSE for details.
  * SPDX-License-Identifier: Apache-2.0
  */
+#ifndef BLST_HASH_TO_FIELD_H
+#define BLST_HASH_TO_FIELD_H
 
 #include "consts.h"
 #include "sha256.h"
 BLST_EXTERN_C_BEGIN
 
 #ifdef expand_message_xmd
-void expand_message_xmd(unsigned char *bytes, size_t len_in_bytes,
+HOST_DEVICE_FUNC void expand_message_xmd(unsigned char *bytes, size_t len_in_bytes,
                         const unsigned char *aug, size_t aug_len,
                         const unsigned char *msg, size_t msg_len,
                         const unsigned char *DST, size_t DST_len);
 #else
-void sha256_init_Zpad(SHA256_CTX *ctx)
+HOST_DEVICE_FUNC BLST_INLINE void sha256_init_Zpad(SHA256_CTX *ctx)
 {
     ctx->h[0] = 0xda5698beU;
     ctx->h[1] = 0x17b9b469U;
@@ -29,7 +31,7 @@ void sha256_init_Zpad(SHA256_CTX *ctx)
     ctx->off = 0;
 }
 
-void vec_xor(void *restrict ret, const void *restrict a,
+HOST_DEVICE_FUNC BLST_INLINE void vec_xor(void *restrict ret, const void *restrict a,
                                         const void *restrict b, size_t num)
 {
     limb_t *rp = (limb_t *)ret;
@@ -43,7 +45,7 @@ void vec_xor(void *restrict ret, const void *restrict a,
         rp[i] = ap[i] ^ bp[i];
 }
 
-void expand_message_xmd(unsigned char *bytes, size_t len_in_bytes,
+HOST_DEVICE_FUNC BLST_INLINE void expand_message_xmd(unsigned char *bytes, size_t len_in_bytes,
                                const unsigned char *aug, size_t aug_len,
                                const unsigned char *msg, size_t msg_len,
                                const unsigned char *DST, size_t DST_len)
@@ -112,7 +114,7 @@ void expand_message_xmd(unsigned char *bytes, size_t len_in_bytes,
 /*
  * |nelems| is 'count * m' from spec
  */
-void hash_to_field(vec384 elems[], size_t nelems,
+HOST_DEVICE_FUNC BLST_INLINE void hash_to_field(vec384 elems[], size_t nelems,
                           const unsigned char *aug, size_t aug_len,
                           const unsigned char *msg, size_t msg_len,
                           const unsigned char *DST, size_t DST_len)
@@ -148,7 +150,7 @@ void hash_to_field(vec384 elems[], size_t nelems,
     }
 }
 
-void blst_expand_message_xmd(unsigned char *bytes, size_t len_in_bytes,
+HOST_DEVICE_FUNC BLST_INLINE void blst_expand_message_xmd(unsigned char *bytes, size_t len_in_bytes,
                              const unsigned char *msg, size_t msg_len,
                              const unsigned char *DST, size_t DST_len)
 {
@@ -170,4 +172,6 @@ void blst_expand_message_xmd(unsigned char *bytes, size_t len_in_bytes,
         vec_zero(buf_ptr, buf_len);
     }
 }
+
 BLST_EXTERN_C_END
+#endif

@@ -6,7 +6,7 @@
 
 
 #include "keygen.c"
-#include "hash_to_field.c"
+#include "hash_to_field.h"
 #include "e1.h"
 #include "map_to_g1.c"
 #include "e2.h"
@@ -14,7 +14,7 @@
 #include "fp12_tower.c"
 #include "pairing.c"
 #include "aggregate.c"
-#include "exp.c"
+#include "exp.h"
 #include "sqrt.c"
 #include "recip.c"
 #include "bulk_addition.c"

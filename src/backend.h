@@ -520,10 +520,10 @@ HOST_DEVICE_FUNC HOST_DEVICE_FUNC BLST_FORCEINLINE void blst_sha256_bcopy_v(void
 /*
  * C subroutines
  */
-HOST_DEVICE_FUNC void exp_mont_384(vec384 out, const vec384 inp, const byte* pow,
-	size_t pow_bits, const vec384 p, limb_t n0);
-HOST_DEVICE_FUNC void exp_mont_384x(vec384x out, const vec384x inp, const byte* pow,
-	size_t pow_bits, const vec384 p, limb_t n0);
+//HOST_DEVICE_FUNC void exp_mont_384(vec384 out, const vec384 inp, const byte* pow,
+//	size_t pow_bits, const vec384 p, limb_t n0);
+//HOST_DEVICE_FUNC void exp_mont_384x(vec384x out, const vec384x inp, const byte* pow,
+//	size_t pow_bits, const vec384 p, limb_t n0);
 
 
 
@@ -565,7 +565,7 @@ HOST_DEVICE_FUNC BLST_FORCEINLINE limb_t quot_rem_64_v(limb_t* quot_rem, const l
 /*
  * Divide 255-bit |val| by z^2 yielding 128-bit quotient and remainder in place.
  */
-HOST_DEVICE_FUNC BLST_FORCEINLINE void div_by_zz(limb_t val[])
+HOST_DEVICE_FUNC BLST_INLINE void div_by_zz(limb_t val[])
 {
 	const limb_t zz[] = { TO_LIMB_T(0x0000000100000000),
 								 TO_LIMB_T(0xac45a4010001a402) };
@@ -584,7 +584,7 @@ HOST_DEVICE_FUNC BLST_FORCEINLINE void div_by_zz(limb_t val[])
 /*
  * Divide 128-bit |val| by z yielding 64-bit quotient and remainder in place.
  */
-HOST_DEVICE_FUNC BLST_FORCEINLINE void div_by_z(limb_t val[])
+HOST_DEVICE_FUNC BLST_INLINE void div_by_z(limb_t val[])
 {
 	const limb_t z[] = { TO_LIMB_T(0xd201000000010000) };
 	size_t loop, z_len = sizeof(z) / sizeof(z[0]);

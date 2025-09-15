@@ -39,7 +39,7 @@ typedef struct {
 } SHA256_CTX;
 
 
-void sha256_init_h(unsigned int h[8])
+HOST_DEVICE_FUNC BLST_INLINE void sha256_init_h(unsigned int h[8])
 {
     h[0] = 0x6a09e667U;
     h[1] = 0xbb67ae85U;
@@ -51,7 +51,7 @@ void sha256_init_h(unsigned int h[8])
     h[7] = 0x5be0cd19U;
 }
 
-void sha256_init(SHA256_CTX *ctx)
+HOST_DEVICE_FUNC BLST_INLINE void sha256_init(SHA256_CTX *ctx)
 {
     sha256_init_h(ctx->h);
     ctx->N = 0;
@@ -59,7 +59,7 @@ void sha256_init(SHA256_CTX *ctx)
     ctx->off = 0;
 }
 
-void sha256_update(SHA256_CTX *ctx, const void *_inp, size_t len)
+HOST_DEVICE_FUNC BLST_INLINE void sha256_update(SHA256_CTX *ctx, const void *_inp, size_t len)
 {
     size_t n;
     const unsigned char *inp = (const unsigned char*)_inp;
@@ -118,7 +118,7 @@ void sha256_update(SHA256_CTX *ctx, const void *_inp, size_t len)
 //}
 //#endif
 
-void sha256_final(unsigned char md[32], SHA256_CTX *ctx)
+HOST_DEVICE_FUNC BLST_INLINE void sha256_final(unsigned char md[32], SHA256_CTX *ctx)
 {
     unsigned long long bits = ctx->N * 8;
     size_t n = ctx->off;

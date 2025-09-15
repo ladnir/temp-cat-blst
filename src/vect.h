@@ -25,7 +25,7 @@ HOST_DEVICE_FUNC BLST_FORCEINLINE void vec_copy(void* restrict ret, const void* 
 		rp[i] = ap[i];
 }
 
-HOST_DEVICE_FUNC BLST_FORCEINLINE void vec_zero(void* ret, size_t num)
+HOST_DEVICE_FUNC BLST_INLINE void vec_zero(void* ret, size_t num)
 {
 	volatile limb_t* rp = (volatile limb_t*)ret;
 	size_t i;

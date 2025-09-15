@@ -3,13 +3,15 @@
  * Licensed under the Apache License, Version 2.0, see LICENSE for details.
  * SPDX-License-Identifier: Apache-2.0
  */
+#ifndef BLST_EXP_H
+#define BLST_EXP_H
 
 #include "vect.h"
 BLST_EXTERN_C_BEGIN
 /*
  * |out| = |inp|^|pow|, small footprint, public exponent
  */
-HOST_DEVICE_FUNC void exp_mont_384(vec384 out, const vec384 inp, const byte *pow,
+HOST_DEVICE_FUNC BLST_INLINE void exp_mont_384(vec384 out, const vec384 inp, const byte *pow,
                          size_t pow_bits, const vec384 p, limb_t n0)
 {
 #if 1
@@ -39,7 +41,7 @@ HOST_DEVICE_FUNC void exp_mont_384(vec384 out, const vec384 inp, const byte *pow
 #endif
 }
 
-HOST_DEVICE_FUNC void exp_mont_384x(vec384x out, const vec384x inp, const byte *pow,
+HOST_DEVICE_FUNC BLST_INLINE void exp_mont_384x(vec384x out, const vec384x inp, const byte *pow,
                           size_t pow_bits, const vec384 p, limb_t n0)
 {
     vec384x ret;
@@ -54,3 +56,5 @@ HOST_DEVICE_FUNC void exp_mont_384x(vec384x out, const vec384x inp, const byte *
     vec_copy(out, ret, sizeof(ret));  /* |out| = |ret| */
 }
 BLST_EXTERN_C_END
+
+#endif

@@ -10,16 +10,6 @@ extern "C" {
 
 #define LIMBS NLIMBS(384)
 
-// BLS12-381 prime: p = 0x1a0111ea397fe69a4b1ba7b6434bacd7
-//                  64774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab
-//const uint64_t *get_BLST_P()[6] = {
-//    0xb9feffffffffaaabULL,
-//    0x1eabfffeb153ffffULL,
-//    0x6730d2a0f6b0f624ULL,
-//    0x64774b84f38512bfULL,
-//    0x4b1ba7b6434bacd7ULL,
-//    0x1a0111ea397fe69aULL
-//};
 
 void set_vec384(vec384 v, uint64_t x) {
 	for (int i = 0; i < LIMBS; ++i)

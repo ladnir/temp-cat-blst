@@ -4,65 +4,34 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#ifndef BLST_E1_H
+#define BLST_E1_H
+
 #include "point.h"
 #include "fields.h"
 #include "errors.h"
+#include "consts.h"
 
 
 #if defined(DEBUG) || !defined(NDEBUG)
 #include <stdio.h>
 #endif
+
 BLST_EXTERN_C_BEGIN
-/*
- * y^2 = x^3 + B
- */
-const vec384 B_E1 = {        /* (4 << 384) % P */
-    TO_LIMB_T(0xaa270000000cfff3), TO_LIMB_T(0x53cc0032fc34000a),
-    TO_LIMB_T(0x478fe97a6b0a807f), TO_LIMB_T(0xb1d37ebee6ba24d7),
-    TO_LIMB_T(0x8ec9733bbf78ab2f), TO_LIMB_T(0x09d645513d83de7e)
-};
 
-const POINTonE1 BLS12_381_G1 = {    /* generator point [in Montgomery] */
-  /* (0x17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905
-   *    a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb << 384) % P */
-  { TO_LIMB_T(0x5cb38790fd530c16), TO_LIMB_T(0x7817fc679976fff5),
-    TO_LIMB_T(0x154f95c7143ba1c1), TO_LIMB_T(0xf0ae6acdf3d0e747),
-    TO_LIMB_T(0xedce6ecc21dbf440), TO_LIMB_T(0x120177419e0bfb75) },
-  /* (0x08b3f481e3aaa0f1a09e30ed741d8ae4fcf5e095d5d00af6
-   *    00db18cb2c04b3edd03cc744a2888ae40caa232946c5e7e1 << 384) % P */
-  { TO_LIMB_T(0xbaac93d50ce72271), TO_LIMB_T(0x8c22631a7918fd8e),
-    TO_LIMB_T(0xdd595f13570725ce), TO_LIMB_T(0x51ac582950405194),
-    TO_LIMB_T(0x0e1c8c3fad0059c0), TO_LIMB_T(0x0bbc3efc5008a26a) },
-  { ONE_MONT_P_LIMBS }
-};
-
-const POINTonE1 BLS12_381_NEG_G1 = { /* negative generator [in Montgomery] */
-  /* (0x17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905
-   *    a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb << 384) % P */
-  { TO_LIMB_T(0x5cb38790fd530c16), TO_LIMB_T(0x7817fc679976fff5),
-    TO_LIMB_T(0x154f95c7143ba1c1), TO_LIMB_T(0xf0ae6acdf3d0e747),
-    TO_LIMB_T(0xedce6ecc21dbf440), TO_LIMB_T(0x120177419e0bfb75) },
-  /* (0x114d1d6855d545a8aa7d76c8cf2e21f267816aef1db507c9
-   *    6655b9d5caac42364e6f38ba0ecb751bad54dcd6b939c2ca << 384) % P */
-  { TO_LIMB_T(0xff526c2af318883a), TO_LIMB_T(0x92899ce4383b0270),
-    TO_LIMB_T(0x89d7738d9fa9d055), TO_LIMB_T(0x12caf35ba344c12a),
-    TO_LIMB_T(0x3cff1b76964b5317), TO_LIMB_T(0x0e44d2ede9774430) },
-  { ONE_MONT_P_LIMBS }
-};
-
-inline void mul_by_b_onE1(vec384 out, const vec384 in)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void mul_by_b_onE1(vec384 out, const vec384 in)
 {   lshift_fp(out, in, 2);   }
 
-inline void mul_by_4b_onE1(vec384 out, const vec384 in)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void mul_by_4b_onE1(vec384 out, const vec384 in)
 {   lshift_fp(out, in, 4);   }
 
-inline void POINTonE1_cneg(POINTonE1 *p, bool_t cbit)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void POINTonE1_cneg(POINTonE1 *p, bool_t cbit)
 {   cneg_fp(p->Y, p->Y, cbit);   }
 
-inline void blst_p1_cneg(POINTonE1 *a, int cbit)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void blst_p1_cneg(POINTonE1 *a, int cbit)
 {   POINTonE1_cneg(a, is_zero(cbit) ^ 1);   }
 
-inline void POINTonE1_from_Jacobian(POINTonE1 *out, const POINTonE1 *in)
+HOST_DEVICE_FUNC BLST_INLINE void POINTonE1_from_Jacobian(POINTonE1 *out, const POINTonE1 *in)
 {
     vec384 Z, ZZ;
     limb_t inf = vec_is_zero(in->Z, sizeof(in->Z));
@@ -75,14 +44,14 @@ inline void POINTonE1_from_Jacobian(POINTonE1 *out, const POINTonE1 *in)
     mul_fp(ZZ, ZZ, Z);
     mul_fp(out->Y, in->Y, ZZ);                          /* Y = Y/Z^3 */
 
-    vec_select(out->Z, in->Z, BLS12_381_G1.Z,
-                       sizeof(BLS12_381_G1.Z), inf);    /* Z = inf ? 0 : 1 */
+    vec_select(out->Z, in->Z, get_BLST_G1()->Z,
+                       sizeof(get_BLST_G1()->Z), inf);    /* Z = inf ? 0 : 1 */
 }
 
-inline void blst_p1_from_jacobian(POINTonE1 *out, const POINTonE1 *a)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void blst_p1_from_jacobian(POINTonE1 *out, const POINTonE1 *a)
 {   POINTonE1_from_Jacobian(out, a);   }
 
-inline void POINTonE1_to_affine(POINTonE1_affine *out, const POINTonE1 *in)
+HOST_DEVICE_FUNC BLST_INLINE void POINTonE1_to_affine(POINTonE1_affine *out, const POINTonE1 *in)
 {
     POINTonE1 p;
 
@@ -93,33 +62,33 @@ inline void POINTonE1_to_affine(POINTonE1_affine *out, const POINTonE1 *in)
     vec_copy(out, in, sizeof(*out));
 }
 
-inline void blst_p1_to_affine(POINTonE1_affine *out, const POINTonE1 *a)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void blst_p1_to_affine(POINTonE1_affine *out, const POINTonE1 *a)
 {   POINTonE1_to_affine(out, a);   }
 
-inline void blst_p1_from_affine(POINTonE1 *out, const POINTonE1_affine *a)
+HOST_DEVICE_FUNC BLST_INLINE void blst_p1_from_affine(POINTonE1 *out, const POINTonE1_affine *a)
 {
     vec_copy(out, a, sizeof(*a));
     vec_select(out->Z, a->X, get_BLST_Rx()->p, sizeof(out->Z),
                        vec_is_zero(a, sizeof(*a)));
 }
 
-inline bool_t POINTonE1_affine_on_curve(const POINTonE1_affine *p)
+HOST_DEVICE_FUNC BLST_INLINE bool_t POINTonE1_affine_on_curve(const POINTonE1_affine *p)
 {
     vec384 XXX, YY;
 
     sqr_fp(XXX, p->X);
     mul_fp(XXX, XXX, p->X);                             /* X^3 */
-    add_fp(XXX, XXX, B_E1);                             /* X^3 + B */
+    add_fp(XXX, XXX, *get_BLST_B_E1());                             /* X^3 + B */
 
     sqr_fp(YY, p->Y);                                   /* Y^2 */
 
     return vec_is_equal(XXX, YY, sizeof(XXX));
 }
 
-inline int blst_p1_affine_on_curve(const POINTonE1_affine *p)
+HOST_DEVICE_FUNC BLST_FORCEINLINE int blst_p1_affine_on_curve(const POINTonE1_affine *p)
 {   return (int)(POINTonE1_affine_on_curve(p) | vec_is_zero(p, sizeof(*p)));   }
 
-inline  bool_t POINTonE1_on_curve(const POINTonE1 *p)
+HOST_DEVICE_FUNC BLST_INLINE  bool_t POINTonE1_on_curve(const POINTonE1 *p)
 {
     vec384 XXX, YY, BZ6;
     limb_t inf = vec_is_zero(p->Z, sizeof(p->Z));
@@ -138,10 +107,10 @@ inline  bool_t POINTonE1_on_curve(const POINTonE1 *p)
     return vec_is_equal(XXX, YY, sizeof(XXX)) | inf;
 }
 
-inline int blst_p1_on_curve(const POINTonE1 *p)
+HOST_DEVICE_FUNC BLST_FORCEINLINE int blst_p1_on_curve(const POINTonE1 *p)
 {   return (int)POINTonE1_on_curve(p);   }
 
-inline limb_t POINTonE1_affine_Serialize_BE(unsigned char out[96],
+HOST_DEVICE_FUNC BLST_INLINE limb_t POINTonE1_affine_Serialize_BE(unsigned char out[96],
                                             const POINTonE1_affine *in)
 {
     vec384 temp;
@@ -155,7 +124,7 @@ inline limb_t POINTonE1_affine_Serialize_BE(unsigned char out[96],
     return sgn0_pty_mod_v384(temp, *get_BLST_P());
 }
 
-inline void blst_p1_affine_serialize(unsigned char out[96],
+HOST_DEVICE_FUNC BLST_INLINE void blst_p1_affine_serialize(unsigned char out[96],
                               const POINTonE1_affine *in)
 {
     if (vec_is_zero(in->X, 2*sizeof(in->X))) {
@@ -166,7 +135,7 @@ inline void blst_p1_affine_serialize(unsigned char out[96],
     }
 }
 
-inline limb_t POINTonE1_Serialize_BE(unsigned char out[96],
+HOST_DEVICE_FUNC BLST_INLINE limb_t POINTonE1_Serialize_BE(unsigned char out[96],
                                      const POINTonE1 *in)
 {
     POINTonE1 p;
@@ -179,7 +148,7 @@ inline limb_t POINTonE1_Serialize_BE(unsigned char out[96],
     return POINTonE1_affine_Serialize_BE(out, (const POINTonE1_affine *)in);
 }
 
-inline void POINTonE1_Serialize(unsigned char out[96], const POINTonE1 *in)
+HOST_DEVICE_FUNC BLST_INLINE void POINTonE1_Serialize(unsigned char out[96], const POINTonE1 *in)
 {
     if (vec_is_zero(in->Z, sizeof(in->Z))) {
         bytes_zero(out, 96);
@@ -189,11 +158,11 @@ inline void POINTonE1_Serialize(unsigned char out[96], const POINTonE1 *in)
     }
 }
 
-inline void blst_p1_serialize(unsigned char out[96], const POINTonE1 *in)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void blst_p1_serialize(unsigned char out[96], const POINTonE1 *in)
 {   POINTonE1_Serialize(out, in);   }
 
 
-inline limb_t POINTonE1_affine_Compress_BE(unsigned char out[48],
+HOST_DEVICE_FUNC BLST_INLINE limb_t POINTonE1_affine_Compress_BE(unsigned char out[48],
                                            const POINTonE1_affine *in)
 {
     vec384 temp;
@@ -204,7 +173,7 @@ inline limb_t POINTonE1_affine_Compress_BE(unsigned char out[48],
     return sgn0_pty_mont_v384(in->Y, *get_BLST_P(), BLST_p0);
 }
 
-inline void blst_p1_affine_compress(unsigned char out[48], const POINTonE1_affine *in)
+HOST_DEVICE_FUNC BLST_INLINE void blst_p1_affine_compress(unsigned char out[48], const POINTonE1_affine *in)
 {
     if (vec_is_zero(in->X, 2*sizeof(in->X))) {
         bytes_zero(out, 48);
@@ -215,7 +184,7 @@ inline void blst_p1_affine_compress(unsigned char out[48], const POINTonE1_affin
     }
 }
 
-inline limb_t POINTonE1_Compress_BE(unsigned char out[48],
+HOST_DEVICE_FUNC BLST_INLINE limb_t POINTonE1_Compress_BE(unsigned char out[48],
                                     const POINTonE1 *in)
 {
     POINTonE1 p;
@@ -228,7 +197,7 @@ inline limb_t POINTonE1_Compress_BE(unsigned char out[48],
     return POINTonE1_affine_Compress_BE(out, (const POINTonE1_affine *)in);
 }
 
-inline void blst_p1_compress(unsigned char out[48], const POINTonE1 *in)
+HOST_DEVICE_FUNC BLST_INLINE void blst_p1_compress(unsigned char out[48], const POINTonE1 *in)
 {
     if (vec_is_zero(in->Z, sizeof(in->Z))) {
         bytes_zero(out, 48);
@@ -240,7 +209,7 @@ inline void blst_p1_compress(unsigned char out[48], const POINTonE1 *in)
 }
 
 
-inline limb_t POINTonE1_Uncompress_BE(POINTonE1_affine *out,
+HOST_DEVICE_FUNC BLST_INLINE limb_t POINTonE1_Uncompress_BE(POINTonE1_affine *out,
                                       const unsigned char in[48])
 {
     POINTonE1_affine ret;
@@ -256,7 +225,7 @@ inline limb_t POINTonE1_Uncompress_BE(POINTonE1_affine *out,
 
     sqr_fp(ret.Y, ret.X);
     mul_fp(ret.Y, ret.Y, ret.X);
-    add_fp(ret.Y, ret.Y, B_E1);                         /* X^3 + B */
+    add_fp(ret.Y, ret.Y, *get_BLST_B_E1());                         /* X^3 + B */
     if (!sqrt_fp(ret.Y, ret.Y))
         return (limb_t)0 - BLST_POINT_NOT_ON_CURVE;
 
@@ -265,7 +234,7 @@ inline limb_t POINTonE1_Uncompress_BE(POINTonE1_affine *out,
     return sgn0_pty_mont_v384(out->Y, *get_BLST_P(), BLST_p0);
 }
 
-inline BLST_ERROR POINTonE1_Uncompress_Z(POINTonE1_affine *out,
+HOST_DEVICE_FUNC BLST_INLINE BLST_ERROR POINTonE1_Uncompress_Z(POINTonE1_affine *out,
                                          const unsigned char in[48])
 {
     unsigned char in0 = in[0];
@@ -297,10 +266,10 @@ inline BLST_ERROR POINTonE1_Uncompress_Z(POINTonE1_affine *out,
                                                : BLST_SUCCESS;
 }
 
-inline BLST_ERROR blst_p1_uncompress(POINTonE1_affine *out, const unsigned char in[48])
+HOST_DEVICE_FUNC BLST_FORCEINLINE BLST_ERROR blst_p1_uncompress(POINTonE1_affine *out, const unsigned char in[48])
 {   return POINTonE1_Uncompress_Z(out, in);   }
 
-inline BLST_ERROR POINTonE1_Deserialize_BE(POINTonE1_affine *out,
+HOST_DEVICE_FUNC BLST_INLINE BLST_ERROR POINTonE1_Deserialize_BE(POINTonE1_affine *out,
                                            const unsigned char in[96])
 {
     POINTonE1_affine ret;
@@ -332,7 +301,7 @@ inline BLST_ERROR POINTonE1_Deserialize_BE(POINTonE1_affine *out,
                                                : BLST_SUCCESS;
 }
 
-inline BLST_ERROR POINTonE1_Deserialize_Z(POINTonE1_affine *out,
+HOST_DEVICE_FUNC BLST_INLINE BLST_ERROR POINTonE1_Deserialize_Z(POINTonE1_affine *out,
                                           const unsigned char in[96])
 {
     unsigned char in0 = in[0];
@@ -353,7 +322,7 @@ inline BLST_ERROR POINTonE1_Deserialize_Z(POINTonE1_affine *out,
     return BLST_BAD_ENCODING;
 }
 
-inline BLST_ERROR blst_p1_deserialize(POINTonE1_affine *out,
+HOST_DEVICE_FUNC BLST_FORCEINLINE BLST_ERROR blst_p1_deserialize(POINTonE1_affine *out,
                                const unsigned char in[96])
 {   return POINTonE1_Deserialize_Z(out, in);   }
 
@@ -365,9 +334,9 @@ POINT_ADD_AFFINE_IMPL(POINTonE1, 384, fp, get_BLST_Rx()->p)
 POINT_DOUBLE_IMPL_A0(POINTonE1, 384, fp)
 POINT_IS_EQUAL_IMPL(POINTonE1, 384, fp)
 
-inline void blst_p1_add(POINTonE1 *out, const POINTonE1 *a, const POINTonE1 *b)
+HOST_DEVICE_FUNC BLST_INLINE void blst_p1_add(POINTonE1 *out, const POINTonE1 *a, const POINTonE1 *b)
 {  
-#if defined(DEBUG) || !defined(NDEBUG)
+#if (defined(DEBUG) || !defined(NDEBUG)) && !defined(__CUDA_ARCH__)
     // Check if we're trying to add a point to itself in debug builds
     if (!vec_is_zero(a->Z, sizeof(a->Z)) && !vec_is_zero(b->Z, sizeof(b->Z))) { // If neither point is infinity
         // Convert both points to affine to check if they're the same
@@ -406,14 +375,14 @@ inline void blst_p1_add(POINTonE1 *out, const POINTonE1 *a, const POINTonE1 *b)
     POINTonE1_add(out, a, b);   
 }
 
-inline void blst_p1_add_or_double(POINTonE1 *out, const POINTonE1 *a,
+HOST_DEVICE_FUNC BLST_FORCEINLINE void blst_p1_add_or_double(POINTonE1 *out, const POINTonE1 *a,
                                            const POINTonE1 *b)
 {   POINTonE1_dadd(out, a, b, NULL);   }
 
-inline void blst_p1_add_affine(POINTonE1 *out, const POINTonE1 *a,
+HOST_DEVICE_FUNC BLST_INLINE void blst_p1_add_affine(POINTonE1 *out, const POINTonE1 *a,
                                         const POINTonE1_affine *b)
 {   
-#if defined(DEBUG) || !defined(NDEBUG)
+#if (defined(DEBUG) || !defined(NDEBUG)) && !defined(__CUDA_ARCH__)
     // Check if we're trying to add a point to itself in debug builds
     if (!vec_is_zero(a->Z, sizeof(a->Z))) {  // If a is not infinity
         vec384 Z, ZZ;
@@ -444,14 +413,14 @@ inline void blst_p1_add_affine(POINTonE1 *out, const POINTonE1 *a,
     POINTonE1_add_affine(out, a, b);   
 }
 
-inline void blst_p1_add_or_double_affine(POINTonE1 *out, const POINTonE1 *a,
+HOST_DEVICE_FUNC BLST_FORCEINLINE void blst_p1_add_or_double_affine(POINTonE1 *out, const POINTonE1 *a,
                                                   const POINTonE1_affine *b)
 {   POINTonE1_dadd_affine(out, a, b);   }
 
-inline void blst_p1_double(POINTonE1 *out, const POINTonE1 *a)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void blst_p1_double(POINTonE1 *out, const POINTonE1 *a)
 {   POINTonE1_double(out, a);   }
 
-inline int blst_p1_is_equal(const POINTonE1 *a, const POINTonE1 *b)
+HOST_DEVICE_FUNC BLST_FORCEINLINE int blst_p1_is_equal(const POINTonE1 *a, const POINTonE1 *b)
 {   return (int)POINTonE1_is_equal(a, b);   }
 
 #include "ec_mult.h"
@@ -468,23 +437,15 @@ POINT_LADDER_POST_IMPL_A0(POINTonE1, 384, fp, onE1)
 POINT_MULT_SCALAR_LADDER_IMPL(POINTonE1)
 #endif
 
-const vec384 beta = {            /* such that beta^3 - 1 = 0  */
-    /* -1/2 * (1 + sqrt(-3)) = ((P-2)^(P-2)) * (1 + (P-3)^((P+1)/4)) */
-    /* (0x1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4
-          897d29650fb85f9b409427eb4f49fffd8bfd00000000aaac << 384) % P */
-    TO_LIMB_T(0xcd03c9e48671f071), TO_LIMB_T(0x5dab22461fcda5d2),
-    TO_LIMB_T(0x587042afd3851b95), TO_LIMB_T(0x8eb60ebe01bacb9e),
-    TO_LIMB_T(0x03f97d6e83d050d2), TO_LIMB_T(0x18f0206554638741)
-};
 
-inline void sigma(POINTonE1 *out, const POINTonE1 *in)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void sigma(POINTonE1 *out, const POINTonE1 *in)
 {
     vec_copy(out->X, in->X, 2*sizeof(out->X));
-    mul_fp(out->Z, in->Z, beta);
+    mul_fp(out->Z, in->Z, *get_BLST_beta());
 }
 
 /* Gallant-Lambert-Vanstone, ~45% faster than POINTonE1_mult_w5 */
-inline void POINTonE1_mult_glv(POINTonE1 *out, const POINTonE1 *in,
+HOST_DEVICE_FUNC BLST_INLINE void POINTonE1_mult_glv(POINTonE1 *out, const POINTonE1 *in,
                                const pow256 SK)
 {
     union { vec256 l; pow256 s; } val;
@@ -502,21 +463,21 @@ inline void POINTonE1_mult_glv(POINTonE1 *out, const POINTonE1 *in,
 
         POINTonE1_precompute_w5(table[0], in);
         for (i = 0; i < 1<<(5-1); i++) {
-            mul_fp(table[1][i].X, table[0][i].X, beta);
+            mul_fp(table[1][i].X, table[0][i].X, *get_BLST_beta());
             cneg_fp(table[1][i].Y, table[0][i].Y, 1);
             vec_copy(table[1][i].Z, table[0][i].Z, sizeof(table[1][i].Z));
         }
 
         POINTonE1s_mult_w5(out, NULL, 2, scalars, 128, table);
         POINTonE1_cneg(out, 1);
-        mul_fp(out->Z, out->Z, beta);
-        mul_fp(out->Z, out->Z, beta);
+        mul_fp(out->Z, out->Z, *get_BLST_beta());
+        mul_fp(out->Z, out->Z, *get_BLST_beta());
     }
 
     vec_zero(val.l, sizeof(val));   /* scrub the copy of SK */
 }
 
-inline void POINTonE1_sign(POINTonE1 *out, const POINTonE1 *in, const pow256 SK)
+HOST_DEVICE_FUNC BLST_INLINE void POINTonE1_sign(POINTonE1 *out, const POINTonE1 *in, const pow256 SK)
 {
     vec384 Z, ZZ;
     limb_t inf;
@@ -537,22 +498,22 @@ inline void POINTonE1_sign(POINTonE1 *out, const POINTonE1 *in, const pow256 SK)
     mul_fp(ZZ, ZZ, Z);
     mul_fp(out->Y, out->Y, ZZ);                         /* Y = Y/Z^3 */
 
-    vec_select(out->Z, out->Z, BLS12_381_G1.Z, sizeof(BLS12_381_G1.Z),
+    vec_select(out->Z, out->Z, get_BLST_G1()->Z, sizeof(get_BLST_G1()->Z),
                        inf);                            /* Z = inf ? 0 : 1 */
 }
 
-inline void blst_sk_to_pk_in_g1(POINTonE1 *out, const pow256 SK)
-{   POINTonE1_sign(out, &BLS12_381_G1, SK);   }
+HOST_DEVICE_FUNC BLST_FORCEINLINE void blst_sk_to_pk_in_g1(POINTonE1 *out, const pow256 SK)
+{   POINTonE1_sign(out, get_BLST_G1(), SK); }
 
-inline void blst_sign_pk_in_g2(POINTonE1 *out, const POINTonE1 *msg, const pow256 SK)
+HOST_DEVICE_FUNC BLST_FORCEINLINE void blst_sign_pk_in_g2(POINTonE1 *out, const POINTonE1 *msg, const pow256 SK)
 {   POINTonE1_sign(out, msg, SK);   }
 
-inline void blst_sk_to_pk2_in_g1(unsigned char out[96], POINTonE1_affine *PK,
+HOST_DEVICE_FUNC BLST_INLINE void blst_sk_to_pk2_in_g1(unsigned char out[96], POINTonE1_affine *PK,
                           const pow256 SK)
 {
     POINTonE1 P[1];
 
-    POINTonE1_sign(P, &BLS12_381_G1, SK);
+    POINTonE1_sign(P, get_BLST_G1(), SK);
     if (PK != NULL)
         vec_copy(PK, P, sizeof(*PK));
     if (out != NULL) {
@@ -562,7 +523,7 @@ inline void blst_sk_to_pk2_in_g1(unsigned char out[96], POINTonE1_affine *PK,
     }
 }
 
-inline void blst_sign_pk2_in_g2(unsigned char out[96], POINTonE1_affine *sig,
+HOST_DEVICE_FUNC BLST_INLINE void blst_sign_pk2_in_g2(unsigned char out[96], POINTonE1_affine *sig,
                          const POINTonE1 *hash, const pow256 SK)
 {
     POINTonE1 P[1];
@@ -577,7 +538,7 @@ inline void blst_sign_pk2_in_g2(unsigned char out[96], POINTonE1_affine *sig,
     }
 }
 
-inline void blst_p1_mult(POINTonE1 *out, const POINTonE1 *a,
+HOST_DEVICE_FUNC BLST_INLINE void blst_p1_mult(POINTonE1 *out, const POINTonE1 *a,
                                   const byte *scalar, size_t nbits)
 {
     if (nbits < 176) {
@@ -607,7 +568,7 @@ inline void blst_p1_mult(POINTonE1 *out, const POINTonE1 *a,
     }
 }
 
-inline void blst_p1_unchecked_mult(POINTonE1 *out, const POINTonE1 *a,
+HOST_DEVICE_FUNC BLST_FORCEINLINE void blst_p1_unchecked_mult(POINTonE1 *out, const POINTonE1 *a,
                                             const byte *scalar, size_t nbits)
 {
     if (nbits)
@@ -616,25 +577,28 @@ inline void blst_p1_unchecked_mult(POINTonE1 *out, const POINTonE1 *a,
         vec_zero(out, sizeof(*out));
 }
 
-inline int blst_p1_affine_is_equal(const POINTonE1_affine *a,
+HOST_DEVICE_FUNC BLST_FORCEINLINE int blst_p1_affine_is_equal(const POINTonE1_affine *a,
                             const POINTonE1_affine *b)
 {   return (int)vec_is_equal(a, b, sizeof(*a));   }
 
-inline int blst_p1_is_inf(const POINTonE1 *p)
+HOST_DEVICE_FUNC BLST_FORCEINLINE int blst_p1_is_inf(const POINTonE1 *p)
 {   return (int)vec_is_zero(p->Z, sizeof(p->Z));   }
 
-inline const POINTonE1 *blst_p1_generator(void)
-{   return &BLS12_381_G1;   }
+HOST_DEVICE_FUNC BLST_FORCEINLINE const POINTonE1 *blst_p1_generator(void)
+{   return get_BLST_G1();   }
 
-inline int blst_p1_affine_is_inf(const POINTonE1_affine *p)
+HOST_DEVICE_FUNC BLST_FORCEINLINE int blst_p1_affine_is_inf(const POINTonE1_affine *p)
 {   return (int)vec_is_zero(p, sizeof(*p));   }
 
-inline const POINTonE1_affine *blst_p1_affine_generator(void)
-{   return (const POINTonE1_affine *)&BLS12_381_G1;   }
+HOST_DEVICE_FUNC BLST_FORCEINLINE const POINTonE1_affine *blst_p1_affine_generator(void)
+{   return (const POINTonE1_affine *)get_BLST_G1();   }
 
-inline size_t blst_p1_sizeof(void)
+HOST_DEVICE_FUNC BLST_FORCEINLINE size_t blst_p1_sizeof(void)
 {   return sizeof(POINTonE1);   }
 
-inline size_t blst_p1_affine_sizeof(void)
+HOST_DEVICE_FUNC BLST_FORCEINLINE size_t blst_p1_affine_sizeof(void)
 {   return sizeof(POINTonE1_affine);   }
 BLST_EXTERN_C_END
+
+
+#endif /* BLST_E1_H */

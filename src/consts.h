@@ -7,6 +7,8 @@
 #define __BLS12_381_ASM_CONST_H__
 #include "defines.h"
 #include "config.h"
+#include "vect.h"
+
 BLST_EXTERN_C_BEGIN
 
 // -1/P, this is the modular inverse of P modulo 2^64
@@ -52,7 +54,6 @@ BLST_EXTERN_C_BEGIN
 
 typedef union { vec384 p12[12]; vec384x p2; vec384 p; } radix384;
 
-
 extern const vec384 BLST_P_HOST;
 extern const vec384 BLST_RR_HOST;   /* (1<<768)%P, "radix"^2, to-Montgomery   */
 extern const vec384 BLST_RRRR_HOST; /* (1<<1536)%P, "radix"^4, hash_to_field */
@@ -60,17 +61,26 @@ extern const vec256 BLST_r_HOST;    /* order */
 extern const vec256 BLST_rRR_HOST;  /* (1<<512)%r, "radix"^2, to-Montgomery   */
 extern const radix384 BLST_Rx_HOST; /* (1<<384)%P, "radix", one-in-Montgomery */
 
+
 #if defined(BLST_CUDA) && defined(__CUDACC__)
 
-__constant__ vec384 BLST_P_DEV = { BLST_P_LIMBS };
-__constant__ vec384 BLST_RR_DEV = { BLST_RR_LIMBS };
-__constant__ vec256 BLST_r_DEV = { BLST_r_LIMBS };
-__constant__ vec256 BLST_rRR_DEV = { BLST_rRR_LIMBS };
-__constant__ vec384 BLST_RRRR_DEV = { BLST_RRRR_LIMBS };
-__constant__ radix384 BLST_Rx_DEV = { { 
+//static __constant__ vec384 BLST_P_DEV;
+//static __constant__ vec384 BLST_RR_DEV;
+//static __constant__ vec256 BLST_r_DEV;
+//static __constant__ vec256 BLST_rRR_DEV;
+//static __constant__ vec384 BLST_RRRR_DEV;
+//static __constant__ radix384 BLST_Rx_DEV;
+static __constant__ vec384 BLST_P_DEV = { BLST_P_LIMBS };
+static __constant__ vec384 BLST_RR_DEV = { BLST_RR_LIMBS };
+static __constant__ vec256 BLST_r_DEV = { BLST_r_LIMBS };
+static __constant__ vec256 BLST_rRR_DEV = { BLST_rRR_LIMBS };
+static __constant__ vec384 BLST_RRRR_DEV = { BLST_RRRR_LIMBS };
+static __constant__ radix384 BLST_Rx_DEV = { {
     { ONE_MONT_P_LIMBS },
-    { 0 } 
+    { 0 }
 } };
+
+
 #endif // __CUDA_ARCH__
 
 // returns the prime modulus for BLS12-381. 
@@ -145,6 +155,10 @@ HOST_DEVICE_FUNC BLST_FORCEINLINE const vec256* get_BLST_rRR(void)
 }
 
 #define ZERO_384 (get_BLST_Rx()->p2[1])
+
+
+
+
 
 BLST_EXTERN_C_END
 #endif

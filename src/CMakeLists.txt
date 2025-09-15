@@ -1,9 +1,8 @@
 
 
-set(BLST_SRC server.c)
 
 # ---- Static Library Configuration ----
-set(BLST_STATIC_SRC ${BLST_SRC})
+set(BLST_STATIC_SRC  server.c)
 
 if(MSVC)
     set(BLST_OPTS )
@@ -38,7 +37,7 @@ if(BLST_ASM)
     file(GLOB ASM_SRC ${ASM_PATTERN})
     #list(APPEND BLST_STATIC_SRC ${ASM_SRC})
     message(STATUS "Assembly optimizations enabled, searching for ${ASM_PATTERN}")
-    message("found: ${ASM_SRC}")
+    #message("found: ${ASM_SRC}")
     
     if(MSVC)
         enable_language(ASM_MASM)
@@ -55,8 +54,10 @@ if(BLST_CUDA)
     enable_language(CUDA)
     find_package(CUDAToolkit REQUIRED)
     
+    set(BLST_STATIC_SRC ${BLST_STATIC_SRC})
+
     # Tell CMake to compile .c files with NVCC
-    set_source_files_properties(${BLST_SRC} PROPERTIES LANGUAGE CUDA)
+    set_source_files_properties(${BLST_STATIC_SRC} PROPERTIES LANGUAGE CUDA)
     set(BLST_STATIC_OPTS
         # CPU flags forwarded to NVCC's host compiler (only when list non-empty)
         $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<BOOL:${BLST_OPTS}>>:
@@ -73,11 +74,18 @@ if(BLST_CUDA)
         # CUDA device/linkage flags (CUDA-only)
         #$<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr>
         #$<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda>
-        $<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_89>
+        #$<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_89>
         $<$<COMPILE_LANGUAGE:CUDA>:-rdc=false>
+        
+        #verbose output for nvcc
+        #$<$<COMPILE_LANGUAGE:CUDA>:
+        #    -v                       # print every sub-command
+        #    --keep --keep-dir=${CMAKE_BINARY_DIR}/nvcc_keep
+        #    -Xptxas -v               # ptxas resource report (regs, smem, spills)
+        #    -MMD
+        #>
     )
     
-set(CMAKE_CUDA_ARCHITECTURES 89)
 else()
 
     
@@ -90,7 +98,7 @@ endif()
 
 add_library(blst_static ${BLST_STATIC_SRC} ${ASM_SRC})
 set_target_properties(blst_static PROPERTIES OUTPUT_NAME blst)
-target_compile_options(blst_static PRIVATE ${BLST_STATIC_OPTS})
+target_compile_options(blst_static PUBLIC ${BLST_STATIC_OPTS})
 
 
 

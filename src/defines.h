@@ -70,6 +70,8 @@ typedef const void *uptr_t;
 // OC_FORCEINLINE ---------------------------------------------//
 // Macro to use in place of 'inline' to force a function to be inline
 #if !defined(BLST_FORCEINLINE)
+//#  if defined(__CUDA_ARCH__)
+//#    define BLST_FORCEINLINE static inline
 #  if defined(_MSC_VER)
 #    define BLST_FORCEINLINE __forceinline
 #  elif defined(__GNUC__) && __GNUC__ > 3
@@ -80,6 +82,14 @@ typedef const void *uptr_t;
 #  endif
 #endif
 
+#  if defined(__CUDA_ARCH__) && defined(BLST_FAST_BUILD)
+// cuda inlines aggretively and its results in slow build. 
+#define BLST_INLINE static __noinline__
+#else
+// in c it can't just be inline because the compiler might not 
+// inline and then the symbol doen't exist...
+#define BLST_INLINE static inline
+#endif
 
 #if defined(__GNUC__) || defined(__clang__)
 # define BLST_launder(var) __asm__ __volatile__("" : "+r"(var))

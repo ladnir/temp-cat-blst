@@ -405,8 +405,8 @@ void final_exp(vec384fp12 ret, const vec384fp12 f)
 
 void blst_miller_loop(vec384fp12 ret, const POINTonE2_affine *Q,
                                       const POINTonE1_affine *P)
-{   miller_loop_n(ret, Q ? Q : (const POINTonE2_affine *)&BLS12_381_G2,
-                       P ? P : (const POINTonE1_affine *)&BLS12_381_G1, 1);
+{   miller_loop_n(ret, Q ? Q : (const POINTonE2_affine *)get_BLST_G2(),
+                       P ? P : (const POINTonE1_affine *)get_BLST_G1(), 1);
 }
 
 #ifndef MILLER_LOOP_N_MAX
