@@ -1,12 +1,12 @@
 #include "gtest/gtest.h"
 
 extern "C" {
-#include "../src/point.h"
-#include "../src/fields.h"
-#include "../src/e1.h"
-#include "../src/e2.h"
-#include "../src/pairing.h"
-#include "../src/fp12_tower.h"
+#include "blst/fields/fields.h"
+#include "blst/fields/fp12_tower.h"
+#include "blst/curve/point.h"
+#include "blst/curve/e1.h"
+#include "blst/curve/e2.h"
+#include "blst/curve/pairing.h"
 }
 
 

@@ -7,7 +7,7 @@
 #include <iostream>
 
 extern "C" {
-#include "../src/fields.h"
+#include "blst/fields/fields.h"
 }
 
 // CUDA kernel wrapper macros for device execution

@@ -5,11 +5,11 @@
 
 
 extern "C" {
-#include "../src/point.h"
-#include "../src/fields.h"
-#include "../src/e1.h"
-#include "../src/e2.h"
-#include "../src/map_to_g2.h"
+#include "blst/curve/point.h"
+#include "blst/fields/fields.h"
+#include "blst/curve/e1.h"
+#include "blst/curve/e2.h"
+#include "blst/curve/map_to_g2.h"
 }
 
 // Helper: Print G2 point coordinates for debugging

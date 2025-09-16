@@ -48,5 +48,5 @@ endif()
 add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:--allow-unsupported-compiler>)
 
 #add_subdirectory(check)
-add_subdirectory(src)
+add_subdirectory(blst)
 add_subdirectory(test)

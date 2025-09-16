@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 extern "C" {
-#include "../src/fields.h"
+#include "blst/fields/fields.h"
 }
 
 #define LIMBS NLIMBS(384)

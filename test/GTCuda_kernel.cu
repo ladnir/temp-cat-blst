@@ -6,13 +6,13 @@
 #include <iostream>
 
 extern "C" {
-#include "../src/point.h"
-#include "../src/fields.h"
-#include "../src/e1.h"
-#include "../src/e2.h"
-#include "../src/pairing.h"
-#include "../src/fp12_tower.h"
-#include "../src/aggregate.h"
+#include "blst/point.h"
+#include "blst/fields/fields.h"
+#include "blst/e1.h"
+#include "blst/e2.h"
+#include "blst/pairing.h"
+#include "blst/fp12_tower.h"
+#include "blst/aggregate.h"
 }
 
 #ifndef DEVICE_FUNC

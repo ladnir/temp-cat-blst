@@ -6,8 +6,8 @@
 #include <iostream>
 
 extern "C" {
-#include "../src/fields.h"
-#include "../src/fp12_tower.h"
+#include "blst/fields/fields.h"
+#include "blst/fields/fp12_tower.h"
 }
 
 #ifndef DEVICE_FUNC

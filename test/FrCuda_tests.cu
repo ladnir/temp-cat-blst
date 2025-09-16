@@ -7,9 +7,9 @@
 #include <cuda_runtime.h>
 
 extern "C" {
-#include "../src/fields.h"
-#include "../src/exports.h"
-#include "../src/fields_cuda.h"
+#include "blst/fields/fields.h"
+#include "blst/exports.h"
+#include "blst/fields/fields_cuda.h"
 }
 
 #define FR_LIMBS NLIMBS(256)

@@ -6,9 +6,9 @@
 
 
 extern "C" {
-#include "../src/backend.h"
-#include "../src/consts.h"
-#include "../src/fields.h"
+#include "blst/backend/backend.h"
+#include "blst/fields/consts.h"
+#include "blst/fields/fields.h"
 }
 
 namespace
