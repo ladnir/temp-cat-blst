@@ -4,26 +4,26 @@ BLST_EXTERN_C_BEGIN
 /*
  * BLS12-381-specific Fr shortcuts to assembly.
  */
-void blst_fr_add(vec256 ret, const vec256 a, const vec256 b);
-void blst_fr_sub(vec256 ret, const vec256 a, const vec256 b);
-void blst_fr_mul_by_3(vec256 ret, const vec256 a);
-void blst_fr_lshift(vec256 ret, const vec256 a, size_t count);
-void blst_fr_rshift(vec256 ret, const vec256 a, size_t count);
-void blst_fr_mul(vec256 ret, const vec256 a, const vec256 b);
-void blst_fr_ct_bfly(vec256 x0, vec256 x1, const vec256 twiddle);
-void blst_fr_gs_bfly(vec256 x0, vec256 x1, const vec256 twiddle);
-void blst_fr_sqr(vec256 ret, const vec256 a);
-void blst_fr_cneg(vec256 ret, const vec256 a, int flag);
-void blst_fr_to(vec256 ret, const vec256 a);
-void blst_fr_from(vec256 ret, const vec256 a);
-void blst_fr_from_scalar(vec256 ret, const pow256 a);
-void blst_scalar_from_fr(pow256 ret, const vec256 a);
-int blst_scalar_fr_check(const pow256 a);
-int blst_sk_check(const pow256 a);
-int blst_sk_add_n_check(pow256 ret, const pow256 a, const pow256 b);
-int blst_sk_sub_n_check(pow256 ret, const pow256 a, const pow256 b);
-int blst_sk_mul_n_check(pow256 ret, const pow256 a, const pow256 b);
-void blst_sk_inverse(pow256 ret, const pow256 a);
+HOST_DEVICE_FUNC void blst_fr_add(vec256 ret, const vec256 a, const vec256 b);
+HOST_DEVICE_FUNC void blst_fr_sub(vec256 ret, const vec256 a, const vec256 b);
+HOST_DEVICE_FUNC void blst_fr_mul_by_3(vec256 ret, const vec256 a);
+HOST_DEVICE_FUNC void blst_fr_lshift(vec256 ret, const vec256 a, size_t count);
+HOST_DEVICE_FUNC void blst_fr_rshift(vec256 ret, const vec256 a, size_t count);
+HOST_DEVICE_FUNC void blst_fr_mul(vec256 ret, const vec256 a, const vec256 b);
+HOST_DEVICE_FUNC void blst_fr_ct_bfly(vec256 x0, vec256 x1, const vec256 twiddle);
+HOST_DEVICE_FUNC void blst_fr_gs_bfly(vec256 x0, vec256 x1, const vec256 twiddle);
+HOST_DEVICE_FUNC void blst_fr_sqr(vec256 ret, const vec256 a);
+HOST_DEVICE_FUNC void blst_fr_cneg(vec256 ret, const vec256 a, int flag);
+HOST_DEVICE_FUNC void blst_fr_to(vec256 ret, const vec256 a);
+HOST_DEVICE_FUNC void blst_fr_from(vec256 ret, const vec256 a);
+HOST_DEVICE_FUNC void blst_fr_from_scalar(vec256 ret, const pow256 a);
+HOST_DEVICE_FUNC void blst_scalar_from_fr(pow256 ret, const vec256 a);
+HOST_DEVICE_FUNC int blst_scalar_fr_check(const pow256 a);
+HOST_DEVICE_FUNC int blst_sk_check(const pow256 a);
+HOST_DEVICE_FUNC int blst_sk_add_n_check(pow256 ret, const pow256 a, const pow256 b);
+HOST_DEVICE_FUNC int blst_sk_sub_n_check(pow256 ret, const pow256 a, const pow256 b);
+HOST_DEVICE_FUNC int blst_sk_mul_n_check(pow256 ret, const pow256 a, const pow256 b);
+HOST_DEVICE_FUNC void blst_sk_inverse(pow256 ret, const pow256 a);
 
 /*
  * BLS12-381-specific Fp shortcuts to assembly.

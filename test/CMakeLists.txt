@@ -40,6 +40,8 @@ if(BLST_CUDA)
     # Add CUDA test source
     list(APPEND TEST_SOURCES 
         "FpCuda_tests.cu"
+        "FrCuda_tests.cu"
+
         "Fp2Cuda_tests.cu"
         "Fp12Cuda_kernel.cu"
         "Fp12Cuda_tests.cu"
@@ -48,6 +50,7 @@ if(BLST_CUDA)
         "G2Cuda_kernel.cu"
         "G2Cuda_tests.cu"
     )
+
 endif()
 
 # Create single test executable with both CPU and CUDA tests
@@ -63,3 +66,8 @@ target_compile_options(blst_tests PRIVATE ${BLST_STATIC_OPTS})
 # Add test with appropriate labels and properties
 add_test(NAME blst_tests COMMAND blst_tests)
 
+
+# Add CUDA tests if CUDA is enabled
+if(BLST_CUDA)
+    set_target_properties(blst_tests PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+endif()

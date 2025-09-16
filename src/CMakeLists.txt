@@ -54,7 +54,7 @@ if(BLST_CUDA)
     enable_language(CUDA)
     find_package(CUDAToolkit REQUIRED)
     
-    set(BLST_STATIC_SRC ${BLST_STATIC_SRC})
+    set(BLST_STATIC_SRC ${BLST_STATIC_SRC} cuda_kernel.c)
 
     # Tell CMake to compile .c files with NVCC
     set_source_files_properties(${BLST_STATIC_SRC} PROPERTIES LANGUAGE CUDA)
@@ -75,7 +75,7 @@ if(BLST_CUDA)
         #$<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr>
         #$<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda>
         #$<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_89>
-        $<$<COMPILE_LANGUAGE:CUDA>:-rdc=false>
+        $<$<COMPILE_LANGUAGE:CUDA>:-rdc=true>
         
         #verbose output for nvcc
         #$<$<COMPILE_LANGUAGE:CUDA>:

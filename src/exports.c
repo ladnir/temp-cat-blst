@@ -22,25 +22,25 @@ BLST_EXTERN_C_BEGIN
 /*
  * BLS12-381-specific Fr shortcuts to assembly.
  */
-void blst_fr_add(vec256 ret, const vec256 a, const vec256 b)
+HOST_DEVICE_FUNC void blst_fr_add(vec256 ret, const vec256 a, const vec256 b)
 {   add_mod_v256(ret, a, b, *get_BLST_r());   }
 
-void blst_fr_sub(vec256 ret, const vec256 a, const vec256 b)
+HOST_DEVICE_FUNC void blst_fr_sub(vec256 ret, const vec256 a, const vec256 b)
 {   sub_mod_v256(ret, a, b, *get_BLST_r());   }
 
-void blst_fr_mul_by_3(vec256 ret, const vec256 a)
+HOST_DEVICE_FUNC void blst_fr_mul_by_3(vec256 ret, const vec256 a)
 {   mul_by_3_mod_v256(ret, a, *get_BLST_r());   }
 
-void blst_fr_lshift(vec256 ret, const vec256 a, size_t count)
+HOST_DEVICE_FUNC void blst_fr_lshift(vec256 ret, const vec256 a, size_t count)
 {   lshift_mod_v256(ret, a, count, *get_BLST_r());   }
 
-void blst_fr_rshift(vec256 ret, const vec256 a, size_t count)
+HOST_DEVICE_FUNC void blst_fr_rshift(vec256 ret, const vec256 a, size_t count)
 {   rshift_mod_v256(ret, a, count, *get_BLST_r());   }
 
-void blst_fr_mul(vec256 ret, const vec256 a, const vec256 b)
+HOST_DEVICE_FUNC void blst_fr_mul(vec256 ret, const vec256 a, const vec256 b)
 {   mul_mont_sparse_v256(ret, a, b, *get_BLST_r(), BLST_r0);   }
 
-void blst_fr_ct_bfly(vec256 x0, vec256 x1, const vec256 twiddle)
+HOST_DEVICE_FUNC void blst_fr_ct_bfly(vec256 x0, vec256 x1, const vec256 twiddle)
 {
     vec256 x2;
 
@@ -49,7 +49,7 @@ void blst_fr_ct_bfly(vec256 x0, vec256 x1, const vec256 twiddle)
     add_mod_v256(x0, x0, x2, *get_BLST_r());
 }
 
-void blst_fr_gs_bfly(vec256 x0, vec256 x1, const vec256 twiddle)
+HOST_DEVICE_FUNC void blst_fr_gs_bfly(vec256 x0, vec256 x1, const vec256 twiddle)
 {
     vec256 x2;
 
@@ -58,19 +58,19 @@ void blst_fr_gs_bfly(vec256 x0, vec256 x1, const vec256 twiddle)
     mul_mont_sparse_v256(x1, x2, twiddle, *get_BLST_r(), BLST_r0);
 }
 
-void blst_fr_sqr(vec256 ret, const vec256 a)
+HOST_DEVICE_FUNC void blst_fr_sqr(vec256 ret, const vec256 a)
 {   sqr_mont_sparse_v256(ret, a, *get_BLST_r(), BLST_r0);   }
 
-void blst_fr_cneg(vec256 ret, const vec256 a, int flag)
+HOST_DEVICE_FUNC void blst_fr_cneg(vec256 ret, const vec256 a, int flag)
 {   cneg_mod_v256(ret, a, is_zero(flag) ^ 1, *get_BLST_r());   }
 
-void blst_fr_to(vec256 ret, const vec256 a)
+HOST_DEVICE_FUNC void blst_fr_to(vec256 ret, const vec256 a)
 {   mul_mont_sparse_v256(ret, a, *get_BLST_rRR(), *get_BLST_r(), BLST_r0); }
 
-void blst_fr_from(vec256 ret, const vec256 a)
+HOST_DEVICE_FUNC void blst_fr_from(vec256 ret, const vec256 a)
 {   from_mont_v256(ret, a, *get_BLST_r(), BLST_r0);   }
 
-void blst_fr_from_scalar(vec256 ret, const pow256 a)
+HOST_DEVICE_FUNC void blst_fr_from_scalar(vec256 ret, const pow256 a)
 {
     const union {
         long one;
@@ -88,7 +88,7 @@ void blst_fr_from_scalar(vec256 ret, const pow256 a)
     }
 }
 
-void blst_scalar_from_fr(pow256 ret, const vec256 a)
+HOST_DEVICE_FUNC void blst_scalar_from_fr(pow256 ret, const vec256 a)
 {
     const union {
         long one;
@@ -105,7 +105,7 @@ void blst_scalar_from_fr(pow256 ret, const vec256 a)
     }
 }
 
-int blst_scalar_fr_check(const pow256 a)
+HOST_DEVICE_FUNC int blst_scalar_fr_check(const pow256 a)
 {   return (int)(check_mod_v256(a, *get_BLST_r()) |
                  bytes_are_zero(a, sizeof(pow256)));
 }
