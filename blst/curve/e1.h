@@ -8,7 +8,8 @@
 #define BLST_E1_H
 
 #include "blst/curve/point.h"
-#include "blst/fields/fields.h"
+#include "blst/fields/Fp.h"
+#include "blst/fields/Fp2.h"
 #include "blst/common/errors.h"
 #include "blst/fields/consts.h"
 

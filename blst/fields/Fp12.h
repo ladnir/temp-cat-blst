@@ -1,10 +1,44 @@
-#include "blst/fields/fields.h"
+
+
+
+
+
+#include "blst/Common/Defines.h"
+#include "blst/fields/consts.h"
+#include "blst/backend/backend.h"
+#include "blst/fields/Fp2.h"
 
 #ifndef BLST_FP12_TOWER_H
 #define BLST_FP12_TOWER_H
 
 
 BLST_EXTERN_C_BEGIN
+
+
+
+
+
+typedef vec384x   vec384fp2;
+typedef vec384fp2 vec384fp6[3];
+typedef vec384fp6 vec384fp12[2];
+
+HOST_DEVICE_FUNC void sqr_fp12(vec384fp12 ret, const vec384fp12 a);
+HOST_DEVICE_FUNC void cyclotomic_sqr_fp12(vec384fp12 ret, const vec384fp12 a);
+HOST_DEVICE_FUNC void mul_fp12(vec384fp12 ret, const vec384fp12 a, const vec384fp12 b);
+
+HOST_DEVICE_FUNC void conjugate_fp12(vec384fp12 a);
+HOST_DEVICE_FUNC void inverse_fp12(vec384fp12 ret, const vec384fp12 a);
+/* caveat lector! |n| has to be non-zero and not more than 3! */
+HOST_DEVICE_FUNC void frobenius_map_fp12(vec384fp12 ret, const vec384fp12 a, size_t n);
+HOST_DEVICE_FUNC void mul_by_xy00z0_fp12(vec384fp12 ret, const vec384fp12 a,
+    const vec384fp6 xy00z0);
+
+
+
+
+
+
+
 //const vec384fp12* blst_fp12_one(void);
 //void blst_fp12_mul(vec384fp12 ret, const vec384fp12 a, const vec384fp12 b);
 //int blst_fp12_is_one(const vec384fp12 a);
@@ -30,17 +64,6 @@ BLST_EXTERN_C_BEGIN
 
 
 
-
-/*
- * Fp2  = Fp[u]  / (u^2 + 1)
- * Fp6  = Fp2[v] / (v^3 - u - 1)
- * Fp12 = Fp6[w] / (w^2 - v)
- */
-
-HOST_DEVICE_FUNC BLST_INLINE void mul_by_u_plus_1_fp2(vec384x ret, const vec384x a)
-{
-    mul_by_1_plus_i_mod_v384x(ret, a, *get_BLST_P());
-}
 
 #if defined(BLST_ASM) && !defined(__CUDA_ARCH__)
 #define __FP2x2__
@@ -214,7 +237,7 @@ HOST_DEVICE_FUNC BLST_INLINE void sqr_fp6(vec384fp6 ret, const vec384fp6 a)
     add_fp2x2(rx, rx, m01);
     redc_fp2x2(ret[1], rx);
 }
-#else
+#else // __FP2x2__
 
 HOST_DEVICE_FUNC BLST_INLINE void mul_fp6(vec384fp6 ret, const vec384fp6 a, const vec384fp6 b)
 {
@@ -288,7 +311,7 @@ HOST_DEVICE_FUNC BLST_INLINE void sqr_fp6(vec384fp6 ret, const vec384fp6 a)
     mul_by_u_plus_1_fp2(ret[1], s2);
     add_fp2(ret[1], ret[1], m01);
 }
-#endif
+#endif // __FP2x2__
 
 HOST_DEVICE_FUNC BLST_INLINE void add_fp6(vec384fp6 ret, const vec384fp6 a, const vec384fp6 b)
 {
@@ -417,7 +440,7 @@ HOST_DEVICE_FUNC BLST_INLINE void mul_by_xy00z0_fp12(vec384fp12 ret, const vec38
     add_fp2x2(rr[2], t0[2], t1[1]);
     redc_fp6x2(ret[0], rr);
 }
-#else
+#else // __FP2x2__
 HOST_DEVICE_FUNC BLST_INLINE void mul_fp12(vec384fp12 ret, const vec384fp12 a, const vec384fp12 b)
 {
     vec384fp6 t0, t1, t2;
@@ -513,7 +536,7 @@ HOST_DEVICE_FUNC BLST_INLINE void mul_by_xy00z0_fp12(vec384fp12 ret, const vec38
     add_fp2(ret[0][2], t0[2], t1[1]);
 #endif
 }
-#endif
+#endif // __FP2x2__
 
 HOST_DEVICE_FUNC BLST_INLINE void sqr_fp12(vec384fp12 ret, const vec384fp12 a)
 {
@@ -633,7 +656,7 @@ HOST_DEVICE_FUNC BLST_INLINE void sqr_fp4(vec384fp4 ret, const vec384x a0, const
     sub_fp2x2(t2, t2, t1);
     redc_fp2x2(ret[1], t2);
 }
-#else
+#else //__FP2x2__
 HOST_DEVICE_FUNC BLST_INLINE void sqr_fp4(vec384fp4 ret, const vec384x a0, const vec384x a1)
 {
     vec384x t0, t1;
@@ -649,7 +672,7 @@ HOST_DEVICE_FUNC BLST_INLINE void sqr_fp4(vec384fp4 ret, const vec384x a0, const
     sub_fp2(ret[1], ret[1], t0);
     sub_fp2(ret[1], ret[1], t1);
 }
-#endif
+#endif // __FP2x2__
 
 HOST_DEVICE_FUNC BLST_INLINE void cyclotomic_sqr_fp12(vec384fp12 ret, const vec384fp12 a)
 {
@@ -683,15 +706,6 @@ HOST_DEVICE_FUNC BLST_INLINE void cyclotomic_sqr_fp12(vec384fp12 ret, const vec3
     add_fp2(ret[1][2], t1[1], a[1][2]);
     add_fp2(ret[1][2], ret[1][2], ret[1][2]);
     add_fp2(ret[1][2], ret[1][2], t1[1]);
-}
-
-/*
- * caveat lector! |n| has to be non-zero and not more than 3!
- */
-HOST_DEVICE_FUNC BLST_INLINE void frobenius_map_fp2(vec384x ret, const vec384x a, size_t n)
-{
-    vec_copy(ret[0], a[0], sizeof(ret[0]));
-    cneg_fp(ret[1], a[1], n & 1);
 }
 
 HOST_DEVICE_FUNC BLST_INLINE void frobenius_map_fp6(vec384fp6 ret, const vec384fp6 a, size_t n)

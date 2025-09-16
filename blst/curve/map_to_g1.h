@@ -7,7 +7,7 @@
 #define BLST_MAP_TO_G1_H
 
 
-#include "blst/fields/fields.h"
+#include "blst/fields/Fp.h"
 #include "blst/fields/hash_to_field.h"
 #include "blst/curve/point.h"
 

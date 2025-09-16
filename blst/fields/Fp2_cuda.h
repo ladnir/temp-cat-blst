@@ -6,7 +6,7 @@
 #ifndef BLST_FP2_CUDA_H
 #define BLST_FP2_CUDA_H
 
-#include "blst/fields/fields.h"
+#include "blst/fields/Fp2.h"
 #include "blst/common/errors.h"
 
 BLST_EXTERN_C_BEGIN

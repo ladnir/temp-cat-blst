@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 extern "C" {
-#include "blst/fields/fields.h"
+#include "blst/fields/Fp2.h"
 }
 
 // Helper: Print Fp2 element for debugging

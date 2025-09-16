@@ -2,7 +2,8 @@
 
 #pragma once
 #include "blst/curve/point.h"
-#include "blst/fields/fields.h"
+#include "blst/fields/Fp12.h"
+
 BLST_EXTERN_C_BEGIN
 void blst_miller_loop(vec384fp12 ret, const POINTonE2_affine* Q,
     const POINTonE1_affine* P);

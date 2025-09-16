@@ -7,8 +7,7 @@
 #include <cuda_runtime.h>
 
 extern "C" {
-#include "blst/fields/fields.h"
-#include "blst/exports.h"
+#include "blst/fields/Fr.h"
 #include "blst/fields/Fr_cuda.h"
 }
 

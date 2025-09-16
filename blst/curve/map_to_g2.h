@@ -8,7 +8,7 @@
 #define BLST_MAP_TO_G2_H
 
 #include "blst/curve/point.h"
-#include "blst/fields/fields.h"
+#include "blst/fields/Fp2.h"
 #include "blst/fields/hash_to_field.h"
 
 BLST_EXTERN_C_BEGIN

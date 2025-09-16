@@ -5,11 +5,8 @@
 #include <stdint.h>
 
 
-extern "C" {
 #include "blst/backend/backend.h"
 #include "blst/fields/consts.h"
-#include "blst/fields/fields.h"
-}
 
 namespace
 {

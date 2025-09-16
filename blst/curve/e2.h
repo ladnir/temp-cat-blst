@@ -5,7 +5,7 @@
  */
 
 #include "blst/curve/point.h"
-#include "blst/fields/fields.h"
+#include "blst/fields/Fp2.h"
 #include "blst/common/errors.h"
 BLST_EXTERN_C_BEGIN
 

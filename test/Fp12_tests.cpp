@@ -4,8 +4,7 @@
 #include <stdio.h>
 
 extern "C" {
-#include "blst/fields/fields.h"
-#include "blst/fields/fp12_tower.h"
+#include "blst/fields/Fp12.h"
 }
 
 // Helper: Print Fp12 element for debugging

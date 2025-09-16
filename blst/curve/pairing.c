@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "blst/fields/fields.h"
 #include "blst/curve/point.h"
 BLST_EXTERN_C_BEGIN
 /*

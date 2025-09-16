@@ -5,9 +5,6 @@
 
 
 extern "C" {
-#include "blst/curve/point.h"
-#include "blst/fields/fields.h"
-#include "blst/curve/e1.h"
 #include "blst/curve/e2.h"
 #include "blst/curve/map_to_g2.h"
 }

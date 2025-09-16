@@ -96,7 +96,7 @@ else()
     )
 endif()
 
-add_library(blst_static ${BLST_STATIC_SRC} ${ASM_SRC})
+add_library(blst_static ${BLST_STATIC_SRC} ${ASM_SRC} "fields/Fr.h")
 set_target_properties(blst_static PROPERTIES OUTPUT_NAME blst)
 target_compile_options(blst_static PUBLIC ${BLST_STATIC_OPTS})
 target_include_directories(blst_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)

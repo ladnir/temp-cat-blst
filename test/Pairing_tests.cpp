@@ -1,8 +1,6 @@
 #include "gtest/gtest.h"
 
 extern "C" {
-#include "blst/fields/fields.h"
-#include "blst/fields/fp12_tower.h"
 #include "blst/curve/point.h"
 #include "blst/curve/e1.h"
 #include "blst/curve/e2.h"

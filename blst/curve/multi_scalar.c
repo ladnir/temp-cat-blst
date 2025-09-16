@@ -4,7 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "blst/fields/fields.h"
+#include "blst/fields/Fp.h"
+#include "blst/fields/Fp2.h"
 #include "blst/curve/point.h"
 BLST_EXTERN_C_BEGIN
 #define POINTS_TO_AFFINE_IMPL(prefix, ptype, bits, field) \

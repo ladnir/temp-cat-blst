@@ -4,8 +4,7 @@
 #include <stdio.h>
 
 extern "C" {
-#include "blst/fields/fields.h"
-#include "blst/exports.h"
+#include "blst/fields/Fr.h"
 }
 
 #define FR_LIMBS NLIMBS(256)

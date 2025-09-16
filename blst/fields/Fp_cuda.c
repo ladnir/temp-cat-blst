@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "blst/fields/fields.h"
+#include "blst/fields/Fp.h"
 #include "blst/fields/Fp_cuda.h"
 #include "blst/exports.h"
 
