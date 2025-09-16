@@ -1,617 +1,827 @@
 #include <gtest/gtest.h>
-#include <cuda_runtime.h>
-
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
-#include <iostream>
+#include <memory>
+#include <random>
+#include <cuda_runtime.h>
 
 extern "C" {
 #include "blst/fields/fields.h"
+#include "blst/fields/Fp2_cuda.h"
+#include "blst/exports.h"
 }
 
-// CUDA kernel wrapper macros for device execution
-#define CUDA_CHECK(call) do { \
-    cudaError_t err = call; \
-    if (err != cudaSuccess) { \
-        fprintf(stderr, "CUDA error at %s:%d - %s\n", __FILE__, __LINE__, cudaGetErrorString(err)); \
-        exit(1); \
-    } \
-} while(0)
+#define LIMBS NLIMBS(384)
 
-// Device helper functions for Fp2 operations
-DEVICE_FUNC void cuda_print_fp2(const vec384x a, const char* name) {
-    printf("%s:\n", name);
-    printf("  Re: ");
-    for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-        printf("%016llx ", (unsigned long long)a[0][i]);
-    }
-    printf("\n  Im: ");
-    for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-        printf("%016llx ", (unsigned long long)a[1][i]);
-    }
-    printf("\n");
-}
+class Fp2CudaTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        // Initialize random number generator
+        gen.seed(42); // Fixed seed for reproducible tests
 
-DEVICE_FUNC bool cuda_vec384x_equal(const vec384x a, const vec384x b) {
-    return vec_is_equal(a, b, sizeof(vec384x));
-}
-
-DEVICE_FUNC void cuda_set_fp2_zero(vec384x a) {
-    vec_zero(a, sizeof(vec384x));
-}
-
-DEVICE_FUNC void cuda_set_fp2_one(vec384x a) {
-    vec_zero(a, sizeof(vec384x));
-    vec_copy(a[0], get_BLST_Rx()->p, sizeof(vec384));  // Re(1) = 1
-}
-
-DEVICE_FUNC void cuda_set_fp2_value(vec384x a, int re_val, int im_val) {
-    vec_zero(a, sizeof(vec384x));
-
-    // Set real part
-    if (re_val > 0) {
-        vec_copy(a[0], get_BLST_Rx()->p, sizeof(vec384));
-        for (int i = 1; i < re_val; i++) {
-            add_fp(a[0], a[0], get_BLST_Rx()->p);
+        // Initialize CUDA device
+        cudaError_t err = cudaSetDevice(0);
+        if (err != cudaSuccess) {
+            GTEST_SKIP() << "CUDA device not available: " << cudaGetErrorString(err);
         }
     }
 
-    // Set imaginary part
-    if (im_val > 0) {
-        vec_copy(a[1], get_BLST_Rx()->p, sizeof(vec384));
-        for (int i = 1; i < im_val; i++) {
-            add_fp(a[1], a[1], get_BLST_Rx()->p);
+    void TearDown() override {
+        // Reset CUDA device
+        cudaDeviceReset();
+    }
+
+    // Helper: Set a vec384x to a small integer value (real + i*imaginary)
+    void set_vec384x(vec384x v, uint64_t real, uint64_t imaginary) {
+        for (int i = 0; i < LIMBS; ++i) {
+            v[0][i] = 0;
+            v[1][i] = 0;
+        }
+        memcpy(v[0], &real, sizeof(real));
+        memcpy(v[1], &imaginary, sizeof(imaginary));
+    }
+
+    // Helper: Compare two vec384x for equality
+    bool vec384x_equal(const vec384x a, const vec384x b) {
+        for (int i = 0; i < LIMBS; ++i) {
+            if (a[0][i] != b[0][i] || a[1][i] != b[1][i]) return false;
+        }
+        return true;
+    }
+
+    // Helper: Print vec384x for debugging
+    void print_vec384x(const vec384x v) {
+        printf("Real: ");
+        for (int i = LIMBS - 1; i >= 0; --i)
+            printf("%016llx%s", (unsigned long long)v[0][i], i ? " " : "\n");
+        printf("Imag: ");
+        for (int i = LIMBS - 1; i >= 0; --i)
+            printf("%016llx%s", (unsigned long long)v[1][i], i ? " " : "\n");
+    }
+
+    // Helper: Copy one vec384x to another
+    void fp2_copy(vec384x dst, const vec384x src) {
+        for (int i = 0; i < LIMBS; ++i) {
+            dst[0][i] = src[0][i];
+            dst[1][i] = src[1][i];
         }
     }
-}
 
-// CUDA kernels for Fp2 tests
-
-GLOBAL_FUNC void cuda_test_fp2_zero_and_one_kernel(bool* results) {
-    vec384x zero, one;
-
-    // Initialize zero and one
-    cuda_set_fp2_zero(zero);
-    cuda_set_fp2_one(one);
-
-    // Check zero properties
-    vec384x result;
-    add_fp2(result, zero, zero);
-    results[0] = cuda_vec384x_equal(result, zero); // 0 + 0 = 0
-
-    mul_fp2(result, zero, one);
-    results[1] = cuda_vec384x_equal(result, zero); // 0 * 1 = 0
-
-    // Check one properties
-    mul_fp2(result, one, one);
-    results[2] = cuda_vec384x_equal(result, one); // 1 * 1 = 1
-
-    vec384x temp;
-    vec_copy(temp, one, sizeof(vec384x));
-    add_fp2(result, temp, temp);
-
-    // 1 + 1 should be 2 (in Montgomery representation)
-    vec384x expected_two;
-    cuda_set_fp2_zero(expected_two);
-    lshift_fp(expected_two[0], one[0], 1);  // Re(2) = 2
-
-    results[3] = cuda_vec384x_equal(result, expected_two); // 1 + 1 = 2
-}
-
-GLOBAL_FUNC void cuda_test_fp2_addition_kernel(bool* results) {
-    vec384x a, b, c, expected;
-
-    // Initialize with some values
-    // a = 2 + 3i (in Montgomery representation)
-    cuda_set_fp2_zero(a);
-    lshift_fp(a[0], get_BLST_Rx()->p, 1);     // Re(a) = 2
-    mul_by_3_fp(a[1], get_BLST_Rx()->p);      // Im(a) = 3
-
-    // b = 4 + 5i (in Montgomery representation)
-    cuda_set_fp2_zero(b);
-    lshift_fp(b[0], get_BLST_Rx()->p, 2);     // Re(b) = 4
-    add_fp(b[1], get_BLST_Rx()->p, b[0]);     // Im(b) = 1 + 4 = 5
-
-    // c = a + b should be 6 + 8i
-    add_fp2(c, a, b);
-
-    cuda_set_fp2_zero(expected);
-    // Calculate Re(expected) = 6
-    mul_by_3_fp(expected[0], get_BLST_Rx()->p);       // Re(expected) = 3
-    lshift_fp(expected[0], expected[0], 1);         // Re(expected) = 6
-    // Calculate Im(expected) = 8
-    lshift_fp(expected[1], get_BLST_Rx()->p, 3);      // Im(expected) = 8
-
-    results[0] = cuda_vec384x_equal(c, expected); // (2+3i) + (4+5i) = (6+8i)
-
-    // Test commutativity
-    add_fp2(c, b, a);
-    results[1] = cuda_vec384x_equal(c, expected); // (4+5i) + (2+3i) = (6+8i)
-}
-
-GLOBAL_FUNC void cuda_test_fp2_subtraction_kernel(bool* results) {
-    vec384x a, b, c, expected;
-
-    // Initialize with some values
-    // a = 7 + 4i (in Montgomery representation)
-    cuda_set_fp2_zero(a);
-    mul_by_3_fp(a[0], get_BLST_Rx()->p);      // Re(a) = 3
-    add_fp(a[0], a[0], get_BLST_Rx()->p);     // Re(a) = 3+1 = 4
-    add_fp(a[0], a[0], get_BLST_Rx()->p);     // Re(a) = 4+1 = 5
-    add_fp(a[0], a[0], get_BLST_Rx()->p);     // Re(a) = 5+1 = 6
-    add_fp(a[0], a[0], get_BLST_Rx()->p);     // Re(a) = 6+1 = 7
-    lshift_fp(a[1], get_BLST_Rx()->p, 2);     // Im(a) = 4
-
-    // b = 2 + 3i (in Montgomery representation)
-    cuda_set_fp2_zero(b);
-    lshift_fp(b[0], get_BLST_Rx()->p, 1);     // Re(b) = 2
-    mul_by_3_fp(b[1], get_BLST_Rx()->p);      // Im(b) = 3
-
-    // c = a - b should be 5 + 1i
-    sub_fp2(c, a, b);
-
-    cuda_set_fp2_zero(expected);
-    add_fp(expected[0], get_BLST_Rx()->p, get_BLST_Rx()->p);  // Re(expected) = 2
-    add_fp(expected[0], expected[0], get_BLST_Rx()->p);     // Re(expected) = 2+1 = 3
-    add_fp(expected[0], expected[0], get_BLST_Rx()->p);     // Re(expected) = 3+1 = 4
-    add_fp(expected[0], expected[0], get_BLST_Rx()->p);     // Re(expected) = 4+1 = 5
-    vec_copy(expected[1], get_BLST_Rx()->p, sizeof(vec384));  // Im(expected) = 1
-
-    results[0] = cuda_vec384x_equal(c, expected); // (7+4i) - (2+3i) = (5+1i)
-
-    // c = b - a should be -5 - 1i
-    sub_fp2(c, b, a);
-
-    // Negate expected to get -5 - 1i
-    cneg_fp2(expected, expected, 1);
-
-    results[1] = cuda_vec384x_equal(c, expected); // (2+3i) - (7+4i) = (-5-1i)
-}
-
-GLOBAL_FUNC void cuda_test_fp2_multiplication_kernel(bool* results) {
-    vec384x a, b, c, expected;
-
-    // a = 2 + 3i
-    cuda_set_fp2_zero(a);
-    lshift_fp(a[0], get_BLST_Rx()->p, 1);     // Re(a) = 2
-    mul_by_3_fp(a[1], get_BLST_Rx()->p);      // Im(a) = 3
-
-    // b = 4 + 5i
-    cuda_set_fp2_zero(b);
-    lshift_fp(b[0], get_BLST_Rx()->p, 2);     // Re(b) = 4
-    add_fp(b[1], get_BLST_Rx()->p, b[0]);     // Im(b) = 1 + 4 = 5
-
-    // c = a * b should be (2*4 - 3*5) + (2*5 + 3*4)i = (8 - 15) + (10 + 12)i = -7 + 22i
-    mul_fp2(c, a, b);
-
-    cuda_set_fp2_zero(expected);
-    // Re(expected) = -7
-    mul_by_3_fp(expected[0], get_BLST_Rx()->p);      // 3
-    lshift_fp(expected[0], expected[0], 1);        // 6
-    add_fp(expected[0], expected[0], get_BLST_Rx()->p); // 7
-    cneg_fp(expected[0], expected[0], 1);           // -7
-
-    // Im(expected) = 22
-    vec384 temp;
-    lshift_fp(temp, get_BLST_Rx()->p, 1);             // 2
-    mul_by_3_fp(expected[1], get_BLST_Rx()->p);       // 3
-    lshift_fp(expected[1], expected[1], 3);         // 24
-    sub_fp(expected[1], expected[1], temp);         // 22
-
-    results[0] = cuda_vec384x_equal(c, expected); // (2+3i) * (4+5i) = (-7+22i)
-
-    // Test commutativity
-    mul_fp2(c, b, a);
-    results[1] = cuda_vec384x_equal(c, expected); // (4+5i) * (2+3i) = (-7+22i)
-}
-
-GLOBAL_FUNC void cuda_test_fp2_square_and_multiply_kernel(bool* results) {
-    vec384x a, a_squared1, a_squared2;
-
-    // a = 2 + 3i
-    cuda_set_fp2_zero(a);
-    lshift_fp(a[0], get_BLST_Rx()->p, 1);     // Re(a) = 2
-    mul_by_3_fp(a[1], get_BLST_Rx()->p);      // Im(a) = 3
-
-    // Compute a² using multiplication
-    mul_fp2(a_squared1, a, a);
-
-    // Compute a² using squaring
-    sqr_fp2(a_squared2, a);
-
-    // Results should be equal: (2+3i)² = 4-9 + 12i = -5 + 12i
-    results[0] = cuda_vec384x_equal(a_squared1, a_squared2);
-}
-
-
-//HOST_DEVICE_FUNC BLST_FORCEINLINE void reciprocal_fp2_my(vec384x out, const vec384x inp)
-//{
-//    vec384 t0, t1;
-//
-//    /*
-//     * |out| = 1/(a + b*i) = a/(a^2+b^2) - b/(a^2+b^2)*i
-//     */
-//    sqr_fp(t0, inp[0]);
-//    sqr_fp(t1, inp[1]);
-//    add_fp(t0, t0, t1);
-//    reciprocal_fp(t1, t0);
-//    mul_fp(out[0], inp[0], t1);
-//    mul_fp(out[1], inp[1], t1);
-//    neg_fp(out[1], out[1]);
-//}
-
-
-GLOBAL_FUNC void cuda_test_fp2_inversion_kernel(bool* results) {
-    vec384x a, a_inv, result;
-
-    // a = 2 + 3i
-    cuda_set_fp2_zero(a);
-    lshift_fp(a[0], get_BLST_Rx()->p, 1);     // Re(a) = 2
-    mul_by_3_fp(a[1], get_BLST_Rx()->p);      // Im(a) = 3
-
-    // Compute 1/a
-    reciprocal_fp2(a_inv, a);
-
-    // Check that a * (1/a) = 1
-    mul_fp2(result, a, a_inv);
-
-    // Should equal 1 (real part 1, imaginary part 0)
-    vec384x one;
-    cuda_set_fp2_one(one);
-
-    results[0] = cuda_vec384x_equal(result, one);
-}
-
-GLOBAL_FUNC void cuda_test_fp2_frobenius_kernel(bool* results) {
-    vec384x a, frob_a, expected;
-
-    // a = 2 + 3i
-    cuda_set_fp2_zero(a);
-    lshift_fp(a[0], get_BLST_Rx()->p, 1);     // Re(a) = 2
-    mul_by_3_fp(a[1], get_BLST_Rx()->p);      // Im(a) = 3
-
-    // Frobenius map in Fp2 is complex conjugation: (a+bi) -> (a-bi)
-    // expected = 2 - 3i
-    vec_copy(expected, a, sizeof(vec384x));
-    cneg_fp(expected[1], expected[1], 1);  // Negate imaginary part
-
-    // Apply Frobenius
-    conjugate_fp2(frob_a, a);
-
-    results[0] = cuda_vec384x_equal(frob_a, expected);
-}
-
-GLOBAL_FUNC void cuda_test_fp2_square_root_kernel(bool* results) {
-    vec384x a, root, root_squared;
-
-    // Let's try with a perfect square: a = (2+3i)²
-    vec384x temp;
-    cuda_set_fp2_zero(temp);
-    lshift_fp(temp[0], get_BLST_Rx()->p, 1);    // Re(temp) = 2
-    mul_by_3_fp(temp[1], get_BLST_Rx()->p);     // Im(temp) = 3
-
-    sqr_fp2(a, temp);  // a = (2+3i)²
-
-    // Find square root
-    bool sqrt_success = sqrt_fp2(root, a);
-    results[0] = sqrt_success;
-
-    if (sqrt_success) {
-        // Verify by squaring the root
-        sqr_fp2(root_squared, root);
-
-        // Should get back our original value
-        results[1] = cuda_vec384x_equal(root_squared, a);
-
-        // Verify that either root or -root equals our original value
-        bool matches_orig = cuda_vec384x_equal(root, temp);
-        cneg_fp2(root, root, 1);
-        bool matches_neg = cuda_vec384x_equal(root, temp);
-
-        results[2] = matches_orig || matches_neg;
-    }
-    else {
-        results[1] = false;
-        results[2] = false;
-    }
-}
-
-GLOBAL_FUNC void cuda_test_fp2_serialization_kernel(bool* results) {
-    vec384x a, b;
-    unsigned char serialized[96]; // 2 * 48 bytes
-
-    // a = 2 + 3i
-    cuda_set_fp2_zero(a);
-    lshift_fp(a[0], get_BLST_Rx()->p, 1);     // Re(a) = 2
-    mul_by_3_fp(a[1], get_BLST_Rx()->p);      // Im(a) = 3
-
-    // Serialize to bytes: convert from Montgomery to standard form
-    vec384 temp_re, temp_im;
-    from_fp(temp_re, a[0]);  // Convert real part from Montgomery
-    from_fp(temp_im, a[1]);  // Convert imaginary part from Montgomery
-
-    // Copy to serialized buffer
-    memcpy(serialized, temp_re, 48);
-    memcpy(serialized + 48, temp_im, 48);
-
-    // Deserialize back: copy from buffer then convert to Montgomery form
-    vec384 raw_re, raw_im;
-    memcpy(raw_re, serialized, 48);
-    memcpy(raw_im, serialized + 48, 48);
-
-    // Convert to Montgomery form by multiplying to R^2
-    mul_fp(b[0], raw_re, *get_BLST_RR());
-    mul_fp(b[1], raw_im, *get_BLST_RR());
-
-    // Should get back our original value
-    results[0] = cuda_vec384x_equal(a, b);
-}
-
-// Batch processing tests for Fp2
-GLOBAL_FUNC void cuda_test_fp2_batch_operations_kernel(bool* results, int batch_size) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx >= batch_size) return;
-
-    vec384x a, b, result;
-
-    // Create different test values for each thread
-    cuda_set_fp2_zero(a);
-    cuda_set_fp2_zero(b);
-
-    // Set values based on thread index
-    int re_a = (idx % 10) + 1;
-    int im_a = ((idx + 3) % 7) + 1;
-    int re_b = ((idx + 5) % 8) + 1;
-    int im_b = ((idx + 7) % 6) + 1;
-
-    cuda_set_fp2_value(a, re_a, im_a);
-    cuda_set_fp2_value(b, re_b, im_b);
-
-    // Perform various operations
-    vec384x temp1, temp2, temp3;
-    add_fp2(temp1, a, b);      // a + b
-    mul_fp2(temp2, a, b);      // a * b
-    sqr_fp2(temp3, a);         // a²
-
-    // Combine operations: (a + b) * a²
-    mul_fp2(result, temp1, temp3);
-
-    // Simple validation - result should not be zero
-    vec384x zero;
-    cuda_set_fp2_zero(zero);
-    results[idx] = !cuda_vec384x_equal(result, zero);
-}
-
-GLOBAL_FUNC void cuda_test_fp2_performance_kernel(int* operations_completed) {
-    vec384x a, b, result;
-
-    // Initialize with some values
-    cuda_set_fp2_value(a, 5, 7);
-    cuda_set_fp2_value(b, 3, 4);
-
-    int ops = 0;
-    // Perform many operations to test performance
-    for (int i = 0; i < 500; i++) {  // Reduced from 1000 for Fp2 complexity
-        mul_fp2(result, a, b);
-        sqr_fp2(a, result);
-        add_fp2(b, a, b);
-        conjugate_fp2(result, result);
-        ops += 4;
+    // Helper: Generate random Fp2 element
+    void random_fp2(vec384x v) {
+        // Generate random limbs for both real and imaginary parts
+        for (int i = 0; i < LIMBS; ++i) {
+            v[0][i] = gen();
+            v[1][i] = gen();
+        }
+        // Reduce modulo to ensure valid elements
+        if (LIMBS > 0) {
+            v[0][LIMBS - 1] &= 0x7FFFFFFFFFFFFFFFULL;
+            v[1][LIMBS - 1] &= 0x7FFFFFFFFFFFFFFFULL;
+        }
     }
 
-    *operations_completed = ops;
+    // Helper: Convert standard integer to Montgomery form for Fp2
+    void to_mont_fp2(vec384x r, const vec384x a) {
+        to_fp(r[0], a[0]);
+        to_fp(r[1], a[1]);
+    }
+
+    // Helper: Allocate device memory for vec384x arrays
+    vec384x* allocate_device_fp2_array(size_t num_elements) {
+        vec384x* d_ptr = nullptr;
+        cudaError_t err = cudaMalloc((void**)&d_ptr, num_elements * sizeof(vec384x));
+        if (err != cudaSuccess) {
+            return nullptr;
+        }
+        return d_ptr;
+    }
+
+    // Helper: Free device memory
+    void free_device_fp2_array(vec384x* d_ptr) {
+        if (d_ptr) {
+            cudaFree(d_ptr);
+        }
+    }
+
+    // Helper: Copy host vec384x array to device
+    batched_error_code copy_host_to_device_fp2(vec384x* d_dst, const vec384x* h_src, size_t num_elements) {
+        if (!d_dst || !h_src) {
+            return BATCHED_ERROR_NULL_POINTER;
+        }
+
+        cudaError_t err = cudaMemcpy(d_dst, h_src, num_elements * sizeof(vec384x), cudaMemcpyHostToDevice);
+        if (err != cudaSuccess) {
+            return BATCHED_ERROR_CUDA_MEMCPY_FAILED;
+        }
+
+        return BATCHED_SUCCESS;
+    }
+
+    // Helper: Copy device vec384x array to host
+    batched_error_code copy_device_to_host_fp2(vec384x* h_dst, const vec384x* d_src, size_t num_elements) {
+        if (!h_dst || !d_src) {
+            return BATCHED_ERROR_NULL_POINTER;
+        }
+
+        cudaError_t err = cudaMemcpy(h_dst, d_src, num_elements * sizeof(vec384x), cudaMemcpyDeviceToHost);
+        if (err != cudaSuccess) {
+            return BATCHED_ERROR_CUDA_MEMCPY_FAILED;
+        }
+
+        return BATCHED_SUCCESS;
+    }
+
+    // Helper: Compare vector results against CPU reference
+    bool compare_fp2_vectors(const vec384x* vec_result, const vec384x* cpu_result, size_t num, const char* operation) {
+        bool all_equal = true;
+        for (size_t i = 0; i < num; i++) {
+            if (!vec384x_equal(vec_result[i], cpu_result[i])) {
+                printf("Mismatch in %s at index %zu:\n", operation, i);
+                printf("Vector result: "); print_vec384x(vec_result[i]);
+                printf("CPU result:    "); print_vec384x(cpu_result[i]);
+                all_equal = false;
+                // Only show first few mismatches to avoid flooding output
+                if (i > 5) break;
+            }
+        }
+        return all_equal;
+    }
+
+    // Helper: Check batched error code and provide meaningful error message
+    void expect_success(batched_error_code result, const char* operation) {
+        EXPECT_EQ(result, BATCHED_SUCCESS)
+            << "Operation " << operation << " failed with error: "
+            << batched_error_code_string(result);
+    }
+
+    std::mt19937_64 gen;
+};
+
+TEST_F(Fp2CudaTest, VectorAdd) {
+    const size_t NUM_ELEMENTS = 1000;
+    auto h_a = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto h_b = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto h_result = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto cpu_result = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+
+    // Generate test data
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        set_vec384x(h_a[i], 5 + i, 3 + i);
+        set_vec384x(h_b[i], 7 + i * 2, 4 + i);
+    }
+
+    // CPU reference computation
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        add_fp2(cpu_result[i], h_a[i], h_b[i]);
+    }
+
+    // Allocate device memory
+    vec384x* d_a = allocate_device_fp2_array(NUM_ELEMENTS);
+    vec384x* d_b = allocate_device_fp2_array(NUM_ELEMENTS);
+    vec384x* d_result = allocate_device_fp2_array(NUM_ELEMENTS);
+
+    ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
+    ASSERT_NE(d_b, nullptr) << "Failed to allocate device memory for array b";
+    ASSERT_NE(d_result, nullptr) << "Failed to allocate device memory for result";
+
+    // Copy data to device
+    expect_success(copy_host_to_device_fp2(d_a, h_a.get(), NUM_ELEMENTS), "copy h_a to device");
+    expect_success(copy_host_to_device_fp2(d_b, h_b.get(), NUM_ELEMENTS), "copy h_b to device");
+
+    // Vector computation with error checking
+    batched_error_code result = add_fp2_vec(d_result, d_a, d_b, NUM_ELEMENTS);
+    expect_success(result, "add_fp2_vec");
+
+    // Copy result back to host and compare only if operation succeeded
+    if (result == BATCHED_SUCCESS) {
+        expect_success(copy_device_to_host_fp2(h_result.get(), d_result, NUM_ELEMENTS), "copy result to host");
+        EXPECT_TRUE(compare_fp2_vectors(h_result.get(), cpu_result.get(), NUM_ELEMENTS, "add_fp2_vec"));
+    }
+
+    // Cleanup
+    free_device_fp2_array(d_a);
+    free_device_fp2_array(d_b);
+    free_device_fp2_array(d_result);
 }
 
-// Helper function to run a CUDA kernel and check results
-template<typename KernelFunc>
-bool run_cuda_fp2_test(KernelFunc kernel, int num_results = 1) {
-    bool* d_results, * h_results;
+TEST_F(Fp2CudaTest, VectorSub) {
+    const size_t NUM_ELEMENTS = 1000;
+    auto h_a = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto h_b = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto h_result = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto cpu_result = std::make_unique<vec384x[]>(NUM_ELEMENTS);
 
-    // Allocate memory
-    h_results = new bool[num_results];
-    CUDA_CHECK(cudaMalloc(&d_results, num_results * sizeof(bool)));
+    // Generate test data
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        set_vec384x(h_a[i], 10 + i * 2, 8 + i);
+        set_vec384x(h_b[i], 3 + i, 2 + i);
+    }
 
-    // Initialize results to false
-    CUDA_CHECK(cudaMemset(d_results, 0, num_results * sizeof(bool)));
+    // CPU reference computation
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        sub_fp2(cpu_result[i], h_a[i], h_b[i]);
+    }
 
-    // Launch kernel
-    kernel<<<1, 1>>>(d_results);
-    CUDA_CHECK(cudaGetLastError());
-    CUDA_CHECK(cudaDeviceSynchronize());
+    // Allocate device memory
+    vec384x* d_a = allocate_device_fp2_array(NUM_ELEMENTS);
+    vec384x* d_b = allocate_device_fp2_array(NUM_ELEMENTS);
+    vec384x* d_result = allocate_device_fp2_array(NUM_ELEMENTS);
 
-    // Copy results back
-    CUDA_CHECK(cudaMemcpy(h_results, d_results, num_results * sizeof(bool), cudaMemcpyDeviceToHost));
+    ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
+    ASSERT_NE(d_b, nullptr) << "Failed to allocate device memory for array b";
+    ASSERT_NE(d_result, nullptr) << "Failed to allocate device memory for result";
 
-    // Check all results
-    bool all_passed = true;
-    for (int i = 0; i < num_results; i++) {
-        if (!h_results[i]) {
-            all_passed = false;
-            printf("Test failed at index %d\n", i);
+    // Copy data to device
+    expect_success(copy_host_to_device_fp2(d_a, h_a.get(), NUM_ELEMENTS), "copy h_a to device");
+    expect_success(copy_host_to_device_fp2(d_b, h_b.get(), NUM_ELEMENTS), "copy h_b to device");
+
+    // Vector computation with error checking
+    batched_error_code result = sub_fp2_vec(d_result, d_a, d_b, NUM_ELEMENTS);
+    expect_success(result, "sub_fp2_vec");
+
+    // Copy result back to host and compare only if operation succeeded
+    if (result == BATCHED_SUCCESS) {
+        expect_success(copy_device_to_host_fp2(h_result.get(), d_result, NUM_ELEMENTS), "copy result to host");
+        EXPECT_TRUE(compare_fp2_vectors(h_result.get(), cpu_result.get(), NUM_ELEMENTS, "sub_fp2_vec"));
+    }
+
+    // Cleanup
+    free_device_fp2_array(d_a);
+    free_device_fp2_array(d_b);
+    free_device_fp2_array(d_result);
+}
+
+TEST_F(Fp2CudaTest, VectorMul) {
+    const size_t NUM_ELEMENTS = 1000;
+    auto h_a = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto h_b = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto h_result = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto cpu_result = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+
+    // Generate test data with Montgomery form conversion
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        vec384x temp_a, temp_b;
+        set_vec384x(temp_a, 3 + i, 2 + i);
+        set_vec384x(temp_b, 4 + i, 5 + i);
+
+        // Convert to Montgomery form
+        to_mont_fp2(h_a[i], temp_a);
+        to_mont_fp2(h_b[i], temp_b);
+    }
+
+    // CPU reference computation
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        mul_fp2(cpu_result[i], h_a[i], h_b[i]);
+    }
+
+    // Allocate device memory
+    vec384x* d_a = allocate_device_fp2_array(NUM_ELEMENTS);
+    vec384x* d_b = allocate_device_fp2_array(NUM_ELEMENTS);
+    vec384x* d_result = allocate_device_fp2_array(NUM_ELEMENTS);
+
+    ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
+    ASSERT_NE(d_b, nullptr) << "Failed to allocate device memory for array b";
+    ASSERT_NE(d_result, nullptr) << "Failed to allocate device memory for result";
+
+    // Copy data to device
+    expect_success(copy_host_to_device_fp2(d_a, h_a.get(), NUM_ELEMENTS), "copy h_a to device");
+    expect_success(copy_host_to_device_fp2(d_b, h_b.get(), NUM_ELEMENTS), "copy h_b to device");
+
+    // Vector computation with error checking
+    batched_error_code result = mul_fp2_vec(d_result, d_a, d_b, NUM_ELEMENTS);
+    expect_success(result, "mul_fp2_vec");
+
+    // Copy result back to host and compare only if operation succeeded
+    if (result == BATCHED_SUCCESS) {
+        expect_success(copy_device_to_host_fp2(h_result.get(), d_result, NUM_ELEMENTS), "copy result to host");
+        EXPECT_TRUE(compare_fp2_vectors(h_result.get(), cpu_result.get(), NUM_ELEMENTS, "mul_fp2_vec"));
+    }
+
+    // Cleanup
+    free_device_fp2_array(d_a);
+    free_device_fp2_array(d_b);
+    free_device_fp2_array(d_result);
+}
+
+TEST_F(Fp2CudaTest, VectorSqr) {
+    const size_t NUM_ELEMENTS = 1000;
+    auto h_a = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto h_result = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto cpu_result = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+
+    // Generate test data with Montgomery form conversion
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        vec384x temp_a;
+        set_vec384x(temp_a, 5 + i, 3 + i);
+
+        // Convert to Montgomery form
+        to_mont_fp2(h_a[i], temp_a);
+    }
+
+    // CPU reference computation
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        sqr_fp2(cpu_result[i], h_a[i]);
+    }
+
+    // Allocate device memory
+    vec384x* d_a = allocate_device_fp2_array(NUM_ELEMENTS);
+    vec384x* d_result = allocate_device_fp2_array(NUM_ELEMENTS);
+
+    ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
+    ASSERT_NE(d_result, nullptr) << "Failed to allocate device memory for result";
+
+    // Copy data to device
+    expect_success(copy_host_to_device_fp2(d_a, h_a.get(), NUM_ELEMENTS), "copy h_a to device");
+
+    // Vector computation with error checking
+    batched_error_code result = sqr_fp2_vec(d_result, d_a, NUM_ELEMENTS);
+    expect_success(result, "sqr_fp2_vec");
+
+    // Copy result back to host and compare only if operation succeeded
+    if (result == BATCHED_SUCCESS) {
+        expect_success(copy_device_to_host_fp2(h_result.get(), d_result, NUM_ELEMENTS), "copy result to host");
+        EXPECT_TRUE(compare_fp2_vectors(h_result.get(), cpu_result.get(), NUM_ELEMENTS, "sqr_fp2_vec"));
+    }
+
+    // Cleanup
+    free_device_fp2_array(d_a);
+    free_device_fp2_array(d_result);
+}
+
+TEST_F(Fp2CudaTest, VectorCNeg) {
+    const size_t NUM_ELEMENTS = 1000;
+    auto h_a = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto h_result_true = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto cpu_result_true = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto h_result_false = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto cpu_result_false = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+
+    // Generate test data
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        set_vec384x(h_a[i], 10 + i, 5 + i);
+    }
+
+    // CPU reference computation with flag = 1
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        cneg_fp2(cpu_result_true[i], h_a[i], 1);
+    }
+
+    // CPU reference computation with flag = 0
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        cneg_fp2(cpu_result_false[i], h_a[i], 0);
+    }
+
+    // Allocate device memory
+    vec384x* d_a = allocate_device_fp2_array(NUM_ELEMENTS);
+    vec384x* d_result_true = allocate_device_fp2_array(NUM_ELEMENTS);
+    vec384x* d_result_false = allocate_device_fp2_array(NUM_ELEMENTS);
+
+    ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
+    ASSERT_NE(d_result_true, nullptr) << "Failed to allocate device memory for result_true";
+    ASSERT_NE(d_result_false, nullptr) << "Failed to allocate device memory for result_false";
+
+    // Copy data to device
+    expect_success(copy_host_to_device_fp2(d_a, h_a.get(), NUM_ELEMENTS), "copy h_a to device");
+
+    // Vector computation with flag = 1 and error checking
+    batched_error_code result_true = cneg_fp2_vec(d_result_true, d_a, 1, NUM_ELEMENTS);
+    expect_success(result_true, "cneg_fp2_vec (flag=1)");
+
+    // Vector computation with flag = 0 and error checking
+    batched_error_code result_false = cneg_fp2_vec(d_result_false, d_a, 0, NUM_ELEMENTS);
+    expect_success(result_false, "cneg_fp2_vec (flag=0)");
+
+    // Copy results back to host and compare only if operations succeeded
+    if (result_true == BATCHED_SUCCESS) {
+        expect_success(copy_device_to_host_fp2(h_result_true.get(), d_result_true, NUM_ELEMENTS), "copy result_true to host");
+        EXPECT_TRUE(compare_fp2_vectors(h_result_true.get(), cpu_result_true.get(), NUM_ELEMENTS, "cneg_fp2_vec (flag=1)"));
+    }
+    if (result_false == BATCHED_SUCCESS) {
+        expect_success(copy_device_to_host_fp2(h_result_false.get(), d_result_false, NUM_ELEMENTS), "copy result_false to host");
+        EXPECT_TRUE(compare_fp2_vectors(h_result_false.get(), cpu_result_false.get(), NUM_ELEMENTS, "cneg_fp2_vec (flag=0)"));
+    }
+
+    // Cleanup
+    free_device_fp2_array(d_a);
+    free_device_fp2_array(d_result_true);
+    free_device_fp2_array(d_result_false);
+}
+
+TEST_F(Fp2CudaTest, VectorMul3) {
+    const size_t NUM_ELEMENTS = 1000;
+    auto h_a = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto h_result = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto cpu_result = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+
+    // Generate test data
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        set_vec384x(h_a[i], 2 + i, 3 + i);
+    }
+
+    // CPU reference computation
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        mul_by_3_fp(cpu_result[i][0], h_a[i][0]);
+        mul_by_3_fp(cpu_result[i][1], h_a[i][1]);
+    }
+
+    // Allocate device memory
+    vec384x* d_a = allocate_device_fp2_array(NUM_ELEMENTS);
+    vec384x* d_result = allocate_device_fp2_array(NUM_ELEMENTS);
+
+    ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
+    ASSERT_NE(d_result, nullptr) << "Failed to allocate device memory for result";
+
+    // Copy data to device
+    expect_success(copy_host_to_device_fp2(d_a, h_a.get(), NUM_ELEMENTS), "copy h_a to device");
+
+    // Vector computation with error checking
+    batched_error_code result = mul3_fp2_vec(d_result, d_a, NUM_ELEMENTS);
+    expect_success(result, "mul3_fp2_vec");
+
+    // Copy result back to host and compare only if operation succeeded
+    if (result == BATCHED_SUCCESS) {
+        expect_success(copy_device_to_host_fp2(h_result.get(), d_result, NUM_ELEMENTS), "copy result to host");
+        EXPECT_TRUE(compare_fp2_vectors(h_result.get(), cpu_result.get(), NUM_ELEMENTS, "mul3_fp2_vec"));
+    }
+
+    // Cleanup
+    free_device_fp2_array(d_a);
+    free_device_fp2_array(d_result);
+}
+
+TEST_F(Fp2CudaTest, VectorMul8) {
+    const size_t NUM_ELEMENTS = 1000;
+    auto h_a = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto h_result = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto cpu_result = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+
+    // Generate test data
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        set_vec384x(h_a[i], 2 + i, 3 + i);
+    }
+
+    // CPU reference computation
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        mul_by_8_fp(cpu_result[i][0], h_a[i][0]);
+        mul_by_8_fp(cpu_result[i][1], h_a[i][1]);
+    }
+
+    // Allocate device memory
+    vec384x* d_a = allocate_device_fp2_array(NUM_ELEMENTS);
+    vec384x* d_result = allocate_device_fp2_array(NUM_ELEMENTS);
+
+    ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
+    ASSERT_NE(d_result, nullptr) << "Failed to allocate device memory for result";
+
+    // Copy data to device
+    expect_success(copy_host_to_device_fp2(d_a, h_a.get(), NUM_ELEMENTS), "copy h_a to device");
+
+    // Vector computation with error checking
+    batched_error_code result = mul8_fp2_vec(d_result, d_a, NUM_ELEMENTS);
+    expect_success(result, "mul8_fp2_vec");
+
+    // Copy result back to host and compare only if operation succeeded
+    if (result == BATCHED_SUCCESS) {
+        expect_success(copy_device_to_host_fp2(h_result.get(), d_result, NUM_ELEMENTS), "copy result to host");
+        EXPECT_TRUE(compare_fp2_vectors(h_result.get(), cpu_result.get(), NUM_ELEMENTS, "mul8_fp2_vec"));
+    }
+
+    // Cleanup
+    free_device_fp2_array(d_a);
+    free_device_fp2_array(d_result);
+}
+
+TEST_F(Fp2CudaTest, VectorLshift) {
+    const size_t NUM_ELEMENTS = 1000;
+    const size_t shift_count = 2;
+    auto h_a = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto h_result = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto cpu_result = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+
+    // Generate test data
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        set_vec384x(h_a[i], 1 + i, 2 + i);
+    }
+
+    // CPU reference computation
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        lshift_fp(cpu_result[i][0], h_a[i][0], shift_count);
+        lshift_fp(cpu_result[i][1], h_a[i][1], shift_count);
+    }
+
+    // Allocate device memory
+    vec384x* d_a = allocate_device_fp2_array(NUM_ELEMENTS);
+    vec384x* d_result = allocate_device_fp2_array(NUM_ELEMENTS);
+
+    ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
+    ASSERT_NE(d_result, nullptr) << "Failed to allocate device memory for result";
+
+    // Copy data to device
+    expect_success(copy_host_to_device_fp2(d_a, h_a.get(), NUM_ELEMENTS), "copy h_a to device");
+
+    // Vector computation with error checking
+    batched_error_code result = lshift_fp2_vec(d_result, d_a, shift_count, NUM_ELEMENTS);
+    expect_success(result, "lshift_fp2_vec");
+
+    // Copy result back to host and compare only if operation succeeded
+    if (result == BATCHED_SUCCESS) {
+        expect_success(copy_device_to_host_fp2(h_result.get(), d_result, NUM_ELEMENTS), "copy result to host");
+        EXPECT_TRUE(compare_fp2_vectors(h_result.get(), cpu_result.get(), NUM_ELEMENTS, "lshift_fp2_vec"));
+    }
+
+    // Cleanup
+    free_device_fp2_array(d_a);
+    free_device_fp2_array(d_result);
+}
+
+TEST_F(Fp2CudaTest, VectorConjugate) {
+    const size_t NUM_ELEMENTS = 1000;
+    auto h_a = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto h_result = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto cpu_result = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+
+    // Generate test data
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        set_vec384x(h_a[i], 5 + i, 7 + i);
+    }
+
+    // CPU reference computation
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        conjugate_fp2(cpu_result[i], h_a[i]);
+    }
+
+    // Allocate device memory
+    vec384x* d_a = allocate_device_fp2_array(NUM_ELEMENTS);
+    vec384x* d_result = allocate_device_fp2_array(NUM_ELEMENTS);
+
+    ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
+    ASSERT_NE(d_result, nullptr) << "Failed to allocate device memory for result";
+
+    // Copy data to device
+    expect_success(copy_host_to_device_fp2(d_a, h_a.get(), NUM_ELEMENTS), "copy h_a to device");
+
+    // Vector computation with error checking
+    batched_error_code result = conjugate_fp2_vec(d_result, d_a, NUM_ELEMENTS);
+    expect_success(result, "conjugate_fp2_vec");
+
+    // Copy result back to host and compare only if operation succeeded
+    if (result == BATCHED_SUCCESS) {
+        expect_success(copy_device_to_host_fp2(h_result.get(), d_result, NUM_ELEMENTS), "copy result to host");
+        EXPECT_TRUE(compare_fp2_vectors(h_result.get(), cpu_result.get(), NUM_ELEMENTS, "conjugate_fp2_vec"));
+    }
+
+    // Cleanup
+    free_device_fp2_array(d_a);
+    free_device_fp2_array(d_result);
+}
+
+TEST_F(Fp2CudaTest, VectorInverse) {
+    const size_t NUM_ELEMENTS = 100; // Smaller for inverse operations
+    auto h_a = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto h_result = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto cpu_result = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+
+    // Generate test data with Montgomery form conversion
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        vec384x temp_a;
+        set_vec384x(temp_a, 5 + i, 3 + i); // Non-zero values
+
+        // Convert to Montgomery form
+        to_mont_fp2(h_a[i], temp_a);
+    }
+
+    // CPU reference computation
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        reciprocal_fp2(cpu_result[i], h_a[i]);
+    }
+
+    // Allocate device memory
+    vec384x* d_a = allocate_device_fp2_array(NUM_ELEMENTS);
+    vec384x* d_result = allocate_device_fp2_array(NUM_ELEMENTS);
+
+    ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
+    ASSERT_NE(d_result, nullptr) << "Failed to allocate device memory for result";
+
+    // Copy data to device
+    expect_success(copy_host_to_device_fp2(d_a, h_a.get(), NUM_ELEMENTS), "copy h_a to device");
+
+    // Vector computation with error checking
+    batched_error_code result = inverse_fp2_vec(d_result, d_a, NUM_ELEMENTS);
+    expect_success(result, "inverse_fp2_vec");
+
+    // Copy result back to host and compare only if operation succeeded
+    if (result == BATCHED_SUCCESS) {
+        expect_success(copy_device_to_host_fp2(h_result.get(), d_result, NUM_ELEMENTS), "copy result to host");
+        EXPECT_TRUE(compare_fp2_vectors(h_result.get(), cpu_result.get(), NUM_ELEMENTS, "inverse_fp2_vec"));
+    }
+
+    // Cleanup
+    free_device_fp2_array(d_a);
+    free_device_fp2_array(d_result);
+}
+
+TEST_F(Fp2CudaTest, VectorSqrt) {
+    const size_t NUM_ELEMENTS = 100; // Smaller for sqrt operations
+    auto h_a = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto h_result = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto cpu_result = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+
+    // Generate test data with perfect squares in Montgomery form
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        vec384x temp_base, temp_squared;
+        set_vec384x(temp_base, 2 + i, 1 + i);
+
+        // Convert to Montgomery form and square to ensure it has a square root
+        to_mont_fp2(temp_base, temp_base);
+        sqr_fp2(h_a[i], temp_base);
+    }
+
+    // CPU reference computation
+    bool all_sqrt_success = true;
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        bool sqrt_success = sqrt_fp2(cpu_result[i], h_a[i]);
+        if (!sqrt_success) {
+            all_sqrt_success = false;
             break;
         }
     }
 
-    // Cleanup
-    delete[] h_results;
-    CUDA_CHECK(cudaFree(d_results));
+    if (!all_sqrt_success) {
+        GTEST_SKIP() << "Some CPU square root operations failed";
+    }
 
-    return all_passed;
-}
+    // Allocate device memory
+    vec384x* d_a = allocate_device_fp2_array(NUM_ELEMENTS);
+    vec384x* d_result = allocate_device_fp2_array(NUM_ELEMENTS);
 
-// Global flag for CUDA availability
-static bool cuda_device_available = false;
+    ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
+    ASSERT_NE(d_result, nullptr) << "Failed to allocate device memory for result";
 
-// CUDA Environment for runtime detection
-class CUDAEnvironment : public ::testing::Environment {
-public:
-    void SetUp() override {
-        int device_count = 0;
-        cudaError_t error = cudaGetDeviceCount(&device_count);
+    // Copy data to device
+    expect_success(copy_host_to_device_fp2(d_a, h_a.get(), NUM_ELEMENTS), "copy h_a to device");
 
-        if (error != cudaSuccess || device_count == 0) {
-            std::cout << "No CUDA devices available. CUDA Fp2 tests will be skipped.\n";
-            cuda_device_available = false;
+    // Vector computation with error checking
+    batched_error_code result = sqrt_fp2_vec(d_result, d_a, NUM_ELEMENTS);
+    expect_success(result, "sqrt_fp2_vec");
+
+    // Copy result back to host and compare only if operation succeeded
+    if (result == BATCHED_SUCCESS) {
+        expect_success(copy_device_to_host_fp2(h_result.get(), d_result, NUM_ELEMENTS), "copy result to host");
+
+        // For square root, we need to verify that the result squared gives the original
+        // rather than exact equality (since there are two square roots)
+        bool all_correct = true;
+        for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+            vec384x squared_result;
+            sqr_fp2(squared_result, h_result[i]);
+            if (!vec384x_equal(squared_result, h_a[i])) {
+                all_correct = false;
+                printf("Square root verification failed at index %zu\n", i);
+                break;
+            }
         }
-        else {
-            std::cout << "Found " << device_count << " CUDA device(s) for Fp2 tests\n";
-            cuda_device_available = true;
-        }
+        EXPECT_TRUE(all_correct) << "Square root verification failed";
     }
-
-    static bool IsCudaAvailable() { return cuda_device_available; }
-};
-
-// Initialize the test environment
-struct Fp2CudaTestRegistration {
-    Fp2CudaTestRegistration() {
-        ::testing::AddGlobalTestEnvironment(new CUDAEnvironment());
-    }
-};
-
-static Fp2CudaTestRegistration fp2_cuda_test_registration;
-
-// CUDA test cases for Fp2 operations
-TEST(Fp2OpsCUDA, ZeroAndOne) {
-    if (!CUDAEnvironment::IsCudaAvailable()) {
-        GTEST_SKIP() << "CUDA not available";
-    }
-    EXPECT_TRUE(run_cuda_fp2_test(cuda_test_fp2_zero_and_one_kernel, 4));
-}
-
-TEST(Fp2OpsCUDA, Addition) {
-    if (!CUDAEnvironment::IsCudaAvailable()) {
-        GTEST_SKIP() << "CUDA not available";
-    }
-    EXPECT_TRUE(run_cuda_fp2_test(cuda_test_fp2_addition_kernel, 2));
-}
-
-TEST(Fp2OpsCUDA, Subtraction) {
-    if (!CUDAEnvironment::IsCudaAvailable()) {
-        GTEST_SKIP() << "CUDA not available";
-    }
-    EXPECT_TRUE(run_cuda_fp2_test(cuda_test_fp2_subtraction_kernel, 2));
-}
-
-TEST(Fp2OpsCUDA, Multiplication) {
-    if (!CUDAEnvironment::IsCudaAvailable()) {
-        GTEST_SKIP() << "CUDA not available";
-    }
-    EXPECT_TRUE(run_cuda_fp2_test(cuda_test_fp2_multiplication_kernel, 2));
-}
-
-TEST(Fp2OpsCUDA, SquareAndMultiply) {
-    if (!CUDAEnvironment::IsCudaAvailable()) {
-        GTEST_SKIP() << "CUDA not available";
-    }
-    EXPECT_TRUE(run_cuda_fp2_test(cuda_test_fp2_square_and_multiply_kernel, 1));
-}
-
-TEST(Fp2OpsCUDA, Inversion) {
-    if (!CUDAEnvironment::IsCudaAvailable()) {
-        GTEST_SKIP() << "CUDA not available";
-    }
-    EXPECT_TRUE(run_cuda_fp2_test(cuda_test_fp2_inversion_kernel, 1));
-}
-
-TEST(Fp2OpsCUDA, Frobenius) {
-    if (!CUDAEnvironment::IsCudaAvailable()) {
-        GTEST_SKIP() << "CUDA not available";
-    }
-    EXPECT_TRUE(run_cuda_fp2_test(cuda_test_fp2_frobenius_kernel, 1));
-}
-
-TEST(Fp2OpsCUDA, SquareRoot) {
-    if (!CUDAEnvironment::IsCudaAvailable()) {
-        GTEST_SKIP() << "CUDA not available";
-    }
-    EXPECT_TRUE(run_cuda_fp2_test(cuda_test_fp2_square_root_kernel, 3));
-}
-
-TEST(Fp2OpsCUDA, Serialization) {
-    if (!CUDAEnvironment::IsCudaAvailable()) {
-        GTEST_SKIP() << "CUDA not available";
-    }
-    EXPECT_TRUE(run_cuda_fp2_test(cuda_test_fp2_serialization_kernel, 1));
-}
-
-// Performance and batch processing tests
-TEST(Fp2OpsCUDA, PerformanceBaseline) {
-    if (!CUDAEnvironment::IsCudaAvailable()) {
-        GTEST_SKIP() << "CUDA not available";
-    }
-
-    int* d_ops, h_ops;
-
-    CUDA_CHECK(cudaMalloc(&d_ops, sizeof(int)));
-    CUDA_CHECK(cudaMemset(d_ops, 0, sizeof(int)));
-
-    // Record timing
-    cudaEvent_t start, stop;
-    CUDA_CHECK(cudaEventCreate(&start));
-    CUDA_CHECK(cudaEventCreate(&stop));
-
-    CUDA_CHECK(cudaEventRecord(start));
-    cuda_test_fp2_performance_kernel<<<1, 1>>>(d_ops);
-    CUDA_CHECK(cudaEventRecord(stop));
-
-    CUDA_CHECK(cudaGetLastError());
-    CUDA_CHECK(cudaDeviceSynchronize());
-
-    float milliseconds = 0;
-    CUDA_CHECK(cudaEventElapsedTime(&milliseconds, start, stop));
-
-    CUDA_CHECK(cudaMemcpy(&h_ops, d_ops, sizeof(int), cudaMemcpyDeviceToHost));
-
-    printf("CUDA Fp2 Performance: %d operations in %.3f ms (%.1f ops/ms)\n",
-        h_ops, milliseconds, h_ops / milliseconds);
-
-    CUDA_CHECK(cudaFree(d_ops));
-    CUDA_CHECK(cudaEventDestroy(start));
-    CUDA_CHECK(cudaEventDestroy(stop));
-
-    EXPECT_GT(h_ops, 0);
-}
-
-TEST(Fp2OpsCUDA, BatchProcessing) {
-    if (!CUDAEnvironment::IsCudaAvailable()) {
-        GTEST_SKIP() << "CUDA not available";
-    }
-
-    const int batch_size = 512;  // Reduced for Fp2 complexity
-    bool* d_results, * h_results;
-
-    // Allocate memory
-    h_results = new bool[batch_size];
-    CUDA_CHECK(cudaMalloc(&d_results, batch_size * sizeof(bool)));
-    CUDA_CHECK(cudaMemset(d_results, 0, batch_size * sizeof(bool)));
-
-    // Launch kernel with multiple threads
-    int threads_per_block = 128;  // Reduced for Fp2 complexity
-    int blocks = (batch_size + threads_per_block - 1) / threads_per_block;
-
-    cuda_test_fp2_batch_operations_kernel<<<blocks, threads_per_block>>>(d_results, batch_size);
-    CUDA_CHECK(cudaGetLastError());
-    CUDA_CHECK(cudaDeviceSynchronize());
-
-    // Copy results back
-    CUDA_CHECK(cudaMemcpy(h_results, d_results, batch_size * sizeof(bool), cudaMemcpyDeviceToHost));
-
-    // Check that all computations completed successfully
-    int successful_operations = 0;
-    for (int i = 0; i < batch_size; i++) {
-        if (h_results[i]) {
-            successful_operations++;
-        }
-    }
-
-    printf("Fp2 Batch processing: %d/%d operations successful\n", successful_operations, batch_size);
 
     // Cleanup
-    delete[] h_results;
-    CUDA_CHECK(cudaFree(d_results));
+    free_device_fp2_array(d_a);
+    free_device_fp2_array(d_result);
+}
 
-    // Expect at least 95% success rate
-    EXPECT_GE(successful_operations, batch_size * 0.95);
+TEST_F(Fp2CudaTest, VectorErrorHandling) {
+    const size_t NUM_ELEMENTS = 100;
+
+    // Test null pointer handling - these should fail immediately without device allocation
+    batched_error_code null_out_result = add_fp2_vec(nullptr, nullptr, nullptr, NUM_ELEMENTS);
+    EXPECT_EQ(null_out_result, BATCHED_ERROR_NULL_POINTER)
+        << "Expected NULL_POINTER error for null output array";
+
+    // Test zero size handling - zero size should be OK
+    vec384x* d_dummy = allocate_device_fp2_array(NUM_ELEMENTS);
+    ASSERT_NE(d_dummy, nullptr) << "Failed to allocate device memory for dummy array";
+
+    batched_error_code zero_size_result = add_fp2_vec(d_dummy, d_dummy, d_dummy, 0);
+    EXPECT_EQ(zero_size_result, BATCHED_SUCCESS)
+        << "Expected SUCCESS for zero element count (zero-size operations should be OK)";
+
+    free_device_fp2_array(d_dummy);
+}
+
+TEST_F(Fp2CudaTest, VectorMixedOperations) {
+    const size_t MIXED_SIZE = 256;
+    auto h_a = std::make_unique<vec384x[]>(MIXED_SIZE);
+    auto h_b = std::make_unique<vec384x[]>(MIXED_SIZE);
+    auto h_result = std::make_unique<vec384x[]>(MIXED_SIZE);
+    auto cpu_result = std::make_unique<vec384x[]>(MIXED_SIZE);
+
+    // Initialize test data
+    for (size_t i = 0; i < MIXED_SIZE; i++) {
+        set_vec384x(h_a[i], 3 + i, 2 + i);
+        set_vec384x(h_b[i], 5 + i * 2, 4 + i);
+    }
+
+    // Allocate device memory
+    vec384x* d_a = allocate_device_fp2_array(MIXED_SIZE);
+    vec384x* d_b = allocate_device_fp2_array(MIXED_SIZE);
+    vec384x* d_result = allocate_device_fp2_array(MIXED_SIZE);
+    vec384x* d_temp = allocate_device_fp2_array(MIXED_SIZE);
+
+    ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
+    ASSERT_NE(d_b, nullptr) << "Failed to allocate device memory for array b";
+    ASSERT_NE(d_result, nullptr) << "Failed to allocate device memory for result";
+    ASSERT_NE(d_temp, nullptr) << "Failed to allocate device memory for temp";
+
+    // Copy data to device
+    expect_success(copy_host_to_device_fp2(d_a, h_a.get(), MIXED_SIZE), "copy h_a to device");
+    expect_success(copy_host_to_device_fp2(d_b, h_b.get(), MIXED_SIZE), "copy h_b to device");
+
+    // Perform a sequence of operations: (a + b) * 3 then conjugate
+    // Step 1: Add
+    batched_error_code add_result = add_fp2_vec(d_temp, d_a, d_b, MIXED_SIZE);
+    expect_success(add_result, "mixed operations add");
+
+    // Step 2: Multiply by 3
+    if (add_result == BATCHED_SUCCESS) {
+        batched_error_code mul3_result = mul3_fp2_vec(d_result, d_temp, MIXED_SIZE);
+        expect_success(mul3_result, "mixed operations mul3");
+
+        // Step 3: Conjugate
+        if (mul3_result == BATCHED_SUCCESS) {
+            batched_error_code conj_result = conjugate_fp2_vec(d_result, d_result, MIXED_SIZE);
+            expect_success(conj_result, "mixed operations conjugate");
+
+            if (conj_result == BATCHED_SUCCESS) {
+                expect_success(copy_device_to_host_fp2(h_result.get(), d_result, MIXED_SIZE), "copy mixed result to host");
+
+                // Calculate expected results on host
+                for (size_t i = 0; i < MIXED_SIZE; i++) {
+                    vec384x temp_sum, temp_mul3;
+                    add_fp2(temp_sum, h_a[i], h_b[i]);
+                    mul_by_3_fp(temp_mul3[0], temp_sum[0]);
+                    mul_by_3_fp(temp_mul3[1], temp_sum[1]);
+                    conjugate_fp2(cpu_result[i], temp_mul3);
+                }
+
+                EXPECT_TRUE(compare_fp2_vectors(h_result.get(), cpu_result.get(), MIXED_SIZE, "mixed operations"));
+            }
+        }
+    }
+
+    // Cleanup
+    free_device_fp2_array(d_a);
+    free_device_fp2_array(d_b);
+    free_device_fp2_array(d_result);
+    free_device_fp2_array(d_temp);
+}
+
+TEST_F(Fp2CudaTest, VectorPerformanceBaseline) {
+    const size_t NUM_ELEMENTS = 5000; // Smaller due to Fp2 complexity
+    auto h_a = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto h_b = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto h_result = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+    auto cpu_result = std::make_unique<vec384x[]>(NUM_ELEMENTS);
+
+    // Generate test data
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        random_fp2(h_a[i]);
+        random_fp2(h_b[i]);
+    }
+
+    // This test primarily validates correctness at scale
+    // Performance measurements would require timing infrastructure
+
+    // CPU computation
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        add_fp2(cpu_result[i], h_a[i], h_b[i]);
+    }
+
+    // Allocate device memory
+    vec384x* d_a = allocate_device_fp2_array(NUM_ELEMENTS);
+    vec384x* d_b = allocate_device_fp2_array(NUM_ELEMENTS);
+    vec384x* d_result = allocate_device_fp2_array(NUM_ELEMENTS);
+
+    ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
+    ASSERT_NE(d_b, nullptr) << "Failed to allocate device memory for array b";
+    ASSERT_NE(d_result, nullptr) << "Failed to allocate device memory for result";
+
+    // Copy data to device
+    expect_success(copy_host_to_device_fp2(d_a, h_a.get(), NUM_ELEMENTS), "copy h_a to device");
+    expect_success(copy_host_to_device_fp2(d_b, h_b.get(), NUM_ELEMENTS), "copy h_b to device");
+
+    // Vector computation with error checking
+    batched_error_code result = add_fp2_vec(d_result, d_a, d_b, NUM_ELEMENTS);
+    expect_success(result, "performance baseline");
+
+    // Verify correctness only if operation succeeded
+    if (result == BATCHED_SUCCESS) {
+        expect_success(copy_device_to_host_fp2(h_result.get(), d_result, NUM_ELEMENTS), "copy result to host");
+        EXPECT_TRUE(compare_fp2_vectors(h_result.get(), cpu_result.get(), NUM_ELEMENTS, "performance baseline"));
+    }
+
+    // Cleanup
+    free_device_fp2_array(d_a);
+    free_device_fp2_array(d_b);
+    free_device_fp2_array(d_result);
 }

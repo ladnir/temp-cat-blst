@@ -8,7 +8,7 @@
 
 extern "C" {
 #include "blst/fields/fields.h"
-#include "blst/fields/fields_cuda.h"
+#include "blst/fields/Fp_cuda.h"
 #include "blst/exports.h"
 }
 

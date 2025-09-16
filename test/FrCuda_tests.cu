@@ -9,7 +9,7 @@
 extern "C" {
 #include "blst/fields/fields.h"
 #include "blst/exports.h"
-#include "blst/fields/fields_cuda.h"
+#include "blst/fields/Fr_cuda.h"
 }
 
 #define FR_LIMBS NLIMBS(256)
