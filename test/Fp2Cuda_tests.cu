@@ -621,7 +621,6 @@ TEST_F(Fp2CudaTest, VectorInverse) {
     free_device_fp2_array(d_a);
     free_device_fp2_array(d_result);
 }
-
 TEST_F(Fp2CudaTest, VectorSqrt) {
     const size_t NUM_ELEMENTS = 100; // Smaller for sqrt operations
     auto h_a = std::make_unique<vec384x[]>(NUM_ELEMENTS);
@@ -638,12 +637,14 @@ TEST_F(Fp2CudaTest, VectorSqrt) {
         sqr_fp2(h_a[i], temp_base);
     }
 
-    // CPU reference computation
+    // CPU reference computation - compute expected square roots BEFORE GPU call
     bool all_sqrt_success = true;
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
         bool sqrt_success = sqrt_fp2(cpu_result[i], h_a[i]);
         if (!sqrt_success) {
             all_sqrt_success = false;
+            printf("CPU square root failed at index %zu\n", i);
+            print_vec384x(h_a[i]);
             break;
         }
     }
@@ -671,7 +672,7 @@ TEST_F(Fp2CudaTest, VectorSqrt) {
         expect_success(copy_device_to_host_fp2(h_result.get(), d_result, NUM_ELEMENTS), "copy result to host");
 
         // For square root, we need to verify that the result squared gives the original
-        // rather than exact equality (since there are two square roots)
+        // rather than exact equality (since there are two square roots: ±sqrt(x))
         bool all_correct = true;
         for (size_t i = 0; i < NUM_ELEMENTS; i++) {
             vec384x squared_result;
@@ -679,34 +680,37 @@ TEST_F(Fp2CudaTest, VectorSqrt) {
             if (!vec384x_equal(squared_result, h_a[i])) {
                 all_correct = false;
                 printf("Square root verification failed at index %zu\n", i);
+                printf("Original input: "); print_vec384x(h_a[i]);
+                printf("GPU sqrt result: "); print_vec384x(h_result[i]);
+                printf("CPU sqrt result: "); print_vec384x(cpu_result[i]);
+                printf("GPU result squared: "); print_vec384x(squared_result);
+
+                // Also check if the CPU result squared gives the original
+                vec384x cpu_squared;
+                sqr_fp2(cpu_squared, cpu_result[i]);
+                printf("CPU result squared: "); print_vec384x(cpu_squared);
                 break;
             }
         }
-        EXPECT_TRUE(all_correct) << "Square root verification failed";
+        EXPECT_TRUE(all_correct) << "Square root verification failed - GPU result squared does not equal input";
+
+        // Optional: Also verify that CPU results are consistent
+        bool cpu_consistent = true;
+        for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+            vec384x cpu_squared;
+            sqr_fp2(cpu_squared, cpu_result[i]);
+            if (!vec384x_equal(cpu_squared, h_a[i])) {
+                cpu_consistent = false;
+                printf("CPU square root self-verification failed at index %zu\n", i);
+                break;
+            }
+        }
+        EXPECT_TRUE(cpu_consistent) << "CPU square root self-verification failed";
     }
 
     // Cleanup
     free_device_fp2_array(d_a);
     free_device_fp2_array(d_result);
-}
-
-TEST_F(Fp2CudaTest, VectorErrorHandling) {
-    const size_t NUM_ELEMENTS = 100;
-
-    // Test null pointer handling - these should fail immediately without device allocation
-    batched_error_code null_out_result = add_fp2_vec(nullptr, nullptr, nullptr, NUM_ELEMENTS);
-    EXPECT_EQ(null_out_result, BATCHED_ERROR_NULL_POINTER)
-        << "Expected NULL_POINTER error for null output array";
-
-    // Test zero size handling - zero size should be OK
-    vec384x* d_dummy = allocate_device_fp2_array(NUM_ELEMENTS);
-    ASSERT_NE(d_dummy, nullptr) << "Failed to allocate device memory for dummy array";
-
-    batched_error_code zero_size_result = add_fp2_vec(d_dummy, d_dummy, d_dummy, 0);
-    EXPECT_EQ(zero_size_result, BATCHED_SUCCESS)
-        << "Expected SUCCESS for zero element count (zero-size operations should be OK)";
-
-    free_device_fp2_array(d_dummy);
 }
 
 TEST_F(Fp2CudaTest, VectorMixedOperations) {

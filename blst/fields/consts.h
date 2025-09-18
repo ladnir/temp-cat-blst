@@ -50,6 +50,28 @@ BLST_EXTERN_C_BEGIN
     TO_LIMB_T(0x9a53352a615e29dd), TO_LIMB_T(0x34c04e5e921e1761),\
     TO_LIMB_T(0x2512d43565724728), TO_LIMB_T(0x0aa6346091755d4d)
 
+#define BLST_SQRT_SQRT_MINUS_1_LIMBS                                \
+{ TO_LIMB_T(0x3e2f585da55c9ad1), TO_LIMB_T(0x4294213d86c18183),     \
+  TO_LIMB_T(0x382844c88b623732), TO_LIMB_T(0x92ad2afd19103e18),     \
+  TO_LIMB_T(0x1d794e4fac7cf0b9), TO_LIMB_T(0x0bd592fc7d825ec8)},    \
+{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
+  TO_LIMB_T(0x2f088dd86b4ebef1), TO_LIMB_T(0xd1ca2087da74d4a7),     \
+  TO_LIMB_T(0x2da2596696cebc1d), TO_LIMB_T(0x0e2b7eedbbfd87d2) }
+
+#define BLST_SQRT_MINUS_SQRT_MINUS_1_LIMBS                          \
+{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
+  TO_LIMB_T(0x2f088dd86b4ebef1), TO_LIMB_T(0xd1ca2087da74d4a7),     \
+  TO_LIMB_T(0x2da2596696cebc1d), TO_LIMB_T(0x0e2b7eedbbfd87d2) },   \
+{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
+  TO_LIMB_T(0x2f088dd86b4ebef1), TO_LIMB_T(0xd1ca2087da74d4a7),     \
+  TO_LIMB_T(0x2da2596696cebc1d), TO_LIMB_T(0x0e2b7eedbbfd87d2) }    
+  
+
+
+
+
+
+
 
 
 typedef union { vec384 p12[12]; vec384x p2; vec384 p; } radix384;
@@ -60,6 +82,15 @@ extern const vec384 BLST_RRRR_HOST; /* (1<<1536)%P, "radix"^4, hash_to_field */
 extern const vec256 BLST_r_HOST;    /* order */
 extern const vec256 BLST_rRR_HOST;  /* (1<<512)%r, "radix"^2, to-Montgomery   */
 extern const radix384 BLST_Rx_HOST; /* (1<<384)%P, "radix", one-in-Montgomery */
+
+extern const vec384x BLST_sqrt_minus_1_HOST;// = { { 0 }, { ONE_MONT_P_LIMBS } };
+/*
+    * "magic" number is ±2^((p-3)/4)%p, which is "1/sqrt(2)",
+    * in quotes because 2*"1/sqrt(2)"^2 == -1 mod p, not 1,
+    * but it pivots into "complex" plane nevertheless...
+    */
+extern const vec384x BLST_sqrt_sqrt_minus_1_HOST; /*= { BLST_SQRT_SQRT_MINUS_1_LIMBS };*/
+extern const vec384x BLST_sqrt_minus_sqrt_minus_1_HOST; /*= { BLST_SQRT_MINUS_SQRT_MINUS_1_LIMBS };*/
 
 
 #if defined(BLST_CUDA) && defined(__CUDACC__)
@@ -79,6 +110,15 @@ static __constant__ radix384 BLST_Rx_DEV = { {
     { ONE_MONT_P_LIMBS },
     { 0 }
 } };
+
+static __constant__ vec384x BLST_sqrt_minus_1_DEV = { { 0 }, { ONE_MONT_P_LIMBS } };
+/*
+    * "magic" number is ±2^((p-3)/4)%p, which is "1/sqrt(2)",
+    * in quotes because 2*"1/sqrt(2)"^2 == -1 mod p, not 1,
+    * but it pivots into "complex" plane nevertheless...
+    */
+static __constant__ vec384x BLST_sqrt_sqrt_minus_1_DEV = { BLST_SQRT_SQRT_MINUS_1_LIMBS };
+static __constant__ vec384x BLST_sqrt_minus_sqrt_minus_1_DEV = { BLST_SQRT_MINUS_SQRT_MINUS_1_LIMBS };
 
 
 #endif // __CUDA_ARCH__
@@ -157,6 +197,34 @@ HOST_DEVICE_FUNC BLST_FORCEINLINE const vec256* get_BLST_rRR(void)
 #define ZERO_384 (get_BLST_Rx()->p2[1])
 
 
+
+
+HOST_DEVICE_FUNC BLST_FORCEINLINE const vec384x* get_BLST_sqrt_minus_1(void)
+{
+#if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
+    return &BLST_sqrt_minus_1_DEV;
+#else
+    return &BLST_sqrt_minus_1_HOST;
+#endif
+}
+
+HOST_DEVICE_FUNC BLST_FORCEINLINE const vec384x* get_BLST_sqrt_sqrt_minus_1(void)
+{
+#if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
+    return &BLST_sqrt_sqrt_minus_1_DEV;
+#else
+    return &BLST_sqrt_sqrt_minus_1_HOST;
+#endif
+}
+
+HOST_DEVICE_FUNC BLST_FORCEINLINE const vec384x* get_BLST_sqrt_minus_sqrt_minus_1(void)
+{
+#if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
+    return &BLST_sqrt_minus_sqrt_minus_1_DEV;
+#else
+    return &BLST_sqrt_minus_sqrt_minus_1_HOST;
+#endif
+}
 
 
 

@@ -76,6 +76,8 @@ if(BLST_CUDA)
         #$<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda>
         #$<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_89>
         $<$<COMPILE_LANGUAGE:CUDA>:-rdc=true>
+      $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>           # cheap line tables
+      $<$<CONFIG:Debug>:$<$<COMPILE_LANGUAGE:CUDA>:-G -g -Xptxas -O0>>
         
         #verbose output for nvcc
         #$<$<COMPILE_LANGUAGE:CUDA>:
@@ -85,6 +87,13 @@ if(BLST_CUDA)
         #    -MMD
         #>
     )
+
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    
+        list(APPEND BLST_STATIC_OPTS $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo -Xptxas -O0>)
+
+    endif()
+
     
 else()
 

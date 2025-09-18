@@ -8,7 +8,8 @@
 #include "blst/fields/Fp2_cuda.h"
 #include "blst/exports.h"
 #include "blst/common/errors.h"
-
+ // printf for debugging
+#include <stdio.h>
 BLST_EXTERN_C_BEGIN
 
 // Vectorized addition of Fp2 elements (CPU)
@@ -40,7 +41,7 @@ batched_error_code add_fp2_vec_cu(vec384x* out, const vec384x* a, const vec384x*
 
 	size_t threads_per_block = 256;
 	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	add_fp2_vec_ker << <num_blocks, threads_per_block >> > (out, a, b, num);
+	add_fp2_vec_ker BLST_LAUNCH(num_blocks, threads_per_block) (out, a, b, num);
 
 	return cuda_to_batched(cudaDeviceSynchronize());
 }
@@ -85,7 +86,7 @@ batched_error_code sub_fp2_vec_cu(vec384x* out, const vec384x* a, const vec384x*
 
 	size_t threads_per_block = 256;
 	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	sub_fp2_vec_ker << <num_blocks, threads_per_block >> > (out, a, b, num);
+	sub_fp2_vec_ker BLST_LAUNCH(num_blocks, threads_per_block) (out, a, b, num);
 
 	return cuda_to_batched(cudaDeviceSynchronize());
 }
@@ -130,7 +131,7 @@ batched_error_code mul_fp2_vec_cu(vec384x* out, const vec384x* a, const vec384x*
 
 	size_t threads_per_block = 256;
 	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	mul_fp2_vec_ker << <num_blocks, threads_per_block >> > (out, a, b, num);
+	mul_fp2_vec_ker BLST_LAUNCH(num_blocks, threads_per_block) (out, a, b, num);
 
 	return cuda_to_batched(cudaDeviceSynchronize());
 }
@@ -175,7 +176,7 @@ batched_error_code sqr_fp2_vec_cu(vec384x* out, const vec384x* a, size_t num)
 
 	size_t threads_per_block = 256;
 	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	sqr_fp2_vec_ker << <num_blocks, threads_per_block >> > (out, a, num);
+	sqr_fp2_vec_ker BLST_LAUNCH(num_blocks, threads_per_block) (out, a, num);
 
 	return cuda_to_batched(cudaDeviceSynchronize());
 }
@@ -220,7 +221,7 @@ batched_error_code cneg_fp2_vec_cu(vec384x* out, const vec384x* a, int flag, siz
 
 	size_t threads_per_block = 256;
 	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	cneg_fp2_vec_ker << <num_blocks, threads_per_block >> > (out, a, flag, num);
+	cneg_fp2_vec_ker BLST_LAUNCH(num_blocks, threads_per_block) (out, a, flag, num);
 
 	return cuda_to_batched(cudaDeviceSynchronize());
 }
@@ -265,7 +266,7 @@ batched_error_code mul3_fp2_vec_cu(vec384x* out, const vec384x* a, size_t num)
 
 	size_t threads_per_block = 256;
 	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	mul3_fp2_vec_ker << <num_blocks, threads_per_block >> > (out, a, num);
+	mul3_fp2_vec_ker BLST_LAUNCH(num_blocks, threads_per_block) (out, a, num);
 
 	return cuda_to_batched(cudaDeviceSynchronize());
 }
@@ -310,7 +311,7 @@ batched_error_code mul8_fp2_vec_cu(vec384x* out, const vec384x* a, size_t num)
 
 	size_t threads_per_block = 256;
 	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	mul8_fp2_vec_ker << <num_blocks, threads_per_block >> > (out, a, num);
+	mul8_fp2_vec_ker BLST_LAUNCH(num_blocks, threads_per_block) (out, a, num);
 
 	return cuda_to_batched(cudaDeviceSynchronize());
 }
@@ -355,7 +356,7 @@ batched_error_code lshift_fp2_vec_cu(vec384x* out, const vec384x* a, size_t coun
 
 	size_t threads_per_block = 256;
 	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	lshift_fp2_vec_ker << <num_blocks, threads_per_block >> > (out, a, count, num);
+	lshift_fp2_vec_ker BLST_LAUNCH(num_blocks, threads_per_block) (out, a, count, num);
 
 	return cuda_to_batched(cudaDeviceSynchronize());
 }
@@ -400,7 +401,7 @@ batched_error_code conjugate_fp2_vec_cu(vec384x* out, const vec384x* a, size_t n
 
 	size_t threads_per_block = 256;
 	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	conjugate_fp2_vec_ker << <num_blocks, threads_per_block >> > (out, a, num);
+	conjugate_fp2_vec_ker BLST_LAUNCH(num_blocks, threads_per_block) (out, a, num);
 
 	return cuda_to_batched(cudaDeviceSynchronize());
 }
@@ -445,7 +446,7 @@ batched_error_code inverse_fp2_vec_cu(vec384x* out, const vec384x* a, size_t num
 
 	size_t threads_per_block = 256;
 	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	inverse_fp2_vec_ker << <num_blocks, threads_per_block >> > (out, a, num);
+	inverse_fp2_vec_ker BLST_LAUNCH(num_blocks, threads_per_block) (out, a, num);
 
 	return cuda_to_batched(cudaDeviceSynchronize());
 }
@@ -490,9 +491,13 @@ batched_error_code sqrt_fp2_vec_cu(vec384x* out, const vec384x* a, size_t num)
 
 	size_t threads_per_block = 256;
 	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	sqrt_fp2_vec_ker << <num_blocks, threads_per_block >> > (out, a, num);
+	sqrt_fp2_vec_ker BLST_LAUNCH(num_blocks, threads_per_block) (out, a, num);
 
-	return cuda_to_batched(cudaDeviceSynchronize());
+	cudaError_t e = cudaDeviceSynchronize();
+	if(e != cudaSuccess) {
+		printf("CUDA error: %s\n", cudaGetErrorString(e));
+	}
+	return cuda_to_batched(e);
 }
 #endif
 

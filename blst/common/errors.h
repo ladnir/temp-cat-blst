@@ -27,6 +27,7 @@ typedef enum {
 typedef enum {
 	BATCHED_SUCCESS = 0,
 	BATCHED_ERROR_NULL_POINTER,
+	BATCHED_ERROR_INVALID_POINTER,
 	BATCHED_ERROR_INVALID_SIZE,
 	BATCHED_ERROR_ILLEGAL_ADDRESS,
 	BATCHED_ERROR_CUDA_MALLOC_FAILED,
@@ -48,6 +49,8 @@ BLST_INLINE const char* batched_error_code_string(batched_error_code error)
 		return "Success";
 	case BATCHED_ERROR_NULL_POINTER:
 		return "Invalid pointer arguments";
+	case BATCHED_ERROR_INVALID_POINTER:
+		return "Invalid pointer (e.g. wrong host vs device)";
 	case BATCHED_ERROR_INVALID_SIZE:
 		return "Invalid number of elements";
 	case BATCHED_ERROR_ILLEGAL_ADDRESS:

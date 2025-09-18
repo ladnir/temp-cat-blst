@@ -134,6 +134,25 @@ typedef const void *uptr_t;
 # endif
 #endif
 
+#if defined(__CUDACC__) && !defined(__INTELLISENSE__)
+ // Real CUDA compile: expand to <<< ... >>>
+#define BLST_LAUNCH(...) <<< __VA_ARGS__ >>>
+#else
+ // IntelliSense / non-nvcc: make it vanish so the call parses as normal
+#define BLST_LAUNCH(...)
+#endif
+
+#if defined(__INTELLISENSE__) && defined(BLST_CUDA)
+ // IntelliSense: pretend we're compiling for CUDA
+typedef struct  {
+    unsigned int x, y, z;
+} dim3;
+static const dim3 blockIdx, threadIdx, blockDim;
+#endif
+
+
+
+
 BLST_EXTERN_C_END
 #endif
 

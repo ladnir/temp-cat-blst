@@ -31,6 +31,15 @@ const vec256 BLST_rRR_HOST = { BLST_rRR_LIMBS };
 const vec384 BLST_RRRR_HOST = { BLST_RRRR_LIMBS };
 
 
+const vec384x BLST_sqrt_minus_1_HOST = { { 0 }, { ONE_MONT_P_LIMBS } };
+/*
+    * "magic" number is ±2^((p-3)/4)%p, which is "1/sqrt(2)",
+    * in quotes because 2*"1/sqrt(2)"^2 == -1 mod p, not 1,
+    * but it pivots into "complex" plane nevertheless...
+    */
+const vec384x BLST_sqrt_sqrt_minus_1_HOST = { BLST_SQRT_SQRT_MINUS_1_LIMBS };
+const vec384x BLST_sqrt_minus_sqrt_minus_1_HOST = { BLST_SQRT_MINUS_SQRT_MINUS_1_LIMBS };
+
 
 #if defined(BLST_CUDA) && defined(__CUDACC__)
 

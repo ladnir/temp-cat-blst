@@ -107,63 +107,46 @@ HOST_DEVICE_FUNC BLST_FORCEINLINE void conjugate_fp2(vec384x ret, const vec384x 
 HOST_DEVICE_FUNC BLST_INLINE bool_t sqrt_align_fp2(vec384x out, const vec384x ret,
     const vec384x sqrt, const vec384x inp)
 {
-    const vec384x sqrt_minus_1 = { { 0 }, { ONE_MONT_P_LIMBS } };
-    const vec384x sqrt_sqrt_minus_1 = {
+    vec384x coeff;
+    bool_t is_sqrt;
+
+    {
+        vec384x t0;
+        bool_t flag;
         /*
-         * "magic" number is ±2^((p-3)/4)%p, which is "1/sqrt(2)",
-         * in quotes because 2*"1/sqrt(2)"^2 == -1 mod p, not 1,
-         * but it pivots into "complex" plane nevertheless...
+         * Instead of multiple trial squarings we can perform just one
+         * and see if the result is "rotated by multiple of 90°" in
+         * relation to |inp|, and "rotate" |ret| accordingly.
          */
-        { TO_LIMB_T(0x3e2f585da55c9ad1), TO_LIMB_T(0x4294213d86c18183),
-          TO_LIMB_T(0x382844c88b623732), TO_LIMB_T(0x92ad2afd19103e18),
-          TO_LIMB_T(0x1d794e4fac7cf0b9), TO_LIMB_T(0x0bd592fc7d825ec8) },
-        { TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),
-          TO_LIMB_T(0x2f088dd86b4ebef1), TO_LIMB_T(0xd1ca2087da74d4a7),
-          TO_LIMB_T(0x2da2596696cebc1d), TO_LIMB_T(0x0e2b7eedbbfd87d2) }
-    };
-    const vec384x sqrt_minus_sqrt_minus_1 = {
-      { TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),
-        TO_LIMB_T(0x2f088dd86b4ebef1), TO_LIMB_T(0xd1ca2087da74d4a7),
-        TO_LIMB_T(0x2da2596696cebc1d), TO_LIMB_T(0x0e2b7eedbbfd87d2) },
-      { TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),
-        TO_LIMB_T(0x2f088dd86b4ebef1), TO_LIMB_T(0xd1ca2087da74d4a7),
-        TO_LIMB_T(0x2da2596696cebc1d), TO_LIMB_T(0x0e2b7eedbbfd87d2) }
-    };
-    vec384x coeff, t0, t1;
-    bool_t is_sqrt, flag;
+        sqr_fp2(t0, sqrt);
+        /* "sqrt(|inp|)"^2 = (a + b*i)^2 = (a^2-b^2) + 2ab*i */
 
-    /*
-     * Instead of multiple trial squarings we can perform just one
-     * and see if the result is "rotated by multiple of 90°" in
-     * relation to |inp|, and "rotate" |ret| accordingly.
-     */
-    sqr_fp2(t0, sqrt);
-    /* "sqrt(|inp|)"^2 = (a + b*i)^2 = (a^2-b^2) + 2ab*i */
+        /* (a^2-b^2) + 2ab*i == |inp| ? |ret| is spot on */
+        vec384x t1;
+        sub_fp2(t1, t0, inp);
+        is_sqrt = vec_is_zero(t1, sizeof(t1));
+        vec_copy(coeff, get_BLST_Rx()->p2, sizeof(coeff));
 
-    /* (a^2-b^2) + 2ab*i == |inp| ? |ret| is spot on */
-    sub_fp2(t1, t0, inp);
-    is_sqrt = vec_is_zero(t1, sizeof(t1));
-    vec_copy(coeff, get_BLST_Rx()->p2, sizeof(coeff));
+        /* -(a^2-b^2) - 2ab*i == |inp| ? "rotate |ret| by 90°" */
+        add_fp2(t1, t0, inp);
+        vec_select(coeff, *get_BLST_sqrt_minus_1(), coeff, sizeof(coeff),
+            flag = vec_is_zero(t1, sizeof(t1)));
+        is_sqrt |= flag;
 
-    /* -(a^2-b^2) - 2ab*i == |inp| ? "rotate |ret| by 90°" */
-    add_fp2(t1, t0, inp);
-    vec_select(coeff, sqrt_minus_1, coeff, sizeof(coeff),
-        flag = vec_is_zero(t1, sizeof(t1)));
-    is_sqrt |= flag;
+        /* 2ab - (a^2-b^2)*i == |inp| ? "rotate |ret| by 135°" */
+        sub_fp(t1[0], t0[0], inp[1]);
+        add_fp(t1[1], t0[1], inp[0]);
+        vec_select(coeff, *get_BLST_sqrt_sqrt_minus_1(), coeff, sizeof(coeff),
+            flag = vec_is_zero(t1, sizeof(t1)));
+        is_sqrt |= flag;
 
-    /* 2ab - (a^2-b^2)*i == |inp| ? "rotate |ret| by 135°" */
-    sub_fp(t1[0], t0[0], inp[1]);
-    add_fp(t1[1], t0[1], inp[0]);
-    vec_select(coeff, sqrt_sqrt_minus_1, coeff, sizeof(coeff),
-        flag = vec_is_zero(t1, sizeof(t1)));
-    is_sqrt |= flag;
-
-    /* -2ab + (a^2-b^2)*i == |inp| ? "rotate |ret| by 45°" */
-    add_fp(t1[0], t0[0], inp[1]);
-    sub_fp(t1[1], t0[1], inp[0]);
-    vec_select(coeff, sqrt_minus_sqrt_minus_1, coeff, sizeof(coeff),
-        flag = vec_is_zero(t1, sizeof(t1)));
-    is_sqrt |= flag;
+        /* -2ab + (a^2-b^2)*i == |inp| ? "rotate |ret| by 45°" */
+        add_fp(t1[0], t0[0], inp[1]);
+        sub_fp(t1[1], t0[1], inp[0]);
+        vec_select(coeff, *get_BLST_sqrt_minus_sqrt_minus_1(), coeff, sizeof(coeff),
+            flag = vec_is_zero(t1, sizeof(t1)));
+        is_sqrt |= flag;
+    }
 
     /* actual "rotation" */
     mul_fp2(out, ret, coeff);
@@ -228,26 +211,29 @@ HOST_DEVICE_FUNC BLST_INLINE bool_t recip_sqrt_fp2(vec384x out, const vec384x in
 HOST_DEVICE_FUNC BLST_INLINE bool_t sqrt_fp2(vec384x out, const vec384x inp)
 {
     vec384x ret;
-    vec384 aa, bb;
 
-    sqr_fp(aa, inp[0]);
-    sqr_fp(bb, inp[1]);
-    add_fp(aa, aa, bb);
+    {
+        vec384 aa, bb;
 
-    /* don't pay attention to return value, final "align" will tell...    */
-    (void)sqrt_fp(aa, aa);            /* sqrt(a²+b²)                      */
+        sqr_fp(aa, inp[0]);
+        sqr_fp(bb, inp[1]);
+        add_fp(aa, aa, bb);
 
-    sub_fp(bb, inp[0], aa);
-    add_fp(aa, inp[0], aa);
-    vec_select(aa, bb, aa, sizeof(aa), vec_is_zero(aa, sizeof(aa)));
-    div_by_2_fp(aa, aa);              /* (a ± sqrt(a²+b²))/2              */
+        /* don't pay attention to return value, final "align" will tell...    */
+        (void)sqrt_fp(aa, aa);            /* sqrt(a²+b²)                      */
 
-    /* if it says "no sqrt," final "align" will find right one...         */
-    (void)recip_sqrt_fp(ret[0], aa);  /* 1/sqrt((a ± sqrt(a²+b²))/2)      */
+        sub_fp(bb, inp[0], aa);
+        add_fp(aa, inp[0], aa);
+        vec_select(aa, bb, aa, sizeof(aa), vec_is_zero(aa, sizeof(aa)));
+        div_by_2_fp(aa, aa);              /* (a ± sqrt(a²+b²))/2              */
 
-    div_by_2_fp(ret[1], inp[1]);
-    mul_fp(ret[1], ret[1], ret[0]);   /* b/(2*sqrt((a ± sqrt(a²+b²))/2))  */
-    mul_fp(ret[0], ret[0], aa);       /* sqrt((a ± sqrt(a²+b²))/2)        */
+        /* if it says "no sqrt," final "align" will find right one...         */
+        (void)recip_sqrt_fp(ret[0], aa);  /* 1/sqrt((a ± sqrt(a²+b²))/2)      */
+
+        div_by_2_fp(ret[1], inp[1]);
+        mul_fp(ret[1], ret[1], ret[0]);   /* b/(2*sqrt((a ± sqrt(a²+b²))/2))  */
+        mul_fp(ret[0], ret[0], aa);       /* sqrt((a ± sqrt(a²+b²))/2)        */
+    }
 
     /*
      * Now see if |ret| is or can be made sqrt(|inp|)...
