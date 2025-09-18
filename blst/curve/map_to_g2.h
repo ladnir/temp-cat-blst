@@ -11,7 +11,7 @@
 #include "blst/fields/Fp2.h"
 #include "blst/fields/hash_to_field.h"
 
-BLST_EXTERN_C_BEGIN
+//BLST_EXTERN_C_BEGIN
 // /*
 //  * y^2 = x^3 + A'*x + B', isogenous one
 //  */
@@ -573,5 +573,5 @@ HOST_DEVICE_FUNC BLST_INLINE int blst_p2_affine_in_g2(const POINTonE2_affine* p)
 
 
 
-BLST_EXTERN_C_END
+//BLST_EXTERN_C_END
 #endif /* BLST_E2_CU_H */

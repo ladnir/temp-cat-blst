@@ -9,7 +9,6 @@
 #include "blst/fields/Fp2.h"
 #include "blst/common/errors.h"
 
-BLST_EXTERN_C_BEGIN
 
 ///////////////////////////////////////////
 // Vectorized Fp2 operations
@@ -60,5 +59,4 @@ batched_error_code inverse_fp2_vec(vec384x* out, const vec384x* a, size_t num);
 batched_error_code sqrt_fp2_vec(vec384x* out, const vec384x* a, size_t num);
 
 
-BLST_EXTERN_C_END
 #endif /* BLST_FIELDS_CUDA_H */

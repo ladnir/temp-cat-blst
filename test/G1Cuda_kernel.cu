@@ -5,10 +5,8 @@
 #include <stdio.h>
 #include <iostream>
 
-extern "C" {
 #include "blst/curve/e1.h"
 #include "blst/curve/map_to_g1.h"
-}
 
 #ifndef DEVICE_FUNC
 #define DEVICE_FUNC

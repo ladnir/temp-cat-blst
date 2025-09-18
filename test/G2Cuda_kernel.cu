@@ -5,10 +5,8 @@
 #include <stdio.h>
 #include <iostream>
 
-extern "C" {
 #include "blst/curve/e2.h"
 #include "blst/curve/map_to_g2.h"
-}
 
 #ifndef DEVICE_FUNC
 #define DEVICE_FUNC
@@ -325,9 +323,7 @@ GLOBAL_FUNC void cuda_test_g2_advanced_operations_kernel(bool* results) {
     results[3] = cuda_point_on_curve_g2(&p1);
 }
 
-extern "C" {
-    int blst_p2_affine_in_g2(const POINTonE2_affine* p);
-}
+int blst_p2_affine_in_g2(const POINTonE2_affine* p);
 
 GLOBAL_FUNC void cuda_test_g2_subgroup_membership_kernel(bool* results) {
     POINTonE2 point;

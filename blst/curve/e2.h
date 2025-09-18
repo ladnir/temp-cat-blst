@@ -7,7 +7,7 @@
 #include "blst/curve/point.h"
 #include "blst/fields/Fp2.h"
 #include "blst/common/errors.h"
-BLST_EXTERN_C_BEGIN
+//BLST_EXTERN_C_BEGIN
 
 
 HOST_DEVICE_FUNC BLST_INLINE void mul_by_b_onE2(vec384x out, const vec384x in)
@@ -574,4 +574,5 @@ HOST_DEVICE_FUNC BLST_INLINE size_t blst_p2_sizeof(void)
 
 HOST_DEVICE_FUNC BLST_INLINE size_t blst_p2_affine_sizeof(void)
 {   return sizeof(POINTonE2_affine);   }
-BLST_EXTERN_C_END
+
+//BLST_EXTERN_C_END

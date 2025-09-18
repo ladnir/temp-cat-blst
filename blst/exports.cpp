@@ -19,9 +19,32 @@
 #include "blst/fields/Fp.h"
 #include "blst/fields/Fp2.h"
 #include "blst/common/bytes.h"
-BLST_EXTERN_C_BEGIN
+BLST_EXTERN_C_BEGIN_
 
 
+/*
+ * BLS12-381-specific Fr shortcuts to assembly.
+ */
+    void blst_fr_add(vec256 ret, const vec256 a, const vec256 b) { fr_add(ret, a, b); }
+void blst_fr_sub(vec256 ret, const vec256 a, const vec256 b) { fr_sub(ret, a, b); }
+void blst_fr_mul_by_3(vec256 ret, const vec256 a) { fr_mul_by_3(ret, a); }
+void blst_fr_lshift(vec256 ret, const vec256 a, size_t count) { fr_lshift(ret, a, count); }
+void blst_fr_rshift(vec256 ret, const vec256 a, size_t count) { fr_rshift(ret, a, count); }
+void blst_fr_mul(vec256 ret, const vec256 a, const vec256 b) { fr_mul(ret, a, b); }
+void blst_fr_ct_bfly(vec256 x0, vec256 x1, const vec256 twiddle) { fr_ct_bfly(x0, x1, twiddle); }
+void blst_fr_gs_bfly(vec256 x0, vec256 x1, const vec256 twiddle) { fr_gs_bfly(x0, x1, twiddle); }
+void blst_fr_sqr(vec256 ret, const vec256 a) { fr_sqr(ret, a); }
+void blst_fr_cneg(vec256 ret, const vec256 a, int flag) { fr_cneg(ret, a, flag); }
+void blst_fr_to(vec256 ret, const vec256 a) { fr_to(ret, a); }
+void blst_fr_from(vec256 ret, const vec256 a) { fr_from(ret, a); }
+void blst_fr_from_scalar(vec256 ret, const pow256 a) { fr_from_scalar(ret, a); }
+void blst_scalar_from_fr(pow256 ret, const vec256 a) { scalar_from_fr(ret, a); }
+int blst_scalar_fr_check(const pow256 a) { return scalar_fr_check(a); }
+int blst_sk_check(const pow256 a) { return sk_check(a); }
+int blst_sk_add_n_check(pow256 ret, const pow256 a, const pow256 b) { return sk_add_n_check(ret, a, b); }
+int blst_sk_sub_n_check(pow256 ret, const pow256 a, const pow256 b) { return sk_sub_n_check(ret, a, b); }
+int blst_sk_mul_n_check(pow256 ret, const pow256 a, const pow256 b) { return sk_mul_n_check(ret, a, b); }
+void blst_sk_inverse(pow256 ret, const pow256 a) { sk_inverse(ret, a); }
 
 
 
@@ -417,4 +440,4 @@ void blst_fp_from_hexascii(vec384 ret, const char *hex)
     limbs_from_hexascii(ret, sizeof(vec384), hex);
     mul_fp(ret, ret, *get_BLST_RR());
 }
-BLST_EXTERN_C_END
+BLST_EXTERN_C_END_

@@ -3,7 +3,7 @@
 
 #include "backend_portable.h"
 #include "backend_asm.h"
-BLST_EXTERN_C_BEGIN
+//BLST_EXTERN_C_BEGIN
 
 // montgomery multiply: ret = a * b * R^-1 mod p, where R montgomery radix
 // optimized for "spare" modulus p, i.e. with many zero limbs
@@ -155,7 +155,7 @@ HOST_DEVICE_FUNC BLST_FORCEINLINE void vec_prefetch(const void* ptr, size_t len)
 	cc_vec_prefetch(ptr, len);
 }
 #else
-void vec_prefetch(const void* ptr, size_t len); // linked by asm
+extern "C" void vec_prefetch(const void* ptr, size_t len); // linked by asm 
 #endif
 
 // 
@@ -599,5 +599,5 @@ HOST_DEVICE_FUNC BLST_INLINE void div_by_z(limb_t val[])
 	/* remainder is in low half of val[], quotient is in high */
 }
 
-BLST_EXTERN_C_END
+//BLST_EXTERN_C_END
 #endif // BLST_INTERFACE_H

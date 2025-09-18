@@ -8,7 +8,6 @@
 #include "blst/fields/Fp_cuda.h"
 #include "blst/exports.h"
 
-BLST_EXTERN_C_BEGIN
 
 // Vectorized addition of Fp elements (CPU)
 batched_error_code add_fp_vec_cc(vec384* out, const vec384* a, const vec384* b, size_t num)
@@ -523,4 +522,3 @@ batched_error_code from_fp_vec(vec384* out, const vec384* a, size_t num)
 
 
 
-BLST_EXTERN_C_END

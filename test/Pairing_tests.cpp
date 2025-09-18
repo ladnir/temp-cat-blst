@@ -1,11 +1,9 @@
 #include "gtest/gtest.h"
 
-extern "C" {
 #include "blst/curve/point.h"
 #include "blst/curve/e1.h"
 #include "blst/curve/e2.h"
 #include "blst/curve/pairing.h"
-}
 
 
 TEST(PairingTest, BasicPairing) {

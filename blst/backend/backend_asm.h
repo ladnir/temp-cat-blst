@@ -2,7 +2,7 @@
 #include "blst/common/defines.h"
 
 #ifdef BLST_ASM
-BLST_EXTERN_C_BEGIN
+BLST_EXTERN_C_BEGIN_
 
 ///*
 // * Assembly subroutines...
@@ -263,5 +263,5 @@ void sqr_382x(vec768x ret, const vec384x a, const vec384 p);      /* +~5% in fin
 
 #endif // BLST_ADX
 
-BLST_EXTERN_C_END
+BLST_EXTERN_C_END_
 #endif // BLST_ASM

@@ -6,11 +6,9 @@
 #include <random>
 #include <cuda_runtime.h>
 
-extern "C" {
 #include "blst/fields/Fp2.h"
 #include "blst/fields/Fp2_cuda.h"
 #include "blst/exports.h"
-}
 
 #define LIMBS NLIMBS(384)
 

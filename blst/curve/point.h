@@ -13,7 +13,7 @@
 #include "blst/fields/consts.h"
 
 
-BLST_EXTERN_C_BEGIN
+//BLST_EXTERN_C_BEGIN
 
 #define DECLARE_POINT(ptype, bits)                                           \
 typedef struct { vec##bits X,Y,Z; } ptype;                                   \
@@ -293,5 +293,5 @@ HOST_DEVICE_FUNC BLST_FORCEINLINE const vec384* get_BLST_beta(void)
 
 
 
-BLST_EXTERN_C_END
+//BLST_EXTERN_C_END
 #endif

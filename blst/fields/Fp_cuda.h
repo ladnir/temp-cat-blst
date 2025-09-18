@@ -9,7 +9,7 @@
 #include "blst/fields/Fp.h"
 #include "blst/common/errors.h"
 
-BLST_EXTERN_C_BEGIN
+//BLST_EXTERN_C_BEGIN
 
 ///////////////////////////////////////////
 // Vectorized Fp operations
@@ -65,5 +65,5 @@ batched_error_code from_fp_vec(vec384* out, const vec384* a,
 	size_t num);
 
 
-BLST_EXTERN_C_END
+//BLST_EXTERN_C_END
 #endif /* BLST_FIELDS_CUDA_H */

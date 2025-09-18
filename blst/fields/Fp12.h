@@ -12,7 +12,7 @@
 #define BLST_FP12_TOWER_H
 
 
-BLST_EXTERN_C_BEGIN
+//BLST_EXTERN_C_BEGIN
 
 
 
@@ -929,7 +929,7 @@ HOST_DEVICE_FUNC BLST_INLINE void blst_fp12_pow(vec384fp12 ret, const vec384fp12
 }
 
 
-BLST_EXTERN_C_END
+//BLST_EXTERN_C_END
 
 #endif // !BLST_FP12_TOWER_H
 

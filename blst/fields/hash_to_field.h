@@ -8,7 +8,7 @@
 
 #include "blst/fields/consts.h"
 #include "blst/sign/sha256.h"
-BLST_EXTERN_C_BEGIN
+//BLST_EXTERN_C_BEGIN
 
 #ifdef expand_message_xmd
 HOST_DEVICE_FUNC void expand_message_xmd(unsigned char *bytes, size_t len_in_bytes,
@@ -173,5 +173,5 @@ HOST_DEVICE_FUNC BLST_INLINE void blst_expand_message_xmd(unsigned char *bytes, 
     }
 }
 
-BLST_EXTERN_C_END
+//BLST_EXTERN_C_END
 #endif

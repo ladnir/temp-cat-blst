@@ -3,9 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 
-extern "C" {
 #include "blst/fields/Fp12.h"
-}
 
 // Helper: Print Fp12 element for debugging
 void print_fp12(const vec384fp12 a, const char* name) {

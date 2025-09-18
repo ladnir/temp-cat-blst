@@ -9,7 +9,7 @@
 #include "blst/common/vect.h"
 #include "blst/config.h"
 #include "blst/backend/backend.h"
-BLST_EXTERN_C_BEGIN
+//BLST_EXTERN_C_BEGIN
 //#if (defined(__x86_64__) || defined(__x86_64) || defined(_M_X64)) && \
 //     defined(__SHA__) /* -msha */ && !defined(BLST_PORTABLE)
 //# define sha256_block_data_order blst_sha256_block_data_order_shaext
@@ -139,6 +139,6 @@ HOST_DEVICE_FUNC BLST_INLINE void sha256_final(unsigned char md[32], SHA256_CTX 
 }
 
 #undef __TOBE32
-BLST_EXTERN_C_END
+//BLST_EXTERN_C_END
 
 #endif

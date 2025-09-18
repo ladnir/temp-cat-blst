@@ -2,7 +2,7 @@
 
 
 # ---- Static Library Configuration ----
-set(BLST_STATIC_SRC  mains/server.c)
+set(BLST_STATIC_SRC  mains/server.cpp)
 
 if(MSVC)
     set(BLST_OPTS )
@@ -54,7 +54,7 @@ if(BLST_CUDA)
     enable_language(CUDA)
     find_package(CUDAToolkit REQUIRED)
     
-    set(BLST_STATIC_SRC ${BLST_STATIC_SRC} cuda_kernel.c)
+    set(BLST_STATIC_SRC ${BLST_STATIC_SRC} cuda_kernel.cpp)
 
     # Tell CMake to compile .c files with NVCC
     set_source_files_properties(${BLST_STATIC_SRC} PROPERTIES LANGUAGE CUDA)
@@ -127,7 +127,7 @@ if(BLST_CUDA)
     enable_language(CUDA)
     find_package(CUDAToolkit REQUIRED)
     target_link_libraries(blst_static PRIVATE CUDA::cudart)
-
+    target_include_directories(blst_static PUBLIC $<$<CXX_COMPILER_ID:MSVC>:${CUDAToolkit_INCLUDE_DIRS}>)
 endif()
 
 

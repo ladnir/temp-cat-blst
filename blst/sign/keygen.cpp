@@ -9,7 +9,7 @@
 #include "blst/sign/sha256.h"
 #include "blst/backend/backend.h"
 
-BLST_EXTERN_C_BEGIN
+//BLST_EXTERN_C_BEGIN
 
 typedef struct {
     SHA256_CTX ctx;
@@ -320,6 +320,6 @@ void blst_derive_child_eip2333(pow256 SK, const pow256 parent_SK,
     keygen(SK, SK, sizeof(pow256), NULL, 0, NULL, 0, 4);
 }
 
-BLST_EXTERN_C_END
+//BLST_EXTERN_C_END
 
 #endif

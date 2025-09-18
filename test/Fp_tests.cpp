@@ -4,9 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 
-extern "C" {
 #include "blst/fields/Fp.h"
-}
 
 #define LIMBS NLIMBS(384)
 

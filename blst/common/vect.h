@@ -11,7 +11,7 @@
 #include "blst/common/defines.h"
 #include "blst/backend/backend_asm.h"
 
-BLST_EXTERN_C_BEGIN
+//BLST_EXTERN_C_BEGIN
 
 HOST_DEVICE_FUNC BLST_FORCEINLINE void vec_copy(void* restrict ret, const void* a, size_t num)
 {
@@ -183,7 +183,7 @@ HOST_DEVICE_FUNC BLST_FORCEINLINE void vec_cswap(void* restrict a, void* restric
 	}
 }
 
-BLST_EXTERN_C_END
+//BLST_EXTERN_C_END
 
 
 

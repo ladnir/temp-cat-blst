@@ -8,7 +8,7 @@
 
 #include "blst/fields/Fr.h"
 #include "blst/common/errors.h"
-BLST_EXTERN_C_BEGIN
+//BLST_EXTERN_C_BEGIN
 
 ///////////////////////////////////////////
 // Vectorized Fp operations
@@ -64,5 +64,5 @@ batched_error_code gs_bfly_fr_vec(vec256* x0, vec256* x1, const vec256* twiddle,
 
 
 
-BLST_EXTERN_C_END
+//BLST_EXTERN_C_END
 #endif /* BLST_FIELDS_CUDA_H */

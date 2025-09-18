@@ -6,7 +6,6 @@
 
 #include "blst/fields/consts.h"
 #include "blst/config.h"
-BLST_EXTERN_C_BEGIN
 
 
 /* z = -0xd201000000010000  ,  (z-1)^2 * (z^4 - z^2 + 1)/3 + z */
@@ -56,4 +55,3 @@ const vec384x BLST_sqrt_minus_sqrt_minus_1_HOST = { BLST_SQRT_MINUS_SQRT_MINUS_1
 #endif // __CUDA_ARCH__
 
 
-BLST_EXTERN_C_END

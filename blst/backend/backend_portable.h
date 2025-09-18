@@ -52,7 +52,7 @@
 #  define BLST_ASSUME(condition) (void)(condition)
 # endif
 
-BLST_EXTERN_C_BEGIN
+//BLST_EXTERN_C_BEGIN
 typedef struct { limb_t lo, hi; } wide_limb_t;
 
 #if BLST_LIMB_SIZE == 64 && defined(BLST_ADX) && !defined(__CUDA_ARCH__) 
@@ -2098,6 +2098,6 @@ HOST_DEVICE_FUNC BLST_INLINE void cc_blst_sha256_bcopy(void* dst_, const void* s
 
 #undef BLST_VLA_NEW
 #undef BLST_VLA_FREE
-BLST_EXTERN_C_END
+//BLST_EXTERN_C_END
 
 #endif

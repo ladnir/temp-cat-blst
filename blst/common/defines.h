@@ -2,7 +2,7 @@
 #define __BLS12_381_DEFINES_H__
 
 #include "config.h"
-BLST_EXTERN_C_BEGIN
+BLST_EXTERN_C_BEGIN_
 
 
 #if BLST_LIMB_SIZE == 64
@@ -134,6 +134,9 @@ typedef const void *uptr_t;
 # endif
 #endif
 
+BLST_EXTERN_C_END_
+
+
 #if defined(__CUDACC__) && !defined(__INTELLISENSE__)
  // Real CUDA compile: expand to <<< ... >>>
 #define BLST_LAUNCH(...) <<< __VA_ARGS__ >>>
@@ -153,6 +156,5 @@ static const dim3 blockIdx, threadIdx, blockDim;
 
 
 
-BLST_EXTERN_C_END
 #endif
 

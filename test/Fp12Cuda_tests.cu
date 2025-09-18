@@ -6,11 +6,9 @@
 #include <random>
 #include <cuda_runtime.h>
 
-extern "C" {
 #include "blst/fields/Fp12.h"
 #include "blst/fields/Fp12_cuda.h"
 #include "blst/exports.h"
-}
 
 class Fp12CudaTest : public ::testing::Test {
 protected:

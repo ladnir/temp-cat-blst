@@ -9,7 +9,6 @@
 #include "blst/fields/Fr_cuda.h"
 #include "blst/common/errors.h"
 
-BLST_EXTERN_C_BEGIN
 
 
 // ====================
@@ -33,7 +32,7 @@ batched_error_code add_fr_vec_cc(vec256* out, const vec256* a, const vec256* b, 
 	
 
 	while (num--) {
-		blst_fr_add(*out, *a, *b);
+		fr_add(*out, *a, *b);
 		out++; a++; b++;
 	}
 	return BATCHED_SUCCESS;
@@ -45,7 +44,7 @@ GLOBAL_FUNC void add_fr_vec_ker(vec256* out, const vec256* a, const vec256* b, s
 {
 	size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx < num) {
-		blst_fr_add(out[idx], a[idx], b[idx]);
+		fr_add(out[idx], a[idx], b[idx]);
 	}
 }
 
@@ -78,7 +77,7 @@ batched_error_code sub_fr_vec_cc(vec256* out, const vec256* a, const vec256* b, 
 	
 
 	while (num--) {
-		blst_fr_sub(*out, *a, *b);
+		fr_sub(*out, *a, *b);
 		out++; a++; b++;
 	}
 	return BATCHED_SUCCESS;
@@ -90,7 +89,7 @@ GLOBAL_FUNC void sub_fr_vec_ker(vec256* out, const vec256* a, const vec256* b, s
 {
 	size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx < num) {
-		blst_fr_sub(out[idx], a[idx], b[idx]);
+		fr_sub(out[idx], a[idx], b[idx]);
 	}
 }
 
@@ -125,7 +124,7 @@ batched_error_code mul_fr_vec_cc(vec256* out, const vec256* a, const vec256* b, 
 	
 
 	while (num--) {
-		blst_fr_mul(*out, *a, *b);
+		fr_mul(*out, *a, *b);
 		out++; a++; b++;
 	}
 	return BATCHED_SUCCESS;
@@ -137,7 +136,7 @@ GLOBAL_FUNC void mul_fr_vec_ker(vec256* out, const vec256* a, const vec256* b, s
 {
 	size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx < num) {
-		blst_fr_mul(out[idx], a[idx], b[idx]);
+		fr_mul(out[idx], a[idx], b[idx]);
 	}
 }
 
@@ -172,7 +171,7 @@ batched_error_code sqr_fr_vec_cc(vec256* out, const vec256* a, size_t num)
 	
 
 	while (num--) {
-		blst_fr_sqr(*out, *a);
+		fr_sqr(*out, *a);
 		out++; a++;
 	}
 	return BATCHED_SUCCESS;
@@ -184,7 +183,7 @@ GLOBAL_FUNC void sqr_fr_vec_ker(vec256* out, const vec256* a, size_t num)
 {
 	size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx < num) {
-		blst_fr_sqr(out[idx], a[idx]);
+		fr_sqr(out[idx], a[idx]);
 	}
 }
 
@@ -219,7 +218,7 @@ batched_error_code cneg_fr_vec_cc(vec256* out, const vec256* a, int flag, size_t
 	
 
 	while (num--) {
-		blst_fr_cneg(*out, *a, flag);
+		fr_cneg(*out, *a, flag);
 		out++; a++;
 	}
 	return BATCHED_SUCCESS;
@@ -231,7 +230,7 @@ GLOBAL_FUNC void cneg_fr_vec_ker(vec256* out, const vec256* a, int flag, size_t 
 {
 	size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx < num) {
-		blst_fr_cneg(out[idx], a[idx], flag);
+		fr_cneg(out[idx], a[idx], flag);
 	}
 }
 
@@ -266,7 +265,7 @@ batched_error_code mul3_fr_vec_cc(vec256* out, const vec256* a, size_t num)
 	
 
 	while (num--) {
-		blst_fr_mul_by_3(*out, *a);
+		fr_mul_by_3(*out, *a);
 		out++; a++;
 	}
 	return BATCHED_SUCCESS;
@@ -278,7 +277,7 @@ GLOBAL_FUNC void mul3_fr_vec_ker(vec256* out, const vec256* a, size_t num)
 {
 	size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx < num) {
-		blst_fr_mul_by_3(out[idx], a[idx]);
+		fr_mul_by_3(out[idx], a[idx]);
 	}
 }
 
@@ -313,7 +312,7 @@ batched_error_code lshift_fr_vec_cc(vec256* out, const vec256* a, size_t count, 
 	
 
 	while (num--) {
-		blst_fr_lshift(*out, *a, count);
+		fr_lshift(*out, *a, count);
 		out++; a++;
 	}
 	return BATCHED_SUCCESS;
@@ -325,7 +324,7 @@ GLOBAL_FUNC void lshift_fr_vec_ker(vec256* out, const vec256* a, size_t count, s
 {
 	size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx < num) {
-		blst_fr_lshift(out[idx], a[idx], count);
+		fr_lshift(out[idx], a[idx], count);
 	}
 }
 
@@ -360,7 +359,7 @@ batched_error_code rshift_fr_vec_cc(vec256* out, const vec256* a, size_t count, 
 	
 
 	while (num--) {
-		blst_fr_rshift(*out, *a, count);
+		fr_rshift(*out, *a, count);
 		out++; a++;
 	}
 	return BATCHED_SUCCESS;
@@ -372,7 +371,7 @@ GLOBAL_FUNC void rshift_fr_vec_ker(vec256* out, const vec256* a, size_t count, s
 {
 	size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx < num) {
-		blst_fr_rshift(out[idx], a[idx], count);
+		fr_rshift(out[idx], a[idx], count);
 	}
 }
 
@@ -407,7 +406,7 @@ batched_error_code to_fr_vec_cc(vec256* out, const vec256* a, size_t num)
 	
 
 	while (num--) {
-		blst_fr_to(*out, *a);
+		fr_to(*out, *a);
 		out++; a++;
 	}
 	return BATCHED_SUCCESS;
@@ -419,7 +418,7 @@ GLOBAL_FUNC void to_fr_vec_ker(vec256* out, const vec256* a, size_t num)
 {
 	size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx < num) {
-		blst_fr_to(out[idx], a[idx]);
+		fr_to(out[idx], a[idx]);
 	}
 }
 
@@ -454,7 +453,7 @@ batched_error_code from_fr_vec_cc(vec256* out, const vec256* a, size_t num)
 	
 
 	while (num--) {
-		blst_fr_from(*out, *a);
+		fr_from(*out, *a);
 		out++; a++;
 	}
 	return BATCHED_SUCCESS;
@@ -466,7 +465,7 @@ GLOBAL_FUNC void from_fr_vec_ker(vec256* out, const vec256* a, size_t num)
 {
 	size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx < num) {
-		blst_fr_from(out[idx], a[idx]);
+		fr_from(out[idx], a[idx]);
 	}
 }
 
@@ -501,7 +500,7 @@ batched_error_code ct_bfly_fr_vec_cc(vec256* x0, vec256* x1, const vec256* twidd
 	
 
 	while (num--) {
-		blst_fr_ct_bfly(*x0, *x1, *twiddle);
+		fr_ct_bfly(*x0, *x1, *twiddle);
 		x0++; x1++; twiddle++;
 	}
 	return BATCHED_SUCCESS;
@@ -513,7 +512,7 @@ GLOBAL_FUNC void ct_bfly_fr_vec_ker(vec256* x0, vec256* x1, const vec256* twiddl
 {
 	size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx < num) {
-		blst_fr_ct_bfly(x0[idx], x1[idx], twiddle[idx]);
+		fr_ct_bfly(x0[idx], x1[idx], twiddle[idx]);
 	}
 }
 
@@ -548,7 +547,7 @@ batched_error_code gs_bfly_fr_vec_cc(vec256* x0, vec256* x1, const vec256* twidd
 	
 
 	while (num--) {
-		blst_fr_gs_bfly(*x0, *x1, *twiddle);
+		fr_gs_bfly(*x0, *x1, *twiddle);
 		x0++; x1++; twiddle++;
 	}
 	return BATCHED_SUCCESS;
@@ -560,7 +559,7 @@ GLOBAL_FUNC void gs_bfly_fr_vec_ker(vec256* x0, vec256* x1, const vec256* twiddl
 {
 	size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx < num) {
-		blst_fr_gs_bfly(x0[idx], x1[idx], twiddle[idx]);
+		fr_gs_bfly(x0[idx], x1[idx], twiddle[idx]);
 	}
 }
 
@@ -590,4 +589,3 @@ batched_error_code gs_bfly_fr_vec(vec256* x0, vec256* x1,
 }
 
 
-BLST_EXTERN_C_END

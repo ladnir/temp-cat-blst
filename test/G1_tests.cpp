@@ -3,12 +3,10 @@
 #include <string.h>
 #include <stdio.h>
 
-extern "C" {
 #include "blst/fields/Fp.h"
 #include "blst/curve/point.h"
 #include "blst/curve/e1.h"
 #include "blst/curve/map_to_g1.h"
-}
 
 
 // Helper: Print point coordinates for debugging
@@ -237,9 +235,7 @@ TEST(E1PointTest, FixedVectorCompressUncompress) {
             << "Decompressed point not on curve";
     }
 }
-extern "C" {
-    int blst_p1_affine_in_g1(const POINTonE1_affine* p);
-}
+int blst_p1_affine_in_g1(const POINTonE1_affine* p);
 
 TEST(E1PointTest, BasicCompressUncompress) {
     {

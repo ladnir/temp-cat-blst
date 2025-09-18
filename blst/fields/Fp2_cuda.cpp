@@ -10,7 +10,6 @@
 #include "blst/common/errors.h"
  // printf for debugging
 #include <stdio.h>
-BLST_EXTERN_C_BEGIN
 
 // Vectorized addition of Fp2 elements (CPU)
 batched_error_code add_fp2_vec_cc(vec384x* out, const vec384x* a, const vec384x* b, size_t num)
@@ -511,4 +510,3 @@ batched_error_code sqrt_fp2_vec(vec384x* out, const vec384x* a, size_t num)
 #endif
 }
 
-BLST_EXTERN_C_END

@@ -18,7 +18,7 @@
 #include <stdio.h>
 #endif
 
-BLST_EXTERN_C_BEGIN
+//BLST_EXTERN_C_BEGIN
 
 HOST_DEVICE_FUNC BLST_FORCEINLINE void mul_by_b_onE1(vec384 out, const vec384 in)
 {   lshift_fp(out, in, 2);   }
@@ -599,7 +599,7 @@ HOST_DEVICE_FUNC BLST_FORCEINLINE size_t blst_p1_sizeof(void)
 
 HOST_DEVICE_FUNC BLST_FORCEINLINE size_t blst_p1_affine_sizeof(void)
 {   return sizeof(POINTonE1_affine);   }
-BLST_EXTERN_C_END
 
+//BLST_EXTERN_C_END
 
 #endif /* BLST_E1_H */

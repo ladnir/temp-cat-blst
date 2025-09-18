@@ -1,13 +1,10 @@
 #include "gtest/gtest.h"
 
-extern "C" {
 #include "blst/curve/e1.h"
 #include "blst/curve/e2.h"
 #include "blst/curve/pairing.h"
 #include "blst/fields/Fp12.h"
 #include "blst/sign/aggregate.h"
-
-}
 
 class GTTest : public ::testing::Test {
 protected:

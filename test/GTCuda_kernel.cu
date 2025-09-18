@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <iostream>
 
-extern "C" {
 #include "blst/point.h"
 #include "blst/fields/fields.h"
 #include "blst/e1.h"
@@ -13,7 +12,6 @@ extern "C" {
 #include "blst/pairing.h"
 #include "blst/fp12_tower.h"
 #include "blst/aggregate.h"
-}
 
 #ifndef DEVICE_FUNC
 #define DEVICE_FUNC

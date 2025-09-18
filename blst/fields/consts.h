@@ -9,7 +9,7 @@
 #include "blst/config.h"
 #include "blst/common/vect.h"
 
-BLST_EXTERN_C_BEGIN
+//BLST_EXTERN_C_BEGIN
 
 // -1/P, this is the modular inverse of P modulo 2^64
 //   used in montgomery reduction as the "magic" number
@@ -228,5 +228,5 @@ HOST_DEVICE_FUNC BLST_FORCEINLINE const vec384x* get_BLST_sqrt_minus_sqrt_minus_
 
 
 
-BLST_EXTERN_C_END
+//BLST_EXTERN_C_END
 #endif

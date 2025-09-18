@@ -3,9 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 
-extern "C" {
 #include "blst/fields/Fr.h"
-}
 
 #define FR_LIMBS NLIMBS(256)
 
@@ -32,7 +30,7 @@ void print_fr(const vec256 v) {
 // Helper: Convert standard integer to Montgomery form
 void to_mont_fr(vec256 r, const vec256 a) {
     // Use *get_*get_BLST_r()()RR for conversion to Montgomery form
-    blst_fr_to(r, a);
+    fr_to(r, a);
 }
 
 // Helper: Copy one vec256 to another
@@ -47,22 +45,22 @@ TEST(FrOps, Add) {
     // Basic addition: 5 + 7 = 12
     set_fr(a, 5);
     set_fr(b, 7);
-    blst_fr_add(result, a, b);
+    fr_add(result, a, b);
     set_fr(expected, 12);
     EXPECT_TRUE(fr_equal(result, expected)) << "5 + 7 should equal 12";
     
     // Addition with zero
     set_fr(a, 42);
     set_fr(b, 0);
-    blst_fr_add(result, a, b);
+    fr_add(result, a, b);
     EXPECT_TRUE(fr_equal(result, a)) << "42 + 0 should equal 42";
     
     // Test commutativity: a + b = b + a
     set_fr(a, 123);
     set_fr(b, 456);
-    blst_fr_add(result, a, b);
+    fr_add(result, a, b);
     vec256 result2;
-    blst_fr_add(result2, b, a);
+    fr_add(result2, b, a);
     EXPECT_TRUE(fr_equal(result, result2)) << "Addition should be commutative";
 }
 
@@ -73,11 +71,11 @@ TEST(FrOps, AddOverflow) {
     fr_copy(a, *get_BLST_r());
     vec256 one;
     set_fr(one, 1);
-    blst_fr_sub(a, a, one);
+    fr_sub(a, a, one);
     
     // Add 2 to get 1 (modulo r)
     set_fr(b, 2);
-    blst_fr_add(result, a, b);
+    fr_add(result, a, b);
     set_fr(expected, 1);
     
     EXPECT_TRUE(fr_equal(result, expected)) << "Overflow in addition should wrap modulo r";
@@ -89,14 +87,14 @@ TEST(FrOps, Sub) {
     // Basic subtraction: 10 - 3 = 7
     set_fr(a, 10);
     set_fr(b, 3);
-    blst_fr_sub(result, a, b);
+    fr_sub(result, a, b);
     set_fr(expected, 7);
     EXPECT_TRUE(fr_equal(result, expected)) << "10 - 3 should equal 7";
     
     // Subtraction with zero
     set_fr(a, 42);
     set_fr(b, 0);
-    blst_fr_sub(result, a, b);
+    fr_sub(result, a, b);
     EXPECT_TRUE(fr_equal(result, a)) << "42 - 0 should equal 42";
 }
 
@@ -106,14 +104,14 @@ TEST(FrOps, SubUnderflow) {
     // Underflow: 3 - 10 = r - 7
     set_fr(a, 3);
     set_fr(b, 10);
-    blst_fr_sub(result, a, b);
+    fr_sub(result, a, b);
     
     // Expected: r - 7
     vec256 expected;
     fr_copy(expected, *get_BLST_r());
     vec256 seven;
     set_fr(seven, 7);
-    blst_fr_sub(expected, expected, seven);
+    fr_sub(expected, expected, seven);
     
     EXPECT_TRUE(fr_equal(result, expected)) << "Underflow should wrap modulo r";
 }
@@ -123,24 +121,24 @@ TEST(FrOps, MulBy3) {
     
     // 2 * 3 = 6
     set_fr(a, 2);
-    blst_fr_mul_by_3(result, a);
+    fr_mul_by_3(result, a);
     set_fr(expected, 6);
     EXPECT_TRUE(fr_equal(result, expected)) << "2 * 3 should equal 6";
     
     // 0 * 3 = 0
     set_fr(a, 0);
-    blst_fr_mul_by_3(result, a);
+    fr_mul_by_3(result, a);
     set_fr(expected, 0);
     EXPECT_TRUE(fr_equal(result, expected)) << "0 * 3 should equal 0";
     
     // Test with larger value
     set_fr(a, 0x123456789ABCDEF0ULL);
-    blst_fr_mul_by_3(result, a);
+    fr_mul_by_3(result, a);
     
     // Verify by multiplying by 3 using addition
     vec256 temp;
-    blst_fr_add(temp, a, a);    // temp = 2*a
-    blst_fr_add(expected, temp, a);  // expected = 3*a
+    fr_add(temp, a, a);    // temp = 2*a
+    fr_add(expected, temp, a);  // expected = 3*a
     
     EXPECT_TRUE(fr_equal(result, expected)) << "MulBy3 should match manual calculation";
 }
@@ -150,19 +148,19 @@ TEST(FrOps, LShift) {
     
     // 1 << 2 = 4
     set_fr(a, 1);
-    blst_fr_lshift(result, a, 2);
+    fr_lshift(result, a, 2);
     set_fr(expected, 4);
     EXPECT_TRUE(fr_equal(result, expected)) << "1 << 2 should equal 4";
     
     // 5 << 1 = 10
     set_fr(a, 5);
-    blst_fr_lshift(result, a, 1);
+    fr_lshift(result, a, 1);
     set_fr(expected, 10);
     EXPECT_TRUE(fr_equal(result, expected)) << "5 << 1 should equal 10";
     
     // 0 << any = 0
     set_fr(a, 0);
-    blst_fr_lshift(result, a, 10);
+    fr_lshift(result, a, 10);
     set_fr(expected, 0);
     EXPECT_TRUE(fr_equal(result, expected)) << "0 << 10 should equal 0";
 }
@@ -172,19 +170,19 @@ TEST(FrOps, RShift) {
     
     // 8 >> 2 = 2
     set_fr(a, 8);
-    blst_fr_rshift(result, a, 2);
+    fr_rshift(result, a, 2);
     set_fr(expected, 2);
     EXPECT_TRUE(fr_equal(result, expected)) << "8 >> 2 should equal 2";
     
     // 10 >> 1 = 5
     set_fr(a, 10);
-    blst_fr_rshift(result, a, 1);
+    fr_rshift(result, a, 1);
     set_fr(expected, 5);
     EXPECT_TRUE(fr_equal(result, expected)) << "10 >> 1 should equal 5";
     
     // 0 >> any = 0
     set_fr(a, 0);
-    blst_fr_rshift(result, a, 10);
+    fr_rshift(result, a, 10);
     set_fr(expected, 0);
     EXPECT_TRUE(fr_equal(result, expected)) << "0 >> 10 should equal 0";
 }
@@ -199,8 +197,8 @@ TEST(FrOps, Mul) {
     to_mont_fr(a, a);
     to_mont_fr(b, b);
     
-    blst_fr_mul(result, a, b);
-    blst_fr_from(result_std, result);
+    fr_mul(result, a, b);
+    fr_from(result_std, result);
     
     set_fr(expected, 12);
     EXPECT_TRUE(fr_equal(result_std, expected)) << "3 * 4 should equal 12";
@@ -211,8 +209,8 @@ TEST(FrOps, Mul) {
     to_mont_fr(a, a);
     to_mont_fr(b, b);
     
-    blst_fr_mul(result, a, b);
-    blst_fr_from(result_std, result);
+    fr_mul(result, a, b);
+    fr_from(result_std, result);
     
     set_fr(expected, 0);
     EXPECT_TRUE(fr_equal(result_std, expected)) << "42 * 0 should equal 0";
@@ -223,9 +221,9 @@ TEST(FrOps, Mul) {
     to_mont_fr(a, a);
     to_mont_fr(b, b);
     
-    blst_fr_mul(result, a, b);
+    fr_mul(result, a, b);
     vec256 result2;
-    blst_fr_mul(result2, b, a);
+    fr_mul(result2, b, a);
     
     EXPECT_TRUE(fr_equal(result, result2)) << "Multiplication should be commutative";
 }
@@ -237,8 +235,8 @@ TEST(FrOps, Sqr) {
     set_fr(a, 5);
     to_mont_fr(a, a);
     
-    blst_fr_sqr(result, a);
-    blst_fr_from(result_std, result);
+    fr_sqr(result, a);
+    fr_from(result_std, result);
     
     set_fr(expected, 25);
     EXPECT_TRUE(fr_equal(result_std, expected)) << "5² should equal 25";
@@ -247,8 +245,8 @@ TEST(FrOps, Sqr) {
     set_fr(a, 0);
     to_mont_fr(a, a);
     
-    blst_fr_sqr(result, a);
-    blst_fr_from(result_std, result);
+    fr_sqr(result, a);
+    fr_from(result_std, result);
     
     set_fr(expected, 0);
     EXPECT_TRUE(fr_equal(result_std, expected)) << "0² should equal 0";
@@ -257,9 +255,9 @@ TEST(FrOps, Sqr) {
     set_fr(a, 123);
     to_mont_fr(a, a);
     
-    blst_fr_sqr(result, a);
+    fr_sqr(result, a);
     vec256 result2;
-    blst_fr_mul(result2, a, a);
+    fr_mul(result2, a, a);
     
     EXPECT_TRUE(fr_equal(result, result2)) << "a² should equal a*a";
 }
@@ -269,24 +267,24 @@ TEST(FrOps, CNeg) {
     
     // Negate 5 when flag is true
     set_fr(a, 5);
-    blst_fr_cneg(result, a, 1);
+    fr_cneg(result, a, 1);
     
     // Expected: r - 5
     fr_copy(expected, *get_BLST_r());
     vec256 five;
     set_fr(five, 5);
-    blst_fr_sub(expected, expected, five);
+    fr_sub(expected, expected, five);
     
     EXPECT_TRUE(fr_equal(result, expected)) << "Negation of 5 should equal r-5";
     
     // Don't negate when flag is false
     set_fr(a, 5);
-    blst_fr_cneg(result, a, 0);
+    fr_cneg(result, a, 0);
     EXPECT_TRUE(fr_equal(result, a)) << "cneg with flag=0 should not change value";
     
     // Negate 0 (should remain 0)
     set_fr(a, 0);
-    blst_fr_cneg(result, a, 1);
+    fr_cneg(result, a, 1);
     set_fr(expected, 0);
     EXPECT_TRUE(fr_equal(result, expected)) << "Negation of 0 should equal 0";
 }
@@ -296,8 +294,8 @@ TEST(FrOps, MontgomeryConversion) {
     
     // Convert 1 to Montgomery form and back
     set_fr(a, 1);
-    blst_fr_to(mont_a, a);
-    blst_fr_from(back_a, mont_a);
+    fr_to(mont_a, a);
+    fr_from(back_a, mont_a);
     
     EXPECT_TRUE(fr_equal(back_a, a)) << "Montgomery conversion of 1 failed";
     
@@ -309,8 +307,8 @@ TEST(FrOps, MontgomeryConversion) {
         set_fr(a, TEST_VALUES[i]);
         
         // To Montgomery form and back
-        blst_fr_to(mont_a, a);
-        blst_fr_from(back_a, mont_a);
+        fr_to(mont_a, a);
+        fr_from(back_a, mont_a);
         
         if (!fr_equal(back_a, a)) {
             printf("Failed for value %llu (0x%llx)\n", 
@@ -335,28 +333,28 @@ TEST(FrOps, ArithmeticProperties) {
     set_fr(c, 42);
     
     // Convert to Montgomery form
-    blst_fr_to(mont_a, a);
-    blst_fr_to(mont_b, b);
-    blst_fr_to(mont_c, c);
+    fr_to(mont_a, a);
+    fr_to(mont_b, b);
+    fr_to(mont_c, c);
     
     // Associativity: (a + b) + c = a + (b + c)
     vec256 temp1, temp2;// , std_result1, std_result2;
     
-    blst_fr_add(temp1, a, b);
-    blst_fr_add(result1, temp1, c);
+    fr_add(temp1, a, b);
+    fr_add(result1, temp1, c);
     
-    blst_fr_add(temp2, b, c);
-    blst_fr_add(result2, a, temp2);
+    fr_add(temp2, b, c);
+    fr_add(result2, a, temp2);
     
     EXPECT_TRUE(fr_equal(result1, result2)) << "Addition should be associative";
     
     // Distributivity: a * (b + c) = a*b + a*c
-    blst_fr_add(temp1, mont_b, mont_c);
-    blst_fr_mul(result1, mont_a, temp1);
+    fr_add(temp1, mont_b, mont_c);
+    fr_mul(result1, mont_a, temp1);
     
-    blst_fr_mul(temp1, mont_a, mont_b);
-    blst_fr_mul(temp2, mont_a, mont_c);
-    blst_fr_add(result2, temp1, temp2);
+    fr_mul(temp1, mont_a, mont_b);
+    fr_mul(temp2, mont_a, mont_c);
+    fr_add(result2, temp1, temp2);
     
     EXPECT_TRUE(fr_equal(result1, result2)) << "Multiplication should distribute over addition";
 }
@@ -369,25 +367,25 @@ TEST(FrOps, EdgeCases) {
     set_fr(one, 1);
     
     // 0 + 0 = 0
-    blst_fr_add(result, zero, zero);
+    fr_add(result, zero, zero);
     EXPECT_TRUE(fr_equal(result, zero)) << "0 + 0 should equal 0";
     
     // 0 * any = 0
     set_fr(a, 42);
     to_mont_fr(a, a);
     to_mont_fr(zero, zero);
-    blst_fr_mul(result, a, zero);
-    blst_fr_from(result, result);
+    fr_mul(result, a, zero);
+    fr_from(result, result);
     EXPECT_TRUE(fr_equal(result, zero)) << "42 * 0 should equal 0";
     
     // 1 * any = any
     set_fr(a, 42);
     to_mont_fr(a, a);
     to_mont_fr(one, one);
-    blst_fr_mul(result, a, one);
+    fr_mul(result, a, one);
     vec256 std_a;
-    blst_fr_from(std_a, a);
-    blst_fr_from(result, result);
+    fr_from(std_a, a);
+    fr_from(result, result);
     EXPECT_TRUE(fr_equal(result, std_a)) << "42 * 1 should equal 42";
 }
 
@@ -411,13 +409,13 @@ TEST(FrOps, Butterfly) {
     fr_copy(original_x1, x1);
     
     // CT butterfly: x0' = x0 + x1*twiddle, x1' = x0 - x1*twiddle
-    blst_fr_ct_bfly(x0, x1, twiddle);
+    fr_ct_bfly(x0, x1, twiddle);
     
     // Calculate expected values manually
     vec256 temp;
-    blst_fr_mul(temp, original_x1, twiddle);  // temp = x1 * twiddle
-    blst_fr_add(expected_x0, original_x0, temp);  // x0' = x0 + temp
-    blst_fr_sub(expected_x1, original_x0, temp);  // x1' = x0 - temp
+    fr_mul(temp, original_x1, twiddle);  // temp = x1 * twiddle
+    fr_add(expected_x0, original_x0, temp);  // x0' = x0 + temp
+    fr_sub(expected_x1, original_x0, temp);  // x1' = x0 - temp
     
     EXPECT_TRUE(fr_equal(x0, expected_x0)) << "CT butterfly x0 calculation incorrect";
     EXPECT_TRUE(fr_equal(x1, expected_x1)) << "CT butterfly x1 calculation incorrect";
@@ -427,12 +425,12 @@ TEST(FrOps, Butterfly) {
     fr_copy(x1, original_x1);
     
     // GS butterfly: x0' = x0 + x1, x1' = (x0 - x1) * twiddle
-    blst_fr_gs_bfly(x0, x1, twiddle);
+    fr_gs_bfly(x0, x1, twiddle);
     
     // Calculate expected values manually
-    blst_fr_add(expected_x0, original_x0, original_x1);  // x0' = x0 + x1
-    blst_fr_sub(temp, original_x0, original_x1);         // temp = x0 - x1
-    blst_fr_mul(expected_x1, temp, twiddle);             // x1' = temp * twiddle
+    fr_add(expected_x0, original_x0, original_x1);  // x0' = x0 + x1
+    fr_sub(temp, original_x0, original_x1);         // temp = x0 - x1
+    fr_mul(expected_x1, temp, twiddle);             // x1' = temp * twiddle
     
     EXPECT_TRUE(fr_equal(x0, expected_x0)) << "GS butterfly x0 calculation incorrect";
     EXPECT_TRUE(fr_equal(x1, expected_x1)) << "GS butterfly x1 calculation incorrect";

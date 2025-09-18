@@ -15,7 +15,7 @@
 #include "blst/fields/exp.h"
 #include "blst/fields/Fp.h"
 
-BLST_EXTERN_C_BEGIN
+//BLST_EXTERN_C_BEGIN
 
 /*
  * BLS12-381-specific Fp2 shortcuts to assembly.
@@ -326,6 +326,6 @@ HOST_DEVICE_FUNC BLST_INLINE void frobenius_map_fp2(vec384x ret, const vec384x a
 }
 
 
-BLST_EXTERN_C_END
+//BLST_EXTERN_C_END
 
 #endif /* __BLS12_381_ASM_FIELDS_H__ */

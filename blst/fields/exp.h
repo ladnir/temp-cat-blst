@@ -7,7 +7,7 @@
 #define BLST_EXP_H
 
 #include "blst/common/vect.h"
-BLST_EXTERN_C_BEGIN
+//BLST_EXTERN_C_BEGIN
 /*
  * |out| = |inp|^|pow|, small footprint, public exponent
  */
@@ -55,6 +55,6 @@ HOST_DEVICE_FUNC BLST_INLINE void exp_mont_384x(vec384x out, const vec384x inp, 
     }
     vec_copy(out, ret, sizeof(ret));  /* |out| = |ret| */
 }
-BLST_EXTERN_C_END
 
+//BLST_EXTERN_C_END
 #endif

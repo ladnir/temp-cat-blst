@@ -5,8 +5,9 @@
  */
 
 #include "blst/curve/point.h"
-BLST_EXTERN_C_BEGIN
-/*
+
+ 
+ /*
  * Line evaluations from  https://eprint.iacr.org/2010/354.pdf
  * with a twist moving common expression to line_by_Px2.
  */
@@ -490,4 +491,3 @@ int blst_fp12_in_group(const vec384fp12 f)
 
     return (int)vec_is_equal(a, b, sizeof(a));
 }
-BLST_EXTERN_C_END

@@ -8,7 +8,7 @@
 #include "config.h"
 #include "vect.h"
 
-BLST_EXTERN_C_BEGIN
+//BLST_EXTERN_C_BEGIN
 
 HOST_DEVICE_FUNC BLST_FORCEINLINE void bytes_zero(unsigned char *a, size_t num)
 {
@@ -152,6 +152,6 @@ HOST_DEVICE_FUNC BLST_INLINE void limbs_from_hexascii(limb_t *ret, size_t sz, co
             ret[len / (2*sizeof(limb_t))] = limb;
     }
 }
-BLST_EXTERN_C_END
+//BLST_EXTERN_C_END
 
 #endif

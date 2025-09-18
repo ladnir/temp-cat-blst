@@ -14,7 +14,7 @@
 #include "blst/fields/recip-addchain.h"
 #include "blst/fields/exp.h"
 
-BLST_EXTERN_C_BEGIN
+//BLST_EXTERN_C_BEGIN
 
 /*
  * BLS12-381-specific Fp shortcuts to assembly.
@@ -256,6 +256,6 @@ HOST_DEVICE_FUNC BLST_FORCEINLINE void blst_fp_eucl_inverse(vec384 ret, const ve
     reciprocal_fp(ret, a);
 }
 
-BLST_EXTERN_C_END
+//BLST_EXTERN_C_END
 
 #endif /* BLST_FP_H */

@@ -9,7 +9,6 @@
 #include "blst/fields/Fp12.h"
 #include "blst/common/errors.h"
 
-BLST_EXTERN_C_BEGIN
 
 ///////////////////////////////////////////
 // Vectorized Fp12 operations
@@ -64,5 +63,4 @@ batched_error_code fp12_from_bendian_vec(vec384fp12* out, const unsigned char* i
 // xy00z0: array of vec384fp6 elements representing the xy00z0 form
 batched_error_code mul_by_xy00z0_fp12_vec(vec384fp12* out, const vec384fp12* a, const vec384fp6* xy00z0, size_t num);
 
-BLST_EXTERN_C_END
 #endif /* BLST_FP12_CUDA_H */
