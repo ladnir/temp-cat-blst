@@ -7,7 +7,7 @@
 #include "blst/fields/Fp.h"
 #include "blst/fields/Fp_cuda.h"
 #include "blst/exports.h"
-
+#include "blst/common/cuda_launch.h"
 
 // Vectorized addition of Fp elements (CPU)
 batched_error_code add_fp_vec_cc(vec384* out, const vec384* a, const vec384* b, size_t num)
@@ -36,12 +36,8 @@ batched_error_code add_fp_vec_cu(vec384* out, const vec384* a, const vec384* b, 
 {
 	if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 	
-
-	size_t threads_per_block = 256;
-	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	add_fp_vec_ker << <num_blocks, threads_per_block >> > (out, a, b, num);
-
-	return cuda_to_batched(cudaDeviceSynchronize());
+	auto fut = blst::launch_auto(add_fp_vec_ker, num, out, a, b);
+	return cuda_to_batched(fut.get());
 }
 #endif
 
@@ -83,13 +79,8 @@ batched_error_code sub_fp_vec_cu(vec384* out, const vec384* a, const vec384* b, 
 {
 	if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 	
-
-	size_t threads_per_block = 256;
-	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	sub_fp_vec_ker << <num_blocks, threads_per_block >> > (out, a, b, num);
-
-	return cuda_to_batched(cudaDeviceSynchronize());
-
+	auto fut = blst::launch_auto(sub_fp_vec_ker, num, out, a, b);
+	return cuda_to_batched(fut.get());
 }
 #endif
 
@@ -129,13 +120,8 @@ batched_error_code mul_fp_vec_cu(vec384* out, const vec384* a, const vec384* b, 
 {
 	if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 	
-
-	size_t threads_per_block = 256;
-	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	mul_fp_vec_ker << <num_blocks, threads_per_block >> > (out, a, b, num);
-
-	return cuda_to_batched(cudaDeviceSynchronize());
-
+	auto fut = blst::launch_auto(mul_fp_vec_ker, num, out, a, b);
+	return cuda_to_batched(fut.get());
 }
 #endif
 // Vectorized multiplication of Fp elements
@@ -174,13 +160,8 @@ batched_error_code sqr_fp_vec_cu(vec384* out, const vec384* a, size_t num)
 {
 	if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 	
-
-	size_t threads_per_block = 256;
-	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	sqr_fp_vec_ker << <num_blocks, threads_per_block >> > (out, a, num);
-
-	return cuda_to_batched(cudaDeviceSynchronize());
-
+	auto fut = blst::launch_auto(sqr_fp_vec_ker, num, out, a);
+	return cuda_to_batched(fut.get());
 }
 #endif
 // Vectorized squaring of Fp elements
@@ -219,12 +200,8 @@ batched_error_code cneg_fp_vec_cu(vec384* out, const vec384* a, int flag, size_t
 {
 	if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 	
-
-	size_t threads_per_block = 256;
-	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	cneg_fp_vec_ker << <num_blocks, threads_per_block >> > (out, a, flag, num);
-
-	return cuda_to_batched(cudaDeviceSynchronize());
+	auto fut = blst::launch_auto(cneg_fp_vec_ker, num, out, a, flag);
+	return cuda_to_batched(fut.get());
 }
 #endif
 
@@ -268,12 +245,8 @@ batched_error_code mul3_fp_vec_cu(vec384* out, const vec384* a, size_t num)
 {
 	if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 	
-
-	size_t threads_per_block = 256;
-	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	mul3_fp_vec_ker << <num_blocks, threads_per_block >> > (out, a, num);
-
-	return cuda_to_batched(cudaDeviceSynchronize());
+	auto fut = blst::launch_auto(mul3_fp_vec_ker, num, out, a);
+	return cuda_to_batched(fut.get());
 }
 #endif
 // Vectorized multiplication of Fp elements by 3
@@ -314,12 +287,8 @@ batched_error_code mul8_fp_vec_cu(vec384* out, const vec384* a, size_t num)
 {
 	if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 	
-
-	size_t threads_per_block = 256;
-	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	mul8_fp_vec_ker << <num_blocks, threads_per_block >> > (out, a, num);
-
-	return cuda_to_batched(cudaDeviceSynchronize());
+	auto fut = blst::launch_auto(mul8_fp_vec_ker, num, out, a);
+	return cuda_to_batched(fut.get());
 }
 #endif
 // Vectorized multiplication of Fp elements by 8
@@ -361,12 +330,8 @@ batched_error_code div2_fp_vec_cu(vec384* out, const vec384* a, size_t num)
 {
 	if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 	
-
-	size_t threads_per_block = 256;
-	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	div2_fp_vec_ker << <num_blocks, threads_per_block >> > (out, a, num);
-
-	return cuda_to_batched(cudaDeviceSynchronize());
+	auto fut = blst::launch_auto(div2_fp_vec_ker, num, out, a);
+	return cuda_to_batched(fut.get());
 }
 #endif
 // Vectorized division of Fp elements by 2
@@ -408,12 +373,8 @@ batched_error_code lshift_fp_vec_cu(vec384* out, const vec384* a, size_t count, 
 {
 	if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 	
-
-	size_t threads_per_block = 256;
-	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	lshift_fp_vec_ker << <num_blocks, threads_per_block >> > (out, a, count, num);
-
-	return cuda_to_batched(cudaDeviceSynchronize());
+	auto fut = blst::launch_auto(lshift_fp_vec_ker, num, out, a, count);
+	return cuda_to_batched(fut.get());
 }
 #endif
 // Vectorized left shift of Fp elements
@@ -455,12 +416,8 @@ batched_error_code to_fp_vec_cu(vec384* out, const vec384* a, size_t num)
 {
 	if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 	
-
-	size_t threads_per_block = 256;
-	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	to_fp_vec_ker << <num_blocks, threads_per_block >> > (out, a, num);
-
-	return cuda_to_batched(cudaDeviceSynchronize());
+	auto fut = blst::launch_auto(to_fp_vec_ker, num, out, a);
+	return cuda_to_batched(fut.get());
 }
 #endif
 // Vectorized conversion from a regular representation to a montgomery Fp
@@ -501,12 +458,8 @@ batched_error_code from_fp_vec_cu(vec384* out, const vec384* a, size_t num)
 {
 	if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 	
-
-	size_t threads_per_block = 256;
-	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	from_fp_vec_ker << <num_blocks, threads_per_block >> > (out, a, num);
-
-	return cuda_to_batched(cudaDeviceSynchronize());
+	auto fut = blst::launch_auto(from_fp_vec_ker, num, out, a);
+	return cuda_to_batched(fut.get());
 }
 #endif
 // Vectorized conversion from a montgomery Fp to a regular representation
@@ -518,6 +471,7 @@ batched_error_code from_fp_vec(vec384* out, const vec384* a, size_t num)
 	return from_fp_vec_cc(out, a, num);
 #endif
 }
+
 
 
 

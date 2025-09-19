@@ -288,7 +288,7 @@ HOST_DEVICE_FUNC BLST_FORCEINLINE void sub_mod_v384(vec384 ret, const vec384 a, 
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 	sub_mod_384(ret, a, b, p);
 #else
-	cc_sub_mod_n(ret, a, b, p, NLIMBS(384));
+	cc_sub_mod_n<NLIMBS(384)>(ret, a, b, p);
 #endif
 }
 HOST_DEVICE_FUNC BLST_FORCEINLINE void mul_by_8_mod_v384(vec384 ret, const vec384 a, const vec384 p)

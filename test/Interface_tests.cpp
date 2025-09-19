@@ -42,7 +42,7 @@ namespace
 		// ensure MS limb < p[MS], which guarantees v < p lexicographically
 		v[NLIMBS(384) - 1] = gen() % p[NLIMBS(384) - 1];
 
-		assert(cc_check_mod_n((byte*)v, p, NLIMBS(384)) == 1);
+		assert(cc_check_mod_n<NLIMBS(384)>((byte*)v, p) == 1);
 	}
 
 	// Helper to generate random vec384
@@ -577,13 +577,13 @@ TEST(InterfaceTests, SqrNMulMontV383) {
 		generate_random_vec384(a,p);
 		generate_random_vec384(b,p);
 
-		EXPECT_TRUE(cc_check_mod_n((byte*)b, p, NLIMBS(384)) == 1);
+		EXPECT_TRUE(cc_check_mod_n<NLIMBS(384)>((byte*)b, p) == 1);
 		//to_fp(a, a);
 		//to_fp(b, b);
 		// ---- to Montgomery correctly: aM = a * R  and  bM = b * R
 		// via MontMul with RR
-		cc_mul_mont_n(aM, a, *get_BLST_RR(), p, n0, NLIMBS(384));
-		cc_mul_mont_n(bM, b, *get_BLST_RR(), p, n0, NLIMBS(384));
+		cc_mul_mont_n<NLIMBS(384)>(aM, a, *get_BLST_RR(), p, n0);
+		cc_mul_mont_n<NLIMBS(384)>(bM, b, *get_BLST_RR(), p, n0);
 
 
 		// Compute using both implementations
@@ -611,7 +611,7 @@ TEST(InterfaceTests, SubModV384) {
 		generate_random_vec384(b,p);
 
 		sub_mod_384(ret_asm, a, b, p);
-		cc_sub_mod_n(ret_portable, a, b, p, NLIMBS(384));
+		cc_sub_mod_n<NLIMBS(384)>(ret_portable, a, b, p);
 
 		EXPECT_TRUE(vec384_equal(ret_asm, ret_portable)) << "Mismatch in sub_mod_v384";
 	}

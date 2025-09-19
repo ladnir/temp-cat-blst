@@ -72,12 +72,12 @@ if(BLST_CUDA)
         $<LIST:TRANSFORM,${BLST_RELWITHDEBINFO_OPT},PREPEND,-Xcompiler=>>
 
         # CUDA device/linkage flags (CUDA-only)
-        #$<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr>
+        $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr>
         #$<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda>
         #$<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_89>
         $<$<COMPILE_LANGUAGE:CUDA>:-rdc=true>
-      $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>           # cheap line tables
-      $<$<CONFIG:Debug>:$<$<COMPILE_LANGUAGE:CUDA>:-G -g -Xptxas -O0>>
+        #$<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>           # cheap line tables
+        #$<$<CONFIG:Debug>:$<$<COMPILE_LANGUAGE:CUDA>:-G -g -Xptxas -O0>> # expensive debug info
         
         #verbose output for nvcc
         #$<$<COMPILE_LANGUAGE:CUDA>:

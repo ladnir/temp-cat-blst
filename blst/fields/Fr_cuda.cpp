@@ -8,8 +8,7 @@
 #include "blst/exports.h"
 #include "blst/fields/Fr_cuda.h"
 #include "blst/common/errors.h"
-
-
+#include "blst/common/cuda_launch.h"
 
 // ====================
 // ====================
@@ -53,10 +52,8 @@ batched_error_code add_fr_vec_cu(vec256* out, const vec256* a, const vec256* b, 
 {
 	if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 	
-	size_t threads_per_block = 256;
-	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	add_fr_vec_ker << <num_blocks, threads_per_block >> > (out, a, b, num);
-	return cuda_to_batched(cudaDeviceSynchronize());
+	auto fut = blst::launch_auto(add_fr_vec_ker, num, out, a, b);
+	return cuda_to_batched(fut.get());
 }
 #endif
 
@@ -98,12 +95,8 @@ batched_error_code sub_fr_vec_cu(vec256* out, const vec256* a, const vec256* b, 
 {
 	if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 	
-
-	size_t threads_per_block = 256;
-	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	sub_fr_vec_ker << <num_blocks, threads_per_block >> > (out, a, b, num);
-
-	return cuda_to_batched(cudaDeviceSynchronize());
+	auto fut = blst::launch_auto(sub_fr_vec_ker, num, out, a, b);
+	return cuda_to_batched(fut.get());
 }
 #endif
 
@@ -145,12 +138,8 @@ batched_error_code mul_fr_vec_cu(vec256* out, const vec256* a, const vec256* b, 
 {
 	if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 	
-
-	size_t threads_per_block = 256;
-	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	mul_fr_vec_ker << <num_blocks, threads_per_block >> > (out, a, b, num);
-
-	return cuda_to_batched(cudaDeviceSynchronize());
+	auto fut = blst::launch_auto(mul_fr_vec_ker, num, out, a, b);
+	return cuda_to_batched(fut.get());
 }
 #endif
 
@@ -192,12 +181,8 @@ batched_error_code sqr_fr_vec_cu(vec256* out, const vec256* a, size_t num)
 {
 	if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 	
-
-	size_t threads_per_block = 256;
-	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	sqr_fr_vec_ker << <num_blocks, threads_per_block >> > (out, a, num);
-
-	return cuda_to_batched(cudaDeviceSynchronize());
+	auto fut = blst::launch_auto(sqr_fr_vec_ker, num, out, a);
+	return cuda_to_batched(fut.get());
 }
 #endif
 
@@ -239,12 +224,8 @@ batched_error_code cneg_fr_vec_cu(vec256* out, const vec256* a, int flag, size_t
 {
 	if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 	
-
-	size_t threads_per_block = 256;
-	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	cneg_fr_vec_ker << <num_blocks, threads_per_block >> > (out, a, flag, num);
-
-	return cuda_to_batched(cudaDeviceSynchronize());
+	auto fut = blst::launch_auto(cneg_fr_vec_ker, num, out, a, flag);
+	return cuda_to_batched(fut.get());
 }
 #endif
 
@@ -286,12 +267,8 @@ batched_error_code mul3_fr_vec_cu(vec256* out, const vec256* a, size_t num)
 {
 	if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 	
-
-	size_t threads_per_block = 256;
-	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	mul3_fr_vec_ker << <num_blocks, threads_per_block >> > (out, a, num);
-
-	return cuda_to_batched(cudaDeviceSynchronize());;
+	auto fut = blst::launch_auto(mul3_fr_vec_ker, num, out, a);
+	return cuda_to_batched(fut.get());
 }
 #endif
 
@@ -333,12 +310,8 @@ batched_error_code lshift_fr_vec_cu(vec256* out, const vec256* a, size_t count, 
 {
 	if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 	
-
-	size_t threads_per_block = 256;
-	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	lshift_fr_vec_ker << <num_blocks, threads_per_block >> > (out, a, count, num);
-
-	return cuda_to_batched(cudaDeviceSynchronize());
+	auto fut = blst::launch_auto(lshift_fr_vec_ker, num, out, a, count);
+	return cuda_to_batched(fut.get());
 }
 #endif
 
@@ -380,12 +353,8 @@ batched_error_code rshift_fr_vec_cu(vec256* out, const vec256* a, size_t count, 
 {
 	if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 	
-
-	size_t threads_per_block = 256;
-	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	rshift_fr_vec_ker << <num_blocks, threads_per_block >> > (out, a, count, num);
-
-	return cuda_to_batched(cudaDeviceSynchronize());
+	auto fut = blst::launch_auto(rshift_fr_vec_ker, num, out, a, count);
+	return cuda_to_batched(fut.get());
 }
 #endif
 
@@ -427,12 +396,8 @@ batched_error_code to_fr_vec_cu(vec256* out, const vec256* a, size_t num)
 {
 	if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 	
-
-	size_t threads_per_block = 256;
-	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	to_fr_vec_ker << <num_blocks, threads_per_block >> > (out, a, num);
-
-	return cuda_to_batched(cudaDeviceSynchronize());
+	auto fut = blst::launch_auto(to_fr_vec_ker, num, out, a);
+	return cuda_to_batched(fut.get());
 }
 #endif
 
@@ -474,12 +439,8 @@ batched_error_code from_fr_vec_cu(vec256* out, const vec256* a, size_t num)
 {
 	if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 	
-
-	size_t threads_per_block = 256;
-	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	from_fr_vec_ker << <num_blocks, threads_per_block >> > (out, a, num);
-
-	return cuda_to_batched(cudaDeviceSynchronize());
+	auto fut = blst::launch_auto(from_fr_vec_ker, num, out, a);
+	return cuda_to_batched(fut.get());
 }
 #endif
 
@@ -521,12 +482,8 @@ batched_error_code ct_bfly_fr_vec_cu(vec256* x0, vec256* x1, const vec256* twidd
 {
 	if (!x0 || !x1 || !twiddle) return BATCHED_ERROR_NULL_POINTER;
 	
-
-	size_t threads_per_block = 256;
-	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	ct_bfly_fr_vec_ker << <num_blocks, threads_per_block >> > (x0, x1, twiddle, num);
-
-	return cuda_to_batched(cudaDeviceSynchronize());
+	auto fut = blst::launch_auto(ct_bfly_fr_vec_ker, num, x0, x1, twiddle);
+	return cuda_to_batched(fut.get());
 }
 #endif
 
@@ -568,12 +525,8 @@ batched_error_code gs_bfly_fr_vec_cu(vec256* x0, vec256* x1, const vec256* twidd
 {
 	if (!x0 || !x1 || !twiddle) return BATCHED_ERROR_NULL_POINTER;
 	
-
-	size_t threads_per_block = 256;
-	size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-	gs_bfly_fr_vec_ker << <num_blocks, threads_per_block >> > (x0, x1, twiddle, num);
-
-	return cuda_to_batched(cudaDeviceSynchronize());;
+	auto fut = blst::launch_auto(gs_bfly_fr_vec_ker, num, x0, x1, twiddle);
+	return cuda_to_batched(fut.get());
 }
 #endif
 

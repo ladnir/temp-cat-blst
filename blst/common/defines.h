@@ -24,7 +24,8 @@ typedef unsigned char byte;
 # define TO_LIMB_T(limb64)     (limb_t)limb64,(limb_t)(limb64>>32)
 #endif
 
-#define NLIMBS(bits)   (bits/BLST_LIMB_SIZE)
+constexpr int NLIMBS(int bits) { return bits / BLST_LIMB_SIZE; }
+//#define NLIMBS(bits)   (bits/BLST_LIMB_SIZE)
 
 typedef limb_t vec256[NLIMBS(256)];
 typedef limb_t vec512[NLIMBS(512)];
