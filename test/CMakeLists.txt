@@ -43,9 +43,7 @@ if(BLST_CUDA)
         "FrCuda_tests.cu"
 
         "Fp2Cuda_tests.cu"
-        "Fp12Cuda_kernel.cu"
         "Fp12Cuda_tests.cu"
-        "G1Cuda_kernel.cu"
         "G1Cuda_tests.cu"
         "G2Cuda_kernel.cu"
         "G2Cuda_tests.cu"

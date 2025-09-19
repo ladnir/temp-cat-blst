@@ -9,8 +9,11 @@
 #include "blst/curve/G1_cuda.h"
 #include "blst/curve/map_to_g1.h"
 #include "blst/exports.h"
+#include "blst/common/errors.h"
 
-BLST_EXTERN_C_BEGIN
+#ifdef BLST_CUDA
+#include "blst/common/cuda_launch.h"
+#endif
 
 ///////////////////////////////////////////
 // Core G1 Operations
@@ -29,7 +32,7 @@ batched_error_code add_g1_vec_cc(POINTonE1* out, const POINTonE1* a, const POINT
 
 #ifdef BLST_CUDA
 // Kernel for addition of G1 points (GPU)
-GLOBAL_FUNC void add_g1_vec_ker(POINTonE1* out, const POINTonE1* a, const POINTonE1* b, size_t num)
+__global__ void add_g1_vec_ker(POINTonE1* out, const POINTonE1* a, const POINTonE1* b, size_t num)
 {
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < num) {
@@ -42,11 +45,8 @@ batched_error_code add_g1_vec_cu(POINTonE1* out, const POINTonE1* a, const POINT
 {
     if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
-    size_t threads_per_block = 256;
-    size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-    add_g1_vec_ker << <num_blocks, threads_per_block >> > (out, a, b, num);
-
-    return cuda_to_batched(cudaDeviceSynchronize());
+    auto future = blst::launch_auto(add_g1_vec_ker, num, out, a, b);
+    return cuda_to_batched(future.get());
 }
 #endif
 
@@ -74,7 +74,7 @@ batched_error_code double_g1_vec_cc(POINTonE1* out, const POINTonE1* a, size_t n
 
 #ifdef BLST_CUDA
 // Kernel for doubling of G1 points (GPU)
-GLOBAL_FUNC void double_g1_vec_ker(POINTonE1* out, const POINTonE1* a, size_t num)
+__global__ void double_g1_vec_ker(POINTonE1* out, const POINTonE1* a, size_t num)
 {
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < num) {
@@ -87,11 +87,8 @@ batched_error_code double_g1_vec_cu(POINTonE1* out, const POINTonE1* a, size_t n
 {
     if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
-    size_t threads_per_block = 256;
-    size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-    double_g1_vec_ker << <num_blocks, threads_per_block >> > (out, a, num);
-
-    return cuda_to_batched(cudaDeviceSynchronize());
+    auto future = blst::launch_auto(double_g1_vec_ker, num, out, a);
+    return cuda_to_batched(future.get());
 }
 #endif
 
@@ -120,7 +117,7 @@ batched_error_code cneg_g1_vec_cc(POINTonE1* out, const POINTonE1* a, int flag, 
 
 #ifdef BLST_CUDA
 // Kernel for conditional negation of G1 points (GPU)
-GLOBAL_FUNC void cneg_g1_vec_ker(POINTonE1* out, const POINTonE1* a, int flag, size_t num)
+__global__ void cneg_g1_vec_ker(POINTonE1* out, const POINTonE1* a, int flag, size_t num)
 {
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < num) {
@@ -134,11 +131,8 @@ batched_error_code cneg_g1_vec_cu(POINTonE1* out, const POINTonE1* a, int flag, 
 {
     if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
-    size_t threads_per_block = 256;
-    size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-    cneg_g1_vec_ker << <num_blocks, threads_per_block >> > (out, a, flag, num);
-
-    return cuda_to_batched(cudaDeviceSynchronize());
+    auto future = blst::launch_auto(cneg_g1_vec_ker, num, out, a, flag);
+    return cuda_to_batched(future.get());
 }
 #endif
 
@@ -168,12 +162,16 @@ batched_error_code mult_g1_vec_cc(POINTonE1* out, const POINTonE1* points, const
 
 #ifdef BLST_CUDA
 // Kernel for scalar multiplication of G1 points (GPU)
-GLOBAL_FUNC void mult_g1_vec_ker(POINTonE1* out, const POINTonE1* points, const unsigned char* scalars, size_t scalar_bits, size_t num)
+__global__ void mult_g1_vec_ker(POINTonE1* out, const POINTonE1* points, const unsigned char* scalars, size_t scalar_bits, size_t num)
 {
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < num) {
         const size_t scalar_bytes = (scalar_bits + 7) / 8;
-        blst_p1_mult(&out[idx], &points[idx], &scalars[idx * scalar_bytes], scalar_bits);
+        blst_p1_mult(
+            &out[idx], 
+            &points[idx], 
+            &scalars[idx * scalar_bytes],
+            scalar_bits);
     }
 }
 
@@ -182,11 +180,8 @@ batched_error_code mult_g1_vec_cu(POINTonE1* out, const POINTonE1* points, const
 {
     if (!out || !points || !scalars) return BATCHED_ERROR_NULL_POINTER;
 
-    size_t threads_per_block = 128; // Smaller blocks for scalar multiplication
-    size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-    mult_g1_vec_ker << <num_blocks, threads_per_block >> > (out, points, scalars, scalar_bits, num);
-
-    return cuda_to_batched(cudaDeviceSynchronize());
+    auto future = blst::launch_auto(mult_g1_vec_ker, num, out, points, scalars, scalar_bits);
+    return cuda_to_batched(future.get());
 }
 #endif
 
@@ -217,7 +212,7 @@ batched_error_code to_affine_g1_vec_cc(POINTonE1_affine* out, const POINTonE1* a
 
 #ifdef BLST_CUDA
 // Kernel for Jacobian to affine conversion (GPU)
-GLOBAL_FUNC void to_affine_g1_vec_ker(POINTonE1_affine* out, const POINTonE1* a, size_t num)
+__global__ void to_affine_g1_vec_ker(POINTonE1_affine* out, const POINTonE1* a, size_t num)
 {
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < num) {
@@ -230,11 +225,8 @@ batched_error_code to_affine_g1_vec_cu(POINTonE1_affine* out, const POINTonE1* a
 {
     if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
-    size_t threads_per_block = 256;
-    size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-    to_affine_g1_vec_ker << <num_blocks, threads_per_block >> > (out, a, num);
-
-    return cuda_to_batched(cudaDeviceSynchronize());
+    auto future = blst::launch_auto(to_affine_g1_vec_ker, num, out, a);
+    return cuda_to_batched(future.get());
 }
 #endif
 
@@ -262,7 +254,7 @@ batched_error_code from_affine_g1_vec_cc(POINTonE1* out, const POINTonE1_affine*
 
 #ifdef BLST_CUDA
 // Kernel for affine to Jacobian conversion (GPU)
-GLOBAL_FUNC void from_affine_g1_vec_ker(POINTonE1* out, const POINTonE1_affine* a, size_t num)
+__global__ void from_affine_g1_vec_ker(POINTonE1* out, const POINTonE1_affine* a, size_t num)
 {
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < num) {
@@ -275,11 +267,8 @@ batched_error_code from_affine_g1_vec_cu(POINTonE1* out, const POINTonE1_affine*
 {
     if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
-    size_t threads_per_block = 256;
-    size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-    from_affine_g1_vec_ker << <num_blocks, threads_per_block >> > (out, a, num);
-
-    return cuda_to_batched(cudaDeviceSynchronize());
+    auto future = blst::launch_auto(from_affine_g1_vec_ker, num, out, a);
+    return cuda_to_batched(future.get());
 }
 #endif
 
@@ -307,7 +296,7 @@ batched_error_code from_jacobian_g1_vec_cc(POINTonE1* out, const POINTonE1* a, s
 
 #ifdef BLST_CUDA
 // Kernel for Jacobian normalization (GPU)
-GLOBAL_FUNC void from_jacobian_g1_vec_ker(POINTonE1* out, const POINTonE1* a, size_t num)
+__global__ void from_jacobian_g1_vec_ker(POINTonE1* out, const POINTonE1* a, size_t num)
 {
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < num) {
@@ -320,11 +309,8 @@ batched_error_code from_jacobian_g1_vec_cu(POINTonE1* out, const POINTonE1* a, s
 {
     if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
-    size_t threads_per_block = 256;
-    size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-    from_jacobian_g1_vec_ker << <num_blocks, threads_per_block >> > (out, a, num);
-
-    return cuda_to_batched(cudaDeviceSynchronize());
+    auto future = blst::launch_auto(from_jacobian_g1_vec_ker, num, out, a);
+    return cuda_to_batched(future.get());
 }
 #endif
 
@@ -355,7 +341,7 @@ batched_error_code on_curve_g1_vec_cc(bool* results, const POINTonE1* points, si
 
 #ifdef BLST_CUDA
 // Kernel for curve membership check (GPU)
-GLOBAL_FUNC void on_curve_g1_vec_ker(bool* results, const POINTonE1* points, size_t num)
+__global__ void on_curve_g1_vec_ker(bool* results, const POINTonE1* points, size_t num)
 {
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < num) {
@@ -368,11 +354,8 @@ batched_error_code on_curve_g1_vec_cu(bool* results, const POINTonE1* points, si
 {
     if (!results || !points) return BATCHED_ERROR_NULL_POINTER;
 
-    size_t threads_per_block = 256;
-    size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-    on_curve_g1_vec_ker << <num_blocks, threads_per_block >> > (results, points, num);
-
-    return cuda_to_batched(cudaDeviceSynchronize());
+    auto future = blst::launch_auto(on_curve_g1_vec_ker, num, results, points);
+    return cuda_to_batched(future.get());
 }
 #endif
 
@@ -400,7 +383,7 @@ batched_error_code is_inf_g1_vec_cc(bool* results, const POINTonE1* points, size
 
 #ifdef BLST_CUDA
 // Kernel for infinity check (GPU)
-GLOBAL_FUNC void is_inf_g1_vec_ker(bool* results, const POINTonE1* points, size_t num)
+__global__ void is_inf_g1_vec_ker(bool* results, const POINTonE1* points, size_t num)
 {
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < num) {
@@ -413,11 +396,8 @@ batched_error_code is_inf_g1_vec_cu(bool* results, const POINTonE1* points, size
 {
     if (!results || !points) return BATCHED_ERROR_NULL_POINTER;
 
-    size_t threads_per_block = 256;
-    size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-    is_inf_g1_vec_ker << <num_blocks, threads_per_block >> > (results, points, num);
-
-    return cuda_to_batched(cudaDeviceSynchronize());
+    auto future = blst::launch_auto(is_inf_g1_vec_ker, num, results, points);
+    return cuda_to_batched(future.get());
 }
 #endif
 
@@ -445,7 +425,7 @@ batched_error_code is_equal_g1_vec_cc(bool* results, const POINTonE1* a, const P
 
 #ifdef BLST_CUDA
 // Kernel for point equality check (GPU)
-GLOBAL_FUNC void is_equal_g1_vec_ker(bool* results, const POINTonE1* a, const POINTonE1* b, size_t num)
+__global__ void is_equal_g1_vec_ker(bool* results, const POINTonE1* a, const POINTonE1* b, size_t num)
 {
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < num) {
@@ -458,11 +438,8 @@ batched_error_code is_equal_g1_vec_cu(bool* results, const POINTonE1* a, const P
 {
     if (!results || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
-    size_t threads_per_block = 256;
-    size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-    is_equal_g1_vec_ker << <num_blocks, threads_per_block >> > (results, a, b, num);
-
-    return cuda_to_batched(cudaDeviceSynchronize());
+    auto future = blst::launch_auto(is_equal_g1_vec_ker, num, results, a, b);
+    return cuda_to_batched(future.get());
 }
 #endif
 
@@ -493,7 +470,7 @@ batched_error_code serialize_g1_vec_cc(unsigned char* out, const POINTonE1* poin
 
 #ifdef BLST_CUDA
 // Kernel for point serialization (GPU)
-GLOBAL_FUNC void serialize_g1_vec_ker(unsigned char* out, const POINTonE1* points, size_t num)
+__global__ void serialize_g1_vec_ker(unsigned char* out, const POINTonE1* points, size_t num)
 {
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < num) {
@@ -506,11 +483,8 @@ batched_error_code serialize_g1_vec_cu(unsigned char* out, const POINTonE1* poin
 {
     if (!out || !points) return BATCHED_ERROR_NULL_POINTER;
 
-    size_t threads_per_block = 256;
-    size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-    serialize_g1_vec_ker << <num_blocks, threads_per_block >> > (out, points, num);
-
-    return cuda_to_batched(cudaDeviceSynchronize());
+    auto future = blst::launch_auto(serialize_g1_vec_ker, num, out, points);
+    return cuda_to_batched(future.get());
 }
 #endif
 
@@ -525,83 +499,63 @@ batched_error_code serialize_g1_vec(unsigned char* out, const POINTonE1* points,
 }
 
 // Vectorized point deserialization (CPU)
-batched_error_code deserialize_g1_vec_cc(POINTonE1_affine* out, const unsigned char* serialized, size_t num)
+batched_error_code deserialize_g1_vec_cc(POINTonE1_affine* out, const unsigned char* serialized, BLST_ERROR* errors, size_t num)
 {
-    if (!out || !serialized) return BATCHED_ERROR_NULL_POINTER;
+    if (!out || !serialized || !errors) return BATCHED_ERROR_NULL_POINTER;
 
     while (num--) {
-        BLST_ERROR err = blst_p1_deserialize(out, serialized);
-        if (err != BLST_SUCCESS) return BATCHED_ERROR_POINT_NOT_ON_CURVE;
-        out++; serialized += 96;
+        *errors = blst_p1_deserialize(out, serialized);
+        out++; serialized += 96; errors++;
     }
     return BATCHED_SUCCESS;
 }
 
 #ifdef BLST_CUDA
 // Kernel for point deserialization (GPU)
-GLOBAL_FUNC void deserialize_g1_vec_ker(POINTonE1_affine* out, const unsigned char* serialized, size_t num, bool* errors)
+__global__ void deserialize_g1_vec_ker(POINTonE1_affine* out, const unsigned char* serialized, BLST_ERROR* errors, size_t num)
 {
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < num) {
-        BLST_ERROR err = blst_p1_deserialize(&out[idx], &serialized[idx * 96]);
-        errors[idx] = (err != BLST_SUCCESS);
+        errors[idx] = blst_p1_deserialize(&out[idx], &serialized[idx * 96]);
     }
 }
 
 // Vectorized point deserialization (GPU)
-batched_error_code deserialize_g1_vec_cu(POINTonE1_affine* out, const unsigned char* serialized, size_t num)
+batched_error_code deserialize_g1_vec_cu(POINTonE1_affine* out, const unsigned char* serialized, BLST_ERROR* errors, size_t num)
 {
-    if (!out || !serialized) return BATCHED_ERROR_NULL_POINTER;
+    if (!out || !serialized || !errors) return BATCHED_ERROR_NULL_POINTER;
 
-    bool* d_errors;
-    bool* h_errors = (bool*)malloc(num * sizeof(bool));
-    if (!h_errors) return BATCHED_ERROR_CUDA_MALLOC_FAILED;
-
-    cudaError_t cuda_err = cudaMalloc(&d_errors, num * sizeof(bool));
+    BLST_ERROR* d_errors;
+    cudaError_t cuda_err = cudaMalloc(&d_errors, num * sizeof(BLST_ERROR));
     if (cuda_err != cudaSuccess) {
-        free(h_errors);
-        return BATCHED_ERROR_CUDA_MALLOC_FAILED;
+        return cuda_to_batched(cuda_err);
     }
 
-    size_t threads_per_block = 256;
-    size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-    deserialize_g1_vec_ker << <num_blocks, threads_per_block >> > (out, serialized, num, d_errors);
-
-    batched_error_code sync_result = cuda_to_batched(cudaDeviceSynchronize());
+    auto future = blst::launch_auto(deserialize_g1_vec_ker, num, out, serialized, d_errors);
+    batched_error_code sync_result = cuda_to_batched(future.get());
     if (sync_result != BATCHED_SUCCESS) {
         cudaFree(d_errors);
-        free(h_errors);
         return sync_result;
     }
 
-    cuda_err = cudaMemcpy(h_errors, d_errors, num * sizeof(bool), cudaMemcpyDeviceToHost);
+    cuda_err = cudaMemcpy(errors, d_errors, num * sizeof(BLST_ERROR), cudaMemcpyDeviceToHost);
     cudaFree(d_errors);
 
     if (cuda_err != cudaSuccess) {
-        free(h_errors);
-        return BATCHED_ERROR_CUDA_MEMCPY_FAILED;
+        return cuda_to_batched(cuda_err);
     }
 
-    // Check for any errors
-    for (size_t i = 0; i < num; i++) {
-        if (h_errors[i]) {
-            free(h_errors);
-            return BATCHED_ERROR_POINT_NOT_ON_CURVE;
-        }
-    }
-
-    free(h_errors);
     return BATCHED_SUCCESS;
 }
 #endif
 
 // Vectorized point deserialization
-batched_error_code deserialize_g1_vec(POINTonE1_affine* out, const unsigned char* serialized, size_t num)
+batched_error_code deserialize_g1_vec(POINTonE1_affine* out, const unsigned char* serialized, BLST_ERROR* errors, size_t num)
 {
 #ifdef BLST_CUDA
-    return deserialize_g1_vec_cu(out, serialized, num);
+    return deserialize_g1_vec_cu(out, serialized, errors, num);
 #else
-    return deserialize_g1_vec_cc(out, serialized, num);
+    return deserialize_g1_vec_cc(out, serialized, errors, num);
 #endif
 }
 
@@ -619,7 +573,7 @@ batched_error_code compress_g1_vec_cc(unsigned char* out, const POINTonE1* point
 
 #ifdef BLST_CUDA
 // Kernel for point compression (GPU)
-GLOBAL_FUNC void compress_g1_vec_ker(unsigned char* out, const POINTonE1* points, size_t num)
+__global__ void compress_g1_vec_ker(unsigned char* out, const POINTonE1* points, size_t num)
 {
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < num) {
@@ -632,11 +586,8 @@ batched_error_code compress_g1_vec_cu(unsigned char* out, const POINTonE1* point
 {
     if (!out || !points) return BATCHED_ERROR_NULL_POINTER;
 
-    size_t threads_per_block = 256;
-    size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-    compress_g1_vec_ker << <num_blocks, threads_per_block >> > (out, points, num);
-
-    return cuda_to_batched(cudaDeviceSynchronize());
+    auto future = blst::launch_auto(compress_g1_vec_ker, num, out, points);
+    return cuda_to_batched(future.get());
 }
 #endif
 
@@ -650,84 +601,68 @@ batched_error_code compress_g1_vec(unsigned char* out, const POINTonE1* points, 
 #endif
 }
 
+
 // Vectorized point decompression (CPU)
-batched_error_code uncompress_g1_vec_cc(POINTonE1_affine* out, const unsigned char* compressed, size_t num)
+batched_error_code uncompress_g1_vec_cc(POINTonE1_affine* out, const unsigned char* compressed, BLST_ERROR* errors, size_t num)
 {
-    if (!out || !compressed) return BATCHED_ERROR_NULL_POINTER;
+    if (!out || !compressed || !errors) return BATCHED_ERROR_NULL_POINTER;
 
     while (num--) {
-        BLST_ERROR err = blst_p1_uncompress(out, compressed);
-        if (err != BLST_SUCCESS) return BATCHED_ERROR_POINT_NOT_ON_CURVE;
-        out++; compressed += 48;
+        *errors = blst_p1_uncompress(out, compressed);
+        out++; compressed += 48; errors++;
     }
     return BATCHED_SUCCESS;
 }
 
 #ifdef BLST_CUDA
 // Kernel for point decompression (GPU)
-GLOBAL_FUNC void uncompress_g1_vec_ker(POINTonE1_affine* out, const unsigned char* compressed, size_t num, bool* errors)
+__global__ void uncompress_g1_vec_ker(POINTonE1_affine* out, const unsigned char* compressed, BLST_ERROR* errors, size_t num)
 {
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < num) {
-        BLST_ERROR err = blst_p1_uncompress(&out[idx], &compressed[idx * 48]);
-        errors[idx] = (err != BLST_SUCCESS);
+        errors[idx] = blst_p1_uncompress(&out[idx], &compressed[idx * 48]);
     }
 }
 
 // Vectorized point decompression (GPU)
-batched_error_code uncompress_g1_vec_cu(POINTonE1_affine* out, const unsigned char* compressed, size_t num)
+batched_error_code uncompress_g1_vec_cu(POINTonE1_affine* out, const unsigned char* compressed, BLST_ERROR* errors, size_t num)
 {
-    if (!out || !compressed) return BATCHED_ERROR_NULL_POINTER;
+    if (!out || !compressed || !errors) return BATCHED_ERROR_NULL_POINTER;
 
-    bool* d_errors;
-    bool* h_errors = (bool*)malloc(num * sizeof(bool));
-    if (!h_errors) return BATCHED_ERROR_CUDA_MALLOC_FAILED;
-
-    cudaError_t cuda_err = cudaMalloc(&d_errors, num * sizeof(bool));
+    BLST_ERROR* d_errors;
+    cudaError_t cuda_err = cudaMalloc(&d_errors, num * sizeof(BLST_ERROR));
     if (cuda_err != cudaSuccess) {
-        free(h_errors);
-        return BATCHED_ERROR_CUDA_MALLOC_FAILED;
+        return cuda_to_batched(cuda_err);
     }
 
-    size_t threads_per_block = 256;
-    size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-    uncompress_g1_vec_ker << <num_blocks, threads_per_block >> > (out, compressed, num, d_errors);
-
-    batched_error_code sync_result = cuda_to_batched(cudaDeviceSynchronize());
+    auto future = blst::launch_auto(uncompress_g1_vec_ker, num, out, compressed, d_errors);
+    batched_error_code sync_result = cuda_to_batched(future.get());
     if (sync_result != BATCHED_SUCCESS) {
         cudaFree(d_errors);
-        free(h_errors);
         return sync_result;
     }
 
-    cuda_err = cudaMemcpy(h_errors, d_errors, num * sizeof(bool), cudaMemcpyDeviceToHost);
+    cuda_err = cudaMemcpy(errors, d_errors, num * sizeof(BLST_ERROR), cudaMemcpyDeviceToHost);
     cudaFree(d_errors);
 
     if (cuda_err != cudaSuccess) {
-        free(h_errors);
-        return BATCHED_ERROR_CUDA_MEMCPY_FAILED;
+        return cuda_to_batched(cuda_err);
     }
 
-    // Check for any errors
-    for (size_t i = 0; i < num; i++) {
-        if (h_errors[i]) {
-            free(h_errors);
-            return BATCHED_ERROR_POINT_NOT_ON_CURVE;
-        }
-    }
-
-    free(h_errors);
     return BATCHED_SUCCESS;
 }
 #endif
 
 // Vectorized point decompression
-batched_error_code uncompress_g1_vec(POINTonE1_affine* out, const unsigned char* compressed, size_t num)
+batched_error_code uncompress_g1_vec(
+    POINTonE1_affine* out, 
+    const unsigned char* compressed, 
+    BLST_ERROR* errors, size_t num)
 {
 #ifdef BLST_CUDA
-    return uncompress_g1_vec_cu(out, compressed, num);
+    return uncompress_g1_vec_cu(out, compressed, errors, num);
 #else
-    return uncompress_g1_vec_cc(out, compressed, num);
+    return uncompress_g1_vec_cc(out, compressed, errors, num);
 #endif
 }
 
@@ -735,73 +670,42 @@ batched_error_code uncompress_g1_vec(POINTonE1_affine* out, const unsigned char*
 // Advanced Operations
 
 // Vectorized hash-to-curve (CPU)
-batched_error_code hash_to_g1_vec_cc(POINTonE1* out, const unsigned char* msgs, const size_t* msg_lens,
+batched_error_code hash_to_g1_vec_cc(POINTonE1* out, const unsigned char* const* msgs, const size_t* msg_lens,
     const unsigned char* dst, size_t dst_len, size_t num)
 {
     if (!out || !msgs || !msg_lens || !dst) return BATCHED_ERROR_NULL_POINTER;
 
-    const unsigned char* current_msg = msgs;
     for (size_t i = 0; i < num; i++) {
-        blst_hash_to_g1(&out[i], current_msg, msg_lens[i], dst, dst_len, NULL, 0);
-        current_msg += msg_lens[i];
+        if (!msgs[i]) return BATCHED_ERROR_NULL_POINTER;
+        blst_hash_to_g1(&out[i], msgs[i], msg_lens[i], dst, dst_len, NULL, 0);
     }
     return BATCHED_SUCCESS;
 }
 
 #ifdef BLST_CUDA
 // Kernel for hash-to-curve (GPU)
-GLOBAL_FUNC void hash_to_g1_vec_ker(POINTonE1* out, const unsigned char* msgs, const size_t* msg_lens,
-    const unsigned char* dst, size_t dst_len, size_t num, const size_t* msg_offsets)
+__global__ void hash_to_g1_vec_ker(POINTonE1* out, const unsigned char* const* msgs, const size_t* msg_lens,
+    const unsigned char* dst, size_t dst_len, size_t num)
 {
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < num) {
-        blst_hash_to_g1(&out[idx], &msgs[msg_offsets[idx]], msg_lens[idx], dst, dst_len, NULL, 0);
+        blst_hash_to_g1(&out[idx], msgs[idx], msg_lens[idx], dst, dst_len, NULL, 0);
     }
 }
 
 // Vectorized hash-to-curve (GPU)
-batched_error_code hash_to_g1_vec_cu(POINTonE1* out, const unsigned char* msgs, const size_t* msg_lens,
+batched_error_code hash_to_g1_vec_cu(POINTonE1* out, const unsigned char* const* msgs, const size_t* msg_lens,
     const unsigned char* dst, size_t dst_len, size_t num)
 {
     if (!out || !msgs || !msg_lens || !dst) return BATCHED_ERROR_NULL_POINTER;
 
-    // Calculate message offsets for GPU kernel
-    size_t* h_offsets = (size_t*)malloc(num * sizeof(size_t));
-    if (!h_offsets) return BATCHED_ERROR_CUDA_MALLOC_FAILED;
-
-    h_offsets[0] = 0;
-    for (size_t i = 1; i < num; i++) {
-        h_offsets[i] = h_offsets[i - 1] + msg_lens[i - 1];
-    }
-
-    size_t* d_offsets;
-    cudaError_t cuda_err = cudaMalloc(&d_offsets, num * sizeof(size_t));
-    if (cuda_err != cudaSuccess) {
-        free(h_offsets);
-        return BATCHED_ERROR_CUDA_MALLOC_FAILED;
-    }
-
-    cuda_err = cudaMemcpy(d_offsets, h_offsets, num * sizeof(size_t), cudaMemcpyHostToDevice);
-    if (cuda_err != cudaSuccess) {
-        cudaFree(d_offsets);
-        free(h_offsets);
-        return BATCHED_ERROR_CUDA_MEMCPY_FAILED;
-    }
-
-    size_t threads_per_block = 256;
-    size_t num_blocks = (num + threads_per_block - 1) / threads_per_block;
-    hash_to_g1_vec_ker << <num_blocks, threads_per_block >> > (out, msgs, msg_lens, dst, dst_len, num, d_offsets);
-
-    batched_error_code result = cuda_to_batched(cudaDeviceSynchronize());
-
-    cudaFree(d_offsets);
-    free(h_offsets);
-    return result;
+    auto future = blst::launch_auto(hash_to_g1_vec_ker, num, out, msgs, msg_lens, dst, dst_len);
+    return cuda_to_batched(future.get());
 }
 #endif
 
 // Vectorized hash-to-curve
-batched_error_code hash_to_g1_vec(POINTonE1* out, const unsigned char* msgs, const size_t* msg_lens,
+batched_error_code hash_to_g1_vec(POINTonE1* out, const unsigned char* const* msgs, const size_t* msg_lens,
     const unsigned char* dst, size_t dst_len, size_t num)
 {
 #ifdef BLST_CUDA
@@ -858,5 +762,3 @@ batched_error_code multi_scalar_mult_g1(POINTonE1* result, const POINTonE1* poin
     return multi_scalar_mult_g1_cc(result, points, scalars, scalar_bits, num);
 #endif
 }
-
-BLST_EXTERN_C_END

@@ -10,7 +10,6 @@
 #include "blst/curve/e1.h"
 #include "blst/common/errors.h"
 
-BLST_EXTERN_C_BEGIN
 
 ///////////////////////////////////////////
 // Vectorized G1 operations
@@ -70,7 +69,7 @@ batched_error_code serialize_g1_vec(unsigned char* out, const POINTonE1* points,
 
 // Vectorized point deserialization (uncompressed)
 // inputs must be allocated on the device if compiled with BLST_CUDA
-batched_error_code deserialize_g1_vec(POINTonE1_affine* out, const unsigned char* serialized, size_t num);
+batched_error_code deserialize_g1_vec(POINTonE1_affine* out, const unsigned char* serialized, BLST_ERROR* errors, size_t num);
 
 // Vectorized point compression
 // inputs must be allocated on the device if compiled with BLST_CUDA
@@ -78,7 +77,7 @@ batched_error_code compress_g1_vec(unsigned char* out, const POINTonE1* points, 
 
 // Vectorized point decompression
 // inputs must be allocated on the device if compiled with BLST_CUDA
-batched_error_code uncompress_g1_vec(POINTonE1_affine* out, const unsigned char* compressed, size_t num);
+batched_error_code uncompress_g1_vec(POINTonE1_affine* out, const unsigned char* compressed, BLST_ERROR* errors, size_t num);
 
 ///////////////////////////////////////////
 // Advanced G1 operations
@@ -86,7 +85,7 @@ batched_error_code uncompress_g1_vec(POINTonE1_affine* out, const unsigned char*
 // Vectorized hash-to-curve
 // inputs must be allocated on the device if compiled with BLST_CUDA
 // msgs is a concatenated array of messages, msg_lens contains the length of each message
-batched_error_code hash_to_g1_vec(POINTonE1* out, const unsigned char* msgs, const size_t* msg_lens,
+batched_error_code hash_to_g1_vec(POINTonE1* out, const unsigned char* const* msgs, const size_t* msg_lens,
     const unsigned char* dst, size_t dst_len, size_t num);
 
 // Multi-scalar multiplication (MSM)
@@ -94,5 +93,4 @@ batched_error_code hash_to_g1_vec(POINTonE1* out, const unsigned char* msgs, con
 batched_error_code multi_scalar_mult_g1(POINTonE1* result, const POINTonE1* points,
     const unsigned char* scalars, size_t scalar_bits, size_t num);
 
-BLST_EXTERN_C_END
 #endif /* BLST_G1_CUDA_H */

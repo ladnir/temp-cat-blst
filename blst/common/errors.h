@@ -7,7 +7,7 @@
 #ifndef __BLS12_381_ASM_ERRORS_H__
 #define __BLS12_381_ASM_ERRORS_H__
 
-#ifdef __CUDACC__
+#ifdef BLST_CUDA
 #include <cuda_runtime.h>
 #endif
 
@@ -73,7 +73,7 @@ BLST_INLINE const char* batched_error_code_string(batched_error_code error)
 	}
 }
 
-#ifdef __CUDACC__
+#ifdef BLST_CUDA
 
 // Convert CUDA error to batched error code - focusing on most common errors
 BLST_INLINE batched_error_code cuda_to_batched(cudaError_t error)
@@ -119,6 +119,5 @@ BLST_INLINE batched_error_code cuda_to_batched(cudaError_t error)
 		return BATCHED_ERROR_UNKNOWN;
 	}
 }
-
 #endif
 #endif

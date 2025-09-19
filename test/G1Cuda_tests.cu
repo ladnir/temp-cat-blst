@@ -6,6 +6,10 @@
 #include <stdio.h>
 #include <iostream>
 #include "config.h"
+#include "blst/curve/G1_cuda.h"
+#include "blst/curve/e1.h"
+#include "blst/curve/map_to_g1.h"
+#include "InsecureRng.h"
 
 // CUDA kernel wrapper macros for device execution
 #define CUDA_CHECK(call) do { \
@@ -16,56 +20,50 @@
     } \
 } while(0)
 
-// CUDA kernels for G1 tests
-GLOBAL_FUNC void cuda_test_g1_point_addition_kernel(bool* results);
-GLOBAL_FUNC void cuda_test_g1_identity_operations_kernel(bool* results);
-GLOBAL_FUNC void cuda_test_g1_point_negation_kernel(bool* results);
-GLOBAL_FUNC void cuda_test_g1_scalar_multiplication_kernel(bool* results);
-GLOBAL_FUNC void cuda_test_g1_curve_membership_kernel(bool* results);
-GLOBAL_FUNC void cuda_test_g1_serialization_kernel(bool* results);
-GLOBAL_FUNC void cuda_test_g1_compression_kernel(bool* results);
-GLOBAL_FUNC void cuda_test_g1_coordinate_conversion_kernel(bool* results);
-GLOBAL_FUNC void cuda_test_g1_hash_to_curve_kernel(bool* results);
+// Helper function to create test points on host
+void create_test_points(POINTonE1* points, size_t num, InsecureRng& rng) {
+    POINTonE1 generator = *blst_p1_generator();
+    unsigned char scalar[32] = { 0 };
 
-// Batch processing tests for G1
-GLOBAL_FUNC void cuda_test_g1_batch_operations_kernel(bool* results, int batch_size);
-GLOBAL_FUNC void cuda_test_g1_performance_kernel(int* operations_completed);
+    for (size_t i = 0; i < num; i++) {
+        scalar[0] = rng.uniform_u64();
+        blst_p1_mult(&points[i], &generator, scalar, 8);
+    }
+}
 
-// Helper function to run a CUDA kernel and check results
-template<typename KernelFunc>
-bool run_cuda_g1_test(KernelFunc kernel, int num_results = 1) {
-    bool* d_results, * h_results;
+// Helper function to check batched_error_code
+bool check_batched_success(batched_error_code code) {
+    return code == BATCHED_SUCCESS;
+}
 
-    // Allocate memory
-    h_results = new bool[num_results];
-    CUDA_CHECK(cudaMalloc(&d_results, num_results * sizeof(bool)));
-
-    // Initialize results to false
-    CUDA_CHECK(cudaMemset(d_results, 0, num_results * sizeof(bool)));
-
-    // Launch kernel
-    kernel << <1, 1 >> > (d_results);
-    CUDA_CHECK(cudaGetLastError());
-    CUDA_CHECK(cudaDeviceSynchronize());
-
-    // Copy results back
-    CUDA_CHECK(cudaMemcpy(h_results, d_results, num_results * sizeof(bool), cudaMemcpyDeviceToHost));
-
-    // Check all results
-    bool all_passed = true;
-    for (int i = 0; i < num_results; i++) {
-        if (!h_results[i]) {
-            all_passed = false;
-            printf("G1 Test failed at index %d\n", i);
-            break;
+// Helper function to compare CUDA results with CPU results
+template<typename T>
+bool compare_results(const T* cuda_results, const T* cpu_results, size_t num,
+    bool (*equality_func)(const T*, const T*)) {
+    for (size_t i = 0; i < num; i++) {
+        if (!equality_func(&cuda_results[i], &cpu_results[i])) {
+            printf("Mismatch at index %zu\n", i);
+            return false;
         }
     }
+    return true;
+}
 
-    // Cleanup
-    delete[] h_results;
-    CUDA_CHECK(cudaFree(d_results));
+// Equality functions for different types
+bool point_equal(const POINTonE1* a, const POINTonE1* b) {
+    return blst_p1_is_equal(a, b);
+}
 
-    return all_passed;
+bool affine_equal(const POINTonE1_affine* a, const POINTonE1_affine* b) {
+    return blst_p1_affine_is_equal(a, b);
+}
+
+bool error_equal(const BLST_ERROR* a, const BLST_ERROR* b) {
+    return *a == *b;
+}
+
+bool bool_equal(const bool* a, const bool* b) {
+    return *a == *b;
 }
 
 // Global flag for CUDA availability
@@ -100,68 +98,462 @@ struct G1CudaTestRegistration {
 
 static G1CudaTestRegistration g1_cuda_test_registration;
 
-// CUDA test cases for G1 operations
+// CUDA test cases comparing against CPU versions
 TEST(G1OpsCUDA, PointAddition) {
     if (!G1CUDAEnvironment::IsCudaAvailable()) {
         GTEST_SKIP() << "CUDA not available";
     }
-    EXPECT_TRUE(run_cuda_g1_test(cuda_test_g1_point_addition_kernel, 2));
+
+    const size_t num_points = 10;
+    POINTonE1* d_a, * d_b, * d_result;
+    POINTonE1 h_a[num_points], h_b[num_points];
+    POINTonE1 h_cuda_result[num_points], h_cpu_result[num_points];
+    InsecureRng rng;
+
+    // Create test data
+    create_test_points(h_a, num_points, rng);
+    create_test_points(h_b, num_points, rng);
+
+    // CPU computation
+    for (size_t i = 0; i < num_points; i++) {
+        blst_p1_add(&h_cpu_result[i], &h_a[i], &h_b[i]);
+    }
+
+    // CUDA computation
+    CUDA_CHECK(cudaMalloc(&d_a, num_points * sizeof(POINTonE1)));
+    CUDA_CHECK(cudaMalloc(&d_b, num_points * sizeof(POINTonE1)));
+    CUDA_CHECK(cudaMalloc(&d_result, num_points * sizeof(POINTonE1)));
+
+    CUDA_CHECK(cudaMemcpy(d_a, h_a, num_points * sizeof(POINTonE1), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_b, h_b, num_points * sizeof(POINTonE1), cudaMemcpyHostToDevice));
+
+    batched_error_code result = add_g1_vec(d_result, d_a, d_b, num_points);
+    EXPECT_TRUE(check_batched_success(result));
+
+    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_points * sizeof(POINTonE1), cudaMemcpyDeviceToHost));
+
+    // Compare results
+    EXPECT_TRUE(compare_results(h_cuda_result, h_cpu_result, num_points, point_equal));
+
+    // Cleanup
+    CUDA_CHECK(cudaFree(d_a));
+    CUDA_CHECK(cudaFree(d_b));
+    CUDA_CHECK(cudaFree(d_result));
 }
 
-TEST(G1OpsCUDA, IdentityOperations) {
+TEST(G1OpsCUDA, PointDoubling) {
     if (!G1CUDAEnvironment::IsCudaAvailable()) {
         GTEST_SKIP() << "CUDA not available";
     }
-    EXPECT_TRUE(run_cuda_g1_test(cuda_test_g1_identity_operations_kernel, 4));
+
+    const size_t num_points = 10;
+    POINTonE1* d_points, * d_result;
+    POINTonE1 h_points[num_points];
+    POINTonE1 h_cuda_result[num_points], h_cpu_result[num_points];
+
+    // Create test data
+    InsecureRng rng;
+    create_test_points(h_points, num_points, rng);
+
+    // CPU computation
+    for (size_t i = 0; i < num_points; i++) {
+        blst_p1_double(&h_cpu_result[i], &h_points[i]);
+    }
+
+    // CUDA computation
+    CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(POINTonE1)));
+    CUDA_CHECK(cudaMalloc(&d_result, num_points * sizeof(POINTonE1)));
+
+    CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(POINTonE1), cudaMemcpyHostToDevice));
+
+    batched_error_code result = double_g1_vec(d_result, d_points, num_points);
+    EXPECT_TRUE(check_batched_success(result));
+
+    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_points * sizeof(POINTonE1), cudaMemcpyDeviceToHost));
+
+    // Compare results
+    EXPECT_TRUE(compare_results(h_cuda_result, h_cpu_result, num_points, point_equal));
+
+    // Cleanup
+    CUDA_CHECK(cudaFree(d_points));
+    CUDA_CHECK(cudaFree(d_result));
 }
 
 TEST(G1OpsCUDA, PointNegation) {
     if (!G1CUDAEnvironment::IsCudaAvailable()) {
         GTEST_SKIP() << "CUDA not available";
     }
-    EXPECT_TRUE(run_cuda_g1_test(cuda_test_g1_point_negation_kernel, 2));
+
+    const size_t num_points = 10;
+    POINTonE1* d_points, * d_result;
+    POINTonE1 h_points[num_points];
+    POINTonE1 h_cuda_result[num_points], h_cpu_result[num_points];
+
+    // Create test data
+    InsecureRng rng;
+    create_test_points(h_points, num_points, rng);
+
+    // CPU computation
+    for (size_t i = 0; i < num_points; i++) {
+        h_cpu_result[i] = h_points[i];
+        blst_p1_cneg(&h_cpu_result[i], 1);
+    }
+
+    // CUDA computation
+    CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(POINTonE1)));
+    CUDA_CHECK(cudaMalloc(&d_result, num_points * sizeof(POINTonE1)));
+
+    CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(POINTonE1), cudaMemcpyHostToDevice));
+
+    batched_error_code result = cneg_g1_vec(d_result, d_points, 1, num_points);
+    EXPECT_TRUE(check_batched_success(result));
+
+    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_points * sizeof(POINTonE1), cudaMemcpyDeviceToHost));
+
+    // Compare results
+    EXPECT_TRUE(compare_results(h_cuda_result, h_cpu_result, num_points, point_equal));
+
+    // Cleanup
+    CUDA_CHECK(cudaFree(d_points));
+    CUDA_CHECK(cudaFree(d_result));
 }
 
 TEST(G1OpsCUDA, ScalarMultiplication) {
     if (!G1CUDAEnvironment::IsCudaAvailable()) {
         GTEST_SKIP() << "CUDA not available";
     }
-    EXPECT_TRUE(run_cuda_g1_test(cuda_test_g1_scalar_multiplication_kernel, 3));
+
+    const size_t num_points = 10;
+    const size_t scalar_bits = 128;
+	const size_t scalar_bytes = (scalar_bits + 7) / 8;
+    POINTonE1* d_points, * d_result;
+    unsigned char* d_scalars;
+    POINTonE1 h_points[num_points];
+    unsigned char h_scalars[num_points * scalar_bytes];
+    POINTonE1 h_cuda_result[num_points], h_cpu_result[num_points];
+
+    // Create test data
+    InsecureRng rng;
+    create_test_points(h_points, num_points, rng);
+    for (size_t i = 0; i < num_points; i++) {
+        memset(&h_scalars[i * scalar_bytes], 0, scalar_bytes);
+        for (size_t j = 0; j < scalar_bytes; j++) {
+            h_scalars[i * scalar_bytes + j] = rng.uniform_u32(0, 255);
+		}
+
+
+    }
+
+    // CPU computation
+    for (size_t i = 0; i < num_points; i++) {
+        blst_p1_mult(&h_cpu_result[i], &h_points[i], &h_scalars[i * scalar_bytes], scalar_bits);
+    }
+
+    // CUDA computation
+    CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(POINTonE1)));
+    CUDA_CHECK(cudaMalloc(&d_result, num_points * sizeof(POINTonE1)));
+    CUDA_CHECK(cudaMalloc(&d_scalars, num_points * (scalar_bits/8)));
+
+    CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(POINTonE1), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_scalars, h_scalars, num_points * scalar_bytes, cudaMemcpyHostToDevice));
+
+    batched_error_code result = mult_g1_vec(d_result, d_points, d_scalars, scalar_bits, num_points);
+    EXPECT_TRUE(check_batched_success(result));
+
+    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_points * sizeof(POINTonE1), cudaMemcpyDeviceToHost));
+
+    // Compare results
+    EXPECT_TRUE(compare_results(h_cuda_result, h_cpu_result, num_points, point_equal));
+
+    // Cleanup
+    CUDA_CHECK(cudaFree(d_points));
+    CUDA_CHECK(cudaFree(d_result));
+    CUDA_CHECK(cudaFree(d_scalars));
 }
 
 TEST(G1OpsCUDA, CurveMembership) {
     if (!G1CUDAEnvironment::IsCudaAvailable()) {
         GTEST_SKIP() << "CUDA not available";
     }
-    EXPECT_TRUE(run_cuda_g1_test(cuda_test_g1_curve_membership_kernel, 3));
+
+    const size_t num_points = 10;
+    POINTonE1* d_points;
+    bool* d_results;
+    POINTonE1 h_points[num_points];
+    bool h_cuda_results[num_points], h_cpu_results[num_points];
+
+    // Create test data (mix of valid and invalid points)
+    InsecureRng rng;
+    create_test_points(h_points, num_points - 2, rng);
+
+    // Add some invalid points
+    h_points[num_points - 2] = h_points[0];
+    h_points[num_points - 2].X[0] ^= 1;  // Flip a bit to make invalid
+
+    h_points[num_points - 1] = h_points[1];
+    h_points[num_points - 1].Y[0] ^= 1;  // Flip a bit to make invalid
+
+    // CPU computation
+    for (size_t i = 0; i < num_points; i++) {
+        h_cpu_results[i] = blst_p1_on_curve(&h_points[i]);
+    }
+
+    // CUDA computation
+    CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(POINTonE1)));
+    CUDA_CHECK(cudaMalloc(&d_results, num_points * sizeof(bool)));
+
+    CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(POINTonE1), cudaMemcpyHostToDevice));
+
+    batched_error_code result = on_curve_g1_vec(d_results, d_points, num_points);
+    EXPECT_TRUE(check_batched_success(result));
+
+    CUDA_CHECK(cudaMemcpy(h_cuda_results, d_results, num_points * sizeof(bool), cudaMemcpyDeviceToHost));
+
+    // Compare results
+    EXPECT_TRUE(compare_results(h_cuda_results, h_cpu_results, num_points, bool_equal));
+
+    // Cleanup
+    CUDA_CHECK(cudaFree(d_points));
+    CUDA_CHECK(cudaFree(d_results));
 }
 
 TEST(G1OpsCUDA, Serialization) {
     if (!G1CUDAEnvironment::IsCudaAvailable()) {
         GTEST_SKIP() << "CUDA not available";
     }
-    EXPECT_TRUE(run_cuda_g1_test(cuda_test_g1_serialization_kernel, 2));
+
+    const size_t num_points = 10;
+    POINTonE1* d_points;
+    POINTonE1_affine* d_affine_result;
+    unsigned char* d_serialized;
+    BLST_ERROR* d_errors;
+    POINTonE1 h_points[num_points];
+    POINTonE1_affine h_cuda_affine[num_points], h_cpu_affine[num_points];
+    unsigned char h_serialized[num_points * 96];
+    BLST_ERROR h_errors[num_points], h_errors_exp[num_points];
+
+
+    // Create test data
+    InsecureRng rng;
+    create_test_points(h_points, num_points, rng);
+
+    // CPU computation
+    for (size_t i = 0; i < num_points; i++) {
+        blst_p1_serialize(&h_serialized[i * 96], &h_points[i]);
+        h_errors_exp[i] = blst_p1_deserialize(&h_cpu_affine[i], &h_serialized[i * 96]);
+        EXPECT_EQ(h_errors_exp[i], BLST_SUCCESS);
+    }
+
+    // CUDA computation
+    CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(POINTonE1)));
+    CUDA_CHECK(cudaMalloc(&d_serialized, num_points * 96));
+    CUDA_CHECK(cudaMalloc(&d_errors, num_points * 96));
+    CUDA_CHECK(cudaMalloc(&d_affine_result, num_points * sizeof(POINTonE1_affine)));
+
+    CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(POINTonE1), cudaMemcpyHostToDevice));
+
+    batched_error_code serialize_result = serialize_g1_vec(d_serialized, d_points, num_points);
+    EXPECT_TRUE(check_batched_success(serialize_result));
+
+    batched_error_code deserialize_result = deserialize_g1_vec(d_affine_result, d_serialized, d_errors, num_points);
+    EXPECT_TRUE(check_batched_success(deserialize_result));
+
+    CUDA_CHECK(cudaMemcpy(h_cuda_affine, d_affine_result, num_points * sizeof(POINTonE1_affine), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_errors, d_errors, num_points * sizeof(BLST_ERROR), cudaMemcpyDeviceToHost));
+
+    // Compare results
+    EXPECT_TRUE(compare_results(h_cuda_affine, h_cpu_affine, num_points, affine_equal));
+    EXPECT_TRUE(compare_results(h_errors, h_errors_exp, num_points, error_equal));
+
+    // Cleanup
+    CUDA_CHECK(cudaFree(d_points));
+    CUDA_CHECK(cudaFree(d_serialized));
+    CUDA_CHECK(cudaFree(d_affine_result));
 }
 
 TEST(G1OpsCUDA, Compression) {
     if (!G1CUDAEnvironment::IsCudaAvailable()) {
         GTEST_SKIP() << "CUDA not available";
     }
-    EXPECT_TRUE(run_cuda_g1_test(cuda_test_g1_compression_kernel, 3));
+
+    const size_t num_points = 10;
+    POINTonE1* d_points;
+    POINTonE1_affine* d_affine_result;
+    unsigned char* d_compressed;
+    BLST_ERROR* d_errors;
+    POINTonE1 h_points[num_points];
+    POINTonE1_affine h_points_affine[num_points];
+    POINTonE1_affine h_cuda_result[num_points], h_cpu_result[num_points];
+    unsigned char h_compressed[num_points * 48];
+    BLST_ERROR h_errors[num_points], h_errors_exp[num_points];
+
+    // Create test data and convert to affine for CPU operations
+    InsecureRng rng;
+    create_test_points(h_points, num_points, rng);
+    for (size_t i = 0; i < num_points; i++) {
+        blst_p1_to_affine(&h_points_affine[i], &h_points[i]);
+    }
+
+    // CPU computation
+    for (size_t i = 0; i < num_points; i++) {
+        blst_p1_affine_compress(&h_compressed[i * 48], &h_points_affine[i]);
+        h_errors_exp[i] = blst_p1_uncompress(&h_cpu_result[i], &h_compressed[i * 48]);
+        EXPECT_EQ(h_errors_exp[i], BLST_SUCCESS);
+    }
+
+    // CUDA computation
+    CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(POINTonE1)));
+    CUDA_CHECK(cudaMalloc(&d_compressed, num_points * 48));
+    CUDA_CHECK(cudaMalloc(&d_affine_result, num_points * sizeof(POINTonE1_affine)));
+    CUDA_CHECK(cudaMalloc(&d_errors, num_points * sizeof(BLST_ERROR)));
+
+    CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(POINTonE1), cudaMemcpyHostToDevice));
+
+    batched_error_code compress_result = compress_g1_vec(d_compressed, d_points, num_points);
+    EXPECT_TRUE(check_batched_success(compress_result));
+
+    batched_error_code uncompress_result = uncompress_g1_vec(d_affine_result, d_compressed, d_errors, num_points);
+    EXPECT_TRUE(check_batched_success(uncompress_result));
+
+    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_affine_result, num_points * sizeof(POINTonE1_affine), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_errors, d_errors, num_points * sizeof(BLST_ERROR), cudaMemcpyDeviceToHost));
+
+    // Compare results
+    EXPECT_TRUE(compare_results(h_cuda_result, h_cpu_result, num_points, affine_equal));
+    EXPECT_TRUE(compare_results(h_errors, h_errors_exp, num_points, error_equal));
+
+    // Cleanup
+    CUDA_CHECK(cudaFree(d_points));
+    CUDA_CHECK(cudaFree(d_compressed));
+    CUDA_CHECK(cudaFree(d_affine_result));
+    CUDA_CHECK(cudaFree(d_errors));
 }
 
 TEST(G1OpsCUDA, CoordinateConversion) {
     if (!G1CUDAEnvironment::IsCudaAvailable()) {
         GTEST_SKIP() << "CUDA not available";
     }
-    EXPECT_TRUE(run_cuda_g1_test(cuda_test_g1_coordinate_conversion_kernel, 2));
+
+    const size_t num_points = 10;
+    POINTonE1* d_points, * d_jacobian_result;
+    POINTonE1_affine* d_affine;
+    POINTonE1 h_points[num_points];
+    POINTonE1_affine h_cuda_affine[num_points], h_cpu_affine[num_points];
+    POINTonE1 h_cuda_jacobian[num_points], h_cpu_jacobian[num_points];
+
+    // Create test data
+    InsecureRng rng;
+    create_test_points(h_points, num_points, rng);
+
+    // CPU computation - Jacobian to affine
+    for (size_t i = 0; i < num_points; i++) {
+        blst_p1_to_affine(&h_cpu_affine[i], &h_points[i]);
+    }
+
+    // CPU computation - affine back to Jacobian
+    for (size_t i = 0; i < num_points; i++) {
+        blst_p1_from_affine(&h_cpu_jacobian[i], &h_cpu_affine[i]);
+    }
+
+    // CUDA computation
+    CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(POINTonE1)));
+    CUDA_CHECK(cudaMalloc(&d_affine, num_points * sizeof(POINTonE1_affine)));
+    CUDA_CHECK(cudaMalloc(&d_jacobian_result, num_points * sizeof(POINTonE1)));
+
+    CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(POINTonE1), cudaMemcpyHostToDevice));
+
+    // Test Jacobian to affine conversion
+    batched_error_code to_affine_result = to_affine_g1_vec(d_affine, d_points, num_points);
+    EXPECT_TRUE(check_batched_success(to_affine_result));
+
+    CUDA_CHECK(cudaMemcpy(h_cuda_affine, d_affine, num_points * sizeof(POINTonE1_affine), cudaMemcpyDeviceToHost));
+
+    // Test affine to Jacobian conversion
+    batched_error_code from_affine_result = from_affine_g1_vec(d_jacobian_result, d_affine, num_points);
+    EXPECT_TRUE(check_batched_success(from_affine_result));
+
+    CUDA_CHECK(cudaMemcpy(h_cuda_jacobian, d_jacobian_result, num_points * sizeof(POINTonE1), cudaMemcpyDeviceToHost));
+
+    // Compare results
+    EXPECT_TRUE(compare_results(h_cuda_affine, h_cpu_affine, num_points, affine_equal));
+    EXPECT_TRUE(compare_results(h_cuda_jacobian, h_cpu_jacobian, num_points, point_equal));
+
+    // Cleanup
+    CUDA_CHECK(cudaFree(d_points));
+    CUDA_CHECK(cudaFree(d_affine));
+    CUDA_CHECK(cudaFree(d_jacobian_result));
 }
 
 TEST(G1OpsCUDA, HashToCurve) {
     if (!G1CUDAEnvironment::IsCudaAvailable()) {
         GTEST_SKIP() << "CUDA not available";
     }
-    EXPECT_TRUE(run_cuda_g1_test(cuda_test_g1_hash_to_curve_kernel, 2));
+
+    const size_t num_msgs = 5;
+    POINTonE1* d_result;
+    unsigned char** d_msg_ptrs;
+    unsigned char* d_dst;
+    size_t* d_msg_lens;
+    POINTonE1 h_cuda_result[num_msgs], h_cpu_result[num_msgs];
+
+    // Create test data
+    std::vector<std::string> messages = {
+        "message1", "message2", "message3", "message4", "message5"
+    };
+    std::string dst = "QUUX-V01-CS02-with-BLS12381G1";
+
+    size_t h_msg_lens[num_msgs];
+    unsigned char* h_msg_ptrs[num_msgs];
+    unsigned char* d_msg_data[num_msgs];
+
+    // Prepare message data
+    for (size_t i = 0; i < num_msgs; i++) {
+        h_msg_lens[i] = messages[i].length();
+
+        // Allocate device memory for each message
+        CUDA_CHECK(cudaMalloc(&d_msg_data[i], messages[i].length()));
+        CUDA_CHECK(cudaMemcpy(d_msg_data[i], messages[i].c_str(), messages[i].length(), cudaMemcpyHostToDevice));
+
+        h_msg_ptrs[i] = d_msg_data[i];
+    }
+
+    // CPU computation
+    for (size_t i = 0; i < num_msgs; i++) {
+        blst_hash_to_g1(&h_cpu_result[i],
+            reinterpret_cast<const unsigned char*>(messages[i].c_str()),
+            messages[i].length(),
+            reinterpret_cast<const unsigned char*>(dst.c_str()),
+            dst.length(),
+            NULL, 0);
+    }
+
+    // CUDA computation
+    CUDA_CHECK(cudaMalloc(&d_result, num_msgs * sizeof(POINTonE1)));
+    CUDA_CHECK(cudaMalloc(&d_msg_ptrs, num_msgs * sizeof(unsigned char*)));
+    CUDA_CHECK(cudaMalloc(&d_msg_lens, num_msgs * sizeof(size_t)));
+    CUDA_CHECK(cudaMalloc(&d_dst, dst.length()));
+
+    // Copy message pointer array and lengths to device
+    CUDA_CHECK(cudaMemcpy(d_msg_ptrs, h_msg_ptrs, num_msgs * sizeof(unsigned char*), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_msg_lens, h_msg_lens, num_msgs * sizeof(size_t), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_dst, dst.c_str(), dst.length(), cudaMemcpyHostToDevice));
+
+    batched_error_code result = hash_to_g1_vec(d_result, d_msg_ptrs, d_msg_lens, d_dst, dst.length(), num_msgs);
+    EXPECT_TRUE(check_batched_success(result));
+
+    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_msgs * sizeof(POINTonE1), cudaMemcpyDeviceToHost));
+
+    // Compare results
+    EXPECT_TRUE(compare_results(h_cuda_result, h_cpu_result, num_msgs, point_equal));
+
+    // Cleanup
+    for (size_t i = 0; i < num_msgs; i++) {
+        CUDA_CHECK(cudaFree(d_msg_data[i]));
+    }
+    CUDA_CHECK(cudaFree(d_result));
+    CUDA_CHECK(cudaFree(d_msg_ptrs));
+    CUDA_CHECK(cudaFree(d_msg_lens));
+    CUDA_CHECK(cudaFree(d_dst));
 }
 
 // Performance and batch processing tests
@@ -170,10 +562,30 @@ TEST(G1OpsCUDA, PerformanceBaseline) {
         GTEST_SKIP() << "CUDA not available";
     }
 
-    int* d_ops, h_ops;
+    const size_t num_points = 1000;
+    POINTonE1* d_points, * d_result, * h_points;
+    unsigned char* d_scalars, * h_scalars;
 
-    CUDA_CHECK(cudaMalloc(&d_ops, sizeof(int)));
-    CUDA_CHECK(cudaMemset(d_ops, 0, sizeof(int)));
+    // Allocate host memory
+    h_points = new POINTonE1[num_points];
+    h_scalars = new unsigned char[num_points * 32];
+
+    // Create test data
+    InsecureRng rng;
+    create_test_points(h_points, num_points, rng);
+    for (size_t i = 0; i < num_points; i++) {
+        memset(&h_scalars[i * 32], 0, 32);
+        h_scalars[i * 32] = (i % 255) + 1;
+    }
+
+    // Allocate device memory
+    CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(POINTonE1)));
+    CUDA_CHECK(cudaMalloc(&d_result, num_points * sizeof(POINTonE1)));
+    CUDA_CHECK(cudaMalloc(&d_scalars, num_points * 32));
+
+    // Copy to device
+    CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(POINTonE1), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_scalars, h_scalars, num_points * 32, cudaMemcpyHostToDevice));
 
     // Record timing
     cudaEvent_t start, stop;
@@ -181,7 +593,7 @@ TEST(G1OpsCUDA, PerformanceBaseline) {
     CUDA_CHECK(cudaEventCreate(&stop));
 
     CUDA_CHECK(cudaEventRecord(start));
-    cuda_test_g1_performance_kernel << <1, 1 >> > (d_ops);
+    batched_error_code result = mult_g1_vec(d_result, d_points, d_scalars, 8, num_points);
     CUDA_CHECK(cudaEventRecord(stop));
 
     CUDA_CHECK(cudaGetLastError());
@@ -190,16 +602,19 @@ TEST(G1OpsCUDA, PerformanceBaseline) {
     float milliseconds = 0;
     CUDA_CHECK(cudaEventElapsedTime(&milliseconds, start, stop));
 
-    CUDA_CHECK(cudaMemcpy(&h_ops, d_ops, sizeof(int), cudaMemcpyDeviceToHost));
+    printf("CUDA G1 Performance: %zu scalar multiplications in %.3f ms (%.1f ops/ms)\n",
+        num_points, milliseconds, num_points / milliseconds);
 
-    printf("CUDA G1 Performance: %d operations in %.3f ms (%.1f ops/ms)\n",
-        h_ops, milliseconds, h_ops / milliseconds);
+    EXPECT_TRUE(check_batched_success(result));
 
-    CUDA_CHECK(cudaFree(d_ops));
+    // Cleanup
+    delete[] h_points;
+    delete[] h_scalars;
+    CUDA_CHECK(cudaFree(d_points));
+    CUDA_CHECK(cudaFree(d_result));
+    CUDA_CHECK(cudaFree(d_scalars));
     CUDA_CHECK(cudaEventDestroy(start));
     CUDA_CHECK(cudaEventDestroy(stop));
-
-    EXPECT_GT(h_ops, 0);
 }
 
 TEST(G1OpsCUDA, BatchProcessing) {
@@ -207,39 +622,47 @@ TEST(G1OpsCUDA, BatchProcessing) {
         GTEST_SKIP() << "CUDA not available";
     }
 
-    const int batch_size = 512;  // Higher than Fp12 since G1 operations are simpler
-    bool* d_results, * h_results;
+    const size_t batch_size = 512;
+    POINTonE1* d_points, * d_result, * h_points;
+    POINTonE1* h_cuda_result, * h_cpu_result;
 
-    // Allocate memory
-    h_results = new bool[batch_size];
-    CUDA_CHECK(cudaMalloc(&d_results, batch_size * sizeof(bool)));
-    CUDA_CHECK(cudaMemset(d_results, 0, batch_size * sizeof(bool)));
+    // Allocate host memory
+    h_points = new POINTonE1[batch_size];
+    h_cuda_result = new POINTonE1[batch_size];
+    h_cpu_result = new POINTonE1[batch_size];
 
-    // Launch kernel with multiple threads
-    int threads_per_block = 128;  // Higher than Fp12
-    int blocks = (batch_size + threads_per_block - 1) / threads_per_block;
+    // Create test data
+    InsecureRng rng;
+    create_test_points(h_points, batch_size, rng);
 
-    cuda_test_g1_batch_operations_kernel << <blocks, threads_per_block >> > (d_results, batch_size);
-    CUDA_CHECK(cudaGetLastError());
-    CUDA_CHECK(cudaDeviceSynchronize());
-
-    // Copy results back
-    CUDA_CHECK(cudaMemcpy(h_results, d_results, batch_size * sizeof(bool), cudaMemcpyDeviceToHost));
-
-    // Check that all computations completed successfully
-    int successful_operations = 0;
-    for (int i = 0; i < batch_size; i++) {
-        if (h_results[i]) {
-            successful_operations++;
-        }
+    // CPU computation
+    for (size_t i = 0; i < batch_size; i++) {
+        blst_p1_double(&h_cpu_result[i], &h_points[i]);
     }
 
-    printf("G1 Batch processing: %d/%d operations successful\n", successful_operations, batch_size);
+    // CUDA computation
+    CUDA_CHECK(cudaMalloc(&d_points, batch_size * sizeof(POINTonE1)));
+    CUDA_CHECK(cudaMalloc(&d_result, batch_size * sizeof(POINTonE1)));
+
+    CUDA_CHECK(cudaMemcpy(d_points, h_points, batch_size * sizeof(POINTonE1), cudaMemcpyHostToDevice));
+
+    batched_error_code double_result = double_g1_vec(d_result, d_points, batch_size);
+    EXPECT_TRUE(check_batched_success(double_result));
+
+    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, batch_size * sizeof(POINTonE1), cudaMemcpyDeviceToHost));
+
+    // Compare results
+    bool all_match = compare_results(h_cuda_result, h_cpu_result, batch_size, point_equal);
+
+    printf("G1 Batch processing: %s (CPU vs CUDA comparison)\n",
+        all_match ? "All results match" : "Some results differ");
+
+    EXPECT_TRUE(all_match);
 
     // Cleanup
-    delete[] h_results;
-    CUDA_CHECK(cudaFree(d_results));
-
-    // Expect at least 95% success rate
-    EXPECT_GE(successful_operations, batch_size * 0.95);
+    delete[] h_points;
+    delete[] h_cuda_result;
+    delete[] h_cpu_result;
+    CUDA_CHECK(cudaFree(d_points));
+    CUDA_CHECK(cudaFree(d_result));
 }
