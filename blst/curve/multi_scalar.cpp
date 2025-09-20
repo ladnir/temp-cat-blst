@@ -7,6 +7,12 @@
 #include "blst/fields/Fp.h"
 #include "blst/fields/Fp2.h"
 #include "blst/curve/point.h"
+
+
+namespace blst
+{
+
+
 #define POINTS_TO_AFFINE_IMPL(prefix, ptype, bits, field) \
 void ptype##s_to_affine(ptype##_affine dst[], \
                                const ptype *const points[], size_t npoints) \
@@ -60,27 +66,27 @@ void prefix##s_to_affine(ptype##_affine dst[], const ptype *const points[], \
                          size_t npoints) \
 {   ptype##s_to_affine(dst, points, npoints);   }
 
-POINTS_TO_AFFINE_IMPL(blst_p1, POINTonE1, 384, fp)
-POINTS_TO_AFFINE_IMPL(blst_p2, POINTonE2, 384x, fp2)
+    POINTS_TO_AFFINE_IMPL(blst_p1, POINTonE1, 384, fp)
+        POINTS_TO_AFFINE_IMPL(blst_p2, POINTonE2, 384x, fp2)
 
-/*
- * This is two-step multi-scalar multiplication procedure. First, given
- * a set of points you pre-compute a table for chosen windowing factor
- * [expressed in bits with value between 2 and 14], and then you pass
- * this table to the actual multiplication procedure along with scalars.
- * Idea is that the pre-computed table will be reused multiple times. In
- * which case multiplication runs faster than below Pippenger algorithm
- * implementation for up to ~16K points for wbits=8, naturally at the
- * expense of multi-megabyte table. One can trade even more memory for
- * performance, but each wbits increment doubles the memory requirement,
- * so at some point it gets prohibively large... For reference, without
- * reusing the table it's faster than Pippenger algorithm for up ~32
- * points [with wbits=5]...
- */
+        /*
+         * This is two-step multi-scalar multiplication procedure. First, given
+         * a set of points you pre-compute a table for chosen windowing factor
+         * [expressed in bits with value between 2 and 14], and then you pass
+         * this table to the actual multiplication procedure along with scalars.
+         * Idea is that the pre-computed table will be reused multiple times. In
+         * which case multiplication runs faster than below Pippenger algorithm
+         * implementation for up to ~16K points for wbits=8, naturally at the
+         * expense of multi-megabyte table. One can trade even more memory for
+         * performance, but each wbits increment doubles the memory requirement,
+         * so at some point it gets prohibively large... For reference, without
+         * reusing the table it's faster than Pippenger algorithm for up ~32
+         * points [with wbits=5]...
+         */
 
 #define SCRATCH_SZ(ptype) (sizeof(ptype)==sizeof(POINTonE1) ? 8192 : 4096)
 
- /* The intermediate infinity points are encoded as [0, 0, 1]. */
+         /* The intermediate infinity points are encoded as [0, 0, 1]. */
 
 #define PRECOMPUTE_WBITS_IMPL(prefix, ptype, bits, field, one) \
 void ptype##_precompute_row_wbits(ptype row[], size_t wbits, \
@@ -261,34 +267,34 @@ void prefix##s_mult_wbits(ptype *ret, const ptype##_affine table[], \
                           ptype scratch[]) \
 { ptype##s_mult_wbits(ret, table, wbits, npoints, scalars, nbits, scratch); }
 
-PRECOMPUTE_WBITS_IMPL(blst_p1, POINTonE1, 384, fp, get_BLST_Rx()->p)
-POINTS_MULT_WBITS_IMPL(blst_p1, POINTonE1, 384, fp, get_BLST_Rx()->p)
+        PRECOMPUTE_WBITS_IMPL(blst_p1, POINTonE1, 384, fp, get_BLST_Rx()->p)
+        POINTS_MULT_WBITS_IMPL(blst_p1, POINTonE1, 384, fp, get_BLST_Rx()->p)
 
 
 
-PRECOMPUTE_WBITS_IMPL(blst_p2, POINTonE2, 384x, fp2, get_BLST_Rx()->p2)
-POINTS_MULT_WBITS_IMPL(blst_p2, POINTonE2, 384x, fp2, get_BLST_Rx()->p2)
+        PRECOMPUTE_WBITS_IMPL(blst_p2, POINTonE2, 384x, fp2, get_BLST_Rx()->p2)
+        POINTS_MULT_WBITS_IMPL(blst_p2, POINTonE2, 384x, fp2, get_BLST_Rx()->p2)
 
-/*
- * Pippenger algorithm implementation, fastest option for larger amount
- * of points...
- */
+        /*
+         * Pippenger algorithm implementation, fastest option for larger amount
+         * of points...
+         */
 
-	size_t pippenger_window_size(size_t npoints)
-{
-	size_t wbits;
+        size_t pippenger_window_size(size_t npoints)
+    {
+        size_t wbits;
 
-	for (wbits = 0; npoints >>= 1; wbits++);
+        for (wbits = 0; npoints >>= 1; wbits++);
 
-	if (wbits > 12)
-		return wbits - 3;
-	else if (wbits > 8)
-		return wbits - 2;
-	else if (wbits > 4)
-		return wbits - 1;
+        if (wbits > 12)
+            return wbits - 3;
+        else if (wbits > 8)
+            return wbits - 2;
+        else if (wbits > 4)
+            return wbits - 1;
 
-	return wbits ? 2 : 1;
-}
+        return wbits ? 2 : 1;
+    }
 
 #define DECLARE_PRIVATE_POINTXYZZ(ptype, bits) \
 typedef struct { vec##bits X,Y,ZZZ,ZZ; } ptype##xyzz;
@@ -435,14 +441,16 @@ void prefix##s_mult_pippenger(ptype *ret, \
     ptype##s_mult_pippenger(ret, points, npoints, scalars, nbits, scratch, 0); \
 }
 
-DECLARE_PRIVATE_POINTXYZZ(POINTonE1, 384)
-POINTXYZZ_TO_JACOBIAN_IMPL(POINTonE1, 384, fp)
-POINTXYZZ_DADD_IMPL(POINTonE1, 384, fp)
-POINTXYZZ_DADD_AFFINE_IMPL(POINTonE1, 384, fp, get_BLST_Rx()->p)
-POINTS_MULT_PIPPENGER_IMPL(blst_p1, POINTonE1)
+    DECLARE_PRIVATE_POINTXYZZ(POINTonE1, 384)
+    POINTXYZZ_TO_JACOBIAN_IMPL(POINTonE1, 384, fp)
+        POINTXYZZ_DADD_IMPL(POINTonE1, 384, fp)
+        POINTXYZZ_DADD_AFFINE_IMPL(POINTonE1, 384, fp, get_BLST_Rx()->p)
+        POINTS_MULT_PIPPENGER_IMPL(blst_p1, POINTonE1)
 
-DECLARE_PRIVATE_POINTXYZZ(POINTonE2, 384x)
-POINTXYZZ_TO_JACOBIAN_IMPL(POINTonE2, 384x, fp2)
-POINTXYZZ_DADD_IMPL(POINTonE2, 384x, fp2)
-POINTXYZZ_DADD_AFFINE_IMPL(POINTonE2, 384x, fp2, get_BLST_Rx()->p2)
-POINTS_MULT_PIPPENGER_IMPL(blst_p2, POINTonE2)
+        DECLARE_PRIVATE_POINTXYZZ(POINTonE2, 384x)
+    POINTXYZZ_TO_JACOBIAN_IMPL(POINTonE2, 384x, fp2)
+        POINTXYZZ_DADD_IMPL(POINTonE2, 384x, fp2)
+        POINTXYZZ_DADD_AFFINE_IMPL(POINTonE2, 384x, fp2, get_BLST_Rx()->p2)
+        POINTS_MULT_PIPPENGER_IMPL(blst_p2, POINTonE2)
+
+}

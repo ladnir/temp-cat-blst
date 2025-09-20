@@ -8,6 +8,9 @@
 #include "blst/fields/Fp2.h"
 #include "blst/curve/point.h"
 
+namespace blst
+{
+
  /*
   * This implementation uses explicit addition formula:
   *
@@ -172,5 +175,7 @@ void prefix##s_add(ptype *sum, const ptype##_affine *const points[], \
 # endif
 #endif
 
-ADDITION_BTREE(blst_p1, POINTonE1, 384, fp, limb_t, get_BLST_Rx()->p2)
-ADDITION_BTREE(blst_p2, POINTonE2, 384x, fp2, vec384, get_BLST_Rx()->p2)
+    ADDITION_BTREE(blst_p1, POINTonE1, 384, fp, limb_t, get_BLST_Rx()->p2)
+        ADDITION_BTREE(blst_p2, POINTonE2, 384x, fp2, vec384, get_BLST_Rx()->p2)
+
+}

@@ -4,6 +4,7 @@
 #include "blst/curve/e1.h"
 #include "blst/curve/e2.h"
 #include "blst/curve/pairing.h"
+using namespace blst;
 
 
 TEST(PairingTest, BasicPairing) {

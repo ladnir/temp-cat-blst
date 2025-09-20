@@ -21,6 +21,7 @@
 #include "blst/common/bytes.h"
 BLST_EXTERN_C_BEGIN_
 
+using namespace blst;
 
 /*
  * BLS12-381-specific Fr shortcuts to assembly.

@@ -10,59 +10,62 @@
 #include "blst/common/errors.h"
 //BLST_EXTERN_C_BEGIN
 
-///////////////////////////////////////////
-// Vectorized Fp operations
+namespace blst
+{
+
+	///////////////////////////////////////////
+	// Vectorized Fp operations
 
 
-// Vectorized addition of Fr elements
-// inputs must be allocated on the device if compiled with BLST_CUDA
-batched_error_code add_fr_vec(vec256* out, const vec256* a, const vec256* b, size_t num);
+	// Vectorized addition of Fr elements
+	// inputs must be allocated on the device if compiled with BLST_CUDA
+	batched_error_code add_fr_vec(vec256* out, const vec256* a, const vec256* b, size_t num);
 
-// Vectorized subtraction of Fr elements
-// inputs must be allocated on the device if compiled with BLST_CUDA
-batched_error_code sub_fr_vec(vec256* out, const vec256* a, const vec256* b, size_t num);
+	// Vectorized subtraction of Fr elements
+	// inputs must be allocated on the device if compiled with BLST_CUDA
+	batched_error_code sub_fr_vec(vec256* out, const vec256* a, const vec256* b, size_t num);
 
-// Vectorized multiplication of Fr elements
-// inputs must be allocated on the device if compiled with BLST_CUDA
-batched_error_code mul_fr_vec(vec256* out, const vec256* a, const vec256* b, size_t num);
+	// Vectorized multiplication of Fr elements
+	// inputs must be allocated on the device if compiled with BLST_CUDA
+	batched_error_code mul_fr_vec(vec256* out, const vec256* a, const vec256* b, size_t num);
 
-// Vectorized squaring of Fr elements
-// inputs must be allocated on the device if compiled with BLST_CUDA
-batched_error_code sqr_fr_vec(vec256* out, const vec256* a, size_t num);
+	// Vectorized squaring of Fr elements
+	// inputs must be allocated on the device if compiled with BLST_CUDA
+	batched_error_code sqr_fr_vec(vec256* out, const vec256* a, size_t num);
 
-// Vectorized conditional negation of Fr elements
-// inputs must be allocated on the device if compiled with BLST_CUDA
-batched_error_code cneg_fr_vec(vec256* out, const vec256* a, int flag, size_t num);
+	// Vectorized conditional negation of Fr elements
+	// inputs must be allocated on the device if compiled with BLST_CUDA
+	batched_error_code cneg_fr_vec(vec256* out, const vec256* a, int flag, size_t num);
 
-// Vectorized multiplication of Fr elements by 3
-// inputs must be allocated on the device if compiled with BLST_CUDA
-batched_error_code mul3_fr_vec(vec256* out, const vec256* a, size_t num);
+	// Vectorized multiplication of Fr elements by 3
+	// inputs must be allocated on the device if compiled with BLST_CUDA
+	batched_error_code mul3_fr_vec(vec256* out, const vec256* a, size_t num);
 
-// Vectorized left shift of Fr elements
-// inputs must be allocated on the device if compiled with BLST_CUDA
-batched_error_code lshift_fr_vec(vec256* out, const vec256* a, size_t count, size_t num);
+	// Vectorized left shift of Fr elements
+	// inputs must be allocated on the device if compiled with BLST_CUDA
+	batched_error_code lshift_fr_vec(vec256* out, const vec256* a, size_t count, size_t num);
 
-// Vectorized right shift of Fr elements
-// inputs must be allocated on the device if compiled with BLST_CUDA
-batched_error_code rshift_fr_vec(vec256* out, const vec256* a, size_t count, size_t num);
+	// Vectorized right shift of Fr elements
+	// inputs must be allocated on the device if compiled with BLST_CUDA
+	batched_error_code rshift_fr_vec(vec256* out, const vec256* a, size_t count, size_t num);
 
-// Vectorized conversion from regular to Montgomery form for Fr elements
-// inputs must be allocated on the device if compiled with BLST_CUDA
-batched_error_code to_fr_vec(vec256* out, const vec256* a, size_t num);
+	// Vectorized conversion from regular to Montgomery form for Fr elements
+	// inputs must be allocated on the device if compiled with BLST_CUDA
+	batched_error_code to_fr_vec(vec256* out, const vec256* a, size_t num);
 
-// Vectorized conversion from Montgomery to regular form for Fr elements
-// inputs must be allocated on the device if compiled with BLST_CUDA
-batched_error_code from_fr_vec(vec256* out, const vec256* a, size_t num);
+	// Vectorized conversion from Montgomery to regular form for Fr elements
+	// inputs must be allocated on the device if compiled with BLST_CUDA
+	batched_error_code from_fr_vec(vec256* out, const vec256* a, size_t num);
 
-// Vectorized CT butterfly operations for Fr elements
-// inputs must be allocated on the device if compiled with BLST_CUDA
-batched_error_code ct_bfly_fr_vec(vec256* x0, vec256* x1, const vec256* twiddle, size_t num);
+	// Vectorized CT butterfly operations for Fr elements
+	// inputs must be allocated on the device if compiled with BLST_CUDA
+	batched_error_code ct_bfly_fr_vec(vec256* x0, vec256* x1, const vec256* twiddle, size_t num);
 
-// Vectorized GS butterfly operations for Fr elements
-// inputs must be allocated on the device if compiled with BLST_CUDA
-batched_error_code gs_bfly_fr_vec(vec256* x0, vec256* x1, const vec256* twiddle, size_t num);
+	// Vectorized GS butterfly operations for Fr elements
+	// inputs must be allocated on the device if compiled with BLST_CUDA
+	batched_error_code gs_bfly_fr_vec(vec256* x0, vec256* x1, const vec256* twiddle, size_t num);
 
 
-
+}
 //BLST_EXTERN_C_END
 #endif /* BLST_FIELDS_CUDA_H */

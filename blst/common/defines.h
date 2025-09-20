@@ -2,58 +2,6 @@
 #define __BLS12_381_DEFINES_H__
 
 #include "config.h"
-BLST_EXTERN_C_BEGIN_
-
-
-#if BLST_LIMB_SIZE == 64
-typedef unsigned long long limb_t;
-#elif BLST_LIMB_SIZE == 32
-typedef unsigned int limb_t;
-#else
-# error "Unsupported BLST_LIMB_SIZE"
-#endif
-
-typedef unsigned char byte;
-/*
- * Why isn't BLST_LIMB_SIZE defined as 8*sizeof(limb_t)? Because pre-processor
- * knows nothing about sizeof(anything)...
- */
-#if BLST_LIMB_SIZE == 64
-# define TO_LIMB_T(limb64)     limb64
-#else
-# define TO_LIMB_T(limb64)     (limb_t)limb64,(limb_t)(limb64>>32)
-#endif
-
-constexpr int NLIMBS(int bits) { return bits / BLST_LIMB_SIZE; }
-//#define NLIMBS(bits)   (bits/BLST_LIMB_SIZE)
-
-typedef limb_t vec256[NLIMBS(256)];
-typedef limb_t vec512[NLIMBS(512)];
-typedef limb_t vec384[NLIMBS(384)];
-typedef limb_t vec768[NLIMBS(768)];
-typedef vec384 vec384x[2];      /* 0 is "real" part, 1 is "imaginary" */
-typedef vec768 vec768x[2];      /* 0 is "real" part, 1 is "imaginary" */
-
-#define TO_BYTES(limb64)    (byte)limb64,(byte)(limb64>>8),\
-                            (byte)(limb64>>16),(byte)(limb64>>24),\
-                            (byte)(limb64>>32),(byte)(limb64>>40),\
-                            (byte)(limb64>>48),(byte)(limb64>>56)
-typedef byte pow256[256 / 8];
-
-/*
- * Internal Boolean type, Boolean by value, hence safe to cast to or
- * reinterpret as 'bool'.
- */
-typedef limb_t bool_t;
-
-
-
-
-#ifdef __UINTPTR_TYPE__
-typedef __UINTPTR_TYPE__ uptr_t;
-#else
-typedef const void *uptr_t;
-#endif
 
 #if !defined(restrict)
 # if !defined(__STDC_VERSION__) || __STDC_VERSION__<199901
@@ -71,12 +19,9 @@ typedef const void *uptr_t;
 // OC_FORCEINLINE ---------------------------------------------//
 // Macro to use in place of 'inline' to force a function to be inline
 #if !defined(BLST_FORCEINLINE)
-//#  if defined(__CUDA_ARCH__)
-//#    define BLST_FORCEINLINE static inline
 #  if defined(_MSC_VER)
 #    define BLST_FORCEINLINE __forceinline
 #  elif defined(__GNUC__) && __GNUC__ > 3
-     // Clang also defines __GNUC__ (as 4)
 #    define BLST_FORCEINLINE inline __attribute__ ((__always_inline__))
 #  else
 #    define BLST_FORCEINLINE static inline
@@ -100,6 +45,22 @@ typedef const void *uptr_t;
 #else
 # define BLST_launder(var)
 #endif
+
+#if !defined(BLST_ASSERT)
+#  include <assert.h>
+#  define BLST_ASSERT(condition) assert(condition)
+# endif
+
+
+
+# if defined(__GNUC__) && __GNUC__>=5
+#  define BLST_ASSUME(condition) do{BLST_ASSERT(condition); if (!(condition)) __builtin_unreachable();} while(0)
+# elif defined(_MSC_VER)
+#  define BLST_ASSUME(condition) do { BLST_ASSERT(condition); __assume(condition) ;} while(0)
+# else
+#  define BLST_ASSUME(condition) BLST_ASSERT(condition)
+# endif
+
 
 /*
  * Some compilers get arguably overzealous(*) when passing pointer to
@@ -135,27 +96,72 @@ typedef const void *uptr_t;
 # endif
 #endif
 
-BLST_EXTERN_C_END_
-
-
-#if defined(__CUDACC__) && !defined(__INTELLISENSE__)
- // Real CUDA compile: expand to <<< ... >>>
-#define BLST_LAUNCH(...) <<< __VA_ARGS__ >>>
+#if BLST_LIMB_SIZE == 64
+# define TO_LIMB_T(limb64)     limb64
 #else
- // IntelliSense / non-nvcc: make it vanish so the call parses as normal
-#define BLST_LAUNCH(...)
+# define TO_LIMB_T(limb64)     (limb_t)limb64,(limb_t)(limb64>>32)
 #endif
+
+
+
+
+namespace blst
+{
+
+#if BLST_LIMB_SIZE == 64
+    typedef unsigned long long limb_t;
+#elif BLST_LIMB_SIZE == 32
+    typedef unsigned int limb_t;
+#else
+# error "Unsupported BLST_LIMB_SIZE"
+#endif
+    typedef unsigned char byte;
+
+
+	using u8 = uint8_t;
+	using u32 = uint32_t;
+	using u64 = uint64_t;
+	
+	using i8 = int8_t;
+	using i32 = int32_t;
+	using i64 = int64_t;
+
+    constexpr int NLIMBS(int bits) { return bits / BLST_LIMB_SIZE; }
+
+    typedef limb_t vec256[NLIMBS(256)];
+    typedef limb_t vec512[NLIMBS(512)];
+    typedef limb_t vec384[NLIMBS(384)];
+    typedef limb_t vec768[NLIMBS(768)];
+    typedef vec384 vec384x[2];      /* 0 is "real" part, 1 is "imaginary" */
+    typedef vec768 vec768x[2];      /* 0 is "real" part, 1 is "imaginary" */
+
+#define TO_BYTES(limb64)    (byte)limb64,(byte)(limb64>>8),\
+                            (byte)(limb64>>16),(byte)(limb64>>24),\
+                            (byte)(limb64>>32),(byte)(limb64>>40),\
+                            (byte)(limb64>>48),(byte)(limb64>>56)
+    typedef byte pow256[256 / 8];
+
+    typedef limb_t bool_t;
+
+#ifdef __UINTPTR_TYPE__
+    typedef __UINTPTR_TYPE__ uptr_t;
+#else
+    typedef const void* uptr_t;
+#endif
+
+
+
 
 #if defined(__INTELLISENSE__) && defined(BLST_CUDA)
  // IntelliSense: pretend we're compiling for CUDA
-typedef struct  {
-    unsigned int x, y, z;
-} dim3;
-static const dim3 blockIdx, threadIdx, blockDim;
+        typedef struct {
+        unsigned int x, y, z;
+    } dim3;
+    static const dim3 blockIdx, threadIdx, blockDim;
 #endif
 
 
-
+}
 
 #endif
 

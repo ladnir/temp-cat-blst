@@ -10,6 +10,7 @@
 #include "blst/curve/e1.h"
 #include "blst/curve/map_to_g1.h"
 #include "InsecureRng.h"
+using namespace blst;
 
 // CUDA kernel wrapper macros for device execution
 #define CUDA_CHECK(call) do { \

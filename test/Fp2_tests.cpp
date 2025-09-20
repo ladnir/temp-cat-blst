@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 #include "blst/fields/Fp2.h"
+using namespace blst;
 
 // Helper: Print Fp2 element for debugging
 void print_fp2(const vec384x a, const char* name) {

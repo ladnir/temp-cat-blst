@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <iostream>
 #include "config.h"
+using namespace blst;
 
 // CUDA kernel wrapper macros for device execution
 #define CUDA_CHECK(call) do { \

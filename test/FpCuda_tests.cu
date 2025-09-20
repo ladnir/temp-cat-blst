@@ -10,6 +10,8 @@
 #include "blst/fields/Fp_cuda.h"
 #include "blst/exports.h"
 
+using namespace blst;
+
 #define LIMBS NLIMBS(384)
 
 class FpCudaTest : public ::testing::Test {

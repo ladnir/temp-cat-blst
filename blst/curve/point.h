@@ -13,31 +13,34 @@
 #include "blst/fields/consts.h"
 
 
-//BLST_EXTERN_C_BEGIN
+namespace blst
+{
+
+    //BLST_EXTERN_C_BEGIN
 
 #define DECLARE_POINT(ptype, bits)                                           \
 typedef struct { vec##bits X,Y,Z; } ptype;                                   \
 typedef struct { vec##bits X,Y; } ptype##_affine;                            \
                                                                              \
-HOST_DEVICE_FUNC void ptype##_dadd(ptype *out, const ptype *p1, const ptype *p2,	             \
+BLST_HD void ptype##_dadd(ptype *out, const ptype *p1, const ptype *p2,	             \
                          const vec##bits a4);				                 \
-HOST_DEVICE_FUNC void ptype##_dadd_affine(ptype *out, const ptype *p1,		                 \
+BLST_HD void ptype##_dadd_affine(ptype *out, const ptype *p1,		                 \
                                             const ptype##_affine *p2);	     \
-HOST_DEVICE_FUNC void ptype##_add(ptype *out, const ptype *p1, const ptype *p2);	             \
-HOST_DEVICE_FUNC void ptype##_add_affine(ptype *out, const ptype *p1,		                 \
+BLST_HD void ptype##_add(ptype *out, const ptype *p1, const ptype *p2);	             \
+BLST_HD void ptype##_add_affine(ptype *out, const ptype *p1,		                 \
                                            const ptype##_affine *p2);	     \
-HOST_DEVICE_FUNC void ptype##_double(ptype *out, const ptype *p1);		                     \
-HOST_DEVICE_FUNC void ptype##_mult_w5(ptype *out, const ptype *point,		                 \
+BLST_HD void ptype##_double(ptype *out, const ptype *p1);		                     \
+BLST_HD void ptype##_mult_w5(ptype *out, const ptype *point,		                 \
                             const byte *scalar, size_t nbits);		         \
-HOST_DEVICE_FUNC void ptype##_cneg(ptype *p, limb_t cbit);			                         \
-HOST_DEVICE_FUNC void ptype##_to_affine(ptype##_affine *out, const ptype *in);	             \
-HOST_DEVICE_FUNC void ptype##_from_Jacobian(ptype *out, const ptype *in);		             \
+BLST_HD void ptype##_cneg(ptype *p, limb_t cbit);			                         \
+BLST_HD void ptype##_to_affine(ptype##_affine *out, const ptype *in);	             \
+BLST_HD void ptype##_from_Jacobian(ptype *out, const ptype *in);		             \
                                                                              \
-HOST_DEVICE_FUNC BLST_INLINE void ptype##_cswap(ptype *restrict a,			                     \
+BLST_HD BLST_INLINE void ptype##_cswap(ptype *restrict a,			                     \
                                  ptype *restrict b, bool_t cbit) {	         \
     vec_cswap(a, b, sizeof(ptype), cbit);				                     \
 }                                                                            \
-HOST_DEVICE_FUNC BLST_INLINE void ptype##_ccopy(ptype *restrict a,			                     \
+BLST_HD BLST_INLINE void ptype##_ccopy(ptype *restrict a,			                     \
                                  const ptype *restrict b, bool_t cbit) {     \
     vec_select(a, b, a, sizeof(ptype), cbit);				                 \
 }
@@ -45,21 +48,21 @@ HOST_DEVICE_FUNC BLST_INLINE void ptype##_ccopy(ptype *restrict a,			           
 #define DECLARE_PRIVATE_POINTXZ(ptype, bits)                                 \
 typedef struct { vec##bits X,Z; } ptype##xz;                                 \
                                                                              \
-HOST_DEVICE_FUNC void ptype##xz_ladder_pre(ptype##xz *out, const ptype *in);	                 \
-HOST_DEVICE_FUNC void ptype##xz_ladder_step(ptype##xz *r, ptype##xz *s,		                 \
+BLST_HD void ptype##xz_ladder_pre(ptype##xz *out, const ptype *in);	                 \
+BLST_HD void ptype##xz_ladder_step(ptype##xz *r, ptype##xz *s,		                 \
                                   const ptype##xz *p);			             \
-HOST_DEVICE_FUNC void ptype##xz_ladder_post(ptype *ret,				                         \
+BLST_HD void ptype##xz_ladder_post(ptype *ret,				                         \
                                   const ptype##xz *r, const ptype##xz *s,    \
                                   const ptype##xz *p, const vec##bits Y1);   \
                                                                              \
-HOST_DEVICE_FUNC BLST_INLINE void ptype##xz_cswap(ptype##xz *restrict a,		                     \
+BLST_HD BLST_INLINE void ptype##xz_cswap(ptype##xz *restrict a,		                     \
                                    ptype##xz *restrict b, bool_t cbit) {     \
     vec_cswap(a, b, sizeof(ptype##xz), cbit);				                 \
 }
 
-DECLARE_POINT(POINTonE1, 384)
+    DECLARE_POINT(POINTonE1, 384)
 
-DECLARE_POINT(POINTonE2, 384x)
+    DECLARE_POINT(POINTonE2, 384x)
 
 #ifdef __GNUC__
 # pragma GCC diagnostic ignored "-Wunused-function"
@@ -108,9 +111,9 @@ DECLARE_POINT(POINTonE2, 384x)
 
 
 
-/*
- * y^2 = x^3 + B
- */
+    /*
+     * y^2 = x^3 + B
+     */
 #define BLST_B_E2_LIMBS                                               \
   { TO_LIMB_T(0xaa270000000cfff3), TO_LIMB_T(0x53cc0032fc34000a),     \
     TO_LIMB_T(0x478fe97a6b0a807f), TO_LIMB_T(0xb1d37ebee6ba24d7),     \
@@ -119,7 +122,7 @@ DECLARE_POINT(POINTonE2, 384x)
     TO_LIMB_T(0x478fe97a6b0a807f), TO_LIMB_T(0xb1d37ebee6ba24d7),     \
     TO_LIMB_T(0x8ec9733bbf78ab2f), TO_LIMB_T(0x09d645513d83de7e) }
 
- /* generator point [in Montgomery] */
+     /* generator point [in Montgomery] */
 #define BLST_G2_LIMBS                                                      \
 { /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02            */     \
 /*      b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8 << 384) % P */    \
@@ -184,113 +187,113 @@ DECLARE_POINT(POINTonE2, 384x)
 
 
 /* y^2 = x^3 + B,   (4 << 384) % P */
-static const vec384 BLST_B_E1_HOST = { BLST_B_E1_LIMBS };
-static const POINTonE1 BLST_G1_HOST = { BLST_G1_LIMBS };
-static const POINTonE1 BLST_NEG_G1_HOST = { BLST_NEG_G1_LIMBS };
-static const vec384 BLST_beta_HOST = { BLST_beta_LIMBS };
+    static const vec384 BLST_B_E1_HOST = { BLST_B_E1_LIMBS };
+    static const POINTonE1 BLST_G1_HOST = { BLST_G1_LIMBS };
+    static const POINTonE1 BLST_NEG_G1_HOST = { BLST_NEG_G1_LIMBS };
+    static const vec384 BLST_beta_HOST = { BLST_beta_LIMBS };
 
 
-/*
- * y^2 = x^3 + B, 4 + 4*i 
- */
-const vec384x BLST_B_E2_HOST = { BLST_B_E2_LIMBS };
-const POINTonE2 BLST_G2_HOST = { BLST_G2_LIMBS };
-const POINTonE2 BLST_NEG_G2_HOST = { BLST_NEG_G2_LIMBS };
+    /*
+     * y^2 = x^3 + B, 4 + 4*i
+     */
+    const vec384x BLST_B_E2_HOST = { BLST_B_E2_LIMBS };
+    const POINTonE2 BLST_G2_HOST = { BLST_G2_LIMBS };
+    const POINTonE2 BLST_NEG_G2_HOST = { BLST_NEG_G2_LIMBS };
 
 
 #if defined(BLST_CUDA) && defined(__CUDACC__)
 
-static __constant__ vec384 BLST_B_E1_DEV = { BLST_B_E1_LIMBS };
-static __constant__ POINTonE1 BLST_G1_DEV = { BLST_G1_LIMBS };
-static __constant__ POINTonE1 BLST_NEG_G1_DEV = { BLST_NEG_G1_LIMBS };
-static __constant__ vec384x BLST_B_E2_DEV = { BLST_B_E2_LIMBS };
-static __constant__ POINTonE2 BLST_G2_DEV = { BLST_G2_LIMBS };
-static __constant__ POINTonE2 BLST_NEG_G2_DEV = { BLST_NEG_G2_LIMBS };
-static __constant__ vec384 BLST_beta_DEV = { BLST_beta_LIMBS };
+    static __constant__ vec384 BLST_B_E1_DEV = { BLST_B_E1_LIMBS };
+    static __constant__ POINTonE1 BLST_G1_DEV = { BLST_G1_LIMBS };
+    static __constant__ POINTonE1 BLST_NEG_G1_DEV = { BLST_NEG_G1_LIMBS };
+    static __constant__ vec384x BLST_B_E2_DEV = { BLST_B_E2_LIMBS };
+    static __constant__ POINTonE2 BLST_G2_DEV = { BLST_G2_LIMBS };
+    static __constant__ POINTonE2 BLST_NEG_G2_DEV = { BLST_NEG_G2_LIMBS };
+    static __constant__ vec384 BLST_beta_DEV = { BLST_beta_LIMBS };
 
 #endif // __CUDA_ARCH__
 
 
-// return the curve parameter B for the G1 curve: y^2 = x^3 + B
-// Will return host or device memory depending on compilation target.
-HOST_DEVICE_FUNC BLST_FORCEINLINE const vec384* get_BLST_B_E1(void)
-{
+    // return the curve parameter B for the G1 curve: y^2 = x^3 + B
+    // Will return host or device memory depending on compilation target.
+    BLST_HD BLST_FORCEINLINE const vec384* get_BLST_B_E1(void)
+    {
 #if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
-    return &BLST_B_E1_DEV;
+        return &BLST_B_E1_DEV;
 #else
-    return &BLST_B_E1_HOST;
+        return &BLST_B_E1_HOST;
 #endif
-}
+    }
 
-// return the generator point of G1 in affine coordinates, in montgomery form.
-// Will return host or device memory depending on compilation target.
-HOST_DEVICE_FUNC BLST_FORCEINLINE const POINTonE1* get_BLST_G1(void)
-{
+    // return the generator point of G1 in affine coordinates, in montgomery form.
+    // Will return host or device memory depending on compilation target.
+    BLST_HD BLST_FORCEINLINE const POINTonE1* get_BLST_G1(void)
+    {
 #if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
-    return &BLST_G1_DEV;
+        return &BLST_G1_DEV;
 #else
-    return &BLST_G1_HOST;
+        return &BLST_G1_HOST;
 #endif
-}
+    }
 
-// return the negative of the generator point of G1 in affine coordinates, in montgomery form.
-// Will return host or device memory depending on compilation target.
-HOST_DEVICE_FUNC BLST_FORCEINLINE const POINTonE1* get_BLST_NEG_G1(void)
-{
+    // return the negative of the generator point of G1 in affine coordinates, in montgomery form.
+    // Will return host or device memory depending on compilation target.
+    BLST_HD BLST_FORCEINLINE const POINTonE1* get_BLST_NEG_G1(void)
+    {
 #if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
-    return &BLST_NEG_G1_DEV;
+        return &BLST_NEG_G1_DEV;
 #else
-    return &BLST_NEG_G1_HOST;
+        return &BLST_NEG_G1_HOST;
 #endif
-}
+    }
 
-// return the curve parameter B for the G2 curve: y^2 = x^3 + B
-// Will return host or device memory depending on compilation target.
-HOST_DEVICE_FUNC BLST_FORCEINLINE const vec384x* get_BLST_B_E2(void)
-{
-    #if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
-	return &BLST_B_E2_DEV;
-#else
-	return &BLST_B_E2_HOST;
-#endif
-}
-
-// return the generator point of G2 in affine coordinates, in montgomery form.
-// Will return host or device memory depending on compilation target.
-HOST_DEVICE_FUNC BLST_FORCEINLINE const POINTonE2* get_BLST_G2(void)
-{
-    #if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
-	return &BLST_G2_DEV;
-#else
-	return &BLST_G2_HOST;
-#endif
-}
-
-// return the negative of the generator point of G2 in affine coordinates, in montgomery form.
-HOST_DEVICE_FUNC BLST_FORCEINLINE const POINTonE2* get_BLST_NEG_G2(void)
-{
-    #if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
-	return &BLST_NEG_G2_DEV;
-#else
-	return &BLST_NEG_G2_HOST;
-#endif
-}
-
-
-/* such that beta^3 - 1 = 0  */
-/* -1/2 * (1 + sqrt(-3)) = ((P-2)^(P-2)) * (1 + (P-3)^((P+1)/4)) */
-/* (0x1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4
-      897d29650fb85f9b409427eb4f49fffd8bfd00000000aaac << 384) % P */
-HOST_DEVICE_FUNC BLST_FORCEINLINE const vec384* get_BLST_beta(void)
-{
+    // return the curve parameter B for the G2 curve: y^2 = x^3 + B
+    // Will return host or device memory depending on compilation target.
+    BLST_HD BLST_FORCEINLINE const vec384x* get_BLST_B_E2(void)
+    {
 #if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
-    return &BLST_beta_DEV;
+        return &BLST_B_E2_DEV;
 #else
-    return &BLST_beta_HOST;
+        return &BLST_B_E2_HOST;
 #endif
+    }
+
+    // return the generator point of G2 in affine coordinates, in montgomery form.
+    // Will return host or device memory depending on compilation target.
+    BLST_HD BLST_FORCEINLINE const POINTonE2* get_BLST_G2(void)
+    {
+#if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
+        return &BLST_G2_DEV;
+#else
+        return &BLST_G2_HOST;
+#endif
+    }
+
+    // return the negative of the generator point of G2 in affine coordinates, in montgomery form.
+    BLST_HD BLST_FORCEINLINE const POINTonE2* get_BLST_NEG_G2(void)
+    {
+#if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
+        return &BLST_NEG_G2_DEV;
+#else
+        return &BLST_NEG_G2_HOST;
+#endif
+    }
+
+
+    /* such that beta^3 - 1 = 0  */
+    /* -1/2 * (1 + sqrt(-3)) = ((P-2)^(P-2)) * (1 + (P-3)^((P+1)/4)) */
+    /* (0x1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4
+          897d29650fb85f9b409427eb4f49fffd8bfd00000000aaac << 384) % P */
+    BLST_HD BLST_FORCEINLINE const vec384* get_BLST_beta(void)
+    {
+#if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
+        return &BLST_beta_DEV;
+#else
+        return &BLST_beta_HOST;
+#endif
+    }
+
 }
-
-
 
 
 //BLST_EXTERN_C_END

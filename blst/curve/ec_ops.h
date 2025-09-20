@@ -5,40 +5,46 @@
  */
 #ifndef __BLS12_384_ASM_EC_OPS_H__
 #define __BLS12_384_ASM_EC_OPS_H__
-/*
- * Addition that can handle doubling [as well as points at infinity,
- * which are encoded as Z==0] in constant time. It naturally comes at
- * cost, but this subroutine should be called only when independent
- * points are processed, which is considered reasonable compromise.
- * For example, ptype##s_mult_w5 calls it, but since *major* gain is
- * result of pure doublings being effectively divided by amount of
- * points, slightly slower addition can be tolerated. But what is the
- * additional cost more specifically? Best addition result is 11M+5S,
- * while this routine takes 13M+5S (+1M+1S if a4!=0), as per
- *
- * -------------+-------------
- * addition     | doubling
- * -------------+-------------
- * U1 = X1*Z2^2 | U1 = X1
- * U2 = X2*Z1^2 |
- * S1 = Y1*Z2^3 | S1 = Y1
- * S2 = Y2*Z1^3 |
- * zz = Z1*Z2   | zz = Z1
- * H = U2-U1    | H' = 2*Y1
- * R = S2-S1    | R' = 3*X1^2[+a*Z1^4]
- * sx = U1+U2   | sx = X1+X1
- * -------------+-------------
- * H!=0 || R!=0 | H==0 && R==0
- *
- *      X3 = R^2-H^2*sx
- *      Y3 = R*(H^2*U1-X3)-H^3*S1
- *      Z3 = H*zz
- *
- * As for R!=0 condition in context of H==0, a.k.a. P-P. The result is
- * infinity by virtue of Z3 = (U2-U1)*zz = H*zz = 0*zz == 0.
- */
+
+
+namespace blst
+{
+
+
+    /*
+     * Addition that can handle doubling [as well as points at infinity,
+     * which are encoded as Z==0] in constant time. It naturally comes at
+     * cost, but this subroutine should be called only when independent
+     * points are processed, which is considered reasonable compromise.
+     * For example, ptype##s_mult_w5 calls it, but since *major* gain is
+     * result of pure doublings being effectively divided by amount of
+     * points, slightly slower addition can be tolerated. But what is the
+     * additional cost more specifically? Best addition result is 11M+5S,
+     * while this routine takes 13M+5S (+1M+1S if a4!=0), as per
+     *
+     * -------------+-------------
+     * addition     | doubling
+     * -------------+-------------
+     * U1 = X1*Z2^2 | U1 = X1
+     * U2 = X2*Z1^2 |
+     * S1 = Y1*Z2^3 | S1 = Y1
+     * S2 = Y2*Z1^3 |
+     * zz = Z1*Z2   | zz = Z1
+     * H = U2-U1    | H' = 2*Y1
+     * R = S2-S1    | R' = 3*X1^2[+a*Z1^4]
+     * sx = U1+U2   | sx = X1+X1
+     * -------------+-------------
+     * H!=0 || R!=0 | H==0 && R==0
+     *
+     *      X3 = R^2-H^2*sx
+     *      Y3 = R*(H^2*U1-X3)-H^3*S1
+     *      Z3 = H*zz
+     *
+     * As for R!=0 condition in context of H==0, a.k.a. P-P. The result is
+     * infinity by virtue of Z3 = (U2-U1)*zz = H*zz = 0*zz == 0.
+     */
 #define POINT_DADD_IMPL(ptype, bits, field) \
-HOST_DEVICE_FUNC BLST_INLINE void ptype##_dadd(ptype *out, const ptype *p1, const ptype *p2, \
+BLST_HD BLST_INLINE void ptype##_dadd(ptype *out, const ptype *p1, const ptype *p2, \
                          const vec##bits a4) \
 { \
     ptype p3; /* starts as (U1, S1, zz) from addition side */\
@@ -99,35 +105,35 @@ HOST_DEVICE_FUNC BLST_INLINE void ptype##_dadd(ptype *out, const ptype *p1, cons
     vec_select(out, p2, &p3, sizeof(ptype), p1inf); \
 }
 
-/*
- * Addition with affine point that can handle doubling [as well as
- * points at infinity, with |p1| being encoded as Z==0 and |p2| as
- * X,Y==0] in constant time. But at what additional cost? Best
- * addition result is 7M+4S, while this routine takes 8M+5S, as per
- *
- * -------------+-------------
- * addition     | doubling
- * -------------+-------------
- * U1 = X1      | U1 = X2
- * U2 = X2*Z1^2 |
- * S1 = Y1      | S1 = Y2
- * S2 = Y2*Z1^3 |
- * H = U2-X1    | H' = 2*Y2
- * R = S2-Y1    | R' = 3*X2^2[+a]
- * sx = X1+U2   | sx = X2+X2
- * zz = H*Z1    | zz = H'
- * -------------+-------------
- * H!=0 || R!=0 | H==0 && R==0
- *
- *      X3 = R^2-H^2*sx
- *      Y3 = R*(H^2*U1-X3)-H^3*S1
- *      Z3 = zz
- *
- * As for R!=0 condition in context of H==0, a.k.a. P-P. The result is
- * infinity by virtue of Z3 = (U2-U1)*zz = H*zz = 0*zz == 0.
- */
+     /*
+      * Addition with affine point that can handle doubling [as well as
+      * points at infinity, with |p1| being encoded as Z==0 and |p2| as
+      * X,Y==0] in constant time. But at what additional cost? Best
+      * addition result is 7M+4S, while this routine takes 8M+5S, as per
+      *
+      * -------------+-------------
+      * addition     | doubling
+      * -------------+-------------
+      * U1 = X1      | U1 = X2
+      * U2 = X2*Z1^2 |
+      * S1 = Y1      | S1 = Y2
+      * S2 = Y2*Z1^3 |
+      * H = U2-X1    | H' = 2*Y2
+      * R = S2-Y1    | R' = 3*X2^2[+a]
+      * sx = X1+U2   | sx = X2+X2
+      * zz = H*Z1    | zz = H'
+      * -------------+-------------
+      * H!=0 || R!=0 | H==0 && R==0
+      *
+      *      X3 = R^2-H^2*sx
+      *      Y3 = R*(H^2*U1-X3)-H^3*S1
+      *      Z3 = zz
+      *
+      * As for R!=0 condition in context of H==0, a.k.a. P-P. The result is
+      * infinity by virtue of Z3 = (U2-U1)*zz = H*zz = 0*zz == 0.
+      */
 #define POINT_DADD_AFFINE_IMPL_A0(ptype, bits, field, one) \
-HOST_DEVICE_FUNC BLST_INLINE void ptype##_dadd_affine(ptype *out, const ptype *p1, \
+BLST_HD BLST_INLINE void ptype##_dadd_affine(ptype *out, const ptype *p1, \
                                             const ptype##_affine *p2) \
 { \
     ptype p3; /* starts as (,, H*Z1) from addition side */\
@@ -178,12 +184,12 @@ HOST_DEVICE_FUNC BLST_INLINE void ptype##_dadd_affine(ptype *out, const ptype *p
     vec_select(out, p1, &p3, sizeof(ptype), p2inf); \
 }
 
-/*
- * https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-add-2007-bl
- * with twist to handle either input at infinity, which are encoded as Z==0.
- */
+      /*
+       * https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-add-2007-bl
+       * with twist to handle either input at infinity, which are encoded as Z==0.
+       */
 #define POINT_ADD_IMPL(ptype, bits, field) \
-HOST_DEVICE_FUNC BLST_INLINE void ptype##_add(ptype *out, const ptype *p1, const ptype *p2) \
+BLST_HD BLST_INLINE void ptype##_add(ptype *out, const ptype *p1, const ptype *p2) \
 { \
     ptype p3; \
     vec##bits Z1Z1, Z2Z2, U1, S1, H, I, J; \
@@ -237,13 +243,13 @@ HOST_DEVICE_FUNC BLST_INLINE void ptype##_add(ptype *out, const ptype *p1, const
     vec_select(out, p2, &p3, sizeof(ptype), p1inf); \
 }
 
-/*
- * https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
- * with twist to handle either input at infinity, with |p1| encoded as Z==0,
- * and |p2| as X==Y==0.
- */
+       /*
+        * https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
+        * with twist to handle either input at infinity, with |p1| encoded as Z==0,
+        * and |p2| as X==Y==0.
+        */
 #define POINT_ADD_AFFINE_IMPL(ptype, bits, field, one) \
-HOST_DEVICE_FUNC BLST_INLINE void ptype##_add_affine(ptype *out, const ptype *p1, \
+BLST_HD BLST_INLINE void ptype##_add_affine(ptype *out, const ptype *p1, \
                                            const ptype##_affine *p2) \
 { \
     ptype p3; \
@@ -293,11 +299,11 @@ HOST_DEVICE_FUNC BLST_INLINE void ptype##_add_affine(ptype *out, const ptype *p1
     vec_select(out, p1, &p3, sizeof(ptype), p2inf); \
 }
 
-/*
- * https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
- */
+        /*
+         * https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
+         */
 #define POINT_DOUBLE_IMPL_A0(ptype, bits, field) \
-HOST_DEVICE_FUNC BLST_INLINE void ptype##_double(ptype *p3, const ptype *p1) \
+BLST_HD BLST_INLINE void ptype##_double(ptype *p3, const ptype *p1) \
 { \
     vec##bits A, B, C; \
 \
@@ -327,23 +333,23 @@ HOST_DEVICE_FUNC BLST_INLINE void ptype##_double(ptype *p3, const ptype *p1) \
 }
 
 #define POINT_LADDER_PRE_IMPL(ptype, bits, field) \
-HOST_DEVICE_FUNC BLST_INLINE void ptype##xz_ladder_pre(ptype##xz *pxz, const ptype *p) \
+BLST_HD BLST_INLINE void ptype##xz_ladder_pre(ptype##xz *pxz, const ptype *p) \
 { \
     mul_##field(pxz->X, p->X, p->Z);    /* X2 = X1*Z1 */\
     sqr_##field(pxz->Z, p->Z);          \
     mul_##field(pxz->Z, pxz->Z, p->Z);  /* Z2 = Z1^3 */\
 }
 
-/*
- * https://hyperelliptic.org/EFD/g1p/auto-shortw-xz.html#ladder-ladd-2002-it-3
- * with twist to handle either input at infinity, which are encoded as Z==0.
- * Just in case, order of doubling and addition is reverse in comparison to
- * hyperelliptic.org entry. This was done to minimize temporary storage.
- *
- * XZ1 is |p|, XZ2&XZ4 are in&out |r|, XZ3&XZ5 are in&out |s|.
- */
+         /*
+          * https://hyperelliptic.org/EFD/g1p/auto-shortw-xz.html#ladder-ladd-2002-it-3
+          * with twist to handle either input at infinity, which are encoded as Z==0.
+          * Just in case, order of doubling and addition is reverse in comparison to
+          * hyperelliptic.org entry. This was done to minimize temporary storage.
+          *
+          * XZ1 is |p|, XZ2&XZ4 are in&out |r|, XZ3&XZ5 are in&out |s|.
+          */
 #define POINT_LADDER_STEP_IMPL_A0(ptype, bits, field, suffix4b) \
-HOST_DEVICE_FUNC BLST_INLINE void ptype##xz_ladder_step(ptype##xz *r, ptype##xz *s, \
+BLST_HD BLST_INLINE void ptype##xz_ladder_step(ptype##xz *r, ptype##xz *s, \
                                   const ptype##xz *p) \
 { \
     ptype##xz p5; \
@@ -392,33 +398,33 @@ HOST_DEVICE_FUNC BLST_INLINE void ptype##xz_ladder_step(ptype##xz *r, ptype##xz 
     add_##field(r->Z, r->Z, B);         /* Z4 = 2*E*(XX[+a*ZZ])+b4*ZZ^2 */\
 }
 
-/*
- * Recover the |r|'s y-coordinate using Eq. (8) from Brier-Joye,
- * "Weierstraß Elliptic Curves and Side-Channel Attacks", with XZ twist
- * and conversion to Jacobian coordinates from <openssl>/.../ecp_smpl.c,
- * and with twist to recover from |s| at infinity [which occurs when
- * multiplying by (order-1)].
- *
- * X4 = 2*Y1*X2*Z3*Z1*Z2
- * Y4 = 2*b*Z3*(Z1*Z2)^2 + Z3*(a*Z1*Z2+X1*X2)*(X1*Z2+X2*Z1) - X3*(X1*Z2-X2*Z1)^2
- * Z4 = 2*Y1*Z3*Z2^2*Z1
- *
- * Z3x2 = 2*Z3
- * Y1Z3x2 = Y1*Z3x2
- * Z1Z2 = Z1*Z2
- * X1Z2 = X1*Z2
- * X2Z1 = X2*Z1
- * X4 = Y1Z3x2*X2*Z1Z2
- * A = b*Z3x2*(Z1Z2)^2
- * B = Z3*(a*Z1Z2+X1*X2)*(X1Z2+X2Z1)
- * C = X3*(X1Z2-X2Z1)^2
- * Y4 = A+B-C
- * Z4 = Y1Z3x2*Z1Z2*Z2
- *
- * XZ1 is |p|, XZ2 is |r|, XZ3 is |s|, 'a' is 0.
- */
+          /*
+           * Recover the |r|'s y-coordinate using Eq. (8) from Brier-Joye,
+           * "Weierstraß Elliptic Curves and Side-Channel Attacks", with XZ twist
+           * and conversion to Jacobian coordinates from <openssl>/.../ecp_smpl.c,
+           * and with twist to recover from |s| at infinity [which occurs when
+           * multiplying by (order-1)].
+           *
+           * X4 = 2*Y1*X2*Z3*Z1*Z2
+           * Y4 = 2*b*Z3*(Z1*Z2)^2 + Z3*(a*Z1*Z2+X1*X2)*(X1*Z2+X2*Z1) - X3*(X1*Z2-X2*Z1)^2
+           * Z4 = 2*Y1*Z3*Z2^2*Z1
+           *
+           * Z3x2 = 2*Z3
+           * Y1Z3x2 = Y1*Z3x2
+           * Z1Z2 = Z1*Z2
+           * X1Z2 = X1*Z2
+           * X2Z1 = X2*Z1
+           * X4 = Y1Z3x2*X2*Z1Z2
+           * A = b*Z3x2*(Z1Z2)^2
+           * B = Z3*(a*Z1Z2+X1*X2)*(X1Z2+X2Z1)
+           * C = X3*(X1Z2-X2Z1)^2
+           * Y4 = A+B-C
+           * Z4 = Y1Z3x2*Z1Z2*Z2
+           *
+           * XZ1 is |p|, XZ2 is |r|, XZ3 is |s|, 'a' is 0.
+           */
 #define POINT_LADDER_POST_IMPL_A0(ptype, bits, field, suffixb) \
-HOST_DEVICE_FUNC BLST_INLINE void ptype##xz_ladder_post(ptype *p4, \
+BLST_HD BLST_INLINE void ptype##xz_ladder_post(ptype *p4, \
                                   const ptype##xz *r, const ptype##xz *s, \
                                   const ptype##xz *p, const vec##bits Y1) \
 { \
@@ -465,7 +471,7 @@ HOST_DEVICE_FUNC BLST_INLINE void ptype##xz_ladder_post(ptype *p4, \
 }
 
 #define POINT_IS_EQUAL_IMPL(ptype, bits, field) \
-HOST_DEVICE_FUNC BLST_INLINE  limb_t ptype##_is_equal(const ptype *p1, const ptype *p2) \
+BLST_HD BLST_INLINE  limb_t ptype##_is_equal(const ptype *p1, const ptype *p2) \
 { \
     vec##bits Z1Z1, Z2Z2; \
     ptype##_affine a1, a2; \
@@ -487,15 +493,15 @@ HOST_DEVICE_FUNC BLST_INLINE  limb_t ptype##_is_equal(const ptype *p1, const pty
     return vec_is_equal(&a1, &a2, sizeof(a1)) & (is_inf1 ^ is_inf2 ^ 1); \
 }
 
-/*
- * https://eprint.iacr.org/2015/1060, algorithm 7 with a twist to handle
- * |p3| pointing at either |p1| or |p2|. This is resolved by adding |t5|
- * and replacing few first references to |X3| in the formula, up to step
- * 21, with it. 12M[+27A], doubling and infinity are handled by the
- * formula itself. Infinity is to be encoded as [0, !0, 0].
- */
+           /*
+            * https://eprint.iacr.org/2015/1060, algorithm 7 with a twist to handle
+            * |p3| pointing at either |p1| or |p2|. This is resolved by adding |t5|
+            * and replacing few first references to |X3| in the formula, up to step
+            * 21, with it. 12M[+27A], doubling and infinity are handled by the
+            * formula itself. Infinity is to be encoded as [0, !0, 0].
+            */
 #define POINT_PROJ_DADD_IMPL_A0(ptype, bits, field, suffixb) \
-HOST_DEVICE_FUNC BLST_INLINE void ptype##proj_dadd(ptype##proj *p3, const ptype##proj *p1, \
+BLST_HD BLST_INLINE void ptype##proj_dadd(ptype##proj *p3, const ptype##proj *p1, \
                                               const ptype##proj *p2) \
 { \
     vec##bits t0, t1, t2, t3, t4, t5; \
@@ -536,12 +542,12 @@ HOST_DEVICE_FUNC BLST_INLINE void ptype##proj_dadd(ptype##proj *p3, const ptype#
     add_##field(p3->Z, p3->Z, t0);      /* 33.    Z3 = Z3+t0 */\
 }
 
-/*
- * https://eprint.iacr.org/2015/1060, algorithm 8 with a twist to handle
- * |p2| being infinity encoded as [0, 0]. 11M[+21A].
- */
+            /*
+             * https://eprint.iacr.org/2015/1060, algorithm 8 with a twist to handle
+             * |p2| being infinity encoded as [0, 0]. 11M[+21A].
+             */
 #define POINT_PROJ_DADD_AFFINE_IMPL_A0(ptype, bits, field, suffixb) \
-HOST_DEVICE_FUNC BLST_INLINE void ptype##proj_dadd_affine(ptype##proj *out, const ptype##proj *p1, \
+BLST_HD BLST_INLINE void ptype##proj_dadd_affine(ptype##proj *out, const ptype##proj *p1, \
                                                       const ptype##_affine *p2) \
 { \
     ptype##proj p3[1]; \
@@ -579,14 +585,14 @@ HOST_DEVICE_FUNC BLST_INLINE void ptype##proj_dadd_affine(ptype##proj *out, cons
     vec_select(out, p1, p3, sizeof(*out), p2inf); \
 }
 
-/*
- * https://eprint.iacr.org/2015/1060, algorithm 9 with a twist to handle
- * |p3| pointing at |p1|. This is resolved by adding |t3| to hold X*Y
- * and reordering operations to bring references to |p1| forward.
- * 6M+2S[+13A].
- */
+             /*
+              * https://eprint.iacr.org/2015/1060, algorithm 9 with a twist to handle
+              * |p3| pointing at |p1|. This is resolved by adding |t3| to hold X*Y
+              * and reordering operations to bring references to |p1| forward.
+              * 6M+2S[+13A].
+              */
 #define POINT_PROJ_DOUBLE_IMPL_A0(ptype, bits, field, suffixb) \
-HOST_DEVICE_FUNC BLST_INLINE void ptype##proj_double(ptype##proj *p3, const ptype##proj *p1) \
+BLST_HD BLST_INLINE void ptype##proj_double(ptype##proj *p3, const ptype##proj *p1) \
 { \
     vec##bits t0, t1, t2, t3; \
 \
@@ -609,7 +615,7 @@ HOST_DEVICE_FUNC BLST_INLINE void ptype##proj_double(ptype##proj *p3, const ptyp
 }
 
 #define POINT_PROJ_TO_JACOBIAN_IMPL(ptype, bits, field) \
-HOST_DEVICE_FUNC BLST_INLINE void ptype##proj_to_Jacobian(ptype *out, const ptype##proj *in) \
+BLST_HD BLST_INLINE void ptype##proj_to_Jacobian(ptype *out, const ptype##proj *in) \
 { \
     vec##bits ZZ; \
 \
@@ -620,7 +626,7 @@ HOST_DEVICE_FUNC BLST_INLINE void ptype##proj_to_Jacobian(ptype *out, const ptyp
 }
 
 #define POINT_TO_PROJECTIVE_IMPL(ptype, bits, field, one) \
-HOST_DEVICE_FUNC BLST_INLINE void ptype##_to_projective(ptype##proj *out, const ptype *in) \
+BLST_HD BLST_INLINE void ptype##_to_projective(ptype##proj *out, const ptype *in) \
 { \
     vec##bits ZZ; \
     limb_t is_inf = vec_is_zero(in->Z, sizeof(in->Z)); \
@@ -631,16 +637,16 @@ HOST_DEVICE_FUNC BLST_INLINE void ptype##_to_projective(ptype##proj *out, const 
     mul_##field(out->Z, ZZ, in->Z); \
 }
 
-/******************* !!!!! NOT CONSTANT TIME !!!!! *******************/
+              /******************* !!!!! NOT CONSTANT TIME !!!!! *******************/
 
-/*
- * http://hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-add-2008-s
- * http://hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
- * with twist to handle either input at infinity. Addition costs 12M+2S,
- * while conditional doubling - 4M+6M+3S.
- */
+              /*
+               * http://hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-add-2008-s
+               * http://hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-dbl-2008-s-1
+               * with twist to handle either input at infinity. Addition costs 12M+2S,
+               * while conditional doubling - 4M+6M+3S.
+               */
 #define POINTXYZZ_DADD_IMPL(ptype, bits, field) \
-HOST_DEVICE_FUNC BLST_INLINE void ptype##xyzz_dadd(ptype##xyzz *p3, const ptype##xyzz *p1, \
+BLST_HD BLST_INLINE void ptype##xyzz_dadd(ptype##xyzz *p3, const ptype##xyzz *p1, \
                                               const ptype##xyzz *p2) \
 { \
     vec##bits U, S, P, R; \
@@ -701,14 +707,14 @@ HOST_DEVICE_FUNC BLST_INLINE void ptype##xyzz_dadd(ptype##xyzz *p3, const ptype#
     } \
 }
 
-/*
- * http://hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
- * http://hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-mdbl-2008-s-1
- * with twists to handle even subtractions and either input at infinity.
- * Addition costs 8M+2S, while conditional doubling - 2M+4M+3S.
- */
+               /*
+                * http://hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s
+                * http://hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#doubling-mdbl-2008-s-1
+                * with twists to handle even subtractions and either input at infinity.
+                * Addition costs 8M+2S, while conditional doubling - 2M+4M+3S.
+                */
 #define POINTXYZZ_DADD_AFFINE_IMPL(ptype, bits, field, one) \
-HOST_DEVICE_FUNC BLST_INLINE void ptype##xyzz_dadd_affine(ptype##xyzz *p3, const ptype##xyzz *p1, \
+BLST_HD BLST_INLINE void ptype##xyzz_dadd_affine(ptype##xyzz *p3, const ptype##xyzz *p1, \
                                                      const ptype##_affine *p2, \
                                                      bool_t subtract) \
 { \
@@ -769,7 +775,7 @@ HOST_DEVICE_FUNC BLST_INLINE void ptype##xyzz_dadd_affine(ptype##xyzz *p3, const
 }
 
 #define POINTXYZZ_TO_JACOBIAN_IMPL(ptype, bits, field) \
-HOST_DEVICE_FUNC BLST_INLINE void ptype##xyzz_to_Jacobian(ptype *out, const ptype##xyzz *in) \
+BLST_HD BLST_INLINE void ptype##xyzz_to_Jacobian(ptype *out, const ptype##xyzz *in) \
 { \
     mul_##field(out->X, in->X, in->ZZ); \
     mul_##field(out->Y, in->Y, in->ZZZ); \
@@ -777,11 +783,13 @@ HOST_DEVICE_FUNC BLST_INLINE void ptype##xyzz_to_Jacobian(ptype *out, const ptyp
 }
 
 #define POINT_TO_XYZZ_IMPL(ptype, bits, field) \
-HOST_DEVICE_FUNC BLST_INLINE void ptype##_to_xyzz(ptype##xyzz *out, const ptype *in) \
+BLST_HD BLST_INLINE void ptype##_to_xyzz(ptype##xyzz *out, const ptype *in) \
 { \
     vec_copy(out->X, in->X, 2*sizeof(out->X)); \
     sqr_##field(out->ZZ, in->Z); \
     mul_##field(out->ZZZ, out->ZZ, in->Z); \
+}
+
 }
 
 #endif

@@ -10,6 +10,8 @@
 #include "blst/fields/Fp12_cuda.h"
 #include "blst/exports.h"
 
+using namespace blst;
+
 class Fp12CudaTest : public ::testing::Test {
 protected:
     void SetUp() override {

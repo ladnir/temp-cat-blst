@@ -8,6 +8,7 @@
 #include "blst/curve/e1.h"
 #include "blst/curve/map_to_g1.h"
 
+using namespace blst;
 
 // Helper: Print point coordinates for debugging
 void print_point(const POINTonE1* p, const char* name) {
@@ -235,7 +236,6 @@ TEST(E1PointTest, FixedVectorCompressUncompress) {
             << "Decompressed point not on curve";
     }
 }
-int blst_p1_affine_in_g1(const POINTonE1_affine* p);
 
 TEST(E1PointTest, BasicCompressUncompress) {
     {

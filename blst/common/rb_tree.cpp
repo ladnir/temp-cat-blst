@@ -11,6 +11,9 @@
  * insert-only, failure is returned if message is already in the tree.
  */
 
+namespace blst
+{
+
 struct node {
     struct node *leafs[2];
     const void *data;
@@ -142,3 +145,5 @@ void blst_uniq_init(struct rb_tree *tree)
 
 int blst_uniq_test(struct rb_tree *tree, const void *data, size_t len)
 {   return (int)rb_tree_insert(tree, data, len);   }
+
+} // namespace blst

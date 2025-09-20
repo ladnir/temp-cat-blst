@@ -7,6 +7,7 @@
 
 #include "blst/backend/backend.h"
 #include "blst/fields/consts.h"
+using namespace blst;
 
 namespace
 {

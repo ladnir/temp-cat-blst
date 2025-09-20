@@ -3,6 +3,7 @@
 #include <atomic>
 #include <algorithm>
 #include <utility>
+#include "blst/common/defines.h"
 
 // -------- nodiscard that works across compilers --------
 #if defined(__has_cpp_attribute)
@@ -195,5 +196,12 @@ namespace blst {
         
 		return cuda_future(evt, stream, launch_err);
     }
+
+
+
+
+
+
+
 
 } // namespace blst

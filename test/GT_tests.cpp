@@ -6,6 +6,8 @@
 #include "blst/fields/Fp12.h"
 #include "blst/sign/aggregate.h"
 
+using namespace blst;
+
 class GTTest : public ::testing::Test {
 protected:
     void SetUp() override {

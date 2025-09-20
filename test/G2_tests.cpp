@@ -3,9 +3,10 @@
 #include <string.h>
 #include <stdio.h>
 
-
 #include "blst/curve/e2.h"
 #include "blst/curve/map_to_g2.h"
+
+using namespace blst;
 
 // Helper: Print G2 point coordinates for debugging
 void print_point_e2(const POINTonE2* p, const char* name) {
@@ -198,8 +199,6 @@ TEST(E2PointTest, SerializeDeserialize) {
     // Points should be equal
     EXPECT_TRUE(blst_p2_is_equal(&p1, &p2));
 }
-
-int blst_p2_affine_in_g2(const POINTonE2_affine* p);
 
 TEST(E2PointTest, BasicCompressUncompress) {
     // Starting with the generator point in projective form

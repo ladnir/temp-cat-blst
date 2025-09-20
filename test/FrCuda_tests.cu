@@ -8,6 +8,7 @@
 
 #include "blst/fields/Fr.h"
 #include "blst/fields/Fr_cuda.h"
+using namespace blst;
 
 #define FR_LIMBS NLIMBS(256)
 

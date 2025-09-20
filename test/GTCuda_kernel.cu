@@ -12,6 +12,7 @@
 #include "blst/pairing.h"
 #include "blst/fp12_tower.h"
 #include "blst/aggregate.h"
+using namespace blst;
 
 #ifndef DEVICE_FUNC
 #define DEVICE_FUNC

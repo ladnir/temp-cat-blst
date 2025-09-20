@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 #include "blst/fields/Fr.h"
+using namespace blst;
 
 #define FR_LIMBS NLIMBS(256)
 

@@ -10,6 +10,8 @@
 #include "blst/fields/Fp2_cuda.h"
 #include "blst/exports.h"
 
+using namespace blst;
+
 #define LIMBS NLIMBS(384)
 
 class Fp2CudaTest : public ::testing::Test {
@@ -627,7 +629,7 @@ TEST_F(Fp2CudaTest, VectorSqrt) {
 
     // Generate test data with perfect squares in Montgomery form
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        vec384x temp_base, temp_squared;
+        vec384x temp_base;
         set_vec384x(temp_base, 2 + i, 1 + i);
 
         // Convert to Montgomery form and square to ensure it has a square root

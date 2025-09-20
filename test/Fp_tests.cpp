@@ -5,9 +5,10 @@
 #include <stdio.h>
 
 #include "blst/fields/Fp.h"
+using namespace blst;
 
 #define LIMBS NLIMBS(384)
-
+using namespace blst;
 
 void set_vec384(vec384 v, uint64_t x) {
 	for (int i = 0; i < LIMBS; ++i)
