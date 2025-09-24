@@ -21,7 +21,7 @@ namespace blst
         POINTonE1_affine P[N_MAX];
     } PAIRING;
 
-    int blst_fp12_finalverify(const vec384fp12 GT1, const vec384fp12 GT2);
+    BLST_HD int blst_fp12_finalverify(const vec384fp12 GT1, const vec384fp12 GT2);
 
 }
 //BLST_EXTERN_C_END

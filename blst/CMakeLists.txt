@@ -6,9 +6,9 @@ set(BLST_STATIC_SRC  mains/server.cpp)
 
 if(MSVC)
     set(BLST_OPTS )
-    set(BLST_DEBUG_OPT /Zi /Od /MDd /DEBUG ) #/W4 /WX
-    set(BLST_RELEASE_OPT /O2 /MD)
-    set(BLST_RELWITHDEBINFO_OPT /Zi /O2 /MD /DEBUG)
+    set(BLST_DEBUG_OPT /Zi /Od /DEBUG ) #/W4 /WX
+    set(BLST_RELEASE_OPT /O2 )
+    set(BLST_RELWITHDEBINFO_OPT /Zi /O2 /DEBUG)
     if(CMAKE_SIZEOF_VOID_P EQUAL 8)
         set(ASM_PATTERN "${CMAKE_CURRENT_SOURCE_DIR}/../build/win64/*-x86_64.asm")
     else()
@@ -27,6 +27,10 @@ endif()
 if(BLST_ADX)
     if (MSVC)
       set(BLST_OPTS  ${BLST_OPTS} /arch:AVX2)
+
+      if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        set(BLST_OPTS  ${BLST_OPTS} /clang:-mbmi /clang:-mbmi2 /clang:-madx)
+      endif()
     else()
       set(BLST_OPTS  ${BLST_OPTS} -mbmi2 -madx)
     endif()
@@ -58,7 +62,7 @@ if(BLST_CUDA)
 
     # Tell CMake to compile .c files with NVCC
     set_source_files_properties(${BLST_STATIC_SRC} PROPERTIES LANGUAGE CUDA)
-    set(BLST_STATIC_OPTS
+    set(BLST_OPTS
         # CPU flags forwarded to NVCC's host compiler (only when list non-empty)
         $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<BOOL:${BLST_OPTS}>>:
         $<LIST:TRANSFORM,${BLST_OPTS},PREPEND,-Xcompiler=>>
@@ -90,7 +94,7 @@ if(BLST_CUDA)
 
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     
-        list(APPEND BLST_STATIC_OPTS $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo -Xptxas -O0>)
+        list(APPEND BLST_OPTS $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo -Xptxas -O0>)
 
     endif()
 
@@ -98,16 +102,20 @@ if(BLST_CUDA)
 else()
 
     
-    set(BLST_STATIC_OPTS 
-        $<$<AND:$<CONFIG:Debug>,$<COMPILE_LANGUAGE:C>>:${BLST_DEBUG_OPT}>
-        $<$<AND:$<CONFIG:Release>,$<COMPILE_LANGUAGE:C>>:${BLST_RELEASE_OPT}>
-        $<$<AND:$<CONFIG:RelWithDebInfo>,$<COMPILE_LANGUAGE:C>>:${BLST_RELWITHDEBINFO_OPT}>
+    set(BLST_OPTS  
+        $<$<COMPILE_LANGUAGE:CXX>:${BLST_OPTS}>
+        $<$<AND:$<CONFIG:Debug>,$<COMPILE_LANGUAGE:CXX>>:${BLST_DEBUG_OPT}>
+        $<$<AND:$<CONFIG:Release>,$<COMPILE_LANGUAGE:CXX>>:${BLST_RELEASE_OPT}>
+        $<$<AND:$<CONFIG:RelWithDebInfo>,$<COMPILE_LANGUAGE:CXX>>:${BLST_RELWITHDEBINFO_OPT}>
     )
 endif()
 
-add_library(blst_static ${BLST_STATIC_SRC} ${ASM_SRC} "fields/Fr.h")
+
+
+add_library(blst_static ${BLST_STATIC_SRC} ${ASM_SRC})
 set_target_properties(blst_static PROPERTIES OUTPUT_NAME blst)
-target_compile_options(blst_static PUBLIC ${BLST_STATIC_OPTS})
+#message(STATUS "BLST_OPTS: ${BLST_OPTS}")
+target_compile_options(blst_static PUBLIC ${BLST_OPTS})
 target_include_directories(blst_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)
 
 # for in source builds, we need to include the build dir too (config.h)
@@ -142,6 +150,23 @@ if(BLST_ASAN)
         # For GCC and Clang
         target_compile_options(blst_static PRIVATE -fsanitize=address -fno-omit-frame-pointer)
         target_link_options(blst_static PRIVATE -fsanitize=address)
+    endif()
+endif()
+
+if(BLAS_UBSAN)
+    if(MSVC)
+        # Enable UBSan for Visual Studio
+        if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        # UBSAN requires no iterator debugging in MSVC
+            #target_compile_definitions(blst_static PUBLIC _ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0)
+            target_compile_options(blst_static PUBLIC /clang:-fsanitize=undefined)
+        else()
+            message(WARNING "UBSan is not supported with MSVC, only Clang on Windows")
+        endif()
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        # For GCC and Clang
+        target_compile_options(blst_static PUBLIC -fsanitize=undefined -fno-omit-frame-pointer)
+        target_link_options(blst_static PUBLIC -fsanitize=undefined)
     endif()
 endif()
 

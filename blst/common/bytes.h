@@ -21,7 +21,7 @@ BLST_HD BLST_FORCEINLINE void bytes_zero(unsigned char *a, size_t num)
         a[i] = 0;
 }
 
-BLST_HD BLST_FORCEINLINE void limbs_from_be_bytes(limb_t *restrict ret,
+BLST_HD BLST_FORCEINLINE void limbs_from_be_bytes(limb_t *BLST_restrict ret,
                                        const unsigned char *in, size_t n)
 {
     limb_t limb = 0;
@@ -50,7 +50,7 @@ BLST_HD BLST_FORCEINLINE void be_bytes_from_limbs(unsigned char *out, const limb
     }
 }
 
-BLST_HD BLST_FORCEINLINE void limbs_from_le_bytes(limb_t *restrict ret,
+BLST_HD BLST_FORCEINLINE void limbs_from_le_bytes(limb_t *BLST_restrict ret,
                                        const unsigned char *in, size_t n)
 {
     limb_t limb = 0;

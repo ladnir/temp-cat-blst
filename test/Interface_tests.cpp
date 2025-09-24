@@ -882,7 +882,7 @@ TEST(InterfaceTests, CtIsSquareMod384) {
 
 	for (int t = 0; t < trials; t++)
 	{
-		generate_random_vec384(inp, *get_BLST_P(), 24323421 * t + 2142727192);
+		generate_random_vec384(inp, *get_BLST_P(), u64(24323421) * t + u64(2142727192));
 
 		bool_t is_square_asm = ct_is_square_mod_384(inp, *get_BLST_P()); // ASM implementation
 		bool_t is_square_portable = cc_ct_is_square_mod_384(inp, *get_BLST_P()); // Portable implementation

@@ -204,4 +204,202 @@ namespace blst {
 
 
 
+
+
+
+    inline const char* mtype_str(int t)
+    {
+        switch (t)
+        {
+        case 1: return "host";
+        case 2: return "device";
+        case 3: return "managed";
+        case 4: return "unified";
+        default: return "unknown";
+        }
+    }
+
+    inline void print_dev_limits(int dev)
+    {
+        int maxThreadsPerBlock = 0;
+        int maxGridX = 0;
+        int maxGridY = 0;
+        int maxGridZ = 0;
+        int maxSmemLegacy = 0;
+        int maxSmemOptin = 0;
+        cudaDeviceGetAttribute(&maxThreadsPerBlock, cudaDevAttrMaxThreadsPerBlock, dev);
+        cudaDeviceGetAttribute(&maxGridX, cudaDevAttrMaxGridDimX, dev);
+        cudaDeviceGetAttribute(&maxGridY, cudaDevAttrMaxGridDimY, dev);
+        cudaDeviceGetAttribute(&maxGridZ, cudaDevAttrMaxGridDimZ, dev);
+        cudaDeviceGetAttribute(&maxSmemLegacy, cudaDevAttrMaxSharedMemoryPerBlock, dev);
+        cudaDeviceGetAttribute(&maxSmemOptin, cudaDevAttrMaxSharedMemoryPerBlockOptin, dev);
+        std::fprintf(stderr,
+            "[device %d] maxTPB=%d gridMax=(%d,%d,%d) maxSmemLegacy=%d maxSmemOptin=%d\n",
+            dev, maxThreadsPerBlock, maxGridX, maxGridY, maxGridZ, maxSmemLegacy, maxSmemOptin);
+    }
+
+    template <typename T>
+    inline void check_ptr_arg(const T&) {}
+
+    template <typename T>
+    inline void check_ptr_arg(T* p)
+    {
+        cudaPointerAttributes a;
+        cudaError_t s = cudaPointerGetAttributes(&a, (const void*)p);
+        if (s == cudaSuccess)
+        {
+            std::fprintf(stderr, "  arg %p -> %s\n", (const void*)p, mtype_str((int)a.type));
+        }
+        else
+        {
+            std::fprintf(stderr, "  arg %p -> cudaPointerGetAttributes error %d\n", (const void*)p, (int)s);
+        }
+    }
+
+    template <typename... Args>
+    inline void check_all_ptr_args(const Args&... args)
+    {
+        int dummy[] = { (check_ptr_arg(args), 0)... };
+        (void)dummy;
+    }
+
+    template <typename KernelT>
+    inline void print_kernel_attrs(KernelT k, const char* name)
+    {
+        cudaFuncAttributes fa{};
+        if (cudaFuncGetAttributes(&fa, (const void*)k) == cudaSuccess)
+        {
+            std::fprintf(stderr,
+                "[ker %s] regs=%d staticSmem=%zu local=%zu maxTPB=%d bin=%d ptx=%d\n",
+                name, fa.numRegs, (size_t)fa.sharedSizeBytes, (size_t)fa.localSizeBytes,
+                fa.maxThreadsPerBlock, fa.binaryVersion, fa.ptxVersion);
+        }
+        else
+        {
+            std::fprintf(stderr, "[ker %s] cudaFuncGetAttributes failed\n", name);
+        }
+    }
+
+    template <typename KernelT>
+    inline int suggest_block_size(KernelT k, size_t dyn_smem)
+    {
+        int minGrid = 0;
+        int block = 0;
+        // If dyn_smem varies with block, you can pass a lambda via the VariableSMem API.
+        if (cudaOccupancyMaxPotentialBlockSize(&minGrid, &block, k, (size_t)dyn_smem, 0) == cudaSuccess && block > 0)
+        {
+            return block;
+        }
+        return 128; // fallback guess
+    }
+
+    // NEW: clamp is templated on the kernel so we can set attributes on the right symbol.
+    template <typename KernelT>
+    inline cudaError_t clamp_dims_to_limits(KernelT k,
+        dim3& grid,
+        dim3& block,
+        size_t& dyn_smem,
+        const cudaFuncAttributes& fa,
+        int dev)
+    {
+        int maxTPBDev = 0, maxGridX = 0, maxGridY = 0, maxGridZ = 0;
+        int maxSmemLegacy = 0, maxSmemOptin = 0;
+
+        cudaDeviceGetAttribute(&maxTPBDev, cudaDevAttrMaxThreadsPerBlock, dev);
+        cudaDeviceGetAttribute(&maxGridX, cudaDevAttrMaxGridDimX, dev);
+        cudaDeviceGetAttribute(&maxGridY, cudaDevAttrMaxGridDimY, dev);
+        cudaDeviceGetAttribute(&maxGridZ, cudaDevAttrMaxGridDimZ, dev);
+        cudaDeviceGetAttribute(&maxSmemLegacy, cudaDevAttrMaxSharedMemoryPerBlock, dev);
+        cudaDeviceGetAttribute(&maxSmemOptin, cudaDevAttrMaxSharedMemoryPerBlockOptin, dev);
+
+        // Clamp block to both device and kernel limits
+        const int tpb = (int)block.x * (int)block.y * (int)block.z;
+        const int maxTPBKer = (fa.maxThreadsPerBlock > 0 ? fa.maxThreadsPerBlock : maxTPBDev);
+        if (tpb <= 0 || tpb > maxTPBKer || tpb > maxTPBDev) {
+            int clamped = maxTPBKer < maxTPBDev ? maxTPBKer : maxTPBDev;
+            if (clamped < 1) clamped = 1;
+            block = dim3((unsigned)clamped, 1, 1);
+            std::fprintf(stderr, "[clamp] block -> (%u,%u,%u)\n", block.x, block.y, block.z);
+        }
+
+        // Clamp grid
+        if (grid.x == 0) grid.x = 1; if (grid.y == 0) grid.y = 1; if (grid.z == 0) grid.z = 1;
+        if (grid.x > (unsigned)maxGridX) grid.x = maxGridX;
+        if (grid.y > (unsigned)maxGridY) grid.y = maxGridY;
+        if (grid.z > (unsigned)maxGridZ) grid.z = maxGridZ;
+
+        // Dynamic shared memory opt-in (only if requested)
+        if (dyn_smem > 0) {
+            int cap = (maxSmemOptin > 0 ? maxSmemOptin : maxSmemLegacy);
+            int want = (int)dyn_smem;
+            if (want > cap) want = cap;
+
+            // If we want > legacy, try to opt-in on this kernel symbol
+            if (want > maxSmemLegacy) {
+                cudaError_t s = cudaFuncSetAttribute((const void*)k,
+                    cudaFuncAttributeMaxDynamicSharedMemorySize,
+                    want);
+                if (s != cudaSuccess) {
+                    std::fprintf(stderr, "[clamp] opt-in failed (%s); using legacy %d\n",
+                        cudaGetErrorString(s), maxSmemLegacy);
+                    dyn_smem = (size_t)maxSmemLegacy;
+                }
+                else {
+                    dyn_smem = (size_t)want;
+                }
+            }
+            else {
+                // Stay within legacy cap
+                if ((int)dyn_smem > maxSmemLegacy) dyn_smem = (size_t)maxSmemLegacy;
+            }
+        }
+
+        return cudaSuccess;
+    }
+
+    template <typename KernelT, typename... Args>
+    inline cudaError_t launch_checked(KernelT k,
+        dim3 grid,
+        dim3 block,
+        size_t dyn_smem,
+        cudaStream_t stream,
+        const char* name,
+        const Args&... args)
+    {
+        int dev = 0; cudaGetDevice(&dev);
+        print_dev_limits(dev);
+        print_kernel_attrs(k, name);
+        cudaDeviceSetLimit(cudaLimitStackSize, 64 * 1024);
+
+        std::fprintf(stderr, "[args ptr types]\n");
+        check_all_ptr_args(args...);
+
+        cudaFuncAttributes fa{};
+        cudaFuncGetAttributes(&fa, (const void*)k);
+
+        // NOTE: pass the kernel symbol to clamp so it can set func attributes on the right thing
+        clamp_dims_to_limits(k, grid, block, dyn_smem, fa, dev);
+
+        std::fprintf(stderr, "[launch %s] grid=(%u,%u,%u) block=(%u,%u,%u) dyn_smem=%zu\n",
+            name, grid.x, grid.y, grid.z, block.x, block.y, block.z, dyn_smem);
+
+        k << <grid, block, dyn_smem, stream >> > (args...);
+        cudaError_t e = cudaGetLastError();
+        if (e == cudaSuccess) return e;
+
+        std::fprintf(stderr, "[launch err %s] %s (%d)\n", name, cudaGetErrorString(e), (int)e);
+
+        // Fallback: occupancy-suggested block and tiny grid
+        int sugg = suggest_block_size(k, dyn_smem);
+        if (sugg < 32) sugg = 32;
+        std::fprintf(stderr, "[fallback] suggest block=%d, retry grid=1 block=%d dyn_smem=0\n", sugg, sugg);
+        k << <dim3(1, 1, 1), dim3((unsigned)sugg, 1, 1), 0, stream >> > (args...);
+        cudaError_t e2 = cudaGetLastError();
+        std::fprintf(stderr, "[fallback result] %s (%d)\n", cudaGetErrorString(e2), (int)e2);
+        return e;
+    }
+
+
+
+
 } // namespace blst

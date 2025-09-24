@@ -3,7 +3,7 @@
 
 
 
-#include "blst/Common/Defines.h"
+#include "blst/common/defines.h"
 #include "blst/fields/consts.h"
 #include "blst/backend/backend.h"
 #include "blst/fields/Fp2.h"

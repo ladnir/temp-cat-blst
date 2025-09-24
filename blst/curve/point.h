@@ -36,12 +36,12 @@ BLST_HD void ptype##_cneg(ptype *p, limb_t cbit);			                         \
 BLST_HD void ptype##_to_affine(ptype##_affine *out, const ptype *in);	             \
 BLST_HD void ptype##_from_Jacobian(ptype *out, const ptype *in);		             \
                                                                              \
-BLST_HD BLST_INLINE void ptype##_cswap(ptype *restrict a,			                     \
-                                 ptype *restrict b, bool_t cbit) {	         \
+BLST_HD BLST_INLINE void ptype##_cswap(ptype *BLST_restrict a,			                     \
+                                 ptype *BLST_restrict b, bool_t cbit) {	         \
     vec_cswap(a, b, sizeof(ptype), cbit);				                     \
 }                                                                            \
-BLST_HD BLST_INLINE void ptype##_ccopy(ptype *restrict a,			                     \
-                                 const ptype *restrict b, bool_t cbit) {     \
+BLST_HD BLST_INLINE void ptype##_ccopy(ptype *BLST_restrict a,			                     \
+                                 const ptype *BLST_restrict b, bool_t cbit) {     \
     vec_select(a, b, a, sizeof(ptype), cbit);				                 \
 }
 
@@ -55,8 +55,8 @@ BLST_HD void ptype##xz_ladder_post(ptype *ret,				                         \
                                   const ptype##xz *r, const ptype##xz *s,    \
                                   const ptype##xz *p, const vec##bits Y1);   \
                                                                              \
-BLST_HD BLST_INLINE void ptype##xz_cswap(ptype##xz *restrict a,		                     \
-                                   ptype##xz *restrict b, bool_t cbit) {     \
+BLST_HD BLST_INLINE void ptype##xz_cswap(ptype##xz *BLST_restrict a,		                     \
+                                   ptype##xz *BLST_restrict b, bool_t cbit) {     \
     vec_cswap(a, b, sizeof(ptype##xz), cbit);				                 \
 }
 

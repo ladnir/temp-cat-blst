@@ -16,7 +16,7 @@
 namespace blst
 {
 
-	BLST_HD BLST_FORCEINLINE void vec_copy(void* restrict ret, const void* a, size_t num)
+	BLST_HD BLST_FORCEINLINE void vec_copy(void* BLST_restrict ret, const void* a, size_t num)
 	{
 		limb_t* rp = (limb_t*)ret;
 		const limb_t* ap = (const limb_t*)a;
@@ -166,7 +166,7 @@ namespace blst
 		return byte_is_zero(acc);
 	}
 
-	BLST_HD BLST_FORCEINLINE void vec_cswap(void* restrict a, void* restrict b, size_t num,
+	BLST_HD BLST_FORCEINLINE void vec_cswap(void* BLST_restrict a, void* BLST_restrict b, size_t num,
 		bool_t cbit)
 	{
 		limb_t ai, * ap = (limb_t*)a;

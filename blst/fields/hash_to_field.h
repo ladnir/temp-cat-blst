@@ -34,8 +34,8 @@ namespace blst
         ctx->off = 0;
     }
 
-    BLST_HD BLST_INLINE void vec_xor(void* restrict ret, const void* restrict a,
-        const void* restrict b, size_t num)
+    BLST_HD BLST_INLINE void vec_xor(void* BLST_restrict ret, const void* BLST_restrict a,
+        const void* BLST_restrict b, size_t num)
     {
         limb_t* rp = (limb_t*)ret;
         const limb_t* ap = (const limb_t*)a;

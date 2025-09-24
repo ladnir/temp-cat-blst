@@ -94,7 +94,7 @@ namespace blst
      * Usage pattern is not finalized yet, because (sig != NULL) is better and
      * will be handled separately...
      */
-    BLST_ERROR PAIRING_Aggregate_PK_in_G2(PAIRING* ctx,
+    BLST_HD BLST_ERROR PAIRING_Aggregate_PK_in_G2(PAIRING* ctx,
         const POINTonE2_affine* PK,
         size_t pk_groupcheck,
         const POINTonE1_affine* sig,
@@ -197,7 +197,7 @@ namespace blst
         return BLST_SUCCESS;
     }
 
-    BLST_ERROR blst_pairing_aggregate_pk_in_g2(PAIRING* ctx,
+    BLST_HD BLST_ERROR blst_pairing_aggregate_pk_in_g2(PAIRING* ctx,
         const POINTonE2_affine* PK,
         const POINTonE1_affine* signature,
         const void* msg, size_t msg_len,
@@ -207,7 +207,7 @@ namespace blst
             msg, msg_len, aug, aug_len);
     }
 
-    BLST_ERROR blst_pairing_mul_n_aggregate_pk_in_g2(PAIRING* ctx,
+    BLST_HD BLST_ERROR blst_pairing_mul_n_aggregate_pk_in_g2(PAIRING* ctx,
         const POINTonE2_affine* PK,
         const POINTonE1_affine* sig,
         const byte* scalar,
@@ -221,7 +221,7 @@ namespace blst
             msg, msg_len, aug, aug_len);
     }
 
-    BLST_ERROR blst_pairing_chk_n_aggr_pk_in_g2(PAIRING* ctx,
+    BLST_HD BLST_ERROR blst_pairing_chk_n_aggr_pk_in_g2(PAIRING* ctx,
         const POINTonE2_affine* PK,
         size_t pk_grpchk,
         const POINTonE1_affine* signature,
@@ -233,7 +233,7 @@ namespace blst
             NULL, 0, msg, msg_len, aug, aug_len);
     }
 
-    BLST_ERROR blst_pairing_chk_n_mul_n_aggr_pk_in_g2(PAIRING* ctx,
+    BLST_HD BLST_ERROR blst_pairing_chk_n_mul_n_aggr_pk_in_g2(PAIRING* ctx,
         const POINTonE2_affine* PK,
         size_t pk_grpchk,
         const POINTonE1_affine* sig,
@@ -250,7 +250,7 @@ namespace blst
             msg, msg_len, aug, aug_len);
     }
 
-    BLST_ERROR PAIRING_Aggregate_PK_in_G1(PAIRING* ctx,
+    BLST_HD BLST_ERROR PAIRING_Aggregate_PK_in_G1(PAIRING* ctx,
         const POINTonE1_affine* PK,
         size_t pk_groupcheck,
         const POINTonE2_affine* sig,
@@ -359,7 +359,7 @@ namespace blst
         return BLST_SUCCESS;
     }
 
-    BLST_ERROR blst_pairing_aggregate_pk_in_g1(PAIRING* ctx,
+    BLST_HD BLST_ERROR blst_pairing_aggregate_pk_in_g1(PAIRING* ctx,
         const POINTonE1_affine* PK,
         const POINTonE2_affine* signature,
         const void* msg, size_t msg_len,
@@ -369,7 +369,7 @@ namespace blst
             msg, msg_len, aug, aug_len);
     }
 
-    BLST_ERROR blst_pairing_mul_n_aggregate_pk_in_g1(PAIRING* ctx,
+    BLST_HD BLST_ERROR blst_pairing_mul_n_aggregate_pk_in_g1(PAIRING* ctx,
         const POINTonE1_affine* PK,
         const POINTonE2_affine* sig,
         const byte* scalar,
@@ -383,7 +383,7 @@ namespace blst
             msg, msg_len, aug, aug_len);
     }
 
-    BLST_ERROR blst_pairing_chk_n_aggr_pk_in_g1(PAIRING* ctx,
+    BLST_HD BLST_ERROR blst_pairing_chk_n_aggr_pk_in_g1(PAIRING* ctx,
         const POINTonE1_affine* PK,
         size_t pk_grpchk,
         const POINTonE2_affine* signature,
@@ -395,7 +395,7 @@ namespace blst
             NULL, 0, msg, msg_len, aug, aug_len);
     }
 
-    BLST_ERROR blst_pairing_chk_n_mul_n_aggr_pk_in_g1(PAIRING* ctx,
+    BLST_HD BLST_ERROR blst_pairing_chk_n_mul_n_aggr_pk_in_g1(PAIRING* ctx,
         const POINTonE1_affine* PK,
         size_t pk_grpchk,
         const POINTonE2_affine* sig,
@@ -412,7 +412,7 @@ namespace blst
             msg, msg_len, aug, aug_len);
     }
 
-    void PAIRING_Commit(PAIRING* ctx)
+    BLST_HD void PAIRING_Commit(PAIRING* ctx)
     {
         unsigned int n;
 
@@ -430,12 +430,12 @@ namespace blst
         }
     }
 
-    void blst_pairing_commit(PAIRING* ctx)
+    BLST_HD void blst_pairing_commit(PAIRING* ctx)
     {
         PAIRING_Commit(ctx);
     }
 
-    BLST_ERROR blst_pairing_merge(PAIRING* ctx, const PAIRING* ctx1)
+    BLST_HD BLST_ERROR blst_pairing_merge(PAIRING* ctx, const PAIRING* ctx1)
     {
         if ((ctx->ctrl & MIN_SIG_OR_PK) != AGGR_UNDEFINED
             && (ctx1->ctrl & MIN_SIG_OR_PK) != AGGR_UNDEFINED
@@ -488,7 +488,7 @@ namespace blst
         return BLST_SUCCESS;
     }
 
-    bool_t PAIRING_FinalVerify(const PAIRING* ctx, const vec384fp12 GTsig)
+    BLST_HD bool_t PAIRING_FinalVerify(const PAIRING* ctx, const vec384fp12 GTsig)
     {
         vec384fp12 GT;
 
@@ -533,12 +533,12 @@ namespace blst
             vec_is_zero(GT[0][1], sizeof(GT) - sizeof(GT[0][0]));
     }
 
-    int blst_pairing_finalverify(const PAIRING* ctx, const vec384fp12 GTsig)
+    BLST_HD int blst_pairing_finalverify(const PAIRING* ctx, const vec384fp12 GTsig)
     {
         return (int)PAIRING_FinalVerify(ctx, GTsig);
     }
 
-    int blst_fp12_finalverify(const vec384fp12 GT1, const vec384fp12 GT2)
+    BLST_HD int blst_fp12_finalverify(const vec384fp12 GT1, const vec384fp12 GT2)
     {
         vec384fp12 GT;
 
@@ -552,7 +552,7 @@ namespace blst
             vec_is_zero(GT[0][1], sizeof(GT) - sizeof(GT[0][0])));
     }
 
-    void blst_pairing_raw_aggregate(PAIRING* ctx, const POINTonE2_affine* q,
+    BLST_HD void blst_pairing_raw_aggregate(PAIRING* ctx, const POINTonE2_affine* q,
         const POINTonE1_affine* p)
     {
         unsigned int n;
@@ -578,7 +578,7 @@ namespace blst
         ctx->nelems = n;
     }
 
-    vec384fp12* blst_pairing_as_fp12(PAIRING* ctx)
+    BLST_HD vec384fp12* blst_pairing_as_fp12(PAIRING* ctx)
     {
         PAIRING_Commit(ctx);
         return (vec384fp12*)ctx->GT;
@@ -592,7 +592,7 @@ namespace blst
      * result to affine and call suitable blst_core_verify_pk_in_g{12}
      * or blst_aggregated_in_g{12}...
      */
-    BLST_ERROR blst_aggregate_in_g1(POINTonE1* out, const POINTonE1* in,
+    BLST_HD BLST_ERROR blst_aggregate_in_g1(POINTonE1* out, const POINTonE1* in,
         const unsigned char* zwire)
     {
         POINTonE1 P[1];
@@ -622,7 +622,7 @@ namespace blst
         return BLST_SUCCESS;
     }
 
-    BLST_ERROR blst_aggregate_in_g2(POINTonE2* out, const POINTonE2* in,
+    BLST_HD BLST_ERROR blst_aggregate_in_g2(POINTonE2* out, const POINTonE2* in,
         const unsigned char* zwire)
     {
         POINTonE2 P[1];
@@ -653,17 +653,17 @@ namespace blst
         return BLST_SUCCESS;
     }
 
-    void blst_aggregated_in_g1(vec384fp12 ret, const POINTonE1_affine* sig)
+    BLST_HD void blst_aggregated_in_g1(vec384fp12 ret, const POINTonE1_affine* sig)
     {
         miller_loop_n(ret, (const POINTonE2_affine*)get_BLST_G2(), sig, 1);
     }
 
-    void blst_aggregated_in_g2(vec384fp12 ret, const POINTonE2_affine* sig)
+    BLST_HD void blst_aggregated_in_g2(vec384fp12 ret, const POINTonE2_affine* sig)
     {
         miller_loop_n(ret, sig, (const POINTonE1_affine*)get_BLST_G1(), 1);
     }
 
-    BLST_ERROR blst_core_verify_pk_in_g1(const POINTonE1_affine* pk,
+    BLST_HD BLST_ERROR blst_core_verify_pk_in_g1(const POINTonE1_affine* pk,
         const POINTonE2_affine* signature,
         int hash_or_encode,
         const void* msg, size_t msg_len,
@@ -688,7 +688,7 @@ namespace blst
         return PAIRING_FinalVerify(&ctx, NULL) ? BLST_SUCCESS : BLST_VERIFY_FAIL;
     }
 
-    BLST_ERROR blst_core_verify_pk_in_g2(const POINTonE2_affine* pk,
+    BLST_HD BLST_ERROR blst_core_verify_pk_in_g2(const POINTonE2_affine* pk,
         const POINTonE1_affine* signature,
         int hash_or_encode,
         const void* msg, size_t msg_len,

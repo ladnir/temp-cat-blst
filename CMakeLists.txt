@@ -1,17 +1,23 @@
 # CMakeLists.txt
 cmake_minimum_required(VERSION 3.19)
-project(blst C CXX)
+project(blst CXX)
 
 option(BLST_BUILD_SHARED "Build shared library" OFF)
 option(BLST_PORTABLE     "Force portable C implementation (no assembly)" ON)
 option(BLST_ASM          "Enable assembly optimizations" ON)
 option(BLST_ADX          "Enable ADX in the c code" ON)
 option(BLST_DEFAULT_ASM  "Enable assembly optimizations by default" ON)
-option(BLST_ASAN        "Enable Address Sanitizer" OFF)
+option(BLST_ASAN         "Enable Address Sanitizer" OFF)
+option(BLAS_UBSAN        "Enable UB Sanitizer" OFF)
+option(BLST_BENCHMARK     "Build benchmark executables" ON)
 
 if( NOT DEFINED BLST_LIMB_SIZE)
 	set(BLST_LIMB_SIZE 64)
 endif()
+
+
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 
 
 option(BLST_CUDA "Enable CUDA support" OFF)
@@ -24,6 +30,7 @@ message("BLST_DEFAULT_ASM  = ${BLST_DEFAULT_ASM}") # use asm as the default impl
 message("BLST_CUDA         = ${BLST_CUDA}")     # enable the cude impl (gpu)
 message("BLST_FAST_BUILD   = ${BLST_FAST_BUILD}") # make the cude build faster but slower runtime.
 message("BLST_LIMB_SIZE    = ${BLST_LIMB_SIZE}") # 32 or 64.
+message("BLST_BENCHMARK    = ${BLST_BENCHMARK}") # build benchmarks
 
 
 # Make sure these vars are copied into the try-compile's cache.
@@ -50,3 +57,9 @@ add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:--allow-unsupported-compiler>)
 #add_subdirectory(check)
 add_subdirectory(blst)
 add_subdirectory(test)
+
+# Add benchmark subdirectory if benchmarks are enabled
+if(BLST_BENCHMARK)
+    add_subdirectory(benchmark)
+endif()
+

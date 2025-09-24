@@ -3,14 +3,17 @@
 
 #include "config.h"
 
-#if !defined(restrict)
+// uint8_t, etc
+#include <stdint.h>
+
+#if !defined(BLST_restrict)
 # if !defined(__STDC_VERSION__) || __STDC_VERSION__<199901
 #  if defined(__GNUC__) && __GNUC__>=2
-#   define restrict __restrict__
+#   define BLST_restrict __restrict__
 #  elif defined(_MSC_VER)
-#   define restrict __restrict
+#   define BLST_restrict __restrict
 #  else
-#   define restrict
+#   define BLST_restrict
 #  endif
 # endif
 #endif
@@ -154,9 +157,10 @@ namespace blst
 
 #if defined(__INTELLISENSE__) && defined(BLST_CUDA)
  // IntelliSense: pretend we're compiling for CUDA
-        typedef struct {
+    struct dim3 {
         unsigned int x, y, z;
-    } dim3;
+        dim3(auto, auto, auto) {}
+    } ;
     static const dim3 blockIdx, threadIdx, blockDim;
 #endif
 

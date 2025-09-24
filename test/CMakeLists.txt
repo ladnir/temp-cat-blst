@@ -45,8 +45,8 @@ if(BLST_CUDA)
         "Fp2Cuda_tests.cu"
         "Fp12Cuda_tests.cu"
         "G1Cuda_tests.cu"
-        "G2Cuda_kernel.cu"
         "G2Cuda_tests.cu"
+        "GTCuda_tests.cu"
     )
 
 endif()
@@ -56,9 +56,6 @@ add_executable(blst_tests ${TEST_SOURCES})
 
 target_include_directories(blst_tests PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_link_libraries(blst_tests PRIVATE gtest_main blst_static)
-
-target_compile_definitions(blst_tests PRIVATE ${BLST_STATIC_DEFS})
-target_compile_options(blst_tests PRIVATE ${BLST_STATIC_OPTS})
 
 
 # Add test with appropriate labels and properties

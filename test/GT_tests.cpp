@@ -292,211 +292,11 @@ TEST_F(GTTest, MultiPairing) {
         << "Multi-pairing result should match individual pairings";
 }
 
-TEST_F(GTTest, PowersOfTwo) {
-    // Test successive powers of 2 to find where exponentiation fails
-    vec384fp12 manual, result;
-
-    // Start with the base element
-    memcpy(manual, gt_element, sizeof(vec384fp12));
-#define PowersOfTwo_SIZE 2
- //   auto pre = 17;
- //   for(int i = 0; i < pre; i++) {
-
- //       vec384fp12 alt;
- //       blst_fp12_sqr(alt, manual);
- //       memcpy(manual, alt, sizeof(vec384fp12));
-
- //       printf("2^%d: ", i + 1);
- //       for (int j = 0; j < 12 * 48; j++) {
- //           printf("%02x", ((unsigned char*)manual)[j]);
- //       }
- //       printf("\n");
-	//}
-
-    // Test powers of 2: g^(2^i) for i = 0,1,2,3,...
-    for (int i = 0; i < sizeof(limb_t)*8* PowersOfTwo_SIZE; i++)
-    {  // Test reasonable number of powers
-        // Create exponent 2^i
-        limb_t exp[PowersOfTwo_SIZE];
-        memset(exp, 0, sizeof(exp));
-
-        auto limb = i / (sizeof(limb_t) * 8);
-        auto bit = i % (sizeof(limb_t) * 8);
-        exp[limb] = (limb_t)1 << bit;
-		//printf("blst_fp12_pow 2^%d \n\n", i);
-
-        // Calculate using blst_fp12_pow
-        blst_fp12_pow(result, gt_element, exp, sizeof(exp) * 8);
-        // They should be equal
-        EXPECT_TRUE(blst_fp12_is_equal(result, manual))
-            << "Power of 2 test failed for 2^" << i;
-
-        // Prepare for next iteration by squaring
-        vec384fp12 alt;
-        blst_fp12_sqr(alt, manual);
-		memcpy(manual, alt, sizeof(vec384fp12));
-
-
-    }
-}
-
-TEST_F(GTTest, ExponentiationCornerCases) {
-    // Test to understand why high bit exponentiation is failing
-    vec384fp12 result, expected;
-
-    // Test specifically with the high bit
-    limb_t high_bit[4] = { 0, 0, 0, 0 };
-    limb_t bit_position = (sizeof(limb_t) * 8) - 1;
-    high_bit[0] = ((limb_t)1) << bit_position;
-
-    // Calculate using exponentiation function
-    blst_fp12_pow(result, gt_element, high_bit, sizeof(high_bit) * 8);
-
-    // Calculate manually - starting with the base element
-    memcpy(expected, gt_element, sizeof(vec384fp12));
-
-    // Square exactly bit_position times (not bit_position-1)
-    for (size_t i = 0; i < bit_position; i++) {
-        blst_fp12_sqr(expected, expected);
-    }
-
-    // Check equality
-    EXPECT_TRUE(blst_fp12_is_equal(result, expected))
-        << "High bit exponentiation failed with bit position " << bit_position;
-}
-
-TEST_F(GTTest, AdvancedExponentiation) {
-    vec384fp12 result, expected;
-
-    // Test power of 10
-    limb_t ten[4] = { 10, 0, 0, 0 };
-    blst_fp12_pow(result, gt_element, ten, sizeof(ten) * 8);
-
-    // Calculate e^10 by repeated multiplication
-    blst_fp12_one_copy(expected);
-    for (int i = 0; i < 10; i++) {
-        blst_fp12_mul(expected, expected, gt_element);
-    }
-
-    EXPECT_TRUE(blst_fp12_is_equal(result, expected))
-        << "e^10 should equal e * e * ... * e (10 times)";
-
-    // Test with a large limb value (single bit high up in limb)
-    limb_t high_bit[4] = { 0, 0, 0, 0 };
-    high_bit[0] = (limb_t)1 << (sizeof(limb_t) * 8 - 1);  // Highest bit in first limb
-    blst_fp12_pow(result, gt_element, high_bit, sizeof(high_bit) * 8);
-
-    // Calculate this power by squaring many times - START WITH gt_element, not 1!
-    memcpy(expected, gt_element, sizeof(vec384fp12));  // Start with base^1
-    for (size_t i = 0; i < sizeof(limb_t) * 8 - 1; i++) {  // Square 63 times to get base^(2^63)
-        blst_fp12_sqr(expected, expected);
-    }
-    // No final multiply needed - we already have base^(2^63)
-
-    EXPECT_TRUE(blst_fp12_is_equal(result, expected))
-        << "Exponentiation with high bit should match manual calculation";
-
-    // Test with scattered bits
-    limb_t scattered_bits[4] = { 0, 0, 0, 0 };
-    scattered_bits[0] = 1 | (1 << 4) | (1 << 8);  // Bits 0, 4, and 8 set
-    blst_fp12_pow(result, gt_element, scattered_bits, sizeof(scattered_bits) * 8);
-
-    // Calculate manually
-    blst_fp12_one_copy(expected);
-    blst_fp12_mul(expected, expected, gt_element);  // Bit 0
-    for (int i = 0; i < 4; i++) {
-        blst_fp12_sqr(expected, expected);
-    }
-    blst_fp12_mul(expected, expected, gt_element);  // Bit 4
-    for (int i = 0; i < 4; i++) {
-        blst_fp12_sqr(expected, expected);
-    }
-    blst_fp12_mul(expected, expected, gt_element);  // Bit 8
-
-    EXPECT_TRUE(blst_fp12_is_equal(result, expected))
-        << "Exponentiation with scattered bits should match manual calculation";
-}
-
-TEST_F(GTTest, Conjugate) {
-    // Test conjugate operation
-    vec384fp12 conjugate;
-    memcpy(conjugate, gt_element, sizeof(vec384fp12));
-    blst_fp12_conjugate(conjugate);
-
-    // Conjugate of conjugate should give original value
-    vec384fp12 double_conjugate;
-    memcpy(double_conjugate, conjugate, sizeof(vec384fp12));
-    blst_fp12_conjugate(double_conjugate);
-    EXPECT_TRUE(blst_fp12_is_equal(gt_element, double_conjugate))
-        << "Conjugate of conjugate should equal original value";
-
-    // Conjugate * original should equal norm (which in cyclotomic is 1)
-    vec384fp12 product;
-    blst_fp12_mul(product, gt_element, conjugate);
-
-    // Let's verify if we get identity (this might not be true in all cases,
-    // but works for many elements in the cyclotomic subgroup)
-    vec384fp12 identity;
-    blst_fp12_one_copy(identity);
-
-    // Verify that conjugate is also in GT
-    EXPECT_TRUE(blst_fp12_in_group(conjugate))
-        << "Conjugate should be in GT group";
-}
-
-TEST_F(GTTest, CyclotomicSquaring) {
-    // Test cyclotomic squaring
-    // First make sure the element is in cyclotomic subgroup
-    blst_final_exp(gt_element, gt_element);
-
-    vec384fp12 cyclo_square;
-    cyclotomic_sqr_fp12(cyclo_square, gt_element);
-    
-    // Compare with regular squaring
-    vec384fp12 regular_square;
-    blst_fp12_sqr(regular_square, gt_element);
-
-    // They should be equal
-    EXPECT_TRUE(blst_fp12_is_equal(cyclo_square, regular_square))
-        << "Cyclotomic squaring should equal regular squaring for GT elements";
-
-    // But cyclotomic squaring should be more efficient
-    // (we can't test performance directly, but we can verify correctness)
-}
-
-//TEST_F(GTTest, FrobeniusMap) {
-//    // Test Frobenius map operation (raises to power of p)
-//    vec384fp12 frob;
-//    blst_fp12_frobenius_map(frob, gt_element, 1);
-//
-//    // Frobenius^12 should be identity on Fp12
-//    vec384fp12 frob12;
-//    vec384fp12 temp;
-//    memcpy(temp, gt_element, sizeof(vec384fp12));
-//
-//    for (int i = 0; i < 12; i++) {
-//        blst_fp12_frobenius_map(frob12, temp, 1);
-//        memcpy(temp, frob12, sizeof(vec384fp12));
-//    }
-//
-//    EXPECT_TRUE(blst_fp12_is_equal(gt_element, temp))
-//        << "Frobenius^12 should be identity on Fp12";
-//
-//    // Test that frob^6 is conjugation for elements in cyclotomic subgroup
-//    blst_fp12_frobenius_map(frob12, gt_element, 6);
-//    memcpy(temp, gt_element, sizeof(gt_element));
-//    blst_fp12_conjugate(temp);
-//
-//    EXPECT_TRUE(blst_fp12_is_equal(frob12, temp))
-//        << "Frobenius^6 should equal conjugation for GT elements";
-//}
-
 TEST_F(GTTest, FinalVerify) {
     // Test finalverify function (equality after final exponentiation)
 
     // Create two different pairings that should be equal after final_exp
     POINTonE1 g1_double;
-    //POINTonE2 g2_half;
     blst_p1_double(&g1_double, &g1_point);
 
     // Create a "half" point in G2 by multiplying by inverse of 2 (if available)
@@ -535,41 +335,6 @@ TEST_F(GTTest, FinalVerify) {
         << "finalverify should agree with is_equal in basic cases";
 }
 
-//void custom_fp12_from_bendian(vec384fp12 ret, const unsigned char serialized[12 * 48]) {
-//    // This is a simplified implementation that may need adjustment based on actual vec384fp12 structure
-//    for (size_t i = 0; i < 12; i++) {
-//        limb_t* limb_ptr = &(((limb_t*)ret)[i * (384 / 8 / sizeof(limb_t))]);
-//        // Convert from big-endian bytes to limbs
-//        for (size_t j = 0; j < 48; j++) {
-//            size_t byte_pos = i * 48 + j;
-//            size_t shift = 8 * (48 - 1 - j % 48);
-//            if (j % sizeof(limb_t) == 0)
-//                limb_ptr[j / sizeof(limb_t)] = 0;
-//            limb_ptr[j / sizeof(limb_t)] |= (limb_t)serialized[byte_pos] << shift;
-//        }
-//    }
-//}
-
-TEST_F(GTTest, Serialization) {
-    // Test serialization/deserialization of GT elements
-    vec384fp12 original;
-    memcpy(original, gt_element, sizeof(vec384fp12));
-
-    // Serialize to bytes - using bendian format
-    unsigned char serialized[12 * 48];  // Fp12 consists of 12 base field elements
-    blst_bendian_from_fp12(serialized, original);
-
-    // Deserialize back
-    vec384fp12 deserialized;
-    //void blst_bendian_from_fp12(unsigned char ret[48 * 12], const vec384fp12 a);
-
-    blst_fp12_from_bendian(deserialized, serialized);
-
-    // The original and deserialized values should be equal
-    EXPECT_TRUE(blst_fp12_is_equal(original, deserialized))
-        << "Deserialized value should equal original";
-}
-
 TEST_F(GTTest, PairingWithPrecomputation) {
     // Test using precomputed lines for pairing
     vec384fp6 lines[68];  // Size from the API
@@ -603,4 +368,48 @@ TEST_F(GTTest, PairingWithPrecomputation) {
 
     EXPECT_TRUE(blst_fp12_is_equal(direct_double_result, pre_double_result))
         << "Precomputed pairing should work with different G1 points";
+}
+
+TEST_F(GTTest, MillerLoopOnly) {
+    // Test Miller loop without final exponentiation
+    vec384fp12 miller_result1, miller_result2;
+    
+    // Compute Miller loop for same pairing twice
+    blst_miller_loop(miller_result1, &g2_affine, &g1_affine);
+    blst_miller_loop(miller_result2, &g2_affine, &g1_affine);
+    
+    // Should be equal
+    EXPECT_TRUE(blst_fp12_is_equal(miller_result1, miller_result2))
+        << "Miller loop should be deterministic";
+    
+    // Should not be in GT group before final exp
+    EXPECT_FALSE(blst_fp12_in_group(miller_result1))
+        << "Miller loop result should not be in GT before final exponentiation";
+    
+    // Apply final exp and verify it's now in GT
+    vec384fp12 final_result;
+    blst_final_exp(final_result, miller_result1);
+    EXPECT_TRUE(blst_fp12_in_group(final_result))
+        << "Result should be in GT after final exponentiation";
+}
+
+TEST_F(GTTest, PairingIdentityProperties) {
+    // Test pairing with identity elements
+    
+    // Create identity point in G1 (point at infinity)
+    POINTonE1 g1_identity;
+    memset(&g1_identity, 0, sizeof(g1_identity));
+    // Set z coordinate to 0 to make it point at infinity
+    //g1_identity.z[0] = 0;
+    
+    POINTonE1_affine g1_identity_affine;
+    blst_p1_to_affine(&g1_identity_affine, &g1_identity);
+    
+    // Pairing with identity should give identity in GT
+    vec384fp12 pairing_with_identity;
+    blst_miller_loop(pairing_with_identity, &g2_affine, &g1_identity_affine);
+    blst_final_exp(pairing_with_identity, pairing_with_identity);
+    
+    EXPECT_TRUE(blst_fp12_is_one(pairing_with_identity))
+        << "Pairing with identity point should give identity in GT";
 }

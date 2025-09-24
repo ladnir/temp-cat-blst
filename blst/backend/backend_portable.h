@@ -1363,9 +1363,9 @@ do {                                                                           \
 #if (defined(__GNUC__) || defined(__clang__)) && !defined(__CUDA_ARCH__) 
 		// Use GCC/Clang built-in functions for counting leading zeros
 #if BLST_LIMB_SIZE == 64
-		return (l != 0) * (64 - __builtin_clzll(l));
+		return (l != 0) * (64 - __builtin_clzll(l ? l : 1));
 #else
-		return (l != 0) * (32 - __builtin_clz(l));
+		return (l != 0) * (32 - __builtin_clz(l ? l : 1));
 #endif
 
 #elif defined(_MSC_VER) && !defined(__CUDA_ARCH__) 

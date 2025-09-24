@@ -13,7 +13,7 @@
 #  define DEVICE_FUNC __device__
 
 // this function is called from both CPU and GPU code
-#  define HOST_DEVICE_FUNC __host__ __device__
+#  define BLST_HD __host__ __device__
 
 // this function is called from CPU code and launches GPU code
 #  define GLOBAL_FUNC __global__
@@ -23,7 +23,7 @@
 #  define DEVICE_FUNC
 
 // this function is called from both CPU and GPU code
-#  define HOST_DEVICE_FUNC
+#  define BLST_HD
 
 // this function is called from CPU code and launches GPU code
 #  define GLOBAL_FUNC

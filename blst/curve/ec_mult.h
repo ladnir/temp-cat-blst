@@ -70,7 +70,7 @@ namespace blst
      * infinity "naturally," since resulting Z is product of original Z.]
      */
 #define POINT_MULT_SCALAR_WX_IMPL(ptype, SZ) \
-BLST_HD BLST_INLINE bool_t ptype##_gather_booth_w##SZ(ptype *restrict p, \
+BLST_HD BLST_INLINE bool_t ptype##_gather_booth_w##SZ(ptype *BLST_restrict p, \
                                          const ptype table[1<<(SZ-1)], \
                                          limb_t booth_idx) \
 { \
@@ -245,7 +245,7 @@ BLST_HD BLST_INLINE void ptype##_mult_w##SZ(ptype *ret, const ptype *point, \
 
 
 template<typename ptype, int SZ>
-BLST_HD BLST_INLINE bool_t gather_booth_w(ptype *restrict p, 
+BLST_HD BLST_INLINE bool_t gather_booth_w(ptype *BLST_restrict p, 
                                          const ptype table[1<<(SZ-1)], 
                                          limb_t booth_idx) 
 { 

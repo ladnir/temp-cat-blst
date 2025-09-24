@@ -28,6 +28,35 @@
       }
     },
     {
+      "name": "ninja-clang",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/ninja-clangcl",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "C:\\Program Files\\LLVM\\bin\\clang-cl.exe",
+        "CMAKE_CXX_COMPILER": "C:\\Program Files\\LLVM\\bin\\clang-cl.exe",
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "BLST_PORTABLE": true,
+        "BLST_CUDA": false,
+        "BLST_ASM": true,
+        "BLST_ADX": true,
+        "BLST_DEFAULT_ASM": true,
+        "BLST_ASAN": false,
+        "BLAS_UBSAN": true,
+        "BLST_FAST_BUILD": true,
+        "BLST_LIMB_SIZE": "64"
+      },
+      "environment": {
+        "PATH": "C:\\Program Files\\LLVM\\bin;$penv{PATH}"
+      },
+      "vendor": {
+        "microsoft.com/VisualStudioSettings/CMake/1.0": {
+          "hostOS": [
+            "Windows"
+          ]
+        }
+      }
+    },
+    {
       "name": "x64-Debug",
       "displayName": "Windows x64 Debug",
       "description": "Target Windows with the Visual Studio development environment.",
@@ -45,7 +74,7 @@
         "BLST_ADX": true,
         "BLST_DEFAULT_ASM": true,
         "BLST_ASAN": false,
-        "BLST_FAST_BUILD":  true,
+        "BLST_FAST_BUILD": true,
         "BLST_LIMB_SIZE": "64",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
       },

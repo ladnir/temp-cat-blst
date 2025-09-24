@@ -29,5 +29,5 @@
 # include "blst/fields/pentaroot.cpp"
 #endif
 #ifndef __BLST_NO_CPUID__
-# include "blst/common/cpuid.cpp"
+//# include "blst/common/cpuid.cpp"
 #endif
