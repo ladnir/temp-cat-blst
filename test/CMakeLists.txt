@@ -39,14 +39,13 @@ if(BLST_CUDA)
     
     # Add CUDA test source
     list(APPEND TEST_SOURCES 
-        "FpCuda_tests.cu"
-        "FrCuda_tests.cu"
-
-        "Fp2Cuda_tests.cu"
-        "Fp12Cuda_tests.cu"
-        "G1Cuda_tests.cu"
-        "G2Cuda_tests.cu"
-        "GTCuda_tests.cu"
+        "FpCuda_tests.cpp"
+        "FrCuda_tests.cpp"
+        "Fp2Cuda_tests.cpp"
+        "Fp12Cuda_tests.cpp"
+        "G1Cuda_tests.cpp"
+        "G2Cuda_tests.cpp"
+        "GTCuda_tests.cpp"
     )
 
 endif()

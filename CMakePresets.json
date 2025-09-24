@@ -99,6 +99,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "LIBOTE_STD_VER": "20",
+        "BLST_CUDA": true,
         "BLST_PORTABLE": true,
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
       },
