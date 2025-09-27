@@ -11,58 +11,246 @@
 #include "blst/common/vect.h"
 #include "blst/common/bytes.h"
 #include "blst/fields/consts.h"
-
+#include <type_traits>
 
 namespace blst
 {
 
     //BLST_EXTERN_C_BEGIN
 
-#define DECLARE_POINT(ptype, bits)                                           \
-typedef struct { vec##bits X,Y,Z; } ptype;                                   \
-typedef struct { vec##bits X,Y; } ptype##_affine;                            \
-                                                                             \
-BLST_HD void ptype##_dadd(ptype *out, const ptype *p1, const ptype *p2,	             \
-                         const vec##bits a4);				                 \
-BLST_HD void ptype##_dadd_affine(ptype *out, const ptype *p1,		                 \
-                                            const ptype##_affine *p2);	     \
-BLST_HD void ptype##_add(ptype *out, const ptype *p1, const ptype *p2);	             \
-BLST_HD void ptype##_add_affine(ptype *out, const ptype *p1,		                 \
-                                           const ptype##_affine *p2);	     \
-BLST_HD void ptype##_double(ptype *out, const ptype *p1);		                     \
-BLST_HD void ptype##_mult_w5(ptype *out, const ptype *point,		                 \
-                            const byte *scalar, size_t nbits);		         \
-BLST_HD void ptype##_cneg(ptype *p, limb_t cbit);			                         \
-BLST_HD void ptype##_to_affine(ptype##_affine *out, const ptype *in);	             \
-BLST_HD void ptype##_from_Jacobian(ptype *out, const ptype *in);		             \
-                                                                             \
-BLST_HD BLST_INLINE void ptype##_cswap(ptype *BLST_restrict a,			                     \
-                                 ptype *BLST_restrict b, bool_t cbit) {	         \
-    vec_cswap(a, b, sizeof(ptype), cbit);				                     \
-}                                                                            \
-BLST_HD BLST_INLINE void ptype##_ccopy(ptype *BLST_restrict a,			                     \
-                                 const ptype *BLST_restrict b, bool_t cbit) {     \
-    vec_select(a, b, a, sizeof(ptype), cbit);				                 \
-}
+//#define DECLARE_POINT(ptype, bits)                                           \
+//typedef struct { vec##bits X,Y,Z; } ptype;                                   \
+//typedef struct { vec##bits X,Y; } ptype##_affine;                            \
+//                                                                             \
+//BLST_HD void ptype##_dadd(ptype *out, const ptype *p1, const ptype *p2,	             \
+//                         const vec##bits a4);				                 \
+//BLST_HD void ptype##_dadd_affine(ptype *out, const ptype *p1,		                 \
+//                                            const ptype##_affine *p2);	     \
+//BLST_HD void ptype##_add(ptype *out, const ptype *p1, const ptype *p2);	             \
+//BLST_HD void ptype##_add_affine(ptype *out, const ptype *p1,		                 \
+//                                           const ptype##_affine *p2);	     \
+//BLST_HD void ptype##_double(ptype *out, const ptype *p1);		                     \
+//BLST_HD void ptype##_mult_w5(ptype *out, const ptype *point,		                 \
+//                            const byte *scalar, size_t nbits);		         \
+//BLST_HD void ptype##_cneg(ptype *p, limb cbit);			                         \
+//BLST_HD void ptype##_to_affine(ptype##_affine *out, const ptype *in);	             \
+//BLST_HD void ptype##_from_Jacobian(ptype *out, const ptype *in);		             \
+//                                                                             \
+//BLST_HD BLST_INLINE void ptype##_cswap(ptype *BLST_restrict a,			                     \
+//                                 ptype *BLST_restrict b, bool_t cbit) {	         \
+//    vec_cswap(a, b, sizeof(ptype), cbit);				                     \
+//}                                                                            \
+//BLST_HD BLST_INLINE void ptype##_ccopy(ptype *BLST_restrict a,			                     \
+//                                 const ptype *BLST_restrict b, bool_t cbit) {     \
+//    vec_select(a, b, a, sizeof(ptype), cbit);				                 \
+//}
+//
+//#define DECLARE_PRIVATE_POINTXZ(ptype, bits)                                 \
+//typedef struct { vec##bits X,Z; } ptype##xz;                                 \
+//                                                                             \
+//BLST_HD void ptype##xz_ladder_pre(ptype##xz *out, const ptype *in);	                 \
+//BLST_HD void ptype##xz_ladder_step(ptype##xz *r, ptype##xz *s,		                 \
+//                                  const ptype##xz *p);			             \
+//BLST_HD void ptype##xz_ladder_post(ptype *ret,				                         \
+//                                  const ptype##xz *r, const ptype##xz *s,    \
+//                                  const ptype##xz *p, const vec##bits Y1);   \
+//                                                                             \
+//BLST_HD BLST_INLINE void ptype##xz_cswap(ptype##xz *BLST_restrict a,		                     \
+//                                   ptype##xz *BLST_restrict b, bool_t cbit) {     \
+//    vec_cswap(a, b, sizeof(ptype##xz), cbit);				                 \
+//}
+//
+//    DECLARE_POINT(POINTonE1, 384)
+//
+//    DECLARE_POINT(POINTonE2, 384x)
 
-#define DECLARE_PRIVATE_POINTXZ(ptype, bits)                                 \
-typedef struct { vec##bits X,Z; } ptype##xz;                                 \
-                                                                             \
-BLST_HD void ptype##xz_ladder_pre(ptype##xz *out, const ptype *in);	                 \
-BLST_HD void ptype##xz_ladder_step(ptype##xz *r, ptype##xz *s,		                 \
-                                  const ptype##xz *p);			             \
-BLST_HD void ptype##xz_ladder_post(ptype *ret,				                         \
-                                  const ptype##xz *r, const ptype##xz *s,    \
-                                  const ptype##xz *p, const vec##bits Y1);   \
-                                                                             \
-BLST_HD BLST_INLINE void ptype##xz_cswap(ptype##xz *BLST_restrict a,		                     \
-                                   ptype##xz *BLST_restrict b, bool_t cbit) {     \
-    vec_cswap(a, b, sizeof(ptype##xz), cbit);				                 \
-}
 
-    DECLARE_POINT(POINTonE1, 384)
+    template<typename Field>
+    struct Point_affine;
 
-    DECLARE_POINT(POINTonE2, 384x)
+
+    template<typename Field>
+    struct Pointxyzz;
+
+    template<typename Field>
+    struct Point
+    {
+		using Field_type = Field;
+
+		constexpr Point() = default;
+		constexpr Point(const Point&) = default;  
+		constexpr Point& operator=(const Point&) = default;
+
+		constexpr Point(const Field& x, const Field& y, const Field& z) : X(x), Y(y), Z(z) {}
+
+        Field X, Y, Z;
+
+
+        static BLST_HD void dadd(Point& out, const Point& p1, const Point& p2, const Field* a4 /*optional*/);
+
+        static BLST_HD void dadd_affine(Point<Field>& out, const Point<Field>& p1,
+            const Point_affine<Field>& p2);
+
+        static BLST_HD void add(Point& out, const Point& p1, const Point& p2);
+        static BLST_HD void add_affine(Point& out, const Point& p1,
+            const Point_affine<Field>& p2);
+
+        static BLST_HD void doubling(Point& out, const Point& p1);
+        
+        static BLST_HD void mult_w5(Point& out, const Point& point,
+            const byte* scalar, size_t nbits);
+
+        static BLST_HD void cneg(Point& p, limb cbit);
+        static BLST_HD void to_affine(Point_affine<Field>& out, const Point& in);
+        static BLST_HD void from_Jacobian(Point& out, const Point& in);
+
+		// conditional swap: if cbit is 1, swap a and b
+        static BLST_HD BLST_INLINE void cswap(Point& BLST_restrict a,
+            Point& BLST_restrict b, bool_t cbit) 
+        {
+			BLST_ASSERT(&a != &b);
+			BLST_ASSUME(&a != &b);
+            vec_cswap(&a, &b, sizeof(Point), cbit);
+        }
+        static BLST_HD BLST_INLINE void ccopy(Point& BLST_restrict a,
+            const Point& BLST_restrict b, bool_t cbit)
+        {
+            BLST_ASSERT(&a != &b);
+            BLST_ASSUME(&a != &b);
+            vec_select(&a, &b, &a, sizeof(Point), cbit);
+        }
+
+		static BLST_HD limb is_equal(const Point& p1, const Point& p2);
+
+        static BLST_HD BLST_INLINE void to_xyzz(Pointxyzz<Field>& out, const Point<Field>& in);
+
+
+		static BLST_HD const Point& one();
+
+    };
+	static_assert(std::is_trivially_constructible_v<Point<Fp>>, "Point<Fp> must be an aggregate type");
+
+    template<typename Field>
+    struct Point_affine
+    {
+        Field X, Y;
+
+        static BLST_HD void dadd(Point_affine& out, const Point_affine& p1,
+            const Point_affine& p2);
+
+
+    };
+
+    template<typename Field>
+    struct Pointxyzz {
+        Field X, Y, ZZZ, ZZ;
+
+        static BLST_HD void dadd(Pointxyzz<Field>& p3, const Pointxyzz<Field>& p1,
+            const Pointxyzz<Field>& p2);
+
+        static BLST_HD void dadd_affine(Pointxyzz<Field>& p3, const Pointxyzz<Field>& p1,
+            const Point_affine<Field>& p2,
+            bool_t subtract);
+
+        static BLST_HD void to_Jacobian(Point<Field>& out, const Pointxyzz<Field>& in);
+
+    };
+	using POINTonE1 = Point<Fp>;
+	using POINTonE1_affine = Point_affine<Fp>;
+	using POINTonE2 = Point<Fp2>;
+	using POINTonE2_affine = Point_affine<Fp2>;
+
+
+    BLST_HD BLST_INLINE void print(const char* name, const POINTonE2& p)
+    {
+
+        printf("%s:\n", name);
+        printf("  X.Re: ");
+        for (int i = NLIMBS(384) - 1; i >= 0; i--) {
+            printf("%016llx ", (unsigned long long)p.X[0][i]);
+        }
+        printf("\n  X.Im: ");
+        for (int i = NLIMBS(384) - 1; i >= 0; i--) {
+            printf("%016llx ", (unsigned long long)p.X[1][i]);
+        }
+        printf("\n  Y.Re: ");
+        for (int i = NLIMBS(384) - 1; i >= 0; i--) {
+            printf("%016llx ", (unsigned long long)p.Y[0][i]);
+        }
+        printf("\n  Y.Im: ");
+        for (int i = NLIMBS(384) - 1; i >= 0; i--) {
+            printf("%016llx ", (unsigned long long)p.Y[1][i]);
+        }
+        printf("\n  Z.Re: ");
+        for (int i = NLIMBS(384) - 1; i >= 0; i--) {
+            printf("%016llx ", (unsigned long long)p.Z[0][i]);
+        }
+        printf("\n  Z.Im: ");
+        for (int i = NLIMBS(384) - 1; i >= 0; i--) {
+            printf("%016llx ", (unsigned long long)p.Z[1][i]);
+        }
+        printf("\n");
+    }
+
+    BLST_HD BLST_INLINE void print(const char* name, const POINTonE1& p)
+    {
+
+        printf("%s:\n", name);
+        printf("  X: ");
+        for (int i = NLIMBS(384) - 1; i >= 0; i--) {
+            printf("%016llx ", (unsigned long long)p.X[i]);
+        }
+        printf("\n  Y: ");
+        for (int i = NLIMBS(384) - 1; i >= 0; i--) {
+            printf("%016llx ", (unsigned long long)p.Y[i]);
+        }
+        printf("\n  Z: ");
+        for (int i = NLIMBS(384) - 1; i >= 0; i--) {
+            printf("%016llx ", (unsigned long long)p.Z[i]);
+        }
+        printf("\n");
+    }
+
+    BLST_HD BLST_INLINE void print(const char* name, const POINTonE2_affine& p)
+    {
+
+        printf("%s:\n", name);
+        printf("  X.Re: ");
+        for (int i = NLIMBS(384) - 1; i >= 0; i--) {
+            printf("%016llx ", (unsigned long long)p.X[0][i]);
+        }
+        printf("\n  X.Im: ");
+        for (int i = NLIMBS(384) - 1; i >= 0; i--) {
+            printf("%016llx ", (unsigned long long)p.X[1][i]);
+        }
+        printf("\n  Y.Re: ");
+        for (int i = NLIMBS(384) - 1; i >= 0; i--) {
+            printf("%016llx ", (unsigned long long)p.Y[0][i]);
+        }
+        printf("\n  Y.Im: ");
+        for (int i = NLIMBS(384) - 1; i >= 0; i--) {
+            printf("%016llx ", (unsigned long long)p.Y[1][i]);
+        }
+        printf("\n");
+    }
+
+    BLST_HD BLST_INLINE void print(const char* name, const POINTonE1_affine& p)
+    {
+
+        printf("%s:\n", name);
+        printf("  X: ");
+        for (int i = NLIMBS(384) - 1; i >= 0; i--) {
+            printf("%016llx ", (unsigned long long)p.X[i]);
+        }
+        printf("\n  Y: ");
+        for (int i = NLIMBS(384) - 1; i >= 0; i--) {
+            printf("%016llx ", (unsigned long long)p.Y[i]);
+        }
+        printf("\n");
+    }
+
+
+    static_assert(std::is_trivially_constructible_v<POINTonE1>, "POINTonE1 must be an aggregate type");
 
 #ifdef __GNUC__
 # pragma GCC diagnostic ignored "-Wunused-function"
@@ -79,34 +267,34 @@ BLST_HD BLST_INLINE void ptype##xz_cswap(ptype##xz *BLST_restrict a,		          
  /* generator point [in Montgomery] */                                    \
     /* (0x17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905  */            \
     /*    a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb << 384) % P */ \
-{                                                                         \
+Fp{                                                                         \
     TO_LIMB_T(0x5cb38790fd530c16), TO_LIMB_T(0x7817fc679976fff5),         \
         TO_LIMB_T(0x154f95c7143ba1c1), TO_LIMB_T(0xf0ae6acdf3d0e747),     \
         TO_LIMB_T(0xedce6ecc21dbf440), TO_LIMB_T(0x120177419e0bfb75)      \
 },                                                                        \
 /* (0x08b3f481e3aaa0f1a09e30ed741d8ae4fcf5e095d5d00af6             */     \
 /*    00db18cb2c04b3edd03cc744a2888ae40caa232946c5e7e1 << 384) % P */     \
-{ TO_LIMB_T(0xbaac93d50ce72271), TO_LIMB_T(0x8c22631a7918fd8e),           \
+Fp{ TO_LIMB_T(0xbaac93d50ce72271), TO_LIMB_T(0x8c22631a7918fd8e),           \
   TO_LIMB_T(0xdd595f13570725ce), TO_LIMB_T(0x51ac582950405194),           \
   TO_LIMB_T(0x0e1c8c3fad0059c0), TO_LIMB_T(0x0bbc3efc5008a26a) },         \
-{ ONE_MONT_P_LIMBS }
+Fp{ ONE_MONT_P_LIMBS }
 
 
 #define BLST_NEG_G1_LIMBS                                                    \
 /* negative generator [in Montgomery] */                                     \
     /* (0x17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905*/                 \
      /*    a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb << 384) % P */   \
-{                                                                            \
+Fp{                                                                            \
     TO_LIMB_T(0x5cb38790fd530c16), TO_LIMB_T(0x7817fc679976fff5),            \
         TO_LIMB_T(0x154f95c7143ba1c1), TO_LIMB_T(0xf0ae6acdf3d0e747),        \
         TO_LIMB_T(0xedce6ecc21dbf440), TO_LIMB_T(0x120177419e0bfb75)         \
 },                                                                           \
 /* (0x114d1d6855d545a8aa7d76c8cf2e21f267816aef1db507c9*/                     \
 /*    6655b9d5caac42364e6f38ba0ecb751bad54dcd6b939c2ca << 384) % P */        \
-{ TO_LIMB_T(0xff526c2af318883a), TO_LIMB_T(0x92899ce4383b0270),              \
+Fp{ TO_LIMB_T(0xff526c2af318883a), TO_LIMB_T(0x92899ce4383b0270),              \
   TO_LIMB_T(0x89d7738d9fa9d055), TO_LIMB_T(0x12caf35ba344c12a),              \
   TO_LIMB_T(0x3cff1b76964b5317), TO_LIMB_T(0x0e44d2ede9774430) },            \
-{ ONE_MONT_P_LIMBS }
+Fp{ ONE_MONT_P_LIMBS }
 
 
 
@@ -124,55 +312,55 @@ BLST_HD BLST_INLINE void ptype##xz_cswap(ptype##xz *BLST_restrict a,		          
 
      /* generator point [in Montgomery] */
 #define BLST_G2_LIMBS                                                      \
-{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02            */     \
+Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02            */     \
 /*      b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8 << 384) % P */    \
-  { TO_LIMB_T(0xf5f28fa202940a10), TO_LIMB_T(0xb3f5fb2687b4961a),          \
+  Fp{ TO_LIMB_T(0xf5f28fa202940a10), TO_LIMB_T(0xb3f5fb2687b4961a),          \
     TO_LIMB_T(0xa1a893b53e2ae580), TO_LIMB_T(0x9894999d1a3caee9),          \
     TO_LIMB_T(0x6f67b7631863366b), TO_LIMB_T(0x058191924350bcd7) },        \
     /* (0x13e02b6052719f607dacd3a088274f65596bd0d09920b61a            */   \
     /*  b5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e << 384) % P */    \
-    { TO_LIMB_T(0xa5a9c0759e23f606), TO_LIMB_T(0xaaa0c59dbccd60c3),        \
+   Fp{ TO_LIMB_T(0xa5a9c0759e23f606), TO_LIMB_T(0xaaa0c59dbccd60c3),        \
       TO_LIMB_T(0x3bb17e18e2867806), TO_LIMB_T(0x1b1ab6cc8541b367),        \
       TO_LIMB_T(0xc2b6ed0ef2158547), TO_LIMB_T(0x11922a097360edf3) }       \
   },                                                                       \
-  { /* (0x0ce5d527727d6e118cc9cdc6da2e351aadfd9baa8cbdd3a7            */   \
+  Fp2{ /* (0x0ce5d527727d6e118cc9cdc6da2e351aadfd9baa8cbdd3a7            */   \
     /* 6d429a695160d12c923ac9cc3baca289e193548608b82801 << 384) % P */     \
-    { TO_LIMB_T(0x4c730af860494c4a), TO_LIMB_T(0x597cfa1f5e369c5a),        \
+    Fp{ TO_LIMB_T(0x4c730af860494c4a), TO_LIMB_T(0x597cfa1f5e369c5a),        \
       TO_LIMB_T(0xe7e6856caa0a635a), TO_LIMB_T(0xbbefb5e96e0d495f),        \
       TO_LIMB_T(0x07d3a975f0ef25a2), TO_LIMB_T(0x0083fd8e7e80dae5) },      \
       /* (0x0606c4a02ea734cc32acd2b02bc28b99cb3e287e85a763af          */   \
     /*    267492ab572e99ab3f370d275cec1da1aaa9075ff05f79be << 384) % P */  \
-      { TO_LIMB_T(0xadc0fc92df64b05d), TO_LIMB_T(0x18aa270a2b1461dc),      \
+      Fp{ TO_LIMB_T(0xadc0fc92df64b05d), TO_LIMB_T(0x18aa270a2b1461dc),      \
         TO_LIMB_T(0x86adac6a3be4eba0), TO_LIMB_T(0x79495c4ec93da33a),      \
         TO_LIMB_T(0xe7175850a43ccaed), TO_LIMB_T(0x0b2bc2a163de1bf2) },    \
     },                                                                     \
-    { { ONE_MONT_P_LIMBS }, { 0 } }
+    Fp2{ Fp{ ONE_MONT_P_LIMBS }, Fp{ 0 } }
 
 /* negative generator [in Montgomery] */
 #define BLST_NEG_G2_LIMBS                                                   \
-{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
+Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
   /*    b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8 << 384) % P  */    \
-  { TO_LIMB_T(0xf5f28fa202940a10), TO_LIMB_T(0xb3f5fb2687b4961a),           \
+  Fp{ TO_LIMB_T(0xf5f28fa202940a10), TO_LIMB_T(0xb3f5fb2687b4961a),           \
     TO_LIMB_T(0xa1a893b53e2ae580), TO_LIMB_T(0x9894999d1a3caee9),           \
     TO_LIMB_T(0x6f67b7631863366b), TO_LIMB_T(0x058191924350bcd7) },         \
     /* (0x13e02b6052719f607dacd3a088274f65596bd0d09920b61a             */   \
     /*    b5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e << 384) % P */   \
-    { TO_LIMB_T(0xa5a9c0759e23f606), TO_LIMB_T(0xaaa0c59dbccd60c3),         \
+    Fp{ TO_LIMB_T(0xa5a9c0759e23f606), TO_LIMB_T(0xaaa0c59dbccd60c3),         \
       TO_LIMB_T(0x3bb17e18e2867806), TO_LIMB_T(0x1b1ab6cc8541b367),         \
       TO_LIMB_T(0xc2b6ed0ef2158547), TO_LIMB_T(0x11922a097360edf3) }        \
   },                                                                        \
-  { /* (0x0d1b3cc2c7027888be51d9ef691d77bcb679afda66c73f17             */   \
+  Fp2{ /* (0x0d1b3cc2c7027888be51d9ef691d77bcb679afda66c73f17             */   \
     /*    f9ee3837a55024f78c71363275a75d75d86bab79f74782aa << 384) % P */   \
-    { TO_LIMB_T(0x6d8bf5079fb65e61), TO_LIMB_T(0xc52f05df531d63a5),         \
+    Fp{ TO_LIMB_T(0x6d8bf5079fb65e61), TO_LIMB_T(0xc52f05df531d63a5),         \
       TO_LIMB_T(0x7f4a4d344ca692c9), TO_LIMB_T(0xa887959b8577c95f),         \
       TO_LIMB_T(0x4347fe40525c8734), TO_LIMB_T(0x197d145bbaff0bb5) },       \
       /* (0x13fa4d4a0ad8b1ce186ed5061789213d993923066dddaf10             */ \
       /*    40bc3ff59f825c78df74f2d75467e25e0f55f8a00fa030ed << 384) % P */ \
-      { TO_LIMB_T(0x0c3e036d209afa4e), TO_LIMB_T(0x0601d8f4863f9e23),       \
+      Fp{ TO_LIMB_T(0x0c3e036d209afa4e), TO_LIMB_T(0x0601d8f4863f9e23),       \
         TO_LIMB_T(0xe0832636bacc0a84), TO_LIMB_T(0xeb2def362a476f84),       \
         TO_LIMB_T(0x64044f659f0ee1e9), TO_LIMB_T(0x0ed54f48d5a1caa7) }      \
     },                                                                      \
-    { { ONE_MONT_P_LIMBS }, { 0 } }                                         
+    Fp2{ Fp{ ONE_MONT_P_LIMBS }, Fp{ 0 } }                                         
 
 
 /* such that beta^3 - 1 = 0  */
@@ -185,97 +373,112 @@ BLST_HD BLST_INLINE void ptype##xz_cswap(ptype##xz *BLST_restrict a,		          
     TO_LIMB_T(0x03f97d6e83d050d2), TO_LIMB_T(0x18f0206554638741)
 
 
-
 /* y^2 = x^3 + B,   (4 << 384) % P */
-    static const vec384 BLST_B_E1_HOST = { BLST_B_E1_LIMBS };
-    static const POINTonE1 BLST_G1_HOST = { BLST_G1_LIMBS };
+    static const Fp BLST_B_E1_HOST = { BLST_B_E1_LIMBS };
+    static const POINTonE1 BLST_G1_HOST{
+        Fp{{TO_LIMB_T(0x5cb38790fd530c16), TO_LIMB_T(0x7817fc679976fff5),
+                        TO_LIMB_T(0x154f95c7143ba1c1), TO_LIMB_T(0xf0ae6acdf3d0e747),
+                        TO_LIMB_T(0xedce6ecc21dbf440), TO_LIMB_T(0x120177419e0bfb75) }},
+        Fp{{ TO_LIMB_T(0xbaac93d50ce72271), TO_LIMB_T(0x8c22631a7918fd8e),
+                        TO_LIMB_T(0xdd595f13570725ce), TO_LIMB_T(0x51ac582950405194),
+                        TO_LIMB_T(0x0e1c8c3fad0059c0), TO_LIMB_T(0x0bbc3efc5008a26a) }},
+        Fp{{ ONE_MONT_P_LIMBS }}
+    };
     static const POINTonE1 BLST_NEG_G1_HOST = { BLST_NEG_G1_LIMBS };
-    static const vec384 BLST_beta_HOST = { BLST_beta_LIMBS };
+    static const Fp BLST_beta_HOST = { BLST_beta_LIMBS };
 
 
     /*
      * y^2 = x^3 + B, 4 + 4*i
      */
-    const vec384x BLST_B_E2_HOST = { BLST_B_E2_LIMBS };
-    const POINTonE2 BLST_G2_HOST = { BLST_G2_LIMBS };
-    const POINTonE2 BLST_NEG_G2_HOST = { BLST_NEG_G2_LIMBS };
+    const Fp2 BLST_B_E2_HOST = { { BLST_B_E2_LIMBS } };
+    const POINTonE2 BLST_G2_HOST{ BLST_G2_LIMBS };
+    const POINTonE2 BLST_NEG_G2_HOST = { BLST_NEG_G2_LIMBS  };
 
 
 #if defined(BLST_CUDA) && defined(__CUDACC__)
 
-    static __constant__ vec384 BLST_B_E1_DEV = { BLST_B_E1_LIMBS };
-    static __constant__ POINTonE1 BLST_G1_DEV = { BLST_G1_LIMBS };
+    static __constant__ Fp BLST_B_E1_DEV = { BLST_B_E1_LIMBS };
+    static __constant__ POINTonE1 BLST_G1_DEV{
+        { {TO_LIMB_T(0x5cb38790fd530c16), TO_LIMB_T(0x7817fc679976fff5),
+                        TO_LIMB_T(0x154f95c7143ba1c1), TO_LIMB_T(0xf0ae6acdf3d0e747),
+                        TO_LIMB_T(0xedce6ecc21dbf440), TO_LIMB_T(0x120177419e0bfb75) }},
+        { { TO_LIMB_T(0xbaac93d50ce72271), TO_LIMB_T(0x8c22631a7918fd8e),
+                        TO_LIMB_T(0xdd595f13570725ce), TO_LIMB_T(0x51ac582950405194),
+                        TO_LIMB_T(0x0e1c8c3fad0059c0), TO_LIMB_T(0x0bbc3efc5008a26a) }},
+        {{ ONE_MONT_P_LIMBS }}
+    };
     static __constant__ POINTonE1 BLST_NEG_G1_DEV = { BLST_NEG_G1_LIMBS };
-    static __constant__ vec384x BLST_B_E2_DEV = { BLST_B_E2_LIMBS };
+    static __constant__ Fp2 BLST_B_E2_DEV = { { BLST_B_E2_LIMBS }  };
     static __constant__ POINTonE2 BLST_G2_DEV = { BLST_G2_LIMBS };
     static __constant__ POINTonE2 BLST_NEG_G2_DEV = { BLST_NEG_G2_LIMBS };
-    static __constant__ vec384 BLST_beta_DEV = { BLST_beta_LIMBS };
+    static __constant__ Fp BLST_beta_DEV = { BLST_beta_LIMBS };
 
 #endif // __CUDA_ARCH__
 
 
     // return the curve parameter B for the G1 curve: y^2 = x^3 + B
     // Will return host or device memory depending on compilation target.
-    BLST_HD BLST_FORCEINLINE const vec384* get_BLST_B_E1(void)
+    BLST_HD BLST_FORCEINLINE const Fp& get_BLST_B_E1(void)
     {
 #if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
-        return &BLST_B_E1_DEV;
+        return BLST_B_E1_DEV;
 #else
-        return &BLST_B_E1_HOST;
+        return BLST_B_E1_HOST;
 #endif
     }
 
     // return the generator point of G1 in affine coordinates, in montgomery form.
     // Will return host or device memory depending on compilation target.
-    BLST_HD BLST_FORCEINLINE const POINTonE1* get_BLST_G1(void)
+    BLST_HD BLST_FORCEINLINE const Point<Fp>& get_BLST_G1(void)
     {
 #if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
-        return &BLST_G1_DEV;
+        return BLST_G1_DEV;
 #else
-        return &BLST_G1_HOST;
+        return BLST_G1_HOST;
 #endif
     }
 
     // return the negative of the generator point of G1 in affine coordinates, in montgomery form.
     // Will return host or device memory depending on compilation target.
-    BLST_HD BLST_FORCEINLINE const POINTonE1* get_BLST_NEG_G1(void)
+    BLST_HD BLST_FORCEINLINE const POINTonE1& get_BLST_NEG_G1(void)
     {
 #if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
-        return &BLST_NEG_G1_DEV;
+        return BLST_NEG_G1_DEV;
 #else
-        return &BLST_NEG_G1_HOST;
+        return BLST_NEG_G1_HOST;
 #endif
     }
 
     // return the curve parameter B for the G2 curve: y^2 = x^3 + B
     // Will return host or device memory depending on compilation target.
-    BLST_HD BLST_FORCEINLINE const vec384x* get_BLST_B_E2(void)
+    BLST_HD BLST_FORCEINLINE const Fp2& get_BLST_B_E2(void)
     {
 #if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
-        return &BLST_B_E2_DEV;
+        return BLST_B_E2_DEV;
 #else
-        return &BLST_B_E2_HOST;
+        return BLST_B_E2_HOST;
 #endif
     }
 
     // return the generator point of G2 in affine coordinates, in montgomery form.
     // Will return host or device memory depending on compilation target.
-    BLST_HD BLST_FORCEINLINE const POINTonE2* get_BLST_G2(void)
+    BLST_HD BLST_FORCEINLINE const POINTonE2& get_BLST_G2(void)
     {
 #if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
-        return &BLST_G2_DEV;
+        return BLST_G2_DEV;
 #else
-        return &BLST_G2_HOST;
+        return BLST_G2_HOST;
 #endif
     }
 
     // return the negative of the generator point of G2 in affine coordinates, in montgomery form.
-    BLST_HD BLST_FORCEINLINE const POINTonE2* get_BLST_NEG_G2(void)
+    BLST_HD BLST_FORCEINLINE const POINTonE2& get_BLST_NEG_G2(void)
     {
 #if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
-        return &BLST_NEG_G2_DEV;
+        return BLST_NEG_G2_DEV;
 #else
-        return &BLST_NEG_G2_HOST;
+        return BLST_NEG_G2_HOST;
 #endif
     }
 
@@ -284,14 +487,26 @@ BLST_HD BLST_INLINE void ptype##xz_cswap(ptype##xz *BLST_restrict a,		          
     /* -1/2 * (1 + sqrt(-3)) = ((P-2)^(P-2)) * (1 + (P-3)^((P+1)/4)) */
     /* (0x1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4
           897d29650fb85f9b409427eb4f49fffd8bfd00000000aaac << 384) % P */
-    BLST_HD BLST_FORCEINLINE const vec384* get_BLST_beta(void)
+    BLST_HD BLST_FORCEINLINE const Fp& get_BLST_beta(void)
     {
 #if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
-        return &BLST_beta_DEV;
+        return BLST_beta_DEV;
 #else
-        return &BLST_beta_HOST;
+        return BLST_beta_HOST;
 #endif
     }
+
+    template<>
+    BLST_HD BLST_FORCEINLINE const Point<Fp>& Point<Fp>::one()
+    {
+        return get_BLST_G1();
+    }
+
+    template<>
+    BLST_HD BLST_FORCEINLINE const Point<Fp2>& Point<Fp2>::one()
+    {
+        return get_BLST_G2();
+	}
 
 }
 

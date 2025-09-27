@@ -27,7 +27,7 @@ namespace blst
         if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            blst_p2_add_or_double(out, a, b);
+            blst_p2_add_or_double(*out, *a, *b);
             out++; a++; b++;
         }
         return BATCHED_SUCCESS;
@@ -39,7 +39,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_p2_add_or_double(&out[idx], &a[idx], &b[idx]);
+            blst_p2_add_or_double(out[idx], a[idx], b[idx]);
         }
     }
 
@@ -69,7 +69,7 @@ namespace blst
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            blst_p2_double(out, a);
+            blst_p2_double(*out, *a);
             out++; a++;
         }
         return BATCHED_SUCCESS;
@@ -81,7 +81,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_p2_double(&out[idx], &a[idx]);
+            blst_p2_double(out[idx], a[idx]);
         }
     }
 
@@ -112,7 +112,7 @@ namespace blst
 
         while (num--) {
             *out = *a;
-            blst_p2_cneg(out, flag);
+            blst_p2_cneg(*out, flag);
             out++; a++;
         }
         return BATCHED_SUCCESS;
@@ -125,7 +125,7 @@ namespace blst
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
             out[idx] = a[idx];
-            blst_p2_cneg(&out[idx], flag);
+            blst_p2_cneg(out[idx], flag);
         }
     }
 
@@ -157,7 +157,7 @@ namespace blst
         const size_t scalar_bytes = (scalar_bits + 7) / 8;
 
         while (num--) {
-            blst_p2_mult(out, points, scalars, scalar_bits);
+            blst_p2_mult(*out, *points, scalars, scalar_bits);
             out++; points++; scalars += scalar_bytes;
         }
         return BATCHED_SUCCESS;
@@ -172,8 +172,8 @@ namespace blst
             const size_t scalar_bytes = (scalar_bits + 7) / 8;
 
             blst_p2_mult(
-                &out[idx],
-                &points[idx],
+                out[idx],
+                points[idx],
                 &scalars[idx * scalar_bytes],
                 scalar_bits);
         }
@@ -208,7 +208,7 @@ namespace blst
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            blst_p2_to_affine(out, a);
+            blst_p2_to_affine(*out, *a);
             out++; a++;
         }
         return BATCHED_SUCCESS;
@@ -220,7 +220,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_p2_to_affine(&out[idx], &a[idx]);
+            blst_p2_to_affine(out[idx], a[idx]);
         }
     }
 
@@ -250,7 +250,7 @@ namespace blst
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            blst_p2_from_affine(out, a);
+            blst_p2_from_affine(*out, *a);
             out++; a++;
         }
         return BATCHED_SUCCESS;
@@ -262,7 +262,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_p2_from_affine(&out[idx], &a[idx]);
+            blst_p2_from_affine(out[idx], a[idx]);
         }
     }
 
@@ -292,7 +292,7 @@ namespace blst
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            blst_p2_from_jacobian(out, a);
+            blst_p2_from_jacobian(*out, *a);
             out++; a++;
         }
         return BATCHED_SUCCESS;
@@ -304,7 +304,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_p2_from_jacobian(&out[idx], &a[idx]);
+            blst_p2_from_jacobian(out[idx], a[idx]);
         }
     }
 
@@ -337,7 +337,7 @@ namespace blst
         if (!results || !points) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            *results = blst_p2_on_curve(points);
+            *results = blst_p2_on_curve(*points);
             results++; points++;
         }
         return BATCHED_SUCCESS;
@@ -349,7 +349,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            results[idx] = blst_p2_on_curve(&points[idx]);
+            results[idx] = blst_p2_on_curve(points[idx]);
         }
     }
 
@@ -379,7 +379,7 @@ namespace blst
         if (!results || !points) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            *results = blst_p2_is_inf(points);
+            *results = blst_p2_is_inf(*points);
             results++; points++;
         }
         return BATCHED_SUCCESS;
@@ -391,7 +391,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            results[idx] = blst_p2_is_inf(&points[idx]);
+            results[idx] = blst_p2_is_inf(points[idx]);
         }
     }
 
@@ -421,7 +421,7 @@ namespace blst
         if (!results || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            *results = blst_p2_is_equal(a, b);
+            *results = blst_p2_is_equal(*a, *b);
             results++; a++; b++;
         }
         return BATCHED_SUCCESS;
@@ -433,7 +433,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            results[idx] = blst_p2_is_equal(&a[idx], &b[idx]);
+            results[idx] = blst_p2_is_equal(a[idx], b[idx]);
         }
     }
 
@@ -458,7 +458,7 @@ namespace blst
     }
 
     // Forward declaration for G2 subgroup check
-    extern "C" int blst_p2_affine_in_g2(const POINTonE2_affine* p);
+    //extern "C" int blst_p2_affine_in_g2(const POINTonE2_affine* p);
 
     // Vectorized subgroup membership check (CPU)
     batched_error_code in_group_g2_vec_cc(bool* results, const POINTonE2_affine* points, size_t num)
@@ -466,7 +466,7 @@ namespace blst
         if (!results || !points) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            *results = blst_p2_affine_in_g2(points);
+            *results = blst_p2_affine_in_g2(*points);
             results++; points++;
         }
         return BATCHED_SUCCESS;
@@ -478,7 +478,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            results[idx] = blst_p2_affine_in_g2(&points[idx]);
+            results[idx] = blst_p2_affine_in_g2(points[idx]);
         }
     }
 
@@ -511,7 +511,7 @@ namespace blst
         if (!out || !points) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            blst_p2_serialize(out, points);
+            blst_p2_serialize(out, *points);
             out += 192; points++;
         }
         return BATCHED_SUCCESS;
@@ -523,7 +523,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_p2_serialize(&out[idx * 192], &points[idx]);
+            blst_p2_serialize(&out[idx * 192], points[idx]);
         }
     }
 
@@ -553,7 +553,7 @@ namespace blst
         if (!out || !serialized || !errors) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            *errors = blst_p2_deserialize(out, serialized);
+            *errors = blst_p2_deserialize(*out, serialized);
             out++; serialized += 192; errors++;
         }
         return BATCHED_SUCCESS;
@@ -565,7 +565,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            errors[idx] = blst_p2_deserialize(&out[idx], &serialized[idx * 192]);
+            errors[idx] = blst_p2_deserialize(out[idx], &serialized[idx * 192]);
         }
     }
 
@@ -614,7 +614,7 @@ namespace blst
         if (!out || !points) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            blst_p2_compress(out, points);
+            blst_p2_compress(out, *points);
             out += 96; points++;
         }
         return BATCHED_SUCCESS;
@@ -626,7 +626,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_p2_compress(&out[idx * 96], &points[idx]);
+            blst_p2_compress(&out[idx * 96], points[idx]);
         }
     }
 
@@ -656,7 +656,7 @@ namespace blst
         if (!out || !compressed || !errors) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            *errors = blst_p2_uncompress(out, compressed);
+            *errors = blst_p2_uncompress(*out, compressed);
             out++; compressed += 96; errors++;
         }
         return BATCHED_SUCCESS;
@@ -668,7 +668,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            errors[idx] = blst_p2_uncompress(&out[idx], &compressed[idx * 96]);
+            errors[idx] = blst_p2_uncompress(out[idx], &compressed[idx * 96]);
         }
     }
 
@@ -722,7 +722,7 @@ namespace blst
 
         for (size_t i = 0; i < num; i++) {
             if (!msgs[i]) return BATCHED_ERROR_NULL_POINTER;
-            blst_hash_to_g2(&out[i], msgs[i], msg_lens[i], dst, dst_len, NULL, 0);
+            blst_hash_to_g2(out[i], msgs[i], msg_lens[i], dst, dst_len, NULL, 0);
         }
         return BATCHED_SUCCESS;
     }
@@ -734,7 +734,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_hash_to_g2(&out[idx], msgs[idx], msg_lens[idx], dst, dst_len, NULL, 0);
+            blst_hash_to_g2(out[idx], msgs[idx], msg_lens[idx], dst, dst_len, NULL, 0);
         }
     }
 
@@ -774,12 +774,12 @@ namespace blst
         // Simple MSM: accumulate scalar multiplications
         for (size_t i = 0; i < num; i++) {
             POINTonE2 temp;
-            blst_p2_mult(&temp, &points[i], &scalars[i * scalar_bytes], scalar_bits);
+            blst_p2_mult(temp, points[i], &scalars[i * scalar_bytes], scalar_bits);
             if (i == 0) {
                 *result = temp;
             }
             else {
-                blst_p2_add_or_double(result, result, &temp);
+                blst_p2_add_or_double(*result, *result, temp);
             }
         }
 
@@ -814,7 +814,7 @@ namespace blst
         if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            blst_p2_add_affine(out, a, b);
+            blst_p2_add_affine(*out, *a, *b);
             out++; a++; b++;
         }
         return BATCHED_SUCCESS;
@@ -826,7 +826,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_p2_add_affine(&out[idx], &a[idx], &b[idx]);
+            blst_p2_add_affine(out[idx], a[idx], b[idx]);
         }
     }
 
@@ -850,8 +850,6 @@ namespace blst
 #endif
     }
 
-    // Forward declaration for psi endomorphism
-    extern "C" void psi(POINTonE2* out, const POINTonE2* in);
 
     // Vectorized psi endomorphism (CPU)
     batched_error_code psi_g2_vec_cc(POINTonE2* out, const POINTonE2* a, size_t num)
@@ -859,7 +857,7 @@ namespace blst
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            psi(out, a);
+            psi(*out, *a);
             out++; a++;
         }
         return BATCHED_SUCCESS;
@@ -871,7 +869,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            psi(&out[idx], &a[idx]);
+            psi(out[idx], a[idx]);
         }
     }
 

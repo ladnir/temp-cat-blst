@@ -33,11 +33,9 @@
 
 #  if defined(__CUDA_ARCH__) && defined(BLST_FAST_BUILD)
 // cuda inlines aggretively and its results in slow build. 
-#define BLST_INLINE static __noinline__
+#define BLST_INLINE  inline __noinline__
 #else
-// in c it can't just be inline because the compiler might not 
-// inline and then the symbol doen't exist...
-#define BLST_INLINE static inline
+#define BLST_INLINE  inline
 #endif
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -67,7 +65,7 @@
 
 /*
  * Some compilers get arguably overzealous(*) when passing pointer to
- * multi-dimensional array [such as vec384x] as 'const' argument.
+ * multi-dimensional array [such as Fp2] as 'const' argument.
  * General direction seems to be to legitimize such constification,
  * so it's argued that suppressing the warning is appropriate.
  *
@@ -102,7 +100,7 @@
 #if BLST_LIMB_SIZE == 64
 # define TO_LIMB_T(limb64)     limb64
 #else
-# define TO_LIMB_T(limb64)     (limb_t)limb64,(limb_t)(limb64>>32)
+# define TO_LIMB_T(limb64)     (limb)limb64,(limb)(limb64>>32)
 #endif
 
 
@@ -112,9 +110,9 @@ namespace blst
 {
 
 #if BLST_LIMB_SIZE == 64
-    typedef unsigned long long limb_t;
+    typedef unsigned long long limb;
 #elif BLST_LIMB_SIZE == 32
-    typedef unsigned int limb_t;
+    typedef unsigned int limb;
 #else
 # error "Unsupported BLST_LIMB_SIZE"
 #endif
@@ -128,15 +126,58 @@ namespace blst
 	using i8 = int8_t;
 	using i32 = int32_t;
 	using i64 = int64_t;
+    typedef limb bool_t;
 
     constexpr int NLIMBS(int bits) { return bits / BLST_LIMB_SIZE; }
 
-    typedef limb_t vec256[NLIMBS(256)];
-    typedef limb_t vec512[NLIMBS(512)];
-    typedef limb_t vec384[NLIMBS(384)];
-    typedef limb_t vec768[NLIMBS(768)];
-    typedef vec384 vec384x[2];      /* 0 is "real" part, 1 is "imaginary" */
-    typedef vec768 vec768x[2];      /* 0 is "real" part, 1 is "imaginary" */
+    typedef limb vec_256[NLIMBS(256)];
+    typedef limb vec_384[NLIMBS(384)];
+    typedef limb vec_512[NLIMBS(512)];
+    typedef limb vec_768[NLIMBS(768)];
+    typedef vec_384 vec_384x[2];      /* 0 is "real" part, 1 is "imaginary" */
+    typedef vec_768 vec_768x[2];      /* 0 is "real" part, 1 is "imaginary" */
+
+    BLST_HD void vec_zero(void* ret, size_t num);
+
+
+
+    BLST_HD bool_t vec_is_equal(const void* a, const void* b, size_t num);
+	// 512 bits, unreduced "Fr element"
+    struct UFr
+    {
+        vec_512 data;
+
+        BLST_HD operator limb* () { return data; }
+        BLST_HD operator const limb* () const { return data; }
+    };
+
+	// 768 bits, unreduced "Fp element"
+    struct UFp
+    {
+        vec_768 data;
+
+		BLST_HD operator limb* () { return data; }
+        BLST_HD operator const limb* () const { return data; }
+    };
+
+	// 2 * 768 bits, unreduced "Fp2 element"
+    struct UFp2
+    {
+        UFp data[2];
+
+        BLST_HD UFp& operator[](size_t idx) { return data[idx]; }
+        BLST_HD const UFp& operator[](size_t idx) const { return data[idx]; }
+
+    };
+
+    //using vec_256 = Fr&;
+    //using vec_384 = Fp&;
+    //using vec_384x = Fp2&;
+    //using vec_512 = UFr&;
+    //using vec_768 = UFp&;
+    //using vec_768x = UFpx2&;
+
+
 
 #define TO_BYTES(limb64)    (byte)limb64,(byte)(limb64>>8),\
                             (byte)(limb64>>16),(byte)(limb64>>24),\
@@ -144,7 +185,6 @@ namespace blst
                             (byte)(limb64>>48),(byte)(limb64>>56)
     typedef byte pow256[256 / 8];
 
-    typedef limb_t bool_t;
 
 #ifdef __UINTPTR_TYPE__
     typedef __UINTPTR_TYPE__ uptr_t;
@@ -159,6 +199,7 @@ namespace blst
  // IntelliSense: pretend we're compiling for CUDA
     struct dim3 {
         unsigned int x, y, z;
+        dim3() {}
         dim3(auto, auto, auto) {}
     } ;
     static const dim3 blockIdx, threadIdx, blockDim;

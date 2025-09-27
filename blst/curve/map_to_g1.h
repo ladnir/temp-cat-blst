@@ -18,55 +18,15 @@ namespace blst
      /*
       * y^2 = x^3 + A'*x + B', isogenous one
       */
-      //extern const vec384 Aprime_E1;
+      //extern const Fp Aprime_E1;
       //
-      //extern const vec384 Bprime_E1;
+      //extern const Fp Bprime_E1;
 
-    BLST_HD void map_fp_times_Zz(vec384 map[], const vec384 isogeny_map[],
-        const vec384 Zz_powers[], size_t n);
-
-    BLST_HD void map_fp(vec384 acc, const vec384 x, const vec384 map[], size_t n);
-
-    BLST_HD void isogeny_map_to_E1(POINTonE1* out, const POINTonE1* p);
-
-    BLST_HD void map_to_isogenous_E1(POINTonE1* p, const vec384 u);
-
-    BLST_HD void POINTonE1_add_n_dbl(POINTonE1* out, const POINTonE1* p, size_t n);
-
-    BLST_HD void POINTonE1_times_minus_z(POINTonE1* out, const POINTonE1* in);
-    /*
-     * |u|, |v| are expected to be in Montgomery representation
-     */
-    BLST_HD void map_to_g1(POINTonE1* out, const vec384 u, const vec384 v);
-
-    BLST_HD void blst_map_to_g1(POINTonE1* out, const vec384 u, const vec384 v);
-
-    BLST_HD void Encode_to_G1(POINTonE1* p, const unsigned char* msg, size_t msg_len,
-        const unsigned char* DST, size_t DST_len,
-        const unsigned char* aug, size_t aug_len);
+    BLST_HD void map_fp_times_Zz(Fp map[], const Fp isogeny_map[],
+        const Fp Zz_powers[], size_t n);
 
 
-    BLST_HD void blst_encode_to_g1(POINTonE1* p, const unsigned char* msg, size_t msg_len,
-        const unsigned char* DST, size_t DST_len,
-        const unsigned char* aug, size_t aug_len);
-
-    BLST_HD void Hash_to_G1(POINTonE1* p, const unsigned char* msg, size_t msg_len,
-        const unsigned char* DST, size_t DST_len,
-        const unsigned char* aug, size_t aug_len);
-
-
-    BLST_HD void blst_hash_to_g1(POINTonE1* p, const unsigned char* msg, size_t msg_len,
-        const unsigned char* DST, size_t DST_len,
-        const unsigned char* aug, size_t aug_len);
-
-    BLST_HD void sigma(POINTonE1* out, const POINTonE1* in);
-
-    BLST_HD bool_t POINTonE1_in_G1(const POINTonE1* P);
-
-    BLST_HD int blst_p1_in_g1(const POINTonE1* p);
-
-    BLST_HD int blst_p1_affine_in_g1(const POINTonE1_affine* p);
-
+    BLST_HD void map_fp(Fp& acc, const Fp& x, const Fp map[], size_t n);
 
 
 
@@ -99,37 +59,37 @@ namespace blst
      /*
       * y^2 = x^3 + A'*x + B', isogenous one
       */
-    static const vec384 BLST_Aprime_E1_HOST = { BLST_Aprime_E1_LIMBS };
-    static const vec384 BLST_Bprime_E1_HOST = { BLST_Bprime_E1_LIMBS };
+    static const Fp BLST_Aprime_E1_HOST = { BLST_Aprime_E1_LIMBS };
+    static const Fp BLST_Bprime_E1_HOST = { BLST_Bprime_E1_LIMBS };
 
 
 #if defined(BLST_CUDA) && defined(__CUDACC__)
     /*
      * y^2 = x^3 + A'*x + B', isogenous one
      */
-    static __constant__ vec384 BLST_Aprime_E1_DEV = { BLST_Aprime_E1_LIMBS };
-    static __constant__ vec384 BLST_Bprime_E1_DEV = { BLST_Bprime_E1_LIMBS };
+    static __constant__ Fp BLST_Aprime_E1_DEV = { BLST_Aprime_E1_LIMBS };
+    static __constant__ Fp BLST_Bprime_E1_DEV = { BLST_Bprime_E1_LIMBS };
 
 #endif // __CUDA_ARCH__
 
 
     // the A' in  y^2 = x ^ 3 + A'*x + B', isogenous one
-    BLST_HD BLST_FORCEINLINE const vec384* get_BLST_Aprime_E1(void)
+    BLST_HD BLST_FORCEINLINE const Fp& get_BLST_Aprime_E1(void)
     {
 #if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
-        return &BLST_Aprime_E1_DEV;
+        return BLST_Aprime_E1_DEV;
 #else
-        return &BLST_Aprime_E1_HOST;
+        return BLST_Aprime_E1_HOST;
 #endif
     }
 
     // the B' in  y^2 = x ^ 3 + A'*x + B', isogenous one
-    BLST_HD BLST_FORCEINLINE const vec384* get_BLST_Bprime_E1(void)
+    BLST_HD BLST_FORCEINLINE const Fp& get_BLST_Bprime_E1(void)
     {
 #if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
-        return &BLST_Bprime_E1_DEV;
+        return BLST_Bprime_E1_DEV;
 #else
-        return &BLST_Bprime_E1_HOST;
+        return BLST_Bprime_E1_HOST;
 #endif
     }
 
@@ -142,22 +102,22 @@ namespace blst
 
 
 
-    BLST_HD BLST_INLINE void map_fp_times_Zz(vec384 map[], const vec384 isogeny_map[],
-        const vec384 Zz_powers[], size_t n)
+    BLST_HD BLST_INLINE void map_fp_times_Zz(Fp map[], const Fp isogeny_map[],
+        const Fp Zz_powers[], size_t n)
     {
         while (n--)
-            mul_fp(map[n], isogeny_map[n], Zz_powers[n]);
+            Fp::mul(map[n], isogeny_map[n], Zz_powers[n]);
     }
 
-    BLST_HD BLST_INLINE void map_fp(vec384 acc, const vec384 x, const vec384 map[], size_t n)
+    BLST_HD BLST_INLINE void map_fp(Fp& acc, const Fp& x, const Fp map[], size_t n)
     {
         while (n--) {
-            mul_fp(acc, acc, x);
-            add_fp(acc, acc, map[n]);
+            Fp::mul(acc, acc, x);
+            Fp::add(acc, acc, map[n]);
         }
     }
 
-    BLST_HD BLST_INLINE void isogeny_map_to_E1(POINTonE1* out, const POINTonE1* p)
+    BLST_HD BLST_INLINE void isogeny_map_to_E1(POINTonE1& out, const POINTonE1& p)
     {
         /*
          * x = x_num / x_den, where
@@ -165,7 +125,7 @@ namespace blst
          *         ... + k_(1,0)
          * ...
          */
-        const vec384 isogeny_map_x_num[] = { /*  (k_(1,*)<<384) % P  */
+        const Fp isogeny_map_x_num[] = { /*  (k_(1,*)<<384) % P  */
           { TO_LIMB_T(0x4d18b6f3af00131c), TO_LIMB_T(0x19fa219793fee28c),
             TO_LIMB_T(0x3f2885f1467f19ae), TO_LIMB_T(0x23dcea34f2ffb304),
             TO_LIMB_T(0xd15b58d2ffc00054), TO_LIMB_T(0x0913be200a20bef4)  },
@@ -206,7 +166,7 @@ namespace blst
         /* ...
          * x_den = x'^10 + k_(2,9) * x'^9 + k_(2,8) * x'^8 + ... + k_(2,0)
          */
-        const vec384 isogeny_map_x_den[] = { /*  (k_(2,*)<<384) % P  */
+        const Fp isogeny_map_x_den[] = { /*  (k_(2,*)<<384) % P  */
           { TO_LIMB_T(0xb962a077fdb0f945), TO_LIMB_T(0xa6a9740fefda13a0),
             TO_LIMB_T(0xc14d568c3ed6c544), TO_LIMB_T(0xb43fc37b908b133e),
             TO_LIMB_T(0x9c0b3ac929599016), TO_LIMB_T(0x0165aa6c93ad115f)  },
@@ -244,7 +204,7 @@ namespace blst
          *         ... + k_(3,0)
          * ...
          */
-        const vec384 isogeny_map_y_num[] = { /*  (k_(3,*)<<384) % P  */
+        const Fp isogeny_map_y_num[] = { /*  (k_(3,*)<<384) % P  */
           { TO_LIMB_T(0x2b567ff3e2837267), TO_LIMB_T(0x1d4d9e57b958a767),
             TO_LIMB_T(0xce028fea04bd7373), TO_LIMB_T(0xcc31a30a0b6cd3df),
             TO_LIMB_T(0x7d7b18a682692693), TO_LIMB_T(0x0d300744d42a0310)  },
@@ -297,7 +257,7 @@ namespace blst
         /* ...
          * y_den = x'^15 + k_(4,14) * x'^14 + k_(4,13) * x'^13 + ... + k_(4,0)
          */
-        const vec384 isogeny_map_y_den[] = { /*  (k_(4,*)<<384) % P  */
+        const Fp isogeny_map_y_den[] = { /*  (k_(4,*)<<384) % P  */
           { TO_LIMB_T(0xeb6c359d47e52b1c), TO_LIMB_T(0x18ef5f8a10634d60),
             TO_LIMB_T(0xddfa71a0889d5b7e), TO_LIMB_T(0x723e71dcc5fc1323),
             TO_LIMB_T(0x52f45700b70d5c69), TO_LIMB_T(0x0a8b981ee47691f1)  },
@@ -344,96 +304,96 @@ namespace blst
             TO_LIMB_T(0x55ba77a9a2f76493), TO_LIMB_T(0xfd04e3dfc6086467),
             TO_LIMB_T(0xfb95832e7d78742e), TO_LIMB_T(0x0ef9c24eccaf5e0e)  }
         };
-        vec384 Zz_powers[15], map[15], xn, xd, yn, yd;
+        Fp Zz_powers[15], map[15], xn, xd, yn, yd;
 
         /* lay down Z^2 powers in descending order                          */
-        sqr_fp(Zz_powers[14], p->Z);                        /* ZZ^1         */
+        Fp::sqr(Zz_powers[14], p.Z);                        /* ZZ^1         */
 #ifdef __OPTIMIZE_SIZE__
         for (size_t i = 14; i > 0; i--)
-            mul_fp(Zz_powers[i - 1], Zz_powers[i], Zz_powers[14]);
+            Fp::mul(Zz_powers[i - 1], Zz_powers[i], Zz_powers[14]);
 #else
-        sqr_fp(Zz_powers[13], Zz_powers[14]);               /* ZZ^2  1+1    */
-        mul_fp(Zz_powers[12], Zz_powers[14], Zz_powers[13]);/* ZZ^3  2+1    */
-        sqr_fp(Zz_powers[11], Zz_powers[13]);               /* ZZ^4  2+2    */
-        mul_fp(Zz_powers[10], Zz_powers[13], Zz_powers[12]);/* ZZ^5  2+3    */
-        sqr_fp(Zz_powers[9], Zz_powers[12]);               /* ZZ^6  3+3    */
-        mul_fp(Zz_powers[8], Zz_powers[12], Zz_powers[11]);/* ZZ^7  3+4    */
-        sqr_fp(Zz_powers[7], Zz_powers[11]);               /* ZZ^8  4+4    */
-        mul_fp(Zz_powers[6], Zz_powers[11], Zz_powers[10]);/* ZZ^9  4+5    */
-        sqr_fp(Zz_powers[5], Zz_powers[10]);               /* ZZ^10 5+5    */
-        mul_fp(Zz_powers[4], Zz_powers[10], Zz_powers[9]); /* ZZ^11 5+6    */
-        sqr_fp(Zz_powers[3], Zz_powers[9]);                /* ZZ^12 6+6    */
-        mul_fp(Zz_powers[2], Zz_powers[9], Zz_powers[8]); /* ZZ^13 6+7    */
-        sqr_fp(Zz_powers[1], Zz_powers[8]);                /* ZZ^14 7+7    */
-        mul_fp(Zz_powers[0], Zz_powers[8], Zz_powers[7]); /* ZZ^15 7+8    */
+        Fp::sqr(Zz_powers[13], Zz_powers[14]);               /* ZZ^2  1+1    */
+        Fp::mul(Zz_powers[12], Zz_powers[14], Zz_powers[13]);/* ZZ^3  2+1    */
+        Fp::sqr(Zz_powers[11], Zz_powers[13]);               /* ZZ^4  2+2    */
+        Fp::mul(Zz_powers[10], Zz_powers[13], Zz_powers[12]);/* ZZ^5  2+3    */
+        Fp::sqr(Zz_powers[9], Zz_powers[12]);               /* ZZ^6  3+3    */
+        Fp::mul(Zz_powers[8], Zz_powers[12], Zz_powers[11]);/* ZZ^7  3+4    */
+        Fp::sqr(Zz_powers[7], Zz_powers[11]);               /* ZZ^8  4+4    */
+        Fp::mul(Zz_powers[6], Zz_powers[11], Zz_powers[10]);/* ZZ^9  4+5    */
+        Fp::sqr(Zz_powers[5], Zz_powers[10]);               /* ZZ^10 5+5    */
+        Fp::mul(Zz_powers[4], Zz_powers[10], Zz_powers[9]); /* ZZ^11 5+6    */
+        Fp::sqr(Zz_powers[3], Zz_powers[9]);                /* ZZ^12 6+6    */
+        Fp::mul(Zz_powers[2], Zz_powers[9], Zz_powers[8]); /* ZZ^13 6+7    */
+        Fp::sqr(Zz_powers[1], Zz_powers[8]);                /* ZZ^14 7+7    */
+        Fp::mul(Zz_powers[0], Zz_powers[8], Zz_powers[7]); /* ZZ^15 7+8    */
 #endif
 
         map_fp_times_Zz(map, isogeny_map_x_num, Zz_powers + 4, 11);
-        mul_fp(xn, p->X, isogeny_map_x_num[11]);
-        add_fp(xn, xn, map[10]);
-        map_fp(xn, p->X, map, 10);
+        Fp::mul(xn, p.X, isogeny_map_x_num[11]);
+        Fp::add(xn, xn, map[10]);
+        map_fp(xn, p.X, map, 10);
 
         map_fp_times_Zz(map, isogeny_map_x_den, Zz_powers + 5, 10);
-        add_fp(xd, p->X, map[9]);
-        map_fp(xd, p->X, map, 9);
-        mul_fp(xd, xd, Zz_powers[14]);      /* xd *= Z^2                    */
+        Fp::add(xd, p.X, map[9]);
+        map_fp(xd, p.X, map, 9);
+        Fp::mul(xd, xd, Zz_powers[14]);      /* xd *= Z^2                    */
 
         map_fp_times_Zz(map, isogeny_map_y_num, Zz_powers, 15);
-        mul_fp(yn, p->X, isogeny_map_y_num[15]);
-        add_fp(yn, yn, map[14]);
-        map_fp(yn, p->X, map, 14);
-        mul_fp(yn, yn, p->Y);               /* yn *= Y                      */
+        Fp::mul(yn, p.X, isogeny_map_y_num[15]);
+        Fp::add(yn, yn, map[14]);
+        map_fp(yn, p.X, map, 14);
+        Fp::mul(yn, yn, p.Y);               /* yn *= Y                      */
 
         map_fp_times_Zz(map, isogeny_map_y_den, Zz_powers, 15);
-        add_fp(yd, p->X, map[14]);
-        map_fp(yd, p->X, map, 14);
-        mul_fp(Zz_powers[14], Zz_powers[14], p->Z);
-        mul_fp(yd, yd, Zz_powers[14]);      /* yd *= Z^3                    */
+        Fp::add(yd, p.X, map[14]);
+        map_fp(yd, p.X, map, 14);
+        Fp::mul(Zz_powers[14], Zz_powers[14], p.Z);
+        Fp::mul(yd, yd, Zz_powers[14]);      /* yd *= Z^3                    */
 
         /* convert (xn, xd, yn, yd) to Jacobian coordinates                 */
-        mul_fp(out->Z, xd, yd);             /* Z = xd * yd                  */
-        mul_fp(out->X, xn, yd);
-        mul_fp(out->X, out->X, out->Z);     /* X = xn * xd * yd^2           */
-        sqr_fp(out->Y, out->Z);
-        mul_fp(out->Y, out->Y, xd);
-        mul_fp(out->Y, out->Y, yn);         /* Y = yn * xd^3 * yd^2         */
+        Fp::mul(out.Z, xd, yd);             /* Z = xd * yd                  */
+        Fp::mul(out.X, xn, yd);
+        Fp::mul(out.X, out.X, out.Z);     /* X = xn * xd * yd^2           */
+        Fp::sqr(out.Y, out.Z);
+        Fp::mul(out.Y, out.Y, xd);
+        Fp::mul(out.Y, out.Y, yn);         /* Y = yn * xd^3 * yd^2         */
     }
 
-    BLST_HD BLST_INLINE void map_to_isogenous_E1(POINTonE1* p, const vec384 u)
+    BLST_HD BLST_INLINE void map_to_isogenous_E1(POINTonE1& p, const Fp& u)
     {
-        const vec384 minus_A = { /* P - A */
+        const Fp minus_A = { /* P - A */
             TO_LIMB_T(0x8a9955f1650a005a), TO_LIMB_T(0x9865b3d192cfe93c),
             TO_LIMB_T(0xaed3ed0f3ef3c441), TO_LIMB_T(0x3c962ef33d92c442),
             TO_LIMB_T(0x22e438dbd74f94a2), TO_LIMB_T(0x04acbc265478c915)
         };
-        const vec384 Z = {       /* (11<<384) % P */
+        const Fp Z = {       /* (11<<384) % P */
             TO_LIMB_T(0x886c00000023ffdc), TO_LIMB_T(0x0f70008d3090001d),
             TO_LIMB_T(0x77672417ed5828c3), TO_LIMB_T(0x9dac23e943dc1740),
             TO_LIMB_T(0x50553f1b9c131521), TO_LIMB_T(0x078c712fbe0ab6e8)
         };
-        const vec384 sqrt_minus_ZZZ = {
+        const Fp sqrt_minus_ZZZ = {
             TO_LIMB_T(0x43b571cad3215f1f), TO_LIMB_T(0xccb460ef1c702dc2),
             TO_LIMB_T(0x742d884f4f97100b), TO_LIMB_T(0xdb2c3e3238a3382b),
             TO_LIMB_T(0xe40f3fa13fce8f88), TO_LIMB_T(0x0073a2af9892a2ff)
         };
-        const vec384 ZxA = {
+        const Fp ZxA = {
             TO_LIMB_T(0x7f674ea0a8915178), TO_LIMB_T(0xb0f945fc13b8fa65),
             TO_LIMB_T(0x4b46759a38e87d76), TO_LIMB_T(0x2e7a929641bbb6a1),
             TO_LIMB_T(0x1668ddfa462bf6b6), TO_LIMB_T(0x00960e2ed1cf294c)
         };
-        vec384 uu, tv2, x2n, gx1, gxd, y2;
+        Fp uu, tv2, x2n, gx1, gxd, y2;
 #if 0
-        vec384 xn, x1n, xd, y, y1, Zuu, tv4;
+        Fp xn, x1n, xd, y, y1, Zuu, tv4;
 #else
-# define xn     p->X
-# define y      p->Y
-# define xd     p->Z
+# define xn     p.X
+# define y      p.Y
+# define xd     p.Z
 # define x1n    xn
 # define y1     y
 # define Zuu    x2n
 # define tv4    y1
 #endif
-#define sgn0_fp(a) (sgn0_pty_mont_v384((a), *get_BLST_P(), BLST_p0) & 1)
+#define sgn0_fp(a) (sgn0_pty_mont_v384((a), get_BLST_P(), BLST_p0) & 1)
         bool_t e1, e2;
 
         /*
@@ -441,36 +401,36 @@ namespace blst
          * https://github.com/cfrg/draft-irtf-cfrg-hash-to-curve
          */
          /* x numerator variants                                             */
-        sqr_fp(uu, u);                      /* uu = u^2                     */
-        mul_fp(Zuu, Z, uu);                 /* Zuu = Z * uu                 */
-        sqr_fp(tv2, Zuu);                   /* tv2 = Zuu^2                  */
-        add_fp(tv2, tv2, Zuu);              /* tv2 = tv2 + Zuu              */
-        add_fp(x1n, tv2, get_BLST_Rx()->p);   /* x1n = tv2 + 1                */
-        mul_fp(x1n, x1n, *get_BLST_Bprime_E1());        /* x1n = x1n * B                */
-        mul_fp(x2n, Zuu, x1n);              /* x2n = Zuu * x1n              */
+        Fp::sqr(uu, u);                      /* uu = u^2                     */
+        Fp::mul(Zuu, Z, uu);                 /* Zuu = Z * uu                 */
+        Fp::sqr(tv2, Zuu);                   /* tv2 = Zuu^2                  */
+        Fp::add(tv2, tv2, Zuu);              /* tv2 = tv2 + Zuu              */
+        Fp::add(x1n, tv2, get_BLST_Rx().p);   /* x1n = tv2 + 1                */
+        Fp::mul(x1n, x1n, get_BLST_Bprime_E1());        /* x1n = x1n * B                */
+        Fp::mul(x2n, Zuu, x1n);              /* x2n = Zuu * x1n              */
 
         /* x denumenator                                                    */
-        mul_fp(xd, minus_A, tv2);           /* xd = -A * tv2                */
+        Fp::mul(xd, minus_A, tv2);           /* xd = -A * tv2                */
         e1 = vec_is_zero(xd, sizeof(xd));   /* e1 = xd == 0                 */
         vec_select(xd, ZxA, xd, sizeof(xd), e1);    /*              # If xd == 0, set xd = Z*A */
 
         /* y numerators variants                                            */
-        sqr_fp(tv2, xd);                    /* tv2 = xd^2                   */
-        mul_fp(gxd, xd, tv2);               /* gxd = xd^3                   */
-        mul_fp(tv2, *get_BLST_Aprime_E1(), tv2);        /* tv2 = A * tv2                */
-        sqr_fp(gx1, x1n);                   /* gx1 = x1n^2                  */
-        add_fp(gx1, gx1, tv2);              /* gx1 = gx1 + tv2      # x1n^2 + A*xd^2 */
-        mul_fp(gx1, gx1, x1n);              /* gx1 = gx1 * x1n      # x1n^3 + A*x1n*xd^2 */
-        mul_fp(tv2, *get_BLST_Bprime_E1(), gxd);        /* tv2 = B * gxd                */
-        add_fp(gx1, gx1, tv2);              /* gx1 = gx1 + tv2      # x1^3 + A*x1*xd^2 + B*xd^3 */
-        sqr_fp(tv4, gxd);                   /* tv4 = gxd^2                  */
-        mul_fp(tv2, gx1, gxd);              /* tv2 = gx1 * gxd              */
-        mul_fp(tv4, tv4, tv2);              /* tv4 = tv4 * tv2      # gx1*gxd^3 */
+        Fp::sqr(tv2, xd);                    /* tv2 = xd^2                   */
+        Fp::mul(gxd, xd, tv2);               /* gxd = xd^3                   */
+        Fp::mul(tv2, get_BLST_Aprime_E1(), tv2);        /* tv2 = A * tv2                */
+        Fp::sqr(gx1, x1n);                   /* gx1 = x1n^2                  */
+        Fp::add(gx1, gx1, tv2);              /* gx1 = gx1 + tv2      # x1n^2 + A*xd^2 */
+        Fp::mul(gx1, gx1, x1n);              /* gx1 = gx1 * x1n      # x1n^3 + A*x1n*xd^2 */
+        Fp::mul(tv2, get_BLST_Bprime_E1(), gxd);        /* tv2 = B * gxd                */
+        Fp::add(gx1, gx1, tv2);              /* gx1 = gx1 + tv2      # x1^3 + A*x1*xd^2 + B*xd^3 */
+        Fp::sqr(tv4, gxd);                   /* tv4 = gxd^2                  */
+        Fp::mul(tv2, gx1, gxd);              /* tv2 = gx1 * gxd              */
+        Fp::mul(tv4, tv4, tv2);              /* tv4 = tv4 * tv2      # gx1*gxd^3 */
         e2 = recip_sqrt_fp(y1, tv4);        /* y1 = tv4^c1          # (gx1*gxd^3)^((p-3)/4) */
-        mul_fp(y1, y1, tv2);                /* y1 = y1 * tv2        # gx1*gxd*y1 */
-        mul_fp(y2, y1, sqrt_minus_ZZZ);     /* y2 = y1 * c2         # y2 = y1*sqrt(-Z^3) */
-        mul_fp(y2, y2, uu);                 /* y2 = y2 * uu                 */
-        mul_fp(y2, y2, u);                  /* y2 = y2 * u                  */
+        Fp::mul(y1, y1, tv2);                /* y1 = y1 * tv2        # gx1*gxd*y1 */
+        Fp::mul(y2, y1, sqrt_minus_ZZZ);     /* y2 = y1 * c2         # y2 = y1*sqrt(-Z^3) */
+        Fp::mul(y2, y2, uu);                 /* y2 = y2 * uu                 */
+        Fp::mul(y2, y2, u);                  /* y2 = y2 * u                  */
 
         /* choose numerators                                                */
         vec_select(xn, x1n, x2n, sizeof(xn), e2);   /* xn = e2 ? x1n : x2n  */
@@ -478,14 +438,14 @@ namespace blst
 
         e1 = sgn0_fp(u);
         e2 = sgn0_fp(y);
-        cneg_fp(y, y, e1 ^ e2);               /* fix sign of y                */
+        Fp::cneg(y, y, e1 ^ e2);               /* fix sign of y                */
         /* return (xn, xd, y, 1)        */
 
     /* convert (xn, xd, y, 1) to Jacobian projective coordinates        */
-        mul_fp(p->X, xn, xd);               /* X = xn * xd                  */
-        mul_fp(p->Y, y, gxd);               /* Y = y * xd^3                 */
+        Fp::mul(p.X, xn, xd);               /* X = xn * xd                  */
+        Fp::mul(p.Y, y, gxd);               /* Y = y * xd^3                 */
 #ifndef xd
-        vec_copy(p->Z, xd, sizeof(xd));     /* Z = xd                       */
+        vec_copy(p.Z, xd, sizeof(xd));     /* Z = xd                       */
 #else
 # undef xn
 # undef y
@@ -498,16 +458,16 @@ namespace blst
 #undef sgn0_fp
     }
 
-    BLST_HD BLST_INLINE void POINTonE1_add_n_dbl(POINTonE1* out, const POINTonE1* p, size_t n)
+    BLST_HD BLST_INLINE void POINTonE1_add_n_dbl(POINTonE1& out, const POINTonE1& p, size_t n)
     {
-        POINTonE1_dadd(out, out, p, NULL);
+        POINTonE1::dadd(out, out, p, NULL);
         while (n--)
-            POINTonE1_double(out, out);
+            POINTonE1::doubling(out, out);
     }
 
-    BLST_HD BLST_INLINE void POINTonE1_times_minus_z(POINTonE1* out, const POINTonE1* in)
+    BLST_HD BLST_INLINE void POINTonE1_times_minus_z(POINTonE1& out, const POINTonE1& in)
     {
-        POINTonE1_double(out, in);          /*      1: 0x2                  */
+        POINTonE1::doubling(out, in);          /*      1: 0x2                  */
         POINTonE1_add_n_dbl(out, in, 2);    /*   2..4: 0x3..0xc             */
         POINTonE1_add_n_dbl(out, in, 3);    /*   5..8: 0xd..0x68            */
         POINTonE1_add_n_dbl(out, in, 9);    /*  9..18: 0x69..0xd200         */
@@ -518,57 +478,58 @@ namespace blst
     /*
      * |u|, |v| are expected to be in Montgomery representation
      */
-    BLST_HD BLST_INLINE void map_to_g1(POINTonE1* out, const vec384 u, const vec384 v)
+    BLST_HD BLST_INLINE void map_to_g1(POINTonE1& out, const Fp& u, const Fp* v)
     {
         POINTonE1 p;
 
-        map_to_isogenous_E1(&p, u);
+        map_to_isogenous_E1(p, u);
 
         if (v != NULL) {
-            map_to_isogenous_E1(out, v);    /* borrow |out|                 */
-            POINTonE1_dadd(&p, &p, out, *get_BLST_Aprime_E1());
+            map_to_isogenous_E1(out, *v);    /* borrow |out|                 */
+            POINTonE1::dadd(p, p, out, &get_BLST_Aprime_E1());
         }
 
-        isogeny_map_to_E1(&p, &p);          /* sprinkle isogenous powder    */
+        isogeny_map_to_E1(p, p);          /* sprinkle isogenous powder    */
 
         /* clear the cofactor by multiplying |p| by 1-z, 0xd201000000010001 */
-        POINTonE1_times_minus_z(out, &p);
-        POINTonE1_dadd(out, out, &p, NULL);
+        POINTonE1_times_minus_z(out, p);
+        POINTonE1::dadd(out, out, p, NULL);
     }
 
-    BLST_HD BLST_INLINE void blst_map_to_g1(POINTonE1* out, const vec384 u, const vec384 v)
+
+    BLST_HD BLST_INLINE void blst_map_to_g1(POINTonE1& out, const Fp& u, const Fp* v)
     {
         map_to_g1(out, u, v);
     }
 
-    BLST_HD BLST_INLINE void Encode_to_G1(POINTonE1* p, const unsigned char* msg, size_t msg_len,
+    BLST_HD BLST_INLINE void Encode_to_G1(POINTonE1& p, const unsigned char* msg, size_t msg_len,
         const unsigned char* DST, size_t DST_len,
         const unsigned char* aug, size_t aug_len)
     {
-        vec384 u[1];
+        Fp u[1];
 
         hash_to_field(u, 1, aug, aug_len, msg, msg_len, DST, DST_len);
         map_to_g1(p, u[0], NULL);
     }
 
-    BLST_HD BLST_INLINE void blst_encode_to_g1(POINTonE1* p, const unsigned char* msg, size_t msg_len,
+    BLST_HD BLST_INLINE void blst_encode_to_g1(POINTonE1& p, const unsigned char* msg, size_t msg_len,
         const unsigned char* DST, size_t DST_len,
         const unsigned char* aug, size_t aug_len)
     {
         Encode_to_G1(p, msg, msg_len, DST, DST_len, aug, aug_len);
     }
 
-    BLST_HD BLST_INLINE void Hash_to_G1(POINTonE1* p, const unsigned char* msg, size_t msg_len,
+    BLST_HD BLST_INLINE void Hash_to_G1(POINTonE1& p, const unsigned char* msg, size_t msg_len,
         const unsigned char* DST, size_t DST_len,
         const unsigned char* aug, size_t aug_len)
     {
-        vec384 u[2];
+        Fp u[2];
 
         hash_to_field(u, 2, aug, aug_len, msg, msg_len, DST, DST_len);
-        map_to_g1(p, u[0], u[1]);
+        map_to_g1(p, u[0], &u[1]);
     }
 
-    BLST_HD BLST_INLINE void blst_hash_to_g1(POINTonE1* p, const unsigned char* msg, size_t msg_len,
+    BLST_HD BLST_INLINE void blst_hash_to_g1(POINTonE1& p, const unsigned char* msg, size_t msg_len,
         const unsigned char* DST, size_t DST_len,
         const unsigned char* aug, size_t aug_len)
     {
@@ -579,7 +540,7 @@ namespace blst
 
 #if 0
 #ifdef __OPTIMIZE_SIZE__
-    HOST_DEVICE_FUNC BLST_INLINE void POINTonE1_times_zz_minus_1_div_by_3(POINTonE1* out,
+    BLST_HD BLST_INLINE void POINTonE1::times_zz_minus_1_div_by_3(POINTonE1* out,
         const POINTonE1* in)
     {
         const byte zz_minus_1_div_by_3[] = {
@@ -589,50 +550,50 @@ namespace blst
         const POINTonE1* dblin = in;
 
         while (n--) {
-            POINTonE1_double(out, dblin);   dblin = out;
+            POINTonE1::double(out, dblin);   dblin = out;
             if (is_bit_set(zz_minus_1_div_by_3, n))
-                POINTonE1_dadd(out, out, in, NULL);
+                POINTonE1::dadd(out, out, in, NULL);
         }
     }
 #else
-    HOST_DEVICE_FUNC BLST_INLINE void POINTonE1_dbl_n_add(POINTonE1* out, size_t n, const POINTonE1* p)
+    BLST_HD BLST_INLINE void POINTonE1::dbl_n_add(POINTonE1* out, size_t n, const POINTonE1* p)
     {
         while (n--)
-            POINTonE1_double(out, out);
-        POINTonE1_dadd(out, out, p, NULL);
+            POINTonE1::double(out, out);
+        POINTonE1::dadd(out, out, p, NULL);
     }
 
-    HOST_DEVICE_FUNC BLST_INLINE void POINTonE1_times_zz_minus_1_div_by_3(POINTonE1* out,
+    BLST_HD BLST_INLINE void POINTonE1::times_zz_minus_1_div_by_3(POINTonE1* out,
         const POINTonE1* in)
     {
         POINTonE1 t3, t5, t7, t11, t85;
 
-        POINTonE1_double(&t7, in);              /* 2P */
-        POINTonE1_dadd(&t3, &t7, in, NULL);     /* 3P */
-        POINTonE1_dadd(&t5, &t3, &t7, NULL);    /* 5P */
-        POINTonE1_dadd(&t7, &t5, &t7, NULL);    /* 7P */
-        POINTonE1_double(&t85, &t5);            /* 10P */
-        POINTonE1_dadd(&t11, &t85, in, NULL);   /* 11P */
-        POINTonE1_dbl_n_add(&t85, 3, &t5);      /* 0x55P */
+        POINTonE1::double(&t7, in);              /* 2P */
+        POINTonE1::dadd(&t3, &t7, in, NULL);     /* 3P */
+        POINTonE1::dadd(&t5, &t3, &t7, NULL);    /* 5P */
+        POINTonE1::dadd(&t7, &t5, &t7, NULL);    /* 7P */
+        POINTonE1::double(&t85, &t5);            /* 10P */
+        POINTonE1::dadd(&t11, &t85, in, NULL);   /* 11P */
+        POINTonE1::dbl_n_add(&t85, 3, &t5);      /* 0x55P */
         /* (-0xd201000000010000^2 - 1) / 3 */
-        POINTonE1_double(out, &t7);             /* 0xe */
-        POINTonE1_dbl_n_add(out, 5, &t11);     /* 0x1cb */
-        POINTonE1_dbl_n_add(out, 3, &t3);      /* 0xe5b */
-        POINTonE1_dbl_n_add(out, 3, in);       /* 0x72d9 */
-        POINTonE1_dbl_n_add(out, 5, &t3);      /* 0xe5b23 */
-        POINTonE1_dbl_n_add(out, 18, &t85);     /* 0x396c8c0055 */
-        POINTonE1_dbl_n_add(out, 8, &t85);     /* 0x396c8c005555 */
-        POINTonE1_dbl_n_add(out, 3, &t7);      /* 0x1cb646002aaaf */
-        POINTonE1_dbl_n_add(out, 7, &t5);      /* 0xe5b23001555785 */
-        POINTonE1_dbl_n_add(out, 5, &t11);     /* 0x1cb646002aaaf0ab */
-        POINTonE1_dbl_n_add(out, 41, &t85);     /* 0x396c8c005555e1560000000055 */
-        POINTonE1_dbl_n_add(out, 8, &t85);     /* 0x396c8c005555e156000000005555 */
-        POINTonE1_dbl_n_add(out, 8, &t85);     /* 0x396c8c005555e15600000000555555 */
-        POINTonE1_dbl_n_add(out, 8, &t85);     /* 0x396c8c005555e1560000000055555555 */
+        POINTonE1::double(out, &t7);             /* 0xe */
+        POINTonE1::dbl_n_add(out, 5, &t11);     /* 0x1cb */
+        POINTonE1::dbl_n_add(out, 3, &t3);      /* 0xe5b */
+        POINTonE1::dbl_n_add(out, 3, in);       /* 0x72d9 */
+        POINTonE1::dbl_n_add(out, 5, &t3);      /* 0xe5b23 */
+        POINTonE1::dbl_n_add(out, 18, &t85);     /* 0x396c8c0055 */
+        POINTonE1::dbl_n_add(out, 8, &t85);     /* 0x396c8c005555 */
+        POINTonE1::dbl_n_add(out, 3, &t7);      /* 0x1cb646002aaaf */
+        POINTonE1::dbl_n_add(out, 7, &t5);      /* 0xe5b23001555785 */
+        POINTonE1::dbl_n_add(out, 5, &t11);     /* 0x1cb646002aaaf0ab */
+        POINTonE1::dbl_n_add(out, 41, &t85);     /* 0x396c8c005555e1560000000055 */
+        POINTonE1::dbl_n_add(out, 8, &t85);     /* 0x396c8c005555e156000000005555 */
+        POINTonE1::dbl_n_add(out, 8, &t85);     /* 0x396c8c005555e15600000000555555 */
+        POINTonE1::dbl_n_add(out, 8, &t85);     /* 0x396c8c005555e1560000000055555555 */
     }
 #endif
 
-    HOST_DEVICE_FUNC BLST_INLINE bool_t POINTonE1_in_G1(const POINTonE1* P)
+    BLST_HD BLST_INLINE bool_t POINTonE1::in_G1(const POINTonE1* P)
     {
         POINTonE1 t0, t1, t2;
 
@@ -640,47 +601,47 @@ namespace blst
         sigma(&t0, P);                        /* σ(P)                         */
         sigma(&t1, &t0);                      /* σ²(P)                        */
 
-        POINTonE1_double(&t0, &t0);           /* 2σ(P)                        */
-        POINTonE1_dadd(&t2, &t1, P, NULL);    /* P +  σ²(P)                   */
-        POINTonE1_cneg(&t2, 1);               /* - P - σ²(P)                  */
-        POINTonE1_dadd(&t2, &t2, &t0, NULL);  /* 2σ(P) - P - σ²(P)            */
-        POINTonE1_times_zz_minus_1_div_by_3(&t0, &t2);
-        POINTonE1_cneg(&t1, 1);
-        POINTonE1_dadd(&t0, &t0, &t1, NULL);  /* [(z²-1)/3](2σ(P) - P - σ²(P)) */
+        POINTonE1::double(&t0, &t0);           /* 2σ(P)                        */
+        POINTonE1::dadd(&t2, &t1, P, NULL);    /* P +  σ²(P)                   */
+        POINTonE1::cneg(&t2, 1);               /* - P - σ²(P)                  */
+        POINTonE1::dadd(&t2, &t2, &t0, NULL);  /* 2σ(P) - P - σ²(P)            */
+        POINTonE1::times_zz_minus_1_div_by_3(&t0, &t2);
+        POINTonE1::cneg(&t1, 1);
+        POINTonE1::dadd(&t0, &t0, &t1, NULL);  /* [(z²-1)/3](2σ(P) - P - σ²(P)) */
         /* - σ²(P) */
         return vec_is_zero(t0.Z, sizeof(t0.Z));
     }
 #else
-    BLST_HD BLST_INLINE bool_t POINTonE1_in_G1(const POINTonE1* P)
+    BLST_HD BLST_INLINE bool_t POINTonE1_in_G1(const POINTonE1& P)
     {
         POINTonE1 t0, t1;
 
         /* Scott, M., https://eprint.iacr.org/2021/1130 */
-        POINTonE1_times_minus_z(&t0, P);
-        POINTonE1_times_minus_z(&t1, &t0);
-        POINTonE1_cneg(&t1, 1);             /* [-z²]P   */
+        POINTonE1_times_minus_z(t0, P);
+        POINTonE1_times_minus_z(t1, t0);
+        POINTonE1::cneg(t1, 1);             /* [-z²]P   */
 
-        sigma(&t0, P);                      /* σ(P)     */
-        sigma(&t0, &t0);                    /* σ²(P)    */
+        sigma(t0, P);                      /* σ(P)     */
+        sigma(t0, t0);                    /* σ²(P)    */
 
-        return POINTonE1_is_equal(&t0, &t1);
+        return POINTonE1::is_equal(t0, t1);
     }
 #endif
 
-    BLST_HD BLST_INLINE int blst_p1_in_g1(const POINTonE1* p)
+    BLST_HD BLST_INLINE int blst_p1_in_g1(const POINTonE1& p)
     {
         return (int)POINTonE1_in_G1(p);
     }
 
-    BLST_HD BLST_INLINE int blst_p1_affine_in_g1(const POINTonE1_affine* p)
+    BLST_HD BLST_INLINE int blst_p1_affine_in_g1(const POINTonE1_affine& p)
     {
         POINTonE1 P;
 
-        vec_copy(P.X, p->X, 2 * sizeof(P.X));
-        vec_select(P.Z, p->X, get_BLST_Rx()->p, sizeof(P.Z),
-            vec_is_zero(p, sizeof(*p)));
+        vec_copy(P.X, p.X, 2 * sizeof(P.X));
+        vec_select(P.Z, p.X, get_BLST_Rx().p, sizeof(P.Z),
+            vec_is_zero(&p, sizeof(p)));
 
-        return (int)POINTonE1_in_G1(&P);
+        return (int)POINTonE1_in_G1(P);
     }
 
 }

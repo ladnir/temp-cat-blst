@@ -13,7 +13,7 @@ namespace blst
 #ifdef BLST_CUDA
 
     // CUDA kernel for vectorized Fp12 multiplication
-    GLOBAL_FUNC void mul_fp12_kernel(vec384fp12* out, const vec384fp12* a, const vec384fp12* b, size_t num) {
+    GLOBAL_FUNC void mul_fp12_kernel(Fp12* out, const Fp12* a, const Fp12* b, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
             blst_fp12_mul(out[idx], a[idx], b[idx]);
@@ -21,7 +21,7 @@ namespace blst
     }
 
     // CUDA kernel for vectorized Fp12 squaring
-    GLOBAL_FUNC void sqr_fp12_kernel(vec384fp12* out, const vec384fp12* a, size_t num) {
+    GLOBAL_FUNC void sqr_fp12_kernel(Fp12* out, const Fp12* a, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
             blst_fp12_sqr(out[idx], a[idx]);
@@ -29,7 +29,7 @@ namespace blst
     }
 
     // CUDA kernel for vectorized Fp12 cyclotomic squaring
-    GLOBAL_FUNC void cyclotomic_sqr_fp12_kernel(vec384fp12* out, const vec384fp12* a, size_t num) {
+    GLOBAL_FUNC void cyclotomic_sqr_fp12_kernel(Fp12* out, const Fp12* a, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
             blst_fp12_cyclotomic_sqr(out[idx], a[idx]);
@@ -37,19 +37,19 @@ namespace blst
     }
 
     // CUDA kernel for vectorized Fp12 conjugation
-    GLOBAL_FUNC void conjugate_fp12_kernel(vec384fp12* out, const vec384fp12* a, size_t num) {
+    GLOBAL_FUNC void conjugate_fp12_kernel(Fp12* out, const Fp12* a, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
             // Copy input to output first, then conjugate in-place
-            for (int i = 0; i < sizeof(vec384fp12) / sizeof(limb_t); i++) {
-                ((limb_t*)out[idx])[i] = ((const limb_t*)a[idx])[i];
+            for (int i = 0; i < sizeof(Fp12) / sizeof(limb); i++) {
+                ((limb*)out[idx].data)[i] = ((const limb*)a[idx].data)[i];
             }
             blst_fp12_conjugate(out[idx]);
         }
     }
 
     // CUDA kernel for vectorized Fp12 inversion
-    GLOBAL_FUNC void inverse_fp12_kernel(vec384fp12* out, const vec384fp12* a, size_t num) {
+    GLOBAL_FUNC void inverse_fp12_kernel(Fp12* out, const Fp12* a, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
             blst_fp12_inverse(out[idx], a[idx]);
@@ -57,7 +57,7 @@ namespace blst
     }
 
     // CUDA kernel for vectorized Fp12 Frobenius map
-    GLOBAL_FUNC void frobenius_map_fp12_kernel(vec384fp12* out, const vec384fp12* a, size_t power, size_t num) {
+    GLOBAL_FUNC void frobenius_map_fp12_kernel(Fp12* out, const Fp12* a, size_t power, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
             blst_fp12_frobenius_map(out[idx], a[idx], power);
@@ -65,7 +65,7 @@ namespace blst
     }
 
     // CUDA kernel for vectorized Fp12 equality check
-    GLOBAL_FUNC void is_equal_fp12_kernel(bool* out, const vec384fp12* a, const vec384fp12* b, size_t num) {
+    GLOBAL_FUNC void is_equal_fp12_kernel(bool* out, const Fp12* a, const Fp12* b, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
             out[idx] = blst_fp12_is_equal(a[idx], b[idx]);
@@ -73,7 +73,7 @@ namespace blst
     }
 
     // CUDA kernel for vectorized Fp12 is_one check
-    GLOBAL_FUNC void is_one_fp12_kernel(bool* out, const vec384fp12* a, size_t num) {
+    GLOBAL_FUNC void is_one_fp12_kernel(bool* out, const Fp12* a, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
             out[idx] = blst_fp12_is_one(a[idx]);
@@ -81,7 +81,7 @@ namespace blst
     }
 
     // CUDA kernel for vectorized Fp12 serialization to big-endian
-    GLOBAL_FUNC void bendian_from_fp12_kernel(unsigned char* out, const vec384fp12* a, size_t num) {
+    GLOBAL_FUNC void bendian_from_fp12_kernel(unsigned char* out, const Fp12* a, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
             blst_bendian_from_fp12(&out[idx * 12 * 48], a[idx]);
@@ -89,7 +89,7 @@ namespace blst
     }
 
     // CUDA kernel for vectorized Fp12 deserialization from big-endian
-    GLOBAL_FUNC void fp12_from_bendian_kernel(vec384fp12* out, const unsigned char* in, size_t num) {
+    GLOBAL_FUNC void fp12_from_bendian_kernel(Fp12* out, const unsigned char* in, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
             blst_fp12_from_bendian(out[idx], &in[idx * 12 * 48]);
@@ -97,7 +97,7 @@ namespace blst
     }
 
     // CUDA kernel for vectorized Fp12 multiplication by xy00z0
-    GLOBAL_FUNC void mul_by_xy00z0_fp12_kernel(vec384fp12* out, const vec384fp12* a, const vec384fp6* xy00z0, size_t num) {
+    GLOBAL_FUNC void mul_by_xy00z0_fp12_kernel(Fp12* out, const Fp12* a, const Fp6* xy00z0, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
             blst_fp12_mul_by_xy00z0(out[idx], a[idx], xy00z0[idx]);
@@ -107,7 +107,7 @@ namespace blst
 #endif // BLST_CUDA
 
     // CPU fallback implementations
-    batched_error_code mul_fp12_vec_cc(vec384fp12* out, const vec384fp12* a, const vec384fp12* b, size_t num) {
+    batched_error_code mul_fp12_vec_cc(Fp12* out, const Fp12* a, const Fp12* b, size_t num) {
         if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
         for (size_t i = 0; i < num; i++) {
@@ -116,7 +116,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-    batched_error_code sqr_fp12_vec_cc(vec384fp12* out, const vec384fp12* a, size_t num) {
+    batched_error_code sqr_fp12_vec_cc(Fp12* out, const Fp12* a, size_t num) {
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         for (size_t i = 0; i < num; i++) {
@@ -125,7 +125,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-    batched_error_code cyclotomic_sqr_fp12_vec_cc(vec384fp12* out, const vec384fp12* a, size_t num) {
+    batched_error_code cyclotomic_sqr_fp12_vec_cc(Fp12* out, const Fp12* a, size_t num) {
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         for (size_t i = 0; i < num; i++) {
@@ -134,17 +134,17 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-    batched_error_code conjugate_fp12_vec_cc(vec384fp12* out, const vec384fp12* a, size_t num) {
+    batched_error_code conjugate_fp12_vec_cc(Fp12* out, const Fp12* a, size_t num) {
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         for (size_t i = 0; i < num; i++) {
-            memcpy(out[i], a[i], sizeof(vec384fp12));
+            memcpy(&out[i], &a[i], sizeof(Fp12));
             blst_fp12_conjugate(out[i]);
         }
         return BATCHED_SUCCESS;
     }
 
-    batched_error_code inverse_fp12_vec_cc(vec384fp12* out, const vec384fp12* a, size_t num) {
+    batched_error_code inverse_fp12_vec_cc(Fp12* out, const Fp12* a, size_t num) {
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         for (size_t i = 0; i < num; i++) {
@@ -153,7 +153,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-    batched_error_code frobenius_map_fp12_vec_cc(vec384fp12* out, const vec384fp12* a, size_t power, size_t num) {
+    batched_error_code frobenius_map_fp12_vec_cc(Fp12* out, const Fp12* a, size_t power, size_t num) {
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         for (size_t i = 0; i < num; i++) {
@@ -162,7 +162,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-    batched_error_code is_equal_fp12_vec_cc(bool* out, const vec384fp12* a, const vec384fp12* b, size_t num) {
+    batched_error_code is_equal_fp12_vec_cc(bool* out, const Fp12* a, const Fp12* b, size_t num) {
         if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
         for (size_t i = 0; i < num; i++) {
@@ -171,7 +171,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-    batched_error_code is_one_fp12_vec_cc(bool* out, const vec384fp12* a, size_t num) {
+    batched_error_code is_one_fp12_vec_cc(bool* out, const Fp12* a, size_t num) {
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         for (size_t i = 0; i < num; i++) {
@@ -180,7 +180,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-    batched_error_code bendian_from_fp12_vec_cc(unsigned char* out, const vec384fp12* a, size_t num) {
+    batched_error_code bendian_from_fp12_vec_cc(unsigned char* out, const Fp12* a, size_t num) {
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         for (size_t i = 0; i < num; i++) {
@@ -189,7 +189,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-    batched_error_code fp12_from_bendian_vec_cc(vec384fp12* out, const unsigned char* in, size_t num) {
+    batched_error_code fp12_from_bendian_vec_cc(Fp12* out, const unsigned char* in, size_t num) {
         if (!out || !in) return BATCHED_ERROR_NULL_POINTER;
 
         for (size_t i = 0; i < num; i++) {
@@ -198,7 +198,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-    batched_error_code mul_by_xy00z0_fp12_vec_cc(vec384fp12* out, const vec384fp12* a, const vec384fp6* xy00z0, size_t num) {
+    batched_error_code mul_by_xy00z0_fp12_vec_cc(Fp12* out, const Fp12* a, const Fp6* xy00z0, size_t num) {
         if (!out || !a || !xy00z0) return BATCHED_ERROR_NULL_POINTER;
 
         for (size_t i = 0; i < num; i++) {
@@ -209,77 +209,77 @@ namespace blst
 
     // CUDA implementations
 #ifdef BLST_CUDA
-    batched_error_code mul_fp12_vec_cu(vec384fp12* out, const vec384fp12* a, const vec384fp12* b, size_t num) {
+    batched_error_code mul_fp12_vec_cu(Fp12* out, const Fp12* a, const Fp12* b, size_t num) {
         if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
         auto fut = launch_auto(mul_fp12_kernel, num, out, a, b);
         return cuda_to_batched(fut.get());
     }
 
-    batched_error_code sqr_fp12_vec_cu(vec384fp12* out, const vec384fp12* a, size_t num) {
+    batched_error_code sqr_fp12_vec_cu(Fp12* out, const Fp12* a, size_t num) {
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         auto fut = launch_auto(sqr_fp12_kernel, num, out, a);
         return cuda_to_batched(fut.get());
     }
 
-    batched_error_code cyclotomic_sqr_fp12_vec_cu(vec384fp12* out, const vec384fp12* a, size_t num) {
+    batched_error_code cyclotomic_sqr_fp12_vec_cu(Fp12* out, const Fp12* a, size_t num) {
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         auto fut = launch_auto(cyclotomic_sqr_fp12_kernel, num, out, a);
         return cuda_to_batched(fut.get());
     }
 
-    batched_error_code conjugate_fp12_vec_cu(vec384fp12* out, const vec384fp12* a, size_t num) {
+    batched_error_code conjugate_fp12_vec_cu(Fp12* out, const Fp12* a, size_t num) {
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         auto fut = launch_auto(conjugate_fp12_kernel, num, out, a);
         return cuda_to_batched(fut.get());
     }
 
-    batched_error_code inverse_fp12_vec_cu(vec384fp12* out, const vec384fp12* a, size_t num) {
+    batched_error_code inverse_fp12_vec_cu(Fp12* out, const Fp12* a, size_t num) {
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         auto fut = launch_auto(inverse_fp12_kernel, num, out, a);
         return cuda_to_batched(fut.get());
     }
 
-    batched_error_code frobenius_map_fp12_vec_cu(vec384fp12* out, const vec384fp12* a, size_t power, size_t num) {
+    batched_error_code frobenius_map_fp12_vec_cu(Fp12* out, const Fp12* a, size_t power, size_t num) {
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         auto fut = launch_auto(frobenius_map_fp12_kernel, num, out, a, power);
         return cuda_to_batched(fut.get());
     }
 
-    batched_error_code is_equal_fp12_vec_cu(bool* out, const vec384fp12* a, const vec384fp12* b, size_t num) {
+    batched_error_code is_equal_fp12_vec_cu(bool* out, const Fp12* a, const Fp12* b, size_t num) {
         if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
         auto fut = launch_auto(is_equal_fp12_kernel, num, out, a, b);
         return cuda_to_batched(fut.get());
     }
 
-    batched_error_code is_one_fp12_vec_cu(bool* out, const vec384fp12* a, size_t num) {
+    batched_error_code is_one_fp12_vec_cu(bool* out, const Fp12* a, size_t num) {
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         auto fut = launch_auto(is_one_fp12_kernel, num, out, a);
         return cuda_to_batched(fut.get());
     }
 
-    batched_error_code bendian_from_fp12_vec_cu(unsigned char* out, const vec384fp12* a, size_t num) {
+    batched_error_code bendian_from_fp12_vec_cu(unsigned char* out, const Fp12* a, size_t num) {
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         auto fut = launch_auto(bendian_from_fp12_kernel, num, out, a);
         return cuda_to_batched(fut.get());
     }
 
-    batched_error_code fp12_from_bendian_vec_cu(vec384fp12* out, const unsigned char* in, size_t num) {
+    batched_error_code fp12_from_bendian_vec_cu(Fp12* out, const unsigned char* in, size_t num) {
         if (!out || !in) return BATCHED_ERROR_NULL_POINTER;
 
         auto fut = launch_auto(fp12_from_bendian_kernel, num, out, in);
         return cuda_to_batched(fut.get());
     }
 
-    batched_error_code mul_by_xy00z0_fp12_vec_cu(vec384fp12* out, const vec384fp12* a, const vec384fp6* xy00z0, size_t num) {
+    batched_error_code mul_by_xy00z0_fp12_vec_cu(Fp12* out, const Fp12* a, const Fp6* xy00z0, size_t num) {
         if (!out || !a || !xy00z0) return BATCHED_ERROR_NULL_POINTER;
 
         auto fut = launch_auto(mul_by_xy00z0_fp12_kernel, num, out, a, xy00z0);
@@ -288,7 +288,7 @@ namespace blst
 #endif // BLST_CUDA
 
     // Public API functions
-    batched_error_code mul_fp12_vec(vec384fp12* out, const vec384fp12* a, const vec384fp12* b, size_t num) {
+    batched_error_code mul_fp12_vec(Fp12* out, const Fp12* a, const Fp12* b, size_t num) {
         if (num == 0) return BATCHED_SUCCESS;
 
 #ifdef BLST_CUDA
@@ -298,7 +298,7 @@ namespace blst
 #endif
     }
 
-    batched_error_code sqr_fp12_vec(vec384fp12* out, const vec384fp12* a, size_t num) {
+    batched_error_code sqr_fp12_vec(Fp12* out, const Fp12* a, size_t num) {
         if (num == 0) return BATCHED_SUCCESS;
 
 #ifdef BLST_CUDA
@@ -308,7 +308,7 @@ namespace blst
 #endif
     }
 
-    batched_error_code cyclotomic_sqr_fp12_vec(vec384fp12* out, const vec384fp12* a, size_t num) {
+    batched_error_code cyclotomic_sqr_fp12_vec(Fp12* out, const Fp12* a, size_t num) {
         if (num == 0) return BATCHED_SUCCESS;
 
 #ifdef BLST_CUDA
@@ -318,7 +318,7 @@ namespace blst
 #endif
     }
 
-    batched_error_code conjugate_fp12_vec(vec384fp12* out, const vec384fp12* a, size_t num) {
+    batched_error_code conjugate_fp12_vec(Fp12* out, const Fp12* a, size_t num) {
         if (num == 0) return BATCHED_SUCCESS;
 
 #ifdef BLST_CUDA
@@ -328,7 +328,7 @@ namespace blst
 #endif
     }
 
-    batched_error_code inverse_fp12_vec(vec384fp12* out, const vec384fp12* a, size_t num) {
+    batched_error_code inverse_fp12_vec(Fp12* out, const Fp12* a, size_t num) {
         if (num == 0) return BATCHED_SUCCESS;
 
 #ifdef BLST_CUDA
@@ -338,7 +338,7 @@ namespace blst
 #endif
     }
 
-    batched_error_code frobenius_map_fp12_vec(vec384fp12* out, const vec384fp12* a, size_t power, size_t num) {
+    batched_error_code frobenius_map_fp12_vec(Fp12* out, const Fp12* a, size_t power, size_t num) {
         if (num == 0) return BATCHED_SUCCESS;
 
 #ifdef BLST_CUDA
@@ -348,7 +348,7 @@ namespace blst
 #endif
     }
 
-    batched_error_code is_equal_fp12_vec(bool* out, const vec384fp12* a, const vec384fp12* b, size_t num) {
+    batched_error_code is_equal_fp12_vec(bool* out, const Fp12* a, const Fp12* b, size_t num) {
         if (num == 0) return BATCHED_SUCCESS;
 
 #ifdef BLST_CUDA
@@ -358,7 +358,7 @@ namespace blst
 #endif
     }
 
-    batched_error_code is_one_fp12_vec(bool* out, const vec384fp12* a, size_t num) {
+    batched_error_code is_one_fp12_vec(bool* out, const Fp12* a, size_t num) {
         if (num == 0) return BATCHED_SUCCESS;
 
 #ifdef BLST_CUDA
@@ -368,7 +368,7 @@ namespace blst
 #endif
     }
 
-    batched_error_code bendian_from_fp12_vec(unsigned char* out, const vec384fp12* a, size_t num) {
+    batched_error_code bendian_from_fp12_vec(unsigned char* out, const Fp12* a, size_t num) {
         if (num == 0) return BATCHED_SUCCESS;
 
 #ifdef BLST_CUDA
@@ -378,7 +378,7 @@ namespace blst
 #endif
     }
 
-    batched_error_code fp12_from_bendian_vec(vec384fp12* out, const unsigned char* in, size_t num) {
+    batched_error_code fp12_from_bendian_vec(Fp12* out, const unsigned char* in, size_t num) {
         if (num == 0) return BATCHED_SUCCESS;
 
 #ifdef BLST_CUDA
@@ -388,7 +388,7 @@ namespace blst
 #endif
     }
 
-    batched_error_code mul_by_xy00z0_fp12_vec(vec384fp12* out, const vec384fp12* a, const vec384fp6* xy00z0, size_t num) {
+    batched_error_code mul_by_xy00z0_fp12_vec(Fp12* out, const Fp12* a, const Fp6* xy00z0, size_t num) {
         if (num == 0) return BATCHED_SUCCESS;
 
 #ifdef BLST_CUDA

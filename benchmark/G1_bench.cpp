@@ -23,7 +23,7 @@ static void generate_random_scalar(byte* scalar) {
 }
 
 // Helper to generate a random G1 point by multiplying the generator
-static void generate_random_g1_point(POINTonE1* p) {
+static void generate_random_g1_point(POINTonE1& p) {
     byte scalar[32];
     generate_random_scalar(scalar);
     blst_p1_mult(p, blst_p1_generator(), scalar, 256);
@@ -34,11 +34,11 @@ static void generate_random_g1_point(POINTonE1* p) {
 // Benchmark for G1 point addition (Jacobian)
 static void BM_G1_Add(benchmark::State& state) {
     POINTonE1 a, b, c;
-    generate_random_g1_point(&a);
-    generate_random_g1_point(&b);
+    generate_random_g1_point(a);
+    generate_random_g1_point(b);
 
     for (auto _ : state) {
-        blst_p1_add(&c, &a, &b);
+        blst_p1_add(c, a, b);
         benchmark::DoNotOptimize(c);
     }
     state.SetItemsProcessed(state.iterations());
@@ -49,14 +49,14 @@ BENCHMARK(BM_G1_Add);
 static void BM_G1_AddAffine(benchmark::State& state) {
     POINTonE1 a, c;
     POINTonE1_affine b_affine;
-    generate_random_g1_point(&a);
+    generate_random_g1_point(a);
 
     POINTonE1 b;
-    generate_random_g1_point(&b);
-    blst_p1_to_affine(&b_affine, &b);
+    generate_random_g1_point(b);
+    blst_p1_to_affine(b_affine, b);
 
     for (auto _ : state) {
-        blst_p1_add_affine(&c, &a, &b_affine);
+        blst_p1_add_affine(c, a, b_affine);
         benchmark::DoNotOptimize(c);
     }
     state.SetItemsProcessed(state.iterations());
@@ -68,10 +68,10 @@ BENCHMARK(BM_G1_AddAffine);
 // Benchmark for G1 point doubling
 static void BM_G1_Double(benchmark::State& state) {
     POINTonE1 a, c;
-    generate_random_g1_point(&a);
+    generate_random_g1_point(a);
 
     for (auto _ : state) {
-        blst_p1_double(&c, &a);
+        blst_p1_double(c, a);
         benchmark::DoNotOptimize(c);
     }
     state.SetItemsProcessed(state.iterations());
@@ -85,11 +85,11 @@ static void BM_G1_ScalarMult(benchmark::State& state) {
     POINTonE1 p, result;
     byte scalar[32];
 
-    p = *blst_p1_generator();
+    p = blst_p1_generator();
     generate_random_scalar(scalar);
 
     for (auto _ : state) {
-        blst_p1_mult(&result, &p, scalar, 256);
+        blst_p1_mult(result, p, scalar, 256);
         benchmark::DoNotOptimize(result);
     }
     state.SetItemsProcessed(state.iterations());
@@ -102,10 +102,10 @@ BENCHMARK(BM_G1_ScalarMult);
 static void BM_G1_ToAffine(benchmark::State& state) {
     POINTonE1 p;
     POINTonE1_affine p_affine;
-    generate_random_g1_point(&p);
+    generate_random_g1_point(p);
 
     for (auto _ : state) {
-        blst_p1_to_affine(&p_affine, &p);
+        blst_p1_to_affine(p_affine, p);
         benchmark::DoNotOptimize(p_affine);
     }
     state.SetItemsProcessed(state.iterations());
@@ -115,10 +115,10 @@ BENCHMARK(BM_G1_ToAffine);
 // Benchmark for converting from Affine to Jacobian coordinates
 static void BM_G1_FromAffine(benchmark::State& state) {
     POINTonE1 p;
-    POINTonE1_affine p_affine = *blst_p1_affine_generator();
+    POINTonE1_affine p_affine = blst_p1_affine_generator();
 
     for (auto _ : state) {
-        blst_p1_from_affine(&p, &p_affine);
+        blst_p1_from_affine(p, p_affine);
         benchmark::DoNotOptimize(p);
     }
     state.SetItemsProcessed(state.iterations());
@@ -130,11 +130,11 @@ BENCHMARK(BM_G1_FromAffine);
 // Benchmark for G1 point serialization
 static void BM_G1_Serialize(benchmark::State& state) {
     POINTonE1 p;
-    generate_random_g1_point(&p);
+    generate_random_g1_point(p);
     unsigned char out[96];
 
     for (auto _ : state) {
-        blst_p1_serialize(out, &p);
+        blst_p1_serialize(out, p);
         benchmark::DoNotOptimize(out);
     }
     state.SetItemsProcessed(state.iterations());
@@ -143,13 +143,13 @@ BENCHMARK(BM_G1_Serialize);
 
 // Benchmark for G1 point deserialization
 static void BM_G1_Deserialize(benchmark::State& state) {
-    POINTonE1 p = *blst_p1_generator();
+    POINTonE1 p = blst_p1_generator();
     unsigned char serialized[96];
-    blst_p1_serialize(serialized, &p);
+    blst_p1_serialize(serialized, p);
     POINTonE1_affine deserialized;
 
     for (auto _ : state) {
-        blst_p1_deserialize(&deserialized, serialized);
+        blst_p1_deserialize(deserialized, serialized);
         benchmark::DoNotOptimize(deserialized);
     }
     state.SetItemsProcessed(state.iterations());
@@ -159,11 +159,11 @@ BENCHMARK(BM_G1_Deserialize);
 // Benchmark for G1 point compression
 static void BM_G1_Compress(benchmark::State& state) {
     POINTonE1 p;
-    generate_random_g1_point(&p);
+    generate_random_g1_point(p);
     unsigned char out[48];
 
     for (auto _ : state) {
-        blst_p1_compress(out, &p);
+        blst_p1_compress(out, p);
         benchmark::DoNotOptimize(out);
     }
     state.SetItemsProcessed(state.iterations());
@@ -172,13 +172,13 @@ BENCHMARK(BM_G1_Compress);
 
 // Benchmark for G1 point uncompression
 static void BM_G1_Uncompress(benchmark::State& state) {
-    POINTonE1 p = *blst_p1_generator();
+    POINTonE1 p = blst_p1_generator();
     unsigned char compressed[48];
-    blst_p1_compress(compressed, &p);
+    blst_p1_compress(compressed, p);
     POINTonE1_affine uncompressed;
 
     for (auto _ : state) {
-        blst_p1_uncompress(&uncompressed, compressed);
+        blst_p1_uncompress(uncompressed, compressed);
         benchmark::DoNotOptimize(uncompressed);
     }
     state.SetItemsProcessed(state.iterations());
@@ -194,7 +194,7 @@ static void BM_G1_HashToCurve(benchmark::State& state) {
     unsigned char dst[] = "BLS_SIG_BLS12381G1_XMD:SHA-256_SSWU_RO_NUL_";
 
     for (auto _ : state) {
-        blst_hash_to_g1(&p, msg, sizeof(msg), dst, sizeof(dst), NULL, 0);
+        blst_hash_to_g1(p, msg, sizeof(msg), dst, sizeof(dst), NULL, 0);
         benchmark::DoNotOptimize(p);
     }
     state.SetItemsProcessed(state.iterations());
@@ -210,7 +210,7 @@ static void BM_G1_SkToPk(benchmark::State& state) {
     generate_random_scalar(sk);
 
     for (auto _ : state) {
-        blst_sk_to_pk_in_g1(&pk, sk);
+        blst_sk_to_pk_in_g1(pk, sk);
         benchmark::DoNotOptimize(pk);
     }
     state.SetItemsProcessed(state.iterations());

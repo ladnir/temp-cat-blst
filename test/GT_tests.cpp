@@ -12,12 +12,12 @@ class GTTest : public ::testing::Test {
 protected:
     void SetUp() override {
         // Initialize points
-        g1_point = *blst_p1_generator();
-        g2_point = *blst_p2_generator();
+        g1_point = blst_p1_generator();
+        g2_point = blst_p2_generator();
 
         // Convert to affine
-        blst_p1_to_affine(&g1_affine, &g1_point);
-        blst_p2_to_affine(&g2_affine, &g2_point);
+        blst_p1_to_affine(g1_affine, g1_point);
+        blst_p2_to_affine(g2_affine, g2_point);
 
         // Calculate pairing
         blst_miller_loop(gt_element, &g2_affine, &g1_affine);
@@ -28,37 +28,37 @@ protected:
     POINTonE2 g2_point;
     POINTonE1_affine g1_affine;
     POINTonE2_affine g2_affine;
-    vec384fp12 gt_element;  // An element in GT
-    vec384fp12 temp;        // For temporary results
+    Fp12 gt_element;  // An element in GT
+    Fp12 temp;        // For temporary results
 };
 
 TEST_F(GTTest, Identity) {
     // Test identity element in GT
     auto identity = blst_fp12_one();
 
-    EXPECT_TRUE(blst_fp12_is_one(*identity))
+    EXPECT_TRUE(blst_fp12_is_one(identity))
         << "Identity element should be 1";
 
     // Multiplying any element by identity should leave it unchanged
-    blst_fp12_mul(temp, gt_element, *identity);
+    blst_fp12_mul(temp, gt_element, identity);
     EXPECT_TRUE(blst_fp12_is_equal(temp, gt_element))
         << "a * 1 should equal a in GT";
 }
 
 TEST_F(GTTest, Multiplication) {
     // Create another element for testing
-    vec384fp12 another_gt;
+    Fp12 another_gt;
     POINTonE1 g1_double;
-    blst_p1_double(&g1_double, &g1_point);
+    blst_p1_double(g1_double, g1_point);
 
     POINTonE1_affine g1_double_affine;
-    blst_p1_to_affine(&g1_double_affine, &g1_double);
+    blst_p1_to_affine(g1_double_affine, g1_double);
 
     blst_miller_loop(another_gt, &g2_affine, &g1_double_affine);
     blst_final_exp(another_gt, another_gt);
 
     // Test multiplication
-    vec384fp12 product;
+    Fp12 product;
     blst_fp12_mul(product, gt_element, another_gt);
 
     // The product should not be equal to either of the original elements
@@ -68,24 +68,24 @@ TEST_F(GTTest, Multiplication) {
         << "Product should not equal second element";
 
     // Test commutativity: a * b = b * a
-    vec384fp12 product2;
+    Fp12 product2;
     blst_fp12_mul(product2, another_gt, gt_element);
     EXPECT_TRUE(blst_fp12_is_equal(product, product2))
         << "Multiplication should be commutative in GT";
 
     // Test associativity: (a * b) * c = a * (b * c)
     // Create a third element
-    vec384fp12 third_gt;
+    Fp12 third_gt;
     POINTonE1 g1_triple;
-    blst_p1_add(&g1_triple, &g1_double, &g1_point);
+    blst_p1_add(g1_triple, g1_double, g1_point);
 
     POINTonE1_affine g1_triple_affine;
-    blst_p1_to_affine(&g1_triple_affine, &g1_triple);
+    blst_p1_to_affine(g1_triple_affine, g1_triple);
 
     blst_miller_loop(third_gt, &g2_affine, &g1_triple_affine);
     blst_final_exp(third_gt, third_gt);
 
-    vec384fp12 temp1, temp2;
+    Fp12 temp1, temp2;
     // (a * b) * c
     blst_fp12_mul(temp1, gt_element, another_gt);
     blst_fp12_mul(temp1, temp1, third_gt);
@@ -100,13 +100,13 @@ TEST_F(GTTest, Multiplication) {
 
 TEST_F(GTTest, Inversion) {
     // Test inversion (a * a⁻¹ = 1)
-    vec384fp12 inverse;
+    Fp12 inverse;
     blst_fp12_inverse(inverse, gt_element);
 
-    vec384fp12 product;
+    Fp12 product;
     blst_fp12_mul(product, gt_element, inverse);
 
-    auto identity = *blst_fp12_one();
+    auto identity = blst_fp12_one();
 
     EXPECT_TRUE(blst_fp12_is_equal(product, identity))
         << "Element multiplied by its inverse should equal identity";
@@ -114,22 +114,22 @@ TEST_F(GTTest, Inversion) {
 
 TEST_F(GTTest, Squaring) {
     // Test that squaring equals multiplying by self
-    vec384fp12 square;
+    Fp12 square;
     blst_fp12_sqr(square, gt_element);
 
-    vec384fp12 product;
+    Fp12 product;
     blst_fp12_mul(product, gt_element, gt_element);
 
     EXPECT_TRUE(blst_fp12_is_equal(square, product))
         << "a² should equal a * a";
 
     // Test multiple squaring (to test repeated squaring optimization if available)
-    vec384fp12 repeated_square;
+    Fp12 repeated_square;
     blst_fp12_sqr(repeated_square, gt_element);
     blst_fp12_sqr(repeated_square, repeated_square);
 
     // This should equal gt_element⁴
-    vec384fp12 pow4;
+    Fp12 pow4;
     blst_fp12_mul(pow4, gt_element, gt_element);
     blst_fp12_mul(pow4, pow4, pow4);
 
@@ -139,31 +139,31 @@ TEST_F(GTTest, Squaring) {
 
 TEST_F(GTTest, Exponentiation) {
     // Test exponentiation using small exponents
-    vec384fp12 result, expected;
+    Fp12 result, expected;
 
     // Test e^0 = 1
-    limb_t zero[4] = { 0, 0, 0, 0 };
+    limb zero[4] = { 0, 0, 0, 0 };
     blst_fp12_pow(result, gt_element, zero, sizeof(zero) * 8);
-    vec384fp12 expected_identity = { 0 };
+    Fp12 expected_identity = { 0 };
 	blst_fp12_one_copy(expected_identity);
     EXPECT_TRUE(blst_fp12_is_equal(result, expected_identity))
         << "e^0 should equal 1";
 
     // Test e^1 = e
-    limb_t one[4] = { 1, 0, 0, 0 };
+    limb one[4] = { 1, 0, 0, 0 };
     blst_fp12_pow(result, gt_element, one, sizeof(one) * 8);
     EXPECT_TRUE(blst_fp12_is_equal(result, gt_element))
         << "e^1 should equal e";
 
     // Test e^2 = e * e
-    limb_t two[4] = { 2, 0, 0, 0 };
+    limb two[4] = { 2, 0, 0, 0 };
     blst_fp12_pow(result, gt_element, two, sizeof(two) * 8);
     blst_fp12_sqr(expected, gt_element);
     EXPECT_TRUE(blst_fp12_is_equal(result, expected))
         << "e^2 should equal e * e";
 
     // Test e^3 = e * e * e
-    limb_t three[4] = { 3, 0, 0, 0 };
+    limb three[4] = { 3, 0, 0, 0 };
     blst_fp12_pow(result, gt_element, three, sizeof(three) * 8);
     blst_fp12_mul(expected, expected, gt_element);
     EXPECT_TRUE(blst_fp12_is_equal(result, expected))
@@ -172,15 +172,15 @@ TEST_F(GTTest, Exponentiation) {
 
 //TEST_F(GTTest, Serialization) {
 //    // Test serialization/deserialization of GT elements
-//    vec384fp12 original = { 0 };  // Copy the gt_element
-//    memcpy(original, gt_element, sizeof(vec384fp12));
+//    Fp12 original = { 0 };  // Copy the gt_element
+//    memcpy(original, gt_element, sizeof(Fp12));
 //
 //    // Serialize to bytes
 //    unsigned char serialized[12 * 48];  // Fp12 consists of 12 base field elements
 //    blst_fp12_serialize(serialized, original);
 //
 //    // Deserialize back
-//    vec384fp12 deserialized;
+//    Fp12 deserialized;
 //    EXPECT_TRUE(blst_fp12_deserialize(deserialized, serialized))
 //        << "Deserialization should succeed";
 //
@@ -195,26 +195,26 @@ TEST_F(GTTest, BilinearityProperty) {
     // Create scaled points
     POINTonE1 g1_double;
     POINTonE2 g2_double;
-    blst_p1_double(&g1_double, &g1_point);
-    blst_p2_double(&g2_double, &g2_point);
+    blst_p1_double(g1_double, g1_point);
+    blst_p2_double(g2_double, g2_point);
 
     POINTonE1_affine g1_double_affine;
     POINTonE2_affine g2_double_affine;
-    blst_p1_to_affine(&g1_double_affine, &g1_double);
-    blst_p2_to_affine(&g2_double_affine, &g2_double);
+    blst_p1_to_affine(g1_double_affine, g1_double);
+    blst_p2_to_affine(g2_double_affine, g2_double);
 
     // e(2P, Q)
-    vec384fp12 e_2P_Q;
+    Fp12 e_2P_Q;
     blst_miller_loop(e_2P_Q, &g2_affine, &g1_double_affine);
     blst_final_exp(e_2P_Q, e_2P_Q);
 
     // e(P, 2Q)
-    vec384fp12 e_P_2Q;
+    Fp12 e_P_2Q;
     blst_miller_loop(e_P_2Q, &g2_double_affine, &g1_affine);
     blst_final_exp(e_P_2Q, e_P_2Q);
 
     // e(P,Q)^2
-    vec384fp12 e_PQ_squared;
+    Fp12 e_PQ_squared;
     blst_fp12_sqr(e_PQ_squared, gt_element);
 
     // All three should be equal due to bilinearity
@@ -234,24 +234,24 @@ TEST_F(GTTest, GroupMembership) {
         << "Pairing result should be in the GT group";
 
     // Identity should be in the group
-    vec384fp12 identity;
+    Fp12 identity;
     blst_fp12_one_copy(identity);
     EXPECT_TRUE(blst_fp12_in_group(identity))
         << "Identity element should be in the GT group";
 
     // Test that a non-GT element (before final_exp) is not in the group
-    vec384fp12 not_finalized;
+    Fp12 not_finalized;
     blst_miller_loop(not_finalized, &g2_affine, &g1_affine);
     EXPECT_FALSE(blst_fp12_in_group(not_finalized))
         << "Miller loop result without final_exp should not be in GT group";
 
     // Squaring, multiplication, inversion should preserve group membership
-    vec384fp12 squared;
+    Fp12 squared;
     blst_fp12_sqr(squared, gt_element);
     EXPECT_TRUE(blst_fp12_in_group(squared))
         << "Squaring should preserve group membership";
 
-    vec384fp12 inverse;
+    Fp12 inverse;
     blst_fp12_inverse(inverse, gt_element);
     EXPECT_TRUE(blst_fp12_in_group(inverse))
         << "Inversion should preserve group membership";
@@ -260,22 +260,22 @@ TEST_F(GTTest, GroupMembership) {
 TEST_F(GTTest, MultiPairing) {
     // Set up multiple points for testing
     POINTonE1 g1_double;
-    blst_p1_double(&g1_double, &g1_point);
+    blst_p1_double(g1_double, g1_point);
 
     POINTonE1_affine g1_points[2];
-    blst_p1_to_affine(&g1_points[0], &g1_point);
-    blst_p1_to_affine(&g1_points[1], &g1_double);
+    blst_p1_to_affine(g1_points[0], g1_point);
+    blst_p1_to_affine(g1_points[1], g1_double);
 
     POINTonE2_affine g2_points[2];
-    blst_p2_to_affine(&g2_points[0], &g2_point);
-    blst_p2_to_affine(&g2_points[1], &g2_point);
+    blst_p2_to_affine(g2_points[0], g2_point);
+    blst_p2_to_affine(g2_points[1], g2_point);
 
     // Create arrays of pointers as required by blst_miller_loop_n
     const POINTonE1_affine* g1_ptrs[3] = { &g1_points[0], &g1_points[1], nullptr };
     const POINTonE2_affine* g2_ptrs[3] = { &g2_points[0], &g2_points[1], nullptr };
 
     // Calculate e(P1,Q1) and e(P2,Q2) individually
-    vec384fp12 e1, e2, product, multi;
+    Fp12 e1, e2, product, multi;
     blst_miller_loop(e1, &g2_points[0], &g1_points[0]);
     blst_miller_loop(e2, &g2_points[1], &g1_points[1]);
 
@@ -297,20 +297,20 @@ TEST_F(GTTest, FinalVerify) {
 
     // Create two different pairings that should be equal after final_exp
     POINTonE1 g1_double;
-    blst_p1_double(&g1_double, &g1_point);
+    blst_p1_double(g1_double, g1_point);
 
     // Create a "half" point in G2 by multiplying by inverse of 2 (if available)
     // For test purposes, we'll just use a different point
     POINTonE2 g2_another;
-    blst_p2_add(&g2_another, &g2_point, &g2_point);  // Just a different point
+    blst_p2_add(g2_another, g2_point, g2_point);  // Just a different point
 
     POINTonE1_affine g1_double_affine;
     POINTonE2_affine g2_half_affine;
-    blst_p1_to_affine(&g1_double_affine, &g1_double);
-    blst_p2_to_affine(&g2_half_affine, &g2_another);
+    blst_p1_to_affine(g1_double_affine, g1_double);
+    blst_p2_to_affine(g2_half_affine, g2_another);
 
     // Calculate two different pairings
-    vec384fp12 pair1, pair2;
+    Fp12 pair1, pair2;
     blst_miller_loop(pair1, &g2_affine, &g1_double_affine);
     blst_miller_loop(pair2, &g2_half_affine, &g1_affine);
 
@@ -319,7 +319,7 @@ TEST_F(GTTest, FinalVerify) {
         << "Different pairings should not be equal before final_exp";
 
     // Apply final exponentiation
-    vec384fp12 final1, final2;
+    Fp12 final1, final2;
     blst_final_exp(final1, pair1);
     blst_final_exp(final2, pair2);
 
@@ -337,14 +337,14 @@ TEST_F(GTTest, FinalVerify) {
 
 TEST_F(GTTest, PairingWithPrecomputation) {
     // Test using precomputed lines for pairing
-    vec384fp6 lines[68];  // Size from the API
+    Fp6 lines[68];  // Size from the API
 
     // Precompute lines for pairing with g2_point
-    blst_precompute_lines(lines, &g2_affine);
+    blst_precompute_lines(lines, g2_affine);
 
     // Compute pairing using precomputed lines
-    vec384fp12 pre_result;
-    blst_miller_loop_lines(pre_result, lines, &g1_affine);
+    Fp12 pre_result;
+    blst_miller_loop_lines(pre_result, lines, g1_affine);
     blst_final_exp(pre_result, pre_result);
 
     // Verify against standard pairing computation
@@ -353,17 +353,17 @@ TEST_F(GTTest, PairingWithPrecomputation) {
 
     // Verify that we can reuse the precomputed lines with a different point
     POINTonE1 g1_double;
-    blst_p1_double(&g1_double, &g1_point);
+    blst_p1_double(g1_double, g1_point);
 
     POINTonE1_affine g1_double_affine;
-    blst_p1_to_affine(&g1_double_affine, &g1_double);
+    blst_p1_to_affine(g1_double_affine, g1_double);
 
-    vec384fp12 direct_double_result;
+    Fp12 direct_double_result;
     blst_miller_loop(direct_double_result, &g2_affine, &g1_double_affine);
     blst_final_exp(direct_double_result, direct_double_result);
 
-    vec384fp12 pre_double_result;
-    blst_miller_loop_lines(pre_double_result, lines, &g1_double_affine);
+    Fp12 pre_double_result;
+    blst_miller_loop_lines(pre_double_result, lines, g1_double_affine);
     blst_final_exp(pre_double_result, pre_double_result);
 
     EXPECT_TRUE(blst_fp12_is_equal(direct_double_result, pre_double_result))
@@ -372,7 +372,7 @@ TEST_F(GTTest, PairingWithPrecomputation) {
 
 TEST_F(GTTest, MillerLoopOnly) {
     // Test Miller loop without final exponentiation
-    vec384fp12 miller_result1, miller_result2;
+    Fp12 miller_result1, miller_result2;
     
     // Compute Miller loop for same pairing twice
     blst_miller_loop(miller_result1, &g2_affine, &g1_affine);
@@ -387,7 +387,7 @@ TEST_F(GTTest, MillerLoopOnly) {
         << "Miller loop result should not be in GT before final exponentiation";
     
     // Apply final exp and verify it's now in GT
-    vec384fp12 final_result;
+    Fp12 final_result;
     blst_final_exp(final_result, miller_result1);
     EXPECT_TRUE(blst_fp12_in_group(final_result))
         << "Result should be in GT after final exponentiation";
@@ -403,10 +403,10 @@ TEST_F(GTTest, PairingIdentityProperties) {
     //g1_identity.z[0] = 0;
     
     POINTonE1_affine g1_identity_affine;
-    blst_p1_to_affine(&g1_identity_affine, &g1_identity);
+    blst_p1_to_affine(g1_identity_affine, g1_identity);
     
     // Pairing with identity should give identity in GT
-    vec384fp12 pairing_with_identity;
+    Fp12 pairing_with_identity;
     blst_miller_loop(pairing_with_identity, &g2_affine, &g1_identity_affine);
     blst_final_exp(pairing_with_identity, pairing_with_identity);
     

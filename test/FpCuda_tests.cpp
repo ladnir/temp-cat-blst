@@ -32,34 +32,34 @@ protected:
         cudaDeviceReset();
     }
 
-    // Helper: Set a vec384 to a small integer value
-    void set_vec384(vec384 v, uint64_t x) {
+    // Helper: Set a Fp to a small integer value
+    void set_Fp(Fp& v, uint64_t x) {
         for (int i = 0; i < LIMBS; ++i)
             v[i] = 0;
         memcpy(v, &x, sizeof(x));
     }
 
-    // Helper: Compare two vec384 for equality
-    bool vec384_equal(const vec384 a, const vec384 b) {
+    // Helper: Compare two Fp& for equality
+    bool Fp_equal(const Fp& a, const Fp& b) {
         for (int i = 0; i < LIMBS; ++i)
             if (a[i] != b[i]) return false;
         return true;
     }
 
-    // Helper: Print vec384 for debugging
-    void print_vec384(const vec384 v) {
+    // Helper: Print Fp for debugging
+    void print_Fp(const Fp& v) {
         for (int i = LIMBS - 1; i >= 0; --i)
             printf("%016llx%s", (unsigned long long)v[i], i ? " " : "\n");
     }
 
-    // Helper: Copy one vec384 to another
-    void fp_copy(vec384 dst, const vec384 src) {
+    // Helper: Copy one Fp to another
+    void fp_copy(Fp& dst, const Fp& src) {
         for (int i = 0; i < LIMBS; ++i)
             dst[i] = src[i];
     }
 
     // Helper: Generate random Fp element
-    void random_fp(vec384 v) {
+    void random_fp(Fp& v) {
         // Generate random limbs
         for (int i = 0; i < LIMBS; ++i) {
             v[i] = gen();
@@ -72,14 +72,14 @@ protected:
     }
 
     // Helper: Convert standard integer to Montgomery form
-    void to_mont_fp(vec384 r, const vec384 a) {
-        to_fp(r, a);
+    void to_mont_fp(Fp& r, const Fp& a) {
+        Fp::to_mont(r, a);
     }
 
-    // Helper: Allocate device memory for vec384 arrays
-    vec384* allocate_device_fp_array(size_t num_elements) {
-        vec384* d_ptr = nullptr;
-        cudaError_t err = cudaMalloc((void**)&d_ptr, num_elements * sizeof(vec384));
+    // Helper: Allocate device memory for Fp arrays
+    Fp* allocate_device_fp_array(size_t num_elements) {
+        Fp* d_ptr = nullptr;
+        cudaError_t err = cudaMalloc((void**)&d_ptr, num_elements * sizeof(Fp));
         if (err != cudaSuccess) {
             return nullptr;
         }
@@ -87,19 +87,19 @@ protected:
     }
 
     // Helper: Free device memory
-    void free_device_fp_array(vec384* d_ptr) {
+    void free_device_fp_array(Fp* d_ptr) {
         if (d_ptr) {
             cudaFree(d_ptr);
         }
     }
 
-    // Helper: Copy host vec384 array to device
-    batched_error_code copy_host_to_device_fp(vec384* d_dst, const vec384* h_src, size_t num_elements) {
+    // Helper: Copy host Fp array to device
+    batched_error_code copy_host_to_device_fp(Fp* d_dst, const Fp* h_src, size_t num_elements) {
         if (!d_dst || !h_src) {
             return BATCHED_ERROR_NULL_POINTER;
         }
 
-        cudaError_t err = cudaMemcpy(d_dst, h_src, num_elements * sizeof(vec384), cudaMemcpyHostToDevice);
+        cudaError_t err = cudaMemcpy(d_dst, h_src, num_elements * sizeof(Fp), cudaMemcpyHostToDevice);
         if (err != cudaSuccess) {
             return BATCHED_ERROR_CUDA_MEMCPY_FAILED;
         }
@@ -107,13 +107,13 @@ protected:
         return BATCHED_SUCCESS;
     }
 
-    // Helper: Copy device vec384 array to host
-    batched_error_code copy_device_to_host_fp(vec384* h_dst, const vec384* d_src, size_t num_elements) {
+    // Helper: Copy device Fp array to host
+    batched_error_code copy_device_to_host_fp(Fp* h_dst, const Fp* d_src, size_t num_elements) {
         if (!h_dst || !d_src) {
             return BATCHED_ERROR_NULL_POINTER;
         }
 
-        cudaError_t err = cudaMemcpy(h_dst, d_src, num_elements * sizeof(vec384), cudaMemcpyDeviceToHost);
+        cudaError_t err = cudaMemcpy(h_dst, d_src, num_elements * sizeof(Fp), cudaMemcpyDeviceToHost);
         if (err != cudaSuccess) {
             return BATCHED_ERROR_CUDA_MEMCPY_FAILED;
         }
@@ -122,13 +122,13 @@ protected:
     }
 
     // Helper: Compare vector results against CPU reference
-    bool compare_fp_vectors(const vec384* vec_result, const vec384* cpu_result, size_t num, const char* operation) {
+    bool compare_fp_vectors(const Fp* vec_result, const Fp* cpu_result, size_t num, const char* operation) {
         bool all_equal = true;
         for (size_t i = 0; i < num; i++) {
-            if (!vec384_equal(vec_result[i], cpu_result[i])) {
+            if (!Fp_equal(vec_result[i], cpu_result[i])) {
                 printf("Mismatch in %s at index %zu:\n", operation, i);
-                printf("Vector result: "); print_vec384(vec_result[i]);
-                printf("CPU result:    "); print_vec384(cpu_result[i]);
+                printf("Vector result: "); print_Fp(vec_result[i]);
+                printf("CPU result:    "); print_Fp(cpu_result[i]);
                 all_equal = false;
                 // Only show first few mismatches to avoid flooding output
                 if (i > 5) break;
@@ -149,26 +149,26 @@ protected:
 
 TEST_F(FpCudaTest, VectorAdd) {
     const size_t NUM_ELEMENTS = 1000;
-    auto h_a = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto h_b = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto h_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto cpu_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
+    auto h_a = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto h_b = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto h_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto cpu_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
 
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        set_vec384(h_a[i], 5 + i);
-        set_vec384(h_b[i], 7 + i * 2);
+        set_Fp(h_a[i], 5 + i);
+        set_Fp(h_b[i], 7 + i * 2);
     }
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        add_fp(cpu_result[i], h_a[i], h_b[i]);
+        Fp::add(cpu_result[i], h_a[i], h_b[i]);
     }
 
     // Allocate device memory
-    vec384* d_a = allocate_device_fp_array(NUM_ELEMENTS);
-    vec384* d_b = allocate_device_fp_array(NUM_ELEMENTS);
-    vec384* d_result = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_a = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_b = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_result = allocate_device_fp_array(NUM_ELEMENTS);
 
     ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
     ASSERT_NE(d_b, nullptr) << "Failed to allocate device memory for array b";
@@ -196,26 +196,26 @@ TEST_F(FpCudaTest, VectorAdd) {
 
 TEST_F(FpCudaTest, VectorSub) {
     const size_t NUM_ELEMENTS = 1000;
-    auto h_a = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto h_b = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto h_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto cpu_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
+    auto h_a = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto h_b = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto h_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto cpu_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
 
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        set_vec384(h_a[i], 10 + i * 2);
-        set_vec384(h_b[i], 3 + i);
+        set_Fp(h_a[i], 10 + i * 2);
+        set_Fp(h_b[i], 3 + i);
     }
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        sub_fp(cpu_result[i], h_a[i], h_b[i]);
+        Fp::sub(cpu_result[i], h_a[i], h_b[i]);
     }
 
     // Allocate device memory
-    vec384* d_a = allocate_device_fp_array(NUM_ELEMENTS);
-    vec384* d_b = allocate_device_fp_array(NUM_ELEMENTS);
-    vec384* d_result = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_a = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_b = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_result = allocate_device_fp_array(NUM_ELEMENTS);
 
     ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
     ASSERT_NE(d_b, nullptr) << "Failed to allocate device memory for array b";
@@ -243,16 +243,16 @@ TEST_F(FpCudaTest, VectorSub) {
 
 TEST_F(FpCudaTest, VectorMul) {
     const size_t NUM_ELEMENTS = 1000;
-    auto h_a = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto h_b = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto h_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto cpu_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
+    auto h_a = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto h_b = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto h_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto cpu_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
 
     // Generate test data with Montgomery form conversion
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        vec384 temp_a, temp_b;
-        set_vec384(temp_a, 3 + i);
-        set_vec384(temp_b, 4 + i);
+        Fp temp_a, temp_b;
+        set_Fp(temp_a, 3 + i);
+        set_Fp(temp_b, 4 + i);
 
         // Convert to Montgomery form
         to_mont_fp(h_a[i], temp_a);
@@ -261,13 +261,13 @@ TEST_F(FpCudaTest, VectorMul) {
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        mul_fp(cpu_result[i], h_a[i], h_b[i]);
+        Fp::mul(cpu_result[i], h_a[i], h_b[i]);
     }
 
     // Allocate device memory
-    vec384* d_a = allocate_device_fp_array(NUM_ELEMENTS);
-    vec384* d_b = allocate_device_fp_array(NUM_ELEMENTS);
-    vec384* d_result = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_a = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_b = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_result = allocate_device_fp_array(NUM_ELEMENTS);
 
     ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
     ASSERT_NE(d_b, nullptr) << "Failed to allocate device memory for array b";
@@ -295,14 +295,14 @@ TEST_F(FpCudaTest, VectorMul) {
 
 TEST_F(FpCudaTest, VectorSqr) {
     const size_t NUM_ELEMENTS = 1000;
-    auto h_a = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto h_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto cpu_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
+    auto h_a = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto h_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto cpu_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
 
     // Generate test data with Montgomery form conversion
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        vec384 temp_a;
-        set_vec384(temp_a, 5 + i);
+        Fp temp_a;
+        set_Fp(temp_a, 5 + i);
 
         // Convert to Montgomery form
         to_mont_fp(h_a[i], temp_a);
@@ -310,12 +310,12 @@ TEST_F(FpCudaTest, VectorSqr) {
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        sqr_fp(cpu_result[i], h_a[i]);
+        Fp::sqr(cpu_result[i], h_a[i]);
     }
 
     // Allocate device memory
-    vec384* d_a = allocate_device_fp_array(NUM_ELEMENTS);
-    vec384* d_result = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_a = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_result = allocate_device_fp_array(NUM_ELEMENTS);
 
     ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
     ASSERT_NE(d_result, nullptr) << "Failed to allocate device memory for result";
@@ -340,31 +340,31 @@ TEST_F(FpCudaTest, VectorSqr) {
 
 TEST_F(FpCudaTest, VectorCNeg) {
     const size_t NUM_ELEMENTS = 1000;
-    auto h_a = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto h_result_true = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto cpu_result_true = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto h_result_false = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto cpu_result_false = std::make_unique<vec384[]>(NUM_ELEMENTS);
+    auto h_a = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto h_result_true = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto cpu_result_true = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto h_result_false = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto cpu_result_false = std::make_unique<Fp[]>(NUM_ELEMENTS);
 
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        set_vec384(h_a[i], 10 + i);
+        set_Fp(h_a[i], 10 + i);
     }
 
     // CPU reference computation with flag = 1
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        cneg_fp(cpu_result_true[i], h_a[i], 1);
+        Fp::cneg(cpu_result_true[i], h_a[i], 1);
     }
 
     // CPU reference computation with flag = 0
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        cneg_fp(cpu_result_false[i], h_a[i], 0);
+        Fp::cneg(cpu_result_false[i], h_a[i], 0);
     }
 
     // Allocate device memory
-    vec384* d_a = allocate_device_fp_array(NUM_ELEMENTS);
-    vec384* d_result_true = allocate_device_fp_array(NUM_ELEMENTS);
-    vec384* d_result_false = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_a = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_result_true = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_result_false = allocate_device_fp_array(NUM_ELEMENTS);
 
     ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
     ASSERT_NE(d_result_true, nullptr) << "Failed to allocate device memory for result_true";
@@ -399,23 +399,23 @@ TEST_F(FpCudaTest, VectorCNeg) {
 
 TEST_F(FpCudaTest, VectorMul3) {
     const size_t NUM_ELEMENTS = 1000;
-    auto h_a = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto h_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto cpu_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
+    auto h_a = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto h_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto cpu_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
 
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        set_vec384(h_a[i], 2 + i);
+        set_Fp(h_a[i], 2 + i);
     }
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        mul_by_3_fp(cpu_result[i], h_a[i]);
+        Fp::mul_by_3(cpu_result[i], h_a[i]);
     }
 
     // Allocate device memory
-    vec384* d_a = allocate_device_fp_array(NUM_ELEMENTS);
-    vec384* d_result = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_a = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_result = allocate_device_fp_array(NUM_ELEMENTS);
 
     ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
     ASSERT_NE(d_result, nullptr) << "Failed to allocate device memory for result";
@@ -440,23 +440,23 @@ TEST_F(FpCudaTest, VectorMul3) {
 
 TEST_F(FpCudaTest, VectorMul8) {
     const size_t NUM_ELEMENTS = 1000;
-    auto h_a = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto h_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto cpu_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
+    auto h_a = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto h_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto cpu_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
 
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        set_vec384(h_a[i], 2 + i);
+        set_Fp(h_a[i], 2 + i);
     }
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        mul_by_8_fp(cpu_result[i], h_a[i]);
+        Fp::mul_by_8(cpu_result[i], h_a[i]);
     }
 
     // Allocate device memory
-    vec384* d_a = allocate_device_fp_array(NUM_ELEMENTS);
-    vec384* d_result = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_a = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_result = allocate_device_fp_array(NUM_ELEMENTS);
 
     ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
     ASSERT_NE(d_result, nullptr) << "Failed to allocate device memory for result";
@@ -481,23 +481,23 @@ TEST_F(FpCudaTest, VectorMul8) {
 
 TEST_F(FpCudaTest, VectorDiv2) {
     const size_t NUM_ELEMENTS = 1000;
-    auto h_a = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto h_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto cpu_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
+    auto h_a = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto h_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto cpu_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
 
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        set_vec384(h_a[i], 8 + i * 2);
+        set_Fp(h_a[i], 8 + i * 2);
     }
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        div_by_2_fp(cpu_result[i], h_a[i]);
+        Fp::div_by_2(cpu_result[i], h_a[i]);
     }
 
     // Allocate device memory
-    vec384* d_a = allocate_device_fp_array(NUM_ELEMENTS);
-    vec384* d_result = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_a = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_result = allocate_device_fp_array(NUM_ELEMENTS);
 
     ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
     ASSERT_NE(d_result, nullptr) << "Failed to allocate device memory for result";
@@ -523,23 +523,23 @@ TEST_F(FpCudaTest, VectorDiv2) {
 TEST_F(FpCudaTest, VectorLshift) {
     const size_t NUM_ELEMENTS = 1000;
     const size_t shift_count = 2;
-    auto h_a = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto h_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto cpu_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
+    auto h_a = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto h_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto cpu_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
 
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        set_vec384(h_a[i], 1 + i);
+        set_Fp(h_a[i], 1 + i);
     }
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        lshift_fp(cpu_result[i], h_a[i], shift_count);
+        Fp::lshift(cpu_result[i], h_a[i], shift_count);
     }
 
     // Allocate device memory
-    vec384* d_a = allocate_device_fp_array(NUM_ELEMENTS);
-    vec384* d_result = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_a = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_result = allocate_device_fp_array(NUM_ELEMENTS);
 
     ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
     ASSERT_NE(d_result, nullptr) << "Failed to allocate device memory for result";
@@ -564,23 +564,23 @@ TEST_F(FpCudaTest, VectorLshift) {
 
 TEST_F(FpCudaTest, VectorToFp) {
     const size_t NUM_ELEMENTS = 1000;
-    auto h_a = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto h_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto cpu_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
+    auto h_a = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto h_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto cpu_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
 
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        set_vec384(h_a[i], 9 + i);
+        set_Fp(h_a[i], 9 + i);
     }
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        to_fp(cpu_result[i], h_a[i]);
+        Fp::to_mont(cpu_result[i], h_a[i]);
     }
 
     // Allocate device memory
-    vec384* d_a = allocate_device_fp_array(NUM_ELEMENTS);
-    vec384* d_result = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_a = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_result = allocate_device_fp_array(NUM_ELEMENTS);
 
     ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
     ASSERT_NE(d_result, nullptr) << "Failed to allocate device memory for result";
@@ -605,25 +605,25 @@ TEST_F(FpCudaTest, VectorToFp) {
 
 TEST_F(FpCudaTest, VectorFromFp) {
     const size_t NUM_ELEMENTS = 1000;
-    auto h_a = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto h_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto cpu_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
+    auto h_a = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto h_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto cpu_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
 
     // Generate test data in Montgomery form
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        vec384 temp;
-        set_vec384(temp, 9 + i);
-        to_fp(h_a[i], temp);
+        Fp temp;
+        set_Fp(temp, 9 + i);
+        Fp::to_mont(h_a[i], temp);
     }
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        from_fp(cpu_result[i], h_a[i]);
+        Fp::from_mont(cpu_result[i], h_a[i]);
     }
 
     // Allocate device memory
-    vec384* d_a = allocate_device_fp_array(NUM_ELEMENTS);
-    vec384* d_result = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_a = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_result = allocate_device_fp_array(NUM_ELEMENTS);
 
     ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
     ASSERT_NE(d_result, nullptr) << "Failed to allocate device memory for result";
@@ -648,17 +648,17 @@ TEST_F(FpCudaTest, VectorFromFp) {
 
 TEST_F(FpCudaTest, VectorMontgomeryRoundTrip) {
     const size_t NUM_ELEMENTS = 1000;
-    auto h_a = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto h_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
+    auto h_a = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto h_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
 
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        set_vec384(h_a[i], 42 + i);
+        set_Fp(h_a[i], 42 + i);
     }
 
     // Allocate device memory
-    vec384* d_a = allocate_device_fp_array(NUM_ELEMENTS);
-    vec384* d_result = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_a = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_result = allocate_device_fp_array(NUM_ELEMENTS);
 
     ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
     ASSERT_NE(d_result, nullptr) << "Failed to allocate device memory for result";
@@ -688,22 +688,22 @@ TEST_F(FpCudaTest, VectorMontgomeryRoundTrip) {
 
 TEST_F(FpCudaTest, VectorMixedOperations) {
     const size_t MIXED_SIZE = 256;
-    auto h_a = std::make_unique<vec384[]>(MIXED_SIZE);
-    auto h_b = std::make_unique<vec384[]>(MIXED_SIZE);
-    auto h_result = std::make_unique<vec384[]>(MIXED_SIZE);
-    auto cpu_result = std::make_unique<vec384[]>(MIXED_SIZE);
+    auto h_a = std::make_unique<Fp[]>(MIXED_SIZE);
+    auto h_b = std::make_unique<Fp[]>(MIXED_SIZE);
+    auto h_result = std::make_unique<Fp[]>(MIXED_SIZE);
+    auto cpu_result = std::make_unique<Fp[]>(MIXED_SIZE);
 
     // Initialize test data
     for (size_t i = 0; i < MIXED_SIZE; i++) {
-        set_vec384(h_a[i], 3 + i);
-        set_vec384(h_b[i], 5 + i * 2);
+        set_Fp(h_a[i], 3 + i);
+        set_Fp(h_b[i], 5 + i * 2);
     }
 
     // Allocate device memory
-    vec384* d_a = allocate_device_fp_array(MIXED_SIZE);
-    vec384* d_b = allocate_device_fp_array(MIXED_SIZE);
-    vec384* d_result = allocate_device_fp_array(MIXED_SIZE);
-    vec384* d_temp = allocate_device_fp_array(MIXED_SIZE);
+    Fp* d_a = allocate_device_fp_array(MIXED_SIZE);
+    Fp* d_b = allocate_device_fp_array(MIXED_SIZE);
+    Fp* d_result = allocate_device_fp_array(MIXED_SIZE);
+    Fp* d_temp = allocate_device_fp_array(MIXED_SIZE);
 
     ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
     ASSERT_NE(d_b, nullptr) << "Failed to allocate device memory for array b";
@@ -734,10 +734,10 @@ TEST_F(FpCudaTest, VectorMixedOperations) {
 
                 // Calculate expected results on host
                 for (size_t i = 0; i < MIXED_SIZE; i++) {
-                    vec384 temp_sum, temp_mul3;
-                    add_fp(temp_sum, h_a[i], h_b[i]);
-                    mul_by_3_fp(temp_mul3, temp_sum);
-                    div_by_2_fp(cpu_result[i], temp_mul3);
+                    Fp temp_sum, temp_mul3;
+                    Fp::add(temp_sum, h_a[i], h_b[i]);
+                    Fp::mul_by_3(temp_mul3, temp_sum);
+                    Fp::div_by_2(cpu_result[i], temp_mul3);
                 }
 
                 EXPECT_TRUE(compare_fp_vectors(h_result.get(), cpu_result.get(), MIXED_SIZE, "mixed operations"));
@@ -756,16 +756,16 @@ TEST_F(FpCudaTest, VectorEdgeCases) {
     const size_t NUM_ELEMENTS = 10;
 
     // Test with zero elements
-    auto h_zeros = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto h_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
+    auto h_zeros = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto h_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
 
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        set_vec384(h_zeros[i], 0);
+        set_Fp(h_zeros[i], 0);
     }
 
     // Allocate device memory
-    vec384* d_zeros = allocate_device_fp_array(NUM_ELEMENTS);
-    vec384* d_result = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_zeros = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_result = allocate_device_fp_array(NUM_ELEMENTS);
 
     ASSERT_NE(d_zeros, nullptr) << "Failed to allocate device memory for zeros";
     ASSERT_NE(d_result, nullptr) << "Failed to allocate device memory for result";
@@ -780,13 +780,13 @@ TEST_F(FpCudaTest, VectorEdgeCases) {
     if (add_result == BATCHED_SUCCESS) {
         expect_success(copy_device_to_host_fp(h_result.get(), d_result, NUM_ELEMENTS), "copy add result to host");
         for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-            EXPECT_TRUE(vec384_equal(h_result[i], h_zeros[i])) << "0 + 0 should equal 0 at index " << i;
+            EXPECT_TRUE(Fp_equal(h_result[i], h_zeros[i])) << "0 + 0 should equal 0 at index " << i;
         }
     }
 
     // Test with one
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        set_vec384(h_zeros[i], 1);
+        set_Fp(h_zeros[i], 1);
     }
 
     expect_success(copy_host_to_device_fp(d_zeros, h_zeros.get(), NUM_ELEMENTS), "copy ones to device");
@@ -797,9 +797,9 @@ TEST_F(FpCudaTest, VectorEdgeCases) {
     if (add_one_result == BATCHED_SUCCESS) {
         expect_success(copy_device_to_host_fp(h_result.get(), d_result, NUM_ELEMENTS), "copy add ones result to host");
         for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-            vec384 expected;
-            set_vec384(expected, 2);
-            EXPECT_TRUE(vec384_equal(h_result[i], expected)) << "1 + 1 should equal 2 at index " << i;
+            Fp expected;
+            set_Fp(expected, 2);
+            EXPECT_TRUE(Fp_equal(h_result[i], expected)) << "1 + 1 should equal 2 at index " << i;
         }
     }
 
@@ -817,7 +817,7 @@ TEST_F(FpCudaTest, VectorErrorHandling) {
         << "Expected NULL_POINTER error for null output array";
 
     // Test zero size handling - zero size should be OK
-    vec384* d_dummy = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_dummy = allocate_device_fp_array(NUM_ELEMENTS);
     ASSERT_NE(d_dummy, nullptr) << "Failed to allocate device memory for dummy array";
 
     batched_error_code zero_size_result = add_fp_vec(d_dummy, d_dummy, d_dummy, 0);
@@ -829,23 +829,23 @@ TEST_F(FpCudaTest, VectorErrorHandling) {
 
 TEST_F(FpCudaTest, VectorSmallValues) {
     const size_t NUM_ELEMENTS = 5;
-    auto h_a = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto h_b = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto h_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto cpu_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
+    auto h_a = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto h_b = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto h_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto cpu_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
 
     // Test with small known values
     const uint64_t TEST_VALUES[] = { 1, 2, 5, 10, 42 };
 
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        set_vec384(h_a[i], TEST_VALUES[i]);
-        set_vec384(h_b[i], TEST_VALUES[(i + 1) % NUM_ELEMENTS]);
+        set_Fp(h_a[i], TEST_VALUES[i]);
+        set_Fp(h_b[i], TEST_VALUES[(i + 1) % NUM_ELEMENTS]);
     }
 
     // Allocate device memory
-    vec384* d_a = allocate_device_fp_array(NUM_ELEMENTS);
-    vec384* d_b = allocate_device_fp_array(NUM_ELEMENTS);
-    vec384* d_result = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_a = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_b = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_result = allocate_device_fp_array(NUM_ELEMENTS);
 
     ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
     ASSERT_NE(d_b, nullptr) << "Failed to allocate device memory for array b";
@@ -857,7 +857,7 @@ TEST_F(FpCudaTest, VectorSmallValues) {
 
     // Test addition
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        add_fp(cpu_result[i], h_a[i], h_b[i]);
+        Fp::add(cpu_result[i], h_a[i], h_b[i]);
     }
     batched_error_code add_result = add_fp_vec(d_result, d_a, d_b, NUM_ELEMENTS);
     expect_success(add_result, "small values add");
@@ -868,7 +868,7 @@ TEST_F(FpCudaTest, VectorSmallValues) {
 
     // Test subtraction
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        sub_fp(cpu_result[i], h_a[i], h_b[i]);
+        Fp::sub(cpu_result[i], h_a[i], h_b[i]);
     }
     batched_error_code sub_result = sub_fp_vec(d_result, d_a, d_b, NUM_ELEMENTS);
     expect_success(sub_result, "small values sub");
@@ -879,7 +879,7 @@ TEST_F(FpCudaTest, VectorSmallValues) {
 
     // Test multiplication by 3
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        mul_by_3_fp(cpu_result[i], h_a[i]);
+        Fp::mul_by_3(cpu_result[i], h_a[i]);
     }
     batched_error_code mul3_result = mul3_fp_vec(d_result, d_a, NUM_ELEMENTS);
     expect_success(mul3_result, "small values mul3");
@@ -896,10 +896,10 @@ TEST_F(FpCudaTest, VectorSmallValues) {
 
 TEST_F(FpCudaTest, VectorPerformanceBaseline) {
     const size_t NUM_ELEMENTS = 10000;
-    auto h_a = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto h_b = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto h_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
-    auto cpu_result = std::make_unique<vec384[]>(NUM_ELEMENTS);
+    auto h_a = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto h_b = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto h_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto cpu_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
 
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
@@ -912,13 +912,13 @@ TEST_F(FpCudaTest, VectorPerformanceBaseline) {
 
     // CPU computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        add_fp(cpu_result[i], h_a[i], h_b[i]);
+        Fp::add(cpu_result[i], h_a[i], h_b[i]);
     }
 
     // Allocate device memory
-    vec384* d_a = allocate_device_fp_array(NUM_ELEMENTS);
-    vec384* d_b = allocate_device_fp_array(NUM_ELEMENTS);
-    vec384* d_result = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_a = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_b = allocate_device_fp_array(NUM_ELEMENTS);
+    Fp* d_result = allocate_device_fp_array(NUM_ELEMENTS);
 
     ASSERT_NE(d_a, nullptr) << "Failed to allocate device memory for array a";
     ASSERT_NE(d_b, nullptr) << "Failed to allocate device memory for array b";

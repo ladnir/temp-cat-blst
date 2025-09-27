@@ -24,14 +24,14 @@ static void generate_random_scalar(byte* scalar) {
 }
 
 // Helper to generate a random G1 point
-static void generate_random_g1_point(POINTonE1* p) {
+static void generate_random_g1_point(POINTonE1& p) {
     byte scalar[32];
     generate_random_scalar(scalar);
     blst_p1_mult(p, blst_p1_generator(), scalar, 256);
 }
 
 // Helper to generate a random G2 point
-static void generate_random_g2_point(POINTonE2* p) {
+static void generate_random_g2_point(POINTonE2& p) {
     byte scalar[32];
     generate_random_scalar(scalar);
     blst_p2_mult(p, blst_p2_generator(), scalar, 256);
@@ -43,15 +43,15 @@ static void generate_random_g2_point(POINTonE2* p) {
 static void BM_MillerLoop(benchmark::State& state) {
     POINTonE1 g1;
     POINTonE2 g2;
-    generate_random_g1_point(&g1);
-    generate_random_g2_point(&g2);
+    generate_random_g1_point(g1);
+    generate_random_g2_point(g2);
 
     POINTonE1_affine g1_affine;
     POINTonE2_affine g2_affine;
-    blst_p1_to_affine(&g1_affine, &g1);
-    blst_p2_to_affine(&g2_affine, &g2);
+    blst_p1_to_affine(g1_affine, g1);
+    blst_p2_to_affine(g2_affine, g2);
 
-    vec384fp12 result;
+    Fp12 result;
     for (auto _ : state) {
         blst_miller_loop(result, &g2_affine, &g1_affine);
         benchmark::DoNotOptimize(result);
@@ -64,15 +64,15 @@ BENCHMARK(BM_MillerLoop);
 static void BM_FinalExp(benchmark::State& state) {
     POINTonE1 g1;
     POINTonE2 g2;
-    generate_random_g1_point(&g1);
-    generate_random_g2_point(&g2);
+    generate_random_g1_point(g1);
+    generate_random_g2_point(g2);
 
     POINTonE1_affine g1_affine;
     POINTonE2_affine g2_affine;
-    blst_p1_to_affine(&g1_affine, &g1);
-    blst_p2_to_affine(&g2_affine, &g2);
+    blst_p1_to_affine(g1_affine, g1);
+    blst_p2_to_affine(g2_affine, g2);
 
-    vec384fp12 result;
+    Fp12 result;
     blst_miller_loop(result, &g2_affine, &g1_affine);
 
     for (auto _ : state) {
@@ -88,22 +88,22 @@ static void BM_MultiPairing2(benchmark::State& state) {
     POINTonE1 g1[2];
     POINTonE2 g2[2];
     for (int i = 0; i < 2; ++i) {
-        generate_random_g1_point(&g1[i]);
-        generate_random_g2_point(&g2[i]);
+        generate_random_g1_point(g1[i]);
+        generate_random_g2_point(g2[i]);
     }
 
     POINTonE1_affine g1_affine[2];
     POINTonE2_affine g2_affine[2];
     for (int i = 0; i < 2; ++i) {
-        blst_p1_to_affine(&g1_affine[i], &g1[i]);
-        blst_p2_to_affine(&g2_affine[i], &g2[i]);
+        blst_p1_to_affine(g1_affine[i], g1[i]);
+        blst_p2_to_affine(g2_affine[i], g2[i]);
     }
 
     // Arrays of pointers for API
     const POINTonE1_affine* g1_ptrs[2] = { &g1_affine[0], &g1_affine[1] };
     const POINTonE2_affine* g2_ptrs[2] = { &g2_affine[0], &g2_affine[1] };
 
-    vec384fp12 result;
+    Fp12 result;
     for (auto _ : state) {
         blst_miller_loop_n(result, g2_ptrs, g1_ptrs, 2);
         benchmark::DoNotOptimize(result);
@@ -117,22 +117,22 @@ static void BM_MultiPairing4(benchmark::State& state) {
     POINTonE1 g1[4];
     POINTonE2 g2[4];
     for (int i = 0; i < 4; ++i) {
-        generate_random_g1_point(&g1[i]);
-        generate_random_g2_point(&g2[i]);
+        generate_random_g1_point(g1[i]);
+        generate_random_g2_point(g2[i]);
     }
 
     POINTonE1_affine g1_affine[4];
     POINTonE2_affine g2_affine[4];
     for (int i = 0; i < 4; ++i) {
-        blst_p1_to_affine(&g1_affine[i], &g1[i]);
-        blst_p2_to_affine(&g2_affine[i], &g2[i]);
+        blst_p1_to_affine(g1_affine[i], g1[i]);
+        blst_p2_to_affine(g2_affine[i], g2[i]);
     }
 
     // Arrays of pointers for API
     const POINTonE1_affine* g1_ptrs[4] = { &g1_affine[0], &g1_affine[1], &g1_affine[2], &g1_affine[3] };
     const POINTonE2_affine* g2_ptrs[4] = { &g2_affine[0], &g2_affine[1], &g2_affine[2], &g2_affine[3] };
 
-    vec384fp12 result;
+    Fp12 result;
     for (auto _ : state) {
         blst_miller_loop_n(result, g2_ptrs, g1_ptrs, 4);
         benchmark::DoNotOptimize(result);
@@ -150,10 +150,10 @@ static void BM_PairingWithIdentity(benchmark::State& state) {
 
     POINTonE1_affine identity_e1_affine;
     POINTonE2_affine identity_e2_affine;
-    blst_p1_to_affine(&identity_e1_affine, &identity_e1);
-    blst_p2_to_affine(&identity_e2_affine, &identity_e2);
+    blst_p1_to_affine(identity_e1_affine, identity_e1);
+    blst_p2_to_affine(identity_e2_affine, identity_e2);
 
-    vec384fp12 result;
+    Fp12 result;
     for (auto _ : state) {
         blst_miller_loop(result, &identity_e2_affine, &identity_e1_affine);
         blst_final_exp(result, result);
@@ -169,8 +169,8 @@ static void BM_CPU_MillerFinal(benchmark::State& state) {
     const size_t num_pairs = static_cast<size_t>(state.range(0));
     auto g1_points = new POINTonE1_affine[num_pairs];
     auto g2_points = new POINTonE2_affine[num_pairs];
-    auto miller_results = new vec384fp12[num_pairs];
-    auto final_results = new vec384fp12[num_pairs];
+    auto miller_results = new Fp12[num_pairs];
+    auto final_results = new Fp12[num_pairs];
 
     // Generate random G1/G2 pairs
     for (size_t i = 0; i < num_pairs; ++i) {
@@ -179,10 +179,10 @@ static void BM_CPU_MillerFinal(benchmark::State& state) {
         byte scalar1[32], scalar2[32];
         generate_random_scalar(scalar1);
         generate_random_scalar(scalar2);
-        blst_p1_mult(&g1, blst_p1_generator(), scalar1, 256);
-        blst_p2_mult(&g2, blst_p2_generator(), scalar2, 256);
-        blst_p1_to_affine(&g1_points[i], &g1);
-        blst_p2_to_affine(&g2_points[i], &g2);
+        blst_p1_mult(g1, blst_p1_generator(), scalar1, 256);
+        blst_p2_mult(g2, blst_p2_generator(), scalar2, 256);
+        blst_p1_to_affine(g1_points[i], g1);
+        blst_p2_to_affine(g2_points[i], g2);
     }
 
     for (auto _ : state) {
@@ -213,8 +213,8 @@ static void BM_CUDA_MillerFinal(benchmark::State& state) {
     const size_t num_pairs = static_cast<size_t>(state.range(0));
     auto h_g1_points = new POINTonE1_affine[num_pairs];
     auto h_g2_points = new POINTonE2_affine[num_pairs];
-    auto h_miller_results = new vec384fp12[num_pairs];
-    auto h_final_results = new vec384fp12[num_pairs];
+    auto h_miller_results = new Fp12[num_pairs];
+    auto h_final_results = new Fp12[num_pairs];
 
     // Generate random G1/G2 pairs
     for (size_t i = 0; i < num_pairs; ++i) {
@@ -223,22 +223,22 @@ static void BM_CUDA_MillerFinal(benchmark::State& state) {
         byte scalar1[32], scalar2[32];
         generate_random_scalar(scalar1);
         generate_random_scalar(scalar2);
-        blst_p1_mult(&g1, blst_p1_generator(), scalar1, 256);
-        blst_p2_mult(&g2, blst_p2_generator(), scalar2, 256);
-        blst_p1_to_affine(&h_g1_points[i], &g1);
-        blst_p2_to_affine(&h_g2_points[i], &g2);
+        blst_p1_mult(g1, blst_p1_generator(), scalar1, 256);
+        blst_p2_mult(g2, blst_p2_generator(), scalar2, 256);
+        blst_p1_to_affine(h_g1_points[i], g1);
+        blst_p2_to_affine(h_g2_points[i], g2);
     }
 
     // Allocate device memory
     POINTonE1_affine* d_g1_points = nullptr;
     POINTonE2_affine* d_g2_points = nullptr;
-    vec384fp12* d_miller_results = nullptr;
-    vec384fp12* d_final_results = nullptr;
+    Fp12* d_miller_results = nullptr;
+    Fp12* d_final_results = nullptr;
 
     cudaMalloc(&d_g1_points, num_pairs * sizeof(POINTonE1_affine));
     cudaMalloc(&d_g2_points, num_pairs * sizeof(POINTonE2_affine));
-    cudaMalloc(&d_miller_results, num_pairs * sizeof(vec384fp12));
-    cudaMalloc(&d_final_results, num_pairs * sizeof(vec384fp12));
+    cudaMalloc(&d_miller_results, num_pairs * sizeof(Fp12));
+    cudaMalloc(&d_final_results, num_pairs * sizeof(Fp12));
 
     cudaMemcpy(d_g1_points, h_g1_points, num_pairs * sizeof(POINTonE1_affine), cudaMemcpyHostToDevice);
     cudaMemcpy(d_g2_points, h_g2_points, num_pairs * sizeof(POINTonE2_affine), cudaMemcpyHostToDevice);

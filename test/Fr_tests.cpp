@@ -8,40 +8,40 @@ using namespace blst;
 
 #define FR_LIMBS NLIMBS(256)
 
-// Helper: Set a vec256 to a small integer value
-void set_fr(vec256 v, uint64_t x) {
+// Helper: Set a Fr& to a small integer value
+void set_fr(Fr& v, uint64_t x) {
     for (int i = 0; i < FR_LIMBS; ++i)
         v[i] = 0;
     memcpy(v, &x, sizeof(x));
 }
 
-// Helper: Compare two vec256 for equality
-bool fr_equal(const vec256 a, const vec256 b) {
+// Helper: Compare two Fr& for equality
+bool fr_equal(const Fr& a, const Fr& b) {
     for (int i = 0; i < FR_LIMBS; ++i)
         if (a[i] != b[i]) return false;
     return true;
 }
 
-// Helper: Print vec256 for debugging
-void print_fr(const vec256 v) {
+// Helper: Print Fr& for debugging
+void print_fr(const Fr& v) {
     for (int i = FR_LIMBS-1; i >= 0; --i)
         printf("%016llx%s", (unsigned long long)v[i], i ? " " : "\n");
 }
 
 // Helper: Convert standard integer to Montgomery form
-void to_mont_fr(vec256 r, const vec256 a) {
-    // Use *get_*get_BLST_r()()RR for conversion to Montgomery form
+void to_mont_fr(Fr& r, const Fr& a) {
+    // Use *get_get_BLST_r()()RR for conversion to Montgomery form
     fr_to(r, a);
 }
 
-// Helper: Copy one vec256 to another
-void fr_copy(vec256 dst, const vec256 src) {
+// Helper: Copy one Fr& to another
+void fr_copy(Fr& dst, const Fr& src) {
     for (int i = 0; i < FR_LIMBS; ++i)
         dst[i] = src[i];
 }
 
 TEST(FrOps, Add) {
-    vec256 a, b, result, expected;
+    Fr a, b, result, expected;
     
     // Basic addition: 5 + 7 = 12
     set_fr(a, 5);
@@ -60,17 +60,17 @@ TEST(FrOps, Add) {
     set_fr(a, 123);
     set_fr(b, 456);
     fr_add(result, a, b);
-    vec256 result2;
+    Fr result2;
     fr_add(result2, b, a);
     EXPECT_TRUE(fr_equal(result, result2)) << "Addition should be commutative";
 }
 
 TEST(FrOps, AddOverflow) {
-    vec256 a, b, result, expected;
+    Fr a, b, result, expected;
     
     // Set a = r - 1 (order minus 1)
-    fr_copy(a, *get_BLST_r());
-    vec256 one;
+    fr_copy(a, get_BLST_r());
+    Fr one;
     set_fr(one, 1);
     fr_sub(a, a, one);
     
@@ -83,7 +83,7 @@ TEST(FrOps, AddOverflow) {
 }
 
 TEST(FrOps, Sub) {
-    vec256 a, b, result, expected;
+    Fr a, b, result, expected;
     
     // Basic subtraction: 10 - 3 = 7
     set_fr(a, 10);
@@ -100,7 +100,7 @@ TEST(FrOps, Sub) {
 }
 
 TEST(FrOps, SubUnderflow) {
-    vec256 a, b, result;
+    Fr a, b, result;
     
     // Underflow: 3 - 10 = r - 7
     set_fr(a, 3);
@@ -108,9 +108,9 @@ TEST(FrOps, SubUnderflow) {
     fr_sub(result, a, b);
     
     // Expected: r - 7
-    vec256 expected;
-    fr_copy(expected, *get_BLST_r());
-    vec256 seven;
+    Fr expected;
+    fr_copy(expected, get_BLST_r());
+    Fr seven;
     set_fr(seven, 7);
     fr_sub(expected, expected, seven);
     
@@ -118,7 +118,7 @@ TEST(FrOps, SubUnderflow) {
 }
 
 TEST(FrOps, MulBy3) {
-    vec256 a, result, expected;
+    Fr a, result, expected;
     
     // 2 * 3 = 6
     set_fr(a, 2);
@@ -137,7 +137,7 @@ TEST(FrOps, MulBy3) {
     fr_mul_by_3(result, a);
     
     // Verify by multiplying by 3 using addition
-    vec256 temp;
+    Fr temp;
     fr_add(temp, a, a);    // temp = 2*a
     fr_add(expected, temp, a);  // expected = 3*a
     
@@ -145,7 +145,7 @@ TEST(FrOps, MulBy3) {
 }
 
 TEST(FrOps, LShift) {
-    vec256 a, result, expected;
+    Fr a, result, expected;
     
     // 1 << 2 = 4
     set_fr(a, 1);
@@ -167,7 +167,7 @@ TEST(FrOps, LShift) {
 }
 
 TEST(FrOps, RShift) {
-    vec256 a, result, expected;
+    Fr a, result, expected;
     
     // 8 >> 2 = 2
     set_fr(a, 8);
@@ -189,7 +189,7 @@ TEST(FrOps, RShift) {
 }
 
 TEST(FrOps, Mul) {
-    vec256 a, b, result, result_std, expected;
+    Fr a, b, result, result_std, expected;
     
     // Convert to Montgomery form, multiply, and convert back
     set_fr(a, 3);
@@ -223,14 +223,14 @@ TEST(FrOps, Mul) {
     to_mont_fr(b, b);
     
     fr_mul(result, a, b);
-    vec256 result2;
+    Fr result2;
     fr_mul(result2, b, a);
     
     EXPECT_TRUE(fr_equal(result, result2)) << "Multiplication should be commutative";
 }
 
 TEST(FrOps, Sqr) {
-    vec256 a, result, result_std, expected;
+    Fr a, result, result_std, expected;
     
     // 5² = 25
     set_fr(a, 5);
@@ -257,22 +257,22 @@ TEST(FrOps, Sqr) {
     to_mont_fr(a, a);
     
     fr_sqr(result, a);
-    vec256 result2;
+    Fr result2;
     fr_mul(result2, a, a);
     
     EXPECT_TRUE(fr_equal(result, result2)) << "a² should equal a*a";
 }
 
 TEST(FrOps, CNeg) {
-    vec256 a, result, expected;
+    Fr a, result, expected;
     
     // Negate 5 when flag is true
     set_fr(a, 5);
     fr_cneg(result, a, 1);
     
     // Expected: r - 5
-    fr_copy(expected, *get_BLST_r());
-    vec256 five;
+    fr_copy(expected, get_BLST_r());
+    Fr five;
     set_fr(five, 5);
     fr_sub(expected, expected, five);
     
@@ -291,7 +291,7 @@ TEST(FrOps, CNeg) {
 }
 
 TEST(FrOps, MontgomeryConversion) {
-    vec256 a, mont_a, back_a;
+    Fr a, mont_a, back_a;
     
     // Convert 1 to Montgomery form and back
     set_fr(a, 1);
@@ -326,7 +326,7 @@ TEST(FrOps, MontgomeryConversion) {
 }
 
 TEST(FrOps, ArithmeticProperties) {
-    vec256 a, b, c, result1, result2, mont_a, mont_b, mont_c;
+    Fr a, b, c, result1, result2, mont_a, mont_b, mont_c;
     
     // Test values
     set_fr(a, 17);
@@ -339,7 +339,7 @@ TEST(FrOps, ArithmeticProperties) {
     fr_to(mont_c, c);
     
     // Associativity: (a + b) + c = a + (b + c)
-    vec256 temp1, temp2;// , std_result1, std_result2;
+    Fr temp1, temp2;// , std_result1, std_result2;
     
     fr_add(temp1, a, b);
     fr_add(result1, temp1, c);
@@ -361,7 +361,7 @@ TEST(FrOps, ArithmeticProperties) {
 }
 
 TEST(FrOps, EdgeCases) {
-    vec256 zero, one, a, result;// , expected;
+    Fr zero, one, a, result;// , expected;
     
     // Test with zero and one
     set_fr(zero, 0);
@@ -384,7 +384,7 @@ TEST(FrOps, EdgeCases) {
     to_mont_fr(a, a);
     to_mont_fr(one, one);
     fr_mul(result, a, one);
-    vec256 std_a;
+    Fr std_a;
     fr_from(std_a, a);
     fr_from(result, result);
     EXPECT_TRUE(fr_equal(result, std_a)) << "42 * 1 should equal 42";
@@ -392,8 +392,8 @@ TEST(FrOps, EdgeCases) {
 
 // Test butterfly operations (used in FFT)
 TEST(FrOps, Butterfly) {
-    vec256 x0, x1, twiddle, expected_x0, expected_x1;
-    vec256 original_x0, original_x1;
+    Fr x0, x1, twiddle, expected_x0, expected_x1;
+    Fr original_x0, original_x1;
     
     // Setup simple test values
     set_fr(x0, 10);
@@ -413,7 +413,7 @@ TEST(FrOps, Butterfly) {
     fr_ct_bfly(x0, x1, twiddle);
     
     // Calculate expected values manually
-    vec256 temp;
+    Fr temp;
     fr_mul(temp, original_x1, twiddle);  // temp = x1 * twiddle
     fr_add(expected_x0, original_x0, temp);  // x0' = x0 + temp
     fr_sub(expected_x1, original_x0, temp);  // x1' = x0 - temp

@@ -14,7 +14,7 @@ namespace blst
 {
 
 #ifdef expand_message_xmd
-    HOST_DEVICE_FUNC void expand_message_xmd(unsigned char* bytes, size_t len_in_bytes,
+    BLST_HD void expand_message_xmd(unsigned char* bytes, size_t len_in_bytes,
         const unsigned char* aug, size_t aug_len,
         const unsigned char* msg, size_t msg_len,
         const unsigned char* DST, size_t DST_len);
@@ -37,12 +37,12 @@ namespace blst
     BLST_HD BLST_INLINE void vec_xor(void* BLST_restrict ret, const void* BLST_restrict a,
         const void* BLST_restrict b, size_t num)
     {
-        limb_t* rp = (limb_t*)ret;
-        const limb_t* ap = (const limb_t*)a;
-        const limb_t* bp = (const limb_t*)b;
+        limb* rp = (limb*)ret;
+        const limb* ap = (const limb*)a;
+        const limb* bp = (const limb*)b;
         size_t i;
 
-        num /= sizeof(limb_t);
+        num /= sizeof(limb);
 
         for (i = 0; i < num; i++)
             rp[i] = ap[i] ^ bp[i];
@@ -53,8 +53,8 @@ namespace blst
         const unsigned char* msg, size_t msg_len,
         const unsigned char* DST, size_t DST_len)
     {
-        union { limb_t align; unsigned char c[32]; } b_0;
-        union { limb_t align; unsigned char c[33 + 256 + 31]; } b_i;
+        union { limb align; unsigned char c[32]; } b_0;
+        union { limb align; unsigned char c[33 + 256 + 31]; } b_i;
         unsigned char* p;
         size_t i, b_i_bits, b_i_blocks;
         SHA256_CTX ctx;
@@ -117,21 +117,21 @@ namespace blst
     /*
      * |nelems| is 'count * m' from spec
      */
-    BLST_HD BLST_INLINE void hash_to_field(vec384 elems[], size_t nelems,
+    BLST_HD BLST_INLINE void hash_to_field(Fp elems[], size_t nelems,
         const unsigned char* aug, size_t aug_len,
         const unsigned char* msg, size_t msg_len,
         const unsigned char* DST, size_t DST_len)
     {
-        size_t L = sizeof(vec384) + 128 / 8;  /* ceil((ceil(log2(p)) + k) / 8) */
+        size_t L = sizeof(Fp) + 128 / 8;  /* ceil((ceil(log2(p)) + k) / 8) */
         size_t len_in_bytes = L * nelems;   /* divisible by 64, hurray!      */
 #if !defined(__STDC_VERSION__) || __STDC_VERSION__<199901 \
                                || defined(__STDC_NO_VLA__)
-        limb_t* pseudo_random = (limb_t*)alloca(len_in_bytes);
+        limb* pseudo_random = (limb*)alloca(len_in_bytes);
 #else
-        limb_t pseudo_random[len_in_bytes / sizeof(limb_t)];
+        limb pseudo_random[len_in_bytes / sizeof(limb)];
 #endif
         unsigned char* bytes;
-        vec768 elem;
+        UFp elem;
 
         aug_len = aug != NULL ? aug_len : 0;
         DST_len = DST != NULL ? DST_len : 0;
@@ -147,8 +147,8 @@ namespace blst
             /*
              * L-bytes block % P, output is in Montgomery domain...
              */
-            redc_mont_v384(elems[0], elem, *get_BLST_P(), BLST_p0);
-            mul_mont_v384(elems[0], elems[0], *get_BLST_RRRR(), *get_BLST_P(), BLST_p0);
+            Fp::redc(elems[0], elem);
+            Fp::mul(elems[0], elems[0], get_BLST_RRRR());
             elems++;
         }
     }

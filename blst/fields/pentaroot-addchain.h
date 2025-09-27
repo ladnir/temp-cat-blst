@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 /*
- * The "magic" number is 1/5 modulo *get_BLST_r()-1. Exponentiation to which
+ * The "magic" number is 1/5 modulo get_BLST_r()-1. Exponentiation to which
  * yields 5th root of the base.
  *
  * Generated with 'addchain 20974350070050476191779096203274386335076221000211055129041463479975432473805'

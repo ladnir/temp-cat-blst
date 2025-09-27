@@ -185,13 +185,13 @@
 //bool blst_p1_in_g1(const blst_p1 *p);
 //bool blst_p1_is_equal(const blst_p1 *a, const blst_p1 *b);
 //bool blst_p1_is_inf(const blst_p1 *a);
-//const blst_p1 *blst_p1_generator(void);
+//const blst_p1 blst_p1_generator(void);
 //
 //bool blst_p1_affine_on_curve(const blst_p1_affine *p);
 //bool blst_p1_affine_in_g1(const blst_p1_affine *p);
 //bool blst_p1_affine_is_equal(const blst_p1_affine *a, const blst_p1_affine *b);
 //bool blst_p1_affine_is_inf(const blst_p1_affine *a);
-//const blst_p1_affine *blst_p1_affine_generator(void);
+//const blst_p1_affine blst_p1_affine_generator(void);
 //
 //typedef struct { blst_fp2 x, y, z; } blst_p2;
 //typedef struct { blst_fp2 x, y; } blst_p2_affine;
@@ -212,13 +212,13 @@
 //bool blst_p2_in_g2(const blst_p2 *p);
 //bool blst_p2_is_equal(const blst_p2 *a, const blst_p2 *b);
 //bool blst_p2_is_inf(const blst_p2 *a);
-//const blst_p2 *blst_p2_generator(void);
+//const blst_p2 blst_p2_generator(void);
 //
 //bool blst_p2_affine_on_curve(const blst_p2_affine *p);
 //bool blst_p2_affine_in_g2(const blst_p2_affine *p);
 //bool blst_p2_affine_is_equal(const blst_p2_affine *a, const blst_p2_affine *b);
 //bool blst_p2_affine_is_inf(const blst_p2_affine *a);
-//const blst_p2_affine *blst_p2_affine_generator(void);
+//const blst_p2_affine blst_p2_affine_generator(void);
 //
 ///*
 // * Multi-scalar multiplications and other multi-point operations.
@@ -363,7 +363,7 @@
 //size_t blst_pairing_sizeof(void);
 //void blst_pairing_init(blst_pairing *new_ctx, bool hash_or_encode,
 //                       const byte *DST DEFNULL, size_t DST_len DEFNULL);
-//const byte *blst_pairing_get_dst(const blst_pairing *ctx);
+//const byte blst_pairing_get_dst(const blst_pairing *ctx);
 //void blst_pairing_commit(blst_pairing *ctx);
 //BLST_ERROR blst_pairing_aggregate_pk_in_g2(blst_pairing *ctx,
 //                                           const blst_p2_affine *PK,

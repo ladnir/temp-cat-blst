@@ -28,7 +28,7 @@ namespace blst
 	// ====================
 
 	// Vectorized addition of Fr elements (CPU)
-	batched_error_code add_fr_vec_cc(vec256* out, const vec256* a, const vec256* b, size_t num)
+	batched_error_code add_fr_vec_cc(Fr* out, const Fr* a, const Fr* b, size_t num)
 	{
 		if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
@@ -42,7 +42,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for addition of Fr elements (GPU)
-	GLOBAL_FUNC void add_fr_vec_ker(vec256* out, const vec256* a, const vec256* b, size_t num)
+	GLOBAL_FUNC void add_fr_vec_ker(Fr* out, const Fr* a, const Fr* b, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -51,7 +51,7 @@ namespace blst
 	}
 
 	// Vectorized addition of Fr elements (GPU)
-	batched_error_code add_fr_vec_cu(vec256* out, const vec256* a, const vec256* b, size_t num)
+	batched_error_code add_fr_vec_cu(Fr* out, const Fr* a, const Fr* b, size_t num)
 	{
 		if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
@@ -61,7 +61,7 @@ namespace blst
 #endif
 
 	// Vectorized addition of Fr elements
-	batched_error_code add_fr_vec(vec256* out, const vec256* a, const vec256* b, size_t num)
+	batched_error_code add_fr_vec(Fr* out, const Fr* a, const Fr* b, size_t num)
 	{
 #ifdef BLST_CUDA
 		return add_fr_vec_cu(out, a, b, num);
@@ -71,7 +71,7 @@ namespace blst
 	}
 
 	// Vectorized subtraction of Fr elements (CPU)
-	batched_error_code sub_fr_vec_cc(vec256* out, const vec256* a, const vec256* b, size_t num)
+	batched_error_code sub_fr_vec_cc(Fr* out, const Fr* a, const Fr* b, size_t num)
 	{
 		if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
@@ -85,7 +85,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for subtraction of Fr elements (GPU)
-	GLOBAL_FUNC void sub_fr_vec_ker(vec256* out, const vec256* a, const vec256* b, size_t num)
+	GLOBAL_FUNC void sub_fr_vec_ker(Fr* out, const Fr* a, const Fr* b, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -94,7 +94,7 @@ namespace blst
 	}
 
 	// Vectorized subtraction of Fr elements (GPU)
-	batched_error_code sub_fr_vec_cu(vec256* out, const vec256* a, const vec256* b, size_t num)
+	batched_error_code sub_fr_vec_cu(Fr* out, const Fr* a, const Fr* b, size_t num)
 	{
 		if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
@@ -104,7 +104,7 @@ namespace blst
 #endif
 
 	// Vectorized subtraction of Fr elements
-	batched_error_code sub_fr_vec(vec256* out, const vec256* a, const vec256* b, size_t num)
+	batched_error_code sub_fr_vec(Fr* out, const Fr* a, const Fr* b, size_t num)
 	{
 #ifdef BLST_CUDA
 		return sub_fr_vec_cu(out, a, b, num);
@@ -114,7 +114,7 @@ namespace blst
 	}
 
 	// Vectorized multiplication of Fr elements (CPU)
-	batched_error_code mul_fr_vec_cc(vec256* out, const vec256* a, const vec256* b, size_t num)
+	batched_error_code mul_fr_vec_cc(Fr* out, const Fr* a, const Fr* b, size_t num)
 	{
 		if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
@@ -128,7 +128,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for multiplication of Fr elements (GPU)
-	GLOBAL_FUNC void mul_fr_vec_ker(vec256* out, const vec256* a, const vec256* b, size_t num)
+	GLOBAL_FUNC void mul_fr_vec_ker(Fr* out, const Fr* a, const Fr* b, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -137,7 +137,7 @@ namespace blst
 	}
 
 	// Vectorized multiplication of Fr elements (GPU)
-	batched_error_code mul_fr_vec_cu(vec256* out, const vec256* a, const vec256* b, size_t num)
+	batched_error_code mul_fr_vec_cu(Fr* out, const Fr* a, const Fr* b, size_t num)
 	{
 		if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
@@ -147,7 +147,7 @@ namespace blst
 #endif
 
 	// Vectorized multiplication of Fr elements
-	batched_error_code mul_fr_vec(vec256* out, const vec256* a, const vec256* b, size_t num)
+	batched_error_code mul_fr_vec(Fr* out, const Fr* a, const Fr* b, size_t num)
 	{
 #ifdef BLST_CUDA
 		return mul_fr_vec_cu(out, a, b, num);
@@ -157,7 +157,7 @@ namespace blst
 	}
 
 	// Vectorized squaring of Fr elements (CPU)
-	batched_error_code sqr_fr_vec_cc(vec256* out, const vec256* a, size_t num)
+	batched_error_code sqr_fr_vec_cc(Fr* out, const Fr* a, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -171,7 +171,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for squaring of Fr elements (GPU)
-	GLOBAL_FUNC void sqr_fr_vec_ker(vec256* out, const vec256* a, size_t num)
+	GLOBAL_FUNC void sqr_fr_vec_ker(Fr* out, const Fr* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -180,7 +180,7 @@ namespace blst
 	}
 
 	// Vectorized squaring of Fr elements (GPU)
-	batched_error_code sqr_fr_vec_cu(vec256* out, const vec256* a, size_t num)
+	batched_error_code sqr_fr_vec_cu(Fr* out, const Fr* a, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -190,7 +190,7 @@ namespace blst
 #endif
 
 	// Vectorized squaring of Fr elements
-	batched_error_code sqr_fr_vec(vec256* out, const vec256* a, size_t num)
+	batched_error_code sqr_fr_vec(Fr* out, const Fr* a, size_t num)
 	{
 #ifdef BLST_CUDA
 		return sqr_fr_vec_cu(out, a, num);
@@ -200,7 +200,7 @@ namespace blst
 	}
 
 	// Vectorized conditional negation of Fr elements (CPU)
-	batched_error_code cneg_fr_vec_cc(vec256* out, const vec256* a, int flag, size_t num)
+	batched_error_code cneg_fr_vec_cc(Fr* out, const Fr* a, int flag, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -214,7 +214,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for conditional negation of Fr elements (GPU)
-	GLOBAL_FUNC void cneg_fr_vec_ker(vec256* out, const vec256* a, int flag, size_t num)
+	GLOBAL_FUNC void cneg_fr_vec_ker(Fr* out, const Fr* a, int flag, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -223,7 +223,7 @@ namespace blst
 	}
 
 	// Vectorized conditional negation of Fr elements (GPU)
-	batched_error_code cneg_fr_vec_cu(vec256* out, const vec256* a, int flag, size_t num)
+	batched_error_code cneg_fr_vec_cu(Fr* out, const Fr* a, int flag, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -233,7 +233,7 @@ namespace blst
 #endif
 
 	// Vectorized conditional negation of Fr elements
-	batched_error_code cneg_fr_vec(vec256* out, const vec256* a, int flag, size_t num)
+	batched_error_code cneg_fr_vec(Fr* out, const Fr* a, int flag, size_t num)
 	{
 #ifdef BLST_CUDA
 		return cneg_fr_vec_cu(out, a, flag, num);
@@ -243,7 +243,7 @@ namespace blst
 	}
 
 	// Vectorized multiplication of Fr elements by 3 (CPU)
-	batched_error_code mul3_fr_vec_cc(vec256* out, const vec256* a, size_t num)
+	batched_error_code mul3_fr_vec_cc(Fr* out, const Fr* a, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -257,7 +257,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for multiplication of Fr elements by 3 (GPU)
-	GLOBAL_FUNC void mul3_fr_vec_ker(vec256* out, const vec256* a, size_t num)
+	GLOBAL_FUNC void mul3_fr_vec_ker(Fr* out, const Fr* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -266,7 +266,7 @@ namespace blst
 	}
 
 	// Vectorized multiplication of Fr elements by 3 (GPU)
-	batched_error_code mul3_fr_vec_cu(vec256* out, const vec256* a, size_t num)
+	batched_error_code mul3_fr_vec_cu(Fr* out, const Fr* a, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -276,7 +276,7 @@ namespace blst
 #endif
 
 	// Vectorized multiplication of Fr elements by 3
-	batched_error_code mul3_fr_vec(vec256* out, const vec256* a, size_t num)
+	batched_error_code mul3_fr_vec(Fr* out, const Fr* a, size_t num)
 	{
 #ifdef BLST_CUDA
 		return mul3_fr_vec_cu(out, a, num);
@@ -286,7 +286,7 @@ namespace blst
 	}
 
 	// Vectorized left shift of Fr elements (CPU)
-	batched_error_code lshift_fr_vec_cc(vec256* out, const vec256* a, size_t count, size_t num)
+	batched_error_code lshift_fr_vec_cc(Fr* out, const Fr* a, size_t count, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -300,7 +300,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for left shift of Fr elements (GPU)
-	GLOBAL_FUNC void lshift_fr_vec_ker(vec256* out, const vec256* a, size_t count, size_t num)
+	GLOBAL_FUNC void lshift_fr_vec_ker(Fr* out, const Fr* a, size_t count, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -309,7 +309,7 @@ namespace blst
 	}
 
 	// Vectorized left shift of Fr elements (GPU)
-	batched_error_code lshift_fr_vec_cu(vec256* out, const vec256* a, size_t count, size_t num)
+	batched_error_code lshift_fr_vec_cu(Fr* out, const Fr* a, size_t count, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -319,7 +319,7 @@ namespace blst
 #endif
 
 	// Vectorized left shift of Fr elements
-	batched_error_code lshift_fr_vec(vec256* out, const vec256* a, size_t count, size_t num)
+	batched_error_code lshift_fr_vec(Fr* out, const Fr* a, size_t count, size_t num)
 	{
 #ifdef BLST_CUDA
 		return lshift_fr_vec_cu(out, a, count, num);
@@ -329,7 +329,7 @@ namespace blst
 	}
 
 	// Vectorized right shift of Fr elements (CPU)
-	batched_error_code rshift_fr_vec_cc(vec256* out, const vec256* a, size_t count, size_t num)
+	batched_error_code rshift_fr_vec_cc(Fr* out, const Fr* a, size_t count, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -343,7 +343,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for right shift of Fr elements (GPU)
-	GLOBAL_FUNC void rshift_fr_vec_ker(vec256* out, const vec256* a, size_t count, size_t num)
+	GLOBAL_FUNC void rshift_fr_vec_ker(Fr* out, const Fr* a, size_t count, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -352,7 +352,7 @@ namespace blst
 	}
 
 	// Vectorized right shift of Fr elements (GPU)
-	batched_error_code rshift_fr_vec_cu(vec256* out, const vec256* a, size_t count, size_t num)
+	batched_error_code rshift_fr_vec_cu(Fr* out, const Fr* a, size_t count, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -362,7 +362,7 @@ namespace blst
 #endif
 
 	// Vectorized right shift of Fr elements
-	batched_error_code rshift_fr_vec(vec256* out, const vec256* a, size_t count, size_t num)
+	batched_error_code rshift_fr_vec(Fr* out, const Fr* a, size_t count, size_t num)
 	{
 #ifdef BLST_CUDA
 		return rshift_fr_vec_cu(out, a, count, num);
@@ -372,7 +372,7 @@ namespace blst
 	}
 
 	// Vectorized conversion from regular to Montgomery form for Fr elements (CPU)
-	batched_error_code to_fr_vec_cc(vec256* out, const vec256* a, size_t num)
+	batched_error_code to_fr_vec_cc(Fr* out, const Fr* a, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -386,7 +386,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for conversion from regular to Montgomery form for Fr elements (GPU)
-	GLOBAL_FUNC void to_fr_vec_ker(vec256* out, const vec256* a, size_t num)
+	GLOBAL_FUNC void to_fr_vec_ker(Fr* out, const Fr* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -395,7 +395,7 @@ namespace blst
 	}
 
 	// Vectorized conversion from regular to Montgomery form for Fr elements (GPU)
-	batched_error_code to_fr_vec_cu(vec256* out, const vec256* a, size_t num)
+	batched_error_code to_fr_vec_cu(Fr* out, const Fr* a, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -405,7 +405,7 @@ namespace blst
 #endif
 
 	// Vectorized conversion from regular to Montgomery form for Fr elements
-	batched_error_code to_fr_vec(vec256* out, const vec256* a, size_t num)
+	batched_error_code to_fr_vec(Fr* out, const Fr* a, size_t num)
 	{
 #ifdef BLST_CUDA
 		return to_fr_vec_cu(out, a, num);
@@ -415,7 +415,7 @@ namespace blst
 	}
 
 	// Vectorized conversion from Montgomery to regular form for Fr elements (CPU)
-	batched_error_code from_fr_vec_cc(vec256* out, const vec256* a, size_t num)
+	batched_error_code from_fr_vec_cc(Fr* out, const Fr* a, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -429,7 +429,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for conversion from Montgomery to regular form for Fr elements (GPU)
-	GLOBAL_FUNC void from_fr_vec_ker(vec256* out, const vec256* a, size_t num)
+	GLOBAL_FUNC void from_fr_vec_ker(Fr* out, const Fr* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -438,7 +438,7 @@ namespace blst
 	}
 
 	// Vectorized conversion from Montgomery to regular form for Fr elements (GPU)
-	batched_error_code from_fr_vec_cu(vec256* out, const vec256* a, size_t num)
+	batched_error_code from_fr_vec_cu(Fr* out, const Fr* a, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -448,7 +448,7 @@ namespace blst
 #endif
 
 	// Vectorized conversion from Montgomery to regular form for Fr elements
-	batched_error_code from_fr_vec(vec256* out, const vec256* a, size_t num)
+	batched_error_code from_fr_vec(Fr* out, const Fr* a, size_t num)
 	{
 #ifdef BLST_CUDA
 		return from_fr_vec_cu(out, a, num);
@@ -458,7 +458,7 @@ namespace blst
 	}
 
 	// Vectorized CT butterfly operations for Fr elements (CPU)
-	batched_error_code ct_bfly_fr_vec_cc(vec256* x0, vec256* x1, const vec256* twiddle, size_t num)
+	batched_error_code ct_bfly_fr_vec_cc(Fr* x0, Fr* x1, const Fr* twiddle, size_t num)
 	{
 		if (!x0 || !x1 || !twiddle) return BATCHED_ERROR_NULL_POINTER;
 
@@ -472,7 +472,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for CT butterfly operations for Fr elements (GPU)
-	GLOBAL_FUNC void ct_bfly_fr_vec_ker(vec256* x0, vec256* x1, const vec256* twiddle, size_t num)
+	GLOBAL_FUNC void ct_bfly_fr_vec_ker(Fr* x0, Fr* x1, const Fr* twiddle, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -481,7 +481,7 @@ namespace blst
 	}
 
 	// Vectorized CT butterfly operations for Fr elements (GPU)
-	batched_error_code ct_bfly_fr_vec_cu(vec256* x0, vec256* x1, const vec256* twiddle, size_t num)
+	batched_error_code ct_bfly_fr_vec_cu(Fr* x0, Fr* x1, const Fr* twiddle, size_t num)
 	{
 		if (!x0 || !x1 || !twiddle) return BATCHED_ERROR_NULL_POINTER;
 
@@ -491,7 +491,7 @@ namespace blst
 #endif
 
 	// Vectorized CT butterfly operations for Fr elements
-	batched_error_code ct_bfly_fr_vec(vec256* x0, vec256* x1, const vec256* twiddle, size_t num)
+	batched_error_code ct_bfly_fr_vec(Fr* x0, Fr* x1, const Fr* twiddle, size_t num)
 	{
 #ifdef BLST_CUDA
 		return ct_bfly_fr_vec_cu(x0, x1, twiddle, num);
@@ -501,7 +501,7 @@ namespace blst
 	}
 
 	// Vectorized GS butterfly operations for Fr elements (CPU)
-	batched_error_code gs_bfly_fr_vec_cc(vec256* x0, vec256* x1, const vec256* twiddle, size_t num)
+	batched_error_code gs_bfly_fr_vec_cc(Fr* x0, Fr* x1, const Fr* twiddle, size_t num)
 	{
 		if (!x0 || !x1 || !twiddle) return BATCHED_ERROR_NULL_POINTER;
 
@@ -515,7 +515,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for GS butterfly operations for Fr elements (GPU)
-	GLOBAL_FUNC void gs_bfly_fr_vec_ker(vec256* x0, vec256* x1, const vec256* twiddle, size_t num)
+	GLOBAL_FUNC void gs_bfly_fr_vec_ker(Fr* x0, Fr* x1, const Fr* twiddle, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -524,7 +524,7 @@ namespace blst
 	}
 
 	// Vectorized GS butterfly operations for Fr elements (GPU)
-	batched_error_code gs_bfly_fr_vec_cu(vec256* x0, vec256* x1, const vec256* twiddle, size_t num)
+	batched_error_code gs_bfly_fr_vec_cu(Fr* x0, Fr* x1, const Fr* twiddle, size_t num)
 	{
 		if (!x0 || !x1 || !twiddle) return BATCHED_ERROR_NULL_POINTER;
 
@@ -534,8 +534,8 @@ namespace blst
 #endif
 
 	// Vectorized GS butterfly operations for Fr elements
-	batched_error_code gs_bfly_fr_vec(vec256* x0, vec256* x1,
-		const vec256* twiddle, size_t num)
+	batched_error_code gs_bfly_fr_vec(Fr* x0, Fr* x1,
+		const Fr* twiddle, size_t num)
 	{
 #ifdef BLST_CUDA
 		return gs_bfly_fr_vec_cu(x0, x1, twiddle, num);

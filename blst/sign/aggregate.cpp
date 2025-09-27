@@ -71,7 +71,7 @@ namespace blst
         ctx->DST_len = DST_len;
     }
 
-    const void* pairing_get_dst(const PAIRING* ctx)
+    BLST_HD const void* pairing_get_dst(const PAIRING* ctx)
     {
         return (uptr_t)ctx->DST == (uptr_t)42 ? (const byte*)ctx + sizeof_pairing
             : ctx->DST;
@@ -82,10 +82,12 @@ namespace blst
         return pairing_get_dst(ctx);
     }
 
-#define FROM_AFFINE(out,in) do { \
-    vec_copy((out)->X, in->X, 2*sizeof(in->X)), \
-    vec_select((out)->Z, in->X, get_BLST_Rx()->p, sizeof(in->X), \
-                         vec_is_zero(in->X, 2*sizeof(in->X))); } while(0)
+    BLST_HD void FROM_AFFINE(auto& out, const auto& in) 
+    { 
+        vec_copy(&out.X, &in.X, 2*sizeof(in.X)), 
+        vec_select(&out.Z, &in.X, &get_BLST_Rx().p, sizeof(in.X), 
+                             vec_is_zero(&in.X, 2*sizeof(in.X))); 
+    } 
 
     /*
      * Optional |nbits|-wide |scalar| is used to facilitate multiple aggregated
@@ -115,35 +117,35 @@ namespace blst
          * in case the signature is non-aggregated that is.
          */
         if (sig != NULL && !vec_is_zero(sig, sizeof(*sig))) {
-            POINTonE1* S = &ctx->AggrSign.e1;
-            POINTonE1 P[1];
+            POINTonE1& S = ctx->AggrSign.e1;
+            POINTonE1 P;
 
-            FROM_AFFINE(P, sig);
+            FROM_AFFINE(P, *sig);
 
             if (sig_groupcheck && !POINTonE1_in_G1(P))
                 return BLST_POINT_NOT_IN_GROUP;
 
             if (ctx->ctrl & AGGR_SIGN_SET) {
                 if (nbits != 0 && scalar != NULL) {
-                    POINTonE1_mult_w5(P, P, scalar, nbits);
-                    POINTonE1_dadd(S, S, P, NULL);
+                    mult_w<POINTonE1,5>(P, P, scalar, nbits);
+                    POINTonE1::dadd(S, S, P, NULL);
                 }
                 else {
-                    POINTonE1_dadd_affine(S, S, sig);
+                    POINTonE1::dadd_affine(S, S, *sig);
                 }
             }
             else {
                 ctx->ctrl |= AGGR_SIGN_SET;
                 if (nbits != 0 && scalar != NULL)
-                    POINTonE1_mult_w5(S, P, scalar, nbits);
+                    mult_w<POINTonE1,5>(S, P, scalar, nbits);
                 else
-                    vec_copy(S, P, sizeof(P));
+                    vec_copy(&S, &P, sizeof(P));
             }
         }
 
         if (PK != NULL) {
             unsigned int n;
-            POINTonE1 H[1];
+            POINTonE1 H;
             const void* DST = pairing_get_dst(ctx);
 
             /*
@@ -153,9 +155,9 @@ namespace blst
                 return BLST_PK_IS_INFINITY;
 
             if (pk_groupcheck) {
-                POINTonE2 P[1];
+                POINTonE2 P;
 
-                FROM_AFFINE(P, PK);
+                FROM_AFFINE(P, *PK);
                 if (!POINTonE2_in_G2(P))
                     return BLST_POINT_NOT_IN_GROUP;
             }
@@ -172,16 +174,16 @@ namespace blst
                     (const unsigned char*)aug, aug_len);
 
             if (nbits != 0 && scalar != NULL)
-                POINTonE1_mult_w5(H, H, scalar, nbits);
+                mult_w<POINTonE1,5>(H, H, scalar, nbits);
 
             POINTonE1_from_Jacobian(H, H);
 
             n = ctx->nelems;
             vec_copy(ctx->Q + n, PK, sizeof(POINTonE2_affine));
-            vec_copy(ctx->P + n, H, sizeof(POINTonE1_affine));
+            vec_copy(ctx->P + n, &H, sizeof(POINTonE1_affine));
             if (++n == N_MAX) {
                 if (ctx->ctrl & AGGR_GT_SET) {
-                    vec384fp12 GT;
+                    Fp12 GT;
                     miller_loop_n(GT, ctx->Q, ctx->P, n);
                     mul_fp12(ctx->GT, ctx->GT, GT);
                 }
@@ -271,10 +273,10 @@ namespace blst
          * in case the signature is non-aggregated that is.
          */
         if (sig != NULL && !vec_is_zero(sig, sizeof(*sig))) {
-            POINTonE2* S = &ctx->AggrSign.e2;
-            POINTonE2 P[1];
+            POINTonE2& S = ctx->AggrSign.e2;
+            POINTonE2 P;
 
-            FROM_AFFINE(P, sig);
+            FROM_AFFINE(P, *sig);
 
             if (sig_groupcheck && !POINTonE2_in_G2(P))
                 return BLST_POINT_NOT_IN_GROUP;
@@ -282,26 +284,26 @@ namespace blst
             if (ctx->ctrl & AGGR_SIGN_SET) {
                 if (nbits != 0 && scalar != NULL) {
 
-                    POINTonE2_mult_w5(P, P, scalar, nbits);
-                    POINTonE2_dadd(S, S, P, NULL);
+                    mult_w< POINTonE2,5>(P, P, scalar, nbits);
+                    POINTonE2::dadd(S, S, P, NULL);
                 }
                 else {
-                    POINTonE2_dadd_affine(S, S, sig);
+                    POINTonE2::dadd_affine(S, S, *sig);
                 }
             }
             else {
                 ctx->ctrl |= AGGR_SIGN_SET;
                 if (nbits != 0 && scalar != NULL)
-                    POINTonE2_mult_w5(S, P, scalar, nbits);
+                    mult_w<POINTonE2,5>(S, P, scalar, nbits);
                 else
-                    vec_copy(S, P, sizeof(P));
+                    vec_copy(&S, &P, sizeof(P));
             }
         }
 
         if (PK != NULL) {
             unsigned int n;
-            POINTonE2 H[1];
-            POINTonE1 pk[1];
+            POINTonE2 H;
+            POINTonE1 pk;
             const void* DST = pairing_get_dst(ctx);
 
             /*
@@ -311,9 +313,9 @@ namespace blst
                 return BLST_PK_IS_INFINITY;
 
             if (pk_groupcheck) {
-                POINTonE1 P[1];
+                POINTonE1 P;
 
-                FROM_AFFINE(P, PK);
+                FROM_AFFINE(P, *PK);
                 if (!POINTonE1_in_G1(P))
                     return BLST_POINT_NOT_IN_GROUP;
             }
@@ -332,18 +334,18 @@ namespace blst
             POINTonE2_from_Jacobian(H, H);
 
             if (nbits != 0 && scalar != NULL) {
-                FROM_AFFINE(pk, PK);
-                POINTonE1_mult_w5(pk, pk, scalar, nbits);
+                FROM_AFFINE(pk, *PK);
+                mult_w<POINTonE1,5>(pk, pk, scalar, nbits);
                 POINTonE1_from_Jacobian(pk, pk);
-                PK = (const POINTonE1_affine*)pk;
+                PK = (const POINTonE1_affine*)&pk;
             }
 
             n = ctx->nelems;
-            vec_copy(ctx->Q + n, H, sizeof(POINTonE2_affine));
-            vec_copy(ctx->P + n, PK, sizeof(POINTonE1_affine));
+            vec_copy(ctx->Q + n, &H, sizeof(POINTonE2_affine));
+            vec_copy(ctx->P + n, &PK, sizeof(POINTonE1_affine));
             if (++n == N_MAX) {
                 if (ctx->ctrl & AGGR_GT_SET) {
-                    vec384fp12 GT;
+                    Fp12 GT;
                     miller_loop_n(GT, ctx->Q, ctx->P, n);
                     mul_fp12(ctx->GT, ctx->GT, GT);
                 }
@@ -418,7 +420,7 @@ namespace blst
 
         if ((n = ctx->nelems) != 0) {
             if (ctx->ctrl & AGGR_GT_SET) {
-                vec384fp12 GT;
+                Fp12 GT;
                 miller_loop_n(GT, ctx->Q, ctx->P, n);
                 mul_fp12(ctx->GT, ctx->GT, GT);
             }
@@ -451,8 +453,8 @@ namespace blst
         switch (ctx->ctrl & MIN_SIG_OR_PK) {
         case AGGR_MIN_SIG:
             if (ctx->ctrl & ctx1->ctrl & AGGR_SIGN_SET) {
-                POINTonE1_dadd(&ctx->AggrSign.e1, &ctx->AggrSign.e1,
-                    &ctx1->AggrSign.e1, NULL);
+                POINTonE1::dadd(ctx->AggrSign.e1, ctx->AggrSign.e1,
+                    ctx1->AggrSign.e1, NULL);
             }
             else if (ctx1->ctrl & AGGR_SIGN_SET) {
                 ctx->ctrl |= AGGR_SIGN_SET;
@@ -462,8 +464,8 @@ namespace blst
             break;
         case AGGR_MIN_PK:
             if (ctx->ctrl & ctx1->ctrl & AGGR_SIGN_SET) {
-                POINTonE2_dadd(&ctx->AggrSign.e2, &ctx->AggrSign.e2,
-                    &ctx1->AggrSign.e2, NULL);
+                POINTonE2::dadd(ctx->AggrSign.e2, ctx->AggrSign.e2,
+                    ctx1->AggrSign.e2, NULL);
             }
             else if (ctx1->ctrl & AGGR_SIGN_SET) {
                 ctx->ctrl |= AGGR_SIGN_SET;
@@ -482,35 +484,35 @@ namespace blst
         }
         else if (ctx1->ctrl & AGGR_GT_SET) {
             ctx->ctrl |= AGGR_GT_SET;
-            vec_copy(ctx->GT, ctx1->GT, sizeof(ctx->GT));
+            vec_copy(&ctx->GT, &ctx1->GT, sizeof(ctx->GT));
         }
 
         return BLST_SUCCESS;
     }
 
-    BLST_HD bool_t PAIRING_FinalVerify(const PAIRING* ctx, const vec384fp12 GTsig)
+    BLST_HD bool_t PAIRING_FinalVerify(const PAIRING* ctx, const Fp12* GTsig)
     {
-        vec384fp12 GT;
+        Fp12 GT;
 
         if (!(ctx->ctrl & AGGR_GT_SET))
             return 0;
 
         if (GTsig != NULL) {
-            vec_copy(GT, GTsig, sizeof(GT));
+            vec_copy(&GT, GTsig, sizeof(GT));
         }
         else if (ctx->ctrl & AGGR_SIGN_SET) {
             AggregatedSignature AggrSign;
 
             switch (ctx->ctrl & MIN_SIG_OR_PK) {
             case AGGR_MIN_SIG:
-                POINTonE1_from_Jacobian(&AggrSign.e1, &ctx->AggrSign.e1);
-                miller_loop_n(GT, (const POINTonE2_affine*)get_BLST_G2(),
+                POINTonE1_from_Jacobian(AggrSign.e1, ctx->AggrSign.e1);
+                miller_loop_n(GT, (const POINTonE2_affine*)&get_BLST_G2(),
                     (const POINTonE1_affine*)&AggrSign.e1, 1);
                 break;
             case AGGR_MIN_PK:
-                POINTonE2_from_Jacobian(&AggrSign.e2, &ctx->AggrSign.e2);
+                POINTonE2_from_Jacobian(AggrSign.e2, ctx->AggrSign.e2);
                 miller_loop_n(GT, (const POINTonE2_affine*)&AggrSign.e2,
-                    (const POINTonE1_affine*)get_BLST_G1(), 1);
+                    (const POINTonE1_affine*)&get_BLST_G1(), 1);
                 break;
             default:
                 return 0;
@@ -521,7 +523,7 @@ namespace blst
              * The aggregated signature was infinite, relation between the
              * hashes and the public keys has to be VERY special...
              */
-            vec_copy(GT, get_BLST_Rx()->p12, sizeof(GT));
+            vec_copy(&GT, get_BLST_Rx().p12, sizeof(GT));
         }
 
         conjugate_fp12(GT);
@@ -529,27 +531,27 @@ namespace blst
         final_exp(GT, GT);
 
         /* return GT==1 */
-        return vec_is_equal(GT[0][0], get_BLST_Rx()->p2, sizeof(GT[0][0])) &
-            vec_is_zero(GT[0][1], sizeof(GT) - sizeof(GT[0][0]));
+        return vec_is_equal(&GT[0][0], get_BLST_Rx().p2, sizeof(GT[0][0])) &
+            vec_is_zero(&GT[0][1], sizeof(GT) - sizeof(GT[0][0]));
     }
 
-    BLST_HD int blst_pairing_finalverify(const PAIRING* ctx, const vec384fp12 GTsig)
+    BLST_HD int blst_pairing_finalverify(const PAIRING* ctx, const Fp12* GTsig)
     {
         return (int)PAIRING_FinalVerify(ctx, GTsig);
     }
 
-    BLST_HD int blst_fp12_finalverify(const vec384fp12 GT1, const vec384fp12 GT2)
+    BLST_HD int blst_fp12_finalverify(const Fp12& GT1, const Fp12& GT2)
     {
-        vec384fp12 GT;
+        Fp12 GT;
 
-        vec_copy(GT, GT1, sizeof(GT));
+        vec_copy(&GT, &GT1, sizeof(GT));
         conjugate_fp12(GT);
         mul_fp12(GT, GT, GT2);
         final_exp(GT, GT);
 
         /* return GT==1 */
-        return (int)(vec_is_equal(GT[0][0], get_BLST_Rx()->p2, sizeof(GT[0][0])) &
-            vec_is_zero(GT[0][1], sizeof(GT) - sizeof(GT[0][0])));
+        return (int)(vec_is_equal(&GT[0][0], &get_BLST_Rx().p2, sizeof(GT[0][0])) &
+            vec_is_zero(&GT[0][1], sizeof(GT) - sizeof(GT[0][0])));
     }
 
     BLST_HD void blst_pairing_raw_aggregate(PAIRING* ctx, const POINTonE2_affine* q,
@@ -565,7 +567,7 @@ namespace blst
         vec_copy(ctx->P + n, p, sizeof(*p));
         if (++n == N_MAX) {
             if (ctx->ctrl & AGGR_GT_SET) {
-                vec384fp12 GT;
+                Fp12 GT;
                 miller_loop_n(GT, ctx->Q, ctx->P, n);
                 mul_fp12(ctx->GT, ctx->GT, GT);
             }
@@ -578,10 +580,10 @@ namespace blst
         ctx->nelems = n;
     }
 
-    BLST_HD vec384fp12* blst_pairing_as_fp12(PAIRING* ctx)
+    BLST_HD Fp12* blst_pairing_as_fp12(PAIRING* ctx)
     {
         PAIRING_Commit(ctx);
-        return (vec384fp12*)ctx->GT;
+        return (Fp12*)&ctx->GT;
     }
 
     /*
@@ -592,75 +594,75 @@ namespace blst
      * result to affine and call suitable blst_core_verify_pk_in_g{12}
      * or blst_aggregated_in_g{12}...
      */
-    BLST_HD BLST_ERROR blst_aggregate_in_g1(POINTonE1* out, const POINTonE1* in,
+    BLST_HD BLST_ERROR blst_aggregate_in_g1(POINTonE1& out, const POINTonE1* in,
         const unsigned char* zwire)
     {
-        POINTonE1 P[1];
+        POINTonE1 P;
         BLST_ERROR ret;
 
-        ret = POINTonE1_Deserialize_Z((POINTonE1_affine*)P, zwire);
+        ret = POINTonE1_Deserialize_Z(*(POINTonE1_affine*)&P, zwire);
 
         if (ret != BLST_SUCCESS)
             return ret;
 
-        if (vec_is_zero(P, sizeof(POINTonE1_affine))) {
+        if (vec_is_zero(&P, sizeof(POINTonE1_affine))) {
             if (in == NULL)
-                vec_zero(out, sizeof(*out));
+                vec_zero(&out, sizeof(out));
             return BLST_SUCCESS;
         }
 
-        vec_copy(P->Z, get_BLST_Rx()->p, sizeof(P->Z));
+        vec_copy(P.Z, get_BLST_Rx().p, sizeof(P.Z));
 
         if (!POINTonE1_in_G1(P))
             return BLST_POINT_NOT_IN_GROUP;
 
         if (in == NULL)
-            vec_copy(out, P, sizeof(P));
+            vec_copy(&out, &P, sizeof(P));
         else
-            POINTonE1_dadd_affine(out, in, (POINTonE1_affine*)P);
+            POINTonE1::dadd_affine(out, *in, *(POINTonE1_affine*)&P);
 
         return BLST_SUCCESS;
     }
 
-    BLST_HD BLST_ERROR blst_aggregate_in_g2(POINTonE2* out, const POINTonE2* in,
+    BLST_HD BLST_ERROR blst_aggregate_in_g2(POINTonE2& out, const POINTonE2* in,
         const unsigned char* zwire)
     {
         POINTonE2 P[1];
         BLST_ERROR ret;
 
-        ret = POINTonE2_Deserialize_Z((POINTonE2_affine*)P, zwire);
+        ret = POINTonE2_Deserialize_Z(*(POINTonE2_affine*)P, zwire);
 
         if (ret != BLST_SUCCESS)
             return ret;
 
         if (vec_is_zero(P, sizeof(POINTonE2_affine))) {
             if (in == NULL)
-                vec_zero(out, sizeof(*out));
+                vec_zero(&out, sizeof(out));
             return BLST_SUCCESS;
         }
 
-        vec_copy(P->Z, get_BLST_Rx()->p, sizeof(P->Z));
+        vec_copy(&P->Z, get_BLST_Rx().p, sizeof(P->Z));
 
-        if (!POINTonE2_in_G2(P))
+        if (!POINTonE2_in_G2(*P))
             return BLST_POINT_NOT_IN_GROUP;
 
         if (in == NULL) {
-            vec_copy(out, P, sizeof(P));
+            vec_copy(&out, P, sizeof(P));
         }
         else {
-            POINTonE2_dadd_affine(out, in, (POINTonE2_affine*)P);
+            POINTonE2::dadd_affine(out, *in, *(POINTonE2_affine*)P);
         }
         return BLST_SUCCESS;
     }
 
-    BLST_HD void blst_aggregated_in_g1(vec384fp12 ret, const POINTonE1_affine* sig)
+    BLST_HD void blst_aggregated_in_g1(Fp12& ret, const POINTonE1_affine& sig)
     {
-        miller_loop_n(ret, (const POINTonE2_affine*)get_BLST_G2(), sig, 1);
+        miller_loop_n(ret, (const POINTonE2_affine*)&get_BLST_G2(), &sig, 1);
     }
 
-    BLST_HD void blst_aggregated_in_g2(vec384fp12 ret, const POINTonE2_affine* sig)
+    BLST_HD void blst_aggregated_in_g2(Fp12& ret, const POINTonE2_affine& sig)
     {
-        miller_loop_n(ret, sig, (const POINTonE1_affine*)get_BLST_G1(), 1);
+        miller_loop_n(ret, &sig, (const POINTonE1_affine*)&get_BLST_G1(), 1);
     }
 
     BLST_HD BLST_ERROR blst_core_verify_pk_in_g1(const POINTonE1_affine* pk,

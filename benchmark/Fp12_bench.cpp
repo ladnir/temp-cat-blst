@@ -9,13 +9,13 @@
 using namespace blst;
 
 // Helper function to generate random Fp12 elements
-void generate_random_fp12(vec384fp12 fp12) {
+void generate_random_fp12(Fp12& fp12) {
     static std::random_device rd;
     static std::mt19937_64 gen(rd());
     static std::uniform_int_distribution<uint64_t> dis;
 
-    limb_t* p = (limb_t*)fp12;
-    for (size_t i = 0; i < sizeof(vec384fp12) / sizeof(limb_t); ++i) {
+    limb* p = (limb*)&fp12;
+    for (size_t i = 0; i < sizeof(Fp12) / sizeof(limb); ++i) {
         p[i] = dis(gen);
     }
 }
@@ -24,7 +24,7 @@ void generate_random_fp12(vec384fp12 fp12) {
 
 // Benchmark for Fp12 multiplication
 static void BM_Fp12Multiplication(benchmark::State& state) {
-    vec384fp12 a, b, c;
+    Fp12 a, b, c;
     generate_random_fp12(a);
     generate_random_fp12(b);
 
@@ -40,7 +40,7 @@ BENCHMARK(BM_Fp12Multiplication);
 
 // Benchmark for Fp12 squaring
 static void BM_Fp12Squaring(benchmark::State& state) {
-    vec384fp12 a, c;
+    Fp12 a, c;
     generate_random_fp12(a);
 
     for (auto _ : state) {
@@ -53,7 +53,7 @@ BENCHMARK(BM_Fp12Squaring);
 
 // Benchmark for Fp12 cyclotomic squaring
 static void BM_Fp12CyclotomicSquaring(benchmark::State& state) {
-    vec384fp12 a, c;
+    Fp12 a, c;
     generate_random_fp12(a);
 
     for (auto _ : state) {
@@ -68,7 +68,7 @@ BENCHMARK(BM_Fp12CyclotomicSquaring);
 
 // Benchmark for Fp12 inversion
 static void BM_Fp12Inversion(benchmark::State& state) {
-    vec384fp12 a, c;
+    Fp12 a, c;
     generate_random_fp12(a);
 
     for (auto _ : state) {
@@ -83,7 +83,7 @@ BENCHMARK(BM_Fp12Inversion);
 
 // Benchmark for Fp12 conjugation
 static void BM_Fp12Conjugate(benchmark::State& state) {
-    vec384fp12 a;
+    Fp12 a;
     generate_random_fp12(a);
 
     for (auto _ : state) {
@@ -99,7 +99,7 @@ BENCHMARK(BM_Fp12Conjugate);
 
 // Benchmark for Fp12 Frobenius map
 static void BM_Fp12Frobenius(benchmark::State& state) {
-    vec384fp12 a, c;
+    Fp12 a, c;
     generate_random_fp12(a);
 
     for (auto _ : state) {
@@ -114,11 +114,11 @@ BENCHMARK(BM_Fp12Frobenius);
 
 // Benchmark for Fp12 exponentiation
 static void BM_Fp12Exponentiation(benchmark::State& state) {
-    vec384fp12 a, c;
+    Fp12 a, c;
     generate_random_fp12(a);
 
     // A small, simple exponent for benchmarking purposes
-    limb_t exponent[] = { 0x7, 0x0 };
+    limb exponent[] = { 0x7, 0x0 };
 
     for (auto _ : state) {
         blst_fp12_pow(c, a, exponent, 3);

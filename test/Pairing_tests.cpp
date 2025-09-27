@@ -9,17 +9,17 @@ using namespace blst;
 
 TEST(PairingTest, BasicPairing) {
     // Test basic pairing functionality
-    POINTonE1 g1_point = *blst_p1_generator();
-    POINTonE2 g2_point = *blst_p2_generator();
+    POINTonE1 g1_point = blst_p1_generator();
+    POINTonE2 g2_point = blst_p2_generator();
 
     // Create affine versions of the points
     POINTonE1_affine g1_affine;
     POINTonE2_affine g2_affine;
-    blst_p1_to_affine(&g1_affine, &g1_point);
-    blst_p2_to_affine(&g2_affine, &g2_point);
+    blst_p1_to_affine(g1_affine, g1_point);
+    blst_p2_to_affine(g2_affine, g2_point);
 
     // Compute pairing e(G1, G2)
-    vec384fp12 pairing_result;
+    Fp12 pairing_result;
     blst_miller_loop(pairing_result, &g2_affine, &g1_affine);
     blst_final_exp(pairing_result, pairing_result);
 
@@ -31,27 +31,27 @@ TEST(PairingTest, BasicPairing) {
     // Let's use a = 2 for simplicity
     POINTonE1 g1_double;
     POINTonE2 g2_double;
-    blst_p1_double(&g1_double, &g1_point);
-    blst_p2_double(&g2_double, &g2_point);
+    blst_p1_double(g1_double, g1_point);
+    blst_p2_double(g2_double, g2_point);
 
     // Convert to affine
     POINTonE1_affine g1_double_affine;
     POINTonE2_affine g2_double_affine;
-    blst_p1_to_affine(&g1_double_affine, &g1_double);
-    blst_p2_to_affine(&g2_double_affine, &g2_double);
+    blst_p1_to_affine(g1_double_affine, g1_double);
+    blst_p2_to_affine(g2_double_affine, g2_double);
 
     // Compute e(2*G1, G2)
-    vec384fp12 pairing_2g1_g2;
+    Fp12 pairing_2g1_g2;
     blst_miller_loop(pairing_2g1_g2, &g2_affine, &g1_double_affine);
     blst_final_exp(pairing_2g1_g2, pairing_2g1_g2);
 
     // Compute e(G1, 2*G2)
-    vec384fp12 pairing_g1_2g2;
+    Fp12 pairing_g1_2g2;
     blst_miller_loop(pairing_g1_2g2, &g2_double_affine, &g1_affine);
     blst_final_exp(pairing_g1_2g2, pairing_g1_2g2);
 
     // Compute e(G1, G2)^2
-    vec384fp12 pairing_squared;
+    Fp12 pairing_squared;
     blst_fp12_sqr(pairing_squared, pairing_result);
 
     // All three results should be equal
@@ -69,11 +69,11 @@ TEST(PairingTest, BasicPairing) {
 
     POINTonE1_affine identity_e1_affine;
     POINTonE2_affine identity_e2_affine;
-    blst_p1_to_affine(&identity_e1_affine, &identity_e1);
-    blst_p2_to_affine(&identity_e2_affine, &identity_e2);
+    blst_p1_to_affine(identity_e1_affine, identity_e1);
+    blst_p2_to_affine(identity_e2_affine, identity_e2);
 
     // e(G1, O) should equal 1
-    vec384fp12 pairing_with_identity;
+    Fp12 pairing_with_identity;
     blst_miller_loop(pairing_with_identity, &identity_e2_affine, &g1_affine);
     blst_final_exp(pairing_with_identity, pairing_with_identity);
 
@@ -81,7 +81,7 @@ TEST(PairingTest, BasicPairing) {
         << "e(G1, O) should equal 1";
 
     // e(O, G2) should equal 1
-    blst_miller_loop(pairing_with_identity, &g2_affine, &identity_e1_affine);
+    blst_miller_loop(pairing_with_identity,& g2_affine, &identity_e1_affine);
     blst_final_exp(pairing_with_identity, pairing_with_identity);
 
     EXPECT_TRUE(blst_fp12_is_one(pairing_with_identity))
@@ -92,43 +92,43 @@ TEST(PairingTest, MultiPairing) {
     // Test multi-pairing functionality
 
     // Create some sample points
-    POINTonE1 g1 = *blst_p1_generator();
-    POINTonE2 g2 = *blst_p2_generator();
+    POINTonE1 g1 = blst_p1_generator();
+    POINTonE2 g2 = blst_p2_generator();
 
     POINTonE1 g1_double;
     POINTonE2 g2_double;
-    blst_p1_double(&g1_double, &g1);
-    blst_p2_double(&g2_double, &g2);
+    blst_p1_double(g1_double, g1);
+    blst_p2_double(g2_double, g2);
 
     // Convert to affine
     POINTonE1_affine g1_affine, g1_double_affine;
     POINTonE2_affine g2_affine, g2_double_affine;
-    blst_p1_to_affine(&g1_affine, &g1);
-    blst_p1_to_affine(&g1_double_affine, &g1_double);
-    blst_p2_to_affine(&g2_affine, &g2);
-    blst_p2_to_affine(&g2_double_affine, &g2_double);
+    blst_p1_to_affine(g1_affine, g1);
+    blst_p1_to_affine(g1_double_affine, g1_double);
+    blst_p2_to_affine(g2_affine, g2);
+    blst_p2_to_affine(g2_double_affine, g2_double);
 
     // Test that e(P1,Q1)·e(P2,Q2) = e(P1+P2,Q1+Q2)·e(P1,Q2)⁻¹·e(P2,Q1)⁻¹
 
     // Compute e(G1, G2)
-    vec384fp12 e_g1_g2;
+    Fp12 e_g1_g2;
     blst_miller_loop(e_g1_g2, &g2_affine, &g1_affine);
     blst_final_exp(e_g1_g2, e_g1_g2);
 
     // Compute e(2*G1, 2*G2)
-    vec384fp12 e_2g1_2g2;
-    blst_miller_loop(e_2g1_2g2, &g2_double_affine, &g1_double_affine);
+    Fp12 e_2g1_2g2;
+    blst_miller_loop(e_2g1_2g2, &g2_double_affine,&g1_double_affine);
     blst_final_exp(e_2g1_2g2, e_2g1_2g2);
 
-    // Compute e(G1, G2) * e(2*G1, 2*G2) using vec384fp12_mul
-    vec384fp12 product;
+    // Compute e(G1, G2) * e(2*G1, 2*G2) using Fp12_mul
+    Fp12 product;
     blst_fp12_mul(product, e_g1_g2, e_2g1_2g2);
 
     // Test multi-pairing API if available
     POINTonE1_affine* g1_points[2] = { &g1_affine, &g1_double_affine };
     POINTonE2_affine* g2_points[2] = { &g2_affine, &g2_double_affine };
 
-    vec384fp12 multi_result;
+    Fp12 multi_result;
     blst_miller_loop_n(multi_result, g2_points, g1_points, 2);
     blst_final_exp(multi_result, multi_result);
 

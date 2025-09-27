@@ -7,7 +7,7 @@
 using namespace blst;
 
 // Helper: Print Fp12 element for debugging
-void print_fp12(const vec384fp12 a, const char* name) {
+void print_fp12(const Fp12& a, const char* name) {
     printf("%s:\n", name);
     for (int j = 0; j < 2; j++) {  // Fp12 = Fp6[w]/(w^2-v)
         for (int i = 0; i < 3; i++) {  // Fp6 = Fp2[v]/(v^3-u-1)
@@ -26,33 +26,34 @@ void print_fp12(const vec384fp12 a, const char* name) {
 }
 
 TEST(Fp12Test, ZeroAndOne) {
-    vec384fp12 zero, one;
+    Fp12 zero, one;
 
     // Initialize zero
-    vec_zero(zero, sizeof(zero));
+    vec_zero(&zero, sizeof(zero));
 
     // Get the Fp12 one constant from the library
-    const vec384fp12* one_ptr = blst_fp12_one();
-    vec_copy(one, one_ptr, sizeof(one));
+    const Fp12 one_ptr = blst_fp12_one();
+    vec_copy(&one, &one_ptr, sizeof(one));
 
     // Check zero properties
-    vec384fp12 result;
+    Fp12 result;
 
     // Zero + Zero = Zero
     blst_fp12_mul(result, zero, zero);
-    EXPECT_TRUE(vec_is_equal(result, zero, sizeof(vec384fp12))) << "0 * 0 = 0";
+    //print_fp12(result, "0 * 0");
+    EXPECT_TRUE(vec_is_equal(&result, &zero, sizeof(Fp12))) << "0 * 0 = 0";
 
     // One * One = One
     blst_fp12_mul(result, one, one);
-    EXPECT_TRUE(vec_is_equal(result, one, sizeof(vec384fp12))) << "1 * 1 = 1";
+    EXPECT_TRUE(vec_is_equal(&result, &one, sizeof(Fp12))) << "1 * 1 = 1";
 
     // Zero * One = Zero
     blst_fp12_mul(result, zero, one);
-    EXPECT_TRUE(vec_is_equal(result, zero, sizeof(vec384fp12))) << "0 * 1 = 0";
+    EXPECT_TRUE(vec_is_equal(&result, &zero, sizeof(Fp12))) << "0 * 1 = 0";
 
     // One * Zero = Zero
     blst_fp12_mul(result, one, zero);
-    EXPECT_TRUE(vec_is_equal(result, zero, sizeof(vec384fp12))) << "1 * 0 = 0";
+    EXPECT_TRUE(vec_is_equal(&result, &zero, sizeof(Fp12))) << "1 * 0 = 0";
 
     // Check that One is detected as One
     EXPECT_TRUE(blst_fp12_is_one(one)) << "One should be detected as one";
@@ -60,18 +61,18 @@ TEST(Fp12Test, ZeroAndOne) {
 }
 
 TEST(Fp12Test, Multiplication) {
-    vec384fp12 a, b, c, temp;
+    Fp12 a, b, c, temp;
 
     // Initialize with some values - use the one constant and modify it
-    const vec384fp12* one_ptr = blst_fp12_one();
-    vec_copy(a, one_ptr, sizeof(a));
+    const Fp12 one_ptr = blst_fp12_one();
+    vec_copy(&a, &one_ptr, sizeof(a));
 
     // Make a simple change to create a distinct value
     // Modify a[0][0][1][0] (first coordinate, imaginary part)
     a[0][0][1][0] = 2;
 
     // Create another distinct value
-    vec_copy(b, one_ptr, sizeof(b));
+    vec_copy(&b, &one_ptr, sizeof(b));
     // Modify b[0][1][0][0] (second coordinate, real part)
     b[0][1][0][0] = 3;
 
@@ -79,23 +80,23 @@ TEST(Fp12Test, Multiplication) {
     blst_fp12_mul(c, a, b);
 
     // Verify that the result is different from both inputs
-    EXPECT_FALSE(vec_is_equal(c, a, sizeof(vec384fp12))) << "a*b should not equal a";
-    EXPECT_FALSE(vec_is_equal(c, b, sizeof(vec384fp12))) << "a*b should not equal b";
+    EXPECT_FALSE(vec_is_equal(&c, &a, sizeof(Fp12))) << "a*b should not equal a";
+    EXPECT_FALSE(vec_is_equal(&c, &b, sizeof(Fp12))) << "a*b should not equal b";
 
     // Verify multiplication by 1 gives the same element
-    blst_fp12_mul(temp, a, *one_ptr);
-    EXPECT_TRUE(vec_is_equal(temp, a, sizeof(vec384fp12))) << "a*1 should equal a";
+    blst_fp12_mul(temp, a, one_ptr);
+    EXPECT_TRUE(vec_is_equal(&temp, &a, sizeof(Fp12))) << "a*1 should equal a";
 
-    blst_fp12_mul(temp, b, *one_ptr);
-    EXPECT_TRUE(vec_is_equal(temp, b, sizeof(vec384fp12))) << "b*1 should equal b";
+    blst_fp12_mul(temp, b, one_ptr);
+    EXPECT_TRUE(vec_is_equal(&temp, &b, sizeof(Fp12))) << "b*1 should equal b";
 }
 
 TEST(Fp12Test, Squaring) {
-    vec384fp12 a, a_squared1, a_squared2;
+    Fp12 a, a_squared1, a_squared2;
 
     // Initialize with some values - use the one constant and modify it
-    const vec384fp12* one_ptr = blst_fp12_one();
-    vec_copy(a, one_ptr, sizeof(a));
+    const Fp12 one_ptr = blst_fp12_one();
+    vec_copy(&a, &one_ptr, sizeof(a));
 
     // Make a simple change to create a distinct value
     // Modify a[0][0][1][0] (first coordinate, imaginary part)
@@ -109,55 +110,55 @@ TEST(Fp12Test, Squaring) {
     blst_fp12_sqr(a_squared2, a);
 
     // Results should be equal
-    EXPECT_TRUE(vec_is_equal(a_squared1, a_squared2, sizeof(vec384fp12)))
+    EXPECT_TRUE(vec_is_equal(&a_squared1, &a_squared2, sizeof(Fp12)))
         << "a² computed by multiplication and squaring should be equal";
 
     // Test cyclotomic squaring if a is in the cyclotomic subgroup
     // This is just a basic test, not a comprehensive one
-    vec384fp12 cyc_squared;
+    Fp12 cyc_squared;
     blst_fp12_cyclotomic_sqr(cyc_squared, a);
     // We don't expect cyclotomic_sqr to equal regular squaring for arbitrary elements
     // So we just test that the function runs without errors
 }
 
 TEST(Fp12Test, Conjugation) {
-    vec384fp12 a, conjugate, expected;
+    Fp12 a, conjugate, expected;
 
     // Initialize with some values
-    const vec384fp12* one_ptr = blst_fp12_one();
-    vec_copy(a, one_ptr, sizeof(a));
+    const Fp12 one_ptr = blst_fp12_one();
+    vec_copy(&a, &one_ptr, sizeof(a));
 
     // Make it a non-trivial value: a = a_0 + a_1*w
     a[0][0][1][0] = 2;  // Modify a_0
     a[1][1][0][0] = 3;  // Modify a_1
 
     // Compute conjugate
-    vec_copy(conjugate, a, sizeof(vec384fp12));
+    vec_copy(&conjugate, &a, sizeof(Fp12));
     blst_fp12_conjugate(conjugate);
 
     // Expected = a_0 - a_1*w
-    vec_copy(expected, a, sizeof(vec384fp12));
+    vec_copy(&expected, &a, sizeof(Fp12));
     // Negate the second part of the Fp12 element (a_1)
     for (int i = 0; i < 3; i++) {
-        cneg_fp2(expected[1][i], a[1][i], 1);
+        Fp2::cneg(expected[1][i], a[1][i], 1);
     }
 
     // Results should be equal
-    EXPECT_TRUE(vec_is_equal(conjugate, expected, sizeof(vec384fp12)))
+    EXPECT_TRUE(vec_is_equal(&conjugate, &expected, sizeof(Fp12)))
         << "conjugate(a) should equal a_0 - a_1*w";
 
     // Check that conjugate(conjugate(a)) = a
     blst_fp12_conjugate(conjugate);
-    EXPECT_TRUE(vec_is_equal(conjugate, a, sizeof(vec384fp12)))
+    EXPECT_TRUE(vec_is_equal(&conjugate, &a, sizeof(Fp12)))
         << "conjugate(conjugate(a)) should equal a";
 }
 
 TEST(Fp12Test, Inversion) {
-    vec384fp12 a, a_inv, result;
+    Fp12 a, a_inv, result;
 
     // Initialize with a non-trivial value
-    const vec384fp12* one_ptr = blst_fp12_one();
-    vec_copy(a, one_ptr, sizeof(a));
+    const Fp12 one_ptr = blst_fp12_one();
+    vec_copy(&a, &one_ptr, sizeof(a));
     a[0][0][1][0] = 2;
     a[1][1][0][0] = 3;
 
@@ -172,62 +173,62 @@ TEST(Fp12Test, Inversion) {
         << "a * (1/a) should equal 1";
 
     // Special case: Inversion of 1 should be 1
-    vec384fp12 one, one_inv;
-    vec_copy(one, one_ptr, sizeof(one));
+    Fp12 one, one_inv;
+    vec_copy(&one, &one_ptr, sizeof(one));
     blst_fp12_inverse(one_inv, one);
-    EXPECT_TRUE(vec_is_equal(one, one_inv, sizeof(vec384fp12)))
+    EXPECT_TRUE(vec_is_equal(&one, &one_inv, sizeof(Fp12)))
         << "1/1 should equal 1";
 }
 
 //TEST(Fp12Test, FrobeniusMap) {
-//    vec384fp12 a, frob1, frob2;
+//    Fp12 a, frob1, frob2;
 //
 //    // Initialize with a non-trivial value
-//    const vec384fp12* one_ptr = blst_fp12_one();
+//    const Fp12* one_ptr = blst_fp12_one();
 //    vec_copy(a, one_ptr, sizeof(a));
 //    a[0][0][1][0] = 2;
 //    a[0][1][0][0] = 3;
 //    a[1][2][1][0] = 4;
 //
 //    // Apply Frobenius once
-//    vec_copy(frob1, a, sizeof(vec384fp12));
+//    vec_copy(frob1, a, sizeof(Fp12));
 //    blst_fp12_frobenius_map(frob1, a, 1);
 //
 //    // Apply Frobenius twice
-//    vec_copy(frob2, a, sizeof(vec384fp12));
+//    vec_copy(frob2, a, sizeof(Fp12));
 //    blst_fp12_frobenius_map(frob2, a, 2);
 //
 //    // Verify basic property: Frobenius^12 is the identity on Fp12
-//    vec384fp12 frob12;
-//    vec_copy(frob12, a, sizeof(vec384fp12));
+//    Fp12 frob12;
+//    vec_copy(frob12, a, sizeof(Fp12));
 //
 //    // Apply Frobenius 12 times (or use the direct power-12 operation if available)
 //    blst_fp12_frobenius_map(frob12, frob12, 6);
 //    blst_fp12_frobenius_map(frob12, frob12, 6);
 //
 //    // Result should equal original a
-//    EXPECT_TRUE(vec_is_equal(frob12, a, sizeof(vec384fp12)))
+//    EXPECT_TRUE(vec_is_equal(frob12, a, sizeof(Fp12)))
 //        << "Frobenius^12 should be identity on Fp12";
 //
 //    // Verify Frobenius^6 is the conjugation
-//    vec384fp12 frob6, conj;
-//    vec_copy(frob6, a, sizeof(vec384fp12));
+//    Fp12 frob6, conj;
+//    vec_copy(frob6, a, sizeof(Fp12));
 //    blst_fp12_frobenius_map(frob6, a, 6);
 //
-//    vec_copy(conj, a, sizeof(vec384fp12));
+//    vec_copy(conj, a, sizeof(Fp12));
 //    blst_fp12_conjugate(conj);
 //
-//    EXPECT_TRUE(vec_is_equal(frob6, conj, sizeof(vec384fp12)))
+//    EXPECT_TRUE(vec_is_equal(frob6, conj, sizeof(Fp12)))
 //        << "Frobenius^6 should equal conjugation";
 //}
 
 TEST(Fp12Test, Equality) {
-    vec384fp12 a, b;
+    Fp12 a, b;
 
     // Initialize with different values
-    const vec384fp12* one_ptr = blst_fp12_one();
-    vec_copy(a, one_ptr, sizeof(a));
-    vec_copy(b, one_ptr, sizeof(b));
+    const Fp12 one_ptr = blst_fp12_one();
+    vec_copy(&a, &one_ptr, sizeof(a));
+    vec_copy(&b, &one_ptr, sizeof(b));
 
     // a and b should be equal initially
     EXPECT_TRUE(blst_fp12_is_equal(a, b)) << "a and b should be equal initially";
@@ -237,7 +238,7 @@ TEST(Fp12Test, Equality) {
     EXPECT_FALSE(blst_fp12_is_equal(a, b)) << "a and b should not be equal after modification";
 
     // Make them equal again
-    vec_copy(b, a, sizeof(b));
+    vec_copy(&b, &a, sizeof(b));
     EXPECT_TRUE(blst_fp12_is_equal(a, b)) << "a and b should be equal after copying";
 
     // Test equality with self
@@ -245,12 +246,12 @@ TEST(Fp12Test, Equality) {
 }
 
 TEST(Fp12Test, Serialization) {
-    vec384fp12 a, b;
+    Fp12 a, b;
     unsigned char serialized[12 * 48]; // Fp12 = 12 elements of Fp
 
     // Initialize with non-trivial values
-    const vec384fp12* one_ptr = blst_fp12_one();
-    vec_copy(a, one_ptr, sizeof(a));
+    const Fp12 one_ptr = blst_fp12_one();
+    vec_copy(&a, &one_ptr, sizeof(a));
     a[0][0][1][0] = 2;
     a[0][1][0][0] = 3;
     a[1][2][1][0] = 4;
@@ -259,7 +260,7 @@ TEST(Fp12Test, Serialization) {
     blst_bendian_from_fp12(serialized, a);
 
     // Create a different value for b
-    vec_copy(b, one_ptr, sizeof(b));
+    vec_copy(&b, &one_ptr, sizeof(b));
     b[0][0][0][0] = 42; // Make it different from a
 
     // Deserialize back to b
@@ -279,6 +280,6 @@ TEST(Fp12Test, Serialization) {
 
     // Test size reporting
     size_t fp12_size = blst_fp12_sizeof();
-    EXPECT_EQ(fp12_size, sizeof(vec384fp12))
+    EXPECT_EQ(fp12_size, sizeof(Fp12))
         << "Reported Fp12 size should match actual size";
 }

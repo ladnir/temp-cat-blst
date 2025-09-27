@@ -21,71 +21,71 @@ BLST_HD BLST_FORCEINLINE void bytes_zero(unsigned char *a, size_t num)
         a[i] = 0;
 }
 
-BLST_HD BLST_FORCEINLINE void limbs_from_be_bytes(limb_t *BLST_restrict ret,
+BLST_HD BLST_FORCEINLINE void limbs_from_be_bytes(limb *BLST_restrict ret,
                                        const unsigned char *in, size_t n)
 {
-    limb_t limb = 0;
+    limb L = 0;
 
     while(n--) {
-        limb <<= 8;
-        limb |= *in++;
+        L <<= 8;
+        L |= *in++;
         /*
-         * 'if (n % sizeof(limb_t) == 0)' is omitted because it's cheaper
+         * 'if (n % sizeof(limb) == 0)' is omitted because it's cheaper
          * to perform redundant stores than to pay penalty for
          * mispredicted branch. Besides, some compilers unroll the
          * loop and remove redundant stores to 'restrict'-ed storage...
          */
-        ret[n / sizeof(limb_t)] = limb;
+        ret[n / sizeof(limb)] = L;
     }
 }
 
-BLST_HD BLST_FORCEINLINE void be_bytes_from_limbs(unsigned char *out, const limb_t *in,
+BLST_HD BLST_FORCEINLINE void be_bytes_from_limbs(unsigned char *out, const limb *in,
                                        size_t n)
 {
-    limb_t limb;
+    limb limb;
 
     while(n--) {
-        limb = in[n / sizeof(limb_t)];
-        *out++ = (unsigned char)(limb >> (8 * (n % sizeof(limb_t))));
+        limb = in[n / sizeof(limb)];
+        *out++ = (unsigned char)(limb >> (8 * (n % sizeof(limb))));
     }
 }
 
-BLST_HD BLST_FORCEINLINE void limbs_from_le_bytes(limb_t *BLST_restrict ret,
+BLST_HD BLST_FORCEINLINE void limbs_from_le_bytes(limb *BLST_restrict ret,
                                        const unsigned char *in, size_t n)
 {
-    limb_t limb = 0;
+    limb limb = 0;
 
     while(n--) {
         limb <<= 8;
         limb |= in[n];
         /*
-         * 'if (n % sizeof(limb_t) == 0)' is omitted because it's cheaper
+         * 'if (n % sizeof(limb) == 0)' is omitted because it's cheaper
          * to perform redundant stores than to pay penalty for
          * mispredicted branch. Besides, some compilers unroll the
          * loop and remove redundant stores to 'restrict'-ed storage...
          */
-        ret[n / sizeof(limb_t)] = limb;
+        ret[n / sizeof(limb)] = limb;
     }
 }
 
-BLST_HD BLST_INLINE void le_bytes_from_limbs(unsigned char *out, const limb_t *in,
+BLST_HD BLST_INLINE void le_bytes_from_limbs(unsigned char *out, const limb *in,
                                        size_t n)
 {
     const union {
         long one;
         char little;
     } is_endian = { 1 };
-    limb_t limb;
+    limb limb;
     size_t i, j, r;
 
     if ((uptr_t)out == (uptr_t)in && is_endian.little)
         return;
 
-    r = n % sizeof(limb_t);
-    n /= sizeof(limb_t);
+    r = n % sizeof(limb);
+    n /= sizeof(limb);
 
     for(i = 0; i < n; i++) {
-        for (limb = in[i], j = 0; j < sizeof(limb_t); j++, limb >>= 8)
+        for (limb = in[i], j = 0; j < sizeof(limb); j++, limb >>= 8)
             *out++ = (unsigned char)limb;
     }
     if (r) {
@@ -136,10 +136,10 @@ BLST_HD BLST_INLINE void bytes_from_hexascii(unsigned char *ret, size_t sz, cons
     }
 }
 
-BLST_HD BLST_INLINE void limbs_from_hexascii(limb_t *ret, size_t sz, const char *hex)
+BLST_HD BLST_INLINE void limbs_from_hexascii(limb *ret, size_t sz, const char *hex)
 {
     size_t len;
-    limb_t limb = 0;
+    limb limb = 0;
 
     if (hex[0]=='0' && (hex[1]=='x' || hex[1]=='X'))
         hex += 2;
@@ -151,8 +151,8 @@ BLST_HD BLST_INLINE void limbs_from_hexascii(limb_t *ret, size_t sz, const char 
     while(len--) {
         limb <<= 4;
         limb |= nibble_from_hex(*hex++);
-        if (len % (2*sizeof(limb_t)) == 0)
-            ret[len / (2*sizeof(limb_t))] = limb;
+        if (len % (2*sizeof(limb)) == 0)
+            ret[len / (2*sizeof(limb))] = limb;
     }
 }
 //BLST_EXTERN_C_END

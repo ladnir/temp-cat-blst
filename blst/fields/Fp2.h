@@ -7,10 +7,8 @@
 #define __BLS12_381_ASM_FIELDS_H__
 
 #include "blst/common/vect.h"
-#include "blst/fields/consts.h"
 #include "blst/config.h"
-#include "blst/common/defines.h"
-#include "blst/backend/backend.h"
+#include "blst/common/defines.h" 
 #include "blst/fields/recip-addchain.h"
 #include "blst/fields/exp.h"
 #include "blst/fields/Fp.h"
@@ -19,71 +17,565 @@
 namespace blst
 {
 
+
+    struct Fp2
+    {
+        Fp data[2];
+
+        BLST_HD Fp& operator[](size_t idx) { return data[idx]; }
+        BLST_HD const Fp& operator[](size_t idx) const { return data[idx]; }
+
+
+        BLST_HD static void add(Fp2& ret, const Fp2& a, const Fp2& b);
+        BLST_HD static void sub(Fp2& ret, const Fp2& a, const Fp2& b);
+        BLST_HD static void mul(Fp2& ret, const Fp2& a, const Fp2& b);
+        BLST_HD static void sqr(Fp2& ret, const Fp2& a);
+        BLST_HD static void cneg(Fp2& ret, const Fp2& a, bool_t flag);
+        BLST_HD static void neg(Fp2& ret, const Fp2& a);
+        BLST_HD static void from_mont(Fp2& ret, const Fp2& a);
+        BLST_HD static void to_mont(Fp2& ret, const Fp2& a);
+        BLST_HD static void reciprocal(Fp2& out, const Fp2& inp);
+        BLST_HD static bool_t sqrt(Fp2& out, const Fp2& inp);
+        BLST_HD static void mul_by_3(Fp2& ret, const Fp2& a);
+        BLST_HD static void mul_by_8(Fp2& ret, const Fp2& a);
+
+
+        BLST_HD static const Fp2& zero();
+        BLST_HD static const Fp2& one();
+    };
+
+
+
+#define BLST_SQRT_SQRT_MINUS_1_LIMBS                                \
+Fp{ TO_LIMB_T(0x3e2f585da55c9ad1), TO_LIMB_T(0x4294213d86c18183),     \
+  TO_LIMB_T(0x382844c88b623732), TO_LIMB_T(0x92ad2afd19103e18),     \
+  TO_LIMB_T(0x1d794e4fac7cf0b9), TO_LIMB_T(0x0bd592fc7d825ec8)},    \
+Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
+  TO_LIMB_T(0x2f088dd86b4ebef1), TO_LIMB_T(0xd1ca2087da74d4a7),     \
+  TO_LIMB_T(0x2da2596696cebc1d), TO_LIMB_T(0x0e2b7eedbbfd87d2) }
+
+#define BLST_SQRT_MINUS_SQRT_MINUS_1_LIMBS                          \
+Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
+  TO_LIMB_T(0x2f088dd86b4ebef1), TO_LIMB_T(0xd1ca2087da74d4a7),     \
+  TO_LIMB_T(0x2da2596696cebc1d), TO_LIMB_T(0x0e2b7eedbbfd87d2) },   \
+Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
+  TO_LIMB_T(0x2f088dd86b4ebef1), TO_LIMB_T(0xd1ca2087da74d4a7),     \
+  TO_LIMB_T(0x2da2596696cebc1d), TO_LIMB_T(0x0e2b7eedbbfd87d2) }    
+
+
+
+#if defined(BLST_CUDA) && defined(__CUDACC__)
+
+    static __constant__ Fp2 BLST_sqrt_minus_1_DEV = Fp2({ Fp{ { 0 } }, Fp{ ONE_MONT_P_LIMBS } });
+    /*
+        * "magic" number is ±2^((p-3)/4)%p, which is "1/sqrt(2)",
+        * in quotes because 2*"1/sqrt(2)"^2 == -1 mod p, not 1,
+        * but it pivots into "complex" plane nevertheless...
+        */
+    static __constant__ Fp2 BLST_sqrt_sqrt_minus_1_DEV = { BLST_SQRT_SQRT_MINUS_1_LIMBS };
+    static __constant__ Fp2 BLST_sqrt_minus_sqrt_minus_1_DEV = { BLST_SQRT_MINUS_SQRT_MINUS_1_LIMBS };
+
+#endif // __CUDA_ARCH__
+
+
+
+
+
+    extern const Fp2 BLST_sqrt_minus_1_HOST;// = { { 0 }, { ONE_MONT_P_LIMBS } };
+    /*
+        * "magic" number is ±2^((p-3)/4)%p, which is "1/sqrt(2)",
+        * in quotes because 2*"1/sqrt(2)"^2 == -1 mod p, not 1,
+        * but it pivots into "complex" plane nevertheless...
+        */
+    extern const Fp2 BLST_sqrt_sqrt_minus_1_HOST; /*= { BLST_SQRT_SQRT_MINUS_1_LIMBS };*/
+    extern const Fp2 BLST_sqrt_minus_sqrt_minus_1_HOST; /*= { BLST_SQRT_MINUS_SQRT_MINUS_1_LIMBS };*/
+
+
+    BLST_HD BLST_FORCEINLINE const Fp2& get_BLST_sqrt_minus_1(void)
+    {
+#if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
+        return BLST_sqrt_minus_1_DEV;
+#else
+        return BLST_sqrt_minus_1_HOST;
+#endif
+    }
+
+    BLST_HD BLST_FORCEINLINE const Fp2& get_BLST_sqrt_sqrt_minus_1(void)
+    {
+#if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
+        return BLST_sqrt_sqrt_minus_1_DEV;
+#else
+        return BLST_sqrt_sqrt_minus_1_HOST;
+#endif
+    }
+
+    BLST_HD BLST_FORCEINLINE const Fp2& get_BLST_sqrt_minus_sqrt_minus_1(void)
+    {
+#if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
+        return BLST_sqrt_minus_sqrt_minus_1_DEV;
+#else
+        return BLST_sqrt_minus_sqrt_minus_1_HOST;
+#endif
+    }
+
+
+
+
+
+
+
+
+    /**
+     * @brief Computes the sign and parity of a 384-bit complex number modulo a given modulus.
+     *
+     * This function determines the sign and parity of a complex number `a` modulo `p`.
+     * The sign is determined based on the imaginary part (`a[1]`) if it is non-zero;
+     * otherwise, the real part (`a[0]`) is used. The parity is determined based on
+     * the least significant bit of the selected part.
+     *
+     * @param[in]  a The input complex number represented as two 384-bit integers.
+     * @param[in]  p The modulus.
+     *
+     * @return A 2-bit value:
+     *         - Bit 1: Sign (0 if non-negative, 1 if negative).
+     *         - Bit 0: Parity (0 if even, 1 if odd).
+     *
+     * @note Assumes `a` and `p` are valid 384-bit integers.
+     */
+    BLST_HD BLST_INLINE limb cc_sgn0_pty_mod_384x(const Fp2& a, const Fp& p)
+    {
+        limb re, im, sign, prty;
+        const Fp& a0 = a[0];
+        const Fp& a1 = a[1];
+
+        re = cc_sgn0_pty_mod_n<NLIMBS(384)>(a0, p.data);
+        im = cc_sgn0_pty_mod_n<NLIMBS(384)>(a1, p.data);
+
+        /* a->im!=0 ? sgn0(a->im) : sgn0(a->re) */
+        sign = (limb)0 - vec_is_zero(a[1].data, sizeof(Fp));
+        sign = (re & sign) | (im & ~sign);
+
+        /* a->re==0 ? prty(a->im) : prty(a->re) */
+        prty = (limb)0 - vec_is_zero(a[0].data, sizeof(Fp));
+        prty = (im & prty) | (re & ~prty);
+
+        return (sign & 2) | (prty & 1);
+    }
+
+
+    /**
+     * @brief Computes the sign and parity of a 384-bit complex number in Montgomery form modulo a given modulus.
+     *
+     * This function converts the complex number `a` from Montgomery form to standard form
+     * and then determines its sign and parity modulo `p`. The sign and parity are computed
+     * in the same way as `cc_sgn0_pty_mod_384x`.
+     *
+     * @param[in]  a   The input complex number in Montgomery form.
+     * @param[in]  p   The modulus.
+     * @param[in]  n0  The Montgomery constant.
+     *
+     * @return A 2-bit value:
+     *         - Bit 1: Sign (0 if non-negative, 1 if negative).
+     *         - Bit 0: Parity (0 if even, 1 if odd).
+     *
+     * @note Assumes `a` and `p` are valid 384-bit integers.
+     */
+    BLST_HD BLST_INLINE limb cc_sgn0_pty_mont_384x(const Fp2& a, const Fp& p, limb n0)
+    {
+        Fp2 tmp;
+
+        cc_from_mont_n<NLIMBS(384)>(tmp[0].data, a[0].data, p.data, n0);
+        cc_from_mont_n<NLIMBS(384)>(tmp[1].data, a[1].data, p.data, n0);
+
+        return cc_sgn0_pty_mod_384x(tmp, p);
+    }
+
+    /**
+     * @brief Performs Montgomery multiplication on two 384-bit complex numbers.
+     *
+     * Computes `(a * b * R^(-1)) mod p` for complex numbers `a` and `b` in Montgomery form.
+     * The result is stored in `ret`.
+     */
+    BLST_HD BLST_INLINE void cc_mul_mont_384x(Fp2& ret, const Fp2& a, const Fp2& b,
+        const Fp& p, limb n0)
+    {
+        Fp aa, bb, cc;
+
+        cc_add_mod_n<NLIMBS(384)>(aa, a[0], a[1], p);
+        cc_add_mod_n<NLIMBS(384)>(bb, b[0], b[1], p);
+        cc_mul_mont_n<NLIMBS(384)>(bb, bb, aa, p, n0);
+        cc_mul_mont_n<NLIMBS(384)>(aa, a[0], b[0], p, n0);
+        cc_mul_mont_n<NLIMBS(384)>(cc, a[1], b[1], p, n0);
+        cc_sub_mod_n<NLIMBS(384)>(ret[0], aa, cc, p);
+        cc_sub_mod_n<NLIMBS(384)>(ret[1], bb, aa, p);
+        cc_sub_mod_n<NLIMBS(384)>(ret[1], ret[1], cc, p);
+    }
+
+
+    /**
+     * @brief Squares a 384-bit complex number in Montgomery form modulo a given modulus.
+     *
+     * Computes `(a^2 * R^(-1)) mod p` for a complex number `a` in Montgomery form.
+     * The result is stored in `ret`.
+     *
+     * @param[out] ret The output complex number in Montgomery form.
+     * @param[in]  a   The input complex number in Montgomery form.
+     * @param[in]  p   The modulus.
+     * @param[in]  n0  The Montgomery constant.
+     *
+     * @note Assumes `a` and `p` are valid 384-bit integers.
+     */
+    BLST_HD BLST_INLINE void cc_sqr_mont_382x(Fp2& ret, const Fp2& a,
+        const Fp& p, limb n0)
+    {
+        wide_limb_t wide;
+        limb mask, carry, borrow;
+        size_t i;
+        Fp t0, t1;
+
+        /* "add_mod_n(t0, a[0], a[1], p, NLIMBS(384));" */
+        for (carry = 0, i = 0; i < NLIMBS(384); i++) {
+            cc_add_carry_wide_limb_limb(&wide, a[0][i], a[1][i], carry);
+            t0[i] = wide.lo;
+            carry = wide.hi;
+        }
+
+        /* "sub_mod_n(t1, a[0], a[1], p, NLIMBS(384));" */
+        for (borrow = 0, i = 0; i < NLIMBS(384); i++) {
+            cc_sub_borrow_wide_limb_limb(&wide, a[0][i], a[1][i], borrow);
+            t1[i] = wide.lo;
+            borrow = wide.hi & 1;
+        }
+        mask = 0 - borrow;
+        BLST_launder(mask);
+
+        /* "mul_mont_n(ret[1], a[0], a[1], p, n0, NLIMBS(384));" */
+        cc_mul_mont_nonred_n<NLIMBS(384)>(ret[1], a[0], a[1], p, n0);
+
+        /* "add_mod_n(ret[1], ret[1], ret[1], p, NLIMBS(384));" */
+        for (carry = 0, i = 0; i < NLIMBS(384); i++) {
+            limb a_i = ret[1][i];
+            ret[1][i] = a_i << 1 | carry;
+            carry = a_i >> (BLST_LIMB_SIZE - 1);
+        }
+
+        /* "mul_mont_n(ret[0], t0, t1, p, n0, NLIMBS(384));" */
+        cc_mul_mont_nonred_n<NLIMBS(384)>(ret[0], t0, t1, p, n0);
+
+        /* account for t1's sign... */
+        for (borrow = 0, i = 0; i < NLIMBS(384); i++) {
+            cc_sub_borrow_wide_limb_limb(&wide, ret[0][i], t0[i] & mask, borrow);
+            ret[0][i] = wide.lo;
+            borrow = wide.hi & 1;
+        }
+        mask = 0 - borrow;
+        BLST_launder(mask);
+        for (carry = 0, i = 0; i < NLIMBS(384); i++) {
+            cc_add_carry_wide_limb_limb(&wide, ret[0][i], p[i] & mask, carry);
+            ret[0][i] = wide.lo;
+            carry = wide.hi;
+        }
+    }
+
+    BLST_HD BLST_INLINE  void cc_mul_by_8_mod_384x(Fp2& ret, const Fp2& a, const Fp& mod)
+    {
+        cc_mul_by_8_mod_384(ret[0], a[0], mod);
+        cc_mul_by_8_mod_384(ret[1], a[1], mod);
+    }
+
+    BLST_HD BLST_INLINE  void cc_mul_by_1_plus_i_mod_384x(Fp2& ret, const Fp2& a,
+        const Fp& mod)
+    {
+        Fp t;
+
+        Fp::add(t, a[0], a[1]);
+        Fp::sub(ret[0], a[0], a[1]);
+        vec_copy(ret[1], t, sizeof(t));
+    }
+    BLST_HD BLST_INLINE void cc_add_mod_384x(Fp2& ret, const Fp2& a, const Fp2& b,
+        const Fp& mod)
+    {
+        Fp::add(ret[0], a[0], b[0]);
+        Fp::add(ret[1], a[1], b[1]);
+    }
+    BLST_HD BLST_INLINE void cc_sub_mod_384x(Fp2& ret, const Fp2& a, const Fp2& b,
+        const Fp& mod)
+    {
+        Fp::sub(ret[0], a[0], b[0]);
+        Fp::sub(ret[1], a[1], b[1]);
+    }
+    BLST_HD BLST_INLINE void cc_lshift_mod_384x(Fp2& ret, const Fp2& a, size_t n,
+        const Fp& mod)
+    {
+        cc_lshift_mod_384(ret[0], a[0], n, mod);
+        cc_lshift_mod_384(ret[1], a[1], n, mod);
+    }
+
+    /* @brief Squares a 384-bit complex number in Montgomery form modulo a given modulus.
+     *
+     * Computes `(a^2 * R^(-1)) mod p` for a complex number `a` in Montgomery form.
+     * The result is stored in `ret`.
+     *
+     * @param[out] ret The output complex number in Montgomery form.
+     * @param[in]  a   The input complex number in Montgomery form.
+     * @param[in]  mod The modulus.
+     * @param[in]  n0  The Montgomery constant.
+     *
+     * @note Assumes `a` and `mod` are valid 384-bit integers.
+     */
+    BLST_HD BLST_INLINE void cc_sqr_mont_384x(Fp2& ret, const Fp2& a, const Fp& mod, limb n0)
+    {
+        Fp t0, t1;
+
+        Fp::add(t0, a[0], a[1]);
+        Fp::sub(t1, a[0], a[1]);
+
+        Fp::mul(ret[1], a[0], a[1]);
+        Fp::add(ret[1], ret[1], ret[1]);
+
+        Fp::mul(ret[0], t0, t1);
+    }
+    //#endif
+
+
+    BLST_HD BLST_FORCEINLINE void cneg_mod_v384x(Fp2& ret, const Fp2& a, bool_t flag,
+        const Fp& p)
+    {
+        //Fp::cneg(ret[0], a[0], flag/*, p*/);
+        //Fp::cneg(ret[1], a[1], flag/*, p*/);
+    }
+
+
+    BLST_HD BLST_INLINE void exp_mont_384x(Fp2& out, const Fp2& inp, const byte* pow,
+        size_t pow_bits, const Fp& p, limb n0)
+    {
+        Fp2 ret = inp;
+
+        //vec_copy(ret, inp, sizeof(ret));  /* |ret| = |inp|^1 */
+        --pow_bits; /* most significant bit is accounted for, skip over */
+        while (pow_bits--) {
+            Fp2::sqr(ret, ret);
+            if (is_bit_set(pow, pow_bits))
+                Fp2::mul(ret, ret, inp/*, p, n0*/);
+        }
+        out = ret;
+        //vec_copy(out, ret, sizeof(ret));  /* |out| = |ret| */
+    }
+
+    BLST_HD BLST_INLINE void cc_mul_by_3_mod_384x(Fp2& ret, const Fp2& a, const Fp& mod)
+    {
+        Fp::mul_by_3(ret[0], a[0]);
+        Fp::mul_by_3(ret[1], a[1]);
+    }
+
+
+    BLST_HD BLST_FORCEINLINE limb sgn0_pty_mont_v384x(const Fp2& a, const Fp& p, limb n0)
+    {
+#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        return sgn0x_pty_mont_384x(&a, &p, n0);
+#else
+        return cc_sgn0_pty_mont_384x(a, p, n0);
+#endif
+    }
+    BLST_HD BLST_FORCEINLINE limb sgn0_pty_mod_v384x(const Fp2& a, const Fp& p)
+    {
+#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        return sgn0_pty_mod_384x(&a, &p);
+#else
+        return cc_sgn0_pty_mod_384x(a, p);
+#endif
+    }
+    BLST_HD BLST_FORCEINLINE void mul_mont_v384x(Fp2& ret, const Fp2& a, const Fp2& b,
+        const Fp& p, limb n0)
+    {
+//#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+//        mulx_mont_384x(&ret, &a, &b, &p, n0);
+//#else
+//        cc_mul_mont_384x(ret, a, b, p, n0);
+//#endif
+    }
+    BLST_HD BLST_FORCEINLINE void sqr_mont_v384x(Fp2& ret, const Fp2& a, const Fp& p, limb n0)
+    {
+//#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+//        sqrx_mont_384x(&ret, &a, &p, n0);
+//#else
+//        cc_sqr_mont_384x(ret, a, p, n0);
+//#endif
+
+    }
+    BLST_HD BLST_FORCEINLINE void sqr_mont_v382x(Fp2& ret, const Fp2& a, const Fp& p, limb n0)
+    {
+#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        sqrx_mont_382x(&ret, &a, &p, n0);
+#else
+        cc_sqr_mont_382x(ret, a, p, n0);
+#endif
+    }
+
+#if defined(BLST_ASM) && !defined(__CUDA_ARCH__)
+
+    BLST_HD BLST_FORCEINLINE void mul_v382x(UFp2& ret, const Fp2& a, const Fp2& b, const Fp& p)
+    {
+#ifdef BLST_ADX
+        mulx_382x(&ret, &a, &b, &p);
+#else
+        mul_382x(&ret, &a, &b, &p);
+#endif
+    }
+    BLST_HD BLST_FORCEINLINE void sqr_v382x(UFp2& ret, const Fp2& a, const Fp& p)
+    {
+#ifdef BLST_ADX
+        sqrx_382x(&ret, &a, &p);
+#else
+        sqr_382x(&ret, &a, &p);
+#endif
+    }
+
+#endif
+
+    BLST_HD BLST_FORCEINLINE void add_mod_v384x(Fp2& ret, const Fp2& a, const Fp2& b,
+        const Fp& p)
+    {
+//#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+//        add_mod_384x(&ret, &a, &b, &p);
+//#else
+//        cc_add_mod_384x(ret, a, b, p);
+//#endif
+    }
+    BLST_HD BLST_FORCEINLINE void sub_mod_v384x(Fp2& ret, const Fp2& a, const Fp2& b,
+        const Fp& p)
+    {
+//#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+//        sub_mod_384x(&ret, &a, &b, &p);
+//#else
+//        cc_sub_mod_384x(ret, a, b, p);
+//#endif
+    }
+    BLST_HD BLST_FORCEINLINE void mul_by_8_mod_v384x(Fp2& ret, const Fp2& a, const Fp& p)
+    {
+#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        mul_by_8_mod_384x(&ret, &a, &p);
+#else
+        cc_mul_by_8_mod_384x(ret, a, p);
+#endif
+    }
+    BLST_HD BLST_FORCEINLINE void mul_by_3_mod_v384x(Fp2& ret, const Fp2& a, const Fp& p)
+    {
+#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        mul_by_3_mod_384x(&ret, &a, &p);
+#else
+        cc_mul_by_3_mod_384x(ret, a, p);
+#endif
+    }
+
+    BLST_HD BLST_FORCEINLINE void mul_by_1_plus_i_mod_v384x(Fp2& ret, const Fp2& a, const Fp& p)
+    {
+#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        mul_by_1_plus_i_mod_384x(&ret, &a, &p);
+#else
+        cc_mul_by_1_plus_i_mod_384x(ret, a, p);
+#endif
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    //BLST_HD BLST_INLINE void vec_zero(Fp2& ret)
+    //{
+    //    vec_zero(&ret, sizeof(ret));
+    //}
+    //BLST_HD BLST_FORCEINLINE bool_t vec_is_equal(const Fp2& a, const Fp2& b)
+    //{
+    //    vec_is_equal(&a, &b, sizeof(a));
+    //}
+
+
     /*
      * BLS12-381-specific Fp2 shortcuts to assembly.
      */
-    BLST_HD BLST_FORCEINLINE void add_fp2(vec384x ret, const vec384x a, const vec384x b)
+    //BLST_HD BLST_FORCEINLINE void Fp2::add(Fp2& ret, const Fp2& a, const Fp2& b)
+    //{
+    //    add_mod_v384x(ret, a, b, get_BLST_P());
+    //}
+
+    //BLST_HD BLST_FORCEINLINE void Fp2::sub(Fp2& ret, const Fp2& a, const Fp2& b)
+    //{
+    //    sub_mod_v384x(ret, a, b, get_BLST_P());
+    //}
+
+    BLST_HD BLST_FORCEINLINE void mul_by_3_fp2(Fp2& ret, const Fp2& a)
     {
-        add_mod_v384x(ret, a, b, *get_BLST_P());
+        mul_by_3_mod_v384x(ret, a, get_BLST_P());
     }
 
-    BLST_HD BLST_FORCEINLINE void sub_fp2(vec384x ret, const vec384x a, const vec384x b)
+    BLST_HD BLST_FORCEINLINE void mul_by_8_fp2(Fp2& ret, const Fp2& a)
     {
-        sub_mod_v384x(ret, a, b, *get_BLST_P());
+        mul_by_8_mod_v384x(ret, a, get_BLST_P());
     }
 
-    BLST_HD BLST_FORCEINLINE void mul_by_3_fp2(vec384x ret, const vec384x a)
+    BLST_HD BLST_FORCEINLINE void lshift_fp2(Fp2& ret, const Fp2& a, size_t count)
     {
-        mul_by_3_mod_v384x(ret, a, *get_BLST_P());
+        Fp::lshift(ret[0], a[0], count);
+		Fp::lshift(ret[1], a[1], count);
+        //lshift_mod_v384(ret[0], a[0], count, get_BLST_P());
+        //lshift_mod_v384(ret[1], a[1], count, get_BLST_P());
     }
 
-    BLST_HD BLST_FORCEINLINE void mul_by_8_fp2(vec384x ret, const vec384x a)
-    {
-        mul_by_8_mod_v384x(ret, a, *get_BLST_P());
-    }
+    //BLST_HD BLST_FORCEINLINE void Fp2::mul(Fp2& ret, const Fp2& a, const Fp2& b)
+    //{
+    //    mul_mont_v384x(ret, a, b, get_BLST_P(), BLST_p0);
+    //}
 
-    BLST_HD BLST_FORCEINLINE void lshift_fp2(vec384x ret, const vec384x a, size_t count)
-    {
-        lshift_mod_v384(ret[0], a[0], count, *get_BLST_P());
-        lshift_mod_v384(ret[1], a[1], count, *get_BLST_P());
-    }
+    //BLST_HD BLST_FORCEINLINE void Fp2::sqr(Fp2& ret, const Fp2& a)
+    //{
+    //    sqr_mont_v384x(ret, a, get_BLST_P(), BLST_p0);
+    //}
 
-    BLST_HD BLST_FORCEINLINE void mul_fp2(vec384x ret, const vec384x a, const vec384x b)
-    {
-        mul_mont_v384x(ret, a, b, *get_BLST_P(), BLST_p0);
-    }
-
-    BLST_HD BLST_FORCEINLINE void sqr_fp2(vec384x ret, const vec384x a)
-    {
-        sqr_mont_v384x(ret, a, *get_BLST_P(), BLST_p0);
-    }
-
-    BLST_HD BLST_FORCEINLINE void cneg_fp2(vec384x ret, const vec384x a, bool_t flag)
-    {
-        cneg_mod_v384(ret[0], a[0], flag, *get_BLST_P());
-        cneg_mod_v384(ret[1], a[1], flag, *get_BLST_P());
-    }
+    //BLST_HD BLST_FORCEINLINE void Fp2::cneg(Fp2& ret, const Fp2& a, bool_t flag)
+    //{
+    //    Fp::cneg(ret[0], a[0], flag);// , get_BLST_P());
+    //    Fp::cneg(ret[1], a[1], flag);// , get_BLST_P());
+    //}
 
 #define vec_load_global vec_copy
 
 
-    BLST_HD void reciprocal_fp2(vec384x out, const vec384x inp);
-    BLST_HD void flt_reciprocal_fp2(vec384x out, const vec384x inp);
-    BLST_HD bool_t recip_sqrt_fp2(vec384x out, const vec384x inp,
-        const vec384x recip_ZZZ, const vec384x magic_ZZZ);
-    BLST_HD bool_t sqrt_fp2(vec384x out, const vec384x inp);
-    BLST_HD bool_t sqrt_align_fp2(vec384x out, const vec384x ret,
-        const vec384x sqrt, const vec384x inp);
+    BLST_HD void reciprocal_fp2(Fp2& out, const Fp2& inp);
+    BLST_HD void flt_reciprocal_fp2(Fp2& out, const Fp2& inp);
+    BLST_HD bool_t recip_sqrt_fp2(Fp2& out, const Fp2& inp,
+        const Fp2& recip_ZZZ, const Fp2& magic_ZZZ);
+    BLST_HD bool_t sqrt_fp2(Fp2& out, const Fp2& inp);
+    BLST_HD bool_t sqrt_align_fp2(Fp2& out, const Fp2& ret,
+        const Fp2& sqrt, const Fp2& inp);
 
 
-    BLST_HD BLST_FORCEINLINE void conjugate_fp2(vec384x ret, const vec384x a)
+    BLST_HD BLST_FORCEINLINE void conjugate_fp2(Fp2& ret, const Fp2& a)
     {
-        vec_copy(ret[0], a[0], sizeof(vec384));  /* Re(ret) = Re(a) */
-        cneg_fp(ret[1], a[1], 1);               /* Im(ret) = -Im(a) */
+        vec_copy(ret[0], a[0], sizeof(Fp));  /* Re(ret) = Re(a) */
+        Fp::cneg(ret[1], a[1], 1);               /* Im(ret) = -Im(a) */
     }
 
-    //#define neg_fp(r,a) cneg_fp((r),(a),1)
-#define neg_fp2(r,a) cneg_fp2((r),(a),1)
+    //#define Fp::neg(r,a) cFp::neg((r),(a),1)
+#define neg_fp2(r,a) Fp2::cneg((r),(a),1)
 
 
 
@@ -118,52 +610,52 @@ namespace blst
 
 
 
-    BLST_HD BLST_INLINE bool_t sqrt_align_fp2(vec384x out, const vec384x ret,
-        const vec384x sqrt, const vec384x inp)
+    BLST_HD BLST_INLINE bool_t sqrt_align_fp2(Fp2& out, const Fp2& ret,
+        const Fp2& sqrt, const Fp2& inp)
     {
-        vec384x coeff;
+        Fp2 coeff;
         bool_t is_sqrt;
 
         {
-            vec384x t0;
+            Fp2 t0;
             bool_t flag;
             /*
              * Instead of multiple trial squarings we can perform just one
              * and see if the result is "rotated by multiple of 90°" in
              * relation to |inp|, and "rotate" |ret| accordingly.
              */
-            sqr_fp2(t0, sqrt);
+            Fp2::sqr(t0, sqrt);
             /* "sqrt(|inp|)"^2 = (a + b*i)^2 = (a^2-b^2) + 2ab*i */
 
             /* (a^2-b^2) + 2ab*i == |inp| ? |ret| is spot on */
-            vec384x t1;
-            sub_fp2(t1, t0, inp);
-            is_sqrt = vec_is_zero(t1, sizeof(t1));
-            vec_copy(coeff, get_BLST_Rx()->p2, sizeof(coeff));
+            Fp2 t1;
+            Fp2::sub(t1, t0, inp);
+            is_sqrt = vec_is_zero(&t1, sizeof(t1));
+            vec_copy(&coeff, &get_BLST_Rx().p2, sizeof(coeff));
 
             /* -(a^2-b^2) - 2ab*i == |inp| ? "rotate |ret| by 90°" */
-            add_fp2(t1, t0, inp);
-            vec_select(coeff, *get_BLST_sqrt_minus_1(), coeff, sizeof(coeff),
-                flag = vec_is_zero(t1, sizeof(t1)));
+            Fp2::add(t1, t0, inp);
+            vec_select(&coeff, &get_BLST_sqrt_minus_1(), &coeff, sizeof(coeff),
+                flag = vec_is_zero(&t1, sizeof(t1)));
             is_sqrt |= flag;
 
             /* 2ab - (a^2-b^2)*i == |inp| ? "rotate |ret| by 135°" */
-            sub_fp(t1[0], t0[0], inp[1]);
-            add_fp(t1[1], t0[1], inp[0]);
-            vec_select(coeff, *get_BLST_sqrt_sqrt_minus_1(), coeff, sizeof(coeff),
-                flag = vec_is_zero(t1, sizeof(t1)));
+            Fp::sub(t1[0], t0[0], inp[1]);
+            Fp::add(t1[1], t0[1], inp[0]);
+            vec_select(&coeff, &get_BLST_sqrt_sqrt_minus_1(), &coeff, sizeof(coeff),
+                flag = vec_is_zero(&t1, sizeof(t1)));
             is_sqrt |= flag;
 
             /* -2ab + (a^2-b^2)*i == |inp| ? "rotate |ret| by 45°" */
-            add_fp(t1[0], t0[0], inp[1]);
-            sub_fp(t1[1], t0[1], inp[0]);
-            vec_select(coeff, *get_BLST_sqrt_minus_sqrt_minus_1(), coeff, sizeof(coeff),
-                flag = vec_is_zero(t1, sizeof(t1)));
+            Fp::add(t1[0], t0[0], inp[1]);
+            Fp::sub(t1[1], t0[1], inp[0]);
+            vec_select(&coeff, &get_BLST_sqrt_minus_sqrt_minus_1(), &coeff, sizeof(coeff),
+                flag = vec_is_zero(&t1, sizeof(t1)));
             is_sqrt |= flag;
         }
 
         /* actual "rotation" */
-        mul_fp2(out, ret, coeff);
+        Fp2::mul(out, ret, coeff);
 
         return is_sqrt;
     }
@@ -171,82 +663,82 @@ namespace blst
     /*
      * |inp| = a + b*i
      */
-    BLST_HD BLST_INLINE bool_t recip_sqrt_fp2(vec384x out, const vec384x inp,
-        const vec384x recip_ZZZ,
-        const vec384x magic_ZZZ)
+    BLST_HD BLST_INLINE bool_t recip_sqrt_fp2(Fp2& out, const Fp2& inp,
+        const Fp2& recip_ZZZ,
+        const Fp2& magic_ZZZ)
     {
-        vec384 aa, bb, cc;
-        vec384x inp_;
+        Fp aa, bb, cc;
+        Fp2 inp_;
         bool_t is_sqrt;
 
-        sqr_fp(aa, inp[0]);
-        sqr_fp(bb, inp[1]);
-        add_fp(aa, aa, bb);
+        Fp::sqr(aa, inp[0]);
+        Fp::sqr(bb, inp[1]);
+        Fp::add(aa, aa, bb);
 
         is_sqrt = recip_sqrt_fp(cc, aa);  /* 1/sqrt(a²+b²)                    */
 
         /* if |inp| doesn't have quadratic residue, multiply by "1/Z³" ...    */
-        mul_fp2(inp_, inp, recip_ZZZ);
+        Fp2::mul(inp_, inp, recip_ZZZ);
         /* ... and adjust |aa| and |cc| accordingly                           */
         {
-            vec384 za, zc;
+            Fp za, zc;
 
-            mul_fp(za, aa, magic_ZZZ[0]); /* aa*(za² + zb²)                   */
-            mul_fp(zc, cc, magic_ZZZ[1]); /* cc*(za² + zb²)^((p-3)/4)         */
+            Fp::mul(za, aa, magic_ZZZ[0]); /* aa*(za² + zb²)                   */
+            Fp::mul(zc, cc, magic_ZZZ[1]); /* cc*(za² + zb²)^((p-3)/4)         */
             vec_select(aa, aa, za, sizeof(aa), is_sqrt);
             vec_select(cc, cc, zc, sizeof(cc), is_sqrt);
         }
-        vec_select(inp_, inp, inp_, sizeof(inp_), is_sqrt);
+        vec_select(&inp_, &inp, &inp_, sizeof(inp_), is_sqrt);
 
-        mul_fp(aa, aa, cc);               /* sqrt(a²+b²)                      */
+        Fp::mul(aa, aa, cc);               /* sqrt(a²+b²)                      */
 
-        sub_fp(bb, inp_[0], aa);
-        add_fp(aa, inp_[0], aa);
+        Fp::sub(bb, inp_[0], aa);
+        Fp::add(aa, inp_[0], aa);
         vec_select(aa, bb, aa, sizeof(aa), vec_is_zero(aa, sizeof(aa)));
-        div_by_2_fp(aa, aa);              /* (a ± sqrt(a²+b²))/2              */
+        Fp::div_by_2(aa, aa);              /* (a ± sqrt(a²+b²))/2              */
 
         /* if it says "no sqrt," final "align" will find right one...         */
         (void)recip_sqrt_fp(out[0], aa);  /* 1/sqrt((a ± sqrt(a²+b²))/2)      */
 
-        div_by_2_fp(out[1], inp_[1]);
-        mul_fp(out[1], out[1], out[0]);   /* b/(2*sqrt((a ± sqrt(a²+b²))/2))  */
-        mul_fp(out[0], out[0], aa);       /* sqrt((a ± sqrt(a²+b²))/2)        */
+        Fp::div_by_2(out[1], inp_[1]);
+        Fp::mul(out[1], out[1], out[0]);   /* b/(2*sqrt((a ± sqrt(a²+b²))/2))  */
+        Fp::mul(out[0], out[0], aa);       /* sqrt((a ± sqrt(a²+b²))/2)        */
 
         /* bound to succeed                                                   */
         (void)sqrt_align_fp2(out, out, out, inp_);
 
-        mul_fp(out[0], out[0], cc);       /* inverse the result               */
-        mul_fp(out[1], out[1], cc);
-        neg_fp(out[1], out[1]);
+        Fp::mul(out[0], out[0], cc);       /* inverse the result               */
+        Fp::mul(out[1], out[1], cc);
+        Fp::neg(out[1], out[1]);
 
         return is_sqrt;
     }
 
-    BLST_HD BLST_INLINE bool_t sqrt_fp2(vec384x out, const vec384x inp)
+    BLST_HD BLST_INLINE bool_t sqrt_fp2(Fp2& out, const Fp2& inp)
     {
-        vec384x ret;
+        Fp2 ret;
 
         {
-            vec384 aa, bb;
+            Fp aa, bb;
 
-            sqr_fp(aa, inp[0]);
-            sqr_fp(bb, inp[1]);
-            add_fp(aa, aa, bb);
+            Fp::sqr(aa, inp[0]);
+            Fp::sqr(bb, inp[1]);
+            Fp::add(aa, aa, bb);
 
             /* don't pay attention to return value, final "align" will tell...    */
             (void)sqrt_fp(aa, aa);            /* sqrt(a²+b²)                      */
 
-            sub_fp(bb, inp[0], aa);
-            add_fp(aa, inp[0], aa);
+            Fp::sub(bb, inp[0], aa);
+            Fp::add(aa, inp[0], aa);
             vec_select(aa, bb, aa, sizeof(aa), vec_is_zero(aa, sizeof(aa)));
-            div_by_2_fp(aa, aa);              /* (a ± sqrt(a²+b²))/2              */
+            Fp::div_by_2(aa, aa);              /* (a ± sqrt(a²+b²))/2              */
 
             /* if it says "no sqrt," final "align" will find right one...         */
             (void)recip_sqrt_fp(ret[0], aa);  /* 1/sqrt((a ± sqrt(a²+b²))/2)      */
 
-            div_by_2_fp(ret[1], inp[1]);
-            mul_fp(ret[1], ret[1], ret[0]);   /* b/(2*sqrt((a ± sqrt(a²+b²))/2))  */
-            mul_fp(ret[0], ret[0], aa);       /* sqrt((a ± sqrt(a²+b²))/2)        */
+            Fp::div_by_2(ret[1], inp[1]);
+            Fp::mul(ret[1], ret[1], ret[0]);   /* b/(2*sqrt((a ± sqrt(a²+b²))/2))  */
+            Fp::mul(ret[0], ret[0], aa);       /* sqrt((a ± sqrt(a²+b²))/2)        */
         }
 
         /*
@@ -256,64 +748,64 @@ namespace blst
         return sqrt_align_fp2(out, ret, ret, inp);
     }
 
-    BLST_HD BLST_FORCEINLINE int blst_fp2_sqrt(vec384x out, const vec384x inp)
+    BLST_HD BLST_FORCEINLINE int blst_fp2_sqrt(Fp2& out, const Fp2& inp)
     {
         return (int)sqrt_fp2(out, inp);
     }
 
-    BLST_HD BLST_FORCEINLINE int blst_fp2_is_square(const vec384x inp)
+    BLST_HD BLST_FORCEINLINE int blst_fp2_is_square(const Fp2& inp)
     {
-        vec384 aa, bb;
+        Fp aa, bb;
 
-        sqr_fp(aa, inp[0]);
-        sqr_fp(bb, inp[1]);
-        add_fp(aa, aa, bb);
+        Fp::sqr(aa, inp[0]);
+        Fp::sqr(bb, inp[1]);
+        Fp::add(aa, aa, bb);
 
-        return (int)ct_is_square_mod_v384(aa, *get_BLST_P());
+        return (int)ct_is_square_mod_v384(aa, get_BLST_P());
     }
 
 
 
 
-    BLST_HD BLST_INLINE void flt_reciprocal_fp2(vec384x out, const vec384x inp)
+    BLST_HD BLST_INLINE void flt_reciprocal_fp2(Fp2& out, const Fp2& inp)
     {
-        vec384 t0, t1;
+        Fp t0, t1;
 
         /*
          * |out| = 1/(a + b*i) = a/(a^2+b^2) - b/(a^2+b^2)*i
          */
-        sqr_fp(t0, inp[0]);
-        sqr_fp(t1, inp[1]);
-        add_fp(t0, t0, t1);
-        flt_reciprocal_fp(t1, t0);
-        mul_fp(out[0], inp[0], t1);
-        mul_fp(out[1], inp[1], t1);
-        neg_fp(out[1], out[1]);
+        Fp::sqr(t0, inp[0]);
+        Fp::sqr(t1, inp[1]);
+        Fp::add(t0, t0, t1);
+        Fp::flt_reciprocal(t1, t0);
+        Fp::mul(out[0], inp[0], t1);
+        Fp::mul(out[1], inp[1], t1);
+        Fp::neg(out[1], out[1]);
     }
 
 
-    BLST_HD BLST_INLINE void reciprocal_fp2(vec384x out, const vec384x inp)
+    BLST_HD BLST_INLINE void reciprocal_fp2(Fp2& out, const Fp2& inp)
     {
-        vec384 t0, t1;
+        Fp t0, t1;
 
         /*
          * |out| = 1/(a + b*i) = a/(a^2+b^2) - b/(a^2+b^2)*i
          */
-        sqr_fp(t0, inp[0]);
-        sqr_fp(t1, inp[1]);
-        add_fp(t0, t0, t1);
-        reciprocal_fp(t1, t0);
-        mul_fp(out[0], inp[0], t1);
-        mul_fp(out[1], inp[1], t1);
-        neg_fp(out[1], out[1]);
+        Fp::sqr(t0, inp[0]);
+        Fp::sqr(t1, inp[1]);
+        Fp::add(t0, t0, t1);
+        Fp::reciprocal(t1, t0);
+        Fp::mul(out[0], inp[0], t1);
+        Fp::mul(out[1], inp[1], t1);
+        Fp::neg(out[1], out[1]);
     }
 
-    BLST_HD BLST_FORCEINLINE void blst_fp2_inverse(vec384x out, const vec384x inp)
+    BLST_HD BLST_FORCEINLINE void blst_fp2_inverse(Fp2& out, const Fp2& inp)
     {
         reciprocal_fp2(out, inp);
     }
 
-    BLST_HD BLST_FORCEINLINE void blst_fp2_eucl_inverse(vec384x out, const vec384x inp)
+    BLST_HD BLST_FORCEINLINE void blst_fp2_eucl_inverse(Fp2& out, const Fp2& inp)
     {
         reciprocal_fp2(out, inp);
     }
@@ -325,18 +817,111 @@ namespace blst
      * Fp12 = Fp6[w] / (w^2 - v)
      */
 
-    BLST_HD BLST_INLINE void mul_by_u_plus_1_fp2(vec384x ret, const vec384x a)
+    BLST_HD BLST_INLINE void mul_by_u_plus_1_fp2(Fp2& ret, const Fp2& a)
     {
-        mul_by_1_plus_i_mod_v384x(ret, a, *get_BLST_P());
+        mul_by_1_plus_i_mod_v384x(ret, a, get_BLST_P());
     }
 
     /*
      * caveat lector! |n| has to be non-zero and not more than 3!
      */
-    BLST_HD BLST_INLINE void frobenius_map_fp2(vec384x ret, const vec384x a, size_t n)
+    BLST_HD BLST_INLINE void frobenius_map_fp2(Fp2& ret, const Fp2& a, size_t n)
     {
         vec_copy(ret[0], a[0], sizeof(ret[0]));
-        cneg_fp(ret[1], a[1], n & 1);
+        Fp::cneg(ret[1], a[1], n & 1);
+    }
+
+
+
+
+
+
+
+    BLST_HD BLST_INLINE void Fp2::add(Fp2& ret, const Fp2& a, const Fp2& b)
+    {
+        //add_mod_v384x(ret, a, b, get_BLST_P());
+#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        add_mod_384x(&ret, &a, &b, &get_BLST_P());
+#else
+        cc_add_mod_384x(ret, a, b, get_BLST_P());
+#endif
+    }
+    BLST_HD BLST_INLINE void Fp2::sub(Fp2& ret, const Fp2& a, const Fp2& b)
+    {
+        //sub_mod_v384x(ret, a, b, get_BLST_P());
+#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        sub_mod_384x(&ret, &a, &b, &get_BLST_P());
+#else
+        cc_sub_mod_384x(ret, a, b, get_BLST_P());
+#endif
+    }
+    BLST_HD BLST_INLINE void Fp2::mul(Fp2& ret, const Fp2& a, const Fp2& b)
+    {
+        //mul_mont_v384x(ret, a, b, get_BLST_P(), BLST_p0);
+#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        mulx_mont_384x(&ret, &a, &b, &get_BLST_P(), BLST_p0);
+#else
+        cc_mul_mont_384x(ret, a, b, get_BLST_P(), BLST_p0);
+#endif
+    }
+
+    BLST_HD BLST_INLINE void Fp2::sqr(Fp2& ret, const Fp2& a)
+    {
+        //sqr_mont_v384x(ret, a, get_BLST_P(), BLST_p0);
+#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        sqrx_mont_384x(&ret, &a, &get_BLST_P(), BLST_p0);
+#else
+        cc_sqr_mont_384x(ret, a, get_BLST_P(), BLST_p0);
+#endif
+    }
+    BLST_HD BLST_INLINE void Fp2::cneg(Fp2& ret, const Fp2& a, bool_t flag)
+    {
+        //cneg_mod_v384x(ret, a, flag, get_BLST_P());
+        Fp::cneg(ret[0], a[0], flag/*, p*/);
+        Fp::cneg(ret[1], a[1], flag/*, p*/);
+    }
+    BLST_HD BLST_INLINE void Fp2::neg(Fp2& ret, const Fp2& a)
+    {
+        //cneg_mod_v384x(ret, a, 1, get_BLST_P());
+        cneg(ret, a, 1);
+    }
+    //  BLST_HD void Fp2::from_mont(Fp2& ret, const Fp2& a)
+    //  {
+          //from_mont_v384x(ret, a, get_BLST_P(), BLST_p0);
+    //  }
+      //BLST_HD void Fp2::to_mont(Fp2& ret, const Fp2& a);
+    BLST_HD BLST_INLINE void Fp2::reciprocal(Fp2& out, const Fp2& inp)
+    {
+        //reciprocal_fp2(out, inp);
+        Fp t0, t1;
+
+        /*
+         * |out| = 1/(a + b*i) = a/(a^2+b^2) - b/(a^2+b^2)*i
+         */
+        Fp::sqr(t0, inp[0]);
+        Fp::sqr(t1, inp[1]);
+        Fp::add(t0, t0, t1);
+        Fp::reciprocal(t1, t0);
+        Fp::mul(out[0], inp[0], t1);
+        Fp::mul(out[1], inp[1], t1);
+        Fp::neg(out[1], out[1]);
+    }
+    BLST_HD BLST_INLINE bool_t Fp2::sqrt(Fp2& out, const Fp2& inp)
+    {
+        return sqrt_fp2(out, inp);
+    }
+    BLST_HD BLST_INLINE void Fp2::mul_by_3(Fp2& ret, const Fp2& a)
+    {
+        mul_by_3_mod_v384x(ret, a, get_BLST_P());
+    }
+    BLST_HD BLST_INLINE void Fp2::mul_by_8(Fp2& ret, const Fp2& a)
+    {
+        mul_by_8_mod_v384x(ret, a, get_BLST_P());
+    }
+
+    BLST_HD BLST_INLINE const Fp2& Fp2::one()
+    {
+		return *(const Fp2*)get_BLST_Rx().p2;
     }
 
 

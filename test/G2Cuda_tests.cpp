@@ -29,13 +29,13 @@ namespace
 
 	// Helper function to create test points on host
 	void create_test_points_g2(POINTonE2* points, size_t num, InsecureRng& rng) {
-		POINTonE2 generator = *blst_p2_generator();
+		POINTonE2 generator = blst_p2_generator();
 		unsigned char scalar[32] = { 0 };
 
 		for (size_t i = 0; i < num; i++) {
 			scalar[0] = rng.uniform_u64() & 0xFF;
 			if (scalar[0] == 0) scalar[0] = 1; // Avoid zero scalar
-			blst_p2_mult(&points[i], &generator, scalar, 8);
+			blst_p2_mult(points[i], generator, scalar, 8);
 		}
 	}
 
@@ -53,9 +53,9 @@ namespace
 	// Helper function to compare CUDA results with CPU results
 	template<typename T>
 	bool compare_results(const T* cuda_results, const T* cpu_results, size_t num,
-		bool (*equality_func)(const T*, const T*)) {
+		auto equality_func) {
 		for (size_t i = 0; i < num; i++) {
-			if (!equality_func(&cuda_results[i], &cpu_results[i])) {
+			if (!equality_func(cuda_results[i], cpu_results[i])) {
 				printf("Mismatch at index %zu\n", i);
 				return false;
 			}
@@ -64,20 +64,20 @@ namespace
 	}
 
 	// Equality functions for different types
-	bool point_equal_g2(const POINTonE2* a, const POINTonE2* b) {
+	bool point_equal_g2(const POINTonE2& a, const POINTonE2& b) {
 		return blst_p2_is_equal(a, b);
 	}
 
-	bool affine_equal_g2(const POINTonE2_affine* a, const POINTonE2_affine* b) {
+	bool affine_equal_g2(const POINTonE2_affine& a, const POINTonE2_affine& b) {
 		return blst_p2_affine_is_equal(a, b);
 	}
 
-	bool error_equal(const BLST_ERROR* a, const BLST_ERROR* b) {
-		return *a == *b;
+	bool error_equal(const BLST_ERROR a, const BLST_ERROR b) {
+		return a == b;
 	}
 
-	bool bool_equal(const bool* a, const bool* b) {
-		return *a == *b;
+	bool bool_equal(const bool a, const bool b) {
+		return a == b;
 	}
 
 	// Global flag for CUDA availability
@@ -132,7 +132,7 @@ TEST(G2OpsCUDA, PointAddition) {
 
 	// CPU computation
 	for (size_t i = 0; i < num_points; i++) {
-		blst_p2_add(&h_cpu_result[i], &h_a[i], &h_b[i]);
+		blst_p2_add(h_cpu_result[i], h_a[i], h_b[i]);
 	}
 
 	// CUDA computation
@@ -173,7 +173,7 @@ TEST(G2OpsCUDA, PointDoubling) {
 
 	// CPU computation
 	for (size_t i = 0; i < num_points; i++) {
-		blst_p2_double(&h_cpu_result[i], &h_points[i]);
+		blst_p2_double(h_cpu_result[i], h_points[i]);
 	}
 
 	// CUDA computation
@@ -212,7 +212,7 @@ TEST(G2OpsCUDA, PointNegation) {
 	// CPU computation
 	for (size_t i = 0; i < num_points; i++) {
 		h_cpu_result[i] = h_points[i];
-		blst_p2_cneg(&h_cpu_result[i], 1);
+		blst_p2_cneg(h_cpu_result[i], 1);
 	}
 
 	// CUDA computation
@@ -261,7 +261,7 @@ TEST(G2OpsCUDA, ScalarMultiplication) {
 
 	// CPU computation
 	for (size_t i = 0; i < num_points; i++) {
-		blst_p2_mult(&h_cpu_result[i], &h_points[i], &h_scalars[i * scalar_bytes], scalar_bits);
+		blst_p2_mult(h_cpu_result[i], h_points[i], &h_scalars[i * scalar_bytes], scalar_bits);
 	}
 
 	// CUDA computation
@@ -310,7 +310,7 @@ TEST(G2OpsCUDA, CurveMembership) {
 
 	// CPU computation
 	for (size_t i = 0; i < num_points; i++) {
-		h_cpu_results[i] = blst_p2_on_curve(&h_points[i]);
+		h_cpu_results[i] = blst_p2_on_curve(h_points[i]);
 	}
 
 	// CUDA computation
@@ -332,6 +332,45 @@ TEST(G2OpsCUDA, CurveMembership) {
 	CUDA_CHECK(cudaFree(d_results));
 }
 
+//void print_point_g2(const char* name, const POINTonE2& p) {
+//	printf("%s:\n", name);
+//	printf("  X.Re: ");
+//	for (int i = NLIMBS(384) - 1; i >= 0; i--) {
+//		printf("%016llx ", (unsigned long long)p.X[0][i]);
+//	}
+//	printf("\n  X.Im: ");
+//	for (int i = NLIMBS(384) - 1; i >= 0; i--) {
+//		printf("%016llx ", (unsigned long long)p.X[1][i]);
+//	}
+//	printf("\n  Y.Re: ");
+//	for (int i = NLIMBS(384) - 1; i >= 0; i--) {
+//		printf("%016llx ", (unsigned long long)p.Y[0][i]);
+//	}
+//	printf("\n  Y.Im: ");
+//	for (int i = NLIMBS(384) - 1; i >= 0; i--) {
+//		printf("%016llx ", (unsigned long long)p.Y[1][i]);
+//	}
+//	printf("\n  Z.Re: ");
+//	for (int i = NLIMBS(384) - 1; i >= 0; i--) {
+//		printf("%016llx ", (unsigned long long)p.Z[0][i]);
+//	}
+//	printf("\n  Z.Im: ");
+//	for (int i = NLIMBS(384) - 1; i >= 0; i--) {
+//		printf("%016llx ", (unsigned long long)p.Z[1][i]);
+//	}
+//	printf("\n");
+//}
+//
+//void hex_print(const char* name, void* p, int size) {
+//
+//	printf("%s: ", name);
+//	unsigned char* bytes = (unsigned char*)p;
+//	for (size_t i = 0; i < size; i++) {
+//		printf("%02x", bytes[i]);
+//	}
+//	printf("\n");
+//}
+
 TEST(G2OpsCUDA, Serialization) {
 	if (!G2CUDAEnvironment::IsCudaAvailable()) {
 		GTEST_SKIP() << "CUDA not available";
@@ -352,9 +391,9 @@ TEST(G2OpsCUDA, Serialization) {
 
 	// CPU computation
 	for (size_t i = 0; i < num_points; i++) {
-		blst_p2_serialize(&h_serialized[i * 192], &h_points[i]);
-		h_errors_exp[i] = blst_p2_deserialize(&h_cpu_affine[i], &h_serialized[i * 192]);
-		EXPECT_EQ(h_errors_exp[i], BLST_SUCCESS);
+		blst_p2_serialize(&h_serialized[i * 192], h_points[i]);
+		h_errors_exp[i] = blst_p2_deserialize(h_cpu_affine[i], &h_serialized[i * 192]);
+		EXPECT_EQ(h_errors_exp[i], BLST_SUCCESS) <<"  @ " << i;
 	}
 
 	// CUDA computation
@@ -401,13 +440,13 @@ TEST(G2OpsCUDA, Compression) {
 	InsecureRng rng;
 	create_test_points_g2(h_points, num_points, rng);
 	for (size_t i = 0; i < num_points; i++) {
-		blst_p2_to_affine(&h_points_affine[i], &h_points[i]);
+		blst_p2_to_affine(h_points_affine[i], h_points[i]);
 	}
 
 	// CPU computation
 	for (size_t i = 0; i < num_points; i++) {
-		blst_p2_affine_compress(&h_compressed[i * 96], &h_points_affine[i]);
-		h_errors_exp[i] = blst_p2_uncompress(&h_cpu_result[i], &h_compressed[i * 96]);
+		blst_p2_affine_compress(&h_compressed[i * 96], h_points_affine[i]);
+		h_errors_exp[i] = blst_p2_uncompress(h_cpu_result[i], &h_compressed[i * 96]);
 		EXPECT_EQ(h_errors_exp[i], BLST_SUCCESS);
 	}
 
@@ -454,12 +493,12 @@ TEST(G2OpsCUDA, CoordinateConversion) {
 
 	// CPU computation - Jacobian to affine
 	for (size_t i = 0; i < num_points; i++) {
-		blst_p2_to_affine(&h_cpu_affine[i], &h_points[i]);
+		blst_p2_to_affine(h_cpu_affine[i], h_points[i]);
 	}
 
 	// CPU computation - affine back to Jacobian
 	for (size_t i = 0; i < num_points; i++) {
-		blst_p2_from_affine(&h_cpu_jacobian[i], &h_cpu_affine[i]);
+		blst_p2_from_affine(h_cpu_jacobian[i], h_cpu_affine[i]);
 	}
 
 	// CUDA computation
@@ -526,7 +565,7 @@ TEST(G2OpsCUDA, HashToCurve) {
 
 	// CPU computation
 	for (size_t i = 0; i < num_msgs; i++) {
-		blst_hash_to_g2(&h_cpu_result[i],
+		blst_hash_to_g2(h_cpu_result[i],
 			reinterpret_cast<const unsigned char*>(messages[i].c_str()),
 			messages[i].length(),
 			reinterpret_cast<const unsigned char*>(dst.c_str()),
@@ -583,12 +622,12 @@ TEST(G2OpsCUDA, MixedAddition) {
 	POINTonE2 temp_points[num_points];
 	create_test_points_g2(temp_points, num_points, rng);
 	for (size_t i = 0; i < num_points; i++) {
-		blst_p2_to_affine(&h_affine[i], &temp_points[i]);
+		blst_p2_to_affine(h_affine[i], temp_points[i]);
 	}
 
 	// CPU computation
 	for (size_t i = 0; i < num_points; i++) {
-		blst_p2_add_affine(&h_cpu_result[i], &h_jacobian[i], &h_affine[i]);
+		blst_p2_add_affine(h_cpu_result[i], h_jacobian[i], h_affine[i]);
 	}
 
 	// CUDA computation
@@ -631,7 +670,7 @@ TEST(G2OpsCUDA, AdvancedOperations) {
 
 	// CPU computation - test infinity check
 	for (size_t i = 0; i < num_points; i++) {
-		h_cpu_inf_results[i] = blst_p2_is_inf(&h_points[i]);
+		h_cpu_inf_results[i] = blst_p2_is_inf(h_points[i]);
 	}
 
 	// CUDA computation
@@ -672,12 +711,12 @@ TEST(G2OpsCUDA, SubgroupMembership) {
 	InsecureRng rng;
 	create_test_points_g2(h_points_jac, num_points, rng);
 	for (size_t i = 0; i < num_points; i++) {
-		blst_p2_to_affine(&h_points[i], &h_points_jac[i]);
+		blst_p2_to_affine(h_points[i], h_points_jac[i]);
 	}
 
 	// CPU computation
 	for (size_t i = 0; i < num_points; i++) {
-		h_cpu_results[i] = blst_p2_affine_in_g2(&h_points[i]);
+		h_cpu_results[i] = blst_p2_affine_in_g2(h_points[i]);
 	}
 
 	// CUDA computation
@@ -780,7 +819,7 @@ TEST(G2OpsCUDA, BatchProcessing) {
 
 	// CPU computation
 	for (size_t i = 0; i < batch_size; i++) {
-		blst_p2_double(&h_cpu_result[i], &h_points[i]);
+		blst_p2_double(h_cpu_result[i], h_points[i]);
 	}
 
 	// CUDA computation
@@ -831,7 +870,7 @@ TEST(G2OpsCUDA, SerializationFormats) {
 
 	// CPU computation - test point validation
 	for (size_t i = 0; i < num_points; i++) {
-		h_cpu_results[i] = blst_p2_on_curve(&h_points[i]);
+		h_cpu_results[i] = blst_p2_on_curve(h_points[i]);
 	}
 
 	// CUDA computation
@@ -882,7 +921,7 @@ TEST(G2OpsCUDA, LargeScalarMultiplication) {
 	create_test_points_g2(h_points, num_points, rng);
 	// CPU computation
 	for (size_t i = 0; i < num_points; i++) {
-		blst_p2_mult(&h_cpu_result[i], &h_points[i], &h_scalars[i * scalar_bytes], scalar_bits);
+		blst_p2_mult(h_cpu_result[i], h_points[i], &h_scalars[i * scalar_bytes], scalar_bits);
 	}
 
 	// CUDA computation
@@ -904,12 +943,12 @@ TEST(G2OpsCUDA, LargeScalarMultiplication) {
 	//bool results_match = true;
 	for (size_t i = 0; i < num_points; i++) {
 		// Verify CUDA result is on curve
-		if (!blst_p2_on_curve(&h_cuda_result[i])) {
+		if (!blst_p2_on_curve(h_cuda_result[i])) {
 			printf("Error G2 Large: CUDA result %zu is not on curve\n", i);
 			//results_match = false;
 		}
 
-		if (!blst_p2_is_equal(&h_cuda_result[i], &h_cpu_result[i])) {
+		if (!blst_p2_is_equal(h_cuda_result[i], h_cpu_result[i])) {
 			printf("G2 Large Mismatch at index %zu\n", i);
 			printf("CPU  result: X[0][0]=%llx, Y[0][0]=%llx, Z[0][0]=%llx\n",
 				h_cpu_result[i].X[0][0], h_cpu_result[i].Y[0][0], h_cpu_result[i].Z[0][0]);

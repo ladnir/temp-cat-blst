@@ -11,25 +11,25 @@ namespace blst
 {
 
     //BLST_EXTERN_C_BEGIN
-    inline void mul_fr(vec256 ret, const vec256 a, const vec256 b)
+    inline void mul_fr(Fr& ret, const Fr& a, const Fr& b)
     {
-        mul_mont_sparse_256(ret, a, b, *get_BLST_r(), BLST_r0);
+        mul_mont_sparse_256(ret, a, b, get_BLST_r(), BLST_r0);
     }
 
-    inline void sqr_fr(vec256 ret, const vec256 a)
+    inline void sqr_fr(Fr& ret, const Fr& a)
     {
-        sqr_mont_sparse_256(ret, a, *get_BLST_r(), BLST_r0);
+        sqr_mont_sparse_256(ret, a, get_BLST_r(), BLST_r0);
     }
 
 #ifdef __OPTIMIZE_SIZE__
-    void blst_fr_pentaroot(vec256 out, const vec256 inp)
+    void blst_fr_pentaroot(Fr& out, const Fr& inp)
     {
         const byte pow[] = {
             TO_BYTES(0x33333332cccccccd), TO_BYTES(0x217f0e679998f199),
             TO_BYTES(0xe14a56699d73f002), TO_BYTES(0x2e5f0fbadd72321c)
         };
         size_t pow_bits = 254;
-        vec256 ret;
+        Fr ret;
 
         vec_copy(ret, inp, sizeof(ret));  /* ret = inp^1 */
         --pow_bits; /* most significant bit is set, skip over */
@@ -46,14 +46,14 @@ namespace blst
      * "255"-bit variant omits full reductions at the ends of squarings,
      * not implemented yet[?].
      */
-    inline void sqr_n_mul_fr(vec256 out, const vec256 a, size_t count,
-        const vec256 b)
+    inline void sqr_n_mul_fr(Fr& out, const Fr& a, size_t count,
+        const Fr& b)
     {
-        sqr_n_mul_mont_255(out, a, count, *get_BLST_r(), r0, b);
+        sqr_n_mul_mont_255(out, a, count, get_BLST_r(), r0, b);
     }
 # else
-    void sqr_n_mul_fr(vec256 out, const vec256 a, size_t count,
-        const vec256 b)
+    void sqr_n_mul_fr(Fr& out, const Fr& a, size_t count,
+        const Fr& b)
     {
         do {
             sqr_fr(out, a);
@@ -68,9 +68,9 @@ namespace blst
 # define sqr_n_mul(ret,a,n,b)	sqr_n_mul_fr(ret,a,n,b)
 
 # include "pentaroot-addchain.h"
-    void blst_fr_pentaroot(vec256 out, const vec256 inp)
+    void blst_fr_pentaroot(Fr& out, const Fr& inp)
     {
-        PENTAROOT_MOD_BLS12_381_r(out, inp, vec256);
+        PENTAROOT_MOD_BLS12_381_r(out, inp, Fr);
     }
 # undef PENTAROOT_MOD_BLS12_381_r()
 
@@ -79,9 +79,9 @@ namespace blst
 # undef mul
 #endif
 
-    void blst_fr_pentapow(vec256 out, const vec256 inp)
+    void blst_fr_pentapow(Fr& out, const Fr& inp)
     {
-        vec256 tmp;
+        Fr tmp;
 
         sqr_fr(tmp, inp);
         sqr_fr(tmp, tmp);

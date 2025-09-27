@@ -27,7 +27,7 @@ namespace blst
 
     // Vectorized conditional negation of G1 points
     // inputs must be allocated on the device if compiled with BLST_CUDA
-    batched_error_code cneg_g1_vec(POINTonE1* out, const POINTonE1* a, int flag, size_t num);
+    batched_error_code cneg_g1_vec(POINTonE1* out, const POINTonE1* a, int* flag, size_t num);
 
     // Vectorized scalar multiplication of G1 points
     // inputs must be allocated on the device if compiled with BLST_CUDA

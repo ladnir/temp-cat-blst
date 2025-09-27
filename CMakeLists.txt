@@ -15,6 +15,11 @@ if( NOT DEFINED BLST_LIMB_SIZE)
 	set(BLST_LIMB_SIZE 64)
 endif()
 
+if (BLST_ASM)
+else()
+    set(BLST_PORTABLE ON)
+    set(BLST_DEFAULT_ASM OFF)
+endif()
 
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 

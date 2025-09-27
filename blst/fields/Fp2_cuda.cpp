@@ -16,12 +16,12 @@ namespace blst
 {
 
 	// Vectorized addition of Fp2 elements (CPU)
-	batched_error_code add_fp2_vec_cc(vec384x* out, const vec384x* a, const vec384x* b, size_t num)
+	batched_error_code add_fp2_vec_cc(Fp2* out, const Fp2* a, const Fp2* b, size_t num)
 	{
 		if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
 		while (num--) {
-			add_fp2(*out, *a, *b);
+			Fp2::add(*out, *a, *b);
 			out++; a++; b++;
 		}
 		return BATCHED_SUCCESS;
@@ -29,16 +29,16 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for addition of Fp2 elements (GPU)
-	GLOBAL_FUNC void add_fp2_vec_ker(vec384x* out, const vec384x* a, const vec384x* b, size_t num)
+	GLOBAL_FUNC void add_fp2_vec_ker(Fp2* out, const Fp2* a, const Fp2* b, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			add_fp2(out[idx], a[idx], b[idx]);
+			Fp2::add(out[idx], a[idx], b[idx]);
 		}
 	}
 
 	// Vectorized addition of Fp2 elements (GPU)
-	batched_error_code add_fp2_vec_cu(vec384x* out, const vec384x* a, const vec384x* b, size_t num)
+	batched_error_code add_fp2_vec_cu(Fp2* out, const Fp2* a, const Fp2* b, size_t num)
 	{
 		if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
@@ -48,7 +48,7 @@ namespace blst
 #endif
 
 	// Vectorized addition of Fp2 elements
-	batched_error_code add_fp2_vec(vec384x* out, const vec384x* a, const vec384x* b, size_t num)
+	batched_error_code add_fp2_vec(Fp2* out, const Fp2* a, const Fp2* b, size_t num)
 	{
 #ifdef BLST_CUDA
 		return add_fp2_vec_cu(out, a, b, num);
@@ -58,12 +58,12 @@ namespace blst
 	}
 
 	// Vectorized subtraction of Fp2 elements (CPU)
-	batched_error_code sub_fp2_vec_cc(vec384x* out, const vec384x* a, const vec384x* b, size_t num)
+	batched_error_code sub_fp2_vec_cc(Fp2* out, const Fp2* a, const Fp2* b, size_t num)
 	{
 		if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
 		while (num--) {
-			sub_fp2(*out, *a, *b);
+			Fp2::sub(*out, *a, *b);
 			out++; a++; b++;
 		}
 		return BATCHED_SUCCESS;
@@ -71,16 +71,16 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for subtraction of Fp2 elements (GPU)
-	GLOBAL_FUNC void sub_fp2_vec_ker(vec384x* out, const vec384x* a, const vec384x* b, size_t num)
+	GLOBAL_FUNC void sub_fp2_vec_ker(Fp2* out, const Fp2* a, const Fp2* b, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			sub_fp2(out[idx], a[idx], b[idx]);
+			Fp2::sub(out[idx], a[idx], b[idx]);
 		}
 	}
 
 	// Vectorized subtraction of Fp2 elements (GPU)
-	batched_error_code sub_fp2_vec_cu(vec384x* out, const vec384x* a, const vec384x* b, size_t num)
+	batched_error_code sub_fp2_vec_cu(Fp2* out, const Fp2* a, const Fp2* b, size_t num)
 	{
 		if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
@@ -90,7 +90,7 @@ namespace blst
 #endif
 
 	// Vectorized subtraction of Fp2 elements
-	batched_error_code sub_fp2_vec(vec384x* out, const vec384x* a, const vec384x* b, size_t num)
+	batched_error_code sub_fp2_vec(Fp2* out, const Fp2* a, const Fp2* b, size_t num)
 	{
 #ifdef BLST_CUDA
 		return sub_fp2_vec_cu(out, a, b, num);
@@ -100,12 +100,12 @@ namespace blst
 	}
 
 	// Vectorized multiplication of Fp2 elements (CPU)
-	batched_error_code mul_fp2_vec_cc(vec384x* out, const vec384x* a, const vec384x* b, size_t num)
+	batched_error_code mul_fp2_vec_cc(Fp2* out, const Fp2* a, const Fp2* b, size_t num)
 	{
 		if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
 		while (num--) {
-			mul_fp2(*out, *a, *b);
+			Fp2::mul(*out, *a, *b);
 			out++; a++; b++;
 		}
 		return BATCHED_SUCCESS;
@@ -113,16 +113,16 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for multiplication of Fp2 elements (GPU)
-	GLOBAL_FUNC void mul_fp2_vec_ker(vec384x* out, const vec384x* a, const vec384x* b, size_t num)
+	GLOBAL_FUNC void mul_fp2_vec_ker(Fp2* out, const Fp2* a, const Fp2* b, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			mul_fp2(out[idx], a[idx], b[idx]);
+			Fp2::mul(out[idx], a[idx], b[idx]);
 		}
 	}
 
 	// Vectorized multiplication of Fp2 elements (GPU)
-	batched_error_code mul_fp2_vec_cu(vec384x* out, const vec384x* a, const vec384x* b, size_t num)
+	batched_error_code mul_fp2_vec_cu(Fp2* out, const Fp2* a, const Fp2* b, size_t num)
 	{
 		if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
@@ -132,7 +132,7 @@ namespace blst
 #endif
 
 	// Vectorized multiplication of Fp2 elements
-	batched_error_code mul_fp2_vec(vec384x* out, const vec384x* a, const vec384x* b, size_t num)
+	batched_error_code mul_fp2_vec(Fp2* out, const Fp2* a, const Fp2* b, size_t num)
 	{
 #ifdef BLST_CUDA
 		return mul_fp2_vec_cu(out, a, b, num);
@@ -142,12 +142,12 @@ namespace blst
 	}
 
 	// Vectorized squaring of Fp2 elements (CPU)
-	batched_error_code sqr_fp2_vec_cc(vec384x* out, const vec384x* a, size_t num)
+	batched_error_code sqr_fp2_vec_cc(Fp2* out, const Fp2* a, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
 		while (num--) {
-			sqr_fp2(*out, *a);
+			Fp2::sqr(*out, *a);
 			out++; a++;
 		}
 		return BATCHED_SUCCESS;
@@ -155,16 +155,16 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for squaring of Fp2 elements (GPU)
-	GLOBAL_FUNC void sqr_fp2_vec_ker(vec384x* out, const vec384x* a, size_t num)
+	GLOBAL_FUNC void sqr_fp2_vec_ker(Fp2* out, const Fp2* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			sqr_fp2(out[idx], a[idx]);
+			Fp2::sqr(out[idx], a[idx]);
 		}
 	}
 
 	// Vectorized squaring of Fp2 elements (GPU)
-	batched_error_code sqr_fp2_vec_cu(vec384x* out, const vec384x* a, size_t num)
+	batched_error_code sqr_fp2_vec_cu(Fp2* out, const Fp2* a, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -174,7 +174,7 @@ namespace blst
 #endif
 
 	// Vectorized squaring of Fp2 elements
-	batched_error_code sqr_fp2_vec(vec384x* out, const vec384x* a, size_t num)
+	batched_error_code sqr_fp2_vec(Fp2* out, const Fp2* a, size_t num)
 	{
 #ifdef BLST_CUDA
 		return sqr_fp2_vec_cu(out, a, num);
@@ -184,12 +184,12 @@ namespace blst
 	}
 
 	// Vectorized conditional negation of Fp2 elements (CPU)
-	batched_error_code cneg_fp2_vec_cc(vec384x* out, const vec384x* a, int flag, size_t num)
+	batched_error_code cneg_fp2_vec_cc(Fp2* out, const Fp2* a, int flag, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
 		while (num--) {
-			cneg_fp2(*out, *a, flag);
+			Fp2::cneg(*out, *a, flag);
 			out++; a++;
 		}
 		return BATCHED_SUCCESS;
@@ -197,16 +197,16 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for conditional negation of Fp2 elements (GPU)
-	GLOBAL_FUNC void cneg_fp2_vec_ker(vec384x* out, const vec384x* a, int flag, size_t num)
+	GLOBAL_FUNC void cneg_fp2_vec_ker(Fp2* out, const Fp2* a, int flag, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			cneg_fp2(out[idx], a[idx], flag);
+			Fp2::cneg(out[idx], a[idx], flag);
 		}
 	}
 
 	// Vectorized conditional negation of Fp2 elements (GPU)
-	batched_error_code cneg_fp2_vec_cu(vec384x* out, const vec384x* a, int flag, size_t num)
+	batched_error_code cneg_fp2_vec_cu(Fp2* out, const Fp2* a, int flag, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -216,7 +216,7 @@ namespace blst
 #endif
 
 	// Vectorized conditional negation of Fp2 elements
-	batched_error_code cneg_fp2_vec(vec384x* out, const vec384x* a, int flag, size_t num)
+	batched_error_code cneg_fp2_vec(Fp2* out, const Fp2* a, int flag, size_t num)
 	{
 #ifdef BLST_CUDA
 		return cneg_fp2_vec_cu(out, a, flag, num);
@@ -226,7 +226,7 @@ namespace blst
 	}
 
 	// Vectorized multiplication of Fp2 elements by 3 (CPU)
-	batched_error_code mul3_fp2_vec_cc(vec384x* out, const vec384x* a, size_t num)
+	batched_error_code mul3_fp2_vec_cc(Fp2* out, const Fp2* a, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -239,7 +239,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for multiplication of Fp2 elements by 3 (GPU)
-	GLOBAL_FUNC void mul3_fp2_vec_ker(vec384x* out, const vec384x* a, size_t num)
+	GLOBAL_FUNC void mul3_fp2_vec_ker(Fp2* out, const Fp2* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -248,7 +248,7 @@ namespace blst
 	}
 
 	// Vectorized multiplication of Fp2 elements by 3 (GPU)
-	batched_error_code mul3_fp2_vec_cu(vec384x* out, const vec384x* a, size_t num)
+	batched_error_code mul3_fp2_vec_cu(Fp2* out, const Fp2* a, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -258,7 +258,7 @@ namespace blst
 #endif
 
 	// Vectorized multiplication of Fp2 elements by 3
-	batched_error_code mul3_fp2_vec(vec384x* out, const vec384x* a, size_t num)
+	batched_error_code mul3_fp2_vec(Fp2* out, const Fp2* a, size_t num)
 	{
 #ifdef BLST_CUDA
 		return mul3_fp2_vec_cu(out, a, num);
@@ -268,7 +268,7 @@ namespace blst
 	}
 
 	// Vectorized multiplication of Fp2 elements by 8 (CPU)
-	batched_error_code mul8_fp2_vec_cc(vec384x* out, const vec384x* a, size_t num)
+	batched_error_code mul8_fp2_vec_cc(Fp2* out, const Fp2* a, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -281,7 +281,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for multiplication of Fp2 elements by 8 (GPU)
-	GLOBAL_FUNC void mul8_fp2_vec_ker(vec384x* out, const vec384x* a, size_t num)
+	GLOBAL_FUNC void mul8_fp2_vec_ker(Fp2* out, const Fp2* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -290,7 +290,7 @@ namespace blst
 	}
 
 	// Vectorized multiplication of Fp2 elements by 8 (GPU)
-	batched_error_code mul8_fp2_vec_cu(vec384x* out, const vec384x* a, size_t num)
+	batched_error_code mul8_fp2_vec_cu(Fp2* out, const Fp2* a, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -300,7 +300,7 @@ namespace blst
 #endif
 
 	// Vectorized multiplication of Fp2 elements by 8
-	batched_error_code mul8_fp2_vec(vec384x* out, const vec384x* a, size_t num)
+	batched_error_code mul8_fp2_vec(Fp2* out, const Fp2* a, size_t num)
 	{
 #ifdef BLST_CUDA
 		return mul8_fp2_vec_cu(out, a, num);
@@ -310,7 +310,7 @@ namespace blst
 	}
 
 	// Vectorized left shift of Fp2 elements (CPU)
-	batched_error_code lshift_fp2_vec_cc(vec384x* out, const vec384x* a, size_t count, size_t num)
+	batched_error_code lshift_fp2_vec_cc(Fp2* out, const Fp2* a, size_t count, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -323,7 +323,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for left shift of Fp2 elements (GPU)
-	GLOBAL_FUNC void lshift_fp2_vec_ker(vec384x* out, const vec384x* a, size_t count, size_t num)
+	GLOBAL_FUNC void lshift_fp2_vec_ker(Fp2* out, const Fp2* a, size_t count, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -332,7 +332,7 @@ namespace blst
 	}
 
 	// Vectorized left shift of Fp2 elements (GPU)
-	batched_error_code lshift_fp2_vec_cu(vec384x* out, const vec384x* a, size_t count, size_t num)
+	batched_error_code lshift_fp2_vec_cu(Fp2* out, const Fp2* a, size_t count, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -342,7 +342,7 @@ namespace blst
 #endif
 
 	// Vectorized left shift of Fp2 elements
-	batched_error_code lshift_fp2_vec(vec384x* out, const vec384x* a, size_t count, size_t num)
+	batched_error_code lshift_fp2_vec(Fp2* out, const Fp2* a, size_t count, size_t num)
 	{
 #ifdef BLST_CUDA
 		return lshift_fp2_vec_cu(out, a, count, num);
@@ -352,7 +352,7 @@ namespace blst
 	}
 
 	// Vectorized conjugation of Fp2 elements (CPU)
-	batched_error_code conjugate_fp2_vec_cc(vec384x* out, const vec384x* a, size_t num)
+	batched_error_code conjugate_fp2_vec_cc(Fp2* out, const Fp2* a, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -365,7 +365,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for conjugation of Fp2 elements (GPU)
-	GLOBAL_FUNC void conjugate_fp2_vec_ker(vec384x* out, const vec384x* a, size_t num)
+	GLOBAL_FUNC void conjugate_fp2_vec_ker(Fp2* out, const Fp2* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -374,7 +374,7 @@ namespace blst
 	}
 
 	// Vectorized conjugation of Fp2 elements (GPU)
-	batched_error_code conjugate_fp2_vec_cu(vec384x* out, const vec384x* a, size_t num)
+	batched_error_code conjugate_fp2_vec_cu(Fp2* out, const Fp2* a, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -384,7 +384,7 @@ namespace blst
 #endif
 
 	// Vectorized conjugation of Fp2 elements
-	batched_error_code conjugate_fp2_vec(vec384x* out, const vec384x* a, size_t num)
+	batched_error_code conjugate_fp2_vec(Fp2* out, const Fp2* a, size_t num)
 	{
 #ifdef BLST_CUDA
 		return conjugate_fp2_vec_cu(out, a, num);
@@ -394,7 +394,7 @@ namespace blst
 	}
 
 	// Vectorized inversion of Fp2 elements (CPU)
-	batched_error_code inverse_fp2_vec_cc(vec384x* out, const vec384x* a, size_t num)
+	batched_error_code inverse_fp2_vec_cc(Fp2* out, const Fp2* a, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -407,7 +407,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for inversion of Fp2 elements (GPU)
-	GLOBAL_FUNC void inverse_fp2_vec_ker(vec384x* out, const vec384x* a, size_t num)
+	GLOBAL_FUNC void inverse_fp2_vec_ker(Fp2* out, const Fp2* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -416,7 +416,7 @@ namespace blst
 	}
 
 	// Vectorized inversion of Fp2 elements (GPU)
-	batched_error_code inverse_fp2_vec_cu(vec384x* out, const vec384x* a, size_t num)
+	batched_error_code inverse_fp2_vec_cu(Fp2* out, const Fp2* a, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -425,7 +425,7 @@ namespace blst
 #endif
 
 	// Vectorized inversion of Fp2 elements
-	batched_error_code inverse_fp2_vec(vec384x* out, const vec384x* a, size_t num)
+	batched_error_code inverse_fp2_vec(Fp2* out, const Fp2* a, size_t num)
 	{
 #ifdef BLST_CUDA
 		return inverse_fp2_vec_cu(out, a, num);
@@ -435,7 +435,7 @@ namespace blst
 	}
 
 	// Vectorized square root of Fp2 elements (CPU)
-	batched_error_code sqrt_fp2_vec_cc(vec384x* out, const vec384x* a, size_t num)
+	batched_error_code sqrt_fp2_vec_cc(Fp2* out, const Fp2* a, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -448,7 +448,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for square root of Fp2 elements (GPU)
-	GLOBAL_FUNC void sqrt_fp2_vec_ker(vec384x* out, const vec384x* a, size_t num)
+	GLOBAL_FUNC void sqrt_fp2_vec_ker(Fp2* out, const Fp2* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -457,7 +457,7 @@ namespace blst
 	}
 
 	// Vectorized square root of Fp2 elements (GPU)
-	batched_error_code sqrt_fp2_vec_cu(vec384x* out, const vec384x* a, size_t num)
+	batched_error_code sqrt_fp2_vec_cu(Fp2* out, const Fp2* a, size_t num)
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 		return cuda_to_batched(launch_auto(sqrt_fp2_vec_ker, num, out, a).get());
@@ -465,7 +465,7 @@ namespace blst
 #endif
 
 	// Vectorized square root of Fp2 elements
-	batched_error_code sqrt_fp2_vec(vec384x* out, const vec384x* a, size_t num)
+	batched_error_code sqrt_fp2_vec(Fp2* out, const Fp2* a, size_t num)
 	{
 #ifdef BLST_CUDA
 		return sqrt_fp2_vec_cu(out, a, num);

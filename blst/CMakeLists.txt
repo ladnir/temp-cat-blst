@@ -117,7 +117,7 @@ set_target_properties(blst_static PROPERTIES OUTPUT_NAME blst)
 #message(STATUS "BLST_OPTS: ${BLST_OPTS}")
 target_compile_options(blst_static PUBLIC ${BLST_OPTS})
 target_include_directories(blst_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)
-
+target_compile_features(blst_static PUBLIC cxx_std_20)
 # for in source builds, we need to include the build dir too (config.h)
 target_include_directories(blst_static PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/..)
 

@@ -8,6 +8,8 @@
 #include "blst/common/bytes.h"
 #include "blst/sign/sha256.h"
 #include "blst/backend/backend.h"
+#include "blst/fields/Fp.h"
+#include "blst/fields/Fr.h"
 
 //BLST_EXTERN_C_BEGIN
 
@@ -18,7 +20,7 @@ namespace blst
         SHA256_CTX ctx;
         unsigned int h_ipad[8];
         unsigned int h_opad[8];
-        union { limb_t l[64 / sizeof(limb_t)]; unsigned char c[64]; } tail;
+        union { limb l[64 / sizeof(limb)]; unsigned char c[64]; } tail;
     } HMAC_SHA256_CTX;
 
     void HMAC_init(HMAC_SHA256_CTX* ctx, const void* K, size_t K_len)
@@ -44,15 +46,15 @@ namespace blst
             blst_sha256_bcopy_v(ctx->tail.c, K, K_len);
         }
 
-        for (i = 0; i < 64 / sizeof(limb_t); i++)
-            ctx->tail.l[i] ^= (limb_t)0x3636363636363636;
+        for (i = 0; i < 64 / sizeof(limb); i++)
+            ctx->tail.l[i] ^= (limb)0x3636363636363636;
 
         sha256_init(&ctx->ctx);
         sha256_update(&ctx->ctx, ctx->tail.c, 64);
         blst_sha256_hcopy_v(ctx->h_ipad, ctx->ctx.h);
 
-        for (i = 0; i < 64 / sizeof(limb_t); i++)
-            ctx->tail.l[i] ^= (limb_t)(0x3636363636363636 ^ 0x5c5c5c5c5c5c5c5c);
+        for (i = 0; i < 64 / sizeof(limb); i++)
+            ctx->tail.l[i] ^= (limb)(0x3636363636363636 ^ 0x5c5c5c5c5c5c5c5c);
 
         sha256_init_h(ctx->h_opad);
         blst_sha256_block_data_order_v(ctx->h_opad, ctx->tail.c, 1);
@@ -149,7 +151,8 @@ namespace blst
         struct {
             HMAC_SHA256_CTX ctx;
             unsigned char PRK[32], OKM[48];
-            vec512 key;
+            UFr ufr;
+            Fr key;
         } scratch;
         unsigned char salt_prime[32] = "BLS-SIG-KEYGEN-SALT-";
 
@@ -189,18 +192,18 @@ namespace blst
 
             /* SK = OS2IP(OKM) mod r */
             vec_zero(scratch.key, sizeof(scratch.key));
-            limbs_from_be_bytes(scratch.key, scratch.OKM, sizeof(scratch.OKM));
-            redc_mont_v256(scratch.key, scratch.key, *get_BLST_r(), BLST_r0);
+            limbs_from_be_bytes(scratch.ufr, scratch.OKM, sizeof(scratch.OKM));
+            redc_mont_v256(scratch.key, scratch.ufr, get_BLST_r(), BLST_r0);
             /*
              * Given that mul_mont_sparse_256 has special boundary conditions
              * it's appropriate to mention that redc_mont_256 output is fully
              * reduced at this point. Because we started with 384-bit input,
              * one with most significant half smaller than the modulus.
              */
-            mul_mont_sparse_v256(scratch.key, scratch.key, *get_BLST_rRR(),
-                *get_BLST_r(), BLST_r0);
+            mul_mont_sparse_v256(scratch.key, scratch.key, get_BLST_rRR(),
+                get_BLST_r(), BLST_r0);
 
-            if (version < 4 || !vec_is_zero(scratch.key, sizeof(vec256)))
+            if (version < 4 || !vec_is_zero(scratch.key, sizeof(Fr)))
                 break;
 
             /* salt = H(salt) */
