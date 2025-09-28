@@ -88,10 +88,10 @@ void blst_fp_from(Fp& ret, const Fp& a)
  */
 void blst_fp_from_uint32(Fp& ret, const unsigned int a[12])
 {
-    if (sizeof(limb) == 8) {
+    if (sizeof(limb_t) == 8) {
         int i;
         for (i = 0; i < 6; i++)
-            ret[i] = a[2*i] | ((limb)a[2*i+1] << (32 & (8*sizeof(limb)-1)));
+            ret[i] = a[2*i] | ((limb_t)a[2*i+1] << (32 & (8*sizeof(limb_t)-1)));
         a = (const unsigned int *)&ret;
     }
     Fp::mul(ret, *(const Fp *)a, get_BLST_RR());
@@ -99,7 +99,7 @@ void blst_fp_from_uint32(Fp& ret, const unsigned int a[12])
 
 void blst_uint32_from_fp(unsigned int ret[12], const Fp& a)
 {
-    if (sizeof(limb) == 4) {
+    if (sizeof(limb_t) == 4) {
         Fp::from_mont(*(Fp *)ret, a);
     } else {
         Fp out;
@@ -107,7 +107,7 @@ void blst_uint32_from_fp(unsigned int ret[12], const Fp& a)
 
         Fp::from_mont(out, a);
         for (i = 0; i < 6; i++) {
-            limb limb = out[i];
+            limb_t limb = out[i];
             ret[2*i]   = (unsigned int)limb;
             ret[2*i+1] = (unsigned int)(limb >> (32 & (8*sizeof(limb)-1)));
         }
@@ -121,12 +121,12 @@ void blst_fp_from_uint64(Fp& ret, const unsigned long long a[6])
         char little;
     } is_endian = { 1 };
 
-    if (sizeof(limb) == 4 && !is_endian.little) {
+    if (sizeof(limb_t) == 4 && !is_endian.little) {
         int i;
         for (i = 0; i < 6; i++) {
             unsigned long long ll= a[i];
-            ret[2*i]   = (limb)ll;
-            ret[2*i+1] = (limb)(ll >> 32);
+            ret[2*i]   = (limb_t)ll;
+            ret[2*i+1] = (limb_t)(ll >> 32);
         }
         a = (const unsigned long long *)ret;
     }
@@ -140,7 +140,7 @@ void blst_uint64_from_fp(unsigned long long ret[6], const Fp& a)
         char little;
     } is_endian = { 1 };
 
-    if (sizeof(limb) == 8 || is_endian.little) {
+    if (sizeof(limb_t) == 8 || is_endian.little) {
         Fp::from_mont(*(Fp *)ret, a);
     } else {
         Fp out;
@@ -348,7 +348,7 @@ void blst_uint64_from_fr(unsigned long long ret[4], const Fr& a)
         char little;
     } is_endian = { 1 };
 
-    if (sizeof(limb) == 8 || is_endian.little) {
+    if (sizeof(limb_t) == 8 || is_endian.little) {
         from_mont_v256(*(Fr *)ret, a, get_BLST_r(), BLST_r0);
     } else {
         Fr out;
@@ -365,7 +365,7 @@ int blst_scalar_from_le_bytes(pow256 out, const unsigned char *bytes, size_t n)
 {
     size_t rem = (n - 1) % 32 + 1;
     struct { Fr out, digit; } t;
-    limb ret;
+    limb_t ret;
 
     vec_zero(t.out, sizeof(t.out));
 
@@ -393,7 +393,7 @@ int blst_scalar_from_be_bytes(pow256 out, const unsigned char *bytes, size_t n)
 {
     size_t rem = (n - 1) % 32 + 1;
     struct { Fr out, digit; } t;
-    limb ret;
+    limb_t ret;
 
     vec_zero(t.out, sizeof(t.out));
 

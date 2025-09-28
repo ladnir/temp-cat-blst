@@ -142,7 +142,7 @@ TEST_F(GTTest, Exponentiation) {
     Fp12 result, expected;
 
     // Test e^0 = 1
-    limb zero[4] = { 0, 0, 0, 0 };
+    limb_t zero[4] = { 0, 0, 0, 0 };
     blst_fp12_pow(result, gt_element, zero, sizeof(zero) * 8);
     Fp12 expected_identity = { 0 };
 	blst_fp12_one_copy(expected_identity);
@@ -150,20 +150,20 @@ TEST_F(GTTest, Exponentiation) {
         << "e^0 should equal 1";
 
     // Test e^1 = e
-    limb one[4] = { 1, 0, 0, 0 };
+    limb_t one[4] = { 1, 0, 0, 0 };
     blst_fp12_pow(result, gt_element, one, sizeof(one) * 8);
     EXPECT_TRUE(blst_fp12_is_equal(result, gt_element))
         << "e^1 should equal e";
 
     // Test e^2 = e * e
-    limb two[4] = { 2, 0, 0, 0 };
+    limb_t two[4] = { 2, 0, 0, 0 };
     blst_fp12_pow(result, gt_element, two, sizeof(two) * 8);
     blst_fp12_sqr(expected, gt_element);
     EXPECT_TRUE(blst_fp12_is_equal(result, expected))
         << "e^2 should equal e * e";
 
     // Test e^3 = e * e * e
-    limb three[4] = { 3, 0, 0, 0 };
+    limb_t three[4] = { 3, 0, 0, 0 };
     blst_fp12_pow(result, gt_element, three, sizeof(three) * 8);
     blst_fp12_mul(expected, expected, gt_element);
     EXPECT_TRUE(blst_fp12_is_equal(result, expected))

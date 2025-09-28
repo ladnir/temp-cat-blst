@@ -86,7 +86,7 @@ namespace blst
     //int blst_fp12_is_one(const Fp12& a);
     //void blst_fp12_one_copy(Fp12& ret);
     //
-    //void blst_fp12_pow(Fp12& result, const Fp12& base, const limb* exponent, size_t bits_in_exponent);
+    //void blst_fp12_pow(Fp12& result, const Fp12& base, const limb_t* exponent, size_t bits_in_exponent);
     //
     //
     //
@@ -940,11 +940,11 @@ namespace blst
     }
 
 
-    BLST_HD BLST_INLINE void blst_fp12_pow(Fp12& ret, const Fp12& a, const limb* exp, size_t bits)
+    BLST_HD BLST_INLINE void blst_fp12_pow(Fp12& ret, const Fp12& a, const limb_t* exp, size_t bits)
     {
         // For bits=0 or if exponent is 0, return 1
         bool_t is_zero = 1;
-        for (size_t i = 0; i < (bits + 8 * sizeof(limb) - 1) / (8 * sizeof(limb)); i++) {
+        for (size_t i = 0; i < (bits + 8 * sizeof(limb_t) - 1) / (8 * sizeof(limb_t)); i++) {
             if (exp[i] != 0) {
                 is_zero = 0;
                 break;
@@ -968,8 +968,8 @@ namespace blst
         // Process bits from least to most significant
         for (size_t i = 0; i < bits; i++) {
             // If the current bit is set
-            size_t limb_idx = i / (8 * sizeof(limb));
-            size_t bit_idx = i % (8 * sizeof(limb));
+            size_t limb_idx = i / (8 * sizeof(limb_t));
+            size_t bit_idx = i % (8 * sizeof(limb_t));
 
             if ((exp[limb_idx] >> bit_idx) & 1) {
                 blst_fp12_mul(ret, ret, base);

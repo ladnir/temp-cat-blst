@@ -32,7 +32,7 @@ namespace blst
 //BLST_HD void ptype##_double(ptype *out, const ptype *p1);		                     \
 //BLST_HD void ptype##_mult_w5(ptype *out, const ptype *point,		                 \
 //                            const byte *scalar, size_t nbits);		         \
-//BLST_HD void ptype##_cneg(ptype *p, limb cbit);			                         \
+//BLST_HD void ptype##_cneg(ptype *p, limb_t cbit);			                         \
 //BLST_HD void ptype##_to_affine(ptype##_affine *out, const ptype *in);	             \
 //BLST_HD void ptype##_from_Jacobian(ptype *out, const ptype *in);		             \
 //                                                                             \
@@ -100,7 +100,7 @@ namespace blst
         static BLST_HD void mult_w5(Point& out, const Point& point,
             const byte* scalar, size_t nbits);
 
-        static BLST_HD void cneg(Point& p, limb cbit);
+        static BLST_HD void cneg(Point& p, limb_t cbit);
         static BLST_HD void to_affine(Point_affine<Field>& out, const Point& in);
         static BLST_HD void from_Jacobian(Point& out, const Point& in);
 
@@ -120,7 +120,7 @@ namespace blst
             vec_select(&a, &b, &a, sizeof(Point), cbit);
         }
 
-		static BLST_HD limb is_equal(const Point& p1, const Point& p2);
+		static BLST_HD limb_t is_equal(const Point& p1, const Point& p2);
 
         static BLST_HD BLST_INLINE void to_xyzz(Pointxyzz<Field>& out, const Point<Field>& in);
 
@@ -135,8 +135,8 @@ namespace blst
     {
         Field X, Y;
 
-        static BLST_HD void dadd(Point_affine& out, const Point_affine& p1,
-            const Point_affine& p2);
+        //static BLST_HD void dadd(Point_affine& out, const Point_affine& p1,
+        //    const Point_affine& p2);
 
 
     };

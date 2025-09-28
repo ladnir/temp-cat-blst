@@ -393,7 +393,7 @@ namespace blst
 # define Zuu    x2n
 # define tv4    y1
 #endif
-#define sgn0_fp(a) (sgn0_pty_mont_v384((a), get_BLST_P(), BLST_p0) & 1)
+#define sgn0_fp(a) (Fp::sgn0_pty_mont(a) & 1)
         bool_t e1, e2;
 
         /*
@@ -426,7 +426,7 @@ namespace blst
         Fp::sqr(tv4, gxd);                   /* tv4 = gxd^2                  */
         Fp::mul(tv2, gx1, gxd);              /* tv2 = gx1 * gxd              */
         Fp::mul(tv4, tv4, tv2);              /* tv4 = tv4 * tv2      # gx1*gxd^3 */
-        e2 = recip_sqrt_fp(y1, tv4);        /* y1 = tv4^c1          # (gx1*gxd^3)^((p-3)/4) */
+        e2 = Fp::recip_sqrt(y1, tv4);        /* y1 = tv4^c1          # (gx1*gxd^3)^((p-3)/4) */
         Fp::mul(y1, y1, tv2);                /* y1 = y1 * tv2        # gx1*gxd*y1 */
         Fp::mul(y2, y1, sqrt_minus_ZZZ);     /* y2 = y1 * c2         # y2 = y1*sqrt(-Z^3) */
         Fp::mul(y2, y2, uu);                 /* y2 = y2 * uu                 */

@@ -337,10 +337,9 @@ BENCHMARK(BM_FpMulBy8_asm);
 static void BM_FpMulBy8_cc(benchmark::State& state) {
     Fp a, c;
     generate_random_fp(a);
-    auto p = get_BLST_P();
     
     for (auto _ : state) {
-        cc_mul_by_8_mod_384(c, a, p);
+        Fp::mul_by_8(c, a);
         benchmark::DoNotOptimize(c);
     }
     
@@ -680,7 +679,7 @@ static void BM_FpExponentiation_api(benchmark::State& state) {
     
     for (auto _ : state) {
         // Use high-level API
-        sqr_n_mul_fp(result, a, 3, one); // a^8 * 1 = a^8
+        Fp::sqr_n_mul(result, a, 3, one); // a^8 * 1 = a^8
         benchmark::DoNotOptimize(result);
     }
     
@@ -697,7 +696,7 @@ static void BM_FpInversion_fast(benchmark::State& state) {
     Fp::to_mont(a, a);  // Convert to Montgomery form
     
     for (auto _ : state) {
-        flt_reciprocal_fp(result, a);
+        Fp::flt_reciprocal(result, a);
         benchmark::DoNotOptimize(result);
     }
     
@@ -712,7 +711,7 @@ static void BM_FpInversion_ct(benchmark::State& state) {
     Fp::to_mont(a, a);  // Convert to Montgomery form
     
     for (auto _ : state) {
-        reciprocal_fp(result, a);
+        Fp::reciprocal(result, a);
         benchmark::DoNotOptimize(result);
     }
     

@@ -37,12 +37,12 @@ namespace blst
     BLST_HD BLST_INLINE void vec_xor(void* BLST_restrict ret, const void* BLST_restrict a,
         const void* BLST_restrict b, size_t num)
     {
-        limb* rp = (limb*)ret;
-        const limb* ap = (const limb*)a;
-        const limb* bp = (const limb*)b;
+        limb_t* rp = (limb_t*)ret;
+        const limb_t* ap = (const limb_t*)a;
+        const limb_t* bp = (const limb_t*)b;
         size_t i;
 
-        num /= sizeof(limb);
+        num /= sizeof(limb_t);
 
         for (i = 0; i < num; i++)
             rp[i] = ap[i] ^ bp[i];
@@ -53,8 +53,8 @@ namespace blst
         const unsigned char* msg, size_t msg_len,
         const unsigned char* DST, size_t DST_len)
     {
-        union { limb align; unsigned char c[32]; } b_0;
-        union { limb align; unsigned char c[33 + 256 + 31]; } b_i;
+        union { limb_t align; unsigned char c[32]; } b_0;
+        union { limb_t align; unsigned char c[33 + 256 + 31]; } b_i;
         unsigned char* p;
         size_t i, b_i_bits, b_i_blocks;
         SHA256_CTX ctx;
@@ -126,9 +126,9 @@ namespace blst
         size_t len_in_bytes = L * nelems;   /* divisible by 64, hurray!      */
 #if !defined(__STDC_VERSION__) || __STDC_VERSION__<199901 \
                                || defined(__STDC_NO_VLA__)
-        limb* pseudo_random = (limb*)alloca(len_in_bytes);
+        limb_t* pseudo_random = (limb_t*)alloca(len_in_bytes);
 #else
-        limb pseudo_random[len_in_bytes / sizeof(limb)];
+        limb_t pseudo_random[len_in_bytes / sizeof(limb_t)];
 #endif
         unsigned char* bytes;
         UFp elem;

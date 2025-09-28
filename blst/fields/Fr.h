@@ -17,14 +17,14 @@ namespace blst
 
     // -1/r, this is the modular inverse of r modulo 2^256
     // used in montgomery reduction as the "magic" number
-#define BLST_r0 (limb)0xfffffffeffffffff  /* -1/r */
+#define BLST_r0 (limb_t)0xfffffffeffffffff  /* -1/r */
 
     struct Fr
     {
         vec_256 data;
 
-        BLST_HD operator limb* () { return data; }
-        BLST_HD operator const limb* () const { return data; }
+        BLST_HD operator limb_t* () { return data; }
+        BLST_HD operator const limb_t* () const { return data; }
 
 
         BLST_HD static const Fr& zero();
@@ -106,7 +106,7 @@ namespace blst
 
 
 
-    BLST_HD BLST_FORCEINLINE limb check_mod_v256(const pow256 a, const Fr& p)
+    BLST_HD BLST_FORCEINLINE limb_t check_mod_v256(const pow256 a, const Fr& p)
     {
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
         return check_mod_256(a, &p);
@@ -115,7 +115,7 @@ namespace blst
 #endif
     }
 
-    BLST_HD BLST_FORCEINLINE limb add_n_check_mod_v256(pow256 ret, const pow256 a, const pow256 b,
+    BLST_HD BLST_FORCEINLINE limb_t add_n_check_mod_v256(pow256 ret, const pow256 a, const pow256 b,
         const Fr& p)
     {
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
@@ -128,7 +128,7 @@ namespace blst
 
     // performs modular subtraction with zero-checking - 
     // it computes (a - b) mod p and returns whether the result is non-zero.
-    BLST_HD BLST_FORCEINLINE limb sub_n_check_mod_v256(pow256 ret, const pow256 a, const pow256 b,
+    BLST_HD BLST_FORCEINLINE limb_t sub_n_check_mod_v256(pow256 ret, const pow256 a, const pow256 b,
         const Fr& p)
     {
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
@@ -221,7 +221,7 @@ namespace blst
     // montgomery multiply: ret = a * b * R^-1 mod p, where R montgomery radix
     // optimized for "spare" modulus p, i.e. with many zero limbs
     BLST_HD BLST_FORCEINLINE void mul_mont_sparse_v256(Fr& ret, const Fr& a, const Fr& b,
-        const Fr& p, limb n0)
+        const Fr& p, limb_t n0)
     {
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
         mulx_mont_sparse_256(&ret, &a, &b, &p, n0);// linked by asm
@@ -233,7 +233,7 @@ namespace blst
 
     // montgomery squaring: ret = a^2 * R^-1 mod p, where R montgomery radix
     // optimized for "spare" modulus p, i.e. with many zero limbs
-    BLST_HD BLST_FORCEINLINE void sqr_mont_sparse_v256(Fr& ret, const Fr& a, const Fr& p, limb n0)
+    BLST_HD BLST_FORCEINLINE void sqr_mont_sparse_v256(Fr& ret, const Fr& a, const Fr& p, limb_t n0)
     {
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
         sqrx_mont_sparse_256(&ret, &a, &p, n0);// linked by asm
@@ -245,7 +245,7 @@ namespace blst
     }
 
     // montgomery multiply: ret = a * b * R^-1 mod p, where R montgomery radix
-    BLST_HD BLST_FORCEINLINE void redc_mont_v256(Fr& ret, const UFr& a, const Fr& p, limb n0)
+    BLST_HD BLST_FORCEINLINE void redc_mont_v256(Fr& ret, const UFr& a, const Fr& p, limb_t n0)
     {
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
         redcx_mont_256(&ret, &a, &p, n0);// linked by asm
@@ -256,7 +256,7 @@ namespace blst
     }
 
     // from montgomery domain: ret = a * R^-1 mod p, where R montgomery radix
-    BLST_HD BLST_FORCEINLINE void from_mont_v256(Fr& ret, const Fr& a, const Fr& p, limb n0)
+    BLST_HD BLST_FORCEINLINE void from_mont_v256(Fr& ret, const Fr& a, const Fr& p, limb_t n0)
     {
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
         fromx_mont_256(&ret, &a, &p, n0);// linked by asm
@@ -434,7 +434,7 @@ namespace blst
             char little;
         } is_endian = { 1 };
 
-        if ((uptr_t)ret == (uptr_t)a && is_endian.little) {
+        if ((void*)ret == (void*)a && is_endian.little) {
             mul_mont_sparse_v256(ret, (const Fr&)a, get_BLST_rRR(),
                 get_BLST_r(), BLST_r0);
         }
@@ -453,7 +453,7 @@ namespace blst
             char little;
         } is_endian = { 1 };
 
-        if ((uptr_t)ret == (uptr_t)a && is_endian.little) {
+        if ((void*)ret == (void*)a.data && is_endian.little) {
             from_mont_v256((Fr&)ret, a, get_BLST_r(), BLST_r0);
         }
         else {
@@ -479,12 +479,12 @@ namespace blst
             char little;
         } is_endian = { 1 };
 
-        if (sizeof(limb) == 4 && !is_endian.little) {
+        if (sizeof(limb_t) == 4 && !is_endian.little) {
             int i;
             for (i = 0; i < 4; i++) {
                 unsigned long long L = a[i];
-                ret[2 * i] = (limb)L;
-                ret[2 * i + 1] = (limb)(L >> 32);
+                ret[2 * i] = (limb_t)L;
+                ret[2 * i + 1] = (limb_t)(L >> 32);
             }
             a = (const unsigned long long*)ret;
         }
@@ -548,7 +548,7 @@ namespace blst
         } is_endian = { 1 };
         bool_t is_zero;
 
-        if (((size_t)a | (size_t)b) % sizeof(limb) != 0 || !is_endian.little) {
+        if (((size_t)a | (size_t)b) % sizeof(limb_t) != 0 || !is_endian.little) {
             limbs_from_le_bytes(t[0], a, sizeof(pow256));
             limbs_from_le_bytes(t[1], b, sizeof(pow256));
             a = (const byte*)&t[0];
@@ -570,7 +570,7 @@ namespace blst
             char little;
         } is_endian = { 1 };
 
-        if (((size_t)a | (size_t)ret) % sizeof(limb) == 0 && is_endian.little) {
+        if (((size_t)a | (size_t)ret) % sizeof(limb_t) == 0 && is_endian.little) {
             auto& out = (Fr&)ret;
             mul_mont_sparse_v256(out, (const Fr&)a, get_BLST_rRR(),
                 get_BLST_r(), BLST_r0);
@@ -596,7 +596,7 @@ namespace blst
         if (!initialized) {
             // Compute 1 in Montgomery form: (1 * R) mod r
             Fr one_normal;
-            one_normal.data[0] = 1; // Set the first limb to 1 (normal integer 1)
+            one_normal.data[0] = 1; // Set the first limb_t to 1 (normal integer 1)
             for (size_t i = 1; i < NLIMBS(256); ++i) {
                 one_normal.data[i] = 0; // Zero out the rest of the limbs
             }

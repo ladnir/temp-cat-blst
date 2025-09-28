@@ -55,28 +55,28 @@ void vec_select_288(void* ret, const void* a, const void* b, blst::bool_t sel_a)
 
 /* @brief asm: Adds two 256-bit integers modulo a given modulus and checks if the result is zero.
 */
-blst::limb add_n_check_mod_256(asm_pow256 ret, const asm_pow256 a, const asm_pow256 b, const asm_Fr p);
+blst::limb_t add_n_check_mod_256(asm_pow256 ret, const asm_pow256 a, const asm_pow256 b, const asm_Fr p);
 
 /* @brief asm: Subtracts two 256-bit integers modulo a given modulus and checks if the result is zero.
 */
-blst::limb sub_n_check_mod_256(asm_pow256 ret, const asm_pow256 a, const asm_pow256 b, const asm_Fr p);
+blst::limb_t sub_n_check_mod_256(asm_pow256 ret, const asm_pow256 a, const asm_pow256 b, const asm_Fr p);
 
 
 // asm: 256 bit montgomery multiplication, sparse modulus version
 void mulx_mont_sparse_256(asm_Fr ret, const asm_Fr a, const asm_Fr b,
-    const asm_Fr p, blst::limb n0);
+    const asm_Fr p, blst::limb_t n0);
 
 // asm: 256 bit montgomery squaring, sparse modulus version
-void sqrx_mont_sparse_256(asm_Fr ret, const asm_Fr a, const asm_Fr p, blst::limb n0);
+void sqrx_mont_sparse_256(asm_Fr ret, const asm_Fr a, const asm_Fr p, blst::limb_t n0);
 
 // asm: 256 bit montgomery squaring, sparse modulus version
-//void cc_sqr_mont_sparse_256(asm_Fr ret, const asm_Fr a, const asm_Fr p, blst::limb n0);
+//void cc_sqr_mont_sparse_256(asm_Fr ret, const asm_Fr a, const asm_Fr p, blst::limb_t n0);
 
 /* @brief asm: Performs Montgomery reduction on a 256 bit integer.
 *
 * Computes `ret = a / R mod p`, where `R = 2^256`. n0 is the Montgomery constant.
 */
-void redcx_mont_256(asm_Fr ret, const asm_UFr a, const asm_Fr p, blst::limb n0);
+void redcx_mont_256(asm_Fr ret, const asm_UFr a, const asm_Fr p, blst::limb_t n0);
 
 /**
  * @brief asm: Converts a large integer from Montgomery form.
@@ -84,7 +84,7 @@ void redcx_mont_256(asm_Fr ret, const asm_UFr a, const asm_Fr p, blst::limb n0);
  * Computes `a * R^(-1) mod p` to convert `a` from Montgomery form to standard form.
  * The result is stored in `ret`. n0 is the Montgomery constant.
  */
-void fromx_mont_256(asm_Fr ret, const asm_Fr a, const asm_Fr p, blst::limb n0);
+void fromx_mont_256(asm_Fr ret, const asm_Fr a, const asm_Fr p, blst::limb_t n0);
 
 
 /* @brief asm: Adds two 256-bit integers modulo a given modulus.
@@ -114,7 +114,7 @@ void rshift_mod_256(asm_Fr ret, const asm_Fr a, size_t count, const asm_Fr p);
 
 /* @brief asm: Checks if a 256-bit integer is less than a given modulus.
 */
-blst::limb check_mod_256(const asm_pow256 a, const asm_Fr p);
+blst::limb_t check_mod_256(const asm_pow256 a, const asm_Fr p);
 
 // asm: is `a` a vector of zeros. requires that a is a multiple of 16 bytes in length.
 blst::bool_t vec_is_zero_16x(const void* a, size_t num);
@@ -124,14 +124,14 @@ blst::bool_t vec_is_equal_16x(const void* a, const void* b, size_t num);
 
 
 /* @brief asm: 384 bit montgomery multiplication mod p. n0 is the montgomery constant. */ 
-void mulx_mont_384(asm_Fp ret, const asm_Fp a, const asm_Fp b, const asm_Fp p, blst::limb n0);
+void mulx_mont_384(asm_Fp ret, const asm_Fp a, const asm_Fp b, const asm_Fp p, blst::limb_t n0);
 
 /* @brief asm: 384 bit montgomery squaring mod p. n0 is the montgomery constant. */
-void sqrx_mont_384(asm_Fp ret, const asm_Fp a, const asm_Fp p, blst::limb n0);
+void sqrx_mont_384(asm_Fp ret, const asm_Fp a, const asm_Fp p, blst::limb_t n0);
 
 ///* @brief asm: Squares a 384-bit integer multiple times and multiplies the result in Montgomery form. */
 //void sqrx_n_mul_mont_384(asm_Fp ret, const asm_Fp a, size_t count,
-//	const asm_Fp p, blst::limb n0, const asm_Fp b);
+//	const asm_Fp p, blst::limb_t n0, const asm_Fp b);
 
 /* @brief asm: 382 bit montgomery repeated squaring (a^(2^count) * b * R^(-1)) mod p. n0 is the montgomery constant. 
  *
@@ -143,32 +143,32 @@ void sqrx_mont_384(asm_Fp ret, const asm_Fp a, const asm_Fp p, blst::limb n0);
 * see sqr_n_Fp::mul
 */
 void sqrx_n_mul_mont_383(asm_Fp ret, const asm_Fp a, size_t count,
-	const asm_Fp p, blst::limb n0, const asm_Fp b);
+	const asm_Fp p, blst::limb_t n0, const asm_Fp b);
 
 #if defined(BLST_ADX) || defined(__MSC_VER)
 /* @brief asm: Performs Montgomery reduction on a 384 bit integer. n0 is the montgomery constant. */
-void redcx_mont_384(asm_Fp ret, const asm_UFp a, const asm_Fp p, blst::limb n0);
+void redcx_mont_384(asm_Fp ret, const asm_UFp a, const asm_Fp p, blst::limb_t n0);
 #endif
 
 #if !defined(BLST_ADX) || defined(__MSC_VER)
 /* @brief asm: Performs Montgomery reduction on a 384 bit integer. n0 is the montgomery constant.  */
-void redc_mont_384(asm_Fp ret, const asm_UFp a, const asm_Fp p, blst::limb n0);
+void redc_mont_384(asm_Fp ret, const asm_UFp a, const asm_Fp p, blst::limb_t n0);
 #endif
 
 /* @brief asm: Converts a large integer from Montgomery form. n0 is the montgomery constant. */
-void fromx_mont_384(asm_Fp ret, const asm_Fp a, const asm_Fp p, blst::limb n0);
+void fromx_mont_384(asm_Fp ret, const asm_Fp a, const asm_Fp p, blst::limb_t n0);
 
 /* @brief asm: Computes the sign and parity of a 384-bit integer in Montgomery form modulo a given modulus. */
-blst::limb sgn0x_pty_mont_384(const asm_Fp a, const asm_Fp p, blst::limb n0);
+blst::limb_t sgn0x_pty_mont_384(const asm_Fp a, const asm_Fp p, blst::limb_t n0);
 
 /* @brief asm: Computes the sign and parity of a 384-bit complex number in Montgomery form modulo a given modulus. */
-blst::limb sgn0x_pty_mont_384x(const asm_Fp2 a, const asm_Fp p, blst::limb n0);
+blst::limb_t sgn0x_pty_mont_384x(const asm_Fp2 a, const asm_Fp p, blst::limb_t n0);
 
 /* @brief asm: Compute sign and parity of a in Montgomery form mod p. */
-blst::limb sgn0_pty_mod_384(const asm_Fp a, const asm_Fp p);
+blst::limb_t sgn0_pty_mod_384(const asm_Fp a, const asm_Fp p);
 
 /* @brief asm: Compute sign and parity of a complex number mod p. */
-blst::limb sgn0_pty_mod_384x(const asm_Fp2 a, const asm_Fp p);
+blst::limb_t sgn0_pty_mod_384x(const asm_Fp2 a, const asm_Fp p);
 
 /* @brief asm: Conditionally negates a 384-bit integer modulo a given modulus. */
 void add_mod_384(asm_Fp ret, const asm_Fp a, const asm_Fp b, const asm_Fp p);
@@ -209,13 +209,13 @@ blst::bool_t ct_is_square_mod_384(const asm_Fp inp, const asm_Fp mod);
 
 /* @brief asm: Performs Montgomery multiplication on two 384-bit complex numbers. */
 void mulx_mont_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp2 b,
-	const asm_Fp p, blst::limb n0);
+	const asm_Fp p, blst::limb_t n0);
 
 /* @brief asm: Squares a 384-bit complex number in Montgomery form . */
-void sqrx_mont_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp p, blst::limb n0);
+void sqrx_mont_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp p, blst::limb_t n0);
 
 /* @brief asm: Squares a 382-bit complex in Montgomery form. */
-void sqrx_mont_382x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp p, blst::limb n0);
+void sqrx_mont_382x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp p, blst::limb_t n0);
 
 /* @brief asm: adds two 384-bit complex integers modulo a given modulus. */
 void add_mod_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp2 b, const asm_Fp p);
@@ -244,14 +244,14 @@ void blst_sha256_emit(unsigned char md[32], const unsigned int h[8]);
 /* @brief asm: copy memory */
 void blst_sha256_bcopy(void* dst_, const void* src_, size_t len);
 
-/* @brief asm: Divides a 3 - limb dividend by a 2 - limb divisor.*/
-blst::limb div_3_limbs(const blst::limb dividend_top[2], blst::limb d_lo, blst::limb d_hi);
+/* @brief asm: Divides a 3 - limb_t dividend by a 2 - limb_t divisor.*/
+blst::limb_t div_3_limbs(const blst::limb_t dividend_top[2], blst::limb_t d_lo, blst::limb_t d_hi);
 
 /* @brief asm: Computes the quotient and remainder of 128 bit integer division.*/
-blst::limb quot_rem_128(blst::limb* quot_rem, const blst::limb* divisor, blst::limb quotient);
+blst::limb_t quot_rem_128(blst::limb_t* quot_rem, const blst::limb_t* divisor, blst::limb_t quotient);
 
 /* @brief Computes the quotient and remainder of a 64 bit integer division. */
-blst::limb quot_rem_64(blst::limb* quot_rem, const blst::limb* divisor, blst::limb quotient);
+blst::limb_t quot_rem_64(blst::limb_t* quot_rem, const blst::limb_t* divisor, blst::limb_t quotient);
 
 
 

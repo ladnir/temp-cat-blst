@@ -731,7 +731,6 @@ TEST(E1PointTest, SerializationFormats) {
 
     // Test uncompressed
     blst_p1_serialize(uncompressed, p1);
-	print_vec_n("Uncompressed:", (limb*)uncompressed, 96 / sizeof(limb));
     EXPECT_FALSE(uncompressed[0] & 0x80);  // Not compressed
 
     // Test infinity encoding for each format
@@ -767,8 +766,6 @@ TEST(E1PointTest, MixedAdditionCornerCases) {
     blst_p1_to_affine(p_affine, p1);
 
     blst_p1_add_affine(result, infinity, p_affine);
-
-	print_point(result, "Result of O + P_affine");
 
     EXPECT_TRUE(blst_p1_is_equal(result, p1));
 }

@@ -14,8 +14,8 @@ void generate_random_fp12(Fp12& fp12) {
     static std::mt19937_64 gen(rd());
     static std::uniform_int_distribution<uint64_t> dis;
 
-    limb* p = (limb*)&fp12;
-    for (size_t i = 0; i < sizeof(Fp12) / sizeof(limb); ++i) {
+    limb_t* p = (limb_t*)&fp12;
+    for (size_t i = 0; i < sizeof(Fp12) / sizeof(limb_t); ++i) {
         p[i] = dis(gen);
     }
 }
@@ -118,7 +118,7 @@ static void BM_Fp12Exponentiation(benchmark::State& state) {
     generate_random_fp12(a);
 
     // A small, simple exponent for benchmarking purposes
-    limb exponent[] = { 0x7, 0x0 };
+    limb_t exponent[] = { 0x7, 0x0 };
 
     for (auto _ : state) {
         blst_fp12_pow(c, a, exponent, 3);

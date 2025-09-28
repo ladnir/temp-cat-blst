@@ -21,39 +21,39 @@ BLST_HD BLST_FORCEINLINE void bytes_zero(unsigned char *a, size_t num)
         a[i] = 0;
 }
 
-BLST_HD BLST_FORCEINLINE void limbs_from_be_bytes(limb *BLST_restrict ret,
+BLST_HD BLST_FORCEINLINE void limbs_from_be_bytes(limb_t *BLST_restrict ret,
                                        const unsigned char *in, size_t n)
 {
-    limb L = 0;
+    limb_t L = 0;
 
     while(n--) {
         L <<= 8;
         L |= *in++;
         /*
-         * 'if (n % sizeof(limb) == 0)' is omitted because it's cheaper
+         * 'if (n % sizeof(limb_t) == 0)' is omitted because it's cheaper
          * to perform redundant stores than to pay penalty for
          * mispredicted branch. Besides, some compilers unroll the
          * loop and remove redundant stores to 'restrict'-ed storage...
          */
-        ret[n / sizeof(limb)] = L;
+        ret[n / sizeof(limb_t)] = L;
     }
 }
 
-BLST_HD BLST_FORCEINLINE void be_bytes_from_limbs(unsigned char *out, const limb *in,
+BLST_HD BLST_FORCEINLINE void be_bytes_from_limbs(unsigned char *out, const limb_t *in,
                                        size_t n)
 {
-    limb limb;
+    limb_t limb;
 
     while(n--) {
-        limb = in[n / sizeof(limb)];
-        *out++ = (unsigned char)(limb >> (8 * (n % sizeof(limb))));
+        limb = in[n / sizeof(limb_t)];
+        *out++ = (unsigned char)(limb >> (8 * (n % sizeof(limb_t))));
     }
 }
 
-BLST_HD BLST_FORCEINLINE void limbs_from_le_bytes(limb *BLST_restrict ret,
+BLST_HD BLST_FORCEINLINE void limbs_from_le_bytes(limb_t *BLST_restrict ret,
                                        const unsigned char *in, size_t n)
 {
-    limb limb = 0;
+    limb_t limb = 0;
 
     while(n--) {
         limb <<= 8;
@@ -68,14 +68,14 @@ BLST_HD BLST_FORCEINLINE void limbs_from_le_bytes(limb *BLST_restrict ret,
     }
 }
 
-BLST_HD BLST_INLINE void le_bytes_from_limbs(unsigned char *out, const limb *in,
+BLST_HD BLST_INLINE void le_bytes_from_limbs(unsigned char *out, const limb_t *in,
                                        size_t n)
 {
     const union {
         long one;
         char little;
     } is_endian = { 1 };
-    limb limb;
+    limb_t limb;
     size_t i, j, r;
 
     if ((uptr_t)out == (uptr_t)in && is_endian.little)
@@ -136,10 +136,10 @@ BLST_HD BLST_INLINE void bytes_from_hexascii(unsigned char *ret, size_t sz, cons
     }
 }
 
-BLST_HD BLST_INLINE void limbs_from_hexascii(limb *ret, size_t sz, const char *hex)
+BLST_HD BLST_INLINE void limbs_from_hexascii(limb_t *ret, size_t sz, const char *hex)
 {
     size_t len;
-    limb limb = 0;
+    limb_t limb = 0;
 
     if (hex[0]=='0' && (hex[1]=='x' || hex[1]=='X'))
         hex += 2;

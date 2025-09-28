@@ -474,7 +474,7 @@ BLST_HD BLST_INLINE void ptype##xz_ladder_post(ptype *p4, \
 }
 
 #define POINT_IS_EQUAL_IMPL(ptype, bits, field) \
-BLST_HD BLST_INLINE  limb ptype##_is_equal(const ptype *p1, const ptype *p2) \
+BLST_HD BLST_INLINE  limb_t ptype##_is_equal(const ptype *p1, const ptype *p2) \
 { \
     vec##bits Z1Z1, Z2Z2; \
     ptype##_affine a1, a2; \
@@ -555,7 +555,7 @@ BLST_HD BLST_INLINE void ptype##proj_dadd_affine(ptype##proj *out, const ptype##
 { \
     ptype##proj p3[1]; \
     vec##bits t0, t1, t2, t3, t4; \
-    limb p2inf = vec_is_zero(p2, sizeof(*p2)); \
+    limb_t p2inf = vec_is_zero(p2, sizeof(*p2)); \
 \
     mul_##field(t0, p1->X, p2->X);      /* 1.     t0 = X1*X2 */\
     mul_##field(t1, p1->Y, p2->Y);      /* 2.     t1 = Y1*Y2 */\
@@ -632,7 +632,7 @@ BLST_HD BLST_INLINE void ptype##proj_to_Jacobian(ptype *out, const ptype##proj *
 BLST_HD BLST_INLINE void ptype##_to_projective(ptype##proj *out, const ptype *in) \
 { \
     vec##bits ZZ; \
-    limb is_inf = vec_is_zero(in->Z, sizeof(in->Z)); \
+    limb_t is_inf = vec_is_zero(in->Z, sizeof(in->Z)); \
 \
     sqr_##field(ZZ, in->Z); \
     mul_##field(out->X, in->X, in->Z); \
@@ -946,57 +946,6 @@ BLST_HD BLST_INLINE void Point<Field>::dadd_affine(Point &out, const Point &p1,
 }
 
 
-	template<typename Field>
-	BLST_HD BLST_INLINE void Point_affine<Field>::dadd(Point_affine& out, const Point_affine& p1,
-		const Point_affine& p2)
-	{
-		Point<Field> p3; /* starts as (,, H*Z1) from addition side */
-		struct { Field H, R, sx; } add, dbl;
-		bool_t p1inf, p2inf, is_dbl;
-
-		p2inf = vec_is_zero(&p2.X, 2 * sizeof(p2.X));
-		Field::add(dbl.sx, p2.X, p2.X);  /* sx = X2+X2 */
-		Field::sqr(dbl.R, p2.X);          /* X2^2 */
-		Field::mul_by_3(dbl.R, dbl.R);     /* R = 3*X2^2 */
-		Field::add(dbl.H, p2.Y, p2.Y);   /* H = 2*Y2 */
-
-		p1inf = vec_is_zero(&p1.Z, sizeof(p1.Z));
-		Field::sqr(add.H, p1.Z);          /* Z1^2 */
-		Field::mul(add.R, add.H, p1.Z);   /* Z1^3 */
-		Field::mul(add.R, add.R, p2.Y);   /* S2 = Y2*Z1^3 */
-		Field::sub(add.R, add.R, p1.Y);   /* R = S2-Y1 */
-
-		Field::mul(add.H, add.H, p2.X);   /* U2 = X2*Z1^2 */
-
-		Field::add(add.sx, add.H, p1.X);  /* sx = X1+U2 */
-		Field::sub(add.H, add.H, p1.X);   /* H = U2-X1 */
-
-		Field::mul(p3.Z, add.H, p1.Z);    /* Z3 = H*Z1 */
-
-		/* make the choice between addition and doubling */
-		is_dbl = vec_is_zero(&add.H, 2 * sizeof(add.H));
-		vec_select(&p3.X, p2, &p1, 2 * sizeof(p3.X), is_dbl);
-		vec_select(&p3.Z, &dbl.H, &p3.Z, sizeof(p3.Z), is_dbl);
-		vec_select(&add, &dbl, &add, sizeof(add), is_dbl);
-		/* |p3| and |add| hold all inputs now, |p3| will hold output */
-
-		Field::sqr(dbl.H, add.H);          /* H^2 */
-		Field::mul(dbl.R, dbl.H, add.H);   /* H^3 */
-		Field::mul(dbl.R, dbl.R, p3.Y);    /* H^3*S1 */
-		Field::mul(p3.Y, dbl.H, p3.X);     /* H^2*U1 */
-
-		Field::mul(dbl.H, dbl.H, add.sx);  /* H^2*sx */
-		Field::sqr(p3.X, add.R);           /* R^2 */
-		Field::sub(p3.X, p3.X, dbl.H);     /* X3 = R^2-H^2*sx */
-
-		Field::sub(p3.Y, p3.Y, p3.X);      /* H^2*U1-X3 */
-		Field::mul(p3.Y, p3.Y, add.R);     /* R*(H^2*U1-X3) */
-		Field::sub(p3.Y, p3.Y, dbl.R);     /* Y3 = R*(H^2*U1-X3)-H^3*S1 */
-
-		vec_select(&p3.X, &p2, &p3.X, 2 * sizeof(p3.X), p1inf);
-		vec_select(&p3.Z, &Point<Field>::one(), &p3.Z, sizeof(p3.Z), p1inf);
-		vec_select(&out, &p1, &p3, sizeof(Point_affine), p2inf);
-	}
 
 	template<typename Field>
 	BLST_HD BLST_INLINE void Point<Field>::add(Point& out, const Point& p1, const Point& p2)
@@ -1254,7 +1203,7 @@ BLST_HD BLST_INLINE void Point<Field>::dadd_affine(Point &out, const Point &p1,
 
 
 	template<typename Field>
-	BLST_HD BLST_INLINE  limb Point<Field>::is_equal(const Point<Field>& p1, const Point<Field>& p2)
+	BLST_HD BLST_INLINE  limb_t Point<Field>::is_equal(const Point<Field>& p1, const Point<Field>& p2)
 	{
 		Field Z1Z1, Z2Z2;
 		Point_affine<Field> a1, a2;
@@ -1335,7 +1284,7 @@ BLST_HD BLST_INLINE void Point<Field>::dadd_affine(Point &out, const Point &p1,
 	//{
 	//	Point_proj<Field> p3[1];
 	//	Field t0, t1, t2, t3, t4;
-	//	limb p2inf = vec_is_zero(p2, sizeof(*p2));
+	//	limb_t p2inf = vec_is_zero(p2, sizeof(*p2));
 
 	//	Field::mul(t0, p1.X, p2.X);      /* 1.     t0 = X1*X2 */
 	//	Field::mul(t1, p1.Y, p2.Y);      /* 2.     t1 = Y1*Y2 */
@@ -1412,7 +1361,7 @@ BLST_HD BLST_INLINE void Point<Field>::dadd_affine(Point &out, const Point &p1,
 	//BLST_HD BLST_INLINE void Point<Field>::to_projective(Point_proj<Field>* out, const Point<Field>& in)
 	//{
 	//	Field ZZ;
-	//	limb is_inf = vec_is_zero(in.Z, sizeof(in.Z));
+	//	limb_t is_inf = vec_is_zero(in.Z, sizeof(in.Z));
 
 	//	Field::sqr(ZZ, in.Z);
 	//	Field::mul(out.X, in.X, in.Z);

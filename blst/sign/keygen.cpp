@@ -20,7 +20,7 @@ namespace blst
         SHA256_CTX ctx;
         unsigned int h_ipad[8];
         unsigned int h_opad[8];
-        union { limb l[64 / sizeof(limb)]; unsigned char c[64]; } tail;
+        union { limb_t l[64 / sizeof(limb_t)]; unsigned char c[64]; } tail;
     } HMAC_SHA256_CTX;
 
     void HMAC_init(HMAC_SHA256_CTX* ctx, const void* K, size_t K_len)
@@ -46,15 +46,15 @@ namespace blst
             blst_sha256_bcopy_v(ctx->tail.c, K, K_len);
         }
 
-        for (i = 0; i < 64 / sizeof(limb); i++)
-            ctx->tail.l[i] ^= (limb)0x3636363636363636;
+        for (i = 0; i < 64 / sizeof(limb_t); i++)
+            ctx->tail.l[i] ^= (limb_t)0x3636363636363636;
 
         sha256_init(&ctx->ctx);
         sha256_update(&ctx->ctx, ctx->tail.c, 64);
         blst_sha256_hcopy_v(ctx->h_ipad, ctx->ctx.h);
 
-        for (i = 0; i < 64 / sizeof(limb); i++)
-            ctx->tail.l[i] ^= (limb)(0x3636363636363636 ^ 0x5c5c5c5c5c5c5c5c);
+        for (i = 0; i < 64 / sizeof(limb_t); i++)
+            ctx->tail.l[i] ^= (limb_t)(0x3636363636363636 ^ 0x5c5c5c5c5c5c5c5c);
 
         sha256_init_h(ctx->h_opad);
         blst_sha256_block_data_order_v(ctx->h_opad, ctx->tail.c, 1);

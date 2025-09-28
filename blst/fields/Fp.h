@@ -7,67 +7,134 @@
 #define BLST_FP_H
 
 #include "blst/common/vect.h"
-//#include "blst/fields/consts.h"
+ //#include "blst/fields/consts.h"
 #include "blst/config.h"
 #include "blst/common/defines.h"
 #include "blst/backend/backend.h"
 #include "blst/fields/recip-addchain.h"
 #include "blst/fields/exp.h"
+#include <type_traits>
+
+# include "sqrt-addchain.h"
 
 
 namespace blst
 {
 
-
+	// The finit field modulo p
 	struct Fp
 	{
 		vec_384 data;
 
-		BLST_HD operator limb* () { return data; }
-		BLST_HD operator const limb* () const { return data; }
+		BLST_HD operator limb_t* () { return data; }
+		BLST_HD operator const limb_t* () const { return data; }
 
+		// the zero element.
 		BLST_HD static const Fp& zero();
+
+		// the one element.
 		BLST_HD static const Fp& one();
+
+		// the modulus (returned as a Fp which is a slight abuse)
 		BLST_HD static const Fp& modulus();
 
+		// ret = a + b
 		BLST_HD static void add(Fp& ret, const Fp& a, const Fp& b);
 
+		// ret = a - b
 		BLST_HD static void sub(Fp& ret, const Fp& a, const Fp& b);
 
+		// ret  = a * b
 		BLST_HD static void mul(Fp& ret, const Fp& a, const Fp& b);
 
+		// ret  = a^x
+		BLST_HD static void exp(Fp& ret, const Fp& a, const byte* x, size_t x_bits);
+
+		// ret = a^2
 		BLST_HD static void sqr(Fp& ret, const Fp& a);
 
+		// let a = a' R mod p be the montgomery represtation of a'.
+		// ret = a'
 		BLST_HD static void from_mont(Fp& ret, const Fp& a);
 
+		// ret = a * R, where R is the montgomery constant 2^384
 		BLST_HD static void to_mont(Fp& ret, const Fp& a);
 
+		// ret = a mod p
 		BLST_HD static void redc(Fp& ret, const struct UFp& a);
 
+		// ret = flag ? -a : a
 		BLST_HD static void cneg(Fp& ret, const Fp& a, bool_t flag);
 
+		// ret = -a
 		BLST_HD static void neg(Fp& ret, const Fp& a);
 
+		// ret = a * 2^count
 		BLST_HD static void lshift(Fp& ret, const Fp& a, size_t count);
 
+		// ret = floor(int(a) / 2^count). not mod p.
 		BLST_HD static void rshift(Fp& ret, const Fp& a, size_t count);
 
+		// out = a / 2 
 		BLST_HD static void div_by_2(Fp& ret, const Fp& a);
 
+		// out = a * 3
 		BLST_HD static void mul_by_3(Fp& ret, const Fp& a);
 
+		// out = a * 8
 		BLST_HD static void mul_by_8(Fp& ret, const Fp& a);
 
+		// out = 1 / inp, computed via Lehmer almost-inverse (faster)
 		BLST_HD static void reciprocal(Fp& out, const Fp& inp);
 
+		// out = 1 / inp, computed via addition chain & Fermat's little theorem
 		BLST_HD static void flt_reciprocal(Fp& out, const Fp& inp);
-		
+
+		// out = inp^{p - 3/4}, useful for sqrt and recip_sqrt
+		BLST_HD static void recip_sqrt_3mod4(Fp& t0, const Fp& inp);
+
+		// out = sqrt(1/inp) = inp^{-1/2}
 		BLST_HD static bool_t recip_sqrt(Fp& out, const Fp& inp);
-		
+
+		// out = sqrt(inp) = inp^{1/2}
 		BLST_HD static bool_t sqrt(Fp& out, const Fp& inp);
-		
+
+		// returns true if inp is a square (quadratic residue) mod p
+		BLST_HD static bool_t is_sqrt(const Fp& inp);
+
+		// out = a^{2^count} * b = sqr(...(sqr(a))...) * b
 		BLST_HD static void sqr_n_mul(Fp& out, const Fp& a, size_t count, const Fp& b);
 
+		// return from_mont(a) == from_mont(b). 
+		BLST_HD static bool_t equal(const Fp& a, const Fp& b);
+
+		/* Compute sign and parity of a mod p
+		 *
+		 * Returns two bits:
+		 *  - bit 0: parity, 0 if a is even, 1 if a is odd
+		 *  - bit 1: sign, 0 if a is zero or even, 1 if a is odd and positive,
+		 *           2 if a is odd and negative
+		 */
+		BLST_HD static limb_t sgn0_pty(const Fp& a);
+
+		/* Compute sign and parity of from_mont(a) mod p
+		 *
+		 * Returns two bits:
+		 *  - bit 0: parity, 0 if a is even, 1 if a is odd
+		 *  - bit 1: sign, 0 if a is zero or even, 1 if a is odd and positive,
+		 *           2 if a is odd and negative
+		 */
+		BLST_HD static limb_t sgn0_pty_mont(const Fp& a);
+
+		/**
+		 * Checks if `a` is reduced modulo a given modulus.
+		 *
+		 * Returns 1 if `a` is less than `p`, otherwise returns 0.
+		 */
+		BLST_HD static limb_t is_redc(const Fp& a);
+
+
+		BLST_HD static constexpr size_t num_limb() { return NLIMBS(384); }
 
 	};
 
@@ -76,7 +143,7 @@ namespace blst
 
 	// -1/P, this is the modular inverse of P modulo 2^64
 	//   used in montgomery reduction as the "magic" number
-#define BLST_p0  (limb)0x89f3fffcfffcfffd
+#define BLST_p0  (limb_t)0x89f3fffcfffcfffd
 
 #define ONE_MONT_P_LIMBS TO_LIMB_T(0x760900000002fffd), \
                    TO_LIMB_T(0xebf4000bc40c0002), \
@@ -135,11 +202,6 @@ namespace blst
 #endif
 	}
 
-
-//#define ZERO_384 (get_BLST_Rx().p2[1])
-
-
-
 	extern const Fp BLST_P_HOST;
 	extern const Fp BLST_RR_HOST;   /* (1<<768)%P, "radix"^2, to-Montgomery   */
 	extern const Fp BLST_RRRR_HOST; /* (1<<1536)%P, "radix"^4, hash_to_field */
@@ -182,185 +244,22 @@ namespace blst
 #endif
 	}
 
-
-
-
-
-
-
-
-
-	//BLST_HD BLST_INLINE void cc_mul_mont_384(
-	//	Fp& ret, const Fp& a, const Fp& b, const Fp& p, limb n0)
-	//{
-	//	//cc_mul_mont_n<NLIMBS(384)>(ret.data, a.data, b.data, p.data, n0);
-	//}
-	//BLST_HD BLST_INLINE void cc_sqr_mont_384(
-	//	Fp& ret, const Fp& a, const Fp& p, limb n0)
-	//{
-	//	//cc_mul_mont_n<NLIMBS(384)>(ret.data, a.data, a.data, p.data, n0);
-	//}
-
-	//BLST_HD BLST_INLINE void cc_add_mod_384(Fp& ret, const Fp& a,
-	//	const Fp& b, const Fp& p)
-	//{
-	//	//cc_add_mod_n<NLIMBS(384)>(ret.data, a.data, b.data, p.data);
-	//}
-
-
-	//BLST_HD BLST_INLINE void cc_sub_mod_384(Fp& ret, const Fp& a,
-	//	const Fp& b, const Fp& p)
-	//{
-	//	cc_sub_mod_n<NLIMBS(384)>(ret.data, a.data, b.data, p.data);
-	//}
-
-	//BLST_HD BLST_INLINE void cc_mul_by_3_mod_384(Fp& ret, const Fp& a,
-	//	const Fp& p)
-	//{
-	//	//cc_mul_by_3_mod_n<NLIMBS(384)>(ret.data, a.data, p.data);
-	//}
-
-
-	BLST_HD BLST_INLINE void cc_lshift_mod_384(Fp& ret, const Fp& a, size_t count,
-		const Fp& p)
+	BLST_HD BLST_FORCEINLINE void Fp::add(Fp& ret, const Fp& a, const Fp& b)
 	{
-		cc_lshift_mod_n<NLIMBS(384)>(ret.data, a.data, count, p.data);
-	}
-
-
-	//BLST_HD BLST_INLINE void cc_cneg_mod_384(Fp& ret, const Fp& a, bool_t flag,
-	//	const Fp& p)
-	//{
-	//	//cc_cneg_mod_n<NLIMBS(384)>(ret.data, a.data, flag, p.data);
-	//}
-
-	//BLST_HD BLST_INLINE void cc_from_mont_384(Fp& ret, const Fp& a,
-	//	const Fp& p, limb n0)
-	//{
-	//	//cc_from_mont_n<NLIMBS(384)>(ret.data, a.data, p.data, n0);
-	//}
-
-
-	//BLST_HD BLST_INLINE void cc_redc_mont_384(Fp& ret, const UFp& a,
-	//	const Fp& p, limb n0)
-	//{
-	//	//cc_redc_mont_n<NLIMBS(384)>(ret.data, a.data, p.data, n0);
-	//}
-
-
-	//BLST_HD BLST_INLINE void cc_rshift_mod_384(Fp& ret, const Fp& a, size_t count,
-	//	const Fp& p)
-	//{
-	//	//cc_rshift_mod_n(ret.data, a.data, count, p.data, NLIMBS(384));
-	//}
-
-	//BLST_HD BLST_INLINE void cc_div_by_2_mod_384(Fp& ret, const Fp& a,
-	//	const Fp& p)
-	//{
-	//	//cc_rshift_mod_n(ret.data, a.data, 1, p.data, NLIMBS(384));
-	//}
-
-
-	/* @brief Compute sign and parity of a in Montgomery form mod p. see cc_sgn0_pty_mod_n */
-	BLST_HD BLST_INLINE limb cc_sgn0_pty_mod_384(const Fp& a, const Fp& p)
-	{
-		return cc_sgn0_pty_mod_n<NLIMBS(384)>(a.data, p.data);
-	}
-
-	/* @brief Compute sign and parity of a in Montgomery form mod p. see cc_sgn0_pty_mod_n
-	 */
-	BLST_HD BLST_INLINE limb cc_sgn0_pty_mont_384(const Fp& a, const Fp& p, limb n0)
-	{
-		Fp tmp;
-
-		cc_from_mont_n<NLIMBS(384)>(tmp.data, a.data, p.data, n0);
-
-		return cc_sgn0_pty_mod_n<NLIMBS(384)>(tmp.data, p.data);
-	}
-
-
-	/**
-	 * @brief Performs a left shift modulo operation on a 384-bit integer.
-	 *
-	 * Computes `(a << n) mod mod` iteratively, ensuring the result remains within the range `[0, mod)`.
-	 *
-	 * @param[out] ret The output 384-bit integer.
-	 * @param[in]  a   The input 384-bit integer.
-	 * @param[in]  n   The number of left shifts to perform.
-	 * @param[in]  mod The modulus.
-	 *
-	 * @note Assumes `n > 0` and `a` and `mod` are valid 384-bit integers.
-	 */
-	BLST_HD BLST_INLINE void lshift_mod_v384(Fp& ret, const Fp& a, size_t n,
-		const Fp& mod)
-	{
-		auto ptr = &a;
-		while (n--)
-		{
-			//cc_add_mod_384(ret, *ptr, *ptr, mod);
-			Fp::add(ret, *ptr, *ptr);
-			ptr = &ret;
-		}
-	}
-
-	/* @brief Multiply by 8 modulo mod */
-	BLST_HD BLST_INLINE void cc_mul_by_8_mod_384(Fp& ret, const Fp& a, const Fp& mod)
-	{
-		lshift_mod_v384(ret, a, 3, mod);
-		//Fp::lshift(ret, a, 3);
-	}
-
-
-
-	//BLST_HD BLST_INLINE void cc_ct_inverse_mod_384(UFp& ret, const Fp& inp,
-	//	const Fp& mod, const Fp& modx)
-	//{
-	//	//cc_ct_inverse_mod_n<NLIMBS(384)>(ret, inp, mod, modx);
-	//}
-
-
-	//BLST_HD BLST_INLINE bool_t cc_ct_is_square_mod_384(const Fp& inp,
-	//	const Fp& mod)
-	//{
-	//	//return cc_ct_is_sqr_mod_n<NLIMBS(384)>(inp, mod);
-	//}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	BLST_HD BLST_FORCEINLINE void Fp::add(Fp& ret, const Fp& a, const Fp& b) {
-		//add_mod_v384(ret, a, b, get_BLST_P());
-
+		BLST_ASSERT(Fp::is_redc(a));
+		BLST_ASSERT(Fp::is_redc(b));
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		add_mod_384(&ret, &a, &b, &get_BLST_P());
 #else
-		//cc_add_mod_384(ret, a, b, get_BLST_P());
 		cc_add_mod_n<NLIMBS(384)>(ret.data, a.data, b.data, get_BLST_P().data);
 #endif
 	}
 
-	BLST_HD BLST_FORCEINLINE void Fp::sub(Fp& ret, const Fp& a, const Fp& b) {
-		//sub_mod_v384(ret, a, b, get_BLST_P());
+	BLST_HD BLST_FORCEINLINE void Fp::sub(Fp& ret, const Fp& a, const Fp& b)
+	{
+		BLST_ASSERT(Fp::is_redc(a));
+		BLST_ASSERT(Fp::is_redc(b));
+
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		sub_mod_384(&ret, &a, &b, &get_BLST_P());
 #else
@@ -368,46 +267,42 @@ namespace blst
 #endif
 	}
 
-	BLST_HD BLST_FORCEINLINE void Fp::mul(Fp& ret, const Fp& a, const Fp& b) {
-		//mul_mont_v384(ret, a, b, get_BLST_P(), BLST_p0);
+	BLST_HD BLST_FORCEINLINE void Fp::mul(Fp& ret, const Fp& a, const Fp& b)
+	{
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		mulx_mont_384(&ret, &a, &b, &get_BLST_P(), BLST_p0);
 #else
-		//cc_mul_mont_384(ret, a, b, get_BLST_P(), BLST_p0);
 		cc_mul_mont_n<NLIMBS(384)>(ret.data, a.data, b.data, get_BLST_P().data, BLST_p0);
-
 #endif
 	}
 
-	BLST_HD BLST_FORCEINLINE void Fp::sqr(Fp& ret, const Fp& a) {
-		//sqr_mont_v384(ret, a, get_BLST_P(), BLST_p0);
+	BLST_HD BLST_FORCEINLINE void Fp::sqr(Fp& ret, const Fp& a)
+	{
+		BLST_ASSERT(Fp::is_redc(a));
+
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		sqrx_mont_384(&ret, &a, &get_BLST_P(), BLST_p0);
 #else
-		//cc_sqr_mont_384(ret, a, get_BLST_P(), BLST_p0);
 		cc_mul_mont_n<NLIMBS(384)>(ret.data, a.data, a.data, get_BLST_P().data, BLST_p0);
-
 #endif
 	}
 
-	BLST_HD BLST_FORCEINLINE void Fp::from_mont(Fp& ret, const Fp& a) {
-		//from_mont_v384(ret, a, get_BLST_P(), BLST_p0);
+	BLST_HD BLST_FORCEINLINE void Fp::from_mont(Fp& ret, const Fp& a)
+	{
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		fromx_mont_384(&ret, &a, &get_BLST_P(), BLST_p0);
 #else
-		//cc_from_mont_384(ret, a, get_BLST_P(), BLST_p0);
 		cc_from_mont_n<NLIMBS(384)>(ret.data, a.data, get_BLST_P().data, BLST_p0);
-
 #endif
 	}
 
-	BLST_HD BLST_FORCEINLINE void Fp::to_mont(Fp& ret, const Fp& a) {
-		//mul_mont_v384(ret, a, get_BLST_RR(), get_BLST_P(), BLST_p0);
+	BLST_HD BLST_FORCEINLINE void Fp::to_mont(Fp& ret, const Fp& a)
+	{
 		mul(ret, a, get_BLST_RR());
 	}
 
-	BLST_HD BLST_FORCEINLINE void Fp::redc(Fp& ret, const struct UFp& a) {
-		//redc_mont_v384(ret, a, get_BLST_P(), BLST_p0);
+	BLST_HD BLST_FORCEINLINE void Fp::redc(Fp& ret, const struct UFp& a)
+	{
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 #ifdef BLST_ADX
 		redcx_mont_384(&ret, &a, &get_BLST_P(), BLST_p0);
@@ -415,135 +310,78 @@ namespace blst
 		redc_mont_384(&ret, &a, &get_BLST_P(), BLST_p0);
 #endif
 #else
-		//cc_redc_mont_384(ret, a, get_BLST_P(), BLST_p0);
 		cc_redc_mont_n<NLIMBS(384)>(ret.data, a.data, get_BLST_P().data, BLST_p0);
 #endif
 	}
 
-	BLST_HD BLST_FORCEINLINE void Fp::cneg(Fp& ret, const Fp& a, bool_t flag) {
-		//cneg_mod_v384(ret, a, flag, get_BLST_P());
+	BLST_HD BLST_FORCEINLINE void Fp::cneg(Fp& ret, const Fp& a, bool_t flag)
+	{
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		cneg_mod_384(&ret, &a, flag, &get_BLST_P());
 #else
-		//cc_cneg_mod_384(ret, a, flag, get_BLST_P());
 		cc_cneg_mod_n<NLIMBS(384)>(ret.data, a.data, flag, get_BLST_P().data);
 #endif
 	}
 
-	BLST_HD BLST_FORCEINLINE void Fp::neg(Fp& ret, const Fp& a) {
+	BLST_HD BLST_FORCEINLINE void Fp::neg(Fp& ret, const Fp& a)
+	{
 		cneg(ret, a, 1);
 	}
 
-	BLST_HD BLST_FORCEINLINE void Fp::lshift(Fp& ret, const Fp& a, size_t n) {
-		lshift_mod_v384(ret, a, n, get_BLST_P());
+	BLST_HD BLST_FORCEINLINE void Fp::lshift(Fp& ret, const Fp& a, size_t count)
+	{
+		assert(count);
+#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+		lshift_mod_384(ret, a, count, get_BLST_P());
+#else
+		cc_lshift_mod_n<NLIMBS(384)>(ret.data, a.data, count, get_BLST_P().data);
+#endif
 	}
 
-	BLST_HD BLST_FORCEINLINE void Fp::rshift(Fp& ret, const Fp& a, size_t count) {
-		//rshift_mod_v384(ret, a, count, get_BLST_P());
+	BLST_HD BLST_FORCEINLINE void Fp::rshift(Fp& ret, const Fp& a, size_t count)
+	{
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		rshift_mod_384(&ret, &a, count, &get_BLST_P());
 #else
-		//cc_rshift_mod_384(ret, a, count, get_BLST_P());
 		cc_rshift_mod_n<NLIMBS(384)>(ret.data, a.data, count, get_BLST_P().data);
-
 #endif
 	}
 
-	BLST_HD BLST_FORCEINLINE void Fp::div_by_2(Fp& ret, const Fp& a) {
-		//div_by_2_mod_v384(ret, a, get_BLST_P());
+	BLST_HD BLST_FORCEINLINE void Fp::div_by_2(Fp& ret, const Fp& a)
+	{
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		div_by_2_mod_384(&ret, &a, &get_BLST_P());
 #else
-		//cc_div_by_2_mod_384(ret, a, p);
 		cc_rshift_mod_n<NLIMBS(384)>(ret.data, a.data, 1, get_BLST_P().data);
-
 #endif
 	}
 
-	BLST_HD BLST_FORCEINLINE void Fp::mul_by_3(Fp& ret, const Fp& a) {
-		//mul_by_3_mod_v384(ret, a, get_BLST_P());
+	BLST_HD BLST_FORCEINLINE void Fp::mul_by_3(Fp& ret, const Fp& a)
+	{
+		BLST_ASSERT(Fp::is_redc(a));
+
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		mul_by_3_mod_384(&ret, &a, &get_BLST_P());
 #else
-		//cc_mul_by_3_mod_384(ret, a, p);
 		cc_mul_by_3_mod_n<NLIMBS(384)>(ret.data, a.data, get_BLST_P().data);
 #endif
 	}
 
-	BLST_HD BLST_FORCEINLINE void Fp::mul_by_8(Fp& ret, const Fp& a) {
-		//mul_by_8_mod_v384(ret, a, get_BLST_P());
+	BLST_HD BLST_FORCEINLINE void Fp::mul_by_8(Fp& ret, const Fp& a)
+	{
+		BLST_ASSERT(Fp::is_redc(a));
+
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		mul_by_8_mod_384(&ret, &a, &get_BLST_P());
 #else
-		cc_mul_by_8_mod_384(ret, a, get_BLST_P());
-		
+		cc_lshift_mod_n<NLIMBS(384)>(ret, a, 3, get_BLST_P());
 #endif
 	}
 
-
-
-	//// 
-	//BLST_HD BLST_FORCEINLINE void mul_mont_v384(Fp& ret, const Fp& a, const Fp& b,
-	//	const Fp& p, limb n0)
-	//{
-
-	//}
-
-	//BLST_HD BLST_FORCEINLINE void sqr_mont_v384(Fp& ret, const Fp& a, const Fp& p, limb n0)
-	//{
-
-	//}
-
-	//BLST_HD BLST_FORCEINLINE void sqr_n_mul_mont_v384(Fp& ret, const Fp& a, size_t count,
-	//	const Fp& p, limb n0, const Fp& b)
-	//{
-	//#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-	//	sqrx_n_mul_mont_384(ret, a, count, get_BLST_P(), BLST_p0, b);
-	//#else
-	//	cc_sqr_n_mul_mont_384(ret, a, count, get_BLST_P(), BLST_p0, b);
-	//#endif
-	//}
-
-	/**
-	 * @brief Squares a 384-bit integer multiple times and multiplies the result in Montgomery form.
-	 *
-	 * This function computes `(a^(2^count) * b * R^(-1)) mod p` in Montgomery form, where `R` is the Montgomery constant.
-	 * The input `a` is squared `count` times, and the result is multiplied by `b` modulo `p`.
-	 *
-	 * @param[out] ret   The output 384-bit integer in Montgomery form.
-	 * @param[in]  a     The input 384-bit integer in Montgomery form.
-	 * @param[in]  count The number of squaring operations to perform.
-	 * @param[in]  p     The modulus.
-	 * @param[in]  n0    The Montgomery constant.
-	 * @param[in]  b     The multiplier in Montgomery form.
-	 *
-	 * @note Assumes `count > 0` and `a`, `b`, and `p` are valid 384-bit integers.
-	 */
-	BLST_HD BLST_INLINE void cc_sqr_n_mul_mont_384(Fp& ret, const Fp& a, size_t count,
-		const Fp& p, limb n0, const Fp& b)
+	BLST_HD BLST_FORCEINLINE void Fp::sqr_n_mul(Fp& ret, const Fp& a, size_t count, const Fp& b)
 	{
-		BLST_ASSUME(count != 0);
-		auto ptr = &a;
+		BLST_ASSERT(Fp::is_redc(a));
 
-		while (count--) {
-			cc_mul_mont_nonred_n<NLIMBS(384)>(ret, *ptr, *ptr, p, n0);
-			ptr = &ret;
-		}
-		cc_mul_mont_n<NLIMBS(384)>(ret, ret, b, p, n0);
-	}
-
-
-	/*
-	 * "383"-bit variant omits full reductions at the ends of squarings,
-	 * which results in up to ~15% improvement. [One can improve further
-	 * by omitting full reductions even after multiplications and
-	 * performing final reduction at the very end of the chain.]
-	 *
-	 * see sqr_n_Fp::mul
-	 */
-	BLST_HD BLST_FORCEINLINE void sqr_n_mul_mont_v383(Fp& ret, const Fp& a, size_t count,
-		const Fp& p, limb n0, const Fp& b)
-	{
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		sqrx_n_mul_mont_383(&ret, &a, count, &get_BLST_P(), BLST_p0, &b);
 #else
@@ -551,84 +389,26 @@ namespace blst
 #endif
 	}
 
-	BLST_HD BLST_FORCEINLINE void Fp::sqr_n_mul(Fp& ret, const Fp& a, size_t count, const Fp& b)
-	{
-		sqr_n_mul_mont_v383(ret, a, count, get_BLST_P(), BLST_p0, b);
-	}
 
-	//void mul_384(UFp& ret, const Fp& a, const Fp& b)
-	//{
-	//#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-	//	mulx_384(ret, a, b);
-	//#else
-	//	cc_mul_384(ret, a, b);
-	//#endif
-	//}
-	//void sqr_384(UFp& ret, const Fp& a);
-
-	//BLST_HD BLST_FORCEINLINE void redc_mont_v384(Fp& ret, const UFp& a, const Fp& p, limb n0)
-	//{
-
-	//}
-
-	//BLST_HD BLST_FORCEINLINE void from_mont_v384(Fp& ret, const Fp& a, const Fp& p, limb n0)
-	//{
-
-	//}
-
-
-	BLST_HD BLST_FORCEINLINE limb sgn0_pty_mont_v384(const Fp& a, const Fp& p, limb n0)
+	BLST_HD BLST_FORCEINLINE limb_t Fp::sgn0_pty_mont(const Fp& a)
 	{
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-		return sgn0x_pty_mont_384(&a, &p, n0);
+		return sgn0x_pty_mont_384(&a, &modulus(), BLST_p0);
 #else
-		return cc_sgn0_pty_mont_384(a, p, n0);
+		Fp tmp;
+		cc_from_mont_n<NLIMBS(384)>(tmp.data, a.data, modulus(), BLST_p0);
+		return cc_sgn0_pty_mod_n<NLIMBS(384)>(tmp.data, modulus());
 #endif
 	}
 
-	BLST_HD BLST_FORCEINLINE limb sgn0_pty_mod_v384(const Fp& a, const Fp& p)
+	BLST_HD BLST_FORCEINLINE limb_t Fp::sgn0_pty(const Fp& a)
 	{
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-		return sgn0_pty_mod_384(&a, &p);
+		return sgn0_pty_mod_384(a, modulus());
 #else
-		return cc_sgn0_pty_mod_384(a, p);
+		return cc_sgn0_pty_mod_n<NLIMBS(384)>(a.data, modulus());
 #endif
 	}
-
-
-	//BLST_HD BLST_FORCEINLINE void add_mod_v384(Fp& ret, const Fp& a, const Fp& b, const Fp& p)
-	//{
-	//}
-
-	//BLST_HD BLST_FORCEINLINE void sub_mod_v384(Fp& ret, const Fp& a, const Fp& b, const Fp& p)
-	//{
-
-	//}
-	//BLST_HD BLST_FORCEINLINE void mul_by_8_mod_v384(Fp& ret, const Fp& a, const Fp& p)
-	//{
-
-
-	//}
-	//BLST_HD BLST_FORCEINLINE void mul_by_3_mod_v384(Fp& ret, const Fp& a, const Fp& p)
-	//{
-
-	//}
-
-	//BLST_HD BLST_FORCEINLINE void cneg_mod_v384(Fp& ret, const Fp& a, bool_t flag, const Fp& p)
-	//{
-
-	//}
-
-	//void lshift_mod_v384(Fp& ret, const Fp& a, size_t count, const Fp& p);
-
-	//BLST_HD BLST_FORCEINLINE void rshift_mod_v384(Fp& ret, const Fp& a, size_t count, const Fp& p)
-	//{
-
-	//}
-	//BLST_HD BLST_FORCEINLINE void div_by_2_mod_v384(Fp& ret, const Fp& a, const Fp& p)
-	//{
-
-	//}
 
 
 	BLST_HD BLST_FORCEINLINE void ct_inverse_mod_v384(UFp& ret, const Fp& inp, const Fp& mod,
@@ -643,139 +423,40 @@ namespace blst
 	}
 
 
-	BLST_HD BLST_FORCEINLINE bool_t ct_is_square_mod_v384(const Fp& inp, const Fp& mod)
+	BLST_HD BLST_FORCEINLINE bool_t Fp::is_sqrt(const Fp& inp)
 	{
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-		return ct_is_square_mod_384(&inp, &mod);
+		return ct_is_square_mod_384(&inp, &modulus());
 #else
-		//return cc_ct_is_square_mod_384(inp, mod);
-		return cc_ct_is_sqr_mod_n<NLIMBS(384)>(inp, mod);
-
+		return cc_ct_is_sqr_mod_n<NLIMBS(384)>(inp, modulus());
 #endif
 	}
 
-
-
-//
-//
-//	//BLST_EXTERN_C_BEGIN
-//
-//	/*
-//	 * BLS12-381-specific Fp shortcuts to assembly.
-//	 */
-//	BLST_HD BLST_FORCEINLINE void Fp::add(Fp& ret, const Fp& a, const Fp& b)
-//	{
-//		add_mod_v384(ret, a, b, get_BLST_P());
-//	}
-//
-//	BLST_HD BLST_FORCEINLINE void Fp::sub(Fp& ret, const Fp& a, const Fp& b)
-//	{
-//		sub_mod_v384(ret, a, b, get_BLST_P());
-//	}
-//
-//	BLST_HD BLST_FORCEINLINE void mul_by_3_fp(Fp& ret, const Fp& a)
-//	{
-//		mul_by_3_mod_v384(ret, a, get_BLST_P());
-//	}
-//
-//	BLST_HD BLST_FORCEINLINE void mul_by_8_fp(Fp& ret, const Fp& a)
-//	{
-//		mul_by_8_mod_v384(ret, a, get_BLST_P());
-//	}
-//
-//	BLST_HD BLST_FORCEINLINE void lshift_fp(Fp& ret, const Fp& a, size_t count)
-//	{
-//		lshift_mod_v384(ret, a, count, get_BLST_P());
-//	}
-//
-//	BLST_HD BLST_FORCEINLINE void rshift_fp(Fp& ret, const Fp& a, size_t count)
-//	{
-//		rshift_mod_v384(ret, a, count, get_BLST_P());
-//	}
-//
-//	BLST_HD BLST_FORCEINLINE void Fp::div_by_2(Fp& ret, const Fp& a)
-//	{
-//		div_by_2_mod_v384(ret, a, get_BLST_P());
-//	}
-//
-//	BLST_HD BLST_FORCEINLINE void Fp::mul(Fp& ret, const Fp& a, const Fp& b)
-//	{
-//		mul_mont_v384(ret, a, b, get_BLST_P(), BLST_p0);
-//	}
-//
-//	BLST_HD BLST_FORCEINLINE void Fp::sqr(Fp& ret, const Fp& a)
-//	{
-//		sqr_mont_v384(ret, a, get_BLST_P(), BLST_p0);
-//	}
-//
-//	BLST_HD BLST_FORCEINLINE void cFp::neg(Fp& ret, const Fp& a, bool_t flag)
-//	{
-//		cneg_mod_v384(ret, a, flag, get_BLST_P());
-//	}
-//
-//	BLST_HD BLST_FORCEINLINE void from_fp(Fp& ret, const Fp& a)
-//	{
-//		from_mont_v384(ret, a, get_BLST_P(), BLST_p0);
-//	}
-//
-//	BLST_HD BLST_FORCEINLINE void to_fp(Fp& ret, const Fp& a)
-//	{
-//		Fp::mul(ret, a, get_BLST_RR());
-//	}
-//
-//	BLST_HD BLST_FORCEINLINE void redc_fp(Fp& ret, const UFp& a)
-//	{
-//		redc_mont_v384(ret, a, get_BLST_P(), BLST_p0);
-//	}
-//
-//#define vec_load_global vec_copy
-//
-//	BLST_HD void reciprocal_fp(Fp& out, const Fp& inp);
-//	BLST_HD void flt_reciprocal_fp(Fp& out, const Fp& inp);
-//	BLST_HD bool_t recip_sqrt_fp(Fp& out, const Fp& inp);
-//	BLST_HD bool_t sqrt_fp(Fp& out, const Fp& inp);
-//
-//#define Fp::neg(r,a) cFp::neg((r),(a),1)
-//	//#define Fp::neg2(r,a) Fp2::cneg((r),(a),1)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	//BLST_EXTERN_C_BEGIN
 	/*
 	 * |out| = |inp|^|pow|, small footprint, public exponent
 	 */
-	BLST_HD BLST_INLINE void exp_mont_384(Fp& out, const Fp& inp, const byte* pow,
-		size_t pow_bits/*, const Fp& p, limb n0*/)
+	BLST_HD BLST_INLINE void Fp::exp(Fp& out, const Fp& inp, const byte* pow,
+		size_t pow_bits)
 	{
 		Fp ret;
+
+		// requies MSB of pow is set
+		BLST_ASSERT(pow_bits && ((pow[(pow_bits - 1) >> 3] >> ((pow_bits - 1) & 7)) & 1));
 
 		vec_copy(ret, inp, sizeof(ret));  /* ret = inp^1 */
 		--pow_bits; /* most significant bit is set, skip over */
 		while (pow_bits--) {
-			Fp::sqr(ret, ret/*, p, n0*/);
+			Fp::sqr(ret, ret);
 			if (is_bit_set(pow, pow_bits))
-				Fp::mul(ret, ret, inp/*, p, n0*/);
+				Fp::mul(ret, ret, inp);
 		}
 		vec_copy(out, ret, sizeof(ret));  /* out = ret */
 	}
 
 
-
-
-#if defined(__OPTIMIZE_SIZE__)  || defined(__CUDA_ARCH__)
-	BLST_HD BLST_FORCEINLINE void recip_sqrt_fp_3mod4(Fp& out, const Fp& inp)
+	BLST_HD BLST_INLINE void Fp::recip_sqrt_3mod4(Fp& out, const Fp& inp)
 	{
+#if defined(__OPTIMIZE_SIZE__) || defined(__CUDA_ARCH__)
 		const byte BLS_12_381_P_minus_3_div_4[] = {
 			TO_BYTES(0xee7fbfffffffeaaa), TO_BYTES(0x07aaffffac54ffff),
 			TO_BYTES(0xd9cc34a83dac3d89), TO_BYTES(0xd91dd2e13ce144af),
@@ -783,55 +464,17 @@ namespace blst
 		};
 
 		exp_mont_384(out, inp, BLS_12_381_P_minus_3_div_4, 379);
-	}
 #else
-# if 1
-	/*
-	 * "383"-bit variant omits full reductions at the ends of squarings,
-	 * which results in up to ~15% improvement. [One can improve further
-	 * by omitting full reductions even after multiplications and
-	 * performing final reduction at the very end of the chain.]
-	 */
-	BLST_HD BLST_FORCEINLINE void sqr_n_mul_fp(Fp& out, const Fp& a, size_t count,
-		const Fp& b)
-	{
-		sqr_n_mul_mont_v383(out, a, count, get_BLST_P(), BLST_p0, b);
-	}
-# else
-	BLST_HD void sqr_n_Fp::mul(Fp& out, const Fp& a, size_t count,
-		const Fp& b)
-	{
-		while (count--) {
-			Fp::sqr(out, a);
-			a = out;
-		}
-		Fp::mul(out, out, b);
-	}
-# endif
-
-# define sqr(ret,a)		Fp::sqr(ret,a)
-# define mul(ret,a,b)		Fp::mul(ret,a,b)
-# define sqr_n_mul(ret,a,n,b)	Fp::sqr_n_mul(ret,a,n,b)
-
-# include "sqrt-addchain.h"
-	BLST_HD BLST_INLINE void recip_sqrt_fp_3mod4(Fp& out, const Fp& inp)
-	{
-		RECIP_SQRT_MOD_BLS12_381_P(out, inp, Fp);
-	}
-
-
-# undef RECIP_SQRT_MOD_BLS12_381_P
-# undef sqr_n_mul
-# undef sqr
-# undef mul
+		add_chain_recip_sqrt<Fp>(out, inp);
 #endif
+	}
 
-	BLST_HD BLST_INLINE bool_t recip_sqrt_fp(Fp& out, const Fp& inp)
+	BLST_HD BLST_FORCEINLINE bool_t Fp::recip_sqrt(Fp& out, const Fp& inp)
 	{
 		Fp t0, t1;
 		bool_t ret;
 
-		recip_sqrt_fp_3mod4(t0, inp);
+		recip_sqrt_3mod4(t0, inp);
 
 		Fp::mul(t1, t0, inp);
 		Fp::sqr(t1, t1);
@@ -841,12 +484,12 @@ namespace blst
 		return ret;
 	}
 
-	BLST_HD BLST_INLINE bool_t sqrt_fp(Fp& out, const Fp& inp)
+	BLST_HD BLST_FORCEINLINE bool_t Fp::sqrt(Fp& out, const Fp& inp)
 	{
 		Fp t0, t1;
 		bool_t ret;
 
-		recip_sqrt_fp_3mod4(t0, inp);
+		recip_sqrt_3mod4(t0, inp);
 
 		Fp::mul(t0, t0, inp);
 		Fp::sqr(t1, t0);
@@ -856,27 +499,20 @@ namespace blst
 		return ret;
 	}
 
-	BLST_HD BLST_FORCEINLINE int blst_fp_sqrt(Fp& out, const Fp& inp)
-	{
-		return (int)sqrt_fp(out, inp);
-	}
 
-	BLST_HD BLST_FORCEINLINE int blst_fp_is_square(const Fp& inp)
+	BLST_HD BLST_FORCEINLINE bool_t Fp::equal(const Fp& a, const Fp& b)
 	{
-		return (int)ct_is_square_mod_v384(inp, get_BLST_P());
-	}
-	BLST_HD BLST_FORCEINLINE bool_t Fp::recip_sqrt(Fp& out, const Fp& inp)
-	{
-		return recip_sqrt_fp(out, inp);
-
-	}
-	BLST_HD BLST_FORCEINLINE bool_t Fp::sqrt(Fp& out, const Fp& inp)
-	{
-		return sqrt_fp(out, inp);
+		Fp aa, bb;
+		from_mont(aa, a);
+		from_mont(bb, b);
+		return vec_is_equal(aa, bb, sizeof(Fp));
 	}
 
 
 
+
+	BLST_HD BLST_FORCEINLINE void Fp::flt_reciprocal(Fp& out, const Fp& inp)
+	{
 #if defined(__OPTIMIZE_SIZE__) || defined(__CUDA_ARCH__)
 	/*
 	 * 608 multiplications for scalar inversion modulo BLS12-381 prime, 32%
@@ -884,8 +520,6 @@ namespace blst
 	 * branch penalties on top of that... The addition chain below was
 	 * measured to be >50% faster.
 	 */
-	BLST_HD BLST_INLINE void flt_reciprocal_fp(Fp& out, const Fp& inp)
-	{
 		const byte BLS12_381_P_minus_2[] = {
 			TO_BYTES(0xb9feffffffffaaa9), TO_BYTES(0x1eabfffeb153ffff),
 			TO_BYTES(0x6730d2a0f6b0f624), TO_BYTES(0x64774b84f38512bf),
@@ -893,30 +527,16 @@ namespace blst
 		};
 
 		exp_mont_384(out, inp, BLS12_381_P_minus_2, 381);
-	}
 #else
-#	define sqr(ret,a)		Fp::sqr(ret,a)
-#	define mul(ret,a,b)		Fp::mul(ret,a,b)
-#	define sqr_n_mul(ret,a,n,b)	Fp::sqr_n_mul(ret,a,n,b)
-
-	BLST_HD BLST_INLINE void flt_reciprocal_fp(Fp& out, const Fp& inp)
-	{
-		RECIPROCAL_MOD_BLS12_381_P(out, inp, Fp);
-	}
-#	undef RECIPROCAL_MOD_BLS12_381_P
-#	undef sqr_n_mul
-#	undef mul
-#	undef sqr
+		// use a unrolled addition chain
+		RECIPROCAL_MOD_BLS12_381_P<Fp>(out, inp);
 #endif
-
-	BLST_HD BLST_FORCEINLINE void Fp::flt_reciprocal(Fp& out, const Fp& inp)
-	{
-		flt_reciprocal_fp(out, inp);
 	}
 
 
-	BLST_HD BLST_INLINE void reciprocal_fp(Fp& out, const Fp& inp)
-	{
+	BLST_HD BLST_FORCEINLINE void Fp::reciprocal(Fp& out, const Fp& inp) {
+		//reciprocal_fp(out, inp);
+
 		const Fp Px8 = {    /* left-aligned value of the modulus */
 			TO_LIMB_T(0xcff7fffffffd5558), TO_LIMB_T(0xf55ffff58a9ffffd),
 			TO_LIMB_T(0x39869507b587b120), TO_LIMB_T(0x23ba5c279c2895fb),
@@ -924,7 +544,11 @@ namespace blst
 		};
 		union { UFp x; Fp r[2]; } temp;
 
+		// returns temp.x * inp = 1 (mod mod). not return a Montgomery value; 
+		// that’s why we then does redc + multiply by RR to move into Mont.
 		ct_inverse_mod_v384(temp.x, inp, get_BLST_P(), Px8);
+
+		// map back to montgomery
 		Fp::redc(temp.r[0], temp.x);
 		Fp::mul(temp.r[0], temp.r[0], get_BLST_RR());
 
@@ -935,28 +559,19 @@ namespace blst
 			vec_is_zero(&temp.r[1], sizeof(Fp)))
 			vec_copy(&out, &temp.r[0], sizeof(Fp));
 		else
-			flt_reciprocal_fp(out, inp);
+		{
+			// fallback, should be rare
+			Fp::flt_reciprocal(out, inp);
+		}
 #else
 		vec_copy(&out, &temp.r[0], sizeof(Fp));
 #endif
 	}
 
-	BLST_HD BLST_FORCEINLINE void Fp::reciprocal(Fp& out, const Fp& inp) {
-		reciprocal_fp(out, inp);
-	}
-
-
-	BLST_HD BLST_FORCEINLINE void blst_fp_inverse(Fp& out, const Fp& inp)
+	BLST_HD BLST_FORCEINLINE limb_t Fp::is_redc(const Fp& a)
 	{
-		reciprocal_fp(out, inp);
+		return cc_is_redc_mod_n<NLIMBS(384)>((const byte*)a.data, modulus().data);
 	}
-
-	BLST_HD BLST_FORCEINLINE void blst_fp_eucl_inverse(Fp& ret, const Fp& a)
-	{
-		reciprocal_fp(ret, a);
-	}
-
-
 
 
 	BLST_HD BLST_FORCEINLINE const Fp& Fp::zero()
@@ -972,7 +587,6 @@ namespace blst
 		return get_BLST_P();
 	}
 
-	//BLST_EXTERN_C_END
 }
 
 #endif /* BLST_FP_H */

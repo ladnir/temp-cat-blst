@@ -36,6 +36,7 @@ namespace blst
         Fp::lshift(out[1], out[1], 4);
     }
 
+    template<>
     BLST_HD BLST_INLINE void POINTonE2::cneg(POINTonE2& p, bool_t cbit)
     {
         Fp2::cneg(p.Y, p.Y, cbit);
@@ -49,7 +50,7 @@ namespace blst
     BLST_HD BLST_INLINE void POINTonE2_from_Jacobian(POINTonE2& out, const POINTonE2& in)
     {
         Fp2 Z, ZZ;
-        limb inf = vec_is_zero(in.Z.data, sizeof(in.Z));
+        limb_t inf = vec_is_zero(in.Z.data, sizeof(in.Z));
 
         reciprocal_fp2(Z, in.Z);                           /* 1/Z */
 
@@ -63,6 +64,7 @@ namespace blst
             sizeof(get_BLST_G2().Z), inf);    /* Z = inf ? 0 : 1 */
     }
 
+    template<>
     BLST_HD BLST_INLINE void POINTonE2::from_Jacobian(POINTonE2& out, const POINTonE2& in)
     {
 		POINTonE2_from_Jacobian(out, in);
@@ -85,6 +87,7 @@ namespace blst
         vec_copy(&out, ptr, sizeof(out));
     }
 
+    template<>
     BLST_HD BLST_INLINE void POINTonE2::to_affine(POINTonE2_affine& out, const POINTonE2& in)
     {
 		POINTonE2_to_affine(out, in);
@@ -123,7 +126,7 @@ namespace blst
     BLST_HD BLST_INLINE bool_t POINTonE2_on_curve(const POINTonE2& p)
     {
         Fp2 XXX, YY, BZ6;
-        limb inf = vec_is_zero(&p.Z, sizeof(p.Z));
+        limb_t inf = vec_is_zero(&p.Z, sizeof(p.Z));
 
         Fp2::sqr(BZ6, p.Z);
         Fp2::mul(BZ6, BZ6, p.Z);
@@ -144,7 +147,7 @@ namespace blst
         return (int)POINTonE2_on_curve(p);
     }
 
-    BLST_HD BLST_INLINE limb POINTonE2_affine_Serialize_BE(unsigned char out[192],
+    BLST_HD BLST_INLINE limb_t POINTonE2_affine_Serialize_BE(unsigned char out[192],
         const POINTonE2_affine& in)
     {
         Fp2 temp;
@@ -174,7 +177,7 @@ namespace blst
         }
     }
 
-    BLST_HD BLST_INLINE  limb POINTonE2_Serialize_BE(unsigned char out[192],
+    BLST_HD BLST_INLINE  limb_t POINTonE2_Serialize_BE(unsigned char out[192],
         const POINTonE2& in)
     {
         POINTonE2 p;
@@ -204,7 +207,7 @@ namespace blst
         POINTonE2_Serialize(out, in);
     }
 
-    BLST_HD BLST_INLINE limb POINTonE2_affine_Compress_BE(unsigned char out[96],
+    BLST_HD BLST_INLINE limb_t POINTonE2_affine_Compress_BE(unsigned char out[96],
         const POINTonE2_affine& in)
     {
         Fp temp;
@@ -224,12 +227,12 @@ namespace blst
             out[0] = 0xc0;    /* compressed and infinity bits */
         }
         else {
-            limb sign = POINTonE2_affine_Compress_BE(out, in);
+            limb_t sign = POINTonE2_affine_Compress_BE(out, in);
             out[0] |= (unsigned char)(0x80 | ((sign & 2) << 4));
         }
     }
 
-    BLST_HD BLST_INLINE limb POINTonE2_Compress_BE(unsigned char out[96],
+    BLST_HD BLST_INLINE limb_t POINTonE2_Compress_BE(unsigned char out[96],
         const POINTonE2& in)
     {
         POINTonE2 p;
@@ -250,12 +253,12 @@ namespace blst
             out[0] = 0xc0;    /* compressed and infinity bits */
         }
         else {
-            limb sign = POINTonE2_Compress_BE(out, in);
+            limb_t sign = POINTonE2_Compress_BE(out, in);
             out[0] |= (unsigned char)(0x80 | ((sign & 2) << 4));
         }
     }
 
-    BLST_HD BLST_INLINE limb POINTonE2_Uncompress_BE(POINTonE2_affine& out,
+    BLST_HD BLST_INLINE limb_t POINTonE2_Uncompress_BE(POINTonE2_affine& out,
         const unsigned char in[96])
     {
         POINTonE2_affine ret;
@@ -265,14 +268,14 @@ namespace blst
         limbs_from_be_bytes(ret.X[0], in + 48, sizeof(ret.X[0]));
 
         /* clear top 3 bits in case caller was conveying some information there */
-        ret.X[1][sizeof(ret.X[1]) / sizeof(limb) - 1] &= ((limb)0 - 1) >> 3;
+        ret.X[1][sizeof(ret.X[1]) / sizeof(limb_t) - 1] &= ((limb_t)0 - 1) >> 3;
         Fp::add(temp, ret.X[1], Fp::zero());  /* less than modulus? */
         if (!vec_is_equal(temp, ret.X[1], sizeof(temp)))
-            return (limb)0 - BLST_BAD_ENCODING;
+            return (limb_t)0 - BLST_BAD_ENCODING;
 
         Fp::add(temp, ret.X[0], Fp::zero());  /* less than modulus? */
         if (!vec_is_equal(temp, ret.X[0], sizeof(temp)))
-            return (limb)0 - BLST_BAD_ENCODING;
+            return (limb_t)0 - BLST_BAD_ENCODING;
 
         Fp::mul(ret.X[0], ret.X[0], get_BLST_RR());
         Fp::mul(ret.X[1], ret.X[1], get_BLST_RR());
@@ -281,7 +284,7 @@ namespace blst
         Fp2::mul(ret.Y, ret.Y, ret.X);
         Fp2::add(ret.Y, ret.Y, get_BLST_B_E2());                        /* X^3 + B */
         if (!sqrt_fp2(ret.Y, ret.Y))
-            return (limb)0 - BLST_POINT_NOT_ON_CURVE;
+            return (limb_t)0 - BLST_POINT_NOT_ON_CURVE;
 
         vec_copy(&out, &ret, sizeof(ret));
 
@@ -292,7 +295,7 @@ namespace blst
         const unsigned char in[96])
     {
         unsigned char in0 = in[0];
-        limb sgn0_pty;
+        limb_t sgn0_pty;
 
         if ((in0 & 0x80) == 0)      /* compressed bit */
             return BLST_BAD_ENCODING;
@@ -336,7 +339,7 @@ namespace blst
         limbs_from_be_bytes(ret.Y[0], in + 144, sizeof(ret.Y[0]));
 
         /* clear top 3 bits in case caller was conveying some information there */
-        ret.X[1][sizeof(ret.X[1]) / sizeof(limb) - 1] &= ((limb)0 - 1) >> 3;
+        ret.X[1][sizeof(ret.X[1]) / sizeof(limb_t) - 1] &= ((limb_t)0 - 1) >> 3;
         Fp::add(temp, ret.X[1], Fp::zero());  /* less than modulus? */
         if (!vec_is_equal(temp, ret.X[1], sizeof(temp)))
             return BLST_BAD_ENCODING;
@@ -532,7 +535,7 @@ namespace blst
     BLST_HD BLST_INLINE void POINTonE2_sign(POINTonE2& out, const POINTonE2& in, const pow256 SK)
     {
         Fp2 Z, ZZ;
-        limb inf;
+        limb_t inf;
 
         POINTonE2_mult_gls(out, in, SK);
 
@@ -573,7 +576,7 @@ namespace blst
         if (PK != NULL)
             vec_copy(PK,& P, sizeof(*PK));
         if (out != NULL) {
-            limb sgn0_pty = POINTonE2_Serialize_BE(out, P);
+            limb_t sgn0_pty = POINTonE2_Serialize_BE(out, P);
             out[0] |= (sgn0_pty & 2) << 4;      /* pre-decorate */
             out[0] |= vec_is_zero(&P.Z, sizeof(P.Z)) << 6;
         }
@@ -588,7 +591,7 @@ namespace blst
         if (sig != NULL)
             vec_copy(sig, &P, sizeof(sig));
         if (out != NULL) {
-            limb sgn0_pty = POINTonE2_Serialize_BE(out, P);
+            limb_t sgn0_pty = POINTonE2_Serialize_BE(out, P);
             out[0] |= (sgn0_pty & 2) << 4;      /* pre-decorate */
             out[0] |= vec_is_zero(&P.Z, sizeof(P.Z)) << 6;
         }

@@ -33,11 +33,11 @@ namespace blst
 
 	BLST_HD BLST_FORCEINLINE void vec_copy(void* BLST_restrict ret, const void* a, size_t num)
 	{
-		limb* rp = (limb*)ret;
-		const limb* ap = (const limb*)a;
+		limb_t* rp = (limb_t*)ret;
+		const limb_t* ap = (const limb_t*)a;
 		size_t i;
 
-		num /= sizeof(limb);
+		num /= sizeof(limb_t);
 
 		for (i = 0; i < num; i++)
 			rp[i] = ap[i];
@@ -46,10 +46,10 @@ namespace blst
 
 	BLST_HD BLST_INLINE void vec_zero(void* ret, size_t num)
 	{
-		volatile limb* rp = (volatile limb*)ret;
+		volatile limb_t* rp = (volatile limb_t*)ret;
 		size_t i;
 
-		num /= sizeof(limb);
+		num /= sizeof(limb_t);
 
 		for (i = 0; i < num; i++)
 			rp[i] = 0;
@@ -80,14 +80,14 @@ namespace blst
 		if (0);
 #endif
 		else {
-			limb bi;
-			volatile limb* rp = (limb*)ret;
-			const limb* ap = (const limb*)a;
-			const limb* bp = (const limb*)b;
-			limb xorm, mask = (limb)0 - sel_a;
+			limb_t bi;
+			volatile limb_t* rp = (limb_t*)ret;
+			const limb_t* ap = (const limb_t*)a;
+			const limb_t* bp = (const limb_t*)b;
+			limb_t xorm, mask = (limb_t)0 - sel_a;
 			size_t i;
 
-			num /= sizeof(limb);
+			num /= sizeof(limb_t);
 
 			for (i = 0; i < num; i++) {
 				xorm = (ap[i] ^ (bi = bp[i])) & mask;
@@ -96,17 +96,17 @@ namespace blst
 		}
 	}
 
-	BLST_HD BLST_FORCEINLINE bool_t is_zero(limb l)
+	BLST_HD BLST_FORCEINLINE bool_t is_zero(limb_t l)
 	{
-		limb ret = (~l & (l - 1)) >> (BLST_LIMB_SIZE - 1);
+		limb_t ret = (~l & (l - 1)) >> (BLST_LIMB_SIZE - 1);
 		BLST_launder(ret);
 		return ret;
 	}
 
 	BLST_HD BLST_FORCEINLINE bool_t vec_is_zero(const void* a, size_t num)
 	{
-		const limb* ap = (const limb*)a;
-		limb acc;
+		const limb_t* ap = (const limb_t*)a;
+		limb_t acc;
 		size_t i;
 
 #if defined(BLST_ASM) && !defined(__CUDA_ARCH__)
@@ -114,7 +114,7 @@ namespace blst
 			return vec_is_zero_16x(a, num);
 #endif
 
-		num /= sizeof(limb);
+		num /= sizeof(limb_t);
 
 		for (acc = 0, i = 0; i < num; i++)
 			acc |= ap[i];
@@ -124,9 +124,9 @@ namespace blst
 
 	BLST_HD BLST_FORCEINLINE bool_t vec_is_equal(const void* a, const void* b, size_t num)
 	{
-		const limb* ap = (const limb*)a;
-		const limb* bp = (const limb*)b;
-		limb acc;
+		const limb_t* ap = (const limb_t*)a;
+		const limb_t* bp = (const limb_t*)b;
+		limb_t acc;
 		size_t i;
 
 #if defined(BLST_ASM) && !defined(__CUDA_ARCH__)
@@ -134,7 +134,7 @@ namespace blst
 			return vec_is_equal_16x(a, b, num);
 #endif
 
-		num /= sizeof(limb);
+		num /= sizeof(limb_t);
 
 		for (acc = 0, i = 0; i < num; i++)
 			acc |= ap[i] ^ bp[i];
@@ -144,14 +144,14 @@ namespace blst
 
 	BLST_HD BLST_FORCEINLINE void vec_czero(void* ret, size_t num, bool_t cbit)
 	{
-		limb* rp = (limb*)ret;
+		limb_t* rp = (limb_t*)ret;
 		size_t i;
-		limb mask;
+		limb_t mask;
 
 		BLST_launder(cbit);
-		mask = (limb)0 - (cbit ^ 1);
+		mask = (limb_t)0 - (cbit ^ 1);
 
-		num /= sizeof(limb);
+		num /= sizeof(limb_t);
 
 		for (i = 0; i < num; i++)
 			rp[i] &= mask;
@@ -167,7 +167,7 @@ namespace blst
 
 	BLST_HD BLST_FORCEINLINE bool_t byte_is_zero(unsigned char c)
 	{
-		limb ret = ((limb)(c)-1) >> (BLST_LIMB_SIZE - 1);
+		limb_t ret = ((limb_t)(c)-1) >> (BLST_LIMB_SIZE - 1);
 		BLST_launder(ret);
 		return ret;
 	}
@@ -186,15 +186,15 @@ namespace blst
 	BLST_HD BLST_FORCEINLINE void vec_cswap(void* BLST_restrict a, void* BLST_restrict b, size_t num,
 		bool_t cbit)
 	{
-		limb ai, * ap = (limb*)a;
-		limb bi, * bp = (limb*)b;
-		limb xorm, mask;
+		limb_t ai, * ap = (limb_t*)a;
+		limb_t bi, * bp = (limb_t*)b;
+		limb_t xorm, mask;
 		size_t i;
 
 		BLST_launder(cbit);
-		mask = (limb)0 - cbit;
+		mask = (limb_t)0 - cbit;
 
-		num /= sizeof(limb);
+		num /= sizeof(limb_t);
 
 		for (i = 0; i < num; i++) {
 			xorm = ((ai = ap[i]) ^ (bi = bp[i])) & mask;

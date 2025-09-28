@@ -79,7 +79,7 @@ namespace blst
 	}
 
 
-	BLST_HD BLST_FORCEINLINE limb div_3_limbs_v(const limb dividend_top[2], limb d_lo, limb d_hi)
+	BLST_HD BLST_FORCEINLINE limb_t div_3_limbs_v(const limb_t dividend_top[2], limb_t d_lo, limb_t d_hi)
 	{
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		return div_3_limbs(dividend_top, d_lo, d_hi);
@@ -88,7 +88,7 @@ namespace blst
 #endif
 	}
 
-	BLST_HD BLST_FORCEINLINE limb quot_rem_128_v(limb* quot_rem, const limb* divisor, limb quotient)
+	BLST_HD BLST_FORCEINLINE limb_t quot_rem_128_v(limb_t* quot_rem, const limb_t* divisor, limb_t quotient)
 	{
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		return quot_rem_128(quot_rem, divisor, quotient);
@@ -97,7 +97,7 @@ namespace blst
 #endif
 	}
 
-	BLST_HD BLST_FORCEINLINE limb quot_rem_64_v(limb* quot_rem, const limb* divisor, limb quotient)
+	BLST_HD BLST_FORCEINLINE limb_t quot_rem_64_v(limb_t* quot_rem, const limb_t* divisor, limb_t quotient)
 	{
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		return quot_rem_64(quot_rem, divisor, quotient);
@@ -115,16 +115,16 @@ namespace blst
 	/*
 	 * Divide 255-bit |val| by z^2 yielding 128-bit quotient and remainder in place.
 	 */
-	BLST_HD BLST_INLINE void div_by_zz(limb val[])
+	BLST_HD BLST_INLINE void div_by_zz(limb_t val[])
 	{
-		const limb zz[] = { TO_LIMB_T(0x0000000100000000),
+		const limb_t zz[] = { TO_LIMB_T(0x0000000100000000),
 									 TO_LIMB_T(0xac45a4010001a402) };
 		size_t loop, zz_len = sizeof(zz) / sizeof(zz[0]);
-		limb d_lo, d_hi;
+		limb_t d_lo, d_hi;
 		d_lo = zz[zz_len - 2];
 		d_hi = zz[zz_len - 1];
 		for (loop = zz_len, zz_len--; loop--;) {
-			limb q = div_3_limbs_v(val + loop + zz_len, d_lo, d_hi);
+			limb_t q = div_3_limbs_v(val + loop + zz_len, d_lo, d_hi);
 			(void)quot_rem_128_v(val + loop, zz, q);
 		}
 
@@ -134,17 +134,17 @@ namespace blst
 	/*
 	 * Divide 128-bit |val| by z yielding 64-bit quotient and remainder in place.
 	 */
-	BLST_HD BLST_INLINE void div_by_z(limb* val)
+	BLST_HD BLST_INLINE void div_by_z(limb_t* val)
 	{
-		const limb z[] = { TO_LIMB_T(0xd201000000010000) };
+		const limb_t z[] = { TO_LIMB_T(0xd201000000010000) };
 		size_t loop, z_len = sizeof(z) / sizeof(z[0]);
-		limb d_lo, d_hi;
+		limb_t d_lo, d_hi;
 
-		d_lo = (sizeof(z) == sizeof(limb)) ? 0 : z[z_len - 2];
+		d_lo = (sizeof(z) == sizeof(limb_t)) ? 0 : z[z_len - 2];
 		d_hi = z[z_len - 1];
 
 		for (loop = z_len, z_len--; loop--;) {
-			limb q = div_3_limbs_v(val + loop + z_len, d_lo, d_hi);
+			limb_t q = div_3_limbs_v(val + loop + z_len, d_lo, d_hi);
 			(void)quot_rem_64_v(val + loop, z, q);
 		}
 

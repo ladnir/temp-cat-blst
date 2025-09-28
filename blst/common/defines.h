@@ -100,7 +100,7 @@
 #if BLST_LIMB_SIZE == 64
 # define TO_LIMB_T(limb64)     limb64
 #else
-# define TO_LIMB_T(limb64)     (limb)limb64,(limb)(limb64>>32)
+# define TO_LIMB_T(limb64)     (limb_t)limb64,(limb_t)(limb64>>32)
 #endif
 
 
@@ -110,9 +110,9 @@ namespace blst
 {
 
 #if BLST_LIMB_SIZE == 64
-    typedef unsigned long long limb;
+    typedef unsigned long long limb_t;
 #elif BLST_LIMB_SIZE == 32
-    typedef unsigned int limb;
+    typedef unsigned int limb_t;
 #else
 # error "Unsupported BLST_LIMB_SIZE"
 #endif
@@ -126,14 +126,14 @@ namespace blst
 	using i8 = int8_t;
 	using i32 = int32_t;
 	using i64 = int64_t;
-    typedef limb bool_t;
+    typedef limb_t bool_t;
 
     constexpr int NLIMBS(int bits) { return bits / BLST_LIMB_SIZE; }
 
-    typedef limb vec_256[NLIMBS(256)];
-    typedef limb vec_384[NLIMBS(384)];
-    typedef limb vec_512[NLIMBS(512)];
-    typedef limb vec_768[NLIMBS(768)];
+    typedef limb_t vec_256[NLIMBS(256)];
+    typedef limb_t vec_384[NLIMBS(384)];
+    typedef limb_t vec_512[NLIMBS(512)];
+    typedef limb_t vec_768[NLIMBS(768)];
     typedef vec_384 vec_384x[2];      /* 0 is "real" part, 1 is "imaginary" */
     typedef vec_768 vec_768x[2];      /* 0 is "real" part, 1 is "imaginary" */
 
@@ -147,8 +147,8 @@ namespace blst
     {
         vec_512 data;
 
-        BLST_HD operator limb* () { return data; }
-        BLST_HD operator const limb* () const { return data; }
+        BLST_HD operator limb_t* () { return data; }
+        BLST_HD operator const limb_t* () const { return data; }
     };
 
 	// 768 bits, unreduced "Fp element"
@@ -156,8 +156,8 @@ namespace blst
     {
         vec_768 data;
 
-		BLST_HD operator limb* () { return data; }
-        BLST_HD operator const limb* () const { return data; }
+		BLST_HD operator limb_t* () { return data; }
+        BLST_HD operator const limb_t* () const { return data; }
     };
 
 	// 2 * 768 bits, unreduced "Fp2 element"

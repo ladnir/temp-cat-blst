@@ -272,13 +272,13 @@ void prefix##s_mult_wbits_precompute(ptype##_affine table[], size_t wbits, \
 
 #define POINTS_MULT_WBITS_IMPL(prefix, ptype, bits, field, one) \
 void ptype##_gather_booth_wbits(ptype *p, const ptype##_affine row[], \
-                                       size_t wbits, limb booth_idx) \
+                                       size_t wbits, limb_t booth_idx) \
 { \
     bool_t booth_sign = (booth_idx >> wbits) & 1; \
     bool_t idx_is_zero; \
     const ptype##_affine infinity = { 0 }; \
 \
-    booth_idx &= ((limb)1 << wbits) - 1; \
+    booth_idx &= ((limb_t)1 << wbits) - 1; \
     idx_is_zero = is_zero(booth_idx); \
     booth_idx -= 1 ^ idx_is_zero; \
     vec_select(p, &infinity, &row[booth_idx], sizeof(row[0]), idx_is_zero); \
@@ -290,7 +290,7 @@ void ptype##s_mult_wbits(ptype *ret, const ptype##_affine table[], \
                                 const byte *const scalars[], size_t nbits, \
                                 ptype scratch[]) \
 { \
-    limb wmask, wval; \
+    limb_t wmask, wval; \
     size_t i, j, z, nbytes, window, nwin = (size_t)1 << (wbits-1); \
     const byte *scalar, *const *scalar_s = scalars; \
     const ptype##_affine *row = table; \
@@ -307,7 +307,7 @@ void ptype##s_mult_wbits(ptype *ret, const ptype##_affine table[], \
 \
     /* top excess bits modulo target window size */ \
     window = nbits % wbits; /* yes, it may be zero */ \
-    wmask = ((limb)1 << (window + 1)) - 1; \
+    wmask = ((limb_t)1 << (window + 1)) - 1; \
 \
     nbits -= window; \
     z = is_zero(nbits); \
@@ -332,7 +332,7 @@ void ptype##s_mult_wbits(ptype *ret, const ptype##_affine table[], \
             ptype##_double(ret, ret); \
 \
         window = wbits; \
-        wmask = ((limb)1 << (window + 1)) - 1; \
+        wmask = ((limb_t)1 << (window + 1)) - 1; \
         nbits -= window; \
         i = 0; row = table; scalar_s = scalars; \
     } \
@@ -515,13 +515,13 @@ template<typename Field>
 	void point_gather_booth_wbits(
 		Point<Field>* p,
 		const Point_affine<Field> row[],
-		size_t wbits, limb booth_idx)
+		size_t wbits, limb_t booth_idx)
 	{
 		bool_t booth_sign = (booth_idx >> wbits) & 1;
 		bool_t idx_is_zero;
 		const Point_affine<Field> infinity = { 0 };
 
-		booth_idx &= ((limb)1 << wbits) - 1;
+		booth_idx &= ((limb_t)1 << wbits) - 1;
 		idx_is_zero = is_zero(booth_idx);
 		booth_idx -= 1 ^ idx_is_zero;
 		vec_select(p, &infinity, &row[booth_idx], sizeof(row[0]), idx_is_zero);
@@ -534,7 +534,7 @@ template<typename Field>
 		const byte* const scalars[], size_t nbits,
 		Point<Field> scratch[])
 	{
-		limb wmask, wval;
+		limb_t wmask, wval;
 		size_t i, j, z, nbytes, window, nwin = (size_t)1 << (wbits - 1);
 		const byte* scalar, * const* scalar_s = scalars;
 		const Point_affine<Field>* row = table;
@@ -551,7 +551,7 @@ template<typename Field>
 
 		/* top excess bits modulo target window size */
 		window = nbits % wbits; /* yes, it may be zero */
-		wmask = ((limb)1 << (window + 1)) - 1;
+		wmask = ((limb_t)1 << (window + 1)) - 1;
 
 		nbits -= window;
 		z = is_zero(nbits);
@@ -576,7 +576,7 @@ template<typename Field>
 				Point<Field>::doubling(ret, ret);
 
 			window = wbits;
-			wmask = ((limb)1 << (window + 1)) - 1;
+			wmask = ((limb_t)1 << (window + 1)) - 1;
 			nbits -= window;
 			i = 0; row = table; scalar_s = scalars;
 		}
@@ -661,7 +661,7 @@ void ptype##_integrate_buckets(ptype *out, ptype##xyzz buckets[], \
     ptype##xyzz_to_Jacobian(out, ret); \
 } \
 \
-void ptype##_bucket(ptype##xyzz buckets[], limb booth_idx, \
+void ptype##_bucket(ptype##xyzz buckets[], limb_t booth_idx, \
                            size_t wbits, const ptype##_affine *p) \
 { \
     bool_t booth_sign = (booth_idx >> wbits) & 1; \
@@ -672,7 +672,7 @@ void ptype##_bucket(ptype##xyzz buckets[], limb booth_idx, \
                                                      p, booth_sign); \
 } \
 \
-void ptype##_prefetch(const ptype##xyzz buckets[], limb booth_idx, \
+void ptype##_prefetch(const ptype##xyzz buckets[], limb_t booth_idx, \
                              size_t wbits) \
 { \
     booth_idx &= (1<<wbits) - 1; \
@@ -687,13 +687,13 @@ void ptype##s_tile_pippenger(ptype *ret, \
                                     ptype##xyzz buckets[], \
                                     size_t bit0, size_t wbits, size_t cbits) \
 { \
-    limb wmask, wval, wnxt; \
+    limb_t wmask, wval, wnxt; \
     size_t i, z, nbytes; \
     const byte *scalar = *scalars++; \
     const ptype##_affine *point = *points++; \
 \
     nbytes = (nbits + 7)/8; /* convert |nbits| to bytes */ \
-    wmask = ((limb)1 << (wbits+1)) - 1; \
+    wmask = ((limb_t)1 << (wbits+1)) - 1; \
     z = is_zero(bit0); \
     bit0 -= z^1; wbits += z^1; \
     wval = (get_wval_limb(scalar, bit0, wbits) << z) & wmask; \
@@ -831,7 +831,7 @@ void prefix##s_mult_pippenger(ptype *ret, \
 	}
 
 	template<typename Field>
-	void point_bucket(Pointxyzz<Field> buckets[], limb booth_idx,
+	void point_bucket(Pointxyzz<Field> buckets[], limb_t booth_idx,
 		size_t wbits, const Point_affine<Field>* p)
 	{
 		bool_t booth_sign = (booth_idx >> wbits) & 1;
@@ -843,7 +843,7 @@ void prefix##s_mult_pippenger(ptype *ret, \
 	}
 
 	template<typename Field>
-	void point_prefetch(const Pointxyzz<Field> buckets[], limb booth_idx,
+	void point_prefetch(const Pointxyzz<Field> buckets[], limb_t booth_idx,
 		size_t wbits)
 	{
 		booth_idx &= (1 << wbits) - 1;
@@ -859,13 +859,13 @@ void prefix##s_mult_pippenger(ptype *ret, \
 		Pointxyzz<Field> buckets[],
 		size_t bit0, size_t wbits, size_t cbits)
 	{
-		limb wmask, wval, wnxt;
+		limb_t wmask, wval, wnxt;
 		size_t i, z, nbytes;
 		const byte* scalar = *scalars++;
 		const Point_affine<Field>* point = *points++;
 
 		nbytes = (nbits + 7) / 8; /* convert |nbits| to bytes */
-		wmask = ((limb)1 << (wbits + 1)) - 1;
+		wmask = ((limb_t)1 << (wbits + 1)) - 1;
 		z = is_zero(bit0);
 		bit0 -= z ^ 1; wbits += z ^ 1;
 		wval = (get_wval_limb(scalar, bit0, wbits) << z) & wmask;

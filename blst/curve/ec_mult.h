@@ -13,21 +13,21 @@ namespace blst
 {
 
     /* Works up to 9 bits */
-    BLST_HD BLST_FORCEINLINE limb get_wval(const byte* d, size_t off, size_t bits)
+    BLST_HD BLST_FORCEINLINE limb_t get_wval(const byte* d, size_t off, size_t bits)
     {
         size_t top = off + bits - 1;
-        limb ret;
+        limb_t ret;
 
-        ret = ((limb)d[top / 8] << 8) | d[off / 8];
+        ret = ((limb_t)d[top / 8] << 8) | d[off / 8];
 
         return ret >> (off % 8);
     }
 
     /* Works up to 25 bits. */
-    BLST_HD BLST_INLINE limb get_wval_limb(const byte* d, size_t off, size_t bits)
+    BLST_HD BLST_INLINE limb_t get_wval_limb(const byte* d, size_t off, size_t bits)
     {
         size_t i, top = (off + bits - 1) / 8;
-        limb ret, mask = (limb)0 - 1;
+        limb_t ret, mask = (limb_t)0 - 1;
 
         d += off / 8;
         top -= off / 8 - 1;
@@ -35,7 +35,7 @@ namespace blst
         /* this is not about constant-time-ness, but branch optimization */
         for (ret = 0, i = 0; i < 4;) {
             ret |= (*d & mask) << (8 * i);
-            mask = (limb)0 - ((++i - top) >> (8 * sizeof(top) - 1));
+            mask = (limb_t)0 - ((++i - top) >> (8 * sizeof(top) - 1));
             d += 1 & mask;
         }
 
@@ -47,9 +47,9 @@ namespace blst
      * calculated, which allows to halve the size of pre-computed table,
      * is attributed to A. D. Booth, hence the name of the subroutines...
      */
-    BLST_HD BLST_FORCEINLINE limb booth_encode(limb wval, size_t sz)
+    BLST_HD BLST_FORCEINLINE limb_t booth_encode(limb_t wval, size_t sz)
     {
-        limb mask = 0 - (wval >> sz);     /* "sign" bit -> mask */
+        limb_t mask = 0 - (wval >> sz);     /* "sign" bit -> mask */
         BLST_launder(mask);
 
         wval = (wval + 1) >> 1;
@@ -72,7 +72,7 @@ namespace blst
 #define POINT_MULT_SCALAR_WX_IMPL(ptype, SZ) \
 BLST_HD BLST_INLINE bool_t ptype##_gather_booth_w##SZ(ptype *BLST_restrict p, \
                                          const ptype table[1<<(SZ-1)], \
-                                         limb booth_idx) \
+                                         limb_t booth_idx) \
 { \
     size_t i; \
     bool_t booth_sign = (booth_idx >> SZ) & 1; \
@@ -104,7 +104,7 @@ BLST_HD BLST_INLINE void ptype##s_mult_w##SZ(ptype *ret, \
                                 const byte *scalars[], size_t bits, \
                                 ptype table[][1<<(SZ-1)]) \
 { \
-    limb wmask, wval; \
+    limb_t wmask, wval; \
     size_t i, j, window, nbytes; \
     const byte *scalar, **scalar_s = scalars; \
     ptype sum[1], row[1]; \
@@ -126,7 +126,7 @@ BLST_HD BLST_INLINE void ptype##s_mult_w##SZ(ptype *ret, \
 \
     /* top excess bits modulo target window size */ \
     window = bits % SZ; /* yes, it may be zero */ \
-    wmask = ((limb)1 << (window + 1)) - 1; \
+    wmask = ((limb_t)1 << (window + 1)) - 1; \
 \
     bits -= window; \
     if (bits > 0) \
@@ -157,7 +157,7 @@ BLST_HD BLST_INLINE void ptype##s_mult_w##SZ(ptype *ret, \
             ptype##_double(ret, ret); \
 \
         window = SZ; \
-        wmask = ((limb)1 << (window + 1)) - 1; \
+        wmask = ((limb_t)1 << (window + 1)) - 1; \
         bits -= window; \
         i = 0; scalar_s = scalars; \
     } \
@@ -182,7 +182,7 @@ BLST_HD BLST_INLINE void ptype##s_mult_w##SZ(ptype *ret, \
 BLST_HD BLST_INLINE void ptype##_mult_w##SZ(ptype *ret, const ptype *point, \
                                const byte *scalar, size_t bits) \
 { \
-    limb wmask, wval; \
+    limb_t wmask, wval; \
     size_t j, window; \
     ptype sum[1], row[1]; \
     bool_t sum_is_inf, row_is_inf, ret_is_inf; \
@@ -192,11 +192,11 @@ BLST_HD BLST_INLINE void ptype##_mult_w##SZ(ptype *ret, const ptype *point, \
 \
     /* top excess bits modulo target window size */ \
     window = bits % SZ;  /* yes, it may be zero */ \
-    wmask = ((limb)1 << (window + 1)) - 1; \
+    wmask = ((limb_t)1 << (window + 1)) - 1; \
 \
     bits -= window; \
     wval = bits ? get_wval(scalar, bits - 1, window + 1) \
-                : (limb)scalar[0] << 1; \
+                : (limb_t)scalar[0] << 1; \
     wval &= wmask; \
     wval = booth_encode(wval, SZ); \
     ret_is_inf = ptype##_gather_booth_w##SZ(ret, table, wval); \
@@ -206,11 +206,11 @@ BLST_HD BLST_INLINE void ptype##_mult_w##SZ(ptype *ret, const ptype *point, \
             ptype##_double(ret, ret); \
 \
         window = SZ; \
-        wmask = ((limb)1 << (window + 1)) - 1; \
+        wmask = ((limb_t)1 << (window + 1)) - 1; \
         bits -= window; \
 \
         wval = bits ? get_wval(scalar, bits - 1, window + 1) \
-                    : (limb)scalar[0] << 1; \
+                    : (limb_t)scalar[0] << 1; \
         wval &= wmask; \
         wval = booth_encode(wval, SZ); \
         row_is_inf = ptype##_gather_booth_w##SZ(row, table, wval); \
@@ -247,7 +247,7 @@ BLST_HD BLST_INLINE void ptype##_mult_w##SZ(ptype *ret, const ptype *point, \
 template<typename ptype, int SZ>
 BLST_HD BLST_INLINE bool_t gather_booth_w(ptype& BLST_restrict p, 
                                          const ptype table[1<<(SZ-1)], 
-                                         limb booth_idx) 
+                                         limb_t booth_idx) 
 { 
     size_t i; 
     bool_t booth_sign = (booth_idx >> SZ) & 1; 
@@ -299,7 +299,7 @@ BLST_HD BLST_INLINE void s_mult_w(ptype &ret,
                                 const byte *scalars[], size_t bits, 
                                 ptype table[][1<<(SZ-1)]) 
 { 
-    limb wmask, wval; 
+    limb_t wmask, wval; 
     size_t i, j, window, nbytes; 
     const byte *scalar, **scalar_s = scalars; 
     ptype sum, row; 
@@ -321,7 +321,7 @@ BLST_HD BLST_INLINE void s_mult_w(ptype &ret,
 
     /* top excess bits modulo target window size */ 
     window = bits % SZ; /* yes, it may be zero */ 
-    wmask = ((limb)1 << (window + 1)) - 1; 
+    wmask = ((limb_t)1 << (window + 1)) - 1; 
 
     bits -= window; 
     if (bits > 0) 
@@ -352,7 +352,7 @@ BLST_HD BLST_INLINE void s_mult_w(ptype &ret,
             ptype::doubling(ret, ret);
 
         window = SZ; 
-        wmask = ((limb)1 << (window + 1)) - 1; 
+        wmask = ((limb_t)1 << (window + 1)) - 1; 
         bits -= window; 
         i = 0; scalar_s = scalars; 
     } 
@@ -378,7 +378,7 @@ template<typename ptype, int SZ>
 BLST_HD BLST_INLINE void mult_w(ptype&ret, const ptype&point, 
                                const byte *scalar, size_t bits) 
 { 
-    limb wmask, wval; 
+    limb_t wmask, wval; 
     size_t j, window; 
     ptype sum, row; 
     bool_t sum_is_inf, row_is_inf, ret_is_inf; 
@@ -388,11 +388,11 @@ BLST_HD BLST_INLINE void mult_w(ptype&ret, const ptype&point,
 
     /* top excess bits modulo target window size */ 
     window = bits % SZ;  /* yes, it may be zero */ 
-    wmask = ((limb)1 << (window + 1)) - 1; 
+    wmask = ((limb_t)1 << (window + 1)) - 1; 
 
     bits -= window; 
     wval = bits ? get_wval(scalar, bits - 1, window + 1) 
-                : (limb)scalar[0] << 1; 
+                : (limb_t)scalar[0] << 1; 
     wval &= wmask; 
     wval = booth_encode(wval, SZ); 
     ret_is_inf = gather_booth_w<ptype, SZ>(ret, table, wval);
@@ -402,11 +402,11 @@ BLST_HD BLST_INLINE void mult_w(ptype&ret, const ptype&point,
             ptype::doubling(ret, ret);
 
         window = SZ; 
-        wmask = ((limb)1 << (window + 1)) - 1; 
+        wmask = ((limb_t)1 << (window + 1)) - 1; 
         bits -= window; 
 
         wval = bits ? get_wval(scalar, bits - 1, window + 1) 
-                    : (limb)scalar[0] << 1; 
+                    : (limb_t)scalar[0] << 1; 
         wval &= wmask; 
         wval = booth_encode(wval, SZ); 
         row_is_inf = gather_booth_w<ptype, SZ>(row, table, wval);

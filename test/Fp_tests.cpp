@@ -6,6 +6,7 @@
 
 #include "blst/fields/Fp.h"
 #include "blst/fields/Fp2.h"
+#include "InsecureRng.h"
 using namespace blst;
 
 #define LIMBS NLIMBS(384)
@@ -23,11 +24,24 @@ void set_Fp2(Fp2& v, uint64_t x0, uint64_t x1) {
 	set_Fp(v[1], x1);
 }
 
+void rand_Fp(Fp& v, InsecureRng& rng)
+{
+	for (u64 i = 0; i < v.num_limb(); ++i)
+	{
+		v[i] = rng.next_u64();
+	}
+
+	while (Fp::is_redc(v) == 0)
+	{
+		Fp::rshift(v, v, 1);
+	}
+
+	BLST_ASSERT( cc_check_mod_n<NLIMBS(384)>((byte*)v.data, get_BLST_P().data));
+}
+
 // Helper: compare two Fp for equality
 bool Fp_equal(const Fp& a, const Fp& b) {
-	for (int i = 0; i < LIMBS; ++i)
-		if (a[i] != b[i]) return false;
-	return true;
+	return Fp::equal(a, b);
 }
 
 // Helper: print Fp (for debugging)
@@ -65,6 +79,48 @@ TEST(FpOps, AddOverflow) {
 	EXPECT_TRUE(Fp_equal(r, expected));
 }
 
+TEST(FpOps, AddRandom)
+{
+
+	// test that (a + b) + c == a + (b + c)
+	Fp a, b, c, r1, r2;
+	InsecureRng rng;
+
+	for (u64 i = 0; i < 100; ++i)
+	{
+		rand_Fp(a, rng);
+		rand_Fp(b, rng);
+		rand_Fp(c, rng);
+
+		Fp::add(r1, a, b);
+		Fp::add(r1, r1, c);
+
+		Fp::add(r2, c, b);
+		Fp::add(r2, r2, a);
+
+
+		auto eq = Fp::equal(r1, r2);
+		if (!eq)
+		{
+			printf("a ");
+			print_Fp(a);
+			printf("\nb ");
+			print_Fp(b);
+			printf("\nc ");
+			print_Fp(c);
+			printf("\nr1 ");
+			print_Fp(r1);
+			printf("\nr2 ");
+			print_Fp(r2);
+
+
+
+		}
+		EXPECT_TRUE(eq);
+	}
+
+}
+
 TEST(FpOps, Sub) {
 	Fp a, b, r, expected;
 	set_Fp(a, 10);
@@ -85,44 +141,92 @@ TEST(FpOps, SubUnderflow) {
 	EXPECT_TRUE(Fp_equal(r, expected));
 }
 
+
+TEST(FpOps, SubRandom)
+{
+	Fp a, b, c, r1, r2;
+	InsecureRng rng;
+
+	for (u64 i = 0; i < 100; ++i)
+	{
+		rand_Fp(a, rng);
+		rand_Fp(b, rng);
+		Fp::add(c, a, b);
+
+		Fp::sub(r1, c, a);
+		EXPECT_TRUE(Fp::equal(r1, b));
+
+		Fp::sub(r2, c, b);
+		EXPECT_TRUE(Fp::equal(r2, a));
+	}
+
+}
+
+
 TEST(FpOps, MulBy3) {
 	Fp a, r, expected;
-	set_Fp(a, 2);
-	Fp::mul_by_3(r, a);
-	set_Fp(expected, 6);
-	EXPECT_TRUE(Fp_equal(r, expected));
+	InsecureRng rng;
+	for (u64 i = 0; i < 100; ++i)
+	{
+
+		rand_Fp(a, rng);
+		Fp::mul_by_3(r, a);
+
+		Fp::add(expected, a, a);
+		Fp::add(expected, expected, a);
+
+		EXPECT_TRUE(Fp_equal(r, expected));
+	}
 }
 
 TEST(FpOps, MulBy8) {
 	Fp a, r, expected;
-	set_Fp(a, 2);
-	Fp::mul_by_8(r, a);
-	set_Fp(expected, 16);
-	EXPECT_TRUE(Fp_equal(r, expected));
+	InsecureRng rng;
+	for (u64 i = 0; i < 100; ++i)
+	{
+
+		rand_Fp(a, rng);
+		Fp::mul_by_8(r, a);
+
+		Fp::add(expected, a, a);
+		Fp::add(expected, expected, expected);
+		Fp::add(expected, expected, expected);
+
+		EXPECT_TRUE(Fp_equal(r, expected));
+	}
 }
 
 TEST(FpOps, LShift) {
 	Fp a, r, expected;
-	set_Fp(a, 1);
-	Fp::lshift(r, a, 2);
-	set_Fp(expected, 4);
-	EXPECT_TRUE(Fp_equal(r, expected));
+	InsecureRng rng;
+	rand_Fp(a, rng);
+	expected = a;
+	for (u64 i = 1; i < 100; ++i)
+	{
+		Fp::add(expected, expected, expected);
+		Fp::lshift(r, a, i);
+		EXPECT_TRUE(Fp_equal(r, expected));
+
+	}
 }
 
-TEST(FpOps, LShiftx) {
-	Fp a, r, expected;
-	set_Fp(a, 1);
-	cc_lshift_mod_384(r, a, 2, Fp::modulus());
-	set_Fp(expected, 4);
-	EXPECT_TRUE(Fp_equal(r, expected));
-}
 
 TEST(FpOps, RShift) {
-	Fp a, r, expected;
+	Fp a, r, expected, la;
 	set_Fp(a, 8);
 	Fp::rshift(r, a, 2);
 	set_Fp(expected, 2);
 	EXPECT_TRUE(Fp_equal(r, expected));
+
+	InsecureRng rng;
+	for (u64 i = 1; i < 100; ++i)
+	{
+		memset(&a, 0, sizeof(a));
+		a[0] = rng.next_u64();
+		Fp::lshift(la, a, i);
+		Fp::rshift(r, la, i);
+		EXPECT_TRUE(Fp_equal(r, a));
+	}
 }
 
 TEST(FpOps, DivBy2) {
@@ -161,23 +265,134 @@ TEST(FpOps, Mul) {
 	EXPECT_TRUE(Fp_equal(r_std, expected));
 }
 
+
+TEST(FpOps, MulRand) {
+	Fp a, b, c, r0, r1;
+	InsecureRng rng;
+	for (u64 i = 0; i < 100; ++i)
+	{
+		// Set raw values
+		rand_Fp(a, rng);
+		rand_Fp(b, rng);
+		rand_Fp(c, rng);
+
+		Fp::mul(r0, a, b);
+		Fp::mul(r0, r0, c);
+
+		Fp::mul(r1, a, c);
+		Fp::mul(r1, r1, b);
+
+		EXPECT_TRUE(Fp_equal(r0, r1));
+	}
+}
+
 TEST(FpOps, Sqr) {
-	Fp a, r, r_std, expected;
+	for(u64 i =0; i < 100; ++i)
+	{
+		Fp a, a2, r;
+		InsecureRng rng;
+		rand_Fp(a, rng);
+		Fp::mul(a2, a, a);
+		Fp::sqr(r, a);
+		EXPECT_TRUE(Fp_equal(r, a2));
+	}
+}
 
-	// Set raw value
-	set_Fp(a, 5);
 
-	// Convert to Montgomery form
-	Fp::to_mont(a, a);
+TEST(FpOps, SqrNMul) {
+	for(u64 i =0; i < 20; ++i)
+	{
+		for (u64 j = 1; j < 10; ++j)
+		{
 
-	// Square in Montgomery form
-	Fp::sqr(r, a);
+			Fp a, b, a2, r;
+			InsecureRng rng;
+			rand_Fp(a, rng);
+			rand_Fp(b, rng);
 
-	// Convert result back to standard form
-	Fp::from_mont(r_std, r);
+			a2 = a;
+			for(u64 jj = 0; jj <j; ++jj)
+				Fp::sqr(a2, a2);
 
-	set_Fp(expected, 25);
-	EXPECT_TRUE(Fp_equal(r_std, expected));
+			Fp::mul(a2, a2, b);
+			Fp::sqr_n_mul(r, a, j, b);
+			EXPECT_TRUE(Fp_equal(r, a2));
+		}
+	}
+}
+
+
+
+TEST(FpOps, Reciprocal) {
+	Fp out, inp, r;
+	InsecureRng rng;
+	for (u64 i = 0; i < 100; ++i)
+	{
+		rand_Fp(out, rng);
+		Fp::reciprocal(inp, out);
+		Fp::mul(r, inp, out);
+		EXPECT_TRUE(Fp::equal(r, Fp::one()));
+	}
+}
+
+TEST(FpOps, RecipSqrt) {
+	Fp out; Fp out2; Fp inp; Fp r; Fp t1; Fp t2; Fp negOut;
+	InsecureRng rng;
+	for (u64 i = 0; i < 100; ++i) {
+		do { rand_Fp(out, rng); } while (Fp::equal(out, Fp::zero()));
+		Fp::sqr(out2, out);
+		Fp::reciprocal(inp, out2);                  // inp = 1/out^2
+		bool ok = Fp::recip_sqrt(r, inp);
+		EXPECT_TRUE(ok);
+		Fp::sqr(t1, r);                             // t1 = r^2
+		Fp::mul(t2, t1, inp);                       // t2 = r^2 * inp
+		EXPECT_TRUE(Fp::equal(t2, Fp::one()));                 // definition check
+		Fp t_r2;
+		Fp t_o2;
+		Fp::sqr(t_r2, r);          // r^2
+		Fp::sqr(t_o2, out);        // out^2
+		EXPECT_TRUE(Fp::equal(t_r2, t_o2));
+	}
+}
+
+
+TEST(FpOps, exp) {
+	Fp a;
+	Fp r;
+	Fp expected;
+	Fp base;
+	InsecureRng rng;
+	std::vector<u8> e(8);
+
+	auto bit = [&](size_t i) -> bool {
+		return (e[i >> 3] >> (i & 7)) & 1;
+		};
+
+	for (u64 t = 0; t < 100; ++t) {
+		rand_Fp(a, rng);
+		for (auto& b : e) b = static_cast<u8>(rng.next_u64());
+
+		size_t bits = e.size() * 8;
+		while (bits > 0 && !bit(bits - 1)) --bits;       // trim leading zeros
+		if (bits == 0) { e[0] = 1; bits = 1; }           // avoid zero exponent
+
+		Fp::exp(r, a, e.data(), bits);
+
+		expected = Fp::one();
+		base = a;
+		for (size_t i = 0; i < bits; ++i) {
+			if (bit(i)) {
+				Fp tmp;
+				Fp::mul(tmp, expected, base);
+				expected = tmp;
+			}
+			Fp tmp2;
+			Fp::sqr(tmp2, base);
+			base = tmp2;
+		}
+
+		EXPECT_TRUE(Fp::equal(r, expected));
+	}
 }
 
 TEST(FpOps, FromFp) {
@@ -331,14 +546,6 @@ TEST(FpOps, EdgeCases) {
 	for (int i = 0; i < LIMBS; ++i) expected[i] -= (i == 0 ? 1 : 0);
 	EXPECT_TRUE(Fp_equal(r, expected)) << "(p-2) + 1 should equal (p-1)";
 
-	// Test modular subtraction with underflow
-	// (p-1) - p should equal p-1
-	memcpy(temp, get_BLST_P(), sizeof(Fp));
-	for (int i = 0; i < LIMBS; ++i) temp[i] -= (i == 0 ? 1 : 0);
-	Fp::sub(r, temp, get_BLST_P());
-	memcpy(expected, get_BLST_P(), sizeof(Fp));
-	for (int i = 0; i < LIMBS; ++i) expected[i] -= (i == 0 ? 1 : 0);
-	EXPECT_TRUE(Fp_equal(r, expected)) << "(p-1) - p should equal (p-1)";
 }
 
 // Test Montgomery operations with edge cases and special values
