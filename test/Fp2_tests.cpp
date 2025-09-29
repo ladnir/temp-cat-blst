@@ -212,7 +212,7 @@ TEST(Fp2Test, Inversion) {
     Fp::mul_by_3(a[1], get_BLST_Rx().p);      // Im(a) = 3
 
     // Compute 1/a
-    reciprocal_fp2(a_inv, a);
+    Fp2::reciprocal(a_inv, a);
 
     // Check that a * (1/a) = 1
     Fp2::mul(result, a, a_inv);
@@ -240,7 +240,7 @@ TEST(Fp2Test, Frobenius) {
     Fp::cneg(expected[1], expected[1], 1);  // Negate imaginary part
 
     // Apply Frobenius
-    conjugate_fp2(frob_a, a);
+    Fp2::conjugate(frob_a, a);
 
     EXPECT_TRUE(vec_is_equal(&frob_a, &expected, sizeof(Fp2)))
         << "Frobenius(2+3i) should be 2-3i";
@@ -258,7 +258,7 @@ TEST(Fp2Test, SquareRoot) {
     Fp2::sqr(a, temp);  // a = (2+3i)²
 
     // Find square root
-    EXPECT_TRUE(sqrt_fp2(root, a)) << "Square root should succeed for a perfect square";
+    EXPECT_TRUE(Fp2::sqrt(root, a)) << "Square root should succeed for a perfect square";
 
     // Verify by squaring the root
     Fp2::sqr(root_squared, root);

@@ -234,7 +234,7 @@ static void BM_Fp2Inversion_fast(benchmark::State& state) {
     generate_random_fp2(a);
 
     for (auto _ : state) {
-        flt_reciprocal_fp2(result, a);
+        Fp2::flt_reciprocal(result, a);
         benchmark::DoNotOptimize(result);
     }
 
@@ -248,7 +248,7 @@ static void BM_Fp2Inversion_ct(benchmark::State& state) {
     generate_random_fp2(a);
 
     for (auto _ : state) {
-        reciprocal_fp2(result, a);
+        Fp2::reciprocal(result, a);
         benchmark::DoNotOptimize(result);
     }
 
@@ -265,7 +265,7 @@ static void BM_Fp2Sqrt(benchmark::State& state) {
     Fp2::sqr(a, a); // Ensure it has a square root
 
     for (auto _ : state) {
-        sqrt_fp2(b, a);
+        Fp2::sqrt(b, a);
         benchmark::DoNotOptimize(b);
     }
 
@@ -281,7 +281,7 @@ static void BM_Fp2Conjugate(benchmark::State& state) {
     generate_random_fp2(a);
 
     for (auto _ : state) {
-        conjugate_fp2(c, a);
+        Fp2::conjugate(c, a);
         benchmark::DoNotOptimize(c);
     }
 

@@ -99,7 +99,7 @@ namespace blst
         Fp2::sub(D, D, C);                   /* (X1+B)^2-A-C */
         Fp2::add(D, D, D);                   /* D = 2*((X1+B)^2-A-C) */
 
-        mul_by_3_fp2(E, A);                 /* E = 3*A */
+        Fp2::mul_by_3(E, A);                 /* E = 3*A */
         Fp2::sqr(F, E);                      /* F = E^2 */
 
         Fp2::add(line[0], E, Q.X);          /* 3*A+X1 for line evaluation */
@@ -112,7 +112,7 @@ namespace blst
         Fp2::sub(T.Z, T.Z, B);
         Fp2::sub(T.Z, T.Z, ZZ);            /* Z3 = (Y1+Z1)^2-B-ZZ */
 
-        mul_by_8_fp2(C, C);                 /* 8*C */
+        Fp2::mul_by_8(C, C);                 /* 8*C */
         Fp2::sub(T.Y, D, T.X);             /* D-X3 */
         Fp2::mul(T.Y, T.Y, E);             /* E*(D-X3) */
         Fp2::sub(T.Y, T.Y, C);             /* Y3 = E*(D-X3)-8*C */
@@ -123,7 +123,7 @@ namespace blst
         Fp2::sqr(line[0], line[0]);
         Fp2::sub(line[0], line[0], A);
         Fp2::sub(line[0], line[0], F);       /* (3*A+X1)^2 - X1^2 - 9*A^2 */
-        lshift_fp2(B, B, 2);
+        Fp2::lshift(B, B, 2);
         Fp2::sub(line[0], line[0], B);       /* 6*X1^3 - 4*Y1^2 */
 
         Fp2::mul(line[1], E, ZZ);            /* 3*X1^2 * Z1^2 */

@@ -294,7 +294,7 @@ namespace blst
         Fp2::mul(t3, t4, t5);
         Fp2::sub(t3, t3, t1);
         Fp2::sub(t3, t3, t2);
-        mul_by_u_plus_1_fp2(t3, t3);
+        Fp2::mul_by_u_plus_1(t3, t3);
         /* Fp2::add(ret[0], t3, t0); considering possible aliasing... */
 
         /* ret[1] = (a0 + a1)*(b0 + b1) - a0*b0 - a1*b1 + a2*b2*(u+1)
@@ -304,7 +304,7 @@ namespace blst
         Fp2::mul(ret[1], t4, t5);
         Fp2::sub(ret[1], ret[1], t0);
         Fp2::sub(ret[1], ret[1], t1);
-        mul_by_u_plus_1_fp2(t4, t2);
+        Fp2::mul_by_u_plus_1(t4, t2);
         Fp2::add(ret[1], ret[1], t4);
 
         /* ret[2] = (a0 + a2)*(b0 + b2) - a0*b0 - a2*b2 + a1*b1
@@ -344,11 +344,11 @@ namespace blst
         Fp2::sub(ret[2], ret[2], m12);
 
         /* ret[0] = a0^2 + 2*(a1*a2)*(u+1) */
-        mul_by_u_plus_1_fp2(ret[0], m12);
+        Fp2::mul_by_u_plus_1(ret[0], m12);
         Fp2::add(ret[0], ret[0], s0);
 
         /* ret[1] = a2^2*(u+1) + 2*(a0*a1) */
-        mul_by_u_plus_1_fp2(ret[1], s2);
+        Fp2::mul_by_u_plus_1(ret[1], s2);
         Fp2::add(ret[1], ret[1], m01);
     }
 #endif // __FP2x2__
@@ -369,9 +369,9 @@ namespace blst
 
     BLST_HD BLST_INLINE void neg_fp6(Fp6& ret, const Fp6& a)
     {
-        neg_fp2(ret[0], a[0]);
-        neg_fp2(ret[1], a[1]);
-        neg_fp2(ret[2], a[2]);
+        Fp2::neg(ret[0], a[0]);
+        Fp2::neg(ret[1], a[1]);
+        Fp2::neg(ret[2], a[2]);
     }
 
 #if 0
@@ -380,7 +380,7 @@ namespace blst
     {
         Fp2 t;
 
-        mul_by_u_plus_1_fp2(t, a[2]);
+        Fp2::mul_by_u_plus_1(t, a[2]);
         vec_copy(ret[2], a[1], sizeof(a[1]));
         vec_copy(ret[1], a[0], sizeof(a[0]));
         vec_copy(ret[0], t, sizeof(t));
@@ -501,7 +501,7 @@ namespace blst
         mul_by_v_fp6(t1, t1);
         add_fp6(ret[0], t0, t1);
 #else
-        mul_by_u_plus_1_fp2(t1[2], t1[2]);
+        Fp2::mul_by_u_plus_1(t1[2], t1[2]);
         Fp2::add(ret[0][0], t0[0], t1[2]);
         Fp2::add(ret[0][1], t0[1], t1[0]);
         Fp2::add(ret[0][2], t0[2], t1[1]);
@@ -516,7 +516,7 @@ namespace blst
         Fp2::mul(t, a[2], b);
         Fp2::mul(ret[2], a[1], b);
         Fp2::mul(ret[1], a[0], b);
-        mul_by_u_plus_1_fp2(ret[0], t);
+        Fp2::mul_by_u_plus_1(ret[0], t);
     }
 
     BLST_HD BLST_INLINE void mul_by_xy0_fp6(Fp6& ret, const Fp6& a, const Fp6& b)
@@ -529,7 +529,7 @@ namespace blst
         /* ret[0] = ((a1 + a2)*(b1 + 0) - a1*b1 - a2*0)*(u+1) + a0*b0
                   = (a1*0 + a2*b1)*(u+1) + a0*b0 */
         Fp2::mul(t3, a[2], b[1]);
-        mul_by_u_plus_1_fp2(t3, t3);
+        Fp2::mul_by_u_plus_1(t3, t3);
         /* Fp2::add(ret[0], t3, t0); considering possible aliasing... */
 
         /* ret[1] = (a0 + a1)*(b0 + b1) - a0*b0 - a1*b1 + a2*0*(u+1)
@@ -570,7 +570,7 @@ namespace blst
         mul_by_v_fp6(t1, t1);
         add_fp6(ret[0], t0, t1);
 #else
-        mul_by_u_plus_1_fp2(t1[2], t1[2]);
+        Fp2::mul_by_u_plus_1(t1[2], t1[2]);
         Fp2::add(ret[0][0], t0[0], t1[2]);
         Fp2::add(ret[0][1], t0[1], t1[0]);
         Fp2::add(ret[0][2], t0[2], t1[1]);
@@ -587,7 +587,7 @@ namespace blst
         mul_by_v_fp6(t1, a[1]);
         add_fp6(t1, a[0], t1);
 #else
-        mul_by_u_plus_1_fp2(t1[2], a[1][2]);
+        Fp2::mul_by_u_plus_1(t1[2], a[1][2]);
         Fp2::add(t1[0], a[0][0], t1[2]);
         Fp2::add(t1[1], a[0][1], a[1][0]);
         Fp2::add(t1[2], a[0][2], a[1][1]);
@@ -605,7 +605,7 @@ namespace blst
         mul_by_v_fp6(t1, t1);
         sub_fp6(ret[0], ret[0], t1);
 #else
-        mul_by_u_plus_1_fp2(t1[2], t1[2]);
+        Fp2::mul_by_u_plus_1(t1[2], t1[2]);
         Fp2::sub(ret[0][0], ret[0][0], t1[2]);
         Fp2::sub(ret[0][1], ret[0][1], t1[0]);
         Fp2::sub(ret[0][2], ret[0][2], t1[1]);
@@ -624,12 +624,12 @@ namespace blst
         /* c0 = a0^2 - (a1*a2)*(u+1) */
         Fp2::sqr(c0, a[0]);
         Fp2::mul(t0, a[1], a[2]);
-        mul_by_u_plus_1_fp2(t0, t0);
+        Fp2::mul_by_u_plus_1(t0, t0);
         Fp2::sub(c0, c0, t0);
 
         /* c1 = a2^2*(u+1) - (a0*a1) */
         Fp2::sqr(c1, a[2]);
-        mul_by_u_plus_1_fp2(c1, c1);
+        Fp2::mul_by_u_plus_1(c1, c1);
         Fp2::mul(t0, a[0], a[1]);
         Fp2::sub(c1, c1, t0);
 
@@ -642,11 +642,11 @@ namespace blst
         Fp2::mul(t0, c1, a[2]);
         Fp2::mul(t1, c2, a[1]);
         Fp2::add(t0, t0, t1);
-        mul_by_u_plus_1_fp2(t0, t0);
+        Fp2::mul_by_u_plus_1(t0, t0);
         Fp2::mul(t1, c0, a[0]);
         Fp2::add(t0, t0, t1);
 
-        reciprocal_fp2(t1, t0);
+        Fp2::reciprocal(t1, t0);
 
         Fp2::mul(ret[0], c0, t1);
         Fp2::mul(ret[1], c1, t1);
@@ -663,7 +663,7 @@ namespace blst
         mul_by_v_fp6(t1, t1);
         sub_fp6(t0, t0, t1);
 #else
-        mul_by_u_plus_1_fp2(t1[2], t1[2]);
+        Fp2::mul_by_u_plus_1(t1[2], t1[2]);
         Fp2::sub(t0[0], t0[0], t1[2]);
         Fp2::sub(t0[1], t0[1], t1[0]);
         Fp2::sub(t0[2], t0[2], t1[1]);
@@ -714,7 +714,7 @@ namespace blst
         Fp2::sqr(t1, a1);
         Fp2::add(ret[1], a0, a1);
 
-        mul_by_u_plus_1_fp2(ret[0], t1);
+        Fp2::mul_by_u_plus_1(ret[0], t1);
         Fp2::add(ret[0], ret[0], t0);
 
         Fp2::sqr(ret[1], ret[1]);
@@ -743,7 +743,7 @@ namespace blst
         Fp2::add(ret[0][2], ret[0][2], ret[0][2]);
         Fp2::add(ret[0][2], ret[0][2], t2[0]);
 
-        mul_by_u_plus_1_fp2(t2[1], t2[1]);
+        Fp2::mul_by_u_plus_1(t2[1], t2[1]);
         Fp2::add(ret[1][0], t2[1], a[1][0]);
         Fp2::add(ret[1][0], ret[1][0], ret[1][0]);
         Fp2::add(ret[1][0], ret[1][0], t2[1]);

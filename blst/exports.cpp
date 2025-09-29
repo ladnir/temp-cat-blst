@@ -204,7 +204,7 @@ void blst_fp2_mul_by_8(Fp2& ret, const Fp2& a)
 {   Fp2::mul_by_8(ret, a);   }
 
 void blst_fp2_lshift(Fp2& ret, const Fp2& a, size_t count)
-{   lshift_fp2(ret, a, count);    }
+{   Fp2::lshift(ret, a, count);    }
 
 void blst_fp2_mul(Fp2& ret, const Fp2& a, const Fp2& b)
 {   Fp2::mul(ret, a, b);   }

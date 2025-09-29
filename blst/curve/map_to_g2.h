@@ -305,24 +305,6 @@ namespace blst
             TO_LIMB_T(0x07e83a49a2e99d69), TO_LIMB_T(0xeca8f3318332bb7a),
             TO_LIMB_T(0xef148d1ea0f4c069), TO_LIMB_T(0x040ab3263eff0206) }
         };
-        const Fp2 recip_ZZZ = {      /* 1/(Z^3) */
-          Fp{ TO_LIMB_T(0x65018f5c28f598eb), TO_LIMB_T(0xe6020417f022d916),
-            TO_LIMB_T(0xd6327313288369c7), TO_LIMB_T(0x622ded8eb447156f),
-            TO_LIMB_T(0xe52a2aee72c2a01f), TO_LIMB_T(0x089812fb8481ffe4) },
-          Fp{ TO_LIMB_T(0x2574eb851eb8619f), TO_LIMB_T(0xdba2e97912925604),
-            TO_LIMB_T(0x67e495a909e7a18e), TO_LIMB_T(0xdf2da23b8145b8f7),
-            TO_LIMB_T(0xcf5d3728310ebf6d), TO_LIMB_T(0x11be446236f4c116) }
-        };
-        const Fp2 magic_ZZZ = {      /* 1/Z^3 = a + b*i */
-            /* a^2 + b^2 */
-    Fp{ TO_LIMB_T(0xaa7eb851eb8508e0), TO_LIMB_T(0x1c54fdf360989374),
-      TO_LIMB_T(0xc87f2fc6e716c62e), TO_LIMB_T(0x0124aefb1f9efea7),
-      TO_LIMB_T(0xb2f8be63e844865c), TO_LIMB_T(0x08b47f775a7ef35a) },
-      /* (a^2 + b^2)^((P-3)/4) */
-    Fp{ TO_LIMB_T(0xe4132bbd838cf70a), TO_LIMB_T(0x01d769ac83772c19),
-      TO_LIMB_T(0xa83dd6e974c22e45), TO_LIMB_T(0xbc8ec3e777b08dff),
-      TO_LIMB_T(0xc035c2042ecf5da3), TO_LIMB_T(0x073929e97f0850bf) }
-        };
         const Fp2 ZxA = {            /* 240 - 480*i */
           Fp{ TO_LIMB_T(0xe53a000003135242), TO_LIMB_T(0x01080c0fdef80285),
             TO_LIMB_T(0xe7889edbe340f6bd), TO_LIMB_T(0x0b51375126310601),
@@ -342,7 +324,7 @@ namespace blst
 # define y1     y
 # define Zuu    x2n
 #endif
-#define sgn0_fp2(a) (sgn0_pty_mont_v384x((a), get_BLST_P(), BLST_p0) & 1)
+#define sgn0_fp2(a) (Fp2::sgn0_pty_mont(a) & 1)
         bool_t e1, e2;
 
         /*
@@ -376,8 +358,7 @@ namespace blst
         Fp2::sqr(tv4, gxd);                  /* tv4 = gxd^2                  */
         Fp2::mul(tv2, gx1, gxd);             /* tv2 = gx1 * gxd              */
         Fp2::mul(tv4, tv4, tv2);             /* tv4 = tv4 * tv2      # gx1*gxd^3 */
-        e2 = recip_sqrt_fp2(y1, tv4,        /* y1 = tv4^c1          # (gx1*gxd^3)^((p^2-9)/16) */
-            recip_ZZZ, magic_ZZZ);
+        e2 = Fp2::recip_sqrt(y1, tv4);        /* y1 = tv4^c1          # (gx1*gxd^3)^((p^2-9)/16) */
         Fp2::mul(y1, y1, tv2);               /* y1 = y1 * tv2        # gx1*gxd*y1 */
         Fp2::mul(y2, y1, uu);                /* y2 = y1 * uu                 */
         Fp2::mul(y2, y2, u);                 /* y2 = y2 * u                  */

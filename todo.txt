@@ -3,3 +3,5 @@ sqrx_n_mul_mont_384 is referenced but not called anywhere in the c. is it needed
 assembly.S has something going on with sha and sse3
 
 sha version. figure out what version should be called
+
+optimize generic squaring. currently uses mul, but can be optimized

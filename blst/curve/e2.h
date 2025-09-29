@@ -52,7 +52,7 @@ namespace blst
         Fp2 Z, ZZ;
         limb_t inf = vec_is_zero(in.Z.data, sizeof(in.Z));
 
-        reciprocal_fp2(Z, in.Z);                           /* 1/Z */
+        Fp2::reciprocal(Z, in.Z);                           /* 1/Z */
 
         Fp2::sqr(ZZ, Z);
         Fp2::mul(out.X, in.X, ZZ);                         /* X = X/Z^2 */
@@ -162,7 +162,7 @@ namespace blst
         Fp::from_mont(temp[0], in.Y[0]);
         be_bytes_from_limbs(out + 144, temp[0], sizeof(temp[0]));
 
-        return sgn0_pty_mod_v384x(temp, get_BLST_P());
+        return Fp2::sgn0_pty(temp);
     }
 
     BLST_HD BLST_INLINE void blst_p2_affine_serialize(unsigned char out[192],
@@ -217,7 +217,7 @@ namespace blst
         Fp::from_mont(temp, in.X[0]);
         be_bytes_from_limbs(out + 48, temp, sizeof(temp));
 
-        return sgn0_pty_mont_v384x(in.Y, get_BLST_P(), BLST_p0);
+        return Fp2::sgn0_pty_mont(in.Y);
     }
 
     BLST_HD BLST_INLINE void blst_p2_affine_compress(unsigned char out[96], const POINTonE2_affine& in)
@@ -283,12 +283,12 @@ namespace blst
         Fp2::sqr(ret.Y, ret.X);
         Fp2::mul(ret.Y, ret.Y, ret.X);
         Fp2::add(ret.Y, ret.Y, get_BLST_B_E2());                        /* X^3 + B */
-        if (!sqrt_fp2(ret.Y, ret.Y))
+        if (!Fp2::sqrt(ret.Y, ret.Y))
             return (limb_t)0 - BLST_POINT_NOT_ON_CURVE;
 
         vec_copy(&out, &ret, sizeof(ret));
 
-        return sgn0_pty_mont_v384x(out.Y, get_BLST_P(), BLST_p0);
+        return Fp2::sgn0_pty_mont(out.Y);
     }
 
     BLST_HD BLST_INLINE BLST_ERROR POINTonE2_Uncompress_Z(POINTonE2_affine& out,
@@ -542,9 +542,9 @@ namespace blst
         /* convert to affine to remove possible bias in out.Z */
         inf = vec_is_zero(&out.Z, sizeof(out.Z));
 #ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
-        flt_reciprocal_fp2(Z, out.Z);                      /* 1/Z   */
+        Fp2::flt_reciprocal(Z, out.Z);                      /* 1/Z   */
 #else
-        reciprocal_fp2(Z, out.Z);                          /* 1/Z   */
+        Fp2::reciprocal(Z, out.Z);                          /* 1/Z   */
 #endif
 
         Fp2::sqr(ZZ, Z);
