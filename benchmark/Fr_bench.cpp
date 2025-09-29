@@ -74,7 +74,7 @@ static void BM_FrAddition_api(benchmark::State& state) {
     generate_random_fr(b);
 
     for (auto _ : state) {
-        fr_add(c, a, b);
+        Fr::add(c, a, b);
         benchmark::DoNotOptimize(c);
     }
 
@@ -126,7 +126,7 @@ static void BM_FrSubtraction_api(benchmark::State& state) {
     generate_random_fr(b);
 
     for (auto _ : state) {
-        fr_sub(c, a, b);
+        Fr::sub(c, a, b);
         benchmark::DoNotOptimize(c);
     }
 
@@ -143,8 +143,8 @@ static void BM_FrMultiplication_asm(benchmark::State& state) {
     generate_random_fr(a);
     generate_random_fr(b);
 
-    fr_to(a, a);
-    fr_to(b, b);
+    Fr::to_mont(a, a);
+    Fr::to_mont(b, b);
 
     auto r = get_BLST_r();
 
@@ -164,8 +164,8 @@ static void BM_FrMultiplication_cc(benchmark::State& state) {
     generate_random_fr(a);
     generate_random_fr(b);
 
-    fr_to(a, a);
-    fr_to(b, b);
+    Fr::to_mont(a, a);
+    Fr::to_mont(b, b);
 
     auto r = get_BLST_r();
 
@@ -185,11 +185,11 @@ static void BM_FrMultiplication_api(benchmark::State& state) {
     generate_random_fr(a);
     generate_random_fr(b);
 
-    fr_to(a, a);
-    fr_to(b, b);
+    Fr::to_mont(a, a);
+    Fr::to_mont(b, b);
 
     for (auto _ : state) {
-        fr_mul(c, a, b);
+        Fr::mul(c, a, b);
         benchmark::DoNotOptimize(c);
     }
 
@@ -205,7 +205,7 @@ static void BM_FrSquaring_asm(benchmark::State& state) {
     Fr a, c;
     generate_random_fr(a);
 
-    fr_to(a, a);
+    Fr::to_mont(a, a);
 
     auto r = get_BLST_r();
 
@@ -224,7 +224,7 @@ static void BM_FrSquaring_cc(benchmark::State& state) {
     Fr a, c;
     generate_random_fr(a);
 
-    fr_to(a, a);
+    Fr::to_mont(a, a);
 
     auto r = get_BLST_r();
 
@@ -244,10 +244,10 @@ static void BM_FrSquaring_api(benchmark::State& state) {
     Fr a, c;
     generate_random_fr(a);
 
-    fr_to(a, a);
+    Fr::to_mont(a, a);
 
     for (auto _ : state) {
-        fr_sqr(c, a);
+        Fr::sqr(c, a);
         benchmark::DoNotOptimize(c);
     }
 
@@ -262,10 +262,10 @@ BENCHMARK(BM_FrSquaring_api);
 static void BM_FrInversion_api(benchmark::State& state) {
     Fr a, c;
     generate_random_fr(a);
-    fr_to(a, a);
+    Fr::to_mont(a, a);
 
     for (auto _ : state) {
-        fr_inverse(c, a);
+        Fr::reciprocal(c, a);
         benchmark::DoNotOptimize(c);
     }
 
@@ -281,7 +281,7 @@ static void BM_FrToMontgomery_api(benchmark::State& state) {
     generate_random_fr(a);
 
     for (auto _ : state) {
-        fr_to(c, a);
+        Fr::to_mont(c, a);
         benchmark::DoNotOptimize(c);
     }
 
@@ -295,7 +295,7 @@ BENCHMARK(BM_FrToMontgomery_api);
 static void BM_FrFromMontgomery_asm(benchmark::State& state) {
     Fr a, c;
     generate_random_fr(a);
-    fr_to(a, a);
+    Fr::to_mont(a, a);
     auto r = get_BLST_r();
 
     for (auto _ : state) {
@@ -312,7 +312,7 @@ BENCHMARK(BM_FrFromMontgomery_asm);
 static void BM_FrFromMontgomery_cc(benchmark::State& state) {
     Fr a, c;
     generate_random_fr(a);
-    fr_to(a, a);
+    Fr::to_mont(a, a);
     auto r = get_BLST_r();
 
     for (auto _ : state) {
@@ -329,10 +329,10 @@ BENCHMARK(BM_FrFromMontgomery_cc);
 static void BM_FrFromMontgomery_api(benchmark::State& state) {
     Fr a, c;
     generate_random_fr(a);
-    fr_to(a, a);
+    Fr::to_mont(a, a);
 
     for (auto _ : state) {
-        fr_from(c, a);
+        Fr::from_mont(c, a);
         benchmark::DoNotOptimize(c);
     }
 

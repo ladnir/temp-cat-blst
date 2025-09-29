@@ -19,6 +19,7 @@
 #include "blst/fields/Fp.h"
 #include "blst/fields/Fp2.h"
 #include "blst/common/bytes.h"
+#include <bit>
 BLST_EXTERN_C_BEGIN_
 
 using namespace blst;
@@ -26,21 +27,24 @@ using namespace blst;
 /*
  * BLS12-381-specific Fr shortcuts to assembly.
  */
-void blst_fr_add(Fr& ret, const Fr& a, const Fr& b) { fr_add(ret, a, b); }
-void blst_fr_sub(Fr& ret, const Fr& a, const Fr& b) { fr_sub(ret, a, b); }
-void blst_fr_mul_by_3(Fr& ret, const Fr& a) { fr_mul_by_3(ret, a); }
-void blst_fr_lshift(Fr& ret, const Fr& a, size_t count) { fr_lshift(ret, a, count); }
-void blst_fr_rshift(Fr& ret, const Fr& a, size_t count) { fr_rshift(ret, a, count); }
-void blst_fr_mul(Fr& ret, const Fr& a, const Fr& b) { fr_mul(ret, a, b); }
-void blst_fr_ct_bfly(Fr& x0, Fr& x1, const Fr& twiddle) { fr_ct_bfly(x0, x1, twiddle); }
-void blst_fr_gs_bfly(Fr& x0, Fr& x1, const Fr& twiddle) { fr_gs_bfly(x0, x1, twiddle); }
-void blst_fr_sqr(Fr& ret, const Fr& a) { fr_sqr(ret, a); }
-void blst_fr_cneg(Fr& ret, const Fr& a, int flag) { fr_cneg(ret, a, flag); }
-void blst_fr_to(Fr& ret, const Fr& a) { fr_to(ret, a); }
-void blst_fr_from(Fr& ret, const Fr& a) { fr_from(ret, a); }
-void blst_fr_from_scalar(Fr& ret, const pow256 a) { fr_from_scalar(ret, a); }
-void blst_scalar_from_fr(pow256 ret, const Fr& a) { scalar_from_fr(ret, a); }
-int blst_scalar_fr_check(const pow256 a) { return scalar_fr_check(a); }
+void blst_fr_add(Fr& ret, const Fr& a, const Fr& b) { Fr::add(ret, a, b); }
+void blst_fr_sub(Fr& ret, const Fr& a, const Fr& b) { Fr::sub(ret, a, b); }
+void blst_fr_mul_by_3(Fr& ret, const Fr& a) { Fr::mul_by_3(ret, a); }
+void blst_fr_lshift(Fr& ret, const Fr& a, size_t count) { Fr::lshift(ret, a, count); }
+void blst_fr_rshift(Fr& ret, const Fr& a, size_t count) { Fr::rshift(ret, a, count); }
+void blst_fr_mul(Fr& ret, const Fr& a, const Fr& b) { Fr::mul(ret, a, b); }
+void blst_fr_ct_bfly(Fr& x0, Fr& x1, const Fr& twiddle) { Fr::ct_bfly(x0, x1, twiddle); }
+void blst_fr_gs_bfly(Fr& x0, Fr& x1, const Fr& twiddle) { Fr::gs_bfly(x0, x1, twiddle); }
+void blst_fr_sqr(Fr& ret, const Fr& a) { Fr::sqr(ret, a); }
+void blst_fr_cneg(Fr& ret, const Fr& a, int flag) { Fr::cneg(ret, a, flag); }
+void blst_fr_to(Fr& ret, const Fr& a) { Fr::to_mont(ret, a); }
+void blst_fr_from(Fr& ret, const Fr& a) { Fr::from_mont(ret, a); }
+void blst_fr_from_scalar(Fr& ret, const pow256 a) { Fr::from_scalar(ret, a); }
+void blst_scalar_from_fr(pow256 ret, const Fr& a) { Fr::to_scaler(ret, a); }
+int blst_scalar_fr_check(const pow256 a) { 
+    Fr aa;
+    limbs_from_le_bytes(aa, a, sizeof(pow256));
+    return Fr::is_redc(aa); }
 int blst_sk_check(const pow256 a) { return sk_check(a); }
 int blst_sk_add_n_check(pow256 ret, const pow256 a, const pow256 b) { return sk_add_n_check(ret, a, b); }
 int blst_sk_sub_n_check(pow256 ret, const pow256 a, const pow256 b) { return sk_sub_n_check(ret, a, b); }
@@ -349,12 +353,12 @@ void blst_uint64_from_fr(unsigned long long ret[4], const Fr& a)
     } is_endian = { 1 };
 
     if (sizeof(limb_t) == 8 || is_endian.little) {
-        from_mont_v256(*(Fr *)ret, a, get_BLST_r(), BLST_r0);
+        Fr::from_mont(*(Fr *)ret, a);
     } else {
         Fr out;
         int i;
 
-        from_mont_v256(out, a, get_BLST_r(), BLST_r0);
+        Fr::from_mont(out, a);
         for (i = 0; i < 4; i++)
             ret[i] = out[2*i] | ((unsigned long long)out[2*i+1] << 32);
         vec_zero(out, sizeof(out));
@@ -371,16 +375,16 @@ int blst_scalar_from_le_bytes(pow256 out, const unsigned char *bytes, size_t n)
 
     n -= rem;
     limbs_from_le_bytes(t.out, bytes += n, rem);
-    mul_mont_sparse_v256(t.out, get_BLST_rRR(), t.out, get_BLST_r(), BLST_r0);
+    Fr::mul(t.out, get_BLST_rRR(), t.out);
 
     while (n) {
         limbs_from_le_bytes(t.digit, bytes -= 32, 32);
-        add_mod_v256(t.out, t.out, t.digit, get_BLST_r());
-        mul_mont_sparse_v256(t.out, get_BLST_rRR(), t.out, get_BLST_r(), BLST_r0);
+        Fr::add(t.out, t.out, t.digit);
+        Fr::mul(t.out, get_BLST_rRR(), t.out);
         n -= 32;
     }
 
-    from_mont_v256(t.out, t.out, get_BLST_r(), BLST_r0);
+    Fr::from_mont(t.out, t.out);
 
     ret = vec_is_zero(t.out, sizeof(t.out));
     le_bytes_from_limbs(out, t.out, 32);
@@ -398,16 +402,16 @@ int blst_scalar_from_be_bytes(pow256 out, const unsigned char *bytes, size_t n)
     vec_zero(t.out, sizeof(t.out));
 
     limbs_from_be_bytes(t.out, bytes, rem);
-    mul_mont_sparse_v256(t.out, get_BLST_rRR(), t.out, get_BLST_r(), BLST_r0);
+    Fr::mul(t.out, get_BLST_rRR(), t.out);
 
     while (n -= rem) {
         limbs_from_be_bytes(t.digit, bytes += rem, 32);
-        add_mod_v256(t.out, t.out, t.digit, get_BLST_r());
-        mul_mont_sparse_v256(t.out, get_BLST_rRR(), t.out, get_BLST_r(), BLST_r0);
+        Fr::add(t.out, t.out, t.digit);
+        Fr::mul(t.out, get_BLST_rRR(), t.out);
         rem = 32;
     }
 
-    from_mont_v256(t.out, t.out, get_BLST_r(), BLST_r0);
+    Fr::from_mont(t.out, t.out);
 
     ret = vec_is_zero(t.out, sizeof(t.out));
     le_bytes_from_limbs(out, t.out, 32);

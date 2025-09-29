@@ -31,7 +31,7 @@ void print_fr(const Fr& v) {
 // Helper: Convert standard integer to Montgomery form
 void to_mont_fr(Fr& r, const Fr& a) {
     // Use *get_get_BLST_r()()RR for conversion to Montgomery form
-    fr_to(r, a);
+    Fr::to_mont(r, a);
 }
 
 // Helper: Copy one Fr& to another
@@ -46,22 +46,22 @@ TEST(FrOps, Add) {
     // Basic addition: 5 + 7 = 12
     set_fr(a, 5);
     set_fr(b, 7);
-    fr_add(result, a, b);
+    Fr::add(result, a, b);
     set_fr(expected, 12);
     EXPECT_TRUE(fr_equal(result, expected)) << "5 + 7 should equal 12";
     
     // Addition with zero
     set_fr(a, 42);
     set_fr(b, 0);
-    fr_add(result, a, b);
+    Fr::add(result, a, b);
     EXPECT_TRUE(fr_equal(result, a)) << "42 + 0 should equal 42";
     
     // Test commutativity: a + b = b + a
     set_fr(a, 123);
     set_fr(b, 456);
-    fr_add(result, a, b);
+    Fr::add(result, a, b);
     Fr result2;
-    fr_add(result2, b, a);
+    Fr::add(result2, b, a);
     EXPECT_TRUE(fr_equal(result, result2)) << "Addition should be commutative";
 }
 
@@ -72,11 +72,11 @@ TEST(FrOps, AddOverflow) {
     fr_copy(a, get_BLST_r());
     Fr one;
     set_fr(one, 1);
-    fr_sub(a, a, one);
+    Fr::sub(a, a, one);
     
     // Add 2 to get 1 (modulo r)
     set_fr(b, 2);
-    fr_add(result, a, b);
+    Fr::add(result, a, b);
     set_fr(expected, 1);
     
     EXPECT_TRUE(fr_equal(result, expected)) << "Overflow in addition should wrap modulo r";
@@ -88,14 +88,14 @@ TEST(FrOps, Sub) {
     // Basic subtraction: 10 - 3 = 7
     set_fr(a, 10);
     set_fr(b, 3);
-    fr_sub(result, a, b);
+    Fr::sub(result, a, b);
     set_fr(expected, 7);
     EXPECT_TRUE(fr_equal(result, expected)) << "10 - 3 should equal 7";
     
     // Subtraction with zero
     set_fr(a, 42);
     set_fr(b, 0);
-    fr_sub(result, a, b);
+    Fr::sub(result, a, b);
     EXPECT_TRUE(fr_equal(result, a)) << "42 - 0 should equal 42";
 }
 
@@ -105,14 +105,14 @@ TEST(FrOps, SubUnderflow) {
     // Underflow: 3 - 10 = r - 7
     set_fr(a, 3);
     set_fr(b, 10);
-    fr_sub(result, a, b);
+    Fr::sub(result, a, b);
     
     // Expected: r - 7
     Fr expected;
     fr_copy(expected, get_BLST_r());
     Fr seven;
     set_fr(seven, 7);
-    fr_sub(expected, expected, seven);
+    Fr::sub(expected, expected, seven);
     
     EXPECT_TRUE(fr_equal(result, expected)) << "Underflow should wrap modulo r";
 }
@@ -122,24 +122,24 @@ TEST(FrOps, MulBy3) {
     
     // 2 * 3 = 6
     set_fr(a, 2);
-    fr_mul_by_3(result, a);
+    Fr::mul_by_3(result, a);
     set_fr(expected, 6);
     EXPECT_TRUE(fr_equal(result, expected)) << "2 * 3 should equal 6";
     
     // 0 * 3 = 0
     set_fr(a, 0);
-    fr_mul_by_3(result, a);
+    Fr::mul_by_3(result, a);
     set_fr(expected, 0);
     EXPECT_TRUE(fr_equal(result, expected)) << "0 * 3 should equal 0";
     
     // Test with larger value
     set_fr(a, 0x123456789ABCDEF0ULL);
-    fr_mul_by_3(result, a);
+    Fr::mul_by_3(result, a);
     
     // Verify by multiplying by 3 using addition
     Fr temp;
-    fr_add(temp, a, a);    // temp = 2*a
-    fr_add(expected, temp, a);  // expected = 3*a
+    Fr::add(temp, a, a);    // temp = 2*a
+    Fr::add(expected, temp, a);  // expected = 3*a
     
     EXPECT_TRUE(fr_equal(result, expected)) << "MulBy3 should match manual calculation";
 }
@@ -149,19 +149,19 @@ TEST(FrOps, LShift) {
     
     // 1 << 2 = 4
     set_fr(a, 1);
-    fr_lshift(result, a, 2);
+    Fr::lshift(result, a, 2);
     set_fr(expected, 4);
     EXPECT_TRUE(fr_equal(result, expected)) << "1 << 2 should equal 4";
     
     // 5 << 1 = 10
     set_fr(a, 5);
-    fr_lshift(result, a, 1);
+    Fr::lshift(result, a, 1);
     set_fr(expected, 10);
     EXPECT_TRUE(fr_equal(result, expected)) << "5 << 1 should equal 10";
     
     // 0 << any = 0
     set_fr(a, 0);
-    fr_lshift(result, a, 10);
+    Fr::lshift(result, a, 10);
     set_fr(expected, 0);
     EXPECT_TRUE(fr_equal(result, expected)) << "0 << 10 should equal 0";
 }
@@ -171,19 +171,19 @@ TEST(FrOps, RShift) {
     
     // 8 >> 2 = 2
     set_fr(a, 8);
-    fr_rshift(result, a, 2);
+    Fr::rshift(result, a, 2);
     set_fr(expected, 2);
     EXPECT_TRUE(fr_equal(result, expected)) << "8 >> 2 should equal 2";
     
     // 10 >> 1 = 5
     set_fr(a, 10);
-    fr_rshift(result, a, 1);
+    Fr::rshift(result, a, 1);
     set_fr(expected, 5);
     EXPECT_TRUE(fr_equal(result, expected)) << "10 >> 1 should equal 5";
     
     // 0 >> any = 0
     set_fr(a, 0);
-    fr_rshift(result, a, 10);
+    Fr::rshift(result, a, 10);
     set_fr(expected, 0);
     EXPECT_TRUE(fr_equal(result, expected)) << "0 >> 10 should equal 0";
 }
@@ -198,8 +198,8 @@ TEST(FrOps, Mul) {
     to_mont_fr(a, a);
     to_mont_fr(b, b);
     
-    fr_mul(result, a, b);
-    fr_from(result_std, result);
+    Fr::mul(result, a, b);
+    Fr::from_mont(result_std, result);
     
     set_fr(expected, 12);
     EXPECT_TRUE(fr_equal(result_std, expected)) << "3 * 4 should equal 12";
@@ -210,8 +210,8 @@ TEST(FrOps, Mul) {
     to_mont_fr(a, a);
     to_mont_fr(b, b);
     
-    fr_mul(result, a, b);
-    fr_from(result_std, result);
+    Fr::mul(result, a, b);
+    Fr::from_mont(result_std, result);
     
     set_fr(expected, 0);
     EXPECT_TRUE(fr_equal(result_std, expected)) << "42 * 0 should equal 0";
@@ -222,9 +222,9 @@ TEST(FrOps, Mul) {
     to_mont_fr(a, a);
     to_mont_fr(b, b);
     
-    fr_mul(result, a, b);
+    Fr::mul(result, a, b);
     Fr result2;
-    fr_mul(result2, b, a);
+    Fr::mul(result2, b, a);
     
     EXPECT_TRUE(fr_equal(result, result2)) << "Multiplication should be commutative";
 }
@@ -236,8 +236,8 @@ TEST(FrOps, Sqr) {
     set_fr(a, 5);
     to_mont_fr(a, a);
     
-    fr_sqr(result, a);
-    fr_from(result_std, result);
+    Fr::sqr(result, a);
+    Fr::from_mont(result_std, result);
     
     set_fr(expected, 25);
     EXPECT_TRUE(fr_equal(result_std, expected)) << "5² should equal 25";
@@ -246,8 +246,8 @@ TEST(FrOps, Sqr) {
     set_fr(a, 0);
     to_mont_fr(a, a);
     
-    fr_sqr(result, a);
-    fr_from(result_std, result);
+    Fr::sqr(result, a);
+    Fr::from_mont(result_std, result);
     
     set_fr(expected, 0);
     EXPECT_TRUE(fr_equal(result_std, expected)) << "0² should equal 0";
@@ -256,9 +256,9 @@ TEST(FrOps, Sqr) {
     set_fr(a, 123);
     to_mont_fr(a, a);
     
-    fr_sqr(result, a);
+    Fr::sqr(result, a);
     Fr result2;
-    fr_mul(result2, a, a);
+    Fr::mul(result2, a, a);
     
     EXPECT_TRUE(fr_equal(result, result2)) << "a² should equal a*a";
 }
@@ -268,24 +268,24 @@ TEST(FrOps, CNeg) {
     
     // Negate 5 when flag is true
     set_fr(a, 5);
-    fr_cneg(result, a, 1);
+    Fr::cneg(result, a, 1);
     
     // Expected: r - 5
     fr_copy(expected, get_BLST_r());
     Fr five;
     set_fr(five, 5);
-    fr_sub(expected, expected, five);
+    Fr::sub(expected, expected, five);
     
     EXPECT_TRUE(fr_equal(result, expected)) << "Negation of 5 should equal r-5";
     
     // Don't negate when flag is false
     set_fr(a, 5);
-    fr_cneg(result, a, 0);
+    Fr::cneg(result, a, 0);
     EXPECT_TRUE(fr_equal(result, a)) << "cneg with flag=0 should not change value";
     
     // Negate 0 (should remain 0)
     set_fr(a, 0);
-    fr_cneg(result, a, 1);
+    Fr::cneg(result, a, 1);
     set_fr(expected, 0);
     EXPECT_TRUE(fr_equal(result, expected)) << "Negation of 0 should equal 0";
 }
@@ -295,8 +295,8 @@ TEST(FrOps, MontgomeryConversion) {
     
     // Convert 1 to Montgomery form and back
     set_fr(a, 1);
-    fr_to(mont_a, a);
-    fr_from(back_a, mont_a);
+    Fr::to_mont(mont_a, a);
+    Fr::from_mont(back_a, mont_a);
     
     EXPECT_TRUE(fr_equal(back_a, a)) << "Montgomery conversion of 1 failed";
     
@@ -308,8 +308,8 @@ TEST(FrOps, MontgomeryConversion) {
         set_fr(a, TEST_VALUES[i]);
         
         // To Montgomery form and back
-        fr_to(mont_a, a);
-        fr_from(back_a, mont_a);
+        Fr::to_mont(mont_a, a);
+        Fr::from_mont(back_a, mont_a);
         
         if (!fr_equal(back_a, a)) {
             printf("Failed for value %llu (0x%llx)\n", 
@@ -334,28 +334,28 @@ TEST(FrOps, ArithmeticProperties) {
     set_fr(c, 42);
     
     // Convert to Montgomery form
-    fr_to(mont_a, a);
-    fr_to(mont_b, b);
-    fr_to(mont_c, c);
+    Fr::to_mont(mont_a, a);
+    Fr::to_mont(mont_b, b);
+    Fr::to_mont(mont_c, c);
     
     // Associativity: (a + b) + c = a + (b + c)
     Fr temp1, temp2;// , std_result1, std_result2;
     
-    fr_add(temp1, a, b);
-    fr_add(result1, temp1, c);
+    Fr::add(temp1, a, b);
+    Fr::add(result1, temp1, c);
     
-    fr_add(temp2, b, c);
-    fr_add(result2, a, temp2);
+    Fr::add(temp2, b, c);
+    Fr::add(result2, a, temp2);
     
     EXPECT_TRUE(fr_equal(result1, result2)) << "Addition should be associative";
     
     // Distributivity: a * (b + c) = a*b + a*c
-    fr_add(temp1, mont_b, mont_c);
-    fr_mul(result1, mont_a, temp1);
+    Fr::add(temp1, mont_b, mont_c);
+    Fr::mul(result1, mont_a, temp1);
     
-    fr_mul(temp1, mont_a, mont_b);
-    fr_mul(temp2, mont_a, mont_c);
-    fr_add(result2, temp1, temp2);
+    Fr::mul(temp1, mont_a, mont_b);
+    Fr::mul(temp2, mont_a, mont_c);
+    Fr::add(result2, temp1, temp2);
     
     EXPECT_TRUE(fr_equal(result1, result2)) << "Multiplication should distribute over addition";
 }
@@ -368,25 +368,25 @@ TEST(FrOps, EdgeCases) {
     set_fr(one, 1);
     
     // 0 + 0 = 0
-    fr_add(result, zero, zero);
+    Fr::add(result, zero, zero);
     EXPECT_TRUE(fr_equal(result, zero)) << "0 + 0 should equal 0";
     
     // 0 * any = 0
     set_fr(a, 42);
     to_mont_fr(a, a);
     to_mont_fr(zero, zero);
-    fr_mul(result, a, zero);
-    fr_from(result, result);
+    Fr::mul(result, a, zero);
+    Fr::from_mont(result, result);
     EXPECT_TRUE(fr_equal(result, zero)) << "42 * 0 should equal 0";
     
     // 1 * any = any
     set_fr(a, 42);
     to_mont_fr(a, a);
     to_mont_fr(one, one);
-    fr_mul(result, a, one);
+    Fr::mul(result, a, one);
     Fr std_a;
-    fr_from(std_a, a);
-    fr_from(result, result);
+    Fr::from_mont(std_a, a);
+    Fr::from_mont(result, result);
     EXPECT_TRUE(fr_equal(result, std_a)) << "42 * 1 should equal 42";
 }
 
@@ -410,13 +410,13 @@ TEST(FrOps, Butterfly) {
     fr_copy(original_x1, x1);
     
     // CT butterfly: x0' = x0 + x1*twiddle, x1' = x0 - x1*twiddle
-    fr_ct_bfly(x0, x1, twiddle);
+    Fr::ct_bfly(x0, x1, twiddle);
     
     // Calculate expected values manually
     Fr temp;
-    fr_mul(temp, original_x1, twiddle);  // temp = x1 * twiddle
-    fr_add(expected_x0, original_x0, temp);  // x0' = x0 + temp
-    fr_sub(expected_x1, original_x0, temp);  // x1' = x0 - temp
+    Fr::mul(temp, original_x1, twiddle);  // temp = x1 * twiddle
+    Fr::add(expected_x0, original_x0, temp);  // x0' = x0 + temp
+    Fr::sub(expected_x1, original_x0, temp);  // x1' = x0 - temp
     
     EXPECT_TRUE(fr_equal(x0, expected_x0)) << "CT butterfly x0 calculation incorrect";
     EXPECT_TRUE(fr_equal(x1, expected_x1)) << "CT butterfly x1 calculation incorrect";
@@ -426,12 +426,12 @@ TEST(FrOps, Butterfly) {
     fr_copy(x1, original_x1);
     
     // GS butterfly: x0' = x0 + x1, x1' = (x0 - x1) * twiddle
-    fr_gs_bfly(x0, x1, twiddle);
+    Fr::gs_bfly(x0, x1, twiddle);
     
     // Calculate expected values manually
-    fr_add(expected_x0, original_x0, original_x1);  // x0' = x0 + x1
-    fr_sub(temp, original_x0, original_x1);         // temp = x0 - x1
-    fr_mul(expected_x1, temp, twiddle);             // x1' = temp * twiddle
+    Fr::add(expected_x0, original_x0, original_x1);  // x0' = x0 + x1
+    Fr::sub(temp, original_x0, original_x1);         // temp = x0 - x1
+    Fr::mul(expected_x1, temp, twiddle);             // x1' = temp * twiddle
     
     EXPECT_TRUE(fr_equal(x0, expected_x0)) << "GS butterfly x0 calculation incorrect";
     EXPECT_TRUE(fr_equal(x1, expected_x1)) << "GS butterfly x1 calculation incorrect";

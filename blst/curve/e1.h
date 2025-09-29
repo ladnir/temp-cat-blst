@@ -612,7 +612,7 @@ namespace blst
                 j += 1 & mask;
             }
 
-            if (check_mod_v256(val.s, get_BLST_r()))  /* z^4 is the formal limit */
+            if (Fr::check_mod(val.l))  /* z^4 is the formal limit */
                 POINTonE1_mult_glv(out, a, val.s);
             else    /* should never be the case, added for formal completeness */
                 mult_w<POINTonE1,5>(out, a, scalar, nbits);

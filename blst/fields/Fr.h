@@ -7,7 +7,7 @@
 
 #include "blst/backend/backend_asm.h"
 #include "blst/backend/backend_portable.h"
-
+#include <bit>
 //BLST_EXTERN_C_BEGIN
 
 
@@ -29,6 +29,88 @@ namespace blst
 
         BLST_HD static const Fr& zero();
         BLST_HD static const Fr& one();
+
+
+        // the modulus (returned as a Fr which is a slight abuse)
+        BLST_HD static const Fr& modulus();
+
+        // ret = a + b
+        BLST_HD static void add(Fr& ret, const Fr& a, const Fr& b);
+
+        // ret = a - b
+        BLST_HD static void sub(Fr& ret, const Fr& a, const Fr& b);
+
+        // ret  = a * b
+        BLST_HD static void mul(Fr& ret, const Fr& a, const Fr& b);
+
+        // ret  = a^x
+        BLST_HD static void exp(Fr& ret, const Fr& a, const byte* x, size_t x_bits);
+
+        // ret = a^2
+        BLST_HD static void sqr(Fr& ret, const Fr& a);
+
+        // let a = a' R mod p be the montgomery represtation of a'.
+        // ret = a'
+        BLST_HD static void from_mont(Fr& ret, const Fr& a);
+
+        // ret = a * R, where R is the montgomery constant 2^384
+        BLST_HD static void to_mont(Fr& ret, const Fr& a);
+
+        // ret = a mod p
+        BLST_HD static void redc(Fr& ret, const struct UFr& a);
+
+        // ret = flag ? -a : a
+        BLST_HD static void cneg(Fr& ret, const Fr& a, bool_t flag);
+
+        // ret = -a
+        BLST_HD static void neg(Fr& ret, const Fr& a);
+
+        // ret = a * 2^count
+        BLST_HD static void lshift(Fr& ret, const Fr& a, size_t count);
+
+        // ret = floor(int(a) / 2^count). not mod p.
+        BLST_HD static void rshift(Fr& ret, const Fr& a, size_t count);
+
+        // out = a / 2 
+        //BLST_HD static void div_by_2(Fr& ret, const Fr& a);
+
+        // out = a * 3
+        BLST_HD static void mul_by_3(Fr& ret, const Fr& a);
+
+        // out = a * 8
+        //BLST_HD static void mul_by_8(Fr& ret, const Fr& a);
+
+        // out = 1 / inp, computed via Lehmer almost-inverse (faster)
+        BLST_HD static void reciprocal(Fr& out, const Fr& inp);
+
+        // return from_mont(a) == from_mont(b). 
+        BLST_HD static bool_t equal(const Fr& a, const Fr& b);
+
+        BLST_HD static  void ct_bfly(Fr& x0, Fr& x1, const Fr& twiddle);
+
+        BLST_HD static void gs_bfly(Fr& x0, Fr& x1, const Fr& twiddle);
+
+        /**
+         * Checks if `a` is reduced modulo a the modulus.
+         *
+         * Returns 1 if `a` is less than `p`, otherwise returns 0.
+         */
+        BLST_HD static limb_t is_redc(const Fr& a);
+
+
+        // Checks if `a` is reduced modulo a the modulus and non-zero.
+        BLST_HD static limb_t check_mod(const Fr& a);
+
+        BLST_HD static void from_scalar(Fr& ret, const u8 a[256 / 8]);
+
+        BLST_HD static void to_scaler(u8 ret[256/8], const Fr& a);
+
+        BLST_HD static void from_uint64(Fr& ret, const u64 a[256 / 64]);
+
+        BLST_HD static void from_hexascii(Fr& ret, const char* hex);
+        
+
+        BLST_HD static constexpr size_t num_limbs() { return NLIMBS(256); }
     };
 
 #define BLST_r_LIMBS \
@@ -79,39 +161,12 @@ namespace blst
     }
 
 
-
-    ///*
-    // * BLS12-381-specific Fr shortcuts to assembly.
-    // */
-    //BLST_HD void fr_add(Fr& ret, const Fr& a, const Fr& b);
-    //BLST_HD void fr_sub(Fr& ret, const Fr& a, const Fr& b);
-    //BLST_HD void fr_mul_by_3(Fr& ret, const Fr& a);
-    //BLST_HD void fr_lshift(Fr& ret, const Fr& a, size_t count);
-    //BLST_HD void fr_rshift(Fr& ret, const Fr& a, size_t count);
-    //BLST_HD void fr_mul(Fr& ret, const Fr& a, const Fr& b);
-    //BLST_HD void fr_ct_bfly(Fr& x0, Fr& x1, const Fr& twiddle);
-    //BLST_HD void fr_gs_bfly(Fr& x0, Fr& x1, const Fr& twiddle);
-    //BLST_HD void fr_sqr(Fr& ret, const Fr& a);
-    //BLST_HD void fr_cneg(Fr& ret, const Fr& a, int flag);
-    //BLST_HD void fr_to(Fr& ret, const Fr& a);
-    //BLST_HD void fr_from(Fr& ret, const Fr& a);
-    //BLST_HD void fr_from_scalar(Fr& ret, const pow256 a);
-    //BLST_HD void scalar_from_fr(pow256 ret, const Fr& a);
-    //BLST_HD int scalar_fr_check(const pow256 a);
-    //BLST_HD int sk_check(const pow256 a);
-    //BLST_HD int sk_add_n_check(pow256 ret, const pow256 a, const pow256 b);
-    //BLST_HD int sk_sub_n_check(pow256 ret, const pow256 a, const pow256 b);
-    //BLST_HD int sk_mul_n_check(pow256 ret, const pow256 a, const pow256 b);
-    //BLST_HD void sk_inverse(pow256 ret, const pow256 a);
-
-
-
-    BLST_HD BLST_FORCEINLINE limb_t check_mod_v256(const pow256 a, const Fr& p)
+    BLST_HD BLST_FORCEINLINE limb_t Fr::check_mod(const Fr& a)
     {
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-        return check_mod_256(a, &p);
+        return check_mod_256(a, &modulus());
 #else
-        return cc_check_mod_n<NLIMBS(256)>(a, p.data);
+        return cc_check_mod_n<NLIMBS(256)>((u8*)a.data, modulus().data);
 #endif
     }
 
@@ -139,69 +194,6 @@ namespace blst
 #endif
     }
 
-
-    //BLST_HD BLST_INLINE void cc_mul_mont_sparse_256(
-    //    Fr& ret, const Fr& a, const Fr& b, const Fr& p, limb n0)
-    //{
-    //}
-    //BLST_HD BLST_INLINE void cc_sqr_mont_sparse_256(
-    //    Fr& ret, const Fr& a, const Fr& p, limb n0)
-    //{
-    //}
-
-
-    //BLST_HD BLST_INLINE void cc_add_mod_256(Fr& ret, const Fr& a,
-    //    const Fr& b, const Fr& p)
-    //{
-    //}
-    //BLST_HD BLST_INLINE void cc_sub_mod_256(Fr& ret, const Fr& a,
-    //    const Fr& b, const Fr& p)
-    //{
-    //}
-    //BLST_HD BLST_INLINE void cc_mul_by_3_mod_256(Fr& ret, const Fr& a,
-    //    const Fr& p)
-    //{
-    //}
-
-    //BLST_HD BLST_INLINE void cc_lshift_mod_256(Fr& ret, const Fr& a, size_t count,
-    //    const Fr& p)
-    //{
-    //}
-
-    //BLST_HD BLST_INLINE void cc_cneg_mod_256(Fr& ret, const Fr& a, bool_t flag,
-    //    const Fr& p)
-    //{
-    //}	
-    
-    //BLST_HD BLST_INLINE limb cc_check_mod_256(const pow256 a, const Fr& p)
-    //{
-    //}
-
-    //BLST_HD BLST_INLINE limb cc_add_n_check_mod_256(pow256 ret, const pow256 a,
-    //    const pow256 b, const Fr& p)
-    //{
-    //}
-    //BLST_HD BLST_INLINE limb cc_sub_n_check_mod_256(pow256 ret, const pow256 a,
-    //    const pow256 b, const Fr& p)
-    //{
-    //}
-    //BLST_HD BLST_INLINE void cc_from_mont_256(Fr& ret, const Fr& a,
-    //    const Fr& p, limb n0)
-    //{
-    //}
-
-    //BLST_HD BLST_INLINE void cc_redc_mont_256(Fr& ret, const UFr& a,
-    //    const Fr& p, limb n0)
-    //{
-    //}
-
-
-    //BLST_HD BLST_INLINE void cc_rshift_mod_256(Fr& ret, const Fr& a, size_t count,
-    //    const Fr& p)
-    //{
-    //}
-
-
     BLST_HD BLST_INLINE void cc_ct_inverse_mod_256(UFr& ret, const Fr& inp,
         const Fr& mod, const Fr& modx)
     {
@@ -209,124 +201,6 @@ namespace blst
     }
 
 
-
-
-
-
-
-
-
-
-
-    // montgomery multiply: ret = a * b * R^-1 mod p, where R montgomery radix
-    // optimized for "spare" modulus p, i.e. with many zero limbs
-    BLST_HD BLST_FORCEINLINE void mul_mont_sparse_v256(Fr& ret, const Fr& a, const Fr& b,
-        const Fr& p, limb_t n0)
-    {
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-        mulx_mont_sparse_256(&ret, &a, &b, &p, n0);// linked by asm
-#else
-        //cc_mul_mont_sparse_256(ret, a, b, p, n0);
-        cc_mul_mont_n<NLIMBS(256)>(ret.data, a.data, b.data, p.data, n0);
-#endif
-    }
-
-    // montgomery squaring: ret = a^2 * R^-1 mod p, where R montgomery radix
-    // optimized for "spare" modulus p, i.e. with many zero limbs
-    BLST_HD BLST_FORCEINLINE void sqr_mont_sparse_v256(Fr& ret, const Fr& a, const Fr& p, limb_t n0)
-    {
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-        sqrx_mont_sparse_256(&ret, &a, &p, n0);// linked by asm
-#else
-        //cc_sqr_mont_sparse_256(ret, a, p, n0);
-        cc_mul_mont_n<NLIMBS(256)>(ret.data, a.data, a.data, p.data, n0);
-
-#endif
-    }
-
-    // montgomery multiply: ret = a * b * R^-1 mod p, where R montgomery radix
-    BLST_HD BLST_FORCEINLINE void redc_mont_v256(Fr& ret, const UFr& a, const Fr& p, limb_t n0)
-    {
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-        redcx_mont_256(&ret, &a, &p, n0);// linked by asm
-#else
-        //cc_redc_mont_256(ret, a, p, n0);
-        cc_redc_mont_n<NLIMBS(256)>(ret.data, a.data, p.data, n0);
-#endif
-    }
-
-    // from montgomery domain: ret = a * R^-1 mod p, where R montgomery radix
-    BLST_HD BLST_FORCEINLINE void from_mont_v256(Fr& ret, const Fr& a, const Fr& p, limb_t n0)
-    {
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-        fromx_mont_256(&ret, &a, &p, n0);// linked by asm
-#else
-        //cc_from_mont_256(ret, a, p, n0);
-        cc_from_mont_n<NLIMBS(256)>(ret.data, a.data, p.data, n0);
-#endif
-    }
-
-
-    BLST_HD BLST_FORCEINLINE void add_mod_v256(Fr& ret, const Fr& a, const Fr& b, const Fr& p)
-    {
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-        add_mod_256(&ret, &a, &b, &p);// linked by asm, 
-#else
-        //cc_add_mod_256(ret, a, b, p);
-        cc_add_mod_n<NLIMBS(256)>(ret.data, a.data, b.data, p.data);
-#endif
-
-    }
-
-    BLST_HD BLST_FORCEINLINE void sub_mod_v256(Fr& ret, const Fr& a, const Fr& b, const Fr& p)
-    {
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-        sub_mod_256(&ret, &a, &b, &p);// linked by asm
-#else
-        //cc_sub_mod_256(ret, a, b, p);
-        cc_sub_mod_n<NLIMBS(256)>(ret.data, a.data, b.data, p.data);
-#endif
-    }
-
-    BLST_HD BLST_FORCEINLINE void mul_by_3_mod_v256(Fr& ret, const Fr& a, const Fr& p)
-    {
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-        mul_by_3_mod_256(&ret, &a, &p);
-#else
-        //cc_mul_by_3_mod_256(ret, a, p);
-        cc_mul_by_3_mod_n<NLIMBS(256)>(ret.data, a.data, p.data);
-#endif
-    }
-
-    BLST_HD BLST_FORCEINLINE void cneg_mod_v256(Fr& ret, const Fr& a, bool_t flag, const Fr& p)
-    {
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-        cneg_mod_256(&ret, &a, flag, &p);
-#else
-        //cc_cneg_mod_256(ret, a, flag, p);
-        cc_cneg_mod_n<NLIMBS(256)>(ret.data, a.data, flag, p.data);
-#endif // BLST_DEFAULT_ASM
-
-    }
-    BLST_HD BLST_FORCEINLINE void lshift_mod_v256(Fr& ret, const Fr& a, size_t count, const Fr& p)
-    {
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-        lshift_mod_256(&ret, &a, count, &p);
-#else
-        //cc_lshift_mod_256(ret, a, count, p);
-        cc_lshift_mod_n<NLIMBS(256)>(ret.data, a.data, count, p.data);
-#endif
-    }
-
-    BLST_HD BLST_FORCEINLINE void rshift_mod_v256(Fr& ret, const Fr& a, size_t count, const Fr& p)
-    {
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-        rshift_mod_256(&ret, &a, count, &p);
-#else
-        //cc_rshift_mod_256(ret, a, count, p);
-        cc_rshift_mod_n<NLIMBS(256)>(ret.data, a.data, count, p.data);
-#endif
-    }
 
     BLST_HD BLST_FORCEINLINE void ct_inverse_mod_v256(UFr& ret, const Fr& inp, const Fr& mod,
         const Fr& modx)
@@ -337,97 +211,26 @@ namespace blst
         cc_ct_inverse_mod_256(ret, inp, mod, modx);
 #endif
     }
-    //
-    //bool_t eucl_inverse_mod_v256(Fr& ret, const Fr& a, const Fr& p, const Fr& one)
-    //{
-    //#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-    //    bool_t eucl_inverse_mod_256(Fr& ret, const Fr& a, const Fr& p, const Fr& one)
-    //#else
-    //	return cc_eucl_inverse_mod_256(ret, a, p, one);
-    //#endif
-    //
-    //}
 
-
-
-
-
-
-
-
-
-    /*
-     * BLS12-381-specific Fr shortcuts to assembly.
-     */
-    BLST_HD BLST_INLINE void fr_add(Fr& ret, const Fr& a, const Fr& b)
-    {
-        add_mod_v256(ret, a, b, get_BLST_r());
-    }
-
-    BLST_HD BLST_INLINE void fr_sub(Fr& ret, const Fr& a, const Fr& b)
-    {
-        sub_mod_v256(ret, a, b, get_BLST_r());
-    }
-
-    BLST_HD BLST_INLINE void fr_mul_by_3(Fr& ret, const Fr& a)
-    {
-        mul_by_3_mod_v256(ret, a, get_BLST_r());
-    }
-
-    BLST_HD BLST_INLINE void fr_lshift(Fr& ret, const Fr& a, size_t count)
-    {
-        lshift_mod_v256(ret, a, count, get_BLST_r());
-    }
-
-    BLST_HD BLST_INLINE void fr_rshift(Fr& ret, const Fr& a, size_t count)
-    {
-        rshift_mod_v256(ret, a, count, get_BLST_r());
-    }
-
-    BLST_HD BLST_INLINE void fr_mul(Fr& ret, const Fr& a, const Fr& b)
-    {
-        mul_mont_sparse_v256(ret, a, b, get_BLST_r(), BLST_r0);
-    }
-
-    BLST_HD BLST_INLINE void fr_ct_bfly(Fr& x0, Fr& x1, const Fr& twiddle)
+    BLST_HD BLST_INLINE void Fr::ct_bfly(Fr& x0, Fr& x1, const Fr& twiddle)
     {
         Fr x2;
 
-        mul_mont_sparse_v256(x2, x1, twiddle, get_BLST_r(), BLST_r0);
-        sub_mod_v256(x1, x0, x2, get_BLST_r());
-        add_mod_v256(x0, x0, x2, get_BLST_r());
+        mul(x2, x1, twiddle);
+        sub(x1, x0, x2);
+        add(x0, x0, x2);
     }
 
-    BLST_HD BLST_INLINE void fr_gs_bfly(Fr& x0, Fr& x1, const Fr& twiddle)
+    BLST_HD BLST_INLINE void Fr::gs_bfly(Fr& x0, Fr& x1, const Fr& twiddle)
     {
         Fr x2;
 
-        sub_mod_v256(x2, x0, x1, get_BLST_r());
-        add_mod_v256(x0, x0, x1, get_BLST_r());
-        mul_mont_sparse_v256(x1, x2, twiddle, get_BLST_r(), BLST_r0);
+        sub(x2, x0, x1);
+        add(x0, x0, x1);
+        mul(x1, x2, twiddle);
     }
 
-    BLST_HD BLST_INLINE void fr_sqr(Fr& ret, const Fr& a)
-    {
-        sqr_mont_sparse_v256(ret, a, get_BLST_r(), BLST_r0);
-    }
-
-    BLST_HD BLST_INLINE void fr_cneg(Fr& ret, const Fr& a, int flag)
-    {
-        cneg_mod_v256(ret, a, is_zero(flag) ^ 1, get_BLST_r());
-    }
-
-    BLST_HD BLST_INLINE void fr_to(Fr& ret, const Fr& a)
-    {
-        mul_mont_sparse_v256(ret, a, get_BLST_rRR(), get_BLST_r(), BLST_r0);
-    }
-
-    BLST_HD BLST_INLINE void fr_from(Fr& ret, const Fr& a)
-    {
-        from_mont_v256(ret, a, get_BLST_r(), BLST_r0);
-    }
-
-    BLST_HD BLST_INLINE void fr_from_scalar(Fr& ret, const pow256 a)
+    BLST_HD BLST_INLINE void Fr::from_scalar(Fr& ret, const u8 a[256/8])
     {
         const union {
             long one;
@@ -435,18 +238,17 @@ namespace blst
         } is_endian = { 1 };
 
         if ((void*)ret == (void*)a && is_endian.little) {
-            mul_mont_sparse_v256(ret, (const Fr&)a, get_BLST_rRR(),
-                get_BLST_r(), BLST_r0);
+			Fr::to_mont((Fr&)ret, (const Fr&)a);
         }
         else {
             Fr out;
             limbs_from_le_bytes(out, a, 32);
-            mul_mont_sparse_v256(ret, out, get_BLST_rRR(), get_BLST_r(), BLST_r0);
+			Fr::to_mont(ret, out);
             vec_zero(out, sizeof(out));
         }
     }
 
-    BLST_HD BLST_INLINE void scalar_from_fr(pow256 ret, const Fr& a)
+    BLST_HD BLST_INLINE void Fr::to_scaler(u8 ret[256/8], const Fr& a)
     {
         const union {
             long one;
@@ -454,25 +256,18 @@ namespace blst
         } is_endian = { 1 };
 
         if ((void*)ret == (void*)a.data && is_endian.little) {
-            from_mont_v256((Fr&)ret, a, get_BLST_r(), BLST_r0);
+            Fr::from_mont((Fr&)ret, a);
         }
         else {
             Fr out;
-            from_mont_v256(out, a, get_BLST_r(), BLST_r0);
+            Fr::from_mont(out, a);
             le_bytes_from_limbs(ret, out, 32);
             vec_zero(&out, sizeof(out));
         }
     }
 
-    BLST_HD BLST_INLINE int scalar_fr_check(const pow256 a)
-    {
-        return (int)(check_mod_v256(a, get_BLST_r()) |
-            bytes_are_zero(a, sizeof(pow256)));
-    }
 
-
-
-    BLST_HD BLST_INLINE void fr_from_uint64(Fr& ret, const unsigned long long a[4])
+    BLST_HD BLST_INLINE void Fr::from_uint64(Fr& ret, const u64 a[256/64])
     {
         const union {
             long one;
@@ -488,45 +283,20 @@ namespace blst
             }
             a = (const unsigned long long*)ret;
         }
-        mul_mont_sparse_v256(ret, (const Fr&)a, get_BLST_rRR(), get_BLST_r(), BLST_r0);
+		Fr::to_mont(ret, (const Fr&)a);
     }
 
-    BLST_HD BLST_INLINE void fr_from_hexascii(Fr& ret, const char* hex)
+    BLST_HD BLST_INLINE void Fr::from_hexascii(Fr& ret, const char* hex)
     {
         limbs_from_hexascii(ret, sizeof(Fr), hex);
-        mul_mont_sparse_v256(ret, ret, get_BLST_rRR(), get_BLST_r(), BLST_r0);
-    }
-
-
-
-
-
-    BLST_HD BLST_INLINE void reciprocal_fr(Fr& out, const Fr& inp)
-    {
-        const Fr rx2 = { /* left-aligned value of the modulus */
-            TO_LIMB_T(0xfffffffe00000002), TO_LIMB_T(0xa77b4805fffcb7fd),
-            TO_LIMB_T(0x6673b0101343b00a), TO_LIMB_T(0xe7db4ea6533afa90),
-        };
-        UFr temp;
-
-        ct_inverse_mod_v256(temp, inp, get_BLST_r(), rx2);
-        redc_mont_v256(out, temp, get_BLST_r(), BLST_r0);
-        mul_mont_sparse_v256(out, out, get_BLST_rRR(), get_BLST_r(), BLST_r0);
-    }
-
-    BLST_HD BLST_FORCEINLINE void fr_inverse(Fr& out, const Fr& inp)
-    {
-        reciprocal_fr(out, inp);
-    }
-
-    BLST_HD BLST_FORCEINLINE void fr_eucl_inverse(Fr& out, const Fr& inp)
-    {
-        reciprocal_fr(out, inp);
+		Fr::to_mont(ret, ret);
     }
 
     BLST_HD BLST_FORCEINLINE int sk_check(const pow256 a)
     {
-        return (int)check_mod_v256(a, get_BLST_r());
+        Fr aa;
+		limbs_from_le_bytes(aa, a, sizeof(pow256));
+        return (int)Fr::check_mod(aa);
     }
 
     BLST_HD BLST_FORCEINLINE int sk_add_n_check(pow256 ret, const pow256 a, const pow256 b)
@@ -554,8 +324,8 @@ namespace blst
             a = (const byte*)&t[0];
             b = (const byte*)&t[1];
         }
-        mul_mont_sparse_v256(t[0], get_BLST_rRR(), (const Fr&)a, get_BLST_r(), BLST_r0);
-        mul_mont_sparse_v256(t[0], t[0], (const Fr&)b, get_BLST_r(), BLST_r0);
+		Fr::to_mont(t[0], (const Fr&)a);
+        Fr::mul(t[0], t[0], (const Fr&)b);
         le_bytes_from_limbs(ret, t[0], sizeof(pow256));
         is_zero = vec_is_zero(t[0], sizeof(Fr&));
         vec_zero(t, sizeof(t));
@@ -572,17 +342,18 @@ namespace blst
 
         if (((size_t)a | (size_t)ret) % sizeof(limb_t) == 0 && is_endian.little) {
             auto& out = (Fr&)ret;
-            mul_mont_sparse_v256(out, (const Fr&)a, get_BLST_rRR(),
-                get_BLST_r(), BLST_r0);
-            reciprocal_fr(out, out);
-            from_mont_v256(out, out, get_BLST_r(), BLST_r0);
+            //Fr::mul(out, (const Fr&)a, get_BLST_rRR());
+			Fr::to_mont(out, (const Fr&)a);
+            Fr::reciprocal(out, out);
+            Fr::from_mont(out, out);
         }
         else {
             Fr out;
             limbs_from_le_bytes(out, a, 32);
-            mul_mont_sparse_v256(out, out, get_BLST_rRR(), get_BLST_r(), BLST_r0);
-            reciprocal_fr(out, out);
-            from_mont_v256(out, out, get_BLST_r(), BLST_r0);
+            //Fr::mul(out, out, get_BLST_rRR());
+			Fr::to_mont(out, out);
+            Fr::reciprocal(out, out);
+            Fr::from_mont(out, out);
             le_bytes_from_limbs(ret, out, 32);
             vec_zero(out, sizeof(out));
         }
@@ -602,13 +373,232 @@ namespace blst
             }
 
             // Convert to Montgomery form: (1 * R) mod r
-            mul_mont_sparse_v256(one_in_montgomery, one_normal, get_BLST_rRR(), get_BLST_r(), BLST_r0);
+			Fr::to_mont(one_in_montgomery, one_normal);
 
             initialized = true;
         }
 
         return one_in_montgomery;
     }
+
+
+    // the modulus (returned as a Fr which is a slight abuse)
+    BLST_HD BLST_FORCEINLINE const Fr& Fr::modulus()
+    {
+		return get_BLST_r();
+    }
+
+    // ret = a + b
+    BLST_HD BLST_FORCEINLINE  void Fr::add(Fr& ret, const Fr& a, const Fr& b)
+    {
+		//add_mod_v256(ret, a, b, get_BLST_r());
+#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        add_mod_256(&ret, &a, &b, &modulus());// linked by asm, 
+#else
+        //cc_add_mod_256(ret, a, b, p);
+        cc_add_mod_n<NLIMBS(256)>(ret.data, a.data, b.data, modulus().data);
+#endif
+    }
+
+    // ret = a - b
+    BLST_HD BLST_FORCEINLINE  void Fr::sub(Fr& ret, const Fr& a, const Fr& b)
+    {
+		//sub_mod_v256(ret, a, b, get_BLST_r());
+#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        sub_mod_256(&ret, &a, &b, &modulus());// linked by asm
+#else
+        //cc_sub_mod_256(ret, a, b, p);
+        cc_sub_mod_n<NLIMBS(256)>(ret.data, a.data, b.data, modulus().data);
+#endif
+    }
+
+    // ret  = a * b
+    BLST_HD BLST_FORCEINLINE  void Fr::mul(Fr& ret, const Fr& a, const Fr& b) 
+    {
+		//mul_mont_sparse_v256(ret, a, b, get_BLST_r(), BLST_r0);
+#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        mulx_mont_sparse_256(&ret, &a, &b, &modulus(), BLST_r0);// linked by asm
+#else
+        //cc_mul_mont_sparse_256(ret, a, b, p, n0);
+        cc_mul_mont_n<NLIMBS(256)>(ret.data, a.data, b.data, modulus().data, BLST_r0);
+#endif
+    }
+
+    // ret  = a^x
+    //BLST_HD BLST_FORCEINLINE  void Fr::exp(Fr& ret, const Fr& a, const byte* x, size_t x_bits);
+
+    // ret = a^2
+    BLST_HD BLST_FORCEINLINE  void Fr::sqr(Fr& ret, const Fr& a)
+    {
+		//sqr_mont_sparse_v256(ret, a, get_BLST_r(), BLST_r0);
+#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        sqrx_mont_sparse_256(&ret, &a, &get_BLST_r(), BLST_r0);// linked by asm
+#else
+        //cc_sqr_mont_sparse_256(ret, a, p, n0);
+        cc_mul_mont_n<NLIMBS(256)>(ret.data, a.data, a.data, get_BLST_r(), BLST_r0);
+#endif
+    }
+
+    // let a = a' R mod p be the montgomery represtation of a'.
+    // ret = a'
+    BLST_HD BLST_FORCEINLINE  void Fr::from_mont(Fr& ret, const Fr& a)
+    {
+#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        fromx_mont_256(&ret, &a, &get_BLST_r(), BLST_r0);// linked by asm
+#else
+        cc_from_mont_n<NLIMBS(256)>(ret.data, a.data, get_BLST_r(), BLST_r0);
+#endif
+    }
+
+    // ret = a * R, where R is the montgomery constant 2^384
+    BLST_HD BLST_FORCEINLINE  void Fr::to_mont(Fr& ret, const Fr& a)
+    {
+        Fr::mul(ret, a, get_BLST_rRR());
+    }
+
+    // ret = a mod p
+    BLST_HD BLST_FORCEINLINE  void Fr::redc(Fr& ret, const struct UFr& a)
+    {
+		//redc_mont_v256(ret, a, get_BLST_r(), BLST_r0);
+#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        redcx_mont_256(&ret, &a, &modulus(), BLST_r0);// linked by asm
+#else
+        //cc_redc_mont_256(ret, a, p, n0);
+        cc_redc_mont_n<NLIMBS(256)>(ret.data, a.data, modulus(), BLST_r0);
+#endif
+    }
+
+    // ret = flag ? -a : a
+    BLST_HD BLST_FORCEINLINE  void Fr::cneg(Fr& ret, const Fr& a, bool_t flag)
+    {
+		//cneg_mod_v256(ret, a, flag, get_BLST_r());
+#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        cneg_mod_256(&ret, &a, flag, &modulus());
+#else
+        //cc_cneg_mod_256(ret, a, flag, p);
+        cc_cneg_mod_n<NLIMBS(256)>(ret.data, a.data, flag, modulus().data);
+#endif // BLST_DEFAULT_ASM
+
+    }
+
+    // ret = -a
+    BLST_HD BLST_FORCEINLINE  void Fr::neg(Fr& ret, const Fr& a)
+    {
+		Fr::cneg(ret, a, 1);
+    }
+
+    // ret = a * 2^count
+    BLST_HD BLST_FORCEINLINE  void Fr::lshift(Fr& ret, const Fr& a, size_t count)
+    {
+		//lshift_mod_v256(ret, a, count, get_BLST_r());
+#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        lshift_mod_256(&ret, &a, count, &get_BLST_r());
+#else
+        //cc_lshift_mod_256(ret, a, count, p);
+        cc_lshift_mod_n<NLIMBS(256)>(ret.data, a.data, count, get_BLST_r().data);
+#endif
+    }
+
+    // ret = floor(int(a) / 2^count). not mod p.
+    BLST_HD BLST_FORCEINLINE  void Fr::rshift(Fr& ret, const Fr& a, size_t count)
+    {
+		//rshift_mod_v256(ret, a, count, get_BLST_r());
+#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        rshift_mod_256(&ret, &a, count, &get_BLST_r());
+#else
+        //cc_rshift_mod_256(ret, a, count, p);
+        cc_rshift_mod_n<NLIMBS(256)>(ret.data, a.data, count, get_BLST_r().data);
+#endif
+    }
+
+    // out = a / 2 
+    //BLST_HD BLST_FORCEINLINE  void Fr::div_by_2(Fr& ret, const Fr& a);
+
+    // out = a * 3
+    BLST_HD BLST_FORCEINLINE  void Fr::mul_by_3(Fr& ret, const Fr& a)
+    {
+		//mul_by_3_mod_v256(ret, a, get_BLST_r());
+#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        mul_by_3_mod_256(&ret, &a, &get_BLST_r());
+#else
+        //cc_mul_by_3_mod_256(ret, a, p);
+        cc_mul_by_3_mod_n<NLIMBS(256)>(ret.data, a.data, get_BLST_r().data);
+#endif
+    }
+
+    // out = a * 8
+    //BLST_HD BLST_FORCEINLINE  void Fr::mul_by_8(Fr& ret, const Fr& a);
+
+    // out = 1 / inp, computed via Lehmer almost-inverse (faster)
+    BLST_HD BLST_FORCEINLINE  void Fr::reciprocal(Fr& out, const Fr& inp)
+    {
+		//reciprocal_fr(out, inp);
+
+        const Fr rx2 = { /* left-aligned value of the modulus */
+            TO_LIMB_T(0xfffffffe00000002), TO_LIMB_T(0xa77b4805fffcb7fd),
+            TO_LIMB_T(0x6673b0101343b00a), TO_LIMB_T(0xe7db4ea6533afa90),
+        };
+        UFr temp;
+
+        ct_inverse_mod_v256(temp, inp, get_BLST_r(), rx2);
+        Fr::redc(out, temp);
+        //Fr::mul(out, out, get_BLST_rRR());
+		Fr::to_mont(out, out);
+    }
+
+    // out = 1 / inp, computed via addition chain & Fermat's little theorem
+    //BLST_HD BLST_FORCEINLINE  void Fr::flt_reciprocal(Fr& out, const Fr& inp);
+
+    // out = inp^{p - 3/4}, useful for sqrt and recip_sqrt
+    //BLST_HD BLST_FORCEINLINE  void Fr::recip_sqrt_3mod4(Fr& t0, const Fr& inp);
+
+    // out = sqrt(1/inp) = inp^{-1/2}
+    //BLST_HD BLST_FORCEINLINE  bool_t Fr::recip_sqrt(Fr& out, const Fr& inp);
+
+    // out = sqrt(inp) = inp^{1/2}
+    //BLST_HD BLST_FORCEINLINE  bool_t Fr::sqrt(Fr& out, const Fr& inp);
+
+    //// returns true if inp is a square (quadratic residue) mod p
+    //BLST_HD BLST_FORCEINLINE  bool_t Fr::is_sqrt(const Fr& inp);
+
+    // out = a^{2^count} * b = sqr(...(sqr(a))...) * b
+    //BLST_HD BLST_FORCEINLINE  void Fr::sqr_n_mul(Fr& out, const Fr& a, size_t count, const Fr& b);
+
+    // return from_mont(a) == from_mont(b). 
+    BLST_HD BLST_FORCEINLINE  bool_t Fr::equal(const Fr& a, const Fr& b)
+    {
+		vec_is_equal(a, b, sizeof(Fr));
+    }
+
+    /* Compute sign and parity of a mod p
+     *
+     * Returns two bits:
+     *  - bit 0: parity, 0 if a is even, 1 if a is odd
+     *  - bit 1: sign, 0 if a is zero or even, 1 if a is odd and positive,
+     *           2 if a is odd and negative
+     */
+    //BLST_HD BLST_FORCEINLINE  limb_t Fr::sgn0_pty(const Fr& a);
+
+    /* Compute sign and parity of from_mont(a) mod p
+     *
+     * Returns two bits:
+     *  - bit 0: parity, 0 if a is even, 1 if a is odd
+     *  - bit 1: sign, 0 if a is zero or even, 1 if a is odd and positive,
+     *           2 if a is odd and negative
+     */
+    //BLST_HD BLST_FORCEINLINE  limb_t Fr::sgn0_pty_mont(const Fr& a);
+
+    /**
+     * Checks if `a` is reduced modulo a given modulus.
+     *
+     * Returns 1 if `a` is less than `p`, otherwise returns 0.
+     */
+    BLST_HD BLST_FORCEINLINE  limb_t Fr::is_redc(const Fr& a)
+    {
+        return cc_is_redc_mod_n<num_limbs()>((u8*)a.data, modulus());
+    }
+
+
 
 
     //BLST_EXTERN_C_END
