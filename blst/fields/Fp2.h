@@ -10,7 +10,6 @@
 #include "blst/config.h"
 #include "blst/common/defines.h" 
 #include "blst/fields/recip-addchain.h"
-#include "blst/fields/exp.h"
 #include "blst/fields/Fp.h"
 
 
@@ -108,17 +107,15 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
 #endif // __CUDA_ARCH__
 
 
+    constexpr Fp2 BLST_sqrt_minus_1_HOST = Fp2({ Fp{ { 0 } }, Fp{ ONE_MONT_P_LIMBS } });
 
-
-
-    extern const Fp2 BLST_sqrt_minus_1_HOST;// = { { 0 }, { ONE_MONT_P_LIMBS } };
     /*
         * "magic" number is ±2^((p-3)/4)%p, which is "1/sqrt(2)",
         * in quotes because 2*"1/sqrt(2)"^2 == -1 mod p, not 1,
         * but it pivots into "complex" plane nevertheless...
         */
-    extern const Fp2 BLST_sqrt_sqrt_minus_1_HOST; /*= { BLST_SQRT_SQRT_MINUS_1_LIMBS };*/
-    extern const Fp2 BLST_sqrt_minus_sqrt_minus_1_HOST; /*= { BLST_SQRT_MINUS_SQRT_MINUS_1_LIMBS };*/
+    constexpr Fp2 BLST_sqrt_sqrt_minus_1_HOST = { BLST_SQRT_SQRT_MINUS_1_LIMBS };
+    constexpr Fp2 BLST_sqrt_minus_sqrt_minus_1_HOST = { BLST_SQRT_MINUS_SQRT_MINUS_1_LIMBS };
 
 
     BLST_HD BLST_FORCEINLINE const Fp2& get_BLST_sqrt_minus_1(void)

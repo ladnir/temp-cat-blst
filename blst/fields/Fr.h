@@ -567,7 +567,7 @@ namespace blst
     // return from_mont(a) == from_mont(b). 
     BLST_HD BLST_FORCEINLINE  bool_t Fr::equal(const Fr& a, const Fr& b)
     {
-		vec_is_equal(a, b, sizeof(Fr));
+		return vec_is_equal(a, b, sizeof(Fr));
     }
 
     /* Compute sign and parity of a mod p

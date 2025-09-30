@@ -176,7 +176,7 @@ namespace blst
             if (nbits != 0 && scalar != NULL)
                 mult_w<POINTonE1,5>(H, H, scalar, nbits);
 
-            POINTonE1_from_Jacobian(H, H);
+            POINTonE1::from_jacobian(H, H);
 
             n = ctx->nelems;
             vec_copy(ctx->Q + n, PK, sizeof(POINTonE2_affine));
@@ -185,7 +185,7 @@ namespace blst
                 if (ctx->ctrl & AGGR_GT_SET) {
                     Fp12 GT;
                     miller_loop_n(GT, ctx->Q, ctx->P, n);
-                    mul_fp12(ctx->GT, ctx->GT, GT);
+                    Fp12::mul(ctx->GT, ctx->GT, GT);
                 }
                 else {
                     miller_loop_n(ctx->GT, ctx->Q, ctx->P, n);
@@ -331,12 +331,12 @@ namespace blst
                     (const unsigned char*)DST, ctx->DST_len,
                     (const unsigned char*)aug, aug_len);
 
-            POINTonE2_from_Jacobian(H, H);
+            POINTonE2::from_jacobian(H, H);
 
             if (nbits != 0 && scalar != NULL) {
                 FROM_AFFINE(pk, *PK);
                 mult_w<POINTonE1,5>(pk, pk, scalar, nbits);
-                POINTonE1_from_Jacobian(pk, pk);
+                POINTonE1::from_jacobian(pk, pk);
                 PK = (const POINTonE1_affine*)&pk;
             }
 
@@ -347,7 +347,7 @@ namespace blst
                 if (ctx->ctrl & AGGR_GT_SET) {
                     Fp12 GT;
                     miller_loop_n(GT, ctx->Q, ctx->P, n);
-                    mul_fp12(ctx->GT, ctx->GT, GT);
+                    Fp12::mul(ctx->GT, ctx->GT, GT);
                 }
                 else {
                     miller_loop_n(ctx->GT, ctx->Q, ctx->P, n);
@@ -422,7 +422,7 @@ namespace blst
             if (ctx->ctrl & AGGR_GT_SET) {
                 Fp12 GT;
                 miller_loop_n(GT, ctx->Q, ctx->P, n);
-                mul_fp12(ctx->GT, ctx->GT, GT);
+                Fp12::mul(ctx->GT, ctx->GT, GT);
             }
             else {
                 miller_loop_n(ctx->GT, ctx->Q, ctx->P, n);
@@ -480,7 +480,7 @@ namespace blst
         }
 
         if (ctx->ctrl & ctx1->ctrl & AGGR_GT_SET) {
-            mul_fp12(ctx->GT, ctx->GT, ctx1->GT);
+            Fp12::mul(ctx->GT, ctx->GT, ctx1->GT);
         }
         else if (ctx1->ctrl & AGGR_GT_SET) {
             ctx->ctrl |= AGGR_GT_SET;
@@ -505,12 +505,12 @@ namespace blst
 
             switch (ctx->ctrl & MIN_SIG_OR_PK) {
             case AGGR_MIN_SIG:
-                POINTonE1_from_Jacobian(AggrSign.e1, ctx->AggrSign.e1);
+                POINTonE1::from_jacobian(AggrSign.e1, ctx->AggrSign.e1);
                 miller_loop_n(GT, (const POINTonE2_affine*)&get_BLST_G2(),
                     (const POINTonE1_affine*)&AggrSign.e1, 1);
                 break;
             case AGGR_MIN_PK:
-                POINTonE2_from_Jacobian(AggrSign.e2, ctx->AggrSign.e2);
+                POINTonE2::from_jacobian(AggrSign.e2, ctx->AggrSign.e2);
                 miller_loop_n(GT, (const POINTonE2_affine*)&AggrSign.e2,
                     (const POINTonE1_affine*)&get_BLST_G1(), 1);
                 break;
@@ -526,9 +526,9 @@ namespace blst
             vec_copy(&GT, get_BLST_Rx().p12, sizeof(GT));
         }
 
-        conjugate_fp12(GT);
-        mul_fp12(GT, GT, ctx->GT);
-        final_exp(GT, GT);
+        Fp12::conjugate(GT);
+        Fp12::mul(GT, GT, ctx->GT);
+        Fp12::final_exp(GT, GT);
 
         /* return GT==1 */
         return vec_is_equal(&GT[0][0], get_BLST_Rx().p2, sizeof(GT[0][0])) &
@@ -545,9 +545,9 @@ namespace blst
         Fp12 GT;
 
         vec_copy(&GT, &GT1, sizeof(GT));
-        conjugate_fp12(GT);
-        mul_fp12(GT, GT, GT2);
-        final_exp(GT, GT);
+        Fp12::conjugate(GT);
+        Fp12::mul(GT, GT, GT2);
+        Fp12::final_exp(GT, GT);
 
         /* return GT==1 */
         return (int)(vec_is_equal(&GT[0][0], &get_BLST_Rx().p2, sizeof(GT[0][0])) &
@@ -569,7 +569,7 @@ namespace blst
             if (ctx->ctrl & AGGR_GT_SET) {
                 Fp12 GT;
                 miller_loop_n(GT, ctx->Q, ctx->P, n);
-                mul_fp12(ctx->GT, ctx->GT, GT);
+                Fp12::mul(ctx->GT, ctx->GT, GT);
             }
             else {
                 miller_loop_n(ctx->GT, ctx->Q, ctx->P, n);
@@ -600,7 +600,7 @@ namespace blst
         POINTonE1 P;
         BLST_ERROR ret;
 
-        ret = POINTonE1_Deserialize_Z(*(POINTonE1_affine*)&P, zwire);
+        ret = POINTonE1_affine::deserialize(*(POINTonE1_affine*)&P, zwire);
 
         if (ret != BLST_SUCCESS)
             return ret;
@@ -630,7 +630,7 @@ namespace blst
         POINTonE2 P[1];
         BLST_ERROR ret;
 
-        ret = POINTonE2_Deserialize_Z(*(POINTonE2_affine*)P, zwire);
+        ret = POINTonE2_affine::deserialize(*(POINTonE2_affine*)P, zwire);
 
         if (ret != BLST_SUCCESS)
             return ret;

@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "blst/fields/consts.h"
 #include "blst/common/bytes.h"
 #include "blst/sign/sha256.h"
 #include "blst/backend/backend.h"

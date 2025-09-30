@@ -612,6 +612,12 @@ namespace blst
         return vec_is_zero(t0.Z, sizeof(t0.Z));
     }
 #else
+    BLST_HD BLST_FORCEINLINE void sigma(POINTonE1& out, const POINTonE1& in)
+    {
+        vec_copy(out.X, in.X, 2 * sizeof(out.X));
+        Fp::mul(out.Z, in.Z, get_BLST_beta());
+    }
+
     BLST_HD BLST_INLINE bool_t POINTonE1_in_G1(const POINTonE1& P)
     {
         POINTonE1 t0, t1;
@@ -624,7 +630,7 @@ namespace blst
         sigma(t0, P);                      /* σ(P)     */
         sigma(t0, t0);                    /* σ²(P)    */
 
-        return POINTonE1::is_equal(t0, t1);
+        return POINTonE1::equal(t0, t1);
     }
 #endif
 

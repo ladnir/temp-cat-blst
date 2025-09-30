@@ -145,11 +145,11 @@ namespace blst
         const POINTonE1_affine* Px2, Fp6& line, size_t n)
     {
         line_add(line, T, T, Q);    line_by_Px2(line, Px2);
-        mul_by_xy00z0_fp12(ret, ret, line);
+        Fp12::mul_by_xy00z0(ret, ret, line);
         while (n--) {
             sqr_fp12(ret, ret);
             line_dbl(line, T, T);   line_by_Px2(line, Px2);
-            mul_by_xy00z0_fp12(ret, ret, line);
+            Fp12::mul_by_xy00z0(ret, ret, line);
         }
     }
 
@@ -179,7 +179,7 @@ namespace blst
         add_n_dbl(ret, T, Q, Px2, line, 9);         /* ..0xd200             */
         add_n_dbl(ret, T, Q, Px2, line, 32);        /* ..0xd20100000000     */
         add_n_dbl(ret, T, Q, Px2, line, 16);        /* ..0xd201000000010000 */
-        conjugate_fp12(ret);                /* account for z being negative */
+        Fp12::conjugate(ret);                /* account for z being negative */
 #undef Q
     }
 #endif
@@ -200,7 +200,7 @@ namespace blst
         for (i = 1; i < n; i++) {
             line_dbl(line, T[i], T[i]);       
             line_by_Px2(line, Px2[i]);
-            mul_by_xy00z0_fp12(ret, ret, line);
+            Fp12::mul_by_xy00z0(ret, ret, line);
         }
     }
 
@@ -216,13 +216,13 @@ namespace blst
 
         for (i = 0; i < n; i++) {
             line_add(line, T[i], T[i], Q[i]);  line_by_Px2(line, Px2[i]);
-            mul_by_xy00z0_fp12(ret, ret, line);
+            Fp12::mul_by_xy00z0(ret, ret, line);
         }
         while (k--) {
-            sqr_fp12(ret, ret);
+            Fp12::sqr(ret, ret);
             for (i = 0; i < n; i++) {
                 line_dbl(line, T[i], T[i]);   line_by_Px2(line, Px2[i]);
-                mul_by_xy00z0_fp12(ret, ret, line);
+                Fp12::mul_by_xy00z0(ret, ret, line);
             }
         }
     }
@@ -273,7 +273,7 @@ namespace blst
         add_n_dbl_n(ret, T, Q, Px2, n, 9);          /* ..0xd200             */
         add_n_dbl_n(ret, T, Q, Px2, n, 32);         /* ..0xd20100000000     */
         add_n_dbl_n(ret, T, Q, Px2, n, 16);         /* ..0xd201000000010000 */
-        conjugate_fp12(ret);                /* account for z being negative */
+        Fp12::conjugate(ret);                /* account for z being negative */
     }
 
 
@@ -319,11 +319,11 @@ namespace blst
         Fp6 line;
 
         post_line_by_Px2(line, lines++[0], Px2);
-        mul_by_xy00z0_fp12(ret, ret, line);
+        Fp12::mul_by_xy00z0(ret, ret, line);
         while (n--) {
-            sqr_fp12(ret, ret);
+            Fp12::sqr(ret, ret);
             post_line_by_Px2(line, lines++[0], Px2);
-            mul_by_xy00z0_fp12(ret, ret, line);
+            Fp12::mul_by_xy00z0(ret, ret, line);
         }
     }
 
@@ -348,7 +348,7 @@ namespace blst
         post_add_n_dbl(ret, &Qlines[8], Px2, 9);   /* ..0xd200             */
         post_add_n_dbl(ret, &Qlines[18], Px2, 32);  /* ..0xd20100000000     */
         post_add_n_dbl(ret, &Qlines[51], Px2, 16);  /* ..0xd201000000010000 */
-        conjugate_fp12(ret);                /* account for z being negative */
+        Fp12::conjugate(ret);                /* account for z being negative */
     }
 
 #ifdef INTERNAL_TESTMODE
@@ -362,63 +362,6 @@ namespace blst
     }
 #endif
 
-    BLST_HD void mul_n_sqr(Fp12& ret, const Fp12& a, size_t n)
-    {
-        mul_fp12(ret, ret, a);
-        while (n--)
-            cyclotomic_sqr_fp12(ret, ret);
-    }
-
-    BLST_HD void raise_to_z_div_by_2(Fp12& ret, const Fp12& a)
-    {
-        cyclotomic_sqr_fp12(ret, a);                /* 0x2                  */
-        mul_n_sqr(ret, a, 2);                       /* ..0xc                */
-        mul_n_sqr(ret, a, 3);                       /* ..0x68               */
-        mul_n_sqr(ret, a, 9);                       /* ..0xd200             */
-        mul_n_sqr(ret, a, 32);                      /* ..0xd20100000000     */
-        mul_n_sqr(ret, a, 16 - 1);                    /* ..0x6900800000008000 */
-        conjugate_fp12(ret);                /* account for z being negative */
-    }
-
-#define raise_to_z(a, b) (raise_to_z_div_by_2(a, b), cyclotomic_sqr_fp12(a, a))
-
-    /*
-     * Adaptation from <zkcrypto>/pairing/src/bls12_381/mod.rs
-     */
-    BLST_HD void final_exp(Fp12& ret, const Fp12& f)
-    {
-        Fp12 y0, y1, y2, y3;
-
-        vec_copy(&y1, &f, sizeof(y1));
-        conjugate_fp12(y1);
-        inverse_fp12(y2, f);
-        mul_fp12(ret, y1, y2);
-        frobenius_map_fp12(y2, ret, 2);
-        mul_fp12(ret, ret, y2);
-
-        cyclotomic_sqr_fp12(y0, ret);
-        raise_to_z(y1, y0);
-        raise_to_z_div_by_2(y2, y1);
-        vec_copy(&y3, &ret, sizeof(y3));
-        conjugate_fp12(y3);
-        mul_fp12(y1, y1, y3);
-        conjugate_fp12(y1);
-        mul_fp12(y1, y1, y2);
-        raise_to_z(y2, y1);
-        raise_to_z(y3, y2);
-        conjugate_fp12(y1);
-        mul_fp12(y3, y3, y1);
-        conjugate_fp12(y1);
-        frobenius_map_fp12(y1, y1, 3);
-        frobenius_map_fp12(y2, y2, 2);
-        mul_fp12(y1, y1, y2);
-        raise_to_z(y2, y3);
-        mul_fp12(y2, y2, y0);
-        mul_fp12(y2, y2, ret);
-        mul_fp12(y1, y1, y2);
-        frobenius_map_fp12(y2, y3, 1);
-        mul_fp12(ret, y1, y2);
-    }
 
     BLST_HD void blst_miller_loop(Fp12& ret, const POINTonE2_affine* Q,
         const POINTonE1_affine* P)
@@ -467,19 +410,14 @@ namespace blst
                 add_n_dbl_n(ret, T, Q, Px2, i, 9);      /* ..0xd200             */
                 add_n_dbl_n(ret, T, Q, Px2, i, 32);     /* ..0xd20100000000     */
                 add_n_dbl_n(ret, T, Q, Px2, i, 16);     /* ..0xd201000000010000 */
-                conjugate_fp12(ret);            /* account for z being negative */
+                Fp12::conjugate(ret);            /* account for z being negative */
 
                 if (j >= MILLER_LOOP_N_MAX)
-                    mul_fp12(out, out, ret);
+                    Fp12::mul(out, out, ret);
 
                 i = 0;
             }
         }
-    }
-
-    BLST_HD void blst_final_exp(Fp12& ret, const Fp12& f)
-    {
-        final_exp(ret, f);
     }
 
     BLST_HD void blst_precompute_lines(Fp6 Qlines[68], const POINTonE2_affine& Q)
@@ -493,27 +431,4 @@ namespace blst
         miller_loop_lines(ret, Qlines, P);
     }
 
-    BLST_HD  bool_t is_cyclotomic(const Fp12& f)
-    {
-        Fp12 a, b;
-
-        frobenius_map_fp12(a, f, 2);
-        frobenius_map_fp12(b, a, 2);
-        mul_fp12(b, b, f);
-
-        return vec_is_equal(&a, &b, sizeof(a));
-    }
-
-    BLST_HD int blst_fp12_in_group(const Fp12& f)
-    {
-        Fp12 a, b;
-
-        if (vec_is_zero(&f, sizeof(Fp12)) || !is_cyclotomic(f))
-            return 0;
-
-        frobenius_map_fp12(a, f, 1);
-        raise_to_z(b, f);
-
-        return (int)vec_is_equal(&a, &b, sizeof(a));
-    }
 }

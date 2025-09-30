@@ -29,7 +29,7 @@ static void BM_Fp12Multiplication(benchmark::State& state) {
     generate_random_fp12(b);
 
     for (auto _ : state) {
-        blst_fp12_mul(c, a, b);
+        Fp12::mul(c, a, b);
         benchmark::DoNotOptimize(c);
     }
     state.SetItemsProcessed(state.iterations());
@@ -44,7 +44,7 @@ static void BM_Fp12Squaring(benchmark::State& state) {
     generate_random_fp12(a);
 
     for (auto _ : state) {
-        blst_fp12_sqr(c, a);
+        Fp12::sqr(c, a);
         benchmark::DoNotOptimize(c);
     }
     state.SetItemsProcessed(state.iterations());
@@ -57,7 +57,7 @@ static void BM_Fp12CyclotomicSquaring(benchmark::State& state) {
     generate_random_fp12(a);
 
     for (auto _ : state) {
-        blst_fp12_cyclotomic_sqr(c, a);
+        Fp12::cyclotomic_sqr(c, a);
         benchmark::DoNotOptimize(c);
     }
     state.SetItemsProcessed(state.iterations());
@@ -72,7 +72,7 @@ static void BM_Fp12Inversion(benchmark::State& state) {
     generate_random_fp12(a);
 
     for (auto _ : state) {
-        blst_fp12_inverse(c, a);
+        Fp12::inverse(c, a);
         benchmark::DoNotOptimize(c);
     }
     state.SetItemsProcessed(state.iterations());
@@ -88,7 +88,7 @@ static void BM_Fp12Conjugate(benchmark::State& state) {
 
     for (auto _ : state) {
         // Conjugation is in-place
-        blst_fp12_conjugate(a);
+        Fp12::conjugate(a);
         benchmark::DoNotOptimize(a);
     }
     state.SetItemsProcessed(state.iterations());
@@ -103,7 +103,7 @@ static void BM_Fp12Frobenius(benchmark::State& state) {
     generate_random_fp12(a);
 
     for (auto _ : state) {
-        blst_fp12_frobenius_map(c, a, 1);
+        Fp12::frobenius_map(c, a, 1);
         benchmark::DoNotOptimize(c);
     }
     state.SetItemsProcessed(state.iterations());
@@ -121,7 +121,7 @@ static void BM_Fp12Exponentiation(benchmark::State& state) {
     limb_t exponent[] = { 0x7, 0x0 };
 
     for (auto _ : state) {
-        blst_fp12_pow(c, a, exponent, 3);
+        Fp12::exp(c, a, exponent, 3);
         benchmark::DoNotOptimize(c);
     }
     state.SetItemsProcessed(state.iterations());

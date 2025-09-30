@@ -8,7 +8,6 @@
 #include "blst/fields/Fp.h"
 #include "blst/fields/Fp2.h"
 #include "blst/backend/backend.h"
-#include "blst/fields/consts.h"
 #include "InsecureRng.h"
 
 using namespace blst;

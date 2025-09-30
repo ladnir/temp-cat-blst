@@ -53,62 +53,62 @@ TEST(E2PointTest, PointAddition) {
     POINTonE2 p1, p2, result, temp;
 
     // Get generator point
-    p1 = blst_p2_generator();
+    p1 = POINTonE2::generator();
 
     // Create a different point (we'll use 2*G)
-    blst_p2_double(temp, p1);
+    POINTonE2::doubling(temp, p1);
 
     // Add generator and the different point (G + 2G)
-    blst_p2_add(result, p1, temp);
+    POINTonE2::add(result, p1, temp);
 
     // Compute 3G using scalar multiplication
     unsigned char scalar[32] = { 3 };
-    blst_p2_mult(p2, p1, scalar, 8);
+    POINTonE2::mult(p2, p1, scalar, 8);
 
     // Results should match
-    EXPECT_TRUE(blst_p2_is_equal(result, p2));
+    EXPECT_TRUE(POINTonE2::equal(result, p2));
 
     // Also test the doubling-specific function
-    blst_p2_double(result, p1);
+    POINTonE2::doubling(result, p1);
 
     // Create 2G with scalar multiplication
     unsigned char scalar2[32] = { 2 };
-    blst_p2_mult(p2, p1, scalar2, 8);
+    POINTonE2::mult(p2, p1, scalar2, 8);
 
     // Results should match
-    EXPECT_TRUE(blst_p2_is_equal(result, p2));
+    EXPECT_TRUE(POINTonE2::equal(result, p2));
 }
 
 TEST(E2PointTest, AdditionWithIdentity) {
     POINTonE2 p1, identity, result;
 
     // Get generator point
-    p1 = blst_p2_generator();
+    p1 = POINTonE2::generator();
 
     // Create identity point (point at infinity)
     memset(&identity, 0, sizeof(identity));
     identity.Z[0][0] = 0;  // explicitly set Z to 0 for infinity
 
     // P + O = P
-    blst_p2_add(result, p1, identity);
-    EXPECT_TRUE(blst_p2_is_equal(result, p1));
+    POINTonE2::add(result, p1, identity);
+    EXPECT_TRUE(POINTonE2::equal(result, p1));
 }
 
 TEST(E2PointTest, PointNegation) {
     POINTonE2 p1, neg_p1, result;
 
     // Get generator point
-    p1 = blst_p2_generator();
+    p1 = POINTonE2::generator();
 
     // Make a copy of the point and negate it
     neg_p1 = p1;
-    blst_p2_cneg(neg_p1, 1);
+    POINTonE2::cneg(neg_p1, 1);
 
     // P + (-P) should be the identity
-    blst_p2_add(result, p1, neg_p1);
+    POINTonE2::add(result, p1, neg_p1);
 
     // Result should be point at infinity
-    EXPECT_TRUE(blst_p2_is_inf(result));
+    EXPECT_TRUE(POINTonE2::is_inf(result));
 }
 
 TEST(E2PointTest, ScalarMultiplication) {
@@ -116,30 +116,30 @@ TEST(E2PointTest, ScalarMultiplication) {
     unsigned char scalar[32] = { 0 };
 
     // Get generator point
-    p1 = blst_p2_generator();
+    p1 = POINTonE2::generator();
 
     // Scalar = 2
     scalar[0] = 2;
 
     // Compute 2*P
-    blst_p2_mult(result, p1, scalar, 8);
+    POINTonE2::mult(result, p1, scalar, 8);
 
     // Should equal P + P (using doubling formula)
-    blst_p2_double(expected, p1);
-    EXPECT_TRUE(blst_p2_is_equal(result, expected));
+    POINTonE2::doubling(expected, p1);
+    EXPECT_TRUE(POINTonE2::equal(result, expected));
 
     // Scalar = 3
     scalar[0] = 3;
 
     // Compute 3*P
-    blst_p2_mult(result, p1, scalar, 8);
+    POINTonE2::mult(result, p1, scalar, 8);
 
     // Should equal 2*P + P
     POINTonE2 doubled;
-    blst_p2_double(doubled, p1);         // doubled = 2*P
-    blst_p2_add(expected, doubled, p1); // expected = 2*P + P = 3*P
+    POINTonE2::doubling(doubled, p1);         // doubled = 2*P
+    POINTonE2::add(expected, doubled, p1); // expected = 2*P + P = 3*P
 
-    EXPECT_TRUE(blst_p2_is_equal(result, expected));
+    EXPECT_TRUE(POINTonE2::equal(result, expected));
 }
 
 TEST(E2PointTest, ScalarMultiplicationByZero) {
@@ -147,13 +147,13 @@ TEST(E2PointTest, ScalarMultiplicationByZero) {
     unsigned char scalar[32] = { 0 };
 
     // Get generator point
-    p1 = blst_p2_generator();
+    p1 = POINTonE2::generator();
 
     // Compute 0*P
-    blst_p2_mult(result, p1, scalar, 8);
+    POINTonE2::mult(result, p1, scalar, 8);
 
     // Result should be point at infinity
-    EXPECT_TRUE(blst_p2_is_inf(result));
+    EXPECT_TRUE(POINTonE2::is_inf(result));
 }
 
 TEST(E2PointTest, PointOnCurve) {
@@ -161,22 +161,22 @@ TEST(E2PointTest, PointOnCurve) {
     POINTonE2_affine p1_affine;
 
     // Get generator point
-    p1 = blst_p2_generator();
+    p1 = POINTonE2::generator();
 
     // Generator should be on curve
-    EXPECT_TRUE(blst_p2_on_curve(p1));
+    EXPECT_TRUE(POINTonE2::on_curve(p1));
 
     // Convert to affine
-    blst_p2_to_affine(p1_affine, p1);
-
+    POINTonE2::to_affine(p1_affine, p1);
+    
     // Affine point should also be on curve
-    EXPECT_TRUE(blst_p2_affine_on_curve(p1_affine));
+    EXPECT_TRUE(POINTonE2_affine::on_curve(p1_affine));
 
     // Modify point to be off curve
     p1.X[0][0] ^= 1;  // Flip a bit
 
     // Modified point should not be on curve
-    EXPECT_FALSE(blst_p2_on_curve(p1));
+    EXPECT_FALSE(POINTonE2::on_curve(p1));
 }
 
 TEST(E2PointTest, SerializeDeserialize) {
@@ -185,43 +185,43 @@ TEST(E2PointTest, SerializeDeserialize) {
     unsigned char serialized[192];  // 2 * 96 bytes for G2 point
 
     // Get generator point
-    p1 = blst_p2_generator();
+    p1 = POINTonE2::generator();
 
     // Serialize the point
-    blst_p2_serialize(serialized, p1);
+    POINTonE2::serialize(serialized, p1);
 
     // Deserialize back to a point
-    EXPECT_EQ(blst_p2_deserialize(p1_affine, serialized), BLST_SUCCESS);
+    EXPECT_EQ(POINTonE2_affine::deserialize(p1_affine, serialized), BLST_SUCCESS);
 
     // Convert from affine back to Jacobian coordinates
-    blst_p2_from_affine(p2, p1_affine);
+    POINTonE2::from_affine(p2, p1_affine);
 
     // Points should be equal
-    EXPECT_TRUE(blst_p2_is_equal(p1, p2));
+    EXPECT_TRUE(POINTonE2::equal(p1, p2));
 }
 
 TEST(E2PointTest, BasicCompressUncompress) {
     // Starting with the generator point in projective form
-    POINTonE2 point = blst_p2_generator();
+    POINTonE2 point = POINTonE2::generator();
 
     // Convert to affine
     POINTonE2_affine affine_point;
-    blst_p2_to_affine(affine_point, point);
+    POINTonE2::to_affine(affine_point, point);
 
     // First confirm it's on the curve
-    ASSERT_TRUE(blst_p2_affine_on_curve(affine_point)) << "Point not on curve";
+    ASSERT_TRUE(POINTonE2_affine::on_curve(affine_point)) << "Point not on curve";
 
     // Compress the affine point
     unsigned char compressed[96];  // 2 * 48 bytes for compressed G2
-    blst_p2_affine_compress(compressed, affine_point);
+    POINTonE2_affine::compress(compressed, affine_point);
 
     // Uncompress
     POINTonE2_affine result;
-    BLST_ERROR err = blst_p2_uncompress(result, compressed);
+    BLST_ERROR err = POINTonE2_affine::uncompress(result, compressed);
     ASSERT_EQ(err, BLST_SUCCESS) << "Decompression failed with code " << err;
 
     // Points should match
-    EXPECT_TRUE(blst_p2_affine_is_equal(result, affine_point))
+    EXPECT_TRUE(POINTonE2_affine::equal(result, affine_point))
         << "Points don't match after compression/decompression";
 }
 
@@ -230,27 +230,27 @@ TEST(E2PointTest, AffineCompressUncompress) {
     unsigned char compressed[96] = { 0 };
 
     // Get the generator in affine form
-    original = blst_p2_affine_generator();
+    original = POINTonE2_affine::generator();
 
     // Verify it's on curve
-    ASSERT_TRUE(blst_p2_affine_on_curve(original)) << "Generator point not on curve";
+    ASSERT_TRUE(POINTonE2_affine::on_curve(original)) << "Generator point not on curve";
 
     // Compress 
-    blst_p2_affine_compress(compressed, original);
+    POINTonE2_affine::compress(compressed, original);
 
     // Verify compressed format
     EXPECT_TRUE(compressed[0] & 0x80) << "Compressed bit not set";
     EXPECT_FALSE(compressed[0] & 0x40) << "Infinity bit incorrectly set";
 
     // Uncompress
-    BLST_ERROR err = blst_p2_uncompress(decompressed, compressed);
+    BLST_ERROR err = POINTonE2_affine::uncompress(decompressed, compressed);
     ASSERT_EQ(err, BLST_SUCCESS) << "Decompression failed with code " << err;
 
     // Verify the point is on curve
-    ASSERT_TRUE(blst_p2_affine_on_curve(decompressed)) << "Decompressed point not on curve";
+    ASSERT_TRUE(POINTonE2_affine::on_curve(decompressed)) << "Decompressed point not on curve";
 
     // Directly compare the affine coordinates
-    EXPECT_TRUE(blst_p2_affine_is_equal(original, decompressed))
+    EXPECT_TRUE(POINTonE2_affine::equal(original, decompressed))
         << "Affine points don't match after compression cycle";
 }
 
@@ -260,27 +260,27 @@ TEST(E2PointTest, CompressUncompress) {
     unsigned char compressed[96] = { 0 };
 
     // Start with the generator point which is guaranteed to be valid
-    p1 = blst_p2_generator();
+    p1 = POINTonE2::generator();
 
     // Convert to affine first (important for compression)
-    blst_p2_to_affine(p1_affine, p1);
+    POINTonE2::to_affine(p1_affine, p1);
 
     // Compress directly
-    blst_p2_compress(compressed, p1);
+    POINTonE2::compress(compressed, p1);
 
     // Manually verify the format - first byte should have compressed bit set (0x80)
     // but not have infinity bit set (0x40)
     EXPECT_TRUE((compressed[0] & 0x80) && !(compressed[0] & 0x40));
 
     // Try to uncompress
-    BLST_ERROR err = blst_p2_uncompress(p2_affine, compressed);
+    BLST_ERROR err = POINTonE2_affine::uncompress(p2_affine, compressed);
     ASSERT_EQ(err, BLST_SUCCESS) << "Point decompression failed";
 
     // Convert back to Jacobian coordinates
-    blst_p2_from_affine(p2, p2_affine);
+    POINTonE2::from_affine(p2, p2_affine);
 
     // Points should be equal
-    EXPECT_TRUE(blst_p2_is_equal(p1, p2));
+    EXPECT_TRUE(POINTonE2::equal(p1, p2));
 }
 
 TEST(E2PointTest, InfinityPoint) {
@@ -292,19 +292,19 @@ TEST(E2PointTest, InfinityPoint) {
     memset(&identity, 0, sizeof(identity));
 
     // Point should be at infinity
-    EXPECT_TRUE(blst_p2_is_inf(identity));
+    EXPECT_TRUE(POINTonE2::is_inf(identity));
 
     // Serialize infinity point
-    blst_p2_serialize(serialized, identity);
+    POINTonE2::serialize(serialized, identity);
 
     // First byte should have infinity bit set
     EXPECT_TRUE(serialized[0] & 0x40);
 
     // Deserialize back to a point
-    EXPECT_EQ(blst_p2_deserialize(affine_identity, serialized), BLST_SUCCESS);
+    EXPECT_EQ(POINTonE2_affine::deserialize(affine_identity, serialized), BLST_SUCCESS);
 
     // Should be affine infinity
-    EXPECT_TRUE(blst_p2_affine_is_inf(affine_identity));
+    EXPECT_TRUE(POINTonE2_affine::is_inf(affine_identity));
 }
 
 TEST(E2PointTest, SigningBasicOperation) {
@@ -318,16 +318,16 @@ TEST(E2PointTest, SigningBasicOperation) {
     unsigned char pk_bytes[192];
 
     // Generate public key from secret key
-    blst_sk_to_pk2_in_g2(pk_bytes, NULL, SK);
+    POINTonE2::to_pk2(pk_bytes, NULL, SK);
 
     // Create a message point - we'll use the generator for simplicity
-    p1 = blst_p2_generator();
+    p1 = POINTonE2::generator();
 
     // Sign the message
-    blst_sign_pk_in_g1(sig, p1, SK);
+    POINTonE2::sign(sig, p1, SK);
 
     // Signature should be on the curve
-    EXPECT_TRUE(blst_p2_on_curve(sig));
+    EXPECT_TRUE(POINTonE2::on_curve(sig));
 }
 
 TEST(E2PointTest, PointCoordinateConversion) {
@@ -335,42 +335,42 @@ TEST(E2PointTest, PointCoordinateConversion) {
     POINTonE2_affine p_affine;
 
     // Get generator point
-    p1 = blst_p2_generator();
+    p1 = POINTonE2::generator();
 
     // Convert to affine
-    blst_p2_to_affine(p_affine, p1);
+    POINTonE2::to_affine(p_affine, p1);
 
     // Convert back to Jacobian
-    blst_p2_from_affine(p2, p_affine);
+    POINTonE2::from_affine(p2, p_affine);
 
     // Should be equal to original point
-    EXPECT_TRUE(blst_p2_is_equal(p1, p2));
+    EXPECT_TRUE(POINTonE2::equal(p1, p2));
 
     // Convert from Jacobian to Jacobian (normalized Z)
-    blst_p2_from_jacobian(p2, p1);
+    POINTonE2::from_jacobian(p2, p1);
 
     // Should be equal to original point
-    EXPECT_TRUE(blst_p2_is_equal(p1, p2));
+    EXPECT_TRUE(POINTonE2::equal(p1, p2));
 }
 
 TEST(E2PointTest, GeneratorProperties) {
     // Get generator point
-    const POINTonE2 g = blst_p2_generator();
+    const POINTonE2 g = POINTonE2::generator();
 
     // Generator should be on curve
-    EXPECT_TRUE(blst_p2_on_curve(g));
+    EXPECT_TRUE(POINTonE2::on_curve(g));
 
     // Generator should not be at infinity
-    EXPECT_FALSE(blst_p2_is_inf(g));
+    EXPECT_FALSE(POINTonE2::is_inf(g));
 
     // Get affine generator
-    const POINTonE2_affine g_affine = blst_p2_affine_generator();
+    const POINTonE2_affine g_affine = POINTonE2_affine::generator();
 
     // Affine generator should be on curve
-    EXPECT_TRUE(blst_p2_affine_on_curve(g_affine));
+    EXPECT_TRUE(POINTonE2_affine::on_curve(g_affine));
 
     // Affine generator should not be at infinity
-    EXPECT_FALSE(blst_p2_affine_is_inf(g_affine));
+    EXPECT_FALSE(POINTonE2_affine::is_inf(g_affine));
 }
 
 TEST(E2PointTest, LargeScalarMultiplication) {
@@ -384,13 +384,13 @@ TEST(E2PointTest, LargeScalarMultiplication) {
     };
 
     // Get generator point
-    p1 = blst_p2_generator();
+    p1 = POINTonE2::generator();
 
     // Perform large scalar multiplication
-    blst_p2_mult(result, p1, large_scalar, 252);
+    POINTonE2::mult(result, p1, large_scalar, 252);
 
     // Result should be on curve
-    EXPECT_TRUE(blst_p2_on_curve(result));
+    EXPECT_TRUE(POINTonE2::on_curve(result));
 }
 
 TEST(E2PointTest, AffineEquality) {
@@ -398,23 +398,23 @@ TEST(E2PointTest, AffineEquality) {
     POINTonE2 p1, p2;
 
     // Get generator point
-    p1 = blst_p2_generator();
+    p1 = POINTonE2::generator();
 
     // Double the generator
-    blst_p2_double(p2, p1);
+    POINTonE2::doubling(p2, p1);
 
     // Convert both to affine
-    blst_p2_to_affine(a1, p1);
-    blst_p2_to_affine(a2, p1);
+    POINTonE2::to_affine(a1, p1);
+    POINTonE2::to_affine(a2, p1);
 
     // Affine points should be equal
-    EXPECT_TRUE(blst_p2_affine_is_equal(a1, a2));
+    EXPECT_TRUE(POINTonE2_affine::equal(a1, a2));
 
     // Convert p2 to affine
-    blst_p2_to_affine(a2, p2);
+    POINTonE2::to_affine(a2, p2);
 
     // Should not be equal to a1
-    EXPECT_FALSE(blst_p2_affine_is_equal(a1, a2));
+    EXPECT_FALSE(POINTonE2_affine::equal(a1, a2));
 }
 
 TEST(E2PointTest, DeserializeInvalidPoint) {
@@ -425,7 +425,7 @@ TEST(E2PointTest, DeserializeInvalidPoint) {
     memset(invalid_data, 0xFF, sizeof(invalid_data));
 
     // Should fail to deserialize
-    EXPECT_NE(blst_p2_deserialize(result, invalid_data), BLST_SUCCESS);
+    EXPECT_NE(POINTonE2_affine::uncompress(result, invalid_data), BLST_SUCCESS);
 }
 
 TEST(E2PointTest, SizeChecks) {
@@ -438,54 +438,54 @@ TEST(E2PointTest, MultiplePointAddition) {
     POINTonE2 p1, p3a, p2, result;
 
     // Get generator point
-    p1 = blst_p2_generator();
+    p1 = POINTonE2::generator();
 
     // Compute 3*P using additions
-    blst_p2_double(p2, p1);    // temp = 2*P
-    blst_p2_add(p3a, p2, p1);  // p3a = 3*P
+    POINTonE2::doubling(p2, p1);    // temp = 2*P
+    POINTonE2::add(p3a, p2, p1);  // p3a = 3*P
 
     // Compute 3*P using scalar multiplication
     unsigned char scalar[32] = { 3 };
-    blst_p2_mult(result, p1, scalar, 8);
+    POINTonE2::mult(result, p1, scalar, 8);
 
     // Results should match
-    EXPECT_TRUE(blst_p2_is_equal(result, p3a));
+    EXPECT_TRUE(POINTonE2::equal(result, p3a));
 
     // Test mixed addition with different points
     POINTonE2_affine p2_affine;
-    blst_p2_to_affine(p2_affine, p2);  // Convert 2*P to affine
+    POINTonE2::to_affine(p2_affine, p2);  // Convert 2*P to affine
 
     // P + (2P affine) should equal 3P
-    blst_p2_add_affine(result, p1, p2_affine);
-    EXPECT_TRUE(blst_p2_is_equal(result, p3a));  // Should equal 3*P
+    POINTonE2::add_affine(result, p1, p2_affine);
+    EXPECT_TRUE(POINTonE2::equal(result, p3a));  // Should equal 3*P
 
-    // Also verify that add_or_double_affine works with same point (P+P)
+    // Also verify that dadd_affine works with same point (P+P)
     POINTonE2_affine p_affine;
-    blst_p2_to_affine(p_affine, p1);
+    POINTonE2::to_affine(p_affine, p1);
 
-    // Test P + P using add_or_double_affine
-    blst_p2_add_or_double_affine(result, p1, p_affine);
-    EXPECT_TRUE(blst_p2_is_equal(result, p2));  // Should equal 2*P
+    // Test P + P using dadd_affine
+    POINTonE2::dadd_affine(result, p1, p_affine);
+    EXPECT_TRUE(POINTonE2::equal(result, p2));  // Should equal 2*P
 }
 
 TEST(E2PointTest, AdditionEdgeCases) {
     POINTonE2 p1, neg_p1, result, temp;
 
     // Get generator point
-    p1 = blst_p2_generator();
+    p1 = POINTonE2::generator();
 
     // Make a copy and negate it
     neg_p1 = p1;
-    blst_p2_cneg(neg_p1, 1);
+    POINTonE2::cneg(neg_p1, 1);
 
     // P + (-P) should be infinity
-    blst_p2_add_or_double(result, p1, neg_p1);
-    EXPECT_TRUE(blst_p2_is_inf(result));
+    POINTonE2::dadd(result, p1, neg_p1);
+    EXPECT_TRUE(POINTonE2::is_inf(result));
 
     // Add two identical points with regular add (should handle doubling correctly)
-    blst_p2_add_or_double(result, p1, p1);
-    blst_p2_double(temp, p1);
-    EXPECT_TRUE(blst_p2_is_equal(result, temp));
+    POINTonE2::dadd(result, p1, p1);
+    POINTonE2::doubling(temp, p1);
+    EXPECT_TRUE(POINTonE2::equal(result, temp));
 }
 
 TEST(E2PointTest, HashToCurve) {
@@ -497,13 +497,13 @@ TEST(E2PointTest, HashToCurve) {
     blst_hash_to_g2(p1, msg, sizeof(msg), dst, sizeof(dst), NULL, 0);
 
     // Result should be on curve
-    EXPECT_TRUE(blst_p2_on_curve(p1));
+    EXPECT_TRUE(POINTonE2::on_curve(p1));
 
     // Hash different message should give different point
     POINTonE2 p2;
     msg[0] ^= 1;  // Flip a bit
     blst_hash_to_g2(p2, msg, sizeof(msg), dst, sizeof(dst), NULL, 0);
-    EXPECT_FALSE(blst_p2_is_equal(p1, p2));
+    EXPECT_FALSE(POINTonE2::equal(p1, p2));
 }
 
 TEST(E2PointTest, InvalidPointHandling) {
@@ -511,39 +511,39 @@ TEST(E2PointTest, InvalidPointHandling) {
     // We can simulate by hashing to curve without cofactor clearing
 
     // For now, just verify that the generator is in G2
-    POINTonE2 point = blst_p2_generator();
+    POINTonE2 point = POINTonE2::generator();
     POINTonE2_affine point_affine;
-    blst_p2_to_affine(point_affine, point);
+    POINTonE2::to_affine(point_affine, point);
 
     // Generator should be in G2
     EXPECT_TRUE(blst_p2_affine_in_g2(point_affine));
 }
 
 TEST(E2PointTest, SerializationFormats) {
-    POINTonE2 p1 = blst_p2_generator();
+    POINTonE2 p1 = POINTonE2::generator();
     POINTonE2_affine p_affine;
-    blst_p2_to_affine(p_affine, p1);
+    POINTonE2::to_affine(p_affine, p1);
 
     // Test all serialization formats
     unsigned char compressed[96];
     unsigned char uncompressed[192];
 
     // Test compressed
-    blst_p2_compress(compressed, p1);
+    POINTonE2::compress(compressed, p1);
     EXPECT_TRUE(compressed[0] & 0x80);  // Compressed flag
 
     // Test uncompressed
-    blst_p2_serialize(uncompressed, p1);
+    POINTonE2::serialize(uncompressed, p1);
     EXPECT_FALSE(uncompressed[0] & 0x80);  // Not compressed
 
     // Test infinity encoding for each format
     POINTonE2 infinity;
     memset(&infinity, 0, sizeof(infinity));
 
-    blst_p2_compress(compressed, infinity);
+    POINTonE2::compress(compressed, infinity);
     EXPECT_TRUE(compressed[0] & 0x40);  // Infinity flag
 
-    blst_p2_serialize(uncompressed, infinity);
+    POINTonE2::serialize(uncompressed, infinity);
     EXPECT_TRUE(uncompressed[0] & 0x40);  // Infinity flag
 }
 
@@ -555,20 +555,20 @@ TEST(E2PointTest, MixedAdditionCornerCases) {
     memset(&infinity_affine, 0, sizeof(infinity_affine));
 
     // Get generator point
-    p1 = blst_p2_generator();
+    p1 = POINTonE2::generator();
 
     // P + O_affine = P
-    blst_p2_add_affine(result, p1, infinity_affine);
-    EXPECT_TRUE(blst_p2_is_equal(result, p1));
+    POINTonE2::add_affine(result, p1, infinity_affine);
+    EXPECT_TRUE(POINTonE2::equal(result, p1));
 
     // O + P_affine = P
     POINTonE2 infinity;
     memset(&infinity, 0, sizeof(infinity));
     POINTonE2_affine p_affine;
-    blst_p2_to_affine(p_affine, p1);
+    POINTonE2::to_affine(p_affine, p1);
 
-    blst_p2_add_affine(result, infinity, p_affine);
-    EXPECT_TRUE(blst_p2_is_equal(result, p1));
+    POINTonE2::add_affine(result, infinity, p_affine);
+    EXPECT_TRUE(POINTonE2::equal(result, p1));
 }
 //
 //extern "C" void frobenius_map_fp2(Fp2 ret, const Fp2 a, size_t n);
@@ -578,7 +578,7 @@ TEST(E2PointTest, MixedAdditionCornerCases) {
 //    // Test Frobenius map properties on Fp2 field elements, not directly on points
 //
 //    // Start with a G2 generator point (just to get sample Fp2 values)
-//    POINTonE2 p = blst_p2_generator();
+//    POINTonE2 p = POINTonE2::generator();
 //
 //    // Create sample Fp2 elements from point coordinates
 //    Fp2 sample_fp2;
@@ -628,7 +628,7 @@ TEST(E2PointTest, MixedAdditionCornerCases) {
 TEST(E2PointTest, Fp2ArithmeticWithPoints) {
     // Test that points with Fp2 coordinates behave correctly
     POINTonE2 p1, p2;
-    p1 = blst_p2_generator();
+    p1 = POINTonE2::generator();
     
     // Make a copy of the generator
     vec_copy(&p2, &p1, sizeof(POINTonE2));
@@ -640,11 +640,11 @@ TEST(E2PointTest, Fp2ArithmeticWithPoints) {
 
     // The resulting point should have conjugated Fp2 coordinates
     // It's likely not on the curve anymore, but we can check
-    EXPECT_FALSE(blst_p2_is_equal(p1, p2)) 
+    EXPECT_FALSE(POINTonE2::equal(p1, p2)) 
         << "Conjugating Fp2 components didn't change the point";
 
     // Check if it's still on the curve (likely not)
-    bool still_on_curve = blst_p2_on_curve(p2);
+    bool still_on_curve = POINTonE2::on_curve(p2);
     //printf("After Fp2 component conjugation, point is %s the curve\n",
     //    still_on_curve ? "ON" : "NOT ON");
         
@@ -658,11 +658,11 @@ TEST(E2PointTest, Fp2ArithmeticWithPoints) {
     vec_zero(p3.Z[1], sizeof(Fp));
     
     // This should definitely not be on the curve or equal to original
-    EXPECT_FALSE(blst_p2_is_equal(p1, p3)) 
+    EXPECT_FALSE(POINTonE2::equal(p1, p3)) 
         << "Zeroing imaginary parts didn't change the point";
         
     // Check if it's on the curve (unlikely)
-    bool p3_on_curve = blst_p2_on_curve(p3);
+    bool p3_on_curve = POINTonE2::on_curve(p3);
     //printf("Point with zeroed imaginary parts is %s the curve\n",
     //    p3_on_curve ? "ON" : "NOT ON");
 }

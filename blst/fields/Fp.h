@@ -12,7 +12,6 @@
 #include "blst/common/defines.h"
 #include "blst/backend/backend.h"
 #include "blst/fields/recip-addchain.h"
-#include "blst/fields/exp.h"
 #include <type_traits>
 
 # include "sqrt-addchain.h"
@@ -176,7 +175,10 @@ namespace blst
 	// everything except the least significant Fp is zero
 	typedef union { Fp p12[12]; Fp p2[2]; Fp p; } radix384;
 
-	extern const radix384 BLST_Rx_HOST; /* (1<<384)%P, "radix", one-in-Montgomery */
+	constexpr radix384 BLST_Rx_HOST = { /* (1<<384)%P, "radix", one-in-Montgomery */
+	  { { ONE_MONT_P_LIMBS },
+		{ 0 } }
+	};
 
 #if defined(BLST_CUDA) && defined(__CUDACC__)
 
@@ -202,9 +204,9 @@ namespace blst
 #endif
 	}
 
-	extern const Fp BLST_P_HOST;
-	extern const Fp BLST_RR_HOST;   /* (1<<768)%P, "radix"^2, to-Montgomery   */
-	extern const Fp BLST_RRRR_HOST; /* (1<<1536)%P, "radix"^4, hash_to_field */
+	constexpr Fp BLST_P_HOST = { BLST_P_LIMBS };
+	constexpr Fp BLST_RR_HOST = { BLST_RR_LIMBS };   /* (1<<768)%P, "radix"^2, to-Montgomery   */
+	constexpr Fp BLST_RRRR_HOST = { BLST_RRRR_LIMBS };
 
 
 	// returns the prime modulus for BLS12-381. 

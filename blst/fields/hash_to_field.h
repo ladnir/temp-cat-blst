@@ -6,7 +6,6 @@
 #ifndef BLST_HASH_TO_FIELD_H
 #define BLST_HASH_TO_FIELD_H
 
-#include "blst/fields/consts.h"
 #include "blst/sign/sha256.h"
 //BLST_EXTERN_C_BEGIN
 

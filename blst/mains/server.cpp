@@ -14,13 +14,8 @@
 #include "blst/fields/Fp12.h"
 #include "blst/curve/pairing.cpp"
 #include "blst/sign/aggregate.cpp"
-#include "blst/fields/exp.h"
-//#include "blst/fields/sqrt.cpp"
-//#include "blst/recip.cpp"
 #include "blst/curve/bulk_addition.cpp"
 #include "blst/curve/multi_scalar.cpp"
-#include "blst/fields/consts.cpp"
-//#include "blst/common/vect.cpp"
 #include "blst/exports.cpp"
 #ifndef __BLST_CGO__
 # include "blst/common/rb_tree.cpp"

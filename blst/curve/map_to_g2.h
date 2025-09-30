@@ -534,7 +534,7 @@ namespace blst
         POINTonE2_times_minus_z(t1, P);
         POINTonE2::cneg(t1, 1);                 /* [z]P */
 
-        return POINTonE2::is_equal(t0, t1);
+        return POINTonE2::equal(t0, t1);
 #endif
     }
 

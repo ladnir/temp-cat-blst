@@ -4,7 +4,6 @@
 
 
 #include "blst/common/defines.h"
-#include "blst/fields/consts.h"
 #include "blst/backend/backend.h"
 #include "blst/fields/Fp2.h"
 
@@ -12,84 +11,80 @@
 #define BLST_FP12_TOWER_H
 
 
-
-// cuda gets confused by 'using' inside namespace when coupled with c array typedef
-// keep these outside of namespace blst for now...
-using vec_384_fp2 = blst::Fp2;
-using vec_384_fp6 =  vec_384_fp2[3];
-using vec_384_fp12 = vec_384_fp6[2];
-
-
-struct Fp6 {
-    //vec_384_fp6 data;
-    blst::Fp2 data[3];
-
-    BLST_HD auto& operator[](size_t idx) {
-        return data[idx];
-    }
-    BLST_HD auto& operator[](size_t idx) const
-    {
-        return data[idx];
-    }
-};
-
-struct Fp12
-{
-    Fp6 data[2];
-
-    BLST_HD auto& operator[](size_t idx) {
-        return data[idx];
-	}
-
-    BLST_HD auto& operator[](size_t idx) const
-    {
-        return data[idx];
-    }
-};
-
-
-
 namespace blst
 {
 
-    //typedef Fp2   Fpfp2;
-    //typedef Fpfp2 Fpfp6[3];
-    //typedef Fpfp6 Fp12[2];
 
-    BLST_HD void sqr_fp12(Fp12& ret, const Fp12& a);
-    BLST_HD void cyclotomic_sqr_fp12(Fp12& ret, const Fp12& a);
-    BLST_HD void mul_fp12(Fp12& ret, const Fp12& a, const Fp12& b);
+    struct Fp6 {
+        blst::Fp2 data[3];
 
-    BLST_HD void conjugate_fp12(Fp12& a);
-    BLST_HD void inverse_fp12(Fp12& ret, const Fp12& a);
-    /* caveat lector! |n| has to be non-zero and not more than 3! */
-    BLST_HD void frobenius_map_fp12(Fp12& ret, const Fp12& a, size_t n);
-    BLST_HD void mul_by_xy00z0_fp12(Fp12& ret, const Fp12& a,
-        const Fp6& xy00z0);
+        BLST_HD BLST_FORCEINLINE auto& operator[](size_t idx) {
+            return data[idx];
+        }
+        BLST_HD BLST_FORCEINLINE auto& operator[](size_t idx) const
+        {
+            return data[idx];
+        }
+    };
+
+    struct Fp12
+    {
+        Fp6 data[2];
+
+        BLST_HD BLST_FORCEINLINE auto& operator[](size_t idx) {
+            return data[idx];
+        }
+
+        BLST_HD BLST_FORCEINLINE auto& operator[](size_t idx) const {
+            return data[idx];
+        }
+
+        BLST_HD static void add(Fp12& ret, const Fp12& a, const Fp12& b);
+        
+        BLST_HD static void sub(Fp12& ret, const Fp12& a, const Fp12& b);
+
+        BLST_HD static void sqr(Fp12& ret, const Fp12& a);
+
+        BLST_HD static void mul(Fp12& ret, const Fp12& a, const Fp12& b);
+
+        BLST_HD static void exp(Fp12& ret, const Fp12& a, const limb_t* exp, size_t bits);
 
 
+        BLST_HD static const Fp12& one();
+        BLST_HD static void cyclotomic_sqr(Fp12& ret, const Fp12& a);
+        BLST_HD static void conjugate(Fp12& a);
+        BLST_HD static void inverse(Fp12& ret, const Fp12& a);
 
-    //const Fp12& blst_fp12_one(void);
-    //void blst_fp12_mul(Fp12& ret, const Fp12& a, const Fp12& b);
-    //int blst_fp12_is_one(const Fp12& a);
-    //void blst_fp12_cyclotomic_sqr(Fp12& ret, const Fp12& a);
-    //void blst_fp12_sqr(Fp12& ret, const Fp12& a);
-    //void blst_fp12_conjugate(Fp12& a);
-    //void blst_fp12_inverse(Fp12& ret, const Fp12& a);
-    //void blst_fp12_frobenius_map(Fp12& ret, const Fp12& a, size_t n);
-    //int blst_fp12_is_equal(const Fp12& a, const Fp12& b);
-    //
-    //
-    //void blst_fp12_from_bendian(Fp12& ret, const unsigned char serialized[12 * 48]);
-    //void blst_bendian_from_fp12(unsigned char ret[48 * 12], const Fp12& a);
-    //size_t blst_fp12_sizeof(void);
-    //int blst_fp12_is_one(const Fp12& a);
-    //void blst_fp12_one_copy(Fp12& ret);
-    //
-    //void blst_fp12_pow(Fp12& result, const Fp12& base, const limb_t* exponent, size_t bits_in_exponent);
-    //
-    //
-    //
+        /* caveat lector! |n| has to be non-zero and not more than 3! */
+        BLST_HD static void frobenius_map(Fp12& ret, const Fp12& a, size_t n);
+
+        BLST_HD static void mul_by_xy00z0(Fp12& ret, const Fp12& a, const Fp6& xy00z0);
+
+
+        BLST_HD static int equal(const Fp12& a, const Fp12& b);
+
+        BLST_HD static int is_one(const Fp12& a);
+
+        BLST_HD static void from_bendian(Fp12& ret, const unsigned char serialized[12 * 48]);
+
+        BLST_HD static void to_bendian(unsigned char serialized[12 * 48], const Fp12& a);
+
+
+        BLST_HD static int in_group(const Fp12& f);
+
+        BLST_HD static bool_t is_cyclotomic(const Fp12& f);
+
+
+        BLST_HD static void mul_n_sqr(Fp12& ret, const Fp12& a, size_t n);
+
+        BLST_HD static void raise_to_z_div_by_2(Fp12& ret, const Fp12& a);
+
+        BLST_HD static void raise_to_z(Fp12& a, const Fp12& b);
+
+        BLST_HD static void final_exp(Fp12& ret, const Fp12& f);
+
+    };
+
 
 
 
@@ -277,7 +272,15 @@ namespace blst
         add_fp2x2(rx, rx, m01);
         redc_fp2x2(ret[1], rx);
     }
+
+
+
 #else // __FP2x2__
+
+
+
+
+
 
     BLST_HD BLST_INLINE void mul_fp6(Fp6& ret, const Fp6& a, const Fp6& b)
     {
@@ -374,24 +377,39 @@ namespace blst
         Fp2::neg(ret[2], a[2]);
     }
 
-#if 0
-#define mul_by_v_fp6 mul_by_v_fp6
-    BLST_HD BLST_INLINE void mul_by_v_fp6(Fp6& ret, const Fp6& a)
-    {
-        Fp2 t;
 
-        Fp2::mul_by_u_plus_1(t, a[2]);
-        vec_copy(ret[2], a[1], sizeof(a[1]));
-        vec_copy(ret[1], a[0], sizeof(a[0]));
-        vec_copy(ret[0], t, sizeof(t));
+
+
+    BLST_HD BLST_INLINE void Fp12::add(Fp12& ret, const Fp12& a, const Fp12& b)
+    {
+		add_fp6(ret[0], a[0], b[0]);
+		add_fp6(ret[1], a[1], b[1]);
     }
-#endif
+    BLST_HD BLST_INLINE void Fp12::sub(Fp12& ret, const Fp12& a, const Fp12& b)
+    {
+		sub_fp6(ret[0], a[0], b[0]);
+		sub_fp6(ret[1], a[1], b[1]);
+    }
+
+
+//#if 0
+//#define mul_by_v_fp6 mul_by_v_fp6
+//    BLST_HD BLST_INLINE void mul_by_v_fp6(Fp6& ret, const Fp6& a)
+//    {
+//        Fp2 t;
+//
+//        Fp2::mul_by_u_plus_1(t, a[2]);
+//        vec_copy(ret[2], a[1], sizeof(a[1]));
+//        vec_copy(ret[1], a[0], sizeof(a[0]));
+//        vec_copy(ret[0], t, sizeof(t));
+//    }
+//#endif
 
     /*
      * Fp12 extension
      */
 #if defined(__FP2x2__)
-    BLST_HD BLST_INLINE void mul_fp12(Fp12& ret, const Fp12& a, const Fp12& b)
+    BLST_HD BLST_INLINE void Fp12::mul(Fp12& ret, const Fp12& a, const Fp12& b)
     {
         UFp6 t0, t1, rx;
         Fp6 t2;
@@ -454,7 +472,7 @@ namespace blst
         add_fp2x2(ret[2], ret[2], t1);
     }
 
-    BLST_HD BLST_INLINE void mul_by_xy00z0_fp12(Fp12& ret, const Fp12& a,
+    BLST_HD BLST_INLINE void Fp12::mul_by_xy00z0(Fp12& ret, const Fp12& a,
         const Fp6& xy00z0)
     {
         UFp6 t0, t1, rr;
@@ -481,7 +499,7 @@ namespace blst
         redc_fp6x2(ret[0], rr);
     }
 #else // __FP2x2__
-    BLST_HD BLST_INLINE void mul_fp12(Fp12& ret, const Fp12& a, const Fp12& b)
+    BLST_HD BLST_INLINE void Fp12::mul(Fp12& ret, const Fp12& a, const Fp12& b)
     {
         Fp6 t0, t1, t2;
 
@@ -548,7 +566,7 @@ namespace blst
         Fp2::add(ret[0], t3, t0);    /* ... moved from above */
     }
 
-    BLST_HD BLST_INLINE void mul_by_xy00z0_fp12(Fp12& ret, const Fp12& a,
+    BLST_HD BLST_INLINE void Fp12::mul_by_xy00z0(Fp12& ret, const Fp12& a,
         const Fp6& xy00z0)
     {
         Fp6 t0, t1, t2;
@@ -578,7 +596,7 @@ namespace blst
     }
 #endif // __FP2x2__
 
-    BLST_HD BLST_INLINE void sqr_fp12(Fp12& ret, const Fp12& a)
+    BLST_HD BLST_INLINE void Fp12::sqr(Fp12& ret, const Fp12& a)
     {
         Fp6 t0, t1;
 
@@ -612,7 +630,7 @@ namespace blst
 #endif
     }
 
-    BLST_HD BLST_INLINE void conjugate_fp12(Fp12& a)
+    BLST_HD BLST_INLINE void Fp12::conjugate(Fp12& a)
     {
         neg_fp6(a[1], a[1]);
     }
@@ -653,7 +671,7 @@ namespace blst
         Fp2::mul(ret[2], c2, t1);
     }
 
-    BLST_HD BLST_INLINE void inverse_fp12(Fp12& ret, const Fp12& a)
+    BLST_HD BLST_INLINE void Fp12::inverse(Fp12& ret, const Fp12& a)
     {
         Fp6 t0, t1;
 
@@ -723,7 +741,7 @@ namespace blst
     }
 #endif // __FP2x2__
 
-    BLST_HD BLST_INLINE void cyclotomic_sqr_fp12(Fp12& ret, const Fp12& a)
+    BLST_HD BLST_INLINE void Fp12::cyclotomic_sqr(Fp12& ret, const Fp12& a)
     {
         Fp4 t0, t1, t2;
 
@@ -791,7 +809,7 @@ namespace blst
         Fp::mul(ret[2][1], ret[2][1], coeffs2[n]);
     }
 
-    BLST_HD BLST_INLINE void frobenius_map_fp12(Fp12& ret, const Fp12& a, size_t n)
+    BLST_HD BLST_INLINE void Fp12::frobenius_map(Fp12& ret, const Fp12& a, size_t n)
     {
         const Fp2 coeffs[] = {  /* (u + 1)^((P^n - 1) / 6) */
           Fp2{ 
@@ -826,49 +844,49 @@ namespace blst
     /*
      * BLS12-381-specific Fp12 shortcuts.
      */
-    BLST_HD BLST_INLINE void blst_fp12_sqr(Fp12& ret, const Fp12& a)
-    {
-        sqr_fp12(ret, a);
-    }
+    //BLST_HD BLST_INLINE void blst_fp12_sqr(Fp12& ret, const Fp12& a)
+    //{
+    //    sqr_fp12(ret, a);
+    //}
 
-    BLST_HD BLST_INLINE void blst_fp12_cyclotomic_sqr(Fp12& ret, const Fp12& a)
-    {
-        cyclotomic_sqr_fp12(ret, a);
-    }
+    //BLST_HD BLST_INLINE void blst_fp12_cyclotomic_sqr(Fp12& ret, const Fp12& a)
+    //{
+    //    cyclotomic_sqr_fp12(ret, a);
+    //}
 
-    BLST_HD BLST_INLINE void blst_fp12_mul(Fp12& ret, const Fp12& a, const Fp12& b)
-    {
-        mul_fp12(ret, a, b);
-    }
+    //BLST_HD BLST_INLINE void blst_fp12_mul(Fp12& ret, const Fp12& a, const Fp12& b)
+    //{
+    //    mul_fp12(ret, a, b);
+    //}
 
-    BLST_HD BLST_INLINE void blst_fp12_mul_by_xy00z0(Fp12& ret, const Fp12& a,
-        const Fp6& xy00z0)
-    {
-        mul_by_xy00z0_fp12(ret, a, xy00z0);
-    }
+    //BLST_HD BLST_INLINE void blst_fp12_mul_by_xy00z0(Fp12& ret, const Fp12& a,
+    //    const Fp6& xy00z0)
+    //{
+    //    mul_by_xy00z0_fp12(ret, a, xy00z0);
+    //}
 
-    BLST_HD BLST_INLINE void blst_fp12_conjugate(Fp12& a)
-    {
-        conjugate_fp12(a);
-    }
+    //BLST_HD BLST_INLINE void blst_fp12_conjugate(Fp12& a)
+    //{
+    //    conjugate_fp12(a);
+    //}
 
-    BLST_HD BLST_INLINE void blst_fp12_inverse(Fp12& ret, const Fp12& a)
-    {
-        inverse_fp12(ret, a);
-    }
+    //BLST_HD BLST_INLINE void blst_fp12_inverse(Fp12& ret, const Fp12& a)
+    //{
+    //    inverse_fp12(ret, a);
+    //}
 
     /* caveat lector! |n| has to be non-zero and not more than 3! */
-    BLST_HD BLST_INLINE void blst_fp12_frobenius_map(Fp12& ret, const Fp12& a, size_t n)
-    {
-        frobenius_map_fp12(ret, a, n);
-    }
+    //BLST_HD BLST_INLINE void blst_fp12_frobenius_map(Fp12& ret, const Fp12& a, size_t n)
+    //{
+    //    frobenius_map_fp12(ret, a, n);
+    //}
 
-    BLST_HD BLST_INLINE int blst_fp12_is_equal(const Fp12& a, const Fp12& b)
+    BLST_HD BLST_INLINE int Fp12::equal(const Fp12& a, const Fp12& b)
     {
         return (int)vec_is_equal(&a, &b, sizeof(Fp12));
     }
 
-    BLST_HD BLST_INLINE int blst_fp12_is_one(const Fp12& a)
+    BLST_HD BLST_INLINE int Fp12::is_one(const Fp12& a)
     {
         return 
             (int)(vec_is_equal(
@@ -878,7 +896,7 @@ namespace blst
     }
 
 
-    BLST_HD BLST_INLINE const Fp12& blst_fp12_one(void)
+    BLST_HD BLST_INLINE const Fp12& Fp12::one()
     {
         return *(Fp12*)get_BLST_Rx().p12;
     }
@@ -893,7 +911,7 @@ namespace blst
             dst[i] = src[i];
     }
 
-    BLST_HD BLST_INLINE void blst_fp12_from_bendian(Fp12& ret, const unsigned char serialized[12 * 48]) {
+    BLST_HD BLST_INLINE void Fp12::from_bendian(Fp12& ret, const unsigned char serialized[12 * 48]) {
         // Clear the output first
         for (int i = 0; i < sizeof(Fp12); ++i)
             ((unsigned char*)&ret)[i] = 0;
@@ -917,7 +935,7 @@ namespace blst
         }
     }
 
-    BLST_HD BLST_INLINE void blst_bendian_from_fp12(unsigned char ret[48 * 12], const Fp12& a)
+    BLST_HD BLST_INLINE void Fp12::to_bendian(unsigned char ret[48 * 12], const Fp12& a)
     {
         size_t i, j;
         Fp out;
@@ -940,7 +958,7 @@ namespace blst
     }
 
 
-    BLST_HD BLST_INLINE void blst_fp12_pow(Fp12& ret, const Fp12& a, const limb_t* exp, size_t bits)
+    BLST_HD BLST_INLINE void Fp12::exp(Fp12& ret, const Fp12& a, const limb_t* exp, size_t bits)
     {
         // For bits=0 or if exponent is 0, return 1
         bool_t is_zero = 1;
@@ -952,7 +970,7 @@ namespace blst
         }
 
         if (bits == 0 || is_zero) {
-            blst_fp12_one_copy(ret);
+            ret = Fp12::one();
             return;
         }
 
@@ -963,7 +981,7 @@ namespace blst
             ((unsigned char*)&base)[i] = ((unsigned char*)&a)[i];
 
         // Start with 1
-        blst_fp12_one_copy(ret);
+        ret = Fp12::one();
 
         // Process bits from least to most significant
         for (size_t i = 0; i < bits; i++) {
@@ -972,12 +990,12 @@ namespace blst
             size_t bit_idx = i % (8 * sizeof(limb_t));
 
             if ((exp[limb_idx] >> bit_idx) & 1) {
-                blst_fp12_mul(ret, ret, base);
+                Fp12::mul(ret, ret, base);
             }
 
             // Square the base for the next bit position (if not the last bit)
             if (i < bits - 1) {
-                blst_fp12_sqr(base, base);
+                Fp12::sqr(base, base);
             }
 
 
@@ -985,7 +1003,96 @@ namespace blst
     }
 
 
-    //BLST_EXTERN_C_END
+
+
+    BLST_HD BLST_INLINE bool_t Fp12::is_cyclotomic(const Fp12& f)
+    {
+        Fp12 a, b;
+
+        Fp12::frobenius_map(a, f, 2);
+        Fp12::frobenius_map(b, a, 2);
+        Fp12::mul(b, b, f);
+
+        return vec_is_equal(&a, &b, sizeof(a));
+    }
+
+
+    BLST_HD BLST_INLINE void Fp12::mul_n_sqr(Fp12& ret, const Fp12& a, size_t n)
+    {
+        Fp12::mul(ret, ret, a);
+        while (n--)
+            Fp12::cyclotomic_sqr(ret, ret);
+    }
+
+    BLST_HD BLST_INLINE void Fp12::raise_to_z_div_by_2(Fp12& ret, const Fp12& a)
+    {
+        Fp12::cyclotomic_sqr(ret, a);                /* 0x2                  */
+        Fp12::mul_n_sqr(ret, a, 2);                       /* ..0xc                */
+        Fp12::mul_n_sqr(ret, a, 3);                       /* ..0x68               */
+        Fp12::mul_n_sqr(ret, a, 9);                       /* ..0xd200             */
+        Fp12::mul_n_sqr(ret, a, 32);                      /* ..0xd20100000000     */
+        Fp12::mul_n_sqr(ret, a, 16 - 1);                    /* ..0x6900800000008000 */
+        Fp12::conjugate(ret);                /* account for z being negative */
+    }
+
+    BLST_HD BLST_INLINE void Fp12::raise_to_z(Fp12& a, const Fp12& b)
+    {
+        raise_to_z_div_by_2(a, b);
+        Fp12::cyclotomic_sqr(a, a);
+    }
+
+    BLST_HD BLST_INLINE int Fp12::in_group(const Fp12& f)
+    {
+        Fp12 a, b;
+
+        if (vec_is_zero(&f, sizeof(Fp12)) || !is_cyclotomic(f))
+            return 0;
+
+        Fp12::frobenius_map(a, f, 1);
+        raise_to_z(b, f);
+
+        return (int)vec_is_equal(&a, &b, sizeof(a));
+    }
+
+
+
+    /*
+     * Adaptation from <zkcrypto>/pairing/src/bls12_381/mod.rs
+     */
+    BLST_HD BLST_INLINE void Fp12::final_exp(Fp12& ret, const Fp12& f)
+    {
+        Fp12 y0, y1, y2, y3;
+
+        vec_copy(&y1, &f, sizeof(y1));
+        Fp12::conjugate(y1);
+        Fp12::inverse(y2, f);
+        Fp12::mul(ret, y1, y2);
+        Fp12::frobenius_map(y2, ret, 2);
+        Fp12::mul(ret, ret, y2);
+
+        Fp12::cyclotomic_sqr(y0, ret);
+        Fp12::raise_to_z(y1, y0);
+        Fp12::raise_to_z_div_by_2(y2, y1);
+        vec_copy(&y3, &ret, sizeof(y3));
+        Fp12::conjugate(y3);
+        Fp12::mul(y1, y1, y3);
+        Fp12::conjugate(y1);
+        Fp12::mul(y1, y1, y2);
+        Fp12::raise_to_z(y2, y1);
+        Fp12::raise_to_z(y3, y2);
+        Fp12::conjugate(y1);
+        Fp12::mul(y3, y3, y1);
+        Fp12::conjugate(y1);
+        Fp12::frobenius_map(y1, y1, 3);
+        Fp12::frobenius_map(y2, y2, 2);
+        Fp12::mul(y1, y1, y2);
+        Fp12::raise_to_z(y2, y3);
+        Fp12::mul(y2, y2, y0);
+        Fp12::mul(y2, y2, ret);
+        Fp12::mul(y1, y1, y2);
+        Fp12::frobenius_map(y2, y3, 1);
+        Fp12::mul(ret, y1, y2);
+    }
 }
 
 #endif // !BLST_FP12_TOWER_H
