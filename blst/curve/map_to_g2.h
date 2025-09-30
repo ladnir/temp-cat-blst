@@ -24,48 +24,48 @@ namespace blst
     //BLST_HD void map_fp2_times_Zz(Fp2 map[], const Fp2 isogeny_map[],
     //    const Fp2 Zz_powers[], size_t n);
     //BLST_HD void map_fp2(Fp2& acc, const Fp2& x, const Fp2& map, size_t n);
-    //BLST_HD void isogeny_map_to_E2(POINTonE2& out, const POINTonE2& p);
-    //BLST_HD void map_to_isogenous_E2(POINTonE2& p, const Fp2& u);
+    //BLST_HD void isogeny_map_to_E2(G2Point& out, const G2Point& p);
+    //BLST_HD void map_to_isogenous_E2(G2Point& p, const Fp2& u);
 
     ///*
     // * As per suggestions in "7. Clearing the cofactor" at
     // * https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06
     // */
-    //BLST_HD void POINTonE2_add_n_dbl(POINTonE2& out, const POINTonE2& p, size_t n);
+    //BLST_HD void G2Point_add_n_dbl(G2Point& out, const G2Point& p, size_t n);
 
-    //BLST_HD void POINTonE2_times_minus_z(POINTonE2& out, const POINTonE2& in);
+    //BLST_HD void G2Point_times_minus_z(G2Point& out, const G2Point& in);
 
-    ////void psi(POINTonE2& out, const POINTonE2& in);
+    ////void psi(G2Point& out, const G2Point& in);
 
-    //BLST_HD void clear_cofactor(POINTonE2& out, const POINTonE2& p);
+    //BLST_HD void clear_cofactor(G2Point& out, const G2Point& p);
     ///*
     // * |u|, |v| are expected to be in Montgomery representation
     // */
-    //BLST_HD void map_to_g2(POINTonE2& out, const Fp2& u, const Fp2& v);
+    //BLST_HD void map_to_g2(G2Point& out, const Fp2& u, const Fp2& v);
 
-    //BLST_HD void blst_map_to_g2(POINTonE2& out, const Fp2& u, const Fp2& v);
+    //BLST_HD void blst_map_to_g2(G2Point& out, const Fp2& u, const Fp2& v);
 
-    //BLST_HD void Encode_to_G2(POINTonE2& p, const unsigned char* msg, size_t msg_len,
+    //BLST_HD void Encode_to_G2(G2Point& p, const unsigned char* msg, size_t msg_len,
     //    const unsigned char* DST, size_t DST_len,
     //    const unsigned char* aug, size_t aug_len);
 
-    //BLST_HD void blst_encode_to_g2(POINTonE2& p, const unsigned char* msg, size_t msg_len,
+    //BLST_HD void blst_encode_to_g2(G2Point& p, const unsigned char* msg, size_t msg_len,
     //    const unsigned char* DST, size_t DST_len,
     //    const unsigned char* aug, size_t aug_len);
 
-    //BLST_HD void Hash_to_G2(POINTonE2& p, const unsigned char* msg, size_t msg_len,
+    //BLST_HD void Hash_to_G2(G2Point& p, const unsigned char* msg, size_t msg_len,
     //    const unsigned char* DST, size_t DST_len,
     //    const unsigned char* aug, size_t aug_len);
 
-    //BLST_HD void blst_hash_to_g2(POINTonE2& p, const unsigned char* msg, size_t msg_len,
+    //BLST_HD void blst_hash_to_g2(G2Point& p, const unsigned char* msg, size_t msg_len,
     //    const unsigned char* DST, size_t DST_len,
     //    const unsigned char* aug, size_t aug_len);
 
-    //BLST_HD bool_t POINTonE2_in_G2(const POINTonE2& P);
+    //BLST_HD bool_t G2Point_in_G2(const G2Point& P);
 
-    //BLST_HD int blst_p2_in_g2(const POINTonE2& p);
+    //BLST_HD int blst_p2_in_g2(const G2Point& p);
 
-    //BLST_HD int blst_p2_affine_in_g2(const POINTonE2_affine* p);
+    //BLST_HD int blst_p2_affine_in_g2(const G2AffinePoint* p);
 
 
 
@@ -159,7 +159,7 @@ namespace blst
         }
     }
 
-    BLST_HD BLST_INLINE void isogeny_map_to_E2(POINTonE2& out, const POINTonE2& p)
+    BLST_HD BLST_INLINE void isogeny_map_to_E2(G2Point& out, const G2Point& p)
     {
         /*
          * x = x_num / x_den, where
@@ -289,7 +289,7 @@ namespace blst
         Fp2::mul(out.Y, out.Y, yn);        /* Y = yn * xd^3 * yd^2         */
     }
 
-    BLST_HD BLST_INLINE void map_to_isogenous_E2(POINTonE2& p, const Fp2& u)
+    BLST_HD BLST_INLINE void map_to_isogenous_E2(G2Point& p, const Fp2& u)
     {
         const Fp2 minus_A = {
           Fp{ 0 },
@@ -391,7 +391,7 @@ namespace blst
 
 #if 0
 
-    BLST_HD BLST_INLINE void clear_cofactor(POINTonE2& out, const POINTonE2& p)
+    BLST_HD BLST_INLINE void clear_cofactor(G2Point& out, const G2Point& p)
     {
         static const byte h_eff[] = {
             TO_BYTES(0xe8020005aaa95551), TO_BYTES(0x59894c0adebbf6b4),
@@ -401,52 +401,52 @@ namespace blst
             TO_BYTES(0x584c6a0ea91b3528), TO_BYTES(0x0bc69f08f2ee75b3)
         };
 
-        POINTonE2_mult_w5(out, p, h_eff, 636);
+        G2Point_mult_w5(out, p, h_eff, 636);
     }
 #else
     /*
      * As per suggestions in "7. Clearing the cofactor" at
      * https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06
      */
-    BLST_HD BLST_INLINE void POINTonE2_add_n_dbl(POINTonE2& out, const POINTonE2& p, size_t n)
+    BLST_HD BLST_INLINE void G2Point_add_n_dbl(G2Point& out, const G2Point& p, size_t n)
     {
-        POINTonE2::dadd(out, out, p, NULL);
+        G2Point::dadd(out, out, p, NULL);
         while (n--)
-            POINTonE2::doubling(out, out);
+            G2Point::doubling(out, out);
     }
 
-    BLST_HD BLST_INLINE void POINTonE2_times_minus_z(POINTonE2& out, const POINTonE2& in)
+    BLST_HD BLST_INLINE void G2Point_times_minus_z(G2Point& out, const G2Point& in)
     {
-        POINTonE2::doubling(out, in);          /*      1: 0x2                  */
-        POINTonE2_add_n_dbl(out, in, 2);    /*   2..4: 0x3..0xc             */
-        POINTonE2_add_n_dbl(out, in, 3);    /*   5..8: 0xd..0x68            */
-        POINTonE2_add_n_dbl(out, in, 9);    /*  9..18: 0x69..0xd200         */
-        POINTonE2_add_n_dbl(out, in, 32);   /* 19..51: ..0xd20100000000     */
-        POINTonE2_add_n_dbl(out, in, 16);   /* 52..68: ..0xd201000000010000 */
+        G2Point::doubling(out, in);          /*      1: 0x2                  */
+        G2Point_add_n_dbl(out, in, 2);    /*   2..4: 0x3..0xc             */
+        G2Point_add_n_dbl(out, in, 3);    /*   5..8: 0xd..0x68            */
+        G2Point_add_n_dbl(out, in, 9);    /*  9..18: 0x69..0xd200         */
+        G2Point_add_n_dbl(out, in, 32);   /* 19..51: ..0xd20100000000     */
+        G2Point_add_n_dbl(out, in, 16);   /* 52..68: ..0xd201000000010000 */
     }
 
-    BLST_HD BLST_INLINE void psi(POINTonE2& out, const POINTonE2& in);
+    BLST_HD BLST_INLINE void psi(G2Point& out, const G2Point& in);
 
-    BLST_HD BLST_INLINE void clear_cofactor(POINTonE2& out, const POINTonE2& p)
+    BLST_HD BLST_INLINE void clear_cofactor(G2Point& out, const G2Point& p)
     {
-        POINTonE2 t0, t1;
+        G2Point t0, t1;
 
         /* A.Budroni, F.Pintore, "Efficient hash maps to G2 on BLS curves"  */
-        POINTonE2::doubling(out, p);           /* out = 2P                     */
+        G2Point::doubling(out, p);           /* out = 2P                     */
         psi(out, out);                      /* out = Ψ(2P)                  */
         psi(out, out);                      /* out = Ψ²(2P)                 */
 
         vec_copy(&t0, &p, sizeof(t0));
-        POINTonE2::cneg(t0, 1);             /* t0 = -P                      */
+        G2Point::cneg(t0, 1);             /* t0 = -P                      */
         psi(t1, t0);                      /* t1 = -Ψ(P)                   */
-        POINTonE2::dadd(out, out, t0, NULL);/* out = Ψ²(2P) - P             */
-        POINTonE2::dadd(out, out, t1, NULL);/* out = Ψ²(2P) - P - Ψ(P)      */
+        G2Point::dadd(out, out, t0, NULL);/* out = Ψ²(2P) - P             */
+        G2Point::dadd(out, out, t1, NULL);/* out = Ψ²(2P) - P - Ψ(P)      */
 
-        POINTonE2_times_minus_z(t0, p);    /* t0 = [-z]P                   */
-        POINTonE2::dadd(t0, t0, p, NULL);  /* t0 = [-z + 1]P               */
-        POINTonE2::dadd(t0, t0, t1, NULL);/* t0 = [-z + 1]P - Ψ(P)        */
-        POINTonE2_times_minus_z(t1, t0);  /* t1 = [z² - z]P + [z]Ψ(P)     */
-        POINTonE2::dadd(out, out, t1, NULL);/* out = [z² - z - 1]P          */
+        G2Point_times_minus_z(t0, p);    /* t0 = [-z]P                   */
+        G2Point::dadd(t0, t0, p, NULL);  /* t0 = [-z + 1]P               */
+        G2Point::dadd(t0, t0, t1, NULL);/* t0 = [-z + 1]P - Ψ(P)        */
+        G2Point_times_minus_z(t1, t0);  /* t1 = [z² - z]P + [z]Ψ(P)     */
+        G2Point::dadd(out, out, t1, NULL);/* out = [z² - z - 1]P          */
         /*     + [z - 1]Ψ(P)            */
         /*     + Ψ²(2P)                 */
     }
@@ -455,27 +455,27 @@ namespace blst
     /*
      * |u|, |v| are expected to be in Montgomery representation
      */
-    BLST_HD BLST_INLINE void map_to_g2(POINTonE2& out, const Fp2& u, const Fp2* v)
+    BLST_HD BLST_INLINE void map_to_g2(G2Point& out, const Fp2& u, const Fp2* v)
     {
-        POINTonE2 p;
+        G2Point p;
 
         map_to_isogenous_E2(p, u);
 
         if (v != NULL) {
             map_to_isogenous_E2(out, *v);    /* borrow |out|                 */
-            POINTonE2::dadd(p, p, out, &get_BLST_Aprime_E2());
+            G2Point::dadd(p, p, out, &get_BLST_Aprime_E2());
         }
 
         isogeny_map_to_E2(p, p);          /* sprinkle isogenous powder    */
         clear_cofactor(out, p);
     }
 
-    BLST_HD BLST_INLINE void blst_map_to_g2(POINTonE2& out, const Fp2& u, const Fp2* v)
+    BLST_HD BLST_INLINE void blst_map_to_g2(G2Point& out, const Fp2& u, const Fp2* v)
     {
         map_to_g2(out, u, v);
     }
 
-    BLST_HD BLST_INLINE void Encode_to_G2(POINTonE2& p, const unsigned char* msg, size_t msg_len,
+    BLST_HD BLST_INLINE void Encode_to_G2(G2Point& p, const unsigned char* msg, size_t msg_len,
         const unsigned char* DST, size_t DST_len,
         const unsigned char* aug, size_t aug_len)
     {
@@ -485,14 +485,14 @@ namespace blst
         map_to_g2(p, u, NULL);
     }
 
-    BLST_HD BLST_INLINE void blst_encode_to_g2(POINTonE2& p, const unsigned char* msg, size_t msg_len,
+    BLST_HD BLST_INLINE void blst_encode_to_g2(G2Point& p, const unsigned char* msg, size_t msg_len,
         const unsigned char* DST, size_t DST_len,
         const unsigned char* aug, size_t aug_len)
     {
         Encode_to_G2(p, msg, msg_len, DST, DST_len, aug, aug_len);
     }
 
-    BLST_HD BLST_INLINE void Hash_to_G2(POINTonE2& p, const unsigned char* msg, size_t msg_len,
+    BLST_HD BLST_INLINE void Hash_to_G2(G2Point& p, const unsigned char* msg, size_t msg_len,
         const unsigned char* DST, size_t DST_len,
         const unsigned char* aug, size_t aug_len)
     {
@@ -502,56 +502,56 @@ namespace blst
         map_to_g2(p, u[0], &u[1]);
     }
 
-    BLST_HD BLST_INLINE void blst_hash_to_g2(POINTonE2& p, const unsigned char* msg, size_t msg_len,
+    BLST_HD BLST_INLINE void blst_hash_to_g2(G2Point& p, const unsigned char* msg, size_t msg_len,
         const unsigned char* DST, size_t DST_len,
         const unsigned char* aug, size_t aug_len)
     {
         Hash_to_G2(p, msg, msg_len, DST, DST_len, aug, aug_len);
     }
 
-    BLST_HD BLST_INLINE bool_t POINTonE2_in_G2(const POINTonE2& P)
+    BLST_HD BLST_INLINE bool_t G2Point_in_G2(const G2Point& P)
     {
 #if 0
-        POINTonE2 t0, t1, t2;
+        G2Point t0, t1, t2;
 
         /* Bowe, S., "Faster subgroup checks for BLS12-381"                 */
         psi(&t0, P);                        /* Ψ(P)                         */
         psi(&t0, &t0);                      /* Ψ²(P)                        */
         psi(&t1, &t0);                      /* Ψ³(P)                        */
 
-        POINTonE2_times_minus_z(&t2, &t1);
-        POINTonE2::dadd(&t0, &t0, &t2, NULL);
-        POINTonE2::cneg(&t0, 1);
-        POINTonE2::dadd(&t0, &t0, P, NULL);  /* [z]Ψ³(P) - Ψ²(P) + P         */
+        G2Point_times_minus_z(&t2, &t1);
+        G2Point::dadd(&t0, &t0, &t2, NULL);
+        G2Point::cneg(&t0, 1);
+        G2Point::dadd(&t0, &t0, P, NULL);  /* [z]Ψ³(P) - Ψ²(P) + P         */
 
         return vec_is_zero(t0.Z, sizeof(t0.Z));
 #else
-        POINTonE2 t0, t1;
+        G2Point t0, t1;
 
         /* Scott, M., https://eprint.iacr.org/2021/1130 */
         psi(t0, P);                            /* Ψ(P) */
 
-        POINTonE2_times_minus_z(t1, P);
-        POINTonE2::cneg(t1, 1);                 /* [z]P */
+        G2Point_times_minus_z(t1, P);
+        G2Point::cneg(t1, 1);                 /* [z]P */
 
-        return POINTonE2::equal(t0, t1);
+        return G2Point::equal(t0, t1);
 #endif
     }
 
-    BLST_HD BLST_INLINE int blst_p2_in_g2(const POINTonE2& p)
+    BLST_HD BLST_INLINE int blst_p2_in_g2(const G2Point& p)
     {
-        return (int)POINTonE2_in_G2(p);
+        return (int)G2Point_in_G2(p);
     }
 
-    BLST_HD BLST_INLINE int blst_p2_affine_in_g2(const POINTonE2_affine& p)
+    BLST_HD BLST_INLINE int blst_p2_affine_in_g2(const G2AffinePoint& p)
     {
-        POINTonE2 P;
+        G2Point P;
 
         vec_copy(&P.X, &p.X, 2 * sizeof(P.X));
         vec_select(&P.Z, &p.X, get_BLST_Rx().p, sizeof(P.Z),
             vec_is_zero(&p, sizeof(p)));
 
-        return (int)POINTonE2_in_G2(P);
+        return (int)G2Point_in_G2(P);
     }
 
 

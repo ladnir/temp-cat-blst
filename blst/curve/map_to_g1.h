@@ -117,7 +117,7 @@ namespace blst
         }
     }
 
-    BLST_HD BLST_INLINE void isogeny_map_to_E1(POINTonE1& out, const POINTonE1& p)
+    BLST_HD BLST_INLINE void isogeny_map_to_E1(G1Point& out, const G1Point& p)
     {
         /*
          * x = x_num / x_den, where
@@ -359,7 +359,7 @@ namespace blst
         Fp::mul(out.Y, out.Y, yn);         /* Y = yn * xd^3 * yd^2         */
     }
 
-    BLST_HD BLST_INLINE void map_to_isogenous_E1(POINTonE1& p, const Fp& u)
+    BLST_HD BLST_INLINE void map_to_isogenous_E1(G1Point& p, const Fp& u)
     {
         const Fp minus_A = { /* P - A */
             TO_LIMB_T(0x8a9955f1650a005a), TO_LIMB_T(0x9865b3d192cfe93c),
@@ -458,51 +458,51 @@ namespace blst
 #undef sgn0_fp
     }
 
-    BLST_HD BLST_INLINE void POINTonE1_add_n_dbl(POINTonE1& out, const POINTonE1& p, size_t n)
+    BLST_HD BLST_INLINE void G1Point_add_n_dbl(G1Point& out, const G1Point& p, size_t n)
     {
-        POINTonE1::dadd(out, out, p, NULL);
+        G1Point::dadd(out, out, p, NULL);
         while (n--)
-            POINTonE1::doubling(out, out);
+            G1Point::doubling(out, out);
     }
 
-    BLST_HD BLST_INLINE void POINTonE1_times_minus_z(POINTonE1& out, const POINTonE1& in)
+    BLST_HD BLST_INLINE void G1Point_times_minus_z(G1Point& out, const G1Point& in)
     {
-        POINTonE1::doubling(out, in);          /*      1: 0x2                  */
-        POINTonE1_add_n_dbl(out, in, 2);    /*   2..4: 0x3..0xc             */
-        POINTonE1_add_n_dbl(out, in, 3);    /*   5..8: 0xd..0x68            */
-        POINTonE1_add_n_dbl(out, in, 9);    /*  9..18: 0x69..0xd200         */
-        POINTonE1_add_n_dbl(out, in, 32);   /* 19..51: ..0xd20100000000     */
-        POINTonE1_add_n_dbl(out, in, 16);   /* 52..68: ..0xd201000000010000 */
+        G1Point::doubling(out, in);          /*      1: 0x2                  */
+        G1Point_add_n_dbl(out, in, 2);    /*   2..4: 0x3..0xc             */
+        G1Point_add_n_dbl(out, in, 3);    /*   5..8: 0xd..0x68            */
+        G1Point_add_n_dbl(out, in, 9);    /*  9..18: 0x69..0xd200         */
+        G1Point_add_n_dbl(out, in, 32);   /* 19..51: ..0xd20100000000     */
+        G1Point_add_n_dbl(out, in, 16);   /* 52..68: ..0xd201000000010000 */
     }
 
     /*
      * |u|, |v| are expected to be in Montgomery representation
      */
-    BLST_HD BLST_INLINE void map_to_g1(POINTonE1& out, const Fp& u, const Fp* v)
+    BLST_HD BLST_INLINE void map_to_g1(G1Point& out, const Fp& u, const Fp* v)
     {
-        POINTonE1 p;
+        G1Point p;
 
         map_to_isogenous_E1(p, u);
 
         if (v != NULL) {
             map_to_isogenous_E1(out, *v);    /* borrow |out|                 */
-            POINTonE1::dadd(p, p, out, &get_BLST_Aprime_E1());
+            G1Point::dadd(p, p, out, &get_BLST_Aprime_E1());
         }
 
         isogeny_map_to_E1(p, p);          /* sprinkle isogenous powder    */
 
         /* clear the cofactor by multiplying |p| by 1-z, 0xd201000000010001 */
-        POINTonE1_times_minus_z(out, p);
-        POINTonE1::dadd(out, out, p, NULL);
+        G1Point_times_minus_z(out, p);
+        G1Point::dadd(out, out, p, NULL);
     }
 
 
-    BLST_HD BLST_INLINE void blst_map_to_g1(POINTonE1& out, const Fp& u, const Fp* v)
+    BLST_HD BLST_INLINE void blst_map_to_g1(G1Point& out, const Fp& u, const Fp* v)
     {
         map_to_g1(out, u, v);
     }
 
-    BLST_HD BLST_INLINE void Encode_to_G1(POINTonE1& p, const unsigned char* msg, size_t msg_len,
+    BLST_HD BLST_INLINE void Encode_to_G1(G1Point& p, const unsigned char* msg, size_t msg_len,
         const unsigned char* DST, size_t DST_len,
         const unsigned char* aug, size_t aug_len)
     {
@@ -512,14 +512,14 @@ namespace blst
         map_to_g1(p, u[0], NULL);
     }
 
-    BLST_HD BLST_INLINE void blst_encode_to_g1(POINTonE1& p, const unsigned char* msg, size_t msg_len,
+    BLST_HD BLST_INLINE void blst_encode_to_g1(G1Point& p, const unsigned char* msg, size_t msg_len,
         const unsigned char* DST, size_t DST_len,
         const unsigned char* aug, size_t aug_len)
     {
         Encode_to_G1(p, msg, msg_len, DST, DST_len, aug, aug_len);
     }
 
-    BLST_HD BLST_INLINE void Hash_to_G1(POINTonE1& p, const unsigned char* msg, size_t msg_len,
+    BLST_HD BLST_INLINE void Hash_to_G1(G1Point& p, const unsigned char* msg, size_t msg_len,
         const unsigned char* DST, size_t DST_len,
         const unsigned char* aug, size_t aug_len)
     {
@@ -529,125 +529,125 @@ namespace blst
         map_to_g1(p, u[0], &u[1]);
     }
 
-    BLST_HD BLST_INLINE void blst_hash_to_g1(POINTonE1& p, const unsigned char* msg, size_t msg_len,
+    BLST_HD BLST_INLINE void blst_hash_to_g1(G1Point& p, const unsigned char* msg, size_t msg_len,
         const unsigned char* DST, size_t DST_len,
         const unsigned char* aug, size_t aug_len)
     {
         Hash_to_G1(p, msg, msg_len, DST, DST_len, aug, aug_len);
     }
 
-    BLST_HD void sigma(POINTonE1* out, const POINTonE1* in);
+    BLST_HD void sigma(G1Point* out, const G1Point* in);
 
 #if 0
 #ifdef __OPTIMIZE_SIZE__
-    BLST_HD BLST_INLINE void POINTonE1::times_zz_minus_1_div_by_3(POINTonE1* out,
-        const POINTonE1* in)
+    BLST_HD BLST_INLINE void G1Point::times_zz_minus_1_div_by_3(G1Point* out,
+        const G1Point* in)
     {
         const byte zz_minus_1_div_by_3[] = {
             TO_BYTES(0x0000000055555555ULL), TO_BYTES(0x396c8c005555e156)
         };
         size_t n = 126 - 1;
-        const POINTonE1* dblin = in;
+        const G1Point* dblin = in;
 
         while (n--) {
-            POINTonE1::double(out, dblin);   dblin = out;
+            G1Point::double(out, dblin);   dblin = out;
             if (is_bit_set(zz_minus_1_div_by_3, n))
-                POINTonE1::dadd(out, out, in, NULL);
+                G1Point::dadd(out, out, in, NULL);
         }
     }
 #else
-    BLST_HD BLST_INLINE void POINTonE1::dbl_n_add(POINTonE1* out, size_t n, const POINTonE1* p)
+    BLST_HD BLST_INLINE void G1Point::dbl_n_add(G1Point* out, size_t n, const G1Point* p)
     {
         while (n--)
-            POINTonE1::double(out, out);
-        POINTonE1::dadd(out, out, p, NULL);
+            G1Point::double(out, out);
+        G1Point::dadd(out, out, p, NULL);
     }
 
-    BLST_HD BLST_INLINE void POINTonE1::times_zz_minus_1_div_by_3(POINTonE1* out,
-        const POINTonE1* in)
+    BLST_HD BLST_INLINE void G1Point::times_zz_minus_1_div_by_3(G1Point* out,
+        const G1Point* in)
     {
-        POINTonE1 t3, t5, t7, t11, t85;
+        G1Point t3, t5, t7, t11, t85;
 
-        POINTonE1::double(&t7, in);              /* 2P */
-        POINTonE1::dadd(&t3, &t7, in, NULL);     /* 3P */
-        POINTonE1::dadd(&t5, &t3, &t7, NULL);    /* 5P */
-        POINTonE1::dadd(&t7, &t5, &t7, NULL);    /* 7P */
-        POINTonE1::double(&t85, &t5);            /* 10P */
-        POINTonE1::dadd(&t11, &t85, in, NULL);   /* 11P */
-        POINTonE1::dbl_n_add(&t85, 3, &t5);      /* 0x55P */
+        G1Point::double(&t7, in);              /* 2P */
+        G1Point::dadd(&t3, &t7, in, NULL);     /* 3P */
+        G1Point::dadd(&t5, &t3, &t7, NULL);    /* 5P */
+        G1Point::dadd(&t7, &t5, &t7, NULL);    /* 7P */
+        G1Point::double(&t85, &t5);            /* 10P */
+        G1Point::dadd(&t11, &t85, in, NULL);   /* 11P */
+        G1Point::dbl_n_add(&t85, 3, &t5);      /* 0x55P */
         /* (-0xd201000000010000^2 - 1) / 3 */
-        POINTonE1::double(out, &t7);             /* 0xe */
-        POINTonE1::dbl_n_add(out, 5, &t11);     /* 0x1cb */
-        POINTonE1::dbl_n_add(out, 3, &t3);      /* 0xe5b */
-        POINTonE1::dbl_n_add(out, 3, in);       /* 0x72d9 */
-        POINTonE1::dbl_n_add(out, 5, &t3);      /* 0xe5b23 */
-        POINTonE1::dbl_n_add(out, 18, &t85);     /* 0x396c8c0055 */
-        POINTonE1::dbl_n_add(out, 8, &t85);     /* 0x396c8c005555 */
-        POINTonE1::dbl_n_add(out, 3, &t7);      /* 0x1cb646002aaaf */
-        POINTonE1::dbl_n_add(out, 7, &t5);      /* 0xe5b23001555785 */
-        POINTonE1::dbl_n_add(out, 5, &t11);     /* 0x1cb646002aaaf0ab */
-        POINTonE1::dbl_n_add(out, 41, &t85);     /* 0x396c8c005555e1560000000055 */
-        POINTonE1::dbl_n_add(out, 8, &t85);     /* 0x396c8c005555e156000000005555 */
-        POINTonE1::dbl_n_add(out, 8, &t85);     /* 0x396c8c005555e15600000000555555 */
-        POINTonE1::dbl_n_add(out, 8, &t85);     /* 0x396c8c005555e1560000000055555555 */
+        G1Point::double(out, &t7);             /* 0xe */
+        G1Point::dbl_n_add(out, 5, &t11);     /* 0x1cb */
+        G1Point::dbl_n_add(out, 3, &t3);      /* 0xe5b */
+        G1Point::dbl_n_add(out, 3, in);       /* 0x72d9 */
+        G1Point::dbl_n_add(out, 5, &t3);      /* 0xe5b23 */
+        G1Point::dbl_n_add(out, 18, &t85);     /* 0x396c8c0055 */
+        G1Point::dbl_n_add(out, 8, &t85);     /* 0x396c8c005555 */
+        G1Point::dbl_n_add(out, 3, &t7);      /* 0x1cb646002aaaf */
+        G1Point::dbl_n_add(out, 7, &t5);      /* 0xe5b23001555785 */
+        G1Point::dbl_n_add(out, 5, &t11);     /* 0x1cb646002aaaf0ab */
+        G1Point::dbl_n_add(out, 41, &t85);     /* 0x396c8c005555e1560000000055 */
+        G1Point::dbl_n_add(out, 8, &t85);     /* 0x396c8c005555e156000000005555 */
+        G1Point::dbl_n_add(out, 8, &t85);     /* 0x396c8c005555e15600000000555555 */
+        G1Point::dbl_n_add(out, 8, &t85);     /* 0x396c8c005555e1560000000055555555 */
     }
 #endif
 
-    BLST_HD BLST_INLINE bool_t POINTonE1::in_G1(const POINTonE1* P)
+    BLST_HD BLST_INLINE bool_t G1Point::in_G1(const G1Point* P)
     {
-        POINTonE1 t0, t1, t2;
+        G1Point t0, t1, t2;
 
         /* Bowe, S., "Faster subgroup checks for BLS12-381"                   */
         sigma(&t0, P);                        /* σ(P)                         */
         sigma(&t1, &t0);                      /* σ²(P)                        */
 
-        POINTonE1::double(&t0, &t0);           /* 2σ(P)                        */
-        POINTonE1::dadd(&t2, &t1, P, NULL);    /* P +  σ²(P)                   */
-        POINTonE1::cneg(&t2, 1);               /* - P - σ²(P)                  */
-        POINTonE1::dadd(&t2, &t2, &t0, NULL);  /* 2σ(P) - P - σ²(P)            */
-        POINTonE1::times_zz_minus_1_div_by_3(&t0, &t2);
-        POINTonE1::cneg(&t1, 1);
-        POINTonE1::dadd(&t0, &t0, &t1, NULL);  /* [(z²-1)/3](2σ(P) - P - σ²(P)) */
+        G1Point::double(&t0, &t0);           /* 2σ(P)                        */
+        G1Point::dadd(&t2, &t1, P, NULL);    /* P +  σ²(P)                   */
+        G1Point::cneg(&t2, 1);               /* - P - σ²(P)                  */
+        G1Point::dadd(&t2, &t2, &t0, NULL);  /* 2σ(P) - P - σ²(P)            */
+        G1Point::times_zz_minus_1_div_by_3(&t0, &t2);
+        G1Point::cneg(&t1, 1);
+        G1Point::dadd(&t0, &t0, &t1, NULL);  /* [(z²-1)/3](2σ(P) - P - σ²(P)) */
         /* - σ²(P) */
         return vec_is_zero(t0.Z, sizeof(t0.Z));
     }
 #else
-    BLST_HD BLST_FORCEINLINE void sigma(POINTonE1& out, const POINTonE1& in)
+    BLST_HD BLST_FORCEINLINE void sigma(G1Point& out, const G1Point& in)
     {
         vec_copy(out.X, in.X, 2 * sizeof(out.X));
         Fp::mul(out.Z, in.Z, get_BLST_beta());
     }
 
-    BLST_HD BLST_INLINE bool_t POINTonE1_in_G1(const POINTonE1& P)
+    BLST_HD BLST_INLINE bool_t G1Point_in_G1(const G1Point& P)
     {
-        POINTonE1 t0, t1;
+        G1Point t0, t1;
 
         /* Scott, M., https://eprint.iacr.org/2021/1130 */
-        POINTonE1_times_minus_z(t0, P);
-        POINTonE1_times_minus_z(t1, t0);
-        POINTonE1::cneg(t1, 1);             /* [-z²]P   */
+        G1Point_times_minus_z(t0, P);
+        G1Point_times_minus_z(t1, t0);
+        G1Point::cneg(t1, 1);             /* [-z²]P   */
 
         sigma(t0, P);                      /* σ(P)     */
         sigma(t0, t0);                    /* σ²(P)    */
 
-        return POINTonE1::equal(t0, t1);
+        return G1Point::equal(t0, t1);
     }
 #endif
 
-    BLST_HD BLST_INLINE int blst_p1_in_g1(const POINTonE1& p)
+    BLST_HD BLST_INLINE int blst_p1_in_g1(const G1Point& p)
     {
-        return (int)POINTonE1_in_G1(p);
+        return (int)G1Point_in_G1(p);
     }
 
-    BLST_HD BLST_INLINE int blst_p1_affine_in_g1(const POINTonE1_affine& p)
+    BLST_HD BLST_INLINE int blst_p1_affine_in_g1(const G1AffinePoint& p)
     {
-        POINTonE1 P;
+        G1Point P;
 
         vec_copy(P.X, p.X, 2 * sizeof(P.X));
         vec_select(P.Z, p.X, get_BLST_Rx().p, sizeof(P.Z),
             vec_is_zero(&p, sizeof(p)));
 
-        return (int)POINTonE1_in_G1(P);
+        return (int)G1Point_in_G1(P);
     }
 
 }

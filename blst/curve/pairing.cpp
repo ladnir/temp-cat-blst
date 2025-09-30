@@ -17,8 +17,8 @@ namespace blst
     * Line evaluations from  https://eprint.iacr.org/2010/354.pdf
     * with a twist moving common expression to line_by_Px2.
     */
-    BLST_HD void line_add(Fp6& line, POINTonE2& T, const POINTonE2& R,
-        const POINTonE2_affine& Q)
+    BLST_HD void line_add(Fp6& line, G2Point& T, const G2Point& R,
+        const G2AffinePoint& Q)
     {
         Fp2 Z1Z1, U2, S2, H, HH, I, J, V;
 #if 1
@@ -81,7 +81,7 @@ namespace blst
         vec_copy(&line[2], &T.Z, sizeof(T.Z));
     }
 
-    BLST_HD void line_dbl(Fp6& line, POINTonE2& T, const POINTonE2& Q)
+    BLST_HD void line_dbl(Fp6& line, G2Point& T, const G2Point& Q)
     {
         Fp2 ZZ, A, B, C, D, E, F;
 
@@ -131,7 +131,7 @@ namespace blst
         Fp2::mul(line[2], T.Z, ZZ);         /* Z3 * Z1^2 */
     }
 
-    BLST_HD void line_by_Px2(Fp6& line, const POINTonE1_affine& Px2)
+    BLST_HD void line_by_Px2(Fp6& line, const G1AffinePoint& Px2)
     {
         Fp::mul(line[1][0], line[1][0], Px2.X);   /* "b01" *= -2*P.X */
         Fp::mul(line[1][1], line[1][1], Px2.X);
@@ -141,8 +141,8 @@ namespace blst
     }
 
 #if 0
-    BLST_HD  void add_n_dbl(Fp12* ret, POINTonE2& T, const POINTonE2_affine* Q,
-        const POINTonE1_affine* Px2, Fp6& line, size_t n)
+    BLST_HD  void add_n_dbl(Fp12* ret, G2Point& T, const G2AffinePoint* Q,
+        const G1AffinePoint* Px2, Fp6& line, size_t n)
     {
         line_add(line, T, T, Q);    line_by_Px2(line, Px2);
         Fp12::mul_by_xy00z0(ret, ret, line);
@@ -153,11 +153,11 @@ namespace blst
         }
     }
 
-    BLST_HD void miller_loop(Fp12* ret, const POINTonE2& Q, const POINTonE1* P)
+    BLST_HD void miller_loop(Fp12* ret, const G2Point& Q, const G1Point* P)
     {
-#define Q ((const POINTonE2_affine *)Q)
-        POINTonE2 T[1];
-        POINTonE1_affine Px2[1];
+#define Q ((const G2AffinePoint *)Q)
+        G2Point T[1];
+        G1AffinePoint Px2[1];
         Fp6& line; /* it's not actual fp6, but 3 packed fp2, "xy00z0"  */
 
         /* Move common expression from line evaluation to line_by_Px2. */
@@ -184,8 +184,8 @@ namespace blst
     }
 #endif
 
-    BLST_HD void start_dbl_n(Fp12& ret, POINTonE2 T[],
-        const POINTonE1_affine Px2[], size_t n)
+    BLST_HD void start_dbl_n(Fp12& ret, G2Point T[],
+        const G1AffinePoint Px2[], size_t n)
     {
         size_t i;
         Fp6 line; /* it's not actual fp6, but 3 packed fp2, "xy00z0"  */
@@ -205,9 +205,9 @@ namespace blst
     }
 
     BLST_HD  void add_n_dbl_n(Fp12& ret, 
-        POINTonE2 T[],
-        const POINTonE2_affine Q[],
-        const POINTonE1_affine Px2[],
+        G2Point T[],
+        const G2AffinePoint Q[],
+        const G1AffinePoint Px2[],
         size_t n, 
         size_t k)
     {
@@ -229,20 +229,20 @@ namespace blst
 
     BLST_HD void miller_loop_n(
         Fp12& ret, 
-        const POINTonE2_affine Q[],
-        const POINTonE1_affine P[], 
+        const G2AffinePoint Q[],
+        const G1AffinePoint P[], 
         size_t n)
     {
 //#if !defined(__STDC_VERSION__) || __STDC_VERSION__<199901 \
 //                               || defined(__STDC_NO_VLA__)
-//        POINTonE2& T = (POINTonE2&)alloca(n * sizeof(POINTonE2));
-//        POINTonE1_affine* Px2 = (POINTonE1_affine*)alloca(n * sizeof(POINTonE1_affine));
+//        G2Point& T = (G2Point&)alloca(n * sizeof(G2Point));
+//        G1AffinePoint* Px2 = (G1AffinePoint*)alloca(n * sizeof(G1AffinePoint));
 //#else
         if (n > MILLER_LOOP_N_MAX)
             return;
 
-        POINTonE2 T[MILLER_LOOP_N_MAX];
-        POINTonE1_affine Px2[MILLER_LOOP_N_MAX];
+        G2Point T[MILLER_LOOP_N_MAX];
+        G1AffinePoint Px2[MILLER_LOOP_N_MAX];
 //#endif
         size_t i;
 
@@ -277,8 +277,8 @@ namespace blst
     }
 
 
-    BLST_HD void pre_add_n_dbl(Fp6 lines[], POINTonE2& T,
-        const POINTonE2_affine& Q,
+    BLST_HD void pre_add_n_dbl(Fp6 lines[], G2Point& T,
+        const G2AffinePoint& Q,
         size_t n)
     {
         line_add(lines++[0], T, T, Q);
@@ -286,9 +286,9 @@ namespace blst
             line_dbl(lines++[0], T, T);
     }
 
-    BLST_HD void precompute_lines(Fp6 Qlines[68], const POINTonE2_affine& Q)
+    BLST_HD void precompute_lines(Fp6 Qlines[68], const G2AffinePoint& Q)
     {
-        POINTonE2 T;
+        G2Point T;
 
         vec_copy(&T.X, &Q.X, 2 * sizeof(T.X));
         vec_copy(&T.Z, &get_BLST_Rx().p2, sizeof(T.Z));
@@ -302,7 +302,7 @@ namespace blst
     }
 
     BLST_HD void post_line_by_Px2(Fp6& out, const Fp6& in,
-        const POINTonE1_affine& Px2)
+        const G1AffinePoint& Px2)
     {
         vec_copy(&out[0], &in[0], sizeof(out[0]));
 
@@ -314,7 +314,7 @@ namespace blst
     }
 
     BLST_HD void post_add_n_dbl(Fp12& ret, const Fp6 lines[],
-        const POINTonE1_affine& Px2, size_t n)
+        const G1AffinePoint& Px2, size_t n)
     {
         Fp6 line;
 
@@ -328,9 +328,9 @@ namespace blst
     }
 
     BLST_HD void miller_loop_lines(Fp12& ret, const Fp6 Qlines[68],
-        const POINTonE1_affine& P)
+        const G1AffinePoint& P)
     {
-        POINTonE1_affine Px2;
+        G1AffinePoint Px2;
         Fp6 line; /* it's not actual fp6, but 3 packed fp2, "xy00z0"  */
 
         /* Move common expression from line evaluation to line_by_Px2. */
@@ -352,8 +352,8 @@ namespace blst
     }
 
 #ifdef INTERNAL_TESTMODE
-    void miller_loop_alt(Fp12* ret, const POINTonE2_affine* Q,
-        const POINTonE1_affine* P)
+    void miller_loop_alt(Fp12* ret, const G2AffinePoint* Q,
+        const G1AffinePoint* P)
     {
         Fp6& lines[68];
 
@@ -363,27 +363,27 @@ namespace blst
 #endif
 
 
-    BLST_HD void blst_miller_loop(Fp12& ret, const POINTonE2_affine* Q,
-        const POINTonE1_affine* P)
+    BLST_HD void blst_miller_loop(Fp12& ret, const G2AffinePoint* Q,
+        const G1AffinePoint* P)
     {
         miller_loop_n(ret, 
-            Q ? Q : (const POINTonE2_affine*)&get_BLST_G2(),
-            P ? P : (const POINTonE1_affine*)&get_BLST_G1(), 
+            Q ? Q : (const G2AffinePoint*)&get_BLST_G2(),
+            P ? P : (const G1AffinePoint*)&get_BLST_G1(), 
             1);
     }
 
 
     BLST_HD void blst_miller_loop_n(
         Fp12& out, 
-        const POINTonE2_affine* const Qs[],
-        const POINTonE1_affine* const Ps[],
+        const G2AffinePoint* const Qs[],
+        const G1AffinePoint* const Ps[],
         size_t n)
     {   /* ~10KB of stack storage */
-        POINTonE2 T[MILLER_LOOP_N_MAX];
-        POINTonE2_affine Q[MILLER_LOOP_N_MAX];
-        POINTonE1_affine Px2[MILLER_LOOP_N_MAX];
-        const POINTonE2_affine* Qptr = NULL;
-        const POINTonE1_affine* Pptr = NULL;
+        G2Point T[MILLER_LOOP_N_MAX];
+        G2AffinePoint Q[MILLER_LOOP_N_MAX];
+        G1AffinePoint Px2[MILLER_LOOP_N_MAX];
+        const G2AffinePoint* Qptr = NULL;
+        const G1AffinePoint* Pptr = NULL;
         size_t i, j;
 
         for (i = 0, j = 0; j < n; j++) {
@@ -420,13 +420,13 @@ namespace blst
         }
     }
 
-    BLST_HD void blst_precompute_lines(Fp6 Qlines[68], const POINTonE2_affine& Q)
+    BLST_HD void blst_precompute_lines(Fp6 Qlines[68], const G2AffinePoint& Q)
     {
         precompute_lines(Qlines, Q);
     }
 
     BLST_HD  void blst_miller_loop_lines(Fp12& ret, const Fp6 Qlines[68],
-        const POINTonE1_affine& P)
+        const G1AffinePoint& P)
     {
         miller_loop_lines(ret, Qlines, P);
     }

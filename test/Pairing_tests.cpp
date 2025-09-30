@@ -9,14 +9,14 @@ using namespace blst;
 
 TEST(PairingTest, BasicPairing) {
     // Test basic pairing functionality
-    POINTonE1 g1_point = POINTonE1::generator();
-    POINTonE2 g2_point = POINTonE2::generator();
+    G1Point g1_point = G1Point::generator();
+    G2Point g2_point = G2Point::generator();
 
     // Create affine versions of the points
-    POINTonE1_affine g1_affine;
-    POINTonE2_affine g2_affine;
-    POINTonE1::to_affine(g1_affine, g1_point);
-    POINTonE2::to_affine(g2_affine, g2_point);
+    G1AffinePoint g1_affine;
+    G2AffinePoint g2_affine;
+    G1Point::to_affine(g1_affine, g1_point);
+    G2Point::to_affine(g2_affine, g2_point);
 
     // Compute pairing e(G1, G2)
     Fp12 pairing_result;
@@ -29,16 +29,16 @@ TEST(PairingTest, BasicPairing) {
 
     // Test bilinearity: e(aP, Q) = e(P, aQ) = e(P,Q)^a
     // Let's use a = 2 for simplicity
-    POINTonE1 g1_double;
-    POINTonE2 g2_double;
-    POINTonE1::doubling(g1_double, g1_point);
-    POINTonE2::doubling(g2_double, g2_point);
+    G1Point g1_double;
+    G2Point g2_double;
+    G1Point::doubling(g1_double, g1_point);
+    G2Point::doubling(g2_double, g2_point);
 
     // Convert to affine
-    POINTonE1_affine g1_double_affine;
-    POINTonE2_affine g2_double_affine;
-    POINTonE1::to_affine(g1_double_affine, g1_double);
-    POINTonE2::to_affine(g2_double_affine, g2_double);
+    G1AffinePoint g1_double_affine;
+    G2AffinePoint g2_double_affine;
+    G1Point::to_affine(g1_double_affine, g1_double);
+    G2Point::to_affine(g2_double_affine, g2_double);
 
     // Compute e(2*G1, G2)
     Fp12 pairing_2g1_g2;
@@ -62,15 +62,15 @@ TEST(PairingTest, BasicPairing) {
         << "e(2*G1, G2) != e(G1, G2)^2";
 
     // Test pairing with identity points
-    POINTonE1 identity_e1;
-    POINTonE2 identity_e2;
+    G1Point identity_e1;
+    G2Point identity_e2;
     memset(&identity_e1, 0, sizeof(identity_e1));
     memset(&identity_e2, 0, sizeof(identity_e2));
 
-    POINTonE1_affine identity_e1_affine;
-    POINTonE2_affine identity_e2_affine;
-    POINTonE1::to_affine(identity_e1_affine, identity_e1);
-    POINTonE2::to_affine(identity_e2_affine, identity_e2);
+    G1AffinePoint identity_e1_affine;
+    G2AffinePoint identity_e2_affine;
+    G1Point::to_affine(identity_e1_affine, identity_e1);
+    G2Point::to_affine(identity_e2_affine, identity_e2);
 
     // e(G1, O) should equal 1
     Fp12 pairing_with_identity;
@@ -92,21 +92,21 @@ TEST(PairingTest, MultiPairing) {
     // Test multi-pairing functionality
 
     // Create some sample points
-    POINTonE1 g1 = POINTonE1::generator();
-    POINTonE2 g2 = POINTonE2::generator();
+    G1Point g1 = G1Point::generator();
+    G2Point g2 = G2Point::generator();
 
-    POINTonE1 g1_double;
-    POINTonE2 g2_double;
-    POINTonE1::doubling(g1_double, g1);
-    POINTonE2::doubling(g2_double, g2);
+    G1Point g1_double;
+    G2Point g2_double;
+    G1Point::doubling(g1_double, g1);
+    G2Point::doubling(g2_double, g2);
 
     // Convert to affine
-    POINTonE1_affine g1_affine, g1_double_affine;
-    POINTonE2_affine g2_affine, g2_double_affine;
-    POINTonE1::to_affine(g1_affine, g1);
-    POINTonE1::to_affine(g1_double_affine, g1_double);
-    POINTonE2::to_affine(g2_affine, g2);
-    POINTonE2::to_affine(g2_double_affine, g2_double);
+    G1AffinePoint g1_affine, g1_double_affine;
+    G2AffinePoint g2_affine, g2_double_affine;
+    G1Point::to_affine(g1_affine, g1);
+    G1Point::to_affine(g1_double_affine, g1_double);
+    G2Point::to_affine(g2_affine, g2);
+    G2Point::to_affine(g2_double_affine, g2_double);
 
     // Test that e(P1,Q1)·e(P2,Q2) = e(P1+P2,Q1+Q2)·e(P1,Q2)⁻¹·e(P2,Q1)⁻¹
 
@@ -125,8 +125,8 @@ TEST(PairingTest, MultiPairing) {
     Fp12::mul(product, e_g1_g2, e_2g1_2g2);
 
     // Test multi-pairing API if available
-    POINTonE1_affine* g1_points[2] = { &g1_affine, &g1_double_affine };
-    POINTonE2_affine* g2_points[2] = { &g2_affine, &g2_double_affine };
+    G1AffinePoint* g1_points[2] = { &g1_affine, &g1_double_affine };
+    G2AffinePoint* g2_points[2] = { &g2_affine, &g2_double_affine };
 
     Fp12 multi_result;
     blst_miller_loop_n(multi_result, g2_points, g1_points, 2);

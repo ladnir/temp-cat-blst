@@ -175,7 +175,7 @@ namespace blst
 //# endif
 //#endif
 //
-//    ADDITION_BTREE(blst_p1, POINTonE1, 384, fp, limb, get_BLST_Rx().p2)
-//        ADDITION_BTREE(blst_p2, POINTonE2, 384x, fp2, Fp, get_BLST_Rx().p2)
+//    ADDITION_BTREE(blst_p1, G1Point, 384, fp, limb, get_BLST_Rx().p2)
+//        ADDITION_BTREE(blst_p2, G2Point, 384x, fp2, Fp, get_BLST_Rx().p2)
 
 }

@@ -234,8 +234,8 @@ namespace blst
 		 * - G2 uses the Frobenius-like map @f$ \psi @f$.
 		 * @note Intended for scalars within Fr (checked by @c Fr::check_mod).
 		 *
-		 * @note Galbraith-Lin-Scott, ~67% faster than POINTonE2_mul_w5
-		 * @note Gallant-Lambert-Vanstone, ~45% faster than mult_w<POINTonE1,5> 
+		 * @note Galbraith-Lin-Scott, ~67% faster than G2Point_mul_w5
+		 * @note Gallant-Lambert-Vanstone, ~45% faster than mult_w<G1Point,5> 
 		 */
 		BLST_HD static void mult_glsv(Point& out, const Point& in, const pow256 SK);
 
@@ -362,13 +362,13 @@ namespace blst
 	};
 
 	/// Aliases for convenience: G1 over Fp, G2 over Fp2.
-	using POINTonE1 = Point<Fp>;
-	using POINTonE1_affine = Point_affine<Fp>;
-	using POINTonE2 = Point<Fp2>;
-	using POINTonE2_affine = Point_affine<Fp2>;
+	using G1Point = Point<Fp>;
+	using G1AffinePoint = Point_affine<Fp>;
+	using G2Point = Point<Fp2>;
+	using G2AffinePoint = Point_affine<Fp2>;
 
 
-	BLST_HD BLST_INLINE void print(const char* name, const POINTonE2& p)
+	BLST_HD BLST_INLINE void print(const char* name, const G2Point& p)
 	{
 
 		printf("%s:\n", name);
@@ -399,7 +399,7 @@ namespace blst
 		printf("\n");
 	}
 
-	BLST_HD BLST_INLINE void print(const char* name, const POINTonE1& p)
+	BLST_HD BLST_INLINE void print(const char* name, const G1Point& p)
 	{
 
 		printf("%s:\n", name);
@@ -418,7 +418,7 @@ namespace blst
 		printf("\n");
 	}
 
-	BLST_HD BLST_INLINE void print(const char* name, const POINTonE2_affine& p)
+	BLST_HD BLST_INLINE void print(const char* name, const G2AffinePoint& p)
 	{
 
 		printf("%s:\n", name);
@@ -441,7 +441,7 @@ namespace blst
 		printf("\n");
 	}
 
-	BLST_HD BLST_INLINE void print(const char* name, const POINTonE1_affine& p)
+	BLST_HD BLST_INLINE void print(const char* name, const G1AffinePoint& p)
 	{
 
 		printf("%s:\n", name);
@@ -457,7 +457,7 @@ namespace blst
 	}
 
 
-	static_assert(std::is_trivially_constructible_v<POINTonE1>, "POINTonE1 must be an aggregate type");
+	static_assert(std::is_trivially_constructible_v<G1Point>, "G1Point must be an aggregate type");
 
 #ifdef __GNUC__
 # pragma GCC diagnostic ignored "-Wunused-function"
@@ -582,7 +582,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 /* y^2 = x^3 + B,   (4 << 384) % P */
 	static const Fp BLST_B_E1_HOST = { BLST_B_E1_LIMBS };
-	static const POINTonE1 BLST_G1_HOST{
+	static const G1Point BLST_G1_HOST{
 		Fp{{TO_LIMB_T(0x5cb38790fd530c16), TO_LIMB_T(0x7817fc679976fff5),
 						TO_LIMB_T(0x154f95c7143ba1c1), TO_LIMB_T(0xf0ae6acdf3d0e747),
 						TO_LIMB_T(0xedce6ecc21dbf440), TO_LIMB_T(0x120177419e0bfb75) }},
@@ -591,7 +591,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 						TO_LIMB_T(0x0e1c8c3fad0059c0), TO_LIMB_T(0x0bbc3efc5008a26a) }},
 		Fp{{ ONE_MONT_P_LIMBS }}
 	};
-	static const POINTonE1 BLST_NEG_G1_HOST = { BLST_NEG_G1_LIMBS };
+	static const G1Point BLST_NEG_G1_HOST = { BLST_NEG_G1_LIMBS };
 	static const Fp BLST_beta_HOST = { BLST_beta_LIMBS };
 
 
@@ -599,14 +599,14 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	 * y^2 = x^3 + B, 4 + 4*i
 	 */
 	const Fp2 BLST_B_E2_HOST = { { BLST_B_E2_LIMBS } };
-	const POINTonE2 BLST_G2_HOST{ BLST_G2_LIMBS };
-	const POINTonE2 BLST_NEG_G2_HOST = { BLST_NEG_G2_LIMBS };
+	const G2Point BLST_G2_HOST{ BLST_G2_LIMBS };
+	const G2Point BLST_NEG_G2_HOST = { BLST_NEG_G2_LIMBS };
 
 
 #if defined(BLST_CUDA) && defined(__CUDACC__)
 
 	static __constant__ Fp BLST_B_E1_DEV = { BLST_B_E1_LIMBS };
-	static __constant__ POINTonE1 BLST_G1_DEV{
+	static __constant__ G1Point BLST_G1_DEV{
 		{ {TO_LIMB_T(0x5cb38790fd530c16), TO_LIMB_T(0x7817fc679976fff5),
 						TO_LIMB_T(0x154f95c7143ba1c1), TO_LIMB_T(0xf0ae6acdf3d0e747),
 						TO_LIMB_T(0xedce6ecc21dbf440), TO_LIMB_T(0x120177419e0bfb75) }},
@@ -615,10 +615,10 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 						TO_LIMB_T(0x0e1c8c3fad0059c0), TO_LIMB_T(0x0bbc3efc5008a26a) }},
 		{{ ONE_MONT_P_LIMBS }}
 	};
-	static __constant__ POINTonE1 BLST_NEG_G1_DEV = { BLST_NEG_G1_LIMBS };
+	static __constant__ G1Point BLST_NEG_G1_DEV = { BLST_NEG_G1_LIMBS };
 	static __constant__ Fp2 BLST_B_E2_DEV = { { BLST_B_E2_LIMBS } };
-	static __constant__ POINTonE2 BLST_G2_DEV = { BLST_G2_LIMBS };
-	static __constant__ POINTonE2 BLST_NEG_G2_DEV = { BLST_NEG_G2_LIMBS };
+	static __constant__ G2Point BLST_G2_DEV = { BLST_G2_LIMBS };
+	static __constant__ G2Point BLST_NEG_G2_DEV = { BLST_NEG_G2_LIMBS };
 	static __constant__ Fp BLST_beta_DEV = { BLST_beta_LIMBS };
 
 #endif // __CUDA_ARCH__
@@ -648,7 +648,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 	// return the negative of the generator point of G1 in affine coordinates, in montgomery form.
 	// Will return host or device memory depending on compilation target.
-	BLST_HD BLST_FORCEINLINE const POINTonE1& get_BLST_NEG_G1(void)
+	BLST_HD BLST_FORCEINLINE const G1Point& get_BLST_NEG_G1(void)
 	{
 #if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
 		return BLST_NEG_G1_DEV;
@@ -670,7 +670,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 	// return the generator point of G2 in affine coordinates, in montgomery form.
 	// Will return host or device memory depending on compilation target.
-	BLST_HD BLST_FORCEINLINE const POINTonE2& get_BLST_G2(void)
+	BLST_HD BLST_FORCEINLINE const G2Point& get_BLST_G2(void)
 	{
 #if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
 		return BLST_G2_DEV;
@@ -680,7 +680,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	}
 
 	// return the negative of the generator point of G2 in affine coordinates, in montgomery form.
-	BLST_HD BLST_FORCEINLINE const POINTonE2& get_BLST_NEG_G2(void)
+	BLST_HD BLST_FORCEINLINE const G2Point& get_BLST_NEG_G2(void)
 	{
 #if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
 		return BLST_NEG_G2_DEV;
@@ -726,7 +726,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	{
 		return (const Point_affine<Fp2>&)get_BLST_G2();
 	}
-	//return (const POINTonE1_affine&)get_BLST_G1();
+	//return (const G1AffinePoint&)get_BLST_G1();
 
 
 	template<typename Field>
@@ -838,7 +838,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			sizeof(Point::generator().Z), inf);    /* Z = inf ? 0 : 1 */
 	}
 
-	BLST_HD BLST_INLINE void blst_p1_from_affine(POINTonE1& out, const POINTonE1_affine& a)
+	BLST_HD BLST_INLINE void blst_p1_from_affine(G1Point& out, const G1AffinePoint& a)
 	{
 		vec_copy(&out, &a, sizeof(a));
 		vec_select(&out.Z, &a.X, &get_BLST_Rx().p, sizeof(out.Z),
@@ -869,7 +869,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 
 	template<>
-	BLST_HD BLST_INLINE bool_t POINTonE1_affine::on_curve(const POINTonE1_affine& p)
+	BLST_HD BLST_INLINE bool_t G1AffinePoint::on_curve(const G1AffinePoint& p)
 	{
 		Fp XXX, YY;
 
@@ -884,7 +884,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 
 	template<>
-	BLST_HD BLST_INLINE  bool_t POINTonE2_affine::on_curve(const POINTonE2_affine& p)
+	BLST_HD BLST_INLINE  bool_t G2AffinePoint::on_curve(const G2AffinePoint& p)
 	{
 		Fp2 XXX, YY;
 
@@ -911,23 +911,6 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	}
 
 
-	//BLST_HD BLST_INLINE int blst_p2_affine_on_curve(const POINTonE2_affine& p)
-	//{
-	//    return (int)(POINTonE2_affine_on_curve(p) | vec_is_zero(&p, sizeof(p)));
-	//}
-	//BLST_HD BLST_FORCEINLINE int POINTonE1_affine::on_curve(const POINTonE1_affine& p)
-	//{
-	//    return (int)(POINTonE1_affine_on_curve(p) | vec_is_zero(&p, sizeof(p)));
-	//}
-
-
-	//BLST_HD BLST_INLINE void blst_p2_from_affine(POINTonE2& out, const POINTonE2_affine& a)
-	//{
-	//    vec_copy(&out, &a, sizeof(a));
-	//    vec_select(&out.Z, &a.X, &get_BLST_Rx().p2, sizeof(out.Z),
-	//        vec_is_zero(&a, sizeof(a)));
-	//}
-
 	template<typename Field>
 	BLST_HD BLST_INLINE bool_t Point<Field>::on_curve(const Point& p)
 	{
@@ -949,41 +932,6 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	}
 
 
-
-
-	//BLST_HD BLST_INLINE limb_t POINTonE1_affine_Serialize_BE(unsigned char out[96],
-	//    const POINTonE1_affine& in)
-	//{
-	//    Fp temp;
-
-	//    Fp::from_mont(temp, in.X);
-	//    be_bytes_from_limbs(out, temp, sizeof(temp));
-
-	//    Fp::from_mont(temp, in.Y);
-	//    be_bytes_from_limbs(out + 48, temp, sizeof(temp));
-
-	//    return Fp::sgn0_pty(temp);
-	//}
-
-
-
-	//BLST_HD BLST_INLINE limb_t POINTonE2_affine_Serialize_BE(unsigned char out[192],
-	//    const POINTonE2_affine& in)
-	//{
-	//    Fp2 temp;
-
-	//    Fp::from_mont(temp[1], in.X[1]);
-	//    be_bytes_from_limbs(out, temp[1], sizeof(temp[1]));
-	//    Fp::from_mont(temp[0], in.X[0]);
-	//    be_bytes_from_limbs(out + 48, temp[0], sizeof(temp[0]));
-
-	//    Fp::from_mont(temp[1], in.Y[1]);
-	//    be_bytes_from_limbs(out + 96, temp[1], sizeof(temp[1]));
-	//    Fp::from_mont(temp[0], in.Y[0]);
-	//    be_bytes_from_limbs(out + 144, temp[0], sizeof(temp[0]));
-
-	//    return Fp2::sgn0_pty(temp);
-	//}
 
 	template<typename Field>
 	BLST_HD BLST_INLINE limb_t Point_affine<Field>::serialize_BE(unsigned char* out,
@@ -1135,7 +1083,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	{
 		if constexpr (std::is_same_v<Field, Fp2>) {
 
-			POINTonE2_affine ret;
+			G2AffinePoint ret;
 			Fp temp;
 
 			limbs_from_be_bytes(ret.X[1], in, sizeof(ret.X[1]));
@@ -1223,7 +1171,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	}
 
 
-	//BLST_HD BLST_INLINE BLST_ERROR POINTonE2_Uncompress_Z(POINTonE2_affine& out,
+	//BLST_HD BLST_INLINE BLST_ERROR G2Point_Uncompress_Z(G2AffinePoint& out,
 	//    const unsigned char in[96])
 	//{
 	//    unsigned char in0 = in[0];
@@ -1242,7 +1190,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	//        }
 	//    }
 
-	//    sgn0_pty = POINTonE2_Uncompress_BE(out, in);
+	//    sgn0_pty = G2Point_Uncompress_BE(out, in);
 
 	//    if (sgn0_pty > 3)
 	//        return (BLST_ERROR)(0 - sgn0_pty); /* POINT_NOT_ON_CURVE */
@@ -1261,7 +1209,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	{
 		if constexpr (std::is_same_v<Field, Fp2>) {
 
-			POINTonE2_affine ret;
+			G2AffinePoint ret;
 			Fp temp;
 
 			limbs_from_be_bytes(ret.X[1], in, sizeof(ret.X[1]));
@@ -1292,7 +1240,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			Fp::mul(ret.Y[0], ret.Y[0], get_BLST_RR());
 			Fp::mul(ret.Y[1], ret.Y[1], get_BLST_RR());
 
-			if (!POINTonE2_affine::on_curve(ret))
+			if (!G2AffinePoint::on_curve(ret))
 				return BLST_POINT_NOT_ON_CURVE;
 
 			vec_copy(&out, &ret, sizeof(ret));
@@ -1302,7 +1250,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		else
 		{
 
-			POINTonE1_affine ret;
+			G1AffinePoint ret;
 			Fp temp;
 
 			limbs_from_be_bytes(ret.X, in, sizeof(ret.X));
@@ -1321,7 +1269,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			Fp::mul(ret.X, ret.X, get_BLST_RR());
 			Fp::mul(ret.Y, ret.Y, get_BLST_RR());
 
-			if (!POINTonE1_affine::on_curve(ret))
+			if (!G1AffinePoint::on_curve(ret))
 				return BLST_POINT_NOT_ON_CURVE;
 
 			vec_copy(&out, &ret, sizeof(ret));
@@ -1357,9 +1305,9 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 
 
-	/* Gallant-Lambert-Vanstone, ~45% faster than mult_w<POINTonE1,5> */
+	/* Gallant-Lambert-Vanstone, ~45% faster than mult_w<G1Point,5> */
 	template<>
-	BLST_HD BLST_INLINE void POINTonE1::mult_glsv(POINTonE1& out, const POINTonE1& in,
+	BLST_HD BLST_INLINE void G1Point::mult_glsv(G1Point& out, const G1Point& in,
 		const pow256 SK)
 	{
 		//union { Fr l; pow256 s; } val;
@@ -1373,18 +1321,18 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 		{
 			const byte* scalars[2] = { s + 16, s };
-			POINTonE1 table[2][1 << (5 - 1)];   /* 4.5KB */
+			G1Point table[2][1 << (5 - 1)];   /* 4.5KB */
 			size_t i;
 
-			precompute_w<POINTonE1, 5>(table[0], in);
+			precompute_w<G1Point, 5>(table[0], in);
 			for (i = 0; i < 1 << (5 - 1); i++) {
 				Fp::mul(table[1][i].X, table[0][i].X, get_BLST_beta());
 				Fp::cneg(table[1][i].Y, table[0][i].Y, 1);
 				vec_copy(table[1][i].Z, table[0][i].Z, sizeof(table[1][i].Z));
 			}
 
-			s_mult_w<POINTonE1, 5>(out, NULL, 2, scalars, 128, table);
-			POINTonE1::cneg(out, 1);
+			s_mult_w<G1Point, 5>(out, NULL, 2, scalars, 128, table);
+			G1Point::cneg(out, 1);
 			Fp::mul(out.Z, out.Z, get_BLST_beta());
 			Fp::mul(out.Z, out.Z, get_BLST_beta());
 		}
@@ -1394,7 +1342,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	}
 
 
-	BLST_HD BLST_INLINE void psi(POINTonE2& out, const POINTonE2& in)
+	BLST_HD BLST_INLINE void psi(G2Point& out, const G2Point& in)
 	{
 		const Fp2 frobenius_x = { /* 1/(1 + i)^((P-1)/3) */
 		  Fp{ 0 },
@@ -1423,9 +1371,9 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		Fp::cneg(out.Z[1], out.Z[1], 1);
 	}
 
-	/* Galbraith-Lin-Scott, ~67% faster than POINTonE2_mul_w5 */
+	/* Galbraith-Lin-Scott, ~67% faster than G2Point_mul_w5 */
 	template<>
-	BLST_HD BLST_INLINE void POINTonE2::mult_glsv(POINTonE2& out, const POINTonE2& in,
+	BLST_HD BLST_INLINE void G2Point::mult_glsv(G2Point& out, const G2Point& in,
 		const pow256 SK)
 	{
 		Fr l;
@@ -1442,21 +1390,21 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 		{
 			const byte* scalars[2] = { s, NULL };
-			POINTonE2 table[4][1 << (5 - 1)];   /* 18KB */
+			G2Point table[4][1 << (5 - 1)];   /* 18KB */
 			size_t i;
 
-			//POINTonE2_precompute_w5(table[0], in);
-			precompute_w<POINTonE2, 5>(table[0], in);
+			//G2Point_precompute_w5(table[0], in);
+			precompute_w<G2Point, 5>(table[0], in);
 
 			for (i = 0; i < 1 << (5 - 1); i++) {
 				psi(table[1][i], table[0][i]);
 				psi(table[2][i], table[1][i]);
 				psi(table[3][i], table[2][i]);
-				POINTonE2::cneg(table[1][i], 1); /* account for z being negative */
-				POINTonE2::cneg(table[3][i], 1);
+				G2Point::cneg(table[1][i], 1); /* account for z being negative */
+				G2Point::cneg(table[3][i], 1);
 			}
 
-			s_mult_w<POINTonE2, 5>(out, NULL, 4, scalars, 64, table);
+			s_mult_w<G2Point, 5>(out, NULL, 4, scalars, 64, table);
 		}
 
 		// copy back the scalar to scrub the stack
@@ -1516,7 +1464,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	//
 	//
 	//	template<>
-	//	BLST_HD BLST_INLINE void POINTonE2::sign(POINTonE2& out, const POINTonE2& in, const pow256 SK)
+	//	BLST_HD BLST_INLINE void G2Point::sign(G2Point& out, const G2Point& in, const pow256 SK)
 	//	{
 	//		Fp2 Z, ZZ;
 	//		limb_t inf;

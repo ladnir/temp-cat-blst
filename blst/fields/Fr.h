@@ -19,6 +19,19 @@ namespace blst
     // used in montgomery reduction as the "magic" number
 #define BLST_r0 (limb_t)0xfffffffeffffffff  /* -1/r */
 
+    /*
+     * Scalar field Fr = Z_r (r is the BLS12-381 group order).
+     *
+     * Representation:
+     *   - Values are stored in Montgomery form unless noted.
+     *     If a' is the canonical integer in [0, r), we store a = a' * R mod r,
+     *     where R = 2^256.
+     *
+     * Conventions:
+     *   - Unless stated, all ops are modulo r and return reduced results in [0, r)
+     *     and stay in Montgomery form.
+     *   - Arithmetic is intended to be constant-time w.r.t. secrets.
+     */
     struct Fr
     {
         vec_256 data;
@@ -542,51 +555,14 @@ namespace blst
 
         ct_inverse_mod_v256(temp, inp, get_BLST_r(), rx2);
         Fr::redc(out, temp);
-        //Fr::mul(out, out, get_BLST_rRR());
 		Fr::to_mont(out, out);
     }
-
-    // out = 1 / inp, computed via addition chain & Fermat's little theorem
-    //BLST_HD BLST_FORCEINLINE  void Fr::flt_reciprocal(Fr& out, const Fr& inp);
-
-    // out = inp^{p - 3/4}, useful for sqrt and recip_sqrt
-    //BLST_HD BLST_FORCEINLINE  void Fr::recip_sqrt_3mod4(Fr& t0, const Fr& inp);
-
-    // out = sqrt(1/inp) = inp^{-1/2}
-    //BLST_HD BLST_FORCEINLINE  bool_t Fr::recip_sqrt(Fr& out, const Fr& inp);
-
-    // out = sqrt(inp) = inp^{1/2}
-    //BLST_HD BLST_FORCEINLINE  bool_t Fr::sqrt(Fr& out, const Fr& inp);
-
-    //// returns true if inp is a square (quadratic residue) mod p
-    //BLST_HD BLST_FORCEINLINE  bool_t Fr::is_sqrt(const Fr& inp);
-
-    // out = a^{2^count} * b = sqr(...(sqr(a))...) * b
-    //BLST_HD BLST_FORCEINLINE  void Fr::sqr_n_mul(Fr& out, const Fr& a, size_t count, const Fr& b);
 
     // return from_mont(a) == from_mont(b). 
     BLST_HD BLST_FORCEINLINE  bool_t Fr::equal(const Fr& a, const Fr& b)
     {
 		return vec_is_equal(a, b, sizeof(Fr));
     }
-
-    /* Compute sign and parity of a mod p
-     *
-     * Returns two bits:
-     *  - bit 0: parity, 0 if a is even, 1 if a is odd
-     *  - bit 1: sign, 0 if a is zero or even, 1 if a is odd and positive,
-     *           2 if a is odd and negative
-     */
-    //BLST_HD BLST_FORCEINLINE  limb_t Fr::sgn0_pty(const Fr& a);
-
-    /* Compute sign and parity of from_mont(a) mod p
-     *
-     * Returns two bits:
-     *  - bit 0: parity, 0 if a is even, 1 if a is odd
-     *  - bit 1: sign, 0 if a is zero or even, 1 if a is odd and positive,
-     *           2 if a is odd and negative
-     */
-    //BLST_HD BLST_FORCEINLINE  limb_t Fr::sgn0_pty_mont(const Fr& a);
 
     /**
      * Checks if `a` is reduced modulo a given modulus.
@@ -597,9 +573,6 @@ namespace blst
     {
         return cc_is_redc_mod_n<num_limbs()>((u8*)a.data, modulus());
     }
-
-
-
 
     //BLST_EXTERN_C_END
 }

@@ -30,17 +30,17 @@ namespace
 {
     // Helper function to create test GT elements on host
     void create_test_gt_elements(Fp12* elements, size_t num, InsecureRng& rng) {
-        POINTonE1 g1_gen = blst_p1_generator();
-        POINTonE2 g2_gen = blst_p2_generator();
-        POINTonE1_affine g1_affine;
-        POINTonE2_affine g2_affine;
+        G1Point g1_gen = blst_p1_generator();
+        G2Point g2_gen = blst_p2_generator();
+        G1AffinePoint g1_affine;
+        G2AffinePoint g2_affine;
 
         blst_p1_to_affine(g1_affine, g1_gen);
         blst_p2_to_affine(g2_affine, g2_gen);
 
         for (size_t i = 0; i < num; i++) {
             // Create different GT elements by varying the scalar multiplier
-            POINTonE1 g1_mult;
+            G1Point g1_mult;
             unsigned char scalar[32] = { 0 };
             scalar[0] = (rng.uniform_u64() % 254) + 1; // Avoid 0
             scalar[1] = (rng.uniform_u64() % 255);
@@ -398,21 +398,21 @@ TEST(GTOpsCUDA, Bilinearity) {
 
     const size_t num_pairs = 5;
     Fp12* d_result;
-    POINTonE1_affine* d_g1_points;
-    POINTonE2_affine* d_g2_points;
+    G1AffinePoint* d_g1_points;
+    G2AffinePoint* d_g2_points;
 
-    POINTonE1_affine h_g1_points[num_pairs];
-    POINTonE2_affine h_g2_points[num_pairs];
+    G1AffinePoint h_g1_points[num_pairs];
+    G2AffinePoint h_g2_points[num_pairs];
     Fp12 h_cuda_result[num_pairs], h_cpu_result[num_pairs];
 
     // Create test point pairs
-    POINTonE1 g1_gen = blst_p1_generator();
-    POINTonE2 g2_gen = blst_p2_generator();
+    G1Point g1_gen = blst_p1_generator();
+    G2Point g2_gen = blst_p2_generator();
     InsecureRng rng;
 
     for (size_t i = 0; i < num_pairs; i++) {
-        POINTonE1 g1_mult;
-        POINTonE2 g2_mult;
+        G1Point g1_mult;
+        G2Point g2_mult;
         unsigned char scalar[32] = { 0 };
         scalar[0] = (rng.uniform_u64() % 254) + 1;
         scalar[1] = (rng.uniform_u64() % 255);
@@ -431,12 +431,12 @@ TEST(GTOpsCUDA, Bilinearity) {
     }
 
     // CUDA computation
-    CUDA_CHECK(cudaMalloc(&d_g1_points, num_pairs * sizeof(POINTonE1_affine)));
-    CUDA_CHECK(cudaMalloc(&d_g2_points, num_pairs * sizeof(POINTonE2_affine)));
+    CUDA_CHECK(cudaMalloc(&d_g1_points, num_pairs * sizeof(G1AffinePoint)));
+    CUDA_CHECK(cudaMalloc(&d_g2_points, num_pairs * sizeof(G2AffinePoint)));
     CUDA_CHECK(cudaMalloc(&d_result, num_pairs * sizeof(Fp12)));
 
-    CUDA_CHECK(cudaMemcpy(d_g1_points, h_g1_points, num_pairs * sizeof(POINTonE1_affine), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_g2_points, h_g2_points, num_pairs * sizeof(POINTonE2_affine), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_g1_points, h_g1_points, num_pairs * sizeof(G1AffinePoint), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_g2_points, h_g2_points, num_pairs * sizeof(G2AffinePoint), cudaMemcpyHostToDevice));
 
     batched_error_code result = pairing_gt_vec(d_result, d_g2_points, d_g1_points, num_pairs);
     EXPECT_TRUE(check_batched_success(result));
@@ -447,13 +447,13 @@ TEST(GTOpsCUDA, Bilinearity) {
     EXPECT_TRUE(compare_results(h_cuda_result, h_cpu_result, num_pairs, gt_element_equal));
 
     // Test bilinearity property: e(aP, Q) = e(P, aQ) = e(P,Q)^a
-    POINTonE1 g1_double;
-    POINTonE2 g2_double;
+    G1Point g1_double;
+    G2Point g2_double;
     blst_p1_double(g1_double, g1_gen);
     blst_p2_double(g2_double, g2_gen);
 
-    POINTonE1_affine g1_affine, g1_double_affine;
-    POINTonE2_affine g2_affine, g2_double_affine;
+    G1AffinePoint g1_affine, g1_double_affine;
+    G2AffinePoint g2_affine, g2_double_affine;
     blst_p1_to_affine(g1_affine, g1_gen);
     blst_p2_to_affine(g2_affine, g2_gen);
     blst_p1_to_affine(g1_double_affine, g1_double);
@@ -648,22 +648,22 @@ TEST(GTOpsCUDA, MultiPairing) {
 
     const size_t num_pairs = 5;
     Fp12* d_miller_results, * d_final_results;
-    POINTonE1_affine* d_g1_points;
-    POINTonE2_affine* d_g2_points;
+    G1AffinePoint* d_g1_points;
+    G2AffinePoint* d_g2_points;
 
-    POINTonE1_affine h_g1_points[num_pairs];
-    POINTonE2_affine h_g2_points[num_pairs];
+    G1AffinePoint h_g1_points[num_pairs];
+    G2AffinePoint h_g2_points[num_pairs];
     Fp12 h_cuda_miller[num_pairs], h_cpu_miller[num_pairs];
     Fp12 h_cuda_final[num_pairs], h_cpu_final[num_pairs];
 
     // Create test point pairs
-    POINTonE1 g1_gen = blst_p1_generator();
-    POINTonE2 g2_gen = blst_p2_generator();
+    G1Point g1_gen = blst_p1_generator();
+    G2Point g2_gen = blst_p2_generator();
     InsecureRng rng;
 
     for (size_t i = 0; i < num_pairs; i++) {
-        POINTonE1 g1_mult;
-        POINTonE2 g2_mult;
+        G1Point g1_mult;
+        G2Point g2_mult;
         unsigned char scalar[32] = { 0 };
         scalar[0] = (rng.uniform_u64() % 254) + 1;
         scalar[1] = (rng.uniform_u64() % 255);
@@ -682,13 +682,13 @@ TEST(GTOpsCUDA, MultiPairing) {
     }
 
     // CUDA computation
-    CUDA_CHECK(cudaMalloc(&d_g1_points, num_pairs * sizeof(POINTonE1_affine)));
-    CUDA_CHECK(cudaMalloc(&d_g2_points, num_pairs * sizeof(POINTonE2_affine)));
+    CUDA_CHECK(cudaMalloc(&d_g1_points, num_pairs * sizeof(G1AffinePoint)));
+    CUDA_CHECK(cudaMalloc(&d_g2_points, num_pairs * sizeof(G2AffinePoint)));
     CUDA_CHECK(cudaMalloc(&d_miller_results, num_pairs * sizeof(Fp12)));
     CUDA_CHECK(cudaMalloc(&d_final_results, num_pairs * sizeof(Fp12)));
 
-    CUDA_CHECK(cudaMemcpy(d_g1_points, h_g1_points, num_pairs * sizeof(POINTonE1_affine), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_g2_points, h_g2_points, num_pairs * sizeof(POINTonE2_affine), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_g1_points, h_g1_points, num_pairs * sizeof(G1AffinePoint), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_g2_points, h_g2_points, num_pairs * sizeof(G2AffinePoint), cudaMemcpyHostToDevice));
 
     batched_error_code miller_result = miller_loop_gt_vec(d_miller_results, d_g2_points, d_g1_points, num_pairs);
     EXPECT_TRUE(check_batched_success(miller_result));
@@ -1124,23 +1124,23 @@ TEST(GTOpsCUDA, PairingVerification) {
 
     const size_t num_pairs = 3;
     bool* d_results;
-    POINTonE1_affine* d_g1_points;
-    POINTonE2_affine* d_g2_points;
+    G1AffinePoint* d_g1_points;
+    G2AffinePoint* d_g2_points;
     Fp12* d_target_values;
 
-    POINTonE1_affine h_g1_points[num_pairs];
-    POINTonE2_affine h_g2_points[num_pairs];
+    G1AffinePoint h_g1_points[num_pairs];
+    G2AffinePoint h_g2_points[num_pairs];
     Fp12 h_target_values[num_pairs];
     bool h_cuda_results[num_pairs], h_cpu_results[num_pairs];
 
     // Create test point pairs and compute target values
-    POINTonE1 g1_gen = blst_p1_generator();
-    POINTonE2 g2_gen = blst_p2_generator();
+    G1Point g1_gen = blst_p1_generator();
+    G2Point g2_gen = blst_p2_generator();
     InsecureRng rng;
 
     for (size_t i = 0; i < num_pairs; i++) {
-        POINTonE1 g1_mult;
-        POINTonE2 g2_mult;
+        G1Point g1_mult;
+        G2Point g2_mult;
         unsigned char scalar[32] = { 0 };
         scalar[0] = (rng.uniform_u64() % 254) + 1;
         scalar[1] = (rng.uniform_u64() % 255);
@@ -1165,13 +1165,13 @@ TEST(GTOpsCUDA, PairingVerification) {
     }
 
     // CUDA computation
-    CUDA_CHECK(cudaMalloc(&d_g1_points, num_pairs * sizeof(POINTonE1_affine)));
-    CUDA_CHECK(cudaMalloc(&d_g2_points, num_pairs * sizeof(POINTonE2_affine)));
+    CUDA_CHECK(cudaMalloc(&d_g1_points, num_pairs * sizeof(G1AffinePoint)));
+    CUDA_CHECK(cudaMalloc(&d_g2_points, num_pairs * sizeof(G2AffinePoint)));
     CUDA_CHECK(cudaMalloc(&d_target_values, num_pairs * sizeof(Fp12)));
     CUDA_CHECK(cudaMalloc(&d_results, num_pairs * sizeof(bool)));
 
-    CUDA_CHECK(cudaMemcpy(d_g1_points, h_g1_points, num_pairs * sizeof(POINTonE1_affine), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_g2_points, h_g2_points, num_pairs * sizeof(POINTonE2_affine), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_g1_points, h_g1_points, num_pairs * sizeof(G1AffinePoint), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_g2_points, h_g2_points, num_pairs * sizeof(G2AffinePoint), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(d_target_values, h_target_values, num_pairs * sizeof(Fp12), cudaMemcpyHostToDevice));
 
     batched_error_code result = pairing_verify_gt_vec(d_results, d_g2_points, d_g1_points, d_target_values, num_pairs);
@@ -1399,29 +1399,29 @@ TEST(GTOpsCUDA, PairingProperties) {
 
     const size_t num_tests = 3;
     Fp12* d_results;
-    POINTonE1_affine* d_g1_points;
-    POINTonE2_affine* d_g2_points;
+    G1AffinePoint* d_g1_points;
+    G2AffinePoint* d_g2_points;
 
-    POINTonE1_affine h_g1_points[num_tests];
-    POINTonE2_affine h_g2_points[num_tests];
+    G1AffinePoint h_g1_points[num_tests];
+    G2AffinePoint h_g2_points[num_tests];
     Fp12 h_cuda_results[num_tests], h_cpu_results[num_tests];
 
     // Setup test points for pairing properties
-    POINTonE1 g1_gen = blst_p1_generator();
-    POINTonE2 g2_gen = blst_p2_generator();
+    G1Point g1_gen = blst_p1_generator();
+    G2Point g2_gen = blst_p2_generator();
 
     // Test 1: e(G1_gen, G2_gen) - basic pairing
     blst_p1_to_affine(h_g1_points[0], g1_gen);
     blst_p2_to_affine(h_g2_points[0], g2_gen);
 
     // Test 2: e(2*G1_gen, G2_gen) 
-    POINTonE1 g1_double;
+    G1Point g1_double;
     blst_p1_double(g1_double, g1_gen);
     blst_p1_to_affine(h_g1_points[1], g1_double);
     blst_p2_to_affine(h_g2_points[1], g2_gen);
 
     // Test 3: e(G1_gen, 2*G2_gen)
-    POINTonE2 g2_double;
+    G2Point g2_double;
     blst_p2_double(g2_double, g2_gen);
     blst_p1_to_affine(h_g1_points[2], g1_gen);
     blst_p2_to_affine(h_g2_points[2], g2_double);
@@ -1433,12 +1433,12 @@ TEST(GTOpsCUDA, PairingProperties) {
     }
 
     // CUDA computation
-    CUDA_CHECK(cudaMalloc(&d_g1_points, num_tests * sizeof(POINTonE1_affine)));
-    CUDA_CHECK(cudaMalloc(&d_g2_points, num_tests * sizeof(POINTonE2_affine)));
+    CUDA_CHECK(cudaMalloc(&d_g1_points, num_tests * sizeof(G1AffinePoint)));
+    CUDA_CHECK(cudaMalloc(&d_g2_points, num_tests * sizeof(G2AffinePoint)));
     CUDA_CHECK(cudaMalloc(&d_results, num_tests * sizeof(Fp12)));
 
-    CUDA_CHECK(cudaMemcpy(d_g1_points, h_g1_points, num_tests * sizeof(POINTonE1_affine), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_g2_points, h_g2_points, num_tests * sizeof(POINTonE2_affine), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_g1_points, h_g1_points, num_tests * sizeof(G1AffinePoint), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_g2_points, h_g2_points, num_tests * sizeof(G2AffinePoint), cudaMemcpyHostToDevice));
 
     batched_error_code result = pairing_gt_vec(d_results, d_g2_points, d_g1_points, num_tests);
     EXPECT_TRUE(check_batched_success(result));
@@ -1651,23 +1651,23 @@ TEST(GTOpsCUDA, ComprehensivePairingTest) {
 
     const size_t num_pairs = 8;
     Fp12* d_miller_results, * d_final_results, * d_complete_results;
-    POINTonE1_affine* d_g1_points;
-    POINTonE2_affine* d_g2_points;
+    G1AffinePoint* d_g1_points;
+    G2AffinePoint* d_g2_points;
     bool* d_verify_results;
 
-    POINTonE1_affine h_g1_points[num_pairs];
-    POINTonE2_affine h_g2_points[num_pairs];
+    G1AffinePoint h_g1_points[num_pairs];
+    G2AffinePoint h_g2_points[num_pairs];
     Fp12 h_miller_results[num_pairs], h_final_results[num_pairs], h_complete_results[num_pairs];
     bool h_verify_results[num_pairs];
 
     // Create diverse test point pairs
-    POINTonE1 g1_gen = blst_p1_generator();
-    POINTonE2 g2_gen = blst_p2_generator();
+    G1Point g1_gen = blst_p1_generator();
+    G2Point g2_gen = blst_p2_generator();
     InsecureRng rng;
 
     for (size_t i = 0; i < num_pairs; i++) {
-        POINTonE1 g1_mult;
-        POINTonE2 g2_mult;
+        G1Point g1_mult;
+        G2Point g2_mult;
         unsigned char scalar1[32] = { 0 }, scalar2[32] = { 0 };
 
         // Create different scalars for G1 and G2
@@ -1684,15 +1684,15 @@ TEST(GTOpsCUDA, ComprehensivePairingTest) {
     }
 
     // CUDA computation
-    CUDA_CHECK(cudaMalloc(&d_g1_points, num_pairs * sizeof(POINTonE1_affine)));
-    CUDA_CHECK(cudaMalloc(&d_g2_points, num_pairs * sizeof(POINTonE2_affine)));
+    CUDA_CHECK(cudaMalloc(&d_g1_points, num_pairs * sizeof(G1AffinePoint)));
+    CUDA_CHECK(cudaMalloc(&d_g2_points, num_pairs * sizeof(G2AffinePoint)));
     CUDA_CHECK(cudaMalloc(&d_miller_results, num_pairs * sizeof(Fp12)));
     CUDA_CHECK(cudaMalloc(&d_final_results, num_pairs * sizeof(Fp12)));
     CUDA_CHECK(cudaMalloc(&d_complete_results, num_pairs * sizeof(Fp12)));
     CUDA_CHECK(cudaMalloc(&d_verify_results, num_pairs * sizeof(bool)));
 
-    CUDA_CHECK(cudaMemcpy(d_g1_points, h_g1_points, num_pairs * sizeof(POINTonE1_affine), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_g2_points, h_g2_points, num_pairs * sizeof(POINTonE2_affine), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_g1_points, h_g1_points, num_pairs * sizeof(G1AffinePoint), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_g2_points, h_g2_points, num_pairs * sizeof(G2AffinePoint), cudaMemcpyHostToDevice));
 
     // Test separate Miller loop and final exponentiation
     batched_error_code miller_result = miller_loop_gt_vec(d_miller_results, d_g2_points, d_g1_points, num_pairs);

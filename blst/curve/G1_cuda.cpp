@@ -24,7 +24,7 @@ namespace blst
     // Core G1 Operations
 
     // Vectorized addition of G1 points (CPU)
-    batched_error_code add_g1_vec_cc(POINTonE1* out, const POINTonE1* a, const POINTonE1* b, size_t num)
+    batched_error_code add_g1_vec_cc(G1Point* out, const G1Point* a, const G1Point* b, size_t num)
     {
         if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
@@ -37,7 +37,7 @@ namespace blst
 
 #ifdef BLST_CUDA
     // Kernel for addition of G1 points (GPU)
-    __global__ void add_g1_vec_ker(POINTonE1* out, const POINTonE1* a, const POINTonE1* b, size_t num)
+    __global__ void add_g1_vec_ker(G1Point* out, const G1Point* a, const G1Point* b, size_t num)
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
@@ -46,7 +46,7 @@ namespace blst
     }
 
     // Vectorized addition of G1 points (GPU)
-    batched_error_code add_g1_vec_cu(POINTonE1* out, const POINTonE1* a, const POINTonE1* b, size_t num)
+    batched_error_code add_g1_vec_cu(G1Point* out, const G1Point* a, const G1Point* b, size_t num)
     {
         if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
@@ -56,7 +56,7 @@ namespace blst
 #endif
 
     // Vectorized addition of G1 points
-    batched_error_code add_g1_vec(POINTonE1* out, const POINTonE1* a, const POINTonE1* b, size_t num)
+    batched_error_code add_g1_vec(G1Point* out, const G1Point* a, const G1Point* b, size_t num)
     {
 #ifdef BLST_CUDA
         return add_g1_vec_cu(out, a, b, num);
@@ -66,7 +66,7 @@ namespace blst
     }
 
     // Vectorized doubling of G1 points (CPU)
-    batched_error_code double_g1_vec_cc(POINTonE1* out, const POINTonE1* a, size_t num)
+    batched_error_code double_g1_vec_cc(G1Point* out, const G1Point* a, size_t num)
     {
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -79,7 +79,7 @@ namespace blst
 
 #ifdef BLST_CUDA
     // Kernel for doubling of G1 points (GPU)
-    __global__ void double_g1_vec_ker(POINTonE1* out, const POINTonE1* a, size_t num)
+    __global__ void double_g1_vec_ker(G1Point* out, const G1Point* a, size_t num)
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
@@ -88,7 +88,7 @@ namespace blst
     }
 
     // Vectorized doubling of G1 points (GPU)
-    batched_error_code double_g1_vec_cu(POINTonE1* out, const POINTonE1* a, size_t num)
+    batched_error_code double_g1_vec_cu(G1Point* out, const G1Point* a, size_t num)
     {
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -98,7 +98,7 @@ namespace blst
 #endif
 
     // Vectorized doubling of G1 points
-    batched_error_code double_g1_vec(POINTonE1* out, const POINTonE1* a, size_t num)
+    batched_error_code double_g1_vec(G1Point* out, const G1Point* a, size_t num)
     {
 #ifdef BLST_CUDA
         return double_g1_vec_cu(out, a, num);
@@ -108,7 +108,7 @@ namespace blst
     }
 
     // Vectorized conditional negation of G1 points (CPU)
-    batched_error_code cneg_g1_vec_cc(POINTonE1* out, const POINTonE1* a, int* flag, size_t num)
+    batched_error_code cneg_g1_vec_cc(G1Point* out, const G1Point* a, int* flag, size_t num)
     {
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -123,7 +123,7 @@ namespace blst
 
 #ifdef BLST_CUDA
     // Kernel for conditional negation of G1 points (GPU)
-    __global__ void cneg_g1_vec_ker(POINTonE1* out, const POINTonE1* a, int* flag, size_t num)
+    __global__ void cneg_g1_vec_ker(G1Point* out, const G1Point* a, int* flag, size_t num)
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
@@ -133,7 +133,7 @@ namespace blst
     }
 
     // Vectorized conditional negation of G1 points (GPU)
-    batched_error_code cneg_g1_vec_cu(POINTonE1* out, const POINTonE1* a, int* flag, size_t num)
+    batched_error_code cneg_g1_vec_cu(G1Point* out, const G1Point* a, int* flag, size_t num)
     {
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -143,7 +143,7 @@ namespace blst
 #endif
 
     // Vectorized conditional negation of G1 points
-    batched_error_code cneg_g1_vec(POINTonE1* out, const POINTonE1* a, int* flag, size_t num)
+    batched_error_code cneg_g1_vec(G1Point* out, const G1Point* a, int* flag, size_t num)
     {
 #ifdef BLST_CUDA
         return cneg_g1_vec_cu(out, a, flag, num);
@@ -153,7 +153,7 @@ namespace blst
     }
 
     // Vectorized scalar multiplication of G1 points (CPU)
-    batched_error_code mult_g1_vec_cc(POINTonE1* out, const POINTonE1* points, const unsigned char* scalars, size_t scalar_bits, size_t num)
+    batched_error_code mult_g1_vec_cc(G1Point* out, const G1Point* points, const unsigned char* scalars, size_t scalar_bits, size_t num)
     {
         if (!out || !points || !scalars) return BATCHED_ERROR_NULL_POINTER;
 
@@ -168,7 +168,7 @@ namespace blst
 
 #ifdef BLST_CUDA
     // Kernel for scalar multiplication of G1 points (GPU)
-    __global__ void mult_g1_vec_ker(POINTonE1* out, const POINTonE1* points, const unsigned char* scalars, size_t scalar_bits, size_t num)
+    __global__ void mult_g1_vec_ker(G1Point* out, const G1Point* points, const unsigned char* scalars, size_t scalar_bits, size_t num)
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
@@ -182,7 +182,7 @@ namespace blst
     }
 
     // Vectorized scalar multiplication of G1 points (GPU)
-    batched_error_code mult_g1_vec_cu(POINTonE1* out, const POINTonE1* points, const unsigned char* scalars, size_t scalar_bits, size_t num)
+    batched_error_code mult_g1_vec_cu(G1Point* out, const G1Point* points, const unsigned char* scalars, size_t scalar_bits, size_t num)
     {
         if (!out || !points || !scalars) return BATCHED_ERROR_NULL_POINTER;
 
@@ -192,7 +192,7 @@ namespace blst
 #endif
 
     // Vectorized scalar multiplication of G1 points
-    batched_error_code mult_g1_vec(POINTonE1* out, const POINTonE1* points, const unsigned char* scalars, size_t scalar_bits, size_t num)
+    batched_error_code mult_g1_vec(G1Point* out, const G1Point* points, const unsigned char* scalars, size_t scalar_bits, size_t num)
     {
 #ifdef BLST_CUDA
         return mult_g1_vec_cu(out, points, scalars, scalar_bits, num);
@@ -205,7 +205,7 @@ namespace blst
     // Coordinate Conversion Operations
 
     // Vectorized Jacobian to affine conversion (CPU)
-    batched_error_code to_affine_g1_vec_cc(POINTonE1_affine* out, const POINTonE1* a, size_t num)
+    batched_error_code to_affine_g1_vec_cc(G1AffinePoint* out, const G1Point* a, size_t num)
     {
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -218,7 +218,7 @@ namespace blst
 
 #ifdef BLST_CUDA
     // Kernel for Jacobian to affine conversion (GPU)
-    __global__ void to_affine_g1_vec_ker(POINTonE1_affine* out, const POINTonE1* a, size_t num)
+    __global__ void to_affine_g1_vec_ker(G1AffinePoint* out, const G1Point* a, size_t num)
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
@@ -227,7 +227,7 @@ namespace blst
     }
 
     // Vectorized Jacobian to affine conversion (GPU)
-    batched_error_code to_affine_g1_vec_cu(POINTonE1_affine* out, const POINTonE1* a, size_t num)
+    batched_error_code to_affine_g1_vec_cu(G1AffinePoint* out, const G1Point* a, size_t num)
     {
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -237,7 +237,7 @@ namespace blst
 #endif
 
     // Vectorized Jacobian to affine conversion
-    batched_error_code to_affine_g1_vec(POINTonE1_affine* out, const POINTonE1* a, size_t num)
+    batched_error_code to_affine_g1_vec(G1AffinePoint* out, const G1Point* a, size_t num)
     {
 #ifdef BLST_CUDA
         return to_affine_g1_vec_cu(out, a, num);
@@ -247,7 +247,7 @@ namespace blst
     }
 
     // Vectorized affine to Jacobian conversion (CPU)
-    batched_error_code from_affine_g1_vec_cc(POINTonE1* out, const POINTonE1_affine* a, size_t num)
+    batched_error_code from_affine_g1_vec_cc(G1Point* out, const G1AffinePoint* a, size_t num)
     {
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -260,7 +260,7 @@ namespace blst
 
 #ifdef BLST_CUDA
     // Kernel for affine to Jacobian conversion (GPU)
-    __global__ void from_affine_g1_vec_ker(POINTonE1* out, const POINTonE1_affine* a, size_t num)
+    __global__ void from_affine_g1_vec_ker(G1Point* out, const G1AffinePoint* a, size_t num)
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
@@ -269,7 +269,7 @@ namespace blst
     }
 
     // Vectorized affine to Jacobian conversion (GPU)
-    batched_error_code from_affine_g1_vec_cu(POINTonE1* out, const POINTonE1_affine* a, size_t num)
+    batched_error_code from_affine_g1_vec_cu(G1Point* out, const G1AffinePoint* a, size_t num)
     {
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -279,7 +279,7 @@ namespace blst
 #endif
 
     // Vectorized affine to Jacobian conversion
-    batched_error_code from_affine_g1_vec(POINTonE1* out, const POINTonE1_affine* a, size_t num)
+    batched_error_code from_affine_g1_vec(G1Point* out, const G1AffinePoint* a, size_t num)
     {
 #ifdef BLST_CUDA
         return from_affine_g1_vec_cu(out, a, num);
@@ -289,7 +289,7 @@ namespace blst
     }
 
     // Vectorized Jacobian normalization (CPU)
-    batched_error_code from_jacobian_g1_vec_cc(POINTonE1* out, const POINTonE1* a, size_t num)
+    batched_error_code from_jacobian_g1_vec_cc(G1Point* out, const G1Point* a, size_t num)
     {
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -302,7 +302,7 @@ namespace blst
 
 #ifdef BLST_CUDA
     // Kernel for Jacobian normalization (GPU)
-    __global__ void from_jacobian_g1_vec_ker(POINTonE1* out, const POINTonE1* a, size_t num)
+    __global__ void from_jacobian_g1_vec_ker(G1Point* out, const G1Point* a, size_t num)
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
@@ -311,7 +311,7 @@ namespace blst
     }
 
     // Vectorized Jacobian normalization (GPU)
-    batched_error_code from_jacobian_g1_vec_cu(POINTonE1* out, const POINTonE1* a, size_t num)
+    batched_error_code from_jacobian_g1_vec_cu(G1Point* out, const G1Point* a, size_t num)
     {
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
@@ -321,7 +321,7 @@ namespace blst
 #endif
 
     // Vectorized Jacobian normalization
-    batched_error_code from_jacobian_g1_vec(POINTonE1* out, const POINTonE1* a, size_t num)
+    batched_error_code from_jacobian_g1_vec(G1Point* out, const G1Point* a, size_t num)
     {
 #ifdef BLST_CUDA
         return from_jacobian_g1_vec_cu(out, a, num);
@@ -334,7 +334,7 @@ namespace blst
     // Validation Operations
 
     // Vectorized curve membership check (CPU)
-    batched_error_code on_curve_g1_vec_cc(bool* results, const POINTonE1* points, size_t num)
+    batched_error_code on_curve_g1_vec_cc(bool* results, const G1Point* points, size_t num)
     {
         if (!results || !points) return BATCHED_ERROR_NULL_POINTER;
 
@@ -347,7 +347,7 @@ namespace blst
 
 #ifdef BLST_CUDA
     // Kernel for curve membership check (GPU)
-    __global__ void on_curve_g1_vec_ker(bool* results, const POINTonE1* points, size_t num)
+    __global__ void on_curve_g1_vec_ker(bool* results, const G1Point* points, size_t num)
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
@@ -356,7 +356,7 @@ namespace blst
     }
 
     // Vectorized curve membership check (GPU)
-    batched_error_code on_curve_g1_vec_cu(bool* results, const POINTonE1* points, size_t num)
+    batched_error_code on_curve_g1_vec_cu(bool* results, const G1Point* points, size_t num)
     {
         if (!results || !points) return BATCHED_ERROR_NULL_POINTER;
 
@@ -366,7 +366,7 @@ namespace blst
 #endif
 
     // Vectorized curve membership check
-    batched_error_code on_curve_g1_vec(bool* results, const POINTonE1* points, size_t num)
+    batched_error_code on_curve_g1_vec(bool* results, const G1Point* points, size_t num)
     {
 #ifdef BLST_CUDA
         return on_curve_g1_vec_cu(results, points, num);
@@ -376,7 +376,7 @@ namespace blst
     }
 
     // Vectorized infinity check (CPU)
-    batched_error_code is_inf_g1_vec_cc(bool* results, const POINTonE1* points, size_t num)
+    batched_error_code is_inf_g1_vec_cc(bool* results, const G1Point* points, size_t num)
     {
         if (!results || !points) return BATCHED_ERROR_NULL_POINTER;
 
@@ -389,7 +389,7 @@ namespace blst
 
 #ifdef BLST_CUDA
     // Kernel for infinity check (GPU)
-    __global__ void is_inf_g1_vec_ker(bool* results, const POINTonE1* points, size_t num)
+    __global__ void is_inf_g1_vec_ker(bool* results, const G1Point* points, size_t num)
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
@@ -398,7 +398,7 @@ namespace blst
     }
 
     // Vectorized infinity check (GPU)
-    batched_error_code is_inf_g1_vec_cu(bool* results, const POINTonE1* points, size_t num)
+    batched_error_code is_inf_g1_vec_cu(bool* results, const G1Point* points, size_t num)
     {
         if (!results || !points) return BATCHED_ERROR_NULL_POINTER;
 
@@ -408,7 +408,7 @@ namespace blst
 #endif
 
     // Vectorized infinity check
-    batched_error_code is_inf_g1_vec(bool* results, const POINTonE1* points, size_t num)
+    batched_error_code is_inf_g1_vec(bool* results, const G1Point* points, size_t num)
     {
 #ifdef BLST_CUDA
         return is_inf_g1_vec_cu(results, points, num);
@@ -418,7 +418,7 @@ namespace blst
     }
 
     // Vectorized point equality check (CPU)
-    batched_error_code is_equal_g1_vec_cc(bool* results, const POINTonE1* a, const POINTonE1* b, size_t num)
+    batched_error_code is_equal_g1_vec_cc(bool* results, const G1Point* a, const G1Point* b, size_t num)
     {
         if (!results || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
@@ -431,7 +431,7 @@ namespace blst
 
 #ifdef BLST_CUDA
     // Kernel for point equality check (GPU)
-    __global__ void is_equal_g1_vec_ker(bool* results, const POINTonE1* a, const POINTonE1* b, size_t num)
+    __global__ void is_equal_g1_vec_ker(bool* results, const G1Point* a, const G1Point* b, size_t num)
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
@@ -440,7 +440,7 @@ namespace blst
     }
 
     // Vectorized point equality check (GPU)
-    batched_error_code is_equal_g1_vec_cu(bool* results, const POINTonE1* a, const POINTonE1* b, size_t num)
+    batched_error_code is_equal_g1_vec_cu(bool* results, const G1Point* a, const G1Point* b, size_t num)
     {
         if (!results || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
@@ -450,7 +450,7 @@ namespace blst
 #endif
 
     // Vectorized point equality check
-    batched_error_code is_equal_g1_vec(bool* results, const POINTonE1* a, const POINTonE1* b, size_t num)
+    batched_error_code is_equal_g1_vec(bool* results, const G1Point* a, const G1Point* b, size_t num)
     {
 #ifdef BLST_CUDA
         return is_equal_g1_vec_cu(results, a, b, num);
@@ -463,7 +463,7 @@ namespace blst
     // Serialization Operations
 
     // Vectorized point serialization (CPU)
-    batched_error_code serialize_g1_vec_cc(unsigned char* out, const POINTonE1* points, size_t num)
+    batched_error_code serialize_g1_vec_cc(unsigned char* out, const G1Point* points, size_t num)
     {
         if (!out || !points) return BATCHED_ERROR_NULL_POINTER;
 
@@ -476,7 +476,7 @@ namespace blst
 
 #ifdef BLST_CUDA
     // Kernel for point serialization (GPU)
-    __global__ void serialize_g1_vec_ker(unsigned char* out, const POINTonE1* points, size_t num)
+    __global__ void serialize_g1_vec_ker(unsigned char* out, const G1Point* points, size_t num)
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
@@ -485,7 +485,7 @@ namespace blst
     }
 
     // Vectorized point serialization (GPU)
-    batched_error_code serialize_g1_vec_cu(unsigned char* out, const POINTonE1* points, size_t num)
+    batched_error_code serialize_g1_vec_cu(unsigned char* out, const G1Point* points, size_t num)
     {
         if (!out || !points) return BATCHED_ERROR_NULL_POINTER;
 
@@ -495,7 +495,7 @@ namespace blst
 #endif
 
     // Vectorized point serialization
-    batched_error_code serialize_g1_vec(unsigned char* out, const POINTonE1* points, size_t num)
+    batched_error_code serialize_g1_vec(unsigned char* out, const G1Point* points, size_t num)
     {
 #ifdef BLST_CUDA
         return serialize_g1_vec_cu(out, points, num);
@@ -505,7 +505,7 @@ namespace blst
     }
 
     // Vectorized point deserialization (CPU)
-    batched_error_code deserialize_g1_vec_cc(POINTonE1_affine* out, const unsigned char* serialized, BLST_ERROR* errors, size_t num)
+    batched_error_code deserialize_g1_vec_cc(G1AffinePoint* out, const unsigned char* serialized, BLST_ERROR* errors, size_t num)
     {
         if (!out || !serialized || !errors) return BATCHED_ERROR_NULL_POINTER;
 
@@ -518,7 +518,7 @@ namespace blst
 
 #ifdef BLST_CUDA
     // Kernel for point deserialization (GPU)
-    __global__ void deserialize_g1_vec_ker(POINTonE1_affine* out, const unsigned char* serialized, BLST_ERROR* errors, size_t num)
+    __global__ void deserialize_g1_vec_ker(G1AffinePoint* out, const unsigned char* serialized, BLST_ERROR* errors, size_t num)
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
@@ -527,7 +527,7 @@ namespace blst
     }
 
     // Vectorized point deserialization (GPU)
-    batched_error_code deserialize_g1_vec_cu(POINTonE1_affine* out, const unsigned char* serialized, BLST_ERROR* errors, size_t num)
+    batched_error_code deserialize_g1_vec_cu(G1AffinePoint* out, const unsigned char* serialized, BLST_ERROR* errors, size_t num)
     {
         if (!out || !serialized || !errors) return BATCHED_ERROR_NULL_POINTER;
 
@@ -556,7 +556,7 @@ namespace blst
 #endif
 
     // Vectorized point deserialization
-    batched_error_code deserialize_g1_vec(POINTonE1_affine* out, const unsigned char* serialized, BLST_ERROR* errors, size_t num)
+    batched_error_code deserialize_g1_vec(G1AffinePoint* out, const unsigned char* serialized, BLST_ERROR* errors, size_t num)
     {
 #ifdef BLST_CUDA
         return deserialize_g1_vec_cu(out, serialized, errors, num);
@@ -566,7 +566,7 @@ namespace blst
     }
 
     // Vectorized point compression (CPU)
-    batched_error_code compress_g1_vec_cc(unsigned char* out, const POINTonE1* points, size_t num)
+    batched_error_code compress_g1_vec_cc(unsigned char* out, const G1Point* points, size_t num)
     {
         if (!out || !points) return BATCHED_ERROR_NULL_POINTER;
 
@@ -579,7 +579,7 @@ namespace blst
 
 #ifdef BLST_CUDA
     // Kernel for point compression (GPU)
-    __global__ void compress_g1_vec_ker(unsigned char* out, const POINTonE1* points, size_t num)
+    __global__ void compress_g1_vec_ker(unsigned char* out, const G1Point* points, size_t num)
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
@@ -588,7 +588,7 @@ namespace blst
     }
 
     // Vectorized point compression (GPU)
-    batched_error_code compress_g1_vec_cu(unsigned char* out, const POINTonE1* points, size_t num)
+    batched_error_code compress_g1_vec_cu(unsigned char* out, const G1Point* points, size_t num)
     {
         if (!out || !points) return BATCHED_ERROR_NULL_POINTER;
 
@@ -598,7 +598,7 @@ namespace blst
 #endif
 
     // Vectorized point compression
-    batched_error_code compress_g1_vec(unsigned char* out, const POINTonE1* points, size_t num)
+    batched_error_code compress_g1_vec(unsigned char* out, const G1Point* points, size_t num)
     {
 #ifdef BLST_CUDA
         return compress_g1_vec_cu(out, points, num);
@@ -609,7 +609,7 @@ namespace blst
 
 
     // Vectorized point decompression (CPU)
-    batched_error_code uncompress_g1_vec_cc(POINTonE1_affine* out, const unsigned char* compressed, BLST_ERROR* errors, size_t num)
+    batched_error_code uncompress_g1_vec_cc(G1AffinePoint* out, const unsigned char* compressed, BLST_ERROR* errors, size_t num)
     {
         if (!out || !compressed || !errors) return BATCHED_ERROR_NULL_POINTER;
 
@@ -622,7 +622,7 @@ namespace blst
 
 #ifdef BLST_CUDA
     // Kernel for point decompression (GPU)
-    __global__ void uncompress_g1_vec_ker(POINTonE1_affine* out, const unsigned char* compressed, BLST_ERROR* errors, size_t num)
+    __global__ void uncompress_g1_vec_ker(G1AffinePoint* out, const unsigned char* compressed, BLST_ERROR* errors, size_t num)
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
@@ -631,7 +631,7 @@ namespace blst
     }
 
     // Vectorized point decompression (GPU)
-    batched_error_code uncompress_g1_vec_cu(POINTonE1_affine* out, const unsigned char* compressed, BLST_ERROR* errors, size_t num)
+    batched_error_code uncompress_g1_vec_cu(G1AffinePoint* out, const unsigned char* compressed, BLST_ERROR* errors, size_t num)
     {
         if (!out || !compressed || !errors) return BATCHED_ERROR_NULL_POINTER;
 
@@ -661,7 +661,7 @@ namespace blst
 
     // Vectorized point decompression
     batched_error_code uncompress_g1_vec(
-        POINTonE1_affine* out,
+        G1AffinePoint* out,
         const unsigned char* compressed,
         BLST_ERROR* errors, size_t num)
     {
@@ -676,7 +676,7 @@ namespace blst
     // Advanced Operations
 
     // Vectorized hash-to-curve (CPU)
-    batched_error_code hash_to_g1_vec_cc(POINTonE1* out, const unsigned char* const* msgs, const size_t* msg_lens,
+    batched_error_code hash_to_g1_vec_cc(G1Point* out, const unsigned char* const* msgs, const size_t* msg_lens,
         const unsigned char* dst, size_t dst_len, size_t num)
     {
         if (!out || !msgs || !msg_lens || !dst) return BATCHED_ERROR_NULL_POINTER;
@@ -690,7 +690,7 @@ namespace blst
 
 #ifdef BLST_CUDA
     // Kernel for hash-to-curve (GPU)
-    __global__ void hash_to_g1_vec_ker(POINTonE1* out, const unsigned char* const* msgs, const size_t* msg_lens,
+    __global__ void hash_to_g1_vec_ker(G1Point* out, const unsigned char* const* msgs, const size_t* msg_lens,
         const unsigned char* dst, size_t dst_len, size_t num)
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -700,7 +700,7 @@ namespace blst
     }
 
     // Vectorized hash-to-curve (GPU)
-    batched_error_code hash_to_g1_vec_cu(POINTonE1* out, const unsigned char* const* msgs, const size_t* msg_lens,
+    batched_error_code hash_to_g1_vec_cu(G1Point* out, const unsigned char* const* msgs, const size_t* msg_lens,
         const unsigned char* dst, size_t dst_len, size_t num)
     {
         if (!out || !msgs || !msg_lens || !dst) return BATCHED_ERROR_NULL_POINTER;
@@ -711,7 +711,7 @@ namespace blst
 #endif
 
     // Vectorized hash-to-curve
-    batched_error_code hash_to_g1_vec(POINTonE1* out, const unsigned char* const* msgs, const size_t* msg_lens,
+    batched_error_code hash_to_g1_vec(G1Point* out, const unsigned char* const* msgs, const size_t* msg_lens,
         const unsigned char* dst, size_t dst_len, size_t num)
     {
 #ifdef BLST_CUDA
@@ -722,7 +722,7 @@ namespace blst
     }
 
     // Multi-scalar multiplication (CPU) - simplified version
-    batched_error_code multi_scalar_mult_g1_cc(POINTonE1* result, const POINTonE1* points,
+    batched_error_code multi_scalar_mult_g1_cc(G1Point* result, const G1Point* points,
         const unsigned char* scalars, size_t scalar_bits, size_t num)
     {
         if (!result || !points || !scalars) return BATCHED_ERROR_NULL_POINTER;
@@ -734,7 +734,7 @@ namespace blst
 
         // Simple MSM: accumulate scalar multiplications
         for (size_t i = 0; i < num; i++) {
-            POINTonE1 temp;
+            G1Point temp;
             blst_p1_mult(temp, points[i], &scalars[i * scalar_bytes], scalar_bits);
             if (i == 0) {
                 *result = temp;
@@ -749,7 +749,7 @@ namespace blst
 
 #ifdef BLST_CUDA
     // Multi-scalar multiplication (GPU) - simplified version
-    batched_error_code multi_scalar_mult_g1_cu(POINTonE1* result, const POINTonE1* points,
+    batched_error_code multi_scalar_mult_g1_cu(G1Point* result, const G1Point* points,
         const unsigned char* scalars, size_t scalar_bits, size_t num)
     {
         // For now, just delegate to CPU implementation
@@ -759,7 +759,7 @@ namespace blst
 #endif
 
     // Multi-scalar multiplication
-    batched_error_code multi_scalar_mult_g1(POINTonE1* result, const POINTonE1* points,
+    batched_error_code multi_scalar_mult_g1(G1Point* result, const G1Point* points,
         const unsigned char* scalars, size_t scalar_bits, size_t num)
     {
 #ifdef BLST_CUDA

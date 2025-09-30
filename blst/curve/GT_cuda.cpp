@@ -416,8 +416,8 @@ namespace blst
 	// Pairing-related Operations
 
 	// Vectorized Miller loop computation (CPU)
-	batched_error_code miller_loop_gt_vec_cc(Fp12* out, const POINTonE2_affine* g2_points,
-		const POINTonE1_affine* g1_points, size_t num)
+	batched_error_code miller_loop_gt_vec_cc(Fp12* out, const G2AffinePoint* g2_points,
+		const G1AffinePoint* g1_points, size_t num)
 	{
 		if (!out || !g2_points || !g1_points) return BATCHED_ERROR_NULL_POINTER;
 
@@ -430,8 +430,8 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// Kernel for Miller loop computation (GPU)
-	__global__ void miller_loop_gt_vec_ker(Fp12* out, const POINTonE2_affine* g2_points,
-		const POINTonE1_affine* g1_points, size_t num)
+	__global__ void miller_loop_gt_vec_ker(Fp12* out, const G2AffinePoint* g2_points,
+		const G1AffinePoint* g1_points, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -440,8 +440,8 @@ namespace blst
 	}
 
 	// Vectorized Miller loop computation (GPU)
-	batched_error_code miller_loop_gt_vec_cu(Fp12* out, const POINTonE2_affine* g2_points,
-		const POINTonE1_affine* g1_points, size_t num)
+	batched_error_code miller_loop_gt_vec_cu(Fp12* out, const G2AffinePoint* g2_points,
+		const G1AffinePoint* g1_points, size_t num)
 	{
 		if (!out || !g2_points || !g1_points) return BATCHED_ERROR_NULL_POINTER;
 
@@ -451,8 +451,8 @@ namespace blst
 #endif
 
 	// Vectorized Miller loop computation
-	batched_error_code miller_loop_gt_vec(Fp12* out, const POINTonE2_affine* g2_points,
-		const POINTonE1_affine* g1_points, size_t num)
+	batched_error_code miller_loop_gt_vec(Fp12* out, const G2AffinePoint* g2_points,
+		const G1AffinePoint* g1_points, size_t num)
 	{
 #ifdef BLST_CUDA
 		return miller_loop_gt_vec_cu(out, g2_points, g1_points, num);
@@ -504,8 +504,8 @@ namespace blst
 	}
 
 	// Vectorized complete pairing computation (CPU)
-	batched_error_code pairing_gt_vec_cc(Fp12* out, const POINTonE2_affine* g2_points,
-		const POINTonE1_affine* g1_points, size_t num)
+	batched_error_code pairing_gt_vec_cc(Fp12* out, const G2AffinePoint* g2_points,
+		const G1AffinePoint* g1_points, size_t num)
 	{
 		if (!out || !g2_points || !g1_points) return BATCHED_ERROR_NULL_POINTER;
 
@@ -519,8 +519,8 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// Kernel for complete pairing computation (GPU)
-	__global__ void pairing_gt_vec_ker(Fp12* out, const POINTonE2_affine* g2_points,
-		const POINTonE1_affine* g1_points, size_t num)
+	__global__ void pairing_gt_vec_ker(Fp12* out, const G2AffinePoint* g2_points,
+		const G1AffinePoint* g1_points, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -530,8 +530,8 @@ namespace blst
 	}
 
 	// Vectorized complete pairing computation (GPU)
-	batched_error_code pairing_gt_vec_cu(Fp12* out, const POINTonE2_affine* g2_points,
-		const POINTonE1_affine* g1_points, size_t num)
+	batched_error_code pairing_gt_vec_cu(Fp12* out, const G2AffinePoint* g2_points,
+		const G1AffinePoint* g1_points, size_t num)
 	{
 		if (!out || !g2_points || !g1_points) return BATCHED_ERROR_NULL_POINTER;
 
@@ -541,8 +541,8 @@ namespace blst
 #endif
 
 	// Vectorized complete pairing computation
-	batched_error_code pairing_gt_vec(Fp12* out, const POINTonE2_affine* g2_points,
-		const POINTonE1_affine* g1_points, size_t num)
+	batched_error_code pairing_gt_vec(Fp12* out, const G2AffinePoint* g2_points,
+		const G1AffinePoint* g1_points, size_t num)
 	{
 #ifdef BLST_CUDA
 		return pairing_gt_vec_cu(out, g2_points, g1_points, num);
@@ -1033,8 +1033,8 @@ namespace blst
 
 	// Batch pairing verification (CPU)
 	batched_error_code pairing_verify_gt_vec_cc(bool* results,
-		const POINTonE2_affine* g2_points,
-		const POINTonE1_affine* g1_points,
+		const G2AffinePoint* g2_points,
+		const G1AffinePoint* g1_points,
 		const Fp12* target_values,
 		size_t num)
 	{
@@ -1053,8 +1053,8 @@ namespace blst
 #ifdef BLST_CUDA
 	// Kernel for batch pairing verification (GPU)
 	__global__ void pairing_verify_gt_vec_ker(bool* results,
-		const POINTonE2_affine* g2_points,
-		const POINTonE1_affine* g1_points,
+		const G2AffinePoint* g2_points,
+		const G1AffinePoint* g1_points,
 		const Fp12* target_values,
 		size_t num)
 	{
@@ -1069,8 +1069,8 @@ namespace blst
 
 	// Batch pairing verification (GPU)
 	batched_error_code pairing_verify_gt_vec_cu(bool* results,
-		const POINTonE2_affine* g2_points,
-		const POINTonE1_affine* g1_points,
+		const G2AffinePoint* g2_points,
+		const G1AffinePoint* g1_points,
 		const Fp12* target_values,
 		size_t num)
 	{
@@ -1083,8 +1083,8 @@ namespace blst
 
 	// Batch pairing verification
 	batched_error_code pairing_verify_gt_vec(bool* results,
-		const POINTonE2_affine* g2_points,
-		const POINTonE1_affine* g1_points,
+		const G2AffinePoint* g2_points,
+		const G1AffinePoint* g1_points,
 		const Fp12* target_values,
 		size_t num)
 	{

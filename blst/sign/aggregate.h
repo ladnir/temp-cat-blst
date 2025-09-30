@@ -9,7 +9,7 @@ namespace blst
 {
 
 
-    typedef union { POINTonE1 e1; POINTonE2 e2; } AggregatedSignature;
+    typedef union { G1Point e1; G2Point e2; } AggregatedSignature;
     typedef struct {
         unsigned int ctrl;
         unsigned int nelems;
@@ -17,8 +17,8 @@ namespace blst
         size_t DST_len;
         Fp12 GT;
         AggregatedSignature AggrSign;
-        POINTonE2_affine Q[N_MAX];
-        POINTonE1_affine P[N_MAX];
+        G2AffinePoint Q[N_MAX];
+        G1AffinePoint P[N_MAX];
     } PAIRING;
 
     BLST_HD int blst_fp12_finalverify(const Fp12& GT1, const Fp12& GT2);

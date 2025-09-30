@@ -28,8 +28,8 @@ namespace
 {
 
 	// Helper function to create test points on host
-	void create_test_points_g2(POINTonE2* points, size_t num, InsecureRng& rng) {
-		POINTonE2 generator = blst_p2_generator();
+	void create_test_points_g2(G2Point* points, size_t num, InsecureRng& rng) {
+		G2Point generator = blst_p2_generator();
 		unsigned char scalar[32] = { 0 };
 
 		for (size_t i = 0; i < num; i++) {
@@ -64,11 +64,11 @@ namespace
 	}
 
 	// Equality functions for different types
-	bool point_equal_g2(const POINTonE2& a, const POINTonE2& b) {
+	bool point_equal_g2(const G2Point& a, const G2Point& b) {
 		return blst_p2_is_equal(a, b);
 	}
 
-	bool affine_equal_g2(const POINTonE2_affine& a, const POINTonE2_affine& b) {
+	bool affine_equal_g2(const G2AffinePoint& a, const G2AffinePoint& b) {
 		return blst_p2_affine_is_equal(a, b);
 	}
 
@@ -121,9 +121,9 @@ TEST(G2OpsCUDA, PointAddition) {
 	}
 
 	const size_t num_points = 10;
-	POINTonE2* d_a, * d_b, * d_result;
-	POINTonE2 h_a[num_points], h_b[num_points];
-	POINTonE2 h_cuda_result[num_points], h_cpu_result[num_points];
+	G2Point* d_a, * d_b, * d_result;
+	G2Point h_a[num_points], h_b[num_points];
+	G2Point h_cuda_result[num_points], h_cpu_result[num_points];
 	InsecureRng rng;
 
 	// Create test data
@@ -136,17 +136,17 @@ TEST(G2OpsCUDA, PointAddition) {
 	}
 
 	// CUDA computation
-	CUDA_CHECK(cudaMalloc(&d_a, num_points * sizeof(POINTonE2)));
-	CUDA_CHECK(cudaMalloc(&d_b, num_points * sizeof(POINTonE2)));
-	CUDA_CHECK(cudaMalloc(&d_result, num_points * sizeof(POINTonE2)));
+	CUDA_CHECK(cudaMalloc(&d_a, num_points * sizeof(G2Point)));
+	CUDA_CHECK(cudaMalloc(&d_b, num_points * sizeof(G2Point)));
+	CUDA_CHECK(cudaMalloc(&d_result, num_points * sizeof(G2Point)));
 
-	CUDA_CHECK(cudaMemcpy(d_a, h_a, num_points * sizeof(POINTonE2), cudaMemcpyHostToDevice));
-	CUDA_CHECK(cudaMemcpy(d_b, h_b, num_points * sizeof(POINTonE2), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_a, h_a, num_points * sizeof(G2Point), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_b, h_b, num_points * sizeof(G2Point), cudaMemcpyHostToDevice));
 
 	batched_error_code result = add_g2_vec(d_result, d_a, d_b, num_points);
 	EXPECT_TRUE(check_batched_success(result));
 
-	CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_points * sizeof(POINTonE2), cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_points * sizeof(G2Point), cudaMemcpyDeviceToHost));
 
 	// Compare results
 	EXPECT_TRUE(compare_results(h_cuda_result, h_cpu_result, num_points, point_equal_g2));
@@ -163,9 +163,9 @@ TEST(G2OpsCUDA, PointDoubling) {
 	}
 
 	const size_t num_points = 10;
-	POINTonE2* d_points, * d_result;
-	POINTonE2 h_points[num_points];
-	POINTonE2 h_cuda_result[num_points], h_cpu_result[num_points];
+	G2Point* d_points, * d_result;
+	G2Point h_points[num_points];
+	G2Point h_cuda_result[num_points], h_cpu_result[num_points];
 
 	// Create test data
 	InsecureRng rng;
@@ -177,15 +177,15 @@ TEST(G2OpsCUDA, PointDoubling) {
 	}
 
 	// CUDA computation
-	CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(POINTonE2)));
-	CUDA_CHECK(cudaMalloc(&d_result, num_points * sizeof(POINTonE2)));
+	CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(G2Point)));
+	CUDA_CHECK(cudaMalloc(&d_result, num_points * sizeof(G2Point)));
 
-	CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(POINTonE2), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(G2Point), cudaMemcpyHostToDevice));
 
 	batched_error_code result = double_g2_vec(d_result, d_points, num_points);
 	EXPECT_TRUE(check_batched_success(result));
 
-	CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_points * sizeof(POINTonE2), cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_points * sizeof(G2Point), cudaMemcpyDeviceToHost));
 
 	// Compare results
 	EXPECT_TRUE(compare_results(h_cuda_result, h_cpu_result, num_points, point_equal_g2));
@@ -201,9 +201,9 @@ TEST(G2OpsCUDA, PointNegation) {
 	}
 
 	const size_t num_points = 10;
-	POINTonE2* d_points, * d_result;
-	POINTonE2 h_points[num_points];
-	POINTonE2 h_cuda_result[num_points], h_cpu_result[num_points];
+	G2Point* d_points, * d_result;
+	G2Point h_points[num_points];
+	G2Point h_cuda_result[num_points], h_cpu_result[num_points];
 
 	// Create test data
 	InsecureRng rng;
@@ -216,15 +216,15 @@ TEST(G2OpsCUDA, PointNegation) {
 	}
 
 	// CUDA computation
-	CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(POINTonE2)));
-	CUDA_CHECK(cudaMalloc(&d_result, num_points * sizeof(POINTonE2)));
+	CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(G2Point)));
+	CUDA_CHECK(cudaMalloc(&d_result, num_points * sizeof(G2Point)));
 
-	CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(POINTonE2), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(G2Point), cudaMemcpyHostToDevice));
 
 	batched_error_code result = cneg_g2_vec(d_result, d_points, 1, num_points);
 	EXPECT_TRUE(check_batched_success(result));
 
-	CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_points * sizeof(POINTonE2), cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_points * sizeof(G2Point), cudaMemcpyDeviceToHost));
 
 	// Compare results
 	EXPECT_TRUE(compare_results(h_cuda_result, h_cpu_result, num_points, point_equal_g2));
@@ -243,11 +243,11 @@ TEST(G2OpsCUDA, ScalarMultiplication) {
 	const size_t scalar_bits = 128;
 	const size_t scalar_bytes = (scalar_bits + 7) / 8;
 
-	POINTonE2* d_points, * d_result;
+	G2Point* d_points, * d_result;
 	unsigned char* d_scalars;
-	POINTonE2 h_points[num_points];
+	G2Point h_points[num_points];
 	unsigned char h_scalars[num_points * scalar_bytes];
-	POINTonE2 h_cuda_result[num_points], h_cpu_result[num_points];
+	G2Point h_cuda_result[num_points], h_cpu_result[num_points];
 
 	// Create test data
 	InsecureRng rng;
@@ -265,17 +265,17 @@ TEST(G2OpsCUDA, ScalarMultiplication) {
 	}
 
 	// CUDA computation
-	CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(POINTonE2)));
-	CUDA_CHECK(cudaMalloc(&d_result, num_points * sizeof(POINTonE2)));
+	CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(G2Point)));
+	CUDA_CHECK(cudaMalloc(&d_result, num_points * sizeof(G2Point)));
 	CUDA_CHECK(cudaMalloc(&d_scalars, num_points * scalar_bytes));
 
-	CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(POINTonE2), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(G2Point), cudaMemcpyHostToDevice));
 	CUDA_CHECK(cudaMemcpy(d_scalars, h_scalars, num_points * scalar_bytes, cudaMemcpyHostToDevice));
 
 	batched_error_code result = mult_g2_vec(d_result, d_points, d_scalars, scalar_bits, num_points);
 	EXPECT_TRUE(check_batched_success(result));
 
-	CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_points * sizeof(POINTonE2), cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_points * sizeof(G2Point), cudaMemcpyDeviceToHost));
 
 	// Compare results
 	EXPECT_TRUE(compare_results(h_cuda_result, h_cpu_result, num_points, point_equal_g2));
@@ -292,9 +292,9 @@ TEST(G2OpsCUDA, CurveMembership) {
 	}
 
 	const size_t num_points = 10;
-	POINTonE2* d_points;
+	G2Point* d_points;
 	bool* d_results;
-	POINTonE2 h_points[num_points];
+	G2Point h_points[num_points];
 	bool h_cuda_results[num_points], h_cpu_results[num_points];
 
 	// Create test data (mix of valid and invalid points)
@@ -314,10 +314,10 @@ TEST(G2OpsCUDA, CurveMembership) {
 	}
 
 	// CUDA computation
-	CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(POINTonE2)));
+	CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(G2Point)));
 	CUDA_CHECK(cudaMalloc(&d_results, num_points * sizeof(bool)));
 
-	CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(POINTonE2), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(G2Point), cudaMemcpyHostToDevice));
 
 	batched_error_code result = on_curve_g2_vec(d_results, d_points, num_points);
 	EXPECT_TRUE(check_batched_success(result));
@@ -332,7 +332,7 @@ TEST(G2OpsCUDA, CurveMembership) {
 	CUDA_CHECK(cudaFree(d_results));
 }
 
-//void print_point_g2(const char* name, const POINTonE2& p) {
+//void print_point_g2(const char* name, const G2Point& p) {
 //	printf("%s:\n", name);
 //	printf("  X.Re: ");
 //	for (int i = NLIMBS(384) - 1; i >= 0; i--) {
@@ -377,11 +377,11 @@ TEST(G2OpsCUDA, Serialization) {
 	}
 
 	const size_t num_points = 10;
-	POINTonE2* d_points;
-	POINTonE2_affine* d_affine_result;
+	G2Point* d_points;
+	G2AffinePoint* d_affine_result;
 	unsigned char* d_serialized;
-	POINTonE2 h_points[num_points];
-	POINTonE2_affine h_cuda_affine[num_points], h_cpu_affine[num_points];
+	G2Point h_points[num_points];
+	G2AffinePoint h_cuda_affine[num_points], h_cpu_affine[num_points];
 	unsigned char h_serialized[num_points * 192];
 	BLST_ERROR h_errors[num_points], h_errors_exp[num_points];
 
@@ -397,11 +397,11 @@ TEST(G2OpsCUDA, Serialization) {
 	}
 
 	// CUDA computation
-	CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(POINTonE2)));
+	CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(G2Point)));
 	CUDA_CHECK(cudaMalloc(&d_serialized, num_points * 192));
-	CUDA_CHECK(cudaMalloc(&d_affine_result, num_points * sizeof(POINTonE2_affine)));
+	CUDA_CHECK(cudaMalloc(&d_affine_result, num_points * sizeof(G2AffinePoint)));
 
-	CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(POINTonE2), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(G2Point), cudaMemcpyHostToDevice));
 
 	batched_error_code serialize_result = serialize_g2_vec(d_serialized, d_points, num_points);
 	EXPECT_TRUE(check_batched_success(serialize_result));
@@ -409,7 +409,7 @@ TEST(G2OpsCUDA, Serialization) {
 	batched_error_code deserialize_result = deserialize_g2_vec(d_affine_result, d_serialized, h_errors, num_points);
 	EXPECT_TRUE(check_batched_success(deserialize_result));
 
-	CUDA_CHECK(cudaMemcpy(h_cuda_affine, d_affine_result, num_points * sizeof(POINTonE2_affine), cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpy(h_cuda_affine, d_affine_result, num_points * sizeof(G2AffinePoint), cudaMemcpyDeviceToHost));
 
 	// Compare results
 	EXPECT_TRUE(compare_results(h_cuda_affine, h_cpu_affine, num_points, affine_equal_g2));
@@ -427,12 +427,12 @@ TEST(G2OpsCUDA, Compression) {
 	}
 
 	const size_t num_points = 10;
-	POINTonE2* d_points;
-	POINTonE2_affine* d_affine_result;
+	G2Point* d_points;
+	G2AffinePoint* d_affine_result;
 	unsigned char* d_compressed;
-	POINTonE2 h_points[num_points];
-	POINTonE2_affine h_points_affine[num_points];
-	POINTonE2_affine h_cuda_result[num_points], h_cpu_result[num_points];
+	G2Point h_points[num_points];
+	G2AffinePoint h_points_affine[num_points];
+	G2AffinePoint h_cuda_result[num_points], h_cpu_result[num_points];
 	unsigned char h_compressed[num_points * 96];
 	BLST_ERROR h_errors[num_points], h_errors_exp[num_points];
 
@@ -451,11 +451,11 @@ TEST(G2OpsCUDA, Compression) {
 	}
 
 	// CUDA computation
-	CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(POINTonE2)));
+	CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(G2Point)));
 	CUDA_CHECK(cudaMalloc(&d_compressed, num_points * 96));
-	CUDA_CHECK(cudaMalloc(&d_affine_result, num_points * sizeof(POINTonE2_affine)));
+	CUDA_CHECK(cudaMalloc(&d_affine_result, num_points * sizeof(G2AffinePoint)));
 
-	CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(POINTonE2), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(G2Point), cudaMemcpyHostToDevice));
 
 	batched_error_code compress_result = compress_g2_vec(d_compressed, d_points, num_points);
 	EXPECT_TRUE(check_batched_success(compress_result));
@@ -463,7 +463,7 @@ TEST(G2OpsCUDA, Compression) {
 	batched_error_code uncompress_result = uncompress_g2_vec(d_affine_result, d_compressed, h_errors, num_points);
 	EXPECT_TRUE(check_batched_success(uncompress_result));
 
-	CUDA_CHECK(cudaMemcpy(h_cuda_result, d_affine_result, num_points * sizeof(POINTonE2_affine), cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpy(h_cuda_result, d_affine_result, num_points * sizeof(G2AffinePoint), cudaMemcpyDeviceToHost));
 
 	// Compare results
 	EXPECT_TRUE(compare_results(h_cuda_result, h_cpu_result, num_points, affine_equal_g2));
@@ -481,11 +481,11 @@ TEST(G2OpsCUDA, CoordinateConversion) {
 	}
 
 	const size_t num_points = 10;
-	POINTonE2* d_points, * d_jacobian_result;
-	POINTonE2_affine* d_affine;
-	POINTonE2 h_points[num_points];
-	POINTonE2_affine h_cuda_affine[num_points], h_cpu_affine[num_points];
-	POINTonE2 h_cuda_jacobian[num_points], h_cpu_jacobian[num_points];
+	G2Point* d_points, * d_jacobian_result;
+	G2AffinePoint* d_affine;
+	G2Point h_points[num_points];
+	G2AffinePoint h_cuda_affine[num_points], h_cpu_affine[num_points];
+	G2Point h_cuda_jacobian[num_points], h_cpu_jacobian[num_points];
 
 	// Create test data
 	InsecureRng rng;
@@ -502,23 +502,23 @@ TEST(G2OpsCUDA, CoordinateConversion) {
 	}
 
 	// CUDA computation
-	CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(POINTonE2)));
-	CUDA_CHECK(cudaMalloc(&d_affine, num_points * sizeof(POINTonE2_affine)));
-	CUDA_CHECK(cudaMalloc(&d_jacobian_result, num_points * sizeof(POINTonE2)));
+	CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(G2Point)));
+	CUDA_CHECK(cudaMalloc(&d_affine, num_points * sizeof(G2AffinePoint)));
+	CUDA_CHECK(cudaMalloc(&d_jacobian_result, num_points * sizeof(G2Point)));
 
-	CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(POINTonE2), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(G2Point), cudaMemcpyHostToDevice));
 
 	// Test Jacobian to affine conversion
 	batched_error_code to_affine_result = to_affine_g2_vec(d_affine, d_points, num_points);
 	EXPECT_TRUE(check_batched_success(to_affine_result));
 
-	CUDA_CHECK(cudaMemcpy(h_cuda_affine, d_affine, num_points * sizeof(POINTonE2_affine), cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpy(h_cuda_affine, d_affine, num_points * sizeof(G2AffinePoint), cudaMemcpyDeviceToHost));
 
 	// Test affine to Jacobian conversion
 	batched_error_code from_affine_result = from_affine_g2_vec(d_jacobian_result, d_affine, num_points);
 	EXPECT_TRUE(check_batched_success(from_affine_result));
 
-	CUDA_CHECK(cudaMemcpy(h_cuda_jacobian, d_jacobian_result, num_points * sizeof(POINTonE2), cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpy(h_cuda_jacobian, d_jacobian_result, num_points * sizeof(G2Point), cudaMemcpyDeviceToHost));
 
 	// Compare results
 	EXPECT_TRUE(compare_results(h_cuda_affine, h_cpu_affine, num_points, affine_equal_g2));
@@ -536,11 +536,11 @@ TEST(G2OpsCUDA, HashToCurve) {
 	}
 
 	const size_t num_msgs = 5;
-	POINTonE2* d_result;
+	G2Point* d_result;
 	unsigned char** d_msg_ptrs;
 	unsigned char* d_dst;
 	size_t* d_msg_lens;
-	POINTonE2 h_cuda_result[num_msgs], h_cpu_result[num_msgs];
+	G2Point h_cuda_result[num_msgs], h_cpu_result[num_msgs];
 
 	// Create test data
 	std::vector<std::string> messages = {
@@ -574,7 +574,7 @@ TEST(G2OpsCUDA, HashToCurve) {
 	}
 
 	// CUDA computation
-	CUDA_CHECK(cudaMalloc(&d_result, num_msgs * sizeof(POINTonE2)));
+	CUDA_CHECK(cudaMalloc(&d_result, num_msgs * sizeof(G2Point)));
 	CUDA_CHECK(cudaMalloc(&d_msg_ptrs, num_msgs * sizeof(unsigned char*)));
 	CUDA_CHECK(cudaMalloc(&d_msg_lens, num_msgs * sizeof(size_t)));
 	CUDA_CHECK(cudaMalloc(&d_dst, dst.length()));
@@ -587,7 +587,7 @@ TEST(G2OpsCUDA, HashToCurve) {
 	batched_error_code result = hash_to_g2_vec(d_result, d_msg_ptrs, d_msg_lens, d_dst, dst.length(), num_msgs);
 	EXPECT_TRUE(check_batched_success(result));
 
-	CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_msgs * sizeof(POINTonE2), cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_msgs * sizeof(G2Point), cudaMemcpyDeviceToHost));
 
 	// Compare results
 	EXPECT_TRUE(compare_results(h_cuda_result, h_cpu_result, num_msgs, point_equal_g2));
@@ -608,18 +608,18 @@ TEST(G2OpsCUDA, MixedAddition) {
 	}
 
 	const size_t num_points = 10;
-	POINTonE2* d_jacobian, * d_result;
-	POINTonE2_affine* d_affine;
-	POINTonE2 h_jacobian[num_points];
-	POINTonE2_affine h_affine[num_points];
-	POINTonE2 h_cuda_result[num_points], h_cpu_result[num_points];
+	G2Point* d_jacobian, * d_result;
+	G2AffinePoint* d_affine;
+	G2Point h_jacobian[num_points];
+	G2AffinePoint h_affine[num_points];
+	G2Point h_cuda_result[num_points], h_cpu_result[num_points];
 
 	// Create test data
 	InsecureRng rng;
 	create_test_points_g2(h_jacobian, num_points, rng);
 
 	// Create affine points (different from Jacobian points)
-	POINTonE2 temp_points[num_points];
+	G2Point temp_points[num_points];
 	create_test_points_g2(temp_points, num_points, rng);
 	for (size_t i = 0; i < num_points; i++) {
 		blst_p2_to_affine(h_affine[i], temp_points[i]);
@@ -631,17 +631,17 @@ TEST(G2OpsCUDA, MixedAddition) {
 	}
 
 	// CUDA computation
-	CUDA_CHECK(cudaMalloc(&d_jacobian, num_points * sizeof(POINTonE2)));
-	CUDA_CHECK(cudaMalloc(&d_affine, num_points * sizeof(POINTonE2_affine)));
-	CUDA_CHECK(cudaMalloc(&d_result, num_points * sizeof(POINTonE2)));
+	CUDA_CHECK(cudaMalloc(&d_jacobian, num_points * sizeof(G2Point)));
+	CUDA_CHECK(cudaMalloc(&d_affine, num_points * sizeof(G2AffinePoint)));
+	CUDA_CHECK(cudaMalloc(&d_result, num_points * sizeof(G2Point)));
 
-	CUDA_CHECK(cudaMemcpy(d_jacobian, h_jacobian, num_points * sizeof(POINTonE2), cudaMemcpyHostToDevice));
-	CUDA_CHECK(cudaMemcpy(d_affine, h_affine, num_points * sizeof(POINTonE2_affine), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_jacobian, h_jacobian, num_points * sizeof(G2Point), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_affine, h_affine, num_points * sizeof(G2AffinePoint), cudaMemcpyHostToDevice));
 
 	batched_error_code result = add_mixed_g2_vec(d_result, d_jacobian, d_affine, num_points);
 	EXPECT_TRUE(check_batched_success(result));
 
-	CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_points * sizeof(POINTonE2), cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_points * sizeof(G2Point), cudaMemcpyDeviceToHost));
 
 	// Compare results
 	EXPECT_TRUE(compare_results(h_cuda_result, h_cpu_result, num_points, point_equal_g2));
@@ -658,10 +658,10 @@ TEST(G2OpsCUDA, AdvancedOperations) {
 	}
 
 	const size_t num_points = 10;
-	POINTonE2* d_points, * d_result;
+	G2Point* d_points, * d_result;
 	bool* d_inf_results;
-	POINTonE2 h_points[num_points];
-	//POINTonE2 h_cuda_result[num_points], h_cpu_result[num_points];
+	G2Point h_points[num_points];
+	//G2Point h_cuda_result[num_points], h_cpu_result[num_points];
 	bool h_cuda_inf_results[num_points], h_cpu_inf_results[num_points];
 
 	// Create test data
@@ -674,11 +674,11 @@ TEST(G2OpsCUDA, AdvancedOperations) {
 	}
 
 	// CUDA computation
-	CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(POINTonE2)));
-	CUDA_CHECK(cudaMalloc(&d_result, num_points * sizeof(POINTonE2)));
+	CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(G2Point)));
+	CUDA_CHECK(cudaMalloc(&d_result, num_points * sizeof(G2Point)));
 	CUDA_CHECK(cudaMalloc(&d_inf_results, num_points * sizeof(bool)));
 
-	CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(POINTonE2), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(G2Point), cudaMemcpyHostToDevice));
 
 	// Test infinity check
 	batched_error_code inf_result = is_inf_g2_vec(d_inf_results, d_points, num_points);
@@ -701,10 +701,10 @@ TEST(G2OpsCUDA, SubgroupMembership) {
 	}
 
 	const size_t num_points = 10;
-	POINTonE2_affine* d_points;
+	G2AffinePoint* d_points;
 	bool* d_results;
-	POINTonE2 h_points_jac[num_points];
-	POINTonE2_affine h_points[num_points];
+	G2Point h_points_jac[num_points];
+	G2AffinePoint h_points[num_points];
 	bool h_cuda_results[num_points], h_cpu_results[num_points];
 
 	// Create test data and convert to affine
@@ -720,10 +720,10 @@ TEST(G2OpsCUDA, SubgroupMembership) {
 	}
 
 	// CUDA computation
-	CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(POINTonE2_affine)));
+	CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(G2AffinePoint)));
 	CUDA_CHECK(cudaMalloc(&d_results, num_points * sizeof(bool)));
 
-	CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(POINTonE2_affine), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(G2AffinePoint), cudaMemcpyHostToDevice));
 
 	batched_error_code result = in_group_g2_vec(d_results, d_points, num_points);
 	EXPECT_TRUE(check_batched_success(result));
@@ -745,11 +745,11 @@ TEST(G2OpsCUDA, PerformanceBaseline) {
 	}
 
 	const size_t num_points = 1000;
-	POINTonE2* d_points, * d_result, * h_points;
+	G2Point* d_points, * d_result, * h_points;
 	unsigned char* d_scalars, * h_scalars;
 
 	// Allocate host memory
-	h_points = new POINTonE2[num_points];
+	h_points = new G2Point[num_points];
 	h_scalars = new unsigned char[num_points * 32];
 
 	// Create test data
@@ -761,12 +761,12 @@ TEST(G2OpsCUDA, PerformanceBaseline) {
 	}
 
 	// Allocate device memory
-	CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(POINTonE2)));
-	CUDA_CHECK(cudaMalloc(&d_result, num_points * sizeof(POINTonE2)));
+	CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(G2Point)));
+	CUDA_CHECK(cudaMalloc(&d_result, num_points * sizeof(G2Point)));
 	CUDA_CHECK(cudaMalloc(&d_scalars, num_points * 32));
 
 	// Copy to device
-	CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(POINTonE2), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(G2Point), cudaMemcpyHostToDevice));
 	CUDA_CHECK(cudaMemcpy(d_scalars, h_scalars, num_points * 32, cudaMemcpyHostToDevice));
 
 	// Record timing
@@ -805,13 +805,13 @@ TEST(G2OpsCUDA, BatchProcessing) {
 	}
 
 	const size_t batch_size = 256;  // Lower than G1 since G2 operations are more complex
-	POINTonE2* d_points, * d_result, * h_points;
-	POINTonE2* h_cuda_result, * h_cpu_result;
+	G2Point* d_points, * d_result, * h_points;
+	G2Point* h_cuda_result, * h_cpu_result;
 
 	// Allocate host memory
-	h_points = new POINTonE2[batch_size];
-	h_cuda_result = new POINTonE2[batch_size];
-	h_cpu_result = new POINTonE2[batch_size];
+	h_points = new G2Point[batch_size];
+	h_cuda_result = new G2Point[batch_size];
+	h_cpu_result = new G2Point[batch_size];
 
 	// Create test data
 	InsecureRng rng;
@@ -823,15 +823,15 @@ TEST(G2OpsCUDA, BatchProcessing) {
 	}
 
 	// CUDA computation
-	CUDA_CHECK(cudaMalloc(&d_points, batch_size * sizeof(POINTonE2)));
-	CUDA_CHECK(cudaMalloc(&d_result, batch_size * sizeof(POINTonE2)));
+	CUDA_CHECK(cudaMalloc(&d_points, batch_size * sizeof(G2Point)));
+	CUDA_CHECK(cudaMalloc(&d_result, batch_size * sizeof(G2Point)));
 
-	CUDA_CHECK(cudaMemcpy(d_points, h_points, batch_size * sizeof(POINTonE2), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_points, h_points, batch_size * sizeof(G2Point), cudaMemcpyHostToDevice));
 
 	batched_error_code double_result = double_g2_vec(d_result, d_points, batch_size);
 	EXPECT_TRUE(check_batched_success(double_result));
 
-	CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, batch_size * sizeof(POINTonE2), cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, batch_size * sizeof(G2Point), cudaMemcpyDeviceToHost));
 
 	// Compare results
 	bool all_match = compare_results(h_cuda_result, h_cpu_result, batch_size, point_equal_g2);
@@ -856,9 +856,9 @@ TEST(G2OpsCUDA, SerializationFormats) {
 	}
 
 	const size_t num_points = 5;
-	POINTonE2* d_points;
+	G2Point* d_points;
 	bool* d_results;
-	POINTonE2 h_points[num_points];
+	G2Point h_points[num_points];
 	bool h_cuda_results[num_points], h_cpu_results[num_points];
 
 	// Create test data including infinity point
@@ -866,7 +866,7 @@ TEST(G2OpsCUDA, SerializationFormats) {
 	create_test_points_g2(h_points, num_points - 1, rng);
 
 	// Add infinity point
-	memset(&h_points[num_points - 1], 0, sizeof(POINTonE2));
+	memset(&h_points[num_points - 1], 0, sizeof(G2Point));
 
 	// CPU computation - test point validation
 	for (size_t i = 0; i < num_points; i++) {
@@ -874,10 +874,10 @@ TEST(G2OpsCUDA, SerializationFormats) {
 	}
 
 	// CUDA computation
-	CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(POINTonE2)));
+	CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(G2Point)));
 	CUDA_CHECK(cudaMalloc(&d_results, num_points * sizeof(bool)));
 
-	CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(POINTonE2), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(G2Point), cudaMemcpyHostToDevice));
 
 	batched_error_code result = on_curve_g2_vec(d_results, d_points, num_points);
 	EXPECT_TRUE(check_batched_success(result));
@@ -900,10 +900,10 @@ TEST(G2OpsCUDA, LargeScalarMultiplication) {
 	const size_t num_points = 1;
 	const size_t scalar_bits = 252;
 	const size_t scalar_bytes = (scalar_bits + 7) / 8;
-	POINTonE2* d_points, * d_result;
+	G2Point* d_points, * d_result;
 	unsigned char* d_scalars;
-	POINTonE2 h_points[num_points];
-	POINTonE2 h_cuda_result[num_points], h_cpu_result[num_points];
+	G2Point h_points[num_points];
+	G2Point h_cuda_result[num_points], h_cpu_result[num_points];
 
 	// Create large scalars close to the order
 	unsigned char h_scalars[num_points * scalar_bytes];
@@ -925,11 +925,11 @@ TEST(G2OpsCUDA, LargeScalarMultiplication) {
 	}
 
 	// CUDA computation
-	CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(POINTonE2)));
-	CUDA_CHECK(cudaMalloc(&d_result, num_points * sizeof(POINTonE2)));
+	CUDA_CHECK(cudaMalloc(&d_points, num_points * sizeof(G2Point)));
+	CUDA_CHECK(cudaMalloc(&d_result, num_points * sizeof(G2Point)));
 	CUDA_CHECK(cudaMalloc(&d_scalars, num_points * scalar_bytes));
 
-	CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(POINTonE2), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_points, h_points, num_points * sizeof(G2Point), cudaMemcpyHostToDevice));
 	CUDA_CHECK(cudaMemcpy(d_scalars, h_scalars, num_points * scalar_bytes, cudaMemcpyHostToDevice));
 
 	batched_error_code result = mult_g2_vec(
@@ -937,7 +937,7 @@ TEST(G2OpsCUDA, LargeScalarMultiplication) {
 	EXPECT_TRUE(check_batched_success(result));
 
 
-	CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_points * sizeof(POINTonE2), cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_points * sizeof(G2Point), cudaMemcpyDeviceToHost));
 
 	// Compare results
 	//bool results_match = true;

@@ -22,22 +22,22 @@ static void generate_random_scalar(byte* scalar) {
 }
 
 // Helper to generate a random G2 point by multiplying the generator
-static void generate_random_g2_point(POINTonE2& p) {
+static void generate_random_g2_point(G2Point& p) {
     byte scalar[32];
     generate_random_scalar(scalar);
-    POINTonE2::mult(p, POINTonE2::generator(), scalar, 256);
+    G2Point::mult(p, G2Point::generator(), scalar, 256);
 }
 
 // ========== POINT ADDITION BENCHMARKS ==========
 
 // Benchmark for G2 point addition (Jacobian)
 static void BM_G2_Add(benchmark::State& state) {
-    POINTonE2 a, b, c;
+    G2Point a, b, c;
     generate_random_g2_point(a);
     generate_random_g2_point(b);
 
     for (auto _ : state) {
-        POINTonE2::add(c, a, b);
+        G2Point::add(c, a, b);
         benchmark::DoNotOptimize(c);
     }
     state.SetItemsProcessed(state.iterations());
@@ -46,16 +46,16 @@ BENCHMARK(BM_G2_Add);
 
 // Benchmark for G2 point addition with an affine point
 static void BM_G2_AddAffine(benchmark::State& state) {
-    POINTonE2 a, c;
-    POINTonE2_affine b_affine;
+    G2Point a, c;
+    G2AffinePoint b_affine;
     generate_random_g2_point(a);
 
-    POINTonE2 b;
+    G2Point b;
     generate_random_g2_point(b);
-    POINTonE2::to_affine(b_affine, b);
+    G2Point::to_affine(b_affine, b);
 
     for (auto _ : state) {
-        POINTonE2::add_affine(c, a, b_affine);
+        G2Point::add_affine(c, a, b_affine);
         benchmark::DoNotOptimize(c);
     }
     state.SetItemsProcessed(state.iterations());
@@ -66,11 +66,11 @@ BENCHMARK(BM_G2_AddAffine);
 
 // Benchmark for G2 point doubling
 static void BM_G2_Double(benchmark::State& state) {
-    POINTonE2 a, c;
+    G2Point a, c;
     generate_random_g2_point(a);
 
     for (auto _ : state) {
-        POINTonE2::doubling(c, a);
+        G2Point::doubling(c, a);
         benchmark::DoNotOptimize(c);
     }
     state.SetItemsProcessed(state.iterations());
@@ -81,14 +81,14 @@ BENCHMARK(BM_G2_Double);
 
 // Benchmark for G2 scalar multiplication
 static void BM_G2_ScalarMult(benchmark::State& state) {
-    POINTonE2 p, result;
+    G2Point p, result;
     byte scalar[32];
 
-    p = POINTonE2::generator();
+    p = G2Point::generator();
     generate_random_scalar(scalar);
 
     for (auto _ : state) {
-        POINTonE2::mult(result, p, scalar, 256);
+        G2Point::mult(result, p, scalar, 256);
         benchmark::DoNotOptimize(result);
     }
     state.SetItemsProcessed(state.iterations());
@@ -99,12 +99,12 @@ BENCHMARK(BM_G2_ScalarMult);
 
 // Benchmark for converting from Jacobian to Affine coordinates
 static void BM_G2_ToAffine(benchmark::State& state) {
-    POINTonE2 p;
-    POINTonE2_affine p_affine;
+    G2Point p;
+    G2AffinePoint p_affine;
     generate_random_g2_point(p);
 
     for (auto _ : state) {
-        POINTonE2::to_affine(p_affine, p);
+        G2Point::to_affine(p_affine, p);
         benchmark::DoNotOptimize(p_affine);
     }
     state.SetItemsProcessed(state.iterations());
@@ -113,11 +113,11 @@ BENCHMARK(BM_G2_ToAffine);
 
 // Benchmark for converting from Affine to Jacobian coordinates
 static void BM_G2_FromAffine(benchmark::State& state) {
-    POINTonE2 p;
-    POINTonE2_affine p_affine = POINTonE2_affine::generator();
+    G2Point p;
+    G2AffinePoint p_affine = G2AffinePoint::generator();
 
     for (auto _ : state) {
-        POINTonE2::from_affine(p, p_affine);
+        G2Point::from_affine(p, p_affine);
         benchmark::DoNotOptimize(p);
     }
     state.SetItemsProcessed(state.iterations());
@@ -128,12 +128,12 @@ BENCHMARK(BM_G2_FromAffine);
 
 // Benchmark for G2 point serialization
 static void BM_G2_Serialize(benchmark::State& state) {
-    POINTonE2 p;
+    G2Point p;
     generate_random_g2_point(p);
     unsigned char out[192];
 
     for (auto _ : state) {
-        POINTonE2::serialize(out, p);
+        G2Point::serialize(out, p);
         benchmark::DoNotOptimize(out);
     }
     state.SetItemsProcessed(state.iterations());
@@ -142,13 +142,13 @@ BENCHMARK(BM_G2_Serialize);
 
 // Benchmark for G2 point deserialization
 static void BM_G2_Deserialize(benchmark::State& state) {
-    POINTonE2 p = POINTonE2::generator();
+    G2Point p = G2Point::generator();
     unsigned char serialized[192];
-    POINTonE2::serialize(serialized, p);
-    POINTonE2_affine deserialized;
+    G2Point::serialize(serialized, p);
+    G2AffinePoint deserialized;
 
     for (auto _ : state) {
-        POINTonE2_affine::deserialize(deserialized, serialized);
+        G2AffinePoint::deserialize(deserialized, serialized);
         benchmark::DoNotOptimize(deserialized);
     }
     state.SetItemsProcessed(state.iterations());
@@ -157,12 +157,12 @@ BENCHMARK(BM_G2_Deserialize);
 
 // Benchmark for G2 point compression
 static void BM_G2_Compress(benchmark::State& state) {
-    POINTonE2 p;
+    G2Point p;
     generate_random_g2_point(p);
     unsigned char out[96];
 
     for (auto _ : state) {
-        POINTonE2::compress(out, p);
+        G2Point::compress(out, p);
         benchmark::DoNotOptimize(out);
     }
     state.SetItemsProcessed(state.iterations());
@@ -171,13 +171,13 @@ BENCHMARK(BM_G2_Compress);
 
 // Benchmark for G2 point uncompression
 static void BM_G2_Uncompress(benchmark::State& state) {
-    POINTonE2 p = POINTonE2::generator();
+    G2Point p = G2Point::generator();
     unsigned char compressed[96];
-    POINTonE2::compress(compressed, p);
-    POINTonE2_affine uncompressed;
+    G2Point::compress(compressed, p);
+    G2AffinePoint uncompressed;
 
     for (auto _ : state) {
-        POINTonE2_affine::uncompress(uncompressed, compressed);
+        G2AffinePoint::uncompress(uncompressed, compressed);
         benchmark::DoNotOptimize(uncompressed);
     }
     state.SetItemsProcessed(state.iterations());
@@ -188,7 +188,7 @@ BENCHMARK(BM_G2_Uncompress);
 
 // Benchmark for hashing to G2
 static void BM_G2_HashToCurve(benchmark::State& state) {
-    POINTonE2 p;
+    G2Point p;
     unsigned char msg[] = "sample message for hashing to curve";
     unsigned char dst[] = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_";
 
@@ -204,12 +204,12 @@ BENCHMARK(BM_G2_HashToCurve);
 
 // Benchmark for secret key to public key generation
 static void BM_G2_SkToPk(benchmark::State& state) {
-    POINTonE2 pk;
+    G2Point pk;
     byte sk[32];
     generate_random_scalar(sk);
 
     for (auto _ : state) {
-        POINTonE2::to_pk(pk, sk);
+        G2Point::to_pk(pk, sk);
         benchmark::DoNotOptimize(pk);
     }
     state.SetItemsProcessed(state.iterations());

@@ -8,22 +8,22 @@ namespace blst
 {
 
     //BLST_EXTERN_C_BEGIN
-    BLST_HD void blst_miller_loop(Fp12& ret, const POINTonE2_affine* Q,
-        const POINTonE1_affine* P);
+    BLST_HD void blst_miller_loop(Fp12& ret, const G2AffinePoint* Q,
+        const G1AffinePoint* P);
     //BLST_HD  void blst_final_exp(Fp12& ret, const Fp12& f);
 
     BLST_HD void blst_miller_loop_n(
         Fp12& out, 
-        const POINTonE2_affine* const Qs[],
-        const POINTonE1_affine* const Ps[],
+        const G2AffinePoint* const Qs[],
+        const G1AffinePoint* const Ps[],
         size_t n);
 
-    BLST_HD void blst_precompute_lines(Fp6 Qlines[68], const POINTonE2_affine& Q);
+    BLST_HD void blst_precompute_lines(Fp6 Qlines[68], const G2AffinePoint& Q);
 
 
 
     BLST_HD void blst_miller_loop_lines(Fp12& ret, const Fp6 Qlines[68],
-        const POINTonE1_affine& P);
+        const G1AffinePoint& P);
     //BLST_EXTERN_C_END
 
 }

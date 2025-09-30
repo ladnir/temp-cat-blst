@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright Supranational LLC
  * Licensed under the Apache License, Version 2.0, see LICENSE for details.
  * SPDX-License-Identifier: Apache-2.0
@@ -19,8 +19,19 @@
 
 namespace blst
 {
-
-	// The finit field modulo p
+	// The finite field Fp for BLS12-381 base field elements.
+	// All values stored in memory are in Montgomery representation unless noted.
+	//
+	// Notation:
+	//   - R = 2^384 mod p (Montgomery radix).
+	//   - from_mont(x) returns the conventional integer representative in [0, p).
+	//   - Unless specified, all operations are computed modulo p and return a
+	//     reduced result in [0, p).
+	//
+	// Constant-time notes:
+	//   - Unless stated otherwise, routines are intended to be constant-time w.r.t.
+	//     secret data. The Lehmer almost-inverse (reciprocal) is typically variable-time;
+	//     use flt_reciprocal() when strict constant-time is required.
 	struct Fp
 	{
 		vec_384 data;
@@ -28,113 +39,138 @@ namespace blst
 		BLST_HD operator limb_t* () { return data; }
 		BLST_HD operator const limb_t* () const { return data; }
 
-		// the zero element.
+		/** @name Canonical constants */
+		///@{
+		/// @brief The additive identity 0 (Montgomery form of 0).
 		BLST_HD static const Fp& zero();
 
-		// the one element.
+		/// @brief The multiplicative identity 1 (Montgomery form of 1, i.e., R mod p).
 		BLST_HD static const Fp& one();
 
-		// the modulus (returned as a Fp which is a slight abuse)
+		/// @brief The modulus p as an Fp element (slight abuse; provided for convenience).
+		/// @note Returned in Montgomery form (i.e., p * R mod p == 0).
 		BLST_HD static const Fp& modulus();
+		///@}
 
-		// ret = a + b
+		/** @name Basic arithmetic (mod p, Montgomery inputs/outputs) */
+		///@{
+		/// @brief ret = a + b mod p.
 		BLST_HD static void add(Fp& ret, const Fp& a, const Fp& b);
 
-		// ret = a - b
+		/// @brief ret = a - b mod p.
 		BLST_HD static void sub(Fp& ret, const Fp& a, const Fp& b);
 
-		// ret  = a * b
+		/// @brief ret = a * b mod p.
+		/// @note Inputs are Montgomery; product is reduced and remains Montgomery.
 		BLST_HD static void mul(Fp& ret, const Fp& a, const Fp& b);
 
-		// ret  = a^x
+		/// @brief ret = a^x mod p.
+		/// @param x Little-endian exponent bytes.
+		/// @param x_bits Number of meaningful bits in @p x.
+		/// @note Input/output are Montgomery.
 		BLST_HD static void exp(Fp& ret, const Fp& a, const byte* x, size_t x_bits);
 
-		// ret = a^2
+		/// @brief ret = a^2 mod p (Montgomery).
 		BLST_HD static void sqr(Fp& ret, const Fp& a);
+		///@}
 
-		// let a = a' R mod p be the montgomery represtation of a'.
-		// ret = a'
+		/** @name Montgomery transforms */
+		///@{
+		/// @brief Convert from Montgomery: ret = from_mont(a) in [0, p).
+		/// @details If a = a' * R (mod p), returns a'.
 		BLST_HD static void from_mont(Fp& ret, const Fp& a);
 
-		// ret = a * R, where R is the montgomery constant 2^384
+		/// @brief Convert to Montgomery: ret = a * R (mod p).
+		/// @details If input a is already Montgomery, this multiplies by R again.
 		BLST_HD static void to_mont(Fp& ret, const Fp& a);
 
-		// ret = a mod p
+		/// @brief Montgomery reduction: ret = a (mod p), where a is a double-precision UFp.
 		BLST_HD static void redc(Fp& ret, const struct UFp& a);
+		///@}
 
-		// ret = flag ? -a : a
+		/** @name Negation and conditional operations */
+		///@{
+		/// @brief Conditional negate: ret = flag ? (-a) : a  (constant-time).
 		BLST_HD static void cneg(Fp& ret, const Fp& a, bool_t flag);
 
-		// ret = -a
+		/// @brief ret = -a mod p.
 		BLST_HD static void neg(Fp& ret, const Fp& a);
+		///@}
 
-		// ret = a * 2^count
+		/** @name Bit shifts and small multipliers
+		 *  @note lshift/rshift view the canonical integer in [0,p) conceptually.
+		 *  Implementations keep results reduced mod p unless documented.
+		 */
+		 ///@{
+		 /// @brief ret = a * 2^count  (mod p).
 		BLST_HD static void lshift(Fp& ret, const Fp& a, size_t count);
 
-		// ret = floor(int(a) / 2^count). not mod p.
+		/// @brief ret = floor( int(a) / 2^count ) (NOT mod p).
+		/// @warning This is a raw right shift of the canonical representative,
+		///          not a modular multiply by 2^{-count}.
 		BLST_HD static void rshift(Fp& ret, const Fp& a, size_t count);
 
-		// out = a / 2 
+		/// @brief ret = a / 2  (mod p), i.e., multiply by (p+1)/2.
 		BLST_HD static void div_by_2(Fp& ret, const Fp& a);
 
-		// out = a * 3
+		/// @brief ret = a * 3  (mod p).
 		BLST_HD static void mul_by_3(Fp& ret, const Fp& a);
 
-		// out = a * 8
+		/// @brief ret = a * 8  (mod p).
 		BLST_HD static void mul_by_8(Fp& ret, const Fp& a);
+		///@}
 
-		// out = 1 / inp, computed via Lehmer almost-inverse (faster)
+		/** @name Inversion & square roots */
+		///@{
+		/// @brief out = a^{-1} mod p via Lehmer almost-inverse.
 		BLST_HD static void reciprocal(Fp& out, const Fp& inp);
 
-		// out = 1 / inp, computed via addition chain & Fermat's little theorem
+		/// @brief out = a^{-1} mod p via Fermat/addition chain .
 		BLST_HD static void flt_reciprocal(Fp& out, const Fp& inp);
 
-		// out = inp^{p - 3/4}, useful for sqrt and recip_sqrt
+		/// @brief t0 = a^{(p-3)/4} (helper for sqrt/recip_sqrt when p ≡ 3 (mod 4)).
 		BLST_HD static void recip_sqrt_3mod4(Fp& t0, const Fp& inp);
 
-		// out = sqrt(1/inp) = inp^{-1/2}
+		/// @brief out = a^{-1/2} = sqrt(1/a) if it exists.
+		/// @return 1 on success, 0 if a is non-square or zero.
 		BLST_HD static bool_t recip_sqrt(Fp& out, const Fp& inp);
 
-		// out = sqrt(inp) = inp^{1/2}
+		/// @brief out = sqrt(a) if it exists (principal root per sgn0).
+		/// @return 1 on success, 0 if a is non-square.
 		BLST_HD static bool_t sqrt(Fp& out, const Fp& inp);
 
-		// returns true if inp is a square (quadratic residue) mod p
+		/// @brief Return 1 iff a is a quadratic residue mod p (including 0), else 0.
 		BLST_HD static bool_t is_sqrt(const Fp& inp);
+		///@}
 
-		// out = a^{2^count} * b = sqr(...(sqr(a))...) * b
+		/** @name Exponentiation helpers */
+		///@{
+		/// @brief out = a^{2^count} * b  (i.e., repeated squaring then multiply).
 		BLST_HD static void sqr_n_mul(Fp& out, const Fp& a, size_t count, const Fp& b);
+		///@}
 
-		// return from_mont(a) == from_mont(b). 
+		/** @name Comparisons & predicates */
+		///@{
+		/// @brief Constant-time equality on canonical representatives: from_mont(a) == from_mont(b).
 		BLST_HD static bool_t equal(const Fp& a, const Fp& b);
 
-		/* Compute sign and parity of a mod p
-		 *
-		 * Returns two bits:
-		 *  - bit 0: parity, 0 if a is even, 1 if a is odd
-		 *  - bit 1: sign, 0 if a is zero or even, 1 if a is odd and positive,
-		 *           2 if a is odd and negative
-		 */
+		/// @brief Returns two bits encoding parity and sign (sgn0) of the canonical representative.
+		/// @details Layout: bit0 = parity (a mod 2); bit1 = sgn0(a) per RFC 9380 / hash-to-curve.
+		///          The returned value is (parity) | (sgn0 << 1).
 		BLST_HD static limb_t sgn0_pty(const Fp& a);
 
-		/* Compute sign and parity of from_mont(a) mod p
-		 *
-		 * Returns two bits:
-		 *  - bit 0: parity, 0 if a is even, 1 if a is odd
-		 *  - bit 1: sign, 0 if a is zero or even, 1 if a is odd and positive,
-		 *           2 if a is odd and negative
-		 */
+		/// @brief Same as sgn0_pty(from_mont(a)) but operates on the Montgomery value directly.
+		/// @details Returns (parity) | (sgn0 << 1) for the canonical integer represented by a.
 		BLST_HD static limb_t sgn0_pty_mont(const Fp& a);
 
-		/**
-		 * Checks if `a` is reduced modulo a given modulus.
-		 *
-		 * Returns 1 if `a` is less than `p`, otherwise returns 0.
-		 */
+		/// @brief Return 1 iff a is strictly less than p (i.e., reduced), else 0.
+		/// @note For Montgomery inputs, valid field elements still lie in [0, p),
+		///       so this checks canonical range, not representation.
 		BLST_HD static limb_t is_redc(const Fp& a);
+		///@}
 
-
+		/// @brief Number of machine limbs used to store an element (384 bits).
 		BLST_HD static constexpr size_t num_limb() { return NLIMBS(384); }
-
 	};
 
 	static_assert(std::is_default_constructible_v<Fp>);
@@ -537,7 +573,6 @@ namespace blst
 
 
 	BLST_HD BLST_FORCEINLINE void Fp::reciprocal(Fp& out, const Fp& inp) {
-		//reciprocal_fp(out, inp);
 
 		const Fp Px8 = {    /* left-aligned value of the modulus */
 			TO_LIMB_T(0xcff7fffffffd5558), TO_LIMB_T(0xf55ffff58a9ffffd),
@@ -547,7 +582,7 @@ namespace blst
 		union { UFp x; Fp r[2]; } temp;
 
 		// returns temp.x * inp = 1 (mod mod). not return a Montgomery value; 
-		// that�s why we then does redc + multiply by RR to move into Mont.
+		// that’s why we then does redc + multiply by RR to move into Mont.
 		ct_inverse_mod_v384(temp.x, inp, get_BLST_P(), Px8);
 
 		// map back to montgomery

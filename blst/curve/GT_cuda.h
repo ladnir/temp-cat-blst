@@ -62,8 +62,8 @@ namespace blst
 
     // Vectorized Miller loop computation
     // inputs must be allocated on the device if compiled with BLST_CUDA
-    batched_error_code miller_loop_gt_vec(Fp12* out, const POINTonE2_affine* g2_points,
-        const POINTonE1_affine* g1_points, size_t num);
+    batched_error_code miller_loop_gt_vec(Fp12* out, const G2AffinePoint* g2_points,
+        const G1AffinePoint* g1_points, size_t num);
 
     // Vectorized final exponentiation
     // inputs must be allocated on the device if compiled with BLST_CUDA
@@ -71,8 +71,8 @@ namespace blst
 
     // Vectorized complete pairing computation (Miller loop + final exp)
     // inputs must be allocated on the device if compiled with BLST_CUDA
-    batched_error_code pairing_gt_vec(Fp12* out, const POINTonE2_affine* g2_points,
-        const POINTonE1_affine* g1_points, size_t num);
+    batched_error_code pairing_gt_vec(Fp12* out, const G2AffinePoint* g2_points,
+        const G1AffinePoint* g1_points, size_t num);
 
     ///////////////////////////////////////////
     // GT serialization operations
@@ -100,8 +100,8 @@ namespace blst
     // Batch pairing verification with precomputed lines
     // inputs must be allocated on the device if compiled with BLST_CUDA
     batched_error_code pairing_verify_gt_vec(bool* results,
-        const POINTonE2_affine* g2_points,
-        const POINTonE1_affine* g1_points,
+        const G2AffinePoint* g2_points,
+        const G1AffinePoint* g1_points,
         const Fp12* target_values,
         size_t num);
 

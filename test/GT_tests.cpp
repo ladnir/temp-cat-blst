@@ -12,22 +12,22 @@ class GTTest : public ::testing::Test {
 protected:
     void SetUp() override {
         // Initialize points
-        g1_point = POINTonE1::generator();
-        g2_point = POINTonE2::generator();
+        g1_point = G1Point::generator();
+        g2_point = G2Point::generator();
 
         // Convert to affine
-        POINTonE1::to_affine(g1_affine, g1_point);
-        POINTonE2::to_affine(g2_affine, g2_point);
+        G1Point::to_affine(g1_affine, g1_point);
+        G2Point::to_affine(g2_affine, g2_point);
 
         // Calculate pairing
         blst_miller_loop(gt_element, &g2_affine, &g1_affine);
         Fp12::final_exp(gt_element, gt_element);
     }
 
-    POINTonE1 g1_point;
-    POINTonE2 g2_point;
-    POINTonE1_affine g1_affine;
-    POINTonE2_affine g2_affine;
+    G1Point g1_point;
+    G2Point g2_point;
+    G1AffinePoint g1_affine;
+    G2AffinePoint g2_affine;
     Fp12 gt_element;  // An element in GT
     Fp12 temp;        // For temporary results
 };
@@ -48,11 +48,11 @@ TEST_F(GTTest, Identity) {
 TEST_F(GTTest, Multiplication) {
     // Create another element for testing
     Fp12 another_gt;
-    POINTonE1 g1_double;
-    POINTonE1::doubling(g1_double, g1_point);
+    G1Point g1_double;
+    G1Point::doubling(g1_double, g1_point);
 
-    POINTonE1_affine g1_double_affine;
-    POINTonE1::to_affine(g1_double_affine, g1_double);
+    G1AffinePoint g1_double_affine;
+    G1Point::to_affine(g1_double_affine, g1_double);
     
     blst_miller_loop(another_gt, &g2_affine, &g1_double_affine);
     Fp12::final_exp(another_gt, another_gt);
@@ -76,11 +76,11 @@ TEST_F(GTTest, Multiplication) {
     // Test associativity: (a * b) * c = a * (b * c)
     // Create a third element
     Fp12 third_gt;
-    POINTonE1 g1_triple;
-    POINTonE1::add(g1_triple, g1_double, g1_point);
+    G1Point g1_triple;
+    G1Point::add(g1_triple, g1_double, g1_point);
 
-    POINTonE1_affine g1_triple_affine;
-    POINTonE1::to_affine(g1_triple_affine, g1_triple);
+    G1AffinePoint g1_triple_affine;
+    G1Point::to_affine(g1_triple_affine, g1_triple);
     
     blst_miller_loop(third_gt, &g2_affine, &g1_triple_affine);
     Fp12::final_exp(third_gt, third_gt);
@@ -193,15 +193,15 @@ TEST_F(GTTest, BilinearityProperty) {
     // Test the bilinearity property: e(a*P, Q) = e(P, a*Q) = e(P,Q)^a
 
     // Create scaled points
-    POINTonE1 g1_double;
-    POINTonE2 g2_double;
-    POINTonE1::doubling(g1_double, g1_point);
-    POINTonE2::doubling(g2_double, g2_point);
+    G1Point g1_double;
+    G2Point g2_double;
+    G1Point::doubling(g1_double, g1_point);
+    G2Point::doubling(g2_double, g2_point);
 
-    POINTonE1_affine g1_double_affine;
-    POINTonE2_affine g2_double_affine;
-    POINTonE1::to_affine(g1_double_affine, g1_double);
-    POINTonE2::to_affine(g2_double_affine, g2_double);
+    G1AffinePoint g1_double_affine;
+    G2AffinePoint g2_double_affine;
+    G1Point::to_affine(g1_double_affine, g1_double);
+    G2Point::to_affine(g2_double_affine, g2_double);
 
     // e(2P, Q)
     Fp12 e_2P_Q;
@@ -259,20 +259,20 @@ TEST_F(GTTest, GroupMembership) {
 
 TEST_F(GTTest, MultiPairing) {
     // Set up multiple points for testing
-    POINTonE1 g1_double;
-    POINTonE1::doubling(g1_double, g1_point);
+    G1Point g1_double;
+    G1Point::doubling(g1_double, g1_point);
 
-    POINTonE1_affine g1_points[2];
-    POINTonE1::to_affine(g1_points[0], g1_point);
-    POINTonE1::to_affine(g1_points[1], g1_double);
+    G1AffinePoint g1_points[2];
+    G1Point::to_affine(g1_points[0], g1_point);
+    G1Point::to_affine(g1_points[1], g1_double);
 
-    POINTonE2_affine g2_points[2];
-    POINTonE2::to_affine(g2_points[0], g2_point);
-    POINTonE2::to_affine(g2_points[1], g2_point);
+    G2AffinePoint g2_points[2];
+    G2Point::to_affine(g2_points[0], g2_point);
+    G2Point::to_affine(g2_points[1], g2_point);
 
     // Create arrays of pointers as required by blst_miller_loop_n
-    const POINTonE1_affine* g1_ptrs[3] = { &g1_points[0], &g1_points[1], nullptr };
-    const POINTonE2_affine* g2_ptrs[3] = { &g2_points[0], &g2_points[1], nullptr };
+    const G1AffinePoint* g1_ptrs[3] = { &g1_points[0], &g1_points[1], nullptr };
+    const G2AffinePoint* g2_ptrs[3] = { &g2_points[0], &g2_points[1], nullptr };
 
     // Calculate e(P1,Q1) and e(P2,Q2) individually
     Fp12 e1, e2, product, multi;
@@ -296,18 +296,18 @@ TEST_F(GTTest, FinalVerify) {
     // Test finalverify function (equality after final exponentiation)
 
     // Create two different pairings that should be equal after final_exp
-    POINTonE1 g1_double;
-    POINTonE1::doubling(g1_double, g1_point);
+    G1Point g1_double;
+    G1Point::doubling(g1_double, g1_point);
 
     // Create a "half" point in G2 by multiplying by inverse of 2 (if available)
     // For test purposes, we'll just use a different point
-    POINTonE2 g2_another;
-    POINTonE2::add(g2_another, g2_point, g2_point);  // Just a different point
+    G2Point g2_another;
+    G2Point::add(g2_another, g2_point, g2_point);  // Just a different point
 
-    POINTonE1_affine g1_double_affine;
-    POINTonE2_affine g2_half_affine;
-    POINTonE1::to_affine(g1_double_affine, g1_double);
-    POINTonE2::to_affine(g2_half_affine, g2_another);
+    G1AffinePoint g1_double_affine;
+    G2AffinePoint g2_half_affine;
+    G1Point::to_affine(g1_double_affine, g1_double);
+    G2Point::to_affine(g2_half_affine, g2_another);
 
     // Calculate two different pairings
     Fp12 pair1, pair2;
@@ -352,11 +352,11 @@ TEST_F(GTTest, PairingWithPrecomputation) {
         << "Pairing with precomputation should match direct computation";
 
     // Verify that we can reuse the precomputed lines with a different point
-    POINTonE1 g1_double;
-    POINTonE1::doubling(g1_double, g1_point);
+    G1Point g1_double;
+    G1Point::doubling(g1_double, g1_point);
 
-    POINTonE1_affine g1_double_affine;
-    POINTonE1::to_affine(g1_double_affine, g1_double);
+    G1AffinePoint g1_double_affine;
+    G1Point::to_affine(g1_double_affine, g1_double);
     
     Fp12 direct_double_result;
     blst_miller_loop(direct_double_result, &g2_affine, &g1_double_affine);
@@ -397,13 +397,13 @@ TEST_F(GTTest, PairingIdentityProperties) {
     // Test pairing with identity elements
     
     // Create identity point in G1 (point at infinity)
-    POINTonE1 g1_identity;
+    G1Point g1_identity;
     memset(&g1_identity, 0, sizeof(g1_identity));
     // Set z coordinate to 0 to make it point at infinity
     //g1_identity.z[0] = 0;
     
-    POINTonE1_affine g1_identity_affine;
-    POINTonE1::to_affine(g1_identity_affine, g1_identity);
+    G1AffinePoint g1_identity_affine;
+    G1Point::to_affine(g1_identity_affine, g1_identity);
     
     // Pairing with identity should give identity in GT
     Fp12 pairing_with_identity;

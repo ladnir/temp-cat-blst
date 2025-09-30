@@ -126,15 +126,15 @@ namespace blst
 		}
 	}
 
-	void blst_p1s_to_affine(POINTonE1_affine dst[],
-		const POINTonE1* const points[],
+	void blst_p1s_to_affine(G1AffinePoint dst[],
+		const G1Point* const points[],
 		size_t npoints)
 	{
 		points_to_affine<Fp>(dst, points, npoints);
 	}
 
-	void blst_p2s_to_affine(POINTonE2_affine dst[],
-		const POINTonE2* const points[],
+	void blst_p2s_to_affine(G2AffinePoint dst[],
+		const G2Point* const points[],
 		size_t npoints)
 	{
 		points_to_affine<Fp2>(dst, points, npoints);
@@ -176,7 +176,7 @@ namespace blst
 		 * points [with wbits=5]...
 		 */
 
-#define SCRATCH_SZ(ptype) (sizeof(ptype)==sizeof(POINTonE1) ? 8192 : 4096)
+#define SCRATCH_SZ(ptype) (sizeof(ptype)==sizeof(G1Point) ? 8192 : 4096)
 
 		 /* The intermediate infinity points are encoded as [0, 0, 1]. */
 
@@ -359,13 +359,13 @@ void prefix##s_mult_wbits(ptype *ret, const ptype##_affine table[], \
                           ptype scratch[]) \
 { ptype##s_mult_wbits(ret, table, wbits, npoints, scalars, nbits, scratch); }
 
-		//PRECOMPUTE_WBITS_IMPL(blst_p1, POINTonE1, 384, fp, get_BLST_Rx().p)
-		//POINTS_MULT_WBITS_IMPL(blst_p1, POINTonE1, 384, fp, get_BLST_Rx().p)
+		//PRECOMPUTE_WBITS_IMPL(blst_p1, G1Point, 384, fp, get_BLST_Rx().p)
+		//POINTS_MULT_WBITS_IMPL(blst_p1, G1Point, 384, fp, get_BLST_Rx().p)
 
 
 
-		//PRECOMPUTE_WBITS_IMPL(blst_p2, POINTonE2, 384x, fp2, get_BLST_Rx().p2)
-		//POINTS_MULT_WBITS_IMPL(blst_p2, POINTonE2, 384x, fp2, get_BLST_Rx().p2)
+		//PRECOMPUTE_WBITS_IMPL(blst_p2, G2Point, 384x, fp2, get_BLST_Rx().p2)
+		//POINTS_MULT_WBITS_IMPL(blst_p2, G2Point, 384x, fp2, get_BLST_Rx().p2)
 
 
 
@@ -400,7 +400,7 @@ void prefix##s_mult_wbits(ptype *ret, const ptype##_affine table[], \
 			 * points [with wbits=5]...
 			 */
 
-#define SCRATCH_SZ(ptype) (sizeof(ptype)==sizeof(POINTonE1) ? 8192 : 4096)
+#define SCRATCH_SZ(ptype) (sizeof(ptype)==sizeof(G1Point) ? 8192 : 4096)
 
 			 /* The intermediate infinity points are encoded as [0, 0, 1]. */
 
@@ -784,17 +784,17 @@ void prefix##s_mult_pippenger(ptype *ret, \
     ptype##s_mult_pippenger(ret, points, npoints, scalars, nbits, scratch, 0); \
 }
 
-	//DECLARE_PRIVATE_POINTXYZZ(POINTonE1, 384)
-	//POINTXYZZ_TO_JACOBIAN_IMPL(POINTonE1, 384, fp)
-	//	POINTXYZZ_DADD_IMPL(POINTonE1, 384, fp)
-	//	POINTXYZZ_DADD_AFFINE_IMPL(POINTonE1, 384, fp, get_BLST_Rx().p)
-	//	POINTS_MULT_PIPPENGER_IMPL(blst_p1, POINTonE1)
+	//DECLARE_PRIVATE_POINTXYZZ(G1Point, 384)
+	//POINTXYZZ_TO_JACOBIAN_IMPL(G1Point, 384, fp)
+	//	POINTXYZZ_DADD_IMPL(G1Point, 384, fp)
+	//	POINTXYZZ_DADD_AFFINE_IMPL(G1Point, 384, fp, get_BLST_Rx().p)
+	//	POINTS_MULT_PIPPENGER_IMPL(blst_p1, G1Point)
 
-	//	//DECLARE_PRIVATE_POINTXYZZ(POINTonE2, 384x)
-	//	POINTXYZZ_TO_JACOBIAN_IMPL(POINTonE2, 384x, fp2)
-	//	POINTXYZZ_DADD_IMPL(POINTonE2, 384x, fp2)
-	//	POINTXYZZ_DADD_AFFINE_IMPL(POINTonE2, 384x, fp2, get_BLST_Rx().p2)
-	//	POINTS_MULT_PIPPENGER_IMPL(blst_p2, POINTonE2)
+	//	//DECLARE_PRIVATE_POINTXYZZ(G2Point, 384x)
+	//	POINTXYZZ_TO_JACOBIAN_IMPL(G2Point, 384x, fp2)
+	//	POINTXYZZ_DADD_IMPL(G2Point, 384x, fp2)
+	//	POINTXYZZ_DADD_AFFINE_IMPL(G2Point, 384x, fp2, get_BLST_Rx().p2)
+	//	POINTS_MULT_PIPPENGER_IMPL(blst_p2, G2Point)
 
 
 

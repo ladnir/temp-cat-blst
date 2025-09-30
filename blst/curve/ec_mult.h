@@ -263,18 +263,18 @@ BLST_HD BLST_INLINE bool_t gather_booth_w(ptype& BLST_restrict p,
     return byte_is_zero((byte)booth_idx); 
 } 
 
-//BLST_HD BLST_INLINE  void doubling(POINTonE2& R, const POINTonE2& P)
+//BLST_HD BLST_INLINE  void doubling(G2Point& R, const G2Point& P)
 //{
-//    POINTonE2::doubling(R, P);
+//    G2Point::doubling(R, P);
 //}
 //
-//BLST_HD BLST_INLINE  void add(POINTonE2& R, const POINTonE2& P, const POINTonE2& Q)
+//BLST_HD BLST_INLINE  void add(G2Point& R, const G2Point& P, const G2Point& Q)
 //{
-//    POINTonE2::add(R, P, Q);
+//    G2Point::add(R, P, Q);
 //}
-//BLST_HD BLST_INLINE  void dadd(POINTonE2& R, const POINTonE2& P, const POINTonE2& Q, const Fp2& PQ)
+//BLST_HD BLST_INLINE  void dadd(G2Point& R, const G2Point& P, const G2Point& Q, const Fp2& PQ)
 //{
-//    POINTonE2::dadd(R, P, Q, &PQ);
+//    G2Point::dadd(R, P, Q, &PQ);
 //}
 
 template<typename ptype, int SZ>
