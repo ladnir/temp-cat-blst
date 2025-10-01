@@ -4,8 +4,6 @@
 #include <stdint.h>
 
 #include "blst/curve/point.h"
-#include "blst/curve/e1.h"
-#include "blst/curve/e2.h"
 #include "blst/curve/pairing.h"
 #include "blst/curve/GT_cuda.h"
 

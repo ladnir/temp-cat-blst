@@ -116,19 +116,17 @@ namespace blst
     /*
      * |nelems| is 'count * m' from spec
      */
-    BLST_HD BLST_INLINE void hash_to_field(Fp elems[], size_t nelems,
+	template<size_t nelems>
+    BLST_HD BLST_INLINE void hash_to_field(Fp elems[], 
         const unsigned char* aug, size_t aug_len,
         const unsigned char* msg, size_t msg_len,
         const unsigned char* DST, size_t DST_len)
     {
-        size_t L = sizeof(Fp) + 128 / 8;  /* ceil((ceil(log2(p)) + k) / 8) */
-        size_t len_in_bytes = L * nelems;   /* divisible by 64, hurray!      */
-#if !defined(__STDC_VERSION__) || __STDC_VERSION__<199901 \
-                               || defined(__STDC_NO_VLA__)
-        limb_t* pseudo_random = (limb_t*)alloca(len_in_bytes);
-#else
+        constexpr size_t L = sizeof(Fp) + 128 / 8;  /* ceil((ceil(log2(p)) + k) / 8) */
+        constexpr size_t len_in_bytes = L * nelems;   /* divisible by 64, hurray!      */
+        static_assert(len_in_bytes % sizeof(limb_t) == 0);
+
         limb_t pseudo_random[len_in_bytes / sizeof(limb_t)];
-#endif
         unsigned char* bytes;
         UFp elem;
 
@@ -140,7 +138,8 @@ namespace blst
 
         vec_zero(elem, sizeof(elem));
         bytes = (unsigned char*)pseudo_random;
-        while (nelems--) {
+		size_t nn = nelems;
+        while (nn--) {
             limbs_from_be_bytes(elem, bytes, L);
             bytes += L;
             /*

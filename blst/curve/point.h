@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright Supranational LLC
  * Copyright Category Labs
  * Licensed under the Apache License, Version 2.0, see LICENSE for details.
@@ -21,7 +21,7 @@
   * # Coordinates & representations
   * - @c Point<Field> stores Jacobian coordinates (X:Y:Z) with the point at
   *   infinity encoded as @c Z == 0. @c Field is either @c Fp (G1) or @c Fp2 (G2).
-  * - @c Point_affine<Field> stores affine (X,Y). Infinity is encoded as the
+  * - @c AffinePoint<Field> stores affine (X,Y). Infinity is encoded as the
   *   all-zero struct (both X and Y are zero limbs).
   * - @c Pointxyzz<Field> is an XYZZ representation used for fast, **non-constant-time**
   *   mixed additions in multi-scalar routines (see class docs).
@@ -67,7 +67,7 @@
 namespace blst
 {
 	template<typename Field>
-	struct Point_affine;
+	struct AffinePoint;
 
 
 	template<typename Field>
@@ -86,7 +86,7 @@ namespace blst
 	 * ## Arithmetic
 	 * - @c add / @c add_affine: standard addition (handles infinity).
 	 * - @c doubling: point doubling.
-	 * - @c dadd / @c dadd_affine: unified add-or-double (handles P==Q and P==�Q) in constant time.
+	 * - @c dadd / @c dadd_affine: unified add-or-double (handles P==Q and P==±Q) in constant time.
 	 * - @c mult / @c mult_glsv: scalar multiplication; @c mult chooses a windowed scheme
 	 *   or GLS/GLV decomposition depending on scalar size and group.
 	 *
@@ -118,7 +118,7 @@ namespace blst
 		 * @param[in]  p1   Left input in Jacobian coords.
 		 * @param[in]  p2   Right input in Jacobian coords.
 		 * @param[in]  a4   Optional curve @f$a@f$ term (for @f$y^2=x^3+a x + b@f$). For BLS12-381 @f$a=0@f$, pass nullptr.
-		 * @note Handles P==Q and P==�Q and points at infinity in constant time.
+		 * @note Handles P==Q and P==±Q and points at infinity in constant time.
 		 */
 		static BLST_HD void dadd(Point& out, const Point& p1, const Point& p2, const Field* a4 = nullptr);
 
@@ -126,10 +126,10 @@ namespace blst
 		/**
 		 * @brief Unified add-or-double with affine addend.
 		 * @details Treats @p p2==0 (all-zero affine) as infinity.
-		 * @note Handles P==Q and P==�Q and points at infinity in constant time.
+		 * @note Handles P==Q and P==±Q and points at infinity in constant time.
 		 */
 		static BLST_HD void dadd_affine(Point<Field>& out, const Point<Field>& p1,
-			const Point_affine<Field>& p2);
+			const AffinePoint<Field>& p2);
 
 		/**
 		 * @brief Add @p p1 and @p p2 (handles infinity).
@@ -144,13 +144,18 @@ namespace blst
 		 * @note Requires @p p1 and @p p2 to be distinct and non-opposite for
 		 */
 		static BLST_HD void add_affine(Point& out, const Point& p1,
-			const Point_affine<Field>& p2);
+			const AffinePoint<Field>& p2);
 
 		/**
 		 * @brief Doubling @f$ out = 2 * p1 @f$.
 		 * @note Uses EFD dbl-2009-l.
 		 */
 		static BLST_HD void doubling(Point& out, const Point& p1);
+
+
+		/** @brief Repeated doubling: @f$ out = 2^n * p @f$.
+		 */
+		BLST_HD static void add_n_dbl(Point& out, const Point& p, size_t n);
 
 
 		/**
@@ -178,10 +183,10 @@ namespace blst
 		static BLST_HD void cneg(Point& p, limb_t cbit);
 
 		/// Convert Jacobian -> affine. Infinity maps to the all-zero affine encoding.
-		static BLST_HD void to_affine(Point_affine<Field>& out, const Point& in);
+		static BLST_HD void to_affine(AffinePoint<Field>& out, const Point& in);
 
 		/// Convert affine -> Jacobian. Infinity maps to Z=0; otherwise Z=1.
-		static BLST_HD void from_affine(Point& out, const Point_affine<Field>& a);
+		static BLST_HD void from_affine(Point& out, const AffinePoint<Field>& a);
 
 		/// Normalize Jacobian to affine in @p out (computes X/Z^2, Y/Z^3). Infinity preserved.
 		static BLST_HD void from_jacobian(Point& out, const Point& in);
@@ -203,6 +208,8 @@ namespace blst
 		/// Group generator in Jacobian coordinates (Montgomery field limbs).
 		static BLST_HD const Point& generator();
 
+		static BLST_HD const Field& get_B();
+
 		/// Multiply by curve B for G1/G2 (specialized). For BLS12-381, B = 4 (G1) or (4+4i) (G2).
 		BLST_HD static void mul_by_b(Field& out, const Field& in);
 
@@ -214,6 +221,10 @@ namespace blst
 
 		/// @return 1 if on the curve (including infinity), else 0.
 		BLST_HD static bool_t on_curve(const Point& p);
+
+		/// @return 1 if in the subgroup, else 0.
+		BLST_HD static bool_t in_subgroup(const Point& p);
+
 
 		/** @name Serialization (big-endian) */
 		///@{
@@ -254,7 +265,7 @@ namespace blst
 		 */
 		BLST_HD static void sign2(
 			unsigned char* out /*optional output*/,
-			Point_affine<Field>* sig /*optional output*/,
+			AffinePoint<Field>* sig /*optional output*/,
 			const Point& hash,
 			const pow256 SK);
 
@@ -262,7 +273,7 @@ namespace blst
 		BLST_HD static void to_pk(Point& out, const pow256 SK);
 
 		/// Variant that can also emit compressed bytes and/or affine PK (both optional).
-		BLST_HD static void to_pk2(unsigned char* out, Point_affine<Field>* PK, const pow256 SK);
+		BLST_HD static void to_pk2(unsigned char* out, AffinePoint<Field>* PK, const pow256 SK);
 
 
 	};
@@ -281,7 +292,7 @@ namespace blst
 	 * - G2: 192 bytes uncompressed, 96 bytes compressed
 	 */
 	template<typename Field>
-	struct Point_affine
+	struct AffinePoint
 	{
 		Field X, Y;
 
@@ -292,15 +303,15 @@ namespace blst
 		/// Writes X||Y in big-endian Montgomery form; returns sgn0 parity.
 		BLST_HD static limb_t serialize_BE(
 			unsigned char* out,
-			const Point_affine& in);
+			const AffinePoint& in);
 		/// Like serialize_BE but writes infinity as 0x40 || zeros (IETF style).
 		BLST_HD static void serialize(unsigned char* out,
-			const Point_affine& in);
+			const AffinePoint& in);
 		/// Parses big-endian X||Y. Validates < p and on-curve. Outputs Montgomery.
-		BLST_HD static BLST_ERROR deserialize_BE(Point_affine& out,
+		BLST_HD static BLST_ERROR deserialize_BE(AffinePoint& out,
 			const unsigned char* in);
 		/// Auto-detects compressed/uncompressed/infinity prefixes and dispatches parse.
-		BLST_HD static BLST_ERROR deserialize(Point_affine& out,
+		BLST_HD static BLST_ERROR deserialize(AffinePoint& out,
 			const unsigned char* in);
 		///@}
 
@@ -308,29 +319,32 @@ namespace blst
 		/** @name Compressed (IETF style) */
 		///@{
 		/// Writes big-endian X and returns sgn0 parity (no header bits set).
-		BLST_HD static limb_t compress_BE(unsigned char* out, const Point_affine& in);
+		BLST_HD static limb_t compress_BE(unsigned char* out, const AffinePoint& in);
 		/// Writes IETF compressed: sets 0x80; writes parity; or 0xC0 for infinity.
-		BLST_HD static void compress(unsigned char* out, const Point_affine& in);
+		BLST_HD static void compress(unsigned char* out, const AffinePoint& in);
 		/// Parses big-endian X, reconstructs Y via curve equation; returns sgn0 parity.
-		BLST_HD static limb_t uncompress_BE(Point_affine& out,
+		BLST_HD static limb_t uncompress_BE(AffinePoint& out,
 			const unsigned char* in);
 		/// Parses IETF compressed form with header bits; validates on-curve.
-		BLST_HD static BLST_ERROR uncompress(Point_affine& out,
+		BLST_HD static BLST_ERROR uncompress(AffinePoint& out,
 			const unsigned char* in);
 		///@}
 
 		/// Group generator (affine). Backed by host/device constants.
-		BLST_HD static const Point_affine& generator();
+		BLST_HD static const AffinePoint& generator();
 
 		/// Constant-time equality test on raw limbs.
-		BLST_HD static int equal(const Point_affine& p1,
-			const Point_affine& p2);
+		BLST_HD static int equal(const AffinePoint& p1,
+			const AffinePoint& p2);
 
 		/// True if affine point satisfies curve equation (or is infinity).
-		BLST_HD static bool_t on_curve(const Point_affine& p);
+		BLST_HD static bool_t on_curve(const AffinePoint& p);
 
 		/// True if (X,Y) are all-zero limbs (infinity).
-		BLST_HD static bool_t is_inf(const Point_affine& p);
+		BLST_HD static bool_t is_inf(const AffinePoint& p);
+
+		BLST_HD static bool_t in_subgroup(const AffinePoint<Field>& p);
+
 
 	};
 
@@ -340,7 +354,7 @@ namespace blst
 	 * @brief XYZZ representation for **variable-time** mixed additions.
 	 *
 	 * Layout: (X, Y, ZZ, ZZZ) where ZZ=Z^2 and ZZZ=Z^3. This allows quick reuse of
-	 * Z-powers when chaining many additions. **Not constant-time**�use only in contexts
+	 * Z-powers when chaining many additions. **Not constant-time**—use only in contexts
 	 * where timing does not leak secrets (e.g., fixed-base MSM, precomputation).
 	 */
 	template<typename Field>
@@ -353,7 +367,7 @@ namespace blst
 
 		/// Mixed add/sub with affine (variable time). @p subtract flips the sign of @p p2.Y.
 		static BLST_HD void dadd_affine(Pointxyzz<Field>& p3, const Pointxyzz<Field>& p1,
-			const Point_affine<Field>& p2,
+			const AffinePoint<Field>& p2,
 			bool_t subtract);
 
 		/// Convert XYZZ -> Jacobian (rebuild Z from ZZ).
@@ -363,9 +377,9 @@ namespace blst
 
 	/// Aliases for convenience: G1 over Fp, G2 over Fp2.
 	using G1Point = Point<Fp>;
-	using G1AffinePoint = Point_affine<Fp>;
+	using G1AffinePoint = AffinePoint<Fp>;
 	using G2Point = Point<Fp2>;
-	using G2AffinePoint = Point_affine<Fp2>;
+	using G2AffinePoint = AffinePoint<Fp2>;
 
 
 	BLST_HD BLST_INLINE void print(const char* name, const G2Point& p)
@@ -580,9 +594,47 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
     TO_LIMB_T(0x03f97d6e83d050d2), TO_LIMB_T(0x18f0206554638741)
 
 
+	 /*
+	  * y^2 = x^3 + A'*x + B', isogenous one
+	  */
+#define BLST_Aprime_E1_LIMBS                                             \
+    /* (0x00144698a3b8e9433d693a02c96d4982b0ea985383ee66a8 */            \
+    /*    d8e8981aefd881ac98936f8da0e0f97f5cf428082d584c1d << 384) % P*/ \
+    TO_LIMB_T(0x2f65aa0e9af5aa51), TO_LIMB_T(0x86464c2d1e8416c3),        \
+    TO_LIMB_T(0xb85ce591b7bd31e2), TO_LIMB_T(0x27e11c91b5f24e7c),        \
+    TO_LIMB_T(0x28376eda6bfc1835), TO_LIMB_T(0x155455c3e5071d85)
+
+#define BLST_Bprime_E1_LIMBS									          \
+    /* (0x12e2908d11688030018b12e8753eee3b2016c1f0f24f4070             */ \
+    /*    a0b9c14fcef35ef55a23215a316ceaa5d1cc48e98e172be0 << 384) % P */ \
+    TO_LIMB_T(0xfb996971fe22a1e0), TO_LIMB_T(0x9aa93eb35b742d6f),         \
+    TO_LIMB_T(0x8c476013de99c5c4), TO_LIMB_T(0x873e27c3a221e571),         \
+    TO_LIMB_T(0xca72b5e45a52d888), TO_LIMB_T(0x06824061418a386b)
+
+
+	/*
+	 * y^2 = x^3 + A'*x + B', isogenous one
+	 */
+#define BLST_Aprime_E2_LIMBS      /* 240*i */                       \
+  Fp{ 0 },                                                            \
+  Fp{ TO_LIMB_T(0xe53a000003135242), TO_LIMB_T(0x01080c0fdef80285),   \
+    TO_LIMB_T(0xe7889edbe340f6bd), TO_LIMB_T(0x0b51375126310601),   \
+    TO_LIMB_T(0x02d6985717c744ab), TO_LIMB_T(0x1220b4e979ea5467) }
+
+#define BLST_Bprime_E2LIMBS      /* 1012 + 1012*i */                \
+  Fp{ TO_LIMB_T(0x22ea00000cf89db2), TO_LIMB_T(0x6ec832df71380aa4),   \
+    TO_LIMB_T(0x6e1b94403db5a66e), TO_LIMB_T(0x75bf3c53a79473ba),   \
+    TO_LIMB_T(0x3dd3a569412c0a34), TO_LIMB_T(0x125cdb5e74dc4fd1) }, \
+  Fp{ TO_LIMB_T(0x22ea00000cf89db2), TO_LIMB_T(0x6ec832df71380aa4),   \
+    TO_LIMB_T(0x6e1b94403db5a66e), TO_LIMB_T(0x75bf3c53a79473ba),   \
+    TO_LIMB_T(0x3dd3a569412c0a34), TO_LIMB_T(0x125cdb5e74dc4fd1) }
+
+
+
+
 /* y^2 = x^3 + B,   (4 << 384) % P */
-	static const Fp BLST_B_E1_HOST = { BLST_B_E1_LIMBS };
-	static const G1Point BLST_G1_HOST{
+	constexpr Fp BLST_B_E1_HOST = { BLST_B_E1_LIMBS };
+	constexpr G1Point BLST_G1_HOST{
 		Fp{{TO_LIMB_T(0x5cb38790fd530c16), TO_LIMB_T(0x7817fc679976fff5),
 						TO_LIMB_T(0x154f95c7143ba1c1), TO_LIMB_T(0xf0ae6acdf3d0e747),
 						TO_LIMB_T(0xedce6ecc21dbf440), TO_LIMB_T(0x120177419e0bfb75) }},
@@ -591,8 +643,12 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 						TO_LIMB_T(0x0e1c8c3fad0059c0), TO_LIMB_T(0x0bbc3efc5008a26a) }},
 		Fp{{ ONE_MONT_P_LIMBS }}
 	};
-	static const G1Point BLST_NEG_G1_HOST = { BLST_NEG_G1_LIMBS };
-	static const Fp BLST_beta_HOST = { BLST_beta_LIMBS };
+
+
+
+
+	constexpr G1Point BLST_NEG_G1_HOST = { BLST_NEG_G1_LIMBS };
+	constexpr Fp BLST_beta_HOST = { BLST_beta_LIMBS };
 
 
 	/*
@@ -601,6 +657,19 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	const Fp2 BLST_B_E2_HOST = { { BLST_B_E2_LIMBS } };
 	const G2Point BLST_G2_HOST{ BLST_G2_LIMBS };
 	const G2Point BLST_NEG_G2_HOST = { BLST_NEG_G2_LIMBS };
+
+	/*
+	 * y^2 = x^3 + A'*x + B', isogenous one
+	 */
+	constexpr Fp2 BLST_Aprime_E2_HOST = { BLST_Aprime_E2_LIMBS };
+	constexpr Fp2 BLST_Bprime_E2_HOST = { BLST_Bprime_E2LIMBS };
+
+
+	/*
+	 * y^2 = x^3 + A'*x + B', isogenous one
+	 */
+	static const Fp BLST_Aprime_E1_HOST = { BLST_Aprime_E1_LIMBS };
+	static const Fp BLST_Bprime_E1_HOST = { BLST_Bprime_E1_LIMBS };
 
 
 #if defined(BLST_CUDA) && defined(__CUDACC__)
@@ -621,7 +690,62 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	static __constant__ G2Point BLST_NEG_G2_DEV = { BLST_NEG_G2_LIMBS };
 	static __constant__ Fp BLST_beta_DEV = { BLST_beta_LIMBS };
 
+	/*
+	 * y^2 = x^3 + A'*x + B', isogenous one
+	 */
+	static __constant__ Fp2 BLST_Aprime_E2_DEV = { BLST_Aprime_E2_LIMBS };
+	static __constant__ Fp2 BLST_Bprime_E2_DEV = { BLST_Bprime_E2LIMBS };
+
+	/*
+	 * y^2 = x^3 + A'*x + B', isogenous one
+	 */
+	static __constant__ Fp BLST_Aprime_E1_DEV = { BLST_Aprime_E1_LIMBS };
+	static __constant__ Fp BLST_Bprime_E1_DEV = { BLST_Bprime_E1_LIMBS };
+
 #endif // __CUDA_ARCH__
+
+
+	// the A' in  y^2 = x ^ 3 + A'*x + B', isogenous one
+	BLST_HD BLST_FORCEINLINE const Fp& get_BLST_Aprime_E1(void)
+	{
+#if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
+		return BLST_Aprime_E1_DEV;
+#else
+		return BLST_Aprime_E1_HOST;
+#endif
+	}
+
+	// the B' in  y^2 = x ^ 3 + A'*x + B', isogenous one
+	BLST_HD BLST_FORCEINLINE const Fp& get_BLST_Bprime_E1(void)
+	{
+#if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
+		return BLST_Bprime_E1_DEV;
+#else
+		return BLST_Bprime_E1_HOST;
+#endif
+	}
+
+
+
+	// the A' in  y^2 = x ^ 3 + A'*x + B', isogenous one
+	BLST_HD BLST_FORCEINLINE const Fp2& get_BLST_Aprime_E2(void)
+	{
+#if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
+		return BLST_Aprime_E2_DEV;
+#else
+		return BLST_Aprime_E2_HOST;
+#endif
+	}
+
+	// the B' in  y^2 = x ^ 3 + A'*x + B', isogenous one
+	BLST_HD BLST_FORCEINLINE const Fp2& get_BLST_Bprime_E2(void)
+	{
+#if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
+		return BLST_Bprime_E2_DEV;
+#else
+		return BLST_Bprime_E2_HOST;
+#endif
+	}
 
 
 	// return the curve parameter B for the G1 curve: y^2 = x^3 + B
@@ -668,6 +792,20 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 #endif
 	}
 
+	// return the curve parameter B for : y^2 = x^3 + B
+	// Will return host or device memory depending on compilation target.
+	template<typename Field>
+	BLST_HD BLST_FORCEINLINE const Field& Point<Field>::get_B()
+	{
+		if constexpr (std::is_same_v<Field, Fp>) {
+			return get_BLST_B_E1();
+		}
+		else {
+			return get_BLST_B_E2();
+		}
+	}
+
+
 	// return the generator point of G2 in affine coordinates, in montgomery form.
 	// Will return host or device memory depending on compilation target.
 	BLST_HD BLST_FORCEINLINE const G2Point& get_BLST_G2(void)
@@ -703,6 +841,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 #endif
 	}
 
+
 	template<>
 	BLST_HD BLST_FORCEINLINE const Point<Fp>& Point<Fp>::generator()
 	{
@@ -716,24 +855,37 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	}
 
 	template<>
-	BLST_HD BLST_FORCEINLINE const Point_affine<Fp>& Point_affine<Fp>::generator()
+	BLST_HD BLST_FORCEINLINE const AffinePoint<Fp>& AffinePoint<Fp>::generator()
 	{
-		return (const Point_affine<Fp>&)get_BLST_G1();
+		return (const AffinePoint<Fp>&)get_BLST_G1();
 	}
 
 	template<>
-	BLST_HD BLST_FORCEINLINE const Point_affine<Fp2>& Point_affine<Fp2>::generator()
+	BLST_HD BLST_FORCEINLINE const AffinePoint<Fp2>& AffinePoint<Fp2>::generator()
 	{
-		return (const Point_affine<Fp2>&)get_BLST_G2();
+		return (const AffinePoint<Fp2>&)get_BLST_G2();
 	}
-	//return (const G1AffinePoint&)get_BLST_G1();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 	template<typename Field>
 	BLST_HD BLST_INLINE  limb_t Point<Field>::equal(const Point<Field>& p1, const Point<Field>& p2)
 	{
 		Field Z1Z1, Z2Z2;
-		Point_affine<Field> a1, a2;
+		AffinePoint<Field> a1, a2;
 		bool_t is_inf1 = vec_is_zero(&p1.Z, sizeof(p1.Z));
 		bool_t is_inf2 = vec_is_zero(&p2.Z, sizeof(p2.Z));
 
@@ -754,7 +906,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 
 	template<typename Field>
-	BLST_HD BLST_INLINE int Point_affine<Field>::equal(const Point_affine<Field>& a, const Point_affine<Field>& b)
+	BLST_HD BLST_INLINE int AffinePoint<Field>::equal(const AffinePoint<Field>& a, const AffinePoint<Field>& b)
 	{
 		return (int)vec_is_equal(&a, &b, sizeof(a));
 
@@ -845,7 +997,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			vec_is_zero(&a, sizeof(a)));
 	}
 	template<typename Field>
-	BLST_HD BLST_INLINE void Point<Field>::to_affine(Point_affine<Field>& out, const Point& in)
+	BLST_HD BLST_INLINE void Point<Field>::to_affine(AffinePoint<Field>& out, const Point& in)
 	{
 		Point p;
 		auto ptr = &in;
@@ -859,7 +1011,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 
 	template<typename Field>
-	BLST_HD BLST_INLINE void Point<Field>::from_affine(Point& out, const Point_affine<Field>& a)
+	BLST_HD BLST_INLINE void Point<Field>::from_affine(Point& out, const AffinePoint<Field>& a)
 	{
 		vec_copy(&out, &a, sizeof(a));
 		vec_select(&out.Z, &a.X, &Field::one(), sizeof(out.Z),
@@ -868,34 +1020,6 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 
 
-	template<>
-	BLST_HD BLST_INLINE bool_t G1AffinePoint::on_curve(const G1AffinePoint& p)
-	{
-		Fp XXX, YY;
-
-		Fp::sqr(XXX, p.X);
-		Fp::mul(XXX, XXX, p.X);                             /* X^3 */
-		Fp::add(XXX, XXX, get_BLST_B_E1());                             /* X^3 + B */
-
-		Fp::sqr(YY, p.Y);                                   /* Y^2 */
-
-		return vec_is_equal(XXX, YY, sizeof(XXX));
-	}
-
-
-	template<>
-	BLST_HD BLST_INLINE  bool_t G2AffinePoint::on_curve(const G2AffinePoint& p)
-	{
-		Fp2 XXX, YY;
-
-		Fp2::sqr(XXX, p.X);
-		Fp2::mul(XXX, XXX, p.X);                            /* X^3 */
-		Fp2::add(XXX, XXX, get_BLST_B_E2());                /* X^3 + B */
-
-		Fp2::sqr(YY, p.Y);                                  /* Y^2 */
-
-		return vec_is_equal(&XXX, &YY, sizeof(XXX)) | is_inf(p);
-	}
 
 
 	template<typename Field>
@@ -905,7 +1029,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	}
 
 	template<typename Field>
-	BLST_HD BLST_INLINE bool_t Point_affine<Field>::is_inf(const Point_affine& p)
+	BLST_HD BLST_INLINE bool_t AffinePoint<Field>::is_inf(const AffinePoint& p)
 	{
 		return vec_is_zero(&p, sizeof(p));
 	}
@@ -934,8 +1058,8 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 
 	template<typename Field>
-	BLST_HD BLST_INLINE limb_t Point_affine<Field>::serialize_BE(unsigned char* out,
-		const Point_affine& in)
+	BLST_HD BLST_INLINE limb_t AffinePoint<Field>::serialize_BE(unsigned char* out,
+		const AffinePoint& in)
 	{
 		if constexpr (std::is_same_v<Field, Fp>) {
 			Fp temp;
@@ -966,8 +1090,8 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	}
 
 	template<typename Field>
-	BLST_HD BLST_INLINE void Point_affine<Field>::serialize(unsigned char* out,
-		const Point_affine& in)
+	BLST_HD BLST_INLINE void AffinePoint<Field>::serialize(unsigned char* out,
+		const AffinePoint& in)
 	{
 		if (vec_is_zero(in.X, sizeof(in))) {
 			bytes_zero(out, sizeof(in));
@@ -991,7 +1115,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			ptr = &p;
 		}
 
-		return Point_affine<Field>::serialize_BE(out, (const Point_affine<Field>&) * ptr);
+		return AffinePoint<Field>::serialize_BE(out, (const AffinePoint<Field>&) * ptr);
 	}
 
 	template<typename Field>
@@ -1009,7 +1133,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 
 	template<typename Field>
-	BLST_HD BLST_INLINE limb_t Point_affine<Field>::compress_BE(unsigned char* out, const Point_affine& in)
+	BLST_HD BLST_INLINE limb_t AffinePoint<Field>::compress_BE(unsigned char* out, const AffinePoint& in)
 	{
 		if constexpr (std::is_same_v<Field, Fp2>) {
 			Fp temp;
@@ -1034,14 +1158,14 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	}
 
 	template<typename Field>
-	BLST_HD BLST_INLINE void Point_affine<Field>::compress(unsigned char* out, const Point_affine& in)
+	BLST_HD BLST_INLINE void AffinePoint<Field>::compress(unsigned char* out, const AffinePoint& in)
 	{
 		if (is_inf(in)) {
 			bytes_zero(out, sizeof(Field));
 			out[0] = 0xc0;    /* compressed and infinity bits */
 		}
 		else {
-			limb_t sign = Point_affine::compress_BE(out, in);
+			limb_t sign = AffinePoint::compress_BE(out, in);
 			out[0] |= (unsigned char)(0x80 | ((sign & 2) << 4));
 		}
 	}
@@ -1060,7 +1184,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			ptr = &p;
 		}
 
-		return Point_affine<Field>::compress_BE(out, (const Point_affine<Field>&) * ptr);
+		return AffinePoint<Field>::compress_BE(out, (const AffinePoint<Field>&) * ptr);
 	}
 
 	template<typename Field>
@@ -1078,7 +1202,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 
 	template<typename Field>
-	BLST_HD BLST_INLINE limb_t Point_affine<Field>::uncompress_BE(Point_affine& out,
+	BLST_HD BLST_INLINE limb_t AffinePoint<Field>::uncompress_BE(AffinePoint& out,
 		const unsigned char* in)
 	{
 		if constexpr (std::is_same_v<Field, Fp2>) {
@@ -1113,7 +1237,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			return Fp2::sgn0_pty_mont(out.Y);
 		}
 		else {
-			Point_affine ret;
+			AffinePoint ret;
 			Fp temp;
 
 			limbs_from_be_bytes(ret.X, in, sizeof(ret.X));
@@ -1137,7 +1261,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	}
 
 	template<typename Field>
-	BLST_HD BLST_INLINE BLST_ERROR Point_affine<Field>::uncompress(Point_affine& out,
+	BLST_HD BLST_INLINE BLST_ERROR AffinePoint<Field>::uncompress(AffinePoint& out,
 		const unsigned char* in)
 	{
 		unsigned char in0 = in[0];
@@ -1156,7 +1280,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			}
 		}
 
-		sgn0_pty = Point_affine::uncompress_BE(out, in);
+		sgn0_pty = AffinePoint::uncompress_BE(out, in);
 
 		if (sgn0_pty > 3)
 			return (BLST_ERROR)(0 - sgn0_pty); /* POINT_NOT_ON_CURVE */
@@ -1165,7 +1289,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		sgn0_pty ^= (in0 & 0x20) >> 5;
 		Field::cneg(out.Y, out.Y, sgn0_pty);
 
-		/* (0,�2) is not in group, but application might want to ignore? */
+		/* (0,±2) is not in group, but application might want to ignore? */
 		return vec_is_zero(&out.X, sizeof(out.X)) ? BLST_POINT_NOT_IN_GROUP
 			: BLST_SUCCESS;
 	}
@@ -1203,8 +1327,8 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	//}
 
 	template<typename Field>
-	BLST_HD BLST_INLINE BLST_ERROR Point_affine<Field>::deserialize_BE(
-		Point_affine& out,
+	BLST_HD BLST_INLINE BLST_ERROR AffinePoint<Field>::deserialize_BE(
+		AffinePoint& out,
 		const unsigned char* in)
 	{
 		if constexpr (std::is_same_v<Field, Fp2>) {
@@ -1274,26 +1398,26 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 			vec_copy(&out, &ret, sizeof(ret));
 
-			/* (0,�2) is not in group, but application might want to ignore? */
+			/* (0,±2) is not in group, but application might want to ignore? */
 			return vec_is_zero(out.X, sizeof(out.X)) ? BLST_POINT_NOT_IN_GROUP
 				: BLST_SUCCESS;
 		}
 	}
 
 	template<typename Field>
-	BLST_HD BLST_INLINE BLST_ERROR Point_affine<Field>::deserialize(Point_affine& out,
+	BLST_HD BLST_INLINE BLST_ERROR AffinePoint<Field>::deserialize(AffinePoint& out,
 		const unsigned char* in)
 	{
 		unsigned char in0 = in[0];
 
 		if ((in0 & 0xe0) == 0)
-			return Point_affine::deserialize_BE(out, in);
+			return AffinePoint::deserialize_BE(out, in);
 
 		if (in0 & 0x80)             /* compressed bit */
-			return Point_affine::uncompress(out, in);
+			return AffinePoint::uncompress(out, in);
 
 		if (in0 & 0x40) {           /* infinity bit */
-			if (byte_is_zero(in0 & 0x3f) & bytes_are_zero(in + 1, sizeof(Point_affine) - 1)) {
+			if (byte_is_zero(in0 & 0x3f) & bytes_are_zero(in + 1, sizeof(AffinePoint) - 1)) {
 				vec_zero(&out, sizeof(out));
 				return BLST_SUCCESS;
 			}
@@ -1371,6 +1495,91 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		Fp::cneg(out.Z[1], out.Z[1], 1);
 	}
 
+
+
+
+	template<typename Field>
+	BLST_HD BLST_INLINE bool_t AffinePoint<Field>::on_curve(const AffinePoint<Field>& p)
+	{
+		Field XXX, YY;
+
+		Field::sqr(XXX, p.X);
+		Field::mul(XXX, XXX, p.X);                             /* X^3 */
+		Field::add(XXX, XXX, Point<Field>::get_B());                             /* X^3 + B */
+
+		Field::sqr(YY, p.Y);                                   /* Y^2 */
+
+		return vec_is_equal(&XXX, &YY, sizeof(XXX)) | is_inf(p);
+	}
+
+
+
+	template<typename Group>
+	BLST_HD BLST_INLINE void times_minus_z(Group& out, const Group& in)
+	{
+		Group::doubling(out, in);          /*      1: 0x2                  */
+		Group::add_n_dbl(out, in, 2);    /*   2..4: 0x3..0xc             */
+		Group::add_n_dbl(out, in, 3);    /*   5..8: 0xd..0x68            */
+		Group::add_n_dbl(out, in, 9);    /*  9..18: 0x69..0xd200         */
+		Group::add_n_dbl(out, in, 32);   /* 19..51: ..0xd20100000000     */
+		Group::add_n_dbl(out, in, 16);   /* 52..68: ..0xd201000000010000 */
+	}
+
+	BLST_HD BLST_FORCEINLINE void sigma(G1Point& out, const G1Point& in)
+	{
+		vec_copy(out.X, in.X, 2 * sizeof(out.X));
+		Fp::mul(out.Z, in.Z, get_BLST_beta());
+	}
+
+	template<typename Field>
+	BLST_HD BLST_INLINE bool_t Point<Field>::in_subgroup(const Point<Field>& P)
+	{
+		if constexpr (std::is_same_v<Field, Fp>)
+		{
+
+			Point t0, t1;
+
+			/* Scott, M., https://eprint.iacr.org/2021/1130 */
+			times_minus_z<Point>(t0, P);
+			times_minus_z<Point>(t1, t0);
+			Point::cneg(t1, 1);             /* [-z²]P   */
+
+			sigma(t0, P);                      /* σ(P)     */
+			sigma(t0, t0);                    /* σ²(P)    */
+
+			return Point::equal(t0, t1);
+		}
+		else
+		{
+			Point t0, t1;
+
+			/* Scott, M., https://eprint.iacr.org/2021/1130 */
+			psi(t0, P);                            /* Ψ(P) */
+
+			times_minus_z<Point>(t1, P);
+			Point::cneg(t1, 1);                 /* [z]P */
+
+			return Point::equal(t0, t1);
+		}
+	}
+
+
+	template<typename Field>
+	BLST_HD BLST_INLINE bool_t AffinePoint<Field>::in_subgroup(const AffinePoint<Field>& p)
+	{
+
+		Point<Field> P;
+
+		vec_copy(&P.X, &p.X, 2 * sizeof(P.X));
+		vec_select(&P.Z, &p.X, get_BLST_Rx().p, sizeof(P.Z),
+			vec_is_zero(&p, sizeof(p)));
+
+		return (int)Point<Field>::in_subgroup(P);
+	}
+
+
+
+
 	/* Galbraith-Lin-Scott, ~67% faster than G2Point_mul_w5 */
 	template<>
 	BLST_HD BLST_INLINE void G2Point::mult_glsv(G2Point& out, const G2Point& in,
@@ -1445,7 +1654,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	template<typename Field>
 	BLST_HD void Point<Field>::sign2(
 		unsigned char* out /*optional output*/,
-		Point_affine<Field>* sig /*optional output*/,
+		AffinePoint<Field>* sig /*optional output*/,
 		const Point& hash,
 		const pow256 SK)
 	{
@@ -1499,7 +1708,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	template<typename Field>
 	BLST_HD BLST_INLINE void Point<Field>::to_pk2(
 		unsigned char* out,
-		Point_affine<Field>* PK,
+		AffinePoint<Field>* PK,
 		const pow256 SK)
 	{
 		Point P;
@@ -1680,7 +1889,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	 //#define POINT_DADD_AFFINE_IMPL_A0(ptype, bits, field, one) 
 	template<typename Field>
 	BLST_HD BLST_INLINE void Point<Field>::dadd_affine(Point& out, const Point& p1,
-		const Point_affine<Field>& p2)
+		const AffinePoint<Field>& p2)
 	{
 		Point p3; /* starts as (,, H*Z1) from addition side */
 		struct { Field H, R, sx; } add, dbl;
@@ -1837,7 +2046,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	BLST_HD BLST_INLINE void Point<Field>::add_affine(
 		Point<Field>& out,
 		const Point<Field>& p1,
-		const Point_affine<Field>& p2)
+		const AffinePoint<Field>& p2)
 	{
 		//#if (defined(DEBUG) || !defined(NDEBUG)) && !defined(__CUDA_ARCH__)
 		//		// Check if we're trying to add a point to itself in debug builds
@@ -2030,7 +2239,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	 */
 	template<typename Field>
 	BLST_HD BLST_INLINE void Pointxyzz<Field>::dadd_affine(Pointxyzz<Field>& p3, const Pointxyzz<Field>& p1,
-		const Point_affine<Field>& p2,
+		const AffinePoint<Field>& p2,
 		bool_t subtract)
 	{
 		Field P, R;
@@ -2092,6 +2301,18 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		}
 	}
 
+
+
+	template<typename Field>
+	BLST_HD BLST_INLINE void Point<Field>::add_n_dbl(Point& out, const Point& p, size_t n)
+	{
+		Point::dadd(out, out, p, NULL);
+		while (n--)
+			Point::doubling(out, out);
+	}
+
+
+
 	template<typename Field>
 	BLST_HD BLST_INLINE void Pointxyzz<Field>::to_Jacobian(Point<Field>& out, const Pointxyzz<Field>& in)
 	{
@@ -2107,6 +2328,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		Field::sqr(out.ZZ, in.Z);
 		Field::mul(out.ZZZ, out.ZZ, in.Z);
 	}
+
 
 
 

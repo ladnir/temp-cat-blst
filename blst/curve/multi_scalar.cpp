@@ -56,15 +56,15 @@ namespace blst
 		}
 
 		template<typename Field>
-		BLST_HD BLST_INLINE bool_t is_infinity(const Point_affine<Field>& p)
+		BLST_HD BLST_INLINE bool_t is_infinity(const AffinePoint<Field>& p)
 		{
-			return vec_is_zero(&p, sizeof(Point_affine<Field>));
+			return vec_is_zero(&p, sizeof(AffinePoint<Field>));
 		}
 
 	} // namespace detail
 
 	template<typename Field>
-	void points_to_affine(Point_affine<Field> dst[],
+	void points_to_affine(AffinePoint<Field> dst[],
 		const Point<Field>* const points[],
 		size_t npoints)
 	{
@@ -74,12 +74,12 @@ namespace blst
 		Field ZZ;
 		Field ZZZ;
 		const PointT* point = nullptr;
-		Point_affine<Field>* out = dst;
+		AffinePoint<Field>* out = dst;
 		const PointT* const* point_iter = points;
 
 		while (npoints) {
 			size_t delta = stride < npoints ? stride : npoints;
-			Point_affine<Field>* block_dst = out;
+			AffinePoint<Field>* block_dst = out;
 			Field* acc = reinterpret_cast<Field*>(block_dst);
 
 			point = *point_iter ? *point_iter++ : point + 1;
@@ -100,7 +100,7 @@ namespace blst
 			const PointT* p = point;
 			const PointT* const* walkback = point_iter - 1;
 			size_t remaining = delta ? delta - 1 : 0;
-			Point_affine<Field>* dst_iter = block_dst + remaining;
+			AffinePoint<Field>* dst_iter = block_dst + remaining;
 
 			for (size_t i = 0; i < remaining; ++i, --acc, --dst_iter) {
 				bool_t current_inf = detail::is_infinity(*p);
@@ -407,7 +407,7 @@ void prefix##s_mult_wbits(ptype *ret, const ptype##_affine table[], \
 //#define PRECOMPUTE_WBITS_IMPL(prefix, ptype, bits, field, one) 
 template<typename Field>
 	void point_precompute_row_wbits(Point<Field> row[], size_t wbits,
-		const Point_affine<Field>* point)
+		const AffinePoint<Field>* point)
 	{
 		size_t i, j, n = (size_t)1 << (wbits - 1);
 		bool_t inf = vec_is_zero(point, sizeof(*point));
@@ -423,7 +423,7 @@ template<typename Field>
 	}                                                       /* row[4] ...     */
 
 	template<typename Field>
-	void points_to_affine_row_wbits(Point_affine<Field> dst[], Point<Field> src[],
+	void points_to_affine_row_wbits(AffinePoint<Field> dst[], Point<Field> src[],
 		size_t wbits, size_t npoints)
 	{
 		size_t total = npoints << (wbits - 1);
@@ -441,7 +441,7 @@ template<typename Field>
 		--acc; Field::reciprocal(acc[0], acc[0]);
 
 		for (i = 0; i < npoints; i++) {
-			vec_copy(dst++, src++, sizeof(Point_affine<Field>));
+			vec_copy(dst++, src++, sizeof(AffinePoint<Field>));
 			for (j = 1; j < nwin; j++, acc--, src++, dst++) {
 				Field::mul(acc[-1], acc[-1], acc[0]);  /* 1/Z        */
 				Field::sqr(ZZ, acc[-1]);               /* 1/Z^2      */
@@ -455,8 +455,8 @@ template<typename Field>
 
 	/* flat |points[n]| can be placed at the end of |table[n<<(wbits-1)]| */
 	template<typename Field>
-	void points_precompute_wbits(Point_affine<Field> table[], size_t wbits,
-		const Point_affine<Field>* const points[],
+	void points_precompute_wbits(AffinePoint<Field> table[], size_t wbits,
+		const AffinePoint<Field>* const points[],
 		size_t npoints)
 	{
 		size_t total = npoints << (wbits - 1);
@@ -464,8 +464,8 @@ template<typename Field>
 		size_t nmin = wbits > 9 ? (size_t)1 : (size_t)1 << (9 - wbits);
 		size_t i, top = 0;
 		Point<Field>* rows, * row;
-		const Point_affine<Field>* point = NULL;
-		size_t stride = ((512 * 1024) / sizeof(Point_affine<Field>)) >> wbits;
+		const AffinePoint<Field>* point = NULL;
+		size_t stride = ((512 * 1024) / sizeof(AffinePoint<Field>)) >> wbits;
 		if (stride == 0) stride = 1;
 
 		while (npoints >= nmin) {
@@ -483,7 +483,7 @@ template<typename Field>
 			top += stride << (wbits - 1);
 			npoints -= stride;
 		}
-		rows = row = (Point<Field>*)alloca(2 * sizeof(Point_affine<Field>) * npoints * nwin);
+		rows = row = (Point<Field>*)alloca(2 * sizeof(AffinePoint<Field>) * npoints * nwin);
 		for (i = 0; i < npoints; i++, row += nwin)
 		{
 			point = *points ? *points++ : point + 1;
@@ -495,12 +495,12 @@ template<typename Field>
 	template<typename Field>
 	size_t points_mult_wbits_precompute_sizeof(size_t wbits, size_t npoints)
 	{
-		return (sizeof(Point_affine<Field>) * npoints) << (wbits - 1);
+		return (sizeof(AffinePoint<Field>) * npoints) << (wbits - 1);
 	}
 
 	template<typename Field>
-	void points_mult_wbits_precompute(Point_affine<Field> table[], size_t wbits,
-		const Point_affine<Field>* const points[],
+	void points_mult_wbits_precompute(AffinePoint<Field> table[], size_t wbits,
+		const AffinePoint<Field>* const points[],
 		size_t npoints)
 	{
 		points_precompute_wbits<Field>(table, wbits, points, npoints);
@@ -514,12 +514,12 @@ template<typename Field>
 	template<typename Field>
 	void point_gather_booth_wbits(
 		Point<Field>* p,
-		const Point_affine<Field> row[],
+		const AffinePoint<Field> row[],
 		size_t wbits, limb_t booth_idx)
 	{
 		bool_t booth_sign = (booth_idx >> wbits) & 1;
 		bool_t idx_is_zero;
-		const Point_affine<Field> infinity = { 0 };
+		const AffinePoint<Field> infinity = { 0 };
 
 		booth_idx &= ((limb_t)1 << wbits) - 1;
 		idx_is_zero = is_zero(booth_idx);
@@ -529,7 +529,7 @@ template<typename Field>
 	}
 
 	template<typename Field>
-	void points_mult_wbits(Point<Field>* ret, const Point_affine<Field> table[],
+	void points_mult_wbits(Point<Field>* ret, const AffinePoint<Field> table[],
 		size_t wbits, size_t npoints,
 		const byte* const scalars[], size_t nbits,
 		Point<Field> scratch[])
@@ -537,7 +537,7 @@ template<typename Field>
 		limb_t wmask, wval;
 		size_t i, j, z, nbytes, window, nwin = (size_t)1 << (wbits - 1);
 		const byte* scalar, * const* scalar_s = scalars;
-		const Point_affine<Field>* row = table;
+		const AffinePoint<Field>* row = table;
 
 		size_t scratch_sz = SCRATCH_SZ(Point<Field>);
 		if (scratch == NULL) {
@@ -832,7 +832,7 @@ void prefix##s_mult_pippenger(ptype *ret, \
 
 	template<typename Field>
 	void point_bucket(Pointxyzz<Field> buckets[], limb_t booth_idx,
-		size_t wbits, const Point_affine<Field>* p)
+		size_t wbits, const AffinePoint<Field>* p)
 	{
 		bool_t booth_sign = (booth_idx >> wbits) & 1;
 
@@ -853,7 +853,7 @@ void prefix##s_mult_pippenger(ptype *ret, \
 
 	template<typename Field>
 	void points_tile_pippenger(Point<Field>* ret,
-		const Point_affine<Field>* const points[],
+		const AffinePoint<Field>* const points[],
 		size_t npoints,
 		const byte* const scalars[], size_t nbits,
 		Pointxyzz<Field> buckets[],
@@ -862,7 +862,7 @@ void prefix##s_mult_pippenger(ptype *ret, \
 		limb_t wmask, wval, wnxt;
 		size_t i, z, nbytes;
 		const byte* scalar = *scalars++;
-		const Point_affine<Field>* point = *points++;
+		const AffinePoint<Field>* point = *points++;
 
 		nbytes = (nbits + 7) / 8; /* convert |nbits| to bytes */
 		wmask = ((limb_t)1 << (wbits + 1)) - 1;
@@ -891,7 +891,7 @@ void prefix##s_mult_pippenger(ptype *ret, \
 
 	template<typename Field>
 	void points_mult_pippenger(Point<Field>* ret,
-		const Point_affine<Field>* const points[],
+		const AffinePoint<Field>* const points[],
 		size_t npoints,
 		const byte* const scalars[], size_t nbits,
 		Pointxyzz<Field> buckets[], size_t window)
@@ -926,7 +926,7 @@ void prefix##s_mult_pippenger(ptype *ret, \
 	}
 	template<typename Field>
 	void points_tile_pippenger(Point<Field>* ret,
-		const Point_affine<Field>* const points[],
+		const AffinePoint<Field>* const points[],
 		size_t npoints,
 		const byte* const scalars[], size_t nbits,
 		Pointxyzz<Field> scratch[],
@@ -942,7 +942,7 @@ void prefix##s_mult_pippenger(ptype *ret, \
 
 	template<typename Field>
 	void points_mult_pippenger(Point<Field>* ret,
-		const Point_affine<Field>* const points[],
+		const AffinePoint<Field>* const points[],
 		size_t npoints,
 		const byte* const scalars[], size_t nbits,
 		Pointxyzz<Field> scratch[])
@@ -952,9 +952,9 @@ void prefix##s_mult_pippenger(ptype *ret, \
 			point_mult_w5(ret, ret, scalars[0], nbits);
 			return;
 		}
-		if ((npoints * sizeof(Point_affine<Field>) * 8 * 3) <= SCRATCH_LIMIT &&
+		if ((npoints * sizeof(AffinePoint<Field>) * 8 * 3) <= SCRATCH_LIMIT &&
 			npoints < 32) {
-			Point_affine<Field>* table = (Point_affine<Field>*)alloca(npoints * sizeof(Point_affine<Field>) * 8);
+			AffinePoint<Field>* table = (AffinePoint<Field>*)alloca(npoints * sizeof(AffinePoint<Field>) * 8);
 			points_precompute_wbits<Field>(table, 4, points, npoints);
 			points_mult_wbits<Field>(ret, table, 4, npoints, scalars, nbits, NULL);
 			return;

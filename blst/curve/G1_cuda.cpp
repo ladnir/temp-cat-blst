@@ -683,7 +683,7 @@ namespace blst
 
         for (size_t i = 0; i < num; i++) {
             if (!msgs[i]) return BATCHED_ERROR_NULL_POINTER;
-            blst_hash_to_g1(out[i], msgs[i], msg_lens[i], dst, dst_len, NULL, 0);
+            Hash_to_curve<G1Point>(out[i], msgs[i], msg_lens[i], dst, dst_len, NULL, 0);
         }
         return BATCHED_SUCCESS;
     }
@@ -695,7 +695,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_hash_to_g1(out[idx], msgs[idx], msg_lens[idx], dst, dst_len, NULL, 0);
+            Hash_to_curve<G1Point>(out[idx], msgs[idx], msg_lens[idx], dst, dst_len, NULL, 0);
         }
     }
 

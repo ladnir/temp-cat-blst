@@ -4,8 +4,9 @@
 #include <stdint.h>
 
 // Include the actual BLST curve and field headers
-#include "blst/curve/e2.h"
-#include "blst/curve/map_to_g2.h"
+#include "blst/curve/point.h"
+
+#include "blst/curve/map_to_G.h"
 
 using namespace blst;
 
@@ -193,7 +194,7 @@ static void BM_G2_HashToCurve(benchmark::State& state) {
     unsigned char dst[] = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_";
 
     for (auto _ : state) {
-        blst_hash_to_g2(p, msg, sizeof(msg), dst, sizeof(dst), NULL, 0);
+        Hash_to_curve<G2Point>(p, msg, sizeof(msg), dst, sizeof(dst), NULL, 0);
         benchmark::DoNotOptimize(p);
     }
     state.SetItemsProcessed(state.iterations());

@@ -525,7 +525,7 @@ TEST(G1OpsCUDA, HashToCurve) {
 
     // CPU computation
     for (size_t i = 0; i < num_msgs; i++) {
-        blst_hash_to_g1(h_cpu_result[i],
+        Hash_to_curve<G1Point>(h_cpu_result[i],
             reinterpret_cast<const unsigned char*>(messages[i].c_str()),
             messages[i].length(),
             reinterpret_cast<const unsigned char*>(dst.c_str()),

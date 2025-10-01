@@ -5,8 +5,7 @@
 
 #include "blst/fields/Fp.h"
 #include "blst/curve/point.h"
-#include "blst/curve/e1.h"
-#include "blst/curve/map_to_g1.h"
+#include "blst/curve/map_to_G.h"
 
 using namespace blst;
 
@@ -248,7 +247,7 @@ TEST(E1PointTest, BasicCompressUncompress) {
         BLST_ERROR err = G1AffinePoint::uncompress(dec, comp);
         ASSERT_TRUE(err == BLST_SUCCESS);
         ASSERT_TRUE(G1AffinePoint::on_curve(dec));
-        ASSERT_TRUE(blst_p1_affine_in_g1(dec));
+        ASSERT_TRUE(G1AffinePoint::in_subgroup(dec));
     }
     // Starting with the generator point in projective form
     G1Point point = G1Point::generator();
@@ -531,12 +530,6 @@ TEST(E1PointTest, DeserializeInvalidPoint) {
     EXPECT_NE(G1AffinePoint::deserialize(result, invalid_data), BLST_SUCCESS);
 }
 
-TEST(E1PointTest, SizeChecks) {
-    // Check that reported sizes match expected
-    EXPECT_EQ(blst_p1_sizeof(), sizeof(G1Point));
-    EXPECT_EQ(blst_p1_affine_sizeof(), sizeof(G1AffinePoint));
-}
-
 TEST(E1PointTest, MultiplePointAddition) {
     G1Point p1, p3a, p2, result;
 
@@ -661,7 +654,7 @@ TEST(E1PointTest, HashToCurve) {
     unsigned char dst[30] = "QUUX-V01-CS02-with-BLS12381G1";
 
      //Test hash_to_curve if available
-     blst_hash_to_g1(p1, msg, sizeof(msg), dst, sizeof(dst), NULL, 0);
+     Hash_to_curve<G1Point>(p1, msg, sizeof(msg), dst, sizeof(dst), NULL, 0);
 
      //Result should be on curve and in the correct subgroup
      EXPECT_TRUE(G1Point::on_curve(p1));
@@ -669,7 +662,7 @@ TEST(E1PointTest, HashToCurve) {
      //Hash different message should give different point
      G1Point p2;
      msg[0] ^= 1;  // Flip a bit
-     blst_hash_to_g1(p2, msg, sizeof(msg), dst, sizeof(dst), NULL, 0);
+     Hash_to_curve<G1Point>(p2, msg, sizeof(msg), dst, sizeof(dst), NULL, 0);
      EXPECT_FALSE(G1Point::equal(p1, p2));
 }
 
@@ -686,10 +679,10 @@ TEST(E1PointTest, InvalidPointHandling) {
     }
 
     // Access the internal mapping function that doesn't clear cofactor
-    map_to_isogenous_E1(random_point, u);
+    map_to_isogenous<G1Point>(random_point, u);
 
     // Map to the BLS12-381 curve 
-    isogeny_map_to_E1(invalid_point, random_point);
+    isogeny_map_to<G1Point>(invalid_point, random_point);
 
     // This point should be on the curve but not in G1
     ASSERT_TRUE(G1Point::on_curve(invalid_point)) << "Point not on curve";
@@ -699,14 +692,14 @@ TEST(E1PointTest, InvalidPointHandling) {
     G1Point::to_affine(invalid_affine, invalid_point);
 
     // Point should NOT be in G1 (if it is, our test assumptions are wrong)
-    bool is_in_g1 = blst_p1_affine_in_g1(invalid_affine);
+    bool is_in_g1 = G1AffinePoint::in_subgroup(invalid_affine);
 
     // This is the critical test - the point should NOT be in G1
     EXPECT_FALSE(is_in_g1) << "Point should not be in G1 subgroup";
 
     // Now clear the cofactor to put the point in G1
     G1Point cleared_point;
-    G1Point_times_minus_z(cleared_point, invalid_point);
+    times_minus_z<G1Point>(cleared_point, invalid_point);
     G1Point::dadd(cleared_point, cleared_point, invalid_point, NULL);
 
     // Convert to affine for G1 membership check
@@ -714,7 +707,7 @@ TEST(E1PointTest, InvalidPointHandling) {
     G1Point::to_affine(cleared_affine, cleared_point);
 
     // Now the point should be in G1
-    bool cleared_in_g1 = blst_p1_affine_in_g1(cleared_affine);
+    bool cleared_in_g1 = G1AffinePoint::in_subgroup(cleared_affine);
     EXPECT_TRUE(cleared_in_g1) << "Cofactor-cleared point should be in G1";
 }
 

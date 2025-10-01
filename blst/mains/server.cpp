@@ -7,10 +7,7 @@
 
 #include "blst/sign/keygen.cpp"
 #include "blst/fields/hash_to_field.h"
-#include "blst/curve/e1.h"
-#include "blst/curve/map_to_g1.h"
-#include "blst/curve/e2.h"
-#include "blst/curve/map_to_g2.h"
+#include "blst/curve/map_to_G.h"
 #include "blst/fields/Fp12.h"
 #include "blst/curve/pairing.cpp"
 #include "blst/sign/aggregate.cpp"

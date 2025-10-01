@@ -2,9 +2,9 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
+#include "blst/curve/point.h"
 
-#include "blst/curve/e2.h"
-#include "blst/curve/map_to_g2.h"
+#include "blst/curve/map_to_G.h"
 
 using namespace blst;
 
@@ -428,12 +428,6 @@ TEST(E2PointTest, DeserializeInvalidPoint) {
     EXPECT_NE(G2AffinePoint::uncompress(result, invalid_data), BLST_SUCCESS);
 }
 
-TEST(E2PointTest, SizeChecks) {
-    // Check that reported sizes match expected
-    EXPECT_EQ(blst_p2_sizeof(), sizeof(G2Point));
-    EXPECT_EQ(blst_p2_affine_sizeof(), sizeof(G2AffinePoint));
-}
-
 TEST(E2PointTest, MultiplePointAddition) {
     G2Point p1, p3a, p2, result;
 
@@ -494,7 +488,7 @@ TEST(E2PointTest, HashToCurve) {
     unsigned char dst[30] = "QUUX-V01-CS02-with-BLS12381G2";
 
     // Test hash_to_curve
-    blst_hash_to_g2(p1, msg, sizeof(msg), dst, sizeof(dst), NULL, 0);
+    Hash_to_curve<G2Point>(p1, msg, sizeof(msg), dst, sizeof(dst), NULL, 0);
 
     // Result should be on curve
     EXPECT_TRUE(G2Point::on_curve(p1));
@@ -502,7 +496,7 @@ TEST(E2PointTest, HashToCurve) {
     // Hash different message should give different point
     G2Point p2;
     msg[0] ^= 1;  // Flip a bit
-    blst_hash_to_g2(p2, msg, sizeof(msg), dst, sizeof(dst), NULL, 0);
+    Hash_to_curve<G2Point>(p2, msg, sizeof(msg), dst, sizeof(dst), NULL, 0);
     EXPECT_FALSE(G2Point::equal(p1, p2));
 }
 
@@ -516,7 +510,7 @@ TEST(E2PointTest, InvalidPointHandling) {
     G2Point::to_affine(point_affine, point);
 
     // Generator should be in G2
-    EXPECT_TRUE(blst_p2_affine_in_g2(point_affine));
+    EXPECT_TRUE(G2AffinePoint::in_subgroup(point_affine));
 }
 
 TEST(E2PointTest, SerializationFormats) {

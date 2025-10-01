@@ -5,8 +5,8 @@
  */
 
 #include "blst/sign/aggregate.h"
-#include "blst/curve/map_to_g1.h"
-#include "blst/curve/map_to_g2.h"
+#include "blst/curve/map_to_G.h"
+//#include "blst/curve/map_to_G.h"
 
 namespace blst
 {
@@ -122,7 +122,7 @@ namespace blst
 
             FROM_AFFINE(P, *sig);
 
-            if (sig_groupcheck && !G1Point_in_G1(P))
+            if (sig_groupcheck && !G1Point::in_subgroup(P))
                 return BLST_POINT_NOT_IN_GROUP;
 
             if (ctx->ctrl & AGGR_SIGN_SET) {
@@ -158,17 +158,17 @@ namespace blst
                 G2Point P;
 
                 FROM_AFFINE(P, *PK);
-                if (!G2Point_in_G2(P))
+                if (!G2Point::in_subgroup(P))
                     return BLST_POINT_NOT_IN_GROUP;
             }
 
             if (ctx->ctrl & AGGR_HASH_OR_ENCODE)
-                Hash_to_G1(H,
+                Hash_to_curve(H,
                     (const unsigned char*)msg, msg_len,
                     (const unsigned char*)DST, ctx->DST_len,
                     (const unsigned char*)aug, aug_len);
             else
-                Encode_to_G1(H,
+                Encode_to_curve(H,
                     (const unsigned char*)msg, msg_len,
                     (const unsigned char*)DST, ctx->DST_len,
                     (const unsigned char*)aug, aug_len);
@@ -278,7 +278,7 @@ namespace blst
 
             FROM_AFFINE(P, *sig);
 
-            if (sig_groupcheck && !G2Point_in_G2(P))
+            if (sig_groupcheck && !G2Point::in_subgroup(P))
                 return BLST_POINT_NOT_IN_GROUP;
 
             if (ctx->ctrl & AGGR_SIGN_SET) {
@@ -316,17 +316,17 @@ namespace blst
                 G1Point P;
 
                 FROM_AFFINE(P, *PK);
-                if (!G1Point_in_G1(P))
+                if (!G1Point::in_subgroup(P))
                     return BLST_POINT_NOT_IN_GROUP;
             }
 
             if (ctx->ctrl & AGGR_HASH_OR_ENCODE)
-                Hash_to_G2(H,
+                Hash_to_curve(H,
                     (const unsigned char*)msg, msg_len,
                     (const unsigned char*)DST, ctx->DST_len,
                     (const unsigned char*)aug, aug_len);
             else
-                Encode_to_G2(H,
+                Encode_to_curve(H,
                     (const unsigned char*)msg, msg_len,
                     (const unsigned char*)DST, ctx->DST_len,
                     (const unsigned char*)aug, aug_len);
@@ -613,7 +613,7 @@ namespace blst
 
         vec_copy(P.Z, get_BLST_Rx().p, sizeof(P.Z));
 
-        if (!G1Point_in_G1(P))
+        if (!G1Point::in_subgroup(P))
             return BLST_POINT_NOT_IN_GROUP;
 
         if (in == NULL)
@@ -643,7 +643,7 @@ namespace blst
 
         vec_copy(&P->Z, get_BLST_Rx().p, sizeof(P->Z));
 
-        if (!G2Point_in_G2(*P))
+        if (!G2Point::in_subgroup(*P))
             return BLST_POINT_NOT_IN_GROUP;
 
         if (in == NULL) {
