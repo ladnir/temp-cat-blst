@@ -7,8 +7,6 @@
 #include <iostream>
 #include "config.h"
 #include "blst/curve/GT_cuda.h"
-#include "blst/curve/e1.h"
-#include "blst/curve/e2.h"
 #include "blst/sign/aggregate.h"
 #include "blst/curve/point.h"
 #include "blst/curve/pairing.h"
@@ -30,13 +28,13 @@ namespace
 {
     // Helper function to create test GT elements on host
     void create_test_gt_elements(Fp12* elements, size_t num, InsecureRng& rng) {
-        G1Point g1_gen = blst_p1_generator();
-        G2Point g2_gen = blst_p2_generator();
+        G1Point g1_gen = G1Point::generator();
+        G2Point g2_gen = G2Point::generator();
         G1AffinePoint g1_affine;
         G2AffinePoint g2_affine;
 
-        blst_p1_to_affine(g1_affine, g1_gen);
-        blst_p2_to_affine(g2_affine, g2_gen);
+        G1Point::to_affine(g1_affine, g1_gen);
+        G2Point::to_affine(g2_affine, g2_gen);
 
         for (size_t i = 0; i < num; i++) {
             // Create different GT elements by varying the scalar multiplier
@@ -47,12 +45,12 @@ namespace
             scalar[2] = (i + 1) % 255;
             if (scalar[0] == 0) scalar[0] = 1;
 
-            blst_p1_mult(g1_mult, g1_gen, scalar, 24);
-            blst_p1_to_affine(g1_affine, g1_mult);
+            G1Point::mult(g1_mult, g1_gen, scalar, 24);
+            G1Point::to_affine(g1_affine, g1_mult);
 
             // Compute pairing to get GT element
             blst_miller_loop(elements[i], &g2_affine, &g1_affine);
-            blst_final_exp(elements[i], elements[i]);
+            Fp12::final_exp(elements[i], elements[i]);
         }
     }
 
@@ -81,7 +79,7 @@ namespace
 
     // Equality functions for different types
     bool gt_element_equal(const Fp12& a, const Fp12& b) {
-        return blst_fp12_is_equal(a, b);
+        return Fp12::equal(a, b);
     }
 
     bool bool_equal(const bool& a, const bool& b) {
@@ -138,11 +136,11 @@ TEST(GTOpsCUDA, Identity) {
     create_test_gt_elements(h_elements, num_elements - 1, rng);
 
     // Add identity element
-    blst_fp12_one_copy(h_elements[num_elements - 1]);
+	h_elements[num_elements - 1] = Fp12::one();
 
     // CPU computation
     for (size_t i = 0; i < num_elements; i++) {
-        h_cpu_results[i] = blst_fp12_is_one(h_elements[i]);
+        h_cpu_results[i] = Fp12::is_one(h_elements[i]);
     }
 
     // CUDA computation
@@ -184,7 +182,7 @@ TEST(GTOpsCUDA, Multiplication) {
 
     // CPU computation
     for (size_t i = 0; i < num_elements; i++) {
-        blst_fp12_mul(h_cpu_result[i], h_a[i], h_b[i]);
+        Fp12::mul(h_cpu_result[i], h_a[i], h_b[i]);
     }
 
     // CUDA computation
@@ -205,8 +203,8 @@ TEST(GTOpsCUDA, Multiplication) {
 
     // Test commutativity on one element
     Fp12 h_commute_test;
-    blst_fp12_mul(h_commute_test, h_b[0], h_a[0]);
-    EXPECT_TRUE(blst_fp12_is_equal(h_commute_test, h_cuda_result[0]))
+    Fp12::mul(h_commute_test, h_b[0], h_a[0]);
+    EXPECT_TRUE(Fp12::equal(h_commute_test, h_cuda_result[0]))
         << "GT multiplication should be commutative";
 
     // Cleanup
@@ -231,7 +229,7 @@ TEST(GTOpsCUDA, Inversion) {
 
     // CPU computation
     for (size_t i = 0; i < num_elements; i++) {
-        blst_fp12_inverse(h_cpu_result[i], h_elements[i]);
+        Fp12::inverse(h_cpu_result[i], h_elements[i]);
     }
 
     // CUDA computation
@@ -250,9 +248,9 @@ TEST(GTOpsCUDA, Inversion) {
 
     // Test that element * inverse = identity
     Fp12 product, identity;
-    blst_fp12_one_copy(identity);
-    blst_fp12_mul(product, h_elements[0], h_cuda_result[0]);
-    EXPECT_TRUE(blst_fp12_is_equal(product, identity))
+	identity = Fp12::one();
+    Fp12::mul(product, h_elements[0], h_cuda_result[0]);
+    EXPECT_TRUE(Fp12::equal(product, identity))
         << "Element * inverse should equal identity";
 
     // Cleanup
@@ -277,12 +275,12 @@ TEST(GTOpsCUDA, Squaring) {
 
     // CPU computation - regular squaring
     for (size_t i = 0; i < num_elements; i++) {
-        blst_fp12_sqr(h_cpu_result[i], h_elements[i]);
+        Fp12::sqr(h_cpu_result[i], h_elements[i]);
     }
 
     // CPU computation - cyclotomic squaring
     for (size_t i = 0; i < num_elements; i++) {
-        blst_fp12_cyclotomic_sqr(h_cpu_cyclo_result[i], h_elements[i]);
+        Fp12::cyclotomic_sqr(h_cpu_cyclo_result[i], h_elements[i]);
     }
 
     // CUDA computation
@@ -309,12 +307,12 @@ TEST(GTOpsCUDA, Squaring) {
 
     // Test that squaring equals multiplication by self
     Fp12 mult_by_self;
-    blst_fp12_mul(mult_by_self, h_elements[0], h_elements[0]);
-    EXPECT_TRUE(blst_fp12_is_equal(mult_by_self, h_cuda_result[0]))
+    Fp12::mul(mult_by_self, h_elements[0], h_elements[0]);
+    EXPECT_TRUE(Fp12::equal(mult_by_self, h_cuda_result[0]))
         << "Squaring should equal multiplication by self";
 
     // For GT elements, cyclotomic and regular squaring should be equal
-    EXPECT_TRUE(blst_fp12_is_equal(h_cuda_result[0], h_cuda_cyclo_result[0]))
+    EXPECT_TRUE(Fp12::equal(h_cuda_result[0], h_cuda_cyclo_result[0]))
         << "Cyclotomic and regular squaring should be equal for GT elements";
 
     // Cleanup
@@ -351,7 +349,7 @@ TEST(GTOpsCUDA, Exponentiation) {
 
     // CPU computation
     for (size_t i = 0; i < num_elements; i++) {
-        blst_fp12_pow(h_cpu_result[i], h_bases[i], (limb*)&h_exponents[i * exp_bytes], exp_bits);
+        Fp12::exp(h_cpu_result[i], h_bases[i], (limb_t*)&h_exponents[i * exp_bytes], exp_bits);
     }
 
     // CUDA computation
@@ -373,16 +371,16 @@ TEST(GTOpsCUDA, Exponentiation) {
     // Test special cases - exponent 0 should give identity
     unsigned char zero_exp[exp_bytes] = { 0 };
     Fp12 zero_result, identity;
-    blst_fp12_one_copy(identity);
-    blst_fp12_pow(zero_result, h_bases[0], (limb*)zero_exp, exp_bits);
-    EXPECT_TRUE(blst_fp12_is_equal(zero_result, identity))
+	identity = Fp12::one();
+    Fp12::exp(zero_result, h_bases[0], (limb_t*)zero_exp, exp_bits);
+    EXPECT_TRUE(Fp12::equal(zero_result, identity))
         << "Exponentiation with 0 should give identity";
 
     // Test exponent 1 should give the base
     unsigned char one_exp[exp_bytes] = { 1 };
     Fp12 one_result;
-    blst_fp12_pow(one_result, h_bases[0], (limb*)one_exp, exp_bits);
-    EXPECT_TRUE(blst_fp12_is_equal(one_result, h_bases[0]))
+    Fp12::exp(one_result, h_bases[0], (limb_t*)one_exp, exp_bits);
+    EXPECT_TRUE(Fp12::equal(one_result, h_bases[0]))
         << "Exponentiation with 1 should give the base";
 
     // Cleanup
@@ -406,8 +404,8 @@ TEST(GTOpsCUDA, Bilinearity) {
     Fp12 h_cuda_result[num_pairs], h_cpu_result[num_pairs];
 
     // Create test point pairs
-    G1Point g1_gen = blst_p1_generator();
-    G2Point g2_gen = blst_p2_generator();
+    G1Point g1_gen = G1Point::generator();
+    G2Point g2_gen = G2Point::generator();
     InsecureRng rng;
 
     for (size_t i = 0; i < num_pairs; i++) {
@@ -417,17 +415,17 @@ TEST(GTOpsCUDA, Bilinearity) {
         scalar[0] = (rng.uniform_u64() % 254) + 1;
         scalar[1] = (rng.uniform_u64() % 255);
 
-        blst_p1_mult(g1_mult, g1_gen, scalar, 16);
-        blst_p2_mult(g2_mult, g2_gen, scalar, 16);
+        G1Point::mult(g1_mult, g1_gen, scalar, 16);
+        G2Point::mult(g2_mult, g2_gen, scalar, 16);
 
-        blst_p1_to_affine(h_g1_points[i], g1_mult);
-        blst_p2_to_affine(h_g2_points[i], g2_mult);
+        G1Point::to_affine(h_g1_points[i], g1_mult);
+        G2Point::to_affine(h_g2_points[i], g2_mult);
     }
 
     // CPU computation
     for (size_t i = 0; i < num_pairs; i++) {
         blst_miller_loop(h_cpu_result[i],&h_g2_points[i], &h_g1_points[i]);
-        blst_final_exp(h_cpu_result[i], h_cpu_result[i]);
+        Fp12::final_exp(h_cpu_result[i], h_cpu_result[i]);
     }
 
     // CUDA computation
@@ -449,37 +447,37 @@ TEST(GTOpsCUDA, Bilinearity) {
     // Test bilinearity property: e(aP, Q) = e(P, aQ) = e(P,Q)^a
     G1Point g1_double;
     G2Point g2_double;
-    blst_p1_double(g1_double, g1_gen);
-    blst_p2_double(g2_double, g2_gen);
+    G1Point::doubling(g1_double, g1_gen);
+    G2Point::doubling(g2_double, g2_gen);
 
     G1AffinePoint g1_affine, g1_double_affine;
     G2AffinePoint g2_affine, g2_double_affine;
-    blst_p1_to_affine(g1_affine, g1_gen);
-    blst_p2_to_affine(g2_affine, g2_gen);
-    blst_p1_to_affine(g1_double_affine, g1_double);
-    blst_p2_to_affine(g2_double_affine, g2_double);
+    G1Point::to_affine(g1_affine, g1_gen);
+    G2Point::to_affine(g2_affine, g2_gen);
+    G1Point::to_affine(g1_double_affine, g1_double);
+    G2Point::to_affine(g2_double_affine, g2_double);
 
     Fp12 e_2P_Q, e_P_2Q, e_PQ_squared, base_pairing;
 
     // e(P, Q)
     blst_miller_loop(base_pairing, &g2_affine, &g1_affine);
-    blst_final_exp(base_pairing, base_pairing);
+    Fp12::final_exp(base_pairing, base_pairing);
 
     // e(2P, Q)
     blst_miller_loop(e_2P_Q, &g2_affine, &g1_double_affine);
-    blst_final_exp(e_2P_Q, e_2P_Q);
+    Fp12::final_exp(e_2P_Q, e_2P_Q);
 
     // e(P, 2Q)
     blst_miller_loop(e_P_2Q, &g2_double_affine, &g1_affine);
-    blst_final_exp(e_P_2Q, e_P_2Q);
+    Fp12::final_exp(e_P_2Q, e_P_2Q);
 
     // e(P,Q)^2
-    blst_fp12_sqr(e_PQ_squared, base_pairing);
+    Fp12::sqr(e_PQ_squared, base_pairing);
 
     // Test bilinearity
-    EXPECT_TRUE(blst_fp12_is_equal(e_2P_Q, e_P_2Q))
+    EXPECT_TRUE(Fp12::equal(e_2P_Q, e_P_2Q))
         << "e(2P, Q) should equal e(P, 2Q)";
-    EXPECT_TRUE(blst_fp12_is_equal(e_2P_Q, e_PQ_squared))
+    EXPECT_TRUE(Fp12::equal(e_2P_Q, e_PQ_squared))
         << "e(2P, Q) should equal e(P,Q)^2";
 
     // Cleanup
@@ -514,7 +512,7 @@ TEST(GTOpsCUDA, GroupMembership) {
 
     // CPU computation
     for (size_t i = 0; i < num_elements; i++) {
-        h_cpu_results[i] = blst_fp12_in_group(h_elements[i]);
+        h_cpu_results[i] = Fp12::in_group(h_elements[i]);
     }
 
     // CUDA computation
@@ -558,7 +556,7 @@ TEST(GTOpsCUDA, Conjugate) {
     // CPU computation
     for (size_t i = 0; i < num_elements; i++) {
         memcpy(&h_cpu_result[i], &h_elements[i], sizeof(Fp12));
-        blst_fp12_conjugate(h_cpu_result[i]);
+        Fp12::conjugate(h_cpu_result[i]);
     }
 
     // CUDA computation
@@ -578,12 +576,12 @@ TEST(GTOpsCUDA, Conjugate) {
     // Test conjugate properties: conjugate(conjugate(x)) = x
     Fp12 double_conjugate;
     memcpy(&double_conjugate, &h_cuda_result[0], sizeof(Fp12));
-    blst_fp12_conjugate(double_conjugate);
-    EXPECT_TRUE(blst_fp12_is_equal(double_conjugate, h_elements[0]))
+    Fp12::conjugate(double_conjugate);
+    EXPECT_TRUE(Fp12::equal(double_conjugate, h_elements[0]))
         << "Conjugate of conjugate should equal original";
 
     // Test that conjugate is also in GT group
-    bool conjugate_in_group = blst_fp12_in_group(h_cuda_result[0]);
+    bool conjugate_in_group = Fp12::in_group(h_cuda_result[0]);
     EXPECT_TRUE(conjugate_in_group) << "Conjugate should be in GT group";
 
     // Cleanup
@@ -609,8 +607,8 @@ TEST(GTOpsCUDA, Serialization) {
 
     // CPU computation
     for (size_t i = 0; i < num_elements; i++) {
-        blst_bendian_from_fp12(&h_serialized[i * 576], h_elements[i]);
-        blst_fp12_from_bendian(h_cpu_deserialized[i], &h_serialized[i * 576]);
+        Fp12::to_bendian(&h_serialized[i * 576], h_elements[i]);
+        Fp12::from_bendian(h_cpu_deserialized[i], &h_serialized[i * 576]);
     }
 
     // CUDA computation
@@ -657,8 +655,8 @@ TEST(GTOpsCUDA, MultiPairing) {
     Fp12 h_cuda_final[num_pairs], h_cpu_final[num_pairs];
 
     // Create test point pairs
-    G1Point g1_gen = blst_p1_generator();
-    G2Point g2_gen = blst_p2_generator();
+    G1Point g1_gen = G1Point::generator();
+    G2Point g2_gen = G2Point::generator();
     InsecureRng rng;
 
     for (size_t i = 0; i < num_pairs; i++) {
@@ -668,17 +666,17 @@ TEST(GTOpsCUDA, MultiPairing) {
         scalar[0] = (rng.uniform_u64() % 254) + 1;
         scalar[1] = (rng.uniform_u64() % 255);
 
-        blst_p1_mult(g1_mult, g1_gen, scalar, 16);
-        blst_p2_mult(g2_mult, g2_gen, scalar, 16);
+        G1Point::mult(g1_mult, g1_gen, scalar, 16);
+        G2Point::mult(g2_mult, g2_gen, scalar, 16);
 
-        blst_p1_to_affine(h_g1_points[i], g1_mult);
-        blst_p2_to_affine(h_g2_points[i], g2_mult);
+        G1Point::to_affine(h_g1_points[i], g1_mult);
+        G2Point::to_affine(h_g2_points[i], g2_mult);
     }
 
     // CPU computation
     for (size_t i = 0; i < num_pairs; i++) {
         blst_miller_loop(h_cpu_miller[i], &h_g2_points[i], &h_g1_points[i]);
-        blst_final_exp(h_cpu_final[i], h_cpu_miller[i]);
+        Fp12::final_exp(h_cpu_final[i], h_cpu_miller[i]);
     }
 
     // CUDA computation
@@ -705,9 +703,9 @@ TEST(GTOpsCUDA, MultiPairing) {
 
     // Test that miller results are not in GT group but final results are
     for (size_t i = 0; i < num_pairs; i++) {
-        EXPECT_FALSE(blst_fp12_in_group(h_cuda_miller[i]))
+        EXPECT_FALSE(Fp12::in_group(h_cuda_miller[i]))
             << "Miller loop result should not be in GT group";
-        EXPECT_TRUE(blst_fp12_in_group(h_cuda_final[i]))
+        EXPECT_TRUE(Fp12::in_group(h_cuda_final[i]))
             << "Final exponentiation result should be in GT group";
     }
 
@@ -800,15 +798,15 @@ TEST(GTOpsCUDA, PowersOfTwo) {
         }
         else {
             // Exponent = 2^(power-1), so power=1 gives exp=1, power=2 gives exp=2, etc.
-            if (power <= sizeof(limb) * 8) {
-                *((limb*)&h_exponents[i * exp_bytes]) = (limb)1 << (power - 1);
+            if (power <= sizeof(limb_t) * 8) {
+                *((limb_t*)&h_exponents[i * exp_bytes]) = (limb_t)1 << (power - 1);
             }
         }
     }
 
     // CPU computation for comparison
     for (size_t i = 0; i < num_bases; i++) {
-        blst_fp12_pow(h_cpu_result[i], h_bases[i], (limb*)&h_exponents[i * exp_bytes], exp_bits);
+        Fp12::exp(h_cpu_result[i], h_bases[i], (limb_t*)&h_exponents[i * exp_bytes], exp_bits);
     }
 
     // CUDA parallel computation
@@ -842,34 +840,33 @@ TEST(GTOpsCUDA, PowersOfTwo) {
     EXPECT_TRUE(compare_results(h_cuda_result, h_cpu_result, num_bases, gt_element_equal));
 
     // Test specific properties for each power
-    Fp12 identity;
-    blst_fp12_one_copy(identity);
+	Fp12 identity = Fp12::one();
 
     for (size_t i = 0; i < num_bases; i++) {
         size_t power = i % max_power;
-        limb actual_exponent = *((limb*)&h_exponents[i * exp_bytes]);
+        limb_t actual_exponent = *((limb_t*)&h_exponents[i * exp_bytes]);
 
         switch (power) {
         case 0:
             // Exponent = 0 should give identity
-            EXPECT_TRUE(blst_fp12_is_equal(h_cuda_result[i], identity))
+            EXPECT_TRUE(Fp12::equal(h_cuda_result[i], identity))
                 << "Base " << i << ": exponent 0 should give identity";
             break;
         case 1:
             // Exponent = 1 should give the base itself
-            EXPECT_TRUE(blst_fp12_is_equal(h_cuda_result[i], h_bases[i]))
+            EXPECT_TRUE(Fp12::equal(h_cuda_result[i], h_bases[i]))
                 << "Base " << i << ": exponent 1 should give base";
             break;
         case 2:
             // Exponent = 2 should give base^2
             Fp12 base_squared;
-            blst_fp12_sqr(base_squared, h_bases[i]);
-            EXPECT_TRUE(blst_fp12_is_equal(h_cuda_result[i], base_squared))
+            Fp12::sqr(base_squared, h_bases[i]);
+            EXPECT_TRUE(Fp12::equal(h_cuda_result[i], base_squared))
                 << "Base " << i << ": exponent 2 should give base^2";
             break;
         default:
             // All results should be in GT group
-            EXPECT_TRUE(blst_fp12_in_group(h_cuda_result[i]))
+            EXPECT_TRUE(Fp12::in_group(h_cuda_result[i]))
                 << "Base " << i << ": result should be in GT group (exponent = " << actual_exponent << ")";
             break;
         }
@@ -883,18 +880,18 @@ TEST(GTOpsCUDA, PowersOfTwo) {
 
         // Only test when we have consecutive powers and both > 0
         if (power2 == power1 + 1 && power1 > 0 && power1 < 6) { // Limit to avoid overflow
-            limb exp1 = *((limb*)&h_exponents[i * exp_bytes]);
-            limb exp2 = *((limb*)&h_exponents[(i + 1) * exp_bytes]);
+            limb_t exp1 = *((limb_t*)&h_exponents[i * exp_bytes]);
+            limb_t exp2 = *((limb_t*)&h_exponents[(i + 1) * exp_bytes]);
 
             // Verify exp2 = 2 * exp1
             if (exp2 == 2 * exp1) {
                 Fp12 squared_result;
-                blst_fp12_sqr(squared_result, h_cuda_result[i]);
+                Fp12::sqr(squared_result, h_cuda_result[i]);
 
                 // Find a base with the same element but the next exponent
                 size_t next_idx = i + 1;
-                if (next_idx < num_bases && blst_fp12_is_equal(h_bases[i], h_bases[next_idx])) {
-                    EXPECT_TRUE(blst_fp12_is_equal(squared_result, h_cuda_result[next_idx]))
+                if (next_idx < num_bases && Fp12::equal(h_bases[i], h_bases[next_idx])) {
+                    EXPECT_TRUE(Fp12::equal(squared_result, h_cuda_result[next_idx]))
                         << "Mathematical property: (base^" << exp1 << ")^2 should equal base^" << exp2;
                 }
             }
@@ -903,7 +900,7 @@ TEST(GTOpsCUDA, PowersOfTwo) {
 
     // Test parallel consistency - all operations should complete successfully
     for (size_t i = 0; i < num_bases; i++) {
-        EXPECT_TRUE(blst_fp12_in_group(h_cuda_result[i]))
+        EXPECT_TRUE(Fp12::in_group(h_cuda_result[i]))
             << "Parallel result " << i << " should be in GT group";
         EXPECT_FALSE(vec_is_zero(&h_cuda_result[i], sizeof(Fp12)))
             << "Parallel result " << i << " should not be zero";
@@ -916,20 +913,20 @@ TEST(GTOpsCUDA, PowersOfTwo) {
 
     for (size_t i = 0; i < std::min(num_bases, size_t(8)); i++) {
         size_t power = i % max_power;
-        limb actual_exponent = *((limb*)&h_exponents[i * exp_bytes]);
+        limb_t actual_exponent = *((limb_t*)&h_exponents[i * exp_bytes]);
 
         const char* status = "PASS";
         switch (power) {
         case 0:
-            if (!blst_fp12_is_equal(h_cuda_result[i], identity)) status = "FAIL";
+            if (!Fp12::equal(h_cuda_result[i], identity)) status = "FAIL";
             break;
         case 1:
-            if (!blst_fp12_is_equal(h_cuda_result[i], h_bases[i])) status = "FAIL";
+            if (!Fp12::equal(h_cuda_result[i], h_bases[i])) status = "FAIL";
             break;
         case 2: {
             Fp12 base_squared;
-            blst_fp12_sqr(base_squared, h_bases[i]);
-            if (!blst_fp12_is_equal(h_cuda_result[i], base_squared)) status = "FAIL";
+            Fp12::sqr(base_squared, h_bases[i]);
+            if (!Fp12::equal(h_cuda_result[i], base_squared)) status = "FAIL";
             break;
         }
         }
@@ -1021,7 +1018,7 @@ TEST(GTOpsCUDA, BatchProcessing) {
 
     // CPU computation
     for (size_t i = 0; i < batch_size; i++) {
-        blst_fp12_mul(h_cpu_result[i], h_a[i], h_b[i]);
+        Fp12::mul(h_cpu_result[i], h_a[i], h_b[i]);
     }
 
     // CUDA computation
@@ -1083,15 +1080,15 @@ TEST(GTOpsCUDA, BatchProcessing) {
 //    }
 //
 //    // CPU computation (simple multi-exponentiation)
-//    blst_fp12_one_copy(h_cpu_result);
+//    Fp12::one_copy(h_cpu_result);
 //    for (size_t i = 0; i < num_bases; i++) {
 //        Fp12 temp;
-//        blst_fp12_pow(temp, h_bases[i], (limb*)&h_exponents[i * exp_bytes], exp_bits);
+//        Fp12::pow(temp, h_bases[i], (limb_t*)&h_exponents[i * exp_bytes], exp_bits);
 //        if (i == 0) {
 //            memcpy(h_cpu_result, temp, sizeof(Fp12));
 //        }
 //        else {
-//            blst_fp12_mul(h_cpu_result, h_cpu_result, temp);
+//            Fp12::mul(h_cpu_result, h_cpu_result, temp);
 //        }
 //    }
 //
@@ -1134,8 +1131,8 @@ TEST(GTOpsCUDA, PairingVerification) {
     bool h_cuda_results[num_pairs], h_cpu_results[num_pairs];
 
     // Create test point pairs and compute target values
-    G1Point g1_gen = blst_p1_generator();
-    G2Point g2_gen = blst_p2_generator();
+    G1Point g1_gen = G1Point::generator();
+    G2Point g2_gen = G2Point::generator();
     InsecureRng rng;
 
     for (size_t i = 0; i < num_pairs; i++) {
@@ -1145,23 +1142,23 @@ TEST(GTOpsCUDA, PairingVerification) {
         scalar[0] = (rng.uniform_u64() % 254) + 1;
         scalar[1] = (rng.uniform_u64() % 255);
 
-        blst_p1_mult(g1_mult, g1_gen, scalar, 16);
-        blst_p2_mult(g2_mult, g2_gen, scalar, 16);
+        G1Point::mult(g1_mult, g1_gen, scalar, 16);
+        G2Point::mult(g2_mult, g2_gen, scalar, 16);
 
-        blst_p1_to_affine(h_g1_points[i], g1_mult);
-        blst_p2_to_affine(h_g2_points[i], g2_mult);
+        G1Point::to_affine(h_g1_points[i], g1_mult);
+        G2Point::to_affine(h_g2_points[i], g2_mult);
 
         // Compute target pairing value
         blst_miller_loop(h_target_values[i], &h_g2_points[i], &h_g1_points[i]);
-        blst_final_exp(h_target_values[i], h_target_values[i]);
+        Fp12::final_exp(h_target_values[i], h_target_values[i]);
     }
 
     // CPU computation
     for (size_t i = 0; i < num_pairs; i++) {
         Fp12 computed;
         blst_miller_loop(computed, &h_g2_points[i], &h_g1_points[i]);
-        blst_final_exp(computed, computed);
-        h_cpu_results[i] = blst_fp12_is_equal(computed, h_target_values[i]);
+        Fp12::final_exp(computed, computed);
+        h_cpu_results[i] = Fp12::equal(computed, h_target_values[i]);
     }
 
     // CUDA computation
@@ -1217,7 +1214,7 @@ TEST(GTOpsCUDA, EqualityCheck) {
 
     // CPU computation
     for (size_t i = 0; i < num_elements; i++) {
-        h_cpu_results[i] = blst_fp12_is_equal(h_a[i], h_b[i]);
+        h_cpu_results[i] = Fp12::equal(h_a[i], h_b[i]);
     }
 
     // CUDA computation
@@ -1242,9 +1239,8 @@ TEST(GTOpsCUDA, EqualityCheck) {
     EXPECT_TRUE(h_cuda_results[7]) << "Elements at index 7 should be equal";
 
     // Test reflexivity: element should equal itself
-    Fp12 identity;
-    blst_fp12_one_copy(identity);
-    EXPECT_TRUE(blst_fp12_is_equal(identity, identity)) << "Identity should equal itself";
+	Fp12 identity = Fp12::one();
+    EXPECT_TRUE(Fp12::equal(identity, identity)) << "Identity should equal itself";
 
     // Cleanup
     CUDA_CHECK(cudaFree(d_a));
@@ -1302,7 +1298,7 @@ TEST(GTOpsCUDA, AdvancedExponentiation) {
 
     // CPU computation
     for (size_t i = 0; i < num_elements; i++) {
-        blst_fp12_pow(h_cpu_result[i], h_bases[i], (limb*)&h_exponents[i * exp_bytes], exp_bits);
+        Fp12::exp(h_cpu_result[i], h_bases[i], (limb_t*)&h_exponents[i * exp_bytes], exp_bits);
     }
 
     // CUDA computation
@@ -1322,12 +1318,12 @@ TEST(GTOpsCUDA, AdvancedExponentiation) {
     EXPECT_TRUE(compare_results(h_cuda_result, h_cpu_result, num_elements, gt_element_equal));
 
     // Verify specific properties
-    EXPECT_TRUE(blst_fp12_is_equal(h_cuda_result[0], h_bases[0]))
+    EXPECT_TRUE(Fp12::equal(h_cuda_result[0], h_bases[0]))
         << "base^1 should equal base";
 
     // Test that all results are in GT group
     for (size_t i = 0; i < num_elements; i++) {
-        EXPECT_TRUE(blst_fp12_in_group(h_cuda_result[i]))
+        EXPECT_TRUE(Fp12::in_group(h_cuda_result[i]))
             << "Exponentiation result " << i << " should be in GT group";
     }
 
@@ -1353,15 +1349,15 @@ TEST(GTOpsCUDA, SpecialElements) {
     create_test_gt_elements(h_elements, num_elements - 2, rng);
 
     // Add identity element
-    blst_fp12_one_copy(h_elements[num_elements - 2]);
+	h_elements[num_elements - 2] = Fp12::one();
 
     // Add conjugate of first element
     memcpy(&h_elements[num_elements - 1], &h_elements[0], sizeof(Fp12));
-    blst_fp12_conjugate(h_elements[num_elements - 1]);
+    Fp12::conjugate(h_elements[num_elements - 1]);
 
     // CPU computation - test identity check
     for (size_t i = 0; i < num_elements; i++) {
-        h_cpu_results[i] = blst_fp12_is_one(h_elements[i]);
+        h_cpu_results[i] = Fp12::is_one(h_elements[i]);
     }
 
     // CUDA computation
@@ -1384,7 +1380,7 @@ TEST(GTOpsCUDA, SpecialElements) {
     EXPECT_FALSE(h_cuda_results[num_elements - 1]) << "Conjugate should not be identity (unless original was)";
 
     // Test that conjugate is in GT group
-    EXPECT_TRUE(blst_fp12_in_group(h_elements[num_elements - 1]))
+    EXPECT_TRUE(Fp12::in_group(h_elements[num_elements - 1]))
         << "Conjugate should be in GT group";
 
     // Cleanup
@@ -1407,29 +1403,29 @@ TEST(GTOpsCUDA, PairingProperties) {
     Fp12 h_cuda_results[num_tests], h_cpu_results[num_tests];
 
     // Setup test points for pairing properties
-    G1Point g1_gen = blst_p1_generator();
-    G2Point g2_gen = blst_p2_generator();
+    G1Point g1_gen = G1Point::generator();
+    G2Point g2_gen = G2Point::generator();
 
     // Test 1: e(G1_gen, G2_gen) - basic pairing
-    blst_p1_to_affine(h_g1_points[0], g1_gen);
-    blst_p2_to_affine(h_g2_points[0], g2_gen);
+    G1Point::to_affine(h_g1_points[0], g1_gen);
+    G2Point::to_affine(h_g2_points[0], g2_gen);
 
     // Test 2: e(2*G1_gen, G2_gen) 
     G1Point g1_double;
-    blst_p1_double(g1_double, g1_gen);
-    blst_p1_to_affine(h_g1_points[1], g1_double);
-    blst_p2_to_affine(h_g2_points[1], g2_gen);
+    G1Point::doubling(g1_double, g1_gen);
+    G1Point::to_affine(h_g1_points[1], g1_double);
+    G2Point::to_affine(h_g2_points[1], g2_gen);
 
     // Test 3: e(G1_gen, 2*G2_gen)
     G2Point g2_double;
-    blst_p2_double(g2_double, g2_gen);
-    blst_p1_to_affine(h_g1_points[2], g1_gen);
-    blst_p2_to_affine(h_g2_points[2], g2_double);
+    G2Point::doubling(g2_double, g2_gen);
+    G1Point::to_affine(h_g1_points[2], g1_gen);
+    G2Point::to_affine(h_g2_points[2], g2_double);
 
     // CPU computation
     for (size_t i = 0; i < num_tests; i++) {
         blst_miller_loop(h_cpu_results[i], &h_g2_points[i], &h_g1_points[i]);
-        blst_final_exp(h_cpu_results[i], h_cpu_results[i]);
+        Fp12::final_exp(h_cpu_results[i], h_cpu_results[i]);
     }
 
     // CUDA computation
@@ -1450,18 +1446,18 @@ TEST(GTOpsCUDA, PairingProperties) {
 
     // Test bilinearity: e(2P, Q) = e(P, 2Q) = e(P,Q)^2
     Fp12 base_squared;
-    blst_fp12_sqr(base_squared, h_cuda_results[0]);
+    Fp12::sqr(base_squared, h_cuda_results[0]);
 
-    EXPECT_TRUE(blst_fp12_is_equal(h_cuda_results[1], h_cuda_results[2]))
+    EXPECT_TRUE(Fp12::equal(h_cuda_results[1], h_cuda_results[2]))
         << "e(2P, Q) should equal e(P, 2Q)";
-    EXPECT_TRUE(blst_fp12_is_equal(h_cuda_results[1], base_squared))
+    EXPECT_TRUE(Fp12::equal(h_cuda_results[1], base_squared))
         << "e(2P, Q) should equal e(P,Q)^2";
 
     // All pairing results should be in GT group
     for (size_t i = 0; i < num_tests; i++) {
-        EXPECT_TRUE(blst_fp12_in_group(h_cuda_results[i]))
+        EXPECT_TRUE(Fp12::in_group(h_cuda_results[i]))
             << "Pairing result " << i << " should be in GT group";
-        EXPECT_FALSE(blst_fp12_is_one(h_cuda_results[i]))
+        EXPECT_FALSE(Fp12::is_one(h_cuda_results[i]))
             << "Pairing result " << i << " should not be identity (non-degenerate)";
     }
 
@@ -1538,7 +1534,7 @@ TEST(GTOpsCUDA, LargeScaleOperations) {
     // CPU computation (sample - full computation would be slow)
     const size_t sample_size = std::min(large_batch_size, size_t(20));
     for (size_t i = 0; i < sample_size; i++) {
-        blst_fp12_sqr(h_cpu_result[i], h_elements[i]);
+        Fp12::sqr(h_cpu_result[i], h_elements[i]);
     }
 
     // CUDA computation
@@ -1575,7 +1571,7 @@ TEST(GTOpsCUDA, LargeScaleOperations) {
 
     // Verify all results are in GT group
     for (size_t i = 0; i < std::min(large_batch_size, size_t(50)); i += 10) {
-        EXPECT_TRUE(blst_fp12_in_group(h_cuda_result[i]))
+        EXPECT_TRUE(Fp12::in_group(h_cuda_result[i]))
             << "Large batch result " << i << " should be in GT group";
     }
 
@@ -1634,7 +1630,7 @@ TEST(GTOpsCUDA, CyclotomicProperties) {
 
     // Results should still be in GT group after multiple squarings
     for (size_t i = 0; i < num_elements; i++) {
-        EXPECT_TRUE(blst_fp12_in_group(h_cyclo_result[i]))
+        EXPECT_TRUE(Fp12::in_group(h_cyclo_result[i]))
             << "Multiple cyclotomic squaring result " << i << " should be in GT group";
     }
 
@@ -1661,8 +1657,8 @@ TEST(GTOpsCUDA, ComprehensivePairingTest) {
     bool h_verify_results[num_pairs];
 
     // Create diverse test point pairs
-    G1Point g1_gen = blst_p1_generator();
-    G2Point g2_gen = blst_p2_generator();
+    G1Point g1_gen = G1Point::generator();
+    G2Point g2_gen = G2Point::generator();
     InsecureRng rng;
 
     for (size_t i = 0; i < num_pairs; i++) {
@@ -1676,11 +1672,11 @@ TEST(GTOpsCUDA, ComprehensivePairingTest) {
         scalar2[0] = (rng.uniform_u64() % 254) + 1;
         scalar2[1] = (rng.uniform_u64() % 255);
 
-        blst_p1_mult(g1_mult, g1_gen, scalar1, 16);
-        blst_p2_mult(g2_mult, g2_gen, scalar2, 16);
+        G1Point::mult(g1_mult, g1_gen, scalar1, 16);
+        G2Point::mult(g2_mult, g2_gen, scalar2, 16);
 
-        blst_p1_to_affine(h_g1_points[i], g1_mult);
-        blst_p2_to_affine(h_g2_points[i], g2_mult);
+        G1Point::to_affine(h_g1_points[i], g1_mult);
+        G2Point::to_affine(h_g2_points[i], g2_mult);
     }
 
     // CUDA computation
@@ -1726,11 +1722,11 @@ TEST(GTOpsCUDA, ComprehensivePairingTest) {
 
     // Verify group membership properties
     for (size_t i = 0; i < num_pairs; i++) {
-        EXPECT_FALSE(blst_fp12_in_group(h_miller_results[i]))
+        EXPECT_FALSE(Fp12::in_group(h_miller_results[i]))
             << "Miller loop result " << i << " should not be in GT group";
-        EXPECT_TRUE(blst_fp12_in_group(h_final_results[i]))
+        EXPECT_TRUE(Fp12::in_group(h_final_results[i]))
             << "Final exponentiation result " << i << " should be in GT group";
-        EXPECT_TRUE(blst_fp12_in_group(h_complete_results[i]))
+        EXPECT_TRUE(Fp12::in_group(h_complete_results[i]))
             << "Complete pairing result " << i << " should be in GT group";
     }
 

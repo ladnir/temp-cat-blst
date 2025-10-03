@@ -7,8 +7,7 @@
 #include <iostream>
 #include "config.h"
 #include "blst/curve/G2_cuda.h"
-#include "blst/curve/e2.h"
-#include "blst/curve/map_to_g2.h"
+#include "blst/curve/map_to_G.h"
 #include "InsecureRng.h"
 
 
@@ -29,13 +28,13 @@ namespace
 
 	// Helper function to create test points on host
 	void create_test_points_g2(G2Point* points, size_t num, InsecureRng& rng) {
-		G2Point generator = blst_p2_generator();
+		G2Point generator = G2Point::generator();
 		unsigned char scalar[32] = { 0 };
 
 		for (size_t i = 0; i < num; i++) {
 			scalar[0] = rng.uniform_u64() & 0xFF;
 			if (scalar[0] == 0) scalar[0] = 1; // Avoid zero scalar
-			blst_p2_mult(points[i], generator, scalar, 8);
+			G2Point::mult(points[i], generator, scalar, 8);
 		}
 	}
 
@@ -65,11 +64,11 @@ namespace
 
 	// Equality functions for different types
 	bool point_equal_g2(const G2Point& a, const G2Point& b) {
-		return blst_p2_is_equal(a, b);
+		return G2Point::equal(a, b);
 	}
 
 	bool affine_equal_g2(const G2AffinePoint& a, const G2AffinePoint& b) {
-		return blst_p2_affine_is_equal(a, b);
+		return G2AffinePoint::equal(a, b);
 	}
 
 	bool error_equal(const BLST_ERROR a, const BLST_ERROR b) {
@@ -132,7 +131,7 @@ TEST(G2OpsCUDA, PointAddition) {
 
 	// CPU computation
 	for (size_t i = 0; i < num_points; i++) {
-		blst_p2_add(h_cpu_result[i], h_a[i], h_b[i]);
+		G2Point::add(h_cpu_result[i], h_a[i], h_b[i]);
 	}
 
 	// CUDA computation
@@ -173,7 +172,7 @@ TEST(G2OpsCUDA, PointDoubling) {
 
 	// CPU computation
 	for (size_t i = 0; i < num_points; i++) {
-		blst_p2_double(h_cpu_result[i], h_points[i]);
+		G2Point::doubling(h_cpu_result[i], h_points[i]);
 	}
 
 	// CUDA computation
@@ -212,7 +211,7 @@ TEST(G2OpsCUDA, PointNegation) {
 	// CPU computation
 	for (size_t i = 0; i < num_points; i++) {
 		h_cpu_result[i] = h_points[i];
-		blst_p2_cneg(h_cpu_result[i], 1);
+		G2Point::cneg(h_cpu_result[i], 1);
 	}
 
 	// CUDA computation
@@ -261,7 +260,7 @@ TEST(G2OpsCUDA, ScalarMultiplication) {
 
 	// CPU computation
 	for (size_t i = 0; i < num_points; i++) {
-		blst_p2_mult(h_cpu_result[i], h_points[i], &h_scalars[i * scalar_bytes], scalar_bits);
+		G2Point::mult(h_cpu_result[i], h_points[i], &h_scalars[i * scalar_bytes], scalar_bits);
 	}
 
 	// CUDA computation
@@ -310,7 +309,7 @@ TEST(G2OpsCUDA, CurveMembership) {
 
 	// CPU computation
 	for (size_t i = 0; i < num_points; i++) {
-		h_cpu_results[i] = blst_p2_on_curve(h_points[i]);
+		h_cpu_results[i] = G2Point::on_curve(h_points[i]);
 	}
 
 	// CUDA computation
@@ -391,8 +390,8 @@ TEST(G2OpsCUDA, Serialization) {
 
 	// CPU computation
 	for (size_t i = 0; i < num_points; i++) {
-		blst_p2_serialize(&h_serialized[i * 192], h_points[i]);
-		h_errors_exp[i] = blst_p2_deserialize(h_cpu_affine[i], &h_serialized[i * 192]);
+		G2Point::serialize(&h_serialized[i * 192], h_points[i]);
+		h_errors_exp[i] = G2AffinePoint::deserialize(h_cpu_affine[i], &h_serialized[i * 192]);
 		EXPECT_EQ(h_errors_exp[i], BLST_SUCCESS) <<"  @ " << i;
 	}
 
@@ -440,13 +439,13 @@ TEST(G2OpsCUDA, Compression) {
 	InsecureRng rng;
 	create_test_points_g2(h_points, num_points, rng);
 	for (size_t i = 0; i < num_points; i++) {
-		blst_p2_to_affine(h_points_affine[i], h_points[i]);
+		G2Point::to_affine(h_points_affine[i], h_points[i]);
 	}
 
 	// CPU computation
 	for (size_t i = 0; i < num_points; i++) {
-		blst_p2_affine_compress(&h_compressed[i * 96], h_points_affine[i]);
-		h_errors_exp[i] = blst_p2_uncompress(h_cpu_result[i], &h_compressed[i * 96]);
+		G2AffinePoint::compress(&h_compressed[i * 96], h_points_affine[i]);
+		h_errors_exp[i] = G2AffinePoint::uncompress(h_cpu_result[i], &h_compressed[i * 96]);
 		EXPECT_EQ(h_errors_exp[i], BLST_SUCCESS);
 	}
 
@@ -493,12 +492,12 @@ TEST(G2OpsCUDA, CoordinateConversion) {
 
 	// CPU computation - Jacobian to affine
 	for (size_t i = 0; i < num_points; i++) {
-		blst_p2_to_affine(h_cpu_affine[i], h_points[i]);
+		G2Point::to_affine(h_cpu_affine[i], h_points[i]);
 	}
 
 	// CPU computation - affine back to Jacobian
 	for (size_t i = 0; i < num_points; i++) {
-		blst_p2_from_affine(h_cpu_jacobian[i], h_cpu_affine[i]);
+		G2Point::from_affine(h_cpu_jacobian[i], h_cpu_affine[i]);
 	}
 
 	// CUDA computation
@@ -622,12 +621,12 @@ TEST(G2OpsCUDA, MixedAddition) {
 	G2Point temp_points[num_points];
 	create_test_points_g2(temp_points, num_points, rng);
 	for (size_t i = 0; i < num_points; i++) {
-		blst_p2_to_affine(h_affine[i], temp_points[i]);
+		G2Point::to_affine(h_affine[i], temp_points[i]);
 	}
 
 	// CPU computation
 	for (size_t i = 0; i < num_points; i++) {
-		blst_p2_add_affine(h_cpu_result[i], h_jacobian[i], h_affine[i]);
+		G2Point::add_affine(h_cpu_result[i], h_jacobian[i], h_affine[i]);
 	}
 
 	// CUDA computation
@@ -670,7 +669,7 @@ TEST(G2OpsCUDA, AdvancedOperations) {
 
 	// CPU computation - test infinity check
 	for (size_t i = 0; i < num_points; i++) {
-		h_cpu_inf_results[i] = blst_p2_is_inf(h_points[i]);
+		h_cpu_inf_results[i] = G2Point::is_inf(h_points[i]);
 	}
 
 	// CUDA computation
@@ -711,12 +710,12 @@ TEST(G2OpsCUDA, SubgroupMembership) {
 	InsecureRng rng;
 	create_test_points_g2(h_points_jac, num_points, rng);
 	for (size_t i = 0; i < num_points; i++) {
-		blst_p2_to_affine(h_points[i], h_points_jac[i]);
+		G2Point::to_affine(h_points[i], h_points_jac[i]);
 	}
 
 	// CPU computation
 	for (size_t i = 0; i < num_points; i++) {
-		h_cpu_results[i] = blst_p2_affine_in_g2(h_points[i]);
+		h_cpu_results[i] = G2AffinePoint::in_subgroup(h_points[i]);
 	}
 
 	// CUDA computation
@@ -819,7 +818,7 @@ TEST(G2OpsCUDA, BatchProcessing) {
 
 	// CPU computation
 	for (size_t i = 0; i < batch_size; i++) {
-		blst_p2_double(h_cpu_result[i], h_points[i]);
+		G2Point::doubling(h_cpu_result[i], h_points[i]);
 	}
 
 	// CUDA computation
@@ -870,7 +869,7 @@ TEST(G2OpsCUDA, SerializationFormats) {
 
 	// CPU computation - test point validation
 	for (size_t i = 0; i < num_points; i++) {
-		h_cpu_results[i] = blst_p2_on_curve(h_points[i]);
+		h_cpu_results[i] = G2Point::on_curve(h_points[i]);
 	}
 
 	// CUDA computation
@@ -921,7 +920,7 @@ TEST(G2OpsCUDA, LargeScalarMultiplication) {
 	create_test_points_g2(h_points, num_points, rng);
 	// CPU computation
 	for (size_t i = 0; i < num_points; i++) {
-		blst_p2_mult(h_cpu_result[i], h_points[i], &h_scalars[i * scalar_bytes], scalar_bits);
+		G2Point::mult(h_cpu_result[i], h_points[i], &h_scalars[i * scalar_bytes], scalar_bits);
 	}
 
 	// CUDA computation
@@ -943,12 +942,12 @@ TEST(G2OpsCUDA, LargeScalarMultiplication) {
 	//bool results_match = true;
 	for (size_t i = 0; i < num_points; i++) {
 		// Verify CUDA result is on curve
-		if (!blst_p2_on_curve(h_cuda_result[i])) {
+		if (!G2Point::on_curve(h_cuda_result[i])) {
 			printf("Error G2 Large: CUDA result %zu is not on curve\n", i);
 			//results_match = false;
 		}
 
-		if (!blst_p2_is_equal(h_cuda_result[i], h_cpu_result[i])) {
+		if (!G2Point::equal(h_cuda_result[i], h_cpu_result[i])) {
 			printf("G2 Large Mismatch at index %zu\n", i);
 			printf("CPU  result: X[0][0]=%llx, Y[0][0]=%llx, Z[0][0]=%llx\n",
 				h_cpu_result[i].X[0][0], h_cpu_result[i].Y[0][0], h_cpu_result[i].Z[0][0]);

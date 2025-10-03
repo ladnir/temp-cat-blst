@@ -7,7 +7,6 @@
 #define BLST_G1_CUDA_H
 
 #include "blst/curve/point.h"
-#include "blst/curve/e1.h"
 #include "blst/common/errors.h"
 
 

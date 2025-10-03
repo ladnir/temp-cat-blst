@@ -35,6 +35,10 @@ namespace blst
 	}
 
 	// Vectorized addition of Fp elements (GPU)
+	// a1 a2 ... a_num
+	// b1 b2 ... b_num
+	//+_______________
+	// out1 ...  out_num
 	batched_error_code add_fp_vec_cu(Fp* out, const Fp* a, const Fp* b, size_t num)
 	{
 		if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;

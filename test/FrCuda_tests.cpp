@@ -71,7 +71,7 @@ protected:
 
     // Helper: Convert standard integer to Montgomery form
     void to_mont_fr(Fr& r, const Fr& a) {
-        fr_to(r, a);
+        Fr::to_mont(r, a);
     }
 
     // Helper: Allocate device memory for Fr& arrays
@@ -160,7 +160,7 @@ TEST_F(FrCudaTest, VectorAdd) {
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        fr_add(cpu_result[i], h_a[i], h_b[i]);
+        Fr::add(cpu_result[i], h_a[i], h_b[i]);
     }
 
     // Allocate device memory
@@ -207,7 +207,7 @@ TEST_F(FrCudaTest, VectorSub) {
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        fr_sub(cpu_result[i], h_a[i], h_b[i]);
+        Fr::sub(cpu_result[i], h_a[i], h_b[i]);
     }
 
     // Allocate device memory
@@ -257,7 +257,7 @@ TEST_F(FrCudaTest, VectorMul) {
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        fr_mul(cpu_result[i], h_a[i], h_b[i]);
+        Fr::mul(cpu_result[i], h_a[i], h_b[i]);
     }
 
     // Allocate device memory
@@ -304,7 +304,7 @@ TEST_F(FrCudaTest, VectorSqr) {
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        fr_sqr(cpu_result[i], h_a[i]);
+        Fr::sqr(cpu_result[i], h_a[i]);
     }
 
     // Allocate device memory
@@ -347,12 +347,12 @@ TEST_F(FrCudaTest, VectorCNeg) {
 
     // CPU reference computation with flag = 1
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        fr_cneg(cpu_result_true[i], h_a[i], 1);
+        Fr::cneg(cpu_result_true[i], h_a[i], 1);
     }
 
     // CPU reference computation with flag = 0
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        fr_cneg(cpu_result_false[i], h_a[i], 0);
+        Fr::cneg(cpu_result_false[i], h_a[i], 0);
     }
 
     // Allocate device memory
@@ -404,7 +404,7 @@ TEST_F(FrCudaTest, VectorMulBy3) {
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        fr_mul_by_3(cpu_result[i], h_a[i]);
+        Fr::mul_by_3(cpu_result[i], h_a[i]);
     }
 
     // Allocate device memory
@@ -446,7 +446,7 @@ TEST_F(FrCudaTest, VectorLShift) {
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        fr_lshift(cpu_result[i], h_a[i], SHIFT_COUNT);
+        Fr::lshift(cpu_result[i], h_a[i], SHIFT_COUNT);
     }
 
     // Allocate device memory
@@ -488,7 +488,7 @@ TEST_F(FrCudaTest, VectorRShift) {
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        fr_rshift(cpu_result[i], h_a[i], SHIFT_COUNT);
+        Fr::rshift(cpu_result[i], h_a[i], SHIFT_COUNT);
     }
 
     // Allocate device memory
@@ -529,13 +529,13 @@ TEST_F(FrCudaTest, VectorMontgomeryConversion) {
         random_fr(h_a[i]);
         // Ensure the value is properly reduced by performing a modular reduction
         Fr temp;
-        fr_from(temp, h_a[i]);  // This ensures proper reduction
-        fr_copy(h_a[i], temp);
+        Fr::from_mont(temp, h_a[i]);  // This ensures proper reduction
+        h_a[i] = temp;
     }
 
     // CPU reference computation - to Montgomery
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        fr_to(cpu_to_result[i], h_a[i]);
+        Fr::to_mont(cpu_to_result[i], h_a[i]);
     }
 
     // Allocate device memory
@@ -561,7 +561,7 @@ TEST_F(FrCudaTest, VectorMontgomeryConversion) {
 
         // CPU reference computation - from Montgomery using the CPU's to_montgomery result
         for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-            fr_from(cpu_from_result[i], cpu_to_result[i]);
+            Fr::from_mont(cpu_from_result[i], cpu_to_result[i]);
         }
 
         // Vector computation - from Montgomery using the GPU's to_montgomery result
@@ -613,13 +613,13 @@ TEST_F(FrCudaTest, VectorButterfly) {
 
     // Copy data for CT butterfly tests
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        fr_copy(cpu_x0_ct[i], h_x0[i]);
-        fr_copy(cpu_x1_ct[i], h_x1[i]);
+        cpu_x0_ct[i] = h_x0[i];
+        cpu_x1_ct[i] = h_x1[i];
     }
 
     // CPU reference computation - CT butterfly
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        fr_ct_bfly(cpu_x0_ct[i], cpu_x1_ct[i], h_twiddle[i]);
+        Fr::ct_bfly(cpu_x0_ct[i], cpu_x1_ct[i], h_twiddle[i]);
     }
 
     // Allocate device memory for CT butterfly
@@ -650,13 +650,13 @@ TEST_F(FrCudaTest, VectorButterfly) {
 
     // Prepare for GS butterfly tests
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        fr_copy(cpu_x0_gs[i], h_x0[i]);
-        fr_copy(cpu_x1_gs[i], h_x1[i]);
+        cpu_x0_gs[i] = h_x0[i];
+        cpu_x1_gs[i] = h_x1[i];
     }
 
     // CPU reference computation - GS butterfly
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        fr_gs_bfly(cpu_x0_gs[i], cpu_x1_gs[i], h_twiddle[i]);
+        Fr::gs_bfly(cpu_x0_gs[i], cpu_x1_gs[i], h_twiddle[i]);
     }
 
     // Allocate device memory for GS butterfly
@@ -808,7 +808,7 @@ TEST_F(FrCudaTest, VectorSmallValues) {
 
     // Test addition
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        fr_add(cpu_result[i], h_a[i], h_b[i]);
+        Fr::add(cpu_result[i], h_a[i], h_b[i]);
     }
     batched_error_code add_result = add_fr_vec(d_result, d_a, d_b, NUM_ELEMENTS);
     expect_success(add_result, "small values add");
@@ -819,7 +819,7 @@ TEST_F(FrCudaTest, VectorSmallValues) {
 
     // Test subtraction
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        fr_sub(cpu_result[i], h_a[i], h_b[i]);
+        Fr::sub(cpu_result[i], h_a[i], h_b[i]);
     }
     batched_error_code sub_result = sub_fr_vec(d_result, d_a, d_b, NUM_ELEMENTS);
     expect_success(sub_result, "small values sub");
@@ -830,7 +830,7 @@ TEST_F(FrCudaTest, VectorSmallValues) {
 
     // Test multiplication by 3
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        fr_mul_by_3(cpu_result[i], h_a[i]);
+        Fr::mul_by_3(cpu_result[i], h_a[i]);
     }
     batched_error_code mul3_result = mul3_fr_vec(d_result, d_a, NUM_ELEMENTS);
     expect_success(mul3_result, "small values mul3");
@@ -863,7 +863,7 @@ TEST_F(FrCudaTest, VectorPerformanceBaseline) {
 
     // CPU computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        fr_add(cpu_result[i], h_a[i], h_b[i]);
+        Fr::add(cpu_result[i], h_a[i], h_b[i]);
     }
 
     // Allocate device memory

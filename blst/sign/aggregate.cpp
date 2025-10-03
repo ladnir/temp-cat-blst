@@ -127,7 +127,7 @@ namespace blst
 
             if (ctx->ctrl & AGGR_SIGN_SET) {
                 if (nbits != 0 && scalar != NULL) {
-                    mult_w<G1Point,5>(P, P, scalar, nbits);
+                    mult_window<G1Point,5>(P, P, scalar, nbits);
                     G1Point::dadd(S, S, P, NULL);
                 }
                 else {
@@ -137,7 +137,7 @@ namespace blst
             else {
                 ctx->ctrl |= AGGR_SIGN_SET;
                 if (nbits != 0 && scalar != NULL)
-                    mult_w<G1Point,5>(S, P, scalar, nbits);
+                    mult_window<G1Point,5>(S, P, scalar, nbits);
                 else
                     vec_copy(&S, &P, sizeof(P));
             }
@@ -174,7 +174,7 @@ namespace blst
                     (const unsigned char*)aug, aug_len);
 
             if (nbits != 0 && scalar != NULL)
-                mult_w<G1Point,5>(H, H, scalar, nbits);
+                mult_window<G1Point,5>(H, H, scalar, nbits);
 
             G1Point::from_jacobian(H, H);
 
@@ -284,7 +284,7 @@ namespace blst
             if (ctx->ctrl & AGGR_SIGN_SET) {
                 if (nbits != 0 && scalar != NULL) {
 
-                    mult_w< G2Point,5>(P, P, scalar, nbits);
+                    mult_window< G2Point,5>(P, P, scalar, nbits);
                     G2Point::dadd(S, S, P, NULL);
                 }
                 else {
@@ -294,7 +294,7 @@ namespace blst
             else {
                 ctx->ctrl |= AGGR_SIGN_SET;
                 if (nbits != 0 && scalar != NULL)
-                    mult_w<G2Point,5>(S, P, scalar, nbits);
+                    mult_window<G2Point,5>(S, P, scalar, nbits);
                 else
                     vec_copy(&S, &P, sizeof(P));
             }
@@ -335,7 +335,7 @@ namespace blst
 
             if (nbits != 0 && scalar != NULL) {
                 FROM_AFFINE(pk, *PK);
-                mult_w<G1Point,5>(pk, pk, scalar, nbits);
+                mult_window<G1Point,5>(pk, pk, scalar, nbits);
                 G1Point::from_jacobian(pk, pk);
                 PK = (const G1AffinePoint*)&pk;
             }

@@ -34,7 +34,7 @@ namespace blst
 
 
 		while (num--) {
-			fr_add(*out, *a, *b);
+			Fr::add(*out, *a, *b);
 			out++; a++; b++;
 		}
 		return BATCHED_SUCCESS;
@@ -46,7 +46,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			fr_add(out[idx], a[idx], b[idx]);
+			Fr::add(out[idx], a[idx], b[idx]);
 		}
 	}
 
@@ -77,7 +77,7 @@ namespace blst
 
 
 		while (num--) {
-			fr_sub(*out, *a, *b);
+			Fr::sub(*out, *a, *b);
 			out++; a++; b++;
 		}
 		return BATCHED_SUCCESS;
@@ -89,7 +89,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			fr_sub(out[idx], a[idx], b[idx]);
+			Fr::sub(out[idx], a[idx], b[idx]);
 		}
 	}
 
@@ -120,7 +120,7 @@ namespace blst
 
 
 		while (num--) {
-			fr_mul(*out, *a, *b);
+			Fr::mul(*out, *a, *b);
 			out++; a++; b++;
 		}
 		return BATCHED_SUCCESS;
@@ -132,7 +132,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			fr_mul(out[idx], a[idx], b[idx]);
+			Fr::mul(out[idx], a[idx], b[idx]);
 		}
 	}
 
@@ -163,7 +163,7 @@ namespace blst
 
 
 		while (num--) {
-			fr_sqr(*out, *a);
+			Fr::sqr(*out, *a);
 			out++; a++;
 		}
 		return BATCHED_SUCCESS;
@@ -175,7 +175,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			fr_sqr(out[idx], a[idx]);
+			Fr::sqr(out[idx], a[idx]);
 		}
 	}
 
@@ -206,7 +206,7 @@ namespace blst
 
 
 		while (num--) {
-			fr_cneg(*out, *a, flag);
+			Fr::cneg(*out, *a, flag);
 			out++; a++;
 		}
 		return BATCHED_SUCCESS;
@@ -218,7 +218,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			fr_cneg(out[idx], a[idx], flag);
+			Fr::cneg(out[idx], a[idx], flag);
 		}
 	}
 
@@ -249,7 +249,7 @@ namespace blst
 
 
 		while (num--) {
-			fr_mul_by_3(*out, *a);
+			Fr::mul_by_3(*out, *a);
 			out++; a++;
 		}
 		return BATCHED_SUCCESS;
@@ -261,7 +261,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			fr_mul_by_3(out[idx], a[idx]);
+			Fr::mul_by_3(out[idx], a[idx]);
 		}
 	}
 
@@ -292,7 +292,7 @@ namespace blst
 
 
 		while (num--) {
-			fr_lshift(*out, *a, count);
+			Fr::lshift(*out, *a, count);
 			out++; a++;
 		}
 		return BATCHED_SUCCESS;
@@ -304,7 +304,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			fr_lshift(out[idx], a[idx], count);
+			Fr::lshift(out[idx], a[idx], count);
 		}
 	}
 
@@ -335,7 +335,7 @@ namespace blst
 
 
 		while (num--) {
-			fr_rshift(*out, *a, count);
+			Fr::rshift(*out, *a, count);
 			out++; a++;
 		}
 		return BATCHED_SUCCESS;
@@ -347,7 +347,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			fr_rshift(out[idx], a[idx], count);
+			Fr::rshift(out[idx], a[idx], count);
 		}
 	}
 
@@ -378,7 +378,7 @@ namespace blst
 
 
 		while (num--) {
-			fr_to(*out, *a);
+			Fr::to_mont(*out, *a);
 			out++; a++;
 		}
 		return BATCHED_SUCCESS;
@@ -390,7 +390,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			fr_to(out[idx], a[idx]);
+			Fr::to_mont(out[idx], a[idx]);
 		}
 	}
 
@@ -421,7 +421,7 @@ namespace blst
 
 
 		while (num--) {
-			fr_from(*out, *a);
+			Fr::from_mont(*out, *a);
 			out++; a++;
 		}
 		return BATCHED_SUCCESS;
@@ -433,7 +433,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			fr_from(out[idx], a[idx]);
+			Fr::from_mont(out[idx], a[idx]);
 		}
 	}
 
@@ -464,7 +464,7 @@ namespace blst
 
 
 		while (num--) {
-			fr_ct_bfly(*x0, *x1, *twiddle);
+			Fr::ct_bfly(*x0, *x1, *twiddle);
 			x0++; x1++; twiddle++;
 		}
 		return BATCHED_SUCCESS;
@@ -476,7 +476,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			fr_ct_bfly(x0[idx], x1[idx], twiddle[idx]);
+			Fr::ct_bfly(x0[idx], x1[idx], twiddle[idx]);
 		}
 	}
 
@@ -507,7 +507,7 @@ namespace blst
 
 
 		while (num--) {
-			fr_gs_bfly(*x0, *x1, *twiddle);
+			Fr::gs_bfly(*x0, *x1, *twiddle);
 			x0++; x1++; twiddle++;
 		}
 		return BATCHED_SUCCESS;
@@ -519,7 +519,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			fr_gs_bfly(x0[idx], x1[idx], twiddle[idx]);
+			Fr::gs_bfly(x0[idx], x1[idx], twiddle[idx]);
 		}
 	}
 

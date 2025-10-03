@@ -138,6 +138,7 @@ namespace blst
 		 */
 		static BLST_HD void add(Point& out, const Point& p1, const Point& p2);
 
+
 		/**
 		 * @brief Mixed add (Jacobian + affine) (handles infinity).
 		 * @note Uses EFD madd-2007-bl.
@@ -181,6 +182,9 @@ namespace blst
 
 		/// Conditional negate Y in constant time if @p cbit is 1.
 		static BLST_HD void cneg(Point& p, limb_t cbit);
+
+		/// negate Y in constant time.
+		static BLST_HD void neg(Point& out, const Point& p);
 
 		/// Convert Jacobian -> affine. Infinity maps to the all-zero affine encoding.
 		static BLST_HD void to_affine(AffinePoint<Field>& out, const Point& in);
@@ -973,6 +977,14 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	}
 
 	template<typename Field>
+	BLST_HD BLST_FORCEINLINE void Point<Field>::neg(Point& out, const Point& p)
+	{
+		out.X = p.X;
+		Field::neg(out.Y, p.Y);
+		out.Z = p.Z;
+	}
+
+	template<typename Field>
 	BLST_HD BLST_INLINE void Point<Field>::from_jacobian(Point<Field>& out, const Point<Field>& in)
 	{
 		Field Z, ZZ;
@@ -1427,45 +1439,6 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	}
 
 
-
-
-	/* Gallant-Lambert-Vanstone, ~45% faster than mult_w<G1Point,5> */
-	template<>
-	BLST_HD BLST_INLINE void G1Point::mult_glsv(G1Point& out, const G1Point& in,
-		const pow256 SK)
-	{
-		//union { Fr l; pow256 s; } val;
-		Fr l;
-		pow256 s;
-		/* SK/z^2 [in constant time] */
-
-		limbs_from_le_bytes(l, SK, 32);
-		div_by_zz(l);
-		le_bytes_from_limbs(s, l, 32);
-
-		{
-			const byte* scalars[2] = { s + 16, s };
-			G1Point table[2][1 << (5 - 1)];   /* 4.5KB */
-			size_t i;
-
-			precompute_w<G1Point, 5>(table[0], in);
-			for (i = 0; i < 1 << (5 - 1); i++) {
-				Fp::mul(table[1][i].X, table[0][i].X, get_BLST_beta());
-				Fp::cneg(table[1][i].Y, table[0][i].Y, 1);
-				vec_copy(table[1][i].Z, table[0][i].Z, sizeof(table[1][i].Z));
-			}
-
-			s_mult_w<G1Point, 5>(out, NULL, 2, scalars, 128, table);
-			G1Point::cneg(out, 1);
-			Fp::mul(out.Z, out.Z, get_BLST_beta());
-			Fp::mul(out.Z, out.Z, get_BLST_beta());
-		}
-
-		vec_zero(l, sizeof(l));   /* scrub the copy of SK */
-		vec_zero(s, sizeof(s));   /* scrub the copy of SK */
-	}
-
-
 	BLST_HD BLST_INLINE void psi(G2Point& out, const G2Point& in)
 	{
 		const Fp2 frobenius_x = { /* 1/(1 + i)^((P-1)/3) */
@@ -1579,6 +1552,45 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 
 
+	/* Gallant-Lambert-Vanstone, ~45% faster than mult_w<G1Point,5> */
+	template<>
+	BLST_HD BLST_INLINE void G1Point::mult_glsv(G1Point& out, const G1Point& in,
+		const pow256 SK)
+	{
+		//union { Fr l; pow256 s; } val;
+		Fr l;
+		pow256 s;
+		/* SK/z^2 [in constant time] */
+
+		limbs_from_le_bytes(l, SK, 32);
+		div_by_zz(l);
+		le_bytes_from_limbs(s, l, 32);
+
+		{
+			const byte* scalars[2] = { s + 16, s };
+			G1Point table[2][1 << (5 - 1)];   /* 4.5KB */
+			size_t i;
+
+			precompute_w<G1Point, 5>(table[0], in);
+			for (i = 0; i < 1 << (5 - 1); i++) {
+				Fp::mul(table[1][i].X, table[0][i].X, get_BLST_beta());
+				Fp::cneg(table[1][i].Y, table[0][i].Y, 1);
+				vec_copy(table[1][i].Z, table[0][i].Z, sizeof(table[1][i].Z));
+			}
+
+			mult_window_n<G1Point, 5>(out, NULL, 2, scalars, 128, table);
+			G1Point::cneg(out, 1);
+			Fp::mul(out.Z, out.Z, get_BLST_beta());
+			Fp::mul(out.Z, out.Z, get_BLST_beta());
+		}
+
+		vec_zero(l, sizeof(l));   /* scrub the copy of SK */
+		vec_zero(s, sizeof(s));   /* scrub the copy of SK */
+	}
+
+
+
+
 
 	/* Galbraith-Lin-Scott, ~67% faster than G2Point_mul_w5 */
 	template<>
@@ -1613,7 +1625,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 				G2Point::cneg(table[3][i], 1);
 			}
 
-			s_mult_w<G2Point, 5>(out, NULL, 4, scalars, 64, table);
+			mult_window_n<G2Point, 5>(out, NULL, 4, scalars, 64, table);
 		}
 
 		// copy back the scalar to scrub the stack
@@ -1734,7 +1746,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	{
 		if (nbits < 176) {
 			if (nbits)
-				mult_w<Point, 4>(out, a, scalar, nbits);
+				mult_window<Point, 4>(out, a, scalar, nbits);
 			else
 				vec_zero(&out, sizeof(out));
 		}
@@ -1752,12 +1764,12 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			if (Fr::check_mod(val.l))  /* z^4 is the formal limit */
 				Point::mult_glsv(out, a, val.s);
 			else    /* should never be the case, added for formal completeness */
-				mult_w<Point, 5>(out, a, scalar, nbits);
+				mult_window<Point, 5>(out, a, scalar, nbits);
 
 			vec_zero(val.l, sizeof(val));
 		}
 		else {    /* should never be the case, added for formal completeness */
-			mult_w<Point, 5>(out, a, scalar, nbits);
+			mult_window<Point, 5>(out, a, scalar, nbits);
 		}
 	}
 
@@ -1886,7 +1898,6 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	 * As for R!=0 condition in context of H==0, a.k.a. P-P. The result is
 	 * infinity by virtue of Z3 = (U2-U1)*zz = H*zz = 0*zz == 0.
 	 */
-	 //#define POINT_DADD_AFFINE_IMPL_A0(ptype, bits, field, one) 
 	template<typename Field>
 	BLST_HD BLST_INLINE void Point<Field>::dadd_affine(Point& out, const Point& p1,
 		const AffinePoint<Field>& p2)

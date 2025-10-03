@@ -123,6 +123,14 @@ TEST(PairingTest, MultiPairing) {
     // Compute e(G1, G2) * e(2*G1, 2*G2) using Fp12_mul
     Fp12 product;
     Fp12::mul(product, e_g1_g2, e_2g1_2g2);
+    //                             per elem          reduce n->n/2   n2/->n/4
+    // n | xxxxxxxxxxxxxxxx -> xxxxxxxxxxxxxxxx -> x x x x x x x x -> x x x x -> x x -> y
+    // n | xxxxxxxxxxxxxxxx -> xxxxxxxxxxxxxxxx -> x x x x x x x x -> x x x x -> x x -> y
+    // n | xxxxxxxxxxxxxxxx -> xxxxxxxxxxxxxxxx -> x x x x x x x x -> x x x x -> x x -> y
+    // n | xxxxxxxxxxxxxxxx -> xxxxxxxxxxxxxxxx -> x x x x x x x x -> x x x x -> x x -> y
+    // n | xxxxxxxxxxxxxxxx -> xxxxxxxxxxxxxxxx -> x x x x x x x x -> x x x x -> x x -> y
+    // n | xxxxxxxxxxxxxxxx -> xxxxxxxxxxxxxxxx -> x x x x x x x x -> x x x x -> x x -> y
+    // n | xxxxxxxxxxxxxxxx -> xxxxxxxxxxxxxxxx -> x x x x x x x x -> x x x x -> x x -> y
 
     // Test multi-pairing API if available
     G1AffinePoint* g1_points[2] = { &g1_affine, &g1_double_affine };

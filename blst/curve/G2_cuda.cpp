@@ -5,9 +5,8 @@
  */
 
 #include "blst/curve/point.h"
-#include "blst/curve/e2.h"
 #include "blst/curve/G2_cuda.h"
-#include "blst/curve/map_to_g2.h"
+#include "blst/curve/map_to_G.h"
 #include "blst/exports.h"
 #include "blst/common/errors.h"
 
@@ -27,7 +26,7 @@ namespace blst
         if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            blst_p2_add_or_double(*out, *a, *b);
+            G2Point::dadd(*out, *a, *b);
             out++; a++; b++;
         }
         return BATCHED_SUCCESS;
@@ -39,7 +38,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_p2_add_or_double(out[idx], a[idx], b[idx]);
+            G2Point::dadd(out[idx], a[idx], b[idx]);
         }
     }
 
@@ -69,7 +68,7 @@ namespace blst
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            blst_p2_double(*out, *a);
+            G2Point::doubling(*out, *a);
             out++; a++;
         }
         return BATCHED_SUCCESS;
@@ -81,7 +80,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_p2_double(out[idx], a[idx]);
+            G2Point::doubling(out[idx], a[idx]);
         }
     }
 
@@ -112,7 +111,7 @@ namespace blst
 
         while (num--) {
             *out = *a;
-            blst_p2_cneg(*out, flag);
+            G2Point::cneg(*out, flag);
             out++; a++;
         }
         return BATCHED_SUCCESS;
@@ -125,7 +124,7 @@ namespace blst
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
             out[idx] = a[idx];
-            blst_p2_cneg(out[idx], flag);
+            G2Point::cneg(out[idx], flag);
         }
     }
 
@@ -157,7 +156,7 @@ namespace blst
         const size_t scalar_bytes = (scalar_bits + 7) / 8;
 
         while (num--) {
-            blst_p2_mult(*out, *points, scalars, scalar_bits);
+            G2Point::mult(*out, *points, scalars, scalar_bits);
             out++; points++; scalars += scalar_bytes;
         }
         return BATCHED_SUCCESS;
@@ -171,7 +170,7 @@ namespace blst
         if (idx < num) {
             const size_t scalar_bytes = (scalar_bits + 7) / 8;
 
-            blst_p2_mult(
+            G2Point::mult(
                 out[idx],
                 points[idx],
                 &scalars[idx * scalar_bytes],
@@ -208,7 +207,7 @@ namespace blst
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            blst_p2_to_affine(*out, *a);
+            G2Point::to_affine(*out, *a);
             out++; a++;
         }
         return BATCHED_SUCCESS;
@@ -220,7 +219,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_p2_to_affine(out[idx], a[idx]);
+            G2Point::to_affine(out[idx], a[idx]);
         }
     }
 
@@ -250,7 +249,7 @@ namespace blst
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            blst_p2_from_affine(*out, *a);
+            G2Point::from_affine(*out, *a);
             out++; a++;
         }
         return BATCHED_SUCCESS;
@@ -262,7 +261,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_p2_from_affine(out[idx], a[idx]);
+            G2Point::from_affine(out[idx], a[idx]);
         }
     }
 
@@ -292,7 +291,7 @@ namespace blst
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            blst_p2_from_jacobian(*out, *a);
+            G2Point::from_jacobian(*out, *a);
             out++; a++;
         }
         return BATCHED_SUCCESS;
@@ -304,7 +303,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_p2_from_jacobian(out[idx], a[idx]);
+            G2Point::from_jacobian(out[idx], a[idx]);
         }
     }
 
@@ -337,7 +336,7 @@ namespace blst
         if (!results || !points) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            *results = blst_p2_on_curve(*points);
+            *results = G2Point::on_curve(*points);
             results++; points++;
         }
         return BATCHED_SUCCESS;
@@ -349,7 +348,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            results[idx] = blst_p2_on_curve(points[idx]);
+            results[idx] = G2Point::on_curve(points[idx]);
         }
     }
 
@@ -379,7 +378,7 @@ namespace blst
         if (!results || !points) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            *results = blst_p2_is_inf(*points);
+            *results = G2Point::is_inf(*points);
             results++; points++;
         }
         return BATCHED_SUCCESS;
@@ -391,7 +390,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            results[idx] = blst_p2_is_inf(points[idx]);
+            results[idx] = G2Point::is_inf(points[idx]);
         }
     }
 
@@ -421,7 +420,7 @@ namespace blst
         if (!results || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            *results = blst_p2_is_equal(*a, *b);
+            *results = G2Point::equal(*a, *b);
             results++; a++; b++;
         }
         return BATCHED_SUCCESS;
@@ -433,7 +432,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            results[idx] = blst_p2_is_equal(a[idx], b[idx]);
+            results[idx] = G2Point::equal(a[idx], b[idx]);
         }
     }
 
@@ -458,7 +457,7 @@ namespace blst
     }
 
     // Forward declaration for G2 subgroup check
-    //extern "C" int blst_p2_affine_in_g2(const G2AffinePoint* p);
+    //extern "C" int G2Point::affine_in_g2(const G2AffinePoint* p);
 
     // Vectorized subgroup membership check (CPU)
     batched_error_code in_group_g2_vec_cc(bool* results, const G2AffinePoint* points, size_t num)
@@ -466,7 +465,7 @@ namespace blst
         if (!results || !points) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            *results = blst_p2_affine_in_g2(*points);
+            *results = G2AffinePoint::in_subgroup(*points);
             results++; points++;
         }
         return BATCHED_SUCCESS;
@@ -478,7 +477,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            results[idx] = blst_p2_affine_in_g2(points[idx]);
+            results[idx] = G2AffinePoint::in_subgroup(points[idx]);
         }
     }
 
@@ -511,7 +510,7 @@ namespace blst
         if (!out || !points) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            blst_p2_serialize(out, *points);
+            G2Point::serialize(out, *points);
             out += 192; points++;
         }
         return BATCHED_SUCCESS;
@@ -523,7 +522,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_p2_serialize(&out[idx * 192], points[idx]);
+            G2Point::serialize(&out[idx * 192], points[idx]);
         }
     }
 
@@ -553,7 +552,7 @@ namespace blst
         if (!out || !serialized || !errors) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            *errors = blst_p2_deserialize(*out, serialized);
+            *errors = G2AffinePoint::deserialize(*out, serialized);
             out++; serialized += 192; errors++;
         }
         return BATCHED_SUCCESS;
@@ -565,7 +564,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            errors[idx] = blst_p2_deserialize(out[idx], &serialized[idx * 192]);
+            errors[idx] = G2AffinePoint::deserialize(out[idx], &serialized[idx * 192]);
         }
     }
 
@@ -614,7 +613,7 @@ namespace blst
         if (!out || !points) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            blst_p2_compress(out, *points);
+            G2Point::compress(out, *points);
             out += 96; points++;
         }
         return BATCHED_SUCCESS;
@@ -626,7 +625,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_p2_compress(&out[idx * 96], points[idx]);
+            G2Point::compress(&out[idx * 96], points[idx]);
         }
     }
 
@@ -656,7 +655,7 @@ namespace blst
         if (!out || !compressed || !errors) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            *errors = blst_p2_uncompress(*out, compressed);
+            *errors = G2AffinePoint::uncompress(*out, compressed);
             out++; compressed += 96; errors++;
         }
         return BATCHED_SUCCESS;
@@ -668,7 +667,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            errors[idx] = blst_p2_uncompress(out[idx], &compressed[idx * 96]);
+            errors[idx] = G2AffinePoint::uncompress(out[idx], &compressed[idx * 96]);
         }
     }
 
@@ -774,12 +773,12 @@ namespace blst
         // Simple MSM: accumulate scalar multiplications
         for (size_t i = 0; i < num; i++) {
             G2Point temp;
-            blst_p2_mult(temp, points[i], &scalars[i * scalar_bytes], scalar_bits);
+            G2Point::mult(temp, points[i], &scalars[i * scalar_bytes], scalar_bits);
             if (i == 0) {
                 *result = temp;
             }
             else {
-                blst_p2_add_or_double(*result, *result, temp);
+                G2Point::dadd(*result, *result, temp);
             }
         }
 
@@ -814,7 +813,7 @@ namespace blst
         if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            blst_p2_add_affine(*out, *a, *b);
+            G2Point::add_affine(*out, *a, *b);
             out++; a++; b++;
         }
         return BATCHED_SUCCESS;
@@ -826,7 +825,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_p2_add_affine(out[idx], a[idx], b[idx]);
+            G2Point::add_affine(out[idx], a[idx], b[idx]);
         }
     }
 

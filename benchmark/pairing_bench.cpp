@@ -221,10 +221,10 @@ static void BM_CUDA_MillerFinal(benchmark::State& state) {
         byte scalar1[32], scalar2[32];
         generate_random_scalar(scalar1);
         generate_random_scalar(scalar2);
-        blst_p1_mult(g1, G1Point::generator(), scalar1, 256);
+        G1Point::mult(g1, G1Point::generator(), scalar1, 256);
         G2Point::mult(g2, G2Point::generator(), scalar2, 256);
-        blst_p1_to_affine(h_g1_points[i], g1);
-        blst_p2_to_affine(h_g2_points[i], g2);
+        G1Point::to_affine(h_g1_points[i], g1);
+        G2Point::to_affine(h_g2_points[i], g2);
     }
 
     // Allocate device memory

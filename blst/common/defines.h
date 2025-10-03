@@ -5,6 +5,7 @@
 
 // uint8_t, etc
 #include <stdint.h>
+#include <bit>
 
 #if !defined(BLST_restrict)
 # if !defined(__STDC_VERSION__) || __STDC_VERSION__<199901
@@ -139,6 +140,10 @@ namespace blst
 
     BLST_HD void vec_zero(void* ret, size_t num);
 
+    inline constexpr u64 log2ceil(u64 x)
+    {
+        return std::bit_width(x - 1);
+    }
 
 
     BLST_HD bool_t vec_is_equal(const void* a, const void* b, size_t num);

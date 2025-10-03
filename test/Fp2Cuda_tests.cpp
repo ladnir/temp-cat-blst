@@ -549,7 +549,7 @@ TEST_F(Fp2CudaTest, VectorConjugate) {
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        conjugate_fp2(cpu_result[i], h_a[i]);
+        Fp2::conjugate(cpu_result[i], h_a[i]);
     }
 
     // Allocate device memory
@@ -594,7 +594,7 @@ TEST_F(Fp2CudaTest, VectorInverse) {
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        reciprocal_fp2(cpu_result[i], h_a[i]);
+        Fp2::reciprocal(cpu_result[i], h_a[i]);
     }
 
     // Allocate device memory
@@ -640,7 +640,7 @@ TEST_F(Fp2CudaTest, VectorSqrt) {
     // CPU reference computation - compute expected square roots BEFORE GPU call
     bool all_sqrt_success = true;
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        bool sqrt_success = sqrt_fp2(cpu_result[i], h_a[i]);
+        bool sqrt_success = Fp2::sqrt(cpu_result[i], h_a[i]);
         if (!sqrt_success) {
             all_sqrt_success = false;
             printf("CPU square root failed at index %zu\n", i);
@@ -765,7 +765,7 @@ TEST_F(Fp2CudaTest, VectorMixedOperations) {
                     Fp2::add(temp_sum, h_a[i], h_b[i]);
                     Fp::mul_by_3(temp_mul3[0], temp_sum[0]);
                     Fp::mul_by_3(temp_mul3[1], temp_sum[1]);
-                    conjugate_fp2(cpu_result[i], temp_mul3);
+                    Fp2::conjugate(cpu_result[i], temp_mul3);
                 }
 
                 EXPECT_TRUE(compare_fp2_vectors(h_result.get(), cpu_result.get(), MIXED_SIZE, "mixed operations"));

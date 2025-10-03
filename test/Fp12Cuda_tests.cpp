@@ -46,7 +46,7 @@ protected:
 
     // Helper: Set Fp12 to one
     void set_fp12_one(Fp12& v) {
-        blst_fp12_one_copy(v);
+		v = Fp12::one();
     }
 
     // Helper: Set Fp12 to zero  
@@ -56,7 +56,7 @@ protected:
 
     // Helper: Compare two Fp12 for equality
     bool fp12_equal(const Fp12& a, const Fp12& b) {
-        return blst_fp12_is_equal(a, b);
+        return Fp12::equal(a, b);
     }
 
     // Helper: Print Fp12 for debugging (simplified)
@@ -64,7 +64,7 @@ protected:
         printf("Fp12(c0[0][0]: ");
         for (int i = NLIMBS(384) - 1; i >= 0; --i)
             printf("%016llx%s", (unsigned long long)v[0][0][0][i], i ? " " : "");
-        printf(", is_one: %s)\n", blst_fp12_is_one(v) ? "true" : "false");
+        printf(", is_one: %s)\n", Fp12::is_one(v) ? "true" : "false");
     }
 
     // Helper: Copy one Fp12 to another
@@ -185,7 +185,7 @@ TEST_F(Fp12CudaTest, VectorMul) {
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        blst_fp12_mul(cpu_result[i], h_a[i], h_b[i]);
+        Fp12::mul(cpu_result[i], h_a[i], h_b[i]);
     }
 
     // Allocate device memory
@@ -235,7 +235,7 @@ TEST_F(Fp12CudaTest, VectorSqr) {
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        blst_fp12_sqr(cpu_result[i], h_a[i]);
+        Fp12::sqr(cpu_result[i], h_a[i]);
     }
 
     // Allocate device memory
@@ -280,13 +280,13 @@ TEST_F(Fp12CudaTest, VectorCyclotomicSqr) {
         // Ensure element is in cyclotomic subgroup by conjugating and multiplying
         Fp12 temp;
         fp12_copy(temp, h_a[i]);
-        blst_fp12_conjugate(temp);
-        blst_fp12_mul(h_a[i], h_a[i], temp);
+        Fp12::conjugate(temp);
+        Fp12::mul(h_a[i], h_a[i], temp);
     }
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        blst_fp12_cyclotomic_sqr(cpu_result[i], h_a[i]);
+        Fp12::cyclotomic_sqr(cpu_result[i], h_a[i]);
     }
 
     // Allocate device memory
@@ -332,7 +332,7 @@ TEST_F(Fp12CudaTest, VectorInverse) {
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        blst_fp12_inverse(cpu_result[i], h_a[i]);
+        Fp12::inverse(cpu_result[i], h_a[i]);
     }
 
     // Allocate device memory
@@ -379,7 +379,7 @@ TEST_F(Fp12CudaTest, VectorConjugate) {
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
         fp12_copy(cpu_result[i], h_a[i]);
-        blst_fp12_conjugate(cpu_result[i]);
+        Fp12::conjugate(cpu_result[i]);
     }
 
     // Allocate device memory
@@ -426,7 +426,7 @@ TEST_F(Fp12CudaTest, VectorFrobeniusMap) {
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        blst_fp12_frobenius_map(cpu_result[i], h_a[i], power);
+        Fp12::frobenius_map(cpu_result[i], h_a[i], power);
     }
 
     // Allocate device memory
@@ -474,7 +474,7 @@ TEST_F(Fp12CudaTest, VectorEquality) {
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        cpu_result[i] = blst_fp12_is_equal(h_a[i], h_b[i]);
+        cpu_result[i] = Fp12::equal(h_a[i], h_b[i]);
     }
 
     // Allocate device memory
@@ -534,7 +534,7 @@ TEST_F(Fp12CudaTest, VectorIsOne) {
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        cpu_result[i] = blst_fp12_is_one(h_a[i]);
+        cpu_result[i] = Fp12::is_one(h_a[i]);
     }
 
     // Allocate device memory
@@ -592,8 +592,8 @@ TEST_F(Fp12CudaTest, VectorSerialization) {
 
     // CPU reference computation - serialize and deserialize
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        blst_bendian_from_fp12(&cpu_serialized[i * 12 * 48], h_a[i]);
-        blst_fp12_from_bendian(cpu_result[i], &cpu_serialized[i * 12 * 48]);
+        Fp12::to_bendian(&cpu_serialized[i * 12 * 48], h_a[i]);
+        Fp12::from_bendian(cpu_result[i], &cpu_serialized[i * 12 * 48]);
     }
 
     // Allocate device memory
@@ -674,8 +674,8 @@ TEST_F(Fp12CudaTest, VectorMixedOperations) {
             // Calculate expected results on host
             for (size_t i = 0; i < MIXED_SIZE; i++) {
                 Fp12 temp_mul;
-                blst_fp12_mul(temp_mul, h_a[i], h_b[i]);
-                blst_fp12_sqr(cpu_result[i], temp_mul);
+                Fp12::mul(temp_mul, h_a[i], h_b[i]);
+                Fp12::sqr(cpu_result[i], temp_mul);
             }
 
             EXPECT_TRUE(compare_fp12_vectors(h_result.get(), cpu_result.get(), MIXED_SIZE, "mixed operations"));
@@ -766,7 +766,7 @@ TEST_F(Fp12CudaTest, VectorPerformanceBaseline) {
 
     // CPU computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        blst_fp12_mul(cpu_result[i], h_a[i], h_b[i]);
+        Fp12::mul(cpu_result[i], h_a[i], h_b[i]);
     }
 
     // Allocate device memory

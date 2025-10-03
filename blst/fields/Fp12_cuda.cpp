@@ -16,7 +16,7 @@ namespace blst
     GLOBAL_FUNC void mul_fp12_kernel(Fp12* out, const Fp12* a, const Fp12* b, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_fp12_mul(out[idx], a[idx], b[idx]);
+            Fp12::mul(out[idx], a[idx], b[idx]);
         }
     }
 
@@ -24,7 +24,7 @@ namespace blst
     GLOBAL_FUNC void sqr_fp12_kernel(Fp12* out, const Fp12* a, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_fp12_sqr(out[idx], a[idx]);
+            Fp12::sqr(out[idx], a[idx]);
         }
     }
 
@@ -32,7 +32,7 @@ namespace blst
     GLOBAL_FUNC void cyclotomic_sqr_fp12_kernel(Fp12* out, const Fp12* a, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_fp12_cyclotomic_sqr(out[idx], a[idx]);
+            Fp12::cyclotomic_sqr(out[idx], a[idx]);
         }
     }
 
@@ -41,10 +41,10 @@ namespace blst
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
             // Copy input to output first, then conjugate in-place
-            for (int i = 0; i < sizeof(Fp12) / sizeof(limb); i++) {
-                ((limb*)out[idx].data)[i] = ((const limb*)a[idx].data)[i];
+            for (int i = 0; i < sizeof(Fp12) / sizeof(limb_t); i++) {
+                ((limb_t*)out[idx].data)[i] = ((const limb_t*)a[idx].data)[i];
             }
-            blst_fp12_conjugate(out[idx]);
+            Fp12::conjugate(out[idx]);
         }
     }
 
@@ -52,7 +52,7 @@ namespace blst
     GLOBAL_FUNC void inverse_fp12_kernel(Fp12* out, const Fp12* a, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_fp12_inverse(out[idx], a[idx]);
+            Fp12::inverse(out[idx], a[idx]);
         }
     }
 
@@ -60,7 +60,7 @@ namespace blst
     GLOBAL_FUNC void frobenius_map_fp12_kernel(Fp12* out, const Fp12* a, size_t power, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_fp12_frobenius_map(out[idx], a[idx], power);
+            Fp12::frobenius_map(out[idx], a[idx], power);
         }
     }
 
@@ -68,7 +68,7 @@ namespace blst
     GLOBAL_FUNC void is_equal_fp12_kernel(bool* out, const Fp12* a, const Fp12* b, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            out[idx] = blst_fp12_is_equal(a[idx], b[idx]);
+            out[idx] = Fp12::equal(a[idx], b[idx]);
         }
     }
 
@@ -76,7 +76,7 @@ namespace blst
     GLOBAL_FUNC void is_one_fp12_kernel(bool* out, const Fp12* a, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            out[idx] = blst_fp12_is_one(a[idx]);
+            out[idx] = Fp12::is_one(a[idx]);
         }
     }
 
@@ -84,7 +84,7 @@ namespace blst
     GLOBAL_FUNC void bendian_from_fp12_kernel(unsigned char* out, const Fp12* a, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_bendian_from_fp12(&out[idx * 12 * 48], a[idx]);
+            Fp12::to_bendian(&out[idx * 12 * 48], a[idx]);
         }
     }
 
@@ -92,7 +92,7 @@ namespace blst
     GLOBAL_FUNC void fp12_from_bendian_kernel(Fp12* out, const unsigned char* in, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_fp12_from_bendian(out[idx], &in[idx * 12 * 48]);
+            Fp12::from_bendian(out[idx], &in[idx * 12 * 48]);
         }
     }
 
@@ -100,7 +100,7 @@ namespace blst
     GLOBAL_FUNC void mul_by_xy00z0_fp12_kernel(Fp12* out, const Fp12* a, const Fp6* xy00z0, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            blst_fp12_mul_by_xy00z0(out[idx], a[idx], xy00z0[idx]);
+            Fp12::mul_by_xy00z0(out[idx], a[idx], xy00z0[idx]);
         }
     }
 
@@ -111,7 +111,7 @@ namespace blst
         if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
         for (size_t i = 0; i < num; i++) {
-            blst_fp12_mul(out[i], a[i], b[i]);
+            Fp12::mul(out[i], a[i], b[i]);
         }
         return BATCHED_SUCCESS;
     }
@@ -120,7 +120,7 @@ namespace blst
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         for (size_t i = 0; i < num; i++) {
-            blst_fp12_sqr(out[i], a[i]);
+            Fp12::sqr(out[i], a[i]);
         }
         return BATCHED_SUCCESS;
     }
@@ -129,7 +129,7 @@ namespace blst
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         for (size_t i = 0; i < num; i++) {
-            blst_fp12_cyclotomic_sqr(out[i], a[i]);
+            Fp12::cyclotomic_sqr(out[i], a[i]);
         }
         return BATCHED_SUCCESS;
     }
@@ -139,7 +139,7 @@ namespace blst
 
         for (size_t i = 0; i < num; i++) {
             memcpy(&out[i], &a[i], sizeof(Fp12));
-            blst_fp12_conjugate(out[i]);
+            Fp12::conjugate(out[i]);
         }
         return BATCHED_SUCCESS;
     }
@@ -148,7 +148,7 @@ namespace blst
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         for (size_t i = 0; i < num; i++) {
-            blst_fp12_inverse(out[i], a[i]);
+            Fp12::inverse(out[i], a[i]);
         }
         return BATCHED_SUCCESS;
     }
@@ -157,7 +157,7 @@ namespace blst
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         for (size_t i = 0; i < num; i++) {
-            blst_fp12_frobenius_map(out[i], a[i], power);
+            Fp12::frobenius_map(out[i], a[i], power);
         }
         return BATCHED_SUCCESS;
     }
@@ -166,7 +166,7 @@ namespace blst
         if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
         for (size_t i = 0; i < num; i++) {
-            out[i] = blst_fp12_is_equal(a[i], b[i]);
+            out[i] = Fp12::equal(a[i], b[i]);
         }
         return BATCHED_SUCCESS;
     }
@@ -175,7 +175,7 @@ namespace blst
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         for (size_t i = 0; i < num; i++) {
-            out[i] = blst_fp12_is_one(a[i]);
+            out[i] = Fp12::is_one(a[i]);
         }
         return BATCHED_SUCCESS;
     }
@@ -184,7 +184,7 @@ namespace blst
         if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
         for (size_t i = 0; i < num; i++) {
-            blst_bendian_from_fp12(&out[i * 12 * 48], a[i]);
+            Fp12::to_bendian(&out[i * 12 * 48], a[i]);
         }
         return BATCHED_SUCCESS;
     }
@@ -193,7 +193,7 @@ namespace blst
         if (!out || !in) return BATCHED_ERROR_NULL_POINTER;
 
         for (size_t i = 0; i < num; i++) {
-            blst_fp12_from_bendian(out[i], &in[i * 12 * 48]);
+            Fp12::from_bendian(out[i], &in[i * 12 * 48]);
         }
         return BATCHED_SUCCESS;
     }
@@ -202,7 +202,7 @@ namespace blst
         if (!out || !a || !xy00z0) return BATCHED_ERROR_NULL_POINTER;
 
         for (size_t i = 0; i < num; i++) {
-            blst_fp12_mul_by_xy00z0(out[i], a[i], xy00z0[i]);
+            Fp12::mul_by_xy00z0(out[i], a[i], xy00z0[i]);
         }
         return BATCHED_SUCCESS;
     }

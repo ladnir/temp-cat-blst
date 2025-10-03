@@ -231,7 +231,7 @@ namespace blst
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
 		while (num--) {
-			mul_by_3_fp2(*out, *a);
+			Fp2::mul_by_3(*out, *a);
 			out++; a++;
 		}
 		return BATCHED_SUCCESS;
@@ -243,7 +243,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			mul_by_3_fp2(out[idx], a[idx]);
+			Fp2::mul_by_3(out[idx], a[idx]);
 		}
 	}
 
@@ -273,7 +273,7 @@ namespace blst
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
 		while (num--) {
-			mul_by_8_fp2(*out, *a);
+			Fp2::mul_by_8(*out, *a);
 			out++; a++;
 		}
 		return BATCHED_SUCCESS;
@@ -285,7 +285,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			mul_by_8_fp2(out[idx], a[idx]);
+			Fp2::mul_by_8(out[idx], a[idx]);
 		}
 	}
 
@@ -315,7 +315,7 @@ namespace blst
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
 		while (num--) {
-			lshift_fp2(*out, *a, count);
+			Fp2::lshift(*out, *a, count);
 			out++; a++;
 		}
 		return BATCHED_SUCCESS;
@@ -327,7 +327,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			lshift_fp2(out[idx], a[idx], count);
+			Fp2::lshift(out[idx], a[idx], count);
 		}
 	}
 
@@ -357,7 +357,7 @@ namespace blst
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
 		while (num--) {
-			conjugate_fp2(*out, *a);
+			Fp2::conjugate(*out, *a);
 			out++; a++;
 		}
 		return BATCHED_SUCCESS;
@@ -369,7 +369,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			conjugate_fp2(out[idx], a[idx]);
+			Fp2::conjugate(out[idx], a[idx]);
 		}
 	}
 
@@ -399,7 +399,7 @@ namespace blst
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
 		while (num--) {
-			reciprocal_fp2(*out, *a);
+			Fp2::reciprocal(*out, *a);
 			out++; a++;
 		}
 		return BATCHED_SUCCESS;
@@ -411,7 +411,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			reciprocal_fp2(out[idx], a[idx]);
+			Fp2::reciprocal(out[idx], a[idx]);
 		}
 	}
 
@@ -440,7 +440,7 @@ namespace blst
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
 		while (num--) {
-			sqrt_fp2(*out, *a);
+			Fp2::sqrt(*out, *a);
 			out++; a++;
 		}
 		return BATCHED_SUCCESS;
@@ -452,7 +452,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			sqrt_fp2(out[idx], a[idx]);
+			Fp2::sqrt(out[idx], a[idx]);
 		}
 	}
 

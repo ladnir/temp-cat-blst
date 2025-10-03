@@ -7,8 +7,7 @@
 #include <iostream>
 #include "config.h"
 #include "blst/curve/G1_cuda.h"
-#include "blst/curve/e1.h"
-#include "blst/curve/map_to_g1.h"
+#include "blst/curve/map_to_G.h"
 #include "InsecureRng.h"
 using namespace blst;
 
@@ -23,12 +22,12 @@ using namespace blst;
 
 // Helper function to create test points on host
 void create_test_points(G1Point* points, size_t num, InsecureRng& rng) {
-    G1Point generator = blst_p1_generator();
+    G1Point generator = G1Point::generator();
     unsigned char scalar[32] = { 0 };
 
     for (size_t i = 0; i < num; i++) {
         scalar[0] = rng.uniform_u64();
-        blst_p1_mult(points[i], generator, scalar, 8);
+        G1Point::mult(points[i], generator, scalar, 8);
     }
 }
 
@@ -52,11 +51,11 @@ bool compare_results(const T* cuda_results, const T* cpu_results, size_t num,
 
 // Equality functions for different types
 bool point_equal(const G1Point& a, const G1Point& b) {
-    return blst_p1_is_equal(a, b);
+    return G1Point::equal(a, b);
 }
 
 bool affine_equal(const G1AffinePoint& a, const G1AffinePoint& b) {
-    return blst_p1_affine_is_equal(a, b);
+    return G1AffinePoint::equal(a, b);
 }
 
 bool error_equal(const BLST_ERROR& a, const BLST_ERROR& b) {
@@ -117,7 +116,7 @@ TEST(G1OpsCUDA, PointAddition) {
 
     // CPU computation
     for (size_t i = 0; i < num_points; i++) {
-        blst_p1_add(h_cpu_result[i], h_a[i], h_b[i]);
+        G1Point::add(h_cpu_result[i], h_a[i], h_b[i]);
     }
 
     // CUDA computation
@@ -158,7 +157,7 @@ TEST(G1OpsCUDA, PointDoubling) {
 
     // CPU computation
     for (size_t i = 0; i < num_points; i++) {
-        blst_p1_double(h_cpu_result[i], h_points[i]);
+        G1Point::doubling(h_cpu_result[i], h_points[i]);
     }
 
     // CUDA computation
@@ -201,7 +200,7 @@ TEST(G1OpsCUDA, PointNegation) {
     // CPU computation
     for (size_t i = 0; i < num_points; i++) {
         h_cpu_result[i] = h_points[i];
-        blst_p1_cneg(h_cpu_result[i], flags[i]);
+        G1Point::cneg(h_cpu_result[i], flags[i]);
     }
 
     // CUDA computation
@@ -252,7 +251,7 @@ TEST(G1OpsCUDA, ScalarMultiplication) {
 
     // CPU computation
     for (size_t i = 0; i < num_points; i++) {
-        blst_p1_mult(h_cpu_result[i],h_points[i], &h_scalars[i * scalar_bytes], scalar_bits);
+        G1Point::mult(h_cpu_result[i],h_points[i], &h_scalars[i * scalar_bytes], scalar_bits);
     }
 
     // CUDA computation
@@ -301,7 +300,7 @@ TEST(G1OpsCUDA, CurveMembership) {
 
     // CPU computation
     for (size_t i = 0; i < num_points; i++) {
-        h_cpu_results[i] = blst_p1_on_curve(h_points[i]);
+        h_cpu_results[i] = G1Point::on_curve(h_points[i]);
     }
 
     // CUDA computation
@@ -345,8 +344,8 @@ TEST(G1OpsCUDA, Serialization) {
 
     // CPU computation
     for (size_t i = 0; i < num_points; i++) {
-        blst_p1_serialize(&h_serialized[i * 96], h_points[i]);
-        h_errors_exp[i] = blst_p1_deserialize(h_cpu_affine[i], &h_serialized[i * 96]);
+        G1Point::serialize(&h_serialized[i * 96], h_points[i]);
+        h_errors_exp[i] = G1AffinePoint::deserialize(h_cpu_affine[i], &h_serialized[i * 96]);
         EXPECT_EQ(h_errors_exp[i], BLST_SUCCESS);
     }
 
@@ -397,13 +396,13 @@ TEST(G1OpsCUDA, Compression) {
     InsecureRng rng;
     create_test_points(h_points, num_points, rng);
     for (size_t i = 0; i < num_points; i++) {
-        blst_p1_to_affine(h_points_affine[i], h_points[i]);
+        G1Point::to_affine(h_points_affine[i], h_points[i]);
     }
 
     // CPU computation
     for (size_t i = 0; i < num_points; i++) {
-        blst_p1_affine_compress(&h_compressed[i * 48], h_points_affine[i]);
-        h_errors_exp[i] = blst_p1_uncompress(h_cpu_result[i], &h_compressed[i * 48]);
+        G1AffinePoint::compress(&h_compressed[i * 48], h_points_affine[i]);
+        h_errors_exp[i] = G1AffinePoint::uncompress(h_cpu_result[i], &h_compressed[i * 48]);
         EXPECT_EQ(h_errors_exp[i], BLST_SUCCESS);
     }
 
@@ -453,12 +452,12 @@ TEST(G1OpsCUDA, CoordinateConversion) {
 
     // CPU computation - Jacobian to affine
     for (size_t i = 0; i < num_points; i++) {
-        blst_p1_to_affine(h_cpu_affine[i], h_points[i]);
+        G1Point::to_affine(h_cpu_affine[i], h_points[i]);
     }
 
     // CPU computation - affine back to Jacobian
     for (size_t i = 0; i < num_points; i++) {
-        blst_p1_from_affine(h_cpu_jacobian[i], h_cpu_affine[i]);
+        G1Point::from_affine(h_cpu_jacobian[i], h_cpu_affine[i]);
     }
 
     // CUDA computation
@@ -643,7 +642,7 @@ TEST(G1OpsCUDA, BatchProcessing) {
 
     // CPU computation
     for (size_t i = 0; i < batch_size; i++) {
-        blst_p1_double(h_cpu_result[i], h_points[i]);
+        G1Point::doubling(h_cpu_result[i], h_points[i]);
     }
 
     // CUDA computation

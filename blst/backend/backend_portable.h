@@ -176,7 +176,7 @@ namespace blst
 
 	// wide subtraction *ret = a - b
 	// with limb_t a and b
-	BLST_HD BLST_FORCEINLINE void  cc_sub_wide_limb_limb(wide_limb_t* ret, const  limb_t& a, const  limb_t_t& b)
+	BLST_HD BLST_FORCEINLINE void  cc_sub_wide_limb_limb(wide_limb_t* ret, const  limb_t& a, const  limb_t& b)
 	{
 		limb_t _aa = (limb_t)(a);
 		limb_t _bb = (limb_t)(b);
@@ -1591,7 +1591,7 @@ namespace blst
 	BLST_HD BLST_INLINE limb_t cc_div_3_limbs(const limb_t div_top[2], limb_t d_lo, limb_t d_hi)
 	{
 		wide_limb_t Rx;
-		//llimb_t_t Rx;
+		//llimb_t Rx;
 		limb_t r_lo = div_top[0], r_hi = div_top[1];
 		limb_t Q = 0, mask, borrow, rx;
 		size_t i;

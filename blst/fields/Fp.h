@@ -500,8 +500,7 @@ namespace blst
 			TO_BYTES(0xd9cc34a83dac3d89), TO_BYTES(0xd91dd2e13ce144af),
 			TO_BYTES(0x92c6e9ed90d2eb35), TO_BYTES(0x0680447a8e5ff9a6)
 		};
-
-		exp_mont_384(out, inp, BLS_12_381_P_minus_3_div_4, 379);
+		Fp::exp(out, inp, BLS_12_381_P_minus_3_div_4, 379);
 #else
 		add_chain_recip_sqrt<Fp>(out, inp);
 #endif
@@ -564,7 +563,7 @@ namespace blst
 			TO_BYTES(0x4b1ba7b6434bacd7), TO_BYTES(0x1a0111ea397fe69a)
 		};
 
-		exp_mont_384(out, inp, BLS12_381_P_minus_2, 381);
+		Fp::exp(out, inp, BLS12_381_P_minus_2, 381);
 #else
 		// use a unrolled addition chain
 		RECIPROCAL_MOD_BLS12_381_P<Fp>(out, inp);

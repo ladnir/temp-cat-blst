@@ -28,7 +28,7 @@ namespace blst
 		if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
 		while (num--) {
-			blst_fp12_mul(*out, *a, *b);
+			Fp12::mul(*out, *a, *b);
 			out++; a++; b++;
 		}
 		return BATCHED_SUCCESS;
@@ -40,7 +40,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			blst_fp12_mul(out[idx], a[idx], b[idx]);
+			Fp12::mul(out[idx], a[idx], b[idx]);
 		}
 	}
 
@@ -70,7 +70,7 @@ namespace blst
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
 		while (num--) {
-			blst_fp12_sqr(*out, *a);
+			Fp12::sqr(*out, *a);
 			out++; a++;
 		}
 		return BATCHED_SUCCESS;
@@ -82,7 +82,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			blst_fp12_sqr(out[idx], a[idx]);
+			Fp12::sqr(out[idx], a[idx]);
 		}
 	}
 
@@ -112,7 +112,7 @@ namespace blst
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
 		while (num--) {
-			blst_fp12_cyclotomic_sqr(*out, *a);
+			Fp12::cyclotomic_sqr(*out, *a);
 			out++; a++;
 		}
 		return BATCHED_SUCCESS;
@@ -124,7 +124,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			blst_fp12_cyclotomic_sqr(out[idx], a[idx]);
+			Fp12::cyclotomic_sqr(out[idx], a[idx]);
 		}
 	}
 
@@ -154,7 +154,7 @@ namespace blst
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
 		while (num--) {
-			blst_fp12_inverse(*out, *a);
+			Fp12::inverse(*out, *a);
 			out++; a++;
 		}
 		return BATCHED_SUCCESS;
@@ -166,7 +166,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			blst_fp12_inverse(out[idx], a[idx]);
+			Fp12::inverse(out[idx], a[idx]);
 		}
 	}
 
@@ -197,7 +197,7 @@ namespace blst
 
 		while (num--) {
 			vec_copy(out, a, sizeof(Fp12));
-			blst_fp12_conjugate(*out);
+			Fp12::conjugate(*out);
 			out++; a++;
 		}
 		return BATCHED_SUCCESS;
@@ -210,7 +210,7 @@ namespace blst
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
 			vec_copy(&out[idx], &a[idx], sizeof(Fp12));
-			blst_fp12_conjugate(out[idx]);
+			Fp12::conjugate(out[idx]);
 		}
 	}
 
@@ -243,7 +243,7 @@ namespace blst
 		const size_t exp_bytes = (exp_bits + 7) / 8;
 
 		while (num--) {
-			blst_fp12_pow(*out, *bases, (limb*)exponents, exp_bits);
+			Fp12::exp(*out, *bases, (limb_t*)exponents, exp_bits);
 			out++; bases++; exponents += exp_bytes;
 		}
 		return BATCHED_SUCCESS;
@@ -257,7 +257,7 @@ namespace blst
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
 			const size_t exp_bytes = (exp_bits + 7) / 8;
-			blst_fp12_pow(out[idx], bases[idx], (limb*)&exponents[idx * exp_bytes], exp_bits);
+			Fp12::exp(out[idx], bases[idx], (limb_t*)&exponents[idx * exp_bytes], exp_bits);
 		}
 	}
 
@@ -292,7 +292,7 @@ namespace blst
 		if (!results || !elements) return BATCHED_ERROR_NULL_POINTER;
 
 		while (num--) {
-			*results = blst_fp12_is_one(*elements);
+			*results = Fp12::is_one(*elements);
 			results++; elements++;
 		}
 		return BATCHED_SUCCESS;
@@ -304,7 +304,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			results[idx] = blst_fp12_is_one(elements[idx]);
+			results[idx] = Fp12::is_one(elements[idx]);
 		}
 	}
 
@@ -334,7 +334,7 @@ namespace blst
 		if (!results || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
 		while (num--) {
-			*results = blst_fp12_is_equal(*a, *b);
+			*results = Fp12::equal(*a, *b);
 			results++; a++; b++;
 		}
 		return BATCHED_SUCCESS;
@@ -346,7 +346,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			results[idx] = blst_fp12_is_equal(a[idx], b[idx]);
+			results[idx] = Fp12::equal(a[idx], b[idx]);
 		}
 	}
 
@@ -376,7 +376,7 @@ namespace blst
 		if (!results || !elements) return BATCHED_ERROR_NULL_POINTER;
 
 		while (num--) {
-			*results = blst_fp12_in_group(*elements);
+			*results = Fp12::in_group(*elements);
 			results++; elements++;
 		}
 		return BATCHED_SUCCESS;
@@ -388,7 +388,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			results[idx] = blst_fp12_in_group(elements[idx]);
+			results[idx] = Fp12::in_group(elements[idx]);
 		}
 	}
 
@@ -467,7 +467,7 @@ namespace blst
 		if (!out || !miller_results) return BATCHED_ERROR_NULL_POINTER;
 
 		while (num--) {
-			blst_final_exp(*out, *miller_results);
+			Fp12::final_exp(*out, *miller_results);
 			out++; miller_results++;
 		}
 		return BATCHED_SUCCESS;
@@ -479,7 +479,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			blst_final_exp(out[idx], miller_results[idx]);
+			Fp12::final_exp(out[idx], miller_results[idx]);
 		}
 	}
 
@@ -511,7 +511,7 @@ namespace blst
 
 		while (num--) {
 			blst_miller_loop(*out, g2_points, g1_points);
-			blst_final_exp(*out, *out);
+			Fp12::final_exp(*out, *out);
 			out++; g2_points++; g1_points++;
 		}
 		return BATCHED_SUCCESS;
@@ -525,7 +525,7 @@ namespace blst
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
 			blst_miller_loop(out[idx], &g2_points[idx], &g1_points[idx]);
-			blst_final_exp(out[idx], out[idx]);
+			Fp12::final_exp(out[idx], out[idx]);
 		}
 	}
 
@@ -560,7 +560,7 @@ namespace blst
 		if (!out || !elements) return BATCHED_ERROR_NULL_POINTER;
 
 		while (num--) {
-			blst_bendian_from_fp12(out, *elements);
+			Fp12::to_bendian(out, *elements);
 			out += 576; elements++; // 12 * 48 bytes per Fp12 element
 		}
 		return BATCHED_SUCCESS;
@@ -572,7 +572,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			blst_bendian_from_fp12(&out[idx * 576], elements[idx]);
+			Fp12::to_bendian(&out[idx * 576], elements[idx]);
 		}
 	}
 
@@ -602,7 +602,7 @@ namespace blst
 		if (!out || !serialized) return BATCHED_ERROR_NULL_POINTER;
 
 		while (num--) {
-			blst_fp12_from_bendian(*out, serialized);
+			Fp12::from_bendian(*out, serialized);
 			out++; serialized += 576;
 		}
 		return BATCHED_SUCCESS;
@@ -614,7 +614,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			blst_fp12_from_bendian(out[idx], &serialized[idx * 576]);
+			Fp12::from_bendian(out[idx], &serialized[idx * 576]);
 		}
 	}
 
@@ -649,7 +649,7 @@ namespace blst
 //		if (!result || !bases || !exponents) return BATCHED_ERROR_NULL_POINTER;
 //
 //		// result = 1
-//		blst_fp12_one_copy(*result);
+//		Fp12::one_copy(*result);
 //
 //		const size_t exp_bytes = (exp_bits + 7) / 8;
 //
@@ -658,14 +658,14 @@ namespace blst
 //			Fp12 temp;
 //
 //			// temp = bases[i] ^ exponents[i]
-//			blst_fp12_pow(temp, bases[i], (limb*)&exponents[i * exp_bytes], exp_bits);
+//			Fp12::pow(temp, bases[i], (limb_t*)&exponents[i * exp_bytes], exp_bits);
 //
 //			// result *= temp
 //			if (i == 0) {
 //				vec_copy(*result, temp, sizeof(temp));
 //			}
 //			else {
-//				blst_fp12_mul(*result, *result, temp);
+//				Fp12::mul(*result, *result, temp);
 //			}
 //		}
 //
@@ -744,7 +744,7 @@ namespace blst
 //		for (int off = 16; off > 0; off >>= 1) {
 //			Fp12 tmp;                    // one 576B buffer reused per step
 //			shfl_down_fp12(tmp, acc, off, mask);
-//			blst_fp12_mul(acc, acc, tmp);
+//			Fp12::mul(acc, acc, tmp);
 //		}
 //	}
 //
@@ -769,22 +769,22 @@ namespace blst
 //	static_assert(sizeof(fp12_padded) == kFP12 + kPadBytes, "unexpected fp12_padded size");
 //	static_assert(((sizeof(fp12_padded) / 4) % 32) == 1, "bad shared-mem stride (bank conflicts)");
 //
-//	// Pack exponent bytes (LE) into 64b limbs (<= 1024 bits here; bump if needed)
-//	template<int MaxLimbs = 16>
-//	__device__ __forceinline__ int load_exp_le(uint64_t(&dst)[MaxLimbs], const uint8_t* src, size_t exp_bits) {
+//	// Pack exponent bytes (LE) into 64b limb_ts (<= 1024 bits here; bump if needed)
+//	template<int Maxlimb_ts = 16>
+//	__device__ __forceinline__ int load_exp_le(uint64_t(&dst)[Maxlimb_ts], const uint8_t* src, size_t exp_bits) {
 //		const size_t exp_bytes = (exp_bits + 7u) / 8u;
-//		const int limb_cnt = (int)((exp_bits + 63u) / 64u);
+//		const int limb_t_cnt = (int)((exp_bits + 63u) / 64u);
 //#pragma unroll
-//		for (int i = 0; i < MaxLimbs; ++i) dst[i] = 0ull;
+//		for (int i = 0; i < Maxlimb_ts; ++i) dst[i] = 0ull;
 //		int i = 0;
-//		for (; i + 8 <= (int)exp_bytes && (i / 8) < MaxLimbs; i += 8) { uint64_t v; memcpy(&v, src + i, 8); dst[i / 8] = v; }
-//		if (i < (int)exp_bytes && (i / 8) < MaxLimbs) {
+//		for (; i + 8 <= (int)exp_bytes && (i / 8) < Maxlimb_ts; i += 8) { uint64_t v; memcpy(&v, src + i, 8); dst[i / 8] = v; }
+//		if (i < (int)exp_bytes && (i / 8) < Maxlimb_ts) {
 //			uint64_t v = 0; int tail = (int)exp_bytes - i; uint8_t* pv = (uint8_t*)&v;
 //#pragma unroll
 //			for (int b = 0; b < tail; ++b) pv[b] = src[i + b];
 //			dst[i / 8] = v;
 //		}
-//		return limb_cnt;
+//		return limb_t_cnt;
 //	}
 //
 //	// ---------- KERNELS (NO DYNAMIC SMEM) ----------
@@ -806,12 +806,12 @@ namespace blst
 //
 //		Fp12 acc;
 //		if (idx < num) {
-//			uint64_t limbs[16];
-//			(void)load_exp_le(limbs, exponents + idx * exp_bytes, exp_bits);
-//			blst_fp12_pow(acc, bases[idx], (const limb*)limbs, exp_bits);
+//			uint64_t limb_ts[16];
+//			(void)load_exp_le(limb_ts, exponents + idx * exp_bytes, exp_bits);
+//			Fp12::pow(acc, bases[idx], (const limb_t*)limb_ts, exp_bits);
 //		}
 //		else {
-//			blst_fp12_one_copy(acc);
+//			Fp12::one_copy(acc);
 //		}
 //
 //		warp_reduce_mul(acc);
@@ -824,7 +824,7 @@ namespace blst
 //		__syncthreads();
 //
 //		if (wid == 0) {
-//			Fp12 r; blst_fp12_one_copy(r);
+//			Fp12 r; Fp12::one_copy(r);
 //			if (lane < warps_per_block)
 //			{
 //				//r = warp_buf[lane].v;
@@ -850,11 +850,11 @@ namespace blst
 //		const int wid = tid >> 5;
 //		const int warps_per_block = (blockDim.x + 31) / 32;
 //
-//		Fp12 acc; blst_fp12_one_copy(acc);
+//		Fp12 acc; Fp12::one_copy(acc);
 //		for (size_t i = tid; i < n; i += blockDim.x) {
 //			Fp12 v /*= in[i]*/;
 //			vec_copy(v, in[i], sizeof(v));
-//			blst_fp12_mul(acc, acc, v);
+//			Fp12::mul(acc, acc, v);
 //		}
 //
 //		warp_reduce_mul(acc);
@@ -866,7 +866,7 @@ namespace blst
 //		__syncthreads();
 //
 //		if (wid == 0) {
-//			Fp12 r; blst_fp12_one_copy(r);
+//			Fp12 r; Fp12::one_copy(r);
 //			if (lane < warps_per_block) {
 //				// r = warp_buf[lane].v;
 //				memcpy(r, warp_buf[lane].bytes, sizeof(r));
@@ -900,7 +900,7 @@ namespace blst
 //		return BATCHED_SUCCESS;
 //		//// Trivial cases
 //		//if (num == 0) {
-//		//	Fp12 one; blst_fp12_one_copy(one);
+//		//	Fp12 one; Fp12::one_copy(one);
 //		//	CUDA_OK(cudaMemcpy(result, &one, sizeof(one), cudaMemcpyHostToDevice));
 //		//	return BATCHED_SUCCESS;
 //		//}
@@ -1043,8 +1043,8 @@ namespace blst
 		while (num--) {
 			Fp12 computed;
 			blst_miller_loop(computed, g2_points, g1_points);
-			blst_final_exp(computed, computed);
-			*results = blst_fp12_is_equal(computed, *target_values);
+			Fp12::final_exp(computed, computed);
+			*results = Fp12::equal(computed, *target_values);
 			results++; g2_points++; g1_points++; target_values++;
 		}
 		return BATCHED_SUCCESS;
@@ -1062,8 +1062,8 @@ namespace blst
 		if (idx < num) {
 			Fp12 computed;
 			blst_miller_loop(computed, &g2_points[idx], &g1_points[idx]);
-			blst_final_exp(computed, computed);
-			results[idx] = blst_fp12_is_equal(computed, target_values[idx]);
+			Fp12::final_exp(computed, computed);
+			results[idx] = Fp12::equal(computed, target_values[idx]);
 		}
 	}
 
