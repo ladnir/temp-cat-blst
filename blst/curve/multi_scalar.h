@@ -7,11 +7,22 @@
 #include "blst/fields/Fp.h"
 #include "blst/fields/Fp2.h"
 #include "blst/curve/point.h"
+#include "blst/curve/bulk_addition.h"
 
-
+#ifdef __CUDACC__
+#include <cuda/std/span>
+#else
+#include  <span>
+#endif
 namespace blst
 {
-
+#ifdef __CUDACC__
+	template<typename T>
+	using span = cuda::std::span<T>;
+#else
+	template<typename T>
+	using span = std::span<T>;
+#endif
 
 	namespace detail
 	{
@@ -417,9 +428,9 @@ template<typename Field>
 		const AffinePoint<Field>& point)
 	{
 		size_t i, j, n = (size_t)1 << (wbits - 1);
-		bool_t inf = vec_is_zero(point, sizeof(*point));
+		bool_t inf = vec_is_zero(&point, sizeof(point));
 		/* row[-1] is implicit infinity */
-		vec_copy(&row[0], point, sizeof(*point));           /* row[0]=p*1     */
+		vec_copy(&row[0], &point, sizeof(point));           /* row[0]=p*1     */
 		vec_copy(&row[0].Z, &Field::one(), sizeof(row[0].Z));
 		Point<Field>::doubling(row[1], row[0]);                  /* row[1]=p*(1+1) */
 		vec_select(&row[1].Z, &Field::one(), &row[1].Z, sizeof(row[1].Z), inf);
@@ -494,7 +505,7 @@ template<typename Field>
 			rows = row = (Point<Field>*)(&table[top]);
 			for (i = 0; i < stride; i++, row += nwin)
 				point = *points ? *points++ : point + 1,
-				point_precompute_row_wbits<Field>(row, wbits, point);
+				point_precompute_row_wbits<Field>(row, wbits, *point);
 			points_to_affine_row_wbits<Field>(&table[top], rows, wbits, stride);
 			top += stride << (wbits - 1);
 			npoints -= stride;
@@ -503,7 +514,7 @@ template<typename Field>
 		for (i = 0; i < npoints; i++, row += nwin)
 		{
 			point = *points ? *points++ : point + 1;
-			point_precompute_row_wbits<Field>(row, wbits, point);
+			point_precompute_row_wbits<Field>(row, wbits, *point);
 		}
 		points_to_affine_row_wbits<Field>(&table[top], rows, wbits, npoints);
 	}
@@ -530,7 +541,7 @@ template<typename Field>
 	// affine entry from a row, applies sign, or infinity if zero.
 	template<typename Field>
 	void point_gather_booth_wbits(
-		Point<Field>* p,
+		Point<Field>& p,
 		const AffinePoint<Field> row[],
 		size_t wbits, limb_t booth_encoding)
 	{
@@ -541,7 +552,7 @@ template<typename Field>
 		auto booth_idx = booth_encoding & ((limb_t)1 << wbits) - 1;
 		idx_is_zero = is_zero(booth_idx);
 		booth_idx -= 1 ^ idx_is_zero;
-		vec_select(p, &infinity, &row[booth_idx], sizeof(row[0]), idx_is_zero);
+		vec_select(&p, &infinity, &row[booth_idx], sizeof(row[0]), idx_is_zero);
 		Point<Field>::cneg(p, booth_sign);
 	}
 
@@ -552,27 +563,46 @@ template<typename Field>
 	// 
 	// best when npoints is in the few hundreds or less and table
 	// is reused multiple times; also faster than Pippenger for up to ~32
+	//
+	// @ret the resulting point
+	// @table precomputed matrix of npoints by (1 << (wbits-1))  points. 
+	//   The ith contigous row of (1 << (wbits-1) points are the precomputed
+	//   for the ith point. Obtained via msm_precompute_wbits() above.
+	// @wbits window size in bits (between 2 and 14)
+	// @npoints number of points (and scalars)
+	// @scalars array of npoints pointers to scalars, each scalar is
+	//   represented in byte array of length (nbits+7)/8.
+	// @nbits number of bits in each scalar
+	// @scratch scratch space for staging gathers before accumulation;
+	//   suggested size is min(npoints, SCRATCH_SZ(Point<Field>)).
 	template<typename Field>
 	void msm_mult_table(
 		Point<Field>& ret, 
-		const AffinePoint<Field> table[],
+		span<const AffinePoint<Field>> table,
 		size_t wbits,
 		size_t npoints,
 		const byte* const scalars[], 
 		size_t nbits,
-		Point<Field> scratch[])
+		span<Point<Field>> scratch)
 	{
 		limb_t wmask, wval;
 		size_t i, j, z, nbytes, window, nwin = (size_t)1 << (wbits - 1);
 		const byte* scalar, * const* scalar_s = scalars;
-		const AffinePoint<Field>* row = table;
 
-		size_t scratch_sz = SCRATCH_SZ(Point<Field>);
-		if (scratch == NULL) {
-			scratch_sz /= 4; /* limit to 288K */
-			scratch_sz = scratch_sz < npoints ? scratch_sz : npoints;
-			scratch = (Point<Field>*)alloca(sizeof(Point<Field>) * scratch_sz);
+		if (table.size() != npoints * nwin)
+		{
+			ret = Point<Field>::infinity();
+			return; // or error
 		}
+		const AffinePoint<Field>* row = table.data();
+
+		size_t scratch_sz = scratch.size();
+		//size_t scratch_sz = SCRATCH_SZ(Point<Field>);
+		//if (scratch == NULL) {
+		//	scratch_sz /= 4; /* limit to 288K */
+		//	scratch_sz = scratch_sz < npoints ? scratch_sz : npoints;
+		//	scratch = (Point<Field>*)alloca(sizeof(Point<Field>) * scratch_sz);
+		//}
 
 		nbytes = (nbits + 7) / 8; /* convert |nbits| to bytes */
 		scalar = *scalar_s++;
@@ -585,20 +615,20 @@ template<typename Field>
 		z = is_zero(nbits);
 		wval = (get_wval_limb(scalar, nbits - (z ^ 1), window + (z ^ 1)) << z) & wmask;
 		wval = booth_encode(wval, wbits);
-		point_gather_booth_wbits<Field>(&scratch[0], row, wbits, wval);
+		point_gather_booth_wbits<Field>(scratch[0], row, wbits, wval);
 		row += nwin;
 
-		i = 1; vec_zero(&ret, sizeof(*ret));
+		i = 1; vec_zero(&ret, sizeof(ret));
 		while (nbits > 0) {
 			for (j = i; i < npoints; i++, j++, row += nwin) {
 				if (j == scratch_sz)
-					points_accumulate<Field>(ret, scratch, j), j = 0;
+					points_accumulate<Field>(ret, scratch.data(), j), j = 0;
 				scalar = *scalar_s ? *scalar_s++ : scalar + nbytes;
 				wval = get_wval_limb(scalar, nbits - 1, window + 1) & wmask;
 				wval = booth_encode(wval, wbits);
-				point_gather_booth_wbits<Field>(&scratch[j], row, wbits, wval);
+				point_gather_booth_wbits<Field>(scratch[j], row, wbits, wval);
 			}
-			points_accumulate<Field>(ret, scratch, j);
+			points_accumulate<Field>(ret, scratch.data(), j);
 
 			for (j = 0; j < wbits; j++)
 				Point<Field>::doubling(ret, ret);
@@ -606,18 +636,20 @@ template<typename Field>
 			window = wbits;
 			wmask = ((limb_t)1 << (window + 1)) - 1;
 			nbits -= window;
-			i = 0; row = table; scalar_s = scalars;
+			i = 0; row = table.data(); scalar_s = scalars;
 		}
 
 		for (j = i; i < npoints; i++, j++, row += nwin) {
 			if (j == scratch_sz)
-				points_accumulate<Field>(ret, scratch, j), j = 0;
+			{
+				points_accumulate<Field>(ret, scratch.data(), j), j = 0;
+			}
 			scalar = *scalar_s ? *scalar_s++ : scalar + nbytes;
 			wval = (get_wval_limb(scalar, 0, window) << 1) & wmask;
 			wval = booth_encode(wval, wbits);
-			point_gather_booth_wbits<Field>(&scratch[j], row, wbits, wval);
+			point_gather_booth_wbits<Field>(scratch[j], row, wbits, wval);
 		}
-		pionts_accumulate<Field>(ret, scratch, j);
+		points_accumulate<Field>(ret, scratch.data(), j);
 	}
 
 	// Scratch size needed for the gather/accumulate staging.
@@ -676,19 +708,19 @@ template<typename Field>
 	// the window’s contribution as Jacobian.
 	template<typename Field>
 	void point_integrate_buckets(
-		Point<Field>* out, 
+		Point<Field>& out, 
 		Pointxyzz<Field> buckets[],
 		size_t wbits)
 	{
-		Pointxyzz<Field> ret[1], acc[1];
+		Pointxyzz<Field> ret, acc;
 		size_t n = (size_t)1 << wbits;
 
 		/* Calculate sum of x[i-1]*i for i=1 through 1<<|wbits|. */
-		vec_copy(acc, &buckets[--n], sizeof(acc));
-		vec_copy(ret, &buckets[n], sizeof(ret));
+		vec_copy(&acc, &buckets[--n], sizeof(acc));
+		vec_copy(&ret, &buckets[n], sizeof(ret));
 		vec_zero(&buckets[n], sizeof(buckets[n]));
 		while (n--) {
-			Pointxyzz<Field>::dadd(acc, acc, &buckets[n]);
+			Pointxyzz<Field>::dadd(acc, acc, buckets[n]);
 			Pointxyzz<Field>::dadd(ret, ret, acc);
 			vec_zero(&buckets[n], sizeof(buckets[n]));
 		}
@@ -699,13 +731,13 @@ template<typename Field>
 	// Adds an affine point into the bucket addressed by Booth-encoded digit (handles sign).
 	template<typename Field>
 	void point_bucket(Pointxyzz<Field> buckets[], limb_t booth_idx,
-		size_t wbits, const AffinePoint<Field>* p)
+		size_t wbits, const AffinePoint<Field>& p)
 	{
 		bool_t booth_sign = (booth_idx >> wbits) & 1;
 
 		booth_idx &= (1 << wbits) - 1;
 		if (booth_idx--)
-			Pointxyzz<Field>::dadd_affine(&buckets[booth_idx], &buckets[booth_idx],
+			Pointxyzz<Field>::dadd_affine(buckets[booth_idx], buckets[booth_idx],
 				p, booth_sign);
 	}
 
@@ -756,6 +788,8 @@ template<typename Field>
 		limb_t wmask, wval, wnxt;
 		size_t i, z, nbytes;
 		const byte* scalar = *scalars++;
+		auto point_ = points;
+		size_t np = npoints;
 		const AffinePoint<Field>* point = *points++;
 
 		nbytes = (nbits + 7) / 8; /* convert |nbits| to bytes */
@@ -773,6 +807,7 @@ template<typename Field>
 		wnxt = booth_encode(wnxt, cbits);
 		npoints--;  /* account for prefetch */
 
+		point_bucket(buckets, wval, cbits, *point);
 		for (i = 1; i < npoints; i++) {
 			wval = wnxt;
 			scalar = *scalars ? *scalars++ : scalar + nbytes;
@@ -780,10 +815,10 @@ template<typename Field>
 			wnxt = booth_encode(wnxt, cbits);
 			point_prefetch(buckets, wnxt, cbits);
 			point = *points ? *points++ : point + 1;
-			point_bucket(buckets, wval, cbits, point);
+			point_bucket(buckets, wval, cbits, *point);
 		}
 		point = *points ? *points++ : point + 1;
-		point_bucket(buckets, wnxt, cbits, point);
+		point_bucket(buckets, wnxt, cbits, *point);
 		point_integrate_buckets(ret, buckets, cbits - 1);
 	}
 
@@ -825,7 +860,7 @@ template<typename Field>
 
 		window = window ? window : pippenger_window_size(npoints);
 		vec_zero(buckets, sizeof(buckets[0]) << (window - 1));
-		vec_zero(&ret, sizeof(*ret));
+		vec_zero(&ret, sizeof(ret));
 
 		/* top excess bits modulo target window size */
 		wbits = nbits % window; /* yes, it may be zero */
@@ -879,16 +914,17 @@ template<typename Field>
 		if (npoints == 1) {
 			Point<Field>::from_affine(ret, *points[0]);
 			mult_window<Point<Field>, 5>(ret, ret, scalars[0], nbits);
-			return;
 		}
-		if ((npoints * sizeof(AffinePoint<Field>) * 8 * 3) <= SCRATCH_LIMIT &&
+		else if ((npoints * sizeof(AffinePoint<Field>) * 8 * 3) <= SCRATCH_LIMIT &&
 			npoints < 32) {
 			AffinePoint<Field>* table = (AffinePoint<Field>*)alloca(npoints * sizeof(AffinePoint<Field>) * 8);
 			msm_precompute_wbits<Field>(table, 4, points, npoints);
 			msm_mult_table<Field>(ret, table, 4, npoints, scalars, nbits, NULL);
-			return;
 		}
-		msm_mult_pippenger<Field>(ret, points, npoints, scalars, nbits, scratch, 0);
+		else
+		{
+			msm_mult_pippenger<Field>(ret, points, npoints, scalars, nbits, scratch, 0);
+		}
 	}
 
 

@@ -6,7 +6,7 @@
 #include "blst/fields/Fp.h"
 #include "blst/curve/point.h"
 #include "blst/curve/map_to_G.h"
-//#include "blst/curve/multi_scalar.h"
+#include "blst/curve/multi_scalar.h"
 
 using namespace blst;
 
@@ -657,53 +657,122 @@ TEST(E1PointTest, MultiplePointAddition) {
 	EXPECT_TRUE(G1Point::equal(result, p2));  // Should equal 2*P
 }
 
-//
-//TEST(E1PointTest, MultiScalarMultiplication) {
-//	const size_t n = 3;
-//	G1AffinePoint points[n];
-//	using Scaler = byte[32];
-//	Scaler scalars[n] = { 0 };
-//	//const byte* scalarPtrs[n];
-//
-//	// Generate n different points
-//	points[0] = G1AffinePoint::generator();
-//	auto acc = G1Point::generator();
-//	for (size_t i = 1; i < n; i++) {
-//		G1Point::dadd_affine(acc, acc, points[i - 1]);
-//		G1Point::to_affine(points[i], acc);
-//		//scalarPtrs[i] = scalars[i];
-//	}
-//
-//	// Set small scalar values for testing
-//	scalars[0][0] = 2;
-//	scalars[1][0] = 3;
-//	scalars[2][0] = 4;
-//
-//	// Calculate sum of scalar multiplications individually
-//	G1Point expected, temp;
-//	memset(&expected, 0, sizeof(expected));
-//
-//	for (size_t i = 0; i < n; i++) {
-//		G1Point pi;
-//		G1Point::from_affine(pi, points[i]);
-//		G1Point::mult(temp, pi, scalars[i], 8);
-//		if (i == 0) {
-//			expected = temp;
-//		}
-//		else {
-//			G1Point::add(expected, expected, temp);
-//		}
-//	}
-//	G1Point result;
-//	std::vector<Pointxyzz<Fp>> buckets(1<<5);
-//
-//	G1AffinePoint* pointParam[2] = { points, nullptr };
-//	const byte* scalarParam[2] = { (u8*)scalars, nullptr };
-//	 //Test multi-scalar multiplication if available
-//	msm_mult_pippenger<Fp>(
-//		result, pointParam, n, scalarParam, 32 *8, buckets.data());
-//	//EXPECT_TRUE(G1Point::equal(result, expected));
-//}
+
+TEST(E1PointTest, MsmPippenger) {
+	const size_t n = 3;
+	G1AffinePoint points[n];
+	using Scaler = byte[32];
+	Scaler scalars[n] = { 0 };
+	//const byte* scalarPtrs[n];
+
+	// Generate n different points
+	points[0] = G1AffinePoint::generator();
+	auto acc = G1Point::generator();
+	for (size_t i = 1; i < n; i++) {
+		G1Point::dadd_affine(acc, acc, points[i - 1]);
+		G1Point::to_affine(points[i], acc);
+		//scalarPtrs[i] = scalars[i];
+	}
+
+	// Set small scalar values for testing
+	scalars[0][0] = 2;
+	scalars[1][0] = 3;
+	scalars[2][0] = 4;
+	scalars[0][5] = 2;
+	scalars[1][5] = 3;
+	scalars[2][5] = 4;
+
+	// Calculate sum of scalar multiplications individually
+	G1Point expected, temp;
+	memset(&expected, 0, sizeof(expected));
+
+	for (size_t i = 0; i < n; i++) {
+		G1Point pi;
+		G1Point::from_affine(pi, points[i]);
+		G1Point::mult(temp, pi, scalars[i], 8*32);
+		if (i == 0) {
+			expected = temp;
+		}
+		else {
+			G1Point::add(expected, expected, temp);
+		}
+	}
+	G1Point result;
+	size_t window_size = 5;
+	std::vector<Pointxyzz<Fp>> buckets(1<<(window_size-1));
+
+	G1AffinePoint* pointParam[2] = { points, nullptr };
+	const byte* scalarParam[2] = { (u8*)scalars, nullptr };
+	 //Test multi-scalar multiplication if available
+	msm_mult_pippenger<Fp>(
+		result, pointParam, n, scalarParam, 32 *8, buckets.data(), window_size);
+
+	EXPECT_TRUE(G1Point::equal(result, expected));
+}
+
+
+
+TEST(E1PointTest, MsmTable) {
+	const size_t n = 3;
+	G1AffinePoint points[n];
+	using Scaler = byte[32];
+	Scaler scalars[n] = { 0 };
+	//const byte* scalarPtrs[n];
+
+	// Generate n different points
+	points[0] = G1AffinePoint::generator();
+	auto acc = G1Point::generator();
+	for (size_t i = 1; i < n; i++) {
+		G1Point::dadd_affine(acc, acc, points[i - 1]);
+		G1Point::to_affine(points[i], acc);
+		//scalarPtrs[i] = scalars[i];
+	}
+
+	// Set small scalar values for testing
+	scalars[0][0] = 2;
+	scalars[1][0] = 3;
+	scalars[2][0] = 4;	
+	scalars[0][5] = 2;
+	scalars[1][5] = 3;
+	scalars[2][5] = 4;
+
+	// Calculate sum of scalar multiplications individually
+	G1Point expected, temp;
+	memset(&expected, 0, sizeof(expected));
+
+	for (size_t i = 0; i < n; i++) {
+		G1Point pi;
+		G1Point::from_affine(pi, points[i]);
+		G1Point::mult(temp, pi, scalars[i], 8 * 32);
+		if (i == 0) {
+			expected = temp;
+		}
+		else {
+			G1Point::add(expected, expected, temp);
+		}
+	}
+	G1Point result;
+	size_t window_size = 5;
+	std::vector<AffinePoint<Fp>> table(n << (window_size - 1));
+	std::vector<Point<Fp>> scratch(std::min<u64>(n, SCRATCH_SZ(Point<Fp>)));
+
+	G1AffinePoint* pointParam[2] = { points, nullptr };
+	const byte* scalarParam[2] = { (u8*)scalars, nullptr };
+	//Test multi-scalar multiplication if available
+
+
+	msm_precompute_wbits<Fp>(table.data(), window_size, pointParam, n);
+	msm_mult_table<Fp>(
+		result, table, window_size, n, scalarParam, 32 * 8, scratch);
+
+	auto eq = G1Point::equal(result, expected);
+	if (!eq)
+	{
+		print("res ", result);
+		print("exp ", expected);
+	}
+	EXPECT_TRUE(eq);
+}
 
 TEST(E1PointTest, AdditionEdgeCases) {
 	G1Point p1, neg_p1, result, temp;

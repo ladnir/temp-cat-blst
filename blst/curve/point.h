@@ -212,6 +212,9 @@ namespace blst
 		/// Group generator in Jacobian coordinates (Montgomery field limbs).
 		static BLST_HD const Point& generator();
 
+		/// returns the point at infinity (Z == 0).
+		static BLST_HD Point infinity();
+
 		static BLST_HD const Field& get_B();
 
 		/// Multiply by curve B for G1/G2 (specialized). For BLS12-381, B = 4 (G1) or (4+4i) (G2).
@@ -856,6 +859,15 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	BLST_HD BLST_FORCEINLINE const Point<Fp2>& Point<Fp2>::generator()
 	{
 		return get_BLST_G2();
+	}
+
+
+	template<typename Field>
+	BLST_HD BLST_FORCEINLINE Point<Field> Point<Field>::infinity()
+	{
+		Point ret;
+		vec_zero(&ret, sizeof(ret));
+		return ret;
 	}
 
 	template<>
@@ -2184,11 +2196,11 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		Field U, S, P, R;
 
 		if (vec_is_zero(p2.ZZZ, 2 * sizeof(p2.ZZZ))) {
-			vec_copy(p3, p1, sizeof(*p3));
+			vec_copy(&p3, &p1, sizeof(p3));
 			return;
 		}
 		else if (vec_is_zero(p1.ZZZ, 2 * sizeof(p1.ZZZ))) {
-			vec_copy(p3, p2, sizeof(*p3));
+			vec_copy(&p3, &p2, sizeof(p3));
 			return;
 		}
 
@@ -2199,7 +2211,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		Field::sub(P, P, U);                       /* P = U2-U1 */
 		Field::sub(R, R, S);                       /* R = S2-S1 */
 
-		if (!vec_is_zero(P, sizeof(P))) {           /* X1!=X2 */
+		if (!vec_is_zero(&P, sizeof(P))) {           /* X1!=X2 */
 			Field PP, PPP, Q;                   /* add |p1| and |p2| */
 
 			Field::sqr(PP, P);                     /* PP = P^2 */
@@ -2218,7 +2230,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			Field::mul(p3.ZZ, p3.ZZ, PP);        /* ZZ3 = ZZ1*ZZ2*PP */
 			Field::mul(p3.ZZZ, p3.ZZZ, PPP);     /* ZZZ3 = ZZZ1*ZZZ2*PPP */
 		}
-		else if (vec_is_zero(R, sizeof(R))) {     /* X1==X2 && Y1==Y2 */
+		else if (vec_is_zero(&R, sizeof(R))) {     /* X1==X2 && Y1==Y2 */
 			Field V, W, M;                      /* double |p1| */
 
 			Field::add(U, p1.Y, p1.Y);           /* U = 2*Y1 */
@@ -2238,7 +2250,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			Field::mul(p3.ZZZ, p1.ZZZ, W);       /* ZZ3 = W*ZZZ1 */
 		}
 		else {                                    /* X1==X2 && Y1==-Y2 */
-			vec_zero(p3.ZZZ, 2 * sizeof(p3.ZZZ));   /* set |p3| to infinity */
+			vec_zero(&p3.ZZZ, 2 * sizeof(p3.ZZZ));   /* set |p3| to infinity */
 		}
 	}
 
@@ -2255,11 +2267,11 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	{
 		Field P, R;
 
-		if (vec_is_zero(p2, sizeof(*p2))) {
-			vec_copy(p3, p1, sizeof(*p3));
+		if (vec_is_zero(&p2, sizeof(p2))) {
+			vec_copy(&p3, &p1, sizeof(p3));
 			return;
 		}
-		else if (vec_is_zero(p1.ZZZ, 2 * sizeof(p1.ZZZ))) {
+		else if (vec_is_zero(&p1.ZZZ, 2 * sizeof(p1.ZZZ))) {
 			vec_copy(&p3.X, &p2.X, 2 * sizeof(p3.X));
 			Field::cneg(p3.ZZZ, Field::one(), subtract);
 			vec_copy(&p3.ZZ, &Field::one(), sizeof(p3.ZZ));
@@ -2272,7 +2284,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		Field::sub(P, P, p1.X);                   /* P = U2-X1 */
 		Field::sub(R, R, p1.Y);                   /* R = S2-Y1 */
 
-		if (!vec_is_zero(P, sizeof(P))) {           /* X1!=X2 */
+		if (!vec_is_zero(&P, sizeof(P))) {           /* X1!=X2 */
 			Field PP, PPP, Q;                   /* add |p2| to |p1| */
 
 			Field::sqr(PP, P);                     /* PP = P^2 */
@@ -2289,7 +2301,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			Field::mul(p3.ZZ, p1.ZZ, PP);        /* ZZ3 = ZZ1*PP */
 			Field::mul(p3.ZZZ, p1.ZZZ, PPP);     /* ZZZ3 = ZZZ1*PPP */
 		}
-		else if (vec_is_zero(R, sizeof(R))) {     /* X1==X2 && Y1==Y2 */
+		else if (vec_is_zero(&R, sizeof(R))) {     /* X1==X2 && Y1==Y2 */
 			Field U, S, M;                      /* double |p2| */
 
 			Field::add(U, p2.Y, p2.Y);           /* U = 2*Y1 */
@@ -2308,7 +2320,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			Field::cneg(p3.ZZZ, p3.ZZZ, subtract);
 		}
 		else {                                    /* X1==X2 && Y1==-Y2 */
-			vec_zero(p3.ZZZ, 2 * sizeof(p3.ZZZ));   /* set |p3| to infinity */
+			vec_zero(&p3.ZZZ, 2 * sizeof(p3.ZZZ));   /* set |p3| to infinity */
 		}
 	}
 

@@ -226,8 +226,9 @@ void prefix##s_add(ptype *sum, const ptype##_affine *const points[], \
     template<typename Field>
     void point_head(Point<Field> AB[2], const Field* mul_acc)
     { 
-        Point<Field>*A = AB, *B = AB+1;
-        limb inf = vec_is_zero(&A, sizeof(AffinePoint<Field>)) | 
+        Point<Field>& A = AB[0];
+        Point<Field>& B = AB[1];
+        limb_t inf = vec_is_zero(&A, sizeof(AffinePoint<Field>)) | 
                      vec_is_zero(&B, sizeof(AffinePoint<Field>));
         const Field zero = Field::zero();
     
@@ -245,10 +246,10 @@ void prefix##s_add(ptype *sum, const ptype##_affine *const points[], \
 						    /* B.Z is denominator  */ 
         vec_select(&A.X, &B.X, &A.X, sizeof(A.X), inf); 
         vec_select(&A.Y, &A.Z, &A.Y, sizeof(A.Y), inf); 
-        vec_select(&A.Z, &one, & B.Z, sizeof(A.Z), inf); 
+        vec_select(&A.Z, &Field::one(), &B.Z, sizeof(A.Z), inf);
         vec_select(&B.Z, &zero,& B.Z, sizeof(B.Z), inf); 
         if (mul_acc != NULL) 
-            Field::mul(A.Z, A.Z, mul_acc);	/* chain multiplication */
+            Field::mul(A.Z, A.Z, *mul_acc);	/* chain multiplication */
     }
 
        /*
@@ -261,11 +262,12 @@ void prefix##s_add(ptype *sum, const ptype##_affine *const points[], \
         */
     //#define TAIL(ptype, bits, field, one) 
     template<typename Field>
-    void point_tail(Point<Field> *D, Point<Field> AB[2], Field& lambda)
+    void point_tail(Point<Field>& D, Point<Field> AB[2], Field& lambda)
     { 
-        Point<Field> *A = AB, *B = AB+1;
+        Point<Field>& A = AB[0];
+        Point<Field>& B = AB[1];
         Field llambda; 
-        limb inf = vec_is_zero(&B.Z, sizeof(B.Z)); 
+        limb_t inf = vec_is_zero(&B.Z, sizeof(B.Z)); 
     
         Field::mul(lambda, lambda, B.Y);		/* λ = (Y2-Y1)/(X2-X1)  */ 
 						    /* alt. 3*X1^2/2*Y1     */ 
@@ -277,7 +279,7 @@ void prefix##s_add(ptype *sum, const ptype##_affine *const points[], \
         Field::sub(D.Y, D.Y, A.Y);		/* Y3 = λ*(X1-X3)-Y1    */ 
     
         vec_select(&D.X, &A.X, &D.X, 2*sizeof(D.X), inf); 
-        vec_select(&B.Z, &one, &B.Z, sizeof(B.Z), inf); 
+        vec_select(&B.Z, &Field::one(), &B.Z, sizeof(B.Z), inf);
     }
 
         /*
@@ -293,7 +295,7 @@ void prefix##s_add(ptype *sum, const ptype##_affine *const points[], \
 	template<typename Field>
     void points_accumulate(Point<Field>& sum, Point<Field> points[], size_t n)
     { 
-        Point<Field> dst;
+        Point<Field>* dst;
         void *mul_acc; 
         size_t i; 
     
@@ -301,29 +303,30 @@ void prefix##s_add(ptype *sum, const ptype##_affine *const points[], \
             if (n & 1) 
                 Point<Field>::dadd_affine(sum, sum, *(const AffinePoint<Field> *)points++);
             n /= 2; 
-            for (mul_acc = NULL, i = n; i--; mul_acc = points.Z, points += 2) 
-                point_head<Field>(points, (const Point<Field>*)mul_acc);
+            for (mul_acc = NULL, i = n; i--; mul_acc = points->Z, points += 2) 
+                point_head<Field>(points, (const Field*)mul_acc);
     
             Field::reciprocal(points[-2].Z, points[-2].Z); /* 1/∏ Zi */
     
             for (dst = points, i = n; --i;) { 
                 dst--; points -= 2; 
                 Field::mul(points[-2].Z, points[0].Z, points[-2].Z); 
-                point_tail<Point<Field>>(dst, points, points[-2].Z);
+                point_tail<Field>(*dst, points, points[-2].Z);
                 Field::mul(points[-2].Z, points[0].Z, points[1].Z); 
             } 
             dst--; points -= 2; 
-            point_tail<Point<Field>>(dst, points, points[0].Z);
+            point_tail<Field>(*dst, points, points[0].Z);
             points = dst; 
         } 
         while (n--) 
-            Point<Field>::dadd_affine(sum, sum, (const AffinePoint<Field>*)points++);
+            Point<Field>::dadd_affine(sum, sum, *(const AffinePoint<Field>*)points++);
     } 
     
+	template<typename Field>
     void points_add(Point<Field>& sum, const AffinePoint<Field>*const points[],
                                    size_t npoints) 
     { 
-        const size_t stride = SCRATCH_LIMIT / sizeof(ptype); 
+        const size_t stride = SCRATCH_LIMIT / sizeof(Point<Field>);
         Point<Field>*scratch = (Point<Field>*)alloca((npoints > stride ? stride : npoints) *
                                 sizeof(Point<Field>));
         const AffinePoint<Field>*point = NULL;
@@ -335,7 +338,7 @@ void prefix##s_add(ptype *sum, const ptype##_affine *const points[], \
                 point = *points ? *points++ : point+1; 
                 vec_copy(&scratch[i], point, sizeof(*point)); 
             } 
-            ptype##s_accumulate(sum, scratch, j); 
+            points_accumulate<Field>(sum, scratch, j); 
             npoints -= j; 
         } 
     }
