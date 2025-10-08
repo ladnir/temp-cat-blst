@@ -30,8 +30,8 @@ namespace blst
 	{
 #if (defined(__x86_64__) || defined(__x86_64) || defined(_M_X64)) && \
      defined(__SHA__) /* -msha */ 
-#error "not set tested. need to call blst_sha256_block_data_order_shaext"
-		//# define sha256_block_data_order blst_sha256_block_data_order_shaext
+		//#error "not set tested. need to call blst_sha256_block_data_order_shaext"
+		blst_sha256_block_data_order_shaext(v, inp, blocks);
 #elif defined(__aarch64__) && \
       defined(__ARM_FEATURE_CRYPTO) 
 #error "not set tested. need to call blst_sha256_block_armv8"

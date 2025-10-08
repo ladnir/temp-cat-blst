@@ -277,6 +277,13 @@ void sqr_382x(asm_UFp2 ret, const asm_Fp2 a, const asm_Fp p);      /* +~5% in fi
 #endif // BLST_ADX
 
 
+#if (defined(__x86_64__) || defined(__x86_64) || defined(_M_X64)) && \
+     defined(__SHA__) /* -msha */ 
+void blst_sha256_block_data_order_shaext(unsigned int* v, const void* inp, size_t blocks);
+#endif
+
+
+
 #undef asm_pow256  
 #undef asm_Fr      
 #undef asm_UFr     

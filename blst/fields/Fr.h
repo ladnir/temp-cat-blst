@@ -294,7 +294,7 @@ namespace blst
                 ret[2 * i] = (limb_t)L;
                 ret[2 * i + 1] = (limb_t)(L >> 32);
             }
-            a = (const unsigned long long*)ret;
+            a = (u64*)&ret;
         }
 		Fr::to_mont(ret, (const Fr&)a);
     }

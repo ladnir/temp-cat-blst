@@ -1190,7 +1190,7 @@ namespace blst
 	 *
 	 * @note Assumes `n > 0`.
 	 */
-	template<rsize_t n>
+	template<size_t n>
 	BLST_HD BLST_INLINE limb_t cc_cneg_n(limb_t ret[], const limb_t a[], limb_t neg)
 	{
 		BLST_ASSUME(n != 0);
