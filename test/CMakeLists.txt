@@ -63,5 +63,7 @@ add_test(NAME blst_tests COMMAND blst_tests)
 
 # Add CUDA tests if CUDA is enabled
 if(BLST_CUDA)
+    set_source_files_properties(${TEST_SOURCES} PROPERTIES LANGUAGE CUDA)
+
     set_target_properties(blst_tests PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 endif()

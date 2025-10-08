@@ -40,7 +40,11 @@
 #endif
 
 #if defined(__GNUC__) || defined(__clang__)
-# define BLST_launder(var) __asm__ __volatile__("" : "+r"(var))
+# if defined(__NVCC__) || defined(__CUDACC__)
+#  define BLST_launder(var) do { (void)(var); } while(0)
+# else
+#  define BLST_launder(var) __asm__ __volatile__("" : "+r"(var))
+# endif
 #elif defined(_MSC_VER) && !defined(__CUDA_ARCH__)
 # include <intrin.h>
 # define BLST_launder(var) do { _ReadWriteBarrier(); (void)(var); } while (0)
@@ -85,18 +89,19 @@
 # include <stdlib.h>
 #endif
 
-#if defined(__GNUC__)
-# ifndef alloca
-#  define alloca(s) __builtin_alloca(s)
-# endif
-#elif defined(__sun)
-# include <alloca.h>
-#elif defined(_WIN32)
-# include <malloc.h>
-# ifndef alloca
-#  define alloca(s) _alloca(s)
-# endif
-#endif
+#define alloca(s) error "alloca not available"
+//#if defined(__GNUC__)
+//# ifndef alloca
+//#  define alloca(s) __builtin_alloca(s)
+//# endif
+//#elif defined(__sun)
+//# include <alloca.h>
+//#elif defined(_WIN32)
+//# include <malloc.h>
+//# ifndef alloca
+//#  define alloca(s) _alloca(s)
+//# endif
+//#endif
 
 #if BLST_LIMB_SIZE == 64
 # define TO_LIMB_T(limb64)     limb64

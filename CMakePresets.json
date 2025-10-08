@@ -13,15 +13,13 @@
         "BLST_ASM": true,
         "BLST_DEFAULT_ASM": true,
         "BLST_ADX": true,
-        "BLST_CUDA": false,
-
+        "BLST_CUDA": true,
         "CMAKE_CUDA_COMPILER": "/usr/local/cuda-13.0/bin/nvcc",
         "CMAKE_CUDA_ARCHITECTURES": "89",
         "CUDA_TOOLKIT_ROOT_DIR": "/usr/local/cuda-13.0",
-
         "CMAKE_PREFIX_PATH": "${sourceDir}/../out/install",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
-      }
+      },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
           "hostOS": [
@@ -78,7 +76,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "BLST_PORTABLE": true,
-        "BLST_CUDA": false,
+        "BLST_CUDA": true,
         "BLST_ASM": true,
         "BLST_ADX": true,
         "BLST_DEFAULT_ASM": false,

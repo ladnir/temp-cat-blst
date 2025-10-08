@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <utility>
 #include "blst/common/defines.h"
+#include <cstdio>
 
 // -------- nodiscard that works across compilers --------
 #if defined(__has_cpp_attribute)

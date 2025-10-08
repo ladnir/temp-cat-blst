@@ -750,7 +750,7 @@ TEST_F(FrCudaTest, VectorEdgeCases) {
     if (sqr_result == BATCHED_SUCCESS) {
         expect_success(copy_device_to_host_fr(h_result.get(), d_result, NUM_ELEMENTS), "copy sqr result to host");
         for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-            EXPECT_TRUE(fr_equal(h_result[i], h_mont_zeros[i])) << "0² should equal 0 at index " << i;
+            EXPECT_TRUE(fr_equal(h_result[i], h_mont_zeros[i])) << "0^2 should equal 0 at index " << i;
         }
     }
 

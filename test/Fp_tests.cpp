@@ -336,7 +336,7 @@ TEST(FpOps, Reciprocal) {
 }
 
 TEST(FpOps, RecipSqrt) {
-	Fp out; Fp out2; Fp inp; Fp r; Fp t1; Fp t2; Fp negOut;
+	Fp out; Fp out2; Fp inp; Fp r; Fp t1; Fp t2; 
 	InsecureRng rng;
 	for (u64 i = 0; i < 100; ++i) {
 		do { rand_Fp(out, rng); } while (Fp::equal(out, Fp::zero()));
@@ -536,7 +536,7 @@ TEST(FpOps, EdgeCases) {
 	EXPECT_TRUE(Fp_equal(r, zero)) << "0 - 0 should equal 0";
 
 	// Test with values near modulus
-	Fp near_p, temp;
+	Fp near_p;
 	memcpy(near_p, get_BLST_P(), sizeof(Fp));
 	for (int i = 0; i < LIMBS; ++i) near_p[i] -= (i == 0 ? 2 : 0);
 

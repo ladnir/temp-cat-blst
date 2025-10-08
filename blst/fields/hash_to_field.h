@@ -162,7 +162,10 @@ namespace blst
             return;
 
         if (buf_len != len_in_bytes)
-            buf_ptr = (unsigned char*)alloca(buf_len);
+        {
+            //buf_ptr = (unsigned char*)alloca(buf_len);
+			buf_ptr = (unsigned char*)malloc(buf_len);
+        }
 
         expand_message_xmd(buf_ptr, len_in_bytes, NULL, 0, msg, msg_len,
             DST, DST_len);
@@ -171,6 +174,7 @@ namespace blst
             while (len_in_bytes--)
                 *bytes++ = *ptr++;
             vec_zero(buf_ptr, buf_len);
+			free(buf_ptr);
         }
     }
 }

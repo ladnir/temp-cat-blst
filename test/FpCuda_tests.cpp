@@ -9,6 +9,7 @@
 #include "blst/fields/Fp.h"
 #include "blst/fields/Fp_cuda.h"
 #include "blst/exports.h"
+#include "InsecureRng.h"
 
 using namespace blst;
 
@@ -18,7 +19,7 @@ class FpCudaTest : public ::testing::Test {
 protected:
     void SetUp() override {
         // Initialize random number generator
-        gen.seed(42); // Fixed seed for reproducible tests
+        //gen.seed(42); // Fixed seed for reproducible tests
 
         // Initialize CUDA device
         cudaError_t err = cudaSetDevice(0);
@@ -58,17 +59,33 @@ protected:
             dst[i] = src[i];
     }
 
-    // Helper: Generate random Fp element
-    void random_fp(Fp& v) {
-        // Generate random limbs
-        for (int i = 0; i < LIMBS; ++i) {
-            v[i] = gen();
+    //// Helper: Generate random Fp element
+    //void random_fp(Fp& v) {
+    //    // Generate random limbs
+    //    for (int i = 0; i < LIMBS; ++i) {
+    //        v[i] = gen();
+    //    }
+    //    // Reduce modulo Fp to ensure valid element
+    //    // Note: This is a simplified approach; real implementation would use proper modular reduction
+    //    if (LIMBS > 0) {
+    //        v[LIMBS - 1] &= 0x7FFFFFFFFFFFFFFFULL; // Ensure MSB is clear to avoid overflow
+    //    }
+    //}
+
+
+    void rand_fp(Fp& v, InsecureRng& rng)
+    {
+        for (u64 i = 0; i < v.num_limb(); ++i)
+        {
+            v[i] = rng.next_u64();
         }
-        // Reduce modulo Fp to ensure valid element
-        // Note: This is a simplified approach; real implementation would use proper modular reduction
-        if (LIMBS > 0) {
-            v[LIMBS - 1] &= 0x7FFFFFFFFFFFFFFFULL; // Ensure MSB is clear to avoid overflow
+
+        while (Fp::is_redc(v) == 0)
+        {
+            Fp::rshift(v, v, 1);
         }
+
+        BLST_ASSERT(cc_check_mod_n<NLIMBS(384)>((byte*)v.data, get_BLST_P().data));
     }
 
     // Helper: Convert standard integer to Montgomery form
@@ -144,7 +161,7 @@ protected:
             << batched_error_code_string(result);
     }
 
-    std::mt19937_64 gen;
+    //std::mt19937_64 gen;
 };
 
 TEST_F(FpCudaTest, VectorAdd) {
@@ -902,9 +919,10 @@ TEST_F(FpCudaTest, VectorPerformanceBaseline) {
     auto cpu_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
 
     // Generate test data
+	InsecureRng rng;
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        random_fp(h_a[i]);
-        random_fp(h_b[i]);
+        rand_fp(h_a[i], rng);
+        rand_fp(h_b[i], rng);
     }
 
     // This test primarily validates correctness at scale

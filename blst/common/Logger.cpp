@@ -1,5 +1,5 @@
 // logger.cu
-#include "logger.h"
+#include "Logger.h"
 
 
 namespace blst {

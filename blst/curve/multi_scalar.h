@@ -510,13 +510,14 @@ template<typename Field>
 			top += stride << (wbits - 1);
 			npoints -= stride;
 		}
-		rows = row = (Point<Field>*)alloca(2 * sizeof(AffinePoint<Field>) * npoints * nwin);
+		rows = row = (Point<Field>*)malloc(2 * sizeof(AffinePoint<Field>) * npoints * nwin);
 		for (i = 0; i < npoints; i++, row += nwin)
 		{
 			point = *points ? *points++ : point + 1;
 			point_precompute_row_wbits<Field>(row, wbits, *point);
 		}
 		points_to_affine_row_wbits<Field>(&table[top], rows, wbits, npoints);
+		free(rows);
 	}
 
 	template<typename Field>
@@ -788,8 +789,6 @@ template<typename Field>
 		limb_t wmask, wval, wnxt;
 		size_t i, z, nbytes;
 		const byte* scalar = *scalars++;
-		auto point_ = points;
-		size_t np = npoints;
 		const AffinePoint<Field>* point = *points++;
 
 		nbytes = (nbits + 7) / 8; /* convert |nbits| to bytes */
@@ -917,9 +916,10 @@ template<typename Field>
 		}
 		else if ((npoints * sizeof(AffinePoint<Field>) * 8 * 3) <= SCRATCH_LIMIT &&
 			npoints < 32) {
-			AffinePoint<Field>* table = (AffinePoint<Field>*)alloca(npoints * sizeof(AffinePoint<Field>) * 8);
+			AffinePoint<Field>* table = (AffinePoint<Field>*)malloc(npoints * sizeof(AffinePoint<Field>) * 8);
 			msm_precompute_wbits<Field>(table, 4, points, npoints);
 			msm_mult_table<Field>(ret, table, 4, npoints, scalars, nbits, NULL);
+			free(table);
 		}
 		else
 		{

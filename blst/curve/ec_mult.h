@@ -325,10 +325,22 @@ namespace blst
 		const byte* scalar, ** scalar_s = scalars;
 		ptype sum, row;
 		bool_t sum_is_inf, row_is_inf, ret_is_inf;
+		bool_t call_free = 0;
 
 		if (table == NULL)
-			table = (ptype(*)[1 << (window_size - 1)])alloca((1 << (window_size - 1)) * sizeof(ptype) *
+		{
+
+			table = (ptype(*)[1 << (window_size - 1)])malloc((1 << (window_size - 1)) * sizeof(ptype) *
 				npoints);
+
+			if (table == NULL)
+			{
+				printf("mult_window_n: cannot allocate %zu bytes\n",
+					(1 << (window_size - 1)) * sizeof(ptype) * npoints);
+				abort();
+			}
+			call_free = 1;
+		}
 
 		if (points != NULL) {
 			const ptype* point = NULL;
@@ -397,6 +409,8 @@ namespace blst
 		}
 
 		vec_czero(&ret.Z, sizeof(ret.Z), ret_is_inf);
+		if (call_free)
+			free(table);
 	}
 
 }

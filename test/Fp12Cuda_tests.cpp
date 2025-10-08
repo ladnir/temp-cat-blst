@@ -9,6 +9,7 @@
 #include "blst/fields/Fp12.h"
 #include "blst/fields/Fp12_cuda.h"
 #include "blst/exports.h"
+#include "InsecureRng.h"
 
 using namespace blst;
 
@@ -72,21 +73,28 @@ protected:
         memcpy(&dst, &src, sizeof(Fp12));
     }
 
+    void rand_fp(Fp& v, InsecureRng& rng)
+    {
+        for (u64 i = 0; i < v.num_limb(); ++i)
+        {
+            v[i] = rng.next_u64();
+        }
+
+        while (Fp::is_redc(v) == 0)
+        {
+            Fp::rshift(v, v, 1);
+        }
+
+        BLST_ASSERT(cc_check_mod_n<NLIMBS(384)>((byte*)v.data, get_BLST_P().data));
+    }
+
     // Helper: Generate random Fp12 element
-    void random_fp12(Fp12 v) {
+    void rand_fp12(Fp12 v, InsecureRng& rng) {
         // Generate random components for all 12 Fp elements
         for (int i = 0; i < 2; i++) {          // Fp12 components
             for (int j = 0; j < 3; j++) {      // Fp6 components
                 for (int k = 0; k < 2; k++) {  // Fp2 components
-                    for (int l = 0; l < NLIMBS(384); l++) {
-                        v[i][j][k][l] = gen();
-                    }
-                    // Ensure MSB is clear to avoid overflow
-                    if (NLIMBS(384) > 0) {
-                        v[i][j][k][NLIMBS(384) - 1] &= 0x7FFFFFFFFFFFFFFFULL;
-                    }
-                    // Convert to Montgomery form
-                    Fp::to_mont(v[i][j][k], v[i][j][k]);
+					rand_fp(v[i][j][k], rng);
                 }
             }
         }
@@ -171,6 +179,7 @@ TEST_F(Fp12CudaTest, VectorMul) {
     auto cpu_result = std::make_unique<Fp12[]>(NUM_ELEMENTS);
 
     // Generate test data
+	InsecureRng rng;
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
         if (i < 5) {
             // Include some simple cases
@@ -178,8 +187,8 @@ TEST_F(Fp12CudaTest, VectorMul) {
             set_fp12_simple(h_b[i], 4 + i);
         }
         else {
-            random_fp12(h_a[i]);
-            random_fp12(h_b[i]);
+            rand_fp12(h_a[i], rng);
+            rand_fp12(h_b[i], rng);
         }
     }
 
@@ -224,12 +233,13 @@ TEST_F(Fp12CudaTest, VectorSqr) {
     auto cpu_result = std::make_unique<Fp12[]>(NUM_ELEMENTS);
 
     // Generate test data
+	InsecureRng rng;
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
         if (i < 5) {
             set_fp12_simple(h_a[i], 5 + i);
         }
         else {
-            random_fp12(h_a[i]);
+            rand_fp12(h_a[i], rng);
         }
     }
 
@@ -270,12 +280,13 @@ TEST_F(Fp12CudaTest, VectorCyclotomicSqr) {
     auto cpu_result = std::make_unique<Fp12[]>(NUM_ELEMENTS);
 
     // Generate test data - for cyclotomic squaring, elements should be in cyclotomic subgroup
+	InsecureRng rng;
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
         if (i < 5) {
             set_fp12_simple(h_a[i], 2 + i);
         }
         else {
-            random_fp12(h_a[i]);
+            rand_fp12(h_a[i], rng);
         }
         // Ensure element is in cyclotomic subgroup by conjugating and multiplying
         Fp12 temp;
@@ -321,12 +332,13 @@ TEST_F(Fp12CudaTest, VectorInverse) {
     auto cpu_result = std::make_unique<Fp12[]>(NUM_ELEMENTS);
 
     // Generate test data - avoid zero elements for inversion
+	InsecureRng rng;
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
         if (i < 3) {
             set_fp12_simple(h_a[i], 7 + i); // Small non-zero values
         }
         else {
-            random_fp12(h_a[i]);
+            rand_fp12(h_a[i], rng);
         }
     }
 
@@ -367,12 +379,13 @@ TEST_F(Fp12CudaTest, VectorConjugate) {
     auto cpu_result = std::make_unique<Fp12[]>(NUM_ELEMENTS);
 
     // Generate test data
+	InsecureRng rng;
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
         if (i < 5) {
             set_fp12_simple(h_a[i], 3 + i);
         }
         else {
-            random_fp12(h_a[i]);
+            rand_fp12(h_a[i], rng);
         }
     }
 
@@ -415,12 +428,13 @@ TEST_F(Fp12CudaTest, VectorFrobeniusMap) {
     auto cpu_result = std::make_unique<Fp12[]>(NUM_ELEMENTS);
 
     // Generate test data
+	InsecureRng rng;
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
         if (i < 5) {
             set_fp12_simple(h_a[i], 4 + i);
         }
         else {
-            random_fp12(h_a[i]);
+            rand_fp12(h_a[i], rng);
         }
     }
 
@@ -581,12 +595,13 @@ TEST_F(Fp12CudaTest, VectorSerialization) {
     auto cpu_result = std::make_unique<Fp12[]>(NUM_ELEMENTS);
 
     // Generate test data
+	InsecureRng rng;
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
         if (i < 3) {
             set_fp12_simple(h_a[i], 6 + i);
         }
         else {
-            random_fp12(h_a[i]);
+            rand_fp12(h_a[i], rng);
         }
     }
 
@@ -756,9 +771,10 @@ TEST_F(Fp12CudaTest, VectorPerformanceBaseline) {
     auto cpu_result = std::make_unique<Fp12[]>(NUM_ELEMENTS);
 
     // Generate test data
+	InsecureRng rng;
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        random_fp12(h_a[i]);
-        random_fp12(h_b[i]);
+        rand_fp12(h_a[i], rng);
+        rand_fp12(h_b[i], rng);
     }
 
     // This test primarily validates correctness at scale

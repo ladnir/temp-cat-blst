@@ -107,12 +107,13 @@ namespace blst
 #endif
         HMAC_SHA256_CTX* ctx)
     {
-#if !defined(__STDC_VERSION__) || __STDC_VERSION__<199901 \
-                               || defined(__STDC_NO_VLA__)
-        unsigned char* info_prime = (unsigned char*)alloca(info_len + 2 + 1);
-#else
-        unsigned char info_prime[info_len + 2 + 1];
-#endif
+        unsigned char* info_prime = (unsigned char*)malloc(info_len + 2 + 1);
+//#if !defined(__STDC_VERSION__) || __STDC_VERSION__<199901 \
+//                               || defined(__STDC_NO_VLA__)
+//        unsigned char* info_prime = (unsigned char*)alloca(info_len + 2 + 1);
+//#else
+//        unsigned char info_prime[info_len + 2 + 1];
+//#endif
 
         HMAC_init(ctx, PRK, 32);
 
@@ -139,6 +140,8 @@ namespace blst
             HMAC_final(ctx->tail.c, ctx);
         }
         blst_sha256_bcopy_v(OKM, ctx->tail.c, L);
+
+		free(info_prime);
     }
 
 #ifndef __BLST_HKDF_TESTMODE__

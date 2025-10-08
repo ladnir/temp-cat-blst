@@ -57,6 +57,8 @@ target_link_libraries(blst_benchmarks PRIVATE benchmark::benchmark blst_static)
 
 # Set CUDA properties if CUDA is enabled
 if(BLST_CUDA)
+    set_source_files_properties(${BENCHMARK_SOURCES} PROPERTIES LANGUAGE CUDA)
+
     set_target_properties(blst_benchmarks PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 endif()
 

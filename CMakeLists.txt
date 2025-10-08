@@ -1,5 +1,5 @@
 # CMakeLists.txt
-cmake_minimum_required(VERSION 3.19)
+cmake_minimum_required(VERSION 3.27)
 project(blst CXX)
 
 option(BLST_BUILD_SHARED "Build shared library" OFF)

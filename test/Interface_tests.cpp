@@ -110,14 +110,14 @@ namespace
 		std::cout << std::dec << std::endl;
 	}
 
-	void print_UFp(const char* label, const UFp& v) {
-		printf("%s: ", label);
-		for (int i = NLIMBS(768) - 1; i >= 0; --i) {
-			printf("%016llx", (unsigned long long)v[i]);
-			if (i > 0) printf(" ");
-		}
-		printf("\n");
-	}
+	//void print_UFp(const char* label, const UFp& v) {
+	//	printf("%s: ", label);
+	//	for (int i = NLIMBS(768) - 1; i >= 0; --i) {
+	//		printf("%016llx", (unsigned long long)v[i]);
+	//		if (i > 0) printf(" ");
+	//	}
+	//	printf("\n");
+	//}
 
 
 }

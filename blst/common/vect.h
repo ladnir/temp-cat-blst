@@ -55,10 +55,10 @@ namespace blst
 			rp[i] = 0;
 
 		// do not optimize this away
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) || defined(__CUDACC__)
 	// Compiler barrier for MSVC
 		BLST_launder(i);
-#elif defined(__GNUC__) || defined(__clang__)
+#elif defined(__GNUC__) || defined(__clang__) 
 		__asm__ __volatile__("" : : "r"(ret) : "memory");
 #endif
 	}

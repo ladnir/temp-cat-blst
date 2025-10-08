@@ -327,7 +327,7 @@ void prefix##s_add(ptype *sum, const ptype##_affine *const points[], \
                                    size_t npoints) 
     { 
         const size_t stride = SCRATCH_LIMIT / sizeof(Point<Field>);
-        Point<Field>*scratch = (Point<Field>*)alloca((npoints > stride ? stride : npoints) *
+        Point<Field>*scratch = (Point<Field>*)malloc((npoints > stride ? stride : npoints) *
                                 sizeof(Point<Field>));
         const AffinePoint<Field>*point = NULL;
     
@@ -341,5 +341,6 @@ void prefix##s_add(ptype *sum, const ptype##_affine *const points[], \
             points_accumulate<Field>(sum, scratch, j); 
             npoints -= j; 
         } 
+		free(scratch);
     }
 }
