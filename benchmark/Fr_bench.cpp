@@ -28,6 +28,11 @@ void generate_random_fr(Fr& fr) {
     for (int i = 0; i < LIMBS; ++i) {
         fr[i] = dis(gen);
     }
+
+    while (Fr::is_redc(fr) == 0)
+    {
+        Fr::rshift(fr, fr, 1);
+    }
 }
 
 // ========== ADDITION BENCHMARKS ==========

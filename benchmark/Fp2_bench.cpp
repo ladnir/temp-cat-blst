@@ -22,6 +22,14 @@ void generate_random_fp2(Fp2& fp2) {
         fp2[0][i] = dis(gen);
         fp2[1][i] = dis(gen);
     }
+
+    for (auto& v : fp2.data)
+    {
+        while (Fp::is_redc(v) == 0)
+        {
+            Fp::rshift(v, v, 1);
+        }
+    }
 }
 
 // ========== ADDITION BENCHMARKS ==========

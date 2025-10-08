@@ -28,6 +28,11 @@ void generate_random_fp(Fp& fp) {
     for (int i = 0; i < LIMBS; ++i) {
         fp[i] = dis(gen);
     }
+
+    while (Fp::is_redc(fp) == 0)
+    {
+        Fp::rshift(fp, fp, 1);
+    }
 }
 
 // ========== ADDITION BENCHMARKS ==========

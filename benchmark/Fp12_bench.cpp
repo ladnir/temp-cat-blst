@@ -18,6 +18,17 @@ void generate_random_fp12(Fp12& fp12) {
     for (size_t i = 0; i < sizeof(Fp12) / sizeof(limb_t); ++i) {
         p[i] = dis(gen);
     }
+
+	// Ensure the generated element is reduced modulo the field characteristic
+	for (auto& comp : fp12.data) {
+        for (auto& part : comp.data) {
+            for (auto& fp : part.data) {
+                while (Fp::is_redc(fp) == 0) {
+                    Fp::rshift(fp, fp, 1);
+                }
+            }
+        }
+    }
 }
 
 // ========== MULTIPLICATION BENCHMARKS ==========
