@@ -10,23 +10,23 @@
 
 # ifdef __CUDACC__
 // this function is called from GPU code
-#  define DEVICE_FUNC __device__
+#  define BLST_DEVICE __device__
 
 // this function is called from both CPU and GPU code
 #  define BLST_HD __host__ __device__
 
 // this function is called from CPU code and launches GPU code
-#  define GLOBAL_FUNC __global__
+#  define BLST_GLOBAL __global__
 # else
 
 // this function is called from GPU code
-#  define DEVICE_FUNC
+#  define BLST_DEVICE
 
 // this function is called from both CPU and GPU code
 #  define BLST_HD
 
 // this function is called from CPU code and launches GPU code
-#  define GLOBAL_FUNC
+#  define BLST_GLOBAL
 # endif
 
 

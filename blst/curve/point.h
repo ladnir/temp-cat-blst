@@ -352,6 +352,7 @@ namespace blst
 
 		BLST_HD static bool_t in_subgroup(const AffinePoint<Field>& p);
 
+		BLST_HD static void cneg(AffinePoint& inOut, bool_t c);
 
 	};
 
@@ -379,6 +380,14 @@ namespace blst
 
 		/// Convert XYZZ -> Jacobian (rebuild Z from ZZ).
 		static BLST_HD void to_Jacobian(Point<Field>& out, const Pointxyzz<Field>& in);
+
+		static BLST_HD void from_affine(Pointxyzz<Field>& out, const AffinePoint<Field>& in);
+
+		static BLST_HD bool equal(const Pointxyzz<Field>& p1,
+			const Pointxyzz<Field>& p2)
+		{
+			return memcmp(&p1, &p2, sizeof(Pointxyzz<Field>)) == 0;
+		}
 
 	};
 
@@ -1564,6 +1573,16 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 
 
+	template<typename Field>
+	BLST_HD BLST_INLINE void AffinePoint<Field>::cneg(AffinePoint<Field>& p, bool_t c)
+	{
+		Field::cneg(p.Y, p.Y, c);
+	}
+
+
+
+
+
 	/* Gallant-Lambert-Vanstone, ~45% faster than mult_w<G1Point,5> */
 	template<>
 	BLST_HD BLST_INLINE void G1Point::mult_glsv(G1Point& out, const G1Point& in,
@@ -2253,6 +2272,16 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			vec_zero(&p3.ZZZ, 2 * sizeof(p3.ZZZ));   /* set |p3| to infinity */
 		}
 	}
+
+
+	template<typename Field>
+	BLST_HD BLST_INLINE  BLST_HD void  Pointxyzz<Field>::from_affine(Pointxyzz<Field>& out, const AffinePoint<Field>& in)
+	{
+		vec_copy(&out.X, &in.X, 2 * sizeof(out.X));
+		vec_copy(&out.ZZ, &Field::one(), sizeof(out.ZZ));
+		vec_copy(&out.ZZZ, &Field::one(), sizeof(out.ZZZ));
+	}
+
 
 	/*
 	 * http://hyperelliptic.org/EFD/g1p/auto-shortw-xyzz.html#addition-madd-2008-s

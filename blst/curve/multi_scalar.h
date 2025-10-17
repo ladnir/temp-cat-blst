@@ -78,7 +78,7 @@ namespace blst
 	// to affine using batched inversion of Z over sized blocks; 
 	// preserves infinities.
 	template<typename Field>
-	void points_to_affine(AffinePoint<Field> dst[],
+	BLST_HD BLST_INLINE void points_to_affine(AffinePoint<Field> dst[],
 		const Point<Field>* const points[],
 		size_t npoints)
 	{
@@ -140,19 +140,19 @@ namespace blst
 		}
 	}
 
-	void blst_p1s_to_affine(G1AffinePoint dst[],
-		const G1Point* const points[],
-		size_t npoints)
-	{
-		points_to_affine<Fp>(dst, points, npoints);
-	}
+	//void blst_p1s_to_affine(G1AffinePoint dst[],
+	//	const G1Point* const points[],
+	//	size_t npoints)
+	//{
+	//	points_to_affine<Fp>(dst, points, npoints);
+	//}
 
-	void blst_p2s_to_affine(G2AffinePoint dst[],
-		const G2Point* const points[],
-		size_t npoints)
-	{
-		points_to_affine<Fp2>(dst, points, npoints);
-	}
+	//void blst_p2s_to_affine(G2AffinePoint dst[],
+	//	const G2Point* const points[],
+	//	size_t npoints)
+	//{
+	//	points_to_affine<Fp2>(dst, points, npoints);
+	//}
 	/* X = X'/Z^2 */\
 
 
@@ -685,7 +685,7 @@ template<typename Field>
 	* 
 	* Heuristic: chooses wbits from npoints (smaller for few points, larger up to ~npoints-dependent caps).
 	*/
-	size_t pippenger_window_size(size_t npoints)
+	BLST_HD BLST_INLINE size_t pippenger_window_size(size_t npoints)
 	{
 		size_t wbits;
 
@@ -708,7 +708,7 @@ template<typename Field>
 	// computes Σ d·S_d from pre-summed buckets and writes 
 	// the window’s contribution as Jacobian.
 	template<typename Field>
-	void point_integrate_buckets(
+	BLST_HD BLST_INLINE void point_integrate_buckets(
 		Point<Field>& out, 
 		Pointxyzz<Field> buckets[],
 		size_t wbits)
@@ -731,7 +731,7 @@ template<typename Field>
 
 	// Adds an affine point into the bucket addressed by Booth-encoded digit (handles sign).
 	template<typename Field>
-	void point_bucket(Pointxyzz<Field> buckets[], limb_t booth_idx,
+	BLST_HD BLST_INLINE void point_bucket(Pointxyzz<Field> buckets[], limb_t booth_idx,
 		size_t wbits, const AffinePoint<Field>& p)
 	{
 		bool_t booth_sign = (booth_idx >> wbits) & 1;
@@ -743,12 +743,16 @@ template<typename Field>
 	}
 
 	template<typename Field>
-	void point_prefetch(const Pointxyzz<Field> buckets[], limb_t booth_idx,
+	BLST_HD BLST_INLINE void point_prefetch(const Pointxyzz<Field> buckets[], limb_t booth_idx,
 		size_t wbits)
 	{
 		booth_idx &= (1 << wbits) - 1;
 		if (booth_idx--)
+		{
+#ifndef __CUDA_ARCH__
 			vec_prefetch(&buckets[booth_idx], sizeof(buckets[booth_idx]));
+#endif
+		}
 	}
 
 	// Processes one window across all points: extracts Booth digits for that 
@@ -775,7 +779,7 @@ template<typename Field>
 	// @wbits : window size in bits
 	// @cbits : wbits + 1 or wbits depending on the call (Booth encoding)
 	template<typename Field>
-	void points_tile_pippenger(
+	BLST_HD BLST_INLINE void points_tile_pippenger(
 		Point<Field>& ret,
 		const AffinePoint<Field>* const points[],
 		size_t npoints,
@@ -806,7 +810,9 @@ template<typename Field>
 		wnxt = booth_encode(wnxt, cbits);
 		npoints--;  /* account for prefetch */
 
+		// buckets[wval] += *point
 		point_bucket(buckets, wval, cbits, *point);
+
 		for (i = 1; i < npoints; i++) {
 			wval = wnxt;
 			scalar = *scalars ? *scalars++ : scalar + nbytes;
@@ -814,9 +820,13 @@ template<typename Field>
 			wnxt = booth_encode(wnxt, cbits);
 			point_prefetch(buckets, wnxt, cbits);
 			point = *points ? *points++ : point + 1;
+
+			// buckets[wval] += *point
 			point_bucket(buckets, wval, cbits, *point);
 		}
 		point = *points ? *points++ : point + 1;
+
+		// buckets[wnxt] += *point
 		point_bucket(buckets, wnxt, cbits, *point);
 		point_integrate_buckets(ret, buckets, cbits - 1);
 	}
@@ -845,7 +855,7 @@ template<typename Field>
 	//     total = total + acc
 	// 
 	template<typename Field>
-	void msm_mult_pippenger(
+	BLST_HD BLST_INLINE void msm_mult_pippenger(
 		Point<Field>& ret,
 		const AffinePoint<Field>* const points[],
 		size_t npoints,
@@ -878,12 +888,13 @@ template<typename Field>
 	}
 
 	template<typename Field>
-	size_t msm_mult_pippenger_scratch_sizeof(size_t npoints)
+	BLST_HD BLST_INLINE size_t msm_mult_pippenger_scratch_sizeof(size_t npoints)
 	{
 		return sizeof(Pointxyzz<Field>) << (pippenger_window_size(npoints) - 1);
 	}
+	
 	template<typename Field>
-	void msm_tile_pippenger(
+	BLST_HD BLST_INLINE void msm_tile_pippenger(
 		Point<Field>& ret,
 		const AffinePoint<Field>* const points[],
 		size_t npoints,
@@ -902,7 +913,7 @@ template<typename Field>
 
 	// dispatches to either fixed-table MSM or Pippenger based on npoints
 	template<typename Field>
-	void msm_mult(
+	BLST_HD BLST_INLINE void msm_mult(
 		Point<Field>& ret,
 		const AffinePoint<Field>* const points[],
 		size_t npoints,

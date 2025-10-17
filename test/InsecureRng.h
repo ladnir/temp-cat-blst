@@ -1,6 +1,7 @@
 
 struct InsecureRng {
     using u64 = std::uint64_t;
+    u64 state; // must never be 0; ctor enforces nonzero
 
     explicit InsecureRng(u64 seed = 0x9E3779B97F4A7C15ULL) : state(seed ? seed : 1) {}
 
@@ -39,6 +40,4 @@ struct InsecureRng {
         return (next_u64() >> 11) * (1.0 / 9007199254740992.0); // 2^53
     }
 
-private:
-    u64 state; // must never be 0; ctor enforces nonzero
 };

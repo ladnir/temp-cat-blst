@@ -13,7 +13,7 @@ namespace blst
 #ifdef BLST_CUDA
 
     // CUDA kernel for vectorized Fp12 multiplication
-    GLOBAL_FUNC void mul_fp12_kernel(Fp12* out, const Fp12* a, const Fp12* b, size_t num) {
+    BLST_GLOBAL void mul_fp12_kernel(Fp12* out, const Fp12* a, const Fp12* b, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
             Fp12::mul(out[idx], a[idx], b[idx]);
@@ -21,7 +21,7 @@ namespace blst
     }
 
     // CUDA kernel for vectorized Fp12 squaring
-    GLOBAL_FUNC void sqr_fp12_kernel(Fp12* out, const Fp12* a, size_t num) {
+    BLST_GLOBAL void sqr_fp12_kernel(Fp12* out, const Fp12* a, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
             Fp12::sqr(out[idx], a[idx]);
@@ -29,7 +29,7 @@ namespace blst
     }
 
     // CUDA kernel for vectorized Fp12 cyclotomic squaring
-    GLOBAL_FUNC void cyclotomic_sqr_fp12_kernel(Fp12* out, const Fp12* a, size_t num) {
+    BLST_GLOBAL void cyclotomic_sqr_fp12_kernel(Fp12* out, const Fp12* a, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
             Fp12::cyclotomic_sqr(out[idx], a[idx]);
@@ -37,7 +37,7 @@ namespace blst
     }
 
     // CUDA kernel for vectorized Fp12 conjugation
-    GLOBAL_FUNC void conjugate_fp12_kernel(Fp12* out, const Fp12* a, size_t num) {
+    BLST_GLOBAL void conjugate_fp12_kernel(Fp12* out, const Fp12* a, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
             // Copy input to output first, then conjugate in-place
@@ -49,7 +49,7 @@ namespace blst
     }
 
     // CUDA kernel for vectorized Fp12 inversion
-    GLOBAL_FUNC void inverse_fp12_kernel(Fp12* out, const Fp12* a, size_t num) {
+    BLST_GLOBAL void inverse_fp12_kernel(Fp12* out, const Fp12* a, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
             Fp12::inverse(out[idx], a[idx]);
@@ -57,7 +57,7 @@ namespace blst
     }
 
     // CUDA kernel for vectorized Fp12 Frobenius map
-    GLOBAL_FUNC void frobenius_map_fp12_kernel(Fp12* out, const Fp12* a, size_t power, size_t num) {
+    BLST_GLOBAL void frobenius_map_fp12_kernel(Fp12* out, const Fp12* a, size_t power, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
             Fp12::frobenius_map(out[idx], a[idx], power);
@@ -65,7 +65,7 @@ namespace blst
     }
 
     // CUDA kernel for vectorized Fp12 equality check
-    GLOBAL_FUNC void is_equal_fp12_kernel(bool* out, const Fp12* a, const Fp12* b, size_t num) {
+    BLST_GLOBAL void is_equal_fp12_kernel(bool* out, const Fp12* a, const Fp12* b, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
             out[idx] = Fp12::equal(a[idx], b[idx]);
@@ -73,7 +73,7 @@ namespace blst
     }
 
     // CUDA kernel for vectorized Fp12 is_one check
-    GLOBAL_FUNC void is_one_fp12_kernel(bool* out, const Fp12* a, size_t num) {
+    BLST_GLOBAL void is_one_fp12_kernel(bool* out, const Fp12* a, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
             out[idx] = Fp12::is_one(a[idx]);
@@ -81,7 +81,7 @@ namespace blst
     }
 
     // CUDA kernel for vectorized Fp12 serialization to big-endian
-    GLOBAL_FUNC void bendian_from_fp12_kernel(unsigned char* out, const Fp12* a, size_t num) {
+    BLST_GLOBAL void bendian_from_fp12_kernel(unsigned char* out, const Fp12* a, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
             Fp12::to_bendian(&out[idx * 12 * 48], a[idx]);
@@ -89,7 +89,7 @@ namespace blst
     }
 
     // CUDA kernel for vectorized Fp12 deserialization from big-endian
-    GLOBAL_FUNC void fp12_from_bendian_kernel(Fp12* out, const unsigned char* in, size_t num) {
+    BLST_GLOBAL void fp12_from_bendian_kernel(Fp12* out, const unsigned char* in, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
             Fp12::from_bendian(out[idx], &in[idx * 12 * 48]);
@@ -97,7 +97,7 @@ namespace blst
     }
 
     // CUDA kernel for vectorized Fp12 multiplication by xy00z0
-    GLOBAL_FUNC void mul_by_xy00z0_fp12_kernel(Fp12* out, const Fp12* a, const Fp6* xy00z0, size_t num) {
+    BLST_GLOBAL void mul_by_xy00z0_fp12_kernel(Fp12* out, const Fp12* a, const Fp6* xy00z0, size_t num) {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
             Fp12::mul_by_xy00z0(out[idx], a[idx], xy00z0[idx]);

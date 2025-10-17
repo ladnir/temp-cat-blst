@@ -337,7 +337,7 @@ namespace blst
 			{
 				printf("mult_window_n: cannot allocate %zu bytes\n",
 					(1 << (window_size - 1)) * sizeof(ptype) * npoints);
-				abort();
+				assert(0);
 			}
 			call_free = 1;
 		}

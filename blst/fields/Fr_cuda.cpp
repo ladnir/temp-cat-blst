@@ -42,7 +42,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for addition of Fr elements (GPU)
-	GLOBAL_FUNC void add_fr_vec_ker(Fr* out, const Fr* a, const Fr* b, size_t num)
+	BLST_GLOBAL void add_fr_vec_ker(Fr* out, const Fr* a, const Fr* b, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -85,7 +85,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for subtraction of Fr elements (GPU)
-	GLOBAL_FUNC void sub_fr_vec_ker(Fr* out, const Fr* a, const Fr* b, size_t num)
+	BLST_GLOBAL void sub_fr_vec_ker(Fr* out, const Fr* a, const Fr* b, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -128,7 +128,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for multiplication of Fr elements (GPU)
-	GLOBAL_FUNC void mul_fr_vec_ker(Fr* out, const Fr* a, const Fr* b, size_t num)
+	BLST_GLOBAL void mul_fr_vec_ker(Fr* out, const Fr* a, const Fr* b, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -171,7 +171,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for squaring of Fr elements (GPU)
-	GLOBAL_FUNC void sqr_fr_vec_ker(Fr* out, const Fr* a, size_t num)
+	BLST_GLOBAL void sqr_fr_vec_ker(Fr* out, const Fr* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -214,7 +214,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for conditional negation of Fr elements (GPU)
-	GLOBAL_FUNC void cneg_fr_vec_ker(Fr* out, const Fr* a, int flag, size_t num)
+	BLST_GLOBAL void cneg_fr_vec_ker(Fr* out, const Fr* a, int flag, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -257,7 +257,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for multiplication of Fr elements by 3 (GPU)
-	GLOBAL_FUNC void mul3_fr_vec_ker(Fr* out, const Fr* a, size_t num)
+	BLST_GLOBAL void mul3_fr_vec_ker(Fr* out, const Fr* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -300,7 +300,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for left shift of Fr elements (GPU)
-	GLOBAL_FUNC void lshift_fr_vec_ker(Fr* out, const Fr* a, size_t count, size_t num)
+	BLST_GLOBAL void lshift_fr_vec_ker(Fr* out, const Fr* a, size_t count, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -343,7 +343,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for right shift of Fr elements (GPU)
-	GLOBAL_FUNC void rshift_fr_vec_ker(Fr* out, const Fr* a, size_t count, size_t num)
+	BLST_GLOBAL void rshift_fr_vec_ker(Fr* out, const Fr* a, size_t count, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -386,7 +386,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for conversion from regular to Montgomery form for Fr elements (GPU)
-	GLOBAL_FUNC void to_fr_vec_ker(Fr* out, const Fr* a, size_t num)
+	BLST_GLOBAL void to_fr_vec_ker(Fr* out, const Fr* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -429,7 +429,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for conversion from Montgomery to regular form for Fr elements (GPU)
-	GLOBAL_FUNC void from_fr_vec_ker(Fr* out, const Fr* a, size_t num)
+	BLST_GLOBAL void from_fr_vec_ker(Fr* out, const Fr* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -472,7 +472,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for CT butterfly operations for Fr elements (GPU)
-	GLOBAL_FUNC void ct_bfly_fr_vec_ker(Fr* x0, Fr* x1, const Fr* twiddle, size_t num)
+	BLST_GLOBAL void ct_bfly_fr_vec_ker(Fr* x0, Fr* x1, const Fr* twiddle, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -515,7 +515,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for GS butterfly operations for Fr elements (GPU)
-	GLOBAL_FUNC void gs_bfly_fr_vec_ker(Fr* x0, Fr* x1, const Fr* twiddle, size_t num)
+	BLST_GLOBAL void gs_bfly_fr_vec_ker(Fr* x0, Fr* x1, const Fr* twiddle, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {

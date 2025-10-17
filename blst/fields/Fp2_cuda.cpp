@@ -29,7 +29,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for addition of Fp2 elements (GPU)
-	GLOBAL_FUNC void add_fp2_vec_ker(Fp2* out, const Fp2* a, const Fp2* b, size_t num)
+	BLST_GLOBAL void add_fp2_vec_ker(Fp2* out, const Fp2* a, const Fp2* b, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -71,7 +71,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for subtraction of Fp2 elements (GPU)
-	GLOBAL_FUNC void sub_fp2_vec_ker(Fp2* out, const Fp2* a, const Fp2* b, size_t num)
+	BLST_GLOBAL void sub_fp2_vec_ker(Fp2* out, const Fp2* a, const Fp2* b, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -113,7 +113,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for multiplication of Fp2 elements (GPU)
-	GLOBAL_FUNC void mul_fp2_vec_ker(Fp2* out, const Fp2* a, const Fp2* b, size_t num)
+	BLST_GLOBAL void mul_fp2_vec_ker(Fp2* out, const Fp2* a, const Fp2* b, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -155,7 +155,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for squaring of Fp2 elements (GPU)
-	GLOBAL_FUNC void sqr_fp2_vec_ker(Fp2* out, const Fp2* a, size_t num)
+	BLST_GLOBAL void sqr_fp2_vec_ker(Fp2* out, const Fp2* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -197,7 +197,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for conditional negation of Fp2 elements (GPU)
-	GLOBAL_FUNC void cneg_fp2_vec_ker(Fp2* out, const Fp2* a, int flag, size_t num)
+	BLST_GLOBAL void cneg_fp2_vec_ker(Fp2* out, const Fp2* a, int flag, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -239,7 +239,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for multiplication of Fp2 elements by 3 (GPU)
-	GLOBAL_FUNC void mul3_fp2_vec_ker(Fp2* out, const Fp2* a, size_t num)
+	BLST_GLOBAL void mul3_fp2_vec_ker(Fp2* out, const Fp2* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -281,7 +281,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for multiplication of Fp2 elements by 8 (GPU)
-	GLOBAL_FUNC void mul8_fp2_vec_ker(Fp2* out, const Fp2* a, size_t num)
+	BLST_GLOBAL void mul8_fp2_vec_ker(Fp2* out, const Fp2* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -323,7 +323,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for left shift of Fp2 elements (GPU)
-	GLOBAL_FUNC void lshift_fp2_vec_ker(Fp2* out, const Fp2* a, size_t count, size_t num)
+	BLST_GLOBAL void lshift_fp2_vec_ker(Fp2* out, const Fp2* a, size_t count, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -365,7 +365,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for conjugation of Fp2 elements (GPU)
-	GLOBAL_FUNC void conjugate_fp2_vec_ker(Fp2* out, const Fp2* a, size_t num)
+	BLST_GLOBAL void conjugate_fp2_vec_ker(Fp2* out, const Fp2* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -407,7 +407,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for inversion of Fp2 elements (GPU)
-	GLOBAL_FUNC void inverse_fp2_vec_ker(Fp2* out, const Fp2* a, size_t num)
+	BLST_GLOBAL void inverse_fp2_vec_ker(Fp2* out, const Fp2* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
@@ -448,7 +448,7 @@ namespace blst
 
 #ifdef BLST_CUDA
 	// kernel for square root of Fp2 elements (GPU)
-	GLOBAL_FUNC void sqrt_fp2_vec_ker(Fp2* out, const Fp2* a, size_t num)
+	BLST_GLOBAL void sqrt_fp2_vec_ker(Fp2* out, const Fp2* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {

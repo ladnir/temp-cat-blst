@@ -10,7 +10,6 @@
 #include "blst/curve/G2_cuda.cpp"
 #include "blst/curve/GT_cuda.cpp"
 
-#include "blst/common/Logger.cpp"
 
 
 

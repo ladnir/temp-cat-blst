@@ -108,7 +108,7 @@
         "LIBOTE_STD_VER": "20",
         "BLST_ASM": false,
         "BLST_PORTABLE": true,
-        "BLST_CUDA": false,
+        "BLST_CUDA": true,
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
       },
       "vendor": {

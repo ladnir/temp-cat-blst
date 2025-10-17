@@ -8,8 +8,11 @@
 #include "config.h"
 #include "blst/curve/G1_cuda.h"
 #include "blst/curve/map_to_G.h"
+#include "blst/curve/multi_scalar_cuda.h"
 #include "InsecureRng.h"
 using namespace blst;
+
+
 
 // CUDA kernel wrapper macros for device execution
 #define CUDA_CHECK(call) do { \
@@ -73,6 +76,7 @@ static bool cuda_device_available = false;
 class G1CUDAEnvironment : public ::testing::Environment {
 public:
     void SetUp() override {
+        cudaGetLastError();
         int device_count = 0;
         cudaError_t error = cudaGetDeviceCount(&device_count);
 
@@ -97,6 +101,9 @@ struct G1CudaTestRegistration {
 };
 
 static G1CudaTestRegistration g1_cuda_test_registration;
+
+
+
 
 // CUDA test cases comparing against CPU versions
 TEST(G1OpsCUDA, PointAddition) {
@@ -671,3 +678,594 @@ TEST(G1OpsCUDA, BatchProcessing) {
     CUDA_CHECK(cudaFree(d_points));
     CUDA_CHECK(cudaFree(d_result));
 }
+
+TEST(G1OpsCUDA, SortDigitsParallel) {
+    if (!G1CUDAEnvironment::IsCudaAvailable()) {
+        GTEST_SKIP() << "CUDA not available";
+    }
+
+    // Test parameters
+    const int N = 1000;  // Number of elements per digit
+    const int D = 4;     // Number of digits  
+    const int wbits = 5; // Bits per digit (max value = 31)
+    const int W = 1 << wbits; // Number of possible values per digit
+
+    // Allocate host memory - using u8 for keys and IdxSign for values
+    u8* h_keys_input = new u8[N * D];
+    u8* h_keys_output = new u8[N * D];
+    blst::IdxSign* h_vals_input = new blst::IdxSign[N * D];
+    blst::IdxSign* h_vals_output = new blst::IdxSign[N * D];
+    u8* h_keys_expected = new u8[N * D];
+    blst::IdxSign* h_vals_expected = new blst::IdxSign[N * D];
+
+    // Generate test data - random keys and sequential values
+    InsecureRng rng;
+    for (int d = 0; d < D; d++) {
+        for (int i = 0; i < N; i++) {
+            int idx = d * N + i;
+            // Generate random keys in valid range [0, 2^wbits)
+            h_keys_input[idx] = static_cast<u8>(rng.uniform_u32(0, W - 1));
+            // Use sequential values with IdxSign structure: (index << 1) | sign
+            bool sign = (i % 3 == 0); // Every 3rd element is negative
+            h_vals_input[idx] = blst::IdxSign{ static_cast<uint32_t>((i << 1) | (sign ? 1 : 0)) };
+        }
+    }
+
+    // Create expected results by sorting each digit slice on CPU
+    memcpy(h_keys_expected, h_keys_input, sizeof(u8) * N * D);
+    memcpy(h_vals_expected, h_vals_input, sizeof(blst::IdxSign) * N * D);
+
+    // CPU sort each digit slice separately
+    for (int d = 0; d < D; d++) {
+        u8* keys_slice = h_keys_expected + d * N;
+        blst::IdxSign* vals_slice = h_vals_expected + d * N;
+
+        // Simple bubble sort for reference (stable sort)
+        for (int i = 0; i < N - 1; i++) {
+            for (int j = 0; j < N - 1 - i; j++) {
+                if (keys_slice[j] > keys_slice[j + 1]) {
+                    // Swap keys
+                    u8 temp_key = keys_slice[j];
+                    keys_slice[j] = keys_slice[j + 1];
+                    keys_slice[j + 1] = temp_key;
+
+                    // Swap corresponding values
+                    blst::IdxSign temp_val = vals_slice[j];
+                    vals_slice[j] = vals_slice[j + 1];
+                    vals_slice[j + 1] = temp_val;
+                }
+            }
+        }
+    }
+
+    // Allocate device memory
+    u8* d_keys_input;
+    u8* d_keys_output;
+    blst::IdxSign* d_vals_input;
+    blst::IdxSign* d_vals_output;
+    CUDA_CHECK(cudaMalloc(&d_keys_input, sizeof(u8) * N * D));
+    CUDA_CHECK(cudaMalloc(&d_keys_output, sizeof(u8) * N * D));
+    CUDA_CHECK(cudaMalloc(&d_vals_input, sizeof(blst::IdxSign) * N * D));
+    CUDA_CHECK(cudaMalloc(&d_vals_output, sizeof(blst::IdxSign) * N * D));
+
+    // Copy test data to device
+    CUDA_CHECK(cudaMemcpy(d_keys_input, h_keys_input, sizeof(u8) * N * D, cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_vals_input, h_vals_input, sizeof(blst::IdxSign) * N * D, cudaMemcpyHostToDevice));
+
+    // Query workspace size
+    size_t workspace_bytes = 0;
+    cudaError_t result = blst::sort_digits_segmented(
+        nullptr,          // d_workspace (nullptr to query size)
+        workspace_bytes,  // in/out workspace size
+        d_keys_input,
+        d_keys_output,
+        d_vals_input,
+        d_vals_output,
+        N,
+        D,
+        wbits,
+        0);               // default stream
+
+    EXPECT_EQ(result, cudaSuccess);
+    EXPECT_GT(workspace_bytes, 0) << "Workspace size should be positive";
+
+    // Allocate workspace
+    void* d_workspace = nullptr;
+    CUDA_CHECK(cudaMalloc(&d_workspace, workspace_bytes));
+
+    // Call the function under test
+    result = blst::sort_digits_segmented(
+        d_workspace,
+        workspace_bytes,
+        d_keys_input,
+        d_keys_output,
+        d_vals_input,
+        d_vals_output,
+        N,
+        D,
+        wbits,
+        0);
+
+    EXPECT_EQ(result, cudaSuccess);
+
+    // Copy results back to host
+    CUDA_CHECK(cudaMemcpy(h_keys_output, d_keys_output, sizeof(u8) * N * D, cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_vals_output, d_vals_output, sizeof(blst::IdxSign) * N * D, cudaMemcpyDeviceToHost));
+
+    // Verify results - each digit slice should be sorted
+    bool all_sorted = true;
+    for (int d = 0; d < D; d++) {
+        u8* keys_slice = h_keys_output + d * N;
+        blst::IdxSign* vals_slice = h_vals_output + d * N;
+
+        // Check that keys are sorted within each digit
+        for (int i = 0; i < N - 1; i++) {
+            if (keys_slice[i] > keys_slice[i + 1]) {
+                printf("Digit %d not sorted at position %d: %u > %u\n",
+                    d, i, keys_slice[i], keys_slice[i + 1]);
+                all_sorted = false;
+                break;
+            }
+        }
+
+        // Verify that values follow their corresponding keys correctly
+        for (int i = 0; i < N - 1; i++) {
+            if (keys_slice[i] == keys_slice[i + 1]) {
+                // For equal keys, check that indices are valid
+                uint32_t idx1 = vals_slice[i].idx();
+                uint32_t idx2 = vals_slice[i + 1].idx();
+                if (idx1 >= N || idx2 >= N) {
+                    printf("Invalid index found in digit %d\n", d);
+                    all_sorted = false;
+                    break;
+                }
+            }
+        }
+    }
+
+    EXPECT_TRUE(all_sorted) << "Sort verification failed";
+
+    // Additional check: verify all original indices are present
+    for (int d = 0; d < D; d++) {
+        std::vector<bool> found(N, false);
+        blst::IdxSign* vals_slice = h_vals_output + d * N;
+
+        for (int i = 0; i < N; i++) {
+            uint32_t idx = vals_slice[i].idx();
+            if (idx < N) {
+                found[idx] = true;
+            }
+        }
+
+        bool all_found = true;
+        for (int i = 0; i < N; i++) {
+            if (!found[i]) {
+                printf("Index %d missing in digit %d\n", i, d);
+                all_found = false;
+            }
+        }
+        EXPECT_TRUE(all_found) << "Some indices were lost during sorting in digit " << d;
+    }
+
+    // Cleanup
+    delete[] h_keys_input;
+    delete[] h_keys_output;
+    delete[] h_vals_input;
+    delete[] h_vals_output;
+    delete[] h_keys_expected;
+    delete[] h_vals_expected;
+
+    CUDA_CHECK(cudaFree(d_keys_input));
+    CUDA_CHECK(cudaFree(d_keys_output));
+    CUDA_CHECK(cudaFree(d_vals_input));
+    CUDA_CHECK(cudaFree(d_vals_output));
+    CUDA_CHECK(cudaFree(d_workspace));
+}
+
+// Additional edge case test
+TEST(G1OpsCUDA, SortDigitsParallelEdgeCases) {
+    if (!G1CUDAEnvironment::IsCudaAvailable()) {
+        GTEST_SKIP() << "CUDA not available";
+    }
+
+    // Test with minimal data
+    const int N_small = 10;
+    const int D_small = 2;
+    const int wbits_small = 3; // 8 possible values
+
+    u8* d_keys_input;
+    u8* d_keys_output;
+    blst::IdxSign* d_vals_input;
+    blst::IdxSign* d_vals_output;
+    CUDA_CHECK(cudaMalloc(&d_keys_input, sizeof(u8) * N_small * D_small));
+    CUDA_CHECK(cudaMalloc(&d_keys_output, sizeof(u8) * N_small * D_small));
+    CUDA_CHECK(cudaMalloc(&d_vals_input, sizeof(blst::IdxSign) * N_small * D_small));
+    CUDA_CHECK(cudaMalloc(&d_vals_output, sizeof(blst::IdxSign) * N_small * D_small));
+
+    // Test data: already sorted
+    u8 h_sorted_keys[] = { 0, 1, 2, 3, 4, 5, 6, 7, 0, 1,  // digit 0
+                          0, 0, 1, 1, 2, 2, 3, 3, 4, 4 }; // digit 1
+    blst::IdxSign h_sorted_vals[N_small * D_small];
+    for (int i = 0; i < N_small * D_small; i++) {
+        h_sorted_vals[i] = blst::IdxSign{ static_cast<uint32_t>(i << 1) }; // No sign bit
+    }
+
+    CUDA_CHECK(cudaMemcpy(d_keys_input, h_sorted_keys,
+        sizeof(u8) * N_small * D_small, cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_vals_input, h_sorted_vals,
+        sizeof(blst::IdxSign) * N_small * D_small, cudaMemcpyHostToDevice));
+
+    // Query workspace size
+    size_t workspace_bytes = 0;
+    cudaError_t result = blst::sort_digits_segmented(
+        nullptr,
+        workspace_bytes,
+        d_keys_input,
+        d_keys_output,
+        d_vals_input,
+        d_vals_output,
+        N_small,
+        D_small,
+        wbits_small,
+        0);
+
+    EXPECT_EQ(result, cudaSuccess);
+
+    // Allocate workspace
+    void* d_workspace = nullptr;
+    CUDA_CHECK(cudaMalloc(&d_workspace, workspace_bytes));
+
+    // Should handle already sorted data gracefully
+    result = blst::sort_digits_segmented(
+        d_workspace,
+        workspace_bytes,
+        d_keys_input,
+        d_keys_output,
+        d_vals_input,
+        d_vals_output,
+        N_small,
+        D_small,
+        wbits_small,
+        0);
+
+    EXPECT_EQ(result, cudaSuccess);
+
+    // Test with reverse sorted data
+    u8 h_reverse_keys[] = { 7, 6, 5, 4, 3, 2, 1, 0, 1, 0,  // digit 0
+                           4, 4, 3, 3, 2, 2, 1, 1, 0, 0 }; // digit 1
+
+    CUDA_CHECK(cudaMemcpy(d_keys_input, h_reverse_keys,
+        sizeof(u8) * N_small * D_small, cudaMemcpyHostToDevice));
+
+    result = blst::sort_digits_segmented(
+        d_workspace,
+        workspace_bytes,
+        d_keys_input,
+        d_keys_output,
+        d_vals_input,
+        d_vals_output,
+        N_small,
+        D_small,
+        wbits_small,
+        0);
+
+    EXPECT_EQ(result, cudaSuccess);
+
+    // Verify the reverse sorted data is now properly sorted
+    u8 h_result_keys[N_small * D_small];
+    CUDA_CHECK(cudaMemcpy(h_result_keys, d_keys_output,
+        sizeof(u8) * N_small * D_small, cudaMemcpyDeviceToHost));
+
+    // Check first digit is sorted
+    for (int i = 0; i < N_small - 1; i++) {
+        EXPECT_LE(h_result_keys[i], h_result_keys[i + 1])
+            << "First digit not sorted at position " << i;
+    }
+
+    // Check second digit is sorted  
+    for (int i = N_small; i < 2 * N_small - 1; i++) {
+        EXPECT_LE(h_result_keys[i], h_result_keys[i + 1])
+            << "Second digit not sorted at position " << (i - N_small);
+    }
+
+    CUDA_CHECK(cudaFree(d_keys_input));
+    CUDA_CHECK(cudaFree(d_keys_output));
+    CUDA_CHECK(cudaFree(d_vals_input));
+    CUDA_CHECK(cudaFree(d_vals_output));
+    CUDA_CHECK(cudaFree(d_workspace));
+}
+
+TEST(G1OpsCUDA, ReduceGroups) {
+    if (!G1CUDAEnvironment::IsCudaAvailable()) {
+        GTEST_SKIP() << "CUDA not available";
+    }
+
+    // Test parameters
+    const int N = 100;       // Total number of elements
+    const int wbits = 4;     // Window size (4 bits = 16 possible values)
+    const int W = (1 << (wbits - 1)); // Number of groups = 2^(wbits-1) = 8
+
+    // Host data
+    u16 h_keys[N];
+    blst::IdxSign h_vals[N];
+    G1Point h_points[N];
+    Pointxyzz<Fp> h_cuda_groups_xyzz[W];
+    Pointxyzz<Fp> h_cpu_groups_xyzz[W];
+    G1Point h_cuda_groups[W], h_cpu_groups[W];
+    G1AffinePoint h_cuda_groups_affine[W], h_cpu_groups_affine[W];
+
+    // Initialize groups to zero
+    memset(h_cuda_groups_xyzz, 0, sizeof(h_cuda_groups_xyzz));
+    memset(h_cpu_groups_xyzz, 0, sizeof(h_cpu_groups_xyzz));
+    memset(h_cuda_groups, 0, sizeof(h_cuda_groups));
+    memset(h_cpu_groups, 0, sizeof(h_cpu_groups));
+    memset(h_cuda_groups_affine, 0, sizeof(h_cuda_groups_affine));
+    memset(h_cpu_groups_affine, 0, sizeof(h_cpu_groups_affine));
+
+    // Create test data
+    InsecureRng rng;
+    create_test_points(h_points, N, rng);
+
+    // Generate sorted keys and packed values
+    // Keys range from 1 to W (group 0 is skipped)
+    for (int i = 0; i < N; i++) {
+        // Distribute elements across groups, with more elements in lower groups
+        h_keys[i] = (i % W) + 1;  // Groups 1 to W
+
+        // Pack values: (index << 1) | sign using IdxSign
+        bool sign = (i % 3 == 0); // Every 3rd element is negative
+        h_vals[i] = blst::IdxSign{ static_cast<uint32_t>((i << 1) | (sign ? 1 : 0)) };
+    }
+
+    // Sort by keys (simple bubble sort for test data)
+    for (int i = 0; i < N - 1; i++) {
+        for (int j = 0; j < N - 1 - i; j++) {
+            if (h_keys[j] > h_keys[j + 1]) {
+                // Swap keys
+                u16 temp_key = h_keys[j];
+                h_keys[j] = h_keys[j + 1];
+                h_keys[j + 1] = temp_key;
+
+                // Swap values
+                blst::IdxSign temp_val = h_vals[j];
+                h_vals[j] = h_vals[j + 1];
+                h_vals[j + 1] = temp_val;
+            }
+        }
+    }
+
+    // Convert input points to affine for CUDA
+    G1AffinePoint h_affine_points[N];
+    for (int i = 0; i < N; i++) {
+        G1Point::to_affine(h_affine_points[i], h_points[i]);
+    }
+
+    // CPU computation - compute expected group sums using XYZZ accumulation
+    for (int i = 0; i < N; i++) {
+        u16 group = h_keys[i];
+        if (group == 0 || group > W) {
+            continue; // Skip invalid groups
+        }
+
+        uint32_t idx = h_vals[i].idx();
+        bool sign = h_vals[i].sign();
+
+        if (idx >= N) {
+            continue; // Skip invalid indices
+        }
+
+        G1AffinePoint point_affine = h_affine_points[idx];
+        if (sign) {
+            G1AffinePoint::cneg(point_affine, sign);
+        }
+
+        Pointxyzz<Fp> point_xyzz;
+        Pointxyzz<Fp>::from_affine(point_xyzz, point_affine);
+
+        Pointxyzz<Fp> sum;
+        Pointxyzz<Fp>::dadd(sum, h_cpu_groups_xyzz[group - 1], point_xyzz);
+        h_cpu_groups_xyzz[group - 1] = sum;
+    }
+
+    for (int g = 0; g < W; g++) {
+        Pointxyzz<Fp>::to_Jacobian(h_cpu_groups[g], h_cpu_groups_xyzz[g]);
+        G1Point::to_affine(h_cpu_groups_affine[g], h_cpu_groups[g]);
+    }
+
+    // Device memory allocation
+    u16* d_keys;
+    G1AffinePoint* d_points;
+    Pointxyzz<Fp>* d_groups;
+    void* d_workspace = nullptr;
+
+    CUDA_CHECK(cudaMalloc(&d_keys, N * sizeof(u16)));
+    CUDA_CHECK(cudaMalloc(&d_points, N * sizeof(G1AffinePoint)));
+    CUDA_CHECK(cudaMalloc(&d_groups, W * sizeof(Pointxyzz<Fp>)));
+
+    // Copy data to device
+    CUDA_CHECK(cudaMemcpy(d_keys, h_keys, N * sizeof(u16), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_points, h_affine_points, N * sizeof(G1AffinePoint), cudaMemcpyHostToDevice));
+
+    // Create transform iterator for gathering points with sign
+    auto gather_iter = thrust::make_transform_iterator(
+        h_vals,  // Start with host IdxSign values, but we'll copy to device
+        blst::PackedToPointXYZZ<Fp>{ d_points, N }
+    );
+
+    // We need device IdxSign values for the transform iterator
+    blst::IdxSign* d_vals;
+    CUDA_CHECK(cudaMalloc(&d_vals, N * sizeof(blst::IdxSign)));
+    CUDA_CHECK(cudaMemcpy(d_vals, h_vals, N * sizeof(blst::IdxSign), cudaMemcpyHostToDevice));
+
+    // Create the correct transform iterator using device data
+    auto device_gather_iter = thrust::make_transform_iterator(
+        d_vals,
+        blst::PackedToPointXYZZ<Fp>{ d_points, N }
+    );
+
+    // Query workspace size - using single vector version (M=1, N=N, W=W)
+    size_t workspace_bytes = 0;
+    cudaError_t result = blst::reduce_groups<blst::Fp>(
+        nullptr,          // d_workspace (nullptr to query size)
+        workspace_bytes,  // in/out workspace size
+        d_keys,
+        device_gather_iter,
+        d_groups,
+        N,
+        W,
+        0);               // default stream
+
+    EXPECT_EQ(result, cudaSuccess);
+    EXPECT_GT(workspace_bytes, 0) << "Workspace size should be positive";
+
+    // Allocate workspace
+    CUDA_CHECK(cudaMalloc(&d_workspace, workspace_bytes));
+
+    // Perform the actual reduction
+    result = blst::reduce_groups<blst::Fp>(
+        d_workspace,
+        workspace_bytes,
+        d_keys,
+        device_gather_iter,
+        d_groups,
+        N,
+        W,
+        0);
+
+    // block on stream to catch errors
+    CUDA_CHECK(cudaStreamSynchronize(0));
+
+    if (result != cudaSuccess) {
+        const char* err_str = cudaGetErrorString(result);
+        printf("reduce_groups failed: %s\n", err_str);
+    }
+
+    EXPECT_EQ(result, cudaSuccess);
+
+    // Copy results back to host
+    CUDA_CHECK(cudaMemcpy(h_cuda_groups_xyzz, d_groups, W * sizeof(Pointxyzz<Fp>), cudaMemcpyDeviceToHost));
+
+    for (int g = 0; g < W; g++) {
+        Pointxyzz<Fp>::to_Jacobian(h_cuda_groups[g], h_cuda_groups_xyzz[g]);
+        G1Point::to_affine(h_cuda_groups_affine[g], h_cuda_groups[g]);
+    }
+
+    // Compare results
+    bool all_match = true;
+    for (int g = 0; g < W; g++) {
+        if (!G1AffinePoint::equal(h_cuda_groups_affine[g], h_cpu_groups_affine[g])) {
+            printf("Group %d mismatch\n", g + 1);
+            all_match = false;
+        }
+    }
+
+    EXPECT_TRUE(all_match) << "CUDA and CPU group reductions should match";
+
+    // Additional verification: check that some groups have non-zero results
+    bool has_nonzero = false;
+    for (int g = 0; g < W; g++) {
+        if (!G1AffinePoint::is_inf(h_cuda_groups_affine[g])) {
+            has_nonzero = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(has_nonzero) << "At least some groups should have non-zero results";
+
+    // Cleanup
+    CUDA_CHECK(cudaFree(d_keys));
+    CUDA_CHECK(cudaFree(d_vals));
+    CUDA_CHECK(cudaFree(d_points));
+    CUDA_CHECK(cudaFree(d_groups));
+    CUDA_CHECK(cudaFree(d_workspace));
+}
+
+TEST(G1OpsCUDA, ReduceGroupsEdgeCases) {
+    if (!G1CUDAEnvironment::IsCudaAvailable()) {
+        GTEST_SKIP() << "CUDA not available";
+    }
+
+    // Test with minimal data and edge cases
+    const int N = 10;
+    const int wbits = 3; // 3 bits = 8 possible values
+    const int W = (1 << (wbits - 1)); // 4 groups
+
+    // Properly sorted keys: all instances of same key are contiguous
+    u16 h_keys[N] = { 1, 1, 1, 2, 2, 2, 3, 3, 4, 4 }; // Actually sorted now
+    blst::IdxSign h_vals[N];
+    G1Point h_points[N];
+    G1AffinePoint h_affine_points[N];
+
+    // Create test points
+    InsecureRng rng;
+    create_test_points(h_points, N, rng);
+    for (int i = 0; i < N; i++) {
+        G1Point::to_affine(h_affine_points[i], h_points[i]);
+        h_vals[i] = blst::IdxSign{ static_cast<uint32_t>(i << 1) }; // All positive (sign bit = 0)
+    }
+
+    // Device allocation
+    u16* d_keys;
+    blst::IdxSign* d_vals;
+    G1AffinePoint* d_points;
+    Pointxyzz<Fp>* d_groups;
+
+    CUDA_CHECK(cudaMalloc(&d_keys, N * sizeof(u16)));
+    CUDA_CHECK(cudaMalloc(&d_vals, N * sizeof(blst::IdxSign)));
+    CUDA_CHECK(cudaMalloc(&d_points, N * sizeof(G1AffinePoint)));
+    CUDA_CHECK(cudaMalloc(&d_groups, W * sizeof(Pointxyzz<Fp>)));
+
+    CUDA_CHECK(cudaMemcpy(d_keys, h_keys, N * sizeof(u16), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_vals, h_vals, N * sizeof(blst::IdxSign), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_points, h_affine_points, N * sizeof(G1AffinePoint), cudaMemcpyHostToDevice));
+
+    // Create transform iterator
+    auto gather_iter = thrust::make_transform_iterator(
+        d_vals,
+        blst::PackedToPointXYZZ<Fp>{ d_points, N }
+    );
+
+    // Test workspace size query
+    size_t workspace_bytes = 0;
+    cudaError_t result = blst::reduce_groups<blst::Fp>(
+        nullptr, workspace_bytes, d_keys, gather_iter, d_groups, N, W, 0);
+
+    EXPECT_EQ(result, cudaSuccess);
+
+    // Test with insufficient workspace
+    void* d_workspace;
+    size_t small_workspace = workspace_bytes / 2;
+    CUDA_CHECK(cudaMalloc(&d_workspace, small_workspace));
+
+    result = blst::reduce_groups<blst::Fp>(
+        d_workspace, small_workspace, d_keys, gather_iter, d_groups, N, W, 0);
+
+    EXPECT_EQ(result, cudaErrorInvalidValue) << "Should fail with insufficient workspace";
+
+    // Test with correct workspace size
+    CUDA_CHECK(cudaFree(d_workspace));
+    CUDA_CHECK(cudaMalloc(&d_workspace, workspace_bytes));
+
+    result = blst::reduce_groups<blst::Fp>(
+        d_workspace, workspace_bytes, d_keys, gather_iter, d_groups, N, W, 0);
+
+    EXPECT_EQ(result, cudaSuccess);
+
+    // Cleanup
+    CUDA_CHECK(cudaFree(d_keys));
+    CUDA_CHECK(cudaFree(d_vals));
+    CUDA_CHECK(cudaFree(d_points));
+    CUDA_CHECK(cudaFree(d_groups));
+    CUDA_CHECK(cudaFree(d_workspace));
+}
+
+
+
+
+
+
+
+
+
+
+
+

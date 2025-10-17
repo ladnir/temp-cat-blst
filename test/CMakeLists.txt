@@ -15,6 +15,7 @@ FetchContent_MakeAvailable(googletest)
 
 enable_testing()
 
+
 # Determine test sources based on CUDA availability
 set(TEST_SOURCES
     "Fp_tests.cpp" 
@@ -67,3 +68,13 @@ if(BLST_CUDA)
 
     set_target_properties(blst_tests PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 endif()
+
+include(GoogleTest)        # 4) glue between GTest and CTest
+# 5) Auto-discover TEST() cases inside blst_tests and register them with CTest
+gtest_discover_tests(blst_tests
+  DISCOVERY_TIMEOUT 60
+  # Optional:
+  # WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+  # TEST_PREFIX "unit."
+  # PROPERTIES LABELS "unit"
+)

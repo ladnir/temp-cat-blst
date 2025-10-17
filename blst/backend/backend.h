@@ -4,7 +4,6 @@
 #include "backend_portable.h"
 #include "backend_asm.h"
 //BLST_EXTERN_C_BEGIN
-#include "blst/common/Logger.h"
 
 namespace blst
 {
