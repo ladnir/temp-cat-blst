@@ -220,7 +220,10 @@ namespace blst
     template<class Field>
     struct XYZZAdd {
         BLST_DEVICE BLST_FORCEINLINE
-            DefaultedPointxyzz<Field> operator()(const DefaultedPointxyzz<Field>& a, const DefaultedPointxyzz<Field>& b) const {
+            DefaultedPointxyzz<Field> operator()(
+                const DefaultedPointxyzz<Field>& a, 
+                const DefaultedPointxyzz<Field>& b) const 
+        {
             DefaultedPointxyzz<Field> r;
             DefaultedPointxyzz<Field>::dadd(r, a, b);
             return r;

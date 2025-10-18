@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright Supranational LLC
  * Licensed under the Apache License, Version 2.0, see LICENSE for details.
  * SPDX-License-Identifier: Apache-2.0
@@ -720,6 +720,9 @@ template<typename Field>
 		vec_copy(&acc, &buckets[--n], sizeof(acc));
 		vec_copy(&ret, &buckets[n], sizeof(ret));
 		vec_zero(&buckets[n], sizeof(buckets[n]));
+
+
+		// computes Σ d·S_d
 		while (n--) {
 			Pointxyzz<Field>::dadd(acc, acc, buckets[n]);
 			Pointxyzz<Field>::dadd(ret, ret, acc);
