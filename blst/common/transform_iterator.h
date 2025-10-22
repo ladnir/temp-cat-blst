@@ -17,85 +17,85 @@ namespace blst
         Unary fun;
 
         transform_iterator() = default;
-        transform_iterator(Iter i, Unary f) : it(i), fun(f) {}
+        BLST_HD transform_iterator(Iter i, Unary f) : it(i), fun(f) {}
 
-        reference operator*() const
+        BLST_HD reference operator*() const
         {
             return fun(*it);
         }
 
-        transform_iterator& operator++()
+        BLST_HD transform_iterator& operator++()
         {
             ++it;
             return *this;
         }
 
-        transform_iterator operator++(int)
+        BLST_HD transform_iterator operator++(int)
         {
             auto tmp = *this;
             ++(*this);
             return tmp;
         }
 
-        transform_iterator& operator--()
+        BLST_HD transform_iterator& operator--()
         {
             --it;
             return *this;
         }
 
-        transform_iterator operator--(int)
+        BLST_HD transform_iterator operator--(int)
         {
             auto tmp = *this;
             --(*this);
             return tmp;
         }
 
-        transform_iterator& operator+=(difference_type n)
+        BLST_HD transform_iterator& operator+=(difference_type n)
         {
             it += n;
             return *this;
         }
 
-        transform_iterator& operator-=(difference_type n)
+        BLST_HD transform_iterator& operator-=(difference_type n)
         {
             it -= n;
             return *this;
         }
 
-        reference operator[](difference_type n) const
+        BLST_HD reference operator[](difference_type n) const
         {
             return fun(it[n]);
         }
 
-        friend transform_iterator operator+(transform_iterator t, difference_type n)
+        BLST_HD friend transform_iterator operator+(transform_iterator t, difference_type n)
         {
             t += n;
             return t;
         }
 
-        friend transform_iterator operator+(difference_type n, transform_iterator t)
+        BLST_HD friend transform_iterator operator+(difference_type n, transform_iterator t)
         {
             t += n;
             return t;
         }
 
-        friend transform_iterator operator-(transform_iterator t, difference_type n)
+        BLST_HD friend transform_iterator operator-(transform_iterator t, difference_type n)
         {
             t -= n;
             return t;
         }
 
-        friend difference_type operator-(const transform_iterator& a, const transform_iterator& b)
+        BLST_HD friend difference_type operator-(const transform_iterator& a, const transform_iterator& b)
         {
             return a.it - b.it;
         }
 
-        friend bool operator==(const transform_iterator& a, const transform_iterator& b)
+        BLST_HD friend bool operator==(const transform_iterator& a, const transform_iterator& b)
         {
             return a.it == b.it;
         }
 
-        friend auto operator<=>(const transform_iterator& a, const transform_iterator& b)
+        BLST_HD friend auto operator<=>(const transform_iterator& a, const transform_iterator& b)
         {
             return a.it <=> b.it;
         }

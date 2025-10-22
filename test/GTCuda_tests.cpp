@@ -6,11 +6,11 @@
 #include <stdio.h>
 #include <iostream>
 #include "config.h"
+#include "blst/curve/GT.h"
 #include "blst/curve/GT_cuda.h"
 #include "blst/sign/aggregate.h"
 #include "blst/curve/point.h"
 #include "blst/curve/pairing.h"
-#include "blst/fields/Fp12.h"
 #include "InsecureRng.h"
 
 using namespace blst;
@@ -27,7 +27,7 @@ using namespace blst;
 namespace
 {
     // Helper function to create test GT elements on host
-    void create_test_gt_elements(Fp12* elements, size_t num, InsecureRng& rng) {
+    void create_test_gt_elements(GT* elements, size_t num, InsecureRng& rng) {
         G1Point g1_gen = G1Point::generator();
         G2Point g2_gen = G2Point::generator();
         G1AffinePoint g1_affine;
@@ -49,8 +49,8 @@ namespace
             G1Point::to_affine(g1_affine, g1_mult);
 
             // Compute pairing to get GT element
-            blst_miller_loop(elements[i], &g2_affine, &g1_affine);
-            Fp12::final_exp(elements[i], elements[i]);
+            GT::miller_loop(elements[i], &g2_affine, &g1_affine);
+            GT::final_mult(elements[i], elements[i]);
         }
     }
 
@@ -78,8 +78,8 @@ namespace
     }
 
     // Equality functions for different types
-    bool gt_element_equal(const Fp12& a, const Fp12& b) {
-        return Fp12::equal(a, b);
+    bool gt_element_equal(const GT& a, const GT& b) {
+        return GT::equal(a, b);
     }
 
     bool bool_equal(const bool& a, const bool& b) {
@@ -126,9 +126,9 @@ TEST(GTOpsCUDA, Identity) {
     }
 
     const size_t num_elements = 10;
-    Fp12* d_elements;
+    GT* d_elements;
     bool* d_results;
-    Fp12 h_elements[num_elements];
+    GT h_elements[num_elements];
     bool h_cuda_results[num_elements], h_cpu_results[num_elements];
 
     // Create test data including identity element
@@ -136,18 +136,18 @@ TEST(GTOpsCUDA, Identity) {
     create_test_gt_elements(h_elements, num_elements - 1, rng);
 
     // Add identity element
-	h_elements[num_elements - 1] = Fp12::one();
+	h_elements[num_elements - 1] = GT::identity();
 
     // CPU computation
     for (size_t i = 0; i < num_elements; i++) {
-        h_cpu_results[i] = Fp12::is_one(h_elements[i]);
+        h_cpu_results[i] = GT::is_identity(h_elements[i]);
     }
 
     // CUDA computation
-    CUDA_CHECK(cudaMalloc(&d_elements, num_elements * sizeof(Fp12)));
+    CUDA_CHECK(cudaMalloc(&d_elements, num_elements * sizeof(GT)));
     CUDA_CHECK(cudaMalloc(&d_results, num_elements * sizeof(bool)));
 
-    CUDA_CHECK(cudaMemcpy(d_elements, h_elements, num_elements * sizeof(Fp12), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_elements, h_elements, num_elements * sizeof(GT), cudaMemcpyHostToDevice));
 
     batched_error_code result = is_one_gt_vec(d_results, d_elements, num_elements);
     EXPECT_TRUE(check_batched_success(result));
@@ -171,9 +171,9 @@ TEST(GTOpsCUDA, Multiplication) {
     }
 
     const size_t num_elements = 10;
-    Fp12* d_a, * d_b, * d_result;
-    Fp12 h_a[num_elements], h_b[num_elements];
-    Fp12 h_cuda_result[num_elements], h_cpu_result[num_elements];
+    GT* d_a, * d_b, * d_result;
+    GT h_a[num_elements], h_b[num_elements];
+    GT h_cuda_result[num_elements], h_cpu_result[num_elements];
 
     // Create test data
     InsecureRng rng;
@@ -182,29 +182,29 @@ TEST(GTOpsCUDA, Multiplication) {
 
     // CPU computation
     for (size_t i = 0; i < num_elements; i++) {
-        Fp12::mul(h_cpu_result[i], h_a[i], h_b[i]);
+        GT::add(h_cpu_result[i], h_a[i], h_b[i]);
     }
 
     // CUDA computation
-    CUDA_CHECK(cudaMalloc(&d_a, num_elements * sizeof(Fp12)));
-    CUDA_CHECK(cudaMalloc(&d_b, num_elements * sizeof(Fp12)));
-    CUDA_CHECK(cudaMalloc(&d_result, num_elements * sizeof(Fp12)));
+    CUDA_CHECK(cudaMalloc(&d_a, num_elements * sizeof(GT)));
+    CUDA_CHECK(cudaMalloc(&d_b, num_elements * sizeof(GT)));
+    CUDA_CHECK(cudaMalloc(&d_result, num_elements * sizeof(GT)));
 
-    CUDA_CHECK(cudaMemcpy(d_a, h_a, num_elements * sizeof(Fp12), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_b, h_b, num_elements * sizeof(Fp12), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_a, h_a, num_elements * sizeof(GT), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_b, h_b, num_elements * sizeof(GT), cudaMemcpyHostToDevice));
 
     batched_error_code result = mult_gt_vec(d_result, d_a, d_b, num_elements);
     EXPECT_TRUE(check_batched_success(result));
 
-    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_elements * sizeof(Fp12), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_elements * sizeof(GT), cudaMemcpyDeviceToHost));
 
     // Compare results
     EXPECT_TRUE(compare_results(h_cuda_result, h_cpu_result, num_elements, gt_element_equal));
 
     // Test commutativity on one element
-    Fp12 h_commute_test;
-    Fp12::mul(h_commute_test, h_b[0], h_a[0]);
-    EXPECT_TRUE(Fp12::equal(h_commute_test, h_cuda_result[0]))
+    GT h_commute_test;
+    GT::add(h_commute_test, h_b[0], h_a[0]);
+    EXPECT_TRUE(GT::equal(h_commute_test, h_cuda_result[0]))
         << "GT multiplication should be commutative";
 
     // Cleanup
@@ -219,9 +219,9 @@ TEST(GTOpsCUDA, Inversion) {
     }
 
     const size_t num_elements = 10;
-    Fp12* d_elements, * d_result;
-    Fp12 h_elements[num_elements];
-    Fp12 h_cuda_result[num_elements], h_cpu_result[num_elements];
+    GT* d_elements, * d_result;
+    GT h_elements[num_elements];
+    GT h_cuda_result[num_elements], h_cpu_result[num_elements];
 
     // Create test data
     InsecureRng rng;
@@ -229,28 +229,28 @@ TEST(GTOpsCUDA, Inversion) {
 
     // CPU computation
     for (size_t i = 0; i < num_elements; i++) {
-        Fp12::inverse(h_cpu_result[i], h_elements[i]);
+        GT::neg(h_cpu_result[i], h_elements[i]);
     }
 
     // CUDA computation
-    CUDA_CHECK(cudaMalloc(&d_elements, num_elements * sizeof(Fp12)));
-    CUDA_CHECK(cudaMalloc(&d_result, num_elements * sizeof(Fp12)));
+    CUDA_CHECK(cudaMalloc(&d_elements, num_elements * sizeof(GT)));
+    CUDA_CHECK(cudaMalloc(&d_result, num_elements * sizeof(GT)));
 
-    CUDA_CHECK(cudaMemcpy(d_elements, h_elements, num_elements * sizeof(Fp12), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_elements, h_elements, num_elements * sizeof(GT), cudaMemcpyHostToDevice));
 
     batched_error_code result = inverse_gt_vec(d_result, d_elements, num_elements);
     EXPECT_TRUE(check_batched_success(result));
 
-    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_elements * sizeof(Fp12), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_elements * sizeof(GT), cudaMemcpyDeviceToHost));
 
     // Compare results
     EXPECT_TRUE(compare_results(h_cuda_result, h_cpu_result, num_elements, gt_element_equal));
 
     // Test that element * inverse = identity
-    Fp12 product, identity;
-	identity = Fp12::one();
-    Fp12::mul(product, h_elements[0], h_cuda_result[0]);
-    EXPECT_TRUE(Fp12::equal(product, identity))
+    GT product, identity;
+	identity = GT::identity();
+    GT::add(product, h_elements[0], h_cuda_result[0]);
+    EXPECT_TRUE(GT::equal(product, identity))
         << "Element * inverse should equal identity";
 
     // Cleanup
@@ -264,10 +264,10 @@ TEST(GTOpsCUDA, Squaring) {
     }
 
     const size_t num_elements = 10;
-    Fp12* d_elements, * d_result, * d_cyclo_result;
-    Fp12 h_elements[num_elements];
-    Fp12 h_cuda_result[num_elements], h_cpu_result[num_elements];
-    Fp12 h_cuda_cyclo_result[num_elements], h_cpu_cyclo_result[num_elements];
+    GT* d_elements, * d_result, * d_cyclo_result;
+    GT h_elements[num_elements];
+    GT h_cuda_result[num_elements], h_cpu_result[num_elements];
+    GT h_cuda_cyclo_result[num_elements], h_cpu_cyclo_result[num_elements];
 
     // Create test data
     InsecureRng rng;
@@ -275,20 +275,20 @@ TEST(GTOpsCUDA, Squaring) {
 
     // CPU computation - regular squaring
     for (size_t i = 0; i < num_elements; i++) {
-        Fp12::sqr(h_cpu_result[i], h_elements[i]);
+        GT::doubling(h_cpu_result[i], h_elements[i]);
     }
 
     // CPU computation - cyclotomic squaring
     for (size_t i = 0; i < num_elements; i++) {
-        Fp12::cyclotomic_sqr(h_cpu_cyclo_result[i], h_elements[i]);
+        GT::doubling(h_cpu_cyclo_result[i], h_elements[i]);
     }
 
     // CUDA computation
-    CUDA_CHECK(cudaMalloc(&d_elements, num_elements * sizeof(Fp12)));
-    CUDA_CHECK(cudaMalloc(&d_result, num_elements * sizeof(Fp12)));
-    CUDA_CHECK(cudaMalloc(&d_cyclo_result, num_elements * sizeof(Fp12)));
+    CUDA_CHECK(cudaMalloc(&d_elements, num_elements * sizeof(GT)));
+    CUDA_CHECK(cudaMalloc(&d_result, num_elements * sizeof(GT)));
+    CUDA_CHECK(cudaMalloc(&d_cyclo_result, num_elements * sizeof(GT)));
 
-    CUDA_CHECK(cudaMemcpy(d_elements, h_elements, num_elements * sizeof(Fp12), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_elements, h_elements, num_elements * sizeof(GT), cudaMemcpyHostToDevice));
 
     // Test regular squaring
     batched_error_code result = square_gt_vec(d_result, d_elements, num_elements);
@@ -298,21 +298,21 @@ TEST(GTOpsCUDA, Squaring) {
     batched_error_code cyclo_result = cyclotomic_square_gt_vec(d_cyclo_result, d_elements, num_elements);
     EXPECT_TRUE(check_batched_success(cyclo_result));
 
-    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_elements * sizeof(Fp12), cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(h_cuda_cyclo_result, d_cyclo_result, num_elements * sizeof(Fp12), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_elements * sizeof(GT), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_cuda_cyclo_result, d_cyclo_result, num_elements * sizeof(GT), cudaMemcpyDeviceToHost));
 
     // Compare results
     EXPECT_TRUE(compare_results(h_cuda_result, h_cpu_result, num_elements, gt_element_equal));
     EXPECT_TRUE(compare_results(h_cuda_cyclo_result, h_cpu_cyclo_result, num_elements, gt_element_equal));
 
     // Test that squaring equals multiplication by self
-    Fp12 mult_by_self;
-    Fp12::mul(mult_by_self, h_elements[0], h_elements[0]);
-    EXPECT_TRUE(Fp12::equal(mult_by_self, h_cuda_result[0]))
+    GT mult_by_self;
+    GT::add(mult_by_self, h_elements[0], h_elements[0]);
+    EXPECT_TRUE(GT::equal(mult_by_self, h_cuda_result[0]))
         << "Squaring should equal multiplication by self";
 
     // For GT elements, cyclotomic and regular squaring should be equal
-    EXPECT_TRUE(Fp12::equal(h_cuda_result[0], h_cuda_cyclo_result[0]))
+    EXPECT_TRUE(GT::equal(h_cuda_result[0], h_cuda_cyclo_result[0]))
         << "Cyclotomic and regular squaring should be equal for GT elements";
 
     // Cleanup
@@ -330,11 +330,11 @@ TEST(GTOpsCUDA, Exponentiation) {
     const size_t exp_bits = 64;
     const size_t exp_bytes = (exp_bits + 7) / 8;
 
-    Fp12* d_bases, * d_result;
+    GT* d_bases, * d_result;
     unsigned char* d_exponents;
-    Fp12 h_bases[num_elements];
+    GT h_bases[num_elements];
     unsigned char h_exponents[num_elements * exp_bytes];
-    Fp12 h_cuda_result[num_elements], h_cpu_result[num_elements];
+    GT h_cuda_result[num_elements], h_cpu_result[num_elements];
 
     // Create test data
     InsecureRng rng;
@@ -349,38 +349,38 @@ TEST(GTOpsCUDA, Exponentiation) {
 
     // CPU computation
     for (size_t i = 0; i < num_elements; i++) {
-        Fp12::exp(h_cpu_result[i], h_bases[i], (limb_t*)&h_exponents[i * exp_bytes], exp_bits);
+        GT::mult(h_cpu_result[i], h_bases[i], (limb_t*)&h_exponents[i * exp_bytes], exp_bits);
     }
 
     // CUDA computation
-    CUDA_CHECK(cudaMalloc(&d_bases, num_elements * sizeof(Fp12)));
-    CUDA_CHECK(cudaMalloc(&d_result, num_elements * sizeof(Fp12)));
+    CUDA_CHECK(cudaMalloc(&d_bases, num_elements * sizeof(GT)));
+    CUDA_CHECK(cudaMalloc(&d_result, num_elements * sizeof(GT)));
     CUDA_CHECK(cudaMalloc(&d_exponents, num_elements * exp_bytes));
 
-    CUDA_CHECK(cudaMemcpy(d_bases, h_bases, num_elements * sizeof(Fp12), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_bases, h_bases, num_elements * sizeof(GT), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(d_exponents, h_exponents, num_elements * exp_bytes, cudaMemcpyHostToDevice));
 
     batched_error_code result = pow_gt_vec(d_result, d_bases, d_exponents, exp_bits, num_elements);
     EXPECT_TRUE(check_batched_success(result));
 
-    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_elements * sizeof(Fp12), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_elements * sizeof(GT), cudaMemcpyDeviceToHost));
 
     // Compare results
     EXPECT_TRUE(compare_results(h_cuda_result, h_cpu_result, num_elements, gt_element_equal));
 
     // Test special cases - exponent 0 should give identity
     unsigned char zero_exp[exp_bytes] = { 0 };
-    Fp12 zero_result, identity;
-	identity = Fp12::one();
-    Fp12::exp(zero_result, h_bases[0], (limb_t*)zero_exp, exp_bits);
-    EXPECT_TRUE(Fp12::equal(zero_result, identity))
+    GT zero_result, identity;
+	identity = GT::identity();
+    GT::mult(zero_result, h_bases[0], (limb_t*)zero_exp, exp_bits);
+    EXPECT_TRUE(GT::equal(zero_result, identity))
         << "Exponentiation with 0 should give identity";
 
     // Test exponent 1 should give the base
     unsigned char one_exp[exp_bytes] = { 1 };
-    Fp12 one_result;
-    Fp12::exp(one_result, h_bases[0], (limb_t*)one_exp, exp_bits);
-    EXPECT_TRUE(Fp12::equal(one_result, h_bases[0]))
+    GT one_result;
+    GT::mult(one_result, h_bases[0], (limb_t*)one_exp, exp_bits);
+    EXPECT_TRUE(GT::equal(one_result, h_bases[0]))
         << "Exponentiation with 1 should give the base";
 
     // Cleanup
@@ -395,13 +395,13 @@ TEST(GTOpsCUDA, Bilinearity) {
     }
 
     const size_t num_pairs = 5;
-    Fp12* d_result;
+    GT* d_result;
     G1AffinePoint* d_g1_points;
     G2AffinePoint* d_g2_points;
 
     G1AffinePoint h_g1_points[num_pairs];
     G2AffinePoint h_g2_points[num_pairs];
-    Fp12 h_cuda_result[num_pairs], h_cpu_result[num_pairs];
+    GT h_cuda_result[num_pairs], h_cpu_result[num_pairs];
 
     // Create test point pairs
     G1Point g1_gen = G1Point::generator();
@@ -424,14 +424,14 @@ TEST(GTOpsCUDA, Bilinearity) {
 
     // CPU computation
     for (size_t i = 0; i < num_pairs; i++) {
-        blst_miller_loop(h_cpu_result[i],&h_g2_points[i], &h_g1_points[i]);
-        Fp12::final_exp(h_cpu_result[i], h_cpu_result[i]);
+        GT::miller_loop(h_cpu_result[i],&h_g2_points[i], &h_g1_points[i]);
+        GT::final_mult(h_cpu_result[i], h_cpu_result[i]);
     }
 
     // CUDA computation
     CUDA_CHECK(cudaMalloc(&d_g1_points, num_pairs * sizeof(G1AffinePoint)));
     CUDA_CHECK(cudaMalloc(&d_g2_points, num_pairs * sizeof(G2AffinePoint)));
-    CUDA_CHECK(cudaMalloc(&d_result, num_pairs * sizeof(Fp12)));
+    CUDA_CHECK(cudaMalloc(&d_result, num_pairs * sizeof(GT)));
 
     CUDA_CHECK(cudaMemcpy(d_g1_points, h_g1_points, num_pairs * sizeof(G1AffinePoint), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(d_g2_points, h_g2_points, num_pairs * sizeof(G2AffinePoint), cudaMemcpyHostToDevice));
@@ -439,7 +439,7 @@ TEST(GTOpsCUDA, Bilinearity) {
     batched_error_code result = pairing_gt_vec(d_result, d_g2_points, d_g1_points, num_pairs);
     EXPECT_TRUE(check_batched_success(result));
 
-    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_pairs * sizeof(Fp12), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_pairs * sizeof(GT), cudaMemcpyDeviceToHost));
 
     // Compare results
     EXPECT_TRUE(compare_results(h_cuda_result, h_cpu_result, num_pairs, gt_element_equal));
@@ -457,27 +457,27 @@ TEST(GTOpsCUDA, Bilinearity) {
     G1Point::to_affine(g1_double_affine, g1_double);
     G2Point::to_affine(g2_double_affine, g2_double);
 
-    Fp12 e_2P_Q, e_P_2Q, e_PQ_squared, base_pairing;
+    GT e_2P_Q, e_P_2Q, e_PQ_squared, base_pairing;
 
     // e(P, Q)
-    blst_miller_loop(base_pairing, &g2_affine, &g1_affine);
-    Fp12::final_exp(base_pairing, base_pairing);
+    GT::miller_loop(base_pairing, &g2_affine, &g1_affine);
+    GT::final_mult(base_pairing, base_pairing);
 
     // e(2P, Q)
-    blst_miller_loop(e_2P_Q, &g2_affine, &g1_double_affine);
-    Fp12::final_exp(e_2P_Q, e_2P_Q);
+    GT::miller_loop(e_2P_Q, &g2_affine, &g1_double_affine);
+    GT::final_mult(e_2P_Q, e_2P_Q);
 
     // e(P, 2Q)
-    blst_miller_loop(e_P_2Q, &g2_double_affine, &g1_affine);
-    Fp12::final_exp(e_P_2Q, e_P_2Q);
+    GT::miller_loop(e_P_2Q, &g2_double_affine, &g1_affine);
+    GT::final_mult(e_P_2Q, e_P_2Q);
 
     // e(P,Q)^2
-    Fp12::sqr(e_PQ_squared, base_pairing);
+    GT::doubling(e_PQ_squared, base_pairing);
 
     // Test bilinearity
-    EXPECT_TRUE(Fp12::equal(e_2P_Q, e_P_2Q))
+    EXPECT_TRUE(GT::equal(e_2P_Q, e_P_2Q))
         << "e(2P, Q) should equal e(P, 2Q)";
-    EXPECT_TRUE(Fp12::equal(e_2P_Q, e_PQ_squared))
+    EXPECT_TRUE(GT::equal(e_2P_Q, e_PQ_squared))
         << "e(2P, Q) should equal e(P,Q)^2";
 
     // Cleanup
@@ -492,9 +492,9 @@ TEST(GTOpsCUDA, GroupMembership) {
     }
 
     const size_t num_elements = 10;
-    Fp12* d_elements;
+    GT* d_elements;
     bool* d_results;
-    Fp12 h_elements[num_elements];
+    GT h_elements[num_elements];
     bool h_cuda_results[num_elements], h_cpu_results[num_elements];
 
     // Create test data - mix of valid GT elements and invalid ones
@@ -502,24 +502,24 @@ TEST(GTOpsCUDA, GroupMembership) {
     create_test_gt_elements(h_elements, num_elements - 2, rng);
 
     // Add some potentially invalid elements
-    memcpy(&h_elements[num_elements - 2], &h_elements[0], sizeof(Fp12));
+    memcpy(&h_elements[num_elements - 2], &h_elements[0], sizeof(GT));
     // Modify slightly to make it potentially not in group
     *(unsigned char*)&h_elements[num_elements - 2] ^= 1;
 
-    memcpy(&h_elements[num_elements - 1], &h_elements[1], sizeof(Fp12));
+    memcpy(&h_elements[num_elements - 1], &h_elements[1], sizeof(GT));
     // Modify more significantly
     *(unsigned char*)&h_elements[num_elements - 1] ^= 0xFF;
 
     // CPU computation
     for (size_t i = 0; i < num_elements; i++) {
-        h_cpu_results[i] = Fp12::in_group(h_elements[i]);
+        h_cpu_results[i] = GT::in_group(h_elements[i]);
     }
 
     // CUDA computation
-    CUDA_CHECK(cudaMalloc(&d_elements, num_elements * sizeof(Fp12)));
+    CUDA_CHECK(cudaMalloc(&d_elements, num_elements * sizeof(GT)));
     CUDA_CHECK(cudaMalloc(&d_results, num_elements * sizeof(bool)));
 
-    CUDA_CHECK(cudaMemcpy(d_elements, h_elements, num_elements * sizeof(Fp12), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_elements, h_elements, num_elements * sizeof(GT), cudaMemcpyHostToDevice));
 
     batched_error_code result = in_group_gt_vec(d_results, d_elements, num_elements);
     EXPECT_TRUE(check_batched_success(result));
@@ -545,9 +545,9 @@ TEST(GTOpsCUDA, Conjugate) {
     }
 
     const size_t num_elements = 10;
-    Fp12* d_elements, * d_result;
-    Fp12 h_elements[num_elements];
-    Fp12 h_cuda_result[num_elements], h_cpu_result[num_elements];
+    GT* d_elements, * d_result;
+    GT h_elements[num_elements];
+    GT h_cuda_result[num_elements], h_cpu_result[num_elements];
 
     // Create test data
     InsecureRng rng;
@@ -555,33 +555,33 @@ TEST(GTOpsCUDA, Conjugate) {
 
     // CPU computation
     for (size_t i = 0; i < num_elements; i++) {
-        memcpy(&h_cpu_result[i], &h_elements[i], sizeof(Fp12));
-        Fp12::conjugate(h_cpu_result[i]);
+        memcpy(&h_cpu_result[i], &h_elements[i], sizeof(GT));
+        GT::conjugate(h_cpu_result[i]);
     }
 
     // CUDA computation
-    CUDA_CHECK(cudaMalloc(&d_elements, num_elements * sizeof(Fp12)));
-    CUDA_CHECK(cudaMalloc(&d_result, num_elements * sizeof(Fp12)));
+    CUDA_CHECK(cudaMalloc(&d_elements, num_elements * sizeof(GT)));
+    CUDA_CHECK(cudaMalloc(&d_result, num_elements * sizeof(GT)));
 
-    CUDA_CHECK(cudaMemcpy(d_elements, h_elements, num_elements * sizeof(Fp12), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_elements, h_elements, num_elements * sizeof(GT), cudaMemcpyHostToDevice));
 
     batched_error_code result = conjugate_gt_vec(d_result, d_elements, num_elements);
     EXPECT_TRUE(check_batched_success(result));
 
-    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_elements * sizeof(Fp12), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_elements * sizeof(GT), cudaMemcpyDeviceToHost));
 
     // Compare results
     EXPECT_TRUE(compare_results(h_cuda_result, h_cpu_result, num_elements, gt_element_equal));
 
     // Test conjugate properties: conjugate(conjugate(x)) = x
-    Fp12 double_conjugate;
-    memcpy(&double_conjugate, &h_cuda_result[0], sizeof(Fp12));
-    Fp12::conjugate(double_conjugate);
-    EXPECT_TRUE(Fp12::equal(double_conjugate, h_elements[0]))
+    GT double_conjugate;
+    memcpy(&double_conjugate, &h_cuda_result[0], sizeof(GT));
+    GT::conjugate(double_conjugate);
+    EXPECT_TRUE(GT::equal(double_conjugate, h_elements[0]))
         << "Conjugate of conjugate should equal original";
 
     // Test that conjugate is also in GT group
-    bool conjugate_in_group = Fp12::in_group(h_cuda_result[0]);
+    bool conjugate_in_group = GT::in_group(h_cuda_result[0]);
     EXPECT_TRUE(conjugate_in_group) << "Conjugate should be in GT group";
 
     // Cleanup
@@ -595,10 +595,10 @@ TEST(GTOpsCUDA, Serialization) {
     }
 
     const size_t num_elements = 5;
-    Fp12* d_elements, * d_deserialized;
+    GT* d_elements, * d_deserialized;
     unsigned char* d_serialized;
-    Fp12 h_elements[num_elements];
-    Fp12 h_cuda_deserialized[num_elements], h_cpu_deserialized[num_elements];
+    GT h_elements[num_elements];
+    GT h_cuda_deserialized[num_elements], h_cpu_deserialized[num_elements];
     unsigned char h_serialized[num_elements * 576]; // 576 = 12 * 48 bytes
 
     // Create test data
@@ -607,16 +607,16 @@ TEST(GTOpsCUDA, Serialization) {
 
     // CPU computation
     for (size_t i = 0; i < num_elements; i++) {
-        Fp12::to_bendian(&h_serialized[i * 576], h_elements[i]);
-        Fp12::from_bendian(h_cpu_deserialized[i], &h_serialized[i * 576]);
+        Fp12::to_bendian(&h_serialized[i * 576], h_elements[i].data);
+        Fp12::from_bendian(h_cpu_deserialized[i].data, &h_serialized[i * 576]);
     }
 
     // CUDA computation
-    CUDA_CHECK(cudaMalloc(&d_elements, num_elements * sizeof(Fp12)));
+    CUDA_CHECK(cudaMalloc(&d_elements, num_elements * sizeof(GT)));
     CUDA_CHECK(cudaMalloc(&d_serialized, num_elements * 576));
-    CUDA_CHECK(cudaMalloc(&d_deserialized, num_elements * sizeof(Fp12)));
+    CUDA_CHECK(cudaMalloc(&d_deserialized, num_elements * sizeof(GT)));
 
-    CUDA_CHECK(cudaMemcpy(d_elements, h_elements, num_elements * sizeof(Fp12), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_elements, h_elements, num_elements * sizeof(GT), cudaMemcpyHostToDevice));
 
     batched_error_code serialize_result = serialize_gt_vec(d_serialized, d_elements, num_elements);
     EXPECT_TRUE(check_batched_success(serialize_result));
@@ -624,7 +624,7 @@ TEST(GTOpsCUDA, Serialization) {
     batched_error_code deserialize_result = deserialize_gt_vec(d_deserialized, d_serialized, num_elements);
     EXPECT_TRUE(check_batched_success(deserialize_result));
 
-    CUDA_CHECK(cudaMemcpy(h_cuda_deserialized, d_deserialized, num_elements * sizeof(Fp12), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_cuda_deserialized, d_deserialized, num_elements * sizeof(GT), cudaMemcpyDeviceToHost));
 
     // Compare results
     EXPECT_TRUE(compare_results(h_cuda_deserialized, h_cpu_deserialized, num_elements, gt_element_equal));
@@ -645,14 +645,14 @@ TEST(GTOpsCUDA, MultiPairing) {
     }
 
     const size_t num_pairs = 5;
-    Fp12* d_miller_results, * d_final_results;
+    GT* d_miller_results, * d_final_results;
     G1AffinePoint* d_g1_points;
     G2AffinePoint* d_g2_points;
 
     G1AffinePoint h_g1_points[num_pairs];
     G2AffinePoint h_g2_points[num_pairs];
-    Fp12 h_cuda_miller[num_pairs], h_cpu_miller[num_pairs];
-    Fp12 h_cuda_final[num_pairs], h_cpu_final[num_pairs];
+    GT h_cuda_miller[num_pairs], h_cpu_miller[num_pairs];
+    GT h_cuda_final[num_pairs], h_cpu_final[num_pairs];
 
     // Create test point pairs
     G1Point g1_gen = G1Point::generator();
@@ -675,15 +675,15 @@ TEST(GTOpsCUDA, MultiPairing) {
 
     // CPU computation
     for (size_t i = 0; i < num_pairs; i++) {
-        blst_miller_loop(h_cpu_miller[i], &h_g2_points[i], &h_g1_points[i]);
-        Fp12::final_exp(h_cpu_final[i], h_cpu_miller[i]);
+        GT::miller_loop(h_cpu_miller[i], &h_g2_points[i], &h_g1_points[i]);
+        GT::final_mult(h_cpu_final[i], h_cpu_miller[i]);
     }
 
     // CUDA computation
     CUDA_CHECK(cudaMalloc(&d_g1_points, num_pairs * sizeof(G1AffinePoint)));
     CUDA_CHECK(cudaMalloc(&d_g2_points, num_pairs * sizeof(G2AffinePoint)));
-    CUDA_CHECK(cudaMalloc(&d_miller_results, num_pairs * sizeof(Fp12)));
-    CUDA_CHECK(cudaMalloc(&d_final_results, num_pairs * sizeof(Fp12)));
+    CUDA_CHECK(cudaMalloc(&d_miller_results, num_pairs * sizeof(GT)));
+    CUDA_CHECK(cudaMalloc(&d_final_results, num_pairs * sizeof(GT)));
 
     CUDA_CHECK(cudaMemcpy(d_g1_points, h_g1_points, num_pairs * sizeof(G1AffinePoint), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(d_g2_points, h_g2_points, num_pairs * sizeof(G2AffinePoint), cudaMemcpyHostToDevice));
@@ -694,8 +694,8 @@ TEST(GTOpsCUDA, MultiPairing) {
     batched_error_code final_result = final_exp_gt_vec(d_final_results, d_miller_results, num_pairs);
     EXPECT_TRUE(check_batched_success(final_result));
 
-    CUDA_CHECK(cudaMemcpy(h_cuda_miller, d_miller_results, num_pairs * sizeof(Fp12), cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(h_cuda_final, d_final_results, num_pairs * sizeof(Fp12), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_cuda_miller, d_miller_results, num_pairs * sizeof(GT), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_cuda_final, d_final_results, num_pairs * sizeof(GT), cudaMemcpyDeviceToHost));
 
     // Compare results
     EXPECT_TRUE(compare_results(h_cuda_miller, h_cpu_miller, num_pairs, gt_element_equal));
@@ -703,9 +703,9 @@ TEST(GTOpsCUDA, MultiPairing) {
 
     // Test that miller results are not in GT group but final results are
     for (size_t i = 0; i < num_pairs; i++) {
-        EXPECT_FALSE(Fp12::in_group(h_cuda_miller[i]))
+        EXPECT_FALSE(GT::in_group(h_cuda_miller[i]))
             << "Miller loop result should not be in GT group";
-        EXPECT_TRUE(Fp12::in_group(h_cuda_final[i]))
+        EXPECT_TRUE(GT::in_group(h_cuda_final[i]))
             << "Final exponentiation result should be in GT group";
     }
 
@@ -722,9 +722,9 @@ TEST(GTOpsCUDA, FinalVerify) {
     }
 
     const size_t num_pairs = 5;
-    Fp12* d_gt1, * d_gt2;
+    GT* d_gt1, * d_gt2;
     bool* d_results;
-    Fp12 h_gt1[num_pairs], h_gt2[num_pairs];
+    GT h_gt1[num_pairs], h_gt2[num_pairs];
     bool h_cuda_results[num_pairs], h_cpu_results[num_pairs];
 
     // Create test data - pairs of GT elements
@@ -733,8 +733,8 @@ TEST(GTOpsCUDA, FinalVerify) {
     create_test_gt_elements(h_gt2, num_pairs, rng);
 
     // Make some pairs equal for testing
-    memcpy(&h_gt2[0], &h_gt1[0], sizeof(Fp12)); // Should return true
-    memcpy(&h_gt2[2], &h_gt1[2], sizeof(Fp12)); // Should return true
+    memcpy(&h_gt2[0], &h_gt1[0], sizeof(GT)); // Should return true
+    memcpy(&h_gt2[2], &h_gt1[2], sizeof(GT)); // Should return true
 
     // CPU computation
     for (size_t i = 0; i < num_pairs; i++) {
@@ -742,12 +742,12 @@ TEST(GTOpsCUDA, FinalVerify) {
     }
 
     // CUDA computation
-    CUDA_CHECK(cudaMalloc(&d_gt1, num_pairs * sizeof(Fp12)));
-    CUDA_CHECK(cudaMalloc(&d_gt2, num_pairs * sizeof(Fp12)));
+    CUDA_CHECK(cudaMalloc(&d_gt1, num_pairs * sizeof(GT)));
+    CUDA_CHECK(cudaMalloc(&d_gt2, num_pairs * sizeof(GT)));
     CUDA_CHECK(cudaMalloc(&d_results, num_pairs * sizeof(bool)));
 
-    CUDA_CHECK(cudaMemcpy(d_gt1, h_gt1, num_pairs * sizeof(Fp12), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_gt2, h_gt2, num_pairs * sizeof(Fp12), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_gt1, h_gt1, num_pairs * sizeof(GT), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_gt2, h_gt2, num_pairs * sizeof(GT), cudaMemcpyHostToDevice));
 
     batched_error_code result = finalverify_gt_vec(d_results, d_gt1, d_gt2, num_pairs);
     EXPECT_TRUE(check_batched_success(result));
@@ -777,11 +777,11 @@ TEST(GTOpsCUDA, PowersOfTwo) {
     const size_t exp_bits = 64;
     const size_t exp_bytes = (exp_bits + 7) / 8;
 
-    Fp12* d_bases, * d_result;
+    GT* d_bases, * d_result;
     unsigned char* d_exponents;
-    Fp12 h_bases[num_bases];
+    GT h_bases[num_bases];
     unsigned char h_exponents[num_bases * exp_bytes];
-    Fp12 h_cuda_result[num_bases], h_cpu_result[num_bases];
+    GT h_cuda_result[num_bases], h_cpu_result[num_bases];
 
     // Create multiple base GT elements for parallel testing
     InsecureRng rng;
@@ -806,15 +806,15 @@ TEST(GTOpsCUDA, PowersOfTwo) {
 
     // CPU computation for comparison
     for (size_t i = 0; i < num_bases; i++) {
-        Fp12::exp(h_cpu_result[i], h_bases[i], (limb_t*)&h_exponents[i * exp_bytes], exp_bits);
+        GT::mult(h_cpu_result[i], h_bases[i], (limb_t*)&h_exponents[i * exp_bytes], exp_bits);
     }
 
     // CUDA parallel computation
-    CUDA_CHECK(cudaMalloc(&d_bases, num_bases * sizeof(Fp12)));
-    CUDA_CHECK(cudaMalloc(&d_result, num_bases * sizeof(Fp12)));
+    CUDA_CHECK(cudaMalloc(&d_bases, num_bases * sizeof(GT)));
+    CUDA_CHECK(cudaMalloc(&d_result, num_bases * sizeof(GT)));
     CUDA_CHECK(cudaMalloc(&d_exponents, num_bases * exp_bytes));
 
-    CUDA_CHECK(cudaMemcpy(d_bases, h_bases, num_bases * sizeof(Fp12), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_bases, h_bases, num_bases * sizeof(GT), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(d_exponents, h_exponents, num_bases * exp_bytes, cudaMemcpyHostToDevice));
 
     // Time the CUDA operation
@@ -834,13 +834,13 @@ TEST(GTOpsCUDA, PowersOfTwo) {
 
     EXPECT_TRUE(check_batched_success(result));
 
-    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_bases * sizeof(Fp12), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_bases * sizeof(GT), cudaMemcpyDeviceToHost));
 
     // Compare results
     EXPECT_TRUE(compare_results(h_cuda_result, h_cpu_result, num_bases, gt_element_equal));
 
     // Test specific properties for each power
-	Fp12 identity = Fp12::one();
+	GT identity = GT::identity();
 
     for (size_t i = 0; i < num_bases; i++) {
         size_t power = i % max_power;
@@ -849,24 +849,24 @@ TEST(GTOpsCUDA, PowersOfTwo) {
         switch (power) {
         case 0:
             // Exponent = 0 should give identity
-            EXPECT_TRUE(Fp12::equal(h_cuda_result[i], identity))
+            EXPECT_TRUE(GT::equal(h_cuda_result[i], identity))
                 << "Base " << i << ": exponent 0 should give identity";
             break;
         case 1:
             // Exponent = 1 should give the base itself
-            EXPECT_TRUE(Fp12::equal(h_cuda_result[i], h_bases[i]))
+            EXPECT_TRUE(GT::equal(h_cuda_result[i], h_bases[i]))
                 << "Base " << i << ": exponent 1 should give base";
             break;
         case 2:
             // Exponent = 2 should give base^2
-            Fp12 base_squared;
-            Fp12::sqr(base_squared, h_bases[i]);
-            EXPECT_TRUE(Fp12::equal(h_cuda_result[i], base_squared))
+            GT base_squared;
+            GT::doubling(base_squared, h_bases[i]);
+            EXPECT_TRUE(GT::equal(h_cuda_result[i], base_squared))
                 << "Base " << i << ": exponent 2 should give base^2";
             break;
         default:
             // All results should be in GT group
-            EXPECT_TRUE(Fp12::in_group(h_cuda_result[i]))
+            EXPECT_TRUE(GT::in_group(h_cuda_result[i]))
                 << "Base " << i << ": result should be in GT group (exponent = " << actual_exponent << ")";
             break;
         }
@@ -885,13 +885,13 @@ TEST(GTOpsCUDA, PowersOfTwo) {
 
             // Verify exp2 = 2 * exp1
             if (exp2 == 2 * exp1) {
-                Fp12 squared_result;
-                Fp12::sqr(squared_result, h_cuda_result[i]);
+                GT squared_result;
+                GT::doubling(squared_result, h_cuda_result[i]);
 
                 // Find a base with the same element but the next exponent
                 size_t next_idx = i + 1;
-                if (next_idx < num_bases && Fp12::equal(h_bases[i], h_bases[next_idx])) {
-                    EXPECT_TRUE(Fp12::equal(squared_result, h_cuda_result[next_idx]))
+                if (next_idx < num_bases && GT::equal(h_bases[i], h_bases[next_idx])) {
+                    EXPECT_TRUE(GT::equal(squared_result, h_cuda_result[next_idx]))
                         << "Mathematical property: (base^" << exp1 << ")^2 should equal base^" << exp2;
                 }
             }
@@ -900,9 +900,9 @@ TEST(GTOpsCUDA, PowersOfTwo) {
 
     // Test parallel consistency - all operations should complete successfully
     for (size_t i = 0; i < num_bases; i++) {
-        EXPECT_TRUE(Fp12::in_group(h_cuda_result[i]))
+        EXPECT_TRUE(GT::in_group(h_cuda_result[i]))
             << "Parallel result " << i << " should be in GT group";
-        EXPECT_FALSE(vec_is_zero(&h_cuda_result[i], sizeof(Fp12)))
+        EXPECT_FALSE(vec_is_zero(&h_cuda_result[i], sizeof(GT)))
             << "Parallel result " << i << " should not be zero";
     }
 
@@ -918,15 +918,15 @@ TEST(GTOpsCUDA, PowersOfTwo) {
         const char* status = "PASS";
         switch (power) {
         case 0:
-            if (!Fp12::equal(h_cuda_result[i], identity)) status = "FAIL";
+            if (!GT::equal(h_cuda_result[i], identity)) status = "FAIL";
             break;
         case 1:
-            if (!Fp12::equal(h_cuda_result[i], h_bases[i])) status = "FAIL";
+            if (!GT::equal(h_cuda_result[i], h_bases[i])) status = "FAIL";
             break;
         case 2: {
-            Fp12 base_squared;
-            Fp12::sqr(base_squared, h_bases[i]);
-            if (!Fp12::equal(h_cuda_result[i], base_squared)) status = "FAIL";
+            GT base_squared;
+            GT::doubling(base_squared, h_bases[i]);
+            if (!GT::equal(h_cuda_result[i], base_squared)) status = "FAIL";
             break;
         }
         }
@@ -952,21 +952,21 @@ TEST(GTOpsCUDA, PerformanceBaseline) {
     }
 
     const size_t num_elements = 100; // Reduced due to GT complexity
-    Fp12* d_elements, * d_result, * h_elements;
+    GT* d_elements, * d_result, * h_elements;
 
     // Allocate host memory
-    h_elements = new Fp12[num_elements];
+    h_elements = new GT[num_elements];
 
     // Create test data
     InsecureRng rng;
     create_test_gt_elements(h_elements, num_elements, rng);
 
     // Allocate device memory
-    CUDA_CHECK(cudaMalloc(&d_elements, num_elements * sizeof(Fp12)));
-    CUDA_CHECK(cudaMalloc(&d_result, num_elements * sizeof(Fp12)));
+    CUDA_CHECK(cudaMalloc(&d_elements, num_elements * sizeof(GT)));
+    CUDA_CHECK(cudaMalloc(&d_result, num_elements * sizeof(GT)));
 
     // Copy to device
-    CUDA_CHECK(cudaMemcpy(d_elements, h_elements, num_elements * sizeof(Fp12), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_elements, h_elements, num_elements * sizeof(GT), cudaMemcpyHostToDevice));
 
     // Record timing
     cudaEvent_t start, stop;
@@ -1002,14 +1002,14 @@ TEST(GTOpsCUDA, BatchProcessing) {
     }
 
     const size_t batch_size = 128; // Reduced for GT complexity
-    Fp12* d_a, * d_b, * d_result, * h_a, * h_b;
-    Fp12* h_cuda_result, * h_cpu_result;
+    GT* d_a, * d_b, * d_result, * h_a, * h_b;
+    GT* h_cuda_result, * h_cpu_result;
 
     // Allocate host memory
-    h_a = new Fp12[batch_size];
-    h_b = new Fp12[batch_size];
-    h_cuda_result = new Fp12[batch_size];
-    h_cpu_result = new Fp12[batch_size];
+    h_a = new GT[batch_size];
+    h_b = new GT[batch_size];
+    h_cuda_result = new GT[batch_size];
+    h_cpu_result = new GT[batch_size];
 
     // Create test data
     InsecureRng rng;
@@ -1018,21 +1018,21 @@ TEST(GTOpsCUDA, BatchProcessing) {
 
     // CPU computation
     for (size_t i = 0; i < batch_size; i++) {
-        Fp12::mul(h_cpu_result[i], h_a[i], h_b[i]);
+        GT::add(h_cpu_result[i], h_a[i], h_b[i]);
     }
 
     // CUDA computation
-    CUDA_CHECK(cudaMalloc(&d_a, batch_size * sizeof(Fp12)));
-    CUDA_CHECK(cudaMalloc(&d_b, batch_size * sizeof(Fp12)));
-    CUDA_CHECK(cudaMalloc(&d_result, batch_size * sizeof(Fp12)));
+    CUDA_CHECK(cudaMalloc(&d_a, batch_size * sizeof(GT)));
+    CUDA_CHECK(cudaMalloc(&d_b, batch_size * sizeof(GT)));
+    CUDA_CHECK(cudaMalloc(&d_result, batch_size * sizeof(GT)));
 
-    CUDA_CHECK(cudaMemcpy(d_a, h_a, batch_size * sizeof(Fp12), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_b, h_b, batch_size * sizeof(Fp12), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_a, h_a, batch_size * sizeof(GT), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_b, h_b, batch_size * sizeof(GT), cudaMemcpyHostToDevice));
 
     batched_error_code mult_result = mult_gt_vec(d_result, d_a, d_b, batch_size);
     EXPECT_TRUE(check_batched_success(mult_result));
 
-    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, batch_size * sizeof(Fp12), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, batch_size * sizeof(GT), cudaMemcpyDeviceToHost));
 
     // Compare results
     bool all_match = compare_results(h_cuda_result, h_cpu_result, batch_size, gt_element_equal);
@@ -1062,11 +1062,11 @@ TEST(GTOpsCUDA, BatchProcessing) {
 //    const size_t exp_bits = 32;
 //    const size_t exp_bytes = (exp_bits + 7) / 8;
 //
-//    Fp12* d_bases, * d_result;
+//    GT* d_bases, * d_result;
 //    unsigned char* d_exponents;
-//    Fp12 h_bases[num_bases];
+//    GT h_bases[num_bases];
 //    unsigned char h_exponents[num_bases * exp_bytes];
-//    Fp12 h_cuda_result, h_cpu_result;
+//    GT h_cuda_result, h_cpu_result;
 //
 //    // Create test data
 //    InsecureRng rng;
@@ -1080,30 +1080,30 @@ TEST(GTOpsCUDA, BatchProcessing) {
 //    }
 //
 //    // CPU computation (simple multi-exponentiation)
-//    Fp12::one_copy(h_cpu_result);
+//    GT::identity_copy(h_cpu_result);
 //    for (size_t i = 0; i < num_bases; i++) {
-//        Fp12 temp;
-//        Fp12::pow(temp, h_bases[i], (limb_t*)&h_exponents[i * exp_bytes], exp_bits);
+//        GT temp;
+//        GT::pow(temp, h_bases[i], (limb_t*)&h_exponents[i * exp_bytes], exp_bits);
 //        if (i == 0) {
-//            memcpy(h_cpu_result, temp, sizeof(Fp12));
+//            memcpy(h_cpu_result, temp, sizeof(GT));
 //        }
 //        else {
-//            Fp12::mul(h_cpu_result, h_cpu_result, temp);
+//            GT::add(h_cpu_result, h_cpu_result, temp);
 //        }
 //    }
 //
 //    // CUDA computation
-//    CUDA_CHECK(cudaMalloc(&d_bases, num_bases * sizeof(Fp12)));
-//    CUDA_CHECK(cudaMalloc(&d_result, sizeof(Fp12)));
+//    CUDA_CHECK(cudaMalloc(&d_bases, num_bases * sizeof(GT)));
+//    CUDA_CHECK(cudaMalloc(&d_result, sizeof(GT)));
 //    CUDA_CHECK(cudaMalloc(&d_exponents, num_bases * exp_bytes));
 //
-//    CUDA_CHECK(cudaMemcpy(d_bases, h_bases, num_bases * sizeof(Fp12), cudaMemcpyHostToDevice));
+//    CUDA_CHECK(cudaMemcpy(d_bases, h_bases, num_bases * sizeof(GT), cudaMemcpyHostToDevice));
 //    CUDA_CHECK(cudaMemcpy(d_exponents, h_exponents, num_bases * exp_bytes, cudaMemcpyHostToDevice));
 //
 //    batched_error_code result = multi_exp_gt(d_result, d_bases, d_exponents, exp_bits, num_bases);
 //    EXPECT_TRUE(check_batched_success(result));
 //
-//    CUDA_CHECK(cudaMemcpy(&h_cuda_result, d_result, sizeof(Fp12), cudaMemcpyDeviceToHost));
+//    CUDA_CHECK(cudaMemcpy(&h_cuda_result, d_result, sizeof(GT), cudaMemcpyDeviceToHost));
 //
 //    // Compare results
 //    EXPECT_TRUE(gt_element_equal(&h_cuda_result, &h_cpu_result));
@@ -1123,11 +1123,11 @@ TEST(GTOpsCUDA, PairingVerification) {
     bool* d_results;
     G1AffinePoint* d_g1_points;
     G2AffinePoint* d_g2_points;
-    Fp12* d_target_values;
+    GT* d_target_values;
 
     G1AffinePoint h_g1_points[num_pairs];
     G2AffinePoint h_g2_points[num_pairs];
-    Fp12 h_target_values[num_pairs];
+    GT h_target_values[num_pairs];
     bool h_cuda_results[num_pairs], h_cpu_results[num_pairs];
 
     // Create test point pairs and compute target values
@@ -1149,27 +1149,27 @@ TEST(GTOpsCUDA, PairingVerification) {
         G2Point::to_affine(h_g2_points[i], g2_mult);
 
         // Compute target pairing value
-        blst_miller_loop(h_target_values[i], &h_g2_points[i], &h_g1_points[i]);
-        Fp12::final_exp(h_target_values[i], h_target_values[i]);
+        GT::miller_loop(h_target_values[i], &h_g2_points[i], &h_g1_points[i]);
+        GT::final_mult(h_target_values[i], h_target_values[i]);
     }
 
     // CPU computation
     for (size_t i = 0; i < num_pairs; i++) {
-        Fp12 computed;
-        blst_miller_loop(computed, &h_g2_points[i], &h_g1_points[i]);
-        Fp12::final_exp(computed, computed);
-        h_cpu_results[i] = Fp12::equal(computed, h_target_values[i]);
+        GT computed;
+        GT::miller_loop(computed, &h_g2_points[i], &h_g1_points[i]);
+        GT::final_mult(computed, computed);
+        h_cpu_results[i] = GT::equal(computed, h_target_values[i]);
     }
 
     // CUDA computation
     CUDA_CHECK(cudaMalloc(&d_g1_points, num_pairs * sizeof(G1AffinePoint)));
     CUDA_CHECK(cudaMalloc(&d_g2_points, num_pairs * sizeof(G2AffinePoint)));
-    CUDA_CHECK(cudaMalloc(&d_target_values, num_pairs * sizeof(Fp12)));
+    CUDA_CHECK(cudaMalloc(&d_target_values, num_pairs * sizeof(GT)));
     CUDA_CHECK(cudaMalloc(&d_results, num_pairs * sizeof(bool)));
 
     CUDA_CHECK(cudaMemcpy(d_g1_points, h_g1_points, num_pairs * sizeof(G1AffinePoint), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(d_g2_points, h_g2_points, num_pairs * sizeof(G2AffinePoint), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_target_values, h_target_values, num_pairs * sizeof(Fp12), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_target_values, h_target_values, num_pairs * sizeof(GT), cudaMemcpyHostToDevice));
 
     batched_error_code result = pairing_verify_gt_vec(d_results, d_g2_points, d_g1_points, d_target_values, num_pairs);
     EXPECT_TRUE(check_batched_success(result));
@@ -1197,9 +1197,9 @@ TEST(GTOpsCUDA, EqualityCheck) {
     }
 
     const size_t num_elements = 10;
-    Fp12* d_a, * d_b;
+    GT* d_a, * d_b;
     bool* d_results;
-    Fp12 h_a[num_elements], h_b[num_elements];
+    GT h_a[num_elements], h_b[num_elements];
     bool h_cuda_results[num_elements], h_cpu_results[num_elements];
 
     // Create test data
@@ -1208,22 +1208,22 @@ TEST(GTOpsCUDA, EqualityCheck) {
     create_test_gt_elements(h_b, num_elements, rng);
 
     // Make some elements equal for testing
-    memcpy(&h_b[0], &h_a[0], sizeof(Fp12));
-    memcpy(&h_b[3], &h_a[3], sizeof(Fp12));
-    memcpy(&h_b[7], &h_a[7], sizeof(Fp12));
+    memcpy(&h_b[0], &h_a[0], sizeof(GT));
+    memcpy(&h_b[3], &h_a[3], sizeof(GT));
+    memcpy(&h_b[7], &h_a[7], sizeof(GT));
 
     // CPU computation
     for (size_t i = 0; i < num_elements; i++) {
-        h_cpu_results[i] = Fp12::equal(h_a[i], h_b[i]);
+        h_cpu_results[i] = GT::equal(h_a[i], h_b[i]);
     }
 
     // CUDA computation
-    CUDA_CHECK(cudaMalloc(&d_a, num_elements * sizeof(Fp12)));
-    CUDA_CHECK(cudaMalloc(&d_b, num_elements * sizeof(Fp12)));
+    CUDA_CHECK(cudaMalloc(&d_a, num_elements * sizeof(GT)));
+    CUDA_CHECK(cudaMalloc(&d_b, num_elements * sizeof(GT)));
     CUDA_CHECK(cudaMalloc(&d_results, num_elements * sizeof(bool)));
 
-    CUDA_CHECK(cudaMemcpy(d_a, h_a, num_elements * sizeof(Fp12), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_b, h_b, num_elements * sizeof(Fp12), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_a, h_a, num_elements * sizeof(GT), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_b, h_b, num_elements * sizeof(GT), cudaMemcpyHostToDevice));
 
     batched_error_code result = is_equal_gt_vec(d_results, d_a, d_b, num_elements);
     EXPECT_TRUE(check_batched_success(result));
@@ -1239,8 +1239,8 @@ TEST(GTOpsCUDA, EqualityCheck) {
     EXPECT_TRUE(h_cuda_results[7]) << "Elements at index 7 should be equal";
 
     // Test reflexivity: element should equal itself
-	Fp12 identity = Fp12::one();
-    EXPECT_TRUE(Fp12::equal(identity, identity)) << "Identity should equal itself";
+	GT identity = GT::identity();
+    EXPECT_TRUE(GT::equal(identity, identity)) << "Identity should equal itself";
 
     // Cleanup
     CUDA_CHECK(cudaFree(d_a));
@@ -1257,11 +1257,11 @@ TEST(GTOpsCUDA, AdvancedExponentiation) {
     const size_t exp_bits = 128;
     const size_t exp_bytes = (exp_bits + 7) / 8;
 
-    Fp12* d_bases, * d_result;
+    GT* d_bases, * d_result;
     unsigned char* d_exponents;
-    Fp12 h_bases[num_elements];
+    GT h_bases[num_elements];
     unsigned char h_exponents[num_elements * exp_bytes];
-    Fp12 h_cuda_result[num_elements], h_cpu_result[num_elements];
+    GT h_cuda_result[num_elements], h_cpu_result[num_elements];
 
     // Create test data
     InsecureRng rng;
@@ -1298,32 +1298,32 @@ TEST(GTOpsCUDA, AdvancedExponentiation) {
 
     // CPU computation
     for (size_t i = 0; i < num_elements; i++) {
-        Fp12::exp(h_cpu_result[i], h_bases[i], (limb_t*)&h_exponents[i * exp_bytes], exp_bits);
+        GT::mult(h_cpu_result[i], h_bases[i], (limb_t*)&h_exponents[i * exp_bytes], exp_bits);
     }
 
     // CUDA computation
-    CUDA_CHECK(cudaMalloc(&d_bases, num_elements * sizeof(Fp12)));
-    CUDA_CHECK(cudaMalloc(&d_result, num_elements * sizeof(Fp12)));
+    CUDA_CHECK(cudaMalloc(&d_bases, num_elements * sizeof(GT)));
+    CUDA_CHECK(cudaMalloc(&d_result, num_elements * sizeof(GT)));
     CUDA_CHECK(cudaMalloc(&d_exponents, num_elements * exp_bytes));
 
-    CUDA_CHECK(cudaMemcpy(d_bases, h_bases, num_elements * sizeof(Fp12), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_bases, h_bases, num_elements * sizeof(GT), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(d_exponents, h_exponents, num_elements * exp_bytes, cudaMemcpyHostToDevice));
 
     batched_error_code result = pow_gt_vec(d_result, d_bases, d_exponents, exp_bits, num_elements);
     EXPECT_TRUE(check_batched_success(result));
 
-    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_elements * sizeof(Fp12), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_elements * sizeof(GT), cudaMemcpyDeviceToHost));
 
     // Compare results
     EXPECT_TRUE(compare_results(h_cuda_result, h_cpu_result, num_elements, gt_element_equal));
 
     // Verify specific properties
-    EXPECT_TRUE(Fp12::equal(h_cuda_result[0], h_bases[0]))
+    EXPECT_TRUE(GT::equal(h_cuda_result[0], h_bases[0]))
         << "base^1 should equal base";
 
     // Test that all results are in GT group
     for (size_t i = 0; i < num_elements; i++) {
-        EXPECT_TRUE(Fp12::in_group(h_cuda_result[i]))
+        EXPECT_TRUE(GT::in_group(h_cuda_result[i]))
             << "Exponentiation result " << i << " should be in GT group";
     }
 
@@ -1339,9 +1339,9 @@ TEST(GTOpsCUDA, SpecialElements) {
     }
 
     const size_t num_elements = 5;
-    Fp12* d_elements;
+    GT* d_elements;
     bool* d_results;
-    Fp12 h_elements[num_elements];
+    GT h_elements[num_elements];
     bool h_cuda_results[num_elements], h_cpu_results[num_elements];
 
     // Create special test elements
@@ -1349,22 +1349,22 @@ TEST(GTOpsCUDA, SpecialElements) {
     create_test_gt_elements(h_elements, num_elements - 2, rng);
 
     // Add identity element
-	h_elements[num_elements - 2] = Fp12::one();
+	h_elements[num_elements - 2] = GT::identity();
 
     // Add conjugate of first element
-    memcpy(&h_elements[num_elements - 1], &h_elements[0], sizeof(Fp12));
-    Fp12::conjugate(h_elements[num_elements - 1]);
+    memcpy(&h_elements[num_elements - 1], &h_elements[0], sizeof(GT));
+    GT::conjugate(h_elements[num_elements - 1]);
 
     // CPU computation - test identity check
     for (size_t i = 0; i < num_elements; i++) {
-        h_cpu_results[i] = Fp12::is_one(h_elements[i]);
+        h_cpu_results[i] = GT::is_identity(h_elements[i]);
     }
 
     // CUDA computation
-    CUDA_CHECK(cudaMalloc(&d_elements, num_elements * sizeof(Fp12)));
+    CUDA_CHECK(cudaMalloc(&d_elements, num_elements * sizeof(GT)));
     CUDA_CHECK(cudaMalloc(&d_results, num_elements * sizeof(bool)));
 
-    CUDA_CHECK(cudaMemcpy(d_elements, h_elements, num_elements * sizeof(Fp12), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_elements, h_elements, num_elements * sizeof(GT), cudaMemcpyHostToDevice));
 
     batched_error_code result = is_one_gt_vec(d_results, d_elements, num_elements);
     EXPECT_TRUE(check_batched_success(result));
@@ -1380,7 +1380,7 @@ TEST(GTOpsCUDA, SpecialElements) {
     EXPECT_FALSE(h_cuda_results[num_elements - 1]) << "Conjugate should not be identity (unless original was)";
 
     // Test that conjugate is in GT group
-    EXPECT_TRUE(Fp12::in_group(h_elements[num_elements - 1]))
+    EXPECT_TRUE(GT::in_group(h_elements[num_elements - 1]))
         << "Conjugate should be in GT group";
 
     // Cleanup
@@ -1394,13 +1394,13 @@ TEST(GTOpsCUDA, PairingProperties) {
     }
 
     const size_t num_tests = 3;
-    Fp12* d_results;
+    GT* d_results;
     G1AffinePoint* d_g1_points;
     G2AffinePoint* d_g2_points;
 
     G1AffinePoint h_g1_points[num_tests];
     G2AffinePoint h_g2_points[num_tests];
-    Fp12 h_cuda_results[num_tests], h_cpu_results[num_tests];
+    GT h_cuda_results[num_tests], h_cpu_results[num_tests];
 
     // Setup test points for pairing properties
     G1Point g1_gen = G1Point::generator();
@@ -1424,14 +1424,14 @@ TEST(GTOpsCUDA, PairingProperties) {
 
     // CPU computation
     for (size_t i = 0; i < num_tests; i++) {
-        blst_miller_loop(h_cpu_results[i], &h_g2_points[i], &h_g1_points[i]);
-        Fp12::final_exp(h_cpu_results[i], h_cpu_results[i]);
+        GT::miller_loop(h_cpu_results[i], &h_g2_points[i], &h_g1_points[i]);
+        GT::final_mult(h_cpu_results[i], h_cpu_results[i]);
     }
 
     // CUDA computation
     CUDA_CHECK(cudaMalloc(&d_g1_points, num_tests * sizeof(G1AffinePoint)));
     CUDA_CHECK(cudaMalloc(&d_g2_points, num_tests * sizeof(G2AffinePoint)));
-    CUDA_CHECK(cudaMalloc(&d_results, num_tests * sizeof(Fp12)));
+    CUDA_CHECK(cudaMalloc(&d_results, num_tests * sizeof(GT)));
 
     CUDA_CHECK(cudaMemcpy(d_g1_points, h_g1_points, num_tests * sizeof(G1AffinePoint), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(d_g2_points, h_g2_points, num_tests * sizeof(G2AffinePoint), cudaMemcpyHostToDevice));
@@ -1439,25 +1439,25 @@ TEST(GTOpsCUDA, PairingProperties) {
     batched_error_code result = pairing_gt_vec(d_results, d_g2_points, d_g1_points, num_tests);
     EXPECT_TRUE(check_batched_success(result));
 
-    CUDA_CHECK(cudaMemcpy(h_cuda_results, d_results, num_tests * sizeof(Fp12), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_cuda_results, d_results, num_tests * sizeof(GT), cudaMemcpyDeviceToHost));
 
     // Compare results
     EXPECT_TRUE(compare_results(h_cuda_results, h_cpu_results, num_tests, gt_element_equal));
 
     // Test bilinearity: e(2P, Q) = e(P, 2Q) = e(P,Q)^2
-    Fp12 base_squared;
-    Fp12::sqr(base_squared, h_cuda_results[0]);
+    GT base_squared;
+    GT::doubling(base_squared, h_cuda_results[0]);
 
-    EXPECT_TRUE(Fp12::equal(h_cuda_results[1], h_cuda_results[2]))
+    EXPECT_TRUE(GT::equal(h_cuda_results[1], h_cuda_results[2]))
         << "e(2P, Q) should equal e(P, 2Q)";
-    EXPECT_TRUE(Fp12::equal(h_cuda_results[1], base_squared))
+    EXPECT_TRUE(GT::equal(h_cuda_results[1], base_squared))
         << "e(2P, Q) should equal e(P,Q)^2";
 
     // All pairing results should be in GT group
     for (size_t i = 0; i < num_tests; i++) {
-        EXPECT_TRUE(Fp12::in_group(h_cuda_results[i]))
+        EXPECT_TRUE(GT::in_group(h_cuda_results[i]))
             << "Pairing result " << i << " should be in GT group";
-        EXPECT_FALSE(Fp12::is_one(h_cuda_results[i]))
+        EXPECT_FALSE(GT::is_identity(h_cuda_results[i]))
             << "Pairing result " << i << " should not be identity (non-degenerate)";
     }
 
@@ -1480,8 +1480,8 @@ TEST(GTOpsCUDA, ErrorHandling) {
     EXPECT_EQ(result, BATCHED_ERROR_NULL_POINTER);
 
     // Test null input pointers
-    Fp12* d_valid;
-    CUDA_CHECK(cudaMalloc(&d_valid, sizeof(Fp12)));
+    GT* d_valid;
+    CUDA_CHECK(cudaMalloc(&d_valid, sizeof(GT)));
 
     result = mult_gt_vec(d_valid, nullptr, d_valid, 1);
     EXPECT_EQ(result, BATCHED_ERROR_NULL_POINTER);
@@ -1520,12 +1520,12 @@ TEST(GTOpsCUDA, LargeScaleOperations) {
     }
 
     const size_t large_batch_size = 500; // Test with larger batch
-    Fp12* d_elements, * d_result, * h_elements, * h_cuda_result, * h_cpu_result;
+    GT* d_elements, * d_result, * h_elements, * h_cuda_result, * h_cpu_result;
 
     // Allocate host memory
-    h_elements = new Fp12[large_batch_size];
-    h_cuda_result = new Fp12[large_batch_size];
-    h_cpu_result = new Fp12[large_batch_size];
+    h_elements = new GT[large_batch_size];
+    h_cuda_result = new GT[large_batch_size];
+    h_cpu_result = new GT[large_batch_size];
 
     // Create test data
     InsecureRng rng;
@@ -1534,14 +1534,14 @@ TEST(GTOpsCUDA, LargeScaleOperations) {
     // CPU computation (sample - full computation would be slow)
     const size_t sample_size = std::min(large_batch_size, size_t(20));
     for (size_t i = 0; i < sample_size; i++) {
-        Fp12::sqr(h_cpu_result[i], h_elements[i]);
+        GT::doubling(h_cpu_result[i], h_elements[i]);
     }
 
     // CUDA computation
-    CUDA_CHECK(cudaMalloc(&d_elements, large_batch_size * sizeof(Fp12)));
-    CUDA_CHECK(cudaMalloc(&d_result, large_batch_size * sizeof(Fp12)));
+    CUDA_CHECK(cudaMalloc(&d_elements, large_batch_size * sizeof(GT)));
+    CUDA_CHECK(cudaMalloc(&d_result, large_batch_size * sizeof(GT)));
 
-    CUDA_CHECK(cudaMemcpy(d_elements, h_elements, large_batch_size * sizeof(Fp12), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_elements, h_elements, large_batch_size * sizeof(GT), cudaMemcpyHostToDevice));
 
     // Time the operation
     cudaEvent_t start, stop;
@@ -1563,7 +1563,7 @@ TEST(GTOpsCUDA, LargeScaleOperations) {
 
     EXPECT_TRUE(check_batched_success(result));
 
-    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, large_batch_size * sizeof(Fp12), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, large_batch_size * sizeof(GT), cudaMemcpyDeviceToHost));
 
     // Verify a sample of results
     bool sample_match = compare_results(h_cuda_result, h_cpu_result, sample_size, gt_element_equal);
@@ -1571,7 +1571,7 @@ TEST(GTOpsCUDA, LargeScaleOperations) {
 
     // Verify all results are in GT group
     for (size_t i = 0; i < std::min(large_batch_size, size_t(50)); i += 10) {
-        EXPECT_TRUE(Fp12::in_group(h_cuda_result[i]))
+        EXPECT_TRUE(GT::in_group(h_cuda_result[i]))
             << "Large batch result " << i << " should be in GT group";
     }
 
@@ -1591,20 +1591,20 @@ TEST(GTOpsCUDA, CyclotomicProperties) {
     }
 
     const size_t num_elements = 10;
-    Fp12* d_elements, * d_regular_sqr, * d_cyclo_sqr;
-    Fp12 h_elements[num_elements];
-    Fp12 h_regular_result[num_elements], h_cyclo_result[num_elements];
+    GT* d_elements, * d_regular_sqr, * d_cyclo_sqr;
+    GT h_elements[num_elements];
+    GT h_regular_result[num_elements], h_cyclo_result[num_elements];
 
     // Create test data (GT elements are in cyclotomic subgroup)
     InsecureRng rng;
     create_test_gt_elements(h_elements, num_elements, rng);
 
     // CUDA computation
-    CUDA_CHECK(cudaMalloc(&d_elements, num_elements * sizeof(Fp12)));
-    CUDA_CHECK(cudaMalloc(&d_regular_sqr, num_elements * sizeof(Fp12)));
-    CUDA_CHECK(cudaMalloc(&d_cyclo_sqr, num_elements * sizeof(Fp12)));
+    CUDA_CHECK(cudaMalloc(&d_elements, num_elements * sizeof(GT)));
+    CUDA_CHECK(cudaMalloc(&d_regular_sqr, num_elements * sizeof(GT)));
+    CUDA_CHECK(cudaMalloc(&d_cyclo_sqr, num_elements * sizeof(GT)));
 
-    CUDA_CHECK(cudaMemcpy(d_elements, h_elements, num_elements * sizeof(Fp12), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_elements, h_elements, num_elements * sizeof(GT), cudaMemcpyHostToDevice));
 
     // Compare regular vs cyclotomic squaring
     batched_error_code regular_result = square_gt_vec(d_regular_sqr, d_elements, num_elements);
@@ -1613,8 +1613,8 @@ TEST(GTOpsCUDA, CyclotomicProperties) {
     batched_error_code cyclo_result = cyclotomic_square_gt_vec(d_cyclo_sqr, d_elements, num_elements);
     EXPECT_TRUE(check_batched_success(cyclo_result));
 
-    CUDA_CHECK(cudaMemcpy(h_regular_result, d_regular_sqr, num_elements * sizeof(Fp12), cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(h_cyclo_result, d_cyclo_sqr, num_elements * sizeof(Fp12), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_regular_result, d_regular_sqr, num_elements * sizeof(GT), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_cyclo_result, d_cyclo_sqr, num_elements * sizeof(GT), cudaMemcpyDeviceToHost));
 
     // For GT elements, both methods should give identical results
     EXPECT_TRUE(compare_results(h_regular_result, h_cyclo_result, num_elements, gt_element_equal))
@@ -1626,11 +1626,11 @@ TEST(GTOpsCUDA, CyclotomicProperties) {
         EXPECT_TRUE(check_batched_success(round_result));
     }
 
-    CUDA_CHECK(cudaMemcpy(h_cyclo_result, d_cyclo_sqr, num_elements * sizeof(Fp12), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_cyclo_result, d_cyclo_sqr, num_elements * sizeof(GT), cudaMemcpyDeviceToHost));
 
     // Results should still be in GT group after multiple squarings
     for (size_t i = 0; i < num_elements; i++) {
-        EXPECT_TRUE(Fp12::in_group(h_cyclo_result[i]))
+        EXPECT_TRUE(GT::in_group(h_cyclo_result[i]))
             << "Multiple cyclotomic squaring result " << i << " should be in GT group";
     }
 
@@ -1646,14 +1646,14 @@ TEST(GTOpsCUDA, ComprehensivePairingTest) {
     }
 
     const size_t num_pairs = 8;
-    Fp12* d_miller_results, * d_final_results, * d_complete_results;
+    GT* d_miller_results, * d_final_results, * d_complete_results;
     G1AffinePoint* d_g1_points;
     G2AffinePoint* d_g2_points;
     bool* d_verify_results;
 
     G1AffinePoint h_g1_points[num_pairs];
     G2AffinePoint h_g2_points[num_pairs];
-    Fp12 h_miller_results[num_pairs], h_final_results[num_pairs], h_complete_results[num_pairs];
+    GT h_miller_results[num_pairs], h_final_results[num_pairs], h_complete_results[num_pairs];
     bool h_verify_results[num_pairs];
 
     // Create diverse test point pairs
@@ -1682,9 +1682,9 @@ TEST(GTOpsCUDA, ComprehensivePairingTest) {
     // CUDA computation
     CUDA_CHECK(cudaMalloc(&d_g1_points, num_pairs * sizeof(G1AffinePoint)));
     CUDA_CHECK(cudaMalloc(&d_g2_points, num_pairs * sizeof(G2AffinePoint)));
-    CUDA_CHECK(cudaMalloc(&d_miller_results, num_pairs * sizeof(Fp12)));
-    CUDA_CHECK(cudaMalloc(&d_final_results, num_pairs * sizeof(Fp12)));
-    CUDA_CHECK(cudaMalloc(&d_complete_results, num_pairs * sizeof(Fp12)));
+    CUDA_CHECK(cudaMalloc(&d_miller_results, num_pairs * sizeof(GT)));
+    CUDA_CHECK(cudaMalloc(&d_final_results, num_pairs * sizeof(GT)));
+    CUDA_CHECK(cudaMalloc(&d_complete_results, num_pairs * sizeof(GT)));
     CUDA_CHECK(cudaMalloc(&d_verify_results, num_pairs * sizeof(bool)));
 
     CUDA_CHECK(cudaMemcpy(d_g1_points, h_g1_points, num_pairs * sizeof(G1AffinePoint), cudaMemcpyHostToDevice));
@@ -1706,9 +1706,9 @@ TEST(GTOpsCUDA, ComprehensivePairingTest) {
     EXPECT_TRUE(check_batched_success(verify_result));
 
     // Copy results back
-    CUDA_CHECK(cudaMemcpy(h_miller_results, d_miller_results, num_pairs * sizeof(Fp12), cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(h_final_results, d_final_results, num_pairs * sizeof(Fp12), cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(h_complete_results, d_complete_results, num_pairs * sizeof(Fp12), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_miller_results, d_miller_results, num_pairs * sizeof(GT), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_final_results, d_final_results, num_pairs * sizeof(GT), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_complete_results, d_complete_results, num_pairs * sizeof(GT), cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaMemcpy(h_verify_results, d_verify_results, num_pairs * sizeof(bool), cudaMemcpyDeviceToHost));
 
     // Verify consistency between separate and complete pairing
@@ -1722,11 +1722,11 @@ TEST(GTOpsCUDA, ComprehensivePairingTest) {
 
     // Verify group membership properties
     for (size_t i = 0; i < num_pairs; i++) {
-        EXPECT_FALSE(Fp12::in_group(h_miller_results[i]))
+        EXPECT_FALSE(GT::in_group(h_miller_results[i]))
             << "Miller loop result " << i << " should not be in GT group";
-        EXPECT_TRUE(Fp12::in_group(h_final_results[i]))
+        EXPECT_TRUE(GT::in_group(h_final_results[i]))
             << "Final exponentiation result " << i << " should be in GT group";
-        EXPECT_TRUE(Fp12::in_group(h_complete_results[i]))
+        EXPECT_TRUE(GT::in_group(h_complete_results[i]))
             << "Complete pairing result " << i << " should be in GT group";
     }
 

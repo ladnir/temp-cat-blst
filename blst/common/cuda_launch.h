@@ -19,6 +19,12 @@
 # define NODISCARD __attribute__((warn_unused_result))
 #endif
 
+#ifdef __INTELLISENSE__
+#define BLST_LAUNCH(...) 
+#else
+#define BLST_LAUNCH(...) <<< __VA_ARGS__ >>>
+#endif
+
 namespace blst {
 
     inline void   clear_last_error() { (void)cudaGetLastError(); }

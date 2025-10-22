@@ -5,6 +5,7 @@
  */
 
 #include "blst/curve/point.h"
+#include "blst/curve/GT.h"
 
 #ifndef MILLER_LOOP_N_MAX
 # define MILLER_LOOP_N_MAX 16
@@ -140,51 +141,53 @@ namespace blst
         Fp::mul(line[2][1], line[2][1], Px2.Y);
     }
 
-#if 0
-    BLST_HD  void add_n_dbl(Fp12* ret, G2Point& T, const G2AffinePoint* Q,
-        const G1AffinePoint* Px2, Fp6& line, size_t n)
-    {
-        line_add(line, T, T, Q);    line_by_Px2(line, Px2);
-        Fp12::mul_by_xy00z0(ret, ret, line);
-        while (n--) {
-            sqr_fp12(ret, ret);
-            line_dbl(line, T, T);   line_by_Px2(line, Px2);
-            Fp12::mul_by_xy00z0(ret, ret, line);
-        }
-    }
+//#if 0
+//    BLST_HD  void add_n_dbl(Fp12* ret, G2Point& T, const G2AffinePoint* Q,
+//        const G1AffinePoint* Px2, Fp6& line, size_t n)
+//    {
+//        line_add(line, T, T, Q);    line_by_Px2(line, Px2);
+//        Fp12::mul_by_xy00z0(ret, ret, line);
+//        while (n--) {
+//            sqr_fp12(ret, ret);
+//            line_dbl(line, T, T);   line_by_Px2(line, Px2);
+//            Fp12::mul_by_xy00z0(ret, ret, line);
+//        }
+//    }
+//
+//    BLST_HD void miller_loop(Fp12* ret, const G2Point& Q, const G1Point* P)
+//    {
+//#define Q ((const G2AffinePoint *)Q)
+//        G2Point T[1];
+//        G1AffinePoint Px2[1];
+//        Fp6& line; /* it's not actual fp6, but 3 packed fp2, "xy00z0"  */
+//
+//        /* Move common expression from line evaluation to line_by_Px2. */
+//        Fp::add(Px2.X, P.X, P.X);
+//        Fp::neg(Px2.X, Px2.X);
+//        Fp::add(Px2.Y, P.Y, P.Y);
+//
+//        vec_copy(T.X, Q.X, 2 * sizeof(T.X));
+//        vec_copy(T.Z, get_BLST_Rx().p2, sizeof(T.Z));
+//
+//        /* first step is ret = 1^2*line, which is replaced with ret = line  */
+//        line_dbl(line, T, T);                       /* 0x2                  */
+//        line_by_Px2(line, Px2);
+//        vec_zero(ret, sizeof(Fp12));
+//        vec_copy(ret[0][0], line[0], 2 * sizeof(Fp2));
+//        vec_copy(ret[1][1], line[2], sizeof(Fp2));
+//        add_n_dbl(ret, T, Q, Px2, line, 2);         /* ..0xc                */
+//        add_n_dbl(ret, T, Q, Px2, line, 3);         /* ..0x68               */
+//        add_n_dbl(ret, T, Q, Px2, line, 9);         /* ..0xd200             */
+//        add_n_dbl(ret, T, Q, Px2, line, 32);        /* ..0xd20100000000     */
+//        add_n_dbl(ret, T, Q, Px2, line, 16);        /* ..0xd201000000010000 */
+//        Fp12::conjugate(ret);                /* account for z being negative */
+//#undef Q
+//    }
+//#endif
 
-    BLST_HD void miller_loop(Fp12* ret, const G2Point& Q, const G1Point* P)
-    {
-#define Q ((const G2AffinePoint *)Q)
-        G2Point T[1];
-        G1AffinePoint Px2[1];
-        Fp6& line; /* it's not actual fp6, but 3 packed fp2, "xy00z0"  */
-
-        /* Move common expression from line evaluation to line_by_Px2. */
-        Fp::add(Px2.X, P.X, P.X);
-        Fp::neg(Px2.X, Px2.X);
-        Fp::add(Px2.Y, P.Y, P.Y);
-
-        vec_copy(T.X, Q.X, 2 * sizeof(T.X));
-        vec_copy(T.Z, get_BLST_Rx().p2, sizeof(T.Z));
-
-        /* first step is ret = 1^2*line, which is replaced with ret = line  */
-        line_dbl(line, T, T);                       /* 0x2                  */
-        line_by_Px2(line, Px2);
-        vec_zero(ret, sizeof(Fp12));
-        vec_copy(ret[0][0], line[0], 2 * sizeof(Fp2));
-        vec_copy(ret[1][1], line[2], sizeof(Fp2));
-        add_n_dbl(ret, T, Q, Px2, line, 2);         /* ..0xc                */
-        add_n_dbl(ret, T, Q, Px2, line, 3);         /* ..0x68               */
-        add_n_dbl(ret, T, Q, Px2, line, 9);         /* ..0xd200             */
-        add_n_dbl(ret, T, Q, Px2, line, 32);        /* ..0xd20100000000     */
-        add_n_dbl(ret, T, Q, Px2, line, 16);        /* ..0xd201000000010000 */
-        Fp12::conjugate(ret);                /* account for z being negative */
-#undef Q
-    }
-#endif
-
-    BLST_HD void start_dbl_n(Fp12& ret, G2Point T[],
+    BLST_HD void start_dbl_n(
+        GT& ret, 
+        G2Point T[],
         const G1AffinePoint Px2[], size_t n)
     {
         size_t i;
@@ -193,18 +196,18 @@ namespace blst
         /* first step is ret = 1^2*line, which is replaced with ret = line  */
         line_dbl(line, T[0], T[0]);           
         line_by_Px2(line, Px2[0]);
-        vec_zero(&ret, sizeof(Fp12));
-        vec_copy(&ret[0][0], &line[0], 2 * sizeof(Fp2));
-        vec_copy(&ret[1][1], &line[2], sizeof(Fp2));
+        vec_zero(&ret, sizeof(GT));
+        vec_copy(&ret.data[0][0], &line[0], 2 * sizeof(Fp2));
+        vec_copy(&ret.data[1][1], &line[2], sizeof(Fp2));
 
         for (i = 1; i < n; i++) {
             line_dbl(line, T[i], T[i]);       
             line_by_Px2(line, Px2[i]);
-            Fp12::mul_by_xy00z0(ret, ret, line);
+            Fp12::mul_by_xy00z0(ret.data, ret.data, line);
         }
     }
 
-    BLST_HD  void add_n_dbl_n(Fp12& ret, 
+    BLST_HD  void add_n_dbl_n(GT& ret, 
         G2Point T[],
         const G2AffinePoint Q[],
         const G1AffinePoint Px2[],
@@ -216,19 +219,19 @@ namespace blst
 
         for (i = 0; i < n; i++) {
             line_add(line, T[i], T[i], Q[i]);  line_by_Px2(line, Px2[i]);
-            Fp12::mul_by_xy00z0(ret, ret, line);
+            Fp12::mul_by_xy00z0(ret.data, ret.data, line);
         }
         while (k--) {
-            Fp12::sqr(ret, ret);
+            Fp12::sqr(ret.data, ret.data);
             for (i = 0; i < n; i++) {
                 line_dbl(line, T[i], T[i]);   line_by_Px2(line, Px2[i]);
-                Fp12::mul_by_xy00z0(ret, ret, line);
+                Fp12::mul_by_xy00z0(ret.data, ret.data, line);
             }
         }
     }
 
-    BLST_HD void miller_loop_n(
-        Fp12& ret, 
+    BLST_HD void GT::miller_loop_n(
+        GT& ret, 
         const G2AffinePoint Q[],
         const G1AffinePoint P[], 
         size_t n)
@@ -273,7 +276,7 @@ namespace blst
         add_n_dbl_n(ret, T, Q, Px2, n, 9);          /* ..0xd200             */
         add_n_dbl_n(ret, T, Q, Px2, n, 32);         /* ..0xd20100000000     */
         add_n_dbl_n(ret, T, Q, Px2, n, 16);         /* ..0xd201000000010000 */
-        Fp12::conjugate(ret);                /* account for z being negative */
+        Fp12::conjugate(ret.data);                /* account for z being negative */
     }
 
 
@@ -286,7 +289,7 @@ namespace blst
             line_dbl(lines++[0], T, T);
     }
 
-    BLST_HD void precompute_lines(Fp6 Qlines[68], const G2AffinePoint& Q)
+    BLST_HD void GT::precompute_lines(Fp6 Qlines[68], const G2AffinePoint& Q)
     {
         G2Point T;
 
@@ -313,21 +316,21 @@ namespace blst
         Fp::mul(out[2][1], in[2][1], Px2.Y);
     }
 
-    BLST_HD void post_add_n_dbl(Fp12& ret, const Fp6 lines[],
+    BLST_HD void post_add_n_dbl(GT& ret, const Fp6 lines[],
         const G1AffinePoint& Px2, size_t n)
     {
         Fp6 line;
 
         post_line_by_Px2(line, lines++[0], Px2);
-        Fp12::mul_by_xy00z0(ret, ret, line);
+        Fp12::mul_by_xy00z0(ret.data, ret.data, line);
         while (n--) {
-            Fp12::sqr(ret, ret);
+            Fp12::sqr(ret.data, ret.data);
             post_line_by_Px2(line, lines++[0], Px2);
-            Fp12::mul_by_xy00z0(ret, ret, line);
+            Fp12::mul_by_xy00z0(ret.data, ret.data, line);
         }
     }
 
-    BLST_HD void miller_loop_lines(Fp12& ret, const Fp6 Qlines[68],
+    BLST_HD void GT::miller_loop_lines(GT& ret, const Fp6 Qlines[68],
         const G1AffinePoint& P)
     {
         G1AffinePoint Px2;
@@ -340,19 +343,19 @@ namespace blst
 
         /* first step is ret = 1^2*line, which is replaced with ret = line  */
         post_line_by_Px2(line, Qlines[0], Px2);     /* 0x2                  */
-        vec_zero(&ret, sizeof(Fp12));
-        vec_copy(&ret[0][0], &line[0], 2 * sizeof(Fp2));
-        vec_copy(&ret[1][1], &line[2], sizeof(Fp2));
+        vec_zero(&ret, sizeof(GT));
+        vec_copy(&ret.data[0][0], &line[0], 2 * sizeof(Fp2));
+        vec_copy(&ret.data[1][1], &line[2], sizeof(Fp2));
         post_add_n_dbl(ret, &Qlines[1], Px2, 2);   /* ..0xc                */
         post_add_n_dbl(ret, &Qlines[4], Px2, 3);   /* ..0x68               */
         post_add_n_dbl(ret, &Qlines[8], Px2, 9);   /* ..0xd200             */
         post_add_n_dbl(ret, &Qlines[18], Px2, 32);  /* ..0xd20100000000     */
         post_add_n_dbl(ret, &Qlines[51], Px2, 16);  /* ..0xd201000000010000 */
-        Fp12::conjugate(ret);                /* account for z being negative */
+        Fp12::conjugate(ret.data);                /* account for z being negative */
     }
 
 #ifdef INTERNAL_TESTMODE
-    void miller_loop_alt(Fp12* ret, const G2AffinePoint* Q,
+    void miller_loop_alt(GT* ret, const G2AffinePoint* Q,
         const G1AffinePoint* P)
     {
         Fp6& lines[68];
@@ -363,7 +366,7 @@ namespace blst
 #endif
 
 
-    BLST_HD void blst_miller_loop(Fp12& ret, const G2AffinePoint* Q,
+    BLST_HD void GT::miller_loop(GT& ret, const G2AffinePoint* Q,
         const G1AffinePoint* P)
     {
         miller_loop_n(ret, 
@@ -373,8 +376,8 @@ namespace blst
     }
 
 
-    BLST_HD void blst_miller_loop_n(
-        Fp12& out, 
+    BLST_HD void GT::miller_loop_n(
+        GT& out,
         const G2AffinePoint* const Qs[],
         const G1AffinePoint* const Ps[],
         size_t n)
@@ -400,8 +403,8 @@ namespace blst
             vec_copy(&T[i].Z, &get_BLST_Rx().p2, sizeof(T[i].Z));
 
             if (++i == MILLER_LOOP_N_MAX || j == n - 1) {
-                Fp12 tmp;
-                Fp12& ret = j < MILLER_LOOP_N_MAX ? out : tmp;
+                GT tmp;
+                GT& ret = j < MILLER_LOOP_N_MAX ? out : tmp;
 
                 /* first step is ret = 1^2*line, which is just ret = line       */
                 start_dbl_n(ret, T, Px2, i);            /* 0x2                  */
@@ -410,25 +413,25 @@ namespace blst
                 add_n_dbl_n(ret, T, Q, Px2, i, 9);      /* ..0xd200             */
                 add_n_dbl_n(ret, T, Q, Px2, i, 32);     /* ..0xd20100000000     */
                 add_n_dbl_n(ret, T, Q, Px2, i, 16);     /* ..0xd201000000010000 */
-                Fp12::conjugate(ret);            /* account for z being negative */
+                Fp12::conjugate(ret.data);            /* account for z being negative */
 
                 if (j >= MILLER_LOOP_N_MAX)
-                    Fp12::mul(out, out, ret);
+                    Fp12::mul(out.data, out.data, ret.data);
 
                 i = 0;
             }
         }
     }
 
-    BLST_HD void blst_precompute_lines(Fp6 Qlines[68], const G2AffinePoint& Q)
-    {
-        precompute_lines(Qlines, Q);
-    }
+    //BLST_HD void blst_precompute_lines(Fp6 Qlines[68], const G2AffinePoint& Q)
+    //{
+    //    precompute_lines(Qlines, Q);
+    //}
 
-    BLST_HD  void blst_miller_loop_lines(Fp12& ret, const Fp6 Qlines[68],
-        const G1AffinePoint& P)
-    {
-        miller_loop_lines(ret, Qlines, P);
-    }
+    //BLST_HD  void blst_miller_loop_lines(GT& ret, const Fp6 Qlines[68],
+    //    const G1AffinePoint& P)
+    //{
+    //    miller_loop_lines(ret, Qlines, P);
+    //}
 
 }

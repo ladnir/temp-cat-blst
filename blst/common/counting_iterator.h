@@ -20,85 +20,85 @@ namespace blst
         T cur;
 
         counting_iterator() = default;
-        explicit counting_iterator(T start) : cur(start) {}
+        BLST_HD explicit counting_iterator(T start) : cur(start) {}
 
-        reference operator*() const
+        BLST_HD reference operator*() const
         {
             return cur;
         }
 
-        counting_iterator& operator++()
+        BLST_HD counting_iterator& operator++()
         {
             cur += 1;
             return *this;
         }
 
-        counting_iterator operator++(int)
+        BLST_HD counting_iterator operator++(int)
         {
             counting_iterator tmp{ *this };
             ++(*this);
             return tmp;
         }
 
-        counting_iterator& operator--()
+        BLST_HD counting_iterator& operator--()
         {
             cur -= 1;
             return *this;
         }
 
-        counting_iterator operator--(int)
+        BLST_HD counting_iterator operator--(int)
         {
             counting_iterator tmp{ *this };
             --(*this);
             return tmp;
         }
 
-        counting_iterator& operator+=(difference_type n)
+        BLST_HD counting_iterator& operator+=(difference_type n)
         {
             cur += static_cast<T>(n);
             return *this;
         }
 
-        counting_iterator& operator-=(difference_type n)
+        BLST_HD counting_iterator& operator-=(difference_type n)
         {
             cur -= static_cast<T>(n);
             return *this;
         }
 
-        reference operator[](difference_type n) const
+        BLST_HD reference operator[](difference_type n) const
         {
             return static_cast<T>(cur + static_cast<T>(n));
         }
 
-        friend counting_iterator operator+(counting_iterator it, difference_type n)
+        BLST_HD friend counting_iterator operator+(counting_iterator it, difference_type n)
         {
             it += n;
             return it;
         }
 
-        friend counting_iterator operator+(difference_type n, counting_iterator it)
+        BLST_HD friend counting_iterator operator+(difference_type n, counting_iterator it)
         {
             it += n;
             return it;
         }
 
-        friend counting_iterator operator-(counting_iterator it, difference_type n)
+        BLST_HD friend counting_iterator operator-(counting_iterator it, difference_type n)
         {
             it -= n;
             return it;
         }
 
-        friend difference_type operator-(const counting_iterator& a, const counting_iterator& b)
+        BLST_HD friend difference_type operator-(const counting_iterator& a, const counting_iterator& b)
         {
             return static_cast<difference_type>(a.cur) - static_cast<difference_type>(b.cur);
         }
 
-        friend bool operator==(const counting_iterator& a, const counting_iterator& b)
+        BLST_HD friend bool operator==(const counting_iterator& a, const counting_iterator& b)
         {
             return a.cur == b.cur;
         }
 
-        friend auto operator<=>(const counting_iterator& a, const counting_iterator& b)
+        BLST_HD friend auto operator<=>(const counting_iterator& a, const counting_iterator& b)
         {
             return a.cur <=> b.cur;
         }

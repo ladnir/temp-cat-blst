@@ -15,6 +15,7 @@
 #include <thrust/execution_policy.h>
 #include <thrust/logical.h>
 #include <thrust/functional.h>
+#include <cuda/std/mdspan>
 #endif
 #include "blst/common/cuda_launch.h"
 #endif
@@ -28,7 +29,7 @@
 
 namespace blst
 {
-#ifdef BLST_CUDA
+#if defined(BLST_CUDA) && !defined(__INTELLISENSE__)
 	template<typename T>
 	using d2Span = cuda::std::mdspan<T, cuda::std::dextents<size_t, 2>>;
 
@@ -76,7 +77,7 @@ namespace blst
 		MemcpyKind kind, Stream stream) -> DeviceError
 	{
 #ifdef BLST_CUDA
-		return ::cudaMemcpyAsync(dst, src, count, kind, stream);
+		return ::cudaMemcpyAsync(dst, src, count, (cudaMemcpyKind)kind, stream);
 #else
 		memcpy(dst, src, count);
 		return DeviceError::cudaSuccess;
@@ -97,7 +98,7 @@ namespace blst
 	auto streamSynchronize(Stream stream)
 	{
 #ifdef BLST_CUDA
-		return streamSynchronize(stream);
+		return cudaStreamSynchronize(stream);
 #else
 		return DeviceError::cudaSuccess;
 #endif // BLST_CUDA
@@ -125,8 +126,8 @@ namespace blst
 			return "cudaErrorInvalidValue";
 		default:
 			return "Unknown DeviceError";
-#endif
 		}
+#endif
 	}
 
 #define MSM_CHECK(call) do { \
@@ -135,6 +136,9 @@ namespace blst
 		fprintf(stderr, "Error at %s:%d - %s\n", __FILE__, __LINE__, getErrorString(err)); \
 		BLST_ASSERT(0); \
 	} }while(0)
+
+
+
 
 	// Debug print function for digit extraction stage
 	template<typename Field>
@@ -562,10 +566,12 @@ namespace blst
 	// taka flat array of scalars, extract the w-bit Booth encoded digits
 	// the output order is column-major by digit. First row has the N LSB digits, ...
 	BLST_GLOBAL
-		void extract_digits_flat_kernel(const uint8_t* BLST_restrict scalars,
+		void extract_digits_flat_kernel(
+			const uint8_t* BLST_restrict scalars,
 			int N,                // number of scalars
 			int nbytes,           // bytes per scalar
 			int nbits,            // significant bits per scalar
+			WindowExtract* d_windows,
 			int wbits,            // window size (e.g., 5). W=2^wbits
 			int D,                // number of windows = ceil(nbits / wbits)
 			u8* BLST_restrict digits,
@@ -579,7 +585,7 @@ namespace blst
 		int i = tid / D;     // scalar index
 		int d = tid % D;     // window index (0 = LSB window)
 
-		extract_digits_flat(d, i, scalars, N, nbytes, nbits, wbits, D, digits, index_signs);
+		extract_digits_flat(d, i, scalars, N, nbytes, nbits, d_windows, wbits, D, digits, index_signs);
 	}
 
 #endif // BLST_CUDA
@@ -612,16 +618,14 @@ namespace blst
 		int total = num_scalars * D;
 		int blockSize = 256;
 		int numBlocks = (total + blockSize - 1) / blockSize;
+
 #ifdef BLST_CUDA
-		extract_digits_flat_kernel << < numBlocks, blockSize, 0, stream >> > (
-			scalars,
-			N,
-			nbytes,
-			nbits,
-			wbits,
-			D,
-			digit,
-			idx_sign);
+		extract_digits_flat_kernel BLST_LAUNCH(numBlocks, blockSize, 0, stream) (
+			scalars.data_handle(), num_scalars,
+			nbytes, nbits,
+			d_windows.data(), wbits, D,
+			digit.data_handle(),
+			idx_sign.data_handle());
 #else
 		for (int tid = 0; tid < total; tid++)
 		{
@@ -874,7 +878,7 @@ namespace blst
 
 
 	template<class Field, class ValT>
-	void scatter_group_sums_multi_kernel(
+	BLST_HD BLST_INLINE void scatter_group_sums_multi_kernel(
 		u64 tid,
 		const uint32_t* __restrict d_group_keys,
 		const ValT* __restrict d_group_vals,
@@ -909,12 +913,12 @@ namespace blst
 
 
 	template<class Field, class ValT>
-	__global__ void scatter_group_sums_multi(
+	__global__ void scatter_group_sums_multi_kernel(
 		const uint32_t* __restrict d_group_keys,
 		const ValT* __restrict d_group_vals,
 		const size_t* __restrict d_num_runs_ptr,
 		int W,
-		int M,
+		int num_sets,
 		Pointxyzz<Field>* __restrict d_groups)
 	{
 		size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -924,7 +928,7 @@ namespace blst
 			d_group_vals,
 			d_num_runs_ptr,
 			W,
-			M,
+			num_sets,
 			d_groups);
 	}
 #endif // BLST_CUDA
@@ -950,13 +954,13 @@ namespace blst
 		int grd = static_cast<int>((scatter_threads + blk - 1) / blk);
 
 		scatter_group_sums_multi_kernel<Field, ValT>
-			<< <grd, blk, 0, stream >> > (
-				d_group_keys,
-				d_group_vals,
+			BLST_LAUNCH(grd, blk, 0, stream) (
+				d_group_keys.data(),
+				d_group_vals.data(),
 				d_num_runs,
 				W,
 				num_sets,
-				d_groups);
+				d_groups.data_handle());
 
 		return getLastError();
 #else
@@ -1312,7 +1316,7 @@ namespace blst
 	// computes ?? d??S_d from pre-summed buckets and writes 
 	// the window???s contribution as Jacobian.
 	template<class Field>
-	void integrate_buckets_xyzz_kernel(
+	BLST_HD BLST_INLINE void integrate_buckets_xyzz_kernel(
 		int tid,
 		const Pointxyzz<Field>* BLST_restrict d_groups_xyzz,  // [D*W]
 		const WindowExtract* BLST_restrict d_windows,
@@ -1352,13 +1356,14 @@ namespace blst
 		d_window_sums[tid] = out;
 	}
 
-#ifdef CUDA
+#ifdef BLST_CUDA
 	template<class Field>
 	BLST_GLOBAL void integrate_buckets_xyzz_kernel(
 		const Pointxyzz<Field>* BLST_restrict d_groups_xyzz,  // [D*W]
+		const WindowExtract* BLST_restrict d_windows,
+		int M,
 		int D,
 		int W,
-		int wbits,
 		Point<Field>* BLST_restrict d_window_sums       // [M*D] Jacobian out
 	)
 	{
@@ -1366,9 +1371,10 @@ namespace blst
 		integrate_buckets_xyzz_kernel<Field>(
 			tid,
 			d_groups_xyzz,
+			d_windows,
+			M,
 			D,
 			W,
-			wbits,
 			d_window_sums);
 	}
 #endif // CUDA
@@ -1395,12 +1401,13 @@ namespace blst
 #ifdef BLST_CUDA
 		int blk = 256;
 		int grd = (D + blk - 1) / blk;
-		integrate_buckets_xyzz_kernel<Field> << <grd, blk, 0, stream >> > (
-			d_groups_xyzz,
+		integrate_buckets_xyzz_kernel<Field> BLST_LAUNCH(grd, blk, 0, stream) (
+			d_groups_xyzz.data_handle(),
+			d_windows.data(),
+			M,
 			D,
 			W,
-			wbits,
-			d_window_sums);
+			d_window_sums.data_handle());
 		return cudaGetLastError();
 #else
 		for (u64 i = 0; i < total; ++i)
@@ -1419,7 +1426,7 @@ namespace blst
 	}
 
 	template<class Field>
-	void fold_windows_kernel(
+	BLST_HD BLST_INLINE void fold_windows_kernel(
 		int m,
 		const Point<Field>* BLST_restrict d_window_sums, // [D*M], index = m*D + d
 		int M,
@@ -1487,12 +1494,12 @@ namespace blst
 
 		int blk = 256;
 		int grd = (M + blk - 1) / blk;
-		fold_windows_kernel<Field> << <grd, blk, 0, stream >> > (
-			d_window_sums,
+		fold_windows_kernel<Field> BLST_LAUNCH(grd, blk, 0, stream) (
+			d_window_sums.data_handle(),
 			M,
 			D,
 			wbits,
-			d_outputs);
+			d_outputs.data());
 		return cudaGetLastError();
 #else
 		for (u64 m = 0; m < (u64)M; m++)

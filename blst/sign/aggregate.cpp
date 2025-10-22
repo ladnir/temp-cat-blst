@@ -6,6 +6,7 @@
 
 #include "blst/sign/aggregate.h"
 #include "blst/curve/map_to_G.h"
+#include "blst/curve/GT.h"
 //#include "blst/curve/map_to_G.h"
 
 namespace blst
@@ -183,12 +184,12 @@ namespace blst
             vec_copy(ctx->P + n, &H, sizeof(G1AffinePoint));
             if (++n == N_MAX) {
                 if (ctx->ctrl & AGGR_GT_SET) {
-                    Fp12 GT;
-                    miller_loop_n(GT, ctx->Q, ctx->P, n);
-                    Fp12::mul(ctx->GT, ctx->GT, GT);
+                    GT gt;
+                    GT::miller_loop_n(gt, ctx->Q, ctx->P, n);
+                    GT::add(ctx->gt, ctx->gt, gt);
                 }
                 else {
-                    miller_loop_n(ctx->GT, ctx->Q, ctx->P, n);
+                    GT::miller_loop_n(ctx->gt, ctx->Q, ctx->P, n);
                     ctx->ctrl |= AGGR_GT_SET;
                 }
                 n = 0;
@@ -345,12 +346,12 @@ namespace blst
             vec_copy(ctx->P + n, &PK, sizeof(G1AffinePoint));
             if (++n == N_MAX) {
                 if (ctx->ctrl & AGGR_GT_SET) {
-                    Fp12 GT;
-                    miller_loop_n(GT, ctx->Q, ctx->P, n);
-                    Fp12::mul(ctx->GT, ctx->GT, GT);
+                    GT gt;
+                    GT::miller_loop_n(gt, ctx->Q, ctx->P, n);
+                    GT::add(ctx->gt, ctx->gt, gt);
                 }
                 else {
-                    miller_loop_n(ctx->GT, ctx->Q, ctx->P, n);
+                    GT::miller_loop_n(ctx->gt, ctx->Q, ctx->P, n);
                     ctx->ctrl |= AGGR_GT_SET;
                 }
                 n = 0;
@@ -420,12 +421,12 @@ namespace blst
 
         if ((n = ctx->nelems) != 0) {
             if (ctx->ctrl & AGGR_GT_SET) {
-                Fp12 GT;
-                miller_loop_n(GT, ctx->Q, ctx->P, n);
-                Fp12::mul(ctx->GT, ctx->GT, GT);
+                GT gt;
+                GT::miller_loop_n(gt, ctx->Q, ctx->P, n);
+                GT::add(ctx->gt, ctx->gt, gt);
             }
             else {
-                miller_loop_n(ctx->GT, ctx->Q, ctx->P, n);
+                GT::miller_loop_n(ctx->gt, ctx->Q, ctx->P, n);
                 ctx->ctrl |= AGGR_GT_SET;
             }
             ctx->nelems = 0;
@@ -480,11 +481,11 @@ namespace blst
         }
 
         if (ctx->ctrl & ctx1->ctrl & AGGR_GT_SET) {
-            Fp12::mul(ctx->GT, ctx->GT, ctx1->GT);
+            GT::add(ctx->gt, ctx->gt, ctx1->gt);
         }
         else if (ctx1->ctrl & AGGR_GT_SET) {
             ctx->ctrl |= AGGR_GT_SET;
-            vec_copy(&ctx->GT, &ctx1->GT, sizeof(ctx->GT));
+            vec_copy(&ctx->gt, &ctx1->gt, sizeof(ctx->gt));
         }
 
         return BLST_SUCCESS;
@@ -492,13 +493,13 @@ namespace blst
 
     BLST_HD bool_t PAIRING_FinalVerify(const PAIRING* ctx, const Fp12* GTsig)
     {
-        Fp12 GT;
+        GT gt;
 
         if (!(ctx->ctrl & AGGR_GT_SET))
             return 0;
 
         if (GTsig != NULL) {
-            vec_copy(&GT, GTsig, sizeof(GT));
+            vec_copy(&gt, GTsig, sizeof(GT));
         }
         else if (ctx->ctrl & AGGR_SIGN_SET) {
             AggregatedSignature AggrSign;
@@ -506,12 +507,12 @@ namespace blst
             switch (ctx->ctrl & MIN_SIG_OR_PK) {
             case AGGR_MIN_SIG:
                 G1Point::from_jacobian(AggrSign.e1, ctx->AggrSign.e1);
-                miller_loop_n(GT, (const G2AffinePoint*)&get_BLST_G2(),
+                GT::miller_loop_n(gt, (const G2AffinePoint*)&get_BLST_G2(),
                     (const G1AffinePoint*)&AggrSign.e1, 1);
                 break;
             case AGGR_MIN_PK:
                 G2Point::from_jacobian(AggrSign.e2, ctx->AggrSign.e2);
-                miller_loop_n(GT, (const G2AffinePoint*)&AggrSign.e2,
+                GT::miller_loop_n(gt, (const G2AffinePoint*)&AggrSign.e2,
                     (const G1AffinePoint*)&get_BLST_G1(), 1);
                 break;
             default:
@@ -523,16 +524,16 @@ namespace blst
              * The aggregated signature was infinite, relation between the
              * hashes and the public keys has to be VERY special...
              */
-            vec_copy(&GT, get_BLST_Rx().p12, sizeof(GT));
+            vec_copy(&gt, get_BLST_Rx().p12, sizeof(GT));
         }
 
-        Fp12::conjugate(GT);
-        Fp12::mul(GT, GT, ctx->GT);
-        Fp12::final_exp(GT, GT);
+		GT::conjugate(gt);
+        GT::add(gt, gt, ctx->gt);
+        GT::final_mult(gt, gt);
 
-        /* return GT==1 */
-        return vec_is_equal(&GT[0][0], get_BLST_Rx().p2, sizeof(GT[0][0])) &
-            vec_is_zero(&GT[0][1], sizeof(GT) - sizeof(GT[0][0]));
+        /* return gt==1 */
+        return vec_is_equal(&gt.data[0][0], get_BLST_Rx().p2, sizeof(gt.data[0][0])) &
+            vec_is_zero(&gt.data[0][1], sizeof(GT) - sizeof(gt.data[0][0]));
     }
 
     BLST_HD int blst_pairing_finalverify(const PAIRING* ctx, const Fp12* GTsig)
@@ -540,18 +541,18 @@ namespace blst
         return (int)PAIRING_FinalVerify(ctx, GTsig);
     }
 
-    BLST_HD int blst_fp12_finalverify(const Fp12& GT1, const Fp12& GT2)
+    BLST_HD int blst_fp12_finalverify(const GT& GT1, const GT& GT2)
     {
-        Fp12 GT;
+        GT gt;
+         
+        vec_copy(&gt, &GT1, sizeof(gt));
+        GT::conjugate(gt);
+        GT::add(gt, gt, (GT&)GT2);
+        GT::final_mult(gt, gt);
 
-        vec_copy(&GT, &GT1, sizeof(GT));
-        Fp12::conjugate(GT);
-        Fp12::mul(GT, GT, GT2);
-        Fp12::final_exp(GT, GT);
-
-        /* return GT==1 */
-        return (int)(vec_is_equal(&GT[0][0], &get_BLST_Rx().p2, sizeof(GT[0][0])) &
-            vec_is_zero(&GT[0][1], sizeof(GT) - sizeof(GT[0][0])));
+        /* return gt==1 */
+        return (int)(vec_is_equal(&gt[0][0], &get_BLST_Rx().p2, sizeof(gt[0][0])) &
+            vec_is_zero(&gt[0][1], sizeof(gt) - sizeof(gt[0][0])));
     }
 
     BLST_HD void blst_pairing_raw_aggregate(PAIRING* ctx, const G2AffinePoint* q,
@@ -567,12 +568,12 @@ namespace blst
         vec_copy(ctx->P + n, p, sizeof(*p));
         if (++n == N_MAX) {
             if (ctx->ctrl & AGGR_GT_SET) {
-                Fp12 GT;
-                miller_loop_n(GT, ctx->Q, ctx->P, n);
-                Fp12::mul(ctx->GT, ctx->GT, GT);
+                GT gt;
+                GT::miller_loop_n(gt, ctx->Q, ctx->P, n);
+                GT::add(ctx->gt, ctx->gt, gt);
             }
             else {
-                miller_loop_n(ctx->GT, ctx->Q, ctx->P, n);
+                GT::miller_loop_n(ctx->gt, ctx->Q, ctx->P, n);
                 ctx->ctrl |= AGGR_GT_SET;
             }
             n = 0;
@@ -583,7 +584,7 @@ namespace blst
     BLST_HD Fp12* blst_pairing_as_fp12(PAIRING* ctx)
     {
         PAIRING_Commit(ctx);
-        return (Fp12*)&ctx->GT;
+        return &ctx->gt.data;
     }
 
     /*
@@ -655,14 +656,14 @@ namespace blst
         return BLST_SUCCESS;
     }
 
-    BLST_HD void blst_aggregated_in_g1(Fp12& ret, const G1AffinePoint& sig)
+    BLST_HD void blst_aggregated_in_g1(GT& ret, const G1AffinePoint& sig)
     {
-        miller_loop_n(ret, (const G2AffinePoint*)&get_BLST_G2(), &sig, 1);
+        GT::miller_loop_n(ret, (const G2AffinePoint*)&get_BLST_G2(), &sig, 1);
     }
 
-    BLST_HD void blst_aggregated_in_g2(Fp12& ret, const G2AffinePoint& sig)
+    BLST_HD void blst_aggregated_in_g2(GT& ret, const G2AffinePoint& sig)
     {
-        miller_loop_n(ret, &sig, (const G1AffinePoint*)&get_BLST_G1(), 1);
+        GT::miller_loop_n(ret, &sig, (const G1AffinePoint*)&get_BLST_G1(), 1);
     }
 
     BLST_HD BLST_ERROR blst_core_verify_pk_in_g1(const G1AffinePoint* pk,
