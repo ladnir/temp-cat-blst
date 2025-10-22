@@ -21,7 +21,6 @@
 
 namespace blst {
 
-    inline size_t ceil_div(size_t x, size_t y) { return (x + y - 1) / y; }
     inline void   clear_last_error() { (void)cudaGetLastError(); }
 
     // A small future-like handle for one kernel launch.

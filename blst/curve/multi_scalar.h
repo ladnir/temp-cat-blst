@@ -160,270 +160,31 @@ namespace blst
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-		/*
-		 * This is two-step multi-scalar multiplication procedure. First, given
-		 * a set of points you pre-compute a table for chosen windowing factor
-		 * [expressed in bits with value between 2 and 14], and then you pass
-		 * this table to the actual multiplication procedure along with scalars.
-		 * Idea is that the pre-computed table will be reused multiple times. In
-		 * which case multiplication runs faster than below Pippenger algorithm
-		 * implementation for up to ~16K points for wbits=8, naturally at the
-		 * expense of multi-megabyte table. One can trade even more memory for
-		 * performance, but each wbits increment doubles the memory requirement,
-		 * so at some point it gets prohibively large... For reference, without
-		 * reusing the table it's faster than Pippenger algorithm for up ~32
-		 * points [with wbits=5]...
-		 */
+	/*
+	* This is two-step multi-scalar multiplication procedure. First, given
+	* a set of points you pre-compute a table for chosen windowing factor
+	* [expressed in bits with value between 2 and 14], and then you pass
+	* this table to the actual multiplication procedure along with scalars.
+	* Idea is that the pre-computed table will be reused multiple times. In
+	* which case multiplication runs faster than below Pippenger algorithm
+	* implementation for up to ~16K points for wbits=8, naturally at the
+	* expense of multi-megabyte table. One can trade even more memory for
+	* performance, but each wbits increment doubles the memory requirement,
+	* so at some point it gets prohibively large... For reference, without
+	* reusing the table it's faster than Pippenger algorithm for up ~32
+	* points [with wbits=5]...
+	*/
 
 #define SCRATCH_SZ(ptype) (sizeof(ptype)==sizeof(G1Point) ? 8192 : 4096)
 
-		 /* The intermediate infinity points are encoded as [0, 0, 1]. */
-
-#define PRECOMPUTE_WBITS_IMPL(prefix, ptype, bits, field, one) \
-void ptype##_precompute_row_wbits(ptype row[], size_t wbits, \
-                                         const ptype##_affine *point) \
-{ \
-    size_t i, j, n = (size_t)1 << (wbits-1); \
-    bool_t inf = vec_is_zero(point, sizeof(*point)); \
-                                          /* row[-1] is implicit infinity */\
-    vec_copy(&row[0], point, sizeof(*point));           /* row[0]=p*1     */\
-    vec_copy(&row[0].Z, one, sizeof(row[0].Z));                             \
-    ptype##_double(&row[1],  &row[0]);                  /* row[1]=p*(1+1) */\
-    vec_select(&row[1].Z, one, &row[1].Z, sizeof(row[1].Z), inf);           \
-    for (i = 2, j = 1; i < n; i += 2, j++) \
-        ptype##_add_affine(&row[i], &row[i-1], point),  /* row[2]=p*(2+1) */\
-        ptype##_double(&row[i+1], &row[j]),             /* row[3]=p*(2+2) */\
-        vec_select(&row[i+1].Z, one, &row[i+1].Z, sizeof(row[i+1].Z), inf); \
-}                                                       /* row[4] ...     */\
-\
-void ptype##s_to_affine_row_wbits(ptype##_affine dst[], ptype src[], \
-                                         size_t wbits, size_t npoints) \
-{ \
-    size_t total = npoints << (wbits-1); \
-    size_t nwin = (size_t)1 << (wbits-1); \
-    size_t i, j; \
-    vec##bits *acc, ZZ, ZZZ; \
-\
-    src += total; \
-    acc = (vec##bits *)src; \
-    vec_copy(acc++, one, sizeof(vec##bits)); \
-    for (i = 0; i < npoints; i++) \
-        for (j = nwin; --src, --j; acc++)    \
-            mul_##field(acc[0], acc[-1], src->Z); \
-\
-    --acc; reciprocal_##field(acc[0], acc[0]); \
-\
-    for (i = 0; i < npoints; i++) { \
-        vec_copy(dst++, src++, sizeof(ptype##_affine)); \
-        for (j = 1; j < nwin; j++, acc--, src++, dst++) { \
-            mul_##field(acc[-1], acc[-1], acc[0]);  /* 1/Z        */\
-            sqr_##field(ZZ, acc[-1]);               /* 1/Z^2      */\
-            mul_##field(ZZZ, ZZ, acc[-1]);          /* 1/Z^3      */\
-            mul_##field(acc[-1], src->Z, acc[0]);                   \
-            mul_##field(dst->X, src->X, ZZ);        /* X = X'/Z^2 */\
-            mul_##field(dst->Y, src->Y, ZZZ);       /* Y = Y'/Z^3 */\
-        } \
-    } \
-} \
-\
-/* flat |points[n]| can be placed at the end of |table[n<<(wbits-1)]| */\
-void ptype##s_precompute_wbits(ptype##_affine table[], size_t wbits, \
-                                      const ptype##_affine *const points[], \
-                                      size_t npoints) \
-{ \
-    size_t total = npoints << (wbits-1); \
-    size_t nwin = (size_t)1 << (wbits-1); \
-    size_t nmin = wbits>9 ? (size_t)1: (size_t)1 << (9-wbits); \
-    size_t i, top = 0; \
-    ptype *rows, *row; \
-    const ptype##_affine *point = NULL; \
-    size_t stride = ((512*1024)/sizeof(ptype##_affine)) >> wbits; \
-    if (stride == 0) stride = 1; \
-\
-    while (npoints >= nmin) { \
-        size_t limit = total - npoints; \
-\
-        if (top + (stride << wbits) > limit) { \
-            stride = (limit - top) >> wbits;   \
-            if (stride == 0) break;            \
-        } \
-        rows = row = (ptype *)(&table[top]); \
-        for (i = 0; i < stride; i++, row += nwin) \
-            point = *points ? *points++ : point+1, \
-            ptype##_precompute_row_wbits(row, wbits, point); \
-        ptype##s_to_affine_row_wbits(&table[top], rows, wbits, stride); \
-        top += stride << (wbits-1); \
-        npoints -= stride; \
-    } \
-    rows = row = (ptype*)alloca(2*sizeof(ptype##_affine) * npoints * nwin); \
-    for (i = 0; i < npoints; i++, row += nwin) \
-        point = *points ? *points++ : point+1, \
-        ptype##_precompute_row_wbits(row, wbits, point); \
-    ptype##s_to_affine_row_wbits(&table[top], rows, wbits, npoints); \
-} \
-\
-size_t prefix##s_mult_wbits_precompute_sizeof(size_t wbits, size_t npoints) \
-{ return (sizeof(ptype##_affine)*npoints) << (wbits-1); } \
-void prefix##s_mult_wbits_precompute(ptype##_affine table[], size_t wbits, \
-                                     const ptype##_affine *const points[], \
-                                     size_t npoints) \
-{ ptype##s_precompute_wbits(table, wbits, points, npoints); }
-
-#define POINTS_MULT_WBITS_IMPL(prefix, ptype, bits, field, one) \
-void ptype##_gather_booth_wbits(ptype *p, const ptype##_affine row[], \
-                                       size_t wbits, limb_t booth_idx) \
-{ \
-    bool_t booth_sign = (booth_idx >> wbits) & 1; \
-    bool_t idx_is_zero; \
-    const ptype##_affine infinity = { 0 }; \
-\
-    booth_idx &= ((limb_t)1 << wbits) - 1; \
-    idx_is_zero = is_zero(booth_idx); \
-    booth_idx -= 1 ^ idx_is_zero; \
-    vec_select(p, &infinity, &row[booth_idx], sizeof(row[0]), idx_is_zero); \
-    ptype##_cneg(p, booth_sign); \
-} \
-\
-void ptype##s_mult_wbits(ptype *ret, const ptype##_affine table[], \
-                                size_t wbits, size_t npoints, \
-                                const byte *const scalars[], size_t nbits, \
-                                ptype scratch[]) \
-{ \
-    limb_t wmask, wval; \
-    size_t i, j, z, nbytes, window, nwin = (size_t)1 << (wbits-1); \
-    const byte *scalar, *const *scalar_s = scalars; \
-    const ptype##_affine *row = table; \
-\
-    size_t scratch_sz = SCRATCH_SZ(ptype); \
-    if (scratch == NULL) { \
-        scratch_sz /= 4; /* limit to 288K */ \
-        scratch_sz = scratch_sz < npoints ? scratch_sz : npoints; \
-        scratch = (ptype*)alloca(sizeof(ptype) * scratch_sz); \
-    } \
-\
-    nbytes = (nbits + 7)/8; /* convert |nbits| to bytes */ \
-    scalar = *scalar_s++; \
-\
-    /* top excess bits modulo target window size */ \
-    window = nbits % wbits; /* yes, it may be zero */ \
-    wmask = ((limb_t)1 << (window + 1)) - 1; \
-\
-    nbits -= window; \
-    z = is_zero(nbits); \
-    wval = (get_wval_limb(scalar, nbits - (z^1), window + (z^1)) << z) & wmask; \
-    wval = booth_encode(wval, wbits); \
-    ptype##_gather_booth_wbits(&scratch[0], row, wbits, wval); \
-    row += nwin; \
-\
-    i = 1; vec_zero(ret, sizeof(*ret)); \
-    while (nbits > 0) { \
-        for (j = i; i < npoints; i++, j++, row += nwin) { \
-            if (j == scratch_sz) \
-                ptype##s_accumulate(ret, scratch, j), j = 0; \
-            scalar = *scalar_s ? *scalar_s++ : scalar+nbytes; \
-            wval = get_wval_limb(scalar, nbits - 1, window + 1) & wmask; \
-            wval = booth_encode(wval, wbits); \
-            ptype##_gather_booth_wbits(&scratch[j], row, wbits, wval); \
-        } \
-        ptype##s_accumulate(ret, scratch, j); \
-\
-        for (j = 0; j < wbits; j++) \
-            ptype##_double(ret, ret); \
-\
-        window = wbits; \
-        wmask = ((limb_t)1 << (window + 1)) - 1; \
-        nbits -= window; \
-        i = 0; row = table; scalar_s = scalars; \
-    } \
-\
-    for (j = i; i < npoints; i++, j++, row += nwin) { \
-        if (j == scratch_sz) \
-            ptype##s_accumulate(ret, scratch, j), j = 0; \
-        scalar = *scalar_s ? *scalar_s++ : scalar+nbytes; \
-        wval = (get_wval_limb(scalar, 0, window) << 1) & wmask; \
-        wval = booth_encode(wval, wbits); \
-        ptype##_gather_booth_wbits(&scratch[j], row, wbits, wval); \
-    } \
-    ptype##s_accumulate(ret, scratch, j); \
-} \
-\
-size_t prefix##s_mult_wbits_scratch_sizeof(size_t npoints) \
-{ \
-    const size_t scratch_sz = SCRATCH_SZ(ptype); \
-    return sizeof(ptype) * (npoints < scratch_sz ? npoints : scratch_sz); \
-} \
-void prefix##s_mult_wbits(ptype *ret, const ptype##_affine table[], \
-                          size_t wbits, size_t npoints, \
-                          const byte *const scalars[], size_t nbits, \
-                          ptype scratch[]) \
-{ ptype##s_mult_wbits(ret, table, wbits, npoints, scalars, nbits, scratch); }
-
-		//PRECOMPUTE_WBITS_IMPL(blst_p1, G1Point, 384, fp, get_BLST_Rx().p)
-		//POINTS_MULT_WBITS_IMPL(blst_p1, G1Point, 384, fp, get_BLST_Rx().p)
-
-
-
-		//PRECOMPUTE_WBITS_IMPL(blst_p2, G2Point, 384x, fp2, get_BLST_Rx().p2)
-		//POINTS_MULT_WBITS_IMPL(blst_p2, G2Point, 384x, fp2, get_BLST_Rx().p2)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-			/*
-			 * This is two-step multi-scalar multiplication procedure. First, given
-			 * a set of points you pre-compute a table for chosen windowing factor
-			 * [expressed in bits with value between 2 and 14], and then you pass
-			 * this table to the actual multiplication procedure along with scalars.
-			 * Idea is that the pre-computed table will be reused multiple times. In
-			 * which case multiplication runs faster than below Pippenger algorithm
-			 * implementation for up to ~16K points for wbits=8, naturally at the
-			 * expense of multi-megabyte table. One can trade even more memory for
-			 * performance, but each wbits increment doubles the memory requirement,
-			 * so at some point it gets prohibively large... For reference, without
-			 * reusing the table it's faster than Pippenger algorithm for up ~32
-			 * points [with wbits=5]...
-			 */
-
-#define SCRATCH_SZ(ptype) (sizeof(ptype)==sizeof(G1Point) ? 8192 : 4096)
-
-			 /* The intermediate infinity points are encoded as [0, 0, 1]. */
+	/* The intermediate infinity points are encoded as [0, 0, 1]. */
 
 // For one affine point, builds a row of length 2 ^ (wbits - 1) of 
 // consecutive multiples used by Booth / gather(e.g., P·1, P·2, P·3, …) 
 // in Jacobian.
 template<typename Field>
 	void point_precompute_row_wbits(
-		Point<Field> row[], 
+		Point<Field> row[],
 		size_t wbits,
 		const AffinePoint<Field>& point)
 	{
@@ -444,7 +205,7 @@ template<typename Field>
 	// inversion chain; writes dst table laid out as rows.
 	template<typename Field>
 	void points_to_affine_row_wbits(
-		AffinePoint<Field> dst[], 
+		AffinePoint<Field> dst[],
 		Point<Field> src[],
 		size_t wbits, size_t npoints)
 	{
@@ -481,7 +242,7 @@ template<typename Field>
 	// flat |points[n]| can be placed at the end of |table[n<<(wbits-1)]| 
 	template<typename Field>
 	void msm_precompute_wbits(
-		AffinePoint<Field> table[], 
+		AffinePoint<Field> table[],
 		size_t wbits,
 		const AffinePoint<Field>* const points[],
 		size_t npoints)
@@ -557,6 +318,7 @@ template<typename Field>
 		Point<Field>::cneg(p, booth_sign);
 	}
 
+
 	// Fixed-table MSM : scans scalar windows (top partial then full windows), 
 	// gathers one entry per point(into scratch), periodically accumulates 
 	// into ret, and does wbits doublings between windows. (Uses Booth 
@@ -569,7 +331,7 @@ template<typename Field>
 	// @table precomputed matrix of npoints by (1 << (wbits-1))  points. 
 	//   The ith contigous row of (1 << (wbits-1) points are the precomputed
 	//   for the ith point. Obtained via msm_precompute_wbits() above.
-	// @wbits window size in bits (between 2 and 14)
+	// @wbits window_size size in bits (between 2 and 14)
 	// @npoints number of points (and scalars)
 	// @scalars array of npoints pointers to scalars, each scalar is
 	//   represented in byte array of length (nbits+7)/8.
@@ -578,79 +340,101 @@ template<typename Field>
 	//   suggested size is min(npoints, SCRATCH_SZ(Point<Field>)).
 	template<typename Field>
 	void msm_mult_table(
-		Point<Field>& ret, 
+		Point<Field>& ret,
 		span<const AffinePoint<Field>> table,
 		size_t wbits,
 		size_t npoints,
-		const byte* const scalars[], 
-		size_t nbits,
+		const byte* const scalars[],
+		const size_t nbits,
 		span<Point<Field>> scratch)
 	{
-		limb_t wmask, wval;
-		size_t i, j, z, nbytes, window, nwin = (size_t)1 << (wbits - 1);
-		const byte* scalar, * const* scalar_s = scalars;
 
-		if (table.size() != npoints * nwin)
+		// scalar_s will walk through the array of scalar pointers.
+		// if they passed in one array (scalars[1]==0), we will just keep using that pointer.
+		// if they passed in multiple scalars, we will advance the pointer
+		const byte* const* scalar_s = scalars;
+
+
+		auto table_size = (size_t)1 << (wbits - 1);
+		if (table.size() != npoints * table_size)
 		{
 			ret = Point<Field>::infinity();
 			return; // or error
 		}
-		const AffinePoint<Field>* row = table.data();
 
-		size_t scratch_sz = scratch.size();
-		//size_t scratch_sz = SCRATCH_SZ(Point<Field>);
-		//if (scratch == NULL) {
-		//	scratch_sz /= 4; /* limit to 288K */
-		//	scratch_sz = scratch_sz < npoints ? scratch_sz : npoints;
-		//	scratch = (Point<Field>*)alloca(sizeof(Point<Field>) * scratch_sz);
-		//}
+		size_t scratch_cap = scratch.size();
 
-		nbytes = (nbits + 7) / 8; /* convert |nbits| to bytes */
-		scalar = *scalar_s++;
 
-		/* top excess bits modulo target window size */
-		window = nbits % wbits; /* yes, it may be zero */
-		wmask = ((limb_t)1 << (window + 1)) - 1;
+		auto nbytes = (nbits + 7) / 8; /* convert |nbits| to bytes */
+		auto scalar = *scalar_s++;
 
-		nbits -= window;
-		z = is_zero(nbits);
-		wval = (get_wval_limb(scalar, nbits - (z ^ 1), window + (z ^ 1)) << z) & wmask;
+		/* top excess bits modulo target window_size size */
+		auto cur_wbit = nbits % wbits; /* yes, it may be zero */
+		auto window_mask = ((limb_t)1 << (cur_wbit + 1)) - 1;
+
+		auto rem_bits = nbits - cur_wbit;
+
+		// the MSB window_size is allowed to be partial, so we handle it first.
+		// In addition, the LSB window_size is special in that it does not have
+		// the overlap bit (bit -1). Moreover, we need to load the first 
+		// element into the scratch before entering the main loop. Because
+		// of all that, we unroll the first iteration here. 
+		auto no_overlap = is_zero(rem_bits);
+		auto overlap = no_overlap ^ 1;
+
+		// if there is an overlap, we load the overlap bit from the next window_size.
+		// otherwise we push in a 0 for the non-existent overlap bit.
+		auto wval = (get_wval_limb(scalar, rem_bits - overlap, cur_wbit + overlap) << no_overlap) & window_mask;
 		wval = booth_encode(wval, wbits);
-		point_gather_booth_wbits<Field>(scratch[0], row, wbits, wval);
-		row += nwin;
 
-		i = 1; vec_zero(&ret, sizeof(ret));
-		while (nbits > 0) {
-			for (j = i; i < npoints; i++, j++, row += nwin) {
-				if (j == scratch_sz)
-					points_accumulate<Field>(ret, scratch.data(), j), j = 0;
+		const AffinePoint<Field>* cur_table = table.data();
+		// scratch[0] = sign(wval) * table[0][index(wval)]
+		point_gather_booth_wbits<Field>(scratch[0], cur_table, wbits, wval);
+		auto scratch_idx = 1ull;
+		cur_table += table_size;
+
+		auto point_idx = 1ull;
+		vec_zero(&ret, sizeof(ret));
+		while (rem_bits > 0) {
+			for (; point_idx < npoints; point_idx++, scratch_idx++, cur_table += table_size) {
+				if (scratch_idx == scratch_cap)
+				{
+					points_accumulate<Field>(ret, scratch.data(), scratch_idx);
+					scratch_idx = 0;
+				}
 				scalar = *scalar_s ? *scalar_s++ : scalar + nbytes;
-				wval = get_wval_limb(scalar, nbits - 1, window + 1) & wmask;
+				wval = get_wval_limb(scalar, rem_bits - 1, cur_wbit + 1) & window_mask;
 				wval = booth_encode(wval, wbits);
-				point_gather_booth_wbits<Field>(scratch[j], row, wbits, wval);
+				point_gather_booth_wbits<Field>(scratch[scratch_idx], cur_table, wbits, wval);
 			}
-			points_accumulate<Field>(ret, scratch.data(), j);
+			points_accumulate<Field>(ret, scratch.data(), scratch_idx);
 
-			for (j = 0; j < wbits; j++)
+			for (size_t j = 0; j < wbits; j++)
 				Point<Field>::doubling(ret, ret);
 
-			window = wbits;
-			wmask = ((limb_t)1 << (window + 1)) - 1;
-			nbits -= window;
-			i = 0; row = table.data(); scalar_s = scalars;
+			// reset the window_size (always full now), and restart point/scalar indices
+			cur_wbit = wbits;
+			window_mask = ((limb_t)1 << (cur_wbit + 1)) - 1;
+			rem_bits -= cur_wbit;
+			point_idx = 0;
+			scratch_idx = 0;
+			cur_table = table.data();
+			scalar_s = scalars;
 		}
 
-		for (j = i; i < npoints; i++, j++, row += nwin) {
-			if (j == scratch_sz)
+		// handle the LSB window_size, which does not have the overlap bit.
+		for (; point_idx < npoints; point_idx++, scratch_idx++, cur_table += table_size) {
+			if (scratch_idx == scratch_cap)
 			{
-				points_accumulate<Field>(ret, scratch.data(), j), j = 0;
+				points_accumulate<Field>(ret, scratch.data(), scratch_idx);
+				scratch_idx = 0;
 			}
 			scalar = *scalar_s ? *scalar_s++ : scalar + nbytes;
-			wval = (get_wval_limb(scalar, 0, window) << 1) & wmask;
+			wval = (get_wval_limb(scalar, 0, cur_wbit) << 1) & window_mask;
 			wval = booth_encode(wval, wbits);
-			point_gather_booth_wbits<Field>(scratch[j], row, wbits, wval);
+			point_gather_booth_wbits<Field>(scratch[scratch_idx], cur_table, wbits, wval);
 		}
-		points_accumulate<Field>(ret, scratch.data(), j);
+		points_accumulate<Field>(ret, scratch.data(), scratch_idx);
 	}
 
 	// Scratch size needed for the gather/accumulate staging.
@@ -660,20 +444,6 @@ template<typename Field>
 		const size_t scratch_sz = SCRATCH_SZ(Point<Field>);
 		return sizeof(Point<Field>) * (npoints < scratch_sz ? npoints : scratch_sz);
 	}
-	//void prefix##s_mult_wbits(ptype *ret, const ptype##_affine table[], 
-	//                          size_t wbits, size_t npoints, 
-	//                          const byte *const scalars[], size_t nbits, 
-	//                          ptype scratch[]) 
-	//{ ptype##s_mult_wbits(ret, table, wbits, npoints, scalars, nbits, scratch); }
-	//
-
-
-
-
-
-
-
-
 
 
 
@@ -682,7 +452,7 @@ template<typename Field>
 	/*
 	* Pippenger algorithm implementation, fastest option for larger amount
 	* of points...
-	* 
+	*
 	* Heuristic: chooses wbits from npoints (smaller for few points, larger up to ~npoints-dependent caps).
 	*/
 	BLST_HD BLST_INLINE size_t pippenger_window_size(size_t npoints)
@@ -709,7 +479,7 @@ template<typename Field>
 	// the window’s contribution as Jacobian.
 	template<typename Field>
 	BLST_HD BLST_INLINE void point_integrate_buckets(
-		Point<Field>& out, 
+		Point<Field>& out,
 		Pointxyzz<Field> buckets[],
 		size_t wbits)
 	{
@@ -730,7 +500,6 @@ template<typename Field>
 		}
 		Pointxyzz<Field>::to_Jacobian(out, ret);
 	}
-
 
 	// Adds an affine point into the bucket addressed by Booth-encoded digit (handles sign).
 	template<typename Field>
@@ -758,8 +527,84 @@ template<typename Field>
 		}
 	}
 
-	// Processes one window across all points: extracts Booth digits for that 
-	// bit range, fills buckets, then integrates buckets to produce the window
+	BLST_HD inline void print_digit(size_t point_idx,  limb_t encoding, int wbits)
+	{
+		size_t digit = encoding & ((limb_t)1 << wbits) - 1;
+		size_t sign = (encoding >> wbits) & 1;
+
+        printf("  point[%zu]: digit %zu (%llu), idx=%zu, sign=%zu\n",
+            point_idx, digit, (u64)encoding, point_idx, sign);
+	}
+
+	struct WindowExtract
+	{
+		size_t window_begin;
+		size_t missing_overlap;
+		size_t extract_begin;
+		size_t window_end;
+		size_t extract_size;
+		limb_t extracted_mask;
+		size_t encode_size;
+
+		WindowExtract() = default;
+		WindowExtract(size_t window_idx, size_t window_size, size_t nbits)
+		{
+			window_begin = window_idx * window_size;
+			missing_overlap = window_begin == 0 ? 1 : 0;
+			extract_begin = window_begin > 0 ? window_begin - 1 : 0;
+			window_end = std::min<u64>(window_begin + window_size, nbits);
+			extract_size = window_end - extract_begin;
+			extracted_mask = ((limb_t)1 << extract_size) - 1;
+			encode_size = std::min<u64>(nbits - window_begin + 1, window_size);
+		}
+
+		BLST_HD BLST_INLINE limb_t get_wval(const byte* scalar) const
+		{
+			return (get_wval_limb(scalar, extract_begin, extract_size) & extracted_mask) << missing_overlap;
+		}
+
+		BLST_HD BLST_INLINE limb_t extract(const byte* scalar) const
+		{
+			auto ex = get_wval(scalar);
+			return booth_encode(ex, encode_size);
+		}
+	};
+
+
+
+	BLST_HD inline void print_bits(char* buffer, const void* data, int bits)
+	{
+		int bytes = (bits + 7) / 8;
+		unsigned char* p = (unsigned char*)data;
+		for (int i = bytes - 1; i >= 0; i--)
+		{
+			for (int j = 7; j >= 0; j--)
+			{
+				int bit_idx = i * 8 + j;
+				if (bit_idx < bits)
+				{
+					*buffer++ = ((p[i] >> j) & 1) ? '1' : '0';
+				}
+			}
+		}
+		*buffer = 0;
+	}
+
+	template<typename Field>
+	BLST_HD BLST_INLINE u64 hash_point(const Point<Field>& p)
+	{
+		u64 hash = 0;
+		const byte* data = reinterpret_cast<const byte*>(&p);
+		for (size_t i = 0; i < sizeof(Point<Field>); i++)
+		{
+			hash = (hash * 31) + data[i];
+			hash ^= (hash >> 4);
+		}
+		return hash;
+	}
+
+	// Processes one window_size across all points: extracts Booth digits for that 
+	// bit range, fills buckets, then integrates buckets to produce the window_size
 	// partial ret.
 	// 
 	// acc = 0
@@ -769,7 +614,7 @@ template<typename Field>
 	//     acc = acc + s_digit
 	//     total = total + acc
 	//
-	// @ret : output window partial (Jacobian)
+	// @ret : output window_size partial (Jacobian)
 	// @points : input points array
 	// @npoints : number of points
 	// @scalars : input scalars array, can either be an array of points or 
@@ -778,76 +623,80 @@ template<typename Field>
 	// @nbits : number of bits in each scalar
 	// @buckets : workspace of size 2^{wbits-1} Pointxyzz. This will hold the sum of the 
 	// points with each digit.
-	// @bit0 : index of the least significant bit in the window.
-	// @wbits : window size in bits
-	// @cbits : wbits + 1 or wbits depending on the call (Booth encoding)
+	// @window_idx : the index of the current window_size (0-based). The LSB window_size is window_size 0.
+	// @window_size : the size of a full sized window_size in bits. 
 	template<typename Field>
 	BLST_HD BLST_INLINE void points_tile_pippenger(
 		Point<Field>& ret,
 		const AffinePoint<Field>* const points[],
 		size_t npoints,
-		const byte* const scalars[], 
+		const byte* const scalars[],
 		size_t nbits,
 		Pointxyzz<Field> buckets[],
-		size_t bit0, 
-		size_t wbits, 
-		size_t cbits)
+		size_t window_idx,
+		size_t window_size)
 	{
-		limb_t wmask, wval, wnxt;
-		size_t i, z, nbytes;
+		BLST_ASSERT(npoints > 1);
+
+		// we have exactly ceil((nbits+1)/window_size) windows. When 
+		// bits is a multiple of window_size, the MSB window_size is "empty"
+		// except for the overlap bit from the next window_size.
+		BLST_ASSERT(window_idx < 1 + nbits / window_size);
+
+		WindowExtract we(window_idx, window_size, nbits);
+
+		size_t i = 0;
 		const byte* scalar = *scalars++;
 		const AffinePoint<Field>* point = *points++;
+		auto nbytes = (nbits + 7) / 8; /* convert |nbits| to bytes */
 
-		nbytes = (nbits + 7) / 8; /* convert |nbits| to bytes */
-		wmask = ((limb_t)1 << (wbits + 1)) - 1;
-
-		// if this is the bottom window, we can't index into -1, so we
-		// special case it. Otherwise we decrement the start bit by one
-		// to get an overlap for Booth encoding.
-		z = is_zero(bit0);
-		bit0 -= z ^ 1; wbits += z ^ 1;
-		wval = (get_wval_limb(scalar, bit0, wbits) << z) & wmask;
-		wval = booth_encode(wval, cbits);
-		scalar = *scalars ? *scalars++ : scalar + nbytes;
-		wnxt = (get_wval_limb(scalar, bit0, wbits) << z) & wmask;
-		wnxt = booth_encode(wnxt, cbits);
-		npoints--;  /* account for prefetch */
-
-		// buckets[wval] += *point
-		point_bucket(buckets, wval, cbits, *point);
-
-		for (i = 1; i < npoints; i++) {
-			wval = wnxt;
+		// fetch the next window_size value and advance the pointers.
+		auto extract_window = [&]() -> std::pair< const AffinePoint<Field>*, limb_t> {
+			auto encoding = we.extract(scalar);
+			auto p = point;
 			scalar = *scalars ? *scalars++ : scalar + nbytes;
-			wnxt = (get_wval_limb(scalar, bit0, wbits) << z) & wmask;
-			wnxt = booth_encode(wnxt, cbits);
-			point_prefetch(buckets, wnxt, cbits);
 			point = *points ? *points++ : point + 1;
+			return { p, encoding };
+			};
 
-			// buckets[wval] += *point
-			point_bucket(buckets, wval, cbits, *point);
+		// current window_size value
+		auto nxt_wval = extract_window();
+		++i;
+
+		for (; i < npoints; i++) {
+
+			auto cur_wval = nxt_wval;
+
+			// prefetch next window_size value
+			nxt_wval = extract_window();
+			point_prefetch(buckets, nxt_wval.second, we.encode_size);
+			
+			// buckets[cur_wval] += *point
+			point_bucket(buckets, cur_wval.second, we.encode_size, *cur_wval.first);
 		}
-		point = *points ? *points++ : point + 1;
+		
+		// buckets[nxt_wval] += *point
+		point_bucket(buckets, nxt_wval.second, we.encode_size, *nxt_wval.first);
 
-		// buckets[wnxt] += *point
-		point_bucket(buckets, wnxt, cbits, *point);
-		point_integrate_buckets(ret, buckets, cbits - 1);
+		// combine the buckets into ret = Σ d·S_d
+		point_integrate_buckets(ret, buckets, we.encode_size - 1);
 	}
 
+
 	// MSM with Pippenger algorithm.
-	// Uses |buckets|=2^{window - 1} scratch space 
+	// Uses |buckets|=2^{window_size - 1} scratch space 
 	// 
 	// the basic idea is that we process windows of bits 
 	// from the scalars. We use the booth encoding to 
-	// pick the window values. See mult_window for an 
+	// pick the window_size values. See mult_window for an 
 	// explainer.
 	// 
-	// We process all points for window i, accumulating
+	// We process all points for window_size i, accumulating
 	// the results in the buckets. Then we integrate
-	// the buckets to get the result for that window.
+	// the buckets to get the result for that window_size.
 	// 
-	// Let d1,...,dn in [0,...,2^w-1] be the window values 
-	// for each point within the current window. We sort 
+	// Let d1,...,dn in [0,...,2^w-1] be the window_size values 
+	// for each point within the current window_size. We sort 
 	// these into buckets b0,...,b_{2^w-1}. 
 	// 
 	// acc = 0
@@ -862,32 +711,48 @@ template<typename Field>
 		Point<Field>& ret,
 		const AffinePoint<Field>* const points[],
 		size_t npoints,
-		const byte* const scalars[], 
+		const byte* const scalars[],
 		size_t nbits,
-		Pointxyzz<Field> buckets[], 
-		size_t window)
+		Pointxyzz<Field> buckets[],
+		size_t window_size)
 	{
-		size_t i, wbits, cbits, bit0 = nbits;
 		Point<Field> tile;
 
-		window = window ? window : pippenger_window_size(npoints);
-		vec_zero(buckets, sizeof(buckets[0]) << (window - 1));
+		window_size = window_size ? window_size : pippenger_window_size(npoints);
+		vec_zero(buckets, sizeof(buckets[0]) << (window_size - 1));
 		vec_zero(&ret, sizeof(ret));
 
-		/* top excess bits modulo target window size */
-		wbits = nbits % window; /* yes, it may be zero */
-		cbits = wbits + 1;
-		while (bit0 -= wbits) {
-			points_tile_pippenger(tile, points, npoints, scalars, nbits,
-				buckets, bit0, wbits, cbits);
-			Point<Field>::dadd(ret, ret, tile, NULL);
-			for (i = 0; i < window; i++)
-				Point<Field>::doubling(ret, ret);
-			cbits = wbits = window;
+		if(0)
+		{
+            auto scalars_ = scalars;
+			const byte* scalar = *scalars_++;
+            auto nbytes = (nbits + 7) / 8; /* convert |nbits| to bytes */
+			for (u64 i = 0; i < npoints; ++i)
+			{
+				char buffer[257];
+                print_bits(buffer, (void*)scalar, std::min<u64>(256, nbits));
+                printf("Scalar[%llu]:%p %s\n", i,scalar, buffer);
+				scalar = *scalars_ ? *scalars_++ : scalar + nbytes;
+			}
 		}
-		points_tile_pippenger(tile, points, npoints, scalars, nbits,
-			buckets, 0, wbits, cbits);
-		Point<Field>::dadd(ret, ret, tile, NULL);
+
+		// we process divCeil(nbits+1, window_size) windows.
+		// The plus one is for the overlap bit from the booth encoding.
+		u64 num_windows = 1 + nbits / window_size;
+		for (u64 window_index = num_windows-1; window_index < num_windows; --window_index)
+		{
+			// tile = points_tile_pippenger(...)
+			points_tile_pippenger(tile, points, npoints, scalars, nbits,
+				buckets, window_index, window_size);
+
+			//u64 hash = hash_point(tile);
+			//printf("Window %llu result: %llu\n", window_index, hash);
+
+			// ret = (ret + tile) << (window_index ? window_size : 0)
+			Point<Field>::dadd(ret, ret, tile, NULL);
+			for (u64 i = 0; i < (window_index ? window_size : 0); i++)
+				Point<Field>::doubling(ret, ret);
+		}
 	}
 
 	template<typename Field>
@@ -895,13 +760,13 @@ template<typename Field>
 	{
 		return sizeof(Pointxyzz<Field>) << (pippenger_window_size(npoints) - 1);
 	}
-	
+
 	template<typename Field>
 	BLST_HD BLST_INLINE void msm_tile_pippenger(
 		Point<Field>& ret,
 		const AffinePoint<Field>* const points[],
 		size_t npoints,
-		const byte* const scalars[], 
+		const byte* const scalars[],
 		size_t nbits,
 		Pointxyzz<Field> scratch[],
 		size_t bit0, size_t window)
@@ -923,7 +788,7 @@ template<typename Field>
 		const byte* const scalars[], size_t nbits,
 		Pointxyzz<Field> scratch[])
 	{
-		
+
 		if (npoints == 1) {
 			Point<Field>::from_affine(ret, *points[0]);
 			mult_window<Point<Field>, 5>(ret, ret, scalars[0], nbits);

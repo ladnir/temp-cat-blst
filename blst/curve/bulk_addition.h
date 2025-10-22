@@ -180,49 +180,47 @@ void prefix##s_add(ptype *sum, const ptype##_affine *const points[], \
 
 
 
-     /*
-      * This implementation uses explicit addition formula:
-      *
-      * λ = (Y₂-Y₁)/(X₂-X₁)
-      * X₃ = λ²-(X₁+X₂)
-      * Y₃ = λ⋅(X₁-X₃)-Y₁
-      *
-      * But since we don't know if we'll have to add point to itself, we need
-      * to eventually resort to corresponding doubling formula:
-      *
-      * λ = 3X₁²/2Y₁
-      * X₃ = λ²-2X₁
-      * Y₃ = λ⋅(X₁-X₃)-Y₁
-      *
-      * The formulae use prohibitively expensive inversion, but whenever we
-      * have a lot of affine points to accumulate, we can amortize the cost
-      * by applying Montgomery's batch inversion approach. As a result,
-      * asymptotic[!] per-point cost for addition is as small as 5M+1S. For
-      * comparison, ptype##_dadd_affine takes 8M+5S. In practice, all things
-      * considered, the improvement coefficient varies from 60% to 85%
-      * depending on platform and curve.
-      *
-      * THIS IMPLEMENTATION IS *NOT* CONSTANT-TIME. [But if there is an
-      * application that requires constant time-ness, speak up!]
-      */
+    /*
+    * This implementation uses explicit addition formula:
+    *
+    * λ = (Y₂-Y₁)/(X₂-X₁)
+    * X₃ = λ²-(X₁+X₂)
+    * Y₃ = λ⋅(X₁-X₃)-Y₁
+    *
+    * But since we don't know if we'll have to add point to itself, we need
+    * to eventually resort to corresponding doubling formula:
+    *
+    * λ = 3X₁²/2Y₁
+    * X₃ = λ²-2X₁
+    * Y₃ = λ⋅(X₁-X₃)-Y₁
+    *
+    * The formulae use prohibitively expensive inversion, but whenever we
+    * have a lot of affine points to accumulate, we can amortize the cost
+    * by applying Montgomery's batch inversion approach. As a result,
+    * asymptotic[!] per-point cost for addition is as small as 5M+1S. For
+    * comparison, ptype##_dadd_affine takes 8M+5S. In practice, all things
+    * considered, the improvement coefficient varies from 60% to 85%
+    * depending on platform and curve.
+    *
+    * THIS IMPLEMENTATION IS *NOT* CONSTANT-TIME. [But if there is an
+    * application that requires constant time-ness, speak up!]
+    */
 
-      /*
-       * Calculate λ's numerator and denominator.
-       *
-       * input:	A	x1	y1	-
-       *		B	x2	y2	-
-       * output:
-       * if A!=B:	A	x1	y1	(x2-x1)*mul_acc
-       *		B	x2+x1	y2-y1	(x2-x1)
-       *
-       * if A==B:	A	x	y	2y*mul_acc
-       *		B	2x	3*x^2	2y
-       *
-       * if A==-B:	A	0	0	1*mul_acc
-       *		B	0	3*x^2	0
-       */
-    //#define HEAD(ptype, bits, field, field_ptr, one) 
-
+    /*
+    * Calculate λ's numerator and denominator.
+    *
+    * input:	A	x1	y1	-
+    *		B	x2	y2	-
+    * output:
+    * if A!=B:	A	x1	y1	(x2-x1)*mul_acc
+    *		B	x2+x1	y2-y1	(x2-x1)
+    *
+    * if A==B:	A	x	y	2y*mul_acc
+    *		B	2x	3*x^2	2y
+    *
+    * if A==-B:	A	0	0	1*mul_acc
+    *		B	0	3*x^2	0
+    */
     template<typename Field>
     void point_head(Point<Field> AB[2], const Field* mul_acc)
     { 
@@ -252,15 +250,14 @@ void prefix##s_add(ptype *sum, const ptype##_affine *const points[], \
             Field::mul(A.Z, A.Z, *mul_acc);	/* chain multiplication */
     }
 
-       /*
-        * Calculate λ and resulting coordinates.
-        *
-        * input:	A		x1			y1		-
-        *		B		x2+x1			nominator	-
-        * 		lambda		1/denominator
-        * output:	D		x3=(nom/den)^2-(x2+x1)	y3=(nom/den)(x1-x3)-y1
-        */
-    //#define TAIL(ptype, bits, field, one) 
+    /*
+    * Calculate λ and resulting coordinates.
+    *
+    * input:	A		x1			y1		-
+    *		B		x2+x1			nominator	-
+    * 		lambda		1/denominator
+    * output:	D		x3=(nom/den)^2-(x2+x1)	y3=(nom/den)(x1-x3)-y1
+    */
     template<typename Field>
     void point_tail(Point<Field>& D, Point<Field> AB[2], Field& lambda)
     { 
@@ -282,16 +279,16 @@ void prefix##s_add(ptype *sum, const ptype##_affine *const points[], \
         vec_select(&B.Z, &Field::one(), &B.Z, sizeof(B.Z), inf);
     }
 
-        /*
-         * |points[]| is volatile buffer with |X|s and |Y|s initially holding
-         * input affine coordinates, and with |Z|s being used as additional
-         * temporary storage [unrelated to Jacobian coordinates]. |sum| is
-         * in-/output, initialize to infinity accordingly.
-         */
-    //#define ADDITION_BTREE(prefix, ptype, bits, field, field_ptr, one) 
-    //HEAD(ptype, bits, field, field_ptr, one) 
-    //TAIL(ptype, bits, field, one) 
-
+	/* sum = sum + Σ points[i] for i in 0..n-1.
+    * 
+	* This routine uses Montgomery's batch inversion to
+	* speed up accumulation of multiple affine points.
+    * 
+    * |points[]| is volatile buffer with |X|s and |Y|s initially holding
+    * input affine coordinates, and with |Z|s being used as additional
+    * temporary storage [unrelated to Jacobian coordinates]. |sum| is
+    * in-/output, initialize to infinity accordingly.
+    */
 	template<typename Field>
     void points_accumulate(Point<Field>& sum, Point<Field> points[], size_t n)
     { 

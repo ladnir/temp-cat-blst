@@ -10,7 +10,7 @@
 namespace blst
 {
 
-#ifdef BLST_CUDA
+#ifdef BLST_FP12_KERNELS
 
     // CUDA kernel for vectorized Fp12 multiplication
     BLST_GLOBAL void mul_fp12_kernel(Fp12* out, const Fp12* a, const Fp12* b, size_t num) {
@@ -208,7 +208,7 @@ namespace blst
     }
 
     // CUDA implementations
-#ifdef BLST_CUDA
+#ifdef BLST_FP12_KERNELS
     batched_error_code mul_fp12_vec_cu(Fp12* out, const Fp12* a, const Fp12* b, size_t num) {
         if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
@@ -291,7 +291,7 @@ namespace blst
     batched_error_code mul_fp12_vec(Fp12* out, const Fp12* a, const Fp12* b, size_t num) {
         if (num == 0) return BATCHED_SUCCESS;
 
-#ifdef BLST_CUDA
+#ifdef BLST_FP12_KERNELS
         return mul_fp12_vec_cu(out, a, b, num);
 #else
         return mul_fp12_vec_cc(out, a, b, num);
@@ -301,7 +301,7 @@ namespace blst
     batched_error_code sqr_fp12_vec(Fp12* out, const Fp12* a, size_t num) {
         if (num == 0) return BATCHED_SUCCESS;
 
-#ifdef BLST_CUDA
+#ifdef BLST_FP12_KERNELS
         return sqr_fp12_vec_cu(out, a, num);
 #else
         return sqr_fp12_vec_cc(out, a, num);
@@ -311,7 +311,7 @@ namespace blst
     batched_error_code cyclotomic_sqr_fp12_vec(Fp12* out, const Fp12* a, size_t num) {
         if (num == 0) return BATCHED_SUCCESS;
 
-#ifdef BLST_CUDA
+#ifdef BLST_FP12_KERNELS
         return cyclotomic_sqr_fp12_vec_cu(out, a, num);
 #else
         return cyclotomic_sqr_fp12_vec_cc(out, a, num);
@@ -321,7 +321,7 @@ namespace blst
     batched_error_code conjugate_fp12_vec(Fp12* out, const Fp12* a, size_t num) {
         if (num == 0) return BATCHED_SUCCESS;
 
-#ifdef BLST_CUDA
+#ifdef BLST_FP12_KERNELS
         return conjugate_fp12_vec_cu(out, a, num);
 #else
         return conjugate_fp12_vec_cc(out, a, num);
@@ -331,7 +331,7 @@ namespace blst
     batched_error_code inverse_fp12_vec(Fp12* out, const Fp12* a, size_t num) {
         if (num == 0) return BATCHED_SUCCESS;
 
-#ifdef BLST_CUDA
+#ifdef BLST_FP12_KERNELS
         return inverse_fp12_vec_cu(out, a, num);
 #else
         return inverse_fp12_vec_cc(out, a, num);
@@ -341,7 +341,7 @@ namespace blst
     batched_error_code frobenius_map_fp12_vec(Fp12* out, const Fp12* a, size_t power, size_t num) {
         if (num == 0) return BATCHED_SUCCESS;
 
-#ifdef BLST_CUDA
+#ifdef BLST_FP12_KERNELS
         return frobenius_map_fp12_vec_cu(out, a, power, num);
 #else
         return frobenius_map_fp12_vec_cc(out, a, power, num);
@@ -351,7 +351,7 @@ namespace blst
     batched_error_code is_equal_fp12_vec(bool* out, const Fp12* a, const Fp12* b, size_t num) {
         if (num == 0) return BATCHED_SUCCESS;
 
-#ifdef BLST_CUDA
+#ifdef BLST_FP12_KERNELS
         return is_equal_fp12_vec_cu(out, a, b, num);
 #else
         return is_equal_fp12_vec_cc(out, a, b, num);
@@ -361,7 +361,7 @@ namespace blst
     batched_error_code is_one_fp12_vec(bool* out, const Fp12* a, size_t num) {
         if (num == 0) return BATCHED_SUCCESS;
 
-#ifdef BLST_CUDA
+#ifdef BLST_FP12_KERNELS
         return is_one_fp12_vec_cu(out, a, num);
 #else
         return is_one_fp12_vec_cc(out, a, num);
@@ -371,7 +371,7 @@ namespace blst
     batched_error_code bendian_from_fp12_vec(unsigned char* out, const Fp12* a, size_t num) {
         if (num == 0) return BATCHED_SUCCESS;
 
-#ifdef BLST_CUDA
+#ifdef BLST_FP12_KERNELS
         return bendian_from_fp12_vec_cu(out, a, num);
 #else
         return bendian_from_fp12_vec_cc(out, a, num);
@@ -381,7 +381,7 @@ namespace blst
     batched_error_code fp12_from_bendian_vec(Fp12* out, const unsigned char* in, size_t num) {
         if (num == 0) return BATCHED_SUCCESS;
 
-#ifdef BLST_CUDA
+#ifdef BLST_FP12_KERNELS
         return fp12_from_bendian_vec_cu(out, in, num);
 #else
         return fp12_from_bendian_vec_cc(out, in, num);
@@ -391,7 +391,7 @@ namespace blst
     batched_error_code mul_by_xy00z0_fp12_vec(Fp12* out, const Fp12* a, const Fp6* xy00z0, size_t num) {
         if (num == 0) return BATCHED_SUCCESS;
 
-#ifdef BLST_CUDA
+#ifdef BLST_FP12_KERNELS
         return mul_by_xy00z0_fp12_vec_cu(out, a, xy00z0, num);
 #else
         return mul_by_xy00z0_fp12_vec_cc(out, a, xy00z0, num);

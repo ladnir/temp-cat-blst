@@ -10,7 +10,7 @@
 #include "blst/exports.h"
 #include "blst/common/errors.h"
 
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
 #include "blst/common/cuda_launch.h"
 #endif
 
@@ -32,7 +32,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
     // Kernel for addition of G2 points (GPU)
     __global__ void add_g2_vec_ker(G2Point* out, const G2Point* a, const G2Point* b, size_t num)
     {
@@ -55,7 +55,7 @@ namespace blst
     // Vectorized addition of G2 points
     batched_error_code add_g2_vec(G2Point* out, const G2Point* a, const G2Point* b, size_t num)
     {
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
         return add_g2_vec_cu(out, a, b, num);
 #else
         return add_g2_vec_cc(out, a, b, num);
@@ -74,7 +74,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
     // Kernel for doubling of G2 points (GPU)
     __global__ void double_g2_vec_ker(G2Point* out, const G2Point* a, size_t num)
     {
@@ -97,7 +97,7 @@ namespace blst
     // Vectorized doubling of G2 points
     batched_error_code double_g2_vec(G2Point* out, const G2Point* a, size_t num)
     {
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
         return double_g2_vec_cu(out, a, num);
 #else
         return double_g2_vec_cc(out, a, num);
@@ -117,7 +117,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
     // Kernel for conditional negation of G2 points (GPU)
     __global__ void cneg_g2_vec_ker(G2Point* out, const G2Point* a, int flag, size_t num)
     {
@@ -141,7 +141,7 @@ namespace blst
     // Vectorized conditional negation of G2 points
     batched_error_code cneg_g2_vec(G2Point* out, const G2Point* a, int flag, size_t num)
     {
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
         return cneg_g2_vec_cu(out, a, flag, num);
 #else
         return cneg_g2_vec_cc(out, a, flag, num);
@@ -162,7 +162,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
     // Kernel for scalar multiplication of G2 points (GPU)
     __global__ void mult_g2_vec_ker(G2Point* out, const G2Point* points, const unsigned char* scalars, size_t scalar_bits, size_t num)
     {
@@ -191,7 +191,7 @@ namespace blst
     // Vectorized scalar multiplication of G2 points
     batched_error_code mult_g2_vec(G2Point* out, const G2Point* points, const unsigned char* scalars, size_t scalar_bits, size_t num)
     {
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
         return mult_g2_vec_cu(out, points, scalars, scalar_bits, num);
 #else
         return mult_g2_vec_cc(out, points, scalars, scalar_bits, num);
@@ -213,7 +213,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
     // Kernel for Jacobian to affine conversion (GPU)
     __global__ void to_affine_g2_vec_ker(G2AffinePoint* out, const G2Point* a, size_t num)
     {
@@ -236,7 +236,7 @@ namespace blst
     // Vectorized Jacobian to affine conversion
     batched_error_code to_affine_g2_vec(G2AffinePoint* out, const G2Point* a, size_t num)
     {
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
         return to_affine_g2_vec_cu(out, a, num);
 #else
         return to_affine_g2_vec_cc(out, a, num);
@@ -255,7 +255,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
     // Kernel for affine to Jacobian conversion (GPU)
     __global__ void from_affine_g2_vec_ker(G2Point* out, const G2AffinePoint* a, size_t num)
     {
@@ -278,7 +278,7 @@ namespace blst
     // Vectorized affine to Jacobian conversion
     batched_error_code from_affine_g2_vec(G2Point* out, const G2AffinePoint* a, size_t num)
     {
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
         return from_affine_g2_vec_cu(out, a, num);
 #else
         return from_affine_g2_vec_cc(out, a, num);
@@ -297,7 +297,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
     // Kernel for Jacobian normalization (GPU)
     __global__ void from_jacobian_g2_vec_ker(G2Point* out, const G2Point* a, size_t num)
     {
@@ -320,7 +320,7 @@ namespace blst
     // Vectorized Jacobian normalization
     batched_error_code from_jacobian_g2_vec(G2Point* out, const G2Point* a, size_t num)
     {
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
         return from_jacobian_g2_vec_cu(out, a, num);
 #else
         return from_jacobian_g2_vec_cc(out, a, num);
@@ -342,7 +342,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
     // Kernel for curve membership check (GPU)
     __global__ void on_curve_g2_vec_ker(bool* results, const G2Point* points, size_t num)
     {
@@ -365,7 +365,7 @@ namespace blst
     // Vectorized curve membership check
     batched_error_code on_curve_g2_vec(bool* results, const G2Point* points, size_t num)
     {
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
         return on_curve_g2_vec_cu(results, points, num);
 #else
         return on_curve_g2_vec_cc(results, points, num);
@@ -384,7 +384,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
     // Kernel for infinity check (GPU)
     __global__ void is_inf_g2_vec_ker(bool* results, const G2Point* points, size_t num)
     {
@@ -407,7 +407,7 @@ namespace blst
     // Vectorized infinity check
     batched_error_code is_inf_g2_vec(bool* results, const G2Point* points, size_t num)
     {
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
         return is_inf_g2_vec_cu(results, points, num);
 #else
         return is_inf_g2_vec_cc(results, points, num);
@@ -426,7 +426,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
     // Kernel for point equality check (GPU)
     __global__ void is_equal_g2_vec_ker(bool* results, const G2Point* a, const G2Point* b, size_t num)
     {
@@ -449,7 +449,7 @@ namespace blst
     // Vectorized point equality check
     batched_error_code is_equal_g2_vec(bool* results, const G2Point* a, const G2Point* b, size_t num)
     {
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
         return is_equal_g2_vec_cu(results, a, b, num);
 #else
         return is_equal_g2_vec_cc(results, a, b, num);
@@ -471,7 +471,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
     // Kernel for subgroup membership check (GPU)
     __global__ void in_group_g2_vec_ker(bool* results, const G2AffinePoint* points, size_t num)
     {
@@ -494,7 +494,7 @@ namespace blst
     // Vectorized subgroup membership check
     batched_error_code in_group_g2_vec(bool* results, const G2AffinePoint* points, size_t num)
     {
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
         return in_group_g2_vec_cu(results, points, num);
 #else
         return in_group_g2_vec_cc(results, points, num);
@@ -516,7 +516,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
     // Kernel for point serialization (GPU)
     __global__ void serialize_g2_vec_ker(unsigned char* out, const G2Point* points, size_t num)
     {
@@ -539,7 +539,7 @@ namespace blst
     // Vectorized point serialization
     batched_error_code serialize_g2_vec(unsigned char* out, const G2Point* points, size_t num)
     {
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
         return serialize_g2_vec_cu(out, points, num);
 #else
         return serialize_g2_vec_cc(out, points, num);
@@ -558,7 +558,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
     // Kernel for point deserialization (GPU)
     __global__ void deserialize_g2_vec_ker(G2AffinePoint* out, const unsigned char* serialized, BLST_ERROR* errors, size_t num)
     {
@@ -600,7 +600,7 @@ namespace blst
     // Vectorized point deserialization
     batched_error_code deserialize_g2_vec(G2AffinePoint* out, const unsigned char* serialized, BLST_ERROR* errors, size_t num)
     {
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
         return deserialize_g2_vec_cu(out, serialized, errors, num);
 #else
         return deserialize_g2_vec_cc(out, serialized, errors, num);
@@ -619,7 +619,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
     // Kernel for point compression (GPU)
     __global__ void compress_g2_vec_ker(unsigned char* out, const G2Point* points, size_t num)
     {
@@ -642,7 +642,7 @@ namespace blst
     // Vectorized point compression
     batched_error_code compress_g2_vec(unsigned char* out, const G2Point* points, size_t num)
     {
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
         return compress_g2_vec_cu(out, points, num);
 #else
         return compress_g2_vec_cc(out, points, num);
@@ -661,7 +661,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
     // Kernel for point decompression (GPU)
     __global__ void uncompress_g2_vec_ker(G2AffinePoint* out, const unsigned char* compressed, BLST_ERROR* errors, size_t num)
     {
@@ -703,7 +703,7 @@ namespace blst
     // Vectorized point decompression
     batched_error_code uncompress_g2_vec(G2AffinePoint* out, const unsigned char* compressed, BLST_ERROR* errors, size_t num)
     {
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
         return uncompress_g2_vec_cu(out, compressed, errors, num);
 #else
         return uncompress_g2_vec_cc(out, compressed, errors, num);
@@ -726,7 +726,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
     // Kernel for hash-to-curve (GPU)
     __global__ void hash_to_g2_vec_ker(G2Point* out, const unsigned char* const* msgs, const size_t* msg_lens,
         const unsigned char* dst, size_t dst_len, size_t num)
@@ -752,7 +752,7 @@ namespace blst
     batched_error_code hash_to_g2_vec(G2Point* out, const unsigned char* const* msgs, const size_t* msg_lens,
         const unsigned char* dst, size_t dst_len, size_t num)
     {
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
         return hash_to_g2_vec_cu(out, msgs, msg_lens, dst, dst_len, num);
 #else
         return hash_to_g2_vec_cc(out, msgs, msg_lens, dst, dst_len, num);
@@ -785,7 +785,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
     // Multi-scalar multiplication (GPU) - simplified version
     batched_error_code multi_scalar_mult_g2_cu(G2Point* result, const G2Point* points,
         const unsigned char* scalars, size_t scalar_bits, size_t num)
@@ -800,7 +800,7 @@ namespace blst
     batched_error_code multi_scalar_mult_g2(G2Point* result, const G2Point* points,
         const unsigned char* scalars, size_t scalar_bits, size_t num)
     {
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
         return multi_scalar_mult_g2_cu(result, points, scalars, scalar_bits, num);
 #else
         return multi_scalar_mult_g2_cc(result, points, scalars, scalar_bits, num);
@@ -819,7 +819,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
     // Kernel for mixed addition (GPU)
     __global__ void add_mixed_g2_vec_ker(G2Point* out, const G2Point* a, const G2AffinePoint* b, size_t num)
     {
@@ -842,7 +842,7 @@ namespace blst
     // Vectorized mixed addition
     batched_error_code add_mixed_g2_vec(G2Point* out, const G2Point* a, const G2AffinePoint* b, size_t num)
     {
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
         return add_mixed_g2_vec_cu(out, a, b, num);
 #else
         return add_mixed_g2_vec_cc(out, a, b, num);
@@ -862,7 +862,7 @@ namespace blst
         return BATCHED_SUCCESS;
     }
 
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
     // Kernel for psi endomorphism (GPU)
     __global__ void psi_g2_vec_ker(G2Point* out, const G2Point* a, size_t num)
     {
@@ -885,7 +885,7 @@ namespace blst
     // Vectorized psi endomorphism
     batched_error_code psi_g2_vec(G2Point* out, const G2Point* a, size_t num)
     {
-#ifdef BLST_CUDA
+#ifdef BLST_G2_KERNELS
         return psi_g2_vec_cu(out, a, num);
 #else
         return psi_g2_vec_cc(out, a, num);

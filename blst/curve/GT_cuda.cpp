@@ -12,7 +12,7 @@
 #include "blst/common/errors.h"
 #include "blst/sign/aggregate.h"
 
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 #include "blst/common/cuda_launch.h"
 #endif
 
@@ -34,7 +34,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 	// Kernel for multiplication of GT elements (GPU)
 	__global__ void mult_gt_vec_ker(Fp12* out, const Fp12* a, const Fp12* b, size_t num)
 	{
@@ -57,7 +57,7 @@ namespace blst
 	// Vectorized multiplication of GT elements
 	batched_error_code mult_gt_vec(Fp12* out, const Fp12* a, const Fp12* b, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 		return mult_gt_vec_cu(out, a, b, num);
 #else
 		return mult_gt_vec_cc(out, a, b, num);
@@ -76,7 +76,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 	// Kernel for squaring of GT elements (GPU)
 	__global__ void square_gt_vec_ker(Fp12* out, const Fp12* a, size_t num)
 	{
@@ -99,7 +99,7 @@ namespace blst
 	// Vectorized squaring of GT elements
 	batched_error_code square_gt_vec(Fp12* out, const Fp12* a, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 		return square_gt_vec_cu(out, a, num);
 #else
 		return square_gt_vec_cc(out, a, num);
@@ -118,7 +118,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 	// Kernel for cyclotomic squaring of GT elements (GPU)
 	__global__ void cyclotomic_square_gt_vec_ker(Fp12* out, const Fp12* a, size_t num)
 	{
@@ -141,7 +141,7 @@ namespace blst
 	// Vectorized cyclotomic squaring of GT elements
 	batched_error_code cyclotomic_square_gt_vec(Fp12* out, const Fp12* a, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 		return cyclotomic_square_gt_vec_cu(out, a, num);
 #else
 		return cyclotomic_square_gt_vec_cc(out, a, num);
@@ -160,7 +160,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 	// Kernel for inversion of GT elements (GPU)
 	__global__ void inverse_gt_vec_ker(Fp12* out, const Fp12* a, size_t num)
 	{
@@ -183,7 +183,7 @@ namespace blst
 	// Vectorized inversion of GT elements
 	batched_error_code inverse_gt_vec(Fp12* out, const Fp12* a, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 		return inverse_gt_vec_cu(out, a, num);
 #else
 		return inverse_gt_vec_cc(out, a, num);
@@ -203,7 +203,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 	// Kernel for conjugation of GT elements (GPU)
 	__global__ void conjugate_gt_vec_ker(Fp12* out, const Fp12* a, size_t num)
 	{
@@ -227,7 +227,7 @@ namespace blst
 	// Vectorized conjugation of GT elements
 	batched_error_code conjugate_gt_vec(Fp12* out, const Fp12* a, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 		return conjugate_gt_vec_cu(out, a, num);
 #else
 		return conjugate_gt_vec_cc(out, a, num);
@@ -249,7 +249,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 	// Kernel for exponentiation of GT elements (GPU)
 	__global__ void pow_gt_vec_ker(Fp12* out, const Fp12* bases, const unsigned char* exponents,
 		size_t exp_bits, size_t num)
@@ -276,7 +276,7 @@ namespace blst
 	batched_error_code pow_gt_vec(Fp12* out, const Fp12* bases, const unsigned char* exponents,
 		size_t exp_bits, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 		return pow_gt_vec_cu(out, bases, exponents, exp_bits, num);
 #else
 		return pow_gt_vec_cc(out, bases, exponents, exp_bits, num);
@@ -298,7 +298,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 	// Kernel for identity check of GT elements (GPU)
 	__global__ void is_one_gt_vec_ker(bool* results, const Fp12* elements, size_t num)
 	{
@@ -321,7 +321,7 @@ namespace blst
 	// Vectorized check if GT elements equal identity
 	batched_error_code is_one_gt_vec(bool* results, const Fp12* elements, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 		return is_one_gt_vec_cu(results, elements, num);
 #else
 		return is_one_gt_vec_cc(results, elements, num);
@@ -340,7 +340,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 	// Kernel for GT element equality check (GPU)
 	__global__ void is_equal_gt_vec_ker(bool* results, const Fp12* a, const Fp12* b, size_t num)
 	{
@@ -363,7 +363,7 @@ namespace blst
 	// Vectorized GT element equality check
 	batched_error_code is_equal_gt_vec(bool* results, const Fp12* a, const Fp12* b, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 		return is_equal_gt_vec_cu(results, a, b, num);
 #else
 		return is_equal_gt_vec_cc(results, a, b, num);
@@ -382,7 +382,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 	// Kernel for GT group membership check (GPU)
 	__global__ void in_group_gt_vec_ker(bool* results, const Fp12* elements, size_t num)
 	{
@@ -405,7 +405,7 @@ namespace blst
 	// Vectorized GT group membership check
 	batched_error_code in_group_gt_vec(bool* results, const Fp12* elements, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 		return in_group_gt_vec_cu(results, elements, num);
 #else
 		return in_group_gt_vec_cc(results, elements, num);
@@ -428,7 +428,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 	// Kernel for Miller loop computation (GPU)
 	__global__ void miller_loop_gt_vec_ker(Fp12* out, const G2AffinePoint* g2_points,
 		const G1AffinePoint* g1_points, size_t num)
@@ -454,7 +454,7 @@ namespace blst
 	batched_error_code miller_loop_gt_vec(Fp12* out, const G2AffinePoint* g2_points,
 		const G1AffinePoint* g1_points, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 		return miller_loop_gt_vec_cu(out, g2_points, g1_points, num);
 #else
 		return miller_loop_gt_vec_cc(out, g2_points, g1_points, num);
@@ -473,7 +473,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 	// Kernel for final exponentiation (GPU)
 	__global__ void final_exp_gt_vec_ker(Fp12* out, const Fp12* miller_results, size_t num)
 	{
@@ -496,7 +496,7 @@ namespace blst
 	// Vectorized final exponentiation
 	batched_error_code final_exp_gt_vec(Fp12* out, const Fp12* miller_results, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 		return final_exp_gt_vec_cu(out, miller_results, num);
 #else
 		return final_exp_gt_vec_cc(out, miller_results, num);
@@ -517,7 +517,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 	// Kernel for complete pairing computation (GPU)
 	__global__ void pairing_gt_vec_ker(Fp12* out, const G2AffinePoint* g2_points,
 		const G1AffinePoint* g1_points, size_t num)
@@ -544,7 +544,7 @@ namespace blst
 	batched_error_code pairing_gt_vec(Fp12* out, const G2AffinePoint* g2_points,
 		const G1AffinePoint* g1_points, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 		return pairing_gt_vec_cu(out, g2_points, g1_points, num);
 #else
 		return pairing_gt_vec_cc(out, g2_points, g1_points, num);
@@ -566,7 +566,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 	// Kernel for GT element serialization (GPU)
 	__global__ void serialize_gt_vec_ker(unsigned char* out, const Fp12* elements, size_t num)
 	{
@@ -589,7 +589,7 @@ namespace blst
 	// Vectorized GT element serialization
 	batched_error_code serialize_gt_vec(unsigned char* out, const Fp12* elements, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 		return serialize_gt_vec_cu(out, elements, num);
 #else
 		return serialize_gt_vec_cc(out, elements, num);
@@ -608,7 +608,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 	// Kernel for GT element deserialization (GPU)
 	__global__ void deserialize_gt_vec_ker(Fp12* out, const unsigned char* serialized, size_t num)
 	{
@@ -631,7 +631,7 @@ namespace blst
 	// Vectorized GT element deserialization
 	batched_error_code deserialize_gt_vec(Fp12* out, const unsigned char* serialized, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 		return deserialize_gt_vec_cu(out, serialized, num);
 #else
 		return deserialize_gt_vec_cc(out, serialized, num);
@@ -678,7 +678,7 @@ namespace blst
 //#define __syncthreads()
 //#endif
 //
-//#ifdef BLST_CUDA
+//#ifdef BLST_GT_KERNELS
 //
 //	// --- helpers ---------------------------------------------------------------
 //
@@ -982,7 +982,7 @@ namespace blst
 //	batched_error_code multi_exp_gt(Fp12* result, const Fp12* bases,
 //		const unsigned char* exponents, size_t exp_bits, size_t num)
 //	{
-//#ifdef BLST_CUDA
+//#ifdef BLST_GT_KERNELS
 //		return multi_exp_gt_cu(result, bases, exponents, exp_bits, num);
 //#else
 //		return multi_exp_gt_cc(result, bases, exponents, exp_bits, num);
@@ -1001,7 +1001,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 	// Kernel for finalverify operation (GPU)
 	__global__ void finalverify_gt_vec_ker(bool* results, const Fp12* gt1, const Fp12* gt2, size_t num)
 	{
@@ -1024,7 +1024,7 @@ namespace blst
 	// Vectorized finalverify operation
 	batched_error_code finalverify_gt_vec(bool* results, const Fp12* gt1, const Fp12* gt2, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 		return finalverify_gt_vec_cu(results, gt1, gt2, num);
 #else
 		return finalverify_gt_vec_cc(results, gt1, gt2, num);
@@ -1050,7 +1050,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 	// Kernel for batch pairing verification (GPU)
 	__global__ void pairing_verify_gt_vec_ker(bool* results,
 		const G2AffinePoint* g2_points,
@@ -1088,7 +1088,7 @@ namespace blst
 		const Fp12* target_values,
 		size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_GT_KERNELS
 		return pairing_verify_gt_vec_cu(results, g2_points, g1_points, target_values, num);
 #else
 		return pairing_verify_gt_vec_cc(results, g2_points, g1_points, target_values, num);

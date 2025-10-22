@@ -58,7 +58,19 @@ if(BLST_CUDA)
     enable_language(CUDA)
     find_package(CUDAToolkit REQUIRED)
     
-    set(BLST_STATIC_SRC ${BLST_STATIC_SRC} cuda_kernel.cpp)
+    #set(BLST_STATIC_SRC ${BLST_STATIC_SRC} cuda_kernel.cpp)
+    set(BLST_STATIC_SRC ${BLST_STATIC_SRC} 
+        fields/Fr_cuda.cpp
+        fields/Fp_cuda.cpp
+        fields/Fp2_cuda.cpp
+        fields/Fp12_cuda.cpp
+        curve/G1_cuda.cpp
+        curve/G2_cuda.cpp
+        curve/GT_cuda.cpp
+    )
+    #if(BLST_FAST_BUILD)
+    #    set(FAST_OPT  $<$<COMPILE_LANGUAGE:CUDA>:-O0>)
+    #endif()
 
     # Tell CMake to compile .c files with NVCC
     set_source_files_properties(${BLST_STATIC_SRC} PROPERTIES LANGUAGE CUDA)
@@ -80,8 +92,8 @@ if(BLST_CUDA)
         $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda>
         #$<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_89>
         $<$<COMPILE_LANGUAGE:CUDA>:-rdc=true>
-        #$<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>           # cheap line tables
-        #$<$<CONFIG:Debug>:$<$<COMPILE_LANGUAGE:CUDA>:-G -g -Xptxas -O0>> # expensive debug info
+        $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>           # cheap line tables
+        $<$<CONFIG:Debug>:$<$<COMPILE_LANGUAGE:CUDA>:-G -g -Xptxas -O0>> # expensive debug info
         
         #verbose output for nvcc
         #$<$<COMPILE_LANGUAGE:CUDA>:
@@ -110,16 +122,18 @@ else()
     )
 endif()
 
-
-
 add_library(blst_static ${BLST_STATIC_SRC} ${ASM_SRC})
 set_target_properties(blst_static PROPERTIES OUTPUT_NAME blst)
 #message(STATUS "BLST_OPTS: ${BLST_OPTS}")
 target_compile_options(blst_static PUBLIC ${BLST_OPTS})
 target_include_directories(blst_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)
-target_compile_features(blst_static PUBLIC cxx_std_20)
+target_compile_features(blst_static PUBLIC cxx_std_23)
 # for in source builds, we need to include the build dir too (config.h)
 target_include_directories(blst_static PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/..)
+
+if(MSVC)
+    target_compile_definitions(blst_static PUBLIC NOMINMAX)
+endif()
 
 
 configure_file(

@@ -27,7 +27,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_FP2_KERNELS
 	// kernel for addition of Fp2 elements (GPU)
 	BLST_GLOBAL void add_fp2_vec_ker(Fp2* out, const Fp2* a, const Fp2* b, size_t num)
 	{
@@ -50,7 +50,7 @@ namespace blst
 	// Vectorized addition of Fp2 elements
 	batched_error_code add_fp2_vec(Fp2* out, const Fp2* a, const Fp2* b, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_FP2_KERNELS
 		return add_fp2_vec_cu(out, a, b, num);
 #else
 		return add_fp2_vec_cc(out, a, b, num);
@@ -69,7 +69,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_FP2_KERNELS
 	// kernel for subtraction of Fp2 elements (GPU)
 	BLST_GLOBAL void sub_fp2_vec_ker(Fp2* out, const Fp2* a, const Fp2* b, size_t num)
 	{
@@ -92,7 +92,7 @@ namespace blst
 	// Vectorized subtraction of Fp2 elements
 	batched_error_code sub_fp2_vec(Fp2* out, const Fp2* a, const Fp2* b, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_FP2_KERNELS
 		return sub_fp2_vec_cu(out, a, b, num);
 #else
 		return sub_fp2_vec_cc(out, a, b, num);
@@ -111,7 +111,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_FP2_KERNELS
 	// kernel for multiplication of Fp2 elements (GPU)
 	BLST_GLOBAL void mul_fp2_vec_ker(Fp2* out, const Fp2* a, const Fp2* b, size_t num)
 	{
@@ -134,7 +134,7 @@ namespace blst
 	// Vectorized multiplication of Fp2 elements
 	batched_error_code mul_fp2_vec(Fp2* out, const Fp2* a, const Fp2* b, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_FP2_KERNELS
 		return mul_fp2_vec_cu(out, a, b, num);
 #else
 		return mul_fp2_vec_cc(out, a, b, num);
@@ -153,7 +153,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_FP2_KERNELS
 	// kernel for squaring of Fp2 elements (GPU)
 	BLST_GLOBAL void sqr_fp2_vec_ker(Fp2* out, const Fp2* a, size_t num)
 	{
@@ -176,7 +176,7 @@ namespace blst
 	// Vectorized squaring of Fp2 elements
 	batched_error_code sqr_fp2_vec(Fp2* out, const Fp2* a, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_FP2_KERNELS
 		return sqr_fp2_vec_cu(out, a, num);
 #else
 		return sqr_fp2_vec_cc(out, a, num);
@@ -195,7 +195,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_FP2_KERNELS
 	// kernel for conditional negation of Fp2 elements (GPU)
 	BLST_GLOBAL void cneg_fp2_vec_ker(Fp2* out, const Fp2* a, int flag, size_t num)
 	{
@@ -218,7 +218,7 @@ namespace blst
 	// Vectorized conditional negation of Fp2 elements
 	batched_error_code cneg_fp2_vec(Fp2* out, const Fp2* a, int flag, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_FP2_KERNELS
 		return cneg_fp2_vec_cu(out, a, flag, num);
 #else
 		return cneg_fp2_vec_cc(out, a, flag, num);
@@ -237,7 +237,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_FP2_KERNELS
 	// kernel for multiplication of Fp2 elements by 3 (GPU)
 	BLST_GLOBAL void mul3_fp2_vec_ker(Fp2* out, const Fp2* a, size_t num)
 	{
@@ -260,7 +260,7 @@ namespace blst
 	// Vectorized multiplication of Fp2 elements by 3
 	batched_error_code mul3_fp2_vec(Fp2* out, const Fp2* a, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_FP2_KERNELS
 		return mul3_fp2_vec_cu(out, a, num);
 #else
 		return mul3_fp2_vec_cc(out, a, num);
@@ -279,7 +279,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_FP2_KERNELS
 	// kernel for multiplication of Fp2 elements by 8 (GPU)
 	BLST_GLOBAL void mul8_fp2_vec_ker(Fp2* out, const Fp2* a, size_t num)
 	{
@@ -302,7 +302,7 @@ namespace blst
 	// Vectorized multiplication of Fp2 elements by 8
 	batched_error_code mul8_fp2_vec(Fp2* out, const Fp2* a, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_FP2_KERNELS
 		return mul8_fp2_vec_cu(out, a, num);
 #else
 		return mul8_fp2_vec_cc(out, a, num);
@@ -321,7 +321,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_FP2_KERNELS
 	// kernel for left shift of Fp2 elements (GPU)
 	BLST_GLOBAL void lshift_fp2_vec_ker(Fp2* out, const Fp2* a, size_t count, size_t num)
 	{
@@ -344,7 +344,7 @@ namespace blst
 	// Vectorized left shift of Fp2 elements
 	batched_error_code lshift_fp2_vec(Fp2* out, const Fp2* a, size_t count, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_FP2_KERNELS
 		return lshift_fp2_vec_cu(out, a, count, num);
 #else
 		return lshift_fp2_vec_cc(out, a, count, num);
@@ -363,7 +363,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_FP2_KERNELS
 	// kernel for conjugation of Fp2 elements (GPU)
 	BLST_GLOBAL void conjugate_fp2_vec_ker(Fp2* out, const Fp2* a, size_t num)
 	{
@@ -386,7 +386,7 @@ namespace blst
 	// Vectorized conjugation of Fp2 elements
 	batched_error_code conjugate_fp2_vec(Fp2* out, const Fp2* a, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_FP2_KERNELS
 		return conjugate_fp2_vec_cu(out, a, num);
 #else
 		return conjugate_fp2_vec_cc(out, a, num);
@@ -405,7 +405,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_FP2_KERNELS
 	// kernel for inversion of Fp2 elements (GPU)
 	BLST_GLOBAL void inverse_fp2_vec_ker(Fp2* out, const Fp2* a, size_t num)
 	{
@@ -427,7 +427,7 @@ namespace blst
 	// Vectorized inversion of Fp2 elements
 	batched_error_code inverse_fp2_vec(Fp2* out, const Fp2* a, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_FP2_KERNELS
 		return inverse_fp2_vec_cu(out, a, num);
 #else
 		return inverse_fp2_vec_cc(out, a, num);
@@ -446,7 +446,7 @@ namespace blst
 		return BATCHED_SUCCESS;
 	}
 
-#ifdef BLST_CUDA
+#ifdef BLST_FP2_KERNELS
 	// kernel for square root of Fp2 elements (GPU)
 	BLST_GLOBAL void sqrt_fp2_vec_ker(Fp2* out, const Fp2* a, size_t num)
 	{
@@ -467,7 +467,7 @@ namespace blst
 	// Vectorized square root of Fp2 elements
 	batched_error_code sqrt_fp2_vec(Fp2* out, const Fp2* a, size_t num)
 	{
-#ifdef BLST_CUDA
+#ifdef BLST_FP2_KERNELS
 		return sqrt_fp2_vec_cu(out, a, num);
 #else
 		return sqrt_fp2_vec_cc(out, a, num);

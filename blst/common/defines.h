@@ -7,6 +7,15 @@
 #include <stdint.h>
 #include <bit>
 
+// For custom assert implementation
+#ifndef NDEBUG
+#  include <cstdio>  // for printf
+#  include <cstdlib> // for abort
+#  if defined(_MSC_VER) && !defined(__CUDA_ARCH__)
+#    include <windows.h> // for IsDebuggerPresent
+#  endif
+#endif
+
 #if !defined(BLST_restrict)
 # if !defined(__STDC_VERSION__) || __STDC_VERSION__<199901
 #  if defined(__GNUC__) && __GNUC__>=2
@@ -52,11 +61,89 @@
 # define BLST_launder(var)
 #endif
 
-#if !defined(BLST_ASSERT)
-#  include <assert.h>
-#  define BLST_ASSERT(condition) assert(condition)
-# endif
+//#if !defined(BLST_ASSERT)
+//#  include <assert.h>
+//#  define BLST_ASSERT(condition) assert(condition)
+//# endif
 
+#if !defined(BLST_ASSERT)
+#  ifdef NDEBUG
+     // In release builds, disable assertions
+#    define BLST_ASSERT(condition) ((void)0)
+#  else
+     // Custom assert implementation for debug builds
+namespace blst {
+    namespace detail {
+#if defined(__CUDA_ARCH__)
+        // Device code version - simpler implementation
+        __device__ BLST_FORCEINLINE void device_assert_handler(const char* condition_str, const char* file, int line) {
+            printf("BLST_ASSERT failed on GPU: %s at %s:%d\n", condition_str, file, line);
+            __trap(); // CUDA device trap - will break into debugger if attached
+        }
+#else
+        // Host code version with full debugging support
+        BLST_FORCEINLINE void assert_handler(const char* condition_str, const char* file, int line, const char* function) {
+            // Print detailed assertion information
+            printf("BLST_ASSERT failed: %s\n", condition_str);
+            printf("  File: %s\n", file);
+            printf("  Line: %d\n", line);
+            printf("  Function: %s\n", function);
+
+#if defined(_MSC_VER)
+            // Visual Studio specific - trigger debugger breakpoint
+            if (IsDebuggerPresent()) {
+                __debugbreak();
+            }
+            else {
+                abort();
+            }
+#elif defined(__GNUC__) || defined(__clang__)
+            // GCC/Clang - use builtin trap for debugger
+            __builtin_trap();
+#else
+            // Fallback - standard abort
+            abort();
+#endif
+        }
+#endif
+    }
+}
+
+#if defined(__CUDA_ARCH__)
+// Device code macro
+#    define BLST_ASSERT(condition) \
+       do { \
+           if (!(condition)) { \
+               ::blst::detail::device_assert_handler(#condition, __FILE__, __LINE__); \
+           } \
+       } while(0)
+#else
+// Host code macro
+#    if defined(__GNUC__) || defined(__clang__)
+#      define BLST_ASSERT(condition) \
+         do { \
+             if (!(condition)) { \
+                 ::blst::detail::assert_handler(#condition, __FILE__, __LINE__, __PRETTY_FUNCTION__); \
+             } \
+         } while(0)
+#    elif defined(_MSC_VER)
+#      define BLST_ASSERT(condition) \
+         do { \
+             if (!(condition)) { \
+                 ::blst::detail::assert_handler(#condition, __FILE__, __LINE__, __FUNCTION__); \
+             } \
+         } while(0)
+#    else
+#      define BLST_ASSERT(condition) \
+         do { \
+             if (!(condition)) { \
+                 ::blst::detail::assert_handler(#condition, __FILE__, __LINE__, "unknown"); \
+             } \
+         } while(0)
+#    endif
+#endif
+#  endif
+#endif
 
 
 # if defined(__GNUC__) && __GNUC__>=5
@@ -205,6 +292,7 @@ namespace blst
 #endif
 
 
+    inline size_t ceil_div(size_t x, size_t y) { return (x + y - 1) / y; }
 
 
 #if defined(__INTELLISENSE__) && defined(BLST_CUDA)

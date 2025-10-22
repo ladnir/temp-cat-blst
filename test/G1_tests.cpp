@@ -7,7 +7,7 @@
 #include "blst/curve/point.h"
 #include "blst/curve/map_to_G.h"
 #include "blst/curve/multi_scalar.h"
-
+#include "InsecureRng.h"
 using namespace blst;
 
 // Helper: Print point coordinates for debugging
@@ -36,7 +36,7 @@ void print_point(const G1Point& p, const char* name) {
 //    }
 //}
 
-TEST(E1PointTest, PointAddition) {
+TEST(G1PointTest, PointAddition) {
 	G1Point p1, p2, result, temp;
 
 	// Get generator point
@@ -66,7 +66,7 @@ TEST(E1PointTest, PointAddition) {
 	EXPECT_TRUE(G1Point::equal(result, p2));
 }
 
-TEST(E1PointTest, AdditionWithIdentity) {
+TEST(G1PointTest, AdditionWithIdentity) {
 	G1Point p1, identity, result;
 
 	// Get generator point
@@ -81,7 +81,7 @@ TEST(E1PointTest, AdditionWithIdentity) {
 	EXPECT_TRUE(G1Point::equal(result, p1));
 }
 
-TEST(E1PointTest, PointNegation) {
+TEST(G1PointTest, PointNegation) {
 	G1Point p1, neg_p1, result;
 
 	// Get generator point
@@ -98,7 +98,7 @@ TEST(E1PointTest, PointNegation) {
 	EXPECT_TRUE(G1Point::is_inf(result));
 }
 
-TEST(E1PointTest, ScalarMultiplication) {
+TEST(G1PointTest, ScalarMultiplication) {
 	G1Point p1, result, expected;
 	unsigned char scalar[32] = { 0 };
 
@@ -129,7 +129,7 @@ TEST(E1PointTest, ScalarMultiplication) {
 	EXPECT_TRUE(G1Point::equal(result, expected));
 }
 
-TEST(E1PointTest, ScalarMultiplicationByZero) {
+TEST(G1PointTest, ScalarMultiplicationByZero) {
 	G1Point p1, result;
 	unsigned char scalar[32] = { 0 };
 
@@ -143,7 +143,7 @@ TEST(E1PointTest, ScalarMultiplicationByZero) {
 	EXPECT_TRUE(G1Point::is_inf(result));
 }
 
-TEST(E1PointTest, PointOnCurve) {
+TEST(G1PointTest, PointOnCurve) {
 	G1Point p1;
 	G1AffinePoint p1_affine;
 
@@ -166,7 +166,7 @@ TEST(E1PointTest, PointOnCurve) {
 	EXPECT_FALSE(G1Point::on_curve(p1));
 }
 
-TEST(E1PointTest, SerializeDeserialize) {
+TEST(G1PointTest, SerializeDeserialize) {
 	G1Point p1, p2;
 	G1AffinePoint p1_affine;
 	unsigned char serialized[96];
@@ -187,7 +187,7 @@ TEST(E1PointTest, SerializeDeserialize) {
 	EXPECT_TRUE(G1Point::equal(p1, p2));
 }
 
-TEST(E1PointTest, FixedVectorCompressUncompress) {
+TEST(G1PointTest, FixedVectorCompressUncompress) {
 	// Test with the generator point, which is a guaranteed valid point
 	const G1AffinePoint g_affine = G1AffinePoint::generator();
 	G1AffinePoint decompressed;
@@ -237,7 +237,7 @@ TEST(E1PointTest, FixedVectorCompressUncompress) {
 	}
 }
 
-TEST(E1PointTest, BasicCompressUncompress) {
+TEST(G1PointTest, BasicCompressUncompress) {
 	{
 		const auto gen = G1Point::generator();
 
@@ -295,7 +295,7 @@ TEST(E1PointTest, BasicCompressUncompress) {
 	}
 }
 
-TEST(E1PointTest, AffineCompressUncompress) {
+TEST(G1PointTest, AffineCompressUncompress) {
 	G1AffinePoint original, decompressed;
 	unsigned char compressed[48] = { 0 };
 
@@ -324,7 +324,7 @@ TEST(E1PointTest, AffineCompressUncompress) {
 		<< "Affine points don't match after compression cycle";
 }
 
-TEST(E1PointTest, CompressUncompress) {
+TEST(G1PointTest, CompressUncompress) {
 	G1Point p1, p2;
 	G1AffinePoint p1_affine, p2_affine;
 	unsigned char compressed[48] = { 0 };
@@ -384,7 +384,7 @@ TEST(E1PointTest, CompressUncompress) {
 	EXPECT_TRUE(G1Point::equal(p1, p2));
 }
 
-TEST(E1PointTest, InfinityPoint) {
+TEST(G1PointTest, InfinityPoint) {
 	G1Point identity;
 	unsigned char serialized[96];
 	G1AffinePoint affine_identity;
@@ -408,7 +408,7 @@ TEST(E1PointTest, InfinityPoint) {
 	EXPECT_TRUE(G1AffinePoint::is_inf(affine_identity));
 }
 
-TEST(E1PointTest, SigningBasicOperation) {
+TEST(G1PointTest, SigningBasicOperation) {
 	G1Point p1, sig;
 	unsigned char SK[32] = {
 		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
@@ -433,7 +433,7 @@ TEST(E1PointTest, SigningBasicOperation) {
 	EXPECT_TRUE(G1Point::on_curve(sig));
 }
 
-TEST(E1PointTest, PointCoordinateConversion) {
+TEST(G1PointTest, PointCoordinateConversion) {
 	G1Point p1, p2;
 	G1AffinePoint p_affine;
 
@@ -456,7 +456,7 @@ TEST(E1PointTest, PointCoordinateConversion) {
 	EXPECT_TRUE(G1Point::equal(p1, p2));
 }
 
-TEST(E1PointTest, GeneratorProperties) {
+TEST(G1PointTest, GeneratorProperties) {
 	// Get generator point
 	const G1Point g = G1Point::generator();
 
@@ -476,7 +476,7 @@ TEST(E1PointTest, GeneratorProperties) {
 	EXPECT_FALSE(G1AffinePoint::is_inf(g_affine));
 }
 
-TEST(E1PointTest, LargeScalarMultiplication) {
+TEST(G1PointTest, LargeScalarMultiplication) {
 	G1Point p1, result;
 	// Create a large scalar close to the order
 	unsigned char large_scalar[32] = {
@@ -497,7 +497,7 @@ TEST(E1PointTest, LargeScalarMultiplication) {
 }
 
 
-TEST(E1PointTest, MediumScalarMultiplication) {
+TEST(G1PointTest, MediumScalarMultiplication) {
 	G1Point p1, np1, expected, result;
 
 	//auto sz = 3;
@@ -582,7 +582,7 @@ std::string bits(u64 x, u64 width)
 	return s;
 }
 
-TEST(E1PointTest, AffineEquality) {
+TEST(G1PointTest, AffineEquality) {
 	G1AffinePoint a1, a2;
 	G1Point p1, p2;
 
@@ -606,7 +606,7 @@ TEST(E1PointTest, AffineEquality) {
 	EXPECT_FALSE(G1AffinePoint::equal(a1, a2));
 }
 
-TEST(E1PointTest, DeserializeInvalidPoint) {
+TEST(G1PointTest, DeserializeInvalidPoint) {
 	G1AffinePoint result;
 	unsigned char invalid_data[96];
 
@@ -617,7 +617,7 @@ TEST(E1PointTest, DeserializeInvalidPoint) {
 	EXPECT_NE(G1AffinePoint::deserialize(result, invalid_data), BLST_SUCCESS);
 }
 
-TEST(E1PointTest, MultiplePointAddition) {
+TEST(G1PointTest, MultiplePointAddition) {
 	G1Point p1, p3a, p2, result;
 
 	// Get generator point
@@ -658,61 +658,74 @@ TEST(E1PointTest, MultiplePointAddition) {
 }
 
 
-TEST(E1PointTest, MsmPippenger) {
-	const size_t n = 3;
-	G1AffinePoint points[n];
-	using Scaler = byte[32];
-	Scaler scalars[n] = { 0 };
-	//const byte* scalarPtrs[n];
+TEST(G1PointTest, MsmPippenger) {
 
-	// Generate n different points
-	points[0] = G1AffinePoint::generator();
-	auto acc = G1Point::generator();
-	for (size_t i = 1; i < n; i++) {
-		G1Point::dadd_affine(acc, acc, points[i - 1]);
-		G1Point::to_affine(points[i], acc);
-		//scalarPtrs[i] = scalars[i];
-	}
+	for (u64 bits : {3, 5, 8, 16, 25, 256})
+	{
 
-	// Set small scalar values for testing
-	scalars[0][0] = 2;
-	scalars[1][0] = 3;
-	scalars[2][0] = 4;
-	scalars[0][5] = 2;
-	scalars[1][5] = 3;
-	scalars[2][5] = 4;
+		const size_t n = 20;
+		G1AffinePoint points[n];
+        auto bytes = ceil_div(bits, 8);
+        std::vector<u8> scalers(n * bytes, 0);
+		//using Scaler = byte[31];
+		//Scaler scalars[n] = { 0 };
+		//const byte* scalarPtrs[n];
 
-	// Calculate sum of scalar multiplications individually
-	G1Point expected, temp;
-	memset(&expected, 0, sizeof(expected));
-
-	for (size_t i = 0; i < n; i++) {
-		G1Point pi;
-		G1Point::from_affine(pi, points[i]);
-		G1Point::mult(temp, pi, scalars[i], 8*32);
-		if (i == 0) {
-			expected = temp;
+		// Generate n different points
+		points[0] = G1AffinePoint::generator();
+		auto acc = G1Point::generator();
+		for (size_t i = 1; i < n; i++) {
+			G1Point::dadd_affine(acc, acc, points[i - 1]);
+			G1Point::to_affine(points[i], acc);
+			//scalarPtrs[i] = scalars[i];
 		}
-		else {
-			G1Point::add(expected, expected, temp);
+
+        InsecureRng rng;
+		// Set small scalar values for testing
+		for (u64 i = 0; i < n; ++i)
+		{
+			for (u64 b = 0; b < bits; ++b)
+			{
+				auto bb = rng.next_u64() & 1;
+				scalers[i * bytes +  b / 8] |= (bb << (b % 8));
+			}
 		}
+
+		// Calculate sum of scalar multiplications individually
+		G1Point expected, temp;
+		memset(&expected, 0, sizeof(expected));
+
+		for (size_t i = 0; i < n; i++) {
+			G1Point pi;
+			G1Point::from_affine(pi, points[i]);
+			G1Point::mult(temp, pi, &scalers[i * bytes], bits);
+			if (i == 0) {
+				expected = temp;
+			}
+			else {
+				G1Point::add(expected, expected, temp);
+			}
+		}
+		G1Point result;
+		size_t window_size = 5;
+		std::vector<Pointxyzz<Fp>> buckets(1 << (window_size - 1));
+
+		G1AffinePoint* pointParam[2] = { points, nullptr };
+		const byte* scalarParam[2] = { scalers.data(), nullptr};
+		//Test multi-scalar multiplication if available
+		msm_mult_pippenger<Fp>(
+			result, pointParam, n, scalarParam, bits, buckets.data(), window_size);
+		if (!G1Point::equal(result, expected))
+		{
+            std::cout << "Failed at bits=" << bits << std::endl;
+		}
+		EXPECT_TRUE(G1Point::equal(result, expected));
 	}
-	G1Point result;
-	size_t window_size = 5;
-	std::vector<Pointxyzz<Fp>> buckets(1<<(window_size-1));
-
-	G1AffinePoint* pointParam[2] = { points, nullptr };
-	const byte* scalarParam[2] = { (u8*)scalars, nullptr };
-	 //Test multi-scalar multiplication if available
-	msm_mult_pippenger<Fp>(
-		result, pointParam, n, scalarParam, 32 *8, buckets.data(), window_size);
-
-	EXPECT_TRUE(G1Point::equal(result, expected));
 }
 
 
 
-TEST(E1PointTest, MsmTable) {
+TEST(G1PointTest, MsmTable) {
 	const size_t n = 3;
 	G1AffinePoint points[n];
 	using Scaler = byte[32];
@@ -774,7 +787,7 @@ TEST(E1PointTest, MsmTable) {
 	EXPECT_TRUE(eq);
 }
 
-TEST(E1PointTest, AdditionEdgeCases) {
+TEST(G1PointTest, AdditionEdgeCases) {
 	G1Point p1, neg_p1, result, temp;
 
 	// Get generator point
@@ -794,7 +807,7 @@ TEST(E1PointTest, AdditionEdgeCases) {
 	EXPECT_TRUE(G1Point::equal(result, temp));
 }
 
-TEST(E1PointTest, EndomorphismAcceleration) {
+TEST(G1PointTest, EndomorphismAcceleration) {
 	G1Point p1, result1;
 	unsigned char scalar[32];
 
@@ -816,7 +829,7 @@ TEST(E1PointTest, EndomorphismAcceleration) {
 	EXPECT_TRUE(G1Point::on_curve(result1));
 }
 
-TEST(E1PointTest, HashToCurve) {
+TEST(G1PointTest, HashToCurve) {
 	G1Point p1;
 	unsigned char msg[34] = "example message for hash-to-curve";
 	unsigned char dst[30] = "QUUX-V01-CS02-with-BLS12381G1";
@@ -834,7 +847,7 @@ TEST(E1PointTest, HashToCurve) {
 	EXPECT_FALSE(G1Point::equal(p1, p2));
 }
 
-TEST(E1PointTest, InvalidPointHandling) {
+TEST(G1PointTest, InvalidPointHandling) {
 	// Create a point on the curve but not in G1 subgroup
 
 	// Step 1: Map to the curve without cofactor clearing
@@ -879,7 +892,7 @@ TEST(E1PointTest, InvalidPointHandling) {
 	EXPECT_TRUE(cleared_in_g1) << "Cofactor-cleared point should be in G1";
 }
 
-TEST(E1PointTest, SerializationFormats) {
+TEST(G1PointTest, SerializationFormats) {
 	G1Point p1 = G1Point::generator();
 	G1AffinePoint p_affine;
 	G1Point::to_affine(p_affine, p1);
@@ -908,7 +921,7 @@ TEST(E1PointTest, SerializationFormats) {
 }
 
 
-TEST(E1PointTest, MixedAdditionCornerCases) {
+TEST(G1PointTest, MixedAdditionCornerCases) {
 	G1Point p1, result;
 	G1AffinePoint infinity_affine;
 

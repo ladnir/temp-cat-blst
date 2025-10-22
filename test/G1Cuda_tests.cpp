@@ -981,129 +981,132 @@ TEST(G1OpsCUDA, ReduceGroups) {
     }
 
     // Test parameters
-    const int N = 100;       // Total number of elements
+    const int M = 4;         // number of MSMs (reduced for easier testing)
+    const int N = 100;       // number of elements per MSM
     const int wbits = 4;     // Window size (4 bits = 16 possible values)
     const int W = (1 << (wbits - 1)); // Number of groups = 2^(wbits-1) = 8
 
-    // Host data
-    u16 h_keys[N];
-    blst::IdxSign h_vals[N];
-    G1Point h_points[N];
-    Pointxyzz<Fp> h_cuda_groups_xyzz[W];
-    Pointxyzz<Fp> h_cpu_groups_xyzz[W];
-    G1Point h_cuda_groups[W], h_cpu_groups[W];
-    G1AffinePoint h_cuda_groups_affine[W], h_cpu_groups_affine[W];
+    // Host data - now arrays sized for M batches
+    std::vector<u8> h_keys(M * N);
+    std::vector<blst::IdxSign> h_vals(M * N);
+    std::vector<G1Point> h_points(N);  // Shared points across all MSMs
+    std::vector<Pointxyzz<Fp>> h_cuda_groups_xyzz(M * W);
+    std::vector<Pointxyzz<Fp>> h_cpu_groups_xyzz(M * W);
+    std::vector<G1Point> h_cuda_groups(M * W), h_cpu_groups(M * W);
+    std::vector<G1AffinePoint> h_cuda_groups_affine(M * W), h_cpu_groups_affine(M * W);
 
     // Initialize groups to zero
-    memset(h_cuda_groups_xyzz, 0, sizeof(h_cuda_groups_xyzz));
-    memset(h_cpu_groups_xyzz, 0, sizeof(h_cpu_groups_xyzz));
-    memset(h_cuda_groups, 0, sizeof(h_cuda_groups));
-    memset(h_cpu_groups, 0, sizeof(h_cpu_groups));
-    memset(h_cuda_groups_affine, 0, sizeof(h_cuda_groups_affine));
-    memset(h_cpu_groups_affine, 0, sizeof(h_cpu_groups_affine));
+    std::fill(h_cuda_groups_xyzz.begin(), h_cuda_groups_xyzz.end(), Pointxyzz<Fp>{});
+    std::fill(h_cpu_groups_xyzz.begin(), h_cpu_groups_xyzz.end(), Pointxyzz<Fp>{});
+    std::fill(h_cuda_groups.begin(), h_cuda_groups.end(), G1Point{});
+    std::fill(h_cpu_groups.begin(), h_cpu_groups.end(), G1Point{});
+    std::fill(h_cuda_groups_affine.begin(), h_cuda_groups_affine.end(), G1AffinePoint{});
+    std::fill(h_cpu_groups_affine.begin(), h_cpu_groups_affine.end(), G1AffinePoint{});
 
     // Create test data
     InsecureRng rng;
-    create_test_points(h_points, N, rng);
+    create_test_points(h_points.data(), N, rng);
 
-    // Generate sorted keys and packed values
-    // Keys range from 1 to W (group 0 is skipped)
-    for (int i = 0; i < N; i++) {
-        // Distribute elements across groups, with more elements in lower groups
-        h_keys[i] = (i % W) + 1;  // Groups 1 to W
+    // Generate sorted keys and packed values for each MSM
+    for (int m = 0; m < M; m++) {
+        for (int i = 0; i < N; i++) {
+            int global_idx = m * N + i;
 
-        // Pack values: (index << 1) | sign using IdxSign
-        bool sign = (i % 3 == 0); // Every 3rd element is negative
-        h_vals[i] = blst::IdxSign{ static_cast<uint32_t>((i << 1) | (sign ? 1 : 0)) };
-    }
+            // Keys range from 1 to W (group 0 is skipped)
+            // Use different patterns per MSM for variety
+            h_keys[global_idx] = ((i + m) % W) + 1;  // Groups 1 to W
 
-    // Sort by keys (simple bubble sort for test data)
-    for (int i = 0; i < N - 1; i++) {
-        for (int j = 0; j < N - 1 - i; j++) {
-            if (h_keys[j] > h_keys[j + 1]) {
-                // Swap keys
-                u16 temp_key = h_keys[j];
-                h_keys[j] = h_keys[j + 1];
-                h_keys[j + 1] = temp_key;
+            // Pack values: (index << 1) | sign using IdxSign
+            // The index refers to the point in the shared points array
+            bool sign = ((i + m) % 3 == 0); // Every 3rd element is negative (different per MSM)
+            h_vals[global_idx] = blst::IdxSign{ static_cast<uint32_t>((i << 1) | (sign ? 1 : 0)) };
+        }
 
-                // Swap values
-                blst::IdxSign temp_val = h_vals[j];
-                h_vals[j] = h_vals[j + 1];
-                h_vals[j + 1] = temp_val;
+        // Sort by keys within each MSM (bubble sort for test data)
+        for (int i = 0; i < N - 1; i++) {
+            for (int j = 0; j < N - 1 - i; j++) {
+                int idx1 = m * N + j;
+                int idx2 = m * N + j + 1;
+                if (h_keys[idx1] > h_keys[idx2]) {
+                    // Swap keys
+                    std::swap(h_keys[idx1], h_keys[idx2]);
+                    // Swap values
+                    std::swap(h_vals[idx1], h_vals[idx2]);
+                }
             }
         }
     }
 
     // Convert input points to affine for CUDA
-    G1AffinePoint h_affine_points[N];
+    std::vector<G1AffinePoint> h_affine_points(N);
     for (int i = 0; i < N; i++) {
         G1Point::to_affine(h_affine_points[i], h_points[i]);
     }
 
-    // CPU computation - compute expected group sums using XYZZ accumulation
-    for (int i = 0; i < N; i++) {
-        u16 group = h_keys[i];
-        if (group == 0 || group > W) {
-            continue; // Skip invalid groups
+    // CPU computation - compute expected group sums for each MSM using XYZZ accumulation
+    for (int m = 0; m < M; m++) {
+        for (int i = 0; i < N; i++) {
+            int global_idx = m * N + i;
+            u8 group = h_keys[global_idx];
+            if (group == 0 || group > W) {
+                continue; // Skip invalid groups
+            }
+
+            uint32_t idx = h_vals[global_idx].idx();
+            bool sign = h_vals[global_idx].sign();
+
+            if (idx >= N) {
+                continue; // Skip invalid indices
+            }
+
+            G1AffinePoint point_affine = h_affine_points[idx];
+            if (sign) {
+                G1AffinePoint::cneg(point_affine, sign);
+            }
+
+            Pointxyzz<Fp> point_xyzz;
+            Pointxyzz<Fp>::from_affine(point_xyzz, point_affine);
+
+            int group_idx = m * W + (group - 1);
+            Pointxyzz<Fp> sum;
+            Pointxyzz<Fp>::dadd(sum, h_cpu_groups_xyzz[group_idx], point_xyzz);
+            h_cpu_groups_xyzz[group_idx] = sum;
         }
-
-        uint32_t idx = h_vals[i].idx();
-        bool sign = h_vals[i].sign();
-
-        if (idx >= N) {
-            continue; // Skip invalid indices
-        }
-
-        G1AffinePoint point_affine = h_affine_points[idx];
-        if (sign) {
-            G1AffinePoint::cneg(point_affine, sign);
-        }
-
-        Pointxyzz<Fp> point_xyzz;
-        Pointxyzz<Fp>::from_affine(point_xyzz, point_affine);
-
-        Pointxyzz<Fp> sum;
-        Pointxyzz<Fp>::dadd(sum, h_cpu_groups_xyzz[group - 1], point_xyzz);
-        h_cpu_groups_xyzz[group - 1] = sum;
     }
 
-    for (int g = 0; g < W; g++) {
-        Pointxyzz<Fp>::to_Jacobian(h_cpu_groups[g], h_cpu_groups_xyzz[g]);
-        G1Point::to_affine(h_cpu_groups_affine[g], h_cpu_groups[g]);
+    // Convert CPU results to Jacobian and affine for comparison
+    for (int m = 0; m < M; m++) {
+        for (int g = 0; g < W; g++) {
+            int group_idx = m * W + g;
+            Pointxyzz<Fp>::to_Jacobian(h_cpu_groups[group_idx], h_cpu_groups_xyzz[group_idx]);
+            G1Point::to_affine(h_cpu_groups_affine[group_idx], h_cpu_groups[group_idx]);
+        }
     }
 
     // Device memory allocation
-    u16* d_keys;
+    u8* d_keys;
     G1AffinePoint* d_points;
     Pointxyzz<Fp>* d_groups;
+    blst::IdxSign* d_vals;
     void* d_workspace = nullptr;
 
-    CUDA_CHECK(cudaMalloc(&d_keys, N * sizeof(u16)));
+    CUDA_CHECK(cudaMalloc(&d_keys, M * N * sizeof(u8)));
     CUDA_CHECK(cudaMalloc(&d_points, N * sizeof(G1AffinePoint)));
-    CUDA_CHECK(cudaMalloc(&d_groups, W * sizeof(Pointxyzz<Fp>)));
+    CUDA_CHECK(cudaMalloc(&d_groups, M * W * sizeof(Pointxyzz<Fp>)));
+    CUDA_CHECK(cudaMalloc(&d_vals, M * N * sizeof(blst::IdxSign)));
 
     // Copy data to device
-    CUDA_CHECK(cudaMemcpy(d_keys, h_keys, N * sizeof(u16), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_points, h_affine_points, N * sizeof(G1AffinePoint), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_keys, h_keys.data(), M * N * sizeof(u8), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_points, h_affine_points.data(), N * sizeof(G1AffinePoint), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_vals, h_vals.data(), M * N * sizeof(blst::IdxSign), cudaMemcpyHostToDevice));
 
     // Create transform iterator for gathering points with sign
-    auto gather_iter = thrust::make_transform_iterator(
-        h_vals,  // Start with host IdxSign values, but we'll copy to device
-        blst::PackedToPointXYZZ<Fp>{ d_points, N }
-    );
-
-    // We need device IdxSign values for the transform iterator
-    blst::IdxSign* d_vals;
-    CUDA_CHECK(cudaMalloc(&d_vals, N * sizeof(blst::IdxSign)));
-    CUDA_CHECK(cudaMemcpy(d_vals, h_vals, N * sizeof(blst::IdxSign), cudaMemcpyHostToDevice));
-
-    // Create the correct transform iterator using device data
     auto device_gather_iter = thrust::make_transform_iterator(
         d_vals,
         blst::PackedToPointXYZZ<Fp>{ d_points, N }
     );
 
-    // Query workspace size - using single vector version (M=1, N=N, W=W)
+    // Query workspace size - using batched version (M MSMs, N elements each, W groups)
     size_t workspace_bytes = 0;
     cudaError_t result = blst::reduce_groups<blst::Fp>(
         nullptr,          // d_workspace (nullptr to query size)
@@ -1111,8 +1114,9 @@ TEST(G1OpsCUDA, ReduceGroups) {
         d_keys,
         device_gather_iter,
         d_groups,
-        N,
-        W,
+        M,                // Number of MSMs
+        N,                // Number of elements per MSM
+        W,                // Number of groups per MSM
         0);               // default stream
 
     EXPECT_EQ(result, cudaSuccess);
@@ -1121,55 +1125,70 @@ TEST(G1OpsCUDA, ReduceGroups) {
     // Allocate workspace
     CUDA_CHECK(cudaMalloc(&d_workspace, workspace_bytes));
 
-    // Perform the actual reduction
+    // Perform the actual batched reduction
     result = blst::reduce_groups<blst::Fp>(
         d_workspace,
         workspace_bytes,
         d_keys,
         device_gather_iter,
         d_groups,
-        N,
-        W,
+        M,                // Number of MSMs
+        N,                // Number of elements per MSM
+        W,                // Number of groups per MSM
         0);
 
-    // block on stream to catch errors
+    // Block on stream to catch errors
     CUDA_CHECK(cudaStreamSynchronize(0));
 
     if (result != cudaSuccess) {
         const char* err_str = cudaGetErrorString(result);
-        printf("reduce_groups failed: %s\n", err_str);
+        printf("batched reduce_groups failed: %s\n", err_str);
     }
 
     EXPECT_EQ(result, cudaSuccess);
 
     // Copy results back to host
-    CUDA_CHECK(cudaMemcpy(h_cuda_groups_xyzz, d_groups, W * sizeof(Pointxyzz<Fp>), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_cuda_groups_xyzz.data(), d_groups, M * W * sizeof(Pointxyzz<Fp>), cudaMemcpyDeviceToHost));
 
-    for (int g = 0; g < W; g++) {
-        Pointxyzz<Fp>::to_Jacobian(h_cuda_groups[g], h_cuda_groups_xyzz[g]);
-        G1Point::to_affine(h_cuda_groups_affine[g], h_cuda_groups[g]);
-    }
-
-    // Compare results
-    bool all_match = true;
-    for (int g = 0; g < W; g++) {
-        if (!G1AffinePoint::equal(h_cuda_groups_affine[g], h_cpu_groups_affine[g])) {
-            printf("Group %d mismatch\n", g + 1);
-            all_match = false;
+    // Convert CUDA results to Jacobian and affine for comparison
+    for (int m = 0; m < M; m++) {
+        for (int g = 0; g < W; g++) {
+            int group_idx = m * W + g;
+            Pointxyzz<Fp>::to_Jacobian(h_cuda_groups[group_idx], h_cuda_groups_xyzz[group_idx]);
+            G1Point::to_affine(h_cuda_groups_affine[group_idx], h_cuda_groups[group_idx]);
         }
     }
 
-    EXPECT_TRUE(all_match) << "CUDA and CPU group reductions should match";
+    // Compare results for each MSM
+    bool all_match = true;
+    for (int m = 0; m < M; m++) {
+        for (int g = 0; g < W; g++) {
+            int group_idx = m * W + g;
+            if (!G1AffinePoint::equal(h_cuda_groups_affine[group_idx], h_cpu_groups_affine[group_idx])) {
+                printf("MSM %d, Group %d mismatch\n", m, g + 1);
+                all_match = false;
+            }
+        }
+    }
+
+    EXPECT_TRUE(all_match) << "CUDA and CPU batched group reductions should match";
 
     // Additional verification: check that some groups have non-zero results
     bool has_nonzero = false;
-    for (int g = 0; g < W; g++) {
-        if (!G1AffinePoint::is_inf(h_cuda_groups_affine[g])) {
-            has_nonzero = true;
-            break;
+    for (int m = 0; m < M; m++) {
+        for (int g = 0; g < W; g++) {
+            int group_idx = m * W + g;
+            if (!G1AffinePoint::is_inf(h_cuda_groups_affine[group_idx])) {
+                has_nonzero = true;
+                break;
+            }
         }
+        if (has_nonzero) break;
     }
     EXPECT_TRUE(has_nonzero) << "At least some groups should have non-zero results";
+
+    //printf("Batched reduce_groups test: %d MSMs, %d points each, %d groups per MSM - %s\n",
+    //    M, N, W, all_match ? "PASSED" : "FAILED");
 
     // Cleanup
     CUDA_CHECK(cudaFree(d_keys));
@@ -1178,45 +1197,56 @@ TEST(G1OpsCUDA, ReduceGroups) {
     CUDA_CHECK(cudaFree(d_groups));
     CUDA_CHECK(cudaFree(d_workspace));
 }
-
 TEST(G1OpsCUDA, ReduceGroupsEdgeCases) {
     if (!G1CUDAEnvironment::IsCudaAvailable()) {
         GTEST_SKIP() << "CUDA not available";
     }
 
     // Test with minimal data and edge cases
-    const int N = 10;
-    const int wbits = 3; // 3 bits = 8 possible values
+    const int M = 2;         // number of MSMs (small for edge case testing)
+    const int N = 10;        // number of elements per MSM
+    const int wbits = 3;     // 3 bits = 8 possible values
     const int W = (1 << (wbits - 1)); // 4 groups
 
-    // Properly sorted keys: all instances of same key are contiguous
-    u16 h_keys[N] = { 1, 1, 1, 2, 2, 2, 3, 3, 4, 4 }; // Actually sorted now
-    blst::IdxSign h_vals[N];
-    G1Point h_points[N];
-    G1AffinePoint h_affine_points[N];
+    // Properly sorted keys: all instances of same key are contiguous within each MSM
+    std::vector<u8> h_keys(M * N);
+    std::vector<blst::IdxSign> h_vals(M * N);
+    std::vector<G1Point> h_points(N);
+    std::vector<G1AffinePoint> h_affine_points(N);
 
     // Create test points
     InsecureRng rng;
-    create_test_points(h_points, N, rng);
+    create_test_points(h_points.data(), N, rng);
     for (int i = 0; i < N; i++) {
         G1Point::to_affine(h_affine_points[i], h_points[i]);
-        h_vals[i] = blst::IdxSign{ static_cast<uint32_t>(i << 1) }; // All positive (sign bit = 0)
+    }
+
+    // Set up keys and values for each MSM
+    for (int m = 0; m < M; m++) {
+        // Create sorted keys pattern for this MSM
+        std::vector<u8> msm_keys = { 1, 1, 1, 2, 2, 2, 3, 3, 4, 4 }; // Actually sorted
+
+        for (int i = 0; i < N; i++) {
+            int global_idx = m * N + i;
+            h_keys[global_idx] = msm_keys[i];
+            h_vals[global_idx] = blst::IdxSign{ static_cast<uint32_t>(i << 1) }; // All positive (sign bit = 0)
+        }
     }
 
     // Device allocation
-    u16* d_keys;
+    u8* d_keys;
     blst::IdxSign* d_vals;
     G1AffinePoint* d_points;
     Pointxyzz<Fp>* d_groups;
 
-    CUDA_CHECK(cudaMalloc(&d_keys, N * sizeof(u16)));
-    CUDA_CHECK(cudaMalloc(&d_vals, N * sizeof(blst::IdxSign)));
+    CUDA_CHECK(cudaMalloc(&d_keys, M * N * sizeof(u8)));
+    CUDA_CHECK(cudaMalloc(&d_vals, M * N * sizeof(blst::IdxSign)));
     CUDA_CHECK(cudaMalloc(&d_points, N * sizeof(G1AffinePoint)));
-    CUDA_CHECK(cudaMalloc(&d_groups, W * sizeof(Pointxyzz<Fp>)));
+    CUDA_CHECK(cudaMalloc(&d_groups, M * W * sizeof(Pointxyzz<Fp>)));
 
-    CUDA_CHECK(cudaMemcpy(d_keys, h_keys, N * sizeof(u16), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_vals, h_vals, N * sizeof(blst::IdxSign), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_points, h_affine_points, N * sizeof(G1AffinePoint), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_keys, h_keys.data(), M * N * sizeof(u8), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_vals, h_vals.data(), M * N * sizeof(blst::IdxSign), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_points, h_affine_points.data(), N * sizeof(G1AffinePoint), cudaMemcpyHostToDevice));
 
     // Create transform iterator
     auto gather_iter = thrust::make_transform_iterator(
@@ -1224,10 +1254,10 @@ TEST(G1OpsCUDA, ReduceGroupsEdgeCases) {
         blst::PackedToPointXYZZ<Fp>{ d_points, N }
     );
 
-    // Test workspace size query
+    // Test workspace size query for batched version
     size_t workspace_bytes = 0;
     cudaError_t result = blst::reduce_groups<blst::Fp>(
-        nullptr, workspace_bytes, d_keys, gather_iter, d_groups, N, W, 0);
+        nullptr, workspace_bytes, d_keys, gather_iter, d_groups, M, N, W, 0);
 
     EXPECT_EQ(result, cudaSuccess);
 
@@ -1237,7 +1267,7 @@ TEST(G1OpsCUDA, ReduceGroupsEdgeCases) {
     CUDA_CHECK(cudaMalloc(&d_workspace, small_workspace));
 
     result = blst::reduce_groups<blst::Fp>(
-        d_workspace, small_workspace, d_keys, gather_iter, d_groups, N, W, 0);
+        d_workspace, small_workspace, d_keys, gather_iter, d_groups, M, N, W, 0);
 
     EXPECT_EQ(result, cudaErrorInvalidValue) << "Should fail with insufficient workspace";
 
@@ -1246,9 +1276,11 @@ TEST(G1OpsCUDA, ReduceGroupsEdgeCases) {
     CUDA_CHECK(cudaMalloc(&d_workspace, workspace_bytes));
 
     result = blst::reduce_groups<blst::Fp>(
-        d_workspace, workspace_bytes, d_keys, gather_iter, d_groups, N, W, 0);
+        d_workspace, workspace_bytes, d_keys, gather_iter, d_groups, M, N, W, 0);
 
     EXPECT_EQ(result, cudaSuccess);
+
+    //printf("Batched reduce_groups edge cases: %d MSMs, %d points each, %d groups per MSM - PASSED\n", M, N, W);
 
     // Cleanup
     CUDA_CHECK(cudaFree(d_keys));
@@ -1257,15 +1289,6 @@ TEST(G1OpsCUDA, ReduceGroupsEdgeCases) {
     CUDA_CHECK(cudaFree(d_groups));
     CUDA_CHECK(cudaFree(d_workspace));
 }
-
-
-
-
-
-
-
-
-
 
 
 
