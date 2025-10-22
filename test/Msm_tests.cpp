@@ -71,12 +71,12 @@ TEST(Msm, BoothBatchedPipeline) {
     //}
 
     bool debug = false;
-    bool print = true;
+    bool print = false;
 
     // Test parameters
-    const int N = 16;        // points per MSM
-    const int M = 2;         // number of MSMs
-    const int nbits = 6;   // scalar bit length
+    const int N = 33;        // points per MSM
+    const int M = 3;         // number of MSMs
+    const int nbits = 7;   // scalar bit length
     const int nbytes = (nbits + 7) / 8;
     const int wbits = 3;     // window size
 
@@ -131,7 +131,7 @@ TEST(Msm, BoothBatchedPipeline) {
             nbits,
             scratch,
             wbits,
-            m==1
+            m==1 && print
         );
 
    //     auto w = wbits;
