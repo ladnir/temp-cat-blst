@@ -288,7 +288,7 @@ namespace blst
 		d3Span<u8> d_sorted_digit,   // [D][M][N] sorted digits
 		d3Span<IdxSign> d_sorted_index_signs, // [D][M][N] sorted index signs
 		d3Span<Pointxyzz<Field>> d_groups,    // [D][M][W] reduced groups
-		const AffinePoint<Field>* d_points,   // [M*N] input points
+		d2Span<const AffinePoint<Field>> d_points,   // [M*N] input points
 		Stream stream)
 	{
 #ifndef NDEBUG
@@ -310,7 +310,7 @@ namespace blst
 		MSM_CHECK(streamSynchronize(stream));
 
 		// Print first few non-zero group coordinates
-		printf("\ngroups:\n");
+		printf("\ngroups [D][M][W]:\n");
 		for (int d = 0; d < D; d++) {
 			for (int m = 0; m < M; m++) {
 				for (int g = 0; g < W; g++) {
@@ -375,14 +375,14 @@ namespace blst
 		}
 
 		// Print window sums
-		printf("\nWindow sums (X coordinates):\n");
-		for (int d = 0; d < std::min(D, 3); d++) {
-			for (int m = 0; m < std::min(M, 2); m++) {
+		printf("\nWindow sums[D][M]:\n");
+		for (int d = 0; d < D; d++) {
+			for (int m = 0; m < M; m++) {
 				size_t window_idx = d * M + m;
 				bool is_infinity = blst::detail::is_infinity(h_window_sums[window_idx]);
 				if (!is_infinity) {
-					printf("  WindowSum[%d][%d]: X[0]=0x%016llx\n",
-						d, m, (unsigned long long)h_window_sums[window_idx].X[0]);
+					printf("  WindowSum[%d][%d]: %llu\n",
+						d, m, (unsigned long long)hash_point(h_window_sums[window_idx]));
 				}
 				else {
 					printf("  WindowSum[%d][%d]: INFINITY\n", d, m);
@@ -412,7 +412,7 @@ namespace blst
 		int D,                       // number of windows
 		int wbits,                   // window size
 		d2Span<Point<Field>> d_window_sums,  // [D][M] input window sums
-		Point<Field>* d_outputs,     // [M] output results
+		span<Point<Field>> d_outputs,     // [M] output results
 		Stream stream)
 	{
 #ifndef NDEBUG
@@ -426,20 +426,20 @@ namespace blst
 		// Copy data from device to host
 		MSM_CHECK(memcpyAsync(h_window_sums.data(), d_window_sums.data_handle(),
 			D * M * sizeof(Point<Field>), MemcpyKind::DeviceToHost, stream));
-		MSM_CHECK(memcpyAsync(h_outputs.data(), d_outputs,
+		MSM_CHECK(memcpyAsync(h_outputs.data(), d_outputs.data(),
 			M * sizeof(Point<Field>), MemcpyKind::DeviceToHost, stream));
 		MSM_CHECK(streamSynchronize(stream));
 
 		// Print input window sums for folding
-		printf("\nInput window sums for folding:\n");
-		for (int m = 0; m < std::min(M, 2); m++) {
+		printf("\nInput window sums for folding[M][D]:\n");
+		for (int m = 0; m < M; m++) {
 			printf("  MSM %d:\n", m);
-			for (int d = 0; d < std::min(D, 4); d++) {
-				size_t idx = m * D + d;
+			for (int d = 0; d < D; d++) {
+				size_t idx = d * M + m;
 				bool is_infinity = blst::detail::is_infinity(h_window_sums[idx]);
 				if (!is_infinity) {
-					printf("    Window[%d]: X[0]=0x%016llx\n",
-						d, (unsigned long long)h_window_sums[idx].X[0]);
+					printf("    Window[%d]: %llu\n",
+						d, (unsigned long long)hash_point(h_window_sums[idx]));
 				}
 				else {
 					printf("    Window[%d]: INFINITY\n", d);
@@ -448,14 +448,14 @@ namespace blst
 		}
 
 		// Print final outputs
-		printf("\nFinal MSM outputs:\n");
+		printf("\nFinal MSM outputs[M]:\n");
 		for (int m = 0; m < M; m++) {
 			bool is_infinity = blst::detail::is_infinity(h_outputs[m]);
 			bool on_curve = G1Point::on_curve(h_outputs[m]);
 
 			if (!is_infinity) {
-				printf("  MSM[%d]: X[0]=0x%016llx, on_curve=%s\n",
-					m, (unsigned long long)h_outputs[m].X[0], on_curve ? "YES" : "NO");
+				printf("  MSM[%d]: %llu, on_curve=%s\n",
+					m, (unsigned long long)hash_point(h_outputs[m]), on_curve ? "YES" : "NO");
 			}
 			else {
 				printf("  MSM[%d]: INFINITY, on_curve=%s\n", m, on_curve ? "YES" : "NO");
@@ -587,21 +587,29 @@ namespace blst
 	// taka flat array of scalars, extract the w-bit Booth encoded digits
 	// the output order is column-major by digit. First row has the N LSB digits, ...
 	DeviceError extract_digits_flat(
-		const uint8_t* BLST_restrict scalars,
-		int N,                // number of scalars
-		WindowExtract* d_windows,
+		d2Span<const uint8_t> scalars, // [M*N][nbytes]
+		int num_scalars,                // number of scalars
+		span<WindowExtract> d_windows, // [D]
 		int nbytes,           // bytes per scalar
 		int nbits,            // significant bits per scalar
 		int wbits,            // window size (e.g., 5). W=2^wbits
 		int D,                // number of windows = ceil(nbits / wbits)
-		u8* BLST_restrict digit,    // {0,1}^N*D
-		IdxSign* BLST_restrict idx_sign,// [0,N]|{0,1}^N*D
+		d2Span<u8> digit,    // [D][M*N]
+		d2Span<IdxSign> idx_sign, // [D][M*N]
 		Stream stream)
 	{
-		if (N <= 0 || D <= 0)
+		if (num_scalars <= 0 || D <= 0)
 			return DeviceError::cudaSuccess;
 
-		int total = N * D;
+		BLST_ASSERT(wbits > 0 && wbits <= 8);
+		BLST_ASSERT(d_windows.size() == D);
+		BLST_ASSERT(digit.extent(0) == static_cast<size_t>(D));
+		BLST_ASSERT(idx_sign.extent(0) == static_cast<size_t>(D));
+		BLST_ASSERT(digit.extent(1) == static_cast<size_t>(num_scalars));
+		BLST_ASSERT(idx_sign.extent(1) == static_cast<size_t>(num_scalars));
+
+
+		int total = num_scalars * D;
 		int blockSize = 256;
 		int numBlocks = (total + blockSize - 1) / blockSize;
 #ifdef BLST_CUDA
@@ -619,8 +627,13 @@ namespace blst
 		{
 			int i = tid / D;     // scalar index
 			int d = tid % D;     // window index (0 = LSB window)
-			extract_digits_flat(d, i, scalars, N, nbytes, nbits,
-				d_windows, wbits, D, digit, idx_sign);
+			extract_digits_flat(
+				d, i,
+				scalars.data_handle(), num_scalars,
+				nbytes, nbits,
+				d_windows.data(), wbits, D,
+				digit.data_handle(),
+				idx_sign.data_handle());
 		}
 
 #endif // BLST_CUDA
@@ -867,7 +880,7 @@ namespace blst
 		const ValT* __restrict d_group_vals,
 		const size_t* __restrict d_num_runs_ptr,
 		int W,
-		int M,
+		int num_sets,
 		Pointxyzz<Field>* __restrict d_groups)
 	{
 		if (tid >= *d_num_runs_ptr)
@@ -882,10 +895,10 @@ namespace blst
 			return;
 
 		size_t out_idx = static_cast<size_t>(m) * static_cast<size_t>(W) + static_cast<size_t>(k - 1);
-		//if (out_idx >= M * W)
+		//if (out_idx >= num_sets * W)
 		//{
 		//	printf("ERROR: scatter_group_sums_multi_kernel invalid output index %zu (m=%u, k=%u, W=%d, M=%d)\n",
-		//		out_idx, m, k, W, M);
+		//		out_idx, m, k, W, num_sets);
 		//	return;
 		//}
 		d_groups[out_idx] = static_cast<Pointxyzz<Field>>(d_group_vals[tid]);
@@ -916,19 +929,24 @@ namespace blst
 	}
 #endif // BLST_CUDA
 
+	// copy each group to its output location in d_groups
+	// d_group_keys: [num_sets * (W+1)] in [num_sets] * {0,1,...,W} , in packed form.
+	// d_group_vals: [num_sets * (W+1)]
+	// d_num_runs: [1], the number of actual groups, excluding empty groups
+
 	template<class Field, class ValT>
 	DeviceError scatter_group_sums_multi(
-		const uint32_t* __restrict d_group_keys,
-		const ValT* __restrict d_group_vals,
-		const size_t* __restrict d_num_runs,
-		int group_count,
-		int M,
-		Pointxyzz<Field>* __restrict d_groups,
+		span<const uint32_t> d_group_keys,   // [num_sets * (W+1)], d_num_runs of them are valid
+		span<const ValT> d_group_vals,       // [num_sets * (W+1)], d_num_runs of them are valid
+		const size_t* __restrict d_num_runs, // [1], the number of actual groups, excluding empty groups
+		int W,                               // the number of groups per set (max)
+		int num_sets,                        // the number of sets (D*M)
+		d2Span<Pointxyzz<Field>> d_groups, // [num_sets][W], zero groups skipped.
 		Stream stream)
 	{
 #ifdef BLST_CUDA
 		int blk = 256;
-		size_t scatter_threads = group_count;
+		size_t scatter_threads = W;
 		int grd = static_cast<int>((scatter_threads + blk - 1) / blk);
 
 		scatter_group_sums_multi_kernel<Field, ValT>
@@ -936,8 +954,8 @@ namespace blst
 				d_group_keys,
 				d_group_vals,
 				d_num_runs,
-				group_count,
-				M,
+				W,
+				num_sets,
 				d_groups);
 
 		return getLastError();
@@ -946,12 +964,12 @@ namespace blst
 		{
 			scatter_group_sums_multi_kernel<Field, ValT>(
 				tid,
-				d_group_keys,
-				d_group_vals,
+				d_group_keys.data(),
+				d_group_vals.data(),
 				d_num_runs,
-				group_count,
-				M,
-				d_groups);
+				W,
+				num_sets,
+				d_groups.data_handle());
 		}
 		return DeviceError::cudaSuccess;
 
@@ -1088,19 +1106,23 @@ namespace blst
 	DeviceError reduce_groups(
 		void* d_workspace,
 		size_t& workspace_bytes,
-		const u8* d_keys,
-		SrcIter&& src_iter,
-		Pointxyzz<Field>* d_groups,
-		int M,
+		d2Span<const u8> d_keys, // [D*M][N] keys in [0..W]
+		SrcIter&& src_iter,      // flat [D*M][N] input iterater, *iter = Pointxyzz<Field>
+		d2Span<Pointxyzz<Field>> d_groups,// [D*M][W] output groups
+		int num_sets, // D*M
 		int N,
 		int W,
 		Stream stream)
 	{
+
+
 		using SrcItDecayed = typename std::decay<SrcIter>::type;
 		using ValT = DefaultedPointxyzz<Field>;
 
-		size_t total = static_cast<size_t>(M) * static_cast<size_t>(N);
-		size_t group_count = static_cast<size_t>(M) * static_cast<size_t>(W + 1);
+		size_t total = num_sets * N;
+
+		// the number of groups, including group 0
+		size_t total_groups = num_sets * (W + 1);
 
 
 		auto idx_first = counting_iterator<size_t>(0);
@@ -1108,7 +1130,7 @@ namespace blst
 			idx_first,
 			[=] BLST_DEVICE(size_t idx) -> uint32_t
 		{
-			u8 k = d_keys[idx];
+			u8 k = d_keys.data_handle()[idx];
 			size_t m = idx / static_cast<size_t>(N);
 			size_t wspan = static_cast<size_t>(W + 1);
 			return static_cast<uint32_t>(m * wspan + static_cast<size_t>(k));
@@ -1137,9 +1159,9 @@ namespace blst
 			size_t required = 0;
 			required += temp_storage_bytes;
 			required = align_up_size(required, alignof(ValT));
-			required += sizeof(ValT) * group_count;
+			required += sizeof(ValT) * total_groups;
 			required = align_up_size(required, alignof(uint32_t));
-			required += sizeof(uint32_t) * group_count;
+			required += sizeof(uint32_t) * total_groups;
 			required = align_up_size(required, alignof(size_t));
 			required += sizeof(size_t);
 
@@ -1161,8 +1183,8 @@ namespace blst
 #ifndef NDEBUG
 		{
 			bool keys_ok = all_of(stream,
-				d_keys,
-				d_keys + total,
+				d_keys.data_handle(),
+				d_keys.data_handle() + total,
 				[=] BLST_DEVICE(u8 k)
 			{
 				return k <= static_cast<u8>(W);
@@ -1177,25 +1199,36 @@ namespace blst
 		ws += temp_storage_bytes;
 
 		ws = align_up_ptr(ws, alignof(ValT));
-		ValT* d_group_vals = reinterpret_cast<ValT*>(ws);
-		ws += sizeof(ValT) * group_count;
+
+		// flat buffer for group values, some might be missing
+		span<ValT> d_group_vals(reinterpret_cast<ValT*>(ws), num_sets * (W + 1)); // [D*M * (W+1)]
+		ws += sizeof(ValT) * total_groups;
 
 		ws = align_up_ptr(ws, alignof(uint32_t));
-		uint32_t* d_group_keys = reinterpret_cast<uint32_t*>(ws);
-		ws += sizeof(uint32_t) * group_count;
-		memsetAsync(d_group_keys, 0, sizeof(uint32_t) * group_count, stream);
+		// flat buffer for group keys, some might be missing
+		span<uint32_t> d_group_keys(reinterpret_cast<uint32_t*>(ws), num_sets * (W + 1)); // [D*M * (W+1)]
+		ws += sizeof(uint32_t) * total_groups;
 
+		// buffer to contain the actual number of groups found
 		ws = align_up_ptr(ws, alignof(size_t));
 		size_t* d_num_runs = reinterpret_cast<size_t*>(ws);
 		ws += sizeof(size_t);
+
+		BLST_ASSERT(num_sets > 0);
+		BLST_ASSERT(d_keys.extent(0) == num_sets);
+		BLST_ASSERT(d_keys.extent(1) == N);
+		BLST_ASSERT(d_groups.extent(0) == num_sets);
+		BLST_ASSERT(d_groups.extent(1) == W);
+
+
 
 		DeviceError err = ReduceByKey(
 			d_temp_storage,
 			temp_storage_bytes,
 			global_key_iter,
-			d_group_keys,
+			d_group_keys.data(),
 			src_iter,
-			d_group_vals,
+			d_group_vals.data(),
 			d_num_runs,
 			XYZZAdd<Field>{},
 			static_cast<int>(total),
@@ -1205,10 +1238,10 @@ namespace blst
 
 		//for (u64 i = 0; i < *d_num_runs; i++)
 		//{
-		//	if (d_group_keys[i] >= group_count)
+		//	if (d_group_keys[i] >= total_groups)
 		//	{
-		//		printf("ERROR: reduce_groups invalid group key %u (group_count=%zu)\n",
-		//			d_group_keys[i], group_count);
+		//		printf("ERROR: reduce_groups invalid group key %u (total_groups=%zu)\n",
+		//			d_group_keys[i], total_groups);
 		//		return DeviceError::cudaErrorInvalidValue;
 		//	}
 		//	Point<Field> p;
@@ -1217,16 +1250,22 @@ namespace blst
 		//		d_group_keys[i], hash_point(p));
 		//}
 
-		size_t out_elems = static_cast<size_t>(M) * static_cast<size_t>(W);
-		auto ec = memsetAsync(d_groups, 0, sizeof(Pointxyzz<Field>) * out_elems, stream);
+		// since some groups may be missing, we need to scatter the results
+		// and zero out the missing groups.
+		size_t out_elems = static_cast<size_t>(num_sets) * static_cast<size_t>(W);
+		auto ec = memsetAsync(d_groups.data_handle(), 0, sizeof(Pointxyzz<Field>) * out_elems, stream);
 		if (ec != DeviceError::cudaSuccess)
 			return ec;
 
+
+		// scatter the group sums to their output locations, skipping group 0
+		// and skipping missing groups.
 		ec = scatter_group_sums_multi<Field, ValT>(
 			d_group_keys,
 			d_group_vals,
 			d_num_runs,
-			W, M,
+			W,
+			num_sets,
 			d_groups,
 			stream);
 
@@ -1283,13 +1322,13 @@ namespace blst
 		Point<Field>* BLST_restrict d_window_sums       // [M*D] Jacobian out
 	)
 	{
-		if (tid >= D)
+		if (tid >= D * M)
 			return;
 		auto d = tid / M;
 		auto m = tid % M;
 
 		auto& window = d_windows[d];
-		
+
 		const Pointxyzz<Field>* buckets = d_groups_xyzz + (size_t)tid * (size_t)W;
 
 		Point<Field> out;
@@ -1337,14 +1376,21 @@ namespace blst
 
 	template<class Field>
 	DeviceError integrate_buckets_xyzz_(
-		Pointxyzz<Field>* d_groups_xyzz,  // [M*D*W]
-		WindowExtract* d_windows,
+		d3Span<Pointxyzz<Field>> d_groups_xyzz,  // [D*M*W]
+		span<WindowExtract> d_windows, // [D]
 		int M,
 		int D,
 		int W,
-		Point<Field>* d_window_sums,      // [M*D]
+		d2Span<Point<Field>> d_window_sums,      // [D*M]
 		Stream stream = 0)
 	{
+		BLST_ASSERT(d_groups_xyzz.extent(0) == (size_t)D);
+		BLST_ASSERT(d_groups_xyzz.extent(1) == (size_t)M);
+		BLST_ASSERT(d_groups_xyzz.extent(2) == (size_t)W);
+		BLST_ASSERT(d_window_sums.extent(0) == (size_t)D);
+		BLST_ASSERT(d_window_sums.extent(1) == (size_t)M);
+		BLST_ASSERT(d_windows.size() == (size_t)D);
+
 		auto total = M * D;
 #ifdef BLST_CUDA
 		int blk = 256;
@@ -1361,12 +1407,12 @@ namespace blst
 		{
 			integrate_buckets_xyzz_kernel<Field>(
 				i,
-				d_groups_xyzz,
-				d_windows,
+				d_groups_xyzz.data_handle(),
+				d_windows.data(),
 				M,
 				D,
 				W,
-				d_window_sums);
+				d_window_sums.data_handle());
 		}
 		return DeviceError::cudaSuccess;
 #endif // BLST_CUDA
@@ -1375,7 +1421,7 @@ namespace blst
 	template<class Field>
 	void fold_windows_kernel(
 		int m,
-		const Point<Field>* BLST_restrict d_window_sums, // [M*D], index = m*D + d
+		const Point<Field>* BLST_restrict d_window_sums, // [D*M], index = m*D + d
 		int M,
 		int D,
 		int wbits,
@@ -1393,7 +1439,7 @@ namespace blst
 			for (int j = 0; j < wbits; ++j)
 				Point<Field>::doubling(acc, acc);
 
-			const Point<Field>& win = d_window_sums[m * D + d];
+			const Point<Field>& win = d_window_sums[d * M + m];
 			Point<Field> tmp;
 			Point<Field>::dadd(tmp, acc, win, NULL);
 			acc = tmp;
@@ -1425,13 +1471,17 @@ namespace blst
 
 	template<class Field>
 	DeviceError fold_windows(
-		const Point<Field>* d_window_sums, // [M*D]
+		d2Span<const Point<Field>> d_window_sums, // [D][M]
 		int M,
 		int D,
 		int wbits,
-		Point<Field>* d_outputs,           // [M]
+		span<Point<Field>> d_outputs,           // [M]
 		Stream stream = 0)
 	{
+		BLST_ASSERT(d_window_sums.extent(0) == (size_t)D);
+		BLST_ASSERT(d_window_sums.extent(1) == (size_t)M);
+		BLST_ASSERT(d_outputs.size() == (size_t)M);
+
 #ifdef BLST_CUDA
 
 
@@ -1449,11 +1499,11 @@ namespace blst
 		{
 			fold_windows_kernel<Field>(
 				(int)m,
-				d_window_sums,
+				d_window_sums.data_handle(),
 				M,
 				D,
 				wbits,
-				d_outputs);
+				d_outputs.data());
 		}
 		return DeviceError::cudaSuccess;
 #endif // BLST_CUDA
@@ -1480,19 +1530,27 @@ namespace blst
 	DeviceError msm_booth_batched_pipeline(
 		void* d_workspace,                          // nullptr => size query
 		size_t& workspace_bytes,                    // in/out
-		const AffinePoint<Field>* d_points,         // [N]
-		const uint8_t* d_scalars,                   // [M * N * nbytes], flat (instance-major or scalar-major is fine as long as your digit-extract matches)
+		d2Span<const AffinePoint<Field>> d_points,  // [M][N]
+		d3Span<const uint8_t> d_scalars,            // [M][N][nbytes],
 		int nbytes,
 		int nbits,
 		int N,                                      // points per MSM
 		int M,                                      // number of MSMs
 		int wbits,                                  // window bits (Booth)
 		/* final outputs: */
-		Point<Field>* d_outputs,                    // [M]
+		span<Point<Field>> d_outputs,                    // [M]
 		Stream stream = 0,
 		bool debug = false,
 		bool print = false)
 	{
+		BLST_ASSERT(d_points.extent(0) == (size_t)M);
+		BLST_ASSERT(d_points.extent(1) == (size_t)N);
+		BLST_ASSERT(d_scalars.extent(0) == (size_t)M);
+		BLST_ASSERT(d_scalars.extent(1) == (size_t)N);
+		BLST_ASSERT(d_scalars.extent(2) == (size_t)nbytes);
+		BLST_ASSERT(d_outputs.size() == (size_t)M);
+
+
 		if (N <= 0 || M <= 0 || wbits <= 0)
 			return DeviceError::cudaErrorInvalidValue;
 
@@ -1540,7 +1598,7 @@ namespace blst
 				(IdxSign*) nullptr,
 				(IdxSign*) nullptr,
 				N,
-				D,
+				D * M,
 				wbits,
 				stream);
 			if (ec != DeviceError::cudaSuccess)
@@ -1555,9 +1613,9 @@ namespace blst
 			DeviceError ec = reduce_groups<Field>(
 				nullptr,
 				reduce_ws,
-				(u8*)nullptr,
+				{}, // keys
 				(DefaultedPointxyzz<Field>*)nullptr,
-				(Pointxyzz<Field>*)nullptr,
+				{}, // groups
 				D * M,
 				N,
 				W,
@@ -1628,11 +1686,13 @@ namespace blst
 
 		// copy windows to device
 		auto buffer_d_iter = align_up_ptr(buffer_d.data(), alignof(WindowExtract));
-		auto d_windows = reinterpret_cast<WindowExtract*>(buffer_d_iter);
+		auto d_windows = span<WindowExtract>(
+			reinterpret_cast<WindowExtract*>(buffer_d_iter),
+			D);
 		auto ec = memcpyAsync(
-			d_windows,
+			d_windows.data(),
 			windows.data(),
-			sizeof(WindowExtract) * D,
+			d_windows.size_bytes(),
 			MemcpyKind::HostToDevice,
 			stream);
 		if (ec != DeviceError::cudaSuccess)
@@ -1641,6 +1701,25 @@ namespace blst
 		// ---- Pipeline ----
 		// 
 
+		// helper to reinterpret d3Span<u8> as d2Span<u8>, combining the first two dims.
+		auto d2Outter = []<typename T>(d3Span<T> span) -> d2Span<T>
+		{
+			return d2Span<T>(
+				span.data_handle(),
+				span.extent(0) * span.extent(1),
+				span.extent(2));
+		};
+
+
+		// helper to reinterpret d3Span<u8> as d2Span<u8>, combining the second two dims.
+		auto d2Inner = []<typename T>(d3Span<T> span) -> d2Span<T>
+		{
+			return d2Span<T>(
+				span.data_handle(),
+				span.extent(0),
+				span.extent(1) * span.extent(2));
+		};
+
 
 		// we have M*N scalars, each nbytes long.
 		// for each we need to extract D digits of wbits each.
@@ -1648,22 +1727,22 @@ namespace blst
 		// the middle dimension is the MSM index (0..M-1).
 		// the inner most dimension is the scalar index (0..N-1).
 		ec = extract_digits_flat(
-			d_scalars,       // [M*N*nbytes]
+			d2Outter(d_scalars),       // [M*N][nbytes]
 			(M * N),         // total scalars
 			d_windows,
 			nbytes,
 			nbits,
 			wbits,
 			D,
-			d_digit.data_handle(),    // [D*M*N]  digit
-			d_index_signs.data_handle(),     // [D*M*N]  index|sign
+			d2Inner(d_digit),        // [D][M*N]  digit
+			d2Inner(d_index_signs),  // [D][M*N]  index|sign
 			stream
 		);
 		if (ec != DeviceError::cudaSuccess)
 			return ec;
 
-		if (print)
-		    print_extract_digit<Field>(d_scalars, nbytes, nbits, wbits, N, M, D, d_digit, d_index_signs, stream);
+		//if (print)
+		//    print_extract_digit<Field>(d_scalars, nbytes, nbits, wbits, N, M, D, d_digit, d_index_signs, stream);
 
 		// for each of the D*M digit slices of N elements,
 		// sort the digits and store the result in d_index_2d.
@@ -1676,7 +1755,7 @@ namespace blst
 			d_index_signs.data_handle(),   // D*M vectors, each of length N. contains src idx
 			d_sorted_index_signs.data_handle(),   // D*M vectors, each of length N. contains src idx
 			N,
-			D,
+			D * M,
 			wbits,
 			stream);
 		if (ec != DeviceError::cudaSuccess)
@@ -1703,23 +1782,22 @@ namespace blst
 		//	}
 		//}
 
-		if (print)
-		    print_sort_digit_indexsigns<Field>(N, M, D, wbits, d_digit, d_index_signs, d_sorted_digit, d_sorted_index_signs, stream);
+		//if (print)
+		//    print_sort_digit_indexsigns<Field>(N, M, D, wbits, d_digit, d_index_signs, d_sorted_digit, d_sorted_index_signs, stream);
 
 		// gather the points into Pointxyzz, applying sign.
 		auto gather_iter = transform_iterator(
 			d_sorted_index_signs.data_handle(),
-			PackedToPointXYZZ<Field>{ d_points, M* N }
+			PackedToPointXYZZ<Field>{ d_points.data_handle(), M* N }
 		);
-
 
 		// now reduce each of the D*M digit slices of N points to W buckets.
 		ec = reduce_groups<Field>(
 			buffer_c.data(),
 			reduce_ws,       // in/out; CUB will honor larger buffers
-			d_sorted_digit.data_handle(),      // [D*N] per MSM or [D*M*N] packed
+			d2Outter(d_sorted_digit),      // [D*M][N] 
 			gather_iter,
-			d_groups.data_handle(), // [M*D*W] (carve from workspace above)
+			d2Outter(d_groups), // [D*M][W] (carve from workspace above)
 			D * M,
 			N,
 			W,
@@ -1731,12 +1809,12 @@ namespace blst
 			print_reduce_groups<Field>(N, M, D, W, d_sorted_digit, d_sorted_index_signs, d_groups, d_points, stream);
 
 		ec = integrate_buckets_xyzz_<Field>(
-			d_groups.data_handle(),
+			d_groups,
 			d_windows,
 			M,
 			D,
 			W,
-			d_window_sums.data_handle(),
+			d_window_sums,
 			stream);
 		if (ec != DeviceError::cudaSuccess)
 			return ec;
@@ -1746,7 +1824,7 @@ namespace blst
 
 		// 4) fold D window sums per MSM with wbits doublings in between
 		ec = fold_windows<Field>(
-			d_window_sums.data_handle(),
+			d_window_sums,
 			M,
 			D,
 			wbits,

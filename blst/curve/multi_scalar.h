@@ -160,29 +160,29 @@ namespace blst
 
 
 
-	/*
-	* This is two-step multi-scalar multiplication procedure. First, given
-	* a set of points you pre-compute a table for chosen windowing factor
-	* [expressed in bits with value between 2 and 14], and then you pass
-	* this table to the actual multiplication procedure along with scalars.
-	* Idea is that the pre-computed table will be reused multiple times. In
-	* which case multiplication runs faster than below Pippenger algorithm
-	* implementation for up to ~16K points for wbits=8, naturally at the
-	* expense of multi-megabyte table. One can trade even more memory for
-	* performance, but each wbits increment doubles the memory requirement,
-	* so at some point it gets prohibively large... For reference, without
-	* reusing the table it's faster than Pippenger algorithm for up ~32
-	* points [with wbits=5]...
-	*/
+		/*
+		* This is two-step multi-scalar multiplication procedure. First, given
+		* a set of points you pre-compute a table for chosen windowing factor
+		* [expressed in bits with value between 2 and 14], and then you pass
+		* this table to the actual multiplication procedure along with scalars.
+		* Idea is that the pre-computed table will be reused multiple times. In
+		* which case multiplication runs faster than below Pippenger algorithm
+		* implementation for up to ~16K points for wbits=8, naturally at the
+		* expense of multi-megabyte table. One can trade even more memory for
+		* performance, but each wbits increment doubles the memory requirement,
+		* so at some point it gets prohibively large... For reference, without
+		* reusing the table it's faster than Pippenger algorithm for up ~32
+		* points [with wbits=5]...
+		*/
 
 #define SCRATCH_SZ(ptype) (sizeof(ptype)==sizeof(G1Point) ? 8192 : 4096)
 
-	/* The intermediate infinity points are encoded as [0, 0, 1]. */
+		/* The intermediate infinity points are encoded as [0, 0, 1]. */
 
-// For one affine point, builds a row of length 2 ^ (wbits - 1) of 
-// consecutive multiples used by Booth / gather(e.g., P·1, P·2, P·3, …) 
-// in Jacobian.
-template<typename Field>
+	// For one affine point, builds a row of length 2 ^ (wbits - 1) of 
+	// consecutive multiples used by Booth / gather(e.g., P·1, P·2, P·3, …) 
+	// in Jacobian.
+		template<typename Field>
 	void point_precompute_row_wbits(
 		Point<Field> row[],
 		size_t wbits,
@@ -527,13 +527,13 @@ template<typename Field>
 		}
 	}
 
-	BLST_HD inline void print_digit(size_t point_idx,  limb_t encoding, int wbits)
+	BLST_HD inline void print_digit(size_t point_idx, limb_t encoding, int wbits)
 	{
 		size_t digit = encoding & ((limb_t)1 << wbits) - 1;
 		size_t sign = (encoding >> wbits) & 1;
 
-        printf("  point[%zu]: digit %zu (%llu), idx=%zu, sign=%zu\n",
-            point_idx, digit, (u64)encoding, point_idx, sign);
+		printf("  point[%zu]: digit %zu (%llu), idx=%zu, sign=%zu\n",
+			point_idx, digit, (u64)encoding, point_idx, sign);
 	}
 
 	struct WindowExtract
@@ -634,7 +634,8 @@ template<typename Field>
 		size_t nbits,
 		Pointxyzz<Field> buckets[],
 		size_t window_idx,
-		size_t window_size)
+		size_t window_size,
+		bool print)
 	{
 		BLST_ASSERT(npoints > 1);
 
@@ -645,14 +646,54 @@ template<typename Field>
 
 		WindowExtract we(window_idx, window_size, nbits);
 
+		//// the starting bit of the window_size excluding the overlap bit.
+		//auto window_begin = window_idx * window_size;
+
+		//// the LSB window_size does not have an overlap. We will have to artificially git it one (0).
+		//auto missing_overlap = window_begin == 0 ? 1 : 0;
+
+		//// the start of the bits that we extract, including the overlap bit if any.
+		//auto extract_begin = window_begin > 0 ? window_begin - 1 : 0;
+
+		//// the end of the window_size (exclusive). Could be equal to window_begin.
+		//auto window_end = std::min<u64>(window_begin + window_size, nbits);
+
+		//// number of bits we actually extract from the scalar for this window_size.
+		//auto extract_size = window_end - extract_begin;
+
+		//auto extracted_mask = ((limb_t)1 << extract_size) - 1;
+
+		// for the MSB window_size, its the number of bits in this window_size plus the overlap bit.
+		// for full windows, is simply the window_size size.
+		//auto encode_size = std::min<u64>(nbits - window_begin + 1, window_size);
+
+		//printf("Pippenger window %llu: bits %zu..%zu\n",
+		//	window_idx, we.window_begin, we.window_end);
+
+
 		size_t i = 0;
 		const byte* scalar = *scalars++;
 		const AffinePoint<Field>* point = *points++;
+
 		auto nbytes = (nbits + 7) / 8; /* convert |nbits| to bytes */
+
 
 		// fetch the next window_size value and advance the pointers.
 		auto extract_window = [&]() -> std::pair< const AffinePoint<Field>*, limb_t> {
 			auto encoding = we.extract(scalar);
+
+			if (print)
+			{
+				auto ex = we.get_wval(scalar);
+				size_t digit = encoding & ((limb_t)1 << we.encode_size) - 1;
+				size_t sign = (encoding >> we.encode_size) & 1;
+
+				char buffer[257];
+				print_bits(buffer, (void*)scalar, std::min<u64>(256, nbits));
+				printf("  point[%zu]: %p %s -> digit %zu (%llu), sign=%zu\n",
+					i, scalar, buffer, digit, (u64)ex, sign);
+				//++i;
+			}
 			auto p = point;
 			scalar = *scalars ? *scalars++ : scalar + nbytes;
 			point = *points ? *points++ : point + 1;
@@ -670,16 +711,29 @@ template<typename Field>
 			// prefetch next window_size value
 			nxt_wval = extract_window();
 			point_prefetch(buckets, nxt_wval.second, we.encode_size);
-			
+
 			// buckets[cur_wval] += *point
 			point_bucket(buckets, cur_wval.second, we.encode_size, *cur_wval.first);
 		}
-		
+
 		// buckets[nxt_wval] += *point
 		point_bucket(buckets, nxt_wval.second, we.encode_size, *nxt_wval.first);
 
-		// combine the buckets into ret = Σ d·S_d
+		if (print)
+		{
+
+			printf("Pippenger window %llu buckets:\n", window_idx);
+			for (size_t b = 0; b < ((size_t)1 << (we.encode_size - 1)); b++)
+			{
+				Point<Field> p;
+				Pointxyzz<Field>::to_Jacobian(p, buckets[b]);
+				u64 hash = hash_point(p);
+				printf("  bucket %zu: %llu\n", b, hash);
+			}
+		}
+
 		point_integrate_buckets(ret, buckets, we.encode_size - 1);
+
 	}
 
 
@@ -714,7 +768,8 @@ template<typename Field>
 		const byte* const scalars[],
 		size_t nbits,
 		Pointxyzz<Field> buckets[],
-		size_t window_size)
+		size_t window_size,
+		bool print = false)
 	{
 		Point<Field> tile;
 
@@ -722,16 +777,16 @@ template<typename Field>
 		vec_zero(buckets, sizeof(buckets[0]) << (window_size - 1));
 		vec_zero(&ret, sizeof(ret));
 
-		if(0)
+		if (print)
 		{
-            auto scalars_ = scalars;
+			auto scalars_ = scalars;
 			const byte* scalar = *scalars_++;
-            auto nbytes = (nbits + 7) / 8; /* convert |nbits| to bytes */
+			auto nbytes = (nbits + 7) / 8; /* convert |nbits| to bytes */
 			for (u64 i = 0; i < npoints; ++i)
 			{
 				char buffer[257];
-                print_bits(buffer, (void*)scalar, std::min<u64>(256, nbits));
-                printf("Scalar[%llu]:%p %s\n", i,scalar, buffer);
+				print_bits(buffer, (void*)scalar, std::min<u64>(256, nbits));
+				printf("Scalar[%llu]:%p %s\n", i, scalar, buffer);
 				scalar = *scalars_ ? *scalars_++ : scalar + nbytes;
 			}
 		}
@@ -739,19 +794,27 @@ template<typename Field>
 		// we process divCeil(nbits+1, window_size) windows.
 		// The plus one is for the overlap bit from the booth encoding.
 		u64 num_windows = 1 + nbits / window_size;
-		for (u64 window_index = num_windows-1; window_index < num_windows; --window_index)
+		for (u64 window_index = num_windows - 1; window_index < num_windows; --window_index)
 		{
 			// tile = points_tile_pippenger(...)
 			points_tile_pippenger(tile, points, npoints, scalars, nbits,
-				buckets, window_index, window_size);
+				buckets, window_index, window_size, print);
 
-			//u64 hash = hash_point(tile);
-			//printf("Window %llu result: %llu\n", window_index, hash);
-
+			if (print)
+			{
+				u64 hash = hash_point(tile);
+				printf("Window %llu result: %llu\n", window_index, hash);
+			}
 			// ret = (ret + tile) << (window_index ? window_size : 0)
 			Point<Field>::dadd(ret, ret, tile, NULL);
 			for (u64 i = 0; i < (window_index ? window_size : 0); i++)
 				Point<Field>::doubling(ret, ret);
+		}
+
+		if (print)
+		{
+			u64 hash = hash_point(ret);
+			printf("Pippenger final result:  %llu\n", hash);
 		}
 	}
 

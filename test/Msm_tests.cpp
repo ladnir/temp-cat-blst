@@ -71,11 +71,11 @@ TEST(Msm, BoothBatchedPipeline) {
     //}
 
     bool debug = false;
-    bool print = false;
+    bool print = true;
 
     // Test parameters
     const int N = 16;        // points per MSM
-    const int M = 1;         // number of MSMs
+    const int M = 2;         // number of MSMs
     const int nbits = 6;   // scalar bit length
     const int nbytes = (nbits + 7) / 8;
     const int wbits = 3;     // window size
@@ -130,7 +130,8 @@ TEST(Msm, BoothBatchedPipeline) {
             scalars_for_msm.data(),
             nbits,
             scratch,
-            wbits
+            wbits,
+            m==1
         );
 
    //     auto w = wbits;
@@ -158,17 +159,21 @@ TEST(Msm, BoothBatchedPipeline) {
     }
 
     // Device memory allocation - now for M*N points
-    G1AffinePoint* d_points;
-    uint8_t* d_scalars;
-    G1Point* d_outputs;
+    G1AffinePoint* d_points_ptr;
+    uint8_t* d_scalars_ptr;
+    G1Point* d_outputs_ptr;
 
-    CHECK(deviceMalloc(&d_points, M * N * sizeof(G1AffinePoint)));  // M*N points
-    CHECK(deviceMalloc(&d_scalars, M * N * nbytes));
-    CHECK(deviceMalloc(&d_outputs, M * sizeof(G1Point)));
+    CHECK(deviceMalloc(&d_points_ptr, M * N * sizeof(G1AffinePoint)));  // M*N points
+    CHECK(deviceMalloc(&d_scalars_ptr, M * N * nbytes));
+    CHECK(deviceMalloc(&d_outputs_ptr, M * sizeof(G1Point)));
+
+	d2Span<G1AffinePoint> d_points(d_points_ptr, M, N);
+	d3Span<uint8_t> d_scalars(d_scalars_ptr, M, N, nbytes);
+	span<G1Point> d_outputs(d_outputs_ptr, M);
 
     // Copy data to device - all M*N points
-    CHECK(deviceMemcpy(d_points, h_points.data(), M * N * sizeof(G1AffinePoint), MemcpyKind::HostToDevice));
-    CHECK(deviceMemcpy(d_scalars, h_scalars.data(), M * N * nbytes, MemcpyKind::HostToDevice));
+    CHECK(deviceMemcpy(d_points.data_handle(), h_points.data(), M * N * sizeof(G1AffinePoint), MemcpyKind::HostToDevice));
+    CHECK(deviceMemcpy(d_scalars.data_handle(), h_scalars.data(), M * N * nbytes, MemcpyKind::HostToDevice));
 
     // Query workspace size
     size_t workspace_bytes = 0;
@@ -214,7 +219,7 @@ TEST(Msm, BoothBatchedPipeline) {
     CHECK(streamSynchronize(0));
 
     // Copy results back
-    CHECK(deviceMemcpy(h_cuda_outputs.data(), d_outputs, M * sizeof(G1Point), MemcpyKind::DeviceToHost));
+    CHECK(deviceMemcpy(h_cuda_outputs.data(), d_outputs.data(), M * sizeof(G1Point), MemcpyKind::DeviceToHost));
 
     // Compare CUDA results with CPU results
     bool all_match = true;
@@ -228,9 +233,9 @@ TEST(Msm, BoothBatchedPipeline) {
     EXPECT_TRUE(all_match) << "CUDA and CPU MSM results should match";
 
     // Cleanup
-    CHECK(deviceFree(d_points));
-    CHECK(deviceFree(d_scalars));
-    CHECK(deviceFree(d_outputs));
+    CHECK(deviceFree(d_points.data_handle()));
+    CHECK(deviceFree(d_scalars.data_handle()));
+    CHECK(deviceFree(d_outputs.data()));
     CHECK(deviceFree(d_workspace));
 }
 
