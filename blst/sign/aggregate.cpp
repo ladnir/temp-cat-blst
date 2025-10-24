@@ -129,10 +129,10 @@ namespace blst
             if (ctx->ctrl & AGGR_SIGN_SET) {
                 if (nbits != 0 && scalar != NULL) {
                     mult_window<G1Point,5>(P, P, scalar, nbits);
-                    G1Point::dadd(S, S, P, NULL);
+                    G1Point::dadd(S, S, P);
                 }
                 else {
-                    G1Point::dadd_affine(S, S, *sig);
+                    G1Point::dadd(S, S, *sig);
                 }
             }
             else {
@@ -286,10 +286,10 @@ namespace blst
                 if (nbits != 0 && scalar != NULL) {
 
                     mult_window< G2Point,5>(P, P, scalar, nbits);
-                    G2Point::dadd(S, S, P, NULL);
+                    G2Point::dadd(S, S, P);
                 }
                 else {
-                    G2Point::dadd_affine(S, S, *sig);
+                    G2Point::dadd(S, S, *sig);
                 }
             }
             else {
@@ -455,7 +455,7 @@ namespace blst
         case AGGR_MIN_SIG:
             if (ctx->ctrl & ctx1->ctrl & AGGR_SIGN_SET) {
                 G1Point::dadd(ctx->AggrSign.e1, ctx->AggrSign.e1,
-                    ctx1->AggrSign.e1, NULL);
+                    ctx1->AggrSign.e1);
             }
             else if (ctx1->ctrl & AGGR_SIGN_SET) {
                 ctx->ctrl |= AGGR_SIGN_SET;
@@ -466,7 +466,7 @@ namespace blst
         case AGGR_MIN_PK:
             if (ctx->ctrl & ctx1->ctrl & AGGR_SIGN_SET) {
                 G2Point::dadd(ctx->AggrSign.e2, ctx->AggrSign.e2,
-                    ctx1->AggrSign.e2, NULL);
+                    ctx1->AggrSign.e2);
             }
             else if (ctx1->ctrl & AGGR_SIGN_SET) {
                 ctx->ctrl |= AGGR_SIGN_SET;
@@ -620,7 +620,7 @@ namespace blst
         if (in == NULL)
             vec_copy(&out, &P, sizeof(P));
         else
-            G1Point::dadd_affine(out, *in, *(G1AffinePoint*)&P);
+            G1Point::dadd(out, *in, *(G1AffinePoint*)&P);
 
         return BLST_SUCCESS;
     }
@@ -651,7 +651,7 @@ namespace blst
             vec_copy(&out, P, sizeof(P));
         }
         else {
-            G2Point::dadd_affine(out, *in, *(G2AffinePoint*)P);
+            G2Point::dadd(out, *in, *(G2AffinePoint*)P);
         }
         return BLST_SUCCESS;
     }

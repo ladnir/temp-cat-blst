@@ -56,7 +56,7 @@ static void BM_G2_AddAffine(benchmark::State& state) {
     G2Point::to_affine(b_affine, b);
 
     for (auto _ : state) {
-        G2Point::add_affine(c, a, b_affine);
+        G2Point::add(c, a, b_affine);
         benchmark::DoNotOptimize(c);
     }
     state.SetItemsProcessed(state.iterations());

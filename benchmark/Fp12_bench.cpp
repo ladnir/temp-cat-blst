@@ -129,7 +129,7 @@ static void BM_Fp12Exponentiation(benchmark::State& state) {
     generate_random_fp12(a);
 
     // A small, simple exponent for benchmarking purposes
-    limb_t exponent[] = { 0x7, 0x0 };
+    byte exponent[] = { 0x7, 0x0 };
 
     for (auto _ : state) {
         Fp12::exp(c, a, exponent, 3);

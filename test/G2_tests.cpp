@@ -450,15 +450,15 @@ TEST(E2PointTest, MultiplePointAddition) {
     G2Point::to_affine(p2_affine, p2);  // Convert 2*P to affine
 
     // P + (2P affine) should equal 3P
-    G2Point::add_affine(result, p1, p2_affine);
+    G2Point::add(result, p1, p2_affine);
     EXPECT_TRUE(G2Point::equal(result, p3a));  // Should equal 3*P
 
-    // Also verify that dadd_affine works with same point (P+P)
+    // Also verify that dadd works with same point (P+P)
     G2AffinePoint p_affine;
     G2Point::to_affine(p_affine, p1);
 
-    // Test P + P using dadd_affine
-    G2Point::dadd_affine(result, p1, p_affine);
+    // Test P + P using dadd
+    G2Point::dadd(result, p1, p_affine);
     EXPECT_TRUE(G2Point::equal(result, p2));  // Should equal 2*P
 }
 
@@ -552,7 +552,7 @@ TEST(E2PointTest, MixedAdditionCornerCases) {
     p1 = G2Point::generator();
 
     // P + O_affine = P
-    G2Point::add_affine(result, p1, infinity_affine);
+    G2Point::add(result, p1, infinity_affine);
     EXPECT_TRUE(G2Point::equal(result, p1));
 
     // O + P_affine = P
@@ -561,7 +561,7 @@ TEST(E2PointTest, MixedAdditionCornerCases) {
     G2AffinePoint p_affine;
     G2Point::to_affine(p_affine, p1);
 
-    G2Point::add_affine(result, infinity, p_affine);
+    G2Point::add(result, infinity, p_affine);
     EXPECT_TRUE(G2Point::equal(result, p1));
 }
 //

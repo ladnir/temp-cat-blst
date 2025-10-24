@@ -14,9 +14,9 @@
   *
   * # Curves and fields
   * - **G1** is a short-Weierstrass curve over the base field @c Fp with model
-  *   @f$ y^2 = x^3 + B @f$ (parameter B returned by get_BLST_B_E1()).
+  *   ` y^2 = x^3 + B ` (parameter B returned by get_BLST_B_E1()).
   * - **G2** is the twist over @c Fp2 with model
-  *   @f$ y^2 = x^3 + B @f$ (parameter B returned by get_BLST_B_E2()).
+  *   ` y^2 = x^3 + B ` (parameter B returned by get_BLST_B_E2()).
   *
   * # Coordinates & representations
   * - @c Point<Field> stores Jacobian coordinates (X:Y:Z) with the point at
@@ -84,9 +84,9 @@ namespace blst
 	 * - Methods that accept affine inputs treat the all-zero affine value as infinity.
 	 *
 	 * ## Arithmetic
-	 * - @c add / @c add_affine: standard addition (handles infinity).
+	 * - @c add / @c add: standard addition (handles infinity).
 	 * - @c doubling: point doubling.
-	 * - @c dadd / @c dadd_affine: unified add-or-double (handles P==Q and P==±Q) in constant time.
+	 * - @c dadd / @c dadd: unified add-or-double (handles P==Q and P==±Q) in constant time.
 	 * - @c mult / @c mult_glsv: scalar multiplication; @c mult chooses a windowed scheme
 	 *   or GLS/GLV decomposition depending on scalar size and group.
 	 *
@@ -113,11 +113,11 @@ namespace blst
 
 
 		/**
-		 * @brief Unified add-or-double: @f$ out = p1 (+|=) p2 @f$.
+		 * @brief Unified add-or-double: ` out = p1 (+|=) p2 `.
 		 * @param[out] out  Result in Jacobian coords.
 		 * @param[in]  p1   Left input in Jacobian coords.
 		 * @param[in]  p2   Right input in Jacobian coords.
-		 * @param[in]  a4   Optional curve @f$a@f$ term (for @f$y^2=x^3+a x + b@f$). For BLS12-381 @f$a=0@f$, pass nullptr.
+		 * @param[in]  a4   Optional curve `a` term (for `y^2=x^3+a x + b`). For BLS12-381 `a=0`, pass nullptr.
 		 * @note Handles P==Q and P==±Q and points at infinity in constant time.
 		 */
 		static BLST_HD void dadd(Point& out, const Point& p1, const Point& p2, const Field* a4 = nullptr);
@@ -128,7 +128,7 @@ namespace blst
 		 * @details Treats @p p2==0 (all-zero affine) as infinity.
 		 * @note Handles P==Q and P==±Q and points at infinity in constant time.
 		 */
-		static BLST_HD void dadd_affine(Point<Field>& out, const Point<Field>& p1,
+		static BLST_HD void dadd(Point<Field>& out, const Point<Field>& p1,
 			const AffinePoint<Field>& p2);
 
 		/**
@@ -144,17 +144,17 @@ namespace blst
 		 * @note Uses EFD madd-2007-bl.
 		 * @note Requires @p p1 and @p p2 to be distinct and non-opposite for
 		 */
-		static BLST_HD void add_affine(Point& out, const Point& p1,
+		static BLST_HD void add(Point& out, const Point& p1,
 			const AffinePoint<Field>& p2);
 
 		/**
-		 * @brief Doubling @f$ out = 2 * p1 @f$.
+		 * @brief Doubling ` out = 2 * p1 `.
 		 * @note Uses EFD dbl-2009-l.
 		 */
 		static BLST_HD void doubling(Point& out, const Point& p1);
 
 
-		/** @brief Repeated doubling: @f$ out = 2^n * p @f$.
+		/** @brief Repeated doubling: ` out = 2^n * p `.
 		 */
 		BLST_HD static void add_n_dbl(Point& out, const Point& p, size_t n);
 
@@ -215,6 +215,11 @@ namespace blst
 		/// returns the point at infinity (Z == 0).
 		static BLST_HD Point infinity();
 
+		// returns the identity point (same as infinity).
+		static BLST_HD Point identity() { return infinity(); }
+
+		static BLST_HD bool_t is_identity(const Point& p) { return is_inf(p); }
+
 		static BLST_HD const Field& get_B();
 
 		/// Multiply by curve B for G1/G2 (specialized). For BLS12-381, B = 4 (G1) or (4+4i) (G2).
@@ -248,8 +253,8 @@ namespace blst
 		/**
 		 * @brief Endomorphism-accelerated multiplication (GLV/GLS).
 		 * @details
-		 * - G1 uses the cube root of unity @f$ \beta @f$ (get_BLST_beta()) to split scalars.
-		 * - G2 uses the Frobenius-like map @f$ \psi @f$.
+		 * - G1 uses the cube root of unity ` \beta ` (get_BLST_beta()) to split scalars.
+		 * - G2 uses the Frobenius-like map ` \psi `.
 		 * @note Intended for scalars within Fr (checked by @c Fr::check_mod).
 		 *
 		 * @note Galbraith-Lin-Scott, ~67% faster than G2Point_mul_w5
@@ -258,7 +263,7 @@ namespace blst
 		BLST_HD static void mult_glsv(Point& out, const Point& in, const pow256 SK);
 
 		/**
-		 * @brief BLS-style signature mapping: @f$ out = SK * in @f$ in Jacobian form.
+		 * @brief BLS-style signature mapping: ` out = SK * in ` in Jacobian form.
 		 * @note Internally calls @c mult_glsv and normalizes to affine to avoid bias in Z.
 		 */
 		BLST_HD static void sign(Point& out, const Point& in, const pow256 SK);
@@ -276,7 +281,7 @@ namespace blst
 			const Point& hash,
 			const pow256 SK);
 
-		/// Derive public key @f$ PK = SK * G @f$ into @p out.
+		/// Derive public key ` PK = SK * G ` into @p out.
 		BLST_HD static void to_pk(Point& out, const pow256 SK);
 
 		/// Variant that can also emit compressed bytes and/or affine PK (both optional).
@@ -374,7 +379,7 @@ namespace blst
 			const Pointxyzz<Field>& p2);
 
 		/// Mixed add/sub with affine (variable time). @p subtract flips the sign of @p p2.Y.
-		static BLST_HD void dadd_affine(Pointxyzz<Field>& p3, const Pointxyzz<Field>& p1,
+		static BLST_HD void dadd(Pointxyzz<Field>& p3, const Pointxyzz<Field>& p1,
 			const AffinePoint<Field>& p2,
 			bool_t subtract);
 
@@ -1930,7 +1935,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	 * infinity by virtue of Z3 = (U2-U1)*zz = H*zz = 0*zz == 0.
 	 */
 	template<typename Field>
-	BLST_HD BLST_INLINE void Point<Field>::dadd_affine(Point& out, const Point& p1,
+	BLST_HD BLST_INLINE void Point<Field>::dadd(Point& out, const Point& p1,
 		const AffinePoint<Field>& p2)
 	{
 		Point p3; /* starts as (,, H*Z1) from addition side */
@@ -2085,7 +2090,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	 * and |p2| as X==Y==0.
 	 */
 	template<typename Field>
-	BLST_HD BLST_INLINE void Point<Field>::add_affine(
+	BLST_HD BLST_INLINE void Point<Field>::add(
 		Point<Field>& out,
 		const Point<Field>& p1,
 		const AffinePoint<Field>& p2)
@@ -2108,11 +2113,11 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		//				Fp::mul(a_Y_affine, a.Y, ZZ);    // Y/Z^3
 		//
 		//				if (vec_is_equal(a_Y_affine, b.Y, sizeof(Fp))) {
-		//					printf("ERROR: blst_p1_add_affine called with the same point. "
+		//					printf("ERROR: blst_p1_add called with the same point. "
 		//						"Use blst_p1_add_or_double_affine instead.\n");
 		//					exit(1);
 		//					// We could assert here, but let's just warn and proceed
-		//					// assert(0 && "blst_p1_add_affine called with same point");
+		//					// assert(0 && "blst_p1_add called with same point");
 		//				}
 		//			}
 		//		}
@@ -2214,11 +2219,11 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	{
 		Field U, S, P, R;
 
-		if (vec_is_zero(p2.ZZZ, 2 * sizeof(p2.ZZZ))) {
+		if (vec_is_zero(&p2.ZZZ, 2 * sizeof(p2.ZZZ))) {
 			vec_copy(&p3, &p1, sizeof(p3));
 			return;
 		}
-		else if (vec_is_zero(p1.ZZZ, 2 * sizeof(p1.ZZZ))) {
+		else if (vec_is_zero(&p1.ZZZ, 2 * sizeof(p1.ZZZ))) {
 			vec_copy(&p3, &p2, sizeof(p3));
 			return;
 		}
@@ -2290,7 +2295,9 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	 * Addition costs 8M+2S, while conditional doubling - 2M+4M+3S.
 	 */
 	template<typename Field>
-	BLST_HD BLST_INLINE void Pointxyzz<Field>::dadd_affine(Pointxyzz<Field>& p3, const Pointxyzz<Field>& p1,
+	BLST_HD BLST_INLINE void Pointxyzz<Field>::dadd(
+		Pointxyzz<Field>& p3, 
+		const Pointxyzz<Field>& p1,
 		const AffinePoint<Field>& p2,
 		bool_t subtract)
 	{
@@ -2370,7 +2377,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	{
 		Field::mul(out.X, in.X, in.ZZ);
 		Field::mul(out.Y, in.Y, in.ZZZ);
-		vec_copy(out.Z, in.ZZ, sizeof(out.Z));
+		vec_copy(&out.Z, &in.ZZ, sizeof(out.Z));
 	}
 
 	template<typename Field>

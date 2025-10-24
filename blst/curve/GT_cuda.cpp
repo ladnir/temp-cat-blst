@@ -243,7 +243,7 @@ namespace blst
 		const size_t exp_bytes = (exp_bits + 7) / 8;
 
 		while (num--) {
-			GT::mult(*out, *bases, (limb_t*)exponents, exp_bits);
+			GT::mult(*out, *bases, exponents, exp_bits);
 			out++; bases++; exponents += exp_bytes;
 		}
 		return BATCHED_SUCCESS;

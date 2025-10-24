@@ -43,6 +43,20 @@ namespace blst {
             Fp12::mul(out.data, a.data, b.data);
         }
 
+
+        /**
+         * @brief Group double or addition: out = a + b (maps to Fp12 multiplication).
+		 * Forwards to add, provided for API symmetry.
+         * @param[out] out  Result
+         * @param[in]  a    Left operand
+         * @param[in]  b    Right operand
+         */
+        static BLST_HD void dadd(GT& out, const GT& a, const GT& b) {
+            add(out, a, b);
+        }
+
+
+
         /**
          * @brief Group subtraction: out = a - b (maps to Fp12 division)
          * @param[out] out  Result
@@ -85,7 +99,7 @@ namespace blst {
          * @param[in]  scalar  Little-endian scalar bytes
          * @param[in]  nbits   Number of meaningful bits in scalar
          */
-        static BLST_HD void mult(GT& out, const GT& a, const limb_t* scalar, size_t nbits) {
+        static BLST_HD void mult(GT& out, const GT& a, const byte* scalar, size_t nbits) {
             Fp12::exp(out.data, a.data, scalar, nbits);
         }
 

@@ -47,7 +47,7 @@ namespace blst
 
         BLST_HD static void mul(Fp12& ret, const Fp12& a, const Fp12& b);
 
-        BLST_HD static void exp(Fp12& ret, const Fp12& a, const limb_t* exp, size_t bits);
+        BLST_HD static void exp(Fp12& ret, const Fp12& a, const byte* exp, size_t bits);
 
 
         BLST_HD static const Fp12& one();
@@ -958,11 +958,11 @@ namespace blst
     }
 
 
-    BLST_HD BLST_INLINE void Fp12::exp(Fp12& ret, const Fp12& a, const limb_t* exp, size_t bits)
+    BLST_HD BLST_INLINE void Fp12::exp(Fp12& ret, const Fp12& a, const byte* exp, size_t bits)
     {
         // For bits=0 or if exponent is 0, return 1
         bool_t is_zero = 1;
-        for (size_t i = 0; i < (bits + 8 * sizeof(limb_t) - 1) / (8 * sizeof(limb_t)); i++) {
+        for (size_t i = 0; i < (bits + 8 * sizeof(byte) - 1) / (8 * sizeof(byte)); i++) {
             if (exp[i] != 0) {
                 is_zero = 0;
                 break;
@@ -986,8 +986,8 @@ namespace blst
         // Process bits from least to most significant
         for (size_t i = 0; i < bits; i++) {
             // If the current bit is set
-            size_t limb_idx = i / (8 * sizeof(limb_t));
-            size_t bit_idx = i % (8 * sizeof(limb_t));
+            size_t limb_idx = i / (8 * sizeof(byte));
+            size_t bit_idx = i % (8 * sizeof(byte));
 
             if ((exp[limb_idx] >> bit_idx) & 1) {
                 Fp12::mul(ret, ret, base);

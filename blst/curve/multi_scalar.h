@@ -7,6 +7,7 @@
 #include "blst/fields/Fp.h"
 #include "blst/fields/Fp2.h"
 #include "blst/curve/point.h"
+#include "blst/curve/GT.h"
 #include "blst/curve/bulk_addition.h"
 
 #ifdef __CUDACC__
@@ -23,6 +24,38 @@ namespace blst
 	template<typename T>
 	using span = std::span<T>;
 #endif
+
+	//
+	BLST_HD BLST_INLINE auto msm_to_jacobian(Point<Fp>& out, const Pointxyzz<Fp>& in) { Pointxyzz<Fp>::to_Jacobian(out, in); }
+	BLST_HD BLST_INLINE auto msm_to_jacobian(Point<Fp2>& out, const Pointxyzz<Fp2>& in) { Pointxyzz<Fp2>::to_Jacobian(out, in); }
+
+	BLST_HD BLST_INLINE auto msm_to_jacobian(GT& out, const GT& in) { out = in; }
+
+	BLST_HD BLST_INLINE auto msm_add_or_sub(Pointxyzz<Fp>& out,
+		const Pointxyzz<Fp>& p1,
+		const AffinePoint<Fp>& p2,
+		bool_t subtract)
+	{
+		Pointxyzz<Fp>::dadd(out, p1, p2, subtract);
+	}
+
+	BLST_HD BLST_INLINE auto msm_add_or_sub(Pointxyzz<Fp2>& out,
+		const Pointxyzz<Fp2>& p1,
+		const AffinePoint<Fp2>& p2,
+		bool_t subtract)
+	{
+		Pointxyzz<Fp2>::dadd(out, p1, p2, subtract);
+	}
+	
+	BLST_HD BLST_INLINE auto msm_add_or_sub(GT& out,
+		const GT& p1,
+		const GT& p2,
+		bool_t subtract)
+	{
+		GT neg = p2;
+		GT::cneg(neg, subtract);
+		GT::add(out, p1, neg);
+	}
 
 	namespace detail
 	{
@@ -60,18 +93,23 @@ namespace blst
 			return &Field::one();
 		}
 
-		template<typename Field>
-		BLST_HD BLST_INLINE bool_t is_infinity(const Point<Field>& p)
-		{
-			return vec_is_zero(&p.Z, sizeof(p.Z));
-		}
+		//template<typename Field>
+		//BLST_HD BLST_INLINE bool_t is_infinity(const Point<Field>& p)
+		//{
+		//	return vec_is_zero(&p.Z, sizeof(p.Z));
+		//}
 
-		template<typename Field>
-		BLST_HD BLST_INLINE bool_t is_infinity(const AffinePoint<Field>& p)
-		{
-			return vec_is_zero(&p, sizeof(AffinePoint<Field>));
-		}
+		//template<typename Field>
+		//BLST_HD BLST_INLINE bool_t is_infinity(const AffinePoint<Field>& p)
+		//{
+		//	return vec_is_zero(&p, sizeof(AffinePoint<Field>));
+		//}
 
+
+		//BLST_HD BLST_INLINE bool_t is_infinity(GT& p)
+		//{
+		//	return vec_is_zero(&p.Z, sizeof(p.Z));
+		//}
 	} // namespace detail
 
 	// Converts an array of (possibly sparse) Jacobian points 
@@ -97,13 +135,13 @@ namespace blst
 			Field* acc = reinterpret_cast<Field*>(block_dst);
 
 			point = *point_iter ? *point_iter++ : point + 1;
-			bool_t is_inf = detail::is_infinity(*point);
+			bool_t is_inf = PointT::is_identity(*point);
 			vec_select(acc, detail::mont_one<Field>(), &point->Z, sizeof(Field), is_inf);
 			++acc;
 
 			for (size_t i = 1; i < delta; ++i, ++acc) {
 				point = *point_iter ? *point_iter++ : point + 1;
-				bool_t next_inf = detail::is_infinity(*point);
+				bool_t next_inf = PointT::is_identity(*point);
 				vec_select(acc, detail::mont_one<Field>(), &point->Z, sizeof(Field), next_inf);
 				Field::mul(acc[0], acc[0], acc[-1]);
 			}
@@ -117,7 +155,7 @@ namespace blst
 			AffinePoint<Field>* dst_iter = block_dst + remaining;
 
 			for (size_t i = 0; i < remaining; ++i, --acc, --dst_iter) {
-				bool_t current_inf = detail::is_infinity(*p);
+				bool_t current_inf = PointT::is_identity(*p);
 				Field::mul(acc[-1], acc[-1], acc[0]);
 				Field::sqr(ZZ, acc[-1]);
 				Field::mul(ZZZ, ZZ, acc[-1]);
@@ -133,7 +171,7 @@ namespace blst
 			Field::mul(ZZZ, ZZ, acc[0]);
 			Field::mul(dst_iter->X, p->X, ZZ);
 			Field::mul(dst_iter->Y, p->Y, ZZZ);
-			vec_czero(dst_iter, sizeof(*dst_iter), detail::is_infinity(*p));
+			vec_czero(dst_iter, sizeof(*dst_iter), PointT::is_identity(*p));
 
 			out = block_dst + delta;
 			npoints -= delta;
@@ -196,7 +234,7 @@ namespace blst
 		Point<Field>::doubling(row[1], row[0]);                  /* row[1]=p*(1+1) */
 		vec_select(&row[1].Z, &Field::one(), &row[1].Z, sizeof(row[1].Z), inf);
 		for (i = 2, j = 1; i < n; i += 2, j++)
-			Point<Field>::add_affine(row[i], row[i - 1], point),  /* row[2]=p*(2+1) */
+			Point<Field>::add(row[i], row[i - 1], point),  /* row[2]=p*(2+1) */
 			Point<Field>::doubling(row[i + 1], row[j]),             /* row[3]=p*(2+2) */
 			vec_select(&row[i + 1].Z, &Field::one(), &row[i + 1].Z, sizeof(row[i + 1].Z), inf);
 	}                                                       /* row[4] ...     */
@@ -477,13 +515,13 @@ namespace blst
 	// High->low running sum over buckets(xyzz form) : 
 	// computes Σ d·S_d from pre-summed buckets and writes 
 	// the window’s contribution as Jacobian.
-	template<typename Field>
+	template<typename Group, typename GroupZZ>
 	BLST_HD BLST_INLINE void point_integrate_buckets(
-		Point<Field>& out,
-		Pointxyzz<Field> buckets[],
+		Group& out,
+		GroupZZ buckets[],
 		size_t wbits)
 	{
-		Pointxyzz<Field> ret, acc;
+		GroupZZ ret, acc;
 		size_t n = (size_t)1 << wbits;
 
 		/* Calculate sum of x[i-1]*i for i=1 through 1<<|wbits|. */
@@ -494,28 +532,30 @@ namespace blst
 
 		// computes Σ d·S_d
 		while (n--) {
-			Pointxyzz<Field>::dadd(acc, acc, buckets[n]);
-			Pointxyzz<Field>::dadd(ret, ret, acc);
+			GroupZZ::dadd(acc, acc, buckets[n]);
+			GroupZZ::dadd(ret, ret, acc);
 			vec_zero(&buckets[n], sizeof(buckets[n]));
 		}
-		Pointxyzz<Field>::to_Jacobian(out, ret);
+		msm_to_jacobian(out, ret);
 	}
 
 	// Adds an affine point into the bucket addressed by Booth-encoded digit (handles sign).
-	template<typename Field>
-	BLST_HD BLST_INLINE void point_bucket(Pointxyzz<Field> buckets[], limb_t booth_idx,
-		size_t wbits, const AffinePoint<Field>& p)
+	template<typename AffineGroup, typename GroupZZ>
+	BLST_HD BLST_INLINE void point_bucket(GroupZZ buckets[], limb_t booth_idx,
+		size_t wbits, const AffineGroup& p)
 	{
 		bool_t booth_sign = (booth_idx >> wbits) & 1;
 
 		booth_idx &= (1 << wbits) - 1;
 		if (booth_idx--)
-			Pointxyzz<Field>::dadd_affine(buckets[booth_idx], buckets[booth_idx],
+		{
+			msm_add_or_sub(buckets[booth_idx], buckets[booth_idx],
 				p, booth_sign);
+		}
 	}
 
-	template<typename Field>
-	BLST_HD BLST_INLINE void point_prefetch(const Pointxyzz<Field> buckets[], limb_t booth_idx,
+	template<typename GroupZZ>
+	BLST_HD BLST_INLINE void point_prefetch(const GroupZZ buckets[], limb_t booth_idx,
 		size_t wbits)
 	{
 		booth_idx &= (1 << wbits) - 1;
@@ -547,7 +587,7 @@ namespace blst
 		size_t encode_size;
 
 		WindowExtract() = default;
-		WindowExtract(size_t window_idx, size_t window_size, size_t nbits)
+		BLST_HD BLST_INLINE WindowExtract(size_t window_idx, size_t window_size, size_t nbits)
 		{
 			window_begin = window_idx * window_size;
 			missing_overlap = window_begin == 0 ? 1 : 0;
@@ -590,12 +630,12 @@ namespace blst
 		*buffer = 0;
 	}
 
-	template<typename Field>
-	BLST_HD BLST_INLINE u64 hash_point(const Point<Field>& p)
+	template<typename Group>
+	BLST_HD BLST_INLINE u64 hash_point(const Group& p)
 	{
 		u64 hash = 0;
 		const byte* data = reinterpret_cast<const byte*>(&p);
-		for (size_t i = 0; i < sizeof(Point<Field>); i++)
+		for (size_t i = 0; i < sizeof(Group); i++)
 		{
 			hash = (hash * 31) + data[i];
 			hash ^= (hash >> 4);
@@ -625,14 +665,14 @@ namespace blst
 	// points with each digit.
 	// @window_idx : the index of the current window_size (0-based). The LSB window_size is window_size 0.
 	// @window_size : the size of a full sized window_size in bits. 
-	template<typename Field>
+	template<typename Group, typename AffineGroup, typename GroupZZ>
 	BLST_HD BLST_INLINE void points_tile_pippenger(
-		Point<Field>& ret,
-		const AffinePoint<Field>* const points[],
+		Group& ret,
+		const AffineGroup* const points[],
 		size_t npoints,
 		const byte* const scalars[],
 		size_t nbits,
-		Pointxyzz<Field> buckets[],
+		GroupZZ buckets[],
 		size_t window_idx,
 		size_t window_size,
 		bool print)
@@ -646,40 +686,15 @@ namespace blst
 
 		WindowExtract we(window_idx, window_size, nbits);
 
-		//// the starting bit of the window_size excluding the overlap bit.
-		//auto window_begin = window_idx * window_size;
-
-		//// the LSB window_size does not have an overlap. We will have to artificially git it one (0).
-		//auto missing_overlap = window_begin == 0 ? 1 : 0;
-
-		//// the start of the bits that we extract, including the overlap bit if any.
-		//auto extract_begin = window_begin > 0 ? window_begin - 1 : 0;
-
-		//// the end of the window_size (exclusive). Could be equal to window_begin.
-		//auto window_end = std::min<u64>(window_begin + window_size, nbits);
-
-		//// number of bits we actually extract from the scalar for this window_size.
-		//auto extract_size = window_end - extract_begin;
-
-		//auto extracted_mask = ((limb_t)1 << extract_size) - 1;
-
-		// for the MSB window_size, its the number of bits in this window_size plus the overlap bit.
-		// for full windows, is simply the window_size size.
-		//auto encode_size = std::min<u64>(nbits - window_begin + 1, window_size);
-
-		//printf("Pippenger window %llu: bits %zu..%zu\n",
-		//	window_idx, we.window_begin, we.window_end);
-
-
 		size_t i = 0;
 		const byte* scalar = *scalars++;
-		const AffinePoint<Field>* point = *points++;
+		const AffineGroup* point = *points++;
 
 		auto nbytes = (nbits + 7) / 8; /* convert |nbits| to bytes */
 
 
 		// fetch the next window_size value and advance the pointers.
-		auto extract_window = [&]() -> std::pair< const AffinePoint<Field>*, limb_t> {
+		auto extract_window = [&]() -> std::pair< const AffineGroup*, limb_t> {
 			auto encoding = we.extract(scalar);
 
 			if (print)
@@ -725,8 +740,8 @@ namespace blst
 			printf("Pippenger window %llu buckets:\n", window_idx);
 			for (size_t b = 0; b < ((size_t)1 << (we.encode_size - 1)); b++)
 			{
-				Point<Field> p;
-				Pointxyzz<Field>::to_Jacobian(p, buckets[b]);
+				Group p;
+				msm_to_jacobian(p, buckets[b]);
 				u64 hash = hash_point(p);
 				printf("  bucket %zu: %llu\n", b, hash);
 			}
@@ -760,18 +775,18 @@ namespace blst
 	//     acc = acc + s_digit
 	//     total = total + acc
 	// 
-	template<typename Field>
+	template<typename Group, typename AffineGroup, typename GroupZZ>
 	BLST_HD BLST_INLINE void msm_mult_pippenger(
-		Point<Field>& ret,
-		const AffinePoint<Field>* const points[],
+		Group& ret,
+		const AffineGroup* const points[],
 		size_t npoints,
 		const byte* const scalars[],
 		size_t nbits,
-		Pointxyzz<Field> buckets[],
+		GroupZZ buckets[],
 		size_t window_size,
 		bool print = false)
 	{
-		Point<Field> tile;
+		Group tile;
 
 		window_size = window_size ? window_size : pippenger_window_size(npoints);
 		vec_zero(buckets, sizeof(buckets[0]) << (window_size - 1));
@@ -806,9 +821,9 @@ namespace blst
 				printf("Window %llu result: %llu\n", window_index, hash);
 			}
 			// ret = (ret + tile) << (window_index ? window_size : 0)
-			Point<Field>::dadd(ret, ret, tile, NULL);
+			Group::dadd(ret, ret, tile);
 			for (u64 i = 0; i < (window_index ? window_size : 0); i++)
-				Point<Field>::doubling(ret, ret);
+				Group::doubling(ret, ret);
 		}
 
 		if (print)
@@ -818,27 +833,27 @@ namespace blst
 		}
 	}
 
-	template<typename Field>
-	BLST_HD BLST_INLINE size_t msm_mult_pippenger_scratch_sizeof(size_t npoints)
+	template<typename Group>
+	BLST_HD BLST_INLINE size_t msm_mult_pippenger_scratch_sizeof_(size_t npoints)
 	{
-		return sizeof(Pointxyzz<Field>) << (pippenger_window_size(npoints) - 1);
+		return sizeof(Group) << (pippenger_window_size(npoints) - 1);
 	}
 
-	template<typename Field>
+	template<typename Group, typename AffineGroup, typename GroupZZ>
 	BLST_HD BLST_INLINE void msm_tile_pippenger(
-		Point<Field>& ret,
-		const AffinePoint<Field>* const points[],
+		Group& ret,
+		const AffineGroup* const points[],
 		size_t npoints,
 		const byte* const scalars[],
 		size_t nbits,
-		Pointxyzz<Field> scratch[],
+		GroupZZ scratch[],
 		size_t bit0, size_t window)
 	{
 		size_t wbits, cbits;
 
 		if (bit0 + window > nbits)  wbits = nbits - bit0, cbits = wbits + 1;
 		else                        wbits = cbits = window;
-		msm_tile_pippenger<Field>(ret, points, npoints, scalars, nbits, scratch,
+		msm_tile_pippenger<Group, AffineGroup, GroupZZ>(ret, points, npoints, scalars, nbits, scratch,
 			bit0, wbits, cbits);
 	}
 
@@ -865,7 +880,8 @@ namespace blst
 		}
 		else
 		{
-			msm_mult_pippenger<Field>(ret, points, npoints, scalars, nbits, scratch, 0);
+			msm_mult_pippenger<Point<Field>, AffinePoint<Field>, Pointxyzz<Field>>(
+				ret, points, npoints, scalars, nbits, scratch, 0);
 		}
 	}
 

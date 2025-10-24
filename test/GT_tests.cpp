@@ -142,7 +142,7 @@ TEST_F(GTTest, ScalarMultiplication) {
     GT result, expected;
 
     // Test 0 * e = 0
-    limb_t zero[4] = { 0, 0, 0, 0 };
+    byte zero[4] = { 0, 0, 0, 0 };
     GT::mult(result, gt_element, zero, sizeof(zero) * 8);
     Fp12 expected_identity = { 0 };
     expected_identity = Fp12::one();
@@ -150,20 +150,20 @@ TEST_F(GTTest, ScalarMultiplication) {
         << "0 * e should equal 0";
 
     // Test 1 * e = e
-    limb_t one[4] = { 1, 0, 0, 0 };
+    byte one[4] = { 1, 0, 0, 0 };
     GT::mult(result, gt_element, one, sizeof(one) * 8);
     EXPECT_TRUE(GT::equal(result, gt_element))
         << "1 * e should equal e";
 
     // Test 2 * e = e + e
-    limb_t two[4] = { 2, 0, 0, 0 };
+    byte two[4] = { 2, 0, 0, 0 };
     GT::mult(result, gt_element, two, sizeof(two) * 8);
     GT::doubling(expected, gt_element);
     EXPECT_TRUE(GT::equal(result, expected))
         << "2 * e should equal e + e";
 
     // Test 3 * e = e + e + e
-    limb_t three[4] = { 3, 0, 0, 0 };
+    byte three[4] = { 3, 0, 0, 0 };
     GT::mult(result, gt_element, three, sizeof(three) * 8);
     GT::add(expected, expected, gt_element);
     EXPECT_TRUE(GT::equal(result, expected))

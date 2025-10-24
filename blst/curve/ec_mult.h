@@ -290,7 +290,7 @@ namespace blst
 			wval &= wmask;
 			booth_encoding = booth_encode(wval, window_size);
 			row_is_inf = gather_booth_w<ptype, window_size>(row, table, booth_encoding);
-			ptype::dadd(sum, ret, row, NULL);
+			ptype::dadd(sum, ret, row);
 			ptype::ccopy(ret, sum, (ret_is_inf | row_is_inf) ^ 1);
 			sum_is_inf = vec_is_zero(&ret.Z, sizeof(ret.Z));
 			ret_is_inf |= sum_is_inf;
@@ -374,7 +374,7 @@ namespace blst
 				wval = get_wval(scalar, bits - 1, window + 1) & wmask;
 				wval = booth_encode(wval, window_size);
 				row_is_inf = gather_booth_w<ptype, window_size>(row, table[i], wval);
-				ptype::dadd(sum, ret, row, NULL);
+				ptype::dadd(sum, ret, row);
 				ptype::ccopy(ret, sum, (ret_is_inf | row_is_inf) ^ 1);
 				sum_is_inf = vec_is_zero(&ret.Z, sizeof(ret.Z));
 				ret_is_inf |= sum_is_inf;
@@ -399,7 +399,7 @@ namespace blst
 			wval = (scalar[0] << 1) & wmask;
 			wval = booth_encode(wval, window_size);
 			row_is_inf = gather_booth_w<ptype, window_size>(row, table[i], wval);
-			ptype::dadd(sum, ret, row, NULL);
+			ptype::dadd(sum, ret, row);
 			ptype::ccopy(ret, sum, (ret_is_inf | row_is_inf) ^ 1);
 			sum_is_inf = vec_is_zero(&ret.Z, sizeof(ret.Z));
 			ret_is_inf |= sum_is_inf;

@@ -639,21 +639,21 @@ TEST(G1PointTest, MultiplePointAddition) {
 	G1Point::to_affine(p2_affine, p2);  // Convert 2*P to affine
 
 	// P + (2P affine) should equal 3P
-	G1Point::add_affine(result, p1, p2_affine);
+	G1Point::add(result, p1, p2_affine);
 	EXPECT_TRUE(G1Point::equal(result, p3a));  // Should equal 3*P
 
 	// For completeness, test dadd with distinct points too
 	G1Point p3b;
-	G1Point::add_affine(p3b, p1, p2_affine);
-	//G1Point::dadd_affine(p3b, p1, p2_affine);
+	G1Point::add(p3b, p1, p2_affine);
+	//G1Point::dadd(p3b, p1, p2_affine);
 	EXPECT_TRUE(G1Point::equal(p3a, p3b));  // Should equal 3*P
 
-	// Also verify that dadd_affine works with same point (P+P)
+	// Also verify that dadd works with same point (P+P)
 	G1AffinePoint p_affine;
 	G1Point::to_affine(p_affine, p1);
 
-	// Test P + P using dadd_affine
-	G1Point::dadd_affine(result, p1, p_affine);
+	// Test P + P using dadd
+	G1Point::dadd(result, p1, p_affine);
 	EXPECT_TRUE(G1Point::equal(result, p2));  // Should equal 2*P
 }
 
@@ -675,7 +675,7 @@ TEST(G1PointTest, MsmPippenger) {
 		points[0] = G1AffinePoint::generator();
 		auto acc = G1Point::generator();
 		for (size_t i = 1; i < n; i++) {
-			G1Point::dadd_affine(acc, acc, points[i - 1]);
+			G1Point::dadd(acc, acc, points[i - 1]);
 			G1Point::to_affine(points[i], acc);
 			//scalarPtrs[i] = scalars[i];
 		}
@@ -713,7 +713,7 @@ TEST(G1PointTest, MsmPippenger) {
 		G1AffinePoint* pointParam[2] = { points, nullptr };
 		const byte* scalarParam[2] = { scalers.data(), nullptr};
 		//Test multi-scalar multiplication if available
-		msm_mult_pippenger<Fp>(
+		msm_mult_pippenger<Point<Fp>, AffinePoint<Fp>, Pointxyzz<Fp>>(
 			result, pointParam, n, scalarParam, bits, buckets.data(), window_size);
 		if (!G1Point::equal(result, expected))
 		{
@@ -736,7 +736,7 @@ TEST(G1PointTest, MsmTable) {
 	points[0] = G1AffinePoint::generator();
 	auto acc = G1Point::generator();
 	for (size_t i = 1; i < n; i++) {
-		G1Point::dadd_affine(acc, acc, points[i - 1]);
+		G1Point::dadd(acc, acc, points[i - 1]);
 		G1Point::to_affine(points[i], acc);
 		//scalarPtrs[i] = scalars[i];
 	}
@@ -932,7 +932,7 @@ TEST(G1PointTest, MixedAdditionCornerCases) {
 	p1 = G1Point::generator();
 
 	// P + O_affine = P
-	G1Point::add_affine(result, p1, infinity_affine);
+	G1Point::add(result, p1, infinity_affine);
 	EXPECT_TRUE(G1Point::equal(result, p1));
 
 	// O + P_affine = P
@@ -941,7 +941,7 @@ TEST(G1PointTest, MixedAdditionCornerCases) {
 	G1AffinePoint p_affine;
 	G1Point::to_affine(p_affine, p1);
 
-	G1Point::add_affine(result, infinity, p_affine);
+	G1Point::add(result, infinity, p_affine);
 
 	EXPECT_TRUE(G1Point::equal(result, p1));
 }

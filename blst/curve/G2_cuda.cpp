@@ -813,7 +813,7 @@ namespace blst
         if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
         while (num--) {
-            G2Point::add_affine(*out, *a, *b);
+            G2Point::add(*out, *a, *b);
             out++; a++; b++;
         }
         return BATCHED_SUCCESS;
@@ -825,7 +825,7 @@ namespace blst
     {
         size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx < num) {
-            G2Point::add_affine(out[idx], a[idx], b[idx]);
+            G2Point::add(out[idx], a[idx], b[idx]);
         }
     }
 

@@ -626,7 +626,7 @@ TEST(G2OpsCUDA, MixedAddition) {
 
 	// CPU computation
 	for (size_t i = 0; i < num_points; i++) {
-		G2Point::add_affine(h_cpu_result[i], h_jacobian[i], h_affine[i]);
+		G2Point::add(h_cpu_result[i], h_jacobian[i], h_affine[i]);
 	}
 
 	// CUDA computation

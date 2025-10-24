@@ -349,7 +349,7 @@ TEST(GTOpsCUDA, Exponentiation) {
 
     // CPU computation
     for (size_t i = 0; i < num_elements; i++) {
-        GT::mult(h_cpu_result[i], h_bases[i], (limb_t*)&h_exponents[i * exp_bytes], exp_bits);
+        GT::mult(h_cpu_result[i], h_bases[i], &h_exponents[i * exp_bytes], exp_bits);
     }
 
     // CUDA computation
@@ -372,14 +372,14 @@ TEST(GTOpsCUDA, Exponentiation) {
     unsigned char zero_exp[exp_bytes] = { 0 };
     GT zero_result, identity;
 	identity = GT::identity();
-    GT::mult(zero_result, h_bases[0], (limb_t*)zero_exp, exp_bits);
+    GT::mult(zero_result, h_bases[0], zero_exp, exp_bits);
     EXPECT_TRUE(GT::equal(zero_result, identity))
         << "Exponentiation with 0 should give identity";
 
     // Test exponent 1 should give the base
     unsigned char one_exp[exp_bytes] = { 1 };
     GT one_result;
-    GT::mult(one_result, h_bases[0], (limb_t*)one_exp, exp_bits);
+    GT::mult(one_result, h_bases[0], one_exp, exp_bits);
     EXPECT_TRUE(GT::equal(one_result, h_bases[0]))
         << "Exponentiation with 1 should give the base";
 
@@ -806,7 +806,7 @@ TEST(GTOpsCUDA, PowersOfTwo) {
 
     // CPU computation for comparison
     for (size_t i = 0; i < num_bases; i++) {
-        GT::mult(h_cpu_result[i], h_bases[i], (limb_t*)&h_exponents[i * exp_bytes], exp_bits);
+        GT::mult(h_cpu_result[i], h_bases[i], &h_exponents[i * exp_bytes], exp_bits);
     }
 
     // CUDA parallel computation
@@ -1298,7 +1298,7 @@ TEST(GTOpsCUDA, AdvancedExponentiation) {
 
     // CPU computation
     for (size_t i = 0; i < num_elements; i++) {
-        GT::mult(h_cpu_result[i], h_bases[i], (limb_t*)&h_exponents[i * exp_bytes], exp_bits);
+        GT::mult(h_cpu_result[i], h_bases[i], &h_exponents[i * exp_bytes], exp_bits);
     }
 
     // CUDA computation
