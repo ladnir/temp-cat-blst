@@ -27,6 +27,7 @@ set(BENCHMARK_SOURCES
     "G1_bench.cpp"
     "G2_bench.cpp"
     "pairing_bench.cpp"
+    "MSM_bench.cpp"
     "main.cpp"
 )
 

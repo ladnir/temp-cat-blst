@@ -399,8 +399,11 @@ namespace blst
 	/// Aliases for convenience: G1 over Fp, G2 over Fp2.
 	using G1Point = Point<Fp>;
 	using G1AffinePoint = AffinePoint<Fp>;
+	using G1PointZZ = Pointxyzz<Fp>;
+
 	using G2Point = Point<Fp2>;
 	using G2AffinePoint = AffinePoint<Fp2>;
+	using G2PointZZ = Pointxyzz<Fp2>;
 
 
 	BLST_HD BLST_INLINE void print(const char* name, const G2Point& p)
