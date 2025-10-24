@@ -174,8 +174,10 @@ static void BM_MSM_GPU(benchmark::State& state) {
 // Register benchmarks for different group types and configurations
 
 #define PARAMS \
-->Args({ 64, 1 })->Args({ 128, 1 })->Args({ 256, 4 })->Args({ 512, 8 })->Args({ 1028, 1 }) \
-->Args({ 64, 1 })->Args({ 128, 128 })->Args({ 256, 256 })->Args({ 512, 512 })->Args({ 1028, 1024 })
+->Args({ 64, 1 })->Args({ 128, 1 })->Args({ 256, 1 })->Args({ 512, 1 })->Args({ 1028, 1 }) \
+->Args({ 2048, 1 })->Args({ 4096, 1 })->Args({ 8192, 1 })->Args({ 10324, 1 })->Args({ 20648, 1 })
+
+//->Args({ 64, 1 })->Args({ 128, 128 })->Args({ 256, 256 })->Args({ 512, 512 })->Args({ 1028, 1024 })
 
 // G1 benchmarks
 BENCHMARK_TEMPLATE(BM_MSM_CPU, G1Point, G1AffinePoint, G1PointZZ)
