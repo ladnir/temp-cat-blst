@@ -10,6 +10,7 @@
 #include "blst/exports.h"
 #include "blst/common/errors.h"
 
+#define BLST_G1_KERNELS
 #ifdef BLST_G1_KERNELS
 #include "blst/common/cuda_launch.h"
 #endif

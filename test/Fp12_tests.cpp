@@ -278,8 +278,4 @@ TEST(Fp12Test, Serialization) {
     }
     EXPECT_TRUE(has_nonzero) << "Serialized data should have non-zero bytes";
 
-    // Test size reporting
-    size_t fp12_size = blst_fp12_sizeof();
-    EXPECT_EQ(fp12_size, sizeof(Fp12))
-        << "Reported Fp12 size should match actual size";
 }

@@ -12,6 +12,8 @@
 #include "blst/common/errors.h"
 #include "blst/sign/aggregate.h"
 
+#define BLST_GT_KERNELS
+
 #ifdef BLST_GT_KERNELS
 #include "blst/common/cuda_launch.h"
 #endif
@@ -166,7 +168,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			GT::inverse(out[idx], a[idx]);
+			GT::neg(out[idx], a[idx]);
 		}
 	}
 
@@ -257,7 +259,7 @@ namespace blst
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
 			const size_t exp_bytes = (exp_bits + 7) / 8;
-			GT::mult(out[idx], bases[idx], (limb_t*)&exponents[idx * exp_bytes], exp_bits);
+			GT::mult(out[idx], bases[idx], &exponents[idx * exp_bytes], exp_bits);
 		}
 	}
 
@@ -435,7 +437,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			blst_miller_loop(out[idx], &g2_points[idx], &g1_points[idx]);
+			GT::miller_loop(out[idx], &g2_points[idx], &g1_points[idx]);
 		}
 	}
 
@@ -479,7 +481,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			GT::final_exp(out[idx], miller_results[idx]);
+			GT::final_mult(out[idx], miller_results[idx]);
 		}
 	}
 
@@ -524,8 +526,8 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			blst_miller_loop(out[idx], &g2_points[idx], &g1_points[idx]);
-			GT::final_exp(out[idx], out[idx]);
+			GT::miller_loop(out[idx], &g2_points[idx], &g1_points[idx]);
+			GT::final_mult(out[idx], out[idx]);
 		}
 	}
 
@@ -572,7 +574,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			GT::to_bendian(&out[idx * 576], elements[idx]);
+			Fp12::to_bendian(&out[idx * 576], elements[idx].data);
 		}
 	}
 
@@ -614,7 +616,7 @@ namespace blst
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
-			GT::from_bendian(out[idx], &serialized[idx * 576]);
+			Fp12::from_bendian(out[idx].data, &serialized[idx * 576]);
 		}
 	}
 
@@ -1061,8 +1063,8 @@ namespace blst
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 		if (idx < num) {
 			GT computed;
-			blst_miller_loop(computed, &g2_points[idx], &g1_points[idx]);
-			GT::final_exp(computed, computed);
+			GT::miller_loop(computed, &g2_points[idx], &g1_points[idx]);
+			GT::final_mult(computed, computed);
 			results[idx] = GT::equal(computed, target_values[idx]);
 		}
 	}

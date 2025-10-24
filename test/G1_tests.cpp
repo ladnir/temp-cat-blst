@@ -181,7 +181,7 @@ TEST(G1PointTest, SerializeDeserialize) {
 	EXPECT_EQ(G1AffinePoint::deserialize(p1_affine, serialized), BLST_SUCCESS);
 
 	// Convert from affine back to Jacobian coordinates
-	blst_p1_from_affine(p2, p1_affine);
+	G1Point::from_affine(p2, p1_affine);
 
 	// Points should be equal
 	EXPECT_TRUE(G1Point::equal(p1, p2));
@@ -362,7 +362,7 @@ TEST(G1PointTest, CompressUncompress) {
 	ASSERT_EQ(err, BLST_SUCCESS) << "Point decompression failed";
 
 	// Convert back to Jacobian coordinates
-	blst_p1_from_affine(p2, p2_affine);
+	G1Point::from_affine(p2, p2_affine);
 
 	// Debug output in case of comparison failure
 	if (!G1Point::equal(p1, p2)) {
@@ -444,7 +444,7 @@ TEST(G1PointTest, PointCoordinateConversion) {
 	G1Point::to_affine(p_affine, p1);
 
 	// Convert back to Jacobian
-	blst_p1_from_affine(p2, p_affine);
+	G1Point::from_affine(p2, p_affine);
 
 	// Should be equal to original point
 	EXPECT_TRUE(G1Point::equal(p1, p2));

@@ -2,7 +2,19 @@
 
 
 # ---- Static Library Configuration ----
-set(BLST_STATIC_SRC  mains/server.cpp)
+set(BLST_STATIC_SRC  
+    "backend/backend_portable.cpp"
+    "sign/keygen.cpp"
+    "fields/Fp12.cpp"
+    "curve/GT.cpp"
+    "curve/point.cpp"
+    "curve/multi_scalar.cpp"
+    "curve/multi_scalar_par_G1.cpp"
+    "curve/multi_scalar_par_G2.cpp"
+    "curve/multi_scalar_par_GT.cpp"
+    "sign/aggregate.cpp"
+    "exports.cpp"
+)
 
 if(MSVC)
     set(BLST_OPTS )
@@ -122,7 +134,7 @@ else()
     )
 endif()
 
-add_library(blst_static ${BLST_STATIC_SRC} ${ASM_SRC})
+add_library(blst_static ${BLST_STATIC_SRC} ${ASM_SRC} "backend/backend_portable.cpp")
 set_target_properties(blst_static PROPERTIES OUTPUT_NAME blst)
 #message(STATUS "BLST_OPTS: ${BLST_OPTS}")
 target_compile_options(blst_static PUBLIC ${BLST_OPTS})

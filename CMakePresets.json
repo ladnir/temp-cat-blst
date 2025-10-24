@@ -76,12 +76,14 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "BLST_PORTABLE": true,
-        "BLST_CUDA": true, 
+        "BLST_CUDA": true,
         "BLST_ASM": true,
         "BLST_ADX": true,
+        "BLST_BENCHMARK": false,
         "BLST_DEFAULT_ASM": false,
         "BLST_ASAN": false,
         "BLST_FAST_BUILD": true,
+        "CMAKE_VERBOSE_MAKEFILE": true,
         "BLST_LIMB_SIZE": "64",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
       },

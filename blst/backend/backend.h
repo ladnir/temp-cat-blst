@@ -88,7 +88,7 @@ namespace blst
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		return quot_rem_128(quot_rem, divisor, quotient);
 #else
-		return cc_quot_rem_128(quot_rem, divisor, quotient);
+		return cc_quot_rem_n<NLIMBS(128)>(quot_rem, divisor, quotient);
 #endif
 	}
 
@@ -97,7 +97,7 @@ namespace blst
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		return quot_rem_64(quot_rem, divisor, quotient);
 #else
-		return cc_quot_rem_64(quot_rem, divisor, quotient);
+		return cc_quot_rem_n<NLIMBS(64)>(quot_rem, divisor, quotient);
 #endif
 	}
 

@@ -48,6 +48,11 @@
 #define BLST_INLINE  inline
 #endif
 
+// used for unity to add the inline 
+#ifndef BLST_CPP_INLINE
+#define BLST_CPP_INLINE
+#endif
+
 #if defined(__GNUC__) || defined(__clang__)
 # if defined(__NVCC__) || defined(__CUDACC__)
 #  define BLST_launder(var) do { (void)(var); } while(0)

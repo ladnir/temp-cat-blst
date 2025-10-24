@@ -118,7 +118,7 @@ static void BM_G1_FromAffine(benchmark::State& state) {
     G1AffinePoint p_affine = G1AffinePoint::generator();
 
     for (auto _ : state) {
-        blst_p1_from_affine(p, p_affine);
+        G1Point::from_affine(p, p_affine);
         benchmark::DoNotOptimize(p);
     }
     state.SetItemsProcessed(state.iterations());

@@ -234,7 +234,7 @@ namespace blst
         Field::add(B.X, B.X, A.X);		/* X2+X1  */ 
         Field::add(A.Z, B.Y, A.Y);		/* Y2+Y1  */ 
         Field::sub(B.Y, B.Y, A.Y);		/* Y2-Y1  */ 
-        if (vec_is_zero(B.Z, sizeof(B.Z))) {	/* X2==X1 */ 
+        if (vec_is_zero(&B.Z, sizeof(B.Z))) {	/* X2==X1 */ 
             inf = vec_is_zero(&A.Z, sizeof(A.Z));	
             vec_select(&B.X, &A.Z, &B.X, sizeof(B.X), inf); 
             Field::sqr(B.Y, A.X);		
@@ -300,7 +300,7 @@ namespace blst
             if (n & 1) 
                 Point<Field>::dadd(sum, sum, *(const AffinePoint<Field> *)points++);
             n /= 2; 
-            for (mul_acc = NULL, i = n; i--; mul_acc = points->Z, points += 2) 
+            for (mul_acc = NULL, i = n; i--; mul_acc = &points->Z, points += 2) 
                 point_head<Field>(points, (const Field*)mul_acc);
     
             Field::reciprocal(points[-2].Z, points[-2].Z); /* 1/∏ Zi */

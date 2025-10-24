@@ -843,6 +843,11 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
 		return *(const Fp2*)get_BLST_Rx().p2;
     }
 
+    BLST_HD BLST_INLINE const Fp2& Fp2::zero()
+    {
+        return *(const Fp2*)&get_BLST_Rx().p12[2];
+    }
+
 
     //BLST_EXTERN_C_END
 }
