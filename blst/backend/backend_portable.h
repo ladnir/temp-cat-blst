@@ -76,6 +76,161 @@ namespace blst
     do{ assert(borrow <= 1); BLST_ASSUME(borrow <=1); \
     *(unsigned long long*)(ret) = (a) - (unsigned long long)(b) - borrow; } while(0)
 
+#elif defined(__CUDA_ARCH__)
+	static_assert(std::is_same<limb_t, uint64_t>::value,
+		"this implementation assumes limb_t is uint64_t");
+
+	// 64x64 -> 128
+	BLST_DEVICE BLST_FORCEINLINE
+		void cc_mul_wide_limb_limb(
+			wide_limb_t* ret,
+			const limb_t& a,
+			const limb_t& b
+		)
+	{
+		uint64_t lo = a * b;
+		uint64_t hi = __umul64hi(a, b);
+		ret->lo = lo;
+		ret->hi = hi;
+	}
+
+	// (a.lo, a.hi) + b -> 128
+	BLST_DEVICE BLST_FORCEINLINE
+		void cc_add_wide_wide_limb(
+			wide_limb_t* ret,
+			const wide_limb_t& a,
+			const limb_t& b
+		)
+	{
+		uint64_t lo = a.lo;
+		uint64_t hi = a.hi;
+		asm volatile(
+			"add.cc.u64 %0, %0, %2;\n\t"
+			"addc.u64   %1, %1, 0;\n\t"
+			: "+l"(lo), "+l"(hi)
+			: "l"(b)
+			);
+		ret->lo = lo;
+		ret->hi = hi;
+	}
+
+	// a + b -> (lo, carry)
+	BLST_DEVICE BLST_FORCEINLINE
+		void cc_add_wide_limb_limb(
+			wide_limb_t* ret,
+			const limb_t& a,
+			const limb_t& b
+		)
+	{
+		uint64_t out_lo;
+		uint64_t out_hi;
+		asm volatile(
+			"add.cc.u64 %0, %2, %3;\n\t"
+			"addc.u64   %1, 0, 0;\n\t"   // out_hi = carry (0/1)
+			: "=&l"(out_lo), "=&l"(out_hi)
+			: "l"(a), "l"(b)
+			);
+		ret->lo = out_lo;
+		ret->hi = out_hi;
+	}
+
+	// (a.lo, a.hi) - b -> 128
+	BLST_DEVICE BLST_FORCEINLINE
+		void cc_sub_wide_wide_limb(
+			wide_limb_t* ret,
+			const wide_limb_t& a,
+			const limb_t& b
+		)
+	{
+		uint64_t lo = a.lo;
+		uint64_t hi = a.hi;
+		asm volatile(
+			"sub.cc.u64 %0, %0, %2;\n\t"
+			"subc.u64   %1, %1, 0;\n\t"
+			: "+l"(lo), "+l"(hi)
+			: "l"(b)
+			);
+		ret->lo = lo;
+		ret->hi = hi;
+	}
+
+	// a - b -> (lo, hi = -(borrow))
+	BLST_DEVICE BLST_FORCEINLINE
+		void cc_sub_wide_limb_limb(
+			wide_limb_t* ret,
+			const limb_t& a,
+			const limb_t& b
+		)
+	{
+		uint64_t out_lo, out_hi;
+		asm volatile(
+			"sub.cc.u64 %0, %2, %3;\n\t"  // out_lo = a - b; CC = borrow
+			"subc.u64   %1, 0, 0;\n\t"    // out_hi = 0 - borrow  => 0 or ~0
+			: "=&l"(out_lo), "=&l"(out_hi)
+			: "l"(a), "l"(b)
+			);
+		ret->lo = out_lo;
+		ret->hi = out_hi;
+	}
+
+	//// a - b -> (lo, borrow)
+	//BLST_DEVICE BLST_FORCEINLINE
+	//	void cc_sub_wide_limb_limb(
+	//		wide_limb_t* ret,
+	//		const limb_t& a,
+	//		const limb_t& b
+	//	)
+	//{
+	//	uint64_t out_lo;
+	//	uint64_t out_hi;
+	//	asm volatile(
+	//		"sub.cc.u64 %0, %2, %3;\n\t"
+	//		"addc.u64   %1, 0, 0;\n\t"   // out_hi = borrow (0/1)
+	//		: "=&l"(out_lo), "=&l"(out_hi)
+	//		: "l"(a), "l"(b)
+	//		);
+	//	ret->lo = out_lo;
+	//	ret->hi = out_hi;
+	//}
+
+	// a + b + c -> (lo, carry)
+	BLST_DEVICE BLST_FORCEINLINE
+		void cc_add_carry_wide_limb_limb(
+			wide_limb_t* ret,
+			const limb_t& a,
+			const limb_t& b,
+			const limb_t& c   // 0 or 1
+		)
+	{
+		BLST_ASSERT(c <= 1);
+		uint64_t out_lo;
+		uint64_t out_hi;
+		asm volatile(
+			"add.cc.u64  %0, %2, %3;\n\t"
+			"addc.cc.u64 %0, %0, %4;\n\t"
+			"addc.u64    %1, 0, 0;\n\t"  // out_hi = final carry (0/1)
+			: "=&l"(out_lo), "=&l"(out_hi)
+			: "l"(a), "l"(b), "l"(c)
+			);
+		ret->lo = out_lo;
+		ret->hi = out_hi;
+	}
+
+
+	// a - b - c  (match portable: do it in two steps)
+	BLST_DEVICE BLST_FORCEINLINE
+		void cc_sub_borrow_wide_limb_limb(
+			wide_limb_t* ret,
+			const limb_t& a,
+			const limb_t& b,
+			const limb_t& c
+		)
+	{
+		// replicate the portable two-call sequence exactly
+		cc_sub_wide_limb_limb(ret, a, b);     // hi = -(borrow_ab)
+		cc_sub_wide_wide_limb(ret, *ret, c);  // subtract c from the 128-bit (hi,lo)
+	}
+
 #else
 	// generic
 
@@ -168,19 +323,19 @@ namespace blst
 
 // ret = a * b + c
 #define cc_mul_add_wide_limb_limb(ret, a, b, c)\
-    cc_mul_wide_limb_limb(ret, a, b);\
-    cc_add_wide_wide_limb(ret, *ret, c)
+    do{ cc_mul_wide_limb_limb(ret, a, b);\
+    cc_add_wide_wide_limb(ret, *ret, c); } while(0)
 
 // ret = a * b + c + d
 #define cc_mul_add_add_wide_limb_limb(ret, a, b, c, d)\
-    cc_mul_wide_limb_limb(ret, a, b);\
+    do {cc_mul_wide_limb_limb(ret, a, b);\
     cc_add_wide_wide_limb(ret, *ret, c);\
-    cc_add_wide_wide_limb(ret, *ret, d)
+    cc_add_wide_wide_limb(ret, *ret, d); } while(0)
 
 // ret = a + b + c
 #define cc_add_add_wide_limb_limb(ret, a, b, c)\
-    cc_add_wide_limb_limb(ret, a, b);\
-    cc_add_wide_wide_limb(ret, *ret, c)
+    do { cc_add_wide_limb_limb(ret, a, b);\
+    cc_add_wide_wide_limb(ret, *ret, c) ;} while(0)
 
 
 

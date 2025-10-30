@@ -9,6 +9,7 @@
 #include "test/InsecureRng.h"
 #include "test/device.h"
 
+#if defined(BLST_CUDA) && defined(BLST_CUDA_MSM)
 
 using namespace blst;
 
@@ -255,3 +256,4 @@ BENCHMARK(BM_MSM_GPU_G1_BatchScaling)
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();
 
+#endif

@@ -34,7 +34,7 @@ namespace blst
 
 	enum class Backend {
 		CPU
-#if defined(BLST_CUDA)
+#if defined(BLST_CUDA) && defined(BLST_CUDA_MSM)
 		, CUDA
 #endif
 	};
@@ -42,15 +42,12 @@ namespace blst
 
 #if defined(BLST_CUDA) && !defined(__INTELLISENSE__)
 
-	static constexpr Backend DefaultBackend = Backend::CUDA;
 	template<typename T>
 	using d2Span = cuda::std::mdspan<T, cuda::std::dextents<size_t, 2>>;
 
 	template<typename T>
 	using d3Span = cuda::std::mdspan<T, cuda::std::dextents<size_t, 3>>;
 #else
-
-	static constexpr Backend DefaultBackend = Backend::CPU;
 	template<typename T>
 	using d2Span = std::mdspan<T, std::dextents<size_t, 2>>;
 	template<typename T>
@@ -605,8 +602,7 @@ namespace blst
 #ifdef BLST_CUDA
 	// taka flat array of scalars, extract the w-bit Booth encoded digits
 	// the output order is column-major by digit. First row has the N LSB digits, ...
-	BLST_GLOBAL BLST_INLINE
-		void extract_digits_flat_kernel(
+	BLST_GLOBAL inline void extract_digits_flat_kernel(
 			const uint8_t* BLST_restrict scalars,
 			int N,                // number of scalars
 			int nbytes,           // bytes per scalar
@@ -987,7 +983,7 @@ namespace blst
 		}
 		else
 		{
-#ifdef BLST_CUDA
+#if defined(BLST_CUDA) && defined(BLST_CUDA_MSM)
 			static_assert(B == Backend::CUDA);
 			int blk = 256;
 			size_t scatter_threads = W;
@@ -1074,7 +1070,7 @@ namespace blst
 		}
 		else
 		{
-#ifdef BLST_CUDA
+#if defined(BLST_CUDA) && defined(BLST_CUDA_MSM)
 			static_assert(B == Backend::CUDA);
 			return cub::DeviceReduce::ReduceByKey(
 				d_temp_storage,
@@ -1111,7 +1107,8 @@ namespace blst
 		}
 		else
 		{
-#ifdef BLST_CUDA
+#if defined(BLST_CUDA) && defined(BLST_CUDA_MSM)
+
 			static_assert(B == Backend::CUDA);
 			return thrust::all_of(
 				thrust::cuda::par.on(stream),
@@ -1355,7 +1352,8 @@ namespace blst
 		}
 		else
 		{
-#ifdef BLST_CUDA
+#if defined(BLST_CUDA) && defined(BLST_CUDA_MSM)
+
 			static_assert(B == Backend::CUDA);
 
 			auto policy = thrust::cuda::par.on(stream);
@@ -1602,7 +1600,8 @@ namespace blst
 		}
 		else
 		{
-#ifdef BLST_CUDA
+#if defined(BLST_CUDA) && defined(BLST_CUDA_MSM)
+
 			static_assert(B == Backend::CUDA);
 			int blk = 256;
 			int grd = (total + blk - 1) / blk;
@@ -1698,8 +1697,8 @@ namespace blst
 		}
 		else
 		{
+#if defined(BLST_CUDA) && defined(BLST_CUDA_MSM)
 
-#ifdef BLST_CUDA
 			static_assert(B == Backend::CUDA);
 
 			int blk = 256;

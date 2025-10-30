@@ -20,7 +20,7 @@ namespace blst
 		bool debug,
 		bool print);
 
-#ifdef BLST_CUDA
+#if defined(BLST_CUDA) && defined(BLST_CUDA_MSM)
 
 	template
 		DeviceError msm_booth_batched_pipeline<Backend::CUDA, G2Point, G2AffinePoint, Pointxyzz<Fp2>>(

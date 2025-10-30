@@ -84,7 +84,7 @@
         "BLST_ASAN": false,
         "BLST_FAST_BUILD": true,
         "CMAKE_VERBOSE_MAKEFILE": true,
-        "BLST_LIMB_SIZE": "64",
+        "BLST_CUDA_MSM": false,
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
       },
       "vendor": {
@@ -107,10 +107,10 @@
       },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "LIBOTE_STD_VER": "20",
         "BLST_ASM": false,
         "BLST_PORTABLE": true,
         "BLST_CUDA": true,
+        "BLST_CUDA_MSM": false,
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
       },
       "vendor": {

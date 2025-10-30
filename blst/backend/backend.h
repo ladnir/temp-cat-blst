@@ -3,6 +3,7 @@
 
 #include "backend_portable.h"
 #include "backend_asm.h"
+#include "backend_cuda.h"
 //BLST_EXTERN_C_BEGIN
 
 namespace blst

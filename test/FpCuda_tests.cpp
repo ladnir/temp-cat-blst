@@ -275,12 +275,20 @@ TEST_F(FpCudaTest, VectorMul) {
         to_mont_fp(h_a[i], temp_a);
         to_mont_fp(h_b[i], temp_b);
     }
+    //printf("\n\n");
 
     // CPU reference computation
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
         Fp::mul(cpu_result[i], h_a[i], h_b[i]);
+        Fp rr;
+		ptx_mul_mont_u64<Fp>(rr.data, h_a[i].data, h_b[i].data);
+        if (!Fp_equal(cpu_result[i], rr)) {
+            printf("CPU mul mismatch at index %zu:\n", i);
+            printf("Expected: "); print_Fp(cpu_result[i]);
+            printf("Got:      "); print_Fp(rr);
+		}
     }
-
+    //printf("\n\n");
     // Allocate device memory
     Fp* d_a = allocate_device_fp_array(NUM_ELEMENTS);
     Fp* d_b = allocate_device_fp_array(NUM_ELEMENTS);

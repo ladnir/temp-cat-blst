@@ -9,6 +9,7 @@
 #include "blst/fields/Fr_cuda.h"
 #include "blst/common/errors.h"
 #include "blst/common/cuda_launch.h"
+#define BLST_FR_KERNELS
 
 namespace blst
 {

@@ -20,7 +20,7 @@ void sort_digits_segmented_test()
 	//    GTEST_SKIP() << "CUDA not available";
 	//}
 
-//#ifdef BLST_CUDA
+//#if defined(BLST_CUDA) && defined(BLST_CUDA_MSM)
 //	const Backend B = Backend::CUDA;
 //#else
 //	const Backend B = Backend::CPU;
@@ -209,7 +209,7 @@ void sort_digits_segmented_test()
 TEST(MSM, CpuSortDigitsParallel) {
 	sort_digits_segmented_test<Backend::CPU>();
 }
-#ifdef BLST_CUDA
+#if defined(BLST_CUDA) && defined(BLST_CUDA_MSM)
 TEST(MSM, CudaSortDigitsParallel) {
 	sort_digits_segmented_test<Backend::CUDA>();
 }
@@ -335,7 +335,7 @@ void sort_digits_segmented_edge_cases_test()
 TEST(MSM, CpuSortDigitsParallelEdgeCases) {
 	sort_digits_segmented_edge_cases_test<Backend::CPU>();
 }
-#ifdef BLST_CUDA
+#if defined(BLST_CUDA) && defined(BLST_CUDA_MSM)
 	
 TEST(MSM, CudaSortDigitsParallelEdgeCases) {
 	sort_digits_segmented_edge_cases_test<Backend::CUDA>();
@@ -351,7 +351,7 @@ void reduce_groups_test()
 	//    GTEST_SKIP() << "CUDA not available";
 	//}
 //
-//#ifdef BLST_CUDA
+//#if defined(BLST_CUDA) && defined(BLST_CUDA_MSM)
 //	const Backend B = Backend::CUDA;
 //#else
 //	const Backend B = Backend::CPU;
@@ -578,7 +578,7 @@ void reduce_groups_test()
 TEST(MSM, CpuReduceGroups) {
 	reduce_groups_test<Backend::CPU>();
 }
-#ifdef BLST_CUDA
+#if defined(BLST_CUDA) && defined(BLST_CUDA_MSM)
 TEST(MSM, CudaReduceGroups) {
 	reduce_groups_test<Backend::CUDA>();
 }
@@ -589,7 +589,7 @@ TEST(MSM, CudaReduceGroups) {
 template<Backend B>
 void reduce_groups_edge_cases_test()
 {
-//#ifdef BLST_CUDA
+//#if defined(BLST_CUDA) && defined(BLST_CUDA_MSM)
 //	const Backend B = Backend::CUDA;
 //#else
 //	const Backend B = Backend::CPU;
@@ -698,7 +698,7 @@ void reduce_groups_edge_cases_test()
 TEST(MSM, CpuReduceGroupsEdgeCases) {
 	reduce_groups_edge_cases_test<Backend::CPU>();
 }
-#ifdef BLST_CUDA
+#if defined(BLST_CUDA) && defined(BLST_CUDA_MSM)
 	
 TEST(MSM, CudaReduceGroupsEdgeCases) {
 	reduce_groups_edge_cases_test<Backend::CUDA>();
@@ -920,7 +920,7 @@ TEST(MSM, CpuBoothBatchedPipeline) {
 
 }
 
-#ifdef BLST_CUDA
+#if defined(BLST_CUDA) && defined(BLST_CUDA_MSM)
 
 TEST(MSM, CudaBoothBatchedPipeline) {
 

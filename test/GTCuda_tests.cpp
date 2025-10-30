@@ -858,12 +858,15 @@ TEST(GTOpsCUDA, PowersOfTwo) {
                 << "Base " << i << ": exponent 1 should give base";
             break;
         case 2:
+        {
+
             // Exponent = 2 should give base^2
             GT base_squared;
             GT::doubling(base_squared, h_bases[i]);
             EXPECT_TRUE(GT::equal(h_cuda_result[i], base_squared))
                 << "Base " << i << ": exponent 2 should give base^2";
             break;
+        }
         default:
             // All results should be in GT group
             EXPECT_TRUE(GT::in_group(h_cuda_result[i]))

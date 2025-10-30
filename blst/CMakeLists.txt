@@ -5,6 +5,8 @@
 set(BLST_STATIC_SRC  
     "backend/backend_portable.cpp"
     "sign/keygen.cpp"
+    "fields/Fr.cpp"
+    "fields/Fp.cpp"
     "fields/Fp12.cpp"
     "curve/GT.cpp"
     "curve/point.cpp"
@@ -104,8 +106,9 @@ if(BLST_CUDA)
         $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda>
         #$<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_89>
         $<$<COMPILE_LANGUAGE:CUDA>:-rdc=true>
-        $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>           # cheap line tables
+        #$<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>           # cheap line tables
         $<$<CONFIG:Debug>:$<$<COMPILE_LANGUAGE:CUDA>:-G -g -Xptxas -O0>> # expensive debug info
+        $<$<CONFIG:Release>:$<$<COMPILE_LANGUAGE:CUDA>:-Xptxas -O3>> # 
         
         #verbose output for nvcc
         #$<$<COMPILE_LANGUAGE:CUDA>:

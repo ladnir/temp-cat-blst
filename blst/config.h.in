@@ -5,6 +5,7 @@
 #cmakedefine BLST_ADX          // enable the ADX instruction set
 #cmakedefine BLST_DEFAULT_ASM  // use asm as the default cpu implementation
 #cmakedefine BLST_CUDA         // enable cuda kernels
+#cmakedefine BLST_CUDA_MSM     // enable cuda msm kernels
 #cmakedefine BLST_FAST_BUILD   // faster build but slower runtime, reduced CUDA inlining.
 #define BLST_LIMB_SIZE ${BLST_LIMB_SIZE}
 

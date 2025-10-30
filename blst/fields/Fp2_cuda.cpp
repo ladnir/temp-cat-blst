@@ -11,6 +11,7 @@
 #include "blst/common/cuda_launch.h"
  // printf for debugging
 #include <stdio.h>
+#define BLST_FP2_KERNELS
 
 namespace blst
 {

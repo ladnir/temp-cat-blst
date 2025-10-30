@@ -45,7 +45,12 @@ namespace blst
 
 
         // the modulus (returned as a Fr which is a slight abuse)
-        BLST_HD static const Fr& modulus();
+        BLST_HD static constexpr const Fr& modulus();
+
+        // returns the montomergy constant, -1/r, this is the modular 
+        // inverse of r modulo 2^256 used in montgomery reduction as 
+        // the "magic" number
+        BLST_HD static constexpr limb_t montgomery_constant();
 
         // ret = a + b
         BLST_HD static void add(Fr& ret, const Fr& a, const Fr& b);
@@ -151,7 +156,7 @@ namespace blst
 
     // returns the order of the group G1. This prime define the scalar field.
     // Will return host or device memory depending on compilation target.
-    BLST_HD BLST_FORCEINLINE const Fr& get_BLST_r(void)
+    BLST_HD BLST_FORCEINLINE constexpr const Fr& get_BLST_r(void)
     {
 #if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
         return BLST_r_DEV;
@@ -396,9 +401,14 @@ namespace blst
 
 
     // the modulus (returned as a Fr which is a slight abuse)
-    BLST_HD BLST_FORCEINLINE const Fr& Fr::modulus()
+    BLST_HD BLST_FORCEINLINE constexpr const Fr& Fr::modulus()
     {
 		return get_BLST_r();
+    }
+
+    BLST_HD BLST_FORCEINLINE constexpr limb_t Fr::montgomery_constant()
+    {
+        return BLST_r0;
     }
 
     // ret = a + b

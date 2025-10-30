@@ -15,7 +15,11 @@
 #include <type_traits>
 
 # include "sqrt-addchain.h"
-
+//
+//#ifdef __CUDA_ARCH__
+//#include "blst/backend/cuda/add_mod_cuda.h"
+//#include "blst/backend/cuda/mul_mont_cuda.h"
+//#endif
 
 namespace blst
 {
@@ -49,8 +53,11 @@ namespace blst
 
 		/// @brief The modulus p as an Fp element (slight abuse; provided for convenience).
 		/// @note Returned in Montgomery form (i.e., p * R mod p == 0).
-		BLST_HD static const Fp& modulus();
+		BLST_HD static constexpr const Fp& modulus();
 		///@}
+
+
+		BLST_HD static constexpr limb_t montgomery_constant();
 
 		/** @name Basic arithmetic (mod p, Montgomery inputs/outputs) */
 		///@{
@@ -250,7 +257,7 @@ namespace blst
 	// The order of the group G1 is a different prime, which can be obtained
 	// via get_BLST_r().
 	// Will return host or device memory depending on compilation target.
-	BLST_HD BLST_FORCEINLINE const Fp& get_BLST_P(void)
+	BLST_HD BLST_FORCEINLINE constexpr const Fp& get_BLST_P(void)
 	{
 #if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
 		return BLST_P_DEV;
@@ -286,7 +293,9 @@ namespace blst
 	{
 		BLST_ASSERT(Fp::is_redc(a));
 		BLST_ASSERT(Fp::is_redc(b));
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+#ifdef __CUDA_ARCH__
+		ptx_add_mod_u64<Fp>(ret.data, a.data, b.data);
+#elif defined(BLST_DEFAULT_ASM) 
 		add_mod_384(&ret, &a, &b, &get_BLST_P());
 #else
 		cc_add_mod_n<NLIMBS(384)>(ret.data, a.data, b.data, get_BLST_P().data);
@@ -307,7 +316,9 @@ namespace blst
 
 	BLST_HD BLST_FORCEINLINE void Fp::mul(Fp& ret, const Fp& a, const Fp& b)
 	{
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+#ifdef __CUDA_ARCH__
+		ptx_mul_mont_u64<Fp>(ret.data, a.data, b.data);
+#elif defined(BLST_DEFAULT_ASM) 
 		mulx_mont_384(&ret, &a, &b, &get_BLST_P(), BLST_p0);
 #else
 		cc_mul_mont_n<NLIMBS(384)>(ret.data, a.data, b.data, get_BLST_P().data, BLST_p0);
@@ -618,9 +629,14 @@ namespace blst
 	{
 		return get_BLST_Rx().p;
 	}
-	BLST_HD BLST_FORCEINLINE const Fp& Fp::modulus()
+	BLST_HD BLST_FORCEINLINE constexpr const Fp& Fp::modulus()
 	{
 		return get_BLST_P();
+	}
+
+	BLST_HD BLST_FORCEINLINE constexpr limb_t Fp::montgomery_constant()
+	{
+		return BLST_p0;
 	}
 
 }

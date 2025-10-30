@@ -26,10 +26,10 @@ namespace blst {
 
         Fp12 data;
 
-        auto operator[](size_t idx) -> decltype(data[idx]) {
+        BLST_HD auto operator[](size_t idx) -> decltype(data[idx]) {
             return data[idx];
 		}
-        auto operator[](size_t idx) const -> decltype(data[idx]) {
+        BLST_HD auto operator[](size_t idx) const -> decltype(data[idx]) {
             return data[idx];
         }
 
@@ -238,7 +238,7 @@ namespace blst {
         static BLST_HD void miller_loop(GT& ret, const G2AffinePoint* Q,
             const G1AffinePoint* P);
 
-        static void miller_loop_n(
+        static BLST_HD void miller_loop_n(
             GT& ret,
             const G2AffinePoint Q[],
             const G1AffinePoint P[],

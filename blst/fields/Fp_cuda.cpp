@@ -8,9 +8,44 @@
 #include "blst/fields/Fp_cuda.h"
 #include "blst/exports.h"
 #include "blst/common/cuda_launch.h"
+#include "blst/backend/cuda/mul_mont_cuda.h"
+#include "blst/backend/cuda/add_mod_cuda.h"
 
-namespace blst
+#ifdef BLST_CUDA
+#define BLST_FP_KERNELS
+#endif
+
+	namespace blst
 {
+
+	namespace
+	{
+		void choose_launch(size_t n, dim3& grid, dim3& block)
+		{
+			int sm_count = 0;
+			cudaDeviceProp prop{};
+			auto ec = cudaGetDeviceProperties(&prop, 0);
+			if (ec != cudaSuccess)
+			{
+				// default values
+				const int blk = 256;
+				size_t blocks = (n + blk - 1) / blk;
+				blocks = std::max(blocks, (size_t)16);
+				grid = dim3((unsigned)blocks);
+				block = dim3(blk);
+				return;
+			}
+			else
+			{
+				sm_count = prop.multiProcessorCount;
+				const int blk = 256;
+				size_t blocks = (n + blk - 1) / blk;
+				blocks = std::max(blocks, (size_t)sm_count * 4);
+				grid = dim3((unsigned)blocks);
+				block = dim3(blk);
+			}
+		}
+	}
 
 	// Vectorized addition of Fp elements (CPU)
 	batched_error_code add_fp_vec_cc(Fp* out, const Fp* a, const Fp* b, size_t num)
@@ -29,8 +64,13 @@ namespace blst
 	BLST_GLOBAL void add_fp_vec_ker(Fp* out, const Fp* a, const Fp* b, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-		if (idx < num) {
-			Fp::add(out[idx], a[idx], b[idx]);
+		size_t stride = gridDim.x * blockDim.x;
+		for (size_t i = idx; i < num; i += stride)
+		{
+			auto pa = a + i;
+			auto pb = b + i;
+			auto pr = out + i;
+			Fp::add(*pr, *pa, *pb);
 		}
 	}
 
@@ -43,8 +83,18 @@ namespace blst
 	{
 		if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
-		auto fut = launch_auto(add_fp_vec_ker, num, out, a, b);
-		return cuda_to_batched(fut.get());
+		dim3 grid, block;
+		choose_launch(num, grid, block);
+		cudaStream_t stream = 0; // default stream
+		add_fp_vec_ker BLST_LAUNCH(grid, block, 0, stream)(out, a, b, num);
+
+		// sync
+		auto ec = cudaStreamSynchronize(stream);
+		if (ec != cudaSuccess)
+			return cuda_to_batched(ec);
+
+		ec = cudaGetLastError();
+		return cuda_to_batched(ec);
 	}
 #endif
 
@@ -76,8 +126,13 @@ namespace blst
 	BLST_GLOBAL void sub_fp_vec_ker(Fp* out, const Fp* a, const Fp* b, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-		if (idx < num) {
-			Fp::sub(out[idx], a[idx], b[idx]);
+		size_t stride = gridDim.x * blockDim.x;
+		for (size_t i = idx; i < num; i += stride)
+		{
+			auto pa = a + i;
+			auto pb = b + i;
+			auto pr = out + i;
+			Fp::sub(*pr, *pa, *pb);
 		}
 	}
 
@@ -86,8 +141,18 @@ namespace blst
 	{
 		if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
-		auto fut = launch_auto(sub_fp_vec_ker, num, out, a, b);
-		return cuda_to_batched(fut.get());
+		dim3 grid, block;
+		choose_launch(num, grid, block);
+		cudaStream_t stream = 0; // default stream
+		sub_fp_vec_ker BLST_LAUNCH(grid, block, 0, stream)(out, a, b, num);
+
+		// sync
+		auto ec = cudaStreamSynchronize(stream);
+		if (ec != cudaSuccess)
+			return cuda_to_batched(ec);
+
+		ec = cudaGetLastError();
+		return cuda_to_batched(ec);
 	}
 #endif
 
@@ -118,8 +183,13 @@ namespace blst
 	BLST_GLOBAL void mul_fp_vec_ker(Fp* out, const Fp* a, const Fp* b, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-		if (idx < num) {
-			Fp::mul(out[idx], a[idx], b[idx]);
+		size_t stride = gridDim.x * blockDim.x;
+		for (size_t i = idx; i < num; i += stride)
+		{
+			auto pa = a + i;
+			auto pb = b + i;
+			auto pr = out + i;
+			Fp::mul(*pr, *pa, *pb);
 		}
 	}
 	// Vectorized multiplication of Fp elements (GPU)
@@ -127,8 +197,22 @@ namespace blst
 	{
 		if (!out || !a || !b) return BATCHED_ERROR_NULL_POINTER;
 
-		auto fut = launch_auto(mul_fp_vec_ker, num, out, a, b);
-		return cuda_to_batched(fut.get());
+		dim3 grid, block;
+		choose_launch(num, grid, block);
+		cudaStream_t stream = 0; // default stream
+		mul_fp_vec_ker BLST_LAUNCH(grid, block, 0, stream)(out, a, b, num);
+
+		// sync
+		auto ec = cudaStreamSynchronize(stream);
+		if (ec != cudaSuccess)
+			return cuda_to_batched(ec);
+
+		ec = cudaGetLastError();
+		return cuda_to_batched(ec);
+
+
+		//auto fut = launch_auto(mul_fp_vec_ker, num, out, a, b);
+		//return cuda_to_batched(fut.get());
 	}
 #endif
 	// Vectorized multiplication of Fp elements
@@ -158,8 +242,12 @@ namespace blst
 	BLST_GLOBAL void sqr_fp_vec_ker(Fp* out, const Fp* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-		if (idx < num) {
-			Fp::sqr(out[idx], a[idx]);
+		size_t stride = gridDim.x * blockDim.x;
+		for (size_t i = idx; i < num; i += stride)
+		{
+			auto pa = a + i;
+			auto pr = out + i;
+			Fp::sqr(*pr, *pa);
 		}
 	}
 	// Vectorized squaring of Fp elements (GPU)
@@ -167,8 +255,18 @@ namespace blst
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
-		auto fut = launch_auto(sqr_fp_vec_ker, num, out, a);
-		return cuda_to_batched(fut.get());
+		dim3 grid, block;
+		choose_launch(num, grid, block);
+		cudaStream_t stream = 0; // default stream
+		sqr_fp_vec_ker BLST_LAUNCH(grid, block, 0, stream)(out, a, num);
+
+		// sync
+		auto ec = cudaStreamSynchronize(stream);
+		if (ec != cudaSuccess)
+			return cuda_to_batched(ec);
+
+		ec = cudaGetLastError();
+		return cuda_to_batched(ec);
 	}
 #endif
 	// Vectorized squaring of Fp elements
@@ -198,8 +296,12 @@ namespace blst
 	BLST_GLOBAL void cneg_fp_vec_ker(Fp* out, const Fp* a, int flag, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-		if (idx < num) {
-			Fp::cneg(out[idx], a[idx], flag);
+		size_t stride = gridDim.x * blockDim.x;
+		for (size_t i = idx; i < num; i += stride)
+		{
+			auto pa = a + i;
+			auto pr = out + i;
+			Fp::cneg(*pr, *pa, flag);
 		}
 	}
 	// Vectorized negation of Fp elements (GPU)
@@ -207,8 +309,18 @@ namespace blst
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
-		auto fut = launch_auto(cneg_fp_vec_ker, num, out, a, flag);
-		return cuda_to_batched(fut.get());
+		dim3 grid, block;
+		choose_launch(num, grid, block);
+		cudaStream_t stream = 0; // default stream
+		cneg_fp_vec_ker BLST_LAUNCH(grid, block, 0, stream)(out, a, flag, num);
+
+		// sync
+		auto ec = cudaStreamSynchronize(stream);
+		if (ec != cudaSuccess)
+			return cuda_to_batched(ec);
+
+		ec = cudaGetLastError();
+		return cuda_to_batched(ec);
 	}
 #endif
 
@@ -243,8 +355,12 @@ namespace blst
 	BLST_GLOBAL void mul3_fp_vec_ker(Fp* out, const Fp* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-		if (idx < num) {
-			Fp::mul_by_3(out[idx], a[idx]);
+		size_t stride = gridDim.x * blockDim.x;
+		for (size_t i = idx; i < num; i += stride)
+		{
+			auto pa = a + i;
+			auto pr = out + i;
+			Fp::mul_by_3(*pr, *pa);
 		}
 	}
 	// Vectorized multiplication of Fp elements by 3 (GPU)
@@ -252,8 +368,18 @@ namespace blst
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
-		auto fut = launch_auto(mul3_fp_vec_ker, num, out, a);
-		return cuda_to_batched(fut.get());
+		dim3 grid, block;
+		choose_launch(num, grid, block);
+		cudaStream_t stream = 0; // default stream
+		mul3_fp_vec_ker BLST_LAUNCH(grid, block, 0, stream)(out, a, num);
+
+		// sync
+		auto ec = cudaStreamSynchronize(stream);
+		if (ec != cudaSuccess)
+			return cuda_to_batched(ec);
+
+		ec = cudaGetLastError();
+		return cuda_to_batched(ec);
 	}
 #endif
 	// Vectorized multiplication of Fp elements by 3
@@ -285,8 +411,12 @@ namespace blst
 	BLST_GLOBAL void mul8_fp_vec_ker(Fp* out, const Fp* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-		if (idx < num) {
-			Fp::mul_by_8(out[idx], a[idx]);
+		size_t stride = gridDim.x * blockDim.x;
+		for (size_t i = idx; i < num; i += stride)
+		{
+			auto pa = a + i;
+			auto pr = out + i;
+			Fp::mul_by_8(*pr, *pa);
 		}
 	}
 	// Vectorized multiplication of Fp elements by 8 (GPU)
@@ -294,8 +424,18 @@ namespace blst
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
-		auto fut = launch_auto(mul8_fp_vec_ker, num, out, a);
-		return cuda_to_batched(fut.get());
+		dim3 grid, block;
+		choose_launch(num, grid, block);
+		cudaStream_t stream = 0; // default stream
+		mul8_fp_vec_ker BLST_LAUNCH(grid, block, 0, stream)(out, a, num);
+
+		// sync
+		auto ec = cudaStreamSynchronize(stream);
+		if (ec != cudaSuccess)
+			return cuda_to_batched(ec);
+
+		ec = cudaGetLastError();
+		return cuda_to_batched(ec);
 	}
 #endif
 	// Vectorized multiplication of Fp elements by 8
@@ -328,8 +468,12 @@ namespace blst
 	BLST_GLOBAL void div2_fp_vec_ker(Fp* out, const Fp* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-		if (idx < num) {
-			Fp::div_by_2(out[idx], a[idx]);
+		size_t stride = gridDim.x * blockDim.x;
+		for (size_t i = idx; i < num; i += stride)
+		{
+			auto pa = a + i;
+			auto pr = out + i;
+			Fp::div_by_2(*pr, *pa);
 		}
 	}
 	// Vectorized division of Fp elements by 2 (GPU)
@@ -337,8 +481,18 @@ namespace blst
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
-		auto fut = launch_auto(div2_fp_vec_ker, num, out, a);
-		return cuda_to_batched(fut.get());
+		dim3 grid, block;
+		choose_launch(num, grid, block);
+		cudaStream_t stream = 0; // default stream
+		div2_fp_vec_ker BLST_LAUNCH(grid, block, 0, stream)(out, a, num);
+
+		// sync
+		auto ec = cudaStreamSynchronize(stream);
+		if (ec != cudaSuccess)
+			return cuda_to_batched(ec);
+
+		ec = cudaGetLastError();
+		return cuda_to_batched(ec);
 	}
 #endif
 	// Vectorized division of Fp elements by 2
@@ -371,8 +525,12 @@ namespace blst
 	BLST_GLOBAL void lshift_fp_vec_ker(Fp* out, const Fp* a, size_t count, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-		if (idx < num) {
-			Fp::lshift(out[idx], a[idx], count);
+		size_t stride = gridDim.x * blockDim.x;
+		for (size_t i = idx; i < num; i += stride)
+		{
+			auto pa = a + i;
+			auto pr = out + i;
+			Fp::lshift(*pr, *pa, count);
 		}
 	}
 	// Vectorized left shift of Fp elements (GPU)
@@ -380,8 +538,18 @@ namespace blst
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
-		auto fut = launch_auto(lshift_fp_vec_ker, num, out, a, count);
-		return cuda_to_batched(fut.get());
+		dim3 grid, block;
+		choose_launch(num, grid, block);
+		cudaStream_t stream = 0; // default stream
+		lshift_fp_vec_ker BLST_LAUNCH(grid, block, 0, stream)(out, a, count, num);
+
+		// sync
+		auto ec = cudaStreamSynchronize(stream);
+		if (ec != cudaSuccess)
+			return cuda_to_batched(ec);
+
+		ec = cudaGetLastError();
+		return cuda_to_batched(ec);
 	}
 #endif
 	// Vectorized left shift of Fp elements
@@ -414,8 +582,12 @@ namespace blst
 	BLST_GLOBAL void to_fp_vec_ker(Fp* out, const Fp* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-		if (idx < num) {
-			Fp::to_mont(out[idx], a[idx]);
+		size_t stride = gridDim.x * blockDim.x;
+		for (size_t i = idx; i < num; i += stride)
+		{
+			auto pa = a + i;
+			auto pr = out + i;
+			Fp::to_mont(*pr, *pa);
 		}
 	}
 	// Vectorized conversion from a regular representation to a montgomery Fp (GPU)
@@ -423,8 +595,18 @@ namespace blst
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
-		auto fut = launch_auto(to_fp_vec_ker, num, out, a);
-		return cuda_to_batched(fut.get());
+		dim3 grid, block;
+		choose_launch(num, grid, block);
+		cudaStream_t stream = 0; // default stream
+		to_fp_vec_ker BLST_LAUNCH(grid, block, 0, stream)(out, a, num);
+
+		// sync
+		auto ec = cudaStreamSynchronize(stream);
+		if (ec != cudaSuccess)
+			return cuda_to_batched(ec);
+
+		ec = cudaGetLastError();
+		return cuda_to_batched(ec);
 	}
 #endif
 	// Vectorized conversion from a regular representation to a montgomery Fp
@@ -456,8 +638,12 @@ namespace blst
 	BLST_GLOBAL void from_fp_vec_ker(Fp* out, const Fp* a, size_t num)
 	{
 		size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-		if (idx < num) {
-			Fp::from_mont(out[idx], a[idx]);
+		size_t stride = gridDim.x * blockDim.x;
+		for (size_t i = idx; i < num; i += stride)
+		{
+			auto pa = a + i;
+			auto pr = out + i;
+			Fp::from_mont(*pr, *pa);
 		}
 	}
 	// Vectorized conversion from a montgomery Fp to a regular representation (GPU)
@@ -465,8 +651,18 @@ namespace blst
 	{
 		if (!out || !a) return BATCHED_ERROR_NULL_POINTER;
 
-		auto fut = launch_auto(from_fp_vec_ker, num, out, a);
-		return cuda_to_batched(fut.get());
+		dim3 grid, block;
+		choose_launch(num, grid, block);
+		cudaStream_t stream = 0; // default stream
+		from_fp_vec_ker BLST_LAUNCH(grid, block, 0, stream)(out, a, num);
+
+		// sync
+		auto ec = cudaStreamSynchronize(stream);
+		if (ec != cudaSuccess)
+			return cuda_to_batched(ec);
+
+		ec = cudaGetLastError();
+		return cuda_to_batched(ec);
 	}
 #endif
 	// Vectorized conversion from a montgomery Fp to a regular representation
@@ -482,4 +678,3 @@ namespace blst
 
 
 }
-
