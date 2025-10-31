@@ -127,29 +127,31 @@ namespace blst
 #if BLST_LIMB_SIZE == 64 && defined(BLST_ADX) && !defined(__CUDA_ARCH__)
 
 	// 64 bit with wide operations with adx support
+	static_assert(sizeof(unsigned long long*) == sizeof(limb_t), "limb_t must be 64 bits");
+
 	namespace adx64
 	{
 		BLST_FORCEINLINE void cc_mul_wide_limb_limb(wide_limb_t* ret, const limb_t& a, const limb_t& b) {
-			ret->lo = _mulx_u64(a, b, &ret->hi);
+			ret->lo = _mulx_u64(a, b, (unsigned long long*) & ret->hi);
 		}
 
 		BLST_FORCEINLINE void cc_add_wide_wide_limb(wide_limb_t* ret, const wide_limb_t& a, const limb_t& b) {
-			ret->hi = a.hi + _addcarry_u64(0, a.lo, b, &ret->lo);
+			ret->hi = a.hi + _addcarry_u64(0, a.lo, b, (unsigned long long*) &ret->lo);
 		}
 
 		BLST_FORCEINLINE void cc_add_wide_limb_limb(wide_limb_t* ret, const limb_t& a, const limb_t& b) {
-			ret->hi = _addcarry_u64(0, a, b, &ret->lo);
+			ret->hi = _addcarry_u64(0, a, b, (unsigned long long*) &ret->lo);
 		}
 
 		BLST_FORCEINLINE void cc_add_carry_wide_limb_limb(wide_limb_t* ret, const limb_t& a, const limb_t& b, const limb_t& carry) {
 			BLST_ASSUME(carry <= 1);
-			ret->hi = _addcarry_u64((unsigned char)carry, a, b, &ret->lo);
+			ret->hi = _addcarry_u64((unsigned char)carry, a, b, (unsigned long long*) &ret->lo);
 		}
 
 		BLST_FORCEINLINE void cc_sub_borrow_wide_limb_limb(wide_limb_t* ret, const limb_t& a, const limb_t& b, const limb_t& borrow)
 		{
 			BLST_ASSUME(borrow <= 1);
-			ret->hi = 0 - (limb_t)_subborrow_u64((unsigned char)borrow, a, b, &ret->lo);
+			ret->hi = 0 - (limb_t)_subborrow_u64((unsigned char)borrow, a, b, (unsigned long long*) &ret->lo);
 		}
 
 	}

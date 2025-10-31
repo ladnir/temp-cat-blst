@@ -168,7 +168,8 @@ uint64_t umul64hi(uint64_t a, uint64_t b) {
 	return __umul64hi(a, b);
 #else
 	uint64_t hi;
-	_mulx_u64(a, b, &hi);
+	static_assert(sizeof(unsigned long long) == sizeof(uint64_t), "uint64_t size mismatch");
+	_mulx_u64(a, b, (unsigned long long*)&hi);
 	return hi;
 #endif
 }

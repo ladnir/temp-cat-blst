@@ -162,7 +162,7 @@ protected:
 };
 
 TEST_F(FpCudaTest, VectorAdd) {
-    const size_t NUM_ELEMENTS = 1;
+    const size_t NUM_ELEMENTS = 55;
     auto h_a = std::make_unique<Fp[]>(NUM_ELEMENTS);
     auto h_b = std::make_unique<Fp[]>(NUM_ELEMENTS);
     auto h_result = std::make_unique<Fp[]>(NUM_ELEMENTS);

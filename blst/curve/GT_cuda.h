@@ -7,7 +7,7 @@
 #define BLST_GT_CUDA_H
 
 #include "blst/curve/point.h"
-#include "blst/Curve/GT.h"
+#include "blst/curve/GT.h"
 #include "blst/common/errors.h"
 
 namespace blst

@@ -9,18 +9,18 @@ BLST_HD BLST_INLINE
 void print_limb(const char* buffer, const uint64_t* v, size_t n) {
 	auto bytes = n * sizeof(uint64_t);
 	char* buf_ptr = (char*)buffer;
-    char* src_ptr = (char*)v + bytes - 1;
-    for (size_t i = 0; i < bytes; i++) 
-    {
-        unsigned char b = *src_ptr--;
-        auto lo = b & 15;
-        auto hi = b >> 4;
-        *buf_ptr++ = hi > 9 ? 'A' + (hi - 10) : '0' + hi;
-        *buf_ptr++ = lo > 9 ? 'A' + (lo - 10) : '0' + lo;
-        if ((i % 32) == 31)
-            *buf_ptr++ = ' ';
+	char* src_ptr = (char*)v + bytes - 1;
+	for (size_t i = 0; i < bytes; i++)
+	{
+		unsigned char b = *src_ptr--;
+		auto lo = b & 15;
+		auto hi = b >> 4;
+		*buf_ptr++ = hi > 9 ? 'A' + (hi - 10) : '0' + hi;
+		*buf_ptr++ = lo > 9 ? 'A' + (lo - 10) : '0' + lo;
+		if ((i % 32) == 31)
+			*buf_ptr++ = ' ';
 	}
-    *buf_ptr = 0;
+	*buf_ptr = 0;
 }
 
 template<typename Field>
@@ -62,14 +62,14 @@ void ptx_add_mod_u64(
 		// ===== a + b with carry -> x, carry1 in a GPR ===================================
 		uint32_t carry1 = 0;
 		asm volatile(
-			"add.cc.u64  %0,  %7,  %13;\n\t"
-			"addc.cc.u64 %1,  %8,  %14;\n\t"
-			"addc.cc.u64 %2,  %9,  %15;\n\t"
-			"addc.cc.u64 %3,  %10, %16;\n\t"
-			"addc.cc.u64 %4,  %11, %17;\n\t"
-			"addc.u64    %5,  %12, %18;\n\t"
-			"mov.u32     %6,  0;\n\t"
-			"addc.u32    %6,  %6,  %6;\n\t"   // carry1 = CC
+			"add.cc.u64   %0,  %7,  %13;\n\t"
+			"addc.cc.u64  %1,  %8,  %14;\n\t"
+			"addc.cc.u64  %2,  %9,  %15;\n\t"
+			"addc.cc.u64  %3,  %10, %16;\n\t"
+			"addc.cc.u64  %4,  %11, %17;\n\t"
+			"addc.cc.u64  %5,  %12, %18;\n\t"   // final must be .cc
+			"mov.u32      %6,  0;\n\t"
+			"addc.u32     %6,  %6,  %6;\n\t"    // carry1 = CC
 			: "=&l"(x0),
 			"=&l"(x1),
 			"=&l"(x2),
@@ -89,76 +89,38 @@ void ptx_add_mod_u64(
 		t5 = x5;
 
 		// ===== x - p -> s (we’ll compute ge(x,p) separately) ============================
+		uint32_t noborrow;
 		asm volatile(
-			"sub.cc.u64  %0,  %6,  %12;\n\t"
-			"subc.cc.u64 %1,  %7,  %13;\n\t"
-			"subc.cc.u64 %2,  %8,  %14;\n\t"
-			"subc.cc.u64 %3,  %9,  %15;\n\t"
-			"subc.cc.u64 %4,  %10, %16;\n\t"
-			"subc.u64    %5,  %11, %17;\n\t"
+			// %0..%5  -> s0..s5 (64-bit outputs)
+			// %6      -> noborrow (32-bit output)  **NOT** used by the sub lines
+			// %7..%12 -> x0..x5 (64-bit inputs)
+			// %13..%18-> p0..p5 (64-bit inputs)
+
+			"sub.cc.u64   %0,  %7,  %13;\n\t"
+			"subc.cc.u64  %1,  %8,  %14;\n\t"
+			"subc.cc.u64  %2,  %9,  %15;\n\t"
+			"subc.cc.u64  %3,  %10, %16;\n\t"
+			"subc.cc.u64  %4,  %11, %17;\n\t"
+			"subc.cc.u64  %5,  %12, %18;\n\t"   // CC now = !borrow
+			"mov.u32      %6,  0;\n\t"
+			"addc.u32     %6,  %6,  %6;\n\t"    // noborrow = CC (1=no borrow)
 			: "=&l"(s0),
 			"=&l"(s1),
 			"=&l"(s2),
 			"=&l"(s3),
 			"=&l"(s4),
-			"=&l"(s5)
+			"=&l"(s5),
+			"=&r"(noborrow)                   // %6 — not referenced above
 			: "l"(x0), "l"(x1), "l"(x2), "l"(x3), "l"(x4), "l"(x5),
 			"l"(p[0]), "l"(p[1]), "l"(p[2]), "l"(p[3]), "l"(p[4]), "l"(p[5])
 			);
 
 		// ===== need_reduce = (carry1 != 0) || (x >= p) ==================================
 		uint32_t need_reduce;
-		asm volatile(
-			// Inputs here: %1=carry1, %2..%7 = t0..t5, %8..%13 = p0..p5
-			".reg .pred peq;\n\t"
-			".reg .pred peq_next;\n\t"
-			".reg .pred pgt;\n\t"
-			".reg .pred ptmp;\n\t"
-			".reg .pred pge;\n\t"
+		asm volatile("or.b32 %0, %1, %2;" : "=&r"(need_reduce) : "r"(carry1), "r"(noborrow));
 
-			"setp.gt.u64 pgt, %7,  %13;\n\t"   // compare high limb first: t5 > p5 ?
-			"setp.eq.u64 peq, %7,  %13;\n\t"
 
-			"setp.gt.u64 ptmp, %6, %12;\n\t"
-			"and.pred    ptmp, ptmp, peq;\n\t"
-			"or.pred     pgt,  pgt,  ptmp;\n\t"
-			"setp.eq.u64 peq_next, %6, %12;\n\t"
-			"and.pred    peq, peq, peq_next;\n\t"
-
-			"setp.gt.u64 ptmp, %5, %11;\n\t"
-			"and.pred    ptmp, ptmp, peq;\n\t"
-			"or.pred     pgt,  pgt,  ptmp;\n\t"
-			"setp.eq.u64 peq_next, %5, %11;\n\t"
-			"and.pred    peq, peq, peq_next;\n\t"
-
-			"setp.gt.u64 ptmp, %4, %10;\n\t"
-			"and.pred    ptmp, ptmp, peq;\n\t"
-			"or.pred     pgt,  pgt,  ptmp;\n\t"
-			"setp.eq.u64 peq_next, %4, %10;\n\t"
-			"and.pred    peq, peq, peq_next;\n\t"
-
-			"setp.gt.u64 ptmp, %3,  %9;\n\t"
-			"and.pred    ptmp, ptmp, peq;\n\t"
-			"or.pred     pgt,  pgt,  ptmp;\n\t"
-			"setp.eq.u64 peq_next, %3,  %9;\n\t"
-			"and.pred    peq, peq, peq_next;\n\t"
-
-			"setp.gt.u64 ptmp, %2,  %8;\n\t"
-			"and.pred    ptmp, ptmp, peq;\n\t"
-			"or.pred     pgt,  pgt,  ptmp;\n\t"
-			"setp.eq.u64 peq_next, %2,  %8;\n\t"
-			"and.pred    peq, peq, peq_next;\n\t"
-
-			"or.pred  pge, pgt, peq;\n\t"
-			"selp.u32 %0, 1, 0, pge;\n\t"      // %0 = ge ? 1 : 0
-			"or.b32   %0, %0, %1;\n\t"         // need_reduce |= carry1
-			: "=&r"(need_reduce)
-			: "r"(carry1),
-			"l"(t0), "l"(t1), "l"(t2), "l"(t3), "l"(t4), "l"(t5),
-			"l"(p[0]), "l"(p[1]), "l"(p[2]), "l"(p[3]), "l"(p[4]), "l"(p[5])
-			);
-
-		// ===== blend: r = need_reduce ? s : t ==========================================
+		//// ===== blend: r = need_reduce ? s : t ==========================================
 		uint64_t o0;
 		uint64_t o1;
 		uint64_t o2;
@@ -233,59 +195,34 @@ void ptx_add_mod_u64(
 		t1 = x1;
 		t2 = x2;
 		t3 = x3;
+
 		// ===== x - p -> s (we’ll compute ge(x,p) separately) ============================
+		uint32_t noborrow;
 		asm volatile(
-			"sub.cc.u64   %0,  %4,  %8;\n\t"
-			"subc.cc.u64  %1,  %5,  %9;\n\t"
-			"subc.cc.u64  %2,  %6,  %10;\n\t"
-			"subc.u64     %3,  %7,  %11;\n\t"
+			// %0..%3  -> s0..s3 (64-bit outputs)
+			// %4      -> noborrow (32-bit output)  **not used** in sub lines
+			// %5..%8  -> x0..x3 (64-bit inputs)
+			// %9..%12 -> p0..p3 (64-bit inputs)
+
+			"sub.cc.u64   %0, %5,  %9;\n\t"
+			"subc.cc.u64  %1, %6,  %10;\n\t"
+			"subc.cc.u64  %2, %7,  %11;\n\t"
+			"subc.cc.u64  %3, %8,  %12;\n\t"   // final must be .cc
+			"mov.u32      %4, 0;\n\t"
+			"addc.u32     %4, %4, %4;\n\t"     // noborrow = CC (1 = no borrow)
 			: "=&l"(s0),
 			"=&l"(s1),
 			"=&l"(s2),
-			"=&l"(s3)
+			"=&l"(s3),
+			"=&r"(noborrow)
 			: "l"(x0), "l"(x1), "l"(x2), "l"(x3),
 			"l"(p[0]), "l"(p[1]), "l"(p[2]), "l"(p[3])
 			);
 
-        // ===== need_reduce = (carry1 != 0) || (x >= p) ==================================
-        uint32_t need_reduce;
-        asm volatile(
-            // Inputs here: %1=carry1, %2..%5 = t0..t3, %6..%9 = p0..p3
-            ".reg .pred peq;\n\t"
-            ".reg .pred peq_next;\n\t"
-            ".reg .pred pgt;\n\t"
-            ".reg .pred ptmp;\n\t"
-            ".reg .pred pge;\n\t"
 
-            "setp.gt.u64 pgt, %5, %9;\n\t"     // t3 > p3 ?
-            "setp.eq.u64 peq, %5, %9;\n\t"
-
-            "setp.gt.u64 ptmp, %4, %8;\n\t"    // t2 > p2 ?
-            "and.pred    ptmp, ptmp, peq;\n\t"
-            "or.pred     pgt,  pgt,  ptmp;\n\t"
-            "setp.eq.u64 peq_next, %4, %8;\n\t"
-            "and.pred    peq, peq, peq_next;\n\t"
-
-            "setp.gt.u64 ptmp, %3, %7;\n\t"    // t1 > p1 ?
-            "and.pred    ptmp, ptmp, peq;\n\t"
-            "or.pred     pgt,  pgt,  ptmp;\n\t"
-            "setp.eq.u64 peq_next, %3, %7;\n\t"
-            "and.pred    peq, peq, peq_next;\n\t"
-
-            "setp.gt.u64 ptmp, %2, %6;\n\t"    // t0 > p0 ?
-            "and.pred    ptmp, ptmp, peq;\n\t"
-            "or.pred     pgt,  pgt,  ptmp;\n\t"
-            "setp.eq.u64 peq_next, %2, %6;\n\t"
-            "and.pred    peq, peq, peq_next;\n\t"
-
-            "or.pred  pge, pgt, peq;\n\t"
-            "selp.u32 %0, 1, 0, pge;\n\t"      // %0 = (t >= p) ? 1 : 0
-            "or.b32   %0, %0, %1;\n\t"         // need_reduce |= carry1
-            : "=&r"(need_reduce)
-            : "r"(carry1),
-            "l"(t0), "l"(t1), "l"(t2), "l"(t3),
-            "l"(p[0]), "l"(p[1]), "l"(p[2]), "l"(p[3])
-            );
+		// ===== need_reduce = (carry1 != 0) || (x >= p) ==================================
+		uint32_t need_reduce;
+		asm volatile("or.b32 %0, %1, %2;" : "=&r"(need_reduce) : "r"(carry1), "r"(noborrow));
 
 
 		// ===== blend: r = need_reduce ? s : t ==========================================
@@ -294,21 +231,21 @@ void ptx_add_mod_u64(
 		uint64_t o2;
 		uint64_t o3;
 
-        asm volatile(
-            ".reg .pred psel;\n\t"
-            "setp.ne.u32 psel, %8, 0;\n\t"
-            "selp.u64 %0, %4,  %9,  psel;\n\t"
-            "selp.u64 %1, %5,  %10, psel;\n\t"
-            "selp.u64 %2, %6,  %11, psel;\n\t"
-            "selp.u64 %3, %7,  %12, psel;\n\t"
-            : "=&l"(o0),
-            "=&l"(o1),
-            "=&l"(o2),
-            "=&l"(o3)
-            : "l"(s0), "l"(s1), "l"(s2), "l"(s3),
-            "r"(need_reduce),
-            "l"(t0), "l"(t1), "l"(t2), "l"(t3)
-            );
+		asm volatile(
+			".reg .pred psel;\n\t"
+			"setp.ne.u32 psel, %8, 0;\n\t"
+			"selp.u64 %0, %4,  %9,  psel;\n\t"
+			"selp.u64 %1, %5,  %10, psel;\n\t"
+			"selp.u64 %2, %6,  %11, psel;\n\t"
+			"selp.u64 %3, %7,  %12, psel;\n\t"
+			: "=&l"(o0),
+			"=&l"(o1),
+			"=&l"(o2),
+			"=&l"(o3)
+			: "l"(s0), "l"(s1), "l"(s2), "l"(s3),
+			"r"(need_reduce),
+			"l"(t0), "l"(t1), "l"(t2), "l"(t3)
+			);
 
 
 		r[0] = o0;
@@ -323,19 +260,40 @@ void ptx_add_mod_u64(
 	}
 
 #ifndef NDEBUG
-    uint64_t tt[n];
-    blst::cc_add_mod_n<n>(tt, a, b, Field::modulus().data);
-    for (size_t i = 0; i < n; i++) {
-        if (r[i] != tt[i])
-        {
-            char rbuf[1024];
-            char tbuf[1024];
-			print_limb(rbuf, r, n);
-            print_limb(tbuf, tt, n);
-			printf("ptx_add_mod_u64<%d> error: \nact = %s, \nexp = %s\n", (int)n, rbuf, tbuf);
-        }
-        BLST_ASSERT(r[i] == tt[i]);
-    }
+	static_assert(std::is_same_v<blst::limb_t, uint64_t>, "limb_t must be uint64_t for ptx_add_mod_u64");
+	uint64_t tt[n];
+	blst::cc_add_mod_n<n>(tt, a, b, (uint64_t*)Field::modulus().data);
+	for (size_t i = 0; i < n; i++) {
+		if (r[i] != tt[i])
+		{
+			printf("ptx_add_mod_u64<%d> error: \nact = ", (int)n);
+			for (size_t j = 0; j < n; j++)
+			{
+				// decimal, fixed width with leading zeros
+				printf("%016llx ", (unsigned long long)r[j]);
+			}
+			printf("\nexp = ");
+			for (size_t j = 0; j < n; j++)
+			{
+				// decimal
+				printf("%016llx ", (unsigned long long)tt[j]);
+			}
+			printf("\n   a = ");
+			for (size_t j = 0; j < n; j++)
+			{
+				// decimal
+				printf("%016llx ", (unsigned long long)a[j]);
+			}
+			printf("\n   b = ");
+			for (size_t j = 0; j < n; j++)
+			{
+				// decimal
+				printf("%016llx ", (unsigned long long)b[j]);
+			}
+			printf("\n ");
+		}
+		BLST_ASSERT(r[i] == tt[i]);
+	}
 #endif
 
 }
@@ -344,263 +302,261 @@ void ptx_add_mod_u64(
 template<typename Field>
 BLST_DEVICE BLST_CPP_INLINE
 void ptx_sub_mod_u64(
-    uint64_t* BLST_restrict r,
-    const uint64_t* BLST_restrict a,
-    const uint64_t* BLST_restrict b)
+	uint64_t* BLST_restrict r,
+	const uint64_t* BLST_restrict a,
+	const uint64_t* BLST_restrict b)
 {
-    constexpr auto n = sizeof(Field) / sizeof(uint64_t);
-    constexpr auto BLST_restrict p = Field::modulus().data;
+	constexpr auto n = sizeof(Field) / sizeof(uint64_t);
+	constexpr auto BLST_restrict p = Field::modulus().data;
 
-    if constexpr (n == 6)
-    {
-        // x = a - b
-        uint64_t t0;
-        uint64_t t1;
-        uint64_t t2;
-        uint64_t t3;
-        uint64_t t4;
-        uint64_t t5;
+	if constexpr (n == 6)
+	{
+		// x = a - b
+		uint64_t t0;
+		uint64_t t1;
+		uint64_t t2;
+		uint64_t t3;
+		uint64_t t4;
+		uint64_t t5;
+		asm volatile(
+			"sub.cc.u64  %0,  %6,  %12;\n\t"
+			"subc.cc.u64 %1,  %7,  %13;\n\t"
+			"subc.cc.u64 %2,  %8,  %14;\n\t"
+			"subc.cc.u64 %3,  %9,  %15;\n\t"
+			"subc.cc.u64 %4,  %10, %16;\n\t"
+			"subc.u64    %5,  %11, %17;\n\t"
+			: "=&l"(t0),
+			"=&l"(t1),
+			"=&l"(t2),
+			"=&l"(t3),
+			"=&l"(t4),
+			"=&l"(t5)
+			: "l"(a[0]), "l"(a[1]), "l"(a[2]), "l"(a[3]), "l"(a[4]), "l"(a[5]),
+			"l"(b[0]), "l"(b[1]), "l"(b[2]), "l"(b[3]), "l"(b[4]), "l"(b[5])
+			);
 
-        asm volatile(
-            "sub.cc.u64  %0,  %6,  %12;\n\t"
-            "subc.cc.u64 %1,  %7,  %13;\n\t"
-            "subc.cc.u64 %2,  %8,  %14;\n\t"
-            "subc.cc.u64 %3,  %9,  %15;\n\t"
-            "subc.cc.u64 %4,  %10, %16;\n\t"
-            "subc.u64    %5,  %11, %17;\n\t"
-            : "=&l"(t0),
-              "=&l"(t1),
-              "=&l"(t2),
-              "=&l"(t3),
-              "=&l"(t4),
-              "=&l"(t5)
-            : "l"(a[0]), "l"(a[1]), "l"(a[2]), "l"(a[3]), "l"(a[4]), "l"(a[5]),
-              "l"(b[0]), "l"(b[1]), "l"(b[2]), "l"(b[3]), "l"(b[4]), "l"(b[5])
-        );
+		// s = x + p
+		uint64_t s0;
+		uint64_t s1;
+		uint64_t s2;
+		uint64_t s3;
+		uint64_t s4;
+		uint64_t s5;
+		asm volatile(
+			"add.cc.u64  %0,  %6,  %12;\n\t"
+			"addc.cc.u64 %1,  %7,  %13;\n\t"
+			"addc.cc.u64 %2,  %8,  %14;\n\t"
+			"addc.cc.u64 %3,  %9,  %15;\n\t"
+			"addc.cc.u64 %4,  %10, %16;\n\t"
+			"addc.u64    %5,  %11, %17;\n\t"
+			: "=&l"(s0),
+			"=&l"(s1),
+			"=&l"(s2),
+			"=&l"(s3),
+			"=&l"(s4),
+			"=&l"(s5)
+			: "l"(t0), "l"(t1), "l"(t2), "l"(t3), "l"(t4), "l"(t5),
+			"l"(p[0]), "l"(p[1]), "l"(p[2]), "l"(p[3]), "l"(p[4]), "l"(p[5])
+			);
 
-        // s = x + p
-        uint64_t s0;
-        uint64_t s1;
-        uint64_t s2;
-        uint64_t s3;
-        uint64_t s4;
-        uint64_t s5;
+		// need_add = (a < b)
+		uint32_t need_add;
+		asm volatile(
+			".reg .pred plt;\n\t"
+			".reg .pred peq;\n\t"
+			".reg .pred peq_next;\n\t"
+			".reg .pred pt;\n\t"
 
-        asm volatile(
-            "add.cc.u64  %0,  %6,  %12;\n\t"
-            "addc.cc.u64 %1,  %7,  %13;\n\t"
-            "addc.cc.u64 %2,  %8,  %14;\n\t"
-            "addc.cc.u64 %3,  %9,  %15;\n\t"
-            "addc.cc.u64 %4,  %10, %16;\n\t"
-            "addc.u64    %5,  %11, %17;\n\t"
-            : "=&l"(s0),
-              "=&l"(s1),
-              "=&l"(s2),
-              "=&l"(s3),
-              "=&l"(s4),
-              "=&l"(s5)
-            : "l"(t0), "l"(t1), "l"(t2), "l"(t3), "l"(t4), "l"(t5),
-              "l"(p[0]), "l"(p[1]), "l"(p[2]), "l"(p[3]), "l"(p[4]), "l"(p[5])
-        );
+			// Compare from most significant limb: a5..a0 vs b5..b0
+			"setp.lt.u64 plt, %6,  %12;\n\t"
+			"setp.eq.u64 peq, %6,  %12;\n\t"
 
-        // need_add = (a < b)
-        uint32_t need_add;
-        asm volatile(
-            ".reg .pred plt;\n\t"
-            ".reg .pred peq;\n\t"
-            ".reg .pred peq_next;\n\t"
-            ".reg .pred pt;\n\t"
+			"setp.lt.u64 pt,  %5,  %11;\n\t"
+			"and.pred    pt,  pt,  peq;\n\t"
+			"or.pred     plt, plt, pt;\n\t"
+			"setp.eq.u64 peq_next, %5, %11;\n\t"
+			"and.pred    peq, peq, peq_next;\n\t"
 
-            // Compare from most significant limb: a5..a0 vs b5..b0
-            "setp.lt.u64 plt, %6,  %12;\n\t"
-            "setp.eq.u64 peq, %6,  %12;\n\t"
+			"setp.lt.u64 pt,  %4,  %10;\n\t"
+			"and.pred    pt,  pt,  peq;\n\t"
+			"or.pred     plt, plt, pt;\n\t"
+			"setp.eq.u64 peq_next, %4, %10;\n\t"
+			"and.pred    peq, peq, peq_next;\n\t"
 
-            "setp.lt.u64 pt,  %5,  %11;\n\t"
-            "and.pred    pt,  pt,  peq;\n\t"
-            "or.pred     plt, plt, pt;\n\t"
-            "setp.eq.u64 peq_next, %5, %11;\n\t"
-            "and.pred    peq, peq, peq_next;\n\t"
+			"setp.lt.u64 pt,  %3,  %9;\n\t"
+			"and.pred    pt,  pt,  peq;\n\t"
+			"or.pred     plt, plt, pt;\n\t"
+			"setp.eq.u64 peq_next, %3, %9;\n\t"
+			"and.pred    peq, peq, peq_next;\n\t"
 
-            "setp.lt.u64 pt,  %4,  %10;\n\t"
-            "and.pred    pt,  pt,  peq;\n\t"
-            "or.pred     plt, plt, pt;\n\t"
-            "setp.eq.u64 peq_next, %4, %10;\n\t"
-            "and.pred    peq, peq, peq_next;\n\t"
+			"setp.lt.u64 pt,  %2,  %8;\n\t"
+			"and.pred    pt,  pt,  peq;\n\t"
+			"or.pred     plt, plt, pt;\n\t"
+			"setp.eq.u64 peq_next, %2, %8;\n\t"
+			"and.pred    peq, peq, peq_next;\n\t"
 
-            "setp.lt.u64 pt,  %3,  %9;\n\t"
-            "and.pred    pt,  pt,  peq;\n\t"
-            "or.pred     plt, plt, pt;\n\t"
-            "setp.eq.u64 peq_next, %3, %9;\n\t"
-            "and.pred    peq, peq, peq_next;\n\t"
+			"setp.lt.u64 pt,  %1,  %7;\n\t"
+			"and.pred    pt,  pt,  peq;\n\t"
+			"or.pred     plt, plt, pt;\n\t"
 
-            "setp.lt.u64 pt,  %2,  %8;\n\t"
-            "and.pred    pt,  pt,  peq;\n\t"
-            "or.pred     plt, plt, pt;\n\t"
-            "setp.eq.u64 peq_next, %2, %8;\n\t"
-            "and.pred    peq, peq, peq_next;\n\t"
+			"selp.u32    %0, 1, 0, plt;\n\t"
+			: "=&r"(need_add)
+			: "l"(a[0]), "l"(a[1]), "l"(a[2]), "l"(a[3]), "l"(a[4]), "l"(a[5]),
+			"l"(b[0]), "l"(b[1]), "l"(b[2]), "l"(b[3]), "l"(b[4]), "l"(b[5])
+			);
 
-            "setp.lt.u64 pt,  %1,  %7;\n\t"
-            "and.pred    pt,  pt,  peq;\n\t"
-            "or.pred     plt, plt, pt;\n\t"
+		// r = need_add ? s : t
+		uint64_t o0;
+		uint64_t o1;
+		uint64_t o2;
+		uint64_t o3;
+		uint64_t o4;
+		uint64_t o5;
 
-            "selp.u32    %0, 1, 0, plt;\n\t"
-            : "=&r"(need_add)
-            : "l"(a[0]), "l"(a[1]), "l"(a[2]), "l"(a[3]), "l"(a[4]), "l"(a[5]),
-              "l"(b[0]), "l"(b[1]), "l"(b[2]), "l"(b[3]), "l"(b[4]), "l"(b[5])
-        );
+		asm volatile(
+			".reg .pred psel;\n\t"
+			"setp.ne.u32 psel, %12, 0;\n\t"
+			"selp.u64 %0, %6,  %13, psel;\n\t"
+			"selp.u64 %1, %7,  %14, psel;\n\t"
+			"selp.u64 %2, %8,  %15, psel;\n\t"
+			"selp.u64 %3, %9,  %16, psel;\n\t"
+			"selp.u64 %4, %10, %17, psel;\n\t"
+			"selp.u64 %5, %11, %18, psel;\n\t"
+			: "=&l"(o0),
+			"=&l"(o1),
+			"=&l"(o2),
+			"=&l"(o3),
+			"=&l"(o4),
+			"=&l"(o5)
+			: "l"(s0), "l"(s1), "l"(s2), "l"(s3), "l"(s4), "l"(s5),
+			"r"(need_add),
+			"l"(t0), "l"(t1), "l"(t2), "l"(t3), "l"(t4), "l"(t5)
+			);
 
-        // r = need_add ? s : t
-        uint64_t o0;
-        uint64_t o1;
-        uint64_t o2;
-        uint64_t o3;
-        uint64_t o4;
-        uint64_t o5;
+		r[0] = o0;
+		r[1] = o1;
+		r[2] = o2;
+		r[3] = o3;
+		r[4] = o4;
+		r[5] = o5;
+	}
+	else if constexpr (n == 4)
+	{
 
-        asm volatile(
-            ".reg .pred psel;\n\t"
-            "setp.ne.u32 psel, %12, 0;\n\t"
-            "selp.u64 %0, %6,  %13, psel;\n\t"
-            "selp.u64 %1, %7,  %14, psel;\n\t"
-            "selp.u64 %2, %8,  %15, psel;\n\t"
-            "selp.u64 %3, %9,  %16, psel;\n\t"
-            "selp.u64 %4, %10, %17, psel;\n\t"
-            "selp.u64 %5, %11, %18, psel;\n\t"
-            : "=&l"(o0),
-              "=&l"(o1),
-              "=&l"(o2),
-              "=&l"(o3),
-              "=&l"(o4),
-              "=&l"(o5)
-            : "l"(s0), "l"(s1), "l"(s2), "l"(s3), "l"(s4), "l"(s5),
-              "r"(need_add),
-              "l"(t0), "l"(t1), "l"(t2), "l"(t3), "l"(t4), "l"(t5)
-        );
+		// x = a - b
+		uint64_t t0;
+		uint64_t t1;
+		uint64_t t2;
+		uint64_t t3;
 
-        r[0] = o0;
-        r[1] = o1;
-        r[2] = o2;
-        r[3] = o3;
-        r[4] = o4;
-        r[5] = o5;
-    }
-    else if constexpr (n == 4)
-    {
+		asm volatile(
+			"sub.cc.u64  %0,  %4,  %8;\n\t"
+			"subc.cc.u64 %1,  %5,  %9;\n\t"
+			"subc.cc.u64 %2,  %6,  %10;\n\t"
+			"subc.u64    %3,  %7,  %11;\n\t"
+			: "=&l"(t0),
+			"=&l"(t1),
+			"=&l"(t2),
+			"=&l"(t3)
+			: "l"(a[0]), "l"(a[1]), "l"(a[2]), "l"(a[3]),
+			"l"(b[0]), "l"(b[1]), "l"(b[2]), "l"(b[3])
+			);
 
-        // x = a - b
-        uint64_t t0;
-        uint64_t t1;
-        uint64_t t2;
-        uint64_t t3;
+		// s = x + p
+		uint64_t s0;
+		uint64_t s1;
+		uint64_t s2;
+		uint64_t s3;
 
-        asm volatile(
-            "sub.cc.u64  %0,  %4,  %8;\n\t"
-            "subc.cc.u64 %1,  %5,  %9;\n\t"
-            "subc.cc.u64 %2,  %6,  %10;\n\t"
-            "subc.u64    %3,  %7,  %11;\n\t"
-            : "=&l"(t0),
-            "=&l"(t1),
-            "=&l"(t2),
-            "=&l"(t3)
-            : "l"(a[0]), "l"(a[1]), "l"(a[2]), "l"(a[3]),
-            "l"(b[0]), "l"(b[1]), "l"(b[2]), "l"(b[3])
-            );
+		asm volatile(
+			"add.cc.u64  %0,  %4,  %8;\n\t"
+			"addc.cc.u64 %1,  %5,  %9;\n\t"
+			"addc.cc.u64 %2,  %6,  %10;\n\t"
+			"addc.u64    %3,  %7,  %11;\n\t"
+			: "=&l"(s0),
+			"=&l"(s1),
+			"=&l"(s2),
+			"=&l"(s3)
+			: "l"(t0), "l"(t1), "l"(t2), "l"(t3),
+			"l"(p[0]), "l"(p[1]), "l"(p[2]), "l"(p[3])
+			);
 
-        // s = x + p
-        uint64_t s0;
-        uint64_t s1;
-        uint64_t s2;
-        uint64_t s3;
+		uint32_t need_add;
 
-        asm volatile(
-            "add.cc.u64  %0,  %4,  %8;\n\t"
-            "addc.cc.u64 %1,  %5,  %9;\n\t"
-            "addc.cc.u64 %2,  %6,  %10;\n\t"
-            "addc.u64    %3,  %7,  %11;\n\t"
-            : "=&l"(s0),
-            "=&l"(s1),
-            "=&l"(s2),
-            "=&l"(s3)
-            : "l"(t0), "l"(t1), "l"(t2), "l"(t3),
-            "l"(p[0]), "l"(p[1]), "l"(p[2]), "l"(p[3])
-            );
+		// need_add = (a < b)  (lexicographic compare, MS limb first)
+		asm volatile(
+			".reg .pred plt;\n\t"
+			".reg .pred peq;\n\t"
+			".reg .pred peq_next;\n\t"
+			".reg .pred ptmp;\n\t"
 
-        uint32_t need_add;
+			// a3 ? b3
+			"setp.lt.u64 plt, %4, %8;\n\t"
+			"setp.eq.u64 peq, %4, %8;\n\t"
 
-        // need_add = (a < b)  (lexicographic compare, MS limb first)
-        asm volatile(
-            ".reg .pred plt;\n\t"
-            ".reg .pred peq;\n\t"
-            ".reg .pred peq_next;\n\t"
-            ".reg .pred ptmp;\n\t"
+			// a2 ? b2 (only matters if a3==b3)
+			"setp.lt.u64 ptmp, %3, %7;\n\t"
+			"and.pred    ptmp, ptmp, peq;\n\t"
+			"or.pred     plt,  plt,  ptmp;\n\t"
+			"setp.eq.u64 peq_next, %3, %7;\n\t"
+			"and.pred    peq, peq, peq_next;\n\t"
 
-            // a3 ? b3
-            "setp.lt.u64 plt, %4, %8;\n\t"
-            "setp.eq.u64 peq, %4, %8;\n\t"
+			// a1 ? b1
+			"setp.lt.u64 ptmp, %2, %6;\n\t"
+			"and.pred    ptmp, ptmp, peq;\n\t"
+			"or.pred     plt,  plt,  ptmp;\n\t"
+			"setp.eq.u64 peq_next, %2, %6;\n\t"
+			"and.pred    peq, peq, peq_next;\n\t"
 
-            // a2 ? b2 (only matters if a3==b3)
-            "setp.lt.u64 ptmp, %3, %7;\n\t"
-            "and.pred    ptmp, ptmp, peq;\n\t"
-            "or.pred     plt,  plt,  ptmp;\n\t"
-            "setp.eq.u64 peq_next, %3, %7;\n\t"
-            "and.pred    peq, peq, peq_next;\n\t"
+			// a0 ? b0
+			"setp.lt.u64 ptmp, %1, %5;\n\t"
+			"and.pred    ptmp, ptmp, peq;\n\t"
+			"or.pred     plt,  plt,  ptmp;\n\t"
 
-            // a1 ? b1
-            "setp.lt.u64 ptmp, %2, %6;\n\t"
-            "and.pred    ptmp, ptmp, peq;\n\t"
-            "or.pred     plt,  plt,  ptmp;\n\t"
-            "setp.eq.u64 peq_next, %2, %6;\n\t"
-            "and.pred    peq, peq, peq_next;\n\t"
+			// need_add = plt ? 1 : 0
+			"selp.u32    %0, 1, 0, plt;\n\t"
+			: "=&r"(need_add)
+			: "l"(a[0]), "l"(a[1]), "l"(a[2]), "l"(a[3]),
+			"l"(b[0]), "l"(b[1]), "l"(b[2]), "l"(b[3])
+			);
 
-            // a0 ? b0
-            "setp.lt.u64 ptmp, %1, %5;\n\t"
-            "and.pred    ptmp, ptmp, peq;\n\t"
-            "or.pred     plt,  plt,  ptmp;\n\t"
+		// r = need_add ? s : t
+		uint64_t o0;
+		uint64_t o1;
+		uint64_t o2;
+		uint64_t o3;
 
-            // need_add = plt ? 1 : 0
-            "selp.u32    %0, 1, 0, plt;\n\t"
-            : "=&r"(need_add)
-            : "l"(a[0]), "l"(a[1]), "l"(a[2]), "l"(a[3]),
-            "l"(b[0]), "l"(b[1]), "l"(b[2]), "l"(b[3])
-            );
+		asm volatile(
+			".reg .pred psel;\n\t"
+			"setp.ne.u32 psel, %8, 0;\n\t"
+			"selp.u64 %0, %4, %9,  psel;\n\t"
+			"selp.u64 %1, %5, %10, psel;\n\t"
+			"selp.u64 %2, %6, %11, psel;\n\t"
+			"selp.u64 %3, %7, %12, psel;\n\t"
+			: "=&l"(o0),
+			"=&l"(o1),
+			"=&l"(o2),
+			"=&l"(o3)
+			: "l"(s0), "l"(s1), "l"(s2), "l"(s3),
+			"r"(need_add),
+			"l"(t0), "l"(t1), "l"(t2), "l"(t3)
+			);
 
-        // r = need_add ? s : t
-        uint64_t o0;
-        uint64_t o1;
-        uint64_t o2;
-        uint64_t o3;
-
-        asm volatile(
-            ".reg .pred psel;\n\t"
-            "setp.ne.u32 psel, %8, 0;\n\t"
-            "selp.u64 %0, %4, %9,  psel;\n\t"
-            "selp.u64 %1, %5, %10, psel;\n\t"
-            "selp.u64 %2, %6, %11, psel;\n\t"
-            "selp.u64 %3, %7, %12, psel;\n\t"
-            : "=&l"(o0),
-            "=&l"(o1),
-            "=&l"(o2),
-            "=&l"(o3)
-            : "l"(s0), "l"(s1), "l"(s2), "l"(s3),
-            "r"(need_add),
-            "l"(t0), "l"(t1), "l"(t2), "l"(t3)
-            );
-
-        r[0] = o0;
-        r[1] = o1;
-        r[2] = o2;
-        r[3] = o3;
-    }
-    else
-    {
-        static_assert(n == 6 || n == 4, "ptx_sub_mod_u64 only supports 256 or 384-bit fields");
-    }
+		r[0] = o0;
+		r[1] = o1;
+		r[2] = o2;
+		r[3] = o3;
+	}
+	else
+	{
+		static_assert(n == 6 || n == 4, "ptx_sub_mod_u64 only supports 256 or 384-bit fields");
+	}
 
 #ifndef NDEBUG
-    uint64_t tt[n];
+	uint64_t tt[n];
 	blst::cc_sub_mod_n<n>(tt, a, b, Field::modulus().data);
-    for (size_t i = 0; i < n; i++) {
-        BLST_ASSERT(r[i] == tt[i]);
+	for (size_t i = 0; i < n; i++) {
+		BLST_ASSERT(r[i] == tt[i]);
 	}
 #endif
 }

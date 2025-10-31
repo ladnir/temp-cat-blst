@@ -28,6 +28,11 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 
 
+message("Configuration:")
+message("CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
+if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+    message("\n\nWARNING: Not in Release build mode, may be significantly slower.\n\n")
+endif()
 
 message("BLST_BUILD_SHARED = ${BLST_BUILD_SHARED}")
 message("BLST_PORTABLE     = ${BLST_PORTABLE}") # enable the portable impl

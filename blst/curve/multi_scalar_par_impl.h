@@ -9,14 +9,13 @@
 #include <thrust/iterator/iterator_facade.h>
 
 #include <cub/cub.cuh>
-#include <cub/device/device_reduce.cuh >
+//#include <cub/device/device_reduce.cuh>
 #include <thrust/iterator/transform_iterator.h>
 #include <thrust/reduce.h>
 #include <thrust/execution_policy.h>
 #include <thrust/logical.h>
 #include <thrust/functional.h>
 #include <thrust/device_vector.h>
-#include <cuda/std/mdspan>
 
 #endif
 #include "blst/common/cuda_launch.h"
@@ -26,8 +25,15 @@
 #include "blst/common/transform_iterator.h"
 #include <cstdint>
 #include <vector>
-#include <mdspan>
 #include <algorithm>
+
+#ifdef BLST_CUDA
+#include <cuda/std/mdspan>
+#else	
+#include <mdspan>
+#endif
+
+#include <inttypes.h>   // or <cinttypes>
 
 namespace blst
 {
@@ -402,7 +408,7 @@ namespace blst
 						Group point_affine;
 						msm_to_jacobian(point_affine, h_groups[group_idx]);
 						auto hash = hash_point<Group>(point_affine);
-						printf("  Group[%d][%d][%d]: =%llu\n",
+						printf("  Group[%d][%d][%d]: =%" PRIu64 "\n",
 							d, m, g, hash);
 					}
 					else

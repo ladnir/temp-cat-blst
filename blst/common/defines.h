@@ -37,7 +37,7 @@
 #  elif defined(__GNUC__) && __GNUC__ > 3
 #    define BLST_FORCEINLINE inline __attribute__ ((__always_inline__))
 #  else
-#    define BLST_FORCEINLINE static inline
+#    define BLST_FORCEINLINE inline
 #  endif
 #endif
 
@@ -208,9 +208,9 @@ namespace blst
 {
 
 #if BLST_LIMB_SIZE == 64
-    typedef unsigned long long limb_t;
+    using limb_t = uint64_t;
 #elif BLST_LIMB_SIZE == 32
-    typedef unsigned int limb_t;
+    using limb_t = uint32_t;
 #else
 # error "Unsupported BLST_LIMB_SIZE"
 #endif

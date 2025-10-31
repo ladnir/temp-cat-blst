@@ -527,7 +527,7 @@ namespace blst
 	// return the curve parameter B for : y^2 = x^3 + B
 	// Will return host or device memory depending on compilation target.
 	template<typename Field>
-	BLST_HD const Field& Point<Field>::get_B();
+	BLST_HD const Field& get_B();
 
 	// return the generator point of G2 in affine coordinates, in montgomery form.
 	// Will return host or device memory depending on compilation target.

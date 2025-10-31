@@ -132,7 +132,7 @@ void blst_fp_from_uint64(Fp& ret, const unsigned long long a[6])
             ret[2*i]   = (limb_t)ll;
             ret[2*i+1] = (limb_t)(ll >> 32);
         }
-        a = (const unsigned long long *)ret;
+        a = (const unsigned long long *)ret.data;
     }
     Fp::mul(ret, *(const Fp*)a, get_BLST_RR());
 }
