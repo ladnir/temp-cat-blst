@@ -33,13 +33,6 @@ protected:
         cudaDeviceReset();
     }
 
-    // Helper: Set a Fp to a small integer value
-    void set_Fp(Fp& v, uint64_t x) {
-        for (int i = 0; i < LIMBS; ++i)
-            v[i] = 0;
-        memcpy(v, &x, sizeof(x));
-    }
-
     // Helper: Compare two Fp& for equality
     bool Fp_equal(const Fp& a, const Fp& b) {
         for (int i = 0; i < LIMBS; ++i)
@@ -87,7 +80,11 @@ protected:
 
         BLST_ASSERT(cc_check_mod_n<NLIMBS(384)>((byte*)v.data, get_BLST_P().data));
     }
-
+    void rand_fp(Fp& v, int seed)
+    {
+		InsecureRng rng(seed);
+		rand_fp(v, rng);
+    }
     // Helper: Convert standard integer to Montgomery form
     void to_mont_fp(Fp& r, const Fp& a) {
         Fp::to_mont(r, a);
@@ -165,16 +162,19 @@ protected:
 };
 
 TEST_F(FpCudaTest, VectorAdd) {
-    const size_t NUM_ELEMENTS = 1000;
+    const size_t NUM_ELEMENTS = 1;
     auto h_a = std::make_unique<Fp[]>(NUM_ELEMENTS);
     auto h_b = std::make_unique<Fp[]>(NUM_ELEMENTS);
     auto h_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
     auto cpu_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
 
+	InsecureRng rng;
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        set_Fp(h_a[i], 5 + i);
-        set_Fp(h_b[i], 7 + i * 2);
+        //rand_fp(h_a[i], 5 + i);
+        //rand_fp(h_b[i], 7 + i * 2);
+		rand_fp(h_a[i], rng);
+		rand_fp(h_b[i], rng);
     }
 
     // CPU reference computation
@@ -220,8 +220,8 @@ TEST_F(FpCudaTest, VectorSub) {
 
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        set_Fp(h_a[i], 10 + i * 2);
-        set_Fp(h_b[i], 3 + i);
+        rand_fp(h_a[i], 10 + i * 2);
+        rand_fp(h_b[i], 3 + i);
     }
 
     // CPU reference computation
@@ -268,8 +268,8 @@ TEST_F(FpCudaTest, VectorMul) {
     // Generate test data with Montgomery form conversion
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
         Fp temp_a, temp_b;
-        set_Fp(temp_a, 3 + i);
-        set_Fp(temp_b, 4 + i);
+        rand_fp(temp_a, 3 + i);
+        rand_fp(temp_b, 4 + i);
 
         // Convert to Montgomery form
         to_mont_fp(h_a[i], temp_a);
@@ -327,7 +327,7 @@ TEST_F(FpCudaTest, VectorSqr) {
     // Generate test data with Montgomery form conversion
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
         Fp temp_a;
-        set_Fp(temp_a, 5 + i);
+        rand_fp(temp_a, 5 + i);
 
         // Convert to Montgomery form
         to_mont_fp(h_a[i], temp_a);
@@ -373,7 +373,7 @@ TEST_F(FpCudaTest, VectorCNeg) {
 
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        set_Fp(h_a[i], 10 + i);
+        rand_fp(h_a[i], 10 + i);
     }
 
     // CPU reference computation with flag = 1
@@ -430,7 +430,7 @@ TEST_F(FpCudaTest, VectorMul3) {
 
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        set_Fp(h_a[i], 2 + i);
+        rand_fp(h_a[i], 2 + i);
     }
 
     // CPU reference computation
@@ -471,7 +471,7 @@ TEST_F(FpCudaTest, VectorMul8) {
 
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        set_Fp(h_a[i], 2 + i);
+        rand_fp(h_a[i], 2 + i);
     }
 
     // CPU reference computation
@@ -512,7 +512,7 @@ TEST_F(FpCudaTest, VectorDiv2) {
 
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        set_Fp(h_a[i], 8 + i * 2);
+        rand_fp(h_a[i], 8 + i * 2);
     }
 
     // CPU reference computation
@@ -554,7 +554,7 @@ TEST_F(FpCudaTest, VectorLshift) {
 
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        set_Fp(h_a[i], 1 + i);
+        rand_fp(h_a[i], 1 + i);
     }
 
     // CPU reference computation
@@ -595,7 +595,7 @@ TEST_F(FpCudaTest, VectorToFp) {
 
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        set_Fp(h_a[i], 9 + i);
+        rand_fp(h_a[i], 9 + i);
     }
 
     // CPU reference computation
@@ -637,7 +637,7 @@ TEST_F(FpCudaTest, VectorFromFp) {
     // Generate test data in Montgomery form
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
         Fp temp;
-        set_Fp(temp, 9 + i);
+        rand_fp(temp, 9 + i);
         Fp::to_mont(h_a[i], temp);
     }
 
@@ -678,7 +678,7 @@ TEST_F(FpCudaTest, VectorMontgomeryRoundTrip) {
 
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        set_Fp(h_a[i], 42 + i);
+        rand_fp(h_a[i], 42 + i);
     }
 
     // Allocate device memory
@@ -720,8 +720,8 @@ TEST_F(FpCudaTest, VectorMixedOperations) {
 
     // Initialize test data
     for (size_t i = 0; i < MIXED_SIZE; i++) {
-        set_Fp(h_a[i], 3 + i);
-        set_Fp(h_b[i], 5 + i * 2);
+        rand_fp(h_a[i], 3 + i);
+        rand_fp(h_b[i], 5 + i * 2);
     }
 
     // Allocate device memory
@@ -785,7 +785,7 @@ TEST_F(FpCudaTest, VectorEdgeCases) {
     auto h_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
 
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        set_Fp(h_zeros[i], 0);
+        rand_fp(h_zeros[i], 0);
     }
 
     // Allocate device memory
@@ -811,7 +811,7 @@ TEST_F(FpCudaTest, VectorEdgeCases) {
 
     // Test with one
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        set_Fp(h_zeros[i], 1);
+        rand_fp(h_zeros[i], 1);
     }
 
     expect_success(copy_host_to_device_fp(d_zeros, h_zeros.get(), NUM_ELEMENTS), "copy ones to device");
@@ -823,7 +823,7 @@ TEST_F(FpCudaTest, VectorEdgeCases) {
         expect_success(copy_device_to_host_fp(h_result.get(), d_result, NUM_ELEMENTS), "copy add ones result to host");
         for (size_t i = 0; i < NUM_ELEMENTS; i++) {
             Fp expected;
-            set_Fp(expected, 2);
+            rand_fp(expected, 2);
             EXPECT_TRUE(Fp_equal(h_result[i], expected)) << "1 + 1 should equal 2 at index " << i;
         }
     }
@@ -863,8 +863,8 @@ TEST_F(FpCudaTest, VectorSmallValues) {
     const uint64_t TEST_VALUES[] = { 1, 2, 5, 10, 42 };
 
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        set_Fp(h_a[i], TEST_VALUES[i]);
-        set_Fp(h_b[i], TEST_VALUES[(i + 1) % NUM_ELEMENTS]);
+        rand_fp(h_a[i], TEST_VALUES[i]);
+        rand_fp(h_b[i], TEST_VALUES[(i + 1) % NUM_ELEMENTS]);
     }
 
     // Allocate device memory

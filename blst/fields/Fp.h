@@ -306,8 +306,9 @@ namespace blst
 	{
 		BLST_ASSERT(Fp::is_redc(a));
 		BLST_ASSERT(Fp::is_redc(b));
-
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+#if defined(__CUDA_ARCH__)
+		ptx_sub_mod_u64<Fp>(ret.data, a.data, b.data);
+#elif defined(BLST_DEFAULT_ASM) 
 		sub_mod_384(&ret, &a, &b, &get_BLST_P());
 #else
 		cc_sub_mod_n<NLIMBS(384)>(ret, a, b, get_BLST_P());
@@ -329,7 +330,9 @@ namespace blst
 	{
 		BLST_ASSERT(Fp::is_redc(a));
 
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+#if defined(__CUDA_ARCH__)
+		ptx_sqr_mont_u64<Fp>(ret.data, a.data);
+#elif defined(BLST_DEFAULT_ASM) 
 		sqrx_mont_384(&ret, &a, &get_BLST_P(), BLST_p0);
 #else
 		cc_mul_mont_n<NLIMBS(384)>(ret.data, a.data, a.data, get_BLST_P().data, BLST_p0);

@@ -7,6 +7,7 @@
 
 #include "blst/backend/backend_asm.h"
 #include "blst/backend/backend_portable.h"
+#include "blst/backend/backend_cuda.h"
 #include <bit>
 //BLST_EXTERN_C_BEGIN
 
@@ -414,11 +415,11 @@ namespace blst
     // ret = a + b
     BLST_HD BLST_FORCEINLINE  void Fr::add(Fr& ret, const Fr& a, const Fr& b)
     {
-		//add_mod_v256(ret, a, b, get_BLST_r());
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+#if defined(__CUDA_ARCH__)
+        ptx_add_mod_u64<Fr>(ret.data, a.data, b.data);
+#elif defined(BLST_DEFAULT_ASM)
         add_mod_256(&ret, &a, &b, &modulus());// linked by asm, 
 #else
-        //cc_add_mod_256(ret, a, b, p);
         cc_add_mod_n<NLIMBS(256)>(ret.data, a.data, b.data, modulus().data);
 #endif
     }
@@ -426,11 +427,11 @@ namespace blst
     // ret = a - b
     BLST_HD BLST_FORCEINLINE  void Fr::sub(Fr& ret, const Fr& a, const Fr& b)
     {
-		//sub_mod_v256(ret, a, b, get_BLST_r());
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+#if defined(__CUDA_ARCH__)
+		ptx_sub_mod_u64<Fr>(ret.data, a.data, b.data);
+#elif defined(BLST_DEFAULT_ASM)
         sub_mod_256(&ret, &a, &b, &modulus());// linked by asm
 #else
-        //cc_sub_mod_256(ret, a, b, p);
         cc_sub_mod_n<NLIMBS(256)>(ret.data, a.data, b.data, modulus().data);
 #endif
     }
@@ -438,26 +439,23 @@ namespace blst
     // ret  = a * b
     BLST_HD BLST_FORCEINLINE  void Fr::mul(Fr& ret, const Fr& a, const Fr& b) 
     {
-		//mul_mont_sparse_v256(ret, a, b, get_BLST_r(), BLST_r0);
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+#if defined(__CUDA_ARCH__)
+		ptx_mul_mont_u64<Fr>(ret.data, a.data, b.data);
+#elif defined(BLST_DEFAULT_ASM) 
         mulx_mont_sparse_256(&ret, &a, &b, &modulus(), BLST_r0);// linked by asm
 #else
-        //cc_mul_mont_sparse_256(ret, a, b, p, n0);
         cc_mul_mont_n<NLIMBS(256)>(ret.data, a.data, b.data, modulus().data, BLST_r0);
 #endif
     }
 
-    // ret  = a^x
-    //BLST_HD BLST_FORCEINLINE  void Fr::exp(Fr& ret, const Fr& a, const byte* x, size_t x_bits);
-
     // ret = a^2
     BLST_HD BLST_FORCEINLINE  void Fr::sqr(Fr& ret, const Fr& a)
     {
-		//sqr_mont_sparse_v256(ret, a, get_BLST_r(), BLST_r0);
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+#if defined(__CUDA_ARCH__)
+        ptx_sqr_mont_u64<Fr>(ret.data, a.data);
+#elif defined(BLST_DEFAULT_ASM)
         sqrx_mont_sparse_256(&ret, &a, &get_BLST_r(), BLST_r0);// linked by asm
 #else
-        //cc_sqr_mont_sparse_256(ret, a, p, n0);
         cc_mul_mont_n<NLIMBS(256)>(ret.data, a.data, a.data, get_BLST_r(), BLST_r0);
 #endif
     }

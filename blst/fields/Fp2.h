@@ -296,9 +296,8 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
     BLST_HD BLST_INLINE limb_t cc_sgn0_pty_mont_384x(const Fp2& a, const Fp& p, limb_t n0)
     {
         Fp2 tmp;
-
-        cc_from_mont_n<NLIMBS(384)>(tmp[0].data, a[0].data, p.data, n0);
-        cc_from_mont_n<NLIMBS(384)>(tmp[1].data, a[1].data, p.data, n0);
+		Fp::from_mont(tmp[0], a[0]);
+		Fp::from_mont(tmp[1], a[1]);
 
         return cc_sgn0_pty_mod_384x(tmp, p);
     }
@@ -314,14 +313,14 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
     {
         Fp aa, bb, cc;
 
-        cc_add_mod_n<NLIMBS(384)>(aa, a[0], a[1], p);
-        cc_add_mod_n<NLIMBS(384)>(bb, b[0], b[1], p);
-        cc_mul_mont_n<NLIMBS(384)>(bb, bb, aa, p, n0);
-        cc_mul_mont_n<NLIMBS(384)>(aa, a[0], b[0], p, n0);
-        cc_mul_mont_n<NLIMBS(384)>(cc, a[1], b[1], p, n0);
-        cc_sub_mod_n<NLIMBS(384)>(ret[0], aa, cc, p);
-        cc_sub_mod_n<NLIMBS(384)>(ret[1], bb, aa, p);
-        cc_sub_mod_n<NLIMBS(384)>(ret[1], ret[1], cc, p);
+        Fp::add(aa, a[0], a[1]);
+        Fp::add(bb, b[0], b[1]);
+        Fp::mul(bb, bb, aa);
+        Fp::mul(aa, a[0], b[0]);
+        Fp::mul(cc, a[1], b[1]);
+        Fp::sub(ret[0], aa, cc);
+        Fp::sub(ret[1], bb, aa);
+        Fp::sub(ret[1], ret[1], cc);
     }
 
 

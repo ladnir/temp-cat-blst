@@ -8,7 +8,7 @@
 #include "blst/fields/Fr.h"
 #include "blst/fields/Fp_cuda.h"
 #include "blst/backend/backend.h"
-//#include "blst/backend/cuda/add_mod_384_cuda.h"
+#include "blst/backend/cuda/mul_mont_cuda.h"
 
 
 using namespace blst;
@@ -1585,10 +1585,9 @@ void kernel_mul_mont_384_u64
 		const uint64_t* pb = b + 6 * i;
 		uint64_t* pr = out + 6 * i;
 		Fp tt;
-		//temp::ptx_mul_mont_384_u64(pr, pa, pb/*, (u64*)Fp::modulus().data, BLST_p0*/);
-		//ptx_mul_mont_u64<Fp>(pr, pa, pb);
+		//ptx_mul_mont_u64<Fp>(pr, pa, pb/*, (u64*)Fp::modulus().data, BLST_p0*/);
 		ptx_mul_mont_u64<Fp>(tt, pa, pb);
-		ptx_mul_mont_u64<Fp>(tt, pa, pb);
+		ptx_mul_mont_u64<Fp>(tt, tt, pb);
 		ptx_mul_mont_u64<Fp>(tt, tt, pb);
 		ptx_mul_mont_u64<Fp>(tt, tt, pb);
 		ptx_mul_mont_u64<Fp>(tt, tt, pb);
@@ -1597,7 +1596,7 @@ void kernel_mul_mont_384_u64
 	}
 }
 
-BLST_GLOBAL void kernel_mul_mont_384_u32
+BLST_GLOBAL void kernel_mul_mont_384_cc
 (
 	uint32_t* BLST_restrict out,
 	const uint32_t* BLST_restrict a,
@@ -1609,10 +1608,19 @@ BLST_GLOBAL void kernel_mul_mont_384_u32
 	size_t stride = gridDim.x * blockDim.x;
 	for (size_t i = idx; i < n_elems; i += stride)
 	{
-		const uint32_t* pa = a + 12 * i;
-		const uint32_t* pb = b + 12 * i;
-		uint32_t* pr = out + 12 * i;
-		temp::ptx_mul_mont_384_u32(pr, pa, pb/*, (u32*)Fp::modulus().data, BLST_p0*/);
+		const Fp& pa = *(Fp*)(a + 12 * i);
+		const Fp& pb = *(Fp*)(b + 12 * i);
+		Fp& pr = *(Fp*)(out + 12 * i);
+		Fp tt;
+		
+		//cc_mul_mont_n<6>(pr.data, pa.data, pb.data, Fp::modulus().data, BLST_p0);
+		cc_mul_mont_n<6>(tt.data, pa.data, pb.data, Fp::modulus().data, BLST_p0);
+		cc_mul_mont_n<6>(tt.data, tt.data, pb.data, Fp::modulus().data, BLST_p0);
+		cc_mul_mont_n<6>(tt.data, tt.data, pb.data, Fp::modulus().data, BLST_p0);
+		cc_mul_mont_n<6>(tt.data, tt.data, pb.data, Fp::modulus().data, BLST_p0);
+		cc_mul_mont_n<6>(tt.data, tt.data, pb.data, Fp::modulus().data, BLST_p0);
+		cc_mul_mont_n<6>(tt.data, tt.data, pb.data, Fp::modulus().data, BLST_p0);
+		cc_mul_mont_n<6>(pr.data, tt.data, pb.data, Fp::modulus().data, BLST_p0);
 	}
 }
 
@@ -1736,7 +1744,7 @@ BENCHMARK(BM_mul_mont_384_u64)
 
 
 // ---- 32-bit benchmark ----
-static void BM_mul_mont_384_u32(benchmark::State& state)
+static void BM_mul_mont_384_cc(benchmark::State& state)
 {
 	const size_t n = static_cast<size_t>(state.range(0));
 	GpuBuf32 buf;
@@ -1761,7 +1769,7 @@ static void BM_mul_mont_384_u32(benchmark::State& state)
 	choose_launch(n, grid, block);
 
 	// warmup
-	kernel_mul_mont_384_u32 << <grid, block >> > (buf.d_r, buf.d_a, buf.d_b, n);
+	kernel_mul_mont_384_cc << <grid, block >> > (buf.d_r, buf.d_a, buf.d_b, n);
 	CUDA_OK(cudaDeviceSynchronize());
 
 	cudaEvent_t evStart, evStop;
@@ -1773,7 +1781,7 @@ static void BM_mul_mont_384_u32(benchmark::State& state)
 	for (auto _ : state)
 	{
 		CUDA_OK(cudaEventRecord(evStart));
-		kernel_mul_mont_384_u32 << <grid, block >> > (buf.d_r, buf.d_a, buf.d_b, n);
+		kernel_mul_mont_384_cc << <grid, block >> > (buf.d_r, buf.d_a, buf.d_b, n);
 		CUDA_OK(cudaEventRecord(evStop));
 		CUDA_OK(cudaEventSynchronize(evStop));
 		float ms = 0.0f;
@@ -1798,7 +1806,7 @@ static void BM_mul_mont_384_u32(benchmark::State& state)
 	CUDA_OK(cudaFree(buf.d_b));
 	CUDA_OK(cudaFree(buf.d_r));
 }
-BENCHMARK(BM_mul_mont_384_u32)
+BENCHMARK(BM_mul_mont_384_cc)
 ->UseManualTime()
 ->Unit(benchmark::kNanosecond)
 ->Arg(1 << 10)
@@ -1808,35 +1816,60 @@ BENCHMARK(BM_mul_mont_384_u32)
 
 
 
+
+
+// ==== __global__ kernels (1 element per thread, strided) ====
+BLST_GLOBAL //__launch_bounds__(128, 2)
+void kernel_sqr_mont_384_u64
+(
+	Fp* BLST_restrict out,
+	const Fp* BLST_restrict a,
+	size_t n_elems
+)
+{
+	size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+	size_t stride = gridDim.x * blockDim.x;
+	for (size_t i = idx; i < n_elems; i += stride)
+	{
+		const Fp* pa = a + i;
+		Fp* pr = out + i;
+		Fp tt;
+		//ptx_sqr_mont_u64<Fp>(pr, pa, pb/*, (u64*)Fp::modulus().data, BLST_p0*/);
+		ptx_sqr_mont_u64<Fp>(tt, *pa);
+		ptx_sqr_mont_u64<Fp>(tt, tt);
+		ptx_sqr_mont_u64<Fp>(tt, tt);
+		ptx_sqr_mont_u64<Fp>(tt, tt);
+		ptx_sqr_mont_u64<Fp>(tt, tt);
+		ptx_sqr_mont_u64<Fp>(tt, tt);
+		ptx_sqr_mont_u64<Fp>(*pr, tt);
+	}
+}
+
+
 // ---- c impl 384-bit benchmark ----
-static void BM_mul_mont_384_basic(benchmark::State& state)
+static void BM_sqr_mont_384_u64(benchmark::State& state)
 {
 	const size_t n = static_cast<size_t>(state.range(0));
 	GpuBufFp buf;
 
 	// host data
 	std::vector<Fp> h_a(n);
-	std::vector<Fp> h_b(n);
 
 	fill_host_Fp(h_a);
-	fill_host_Fp(h_b);
 
 
 	// device alloc + copy
 	buf.n = n;
 	CUDA_OK(cudaMalloc(&buf.d_a, n * sizeof(Fp)));
-	CUDA_OK(cudaMalloc(&buf.d_b, n * sizeof(Fp)));
 	CUDA_OK(cudaMalloc(&buf.d_r, n * sizeof(Fp)));
 
 	CUDA_OK(cudaMemcpy(buf.d_a, h_a.data(), n * sizeof(Fp), cudaMemcpyHostToDevice));
-	CUDA_OK(cudaMemcpy(buf.d_b, h_b.data(), n * sizeof(Fp), cudaMemcpyHostToDevice));
 
 	dim3 grid, block;
 	choose_launch(n, grid, block);
 
 	// warmup
-	//kernel_mul_mont_384_u32 << <grid, block >> > (buf.d_r, buf.d_a, buf.d_b, buf.d_p, n);
-	mul_fp_vec(buf.d_r, buf.d_a, buf.d_b, n);
+	kernel_sqr_mont_384_u64 << <grid, block >> > (buf.d_r, buf.d_a, n);
 	CUDA_OK(cudaDeviceSynchronize());
 
 	cudaEvent_t evStart, evStop;
@@ -1848,8 +1881,7 @@ static void BM_mul_mont_384_basic(benchmark::State& state)
 	for (auto _ : state)
 	{
 		CUDA_OK(cudaEventRecord(evStart));
-		//kernel_mul_mont_384_u32 << <grid, block >> > (buf.d_r, buf.d_a, buf.d_b, buf.d_p, n);
-		mul_fp_vec(buf.d_r, buf.d_a, buf.d_b, n);
+		kernel_sqr_mont_384_u64 << <grid, block >> > (buf.d_r, buf.d_a, n);
 		CUDA_OK(cudaEventRecord(evStop));
 		CUDA_OK(cudaEventSynchronize(evStop));
 		float ms = 0.0f;
@@ -1871,10 +1903,9 @@ static void BM_mul_mont_384_basic(benchmark::State& state)
 	state.SetItemsProcessed(static_cast<int64_t>(n) * state.iterations());
 
 	CUDA_OK(cudaFree(buf.d_a));
-	CUDA_OK(cudaFree(buf.d_b));
 	CUDA_OK(cudaFree(buf.d_r));
 }
-BENCHMARK(BM_mul_mont_384_basic)
+BENCHMARK(BM_sqr_mont_384_u64)
 ->UseManualTime()
 ->Unit(benchmark::kNanosecond)
 ->Arg(1 << 10)

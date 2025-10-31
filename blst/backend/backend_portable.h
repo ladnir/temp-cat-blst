@@ -31,297 +31,409 @@ namespace blst
 	//BLST_EXTERN_C_BEGIN
 	typedef struct { limb_t lo, hi; } wide_limb_t;
 
+
+	// generic
+	namespace portable
+	{
+		BLST_HD BLST_FORCEINLINE void cc_mul_wide_limb_limb(wide_limb_t* ret, const limb_t& a, const limb_t& b)
+		{
+			int half = sizeof(limb_t) * 4;
+			limb_t low_mask = ((limb_t)1 << half) - 1;
+			/* Portable C implementation for 64-bit limbs*/
+			/* Break operands into 32-bit halves        */
+			limb_t a_lo = (a)&low_mask;
+			limb_t a_hi = (a) >> half;
+			limb_t b_lo = (b)&low_mask;
+			limb_t b_hi = (b) >> half;
+
+			/* Four partial products: */
+			limb_t p0 = a_lo * b_lo;
+			limb_t p1 = a_lo * b_hi;
+			limb_t p2 = a_hi * b_lo;
+			limb_t p3 = a_hi * b_hi;
+
+			/* Combine middle products with carry propagation */
+			limb_t middle = (p0 >> half) + (p1 & low_mask) + (p2 & low_mask);
+			limb_t carry = middle >> half;
+
+			/* Assemble final result    */
+			(ret)->lo = (p0 & low_mask) + (middle << half);
+			(ret)->hi = p3 + (p1 >> half) + (p2 >> half) + carry;
+		}
+
+
+		BLST_HD BLST_FORCEINLINE void  cc_add_wide_wide_limb(wide_limb_t* ret, const  wide_limb_t& a, const limb_t& b)
+		{
+			wide_limb_t aa = a;
+			(ret)->lo = aa.lo + (b);
+			(ret)->hi = aa.hi + (((ret)->lo < aa.lo) ? 1 : 0);
+		}
+
+		BLST_HD BLST_FORCEINLINE void cc_add_wide_limb_limb(wide_limb_t* ret, const limb_t& a, const limb_t& b)
+		{
+			limb_t aa = a;
+			(ret)->lo = (a)+(b);
+			(ret)->hi = ((ret)->lo < aa) ? 1 : 0;
+		}
+
+		// wide subtraction *ret = a - b
+		// with wide a and limb_t b
+		BLST_HD BLST_FORCEINLINE void  cc_sub_wide_wide_limb(wide_limb_t* ret, const  wide_limb_t& a, const  limb_t& b)
+		{
+			wide_limb_t _aa = (a);
+			limb_t      _bb = (limb_t)(b);
+			limb_t      _old = _aa.lo;
+			(ret)->lo = (limb_t)(_old - _bb);
+			limb_t _borrow = (limb_t)(_old < _bb);    /* correct borrow test */
+			(ret)->hi = (limb_t)(_aa.hi - _borrow);
+		}
+
+		// wide subtraction *ret = a - b
+		// with limb_t a and b
+		BLST_HD BLST_FORCEINLINE void  cc_sub_wide_limb_limb(wide_limb_t* ret, const  limb_t& a, const  limb_t& b)
+		{
+			limb_t _aa = (limb_t)(a);
+			limb_t _bb = (limb_t)(b);
+			(ret)->lo = (limb_t)(_aa - _bb);
+			limb_t _borrow = (limb_t)(_aa < _bb);
+			(ret)->hi = (limb_t)(-(limb_t)_borrow); /* 0 or 0xFFFFFFFF */
+		}
+
+		// ret = a + b + c
+		BLST_HD BLST_FORCEINLINE void cc_add_carry_wide_limb_limb(wide_limb_t* ret, const limb_t& a, const limb_t& b, const limb_t& c)
+		{
+			cc_add_wide_limb_limb(ret, a, b);
+			cc_add_wide_wide_limb(ret, *ret, c);
+		}
+
+		// ret = a - b - c
+		BLST_HD BLST_FORCEINLINE void cc_sub_borrow_wide_limb_limb(wide_limb_t* ret, const limb_t& a, const limb_t& b, const limb_t& c)
+		{
+			cc_sub_wide_limb_limb(ret, a, b);
+			cc_sub_wide_wide_limb(ret, *ret, c);
+		}
+
+		//#define cc_sub_wide_limb_wide(ret, a, b)\
+		//    do {												\
+		//    limb lo = (a) - (b).lo;							\
+		//	limb bor = ((a) < (b).lo);						\
+		//	limb hi = (limb(0) - (b).hi) - bor;				\
+		//	(ret)->lo = lo;										\
+		//	(ret)->hi = hi;										\
+		//	} while (0)
+	}
+
+
 #if BLST_LIMB_SIZE == 64 && defined(BLST_ADX) && !defined(__CUDA_ARCH__)
 
-	// 64 bit with wide operations
-#define cc_mul_wide_limb_limb(ret, a, b)\
-    (ret)->lo = _mulx_u64(a, b, &(ret)->hi)
+	// 64 bit with wide operations with adx support
+	namespace adx64
+	{
+		BLST_FORCEINLINE void cc_mul_wide_limb_limb(wide_limb_t* ret, const limb_t& a, const limb_t& b) {
+			ret->lo = _mulx_u64(a, b, &ret->hi);
+		}
 
-#define cc_add_wide_wide_limb(ret, a, b)\
-    (ret)->hi = a.hi + _addcarry_u64(0, (a).lo, b, (limb_t*) &(ret)->lo)
+		BLST_FORCEINLINE void cc_add_wide_wide_limb(wide_limb_t* ret, const wide_limb_t& a, const limb_t& b) {
+			ret->hi = a.hi + _addcarry_u64(0, a.lo, b, &ret->lo);
+		}
 
-#define cc_add_wide_limb_limb(ret, a, b)\
-    (ret)->hi = _addcarry_u64(0, a, b, (limb_t*) &(ret)->lo)
+		BLST_FORCEINLINE void cc_add_wide_limb_limb(wide_limb_t* ret, const limb_t& a, const limb_t& b) {
+			ret->hi = _addcarry_u64(0, a, b, &ret->lo);
+		}
 
-#define cc_add_carry_wide_limb_limb(ret, a, b, carry) \
-    do{ BLST_ASSUME(carry <=1); \
-    (ret)->hi = _addcarry_u64((unsigned char)carry, a, b, (limb_t*) &(ret)->lo); } while(0)
+		BLST_FORCEINLINE void cc_add_carry_wide_limb_limb(wide_limb_t* ret, const limb_t& a, const limb_t& b, const limb_t& carry) {
+			BLST_ASSUME(carry <= 1);
+			ret->hi = _addcarry_u64((unsigned char)carry, a, b, &ret->lo);
+		}
 
-#define cc_sub_borrow_wide_limb_limb(ret, a, b, borrow) \
-    do{ BLST_ASSUME(borrow <=1); \
-    (ret)->hi = 0-(limb_t)_subborrow_u64((unsigned char)borrow, a, b, (limb_t*) &(ret)->lo); } while(0)
+		BLST_FORCEINLINE void cc_sub_borrow_wide_limb_limb(wide_limb_t* ret, const limb_t& a, const limb_t& b, const limb_t& borrow)
+		{
+			BLST_ASSUME(borrow <= 1);
+			ret->hi = 0 - (limb_t)_subborrow_u64((unsigned char)borrow, a, b, &ret->lo);
+		}
 
-#elif BLST_LIMB_SIZE == 32 && (defined(_M_X64) || defined(__x86_64__))
+	}
+#endif
+
+#if BLST_LIMB_SIZE == 32 && (defined(_M_X64) || defined(__x86_64__))
 	// 32 bit with 64 bit support
-
+	namespace limb32on64
+	{
+		BLST_FORCEINLINE void cc_mul_wide_limb_limb(wide_limb_t* ret, const limb_t& a, const limb_t& b) {
+			*(unsigned long long*)(ret) = (unsigned long long)(a) * (unsigned long long)(b);
+		}
+		BLST_FORCEINLINE void cc_add_wide_wide_limb(wide_limb_t* ret, const wide_limb_t& a, const limb_t& b) {
+			*(unsigned long long*)(ret) = *(unsigned long long*) & (a)+(unsigned long long)(b);
+		}
+		BLST_FORCEINLINE void cc_add_wide_limb_limb(wide_limb_t* ret, const limb_t& a, const limb_t& b) {
+			*(unsigned long long*)(ret) = (a)+(unsigned long long)(b);
+		}
+		BLST_FORCEINLINE void cc_add_carry_wide_limb_limb(wide_limb_t* ret, const limb_t& a, const limb_t& b, const limb_t& carry) {
+			BLST_ASSUME(carry <= 1);
+			*(unsigned long long*)(ret) = (a)+(unsigned long long)(b) + carry;
+		}
+		BLST_FORCEINLINE void cc_sub_borrow_wide_limb_limb(wide_limb_t* ret, const limb_t& a, const limb_t& b, const limb_t& borrow)
+		{
+			BLST_ASSUME(borrow <= 1);
+			*(unsigned long long*)(ret) = (a)-(unsigned long long)(b) - borrow;
+		}
+	}
 	static_assert(&((wide_limb_t*)0)->lo < &((wide_limb_t*)0)->hi,
 		"this implementation assumes we can cast to 64 bit");
-#define cc_mul_wide_limb_limb(ret, a, b)\
-    do{*(unsigned long long*)(ret) = (unsigned long long)(a) * (unsigned long long)(b);}while(0)
+	//#define cc_mul_wide_limb_limb(ret, a, b)\
+	//    do{*(unsigned long long*)(ret) = (unsigned long long)(a) * (unsigned long long)(b);}while(0)
+	//
+	//#define cc_add_wide_wide_limb(ret, a, b)\
+	//    do{*(unsigned long long*)(ret) = *(unsigned long long*)&(a) + (unsigned long long)(b);}while(0)
+	//
+	//#define cc_add_wide_limb_limb(ret, a, b)\
+	//    do{*(unsigned long long*)(ret) = (a) + (unsigned long long)(b);}while(0)
+	//
+	//#define cc_sub_wide_limb_wide(ret, a, b)\
+	//    do{*(unsigned long long*)(ret) = (a) - *(unsigned long long*)(&(b));}while(0)
+	//
+	//#define cc_add_carry_wide_limb_limb(ret, a, b, carry) \
+	//    do{ assert(carry <= 1); BLST_ASSUME(carry <=1); \
+	//    *(unsigned long long*)(ret) = (a) + (unsigned long long)(b) + carry; } while(0)
+	//
+	//#define cc_sub_borrow_wide_limb_limb(ret, a, b, borrow) \
+	//    do{ assert(borrow <= 1); BLST_ASSUME(borrow <=1); \
+	//    *(unsigned long long*)(ret) = (a) - (unsigned long long)(b) - borrow; } while(0)
+#endif
 
-#define cc_add_wide_wide_limb(ret, a, b)\
-    do{*(unsigned long long*)(ret) = *(unsigned long long*)&(a) + (unsigned long long)(b);}while(0)
-
-#define cc_add_wide_limb_limb(ret, a, b)\
-    do{*(unsigned long long*)(ret) = (a) + (unsigned long long)(b);}while(0)
-
-#define cc_sub_wide_limb_wide(ret, a, b)\
-    do{*(unsigned long long*)(ret) = (a) - *(unsigned long long*)(&(b));}while(0)
-
-#define cc_add_carry_wide_limb_limb(ret, a, b, carry) \
-    do{ assert(carry <= 1); BLST_ASSUME(carry <=1); \
-    *(unsigned long long*)(ret) = (a) + (unsigned long long)(b) + carry; } while(0)
-
-#define cc_sub_borrow_wide_limb_limb(ret, a, b, borrow) \
-    do{ assert(borrow <= 1); BLST_ASSUME(borrow <=1); \
-    *(unsigned long long*)(ret) = (a) - (unsigned long long)(b) - borrow; } while(0)
-
-#elif defined(__CUDA_ARCH__)
+#if defined(__CUDA_ARCH__)
 	static_assert(std::is_same<limb_t, uint64_t>::value,
 		"this implementation assumes limb_t is uint64_t");
 
-	// 64x64 -> 128
-	BLST_DEVICE BLST_FORCEINLINE
-		void cc_mul_wide_limb_limb(
-			wide_limb_t* ret,
-			const limb_t& a,
-			const limb_t& b
-		)
+	namespace cuda64
 	{
-		uint64_t lo = a * b;
-		uint64_t hi = __umul64hi(a, b);
-		ret->lo = lo;
-		ret->hi = hi;
+
+		// 64x64 -> 128
+		BLST_DEVICE BLST_FORCEINLINE
+			void cc_mul_wide_limb_limb(
+				wide_limb_t* ret,
+				const limb_t& a,
+				const limb_t& b
+			)
+		{
+			uint64_t lo = a * b;
+			uint64_t hi = __umul64hi(a, b);
+#ifndef NDEBUG
+			// verify against portable
+			wide_limb_t portable_res;
+			portable::cc_mul_wide_limb_limb(&portable_res, a, b);
+			BLST_ASSERT(portable_res.lo == lo);
+			BLST_ASSERT(portable_res.hi == hi);
+#endif
+			ret->lo = lo;
+			ret->hi = hi;
+		}
+
+		// (a.lo, a.hi) + b -> 128
+		BLST_DEVICE BLST_FORCEINLINE
+			void cc_add_wide_wide_limb(
+				wide_limb_t* ret,
+				const wide_limb_t& a,
+				const limb_t& b
+			)
+		{
+			uint64_t lo = a.lo;
+			uint64_t hi = a.hi;
+			asm volatile(
+				"add.cc.u64 %0, %0, %2;\n\t"
+				"addc.u64   %1, %1, 0;\n\t"
+				: "+l"(lo), "+l"(hi)
+				: "l"(b)
+				);
+#ifndef NDEBUG
+			// verify against portable
+			wide_limb_t portable_res;
+			portable::cc_add_wide_wide_limb(&portable_res, a, b);
+			BLST_ASSERT(portable_res.lo == lo);
+			BLST_ASSERT(portable_res.hi == hi);
+#endif // !NDEBUG
+
+			ret->lo = lo;
+			ret->hi = hi;
+		}
+
+		// a + b -> (lo, carry)
+		BLST_DEVICE BLST_FORCEINLINE
+			void cc_add_wide_limb_limb(
+				wide_limb_t* ret,
+				const limb_t& a,
+				const limb_t& b
+			)
+		{
+			uint64_t out_lo;
+			uint64_t out_hi;
+			asm volatile(
+				"add.cc.u64 %0, %2, %3;\n\t"
+				"addc.u64   %1, 0, 0;\n\t"   // out_hi = carry (0/1)
+				: "=&l"(out_lo), "=&l"(out_hi)
+				: "l"(a), "l"(b)
+				);
+#ifndef NDEBUG
+			// verify against portable
+			wide_limb_t portable_res;
+			portable::cc_add_wide_limb_limb(&portable_res, a, b);
+			BLST_ASSERT(portable_res.lo == out_lo);
+			BLST_ASSERT(portable_res.hi == out_hi);
+#endif // !NDEBUG
+
+			ret->lo = out_lo;
+			ret->hi = out_hi;
+
+		}
+
+		// (a.lo, a.hi) - b -> 128
+		BLST_DEVICE BLST_FORCEINLINE
+			void cc_sub_wide_wide_limb(
+				wide_limb_t* ret,
+				const wide_limb_t& a,
+				const limb_t& b
+			)
+		{
+			uint64_t lo = a.lo;
+			uint64_t hi = a.hi;
+			asm volatile(
+				"sub.cc.u64 %0, %0, %2;\n\t"
+				"subc.u64   %1, %1, 0;\n\t"
+				: "+l"(lo), "+l"(hi)
+				: "l"(b)
+				);
+#ifndef NDEBUG
+			// verify against portable
+			wide_limb_t portable_res;
+			portable::cc_sub_wide_wide_limb(&portable_res, a, b);
+			BLST_ASSERT(portable_res.lo == lo);
+			BLST_ASSERT(portable_res.hi == hi);
+#endif
+			ret->lo = lo;
+			ret->hi = hi;
+		}
+
+		// a - b -> (lo, hi = -(borrow))
+		BLST_DEVICE BLST_FORCEINLINE
+			void cc_sub_wide_limb_limb(
+				wide_limb_t* ret,
+				const limb_t& a,
+				const limb_t& b
+			)
+		{
+			uint64_t out_lo, out_hi;
+			asm volatile(
+				"sub.cc.u64 %0, %2, %3;\n\t"  // out_lo = a - b; CC = borrow
+				"subc.u64   %1, 0, 0;\n\t"    // out_hi = 0 - borrow  => 0 or ~0
+				: "=&l"(out_lo), "=&l"(out_hi)
+				: "l"(a), "l"(b)
+				);
+#ifndef NDEBUG
+			// verify against portable
+			wide_limb_t portable_res;
+			portable::cc_sub_wide_limb_limb(&portable_res, a, b);
+			BLST_ASSERT(portable_res.lo == out_lo);
+			BLST_ASSERT(portable_res.hi == out_hi);
+#endif
+			ret->lo = out_lo;
+			ret->hi = out_hi;
+		}
+
+		//// a - b -> (lo, borrow)
+		//BLST_DEVICE BLST_FORCEINLINE
+		//	void cc_sub_wide_limb_limb(
+		//		wide_limb_t* ret,
+		//		const limb_t& a,
+		//		const limb_t& b
+		//	)
+		//{
+		//	uint64_t out_lo;
+		//	uint64_t out_hi;
+		//	asm volatile(
+		//		"sub.cc.u64 %0, %2, %3;\n\t"
+		//		"addc.u64   %1, 0, 0;\n\t"   // out_hi = borrow (0/1)
+		//		: "=&l"(out_lo), "=&l"(out_hi)
+		//		: "l"(a), "l"(b)
+		//		);
+		//	ret->lo = out_lo;
+		//	ret->hi = out_hi;
+		//}
+
+		// a + b + c -> (lo, carry)
+		BLST_DEVICE BLST_FORCEINLINE
+			void cc_add_carry_wide_limb_limb(
+				wide_limb_t* ret,
+				const limb_t& a,
+				const limb_t& b,
+				const limb_t& c   // 0 or 1
+			)
+		{
+			BLST_ASSERT(c <= 1);
+			uint64_t out_lo;
+			uint64_t out_hi;
+			asm volatile(
+				"add.cc.u64  %0, %2, %3;\n\t" // lo = a + b ; CC = carry_ab
+				"addc.u64    %1, 0, 0;\n\t"   // hi = carry_ab
+				"add.cc.u64  %0, %0, %4;\n\t" // lo += c ; CC = carry_c
+				"addc.u64    %1, %1, 0;\n\t"  // hi += carry_c
+				: "=&l"(out_lo),
+				"=&l"(out_hi)
+				: "l"(a),
+				"l"(b),
+				"l"(c)
+				);
+#ifndef NDEBUG
+			// verify against portable
+			wide_limb_t portable_res;
+			portable::cc_add_carry_wide_limb_limb(&portable_res, a, b, c);
+			
+			if (portable_res.lo != out_lo)
+			{
+				printf("cc_add_carry_wide_limb_limb mismatch lo: portable %llx vs cuda %llx\n a=%llx b=%llx c=%llx\n",
+					(unsigned long long)portable_res.lo,
+					(unsigned long long)out_lo,
+					(unsigned long long)a,
+					(unsigned long long)b,
+					(unsigned long long)c);
+			}
+			BLST_ASSERT(portable_res.lo == out_lo);
+			BLST_ASSERT(portable_res.hi == out_hi);
+#endif
+			ret->lo = out_lo;
+			ret->hi = out_hi;
+		}
+
+
+		// a - b - c  (match portable: do it in two steps)
+		BLST_DEVICE BLST_FORCEINLINE
+			void cc_sub_borrow_wide_limb_limb(
+				wide_limb_t* ret,
+				const limb_t& a,
+				const limb_t& b,
+				const limb_t& c
+			)
+		{
+			// replicate the portable two-call sequence exactly
+			cc_sub_wide_limb_limb(ret, a, b);     // hi = -(borrow_ab)
+			cc_sub_wide_wide_limb(ret, *ret, c);  // subtract c from the 128-bit (hi,lo)
+		}
 	}
-
-	// (a.lo, a.hi) + b -> 128
-	BLST_DEVICE BLST_FORCEINLINE
-		void cc_add_wide_wide_limb(
-			wide_limb_t* ret,
-			const wide_limb_t& a,
-			const limb_t& b
-		)
-	{
-		uint64_t lo = a.lo;
-		uint64_t hi = a.hi;
-		asm volatile(
-			"add.cc.u64 %0, %0, %2;\n\t"
-			"addc.u64   %1, %1, 0;\n\t"
-			: "+l"(lo), "+l"(hi)
-			: "l"(b)
-			);
-		ret->lo = lo;
-		ret->hi = hi;
-	}
-
-	// a + b -> (lo, carry)
-	BLST_DEVICE BLST_FORCEINLINE
-		void cc_add_wide_limb_limb(
-			wide_limb_t* ret,
-			const limb_t& a,
-			const limb_t& b
-		)
-	{
-		uint64_t out_lo;
-		uint64_t out_hi;
-		asm volatile(
-			"add.cc.u64 %0, %2, %3;\n\t"
-			"addc.u64   %1, 0, 0;\n\t"   // out_hi = carry (0/1)
-			: "=&l"(out_lo), "=&l"(out_hi)
-			: "l"(a), "l"(b)
-			);
-		ret->lo = out_lo;
-		ret->hi = out_hi;
-	}
-
-	// (a.lo, a.hi) - b -> 128
-	BLST_DEVICE BLST_FORCEINLINE
-		void cc_sub_wide_wide_limb(
-			wide_limb_t* ret,
-			const wide_limb_t& a,
-			const limb_t& b
-		)
-	{
-		uint64_t lo = a.lo;
-		uint64_t hi = a.hi;
-		asm volatile(
-			"sub.cc.u64 %0, %0, %2;\n\t"
-			"subc.u64   %1, %1, 0;\n\t"
-			: "+l"(lo), "+l"(hi)
-			: "l"(b)
-			);
-		ret->lo = lo;
-		ret->hi = hi;
-	}
-
-	// a - b -> (lo, hi = -(borrow))
-	BLST_DEVICE BLST_FORCEINLINE
-		void cc_sub_wide_limb_limb(
-			wide_limb_t* ret,
-			const limb_t& a,
-			const limb_t& b
-		)
-	{
-		uint64_t out_lo, out_hi;
-		asm volatile(
-			"sub.cc.u64 %0, %2, %3;\n\t"  // out_lo = a - b; CC = borrow
-			"subc.u64   %1, 0, 0;\n\t"    // out_hi = 0 - borrow  => 0 or ~0
-			: "=&l"(out_lo), "=&l"(out_hi)
-			: "l"(a), "l"(b)
-			);
-		ret->lo = out_lo;
-		ret->hi = out_hi;
-	}
-
-	//// a - b -> (lo, borrow)
-	//BLST_DEVICE BLST_FORCEINLINE
-	//	void cc_sub_wide_limb_limb(
-	//		wide_limb_t* ret,
-	//		const limb_t& a,
-	//		const limb_t& b
-	//	)
-	//{
-	//	uint64_t out_lo;
-	//	uint64_t out_hi;
-	//	asm volatile(
-	//		"sub.cc.u64 %0, %2, %3;\n\t"
-	//		"addc.u64   %1, 0, 0;\n\t"   // out_hi = borrow (0/1)
-	//		: "=&l"(out_lo), "=&l"(out_hi)
-	//		: "l"(a), "l"(b)
-	//		);
-	//	ret->lo = out_lo;
-	//	ret->hi = out_hi;
-	//}
-
-	// a + b + c -> (lo, carry)
-	BLST_DEVICE BLST_FORCEINLINE
-		void cc_add_carry_wide_limb_limb(
-			wide_limb_t* ret,
-			const limb_t& a,
-			const limb_t& b,
-			const limb_t& c   // 0 or 1
-		)
-	{
-		BLST_ASSERT(c <= 1);
-		uint64_t out_lo;
-		uint64_t out_hi;
-		asm volatile(
-			"add.cc.u64  %0, %2, %3;\n\t"
-			"addc.cc.u64 %0, %0, %4;\n\t"
-			"addc.u64    %1, 0, 0;\n\t"  // out_hi = final carry (0/1)
-			: "=&l"(out_lo), "=&l"(out_hi)
-			: "l"(a), "l"(b), "l"(c)
-			);
-		ret->lo = out_lo;
-		ret->hi = out_hi;
-	}
-
-
-	// a - b - c  (match portable: do it in two steps)
-	BLST_DEVICE BLST_FORCEINLINE
-		void cc_sub_borrow_wide_limb_limb(
-			wide_limb_t* ret,
-			const limb_t& a,
-			const limb_t& b,
-			const limb_t& c
-		)
-	{
-		// replicate the portable two-call sequence exactly
-		cc_sub_wide_limb_limb(ret, a, b);     // hi = -(borrow_ab)
-		cc_sub_wide_wide_limb(ret, *ret, c);  // subtract c from the 128-bit (hi,lo)
-	}
-
-#else
-	// generic
-
-#define cc_mul_wide_limb_limb(ret, a, b)\
-    do{int half = sizeof(limb_t) * 4;                                  \
-    limb_t low_mask = ((limb_t)1 << half) - 1;                         \
-    /* Portable C implementation for 64-bit limbs*/                    \
-    /* Break operands into 32-bit halves        */                     \
-    limb_t a_lo = (a) & low_mask;                                      \
-    limb_t a_hi = (a) >> half;                                         \
-    limb_t b_lo = (b) & low_mask;                                      \
-    limb_t b_hi = (b) >> half;                                         \
-                                                                       \
-    /* Four partial products: */                                       \
-    limb_t p0 = a_lo * b_lo;                                           \
-    limb_t p1 = a_lo * b_hi;                                           \
-    limb_t p2 = a_hi * b_lo;                                           \
-    limb_t p3 = a_hi * b_hi;                                           \
-                                                                       \
-    /* Combine middle products with carry propagation */               \
-    limb_t middle = (p0 >> half) + (p1 & low_mask) + (p2 & low_mask);  \
-    limb_t carry = middle >> half;                                     \
-                                                                       \
-    /* Assemble final result    */                                     \
-    (ret)->lo = (p0 & low_mask) + (middle << half);                    \
-    (ret)->hi = p3 + (p1 >> half) + (p2 >> half) + carry;}while(0)
-
-
-	BLST_HD BLST_FORCEINLINE void  cc_add_wide_wide_limb(wide_limb_t* ret, const  wide_limb_t& a, const limb_t& b)
-	{
-		wide_limb_t aa = a;
-		(ret)->lo = aa.lo + (b);
-		(ret)->hi = aa.hi + (((ret)->lo < aa.lo) ? 1 : 0);
-	}
-
-	BLST_HD BLST_FORCEINLINE void cc_add_wide_limb_limb(wide_limb_t* ret, const limb_t& a, const limb_t& b)
-	{
-		limb_t aa = a;
-		(ret)->lo = (a)+(b);
-		(ret)->hi = ((ret)->lo < aa) ? 1 : 0;
-	}
-
-	// wide subtraction *ret = a - b
-	// with wide a and limb_t b
-	BLST_HD BLST_FORCEINLINE void  cc_sub_wide_wide_limb(wide_limb_t* ret, const  wide_limb_t& a, const  limb_t& b)
-	{
-		wide_limb_t _aa = (a);
-		limb_t      _bb = (limb_t)(b);
-		limb_t      _old = _aa.lo;
-		(ret)->lo = (limb_t)(_old - _bb);
-		limb_t _borrow = (limb_t)(_old < _bb);    /* correct borrow test */
-		(ret)->hi = (limb_t)(_aa.hi - _borrow);
-	}
-
-	// wide subtraction *ret = a - b
-	// with limb_t a and b
-	BLST_HD BLST_FORCEINLINE void  cc_sub_wide_limb_limb(wide_limb_t* ret, const  limb_t& a, const  limb_t& b)
-	{
-		limb_t _aa = (limb_t)(a);
-		limb_t _bb = (limb_t)(b);
-		(ret)->lo = (limb_t)(_aa - _bb);
-		limb_t _borrow = (limb_t)(_aa < _bb);
-		(ret)->hi = (limb_t)(-(limb_t)_borrow); /* 0 or 0xFFFFFFFF */
-	}
-
-	// ret = a + b + c
-	BLST_HD BLST_FORCEINLINE void cc_add_carry_wide_limb_limb(wide_limb_t* ret, const limb_t& a, const limb_t& b, const limb_t& c)
-	{
-		cc_add_wide_limb_limb(ret, a, b);
-		cc_add_wide_wide_limb(ret, *ret, c);
-	}
-
-	// ret = a - b - c
-	BLST_HD BLST_FORCEINLINE void cc_sub_borrow_wide_limb_limb(wide_limb_t* ret, const limb_t& a, const limb_t& b, const limb_t& c)
-	{
-		cc_sub_wide_limb_limb(ret, a, b);
-		cc_sub_wide_wide_limb(ret, *ret, c);
-	}
-
-	//#define cc_sub_wide_limb_wide(ret, a, b)\
-	//    do {												\
-	//    limb lo = (a) - (b).lo;							\
-	//	limb bor = ((a) < (b).lo);						\
-	//	limb hi = (limb(0) - (b).hi) - bor;				\
-	//	(ret)->lo = lo;										\
-	//	(ret)->hi = hi;										\
-	//	} while (0)
-
 #endif
 
-// ret = a * b + c
+
+
+#ifdef __CUDA_ARCH__
+	using namespace cuda64;
+#elif BLST_LIMB_SIZE == 64 && defined(BLST_ADX) 
+	using namespace adx64;
+#elif BLST_LIMB_SIZE == 32 && (defined(_M_X64) || defined(__x86_64__))
+	using namespace limb32on64;
+#else
+	using namespace portable;
+#endif
+
+
+	// ret = a * b + c
 #define cc_mul_add_wide_limb_limb(ret, a, b, c)\
     do{ cc_mul_wide_limb_limb(ret, a, b);\
     cc_add_wide_wide_limb(ret, *ret, c); } while(0)
@@ -336,12 +448,6 @@ namespace blst
 #define cc_add_add_wide_limb_limb(ret, a, b, c)\
     do { cc_add_wide_limb_limb(ret, a, b);\
     cc_add_wide_wide_limb(ret, *ret, c) ;} while(0)
-
-
-
-
-
-
 
 
 
@@ -610,7 +716,7 @@ namespace blst
 #if defined(__clang_major__) && __clang_major__>7
 	__attribute__((optnone))
 #endif
-	BLST_HD BLST_FORCEINLINE limb_t cc_lshift_2(limb_t hi, limb_t lo, size_t l)
+		BLST_HD BLST_FORCEINLINE limb_t cc_lshift_2(limb_t hi, limb_t lo, size_t l)
 	{
 		size_t r = BLST_LIMB_SIZE - l;
 		limb_t mask = 0 - (is_zero(l) ^ 1);
