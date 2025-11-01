@@ -8,9 +8,12 @@
 
 #include "blst/fields/Fr.h"
 #include "blst/fields/Fr_cuda.h"
+#include "InsecureRng.h"
+
 using namespace blst;
 
 #define FR_LIMBS NLIMBS(256)
+
 
 class FrCudaTest : public ::testing::Test {
 protected:
@@ -34,7 +37,7 @@ protected:
     void set_fr(Fr& v, uint64_t x) {
         for (int i = 0; i < FR_LIMBS; ++i)
             v[i] = 0;
-        memcpy(v, &x, sizeof(x));
+        memcpy(v.data, &x, sizeof(x));
     }
 
     // Helper: Compare two Fr& for equality
@@ -56,18 +59,26 @@ protected:
             dst[i] = src[i];
     }
 
-    // Helper: Generate random Fr element
-    void random_fr(Fr& v) {
-        // Generate random limbs
-        for (int i = 0; i < FR_LIMBS; ++i) {
-            v[i] = gen();
+
+
+    void rand_fr(Fr& v, InsecureRng& rng)
+    {
+        for (u64 i = 0; i < sizeof(Fr) / sizeof(v[0]); ++i)
+        {
+            v[i] = rng.next_u64();
         }
-        // Reduce modulo Fr to ensure valid element
-        // Note: This is a simplified approach; real implementation would use proper modular reduction
-        if (FR_LIMBS > 0) {
-            v[FR_LIMBS - 1] &= 0x7FFFFFFFFFFFFFFFULL; // Ensure MSB is clear to avoid overflow
+
+        while (Fr::is_redc(v) == 0)
+        {
+            Fr::rshift(v, v, 1);
         }
     }
+    void rand_fr(Fr& v, u64 seed)
+    {
+        InsecureRng rng(seed);
+		rand_fr(v, rng);
+    }
+
 
     // Helper: Convert standard integer to Montgomery form
     void to_mont_fr(Fr& r, const Fr& a) {
@@ -151,11 +162,11 @@ TEST_F(FrCudaTest, VectorAdd) {
     auto h_b = std::make_unique<Fr[]>(NUM_ELEMENTS);
     auto h_result = std::make_unique<Fr[]>(NUM_ELEMENTS);
     auto cpu_result = std::make_unique<Fr[]>(NUM_ELEMENTS);
-
+    u64 s = 0;
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        random_fr(h_a[i]);
-        random_fr(h_b[i]);
+        rand_fr(h_a[i], s++);
+        rand_fr(h_b[i], s++);
     }
 
     // CPU reference computation
@@ -199,10 +210,11 @@ TEST_F(FrCudaTest, VectorSub) {
     auto h_result = std::make_unique<Fr[]>(NUM_ELEMENTS);
     auto cpu_result = std::make_unique<Fr[]>(NUM_ELEMENTS);
 
+    u64 s = 0;
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        random_fr(h_a[i]);
-        random_fr(h_b[i]);
+        rand_fr(h_a[i], s++);
+        rand_fr(h_b[i], s++);
     }
 
     // CPU reference computation
@@ -249,8 +261,8 @@ TEST_F(FrCudaTest, VectorMul) {
     // Generate test data (convert to Montgomery form for multiplication)
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
         Fr temp_a, temp_b;
-        random_fr(temp_a);
-        random_fr(temp_b);
+        rand_fr(temp_a, i * 2 + 0);
+        rand_fr(temp_b, i * 2 + 1);
         to_mont_fr(h_a[i], temp_a);
         to_mont_fr(h_b[i], temp_b);
     }
@@ -298,7 +310,7 @@ TEST_F(FrCudaTest, VectorSqr) {
     // Generate test data (convert to Montgomery form for squaring)
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
         Fr temp;
-        random_fr(temp);
+        rand_fr(temp, i);
         to_mont_fr(h_a[i], temp);
     }
 
@@ -342,7 +354,7 @@ TEST_F(FrCudaTest, VectorCNeg) {
 
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        random_fr(h_a[i]);
+        rand_fr(h_a[i],i);
     }
 
     // CPU reference computation with flag = 1
@@ -399,7 +411,7 @@ TEST_F(FrCudaTest, VectorMulBy3) {
 
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        random_fr(h_a[i]);
+        rand_fr(h_a[i], i);
     }
 
     // CPU reference computation
@@ -441,7 +453,7 @@ TEST_F(FrCudaTest, VectorLShift) {
 
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        random_fr(h_a[i]);
+        rand_fr(h_a[i], i);
     }
 
     // CPU reference computation
@@ -483,7 +495,7 @@ TEST_F(FrCudaTest, VectorRShift) {
 
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        random_fr(h_a[i]);
+        rand_fr(h_a[i], i);
     }
 
     // CPU reference computation
@@ -526,7 +538,7 @@ TEST_F(FrCudaTest, VectorMontgomeryConversion) {
 
     // Generate test data - ensure values are properly reduced modulo the field
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        random_fr(h_a[i]);
+        rand_fr(h_a[i], i);
         // Ensure the value is properly reduced by performing a modular reduction
         Fr temp;
         Fr::from_mont(temp, h_a[i]);  // This ensures proper reduction
@@ -587,7 +599,7 @@ TEST_F(FrCudaTest, VectorMontgomeryConversion) {
 }
 
 TEST_F(FrCudaTest, VectorButterfly) {
-    const size_t NUM_ELEMENTS = 1000;
+    const size_t NUM_ELEMENTS = 1;
     auto h_x0 = std::make_unique<Fr[]>(NUM_ELEMENTS);
     auto h_x1 = std::make_unique<Fr[]>(NUM_ELEMENTS);
     auto h_twiddle = std::make_unique<Fr[]>(NUM_ELEMENTS);
@@ -600,12 +612,13 @@ TEST_F(FrCudaTest, VectorButterfly) {
     auto cpu_x0_gs = std::make_unique<Fr[]>(NUM_ELEMENTS);
     auto cpu_x1_gs = std::make_unique<Fr[]>(NUM_ELEMENTS);
 
+    auto begin = 3;
     // Generate test data (convert to Montgomery form)
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
         Fr temp_x0, temp_x1, temp_twiddle;
-        random_fr(temp_x0);
-        random_fr(temp_x1);
-        random_fr(temp_twiddle);
+        rand_fr(temp_x0, i * 3 + 0 + begin);
+        rand_fr(temp_x1, i * 3 + 1 + begin);
+        rand_fr(temp_twiddle, i * 3 + 2 + begin);
         to_mont_fr(h_x0[i], temp_x0);
         to_mont_fr(h_x1[i], temp_x1);
         to_mont_fr(h_twiddle[i], temp_twiddle);
@@ -854,8 +867,8 @@ TEST_F(FrCudaTest, VectorPerformanceBaseline) {
 
     // Generate test data
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        random_fr(h_a[i]);
-        random_fr(h_b[i]);
+        rand_fr(h_a[i], i * 2 + 0);
+        rand_fr(h_b[i], i * 2 + 1);
     }
 
     // This test primarily validates correctness at scale

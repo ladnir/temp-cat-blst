@@ -677,10 +677,10 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			Fp temp;
 
 			Fp::from_mont(temp, in.X);
-			be_bytes_from_limbs(out, temp, sizeof(temp));
+			be_bytes_from_limbs(out, temp.data, sizeof(temp));
 
 			Fp::from_mont(temp, in.Y);
-			be_bytes_from_limbs(out + 48, temp, sizeof(temp));
+			be_bytes_from_limbs(out + 48, temp.data, sizeof(temp));
 
 			return Fp::sgn0_pty(temp);
 		}
@@ -688,14 +688,14 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			Fp2 temp;
 
 			Fp::from_mont(temp[1], in.X[1]);
-			be_bytes_from_limbs(out, temp[1], sizeof(temp[1]));
+			be_bytes_from_limbs(out, temp[1].data, sizeof(temp[1]));
 			Fp::from_mont(temp[0], in.X[0]);
-			be_bytes_from_limbs(out + 48, temp[0], sizeof(temp[0]));
+			be_bytes_from_limbs(out + 48, temp[0].data, sizeof(temp[0]));
 
 			Fp::from_mont(temp[1], in.Y[1]);
-			be_bytes_from_limbs(out + 96, temp[1], sizeof(temp[1]));
+			be_bytes_from_limbs(out + 96, temp[1].data, sizeof(temp[1]));
 			Fp::from_mont(temp[0], in.Y[0]);
-			be_bytes_from_limbs(out + 144, temp[0], sizeof(temp[0]));
+			be_bytes_from_limbs(out + 144, temp[0].data, sizeof(temp[0]));
 
 			return Fp2::sgn0_pty(temp);
 		}
@@ -763,9 +763,9 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			Fp temp;
 
 			Fp::from_mont(temp, in.X[1]);
-			be_bytes_from_limbs(out, temp, sizeof(temp));
+			be_bytes_from_limbs(out, temp.data, sizeof(temp));
 			Fp::from_mont(temp, in.X[0]);
-			be_bytes_from_limbs(out + 48, temp, sizeof(temp));
+			be_bytes_from_limbs(out + 48, temp.data, sizeof(temp));
 
 			return Fp2::sgn0_pty_mont(in.Y);
 
@@ -775,7 +775,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			Fp temp;
 
 			Fp::from_mont(temp, in.X);
-			be_bytes_from_limbs(out, temp, sizeof(temp));
+			be_bytes_from_limbs(out, temp.data, sizeof(temp));
 
 			return Fp::sgn0_pty_mont(in.Y);
 		}
@@ -846,17 +846,17 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			G2AffinePoint ret;
 			Fp temp;
 
-			limbs_from_be_bytes(ret.X[1], in, sizeof(ret.X[1]));
-			limbs_from_be_bytes(ret.X[0], in + 48, sizeof(ret.X[0]));
+			limbs_from_be_bytes(ret.X[1].data, in, sizeof(ret.X[1]));
+			limbs_from_be_bytes(ret.X[0].data, in + 48, sizeof(ret.X[0]));
 
 			/* clear top 3 bits in case caller was conveying some information there */
 			ret.X[1][sizeof(ret.X[1]) / sizeof(limb_t) - 1] &= ((limb_t)0 - 1) >> 3;
 			Fp::add(temp, ret.X[1], Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp, ret.X[1], sizeof(temp)))
+			if (!vec_is_equal(temp.data, ret.X[1].data, sizeof(temp)))
 				return (limb_t)0 - BLST_BAD_ENCODING;
 
 			Fp::add(temp, ret.X[0], Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp, ret.X[0], sizeof(temp)))
+			if (!vec_is_equal(temp.data, ret.X[0].data, sizeof(temp)))
 				return (limb_t)0 - BLST_BAD_ENCODING;
 
 			Fp::mul(ret.X[0], ret.X[0], get_BLST_RR());
@@ -876,11 +876,11 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			AffinePoint ret;
 			Fp temp;
 
-			limbs_from_be_bytes(ret.X, in, sizeof(ret.X));
+			limbs_from_be_bytes(ret.X.data, in, sizeof(ret.X));
 			/* clear top 3 bits in case caller was conveying some information there */
 			ret.X[sizeof(ret.X) / sizeof(limb_t) - 1] &= ((limb_t)0 - 1) >> 3;
 			Fp::add(temp, ret.X, Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp, ret.X, sizeof(temp)))
+			if (!vec_is_equal(temp.data, ret.X.data, sizeof(temp)))
 				return (limb_t)0 - BLST_BAD_ENCODING;
 			Fp::mul(ret.X, ret.X, get_BLST_RR());
 
@@ -946,27 +946,27 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			G2AffinePoint ret;
 			Fp temp;
 
-			limbs_from_be_bytes(ret.X[1], in, sizeof(ret.X[1]));
-			limbs_from_be_bytes(ret.X[0], in + 48, sizeof(ret.X[0]));
-			limbs_from_be_bytes(ret.Y[1], in + 96, sizeof(ret.Y[1]));
-			limbs_from_be_bytes(ret.Y[0], in + 144, sizeof(ret.Y[0]));
+			limbs_from_be_bytes(ret.X[1].data, in, sizeof(ret.X[1]));
+			limbs_from_be_bytes(ret.X[0].data, in + 48, sizeof(ret.X[0]));
+			limbs_from_be_bytes(ret.Y[1].data, in + 96, sizeof(ret.Y[1]));
+			limbs_from_be_bytes(ret.Y[0].data, in + 144, sizeof(ret.Y[0]));
 
 			/* clear top 3 bits in case caller was conveying some information there */
 			ret.X[1][sizeof(ret.X[1]) / sizeof(limb_t) - 1] &= ((limb_t)0 - 1) >> 3;
 			Fp::add(temp, ret.X[1], Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp, ret.X[1], sizeof(temp)))
+			if (!vec_is_equal(temp.data, ret.X[1].data, sizeof(temp)))
 				return BLST_BAD_ENCODING;
 
 			Fp::add(temp, ret.X[0], Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp, ret.X[0], sizeof(temp)))
+			if (!vec_is_equal(temp.data, ret.X[0].data, sizeof(temp)))
 				return BLST_BAD_ENCODING;
 
 			Fp::add(temp, ret.Y[1], Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp, ret.Y[1], sizeof(temp)))
+			if (!vec_is_equal(temp.data, ret.Y[1].data, sizeof(temp)))
 				return BLST_BAD_ENCODING;
 
 			Fp::add(temp, ret.Y[0], Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp, ret.Y[0], sizeof(temp)))
+			if (!vec_is_equal(temp.data, ret.Y[0].data, sizeof(temp)))
 				return BLST_BAD_ENCODING;
 
 			Fp::mul(ret.X[0], ret.X[0], get_BLST_RR());
@@ -987,17 +987,17 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			G1AffinePoint ret;
 			Fp temp;
 
-			limbs_from_be_bytes(ret.X, in, sizeof(ret.X));
-			limbs_from_be_bytes(ret.Y, in + 48, sizeof(ret.Y));
+			limbs_from_be_bytes(ret.X.data, in, sizeof(ret.X));
+			limbs_from_be_bytes(ret.Y.data, in + 48, sizeof(ret.Y));
 
 			/* clear top 3 bits in case caller was conveying some information there */
 			ret.X[sizeof(ret.X) / sizeof(limb_t) - 1] &= ((limb_t)0 - 1) >> 3;
 			Fp::add(temp, ret.X, Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp, ret.X, sizeof(temp)))
+			if (!vec_is_equal(temp.data, ret.X.data, sizeof(temp)))
 				return BLST_BAD_ENCODING;
 
 			Fp::add(temp, ret.Y, Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp, ret.Y, sizeof(temp)))
+			if (!vec_is_equal(temp.data, ret.Y.data, sizeof(temp)))
 				return BLST_BAD_ENCODING;
 
 			Fp::mul(ret.X, ret.X, get_BLST_RR());
@@ -1009,7 +1009,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			vec_copy(&out, &ret, sizeof(ret));
 
 			/* (0,±2) is not in group, but application might want to ignore? */
-			return vec_is_zero(out.X, sizeof(out.X)) ? BLST_POINT_NOT_IN_GROUP
+			return vec_is_zero(out.X.data, sizeof(out.X)) ? BLST_POINT_NOT_IN_GROUP
 				: BLST_SUCCESS;
 		}
 	}
@@ -1109,7 +1109,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 	BLST_HD BLST_CPP_INLINE void sigma(G1Point& out, const G1Point& in)
 	{
-		vec_copy(out.X, in.X, 2 * sizeof(out.X));
+		vec_copy(out.X.data, in.X.data, 2 * sizeof(out.X));
 		Fp::mul(out.Z, in.Z, get_BLST_beta());
 	}
 
@@ -1157,7 +1157,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		Point<Field> P;
 
 		vec_copy(&P.X, &p.X, 2 * sizeof(P.X));
-		vec_select(&P.Z, &p.X, get_BLST_Rx().p, sizeof(P.Z),
+		vec_select(&P.Z, &p.X, get_BLST_Rx().p.data, sizeof(P.Z),
 			vec_is_zero(&p, sizeof(p)));
 
 		return (int)Point<Field>::in_subgroup(P);
@@ -1191,9 +1191,9 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		pow256 s;
 		/* SK/z^2 [in constant time] */
 
-		limbs_from_le_bytes(l, SK, 32);
-		div_by_zz(l);
-		le_bytes_from_limbs(s, l, 32);
+		limbs_from_le_bytes(l.data, SK, 32);
+		div_by_zz(l.data);
+		le_bytes_from_limbs(s, l.data, 32);
 
 		{
 			const byte* scalars[2] = { s + 16, s };
@@ -1204,7 +1204,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			for (i = 0; i < 1 << (5 - 1); i++) {
 				Fp::mul(table[1][i].X, table[0][i].X, get_BLST_beta());
 				Fp::cneg(table[1][i].Y, table[0][i].Y, 1);
-				vec_copy(table[1][i].Z, table[0][i].Z, sizeof(table[1][i].Z));
+				vec_copy(table[1][i].Z.data, table[0][i].Z.data, sizeof(table[1][i].Z));
 			}
 
 			mult_window_n<G1Point, 5>(out, NULL, 2, scalars, 128, table);
@@ -1213,7 +1213,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			Fp::mul(out.Z, out.Z, get_BLST_beta());
 		}
 
-		vec_zero(l, sizeof(l));   /* scrub the copy of SK */
+		vec_zero(l.data, sizeof(l));   /* scrub the copy of SK */
 		vec_zero(s, sizeof(s));   /* scrub the copy of SK */
 	}
 
@@ -1230,13 +1230,13 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		pow256 s;
 
 		/* break down SK to "digits" with |z| as radix [in constant time] */
-		limbs_from_le_bytes(l, SK, 32);
-		div_by_zz(l);
-		div_by_z(l);
-		div_by_z(l + NLIMBS(256) / 2);
+		limbs_from_le_bytes(l.data, SK, 32);
+		div_by_zz(l.data);
+		div_by_z(l.data);
+		div_by_z(l.data + NLIMBS(256) / 2);
 
 
-		le_bytes_from_limbs(s, l, 32);
+		le_bytes_from_limbs(s, l.data, 32);
 
 		{
 			const byte* scalars[2] = { s, NULL };
@@ -1262,7 +1262,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			l[i] = s[i];
 		}
 
-		vec_zero(l, sizeof(l));   /* scrub the copy of SK */
+		vec_zero(l.data, sizeof(l));   /* scrub the copy of SK */
 	}
 
 	template<typename Field>
@@ -1377,7 +1377,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			else    /* should never be the case, added for formal completeness */
 				mult_window<Point, 5>(out, a, scalar, nbits);
 
-			vec_zero(val.l, sizeof(val));
+			vec_zero(val.l.data, sizeof(val));
 		}
 		else {    /* should never be the case, added for formal completeness */
 			mult_window<Point, 5>(out, a, scalar, nbits);

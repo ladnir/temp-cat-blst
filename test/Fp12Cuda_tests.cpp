@@ -39,7 +39,7 @@ protected:
         // Set only the first component to the integer value
         for (int i = 0; i < NLIMBS(384); ++i)
             v[0][0][0][i] = 0;
-        memcpy(v[0][0][0], &x, sizeof(x));
+        memcpy(&v[0][0][0], &x, sizeof(x));
 
         // Convert to Montgomery form
         Fp::to_mont(v[0][0][0], v[0][0][0]);

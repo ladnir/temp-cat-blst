@@ -83,12 +83,12 @@ namespace
 
 	// Helper to compare two Fr&
 	bool Fr_equal(const Fr& a, const Fr& b) {
-		return std::memcmp(a, b, sizeof(Fr)) == 0;
+		return std::memcmp(a.data, b.data, sizeof(Fr)) == 0;
 	}
 
 	// Helper to compare two Fp
 	bool Fp_equal(const Fp& a, const Fp& b) {
-		return std::memcmp(a, b, sizeof(Fp)) == 0;
+		return std::memcmp(a.data, b.data, sizeof(Fp)) == 0;
 	}
 
 	// Add this helper function for printing vectors in hexadecimal format
@@ -129,7 +129,7 @@ TEST(InterfaceTests, MulMontSparseV256) {
 	Fr a, b, p, ret_asm, ret_portable;
 	limb_t n0 = BLST_r0;
 	int trials = 10;
-	memcpy(p, get_BLST_r(), sizeof(Fr));
+	memcpy(p.data, get_BLST_r().data, sizeof(Fr));
 
 	for (int t = 0; t < trials; t++)
 	{
@@ -137,7 +137,7 @@ TEST(InterfaceTests, MulMontSparseV256) {
 		generate_random_Fr(b, p);
 
 		// Compute using both implementations
-		mulx_mont_sparse_256(ret_asm, a, b, p, n0); // ASM implementation
+		mulx_mont_sparse_256(ret_asm.data, a.data, b.data, p.data, n0); // ASM implementation
 		//cc_mul_mont_sparse_256(ret_portable, a, b, p, n0); // Portable implementation
 		cc_mul_mont_n<NLIMBS(256)>(ret_portable.data, a.data, b.data, p.data, n0);
 
@@ -155,12 +155,12 @@ TEST(InterfaceTests, AddModV384) {
 
 	for (int t = 0; t < trials; t++)
 	{
-		memcpy(p, get_BLST_P(), sizeof(Fp));
+		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 		generate_random_Fp(a, rng);
 		generate_random_Fp(b, rng);
 
 		// Compute using both implementations
-		add_mod_384(ret_asm, a, b, p); // ASM implementation
+		add_mod_384(ret_asm.data, a.data, b.data, p.data); // ASM implementation
 		//cc_add_mod_384(ret_portable, a, b, p); // Portable implementation
 		cc_add_mod_n<NLIMBS(384)>(ret_portable.data, a.data, b.data, get_BLST_P().data);
 
@@ -186,10 +186,10 @@ TEST(InterfaceTests, SqrMontSparseV256) {
 	for (int t = 0; t < trials; t++)
 	{
 		generate_random_Fr(a);
-		memcpy(p, get_BLST_r(), sizeof(Fr));
+		memcpy(p.data, get_BLST_r().data, sizeof(Fr));
 
 		// Compute using both implementations
-		sqrx_mont_sparse_256(ret_asm, a, p, n0); // ASM implementation
+		sqrx_mont_sparse_256(ret_asm.data, a.data, p.data, n0); // ASM implementation
 		//cc_sqr_mont_sparse_256(ret_portable, a, p, n0); // Portable implementation
 		cc_mul_mont_n<NLIMBS(256)>(ret_portable.data, a.data, a.data, p.data, n0);
 
@@ -207,9 +207,9 @@ TEST(InterfaceTests, RedcMontV256) {
 	{
 		generate_random_Fr(reinterpret_cast<Fr&>(a)); // Fill lower 256 bits
 		generate_random_Fr(reinterpret_cast<Fr&>(a[4])); // Fill upper 256 bits
-		memcpy(p, get_BLST_r(), sizeof(Fr));
+		memcpy(p.data, get_BLST_r().data, sizeof(Fr));
 		// Compute using both implementations
-		redcx_mont_256(ret_asm, a, p, n0); // ASM implementation
+		redcx_mont_256(ret_asm.data, a, p.data, n0); // ASM implementation
 		//cc_redc_mont_256(ret_portable, a, p, n0); // Portable implementation
 		cc_redc_mont_n<NLIMBS(256)>(ret_portable.data, a.data, p.data, n0);
 
@@ -227,9 +227,9 @@ TEST(InterfaceTests, MulMontV384) {
 	{
 		generate_random_Fp(a, rng);
 		generate_random_Fp(b, rng);
-		memcpy(p, get_BLST_P(), sizeof(Fp));
+		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 		// Compute using both implementations
-		mulx_mont_384(ret_asm, a, b, p, n0); // ASM implementation
+		mulx_mont_384(ret_asm.data, a.data, b.data, p.data, n0); // ASM implementation
 		//cc_mul_mont_384(ret_portable, a, b, p, n0); // Portable implementation
 		cc_mul_mont_n<NLIMBS(384)>(ret_portable.data, a.data, b.data, get_BLST_P().data, BLST_p0);
 
@@ -246,10 +246,10 @@ TEST(InterfaceTests, SqrMontV384) {
 	{
 
 		generate_random_Fp(a, rng);
-		memcpy(p, get_BLST_P(), sizeof(Fp));
+		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
 		// Compute using both implementations
-		sqrx_mont_384(ret_asm, a, p, n0); // ASM implementation
+		sqrx_mont_384(ret_asm.data, a.data, p.data, n0); // ASM implementation
 		//cc_sqr_mont_384(ret_portable, a, p, n0); // Portable implementation
 		cc_mul_mont_n<NLIMBS(384)>(ret_portable.data, a.data, a.data, get_BLST_P().data, BLST_p0);
 
@@ -263,11 +263,11 @@ TEST(InterfaceTests, AddModV256) {
 
 	for (int t = 0; t < trials; t++)
 	{
-		memcpy(p, get_BLST_r(), sizeof(Fr));
+		memcpy(p.data, get_BLST_r().data, sizeof(Fr));
 		generate_random_Fr(a, p);
 		generate_random_Fr(b, p);
 		// Compute using both implementations
-		add_mod_256(ret_asm, a, b, p); // ASM implementation
+		add_mod_256(ret_asm.data, a.data, b.data, p.data); // ASM implementation
 		//cc_add_mod_256(ret_portable, a, b, p); // Portable implementation
 		cc_add_mod_n<NLIMBS(256)>(ret_portable.data, a.data, b.data, p.data);
 
@@ -280,12 +280,12 @@ TEST(InterfaceTests, SubModV256) {
 	int trials = 10;
 	for (int t = 0; t < trials; t++)
 	{
-		memcpy(p, get_BLST_r(), sizeof(Fr));
+		memcpy(p.data, get_BLST_r().data, sizeof(Fr));
 		generate_random_Fr(a, p);
 		generate_random_Fr(b, p);
 
 		// Compute using both implementations
-		sub_mod_256(ret_asm, a, b, p); // ASM implementation
+		sub_mod_256(ret_asm.data, a.data, b.data, p.data); // ASM implementation
 		//cc_sub_mod_256(ret_portable, a, b, p); // Portable implementation
 		cc_sub_mod_n<NLIMBS(256)>(ret_portable.data, a.data, b.data, p.data);
 
@@ -300,11 +300,11 @@ TEST(InterfaceTests, MulBy3ModV256) {
 
 	for (int t = 0; t < trials; t++)
 	{
-		memcpy(p, get_BLST_r(), sizeof(Fr));
+		memcpy(p.data, get_BLST_r().data, sizeof(Fr));
 		generate_random_Fr(a, p);
 
 		// Compute using both implementations
-		mul_by_3_mod_256(ret_asm, a, p); // ASM implementation
+		mul_by_3_mod_256(ret_asm.data, a.data, p.data); // ASM implementation
 		//cc_mul_by_3_mod_256(ret_portable, a, p); // Portable implementation
 		cc_mul_by_3_mod_n<NLIMBS(256)>(ret_portable.data, a.data, p.data);
 
@@ -320,10 +320,10 @@ TEST(InterfaceTests, CNegModV256) {
 
 	for (int t = 0; t < trials; t++)
 	{
-		memcpy(p, get_BLST_r(), sizeof(Fr));
+		memcpy(p.data, get_BLST_r().data, sizeof(Fr));
 		generate_random_Fr(a, p);
 		// Compute using both implementations
-		cneg_mod_256(ret_asm, a, flag, p); // ASM implementation
+		cneg_mod_256(ret_asm.data, a.data, flag, p.data); // ASM implementation
 		//cc_cneg_mod_256(ret_portable, a, flag, p); // Portable implementation
 		cc_cneg_mod_n<NLIMBS(256)>(ret_portable.data, a.data, flag, p.data);
 
@@ -339,10 +339,10 @@ TEST(InterfaceTests, LShiftModV256) {
 
 	for (int t = 0; t < trials; t++)
 	{
-		memcpy(p, get_BLST_r(), sizeof(Fr));
+		memcpy(p.data, get_BLST_r().data, sizeof(Fr));
 		generate_random_Fr(a, p);
 
-		lshift_mod_256(ret_asm, a, count, p);
+		lshift_mod_256(ret_asm.data, a.data, count, p.data);
 		//cc_lshift_mod_256(ret_portable, a, count, p);
 		cc_lshift_mod_n<NLIMBS(256)>(ret_portable.data, a.data, count, p.data);
 
@@ -368,11 +368,11 @@ TEST(InterfaceTests, CheckMod256) {
 	for (int t = 0; t < trials; t++)
 	{
 		// Generate random inputs
-		memcpy(p, get_BLST_r(), sizeof(Fr));
+		memcpy(p.data, get_BLST_r().data, sizeof(Fr));
 		generate_random_Fr(reinterpret_cast<Fr&>(a));
 
 		// Test both implementations
-		limb_t result_asm = check_mod_256(a, p); // ASM implementation
+		limb_t result_asm = check_mod_256(a, p.data); // ASM implementation
 		//limb_t result_portable = cc_check_mod_256(a, p); // Portable implementation
 		limb_t result_portable = cc_check_mod_n<NLIMBS(256)>(a, p.data);
 
@@ -392,7 +392,7 @@ TEST(InterfaceTests, AddNCheckMod256) {
 	for (int t = 0; t < trials; t++)
 	{
 		// Generate random inputs
-		memcpy(p, get_BLST_r(), sizeof(Fr));
+		memcpy(p.data, get_BLST_r().data, sizeof(Fr));
 		generate_random_Fr(reinterpret_cast<Fr&>(a), p);
 		generate_random_Fr(reinterpret_cast<Fr&>(b), p);
 
@@ -401,7 +401,7 @@ TEST(InterfaceTests, AddNCheckMod256) {
 		memcpy(ret_portable, a, sizeof(pow256));
 
 		// Test both implementations
-		limb_t result_asm = add_n_check_mod_256(ret_asm, a, b, p); // ASM implementation
+		limb_t result_asm = add_n_check_mod_256(ret_asm, a, b, p.data); // ASM implementation
 		//limb_t result_portable = cc_add_n_check_mod_256(ret_portable, a, b, p); // Portable implementation
 		limb_t result_portable = cc_add_n_check_mod_n<NLIMBS(256)>(ret_portable, a, b, p.data);
 
@@ -426,14 +426,14 @@ TEST(InterfaceTests, SubNCheckMod256) {
 		// Generate random inputs
 		generate_random_Fr(reinterpret_cast<Fr&>(a));
 		generate_random_Fr(reinterpret_cast<Fr&>(b));
-		memcpy(p, get_BLST_r(), sizeof(Fr));
+		memcpy(p.data, get_BLST_r().data, sizeof(Fr));
 
 		// Make copies for both implementations
 		memcpy(ret_asm, a, sizeof(pow256));
 		memcpy(ret_portable, a, sizeof(pow256));
 
 		// Test both implementations
-		limb_t result_asm = sub_n_check_mod_256(ret_asm, a, b, p); // ASM implementation
+		limb_t result_asm = sub_n_check_mod_256(ret_asm, a, b, p.data); // ASM implementation
 		//limb_t result_portable = cc_sub_n_check_mod_256(ret_portable, a, b, p); // Portable implementation
 		limb_t result_portable = cc_sub_n_check_mod_n<NLIMBS(256)>(ret_portable, a, b, p.data);
 
@@ -456,9 +456,9 @@ TEST(InterfaceTests, RShiftModV256) {
 	for (int t = 0; t < trials; t++)
 	{
 		generate_random_Fr(a);
-		memcpy(p, get_BLST_r(), sizeof(Fr));
+		memcpy(p.data, get_BLST_r().data, sizeof(Fr));
 
-		rshift_mod_256(ret_asm, a, count, p);
+		rshift_mod_256(ret_asm.data, a.data, count, p.data);
 		//cc_rshift_mod_256(ret_portable, a, count, p);
 		cc_rshift_mod_n<NLIMBS(256)>(ret_portable.data, a.data, count, p.data);
 
@@ -477,10 +477,10 @@ TEST(InterfaceTests, FromMontV256) {
 	for (int t = 0; t < trials; t++)
 	{
 		generate_random_Fr(a);
-		memcpy(p, get_BLST_r(), sizeof(Fr));
+		memcpy(p.data, get_BLST_r().data, sizeof(Fr));
 
 		// Compute using both implementations
-		fromx_mont_256(ret_asm, a, p, n0); // ASM implementation
+		fromx_mont_256(ret_asm.data, a.data, p.data, n0); // ASM implementation
 		//cc_from_mont_256(ret_portable, a, p, n0); // Portable implementation
 		cc_from_mont_n<NLIMBS(256)>(ret_portable.data, a.data, p.data, n0);
 
@@ -500,10 +500,10 @@ TEST(InterfaceTests, FromMontV384) {
 	for (int t = 0; t < trials; t++)
 	{
 		generate_random_Fp(a, rng);
-		memcpy(p, get_BLST_P(), sizeof(Fp));
+		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
 		// Compute using both implementations
-		fromx_mont_384(ret_asm, a, p, n0); // ASM implementation
+		fromx_mont_384(ret_asm.data, a.data, p.data, n0); // ASM implementation
 		//cc_from_mont_384(ret_portable, a, p, n0); // Portable implementation
 		cc_from_mont_n<NLIMBS(384)>(ret_portable.data, a.data, get_BLST_P().data, BLST_p0);
 
@@ -572,7 +572,7 @@ TEST(InterfaceTests, FromMontV384) {
 // Test for sqr_n_mul_mont_v383
 TEST(InterfaceTests, SqrNMulMontV383) {
 	Fp a, b, aM, bM, p, ret_asm, ret_portable, out_asm, out_c;
-	memcpy(p, get_BLST_P(), sizeof(Fp));
+	memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
 	limb_t n0 = BLST_p0;
 	//auto nn0 = mont_n0_from_p(get_BLST_P());
@@ -592,13 +592,13 @@ TEST(InterfaceTests, SqrNMulMontV383) {
 		//to_fp(b, b);
 		// ---- to Montgomery correctly: aM = a * R  and  bM = b * R
 		// via MontMul with RR
-		cc_mul_mont_n<NLIMBS(384)>(aM, a, get_BLST_RR(), p, n0);
-		cc_mul_mont_n<NLIMBS(384)>(bM, b, get_BLST_RR(), p, n0);
+		cc_mul_mont_n<NLIMBS(384)>(aM.data, a.data, get_BLST_RR().data, p.data, n0);
+		cc_mul_mont_n<NLIMBS(384)>(bM.data, b.data, get_BLST_RR().data, p.data, n0);
 
 
 		// Compute using both implementations
-		sqrx_n_mul_mont_383(ret_asm, a, count, p, n0, b); // ASM implementation
-		cc_sqr_n_mul_mont_384(ret_portable, a, count, p, n0, b); // Portable implementation
+		sqrx_n_mul_mont_383(ret_asm.data, a.data, count, p.data, n0, b.data); // ASM implementation
+		cc_sqr_n_mul_mont_384(ret_portable.data, a.data, count, p.data, n0, b.data); // Portable implementation
 
 		// ---- back from Montgomery for comparison
 		Fp::from_mont(out_asm, ret_asm);
@@ -617,12 +617,12 @@ TEST(InterfaceTests, SubModV384) {
 
 	for (int t = 0; t < trials; t++)
 	{
-		memcpy(p, get_BLST_P(), sizeof(Fp));
+		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 		generate_random_Fp(a, rng);
 		generate_random_Fp(b, rng);
 
-		sub_mod_384(ret_asm, a, b, p);
-		cc_sub_mod_n<NLIMBS(384)>(ret_portable, a, b, p);
+		sub_mod_384(ret_asm.data, a.data, b.data, p.data);
+		cc_sub_mod_n<NLIMBS(384)>(ret_portable.data, a.data, b.data, p.data);
 
 		EXPECT_TRUE(Fp_equal(ret_asm, ret_portable)) << "Mismatch in sub_mod_v384";
 	}
@@ -636,11 +636,11 @@ TEST(InterfaceTests, MulBy8ModV384) {
 
 	for (int t = 0; t < trials; t++)
 	{
-		memcpy(p, get_BLST_P(), sizeof(Fp));
+		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 		generate_random_Fp(a, rng);
 
-		mul_by_8_mod_384(ret_asm, a, p);
-		cc_lshift_mod_n<NLIMBS(384)>(ret_portable, a, 3, p);
+		mul_by_8_mod_384(ret_asm.data, a.data, p.data);
+		cc_lshift_mod_n<NLIMBS(384)>(ret_portable.data, a.data, 3, p.data);
 
 		EXPECT_TRUE(Fp_equal(ret_asm, ret_portable)) << "Mismatch in mul_by_8_mod_v384";
 	}
@@ -654,10 +654,10 @@ TEST(InterfaceTests, MulBy3ModV384) {
 
 	for (int t = 0; t < trials; t++)
 	{
-		memcpy(p, get_BLST_P(), sizeof(Fp));
+		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 		generate_random_Fp(a, rng);
 
-		mul_by_3_mod_384(ret_asm, a, p);
+		mul_by_3_mod_384(ret_asm.data, a.data, p.data);
 		//cc_mul_by_3_mod_384(ret_portable, a, p);
 		cc_mul_by_3_mod_n<NLIMBS(384)>(ret_portable.data, a.data, get_BLST_P().data);
 
@@ -675,10 +675,10 @@ TEST(InterfaceTests, CNegModV384) {
 
 	for (int t = 0; t < trials; t++)
 	{
-		memcpy(p, get_BLST_P(), sizeof(Fp));
+		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 		generate_random_Fp(a, rng);
 
-		cneg_mod_384(ret_asm, a, flag, p);
+		cneg_mod_384(ret_asm.data, a.data, flag, p.data);
 		//cc_cneg_mod_384(ret_portable, a, flag, p);
 		cc_cneg_mod_n<NLIMBS(384)>(ret_portable.data, a.data, flag, p.data);
 
@@ -697,10 +697,10 @@ TEST(InterfaceTests, RShiftMod384) {
 
 	for (int t = 0; t < trials; t++)
 	{
-		memcpy(p, get_BLST_P(), sizeof(Fp));
+		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 		generate_random_Fp(a, rng);
 
-		rshift_mod_384(ret_asm, a, count, p); // ASM implementation
+		rshift_mod_384(ret_asm.data, a.data, count, p.data); // ASM implementation
 		//cc_rshift_mod_384(ret_portable, a, count, p); // Portable implementation
 		cc_rshift_mod_n<NLIMBS(384)>(ret_portable.data, a.data, count, get_BLST_P().data);
 
@@ -723,10 +723,10 @@ TEST(InterfaceTests, RedcxMont384) {
 		for (int i = 0; i < NLIMBS(768); ++i) {
 			a[i] = rand();
 		}
-		memcpy(p, get_BLST_P(), sizeof(Fp));
+		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
 		// Compute using both implementations
-		redcx_mont_384(ret_asm, a, p, n0); // ASM implementation
+		redcx_mont_384(ret_asm.data, a, p.data, n0); // ASM implementation
 		//cc_redc_mont_384(ret_portable, a, p, n0); // Portable implementation
 		cc_redc_mont_n<NLIMBS(384)>(ret_portable.data, a.data, get_BLST_P().data, BLST_p0);
 
@@ -770,9 +770,9 @@ TEST(InterfaceTests, DivBy2Mod384) {
 	for (int t = 0; t < trials; t++)
 	{
 		generate_random_Fp(a, rng);
-		memcpy(p, get_BLST_P(), sizeof(Fp));
+		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
-		div_by_2_mod_384(ret_asm, a, p); // ASM implementation
+		div_by_2_mod_384(ret_asm.data, a.data, p.data); // ASM implementation
 		//cc_div_by_2_mod_384(ret_portable, a, p); // Portable implementation
 		cc_rshift_mod_n<NLIMBS(384)>(ret_portable.data, a.data, 1, get_BLST_P().data);
 
@@ -829,8 +829,8 @@ TEST(InterfaceTests, CtxInverseMod384) {
 	{
 		// Verify modx is correctly left-aligned
 		Fp modx_check;
-		left_align_mod(modx_check, get_BLST_P(), NLIMBS(384));
-		assert(std::memcmp(modx, modx_check, sizeof(Fp)) == 0);
+		left_align_mod(modx_check.data, get_BLST_P().data, NLIMBS(384));
+		assert(std::memcmp(modx.data, modx_check.data, sizeof(Fp)) == 0);
 	}
 
 	int trials = 10;
@@ -840,9 +840,9 @@ TEST(InterfaceTests, CtxInverseMod384) {
 	{
 		generate_random_Fp(inp, rng);
 
-		ctx_inverse_mod_384(ret_asm, inp, get_BLST_P(), modx); // ASM implementation
+		ctx_inverse_mod_384(ret_asm, inp.data, get_BLST_P().data, modx.data); // ASM implementation
 		//cc_ct_inverse_mod_384(ret_portable, inp, get_BLST_P(), modx); // Portable implementation
-		cc_ct_inverse_mod_n<NLIMBS(384)>(ret_portable, inp, get_BLST_P(), modx);
+		cc_ct_inverse_mod_n<NLIMBS(384)>(ret_portable.data, inp.data, get_BLST_P().data, modx.data);
 
 
 		const size_t n = NLIMBS(384);
@@ -861,21 +861,21 @@ TEST(InterfaceTests, CtxInverseMod384) {
 		Fp redc_asm, redc_por;
 		Fp::redc(redc_asm, A.T);
 		Fp::redc(redc_por, B.T);
-		int eq1 = std::memcmp(redc_asm, redc_por, sizeof(Fp));
+		int eq1 = std::memcmp(redc_asm.data, redc_por.data, sizeof(Fp));
 
 		// 2) Convert-to-Montgomery equality
 		Fp inv_asm, inv_por;
 		Fp::mul(inv_asm, redc_asm, get_BLST_RR());
 		Fp::mul(inv_por, redc_por, get_BLST_RR());
-		int eq2 = std::memcmp(inv_asm, inv_por, sizeof(Fp));
+		int eq2 = std::memcmp(inv_asm.data, inv_por.data, sizeof(Fp));
 
 		// 3) Functional correctness (both sides!)
 		Fp oneA, oneP;
-		if (!vec_is_zero(inp, sizeof(Fp))) {
+		if (!vec_is_zero(inp.data, sizeof(Fp))) {
 			Fp::mul(oneA, inv_asm, inp);
 			Fp::mul(oneP, inv_por, inp);
-			EXPECT_TRUE(vec_is_equal(oneA, get_BLST_Rx().p, sizeof(Fp))) << "ASM inverse incorrect";
-			EXPECT_TRUE(vec_is_equal(oneP, get_BLST_Rx().p, sizeof(Fp))) << "Portable inverse incorrect";
+			EXPECT_TRUE(vec_is_equal(oneA.data, get_BLST_Rx().p.data, sizeof(Fp))) << "ASM inverse incorrect";
+			EXPECT_TRUE(vec_is_equal(oneP.data, get_BLST_Rx().p.data, sizeof(Fp))) << "Portable inverse incorrect";
 		}
 
 		// Assert stage-by-stage (these help pinpoint the break)
@@ -892,12 +892,12 @@ TEST(InterfaceTests, CtInverseMod256) {
 	int trials = 10;
 
 	Fr modx;
-	left_align_mod(modx, get_BLST_P(), NLIMBS(256));
+	left_align_mod(modx.data, get_BLST_P().data, NLIMBS(256));
 	for (int t = 0; t < trials; t++)
 	{
 		generate_random_Fr(inp);
 
-		ct_inverse_mod_256(ret_asm, inp, get_BLST_r(), modx); // ASM implementation
+		ct_inverse_mod_256(ret_asm, inp.data, get_BLST_r().data, modx.data); // ASM implementation
 		cc_ct_inverse_mod_256(ret_portable, inp, get_BLST_r(), modx); // Portable implementation
 
 		EXPECT_TRUE(std::memcmp(ret_asm, ret_portable, sizeof(UFr)) == 0) << "Mismatch in ct_inverse_mod_256";
@@ -914,9 +914,9 @@ TEST(InterfaceTests, CtIsSquareMod384) {
 	{
 		generate_random_Fp(inp, rng);
 
-		bool_t is_square_asm = ct_is_square_mod_384(inp, get_BLST_P()); // ASM implementation
+		bool_t is_square_asm = ct_is_square_mod_384(inp.data, get_BLST_P().data); // ASM implementation
 		//bool_t is_square_portable = cc_ct_is_square_mod_384(inp, get_BLST_P()); // Portable implementation
-		bool_t is_square_portable = cc_ct_is_sqr_mod_n<NLIMBS(384)>(inp, get_BLST_P());
+		bool_t is_square_portable = cc_ct_is_sqr_mod_n<NLIMBS(384)>(inp.data, get_BLST_P().data);
 
 		//printf("passed? %d\n", is_square_asm == is_square_portable);
 		//print_Fp("inp", inp);
@@ -939,9 +939,9 @@ TEST(InterfaceTests, MulxMont384x) {
 	{
 		generate_random_Fp2(a, rng);
 		generate_random_Fp2(b, rng);
-		memcpy(p, get_BLST_P(), sizeof(Fp));
+		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
-		mulx_mont_384x(ret_asm.data, a.data, b.data, p, n0); // ASM implementation
+		mulx_mont_384x(ret_asm.data, a.data, b.data, p.data, n0); // ASM implementation
 		cc_mul_mont_384x(ret_portable, a, b, p, n0); // Portable implementation
 
 		EXPECT_TRUE(std::memcmp(&ret_asm, &ret_portable, sizeof(Fp2)) == 0) << "Mismatch in mulx_mont_384x";
@@ -959,9 +959,9 @@ TEST(InterfaceTests, SqrxMont384x) {
 	for (int t = 0; t < trials; t++)
 	{
 		generate_random_Fp2(a, rng);
-		memcpy(p, get_BLST_P(), sizeof(Fp));
+		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
-		sqrx_mont_384x(ret_asm.data, a.data, p, n0); // ASM implementation
+		sqrx_mont_384x(ret_asm.data, a.data, p.data, n0); // ASM implementation
 		cc_sqr_mont_384x(ret_portable, a, p, n0); // Portable implementation
 
 		EXPECT_TRUE(std::memcmp(&ret_asm, &ret_portable, sizeof(Fp2)) == 0) << "Mismatch in sqrx_mont_384x";
@@ -979,9 +979,9 @@ TEST(InterfaceTests, SqrxMont382x) {
 	for (int t = 0; t < trials; t++)
 	{
 		generate_random_Fp2(a, rng);
-		memcpy(p, get_BLST_P(), sizeof(Fp));
+		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
-		sqrx_mont_382x(&ret_asm, &a, p, n0); // ASM implementation
+		sqrx_mont_382x(&ret_asm, &a, p.data, n0); // ASM implementation
 		cc_sqr_mont_382x(ret_portable, a, p, n0); // Portable implementation
 
 		EXPECT_TRUE(std::memcmp(&ret_asm, &ret_portable, sizeof(Fp2)) == 0) << "Mismatch in sqrx_mont_382x";
@@ -999,9 +999,9 @@ TEST(InterfaceTests, AddMod384x) {
 	{
 		generate_random_Fp2(a, rng);
 		generate_random_Fp2(b, rng);
-		memcpy(p, get_BLST_P(), sizeof(Fp));
+		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
-		add_mod_384x(&ret_asm, &a, &b, p); // ASM implementation
+		add_mod_384x(&ret_asm, &a, &b, p.data); // ASM implementation
 		cc_add_mod_384x(ret_portable, a, b, p); // Portable implementation
 
 		EXPECT_TRUE(std::memcmp(&ret_asm, &ret_portable, sizeof(Fp2)) == 0) << "Mismatch in add_mod_384x";
@@ -1019,9 +1019,9 @@ TEST(InterfaceTests, SubMod384x) {
 	{
 		generate_random_Fp2(a, rng);
 		generate_random_Fp2(b, rng);
-		memcpy(p, get_BLST_P(), sizeof(Fp));
+		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
-		sub_mod_384x(&ret_asm, &a, &b, p); // ASM implementation
+		sub_mod_384x(&ret_asm, &a, &b, p.data); // ASM implementation
 		cc_sub_mod_384x(ret_portable, a, b, p); // Portable implementation
 
 		EXPECT_TRUE(std::memcmp(&ret_asm, &ret_portable, sizeof(Fp2)) == 0) << "Mismatch in sub_mod_384x";
@@ -1041,10 +1041,10 @@ TEST(InterfaceTests, MulBy8Mod384x) {
 		// Generate random inputs
 		generate_random_Fp(reinterpret_cast<Fp&>(a[0]), rng);
 		generate_random_Fp(reinterpret_cast<Fp&>(a[1]), rng);
-		memcpy(p, get_BLST_P(), sizeof(Fp));
+		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
 		// Test both implementations
-		mul_by_8_mod_384x(&ret_asm, &a, p); // ASM implementation
+		mul_by_8_mod_384x(&ret_asm, &a, p.data); // ASM implementation
 		cc_mul_by_8_mod_384x(ret_portable, a, p); // Portable implementation
 
 		// Compare results
@@ -1065,10 +1065,10 @@ TEST(InterfaceTests, MulBy3Mod384x) {
 		// Generate random inputs
 		generate_random_Fp(reinterpret_cast<Fp&>(a[0]), rng);
 		generate_random_Fp(reinterpret_cast<Fp&>(a[1]), rng);
-		memcpy(p, get_BLST_P(), sizeof(Fp));
+		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
 		// Test both implementations
-		mul_by_3_mod_384x(&ret_asm, &a, p); // ASM implementation
+		mul_by_3_mod_384x(&ret_asm, &a, p.data); // ASM implementation
 		cc_mul_by_3_mod_384x(ret_portable, a, p); // Portable implementation
 
 		// Compare results
@@ -1089,10 +1089,10 @@ TEST(InterfaceTests, MulBy1PlusIMod384x) {
 		// Generate random inputs
 		generate_random_Fp(reinterpret_cast<Fp&>(a[0]), rng);
 		generate_random_Fp(reinterpret_cast<Fp&>(a[1]), rng);
-		memcpy(p, get_BLST_P(), sizeof(Fp));
+		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
 		// Test both implementations
-		mul_by_1_plus_i_mod_384x(&ret_asm, &a, p); // ASM implementation
+		mul_by_1_plus_i_mod_384x(&ret_asm, &a, p.data); // ASM implementation
 		cc_mul_by_1_plus_i_mod_384x(ret_portable, a, p); // Portable implementation
 
 		// Compare results
@@ -1111,10 +1111,10 @@ TEST(InterfaceTests, Sgn0PtyMont384) {
 	for (int t = 0; t < trials; t++)
 	{
 		generate_random_Fp(a, rng);
-		memcpy(p, get_BLST_P(), sizeof(Fp));
+		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
 		// Compute using both implementations
-		limb_t result_asm = sgn0x_pty_mont_384(a, p, n0); // ASM implementation
+		limb_t result_asm = sgn0x_pty_mont_384(a.data, p.data, n0); // ASM implementation
 		//limb_t result_portable = cc_sgn0_pty_mont_384(a, p, n0); // Portable implementation
 
 		limb_t result_portable;
@@ -1140,10 +1140,10 @@ TEST(InterfaceTests, Sgn0PtyMont384x) {
 	for (int t = 0; t < trials; t++)
 	{
 		generate_random_Fp2(a, rng);
-		memcpy(p, get_BLST_P(), sizeof(Fp));
+		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
 		// Compute using both implementations
-		limb_t result_asm = sgn0x_pty_mont_384x(&a, p, n0); // ASM implementation
+		limb_t result_asm = sgn0x_pty_mont_384x(&a, p.data, n0); // ASM implementation
 		limb_t result_portable = cc_sgn0_pty_mont_384x(a, p, n0); // Portable implementation
 
 		EXPECT_EQ(result_asm, result_portable) << "Mismatch in sgn0x_pty_mont_384x";
@@ -1160,11 +1160,11 @@ TEST(InterfaceTests, Sgn0PtyMod384) {
 	for (int t = 0; t < trials; t++)
 	{
 		generate_random_Fp(a, rng);
-		memcpy(p, get_BLST_P(), sizeof(Fp));
+		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
 		// Compute using both implementations
-		limb_t result_asm = sgn0_pty_mod_384(a, p); // ASM implementation
-		limb_t result_portable = cc_sgn0_pty_mod_n<NLIMBS(384)>(a, p); // Portable implementation
+		limb_t result_asm = sgn0_pty_mod_384(a.data, p.data); // ASM implementation
+		limb_t result_portable = cc_sgn0_pty_mod_n<NLIMBS(384)>(a.data, p.data); // Portable implementation
 
 		EXPECT_EQ(result_asm, result_portable) << "Mismatch in sgn0_pty_mod_384";
 	}
@@ -1181,10 +1181,10 @@ TEST(InterfaceTests, Sgn0PtyMod384x) {
 	for (int t = 0; t < trials; t++)
 	{
 		generate_random_Fp2(a, rng);
-		memcpy(p, get_BLST_P(), sizeof(Fp));
+		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
 		// Compute using both implementations
-		limb_t result_asm = sgn0_pty_mod_384x(&a, p); // ASM implementation
+		limb_t result_asm = sgn0_pty_mod_384x(&a, p.data); // ASM implementation
 		limb_t result_portable = cc_sgn0_pty_mod_384x(a, p); // Portable implementation
 
 		EXPECT_EQ(result_asm, result_portable) << "Mismatch in sgn0_pty_mod_384x";

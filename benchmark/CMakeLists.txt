@@ -21,13 +21,13 @@ FetchContent_MakeAvailable(googlebenchmark)
 # Determine benchmark sources based on CUDA availability
 set(BENCHMARK_SOURCES
     "Fp_bench.cpp"
-    #"Fp2_bench.cpp" 
-    #"Fp12_bench.cpp"
-    #"Fr_bench.cpp"
-    #"G1_bench.cpp"
-    #"G2_bench.cpp"
-    #"pairing_bench.cpp"
-    #"MSM_bench.cpp"
+    "Fp2_bench.cpp" 
+    "Fp12_bench.cpp"
+    "Fr_bench.cpp"
+    "G1_bench.cpp"
+    "G2_bench.cpp"
+    "pairing_bench.cpp"
+    "MSM_bench.cpp"
     "main.cpp"
 )
 

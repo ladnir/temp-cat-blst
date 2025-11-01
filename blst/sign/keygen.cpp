@@ -193,7 +193,7 @@ namespace blst
                 info, info_len, 1, &scratch.ctx);
 
             /* SK = OS2IP(OKM) mod r */
-            vec_zero(scratch.key, sizeof(scratch.key));
+            vec_zero(scratch.key.data, sizeof(scratch.key));
             limbs_from_be_bytes(scratch.ufr, scratch.OKM, sizeof(scratch.OKM));
             Fr::redc(scratch.key, scratch.ufr);
             /*
@@ -204,7 +204,7 @@ namespace blst
              */
             Fr::mul(scratch.key, scratch.key, get_BLST_rRR());
 
-            if (version < 4 || !vec_is_zero(scratch.key, sizeof(Fr)))
+            if (version < 4 || !vec_is_zero(scratch.key.data, sizeof(Fr)))
                 break;
 
             /* salt = H(salt) */
@@ -215,7 +215,7 @@ namespace blst
             salt_len = sizeof(salt_prime);
         }
 
-        le_bytes_from_limbs(SK, scratch.key, sizeof(pow256));
+        le_bytes_from_limbs(SK, scratch.key.data, sizeof(pow256));
 
         /*
          * scrub the stack just in case next callee inadvertently flashes

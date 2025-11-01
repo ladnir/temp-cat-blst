@@ -29,7 +29,7 @@ template<typename Field>
 inline void RECIPROCAL_MOD_BLS12_381_P(Field& out, const Field& inp)
 {
 	Field t[16];
-	vec_copy(t[1], inp, sizeof(Field)); /*    0: 1 */
+	vec_copy(&t[1], &inp, sizeof(Field)); /*    0: 1 */
 	Field::sqr(t[0], t[1]);                    /*    1: 2 */
 	Field::mul(t[9], t[0], t[1]);              /*    2: 3 */
 	Field::sqr(t[5], t[0]);                    /*    3: 4 */

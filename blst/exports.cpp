@@ -43,7 +43,7 @@ void blst_fr_from_scalar(Fr& ret, const pow256 a) { Fr::from_scalar(ret, a); }
 void blst_scalar_from_fr(pow256 ret, const Fr& a) { Fr::to_scaler(ret, a); }
 int blst_scalar_fr_check(const pow256 a) { 
     Fr aa;
-    limbs_from_le_bytes(aa, a, sizeof(pow256));
+    limbs_from_le_bytes(aa.data, a, sizeof(pow256));
     return Fr::is_redc(aa); }
 int blst_sk_check(const pow256 a) { return sk_check(a); }
 int blst_sk_add_n_check(pow256 ret, const pow256 a, const pow256 b) { return sk_add_n_check(ret, a, b); }
@@ -160,7 +160,7 @@ void blst_fp_from_bendian(Fp& ret, const unsigned char a[48])
 {
     Fp out;
 
-    limbs_from_be_bytes(out, a, sizeof(Fp));
+    limbs_from_be_bytes(out.data, a, sizeof(Fp));
     Fp::mul(ret, out, get_BLST_RR());
 }
 
@@ -169,14 +169,14 @@ void blst_bendian_from_fp(unsigned char ret[48], const Fp& a)
     Fp out;
 
     Fp::from_mont(out, a);
-    be_bytes_from_limbs(ret, out, sizeof(Fp));
+    be_bytes_from_limbs(ret, out.data, sizeof(Fp));
 }
 
 void blst_fp_from_lendian(Fp& ret, const unsigned char a[48])
 {
     Fp out;
 
-    limbs_from_le_bytes(out, a, sizeof(Fp));
+    limbs_from_le_bytes(out.data, a, sizeof(Fp));
     Fp::mul(ret, out, get_BLST_RR());
 }
 
@@ -185,7 +185,7 @@ void blst_lendian_from_fp(unsigned char ret[48], const Fp& a)
     Fp out;
 
     Fp::from_mont(out, a);
-    le_bytes_from_limbs(ret, out, sizeof(Fp));
+    le_bytes_from_limbs(ret, out.data, sizeof(Fp));
 }
 
 /*
@@ -309,17 +309,17 @@ void blst_uint64_from_scalar(unsigned long long ret[4], const pow256 a)
 void blst_scalar_from_bendian(pow256 ret, const unsigned char a[32])
 {
     Fr out;
-    limbs_from_be_bytes(out, a, sizeof(out));
-    le_bytes_from_limbs(ret, out, sizeof(out));
-    vec_zero(out, sizeof(out));
+    limbs_from_be_bytes(out.data, a, sizeof(out));
+    le_bytes_from_limbs(ret, out.data, sizeof(out));
+    vec_zero(out.data, sizeof(out));
 }
 
 void blst_bendian_from_scalar(unsigned char ret[32], const pow256 a)
 {
     Fr out;
-    limbs_from_le_bytes(out, a, sizeof(out));
-    be_bytes_from_limbs(ret, out, sizeof(out));
-    vec_zero(out, sizeof(out));
+    limbs_from_le_bytes(out.data, a, sizeof(out));
+    be_bytes_from_limbs(ret, out.data, sizeof(out));
+    vec_zero(out.data, sizeof(out));
 }
 
 void blst_scalar_from_lendian(pow256 ret, const unsigned char a[32])
@@ -361,7 +361,7 @@ void blst_uint64_from_fr(unsigned long long ret[4], const Fr& a)
         Fr::from_mont(out, a);
         for (i = 0; i < 4; i++)
             ret[i] = out[2*i] | ((unsigned long long)out[2*i+1] << 32);
-        vec_zero(out, sizeof(out));
+        vec_zero(out.data, sizeof(out));
     }
 }
 
@@ -371,14 +371,14 @@ int blst_scalar_from_le_bytes(pow256 out, const unsigned char *bytes, size_t n)
     struct { Fr out, digit; } t;
     limb_t ret;
 
-    vec_zero(t.out, sizeof(t.out));
+    vec_zero(t.out.data, sizeof(t.out));
 
     n -= rem;
-    limbs_from_le_bytes(t.out, bytes += n, rem);
+    limbs_from_le_bytes(t.out.data, bytes += n, rem);
     Fr::mul(t.out, get_BLST_rRR(), t.out);
 
     while (n) {
-        limbs_from_le_bytes(t.digit, bytes -= 32, 32);
+        limbs_from_le_bytes(t.digit.data, bytes -= 32, 32);
         Fr::add(t.out, t.out, t.digit);
         Fr::mul(t.out, get_BLST_rRR(), t.out);
         n -= 32;
@@ -386,8 +386,8 @@ int blst_scalar_from_le_bytes(pow256 out, const unsigned char *bytes, size_t n)
 
     Fr::from_mont(t.out, t.out);
 
-    ret = vec_is_zero(t.out, sizeof(t.out));
-    le_bytes_from_limbs(out, t.out, 32);
+    ret = vec_is_zero(t.out.data, sizeof(t.out));
+    le_bytes_from_limbs(out, t.out.data, 32);
     vec_zero(&t, sizeof(t));
 
     return (int)(ret^1);
@@ -399,13 +399,13 @@ int blst_scalar_from_be_bytes(pow256 out, const unsigned char *bytes, size_t n)
     struct { Fr out, digit; } t;
     limb_t ret;
 
-    vec_zero(t.out, sizeof(t.out));
+    vec_zero(t.out.data, sizeof(t.out));
 
-    limbs_from_be_bytes(t.out, bytes, rem);
+    limbs_from_be_bytes(t.out.data, bytes, rem);
     Fr::mul(t.out, get_BLST_rRR(), t.out);
 
     while (n -= rem) {
-        limbs_from_be_bytes(t.digit, bytes += rem, 32);
+        limbs_from_be_bytes(t.digit.data, bytes += rem, 32);
         Fr::add(t.out, t.out, t.digit);
         Fr::mul(t.out, get_BLST_rRR(), t.out);
         rem = 32;
@@ -413,8 +413,8 @@ int blst_scalar_from_be_bytes(pow256 out, const unsigned char *bytes, size_t n)
 
     Fr::from_mont(t.out, t.out);
 
-    ret = vec_is_zero(t.out, sizeof(t.out));
-    le_bytes_from_limbs(out, t.out, 32);
+    ret = vec_is_zero(t.out.data, sizeof(t.out));
+    le_bytes_from_limbs(out, t.out.data, 32);
     vec_zero(&t, sizeof(t));
 
     return (int)(ret^1);
@@ -442,7 +442,7 @@ void blst_scalar_from_hexascii(pow256 ret, const char *hex)
 
 void blst_fp_from_hexascii(Fp& ret, const char *hex)
 {
-    limbs_from_hexascii(ret, sizeof(Fp), hex);
+    limbs_from_hexascii(ret.data, sizeof(Fp), hex);
     Fp::mul(ret, ret, get_BLST_RR());
 }
 BLST_EXTERN_C_END_

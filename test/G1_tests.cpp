@@ -203,7 +203,7 @@ TEST(G1PointTest, FixedVectorCompressUncompress) {
 
 	// Set the compression bit and copy X coordinate
 	compressed[0] = 0x80;  // Only set compressed bit, not sign bit
-	be_bytes_from_limbs(compressed, x_coord, 48);
+	be_bytes_from_limbs(compressed, x_coord.data, 48);
 
 	// The first byte now has both the compressed flag and the high bits of X
 	// We need to preserve those high bits

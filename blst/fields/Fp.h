@@ -40,8 +40,10 @@ namespace blst
 	{
 		vec_384 data;
 
-		BLST_HD operator limb_t* () { return data; }
-		BLST_HD operator const limb_t* () const { return data; }
+		//BLST_HD operator limb_t* () { return data; }
+		//BLST_HD operator const limb_t* () const { return data; }
+		BLST_HD BLST_FORCEINLINE auto&& operator[](u64 idx) { return data[idx]; }
+		BLST_HD BLST_FORCEINLINE auto&& operator[](u64 idx) const { return data[idx]; }
 
 		/** @name Canonical constants */
 		///@{
@@ -311,7 +313,7 @@ namespace blst
 #elif defined(BLST_DEFAULT_ASM) 
 		sub_mod_384(&ret, &a, &b, &get_BLST_P());
 #else
-		cc_sub_mod_n<NLIMBS(384)>(ret, a, b, get_BLST_P());
+		cc_sub_mod_n<NLIMBS(384)>(ret.data, a.data, b.data, get_BLST_P().data);
 #endif
 	}
 
@@ -426,7 +428,7 @@ namespace blst
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		mul_by_8_mod_384(&ret, &a, &get_BLST_P());
 #else
-		cc_lshift_mod_n<NLIMBS(384)>(ret, a, 3, get_BLST_P());
+		cc_lshift_mod_n<NLIMBS(384)>(ret.data, a.data, 3, get_BLST_P().data);
 #endif
 	}
 
@@ -437,7 +439,7 @@ namespace blst
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		sqrx_n_mul_mont_383(&ret, &a, count, &get_BLST_P(), BLST_p0, &b);
 #else
-		cc_sqr_n_mul_mont_384(ret, a, count, get_BLST_P(), BLST_p0, b);
+		cc_sqr_n_mul_mont_384(ret.data, a.data, count, get_BLST_P().data, BLST_p0, b.data);
 #endif
 	}
 
@@ -448,8 +450,8 @@ namespace blst
 		return sgn0x_pty_mont_384(&a, &modulus(), BLST_p0);
 #else
 		Fp tmp;
-		cc_from_mont_n<NLIMBS(384)>(tmp.data, a.data, modulus(), BLST_p0);
-		return cc_sgn0_pty_mod_n<NLIMBS(384)>(tmp.data, modulus());
+		cc_from_mont_n<NLIMBS(384)>(tmp.data, a.data, modulus().data, BLST_p0);
+		return cc_sgn0_pty_mod_n<NLIMBS(384)>(tmp.data, modulus().data);
 #endif
 	}
 
@@ -458,7 +460,7 @@ namespace blst
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		return sgn0_pty_mod_384(a, modulus());
 #else
-		return cc_sgn0_pty_mod_n<NLIMBS(384)>(a.data, modulus());
+		return cc_sgn0_pty_mod_n<NLIMBS(384)>(a.data, modulus().data);
 #endif
 	}
 
@@ -470,7 +472,7 @@ namespace blst
 		ctx_inverse_mod_384(&ret, &inp, &mod, &modx);
 #else
 		//cc_ct_inverse_mod_384(ret, inp, mod, modx);
-		cc_ct_inverse_mod_n<NLIMBS(384)>(ret, inp, mod, modx);
+		cc_ct_inverse_mod_n<NLIMBS(384)>(ret.data, inp.data, mod.data, modx.data);
 #endif
 	}
 
@@ -480,7 +482,7 @@ namespace blst
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		return ct_is_square_mod_384(&inp, &modulus());
 #else
-		return cc_ct_is_sqr_mod_n<NLIMBS(384)>(inp, modulus());
+		return cc_ct_is_sqr_mod_n<NLIMBS(384)>(inp.data, modulus().data);
 #endif
 	}
 
@@ -495,14 +497,14 @@ namespace blst
 		// requies MSB of pow is set
 		BLST_ASSERT(pow_bits && ((pow[(pow_bits - 1) >> 3] >> ((pow_bits - 1) & 7)) & 1));
 
-		vec_copy(ret, inp, sizeof(ret));  /* ret = inp^1 */
+		vec_copy(ret.data, inp.data, sizeof(ret));  /* ret = inp^1 */
 		--pow_bits; /* most significant bit is set, skip over */
 		while (pow_bits--) {
 			Fp::sqr(ret, ret);
 			if (is_bit_set(pow, pow_bits))
 				Fp::mul(ret, ret, inp);
 		}
-		vec_copy(out, ret, sizeof(ret));  /* out = ret */
+		vec_copy(out.data, ret.data, sizeof(ret));  /* out = ret */
 	}
 
 
@@ -529,8 +531,8 @@ namespace blst
 
 		Fp::mul(t1, t0, inp);
 		Fp::sqr(t1, t1);
-		ret = vec_is_equal(t1, inp, sizeof(t1));
-		vec_copy(out, t0, sizeof(t0));
+		ret = vec_is_equal(t1.data, inp.data, sizeof(t1));
+		vec_copy(out.data, t0.data, sizeof(t0));
 
 		return ret;
 	}
@@ -544,8 +546,8 @@ namespace blst
 
 		Fp::mul(t0, t0, inp);
 		Fp::sqr(t1, t0);
-		ret = vec_is_equal(t1, inp, sizeof(t1));
-		vec_copy(out, t0, sizeof(t0));
+		ret = vec_is_equal(t1.data, inp.data, sizeof(t1));
+		vec_copy(out.data, t0.data, sizeof(t0));
 
 		return ret;
 	}
@@ -556,7 +558,7 @@ namespace blst
 		Fp aa, bb;
 		from_mont(aa, a);
 		from_mont(bb, b);
-		return vec_is_equal(aa, bb, sizeof(Fp));
+		return vec_is_equal(aa.data, bb.data, sizeof(Fp));
 	}
 
 

@@ -612,7 +612,7 @@ namespace blst
             return BLST_SUCCESS;
         }
 
-        vec_copy(P.Z, get_BLST_Rx().p, sizeof(P.Z));
+        vec_copy(P.Z.data, get_BLST_Rx().p.data, sizeof(P.Z));
 
         if (!G1Point::in_subgroup(P))
             return BLST_POINT_NOT_IN_GROUP;
@@ -642,7 +642,7 @@ namespace blst
             return BLST_SUCCESS;
         }
 
-        vec_copy(&P->Z, get_BLST_Rx().p, sizeof(P->Z));
+        vec_copy(&P->Z, get_BLST_Rx().p.data, sizeof(P->Z));
 
         if (!G2Point::in_subgroup(*P))
             return BLST_POINT_NOT_IN_GROUP;

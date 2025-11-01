@@ -19,7 +19,7 @@ using namespace blst;
 void set_Fp(Fp& v, uint64_t x) {
 	for (int i = 0; i < LIMBS; ++i)
 		v[i] = 0;
-	memcpy(v, &x, sizeof(x));
+	memcpy(&v, &x, sizeof(x));
 }
 
 // Helper function to generate random Fp elements
@@ -122,7 +122,7 @@ static void BM_FpSubtraction_cc(benchmark::State& state) {
 	auto p = get_BLST_P();
 
 	for (auto _ : state) {
-		cc_sub_mod_n<NLIMBS(384)>(c, a, b, p);
+		cc_sub_mod_n<NLIMBS(384)>(c.data, a.data, b.data, p.data);
 		benchmark::DoNotOptimize(c);
 	}
 
@@ -670,7 +670,7 @@ static void BM_FpExponentiation_cc(benchmark::State& state) {
 
 	for (auto _ : state) {
 		// Use C version of sqr_n_mul_mont
-		cc_sqr_n_mul_mont_384(result, a, 3, p, BLST_p0, one); // a^8 * 1 = a^8
+		cc_sqr_n_mul_mont_384(result.data, a.data, 3, p.data, BLST_p0, one.data); // a^8 * 1 = a^8
 		benchmark::DoNotOptimize(result);
 	}
 
@@ -1586,13 +1586,13 @@ void kernel_mul_mont_384_u64
 		uint64_t* pr = out + 6 * i;
 		Fp tt;
 		//ptx_mul_mont_u64<Fp>(pr, pa, pb/*, (u64*)Fp::modulus().data, BLST_p0*/);
-		ptx_mul_mont_u64<Fp>(tt, pa, pb);
-		ptx_mul_mont_u64<Fp>(tt, tt, pb);
-		ptx_mul_mont_u64<Fp>(tt, tt, pb);
-		ptx_mul_mont_u64<Fp>(tt, tt, pb);
-		ptx_mul_mont_u64<Fp>(tt, tt, pb);
-		ptx_mul_mont_u64<Fp>(tt, tt, pb);
-		ptx_mul_mont_u64<Fp>(pr, tt, pb);
+		ptx_mul_mont_u64<Fp>(tt.data, pa, pb);
+		ptx_mul_mont_u64<Fp>(tt.data, tt.data, pb);
+		ptx_mul_mont_u64<Fp>(tt.data, tt.data, pb);
+		ptx_mul_mont_u64<Fp>(tt.data, tt.data, pb);
+		ptx_mul_mont_u64<Fp>(tt.data, tt.data, pb);
+		ptx_mul_mont_u64<Fp>(tt.data, tt.data, pb);
+		ptx_mul_mont_u64<Fp>(pr, tt.data, pb);
 	}
 }
 
@@ -1831,17 +1831,17 @@ void kernel_sqr_mont_384_u64
 	size_t stride = gridDim.x * blockDim.x;
 	for (size_t i = idx; i < n_elems; i += stride)
 	{
-		const Fp* pa = a + i;
-		Fp* pr = out + i;
+		const Fp& pa = a[i];
+		Fp& pr = out[i];
 		Fp tt;
 		//ptx_sqr_mont_u64<Fp>(pr, pa, pb/*, (u64*)Fp::modulus().data, BLST_p0*/);
-		ptx_sqr_mont_u64<Fp>(tt, *pa);
-		ptx_sqr_mont_u64<Fp>(tt, tt);
-		ptx_sqr_mont_u64<Fp>(tt, tt);
-		ptx_sqr_mont_u64<Fp>(tt, tt);
-		ptx_sqr_mont_u64<Fp>(tt, tt);
-		ptx_sqr_mont_u64<Fp>(tt, tt);
-		ptx_sqr_mont_u64<Fp>(*pr, tt);
+		ptx_sqr_mont_u64<Fp>(tt.data, pa.data);
+		ptx_sqr_mont_u64<Fp>(tt.data, tt.data);
+		ptx_sqr_mont_u64<Fp>(tt.data, tt.data);
+		ptx_sqr_mont_u64<Fp>(tt.data, tt.data);
+		ptx_sqr_mont_u64<Fp>(tt.data, tt.data);
+		ptx_sqr_mont_u64<Fp>(tt.data, tt.data);
+		ptx_sqr_mont_u64<Fp>(pr.data, tt.data);
 	}
 }
 

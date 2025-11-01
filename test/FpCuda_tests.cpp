@@ -51,6 +51,11 @@ protected:
         for (int i = 0; i < LIMBS; ++i)
             dst[i] = src[i];
     }
+	void set_fp(Fp& v, uint64_t x) {
+        for (int i = 0; i < LIMBS; ++i)
+            v[i] = 0;
+        memcpy(&v, &x, sizeof(x));
+    }
 
     //// Helper: Generate random Fp element
     //void random_fp(Fp& v) {
@@ -785,7 +790,7 @@ TEST_F(FpCudaTest, VectorEdgeCases) {
     auto h_result = std::make_unique<Fp[]>(NUM_ELEMENTS);
 
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        rand_fp(h_zeros[i], 0);
+        set_fp(h_zeros[i], 0);
     }
 
     // Allocate device memory
@@ -811,7 +816,7 @@ TEST_F(FpCudaTest, VectorEdgeCases) {
 
     // Test with one
     for (size_t i = 0; i < NUM_ELEMENTS; i++) {
-        rand_fp(h_zeros[i], 1);
+        set_fp(h_zeros[i], 1);
     }
 
     expect_success(copy_host_to_device_fp(d_zeros, h_zeros.get(), NUM_ELEMENTS), "copy ones to device");
@@ -823,7 +828,7 @@ TEST_F(FpCudaTest, VectorEdgeCases) {
         expect_success(copy_device_to_host_fp(h_result.get(), d_result, NUM_ELEMENTS), "copy add ones result to host");
         for (size_t i = 0; i < NUM_ELEMENTS; i++) {
             Fp expected;
-            rand_fp(expected, 2);
+            set_fp(expected, 2);
             EXPECT_TRUE(Fp_equal(h_result[i], expected)) << "1 + 1 should equal 2 at index " << i;
         }
     }

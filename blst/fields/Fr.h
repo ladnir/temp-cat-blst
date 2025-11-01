@@ -37,8 +37,8 @@ namespace blst
     {
         vec_256 data;
 
-        BLST_HD operator limb_t* () { return data; }
-        BLST_HD operator const limb_t* () const { return data; }
+        BLST_HD auto&& operator[](u64 idx) { return data[idx]; }
+        BLST_HD auto&& operator[](u64 idx) const { return data[idx]; }
 
 
         BLST_HD static const Fr& zero();
@@ -130,6 +130,10 @@ namespace blst
         
 
         BLST_HD static constexpr size_t num_limbs() { return NLIMBS(256); }
+
+
+        BLST_HD BLST_FORCEINLINE bool operator==(const Fr& other) const { return equal(*this, other); }
+        BLST_HD BLST_FORCEINLINE bool operator!=(const Fr& other) const { return !equal(*this, other); }
     };
 
 #define BLST_r_LIMBS \
@@ -216,7 +220,7 @@ namespace blst
     BLST_HD BLST_INLINE void cc_ct_inverse_mod_256(UFr& ret, const Fr& inp,
         const Fr& mod, const Fr& modx)
     {
-        cc_ct_inverse_mod_n<NLIMBS(256)>(ret, inp, mod, modx);
+        cc_ct_inverse_mod_n<NLIMBS(256)>(ret.data, inp.data, mod.data, modx.data);
     }
 
 
@@ -239,14 +243,51 @@ namespace blst
         sub(x1, x0, x2);
         add(x0, x0, x2);
     }
+    BLST_HD BLST_INLINE void print(Fr& x0)
+    {
+        for (size_t i = 0; i < Fr::num_limbs(); i++) {
+            printf("%016llx ", (unsigned long long)x0[i]);
+        }
+		printf("\n");
+    }
 
     BLST_HD BLST_INLINE void Fr::gs_bfly(Fr& x0, Fr& x1, const Fr& twiddle)
     {
         Fr x2;
+        Fr x3;
 
         sub(x2, x0, x1);
-        add(x0, x0, x1);
+        {
+            Fr tt;
+            cc_sub_mod_n<NLIMBS(256)>(tt.data, x0.data, x1.data, modulus().data);
+            if (Fr::equal(tt, x2) == false) {
+				printf("gs_bfly subtract mismatch\n");
+                printf("x0 "); print(x0);
+				printf("x1 "); print(x1);
+				printf("tt "); print(tt);
+                printf("x2 "); print(x2);
+
+
+            }
+        }
+        add(x3, x0, x1);
+
+        {
+            Fr tt;
+            cc_add_mod_n<NLIMBS(256)>(tt.data, x0.data, x1.data, modulus().data);
+            if (tt != x3) {
+                printf("gs_bfly addition mismatch\n");
+            }
+        }
         mul(x1, x2, twiddle);
+        {
+            Fr tt;
+			cc_mul_mont_n<NLIMBS(256)>(tt.data, x2.data, twiddle.data, modulus().data, montgomery_constant());
+            if (tt != x1) {
+                printf("gs_bfly multiplication mismatch\n");
+			}
+        }
+		x0 = x3;
     }
 
     BLST_HD BLST_INLINE void Fr::from_scalar(Fr& ret, const u8 a[256/8])
@@ -256,14 +297,14 @@ namespace blst
             char little;
         } is_endian = { 1 };
 
-        if ((void*)ret == (void*)a && is_endian.little) {
+        if ((void*)ret.data == (void*)a && is_endian.little) {
 			Fr::to_mont((Fr&)ret, (const Fr&)a);
         }
         else {
             Fr out;
-            limbs_from_le_bytes(out, a, 32);
+            limbs_from_le_bytes(out.data, a, 32);
 			Fr::to_mont(ret, out);
-            vec_zero(out, sizeof(out));
+            vec_zero(out.data, sizeof(out));
         }
     }
 
@@ -280,7 +321,7 @@ namespace blst
         else {
             Fr out;
             Fr::from_mont(out, a);
-            le_bytes_from_limbs(ret, out, 32);
+            le_bytes_from_limbs(ret, out.data, 32);
             vec_zero(&out, sizeof(out));
         }
     }
@@ -307,14 +348,14 @@ namespace blst
 
     BLST_HD BLST_INLINE void Fr::from_hexascii(Fr& ret, const char* hex)
     {
-        limbs_from_hexascii(ret, sizeof(Fr), hex);
+        limbs_from_hexascii(ret.data, sizeof(Fr), hex);
 		Fr::to_mont(ret, ret);
     }
 
     BLST_HD BLST_FORCEINLINE int sk_check(const pow256 a)
     {
         Fr aa;
-		limbs_from_le_bytes(aa, a, sizeof(pow256));
+		limbs_from_le_bytes(aa.data, a, sizeof(pow256));
         return (int)Fr::check_mod(aa);
     }
 
@@ -338,15 +379,15 @@ namespace blst
         bool_t is_zero;
 
         if (((size_t)a | (size_t)b) % sizeof(limb_t) != 0 || !is_endian.little) {
-            limbs_from_le_bytes(t[0], a, sizeof(pow256));
-            limbs_from_le_bytes(t[1], b, sizeof(pow256));
+            limbs_from_le_bytes(t[0].data, a, sizeof(pow256));
+            limbs_from_le_bytes(t[1].data, b, sizeof(pow256));
             a = (const byte*)&t[0];
             b = (const byte*)&t[1];
         }
 		Fr::to_mont(t[0], (const Fr&)a);
         Fr::mul(t[0], t[0], (const Fr&)b);
-        le_bytes_from_limbs(ret, t[0], sizeof(pow256));
-        is_zero = vec_is_zero(t[0], sizeof(Fr&));
+        le_bytes_from_limbs(ret, t[0].data, sizeof(pow256));
+        is_zero = vec_is_zero(t[0].data, sizeof(Fr&));
         vec_zero(t, sizeof(t));
 
         return (int)(is_zero ^ 1);
@@ -368,13 +409,13 @@ namespace blst
         }
         else {
             Fr out;
-            limbs_from_le_bytes(out, a, 32);
+            limbs_from_le_bytes(out.data, a, 32);
             //Fr::mul(out, out, get_BLST_rRR());
 			Fr::to_mont(out, out);
             Fr::reciprocal(out, out);
             Fr::from_mont(out, out);
-            le_bytes_from_limbs(ret, out, 32);
-            vec_zero(out, sizeof(out));
+            le_bytes_from_limbs(ret, out.data, 32);
+            vec_zero(out.data, sizeof(out));
         }
     }
 
@@ -456,7 +497,7 @@ namespace blst
 #elif defined(BLST_DEFAULT_ASM)
         sqrx_mont_sparse_256(&ret, &a, &get_BLST_r(), BLST_r0);// linked by asm
 #else
-        cc_mul_mont_n<NLIMBS(256)>(ret.data, a.data, a.data, get_BLST_r(), BLST_r0);
+        cc_mul_mont_n<NLIMBS(256)>(ret.data, a.data, a.data, get_BLST_r().data, BLST_r0);
 #endif
     }
 
@@ -467,7 +508,7 @@ namespace blst
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
         fromx_mont_256(&ret, &a, &get_BLST_r(), BLST_r0);// linked by asm
 #else
-        cc_from_mont_n<NLIMBS(256)>(ret.data, a.data, get_BLST_r(), BLST_r0);
+        cc_from_mont_n<NLIMBS(256)>(ret.data, a.data, get_BLST_r().data, BLST_r0);
 #endif
     }
 
@@ -485,7 +526,7 @@ namespace blst
         redcx_mont_256(&ret, &a, &modulus(), BLST_r0);// linked by asm
 #else
         //cc_redc_mont_256(ret, a, p, n0);
-        cc_redc_mont_n<NLIMBS(256)>(ret.data, a.data, modulus(), BLST_r0);
+        cc_redc_mont_n<NLIMBS(256)>(ret.data, a.data, modulus().data, BLST_r0);
 #endif
     }
 
@@ -569,7 +610,7 @@ namespace blst
     // return from_mont(a) == from_mont(b). 
     BLST_HD BLST_FORCEINLINE  bool_t Fr::equal(const Fr& a, const Fr& b)
     {
-		return vec_is_equal(a, b, sizeof(Fr));
+		return vec_is_equal(a.data, b.data, sizeof(Fr));
     }
 
     /**
@@ -579,7 +620,7 @@ namespace blst
      */
     BLST_HD BLST_FORCEINLINE  limb_t Fr::is_redc(const Fr& a)
     {
-        return cc_is_redc_mod_n<num_limbs()>((u8*)a.data, modulus());
+        return cc_is_redc_mod_n<num_limbs()>((u8*)a.data, modulus().data);
     }
 
     //BLST_EXTERN_C_END

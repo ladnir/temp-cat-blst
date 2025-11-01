@@ -15,7 +15,7 @@ using namespace blst;
 void set_Fr(Fr& v, uint64_t x) {
     for (int i = 0; i < LIMBS; ++i)
         v[i] = 0;
-    memcpy(v, &x, sizeof(x));
+    memcpy(v.data, &x, sizeof(x));
 }
 
 // Helper function to generate random Fr elements

@@ -6,7 +6,7 @@
 
 #include "blst/fields/Fp12_cuda.h"
 #include "blst/common/cuda_launch.h"
-
+#define BLST_FP12_KERNELS
 namespace blst
 {
 

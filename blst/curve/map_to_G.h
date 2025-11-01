@@ -470,8 +470,8 @@ namespace blst
 
 		/* x denumenator                                                    */
 		Fp::mul(xd, minus_A, tv2);           /* xd = -A * tv2                */
-		e1 = vec_is_zero(xd, sizeof(xd));   /* e1 = xd == 0                 */
-		vec_select(xd, ZxA, xd, sizeof(xd), e1);    /*              # If xd == 0, set xd = Z*A */
+		e1 = vec_is_zero(xd.data, sizeof(xd));   /* e1 = xd == 0                 */
+		vec_select(xd.data, ZxA.data, xd.data, sizeof(xd), e1);    /*              # If xd == 0, set xd = Z*A */
 
 		/* y numerators variants                                            */
 		Fp::sqr(tv2, xd);                    /* tv2 = xd^2                   */
@@ -492,8 +492,8 @@ namespace blst
 		Fp::mul(y2, y2, u);                  /* y2 = y2 * u                  */
 
 		/* choose numerators                                                */
-		vec_select(xn, x1n, x2n, sizeof(xn), e2);   /* xn = e2 ? x1n : x2n  */
-		vec_select(y, y1, y2, sizeof(y), e2);       /* y  = e2 ? y1 : y2    */
+		vec_select(xn.data, x1n.data, x2n.data, sizeof(xn), e2);   /* xn = e2 ? x1n : x2n  */
+		vec_select(y.data, y1.data, y2.data, sizeof(y), e2);       /* y  = e2 ? y1 : y2    */
 
 		e1 = sgn0_fp(u);
 		e2 = sgn0_fp(y);

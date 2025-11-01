@@ -261,8 +261,8 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
         const Fp& a0 = a[0];
         const Fp& a1 = a[1];
 
-        re = cc_sgn0_pty_mod_n<NLIMBS(384)>(a0, p.data);
-        im = cc_sgn0_pty_mod_n<NLIMBS(384)>(a1, p.data);
+        re = cc_sgn0_pty_mod_n<NLIMBS(384)>(a0.data, p.data);
+        im = cc_sgn0_pty_mod_n<NLIMBS(384)>(a1.data, p.data);
 
         /* a->im!=0 ? sgn0(a->im) : sgn0(a->re) */
         sign = (limb_t)0 - vec_is_zero(a[1].data, sizeof(Fp));
@@ -316,11 +316,20 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
         Fp::add(aa, a[0], a[1]);
         Fp::add(bb, b[0], b[1]);
         Fp::mul(bb, bb, aa);
-        Fp::mul(aa, a[0], b[0]);
-        Fp::mul(cc, a[1], b[1]);
-        Fp::sub(ret[0], aa, cc);
-        Fp::sub(ret[1], bb, aa);
-        Fp::sub(ret[1], ret[1], cc);
+        //Fp::mul(aa, a[0], b[0]);
+        //Fp::mul(cc, a[1], b[1]);
+        //Fp::sub(ret[0], aa, cc);
+        //Fp::sub(ret[1], bb, aa);
+        //Fp::sub(ret[1], ret[1], cc);
+
+        //cc_add_mod_n<NLIMBS(384)>(aa.data, a[0].data, a[1].data, p.data);
+        //cc_add_mod_n<NLIMBS(384)>(bb.data, b[0].data, b[1].data, p.data);
+        //cc_mul_mont_n<NLIMBS(384)>(bb.data, bb.data, aa.data, p.data, n0);
+        cc_mul_mont_n<NLIMBS(384)>(aa.data, a[0].data, b[0].data, p.data, n0);
+        cc_mul_mont_n<NLIMBS(384)>(cc.data, a[1].data, b[1].data, p.data, n0);
+        cc_sub_mod_n<NLIMBS(384)>(ret[0].data, aa.data, cc.data, p.data);
+        cc_sub_mod_n<NLIMBS(384)>(ret[1].data, bb.data, aa.data, p.data);
+        cc_sub_mod_n<NLIMBS(384)>(ret[1].data, ret[1].data, cc.data, p.data);
     }
 
 
@@ -362,7 +371,7 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
         BLST_launder(mask);
 
         /* "mul_mont_n(ret[1], a[0], a[1], p, n0, NLIMBS(384));" */
-        cc_mul_mont_nonred_n<NLIMBS(384)>(ret[1], a[0], a[1], p, n0);
+        cc_mul_mont_nonred_n<NLIMBS(384)>(ret[1].data, a[0].data, a[1].data, p.data, n0);
 
         /* "add_mod_n(ret[1], ret[1], ret[1], p, NLIMBS(384));" */
         for (carry = 0, i = 0; i < NLIMBS(384); i++) {
@@ -372,7 +381,7 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
         }
 
         /* "mul_mont_n(ret[0], t0, t1, p, n0, NLIMBS(384));" */
-        cc_mul_mont_nonred_n<NLIMBS(384)>(ret[0], t0, t1, p, n0);
+        cc_mul_mont_nonred_n<NLIMBS(384)>(ret[0].data, t0.data, t1.data, p.data, n0);
 
         /* account for t1's sign... */
         for (borrow = 0, i = 0; i < NLIMBS(384); i++) {
@@ -402,7 +411,7 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
 
         Fp::add(t, a[0], a[1]);
         Fp::sub(ret[0], a[0], a[1]);
-        vec_copy(ret[1], t, sizeof(t));
+        vec_copy(ret[1].data, t.data, sizeof(t));
     }
     BLST_HD BLST_INLINE void cc_add_mod_384x(Fp2& ret, const Fp2& a, const Fp2& b,
         const Fp& mod)
@@ -531,7 +540,7 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
 
     BLST_HD BLST_FORCEINLINE void Fp2::conjugate(Fp2& ret, const Fp2& a)
     {
-        vec_copy(ret[0], a[0], sizeof(Fp));  /* Re(ret) = Re(a) */
+        vec_copy(ret[0].data, a[0].data, sizeof(Fp));  /* Re(ret) = Re(a) */
         Fp::cneg(ret[1], a[1], 1);               /* Im(ret) = -Im(a) */
     }
 
@@ -629,8 +638,8 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
 
             Fp::mul(za, aa, magic_ZZZ[0]); /* aa*(za² + zb²)                   */
             Fp::mul(zc, cc, magic_ZZZ[1]); /* cc*(za² + zb²)^((p-3)/4)         */
-            vec_select(aa, aa, za, sizeof(aa), is_sqrt);
-            vec_select(cc, cc, zc, sizeof(cc), is_sqrt);
+            vec_select(aa.data, aa.data, za.data, sizeof(aa), is_sqrt);
+            vec_select(cc.data, cc.data, zc.data, sizeof(cc), is_sqrt);
         }
         vec_select(&inp_, &inp, &inp_, sizeof(inp_), is_sqrt);
 
@@ -638,7 +647,7 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
 
         Fp::sub(bb, inp_[0], aa);
         Fp::add(aa, inp_[0], aa);
-        vec_select(aa, bb, aa, sizeof(aa), vec_is_zero(aa, sizeof(aa)));
+        vec_select(aa.data, bb.data, aa.data, sizeof(aa), vec_is_zero(aa.data, sizeof(aa)));
         Fp::div_by_2(aa, aa);              /* (a ± sqrt(a²+b²))/2              */
 
         /* if it says "no sqrt," final "align" will find right one...         */
@@ -674,7 +683,7 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
 
             Fp::sub(bb, inp[0], aa);
             Fp::add(aa, inp[0], aa);
-            vec_select(aa, bb, aa, sizeof(aa), vec_is_zero(aa, sizeof(aa)));
+            vec_select(aa.data, bb.data, aa.data, sizeof(aa), vec_is_zero(aa.data, sizeof(aa)));
             Fp::div_by_2(aa, aa);              /* (a ± sqrt(a²+b²))/2              */
 
             /* if it says "no sqrt," final "align" will find right one...         */
@@ -727,7 +736,7 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
      */
     BLST_HD BLST_INLINE void frobenius_map_fp2(Fp2& ret, const Fp2& a, size_t n)
     {
-        vec_copy(ret[0], a[0], sizeof(ret[0]));
+        vec_copy(ret[0].data, a[0].data, sizeof(ret[0]));
         Fp::cneg(ret[1], a[1], n & 1);
     }
 

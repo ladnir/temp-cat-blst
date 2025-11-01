@@ -16,7 +16,7 @@ void set_Fp(Fp& v, uint64_t x) {
 	for (int i = 0; i < LIMBS; ++i)
 		v[i] = 0;
 
-	memcpy(v, &x, sizeof(x));
+	memcpy(v.data, &x, sizeof(x));
 }
 
 void set_Fp2(Fp2& v, uint64_t x0, uint64_t x1) {
@@ -71,7 +71,7 @@ TEST(FpOps, Add) {
 TEST(FpOps, AddOverflow) {
 	Fp a, b, r, expected;
 	// a = p - 1, b = 2, expect 1
-	memcpy(a, get_BLST_P(), sizeof(Fp));
+	memcpy(a.data, get_BLST_P().data, sizeof(Fp));
 	for (int i = 0; i < LIMBS; ++i) a[i] -= (i == 0 ? 1 : 0);
 	set_Fp(b, 2);
 	Fp::add(r, a, b);
@@ -136,7 +136,7 @@ TEST(FpOps, SubUnderflow) {
 	set_Fp(b, 10);
 	Fp::sub(r, a, b);
 	// expected = (3 - 10) mod p = p - 7
-	memcpy(expected, get_BLST_P(), sizeof(Fp));
+	memcpy(expected.data, get_BLST_P().data, sizeof(Fp));
 	expected[0] -= 7;
 	EXPECT_TRUE(Fp_equal(r, expected));
 }
@@ -537,12 +537,12 @@ TEST(FpOps, EdgeCases) {
 
 	// Test with values near modulus
 	Fp near_p;
-	memcpy(near_p, get_BLST_P(), sizeof(Fp));
+	memcpy(near_p.data, get_BLST_P().data, sizeof(Fp));
 	for (int i = 0; i < LIMBS; ++i) near_p[i] -= (i == 0 ? 2 : 0);
 
 	// near_p + 1 should be p-1
 	Fp::add(r, near_p, one);
-	memcpy(expected, get_BLST_P(), sizeof(Fp));
+	memcpy(expected.data, get_BLST_P().data, sizeof(Fp));
 	for (int i = 0; i < LIMBS; ++i) expected[i] -= (i == 0 ? 1 : 0);
 	EXPECT_TRUE(Fp_equal(r, expected)) << "(p-2) + 1 should equal (p-1)";
 
@@ -569,7 +569,7 @@ TEST(FpOps, MontgomeryEdgeCases) {
 	Fp large, mont_large, result;
 
 	// Create a large value (2^128 - 1)
-	memset(large, 0, sizeof(Fp));
+	memset(large.data, 0, sizeof(Fp));
 	large[0] = 0xFFFFFFFFFFFFFFFFULL;
 	large[1] = 0xFFFFFFFFFFFFFFFFULL;
 
@@ -673,7 +673,7 @@ TEST(FpOps, MultiplyWithModulus) {
 	set_Fp(a, 42);
 
 	// Copy the modulus
-	memcpy(p, get_BLST_P(), sizeof(Fp));
+	memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
 	// Convert to Montgomery form
 	Fp::to_mont(mont_a, a);

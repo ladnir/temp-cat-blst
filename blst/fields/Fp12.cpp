@@ -858,7 +858,7 @@ namespace blst
                 for (size_t fp2_comp = 0; fp2_comp < 2; fp2_comp++) {  // Fp2 components
                     Fp r;
                     // Convert from big-endian bytes to Fp (limbs)
-                    limbs_from_be_bytes(r, &serialized[byte_offset], 48);
+                    limbs_from_be_bytes(r.data, &serialized[byte_offset], 48);
                     Fp::to_mont(ret[fp12_comp][fp6_comp][fp2_comp], r);
                     byte_offset += 48;
                 }
@@ -876,7 +876,7 @@ namespace blst
                 for (int k = 0; k < 2; ++k)
                 {
                     Fp::from_mont(out, a[j][i][k]);
-                    be_bytes_from_limbs(ret, out, sizeof(Fp));
+                    be_bytes_from_limbs(ret, out.data, sizeof(Fp));
                     ret += 48;
                 }
             }

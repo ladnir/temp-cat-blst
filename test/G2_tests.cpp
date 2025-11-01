@@ -647,9 +647,9 @@ TEST(E2PointTest, Fp2ArithmeticWithPoints) {
     vec_copy(&p3, &p1, sizeof(G2Point));
     
     // Zero out all imaginary parts
-    vec_zero(p3.X[1], sizeof(Fp));
-    vec_zero(p3.Y[1], sizeof(Fp));
-    vec_zero(p3.Z[1], sizeof(Fp));
+    vec_zero(p3.X[1].data, sizeof(Fp));
+    vec_zero(p3.Y[1].data, sizeof(Fp));
+    vec_zero(p3.Z[1].data, sizeof(Fp));
     
     // This should definitely not be on the curve or equal to original
     EXPECT_FALSE(G2Point::equal(p1, p3)) 

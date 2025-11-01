@@ -12,7 +12,7 @@ using namespace blst;
 void set_fr(Fr& v, uint64_t x) {
     for (int i = 0; i < FR_LIMBS; ++i)
         v[i] = 0;
-    memcpy(v, &x, sizeof(x));
+    memcpy(v.data, &x, sizeof(x));
 }
 
 // Helper: Compare two Fr& for equality
