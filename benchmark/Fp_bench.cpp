@@ -1915,36 +1915,36 @@ BENCHMARK(BM_sqr_mont_384_u64)
 
 
 
-void FpMain()
-{
-	const size_t n = 1 << 18;
-	GpuBuf64 buf;
-
-	// host data
-	std::vector<uint64_t> h_a(6 * n);
-	std::vector<uint64_t> h_b(6 * n);
-
-	fill_host_u64(h_a);
-	fill_host_u64(h_b);
-
-	// device alloc + copy
-	buf.n = n;
-	CUDA_OK(cudaMalloc(&buf.d_a, 6 * n * sizeof(uint64_t)));
-	CUDA_OK(cudaMalloc(&buf.d_b, 6 * n * sizeof(uint64_t)));
-	CUDA_OK(cudaMalloc(&buf.d_r, 6 * n * sizeof(uint64_t)));
-
-	CUDA_OK(cudaMemcpy(buf.d_a, h_a.data(), 6 * n * sizeof(uint64_t), cudaMemcpyHostToDevice));
-	CUDA_OK(cudaMemcpy(buf.d_b, h_b.data(), 6 * n * sizeof(uint64_t), cudaMemcpyHostToDevice));
-
-	dim3 grid, block;
-	choose_launch(n, grid, block);
-
-	for (u64 i = 0; i < 100; ++i)
-	{
-		kernel_mul_mont_384_u64 << <grid, block >> > (buf.d_r, buf.d_a, buf.d_b, n);
-	}
-
-}
+//void FpMain()
+//{
+//	const size_t n = 1 << 18;
+//	GpuBuf64 buf;
+//
+//	// host data
+//	std::vector<uint64_t> h_a(6 * n);
+//	std::vector<uint64_t> h_b(6 * n);
+//
+//	fill_host_u64(h_a);
+//	fill_host_u64(h_b);
+//
+//	// device alloc + copy
+//	buf.n = n;
+//	CUDA_OK(cudaMalloc(&buf.d_a, 6 * n * sizeof(uint64_t)));
+//	CUDA_OK(cudaMalloc(&buf.d_b, 6 * n * sizeof(uint64_t)));
+//	CUDA_OK(cudaMalloc(&buf.d_r, 6 * n * sizeof(uint64_t)));
+//
+//	CUDA_OK(cudaMemcpy(buf.d_a, h_a.data(), 6 * n * sizeof(uint64_t), cudaMemcpyHostToDevice));
+//	CUDA_OK(cudaMemcpy(buf.d_b, h_b.data(), 6 * n * sizeof(uint64_t), cudaMemcpyHostToDevice));
+//
+//	dim3 grid, block;
+//	choose_launch(n, grid, block);
+//
+//	for (u64 i = 0; i < 100; ++i)
+//	{
+//		kernel_mul_mont_384_u64 << <grid, block >> > (buf.d_r, buf.d_a, buf.d_b, n);
+//	}
+//
+//}
 
 
 

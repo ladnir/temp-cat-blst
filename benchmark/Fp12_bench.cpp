@@ -2,6 +2,7 @@
 #include <random>
 #include <cstring>
 #include <stdint.h>
+#include <thrust/device_vector.h>
 
 // Include the actual BLST field headers
 #include "blst/fields/Fp12.h"
@@ -138,4 +139,3 @@ static void BM_Fp12Exponentiation(benchmark::State& state) {
     state.SetItemsProcessed(state.iterations());
 }
 BENCHMARK(BM_Fp12Exponentiation);
-

@@ -20,14 +20,14 @@ FetchContent_MakeAvailable(googlebenchmark)
 
 # Determine benchmark sources based on CUDA availability
 set(BENCHMARK_SOURCES
-    "Fp_bench.cpp"
-    "Fp2_bench.cpp" 
-    "Fp12_bench.cpp"
-    "Fr_bench.cpp"
-    "G1_bench.cpp"
-    "G2_bench.cpp"
-    "pairing_bench.cpp"
-    "MSM_bench.cpp"
+    #"Fp_bench.cpp"
+    #"Fp2_bench.cpp" 
+    #"Fp12_bench.cpp"
+    #"Fr_bench.cpp"
+    #"G1_bench.cpp"
+    #"G2_bench.cpp"
+    #"pairing_bench.cpp"
+    #"MSM_bench.cpp"
     "main.cpp"
 )
 
@@ -61,7 +61,8 @@ if(BLST_CUDA)
     set_source_files_properties(${BENCHMARK_SOURCES} PROPERTIES LANGUAGE CUDA)
 
     set_target_properties(blst_benchmarks PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-    target_compile_options(blst_benchmarks PRIVATE -linetable -Xptxas=-O3  -Xptxas=-v )
+    target_compile_options(blst_benchmarks PRIVATE -linetable -Xptxas=-O3  -Xptxas=-v ) #-maxrregcount=64
+    
 endif()
 
 # Add a custom target to run benchmarks

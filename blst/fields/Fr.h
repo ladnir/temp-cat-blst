@@ -187,7 +187,7 @@ namespace blst
     BLST_HD BLST_FORCEINLINE limb_t Fr::check_mod(const Fr& a)
     {
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-        return check_mod_256(a, &modulus());
+        return check_mod_256(a.data, &modulus());
 #else
         return cc_check_mod_n<NLIMBS(256)>((u8*)a.data, modulus().data);
 #endif
@@ -257,36 +257,8 @@ namespace blst
         Fr x3;
 
         sub(x2, x0, x1);
-        {
-            Fr tt;
-            cc_sub_mod_n<NLIMBS(256)>(tt.data, x0.data, x1.data, modulus().data);
-            if (Fr::equal(tt, x2) == false) {
-				printf("gs_bfly subtract mismatch\n");
-                printf("x0 "); print(x0);
-				printf("x1 "); print(x1);
-				printf("tt "); print(tt);
-                printf("x2 "); print(x2);
-
-
-            }
-        }
         add(x3, x0, x1);
-
-        {
-            Fr tt;
-            cc_add_mod_n<NLIMBS(256)>(tt.data, x0.data, x1.data, modulus().data);
-            if (tt != x3) {
-                printf("gs_bfly addition mismatch\n");
-            }
-        }
         mul(x1, x2, twiddle);
-        {
-            Fr tt;
-			cc_mul_mont_n<NLIMBS(256)>(tt.data, x2.data, twiddle.data, modulus().data, montgomery_constant());
-            if (tt != x1) {
-                printf("gs_bfly multiplication mismatch\n");
-			}
-        }
 		x0 = x3;
     }
 

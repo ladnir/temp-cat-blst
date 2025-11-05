@@ -386,7 +386,7 @@ namespace blst
 	{
 		assert(count);
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-		lshift_mod_384(ret, a, count, get_BLST_P());
+		lshift_mod_384(ret.data, a.data, count, get_BLST_P().data);
 #else
 		cc_lshift_mod_n<NLIMBS(384)>(ret.data, a.data, count, get_BLST_P().data);
 #endif
@@ -458,7 +458,7 @@ namespace blst
 	BLST_HD BLST_FORCEINLINE limb_t Fp::sgn0_pty(const Fp& a)
 	{
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-		return sgn0_pty_mod_384(a, modulus());
+		return sgn0_pty_mod_384(a.data, modulus().data);
 #else
 		return cc_sgn0_pty_mod_n<NLIMBS(384)>(a.data, modulus().data);
 #endif

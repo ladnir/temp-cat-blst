@@ -942,7 +942,7 @@ TEST(InterfaceTests, MulxMont384x) {
 		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
 		mulx_mont_384x(ret_asm.data, a.data, b.data, p.data, n0); // ASM implementation
-		cc_mul_mont_384x(ret_portable, a, b, p, n0); // Portable implementation
+		cc_mul_mont_384x(ret_portable, a, b); // Portable implementation
 
 		EXPECT_TRUE(std::memcmp(&ret_asm, &ret_portable, sizeof(Fp2)) == 0) << "Mismatch in mulx_mont_384x";
 	}
@@ -962,7 +962,7 @@ TEST(InterfaceTests, SqrxMont384x) {
 		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
 		sqrx_mont_384x(ret_asm.data, a.data, p.data, n0); // ASM implementation
-		cc_sqr_mont_384x(ret_portable, a, p, n0); // Portable implementation
+		cc_sqr_mont_384x(ret_portable, a); // Portable implementation
 
 		EXPECT_TRUE(std::memcmp(&ret_asm, &ret_portable, sizeof(Fp2)) == 0) << "Mismatch in sqrx_mont_384x";
 	}
@@ -982,7 +982,7 @@ TEST(InterfaceTests, SqrxMont382x) {
 		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
 		sqrx_mont_382x(&ret_asm, &a, p.data, n0); // ASM implementation
-		cc_sqr_mont_382x(ret_portable, a, p, n0); // Portable implementation
+		cc_sqr_mont_382x(ret_portable, a); // Portable implementation
 
 		EXPECT_TRUE(std::memcmp(&ret_asm, &ret_portable, sizeof(Fp2)) == 0) << "Mismatch in sqrx_mont_382x";
 	}
@@ -1002,7 +1002,7 @@ TEST(InterfaceTests, AddMod384x) {
 		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
 		add_mod_384x(&ret_asm, &a, &b, p.data); // ASM implementation
-		cc_add_mod_384x(ret_portable, a, b, p); // Portable implementation
+		cc_add_mod_384x(ret_portable, a, b); // Portable implementation
 
 		EXPECT_TRUE(std::memcmp(&ret_asm, &ret_portable, sizeof(Fp2)) == 0) << "Mismatch in add_mod_384x";
 	}
@@ -1022,7 +1022,7 @@ TEST(InterfaceTests, SubMod384x) {
 		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
 		sub_mod_384x(&ret_asm, &a, &b, p.data); // ASM implementation
-		cc_sub_mod_384x(ret_portable, a, b, p); // Portable implementation
+		cc_sub_mod_384x(ret_portable, a, b); // Portable implementation
 
 		EXPECT_TRUE(std::memcmp(&ret_asm, &ret_portable, sizeof(Fp2)) == 0) << "Mismatch in sub_mod_384x";
 	}
@@ -1045,7 +1045,7 @@ TEST(InterfaceTests, MulBy8Mod384x) {
 
 		// Test both implementations
 		mul_by_8_mod_384x(&ret_asm, &a, p.data); // ASM implementation
-		cc_mul_by_8_mod_384x(ret_portable, a, p); // Portable implementation
+		cc_mul_by_8_mod_384x(ret_portable, a); // Portable implementation
 
 		// Compare results
 		EXPECT_TRUE(std::memcmp(&ret_asm, &ret_portable, sizeof(Fp2)) == 0) << "Mismatch in mul_by_8_mod_384x";
@@ -1069,7 +1069,7 @@ TEST(InterfaceTests, MulBy3Mod384x) {
 
 		// Test both implementations
 		mul_by_3_mod_384x(&ret_asm, &a, p.data); // ASM implementation
-		cc_mul_by_3_mod_384x(ret_portable, a, p); // Portable implementation
+		cc_mul_by_3_mod_384x(ret_portable, a); // Portable implementation
 
 		// Compare results
 		EXPECT_TRUE(std::memcmp(&ret_asm, &ret_portable, sizeof(Fp2)) == 0) << "Mismatch in mul_by_3_mod_384x";
@@ -1093,7 +1093,7 @@ TEST(InterfaceTests, MulBy1PlusIMod384x) {
 
 		// Test both implementations
 		mul_by_1_plus_i_mod_384x(&ret_asm, &a, p.data); // ASM implementation
-		cc_mul_by_1_plus_i_mod_384x(ret_portable, a, p); // Portable implementation
+		cc_mul_by_1_plus_i_mod_384x(ret_portable, a); // Portable implementation
 
 		// Compare results
 		EXPECT_TRUE(std::memcmp(&ret_asm, &ret_portable, sizeof(Fp2)) == 0) << "Mismatch in mul_by_1_plus_i_mod_384x";
@@ -1144,7 +1144,7 @@ TEST(InterfaceTests, Sgn0PtyMont384x) {
 
 		// Compute using both implementations
 		limb_t result_asm = sgn0x_pty_mont_384x(&a, p.data, n0); // ASM implementation
-		limb_t result_portable = cc_sgn0_pty_mont_384x(a, p, n0); // Portable implementation
+		limb_t result_portable = cc_sgn0_pty_mont_384x(a); // Portable implementation
 
 		EXPECT_EQ(result_asm, result_portable) << "Mismatch in sgn0x_pty_mont_384x";
 	}
@@ -1185,7 +1185,7 @@ TEST(InterfaceTests, Sgn0PtyMod384x) {
 
 		// Compute using both implementations
 		limb_t result_asm = sgn0_pty_mod_384x(&a, p.data); // ASM implementation
-		limb_t result_portable = cc_sgn0_pty_mod_384x(a, p); // Portable implementation
+		limb_t result_portable = cc_sgn0_pty_mod_384x(a); // Portable implementation
 
 		EXPECT_EQ(result_asm, result_portable) << "Mismatch in sgn0_pty_mod_384x";
 	}

@@ -495,17 +495,17 @@ namespace blst
 		}
 
 //#ifndef NDEBUG
-		uint64_t tt[n];
-		constexpr uint64_t n0 = Field::montgomery_constant();
-		blst::cc_mul_mont_n<n>(tt, aa, bb, Field::modulus().data, n0);
-		for (size_t i = 0; i < n; i++) {
-			if (r[i] != tt[i])
-			{
-				printf("Mismatch at limb %zu: r=%llu, expected=%llu\n", i, r[i], tt[i]);
-				assert(false && "ptx_mul_mont_u64 result mismatch");
-			}
+		//uint64_t tt[n];
+		//constexpr uint64_t n0 = Field::montgomery_constant();
+		//blst::cc_mul_mont_n<n>(tt, aa, bb, Field::modulus().data, n0);
+		//for (size_t i = 0; i < n; i++) {
+		//	if (r[i] != tt[i])
+		//	{
+		//		printf("Mismatch at limb %zu: r=%llu, expected=%llu\n", i, r[i], tt[i]);
+		//		assert(false && "ptx_mul_mont_u64 result mismatch");
+		//	}
 
-		}
+		//}
 //#endif
 
 	}

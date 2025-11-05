@@ -28,19 +28,20 @@ namespace blst
 	BLST_HD BLST_HD BLST_FORCEINLINE void blst_sha256_block_data_order_v(unsigned int* v, const void* inp,
 		size_t blocks)
 	{
-#if defined(__CUDA_ARCH__) || !defined(BLST_ASM) || !defined(BLST_DEFAULT_ASM)
 		cc_blst_sha256_block_data_order(v, inp, blocks);
-#else
-		// asm
-#   if (defined(__x86_64__) || defined(__x86_64) || defined(_M_X64)) &&  defined(__SHA__) /* -msha */ 
-		blst_sha256_block_data_order_shaext(v, inp, blocks);
-#	elif defined(__aarch64__) && defined(__ARM_FEATURE_CRYPTO) 
-	#error "not set tested. need to call blst_sha256_block_armv8"
-		blst_sha256_block_armv8(v, inp, blocks);
-#	else
-		#error "unknown asm target for SHA"
-#	endif
-#endif
+//#if defined(__CUDA_ARCH__) || !defined(BLST_ASM) || !defined(BLST_DEFAULT_ASM)
+//#else
+//		// asm
+//#   if (defined(__x86_64__) || defined(__x86_64) || defined(_M_X64)) &&  
+//		(defined(__SHA__) /* -msha */ || defined(_MSC_VER))
+//		blst_sha256_block_data_order_shaext(v, inp, blocks);
+//#	elif defined(__aarch64__) && defined(__ARM_FEATURE_CRYPTO) 
+//	#error "not set tested. need to call blst_sha256_block_armv8"
+//		blst_sha256_block_armv8(v, inp, blocks);
+//#	else
+//		#error "unknown asm target for SHA"
+//#	endif
+//#endif
 	}
 
 
