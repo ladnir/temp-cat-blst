@@ -56,7 +56,12 @@ namespace blst
 		/// @brief The modulus p as an Fp element (slight abuse; provided for convenience).
 		/// @note Returned in Montgomery form (i.e., p * R mod p == 0).
 		BLST_HD static constexpr const Fp& modulus();
+
+
+		/// @brief The negative modulus p as an Fp element. i.e. -p mod 2^(384).
+		BLST_HD static constexpr const Fp& neg_modulus();
 		///@}
+
 
 
 		BLST_HD static constexpr limb_t montgomery_constant();
@@ -203,6 +208,11 @@ namespace blst
     TO_LIMB_T(0x6730d2a0f6b0f624), TO_LIMB_T(0x64774b84f38512bf),\
     TO_LIMB_T(0x4b1ba7b6434bacd7), TO_LIMB_T(0x1a0111ea397fe69a)
 
+#define BLST_NEG_P_LIMBS  \
+    TO_LIMB_T(~0xb9feffffffffaaab), TO_LIMB_T(~0x1eabfffeb153ffff),\
+    TO_LIMB_T(~0x6730d2a0f6b0f624), TO_LIMB_T(~0x64774b84f38512bf),\
+    TO_LIMB_T(~0x4b1ba7b6434bacd7), TO_LIMB_T(~0x1a0111ea397fe69a+1)
+
 #define BLST_RR_LIMBS \
     TO_LIMB_T(0xf4df1f341c341746), TO_LIMB_T(0x0a76e6a609d104f1),\
     TO_LIMB_T(0x8de5476c4c95b6d5), TO_LIMB_T(0x67eb88a9939d83c0),\
@@ -228,6 +238,7 @@ namespace blst
 #if defined(BLST_CUDA) && defined(__CUDACC__)
 
 	static __constant__ Fp BLST_P_DEV = { BLST_P_LIMBS };
+	static __constant__ Fp BLST_NEG_P_DEV = { BLST_NEG_P_LIMBS };
 	static __constant__ Fp BLST_RR_DEV = { BLST_RR_LIMBS };
 	static __constant__ Fp BLST_RRRR_DEV = { BLST_RRRR_LIMBS };
 	static __constant__ radix384 BLST_Rx_DEV = { {
@@ -250,6 +261,7 @@ namespace blst
 	}
 
 	constexpr Fp BLST_P_HOST = { BLST_P_LIMBS };
+	constexpr Fp BLST_NEG_P_HOST = { BLST_NEG_P_LIMBS };
 	constexpr Fp BLST_RR_HOST = { BLST_RR_LIMBS };   /* (1<<768)%P, "radix"^2, to-Montgomery   */
 	constexpr Fp BLST_RRRR_HOST = { BLST_RRRR_LIMBS };
 
@@ -267,6 +279,19 @@ namespace blst
 		return BLST_P_HOST;
 #endif
 	}
+
+
+	// returns the negative prime modulus for BLS12-381. 
+	// Will return host or device memory depending on compilation target.
+	BLST_HD BLST_FORCEINLINE constexpr const Fp& get_BLST_negP(void)
+	{
+#if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
+		return BLST_NEG_P_DEV;
+#else
+		return BLST_NEG_P_HOST;
+#endif
+	}
+
 
 
 	// returns R^2, the to-Montgomery form value. Perform montgomery multiplication
@@ -638,6 +663,14 @@ namespace blst
 	{
 		return get_BLST_P();
 	}
+
+
+	BLST_HD BLST_FORCEINLINE constexpr const Fp& Fp::neg_modulus()
+	{
+		return get_BLST_negP();
+	}
+
+
 
 	BLST_HD BLST_FORCEINLINE constexpr limb_t Fp::montgomery_constant()
 	{

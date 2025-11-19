@@ -27,6 +27,7 @@ set(TEST_SOURCES
     "Pairing_tests.cpp"
     "Interface_tests.cpp"
     "Msm_tests.cpp"
+    "parallel_prefix_tests.cpp"
 )
 
 # Add CUDA tests if CUDA is enabled

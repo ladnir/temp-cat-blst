@@ -114,6 +114,154 @@ struct BasicIdx
 namespace
 {
 
+	// parallel prefix add + conditional reduction for SoA field elements
+	template<typename Field, typename SoAField>
+	BLST_HD __forceinline__
+		void Fp__ppAdd(
+			SoAField& r_,
+			const SoAField& a_,
+			const SoAField& b_,
+			size_t index,
+			size_t lane)
+	{
+#ifdef __CUDA_ARCH__
+		// n = 6 limbs (384-bit). If you also need n=4, mirror this structure with group size 4.
+		constexpr size_t n = 6;
+
+		// Compute per-warp lane and 6-wide subgroup base and mask.
+		const unsigned warp_lane = threadIdx.x & 31;         // my lane in the warp [0..31]
+		const unsigned group_base = (warp_lane / n) * n;     // base lane of my 6-lane group
+		const unsigned last_in_group = group_base + (n - 1); // last lane in my 6-lane group
+
+		// Build a mask that covers exactly our 6-lane subgroup inside the warp.
+		// For lanes [group_base, group_base+5], we set bits to 1.
+		const unsigned group_mask = ((unsigned)0x3Fu) << group_base;
+
+		// Sanity: only proceed for the 5 groups in a warp (0..29). If you ever map threads 30/31 here,
+		// they’ll be masked out by group_mask and just compute harmlessly.
+		// Load inputs from SoA
+		const uint64_t ai = a_.data[lane][index];
+		const uint64_t bi = b_.data[lane][index];
+		const uint64_t pi = Field::modulus().data[lane];
+
+		// ---------------------------
+		// 1) Multi-limb add: x = a + b using limb-level Kogge–Stone
+		// ---------------------------
+		const uint64_t sum0 = ai + bi;
+
+		// Limb-level generate/propagate for carry:
+		// carry_{i+1} = g_i | (p_i & carry_i) with carry_0 = 0
+		// g_i = (a_i + b_i) overflows -> (sum0 < a_i)
+		// p_i = adding 1 to sum0 causes overflow -> (sum0 == UINT64_MAX)
+		uint32_t g = (sum0 < ai) ? 1u : 0u;
+		uint32_t p = (sum0 == ~0ull) ? 1u : 0u;
+
+		// Kogge–Stone prefix across 6 lanes
+		// d = 1,2,4 steps are enough for 6 lanes
+		uint32_t g_up;
+		uint32_t p_up;
+
+		g_up = __shfl_up_sync(group_mask, g, 1);
+		p_up = __shfl_up_sync(group_mask, p, 1);
+		if (lane >= 1)
+			g = g | (p & g_up);
+		if (lane >= 1)
+			p = p & p_up;
+
+		g_up = __shfl_up_sync(group_mask, g, 2);
+		p_up = __shfl_up_sync(group_mask, p, 2);
+		if (lane >= 2)
+			g = g | (p & g_up);
+		if (lane >= 2)
+			p = p & p_up;
+
+		g_up = __shfl_up_sync(group_mask, g, 4);
+		p_up = __shfl_up_sync(group_mask, p, 4);
+		if (lane >= 4)
+			g = g | (p & g_up);
+		if (lane >= 4)
+			p = p & p_up;
+
+		// Carry-in for this limb is the combined g from the previous limb (or 0 for limb 0)
+		uint32_t c_in = 0u;
+		uint32_t g_prev = __shfl_up_sync(group_mask, g, 1);
+		if (lane >= 1)
+			c_in = g_prev;
+
+		const uint64_t x = sum0 + static_cast<uint64_t>(c_in);
+
+		// Final carry out of the 6-limb add (same for all lanes in the group)
+		const uint32_t carry1 = __shfl_sync(group_mask, g, last_in_group);
+
+		// ---------------------------
+		// 2) Multi-limb subtract: s = x - p to prepare conditional reduction
+		// We also need final borrow to decide if x >= p.
+		// ---------------------------
+		const uint64_t diff0 = x - pi;
+
+		// Limb-level generate/propagate for borrow:
+		// borrow_{i+1} = gb_i | (pb_i & borrow_i) with borrow_0 = 0
+		// gb_i = (x_i < p_i)
+		// pb_i = (diff0 == 0)   // subtracting 1 will borrow iff result is 0
+		uint32_t gb = (x < pi) ? 1u : 0u;
+		uint32_t pb = (diff0 == 0ull) ? 1u : 0u;
+
+		// Kogge–Stone prefix for borrow
+		uint32_t gb_up;
+		uint32_t pb_up;
+
+		gb_up = __shfl_up_sync(group_mask, gb, 1);
+		pb_up = __shfl_up_sync(group_mask, pb, 1);
+		if (lane >= 1)
+			gb = gb | (pb & gb_up);
+		if (lane >= 1)
+			pb = pb & pb_up;
+
+		gb_up = __shfl_up_sync(group_mask, gb, 2);
+		pb_up = __shfl_up_sync(group_mask, pb, 2);
+		if (lane >= 2)
+			gb = gb | (pb & gb_up);
+		if (lane >= 2)
+			pb = pb & pb_up;
+
+		gb_up = __shfl_up_sync(group_mask, gb, 4);
+		pb_up = __shfl_up_sync(group_mask, pb, 4);
+		if (lane >= 4)
+			gb = gb | (pb & gb_up);
+		if (lane >= 4)
+			pb = pb & pb_up;
+
+		// Borrow-in for this limb is the combined gb from the previous limb (or 0 for limb 0)
+		uint32_t b_in = 0u;
+		uint32_t gb_prev = __shfl_up_sync(group_mask, gb, 1);
+		if (lane >= 1)
+			b_in = gb_prev;
+
+		const uint64_t s = diff0 - static_cast<uint64_t>(b_in);
+
+		// Final borrow out (same for all lanes in group)
+		const uint32_t borrow_out = __shfl_sync(group_mask, gb, last_in_group);
+
+		// ---------------------------
+		// 3) Decide reduction and blend
+		// need_reduce = (carry1 != 0) || (x >= p)
+		// Note: x >= p  <=>  no final borrow when subtracting p (borrow_out == 0)
+		const uint32_t need_reduce = (carry1 != 0u) | ((borrow_out == 0u) ? 1u : 0u);
+
+		// Branchless select
+		const uint64_t ri = (need_reduce != 0u) ? s : x;
+
+		// Store back to SoA
+		r_.data[lane][index] = ri;
+#else
+		(void)r_;
+		(void)a_;
+		(void)b_;
+		(void)index;
+		(void)lane;
+#endif
+	}
+
 
 	template<typename Field, typename Idx = NoopIdx>
 	BLST_HD __forceinline__

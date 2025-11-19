@@ -6,161 +6,161 @@
 
 namespace blst
 {
-	//// ===== Helper functions for Montgomery multiply =====
-	//// r[0..n] = a[0..n-1] * b + carry
-	//// 
-	//// if there is a carry in, its added to the last limb as part of 
-	//// the montgomery update step. The new carry out is returned.
-	//template<int n, typename Carry = std::monostate>
-	//BLST_HD BLST_FORCEINLINE
-	//Carry mul_add_chain(
-	//	uint64_t* BLST_restrict r,
-	//	const uint64_t* BLST_restrict a,
-	//	uint64_t b,
-	//	Carry carry = {})
-	//{
-	//	using namespace blst;
-	//
-	//	// the first add chain does not have carry input
-	//	constexpr bool has_carry = !std::is_same<Carry, std::monostate>::value;
-	//
-	//	// tmp = b[0] * a
-	//	uint64_t hi = 0;
-	//	{
-	//		wide_limb_t  wide;
-	//		if constexpr (has_carry)
-	//		{
-	//			cc_mul_add_wide_limb_limb(&wide, b, a[0], r[0]);
-	//		}
-	//		else
-	//		{
-	//			cc_mul_wide_limb_limb(&wide, b, a[0]);
-	//		}
-	//		r[0] = wide.lo;
-	//		hi = wide.hi;
-	//	}
-	//#pragma unroll
-	//	for (uint64_t i = 1; i < n; i++) {
-	//		wide_limb_t  wide;
-	//
-	//		if constexpr (has_carry)
-	//		{
-	//			cc_mul_add_add_wide_limb_limb(&wide, b, a[i], hi, r[i]);
-	//		}
-	//		else
-	//		{
-	//			cc_mul_add_wide_limb_limb(&wide, b, a[i], hi);
-	//		}
-	//		r[i] = wide.lo;
-	//		hi = wide.hi;
-	//	}
-	//	r[n] = hi;
-	//
-	//	if constexpr (has_carry) {
-	//		wide_limb_t wide;
-	//
-	//		cc_add_wide_limb_limb(&wide, r[n], carry);
-	//		r[n] = wide.lo;
-	//		return wide.hi;
-	//	}
-	//	else {
-	//		return {};
-	//	}
-	//}
-	//
-	//template<typename Field, int n, typename Carry = std::monostate>
-	//BLST_HD BLST_FORCEINLINE
-	//uint64_t mont_update_chain(
-	//	uint64_t* BLST_restrict r,
-	//	Carry carry = {})
-	//{
-	//	using namespace blst;
-	//
-	//	constexpr auto p = Field::modulus().data;
-	//	constexpr uint64_t n0 = Field::montgomery_constant();
-	//	limb_t mx = n0 * r[0];
-	//
-	//	// tmp = mx * p + tmp
-	//	wide_limb_t  wide;
-	//	cc_mul_add_wide_limb_limb(&wide, mx, p[0], r[0]);
-	//	limb_t hi = wide.hi;
-	//	r[0] = wide.lo;
-	//#pragma unroll
-	//	for (uint64_t i = 1; i < n; i++) {
-	//		cc_mul_add_add_wide_limb_limb(&wide, mx, p[i], hi, r[i]);
-	//		r[i - 1] = wide.lo;
-	//		hi = wide.hi;
-	//	}
-	//	if constexpr (!std::is_same<Carry, std::monostate>::value) {
-	//		cc_add_carry_wide_limb_limb(&wide, hi, r[n], carry);
-	//	}
-	//	else {
-	//		cc_add_wide_limb_limb(&wide, hi, r[n]);
-	//	}
-	//	// final limb
-	//	//cc_add_carry_wide_limb_limb(&wide, hi, r[n], carry);
-	//	r[n - 1] = wide.lo;
-	//	return wide.hi;
-	//}
-	//
-	//
-	//// ===== Montgomery multiply (n x 64 CIOS, no __int128) =====
-	//// r = a * b * R^{-1} mod p, base = 2^64
-	//template<typename Field>
-	//BLST_HD BLST_FORCEINLINE
-	//void ptx_mul_mont_u64_simplified(
-	//	uint64_t* BLST_restrict r,
-	//	const uint64_t* BLST_restrict a,
-	//	const uint64_t* BLST_restrict b)
-	//{
-	//
-	//	constexpr auto p = Field::modulus().data;
-	//	constexpr int n = sizeof(Field) / sizeof(uint64_t);
-	//
-	//	static_assert(n > 0 && n % 2 == 0, "n must be positive and even");
-	//	using namespace blst;
-	//
-	//	//limb_t mask, borrow, mx, hi, carry;
-	//	limb_t  tmp[n + 1];
-	//
-	//	// tmp[0...n] = a[0..n-1] * b[0]
-	//	mul_add_chain<n>(tmp, a, b[0]);
-	//
-	//	// montgomery update: tmp = (tmp + m * p) >> 64
-	//	limb_t carry = mont_update_chain<Field, n>(tmp);
-	//
-	//	for (size_t j = 1; j < n; ++j) {
-	//		//wide_limb_t  wide;
-	//
-	//		// tmp += a * b[j] + carry
-	//		carry = mul_add_chain<n>(tmp, a, b[j], carry);
-	//
-	//		//cc_add_wide_limb_limb(&wide, tmp[n], carry);
-	//		//tmp[n] = wide.lo;
-	//		//carry = wide.hi;
-	//
-	//		carry = mont_update_chain<Field, n>(tmp, carry);
-	//	}
-	//
-	//	// conditional subtract: tmp - p and shift
-	//	{
-	//		limb_t borrow = 0;
-	//		for (int i = 0; i < n; i++) {
-	//			// wide = tmp - (p + borrow)
-	//			wide_limb_t wide;
-	//			cc_sub_borrow_wide_limb_limb(&wide, tmp[i], p[i], borrow);
-	//			r[i] = wide.lo;
-	//			borrow = wide.hi & 1;
-	//		}
-	//
-	//		limb_t mask = carry - borrow;
-	//
-	//		// select between tmp and ret
-	//		for (int i = 0; i < n; i++)
-	//			r[i] = (r[i] & ~mask) | (tmp[i] & mask);
-	//	}
-	//
-	//}
+	// ===== Helper functions for Montgomery multiply =====
+	// r[0..n] = a[0..n-1] * b + carry
+	// 
+	// if there is a carry in, its added to the last limb as part of 
+	// the montgomery update step. The new carry out is returned.
+	template<int n, typename Carry = std::monostate>
+	BLST_HD BLST_FORCEINLINE
+	Carry mul_add_chain(
+		uint64_t* BLST_restrict r,
+		const uint64_t* BLST_restrict a,
+		uint64_t b,
+		Carry carry = {})
+	{
+		using namespace blst;
+	
+		// the first add chain does not have carry input
+		constexpr bool has_carry = !std::is_same<Carry, std::monostate>::value;
+	
+		// tmp = b[0] * a
+		uint64_t hi = 0;
+		{
+			wide_limb_t  wide;
+			if constexpr (has_carry)
+			{
+				cc_mul_add_wide_limb_limb(&wide, b, a[0], r[0]);
+			}
+			else
+			{
+				cc_mul_wide_limb_limb(&wide, b, a[0]);
+			}
+			r[0] = wide.lo;
+			hi = wide.hi;
+		}
+	#pragma unroll
+		for (uint64_t i = 1; i < n; i++) {
+			wide_limb_t  wide;
+	
+			if constexpr (has_carry)
+			{
+				cc_mul_add_add_wide_limb_limb(&wide, b, a[i], hi, r[i]);
+			}
+			else
+			{
+				cc_mul_add_wide_limb_limb(&wide, b, a[i], hi);
+			}
+			r[i] = wide.lo;
+			hi = wide.hi;
+		}
+		r[n] = hi;
+	
+		if constexpr (has_carry) {
+			wide_limb_t wide;
+	
+			cc_add_wide_limb_limb(&wide, r[n], carry);
+			r[n] = wide.lo;
+			return wide.hi;
+		}
+		else {
+			return {};
+		}
+	}
+	
+	template<typename Field, int n, typename Carry = std::monostate>
+	BLST_HD BLST_FORCEINLINE
+	uint64_t mont_update_chain(
+		uint64_t* BLST_restrict r,
+		Carry carry = {})
+	{
+		using namespace blst;
+	
+		constexpr auto p = Field::modulus().data;
+		constexpr uint64_t n0 = Field::montgomery_constant();
+		limb_t mx = n0 * r[0];
+	
+		// tmp = mx * p + tmp
+		wide_limb_t  wide;
+		cc_mul_add_wide_limb_limb(&wide, mx, p[0], r[0]);
+		limb_t hi = wide.hi;
+		r[0] = wide.lo;
+	#pragma unroll
+		for (uint64_t i = 1; i < n; i++) {
+			cc_mul_add_add_wide_limb_limb(&wide, mx, p[i], hi, r[i]);
+			r[i - 1] = wide.lo;
+			hi = wide.hi;
+		}
+		if constexpr (!std::is_same<Carry, std::monostate>::value) {
+			cc_add_carry_wide_limb_limb(&wide, hi, r[n], carry);
+		}
+		else {
+			cc_add_wide_limb_limb(&wide, hi, r[n]);
+		}
+		// final limb
+		//cc_add_carry_wide_limb_limb(&wide, hi, r[n], carry);
+		r[n - 1] = wide.lo;
+		return wide.hi;
+	}
+	
+	
+	// ===== Montgomery multiply (n x 64 CIOS, no __int128) =====
+	// r = a * b * R^{-1} mod p, base = 2^64
+	template<typename Field>
+	BLST_HD BLST_FORCEINLINE
+	void ptx_mul_mont_u64_simplified(
+		uint64_t* BLST_restrict r,
+		const uint64_t* BLST_restrict a,
+		const uint64_t* BLST_restrict b)
+	{
+	
+		constexpr auto p = Field::modulus().data;
+		constexpr int n = sizeof(Field) / sizeof(uint64_t);
+	
+		static_assert(n > 0 && n % 2 == 0, "n must be positive and even");
+		using namespace blst;
+	
+		//limb_t mask, borrow, mx, hi, carry;
+		limb_t  tmp[n + 1];
+	
+		// tmp[0...n] = a[0..n-1] * b[0]
+		mul_add_chain<n>(tmp, a, b[0]);
+	
+		// montgomery update: tmp = (tmp + m * p) >> 64
+		limb_t carry = mont_update_chain<Field, n>(tmp);
+	
+		for (size_t j = 1; j < n; ++j) {
+			//wide_limb_t  wide;
+	
+			// tmp += a * b[j] + carry
+			carry = mul_add_chain<n>(tmp, a, b[j], carry);
+	
+			//cc_add_wide_limb_limb(&wide, tmp[n], carry);
+			//tmp[n] = wide.lo;
+			//carry = wide.hi;
+	
+			carry = mont_update_chain<Field, n>(tmp, carry);
+		}
+	
+		// conditional subtract: tmp - p and shift
+		{
+			limb_t borrow = 0;
+			for (int i = 0; i < n; i++) {
+				// wide = tmp - (p + borrow)
+				wide_limb_t wide;
+				cc_sub_borrow_wide_limb_limb(&wide, tmp[i], p[i], borrow);
+				r[i] = wide.lo;
+				borrow = wide.hi & 1;
+			}
+	
+			limb_t mask = carry - borrow;
+	
+			// select between tmp and ret
+			for (int i = 0; i < n; i++)
+				r[i] = (r[i] & ~mask) | (tmp[i] & mask);
+		}
+	
+	}
 #ifdef __CUDA_ARCH__
 #define PTX_MUL_IMPL_CUDA
 #endif
@@ -389,14 +389,14 @@ namespace blst
 			t[i - 1] = mp_i.lo;
 			hi_mp = mp_i.hi;
 		}
-		t[n] = hi_ab;
+		//t[n] = hi_ab;
 
 		{
 			wide_limb_t wide1;
 
 			if constexpr (has_carry) {
 #if defined(PTX_MUL_IMPL_CUDA) && 1
-				auto tn = t[n];
+				auto tn = hi_ab;
 
 				uint64_t s0;       // tn + carry_in
 				uint64_t c0;       // carry from s0
@@ -421,18 +421,18 @@ namespace blst
 					"l"(hi_mp)         // %6  input
 					);
 
-				t[n] = s0;
+				hi_ab = s0;
 				wide1.lo = sum_lo;
 				wide1.hi = sum_hi;
 #else
 				wide_limb_t wide;
-				cc_add_wide_limb_limb(&wide, t[n], carry_in);
-				t[n] = wide.lo;
-				cc_add_carry_wide_limb_limb(&wide1, hi_mp, t[n], wide.hi);
+				cc_add_wide_limb_limb(&wide, hi_ab, carry_in);
+				hi_ab = wide.lo;
+				cc_add_carry_wide_limb_limb(&wide1, hi_mp, hi_ab, wide.hi);
 #endif
 			}
 			else {
-				cc_add_wide_limb_limb(&wide1, hi_mp, t[n]);
+				cc_add_wide_limb_limb(&wide1, hi_mp, hi_ab);
 			}
 
 			t[n - 1] = wide1.lo;
@@ -467,7 +467,7 @@ namespace blst
 			bb[i] = b[i];
 		}
 
-		uint64_t t[n + 1] = { 0 };
+		uint64_t t[n];// = { 0 };
 
 		uint64_t carry = montgomery_fios_step<Field, n>(t, aa, bb[0]);
 
