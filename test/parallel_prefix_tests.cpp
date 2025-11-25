@@ -520,6 +520,7 @@ protected:
 //
 template<typename Field, int n, typename Carry = std::monostate>
 uint64_t montgomery_fios_test(
+	bool print, 
 	uint64_t* t,
 	const uint64_t* a,
 	uint64_t b_j,
@@ -549,8 +550,10 @@ uint64_t montgomery_fios_test(
 			// tmp = mx * p + tmp
 			wide_limb_t  mp_0;
 			cc_mul_add_wide_limb_limb(&mp_0, mx, p[0], ab_0.lo);
-			std::cout << "mp = (" << mp_0.hi << "," << mp_0.lo << ") = " << mx << "*" << p[0] 
-				<< "+" << ab_0.lo <<"+" << t0 << std::endl;
+
+			if (print)
+				std::cout << "mp = (" << mp_0.hi << "," << mp_0.lo << ") = " << mx << "*" << p[0] 
+					<< "+" << ab_0.lo <<"+" << t0 << std::endl;
 			hi_mp = mp_0.hi;
 			t[0] = mp_0.lo;
 			hi_ab = ab_0.hi;
@@ -565,13 +568,15 @@ uint64_t montgomery_fios_test(
 			// tmp = mx * p + tmp
 			cc_mul_add_wide_limb_limb(&mp_0, mx, p[0], ab_0.lo);
 			hi_mp = mp_0.hi;
-			std::cout << "mp = (" << mp_0.hi << ","<<mp_0.lo<<") = " << mx <<"*" << p[0] << "+" << ab_0.lo << std::endl;
+			if (print)
+				std::cout << "mp = (" << mp_0.hi << ","<<mp_0.lo<<") = " << mx <<"*" << p[0] << "+" << ab_0.lo << std::endl;
 			t[0] = mp_0.lo;
 			hi_ab = ab_0.hi;
 		}
 	}
 
-	std::cout << "mx = " << mx << "\n";
+	if (print)
+		std::cout << "mx = " << mx << "\n";
 
 	for (uint64_t i = 1; i < n; i++) {
 		wide_limb_t  ab_i;
@@ -587,7 +592,8 @@ uint64_t montgomery_fios_test(
 			mp_i.lo = mx * pi;
 			mp_i.hi = umul64hi(mx, pi);
 
-			std::cout << "i " << i - 1 << ":"
+			if (print)
+				std::cout << "i " << i - 1 << ":"
 				<< " pm.lo " << mp_i.lo
 				<< " + ti " << ti
 				<< " + pm.hi " << hi_mp
@@ -603,7 +609,8 @@ uint64_t montgomery_fios_test(
 
 			auto ab_carry = ab_i.hi - ahi;
 			auto mp_carry = mp_i.hi - phi;
-			std::cout << " ab_carry " << ab_carry << " mp_carry " << mp_carry << std::endl;
+			if (print)
+				std::cout << " ab_carry " << ab_carry << " mp_carry " << mp_carry << std::endl;
 		}
 		else
 		{
@@ -611,7 +618,8 @@ uint64_t montgomery_fios_test(
 			ab_i.hi = umul64hi(b_j, ai);
 			mp_i.lo = mx * pi;
 			mp_i.hi = umul64hi(mx, pi);
-			std::cout << "i " << i - 1 << ":"
+			if (print)
+				std::cout << "i " << i - 1 << ":"
 				<< " pm.lo " << mp_i.lo
 				<< " + pm.hi " << hi_mp
 				<< " + ab.lo " << ab_i.lo
@@ -623,7 +631,8 @@ uint64_t montgomery_fios_test(
 			cc_add_wide_wide_limb(&mp_i, mp_i, ab_i.lo);
 		}
 		t[i - 1] = mp_i.lo;
-		std::cout << "sum[" << i - 1 << "] = " << t[i - 1] << std::endl;
+		if (print)
+			std::cout << "sum[" << i - 1 << "] = " << t[i - 1] << std::endl;
 		hi_ab = ab_i.hi;
 		hi_mp = mp_i.hi;
 	}
@@ -634,10 +643,22 @@ uint64_t montgomery_fios_test(
 
 		if constexpr (has_carry) {
 			// wide1 = hi_ab + hi_mp + carry_in 
-			wide_limb_t wide;
-			cc_add_wide_limb_limb(&wide, hi_ab, carry_in);
-			cc_add_carry_wide_limb_limb(&wide1, hi_mp, wide.lo, wide.hi);
-			std::cout << "i " << n-1 << ":"
+			//wide_limb_t wide;
+			//cc_add_wide_limb_limb(&wide, hi_ab, carry_in);
+			//cc_add_carry_wide_limb_limb(&wide1, hi_mp, wide.lo, wide.hi);
+			// wide1 = hi_ab + hi_mp + carry_in 
+			wide_limb_t wide_ab;
+			cc_add_wide_limb_limb(&wide_ab, hi_ab, carry_in);
+
+			// Add hi_mp to the low part
+			cc_add_wide_limb_limb(&wide1, wide_ab.lo, hi_mp);
+
+			// Add the carry from the first addition to the high part
+			wide1.hi += wide_ab.hi;
+
+
+			if (print)
+				std::cout << "i " << n-1 << ":"
 				<< " hi_mp " << hi_mp
 				<< " + hi_ab " << hi_ab
 				<< " + carry_in " << carry_in
@@ -649,8 +670,10 @@ uint64_t montgomery_fios_test(
 		}
 
 		t[n - 1] = wide1.lo;
-		std::cout << "sum[" << n - 1 << "] = " << t[n - 1] << std::endl;
-		std::cout << "carry " << wide1.hi << std::endl;
+		if (print)
+			std::cout << "sum[" << n - 1 << "] = " << t[n - 1] << std::endl;
+		if (print)
+			std::cout << "carry " << wide1.hi << std::endl;
 		return wide1.hi;
 	}
 }
@@ -667,8 +690,8 @@ TEST_F(FiosStepTest, AllZeros_NoCarry) {
 	std::copy(t_ref, t_ref + n, t_emu);
 
 	uint64_t bj = 0ull;
-
-	uint64_t carry_ref = montgomery_fios_test<Fp, n>(t_ref, a, bj, std::monostate{});
+	bool print = false;
+	uint64_t carry_ref = montgomery_fios_test<Fp, n>(print, t_ref, a, bj, std::monostate{});
 	uint64_t carry_emu = montgomery_fios_step_lo_down_emulated<Fp, n>(t_emu, a, bj, std::monostate{});
 
 	expect_equal_state<n>(t_ref, t_emu, carry_ref, carry_emu);
@@ -684,8 +707,10 @@ TEST_F(FiosStepTest, AllOnes_NoCarry) {
 	std::copy(t_ref, t_ref + n, t_emu);
 
 	uint64_t bj = ~0ull;
+	bool print = false;
 
-	uint64_t carry_ref = montgomery_fios_test<Fp, n>(t_ref, a, bj, std::monostate{});
+
+	uint64_t carry_ref = montgomery_fios_test<Fp, n>(print, t_ref, a, bj, std::monostate{});
 	uint64_t carry_emu = montgomery_fios_step_lo_down_emulated<Fp, n>(t_emu, a, bj, std::monostate{});
 
 	expect_equal_state<n>(t_ref, t_emu, carry_ref, carry_emu);
@@ -704,8 +729,9 @@ TEST_F(FiosStepTest, Random_NoCarry) {
 		std::copy(t_ref, t_ref + n, t_emu);
 
 		uint64_t bj = rng.next();
+		bool print = false;
 
-		uint64_t carry_ref = montgomery_fios_test<Fp, n>(t_ref, a, bj, std::monostate{});
+		uint64_t carry_ref = montgomery_fios_test<Fp, n>(print, t_ref, a, bj, std::monostate{});
 		uint64_t carry_emu = montgomery_fios_step_lo_down_emulated<Fp, n>(t_emu, a, bj, std::monostate{});
 
 		expect_equal_state<n>(t_ref, t_emu, carry_ref, carry_emu);
@@ -714,6 +740,7 @@ TEST_F(FiosStepTest, Random_NoCarry) {
 
 TEST_F(FiosStepTest, Random_WithCarryBit01) {
 	SplitMix64 rng(0xCAFEBABEDEADBEEFull);
+	bool print = false;
 
 	for (int trial = 0; trial < 10; trial++) {
 		alignas(64) uint64_t a[n];
@@ -727,7 +754,7 @@ TEST_F(FiosStepTest, Random_WithCarryBit01) {
 		uint64_t bj = rng.next();
 		uint64_t carry_in =  rng.next() & 1ull;   // emulate carry bit
 
-		uint64_t carry_ref = montgomery_fios_test<Fp, n>(t_ref, a, bj, carry_in);
+		uint64_t carry_ref = montgomery_fios_test<Fp, n>(print, t_ref, a, bj, carry_in);
 		uint64_t carry_emu = montgomery_fios_step_lo_down_emulated<Fp, n>(t_emu, a, bj, carry_in);
 
 		expect_equal_state<n>(t_ref, t_emu, carry_ref, carry_emu);
@@ -736,6 +763,7 @@ TEST_F(FiosStepTest, Random_WithCarryBit01) {
 
 TEST_F(FiosStepTest, Random_WithWideCarry) {
 	SplitMix64 rng(0x0ddc0ffeebad5eedull);
+	bool print = false;
 
 	for (int trial = 0; trial < 10; trial++) {
 		alignas(64) uint64_t a[n];
@@ -749,7 +777,7 @@ TEST_F(FiosStepTest, Random_WithWideCarry) {
 		uint64_t bj = rng.next();
 		uint64_t carry_in = -1;// rng.next();    // allow any 64-bit (your serial tail supports this)
 
-		uint64_t carry_ref = montgomery_fios_test<Fp, n, uint64_t>(t_ref, a, bj, carry_in);
+		uint64_t carry_ref = montgomery_fios_test<Fp, n, uint64_t>(print, t_ref, a, bj, carry_in);
 		uint64_t carry_emu = montgomery_fios_step_lo_down_emulated<Fp, n, uint64_t>(t_emu, a, bj, carry_in);
 
 		expect_equal_state<n>(t_ref, t_emu, carry_ref, carry_emu);
@@ -761,6 +789,7 @@ TEST_F(FiosStepTest, CarryCascadePatterns) {
 	alignas(64) uint64_t a[n];
 	alignas(64) uint64_t t_ref[n];
 	alignas(64) uint64_t t_emu[n];
+	bool print = false;
 
 	// Pattern 1: alternating all-ones / zeros
 	for (int i = 0; i < n; i++)
@@ -773,7 +802,7 @@ TEST_F(FiosStepTest, CarryCascadePatterns) {
 	uint64_t bj = ~0ull;
 	uint64_t carry_in = 1ull;
 
-	uint64_t carry_ref = montgomery_fios_test<Fp, n, uint64_t>(t_ref, a, bj, carry_in);
+	uint64_t carry_ref = montgomery_fios_test<Fp, n, uint64_t>(print, t_ref, a, bj, carry_in);
 	uint64_t carry_emu = montgomery_fios_step_lo_down_emulated<Fp, n, uint64_t>(t_emu, a, bj, carry_in);
 
 	expect_equal_state<n>(t_ref, t_emu, carry_ref, carry_emu);
@@ -789,7 +818,7 @@ TEST_F(FiosStepTest, CarryCascadePatterns) {
 	bj = 0xFFFFFFFFFFFFFFFFull;
 	carry_in = 0xFFFFFFFFFFFFFFFFull;
 
-	carry_ref = montgomery_fios_test<Fp, n, uint64_t>(t_ref, a, bj, carry_in);
+	carry_ref = montgomery_fios_test<Fp, n, uint64_t>(print, t_ref, a, bj, carry_in);
 	carry_emu = montgomery_fios_step_lo_down_emulated<Fp, n, uint64_t>(t_emu, a, bj, carry_in);
 
 	expect_equal_state<n>(t_ref, t_emu, carry_ref, carry_emu);

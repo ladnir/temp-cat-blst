@@ -8,12 +8,14 @@
 
 #include "blst/fields/Fp.h"
 #include "blst/fields/Fp_cuda.h"
+#include "blst/fields/parallel_prefix.h"
 #include "blst/exports.h"
 #include "InsecureRng.h"
 
 using namespace blst;
 
 #define LIMBS NLIMBS(384)
+
 
 class FpCudaTest : public ::testing::Test {
 protected:
@@ -51,7 +53,7 @@ protected:
         for (int i = 0; i < LIMBS; ++i)
             dst[i] = src[i];
     }
-	void set_fp(Fp& v, uint64_t x) {
+    void set_fp(Fp& v, uint64_t x) {
         for (int i = 0; i < LIMBS; ++i)
             v[i] = 0;
         memcpy(&v, &x, sizeof(x));
@@ -69,7 +71,27 @@ protected:
     //        v[LIMBS - 1] &= 0x7FFFFFFFFFFFFFFFULL; // Ensure MSB is clear to avoid overflow
     //    }
     //}
-
+    void print_Fp(const char* label, const Fp& v) {
+        printf("%s: ", label);
+        for (int i = LIMBS - 1; i >= 0; --i)
+            printf("%016llx%s", (unsigned long long)v[i], i ? " " : "\n");
+    }
+    // Manually set all limbs to a specific pattern (good for triggering overflows)
+    void set_fp_pattern(Fp& v, uint64_t pattern) {
+        for (int i = 0; i < LIMBS; ++i) v[i] = pattern;
+        // We must mask the top limb to ensure it is < P (approx) 
+        // or allow it to be fully reduced later. 
+        // For raw multiplication tests, we usually want valid field elements.
+        // But to test the multiplier internals, unreduced inputs are sometimes useful.
+        // Here we adhere to strict Fp < P by reducing.
+        while (Fp::is_redc(v) == 0) {
+            Fp::rshift(v, v, 1);
+        }
+    }
+    void set_fp_val(Fp& v, uint64_t val) {
+        for (int i = 0; i < LIMBS; ++i) v[i] = 0;
+        v[0] = val;
+    }
 
     void rand_fp(Fp& v, InsecureRng& rng)
     {
@@ -87,8 +109,8 @@ protected:
     }
     void rand_fp(Fp& v, int seed)
     {
-		InsecureRng rng(seed);
-		rand_fp(v, rng);
+        InsecureRng rng(seed);
+        rand_fp(v, rng);
     }
     // Helper: Convert standard integer to Montgomery form
     void to_mont_fp(Fp& r, const Fp& a) {
@@ -162,9 +184,237 @@ protected:
             << "Operation " << operation << " failed with error: "
             << batched_error_code_string(result);
     }
+    // CUDA Management Wrappers
+    Fp* d_alloc(size_t n) {
+        Fp* p = nullptr;
+        cudaMalloc((void**)&p, n * sizeof(Fp));
+        return p;
+    }
 
+    void to_dev(Fp* d, const Fp* h, size_t n) {
+        cudaMemcpy(d, h, n * sizeof(Fp), cudaMemcpyHostToDevice);
+    }
+
+    void to_host(Fp* h, const Fp* d, size_t n) {
+        cudaMemcpy(h, d, n * sizeof(Fp), cudaMemcpyDeviceToHost);
+    }
     //std::mt19937_64 gen;
 };
+
+// ============================================================================
+// Test 1: Host Logic Verification
+// Checks the C++ implementation of the FIOS/CIOS logic directly on CPU.
+// This runs faster and separates logic bugs from CUDA memory bugs.
+// ============================================================================
+TEST_F(FpCudaTest, Host_PTX_Logic_Check) {
+    // We test specific edge cases that cause carry propagation
+    std::vector<std::pair<std::string, uint64_t>> patterns = {
+        {"Zero", 0x0000000000000000ULL},
+        {"One",  0x0000000000000001ULL},
+        {"Max",  0xFFFFFFFFFFFFFFFFULL},
+        {"Alt1", 0xAAAAAAAAAAAAAAAAULL},
+        {"Alt2", 0x5555555555555555ULL},
+        {"High", 0x8000000000000000ULL}
+    };
+
+    for (const auto& p1 : patterns) {
+        for (const auto& p2 : patterns) {
+            Fp a, b, expected, result;
+
+            // Construct inputs
+            set_fp_pattern(a, p1.second);
+            set_fp_pattern(b, p2.second);
+
+            // 1. Golden Reference (BLST optimized asm)
+            Fp::mul(expected, a, b);
+
+            // 2. Your C++ implementation of the CUDA logic
+            ptx_mul_mont_u64<Fp>(result.data, a.data, b.data);
+
+            if (!Fp_equal(expected, result)) {
+                printf("FAILURE: Logic Check %s * %s\n", p1.first.c_str(), p2.first.c_str());
+                print_Fp("A       ", a);
+                print_Fp("B       ", b);
+                print_Fp("Expected", expected);
+                print_Fp("Got     ", result);
+                FAIL() << "Host logic mismatch";
+            }
+        }
+    }
+}
+
+// ============================================================================
+// Test 2: CUDA Vector Multiply with Edge Cases
+// Specifically targets the carry bug by using saturated limbs (All 1s).
+// ============================================================================
+TEST_F(FpCudaTest, VectorMul_EdgeCases) {
+    // Define specific test cases
+    struct TestCase { Fp a; Fp b; std::string desc; };
+    std::vector<TestCase> cases;
+
+    Fp zero, one, max_limbs, alt_limbs;
+    set_fp_val(zero, 0);
+    set_fp_val(one, 1);
+    set_fp_pattern(max_limbs, ~0ull);
+    set_fp_pattern(alt_limbs, 0xAAAAAAAAAAAAAAAAull);
+
+    // 1. Identity
+    cases.push_back({ one, one, "1 * 1" });
+    cases.push_back({ max_limbs, one, "Max * 1" });
+
+    // 2. Zero prop
+    cases.push_back({ max_limbs, zero, "Max * 0" });
+
+    // 3. Max Saturation (The Carry Killer)
+    // A * B where both are dense with 1s creates maximum partial products
+    // and maximum carry propagation chains.
+    cases.push_back({ max_limbs, max_limbs, "Max * Max" });
+
+    // 4. Alternating bits (Stress tests internal adders)
+    cases.push_back({ alt_limbs, alt_limbs, "Alt * Alt" });
+    cases.push_back({ max_limbs, alt_limbs, "Max * Alt" });
+
+    // 5. Random Dense (Simulate high entropy)
+    InsecureRng rng(12345);
+    for (int i = 0; i < 50; ++i) {
+        Fp ra, rb;
+        rand_fp(ra, rng);
+        rand_fp(rb, rng);
+        cases.push_back({ ra, rb, "Random Dense" });
+    }
+
+    size_t N = cases.size();
+    auto h_a = std::make_unique<Fp[]>(N);
+    auto h_b = std::make_unique<Fp[]>(N);
+    auto h_res = std::make_unique<Fp[]>(N);
+    auto cpu_res = std::make_unique<Fp[]>(N);
+
+    // Setup Host Data
+    for (size_t i = 0; i < N; ++i) {
+        h_a[i] = cases[i].a;
+        h_b[i] = cases[i].b;
+
+        // Compute Gold Standard
+        Fp::mul(cpu_res[i], h_a[i], h_b[i]);
+
+        // Double check Host Logic (Debugging the debugger)
+        Fp host_logic_res;
+        ptx_mul_mont_u64<Fp>(host_logic_res.data, h_a[i].data, h_b[i].data);
+        if (!Fp_equal(cpu_res[i], host_logic_res)) {
+            printf("CRITICAL: Host logic mismatch at index %zu (%s)\n", i, cases[i].desc.c_str());
+            FAIL();
+        }
+    }
+
+    // Setup Device
+    Fp* d_a = d_alloc(N);
+    Fp* d_b = d_alloc(N);
+    Fp* d_r = d_alloc(N);
+
+    to_dev(d_a, h_a.get(), N);
+    to_dev(d_b, h_b.get(), N);
+
+    // Run Kernel
+    batched_error_code err = mul_fp_vec(d_r, d_a, d_b, N);
+    ASSERT_EQ(err, BATCHED_SUCCESS);
+
+    // Verify
+    to_host(h_res.get(), d_r, N);
+
+    for (size_t i = 0; i < N; ++i) {
+        if (!Fp_equal(cpu_res[i], h_res[i])) {
+            printf("\n[MISMATCH] Index %zu: %s\n", i, cases[i].desc.c_str());
+            print_Fp("Input A ", h_a[i]);
+            print_Fp("Input B ", h_b[i]);
+            print_Fp("GPU Res ", h_res[i]);
+            print_Fp("CPU Res ", cpu_res[i]);
+
+            // Check if GPU result matches the buggy logic?
+            // (Optional: helps identify if the GPU code is the old version)
+
+            FAIL() << "GPU Multiplication failed";
+        }
+    }
+
+    cudaFree(d_a); cudaFree(d_b); cudaFree(d_r);
+}
+
+// ============================================================================
+// Test 3: High Volume Random (Existing test, slightly tuned)
+// ============================================================================
+TEST_F(FpCudaTest, VectorMul_MassiveRandom) {
+    const size_t NUM_ELEMENTS = 10000;
+    auto h_a = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto h_b = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto h_res = std::make_unique<Fp[]>(NUM_ELEMENTS);
+    auto cpu_res = std::make_unique<Fp[]>(NUM_ELEMENTS);
+
+    InsecureRng rng(999); // Different seed
+
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        rand_fp(h_a[i], rng);
+        rand_fp(h_b[i], rng);
+        Fp::mul(cpu_res[i], h_a[i], h_b[i]);
+    }
+
+    Fp* d_a = d_alloc(NUM_ELEMENTS);
+    Fp* d_b = d_alloc(NUM_ELEMENTS);
+    Fp* d_r = d_alloc(NUM_ELEMENTS);
+
+    to_dev(d_a, h_a.get(), NUM_ELEMENTS);
+    to_dev(d_b, h_b.get(), NUM_ELEMENTS);
+
+    mul_fp_vec(d_r, d_a, d_b, NUM_ELEMENTS);
+    to_host(h_res.get(), d_r, NUM_ELEMENTS);
+
+    for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        if (!Fp_equal(h_res[i], cpu_res[i])) {
+            print_Fp("Expected", cpu_res[i]);
+            print_Fp("Got     ", h_res[i]);
+            FAIL() << "Random mismatch at index " << i;
+        }
+    }
+
+    cudaFree(d_a); cudaFree(d_b); cudaFree(d_r);
+}
+
+TEST_F(FpCudaTest, par_PTX_Logic_Check) {
+    // We test specific edge cases that cause carry propagation
+    std::vector<std::pair<std::string, uint64_t>> patterns = {
+        {"Zero", 0x0000000000000000ULL},
+        {"One",  0x0000000000000001ULL},
+        {"Max",  0xFFFFFFFFFFFFFFFFULL},
+        {"Alt1", 0xAAAAAAAAAAAAAAAAULL},
+        {"Alt2", 0x5555555555555555ULL},
+        {"High", 0x8000000000000000ULL}
+    };
+
+    for (const auto& p1 : patterns) {
+        for (const auto& p2 : patterns) {
+            Fp a, b, expected, result;
+
+            // Construct inputs
+            set_fp_pattern(a, p1.second);
+            set_fp_pattern(b, p2.second);
+
+            // 1. Golden Reference (BLST optimized asm)
+            Fp::mul(expected, a, b);
+
+            // 2. Your C++ implementation of the CUDA logic
+            par_mul_mont_u64<Fp>(result.data, a.data, b.data);
+
+            if (!Fp_equal(expected, result)) {
+                printf("FAILURE: Logic Check %s * %s\n", p1.first.c_str(), p2.first.c_str());
+                print_Fp("A       ", a);
+                print_Fp("B       ", b);
+                print_Fp("Expected", expected);
+                print_Fp("Got     ", result);
+                FAIL() << "Host logic mismatch";
+            }
+        }
+    }
+}
+
 
 TEST_F(FpCudaTest, VectorAdd) {
     const size_t NUM_ELEMENTS = 55;

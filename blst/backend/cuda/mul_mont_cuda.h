@@ -404,14 +404,19 @@ namespace blst
 				uint64_t sum_hi;   // wide1.hi
 
 				asm volatile(
-					// s0 = tn + carry_in; c0 = carry
+					// 1. sum_lo = tn + carry_in
 					"add.cc.u64  %0, %4, %5;\n\t"
+					// 2. Capture carry from (1) into c0 temporarily (or just use it directly)
 					"addc.u64    %1, 0, 0;\n\t"
 
-					// (sum_lo,sum_hi) = hi_mp + s0 + c0
-					"add.cc.u64  %2, %6, %0;\n\t"
-					"addc.cc.u64 %2, %2, %1;\n\t"
+					// 3. sum_lo = sum_lo + hi_mp
+					"add.cc.u64  %2, %0, %6;\n\t"
+
+					// 4. sum_hi = carry from (3)
 					"addc.u64    %3, 0, 0;\n\t"
+
+					// 5. sum_hi += c0 (add the overflow from step 1 to the HIGH part)
+					"add.u64     %3, %3, %1;\n\t"
 					: "=&l"(s0),         // %0  output
 					"=&l"(c0),         // %1  output
 					"=&l"(sum_lo),     // %2  output
@@ -427,8 +432,8 @@ namespace blst
 #else
 				wide_limb_t wide;
 				cc_add_wide_limb_limb(&wide, hi_ab, carry_in);
-				hi_ab = wide.lo;
-				cc_add_carry_wide_limb_limb(&wide1, hi_mp, hi_ab, wide.hi);
+				cc_add_wide_limb_limb(&wide1, hi_mp, wide.lo);
+				wide1.hi += wide.hi;
 #endif
 			}
 			else {

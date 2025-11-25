@@ -72,7 +72,7 @@ namespace blst
 	//	pB = (w >> 9) & 1u;
 	//}
 
-	void shuffle_down(
+	inline void shuffle_down(
 		uint32_t out[],
 		const uint32_t in[],
 		int n,
@@ -87,7 +87,7 @@ namespace blst
 		}
 	}
 
-	void shuffle_up(
+	inline void shuffle_up(
 		uint32_t out[],
 		const uint32_t in[],
 		int n,
@@ -515,7 +515,7 @@ namespace blst
 
 	uint64_t umul64hi(uint64_t a, uint64_t b);
 
-	uint64_t carry(uint64_t x, uint64_t y, uint64_t z)
+	inline uint64_t carry(uint64_t x, uint64_t y, uint64_t z)
 	{
 		wide_limb_t sum;
 		cc_add_wide_limb_limb(&sum, x, y);
@@ -523,6 +523,155 @@ namespace blst
 		return sum.hi;
 	}
 
+	static bool pp_print = false;
+
+	// 5->2 compressor over m limbs of type Limb (default 64-bit).
+	// Inputs : cin  (a one limb carry in. can have value [0,1,2,3])
+	// Inputs : x0, x1, x2, x3, x4  (each m-limb n-bit vector)
+	// Outputs: s, c  
+	// 
+	// s + c = x0 + x1 + x2 + x3 + x4 + cin
+	//
+	// Internals:
+	//   Round 1 (5->3, column-local):  X0+...+X4 = S0 + 2*n0 + 4*n1
+	//   Round 2 (3->2 CSA):            (S0), (n0<<1), (n1<<2)  ->  s + c
+	//
+	// No '+' is used inside a limb; everything is XOR/AND/OR/<< with cross-limb “spill” stitching.
+	// The two possible overflow bits (at 2^n and 2^(n+1)) are dropped by design in this signature.
+	template<int m, typename Limb = uint64_t>
+	Limb compress5to2(
+		Limb cin,
+		const Limb* x0,
+		const Limb* x1,
+		const Limb* x2,
+		const Limb* x3,
+		const Limb* x4,
+		Limb* s,
+		Limb* c
+	) {
+		static_assert(std::is_unsigned<Limb>::value, "Limb must be unsigned");
+		constexpr int W = int(sizeof(Limb) * 8);
+
+		BLST_ASSERT(cin < 4);  // cin must be in {0,1,2,3}
+		// -------- Round 1: 5->3 local; compute S0, n0, n1 and pack outgoing spills --------
+		Limb S0[m];
+		Limb n0[m];
+		Limb n1[m];
+
+		// pack3[i] holds 3 bits: [bit2=b2 | bit1=b1 | bit0=b0]
+		// b0 = (n0 >> (W-1))       (spill for <<1)
+		// b1 = (n1 >> (W-2)) & 1   (LSB spill for <<2)
+		// b2 = (n1 >> (W-1)) & 1   (MSB spill for <<2)
+		uint32_t pack3[m];
+
+		for (int i = 0; i < m; i++) {
+			Limb a = x0[i];
+			Limb b = x1[i];
+			Limb c0 = x2[i];
+			Limb d = x3[i];
+			Limb e = x4[i];
+
+			// (a,b,c0) -> sA + 2*cA
+			Limb sA = a ^ b ^ c0;
+			Limb cA = (a & b) | (b & c0) | (a & c0);
+
+			// (d,e,0) -> sB + 2*cB
+			Limb sB = d ^ e;
+			Limb cB = d & e;
+
+			// sA + sB -> S0 + 2*cAB
+			Limb s0 = sA ^ sB;
+			Limb cAB = sA & sB;
+
+			// N = cA + cB + cAB in {0,1,2,3}
+			Limb n0_i = (cA ^ cB) ^ cAB;                       // bit0(N)
+			Limb n1_i = (cA & cB) ^ (cA & cAB) ^ (cB & cAB);   // bit1(N)
+
+			S0[i] = s0;
+			n0[i] = n0_i;
+			n1[i] = n1_i;
+
+			uint32_t b0 = uint32_t(n0_i >> (W - 1));
+			uint32_t b1 = uint32_t(n1_i >> (W - 2));
+			pack3[i] = (b1 << 1) | b0;
+		}
+
+		uint32_t top_pack1 = pack3[m - 1];
+		Limb spill_carry = (top_pack1 & 1) + (top_pack1 >> 1);
+
+		// Communicate the 3 spill bits up by one limb (shift=1)
+		uint32_t in3[m];
+		shuffle_up(in3, pack3, m, /*shift=*/1);
+
+		// -------- Form CSA inputs with received spills and do 3:2 CSA --------
+		// A = S0
+		// B = (n0<<1) | in_b0
+		// C = (n1<<2) | (in_b1) | (in_b2<<1)
+		// Then S = A^B^C; K = (A&B)|(A&C)|(B&C)
+		Limb K_row[m];
+		for (int i = 0; i < m; i++) {
+			uint32_t in = i ? in3[i] : (cin << 1);
+			uint32_t b0 = in & 1;
+			uint32_t b1 = in >> 1;
+
+			if (pp_print)
+				std::cout << "i " << i << " cin " << b0 << b1 << std::endl;
+
+			Limb A = S0[i];
+			Limb B = (n0[i] << 1) | Limb(b0);
+			Limb C = (n1[i] << 2) | Limb(b1);
+
+			Limb S = (A ^ B) ^ C;
+			Limb K = (A & B) | (A & C) | (B & C);
+
+			s[i] = S;      // final sum row
+			K_row[i] = K;      // unshifted carry row (needs <<1 across limbs to become 'c')
+
+			pack3[i] = K_row[i] >> (W - 1);  // single spill bit
+		}
+
+		uint32_t top_pack2 = pack3[m - 1]; // Capture before shuffle drops it
+		spill_carry += top_pack2;
+
+		shuffle_up(in3, pack3, m, /*shift=*/1);
+
+		for (int i = 0; i < m; i++) {
+			auto in = i ? in3[i] : 0;
+			c[i] = (K_row[i] << 1) | in;
+		}
+
+		if (0)
+		{
+			Limb exp[m + 1];
+			exp[0] = cin;
+			Limb cc = 0;
+			for (u64 i = 0; i < m; ++i)
+			{
+				wide_limb_t w{ 0,0 };
+				cc_add_wide_wide_limb(&w, w, exp[i]);
+				cc_add_wide_wide_limb(&w, w, x0[i]);
+				cc_add_wide_wide_limb(&w, w, x1[i]);
+				cc_add_wide_wide_limb(&w, w, x2[i]);
+				cc_add_wide_wide_limb(&w, w, x3[i]);
+				cc_add_wide_wide_limb(&w, w, x4[i]);
+
+				exp[i] = w.lo;
+				exp[i + 1] = w.hi;
+
+
+				//auto act = s[i] + c[i];
+				cc_add_wide_limb_limb(&w, s[i], c[i]);
+				cc_add_wide_wide_limb(&w, w, cc);
+				cc = w.hi;
+				if (exp[i] != w.lo)
+				{
+					std::cout << "bad at " << i << std::endl;
+				}
+			}
+		}
+
+		return spill_carry;
+	}
 
 	// ===== the toy serial "coop-emulated" FIOS step (lo-down plan) =====
 	//
@@ -556,7 +705,8 @@ namespace blst
 				return ab0_lo * n0;
 			}();
 
-		std::cout << "mx = " << mx << "\n";
+		if (pp_print)
+			std::cout << "mx = " << mx << "\n";
 
 
 		// --- 2) Per-column products (full, unshifted) ---
@@ -579,10 +729,9 @@ namespace blst
 			cc_mul_wide_limb_limb(&w, pi, mx);
 			mp_lo[i] = w.lo;
 			mp_hi[i] = w.hi;
-			if (i == 0)
+			if (i == 0 && pp_print)
 			{
-				std::cout << "mp = (" << w.hi << ","<<w.lo<<") = " << mx << "*" << pi << std::endl;
-
+				std::cout << "mp = (" << w.hi << "," << w.lo << ") = " << mx << "*" << pi << std::endl;
 			}
 		}
 
@@ -612,27 +761,28 @@ namespace blst
 			t_d[n - 1] = carry_in;
 		}
 
-		// NOTE: we do NOT shift the HI vectors. We use ab_hi[i], mp_hi[i] as-is.
-
 		// --- 4) Column-local 5->2 compression ---
 		uint64_t s[n];
 		uint64_t c[n];
 
-		std::cout
-			<< "c0 " << carry0 << std::endl;
-		for (int i = 0; i < n; i++)
+		if (pp_print)
 		{
-			std::cout << "i " << i << ":"
-				<< " pm.lo " << mp_lo_d[i]
-				<< " + pm.hi " << mp_hi[i]
-				<< " + ab.lo " << ab_lo_d[i]
-				<< " + ab.hi " << ab_hi[i]
-				<< " + t " << t_d[i]
-				<< "\n";
+			std::cout
+				<< "c0 " << carry0 << std::endl;
+			for (int i = 0; i < n; i++)
+			{
+				std::cout << "i " << i << ":"
+					<< " pm.lo " << mp_lo_d[i]
+					<< " + pm.hi " << mp_hi[i]
+					<< " + ab.lo " << ab_lo_d[i]
+					<< " + ab.hi " << ab_hi[i]
+					<< " + t " << t_d[i]
+					<< "\n";
+			}
 		}
 
 		// s + c = ab_lo_d + ab_hi + mp_lo_d + mp_hi + t_d + carry0
-		compress5to2<n, uint64_t>(
+		uint64_t compressor_spills = compress5to2<n, uint64_t>(
 			carry0,        // extra carry in at the bottom
 			ab_lo_d,        // x0
 			ab_hi,          // x1
@@ -647,24 +797,17 @@ namespace blst
 		uint64_t carry_out_columns = 0ull;
 
 		// (sum, carry_out_columns) = s + c
+		// todo, parallel prefix add here
 		ripple_add_sc<n>(s, c, sum, &carry_out_columns);
-		//pp_add<n>(sum, s, c, Field::neg_modulus().data);
+		carry_out_columns += compressor_spills;
 
-		//if constexpr (has_carry)
-		//{
-		//	// Mirror: wide1 = hi_mp + hi_ab + carry_in
-		//	// At this point, sum[n-1] is the top limb as if carry_in == 0,
-		//	// and carry_out_columns is the "base" carry.
-		//	wide_limb_t w;
-		//	cc_add_wide_limb_limb(&w, sum[n - 1], (uint64_t)carry_in);
-		//	sum[n - 1] = w.lo;
-		//	carry_out_columns += w.hi;   // w.hi is 0 or 1
-		//	std::cout << " + " << carry_in << std::endl;
-		//}
-
-		for (int i = 0; i < n; i++)
+		if (pp_print)
 		{
-			std::cout << "sum[" << i << "] = " << sum[i] << "\n";
+
+			for (int i = 0; i < n; i++)
+			{
+				std::cout << "sum[" << i << "] = " << sum[i] << "\n";
+			}
 		}
 
 		uint64_t carry_from_tn = 0ull;
@@ -674,11 +817,69 @@ namespace blst
 		{
 			t[i] = sum[i];
 		}
-		//t[n - 1] = t_last;
-		std::cout << "carry " << carry_out_columns << std::endl;
+
+
+		if (pp_print)
+		{
+			//t[n - 1] = t_last;
+			std::cout << "carry " << carry_out_columns << std::endl;
+		}
 
 		return carry_out_columns;
 	}
 
+
+	template<typename Field>
+	BLST_HD BLST_FORCEINLINE
+		void par_mul_mont_u64(
+			uint64_t* r,
+			const uint64_t* a,
+			const uint64_t* b)
+	{
+		using namespace blst;
+
+		constexpr auto p = Field::modulus().data;
+		constexpr int n = sizeof(Field) / sizeof(uint64_t);
+		static_assert(n > 0 && (n % 2 == 0), "n must be positive and even");
+
+		uint64_t aa[n];
+#pragma unroll
+		for (int i = 0; i < n; i++) {
+			aa[i] = a[i];
+		}
+		uint64_t bb[n];
+#pragma unroll
+		for (int i = 0; i < n; i++) {
+			bb[i] = b[i];
+		}
+
+		uint64_t t[n];// = { 0 };
+
+		uint64_t carry = montgomery_fios_step_lo_down_emulated<Field, n>(t, aa, bb[0]);
+
+		// Columns j = 1..n-1 (fused)
+		for (int j = 1; j < n; ++j) {
+			carry = montgomery_fios_step_lo_down_emulated<Field, n>(t, aa, bb[j], carry);
+		}
+
+		// Final conditional subtract, (todo: parallel)
+		uint64_t tmp[n];
+		{
+			uint64_t borrow = 0;
+#pragma unroll
+			for (int i = 0; i < n; i++) {
+				wide_limb_t w;
+				cc_sub_borrow_wide_limb_limb(&w, t[i], p[i], borrow);
+				tmp[i] = w.lo;
+				borrow = w.hi & 1;
+			}
+			uint64_t mask = carry - borrow;
+#pragma unroll
+			for (int i = 0; i < n; i++) {
+				r[i] = (tmp[i] & ~mask) | (t[i] & mask);
+			}
+		}
+
+	}
 
 } // namespace blst
