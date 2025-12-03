@@ -139,3 +139,6 @@ static void BM_Fp12Exponentiation(benchmark::State& state) {
     state.SetItemsProcessed(state.iterations());
 }
 BENCHMARK(BM_Fp12Exponentiation);
+
+
+

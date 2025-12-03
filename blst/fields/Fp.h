@@ -38,7 +38,7 @@ namespace blst
 	//     use flt_reciprocal() when strict constant-time is required.
 	struct Fp
 	{
-		vec_384 data;
+		limb_t data[NLIMBS(384)];
 
 		//BLST_HD operator limb_t* () { return data; }
 		//BLST_HD operator const limb_t* () const { return data; }
@@ -209,9 +209,9 @@ namespace blst
     TO_LIMB_T(0x4b1ba7b6434bacd7), TO_LIMB_T(0x1a0111ea397fe69a)
 
 #define BLST_NEG_P_LIMBS  \
-    TO_LIMB_T(~0xb9feffffffffaaab), TO_LIMB_T(~0x1eabfffeb153ffff),\
+    TO_LIMB_T(~0xb9feffffffffaaab+1), TO_LIMB_T(~0x1eabfffeb153ffff),\
     TO_LIMB_T(~0x6730d2a0f6b0f624), TO_LIMB_T(~0x64774b84f38512bf),\
-    TO_LIMB_T(~0x4b1ba7b6434bacd7), TO_LIMB_T(~0x1a0111ea397fe69a+1)
+    TO_LIMB_T(~0x4b1ba7b6434bacd7), TO_LIMB_T(~0x1a0111ea397fe69a)
 
 #define BLST_RR_LIMBS \
     TO_LIMB_T(0xf4df1f341c341746), TO_LIMB_T(0x0a76e6a609d104f1),\

@@ -29,7 +29,7 @@ set(BENCHMARK_SOURCES
     #"pairing_bench.cpp"
     #"MSM_bench.cpp"
     "main.cpp"
-    "parallel_prefix.cpp"
+    "Fp12Coop_bench.cpp"
 )
 
 # Add CUDA benchmarks if CUDA is enabled

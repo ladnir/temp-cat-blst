@@ -127,12 +127,15 @@ TEST(ParallelPrefix, Add) {
 
 		rand_Fp(a, rng);
 		rand_Fp(b, rng);
-		Fp np = Fp::modulus();
+		Fp np = Fp::neg_modulus();
+		Fp p = Fp::modulus();
 
 		for (u64 i = 0; i < n; ++i)
-			np[i] = ~np[i] + (i == 0 ? 1 : 0); // np = -p mod 2^(64*NLIMBS)
+		{
+			ASSERT_EQ(np[i], ~p[i] + (i == 0 ? 1 : 0)) << " at " << i;
+		}
 
-		pp_add<6>(c.data, a.data, b.data, np.data);
+		parallelPrefix_add<Fp>(c.data, a.data, b.data);
 
 		auto expected = Fp();
 		Fp::add(expected, a, b);
@@ -163,10 +166,6 @@ TEST(ParallelPrefix, LaunchPpAddModAos) {
 
 	// Generate test data
 	Fp modulus = Fp::modulus();
-	Fp np;
-	for (int i = 0; i < NLIMBS; ++i) {
-		np[i] = ~modulus[i] + (i == 0 ? 1 : 0); // np = -p mod 2^(64*NLIMBS)
-	}
 
 	// Fill arrays with random field elements in AoS layout
 	for (size_t elem = 0; elem < n_elems; ++elem) {
@@ -190,21 +189,19 @@ TEST(ParallelPrefix, LaunchPpAddModAos) {
 	}
 
 	// Device arrays
-	limb_t* d_A, * d_B, * d_PNEG, * d_C;
+	limb_t* d_A, * d_B, * d_C;
 	size_t bytes = n_elems * NLIMBS * sizeof(limb_t);
 
 	ASSERT_EQ(cudaMalloc(&d_A, bytes), cudaSuccess);
 	ASSERT_EQ(cudaMalloc(&d_B, bytes), cudaSuccess);
 	ASSERT_EQ(cudaMalloc(&d_C, bytes), cudaSuccess);
-	ASSERT_EQ(cudaMalloc(&d_PNEG, sizeof(np)), cudaSuccess);
 
 	// Copy data to device
 	ASSERT_EQ(cudaMemcpy(d_A, h_A.data(), bytes, cudaMemcpyHostToDevice), cudaSuccess);
 	ASSERT_EQ(cudaMemcpy(d_B, h_B.data(), bytes, cudaMemcpyHostToDevice), cudaSuccess);
-	ASSERT_EQ(cudaMemcpy(d_PNEG, &np, sizeof(np), cudaMemcpyHostToDevice), cudaSuccess);
 
 	// Launch the kernel
-	cudaError_t result = launch_pp_add_mod_aos<NLIMBS>(d_A, d_B, d_PNEG, d_C, n_elems);
+	cudaError_t result = launch_pp_add_mod_aos<Fp>(d_A, d_B, d_C, n_elems);
 	ASSERT_EQ(result, cudaSuccess) << "Kernel launch failed: " << cudaGetErrorString(result);
 
 	// Wait for completion and check for runtime errors
@@ -228,7 +225,6 @@ TEST(ParallelPrefix, LaunchPpAddModAos) {
 	// Clean up device memory
 	cudaFree(d_A);
 	cudaFree(d_B);
-	cudaFree(d_PNEG);
 	cudaFree(d_C);
 }
 
@@ -822,4 +818,268 @@ TEST_F(FiosStepTest, CarryCascadePatterns) {
 	carry_emu = montgomery_fios_step_lo_down_emulated<Fp, n, uint64_t>(t_emu, a, bj, carry_in);
 
 	expect_equal_state<n>(t_ref, t_emu, carry_ref, carry_emu);
+}
+
+// --- Helpers ---
+void fill_random(std::vector<uint64_t>& v, InsecureRng& rng) {
+	for (auto& x : v) x = rng.next_u64();
+}
+
+TEST(ParallelPrefix, Compress5to2_Tile_Check) {
+	InsecureRng rng;
+	constexpr int NLIMBS = 6;
+	constexpr int NUM_OPS = 128; // Test 128 instances in parallel
+
+	// 1. Host Data
+	std::vector<uint64_t> h_x0(NUM_OPS * NLIMBS), h_x1(NUM_OPS * NLIMBS),
+		h_x2(NUM_OPS * NLIMBS), h_x3(NUM_OPS * NLIMBS),
+		h_x4(NUM_OPS * NLIMBS);
+	std::vector<uint64_t> h_cin(NUM_OPS);
+
+	// Outputs
+	std::vector<uint64_t> cpu_s(NUM_OPS * NLIMBS), cpu_c(NUM_OPS * NLIMBS), cpu_spill(NUM_OPS);
+	std::vector<uint64_t> gpu_s(NUM_OPS * NLIMBS), gpu_c(NUM_OPS * NLIMBS), gpu_spill(NUM_OPS);
+
+	// Initialize
+	fill_random(h_x0, rng); fill_random(h_x1, rng); fill_random(h_x2, rng);
+	fill_random(h_x3, rng); fill_random(h_x4, rng);
+	for (auto& x : h_cin) x = rng.next_u64() % 4; // cin must be < 4
+
+	// 2. Run CPU Emulation
+	for (int i = 0; i < NUM_OPS; ++i) {
+		int off = i * NLIMBS;
+		cpu_spill[i] = compress5to2<NLIMBS>(
+			h_cin[i],
+			&h_x0[off], &h_x1[off], &h_x2[off], &h_x3[off], &h_x4[off],
+			&cpu_s[off], &cpu_c[off]
+		);
+	}
+
+	// 3. Run GPU Kernel
+	uint64_t* d_x0, * d_x1, * d_x2, * d_x3, * d_x4, * d_cin, * d_s, * d_c, * d_spill;
+	size_t vec_bytes = NUM_OPS * NLIMBS * sizeof(uint64_t);
+	size_t scal_bytes = NUM_OPS * sizeof(uint64_t);
+
+	cudaMalloc(&d_x0, vec_bytes); cudaMemcpy(d_x0, h_x0.data(), vec_bytes, cudaMemcpyHostToDevice);
+	cudaMalloc(&d_x1, vec_bytes); cudaMemcpy(d_x1, h_x1.data(), vec_bytes, cudaMemcpyHostToDevice);
+	cudaMalloc(&d_x2, vec_bytes); cudaMemcpy(d_x2, h_x2.data(), vec_bytes, cudaMemcpyHostToDevice);
+	cudaMalloc(&d_x3, vec_bytes); cudaMemcpy(d_x3, h_x3.data(), vec_bytes, cudaMemcpyHostToDevice);
+	cudaMalloc(&d_x4, vec_bytes); cudaMemcpy(d_x4, h_x4.data(), vec_bytes, cudaMemcpyHostToDevice);
+	cudaMalloc(&d_cin, scal_bytes); cudaMemcpy(d_cin, h_cin.data(), scal_bytes, cudaMemcpyHostToDevice);
+
+	cudaMalloc(&d_s, vec_bytes);
+	cudaMalloc(&d_c, vec_bytes);
+	cudaMalloc(&d_spill, scal_bytes);
+
+	// Launch
+	int threads = 256;
+	int warps = threads / 32;
+	int tiles_per_warp = 32 / NLIMBS;
+	int ops_per_block = warps * tiles_per_warp;
+	int grids = (NUM_OPS + ops_per_block - 1) / ops_per_block;
+
+	compress5to2_test_kernel<NLIMBS> << <grids, threads >> > (
+		d_s, d_c, d_spill, d_cin,
+		d_x0, d_x1, d_x2, d_x3, d_x4, NUM_OPS
+		);
+	cudaDeviceSynchronize();
+
+	// Readback
+	cudaMemcpy(gpu_s.data(), d_s, vec_bytes, cudaMemcpyDeviceToHost);
+	cudaMemcpy(gpu_c.data(), d_c, vec_bytes, cudaMemcpyDeviceToHost);
+	cudaMemcpy(gpu_spill.data(), d_spill, scal_bytes, cudaMemcpyDeviceToHost);
+
+	// 4. Validate
+	for (int i = 0; i < NUM_OPS; ++i) {
+		// Check Spill
+		ASSERT_EQ(cpu_spill[i], gpu_spill[i]) << "Spill mismatch at op " << i;
+
+		// Check S and C vectors
+		for (int j = 0; j < NLIMBS; ++j) {
+			int idx = i * NLIMBS + j;
+			ASSERT_EQ(cpu_s[idx], gpu_s[idx]) << "S mismatch at op " << i << " limb " << j;
+			ASSERT_EQ(cpu_c[idx], gpu_c[idx]) << "C mismatch at op " << i << " limb " << j;
+		}
+	}
+
+	// Cleanup
+	cudaFree(d_x0); cudaFree(d_x1); cudaFree(d_x2); cudaFree(d_x3); cudaFree(d_x4);
+	cudaFree(d_cin); cudaFree(d_s); cudaFree(d_c); cudaFree(d_spill);
+}
+
+
+TEST(ParallelPrefix, FiosStep_Tile_Check) {
+	InsecureRng rng;
+	constexpr int NLIMBS = 6;
+	constexpr int NUM_OPS = 128;
+
+	// We need a Field definition for P and n0. Using blst::Fp logic.
+	using Field = blst::Fp;
+	uint64_t n0 = Field::montgomery_constant();
+
+	// 1. Host Data
+	std::vector<uint64_t> h_t(NUM_OPS * NLIMBS);
+	std::vector<uint64_t> h_a(NUM_OPS * NLIMBS);
+	std::vector<uint64_t> h_p(NUM_OPS * NLIMBS);
+
+	std::vector<uint64_t> h_b(NUM_OPS);       // Scalar b_j
+	std::vector<uint64_t> h_cin(NUM_OPS);     // Scalar carry_in
+
+	// Initialize
+	fill_random(h_t, rng);
+	fill_random(h_a, rng);
+	for (auto& x : h_b) x = rng.next_u64();
+	for (auto& x : h_cin) x = rng.next_u64(); // Full 64-bit carry in allowed
+
+	// Fill P (constant for all ops, but AoS layout)
+	for (int i = 0; i < NUM_OPS; ++i) {
+		for (int j = 0; j < NLIMBS; ++j) {
+			h_p[i * NLIMBS + j] = Field::modulus().data[j];
+		}
+	}
+
+	// 2. Run CPU Emulation
+	std::vector<uint64_t> cpu_t = h_t; // Copy initial state
+	std::vector<uint64_t> cpu_cout(NUM_OPS);
+
+	for (int i = 0; i < NUM_OPS; ++i) {
+		int off = i * NLIMBS;
+		// The CPU emulation updates 't' in place
+		cpu_cout[i] = montgomery_fios_step_lo_down_emulated<Field, NLIMBS, uint64_t>(
+			&cpu_t[off],
+			&h_a[off],
+			h_b[i],
+			h_cin[i]
+		);
+	}
+
+	// 3. Run GPU Kernel
+	uint64_t* d_t, * d_a, * d_p, * d_b, * d_cin, * d_cout;
+	size_t vec_bytes = NUM_OPS * NLIMBS * sizeof(uint64_t);
+	size_t scal_bytes = NUM_OPS * sizeof(uint64_t);
+
+	cudaMalloc(&d_t, vec_bytes); cudaMemcpy(d_t, h_t.data(), vec_bytes, cudaMemcpyHostToDevice);
+	cudaMalloc(&d_a, vec_bytes); cudaMemcpy(d_a, h_a.data(), vec_bytes, cudaMemcpyHostToDevice);
+	cudaMalloc(&d_p, vec_bytes); cudaMemcpy(d_p, h_p.data(), vec_bytes, cudaMemcpyHostToDevice);
+	cudaMalloc(&d_b, scal_bytes); cudaMemcpy(d_b, h_b.data(), scal_bytes, cudaMemcpyHostToDevice);
+	cudaMalloc(&d_cin, scal_bytes); cudaMemcpy(d_cin, h_cin.data(), scal_bytes, cudaMemcpyHostToDevice);
+	cudaMalloc(&d_cout, scal_bytes);
+
+	int threads = 256;
+	int warps = threads / 32;
+	int tiles_per_warp = 32 / NLIMBS;
+	int ops_per_block = warps * tiles_per_warp;
+	int grids = (NUM_OPS + ops_per_block - 1) / ops_per_block;
+
+	fios_step_test_kernel<NLIMBS> << <grids, threads >> > (
+		d_t, d_cout,
+		d_a, d_p, d_b, d_cin, n0, NUM_OPS
+		);
+	cudaDeviceSynchronize();
+
+	// Readback
+	std::vector<uint64_t> gpu_t(NUM_OPS * NLIMBS);
+	std::vector<uint64_t> gpu_cout(NUM_OPS);
+
+	cudaMemcpy(gpu_t.data(), d_t, vec_bytes, cudaMemcpyDeviceToHost);
+	cudaMemcpy(gpu_cout.data(), d_cout, scal_bytes, cudaMemcpyDeviceToHost);
+
+	// 4. Validate
+	for (int i = 0; i < NUM_OPS; ++i) {
+		ASSERT_EQ(cpu_cout[i], gpu_cout[i]) << "Carry Out mismatch at op " << i;
+
+		for (int j = 0; j < NLIMBS; ++j) {
+			int idx = i * NLIMBS + j;
+			ASSERT_EQ(cpu_t[idx], gpu_t[idx]) << "T mismatch at op " << i << " limb " << j;
+		}
+	}
+
+	cudaFree(d_t); cudaFree(d_a); cudaFree(d_p);
+	cudaFree(d_b); cudaFree(d_cin); cudaFree(d_cout);
+}
+
+TEST(ParallelPrefix, MulMontCoop) {
+	InsecureRng rng;
+	constexpr int NLIMBS = 6; // Testing 384-bit
+	constexpr int NUM_OPS = 1024;
+
+	using Field = blst::Fp;
+
+	// 1. Host Setup
+	std::vector<limb_t> h_a(NUM_OPS * NLIMBS);
+	std::vector<limb_t> h_b(NUM_OPS * NLIMBS);
+	std::vector<limb_t> h_r_expected(NUM_OPS * NLIMBS);
+	std::vector<limb_t> h_r_gpu(NUM_OPS * NLIMBS);
+
+	for (int i = 0; i < NUM_OPS; ++i) {
+		Fp a, b, r;
+		rand_Fp(a, rng);
+		rand_Fp(b, rng);
+
+		// Golden result
+		Fp::mul(r, a, b);
+
+		// Pack into AoS buffers
+		for (int j = 0; j < NLIMBS; ++j) {
+			h_a[i * NLIMBS + j] = a[j];
+			h_b[i * NLIMBS + j] = b[j];
+			h_r_expected[i * NLIMBS + j] = r[j];
+		}
+	}
+
+	// 2. Device Setup
+	limb_t* d_a, * d_b, * d_r;
+	size_t size = NUM_OPS * NLIMBS * sizeof(limb_t);
+	cudaMalloc(&d_a, size);
+	cudaMalloc(&d_b, size);
+	cudaMalloc(&d_r, size);
+
+	cudaMemcpy(d_a, h_a.data(), size, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_b, h_b.data(), size, cudaMemcpyHostToDevice);
+	cudaMemset(d_r, 0, size);
+
+	// 3. Launch
+	int threads_per_block = 256;
+	int warps_per_block = threads_per_block / 32;
+	int tiles_per_warp = 32 / NLIMBS;
+	int ops_per_block = warps_per_block * tiles_per_warp;
+	int grid_size = (NUM_OPS + ops_per_block - 1) / ops_per_block;
+	
+	blst::mul_mont_coop_kernel<Field> <<<grid_size, threads_per_block >>> (d_r, d_a, d_b, NUM_OPS);
+
+	cudaError_t err = cudaGetLastError();
+	ASSERT_EQ(err, cudaSuccess) << "Kernel launch failed: " << cudaGetErrorString(err);
+	cudaDeviceSynchronize();
+
+	Fp rr;
+	par_mul_mont_u64<Fp>(rr.data, h_a.data(), h_b.data());
+
+	// 4. Verify
+	cudaMemcpy(h_r_gpu.data(), d_r, size, cudaMemcpyDeviceToHost);
+
+	int errors = 0;
+	for (int i = 0; i < NUM_OPS; ++i) {
+		bool mismatch = false;
+		for (int j = 0; j < NLIMBS; ++j) {
+			if (h_r_gpu[i * NLIMBS + j] != h_r_expected[i * NLIMBS + j]) {
+				mismatch = true;
+			}
+		}
+		if (mismatch) {
+			if (errors < 5) { // Print first 5 errors
+				printf("Mismatch at op %d\n", i);
+				printf("Expected: ");
+				for (int k = NLIMBS - 1; k >= 0; k--) printf("%016llx ", (unsigned long long)h_r_expected[i * NLIMBS + k]);
+				printf("\nGot:      ");
+				for (int k = NLIMBS - 1; k >= 0; k--) printf("%016llx ", (unsigned long long)h_r_gpu[i * NLIMBS + k]);
+				printf("\n");
+			}
+			errors++;
+		}
+	}
+	EXPECT_EQ(errors, 0) << "Found " << errors << " mismatches out of " << NUM_OPS;
+
+	cudaFree(d_a);
+	cudaFree(d_b);
+	cudaFree(d_r);
 }
