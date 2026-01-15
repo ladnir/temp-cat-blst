@@ -7,13 +7,127 @@
 #include <span>
 #include "parallel_prefix_bench.h"
 #include <chrono>
+#include "blst/fields/FpTile.h"
 
 //BENCHMARK_MAIN();
 //void FpMain();
 //void Fp12Main();
 using namespace blst;
 
+#define USE_LONG2
 
+#ifdef USE_LONG2
+namespace bench
+{
+
+	struct alignas(128) LimbTile
+	{
+		constexpr static size_t warp_size = 32;
+		ulong2 data[warp_size];
+		BLST_HD BLST_FORCEINLINE auto&& operator[](size_t idx) {
+			BLST_ASSERT(idx < warp_size);
+			return data[idx];
+		}
+		BLST_HD BLST_FORCEINLINE auto&& operator[](size_t idx) const {
+			BLST_ASSERT(idx < warp_size);
+			return data[idx];
+		}
+	};
+
+	struct FpTile
+	{
+		constexpr static size_t num_limbs = NLIMBS(384) / 2;
+
+		LimbTile data[num_limbs];
+		BLST_HD BLST_FORCEINLINE auto&& operator[](size_t idx) {
+			BLST_ASSERT(idx < (NLIMBS(384) / 2));
+			auto lane = threadIdx.x % LimbTile::warp_size;
+			return data[idx][lane];
+		}
+		BLST_HD BLST_FORCEINLINE auto&& operator[](size_t idx) const {
+			BLST_ASSERT(idx < (NLIMBS(384) / 2));
+			auto lane = threadIdx.x % LimbTile::warp_size;
+			return data[idx][lane];
+		}
+	};
+
+
+	struct Fp2Tile
+	{
+		FpTile data[2];
+		BLST_HD BLST_FORCEINLINE auto&& operator[](size_t idx) {
+			BLST_ASSERT(idx < 2);
+			return data[idx];
+		}
+		BLST_HD BLST_FORCEINLINE auto&& operator[](size_t idx) const {
+			BLST_ASSERT(idx < 2);
+			return data[idx];
+		}
+	};
+
+	struct Fp4Tile
+	{
+		Fp2Tile data[2];
+		BLST_HD BLST_FORCEINLINE auto&& operator[](size_t idx) {
+			BLST_ASSERT(idx < 2);
+			return data[idx];
+		}
+		BLST_HD BLST_FORCEINLINE auto&& operator[](size_t idx) const {
+			BLST_ASSERT(idx < 2);
+			return data[idx];
+		}
+	};
+
+	struct Fp6Tile
+	{
+		Fp2Tile data[3];
+		BLST_HD BLST_FORCEINLINE auto&& operator[](size_t idx) {
+			BLST_ASSERT(idx < 3);
+			return data[idx];
+		}
+		BLST_HD BLST_FORCEINLINE auto&& operator[](size_t idx) const {
+			BLST_ASSERT(idx < 3);
+			return data[idx];
+		}
+	};
+
+	struct Fp12Tile
+	{
+		Fp6Tile data[2];
+		BLST_HD BLST_FORCEINLINE auto&& operator[](size_t idx) {
+			BLST_ASSERT(idx < 2);
+			return data[idx];
+		}
+		BLST_HD BLST_FORCEINLINE auto&& operator[](size_t idx) const {
+			BLST_ASSERT(idx < 2);
+			return data[idx];
+		}
+	};
+}
+
+// Helper to cast ulong2 to limb_t array view for internal logic if needed
+BLST_HD BLST_FORCEINLINE const limb_t* as_limbs(const ulong2* ptr) {
+	return reinterpret_cast<const limb_t*>(ptr);
+}
+
+struct SoAFp {
+	// We use 3 pointers of 128-bit (ulong2) instead of 6 pointers of 64-bit.
+	// Index 0 contains limbs [0, 1]
+	// Index 1 contains limbs [2, 3]
+	// Index 2 contains limbs [4, 5]
+	ulong2* data[NLIMBS(384) / 2];
+
+	BLST_HD BLST_FORCEINLINE auto&& operator[](size_t idx) {
+		BLST_ASSERT(idx < (NLIMBS(384) / 2));
+		return data[idx];
+	}
+	BLST_HD BLST_FORCEINLINE auto&& operator[](size_t idx) const {
+		BLST_ASSERT(idx < (NLIMBS(384) / 2));
+		return data[idx];
+	}
+};
+
+#else
 
 struct SoAFp {
 	//std::span<limb_t> data[NLIMBS(384)];
@@ -28,6 +142,7 @@ struct SoAFp {
 	}
 
 };
+#endif
 
 struct SoAFp2 {
 	SoAFp data[2];
@@ -111,157 +226,152 @@ struct BasicIdx
 	}
 	BLST_HD BLST_FORCEINLINE limb_t& get(limb_t* x) { return x[idx]; }
 	BLST_HD BLST_FORCEINLINE const limb_t& get(const limb_t* x) const { return x[idx]; }
+	BLST_HD BLST_FORCEINLINE ulong2& get(ulong2* x) const { return x[idx]; }
+	BLST_HD BLST_FORCEINLINE const ulong2& get(const ulong2* x) const { return x[idx]; }
 
 };
 
-
-	// parallel prefix add + conditional reduction for SoA field elements
-	template<typename Field, typename SoAField>
-	BLST_HD __forceinline__
-		void Fp__ppAdd(
-			SoAField& r_,
-			const SoAField& a_,
-			const SoAField& b_,
-			size_t index,
-			size_t lane)
+template<typename Field, typename Idx>
+BLST_HD BLST_FORCEINLINE
+auto load(Idx idx, const Field& x)
+{
+	Field f;
+	constexpr auto n = sizeof(Field) / sizeof(limb_t);
+	for (size_t i = 0; i < n; ++i)
 	{
-#ifdef __CUDA_ARCH__
-		// n = 6 limbs (384-bit). If you also need n=4, mirror this structure with group size 4.
-		constexpr size_t n = 6;
-
-		// Compute per-warp lane and 6-wide subgroup base and mask.
-		const unsigned warp_lane = threadIdx.x & 31;         // my lane in the warp [0..31]
-		const unsigned group_base = (warp_lane / n) * n;     // base lane of my 6-lane group
-		const unsigned last_in_group = group_base + (n - 1); // last lane in my 6-lane group
-
-		// Build a mask that covers exactly our 6-lane subgroup inside the warp.
-		// For lanes [group_base, group_base+5], we set bits to 1.
-		const unsigned group_mask = ((unsigned)0x3Fu) << group_base;
-
-		// Sanity: only proceed for the 5 groups in a warp (0..29). If you ever map threads 30/31 here,
-		// they’ll be masked out by group_mask and just compute harmlessly.
-		// Load inputs from SoA
-		const uint64_t ai = a_.data[lane][index];
-		const uint64_t bi = b_.data[lane][index];
-		const uint64_t pi = Field::modulus().data[lane];
-
-		// ---------------------------
-		// 1) Multi-limb add: x = a + b using limb-level Kogge–Stone
-		// ---------------------------
-		const uint64_t sum0 = ai + bi;
-
-		// Limb-level generate/propagate for carry:
-		// carry_{i+1} = g_i | (p_i & carry_i) with carry_0 = 0
-		// g_i = (a_i + b_i) overflows -> (sum0 < a_i)
-		// p_i = adding 1 to sum0 causes overflow -> (sum0 == UINT64_MAX)
-		uint32_t g = (sum0 < ai) ? 1u : 0u;
-		uint32_t p = (sum0 == ~0ull) ? 1u : 0u;
-
-		// Kogge–Stone prefix across 6 lanes
-		// d = 1,2,4 steps are enough for 6 lanes
-		uint32_t g_up;
-		uint32_t p_up;
-
-		g_up = __shfl_up_sync(group_mask, g, 1);
-		p_up = __shfl_up_sync(group_mask, p, 1);
-		if (lane >= 1)
-			g = g | (p & g_up);
-		if (lane >= 1)
-			p = p & p_up;
-
-		g_up = __shfl_up_sync(group_mask, g, 2);
-		p_up = __shfl_up_sync(group_mask, p, 2);
-		if (lane >= 2)
-			g = g | (p & g_up);
-		if (lane >= 2)
-			p = p & p_up;
-
-		g_up = __shfl_up_sync(group_mask, g, 4);
-		p_up = __shfl_up_sync(group_mask, p, 4);
-		if (lane >= 4)
-			g = g | (p & g_up);
-		if (lane >= 4)
-			p = p & p_up;
-
-		// Carry-in for this limb is the combined g from the previous limb (or 0 for limb 0)
-		uint32_t c_in = 0u;
-		uint32_t g_prev = __shfl_up_sync(group_mask, g, 1);
-		if (lane >= 1)
-			c_in = g_prev;
-
-		const uint64_t x = sum0 + static_cast<uint64_t>(c_in);
-
-		// Final carry out of the 6-limb add (same for all lanes in the group)
-		const uint32_t carry1 = __shfl_sync(group_mask, g, last_in_group);
-
-		// ---------------------------
-		// 2) Multi-limb subtract: s = x - p to prepare conditional reduction
-		// We also need final borrow to decide if x >= p.
-		// ---------------------------
-		const uint64_t diff0 = x - pi;
-
-		// Limb-level generate/propagate for borrow:
-		// borrow_{i+1} = gb_i | (pb_i & borrow_i) with borrow_0 = 0
-		// gb_i = (x_i < p_i)
-		// pb_i = (diff0 == 0)   // subtracting 1 will borrow iff result is 0
-		uint32_t gb = (x < pi) ? 1u : 0u;
-		uint32_t pb = (diff0 == 0ull) ? 1u : 0u;
-
-		// Kogge–Stone prefix for borrow
-		uint32_t gb_up;
-		uint32_t pb_up;
-
-		gb_up = __shfl_up_sync(group_mask, gb, 1);
-		pb_up = __shfl_up_sync(group_mask, pb, 1);
-		if (lane >= 1)
-			gb = gb | (pb & gb_up);
-		if (lane >= 1)
-			pb = pb & pb_up;
-
-		gb_up = __shfl_up_sync(group_mask, gb, 2);
-		pb_up = __shfl_up_sync(group_mask, pb, 2);
-		if (lane >= 2)
-			gb = gb | (pb & gb_up);
-		if (lane >= 2)
-			pb = pb & pb_up;
-
-		gb_up = __shfl_up_sync(group_mask, gb, 4);
-		pb_up = __shfl_up_sync(group_mask, pb, 4);
-		if (lane >= 4)
-			gb = gb | (pb & gb_up);
-		if (lane >= 4)
-			pb = pb & pb_up;
-
-		// Borrow-in for this limb is the combined gb from the previous limb (or 0 for limb 0)
-		uint32_t b_in = 0u;
-		uint32_t gb_prev = __shfl_up_sync(group_mask, gb, 1);
-		if (lane >= 1)
-			b_in = gb_prev;
-
-		const uint64_t s = diff0 - static_cast<uint64_t>(b_in);
-
-		// Final borrow out (same for all lanes in group)
-		const uint32_t borrow_out = __shfl_sync(group_mask, gb, last_in_group);
-
-		// ---------------------------
-		// 3) Decide reduction and blend
-		// need_reduce = (carry1 != 0) || (x >= p)
-		// Note: x >= p  <=>  no final borrow when subtracting p (borrow_out == 0)
-		const uint32_t need_reduce = (carry1 != 0u) | ((borrow_out == 0u) ? 1u : 0u);
-
-		// Branchless select
-		const uint64_t ri = (need_reduce != 0u) ? s : x;
-
-		// Store back to SoA
-		r_.data[lane][index] = ri;
-#else
-		(void)r_;
-		(void)a_;
-		(void)b_;
-		(void)index;
-		(void)lane;
-#endif
+		f.data[i] = idx.get(x.data[i]);
 	}
+	return f;
+}
+
+
+template<typename Field>
+BLST_HD BLST_FORCEINLINE
+auto load(BasicIdx idx, const SoAFp& x)
+{
+	Field f;
+#ifdef USE_LONG2
+	constexpr auto n = sizeof(Field) / sizeof(long2);
+
+	for (size_t i = 0; i < n; ++i)
+	{
+		ulong2 ll = x.data[i][idx.idx];
+		f.data[i * 2 + 0] = ll.x;
+		f.data[i * 2 + 1] = ll.y;
+	}
+#else
+
+	constexpr auto n = sizeof(Field) / sizeof(limb_t);
+	for (size_t i = 0; i < n; ++i)
+	{
+		f.data[i] = idx.get(x.data[i]);
+	}
+#endif
+	return f;
+}
+
+template<typename Field>
+BLST_HD BLST_FORCEINLINE
+auto load(NoopIdx idx, const bench::FpTile& x)
+{
+	Field f;
+#ifdef USE_LONG2
+	constexpr auto n = sizeof(Field) / sizeof(long2);
+
+	for (size_t i = 0; i < n; ++i)
+	{
+		ulong2 ll = x[i];
+		f.data[i * 2 + 0] = ll.x;
+		f.data[i * 2 + 1] = ll.y;
+	}
+#else
+
+	constexpr auto n = sizeof(Field) / sizeof(limb_t);
+	for (size_t i = 0; i < n; ++i)
+	{
+		f.data[i] = idx.get(x[i]);
+	}
+#endif
+	return f;
+}
+
+template<typename Field>
+BLST_DEVICE BLST_FORCEINLINE
+auto load(NoopIdx idx, const blst::FpTile& x)
+{
+	return x.load();
+}
+
+
+
+
+template<typename Field, typename Idx>
+BLST_HD BLST_FORCEINLINE
+auto store(Idx idx, Field& x, const Field& f)
+{
+	constexpr auto n = sizeof(Field) / sizeof(limb_t);
+	for (size_t i = 0; i < n; ++i)
+	{
+		idx.get(x.data[i]) = f.data[i];
+	}
+}
+
+
+template<typename Field>
+BLST_HD BLST_FORCEINLINE
+auto store(BasicIdx idx, SoAFp& x, const Field& f)
+{
+#ifdef USE_LONG2
+	constexpr auto n = sizeof(Field) / sizeof(long2);
+	for (size_t i = 0; i < n; ++i)
+	{
+		ulong2 ll;
+		ll.x = f.data[i * 2 + 0];
+		ll.y = f.data[i * 2 + 1];
+		idx.get(x.data[i]) = ll;
+	}
+#else
+
+	constexpr auto n = sizeof(Field) / sizeof(limb_t);
+	for (size_t i = 0; i < n; ++i)
+	{
+		idx.get(x.data[i]) = f.data[i];
+	}
+#endif
+}
+
+
+
+template<typename Field>
+BLST_HD BLST_FORCEINLINE
+auto store(NoopIdx idx, bench::FpTile& x, const Field& f)
+{
+#ifdef USE_LONG2
+	constexpr auto n = sizeof(Field) / sizeof(long2);
+	for (size_t i = 0; i < n; ++i)
+	{
+		ulong2 ll;
+		ll.x = f.data[i * 2 + 0];
+		ll.y = f.data[i * 2 + 1];
+		x[i] = ll;
+	}
+#else
+
+	constexpr auto n = sizeof(Field) / sizeof(limb_t);
+	for (size_t i = 0; i < n; ++i)
+	{
+		x.data[i] = f.data[i];
+	}
+#endif
+}
+
+
+template<typename Field>
+BLST_DEVICE BLST_FORCEINLINE
+auto store(NoopIdx idx, blst::FpTile& x, const Field& f)
+{
+	return x.store(f);
+}
 
 
 	template<typename Field, typename Idx = NoopIdx>
@@ -280,20 +390,22 @@ struct BasicIdx
 
 		if constexpr (n == 6)
 		{
-			const limb_t& a0 = idx.get(a[0]);
-			const limb_t& a1 = idx.get(a[1]);
-			const limb_t& a2 = idx.get(a[2]);
-			const limb_t& a3 = idx.get(a[3]);
-			const limb_t& a4 = idx.get(a[4]);
-			const limb_t& a5 = idx.get(a[5]);
+			auto aa = load<Field>(idx, a);
+			auto bb = load<Field>(idx, b);
 
-			const limb_t& b0 = idx.get(b[0]);
-			const limb_t& b1 = idx.get(b[1]);
-			const limb_t& b2 = idx.get(b[2]);
-			const limb_t& b3 = idx.get(b[3]);
-			const limb_t& b4 = idx.get(b[4]);
-			const limb_t& b5 = idx.get(b[5]);
+			const limb_t& a0 = aa[0];
+			const limb_t& a1 = aa[1];
+			const limb_t& a2 = aa[2];
+			const limb_t& a3 = aa[3];
+			const limb_t& a4 = aa[4];
+			const limb_t& a5 = aa[5];
 
+			const limb_t& b0 = bb[0];
+			const limb_t& b1 = bb[1];
+			const limb_t& b2 = bb[2];
+			const limb_t& b3 = bb[3];
+			const limb_t& b4 = bb[4];
+			const limb_t& b5 = bb[5];
 
 			limb_t x0;
 			limb_t x1;
@@ -379,12 +491,13 @@ struct BasicIdx
 
 
 			//// ===== blend: r = need_reduce ? s : t ==========================================
-			limb_t o0;
-			limb_t o1;
-			limb_t o2;
-			limb_t o3;
-			limb_t o4;
-			limb_t o5;
+			Field oo;
+			limb_t& o0 = oo[0];
+			limb_t& o1 = oo[1];
+			limb_t& o2 = oo[2];
+			limb_t& o3 = oo[3];
+			limb_t& o4 = oo[4];
+			limb_t& o5 = oo[5];
 
 			asm volatile(
 				"{\n\t"
@@ -408,12 +521,13 @@ struct BasicIdx
 				"l"(t0), "l"(t1), "l"(t2), "l"(t3), "l"(t4), "l"(t5)
 				);
 
-			idx.get(r[0]) = o0;
-			idx.get(r[1]) = o1;
-			idx.get(r[2]) = o2;
-			idx.get(r[3]) = o3;
-			idx.get(r[4]) = o4;
-			idx.get(r[5]) = o5;
+			//idx.get(r[0]) = o0;
+			//idx.get(r[1]) = o1;
+			//idx.get(r[2]) = o2;
+			//idx.get(r[3]) = o3;
+			//idx.get(r[4]) = o4;
+			//idx.get(r[5]) = o5;
+			store<Field>(idx, r, oo);
 
 		}
 		else if constexpr (n == 4)
@@ -531,17 +645,20 @@ struct BasicIdx
 		}
 #else
 		Fp rr, aa, bb;
-		for (u64 i = 0; i < n; ++i)
-		{
-			aa[i] = idx.get(a[i]);
-			bb[i] = idx.get(b[i]);
-		}
+		aa = load<Field>(idx, a);
+		bb = load<Field>(idx, b);
+		//for (u64 i = 0; i < n; ++i)
+		//{
+		//	aa[i] = idx.get(a[i]);
+		//	bb[i] = idx.get(b[i]);
+		//}
 
 		cc_add_mod_n<n>(rr.data, aa.data, bb.data, p);
-		for (u64 i = 0; i < n; ++i)
-		{
-			idx.get(r[i]) = rr[i];
-		}
+		store<Field>(idx, r, rr);
+		//for (u64 i = 0; i < n; ++i)
+		//{
+		//	idx.get(r[i]) = rr[i];
+		//}
 #endif // __CUDA_ARCH__
 
 	}
@@ -560,26 +677,32 @@ struct BasicIdx
 #ifdef __CUDA_ARCH__
 		if constexpr (n == 6)
 		{
-			auto& a0 = idx.get(a[0]);
-			auto& a1 = idx.get(a[1]);
-			auto& a2 = idx.get(a[2]);
-			auto& a3 = idx.get(a[3]);
-			auto& a4 = idx.get(a[4]);
-			auto& a5 = idx.get(a[5]);
 
-			auto& b0 = idx.get(b[0]);
-			auto& b1 = idx.get(b[1]);
-			auto& b2 = idx.get(b[2]);
-			auto& b3 = idx.get(b[3]);
-			auto& b4 = idx.get(b[4]);
-			auto& b5 = idx.get(b[5]);
+			auto aa = load<Field>(idx, a);
+			auto bb = load<Field>(idx, b);
 
-			limb_t r0;
-			limb_t r1;
-			limb_t r2;
-			limb_t r3;
-			limb_t r4;
-			limb_t r5;
+
+			auto& a0 = aa[0];
+			auto& a1 = aa[1];
+			auto& a2 = aa[2];
+			auto& a3 = aa[3];
+			auto& a4 = aa[4];
+			auto& a5 = aa[5];
+
+			auto& b0 = bb[0];
+			auto& b1 = bb[1];
+			auto& b2 = bb[2];
+			auto& b3 = bb[3];
+			auto& b4 = bb[4];
+			auto& b5 = bb[5];
+
+			Field rr;
+			limb_t& r0 = rr[0];
+			limb_t& r1 = rr[1];
+			limb_t& r2 = rr[2];
+			limb_t& r3 = rr[3];
+			limb_t& r4 = rr[4];
+			limb_t& r5 = rr[5];
 
 			// ---- Pass 1: r = a - b ; capture final borrow (via CC -> NOT-borrow) ----
 			// After the last subc, CC = !borrow. We extract CC with addc.u32 tmp,0,0 and then XOR 1.
@@ -684,12 +807,13 @@ struct BasicIdx
 			//	BLST_ASSERT(ret[5] == r5);
 			//}
 
-			idx.get(r[0]) = r0;
-			idx.get(r[1]) = r1;
-			idx.get(r[2]) = r2;
-			idx.get(r[3]) = r3;
-			idx.get(r[4]) = r4;
-			idx.get(r[5]) = r5;
+			//idx.get(r[0]) = r0;
+			//idx.get(r[1]) = r1;
+			//idx.get(r[2]) = r2;
+			//idx.get(r[3]) = r3;
+			//idx.get(r[4]) = r4;
+			//idx.get(r[5]) = r5;
+			store(idx, r, rr);
 		}
 		else if constexpr (n == 4)
 		{
@@ -765,17 +889,20 @@ struct BasicIdx
 		}
 #else
 		Fp rr, aa, bb;
-		for (u64 i = 0; i < n; ++i)
-		{
-			aa[i] = idx.get(a[i]);
-			bb[i] = idx.get(b[i]);
-		}
+		aa = load<Field>(idx, a);
+		bb = load<Field>(idx, b);
+		//for (u64 i = 0; i < n; ++i)
+		//{
+		//	aa[i] = idx.get(a[i]);
+		//	bb[i] = idx.get(b[i]);
+		//}
 
 		cc_sub_mod_n<n>(rr.data, aa.data, bb.data, p);
-		for (u64 i = 0; i < n; ++i)
-		{
-			idx.get(r[i]) = rr[i];
-		}
+		store<Field>(idx, r, rr);
+//		for (u64 i = 0; i < n; ++i)
+//		{
+//			idx.get(r[i]) = rr[i];
+//		}
 #endif
 	}
 
@@ -1074,21 +1201,26 @@ struct BasicIdx
 
 		static_assert(
 			std::is_same_v<decltype(a), const SoAFp&> ||
-			std::is_same_v<decltype(a), const Field&>, "a must be of type Field");
+			std::is_same_v<decltype(a), const Field&> ||
+			std::is_same_v<decltype(a), const blst::FpTile&> ||
+			std::is_same_v<decltype(a), const bench::FpTile&>, "a must be of type Field");
 
 		constexpr auto p = Field::modulus().data;
 		constexpr int n = sizeof(Field) / sizeof(limb_t);
 		static_assert(n > 0 && (n % 2 == 0), "n must be positive and even");
 
+		auto al = load <Field>(idx, a);
 		limb_t aa[n];
 #pragma unroll
 		for (int i = 0; i < n; i++) {
-			aa[i] = idx.get(a[i]);
+			aa[i] = al[i];
 		}
+
+		auto bl = load <Field>(idx, b);
 		limb_t bb[n];
 #pragma unroll
 		for (int i = 0; i < n; i++) {
-			bb[i] = idx.get(b[i]);
+			bb[i] = bl[i];
 		}
 
 		limb_t t[n + 1] = { 0 };
@@ -1134,15 +1266,15 @@ struct BasicIdx
 
 	}
 
-	struct Fp4 {
-		Fp2 data[2];
-		BLST_HD Fp2& operator[](size_t idx) {
-			return data[idx];
-		}
-		BLST_HD const Fp2& operator[](size_t idx)const {
-			return data[idx];
-		}
-	};
+	//struct Fp4 {
+	//	Fp2 data[2];
+	//	BLST_HD Fp2& operator[](size_t idx) {
+	//		return data[idx];
+	//	}
+	//	BLST_HD const Fp2& operator[](size_t idx)const {
+	//		return data[idx];
+	//	}
+	//};
 
 
 	BLST_HD __forceinline__ void Fp2__sqr(Fp2& ret, const auto& a, auto&& idx)
@@ -1223,50 +1355,109 @@ struct BasicIdx
 	}
 
 
+	//BLST_HD __forceinline__ void cyclotomic_sqr_(auto/*Fp12*/& ret, const auto/*Fp12*/& a, auto&& idx)
+	//{
+
+	//	{
+	//		Fp4 t0;
+	//		sqr_fp4(t0, a[0][0], a[1][1], idx);
+
+	//		// r00 = 4 (a00 a11)[0] - 2 a00
+	//		Fp2__sub(ret[0][0], t0[0], a[0][0], idx);      // r00 = t0_0 - a00
+	//		Fp2__add(ret[0][0], ret[0][0], t0[0], idx);    // r00 += t0_0
+	//		Fp2__add(ret[0][0], ret[0][0], ret[0][0], idx);// r00 *= 2 
+
+	//		// r11 = 4 (a00 a11)[1] + 2 a11
+	//		Fp2__add(ret[1][1], t0[1], a[1][1], idx);
+	//		Fp2__add(ret[1][1], ret[1][1], t0[1], idx);
+	//		Fp2__add(ret[1][1], ret[1][1], ret[1][1], idx);
+	//	}
+	//	{
+	//		Fp4 t1;
+	//		sqr_fp4(t1, a[1][0], a[0][2], idx);
+
+	//		Fp2__sub(ret[0][1], t1[0], a[0][1], idx);
+	//		Fp2__add(ret[0][1], ret[0][1], t1[0], idx);
+	//		Fp2__add(ret[0][1], ret[0][1], ret[0][1], idx);
+
+	//		Fp2__add(ret[1][2], t1[1], a[1][2], idx);
+	//		Fp2__add(ret[1][2], ret[1][2], t1[1], idx);
+	//		Fp2__add(ret[1][2], ret[1][2], ret[1][2], idx);
+
+	//	}
+	//	{
+	//		Fp4 t2;
+	//		sqr_fp4(t2, a[0][1], a[1][2], idx);
+
+	//		Fp2__sub(ret[0][2], t2[0], a[0][2], idx);
+	//		Fp2__add(ret[0][2], ret[0][2], ret[0][2], idx);
+	//		Fp2__add(ret[0][2], ret[0][2], t2[0], idx);
+
+	//		Fp2__mul_by_u_plus_1(t2[1], t2[1]);
+	//		Fp2__add(ret[1][0], t2[1], a[1][0], idx);
+	//		Fp2__add(ret[1][0], ret[1][0], ret[1][0], idx);
+	//		Fp2__add(ret[1][0], ret[1][0], t2[1], idx);
+	//	}
+	//}
+
+
 	BLST_HD __forceinline__ void cyclotomic_sqr(auto/*Fp12*/& ret, const auto/*Fp12*/& a, auto&& idx)
 	{
 
 		{
 			Fp4 t0;
-			sqr_fp4(t0, a[0][0], a[1][1], idx);
+			Fp2 rr;
+
+			rr[0] = load<Fp>(idx, a[0][0][0]);
+			rr[1] = load<Fp>(idx, a[0][0][1]);
+			sqr_fp4(t0, rr, a[1][1], idx);
 
 			// r00 = 4 (a00 a11)[0] - 2 a00
-			Fp2__sub(ret[0][0], t0[0], a[0][0], idx);      // r00 = t0_0 - a00
-			Fp2__add(ret[0][0], ret[0][0], t0[0], idx);    // r00 += t0_0
-			Fp2__add(ret[0][0], ret[0][0], ret[0][0], idx);// r00 *= 2 
+			Fp2__sub(rr, t0[0], rr, idx);      // r00 = t0_0 - a00
+			Fp2__add(rr, rr, t0[0], idx);    // r00 += t0_0
+			Fp2__add(ret[0][0], rr, rr, idx);// r00 *= 2 
 
 			// r11 = 4 (a00 a11)[1] + 2 a11
-			Fp2__add(ret[1][1], t0[1], a[1][1], idx);
-			Fp2__add(ret[1][1], ret[1][1], t0[1], idx);
-			Fp2__add(ret[1][1], ret[1][1], ret[1][1], idx);
+			Fp2__add(rr, t0[1], a[1][1], idx);
+			Fp2__add(rr, rr, t0[1], idx);
+			Fp2__add(ret[1][1], rr, rr, idx);
 		}
+		//Fp2 a01;
+		//a01[0] = load<Fp>(idx, a[0][1][0]);
+		//a01[1] = load<Fp>(idx, a[0][1][1]);
+
 		{
 			Fp4 t1;
+			Fp2 rr;
 			sqr_fp4(t1, a[1][0], a[0][2], idx);
 
-			Fp2__sub(ret[0][1], t1[0], a[0][1], idx);
-			Fp2__add(ret[0][1], ret[0][1], t1[0], idx);
-			Fp2__add(ret[0][1], ret[0][1], ret[0][1], idx);
+			auto& a01 = a[0][1];
+			Fp2__sub(rr, t1[0], a01, idx);
+			Fp2__add(rr, rr, t1[0], idx);
+			Fp2__add(ret[0][1], rr, rr, idx);
 
-			Fp2__add(ret[1][2], t1[1], a[1][2], idx);
-			Fp2__add(ret[1][2], ret[1][2], t1[1], idx);
-			Fp2__add(ret[1][2], ret[1][2], ret[1][2], idx);
+			Fp2__add(rr, t1[1], a[1][2], idx);
+			Fp2__add(rr, rr, t1[1], idx);
+			Fp2__add(ret[1][2], rr, rr, idx);
 
 		}
 		{
 			Fp4 t2;
-			sqr_fp4(t2, a[0][1], a[1][2], idx);
+			Fp2 rr;
+			auto& a01 = a[0][1];
+			sqr_fp4(t2, a01, a[1][2], idx);
 
-			Fp2__sub(ret[0][2], t2[0], a[0][2], idx);
-			Fp2__add(ret[0][2], ret[0][2], ret[0][2], idx);
-			Fp2__add(ret[0][2], ret[0][2], t2[0], idx);
+			Fp2__sub(rr, t2[0], a[0][2], idx);
+			Fp2__add(rr, rr, rr, idx);
+			Fp2__add(ret[0][2], rr, t2[0], idx);
 
 			Fp2__mul_by_u_plus_1(t2[1], t2[1]);
-			Fp2__add(ret[1][0], t2[1], a[1][0], idx);
-			Fp2__add(ret[1][0], ret[1][0], ret[1][0], idx);
-			Fp2__add(ret[1][0], ret[1][0], t2[1], idx);
+			Fp2__add(rr, t2[1], a[1][0], idx);
+			Fp2__add(rr, rr, rr, idx);
+			Fp2__add(ret[1][0], rr, t2[1], idx);
 		}
 	}
+
 #else
 
 	BLST_HD __forceinline__ void Fp2__sqr(Fp4& ret, const Fp2& a0, const Fp2& a1)

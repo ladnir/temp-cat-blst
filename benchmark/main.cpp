@@ -8,6 +8,7 @@
 #include "parallel_prefix_bench.h"
 #include <chrono>
 #include "sqr_impl.h"
+#include "blst/fields/FpTile.h"
 //BENCHMARK_MAIN();
 //void FpMain();
 //void Fp12Main();
@@ -56,6 +57,92 @@ BLST_GLOBAL void main_fp12_kernel(
 		//d_data[idx] = temp;
 	}
 }
+
+__launch_bounds__(64, 8)
+BLST_GLOBAL void main_fp12Tile_kernel(
+	bench::Fp12Tile* d_data,
+	u64   n)
+{
+	u64 idx;
+	u64 stride;
+
+	idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+	//stride = gridDim.x * blockDim.x;
+	//for (u64 i = idx; i < n; i += stride)
+	//{
+	if (idx < n) {
+
+#ifdef CHECK_RES
+		Fp12 in;
+		for (u64 i = 0; i < 2; ++i)
+			for (u64 j = 0; j < 3; ++j)
+				for (u64 k = 0; k < 2; ++k)
+					for (u64 l = 0; l < 6; ++l)
+					{
+						auto& ss = d_data[idx / 32].data[i][j].data[k][l / 2];
+						in[i][j][k][l] = l & 1 ? ss.y : ss.x;
+					}
+		
+		Fp12::cyclotomic_sqr(in, in);
+#endif
+
+		cyclotomic_sqr(d_data[idx / 32], d_data[idx / 32], NoopIdx{});
+
+#ifdef CHECK_RES
+		Fp12 out;
+		for (u64 i = 0; i < 2; ++i)
+		{
+			for (u64 j = 0; j < 3; ++j)
+				for (u64 k = 0; k < 2; ++k)
+					for (u64 l = 0; l < 6; ++l)
+					{
+						auto& ss = d_data[idx / 32].data[i][j].data[k][l / 2];
+						out[i][j][k][l] = l & 1 ? ss.y : ss.x;
+					}
+		}
+
+		if (Fp12::equal(in, out) == false)
+		{
+			printf("failed");
+		}
+#endif
+
+		//Fp12::cyclotomic_sqr(temp, d_data[idx]);
+		//d_data[idx] = temp;
+	}
+}
+
+
+__launch_bounds__(128, 4)
+BLST_GLOBAL void blst_fp12Tile_kernel(
+	blst::Fp12Tile* d_data,
+	u64   n)
+{
+	u64 idx;
+	u64 stride;
+
+	idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+	//stride = gridDim.x * blockDim.x;
+	//for (u64 i = idx; i < n; i += stride)
+	//{
+	if (idx < n) {
+		//blst::Fp12Tile::cyclotomic_sqr(d_data[idx / 32], d_data[idx / 32]);
+		//Fp12 temp;
+		//cyclotomic_sqr(d_data[idx / 32], d_data[idx / 32], NoopIdx{});
+		
+		//auto tile = d_data[idx / 32].load();
+		//cyclotomic_sqr(tile, tile, NoopIdx{});
+		//d_data[idx / 32].store(tile);
+
+		cyclotomic_sqr(d_data[idx / 32], d_data[idx / 32], NoopIdx{});
+
+		//Fp12::cyclotomic_sqr(temp, d_data[idx]);
+		//d_data[idx] = temp;
+	}
+}
+
 void Fp12Main()
 {
 	u64 n = 1 << 18;
@@ -101,6 +188,20 @@ void Fp12Main()
 			{
 				for (auto k = 0; k < 2; ++k)
 				{
+#ifdef USE_LONG2
+					for (auto l = 0; l < 3; ++l)
+					{
+						ulong2* ptr;
+						if (cuda)
+						{
+							cudaMalloc(&ptr, n * sizeof(ulong2));
+						}
+						else
+							ptr = (ulong2*)malloc(n * sizeof(ulong2));
+						d_data[i][j][k][l] = ptr;
+					}
+
+#else
 					for (auto l = 0; l < 6; ++l)
 					{
 						//d_data.data[i][j][k][l];
@@ -114,6 +215,7 @@ void Fp12Main()
 						//d_data[i][j][k][l] = std::span<limb_t>(ptr, n);
 						d_data[i][j][k][l] = ptr;
 					}
+#endif
 				}
 				//d_data.data[i][j].resize(n);
 			}
@@ -172,6 +274,114 @@ void Fp12Main()
 	printf("success\n");
 }
 
+
+void benchFp12TileMain()
+{
+	u64 n = 1 << 18;
+	bool cuda = true;
+	using Tile = bench::Fp12Tile;
+	Tile* d_data;
+	auto num_tiles = (n + 31) / 32;
+	if (cuda)
+		cudaMalloc(&d_data, num_tiles * sizeof(Tile));
+	else
+		d_data = (Tile*)malloc(num_tiles * sizeof(Tile));
+
+	// DIM
+	dim3 block(64);
+	dim3 grid((n + block.x - 1) / block.x);
+
+	auto begin = std::chrono::high_resolution_clock::now();
+
+	for (u64 i = 0; i < 10; ++i)
+	{
+		if (cuda)
+		{
+			main_fp12Tile_kernel << <grid, block >> > (d_data, n);
+			auto error = cudaGetLastError();
+			if (error != cudaSuccess)
+			{
+				printf("CUDA error: %s\n", cudaGetErrorString(error));
+			}
+			error = cudaDeviceSynchronize();
+			if (error != cudaSuccess)
+			{
+				printf("CUDA sync error: %s\n", cudaGetErrorString(error));
+			}
+		}
+		else
+		{
+			//for (u64 j = 0; j < n; ++j)
+			//{
+			//	cyclotomic_sqr(d_data, d_data, BasicIdx{ j });
+			//}
+		}
+	}
+	auto end = std::chrono::high_resolution_clock::now();
+
+	if (cuda)
+		cudaFree(d_data);
+	else
+		free(d_data);
+
+	printf("success\n");
+	auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
+	printf("time %d ms", (int)dur);
+}
+
+
+void blstFp12TileMain()
+{
+	u64 n = 1 << 18;
+	bool cuda = true;
+	blst::Fp12Tile* d_data;
+	auto num_tiles = (n + 31) / 32;
+	if (cuda)
+		cudaMalloc(&d_data, num_tiles * sizeof(blst::Fp12Tile));
+	else
+		d_data = (blst::Fp12Tile*)malloc(num_tiles * sizeof(blst::Fp12Tile));
+
+	// DIM
+	dim3 block(128);
+	dim3 grid((n + block.x - 1) / block.x);
+	auto begin = std::chrono::high_resolution_clock::now();
+
+	for (u64 i = 0; i < 10; ++i)
+	{
+		if (cuda)
+		{
+			blst_fp12Tile_kernel << <grid, block >> > (d_data, n);
+			auto error = cudaGetLastError();
+			if (error != cudaSuccess)
+			{
+				printf("CUDA error: %s\n", cudaGetErrorString(error));
+			}
+			error = cudaDeviceSynchronize();
+			if (error != cudaSuccess)
+			{
+				printf("CUDA sync error: %s\n", cudaGetErrorString(error));
+			}
+		}
+		else
+		{
+			//for (u64 j = 0; j < n; ++j)
+			//{
+			//	cyclotomic_sqr(d_data, d_data, BasicIdx{ j });
+			//}
+		}
+	}
+	auto end = std::chrono::high_resolution_clock::now();
+
+	if (cuda)
+		cudaFree(d_data);
+	else
+		free(d_data);
+
+	printf("success\n");
+	auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
+	printf("time %d ms", (int)dur);
+}
+
 BLST_GLOBAL void g1_add_kernel(G1Point* ret, blst::G1Point* a, blst::G1Point* b, size_t n)
 {
 	u64 idx;
@@ -228,7 +438,22 @@ __global__ void bench_fp_kernel(
 	auto elem_idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (elem_idx > n_elems)
 		return;
-
+#ifdef USE_LONG2
+	Fp aa;
+	for (u64 i = 0; i < NLIMBS / 2; ++i)
+	{
+		ulong2 val = a_ptr[i][elem_idx];
+		aa[2 * i + 0] = val.x;
+		aa[2 * i + 1] = val.y;
+	}
+	Fp bb;
+	for (u64 i = 0; i < NLIMBS / 2; ++i)
+	{
+		ulong2 val = b_ptr[i][elem_idx];
+		bb[2 * i + 0] = val.x;
+		bb[2 * i + 1] = val.y;
+	}
+#else
 	Fp aa;
 	for (u64 i = 0; i < NLIMBS; ++i)
 		aa[i] = a_ptr[i][elem_idx];
@@ -236,6 +461,7 @@ __global__ void bench_fp_kernel(
 	Fp bb;
 	for (u64 i = 0; i < NLIMBS; ++i)
 		bb[i] = b_ptr[i][elem_idx];
+#endif
 
 	Fp rr;
 
@@ -246,10 +472,20 @@ __global__ void bench_fp_kernel(
 		aa = rr;
 	}
 
+#ifdef USE_LONG2
+	for (u64 i = 0; i < NLIMBS / 2; ++i)
+	{
+		ulong2 val;
+		val.x = rr[2 * i + 0];
+		val.y = rr[2 * i + 1];
+		a_ptr[i][elem_idx] = val;
+	}
+#else
 	//a_ptr[my_offset] = rr;
 	for (u64 i = 0; i < NLIMBS; ++i)
 		a_ptr[i][n_elems] = rr[i];
 
+#endif
 }
 
 //// ==== __global__ kernels (1 element per thread, strided) ====
@@ -480,7 +716,19 @@ void user(int argc, char** argv)
 		return;
 	}
 
-	std::cout << "use --pp or --soa" << std::endl;
+	if (argc > 2 && argv[2] && strcmp(argv[2], "--tile") == 0)
+	{
+		blstFp12TileMain();
+		return;
+	}
+	if (argc > 2 && argv[2] && strcmp(argv[2], "--benchtile") == 0)
+	{
+		benchFp12TileMain();
+		return;
+	}
+
+
+	std::cout << "use --pp, --soa or --tile" << std::endl;
 	//G1Main();
 }
 

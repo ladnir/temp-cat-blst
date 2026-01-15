@@ -170,6 +170,87 @@ TEST_F(GTTest, ScalarMultiplication) {
         << "3 * e should equal e + e + e";
 }
 
+// More detailed diagnostic
+TEST_F(GTTest, DiagnosticFinalExp) {
+    // Manually trace through final_exp
+    GT miller_result;
+    GT::miller_loop(miller_result, &g2_affine, &g1_affine);
+
+    Fp12 f = miller_result.data;
+    Fp12 y1, y2, ret;
+
+    // Easy part: f^(p^6-1) * f^(p^2+1)
+    vec_copy(&y1, &f, sizeof(y1));
+    Fp12::conjugate(y1);                    // y1 = f^(p^6) = conjugate(f)
+    Fp12::inverse(y2, f);                   // y2 = f^(-1)
+    Fp12::mul(ret, y1, y2);                 // ret = f^(p^6-1)
+
+    std::cout << "After f^(p^6-1) - is_cyclotomic: " << Fp12::is_cyclotomic(ret) << std::endl;
+
+    Fp12::frobenius_map(y2, ret, 2);        // y2 = ret^(p^2)
+    Fp12::mul(ret, ret, y2);                // ret = ret^(p^2+1) = f^((p^6-1)(p^2+1))
+
+    std::cout << "After easy part (p^6-1)(p^2+1) - is_cyclotomic: " << Fp12::is_cyclotomic(ret) << std::endl;
+
+    // At this point, ret should be cyclotomic!
+    // If it's not, there's a bug in conjugate, inverse, mul, or frobenius_map
+
+    EXPECT_TRUE(Fp12::is_cyclotomic(ret))
+        << "Element should be cyclotomic after easy part of final_exp";
+
+    // Now continue with hard part using cyclotomic_sqr
+    if (Fp12::is_cyclotomic(ret)) {
+        Fp12 y0;
+        Fp12::cyclotomic_sqr(y0, ret);
+
+        // Check if cyclotomic_sqr preserves cyclotomic property
+        std::cout << "After cyclotomic_sqr - is_cyclotomic: " << Fp12::is_cyclotomic(y0) << std::endl;
+
+        // Compare with regular sqr
+        Fp12 y0_regular;
+        Fp12::sqr(y0_regular, ret);
+
+        bool sqr_match = Fp12::equal(y0, y0_regular);
+        std::cout << "cyclotomic_sqr == sqr: " << sqr_match << std::endl;
+
+        EXPECT_TRUE(sqr_match) << "cyclotomic_sqr should equal sqr for cyclotomic elements";
+    }
+}
+
+// Add this diagnostic test to understand the issue
+TEST_F(GTTest, DiagnosticCyclotomic) {
+    // Check if the pairing result is cyclotomic after final_exp
+    GT miller_result;
+    GT::miller_loop(miller_result, &g2_affine, &g1_affine);
+
+    // Before final_exp - should NOT be cyclotomic
+    bool before_cyclotomic = Fp12::is_cyclotomic(miller_result.data);
+    std::cout << "Before final_exp - is_cyclotomic: " << before_cyclotomic << std::endl;
+
+    // After final_exp - SHOULD be cyclotomic
+    GT final_result;
+    GT::final_mult(final_result, miller_result);
+    bool after_cyclotomic = Fp12::is_cyclotomic(final_result.data);
+    std::cout << "After final_exp - is_cyclotomic: " << after_cyclotomic << std::endl;
+
+    // Check if final_result equals gt_element (from SetUp)
+    bool equals_setup = GT::equal(final_result, gt_element);
+    std::cout << "Equals gt_element from SetUp: " << equals_setup << std::endl;
+
+    // Test that cyclotomic_sqr and regular sqr give same result on cyclotomic element
+    if (after_cyclotomic) {
+        Fp12 cyclo_sqr_result, regular_sqr_result;
+        Fp12::cyclotomic_sqr(cyclo_sqr_result, final_result.data);
+        Fp12::sqr(regular_sqr_result, final_result.data);
+
+        bool sqr_match = Fp12::equal(cyclo_sqr_result, regular_sqr_result);
+        std::cout << "cyclotomic_sqr == sqr: " << sqr_match << std::endl;
+
+        EXPECT_TRUE(sqr_match) << "cyclotomic_sqr should equal sqr for cyclotomic elements";
+    }
+
+    EXPECT_TRUE(after_cyclotomic) << "Element should be cyclotomic after final_exp";
+}
 //TEST_F(GTTest, Serialization) {
 //    // Test serialization/deserialization of GT elements
 //    Fp12 original = { 0 };  // Copy the gt_element

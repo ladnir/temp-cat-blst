@@ -28,6 +28,7 @@ set(TEST_SOURCES
     "Interface_tests.cpp"
     "Msm_tests.cpp"
     "parallel_prefix_tests.cpp"
+    "Fft_tests.cpp"
 )
 
 # Add CUDA tests if CUDA is enabled

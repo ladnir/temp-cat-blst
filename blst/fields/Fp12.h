@@ -12,6 +12,15 @@
 namespace blst
 {
 
+    struct Fp4 {
+        Fp2 data[2];
+        BLST_HD Fp2& operator[](size_t idx) {
+            return data[idx];
+        }
+        BLST_HD const Fp2& operator[](size_t idx)const {
+            return data[idx];
+        }
+    };
 
     struct Fp6 {
         Fp2 data[3];
@@ -50,6 +59,8 @@ namespace blst
 
         BLST_HD static const Fp12& one();
         BLST_HD static void cyclotomic_sqr(Fp12& ret, const Fp12& a);
+        BLST_HD static void cyclotomic_exp(Fp12& ret, const Fp12& a, const byte* exp, size_t bits);
+
         BLST_HD static void conjugate(Fp12& a);
         BLST_HD static void inverse(Fp12& ret, const Fp12& a);
 
