@@ -128,6 +128,8 @@ namespace blst
 
 		BLST_HD static void from_uint64(Fr& ret, const u64 a);
 
+		BLST_HD static Fr from_uint64(const u64 a);
+
 		BLST_HD static void from_hexascii(Fr& ret, const char* hex);
 
 		// write v to out in hex. out must at least be 65 bytes. will be 0 terminated.
@@ -149,6 +151,16 @@ namespace blst
     TO_LIMB_T(0xc999e990f3f29c6d), TO_LIMB_T(0x2b6cedcb87925c23),\
     TO_LIMB_T(0x05d314967254398f), TO_LIMB_T(0x0748d9d99f59ff11)
 
+#define BLST_GT_LAMBDA_LIMBS \
+    TO_LIMB_T(0x2dfefffeffff0001), TO_LIMB_T(0x53bda402fffe5bfe), TO_LIMB_T(0x3339d80809a1d805), TO_LIMB_T(0x73eda753299d7d48)
+
+#define BLST_GT_LAMBDA2_LIMBS \
+    TO_LIMB_T(0x0000000100000000), TO_LIMB_T(0xac45a4010001a402), TO_LIMB_T(0), TO_LIMB_T(0)
+
+
+
+
+
 	/* z^4 - z^2 + 1, group order */
 	constexpr Fr BLST_r_HOST = { BLST_r_LIMBS };
 
@@ -157,7 +169,9 @@ namespace blst
 
 	constexpr Fr BLST_r_zero_HOST = { 0,0,0,0 };
 	constexpr Fr BLST_r_one_HOST = { 0x1fffffffe, 0x5884b7fa00034802, 0x998c4fefecbc4ff5, 0x1824b159acc5056f };
-	
+	constexpr Fr BLST_GT_LAMBDA_HOST = { BLST_GT_LAMBDA_LIMBS };
+	constexpr Fr BLST_GT_LAMBDA2_HOST = { BLST_GT_LAMBDA2_LIMBS };
+
 
 #if defined(BLST_CUDA) && defined(__CUDACC__)
 
@@ -165,6 +179,9 @@ namespace blst
 	static __constant__ Fr BLST_rRR_DEV = { BLST_rRR_LIMBS };
 	static __constant__ Fr BLST_r_zero_DEV = { 0,0,0,0 };
 	static __constant__ Fr BLST_r_one_DEV = { 0x1fffffffe, 0x5884b7fa00034802, 0x998c4fefecbc4ff5, 0x1824b159acc5056f };
+
+	static __constant__ Fr BLST_GT_LAMBDA_DEV = { BLST_GT_LAMBDA_LIMBS };
+	static __constant__ Fr BLST_GT_LAMBDA2_DEV = { BLST_GT_LAMBDA2_LIMBS };
 
 
 #endif // __CUDA_ARCH__
@@ -190,6 +207,28 @@ namespace blst
 		return BLST_rRR_DEV;
 #else
 		return BLST_rRR_HOST;
+#endif
+	}
+
+	// Returns lambda = p mod r (as an Fr, canonical limbs; NOT Montgomery).
+	// Will return host or device memory depending on compilation target.
+	BLST_HD BLST_FORCEINLINE constexpr const Fr& get_BLST_gt_lambda(void)
+	{
+#if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
+		return BLST_GT_LAMBDA_DEV;
+#else
+		return BLST_GT_LAMBDA_HOST;
+#endif
+	}
+
+	// Returns lambda^2 = p^2 mod r (as an Fr, canonical limbs; NOT Montgomery).
+	// Will return host or device memory depending on compilation target.
+	BLST_HD BLST_FORCEINLINE constexpr const Fr& get_BLST_gt_lambda2(void)
+	{
+#if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
+		return BLST_GT_LAMBDA2_DEV;
+#else
+		return BLST_GT_LAMBDA2_HOST;
 #endif
 	}
 
@@ -356,6 +395,16 @@ namespace blst
 		memset(&aa, 0, sizeof aa);
 		aa[0] = a;
 		from_uint64(ret, aa);
+	}
+
+	BLST_HD BLST_INLINE Fr Fr::from_uint64(const u64 a)
+	{
+		u64 aa[256 / 64];
+		memset(&aa, 0, sizeof aa);
+		aa[0] = a;
+		Fr ret;
+		from_uint64(ret, aa);
+		return ret;
 	}
 
 	BLST_HD BLST_INLINE void Fr::from_hexascii(Fr& ret, const char* hex)
@@ -665,6 +714,7 @@ namespace blst
 	{
 		return cc_is_redc_mod_n<num_limbs()>((u8*)a.data, modulus().data);
 	}
+
 
 	//BLST_EXTERN_C_END
 }

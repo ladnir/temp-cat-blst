@@ -130,10 +130,12 @@ static void BM_Fp12Exponentiation(benchmark::State& state) {
     generate_random_fp12(a);
 
     // A small, simple exponent for benchmarking purposes
-    byte exponent[] = { 0x7, 0x0 };
+    byte exponent[32];
+
+	std::memset(exponent, 128 | 0xcc, 32); // Example exponent
 
     for (auto _ : state) {
-        Fp12::exp(c, a, exponent, 3);
+        Fp12::exp(c, a, exponent, 256);
         benchmark::DoNotOptimize(c);
     }
     state.SetItemsProcessed(state.iterations());
@@ -141,4 +143,174 @@ static void BM_Fp12Exponentiation(benchmark::State& state) {
 BENCHMARK(BM_Fp12Exponentiation);
 
 
+// Helper: Generate a random scalar (256-bit)
+void generate_random_scalar(byte scalar[32]) {
+    static std::random_device rd;
+    static std::mt19937_64 gen(rd());
+    static std::uniform_int_distribution<uint64_t> dis;
 
+    uint64_t* p = (uint64_t*)scalar;
+    for (int i = 0; i < 4; ++i) {
+        p[i] = dis(gen);
+    }
+}
+
+// ... existing benchmarks ...
+
+static void BM_Fp12CyclotomicExponentiation(benchmark::State& state) {
+    Fp12 a, base, c;
+    generate_random_fp12(a);
+    Fp12::final_exp(base, a); // Ensure base is in cyclotomic subgroup
+
+    byte scalar[32];
+    generate_random_scalar(scalar);
+
+    for (auto _ : state) {
+        Fp12::cyclotomic_exp(c, base, scalar, 256);
+        benchmark::DoNotOptimize(c);
+    }
+    state.SetItemsProcessed(state.iterations());
+}
+BENCHMARK(BM_Fp12CyclotomicExponentiation);
+
+static void BM_Fp12ExponentiationGLV(benchmark::State& state) {
+    Fp12 a, base, c;
+    generate_random_fp12(a);
+    Fp12::final_exp(base, a); // Ensure base is in cyclotomic subgroup
+
+    byte scalar[32];
+    generate_random_scalar(scalar);
+
+    for (auto _ : state) {
+        Fp12::cyclotomic_exp_glv(c, base, scalar, 256);
+        benchmark::DoNotOptimize(c);
+    }
+    state.SetItemsProcessed(state.iterations());
+}
+BENCHMARK(BM_Fp12ExponentiationGLV);
+
+// We need a helper to split scalars for the pre-split benchmark.
+// Since the library function might be internal, we duplicate the call logic
+// or use the Fr helper if available. 
+// Assuming Fr.h is available and has the constants/helpers we need.
+// If gt_split_scalar_phi2_u256_barrett is not public, we can't call it directly.
+// HOWEVER, we can just benchmark exp_glv with "random" 128-bit k1/k2 
+// which is effectively what the split produces performance-wise.
+
+static void BM_Fp12ExponentiationGLV_PreSplit(benchmark::State& state) {
+    Fp12 a, base, c;
+    generate_random_fp12(a);
+    Fp12::final_exp(base, a);
+
+    // Generate random 128-bit splits (simulation of pre-computation)
+    // k1, k2 are approx 128 bits for 256-bit scalars.
+    std::vector<std::pair<std::array<limb_t, 4>, std::array<limb_t, 4>>> splits(128);
+
+    std::random_device rd;
+    std::mt19937_64 gen(rd());
+    std::uniform_int_distribution<uint64_t> dis;
+
+    for (auto& s : splits) {
+        // Fill 128 bits (2 limbs) randomly, zero upper limbs
+        s.first[0] = dis(gen); s.first[1] = dis(gen); s.first[2] = 0; s.first[3] = 0;
+        s.second[0] = dis(gen); s.second[1] = dis(gen); s.second[2] = 0; s.second[3] = 0;
+    }
+
+    size_t idx = 0;
+    const auto& s = splits[idx & 127];
+    for (auto _ : state) {
+        Fp12::cyclotomic_exp_glv(c, base, s.first.data(), s.second.data());
+        benchmark::DoNotOptimize(c);
+        idx++;
+    }
+    state.SetItemsProcessed(state.iterations());
+}
+BENCHMARK(BM_Fp12ExponentiationGLV_PreSplit);
+
+
+//// We need a helper to split scalars for the pre-split benchmark.
+//// Since the library function might be internal, we duplicate the call logic
+//// or use the Fr helper if available. 
+//// Assuming Fr.h is available and has the constants/helpers we need.
+//// If gt_split_scalar_phi2_u256_barrett is not public, we can't call it directly.
+//// HOWEVER, we can just benchmark exp_glv with "random" 128-bit k1/k2 
+//// which is effectively what the split produces performance-wise.
+//
+//static void BM_Fp12ExponentiationGLV_opt(benchmark::State& state) {
+//    Fp12 a, base, c;
+//    generate_random_fp12(a);
+//    Fp12::final_exp(base, a);
+//
+//    // Generate random 128-bit splits (simulation of pre-computation)
+//    // k1, k2 are approx 128 bits for 256-bit scalars.
+//    std::vector<std::pair<std::array<limb_t, 4>, std::array<limb_t, 4>>> splits(128);
+//
+//    std::random_device rd;
+//    std::mt19937_64 gen(rd());
+//    std::uniform_int_distribution<uint64_t> dis;
+//
+//    for (auto& s : splits) {
+//        // Fill 128 bits (2 limbs) randomly, zero upper limbs
+//        s.first[0] = dis(gen); s.first[1] = dis(gen); s.first[2] = 0; s.first[3] = 0;
+//        s.second[0] = dis(gen); s.second[1] = dis(gen); s.second[2] = 0; s.second[3] = 0;
+//    }
+//
+//    size_t idx = 0;
+//    const auto& s = splits[idx & 127];
+//    for (auto _ : state) {
+//        Fp12::cyclotomic_exp_glv_optimized(c, base, s.first.data(), s.second.data());
+//        benchmark::DoNotOptimize(c);
+//        idx++;
+//    }
+//    state.SetItemsProcessed(state.iterations());
+//}
+//BENCHMARK(BM_Fp12ExponentiationGLV_opt);
+namespace blst {
+    BLST_HD int recode_glv_jsf(int8_t jsf[][2], const limb_t* k1, const limb_t* k2);
+
+    BLST_HD void cyclotomic_exp_glv_opt(Fp12& out, const Fp12& base, int8_t jsf[132][2], int len);
+}
+
+// We need a helper to split scalars for the pre-split benchmark.
+// Since the library function might be internal, we duplicate the call logic
+// or use the Fr helper if available. 
+// Assuming Fr.h is available and has the constants/helpers we need.
+// If gt_split_scalar_phi2_u256_barrett is not public, we can't call it directly.
+// HOWEVER, we can just benchmark exp_glv with "random" 128-bit k1/k2 
+// which is effectively what the split produces performance-wise.
+
+static void BM_Fp12ExponentiationGLV_opt(benchmark::State& state) {
+    Fp12 a, base, c;
+    generate_random_fp12(a);
+    Fp12::final_exp(base, a);
+
+    // Generate random 128-bit splits (simulation of pre-computation)
+    // k1, k2 are approx 128 bits for 256-bit scalars.
+    //std::vector<std::pair<std::array<limb_t, 4>, std::array<limb_t, 4>>> splits(128);
+
+    std::random_device rd;
+    std::mt19937_64 gen(rd());
+    std::uniform_int_distribution<uint64_t> dis;
+    std::pair<std::array<limb_t, 4>, std::array<limb_t, 4>> s;
+
+    //for (auto& s : splits) 
+    {
+        // Fill 128 bits (2 limbs) randomly, zero upper limbs
+        s.first[0] = dis(gen); s.first[1] = dis(gen); s.first[2] = 0; s.first[3] = 0;
+        s.second[0] = dis(gen); s.second[1] = dis(gen); s.second[2] = 0; s.second[3] = 0;
+    }
+
+    int8_t jsf[132][2];
+	auto len = recode_glv_jsf(jsf, s.first.data(), s.second.data());
+
+    size_t idx = 0;
+    //const auto& s = splits[idx & 127];
+    for (auto _ : state) {
+        //Fp12::cyclotomic_exp_glv_optimized(c, base, s.first.data(), s.second.data());
+		cyclotomic_exp_glv_opt(c, base, jsf, len);
+        benchmark::DoNotOptimize(c);
+        idx++;
+    }
+    state.SetItemsProcessed(state.iterations());
+}
+BENCHMARK(BM_Fp12ExponentiationGLV_opt);

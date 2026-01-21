@@ -22,7 +22,7 @@ FetchContent_MakeAvailable(googlebenchmark)
 set(BENCHMARK_SOURCES
     #"Fp_bench.cpp"
     #"Fp2_bench.cpp" 
-    #"Fp12_bench.cpp"
+    "Fp12_bench.cpp"
     #"Fr_bench.cpp"
     #"G1_bench.cpp"
     #"G2_bench.cpp"
@@ -30,6 +30,7 @@ set(BENCHMARK_SOURCES
     #"MSM_bench.cpp"
     "main.cpp"
     "Fp12Coop_bench.cpp"
+    "FFT_bench.cpp"
 )
 
 # Add CUDA benchmarks if CUDA is enabled

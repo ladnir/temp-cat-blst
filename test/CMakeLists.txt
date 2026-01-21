@@ -48,6 +48,7 @@ if(BLST_CUDA)
         "G1Cuda_tests.cpp"
         "G2Cuda_tests.cpp"
         "GTCuda_tests.cpp"
+        "FftCuda_tests.cpp"
     )
 
 endif()

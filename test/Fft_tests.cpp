@@ -1,43 +1,16 @@
 #include <iostream>
 #include <vector>
-#include "blst/fft/ctFft.h"
 #include <gtest/gtest.h>
 #include "BasicFp.h"
 #include "blst/fields/Fr.h"
 #include "blst/curve/point.h"
 #include "blst/curve/GT.h"
-
-using F65537 = BasicFp<65537, u32, u64>;
-//struct F65537 {
-//    long long value;
-//    static const long long MOD = 65537; // For testing only
+#include "blst/fft/primitveRoot.h"
+#include "blst/fft/context.h"
+#include "blst/fft/ctFft.h"
 //
-//    F65537(long long v = 0) : value((v% MOD + MOD) % MOD) {}
-//
-//    F65537 operator+(const F65537& other) const { return F65537(value + other.value); }
-//    F65537 operator-(const F65537& other) const { return F65537(value - other.value); }
-//    F65537 operator*(const F65537& other) const { return F65537(value * other.value); }
-//
-//    F65537& operator=(const F65537& other) { value = other.value; return *this; }
-//
-//    // Correct modular inverse for the iFFT scaling factor [cite: 154]
-//    F65537 inv() const {
-//        return pow(MOD - 2);
-//    }
-//
-//    F65537 pow(long long exp) const {
-//        F65537 res(1);
-//        auto base = *this;
-//
-//        while (exp > 0) {
-//            if (exp % 2 == 1) res = res * base;
-//            base = base * base;
-//            exp /= 2;
-//        }
-//        return res;
-//    }
-//};
-
+//using F65537 = BasicFp<65537, u32, u64>;
+using namespace blst;
 /**
  * Naive polynomial multiplication (discrete convolution)
  * @tparam G The Group type for coefficients of A (e.g., G1)
@@ -67,148 +40,56 @@ std::vector<GT> naive_multiply(const std::vector<G>& A, const std::vector<G2>& B
     return expected;
 }
 
+//
+//TEST(Fft, basic) {
+//
+//    auto n = 4;
+//    size_t N = n*2; // FFT size (2*B) to avoid aliasing [cite: 150]
+//
+//    std::vector<F65537> A = { 1, 2, 3, 4 }; // Padded keys [cite: 149]
+//    std::vector<F65537> B = { 5, 6, 7, 8 }; // Padded CRS [cite: 149]
+//
+//    // 1. Naive Convolution (The "B^2" bottleneck) [cite: 36, 122]
+//    std::vector<F65537> expected = naive_multiply<F65537, F65537, F65537>(A, B);
+//	expected.resize(N); // Pad to N
+//
+//    auto prim = primRootOfUnity<F65537>(N);
+//    std::vector<F65537> roots(N);
+//    precomputeRootsOfUnity< F65537>(prim, roots);
+//    
+//    std::vector<F65537> inv_roots(N);
+//    for (size_t i = 0; i < N; ++i) {
+//        inv_roots[i] = roots[i].inverse();
+//    }
+//    // 2. FFT Convolution 
+//    // (Assume roots are precomputed for simplicity in this test)
+//
+//    A.resize(N);
+//    B.resize(N);
+//
+//    fft(A, roots, false);
+//    fft(B, roots, false);
+//
+//    std::vector<F65537> C(N);
+//    for (int i = 0; i < N; ++i) C[i] = A[i] * B[i]; // Pointwise pairing 
+//
+//    fft(C, inv_roots, true); // Inverse FFT 
+//
+//    //std::cout << "FFT Convolution Result (first 4): ";
+//    //for (int i = 0; i < 4; ++i) std::cout << C[i] << " ";
+//    //std::cout << "\nNaive Result (first 4): ";
+//    //for (int i = 0; i < 4; ++i) std::cout << expected[i] << " ";
+//
+//    EXPECT_EQ(C, expected);
+//}
 
-TEST(Fft, basic) {
-
-    auto n = 4;
-    size_t N = n*2; // FFT size (2*B) to avoid aliasing [cite: 150]
-
-    std::vector<F65537> A = { 1, 2, 3, 4 }; // Padded keys [cite: 149]
-    std::vector<F65537> B = { 5, 6, 7, 8 }; // Padded CRS [cite: 149]
-
-    // 1. Naive Convolution (The "B^2" bottleneck) [cite: 36, 122]
-    std::vector<F65537> expected = naive_multiply<F65537, F65537, F65537>(A, B);
-	expected.resize(N); // Pad to N
-
-    auto prim = primRootOfUnity<F65537>(N);
-    std::vector<F65537> roots(N);
-    precomputeRootsOfUnity< F65537>(prim, roots);
-    
-    std::vector<F65537> inv_roots(N);
-    for (size_t i = 0; i < N; ++i) {
-        inv_roots[i] = roots[i].inverse();
-    }
-    // 2. FFT Convolution 
-    // (Assume roots are precomputed for simplicity in this test)
-
-    A.resize(N);
-    B.resize(N);
-
-    fft(A, roots, false);
-    fft(B, roots, false);
-
-    std::vector<F65537> C(N);
-    for (int i = 0; i < N; ++i) C[i] = A[i] * B[i]; // Pointwise pairing 
-
-    fft(C, inv_roots, true); // Inverse FFT 
-
-    std::cout << "FFT Convolution Result (first 4): ";
-    for (int i = 0; i < 4; ++i) std::cout << C[i] << " ";
-    std::cout << "\nNaive Result (first 4): ";
-    for (int i = 0; i < 4; ++i) std::cout << expected[i] << " ";
-
-    EXPECT_EQ(C, expected);
-}
-
-
-// Explicit specialization of primRootOfUnity for blst::Fr.
-// This bypasses the random search in findGenerator by using the known
-// structure of the BLS12-381 scalar field (2-adicity = 32, generator = 7).
-template<>
-blst::Fr primRootOfUnity<blst::Fr>(u64 n)
-{
-    // The explicit table cache is initialized exactly once (thread-safe).
-    static const std::array<blst::Fr, 33> roots = []() {
-        std::array<blst::Fr, 33> table; // Stores primitive 2^k-th roots for k=0..32
-
-		table[32][0] = 0xb9b58d8c5f0e466a;
-		table[32][1] = 0x5b1b4c801819d7ec;
-		table[32][2] = 0x0af53ae352a31e64;
-		table[32][3] = 0x5bf3adda19e9b27b;
-
-        // Compute 2^k roots by repeated squaring
-        for (int i = 31; i >= 0; --i) {
-            blst::Fr::sqr(table[i], table[i + 1]);
-        }
-        return table;
-
-        }();
-
-    // Verify n is a power of 2
-    u64 k = 0;
-    if (n > 0 && (n & (n - 1)) == 0) {
-        u64 v = n;
-        while (v >>= 1) k++;
-    }
-    else {
-        throw std::runtime_error("primRootOfUnity: n must be a power of 2");
-    }
-
-    if (k >= roots.size()) {
-        throw std::runtime_error("primRootOfUnity: n exceeds 2-adicity (2^32)");
-    }
-
-    // roots[k] is the primitive 2^k-th root of unity
-    return roots[k];
-}
-
-template<>
-inline bool isPrimRootOfUnity<Fr>(std::span<Factor> factors, const Fr& u)
-{
-    auto p = Fr::modulus();
-    u64 n = 1;
-    for (auto fe : factors)
-    {
-        for (u64 i = 0; i < fe.mExp; ++i)
-            n *= fe.mFactor;
-    }
-
-    //Fr pMinusOne, N, pMinusOneModN;
-    //Fr::sub(pMinusOne, p, Fr::one());
-    //Fr::from_uint64(N, n);
-    //Fr::mod(pMinusOneModN, pMinusOneMod, N);
-
-    //if (pMinusOne % N)
-    //    throw RTE_LOC;
-
-    // make suer u is in Fp*
-    if (u == Fr::zero())
-        return false;
-
-    Fr uPowN;
-    Fr::exp(uPowN, u, (byte*)&n, std::bit_width(n));
-    // make sure u is a root of unity.
-    if (uPowN != Fr::one())
-        return false;
-
-    // check that u is a primitive root of unity.
-    for (u64 i = 1; i < factors.size() - 1; ++i)
-    {
-        auto ni = n / factors[i].mFactor;
-        Fr uPowNi;
-        Fr::exp(uPowNi, u, (byte*)&ni, std::bit_width(ni));
-        if (uPowNi == Fr::one())
-        {
-            return false;
-        }
-    }
-    return true;
-}
-
-// returns true if f is a primitive root of unity.
-template<>
-inline bool isPrimRootOfUnity<Fr>(u64 n, const Fr& u)
-{
-    auto factors = uniqueFactor(n);
-    return isPrimRootOfUnity<Fr>(factors, u);
-}
 
 TEST(Fft, BlstFrRoots) {
     auto one = blst::Fr::one();
     blst::Fr negOne;
     blst::Fr::neg(negOne, one);
 
-    EXPECT_TRUE(blst::Fr::equal(primRootOfUnity<blst::Fr>(1), blst::Fr::one()));
+    EXPECT_TRUE(blst::Fr::equal(blst::primRootOfUnity<blst::Fr>(1), blst::Fr::one()));
 
     // Verify roots for powers of 2 up to 2^32
     for (int k = 0; k <= 32; ++k) {
@@ -252,38 +133,38 @@ Fr mf(u64 i)
     Fr::from_uint64(r, i);
     return r;
 }
-
-
-struct FrCoeffCtx
-{
-    static auto plus(const Fr& a, const Fr& b) {
-        Fr r;
-        Fr::add(r, a, b);
-        return r;
-    }
-    static auto minus(const Fr& a, const Fr& b) {
-        Fr r;
-        Fr::sub(r, a, b);
-        return r;
-    }
-
-    static auto mult(const Fr& a, const Fr& b) {
-        Fr r;
-        Fr::mul(r, a, b);
-        return r;
-    }
-    static auto inverse(const Fr& a) {
-        Fr r;
-        Fr::reciprocal(r, a);
-        return r;
-    }
-
-    template<typename F>
-    static auto from_u64(u64 a) {
-        return mf(a);
-    }
-
-};
+//
+//
+//struct FrCoeffCtx
+//{
+//    static auto plus(const Fr& a, const Fr& b) {
+//        Fr r;
+//        Fr::add(r, a, b);
+//        return r;
+//    }
+//    static auto minus(const Fr& a, const Fr& b) {
+//        Fr r;
+//        Fr::sub(r, a, b);
+//        return r;
+//    }
+//
+//    static auto mult(const Fr& a, const Fr& b) {
+//        Fr r;
+//        Fr::mul(r, a, b);
+//        return r;
+//    }
+//    static auto inverse(const Fr& a) {
+//        Fr r;
+//        Fr::reciprocal(r, a);
+//        return r;
+//    }
+//
+//    template<typename F>
+//    static auto from_u64(u64 a) {
+//        return mf(a);
+//    }
+//
+//};
 
 std::ostream & operator<<(std::ostream& os, const Fr& f)
 {
@@ -353,48 +234,6 @@ TEST(Fft, FrFft) {
         EXPECT_EQ(C, expected);
     }
 }
-
-// Context for FFT operations on G1 points with Fr scalars (FFT in the exponent)
-struct G1CoeffCtx
-{
-    // G1 + G1 -> G1 (point addition)
-    static auto plus(const G1Point& a, const G1Point& b) {
-        G1Point r;
-        G1Point::dadd(r, a, b);
-        return r;
-    }
-
-    // G1 - G1 -> G1 (point subtraction)
-    static auto minus(const G1Point& a, const G1Point& b) {
-        G1Point neg_b;
-        G1Point::neg(neg_b, b);
-        G1Point r;
-        G1Point::dadd(r, a, neg_b);
-        return r;
-    }
-
-    // G1 * Fr -> G1 (scalar multiplication)
-    static auto mult(const G1Point& a, const Fr& b) {
-        G1Point r;
-        // Convert Fr from Montgomery form to scalar bytes for mult
-        Fr b_non_mont;
-        Fr::from_mont(b_non_mont, b);
-        G1Point::mult(r, a, reinterpret_cast<const byte*>(&b_non_mont), 256);
-        return r;
-    }
-
-    // Inverse of Fr scalar (for iFFT scaling)
-    static auto inverse(const Fr& a) {
-        Fr r;
-        Fr::reciprocal(r, a);
-        return r;
-    }
-
-    template<typename F>
-    static auto from_u64(u64 a) {
-        return mf(a);
-    }
-};
 
 // Helper to create G1 point = generator * scalar
 G1Point g1(u64 scalar) {
@@ -505,48 +344,6 @@ TEST(Fft, G1Fft) {
 
     EXPECT_TRUE(match);
 }
-
-// Context for FFT operations on G2 points with Fr scalars (FFT in the exponent)
-struct G2CoeffCtx
-{
-    // G2 + G2 -> G2 (point addition)
-    static auto plus(const G2Point& a, const G2Point& b) {
-        G2Point r;
-        G2Point::dadd(r, a, b);
-        return r;
-    }
-
-    // G2 - G2 -> G2 (point subtraction)
-    static auto minus(const G2Point& a, const G2Point& b) {
-        G2Point neg_b;
-        G2Point::neg(neg_b, b);
-        G2Point r;
-        G2Point::dadd(r, a, neg_b);
-        return r;
-    }
-
-    // G2 * Fr -> G2 (scalar multiplication)
-    static auto mult(const G2Point& a, const Fr& b) {
-        G2Point r;
-        // Convert Fr from Montgomery form to scalar bytes for mult
-        Fr b_non_mont;
-        Fr::from_mont(b_non_mont, b);
-        G2Point::mult(r, a, reinterpret_cast<const byte*>(&b_non_mont), 256);
-        return r;
-    }
-
-    // Inverse of Fr scalar (for iFFT scaling)
-    static auto inverse(const Fr& a) {
-        Fr r;
-        Fr::reciprocal(r, a);
-        return r;
-    }
-
-    template<typename F>
-    static auto from_u64(u64 a) {
-        return mf(a);
-    }
-};
 
 // Helper to create G2 point = generator * scalar
 G2Point g2(u64 scalar) {
@@ -661,45 +458,6 @@ TEST(Fft, G2Fft) {
 
 
 
-// Context for FFT operations on GT elements with Fr scalars
-struct GTCoeffCtx
-{
-    // GT + GT -> GT (group addition = Fp12 multiplication)
-    static auto plus(const GT& a, const GT& b) {
-        GT r;
-        GT::add(r, a, b);
-        return r;
-    }
-
-    // GT - GT -> GT (group subtraction = Fp12 division)
-    static auto minus(const GT& a, const GT& b) {
-        GT r;
-        GT::sub(r, a, b);
-        return r;
-    }
-
-    // GT * Fr -> GT (scalar multiplication = Fp12 exponentiation)
-    static auto mult(const GT& a, const Fr& b) {
-        GT r;
-        Fr b_non_mont;
-        Fr::from_mont(b_non_mont, b);
-        GT::mult(r, a, reinterpret_cast<const byte*>(&b_non_mont), 256);
-        return r;
-    }
-
-    // Inverse of Fr scalar (for iFFT scaling)
-    static auto inverse(const Fr& a) {
-        Fr r;
-        Fr::reciprocal(r, a);
-        return r;
-    }
-
-    template<typename F>
-    static auto from_u64(u64 a) {
-        return mf(a);
-    }
-};
-
 // Pairing function: G1 x G2 -> GT
 GT pair(const G1Point& p, const G2Point& q) {
     G1AffinePoint p_aff;
@@ -787,7 +545,7 @@ TEST(Fft, PairingBilinearity) {
 
 // Test GT FFT round-trip (FFT then iFFT should give back original)
 TEST(Fft, GTFftRoundTrip) {
-    size_t N = 8;
+    size_t N = 16;
 
     // Create some GT elements via pairings - use the correct pairing pattern
     G1AffinePoint P_aff;
@@ -869,12 +627,20 @@ TEST(Fft, GTScalarMult) {
 }
 
 TEST(Fft, G1G2PairingFft) {
-    auto n = 4;
+    auto n = 8;
     size_t N = n * 2; // FFT size
 
     // 1. Setup data: G1 points (A) and G2 points (B)
-    std::vector<G1Point> A = { g1(1), g1(2), g1(3), g1(4) };
-    std::vector<G2Point> B = { g2(5), g2(6), g2(7), g2(8) };
+    //std::vector<G1Point> A = { g1(1), g1(2), g1(3), g1(4) };
+    //std::vector<G2Point> B = { g2(5), g2(6), g2(7), g2(8) };
+
+    std::vector<G1Point> A;
+    std::vector<G2Point> B;
+    while (A.size() != n)
+    {
+        A.push_back(g1(rand()));
+        B.push_back(g2(rand()));
+    }
 
     // 2. Naive Convolution for expected result
     // Computes sum of pairing(A[i], B[j]) for i+j = k

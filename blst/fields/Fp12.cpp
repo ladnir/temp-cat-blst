@@ -1006,6 +1006,692 @@ namespace blst
 	}
 
 
+	//static BLST_HD BLST_FORCEINLINE unsigned get_bit_le_128(const unsigned char x[16], unsigned bit)
+	//{
+	//	return (unsigned)((x[bit >> 3] >> (bit & 7u)) & 1u);
+	//}
+
+	//// Select among {1, a, b, ab} based on 2-bit selector without deep branching.
+	//// sel: bit0 = use a, bit1 = use b.
+	//static BLST_HD BLST_FORCEINLINE void mul_by_pair_sel(
+	//	Fp12& acc, const Fp12& a, const Fp12& b, const Fp12& ab, unsigned sel)
+	//{
+	//	// This is structured to encourage predication on CUDA.
+	//	// Worst case (no predication): still only a small set of branches per-iteration.
+	//	if (sel == 1u) {
+	//		Fp12::mul(acc, acc, a);
+	//	}
+	//	else if (sel == 2u) {
+	//		Fp12::mul(acc, acc, b);
+	//	}
+	//	else if (sel == 3u) {
+	//		Fp12::mul(acc, acc, ab);
+	//	}
+	//}
+
+
+	// Unsigned phi^2 split:
+	//   k = k1 + k2*lambda2
+	// with:
+	//   0 <= k1 < lambda2, k2 = floor(k/lambda2).
+	BLST_HD BLST_FORCEINLINE void gt_split_scalar_phi2_u256_barrett(
+		limb_t k1_out[4],
+		limb_t k2_out[4],
+		const limb_t k[4])
+	{
+		// Constants
+		const limb_t d0 = 0x0000000100000000ULL;
+		const limb_t d1 = 0xac45a4010001a402ULL;
+		const limb_t mu0 = 0x63f6e522f6cfee2eULL;
+		const limb_t mu1 = 0x7c6becf1e01faaddULL;
+
+		// q_approx = (k >> 128) + ((k * mu_lo) >> 256)
+		// 1. Term A = k >> 128 = { k[2], k[3], 0, 0 }
+		// 2. Term B = (k * mu_lo) >> 256. 
+		//    We calculate k[0..3] * mu[0..1], result 6 limbs, keep limbs [4,5].
+
+		limb_t p[6] = { 0 };
+
+		// k * mu0
+		{
+			limb_t carry = 0;
+			for (int i = 0; i < 4; i++) {
+				wide_limb_t w;
+				cc_mul_wide_limb_limb(&w, k[i], mu0);
+				cc_add_wide_wide_limb(&w, w, carry);
+				p[i] = w.lo;
+				carry = w.hi;
+			}
+			p[4] = carry;
+		}
+
+		// k * mu1, shift offset 1
+		{
+			limb_t carry = 0;
+			for (int i = 0; i < 4; i++) {
+				wide_limb_t w;
+				cc_mul_wide_limb_limb(&w, k[i], mu1);
+				// add to accumulator p[i+1]
+				wide_limb_t sum;
+				cc_add_wide_limb_limb(&sum, w.lo, p[i + 1]);
+				cc_add_wide_wide_limb(&sum, sum, carry);
+
+				p[i + 1] = sum.lo;
+				// new carry is w.hi + sum.hi
+				carry = w.hi + sum.hi;
+			}
+			p[5] = carry;
+		}
+
+		// Sum q = Term A + Term B
+		// q[0] = k[2] + p[4], q[1] = k[3] + p[5]
+		limb_t q[4] = { 0 };
+
+		{
+			wide_limb_t w;
+			cc_add_wide_limb_limb(&w, k[2], p[4]);
+			q[0] = w.lo;
+
+			wide_limb_t w2;
+			cc_add_wide_limb_limb(&w2, k[3], p[5]);
+			cc_add_wide_wide_limb(&w2, w2, w.hi); // carry
+			q[1] = w2.lo;
+			q[2] = w2.hi; // q might overflow 128 bits slightly
+		}
+
+		// Calculate Remainder r = k - q*d
+		// We only need low 256 bits of q*d.
+		limb_t prod[4] = { 0 };
+
+		auto mul_add_d = [&](limb_t q_limb, int offset) {
+			if (q_limb == 0) return;
+			wide_limb_t w;
+			limb_t carry = 0;
+
+			// d0
+			cc_mul_wide_limb_limb(&w, d0, q_limb);
+			cc_add_wide_wide_limb(&w, w, prod[offset]); // add to existing
+			prod[offset] = w.lo;
+			carry = w.hi;
+
+			// d1
+			if (offset + 1 < 4) {
+				wide_limb_t w2;
+				cc_mul_wide_limb_limb(&w2, d1, q_limb);
+				cc_add_wide_wide_limb(&w2, w2, prod[offset + 1]);
+				cc_add_wide_wide_limb(&w2, w2, carry);
+				prod[offset + 1] = w2.lo;
+				carry = w2.hi;
+			}
+
+			// propagate
+			for (int i = offset + 2; i < 4 && carry; i++) {
+				wide_limb_t s;
+				cc_add_wide_limb_limb(&s, prod[i], carry);
+				prod[i] = s.lo;
+				carry = s.hi;
+			}
+			};
+
+		mul_add_d(q[0], 0);
+		mul_add_d(q[1], 1);
+		mul_add_d(q[2], 2);
+
+		// r = k - prod
+		limb_t r[4];
+		limb_t borrow = 0;
+		for (int i = 0; i < 4; i++) {
+			limb_t diff = k[i] - prod[i] - borrow;
+			borrow = (k[i] < prod[i]) | ((k[i] == prod[i]) & borrow);
+			r[i] = diff;
+		}
+
+		// Correction loop
+		// Because q is floor estimate (or slightly less), q*d <= k is expected.
+		// So r should be positive (borrow == 0).
+		// If borrow == 1, then prod > k, meaning q was too BIG.
+		// This happens if our estimate was slightly over?
+		// Actually q_approx <= k/d generally.
+		// But let's handle both cases.
+
+		limb_t d_full[4] = { d0, d1, 0, 0 };
+
+		auto ge = [&](const limb_t A[4], const limb_t B[4]) {
+			for (int i = 3; i >= 0; i--) if (A[i] != B[i]) return A[i] > B[i];
+			return true;
+			};
+
+		if (borrow) {
+			// Wraparound means negative result (k < prod). q too big.
+			// r currently holds (k - prod) mod 2^256, which is large.
+			// We need to add d back to r and decrement q until r is small positive.
+			// Effectively: while (r is "negative") { r += d; q--; }
+			while (borrow) {
+				// r += d
+				limb_t carry = 0;
+				for (int i = 0; i < 4; i++) {
+					wide_limb_t w;
+					cc_add_wide_limb_limb(&w, r[i], d_full[i]);
+					cc_add_wide_wide_limb(&w, w, carry);
+					r[i] = w.lo;
+					carry = w.hi;
+				}
+				// If carry out is 1, we wrapped back to positive range
+				if (carry) borrow = 0;
+
+				// q--
+				limb_t sub_b = 1;
+				for (int i = 0; i < 4; i++) {
+					limb_t res = q[i] - sub_b;
+					sub_b = (q[i] < sub_b);
+					q[i] = res;
+				}
+			}
+		}
+		else {
+			// r is positive. Check if r >= d (q too small).
+			while (ge(r, d_full)) {
+				// r -= d
+				limb_t b_inner = 0;
+				for (int i = 0; i < 4; i++) {
+					limb_t diff = r[i] - d_full[i] - b_inner;
+					b_inner = (r[i] < d_full[i]) | ((r[i] == d_full[i]) & b_inner);
+					r[i] = diff;
+				}
+
+				// q++
+				limb_t c_inner = 1;
+				for (int i = 0; i < 4; i++) {
+					wide_limb_t w;
+					cc_add_wide_limb_limb(&w, q[i], c_inner);
+					q[i] = w.lo;
+					c_inner = w.hi;
+				}
+			}
+		}
+
+		// Copy out
+		for (int i = 0; i < 4; i++) {
+			k1_out[i] = r[i];
+			k2_out[i] = q[i];
+		}
+	}
+
+
+	// Overload for pre-split scalars
+	BLST_HD FP12_CPP_INLINE void Fp12::cyclotomic_exp_glv(Fp12& out, const Fp12& base, const limb_t* k1, const limb_t* k2)
+	{
+		// Precompute window table
+		// T[0] = 1 (implied)
+		// T[1] = g^1 * phi(g)^0 = g
+		// T[2] = g^0 * phi(g)^1 = phi^2(g)
+		// T[3] = g^1 * phi(g)^1 = g * phi^2(g)
+
+		Fp12 g_phi2;
+		Fp12::frobenius_map(g_phi2, base, 2);
+
+		// We need T[3] = base * g_phi2
+		Fp12 T3;
+		Fp12::mul(T3, base, g_phi2);
+
+		// Initialize accumulator with identity? 
+		// Or better: find MSB and start there to save squarings.
+		// max bits of k1, k2 is approx 128.
+
+		vec_copy(&out, &Fp12::one(), sizeof(Fp12));
+
+		// Scan bits from 128 down to 0
+		// We can just run fixed 129 iterations for constant-time-ishness
+		// (though split logic had data dependent loops, so full CT requires more work)
+
+		for (int i = 128; i >= 0; --i) {
+			Fp12::cyclotomic_sqr(out, out);
+
+			unsigned b1 = (unsigned)((k1[i / 64] >> (i % 64)) & 1);
+			unsigned b2 = (unsigned)((k2[i / 64] >> (i % 64)) & 1);
+			unsigned idx = b1 | (b2 << 1); // 0..3
+
+			if (idx == 1) Fp12::mul(out, out, base);
+			else if (idx == 2) Fp12::mul(out, out, g_phi2);
+			else if (idx == 3) Fp12::mul(out, out, T3);
+		}
+	}
+
+	// Original GLV exponentiation calling the splitter
+	BLST_HD FP12_CPP_INLINE void Fp12::cyclotomic_exp_glv(
+		Fp12& out, const Fp12& base, const byte* scalar_bytes, size_t scalar_bits)
+	{
+		// Convert input bytes to limbs
+		limb_t k[4];
+		if (scalar_bits == 256) {
+			// Assume LE bytes
+			// Simple load if aligned, else cautious load
+			const u64* k64 = (const u64*)scalar_bytes; // Warning: alignment
+			// Safe copy:
+			for (int i = 0; i < 4; i++) {
+				// primitive manual load for portability/safety
+				u64 w = 0;
+				for (int b = 0; b < 8; b++) w |= ((u64)scalar_bytes[i * 8 + b]) << (b * 8);
+				k[i] = (limb_t)w;
+			}
+		}
+		else {
+			// fallback or assert, generic exp supports varsize
+			// For now assume 256
+			//vec_zero(k, sizeof(k));
+			BLST_ASSERT(false && "exp_glv currently only supports 256-bit scalars");
+		}
+
+		limb_t k1[4], k2[4];
+		gt_split_scalar_phi2_u256_barrett(k1, k2, k);
+
+		// Delegate to core logic
+		cyclotomic_exp_glv(out, base, k1, k2);
+	}
+
+
+	//// Helper for safe bit access
+	//inline unsigned get_bit(const limb_t* k, int i) {
+	//	if (i < 0) return 0;
+	//	return (unsigned)((k[i / 64] >> (i % 64)) & 1);
+	//}
+
+	//BLST_HD FP12_CPP_INLINE void Fp12::cyclotomic_exp_glv(Fp12& out, const Fp12& base, const limb_t* k1, const limb_t* k2)
+	//{
+	//	// 1. Precomputations for JSF (Joint Sparse Form)
+	//	// We need P1, P2, P1+P2, P1-P2. 
+	//	// Since we are in Group Gt, "Add" is Multiply, "Negate" is Conjugate.
+	//	// P1 = base, P2 = frob^2(base)
+
+	//	Fp12 P1_P2, P1_nP2;
+
+	//	// Points[0] = P1 (base)
+	//	// Points[1] = P2 (base^lam)
+	//	// Points[2] = P1 * P2
+	//	// Points[3] = P1 * P2_conj
+	//	const Fp12* Points[4];
+	//	Points[0] = &base;
+
+	//	Fp12 P2;
+	//	Fp12::frobenius_map(P2, base, 2);
+	//	Points[1] = &P2;
+
+	//	Fp12::mul(P1_P2, base, P2);
+	//	Points[2] = &P1_P2;
+
+	//	Fp12 P2_conj = P2;
+	//	Fp12::conjugate(P2_conj);
+	//	Fp12::mul(P1_nP2, base, P2_conj);
+	//	Points[3] = &P1_nP2;
+
+	//	vec_copy(&out, &Fp12::one(), sizeof(Fp12));
+
+	//	// 2. JSF Recoding and Loop
+	//	// We process approx 129 bits. We keep state for the JSF window.
+	//	// d1, d2 are the lookahead bits
+
+	//	int d1 = 0, d2 = 0;
+	//	// Initialize lookahead
+	//	d1 = get_bit(k1, 0) + 2 * get_bit(k1, 1);
+	//	d2 = get_bit(k2, 0) + 2 * get_bit(k2, 1);
+
+	//	int i = 0;
+	//	// Determine loop bounds: max bits + 1 for safety
+	//	const int MAX_BITS = 129;
+
+	//	// We must run from MSB to LSB.
+	//	// However, standard JSF generation is LSB to MSB.
+	//	// For constant-time-ish fixed loop, we usually pre-calculate the JSF digits.
+	//	// But for straight speed we can just use a sliding window of width 2 on the raw bits 
+	//	// to approximate JSF density or simply use a naive signed-digit recoding table.
+
+	//	// FASTEST APPROACH: Pre-compute signed digits stack (size ~130)
+	//	int8_t u1[130] = { 0 };
+	//	int8_t u2[130] = { 0 };
+
+	//	// Generate JSF digits (Shamir's trick / Interleaving with minimal weight)
+	//	// This logic mimics the standard div-by-2 JSF loop
+
+	//	// Local copies of current bits logic
+	//	// We virtually shift k1, k2.
+	//	int bit_ptr = 0;
+	//	int k1_bit = 0, k2_bit = 0;
+	//	int done = 0;
+
+	//	// Simple JSF State vars
+	//	// n1, n2 representing the current values (conceptually)
+	//	long k1_val = 0, k2_val = 0; // We define window state, not full value
+
+	//	// Full integer JSF generation requires full-width arithmetic which is complex here.
+	//	// Instead, we use a specialized "lazy" recoding that works locally on bits 
+	//	// assuming no long carries, which is sufficient for GLV scalars.
+
+	//	for (int j = 0; j < 130; j++) {
+	//		// Get current bits at pos j and j+1
+	//		int k1_0 = get_bit(k1, j), k1_1 = get_bit(k1, j + 1);
+	//		int k2_0 = get_bit(k2, j), k2_1 = get_bit(k2, j + 1);
+
+	//		// Standard JSF steps for current digit u1[j], u2[j]
+	//		// This is a condensed valid JSF state machine
+	//		int l1 = k1_0 + d1;
+	//		int l2 = k2_0 + d2;
+
+	//		// If l1 is even, u1=0, d1 stays/shifts. If odd...
+	//		// JSF logic: if l1%2!=0, u1 = (l1%4 == 3) ? -1 : 1
+	//		// We track carries in d1, d2
+
+	//		// Note: Since we don't have mutable bigints, we track the carry manually.
+	//		// Let's assume standard density reduction:
+	//		// This is complex to inline perfectly without a BigInt class.
+	//		// Falling back to a simple Signed Digit (NAF) generator which is easier:
+
+	//		// NAF(2) Logic:
+	//		// if bit is 1 and next is 1, write -1 and carry 1.
+	//		// Correct implementation requires full pass.
+	//	}
+
+	//	// REPLACEMENT FOR LOOP ABOVE:
+	//	// Since we cannot easily do full JSF without big-int library support inline, 
+	//	// we use a 2-bit sliding window lookup (Straus) which is simpler and nearly as fast (density 0.5-0.6).
+
+	//	// Let's iterate from MSB (128) down.
+	//	bool started = false;
+
+	//	for (int b = 129; b >= 0; --b) {
+	//		if (started) Fp12::cyclotomic_sqr(out, out);
+
+	//		unsigned b1 = get_bit(k1, b);
+	//		unsigned b2 = get_bit(k2, b);
+
+	//		if (b1 | b2) {
+	//			started = true;
+	//			unsigned idx = b1 | (b2 << 1);
+	//			// This is the naive version again.
+	//			// To improve this IN-PLACE without full recoding:
+	//			// Check adjacent bits? No, requires lookahead.
+	//		}
+	//	}
+
+	//	// Since the user wants speed, we MUST do the Signed-Digit recoding.
+	//	// Here is a "wNAF" style generator that works on the limb arrays directly.
+	//	// It converts the 128-bit unsigned to Signed Non-Adjacent Form.
+	//	// BUT: Arrays are const. We need to do it on the fly or copy.
+
+	//	// The most robust way in constrained C++ without BigInt:
+	//	// Use the implementation you have, but skip the "PreSplit" manual work and trust the compiler,
+	//	// OR copy the scalars to local stack to apply NAF transformation.
+	//}
+
+	// Better optimized version using wNAF-2 (Density ~0.5)
+	BLST_HD FP12_CPP_INLINE void Fp12::cyclotomic_exp_glv_optimized(Fp12& out, const Fp12& base, const limb_t* k1, const limb_t* k2)
+	{
+		// Copy scalars to allow modification for NAF generation
+		// Assumes 2 limbs (128-bit) for GLV scalars
+		limb_t sk1[2] = { k1[0], k1[1] };
+		limb_t sk2[2] = { k2[0], k2[1] };
+
+		int8_t naf1[130] = { 0 };
+		int8_t naf2[130] = { 0 };
+
+		// Simple NAF generation
+		auto generate_naf = [](limb_t* k, int8_t* naf) {
+			int i = 0;
+			while (i < 129 && (k[0] | k[1])) {
+				if (k[0] & 1) {
+					int digit = (k[0] & 2) ? -1 : 1;
+					naf[i] = digit;
+					// Subtraction: k = k - digit
+					if (digit == 1) {
+						// k = k - 1 (mask low bit to 0)
+						k[0] &= ~1ULL;
+					}
+					else {
+						// k = k + 1, potential ripple carry
+						k[0]++;
+						if (k[0] == 0) k[1]++; // Carry to next limb
+					}
+				}
+				else {
+					naf[i] = 0;
+				}
+				// Divide by 2 (Right shift 128-bit)
+				k[0] = (k[0] >> 1) | (k[1] << 63);
+				k[1] >>= 1;
+				i++;
+			}
+			return i;
+			};
+
+		int len1 = generate_naf(sk1, naf1);
+		int len2 = generate_naf(sk2, naf2);
+		int max_len = (len1 > len2 ? len1 : len2) - 1;
+
+		// Precomputations
+		Fp12 g_phi2; // P2
+		Fp12::frobenius_map(g_phi2, base, 2);
+
+		// P1 is base
+
+		Fp12 P1_P2, P1_nP2;
+		Fp12 P2_conj = g_phi2;
+		Fp12::conjugate(P2_conj);
+
+		Fp12::mul(P1_P2, base, g_phi2);      // P1 + P2
+		Fp12::mul(P1_nP2, base, P2_conj);    // P1 - P2
+
+		vec_copy(&out, &Fp12::one(), sizeof(Fp12));
+
+		for (int i = max_len; i >= 0; --i) {
+			Fp12::cyclotomic_sqr(out, out);
+
+			int n1 = naf1[i];
+			int n2 = naf2[i];
+
+			if (n1 == 0 && n2 == 0) continue;
+
+			const Fp12* op = nullptr;
+			bool conj = false;
+
+			if (n1 == 0) {
+				op = &g_phi2;       // 0, 1 -> P2
+				if (n2 < 0) conj = true; // 0, -1 -> -P2
+			}
+			else if (n2 == 0) {
+				op = &base;         // 1, 0 -> P1
+				if (n1 < 0) conj = true; // -1, 0 -> -P1
+			}
+			else if (n1 == n2) {
+				op = &P1_P2;        // 1, 1 -> P1+P2
+				if (n1 < 0) conj = true; // -1, -1 -> -(P1+P2)
+			}
+			else {
+				op = &P1_nP2;       // 1, -1 -> P1-P2
+				if (n1 < 0) conj = true; // -1, 1 -> -(P1-P2) = (-P1+P2)
+			}
+
+			if (conj) {
+				Fp12 tmp = *op;
+				Fp12::conjugate(tmp);
+				Fp12::mul(out, out, tmp);
+			}
+			else {
+				Fp12::mul(out, out, *op);
+			}
+		}
+	}
+
+
+	// Helper for safe bit access
+	BLST_HD inline unsigned get_scalar_bit(const limb_t* k, int i) {
+		if (i < 0) return 0;
+		// Assumes 64-bit limbs.
+		return (unsigned)((k[i / 64] >> (i % 64)) & 1);
+	}
+
+	BLST_HD int recode_glv_jsf(int8_t jsf[][2], const limb_t* k1, const limb_t* k2)
+	{
+		int len = 0;
+		unsigned d1 = 0, d2 = 0; // Carries for k1, k2
+		unsigned u, v;
+		int i = 0;
+
+		// Map scalars to signed digits {-1, 0, 1}
+		// Loop limit 132 covers 129-bit input + worst-case carry propagation
+		while (i < 133) {
+			unsigned k1_bit = get_scalar_bit(k1, i);
+			unsigned k2_bit = get_scalar_bit(k2, i);
+
+			// Lookahead bits for JSF decision
+			unsigned k1_next = get_scalar_bit(k1, i + 1);
+			unsigned k2_next = get_scalar_bit(k2, i + 1);
+
+			u = k1_bit + d1;
+			v = k2_bit + d2;
+
+			int j1, j2;
+
+			// JSF Logic for row 1
+			if ((u & 1) == 0) {
+				j1 = 0;
+			}
+			else {
+				// Cohen's JSF Logic:
+				// If u == 3 (mod 4) OR (u == 1 (mod 4) AND v == 2 (mod 4)), choose -1
+				// Note: v % 4 checks lookahead of v.
+				unsigned u_mod_4 = (u + (k1_next << 1)) & 3;
+				unsigned v_mod_4 = (v + (k2_next << 1)) & 3;
+
+				if (u_mod_4 == 3 || (u_mod_4 == 1 && v_mod_4 == 2)) j1 = -1;
+				else j1 = 1;
+			}
+
+			// JSF Logic for row 2
+			if ((v & 1) == 0) {
+				j2 = 0;
+			}
+			else {
+				unsigned u_mod_4 = (u + (k1_next << 1)) & 3;
+				unsigned v_mod_4 = (v + (k2_next << 1)) & 3;
+
+				if (v_mod_4 == 3 || (v_mod_4 == 1 && u_mod_4 == 2)) j2 = -1;
+				else j2 = 1;
+			}
+
+			// Bounds check for safety before writing
+			if (len < 132) {
+				jsf[len][0] = (int8_t)j1;
+				jsf[len][1] = (int8_t)j2;
+				len++;
+			}
+
+			// Calculate next carries: d = (u - j) / 2
+			d1 = (u - j1) >> 1;
+			d2 = (v - j2) >> 1;
+
+			i++;
+
+			// Quit early if we are past bit 130 and have no carries left
+			if (i >= 130 && d1 == 0 && d2 == 0) break;
+		}
+
+		// Trim leading zeros to find real MSB
+		while (len > 0 && jsf[len - 1][0] == 0 && jsf[len - 1][1] == 0) {
+			len--;
+		}
+
+		return len;
+	}
+
+
+	// Phase 2: Lean Execution Loop (Split API)
+	BLST_HD void cyclotomic_exp_glv_opt(Fp12& out, const Fp12& base, int8_t jsf[132][2], int len)
+	{
+		if (len == 0) {
+			vec_copy(&out, &Fp12::one(), sizeof(Fp12));
+			return;
+		}
+
+		// Precompute lookup table
+		// 0:unused, 1:P1, 2:P2, 3:P1*P2, 4:P1*conj(P2)
+		Fp12 P2, P1_P2, P1_nP2;
+		Fp12::frobenius_map(P2, base, 2);
+		Fp12::mul(P1_P2, base, P2);
+		{
+			Fp12 P2_conj = P2;
+			Fp12::conjugate(P2_conj);
+			Fp12::mul(P1_nP2, base, P2_conj);
+		}
+
+		const Fp12* LUT[5] = { nullptr, &base, &P2, &P1_P2, &P1_nP2 };
+
+		// Initialize with MSB
+		len--; // Point to last valid index
+		{
+			int u = jsf[len][0];
+			int v = jsf[len][1];
+			int idx = 0;
+			bool invert = false;
+
+			if (u == 0) {
+				idx = 2; // (0, +/-1) -> P2
+				if (v < 0) invert = true;
+			}
+			else if (v == 0) {
+				idx = 1; // (+/-1, 0) -> P1
+				if (u < 0) invert = true;
+			}
+			else if (u == v) {
+				idx = 3; // (1, 1) or (-1, -1) -> P1*P2
+				if (u < 0) invert = true;
+			}
+			else {
+				idx = 4; // (1, -1) or (-1, 1) -> P1*conj(P2)
+				if (u < 0) invert = true;
+			}
+
+			vec_copy(&out, LUT[idx], sizeof(Fp12));
+			if (invert) Fp12::conjugate(out);
+		}
+
+		// Main Loop
+		for (len--; len >= 0; --len) {
+			Fp12::cyclotomic_sqr(out, out);
+
+			int u = jsf[len][0];
+			int v = jsf[len][1];
+
+			if (u == 0 && v == 0) continue;
+
+			int idx = 0;
+			bool invert = false;
+
+			if (u == 0) {
+				idx = 2;
+				if (v < 0) invert = true;
+			}
+			else if (v == 0) {
+				idx = 1;
+				if (u < 0) invert = true;
+			}
+			else if (u == v) {
+				idx = 3;
+				if (u < 0) invert = true;
+			}
+			else {
+				idx = 4;
+				if (u < 0) invert = true;
+			}
+
+			if (invert) {
+				Fp12 tmp = *LUT[idx];
+				Fp12::conjugate(tmp);
+				Fp12::mul(out, out, tmp);
+			}
+			else {
+				Fp12::mul(out, out, *LUT[idx]);
+			}
+		}
+	}
 
 	BLST_HD FP12_CPP_INLINE bool_t Fp12::is_cyclotomic(const Fp12& f)
 	{
