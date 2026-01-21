@@ -1781,6 +1781,320 @@ namespace blst
 		Fp12::frobenius_map(y2, y3, 1);
 		Fp12::mul(ret, y1, y2);
 	}
+
+
+	// 128-bit / 64-bit division: (hi, lo) / div
+	// Returns quotient, puts remainder in *rem
+	static uint64_t udiv128_64(uint64_t hi, uint64_t lo, uint64_t div, uint64_t* rem) {
+#if defined(_MSC_VER) && defined(_M_X64)
+		uint64_t r;
+		uint64_t q = _udiv128(hi, lo, div, &r);
+		*rem = r;
+		return q;
+#elif defined(__x86_64__) || defined(__aarch64__)
+		unsigned __int128 p = ((unsigned __int128)hi << 64) | lo;
+		*rem = (uint64_t)(p % div);
+		return (uint64_t)(p / div);
+#else
+		// Fallback for purely portable arithmetic (bit-by-bit or half-word)
+		// Simplified bitwise restoring division for test purposes if intrinsics missing
+		// Slow but functional.
+		if (hi >= div) { /* overflow case, strict 128/64 implies q fits in 64, so hi < div */ }
+		uint64_t r = hi;
+		uint64_t q = 0;
+		for (int i = 63; i >= 0; i--) {
+			r = (r << 1) | ((lo >> i) & 1);
+			if (r >= div) {
+				r -= div;
+				q |= (1ULL << i);
+			}
+		}
+		*rem = r;
+		return q;
+#endif
+	}
+
+	// Helper: 256-bit by 64-bit division/remainder.
+	// Computes q = n / d, r = n % d.
+	static void div_rem_u256_u64(limb_t q[4], uint64_t& r, const limb_t n[4], uint64_t d)
+	{
+		uint64_t rem = 0;
+		for (int i = 3; i >= 0; i--) {
+			q[i] = udiv128_64(rem, n[i], d, &rem);
+		}
+		r = rem;
+	}
+
+	// BLS12-381 Parameter z (absolute value)
+	static const uint64_t BLS_Z = 0xd201000000010000ULL;
+	// Split 256-bit scalar k into 4 64-bit signed scalars k0..k3
+	// such that k = k0 + k1*x + k2*x^2 + k3*x^3 mod r
+	// where x is the BLS parameter (negative).
+	static void gt_split_scalar_4d(int64_t k_out[4], const limb_t k_in[4])
+	{
+		limb_t temp_k[4];
+		vec_copy(temp_k, k_in, sizeof(limb_t) * 4);
+
+		// Base-z expansion
+		for (int i = 0; i < 4; i++) {
+			uint64_t r = 0;
+			limb_t q[4];
+
+			// If temp_k is 0, we are done
+			if ((temp_k[0] | temp_k[1] | temp_k[2] | temp_k[3]) == 0) {
+				k_out[i] = 0;
+				continue;
+			}
+
+			div_rem_u256_u64(q, r, temp_k, BLS_Z);
+
+			// Check balance
+			bool carry = false;
+			if (r > (BLS_Z / 2)) {
+				carry = true;
+				k_out[i] = (int64_t)r - (int64_t)BLS_Z;
+			}
+			else {
+				k_out[i] = (int64_t)r;
+			}
+
+			// Update temp_k with q
+			// If carry, we need to add 1 to q. 
+			// Check for overflow in q (very rare given q is roughly 256-64 bits each step)
+			if (carry) {
+				int j = 0;
+				while (j < 4) {
+					q[j]++;
+					if (q[j] != 0) break;
+					j++;
+				}
+			}
+			vec_copy(temp_k, q, sizeof(limb_t) * 4);
+		}
+
+		// Adjust for x = -z
+		k_out[1] = -k_out[1];
+		k_out[3] = -k_out[3];
+	}
+
+	void cyclotomic_exp_glv_4d(Fp12& out, const Fp12& base, const limb_t* scalar)
+	{
+		// 1. Decompose Scalar
+		int64_t k[4];
+		gt_split_scalar_4d(k, scalar);
+
+		// 2. Prepare Basis Points {P0, P1, P2, P3}
+		uint64_t abs_k[4];
+		Fp12 basis[4];
+
+		basis[0] = base; // P0
+		Fp12::frobenius_map(basis[1], base, 1); // P1
+		Fp12::frobenius_map(basis[2], base, 2); // P2
+		Fp12::frobenius_map(basis[3], base, 3); // P3
+
+		// Handle signs
+		for (int i = 0; i < 4; ++i) {
+			if (k[i] < 0) {
+				abs_k[i] = (uint64_t)(-k[i]);
+				Fp12::conjugate(basis[i]);
+			}
+			else {
+				abs_k[i] = (uint64_t)k[i];
+			}
+		}
+
+		// 3. Precompute Lookup Table (16 points)
+		// T[idx]
+		Fp12 T[16];
+		// 0000 -> 1
+		vec_copy(&T[0], &Fp12::one(), sizeof(Fp12));
+
+		// Powers of 2 indices
+		T[1] = basis[0];
+		T[2] = basis[1];
+		T[4] = basis[2];
+		T[8] = basis[3];
+
+		// Fill rest
+		Fp12::mul(T[3], T[1], T[2]);  // 1|2
+		Fp12::mul(T[5], T[1], T[4]);  // 1|4
+		Fp12::mul(T[6], T[2], T[4]);  // 2|4
+		Fp12::mul(T[7], T[3], T[4]);  // 1|2|4
+
+		Fp12::mul(T[9], T[1], T[8]);  // 1|8
+		Fp12::mul(T[10], T[2], T[8]); // 2|8
+		Fp12::mul(T[11], T[3], T[8]); // 1|2|8
+		Fp12::mul(T[12], T[4], T[8]); // 4|8
+		Fp12::mul(T[13], T[5], T[8]); // 1|4|8
+		Fp12::mul(T[14], T[6], T[8]); // 2|4|8
+		Fp12::mul(T[15], T[7], T[8]); // 1|2|4|8
+
+		// 4. Main 64-bit Loop
+		// Note limits: max k_i is roughly z/2 + carry ~ 64 bits.
+
+		int msb = 63;
+		// Find first non-zero logic could be added here, 
+		// but 64 constant iterations is fine.
+
+		// Initialize accumulator ??
+		// Standard MSM: Start with identity, or find first set bit.
+		// Let's find real MSB to avoid initial identity multiplies.
+		uint64_t combined = abs_k[0] | abs_k[1] | abs_k[2] | abs_k[3];
+		while (msb >= 0 && ((combined >> msb) & 1) == 0) msb--;
+
+		if (msb < 0) {
+			vec_copy(&out, &Fp12::one(), sizeof(Fp12));
+			return;
+		}
+
+		// Init with first window
+		unsigned idx = 0;
+		for (int i = 0; i < 4; ++i) if ((abs_k[i] >> msb) & 1) idx |= (1 << i);
+		out = T[idx];
+
+		for (int j = msb - 1; j >= 0; --j) {
+			Fp12::cyclotomic_sqr(out, out);
+
+			idx = 0;
+			for (int i = 0; i < 4; ++i) if ((abs_k[i] >> j) & 1) idx |= (1 << i);
+
+			if (idx != 0) Fp12::mul(out, out, T[idx]);
+		}
+	}
+
+	GLV4_Constant_Props compile_scalar_to_props(const limb_t* k_in) {
+		GLV4_Constant_Props props;
+		props.sign_mask = 0;
+		props.sched_len = 0;
+
+		// ... (splitting & sign logic same as before) ...
+		int64_t k[4];
+		gt_split_scalar_4d(k, k_in);
+
+		uint64_t abs_k[4];
+		for (int i = 0; i < 4; i++) {
+			if (k[i] < 0) {
+				props.sign_mask |= (1 << i);
+				abs_k[i] = (uint64_t)(-k[i]);
+			}
+			else {
+				abs_k[i] = (uint64_t)k[i];
+			}
+		}
+
+		// Helper to push
+		auto push = [&](uint8_t val) {
+			if (props.sched_len < 72) {
+				props.schedule[props.sched_len++] = val;
+			}
+			};
+
+		uint64_t combined = abs_k[0] | abs_k[1] | abs_k[2] | abs_k[3];
+		int msb = 63;
+		while (msb >= 0 && ((combined >> msb) & 1) == 0) msb--;
+
+		if (msb < 0) return props;
+
+		unsigned idx = 0;
+		if ((abs_k[0] >> msb) & 1) idx |= 1;
+		if ((abs_k[1] >> msb) & 1) idx |= 2;
+		if ((abs_k[2] >> msb) & 1) idx |= 4;
+		if ((abs_k[3] >> msb) & 1) idx |= 8;
+
+		push((uint8_t)idx);
+
+		int sqr_run = 1;
+
+		for (int bit = msb - 1; bit >= 0; --bit) {
+			idx = 0;
+			if ((abs_k[0] >> bit) & 1) idx |= 1;
+			if ((abs_k[1] >> bit) & 1) idx |= 2;
+			if ((abs_k[2] >> bit) & 1) idx |= 4;
+			if ((abs_k[3] >> bit) & 1) idx |= 8;
+
+			if (idx == 0) {
+				sqr_run++;
+			}
+			else {
+				while (sqr_run > 15) {
+					push((15 << 4) | 0);
+					sqr_run -= 15;
+				}
+				push((uint8_t)((sqr_run << 4) | idx));
+				sqr_run = 1;
+			}
+		}
+
+		sqr_run--;
+		while (sqr_run > 0) {
+			int chunk = (sqr_run > 15) ? 15 : sqr_run;
+			push((chunk << 4) | 0);
+			sqr_run -= chunk;
+		}
+
+		return props;
+	}
+	void cyclotomic_exp_glv_4d_constant(Fp12& out, const Fp12& base, const GLV4_Constant_Props& props)
+	{
+		// ... (Setup: Signs, Basis, Table same as before) ...
+		Fp12 basis[4];
+		basis[0] = base;
+		Fp12 phi;
+		Fp12::frobenius_map(phi, base, 1);
+		basis[1] = phi;
+		Fp12::frobenius_map(phi, phi, 1);
+		basis[2] = phi;
+		Fp12::frobenius_map(phi, phi, 1);
+		basis[3] = phi;
+
+		if (props.sign_mask & 1) Fp12::conjugate(basis[0]);
+		if (props.sign_mask & 2) Fp12::conjugate(basis[1]);
+		if (props.sign_mask & 4) Fp12::conjugate(basis[2]);
+		if (props.sign_mask & 8) Fp12::conjugate(basis[3]);
+
+		Fp12 T[16];
+		T[0] = basis[0]; // dummy/unused
+		T[1] = basis[0];
+		T[2] = basis[1];
+		T[4] = basis[2];
+		T[8] = basis[3];
+
+		Fp12::mul(T[3], T[1], T[2]);
+		Fp12::mul(T[5], T[1], T[4]);
+		Fp12::mul(T[6], T[2], T[4]);
+		Fp12::mul(T[7], T[3], T[4]);
+
+		Fp12::mul(T[9], T[1], T[8]);
+		Fp12::mul(T[10], T[2], T[8]);
+		Fp12::mul(T[11], T[3], T[8]);
+		Fp12::mul(T[12], T[4], T[8]);
+		Fp12::mul(T[13], T[5], T[8]);
+		Fp12::mul(T[14], T[6], T[8]);
+		Fp12::mul(T[15], T[7], T[8]);
+
+		// Execution from fixed array
+		if (props.sched_len == 0) {
+			vec_copy(&out, &Fp12::one(), sizeof(Fp12));
+			return;
+		}
+
+		uint8_t op = props.schedule[0];
+		int idx = op & 0xF;
+		out = T[idx];
+
+		for (int i = 1; i < props.sched_len; ++i) {
+			op = props.schedule[i];
+			int sqr_cnt = op >> 4;
+			int m_idx = op & 0xF;
+
+			for (int s = 0; s < sqr_cnt; ++s) Fp12::cyclotomic_sqr(out, out);
+
+			if (m_idx != 0) {
+				Fp12::mul(out, out, T[m_idx]);
+			}
+		}
+	}
+
 }
 
 #endif // !BLST_FP12_TOWER_H

@@ -314,3 +314,52 @@ static void BM_Fp12ExponentiationGLV_opt(benchmark::State& state) {
     state.SetItemsProcessed(state.iterations());
 }
 BENCHMARK(BM_Fp12ExponentiationGLV_opt);
+
+
+
+// 1. Basic GLV-4 Benchmark (Runtime Split + Exp)
+static void BM_Fp12ExponentiationGLV4(benchmark::State& state) {
+    Fp12 a, base, c;
+    generate_random_fp12(a);
+    Fp12::final_exp(base, a); // Ensure base is in cyclotomic subgroup
+
+    byte scalar[32];
+    generate_random_scalar(scalar);
+
+    // Convert scalar bytes to limbs for the API
+    limb_t k[4];
+    std::memcpy(k, scalar, 32);
+
+    for (auto _ : state) {
+        // Calls the full GLV-4 logic including decomposition
+        blst::cyclotomic_exp_glv_4d(c, base, k);
+        benchmark::DoNotOptimize(c);
+    }
+    state.SetItemsProcessed(state.iterations());
+}
+BENCHMARK(BM_Fp12ExponentiationGLV4);
+
+// 2. Constant Scalar GLV-4 Benchmark (Offline Split, Runtime Exp)
+static void BM_Fp12ExponentiationGLV4_Constant(benchmark::State& state) {
+    Fp12 a, base, c;
+    generate_random_fp12(a);
+    Fp12::final_exp(base, a);
+
+    byte scalar[32];
+    generate_random_scalar(scalar);
+    limb_t k[4];
+    std::memcpy(k, scalar, 32);
+
+    // --- Offline Compilation Phase (Not Timed) ---
+    // Compile the scalar into properties (Schedule + Sign Mask)
+    blst::GLV4_Constant_Props props = blst::compile_scalar_to_props(k);
+
+    // --- Runtime Benchmark Phase ---
+    for (auto _ : state) {
+        // Only run the execution phase, simulating fixed scalar usage
+        blst::cyclotomic_exp_glv_4d_constant(c, base, props);
+        benchmark::DoNotOptimize(c);
+    }
+    state.SetItemsProcessed(state.iterations());
+}
+BENCHMARK(BM_Fp12ExponentiationGLV4_Constant);

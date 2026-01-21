@@ -106,6 +106,23 @@ namespace blst
 		limb_t k1_out[4],
 		limb_t k2_out[4],
 		const limb_t k[4]);
+	
+	// Fixed size container for schedule
+// Max bits ~64. 
+// Max entries = 64 (dense) + minimal overhead for large gaps.
+// 72 is a safe upper bound.
+	struct GLV4_Constant_Props {
+		uint8_t sign_mask;
+		uint8_t sched_len;
+		uint8_t schedule[72];
+	};
+
+	GLV4_Constant_Props compile_scalar_to_props(const limb_t* k_in);
+
+	void cyclotomic_exp_glv_4d_constant(Fp12& out, const Fp12& base, const GLV4_Constant_Props& props);
+
+	void cyclotomic_exp_glv_4d(Fp12& out, const Fp12& base, const limb_t* scalar);
+
 
 	//
 	//
