@@ -144,7 +144,7 @@ BENCHMARK(BM_Fp12Exponentiation);
 
 
 // Helper: Generate a random scalar (256-bit)
-void generate_random_scalar(byte scalar[32]) {
+void generate_random_scalar(byte scalar[33]) {
     static std::random_device rd;
     static std::mt19937_64 gen(rd());
     static std::uniform_int_distribution<uint64_t> dis;
@@ -162,11 +162,11 @@ static void BM_Fp12CyclotomicExponentiation(benchmark::State& state) {
     generate_random_fp12(a);
     Fp12::final_exp(base, a); // Ensure base is in cyclotomic subgroup
 
-    byte scalar[32];
+    byte scalar[33] = { 0 };
     generate_random_scalar(scalar);
 
     for (auto _ : state) {
-        Fp12::cyclotomic_exp(c, base, scalar, 256);
+        Fp12::cyclotomic_exp(c, base, scalar, 257);
         benchmark::DoNotOptimize(c);
     }
     state.SetItemsProcessed(state.iterations());
@@ -182,7 +182,7 @@ static void BM_Fp12ExponentiationGLV(benchmark::State& state) {
     generate_random_scalar(scalar);
 
     for (auto _ : state) {
-        Fp12::cyclotomic_exp_glv(c, base, scalar, 256);
+        Fp12::cyclotomic_exp_glv(c, base, scalar);
         benchmark::DoNotOptimize(c);
     }
     state.SetItemsProcessed(state.iterations());
@@ -265,11 +265,11 @@ BENCHMARK(BM_Fp12ExponentiationGLV_PreSplit);
 //    state.SetItemsProcessed(state.iterations());
 //}
 //BENCHMARK(BM_Fp12ExponentiationGLV_opt);
-namespace blst {
-    BLST_HD int recode_glv_jsf(int8_t jsf[][2], const limb_t* k1, const limb_t* k2);
-
-    BLST_HD void cyclotomic_exp_glv_opt(Fp12& out, const Fp12& base, int8_t jsf[132][2], int len);
-}
+//namespace blst {
+//    BLST_HD int recode_glv_jsf(int8_t jsf[][2], const limb_t* k1, const limb_t* k2);
+//
+//    BLST_HD void cyclotomic_exp_glv_opt(Fp12& out, const Fp12& base, int8_t jsf[132][2], int len);
+//}
 
 // We need a helper to split scalars for the pre-split benchmark.
 // Since the library function might be internal, we duplicate the call logic
@@ -301,13 +301,13 @@ static void BM_Fp12ExponentiationGLV_opt(benchmark::State& state) {
     }
 
     int8_t jsf[132][2];
-	auto len = recode_glv_jsf(jsf, s.first.data(), s.second.data());
+	auto len = Fp12::glv_recode_jsf(jsf, s.first.data(), s.second.data());
 
     size_t idx = 0;
     //const auto& s = splits[idx & 127];
     for (auto _ : state) {
         //Fp12::cyclotomic_exp_glv_optimized(c, base, s.first.data(), s.second.data());
-		cyclotomic_exp_glv_opt(c, base, jsf, len);
+		Fp12::cyclotomic_exp_glv_jsf(c, base, jsf, len);
         benchmark::DoNotOptimize(c);
         idx++;
     }
@@ -332,7 +332,7 @@ static void BM_Fp12ExponentiationGLV4(benchmark::State& state) {
 
     for (auto _ : state) {
         // Calls the full GLV-4 logic including decomposition
-        blst::cyclotomic_exp_glv_4d(c, base, k);
+        Fp12::cyclotomic_exp_glv4(c, base, k);
         benchmark::DoNotOptimize(c);
     }
     state.SetItemsProcessed(state.iterations());
@@ -352,12 +352,12 @@ static void BM_Fp12ExponentiationGLV4_Constant(benchmark::State& state) {
 
     // --- Offline Compilation Phase (Not Timed) ---
     // Compile the scalar into properties (Schedule + Sign Mask)
-    blst::GLV4_Constant_Props props = blst::compile_scalar_to_props(k);
+    GLV4_Exp props = Fp12::glv4_compile(k);
 
     // --- Runtime Benchmark Phase ---
     for (auto _ : state) {
         // Only run the execution phase, simulating fixed scalar usage
-        blst::cyclotomic_exp_glv_4d_constant(c, base, props);
+        Fp12::cyclotomic_exp_glv4(c, base, props);
         benchmark::DoNotOptimize(c);
     }
     state.SetItemsProcessed(state.iterations());

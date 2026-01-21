@@ -6,6 +6,8 @@
 #include "blst/common/defines.h"
 #include "blst/backend/backend.h"
 #include "blst/fields/Fp12.h"
+#include <string.h>
+#include "blst/fields/Fr.h"
 
 #ifndef BLST_FP12_TOWER_H
 #define BLST_FP12_TOWER_H
@@ -810,45 +812,6 @@ namespace blst
 	}
 
 
-	/*
-	 * BLS12-381-specific Fp12 shortcuts.
-	 */
-	 //BLST_HD BLST_INLINE void blst_fp12_sqr(Fp12& ret, const Fp12& a)
-	 //{
-	 //    sqr_fp12(ret, a);
-	 //}
-
-	 //BLST_HD BLST_INLINE void blst_fp12_cyclotomic_sqr(Fp12& ret, const Fp12& a)
-	 //{
-	 //    cyclotomic_sqr_fp12(ret, a);
-	 //}
-
-	 //BLST_HD BLST_INLINE void blst_fp12_mul(Fp12& ret, const Fp12& a, const Fp12& b)
-	 //{
-	 //    mul_fp12(ret, a, b);
-	 //}
-
-	 //BLST_HD BLST_INLINE void blst_fp12_mul_by_xy00z0(Fp12& ret, const Fp12& a,
-	 //    const Fp6& xy00z0)
-	 //{
-	 //    mul_by_xy00z0_fp12(ret, a, xy00z0);
-	 //}
-
-	 //BLST_HD BLST_INLINE void blst_fp12_conjugate(Fp12& a)
-	 //{
-	 //    conjugate_fp12(a);
-	 //}
-
-	 //BLST_HD BLST_INLINE void blst_fp12_inverse(Fp12& ret, const Fp12& a)
-	 //{
-	 //    inverse_fp12(ret, a);
-	 //}
-
-	 /* caveat lector! |n| has to be non-zero and not more than 3! */
-	 //BLST_HD BLST_INLINE void blst_fp12_frobenius_map(Fp12& ret, const Fp12& a, size_t n)
-	 //{
-	 //    frobenius_map_fp12(ret, a, n);
-	 //}
 
 	BLST_HD FP12_CPP_INLINE int Fp12::equal(const Fp12& a, const Fp12& b)
 	{
@@ -974,6 +937,34 @@ namespace blst
 
 	BLST_HD FP12_CPP_INLINE void Fp12::cyclotomic_exp(Fp12& ret, const Fp12& a, const byte* exp, size_t bits)
 	{
+		// Optimization: Dispatch to GLV method for 256-bit scalars.
+		// GLV decomposition provides ~2x speedup by splitting the scalar 
+		// and using the Frobenius endomorphism.
+		// We restrict this to cases where bits <= 256 to ensure the scalar 
+		// fits within the implementation's splitting bounds.
+		if (bits > 128 && bits <= 256) {
+			// GLV implementation handles variable bit lengths up to 256 internally 
+			// if passed as a 256-bit container, but explicit dispatch usually 
+			// implies a full-width scalar or one that fits in 256-bit words.
+			limb_t exp_256[4] = { 0 };
+			size_t byte_len = (bits + 7) / 8;
+			memcpy(exp_256, exp, byte_len);
+			//for (size_t i = 0; i < byte_len; i++) {
+			//	exp_256[i / sizeof(limb_t)] |= ((limb_t)exp[i]) << ((i % sizeof(limb_t)) * 8);
+			//}
+			if (bits % 8 != 0) {
+				// Create mask for valid bits in the top byte
+				// e.g., bits % 8 == 1 -> mask 0x01
+				uint8_t mask = (1 << (bits % 8)) - 1;
+				// Apply mask to the specific byte in the limb array
+				((uint8_t*)exp_256)[byte_len - 1] &= mask;
+			}
+
+			cyclotomic_exp_glv4(ret, a, exp_256);
+			return;
+		}
+
+
 		// 1. Find the first set bit (scanning MSB to LSB)
 		int i = (int)bits - 1;
 		while (i >= 0 && !((exp[i / 8] >> (i % 8)) & 1)) {
@@ -1006,35 +997,7 @@ namespace blst
 	}
 
 
-	//static BLST_HD BLST_FORCEINLINE unsigned get_bit_le_128(const unsigned char x[16], unsigned bit)
-	//{
-	//	return (unsigned)((x[bit >> 3] >> (bit & 7u)) & 1u);
-	//}
-
-	//// Select among {1, a, b, ab} based on 2-bit selector without deep branching.
-	//// sel: bit0 = use a, bit1 = use b.
-	//static BLST_HD BLST_FORCEINLINE void mul_by_pair_sel(
-	//	Fp12& acc, const Fp12& a, const Fp12& b, const Fp12& ab, unsigned sel)
-	//{
-	//	// This is structured to encourage predication on CUDA.
-	//	// Worst case (no predication): still only a small set of branches per-iteration.
-	//	if (sel == 1u) {
-	//		Fp12::mul(acc, acc, a);
-	//	}
-	//	else if (sel == 2u) {
-	//		Fp12::mul(acc, acc, b);
-	//	}
-	//	else if (sel == 3u) {
-	//		Fp12::mul(acc, acc, ab);
-	//	}
-	//}
-
-
-	// Unsigned phi^2 split:
-	//   k = k1 + k2*lambda2
-	// with:
-	//   0 <= k1 < lambda2, k2 = floor(k/lambda2).
-	BLST_HD BLST_FORCEINLINE void gt_split_scalar_phi2_u256_barrett(
+	BLST_HD BLST_FORCEINLINE void Fp12::glv_split_2(
 		limb_t k1_out[4],
 		limb_t k2_out[4],
 		const limb_t k[4])
@@ -1259,267 +1222,27 @@ namespace blst
 
 	// Original GLV exponentiation calling the splitter
 	BLST_HD FP12_CPP_INLINE void Fp12::cyclotomic_exp_glv(
-		Fp12& out, const Fp12& base, const byte* scalar_bytes, size_t scalar_bits)
+		Fp12& out, const Fp12& base, const byte* scalar_bytes)
 	{
 		// Convert input bytes to limbs
 		limb_t k[4];
-		if (scalar_bits == 256) {
-			// Assume LE bytes
-			// Simple load if aligned, else cautious load
-			const u64* k64 = (const u64*)scalar_bytes; // Warning: alignment
-			// Safe copy:
-			for (int i = 0; i < 4; i++) {
-				// primitive manual load for portability/safety
-				u64 w = 0;
-				for (int b = 0; b < 8; b++) w |= ((u64)scalar_bytes[i * 8 + b]) << (b * 8);
-				k[i] = (limb_t)w;
-			}
-		}
-		else {
-			// fallback or assert, generic exp supports varsize
-			// For now assume 256
-			//vec_zero(k, sizeof(k));
-			BLST_ASSERT(false && "exp_glv currently only supports 256-bit scalars");
+		// Assume LE bytes
+		// Simple load if aligned, else cautious load
+		const u64* k64 = (const u64*)scalar_bytes; // Warning: alignment
+		// Safe copy:
+		for (int i = 0; i < 4; i++) {
+			// primitive manual load for portability/safety
+			u64 w = 0;
+			for (int b = 0; b < 8; b++) w |= ((u64)scalar_bytes[i * 8 + b]) << (b * 8);
+			k[i] = (limb_t)w;
 		}
 
 		limb_t k1[4], k2[4];
-		gt_split_scalar_phi2_u256_barrett(k1, k2, k);
+		glv_split_2(k1, k2, k);
 
 		// Delegate to core logic
 		cyclotomic_exp_glv(out, base, k1, k2);
 	}
-
-
-	//// Helper for safe bit access
-	//inline unsigned get_bit(const limb_t* k, int i) {
-	//	if (i < 0) return 0;
-	//	return (unsigned)((k[i / 64] >> (i % 64)) & 1);
-	//}
-
-	//BLST_HD FP12_CPP_INLINE void Fp12::cyclotomic_exp_glv(Fp12& out, const Fp12& base, const limb_t* k1, const limb_t* k2)
-	//{
-	//	// 1. Precomputations for JSF (Joint Sparse Form)
-	//	// We need P1, P2, P1+P2, P1-P2. 
-	//	// Since we are in Group Gt, "Add" is Multiply, "Negate" is Conjugate.
-	//	// P1 = base, P2 = frob^2(base)
-
-	//	Fp12 P1_P2, P1_nP2;
-
-	//	// Points[0] = P1 (base)
-	//	// Points[1] = P2 (base^lam)
-	//	// Points[2] = P1 * P2
-	//	// Points[3] = P1 * P2_conj
-	//	const Fp12* Points[4];
-	//	Points[0] = &base;
-
-	//	Fp12 P2;
-	//	Fp12::frobenius_map(P2, base, 2);
-	//	Points[1] = &P2;
-
-	//	Fp12::mul(P1_P2, base, P2);
-	//	Points[2] = &P1_P2;
-
-	//	Fp12 P2_conj = P2;
-	//	Fp12::conjugate(P2_conj);
-	//	Fp12::mul(P1_nP2, base, P2_conj);
-	//	Points[3] = &P1_nP2;
-
-	//	vec_copy(&out, &Fp12::one(), sizeof(Fp12));
-
-	//	// 2. JSF Recoding and Loop
-	//	// We process approx 129 bits. We keep state for the JSF window.
-	//	// d1, d2 are the lookahead bits
-
-	//	int d1 = 0, d2 = 0;
-	//	// Initialize lookahead
-	//	d1 = get_bit(k1, 0) + 2 * get_bit(k1, 1);
-	//	d2 = get_bit(k2, 0) + 2 * get_bit(k2, 1);
-
-	//	int i = 0;
-	//	// Determine loop bounds: max bits + 1 for safety
-	//	const int MAX_BITS = 129;
-
-	//	// We must run from MSB to LSB.
-	//	// However, standard JSF generation is LSB to MSB.
-	//	// For constant-time-ish fixed loop, we usually pre-calculate the JSF digits.
-	//	// But for straight speed we can just use a sliding window of width 2 on the raw bits 
-	//	// to approximate JSF density or simply use a naive signed-digit recoding table.
-
-	//	// FASTEST APPROACH: Pre-compute signed digits stack (size ~130)
-	//	int8_t u1[130] = { 0 };
-	//	int8_t u2[130] = { 0 };
-
-	//	// Generate JSF digits (Shamir's trick / Interleaving with minimal weight)
-	//	// This logic mimics the standard div-by-2 JSF loop
-
-	//	// Local copies of current bits logic
-	//	// We virtually shift k1, k2.
-	//	int bit_ptr = 0;
-	//	int k1_bit = 0, k2_bit = 0;
-	//	int done = 0;
-
-	//	// Simple JSF State vars
-	//	// n1, n2 representing the current values (conceptually)
-	//	long k1_val = 0, k2_val = 0; // We define window state, not full value
-
-	//	// Full integer JSF generation requires full-width arithmetic which is complex here.
-	//	// Instead, we use a specialized "lazy" recoding that works locally on bits 
-	//	// assuming no long carries, which is sufficient for GLV scalars.
-
-	//	for (int j = 0; j < 130; j++) {
-	//		// Get current bits at pos j and j+1
-	//		int k1_0 = get_bit(k1, j), k1_1 = get_bit(k1, j + 1);
-	//		int k2_0 = get_bit(k2, j), k2_1 = get_bit(k2, j + 1);
-
-	//		// Standard JSF steps for current digit u1[j], u2[j]
-	//		// This is a condensed valid JSF state machine
-	//		int l1 = k1_0 + d1;
-	//		int l2 = k2_0 + d2;
-
-	//		// If l1 is even, u1=0, d1 stays/shifts. If odd...
-	//		// JSF logic: if l1%2!=0, u1 = (l1%4 == 3) ? -1 : 1
-	//		// We track carries in d1, d2
-
-	//		// Note: Since we don't have mutable bigints, we track the carry manually.
-	//		// Let's assume standard density reduction:
-	//		// This is complex to inline perfectly without a BigInt class.
-	//		// Falling back to a simple Signed Digit (NAF) generator which is easier:
-
-	//		// NAF(2) Logic:
-	//		// if bit is 1 and next is 1, write -1 and carry 1.
-	//		// Correct implementation requires full pass.
-	//	}
-
-	//	// REPLACEMENT FOR LOOP ABOVE:
-	//	// Since we cannot easily do full JSF without big-int library support inline, 
-	//	// we use a 2-bit sliding window lookup (Straus) which is simpler and nearly as fast (density 0.5-0.6).
-
-	//	// Let's iterate from MSB (128) down.
-	//	bool started = false;
-
-	//	for (int b = 129; b >= 0; --b) {
-	//		if (started) Fp12::cyclotomic_sqr(out, out);
-
-	//		unsigned b1 = get_bit(k1, b);
-	//		unsigned b2 = get_bit(k2, b);
-
-	//		if (b1 | b2) {
-	//			started = true;
-	//			unsigned idx = b1 | (b2 << 1);
-	//			// This is the naive version again.
-	//			// To improve this IN-PLACE without full recoding:
-	//			// Check adjacent bits? No, requires lookahead.
-	//		}
-	//	}
-
-	//	// Since the user wants speed, we MUST do the Signed-Digit recoding.
-	//	// Here is a "wNAF" style generator that works on the limb arrays directly.
-	//	// It converts the 128-bit unsigned to Signed Non-Adjacent Form.
-	//	// BUT: Arrays are const. We need to do it on the fly or copy.
-
-	//	// The most robust way in constrained C++ without BigInt:
-	//	// Use the implementation you have, but skip the "PreSplit" manual work and trust the compiler,
-	//	// OR copy the scalars to local stack to apply NAF transformation.
-	//}
-
-	// Better optimized version using wNAF-2 (Density ~0.5)
-	BLST_HD FP12_CPP_INLINE void Fp12::cyclotomic_exp_glv_optimized(Fp12& out, const Fp12& base, const limb_t* k1, const limb_t* k2)
-	{
-		// Copy scalars to allow modification for NAF generation
-		// Assumes 2 limbs (128-bit) for GLV scalars
-		limb_t sk1[2] = { k1[0], k1[1] };
-		limb_t sk2[2] = { k2[0], k2[1] };
-
-		int8_t naf1[130] = { 0 };
-		int8_t naf2[130] = { 0 };
-
-		// Simple NAF generation
-		auto generate_naf = [](limb_t* k, int8_t* naf) {
-			int i = 0;
-			while (i < 129 && (k[0] | k[1])) {
-				if (k[0] & 1) {
-					int digit = (k[0] & 2) ? -1 : 1;
-					naf[i] = digit;
-					// Subtraction: k = k - digit
-					if (digit == 1) {
-						// k = k - 1 (mask low bit to 0)
-						k[0] &= ~1ULL;
-					}
-					else {
-						// k = k + 1, potential ripple carry
-						k[0]++;
-						if (k[0] == 0) k[1]++; // Carry to next limb
-					}
-				}
-				else {
-					naf[i] = 0;
-				}
-				// Divide by 2 (Right shift 128-bit)
-				k[0] = (k[0] >> 1) | (k[1] << 63);
-				k[1] >>= 1;
-				i++;
-			}
-			return i;
-			};
-
-		int len1 = generate_naf(sk1, naf1);
-		int len2 = generate_naf(sk2, naf2);
-		int max_len = (len1 > len2 ? len1 : len2) - 1;
-
-		// Precomputations
-		Fp12 g_phi2; // P2
-		Fp12::frobenius_map(g_phi2, base, 2);
-
-		// P1 is base
-
-		Fp12 P1_P2, P1_nP2;
-		Fp12 P2_conj = g_phi2;
-		Fp12::conjugate(P2_conj);
-
-		Fp12::mul(P1_P2, base, g_phi2);      // P1 + P2
-		Fp12::mul(P1_nP2, base, P2_conj);    // P1 - P2
-
-		vec_copy(&out, &Fp12::one(), sizeof(Fp12));
-
-		for (int i = max_len; i >= 0; --i) {
-			Fp12::cyclotomic_sqr(out, out);
-
-			int n1 = naf1[i];
-			int n2 = naf2[i];
-
-			if (n1 == 0 && n2 == 0) continue;
-
-			const Fp12* op = nullptr;
-			bool conj = false;
-
-			if (n1 == 0) {
-				op = &g_phi2;       // 0, 1 -> P2
-				if (n2 < 0) conj = true; // 0, -1 -> -P2
-			}
-			else if (n2 == 0) {
-				op = &base;         // 1, 0 -> P1
-				if (n1 < 0) conj = true; // -1, 0 -> -P1
-			}
-			else if (n1 == n2) {
-				op = &P1_P2;        // 1, 1 -> P1+P2
-				if (n1 < 0) conj = true; // -1, -1 -> -(P1+P2)
-			}
-			else {
-				op = &P1_nP2;       // 1, -1 -> P1-P2
-				if (n1 < 0) conj = true; // -1, 1 -> -(P1-P2) = (-P1+P2)
-			}
-
-			if (conj) {
-				Fp12 tmp = *op;
-				Fp12::conjugate(tmp);
-				Fp12::mul(out, out, tmp);
-			}
-			else {
-				Fp12::mul(out, out, *op);
-			}
-		}
-	}
-
 
 	// Helper for safe bit access
 	BLST_HD inline unsigned get_scalar_bit(const limb_t* k, int i) {
@@ -1528,7 +1251,7 @@ namespace blst
 		return (unsigned)((k[i / 64] >> (i % 64)) & 1);
 	}
 
-	BLST_HD int recode_glv_jsf(int8_t jsf[][2], const limb_t* k1, const limb_t* k2)
+	BLST_HD int Fp12::glv_recode_jsf(int8_t jsf[][2], const limb_t* k1, const limb_t* k2)
 	{
 		int len = 0;
 		unsigned d1 = 0, d2 = 0; // Carries for k1, k2
@@ -1603,57 +1326,188 @@ namespace blst
 	}
 
 
-	// Phase 2: Lean Execution Loop (Split API)
-	BLST_HD void cyclotomic_exp_glv_opt(Fp12& out, const Fp12& base, int8_t jsf[132][2], int len)
+	//// Full GLV with JSF recoding
+	//// Phase 2: Lean Execution Loop (Split API)
+	//BLST_HD void Fp12::cyclotomic_exp_glv_jsf(Fp12& out, const Fp12& base, int8_t jsf[132][2], int len)
+	//{
+	//	if (len == 0) {
+	//		vec_copy(&out, &Fp12::one(), sizeof(Fp12));
+	//		return;
+	//	}
+
+	//	// Precompute lookup table
+	//	// 0:unused, 1:P1, 2:P2, 3:P1*P2, 4:P1*conj(P2)
+	//	Fp12 P2, P1_P2, P1_nP2;
+	//	Fp12::frobenius_map(P2, base, 2);
+	//	Fp12::mul(P1_P2, base, P2);
+	//	{
+	//		Fp12 P2_conj = P2;
+	//		Fp12::conjugate(P2_conj);
+	//		Fp12::mul(P1_nP2, base, P2_conj);
+	//	}
+
+	//	const Fp12* LUT[5] = { nullptr, &base, &P2, &P1_P2, &P1_nP2 };
+
+	//	// Initialize with MSB
+	//	len--; // Point to last valid index
+	//	{
+	//		int u = jsf[len][0];
+	//		int v = jsf[len][1];
+	//		int idx = 0;
+	//		bool invert = false;
+
+	//		if (u == 0) {
+	//			idx = 2; // (0, +/-1) -> P2
+	//			if (v < 0) invert = true;
+	//		}
+	//		else if (v == 0) {
+	//			idx = 1; // (+/-1, 0) -> P1
+	//			if (u < 0) invert = true;
+	//		}
+	//		else if (u == v) {
+	//			idx = 3; // (1, 1) or (-1, -1) -> P1*P2
+	//			if (u < 0) invert = true;
+	//		}
+	//		else {
+	//			idx = 4; // (1, -1) or (-1, 1) -> P1*conj(P2)
+	//			if (u < 0) invert = true;
+	//		}
+
+	//		vec_copy(&out, LUT[idx], sizeof(Fp12));
+	//		if (invert) Fp12::conjugate(out);
+	//	}
+
+	//	// Main Loop
+	//	for (len--; len >= 0; --len) {
+	//		Fp12::cyclotomic_sqr(out, out);
+
+	//		int u = jsf[len][0];
+	//		int v = jsf[len][1];
+
+	//		if (u == 0 && v == 0) continue;
+
+	//		int idx = 0;
+	//		bool invert = false;
+
+	//		if (u == 0) {
+	//			idx = 2;
+	//			if (v < 0) invert = true;
+	//		}
+	//		else if (v == 0) {
+	//			idx = 1;
+	//			if (u < 0) invert = true;
+	//		}
+	//		else if (u == v) {
+	//			idx = 3;
+	//			if (u < 0) invert = true;
+	//		}
+	//		else {
+	//			idx = 4;
+	//			if (u < 0) invert = true;
+	//		}
+
+	//		if (invert) {
+	//			Fp12 tmp = *LUT[idx];
+	//			Fp12::conjugate(tmp);
+	//			Fp12::mul(out, out, tmp);
+	//		}
+	//		else {
+	//			Fp12::mul(out, out, *LUT[idx]);
+	//		}
+	//	}
+	//}
+
+	// Optimized for GPU/Stack-heavy environments: 
+	// Recodes on the fly to avoid memory bandwidth of passing JSF array.
+	BLST_HD void Fp12::cyclotomic_exp_glv_jsf(Fp12& out, const Fp12& base, const limb_t* k1, const limb_t* k2)
 	{
+		// 1. Recode to JSF locally (Stack allocation)
+		// Consumes ~264 bytes of stack.
+		int8_t jsf[134][2];
+		int len = glv_recode_jsf(jsf, k1, k2);
+
+		cyclotomic_exp_glv_jsf(out, base, jsf, len);
+	}
+
+	BLST_HD void Fp12::cyclotomic_exp_glv_jsf(Fp12& out, const Fp12& base, int8_t jsf[132][2], int len)
+	{
+
 		if (len == 0) {
 			vec_copy(&out, &Fp12::one(), sizeof(Fp12));
 			return;
 		}
 
-		// Precompute lookup table
-		// 0:unused, 1:P1, 2:P2, 3:P1*P2, 4:P1*conj(P2)
+		// 2. Precompute Lookup Points (Stack)
+		// We compute mixed points to reduce the loop to 1 add per step max.
 		Fp12 P2, P1_P2, P1_nP2;
+
+		// P2 = phi^2(P1)
 		Fp12::frobenius_map(P2, base, 2);
+
+		// P1_P2 = P1 * P2
 		Fp12::mul(P1_P2, base, P2);
+
+		// P1_nP2 = P1 * conj(P2)
 		{
 			Fp12 P2_conj = P2;
 			Fp12::conjugate(P2_conj);
 			Fp12::mul(P1_nP2, base, P2_conj);
 		}
 
-		const Fp12* LUT[5] = { nullptr, &base, &P2, &P1_P2, &P1_nP2 };
+		// 3. Init with MSB
+		len--;
 
-		// Initialize with MSB
-		len--; // Point to last valid index
+		auto apply_op = [&](int u, int v) {
+			const Fp12* op = nullptr;
+			bool inv = false;
+
+			// Simple decision tree (minor divergence, but avoids LUT array in memory)
+			if (u == 0) {
+				op = &P2;       // (0, 1) or (0, -1)
+				if (v < 0) inv = true;
+			}
+			else if (v == 0) {
+				op = &base;     // (1, 0) or (-1, 0)
+				if (u < 0) inv = true;
+			}
+			else if (u == v) {
+				op = &P1_P2;    // (1, 1) or (-1, -1)
+				if (u < 0) inv = true;
+			}
+			else {
+				op = &P1_nP2;   // (1, -1) or (-1, 1)
+				if (u < 0) inv = true;
+			}
+
+			// Converged execution of heavy math
+			if (inv) {
+				Fp12 tmp = *op;
+				Fp12::conjugate(tmp);
+				Fp12::mul(out, out, tmp);
+			}
+			else {
+				Fp12::mul(out, out, *op);
+			}
+			};
+
+		// Initialize first window (cheaper than mul by one)
 		{
 			int u = jsf[len][0];
 			int v = jsf[len][1];
-			int idx = 0;
-			bool invert = false;
 
-			if (u == 0) {
-				idx = 2; // (0, +/-1) -> P2
-				if (v < 0) invert = true;
-			}
-			else if (v == 0) {
-				idx = 1; // (+/-1, 0) -> P1
-				if (u < 0) invert = true;
-			}
-			else if (u == v) {
-				idx = 3; // (1, 1) or (-1, -1) -> P1*P2
-				if (u < 0) invert = true;
-			}
-			else {
-				idx = 4; // (1, -1) or (-1, 1) -> P1*conj(P2)
-				if (u < 0) invert = true;
-			}
+			// Duplicate logic of apply_op but using assignment instead of mul
+			const Fp12* op = nullptr;
+			bool inv = false;
+			if (u == 0) { op = &P2; if (v < 0) inv = true; }
+			else if (v == 0) { op = &base; if (u < 0) inv = true; }
+			else if (u == v) { op = &P1_P2; if (u < 0) inv = true; }
+			else { op = &P1_nP2; if (u < 0) inv = true; }
 
-			vec_copy(&out, LUT[idx], sizeof(Fp12));
-			if (invert) Fp12::conjugate(out);
+			vec_copy(&out, op, sizeof(Fp12));
+			if (inv) Fp12::conjugate(out);
 		}
 
-		// Main Loop
+		// 4. Main Loop
 		for (len--; len >= 0; --len) {
 			Fp12::cyclotomic_sqr(out, out);
 
@@ -1662,34 +1516,7 @@ namespace blst
 
 			if (u == 0 && v == 0) continue;
 
-			int idx = 0;
-			bool invert = false;
-
-			if (u == 0) {
-				idx = 2;
-				if (v < 0) invert = true;
-			}
-			else if (v == 0) {
-				idx = 1;
-				if (u < 0) invert = true;
-			}
-			else if (u == v) {
-				idx = 3;
-				if (u < 0) invert = true;
-			}
-			else {
-				idx = 4;
-				if (u < 0) invert = true;
-			}
-
-			if (invert) {
-				Fp12 tmp = *LUT[idx];
-				Fp12::conjugate(tmp);
-				Fp12::mul(out, out, tmp);
-			}
-			else {
-				Fp12::mul(out, out, *LUT[idx]);
-			}
+			apply_op(u, v);
 		}
 	}
 
@@ -1824,13 +1651,13 @@ namespace blst
 		}
 		r = rem;
 	}
-
 	// BLS12-381 Parameter z (absolute value)
 	static const uint64_t BLS_Z = 0xd201000000010000ULL;
 	// Split 256-bit scalar k into 4 64-bit signed scalars k0..k3
 	// such that k = k0 + k1*x + k2*x^2 + k3*x^3 mod r
 	// where x is the BLS parameter (negative).
-	static void gt_split_scalar_4d(int64_t k_out[4], const limb_t k_in[4])
+	BLST_HD FP12_CPP_INLINE
+		void Fp12::gt_split_scalar_4d(int64_t k_out[4], const limb_t k_in[4])
 	{
 		limb_t temp_k[4];
 		vec_copy(temp_k, k_in, sizeof(limb_t) * 4);
@@ -1872,13 +1699,45 @@ namespace blst
 			vec_copy(temp_k, q, sizeof(limb_t) * 4);
 		}
 
+		// Handle carry-out (k4) which corresponds to z^4 = u^4 = (r + u^2 - 1)
+		// Since we are mod r, this is u^2 - 1.
+		// Effect on k: add k4*u^2 - k4*1
+		// Base-z decomposition: k = k0 + k1(-z) + k2(-z)^2 + k3(-z)^3 + k4(-z)^4
+		// k = k0 - k1*z + k2*z^2 - k3*z^3 + k4*z^4
+		// Coeff of z^2 (u^2) is increased by k4.
+		// Coeff of z^0 (1) is decreased by k4.
+		// temp_k is the remaining quotient, used as k4.
+		if (temp_k[0] != 0) {
+			k_out[2] += (int64_t)temp_k[0];
+			k_out[0] -= (int64_t)temp_k[0];
+		}
+
 		// Adjust for x = -z
 		k_out[1] = -k_out[1];
 		k_out[3] = -k_out[3];
 	}
 
-	void cyclotomic_exp_glv_4d(Fp12& out, const Fp12& base, const limb_t* scalar)
+	BLST_HD FP12_CPP_INLINE
+	void Fp12::cyclotomic_exp_glv4(Fp12& out, const Fp12& base, const limb_t* scalar)
 	{
+
+
+#ifndef NDEBUG
+		// Debug assertion: Scalar must be strictly less than group order r.
+		// GLV decomposition optimized for curve operations assumes valid Fr scalars.
+		{
+			const limb_t* r = get_BLST_r().data;
+			int cmp = 0;
+			for (int i = 3; i >= 0; i--) {
+				if (scalar[i] > r[i]) { cmp = 1; break; }
+				if (scalar[i] < r[i]) { cmp = -1; break; }
+			}
+			// If equal (0) or greater (1), assert fails
+			BLST_ASSERT(cmp < 0 && "Scalar must be reduced ( < r ) for GLV optimization");
+		}
+#endif
+
+
 		// 1. Decompose Scalar
 		int64_t k[4];
 		gt_split_scalar_4d(k, scalar);
@@ -1962,8 +1821,9 @@ namespace blst
 		}
 	}
 
-	GLV4_Constant_Props compile_scalar_to_props(const limb_t* k_in) {
-		GLV4_Constant_Props props;
+	BLST_HD FP12_CPP_INLINE
+	GLV4_Exp Fp12::glv4_compile(const limb_t* k_in) {
+		GLV4_Exp props;
 		props.sign_mask = 0;
 		props.sched_len = 0;
 
@@ -2034,7 +1894,9 @@ namespace blst
 
 		return props;
 	}
-	void cyclotomic_exp_glv_4d_constant(Fp12& out, const Fp12& base, const GLV4_Constant_Props& props)
+
+	BLST_HD FP12_CPP_INLINE
+	void Fp12::cyclotomic_exp_glv4(Fp12& out, const Fp12& base, const GLV4_Exp& props)
 	{
 		// ... (Setup: Signs, Basis, Table same as before) ...
 		Fp12 basis[4];
