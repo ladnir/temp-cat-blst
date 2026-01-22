@@ -39,9 +39,38 @@ namespace blst
 	struct GLV4_Exp {
 		uint8_t sign_mask;     ///< Bitmask indicating which basis elements need conjugation.
 		uint8_t sched_len;     ///< Length of the valid schedule.
-		uint8_t schedule[72];  ///< Bytecode for the exponentiation loop.
+		uint8_t schedule[70];  ///< Bytecode for the exponentiation loop.
 	};
 
+	/// @brief Precomputed schedule for constant-time GLV-2 JSF exponentiation.
+	/// Contains a compact bytecode sequence of operations (squares/multiplies).
+	/// The ecnoding has two signed digits per index. Then we pack two such
+	/// pairs into a byte for storage efficiency.
+	struct GLV_JSF_Exp {
+		uint8_t sched_len;     ///< Length of the valid schedule.
+		uint8_t schedule[71];  ///< Bytecode for the exponentiation loop.
+
+		// sets the idx-th digit pair to (d1, d2)
+		BLST_HD BLST_FORCEINLINE void set(size_t idx, int8_t d1, int8_t d2) {
+			auto enc = ((d1 + 1) | ((d2 + 1) << 2));
+			enc <<= ((idx % 2) * 4);
+			enc |= schedule[idx / 2] & (~(0xF << ((idx % 2) * 4)));
+			schedule[idx / 2] = enc;
+		}
+
+		struct Pair {
+			int8_t d1;
+			int8_t d2;
+		};
+
+		// gets the idx-th digit pair (d1, d2)
+		BLST_HD BLST_FORCEINLINE Pair get(size_t idx) const {
+			auto enc = (schedule[idx / 2] >> ((idx % 2) * 4)) & 0xF;
+			auto d1 = (int8_t)((enc & 0x3) - 1);
+			auto d2 = (int8_t)(((enc >> 2) & 0x3) - 1);
+			return { d1, d2 };
+		}
+	};
 
 	struct Fp12
 	{
@@ -66,6 +95,10 @@ namespace blst
 
 		/// @brief ret = a * b in Fp12.
 		BLST_HD static void mul(Fp12& ret, const Fp12& a, const Fp12& b);
+		
+		/// @brief ret = a * b in Fp12.
+		/// @param conj_b If true, multiplies by conjugate of b (a * conj(b)).
+		BLST_HD static void mul(Fp12& ret, const Fp12& a, const Fp12& b, bool conj_b);
 
 		/// @brief ret = a^exp in Fp12 (Standard Exponentiation).
 		/// @param exp Little-endian exponent bytes.
@@ -86,6 +119,9 @@ namespace blst
 		/// @note Input `a` MUST be in the cyclotomic subgroup.
 		BLST_HD static void cyclotomic_exp(Fp12& ret, const Fp12& a, const byte* exp, size_t bits);
 
+		/// @brief ret = a^exp in Fp12, using Cyclotomic squaring.
+		/// @note Input `a` MUST be in the cyclotomic subgroup.
+		BLST_HD static void cyclotomic_exp_basic(Fp12& ret, const Fp12& a, const byte* exp, size_t bits);
 
 		// --- GLV-2 Operations (Standard Endomorphism) ---
 
@@ -101,7 +137,7 @@ namespace blst
 		/// @param k1 First split scalar.
 		/// @param k2 Second split scalar (multiplies lambda).
 		/// @return Length of the JSF sequence.
-		BLST_HD static int glv_recode_jsf(int8_t jsf[][2], const limb_t* k1, const limb_t* k2);
+		BLST_HD static GLV_JSF_Exp glv_recode_jsf(const limb_t* k1, const limb_t* k2);
 
 		/// @brief ret = a^scalar in Fp12, using GLV-2 optimization.
 		/// Automatically splits the scalar internally. Must be 256 bits.
@@ -123,7 +159,7 @@ namespace blst
 		/// @brief ret = a^k1 * phi(a)^k2 in Fp12, using precomputed JSF form.
 		/// Fastest 2-way GLV path if JSF is precomputed.
 		/// base MUST be in the cyclotomic subgroup.
-		BLST_HD static void cyclotomic_exp_glv_jsf(Fp12& out, const Fp12& base, int8_t jsf[][2], int len);
+		BLST_HD static void cyclotomic_exp_glv_jsf(Fp12& out, const Fp12& base, const GLV_JSF_Exp& sched);
 
 		// 4-dimensional GLV split:
 		//   k = k0 + k1*lambda1 + k2*lambda2 + k3*lambda3

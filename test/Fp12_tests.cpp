@@ -893,18 +893,15 @@ TEST(Fp12Test, CyclotomicExpGLV2_jsf) {
 
 		// 2. Execute Optimized Split-Phase GLV
 		// Step A: Recode (API requirement)
-		int8_t jsf[132][2];
+		//int8_t jsf[132][2];
 		limb_t k1[4], k2[4];
 		Fp12::glv_split_2(k1, k2, k);
-		Fp12::glv_recode_jsf(jsf, k1, k2);
-
-		// Assuming recode_glv_jsf is exposed in the blst namespace or as a static Fp12 member
-		int len = Fp12::glv_recode_jsf(jsf, k1, k2);
+		auto jsf = Fp12::glv_recode_jsf(k1, k2);
 
 		// Step B: Exponentiate
 		Fp12 res_opt;
 		// Assuming cyclotomic_exp_glv_opt is exposed similarly
-		Fp12::cyclotomic_exp_glv_jsf(res_opt, base, jsf, len);
+		Fp12::cyclotomic_exp_glv_jsf(res_opt, base, jsf);
 
 		// 3. Execute Reference Implementation
 		// Logic: res_ref = (base^k1) * (frobenius_map(base, 2)^k2)
@@ -920,7 +917,7 @@ TEST(Fp12Test, CyclotomicExpGLV2_jsf) {
 			<< "GLV Optimization Mismatch at iteration " << i << "\n"
 			<< "K1: " << std::hex << k1[1] << k1[0] << "\n"
 			<< "K2: " << std::hex << k2[1] << k2[0] << "\n"
-			<< "Recoded Length: " << std::dec << len;
+			<< "Recoded Length: " << std::dec << jsf.sched_len << "\n";
 
 		if (!match) break; // detailed debug stop
 	}

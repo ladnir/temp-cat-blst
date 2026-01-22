@@ -529,6 +529,100 @@ namespace blst
 	}
 #endif // __FP2x2__
 
+
+#if defined(__FP2x2__)
+	
+	// Helper for the FP2x2 optimization path
+	BLST_HD BLST_INLINE void add_fp6x2(UFp6& ret, const UFp6& a, const UFp6& b)
+	{
+		add_fp2x2(ret[0], a[0], b[0]);
+		add_fp2x2(ret[1], a[1], b[1]);
+		add_fp2x2(ret[2], a[2], b[2]);
+	}
+
+	// Optimized mul with integrated conjugation
+	// Handles both __FP2x2__ (CPU/ASM) and Standard (CUDA/Portable) paths
+	BLST_HD FP12_CPP_INLINE void Fp12::mul(Fp12& ret, const Fp12& a, const Fp12& b, bool conj_b)
+	{
+		UFp6 t0, t1, rx;
+		Fp6 t2;
+
+		mul_fp6x2(t0, a[0], b[0]);
+		mul_fp6x2(t1, a[1], b[1]);
+
+		/* ret[1] = (a0 + a1)*(b0 + b1) - a0*b0 - a1*b1 */
+		add_fp6(t2, a[0], a[1]);
+
+		// Optimization: Merge conjugation into the linear combination
+		if (conj_b) sub_fp6(ret[1], b[0], b[1]); // b0 + (-b1)
+		else        add_fp6(ret[1], b[0], b[1]);
+
+		mul_fp6x2(rx, ret[1], t2);
+		sub_fp6x2(rx, rx, t0);
+
+		if (conj_b) add_fp6x2(rx, rx, t1); // - (a1 * -b1) = + a1*b1
+		else        sub_fp6x2(rx, rx, t1);
+
+		redc_fp6x2(ret[1], rx);
+
+		/* ret[0] = a0*b0 +/- a1*b1*v */
+		// Note: t1[2] corresponds to high part of expansion used for 'v' mul
+		mul_by_u_plus_1_fp2x2(rx[0], t1[2]);
+
+		if (conj_b) {
+			// a1*b1*v term is subtracted
+			sub_fp2x2(rx[0], t0[0], rx[0]);
+			sub_fp2x2(rx[1], t0[1], t1[0]);
+			sub_fp2x2(rx[2], t0[2], t1[1]);
+		}
+		else {
+			add_fp2x2(rx[0], t0[0], rx[0]);
+			add_fp2x2(rx[1], t0[1], t1[0]);
+			add_fp2x2(rx[2], t0[2], t1[1]);
+		}
+		redc_fp6x2(ret[0], rx);
+	}
+#else // Normal path (Likely active for CUDA)
+	BLST_HD FP12_CPP_INLINE void Fp12::mul(Fp12& ret, const Fp12& a, const Fp12& b, bool conj_b)
+	{
+		Fp6 t0, t1, t2;
+
+		mul_fp6(t0, a[0], b[0]);
+		mul_fp6(t1, a[1], b[1]);
+
+		/* ret[1] calculation */
+		add_fp6(t2, a[0], a[1]);
+
+		if (conj_b) sub_fp6(ret[1], b[0], b[1]); // b0 - b1
+		else        add_fp6(ret[1], b[0], b[1]);
+
+		mul_fp6(ret[1], ret[1], t2);
+		sub_fp6(ret[1], ret[1], t0);
+
+		if (conj_b) add_fp6(ret[1], ret[1], t1); // - (a1 * -b1)
+		else        sub_fp6(ret[1], ret[1], t1);
+
+		/* ret[0] calculation */
+#ifdef mul_by_v_fp6
+		mul_by_v_fp6(t1, t1);
+		if (conj_b) sub_fp6(ret[0], t0, t1);
+		else        add_fp6(ret[0], t0, t1);
+#else
+		Fp2::mul_by_u_plus_1(t1[2], t1[2]);
+		if (conj_b) {
+			Fp2::sub(ret[0][0], t0[0], t1[2]);
+			Fp2::sub(ret[0][1], t0[1], t1[0]);
+			Fp2::sub(ret[0][2], t0[2], t1[1]);
+		}
+		else {
+			Fp2::add(ret[0][0], t0[0], t1[2]);
+			Fp2::add(ret[0][1], t0[1], t1[0]);
+			Fp2::add(ret[0][2], t0[2], t1[1]);
+		}
+#endif
+	}
+#endif
+
 	BLST_HD FP12_CPP_INLINE void Fp12::sqr(Fp12& ret, const Fp12& a)
 	{
 		Fp6 t0, t1;
@@ -961,10 +1055,16 @@ namespace blst
 			}
 
 			cyclotomic_exp_glv4(ret, a, exp_256);
-			return;
 		}
+		else
+		{
+			// Fallback to basic square-and-multiply for other sizes
+			cyclotomic_exp_basic(ret, a, exp, bits);
+		}
+	}
 
-
+	BLST_HD FP12_CPP_INLINE void Fp12::cyclotomic_exp_basic(Fp12& ret, const Fp12& a, const byte* exp, size_t bits)
+	{
 		// 1. Find the first set bit (scanning MSB to LSB)
 		int i = (int)bits - 1;
 		while (i >= 0 && !((exp[i / 8] >> (i % 8)) & 1)) {
@@ -1251,12 +1351,13 @@ namespace blst
 		return (unsigned)((k[i / 64] >> (i % 64)) & 1);
 	}
 
-	BLST_HD int Fp12::glv_recode_jsf(int8_t jsf[][2], const limb_t* k1, const limb_t* k2)
+	BLST_HD GLV_JSF_Exp Fp12::glv_recode_jsf(const limb_t* k1, const limb_t* k2)
 	{
-		int len = 0;
+		GLV_JSF_Exp result = { 0 }; // Zero-initialize for safe bitwise OR in set()
 		unsigned d1 = 0, d2 = 0; // Carries for k1, k2
 		unsigned u, v;
 		int i = 0;
+		result.sched_len = 0;
 
 		// Map scalars to signed digits {-1, 0, 1}
 		// Loop limit 132 covers 129-bit input + worst-case carry propagation
@@ -1301,10 +1402,9 @@ namespace blst
 			}
 
 			// Bounds check for safety before writing
-			if (len < 132) {
-				jsf[len][0] = (int8_t)j1;
-				jsf[len][1] = (int8_t)j2;
-				len++;
+			if (result.sched_len < 132) {
+				result.set(result.sched_len, j1, j2);
+				result.sched_len++;
 			}
 
 			// Calculate next carries: d = (u - j) / 2
@@ -1318,13 +1418,14 @@ namespace blst
 		}
 
 		// Trim leading zeros to find real MSB
-		while (len > 0 && jsf[len - 1][0] == 0 && jsf[len - 1][1] == 0) {
+		int len = result.sched_len;
+		while (len > 0 && result.get(len - 1).d1 == 0 && result.get(len - 1).d2 == 0) {
 			len--;
 		}
+		result.sched_len = (uint8_t)len;
 
-		return len;
+		return result;
 	}
-
 
 	//// Full GLV with JSF recoding
 	//// Phase 2: Lean Execution Loop (Split API)
@@ -1421,17 +1522,25 @@ namespace blst
 	// Recodes on the fly to avoid memory bandwidth of passing JSF array.
 	BLST_HD void Fp12::cyclotomic_exp_glv_jsf(Fp12& out, const Fp12& base, const limb_t* k1, const limb_t* k2)
 	{
-		// 1. Recode to JSF locally (Stack allocation)
-		// Consumes ~264 bytes of stack.
-		int8_t jsf[134][2];
-		int len = glv_recode_jsf(jsf, k1, k2);
-
-		cyclotomic_exp_glv_jsf(out, base, jsf, len);
+		cyclotomic_exp_glv_jsf(out, base, glv_recode_jsf(k1, k2));
 	}
 
-	BLST_HD void Fp12::cyclotomic_exp_glv_jsf(Fp12& out, const Fp12& base, int8_t jsf[132][2], int len)
-	{
+	// Struct for pair return to avoid std::pair dependency on device
+	struct OpSelect { const Fp12* ptr; bool inv; };
+	
+	BLST_HD auto get_op(int u, int v, const Fp12& base, const Fp12& P2, const Fp12& P1_P2, const Fp12& P1_nP2) {
+		const Fp12* op = nullptr;
+		bool inv = false;
+		if (u == 0) { op = &P2; if (v < 0) inv = true; }
+		else if (v == 0) { op = &base; if (u < 0) inv = true; }
+		else if (u == v) { op = &P1_P2; if (u < 0) inv = true; }
+		else { op = &P1_nP2; if (u < 0) inv = true; }
+		return OpSelect{ op, inv };
+	};
 
+	BLST_HD void Fp12::cyclotomic_exp_glv_jsf(Fp12& out, const Fp12& base, const GLV_JSF_Exp& jsf)
+	{
+		int len = jsf.sched_len;
 		if (len == 0) {
 			vec_copy(&out, &Fp12::one(), sizeof(Fp12));
 			return;
@@ -1448,75 +1557,36 @@ namespace blst
 		Fp12::mul(P1_P2, base, P2);
 
 		// P1_nP2 = P1 * conj(P2)
-		{
-			Fp12 P2_conj = P2;
-			Fp12::conjugate(P2_conj);
-			Fp12::mul(P1_nP2, base, P2_conj);
-		}
+		Fp12::mul(P1_nP2, base, P2, true);
 
 		// 3. Init with MSB
 		len--;
 
-		auto apply_op = [&](int u, int v) {
-			const Fp12* op = nullptr;
-			bool inv = false;
-
-			// Simple decision tree (minor divergence, but avoids LUT array in memory)
-			if (u == 0) {
-				op = &P2;       // (0, 1) or (0, -1)
-				if (v < 0) inv = true;
-			}
-			else if (v == 0) {
-				op = &base;     // (1, 0) or (-1, 0)
-				if (u < 0) inv = true;
-			}
-			else if (u == v) {
-				op = &P1_P2;    // (1, 1) or (-1, -1)
-				if (u < 0) inv = true;
-			}
-			else {
-				op = &P1_nP2;   // (1, -1) or (-1, 1)
-				if (u < 0) inv = true;
-			}
-
-			// Converged execution of heavy math
-			if (inv) {
-				Fp12 tmp = *op;
-				Fp12::conjugate(tmp);
-				Fp12::mul(out, out, tmp);
-			}
-			else {
-				Fp12::mul(out, out, *op);
-			}
-			};
-
-		// Initialize first window (cheaper than mul by one)
+		// Initialization
 		{
-			int u = jsf[len][0];
-			int v = jsf[len][1];
+			auto pair = jsf.get(len);
+			OpSelect sel = get_op(pair.d1, pair.d2, base, P2, P1_P2, P1_nP2);
 
-			// Duplicate logic of apply_op but using assignment instead of mul
-			const Fp12* op = nullptr;
-			bool inv = false;
-			if (u == 0) { op = &P2; if (v < 0) inv = true; }
-			else if (v == 0) { op = &base; if (u < 0) inv = true; }
-			else if (u == v) { op = &P1_P2; if (u < 0) inv = true; }
-			else { op = &P1_nP2; if (u < 0) inv = true; }
-
-			vec_copy(&out, op, sizeof(Fp12));
-			if (inv) Fp12::conjugate(out);
+			vec_copy(&out, sel.ptr, sizeof(Fp12));
+			if (sel.inv) Fp12::conjugate(out);
 		}
 
 		// 4. Main Loop
 		for (len--; len >= 0; --len) {
 			Fp12::cyclotomic_sqr(out, out);
 
-			int u = jsf[len][0];
-			int v = jsf[len][1];
+			auto pair = jsf.get(len);
+			int u = pair.d1;
+			int v = pair.d2;
 
-			if (u == 0 && v == 0) continue;
-
-			apply_op(u, v);
+			if (u == 0 && v == 0)
+				continue;
+			
+			// Minimized divergence: 
+			// No stack allocations, no "conjugate" function call.
+			// Just a boolean flag passed to mul.
+			OpSelect sel = get_op(u, v, base, P2, P1_P2, P1_nP2);
+			Fp12::mul(out, out, *sel.ptr, sel.inv);
 		}
 	}
 
@@ -1612,8 +1682,8 @@ namespace blst
 
 	// 128-bit / 64-bit division: (hi, lo) / div
 	// Returns quotient, puts remainder in *rem
-	static uint64_t udiv128_64(uint64_t hi, uint64_t lo, uint64_t div, uint64_t* rem) {
-#if defined(_MSC_VER) && defined(_M_X64)
+	BLST_HD FP12_CPP_INLINE static uint64_t udiv128_64(uint64_t hi, uint64_t lo, uint64_t div, uint64_t* rem) {
+#if defined(_MSC_VER) && defined(_M_X64) && !defined(__CUDA_ARCH__)
 		uint64_t r;
 		uint64_t q = _udiv128(hi, lo, div, &r);
 		*rem = r;
@@ -1643,7 +1713,7 @@ namespace blst
 
 	// Helper: 256-bit by 64-bit division/remainder.
 	// Computes q = n / d, r = n % d.
-	static void div_rem_u256_u64(limb_t q[4], uint64_t& r, const limb_t n[4], uint64_t d)
+	BLST_HD FP12_CPP_INLINE static void div_rem_u256_u64(limb_t q[4], uint64_t& r, const limb_t n[4], uint64_t d)
 	{
 		uint64_t rem = 0;
 		for (int i = 3; i >= 0; i--) {
@@ -1737,25 +1807,24 @@ namespace blst
 		}
 #endif
 
-
 		// 1. Decompose Scalar
 		int64_t k[4];
 		gt_split_scalar_4d(k, scalar);
 
 		// 2. Prepare Basis Points {P0, P1, P2, P3}
 		uint64_t abs_k[4];
-		Fp12 basis[4];
+		Fp12 T[16];
 
-		basis[0] = base; // P0
-		Fp12::frobenius_map(basis[1], base, 1); // P1
-		Fp12::frobenius_map(basis[2], base, 2); // P2
-		Fp12::frobenius_map(basis[3], base, 3); // P3
+		T[1] = base; // P0
+		Fp12::frobenius_map(T[2], base, 1); // P1
+		Fp12::frobenius_map(T[4], base, 2); // P2
+		Fp12::frobenius_map(T[8], base, 3); // P3
 
 		// Handle signs
 		for (int i = 0; i < 4; ++i) {
 			if (k[i] < 0) {
 				abs_k[i] = (uint64_t)(-k[i]);
-				Fp12::conjugate(basis[i]);
+				Fp12::conjugate(T[1 << i]);
 			}
 			else {
 				abs_k[i] = (uint64_t)k[i];
@@ -1763,16 +1832,9 @@ namespace blst
 		}
 
 		// 3. Precompute Lookup Table (16 points)
-		// T[idx]
-		Fp12 T[16];
 		// 0000 -> 1
 		vec_copy(&T[0], &Fp12::one(), sizeof(Fp12));
 
-		// Powers of 2 indices
-		T[1] = basis[0];
-		T[2] = basis[1];
-		T[4] = basis[2];
-		T[8] = basis[3];
 
 		// Fill rest
 		Fp12::mul(T[3], T[1], T[2]);  // 1|2
