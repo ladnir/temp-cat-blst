@@ -158,6 +158,14 @@ namespace blst
             return r;
         }
 
+
+        // Fr * Fr -> GT (scalar multiplication = Fp12 exponentiation)
+        static auto mult(const Fr& a, const Fr& b) {
+            Fr r;
+            Fr::mul(r, a, b);
+            return r;
+        }
+
         // Inverse of Fr scalar (for iFFT scaling)
         static auto inverse(const Fr& a) {
             Fr r;

@@ -720,3 +720,601 @@ TEST(Fft, G1G2PairingFft) {
 
     EXPECT_TRUE(match);
 }
+
+// Context for poly_mult_fft with G1, G2 -> GT via pairing
+struct PairingCoeffCtx
+{
+    // G1 operations
+    template<typename G, typename F>
+    static auto plus(const G& a, const F& b) {
+        G r;
+        G::dadd(r, a, b);
+        return r;
+    }
+
+    template<typename G, typename F>
+    static auto minus(const G& a, const F& b) {
+        G r;
+        F neg_b;
+        F::neg(neg_b, b);
+        G::dadd(r, a, neg_b);
+        return r;
+    }
+
+    // Scalar multiplication for G1/G2/GT
+    template<typename G, typename F>
+    static auto mult(const G& a, const F& b) {
+
+        if constexpr (std::is_same<G, F>::value) {
+            // Scalar * Scalar case (Fr * Fr)
+            G r;
+            G::mul(r, a, b);
+            return r;
+        }
+        else {
+            G r;
+            F b_non_mont;
+            F::from_mont(b_non_mont, b);
+            G::mult(r, a, reinterpret_cast<const byte*>(&b_non_mont), 256);
+            return r;
+        }
+    }
+
+    // Pairing multiplication: G1 x G2 -> GT
+    static auto mult(const G1Point& a, const G2Point& b) {
+        return pair(a, b);
+    }
+
+    static auto inverse(const Fr& a) {
+        Fr r;
+        Fr::reciprocal(r, a);
+        return r;
+    }
+
+    template<typename F>
+    static auto from_u64(u64 a) {
+        return mf(a);
+    }
+};
+TEST(Fft, PolyMultFft) {
+    auto n = 8;
+    size_t N = n * 2; // FFT size
+
+    // 1. Setup data: G1 points (A) and G2 points (B)
+    std::vector<G1Point> A;
+    std::vector<G2Point> B;
+    for (size_t i = 0; i < n; ++i) {
+        A.push_back(g1(rand()));
+        B.push_back(g2(rand()));
+    }
+
+    // 2. Naive Convolution for expected result
+    size_t m = A.size();
+    size_t nn = B.size();
+    std::vector<GT> expected(m + nn - 1, GT::identity());
+    for (size_t i = 0; i < m; ++i) {
+        for (size_t j = 0; j < nn; ++j) {
+            GT p = pair(A[i], B[j]);
+            GT::add(expected[i + j], expected[i + j], p);
+        }
+    }
+    expected.resize(N, GT::identity());
+
+    // 3. FFT Setup
+    Fr prim = primRootOfUnity<Fr>(N);
+
+    std::vector<Fr> roots(N);
+    Fr current_root = Fr::one();
+    for (size_t i = 0; i < N; ++i) {
+        roots[i] = current_root;
+        Fr::mul(current_root, current_root, prim);
+    }
+
+    std::vector<Fr> inv_roots(N);
+    for (size_t i = 0; i < N; ++i) {
+        Fr::reciprocal(inv_roots[i], roots[i]);
+    }
+
+    // 4. Pad input arrays to FFT size
+    A.resize(N, G1Point::infinity());
+    B.resize(N, G2Point::infinity());
+    std::vector<GT> C(N, GT::identity());
+
+    std::vector<G2Point> fftB = B;
+	// FFT on G2 points
+	fft<G2Point, Fr, G2CoeffCtx>(fftB, roots, false);
+    
+    // 5. Use poly_mult_fft
+    poly_mult_fft<G1Point, G2Point, GT, Fr, PairingCoeffCtx>(A, fftB, true, C, roots, inv_roots);
+
+    // 6. Compare results
+    bool match = true;
+    for (size_t i = 0; i < N; ++i) {
+        if (!GT::equal(C[i], expected[i])) {
+            match = false;
+            break;
+        }
+    }
+
+    if (!match) {
+        std::cout << "PolyMultFft FAILED\n";
+        for (size_t i = 0; i < N; ++i) {
+            byte exp_bytes[576], act_bytes[576];
+            GT::serialize(exp_bytes, expected[i]);
+            GT::serialize(act_bytes, C[i]);
+            std::cout << "exp[" << i << "]: ";
+            for (int j = 0; j < 12; ++j) printf("%02x", exp_bytes[j]);
+            std::cout << "...\nact[" << i << "]: ";
+            for (int j = 0; j < 12; ++j) printf("%02x", act_bytes[j]);
+            std::cout << "...\n";
+        }
+    }
+
+    EXPECT_TRUE(match);
+}
+
+
+// Test middle_product_fft against naive convolution
+TEST(Fft, MiddleProductFft) {
+    std::size_t n = 8;
+    std::size_t m = 16;  // FFT size, must be >= 2n
+
+    // 1. Setup data: G1 points (A) with n elements, G2 points (B) with 2n elements
+    std::vector<G1Point> A_orig;
+    std::vector<G2Point> B_orig;
+
+    srand(42);
+    for (std::size_t i = 0; i < n; ++i) {
+        A_orig.push_back(g1(rand() % 1000 + 1));
+    }
+    for (std::size_t i = 0; i < 2 * n; ++i) {
+        B_orig.push_back(g2(rand() % 1000 + 1));
+    }
+
+    // 2. Naive Convolution for expected result
+    std::size_t full_size = n + 2 * n - 1;
+    std::vector<GT> full_product(full_size, GT::identity());
+    for (std::size_t i = 0; i < n; ++i) {
+        for (std::size_t j = 0; j < 2 * n; ++j) {
+            GT p = pair(A_orig[i], B_orig[j]);
+            GT::add(full_product[i + j], full_product[i + j], p);
+        }
+    }
+
+    // Expected middle n coefficients: c[n], c[n+1], ..., c[2n-1]
+    std::vector<GT> expected(n);
+    for (std::size_t k = 0; k < n; ++k) {
+        expected[k] = full_product[n + k];
+    }
+
+    // 3. FFT Setup
+    Fr prim = primRootOfUnity<Fr>(m);
+    std::vector<Fr> roots(m);
+    Fr current_root = Fr::one();
+    for (std::size_t i = 0; i < m; ++i) {
+        roots[i] = current_root;
+        Fr::mul(current_root, current_root, prim);
+    }
+    std::vector<Fr> inv_roots(m);
+    for (std::size_t i = 0; i < m; ++i) {
+        Fr::reciprocal(inv_roots[i], roots[i]);
+    }
+
+    // 4. Prepare buffers (caller allocates everything)
+    std::vector<G1Point> A(m, G1Point::infinity());
+    std::vector<G2Point> B0(m, G2Point::infinity());
+    std::vector<G2Point> B1(m, G2Point::infinity());
+    std::vector<GT> out(n, GT::identity());
+    std::vector<GT> C_scratch(m, GT::identity());
+
+    // Copy input data
+    for (std::size_t i = 0; i < n; ++i) {
+        A[i] = A_orig[i];
+        B0[i] = B_orig[i];        // B0 = B[0..n-1]
+        B1[i] = B_orig[n + i];    // B1 = B[n..2n-1]
+    }
+
+    // 5. Call middle_product_fft
+    middle_product_fft<G1Point, G2Point, GT, Fr, PairingCoeffCtx>(
+        std::span<G1Point>(A), std::span<G2Point>(B0), std::span<G2Point>(B1),
+        false,
+        n, m,
+        std::span<GT>(out), std::span<GT>(C_scratch),
+        std::span<const Fr>(roots.data(), m), std::span<const Fr>(inv_roots.data(), m),
+        prim,
+        GT::identity(), G1Point::infinity(), G2Point::infinity());
+
+    // 6. Compare results
+    bool match = true;
+    for (std::size_t i = 0; i < n; ++i) {
+        if (!GT::equal(out[i], expected[i])) {
+            match = false;
+            break;
+        }
+    }
+
+    if (!match) {
+        std::cout << "MiddleProductFft FAILED\n";
+        for (std::size_t i = 0; i < n; ++i) {
+            byte exp_bytes[576], act_bytes[576];
+            GT::serialize(exp_bytes, expected[i]);
+            GT::serialize(act_bytes, out[i]);
+            std::cout << "exp[" << i << "] (c[" << (n + i) << "]): ";
+            for (int j = 0; j < 12; ++j) printf("%02x", exp_bytes[j]);
+            std::cout << "...\nact[" << i << "]: ";
+            for (int j = 0; j < 12; ++j) printf("%02x", act_bytes[j]);
+            std::cout << "...\n";
+        }
+    }
+
+    EXPECT_TRUE(match);
+}
+
+// Test middle_product_fft with different sizes
+TEST(Fft, MiddleProductFftSizes) {
+    std::vector<std::size_t> test_sizes = { 2, 4, 8, 16 };
+
+    for (std::size_t n : test_sizes) {
+        std::size_t m = 1;
+        while (m < 2 * n) m <<= 1;
+
+        // Setup data
+        std::vector<G1Point> A_orig;
+        std::vector<G2Point> B_orig;
+
+        srand(static_cast<unsigned int>(n * 123));
+        for (std::size_t i = 0; i < n; ++i) {
+            A_orig.push_back(g1(rand() % 100 + 1));
+        }
+        for (std::size_t i = 0; i < 2 * n; ++i) {
+            B_orig.push_back(g2(rand() % 100 + 1));
+        }
+
+        // Naive computation
+        std::vector<GT> expected(n, GT::identity());
+        for (std::size_t k = 0; k < n; ++k) {
+            for (std::size_t i = 0; i < n; ++i) {
+                std::size_t j = n + k - i;
+                if (j < 2 * n) {
+                    GT p = pair(A_orig[i], B_orig[j]);
+                    GT::add(expected[k], expected[k], p);
+                }
+            }
+        }
+
+        // FFT Setup
+        Fr prim = primRootOfUnity<Fr>(m);
+        std::vector<Fr> roots(m), inv_roots(m);
+        Fr current = Fr::one();
+        for (std::size_t i = 0; i < m; ++i) {
+            roots[i] = current;
+            Fr::mul(current, current, prim);
+        }
+        for (std::size_t i = 0; i < m; ++i) {
+            Fr::reciprocal(inv_roots[i], roots[i]);
+        }
+
+        // Prepare buffers
+        std::vector<G1Point> A(m, G1Point::infinity());
+        std::vector<G2Point> B0(m, G2Point::infinity());
+        std::vector<G2Point> B1(m, G2Point::infinity());
+        std::vector<GT> out(n, GT::identity());
+        std::vector<GT> C_scratch(m, GT::identity());
+
+        for (std::size_t i = 0; i < n; ++i) {
+            A[i] = A_orig[i];
+            B0[i] = B_orig[i];
+            B1[i] = B_orig[n + i];
+        }
+
+        // Call
+        middle_product_fft<G1Point, G2Point, GT, Fr, PairingCoeffCtx>(
+            std::span<G1Point>(A), std::span<G2Point>(B0), std::span<G2Point>(B1),
+            false,
+            n, m,
+            std::span<GT>(out), std::span<GT>(C_scratch),
+            std::span<const Fr>(roots.data(), m), std::span<const Fr>(inv_roots.data(), m),
+            prim,
+            GT::identity(), G1Point::infinity(), G2Point::infinity());
+
+        // Compare
+        bool match = true;
+        for (std::size_t i = 0; i < n; ++i) {
+            if (!GT::equal(out[i], expected[i])) {
+                match = false;
+                std::cout << "Mismatch at n=" << n << ", index=" << i << std::endl;
+                break;
+            }
+        }
+
+        EXPECT_TRUE(match) << "MiddleProductFft failed for n=" << n;
+    }
+}
+
+// Test that middle_product_fft matches extracting middle from full product
+TEST(Fft, MiddleProductVsFullProduct) {
+    std::size_t n = 4;
+    std::size_t m = 8;
+
+    // Setup data
+    std::vector<G1Point> A_orig;
+    std::vector<G2Point> B_orig;
+
+    srand(999);
+    for (std::size_t i = 0; i < n; ++i) {
+        A_orig.push_back(g1(rand() % 50 + 1));
+    }
+    for (std::size_t i = 0; i < 2 * n; ++i) {
+        B_orig.push_back(g2(rand() % 50 + 1));
+    }
+
+    // Compute full product via FFT
+    std::size_t full_fft_size = 1;
+    while (full_fft_size < 3 * n - 1) full_fft_size <<= 1;
+
+    Fr prim_full = primRootOfUnity<Fr>(full_fft_size);
+    std::vector<Fr> roots_full(full_fft_size), inv_roots_full(full_fft_size);
+    Fr current = Fr::one();
+    for (std::size_t i = 0; i < full_fft_size; ++i) {
+        roots_full[i] = current;
+        Fr::mul(current, current, prim_full);
+    }
+    for (std::size_t i = 0; i < full_fft_size; ++i) {
+        Fr::reciprocal(inv_roots_full[i], roots_full[i]);
+    }
+
+    std::vector<G1Point> A_full(full_fft_size, G1Point::infinity());
+    std::vector<G2Point> B_full(full_fft_size, G2Point::infinity());
+    for (std::size_t i = 0; i < n; ++i) A_full[i] = A_orig[i];
+    for (std::size_t i = 0; i < 2 * n; ++i) B_full[i] = B_orig[i];
+
+    fft<G1Point, Fr, G1CoeffCtx>(A_full, roots_full, false);
+    fft<G2Point, Fr, G2CoeffCtx>(B_full, roots_full, false);
+
+    std::vector<GT> C_full(full_fft_size);
+    for (std::size_t i = 0; i < full_fft_size; ++i) {
+        C_full[i] = pair(A_full[i], B_full[i]);
+    }
+    fft<GT, Fr, GTCoeffCtx>(C_full, inv_roots_full, true);
+
+    // Expected from full product
+    std::vector<GT> expected(n);
+    for (std::size_t k = 0; k < n; ++k) {
+        expected[k] = C_full[n + k];
+    }
+
+    // Compute via middle_product_fft
+    Fr prim = primRootOfUnity<Fr>(m);
+    std::vector<Fr> roots(m), inv_roots(m);
+    current = Fr::one();
+    for (std::size_t i = 0; i < m; ++i) {
+        roots[i] = current;
+        Fr::mul(current, current, prim);
+    }
+    for (std::size_t i = 0; i < m; ++i) {
+        Fr::reciprocal(inv_roots[i], roots[i]);
+    }
+
+    std::vector<G1Point> A(m, G1Point::infinity());
+    std::vector<G2Point> B0(m, G2Point::infinity());
+    std::vector<G2Point> B1(m, G2Point::infinity());
+    std::vector<GT> out(n, GT::identity());
+    std::vector<GT> C_scratch(m, GT::identity());
+
+    for (std::size_t i = 0; i < n; ++i) {
+        A[i] = A_orig[i];
+        B0[i] = B_orig[i];
+        B1[i] = B_orig[n + i];
+    }
+
+    middle_product_fft<G1Point, G2Point, GT, Fr, PairingCoeffCtx>(
+        std::span<G1Point>(A), std::span<G2Point>(B0), std::span<G2Point>(B1),
+        false,
+        n, m,
+        std::span<GT>(out), std::span<GT>(C_scratch),
+        std::span<const Fr>(roots.data(), m), std::span<const Fr>(inv_roots.data(), m),
+        prim,
+        GT::identity(), G1Point::infinity(), G2Point::infinity());
+
+    // Compare
+    bool match = true;
+    for (std::size_t i = 0; i < n; ++i) {
+        if (!GT::equal(out[i], expected[i])) {
+            match = false;
+            std::cout << "Mismatch at index " << i << std::endl;
+            break;
+        }
+    }
+
+    EXPECT_TRUE(match) << "middle_product_fft does not match full product extraction";
+}
+
+
+
+
+
+
+
+
+
+// Test truncated inverse FFT correctness against full inverse FFT
+TEST(Fft, TruncatedInverseFftCorrectness) {
+    std::size_t m = 16;
+
+    std::vector<std::size_t> test_lengths = { 1, 2, 4, 8, 12, 15, 16 };
+
+    for (std::size_t L : test_lengths) {
+        std::vector<GT> freq_full(m);
+        std::vector<GT> freq_trunc(m);
+
+        srand(42 + static_cast<unsigned int>(L));
+        for (std::size_t i = 0; i < m; ++i) {
+            freq_full[i] = pair(g1(rand() % 100 + 1), g2(rand() % 100 + 1));
+            freq_trunc[i] = freq_full[i];
+        }
+
+        Fr prim = primRootOfUnity<Fr>(m);
+        Fr m_inv = Fr::from_uint64(m);
+        Fr::reciprocal(m_inv, m_inv);
+
+        // Setup inv_roots (reciprocals of forward roots)
+        std::vector<Fr> inv_roots(m);
+        Fr current = Fr::one();
+        for (std::size_t i = 0; i < m; ++i) {
+            Fr::reciprocal(inv_roots[i], current);
+            Fr::mul(current, current, prim);
+        }
+
+        // Full inverse FFT using standard fft with invert=true
+        fft<GT, Fr, GTCoeffCtx>(freq_full, inv_roots, true);
+
+        // Truncated inverse FFT
+        fft_inverse_truncated<GT, Fr, GTCoeffCtx>(
+            std::span<GT>(freq_trunc), m, L,
+            std::span<const Fr>(inv_roots), m_inv);
+
+        bool match = true;
+        for (std::size_t i = 0; i < L; ++i) {
+            if (!GT::equal(freq_full[i], freq_trunc[i])) {
+                match = false;
+                std::cout << "Mismatch at L=" << L << ", index=" << i << std::endl;
+                break;
+            }
+        }
+
+        EXPECT_TRUE(match) << "Truncated inverse FFT failed for L=" << L;
+    }
+}
+
+// Test full inverse matches standard
+TEST(Fft, FullInverseFftCorrectness) {
+    std::size_t m = 16;
+
+    std::vector<GT> freq_std(m);
+    std::vector<GT> freq_new(m);
+
+    srand(123);
+    for (std::size_t i = 0; i < m; ++i) {
+        freq_std[i] = pair(g1(rand() % 100 + 1), g2(rand() % 100 + 1));
+        freq_new[i] = freq_std[i];
+    }
+
+    Fr prim = primRootOfUnity<Fr>(m);
+    Fr m_inv = Fr::from_uint64(m);
+    Fr::reciprocal(m_inv, m_inv);
+
+    std::vector<Fr> inv_roots(m);
+    Fr current = Fr::one();
+    for (std::size_t i = 0; i < m; ++i) {
+        Fr::reciprocal(inv_roots[i], current);
+        Fr::mul(current, current, prim);
+    }
+
+    // Standard inverse
+    fft<GT, Fr, GTCoeffCtx>(freq_std, inv_roots, true);
+
+    // New inverse function
+    fft_inverse_full<GT, Fr, GTCoeffCtx>(
+        std::span<GT>(freq_new), m,
+        std::span<const Fr>(inv_roots), m_inv);
+
+    bool match = true;
+    for (std::size_t i = 0; i < m; ++i) {
+        if (!GT::equal(freq_std[i], freq_new[i])) {
+            match = false;
+            std::cout << "Mismatch at index " << i << std::endl;
+            break;
+        }
+    }
+
+    EXPECT_TRUE(match) << "Full inverse FFT does not match standard inverse";
+}
+
+// Test middle_product_fft_truncated matches middle_product_fft
+TEST(Fft, MiddleProductFftTruncatedCorrectness) {
+    std::size_t n = 8;
+    std::size_t m = 16;
+
+    std::vector<G1Point> A_orig;
+    std::vector<G2Point> B_orig;
+
+    srand(42);
+    for (std::size_t i = 0; i < n; ++i) {
+        A_orig.push_back(g1(rand() % 1000 + 1));
+    }
+    for (std::size_t i = 0; i < 2 * n; ++i) {
+        B_orig.push_back(g2(rand() % 1000 + 1));
+    }
+
+    // FFT Setup
+    Fr prim = primRootOfUnity<Fr>(m);
+    Fr m_inv = Fr::from_uint64(m);
+    Fr::reciprocal(m_inv, m_inv);
+
+    std::vector<Fr> roots(m);
+    Fr current = Fr::one();
+    for (std::size_t i = 0; i < m; ++i) {
+        roots[i] = current;
+        Fr::mul(current, current, prim);
+    }
+    std::vector<Fr> inv_roots(m);
+    for (std::size_t i = 0; i < m; ++i) {
+        Fr::reciprocal(inv_roots[i], roots[i]);
+    }
+
+    // Standard version
+    std::vector<G1Point> A_std(m, G1Point::infinity());
+    std::vector<G2Point> B0_std(m, G2Point::infinity());
+    std::vector<G2Point> B1_std(m, G2Point::infinity());
+    std::vector<GT> out_std(n, GT::identity());
+    std::vector<GT> C_std(m, GT::identity());
+
+    for (std::size_t i = 0; i < n; ++i) {
+        A_std[i] = A_orig[i];
+        B0_std[i] = B_orig[i];
+        B1_std[i] = B_orig[n + i];
+    }
+
+    middle_product_fft<G1Point, G2Point, GT, Fr, PairingCoeffCtx>(
+        std::span<G1Point>(A_std), std::span<G2Point>(B0_std), std::span<G2Point>(B1_std),
+        false,
+        n, m,
+        std::span<GT>(out_std), std::span<GT>(C_std),
+        std::span<const Fr>(roots), std::span<const Fr>(inv_roots),
+        prim,
+        GT::identity(), G1Point::infinity(), G2Point::infinity());
+
+    // Truncated version
+    std::vector<G1Point> A_trunc(m, G1Point::infinity());
+    std::vector<G2Point> B0_trunc(m, G2Point::infinity());
+    std::vector<G2Point> B1_trunc(m, G2Point::infinity());
+    std::vector<GT> out_trunc(n, GT::identity());
+    std::vector<GT> C_trunc(m, GT::identity());
+
+    for (std::size_t i = 0; i < n; ++i) {
+        A_trunc[i] = A_orig[i];
+        B0_trunc[i] = B_orig[i];
+        B1_trunc[i] = B_orig[n + i];
+    }
+
+    middle_product_fft_truncated<G1Point, G2Point, GT, Fr, PairingCoeffCtx>(
+        std::span<G1Point>(A_trunc), std::span<G2Point>(B0_trunc), std::span<G2Point>(B1_trunc),
+        false,
+        n, m,
+        std::span<GT>(out_trunc), std::span<GT>(C_trunc),
+        std::span<const Fr>(roots), std::span<const Fr>(inv_roots),
+        prim, m_inv,
+        GT::identity(), G1Point::infinity(), G2Point::infinity());
+
+    // Compare
+    bool match = true;
+    for (std::size_t i = 0; i < n; ++i) {
+        if (!GT::equal(out_std[i], out_trunc[i])) {
+            match = false;
+            std::cout << "Mismatch at index " << i << std::endl;
+            break;
+        }
+    }
+
+    EXPECT_TRUE(match) << "Truncated middle product does not match standard version";
+}
