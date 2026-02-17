@@ -1231,6 +1231,119 @@ TEST(Fft, FullInverseFftCorrectness) {
     EXPECT_TRUE(match) << "Full inverse FFT does not match standard inverse";
 }
 
+TEST(Fft, TruncatedForwardPrefixMatchesFullFr)
+{
+    const std::size_t m = 32;
+    Fr prim = primRootOfUnity<Fr>(m);
+    std::vector<Fr> roots(m);
+    Fr cur = Fr::one();
+    for (std::size_t i = 0; i < m; ++i) {
+        roots[i] = cur;
+        Fr::mul(cur, cur, prim);
+    }
+
+    const std::vector<std::size_t> xns = { 1, 5, 13, 24, 32 };
+    for (std::size_t xn : xns) {
+        std::vector<Fr> full(m);
+        std::vector<Fr> trunc(m);
+        Fr zero;
+        memset(&zero, 0, sizeof(Fr));
+
+        for (std::size_t i = 0; i < m; ++i) {
+            if (i < xn) {
+                full[i] = mf(static_cast<u64>(i + 3));
+            }
+            else {
+                full[i] = zero;
+            }
+        }
+        trunc = full;
+
+        fft<Fr, Fr, FrCoeffCtx>(full, roots, false);
+        fft_forward_truncated_prefix<Fr, Fr, FrCoeffCtx>(trunc, roots, xn);
+
+        EXPECT_EQ(full, trunc) << "Fr truncated forward mismatch at xn=" << xn;
+    }
+}
+
+TEST(Fft, TruncatedForwardPrefixMatchesFullG1)
+{
+    const std::size_t m = 32;
+    Fr prim = primRootOfUnity<Fr>(m);
+    std::vector<Fr> roots(m);
+    Fr cur = Fr::one();
+    for (std::size_t i = 0; i < m; ++i) {
+        roots[i] = cur;
+        Fr::mul(cur, cur, prim);
+    }
+
+    const std::vector<std::size_t> xns = { 1, 5, 13, 24, 32 };
+    for (std::size_t xn : xns) {
+        std::vector<G1Point> full(m, G1Point::infinity());
+        std::vector<G1Point> trunc(m, G1Point::infinity());
+
+        for (std::size_t i = 0; i < xn; ++i) {
+            full[i] = g1(static_cast<u64>(i + 2));
+        }
+        trunc = full;
+
+        fft<G1Point, Fr, G1CoeffCtx>(full, roots, false);
+        fft_forward_truncated_prefix<G1Point, Fr, G1CoeffCtx>(trunc, roots, xn);
+
+        bool match = true;
+        for (std::size_t i = 0; i < m; ++i) {
+            if (!G1Point::equal(full[i], trunc[i])) {
+                match = false;
+                break;
+            }
+        }
+        EXPECT_TRUE(match) << "G1 truncated forward mismatch at xn=" << xn;
+    }
+}
+
+TEST(Fft, InverseTruncatedRangeMatchesFullMiddleWindow)
+{
+    const std::size_t m = 64;
+    Fr prim = primRootOfUnity<Fr>(m);
+    std::vector<Fr> roots(m);
+    Fr cur = Fr::one();
+    for (std::size_t i = 0; i < m; ++i) {
+        roots[i] = cur;
+        Fr::mul(cur, cur, prim);
+    }
+    std::vector<Fr> inv_roots(m);
+    for (std::size_t i = 0; i < m; ++i) {
+        Fr::reciprocal(inv_roots[i], roots[i]);
+    }
+
+    std::vector<GT> freq_full(m, GT::identity());
+    srand(12345);
+    for (std::size_t i = 0; i < m; ++i) {
+        freq_full[i] = pair(g1(rand() % 100 + 1), g2(rand() % 100 + 1));
+    }
+    std::vector<GT> freq_trunc = freq_full;
+
+    const std::size_t start = 17;
+    const std::size_t len = 21;
+
+    fft<GT, Fr, GTCoeffCtx>(freq_full, inv_roots, true);
+    fft_inverse_truncated_range<GT, Fr, GTCoeffCtx>(
+        std::span<GT>(freq_trunc),
+        std::span<const Fr>(inv_roots),
+        start,
+        len);
+
+    bool match = true;
+    for (std::size_t i = 0; i < len; ++i) {
+        const std::size_t idx = start + i;
+        if (!GT::equal(freq_full[idx], freq_trunc[idx])) {
+            match = false;
+            break;
+        }
+    }
+    EXPECT_TRUE(match) << "Inverse range truncation mismatch";
+}
+
 // Test middle_product_fft_truncated matches middle_product_fft
 TEST(Fft, MiddleProductFftTruncatedCorrectness) {
     std::size_t n = 8;
@@ -1532,6 +1645,71 @@ TEST(Fft, MiddleProductApiPrecomputedBMatchesRawAndCrossAlgorithm)
                 << "Specialized precompute mismatch at n=" << n << ", i=" << i;
             EXPECT_TRUE(GT::equal(basic_raw[i], spec_raw[i]))
                 << "Cross algorithm mismatch at n=" << n << ", i=" << i;
+        }
+    }
+}
+
+TEST(Fft, MiddleProductAdmissibleRoundingBoundaryCases)
+{
+    const std::size_t fft_small = 512;
+    const std::size_t fft_large = 4096;
+
+    const std::vector<std::size_t> inputs = { 1, 2, 15, 16, 17, 63, 64, 65, 255, 256, 257 };
+    for (std::size_t x : inputs) {
+        const std::size_t rounded = fft_admissible_size(x, fft_small);
+        EXPECT_GE(rounded, static_cast<std::size_t>(1));
+        EXPECT_LE(rounded, fft_small);
+        EXPECT_EQ(rounded % 16, static_cast<std::size_t>(0));
+        if (rounded != fft_small) {
+            EXPECT_GE(rounded, x);
+        }
+    }
+
+    // Near-full thresholds: small uses n - n/8, large uses n - n/16.
+    EXPECT_EQ(fft_admissible_size(433, fft_small), static_cast<std::size_t>(448));
+    EXPECT_EQ(fft_admissible_size(449, fft_small), fft_small);
+    EXPECT_EQ(fft_admissible_size(3839, fft_large), static_cast<std::size_t>(3840));
+    EXPECT_EQ(fft_admissible_size(3841, fft_large), fft_large);
+}
+
+TEST(Fft, MiddleProductBasicIfftTruncatedMatchesBasicApi)
+{
+    const std::vector<std::size_t> test_sizes = { 4, 6, 10 };
+
+    for (std::size_t n : test_sizes) {
+        std::vector<u64> a_scalars;
+        std::vector<u64> b_scalars;
+        a_scalars.reserve(n);
+        b_scalars.reserve(2 * n);
+
+        for (std::size_t i = 0; i < n; ++i) {
+            a_scalars.push_back(static_cast<u64>((31 * i + 7) % 181 + 1));
+        }
+        for (std::size_t i = 0; i < 2 * n; ++i) {
+            b_scalars.push_back(static_cast<u64>((37 * i + 5) % 191 + 1));
+        }
+
+        const std::vector<G1Point> a_points = points_from_scalars_g1(a_scalars);
+        const std::vector<G2Point> b_points = points_from_scalars_g2(b_scalars);
+        const auto basic_b = precompute_middle_product_b(
+            std::span<const G2Point>(b_points), n, MiddleProductAlgorithm::BasicFFT);
+
+        std::vector<GT> expected(n, GT::identity());
+        std::vector<GT> actual(n, GT::identity());
+
+        middle_product(
+            std::span<const G1Point>(a_points),
+            basic_b,
+            std::span<GT>(expected));
+
+        middle_product_basic_ifft_truncated(
+            std::span<const G1Point>(a_points),
+            basic_b,
+            std::span<GT>(actual));
+
+        for (std::size_t i = 0; i < n; ++i) {
+            EXPECT_TRUE(GT::equal(expected[i], actual[i]))
+                << "basic_ifft_trunc mismatch at n=" << n << ", i=" << i;
         }
     }
 }

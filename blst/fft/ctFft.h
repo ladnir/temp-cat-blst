@@ -1,5 +1,6 @@
 ﻿
 #pragma once
+#include <algorithm>
 #include <vector>
 #include <span>
 #include "blst/common/defines.h"
@@ -596,6 +597,14 @@ void fft_adaptive(std::span<G> a, std::span<const F> roots, bool invert) {
 //   GT - coefficient type for product polynomial C
 //   F  - type for FFT roots of unity
 //   CoeffCtx - context providing arithmetic operations
+template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
+void fft_forward_truncated_prefix(
+	std::span<G> a,
+	std::span<const F> roots,
+	std::size_t xn,
+	blst::TimingStats* timings = nullptr,
+	std::string_view metric_prefix = "fft_trunc");
+
 template <typename G1, typename G2, typename GT, typename F, typename CoeffCtx = DefaultCoeffCtx>
 void poly_mult_fft(
 	std::span<G1> A,
@@ -604,19 +613,29 @@ void poly_mult_fft(
 	std::span<GT> C,
 	std::span<const F> roots,
 	std::span<const F> inv_roots,
-	blst::TimingStats* timings = nullptr)
+	blst::TimingStats* timings = nullptr,
+	std::size_t xnA = 0,
+	std::size_t xnB = 0)
 {
 	std::size_t n = A.size();
+	if (xnA == 0) {
+		xnA = n;
+	}
+	if (xnB == 0) {
+		xnB = n;
+	}
+	BLST_ASSERT(xnA <= n);
+	BLST_ASSERT(xnB <= n);
 
 	// Forward FFT on both polynomials (in-place)
 	{
 		blst::ScopedTimer timer(timings, "poly_mult.fft_a_ns");
-		fft<G1, F, CoeffCtx>(A, roots, false);
+		fft_forward_truncated_prefix<G1, F, CoeffCtx>(A, roots, xnA, timings, "poly_mult.fft_a");
 	}
 
 	if (skipBFft == false) {
 		blst::ScopedTimer timer(timings, "poly_mult.fft_b_ns");
-		fft<G2, F, CoeffCtx>(B, roots, false);
+		fft_forward_truncated_prefix<G2, F, CoeffCtx>(B, roots, xnB, timings, "poly_mult.fft_b");
 	}
 
 	// Pointwise multiplication in evaluation domain
@@ -631,6 +650,196 @@ void poly_mult_fft(
 	{
 		blst::ScopedTimer timer(timings, "poly_mult.ifft_ns");
 		fft<GT, F, CoeffCtx>(C, inv_roots, true);
+	}
+}
+
+template <typename G, typename F, typename CoeffCtx>
+void fft_forward_truncated_prefix(
+	std::span<G> a,
+	std::span<const F> roots,
+	std::size_t xn,
+	blst::TimingStats* timings,
+	std::string_view metric_prefix) {
+	const std::size_t n = a.size();
+	BLST_ASSERT(n > 0);
+	BLST_ASSERT((n & (n - 1)) == 0);
+	BLST_ASSERT(roots.size() >= n);
+	BLST_ASSERT(xn > 0);
+	BLST_ASSERT(xn <= n);
+
+	std::size_t log2_n = 0;
+	for (std::size_t t = n; t > 1; t >>= 1) {
+		++log2_n;
+	}
+
+	if (xn == n) {
+		fft<G, F, CoeffCtx>(a, roots, false);
+		if (timings != nullptr) {
+			const std::size_t total = (n / 2) * log2_n;
+			timings->add(std::string(metric_prefix) + ".xn", xn);
+			timings->add(std::string(metric_prefix) + ".butterflies_total", total);
+			timings->add(std::string(metric_prefix) + ".butterflies_executed", total);
+			timings->add(std::string(metric_prefix) + ".butterflies_skipped", 0);
+		}
+		return;
+	}
+
+	// Track which indices can be non-zero after each stage.
+	// Any butterfly with both inputs known-zero can be skipped safely.
+	std::vector<unsigned char> active(n, 0);
+	std::vector<unsigned char> next_active(n, 0);
+	for (std::size_t i = 0; i < xn; ++i) {
+		active[i] = 1;
+	}
+
+	bit_reverse(a);
+	bit_reverse<unsigned char>(std::span<unsigned char>(active));
+
+	std::size_t butterflies_total = 0;
+	std::size_t butterflies_executed = 0;
+	std::size_t butterflies_skipped = 0;
+
+	for (std::size_t len = 2; len <= n; len <<= 1) {
+		const std::size_t half = len >> 1;
+		std::fill(next_active.begin(), next_active.end(), static_cast<unsigned char>(0));
+
+		for (std::size_t i = 0; i < n; i += len) {
+			for (std::size_t j = 0; j < half; ++j) {
+				++butterflies_total;
+				const std::size_t left = i + j;
+				const std::size_t right = left + half;
+				if (!(active[left] || active[right])) {
+					++butterflies_skipped;
+					continue;
+				}
+				++butterflies_executed;
+
+				if (j == 0) {
+					G u = a[left];
+					G t = a[right];
+					a[left] = CoeffCtx::plus(u, t);
+					a[right] = CoeffCtx::minus(u, t);
+				}
+				else {
+					F w = roots[j * (n / len)];
+					G u = a[left];
+					G t = CoeffCtx::mult(a[right], w);
+					a[left] = CoeffCtx::plus(u, t);
+					a[right] = CoeffCtx::minus(u, t);
+				}
+
+				next_active[left] = 1;
+				next_active[right] = 1;
+			}
+		}
+
+		active.swap(next_active);
+	}
+
+	if (timings != nullptr) {
+		timings->add(std::string(metric_prefix) + ".xn", xn);
+		timings->add(std::string(metric_prefix) + ".butterflies_total", butterflies_total);
+		timings->add(std::string(metric_prefix) + ".butterflies_executed", butterflies_executed);
+		timings->add(std::string(metric_prefix) + ".butterflies_skipped", butterflies_skipped);
+	}
+}
+
+template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
+void fft_inverse_truncated_range(
+	std::span<G> x,
+	std::span<const F> inv_roots,
+	std::size_t start,
+	std::size_t length,
+	blst::TimingStats* timings = nullptr,
+	std::string_view metric_prefix = "ifft_trunc_range")
+{
+	const std::size_t n = x.size();
+	BLST_ASSERT(n > 0);
+	BLST_ASSERT((n & (n - 1)) == 0);
+	BLST_ASSERT(inv_roots.size() >= n);
+	BLST_ASSERT(length > 0);
+	BLST_ASSERT(start < n);
+	BLST_ASSERT(start + length <= n);
+
+	std::size_t stages = 0;
+	for (std::size_t t = n; t > 1; t >>= 1) {
+		++stages;
+	}
+
+	// need[k][i]: index i is needed after stage k (k in [0..stages]).
+	std::vector<std::vector<unsigned char>> need(stages + 1, std::vector<unsigned char>(n, 0));
+	for (std::size_t i = 0; i < length; ++i) {
+		need[stages][start + i] = 1;
+	}
+
+	for (std::size_t k = stages; k > 0; --k) {
+		const std::size_t len = std::size_t(1) << k;
+		const std::size_t half = len >> 1;
+		auto& out_need = need[k];
+		auto& in_need = need[k - 1];
+
+		for (std::size_t i = 0; i < n; i += len) {
+			for (std::size_t j = 0; j < half; ++j) {
+				const std::size_t left = i + j;
+				const std::size_t right = left + half;
+				if (out_need[left] || out_need[right]) {
+					in_need[left] = 1;
+					in_need[right] = 1;
+				}
+			}
+		}
+	}
+
+	bit_reverse(x);
+
+	std::size_t butterflies_total = 0;
+	std::size_t butterflies_executed = 0;
+	std::size_t butterflies_skipped = 0;
+
+	for (std::size_t len = 2, k = 1; len <= n; len <<= 1, ++k) {
+		const std::size_t half = len >> 1;
+		const auto& out_need = need[k];
+
+		for (std::size_t i = 0; i < n; i += len) {
+			for (std::size_t j = 0; j < half; ++j) {
+				++butterflies_total;
+				const std::size_t left = i + j;
+				const std::size_t right = left + half;
+				if (!(out_need[left] || out_need[right])) {
+					++butterflies_skipped;
+					continue;
+				}
+				++butterflies_executed;
+
+				if (j == 0) {
+					G u = x[left];
+					G t = x[right];
+					x[left] = CoeffCtx::plus(u, t);
+					x[right] = CoeffCtx::minus(u, t);
+				}
+				else {
+					F w = inv_roots[j * (n / len)];
+					G u = x[left];
+					G t = CoeffCtx::mult(x[right], w);
+					x[left] = CoeffCtx::plus(u, t);
+					x[right] = CoeffCtx::minus(u, t);
+				}
+			}
+		}
+	}
+
+	F inv_n = CoeffCtx::inverse(CoeffCtx::template from_u64<F>(n));
+	for (std::size_t i = 0; i < length; ++i) {
+		const std::size_t idx = start + i;
+		x[idx] = CoeffCtx::mult(x[idx], inv_n);
+	}
+
+	if (timings != nullptr) {
+		timings->add(std::string(metric_prefix) + ".start", start);
+		timings->add(std::string(metric_prefix) + ".length", length);
+		timings->add(std::string(metric_prefix) + ".butterflies_total", butterflies_total);
+		timings->add(std::string(metric_prefix) + ".butterflies_executed", butterflies_executed);
+		timings->add(std::string(metric_prefix) + ".butterflies_skipped", butterflies_skipped);
 	}
 }
 

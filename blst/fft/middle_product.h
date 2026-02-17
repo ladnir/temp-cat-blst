@@ -49,6 +49,32 @@ inline std::size_t middle_product_fft_size(std::size_t n, MiddleProductAlgorithm
     return fft_size;
 }
 
+inline std::size_t fft_admissible_size(std::size_t x, std::size_t fft_size)
+{
+    BLST_ASSERT(fft_size > 0);
+    BLST_ASSERT((fft_size & (fft_size - 1)) == 0);
+
+    constexpr std::size_t kRoundPow2 = 16;
+    if (x == 0) {
+        x = 1;
+    }
+
+    x = ((x + (kRoundPow2 - 1)) / kRoundPow2) * kRoundPow2;
+    if (x > fft_size) {
+        x = fft_size;
+    }
+
+    // Match NTL's near-full truncation heuristic: for small sizes round up
+    // earlier (n - n/8), for larger sizes later (n - n/16).
+    const std::size_t near_full =
+        (fft_size >= 1024) ? (fft_size - (fft_size >> 4)) : (fft_size - (fft_size >> 3));
+    if (x > near_full) {
+        x = fft_size;
+    }
+
+    return x;
+}
+
 inline std::vector<Fr> make_fft_roots(std::size_t n)
 {
     Fr prim = primRootOfUnity<Fr>(n);
@@ -93,11 +119,13 @@ inline MiddleProductPrecomputedB precompute_middle_product_b(
     }
 
     if (algorithm == MiddleProductAlgorithm::BasicFFT) {
+        const std::size_t xn_b = fft_admissible_size(2 * n, precomputed.fft_size);
         for (std::size_t i = 0; i < 2 * n; ++i) {
             precomputed.first[i] = b[i];
         }
         ScopedTimer timer(timings, "precompute.basic_fft_b_ns");
-        fft<G2Point, Fr, G2CoeffCtx>(precomputed.first, roots, false);
+        fft_forward_truncated_prefix<G2Point, Fr, G2CoeffCtx>(
+            precomputed.first, roots, xn_b, timings, "precompute.fft_b");
         return precomputed;
     }
 
@@ -155,6 +183,8 @@ inline void middle_product(
     std::fill(out.begin(), out.begin() + static_cast<std::ptrdiff_t>(n), GT::identity());
 
     if (algorithm == MiddleProductAlgorithm::BasicFFT) {
+        const std::size_t xn_a = fft_admissible_size(n, fft_size);
+        const std::size_t xn_b = fft_admissible_size(2 * n, fft_size);
         std::vector<G1Point> a_fft(fft_size, G1Point::infinity());
         std::vector<G2Point> b_fft(fft_size, G2Point::infinity());
         std::vector<GT> c_fft(fft_size, GT::identity());
@@ -167,7 +197,7 @@ inline void middle_product(
         }
 
         poly_mult_fft<G1Point, G2Point, GT, Fr, CoeffCtx>(
-            a_fft, b_fft, false, c_fft, roots, inv_roots, timings);
+            a_fft, b_fft, false, c_fft, roots, inv_roots, timings, xn_a, xn_b);
 
         {
             ScopedTimer timer(timings, "basic.extract_ns");
@@ -234,6 +264,8 @@ inline void middle_product(
     std::fill(out.begin(), out.begin() + static_cast<std::ptrdiff_t>(n), GT::identity());
 
     if (precomputed_b.algorithm == MiddleProductAlgorithm::BasicFFT) {
+        const std::size_t xn_a = fft_admissible_size(n, fft_size);
+        const std::size_t xn_b = fft_admissible_size(2 * n, fft_size);
         BLST_ASSERT(precomputed_b.first.size() == fft_size);
 
         std::vector<G1Point> a_fft(fft_size, G1Point::infinity());
@@ -245,7 +277,7 @@ inline void middle_product(
         }
 
         poly_mult_fft<G1Point, G2Point, GT, Fr, CoeffCtx>(
-            a_fft, b_fft, true, c_fft, roots, inv_roots, timings);
+            a_fft, b_fft, true, c_fft, roots, inv_roots, timings, xn_a, xn_b);
 
         {
             ScopedTimer timer(timings, "basic_pre.extract_ns");
@@ -272,6 +304,79 @@ inline void middle_product(
     middle_product_fft<G1Point, G2Point, GT, Fr, CoeffCtx>(
         a_fft, b0_fft, b1_fft, true, n, fft_size, out, scratch, roots, inv_roots, prim,
         GT::identity(), G1Point::infinity(), G2Point::infinity(), timings);
+}
+
+// Standalone baseline variant for experimentation:
+// Basic FFT path with full forward FFT and truncated inverse FFT over middle window.
+inline void middle_product_basic_ifft_truncated(
+    std::span<const G1Point> a,
+    const MiddleProductPrecomputedB& precomputed_b,
+    std::span<GT> out,
+    TimingStats* timings = nullptr)
+{
+    ScopedTimer total_timer(timings, "basic_ifft_trunc.total_ns");
+    const std::size_t n = a.size();
+    BLST_ASSERT(n > 0);
+    BLST_ASSERT(precomputed_b.algorithm == MiddleProductAlgorithm::BasicFFT);
+    BLST_ASSERT(precomputed_b.n == n);
+    BLST_ASSERT(out.size() >= n);
+
+    const std::size_t fft_size = precomputed_b.fft_size;
+    BLST_ASSERT(precomputed_b.first.size() == fft_size);
+
+    std::vector<Fr> roots;
+    std::vector<Fr> inv_roots;
+    {
+        ScopedTimer timer(timings, "basic_ifft_trunc.roots_ns");
+        roots = make_fft_roots(fft_size);
+    }
+    {
+        ScopedTimer timer(timings, "basic_ifft_trunc.inv_roots_ns");
+        inv_roots = make_ifft_roots(roots);
+    }
+
+    std::vector<G1Point> a_fft(fft_size, G1Point::infinity());
+    std::vector<G2Point> b_fft = precomputed_b.first;
+    std::vector<GT> c_fft(fft_size, GT::identity());
+
+    for (std::size_t i = 0; i < n; ++i) {
+        a_fft[i] = a[i];
+    }
+
+    {
+        ScopedTimer timer(timings, "basic_ifft_trunc.fft_a_ns");
+        fft_forward_truncated_prefix<G1Point, Fr, CoeffCtx>(
+            a_fft,
+            roots,
+            fft_size,
+            timings,
+            "basic_ifft_trunc.fft_a");
+    }
+
+    {
+        ScopedTimer timer(timings, "basic_ifft_trunc.pointwise_ns");
+        for (std::size_t i = 0; i < fft_size; ++i) {
+            c_fft[i] = CoeffCtx::mult(a_fft[i], b_fft[i]);
+        }
+    }
+
+    {
+        ScopedTimer timer(timings, "basic_ifft_trunc.ifft_ns");
+        fft_inverse_truncated_range<GT, Fr, CoeffCtx>(
+            c_fft,
+            inv_roots,
+            n,
+            n,
+            timings,
+            "basic_ifft_trunc.ifft");
+    }
+
+    {
+        ScopedTimer timer(timings, "basic_ifft_trunc.extract_ns");
+        for (std::size_t i = 0; i < n; ++i) {
+            out[i] = c_fft[n + i];
+        }
+    }
 }
 
 // TODO(BLST_CUDA): mirror middle_product() and precompute_middle_product_b() on GPU.
