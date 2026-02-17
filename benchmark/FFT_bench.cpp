@@ -34,58 +34,7 @@ namespace
 		return result;
 	}
 
-	// Context for benchmarks with G1, G2 -> GT via pairing
-	struct BenchPairingCoeffCtx
-	{
-		template<typename G, typename F>
-		static auto plus(const G& a, const F& b) {
-			G r;
-			G::dadd(r, a, b);
-			return r;
-		}
-
-		template<typename G, typename F>
-		static auto minus(const G& a, const F& b) {
-			G r;
-			F neg_b;
-			F::neg(neg_b, b);
-			G::dadd(r, a, neg_b);
-			return r;
-		}
-
-		template<typename G, typename F>
-		static auto mult(const G& a, const F& b) {
-			if constexpr (std::is_same<G, F>::value) {
-				G r;
-				G::mul(r, a, b);
-				return r;
-			}
-			else {
-				G r;
-				F b_non_mont;
-				F::from_mont(b_non_mont, b);
-				G::mult(r, a, reinterpret_cast<const byte*>(&b_non_mont), 256);
-				return r;
-			}
-		}
-
-		static auto mult(const G1Point& a, const G2Point& b) {
-			return pair_points(a, b);
-		}
-
-		static auto inverse(const Fr& a) {
-			Fr r;
-			Fr::reciprocal(r, a);
-			return r;
-		}
-
-		template<typename F>
-		static auto from_u64(uint64_t a) {
-			Fr r;
-			Fr::from_uint64(r, a);
-			return r;
-		}
-	};
+	using BenchPairingCoeffCtx = CoeffCtx;
 
 	static std::vector<Fr> make_roots(size_t N)
 	{
@@ -169,6 +118,10 @@ namespace
 		return data;
 	}
 
+	// ============================================================================
+	// Radix-2 FFT benchmarks (existing)
+	// ============================================================================
+
 	static void bench_g1_fft_cpu(benchmark::State& state)
 	{
 		const size_t N = static_cast<size_t>(state.range(0));
@@ -187,6 +140,120 @@ namespace
 		state.counters["N"] = static_cast<double>(N);
 		state.counters["FFTs/sec"] = benchmark::Counter(1, benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
 	}
+
+	//static void bench_g1_fft_dif_cpu(benchmark::State& state)
+	//{
+	//	const size_t N = static_cast<size_t>(state.range(0));
+
+	//	const std::vector<Fr> roots = make_roots(N);
+	//	const std::vector<G1Point> original = make_g1_data(N, /*seed*/ 0xC0FFEEULL);
+	//	std::vector<G1Point> data = original;
+
+	//	for (auto _ : state) {
+	//		data = original;
+	//		benchmark::DoNotOptimize(data.data());
+	//		fft_dif<G1Point, Fr, G1CoeffCtx>(data, roots, /*inverse*/ false);
+	//		benchmark::ClobberMemory();
+	//	}
+
+	//	state.counters["N"] = static_cast<double>(N);
+	//	state.counters["FFTs/sec"] = benchmark::Counter(1, benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+	//}
+
+	// ============================================================================
+	// Radix-4 FFT benchmarks
+	// ============================================================================
+
+	static void bench_g1_fft_radix4_cpu(benchmark::State& state)
+	{
+		const size_t N = static_cast<size_t>(state.range(0));
+
+		const std::vector<Fr> roots = make_roots(N);
+		const std::vector<G1Point> original = make_g1_data(N, /*seed*/ 0xC0FFEEULL);
+		std::vector<G1Point> data = original;
+
+		for (auto _ : state) {
+			data = original;
+			benchmark::DoNotOptimize(data.data());
+			fft_radix4<G1Point, Fr, G1CoeffCtx>(data, roots, /*inverse*/ false);
+			benchmark::ClobberMemory();
+		}
+
+		state.counters["N"] = static_cast<double>(N);
+		state.counters["FFTs/sec"] = benchmark::Counter(1, benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+	}
+
+	static void bench_gt_ifft_radix4_cpu(benchmark::State& state)
+	{
+		const size_t N = static_cast<size_t>(state.range(0));
+
+		const std::vector<Fr> roots = make_roots(N);
+		const std::vector<Fr> inv_roots = make_inv_roots(roots);
+
+		const std::vector<GT> time_domain = make_gt_data(N);
+		std::vector<GT> freq_domain = time_domain;
+		fft<GT, Fr, GTCoeffCtx>(freq_domain, roots, /*inverse*/ false);
+
+		std::vector<GT> data = freq_domain;
+
+		for (auto _ : state) {
+			data = freq_domain;
+			benchmark::DoNotOptimize(data.data());
+			fft_radix4<GT, Fr, GTCoeffCtx>(data, inv_roots, /*inverse*/ true);
+			benchmark::ClobberMemory();
+		}
+
+		state.counters["N"] = static_cast<double>(N);
+		state.counters["iFFTs/sec"] = benchmark::Counter(1, benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+	}
+
+	// ============================================================================
+	// Radix-8 FFT benchmarks
+	// ============================================================================
+
+	static void bench_g1_fft_radix8_cpu(benchmark::State& state)
+	{
+		const size_t N = static_cast<size_t>(state.range(0));
+
+		const std::vector<Fr> roots = make_roots(N);
+		const std::vector<G1Point> original = make_g1_data(N, /*seed*/ 0xC0FFEEULL);
+		std::vector<G1Point> data = original;
+
+		for (auto _ : state) {
+			data = original;
+			benchmark::DoNotOptimize(data.data());
+			fft_radix8<G1Point, Fr, G1CoeffCtx>(data, roots, /*inverse*/ false);
+			benchmark::ClobberMemory();
+		}
+
+		state.counters["N"] = static_cast<double>(N);
+		state.counters["FFTs/sec"] = benchmark::Counter(1, benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+	}
+
+	static void bench_gt_ifft_radix8_cpu(benchmark::State& state)
+	{
+		const size_t N = static_cast<size_t>(state.range(0));
+
+		const std::vector<Fr> roots = make_roots(N);
+		const std::vector<Fr> inv_roots = make_inv_roots(roots);
+
+		const std::vector<GT> time_domain = make_gt_data(N);
+		std::vector<GT> freq_domain = time_domain;
+		fft<GT, Fr, GTCoeffCtx>(freq_domain, roots, /*inverse*/ false);
+
+		std::vector<GT> data = freq_domain;
+
+		for (auto _ : state) {
+			data = freq_domain;
+			benchmark::DoNotOptimize(data.data());
+			fft_radix8<GT, Fr, GTCoeffCtx>(data, inv_roots, /*inverse*/ true);
+			benchmark::ClobberMemory();
+		}
+
+		state.counters["N"] = static_cast<double>(N);
+		state.counters["iFFTs/sec"] = benchmark::Counter(1, benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+	}
+
 
 #if defined(BLST_CUDA)
 	static void bench_g1_fft_gpu(benchmark::State& state)
@@ -226,7 +293,7 @@ namespace
 		for (auto _ : state) {
 			data = freq_domain;
 			benchmark::DoNotOptimize(data.data());
-			fft<GT, Fr, GTCoeffCtx>(data, inv_roots, /*inverse*/ true);
+			fft<GT, Fr, GTCoeffCtx>(data, inv_roots, /*inverse*/ false);
 			benchmark::ClobberMemory();
 		}
 
@@ -260,11 +327,107 @@ namespace
 	}
 #endif
 
+
+
+	// ============================================================================
+	// Stockham FFT benchmarks
+	// ============================================================================
+
+	static void bench_g1_fft_stockham_cpu(benchmark::State& state)
+	{
+		const size_t N = static_cast<size_t>(state.range(0));
+
+		const std::vector<Fr> roots = make_roots(N);
+		const std::vector<G1Point> original = make_g1_data(N, /*seed*/ 0xC0FFEEULL);
+		std::vector<G1Point> out0(N);
+		std::vector<G1Point> out1(N);
+
+		for (auto _ : state) {
+			benchmark::DoNotOptimize(original.data());
+			benchmark::DoNotOptimize(out0.data());
+			benchmark::DoNotOptimize(out1.data());
+			auto result = fft_stockham<G1Point, Fr, G1CoeffCtx>(
+				std::span<const G1Point>(original),
+				std::span<G1Point>(out0),
+				std::span<G1Point>(out1),
+				std::span<const Fr>(roots),
+				/*invert*/ false);
+			benchmark::DoNotOptimize(result.data());
+			benchmark::ClobberMemory();
+		}
+
+		state.counters["N"] = static_cast<double>(N);
+		state.counters["FFTs/sec"] = benchmark::Counter(1, benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+	}
+
+	static void bench_gt_ifft_stockham_cpu(benchmark::State& state)
+	{
+		const size_t N = static_cast<size_t>(state.range(0));
+
+		const std::vector<Fr> roots = make_roots(N);
+		const std::vector<Fr> inv_roots = make_inv_roots(roots);
+
+		const std::vector<GT> time_domain = make_gt_data(N);
+		std::vector<GT> freq_domain = time_domain;
+		fft<GT, Fr, GTCoeffCtx>(freq_domain, roots, /*inverse*/ false);
+
+		std::vector<GT> out0(N);
+		std::vector<GT> out1(N);
+
+		for (auto _ : state) {
+			benchmark::DoNotOptimize(freq_domain.data());
+			benchmark::DoNotOptimize(out0.data());
+			benchmark::DoNotOptimize(out1.data());
+			auto result = fft_stockham<GT, Fr, GTCoeffCtx>(
+				std::span<const GT>(freq_domain),
+				std::span<GT>(out0),
+				std::span<GT>(out1),
+				std::span<const Fr>(inv_roots),
+				/*invert*/ false);
+			benchmark::DoNotOptimize(result.data());
+			benchmark::ClobberMemory();
+		}
+
+		state.counters["N"] = static_cast<double>(N);
+		state.counters["iFFTs/sec"] = benchmark::Counter(1, benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	// Benchmark middle_product_basic: computes full convolution of G1 * G2 -> GT
 	static void bench_middle_product_basic(benchmark::State& state)
 	{
 		const size_t n = static_cast<size_t>(state.range(0));
-		const size_t N = 1 << log2ceil( n * 3); // FFT size for convolution of three size-n polynomials
+		const size_t N = 1 << log2ceil(n * 3); // FFT size for convolution of three size-n polynomials
 
 		const std::vector<Fr> roots = make_roots(N);
 		const std::vector<Fr> inv_roots = make_inv_roots(roots);
@@ -552,7 +715,7 @@ static void bench_middle_product_fft_detailed(benchmark::State& state)
 	//std::vector<G2Point> B0(m, G2Point::infinity());
 	//std::vector<G2Point> B1(m, G2Point::infinity());
 	std::vector<GT> out(n, GT::identity());
-	std::vector<GT> C_scratch(m*2, GT::identity());
+	std::vector<GT> C_scratch(m * 2, GT::identity());
 	//std::vector<GT> C_scratch0(m, GT::identity());
 	//std::vector<GT> C_scratch1(m, GT::identity());
 	//std::vector<G1Point> ARev(m, G1Point::infinity());
@@ -632,10 +795,10 @@ static void bench_middle_product_fft_detailed(benchmark::State& state)
 		//	C_scratch1[t] = pair_points(ARev[t], B0[t]);
 		//for (size_t t = 0; t < m; ++t)
 		//	C_scratch0[t] = pair_points(A[t], B1[t]);
-		auto m2 = m*2;
+		auto m2 = m * 2;
 		for (size_t t = 0; t < m2; ++t)
 			C_scratch[t] = pair_points(AA[t], BB[t]);
-		
+
 		auto t7 = std::chrono::high_resolution_clock::now();
 
 		// === Phase 2: Inverse FFT on GT ===
@@ -689,11 +852,104 @@ static void bench_middle_product_fft_detailed(benchmark::State& state)
 
 // Smaller sizes for expensive operations (middle product involves pairings)
 #define MIDDLE_PROD_SIZES \
-->Arg(325)->Arg(350)->Arg(375)->Arg(400)->Arg(425)->Arg(450)->Arg(475)->Arg(500)
-//->Arg(100)->Arg(125)->Arg(150)->Arg(175)->Arg(200)->Arg(225)->Arg(250)->Arg(275)->Arg(300)
-//->Arg(8)->Arg(16)->Arg(32)->Arg(64)->Arg(128)->Arg(256)
+->Arg(96)->Arg(128)->Arg(160)->Arg(192)
+
+// ============================================================================
+// Radix-2 FFT benchmarks (baseline)
+// ============================================================================
 
 BENCHMARK(bench_g1_fft_cpu)
+FFT_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+
+//BENCHMARK(bench_g1_fft_dif_cpu)
+//FFT_SIZES
+//->Unit(benchmark::kMillisecond)
+//->UseRealTime();
+
+BENCHMARK(bench_gt_ifft_cpu)
+FFT_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+
+BENCHMARK(bench_g1_fft_stockham_cpu)
+FFT_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK(bench_gt_ifft_stockham_cpu)
+FFT_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+// ============================================================================
+// Radix-4 FFT benchmarks
+// ============================================================================
+
+BENCHMARK(bench_g1_fft_radix4_cpu)
+FFT_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK(bench_gt_ifft_radix4_cpu)
+FFT_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+// ============================================================================
+// Radix-8 FFT benchmarks
+// ============================================================================
+
+BENCHMARK(bench_g1_fft_radix8_cpu)
+FFT_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK(bench_gt_ifft_radix8_cpu)
+FFT_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+// ============================================================================
+// Adaptive FFT benchmarks
+// ============================================================================
+
+//BENCHMARK(bench_g1_fft_adaptive_cpu)
+//FFT_SIZES
+//->Unit(benchmark::kMillisecond)
+//->UseRealTime();
+//
+//BENCHMARK(bench_gt_ifft_adaptive_cpu)
+//FFT_SIZES
+//->Unit(benchmark::kMillisecond)
+//->UseRealTime();
+
+// ============================================================================
+// Comparison benchmarks (all radix variants with same N)
+// ============================================================================
+
+//BENCHMARK(bench_g1_fft_comparison)
+//->Args({ 1024, 2 })->Args({ 1024, 4 })->Args({ 1024, 8 })
+//->Args({ 4096, 2 })->Args({ 4096, 4 })->Args({ 4096, 8 })
+//->Args({ 16384, 2 })->Args({ 16384, 4 })->Args({ 16384, 8 })
+//->Unit(benchmark::kMillisecond)
+//->UseRealTime();
+//
+//BENCHMARK(bench_gt_ifft_comparison)
+//->Args({ 1024, 2 })->Args({ 1024, 4 })->Args({ 1024, 8 })
+//->Args({ 4096, 2 })->Args({ 4096, 4 })->Args({ 4096, 8 })
+//->Args({ 16384, 2 })->Args({ 16384, 4 })->Args({ 16384, 8 })
+//->Unit(benchmark::kMillisecond)
+//->UseRealTime();
+
+// ============================================================================
+// Truncated and other FFT benchmarks
+// ============================================================================
+
+BENCHMARK(bench_gt_ifft_truncated)
 FFT_SIZES
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();
@@ -703,24 +959,16 @@ BENCHMARK(bench_g1_fft_gpu)
 FFT_SIZES
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();
-#endif
 
-BENCHMARK(bench_gt_ifft_cpu)
-FFT_SIZES
-->Unit(benchmark::kMillisecond)
-->UseRealTime();
-
-BENCHMARK(bench_gt_ifft_truncated)
-FFT_SIZES
-->Unit(benchmark::kMillisecond)
-->UseRealTime();
-
-#if defined(BLST_CUDA)
 BENCHMARK(bench_gt_ifft_gpu)
 FFT_SIZES
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();
 #endif
+
+// ============================================================================
+// Middle product benchmarks
+// ============================================================================
 
 BENCHMARK(bench_middle_product_basic)
 MIDDLE_PROD_SIZES

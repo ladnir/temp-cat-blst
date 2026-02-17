@@ -50,11 +50,21 @@ void fft(std::span<G> a, std::span<const F> roots, bool invert) {
 	for (int len = 2; len <= n; len <<= 1) {
 		int half = len / 2;
 		for (int i = 0; i < n; i += len) {
-			for (int j = 0; j < half; j++) {
+
+			// j == 0 case, this is 20% of the work
+			// and we get to skip the multiplication
+			// because w == 1.
+			{ 
+				G u = a[i];
+				G t = a[i + half];
+				a[i] = CoeffCtx::plus(u, t);
+				a[i + half] = CoeffCtx::minus(u, t);
+			}
+
+			for (int j = 1; j < half; j++) {
 				// In a real implementation, you'd precompute or select roots 
 				// based on 'len' and 'invert'
 				F w = roots[j * (n / len)];
-
 
 				G u = a[i + j];
 				G t = CoeffCtx::mult(a[i + j + half], w);
@@ -70,6 +80,508 @@ void fft(std::span<G> a, std::span<const F> roots, bool invert) {
 		for (G& x : a) {
 			x = CoeffCtx::mult(x, inv_n); // Scale every group element by 1/n
 		}
+	}
+}
+
+template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
+std::span<G> fft_stockham(
+	std::span<const G> in,
+	std::span<G> out0,
+	std::span<G> out1,
+	std::span<const F> roots,
+	bool invert
+) {
+	int n = static_cast<int>(in.size());
+	BLST_ASSERT(out0.size() == static_cast<std::size_t>(n));
+	BLST_ASSERT(out1.size() == static_cast<std::size_t>(n));
+	BLST_ASSERT((n & (n - 1)) == 0);
+
+	// Ping-pong buffers.
+	std::span<const G> src = in;
+	std::span<G> dst = out0;
+
+	// Stages: m = 2, 4, 8, ..., n
+	for (int m = 2; m <= n; m <<= 1) {
+		int mh = m >> 1;
+		int r = n / m;           // "radix" in Stockham indexing
+		int stride = r;          // twiddle index step = n/m
+
+		// Core Stockham mapping:
+		// Input index:  k*m + j
+		// Output index: j*r + k          (and + n/2 for the "upper" output)
+		for (int k = 0; k < r; k++) {
+			int base_in = k * m;
+
+			{ // j == 0 case: w == 1
+				G u = src[base_in + 0];
+				G v = src[base_in + mh];
+				int base_out = 0 * r + k;
+				dst[base_out] = CoeffCtx::plus(u, v);
+				dst[base_out + (n >> 1)] = CoeffCtx::minus(u, v);
+			}
+
+			for (int j = 1; j < mh; j++) {
+				G u = src[base_in + j];
+				G v = src[base_in + j + mh];
+
+				// Twiddle w = ω^(j * n/m) = roots[j * r]
+				// If you want inverse, pass inv_roots as roots.
+				F w = roots[j * stride];
+
+				// Short-circuit w == 1 by index: j == 0 => w == roots[0] == 1.
+				G t = CoeffCtx::mult(v, w);
+
+				int base_out = j * r + k;
+
+				dst[base_out] = CoeffCtx::plus(u, t);
+				dst[base_out + (n >> 1)] = CoeffCtx::minus(u, t);
+			}
+		}
+
+		// Swap src/dst for next stage.
+		if (dst.data() == out0.data()) {
+			src = out0;
+			dst = out1;
+		}
+		else {
+			src = out1;
+			dst = out0;
+		}
+	}
+
+	if (src.data() == out0.data())
+	{
+		dst = out0;
+	}
+	else
+	{
+		dst = out1;
+	}
+
+	//// After the final stage, the result lives in `src`.
+	//// Ensure it ends up in `out`.
+	//if (src.data() != out.data()) {
+	//	for (int i = 0; i < n; i++) {
+	//		out[i] = src[i];
+	//	}
+	//}
+
+	// Scaling for inverse FFT: multiply every output by 1/n.
+	// (As before: this assumes you provided inverse roots when invert==true.)
+	if (invert) {
+		F inv_n = CoeffCtx::inverse(CoeffCtx::template from_u64<F>(static_cast<std::uint64_t>(n)));
+		for (int i = 0; i < n; i++) {
+			dst[i] = CoeffCtx::mult(src[i], inv_n);
+		}
+	}
+
+	return dst;
+}
+
+
+//template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
+//void fft_dif(std::span<G> a, std::span<const F> roots, bool invert) {
+//	int n = static_cast<int>(a.size());
+//	BLST_ASSERT(n > 0);
+//	BLST_ASSERT((n & (n - 1)) == 0);
+//
+//	int total = 0;
+//	int zeroCount = 0;
+//	int oneCount = 0;
+//	int negOneCount = 0;
+//
+//	F one = CoeffCtx::template from_u64<F>(1);
+//	F zero = CoeffCtx::template from_u64<F>(0);
+//	F negOne;
+//	F::neg(negOne, one);
+//
+//	// DIF: stages go from large blocks down to small blocks.
+//	// No bit-reverse at the start; do it at the end.
+//	for (int len = n; len >= 2; len >>= 1) {
+//		int half = len / 2;
+//		int stride = n / len;
+//
+//		for (int i = 0; i < n; i += len) {
+//			for (int j = 0; j < half; j++) {
+//				// Inputs
+//				G u = a[i + j];
+//				G v = a[i + j + half];
+//
+//				// Butterfly core
+//				// a0 = u + v
+//				// a1 = (u - v) * w
+//				G sum = CoeffCtx::plus(u, v);
+//				G diff = CoeffCtx::minus(u, v);
+//
+//				F w = roots[j * stride];
+//
+//				++total;
+//
+//				a[i + j] = sum;
+//
+//				// Hot-path short-circuits: these matter a lot for you.
+//				if (F::equal(w, one)) {
+//					oneCount++;
+//					a[i + j + half] = diff;
+//				}
+//				else if (F::equal(w, negOne)) {
+//					// Multiply by -1 in the scalar field == group negation.
+//					negOneCount++;
+//					a[i + j + half] = CoeffCtx::neg(diff);
+//				}
+//				//else if (F::equal(w, zero)) {
+//				//	// Should not occur for roots of unity in a correct NTT, but kept for completeness.
+//				//	a[i + j + half] = G::infinity();
+//				//}
+//				else {
+//					a[i + j + half] = CoeffCtx::mult(diff, w);
+//				}
+//			}
+//		}
+//	}
+//
+//	//printf(
+//	//	"FFT(DIF) total butterflies: %d, special cases: %d (zero: %d, one: %d, negOne: %d)\n",
+//	//	total,
+//	//	zeroCount + oneCount + negOneCount,
+//	//	zeroCount,
+//	//	oneCount,
+//	//	negOneCount
+//	//);
+//
+//	// Bit-reverse at the end for DIF to match natural-order output
+//	bit_reverse(a);
+//
+//	// Scaling for inverse FFT (same as your code)
+//	if (invert) {
+//		F inv_n = CoeffCtx::inverse(CoeffCtx::template from_u64<F>(n));
+//		for (G& x : a) {
+//			x = CoeffCtx::mult(x, inv_n);
+//		}
+//	}
+//}
+
+
+// ============================================================================
+// Radix-4 FFT (DIT, in-place)
+// 
+// Reduces number of stages by half compared to radix-2.
+// Requires N to be a power of 4 for pure radix-4, or handles mixed radix.
+// ============================================================================
+template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
+void fft_radix4(std::span<G> a, std::span<const F> roots, bool invert) {
+	std::size_t n = a.size();
+	BLST_ASSERT((n & (n - 1)) == 0); // n must be power of 2
+
+	bit_reverse(a);
+
+	// Precompute i4 = ω^(N/4), which satisfies i4^2 = -1 in the field
+	// For NTT, this is the 4th root of unity
+	F i4 = roots[n / 4];
+
+	// Handle case where n is not a power of 4: do one radix-2 stage first
+	std::size_t start_len = 4;
+	if ((n & 3) != 0) {
+		// n is 2 mod 4, do a radix-2 stage
+		for (std::size_t i = 0; i < n; i += 2) {
+			G u = a[i];
+			G v = a[i + 1];
+			a[i] = CoeffCtx::plus(u, v);
+			a[i + 1] = CoeffCtx::minus(u, v);
+		}
+		start_len = 4;
+	}
+	else if (n == 2) {
+		// Special case: just radix-2
+		G u = a[0];
+		G v = a[1];
+		a[0] = CoeffCtx::plus(u, v);
+		a[1] = CoeffCtx::minus(u, v);
+		if (invert) {
+			F inv_n = CoeffCtx::inverse(CoeffCtx::template from_u64<F>(n));
+			a[0] = CoeffCtx::mult(a[0], inv_n);
+			a[1] = CoeffCtx::mult(a[1], inv_n);
+		}
+		return;
+	}
+
+	// Main radix-4 stages
+	for (std::size_t m = start_len; m <= n; m <<= 2) {
+		std::size_t m4 = m / 4;
+		std::size_t stride = n / m;
+
+		for (std::size_t k = 0; k < n; k += m) {
+			for (std::size_t j = 0; j < m4; j++) {
+				// Twiddle factors: wj = ω^(j * stride)
+				F wj = roots[j * stride];
+				F wj2 = CoeffCtx::mult(wj, wj);     // ω^(2j * stride)
+				F wj3 = CoeffCtx::mult(wj2, wj);    // ω^(3j * stride)
+
+				// Gather butterfly inputs
+				G a0 = a[k + j];
+				G a1 = a[k + j + m4];
+				G a2 = a[k + j + 2 * m4];
+				G a3 = a[k + j + 3 * m4];
+
+				// Apply twiddles to legs 1, 2, 3
+				G b0 = a0;
+				G b1 = CoeffCtx::mult(a1, wj);
+				G b2 = CoeffCtx::mult(a2, wj2);
+				G b3 = CoeffCtx::mult(a3, wj3);
+
+				// 4-point DFT kernel
+				// s0 = b0 + b2, d0 = b0 - b2
+				// s1 = b1 + b3, d1 = b1 - b3
+				// t = d1 * i4 (where i4^2 = -1)
+				G s0 = CoeffCtx::plus(b0, b2);
+				G d0 = CoeffCtx::minus(b0, b2);
+				G s1 = CoeffCtx::plus(b1, b3);
+				G d1 = CoeffCtx::minus(b1, b3);
+				G t = CoeffCtx::mult(d1, i4);
+
+				// Output
+				a[k + j] = CoeffCtx::plus(s0, s1);           // y0
+				a[k + j + m4] = CoeffCtx::minus(d0, t);      // y1
+				a[k + j + 2 * m4] = CoeffCtx::minus(s0, s1); // y2
+				a[k + j + 3 * m4] = CoeffCtx::plus(d0, t);   // y3
+			}
+		}
+	}
+
+	// Scaling for inverse FFT
+	if (invert) {
+		F inv_n = CoeffCtx::inverse(CoeffCtx::template from_u64<F>(n));
+		for (G& x : a) {
+			x = CoeffCtx::mult(x, inv_n);
+		}
+	}
+}
+
+// ============================================================================
+// Radix-8 FFT (DIT, in-place)
+// 
+// Further reduces stages compared to radix-4.
+// Requires N to be a power of 8 for pure radix-8, or handles mixed radix.
+// ============================================================================
+template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
+void fft_radix8(std::span<G> a, std::span<const F> roots, bool invert) {
+	std::size_t n = a.size();
+	BLST_ASSERT((n & (n - 1)) == 0); // n must be power of 2
+
+	bit_reverse(a);
+
+	// Precompute 8th roots needed for the radix-8 kernel
+	// z1 = ω^(N/8), z2 = ω^(N/4), z3 = ω^(3N/8)
+	F z1 = roots[n / 8];                      // ω^(N/8) - primitive 8th root
+	F z2 = roots[n / 4];                      // ω^(N/4) - i4, the 4th root
+	F z3 = CoeffCtx::mult(z1, z2);            // ω^(3N/8)
+
+	// Handle sizes that aren't powers of 8 by doing smaller radix stages first
+	std::size_t start_len = 8;
+	std::size_t log2n = 0;
+	for (std::size_t tmp = n; tmp > 1; tmp >>= 1) log2n++;
+
+	// Do radix-2 or radix-4 stages as needed to reach a power of 8
+	std::size_t remainder = log2n % 3;
+
+	if (remainder == 1) {
+		// One radix-2 stage
+		for (std::size_t i = 0; i < n; i += 2) {
+			G u = a[i];
+			G v = a[i + 1];
+			a[i] = CoeffCtx::plus(u, v);
+			a[i + 1] = CoeffCtx::minus(u, v);
+		}
+		start_len = 4;
+
+		// Then one radix-4 stage
+		if (n >= 4) {
+			std::size_t m = 4;
+			std::size_t m4 = 1;
+			std::size_t stride = n / m;
+			F i4 = z2;
+
+			for (std::size_t k = 0; k < n; k += m) {
+				for (std::size_t j = 0; j < m4; j++) {
+					F wj = roots[j * stride];
+					F wj2 = CoeffCtx::mult(wj, wj);
+					F wj3 = CoeffCtx::mult(wj2, wj);
+
+					G a0 = a[k + j];
+					G a1 = a[k + j + m4];
+					G a2 = a[k + j + 2 * m4];
+					G a3 = a[k + j + 3 * m4];
+
+					G b0 = a0;
+					G b1 = CoeffCtx::mult(a1, wj);
+					G b2 = CoeffCtx::mult(a2, wj2);
+					G b3 = CoeffCtx::mult(a3, wj3);
+
+					G s0 = CoeffCtx::plus(b0, b2);
+					G d0 = CoeffCtx::minus(b0, b2);
+					G s1 = CoeffCtx::plus(b1, b3);
+					G d1 = CoeffCtx::minus(b1, b3);
+					G t = CoeffCtx::mult(d1, i4);
+
+					a[k + j] = CoeffCtx::plus(s0, s1);
+					a[k + j + m4] = CoeffCtx::minus(d0, t);
+					a[k + j + 2 * m4] = CoeffCtx::minus(s0, s1);
+					a[k + j + 3 * m4] = CoeffCtx::plus(d0, t);
+				}
+			}
+		}
+		start_len = 8;
+	}
+	else if (remainder == 2) {
+		// One radix-4 stage (4 = 2^2)
+		std::size_t m = 4;
+		std::size_t m4 = 1;
+		std::size_t stride = n / m;
+		F i4 = z2;
+
+		for (std::size_t k = 0; k < n; k += m) {
+			for (std::size_t j = 0; j < m4; j++) {
+				F wj = roots[j * stride];
+				F wj2 = CoeffCtx::mult(wj, wj);
+				F wj3 = CoeffCtx::mult(wj2, wj);
+
+				G a0 = a[k + j];
+				G a1 = a[k + j + m4];
+				G a2 = a[k + j + 2 * m4];
+				G a3 = a[k + j + 3 * m4];
+
+				G b0 = a0;
+				G b1 = CoeffCtx::mult(a1, wj);
+				G b2 = CoeffCtx::mult(a2, wj2);
+				G b3 = CoeffCtx::mult(a3, wj3);
+
+				G s0 = CoeffCtx::plus(b0, b2);
+				G d0 = CoeffCtx::minus(b0, b2);
+				G s1 = CoeffCtx::plus(b1, b3);
+				G d1 = CoeffCtx::minus(b1, b3);
+				G t = CoeffCtx::mult(d1, i4);
+
+				a[k + j] = CoeffCtx::plus(s0, s1);
+				a[k + j + m4] = CoeffCtx::minus(d0, t);
+				a[k + j + 2 * m4] = CoeffCtx::minus(s0, s1);
+				a[k + j + 3 * m4] = CoeffCtx::plus(d0, t);
+			}
+		}
+		start_len = 8;
+	}
+
+	// Main radix-8 stages
+	for (std::size_t m = start_len; m <= n; m <<= 3) {
+		std::size_t m8 = m / 8;
+		std::size_t stride = n / m;
+
+		for (std::size_t k = 0; k < n; k += m) {
+			for (std::size_t j = 0; j < m8; j++) {
+				// Twiddle factor wj = ω^(j * stride)
+				F wj = roots[j * stride];
+
+				// Compute powers of wj for legs 1-7
+				F wj2 = CoeffCtx::mult(wj, wj);
+				F wj3 = CoeffCtx::mult(wj2, wj);
+				F wj4 = CoeffCtx::mult(wj2, wj2);
+				F wj5 = CoeffCtx::mult(wj4, wj);
+				F wj6 = CoeffCtx::mult(wj3, wj3);
+				F wj7 = CoeffCtx::mult(wj6, wj);
+
+				// Gather butterfly inputs
+				G a0 = a[k + j];
+				G a1 = a[k + j + m8];
+				G a2 = a[k + j + 2 * m8];
+				G a3 = a[k + j + 3 * m8];
+				G a4 = a[k + j + 4 * m8];
+				G a5 = a[k + j + 5 * m8];
+				G a6 = a[k + j + 6 * m8];
+				G a7 = a[k + j + 7 * m8];
+
+				// Apply twiddles
+				G b0 = a0;
+				G b1 = CoeffCtx::mult(a1, wj);
+				G b2 = CoeffCtx::mult(a2, wj2);
+				G b3 = CoeffCtx::mult(a3, wj3);
+				G b4 = CoeffCtx::mult(a4, wj4);
+				G b5 = CoeffCtx::mult(a5, wj5);
+				G b6 = CoeffCtx::mult(a6, wj6);
+				G b7 = CoeffCtx::mult(a7, wj7);
+
+				// 8-point DFT via two 4-point DFTs
+				// Evens: e0=b0, e1=b2, e2=b4, e3=b6
+				// Odds:  o0=b1, o1=b3, o2=b5, o3=b7
+
+				// DFT4 of evens
+				G es0 = CoeffCtx::plus(b0, b4);
+				G ed0 = CoeffCtx::minus(b0, b4);
+				G es1 = CoeffCtx::plus(b2, b6);
+				G ed1 = CoeffCtx::minus(b2, b6);
+				G et = CoeffCtx::mult(ed1, z2); // ed1 * i4
+
+				G E0 = CoeffCtx::plus(es0, es1);
+				G E1 = CoeffCtx::minus(ed0, et);
+				G E2 = CoeffCtx::minus(es0, es1);
+				G E3 = CoeffCtx::plus(ed0, et);
+
+				// DFT4 of odds
+				G os0 = CoeffCtx::plus(b1, b5);
+				G od0 = CoeffCtx::minus(b1, b5);
+				G os1 = CoeffCtx::plus(b3, b7);
+				G od1 = CoeffCtx::minus(b3, b7);
+				G ot = CoeffCtx::mult(od1, z2); // od1 * i4
+
+				G O0 = CoeffCtx::plus(os0, os1);
+				G O1 = CoeffCtx::minus(od0, ot);
+				G O2 = CoeffCtx::minus(os0, os1);
+				G O3 = CoeffCtx::plus(od0, ot);
+
+				// Combine with 8th roots: y[k] = E[k] + O[k] * ζ^k
+				// y[k+4] = E[k] - O[k] * ζ^k
+				G O0z0 = O0;                          // O0 * ζ^0 = O0
+				G O1z1 = CoeffCtx::mult(O1, z1);      // O1 * ζ^1
+				G O2z2 = CoeffCtx::mult(O2, z2);      // O2 * ζ^2 = O2 * i4
+				G O3z3 = CoeffCtx::mult(O3, z3);      // O3 * ζ^3
+
+				a[k + j] = CoeffCtx::plus(E0, O0z0);
+				a[k + j + m8] = CoeffCtx::plus(E1, O1z1);
+				a[k + j + 2 * m8] = CoeffCtx::plus(E2, O2z2);
+				a[k + j + 3 * m8] = CoeffCtx::plus(E3, O3z3);
+				a[k + j + 4 * m8] = CoeffCtx::minus(E0, O0z0);
+				a[k + j + 5 * m8] = CoeffCtx::minus(E1, O1z1);
+				a[k + j + 6 * m8] = CoeffCtx::minus(E2, O2z2);
+				a[k + j + 7 * m8] = CoeffCtx::minus(E3, O3z3);
+			}
+		}
+	}
+
+	// Scaling for inverse FFT
+	if (invert) {
+		F inv_n = CoeffCtx::inverse(CoeffCtx::template from_u64<F>(n));
+		for (G& x : a) {
+			x = CoeffCtx::mult(x, inv_n);
+		}
+	}
+}
+
+// ============================================================================
+// Adaptive FFT - selects best radix based on input size
+// ============================================================================
+template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
+void fft_adaptive(std::span<G> a, std::span<const F> roots, bool invert) {
+	std::size_t n = a.size();
+
+	if (n < 8) {
+		// Fall back to radix-2 for very small sizes
+		fft<G, F, CoeffCtx>(a, roots, invert);
+	}
+	else if (n >= 64) {
+		// Use radix-8 for larger sizes (fewer stages)
+		fft_radix8<G, F, CoeffCtx>(a, roots, invert);
+	}
+	else {
+		// Use radix-4 for medium sizes
+		fft_radix4<G, F, CoeffCtx>(a, roots, invert);
 	}
 }
 
