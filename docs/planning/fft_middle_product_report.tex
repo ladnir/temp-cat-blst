@@ -1,0 +1,144 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{siunitx}
+\usepackage{hyperref}
+\sisetup{round-mode=places,round-precision=1}
+\begin{document}
+
+\title{FFT Truncation and Middle-Product Integration Report}
+\author{blst benchmark sweep}
+\date{2026-02-17}
+\maketitle
+
+\section{Scope}
+This report compares full and truncated FFT/iFFT kernels and their integration into middle-product flows.
+Reader assumption: familiarity with FFT and middle-product algorithms.
+
+Compared middle-product variants:
+\begin{enumerate}
+\item basic FFT + basic iFFT
+\item basic FFT + truncated iFFT
+\item truncated FFT + truncated iFFT (pruned basic)
+\item specialized middle product
+\item specialized middle product + truncation
+\end{enumerate}
+
+\section{Benchmark Setup}
+\begin{itemize}
+\item Range: \(n \in \{64,96,\ldots,512\}\) (step 32, non-power-of-two included).
+\item Input shape: \(A\) has \(n\) coefficients in \(G_1\), \(B\) has \(2n\) coefficients in \(G_2\).
+\item FFT length for basic path: \(m = 2^{\lceil \log_2(3n-1) \rceil}\).
+\item Standalone kernel runs: 3 repetitions, mean reported.
+\item Integrated middle-product runs: 1 repetition per \(n\) (long-running pairings).
+\item Timings are real-time milliseconds from Google Benchmark JSON outputs in \texttt{docs/planning/*.json}.
+\end{itemize}
+
+\section{Standalone Kernel Results}
+\subsection{G1 Forward FFT: full vs truncated}
+\begin{longtable}{r r r r r}
+\toprule
+$n$ & $m$ & full FFT (ms) & trunc FFT (ms) & savings (\%) \\
+\midrule
+\endhead
+64 & 256 & 73.7 & 75.4 & -2.3 \\
+96 & 512 & 175.5 & 174.9 & 0.3 \\
+128 & 512 & 179.9 & 175.5 & 2.4 \\
+160 & 512 & 184.9 & 177 & 4.3 \\
+192 & 1024 & 420.4 & 398.9 & 5.1 \\
+224 & 1024 & 432.6 & 400.6 & 7.4 \\
+256 & 1024 & 443.7 & 410.4 & 7.5 \\
+288 & 1024 & 423.6 & 447.6 & -5.7 \\
+320 & 1024 & 414 & 408 & 1.5 \\
+352 & 2048 & 933.6 & 933.6 & 0 \\
+384 & 2048 & 946.4 & 968.4 & -2.3 \\
+416 & 2048 & 979.4 & 915.9 & 6.5 \\
+448 & 2048 & 1023.7 & 934.6 & 8.7 \\
+480 & 2048 & 1063.9 & 961.5 & 9.6 \\
+512 & 2048 & 1185.9 & 1019.7 & 14 \\
+\bottomrule
+\end{longtable}
+
+\subsection{GT Inverse FFT: full vs truncated-range}
+\begin{longtable}{r r r r r}
+\toprule
+$n$ & $m$ & full iFFT (ms) & trunc iFFT (ms) & savings (\%) \\
+\midrule
+\endhead
+64 & 256 & 141.8 & 180.5 & -27.3 \\
+96 & 512 & 328.3 & 490.7 & -49.5 \\
+128 & 512 & 558.2 & 421.1 & 24.6 \\
+160 & 512 & 414.5 & 429.4 & -3.6 \\
+192 & 1024 & 1018.9 & 1078.9 & -5.9 \\
+224 & 1024 & 920.3 & 1063.3 & -15.5 \\
+256 & 1024 & 1254.1 & 1029.4 & 17.9 \\
+288 & 1024 & 989.3 & 1038.8 & -5 \\
+320 & 1024 & 958 & 1005.8 & -5 \\
+352 & 2048 & 2781.4 & 2538.5 & 8.7 \\
+384 & 2048 & 2860.3 & 1864.5 & 34.8 \\
+416 & 2048 & 2200.1 & 1938.2 & 11.9 \\
+448 & 2048 & 1759.6 & 2308.9 & -31.2 \\
+480 & 2048 & 1807 & 2280 & -26.2 \\
+512 & 2048 & 1960.2 & 2265.8 & -15.6 \\
+\bottomrule
+\end{longtable}
+
+\section{Integrated Middle-Product Results}
+\begin{longtable}{r r r r r r r}
+\toprule
+$n$ & $m$ & basic/base & basic+trunc iFFT & pruned basic & specialized & specialized+trunc \\
+\midrule
+\endhead
+64 & 256 & 478.5 & 369.5 & 462.7 & 454.8 & 330.6 \\
+96 & 512 & 1122 & 804.4 & 1044.8 & 1089.8 & 721.7 \\
+128 & 512 & 1178.7 & 813.2 & 1116.8 & 1414.4 & 720.8 \\
+160 & 512 & 1067.7 & 869.8 & 1084.1 & 1869.6 & 1530.6 \\
+192 & 1024 & 2258.9 & 1786.2 & 2596.1 & 1658 & 1562.1 \\
+224 & 1024 & 2107.2 & 1811.7 & 2670.8 & 1698.9 & 1535.6 \\
+256 & 1024 & 1952.7 & 2523.8 & 2559.8 & 1755.1 & 1660.3 \\
+288 & 1024 & 1941.6 & 1893.6 & 2876.3 & 3626.7 & 3708.5 \\
+320 & 1024 & 1981.4 & 2087.5 & 2862.8 & 3674.1 & 3510.7 \\
+352 & 2048 & 5268.2 & 3892.5 & 4939.1 & 3634.5 & 3385.9 \\
+384 & 2048 & 5563.3 & 4079.8 & 4032.3 & 3641.8 & 3464.9 \\
+416 & 2048 & 5994.4 & 4111 & 5699.6 & 3559.8 & 3381.1 \\
+448 & 2048 & 4286 & 4664.2 & 4127.5 & 3695.3 & 3505.9 \\
+480 & 2048 & 6142.3 & 4031.3 & 6041.8 & 3731.9 & 3940 \\
+512 & 2048 & 4935.4 & 4487.1 & 5596.3 & 3679.2 & 3876.1 \\
+\bottomrule
+\end{longtable}
+
+\section{Savings Summary}
+\begin{itemize}
+\item Standalone forward FFT truncation average savings: 3.8\%.
+\item Standalone inverse FFT truncation average savings: -5.8\%.
+\item Integrated basic path (truncated iFFT vs basic baseline): 14.8\% average savings.
+\item Integrated pruned basic path (truncated FFT+iFFT vs basic baseline): -8.1\% average savings.
+\item Specialized truncated vs specialized baseline: 10.8\% average savings.
+\end{itemize}
+
+\section{Interpretation}
+\begin{itemize}
+\item Forward truncation in \(G_1\) gives a modest positive average win, with clear size-dependent variability.
+\item Standalone truncated iFFT (prefix form) is mixed in this sweep and is slightly negative on average by itself.
+\item In the integrated basic middle-product flow, adding truncated iFFT is still a strong net positive.
+\item The current pruned-basic implementation is not yet a net win over basic+truncated-iFFT and needs further kernel/layout tuning.
+\item Specialized+trunc improves over specialized baseline and is the preferred specialized variant in this sweep.
+\item Size transitions where \(m\) doubles remain visible; non-power-of-two \(n\) values are still important for policy tuning.
+\end{itemize}
+
+\section{Repro Commands}
+\begin{verbatim}
+out\\build\\x64-Release\\benchmark\\blst_benchmarks.exe --benchmark_filter=bench_g1_fft_full_middle_shape_detailed
+out\\build\\x64-Release\\benchmark\\blst_benchmarks.exe --benchmark_filter=bench_g1_fft_trunc_middle_shape_detailed
+out\\build\\x64-Release\\benchmark\\blst_benchmarks.exe --benchmark_filter=bench_gt_ifft_full_middle_shape_detailed
+out\\build\\x64-Release\\benchmark\\blst_benchmarks.exe --benchmark_filter=bench_gt_ifft_trunc_middle_shape_detailed
+out\\build\\x64-Release\\benchmark\\blst_benchmarks.exe --benchmark_filter=bench_middle_product_basic_no_trunc_detailed
+out\\build\\x64-Release\\benchmark\\blst_benchmarks.exe --benchmark_filter=bench_middle_product_basic_ifft_trunc_detailed
+out\\build\\x64-Release\\benchmark\\blst_benchmarks.exe --benchmark_filter=bench_middle_product_basic_pruned_detailed
+out\\build\\x64-Release\\benchmark\\blst_benchmarks.exe --benchmark_filter=bench_middle_product_fft_detailed
+out\\build\\x64-Release\\benchmark\\blst_benchmarks.exe --benchmark_filter=bench_middle_product_specialized_trunc_detailed
+\end{verbatim}
+
+\end{document}

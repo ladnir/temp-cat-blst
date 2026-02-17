@@ -474,6 +474,7 @@ namespace
 		double fft_b_total = 0;
 		double fft_b_exec = 0;
 		double fft_b_skip = 0;
+		double online_total = 0;
 		int64_t iterations = 0;
 
 		for (auto _ : state) {
@@ -498,6 +499,7 @@ namespace
 			fft_b_total += static_cast<double>(iter_stats.get_ns("poly_mult.fft_b.butterflies_total"));
 			fft_b_exec += static_cast<double>(iter_stats.get_ns("poly_mult.fft_b.butterflies_executed"));
 			fft_b_skip += static_cast<double>(iter_stats.get_ns("poly_mult.fft_b.butterflies_skipped"));
+			online_total += static_cast<double>(iter_stats.get_ns("basic_pre.total_ns"));
 			iterations++;
 		}
 
@@ -511,6 +513,8 @@ namespace
 		state.counters["ifft_gt_ms"] = benchmark::Counter(time_ifft_gt / 1e6 / iterations);
 		state.counters["roots_ms"] = benchmark::Counter(time_roots / 1e6 / iterations);
 		state.counters["extract_ms"] = benchmark::Counter(time_extract / 1e6 / iterations);
+		state.counters["online_total_ms"] = benchmark::Counter(online_total / 1e6 / iterations);
+		state.counters["online_compute_ms"] = benchmark::Counter((online_total - time_roots) / 1e6 / iterations);
 		state.counters["fft_a_bfly_total"] = benchmark::Counter(fft_a_total / iterations);
 		state.counters["fft_a_bfly_exec"] = benchmark::Counter(fft_a_exec / iterations);
 		state.counters["fft_a_bfly_skip"] = benchmark::Counter(fft_a_skip / iterations);
@@ -529,7 +533,7 @@ namespace
 		state.counters["pre_b_bfly_skip"] = benchmark::Counter(pre_b_skip);
 		state.counters["pre_b_skip_ratio"] = benchmark::Counter(
 			(pre_b_total > 0.0) ? (pre_b_skip / pre_b_total) : 0.0);
-		state.counters["offline_precompute_ms"] = benchmark::Counter(
+		state.counters["offline_precompute_once_ms"] = benchmark::Counter(
 			(static_cast<double>(pre_stats.get_ns("precompute.roots_ns")) +
 				static_cast<double>(pre_stats.get_ns("precompute.basic_fft_b_ns"))) /
 			1e6);
@@ -570,6 +574,7 @@ namespace
 		double fft_a_total = 0;
 		double fft_a_exec = 0;
 		double fft_a_skip = 0;
+		double online_total = 0;
 		int64_t iterations = 0;
 
 		for (auto _ : state) {
@@ -609,6 +614,10 @@ namespace
 			fft_a_total += static_cast<double>(iter_stats.get_ns("poly_mult.fft_a.butterflies_total"));
 			fft_a_exec += static_cast<double>(iter_stats.get_ns("poly_mult.fft_a.butterflies_executed"));
 			fft_a_skip += static_cast<double>(iter_stats.get_ns("poly_mult.fft_a.butterflies_skipped"));
+			online_total += static_cast<double>(iter_stats.get_ns("poly_mult.fft_a_ns"));
+			online_total += static_cast<double>(iter_stats.get_ns("poly_mult.pointwise_ns"));
+			online_total += static_cast<double>(iter_stats.get_ns("poly_mult.ifft_ns"));
+			online_total += static_cast<double>(iter_stats.get_ns("basic_no_trunc.extract_ns"));
 			iterations++;
 		}
 
@@ -619,12 +628,14 @@ namespace
 		state.counters["ifft_gt_ms"] = benchmark::Counter(time_ifft_gt / 1e6 / iterations);
 		state.counters["roots_ms"] = benchmark::Counter(time_roots / 1e6 / iterations);
 		state.counters["extract_ms"] = benchmark::Counter(time_extract / 1e6 / iterations);
+		state.counters["online_total_ms"] = benchmark::Counter(online_total / 1e6 / iterations);
+		state.counters["online_compute_ms"] = benchmark::Counter((online_total - time_roots) / 1e6 / iterations);
 		state.counters["fft_a_bfly_total"] = benchmark::Counter(fft_a_total / iterations);
 		state.counters["fft_a_bfly_exec"] = benchmark::Counter(fft_a_exec / iterations);
 		state.counters["fft_a_bfly_skip"] = benchmark::Counter(fft_a_skip / iterations);
 		state.counters["fft_a_skip_ratio"] = benchmark::Counter(
 			(fft_a_total > 0.0) ? (fft_a_skip / fft_a_total) : 0.0);
-		state.counters["offline_precompute_ms"] = benchmark::Counter(
+		state.counters["offline_precompute_once_ms"] = benchmark::Counter(
 			(static_cast<double>(pre_stats.get_ns("precompute_no_trunc.roots_ns")) +
 				static_cast<double>(pre_stats.get_ns("precompute_no_trunc.fft_b_ns"))) /
 			1e6);
@@ -651,6 +662,7 @@ namespace
 		double ifft_total = 0;
 		double ifft_exec = 0;
 		double ifft_skip = 0;
+		double online_total = 0;
 		int64_t iterations = 0;
 
 		for (auto _ : state) {
@@ -674,6 +686,7 @@ namespace
 			ifft_total += static_cast<double>(iter_stats.get_ns("basic_ifft_trunc.ifft.butterflies_total"));
 			ifft_exec += static_cast<double>(iter_stats.get_ns("basic_ifft_trunc.ifft.butterflies_executed"));
 			ifft_skip += static_cast<double>(iter_stats.get_ns("basic_ifft_trunc.ifft.butterflies_skipped"));
+			online_total += static_cast<double>(iter_stats.get_ns("basic_ifft_trunc.total_ns"));
 			iterations++;
 		}
 
@@ -684,6 +697,8 @@ namespace
 		state.counters["ifft_gt_ms"] = benchmark::Counter(time_ifft_gt / 1e6 / iterations);
 		state.counters["roots_ms"] = benchmark::Counter(time_roots / 1e6 / iterations);
 		state.counters["extract_ms"] = benchmark::Counter(time_extract / 1e6 / iterations);
+		state.counters["online_total_ms"] = benchmark::Counter(online_total / 1e6 / iterations);
+		state.counters["online_compute_ms"] = benchmark::Counter((online_total - time_roots) / 1e6 / iterations);
 		state.counters["fft_a_bfly_total"] = benchmark::Counter(fft_a_total / iterations);
 		state.counters["fft_a_bfly_exec"] = benchmark::Counter(fft_a_exec / iterations);
 		state.counters["fft_a_bfly_skip"] = benchmark::Counter(fft_a_skip / iterations);
@@ -694,9 +709,177 @@ namespace
 		state.counters["ifft_bfly_skip"] = benchmark::Counter(ifft_skip / iterations);
 		state.counters["ifft_skip_ratio"] = benchmark::Counter(
 			(ifft_total > 0.0) ? (ifft_skip / ifft_total) : 0.0);
-		state.counters["offline_precompute_ms"] = benchmark::Counter(
+		state.counters["offline_precompute_once_ms"] = benchmark::Counter(
 			(static_cast<double>(pre_stats.get_ns("precompute.roots_ns")) +
 				static_cast<double>(pre_stats.get_ns("precompute.basic_fft_b_ns"))) /
+			1e6);
+	}
+
+	static void bench_middle_product_basic_pruned_detailed(benchmark::State& state)
+	{
+		const size_t n = static_cast<size_t>(state.range(0));
+		const std::vector<G1Point> A_orig = make_g1_data(n, /*seed*/ 0xDEADBEEFULL);
+		const std::vector<G2Point> B_orig = make_g2_data(2 * n, /*seed*/ 0xCAFEBABEULL);
+		TimingStats pre_stats;
+		const auto precomputed_b = precompute_middle_product_b(
+			std::span<const G2Point>(B_orig), n, MiddleProductAlgorithm::BasicFFT, &pre_stats);
+		std::vector<GT> out(n, GT::identity());
+		MiddleProductBasicPrunedWorkspace workspace;
+
+		double time_fft_g1 = 0;
+		double time_pairing = 0;
+		double time_ifft_gt = 0;
+		double time_roots = 0;
+		double time_extract = 0;
+		double fft_a_total = 0;
+		double fft_a_exec = 0;
+		double fft_a_skip = 0;
+		double ifft_total = 0;
+		double ifft_exec = 0;
+		double ifft_skip = 0;
+		double online_total = 0;
+		int64_t iterations = 0;
+
+		for (auto _ : state) {
+			TimingStats iter_stats;
+			middle_product_basic_pruned(
+				std::span<const G1Point>(A_orig),
+				precomputed_b,
+				std::span<GT>(out),
+				workspace,
+				&iter_stats);
+			benchmark::ClobberMemory();
+
+			time_fft_g1 += static_cast<double>(iter_stats.get_ns("basic_pruned.fft_a_ns"));
+			time_pairing += static_cast<double>(iter_stats.get_ns("basic_pruned.pointwise_ns"));
+			time_ifft_gt += static_cast<double>(iter_stats.get_ns("basic_pruned.ifft_ns"));
+			time_roots += static_cast<double>(iter_stats.get_ns("basic_pruned.roots_ns"));
+			time_roots += static_cast<double>(iter_stats.get_ns("basic_pruned.inv_roots_ns"));
+			time_extract += static_cast<double>(iter_stats.get_ns("basic_pruned.extract_ns"));
+			fft_a_total += static_cast<double>(iter_stats.get_ns("basic_pruned.fft_a.butterflies_total"));
+			fft_a_exec += static_cast<double>(iter_stats.get_ns("basic_pruned.fft_a.butterflies_executed"));
+			fft_a_skip += static_cast<double>(iter_stats.get_ns("basic_pruned.fft_a.butterflies_skipped"));
+			ifft_total += static_cast<double>(iter_stats.get_ns("basic_pruned.ifft.butterflies_total"));
+			ifft_exec += static_cast<double>(iter_stats.get_ns("basic_pruned.ifft.butterflies_executed"));
+			ifft_skip += static_cast<double>(iter_stats.get_ns("basic_pruned.ifft.butterflies_skipped"));
+			online_total += static_cast<double>(iter_stats.get_ns("basic_pruned.total_ns"));
+			iterations++;
+		}
+
+		state.counters["n"] = static_cast<double>(n);
+		state.counters["m"] = static_cast<double>(precomputed_b.fft_size);
+		state.counters["fft_g1_ms"] = benchmark::Counter(time_fft_g1 / 1e6 / iterations);
+		state.counters["pairing_ms"] = benchmark::Counter(time_pairing / 1e6 / iterations);
+		state.counters["ifft_gt_ms"] = benchmark::Counter(time_ifft_gt / 1e6 / iterations);
+		state.counters["roots_ms"] = benchmark::Counter(time_roots / 1e6 / iterations);
+		state.counters["extract_ms"] = benchmark::Counter(time_extract / 1e6 / iterations);
+		state.counters["online_total_ms"] = benchmark::Counter(online_total / 1e6 / iterations);
+		state.counters["online_compute_ms"] = benchmark::Counter((online_total - time_roots) / 1e6 / iterations);
+		state.counters["fft_a_bfly_total"] = benchmark::Counter(fft_a_total / iterations);
+		state.counters["fft_a_bfly_exec"] = benchmark::Counter(fft_a_exec / iterations);
+		state.counters["fft_a_bfly_skip"] = benchmark::Counter(fft_a_skip / iterations);
+		state.counters["fft_a_skip_ratio"] = benchmark::Counter(
+			(fft_a_total > 0.0) ? (fft_a_skip / fft_a_total) : 0.0);
+		state.counters["ifft_bfly_total"] = benchmark::Counter(ifft_total / iterations);
+		state.counters["ifft_bfly_exec"] = benchmark::Counter(ifft_exec / iterations);
+		state.counters["ifft_bfly_skip"] = benchmark::Counter(ifft_skip / iterations);
+		state.counters["ifft_skip_ratio"] = benchmark::Counter(
+			(ifft_total > 0.0) ? (ifft_skip / ifft_total) : 0.0);
+		state.counters["offline_precompute_once_ms"] = benchmark::Counter(
+			(static_cast<double>(pre_stats.get_ns("precompute.roots_ns")) +
+				static_cast<double>(pre_stats.get_ns("precompute.basic_fft_b_ns"))) /
+			1e6);
+	}
+
+	static void bench_middle_product_specialized_trunc_detailed(benchmark::State& state)
+	{
+		const size_t n = static_cast<size_t>(state.range(0));
+		const std::vector<G1Point> A_orig = make_g1_data(n, /*seed*/ 0xDEADBEEFULL);
+		const std::vector<G2Point> B_orig = make_g2_data(2 * n, /*seed*/ 0xCAFEBABEULL);
+		TimingStats pre_stats;
+		const auto precomputed_b = precompute_middle_product_b(
+			std::span<const G2Point>(B_orig), n, MiddleProductAlgorithm::SpecializedFFT, &pre_stats);
+		std::vector<GT> out(n, GT::identity());
+
+		double time_fft_g1 = 0;
+		double time_pairing = 0;
+		double time_ifft_gt = 0;
+		double time_derive = 0;
+		double time_roots = 0;
+		double time_extract = 0;
+		double fft_a_total = 0;
+		double fft_a_exec = 0;
+		double fft_a_skip = 0;
+		double ifft1_total = 0;
+		double ifft1_exec = 0;
+		double ifft1_skip = 0;
+		double ifft2_total = 0;
+		double ifft2_exec = 0;
+		double ifft2_skip = 0;
+		double online_total = 0;
+		int64_t iterations = 0;
+
+		for (auto _ : state) {
+			TimingStats iter_stats;
+			middle_product_specialized_truncated(
+				std::span<const G1Point>(A_orig),
+				precomputed_b,
+				std::span<GT>(out),
+				&iter_stats);
+			benchmark::ClobberMemory();
+
+			time_fft_g1 += static_cast<double>(iter_stats.get_ns("middle_spec_trunc.phase1_fft_a_ns"));
+			time_pairing += static_cast<double>(iter_stats.get_ns("middle_spec_trunc.phase1_pointwise_ns"));
+			time_pairing += static_cast<double>(iter_stats.get_ns("middle_spec_trunc.phase2_pointwise_ns"));
+			time_ifft_gt += static_cast<double>(iter_stats.get_ns("middle_spec_trunc.phase1_ifft_ns"));
+			time_ifft_gt += static_cast<double>(iter_stats.get_ns("middle_spec_trunc.phase2_ifft_ns"));
+			time_derive += static_cast<double>(iter_stats.get_ns("middle_spec_trunc.phase2_derive_ntt_ns"));
+			time_roots += static_cast<double>(iter_stats.get_ns("middle_spec_trunc.roots_ns"));
+			time_roots += static_cast<double>(iter_stats.get_ns("middle_spec_trunc.inv_roots_ns"));
+			time_extract += static_cast<double>(iter_stats.get_ns("middle_spec_trunc.phase1_copy_ns"));
+			time_extract += static_cast<double>(iter_stats.get_ns("middle_spec_trunc.phase2_combine_ns"));
+			fft_a_total += static_cast<double>(iter_stats.get_ns("middle_spec_trunc.phase1_fft_a.butterflies_total"));
+			fft_a_exec += static_cast<double>(iter_stats.get_ns("middle_spec_trunc.phase1_fft_a.butterflies_executed"));
+			fft_a_skip += static_cast<double>(iter_stats.get_ns("middle_spec_trunc.phase1_fft_a.butterflies_skipped"));
+			ifft1_total += static_cast<double>(iter_stats.get_ns("middle_spec_trunc.phase1_ifft.butterflies_total"));
+			ifft1_exec += static_cast<double>(iter_stats.get_ns("middle_spec_trunc.phase1_ifft.butterflies_executed"));
+			ifft1_skip += static_cast<double>(iter_stats.get_ns("middle_spec_trunc.phase1_ifft.butterflies_skipped"));
+			ifft2_total += static_cast<double>(iter_stats.get_ns("middle_spec_trunc.phase2_ifft.butterflies_total"));
+			ifft2_exec += static_cast<double>(iter_stats.get_ns("middle_spec_trunc.phase2_ifft.butterflies_executed"));
+			ifft2_skip += static_cast<double>(iter_stats.get_ns("middle_spec_trunc.phase2_ifft.butterflies_skipped"));
+			online_total += static_cast<double>(iter_stats.get_ns("middle_spec_trunc.total_ns"));
+			iterations++;
+		}
+
+		state.counters["n"] = static_cast<double>(n);
+		state.counters["m"] = static_cast<double>(precomputed_b.fft_size);
+		state.counters["fft_g1_ms"] = benchmark::Counter(time_fft_g1 / 1e6 / iterations);
+		state.counters["pairing_ms"] = benchmark::Counter(time_pairing / 1e6 / iterations);
+		state.counters["ifft_gt_ms"] = benchmark::Counter(time_ifft_gt / 1e6 / iterations);
+		state.counters["derive_rev_ms"] = benchmark::Counter(time_derive / 1e6 / iterations);
+		state.counters["roots_ms"] = benchmark::Counter(time_roots / 1e6 / iterations);
+		state.counters["extract_ms"] = benchmark::Counter(time_extract / 1e6 / iterations);
+		state.counters["online_total_ms"] = benchmark::Counter(online_total / 1e6 / iterations);
+		state.counters["online_compute_ms"] = benchmark::Counter((online_total - time_roots) / 1e6 / iterations);
+		state.counters["fft_a_bfly_total"] = benchmark::Counter(fft_a_total / iterations);
+		state.counters["fft_a_bfly_exec"] = benchmark::Counter(fft_a_exec / iterations);
+		state.counters["fft_a_bfly_skip"] = benchmark::Counter(fft_a_skip / iterations);
+		state.counters["fft_a_skip_ratio"] = benchmark::Counter(
+			(fft_a_total > 0.0) ? (fft_a_skip / fft_a_total) : 0.0);
+		state.counters["ifft1_bfly_total"] = benchmark::Counter(ifft1_total / iterations);
+		state.counters["ifft1_bfly_exec"] = benchmark::Counter(ifft1_exec / iterations);
+		state.counters["ifft1_bfly_skip"] = benchmark::Counter(ifft1_skip / iterations);
+		state.counters["ifft1_skip_ratio"] = benchmark::Counter(
+			(ifft1_total > 0.0) ? (ifft1_skip / ifft1_total) : 0.0);
+		state.counters["ifft2_bfly_total"] = benchmark::Counter(ifft2_total / iterations);
+		state.counters["ifft2_bfly_exec"] = benchmark::Counter(ifft2_exec / iterations);
+		state.counters["ifft2_bfly_skip"] = benchmark::Counter(ifft2_skip / iterations);
+		state.counters["ifft2_skip_ratio"] = benchmark::Counter(
+			(ifft2_total > 0.0) ? (ifft2_skip / ifft2_total) : 0.0);
+		state.counters["offline_precompute_once_ms"] = benchmark::Counter(
+			(static_cast<double>(pre_stats.get_ns("precompute.roots_ns")) +
+				static_cast<double>(pre_stats.get_ns("precompute.spec_fft_b1_ns")) +
+				static_cast<double>(pre_stats.get_ns("precompute.spec_fft_b0_ns"))) /
 			1e6);
 	}
 
@@ -811,6 +994,177 @@ namespace
 		state.counters["L"] = static_cast<double>(L);
 		state.counters["iFFTs/sec"] = benchmark::Counter(1, benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
 	}
+
+	// Standalone G1 forward FFT in middle-product shape:
+	// input has n non-zero coefficients embedded in m.
+	static void bench_g1_fft_full_middle_shape_detailed(benchmark::State& state)
+	{
+		const size_t n = static_cast<size_t>(state.range(0));
+		const size_t m = middle_product_fft_size(n, MiddleProductAlgorithm::BasicFFT);
+		const size_t xn = fft_admissible_size(n, m);
+		const std::vector<Fr> roots = make_roots(m);
+		const std::vector<G1Point> a_orig = make_g1_data(n, /*seed*/ 0xA11CEULL);
+		std::vector<G1Point> a(m, G1Point::infinity());
+
+		double fft_ns = 0;
+		int64_t iterations = 0;
+
+		for (auto _ : state) {
+			for (size_t i = 0; i < n; ++i) {
+				a[i] = a_orig[i];
+			}
+			for (size_t i = n; i < m; ++i) {
+				a[i] = G1Point::infinity();
+			}
+
+			benchmark::DoNotOptimize(a.data());
+			TimingStats stats;
+			{
+				ScopedTimer timer(&stats, "g1_fft_full.total_ns");
+				fft<G1Point, Fr, G1CoeffCtx>(std::span<G1Point>(a), std::span<const Fr>(roots), false);
+			}
+			benchmark::ClobberMemory();
+
+			fft_ns += static_cast<double>(stats.get_ns("g1_fft_full.total_ns"));
+			iterations++;
+		}
+
+		state.counters["n"] = static_cast<double>(n);
+		state.counters["m"] = static_cast<double>(m);
+		state.counters["xn"] = static_cast<double>(xn);
+		state.counters["fft_ms"] = benchmark::Counter(fft_ns / 1e6 / iterations);
+	}
+
+	// Standalone truncated G1 forward FFT in middle-product shape:
+	// only the active prefix xn contributes work.
+	static void bench_g1_fft_trunc_middle_shape_detailed(benchmark::State& state)
+	{
+		const size_t n = static_cast<size_t>(state.range(0));
+		const size_t m = middle_product_fft_size(n, MiddleProductAlgorithm::BasicFFT);
+		const size_t xn = fft_admissible_size(n, m);
+		const std::vector<Fr> roots = make_roots(m);
+		const std::vector<G1Point> a_orig = make_g1_data(n, /*seed*/ 0xA11CEULL);
+		const FftTruncatedForwardPlan plan = make_fft_truncated_forward_plan(m, xn);
+		std::vector<G1Point> a(m, G1Point::infinity());
+
+		double fft_ns = 0;
+		double bfly_total = 0;
+		double bfly_exec = 0;
+		double bfly_skip = 0;
+		int64_t iterations = 0;
+
+		for (auto _ : state) {
+			for (size_t i = 0; i < n; ++i) {
+				a[i] = a_orig[i];
+			}
+			for (size_t i = n; i < m; ++i) {
+				a[i] = G1Point::infinity();
+			}
+
+			benchmark::DoNotOptimize(a.data());
+			TimingStats stats;
+			fft_forward_truncated_prefix<G1Point, Fr, G1CoeffCtx>(
+				std::span<G1Point>(a),
+				std::span<const Fr>(roots),
+				xn,
+				plan,
+				&stats,
+				"g1_fft_trunc");
+			benchmark::ClobberMemory();
+
+			fft_ns += static_cast<double>(stats.get_ns("g1_fft_trunc.total_ns"));
+			bfly_total += static_cast<double>(stats.get_ns("g1_fft_trunc.butterflies_total"));
+			bfly_exec += static_cast<double>(stats.get_ns("g1_fft_trunc.butterflies_executed"));
+			bfly_skip += static_cast<double>(stats.get_ns("g1_fft_trunc.butterflies_skipped"));
+			iterations++;
+		}
+
+		state.counters["n"] = static_cast<double>(n);
+		state.counters["m"] = static_cast<double>(m);
+		state.counters["xn"] = static_cast<double>(xn);
+		state.counters["fft_ms"] = benchmark::Counter(fft_ns / 1e6 / iterations);
+		state.counters["bfly_total"] = benchmark::Counter(bfly_total / iterations);
+		state.counters["bfly_exec"] = benchmark::Counter(bfly_exec / iterations);
+		state.counters["bfly_skip"] = benchmark::Counter(bfly_skip / iterations);
+		state.counters["bfly_skip_ratio"] = benchmark::Counter(
+			(bfly_total > 0.0) ? (bfly_skip / bfly_total) : 0.0);
+	}
+
+	// Standalone GT inverse FFT in middle-product shape:
+	// compare full iFFT(m) vs truncated-range iFFT for the middle window [n-1, 2n-2].
+	static void bench_gt_ifft_full_middle_shape_detailed(benchmark::State& state)
+	{
+		const size_t n = static_cast<size_t>(state.range(0));
+		const size_t m = middle_product_fft_size(n, MiddleProductAlgorithm::BasicFFT);
+		const std::vector<Fr> roots = make_roots(m);
+		const std::vector<Fr> inv_roots = make_inv_roots(roots);
+		const std::vector<GT> time_domain = make_gt_data(m);
+		std::vector<GT> freq_domain = time_domain;
+		fft<GT, Fr, GTCoeffCtx>(freq_domain, roots, /*inverse*/ false);
+		std::vector<GT> data = freq_domain;
+
+		double ifft_ns = 0;
+		int64_t iterations = 0;
+
+		for (auto _ : state) {
+			data = freq_domain;
+			benchmark::DoNotOptimize(data.data());
+			TimingStats stats;
+			{
+				ScopedTimer timer(&stats, "gt_ifft_full.total_ns");
+				fft<GT, Fr, GTCoeffCtx>(std::span<GT>(data), std::span<const Fr>(inv_roots), false);
+			}
+			benchmark::ClobberMemory();
+
+			ifft_ns += static_cast<double>(stats.get_ns("gt_ifft_full.total_ns"));
+			iterations++;
+		}
+
+		state.counters["n"] = static_cast<double>(n);
+		state.counters["m"] = static_cast<double>(m);
+		state.counters["ifft_ms"] = benchmark::Counter(ifft_ns / 1e6 / iterations);
+	}
+
+	static void bench_gt_ifft_trunc_middle_shape_detailed(benchmark::State& state)
+	{
+		const size_t n = static_cast<size_t>(state.range(0));
+		const size_t m = middle_product_fft_size(n, MiddleProductAlgorithm::BasicFFT);
+		const std::vector<Fr> roots = make_roots(m);
+		const std::vector<Fr> inv_roots = make_inv_roots(roots);
+		Fr m_inv = Fr::from_uint64(m);
+		Fr::reciprocal(m_inv, m_inv);
+		const std::vector<GT> time_domain = make_gt_data(m);
+		std::vector<GT> freq_domain = time_domain;
+		fft<GT, Fr, GTCoeffCtx>(freq_domain, roots, /*inverse*/ false);
+		std::vector<GT> data = freq_domain;
+
+		double ifft_ns = 0;
+		int64_t iterations = 0;
+
+		for (auto _ : state) {
+			data = freq_domain;
+			benchmark::DoNotOptimize(data.data());
+			TimingStats stats;
+			{
+				ScopedTimer timer(&stats, "gt_ifft_trunc.total_ns");
+				fft_inverse_truncated<GT, Fr, GTCoeffCtx>(
+					std::span<GT>(data),
+					m,
+					n,
+					std::span<const Fr>(inv_roots),
+					m_inv);
+			}
+			benchmark::ClobberMemory();
+
+			ifft_ns += static_cast<double>(stats.get_ns("gt_ifft_trunc.total_ns"));
+			iterations++;
+		}
+
+		state.counters["n"] = static_cast<double>(n);
+		state.counters["m"] = static_cast<double>(m);
+		state.counters["length"] = static_cast<double>(n);
+		state.counters["ifft_ms"] = benchmark::Counter(ifft_ns / 1e6 / iterations);
+	}
 }
 
 
@@ -880,7 +1234,11 @@ static void bench_middle_product_fft_detailed(benchmark::State& state)
 
 // Smaller sizes for expensive operations (middle product involves pairings)
 #define MIDDLE_PROD_SIZES \
-->Arg(96)->Arg(128)->Arg(160)->Arg(192)
+->DenseRange(64, 512, 32)
+
+// Medium sweep for detailed reports (non power-of-two n included).
+#define MIDDLE_PROD_SWEEP_SIZES \
+->DenseRange(64, 512, 32)
 
 // ============================================================================
 // Radix-2 FFT benchmarks (baseline)
@@ -1030,6 +1388,36 @@ MIDDLE_PROD_SIZES
 
 BENCHMARK(bench_middle_product_basic_ifft_trunc_detailed)
 MIDDLE_PROD_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK(bench_middle_product_basic_pruned_detailed)
+MIDDLE_PROD_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK(bench_middle_product_specialized_trunc_detailed)
+MIDDLE_PROD_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK(bench_g1_fft_full_middle_shape_detailed)
+MIDDLE_PROD_SWEEP_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK(bench_g1_fft_trunc_middle_shape_detailed)
+MIDDLE_PROD_SWEEP_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK(bench_gt_ifft_full_middle_shape_detailed)
+MIDDLE_PROD_SWEEP_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK(bench_gt_ifft_trunc_middle_shape_detailed)
+MIDDLE_PROD_SWEEP_SIZES
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();
 //BENCHMARK_MAIN();

@@ -599,11 +599,174 @@ void fft_adaptive(std::span<G> a, std::span<const F> roots, bool invert) {
 //   CoeffCtx - context providing arithmetic operations
 template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
 void fft_forward_truncated_prefix(
-	std::span<G> a,
-	std::span<const F> roots,
-	std::size_t xn,
-	blst::TimingStats* timings = nullptr,
-	std::string_view metric_prefix = "fft_trunc");
+        std::span<G> a,
+        std::span<const F> roots,
+        std::size_t xn,
+        const struct FftTruncatedForwardPlan& plan,
+        blst::TimingStats* timings = nullptr,
+        std::string_view metric_prefix = "fft_trunc");
+
+template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
+void fft_forward_truncated_prefix(
+        std::span<G> a,
+        std::span<const F> roots,
+        std::size_t xn,
+        blst::TimingStats* timings = nullptr,
+        std::string_view metric_prefix = "fft_trunc");
+
+struct FftTruncatedForwardPlan
+{
+        struct StageWork
+        {
+                std::vector<std::size_t> left_j0;
+                std::vector<std::size_t> left_nonzero;
+                std::vector<std::size_t> twiddle_nonzero;
+        };
+
+        std::size_t n = 0;
+        std::size_t xn = 0;
+        std::size_t log2_n = 0;
+        std::size_t butterflies_total = 0;
+        std::size_t butterflies_executed = 0;
+        std::size_t butterflies_skipped = 0;
+        std::vector<StageWork> stage_work;
+};
+
+struct FftInverseTruncatedRangePlan
+{
+        std::size_t n = 0;
+        std::size_t start = 0;
+        std::size_t length = 0;
+        std::size_t stages = 0;
+        std::size_t butterflies_total = 0;
+        std::size_t butterflies_executed = 0;
+        std::size_t butterflies_skipped = 0;
+        std::vector<std::vector<std::size_t>> stage_left;
+};
+
+inline std::size_t fft_log2_size(std::size_t n)
+{
+        std::size_t log2_n = 0;
+        for (std::size_t t = n; t > 1; t >>= 1) {
+                ++log2_n;
+        }
+        return log2_n;
+}
+
+inline FftTruncatedForwardPlan make_fft_truncated_forward_plan(std::size_t n, std::size_t xn)
+{
+        BLST_ASSERT(n > 0);
+        BLST_ASSERT((n & (n - 1)) == 0);
+        BLST_ASSERT(xn > 0);
+        BLST_ASSERT(xn <= n);
+
+        FftTruncatedForwardPlan plan;
+        plan.n = n;
+        plan.xn = xn;
+        plan.log2_n = fft_log2_size(n);
+        plan.butterflies_total = (n / 2) * plan.log2_n;
+
+        if (xn == n) {
+                plan.butterflies_executed = plan.butterflies_total;
+                return plan;
+        }
+
+        plan.stage_work.resize(plan.log2_n);
+        std::vector<unsigned char> active(n, 0);
+        std::vector<unsigned char> next_active(n, 0);
+        for (std::size_t i = 0; i < xn; ++i) {
+                active[i] = 1;
+        }
+        bit_reverse<unsigned char>(std::span<unsigned char>(active));
+
+        std::size_t stage_idx = 0;
+        for (std::size_t len = 2; len <= n; len <<= 1, ++stage_idx) {
+                const std::size_t half = len >> 1;
+                const std::size_t stride = n / len;
+                auto& stage = plan.stage_work[stage_idx];
+                stage.left_j0.reserve(n / len);
+                stage.left_nonzero.reserve((n / 2) - (n / len));
+                stage.twiddle_nonzero.reserve((n / 2) - (n / len));
+                std::fill(next_active.begin(), next_active.end(), static_cast<unsigned char>(0));
+
+                for (std::size_t i = 0; i < n; i += len) {
+                        for (std::size_t j = 0; j < half; ++j) {
+                                const std::size_t left = i + j;
+                                const std::size_t right = left + half;
+                                if (!(active[left] || active[right])) {
+                                        continue;
+                                }
+                                if (j == 0) {
+                                        stage.left_j0.push_back(left);
+                                }
+                                else {
+                                        stage.left_nonzero.push_back(left);
+                                        stage.twiddle_nonzero.push_back(j * stride);
+                                }
+                                next_active[left] = 1;
+                                next_active[right] = 1;
+                        }
+                }
+                plan.butterflies_executed += stage.left_j0.size() + stage.left_nonzero.size();
+                active.swap(next_active);
+        }
+
+        plan.butterflies_skipped = plan.butterflies_total - plan.butterflies_executed;
+        return plan;
+}
+
+inline FftInverseTruncatedRangePlan make_fft_inverse_truncated_range_plan(
+        std::size_t n,
+        std::size_t start,
+        std::size_t length)
+{
+        BLST_ASSERT(n > 0);
+        BLST_ASSERT((n & (n - 1)) == 0);
+        BLST_ASSERT(length > 0);
+        BLST_ASSERT(start < n);
+        BLST_ASSERT(start + length <= n);
+
+        FftInverseTruncatedRangePlan plan;
+        plan.n = n;
+        plan.start = start;
+        plan.length = length;
+        plan.stages = fft_log2_size(n);
+        plan.butterflies_total = (n / 2) * plan.stages;
+        plan.stage_left.resize(plan.stages);
+
+        std::vector<unsigned char> out_need(n, 0);
+        std::vector<unsigned char> in_need(n, 0);
+        for (std::size_t i = 0; i < length; ++i) {
+                out_need[start + i] = 1;
+        }
+
+        for (std::size_t k = plan.stages; k > 0; --k) {
+                const std::size_t len = std::size_t(1) << k;
+                const std::size_t half = len >> 1;
+                auto& lefts = plan.stage_left[k - 1];
+                lefts.reserve(n / 2);
+                std::fill(in_need.begin(), in_need.end(), static_cast<unsigned char>(0));
+
+                for (std::size_t i = 0; i < n; i += len) {
+                        for (std::size_t j = 0; j < half; ++j) {
+                                const std::size_t left = i + j;
+                                const std::size_t right = left + half;
+                                if (!(out_need[left] || out_need[right])) {
+                                        continue;
+                                }
+                                lefts.push_back(left);
+                                in_need[left] = 1;
+                                in_need[right] = 1;
+                        }
+                }
+
+                plan.butterflies_executed += lefts.size();
+                out_need.swap(in_need);
+        }
+
+        plan.butterflies_skipped = plan.butterflies_total - plan.butterflies_executed;
+        return plan;
+}
 
 template <typename G1, typename G2, typename GT, typename F, typename CoeffCtx = DefaultCoeffCtx>
 void poly_mult_fft(
@@ -655,99 +818,146 @@ void poly_mult_fft(
 
 template <typename G, typename F, typename CoeffCtx>
 void fft_forward_truncated_prefix(
-	std::span<G> a,
-	std::span<const F> roots,
-	std::size_t xn,
-	blst::TimingStats* timings,
-	std::string_view metric_prefix) {
-	const std::size_t n = a.size();
-	BLST_ASSERT(n > 0);
-	BLST_ASSERT((n & (n - 1)) == 0);
-	BLST_ASSERT(roots.size() >= n);
-	BLST_ASSERT(xn > 0);
-	BLST_ASSERT(xn <= n);
+        std::span<G> a,
+        std::span<const F> roots,
+        std::size_t xn,
+        const FftTruncatedForwardPlan& plan,
+        blst::TimingStats* timings,
+        std::string_view metric_prefix) {
+        const std::size_t n = a.size();
+        BLST_ASSERT(n > 0);
+        BLST_ASSERT((n & (n - 1)) == 0);
+        BLST_ASSERT(roots.size() >= n);
+        BLST_ASSERT(xn > 0);
+        BLST_ASSERT(xn <= n);
+        BLST_ASSERT(plan.n == n);
+        BLST_ASSERT(plan.xn == xn);
 
-	std::size_t log2_n = 0;
-	for (std::size_t t = n; t > 1; t >>= 1) {
-		++log2_n;
-	}
+        if (xn == n) {
+                fft<G, F, CoeffCtx>(a, roots, false);
+                if (timings != nullptr) {
+                        timings->add(std::string(metric_prefix) + ".xn", xn);
+                        timings->add(std::string(metric_prefix) + ".butterflies_total", plan.butterflies_total);
+                        timings->add(std::string(metric_prefix) + ".butterflies_executed", plan.butterflies_executed);
+                        timings->add(std::string(metric_prefix) + ".butterflies_skipped", plan.butterflies_skipped);
+                }
+                return;
+        }
 
-	if (xn == n) {
-		fft<G, F, CoeffCtx>(a, roots, false);
-		if (timings != nullptr) {
-			const std::size_t total = (n / 2) * log2_n;
-			timings->add(std::string(metric_prefix) + ".xn", xn);
-			timings->add(std::string(metric_prefix) + ".butterflies_total", total);
-			timings->add(std::string(metric_prefix) + ".butterflies_executed", total);
-			timings->add(std::string(metric_prefix) + ".butterflies_skipped", 0);
-		}
-		return;
-	}
+        bit_reverse(a);
 
-	// Track which indices can be non-zero after each stage.
-	// Any butterfly with both inputs known-zero can be skipped safely.
-	std::vector<unsigned char> active(n, 0);
-	std::vector<unsigned char> next_active(n, 0);
-	for (std::size_t i = 0; i < xn; ++i) {
-		active[i] = 1;
-	}
+        for (std::size_t stage = 0, len = 2; len <= n; len <<= 1, ++stage) {
+                const std::size_t half = len >> 1;
+                const auto& stage_work = plan.stage_work[stage];
 
-	bit_reverse(a);
-	bit_reverse<unsigned char>(std::span<unsigned char>(active));
+                for (std::size_t idx = 0; idx < stage_work.left_j0.size(); ++idx) {
+                        const std::size_t left = stage_work.left_j0[idx];
+                        const std::size_t right = left + half;
+                        G u = a[left];
+                        G t = a[right];
+                        a[left] = CoeffCtx::plus(u, t);
+                        a[right] = CoeffCtx::minus(u, t);
+                }
 
-	std::size_t butterflies_total = 0;
-	std::size_t butterflies_executed = 0;
-	std::size_t butterflies_skipped = 0;
+                for (std::size_t idx = 0; idx < stage_work.left_nonzero.size(); ++idx) {
+                        const std::size_t left = stage_work.left_nonzero[idx];
+                        const std::size_t right = left + half;
+                        F w = roots[stage_work.twiddle_nonzero[idx]];
+                        G u = a[left];
+                        G t = CoeffCtx::mult(a[right], w);
+                        a[left] = CoeffCtx::plus(u, t);
+                        a[right] = CoeffCtx::minus(u, t);
+                }
+        }
 
-	for (std::size_t len = 2; len <= n; len <<= 1) {
-		const std::size_t half = len >> 1;
-		std::fill(next_active.begin(), next_active.end(), static_cast<unsigned char>(0));
+        if (timings != nullptr) {
+                timings->add(std::string(metric_prefix) + ".xn", xn);
+                timings->add(std::string(metric_prefix) + ".butterflies_total", plan.butterflies_total);
+                timings->add(std::string(metric_prefix) + ".butterflies_executed", plan.butterflies_executed);
+                timings->add(std::string(metric_prefix) + ".butterflies_skipped", plan.butterflies_skipped);
+        }
+}
 
-		for (std::size_t i = 0; i < n; i += len) {
-			for (std::size_t j = 0; j < half; ++j) {
-				++butterflies_total;
-				const std::size_t left = i + j;
-				const std::size_t right = left + half;
-				if (!(active[left] || active[right])) {
-					++butterflies_skipped;
-					continue;
-				}
-				++butterflies_executed;
-
-				if (j == 0) {
-					G u = a[left];
-					G t = a[right];
-					a[left] = CoeffCtx::plus(u, t);
-					a[right] = CoeffCtx::minus(u, t);
-				}
-				else {
-					F w = roots[j * (n / len)];
-					G u = a[left];
-					G t = CoeffCtx::mult(a[right], w);
-					a[left] = CoeffCtx::plus(u, t);
-					a[right] = CoeffCtx::minus(u, t);
-				}
-
-				next_active[left] = 1;
-				next_active[right] = 1;
-			}
-		}
-
-		active.swap(next_active);
-	}
-
-	if (timings != nullptr) {
-		timings->add(std::string(metric_prefix) + ".xn", xn);
-		timings->add(std::string(metric_prefix) + ".butterflies_total", butterflies_total);
-		timings->add(std::string(metric_prefix) + ".butterflies_executed", butterflies_executed);
-		timings->add(std::string(metric_prefix) + ".butterflies_skipped", butterflies_skipped);
-	}
+template <typename G, typename F, typename CoeffCtx>
+void fft_forward_truncated_prefix(
+        std::span<G> a,
+        std::span<const F> roots,
+        std::size_t xn,
+        blst::TimingStats* timings,
+        std::string_view metric_prefix)
+{
+        const FftTruncatedForwardPlan plan = make_fft_truncated_forward_plan(a.size(), xn);
+        fft_forward_truncated_prefix<G, F, CoeffCtx>(a, roots, xn, plan, timings, metric_prefix);
 }
 
 template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
 void fft_inverse_truncated_range(
-	std::span<G> x,
-	std::span<const F> inv_roots,
+        std::span<G> x,
+        std::span<const F> inv_roots,
+        std::size_t start,
+        std::size_t length,
+        const FftInverseTruncatedRangePlan& plan,
+        blst::TimingStats* timings = nullptr,
+        std::string_view metric_prefix = "ifft_trunc_range")
+{
+        const std::size_t n = x.size();
+        BLST_ASSERT(n > 0);
+        BLST_ASSERT((n & (n - 1)) == 0);
+        BLST_ASSERT(inv_roots.size() >= n);
+        BLST_ASSERT(length > 0);
+        BLST_ASSERT(start < n);
+        BLST_ASSERT(start + length <= n);
+        BLST_ASSERT(plan.n == n);
+        BLST_ASSERT(plan.start == start);
+        BLST_ASSERT(plan.length == length);
+
+        bit_reverse(x);
+
+        for (std::size_t stage = 0, len = 2; len <= n; len <<= 1, ++stage) {
+                const std::size_t half = len >> 1;
+                const std::size_t stride = n / len;
+                const auto& lefts = plan.stage_left[stage];
+
+                for (std::size_t idx = 0; idx < lefts.size(); ++idx) {
+                        const std::size_t left = lefts[idx];
+                        const std::size_t right = left + half;
+                        const std::size_t j = left & (half - 1);
+
+                        if (j == 0) {
+                                G u = x[left];
+                                G t = x[right];
+                                x[left] = CoeffCtx::plus(u, t);
+                                x[right] = CoeffCtx::minus(u, t);
+                        }
+                        else {
+                                F w = inv_roots[j * stride];
+                                G u = x[left];
+                                G t = CoeffCtx::mult(x[right], w);
+                                x[left] = CoeffCtx::plus(u, t);
+                                x[right] = CoeffCtx::minus(u, t);
+                        }
+                }
+        }
+
+        F inv_n = CoeffCtx::inverse(CoeffCtx::template from_u64<F>(n));
+        for (std::size_t i = 0; i < length; ++i) {
+                const std::size_t idx = start + i;
+                x[idx] = CoeffCtx::mult(x[idx], inv_n);
+        }
+
+        if (timings != nullptr) {
+                timings->add(std::string(metric_prefix) + ".start", start);
+                timings->add(std::string(metric_prefix) + ".length", length);
+                timings->add(std::string(metric_prefix) + ".butterflies_total", plan.butterflies_total);
+                timings->add(std::string(metric_prefix) + ".butterflies_executed", plan.butterflies_executed);
+                timings->add(std::string(metric_prefix) + ".butterflies_skipped", plan.butterflies_skipped);
+        }
+}
+
+template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
+void fft_inverse_truncated_range(
+        std::span<G> x,
+        std::span<const F> inv_roots,
 	std::size_t start,
 	std::size_t length,
 	blst::TimingStats* timings = nullptr,
@@ -761,86 +971,10 @@ void fft_inverse_truncated_range(
 	BLST_ASSERT(start < n);
 	BLST_ASSERT(start + length <= n);
 
-	std::size_t stages = 0;
-	for (std::size_t t = n; t > 1; t >>= 1) {
-		++stages;
-	}
-
-	// need[k][i]: index i is needed after stage k (k in [0..stages]).
-	std::vector<std::vector<unsigned char>> need(stages + 1, std::vector<unsigned char>(n, 0));
-	for (std::size_t i = 0; i < length; ++i) {
-		need[stages][start + i] = 1;
-	}
-
-	for (std::size_t k = stages; k > 0; --k) {
-		const std::size_t len = std::size_t(1) << k;
-		const std::size_t half = len >> 1;
-		auto& out_need = need[k];
-		auto& in_need = need[k - 1];
-
-		for (std::size_t i = 0; i < n; i += len) {
-			for (std::size_t j = 0; j < half; ++j) {
-				const std::size_t left = i + j;
-				const std::size_t right = left + half;
-				if (out_need[left] || out_need[right]) {
-					in_need[left] = 1;
-					in_need[right] = 1;
-				}
-			}
-		}
-	}
-
-	bit_reverse(x);
-
-	std::size_t butterflies_total = 0;
-	std::size_t butterflies_executed = 0;
-	std::size_t butterflies_skipped = 0;
-
-	for (std::size_t len = 2, k = 1; len <= n; len <<= 1, ++k) {
-		const std::size_t half = len >> 1;
-		const auto& out_need = need[k];
-
-		for (std::size_t i = 0; i < n; i += len) {
-			for (std::size_t j = 0; j < half; ++j) {
-				++butterflies_total;
-				const std::size_t left = i + j;
-				const std::size_t right = left + half;
-				if (!(out_need[left] || out_need[right])) {
-					++butterflies_skipped;
-					continue;
-				}
-				++butterflies_executed;
-
-				if (j == 0) {
-					G u = x[left];
-					G t = x[right];
-					x[left] = CoeffCtx::plus(u, t);
-					x[right] = CoeffCtx::minus(u, t);
-				}
-				else {
-					F w = inv_roots[j * (n / len)];
-					G u = x[left];
-					G t = CoeffCtx::mult(x[right], w);
-					x[left] = CoeffCtx::plus(u, t);
-					x[right] = CoeffCtx::minus(u, t);
-				}
-			}
-		}
-	}
-
-	F inv_n = CoeffCtx::inverse(CoeffCtx::template from_u64<F>(n));
-	for (std::size_t i = 0; i < length; ++i) {
-		const std::size_t idx = start + i;
-		x[idx] = CoeffCtx::mult(x[idx], inv_n);
-	}
-
-	if (timings != nullptr) {
-		timings->add(std::string(metric_prefix) + ".start", start);
-		timings->add(std::string(metric_prefix) + ".length", length);
-		timings->add(std::string(metric_prefix) + ".butterflies_total", butterflies_total);
-		timings->add(std::string(metric_prefix) + ".butterflies_executed", butterflies_executed);
-		timings->add(std::string(metric_prefix) + ".butterflies_skipped", butterflies_skipped);
-	}
+        const FftInverseTruncatedRangePlan plan =
+                make_fft_inverse_truncated_range_plan(n, start, length);
+        fft_inverse_truncated_range<G, F, CoeffCtx>(
+                x, inv_roots, start, length, plan, timings, metric_prefix);
 }
 
 //// Computes the middle n coefficients of C = A * B

@@ -28,6 +28,28 @@ struct MiddleProductPrecomputedB {
     std::size_t fft_size;
     std::vector<G2Point> first;
     std::vector<G2Point> second;
+    std::vector<Fr> roots;
+    std::vector<Fr> inv_roots;
+    std::size_t xn_a = 0;
+    FftTruncatedForwardPlan fft_a_plan;
+    FftInverseTruncatedRangePlan ifft_middle_plan;
+};
+
+struct MiddleProductBasicPrunedWorkspace {
+    std::vector<G1Point> a_fft;
+    std::vector<GT> c_fft;
+    std::vector<Fr> roots;
+    std::vector<Fr> inv_roots;
+
+    void ensure_size(std::size_t m)
+    {
+        if (a_fft.size() != m) {
+            a_fft.assign(m, G1Point::infinity());
+        }
+        if (c_fft.size() != m) {
+            c_fft.assign(m, GT::identity());
+        }
+    }
 };
 
 inline std::size_t middle_product_fft_size(std::size_t n, MiddleProductAlgorithm algorithm)
@@ -119,6 +141,14 @@ inline MiddleProductPrecomputedB precompute_middle_product_b(
     }
 
     if (algorithm == MiddleProductAlgorithm::BasicFFT) {
+        precomputed.roots = roots;
+        precomputed.inv_roots = make_ifft_roots(roots);
+        precomputed.xn_a = fft_admissible_size(n, precomputed.fft_size);
+        precomputed.fft_a_plan =
+            make_fft_truncated_forward_plan(precomputed.fft_size, precomputed.xn_a);
+        precomputed.ifft_middle_plan =
+            make_fft_inverse_truncated_range_plan(precomputed.fft_size, n, n);
+
         const std::size_t xn_b = fft_admissible_size(2 * n, precomputed.fft_size);
         for (std::size_t i = 0; i < 2 * n; ++i) {
             precomputed.first[i] = b[i];
@@ -375,6 +405,241 @@ inline void middle_product_basic_ifft_truncated(
         ScopedTimer timer(timings, "basic_ifft_trunc.extract_ns");
         for (std::size_t i = 0; i < n; ++i) {
             out[i] = c_fft[n + i];
+        }
+    }
+}
+
+// Dedicated online path for |A|=n, |B|=2n using:
+// - truncated forward FFT on A
+// - precomputed FFT(B)
+// - middle-window truncated inverse FFT on C
+inline void middle_product_basic_pruned(
+    std::span<const G1Point> a,
+    const MiddleProductPrecomputedB& precomputed_b,
+    std::span<GT> out,
+    MiddleProductBasicPrunedWorkspace& workspace,
+    TimingStats* timings = nullptr)
+{
+    ScopedTimer total_timer(timings, "basic_pruned.total_ns");
+    const std::size_t n = a.size();
+    BLST_ASSERT(n > 0);
+    BLST_ASSERT(precomputed_b.algorithm == MiddleProductAlgorithm::BasicFFT);
+    BLST_ASSERT(precomputed_b.n == n);
+    BLST_ASSERT(out.size() >= n);
+
+    const std::size_t fft_size = precomputed_b.fft_size;
+    BLST_ASSERT(precomputed_b.first.size() == fft_size);
+
+    std::span<const Fr> roots;
+    std::span<const Fr> inv_roots;
+    if (precomputed_b.roots.size() == fft_size &&
+        precomputed_b.inv_roots.size() == fft_size) {
+        roots = std::span<const Fr>(precomputed_b.roots);
+        inv_roots = std::span<const Fr>(precomputed_b.inv_roots);
+    }
+    else {
+        ScopedTimer timer(timings, "basic_pruned.roots_ns");
+        workspace.roots = make_fft_roots(fft_size);
+        workspace.inv_roots = make_ifft_roots(workspace.roots);
+        roots = std::span<const Fr>(workspace.roots);
+        inv_roots = std::span<const Fr>(workspace.inv_roots);
+    }
+
+    const std::size_t xn_a =
+        (precomputed_b.xn_a > 0) ? precomputed_b.xn_a : fft_admissible_size(n, fft_size);
+    const FftTruncatedForwardPlan* fft_a_plan = nullptr;
+    const FftInverseTruncatedRangePlan* ifft_plan = nullptr;
+    FftTruncatedForwardPlan local_fft_a_plan;
+    FftInverseTruncatedRangePlan local_ifft_plan;
+    if (precomputed_b.fft_a_plan.n == fft_size && precomputed_b.fft_a_plan.xn == xn_a) {
+        fft_a_plan = &precomputed_b.fft_a_plan;
+    }
+    else {
+        local_fft_a_plan = make_fft_truncated_forward_plan(fft_size, xn_a);
+        fft_a_plan = &local_fft_a_plan;
+    }
+    if (precomputed_b.ifft_middle_plan.n == fft_size &&
+        precomputed_b.ifft_middle_plan.start == n &&
+        precomputed_b.ifft_middle_plan.length == n) {
+        ifft_plan = &precomputed_b.ifft_middle_plan;
+    }
+    else {
+        local_ifft_plan = make_fft_inverse_truncated_range_plan(fft_size, n, n);
+        ifft_plan = &local_ifft_plan;
+    }
+
+    workspace.ensure_size(fft_size);
+    std::span<G1Point> a_fft(workspace.a_fft);
+    std::span<GT> c_fft(workspace.c_fft);
+    std::span<const G2Point> b_fft(precomputed_b.first);
+    std::fill(a_fft.begin(), a_fft.end(), G1Point::infinity());
+    std::fill(c_fft.begin(), c_fft.end(), GT::identity());
+
+    for (std::size_t i = 0; i < n; ++i) {
+        a_fft[i] = a[i];
+    }
+
+    {
+        ScopedTimer timer(timings, "basic_pruned.fft_a_ns");
+        fft_forward_truncated_prefix<G1Point, Fr, CoeffCtx>(
+            a_fft,
+            roots,
+            xn_a,
+            *fft_a_plan,
+            timings,
+            "basic_pruned.fft_a");
+    }
+
+    {
+        ScopedTimer timer(timings, "basic_pruned.pointwise_ns");
+        for (std::size_t i = 0; i < fft_size; ++i) {
+            c_fft[i] = CoeffCtx::mult(a_fft[i], b_fft[i]);
+        }
+    }
+
+    {
+        ScopedTimer timer(timings, "basic_pruned.ifft_ns");
+        fft_inverse_truncated_range<GT, Fr, CoeffCtx>(
+            c_fft,
+            inv_roots,
+            n,
+            n,
+            *ifft_plan,
+            timings,
+            "basic_pruned.ifft");
+    }
+
+    {
+        ScopedTimer timer(timings, "basic_pruned.extract_ns");
+        for (std::size_t i = 0; i < n; ++i) {
+            out[i] = c_fft[n + i];
+        }
+    }
+}
+
+inline void middle_product_basic_pruned(
+    std::span<const G1Point> a,
+    const MiddleProductPrecomputedB& precomputed_b,
+    std::span<GT> out,
+    TimingStats* timings = nullptr)
+{
+    MiddleProductBasicPrunedWorkspace workspace;
+    middle_product_basic_pruned(a, precomputed_b, out, workspace, timings);
+}
+
+// Standalone specialized-flow variant with truncation-enabled substeps:
+// - truncated forward FFT on A
+// - truncated inverse FFT windows for both phase outputs
+inline void middle_product_specialized_truncated(
+    std::span<const G1Point> a,
+    const MiddleProductPrecomputedB& precomputed_b,
+    std::span<GT> out,
+    TimingStats* timings = nullptr)
+{
+    ScopedTimer total_timer(timings, "middle_spec_trunc.total_ns");
+    const std::size_t n = a.size();
+    BLST_ASSERT(n > 0);
+    BLST_ASSERT(precomputed_b.algorithm == MiddleProductAlgorithm::SpecializedFFT);
+    BLST_ASSERT(precomputed_b.n == n);
+    BLST_ASSERT(out.size() >= n);
+
+    const std::size_t m = precomputed_b.fft_size;
+    BLST_ASSERT(precomputed_b.first.size() == m);
+    BLST_ASSERT(precomputed_b.second.size() == m);
+
+    std::vector<Fr> roots;
+    std::vector<Fr> inv_roots;
+    {
+        ScopedTimer timer(timings, "middle_spec_trunc.roots_ns");
+        roots = make_fft_roots(m);
+    }
+    {
+        ScopedTimer timer(timings, "middle_spec_trunc.inv_roots_ns");
+        inv_roots = make_ifft_roots(roots);
+    }
+
+    std::vector<G1Point> a_fft(m, G1Point::infinity());
+    std::vector<G2Point> b0_fft = precomputed_b.second;
+    std::vector<G2Point> b1_fft = precomputed_b.first;
+    std::vector<GT> scratch(m, GT::identity());
+    std::vector<G1Point> a_rev_fft(m, G1Point::infinity());
+
+    for (std::size_t i = 0; i < n; ++i) {
+        a_fft[i] = a[i];
+    }
+    std::fill(out.begin(), out.begin() + static_cast<std::ptrdiff_t>(n), GT::identity());
+
+    const std::size_t xn_a = fft_admissible_size(n, m);
+    const FftTruncatedForwardPlan a_fwd_plan = make_fft_truncated_forward_plan(m, xn_a);
+    const FftInverseTruncatedRangePlan phase1_ifft_plan =
+        make_fft_inverse_truncated_range_plan(m, 0, n);
+    const FftInverseTruncatedRangePlan phase2_ifft_plan =
+        (n > 1) ? make_fft_inverse_truncated_range_plan(m, 0, n - 1)
+                : make_fft_inverse_truncated_range_plan(m, 0, 1);
+
+    // Phase 1: p = low_n(A * B1)
+    {
+        ScopedTimer timer(timings, "middle_spec_trunc.phase1_fft_a_ns");
+        fft_forward_truncated_prefix<G1Point, Fr, CoeffCtx>(
+            a_fft, roots, xn_a, a_fwd_plan, timings, "middle_spec_trunc.phase1_fft_a");
+    }
+    {
+        ScopedTimer timer(timings, "middle_spec_trunc.phase1_pointwise_ns");
+        for (std::size_t i = 0; i < m; ++i) {
+            scratch[i] = CoeffCtx::mult(a_fft[i], b1_fft[i]);
+        }
+    }
+    {
+        ScopedTimer timer(timings, "middle_spec_trunc.phase1_ifft_ns");
+        fft_inverse_truncated_range<GT, Fr, CoeffCtx>(
+            scratch,
+            inv_roots,
+            0,
+            n,
+            phase1_ifft_plan,
+            timings,
+            "middle_spec_trunc.phase1_ifft");
+    }
+    {
+        ScopedTimer timer(timings, "middle_spec_trunc.phase1_copy_ns");
+        for (std::size_t i = 0; i < n; ++i) {
+            out[i] = scratch[i];
+        }
+    }
+
+    // Phase 2: q = high_n(A * B0) via reversal trick.
+    const Fr prim = primRootOfUnity<Fr>(m);
+    {
+        ScopedTimer timer(timings, "middle_spec_trunc.phase2_derive_ntt_ns");
+        derive_ntt_of_reversed<G1Point, Fr, CoeffCtx>(
+            std::span<const G1Point>(a_fft),
+            std::span<G1Point>(a_rev_fft),
+            n,
+            m,
+            prim,
+            G1Point::infinity());
+    }
+    {
+        ScopedTimer timer(timings, "middle_spec_trunc.phase2_pointwise_ns");
+        for (std::size_t i = 0; i < m; ++i) {
+            scratch[i] = CoeffCtx::mult(a_rev_fft[i], b0_fft[i]);
+        }
+    }
+    if (n > 1) {
+        ScopedTimer timer(timings, "middle_spec_trunc.phase2_ifft_ns");
+        fft_inverse_truncated_range<GT, Fr, CoeffCtx>(
+            scratch,
+            inv_roots,
+            0,
+            n - 1,
+            phase2_ifft_plan,
+            timings,
+            "middle_spec_trunc.phase2_ifft");
+    }
+    {
+        ScopedTimer timer(timings, "middle_spec_trunc.phase2_combine_ns");
+        for (std::size_t k = 0; k + 1 < n; ++k) {
+            out[k] = CoeffCtx::plus(out[k], scratch[n - 2 - k]);
         }
     }
 }
