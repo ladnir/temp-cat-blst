@@ -8,6 +8,7 @@
 #include "blst/fft/primitveRoot.h"
 #include "blst/fft/context.h"
 #include "blst/fft/ctFft.h"
+#include "blst/fft/middle_product.h"
 //
 //using F65537 = BasicFp<65537, u32, u64>;
 using namespace blst;
@@ -1317,4 +1318,220 @@ TEST(Fft, MiddleProductFftTruncatedCorrectness) {
     }
 
     EXPECT_TRUE(match) << "Truncated middle product does not match standard version";
+}
+
+static Fr fr_zero()
+{
+    Fr z;
+    memset(&z, 0, sizeof(Fr));
+    return z;
+}
+
+static std::vector<Fr> middle_product_oracle_fr(
+    const std::vector<Fr>& a,
+    const std::vector<Fr>& b)
+{
+    const std::size_t n = a.size();
+    EXPECT_EQ(b.size(), 2 * n);
+
+    std::vector<Fr> out(n, fr_zero());
+    for (std::size_t k = 0; k < n; ++k) {
+        Fr acc = fr_zero();
+        for (std::size_t i = 0; i < n; ++i) {
+            const std::size_t j = n + k - i;
+            if (j < (2 * n)) {
+                Fr term;
+                Fr::mul(term, a[i], b[j]);
+                Fr::add(acc, acc, term);
+            }
+        }
+        out[k] = acc;
+    }
+    return out;
+}
+
+static std::vector<G1Point> points_from_scalars_g1(const std::vector<u64>& scalars)
+{
+    std::vector<G1Point> points;
+    points.reserve(scalars.size());
+    for (u64 s : scalars) {
+        points.push_back(g1(s));
+    }
+    return points;
+}
+
+static std::vector<G2Point> points_from_scalars_g2(const std::vector<u64>& scalars)
+{
+    std::vector<G2Point> points;
+    points.reserve(scalars.size());
+    for (u64 s : scalars) {
+        points.push_back(g2(s));
+    }
+    return points;
+}
+
+static std::vector<Fr> fr_from_scalars(const std::vector<u64>& scalars)
+{
+    std::vector<Fr> out;
+    out.reserve(scalars.size());
+    for (u64 s : scalars) {
+        out.push_back(mf(s));
+    }
+    return out;
+}
+
+TEST(Fft, MiddleProductApiBasicMatchesFieldOracle)
+{
+    const std::vector<std::size_t> test_sizes = { 3, 5, 9 };
+
+    G1Point g1_gen = g1(1);
+    G2Point g2_gen = g2(1);
+    GT gt_base = pair(g1_gen, g2_gen);
+
+    for (std::size_t n : test_sizes) {
+        std::vector<u64> a_scalars;
+        std::vector<u64> b_scalars;
+        a_scalars.reserve(n);
+        b_scalars.reserve(2 * n);
+
+        for (std::size_t i = 0; i < n; ++i) {
+            a_scalars.push_back(static_cast<u64>((7 * i + 3) % 97 + 1));
+        }
+        for (std::size_t i = 0; i < 2 * n; ++i) {
+            b_scalars.push_back(static_cast<u64>((11 * i + 5) % 101 + 1));
+        }
+
+        const std::vector<G1Point> a_points = points_from_scalars_g1(a_scalars);
+        const std::vector<G2Point> b_points = points_from_scalars_g2(b_scalars);
+        const std::vector<Fr> a_fr = fr_from_scalars(a_scalars);
+        const std::vector<Fr> b_fr = fr_from_scalars(b_scalars);
+        const std::vector<Fr> expected_fr = middle_product_oracle_fr(a_fr, b_fr);
+
+        std::vector<GT> out(n, GT::identity());
+        middle_product(
+            std::span<const G1Point>(a_points),
+            std::span<const G2Point>(b_points),
+            std::span<GT>(out),
+            MiddleProductAlgorithm::BasicFFT);
+
+        bool match = true;
+        for (std::size_t i = 0; i < n; ++i) {
+            GT expected = GTCoeffCtx::mult(gt_base, expected_fr[i]);
+            if (!GT::equal(out[i], expected)) {
+                match = false;
+                break;
+            }
+        }
+
+        EXPECT_TRUE(match) << "Basic API middle product mismatch at n=" << n;
+    }
+}
+
+TEST(Fft, MiddleProductApiSpecializedMatchesFieldOracle)
+{
+    const std::vector<std::size_t> test_sizes = { 3, 5, 9 };
+
+    G1Point g1_gen = g1(1);
+    G2Point g2_gen = g2(1);
+    GT gt_base = pair(g1_gen, g2_gen);
+
+    for (std::size_t n : test_sizes) {
+        std::vector<u64> a_scalars;
+        std::vector<u64> b_scalars;
+        a_scalars.reserve(n);
+        b_scalars.reserve(2 * n);
+
+        for (std::size_t i = 0; i < n; ++i) {
+            a_scalars.push_back(static_cast<u64>((13 * i + 9) % 113 + 1));
+        }
+        for (std::size_t i = 0; i < 2 * n; ++i) {
+            b_scalars.push_back(static_cast<u64>((17 * i + 4) % 127 + 1));
+        }
+
+        const std::vector<G1Point> a_points = points_from_scalars_g1(a_scalars);
+        const std::vector<G2Point> b_points = points_from_scalars_g2(b_scalars);
+        const std::vector<Fr> a_fr = fr_from_scalars(a_scalars);
+        const std::vector<Fr> b_fr = fr_from_scalars(b_scalars);
+        const std::vector<Fr> expected_fr = middle_product_oracle_fr(a_fr, b_fr);
+
+        std::vector<GT> out(n, GT::identity());
+        middle_product(
+            std::span<const G1Point>(a_points),
+            std::span<const G2Point>(b_points),
+            std::span<GT>(out),
+            MiddleProductAlgorithm::SpecializedFFT);
+
+        bool match = true;
+        for (std::size_t i = 0; i < n; ++i) {
+            GT expected = GTCoeffCtx::mult(gt_base, expected_fr[i]);
+            if (!GT::equal(out[i], expected)) {
+                match = false;
+                break;
+            }
+        }
+
+        EXPECT_TRUE(match) << "Specialized API middle product mismatch at n=" << n;
+    }
+}
+
+TEST(Fft, MiddleProductApiPrecomputedBMatchesRawAndCrossAlgorithm)
+{
+    const std::vector<std::size_t> test_sizes = { 4, 6, 10 };
+
+    for (std::size_t n : test_sizes) {
+        std::vector<u64> a_scalars;
+        std::vector<u64> b_scalars;
+        a_scalars.reserve(n);
+        b_scalars.reserve(2 * n);
+
+        for (std::size_t i = 0; i < n; ++i) {
+            a_scalars.push_back(static_cast<u64>((19 * i + 1) % 137 + 1));
+        }
+        for (std::size_t i = 0; i < 2 * n; ++i) {
+            b_scalars.push_back(static_cast<u64>((23 * i + 2) % 149 + 1));
+        }
+
+        const std::vector<G1Point> a_points = points_from_scalars_g1(a_scalars);
+        const std::vector<G2Point> b_points = points_from_scalars_g2(b_scalars);
+
+        std::vector<GT> basic_raw(n, GT::identity());
+        std::vector<GT> basic_pre(n, GT::identity());
+        std::vector<GT> spec_raw(n, GT::identity());
+        std::vector<GT> spec_pre(n, GT::identity());
+
+        middle_product(
+            std::span<const G1Point>(a_points),
+            std::span<const G2Point>(b_points),
+            std::span<GT>(basic_raw),
+            MiddleProductAlgorithm::BasicFFT);
+
+        const auto basic_b = precompute_middle_product_b(
+            std::span<const G2Point>(b_points), n, MiddleProductAlgorithm::BasicFFT);
+        middle_product(
+            std::span<const G1Point>(a_points),
+            basic_b,
+            std::span<GT>(basic_pre));
+
+        middle_product(
+            std::span<const G1Point>(a_points),
+            std::span<const G2Point>(b_points),
+            std::span<GT>(spec_raw),
+            MiddleProductAlgorithm::SpecializedFFT);
+
+        const auto spec_b = precompute_middle_product_b(
+            std::span<const G2Point>(b_points), n, MiddleProductAlgorithm::SpecializedFFT);
+        middle_product(
+            std::span<const G1Point>(a_points),
+            spec_b,
+            std::span<GT>(spec_pre));
+
+        for (std::size_t i = 0; i < n; ++i) {
+            EXPECT_TRUE(GT::equal(basic_raw[i], basic_pre[i]))
+                << "Basic precompute mismatch at n=" << n << ", i=" << i;
+            EXPECT_TRUE(GT::equal(spec_raw[i], spec_pre[i]))
+                << "Specialized precompute mismatch at n=" << n << ", i=" << i;
+            EXPECT_TRUE(GT::equal(basic_raw[i], spec_raw[i]))
+                << "Cross algorithm mismatch at n=" << n << ", i=" << i;
+        }
+    }
 }

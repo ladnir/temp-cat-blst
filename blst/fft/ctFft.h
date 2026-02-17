@@ -3,6 +3,7 @@
 #include <vector>
 #include <span>
 #include "blst/common/defines.h"
+#include "blst/common/timer.h"
 
 // Standard Bit-Reversal for in-place FFT
 template<typename F>
@@ -602,23 +603,35 @@ void poly_mult_fft(
 	bool skipBFft,
 	std::span<GT> C,
 	std::span<const F> roots,
-	std::span<const F> inv_roots)
+	std::span<const F> inv_roots,
+	blst::TimingStats* timings = nullptr)
 {
 	std::size_t n = A.size();
 
 	// Forward FFT on both polynomials (in-place)
-	fft<G1, F, CoeffCtx>(A, roots, false);
+	{
+		blst::ScopedTimer timer(timings, "poly_mult.fft_a_ns");
+		fft<G1, F, CoeffCtx>(A, roots, false);
+	}
 
-	if (skipBFft == false)
+	if (skipBFft == false) {
+		blst::ScopedTimer timer(timings, "poly_mult.fft_b_ns");
 		fft<G2, F, CoeffCtx>(B, roots, false);
+	}
 
 	// Pointwise multiplication in evaluation domain
-	for (std::size_t i = 0; i < n; ++i) {
-		C[i] = CoeffCtx::mult(A[i], B[i]);
+	{
+		blst::ScopedTimer timer(timings, "poly_mult.pointwise_ns");
+		for (std::size_t i = 0; i < n; ++i) {
+			C[i] = CoeffCtx::mult(A[i], B[i]);
+		}
 	}
 
 	// Inverse FFT to get product coefficients
-	fft<GT, F, CoeffCtx>(C, inv_roots, true);
+	{
+		blst::ScopedTimer timer(timings, "poly_mult.ifft_ns");
+		fft<GT, F, CoeffCtx>(C, inv_roots, true);
+	}
 }
 
 //// Computes the middle n coefficients of C = A * B
@@ -808,7 +821,8 @@ void middle_product_fft(
 	const F& omega,
 	const GT& identity_gt,
 	const G1& identity_g1,
-	const G2& identity_g2)
+	const G2& identity_g2,
+	blst::TimingStats* timings = nullptr)
 {
 	BLST_ASSERT(A.size() >= m);
 	BLST_ASSERT(B0.size() >= m);
@@ -823,31 +837,49 @@ void middle_product_fft(
 	// === Phase 1: Compute p = low_n(A * B1) ===
 
 	// Pad A and B1 with identity
-	for (std::size_t i = n; i < m; ++i) {
-		A[i] = identity_g1;
-		B1[i] = identity_g2;
+	{
+		blst::ScopedTimer timer(timings, "middle.phase1_prepare_ns");
+		for (std::size_t i = n; i < m; ++i) {
+			A[i] = identity_g1;
+			if (skipFftB == false) {
+				B1[i] = identity_g2;
+			}
+		}
 	}
 
 	// Forward FFT on A
-	fft<G1, F, CoeffCtx>(A, roots, false);
+	{
+		blst::ScopedTimer timer(timings, "middle.phase1_fft_a_ns");
+		fft<G1, F, CoeffCtx>(A, roots, false);
+	}
 
 	if (skipFftB == false)
 	{
 		// Forward FFT on B1
+		blst::ScopedTimer timer(timings, "middle.phase1_fft_b1_ns");
 		fft<G2, F, CoeffCtx>(B1, roots, false);
 	}
 
 	// Pointwise multiply -> C_scratch
-	for (std::size_t t = 0; t < m; ++t) {
-		C_scratch[t] = CoeffCtx::mult(A[t], B1[t]);
+	{
+		blst::ScopedTimer timer(timings, "middle.phase1_pointwise_ns");
+		for (std::size_t t = 0; t < m; ++t) {
+			C_scratch[t] = CoeffCtx::mult(A[t], B1[t]);
+		}
 	}
 
 	// Inverse FFT to get (A * B1) coefficients
-	fft<GT, F, CoeffCtx>(C_scratch, inv_roots, true);
+	{
+		blst::ScopedTimer timer(timings, "middle.phase1_ifft_ns");
+		fft<GT, F, CoeffCtx>(C_scratch, inv_roots, true);
+	}
 
 	// Save p[k] = C_scratch[k] for k = 0..n-1 into out
-	for (std::size_t k = 0; k < n; ++k) {
-		out[k] = C_scratch[k];
+	{
+		blst::ScopedTimer timer(timings, "middle.phase1_copy_ns");
+		for (std::size_t k = 0; k < n; ++k) {
+			out[k] = C_scratch[k];
+		}
 	}
 
 	// === Phase 2: Compute q = high_n(A * B0) via reversal ===
@@ -856,37 +888,54 @@ void middle_product_fft(
 
 	// Derive NTT(rev(A)) from NTT(A) using the phase trick
 	// A_rev_hat[k] = ω^((n-1)*k) * A_hat[(-k) mod m]
-	derive_ntt_of_reversed<G1, F, CoeffCtx>(
-		std::span<const G1>(A.data(), m),
-		ARev,
-		n, m, omega, identity_g1);
+	{
+		blst::ScopedTimer timer(timings, "middle.phase2_derive_ntt_ns");
+		derive_ntt_of_reversed<G1, F, CoeffCtx>(
+			std::span<const G1>(A.data(), m),
+			ARev,
+			n, m, omega, identity_g1);
+	}
 
 	if (skipFftB == false)
 	{
 		// Reverse B0 in-place and pad
-		for (std::size_t i = 0; i < n / 2; ++i) {
-			std::swap(B0[i], B0[n - 1 - i]);
+		{
+			blst::ScopedTimer timer(timings, "middle.phase2_prepare_b0_ns");
+			for (std::size_t i = 0; i < n / 2; ++i) {
+				std::swap(B0[i], B0[n - 1 - i]);
+			}
+			for (std::size_t i = n; i < m; ++i) {
+				B0[i] = identity_g2;
+			}
 		}
-		for (std::size_t i = n; i < m; ++i) {
-			B0[i] = identity_g2;
-		}
-
 		// Forward FFT on rev(B0)
-		fft<G2, F, CoeffCtx>(B0, roots, false);
+		{
+			blst::ScopedTimer timer(timings, "middle.phase2_fft_b0_ns");
+			fft<G2, F, CoeffCtx>(B0, roots, false);
+		}
 	}
 
 	// Pointwise multiply
-	for (std::size_t t = 0; t < m; ++t) {
-		C_scratch[t] = CoeffCtx::mult(ARev[t], B0[t]);
+	{
+		blst::ScopedTimer timer(timings, "middle.phase2_pointwise_ns");
+		for (std::size_t t = 0; t < m; ++t) {
+			C_scratch[t] = CoeffCtx::mult(ARev[t], B0[t]);
+		}
 	}
 
 	// Inverse FFT
-	fft<GT, F, CoeffCtx>(C_scratch, inv_roots, true);
+	{
+		blst::ScopedTimer timer(timings, "middle.phase2_ifft_ns");
+		fft<GT, F, CoeffCtx>(C_scratch, inv_roots, true);
+	}
 	// (A*B0)[n+k] = D[n-2-k] for k = 0..n-2
 
 	// Combine: out[k] = p[k] + q[k]
-	for (std::size_t k = 0; k < n - 1; ++k) {
-		out[k] = CoeffCtx::plus(out[k], C_scratch[n - 2 - k]);
+	{
+		blst::ScopedTimer timer(timings, "middle.phase2_combine_ns");
+		for (std::size_t k = 0; k < n - 1; ++k) {
+			out[k] = CoeffCtx::plus(out[k], C_scratch[n - 2 - k]);
+		}
 	}
 	// out[n-1] already has p[n-1], q[n-1] = 0, so no change needed
 }
@@ -1005,7 +1054,8 @@ void middle_product_fft_truncated(
 	const F& m_inv,
 	const GT& identity_gt,
 	const G1& identity_g1,
-	const G2& identity_g2)
+	const G2& identity_g2,
+	blst::TimingStats* timings = nullptr)
 {
 	BLST_ASSERT(A.size() >= m);
 	BLST_ASSERT(B0.size() >= m);
@@ -1019,54 +1069,90 @@ void middle_product_fft_truncated(
 
 	// === Phase 1: Compute p = low_n(A * B1) ===
 
-	for (std::size_t i = n; i < m; ++i) {
-		A[i] = identity_g1;
-		B1[i] = identity_g2;
+	{
+		blst::ScopedTimer timer(timings, "middle_trunc.phase1_prepare_ns");
+		for (std::size_t i = n; i < m; ++i) {
+			A[i] = identity_g1;
+			if (skipFftB == false) {
+				B1[i] = identity_g2;
+			}
+		}
 	}
 
-	fft<G1, F, CoeffCtx>(A, roots, false);
-	if (skipFftB == false)
+	{
+		blst::ScopedTimer timer(timings, "middle_trunc.phase1_fft_a_ns");
+		fft<G1, F, CoeffCtx>(A, roots, false);
+	}
+	if (skipFftB == false) {
+		blst::ScopedTimer timer(timings, "middle_trunc.phase1_fft_b1_ns");
 		fft<G2, F, CoeffCtx>(B1, roots, false);
+	}
 
-	for (std::size_t t = 0; t < m; ++t) {
-		C_scratch[t] = CoeffCtx::mult(A[t], B1[t]);
+	{
+		blst::ScopedTimer timer(timings, "middle_trunc.phase1_pointwise_ns");
+		for (std::size_t t = 0; t < m; ++t) {
+			C_scratch[t] = CoeffCtx::mult(A[t], B1[t]);
+		}
 	}
 
 	// Truncated inverse FFT: only need first n outputs
-	fft_inverse_truncated<GT, F, CoeffCtx>(C_scratch, m, n, inv_roots, m_inv);
+	{
+		blst::ScopedTimer timer(timings, "middle_trunc.phase1_ifft_ns");
+		fft_inverse_truncated<GT, F, CoeffCtx>(C_scratch, m, n, inv_roots, m_inv);
+	}
 
-	for (std::size_t k = 0; k < n; ++k) {
-		out[k] = C_scratch[k];
+	{
+		blst::ScopedTimer timer(timings, "middle_trunc.phase1_copy_ns");
+		for (std::size_t k = 0; k < n; ++k) {
+			out[k] = C_scratch[k];
+		}
 	}
 
 	// === Phase 2: Compute q = high_n(A * B0) via reversal ===
 
 	std::vector<G1> ARev(m);
-	derive_ntt_of_reversed<G1, F, CoeffCtx>(
-		std::span<const G1>(A.data(), m),
-		ARev,
-		n, m, omega, identity_g1);
+	{
+		blst::ScopedTimer timer(timings, "middle_trunc.phase2_derive_ntt_ns");
+		derive_ntt_of_reversed<G1, F, CoeffCtx>(
+			std::span<const G1>(A.data(), m),
+			ARev,
+			n, m, omega, identity_g1);
+	}
 
 	if (skipFftB == false)
 	{
-		for (std::size_t i = 0; i < n / 2; ++i) {
-			std::swap(B0[i], B0[n - 1 - i]);
+		{
+			blst::ScopedTimer timer(timings, "middle_trunc.phase2_prepare_b0_ns");
+			for (std::size_t i = 0; i < n / 2; ++i) {
+				std::swap(B0[i], B0[n - 1 - i]);
+			}
+			for (std::size_t i = n; i < m; ++i) {
+				B0[i] = identity_g2;
+			}
 		}
-		for (std::size_t i = n; i < m; ++i) {
-			B0[i] = identity_g2;
+		{
+			blst::ScopedTimer timer(timings, "middle_trunc.phase2_fft_b0_ns");
+			fft<G2, F, CoeffCtx>(B0, roots, false);
 		}
-
-		fft<G2, F, CoeffCtx>(B0, roots, false);
 	}
 
-	for (std::size_t t = 0; t < m; ++t) {
-		C_scratch[t] = CoeffCtx::mult(ARev[t], B0[t]);
+	{
+		blst::ScopedTimer timer(timings, "middle_trunc.phase2_pointwise_ns");
+		for (std::size_t t = 0; t < m; ++t) {
+			C_scratch[t] = CoeffCtx::mult(ARev[t], B0[t]);
+		}
 	}
 
 	// Truncated inverse FFT: only need first n-1 outputs
-	fft_inverse_truncated<GT, F, CoeffCtx>(C_scratch, m, n - 1, inv_roots, m_inv);
+	{
+		blst::ScopedTimer timer(timings, "middle_trunc.phase2_ifft_ns");
+		fft_inverse_truncated<GT, F, CoeffCtx>(C_scratch, m, n - 1, inv_roots, m_inv);
+	}
 
-	for (std::size_t k = 0; k < n - 1; ++k) {
-		out[k] = CoeffCtx::plus(out[k], C_scratch[n - 2 - k]);
+	{
+		blst::ScopedTimer timer(timings, "middle_trunc.phase2_combine_ns");
+		for (std::size_t k = 0; k < n - 1; ++k) {
+			out[k] = CoeffCtx::plus(out[k], C_scratch[n - 2 - k]);
+		}
 	}
 }
