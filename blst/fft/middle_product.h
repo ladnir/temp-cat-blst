@@ -1,7 +1,6 @@
 #pragma once
 
 #include <algorithm>
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -30,6 +29,10 @@ enum class OneIfftPairingMode {
     PrecomputedLines,
 };
 
+struct alignas(64) OneIfftPreparedLineTable {
+    Fp6 lines[68];
+};
+
 struct MiddleProductPrecomputedB {
     MiddleProductAlgorithm algorithm;
     std::size_t n;
@@ -37,7 +40,7 @@ struct MiddleProductPrecomputedB {
     OneIfftPairingMode oneifft_pairing_mode = OneIfftPairingMode::Direct;
     std::vector<G2Point> first;
     std::vector<G2Point> second;
-    std::vector<std::array<Fp6, 68>> oneifft_precomputed_lines;
+    std::vector<OneIfftPreparedLineTable> oneifft_precomputed_lines;
     std::vector<uint8_t> oneifft_d_is_zero;
     std::vector<Fr> roots;
     std::vector<Fr> inv_roots;
@@ -237,7 +240,7 @@ inline MiddleProductPrecomputedB precompute_middle_product_b(
                 }
                 G2AffinePoint q_aff;
                 G2Point::to_affine(q_aff, precomputed.first[j]);
-                GT::precompute_lines(precomputed.oneifft_precomputed_lines[j].data(), q_aff);
+                GT::precompute_lines(precomputed.oneifft_precomputed_lines[j].lines, q_aff);
             }
         }
         return precomputed;
@@ -483,7 +486,7 @@ inline void middle_product_oneifft_cyclic(
                 }
                 G1AffinePoint p_aff;
                 G1Point::to_affine(p_aff, a_fft[i]);
-                GT::miller_loop_lines(c_fft[i], precomputed_b.oneifft_precomputed_lines[i].data(), p_aff);
+                GT::miller_loop_lines(c_fft[i], precomputed_b.oneifft_precomputed_lines[i].lines, p_aff);
                 GT::final_mult(c_fft[i], c_fft[i]);
             }
         }
