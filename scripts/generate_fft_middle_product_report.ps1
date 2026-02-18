@@ -34,6 +34,26 @@ function Get-IterationRows([string]$Path) {
     return $rows
 }
 
+function Get-AggregateRows([string]$Path, [string]$AggregateName) {
+    $rows = @()
+    $j = Load-Json $Path
+    foreach ($b in $j.benchmarks) {
+        if ($b.aggregate_name -eq $AggregateName) {
+            $rows += $b
+        }
+    }
+    return $rows
+}
+
+function Get-MiddleRows([string]$BaseName) {
+    $r5 = "docs/planning/$BaseName.r5.json"
+    $base = "docs/planning/$BaseName.json"
+    if (Test-Path $r5) {
+        return Get-AggregateRows $r5 "median"
+    }
+    return Get-IterationRows $base
+}
+
 function Pct([double]$x) {
     return [Math]::Round($x, 1)
 }
@@ -54,11 +74,13 @@ $g1TruncRows = Get-MeanRows "docs/planning/bench_g1_fft_trunc_middle_shape_detai
 $gtFullRows = Get-MeanRows "docs/planning/bench_gt_ifft_full_middle_shape_detailed.json"
 $gtTruncRows = Get-MeanRows "docs/planning/bench_gt_ifft_trunc_middle_shape_detailed.json"
 
-$basicNoTruncRows = Get-IterationRows "docs/planning/bench_middle_product_basic_no_trunc_detailed.json"
-$basicIfftTruncRows = Get-IterationRows "docs/planning/bench_middle_product_basic_ifft_trunc_detailed.json"
-$basicPrunedRows = Get-IterationRows "docs/planning/bench_middle_product_basic_pruned_detailed.json"
-$specRows = Get-IterationRows "docs/planning/bench_middle_product_fft_detailed.json"
-$specTruncRows = Get-IterationRows "docs/planning/bench_middle_product_specialized_trunc_detailed.json"
+$basicNoTruncRows = Get-MiddleRows "bench_middle_product_basic_no_trunc_detailed"
+$basicIfftTruncRows = Get-MiddleRows "bench_middle_product_basic_ifft_trunc_detailed"
+$basicPrunedRows = Get-MiddleRows "bench_middle_product_basic_pruned_detailed"
+$specRows = Get-MiddleRows "bench_middle_product_fft_detailed"
+$specTruncRows = Get-MiddleRows "bench_middle_product_specialized_trunc_detailed"
+$oneIfftRows = Get-MiddleRows "bench_middle_product_one_ifft_detailed"
+$usingR5Median = (Test-Path "docs/planning/bench_middle_product_basic_no_trunc_detailed.r5.json")
 
 $g1TruncByN = @{}
 foreach ($r in $g1TruncRows) { $g1TruncByN[[int]$r.n] = $r }
@@ -72,6 +94,8 @@ $specByN = @{}
 foreach ($r in $specRows) { $specByN[[int]$r.n] = $r }
 $specTruncByN = @{}
 foreach ($r in $specTruncRows) { $specTruncByN[[int]$r.n] = $r }
+$oneIfftByN = @{}
+foreach ($r in $oneIfftRows) { $oneIfftByN[[int]$r.n] = $r }
 
 $nValues = @(64..512 | Where-Object { $_ % 32 -eq 0 })
 
@@ -80,6 +104,7 @@ $gtSavings = @()
 $mpIfftTruncSavings = @()
 $mpPrunedSavings = @()
 $mpSpecTruncSavings = @()
+$mpOneIfftVsSpecSavings = @()
 
 $lines = New-Object System.Collections.Generic.List[string]
 $lines.Add("\documentclass[11pt]{article}")
@@ -108,6 +133,7 @@ $lines.Add("\item basic FFT + truncated iFFT")
 $lines.Add("\item truncated FFT + truncated iFFT (pruned basic)")
 $lines.Add("\item specialized middle product")
 $lines.Add("\item specialized middle product + truncation")
+$lines.Add("\item one-iFFT cyclic middle product")
 $lines.Add("\end{enumerate}")
 $lines.Add("")
 $lines.Add("\section{Benchmark Setup}")
@@ -116,7 +142,12 @@ $lines.Add("\item Range: \(n \in \{64,96,\ldots,512\}\) (step 32, non-power-of-t
 $lines.Add("\item Input shape: \(A\) has \(n\) coefficients in \(G_1\), \(B\) has \(2n\) coefficients in \(G_2\).")
 $lines.Add("\item FFT length for basic path: \(m = 2^{\lceil \log_2(3n-1) \rceil}\).")
 $lines.Add("\item Standalone kernel runs: 3 repetitions, mean reported.")
-$lines.Add("\item Integrated middle-product runs: 1 repetition per \(n\) (long-running pairings).")
+if ($usingR5Median) {
+    $lines.Add("\item Integrated middle-product runs: 5 repetitions per \(n\), median aggregate reported.")
+}
+else {
+    $lines.Add("\item Integrated middle-product runs: 1 repetition per \(n\) (long-running pairings).")
+}
 $lines.Add("\item Timings are real-time milliseconds from Google Benchmark JSON outputs in \texttt{docs/planning/*.json}.")
 $lines.Add("\end{itemize}")
 $lines.Add("")
@@ -161,9 +192,9 @@ $lines.Add("\end{longtable}")
 $lines.Add("")
 
 $lines.Add("\section{Integrated Middle-Product Results}")
-$lines.Add("\begin{longtable}{r r r r r r r}")
+$lines.Add("\begin{longtable}{r r r r r r r r}")
 $lines.Add("\toprule")
-$lines.Add('$n$ & $m$ & basic/base & basic+trunc iFFT & pruned basic & specialized & specialized+trunc \\')
+$lines.Add('$n$ & $m$ & basic/base & basic+trunc iFFT & pruned basic & specialized & specialized+trunc & one-iFFT \\')
 $lines.Add("\midrule")
 $lines.Add("\endhead")
 foreach ($r in ($basicNoTruncRows | Sort-Object { [int]$_.n })) {
@@ -174,10 +205,12 @@ foreach ($r in ($basicNoTruncRows | Sort-Object { [int]$_.n })) {
     $pruned = Get-TotalMs $basicPrunedByN[$n]
     $spec = Get-TotalMs $specByN[$n]
     $specT = Get-TotalMs $specTruncByN[$n]
+    $oneifft = Get-TotalMs $oneIfftByN[$n]
     $mpIfftTruncSavings += 100.0 * ($base - $ifftT) / $base
     $mpPrunedSavings += 100.0 * ($base - $pruned) / $base
     $mpSpecTruncSavings += 100.0 * ($spec - $specT) / $spec
-    $lines.Add(("{0} & {1} & {2} & {3} & {4} & {5} & {6} \\" -f $n, $m, (Ms $base), (Ms $ifftT), (Ms $pruned), (Ms $spec), (Ms $specT)))
+    $mpOneIfftVsSpecSavings += 100.0 * ($spec - $oneifft) / $spec
+    $lines.Add(("{0} & {1} & {2} & {3} & {4} & {5} & {6} & {7} \\" -f $n, $m, (Ms $base), (Ms $ifftT), (Ms $pruned), (Ms $spec), (Ms $specT), (Ms $oneifft)))
 }
 $lines.Add("\bottomrule")
 $lines.Add("\end{longtable}")
@@ -188,6 +221,7 @@ $gtAvg = ($gtSavings | Measure-Object -Average).Average
 $mpIfftAvg = ($mpIfftTruncSavings | Measure-Object -Average).Average
 $mpPrunedAvg = ($mpPrunedSavings | Measure-Object -Average).Average
 $mpSpecAvg = ($mpSpecTruncSavings | Measure-Object -Average).Average
+$mpOneIfftAvg = ($mpOneIfftVsSpecSavings | Measure-Object -Average).Average
 
 $lines.Add("\section{Savings Summary}")
 $lines.Add("\begin{itemize}")
@@ -196,6 +230,7 @@ $lines.Add(("\item Standalone inverse FFT truncation average savings: {0}\%." -f
 $lines.Add(("\item Integrated basic path (truncated iFFT vs basic baseline): {0}\% average savings." -f (Pct $mpIfftAvg)))
 $lines.Add(("\item Integrated pruned basic path (truncated FFT+iFFT vs basic baseline): {0}\% average savings." -f (Pct $mpPrunedAvg)))
 $lines.Add(("\item Specialized truncated vs specialized baseline: {0}\% average savings." -f (Pct $mpSpecAvg)))
+$lines.Add(("\item One-iFFT cyclic vs specialized baseline: {0}\% average savings." -f (Pct $mpOneIfftAvg)))
 $lines.Add("\end{itemize}")
 $lines.Add("")
 
@@ -206,6 +241,7 @@ $lines.Add("\item Standalone truncated iFFT (prefix form) is mixed in this sweep
 $lines.Add("\item In the integrated basic middle-product flow, adding truncated iFFT is still a strong net positive.")
 $lines.Add("\item The current pruned-basic implementation is not yet a net win over basic+truncated-iFFT and needs further kernel/layout tuning.")
 $lines.Add("\item Specialized+trunc improves over specialized baseline and is the preferred specialized variant in this sweep.")
+$lines.Add("\item One-iFFT cyclic directly captures the single-iFFT idea and should be compared head-to-head with specialized+trunc for default selection.")
 $lines.Add("\item Size transitions where \(m\) doubles remain visible; non-power-of-two \(n\) values are still important for policy tuning.")
 $lines.Add("\end{itemize}")
 $lines.Add("")
@@ -221,6 +257,7 @@ $lines.Add("out\\build\\x64-Release\\benchmark\\blst_benchmarks.exe --benchmark_
 $lines.Add("out\\build\\x64-Release\\benchmark\\blst_benchmarks.exe --benchmark_filter=bench_middle_product_basic_pruned_detailed")
 $lines.Add("out\\build\\x64-Release\\benchmark\\blst_benchmarks.exe --benchmark_filter=bench_middle_product_fft_detailed")
 $lines.Add("out\\build\\x64-Release\\benchmark\\blst_benchmarks.exe --benchmark_filter=bench_middle_product_specialized_trunc_detailed")
+$lines.Add("out\\build\\x64-Release\\benchmark\\blst_benchmarks.exe --benchmark_filter=bench_middle_product_one_ifft_detailed")
 $lines.Add("\end{verbatim}")
 $lines.Add("")
 $lines.Add("\end{document}")
@@ -257,6 +294,7 @@ foreach ($r in ($basicNoTruncRows | Sort-Object { [int]$_.n })) {
         basic_pruned_ms = Get-TotalMs $basicPrunedByN[$n]
         specialized_ms = Get-TotalMs $specByN[$n]
         specialized_trunc_ms = Get-TotalMs $specTruncByN[$n]
+        oneifft_cyclic_ms = Get-TotalMs $oneIfftByN[$n]
     }
 }
 $mpCsv | Export-Csv -NoTypeInformation -Path "docs/planning/middle_product_sweep.csv"

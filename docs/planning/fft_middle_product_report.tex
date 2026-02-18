@@ -24,6 +24,7 @@ Compared middle-product variants:
 \item truncated FFT + truncated iFFT (pruned basic)
 \item specialized middle product
 \item specialized middle product + truncation
+\item one-iFFT cyclic middle product
 \end{enumerate}
 
 \section{Benchmark Setup}
@@ -32,7 +33,7 @@ Compared middle-product variants:
 \item Input shape: \(A\) has \(n\) coefficients in \(G_1\), \(B\) has \(2n\) coefficients in \(G_2\).
 \item FFT length for basic path: \(m = 2^{\lceil \log_2(3n-1) \rceil}\).
 \item Standalone kernel runs: 3 repetitions, mean reported.
-\item Integrated middle-product runs: 1 repetition per \(n\) (long-running pairings).
+\item Integrated middle-product runs: 5 repetitions per \(n\), median aggregate reported.
 \item Timings are real-time milliseconds from Google Benchmark JSON outputs in \texttt{docs/planning/*.json}.
 \end{itemize}
 
@@ -86,26 +87,26 @@ $n$ & $m$ & full iFFT (ms) & trunc iFFT (ms) & savings (\%) \\
 \end{longtable}
 
 \section{Integrated Middle-Product Results}
-\begin{longtable}{r r r r r r r}
+\begin{longtable}{r r r r r r r r}
 \toprule
-$n$ & $m$ & basic/base & basic+trunc iFFT & pruned basic & specialized & specialized+trunc \\
+$n$ & $m$ & basic/base & basic+trunc iFFT & pruned basic & specialized & specialized+trunc & one-iFFT \\
 \midrule
 \endhead
-64 & 256 & 478.5 & 369.5 & 462.7 & 454.8 & 330.6 \\
-96 & 512 & 1122 & 804.4 & 1044.8 & 1089.8 & 721.7 \\
-128 & 512 & 1178.7 & 813.2 & 1116.8 & 1414.4 & 720.8 \\
-160 & 512 & 1067.7 & 869.8 & 1084.1 & 1869.6 & 1530.6 \\
-192 & 1024 & 2258.9 & 1786.2 & 2596.1 & 1658 & 1562.1 \\
-224 & 1024 & 2107.2 & 1811.7 & 2670.8 & 1698.9 & 1535.6 \\
-256 & 1024 & 1952.7 & 2523.8 & 2559.8 & 1755.1 & 1660.3 \\
-288 & 1024 & 1941.6 & 1893.6 & 2876.3 & 3626.7 & 3708.5 \\
-320 & 1024 & 1981.4 & 2087.5 & 2862.8 & 3674.1 & 3510.7 \\
-352 & 2048 & 5268.2 & 3892.5 & 4939.1 & 3634.5 & 3385.9 \\
-384 & 2048 & 5563.3 & 4079.8 & 4032.3 & 3641.8 & 3464.9 \\
-416 & 2048 & 5994.4 & 4111 & 5699.6 & 3559.8 & 3381.1 \\
-448 & 2048 & 4286 & 4664.2 & 4127.5 & 3695.3 & 3505.9 \\
-480 & 2048 & 6142.3 & 4031.3 & 6041.8 & 3731.9 & 3940 \\
-512 & 2048 & 4935.4 & 4487.1 & 5596.3 & 3679.2 & 3876.1 \\
+64 & 256 & 405.8 & 339.4 & 392.7 & 349.9 & 329.7 & 181.2 \\
+96 & 512 & 872.1 & 1001.1 & 872.2 & 811.1 & 738.1 & 421 \\
+128 & 512 & 854 & 1167.5 & 979.8 & 822.2 & 812.3 & 579.2 \\
+160 & 512 & 855.8 & 1108.8 & 1265.1 & 1861 & 1719.1 & 1041.9 \\
+192 & 1024 & 1934.2 & 2617 & 1968.3 & 1932.4 & 1918.6 & 1066.6 \\
+224 & 1024 & 2847.1 & 2319.5 & 2187.4 & 1970.5 & 1649.5 & 1034.3 \\
+256 & 1024 & 2400.6 & 1983 & 1974.5 & 1872.1 & 1717.8 & 1145.8 \\
+288 & 1024 & 2461.8 & 2088.1 & 2242.4 & 3878.4 & 3808.4 & 2232.6 \\
+320 & 1024 & 2302.4 & 2004.9 & 3207.5 & 4598.3 & 3566.4 & 2130.6 \\
+352 & 2048 & 5397.6 & 4214.1 & 5297.9 & 4146.4 & 3776.6 & 3030.4 \\
+384 & 2048 & 4849.7 & 4632.7 & 5367.2 & 3992.9 & 3899.1 & 2060 \\
+416 & 2048 & 4487 & 4907.9 & 4719.2 & 3846.3 & 4115.3 & 3001 \\
+448 & 2048 & 4742.6 & 4439.7 & 5113.8 & 3833.2 & 3905.7 & 2353.6 \\
+480 & 2048 & 4511.7 & 4756.8 & 6062.2 & 3841.3 & 4230.7 & 2626 \\
+512 & 2048 & 4913.1 & 4493.2 & 5222.9 & 4352.9 & 3905.4 & 2112.9 \\
 \bottomrule
 \end{longtable}
 
@@ -113,9 +114,10 @@ $n$ & $m$ & basic/base & basic+trunc iFFT & pruned basic & specialized & special
 \begin{itemize}
 \item Standalone forward FFT truncation average savings: 3.8\%.
 \item Standalone inverse FFT truncation average savings: -5.8\%.
-\item Integrated basic path (truncated iFFT vs basic baseline): 14.8\% average savings.
-\item Integrated pruned basic path (truncated FFT+iFFT vs basic baseline): -8.1\% average savings.
-\item Specialized truncated vs specialized baseline: 10.8\% average savings.
+\item Integrated basic path (truncated iFFT vs basic baseline): -0.6\% average savings.
+\item Integrated pruned basic path (truncated FFT+iFFT vs basic baseline): -7.5\% average savings.
+\item Specialized truncated vs specialized baseline: 5\% average savings.
+\item One-iFFT cyclic vs specialized baseline: 41.1\% average savings.
 \end{itemize}
 
 \section{Interpretation}
@@ -125,6 +127,7 @@ $n$ & $m$ & basic/base & basic+trunc iFFT & pruned basic & specialized & special
 \item In the integrated basic middle-product flow, adding truncated iFFT is still a strong net positive.
 \item The current pruned-basic implementation is not yet a net win over basic+truncated-iFFT and needs further kernel/layout tuning.
 \item Specialized+trunc improves over specialized baseline and is the preferred specialized variant in this sweep.
+\item One-iFFT cyclic directly captures the single-iFFT idea and should be compared head-to-head with specialized+trunc for default selection.
 \item Size transitions where \(m\) doubles remain visible; non-power-of-two \(n\) values are still important for policy tuning.
 \end{itemize}
 
@@ -139,6 +142,7 @@ out\\build\\x64-Release\\benchmark\\blst_benchmarks.exe --benchmark_filter=bench
 out\\build\\x64-Release\\benchmark\\blst_benchmarks.exe --benchmark_filter=bench_middle_product_basic_pruned_detailed
 out\\build\\x64-Release\\benchmark\\blst_benchmarks.exe --benchmark_filter=bench_middle_product_fft_detailed
 out\\build\\x64-Release\\benchmark\\blst_benchmarks.exe --benchmark_filter=bench_middle_product_specialized_trunc_detailed
+out\\build\\x64-Release\\benchmark\\blst_benchmarks.exe --benchmark_filter=bench_middle_product_one_ifft_detailed
 \end{verbatim}
 
 \end{document}
