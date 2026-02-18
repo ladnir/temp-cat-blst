@@ -1896,3 +1896,100 @@ TEST(Fft, MiddleProductOneIfftMatchesSpecializedApi)
         }
     }
 }
+
+TEST(Fft, MiddleProductOneIfftWorkspaceMatchesDefault)
+{
+    const std::vector<std::size_t> test_sizes = { 6, 10, 24 };
+
+    for (std::size_t n : test_sizes) {
+        std::vector<u64> a_scalars;
+        std::vector<u64> b_scalars;
+        a_scalars.reserve(n);
+        b_scalars.reserve(2 * n);
+
+        for (std::size_t i = 0; i < n; ++i) {
+            a_scalars.push_back(static_cast<u64>((73 * i + 31) % 257 + 1));
+        }
+        for (std::size_t i = 0; i < 2 * n; ++i) {
+            b_scalars.push_back(static_cast<u64>((79 * i + 37) % 263 + 1));
+        }
+
+        const std::vector<G1Point> a_points = points_from_scalars_g1(a_scalars);
+        const std::vector<G2Point> b_points = points_from_scalars_g2(b_scalars);
+        const auto oneifft_b = precompute_middle_product_b(
+            std::span<const G2Point>(b_points), n, MiddleProductAlgorithm::OneIfftCyclic);
+
+        std::vector<GT> out_default(n, GT::identity());
+        std::vector<GT> out_ws(n, GT::identity());
+        MiddleProductOneIfftWorkspace workspace;
+
+        middle_product(
+            std::span<const G1Point>(a_points),
+            oneifft_b,
+            std::span<GT>(out_default));
+
+        middle_product_oneifft_cyclic(
+            std::span<const G1Point>(a_points),
+            oneifft_b,
+            std::span<GT>(out_ws),
+            workspace);
+
+        for (std::size_t i = 0; i < n; ++i) {
+            EXPECT_TRUE(GT::equal(out_default[i], out_ws[i]))
+                << "OneIfft workspace mismatch at n=" << n << ", i=" << i;
+        }
+    }
+}
+
+TEST(Fft, MiddleProductOneIfftPrecomputedLinesMatchesDirect)
+{
+    const std::vector<std::size_t> test_sizes = { 6, 10, 24 };
+
+    for (std::size_t n : test_sizes) {
+        std::vector<u64> a_scalars;
+        std::vector<u64> b_scalars;
+        a_scalars.reserve(n);
+        b_scalars.reserve(2 * n);
+
+        for (std::size_t i = 0; i < n; ++i) {
+            a_scalars.push_back(static_cast<u64>((83 * i + 41) % 269 + 1));
+        }
+        for (std::size_t i = 0; i < 2 * n; ++i) {
+            b_scalars.push_back(static_cast<u64>((89 * i + 43) % 271 + 1));
+        }
+
+        const std::vector<G1Point> a_points = points_from_scalars_g1(a_scalars);
+        const std::vector<G2Point> b_points = points_from_scalars_g2(b_scalars);
+        const auto oneifft_direct = precompute_middle_product_b(
+            std::span<const G2Point>(b_points),
+            n,
+            MiddleProductAlgorithm::OneIfftCyclic);
+        const auto oneifft_lines = precompute_middle_product_b(
+            std::span<const G2Point>(b_points),
+            n,
+            MiddleProductAlgorithm::OneIfftCyclic,
+            nullptr,
+            OneIfftPairingMode::PrecomputedLines);
+
+        std::vector<GT> out_direct(n, GT::identity());
+        std::vector<GT> out_lines(n, GT::identity());
+        MiddleProductOneIfftWorkspace workspace_direct;
+        MiddleProductOneIfftWorkspace workspace_lines;
+
+        middle_product_oneifft_cyclic(
+            std::span<const G1Point>(a_points),
+            oneifft_direct,
+            std::span<GT>(out_direct),
+            workspace_direct);
+        middle_product_oneifft_cyclic(
+            std::span<const G1Point>(a_points),
+            oneifft_lines,
+            std::span<GT>(out_lines),
+            workspace_lines);
+
+        for (std::size_t i = 0; i < n; ++i) {
+            EXPECT_TRUE(GT::equal(out_direct[i], out_lines[i]))
+                << "OneIfft precomputed lines mismatch at n=" << n << ", i=" << i;
+        }
+    }
+}

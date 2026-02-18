@@ -1,7 +1,9 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
+#include <cstdint>
 #include <span>
 #include <utility>
 #include <vector>
@@ -23,12 +25,20 @@ enum class MiddleProductAlgorithm {
     OneIfftCyclic,
 };
 
+enum class OneIfftPairingMode {
+    Direct,
+    PrecomputedLines,
+};
+
 struct MiddleProductPrecomputedB {
     MiddleProductAlgorithm algorithm;
     std::size_t n;
     std::size_t fft_size;
+    OneIfftPairingMode oneifft_pairing_mode = OneIfftPairingMode::Direct;
     std::vector<G2Point> first;
     std::vector<G2Point> second;
+    std::vector<std::array<Fp6, 68>> oneifft_precomputed_lines;
+    std::vector<uint8_t> oneifft_d_is_zero;
     std::vector<Fr> roots;
     std::vector<Fr> inv_roots;
     std::size_t xn_a = 0;
@@ -140,7 +150,8 @@ inline MiddleProductPrecomputedB precompute_middle_product_b(
     std::span<const G2Point> b,
     std::size_t n,
     MiddleProductAlgorithm algorithm,
-    TimingStats* timings = nullptr)
+    TimingStats* timings = nullptr,
+    OneIfftPairingMode oneifft_pairing_mode = OneIfftPairingMode::Direct)
 {
     ScopedTimer total_timer(timings, "precompute.total_ns");
     BLST_ASSERT(n > 0);
@@ -150,6 +161,7 @@ inline MiddleProductPrecomputedB precompute_middle_product_b(
     precomputed.algorithm = algorithm;
     precomputed.n = n;
     precomputed.fft_size = middle_product_fft_size(n, algorithm);
+    precomputed.oneifft_pairing_mode = oneifft_pairing_mode;
     precomputed.first.assign(precomputed.fft_size, G2Point::infinity());
 
     std::vector<Fr> roots;
@@ -210,6 +222,22 @@ inline MiddleProductPrecomputedB precompute_middle_product_b(
                 const G2Point folded = G2CoeffCtx::plus(b0_fft[j], zeta_b1);
                 // Move 1/m iFFT normalization into fixed-B precompute.
                 precomputed.first[j] = G2CoeffCtx::mult(folded, m_inv);
+            }
+        }
+
+        if (oneifft_pairing_mode == OneIfftPairingMode::PrecomputedLines) {
+            ScopedTimer timer(timings, "precompute.oneifft_lines_ns");
+            precomputed.oneifft_precomputed_lines.resize(precomputed.fft_size);
+            precomputed.oneifft_d_is_zero.resize(precomputed.fft_size);
+            for (std::size_t j = 0; j < precomputed.fft_size; ++j) {
+                const bool d_is_zero = (G2Point::is_inf(precomputed.first[j]) != 0);
+                precomputed.oneifft_d_is_zero[j] = static_cast<uint8_t>(d_is_zero ? 1 : 0);
+                if (d_is_zero) {
+                    continue;
+                }
+                G2AffinePoint q_aff;
+                G2Point::to_affine(q_aff, precomputed.first[j]);
+                GT::precompute_lines(precomputed.oneifft_precomputed_lines[j].data(), q_aff);
             }
         }
         return precomputed;
@@ -444,8 +472,25 @@ inline void middle_product_oneifft_cyclic(
     }
     {
         ScopedTimer timer(timings, "oneifft_pre.pointwise_ns");
-        for (std::size_t i = 0; i < fft_size; ++i) {
-            c_fft[i] = CoeffCtx::mult(a_fft[i], precomputed_b.first[i]);
+        if (precomputed_b.oneifft_pairing_mode == OneIfftPairingMode::PrecomputedLines &&
+            precomputed_b.oneifft_precomputed_lines.size() == fft_size) {
+            const bool has_d_zero_mask = (precomputed_b.oneifft_d_is_zero.size() == fft_size);
+            for (std::size_t i = 0; i < fft_size; ++i) {
+                if (G1Point::is_inf(a_fft[i]) != 0 ||
+                    (has_d_zero_mask && precomputed_b.oneifft_d_is_zero[i] != 0)) {
+                    c_fft[i] = GT::identity();
+                    continue;
+                }
+                G1AffinePoint p_aff;
+                G1Point::to_affine(p_aff, a_fft[i]);
+                GT::miller_loop_lines(c_fft[i], precomputed_b.oneifft_precomputed_lines[i].data(), p_aff);
+                GT::final_mult(c_fft[i], c_fft[i]);
+            }
+        }
+        else {
+            for (std::size_t i = 0; i < fft_size; ++i) {
+                c_fft[i] = CoeffCtx::mult(a_fft[i], precomputed_b.first[i]);
+            }
         }
     }
     {
