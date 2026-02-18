@@ -892,41 +892,47 @@ namespace
 		const auto precomputed_b = precompute_middle_product_b(
 			std::span<const G2Point>(B_orig), n, MiddleProductAlgorithm::OneIfftCyclic, &pre_stats);
 		std::vector<GT> out(n, GT::identity());
+		MiddleProductOneIfftWorkspace workspace;
 
 		double time_fft_g1 = 0;
-		double time_pairing = 0;
-		double time_ifft_gt = 0;
-		double time_roots = 0;
-		double time_extract = 0;
-		double online_total = 0;
+                double time_pairing = 0;
+                double time_ifft_gt = 0;
+                double time_fill = 0;
+                double time_roots = 0;
+                double time_extract = 0;
+                double online_total = 0;
 		int64_t iterations = 0;
 
 		for (auto _ : state) {
 			TimingStats iter_stats;
-			middle_product(
+			middle_product_oneifft_cyclic(
 				std::span<const G1Point>(A_orig),
 				precomputed_b,
 				std::span<GT>(out),
+				workspace,
 				&iter_stats);
 			benchmark::ClobberMemory();
 
 			time_fft_g1 += static_cast<double>(iter_stats.get_ns("oneifft_pre.fft_a_ns"));
-			time_pairing += static_cast<double>(iter_stats.get_ns("oneifft_pre.pointwise_ns"));
-			time_ifft_gt += static_cast<double>(iter_stats.get_ns("oneifft_pre.ifft_ns"));
-			time_roots += static_cast<double>(iter_stats.get_ns("oneifft_pre.roots_ns"));
-			time_roots += static_cast<double>(iter_stats.get_ns("oneifft_pre.inv_roots_ns"));
-			time_extract += static_cast<double>(iter_stats.get_ns("oneifft_pre.extract_ns"));
+                        time_pairing += static_cast<double>(iter_stats.get_ns("oneifft_pre.pointwise_ns"));
+                        time_ifft_gt += static_cast<double>(iter_stats.get_ns("oneifft_pre.ifft_ns"));
+                        time_fill += static_cast<double>(iter_stats.get_ns("oneifft_pre.fill_a_fft_ns"));
+                        time_fill += static_cast<double>(iter_stats.get_ns("oneifft_pre.fill_c_fft_ns"));
+                        time_roots += static_cast<double>(iter_stats.get_ns("oneifft_pre.roots_ns"));
+                        time_roots += static_cast<double>(iter_stats.get_ns("oneifft_pre.inv_roots_ns"));
+                        time_extract += static_cast<double>(iter_stats.get_ns("oneifft_pre.extract_ns"));
 			online_total += static_cast<double>(iter_stats.get_ns("oneifft_pre.total_ns"));
 			iterations++;
 		}
 
 		state.counters["n"] = static_cast<double>(n);
 		state.counters["m"] = static_cast<double>(precomputed_b.fft_size);
-		state.counters["fft_g1_ms"] = benchmark::Counter(time_fft_g1 / 1e6 / iterations);
-		state.counters["pairing_ms"] = benchmark::Counter(time_pairing / 1e6 / iterations);
-		state.counters["ifft_gt_ms"] = benchmark::Counter(time_ifft_gt / 1e6 / iterations);
-		state.counters["roots_ms"] = benchmark::Counter(time_roots / 1e6 / iterations);
-		state.counters["extract_ms"] = benchmark::Counter(time_extract / 1e6 / iterations);
+                state.counters["fft_g1_ms"] = benchmark::Counter(time_fft_g1 / 1e6 / iterations);
+                state.counters["pairing_ms"] = benchmark::Counter(time_pairing / 1e6 / iterations);
+                state.counters["ifft_gt_ms"] = benchmark::Counter(time_ifft_gt / 1e6 / iterations);
+                state.counters["fill_ms"] = benchmark::Counter(time_fill / 1e6 / iterations);
+                state.counters["roots_ms"] = benchmark::Counter(time_roots / 1e6 / iterations);
+                state.counters["extract_ms"] = benchmark::Counter(time_extract / 1e6 / iterations);
 		state.counters["online_total_ms"] = benchmark::Counter(online_total / 1e6 / iterations);
 		state.counters["online_compute_ms"] = benchmark::Counter((online_total - time_roots) / 1e6 / iterations);
 		state.counters["offline_precompute_once_ms"] = benchmark::Counter(

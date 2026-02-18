@@ -53,6 +53,23 @@ struct MiddleProductBasicPrunedWorkspace {
     }
 };
 
+struct MiddleProductOneIfftWorkspace {
+    std::vector<G1Point> a_fft;
+    std::vector<GT> c_fft;
+    std::vector<Fr> roots;
+    std::vector<Fr> inv_roots;
+
+    void ensure_size(std::size_t m)
+    {
+        if (a_fft.size() != m) {
+            a_fft.assign(m, G1Point::infinity());
+        }
+        if (c_fft.size() != m) {
+            c_fft.assign(m, GT::identity());
+        }
+    }
+};
+
 inline std::size_t middle_product_fft_size(std::size_t n, MiddleProductAlgorithm algorithm)
 {
     BLST_ASSERT(n > 0);
@@ -163,6 +180,8 @@ inline MiddleProductPrecomputedB precompute_middle_product_b(
     if (algorithm == MiddleProductAlgorithm::OneIfftCyclic) {
         precomputed.roots = roots;
         precomputed.inv_roots = make_ifft_roots(roots);
+        Fr m_inv = Fr::from_uint64(static_cast<uint64_t>(precomputed.fft_size));
+        Fr::reciprocal(m_inv, m_inv);
 
         std::vector<G2Point> b0_fft(precomputed.fft_size, G2Point::infinity());
         std::vector<G2Point> b1_fft(precomputed.fft_size, G2Point::infinity());
@@ -188,7 +207,9 @@ inline MiddleProductPrecomputedB precompute_middle_product_b(
                 const std::size_t idx = (j * (n % precomputed.fft_size)) % precomputed.fft_size;
                 const Fr zeta = roots[idx];
                 const G2Point zeta_b1 = G2CoeffCtx::mult(b1_fft[j], zeta);
-                precomputed.first[j] = G2CoeffCtx::plus(b0_fft[j], zeta_b1);
+                const G2Point folded = G2CoeffCtx::plus(b0_fft[j], zeta_b1);
+                // Move 1/m iFFT normalization into fixed-B precompute.
+                precomputed.first[j] = G2CoeffCtx::mult(folded, m_inv);
             }
         }
         return precomputed;
@@ -288,6 +309,9 @@ inline void middle_product(
         std::vector<G2Point> d_fft(fft_size, G2Point::infinity());
         std::vector<G1Point> a_fft(fft_size, G1Point::infinity());
         std::vector<GT> c_fft(fft_size, GT::identity());
+        Fr m_inv = Fr::from_uint64(static_cast<uint64_t>(fft_size));
+        Fr::reciprocal(m_inv, m_inv);
+        const Fr no_scale = Fr::one();
 
         for (std::size_t i = 0; i < n; ++i) {
             a_fft[i] = a[i];
@@ -316,7 +340,8 @@ inline void middle_product(
                 const std::size_t idx = (j * (n % fft_size)) % fft_size;
                 const Fr zeta = roots[idx];
                 const G2Point zeta_b1 = G2CoeffCtx::mult(b1_fft[j], zeta);
-                d_fft[j] = G2CoeffCtx::plus(d_fft[j], zeta_b1);
+                const G2Point folded = G2CoeffCtx::plus(d_fft[j], zeta_b1);
+                d_fft[j] = G2CoeffCtx::mult(folded, m_inv);
             }
         }
 
@@ -333,7 +358,8 @@ inline void middle_product(
         }
         {
             ScopedTimer timer(timings, "oneifft.ifft_ns");
-            fft<GT, Fr, GTCoeffCtx>(c_fft, inv_roots, true);
+            fft_inverse_full<GT, Fr, GTCoeffCtx>(
+                std::span<GT>(c_fft), fft_size, std::span<const Fr>(inv_roots), no_scale);
         }
         {
             ScopedTimer timer(timings, "oneifft.extract_ns");
@@ -361,6 +387,90 @@ inline void middle_product(
         GT::identity(), G1Point::infinity(), G2Point::infinity(), timings);
 }
 
+inline void middle_product_oneifft_cyclic(
+    std::span<const G1Point> a,
+    const MiddleProductPrecomputedB& precomputed_b,
+    std::span<GT> out,
+    MiddleProductOneIfftWorkspace& workspace,
+    TimingStats* timings = nullptr)
+{
+    ScopedTimer total_timer(timings, "oneifft_pre.total_ns");
+    const std::size_t n = a.size();
+    BLST_ASSERT(n > 0);
+    BLST_ASSERT(precomputed_b.algorithm == MiddleProductAlgorithm::OneIfftCyclic);
+    BLST_ASSERT(precomputed_b.n == n);
+    BLST_ASSERT(out.size() >= n);
+
+    const std::size_t fft_size = precomputed_b.fft_size;
+    BLST_ASSERT(precomputed_b.first.size() == fft_size);
+    const Fr no_scale = Fr::one();
+
+    std::span<const Fr> roots;
+    std::span<const Fr> inv_roots;
+    if (precomputed_b.roots.size() == fft_size &&
+        precomputed_b.inv_roots.size() == fft_size) {
+        roots = std::span<const Fr>(precomputed_b.roots);
+        inv_roots = std::span<const Fr>(precomputed_b.inv_roots);
+    }
+    else {
+        ScopedTimer timer(timings, "oneifft_pre.roots_ns");
+        workspace.roots = make_fft_roots(fft_size);
+        workspace.inv_roots = make_ifft_roots(workspace.roots);
+        roots = std::span<const Fr>(workspace.roots);
+        inv_roots = std::span<const Fr>(workspace.inv_roots);
+    }
+
+    workspace.ensure_size(fft_size);
+    std::span<G1Point> a_fft(workspace.a_fft);
+    std::span<GT> c_fft(workspace.c_fft);
+    {
+        ScopedTimer timer(timings, "oneifft_pre.fill_a_fft_ns");
+        std::fill(a_fft.begin(), a_fft.end(), G1Point::infinity());
+    }
+    {
+        ScopedTimer timer(timings, "oneifft_pre.fill_c_fft_ns");
+        std::fill(c_fft.begin(), c_fft.end(), GT::identity());
+    }
+
+    for (std::size_t i = 0; i < n; ++i) {
+        a_fft[i] = a[i];
+    }
+
+    const std::size_t xn_a = fft_admissible_size(n, fft_size);
+    {
+        ScopedTimer timer(timings, "oneifft_pre.fft_a_ns");
+        fft_forward_truncated_prefix<G1Point, Fr, G1CoeffCtx>(
+            a_fft, roots, xn_a, timings, "oneifft_pre.fft_a");
+    }
+    {
+        ScopedTimer timer(timings, "oneifft_pre.pointwise_ns");
+        for (std::size_t i = 0; i < fft_size; ++i) {
+            c_fft[i] = CoeffCtx::mult(a_fft[i], precomputed_b.first[i]);
+        }
+    }
+    {
+        ScopedTimer timer(timings, "oneifft_pre.ifft_ns");
+        fft_inverse_full<GT, Fr, GTCoeffCtx>(
+            c_fft, fft_size, inv_roots, no_scale);
+    }
+    {
+        ScopedTimer timer(timings, "oneifft_pre.extract_ns");
+        for (std::size_t i = 0; i < n; ++i) {
+            out[i] = c_fft[n + i];
+        }
+    }
+}
+
+inline void middle_product_oneifft_cyclic(
+    std::span<const G1Point> a,
+    const MiddleProductPrecomputedB& precomputed_b,
+    std::span<GT> out,
+    TimingStats* timings = nullptr)
+{
+    MiddleProductOneIfftWorkspace workspace;
+    middle_product_oneifft_cyclic(a, precomputed_b, out, workspace, timings);
+}
+
 inline void middle_product(
     std::span<const G1Point> a,
     const MiddleProductPrecomputedB& precomputed_b,
@@ -381,6 +491,12 @@ inline void middle_product(
     BLST_ASSERT(out.size() >= n);
 
     const std::size_t fft_size = precomputed_b.fft_size;
+    if (precomputed_b.algorithm == MiddleProductAlgorithm::OneIfftCyclic) {
+        MiddleProductOneIfftWorkspace workspace;
+        middle_product_oneifft_cyclic(a, precomputed_b, out, workspace, timings);
+        return;
+    }
+
     std::vector<Fr> roots;
     std::vector<Fr> inv_roots;
     const char* roots_metric = "middle_pre.roots_ns";
@@ -428,40 +544,6 @@ inline void middle_product(
 
         {
             ScopedTimer timer(timings, "basic_pre.extract_ns");
-            for (std::size_t i = 0; i < n; ++i) {
-                out[i] = c_fft[n + i];
-            }
-        }
-        return;
-    }
-
-    if (precomputed_b.algorithm == MiddleProductAlgorithm::OneIfftCyclic) {
-        BLST_ASSERT(precomputed_b.first.size() == fft_size);
-        std::vector<G1Point> a_fft(fft_size, G1Point::infinity());
-        std::vector<GT> c_fft(fft_size, GT::identity());
-
-        for (std::size_t i = 0; i < n; ++i) {
-            a_fft[i] = a[i];
-        }
-
-        const std::size_t xn_a = fft_admissible_size(n, fft_size);
-        {
-            ScopedTimer timer(timings, "oneifft_pre.fft_a_ns");
-            fft_forward_truncated_prefix<G1Point, Fr, G1CoeffCtx>(
-                a_fft, roots, xn_a, timings, "oneifft_pre.fft_a");
-        }
-        {
-            ScopedTimer timer(timings, "oneifft_pre.pointwise_ns");
-            for (std::size_t i = 0; i < fft_size; ++i) {
-                c_fft[i] = CoeffCtx::mult(a_fft[i], precomputed_b.first[i]);
-            }
-        }
-        {
-            ScopedTimer timer(timings, "oneifft_pre.ifft_ns");
-            fft<GT, Fr, GTCoeffCtx>(c_fft, inv_roots, true);
-        }
-        {
-            ScopedTimer timer(timings, "oneifft_pre.extract_ns");
             for (std::size_t i = 0; i < n; ++i) {
                 out[i] = c_fft[n + i];
             }
