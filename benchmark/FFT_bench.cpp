@@ -334,7 +334,7 @@ namespace
 	// ============================================================================
 	// Stockham FFT benchmarks
 	// ============================================================================
-
+#if 0
 	static void bench_g1_fft_stockham_cpu(benchmark::State& state)
 	{
 		const size_t N = static_cast<size_t>(state.range(0));
@@ -393,6 +393,7 @@ namespace
 		state.counters["N"] = static_cast<double>(N);
 		state.counters["iFFTs/sec"] = benchmark::Counter(1, benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
 	}
+#endif
 
 
 
@@ -641,7 +642,8 @@ namespace
 			1e6);
 	}
 
-	static void bench_middle_product_basic_ifft_trunc_detailed(benchmark::State& state)
+        #if 0
+        static void bench_middle_product_basic_ifft_trunc_detailed(benchmark::State& state)
 	{
 		const size_t n = static_cast<size_t>(state.range(0));
 		const std::vector<G1Point> A_orig = make_g1_data(n, /*seed*/ 0xDEADBEEFULL);
@@ -883,7 +885,9 @@ namespace
 			1e6);
 	}
 
-	static void bench_middle_product_one_ifft_detailed(benchmark::State& state)
+        #endif
+
+        static void bench_middle_product_one_ifft_detailed(benchmark::State& state)
 	{
 		const size_t n = static_cast<size_t>(state.range(0));
 		const std::vector<G1Point> A_orig = make_g1_data(n, /*seed*/ 0xDEADBEEFULL);
@@ -1010,9 +1014,10 @@ namespace
 			benchmark::Counter(static_cast<double>(pre_stats.get_ns("precompute.oneifft_lines_ns")) / 1e6);
 	}
 
-	// Benchmark middle_product_fft: computes middle n coefficients of (size n) * (size 2n) convolution
-	static void bench_middle_product_fft(benchmark::State& state)
-	{
+        // Benchmark middle_product_fft: computes middle n coefficients of (size n) * (size 2n) convolution
+#if 0
+        static void bench_middle_product_fft(benchmark::State& state)
+        {
 		const size_t n = static_cast<size_t>(state.range(0));
 		const std::vector<G1Point> A_orig = make_g1_data(n, /*seed*/ 0xDEADBEEFULL);
 		const std::vector<G2Point> B_orig = make_g2_data(2 * n, /*seed*/ 0xCAFEBABEULL);
@@ -1031,11 +1036,13 @@ namespace
 		}
 
 		state.counters["n"] = static_cast<double>(n);
-		state.counters["m"] = static_cast<double>(precomputed_b.fft_size);
-		state.counters["ops/sec"] = benchmark::Counter(1, benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
-	}
+                state.counters["m"] = static_cast<double>(precomputed_b.fft_size);
+                state.counters["ops/sec"] = benchmark::Counter(1, benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+        }
+#endif
 
 	// Benchmark middle_product_fft_truncated: uses truncated inverse FFT
+#if 0
 	static void bench_middle_product_fft_truncated(benchmark::State& state)
 	{
 		const size_t n = static_cast<size_t>(state.range(0));
@@ -1121,6 +1128,7 @@ namespace
 		state.counters["L"] = static_cast<double>(L);
 		state.counters["iFFTs/sec"] = benchmark::Counter(1, benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
 	}
+#endif
 
 	// Standalone G1 forward FFT in middle-product shape:
 	// input has n non-zero coefficients embedded in m.
@@ -1217,12 +1225,12 @@ namespace
 			(bfly_total > 0.0) ? (bfly_skip / bfly_total) : 0.0);
 	}
 
-	// Standalone GT inverse FFT in middle-product shape:
-	// compare full iFFT(m) vs truncated-range iFFT for the middle window [n-1, 2n-2].
+	// Standalone GT inverse FFT in one-iFFT shape:
+	// compare full iFFT(m) vs truncated-range iFFT for the used window [n, 2n).
 	static void bench_gt_ifft_full_middle_shape_detailed(benchmark::State& state)
 	{
 		const size_t n = static_cast<size_t>(state.range(0));
-		const size_t m = middle_product_fft_size(n, MiddleProductAlgorithm::BasicFFT);
+		const size_t m = middle_product_fft_size(n, MiddleProductAlgorithm::OneIfftCyclic);
 		const std::vector<Fr> roots = make_roots(m);
 		const std::vector<Fr> inv_roots = make_inv_roots(roots);
 		const std::vector<GT> time_domain = make_gt_data(m);
@@ -1239,7 +1247,7 @@ namespace
 			TimingStats stats;
 			{
 				ScopedTimer timer(&stats, "gt_ifft_full.total_ns");
-				fft<GT, Fr, GTCoeffCtx>(std::span<GT>(data), std::span<const Fr>(inv_roots), false);
+				fft<GT, Fr, GTCoeffCtx>(std::span<GT>(data), std::span<const Fr>(inv_roots), true);
 			}
 			benchmark::ClobberMemory();
 
@@ -1255,17 +1263,18 @@ namespace
 	static void bench_gt_ifft_trunc_middle_shape_detailed(benchmark::State& state)
 	{
 		const size_t n = static_cast<size_t>(state.range(0));
-		const size_t m = middle_product_fft_size(n, MiddleProductAlgorithm::BasicFFT);
+		const size_t m = middle_product_fft_size(n, MiddleProductAlgorithm::OneIfftCyclic);
 		const std::vector<Fr> roots = make_roots(m);
 		const std::vector<Fr> inv_roots = make_inv_roots(roots);
-		Fr m_inv = Fr::from_uint64(m);
-		Fr::reciprocal(m_inv, m_inv);
 		const std::vector<GT> time_domain = make_gt_data(m);
 		std::vector<GT> freq_domain = time_domain;
 		fft<GT, Fr, GTCoeffCtx>(freq_domain, roots, /*inverse*/ false);
 		std::vector<GT> data = freq_domain;
 
 		double ifft_ns = 0;
+		double bfly_total = 0;
+		double bfly_exec = 0;
+		double bfly_skip = 0;
 		int64_t iterations = 0;
 
 		for (auto _ : state) {
@@ -1274,28 +1283,37 @@ namespace
 			TimingStats stats;
 			{
 				ScopedTimer timer(&stats, "gt_ifft_trunc.total_ns");
-				fft_inverse_truncated<GT, Fr, GTCoeffCtx>(
+				fft_inverse_truncated_range<GT, Fr, GTCoeffCtx>(
 					std::span<GT>(data),
-					m,
-					n,
 					std::span<const Fr>(inv_roots),
-					m_inv);
+					n,
+					n,
+					&stats,
+					"gt_ifft_trunc");
 			}
 			benchmark::ClobberMemory();
 
 			ifft_ns += static_cast<double>(stats.get_ns("gt_ifft_trunc.total_ns"));
+			bfly_total += static_cast<double>(stats.get_ns("gt_ifft_trunc.butterflies_total"));
+			bfly_exec += static_cast<double>(stats.get_ns("gt_ifft_trunc.butterflies_executed"));
+			bfly_skip += static_cast<double>(stats.get_ns("gt_ifft_trunc.butterflies_skipped"));
 			iterations++;
 		}
 
 		state.counters["n"] = static_cast<double>(n);
 		state.counters["m"] = static_cast<double>(m);
-		state.counters["length"] = static_cast<double>(n);
 		state.counters["ifft_ms"] = benchmark::Counter(ifft_ns / 1e6 / iterations);
+		state.counters["bfly_total"] = benchmark::Counter(bfly_total / iterations);
+		state.counters["bfly_exec"] = benchmark::Counter(bfly_exec / iterations);
+		state.counters["bfly_skip"] = benchmark::Counter(bfly_skip / iterations);
+		state.counters["bfly_skip_ratio"] = benchmark::Counter(
+			(bfly_total > 0.0) ? (bfly_skip / bfly_total) : 0.0);
 	}
 }
 
 
 // Detailed benchmark breaking down middle_product_fft into phases
+#if 0
 static void bench_middle_product_fft_detailed(benchmark::State& state)
 {
 	const size_t n = static_cast<size_t>(state.range(0));
@@ -1348,12 +1366,13 @@ static void bench_middle_product_fft_detailed(benchmark::State& state)
 	state.counters["derive_rev_ms"] = benchmark::Counter(time_derive_rev / 1e6 / iterations);
 	state.counters["combine_ms"] = benchmark::Counter(time_combine / 1e6 / iterations);
 	state.counters["roots_ms"] = benchmark::Counter(time_roots / 1e6 / iterations);
-	state.counters["offline_precompute_ms"] = benchmark::Counter(
-		(static_cast<double>(pre_stats.get_ns("precompute.roots_ns")) +
-			static_cast<double>(pre_stats.get_ns("precompute.spec_fft_b1_ns")) +
-			static_cast<double>(pre_stats.get_ns("precompute.spec_fft_b0_ns"))) /
-		1e6);
+        state.counters["offline_precompute_ms"] = benchmark::Counter(
+                (static_cast<double>(pre_stats.get_ns("precompute.roots_ns")) +
+                        static_cast<double>(pre_stats.get_ns("precompute.spec_fft_b1_ns")) +
+                        static_cast<double>(pre_stats.get_ns("precompute.spec_fft_b0_ns"))) /
+                1e6);
 }
+#endif
 
 // Keep sizes as powers of two (roots exist up to 2^32 for Fr).
 #define FFT_SIZES \
@@ -1388,6 +1407,7 @@ FFT_SIZES
 ->UseRealTime();
 
 
+#if 0
 BENCHMARK(bench_g1_fft_stockham_cpu)
 FFT_SIZES
 ->Unit(benchmark::kMillisecond)
@@ -1397,6 +1417,7 @@ BENCHMARK(bench_gt_ifft_stockham_cpu)
 FFT_SIZES
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();
+#endif
 
 // ============================================================================
 // Radix-4 FFT benchmarks
@@ -1462,10 +1483,12 @@ FFT_SIZES
 // Truncated and other FFT benchmarks
 // ============================================================================
 
+#if 0
 BENCHMARK(bench_gt_ifft_truncated)
 FFT_SIZES
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();
+#endif
 
 #if defined(BLST_CUDA)
 BENCHMARK(bench_g1_fft_gpu)
@@ -1488,20 +1511,12 @@ MIDDLE_PROD_SIZES
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();
 
-BENCHMARK(bench_middle_product_fft)
-MIDDLE_PROD_SIZES
-->Unit(benchmark::kMillisecond)
-->UseRealTime();
-
+#if 0
 BENCHMARK(bench_middle_product_fft_truncated)
 MIDDLE_PROD_SIZES
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();
-
-BENCHMARK(bench_middle_product_fft_detailed)
-MIDDLE_PROD_SIZES
-->Unit(benchmark::kMillisecond)
-->UseRealTime();
+#endif
 
 BENCHMARK(bench_middle_product_basic_detailed)
 MIDDLE_PROD_SIZES
@@ -1509,21 +1524,6 @@ MIDDLE_PROD_SIZES
 ->UseRealTime();
 
 BENCHMARK(bench_middle_product_basic_no_trunc_detailed)
-MIDDLE_PROD_SIZES
-->Unit(benchmark::kMillisecond)
-->UseRealTime();
-
-BENCHMARK(bench_middle_product_basic_ifft_trunc_detailed)
-MIDDLE_PROD_SIZES
-->Unit(benchmark::kMillisecond)
-->UseRealTime();
-
-BENCHMARK(bench_middle_product_basic_pruned_detailed)
-MIDDLE_PROD_SIZES
-->Unit(benchmark::kMillisecond)
-->UseRealTime();
-
-BENCHMARK(bench_middle_product_specialized_trunc_detailed)
 MIDDLE_PROD_SIZES
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();

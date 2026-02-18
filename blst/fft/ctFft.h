@@ -85,100 +85,100 @@ void fft(std::span<G> a, std::span<const F> roots, bool invert) {
 	}
 }
 
-template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
-std::span<G> fft_stockham(
-	std::span<const G> in,
-	std::span<G> out0,
-	std::span<G> out1,
-	std::span<const F> roots,
-	bool invert
-) {
-	int n = static_cast<int>(in.size());
-	BLST_ASSERT(out0.size() == static_cast<std::size_t>(n));
-	BLST_ASSERT(out1.size() == static_cast<std::size_t>(n));
-	BLST_ASSERT((n & (n - 1)) == 0);
+// template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
+// std::span<G> fft_stockham(
+// 	std::span<const G> in,
+// 	std::span<G> out0,
+// 	std::span<G> out1,
+// 	std::span<const F> roots,
+// 	bool invert
+// ) {
+// 	int n = static_cast<int>(in.size());
+// 	BLST_ASSERT(out0.size() == static_cast<std::size_t>(n));
+// 	BLST_ASSERT(out1.size() == static_cast<std::size_t>(n));
+// 	BLST_ASSERT((n & (n - 1)) == 0);
 
-	// Ping-pong buffers.
-	std::span<const G> src = in;
-	std::span<G> dst = out0;
+// 	// Ping-pong buffers.
+// 	std::span<const G> src = in;
+// 	std::span<G> dst = out0;
 
-	// Stages: m = 2, 4, 8, ..., n
-	for (int m = 2; m <= n; m <<= 1) {
-		int mh = m >> 1;
-		int r = n / m;           // "radix" in Stockham indexing
-		int stride = r;          // twiddle index step = n/m
+// 	// Stages: m = 2, 4, 8, ..., n
+// 	for (int m = 2; m <= n; m <<= 1) {
+// 		int mh = m >> 1;
+// 		int r = n / m;           // "radix" in Stockham indexing
+// 		int stride = r;          // twiddle index step = n/m
 
-		// Core Stockham mapping:
-		// Input index:  k*m + j
-		// Output index: j*r + k          (and + n/2 for the "upper" output)
-		for (int k = 0; k < r; k++) {
-			int base_in = k * m;
+// 		// Core Stockham mapping:
+// 		// Input index:  k*m + j
+// 		// Output index: j*r + k          (and + n/2 for the "upper" output)
+// 		for (int k = 0; k < r; k++) {
+// 			int base_in = k * m;
 
-			{ // j == 0 case: w == 1
-				G u = src[base_in + 0];
-				G v = src[base_in + mh];
-				int base_out = 0 * r + k;
-				dst[base_out] = CoeffCtx::plus(u, v);
-				dst[base_out + (n >> 1)] = CoeffCtx::minus(u, v);
-			}
+// 			{ // j == 0 case: w == 1
+// 				G u = src[base_in + 0];
+// 				G v = src[base_in + mh];
+// 				int base_out = 0 * r + k;
+// 				dst[base_out] = CoeffCtx::plus(u, v);
+// 				dst[base_out + (n >> 1)] = CoeffCtx::minus(u, v);
+// 			}
 
-			for (int j = 1; j < mh; j++) {
-				G u = src[base_in + j];
-				G v = src[base_in + j + mh];
+// 			for (int j = 1; j < mh; j++) {
+// 				G u = src[base_in + j];
+// 				G v = src[base_in + j + mh];
 
-				// Twiddle w = ω^(j * n/m) = roots[j * r]
-				// If you want inverse, pass inv_roots as roots.
-				F w = roots[j * stride];
+// 				// Twiddle w = ω^(j * n/m) = roots[j * r]
+// 				// If you want inverse, pass inv_roots as roots.
+// 				F w = roots[j * stride];
 
-				// Short-circuit w == 1 by index: j == 0 => w == roots[0] == 1.
-				G t = CoeffCtx::mult(v, w);
+// 				// Short-circuit w == 1 by index: j == 0 => w == roots[0] == 1.
+// 				G t = CoeffCtx::mult(v, w);
 
-				int base_out = j * r + k;
+// 				int base_out = j * r + k;
 
-				dst[base_out] = CoeffCtx::plus(u, t);
-				dst[base_out + (n >> 1)] = CoeffCtx::minus(u, t);
-			}
-		}
+// 				dst[base_out] = CoeffCtx::plus(u, t);
+// 				dst[base_out + (n >> 1)] = CoeffCtx::minus(u, t);
+// 			}
+// 		}
 
-		// Swap src/dst for next stage.
-		if (dst.data() == out0.data()) {
-			src = out0;
-			dst = out1;
-		}
-		else {
-			src = out1;
-			dst = out0;
-		}
-	}
+// 		// Swap src/dst for next stage.
+// 		if (dst.data() == out0.data()) {
+// 			src = out0;
+// 			dst = out1;
+// 		}
+// 		else {
+// 			src = out1;
+// 			dst = out0;
+// 		}
+// 	}
 
-	if (src.data() == out0.data())
-	{
-		dst = out0;
-	}
-	else
-	{
-		dst = out1;
-	}
+// 	if (src.data() == out0.data())
+// 	{
+// 		dst = out0;
+// 	}
+// 	else
+// 	{
+// 		dst = out1;
+// 	}
 
-	//// After the final stage, the result lives in `src`.
-	//// Ensure it ends up in `out`.
-	//if (src.data() != out.data()) {
-	//	for (int i = 0; i < n; i++) {
-	//		out[i] = src[i];
-	//	}
-	//}
+// 	//// After the final stage, the result lives in `src`.
+// 	//// Ensure it ends up in `out`.
+// 	//if (src.data() != out.data()) {
+// 	//	for (int i = 0; i < n; i++) {
+// 	//		out[i] = src[i];
+// 	//	}
+// 	//}
 
-	// Scaling for inverse FFT: multiply every output by 1/n.
-	// (As before: this assumes you provided inverse roots when invert==true.)
-	if (invert) {
-		F inv_n = CoeffCtx::inverse(CoeffCtx::template from_u64<F>(static_cast<std::uint64_t>(n)));
-		for (int i = 0; i < n; i++) {
-			dst[i] = CoeffCtx::mult(src[i], inv_n);
-		}
-	}
+// 	// Scaling for inverse FFT: multiply every output by 1/n.
+// 	// (As before: this assumes you provided inverse roots when invert==true.)
+// 	if (invert) {
+// 		F inv_n = CoeffCtx::inverse(CoeffCtx::template from_u64<F>(static_cast<std::uint64_t>(n)));
+// 		for (int i = 0; i < n; i++) {
+// 			dst[i] = CoeffCtx::mult(src[i], inv_n);
+// 		}
+// 	}
 
-	return dst;
-}
+// 	return dst;
+// }
 
 
 //template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
@@ -566,26 +566,27 @@ void fft_radix8(std::span<G> a, std::span<const F> roots, bool invert) {
 	}
 }
 
-// ============================================================================
-// Adaptive FFT - selects best radix based on input size
-// ============================================================================
-template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
-void fft_adaptive(std::span<G> a, std::span<const F> roots, bool invert) {
-	std::size_t n = a.size();
 
-	if (n < 8) {
-		// Fall back to radix-2 for very small sizes
-		fft<G, F, CoeffCtx>(a, roots, invert);
-	}
-	else if (n >= 64) {
-		// Use radix-8 for larger sizes (fewer stages)
-		fft_radix8<G, F, CoeffCtx>(a, roots, invert);
-	}
-	else {
-		// Use radix-4 for medium sizes
-		fft_radix4<G, F, CoeffCtx>(a, roots, invert);
-	}
-}
+// // ============================================================================
+// // Adaptive FFT - selects best radix based on input size
+// // ============================================================================
+// template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
+// void fft_adaptive(std::span<G> a, std::span<const F> roots, bool invert) {
+// 	std::size_t n = a.size();
+
+// 	if (n < 8) {
+// 		// Fall back to radix-2 for very small sizes
+// 		fft<G, F, CoeffCtx>(a, roots, invert);
+// 	}
+// 	else if (n >= 64) {
+// 		// Use radix-8 for larger sizes (fewer stages)
+// 		fft_radix8<G, F, CoeffCtx>(a, roots, invert);
+// 	}
+// 	else {
+// 		// Use radix-4 for medium sizes
+// 		fft_radix4<G, F, CoeffCtx>(a, roots, invert);
+// 	}
+// }
 
 // Computes C = A * B via FFT-based polynomial multiplication
 // All vectors must be pre-sized to n (the FFT size, must be power of 2)
@@ -971,10 +972,10 @@ void fft_inverse_truncated_range(
 	BLST_ASSERT(start < n);
 	BLST_ASSERT(start + length <= n);
 
-        const FftInverseTruncatedRangePlan plan =
-                make_fft_inverse_truncated_range_plan(n, start, length);
-        fft_inverse_truncated_range<G, F, CoeffCtx>(
-                x, inv_roots, start, length, plan, timings, metric_prefix);
+	const FftInverseTruncatedRangePlan plan =
+			make_fft_inverse_truncated_range_plan(n, start, length);
+	fft_inverse_truncated_range<G, F, CoeffCtx>(
+			x, inv_roots, start, length, plan, timings, metric_prefix);
 }
 
 //// Computes the middle n coefficients of C = A * B
@@ -1122,380 +1123,380 @@ void derive_ntt_of_reversed_inplace(
 }
 
 
-// Computes the middle n coefficients of C = A * B using the reversal trick
-// A has n coefficients (type G1), B has 2n coefficients split as B0 and B1
-// Writes coefficients c[n], c[n+1], ..., c[2n-1] to out (0-indexed)
-//
-// OPTIMIZATION: Uses frequency reversal + phase trick to eliminate one G1 NTT
-// Instead of computing NTT(rev(A)) directly, we derive it from NTT(A):
-//   NTT(rev(A))[k] = ω^((n-1)*k) * NTT(A)[(-k) mod m]
-//
-// This saves one full G1 forward NTT (m log m scalar mults in G1)
-// and replaces it with m scalar mults in G1 (linear cost).
-//
-// IMPORTANT: This function modifies A, B0, B1 in-place. Caller must copy if needed.
-//
-// Parameters:
-//   A         - input polynomial, size m, input in [0,n), rest used as scratch, MODIFIED
-//   B0        - input polynomial (low half of B), size m, input in [0,n), MODIFIED
-//   B1        - input polynomial (high half of B), size m, input in [0,n), MODIFIED
-//   n         - logical size of A, B0, B1 each have n valid coefficients
-//   m         - FFT size, must be power of 2 and >= 2n
-//   out       - output buffer, size >= n
-//   C_scratch - scratch buffer for FFT results, size m
-//   roots     - precomputed roots of unity, size m
-//   inv_roots - precomputed inverse roots, size m
-//   omega     - primitive m-th root of unity (roots[1])
-//   identity_gt - additive identity for GT
-//   identity_g1 - additive identity for G1
-//   identity_g2 - additive identity for G2
-template <typename G1, typename G2, typename GT, typename F, typename CoeffCtx>
-void middle_product_fft(
-	std::span<G1> A,
-	std::span<G2> B0,
-	std::span<G2> B1,
-	bool skipFftB,
-	std::size_t n,
-	std::size_t m,
-	std::span<GT> out,
-	std::span<GT> C_scratch,
-	std::span<const F> roots,
-	std::span<const F> inv_roots,
-	const F& omega,
-	const GT& identity_gt,
-	const G1& identity_g1,
-	const G2& identity_g2,
-	blst::TimingStats* timings = nullptr)
-{
-	BLST_ASSERT(A.size() >= m);
-	BLST_ASSERT(B0.size() >= m);
-	BLST_ASSERT(B1.size() >= m);
-	BLST_ASSERT(out.size() >= n);
-	BLST_ASSERT(C_scratch.size() >= m);
-	BLST_ASSERT(roots.size() >= m);
-	BLST_ASSERT(inv_roots.size() >= m);
-	BLST_ASSERT(m >= 2 * n);
-	BLST_ASSERT((m & (m - 1)) == 0);
+// // Computes the middle n coefficients of C = A * B using the reversal trick
+// // A has n coefficients (type G1), B has 2n coefficients split as B0 and B1
+// // Writes coefficients c[n], c[n+1], ..., c[2n-1] to out (0-indexed)
+// //
+// // OPTIMIZATION: Uses frequency reversal + phase trick to eliminate one G1 NTT
+// // Instead of computing NTT(rev(A)) directly, we derive it from NTT(A):
+// //   NTT(rev(A))[k] = ω^((n-1)*k) * NTT(A)[(-k) mod m]
+// //
+// // This saves one full G1 forward NTT (m log m scalar mults in G1)
+// // and replaces it with m scalar mults in G1 (linear cost).
+// //
+// // IMPORTANT: This function modifies A, B0, B1 in-place. Caller must copy if needed.
+// //
+// // Parameters:
+// //   A         - input polynomial, size m, input in [0,n), rest used as scratch, MODIFIED
+// //   B0        - input polynomial (low half of B), size m, input in [0,n), MODIFIED
+// //   B1        - input polynomial (high half of B), size m, input in [0,n), MODIFIED
+// //   n         - logical size of A, B0, B1 each have n valid coefficients
+// //   m         - FFT size, must be power of 2 and >= 2n
+// //   out       - output buffer, size >= n
+// //   C_scratch - scratch buffer for FFT results, size m
+// //   roots     - precomputed roots of unity, size m
+// //   inv_roots - precomputed inverse roots, size m
+// //   omega     - primitive m-th root of unity (roots[1])
+// //   identity_gt - additive identity for GT
+// //   identity_g1 - additive identity for G1
+// //   identity_g2 - additive identity for G2
+// template <typename G1, typename G2, typename GT, typename F, typename CoeffCtx>
+// void middle_product_fft(
+// 	std::span<G1> A,
+// 	std::span<G2> B0,
+// 	std::span<G2> B1,
+// 	bool skipFftB,
+// 	std::size_t n,
+// 	std::size_t m,
+// 	std::span<GT> out,
+// 	std::span<GT> C_scratch,
+// 	std::span<const F> roots,
+// 	std::span<const F> inv_roots,
+// 	const F& omega,
+// 	const GT& identity_gt,
+// 	const G1& identity_g1,
+// 	const G2& identity_g2,
+// 	blst::TimingStats* timings = nullptr)
+// {
+// 	BLST_ASSERT(A.size() >= m);
+// 	BLST_ASSERT(B0.size() >= m);
+// 	BLST_ASSERT(B1.size() >= m);
+// 	BLST_ASSERT(out.size() >= n);
+// 	BLST_ASSERT(C_scratch.size() >= m);
+// 	BLST_ASSERT(roots.size() >= m);
+// 	BLST_ASSERT(inv_roots.size() >= m);
+// 	BLST_ASSERT(m >= 2 * n);
+// 	BLST_ASSERT((m & (m - 1)) == 0);
 
-	// === Phase 1: Compute p = low_n(A * B1) ===
+// 	// === Phase 1: Compute p = low_n(A * B1) ===
 
-	// Pad A and B1 with identity
-	{
-		blst::ScopedTimer timer(timings, "middle.phase1_prepare_ns");
-		for (std::size_t i = n; i < m; ++i) {
-			A[i] = identity_g1;
-			if (skipFftB == false) {
-				B1[i] = identity_g2;
-			}
-		}
-	}
+// 	// Pad A and B1 with identity
+// 	{
+// 		blst::ScopedTimer timer(timings, "middle.phase1_prepare_ns");
+// 		for (std::size_t i = n; i < m; ++i) {
+// 			A[i] = identity_g1;
+// 			if (skipFftB == false) {
+// 				B1[i] = identity_g2;
+// 			}
+// 		}
+// 	}
 
-	// Forward FFT on A
-	{
-		blst::ScopedTimer timer(timings, "middle.phase1_fft_a_ns");
-		fft<G1, F, CoeffCtx>(A, roots, false);
-	}
+// 	// Forward FFT on A
+// 	{
+// 		blst::ScopedTimer timer(timings, "middle.phase1_fft_a_ns");
+// 		fft<G1, F, CoeffCtx>(A, roots, false);
+// 	}
 
-	if (skipFftB == false)
-	{
-		// Forward FFT on B1
-		blst::ScopedTimer timer(timings, "middle.phase1_fft_b1_ns");
-		fft<G2, F, CoeffCtx>(B1, roots, false);
-	}
+// 	if (skipFftB == false)
+// 	{
+// 		// Forward FFT on B1
+// 		blst::ScopedTimer timer(timings, "middle.phase1_fft_b1_ns");
+// 		fft<G2, F, CoeffCtx>(B1, roots, false);
+// 	}
 
-	// Pointwise multiply -> C_scratch
-	{
-		blst::ScopedTimer timer(timings, "middle.phase1_pointwise_ns");
-		for (std::size_t t = 0; t < m; ++t) {
-			C_scratch[t] = CoeffCtx::mult(A[t], B1[t]);
-		}
-	}
+// 	// Pointwise multiply -> C_scratch
+// 	{
+// 		blst::ScopedTimer timer(timings, "middle.phase1_pointwise_ns");
+// 		for (std::size_t t = 0; t < m; ++t) {
+// 			C_scratch[t] = CoeffCtx::mult(A[t], B1[t]);
+// 		}
+// 	}
 
-	// Inverse FFT to get (A * B1) coefficients
-	{
-		blst::ScopedTimer timer(timings, "middle.phase1_ifft_ns");
-		fft<GT, F, CoeffCtx>(C_scratch, inv_roots, true);
-	}
+// 	// Inverse FFT to get (A * B1) coefficients
+// 	{
+// 		blst::ScopedTimer timer(timings, "middle.phase1_ifft_ns");
+// 		fft<GT, F, CoeffCtx>(C_scratch, inv_roots, true);
+// 	}
 
-	// Save p[k] = C_scratch[k] for k = 0..n-1 into out
-	{
-		blst::ScopedTimer timer(timings, "middle.phase1_copy_ns");
-		for (std::size_t k = 0; k < n; ++k) {
-			out[k] = C_scratch[k];
-		}
-	}
+// 	// Save p[k] = C_scratch[k] for k = 0..n-1 into out
+// 	{
+// 		blst::ScopedTimer timer(timings, "middle.phase1_copy_ns");
+// 		for (std::size_t k = 0; k < n; ++k) {
+// 			out[k] = C_scratch[k];
+// 		}
+// 	}
 
-	// === Phase 2: Compute q = high_n(A * B0) via reversal ===
+// 	// === Phase 2: Compute q = high_n(A * B0) via reversal ===
 
-	std::vector<G1> ARev(m);
+// 	std::vector<G1> ARev(m);
 
-	// Derive NTT(rev(A)) from NTT(A) using the phase trick
-	// A_rev_hat[k] = ω^((n-1)*k) * A_hat[(-k) mod m]
-	{
-		blst::ScopedTimer timer(timings, "middle.phase2_derive_ntt_ns");
-		derive_ntt_of_reversed<G1, F, CoeffCtx>(
-			std::span<const G1>(A.data(), m),
-			ARev,
-			n, m, omega, identity_g1);
-	}
+// 	// Derive NTT(rev(A)) from NTT(A) using the phase trick
+// 	// A_rev_hat[k] = ω^((n-1)*k) * A_hat[(-k) mod m]
+// 	{
+// 		blst::ScopedTimer timer(timings, "middle.phase2_derive_ntt_ns");
+// 		derive_ntt_of_reversed<G1, F, CoeffCtx>(
+// 			std::span<const G1>(A.data(), m),
+// 			ARev,
+// 			n, m, omega, identity_g1);
+// 	}
 
-	if (skipFftB == false)
-	{
-		// Reverse B0 in-place and pad
-		{
-			blst::ScopedTimer timer(timings, "middle.phase2_prepare_b0_ns");
-			for (std::size_t i = 0; i < n / 2; ++i) {
-				std::swap(B0[i], B0[n - 1 - i]);
-			}
-			for (std::size_t i = n; i < m; ++i) {
-				B0[i] = identity_g2;
-			}
-		}
-		// Forward FFT on rev(B0)
-		{
-			blst::ScopedTimer timer(timings, "middle.phase2_fft_b0_ns");
-			fft<G2, F, CoeffCtx>(B0, roots, false);
-		}
-	}
+// 	if (skipFftB == false)
+// 	{
+// 		// Reverse B0 in-place and pad
+// 		{
+// 			blst::ScopedTimer timer(timings, "middle.phase2_prepare_b0_ns");
+// 			for (std::size_t i = 0; i < n / 2; ++i) {
+// 				std::swap(B0[i], B0[n - 1 - i]);
+// 			}
+// 			for (std::size_t i = n; i < m; ++i) {
+// 				B0[i] = identity_g2;
+// 			}
+// 		}
+// 		// Forward FFT on rev(B0)
+// 		{
+// 			blst::ScopedTimer timer(timings, "middle.phase2_fft_b0_ns");
+// 			fft<G2, F, CoeffCtx>(B0, roots, false);
+// 		}
+// 	}
 
-	// Pointwise multiply
-	{
-		blst::ScopedTimer timer(timings, "middle.phase2_pointwise_ns");
-		for (std::size_t t = 0; t < m; ++t) {
-			C_scratch[t] = CoeffCtx::mult(ARev[t], B0[t]);
-		}
-	}
+// 	// Pointwise multiply
+// 	{
+// 		blst::ScopedTimer timer(timings, "middle.phase2_pointwise_ns");
+// 		for (std::size_t t = 0; t < m; ++t) {
+// 			C_scratch[t] = CoeffCtx::mult(ARev[t], B0[t]);
+// 		}
+// 	}
 
-	// Inverse FFT
-	{
-		blst::ScopedTimer timer(timings, "middle.phase2_ifft_ns");
-		fft<GT, F, CoeffCtx>(C_scratch, inv_roots, true);
-	}
-	// (A*B0)[n+k] = D[n-2-k] for k = 0..n-2
+// 	// Inverse FFT
+// 	{
+// 		blst::ScopedTimer timer(timings, "middle.phase2_ifft_ns");
+// 		fft<GT, F, CoeffCtx>(C_scratch, inv_roots, true);
+// 	}
+// 	// (A*B0)[n+k] = D[n-2-k] for k = 0..n-2
 
-	// Combine: out[k] = p[k] + q[k]
-	{
-		blst::ScopedTimer timer(timings, "middle.phase2_combine_ns");
-		for (std::size_t k = 0; k < n - 1; ++k) {
-			out[k] = CoeffCtx::plus(out[k], C_scratch[n - 2 - k]);
-		}
-	}
-	// out[n-1] already has p[n-1], q[n-1] = 0, so no change needed
-}
+// 	// Combine: out[k] = p[k] + q[k]
+// 	{
+// 		blst::ScopedTimer timer(timings, "middle.phase2_combine_ns");
+// 		for (std::size_t k = 0; k < n - 1; ++k) {
+// 			out[k] = CoeffCtx::plus(out[k], C_scratch[n - 2 - k]);
+// 		}
+// 	}
+// 	// out[n-1] already has p[n-1], q[n-1] = 0, so no change needed
+// }
 
-// Truncated Inverse NTT (DIF form) - computes only the first L outputs
-// 
-// IMPORTANT: DIF produces output in bit-reversed order. To get natural order output,
-// we need to account for this. However, since we're truncating, we use a different
-// approach: we implement the transpose of the forward DIT FFT.
-//
-// For inverse FFT with natural-order output, we use the same structure as forward
-// but with inverse roots and post-normalization.
-template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
-void fft_inverse_truncated(
-	std::span<G> X,
-	std::size_t m,
-	std::size_t L,
-	std::span<const F> inv_roots,
-	const F& m_inv)
-{
-	BLST_ASSERT(X.size() >= m);
-	BLST_ASSERT(L <= m);
-	BLST_ASSERT(inv_roots.size() >= m);
-	BLST_ASSERT((m & (m - 1)) == 0);  // power of 2
+// // Truncated Inverse NTT (DIF form) - computes only the first L outputs
+// // 
+// // IMPORTANT: DIF produces output in bit-reversed order. To get natural order output,
+// // we need to account for this. However, since we're truncating, we use a different
+// // approach: we implement the transpose of the forward DIT FFT.
+// //
+// // For inverse FFT with natural-order output, we use the same structure as forward
+// // but with inverse roots and post-normalization.
+// template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
+// void fft_inverse_truncated(
+// 	std::span<G> X,
+// 	std::size_t m,
+// 	std::size_t L,
+// 	std::span<const F> inv_roots,
+// 	const F& m_inv)
+// {
+// 	BLST_ASSERT(X.size() >= m);
+// 	BLST_ASSERT(L <= m);
+// 	BLST_ASSERT(inv_roots.size() >= m);
+// 	BLST_ASSERT((m & (m - 1)) == 0);  // power of 2
 
-	if (L == 0) return;
+// 	if (L == 0) return;
 
-	// For truncated inverse, we use the standard DIT structure (same as forward fft)
-	// but with inv_roots. The key insight is that the standard fft with inv_roots
-	// and post-scaling gives the inverse.
-	//
-	// We can truncate by not computing butterflies that only affect indices >= L
-	// in the FINAL output. However, due to bit-reversal at the start, the mapping
-	// between input indices and output indices is complex.
-	//
-	// For correctness, we do the full computation but this can be optimized later.
-	// The bit-reversal permutation means early truncation is non-trivial.
+// 	// For truncated inverse, we use the standard DIT structure (same as forward fft)
+// 	// but with inv_roots. The key insight is that the standard fft with inv_roots
+// 	// and post-scaling gives the inverse.
+// 	//
+// 	// We can truncate by not computing butterflies that only affect indices >= L
+// 	// in the FINAL output. However, due to bit-reversal at the start, the mapping
+// 	// between input indices and output indices is complex.
+// 	//
+// 	// For correctness, we do the full computation but this can be optimized later.
+// 	// The bit-reversal permutation means early truncation is non-trivial.
 
-	int n = static_cast<int>(m);
+// 	int n = static_cast<int>(m);
 
-	// Bit-reversal permutation (same as forward)
-	bit_reverse(X.subspan(0, m));
+// 	// Bit-reversal permutation (same as forward)
+// 	bit_reverse(X.subspan(0, m));
 
-	// DIT butterflies with inverse roots
-	for (int len = 2; len <= n; len <<= 1) {
-		int half = len / 2;
-		for (int i = 0; i < n; i += len) {
-			for (int j = 0; j < half; j++) {
-				F w = inv_roots[j * (n / len)];
+// 	// DIT butterflies with inverse roots
+// 	for (int len = 2; len <= n; len <<= 1) {
+// 		int half = len / 2;
+// 		for (int i = 0; i < n; i += len) {
+// 			for (int j = 0; j < half; j++) {
+// 				F w = inv_roots[j * (n / len)];
 
-				G u = X[i + j];
-				G t = CoeffCtx::mult(X[i + j + half], w);
-				X[i + j] = CoeffCtx::plus(u, t);
-				X[i + j + half] = CoeffCtx::minus(u, t);
-			}
-		}
-	}
+// 				G u = X[i + j];
+// 				G t = CoeffCtx::mult(X[i + j + half], w);
+// 				X[i + j] = CoeffCtx::plus(u, t);
+// 				X[i + j + half] = CoeffCtx::minus(u, t);
+// 			}
+// 		}
+// 	}
 
-	// Final normalization - only for prefix we care about
-	for (std::size_t k = 0; k < L; ++k) {
-		X[k] = CoeffCtx::mult(X[k], m_inv);
-	}
-}
+// 	// Final normalization - only for prefix we care about
+// 	for (std::size_t k = 0; k < L; ++k) {
+// 		X[k] = CoeffCtx::mult(X[k], m_inv);
+// 	}
+// }
 
-// Full inverse using same structure as forward (for benchmarking comparison)
-template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
-void fft_inverse_full(
-	std::span<G> X,
-	std::size_t m,
-	std::span<const F> inv_roots,
-	const F& m_inv)
-{
-	BLST_ASSERT(X.size() >= m);
-	BLST_ASSERT(inv_roots.size() >= m);
-	BLST_ASSERT((m & (m - 1)) == 0);
+// // Full inverse using same structure as forward (for benchmarking comparison)
+// template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
+// void fft_inverse_full(
+// 	std::span<G> X,
+// 	std::size_t m,
+// 	std::span<const F> inv_roots,
+// 	const F& m_inv)
+// {
+// 	BLST_ASSERT(X.size() >= m);
+// 	BLST_ASSERT(inv_roots.size() >= m);
+// 	BLST_ASSERT((m & (m - 1)) == 0);
 
-	int n = static_cast<int>(m);
+// 	int n = static_cast<int>(m);
 
-	bit_reverse(X.subspan(0, m));
+// 	bit_reverse(X.subspan(0, m));
 
-	for (int len = 2; len <= n; len <<= 1) {
-		int half = len / 2;
-		for (int i = 0; i < n; i += len) {
-			for (int j = 0; j < half; j++) {
-				F w = inv_roots[j * (n / len)];
+// 	for (int len = 2; len <= n; len <<= 1) {
+// 		int half = len / 2;
+// 		for (int i = 0; i < n; i += len) {
+// 			for (int j = 0; j < half; j++) {
+// 				F w = inv_roots[j * (n / len)];
 
-				G u = X[i + j];
-				G t = CoeffCtx::mult(X[i + j + half], w);
-				X[i + j] = CoeffCtx::plus(u, t);
-				X[i + j + half] = CoeffCtx::minus(u, t);
-			}
-		}
-	}
+// 				G u = X[i + j];
+// 				G t = CoeffCtx::mult(X[i + j + half], w);
+// 				X[i + j] = CoeffCtx::plus(u, t);
+// 				X[i + j + half] = CoeffCtx::minus(u, t);
+// 			}
+// 		}
+// 	}
 
-	for (std::size_t k = 0; k < m; ++k) {
-		X[k] = CoeffCtx::mult(X[k], m_inv);
-	}
-}
+// 	for (std::size_t k = 0; k < m; ++k) {
+// 		X[k] = CoeffCtx::mult(X[k], m_inv);
+// 	}
+// }
 
-// Middle product using truncated inverse FFT
-// Note: This version currently does full computation but only normalizes the prefix.
-// True truncation with DIT structure is complex due to bit-reversal permutation.
-template <typename G1, typename G2, typename GT, typename F, typename CoeffCtx>
-void middle_product_fft_truncated(
-	std::span<G1> A,
-	std::span<G2> B0,
-	std::span<G2> B1,
-	bool skipFftB,
-	std::size_t n,
-	std::size_t m,
-	std::span<GT> out,
-	std::span<GT> C_scratch,
-	std::span<const F> roots,
-	std::span<const F> inv_roots,
-	const F& omega,
-	const F& m_inv,
-	const GT& identity_gt,
-	const G1& identity_g1,
-	const G2& identity_g2,
-	blst::TimingStats* timings = nullptr)
-{
-	BLST_ASSERT(A.size() >= m);
-	BLST_ASSERT(B0.size() >= m);
-	BLST_ASSERT(B1.size() >= m);
-	BLST_ASSERT(out.size() >= n);
-	BLST_ASSERT(C_scratch.size() >= m);
-	BLST_ASSERT(roots.size() >= m);
-	BLST_ASSERT(inv_roots.size() >= m);
-	BLST_ASSERT(m >= 2 * n);
-	BLST_ASSERT((m & (m - 1)) == 0);
+// // Middle product using truncated inverse FFT
+// // Note: This version currently does full computation but only normalizes the prefix.
+// // True truncation with DIT structure is complex due to bit-reversal permutation.
+// template <typename G1, typename G2, typename GT, typename F, typename CoeffCtx>
+// void middle_product_fft_truncated(
+// 	std::span<G1> A,
+// 	std::span<G2> B0,
+// 	std::span<G2> B1,
+// 	bool skipFftB,
+// 	std::size_t n,
+// 	std::size_t m,
+// 	std::span<GT> out,
+// 	std::span<GT> C_scratch,
+// 	std::span<const F> roots,
+// 	std::span<const F> inv_roots,
+// 	const F& omega,
+// 	const F& m_inv,
+// 	const GT& identity_gt,
+// 	const G1& identity_g1,
+// 	const G2& identity_g2,
+// 	blst::TimingStats* timings = nullptr)
+// {
+// 	BLST_ASSERT(A.size() >= m);
+// 	BLST_ASSERT(B0.size() >= m);
+// 	BLST_ASSERT(B1.size() >= m);
+// 	BLST_ASSERT(out.size() >= n);
+// 	BLST_ASSERT(C_scratch.size() >= m);
+// 	BLST_ASSERT(roots.size() >= m);
+// 	BLST_ASSERT(inv_roots.size() >= m);
+// 	BLST_ASSERT(m >= 2 * n);
+// 	BLST_ASSERT((m & (m - 1)) == 0);
 
-	// === Phase 1: Compute p = low_n(A * B1) ===
+// 	// === Phase 1: Compute p = low_n(A * B1) ===
 
-	{
-		blst::ScopedTimer timer(timings, "middle_trunc.phase1_prepare_ns");
-		for (std::size_t i = n; i < m; ++i) {
-			A[i] = identity_g1;
-			if (skipFftB == false) {
-				B1[i] = identity_g2;
-			}
-		}
-	}
+// 	{
+// 		blst::ScopedTimer timer(timings, "middle_trunc.phase1_prepare_ns");
+// 		for (std::size_t i = n; i < m; ++i) {
+// 			A[i] = identity_g1;
+// 			if (skipFftB == false) {
+// 				B1[i] = identity_g2;
+// 			}
+// 		}
+// 	}
 
-	{
-		blst::ScopedTimer timer(timings, "middle_trunc.phase1_fft_a_ns");
-		fft<G1, F, CoeffCtx>(A, roots, false);
-	}
-	if (skipFftB == false) {
-		blst::ScopedTimer timer(timings, "middle_trunc.phase1_fft_b1_ns");
-		fft<G2, F, CoeffCtx>(B1, roots, false);
-	}
+// 	{
+// 		blst::ScopedTimer timer(timings, "middle_trunc.phase1_fft_a_ns");
+// 		fft<G1, F, CoeffCtx>(A, roots, false);
+// 	}
+// 	if (skipFftB == false) {
+// 		blst::ScopedTimer timer(timings, "middle_trunc.phase1_fft_b1_ns");
+// 		fft<G2, F, CoeffCtx>(B1, roots, false);
+// 	}
 
-	{
-		blst::ScopedTimer timer(timings, "middle_trunc.phase1_pointwise_ns");
-		for (std::size_t t = 0; t < m; ++t) {
-			C_scratch[t] = CoeffCtx::mult(A[t], B1[t]);
-		}
-	}
+// 	{
+// 		blst::ScopedTimer timer(timings, "middle_trunc.phase1_pointwise_ns");
+// 		for (std::size_t t = 0; t < m; ++t) {
+// 			C_scratch[t] = CoeffCtx::mult(A[t], B1[t]);
+// 		}
+// 	}
 
-	// Truncated inverse FFT: only need first n outputs
-	{
-		blst::ScopedTimer timer(timings, "middle_trunc.phase1_ifft_ns");
-		fft_inverse_truncated<GT, F, CoeffCtx>(C_scratch, m, n, inv_roots, m_inv);
-	}
+// 	// Truncated inverse FFT: only need first n outputs
+// 	{
+// 		blst::ScopedTimer timer(timings, "middle_trunc.phase1_ifft_ns");
+// 		fft_inverse_truncated<GT, F, CoeffCtx>(C_scratch, m, n, inv_roots, m_inv);
+// 	}
 
-	{
-		blst::ScopedTimer timer(timings, "middle_trunc.phase1_copy_ns");
-		for (std::size_t k = 0; k < n; ++k) {
-			out[k] = C_scratch[k];
-		}
-	}
+// 	{
+// 		blst::ScopedTimer timer(timings, "middle_trunc.phase1_copy_ns");
+// 		for (std::size_t k = 0; k < n; ++k) {
+// 			out[k] = C_scratch[k];
+// 		}
+// 	}
 
-	// === Phase 2: Compute q = high_n(A * B0) via reversal ===
+// 	// === Phase 2: Compute q = high_n(A * B0) via reversal ===
 
-	std::vector<G1> ARev(m);
-	{
-		blst::ScopedTimer timer(timings, "middle_trunc.phase2_derive_ntt_ns");
-		derive_ntt_of_reversed<G1, F, CoeffCtx>(
-			std::span<const G1>(A.data(), m),
-			ARev,
-			n, m, omega, identity_g1);
-	}
+// 	std::vector<G1> ARev(m);
+// 	{
+// 		blst::ScopedTimer timer(timings, "middle_trunc.phase2_derive_ntt_ns");
+// 		derive_ntt_of_reversed<G1, F, CoeffCtx>(
+// 			std::span<const G1>(A.data(), m),
+// 			ARev,
+// 			n, m, omega, identity_g1);
+// 	}
 
-	if (skipFftB == false)
-	{
-		{
-			blst::ScopedTimer timer(timings, "middle_trunc.phase2_prepare_b0_ns");
-			for (std::size_t i = 0; i < n / 2; ++i) {
-				std::swap(B0[i], B0[n - 1 - i]);
-			}
-			for (std::size_t i = n; i < m; ++i) {
-				B0[i] = identity_g2;
-			}
-		}
-		{
-			blst::ScopedTimer timer(timings, "middle_trunc.phase2_fft_b0_ns");
-			fft<G2, F, CoeffCtx>(B0, roots, false);
-		}
-	}
+// 	if (skipFftB == false)
+// 	{
+// 		{
+// 			blst::ScopedTimer timer(timings, "middle_trunc.phase2_prepare_b0_ns");
+// 			for (std::size_t i = 0; i < n / 2; ++i) {
+// 				std::swap(B0[i], B0[n - 1 - i]);
+// 			}
+// 			for (std::size_t i = n; i < m; ++i) {
+// 				B0[i] = identity_g2;
+// 			}
+// 		}
+// 		{
+// 			blst::ScopedTimer timer(timings, "middle_trunc.phase2_fft_b0_ns");
+// 			fft<G2, F, CoeffCtx>(B0, roots, false);
+// 		}
+// 	}
 
-	{
-		blst::ScopedTimer timer(timings, "middle_trunc.phase2_pointwise_ns");
-		for (std::size_t t = 0; t < m; ++t) {
-			C_scratch[t] = CoeffCtx::mult(ARev[t], B0[t]);
-		}
-	}
+// 	{
+// 		blst::ScopedTimer timer(timings, "middle_trunc.phase2_pointwise_ns");
+// 		for (std::size_t t = 0; t < m; ++t) {
+// 			C_scratch[t] = CoeffCtx::mult(ARev[t], B0[t]);
+// 		}
+// 	}
 
-	// Truncated inverse FFT: only need first n-1 outputs
-	{
-		blst::ScopedTimer timer(timings, "middle_trunc.phase2_ifft_ns");
-		fft_inverse_truncated<GT, F, CoeffCtx>(C_scratch, m, n - 1, inv_roots, m_inv);
-	}
+// 	// Truncated inverse FFT: only need first n-1 outputs
+// 	{
+// 		blst::ScopedTimer timer(timings, "middle_trunc.phase2_ifft_ns");
+// 		fft_inverse_truncated<GT, F, CoeffCtx>(C_scratch, m, n - 1, inv_roots, m_inv);
+// 	}
 
-	{
-		blst::ScopedTimer timer(timings, "middle_trunc.phase2_combine_ns");
-		for (std::size_t k = 0; k < n - 1; ++k) {
-			out[k] = CoeffCtx::plus(out[k], C_scratch[n - 2 - k]);
-		}
-	}
-}
+// 	{
+// 		blst::ScopedTimer timer(timings, "middle_trunc.phase2_combine_ns");
+// 		for (std::size_t k = 0; k < n - 1; ++k) {
+// 			out[k] = CoeffCtx::plus(out[k], C_scratch[n - 2 - k]);
+// 		}
+// 	}
+// }

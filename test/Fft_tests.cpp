@@ -855,6 +855,7 @@ TEST(Fft, PolyMultFft) {
 }
 
 
+#if 0  // Legacy middle_product_fft/ifft helper coverage (API removed)
 // Test middle_product_fft against naive convolution
 TEST(Fft, MiddleProductFft) {
     std::size_t n = 8;
@@ -1230,6 +1231,7 @@ TEST(Fft, FullInverseFftCorrectness) {
 
     EXPECT_TRUE(match) << "Full inverse FFT does not match standard inverse";
 }
+#endif
 
 TEST(Fft, TruncatedForwardPrefixMatchesFullFr)
 {
@@ -1344,6 +1346,7 @@ TEST(Fft, InverseTruncatedRangeMatchesFullMiddleWindow)
     EXPECT_TRUE(match) << "Inverse range truncation mismatch";
 }
 
+#if 0  // Legacy middle_product_fft_truncated coverage (API removed)
 // Test middle_product_fft_truncated matches middle_product_fft
 TEST(Fft, MiddleProductFftTruncatedCorrectness) {
     std::size_t n = 8;
@@ -1432,6 +1435,7 @@ TEST(Fft, MiddleProductFftTruncatedCorrectness) {
 
     EXPECT_TRUE(match) << "Truncated middle product does not match standard version";
 }
+#endif
 
 static Fr fr_zero()
 {
@@ -1540,53 +1544,6 @@ TEST(Fft, MiddleProductApiBasicMatchesFieldOracle)
     }
 }
 
-TEST(Fft, MiddleProductApiSpecializedMatchesFieldOracle)
-{
-    const std::vector<std::size_t> test_sizes = { 3, 5, 9 };
-
-    G1Point g1_gen = g1(1);
-    G2Point g2_gen = g2(1);
-    GT gt_base = pair(g1_gen, g2_gen);
-
-    for (std::size_t n : test_sizes) {
-        std::vector<u64> a_scalars;
-        std::vector<u64> b_scalars;
-        a_scalars.reserve(n);
-        b_scalars.reserve(2 * n);
-
-        for (std::size_t i = 0; i < n; ++i) {
-            a_scalars.push_back(static_cast<u64>((13 * i + 9) % 113 + 1));
-        }
-        for (std::size_t i = 0; i < 2 * n; ++i) {
-            b_scalars.push_back(static_cast<u64>((17 * i + 4) % 127 + 1));
-        }
-
-        const std::vector<G1Point> a_points = points_from_scalars_g1(a_scalars);
-        const std::vector<G2Point> b_points = points_from_scalars_g2(b_scalars);
-        const std::vector<Fr> a_fr = fr_from_scalars(a_scalars);
-        const std::vector<Fr> b_fr = fr_from_scalars(b_scalars);
-        const std::vector<Fr> expected_fr = middle_product_oracle_fr(a_fr, b_fr);
-
-        std::vector<GT> out(n, GT::identity());
-        middle_product(
-            std::span<const G1Point>(a_points),
-            std::span<const G2Point>(b_points),
-            std::span<GT>(out),
-            MiddleProductAlgorithm::SpecializedFFT);
-
-        bool match = true;
-        for (std::size_t i = 0; i < n; ++i) {
-            GT expected = GTCoeffCtx::mult(gt_base, expected_fr[i]);
-            if (!GT::equal(out[i], expected)) {
-                match = false;
-                break;
-            }
-        }
-
-        EXPECT_TRUE(match) << "Specialized API middle product mismatch at n=" << n;
-    }
-}
-
 TEST(Fft, MiddleProductApiPrecomputedBMatchesRawAndCrossAlgorithm)
 {
     const std::vector<std::size_t> test_sizes = { 4, 6, 10 };
@@ -1609,9 +1566,6 @@ TEST(Fft, MiddleProductApiPrecomputedBMatchesRawAndCrossAlgorithm)
 
         std::vector<GT> basic_raw(n, GT::identity());
         std::vector<GT> basic_pre(n, GT::identity());
-        std::vector<GT> spec_raw(n, GT::identity());
-        std::vector<GT> spec_pre(n, GT::identity());
-
         middle_product(
             std::span<const G1Point>(a_points),
             std::span<const G2Point>(b_points),
@@ -1625,26 +1579,9 @@ TEST(Fft, MiddleProductApiPrecomputedBMatchesRawAndCrossAlgorithm)
             basic_b,
             std::span<GT>(basic_pre));
 
-        middle_product(
-            std::span<const G1Point>(a_points),
-            std::span<const G2Point>(b_points),
-            std::span<GT>(spec_raw),
-            MiddleProductAlgorithm::SpecializedFFT);
-
-        const auto spec_b = precompute_middle_product_b(
-            std::span<const G2Point>(b_points), n, MiddleProductAlgorithm::SpecializedFFT);
-        middle_product(
-            std::span<const G1Point>(a_points),
-            spec_b,
-            std::span<GT>(spec_pre));
-
         for (std::size_t i = 0; i < n; ++i) {
             EXPECT_TRUE(GT::equal(basic_raw[i], basic_pre[i]))
                 << "Basic precompute mismatch at n=" << n << ", i=" << i;
-            EXPECT_TRUE(GT::equal(spec_raw[i], spec_pre[i]))
-                << "Specialized precompute mismatch at n=" << n << ", i=" << i;
-            EXPECT_TRUE(GT::equal(basic_raw[i], spec_raw[i]))
-                << "Cross algorithm mismatch at n=" << n << ", i=" << i;
         }
     }
 }
@@ -1670,132 +1607,6 @@ TEST(Fft, MiddleProductAdmissibleRoundingBoundaryCases)
     EXPECT_EQ(fft_admissible_size(449, fft_small), fft_small);
     EXPECT_EQ(fft_admissible_size(3839, fft_large), static_cast<std::size_t>(3840));
     EXPECT_EQ(fft_admissible_size(3841, fft_large), fft_large);
-}
-
-TEST(Fft, MiddleProductBasicIfftTruncatedMatchesBasicApi)
-{
-    const std::vector<std::size_t> test_sizes = { 4, 6, 10 };
-
-    for (std::size_t n : test_sizes) {
-        std::vector<u64> a_scalars;
-        std::vector<u64> b_scalars;
-        a_scalars.reserve(n);
-        b_scalars.reserve(2 * n);
-
-        for (std::size_t i = 0; i < n; ++i) {
-            a_scalars.push_back(static_cast<u64>((31 * i + 7) % 181 + 1));
-        }
-        for (std::size_t i = 0; i < 2 * n; ++i) {
-            b_scalars.push_back(static_cast<u64>((37 * i + 5) % 191 + 1));
-        }
-
-        const std::vector<G1Point> a_points = points_from_scalars_g1(a_scalars);
-        const std::vector<G2Point> b_points = points_from_scalars_g2(b_scalars);
-        const auto basic_b = precompute_middle_product_b(
-            std::span<const G2Point>(b_points), n, MiddleProductAlgorithm::BasicFFT);
-
-        std::vector<GT> expected(n, GT::identity());
-        std::vector<GT> actual(n, GT::identity());
-
-        middle_product(
-            std::span<const G1Point>(a_points),
-            basic_b,
-            std::span<GT>(expected));
-
-        middle_product_basic_ifft_truncated(
-            std::span<const G1Point>(a_points),
-            basic_b,
-            std::span<GT>(actual));
-
-        for (std::size_t i = 0; i < n; ++i) {
-            EXPECT_TRUE(GT::equal(expected[i], actual[i]))
-                << "basic_ifft_trunc mismatch at n=" << n << ", i=" << i;
-        }
-    }
-}
-
-TEST(Fft, MiddleProductBasicPrunedMatchesBasicApi)
-{
-    const std::vector<std::size_t> test_sizes = { 4, 6, 10, 24 };
-
-    for (std::size_t n : test_sizes) {
-        std::vector<u64> a_scalars;
-        std::vector<u64> b_scalars;
-        a_scalars.reserve(n);
-        b_scalars.reserve(2 * n);
-
-        for (std::size_t i = 0; i < n; ++i) {
-            a_scalars.push_back(static_cast<u64>((41 * i + 9) % 197 + 1));
-        }
-        for (std::size_t i = 0; i < 2 * n; ++i) {
-            b_scalars.push_back(static_cast<u64>((43 * i + 13) % 211 + 1));
-        }
-
-        const std::vector<G1Point> a_points = points_from_scalars_g1(a_scalars);
-        const std::vector<G2Point> b_points = points_from_scalars_g2(b_scalars);
-        const auto basic_b = precompute_middle_product_b(
-            std::span<const G2Point>(b_points), n, MiddleProductAlgorithm::BasicFFT);
-
-        std::vector<GT> expected(n, GT::identity());
-        std::vector<GT> actual(n, GT::identity());
-
-        middle_product(
-            std::span<const G1Point>(a_points),
-            basic_b,
-            std::span<GT>(expected));
-
-        middle_product_basic_pruned(
-            std::span<const G1Point>(a_points),
-            basic_b,
-            std::span<GT>(actual));
-
-        for (std::size_t i = 0; i < n; ++i) {
-            EXPECT_TRUE(GT::equal(expected[i], actual[i]))
-                << "basic_pruned mismatch at n=" << n << ", i=" << i;
-        }
-    }
-}
-
-TEST(Fft, MiddleProductSpecializedTruncatedMatchesSpecializedApi)
-{
-    const std::vector<std::size_t> test_sizes = { 4, 6, 10, 24 };
-
-    for (std::size_t n : test_sizes) {
-        std::vector<u64> a_scalars;
-        std::vector<u64> b_scalars;
-        a_scalars.reserve(n);
-        b_scalars.reserve(2 * n);
-
-        for (std::size_t i = 0; i < n; ++i) {
-            a_scalars.push_back(static_cast<u64>((47 * i + 15) % 223 + 1));
-        }
-        for (std::size_t i = 0; i < 2 * n; ++i) {
-            b_scalars.push_back(static_cast<u64>((53 * i + 21) % 227 + 1));
-        }
-
-        const std::vector<G1Point> a_points = points_from_scalars_g1(a_scalars);
-        const std::vector<G2Point> b_points = points_from_scalars_g2(b_scalars);
-        const auto spec_b = precompute_middle_product_b(
-            std::span<const G2Point>(b_points), n, MiddleProductAlgorithm::SpecializedFFT);
-
-        std::vector<GT> expected(n, GT::identity());
-        std::vector<GT> actual(n, GT::identity());
-
-        middle_product(
-            std::span<const G1Point>(a_points),
-            spec_b,
-            std::span<GT>(expected));
-
-        middle_product_specialized_truncated(
-            std::span<const G1Point>(a_points),
-            spec_b,
-            std::span<GT>(actual));
-
-        for (std::size_t i = 0; i < n; ++i) {
-            EXPECT_TRUE(GT::equal(expected[i], actual[i]))
-                << "specialized_trunc mismatch at n=" << n << ", i=" << i;
-        }
-    }
 }
 
 TEST(Fft, MiddleProductApiOneIfftMatchesFieldOracle)
@@ -1845,7 +1656,7 @@ TEST(Fft, MiddleProductApiOneIfftMatchesFieldOracle)
     }
 }
 
-TEST(Fft, MiddleProductOneIfftMatchesSpecializedApi)
+TEST(Fft, MiddleProductOneIfftMatchesBasicApi)
 {
     const std::vector<std::size_t> test_sizes = { 4, 6, 10, 24 };
 
@@ -1873,7 +1684,7 @@ TEST(Fft, MiddleProductOneIfftMatchesSpecializedApi)
             std::span<const G1Point>(a_points),
             std::span<const G2Point>(b_points),
             std::span<GT>(expected),
-            MiddleProductAlgorithm::SpecializedFFT);
+            MiddleProductAlgorithm::BasicFFT);
 
         middle_product(
             std::span<const G1Point>(a_points),
@@ -1890,7 +1701,7 @@ TEST(Fft, MiddleProductOneIfftMatchesSpecializedApi)
 
         for (std::size_t i = 0; i < n; ++i) {
             EXPECT_TRUE(GT::equal(expected[i], oneifft_raw[i]))
-                << "OneIfft raw mismatch vs specialized at n=" << n << ", i=" << i;
+                << "OneIfft raw mismatch vs basic at n=" << n << ", i=" << i;
             EXPECT_TRUE(GT::equal(oneifft_raw[i], oneifft_pre[i]))
                 << "OneIfft precompute mismatch at n=" << n << ", i=" << i;
         }
