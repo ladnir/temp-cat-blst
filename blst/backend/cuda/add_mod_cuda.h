@@ -301,7 +301,7 @@ namespace blst
 
 	}
 	template<typename Field>
-	BLST_DEVICE BLST_FORCEINLINE
+	BLST_DEVICE BLST_CPP_INLINE
 		void ptx_sub_mod_u64(
 			uint64_t* r,
 			const uint64_t* a,

@@ -28,7 +28,7 @@ BLST_GLOBAL void main_fp12_kernel
 )
 {
 	u64 idx;
-	u64 stride;
+	//u64 stride;
 
 	idx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -48,7 +48,7 @@ BLST_GLOBAL void main_fp12_kernel(
 	u64   n)
 {
 	u64 idx;
-	u64 stride;
+	//u64 stride;
 
 	idx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -69,7 +69,7 @@ BLST_GLOBAL void main_fp12Tile_kernel(
 	u64   n)
 {
 	u64 idx;
-	u64 stride;
+	//u64 stride;
 
 	idx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -125,7 +125,7 @@ BLST_GLOBAL void blst_fp12Tile_kernel(
 	u64   n)
 {
 	u64 idx;
-	u64 stride;
+	//u64 stride;
 
 	idx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -163,7 +163,6 @@ void Fp12Main()
 		// DIM
 		dim3 block(64);
 		dim3 grid((n + block.x - 1) / block.x);
-		int sms = 0;
 		//cudaDeviceGetAttribute(&sms, cudaDevAttrMultiProcessorCount, 0);
 		//grid = dim3((unsigned)std::max<u64>(grid.x, (u64)sms * 8));
 
@@ -390,7 +389,7 @@ void blstFp12TileMain()
 BLST_GLOBAL void g1_add_kernel(G1Point* ret, blst::G1Point* a, blst::G1Point* b, size_t n)
 {
 	u64 idx;
-	u64 stride;
+	//u64 stride;
 
 	idx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -413,7 +412,6 @@ void G1Main()
 	// DIM
 	dim3 block(32);
 	dim3 grid((n + block.x - 1) / block.x);
-	int sms = 0;
 
 	for (u64 i = 0; i < 10; ++i)
 	{

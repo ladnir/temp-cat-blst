@@ -1043,7 +1043,7 @@ auto store(NoopIdx idx, blst::FpTile& x, const Field& f)
 			}
 		}
 
-#pragma unroll
+BLST_UNROLL
 		for (limb_t i = 1; i < n; i++) {
 			wide_limb_t  ab_i;
 			wide_limb_t  mp_i;
@@ -1211,14 +1211,14 @@ auto store(NoopIdx idx, blst::FpTile& x, const Field& f)
 
 		auto al = load <Field>(idx, a);
 		limb_t aa[n];
-#pragma unroll
+BLST_UNROLL
 		for (int i = 0; i < n; i++) {
 			aa[i] = al[i];
 		}
 
 		auto bl = load <Field>(idx, b);
 		limb_t bb[n];
-#pragma unroll
+BLST_UNROLL
 		for (int i = 0; i < n; i++) {
 			bb[i] = bl[i];
 		}
@@ -1236,7 +1236,7 @@ auto store(NoopIdx idx, blst::FpTile& x, const Field& f)
 		limb_t tmp[n];
 		{
 			limb_t borrow = 0;
-#pragma unroll
+BLST_UNROLL
 			for (int i = 0; i < n; i++) {
 				wide_limb_t w;
 				cc_sub_borrow_wide_limb_limb(&w, t[i], p[i], borrow);
@@ -1244,7 +1244,7 @@ auto store(NoopIdx idx, blst::FpTile& x, const Field& f)
 				borrow = w.hi & 1;
 			}
 			limb_t mask = carry - borrow;
-#pragma unroll
+BLST_UNROLL
 			for (int i = 0; i < n; i++) {
 				idx.get(r[i]) = (tmp[i] & ~mask) | (t[i] & mask);
 			}

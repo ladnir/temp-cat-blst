@@ -108,6 +108,8 @@ namespace blst
 	using Stream = cudaStream_t;
 	using DeviceError = cudaError_t;
 #else 
+	COMPILE_FAIL
+
 	using Stream = int;
 	enum class DeviceError {
 		cudaSuccess = 0,
@@ -219,7 +221,7 @@ namespace blst
 	// corresponds to. The LSB of the value is reserved for the sign bit.
 	//
 	template<Backend B>
-	DeviceError sort_digits_segmented(
+	BLST_INLINE DeviceError sort_digits_segmented(
 		void* d_workspace,
 		size_t& workspace_bytes,
 		const u8* d_keys_input,          // [D*N], column-major by digit
@@ -267,7 +269,7 @@ namespace blst
 
 	template<Backend B,
 		class GroupZZ, typename SrcIter>
-	DeviceError reduce_groups(
+	BLST_INLINE DeviceError reduce_groups(
 		void* d_workspace,
 		size_t& workspace_bytes,
 		d2Span<const u8>           d_keys,          // [num_sets][N], keys in [0..W]
@@ -300,7 +302,7 @@ namespace blst
 		typename Group,
 		typename GroupAffine = Group,
 		typename GroupZZ = Group>
-	DeviceError msm_booth_batched_pipeline(
+	BLST_INLINE DeviceError msm_booth_batched_pipeline(
 		void* d_workspace,                          // nullptr => size query
 		size_t& workspace_bytes,                    // in/out
 		d2Span<const GroupAffine> d_points,  // [M][N]

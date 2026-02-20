@@ -645,6 +645,8 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	{
 		return vec_is_zero(&p, sizeof(p));
 	}
+	template BLST_HD BLST_CPP_INLINE bool_t AffinePoint<Fp>::is_inf(const AffinePoint<Fp>& p);
+	template BLST_HD BLST_CPP_INLINE bool_t AffinePoint<Fp2>::is_inf(const AffinePoint<Fp2>& p);
 
 
 	template<typename Field>

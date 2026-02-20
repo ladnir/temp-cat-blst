@@ -181,27 +181,25 @@ namespace blst {
 # include <stdlib.h>
 #endif
 
-//#define alloca(s) error "alloca not available"
-//#if defined(__GNUC__)
-//# ifndef alloca
-//#  define alloca(s) __builtin_alloca(s)
-//# endif
-//#elif defined(__sun)
-//# include <alloca.h>
-//#elif defined(_WIN32)
-//# include <malloc.h>
-//# ifndef alloca
-//#  define alloca(s) _alloca(s)
-//# endif
-//#endif
-
 #if BLST_LIMB_SIZE == 64
-# define TO_LIMB_T(limb64)     limb64
+# define TO_LIMB_T(limb64)     (limb_t)limb64
 #else
 # define TO_LIMB_T(limb64)     (limb_t)limb64,(limb_t)(limb64>>32)
 #endif
 
 
+#if defined(__CUDACC__)
+ /* CUDA build: make these no-ops to avoid pragma issues in shared headers. */
+#define BLST_UNROLL        /* no-op */
+#elif defined(_MSC_VER)
+
+ /* MSVC: use __pragma */
+#define BLST_UNROLL        __pragma(loop(ivdep))
+#else
+
+ /* GCC/Clang: use _Pragma (and keep it generic). */
+#define BLST_UNROLL        _Pragma(unroll)
+#endif
 
 
 namespace blst
@@ -210,6 +208,7 @@ namespace blst
 #if BLST_LIMB_SIZE == 64
     using limb_t = uint64_t;
 #elif BLST_LIMB_SIZE == 32
+# error "Unsupported BLST_LIMB_SIZE"
     using limb_t = uint32_t;
 #else
 # error "Unsupported BLST_LIMB_SIZE"

@@ -113,8 +113,8 @@ namespace blst
 	// For one affine point, builds a row of length 2 ^ (wbits - 1) of 
 	// consecutive multiples used by Booth / gather(e.g., P·1, P·2, P·3, …) 
 	// in Jacobian.
-		template<typename Field>
-	void point_precompute_row_wbits(
+	template<typename Field>
+	BLST_HD BLST_CPP_INLINE void point_precompute_row_wbits(
 		Point<Field> row[],
 		size_t wbits,
 		const AffinePoint<Field>& point);
@@ -124,7 +124,7 @@ namespace blst
 	// npoints << (wbits-1).
 	// flat |points[n]| can be placed at the end of |table[n<<(wbits-1)]| 
 	template<typename Field>
-	void msm_precompute_wbits(
+	BLST_HD BLST_CPP_INLINE void msm_precompute_wbits(
 		AffinePoint<Field> table[],
 		size_t wbits,
 		const AffinePoint<Field>* const points[],
@@ -141,16 +141,16 @@ namespace blst
 	// Given a Booth-encoded digit (with sign bit), selects the appropriate
 	// affine entry from a row, applies sign, or infinity if zero.
 	template<typename Field>
-	void point_gather_booth_wbits(
+	BLST_HD BLST_INLINE void point_gather_booth_wbits(
 		Point<Field>& p,
 		const AffinePoint<Field> row[],
 		size_t wbits, limb_t booth_encoding)
 	{
 		bool_t booth_sign = (booth_encoding >> wbits) & 1;
 		bool_t idx_is_zero;
-		const AffinePoint<Field> infinity = { 0 };
+		const AffinePoint<Field> infinity = { };
 
-		auto booth_idx = booth_encoding & ((limb_t)1 << wbits) - 1;
+		auto booth_idx = booth_encoding & (((limb_t)1 << wbits) - 1);
 		idx_is_zero = is_zero(booth_idx);
 		booth_idx -= 1 ^ idx_is_zero;
 		vec_select(&p, &infinity, &row[booth_idx], sizeof(row[0]), idx_is_zero);
@@ -178,7 +178,7 @@ namespace blst
 	// @scratch scratch space for staging gathers before accumulation;
 	//   suggested size is min(npoints, SCRATCH_SZ(Point<Field>)).
 	template<typename Field>
-	void msm_mult_table(
+	BLST_HD BLST_CPP_INLINE void msm_mult_table(
 		Point<Field>& ret,
 		span<const AffinePoint<Field>> table,
 		size_t wbits,
@@ -189,7 +189,7 @@ namespace blst
 
 	// Scratch size needed for the gather/accumulate staging.
 	template<typename Field>
-	size_t points_mult_wbits_scratch_sizeof(size_t npoints)
+	BLST_HD BLST_INLINE size_t points_mult_wbits_scratch_sizeof(size_t npoints)
 	{
 		const size_t scratch_sz = SCRATCH_SZ(Point<Field>);
 		return sizeof(Point<Field>) * (npoints < scratch_sz ? npoints : scratch_sz);
@@ -282,7 +282,7 @@ namespace blst
 	//     total = total + acc
 	// 
 	template<typename Group, typename AffineGroup, typename GroupZZ>
-	BLST_HD void msm_mult_pippenger(
+	BLST_HD BLST_CPP_INLINE void msm_mult_pippenger(
 		Group& ret,
 		const AffineGroup* const points[],
 		size_t npoints,

@@ -111,16 +111,14 @@ namespace blst {
 		 * @param[in]  nbits   Number of meaningful bits in scalar
 		 */
 		static BLST_HD void mult(GT& out, const GT& a, const byte* scalar, size_t nbits) {
-			if(nbits == 256)
-				Fp12::cyclotomic_exp_glv4(out.data, a.data, (limb_t*)scalar);
-			else
-			{
-				if (scalar == nullptr || nbits == 0) {
-					out = Fp12::one();
-					return;
-				}
+			if (nbits  == 256) {
+				// For 256-bit scalars, we can use the optimized GLV-4 path.
+				// This is a common case for BLS signatures where scalars are 256 bits.
+				Fp12::cyclotomic_exp_glv4(out.data, a.data, (const limb_t*)scalar);
+			} else {
+				// For non-256-bit scalars, fall back to the basic cyclotomic exponentiation.
 				Fp12::cyclotomic_exp(out.data, a.data, scalar, nbits);
-			}
+            }
 		}
 
 		/**

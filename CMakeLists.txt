@@ -53,6 +53,12 @@ message("BLST_TEST            = ${BLST_TEST}")      # build tests
 message("BLST_BENCHMARK       = ${BLST_BENCHMARK}") # build benchmarks
 
 
+message(STATUS "C compiler: ${CMAKE_C_COMPILER}")
+message(STATUS "C++ compiler: ${CMAKE_CXX_COMPILER}")
+message(STATUS "C++ compiler ID: ${CMAKE_CXX_COMPILER_ID}")
+message(STATUS "C++ compiler version: ${CMAKE_CXX_COMPILER_VERSION}")
+
+
 # Make sure these vars are copied into the try-compile's cache.
 set(CMAKE_TRY_COMPILE_PLATFORM_VARIABLES
     CMAKE_CUDA_FLAGS

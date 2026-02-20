@@ -13,6 +13,7 @@
 //BLST_EXTERN_C_BEGIN
 
 #include <iostream>
+#include <string.h>
 
 namespace blst
 {
@@ -340,7 +341,7 @@ namespace blst
 		} is_endian = { 1 };
 
 		if ((void*)ret.data == (void*)a && is_endian.little) {
-			Fr::to_mont((Fr&)ret, (const Fr&)a);
+			Fr::to_mont(*(Fr*)&ret, *(const Fr*)a);
 		}
 		else {
 			Fr out;
@@ -358,7 +359,9 @@ namespace blst
 		} is_endian = { 1 };
 
 		if ((void*)ret == (void*)a.data && is_endian.little) {
-			Fr::from_mont((Fr&)ret, a);
+			Fr r;
+			Fr::from_mont(r, a);
+            memcpy(ret, r.data, sizeof(Fr));
 		}
 		else {
 			Fr out;
@@ -455,10 +458,18 @@ namespace blst
 			a = (const byte*)&t[0];
 			b = (const byte*)&t[1];
 		}
-		Fr::to_mont(t[0], (const Fr&)a);
-		Fr::mul(t[0], t[0], (const Fr&)b);
+
+		Fr aa;
+		Fr bb;
+
+		memcpy(&aa, a, sizeof(aa));
+		memcpy(&bb, b, sizeof(bb));
+
+		Fr::to_mont(t[0], aa);
+		Fr::mul(t[0], t[0], bb);
 		le_bytes_from_limbs(ret, t[0].data, sizeof(pow256));
-		is_zero = vec_is_zero(t[0].data, sizeof(Fr&));
+
+		is_zero = vec_is_zero(t[0].data, sizeof(Fr));
 		vec_zero(t, sizeof(t));
 
 		return (int)(is_zero ^ 1);
@@ -472,16 +483,22 @@ namespace blst
 		} is_endian = { 1 };
 
 		if (((size_t)a | (size_t)ret) % sizeof(limb_t) == 0 && is_endian.little) {
-			auto& out = (Fr&)ret;
-			//Fr::mul(out, (const Fr&)a, get_BLST_rRR());
-			Fr::to_mont(out, (const Fr&)a);
+			Fr out;
+			Fr in;
+
+			memcpy(&in, a, sizeof(in));
+			Fr::to_mont(out, in);
 			Fr::reciprocal(out, out);
 			Fr::from_mont(out, out);
+
+			memcpy(ret, &out, sizeof(out));
+			vec_zero(&in, sizeof(in));
+			vec_zero(&out, sizeof(out));
 		}
 		else {
 			Fr out;
+
 			limbs_from_le_bytes(out.data, a, 32);
-			//Fr::mul(out, out, get_BLST_rRR());
 			Fr::to_mont(out, out);
 			Fr::reciprocal(out, out);
 			Fr::from_mont(out, out);
@@ -490,27 +507,6 @@ namespace blst
 		}
 	}
 
-
-	//BLST_HD BLST_FORCEINLINE const Fr& Fr::one() {
-	//	static Fr one_in_montgomery;
-	//	static bool initialized = false;
-
-	//	if (!initialized) {
-	//		// Compute 1 in Montgomery form: (1 * R) mod r
-	//		Fr one_normal;
-	//		one_normal.data[0] = 1; // Set the first limb_t to 1 (normal integer 1)
-	//		for (size_t i = 1; i < NLIMBS(256); ++i) {
-	//			one_normal.data[i] = 0; // Zero out the rest of the limbs
-	//		}
-
-	//		// Convert to Montgomery form: (1 * R) mod r
-	//		Fr::to_mont(one_in_montgomery, one_normal);
-
-	//		initialized = true;
-	//	}
-
-	//	return one_in_montgomery;
-	//}
 
 
 	// the modulus (returned as a Fr which is a slight abuse)

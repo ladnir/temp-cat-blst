@@ -38,12 +38,12 @@ namespace
 		BLST_ASSERT(cc_check_mod_n<NLIMBS(384)>((byte*)v.data, get_BLST_P().data));
 	}
 
-	void set_Fp(Fp& v, uint64_t x) {
-		for (int i = 0; i < NLIMBS(384); ++i)
-			v[i] = 0;
+	//void set_Fp(Fp& v, uint64_t x) {
+	//	for (int i = 0; i < NLIMBS(384); ++i)
+	//		v[i] = 0;
 
-		memcpy(v.data, &x, sizeof(x));
-	}
+	//	memcpy(v.data, &x, sizeof(x));
+	//}
 
 	// Helper: Print Fp for debugging
 	void print_Fp(const Fp& v) {
@@ -165,7 +165,6 @@ TEST(ParallelPrefix, LaunchPpAddModAos) {
 	std::vector<limb_t> h_expected(n_elems * NLIMBS);
 
 	// Generate test data
-	Fp modulus = Fp::modulus();
 
 	// Fill arrays with random field elements in AoS layout
 	for (size_t elem = 0; elem < n_elems; ++elem) {
@@ -234,14 +233,14 @@ TEST(ParallelPrefix, LaunchPpAddModAos) {
 // (from the previous message)
 // ----------------------------------------------------------
 
-// Helpers
-static inline int bit_at(limb_t* w, int b)
-{
-	auto l = b / (sizeof(limb_t) * 8);
-	b = b % (sizeof(limb_t) * 8);
-
-	return static_cast<int>((w[l] >> b) & limb_t(1));
-}
+//// Helpers
+//static inline int bit_at(limb_t* w, int b)
+//{
+//	auto l = b / (sizeof(limb_t) * 8);
+//	b = b % (sizeof(limb_t) * 8);
+//
+//	return static_cast<int>((w[l] >> b) & limb_t(1));
+//}
 
 //// Fetch carry_out bit at column (i,b) from carry_shl1 (which is already <<1 across limbs).
 //// carry_out(i,b) equals carry_shl1 bit at (i,b+1), except when b==W-1 it spills to (i+1,0).
@@ -312,7 +311,6 @@ static void run_once_and_check(InsecureRng& rng)
 
 		std::vector<limb_t> sum(m);
 		std::vector<limb_t> carry(m);
-		limb_t top = 0;
 
 		compress5to2<m, limb_t>(
 			cin,
@@ -324,8 +322,6 @@ static void run_once_and_check(InsecureRng& rng)
 			sum.data(),
 			carry.data()
 		);
-
-		constexpr int W = sizeof(limb_t) * 8;
 
 		ci = 0;
 		for (std::size_t i = 0; i < m; i++)
@@ -771,7 +767,7 @@ TEST_F(FiosStepTest, Random_WithWideCarry) {
 		std::copy(t_ref, t_ref + n, t_emu);
 
 		uint64_t bj = rng.next();
-		uint64_t carry_in = -1;// rng.next();    // allow any 64-bit (your serial tail supports this)
+		uint64_t carry_in = ~0ull;// rng.next();    // allow any 64-bit (your serial tail supports this)
 
 		uint64_t carry_ref = montgomery_fios_test<Fp, n, uint64_t>(print, t_ref, a, bj, carry_in);
 		uint64_t carry_emu = montgomery_fios_step_lo_down_emulated<Fp, n, uint64_t>(t_emu, a, bj, carry_in);

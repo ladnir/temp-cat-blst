@@ -546,7 +546,7 @@ TEST(Fft, PairingBilinearity) {
 
 // Test GT FFT round-trip (FFT then iFFT should give back original)
 TEST(Fft, GTFftRoundTrip) {
-    size_t N = 8;
+    size_t N = 16;
 
     // Create some GT elements via pairings - use the correct pairing pattern
     G1AffinePoint P_aff;
@@ -628,7 +628,7 @@ TEST(Fft, GTScalarMult) {
 }
 
 TEST(Fft, G1G2PairingFft) {
-    const std::size_t n = 1;
+    size_t n = 8;
     size_t N = n * 2; // FFT size
 
     // 1. Setup data: G1 points (A) and G2 points (B)
@@ -637,9 +637,10 @@ TEST(Fft, G1G2PairingFft) {
 
     std::vector<G1Point> A;
     std::vector<G2Point> B;
-    for (std::size_t i = 0; i < n; ++i) {
-        A.push_back(g1(static_cast<u64>(i + 2)));
-        B.push_back(g2(static_cast<u64>(i + 11)));
+    while (A.size() != n)
+    {
+        A.push_back(g1(rand()));
+        B.push_back(g2(rand()));
     }
 
     // 2. Naive Convolution for expected result
@@ -777,15 +778,15 @@ struct PairingCoeffCtx
     }
 };
 TEST(Fft, PolyMultFft) {
-    const std::size_t n = 1;
+    auto n = 8;
     size_t N = n * 2; // FFT size
 
     // 1. Setup data: G1 points (A) and G2 points (B)
     std::vector<G1Point> A;
     std::vector<G2Point> B;
     for (size_t i = 0; i < n; ++i) {
-        A.push_back(g1(static_cast<u64>(i + 7)));
-        B.push_back(g2(static_cast<u64>(i + 13)));
+        A.push_back(g1(rand()));
+        B.push_back(g2(rand()));
     }
 
     // 2. Naive Convolution for expected result
@@ -1269,7 +1270,7 @@ TEST(Fft, TruncatedForwardPrefixMatchesFullFr)
 
 TEST(Fft, TruncatedForwardPrefixMatchesFullG1)
 {
-    const std::size_t m = 4;
+    const std::size_t m = 32;
     Fr prim = primRootOfUnity<Fr>(m);
     std::vector<Fr> roots(m);
     Fr cur = Fr::one();
@@ -1278,7 +1279,7 @@ TEST(Fft, TruncatedForwardPrefixMatchesFullG1)
         Fr::mul(cur, cur, prim);
     }
 
-    const std::vector<std::size_t> xns = { 1, 4 };
+    const std::vector<std::size_t> xns = { 1, 5, 13, 24, 32 };
     for (std::size_t xn : xns) {
         std::vector<G1Point> full(m, G1Point::infinity());
         std::vector<G1Point> trunc(m, G1Point::infinity());
@@ -1304,7 +1305,7 @@ TEST(Fft, TruncatedForwardPrefixMatchesFullG1)
 
 TEST(Fft, InverseTruncatedRangeMatchesFullMiddleWindow)
 {
-    const std::size_t m = 8;
+    const std::size_t m = 64;
     Fr prim = primRootOfUnity<Fr>(m);
     std::vector<Fr> roots(m);
     Fr cur = Fr::one();
@@ -1318,13 +1319,14 @@ TEST(Fft, InverseTruncatedRangeMatchesFullMiddleWindow)
     }
 
     std::vector<GT> freq_full(m, GT::identity());
+    srand(12345);
     for (std::size_t i = 0; i < m; ++i) {
-        freq_full[i] = pair(g1(static_cast<u64>(i + 3)), g2(static_cast<u64>(i + 17)));
+        freq_full[i] = pair(g1(rand() % 100 + 1), g2(rand() % 100 + 1));
     }
     std::vector<GT> freq_trunc = freq_full;
 
-    const std::size_t start = 2;
-    const std::size_t len = 3;
+    const std::size_t start = 17;
+    const std::size_t len = 21;
 
     fft<GT, Fr, GTCoeffCtx>(freq_full, inv_roots, true);
     fft_inverse_truncated_range<GT, Fr, GTCoeffCtx>(
@@ -1497,7 +1499,7 @@ static std::vector<Fr> fr_from_scalars(const std::vector<u64>& scalars)
 
 TEST(Fft, MiddleProductApiBasicMatchesFieldOracle)
 {
-    const std::vector<std::size_t> test_sizes = { 2 };
+    const std::vector<std::size_t> test_sizes = { 3, 5, 9 };
 
     G1Point g1_gen = g1(1);
     G2Point g2_gen = g2(1);
@@ -1544,7 +1546,7 @@ TEST(Fft, MiddleProductApiBasicMatchesFieldOracle)
 
 TEST(Fft, MiddleProductApiPrecomputedBMatchesRawAndCrossAlgorithm)
 {
-    const std::vector<std::size_t> test_sizes = { 2 };
+    const std::vector<std::size_t> test_sizes = { 4, 6, 10 };
 
     for (std::size_t n : test_sizes) {
         std::vector<u64> a_scalars;
@@ -1609,7 +1611,7 @@ TEST(Fft, MiddleProductAdmissibleRoundingBoundaryCases)
 
 TEST(Fft, MiddleProductApiOneIfftMatchesFieldOracle)
 {
-    const std::vector<std::size_t> test_sizes = { 2 };
+    const std::vector<std::size_t> test_sizes = { 3, 5, 9, 24 };
 
     G1Point g1_gen = g1(1);
     G2Point g2_gen = g2(1);
@@ -1656,7 +1658,7 @@ TEST(Fft, MiddleProductApiOneIfftMatchesFieldOracle)
 
 TEST(Fft, MiddleProductOneIfftMatchesBasicApi)
 {
-    const std::vector<std::size_t> test_sizes = { 2 };
+    const std::vector<std::size_t> test_sizes = { 4, 6, 10, 24 };
 
     for (std::size_t n : test_sizes) {
         std::vector<u64> a_scalars;
@@ -1708,7 +1710,7 @@ TEST(Fft, MiddleProductOneIfftMatchesBasicApi)
 
 TEST(Fft, MiddleProductOneIfftWorkspaceMatchesDefault)
 {
-    const std::vector<std::size_t> test_sizes = { 2 };
+    const std::vector<std::size_t> test_sizes = { 6, 10, 24 };
 
     for (std::size_t n : test_sizes) {
         std::vector<u64> a_scalars;
@@ -1752,7 +1754,7 @@ TEST(Fft, MiddleProductOneIfftWorkspaceMatchesDefault)
 
 TEST(Fft, MiddleProductOneIfftPrecomputedLinesMatchesDirect)
 {
-    const std::vector<std::size_t> test_sizes = { 2 };
+    const std::vector<std::size_t> test_sizes = { 6, 10, 24 };
 
     for (std::size_t n : test_sizes) {
         std::vector<u64> a_scalars;

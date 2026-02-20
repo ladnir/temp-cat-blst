@@ -51,18 +51,6 @@ namespace
 		return r;
 	}
 
-	// Pairing function for GT tests
-	GT pair_points(const G1Point& p, const G2Point& q) {
-		G1AffinePoint p_aff;
-		G1Point::to_affine(p_aff, p);
-		G2AffinePoint q_aff;
-		G2Point::to_affine(q_aff, q);
-
-		GT result;
-		GT::miller_loop(result, &q_aff, &p_aff);
-		GT::final_mult(result, result);
-		return result;
-	}
 }
 
 #ifdef BLST_CUDA

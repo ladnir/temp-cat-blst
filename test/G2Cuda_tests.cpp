@@ -9,6 +9,7 @@
 #include "blst/curve/G2_cuda.h"
 #include "blst/curve/map_to_G.h"
 #include "InsecureRng.h"
+#include <inttypes.h>   // or <cinttypes>
 
 
 using namespace blst;
@@ -949,9 +950,9 @@ TEST(G2OpsCUDA, LargeScalarMultiplication) {
 
 		if (!G2Point::equal(h_cuda_result[i], h_cpu_result[i])) {
 			printf("G2 Large Mismatch at index %zu\n", i);
-			printf("CPU  result: X[0][0]=%llx, Y[0][0]=%llx, Z[0][0]=%llx\n",
+			printf("CPU  result: X[0][0]=%" PRIu64 ", Y[0][0]=%" PRIu64 ", Z[0][0]=%" PRIu64 "\n",
 				h_cpu_result[i].X[0][0], h_cpu_result[i].Y[0][0], h_cpu_result[i].Z[0][0]);
-			printf("CUDA result: X[0][0]=%llx, Y[0][0]=%llx, Z[0][0]=%llx\n",
+			printf("CUDA result: X[0][0]=%" PRIu64 ", Y[0][0]=%" PRIu64 ", Z[0][0]=%" PRIu64 "\n",
 				h_cuda_result[i].X[0][0], h_cuda_result[i].Y[0][0], h_cuda_result[i].Z[0][0]);
 			printf("Large scalar used (first 8 bytes): ");
 			for (int j = 0; j < 8; j++) {
@@ -964,9 +965,9 @@ TEST(G2OpsCUDA, LargeScalarMultiplication) {
 			printf("\n");
 
 			// Additional G2-specific debugging - check both components of Fp2
-			printf("CPU  X[1][0]=%llx, Y[1][0]=%llx, Z[1][0]=%llx\n",
+			printf("CPU  X[1][0]=%" PRIu64 ", Y[1][0]=%" PRIu64 ", Z[1][0]=%" PRIu64 "\n",
 				h_cpu_result[i].X[1][0], h_cpu_result[i].Y[1][0], h_cpu_result[i].Z[1][0]);
-			printf("CUDA X[1][0]=%llx, Y[1][0]=%llx, Z[1][0]=%llx\n",
+			printf("CUDA X[1][0]=%" PRIu64 ", Y[1][0]=%" PRIu64 ", Z[1][0]=%" PRIu64 "\n",
 				h_cuda_result[i].X[1][0], h_cuda_result[i].Y[1][0], h_cuda_result[i].Z[1][0]);
 
 			//results_match = false;

@@ -455,13 +455,6 @@ static void gt_lambda2_from_lambda_mod_r(limb_t lambda2_out[4])
 	lambda2_out[3] = lam2.data[3];
 }
 
-static int is_zero_512(const limb_t a[8])
-{
-	limb_t acc = 0;
-	for (int i = 0; i < 8; ++i) acc |= a[i];
-	return acc == 0;
-}
-
 static int ge_u512_u256(const limb_t a512[8], const limb_t b256[4])
 {
 	// Compare a512 to b256 (b treated as 512 with high limbs = 0).
@@ -670,73 +663,73 @@ TEST(Fp12Test, CyclotomicExpGLV)
 	printf("Max observed bit lengths (over 16 samples): k1=%u, k2=%u\n", max_k1_bits, max_k2_bits);
 }
 
-static void u512_divrem_u256(const limb_t n512[8], const limb_t d256[4], limb_t q512[8], limb_t r256[4])
-{
-	ASSERT_FALSE(is_zero_256(d256));
-
-	for (int i = 0; i < 8; ++i) q512[i] = 0;
-
-	limb_t rem512[8] = { 0 };
-
-	auto get_bit_512_le = [](const limb_t x[8], unsigned bit) -> unsigned {
-		const unsigned limb = bit >> 6;
-		const unsigned off = bit & 63u;
-		return (unsigned)((x[limb] >> off) & 1u);
-		};
-
-	for (int bit = 511; bit >= 0; --bit) {
-		shl1_u512(rem512);
-		rem512[0] |= (limb_t)get_bit_512_le(n512, (unsigned)bit);
-
-		if (ge_u512_u256(rem512, d256)) {
-			sub_u512_u256_inplace(rem512, d256);
-			q512[bit >> 6] |= (limb_t)1 << (bit & 63);
-		}
-	}
-
-	r256[0] = rem512[0];
-	r256[1] = rem512[1];
-	r256[2] = rem512[2];
-	r256[3] = rem512[3];
-}
-
-TEST(Fp12Test, GtLambda2BarrettMu)
-{
-	const Fr lambda2_fr = get_BLST_gt_lambda2();
-	const limb_t d[4] = {
-		lambda2_fr.data[0],
-		lambda2_fr.data[1],
-		lambda2_fr.data[2],
-		lambda2_fr.data[3],
-	};
-
-	// Numerator N = 2^256 represented as 512-bit little-endian limbs.
-	limb_t n512[8] = { 0 };
-	n512[4] = 1; // bit 256 set => limb index 4 (4*64)
-
-	limb_t q512[8];
-	limb_t r[4];
-	u512_divrem_u256(n512, d, q512, r);
-
-	// mu = floor(2^256 / d). This fits in the low 256 bits of q512.
-	limb_t mu[4] = { q512[0], q512[1], q512[2], q512[3] };
-
-	//printf("GT lambda2 Barrett mu = floor(2^256 / lambda2) (LE limbs):\n");
-	//printf("  0x%016llx\n", (unsigned long long)mu[0]);
-	//printf("  0x%016llx\n", (unsigned long long)mu[1]);
-	//printf("  0x%016llx\n", (unsigned long long)mu[2]);
-	//printf("  0x%016llx\n", (unsigned long long)mu[3]);
-
-	//printf("Paste-ready initializer:\n");
-	//printf("  { TO_LIMB_T(0x%016llx), TO_LIMB_T(0x%016llx), TO_LIMB_T(0x%016llx), TO_LIMB_T(0x%016llx) }\n",
-	//	(unsigned long long)mu[0],
-	//	(unsigned long long)mu[1],
-	//	(unsigned long long)mu[2],
-	//	(unsigned long long)mu[3]);
-
-	// Sanity: remainder must be < d. Since d fits 256 bits, r already reduced.
-	EXPECT_FALSE(is_zero_256(d)); // trivial check so test isn't "empty"
-}
+//static void u512_divrem_u256(const limb_t n512[8], const limb_t d256[4], limb_t q512[8], limb_t r256[4])
+//{
+//	ASSERT_FALSE(is_zero_256(d256));
+//
+//	for (int i = 0; i < 8; ++i) q512[i] = 0;
+//
+//	limb_t rem512[8] = { 0 };
+//
+//	auto get_bit_512_le = [](const limb_t x[8], unsigned bit) -> unsigned {
+//		const unsigned limb = bit >> 6;
+//		const unsigned off = bit & 63u;
+//		return (unsigned)((x[limb] >> off) & 1u);
+//		};
+//
+//	for (int bit = 511; bit >= 0; --bit) {
+//		shl1_u512(rem512);
+//		rem512[0] |= (limb_t)get_bit_512_le(n512, (unsigned)bit);
+//
+//		if (ge_u512_u256(rem512, d256)) {
+//			sub_u512_u256_inplace(rem512, d256);
+//			q512[bit >> 6] |= (limb_t)1 << (bit & 63);
+//		}
+//	}
+//
+//	r256[0] = rem512[0];
+//	r256[1] = rem512[1];
+//	r256[2] = rem512[2];
+//	r256[3] = rem512[3];
+//}
+//
+//TEST(Fp12Test, GtLambda2BarrettMu)
+//{
+//	const Fr lambda2_fr = get_BLST_gt_lambda2();
+//	const limb_t d[4] = {
+//		lambda2_fr.data[0],
+//		lambda2_fr.data[1],
+//		lambda2_fr.data[2],
+//		lambda2_fr.data[3],
+//	};
+//
+//	// Numerator N = 2^256 represented as 512-bit little-endian limbs.
+//	limb_t n512[8] = { 0 };
+//	n512[4] = 1; // bit 256 set => limb index 4 (4*64)
+//
+//	limb_t q512[8];
+//	limb_t r[4];
+//	u512_divrem_u256(n512, d, q512, r);
+//
+//	// mu = floor(2^256 / d). This fits in the low 256 bits of q512.
+//	//limb_t mu[4] = { q512[0], q512[1], q512[2], q512[3] };
+//
+//	//printf("GT lambda2 Barrett mu = floor(2^256 / lambda2) (LE limbs):\n");
+//	//printf("  0x%016llx\n", (unsigned long long)mu[0]);
+//	//printf("  0x%016llx\n", (unsigned long long)mu[1]);
+//	//printf("  0x%016llx\n", (unsigned long long)mu[2]);
+//	//printf("  0x%016llx\n", (unsigned long long)mu[3]);
+//
+//	//printf("Paste-ready initializer:\n");
+//	//printf("  { TO_LIMB_T(0x%016llx), TO_LIMB_T(0x%016llx), TO_LIMB_T(0x%016llx), TO_LIMB_T(0x%016llx) }\n",
+//	//	(unsigned long long)mu[0],
+//	//	(unsigned long long)mu[1],
+//	//	(unsigned long long)mu[2],
+//	//	(unsigned long long)mu[3]);
+//
+//	// Sanity: remainder must be < d. Since d fits 256 bits, r already reduced.
+//	EXPECT_FALSE(is_zero_256(d)); // trivial check so test isn't "empty"
+//}
 
 
 
@@ -858,12 +851,6 @@ TEST(Fp12Test, CyclotomicExpGLV2)
 TEST(Fp12Test, CyclotomicExpGLV2_jsf) {
 	const int iterations = 100;
 
-	// Simple helper to generate random 64-bit limbs
-	auto rand_limb = []() -> limb_t {
-		uint64_t r = 0;
-		for (int i = 0; i < 4; i++) r = (r << 15) | (rand() & 0x7FFF);
-		return (limb_t)r;
-		};
 
 	for (int i = 0; i < iterations; ++i) {
 		// Generate random 256-bit scalar
@@ -970,11 +957,6 @@ TEST(Fp12Test, CyclotomicExpGLV_4D_Consistency) {
 
 TEST(Fp12Test, CyclotomicExpGLV4_Constant_Consistency) {
 	const int iterations = 50;
-	auto rand_limb = []() -> limb_t {
-		uint64_t r = 0;
-		for (int i = 0; i < 4; i++) r = (r << 15) | (rand() & 0x7FFF);
-		return (limb_t)r;
-		};
 
 	for (int i = 0; i < iterations; ++i) {
 
@@ -1016,64 +998,6 @@ TEST(Fp12Test, CyclotomicExpGLV4_Constant_Consistency) {
 		bool match = (memcmp(&res_opt, &res_ref, sizeof(Fp12)) == 0);
 		EXPECT_TRUE(match) << "GLV-4 Constant Context Mismatch at " << i;
 		if (!match) break;
-	}
-}
-
-// Helper to perform full modular reconstruction of the split scalars
-// k_recon = k0 + k1*z + k2*z^2 + k3*z^3 mod r
-// Note: This helper duplicates some logic to verify the implementation.
-static void verify_glv4_decomposition(const limb_t k_original[4], const int64_t k_split[4]) {
-	// BLS12-381 parameter z (absolute value)
-	// z = -0xd201000000010000
-	// We treat z effectively as the root 'u' for the endomorphism.
-	// In the implementation, basis[1] corresponds to phi(P), and we have phi(P) = P^u.
-	// The implementation splits k such that k = k0 + k1*u + k2*u^2 + k3*u^3 mod r.
-	// Wait, the implementation does:
-	// basis[1] = frobenius_map(base, 1); // P^p
-	// P^p = P^u for cyclotomic points (trace zero subgroup properties involved).
-	// Let's rely on the algebraic property:
-	// k = k0 + k1*lambda + k2*lambda^2 + k3*lambda^3 (mod r)
-	// where lambda is the eigenvalue of the Frobenius endomorphism.
-
-	Fr lambda = get_BLST_gt_lambda();
-	Fr acc = Fr::zero();
-	Fr current_lambda_pow = Fr::one(); // lambda^0
-
-	Fr r_mod; // just to hold r context if needed, but Fr handles mod r automatically
-
-	for (int i = 0; i < 4; i++) {
-		// Convert int64_t k_split[i] to Fr
-		Fr component;
-		uint64_t val_abs = (k_split[i] < 0) ? -k_split[i] : k_split[i];
-
-		// Load absolute value
-		limb_t raw[4] = { 0 };
-		raw[0] = val_abs;
-		// If val_abs is huge (unlikely for valid split), it might need more limbs, 
-		// but split coeffs are < 64 bits.
-
-		Fr val_fr;
-		// Basic loading: effectively val_fr = val_abs * R mod r (Mont form)
-		// We can use a small helper or just assume standard conversion exists
-		// Since we don't have a direct "from_uint64" generic, we copy to limb_t array.
-		// Assuming little-endian limbs.
-
-		// Manually creating Fr from raw limbs (which acts as from_uint64)
-		// Then converting to montgomery for arithmetic.
-		// Actually blst C++ Fr wrapper usually holds Mont form.
-		// We need to be careful. Let's use string generic or known helper?
-		// Let's use the raw blst_fr_from_uint64 if valid? No.
-
-		// Let's implement a safe elementary conversion test-side.
-		limb_t l_val[4] = { (limb_t)val_abs, 0, 0, 0 };
-		Fr coeff;
-		// from_limbs usually expects non-Mont, output Mont?
-		// Let's look at existing code usage. 
-		// Fr::from_mont constructs from Mont.
-		// We likely need valid conversion.
-		// Let's just use the `u256_divrem_u256` logic to verify scalar math directly 
-		// without depending on Fr class if Fr class is opaque.
-		// Or assume Fr has standard arithmetic operators overloaded.
 	}
 }
 

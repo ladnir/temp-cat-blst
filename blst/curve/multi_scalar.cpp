@@ -572,11 +572,11 @@ namespace blst
 
 	BLST_HD inline void print_digit(size_t point_idx, limb_t encoding, int wbits)
 	{
-		size_t digit = encoding & ((limb_t)1 << wbits) - 1;
+		size_t digit = encoding & (((limb_t)1 << wbits) - 1);
 		size_t sign = (encoding >> wbits) & 1;
 
 		printf("  point[%zu]: digit %zu (%llu), idx=%zu, sign=%zu\n",
-			point_idx, digit, (u64)encoding, point_idx, sign);
+			point_idx, digit, (long long unsigned int)encoding, point_idx, sign);
 	}
 
 
@@ -637,13 +637,13 @@ namespace blst
 			if (print)
 			{
 				auto ex = we.get_wval(scalar);
-				size_t digit = encoding & ((limb_t)1 << we.encode_size) - 1;
+				size_t digit = encoding & (((limb_t)1 << we.encode_size) - 1);
 				size_t sign = (encoding >> we.encode_size) & 1;
 
 				char buffer[257];
 				print_bits(buffer, (void*)scalar, std::min<u64>(256, nbits));
 				printf("  point[%zu]: %p %s -> digit %zu (%llu), sign=%zu\n",
-					i, scalar, buffer, digit, (u64)ex, sign);
+					i, scalar, buffer, digit, (long long unsigned int)ex, sign);
 				//++i;
 			}
 			auto p = point;
@@ -674,13 +674,13 @@ namespace blst
 		if (print)
 		{
 
-			printf("Pippenger window %llu buckets:\n", window_idx);
+			printf("Pippenger window %llu buckets:\n", (long long unsigned int)window_idx);
 			for (size_t b = 0; b < ((size_t)1 << (we.encode_size - 1)); b++)
 			{
 				Group p;
 				msm_to_jacobian(p, buckets[b]);
 				u64 hash = hash_point(p);
-				printf("  bucket %zu: %llu\n", b, hash);
+				printf("  bucket %zu: %llu\n", b, (long long unsigned int)hash);
 			}
 		}
 
@@ -738,7 +738,7 @@ namespace blst
 			{
 				char buffer[257];
 				print_bits(buffer, (void*)scalar, std::min<u64>(256, nbits));
-				printf("Scalar[%llu]:%p %s\n", i, scalar, buffer);
+				printf("Scalar[%llu]:%p %s\n", (long long unsigned int)i, scalar, buffer);
 				scalar = *scalars_ ? *scalars_++ : scalar + nbytes;
 			}
 		}
@@ -755,7 +755,9 @@ namespace blst
 			if (print)
 			{
 				u64 hash = hash_point(tile);
-				printf("Window %llu result: %llu\n", window_index, hash);
+				printf("Window %llu result: %llu\n", 
+					(long long unsigned int)window_index, 
+					(long long unsigned int)hash);
 			}
 			// ret = (ret + tile) << (window_index ? window_size : 0)
 			Group::dadd(ret, ret, tile);
@@ -766,7 +768,7 @@ namespace blst
 		if (print)
 		{
 			u64 hash = hash_point(ret);
-			printf("Pippenger final result:  %llu\n", hash);
+			printf("Pippenger final result:  %llu\n", (long long unsigned int)hash);
 		}
 	}
 	template

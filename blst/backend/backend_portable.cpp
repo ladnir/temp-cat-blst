@@ -15,7 +15,7 @@ namespace blst
 	void print_vec_n(const char* label, const limb_t* v, int n) {
 		printf("%s: ", label);
 		for (int i = n - 1; i >= 0; --i) {
-			printf("%016llx", v[i]);
+			printf("%016llx", (long long unsigned int)v[i]);
 			if (i > 0) printf(" ");
 		}
 		printf("\n");

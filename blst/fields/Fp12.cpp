@@ -1097,7 +1097,7 @@ namespace blst
 	}
 
 
-	BLST_HD BLST_FORCEINLINE void Fp12::glv_split_2(
+	BLST_HD FP12_CPP_INLINE void Fp12::glv_split_2(
 		limb_t k1_out[4],
 		limb_t k2_out[4],
 		const limb_t k[4])

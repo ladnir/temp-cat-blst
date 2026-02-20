@@ -9,23 +9,7 @@
 #include "blst/common/vect.h"
 #include "blst/config.h"
 #include "blst/backend/backend.h"
-//BLST_EXTERN_C_BEGIN
-//#if (defined(__x86_64__) || defined(__x86_64) || defined(_M_X64)) && \
-//     defined(__SHA__) /* -msha */ && !defined(BLST_PORTABLE)
-//# define sha256_block_data_order blst_sha256_block_data_order_shaext
-//#elif defined(__aarch64__) && \
-//      defined(__ARM_FEATURE_CRYPTO) && !defined(BLST_PORTABLE)
-//# define sha256_block_data_order blst_sha256_block_armv8
-//#else
-//# define sha256_block_data_order blst_sha256_block_data_order_v
-//#endif
-//#define sha256_hcopy blst_sha256_hcopy_v
-//#define sha256_bcopy blst_sha256_bcopy_v
-//#define sha256_emit  blst_sha256_emit_v
 
-//void sha256_block_data_order(unsigned int *h, const void *inp, size_t blocks);
-//void sha256_hcopy(unsigned int dst[8], const unsigned int src[8]);
-//void sha256_bcopy(void *dst, const void *src, size_t len);
 
 namespace blst
 {

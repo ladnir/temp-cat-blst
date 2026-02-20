@@ -205,8 +205,12 @@ TEST(InterfaceTests, RedcMontV256) {
 
 	for (int t = 0; t < trials; t++)
 	{
-		generate_random_Fr(reinterpret_cast<Fr&>(a)); // Fill lower 256 bits
-		generate_random_Fr(reinterpret_cast<Fr&>(a[4])); // Fill upper 256 bits
+		Fr r;
+		generate_random_Fr(r); // Fill lower 256 bits
+        memcpy(a.data, r.data, sizeof(Fr));
+		generate_random_Fr(r); // Fill upper 256 bits
+        memcpy(a.data + NLIMBS(256), r.data, sizeof(Fr));
+
 		memcpy(p.data, get_BLST_r().data, sizeof(Fr));
 		// Compute using both implementations
 		redcx_mont_256(ret_asm.data, a, p.data, n0); // ASM implementation

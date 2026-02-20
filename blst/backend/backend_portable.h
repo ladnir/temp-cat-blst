@@ -113,14 +113,6 @@ namespace blst
 			cc_sub_wide_wide_limb(ret, *ret, c);
 		}
 
-		//#define cc_sub_wide_limb_wide(ret, a, b)\
-		//    do {												\
-		//    limb lo = (a) - (b).lo;							\
-		//	limb bor = ((a) < (b).lo);						\
-		//	limb hi = (limb(0) - (b).hi) - bor;				\
-		//	(ret)->lo = lo;										\
-		//	(ret)->hi = hi;										\
-		//	} while (0)
 	}
 
 
@@ -182,25 +174,6 @@ namespace blst
 	}
 	static_assert(&((wide_limb_t*)0)->lo < &((wide_limb_t*)0)->hi,
 		"this implementation assumes we can cast to 64 bit");
-	//#define cc_mul_wide_limb_limb(ret, a, b)\
-	//    do{*(unsigned long long*)(ret) = (unsigned long long)(a) * (unsigned long long)(b);}while(0)
-	//
-	//#define cc_add_wide_wide_limb(ret, a, b)\
-	//    do{*(unsigned long long*)(ret) = *(unsigned long long*)&(a) + (unsigned long long)(b);}while(0)
-	//
-	//#define cc_add_wide_limb_limb(ret, a, b)\
-	//    do{*(unsigned long long*)(ret) = (a) + (unsigned long long)(b);}while(0)
-	//
-	//#define cc_sub_wide_limb_wide(ret, a, b)\
-	//    do{*(unsigned long long*)(ret) = (a) - *(unsigned long long*)(&(b));}while(0)
-	//
-	//#define cc_add_carry_wide_limb_limb(ret, a, b, carry) \
-	//    do{ assert(carry <= 1); BLST_ASSUME(carry <=1); \
-	//    *(unsigned long long*)(ret) = (a) + (unsigned long long)(b) + carry; } while(0)
-	//
-	//#define cc_sub_borrow_wide_limb_limb(ret, a, b, borrow) \
-	//    do{ assert(borrow <= 1); BLST_ASSUME(borrow <=1); \
-	//    *(unsigned long long*)(ret) = (a) - (unsigned long long)(b) - borrow; } while(0)
 #endif
 
 #if defined(__CUDA_ARCH__)
@@ -935,30 +908,6 @@ namespace blst
 	BLST_HD  limb_t cc_quot_rem_n(limb_t* div_rem, const limb_t* divisor,
 		limb_t quotient);
 
-	///**
-	// * @brief Computes the quotient and remainder of a large integer division.
-	// *
-	// * Computes `quotient = dividend / divisor` and updates `div_rem` with the remainder.
-	// */
-	//BLST_HD  limb_t cc_quot_rem_128(limb_t* div_rem, const limb_t* divisor,
-	//	limb_t quotient)
-	//{
-	//	return cc_quot_rem_n<NLIMBS(128)>(div_rem, divisor, quotient);
-	//}
-
-
-	///**
-	// * @brief Computes the quotient and remainder of a large integer division.
-	// *
-	// * Computes `quotient = dividend / divisor` and updates `div_rem` with the remainder.
-	// */
-	//BLST_HD  limb_t cc_quot_rem_64(limb_t* div_rem, const limb_t* divisor,
-	//	limb_t quotient)
-	//{
-	//	return cc_quot_rem_n<NLIMBS(64)>(div_rem, divisor, quotient);
-	//}
-
-
 	/*
 	 * Prefetching
 	 */
@@ -969,13 +918,10 @@ namespace blst
 		__builtin_prefetch(ptr, 0, 3);
 #elif __CUDA_ARCH__
 		// todo
-		(void)ptr; (void)len;
 #elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
 		_mm_prefetch((const char*)ptr, _MM_HINT_T0);
-		(void)ptr; (void)len;
-#else
-		(void)ptr; (void)len;
 #endif
+		(void)ptr; (void)len;
 	}
 
 	/*

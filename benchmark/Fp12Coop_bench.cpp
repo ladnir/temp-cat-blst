@@ -158,46 +158,46 @@ namespace {
     // T1 (Rank1): Inputs a10(3), a02(2).
     // T2 (Rank2): Inputs a01(1), a12(5).
 
-    // We iterate over input Fp12s and scatter them into the padded buffer.
-    void repack_input(
-        const std::vector<Fp12>& h_in,
-        std::vector<limb_t>& h_out,
-        size_t n_elems, size_t total_threads
-    ) {
-        // Map Task->Input Index
-        int map_A[] = { 0, 3, 1 }; // Rank 0->a00, Rank 1->a10, Rank 2->a01
-        int map_B[] = { 4, 2, 5 }; // Rank 0->a11, Rank 1->a02, Rank 2->a12
+    //// We iterate over input Fp12s and scatter them into the padded buffer.
+    //void repack_input(
+    //    const std::vector<Fp12>& h_in,
+    //    std::vector<limb_t>& h_out,
+    //    size_t n_elems, size_t total_threads
+    //) {
+    //    // Map Task->Input Index
+    //    int map_A[] = { 0, 3, 1 }; // Rank 0->a00, Rank 1->a10, Rank 2->a01
+    //    int map_B[] = { 4, 2, 5 }; // Rank 0->a11, Rank 1->a02, Rank 2->a12
 
-        // We fill h_out as if it were on GPU: SoA with stride = total_threads.
-        // h_out has size: 24 * total_threads
-        // For each Fp12 'k', we write to 3 threads.
+    //    // We fill h_out as if it were on GPU: SoA with stride = total_threads.
+    //    // h_out has size: 24 * total_threads
+    //    // For each Fp12 'k', we write to 3 threads.
 
-        for (size_t k = 0; k < n_elems; ++k) {
-            // Which warp/triad is this?
-            size_t triad_global = k;
-            size_t warp_idx = triad_global / 10;
-            size_t triad_in_warp = triad_global % 10;
+    //    for (size_t k = 0; k < n_elems; ++k) {
+    //        // Which warp/triad is this?
+    //        size_t triad_global = k;
+    //        size_t warp_idx = triad_global / 10;
+    //        size_t triad_in_warp = triad_global % 10;
 
-            // Base thread ID for this triad
-            size_t base_tid = warp_idx * 32 + triad_in_warp * 3;
+    //        // Base thread ID for this triad
+    //        size_t base_tid = warp_idx * 32 + triad_in_warp * 3;
 
-            for (int r = 0; r < 3; ++r) {
-                size_t tid = base_tid + r;
+    //        for (int r = 0; r < 3; ++r) {
+    //            size_t tid = base_tid + r;
 
-                // Get the Fp2 input pair for this rank
-                const Fp2& fpA = (map_A[r] < 3) ? h_in[k].data[0].data[map_A[r]] : h_in[k].data[1].data[map_A[r] - 3];
-                const Fp2& fpB = (map_B[r] < 3) ? h_in[k].data[0].data[map_B[r]] : h_in[k].data[1].data[map_B[r] - 3];
+    //            // Get the Fp2 input pair for this rank
+    //            const Fp2& fpA = (map_A[r] < 3) ? h_in[k].data[0].data[map_A[r]] : h_in[k].data[1].data[map_A[r] - 3];
+    //            const Fp2& fpB = (map_B[r] < 3) ? h_in[k].data[0].data[map_B[r]] : h_in[k].data[1].data[map_B[r] - 3];
 
-                // Write to h_out [Limb][TID]
-                for (int i = 0; i < 6; ++i) {
-                    h_out[(0 * 6 + i) * total_threads + tid] = fpA.data[0][i]; // in_A.c0
-                    h_out[(1 * 6 + i) * total_threads + tid] = fpA.data[1][i]; // in_A.c1
-                    h_out[(2 * 6 + i) * total_threads + tid] = fpB.data[0][i]; // in_B.c0
-                    h_out[(3 * 6 + i) * total_threads + tid] = fpB.data[1][i]; // in_B.c1
-                }
-            }
-        }
-    }
+    //            // Write to h_out [Limb][TID]
+    //            for (int i = 0; i < 6; ++i) {
+    //                h_out[(0 * 6 + i) * total_threads + tid] = fpA.data[0][i]; // in_A.c0
+    //                h_out[(1 * 6 + i) * total_threads + tid] = fpA.data[1][i]; // in_A.c1
+    //                h_out[(2 * 6 + i) * total_threads + tid] = fpB.data[0][i]; // in_B.c0
+    //                h_out[(3 * 6 + i) * total_threads + tid] = fpB.data[1][i]; // in_B.c1
+    //            }
+    //        }
+    //    }
+    //}
 
     void BenchFp12_Triad_Coalesced(benchmark::State& state) {
         using Field = blst::Fp;

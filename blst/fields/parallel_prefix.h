@@ -123,7 +123,7 @@ namespace blst
 	// Kogge–Stone over NLIMBS limbs, packed (updates both adds together)
 // Uses shuffle_up(...) to mimic the coop version's shfl_up.
 	template<int NLIMBS>
-	inline void ks_packed_prefix(uint32_t gp[NLIMBS])
+	BLST_INLINE BLST_HD void ks_packed_prefix(uint32_t gp[NLIMBS])
 	{
 		uint32_t up[NLIMBS];
 
@@ -277,7 +277,7 @@ namespace blst
 	// Computes diff = a - b.
 	// Returns the final borrow-out from the MSB lane.
 	template<int n>
-	static inline
+	static BLST_INLINE BLST_HD
 		uint64_t parallelPrefix_sub(
 			uint64_t* diff,
 			const uint64_t* a,
@@ -682,7 +682,8 @@ namespace blst
 		*carry_out_columns = carry;
 	}
 
-	uint64_t umul64hi(uint64_t a, uint64_t b);
+	BLST_HD BLST_FORCEINLINE
+		uint64_t umul64hi(uint64_t a, uint64_t b);
 
 	inline uint64_t carry(uint64_t x, uint64_t y, uint64_t z)
 	{
@@ -981,8 +982,6 @@ namespace blst
 			}
 		}
 
-		uint64_t carry_from_tn = 0ull;
-
 		// --- 8) Write back: t[i] = sum[i] for i=0..n-2; t[n-1] = t_last ---
 		for (int i = 0; i < n; i++)
 		{
@@ -1157,8 +1156,6 @@ namespace blst
 		uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3, uint64_t x4,
 		uint64_t& s, uint64_t& c
 	) {
-		constexpr int W = 64;
-
 		// Round 1: 5->3 local (Bitwise ops)
 		uint64_t sA = x0 ^ x1 ^ x2;
 		uint64_t cA = (x0 & x1) | (x1 & x2) | (x0 & x2);

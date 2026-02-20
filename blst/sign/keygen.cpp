@@ -108,12 +108,6 @@ namespace blst
         HMAC_SHA256_CTX* ctx)
     {
         unsigned char* info_prime = (unsigned char*)malloc(info_len + 2 + 1);
-//#if !defined(__STDC_VERSION__) || __STDC_VERSION__<199901 \
-//                               || defined(__STDC_NO_VLA__)
-//        unsigned char* info_prime = (unsigned char*)alloca(info_len + 2 + 1);
-//#else
-//        unsigned char info_prime[info_len + 2 + 1];
-//#endif
 
         HMAC_init(ctx, PRK, 32);
 

@@ -2,6 +2,35 @@
 
 namespace blst
 {
+	using GroupZZ = Pointxyzz<Fp>;
+	using GroupAffine = AffinePoint<Fp>;
+	using GatherOp = PackedToPointXYZZ<GroupAffine, Defaulted<GroupZZ>>;
+	using GatherIter = transform_iterator<IdxSign*, GatherOp>;
+
+	template DeviceError sort_digits_segmented<Backend::CPU>(
+		void*,
+		size_t&,
+		const u8*,
+		u8*,
+		const IdxSign*,
+		IdxSign*,
+		int,
+		int,
+		int,
+		Stream);
+
+	template DeviceError reduce_groups<Backend::CPU, GroupZZ, GatherIter&>(
+		void*,
+		size_t&,
+		d2Span<const u8>,
+		GatherIter&,
+		d2Span<GroupZZ>,
+		int,
+		int,
+		int,
+		Stream);
+
+
 
 	template
 		DeviceError msm_booth_batched_pipeline<Backend::CPU, G1Point, G1AffinePoint, Pointxyzz<Fp>>(
@@ -38,6 +67,17 @@ namespace blst
 			Stream stream,
 			bool debug,
 			bool print);
+
+	template DeviceError reduce_groups<Backend::CUDA, GroupZZ, GatherIter&>(
+		void*,
+		size_t&,
+		d2Span<const u8>,
+		GatherIter&,
+		d2Span<GroupZZ>,
+		int,
+		int,
+		int,
+        Stream);
 #endif
 //
 //	template DeviceError extract_digits_flat<Backend::CPU>(
