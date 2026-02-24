@@ -18,20 +18,29 @@ set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(googlebenchmark)
 
-# Determine benchmark sources based on CUDA availability
-set(BENCHMARK_SOURCES
-    #"Fp_bench.cpp"
-    #"Fp2_bench.cpp" 
-    "Fp12_bench.cpp"
-    #"Fr_bench.cpp"
-    #"G1_bench.cpp"
-    #"G2_bench.cpp"
-    #"pairing_bench.cpp"
-    #"MSM_bench.cpp"
-    "main.cpp"
-    "Fp12Coop_bench.cpp"
-    "FFT_bench.cpp"
-)
+# Determine benchmark sources based on CUDA availability.
+# CUDA-heavy benchmarks pull in thrust/cuda headers and should not be built
+# when BLST_CUDA is disabled.
+set(BENCHMARK_SOURCES)
+
+if(BLST_CUDA)
+    list(APPEND BENCHMARK_SOURCES
+        "Fp12_bench.cpp"
+        "main.cpp"
+        "Fp12Coop_bench.cpp"
+        "FFT_bench.cpp"
+    )
+else()
+    list(APPEND BENCHMARK_SOURCES
+        "main.cpp"
+        "Fr_bench.cpp"
+        "G1_bench.cpp"
+        "G2_bench.cpp"
+        "pairing_bench.cpp"
+        "MSM_bench.cpp"
+        "FFT_bench.cpp"
+    )
+endif()
 
 # Add CUDA benchmarks if CUDA is enabled
 #if(BLST_CUDA)

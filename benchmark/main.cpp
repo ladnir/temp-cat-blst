@@ -1,5 +1,9 @@
 
 #include <benchmark/benchmark.h>
+#include <cstring>
+#include <iostream>
+
+#ifdef BLST_CUDA
 #include "blst/fields/Fp12.h"
 //#include "blst/backend/cuda/mul_mont_cuda.h"
 #include <thrust/device_vector.h>
@@ -732,6 +736,16 @@ void user(int argc, char** argv)
 	//G1Main();
 }
 
+#else
+
+void user(int argc, char** argv)
+{
+	(void)argc;
+	(void)argv;
+	std::cout << "BLST_CUDA is disabled; --user benchmark modes are unavailable." << std::endl;
+}
+
+#endif
 
 
 int main(int argc, char** argv) {
