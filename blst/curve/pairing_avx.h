@@ -2,6 +2,7 @@
 #define BLST_CURVE_PAIRING_AVX_H
 
 #include <cstddef>
+#include <span>
 
 #include "blst/curve/GT.h"
 #include "blst/curve/point.h"
@@ -16,6 +17,11 @@ void miller_loop_n(
     const G1AffinePoint P[],
     std::size_t n);
 
+void miller_loop_n(
+    GT& ret,
+    std::span<const G2AffinePoint> q,
+    std::span<const G1AffinePoint> p);
+
 void final_exp(GT& ret, const GT& f);
 
 void optimal_ate_pairing(
@@ -23,6 +29,11 @@ void optimal_ate_pairing(
     const G2AffinePoint Q[],
     const G1AffinePoint P[],
     std::size_t n);
+
+void optimal_ate_pairing(
+    GT& ret,
+    std::span<const G2AffinePoint> q,
+    std::span<const G1AffinePoint> p);
 } // namespace blst::avx
 
 #endif

@@ -432,6 +432,11 @@ void miller_loop_n(
     const G1AffinePoint p[],
     std::size_t n)
 {
+    if (n == 0) {
+        vec_copy(&ret.data, get_BLST_Rx().p12, sizeof(Fp12));
+        return;
+    }
+
     if (n > kMillerLoopNMax) {
         return;
     }
@@ -461,6 +466,19 @@ void miller_loop_n(
     add_n_dbl_n(ret, t, q, px2, n, 32);
     add_n_dbl_n(ret, t, q, px2, n, 16);
     Fp12::conjugate(ret.data);
+}
+
+void miller_loop_n(
+    GT& ret,
+    std::span<const G2AffinePoint> q,
+    std::span<const G1AffinePoint> p)
+{
+    BLST_ASSERT(q.size() == p.size());
+    if (q.size() != p.size()) {
+        return;
+    }
+
+    miller_loop_n(ret, q.data(), p.data(), q.size());
 }
 
 void final_exp(GT& ret, const GT& f)
@@ -510,6 +528,19 @@ void optimal_ate_pairing(
     GT f{};
     miller_loop_n(f, q, p, n);
     final_exp(ret, f);
+}
+
+void optimal_ate_pairing(
+    GT& ret,
+    std::span<const G2AffinePoint> q,
+    std::span<const G1AffinePoint> p)
+{
+    BLST_ASSERT(q.size() == p.size());
+    if (q.size() != p.size()) {
+        return;
+    }
+
+    optimal_ate_pairing(ret, q.data(), p.data(), q.size());
 }
 
 } // namespace blst::avx

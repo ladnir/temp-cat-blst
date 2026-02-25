@@ -143,6 +143,20 @@ Use static member functions when ownership/domain is clear.
 - Update AVX pairing interfaces to span at high level and pointers in hot loops.
 - Keep GT naming and existing behavior.
 
+#### Phase 3 Staging (current)
+- Added AVX-only high-level span overloads:
+  - `blst::avx::miller_loop_n(GT&, std::span<const G2AffinePoint>, std::span<const G1AffinePoint>)`
+  - `blst::avx::optimal_ate_pairing(GT&, std::span<const G2AffinePoint>, std::span<const G1AffinePoint>)`
+- Existing pointer+`n` kernels remain the hot-path implementation.
+- Added defensive `n==0` handling in AVX `miller_loop_n` entry to avoid undefined behavior.
+- Next implementation slice:
+  1. Move `blst::avx` pairing APIs from C-array syntax to pointer/reference form where still needed.
+  2. Add `restrict` only on AVX hot loops with clear non-alias requirements and debug overlap assertions.
+  3. Keep scalar `GT::*` paths untouched; AVX dispatch integration remains additive and explicit.
+  4. Validate with:
+     - `ctest --test-dir out/build/avx512-portable-check --output-on-failure -R "Avx|avx"`
+     - `ctest --test-dir out/build/avx512-portable-check --output-on-failure`
+
 ### Phase 4: Remove transitional aliases
 - After AVX compile/tests/bench parity, delete old alias names in AVX code.
 
