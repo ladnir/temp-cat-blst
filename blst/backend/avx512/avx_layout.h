@@ -62,6 +62,18 @@ namespace blst
     }
 
     /**
+     * Per-word blend with mask `0x33`:
+     * `<H|G|F|E|D|C|B|A>` with `<P|O|N|M|L|K|J|I>`
+     * -> `<H|G|N|M|D|C|J|I>`.
+     */
+    inline void blend_0x33(cc512i* r, const cc512i* a, const cc512i* b)
+    {
+        for (u64 i = 0; i < AVX_FP_NWORDS; ++i) {
+            r[i] = VMBLEND(0x33, a[i], b[i]);
+        }
+    }
+
+    /**
      * Per-word permutation: `<H|G|F|E|D|C|B|A> -> <G|H|H|G|C|D|D|C>`.
      */
     inline void perm_2332(cc512i* r, const cc512i* a)
@@ -92,12 +104,34 @@ namespace blst
     }
 
     /**
+     * Per-word permutation:
+     * `<H|G|F|E|D|C|B|A> -> <F|E|F|E|D|C|D|C>`.
+     */
+    inline void perm_1010(cc512i* r, const cc512i* a)
+    {
+        for (u64 i = 0; i < AVX_FP_NWORDS; ++i) {
+            r[i] = VPERM<0x44>(a[i]);
+        }
+    }
+
+    /**
      * Per-word permutation: `<H|G|F|E|D|C|B|A> -> <F|E|H|G|B|A|D|C>`.
      */
     inline void perm_1032(cc512i* r, const cc512i* a)
     {
         for (u64 i = 0; i < AVX_FP_NWORDS; ++i) {
             r[i] = VPERM<0x4E>(a[i]);
+        }
+    }
+
+    /**
+     * Zero-masked permutation:
+     * `<H|G|F|E|D|C|B|A> -> <0|0|H|G|0|0|D|C>`.
+     */
+    inline void perm_zz32(cc512i* r, const cc512i* a)
+    {
+        for (u64 i = 0; i < AVX_FP_NWORDS; ++i) {
+            r[i] = VZPERM<0xEE>(0x33, a[i]);
         }
     }
 
@@ -156,6 +190,17 @@ namespace blst
     }
 
     /**
+     * Half-length (`VWORDS`) blend with mask `0x0F`:
+     * keeps high half from `a` and low half from `b`.
+     */
+    inline void blend_0x0F_hl(cc512i* r, const cc512i* a, const cc512i* b)
+    {
+        for (u64 i = 0; i < AVX_FP_VWORDS; ++i) {
+            r[i] = VMBLEND(0x0F, a[i], b[i]);
+        }
+    }
+
+    /**
      * Double-length (`2*NWORDS`) version of `shuf_01`.
      */
     inline void shuf_01_dl(cc512i* r, const cc512i* a)
@@ -176,6 +221,36 @@ namespace blst
     }
 
     /**
+     * Double-length (`2*NWORDS`) version of `perm_1032`.
+     */
+    inline void perm_1032_dl(cc512i* r, const cc512i* a)
+    {
+        for (u64 i = 0; i < 2 * AVX_FP_NWORDS; ++i) {
+            r[i] = VPERM<0x4E>(a[i]);
+        }
+    }
+
+    /**
+     * Double-length (`2*NWORDS`) version of `perm_zz32`.
+     */
+    inline void perm_zz32_dl(cc512i* r, const cc512i* a)
+    {
+        for (u64 i = 0; i < 2 * AVX_FP_NWORDS; ++i) {
+            r[i] = VZPERM<0xEE>(0x33, a[i]);
+        }
+    }
+
+    /**
+     * Double-length (`2*NWORDS`) blend with mask `0x33`.
+     */
+    inline void blend_0x33_dl(cc512i* r, const cc512i* a, const cc512i* b)
+    {
+        for (u64 i = 0; i < 2 * AVX_FP_NWORDS; ++i) {
+            r[i] = VMBLEND(0x33, a[i], b[i]);
+        }
+    }
+
+    /**
      * One-and-half-length (`3*VWORDS`) variable permutation.
      * Used by widened `4x2w`/`2x2x2w` kernels.
      */
@@ -183,6 +258,17 @@ namespace blst
     {
         for (u64 i = 0; i < 3 * AVX_FP_VWORDS; ++i) {
             r[i] = VPERMV(idx, a[i]);
+        }
+    }
+
+    /**
+     * One-and-half-length (`3*VWORDS`) blend with mask `0x0F`.
+     * Used by widened `1x2x2x2w`/`2x2x2x1w` kernels.
+     */
+    inline void blend_0x0F_vl(cc512i* r, const cc512i* a, const cc512i* b)
+    {
+        for (u64 i = 0; i < 3 * AVX_FP_VWORDS; ++i) {
+            r[i] = VMBLEND(0x0F, a[i], b[i]);
         }
     }
 }
