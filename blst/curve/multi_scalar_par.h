@@ -23,16 +23,10 @@
 
 #include "blst/common/counting_iterator.h"
 #include "blst/common/transform_iterator.h"
+#include "blst/common/mdspan_compat.h"
 #include <cstdint>
 #include <vector>
 #include <algorithm>
-
-
-#ifdef BLST_CUDA
-#include <cuda/std/mdspan>
-#else
-#include <mdspan>
-#endif
 
 
 namespace blst
@@ -50,17 +44,17 @@ namespace blst
 
 	static constexpr Backend DefaultBackend = Backend::CUDA;
 	template<typename T>
-	using d2Span = cuda::std::mdspan<T, cuda::std::dextents<size_t, 2>>;
+	using d2Span = mdspan_compat::d2_span<T>;
 
 	template<typename T>
-	using d3Span = cuda::std::mdspan<T, cuda::std::dextents<size_t, 3>>;
+	using d3Span = mdspan_compat::d3_span<T>;
 #else
 
 	static constexpr Backend DefaultBackend = Backend::CPU;
 	template<typename T>
-	using d2Span = std::mdspan<T, std::dextents<size_t, 2>>;
+	using d2Span = mdspan_compat::d2_span<T>;
 	template<typename T>
-	using d3Span = std::mdspan<T, std::dextents<size_t, 3>>;
+	using d3Span = mdspan_compat::d3_span<T>;
 #endif
 
 

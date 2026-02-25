@@ -731,7 +731,6 @@ namespace blst
     }
 } // namespace blst::tile
 
-#undef BLST_FORCEINLINE
 #undef BLST_AVX_NATIVE
 
 #endif
