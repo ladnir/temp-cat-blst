@@ -506,13 +506,13 @@ void mul_fp12_vector(Fp12& ret, const Fp12& a, const Fp12& b)
 
     mul_fp12_vec_v3(r001, r101, r2, ab0, ab1, ab2);
 
-    carryp_FpPack4x2(r001);
-    carryp_FpPack4x2(r101);
-    carryp_FpPack4x2(r2);
+    FpPack4x2::carryp(r001);
+    FpPack4x2::carryp(r101);
+    FpPack4x2::carryp(r2);
 
-    conv_48to64_FpPack4x2(out0.data(), r001);
-    conv_48to64_FpPack4x2(out1.data(), r101);
-    conv_48to64_FpPack4x2(out2.data(), r2);
+    FpPack4x2::conv_48to64(out0.data(), r001);
+    FpPack4x2::conv_48to64(out1.data(), r101);
+    FpPack4x2::conv_48to64(out2.data(), r2);
 
     for (u64 i = 0; i < SWORDS / 2; ++i) {
         const u64* lanes0 = reinterpret_cast<const u64*>(&out0[i]);
@@ -586,10 +586,10 @@ void mul_by_xy00z0_fp12_vector(Fp12& ret, const Fp12& a, const Fp6& xy00z0)
 
     mul_by_xy00z0_fp12_vec_v1(r0, r1, a01, a2, b01, b4);
 
-    carryp_FpPack4x2(r1);
+    FpPack4x2::carryp(r1);
 
     FpPack8x1::conv_48to64(out0.data(), r0);
-    conv_48to64_FpPack4x2(out1.data(), r1);
+    FpPack4x2::conv_48to64(out1.data(), r1);
 
     for (u64 i = 0; i < SWORDS; ++i) {
         const u64* lanes = reinterpret_cast<const u64*>(&out0[i]);
@@ -674,7 +674,7 @@ void cyclotomic_sqr_fp12_vector(Fp12& ret, const Fp12& a)
             static_cast<i64>(a[0][0][1][i + (SWORDS / 2)]), static_cast<i64>(a[0][0][1][i]),
             static_cast<i64>(a[0][0][0][i + (SWORDS / 2)]), static_cast<i64>(a[0][0][0][i]));
     }
-    conv_64to48_FpPack4x2(packed_a, lanes_a.data());
+    FpPack4x2::conv_64to48(packed_a, lanes_a.data());
 
     for (u64 i = 0; i < SWORDS; ++i) {
         lanes_bc[i] = VSET(
@@ -687,8 +687,8 @@ void cyclotomic_sqr_fp12_vector(Fp12& ret, const Fp12& a)
 
     cyclotomic_sqr_fp12_vec_v1(out_a, out_bc, packed_a, packed_bc);
 
-    carryp_FpPack4x2(out_a);
-    conv_48to64_FpPack4x2(lanes_a.data(), out_a);
+    FpPack4x2::carryp(out_a);
+    FpPack4x2::conv_48to64(lanes_a.data(), out_a);
     for (u64 i = 0; i < SWORDS / 2; ++i) {
         const u64* lanes = reinterpret_cast<const u64*>(&lanes_a[i]);
         ret[0][0][0][i] = lanes[0];

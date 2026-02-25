@@ -310,8 +310,8 @@ void mul_by_xy00z0_fp6x2_2x4x1x1w(
     blend_0x33_fp2x2_8x1x1w(tt0, tt1, tt0);
     blend_0x33_dl(tt1[1].data(), tt1[0].data(), tt1[1].data());
     blend_0x33_dl(tt0[0].data(), tt0[1].data(), tt0[0].data());
-    ssasx2_UFpPack8x1(r23[0], tt1[0], tt0[0]);
-    aaasx2_UFpPack8x1(r23[1], tt1[1], tt0[1]);
+    UFpPack8x1::ssasx2(r23[0], tt1[0], tt0[0]);
+    UFpPack8x1::aaasx2(r23[1], tt1[1], tt0[1]);
     perm_3000_fp2x2_8x1x1w(tt0, r23);
     asx4_fp2x2_8x1x1w(r01, tt0, tt2);
 }

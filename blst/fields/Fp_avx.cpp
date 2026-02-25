@@ -41,7 +41,7 @@ void FpPack8x1::conv_64to48(FpPack8x1& r, const cc512i* BLST_restrict a)
   r[4] = r4; r[5] = r5; r[6] = r6; r[7] = r7;
 }
 
-void conv_64to48_FpPack4x2(FpPack4x2& r, const cc512i* BLST_restrict a)
+void FpPack4x2::conv_64to48(FpPack4x2& r, const cc512i* BLST_restrict a)
 {
   const cc512i a0 = a[0], a1 = a[1], a2 = a[2];
   const cc512i bmask = VSET1(BMASK);
@@ -105,7 +105,7 @@ void FpPack8x1::conv_48to64(cc512i* BLST_restrict r, const FpPack8x1& a)
   r[3] = r3; r[4] = r4; r[5] = r5; 
 }
 
-void conv_48to64_FpPack4x2(cc512i* BLST_restrict r, const FpPack4x2& a)
+void FpPack4x2::conv_48to64(cc512i* BLST_restrict r, const FpPack4x2& a)
 {
   const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
   cc512i r0, r1, r2;
@@ -150,7 +150,7 @@ void carryp_mpi48(u64 *a)
   }
 }
 
-void carryp_FpPack4x2(FpPack4x2& a)
+void FpPack4x2::carryp(FpPack4x2& a)
 {
   cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
   const cc512i bmask = VSET1(BMASK);
@@ -162,7 +162,7 @@ void carryp_FpPack4x2(FpPack4x2& a)
   a[0] = a0; a[1] = a1; a[2] = a2; a[3] = a3;
 }
 
-void get_channel_8x1w(u64* BLST_restrict r, const FpPack8x1& a, const int ch) 
+void FpPack8x1::get_channel(u64* BLST_restrict r, const FpPack8x1& a, const int ch) 
 {
   int i;
 
@@ -171,7 +171,7 @@ void get_channel_8x1w(u64* BLST_restrict r, const FpPack8x1& a, const int ch)
   }
 }
 
-void get_channel_4x2w(u64* BLST_restrict r, const FpPack4x2& a, const int ch) 
+void FpPack4x2::get_channel(u64* BLST_restrict r, const FpPack4x2& a, const int ch) 
 {
   int i;
 
@@ -470,7 +470,7 @@ void FpPack8x1::assx6(FpPack8x1& r, const FpPack8x1& a, const FpPack8x1& b)
   r[4] = r4; r[5] = r5; r[6] = r6; r[7] = r7;
 }
 
-void add_FpPack4x2(FpPack4x2& r, const FpPack4x2& a, const FpPack4x2& b)
+void FpPack4x2::add(FpPack4x2& r, const FpPack4x2& a, const FpPack4x2& b)
 {
   const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
   const cc512i b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
@@ -518,7 +518,7 @@ void add_FpPack4x2(FpPack4x2& r, const FpPack4x2& a, const FpPack4x2& b)
   r[0] = r0; r[1] = r1; r[2] = r2; r[3] = r3; 
 }
 
-void sub_FpPack4x2(FpPack4x2& r, const FpPack4x2& a, const FpPack4x2& b)
+void FpPack4x2::sub(FpPack4x2& r, const FpPack4x2& a, const FpPack4x2& b)
 {
   const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
   const cc512i b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
@@ -563,7 +563,7 @@ void sub_FpPack4x2(FpPack4x2& r, const FpPack4x2& a, const FpPack4x2& b)
   r[0] = r0; r[1] = r1; r[2] = r2; r[3] = r3; 
 }
 
-void asx2_FpPack4x2(FpPack4x2& r, const FpPack4x2& a, const FpPack4x2& b)
+void FpPack4x2::asx2(FpPack4x2& r, const FpPack4x2& a, const FpPack4x2& b)
 {
   const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
   const cc512i b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
@@ -617,7 +617,7 @@ void asx2_FpPack4x2(FpPack4x2& r, const FpPack4x2& a, const FpPack4x2& b)
   r[0] = r0; r[1] = r1; r[2] = r2; r[3] = r3; 
 }
 
-void add_UFpPack8x1(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
+void UFpPack8x1::add(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
 {
   const cc512i a0  = a[0 ], a1  = a[1 ], a2  = a[2 ], a3  = a[3 ];
   const cc512i a4  = a[4 ], a5  = a[5 ], a6  = a[6 ], a7  = a[7 ];
@@ -692,7 +692,7 @@ void add_UFpPack8x1(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
   r[12] = r12; r[13] = r13; r[14] = r14; r[15] = r15;
 }
 
-void sub_UFpPack8x1(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
+void UFpPack8x1::sub(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
 {
   const cc512i a0  = a[0 ], a1  = a[1 ], a2  = a[2 ], a3  = a[3 ];
   const cc512i a4  = a[4 ], a5  = a[5 ], a6  = a[6 ], a7  = a[7 ];
@@ -761,7 +761,7 @@ void sub_UFpPack8x1(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
   r[12] = r12; r[13] = r13; r[14] = r14; r[15] = r15;
 }
 
-void aaasx2_UFpPack8x1(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
+void UFpPack8x1::aaasx2(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
 {
   const cc512i a0  = a[0 ], a1  = a[1 ], a2  = a[2 ], a3  = a[3 ];
   const cc512i a4  = a[4 ], a5  = a[5 ], a6  = a[6 ], a7  = a[7 ];
@@ -848,7 +848,7 @@ void aaasx2_UFpPack8x1(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
   r[12] = r12; r[13] = r13; r[14] = r14; r[15] = r15;
 }
 
-void aassx2_UFpPack8x1(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
+void UFpPack8x1::aassx2(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
 {
   const cc512i a0  = a[0 ], a1  = a[1 ], a2  = a[2 ], a3  = a[3 ];
   const cc512i a4  = a[4 ], a5  = a[5 ], a6  = a[6 ], a7  = a[7 ];
@@ -935,7 +935,7 @@ void aassx2_UFpPack8x1(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
   r[12] = r12; r[13] = r13; r[14] = r14; r[15] = r15;
 }
 
-void asx4_UFpPack8x1(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
+void UFpPack8x1::asx4(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
 {
   const cc512i a0  = a[0 ], a1  = a[1 ], a2  = a[2 ], a3  = a[3 ];
   const cc512i a4  = a[4 ], a5  = a[5 ], a6  = a[6 ], a7  = a[7 ];
@@ -1022,7 +1022,7 @@ void asx4_UFpPack8x1(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
   r[12] = r12; r[13] = r13; r[14] = r14; r[15] = r15;
 }
 
-void ssaax2_UFpPack8x1(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
+void UFpPack8x1::ssaax2(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
 {
   const cc512i a0  = a[0 ], a1  = a[1 ], a2  = a[2 ], a3  = a[3 ];
   const cc512i a4  = a[4 ], a5  = a[5 ], a6  = a[6 ], a7  = a[7 ];
@@ -1109,7 +1109,7 @@ void ssaax2_UFpPack8x1(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
   r[12] = r12; r[13] = r13; r[14] = r14; r[15] = r15;
 }
 
-void ssasx2_UFpPack8x1(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
+void UFpPack8x1::ssasx2(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
 {
   const cc512i a0  = a[0 ], a1  = a[1 ], a2  = a[2 ], a3  = a[3 ];
   const cc512i a4  = a[4 ], a5  = a[5 ], a6  = a[6 ], a7  = a[7 ];
@@ -1196,7 +1196,7 @@ void ssasx2_UFpPack8x1(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
   r[12] = r12; r[13] = r13; r[14] = r14; r[15] = r15;
 }
 
-void add_UFpPack4x2(UFpPack4x2& r, const UFpPack4x2& a, const UFpPack4x2& b)
+void UFpPack4x2::add(UFpPack4x2& r, const UFpPack4x2& a, const UFpPack4x2& b)
 {
   cc512i a0  = a[0 ], a1  = a[1 ], a2  = a[2 ], a3  = a[3 ];
   cc512i a4  = a[4 ], a5  = a[5 ], a6  = a[6 ], a7  = a[7 ];
@@ -1274,7 +1274,7 @@ void add_UFpPack4x2(UFpPack4x2& r, const UFpPack4x2& a, const UFpPack4x2& b)
   r[8 ] = r8 ; r[9 ] = r9 ; r[10] = r10; r[11] = r11;
 }
 
-void sub_UFpPack4x2(UFpPack4x2& r, const UFpPack4x2& a, const UFpPack4x2& b)
+void UFpPack4x2::sub(UFpPack4x2& r, const UFpPack4x2& a, const UFpPack4x2& b)
 {
   cc512i a0  = a[0 ], a1  = a[1 ], a2  = a[2 ], a3  = a[3 ];
   cc512i a4  = a[4 ], a5  = a[5 ], a6  = a[6 ], a7  = a[7 ];
@@ -1348,7 +1348,7 @@ void sub_UFpPack4x2(UFpPack4x2& r, const UFpPack4x2& a, const UFpPack4x2& b)
   r[8 ] = r8 ; r[9 ] = r9 ; r[10] = r10; r[11] = r11;
 }
 
-void asx2_UFpPack4x2(UFpPack4x2& r, const UFpPack4x2& a, const UFpPack4x2& b)
+void UFpPack4x2::asx2(UFpPack4x2& r, const UFpPack4x2& a, const UFpPack4x2& b)
 {
   cc512i a0  = a[0 ], a1  = a[1 ], a2  = a[2 ], a3  = a[3 ];
   cc512i a4  = a[4 ], a5  = a[5 ], a6  = a[6 ], a7  = a[7 ];
@@ -1435,7 +1435,7 @@ void asx2_UFpPack4x2(UFpPack4x2& r, const UFpPack4x2& a, const UFpPack4x2& b)
   r[8 ] = r8 ; r[9 ] = r9 ; r[10] = r10; r[11] = r11;
 }
 
-void aass_UFpPack4x2(UFpPack4x2& r, const UFpPack4x2& a, const UFpPack4x2& b)
+void UFpPack4x2::aass(UFpPack4x2& r, const UFpPack4x2& a, const UFpPack4x2& b)
 {
   cc512i a0  = a[0 ], a1  = a[1 ], a2  = a[2 ], a3  = a[3 ];
   cc512i a4  = a[4 ], a5  = a[5 ], a6  = a[6 ], a7  = a[7 ];
@@ -1522,7 +1522,7 @@ void aass_UFpPack4x2(UFpPack4x2& r, const UFpPack4x2& a, const UFpPack4x2& b)
   r[8 ] = r8 ; r[9 ] = r9 ; r[10] = r10; r[11] = r11;
 }
 
-void mul_UFpPack8x1_v2(UFpPack8x1& r, const FpPack8x1& a, const FpPack8x1& b)
+void FpPack8x1::mul_v2(UFpPack8x1& r, const FpPack8x1& a, const FpPack8x1& b)
 {
   BLST_ASSERT_NO_OVERLAP_AVX(r, a);
   BLST_ASSERT_NO_OVERLAP_AVX(r, b);
@@ -1682,12 +1682,12 @@ void mul_UFpPack8x1_v2(UFpPack8x1& r, const FpPack8x1& a, const FpPack8x1& b)
   r[12] = z12; r[13] = z13; r[14] = z14; r[15] = z15; 
 }
 
-void mul_UFpPack8x1(UFpPack8x1& r, const FpPack8x1& a, const FpPack8x1& b)
+void FpPack8x1::mul(UFpPack8x1& r, const FpPack8x1& a, const FpPack8x1& b)
 {
-  mul_UFpPack8x1_v2(r, a, b);
+  FpPack8x1::mul_v2(r, a, b);
 }
 
-void mul_UFpPack4x2_v1(UFpPack4x2& r, const FpPack4x2& a, const FpPack4x2& b)
+void FpPack4x2::mul_v1(UFpPack4x2& r, const FpPack4x2& a, const FpPack4x2& b)
 {
   BLST_ASSERT_NO_OVERLAP_AVX(r, a);
   BLST_ASSERT_NO_OVERLAP_AVX(r, b);
@@ -1766,12 +1766,12 @@ void mul_UFpPack4x2_v1(UFpPack4x2& r, const FpPack4x2& a, const FpPack4x2& b)
   r[8 ] = z8 ; r[9 ] = z9 ; r[10] = z10; r[11] = z11;
 }
 
-void mul_UFpPack4x2(UFpPack4x2& r, const FpPack4x2& a, const FpPack4x2& b)
+void FpPack4x2::mul(UFpPack4x2& r, const FpPack4x2& a, const FpPack4x2& b)
 {
-  mul_UFpPack4x2_v1(r, a, b);
+  FpPack4x2::mul_v1(r, a, b);
 }
 
-void redc_UFpPack8x1(FpPack8x1& r, const UFpPack8x1& a)
+void UFpPack8x1::redc(FpPack8x1& r, const UFpPack8x1& a)
 {
   BLST_ASSERT_NO_OVERLAP_AVX(r, a);
 
@@ -1909,7 +1909,7 @@ void redc_UFpPack8x1(FpPack8x1& r, const UFpPack8x1& a)
   r[4] = r4; r[5] = r5; r[6] = r6; r[7] = r7;
 }
 
-void redc_UFpPack4x2(FpPack4x2& r, const UFpPack4x2& a)
+void UFpPack4x2::redc(FpPack4x2& r, const UFpPack4x2& a)
 {
   BLST_ASSERT_NO_OVERLAP_AVX(r, a);
 

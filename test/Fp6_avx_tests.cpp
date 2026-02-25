@@ -201,8 +201,8 @@ void unpack_fp2_2x2x2w(Fp2Vec2& out, const fp2_2x2x2w& in)
 
 void redc_fp2x2_8x1x1w_local(fp2_8x1x1w& r, const fp2x2_8x1x1w& a)
 {
-    redc_UFpPack8x1(r[0], a[0]);
-    redc_UFpPack8x1(r[1], a[1]);
+    UFpPack8x1::redc(r[0], a[0]);
+    UFpPack8x1::redc(r[1], a[1]);
 }
 
 void mul_fp6_scalar(Fp2& r0, Fp2& r1, Fp2& r2, const Fp2& a0, const Fp2& a1, const Fp2& a2, const Fp2& b0, const Fp2& b1, const Fp2& b2)

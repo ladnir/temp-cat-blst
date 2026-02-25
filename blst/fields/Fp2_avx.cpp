@@ -300,12 +300,12 @@ namespace blst
         // a = A1 | A0 at Fp layer 
         // b = B1 | B0 at Fp layer
         shuf_00(t0.data(), a.data());         //          A0 |          A0 
-        mul_UFpPack8x1(tt0, t0, b);            //       A0*B1 |       A0*B0
+        FpPack8x1::mul(tt0, t0, b);            //       A0*B1 |       A0*B0
         shuf_11(t0.data(), a.data());         //          A1 |          A1 
         shuf_01(t1.data(), b.data());         //          B0 |          B1 
-        mul_UFpPack8x1(tt1, t0, t1);           //       A1*B0 |       A1*B1
-        asx4_UFpPack8x1(tt0, tt0, tt1);        // A0*B1+A1*B0 | A0*B0-A1*B1
-        redc_UFpPack8x1(r, tt0);               // A0*B1+A1*B0 | A0*B0-A1*B1
+        FpPack8x1::mul(tt1, t0, t1);           //       A1*B0 |       A1*B1
+        UFpPack8x1::asx4(tt0, tt0, tt1);        // A0*B1+A1*B0 | A0*B0-A1*B1
+        UFpPack8x1::redc(r, tt0);               // A0*B1+A1*B0 | A0*B0-A1*B1
     }
 
     // r0 = (a0 + a1)*(a0 - a1)
@@ -321,8 +321,8 @@ namespace blst
         shuf_z1(t2.data(), a.data());         //       0 |              A1
         FpPack8x1::add(t0, t0, t1);              //    2*A0 |           A0+A1
         FpPack8x1::sub(t2, a, t2);               //      A1 |           A0-A1
-        mul_UFpPack8x1(tt0, t0, t2);           // 2*A0*A1 | (A0+A1)*(A0-A1)
-        redc_UFpPack8x1(r, tt0);               // 2*A0*A1 | (A0+A1)*(A0-A1)
+        FpPack8x1::mul(tt0, t0, t2);           // 2*A0*A1 | (A0+A1)*(A0-A1)
+        UFpPack8x1::redc(r, tt0);               // 2*A0*A1 | (A0+A1)*(A0-A1)
     }
 
     // r0 = a0*b0 - a1*b1
@@ -337,20 +337,20 @@ namespace blst
         // b = B1 | B0 | ... | ... at Fp layer
         perm_3322(t0.data(), a.data());       //        A1 |        A1 |   A0 |   A0
         perm_2332(t1.data(), b.data());       //        B0 |        B1 |   B1 |   B0
-        mul_UFpPack8x1(tt0, t0, t1);           //      A1B0 |      A1B1 | A0B1 | A0B0
-        redc_UFpPack8x1(t0, tt0);              //      A1B0 |      A1B1 | A0B1 | A0B0
+        FpPack8x1::mul(tt0, t0, t1);           //      A1B0 |      A1B1 | A0B1 | A0B0
+        UFpPack8x1::redc(t0, tt0);              //      A1B0 |      A1B1 | A0B1 | A0B0
         perm_10zz(t1.data(), t0.data());      //      A0B1 |      A0B0 |    0 |    0 
         FpPack8x1::asx4(r, t1, t0);              // A0B1+A1B0 | A0B0-A1B1 |  ... |  ...
     }
 
     void add_fp2_2x2x2w(fp2_2x2x2w& r, const fp2_2x2x2w& a, const fp2_2x2x2w& b)
     {
-        add_FpPack4x2(r, a, b);
+        FpPack4x2::add(r, a, b);
     }
 
     void sub_fp2_2x2x2w(fp2_2x2x2w& r, const fp2_2x2x2w& a, const fp2_2x2x2w& b)
     {
-        sub_FpPack4x2(r, a, b);
+        FpPack4x2::sub(r, a, b);
     }
 
     // a = < B1' | B1 | B0' | B0 | A1' | A1 | A0' | A0 >
@@ -475,7 +475,7 @@ namespace blst
 
         // a = A1 | A0 at Fp layer 
         perm_1032_hl(t0.data(), a.data());    //     A0 |    A1
-        asx2_FpPack4x2(r, a, t0);               //  A0+A1 | A0-A1
+        FpPack4x2::asx2(r, a, t0);               //  A0+A1 | A0-A1
     }
 
     // r0 = a0*b0 - a1*b1
@@ -489,12 +489,12 @@ namespace blst
         // a = A1 | A0 at Fp layer
         // b = B1 | B0 at Fp layer
         perm_1010_hl(t0.data(), a.data());    //          A0 |          A0
-        mul_UFpPack4x2(tt0, t0, b);            //       A0*B1 |       A0*B0
+        FpPack4x2::mul(tt0, t0, b);            //       A0*B1 |       A0*B0
         perm_3232_hl(t0.data(), a.data());    //          A1 |          A1
         perm_1032_hl(t1.data(), b.data());    //          B0 |          B1
-        mul_UFpPack4x2(tt1, t0, t1);           //       A1*B0 |       A1*B1
-        asx2_UFpPack4x2(tt0, tt0, tt1);        // A0*B1+A1*B0 | A0*B0-A1*B1
-        redc_UFpPack4x2(r, tt0);               // A0*B1+A1*B0 | A0*B0-A1*B1
+        FpPack4x2::mul(tt1, t0, t1);           //       A1*B0 |       A1*B1
+        UFpPack4x2::asx2(tt0, tt0, tt1);        // A0*B1+A1*B0 | A0*B0-A1*B1
+        UFpPack4x2::redc(r, tt0);               // A0*B1+A1*B0 | A0*B0-A1*B1
     }
 
     // r0 = (a0 + a1)*(a0 - a1)
@@ -508,10 +508,10 @@ namespace blst
         perm_1010_hl(t0.data(), a.data());    //      A0 |              A0
         perm_1032_hl(t1.data(), a.data());    //      A0 |              A1 
         perm_zz32_hl(t2.data(), a.data());    //       0 |              A1
-        add_FpPack4x2(t0, t0, t1);              //    2*A0 |           A0+A1
-        sub_FpPack4x2(t2, a, t2);               //      A1 |           A0-A1
-        mul_UFpPack4x2(tt0, t0, t2);           // 2*A0*A1 | (A0+A1)*(A0-A1)
-        redc_UFpPack4x2(r, tt0);               // 2*A0*A1 | (A0+A1)*(A0-A1)
+        FpPack4x2::add(t0, t0, t1);              //    2*A0 |           A0+A1
+        FpPack4x2::sub(t2, a, t2);               //      A1 |           A0-A1
+        FpPack4x2::mul(tt0, t0, t2);           // 2*A0*A1 | (A0+A1)*(A0-A1)
+        UFpPack4x2::redc(r, tt0);               // 2*A0*A1 | (A0+A1)*(A0-A1)
     }
 
     // r0 = a0*b0 - a1*b1
@@ -529,10 +529,10 @@ namespace blst
         // b = B1 | B0 | ... | ... at Fp layer
         perm_var_hl(t0.data(), a.data(), m0); //          A1 |          A1 |    A0 |    A0
         perm_var_hl(t1.data(), b.data(), m1); //          B0 |          B1 |    B1 |    B0
-        mul_UFpPack4x2(tt0, t0, t1);           //       A1*B0 |       A1*B1 | A0*B1 | A0*B0
-        redc_UFpPack4x2(t0, tt0);              //       A1*B0 |       A1*B1 | A0*B1 | A0*B0
+        FpPack4x2::mul(tt0, t0, t1);           //       A1*B0 |       A1*B1 | A0*B1 | A0*B0
+        UFpPack4x2::redc(t0, tt0);              //       A1*B0 |       A1*B1 | A0*B1 | A0*B0
         perm_var_hl(t1.data(), t0.data(), m2);//       A0*B1 |       A0*B0 |   ... |   ... 
-        asx2_FpPack4x2(r, t1, t0);              // A0*B1+A1*B0 | A0*B0-A1*B1 |   ... |   ...
+        FpPack4x2::asx2(r, t1, t0);              // A0*B1+A1*B0 | A0*B0-A1*B1 |   ... |   ...
     }
 
     // ----------------------------------------------------------------------------
@@ -540,28 +540,28 @@ namespace blst
 
     void add_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a, const fp2x2_8x1x1w& b)
     {
-        add_UFpPack8x1(r[0], a[0], b[0]);
-        add_UFpPack8x1(r[1], a[1], b[1]);
+        UFpPack8x1::add(r[0], a[0], b[0]);
+        UFpPack8x1::add(r[1], a[1], b[1]);
     }
 
     void sub_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a, const fp2x2_8x1x1w& b)
     {
-        sub_UFpPack8x1(r[0], a[0], b[0]);
-        sub_UFpPack8x1(r[1], a[1], b[1]);
+        UFpPack8x1::sub(r[0], a[0], b[0]);
+        UFpPack8x1::sub(r[1], a[1], b[1]);
     }
 
     void asx4_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a, const fp2x2_8x1x1w& b)
     {
-        asx4_UFpPack8x1(r[0], a[0], b[0]);
-        asx4_UFpPack8x1(r[1], a[1], b[1]);
+        UFpPack8x1::asx4(r[0], a[0], b[0]);
+        UFpPack8x1::asx4(r[1], a[1], b[1]);
     }
 
     // r0 = a0 - a1
     // r1 = a0 + a1
     void mul_by_u_plus_1_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a)
     {
-        sub_UFpPack8x1(r[0], a[0], a[1]);      // a0-a1
-        add_UFpPack8x1(r[1], a[0], a[1]);      // a0+a1
+        UFpPack8x1::sub(r[0], a[0], a[1]);      // a0-a1
+        UFpPack8x1::add(r[1], a[0], a[1]);      // a0+a1
     }
 
     // r0 = a0*b0 - a1*b1
@@ -572,29 +572,29 @@ namespace blst
         FpPack8x1 t0, t1;
         UFpPack8x1 tt0, tt1, tt2;
 
-        mul_UFpPack8x1(tt0, a[0], b[0]);       // a0*b0
-        mul_UFpPack8x1(tt1, a[1], b[1]);       // a1*b1
+        FpPack8x1::mul(tt0, a[0], b[0]);       // a0*b0
+        FpPack8x1::mul(tt1, a[1], b[1]);       // a1*b1
         FpPack8x1::add(t0, a[0], a[1]);          // a0+a1
         FpPack8x1::add(t1, b[0], b[1]);          // b0+b1
-        mul_UFpPack8x1(tt2, t0, t1);           // (a0+a1)*(b0+b1)
-        sub_UFpPack8x1(r[0], tt0, tt1);        // a0*b0-a1*b1
-        sub_UFpPack8x1(tt2, tt2, tt0);         // (a0+a1)*(b0+b1)-a0*b0
-        sub_UFpPack8x1(r[1], tt2, tt1);        // (a0+a1)*(b0+b1)-a0*b0-a1*b1
+        FpPack8x1::mul(tt2, t0, t1);           // (a0+a1)*(b0+b1)
+        UFpPack8x1::sub(r[0], tt0, tt1);        // a0*b0-a1*b1
+        UFpPack8x1::sub(tt2, tt2, tt0);         // (a0+a1)*(b0+b1)-a0*b0
+        UFpPack8x1::sub(r[1], tt2, tt1);        // (a0+a1)*(b0+b1)-a0*b0-a1*b1
     }
 
     void add_fp2x2_4x2x1w(fp2x2_4x2x1w& r, const fp2x2_4x2x1w& a, const fp2x2_4x2x1w& b)
     {
-        add_UFpPack8x1(r, a, b);
+        UFpPack8x1::add(r, a, b);
     }
 
     void sub_fp2x2_4x2x1w(fp2x2_4x2x1w& r, const fp2x2_4x2x1w& a, const fp2x2_4x2x1w& b)
     {
-        sub_UFpPack8x1(r, a, b);
+        UFpPack8x1::sub(r, a, b);
     }
 
     void sax2_fp2x2_4x2x1w(fp2x2_4x2x1w& r, const fp2x2_4x2x1w& a, const fp2x2_4x2x1w& b)
     {
-        ssaax2_UFpPack8x1(r, a, b);
+        UFpPack8x1::ssaax2(r, a, b);
     }
 
     // r0 = a0 - a1
@@ -605,7 +605,7 @@ namespace blst
 
         // a = A1 | A0 at Fp layer 
         shuf_01_dl(tt0.data(), a.data());     //     A0 |    A1
-        asx4_UFpPack8x1(r, a, tt0);            //  A0+A1 | A0-A1
+        UFpPack8x1::asx4(r, a, tt0);            //  A0+A1 | A0-A1
     }
 
     // r0 = a0*b0 - a1*b1
@@ -619,11 +619,11 @@ namespace blst
         // a = A1 | A0 at Fp layer 
         // b = B1 | B0 at Fp layer
         shuf_00(t0.data(), a.data());         //          A0 |          A0 
-        mul_UFpPack8x1(tt0, t0, b);            //       A0*B1 |       A0*B0
+        FpPack8x1::mul(tt0, t0, b);            //       A0*B1 |       A0*B0
         shuf_11(t0.data(), a.data());         //          A1 |          A1 
         shuf_01(t1.data(), b.data());         //          B0 |          B1 
-        mul_UFpPack8x1(tt1, t0, t1);           //       A1*B0 |       A1*B1
-        asx4_UFpPack8x1(r, tt0, tt1);          // A0*B1+A1*B0 | A0*B0-A1*B1
+        FpPack8x1::mul(tt1, t0, t1);           //       A1*B0 |       A1*B1
+        UFpPack8x1::asx4(r, tt0, tt1);          // A0*B1+A1*B0 | A0*B0-A1*B1
     }
 
     // r0 = (a0 + a1)*(a0 - a1)
@@ -638,12 +638,12 @@ namespace blst
         shuf_z1(t2.data(), a.data());         //       0 |              A1
         FpPack8x1::add(t0, t0, t1);              //    2*A0 |           A0+A1
         FpPack8x1::sub(t2, a, t2);               //      A1 |           A0-A1
-        mul_UFpPack8x1(r, t0, t2);             // 2*A0*A1 | (A0+A1)*(A0-A1) 
+        FpPack8x1::mul(r, t0, t2);             // 2*A0*A1 | (A0+A1)*(A0-A1) 
     }
 
     void redc_fp2x2_4x2x1w(fp2_4x2x1w& r, const fp2x2_4x2x1w& a)
     {
-        redc_UFpPack8x1(r, a);
+        UFpPack8x1::redc(r, a);
     }
 
     // r0 = a0*b0 - a1*b1
@@ -658,24 +658,24 @@ namespace blst
         // b = B1 | B0 | ... | ... at Fp layer
         perm_3322(t0.data(), a.data());       //          A1 |          A1 |   A0 |   A0
         perm_2332(t1.data(), b.data());       //          B0 |          B1 |   B1 |   B0
-        mul_UFpPack8x1(tt0, t0, t1);           //        A1B0 |        A1B1 | A0B1 | A0B0
+        FpPack8x1::mul(tt0, t0, t1);           //        A1B0 |        A1B1 | A0B1 | A0B0
         perm_10zz_dl(tt1.data(), tt0.data()); //       A0*B1 |       A0*B0 |    0 |    0 
-        asx4_UFpPack8x1(r, tt1, tt0);          // A0*B1+A1*B0 | A0*B0-A1*B1 |  ... |  ...
+        UFpPack8x1::asx4(r, tt1, tt0);          // A0*B1+A1*B0 | A0*B0-A1*B1 |  ... |  ...
     }
 
     void redc_fp2x2_2x2x2w(fp2_2x2x2w& r, const fp2x2_2x2x2w& a)
     {
-        redc_UFpPack4x2(r, a);
+        UFpPack4x2::redc(r, a);
     }
 
     void add_fp2x2_2x2x2w(fp2x2_2x2x2w& r, const fp2x2_2x2x2w& a, const fp2x2_2x2x2w& b)
     {
-        add_UFpPack4x2(r, a, b);
+        UFpPack4x2::add(r, a, b);
     }
 
     void sub_fp2x2_2x2x2w(fp2x2_2x2x2w& r, const fp2x2_2x2x2w& a, const fp2x2_2x2x2w& b)
     {
-        sub_UFpPack4x2(r, a, b);
+        UFpPack4x2::sub(r, a, b);
     }
 
     // r0 = a0 - a1
@@ -687,7 +687,7 @@ namespace blst
         // a = A1 | A0 at Fp layer 
         perm_1032(t0.data(), a.data());           //     A0 |    A1
         perm_1032_hl(&t0[NWORDS], &a[NWORDS]);    //     A0 |    A1
-        asx2_UFpPack4x2(r, a, t0);                 //  A0+A1 | A0-A1
+        UFpPack4x2::asx2(r, a, t0);                 //  A0+A1 | A0-A1
     }
 
     // r0 = a0*b0 - a1*b1
@@ -701,11 +701,11 @@ namespace blst
         // a = A1 | A0 at Fp layer 
         // b = B1 | B0 at Fp layer
         perm_1010_hl(t0.data(), a.data());    //          A0 |          A0
-        mul_UFpPack4x2(tt0, t0, b);            //       A0*B1 |       A0*B0
+        FpPack4x2::mul(tt0, t0, b);            //       A0*B1 |       A0*B0
         perm_3232_hl(t0.data(), a.data());    //          A1 |          A1 
         perm_1032_hl(t1.data(), b.data());    //          B0 |          B1
-        mul_UFpPack4x2(tt1, t0, t1);           //       A1*B0 |       A1*B1
-        asx2_UFpPack4x2(r, tt0, tt1);          // A0*B1+A1*B0 | A0*B0-A1*B1  
+        FpPack4x2::mul(tt1, t0, t1);           //       A1*B0 |       A1*B1
+        UFpPack4x2::asx2(r, tt0, tt1);          // A0*B1+A1*B0 | A0*B0-A1*B1  
     }
 
     // r0 = (a0 + a1)*(a0 - a1)
@@ -717,9 +717,9 @@ namespace blst
         perm_1010_hl(t0.data(), a.data());    //      A0 |              A0
         perm_1032_hl(t1.data(), a.data());    //      A0 |              A1 
         perm_zz32_hl(t2.data(), a.data());    //       0 |              A1
-        add_FpPack4x2(t0, t0, t1);              //    2*A0 |           A0+A1
-        sub_FpPack4x2(t2, a, t2);               //      A1 |           A0-A1
-        mul_UFpPack4x2(r, t0, t2);             // 2*A0*A1 | (A0+A1)*(A0-A1)
+        FpPack4x2::add(t0, t0, t1);              //    2*A0 |           A0+A1
+        FpPack4x2::sub(t2, a, t2);               //      A1 |           A0-A1
+        FpPack4x2::mul(r, t0, t2);             // 2*A0*A1 | (A0+A1)*(A0-A1)
     }
 
     // r0 = a0*b0 - a1*b1
@@ -737,9 +737,9 @@ namespace blst
         // b = B1 | B0 | ... | ... at Fp layer
         perm_var_hl(t0.data(), a.data(), m0);         //          A1 |          A1 |    A0 |    A0
         perm_var_hl(t1.data(), b.data(), m1);         //          B0 |          B1 |    B1 |    B0
-        mul_UFpPack4x2(tt0, t0, t1);                   //       A1*B0 |       A1*B1 | A0*B1 | A0*B0
+        FpPack4x2::mul(tt0, t0, t1);                   //       A1*B0 |       A1*B1 | A0*B1 | A0*B0
         perm_var_vl(tt1.data(), tt0.data(), m2);      //       A0*B1 |       A0*B0 |   ... |   ... 
-        asx2_UFpPack4x2(r, tt1, tt0);                  // A0*B1+A1*B0 | A0*B0-A1*B1 |   ... |   ...
+        UFpPack4x2::asx2(r, tt1, tt0);                  // A0*B1+A1*B0 | A0*B0-A1*B1 |   ... |   ...
     }
 
 } // namespace blst

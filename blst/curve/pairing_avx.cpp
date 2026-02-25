@@ -128,9 +128,9 @@ void add_n_dbl_n_vector(
             static_cast<i64>(Q->X[0][i + (SWORDS / 2)]), static_cast<i64>(Q->X[0][i]));
     }
 
-    conv_64to48_FpPack4x2(X1Y1, s[0].data());
-    conv_64to48_FpPack4x2(Z1Y2, s[1].data());
-    conv_64to48_FpPack4x2(X2, s[2].data());
+    FpPack4x2::conv_64to48(X1Y1, s[0].data());
+    FpPack4x2::conv_64to48(Z1Y2, s[1].data());
+    FpPack4x2::conv_64to48(X2, s[2].data());
 
     line_add_vec_v1(l0Y3, l1, X3, Z3, X1Y1, Z1Y2, X2);
 
@@ -146,7 +146,7 @@ void add_n_dbl_n_vector(
             static_cast<i64>(Px2->X[i + (SWORDS / 2)]), static_cast<i64>(Px2->X[i]),
             static_cast<i64>(Px2->X[i + (SWORDS / 2)]), static_cast<i64>(Px2->X[i]));
     }
-    conv_64to48_FpPack4x2(_Px2, s[0].data());
+    FpPack4x2::conv_64to48(_Px2, s[0].data());
 
     line_by_Px2_2x2x2w(l12, l12, _Px2);
 
@@ -173,8 +173,8 @@ void add_n_dbl_n_vector(
     FpPack8x1::conv_64to48(a01, t[0].data());
     FpPack8x1::conv_64to48(a2, t[1].data());
 
-    carryp_FpPack4x2(l12);
-    carryp_FpPack4x2(l0Y3);
+    FpPack4x2::carryp(l12);
+    FpPack4x2::carryp(l0Y3);
 
     for (i = 0; i < VWORDS; ++i) {
         b4[i] = VPERMV(m0, l12[i]);
@@ -266,9 +266,9 @@ void add_n_dbl_n_vector(
         mul_by_xy00z0_fp12_vec_v1(r0, r1, a01, a2, b01, b4);
     }
 
-    carryp_FpPack4x2(r1);
+    FpPack4x2::carryp(r1);
     FpPack8x1::conv_48to64(t[0].data(), r0);
-    conv_48to64_FpPack4x2(s[0].data(), r1);
+    FpPack4x2::conv_48to64(s[0].data(), r1);
 
     for (i = 0; i < SWORDS; ++i) {
         std::array<u64, 8> lanes;
@@ -366,9 +366,9 @@ void mul_n_sqr_vector(Fp12& ret, const Fp12& a, std::size_t n)
 
     mul_fp12_vec_v3(r001, r101, r2, ab0, ab1, ab2);
 
-    carryp_FpPack4x2(r001);
-    carryp_FpPack4x2(r101);
-    carryp_FpPack4x2(r2);
+    FpPack4x2::carryp(r001);
+    FpPack4x2::carryp(r101);
+    FpPack4x2::carryp(r2);
 
     blend_0x0F_hl(_a.data(), r101.data(), r001.data());
 
@@ -400,8 +400,8 @@ void mul_n_sqr_vector(Fp12& ret, const Fp12& a, std::size_t n)
         cyclotomic_sqr_fp12_vec_v1(_a, _bc, _a, _bc);
     }
 
-    carryp_FpPack4x2(_a);
-    conv_48to64_FpPack4x2(s.data(), _a);
+    FpPack4x2::carryp(_a);
+    FpPack4x2::conv_48to64(s.data(), _a);
     for (i = 0; i < SWORDS / 2; ++i) {
         const u64* lanes = reinterpret_cast<const u64*>(&s[i]);
         ret[0][0][0][i] = lanes[0];

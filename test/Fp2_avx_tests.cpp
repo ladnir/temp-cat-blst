@@ -196,8 +196,8 @@ void unpack_fp2_2x2x2w(Fp2Vec2& out, const fp2_2x2x2w& in)
 
 void redc_fp2x2_8x1x1w_local(fp2_8x1x1w& r, const fp2x2_8x1x1w& a)
 {
-    redc_UFpPack8x1(r[0], a[0]);
-    redc_UFpPack8x1(r[1], a[1]);
+    UFpPack8x1::redc(r[0], a[0]);
+    UFpPack8x1::redc(r[1], a[1]);
 }
 
 void apply_pattern(Fp2Vec4& out, const Fp2Vec4& a, const Fp2Vec4& b, const std::array<ElemOp, 4>& pattern)

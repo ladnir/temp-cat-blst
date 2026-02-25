@@ -576,20 +576,20 @@ void bench_fp(const BenchConfig& cfg)
     std::puts("\n=============================================================\n");
     std::puts("TIMING - FP\n");
 
-    measure_cycles("- mul_UFpPack8x1_v2:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        mul_UFpPack8x1_v2(z_8x1w, a_8x1w, b_8x1w);
+    measure_cycles("- FpPack8x1::mul_v2:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        FpPack8x1::mul_v2(z_8x1w, a_8x1w, b_8x1w);
     });
 
-    measure_cycles("- mul_UFpPack4x2_v1:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        mul_UFpPack4x2_v1(z_4x2w, a_4x2w, b_4x2w);
+    measure_cycles("- FpPack4x2::mul_v1:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        FpPack4x2::mul_v1(z_4x2w, a_4x2w, b_4x2w);
     });
 
-    measure_cycles("- redc_UFpPack8x1:       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        redc_UFpPack8x1(r_8x1w, z_8x1w);
+    measure_cycles("- UFpPack8x1::redc:       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        UFpPack8x1::redc(r_8x1w, z_8x1w);
     });
 
-    measure_cycles("- redc_UFpPack4x2:       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        redc_UFpPack4x2(r_4x2w, z_4x2w);
+    measure_cycles("- UFpPack4x2::redc:       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        UFpPack4x2::redc(r_4x2w, z_4x2w);
     });
 }
 

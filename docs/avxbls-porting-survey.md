@@ -193,7 +193,7 @@ Legend:
   - Pre: `Pre-L`; Post: `Post-L`, `Post-N`.
 - `trace_dump__m512i`: debug register dump.
   - Pre: any `__m512i`; Post: no state change.
-- `conv_64to48_FpPack4x2`: packed conversion (4x2w) to radix-48.
+- `FpPack4x2::conv_64to48`: packed conversion (4x2w) to radix-48.
   - Pre: `Pre-L`; Post: `Post-L`, `Post-N`.
 - `conv_64to48_mpi`: generic multiprecision 64->48 conversion.
   - Pre: valid buffer sizes; Post: converted limb stream.
@@ -201,17 +201,17 @@ Legend:
   - Pre: scalar radix-48 limbs; Post: scalar 64-bit-limb form.
 - `FpPack8x1::conv_48to64`: packed conversion (8x1w) back to 64-bit-limb packing.
   - Pre: `Pre-L`; Post: `Post-L`.
-- `conv_48to64_FpPack4x2`: packed conversion (4x2w) back to 64-bit-limb packing.
+- `FpPack4x2::conv_48to64`: packed conversion (4x2w) back to 64-bit-limb packing.
   - Pre: `Pre-L`; Post: `Post-L`.
 - `conv_48to64_mpi`: generic multiprecision 48->64 conversion.
   - Pre: valid buffers; Post: converted limb stream.
 - `carryp_mpi48`: scalar radix-48 forward carry propagation.
   - Pre: radix-48 style array; Post: normalized carry.
-- `carryp_FpPack4x2`: packed radix-48 carry propagation for 4x2w.
+- `FpPack4x2::carryp`: packed radix-48 carry propagation for 4x2w.
   - Pre: `Pre-L`; Post: `Post-L`, `Post-N`.
-- `get_channel_8x1w`: extracts one lane-channel from `FpPack8x1`.
+- `FpPack8x1::get_channel`: extracts one lane-channel from `FpPack8x1`.
   - Pre: channel index in range; Post: scalar channel limbs.
-- `get_channel_4x2w`: extracts one packed channel from `FpPack4x2`.
+- `FpPack4x2::get_channel`: extracts one packed channel from `FpPack4x2`.
   - Pre: channel index in range; Post: scalar channel limbs.
 
 ## 5.2 SIMD transform helpers (`fp12_avx.c`, static)
@@ -254,9 +254,9 @@ Pre/Post: `Pre-L` -> `Post-L`, `Post-P`.
 ### 5.3.1 Static Fp/Fpx2 helpers
 
 - `FpPack8x1::add`, `FpPack8x1::sub`, `FpPack8x1::asx4`, `FpPack8x1::asax6`, `FpPack8x1::assx6`
-- `add_FpPack4x2`, `sub_FpPack4x2`, `asx2_FpPack4x2`
-- `add_UFpPack8x1`, `sub_UFpPack8x1`, `aaasx2_UFpPack8x1`, `aassx2_UFpPack8x1`, `asx4_UFpPack8x1`, `ssaax2_UFpPack8x1`, `ssasx2_UFpPack8x1`
-- `add_UFpPack4x2`, `sub_UFpPack4x2`, `asx2_UFpPack4x2`, `aass_UFpPack4x2`
+- `FpPack4x2::add`, `FpPack4x2::sub`, `FpPack4x2::asx2`
+- `UFpPack8x1::add`, `UFpPack8x1::sub`, `UFpPack8x1::aaasx2`, `UFpPack8x1::aassx2`, `UFpPack8x1::asx4`, `UFpPack8x1::ssaax2`, `UFpPack8x1::ssasx2`
+- `UFpPack4x2::add`, `UFpPack4x2::sub`, `UFpPack4x2::asx2`, `UFpPack4x2::aass`
 
 Behavior:
 
@@ -270,12 +270,12 @@ Pre/Post:
 
 ### 5.3.2 Public Fp kernels
 
-- `mul_UFpPack8x1` (blst alias; implementation is AVXBLS `mul_UFpPack8x1_v2`)
-- `mul_UFpPack8x1_v2`
-- `mul_UFpPack4x2` (blst alias; implementation is AVXBLS `mul_UFpPack4x2_v1`)
-- `mul_UFpPack4x2_v1`
-- `redc_UFpPack8x1`
-- `redc_UFpPack4x2`
+- `FpPack8x1::mul` (blst alias; implementation is AVXBLS `FpPack8x1::mul_v2`)
+- `FpPack8x1::mul_v2`
+- `FpPack4x2::mul` (blst alias; implementation is AVXBLS `FpPack4x2::mul_v1`)
+- `FpPack4x2::mul_v1`
+- `UFpPack8x1::redc`
+- `UFpPack4x2::redc`
 
 Behavior:
 
@@ -467,9 +467,9 @@ Types:
 
 Primary kernels:
 
-- `mul_UFpPack8x1` / `mul_UFpPack8x1_v2` (AVXBLS v2 kernel)
-- `mul_UFpPack4x2_v1`
-- `redc_UFpPack8x1`, `redc_UFpPack4x2`
+- `FpPack8x1::mul` / `FpPack8x1::mul_v2` (AVXBLS v2 kernel)
+- `FpPack4x2::mul_v1`
+- `UFpPack8x1::redc`, `UFpPack4x2::redc`
 
 ## 6.2 Fp2
 
@@ -602,8 +602,8 @@ Pairing wrappers:
 Port now:
 
 - Types: `FpPack8x1`, `UFpPack8x1`, `FpPack4x2`, `UFpPack4x2`
-- Kernels: `mul_UFpPack8x1`/`mul_UFpPack8x1_v2` (AVXBLS v2), `mul_UFpPack4x2`/`mul_UFpPack4x2_v1`
-- Reductions: `redc_UFpPack8x1`, `redc_UFpPack4x2`
+- Kernels: `FpPack8x1::mul`/`FpPack8x1::mul_v2` (AVXBLS v2), `FpPack4x2::mul`/`FpPack4x2::mul_v1`
+- Reductions: `UFpPack8x1::redc`, `UFpPack4x2::redc`
 - Required helpers: Fp/Fpx2 add-sub/combination helpers + needed lane transforms + conversions.
 
 Test gates:

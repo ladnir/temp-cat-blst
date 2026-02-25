@@ -59,7 +59,7 @@ void sqr_fp4_2x2x2x1w_v3(fp4_2x2x2x1w& r, const fp4_2x2x2x1w& a)
     blend_0x33_dl(tt2.data(), tt0.data(), tt2.data()); //       A0*A1 |             (A0+A1)*(A0+A1*(u+1))-A0*A1
     perm_1032_dl(tt1.data(), tt1.data());    //         ... |                             A0*A1*(u+1)
     blend_0x33_dl(tt1.data(), tt0.data(), tt1.data()); //       A0*A1 |                             A0*A1*(u+1)
-    aassx2_UFpPack8x1(tt2, tt2, tt1);         //     2*A0*A1 | (A0+A1)*(A0+A1*(u+1))-A0*A1-A0*A1*(u+1)
+    UFpPack8x1::aassx2(tt2, tt2, tt1);         //     2*A0*A1 | (A0+A1)*(A0+A1*(u+1))-A0*A1-A0*A1*(u+1)
     redc_fp2x2_4x2x1w(r, tt2);               //     2*A0*A1 | (A0+A1)*(A0+A1*(u+1))-A0*A1-A0*A1*(u+1)
 }
 

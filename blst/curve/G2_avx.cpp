@@ -218,15 +218,15 @@ void line_add_vec_v1(
 void line_by_Px2_4x2x1w(fp2_4x2x1w& r, const fp2_4x2x1w& a, const fp2_4x2x1w& Px2)
 {
     fp2x2_4x2x1w tt0;
-    mul_UFpPack8x1(tt0, a, Px2);
-    redc_UFpPack8x1(r, tt0);
+    FpPack8x1::mul(tt0, a, Px2);
+    UFpPack8x1::redc(r, tt0);
 }
 
 void line_by_Px2_2x2x2w(fp2_2x2x2w& r, const fp2_2x2x2w& a, const fp2_2x2x2w& Px2)
 {
     fp2x2_2x2x2w tt0;
-    mul_UFpPack4x2(tt0, a, Px2);
-    redc_UFpPack4x2(r, tt0);
+    FpPack4x2::mul(tt0, a, Px2);
+    UFpPack4x2::redc(r, tt0);
 }
 
 void line_add_vector(Fp6& line, G2Point& T, const G2Point& R, const G2AffinePoint& Q)
@@ -257,21 +257,21 @@ void line_add_vector(Fp6& line, G2Point& T, const G2Point& R, const G2AffinePoin
             static_cast<i64>(Q.X[0][i + (SWORDS / 2)]), static_cast<i64>(Q.X[0][i]));
     }
 
-    conv_64to48_FpPack4x2(X1Y1, in0.data());
-    conv_64to48_FpPack4x2(Z1Y2, in1.data());
-    conv_64to48_FpPack4x2(X2, in2.data());
+    FpPack4x2::conv_64to48(X1Y1, in0.data());
+    FpPack4x2::conv_64to48(Z1Y2, in1.data());
+    FpPack4x2::conv_64to48(X2, in2.data());
 
     line_add_vec_v1(l0Y3, l1, X3, Z3, X1Y1, Z1Y2, X2);
 
-    carryp_FpPack4x2(l0Y3);
-    carryp_FpPack4x2(l1);
-    carryp_FpPack4x2(X3);
-    carryp_FpPack4x2(Z3);
+    FpPack4x2::carryp(l0Y3);
+    FpPack4x2::carryp(l1);
+    FpPack4x2::carryp(X3);
+    FpPack4x2::carryp(Z3);
 
-    conv_48to64_FpPack4x2(out0.data(), l0Y3);
-    conv_48to64_FpPack4x2(out1.data(), l1);
-    conv_48to64_FpPack4x2(out2.data(), X3);
-    conv_48to64_FpPack4x2(out3.data(), Z3);
+    FpPack4x2::conv_48to64(out0.data(), l0Y3);
+    FpPack4x2::conv_48to64(out1.data(), l1);
+    FpPack4x2::conv_48to64(out2.data(), X3);
+    FpPack4x2::conv_48to64(out3.data(), Z3);
 
     for (u64 i = 0; i < SWORDS / 2; ++i) {
         std::array<u64, 8> lanes0, lanes1, lanes2, lanes3;
