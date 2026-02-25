@@ -18,6 +18,10 @@ set(BLST_STATIC_SRC
     "exports.cpp"
 )
 
+if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
+    list(APPEND BLST_STATIC_SRC "fields/Fp_avx.cpp")
+endif()
+
 if(MSVC)
     set(BLST_OPTS )
     set(BLST_DEBUG_OPT /Zi /Od /DEBUG ) #/W4 /WX

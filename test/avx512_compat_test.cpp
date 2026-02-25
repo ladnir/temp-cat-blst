@@ -17,7 +17,7 @@
 #if defined(BLST_AVX512) && defined(BLST_AVX512_PORTABLE)
 
 #include "blst/backend/avx512/intrin_compat.h"
-
+ 
 namespace blst {
 namespace test {
 
@@ -39,45 +39,10 @@ cc512i random_cc512i() {
 
 // Check equality between native intrinsic result and portable result
 void check_equal(const cc512i& native_res, const cc512i& portable_res, const char* op_name) {
-    // We need to extract values.
-    // cc512i might be a wrapper around __m512i or a struct with u64 lane[8].
-    // Since BLST_AVX512 is defined, cc512i usually has __m512i data; member if BLST_AVX_NATIVE is 1.
-    // But BLST_AVX_NATIVE is defined inside intrin_compat.h based on logic.
-    // If BLST_AVX512 is defined and BLST_AVX512_PORTABLE is defined, intrin_compat.h sets BLST_AVX_NATIVE to 0?
-    // Let's re-read the file content logic provided earlier.
-    
-    /*
-    #if defined(BLST_AVX512) && !defined(BLST_AVX512_PORTABLE)
-    #define BLST_AVX_NATIVE 1
-    ...
-    #else
-    #define BLST_AVX_NATIVE 0
-    ...
-    #endif
-    */
-    
-    // Ah, if BOTH are defined, BLST_AVX_NATIVE is 0. This means the standard functions like `add_epi64`
-    // map to `add_epi64_portable`. Use of intrinsics must be direct via `_mm512_*`.
-    // Wait, if BLST_AVX_NATIVE is 0, then cc512i is defined as struct { u64 lane[8]; }.
-    // If cc512i is u64 lane[8], we cannot pass it to _mm512_add_epi64 directly because that expects __m512i.
-    
-    // This is a problem for testing. The struct definition changes based on macros.
-    // If we want to test compat, we need `cc512i` to be convertible or comparable.
-    
-    // If BLST_AVX_NATIVE is 0, cc512i is just lanes.
-    // To test against intrinsics, we have to manually invoke intrinsics using casting or reinterpreting.
-    
     u64 p_lanes[8];
     storeu_si512_portable(p_lanes, portable_res);
     
     u64 n_lanes[8];
-    // If cc512i is the portable struct, native_res holds the portable result if we called the standard API.
-    // We want to test "portable version against intrinsics".
-    // But `check_equal` receives two cc512i's.
-    // One should be computed by portable, one by native.
-    // If cc512i is portable struct, we cannot compute native result easily into it using _mm512 functions
-    // unless we store _mm512 result into memory and load it into cc512i.
-    
     storeu_si512_portable(n_lanes, native_res);
 
     for (int i = 0; i < 8; ++i) {
@@ -243,7 +208,7 @@ TEST_F(Avx512CompatTest, Permutes) {
                     permutexvar_epi64_portable(idx, a), "permutexvar_epi64");
     }
 }
-
+ 
 TEST_F(Avx512CompatTest, TemplatePermutes) {
     cc512i a = random_cc512i();
     

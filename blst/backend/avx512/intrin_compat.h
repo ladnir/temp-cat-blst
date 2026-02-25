@@ -22,7 +22,7 @@ namespace blst
     // Logical 512-bit integer register used by tile code.
     struct cc512i {
 #if BLST_AVX_NATIVE
-        __m512i data;
+        ::__m512i data;
 #else
         u64 lane[8];
 #endif
@@ -31,7 +31,7 @@ namespace blst
     // Logical 256-bit integer register used only for extraction helpers.
     struct cc256i {
 #if BLST_AVX_NATIVE
-        __m256i data;
+        ::__m256i data;
 #else
         u64 lane[4];
 #endif

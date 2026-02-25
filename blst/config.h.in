@@ -4,6 +4,8 @@
 #cmakedefine BLST_ASM          // enable the asm CPU code
 #cmakedefine BLST_ADX          // enable the ADX instruction set
 #cmakedefine BLST_DEFAULT_ASM  // use asm as the default cpu implementation
+#cmakedefine BLST_AVX512_PORTABLE     // enable portable avx 512 wrappers
+#cmakedefine BLST_AVX512       // enable the AVX512 instruction set
 #cmakedefine BLST_CUDA         // enable cuda kernels
 #cmakedefine BLST_CUDA_MSM     // enable cuda msm kernels
 #cmakedefine BLST_FAST_BUILD   // faster build but slower runtime, reduced CUDA inlining.
