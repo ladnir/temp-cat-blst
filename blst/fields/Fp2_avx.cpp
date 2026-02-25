@@ -285,7 +285,7 @@ namespace blst
         fp2_4x2x1w t0;
 
         // a = A1 | A0 at Fp layer 
-        shuf_01(t0, a);                       //     A0 |    A1
+        shuf_01(t0.data(), a.data());         //     A0 |    A1
         asx4_fp_8x1w(r, a, t0);               //  A0+A1 | A0-A1
     }
 
@@ -299,10 +299,10 @@ namespace blst
 
         // a = A1 | A0 at Fp layer 
         // b = B1 | B0 at Fp layer
-        shuf_00(t0, a);                       //          A0 |          A0 
+        shuf_00(t0.data(), a.data());         //          A0 |          A0 
         mul_fpx2_8x1w(tt0, t0, b);            //       A0*B1 |       A0*B0
-        shuf_11(t0, a);                       //          A1 |          A1 
-        shuf_01(t1, b);                       //          B0 |          B1 
+        shuf_11(t0.data(), a.data());         //          A1 |          A1 
+        shuf_01(t1.data(), b.data());         //          B0 |          B1 
         mul_fpx2_8x1w(tt1, t0, t1);           //       A1*B0 |       A1*B1
         asx4_fpx2_8x1w(tt0, tt0, tt1);        // A0*B1+A1*B0 | A0*B0-A1*B1
         redc_fpx2_8x1w(r, tt0);               // A0*B1+A1*B0 | A0*B0-A1*B1
@@ -316,9 +316,9 @@ namespace blst
         fp2x2_4x2x1w tt0;
 
         // a = A1 | A0 at Fp layer 
-        shuf_00(t0, a);                       //      A0 |              A0
-        shuf_01(t1, a);                       //      A0 |              A1 
-        shuf_z1(t2, a);                       //       0 |              A1
+        shuf_00(t0.data(), a.data());         //      A0 |              A0
+        shuf_01(t1.data(), a.data());         //      A0 |              A1 
+        shuf_z1(t2.data(), a.data());         //       0 |              A1
         add_fp_8x1w(t0, t0, t1);              //    2*A0 |           A0+A1
         sub_fp_8x1w(t2, a, t2);               //      A1 |           A0-A1
         mul_fpx2_8x1w(tt0, t0, t2);           // 2*A0*A1 | (A0+A1)*(A0-A1)
@@ -335,11 +335,11 @@ namespace blst
 
         // a = A1 | A0 | ... | ... at Fp layer
         // b = B1 | B0 | ... | ... at Fp layer
-        perm_3322(t0, a);                     //        A1 |        A1 |   A0 |   A0
-        perm_2332(t1, b);                     //        B0 |        B1 |   B1 |   B0
+        perm_3322(t0.data(), a.data());       //        A1 |        A1 |   A0 |   A0
+        perm_2332(t1.data(), b.data());       //        B0 |        B1 |   B1 |   B0
         mul_fpx2_8x1w(tt0, t0, t1);           //      A1B0 |      A1B1 | A0B1 | A0B0
         redc_fpx2_8x1w(t0, tt0);              //      A1B0 |      A1B1 | A0B1 | A0B0
-        perm_10zz(t1, t0);                    //      A0B1 |      A0B0 |    0 |    0 
+        perm_10zz(t1.data(), t0.data());      //      A0B1 |      A0B0 |    0 |    0 
         asx4_fp_8x1w(r, t1, t0);              // A0B1+A1B0 | A0B0-A1B1 |  ... |  ...
     }
 
@@ -474,7 +474,7 @@ namespace blst
         fp2_2x2x2w t0;
 
         // a = A1 | A0 at Fp layer 
-        perm_1032_hl(t0, a);                  //     A0 |    A1
+        perm_1032_hl(t0.data(), a.data());    //     A0 |    A1
         asx2_fp_4x2w(r, a, t0);               //  A0+A1 | A0-A1
     }
 
@@ -488,10 +488,10 @@ namespace blst
 
         // a = A1 | A0 at Fp layer
         // b = B1 | B0 at Fp layer
-        perm_1010_hl(t0, a);                  //          A0 |          A0
+        perm_1010_hl(t0.data(), a.data());    //          A0 |          A0
         mul_fpx2_4x2w(tt0, t0, b);            //       A0*B1 |       A0*B0
-        perm_3232_hl(t0, a);                  //          A1 |          A1
-        perm_1032_hl(t1, b);                  //          B0 |          B1
+        perm_3232_hl(t0.data(), a.data());    //          A1 |          A1
+        perm_1032_hl(t1.data(), b.data());    //          B0 |          B1
         mul_fpx2_4x2w(tt1, t0, t1);           //       A1*B0 |       A1*B1
         asx2_fpx2_4x2w(tt0, tt0, tt1);        // A0*B1+A1*B0 | A0*B0-A1*B1
         redc_fpx2_4x2w(r, tt0);               // A0*B1+A1*B0 | A0*B0-A1*B1
@@ -505,9 +505,9 @@ namespace blst
         fp2x2_2x2x2w tt0;
 
         // a = A1 | A0 at Fp layer
-        perm_1010_hl(t0, a);                  //      A0 |              A0
-        perm_1032_hl(t1, a);                  //      A0 |              A1 
-        perm_zz32_hl(t2, a);                  //       0 |              A1
+        perm_1010_hl(t0.data(), a.data());    //      A0 |              A0
+        perm_1032_hl(t1.data(), a.data());    //      A0 |              A1 
+        perm_zz32_hl(t2.data(), a.data());    //       0 |              A1
         add_fp_4x2w(t0, t0, t1);              //    2*A0 |           A0+A1
         sub_fp_4x2w(t2, a, t2);               //      A1 |           A0-A1
         mul_fpx2_4x2w(tt0, t0, t2);           // 2*A0*A1 | (A0+A1)*(A0-A1)
@@ -527,11 +527,11 @@ namespace blst
 
         // a = A1 | A0 | ... | ... at Fp layer
         // b = B1 | B0 | ... | ... at Fp layer
-        perm_var_hl(t0, a, m0);               //          A1 |          A1 |    A0 |    A0
-        perm_var_hl(t1, b, m1);               //          B0 |          B1 |    B1 |    B0
+        perm_var_hl(t0.data(), a.data(), m0); //          A1 |          A1 |    A0 |    A0
+        perm_var_hl(t1.data(), b.data(), m1); //          B0 |          B1 |    B1 |    B0
         mul_fpx2_4x2w(tt0, t0, t1);           //       A1*B0 |       A1*B1 | A0*B1 | A0*B0
         redc_fpx2_4x2w(t0, tt0);              //       A1*B0 |       A1*B1 | A0*B1 | A0*B0
-        perm_var_hl(t1, t0, m2);              //       A0*B1 |       A0*B0 |   ... |   ... 
+        perm_var_hl(t1.data(), t0.data(), m2);//       A0*B1 |       A0*B0 |   ... |   ... 
         asx2_fp_4x2w(r, t1, t0);              // A0*B1+A1*B0 | A0*B0-A1*B1 |   ... |   ...
     }
 
@@ -604,7 +604,7 @@ namespace blst
         fp2x2_4x2x1w tt0;
 
         // a = A1 | A0 at Fp layer 
-        shuf_01_dl(tt0, a);                   //     A0 |    A1
+        shuf_01_dl(tt0.data(), a.data());     //     A0 |    A1
         asx4_fpx2_8x1w(r, a, tt0);            //  A0+A1 | A0-A1
     }
 
@@ -618,10 +618,10 @@ namespace blst
 
         // a = A1 | A0 at Fp layer 
         // b = B1 | B0 at Fp layer
-        shuf_00(t0, a);                       //          A0 |          A0 
+        shuf_00(t0.data(), a.data());         //          A0 |          A0 
         mul_fpx2_8x1w(tt0, t0, b);            //       A0*B1 |       A0*B0
-        shuf_11(t0, a);                       //          A1 |          A1 
-        shuf_01(t1, b);                       //          B0 |          B1 
+        shuf_11(t0.data(), a.data());         //          A1 |          A1 
+        shuf_01(t1.data(), b.data());         //          B0 |          B1 
         mul_fpx2_8x1w(tt1, t0, t1);           //       A1*B0 |       A1*B1
         asx4_fpx2_8x1w(r, tt0, tt1);          // A0*B1+A1*B0 | A0*B0-A1*B1
     }
@@ -633,9 +633,9 @@ namespace blst
         fp2_4x2x1w t0, t1, t2;
 
         // a = A1 | A0 at Fp layer 
-        shuf_00(t0, a);                       //      A0 |              A0
-        shuf_01(t1, a);                       //      A0 |              A1 
-        shuf_z1(t2, a);                       //       0 |              A1
+        shuf_00(t0.data(), a.data());         //      A0 |              A0
+        shuf_01(t1.data(), a.data());         //      A0 |              A1 
+        shuf_z1(t2.data(), a.data());         //       0 |              A1
         add_fp_8x1w(t0, t0, t1);              //    2*A0 |           A0+A1
         sub_fp_8x1w(t2, a, t2);               //      A1 |           A0-A1
         mul_fpx2_8x1w(r, t0, t2);             // 2*A0*A1 | (A0+A1)*(A0-A1) 
@@ -656,10 +656,10 @@ namespace blst
 
         // a = A1 | A0 | ... | ... at Fp layer
         // b = B1 | B0 | ... | ... at Fp layer
-        perm_3322(t0, a);                     //          A1 |          A1 |   A0 |   A0
-        perm_2332(t1, b);                     //          B0 |          B1 |   B1 |   B0
+        perm_3322(t0.data(), a.data());       //          A1 |          A1 |   A0 |   A0
+        perm_2332(t1.data(), b.data());       //          B0 |          B1 |   B1 |   B0
         mul_fpx2_8x1w(tt0, t0, t1);           //        A1B0 |        A1B1 | A0B1 | A0B0
-        perm_10zz_dl(tt1, tt0);               //       A0*B1 |       A0*B0 |    0 |    0 
+        perm_10zz_dl(tt1.data(), tt0.data()); //       A0*B1 |       A0*B0 |    0 |    0 
         asx4_fpx2_8x1w(r, tt1, tt0);          // A0*B1+A1*B0 | A0*B0-A1*B1 |  ... |  ...
     }
 
@@ -685,7 +685,7 @@ namespace blst
         fp2x2_2x2x2w t0;
 
         // a = A1 | A0 at Fp layer 
-        perm_1032(t0, a);                         //     A0 |    A1
+        perm_1032(t0.data(), a.data());           //     A0 |    A1
         perm_1032_hl(&t0[NWORDS], &a[NWORDS]);    //     A0 |    A1
         asx2_fpx2_4x2w(r, a, t0);                 //  A0+A1 | A0-A1
     }
@@ -700,10 +700,10 @@ namespace blst
 
         // a = A1 | A0 at Fp layer 
         // b = B1 | B0 at Fp layer
-        perm_1010_hl(t0, a);                  //          A0 |          A0
+        perm_1010_hl(t0.data(), a.data());    //          A0 |          A0
         mul_fpx2_4x2w(tt0, t0, b);            //       A0*B1 |       A0*B0
-        perm_3232_hl(t0, a);                  //          A1 |          A1 
-        perm_1032_hl(t1, b);                  //          B0 |          B1
+        perm_3232_hl(t0.data(), a.data());    //          A1 |          A1 
+        perm_1032_hl(t1.data(), b.data());    //          B0 |          B1
         mul_fpx2_4x2w(tt1, t0, t1);           //       A1*B0 |       A1*B1
         asx2_fpx2_4x2w(r, tt0, tt1);          // A0*B1+A1*B0 | A0*B0-A1*B1  
     }
@@ -714,9 +714,9 @@ namespace blst
     {
         fp2_2x2x2w t0, t1, t2;
         // a = A1 | A0 at Fp layer
-        perm_1010_hl(t0, a);                  //      A0 |              A0
-        perm_1032_hl(t1, a);                  //      A0 |              A1 
-        perm_zz32_hl(t2, a);                  //       0 |              A1
+        perm_1010_hl(t0.data(), a.data());    //      A0 |              A0
+        perm_1032_hl(t1.data(), a.data());    //      A0 |              A1 
+        perm_zz32_hl(t2.data(), a.data());    //       0 |              A1
         add_fp_4x2w(t0, t0, t1);              //    2*A0 |           A0+A1
         sub_fp_4x2w(t2, a, t2);               //      A1 |           A0-A1
         mul_fpx2_4x2w(r, t0, t2);             // 2*A0*A1 | (A0+A1)*(A0-A1)
@@ -735,10 +735,10 @@ namespace blst
 
         // a = A1 | A0 | ... | ... at Fp layer
         // b = B1 | B0 | ... | ... at Fp layer
-        perm_var_hl(t0, a, m0);                       //          A1 |          A1 |    A0 |    A0
-        perm_var_hl(t1, b, m1);                       //          B0 |          B1 |    B1 |    B0
+        perm_var_hl(t0.data(), a.data(), m0);         //          A1 |          A1 |    A0 |    A0
+        perm_var_hl(t1.data(), b.data(), m1);         //          B0 |          B1 |    B1 |    B0
         mul_fpx2_4x2w(tt0, t0, t1);                   //       A1*B0 |       A1*B1 | A0*B1 | A0*B0
-        perm_var_vl(tt1, tt0, m2);                    //       A0*B1 |       A0*B0 |   ... |   ... 
+        perm_var_vl(tt1.data(), tt0.data(), m2);      //       A0*B1 |       A0*B0 |   ... |   ... 
         asx2_fpx2_4x2w(r, tt1, tt0);                  // A0*B1+A1*B0 | A0*B0-A1*B1 |   ... |   ...
     }
 

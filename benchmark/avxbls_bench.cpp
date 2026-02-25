@@ -155,6 +155,12 @@ void fill_vec_words(cc512i* out, u64 count, u64 seed)
     }
 }
 
+template<class PackT>
+void fill_vec_words(PackT& out, u64 count, u64 seed)
+{
+    fill_vec_words(out.data(), count, seed);
+}
+
 void init_fp_inputs(fp_8x1w a_8x1w, fp_8x1w b_8x1w, fp_4x2w a_4x2w, fp_4x2w b_4x2w)
 {
     u64 a48[NWORDS] = {};

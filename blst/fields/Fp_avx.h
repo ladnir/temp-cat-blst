@@ -70,15 +70,6 @@ namespace blst
             return lanes;
         }
 
-        BLST_FORCEINLINE operator cc512i*()
-        {
-            return lanes;
-        }
-
-        BLST_FORCEINLINE operator const cc512i*() const
-        {
-            return lanes;
-        }
     };
 
     static_assert(std::is_trivially_default_constructible_v<AvxPack<1>>);

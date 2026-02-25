@@ -9,104 +9,104 @@ namespace
 {
     inline void shuf_01_fp2_8x1x1w(fp2_8x1x1w& r, const fp2_8x1x1w& a)
     {
-        shuf_01(r[0], a[0]);
-        shuf_01(r[1], a[1]);
+        shuf_01(r[0].data(), a[0].data());
+        shuf_01(r[1].data(), a[1].data());
     }
 
     inline void blend_0x11_fp2_8x1x1w(fp2_8x1x1w& r, const fp2_8x1x1w& a, const fp2_8x1x1w& b)
     {
-        blend_0x11(r[0], a[0], b[0]);
-        blend_0x11(r[1], a[1], b[1]);
+        blend_0x11(r[0].data(), a[0].data(), b[0].data());
+        blend_0x11(r[1].data(), a[1].data(), b[1].data());
     }
 
     inline void blend_0x33_fp2_8x1x1w(fp2_8x1x1w& r, const fp2_8x1x1w& a, const fp2_8x1x1w& b)
     {
-        blend_0x33(r[0], a[0], b[0]);
-        blend_0x33(r[1], a[1], b[1]);
+        blend_0x33(r[0].data(), a[0].data(), b[0].data());
+        blend_0x33(r[1].data(), a[1].data(), b[1].data());
     }
 
     inline void blend_0x55_fp2_8x1x1w(fp2_8x1x1w& r, const fp2_8x1x1w& a, const fp2_8x1x1w& b)
     {
-        blend_0x55(r[0], a[0], b[0]);
-        blend_0x55(r[1], a[1], b[1]);
+        blend_0x55(r[0].data(), a[0].data(), b[0].data());
+        blend_0x55(r[1].data(), a[1].data(), b[1].data());
     }
 
     inline void blend_0x77_fp2_8x1x1w(fp2_8x1x1w& r, const fp2_8x1x1w& a, const fp2_8x1x1w& b)
     {
-        blend_0x77(r[0], a[0], b[0]);
-        blend_0x77(r[1], a[1], b[1]);
+        blend_0x77(r[0].data(), a[0].data(), b[0].data());
+        blend_0x77(r[1].data(), a[1].data(), b[1].data());
     }
 
     inline void perm_0123_fp2_8x1x1w(fp2_8x1x1w& r, const fp2_8x1x1w& a)
     {
-        perm_0123(r[0], a[0]);
-        perm_0123(r[1], a[1]);
+        perm_0123(r[0].data(), a[0].data());
+        perm_0123(r[1].data(), a[1].data());
     }
 
     inline void perm_0300_fp2_8x1x1w(fp2_8x1x1w& r, const fp2_8x1x1w& a)
     {
-        perm_0300(r[0], a[0]);
-        perm_0300(r[1], a[1]);
+        perm_0300(r[0].data(), a[0].data());
+        perm_0300(r[1].data(), a[1].data());
     }
 
     inline void perm_1032_fp2_8x1x1w(fp2_8x1x1w& r, const fp2_8x1x1w& a)
     {
-        perm_1032(r[0], a[0]);
-        perm_1032(r[1], a[1]);
+        perm_1032(r[0].data(), a[0].data());
+        perm_1032(r[1].data(), a[1].data());
     }
 
     inline void perm_1200_fp2_8x1x1w(fp2_8x1x1w& r, const fp2_8x1x1w& a)
     {
-        perm_1200(r[0], a[0]);
-        perm_1200(r[1], a[1]);
+        perm_1200(r[0].data(), a[0].data());
+        perm_1200(r[1].data(), a[1].data());
     }
 
     inline void perm_2000_fp2_8x1x1w(fp2_8x1x1w& r, const fp2_8x1x1w& a)
     {
-        perm_2000(r[0], a[0]);
-        perm_2000(r[1], a[1]);
+        perm_2000(r[0].data(), a[0].data());
+        perm_2000(r[1].data(), a[1].data());
     }
 
     inline void shuf_00_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a)
     {
-        shuf_00_dl(r[0], a[0]);
-        shuf_00_dl(r[1], a[1]);
+        shuf_00_dl(r[0].data(), a[0].data());
+        shuf_00_dl(r[1].data(), a[1].data());
     }
 
     inline void shuf_01_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a)
     {
-        shuf_01_dl(r[0], a[0]);
-        shuf_01_dl(r[1], a[1]);
+        shuf_01_dl(r[0].data(), a[0].data());
+        shuf_01_dl(r[1].data(), a[1].data());
     }
 
     inline void shuf_11_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a)
     {
-        shuf_11_dl(r[0], a[0]);
-        shuf_11_dl(r[1], a[1]);
+        shuf_11_dl(r[0].data(), a[0].data());
+        shuf_11_dl(r[1].data(), a[1].data());
     }
 
     inline void blend_0x33_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a, const fp2x2_8x1x1w& b)
     {
-        blend_0x33_dl(r[0], a[0], b[0]);
-        blend_0x33_dl(r[1], a[1], b[1]);
+        blend_0x33_dl(r[0].data(), a[0].data(), b[0].data());
+        blend_0x33_dl(r[1].data(), a[1].data(), b[1].data());
     }
 
     inline void blend_0x55_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a, const fp2x2_8x1x1w& b)
     {
-        blend_0x55_dl(r[0], a[0], b[0]);
-        blend_0x55_dl(r[1], a[1], b[1]);
+        blend_0x55_dl(r[0].data(), a[0].data(), b[0].data());
+        blend_0x55_dl(r[1].data(), a[1].data(), b[1].data());
     }
 
     inline void perm_2323_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a)
     {
-        perm_2323_dl(r[0], a[0]);
-        perm_2323_dl(r[1], a[1]);
+        perm_2323_dl(r[0].data(), a[0].data());
+        perm_2323_dl(r[1].data(), a[1].data());
     }
 
     inline void perm_3000_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a)
     {
-        perm_3000_dl(r[0], a[0]);
-        perm_3000_dl(r[1], a[1]);
+        perm_3000_dl(r[0].data(), a[0].data());
+        perm_3000_dl(r[1].data(), a[1].data());
     }
 } // namespace
 
@@ -169,35 +169,35 @@ void mul_fp6x2_2x2x2x1w(
     add_fp2_4x2x1w(t0, ab1, ab2);
     add_fp2_4x2x1w(t1, ab0, ab1);
     add_fp2_4x2x1w(t2, ab0, ab2);
-    perm_1032(t3, ab1);
-    blend_0x33(t3, t3, ab0);
-    perm_1032(t4, ab0);
-    blend_0x33(t4, ab1, t4);
+    perm_1032(t3.data(), ab1.data());
+    blend_0x33(t3.data(), t3.data(), ab0.data());
+    perm_1032(t4.data(), ab0.data());
+    blend_0x33(t4.data(), ab1.data(), t4.data());
     mul_fp2x2_4x2x1w(tt0, t3, t4);
-    perm_1032(t3, ab2);
-    blend_0x33(t3, t3, t0);
-    perm_1032(t4, t0);
-    blend_0x33(t4, ab2, t4);
+    perm_1032(t3.data(), ab2.data());
+    blend_0x33(t3.data(), t3.data(), t0.data());
+    perm_1032(t4.data(), t0.data());
+    blend_0x33(t4.data(), ab2.data(), t4.data());
     mul_fp2x2_4x2x1w(tt1, t3, t4);
-    perm_1032(t3, t1);
-    blend_0x33(t3, t3, t2);
-    perm_1032(t4, t2);
-    blend_0x33(t4, t1, t4);
+    perm_1032(t3.data(), t1.data());
+    blend_0x33(t3.data(), t3.data(), t2.data());
+    perm_1032(t4.data(), t2.data());
+    blend_0x33(t4.data(), t1.data(), t4.data());
     mul_fp2x2_4x2x1w(tt2, t3, t4);
-    blend_0x33_dl(tt3, tt2, tt1);
-    perm_3232_dl(tt4, tt0);
+    blend_0x33_dl(tt3.data(), tt2.data(), tt1.data());
+    perm_3232_dl(tt4.data(), tt0.data());
     sub_fp2x2_4x2x1w(tt3, tt3, tt4);
-    perm_1032_dl(tt2, tt2);
-    blend_0x33_dl(tt2, tt2, tt3);
-    perm_3232_dl(tt1, tt1);
+    perm_1032_dl(tt2.data(), tt2.data());
+    blend_0x33_dl(tt2.data(), tt2.data(), tt3.data());
+    perm_3232_dl(tt1.data(), tt1.data());
     sub_fp2x2_4x2x1w(tt2, tt2, tt1);
-    perm_3232_dl(tt5, tt2);
-    blend_0x33_dl(tt5, tt3, tt5);
-    perm_1010_dl(tt0, tt0);
+    perm_3232_dl(tt5.data(), tt2.data());
+    blend_0x33_dl(tt5.data(), tt3.data(), tt5.data());
+    perm_1010_dl(tt0.data(), tt0.data());
     sub_fp2x2_4x2x1w(tt5, tt5, tt0);
-    blend_0x33_dl(tt2, tt1, tt2);
+    blend_0x33_dl(tt2.data(), tt1.data(), tt2.data());
     mul_by_u_plus_1_fp2x2_4x2x1w(tt1, tt2);
-    blend_0x33_dl(tt0, tt5, tt0);
+    blend_0x33_dl(tt0.data(), tt5.data(), tt0.data());
     add_fp2x2_4x2x1w(r01, tt0, tt1);
     add_fp2x2_4x2x1w(r2, tt5, tt4);
 }
@@ -218,35 +218,35 @@ void mul_fp6x2_1x2x2x2w(
     add_fp2_2x2x2w(t0, ab1, ab2);
     add_fp2_2x2x2w(t1, ab0, ab1);
     add_fp2_2x2x2w(t2, ab0, ab2);
-    perm_var_hl(t3, ab1, m0);
-    blend_0x0F_hl(t3, t3, ab0);
-    perm_var_hl(t4, ab0, m0);
-    blend_0x0F_hl(t4, ab1, t4);
+    perm_var_hl(t3.data(), ab1.data(), m0);
+    blend_0x0F_hl(t3.data(), t3.data(), ab0.data());
+    perm_var_hl(t4.data(), ab0.data(), m0);
+    blend_0x0F_hl(t4.data(), ab1.data(), t4.data());
     mul_fp2x2_2x2x2w(tt0, t3, t4);
-    perm_var_hl(t3, ab2, m0);
-    blend_0x0F_hl(t3, t3, t0);
-    perm_var_hl(t4, t0, m0);
-    blend_0x0F_hl(t4, ab2, t4);
+    perm_var_hl(t3.data(), ab2.data(), m0);
+    blend_0x0F_hl(t3.data(), t3.data(), t0.data());
+    perm_var_hl(t4.data(), t0.data(), m0);
+    blend_0x0F_hl(t4.data(), ab2.data(), t4.data());
     mul_fp2x2_2x2x2w(tt1, t3, t4);
-    perm_var_hl(t3, t1, m0);
-    blend_0x0F_hl(t3, t3, t2);
-    perm_var_hl(t4, t2, m0);
-    blend_0x0F_hl(t4, t1, t4);
+    perm_var_hl(t3.data(), t1.data(), m0);
+    blend_0x0F_hl(t3.data(), t3.data(), t2.data());
+    perm_var_hl(t4.data(), t2.data(), m0);
+    blend_0x0F_hl(t4.data(), t1.data(), t4.data());
     mul_fp2x2_2x2x2w(tt2, t3, t4);
-    blend_0x0F_vl(tt3, tt2, tt1);
-    perm_var_vl(tt4, tt0, m1);
+    blend_0x0F_vl(tt3.data(), tt2.data(), tt1.data());
+    perm_var_vl(tt4.data(), tt0.data(), m1);
     sub_fp2x2_2x2x2w(tt3, tt3, tt4);
-    perm_var_vl(tt2, tt2, m0);
-    blend_0x0F_vl(tt2, tt2, tt3);
-    perm_var_vl(tt1, tt1, m1);
+    perm_var_vl(tt2.data(), tt2.data(), m0);
+    blend_0x0F_vl(tt2.data(), tt2.data(), tt3.data());
+    perm_var_vl(tt1.data(), tt1.data(), m1);
     sub_fp2x2_2x2x2w(tt2, tt2, tt1);
-    perm_var_vl(tt5, tt2, m1);
-    blend_0x0F_vl(tt5, tt3, tt5);
-    perm_var_vl(tt0, tt0, m2);
+    perm_var_vl(tt5.data(), tt2.data(), m1);
+    blend_0x0F_vl(tt5.data(), tt3.data(), tt5.data());
+    perm_var_vl(tt0.data(), tt0.data(), m2);
     sub_fp2x2_2x2x2w(tt5, tt5, tt0);
-    blend_0x0F_vl(tt2, tt1, tt2);
+    blend_0x0F_vl(tt2.data(), tt1.data(), tt2.data());
     mul_by_u_plus_1_fp2x2_2x2x2w(tt1, tt2);
-    blend_0x0F_vl(tt0, tt5, tt0);
+    blend_0x0F_vl(tt0.data(), tt5.data(), tt0.data());
     add_fp2x2_2x2x2w(r01, tt0, tt1);
     add_fp2x2_2x2x2w(r2, tt5, tt4);
 }
@@ -264,23 +264,23 @@ void mul_by_xy00z0_fp6x2_2x2x2x1w(
     fp2_4x2x1w t0, t1;
     fp2x2_4x2x1w tt0, tt1, tt2;
 
-    perm_1032(t0, b01);
-    blend_0x33(t1, b4, t0);
+    perm_1032(t0.data(), b01.data());
+    blend_0x33(t1.data(), b4.data(), t0.data());
     mul_fp2x2_4x2x1w(tt0, t1, a2);
     mul_by_u_plus_1_fp2x2_4x2x1w(r3, tt0);
     mul_fp2x2_4x2x1w(r45, a01, b4);
     mul_fp2x2_4x2x1w(tt0, a01, b01);
-    blend_0x33(t0, t0, a01);
-    perm_1032(t1, a01);
-    blend_0x33(t1, b01, t1);
+    blend_0x33(t0.data(), t0.data(), a01.data());
+    perm_1032(t1.data(), a01.data());
+    blend_0x33(t1.data(), b01.data(), t1.data());
     add_fp2_4x2x1w(t0, t0, t1);
-    blend_0x33(t1, t0, b01);
-    perm_1032(t0, t0);
-    blend_0x33(t0, t0, a2);
+    blend_0x33(t1.data(), t0.data(), b01.data());
+    perm_1032(t0.data(), t0.data());
+    blend_0x33(t0.data(), t0.data(), a2.data());
     mul_fp2x2_4x2x1w(tt1, t1, t0);
-    perm_1032_dl(tt2, tt0);
+    perm_1032_dl(tt2.data(), tt0.data());
     sax2_fp2x2_4x2x1w(r2, tt1, tt2);
-    blend_0x33_dl(tt1, r2, r3);
+    blend_0x33_dl(tt1.data(), r2.data(), r3.data());
     sax2_fp2x2_4x2x1w(r01, tt1, tt0);
 }
 
@@ -308,8 +308,8 @@ void mul_by_xy00z0_fp6x2_2x4x1x1w(
     blend_0x33_fp2x2_8x1x1w(tt1, r45, tt2);
     perm_2323_fp2x2_8x1x1w(tt0, tt2);
     blend_0x33_fp2x2_8x1x1w(tt0, tt1, tt0);
-    blend_0x33_dl(tt1[1], tt1[0], tt1[1]);
-    blend_0x33_dl(tt0[0], tt0[1], tt0[0]);
+    blend_0x33_dl(tt1[1].data(), tt1[0].data(), tt1[1].data());
+    blend_0x33_dl(tt0[0].data(), tt0[1].data(), tt0[0].data());
     ssasx2_fpx2_8x1w(r23[0], tt1[0], tt0[0]);
     aaasx2_fpx2_8x1w(r23[1], tt1[1], tt0[1]);
     perm_3000_fp2x2_8x1x1w(tt0, r23);

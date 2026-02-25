@@ -169,6 +169,19 @@ Use static member functions when ownership/domain is clear.
   - converted local `cc512i` staging arrays in `mul_fp12_vector`, `mul_by_xy00z0_fp12_vector`,
     `sqr_fp12_vector`, and `cyclotomic_sqr_fp12_vector` to `std::array` with `.data()` interop.
   - included `<array>` in `Fp12_avx.cpp`; algorithms and call graph unchanged.
+- Explicit-pointer migration step (no semantic changes):
+  - in `Fp4_avx.cpp`, converted AVX layout helper calls (`perm_*`, `blend_*`, `perm_var_*`) to
+    explicit `.data()` at callsites, reducing dependence on implicit `AvxPack` pointer conversion.
+- No-implicit-conversion step (completed, no scalar-path changes):
+  - removed implicit `AvxPack` pointer conversion operators from `Fp_avx.h`.
+  - converted remaining AVX layout/helper callsites to explicit `.data()` usage in:
+    - `Fp2_avx.cpp`, `Fp6_avx.cpp`, `Fp12_avx.cpp`
+    - `G2_avx.cpp`, `pairing_avx.cpp`
+    - AVX tests (`Fp2_avx_tests.cpp`, `G2_avx_tests.cpp`)
+  - added typed local helper overloads where callsite fan-out was large but semantics identical:
+    - `conv_sltohl` / `conv_dltovl` typed wrappers in `Fp12_avx.cpp`
+    - `fill_vec_words` typed wrapper in `benchmark/avxbls_bench.cpp`
+  - validated on `avx512-portable-check` with full build + full `ctest` pass.
 - Next implementation slice:
   1. Add `restrict` only on AVX hot loops with clear non-alias requirements and debug overlap assertions.
   2. Keep scalar `GT::*` paths untouched; AVX dispatch integration remains additive and explicit.

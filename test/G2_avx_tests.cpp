@@ -706,7 +706,7 @@ TEST(G2Avx, LineByPx2_2x2x2w)
         fp2_2x2x2w x1y1{}, z1{}, l0y3{}, l1{}, l2{}, x3{}, z3{}, l12{}, px2{};
         pack_line_dbl_v1_inputs(x1y1, z1, q);
         line_dbl_vec_v1(l0y3, l1, l2, x3, z3, x1y1, z1);
-        blend_0x0F_hl(l12, l2, l1);
+        blend_0x0F_hl(l12.data(), l2.data(), l1.data());
 
         pack_px2_2x2x2w(px2, px, py);
         line_by_Px2_2x2x2w(l12, l12, px2);

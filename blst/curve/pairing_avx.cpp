@@ -134,11 +134,11 @@ void add_n_dbl_n_vector(
 
     line_add_vec_v1(l0Y3, l1, X3, Z3, X1Y1, Z1Y2, X2);
 
-    perm_var_hl(X3, X3, hh);
-    perm_var_hl(Z3, Z3, hh);
+    perm_var_hl(X3.data(), X3.data(), hh);
+    perm_var_hl(Z3.data(), Z3.data(), hh);
 
     fp2_2x2x2w l12, _Px2;
-    blend_0x0F_hl(l12, Z3, l1);
+    blend_0x0F_hl(l12.data(), Z3.data(), l1.data());
     for (i = 0; i < SWORDS / 2; ++i) {
         s[0][i] = VSET(
             static_cast<i64>(Px2->Y[i + (SWORDS / 2)]), static_cast<i64>(Px2->Y[i]),
@@ -180,8 +180,8 @@ void add_n_dbl_n_vector(
         b4[i] = VPERMV(m0, l12[i]);
         b4[i + VWORDS] = VPERMV(m1, l12[i]);
     }
-    perm_var_hl(l12, l12, m2);
-    blend_0x0F_hl(l12, l12, l0Y3);
+    perm_var_hl(l12.data(), l12.data(), m2);
+    blend_0x0F_hl(l12.data(), l12.data(), l0Y3.data());
     for (i = 0; i < VWORDS; ++i) {
         b01[i] = VPERMV(m3, l12[i]);
         b01[i + VWORDS] = VPERMV(m4, l12[i]);
@@ -216,21 +216,21 @@ void add_n_dbl_n_vector(
     conv_64to48_fp_8x1w(__Px2, t[0].data());
 
     while (k--) {
-        perm_var(a0, r0, m5);
-        perm_var(a1, r0, m2);
+        perm_var(a0.data(), r0.data(), m5);
+        perm_var(a1.data(), r0.data(), m2);
         for (i = 0; i < VWORDS; ++i) {
             _r0[i] = VPERMV(m6, r1[i]);
             _r0[i + VWORDS] = VPERMV(m7, r1[i]);
             _r1[i] = VPERMV(m8, r1[i]);
             _r1[i + VWORDS] = VPERMV(m9, r1[i]);
         }
-        blend_0xC3(a0, a0, _r0);
-        blend_0x0F(a1, _r1, a1);
+        blend_0xC3(a0.data(), a0.data(), _r0.data());
+        blend_0x0F(a1.data(), _r1.data(), a1.data());
 
         sqr_fp12_vec_v1(_r0, _r1, a0, a1);
 
         if (first_iteration) {
-            blend_0x0F_hl(t0, X3, Z3);
+            blend_0x0F_hl(t0.data(), X3.data(), Z3.data());
             for (i = 0; i < VWORDS; ++i) {
                 X1Y1Z1[i] = VPERMV(m11, t0[i]);
                 X1Y1Z1[i + VWORDS] = VPERMV(m12, t0[i]);
@@ -239,29 +239,29 @@ void add_n_dbl_n_vector(
                 _Y3[i] = VPERMV(m0, l0Y3[i]);
                 _Y3[i + VWORDS] = VPERMV(m1, l0Y3[i]);
             }
-            blend_0xC3(X1Y1Z1, X1Y1Z1, _Y3);
+            blend_0xC3(X1Y1Z1.data(), X1Y1Z1.data(), _Y3.data());
             first_iteration = 0;
         } else {
-            blend_0x0F(X1Y1Z1, _X3, _Z3);
-            perm_var(X1Y1Z1, X1Y1Z1, m15);
-            perm_var(_Y3, _Y3, m16);
-            blend_0xC3(X1Y1Z1, X1Y1Z1, _Y3);
+            blend_0x0F(X1Y1Z1.data(), _X3.data(), _Z3.data());
+            perm_var(X1Y1Z1.data(), X1Y1Z1.data(), m15);
+            perm_var(_Y3.data(), _Y3.data(), m16);
+            blend_0xC3(X1Y1Z1.data(), X1Y1Z1.data(), _Y3.data());
         }
 
         line_dbl_vec_v2(_l0, _l12, _X3, _Y3, _Z3, X1Y1Z1);
 
         line_by_Px2_4x2x1w(_l12, _l12, __Px2);
 
-        perm_var(b01, _l12, m14);
-        perm_var(b4, _l0, m13);
-        blend_0x33(b01, b01, b4);
-        perm_var(b4, _l12, m13);
+        perm_var(b01.data(), _l12.data(), m14);
+        perm_var(b4.data(), _l0.data(), m13);
+        blend_0x33(b01.data(), b01.data(), b4.data());
+        perm_var(b4.data(), _l12.data(), m13);
 
-        perm_var(a01, _r1, m2);
-        blend_0x0F(a01, a01, _r0);
-        perm_var(_r0, _r0, m10);
-        perm_var(_r1, _r1, m10);
-        blend_0x0F(a2, _r1, _r0);
+        perm_var(a01.data(), _r1.data(), m2);
+        blend_0x0F(a01.data(), a01.data(), _r0.data());
+        perm_var(_r0.data(), _r0.data(), m10);
+        perm_var(_r1.data(), _r1.data(), m10);
+        blend_0x0F(a2.data(), _r1.data(), _r0.data());
 
         mul_by_xy00z0_fp12_vec_v1(r0, r1, a01, a2, b01, b4);
     }
@@ -370,7 +370,7 @@ void mul_n_sqr_vector(Fp12& ret, const Fp12& a, std::size_t n)
     carryp_fp_4x2w(r101);
     carryp_fp_4x2w(r2);
 
-    blend_0x0F_hl(_a, r101, r001);
+    blend_0x0F_hl(_a.data(), r101.data(), r001.data());
 
     for (i = 0; i < VWORDS; ++i) {
         const u64* lanes_r2 = reinterpret_cast<const u64*>(&r2[i]);

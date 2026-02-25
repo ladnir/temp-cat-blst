@@ -650,7 +650,7 @@ TEST(Fp2Avx, Schedule2x4x1w)
         mul_fp2x2_2x4x1w(wide, avx_a, avx_b);
         redc_fp2x2_4x2x1w(red_from_wide, wide);
 
-        expect_vec_words_eq(red_direct, red_from_wide, NWORDS);
+        expect_vec_words_eq(red_direct.data(), red_from_wide.data(), NWORDS);
     }
 }
 
@@ -703,7 +703,7 @@ TEST(Fp2Avx, Schedule1x4x2w)
         mul_fp2x2_1x4x2w(wide, avx_a, avx_b);
         redc_fp2x2_2x2x2w(red_from_wide, wide);
 
-        expect_vec_words_eq(red_direct, red_from_wide, VWORDS);
+        expect_vec_words_eq(red_direct.data(), red_from_wide.data(), VWORDS);
     }
 }
 
