@@ -1,5 +1,6 @@
 #include "avxbls_bench.h"
 
+#include <array>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -31,12 +32,12 @@ constexpr u64 kFpIters = 100000;
 constexpr u64 kPairingWarmup = 1000;
 constexpr u64 kPairingIters = 10000;
 
-constexpr u64 TV_A[SWORDS] = {
+constexpr std::array<u64, SWORDS> TV_A = {
     0x0123456789ABCDEFULL, 0x0123456789ABCDEFULL, 0x0123456789ABCDEFULL,
     0x0123456789ABCDEFULL, 0x0123456789ABCDEFULL, 0x1123456789ABCDEFULL,
 };
 
-constexpr u64 TV_B[SWORDS] = {
+constexpr std::array<u64, SWORDS> TV_B = {
     0xABCDEF0123456789ULL, 0xABCDEF0123456789ULL, 0xABCDEF0123456789ULL,
     0xABCDEF0123456789ULL, 0xABCDEF0123456789ULL, 0x19CDEF0123456789ULL,
 };
@@ -113,7 +114,7 @@ bool parse_u64(const char* text, u64* out)
     return true;
 }
 
-Fp make_fp_from_words(const u64 words[SWORDS])
+Fp make_fp_from_words(const std::array<u64, SWORDS>& words)
 {
     Fp out{};
     for (u64 i = 0; i < SWORDS; ++i) {
@@ -163,10 +164,10 @@ void fill_vec_words(PackT& out, u64 count, u64 seed)
 
 void init_fp_inputs(fp_8x1w& a_8x1w, fp_8x1w& b_8x1w, fp_4x2w& a_4x2w, fp_4x2w& b_4x2w)
 {
-    u64 a48[NWORDS] = {};
-    u64 b48[NWORDS] = {};
-    conv_64to48_mpi(a48, TV_A, static_cast<int>(NWORDS), static_cast<int>(SWORDS));
-    conv_64to48_mpi(b48, TV_B, static_cast<int>(NWORDS), static_cast<int>(SWORDS));
+    std::array<u64, NWORDS> a48 = {};
+    std::array<u64, NWORDS> b48 = {};
+    conv_64to48_mpi(a48.data(), TV_A.data(), static_cast<int>(NWORDS), static_cast<int>(SWORDS));
+    conv_64to48_mpi(b48.data(), TV_B.data(), static_cast<int>(NWORDS), static_cast<int>(SWORDS));
 
     for (u64 i = 0; i < NWORDS; ++i) {
         a_8x1w[i] = VSET1(static_cast<i64>(a48[i]));
@@ -191,10 +192,10 @@ void init_fp2_inputs(
     fp2_1x4x2w& a_1x4x2w,
     fp2_1x4x2w& b_1x4x2w)
 {
-    u64 a48[NWORDS] = {};
-    u64 b48[NWORDS] = {};
-    conv_64to48_mpi(a48, TV_A, static_cast<int>(NWORDS), static_cast<int>(SWORDS));
-    conv_64to48_mpi(b48, TV_B, static_cast<int>(NWORDS), static_cast<int>(SWORDS));
+    std::array<u64, NWORDS> a48 = {};
+    std::array<u64, NWORDS> b48 = {};
+    conv_64to48_mpi(a48.data(), TV_A.data(), static_cast<int>(NWORDS), static_cast<int>(SWORDS));
+    conv_64to48_mpi(b48.data(), TV_B.data(), static_cast<int>(NWORDS), static_cast<int>(SWORDS));
 
     for (u64 i = 0; i < NWORDS; ++i) {
         a_4x2x1w[i] = VSET1(static_cast<i64>(a48[i]));

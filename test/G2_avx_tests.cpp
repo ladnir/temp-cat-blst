@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <array>
+
 #include "InsecureRng.h"
 #include "blst/backend/avx512/avx_layout.h"
 #include "blst/curve/point.h"
@@ -83,7 +85,7 @@ void make_affine(AffineInputPoint& p, InsecureRng& rng, int edge_idx)
     rand_redc_fp2(p.Y, rng);
 }
 
-void scalar_u64_le(byte out[8], u64 v)
+void scalar_u64_le(byte* out, u64 v)
 {
     for (int i = 0; i < 8; ++i) {
         out[i] = static_cast<byte>(v >> (8 * i));
@@ -92,11 +94,11 @@ void scalar_u64_le(byte out[8], u64 v)
 
 void make_valid_g2_jacobian_from_u64(JacobianPoint& out, u64 scalar_u64)
 {
-    byte s[8] = {};
-    scalar_u64_le(s, scalar_u64 == 0 ? 1 : scalar_u64);
+    std::array<byte, 8> s = {};
+    scalar_u64_le(s.data(), scalar_u64 == 0 ? 1 : scalar_u64);
 
     G2Point p{};
-    G2Point::mult(p, G2Point::generator(), s, 64);
+    G2Point::mult(p, G2Point::generator(), s.data(), 64);
     if (G2Point::is_inf(p)) {
         p = G2Point::generator();
     }
