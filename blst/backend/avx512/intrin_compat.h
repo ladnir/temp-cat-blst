@@ -11,10 +11,8 @@
 
 #if defined(BLST_AVX512)
 #define BLST_AVX_NATIVE 1
-#define BLST_AVX_INTRIN_FN BLST_FORCEINLINE
 #else
 #define BLST_AVX_NATIVE 0
-#define BLST_AVX_INTRIN_FN inline
 #endif
 
 namespace blst
@@ -37,7 +35,33 @@ namespace blst
 #endif
     };
 
-#ifdef BLST_AVX512_PORTABLE
+#if BLST_AVX_NATIVE
+    BLST_FORCEINLINE auto from_native_512(const ::__m512i in) -> cc512i
+    {
+        cc512i out{};
+        out.data = in;
+        return out;
+    }
+
+    BLST_FORCEINLINE auto to_native_512(const cc512i in) -> ::__m512i
+    {
+        return in.data;
+    }
+
+    BLST_FORCEINLINE auto from_native_256(const ::__m256i in) -> cc256i
+    {
+        cc256i out{};
+        out.data = in;
+        return out;
+    }
+
+    BLST_FORCEINLINE auto to_native_256(const cc256i in) -> ::__m256i
+    {
+        return in.data;
+    }
+#endif
+
+#if !BLST_AVX_NATIVE
     // Portable implementation helpers
     
     inline auto setzero_si512_portable() -> cc512i
@@ -383,157 +407,157 @@ namespace blst
     {
         return a.lane[static_cast<u64>(imm8) & 3u];
     }
-#endif // BLST_AVX512_PORTABLE
+#endif // !BLST_AVX_NATIVE
 
     //
     // Primary API: Static Dispatch
     //
     
     // Set all lanes to zero
-    BLST_AVX_INTRIN_FN auto setzero_si512() -> cc512i
+    BLST_FORCEINLINE auto setzero_si512() -> cc512i
     {
 #if BLST_AVX_NATIVE
-        return _mm512_setzero_si512();
+        return from_native_512(_mm512_setzero_si512());
 #else
         return setzero_si512_portable();
 #endif
     }
 
     // Broadcast a 64-bit integer to all lanes
-    BLST_AVX_INTRIN_FN auto set1_epi64(long long x) -> cc512i
+    BLST_FORCEINLINE auto set1_epi64(long long x) -> cc512i
     {
 #if BLST_AVX_NATIVE
-        return _mm512_set1_epi64(x);
+        return from_native_512(_mm512_set1_epi64(x));
 #else
         return set1_epi64_portable(x);
 #endif
     }
 
     // Add packed 64-bit integers
-    BLST_AVX_INTRIN_FN auto add_epi64(const cc512i a, const cc512i b) -> cc512i
+    BLST_FORCEINLINE auto add_epi64(const cc512i a, const cc512i b) -> cc512i
     {
 #if BLST_AVX_NATIVE
-        return _mm512_add_epi64(a, b);
+        return from_native_512(_mm512_add_epi64(to_native_512(a), to_native_512(b)));
 #else
         return add_epi64_portable(a, b);
 #endif
     }
 
     // Subtract packed 64-bit integers
-    BLST_AVX_INTRIN_FN auto sub_epi64(const cc512i a, const cc512i b) -> cc512i
+    BLST_FORCEINLINE auto sub_epi64(const cc512i a, const cc512i b) -> cc512i
     {
 #if BLST_AVX_NATIVE
-        return _mm512_sub_epi64(a, b);
+        return from_native_512(_mm512_sub_epi64(to_native_512(a), to_native_512(b)));
 #else
         return sub_epi64_portable(a, b);
 #endif
     }
 
     // Bitwise AND
-    BLST_AVX_INTRIN_FN auto and_si512(const cc512i a, const cc512i b) -> cc512i
+    BLST_FORCEINLINE auto and_si512(const cc512i a, const cc512i b) -> cc512i
     {
 #if BLST_AVX_NATIVE
-        return _mm512_and_si512(a, b);
+        return from_native_512(_mm512_and_si512(to_native_512(a), to_native_512(b)));
 #else
         return and_si512_portable(a, b);
 #endif
     }
 
     // Bitwise OR
-    BLST_AVX_INTRIN_FN auto or_si512(const cc512i a, const cc512i b) -> cc512i
+    BLST_FORCEINLINE auto or_si512(const cc512i a, const cc512i b) -> cc512i
     {
 #if BLST_AVX_NATIVE
-        return _mm512_or_si512(a, b);
+        return from_native_512(_mm512_or_si512(to_native_512(a), to_native_512(b)));
 #else
         return or_si512_portable(a, b);
 #endif
     }
 
     // Shift left logical (immediate)
-    BLST_AVX_INTRIN_FN auto slli_epi64(const cc512i a, int bits) -> cc512i
+    BLST_FORCEINLINE auto slli_epi64(const cc512i a, int bits) -> cc512i
     {
 #if BLST_AVX_NATIVE
-        return _mm512_slli_epi64(a, bits);
+        return from_native_512(_mm512_slli_epi64(to_native_512(a), bits));
 #else
         return slli_epi64_portable(a, bits);
 #endif
     }
 
     // Shift right logical (immediate)
-    BLST_AVX_INTRIN_FN auto srli_epi64(const cc512i a, int bits) -> cc512i
+    BLST_FORCEINLINE auto srli_epi64(const cc512i a, int bits) -> cc512i
     {
 #if BLST_AVX_NATIVE
-        return _mm512_srli_epi64(a, bits);
+        return from_native_512(_mm512_srli_epi64(to_native_512(a), bits));
 #else
         return srli_epi64_portable(a, bits);
 #endif
     }
 
     // Shift right arithmetic (immediate)
-    BLST_AVX_INTRIN_FN auto srai_epi64(const cc512i a, int bits) -> cc512i
+    BLST_FORCEINLINE auto srai_epi64(const cc512i a, int bits) -> cc512i
     {
 #if BLST_AVX_NATIVE
-        return _mm512_srai_epi64(a, bits);
+        return from_native_512(_mm512_srai_epi64(to_native_512(a), bits));
 #else
         return srai_epi64_portable(a, bits);
 #endif
     }
 
     // Load 512-bit integer (aligned)
-    BLST_AVX_INTRIN_FN auto load_si512(const void* p) -> cc512i
+    BLST_FORCEINLINE auto load_si512(const void* p) -> cc512i
     {
 #if BLST_AVX_NATIVE
-        return _mm512_load_si512(p);
+        return from_native_512(_mm512_load_si512(p));
 #else
         return load_si512_portable(p);
 #endif
     }
 
     // Load 512-bit integer (unaligned)
-    BLST_AVX_INTRIN_FN auto loadu_si512(const void* p) -> cc512i
+    BLST_FORCEINLINE auto loadu_si512(const void* p) -> cc512i
     {
 #if BLST_AVX_NATIVE
-        return _mm512_loadu_si512(p);
+        return from_native_512(_mm512_loadu_si512(p));
 #else
         return loadu_si512_portable(p);
 #endif
     }
 
     // Store 512-bit integer (aligned)
-    BLST_AVX_INTRIN_FN void store_si512(void* p, const cc512i a)
+    BLST_FORCEINLINE void store_si512(void* p, const cc512i a)
     {
 #if BLST_AVX_NATIVE
-        _mm512_store_si512(p, a);
+        _mm512_store_si512(p, to_native_512(a));
 #else
         store_si512_portable(p, a);
 #endif
     }
 
     // Store 512-bit integer (unaligned)
-    BLST_AVX_INTRIN_FN void storeu_si512(void* p, const cc512i a)
+    BLST_FORCEINLINE void storeu_si512(void* p, const cc512i a)
     {
 #if BLST_AVX_NATIVE
-        _mm512_storeu_si512(p, a);
+        _mm512_storeu_si512(p, to_native_512(a));
 #else
         storeu_si512_portable(p, a);
 #endif
     }
 
     // Multiply and Add Low 52-bits
-    BLST_AVX_INTRIN_FN auto madd52lo_epu64(const cc512i acc, const cc512i a, const cc512i b) -> cc512i
+    BLST_FORCEINLINE auto madd52lo_epu64(const cc512i acc, const cc512i a, const cc512i b) -> cc512i
     {
 #if BLST_AVX_NATIVE
-        return _mm512_madd52lo_epu64(acc, a, b);
+        return from_native_512(_mm512_madd52lo_epu64(to_native_512(acc), to_native_512(a), to_native_512(b)));
 #else
         return madd52lo_epu64_portable(acc, a, b);
 #endif
     }
 
     // Multiply and Add High 52-bits
-    BLST_AVX_INTRIN_FN auto madd52hi_epu64(const cc512i acc, const cc512i a, const cc512i b) -> cc512i
+    BLST_FORCEINLINE auto madd52hi_epu64(const cc512i acc, const cc512i a, const cc512i b) -> cc512i
     {
 #if BLST_AVX_NATIVE
-        return _mm512_madd52hi_epu64(acc, a, b);
+        return from_native_512(_mm512_madd52hi_epu64(to_native_512(acc), to_native_512(a), to_native_512(b)));
 #else
         return madd52hi_epu64_portable(acc, a, b);
 #endif
@@ -541,106 +565,106 @@ namespace blst
     
     // --- Legacy _cc512_* wrappers mapping to standardized names or specific portable implementations ---
 
-    BLST_AVX_INTRIN_FN auto _cc512_setzero_si512() -> cc512i { return setzero_si512(); }
-    BLST_AVX_INTRIN_FN auto _cc512_set1_epi64(long long x) -> cc512i { return set1_epi64(x); }
-    BLST_AVX_INTRIN_FN auto _cc512_add_epi64(const cc512i a, const cc512i b) -> cc512i { return add_epi64(a, b); }
+    BLST_FORCEINLINE auto _cc512_setzero_si512() -> cc512i { return setzero_si512(); }
+    BLST_FORCEINLINE auto _cc512_set1_epi64(long long x) -> cc512i { return set1_epi64(x); }
+    BLST_FORCEINLINE auto _cc512_add_epi64(const cc512i a, const cc512i b) -> cc512i { return add_epi64(a, b); }
 
     // Masked addition: src if mask bit 0, a+b if mask bit 1
-    BLST_AVX_INTRIN_FN auto _cc512_mask_add_epi64(const cc512i src, u64 mask, const cc512i a, const cc512i b) -> cc512i
+    BLST_FORCEINLINE auto _cc512_mask_add_epi64(const cc512i src, u64 mask, const cc512i a, const cc512i b) -> cc512i
     {
 #if BLST_AVX_NATIVE
-        return _mm512_mask_add_epi64(src, static_cast<__mmask8>(mask), a, b);
+        return from_native_512(_mm512_mask_add_epi64(to_native_512(src), static_cast<__mmask8>(mask), to_native_512(a), to_native_512(b)));
 #else
         return mask_add_epi64_portable(src, mask, a, b);
 #endif
     }
 
-    BLST_AVX_INTRIN_FN auto _cc512_sub_epi64(const cc512i a, const cc512i b) -> cc512i { return sub_epi64(a, b); }
+    BLST_FORCEINLINE auto _cc512_sub_epi64(const cc512i a, const cc512i b) -> cc512i { return sub_epi64(a, b); }
 
     // Masked subtraction: src if mask bit 0, a-b if mask bit 1
-    BLST_AVX_INTRIN_FN auto _cc512_mask_sub_epi64(const cc512i src, u64 mask, const cc512i a, const cc512i b) -> cc512i
+    BLST_FORCEINLINE auto _cc512_mask_sub_epi64(const cc512i src, u64 mask, const cc512i a, const cc512i b) -> cc512i
     {
 #if BLST_AVX_NATIVE
-        return _mm512_mask_sub_epi64(src, static_cast<__mmask8>(mask), a, b);
+        return from_native_512(_mm512_mask_sub_epi64(to_native_512(src), static_cast<__mmask8>(mask), to_native_512(a), to_native_512(b)));
 #else
         return mask_sub_epi64_portable(src, mask, a, b);
 #endif
     }
 
-    BLST_AVX_INTRIN_FN auto _cc512_and_si512(const cc512i a, const cc512i b) -> cc512i { return and_si512(a, b); }
-    BLST_AVX_INTRIN_FN auto _cc512_or_si512(const cc512i a, const cc512i b) -> cc512i { return or_si512(a, b); }
+    BLST_FORCEINLINE auto _cc512_and_si512(const cc512i a, const cc512i b) -> cc512i { return and_si512(a, b); }
+    BLST_FORCEINLINE auto _cc512_or_si512(const cc512i a, const cc512i b) -> cc512i { return or_si512(a, b); }
 
     // Bitwise XOR
-    BLST_AVX_INTRIN_FN auto _cc512_xor_si512(const cc512i a, const cc512i b) -> cc512i
+    BLST_FORCEINLINE auto _cc512_xor_si512(const cc512i a, const cc512i b) -> cc512i
     {
 #if BLST_AVX_NATIVE
-        return _mm512_xor_si512(a, b);
+        return from_native_512(_mm512_xor_si512(to_native_512(a), to_native_512(b)));
 #else
         return xor_si512_portable(a, b);
 #endif
     }
 
-    BLST_AVX_INTRIN_FN auto _cc512_slli_epi64(const cc512i a, int bits) -> cc512i { return slli_epi64(a, bits); }
-    BLST_AVX_INTRIN_FN auto _cc512_srli_epi64(const cc512i a, int bits) -> cc512i { return srli_epi64(a, bits); }
-    BLST_AVX_INTRIN_FN auto _cc512_srai_epi64(const cc512i a, int bits) -> cc512i { return srai_epi64(a, bits); }
+    BLST_FORCEINLINE auto _cc512_slli_epi64(const cc512i a, int bits) -> cc512i { return slli_epi64(a, bits); }
+    BLST_FORCEINLINE auto _cc512_srli_epi64(const cc512i a, int bits) -> cc512i { return srli_epi64(a, bits); }
+    BLST_FORCEINLINE auto _cc512_srai_epi64(const cc512i a, int bits) -> cc512i { return srai_epi64(a, bits); }
 
     // Shift left logical (variable)
-    BLST_AVX_INTRIN_FN auto _cc512_sllv_epi64(const cc512i a, const cc512i bits) -> cc512i
+    BLST_FORCEINLINE auto _cc512_sllv_epi64(const cc512i a, const cc512i bits) -> cc512i
     {
 #if BLST_AVX_NATIVE
-        return _mm512_sllv_epi64(a, bits);
+        return from_native_512(_mm512_sllv_epi64(to_native_512(a), to_native_512(bits)));
 #else
         return sllv_epi64_portable(a, bits);
 #endif
     }
 
-    BLST_AVX_INTRIN_FN auto _cc512_load_si512(const void* p) -> cc512i { return load_si512(p); }
-    BLST_AVX_INTRIN_FN auto _cc512_loadu_si512(const void* p) -> cc512i { return loadu_si512(p); }
-    BLST_AVX_INTRIN_FN void _cc512_store_si512(void* p, const cc512i a) { store_si512(p, a); }
-    BLST_AVX_INTRIN_FN void _cc512_storeu_si512(void* p, const cc512i a) { storeu_si512(p, a); }
+    BLST_FORCEINLINE auto _cc512_load_si512(const void* p) -> cc512i { return load_si512(p); }
+    BLST_FORCEINLINE auto _cc512_loadu_si512(const void* p) -> cc512i { return loadu_si512(p); }
+    BLST_FORCEINLINE void _cc512_store_si512(void* p, const cc512i a) { store_si512(p, a); }
+    BLST_FORCEINLINE void _cc512_storeu_si512(void* p, const cc512i a) { storeu_si512(p, a); }
 
     // Set 8 64-bit integers
-    BLST_AVX_INTRIN_FN auto _cc512_set_epi64(
+    BLST_FORCEINLINE auto _cc512_set_epi64(
         long long x7, long long x6, long long x5, long long x4,
         long long x3, long long x2, long long x1, long long x0) -> cc512i
     {
 #if BLST_AVX_NATIVE
-        return _mm512_set_epi64(x7, x6, x5, x4, x3, x2, x1, x0);
+        return from_native_512(_mm512_set_epi64(x7, x6, x5, x4, x3, x2, x1, x0));
 #else
         return set_epi64_portable(x7, x6, x5, x4, x3, x2, x1, x0);
 #endif
     }
 
     // Permute using index vector
-    BLST_AVX_INTRIN_FN auto _cc512_permutexvar_epi64(const cc512i idx, const cc512i a) -> cc512i
+    BLST_FORCEINLINE auto _cc512_permutexvar_epi64(const cc512i idx, const cc512i a) -> cc512i
     {
 #if BLST_AVX_NATIVE
-        return _mm512_permutexvar_epi64(idx, a);
+        return from_native_512(_mm512_permutexvar_epi64(to_native_512(idx), to_native_512(a)));
 #else
         return permutexvar_epi64_portable(idx, a);
 #endif
     }
 
     // Masked Blend
-    BLST_AVX_INTRIN_FN auto _cc512_mask_blend_epi64(u64 mask, const cc512i a, const cc512i b) -> cc512i
+    BLST_FORCEINLINE auto _cc512_mask_blend_epi64(u64 mask, const cc512i a, const cc512i b) -> cc512i
     {
 #if BLST_AVX_NATIVE
-        return _mm512_mask_blend_epi64(static_cast<__mmask8>(mask), a, b);
+        return from_native_512(_mm512_mask_blend_epi64(static_cast<__mmask8>(mask), to_native_512(a), to_native_512(b)));
 #else
         return mask_blend_epi64_portable(mask, a, b);
 #endif
     }
 
-    BLST_AVX_INTRIN_FN auto _cc512_madd52lo_epu64(const cc512i acc, const cc512i a, const cc512i b) -> cc512i { return madd52lo_epu64(acc, a, b); }
-    BLST_AVX_INTRIN_FN auto _cc512_madd52hi_epu64(const cc512i acc, const cc512i a, const cc512i b) -> cc512i { return madd52hi_epu64(acc, a, b); }
+    BLST_FORCEINLINE auto _cc512_madd52lo_epu64(const cc512i acc, const cc512i a, const cc512i b) -> cc512i { return madd52lo_epu64(acc, a, b); }
+    BLST_FORCEINLINE auto _cc512_madd52hi_epu64(const cc512i acc, const cc512i a, const cc512i b) -> cc512i { return madd52hi_epu64(acc, a, b); }
 
     // Shuffle 32-bit integers
     template <int imm8>
-    BLST_AVX_INTRIN_FN auto _cc512_shuffle_epi32(const cc512i a) -> cc512i
+    BLST_FORCEINLINE auto _cc512_shuffle_epi32(const cc512i a) -> cc512i
     {
         static_assert((imm8 & ~0xFF) == 0, "imm8 must fit in 8 bits");
 #if BLST_AVX_NATIVE
-        return _mm512_shuffle_epi32(a, static_cast<_MM_PERM_ENUM>(imm8));
+        return from_native_512(_mm512_shuffle_epi32(to_native_512(a), static_cast<_MM_PERM_ENUM>(imm8)));
 #else
         return shuffle_epi32_portable<imm8>(a);
 #endif
@@ -648,11 +672,11 @@ namespace blst
 
     // Masked shuffle 32-bit integers
     template <int imm8>
-    BLST_AVX_INTRIN_FN auto _cc512_maskz_shuffle_epi32(u64 mask, const cc512i a) -> cc512i
+    BLST_FORCEINLINE auto _cc512_maskz_shuffle_epi32(u64 mask, const cc512i a) -> cc512i
     {
         static_assert((imm8 & ~0xFF) == 0, "imm8 must fit in 8 bits");
 #if BLST_AVX_NATIVE
-        return _mm512_maskz_shuffle_epi32(static_cast<__mmask16>(mask), a, static_cast<_MM_PERM_ENUM>(imm8));
+        return from_native_512(_mm512_maskz_shuffle_epi32(static_cast<__mmask16>(mask), to_native_512(a), static_cast<_MM_PERM_ENUM>(imm8)));
 #else
         return maskz_shuffle_epi32_portable<imm8>(mask, a);
 #endif
@@ -660,11 +684,11 @@ namespace blst
 
     // Permute 64-bit integers
     template <int imm8>
-    BLST_AVX_INTRIN_FN auto _cc512_permutex_epi64(const cc512i a) -> cc512i
+    BLST_FORCEINLINE auto _cc512_permutex_epi64(const cc512i a) -> cc512i
     {
         static_assert((imm8 & ~0xFF) == 0, "imm8 must fit in 8 bits");
 #if BLST_AVX_NATIVE
-        return _mm512_permutex_epi64(a, imm8);
+        return from_native_512(_mm512_permutex_epi64(to_native_512(a), imm8));
 #else
         return permutex_epi64_portable<imm8>(a);
 #endif
@@ -672,11 +696,11 @@ namespace blst
 
     // Masked permute 64-bit integers
     template <int imm8>
-    BLST_AVX_INTRIN_FN auto _cc512_maskz_permutex_epi64(u64 mask, const cc512i a) -> cc512i
+    BLST_FORCEINLINE auto _cc512_maskz_permutex_epi64(u64 mask, const cc512i a) -> cc512i
     {
         static_assert((imm8 & ~0xFF) == 0, "imm8 must fit in 8 bits");
 #if BLST_AVX_NATIVE
-        return _mm512_maskz_permutex_epi64(static_cast<__mmask8>(mask), a, imm8);
+        return from_native_512(_mm512_maskz_permutex_epi64(static_cast<__mmask8>(mask), to_native_512(a), imm8));
 #else
         return maskz_permutex_epi64_portable<imm8>(mask, a);
 #endif
@@ -684,11 +708,11 @@ namespace blst
 
     // Extract 256-bit integer from 512-bit integer
     template <int imm8>
-    BLST_AVX_INTRIN_FN auto _cc512_extracti64x4_epi64(const cc512i a) -> cc256i
+    BLST_FORCEINLINE auto _cc512_extracti64x4_epi64(const cc512i a) -> cc256i
     {
         static_assert(imm8 == 0 || imm8 == 1, "imm8 must be 0 or 1");
 #if BLST_AVX_NATIVE
-        return _mm512_extracti64x4_epi64(a, imm8);
+        return from_native_256(_mm512_extracti64x4_epi64(to_native_512(a), imm8));
 #else
         return extracti64x4_epi64_portable<imm8>(a);
 #endif
@@ -696,18 +720,18 @@ namespace blst
 
     // Extract 64-bit integer from 256-bit integer
     template <int imm8>
-    BLST_AVX_INTRIN_FN auto _cc256_extract_epi64(const cc256i a) -> u64
+    BLST_FORCEINLINE auto _cc256_extract_epi64(const cc256i a) -> u64
     {
         static_assert(imm8 >= 0 && imm8 < 4, "imm8 must be in [0,3]");
 #if BLST_AVX_NATIVE
-        return static_cast<u64>(_mm256_extract_epi64(a, imm8));
+        return static_cast<u64>(_mm256_extract_epi64(to_native_256(a), imm8));
 #else
         return extract_epi64_portable<imm8>(a);
 #endif
     }
 } // namespace blst::tile
 
-#undef BLST_AVX_INTRIN_FN
+#undef BLST_FORCEINLINE
 #undef BLST_AVX_NATIVE
 
 #endif

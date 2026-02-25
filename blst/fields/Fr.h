@@ -9,6 +9,7 @@
 #include "blst/backend/backend_portable.h"
 #include "blst/backend/backend_cuda.h"
 #include <bit>
+#include <cstring>
 //BLST_EXTERN_C_BEGIN
 
 #include <iostream>
