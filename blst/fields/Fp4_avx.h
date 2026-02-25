@@ -34,21 +34,21 @@ namespace blst
      * @pre `a` holds reduced Montgomery-form Fp2 components in `2x2x2x1w` schedule.
      * @post `r` holds reduced Montgomery-form Fp2 components in the same schedule.
      */
-    void sqr_fp4_2x2x2x1w_v1(fp4_2x2x2x1w r, const fp4_2x2x2x1w a);
+    void sqr_fp4_2x2x2x1w_v1(fp4_2x2x2x1w& r, const fp4_2x2x2x1w& a);
 
     /**
      * Square Fp4 values in `fp4_2x2x2x1w` using single-length intermediates.
      *
      * Formula and layout contract match `sqr_fp4_2x2x2x1w_v1`.
      */
-    void sqr_fp4_2x2x2x1w_v2(fp4_2x2x2x1w r, const fp4_2x2x2x1w a);
+    void sqr_fp4_2x2x2x1w_v2(fp4_2x2x2x1w& r, const fp4_2x2x2x1w& a);
 
     /**
      * Square Fp4 values in `fp4_2x2x2x1w` using a Karatsuba-style identity.
      *
      * Computes the same output as `sqr_fp4_2x2x2x1w_v1`/`v2`.
      */
-    void sqr_fp4_2x2x2x1w_v3(fp4_2x2x2x1w r, const fp4_2x2x2x1w a);
+    void sqr_fp4_2x2x2x1w_v3(fp4_2x2x2x1w& r, const fp4_2x2x2x1w& a);
 
     /**
      * Square Fp4 values in `fp4_1x2x2x2w` using widened intermediates.
@@ -60,14 +60,14 @@ namespace blst
      * @pre `a` holds reduced Montgomery-form Fp2 components in `1x2x2x2w` schedule.
      * @post `r` holds reduced Montgomery-form Fp2 components in the same schedule.
      */
-    void sqr_fp4_1x2x2x2w_v1(fp4_1x2x2x2w r, const fp4_1x2x2x2w a);
+    void sqr_fp4_1x2x2x2w_v1(fp4_1x2x2x2w& r, const fp4_1x2x2x2w& a);
 
     /**
      * Square Fp4 values in `fp4_1x2x2x2w` using single-length intermediates.
      *
      * Formula and layout contract match `sqr_fp4_1x2x2x2w_v1`.
      */
-    void sqr_fp4_1x2x2x2w_v2(fp4_1x2x2x2w r, const fp4_1x2x2x2w a);
+    void sqr_fp4_1x2x2x2w_v2(fp4_1x2x2x2w& r, const fp4_1x2x2x2w& a);
 }
 
 #endif

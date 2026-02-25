@@ -7,37 +7,37 @@ namespace blst
 {
 namespace
 {
-    inline void shuf_01_fp2x2_8x1x1w(fp2x2_8x1x1w r, const fp2x2_8x1x1w a)
+    inline void shuf_01_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a)
     {
         shuf_01_dl(r[0], a[0]);
         shuf_01_dl(r[1], a[1]);
     }
 
-    inline void blend_0x01_fp2x2_8x1x1w(fp2x2_8x1x1w r, const fp2x2_8x1x1w a, const fp2x2_8x1x1w b)
+    inline void blend_0x01_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a, const fp2x2_8x1x1w& b)
     {
         blend_0x01_dl(r[0], a[0], b[0]);
         blend_0x01_dl(r[1], a[1], b[1]);
     }
 
-    inline void blend_0x03_fp2x2_8x1x1w(fp2x2_8x1x1w r, const fp2x2_8x1x1w a, const fp2x2_8x1x1w b)
+    inline void blend_0x03_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a, const fp2x2_8x1x1w& b)
     {
         blend_0x03_dl(r[0], a[0], b[0]);
         blend_0x03_dl(r[1], a[1], b[1]);
     }
 
-    inline void blend_0x33_fp2x2_8x1x1w(fp2x2_8x1x1w r, const fp2x2_8x1x1w a, const fp2x2_8x1x1w b)
+    inline void blend_0x33_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a, const fp2x2_8x1x1w& b)
     {
         blend_0x33_dl(r[0], a[0], b[0]);
         blend_0x33_dl(r[1], a[1], b[1]);
     }
 
-    inline void perm_1032_fp2x2_8x1x1w(fp2x2_8x1x1w r, const fp2x2_8x1x1w a)
+    inline void perm_1032_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a)
     {
         perm_1032_dl(r[0], a[0]);
         perm_1032_dl(r[1], a[1]);
     }
 
-    inline void perm_var_fp2x2_8x1x1w(fp2x2_8x1x1w r, const fp2x2_8x1x1w a, const cc512i idx)
+    inline void perm_var_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a, const cc512i idx)
     {
         perm_var_dl(r[0], a[0], idx);
         perm_var_dl(r[1], a[1], idx);
@@ -60,10 +60,10 @@ namespace
 } // namespace
 
 void cyclotomic_sqr_fp12_vec_v1(
-    fp4_1x2x2x2w ra,
-    fp4_2x2x2x1w rbc,
-    const fp4_1x2x2x2w a,
-    const fp4_2x2x2x1w bc)
+    fp4_1x2x2x2w& ra,
+    fp4_2x2x2x1w& rbc,
+    const fp4_1x2x2x2w& a,
+    const fp4_2x2x2x1w& bc)
 {
     fp4_1x2x2x2w ta;
     fp4_2x2x2x1w tbc, t0;
@@ -84,10 +84,10 @@ void cyclotomic_sqr_fp12_vec_v1(
 }
 
 void cyclotomic_sqr_fp12_vec_v2(
-    fp4_1x2x2x2w ra,
-    fp4_2x2x2x1w rbc,
-    const fp4_1x2x2x2w a,
-    const fp4_2x2x2x1w bc)
+    fp4_1x2x2x2w& ra,
+    fp4_2x2x2x1w& rbc,
+    const fp4_1x2x2x2w& a,
+    const fp4_2x2x2x1w& bc)
 {
     fp4_1x2x2x2w ta;
     fp4_2x2x2x1w tbc, t0;
@@ -107,7 +107,7 @@ void cyclotomic_sqr_fp12_vec_v2(
     add_fp2_4x2x1w(rbc, rbc, tbc);
 }
 
-void compressed_cyclotomic_sqr_fp12_vec_v1(fp4_2x2x2x1w rbc, const fp4_2x2x2x1w bc)
+void compressed_cyclotomic_sqr_fp12_vec_v1(fp4_2x2x2x1w& rbc, const fp4_2x2x2x1w& bc)
 {
     fp4_2x2x2x1w tbc, t0;
     const cc512i m0 = VSET(3, 2, 1, 0, 5, 4, 7, 6);
@@ -122,11 +122,11 @@ void compressed_cyclotomic_sqr_fp12_vec_v1(fp4_2x2x2x1w rbc, const fp4_2x2x2x1w 
 }
 
 void mul_fp12_vec_v1(
-    fp2_4x2x1w r01,
-    fp2_4x2x1w r2,
-    const fp2_8x1x1w ab0,
-    const fp2_8x1x1w ab1,
-    const fp2_8x1x1w ab2)
+    fp2_4x2x1w& r01,
+    fp2_4x2x1w& r2,
+    const fp2_8x1x1w& ab0,
+    const fp2_8x1x1w& ab1,
+    const fp2_8x1x1w& ab2)
 {
     fp2x2_8x1x1w tt01, tt2, tt3, tt4;
     fp2x2_4x2x1w ss0, ss1, ss2, ss3;
@@ -161,11 +161,11 @@ void mul_fp12_vec_v1(
 }
 
 void mul_fp12_vec_v2(
-    fp2_4x2x1w r01,
-    fp2_2x2x2w r2,
-    const fp2_8x1x1w ab0,
-    const fp2_8x1x1w ab1,
-    const fp2_8x1x1w ab2)
+    fp2_4x2x1w& r01,
+    fp2_2x2x2w& r2,
+    const fp2_8x1x1w& ab0,
+    const fp2_8x1x1w& ab1,
+    const fp2_8x1x1w& ab2)
 {
     fp2x2_8x1x1w tt01, tt2, tt3, tt4;
     fp2x2_4x2x1w ss0, ss1, ss2, ss3;
@@ -205,12 +205,12 @@ void mul_fp12_vec_v2(
 }
 
 void mul_fp12_vec_v3(
-    fp2_2x2x2w r001,
-    fp2_2x2x2w r101,
-    fp2_2x2x2w r2,
-    const fp2_4x2x1w ab0,
-    const fp2_4x2x1w ab1,
-    const fp2_4x2x1w ab2)
+    fp2_2x2x2w& r001,
+    fp2_2x2x2w& r101,
+    fp2_2x2x2w& r2,
+    const fp2_4x2x1w& ab0,
+    const fp2_4x2x1w& ab1,
+    const fp2_4x2x1w& ab2)
 {
     fp2x2_4x2x1w tt0, tt1, tt2, tt3, tt4, tt5;
     fp2_4x2x1w t0;
@@ -268,12 +268,12 @@ void mul_fp12_vec_v3(
 }
 
 void mul_fp12_vec_v4(
-    fp2_4x2x1w r0,
-    fp2_2x2x2w r101,
-    fp2_2x2x2w r12,
-    const fp2_4x2x1w ab0,
-    const fp2_4x2x1w ab1,
-    const fp2_4x2x1w ab2)
+    fp2_4x2x1w& r0,
+    fp2_2x2x2w& r101,
+    fp2_2x2x2w& r12,
+    const fp2_4x2x1w& ab0,
+    const fp2_4x2x1w& ab1,
+    const fp2_4x2x1w& ab2)
 {
     fp2x2_4x2x1w tt0, tt1, tt2, tt3, tt4, tt5;
     fp2_4x2x1w t0;
@@ -330,12 +330,12 @@ void mul_fp12_vec_v4(
 }
 
 void mul_by_xy00z0_fp12_vec_v1(
-    fp2_4x2x1w r0,
-    fp2_2x2x2w r1,
-    const fp2_4x2x1w a01,
-    const fp2_4x2x1w a2,
-    const fp2_4x2x1w b01,
-    const fp2_4x2x1w b4)
+    fp2_4x2x1w& r0,
+    fp2_2x2x2w& r1,
+    const fp2_4x2x1w& a01,
+    const fp2_4x2x1w& a2,
+    const fp2_4x2x1w& b01,
+    const fp2_4x2x1w& b4)
 {
     fp2x2_4x2x1w tt0, tt1, tt2, tt3, tt4, tt5;
     fp2x2_2x2x2w ss0, ss1, ss2;
@@ -366,10 +366,10 @@ void mul_by_xy00z0_fp12_vec_v1(
 }
 
 void mul_by_xy00z0_fp12_vec_v2(
-    fp2_4x2x1w r0,
-    fp2_2x2x2w r1,
-    const fp2_8x1x1w a,
-    const fp2_8x1x1w b)
+    fp2_4x2x1w& r0,
+    fp2_2x2x2w& r1,
+    const fp2_8x1x1w& a,
+    const fp2_8x1x1w& b)
 {
     fp2x2_8x1x1w tt0, tt1, tt2, tt3;
     fp2x2_4x2x1w ss0, ss1;
@@ -406,10 +406,10 @@ void mul_by_xy00z0_fp12_vec_v2(
 }
 
 void sqr_fp12_vec_v1(
-    fp2_4x2x1w r0,
-    fp2_4x2x1w r1,
-    const fp2_4x2x1w a0,
-    const fp2_4x2x1w a1)
+    fp2_4x2x1w& r0,
+    fp2_4x2x1w& r1,
+    const fp2_4x2x1w& a0,
+    const fp2_4x2x1w& a1)
 {
     fp2_4x2x1w t0, t1, t2, t3, t4;
     fp2_4x2x1w s0, s1, s2;

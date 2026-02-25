@@ -39,13 +39,13 @@ namespace blst
      * - `Z3    = (Z3 ch4, Z3 ch6)`
      */
     void line_dbl_vec_v1(
-        fp2_2x2x2w l0Y3,
-        fp2_2x2x2w l1,
-        fp2_2x2x2w l2,
-        fp2_2x2x2w X3,
-        fp2_2x2x2w Z3,
-        const fp2_2x2x2w X1Y1,
-        const fp2_2x2x2w Z1);
+        fp2_2x2x2w& l0Y3,
+        fp2_2x2x2w& l1,
+        fp2_2x2x2w& l2,
+        fp2_2x2x2w& X3,
+        fp2_2x2x2w& Z3,
+        const fp2_2x2x2w& X1Y1,
+        const fp2_2x2x2w& Z1);
 
     /**
      * Doubling line kernel (`dbl-2009-alnr`) in `4x2x1w` schedule.
@@ -61,12 +61,12 @@ namespace blst
      * - `Z3` stores `Z3` in channels 0/1
      */
     void line_dbl_vec_v2(
-        fp2_4x2x1w l0,
-        fp2_4x2x1w l12,
-        fp2_4x2x1w X3,
-        fp2_4x2x1w Y3,
-        fp2_4x2x1w Z3,
-        const fp2_4x2x1w X1Y1Z1);
+        fp2_4x2x1w& l0,
+        fp2_4x2x1w& l12,
+        fp2_4x2x1w& X3,
+        fp2_4x2x1w& Y3,
+        fp2_4x2x1w& Z3,
+        const fp2_4x2x1w& X1Y1Z1);
 
     /**
      * Addition line kernel (`madd-2007-bl`) in `2x2x2w` schedule.
@@ -103,13 +103,13 @@ namespace blst
      * - `Z3    = (Z3 ch4, Z3 ch6)`
      */
     void line_add_vec_v1(
-        fp2_2x2x2w l0Y3,
-        fp2_2x2x2w l1,
-        fp2_2x2x2w X3,
-        fp2_2x2x2w Z3,
-        const fp2_2x2x2w X1Y1,
-        const fp2_2x2x2w Z1Y2,
-        const fp2_2x2x2w X2);
+        fp2_2x2x2w& l0Y3,
+        fp2_2x2x2w& l1,
+        fp2_2x2x2w& X3,
+        fp2_2x2x2w& Z3,
+        const fp2_2x2x2w& X1Y1,
+        const fp2_2x2x2w& Z1Y2,
+        const fp2_2x2x2w& X2);
 
     /**
      * Scale packed line coefficients by packed `Px2` constants in `4x2x1w`.
@@ -123,9 +123,9 @@ namespace blst
      * - channels containing `l2` are multiplied by `Y`
      */
     void line_by_Px2_4x2x1w(
-        fp2_4x2x1w r,
-        const fp2_4x2x1w a,
-        const fp2_4x2x1w Px2);
+        fp2_4x2x1w& r,
+        const fp2_4x2x1w& a,
+        const fp2_4x2x1w& Px2);
 
     /**
      * Scale packed line coefficients by packed `Px2` constants in `2x2x2w`.
@@ -138,9 +138,9 @@ namespace blst
      * - output keeps `l2*Y | l1*X` in the same schedule.
      */
     void line_by_Px2_2x2x2w(
-        fp2_2x2x2w r,
-        const fp2_2x2x2w a,
-        const fp2_2x2x2w Px2);
+        fp2_2x2x2w& r,
+        const fp2_2x2x2w& a,
+        const fp2_2x2x2w& Px2);
 
     /**
      * AVXBLS wrapper: mixed-addition line step in scalar point layout.

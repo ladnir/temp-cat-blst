@@ -317,7 +317,7 @@ void scale_line_by_px2_scalar(LineEval& line, const Fp& px, const Fp& py)
     Fp::mul(line.c2[1], line.c2[1], py);
 }
 
-void pack_line_dbl_v2_input(fp2_4x2x1w X1Y1Z1, const JacobianPoint& Q)
+void pack_line_dbl_v2_input(fp2_4x2x1w& X1Y1Z1, const JacobianPoint& Q)
 {
     cc512i t[SWORDS] = {};
     for (u64 i = 0; i < SWORDS; ++i) {
@@ -330,7 +330,7 @@ void pack_line_dbl_v2_input(fp2_4x2x1w X1Y1Z1, const JacobianPoint& Q)
     conv_64to48_fp_8x1w(X1Y1Z1, t);
 }
 
-void pack_line_dbl_v1_inputs(fp2_2x2x2w X1Y1, fp2_2x2x2w Z1, const JacobianPoint& Q)
+void pack_line_dbl_v1_inputs(fp2_2x2x2w& X1Y1, fp2_2x2x2w& Z1, const JacobianPoint& Q)
 {
     cc512i s0[SWORDS / 2] = {};
     cc512i s1[SWORDS / 2] = {};
@@ -351,9 +351,9 @@ void pack_line_dbl_v1_inputs(fp2_2x2x2w X1Y1, fp2_2x2x2w Z1, const JacobianPoint
 }
 
 void pack_line_add_v1_inputs(
-    fp2_2x2x2w X1Y1,
-    fp2_2x2x2w Z1Y2,
-    fp2_2x2x2w X2,
+    fp2_2x2x2w& X1Y1,
+    fp2_2x2x2w& Z1Y2,
+    fp2_2x2x2w& X2,
     const JacobianPoint& R,
     const AffineInputPoint& Q)
 {
@@ -382,7 +382,7 @@ void pack_line_add_v1_inputs(
     conv_64to48_fp_4x2w(X2, s2);
 }
 
-void pack_px2_4x2x1w(fp2_4x2x1w Px2, const Fp& X, const Fp& Y)
+void pack_px2_4x2x1w(fp2_4x2x1w& Px2, const Fp& X, const Fp& Y)
 {
     cc512i t[SWORDS] = {};
     for (u64 i = 0; i < SWORDS; ++i) {
@@ -393,7 +393,7 @@ void pack_px2_4x2x1w(fp2_4x2x1w Px2, const Fp& X, const Fp& Y)
     conv_64to48_fp_8x1w(Px2, t);
 }
 
-void pack_px2_2x2x2w(fp2_2x2x2w Px2, const Fp& X, const Fp& Y)
+void pack_px2_2x2x2w(fp2_2x2x2w& Px2, const Fp& X, const Fp& Y)
 {
     cc512i t[SWORDS / 2] = {};
     for (u64 i = 0; i < SWORDS / 2; ++i) {

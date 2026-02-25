@@ -7,103 +7,103 @@ namespace blst
 {
 namespace
 {
-    inline void shuf_01_fp2_8x1x1w(fp2_8x1x1w r, const fp2_8x1x1w a)
+    inline void shuf_01_fp2_8x1x1w(fp2_8x1x1w& r, const fp2_8x1x1w& a)
     {
         shuf_01(r[0], a[0]);
         shuf_01(r[1], a[1]);
     }
 
-    inline void blend_0x11_fp2_8x1x1w(fp2_8x1x1w r, const fp2_8x1x1w a, const fp2_8x1x1w b)
+    inline void blend_0x11_fp2_8x1x1w(fp2_8x1x1w& r, const fp2_8x1x1w& a, const fp2_8x1x1w& b)
     {
         blend_0x11(r[0], a[0], b[0]);
         blend_0x11(r[1], a[1], b[1]);
     }
 
-    inline void blend_0x33_fp2_8x1x1w(fp2_8x1x1w r, const fp2_8x1x1w a, const fp2_8x1x1w b)
+    inline void blend_0x33_fp2_8x1x1w(fp2_8x1x1w& r, const fp2_8x1x1w& a, const fp2_8x1x1w& b)
     {
         blend_0x33(r[0], a[0], b[0]);
         blend_0x33(r[1], a[1], b[1]);
     }
 
-    inline void blend_0x55_fp2_8x1x1w(fp2_8x1x1w r, const fp2_8x1x1w a, const fp2_8x1x1w b)
+    inline void blend_0x55_fp2_8x1x1w(fp2_8x1x1w& r, const fp2_8x1x1w& a, const fp2_8x1x1w& b)
     {
         blend_0x55(r[0], a[0], b[0]);
         blend_0x55(r[1], a[1], b[1]);
     }
 
-    inline void blend_0x77_fp2_8x1x1w(fp2_8x1x1w r, const fp2_8x1x1w a, const fp2_8x1x1w b)
+    inline void blend_0x77_fp2_8x1x1w(fp2_8x1x1w& r, const fp2_8x1x1w& a, const fp2_8x1x1w& b)
     {
         blend_0x77(r[0], a[0], b[0]);
         blend_0x77(r[1], a[1], b[1]);
     }
 
-    inline void perm_0123_fp2_8x1x1w(fp2_8x1x1w r, const fp2_8x1x1w a)
+    inline void perm_0123_fp2_8x1x1w(fp2_8x1x1w& r, const fp2_8x1x1w& a)
     {
         perm_0123(r[0], a[0]);
         perm_0123(r[1], a[1]);
     }
 
-    inline void perm_0300_fp2_8x1x1w(fp2_8x1x1w r, const fp2_8x1x1w a)
+    inline void perm_0300_fp2_8x1x1w(fp2_8x1x1w& r, const fp2_8x1x1w& a)
     {
         perm_0300(r[0], a[0]);
         perm_0300(r[1], a[1]);
     }
 
-    inline void perm_1032_fp2_8x1x1w(fp2_8x1x1w r, const fp2_8x1x1w a)
+    inline void perm_1032_fp2_8x1x1w(fp2_8x1x1w& r, const fp2_8x1x1w& a)
     {
         perm_1032(r[0], a[0]);
         perm_1032(r[1], a[1]);
     }
 
-    inline void perm_1200_fp2_8x1x1w(fp2_8x1x1w r, const fp2_8x1x1w a)
+    inline void perm_1200_fp2_8x1x1w(fp2_8x1x1w& r, const fp2_8x1x1w& a)
     {
         perm_1200(r[0], a[0]);
         perm_1200(r[1], a[1]);
     }
 
-    inline void perm_2000_fp2_8x1x1w(fp2_8x1x1w r, const fp2_8x1x1w a)
+    inline void perm_2000_fp2_8x1x1w(fp2_8x1x1w& r, const fp2_8x1x1w& a)
     {
         perm_2000(r[0], a[0]);
         perm_2000(r[1], a[1]);
     }
 
-    inline void shuf_00_fp2x2_8x1x1w(fp2x2_8x1x1w r, const fp2x2_8x1x1w a)
+    inline void shuf_00_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a)
     {
         shuf_00_dl(r[0], a[0]);
         shuf_00_dl(r[1], a[1]);
     }
 
-    inline void shuf_01_fp2x2_8x1x1w(fp2x2_8x1x1w r, const fp2x2_8x1x1w a)
+    inline void shuf_01_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a)
     {
         shuf_01_dl(r[0], a[0]);
         shuf_01_dl(r[1], a[1]);
     }
 
-    inline void shuf_11_fp2x2_8x1x1w(fp2x2_8x1x1w r, const fp2x2_8x1x1w a)
+    inline void shuf_11_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a)
     {
         shuf_11_dl(r[0], a[0]);
         shuf_11_dl(r[1], a[1]);
     }
 
-    inline void blend_0x33_fp2x2_8x1x1w(fp2x2_8x1x1w r, const fp2x2_8x1x1w a, const fp2x2_8x1x1w b)
+    inline void blend_0x33_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a, const fp2x2_8x1x1w& b)
     {
         blend_0x33_dl(r[0], a[0], b[0]);
         blend_0x33_dl(r[1], a[1], b[1]);
     }
 
-    inline void blend_0x55_fp2x2_8x1x1w(fp2x2_8x1x1w r, const fp2x2_8x1x1w a, const fp2x2_8x1x1w b)
+    inline void blend_0x55_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a, const fp2x2_8x1x1w& b)
     {
         blend_0x55_dl(r[0], a[0], b[0]);
         blend_0x55_dl(r[1], a[1], b[1]);
     }
 
-    inline void perm_2323_fp2x2_8x1x1w(fp2x2_8x1x1w r, const fp2x2_8x1x1w a)
+    inline void perm_2323_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a)
     {
         perm_2323_dl(r[0], a[0]);
         perm_2323_dl(r[1], a[1]);
     }
 
-    inline void perm_3000_fp2x2_8x1x1w(fp2x2_8x1x1w r, const fp2x2_8x1x1w a)
+    inline void perm_3000_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a)
     {
         perm_3000_dl(r[0], a[0]);
         perm_3000_dl(r[1], a[1]);
@@ -111,11 +111,11 @@ namespace
 } // namespace
 
 void mul_fp6x2_4x2x1x1w(
-    fp2x2_8x1x1w r01,
-    fp2x2_8x1x1w r2,
-    const fp2_8x1x1w ab0,
-    const fp2_8x1x1w ab1,
-    const fp2_8x1x1w ab2)
+    fp2x2_8x1x1w& r01,
+    fp2x2_8x1x1w& r2,
+    const fp2_8x1x1w& ab0,
+    const fp2_8x1x1w& ab1,
+    const fp2_8x1x1w& ab2)
 {
     fp2_8x1x1w t0, t1, t2, t3, t4;
     fp2x2_8x1x1w tt0, tt1, tt2, tt3, tt4, tt5;
@@ -157,11 +157,11 @@ void mul_fp6x2_4x2x1x1w(
 }
 
 void mul_fp6x2_2x2x2x1w(
-    fp2x2_4x2x1w r01,
-    fp2x2_4x2x1w r2,
-    const fp2_4x2x1w ab0,
-    const fp2_4x2x1w ab1,
-    const fp2_4x2x1w ab2)
+    fp2x2_4x2x1w& r01,
+    fp2x2_4x2x1w& r2,
+    const fp2_4x2x1w& ab0,
+    const fp2_4x2x1w& ab1,
+    const fp2_4x2x1w& ab2)
 {
     fp2_4x2x1w t0, t1, t2, t3, t4;
     fp2x2_4x2x1w tt0, tt1, tt2, tt3, tt4, tt5;
@@ -203,11 +203,11 @@ void mul_fp6x2_2x2x2x1w(
 }
 
 void mul_fp6x2_1x2x2x2w(
-    fp2x2_2x2x2w r01,
-    fp2x2_2x2x2w r2,
-    const fp2_2x2x2w ab0,
-    const fp2_2x2x2w ab1,
-    const fp2_2x2x2w ab2)
+    fp2x2_2x2x2w& r01,
+    fp2x2_2x2x2w& r2,
+    const fp2_2x2x2w& ab0,
+    const fp2_2x2x2w& ab1,
+    const fp2_2x2x2w& ab2)
 {
     fp2_2x2x2w t0, t1, t2, t3, t4;
     fp2x2_2x2x2w tt0, tt1, tt2, tt3, tt4, tt5;
@@ -252,14 +252,14 @@ void mul_fp6x2_1x2x2x2w(
 }
 
 void mul_by_xy00z0_fp6x2_2x2x2x1w(
-    fp2x2_4x2x1w r01,
-    fp2x2_4x2x1w r2,
-    fp2x2_4x2x1w r3,
-    fp2x2_4x2x1w r45,
-    const fp2_4x2x1w a01,
-    const fp2_4x2x1w a2,
-    const fp2_4x2x1w b01,
-    const fp2_4x2x1w b4)
+    fp2x2_4x2x1w& r01,
+    fp2x2_4x2x1w& r2,
+    fp2x2_4x2x1w& r3,
+    fp2x2_4x2x1w& r45,
+    const fp2_4x2x1w& a01,
+    const fp2_4x2x1w& a2,
+    const fp2_4x2x1w& b01,
+    const fp2_4x2x1w& b4)
 {
     fp2_4x2x1w t0, t1;
     fp2x2_4x2x1w tt0, tt1, tt2;
@@ -285,11 +285,11 @@ void mul_by_xy00z0_fp6x2_2x2x2x1w(
 }
 
 void mul_by_xy00z0_fp6x2_2x4x1x1w(
-    fp2x2_8x1x1w r01,
-    fp2x2_8x1x1w r23,
-    fp2x2_8x1x1w r45,
-    const fp2_8x1x1w a,
-    const fp2_8x1x1w b)
+    fp2x2_8x1x1w& r01,
+    fp2x2_8x1x1w& r23,
+    fp2x2_8x1x1w& r45,
+    const fp2_8x1x1w& a,
+    const fp2_8x1x1w& b)
 {
     fp2_8x1x1w t0, t1;
     fp2x2_8x1x1w tt0, tt1, tt2;

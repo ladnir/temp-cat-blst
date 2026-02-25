@@ -80,7 +80,7 @@ void expect_fp2_eq(const Fp2& got, const Fp2& expected)
     EXPECT_TRUE(fp2_equal(got, expected));
 }
 
-void pack_fp_8x1w(fp_8x1w out, const FpVec8& in)
+void pack_fp_8x1w(fp_8x1w& out, const FpVec8& in)
 {
     std::array<std::array<u64, NWORDS>, 8> words{};
     for (size_t lane = 0; lane < 8; ++lane) {
@@ -94,7 +94,7 @@ void pack_fp_8x1w(fp_8x1w out, const FpVec8& in)
     }
 }
 
-void unpack_fp_8x1w(FpVec8& out, const fp_8x1w in)
+void unpack_fp_8x1w(FpVec8& out, const fp_8x1w& in)
 {
     std::array<std::array<u64, NWORDS>, 8> words{};
     std::array<u64, 8> lanes{};
@@ -109,7 +109,7 @@ void unpack_fp_8x1w(FpVec8& out, const fp_8x1w in)
     }
 }
 
-void pack_fp_4x2w(fp_4x2w out, const FpVec4& in)
+void pack_fp_4x2w(fp_4x2w& out, const FpVec4& in)
 {
     std::array<std::array<u64, NWORDS>, 4> words{};
     for (size_t lane = 0; lane < 4; ++lane) {
@@ -123,7 +123,7 @@ void pack_fp_4x2w(fp_4x2w out, const FpVec4& in)
     }
 }
 
-void unpack_fp_4x2w(FpVec4& out, const fp_4x2w in)
+void unpack_fp_4x2w(FpVec4& out, const fp_4x2w& in)
 {
     std::array<std::array<u64, NWORDS>, 4> words{};
     std::array<u64, 8> lanes{};
@@ -139,7 +139,7 @@ void unpack_fp_4x2w(FpVec4& out, const fp_4x2w in)
     }
 }
 
-void pack_fp2_8x1x1w(fp2_8x1x1w out, const Fp2Vec8& in)
+void pack_fp2_8x1x1w(fp2_8x1x1w& out, const Fp2Vec8& in)
 {
     FpVec8 c0{};
     FpVec8 c1{};
@@ -151,7 +151,7 @@ void pack_fp2_8x1x1w(fp2_8x1x1w out, const Fp2Vec8& in)
     pack_fp_8x1w(out[1], c1);
 }
 
-void unpack_fp2_8x1x1w(Fp2Vec8& out, const fp2_8x1x1w in)
+void unpack_fp2_8x1x1w(Fp2Vec8& out, const fp2_8x1x1w& in)
 {
     FpVec8 c0{};
     FpVec8 c1{};
@@ -163,7 +163,7 @@ void unpack_fp2_8x1x1w(Fp2Vec8& out, const fp2_8x1x1w in)
     }
 }
 
-void pack_fp2_4x2x1w(fp2_4x2x1w out, const Fp2Vec4& in)
+void pack_fp2_4x2x1w(fp2_4x2x1w& out, const Fp2Vec4& in)
 {
     FpVec8 lanes{};
     for (size_t i = 0; i < 4; ++i) {
@@ -173,7 +173,7 @@ void pack_fp2_4x2x1w(fp2_4x2x1w out, const Fp2Vec4& in)
     pack_fp_8x1w(out, lanes);
 }
 
-void unpack_fp2_4x2x1w(Fp2Vec4& out, const fp2_4x2x1w in)
+void unpack_fp2_4x2x1w(Fp2Vec4& out, const fp2_4x2x1w& in)
 {
     FpVec8 lanes{};
     unpack_fp_8x1w(lanes, in);
@@ -183,13 +183,13 @@ void unpack_fp2_4x2x1w(Fp2Vec4& out, const fp2_4x2x1w in)
     }
 }
 
-void pack_fp2_2x2x2w(fp2_2x2x2w out, const Fp2Vec2& in)
+void pack_fp2_2x2x2w(fp2_2x2x2w& out, const Fp2Vec2& in)
 {
     FpVec4 lanes = {in[0][0], in[0][1], in[1][0], in[1][1]};
     pack_fp_4x2w(out, lanes);
 }
 
-void unpack_fp2_2x2x2w(Fp2Vec2& out, const fp2_2x2x2w in)
+void unpack_fp2_2x2x2w(Fp2Vec2& out, const fp2_2x2x2w& in)
 {
     FpVec4 lanes{};
     unpack_fp_4x2w(lanes, in);
@@ -199,7 +199,7 @@ void unpack_fp2_2x2x2w(Fp2Vec2& out, const fp2_2x2x2w in)
     out[1][1] = lanes[3];
 }
 
-void redc_fp2x2_8x1x1w_local(fp2_8x1x1w r, const fp2x2_8x1x1w a)
+void redc_fp2x2_8x1x1w_local(fp2_8x1x1w& r, const fp2x2_8x1x1w& a)
 {
     redc_fpx2_8x1w(r[0], a[0]);
     redc_fpx2_8x1w(r[1], a[1]);

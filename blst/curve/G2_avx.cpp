@@ -14,13 +14,13 @@ namespace
 } // namespace
 
 void line_dbl_vec_v1(
-    fp2_2x2x2w l0Y3,
-    fp2_2x2x2w l1,
-    fp2_2x2x2w l2,
-    fp2_2x2x2w X3,
-    fp2_2x2x2w Z3,
-    const fp2_2x2x2w X1Y1,
-    const fp2_2x2x2w Z1)
+    fp2_2x2x2w& l0Y3,
+    fp2_2x2x2w& l1,
+    fp2_2x2x2w& l2,
+    fp2_2x2x2w& X3,
+    fp2_2x2x2w& Z3,
+    const fp2_2x2x2w& X1Y1,
+    const fp2_2x2x2w& Z1)
 {
     fp2_2x2x2w AB, C, D, E, FZZ;
     fp2_2x2x2w t0, t1, t2, t3, t4, t5;
@@ -76,12 +76,12 @@ void line_dbl_vec_v1(
 }
 
 void line_dbl_vec_v2(
-    fp2_4x2x1w l0,
-    fp2_4x2x1w l12,
-    fp2_4x2x1w X3,
-    fp2_4x2x1w Y3,
-    fp2_4x2x1w Z3,
-    const fp2_4x2x1w X1Y1Z1)
+    fp2_4x2x1w& l0,
+    fp2_4x2x1w& l12,
+    fp2_4x2x1w& X3,
+    fp2_4x2x1w& Y3,
+    fp2_4x2x1w& Z3,
+    const fp2_4x2x1w& X1Y1Z1)
 {
     fp2_4x2x1w ABZZ, CF, E;
     fp2_4x2x1w t0, t1, t2, t3;
@@ -142,13 +142,13 @@ void line_dbl_vec_v2(
 }
 
 void line_add_vec_v1(
-    fp2_2x2x2w l0Y3,
-    fp2_2x2x2w l1,
-    fp2_2x2x2w X3,
-    fp2_2x2x2w Z3,
-    const fp2_2x2x2w X1Y1,
-    const fp2_2x2x2w Z1Y2,
-    const fp2_2x2x2w X2)
+    fp2_2x2x2w& l0Y3,
+    fp2_2x2x2w& l1,
+    fp2_2x2x2w& X3,
+    fp2_2x2x2w& Z3,
+    const fp2_2x2x2w& X1Y1,
+    const fp2_2x2x2w& Z1Y2,
+    const fp2_2x2x2w& X2)
 {
     fp2_2x2x2w H, J, ZZ, US, V;
     fp2_2x2x2w t0, t1, t2, t3, t4;
@@ -200,14 +200,14 @@ void line_add_vec_v1(
     sa_fp2_2x2x2w(l0Y3, t0, t1);
 }
 
-void line_by_Px2_4x2x1w(fp2_4x2x1w r, const fp2_4x2x1w a, const fp2_4x2x1w Px2)
+void line_by_Px2_4x2x1w(fp2_4x2x1w& r, const fp2_4x2x1w& a, const fp2_4x2x1w& Px2)
 {
     fp2x2_4x2x1w tt0;
     mul_fpx2_8x1w(tt0, a, Px2);
     redc_fpx2_8x1w(r, tt0);
 }
 
-void line_by_Px2_2x2x2w(fp2_2x2x2w r, const fp2_2x2x2w a, const fp2_2x2x2w Px2)
+void line_by_Px2_2x2x2w(fp2_2x2x2w& r, const fp2_2x2x2w& a, const fp2_2x2x2w& Px2)
 {
     fp2x2_2x2x2w tt0;
     mul_fpx2_4x2w(tt0, a, Px2);

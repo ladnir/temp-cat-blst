@@ -135,7 +135,7 @@ void force_edge_lanes(FpVec4& v)
     v[3] = two;
 }
 
-void pack_fp_8x1w(fp_8x1w out, const FpVec8& in)
+void pack_fp_8x1w(fp_8x1w& out, const FpVec8& in)
 {
     std::array<std::array<u64, NWORDS>, 8> words{};
     for (size_t lane = 0; lane < 8; ++lane) {
@@ -151,7 +151,7 @@ void pack_fp_8x1w(fp_8x1w out, const FpVec8& in)
     }
 }
 
-void unpack_fp_8x1w(FpVec8& out, const fp_8x1w in)
+void unpack_fp_8x1w(FpVec8& out, const fp_8x1w& in)
 {
     std::array<std::array<u64, NWORDS>, 8> words{};
     for (size_t i = 0; i < NWORDS; ++i) {
@@ -166,7 +166,7 @@ void unpack_fp_8x1w(FpVec8& out, const fp_8x1w in)
     }
 }
 
-void pack_fp_4x2w(fp_4x2w out, const FpVec4& in)
+void pack_fp_4x2w(fp_4x2w& out, const FpVec4& in)
 {
     std::array<std::array<u64, NWORDS>, 4> words{};
     for (size_t lane = 0; lane < 4; ++lane) {
@@ -183,7 +183,7 @@ void pack_fp_4x2w(fp_4x2w out, const FpVec4& in)
     }
 }
 
-void unpack_fp_4x2w(FpVec4& out, const fp_4x2w in)
+void unpack_fp_4x2w(FpVec4& out, const fp_4x2w& in)
 {
     std::array<std::array<u64, NWORDS>, 4> words{};
     for (size_t i = 0; i < VWORDS; ++i) {

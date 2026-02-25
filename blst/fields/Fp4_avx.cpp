@@ -6,7 +6,7 @@
 namespace blst
 {
 
-void sqr_fp4_2x2x2x1w_v1(fp4_2x2x2x1w r, const fp4_2x2x2x1w a)
+void sqr_fp4_2x2x2x1w_v1(fp4_2x2x2x1w& r, const fp4_2x2x2x1w& a)
 {
     fp4_2x2x2x1w t0;
     fp4x2_2x2x2x1w tt0, tt1, tt2;
@@ -23,7 +23,7 @@ void sqr_fp4_2x2x2x1w_v1(fp4_2x2x2x1w r, const fp4_2x2x2x1w a)
     redc_fp2x2_4x2x1w(r, tt0);              //     2*A0*A1 | A0^2+(u+1)*(A1^2)
 }
 
-void sqr_fp4_2x2x2x1w_v2(fp4_2x2x2x1w r, const fp4_2x2x2x1w a)
+void sqr_fp4_2x2x2x1w_v2(fp4_2x2x2x1w& r, const fp4_2x2x2x1w& a)
 {
     fp4_2x2x2x1w t0, t1, t2, t3;
 
@@ -38,7 +38,7 @@ void sqr_fp4_2x2x2x1w_v2(fp4_2x2x2x1w r, const fp4_2x2x2x1w a)
     add_fp2_4x2x1w(r, t2, t0);           //     2*A0*A1 | A0^2+(u+1)*(A1^2)
 }
 
-void sqr_fp4_2x2x2x1w_v3(fp4_2x2x2x1w r, const fp4_2x2x2x1w a)
+void sqr_fp4_2x2x2x1w_v3(fp4_2x2x2x1w& r, const fp4_2x2x2x1w& a)
 {
     fp4_2x2x2x1w t0, t1, t2;
     fp4x2_2x2x2x1w tt0, tt1, tt2;
@@ -63,7 +63,7 @@ void sqr_fp4_2x2x2x1w_v3(fp4_2x2x2x1w r, const fp4_2x2x2x1w a)
     redc_fp2x2_4x2x1w(r, tt2);               //     2*A0*A1 | (A0+A1)*(A0+A1*(u+1))-A0*A1-A0*A1*(u+1)
 }
 
-void sqr_fp4_1x2x2x2w_v1(fp4_1x2x2x2w r, const fp4_1x2x2x2w a)
+void sqr_fp4_1x2x2x2w_v1(fp4_1x2x2x2w& r, const fp4_1x2x2x2w& a)
 {
     fp4x2_1x2x2x2w tt0, tt1, tt2;
     fp4_1x2x2x2w t0;
@@ -81,7 +81,7 @@ void sqr_fp4_1x2x2x2w_v1(fp4_1x2x2x2w r, const fp4_1x2x2x2w a)
     redc_fp2x2_2x2x2w(r, tt0);              //     2*A0*A1 | A0^2+(u+1)*(A1^2)
 }
 
-void sqr_fp4_1x2x2x2w_v2(fp4_1x2x2x2w r, const fp4_1x2x2x2w a)
+void sqr_fp4_1x2x2x2w_v2(fp4_1x2x2x2w& r, const fp4_1x2x2x2w& a)
 {
     fp4_1x2x2x2w t0, t1, t2, t3;
     const cc512i m0 = VSET(3, 2, 1, 0, 7, 6, 5, 4);

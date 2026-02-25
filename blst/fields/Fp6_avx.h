@@ -19,11 +19,21 @@ namespace blst
      */
 
     /// Three Fp2 components (`c0,c1,c2`) packed in the `8x1x1w` schedule.
-    using fp6_4x2x1x1w = fp2_8x1x1w[3];
+    using Fp6Pack4x2x1x1 = AvxPackTuple<fp2_8x1x1w, 3>;
+    using fp6_4x2x1x1w = Fp6Pack4x2x1x1;
     /// Three Fp2 components (`c0,c1,c2`) packed in the `4x2x1w` schedule.
-    using fp6_2x2x2x1w = fp2_4x2x1w[3];
+    using Fp6Pack2x2x2x1 = AvxPackTuple<fp2_4x2x1w, 3>;
+    using fp6_2x2x2x1w = Fp6Pack2x2x2x1;
     /// Three Fp2 components (`c0,c1,c2`) packed in the `2x2x2w` schedule.
-    using fp6_1x2x2x2w = fp2_2x2x2w[3];
+    using Fp6Pack1x2x2x2 = AvxPackTuple<fp2_2x2x2w, 3>;
+    using fp6_1x2x2x2w = Fp6Pack1x2x2x2;
+
+    static_assert(std::is_trivially_default_constructible_v<Fp6Pack4x2x1x1>);
+    static_assert(std::is_trivially_copyable_v<Fp6Pack4x2x1x1>);
+    static_assert(std::is_trivially_default_constructible_v<Fp6Pack2x2x2x1>);
+    static_assert(std::is_trivially_copyable_v<Fp6Pack2x2x2x1>);
+    static_assert(std::is_trivially_default_constructible_v<Fp6Pack1x2x2x2>);
+    static_assert(std::is_trivially_copyable_v<Fp6Pack1x2x2x2>);
 
     /**
      * Karatsuba Fp6 multiply (4-way schedule).
@@ -46,11 +56,11 @@ namespace blst
      * @post Outputs are widened (unreduced) Montgomery intermediates.
      */
     void mul_fp6x2_4x2x1x1w(
-        fp2x2_8x1x1w r01,
-        fp2x2_8x1x1w r2,
-        const fp2_8x1x1w ab0,
-        const fp2_8x1x1w ab1,
-        const fp2_8x1x1w ab2);
+        fp2x2_8x1x1w& r01,
+        fp2x2_8x1x1w& r2,
+        const fp2_8x1x1w& ab0,
+        const fp2_8x1x1w& ab1,
+        const fp2_8x1x1w& ab2);
 
     /**
      * Karatsuba Fp6 multiply (2-way schedule).
@@ -61,11 +71,11 @@ namespace blst
      * @post Outputs are widened (unreduced) Montgomery intermediates.
      */
     void mul_fp6x2_2x2x2x1w(
-        fp2x2_4x2x1w r01,
-        fp2x2_4x2x1w r2,
-        const fp2_4x2x1w ab0,
-        const fp2_4x2x1w ab1,
-        const fp2_4x2x1w ab2);
+        fp2x2_4x2x1w& r01,
+        fp2x2_4x2x1w& r2,
+        const fp2_4x2x1w& ab0,
+        const fp2_4x2x1w& ab1,
+        const fp2_4x2x1w& ab2);
 
     /**
      * Karatsuba Fp6 multiply (1-way schedule).
@@ -76,11 +86,11 @@ namespace blst
      * @post Outputs are widened (unreduced) Montgomery intermediates.
      */
     void mul_fp6x2_1x2x2x2w(
-        fp2x2_2x2x2w r01,
-        fp2x2_2x2x2w r2,
-        const fp2_2x2x2w ab0,
-        const fp2_2x2x2w ab1,
-        const fp2_2x2x2w ab2);
+        fp2x2_2x2x2w& r01,
+        fp2x2_2x2x2w& r2,
+        const fp2_2x2x2w& ab0,
+        const fp2_2x2x2w& ab1,
+        const fp2_2x2x2w& ab2);
 
     /**
      * Sparse Fp6 multiply for `(x,y,0,0,z,0)` pattern (2-way schedule).
@@ -109,14 +119,14 @@ namespace blst
      * @post Outputs are widened (unreduced) Montgomery intermediates.
      */
     void mul_by_xy00z0_fp6x2_2x2x2x1w(
-        fp2x2_4x2x1w r01,
-        fp2x2_4x2x1w r2,
-        fp2x2_4x2x1w r3,
-        fp2x2_4x2x1w r45,
-        const fp2_4x2x1w a01,
-        const fp2_4x2x1w a2,
-        const fp2_4x2x1w b01,
-        const fp2_4x2x1w b4);
+        fp2x2_4x2x1w& r01,
+        fp2x2_4x2x1w& r2,
+        fp2x2_4x2x1w& r3,
+        fp2x2_4x2x1w& r45,
+        const fp2_4x2x1w& a01,
+        const fp2_4x2x1w& a2,
+        const fp2_4x2x1w& b01,
+        const fp2_4x2x1w& b4);
 
     /**
      * Sparse Fp6 multiply for `(x,y,0,0,z,0)` pattern (4-way schedule).
@@ -134,11 +144,11 @@ namespace blst
      * @post Outputs are widened (unreduced) Montgomery intermediates.
      */
     void mul_by_xy00z0_fp6x2_2x4x1x1w(
-        fp2x2_8x1x1w r01,
-        fp2x2_8x1x1w r23,
-        fp2x2_8x1x1w r45,
-        const fp2_8x1x1w a,
-        const fp2_8x1x1w b);
+        fp2x2_8x1x1w& r01,
+        fp2x2_8x1x1w& r23,
+        fp2x2_8x1x1w& r45,
+        const fp2_8x1x1w& a,
+        const fp2_8x1x1w& b);
 }
 
 #endif
