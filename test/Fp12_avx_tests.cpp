@@ -383,8 +383,8 @@ TEST(Fp12Avx, CyclotomicVariantsAndCompressed)
             rand_redc_fp2(vbc, rng);
         }
 
-        fp4_1x2x2x2w a{};
-        fp4_2x2x2x1w bc{}, ra1{}, rbc1{}, ra2{}, rbc2{}, rbc_comp{};
+        fp4_1x2x2x2w a{}, ra1{}, ra2{};
+        fp4_2x2x2x1w bc{}, rbc1{}, rbc2{}, rbc_comp{};
         Fp2Vec2 out_ra1{}, out_ra2{};
         Fp2Vec4 out_rbc1{}, out_rbc2{}, out_rbc_comp{};
 

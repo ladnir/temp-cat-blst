@@ -21,7 +21,7 @@ void conv_64to48_fp(u64 *r, const u64 *a)
   r[7] =  (a[5] >> 16)                 & BMASK;
 }
 
-void conv_64to48_fp_8x1w(cc512i *r, const cc512i *a)
+void conv_64to48_fp_8x1w(fp_8x1w& r, const cc512i* BLST_restrict a)
 {
   const cc512i a0 = a[0], a1 = a[1], a2 = a[2];
   const cc512i a3 = a[3], a4 = a[4], a5 = a[5];
@@ -41,7 +41,7 @@ void conv_64to48_fp_8x1w(cc512i *r, const cc512i *a)
   r[4] = r4; r[5] = r5; r[6] = r6; r[7] = r7;
 }
 
-void conv_64to48_fp_4x2w(cc512i *r, const cc512i *a)
+void conv_64to48_fp_4x2w(fp_4x2w& r, const cc512i* BLST_restrict a)
 {
   const cc512i a0 = a[0], a1 = a[1], a2 = a[2];
   const cc512i bmask = VSET1(BMASK);
@@ -88,7 +88,7 @@ void conv_48to64_fp(u64 *r, const u64 *a)
   r[5] = (a[7] << 16) | a[6] >> 32;  
 }
 
-void conv_48to64_fp_8x1w(cc512i *r, const cc512i *a)
+void conv_48to64_fp_8x1w(cc512i* BLST_restrict r, const fp_8x1w& a)
 {
   const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
   const cc512i a4 = a[4], a5 = a[5], a6 = a[6], a7 = a[7];
@@ -105,7 +105,7 @@ void conv_48to64_fp_8x1w(cc512i *r, const cc512i *a)
   r[3] = r3; r[4] = r4; r[5] = r5; 
 }
 
-void conv_48to64_fp_4x2w(cc512i *r, const cc512i *a)
+void conv_48to64_fp_4x2w(cc512i* BLST_restrict r, const fp_4x2w& a)
 {
   const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
   cc512i r0, r1, r2;
@@ -150,7 +150,7 @@ void carryp_mpi48(u64 *a)
   }
 }
 
-void carryp_fp_4x2w(cc512i *a)
+void carryp_fp_4x2w(fp_4x2w& a)
 {
   cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
   const cc512i bmask = VSET1(BMASK);
@@ -162,7 +162,7 @@ void carryp_fp_4x2w(cc512i *a)
   a[0] = a0; a[1] = a1; a[2] = a2; a[3] = a3;
 }
 
-void get_channel_8x1w(u64 *r, const cc512i *a, const int ch) 
+void get_channel_8x1w(u64* BLST_restrict r, const fp_8x1w& a, const int ch) 
 {
   int i;
 
@@ -171,7 +171,7 @@ void get_channel_8x1w(u64 *r, const cc512i *a, const int ch)
   }
 }
 
-void get_channel_4x2w(u64 *r, const cc512i *a, const int ch) 
+void get_channel_4x2w(u64* BLST_restrict r, const fp_4x2w& a, const int ch) 
 {
   int i;
 
@@ -181,7 +181,7 @@ void get_channel_4x2w(u64 *r, const cc512i *a, const int ch)
   }
 }
 
-void add_fp_8x1w(fp_8x1w r, const fp_8x1w a, const fp_8x1w b)
+void add_fp_8x1w(fp_8x1w& r, const fp_8x1w& a, const fp_8x1w& b)
 {
   const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
   const cc512i a4 = a[4], a5 = a[5], a6 = a[6], a7 = a[7];
@@ -233,7 +233,7 @@ void add_fp_8x1w(fp_8x1w r, const fp_8x1w a, const fp_8x1w b)
   r[4] = r4; r[5] = r5; r[6] = r6; r[7] = r7;
 }
 
-void sub_fp_8x1w(fp_8x1w r, const fp_8x1w a, const fp_8x1w b)
+void sub_fp_8x1w(fp_8x1w& r, const fp_8x1w& a, const fp_8x1w& b)
 {
   const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
   const cc512i a4 = a[4], a5 = a[5], a6 = a[6], a7 = a[7];
@@ -281,7 +281,7 @@ void sub_fp_8x1w(fp_8x1w r, const fp_8x1w a, const fp_8x1w b)
   r[4] = r4; r[5] = r5; r[6] = r6; r[7] = r7;
 }
 
-void asx4_fp_8x1w(fp_8x1w r, const fp_8x1w a, const fp_8x1w b)
+void asx4_fp_8x1w(fp_8x1w& r, const fp_8x1w& a, const fp_8x1w& b)
 {
   const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
   const cc512i a4 = a[4], a5 = a[5], a6 = a[6], a7 = a[7];
@@ -344,7 +344,7 @@ void asx4_fp_8x1w(fp_8x1w r, const fp_8x1w a, const fp_8x1w b)
   r[4] = r4; r[5] = r5; r[6] = r6; r[7] = r7;
 }
 
-void asax6_fp_8x1w(fp_8x1w r, const fp_8x1w a, const fp_8x1w b)
+void asax6_fp_8x1w(fp_8x1w& r, const fp_8x1w& a, const fp_8x1w& b)
 {
   const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
   const cc512i a4 = a[4], a5 = a[5], a6 = a[6], a7 = a[7];
@@ -407,7 +407,7 @@ void asax6_fp_8x1w(fp_8x1w r, const fp_8x1w a, const fp_8x1w b)
   r[4] = r4; r[5] = r5; r[6] = r6; r[7] = r7;
 }
 
-void assx6_fp_8x1w(fp_8x1w r, const fp_8x1w a, const fp_8x1w b)
+void assx6_fp_8x1w(fp_8x1w& r, const fp_8x1w& a, const fp_8x1w& b)
 {
   const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
   const cc512i a4 = a[4], a5 = a[5], a6 = a[6], a7 = a[7];
@@ -470,7 +470,7 @@ void assx6_fp_8x1w(fp_8x1w r, const fp_8x1w a, const fp_8x1w b)
   r[4] = r4; r[5] = r5; r[6] = r6; r[7] = r7;
 }
 
-void add_fp_4x2w(fp_4x2w r, const fp_4x2w a, const fp_4x2w b)
+void add_fp_4x2w(fp_4x2w& r, const fp_4x2w& a, const fp_4x2w& b)
 {
   const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
   const cc512i b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
@@ -518,7 +518,7 @@ void add_fp_4x2w(fp_4x2w r, const fp_4x2w a, const fp_4x2w b)
   r[0] = r0; r[1] = r1; r[2] = r2; r[3] = r3; 
 }
 
-void sub_fp_4x2w(fp_4x2w r, const fp_4x2w a, const fp_4x2w b)
+void sub_fp_4x2w(fp_4x2w& r, const fp_4x2w& a, const fp_4x2w& b)
 {
   const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
   const cc512i b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
@@ -563,7 +563,7 @@ void sub_fp_4x2w(fp_4x2w r, const fp_4x2w a, const fp_4x2w b)
   r[0] = r0; r[1] = r1; r[2] = r2; r[3] = r3; 
 }
 
-void asx2_fp_4x2w(fp_4x2w r, const fp_4x2w a, const fp_4x2w b)
+void asx2_fp_4x2w(fp_4x2w& r, const fp_4x2w& a, const fp_4x2w& b)
 {
   const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
   const cc512i b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
@@ -617,7 +617,7 @@ void asx2_fp_4x2w(fp_4x2w r, const fp_4x2w a, const fp_4x2w b)
   r[0] = r0; r[1] = r1; r[2] = r2; r[3] = r3; 
 }
 
-void add_fpx2_8x1w(fpx2_8x1w r, const fpx2_8x1w a, const fpx2_8x1w b)
+void add_fpx2_8x1w(fpx2_8x1w& r, const fpx2_8x1w& a, const fpx2_8x1w& b)
 {
   const cc512i a0  = a[0 ], a1  = a[1 ], a2  = a[2 ], a3  = a[3 ];
   const cc512i a4  = a[4 ], a5  = a[5 ], a6  = a[6 ], a7  = a[7 ];
@@ -692,7 +692,7 @@ void add_fpx2_8x1w(fpx2_8x1w r, const fpx2_8x1w a, const fpx2_8x1w b)
   r[12] = r12; r[13] = r13; r[14] = r14; r[15] = r15;
 }
 
-void sub_fpx2_8x1w(fpx2_8x1w r, const fpx2_8x1w a, const fpx2_8x1w b)
+void sub_fpx2_8x1w(fpx2_8x1w& r, const fpx2_8x1w& a, const fpx2_8x1w& b)
 {
   const cc512i a0  = a[0 ], a1  = a[1 ], a2  = a[2 ], a3  = a[3 ];
   const cc512i a4  = a[4 ], a5  = a[5 ], a6  = a[6 ], a7  = a[7 ];
@@ -761,7 +761,7 @@ void sub_fpx2_8x1w(fpx2_8x1w r, const fpx2_8x1w a, const fpx2_8x1w b)
   r[12] = r12; r[13] = r13; r[14] = r14; r[15] = r15;
 }
 
-void aaasx2_fpx2_8x1w(fpx2_8x1w r, const fpx2_8x1w a, const fpx2_8x1w b)
+void aaasx2_fpx2_8x1w(fpx2_8x1w& r, const fpx2_8x1w& a, const fpx2_8x1w& b)
 {
   const cc512i a0  = a[0 ], a1  = a[1 ], a2  = a[2 ], a3  = a[3 ];
   const cc512i a4  = a[4 ], a5  = a[5 ], a6  = a[6 ], a7  = a[7 ];
@@ -848,7 +848,7 @@ void aaasx2_fpx2_8x1w(fpx2_8x1w r, const fpx2_8x1w a, const fpx2_8x1w b)
   r[12] = r12; r[13] = r13; r[14] = r14; r[15] = r15;
 }
 
-void aassx2_fpx2_8x1w(fpx2_8x1w r, const fpx2_8x1w a, const fpx2_8x1w b)
+void aassx2_fpx2_8x1w(fpx2_8x1w& r, const fpx2_8x1w& a, const fpx2_8x1w& b)
 {
   const cc512i a0  = a[0 ], a1  = a[1 ], a2  = a[2 ], a3  = a[3 ];
   const cc512i a4  = a[4 ], a5  = a[5 ], a6  = a[6 ], a7  = a[7 ];
@@ -935,7 +935,7 @@ void aassx2_fpx2_8x1w(fpx2_8x1w r, const fpx2_8x1w a, const fpx2_8x1w b)
   r[12] = r12; r[13] = r13; r[14] = r14; r[15] = r15;
 }
 
-void asx4_fpx2_8x1w(fpx2_8x1w r, const fpx2_8x1w a, const fpx2_8x1w b)
+void asx4_fpx2_8x1w(fpx2_8x1w& r, const fpx2_8x1w& a, const fpx2_8x1w& b)
 {
   const cc512i a0  = a[0 ], a1  = a[1 ], a2  = a[2 ], a3  = a[3 ];
   const cc512i a4  = a[4 ], a5  = a[5 ], a6  = a[6 ], a7  = a[7 ];
@@ -1022,7 +1022,7 @@ void asx4_fpx2_8x1w(fpx2_8x1w r, const fpx2_8x1w a, const fpx2_8x1w b)
   r[12] = r12; r[13] = r13; r[14] = r14; r[15] = r15;
 }
 
-void ssaax2_fpx2_8x1w(fpx2_8x1w r, const fpx2_8x1w a, const fpx2_8x1w b)
+void ssaax2_fpx2_8x1w(fpx2_8x1w& r, const fpx2_8x1w& a, const fpx2_8x1w& b)
 {
   const cc512i a0  = a[0 ], a1  = a[1 ], a2  = a[2 ], a3  = a[3 ];
   const cc512i a4  = a[4 ], a5  = a[5 ], a6  = a[6 ], a7  = a[7 ];
@@ -1109,7 +1109,7 @@ void ssaax2_fpx2_8x1w(fpx2_8x1w r, const fpx2_8x1w a, const fpx2_8x1w b)
   r[12] = r12; r[13] = r13; r[14] = r14; r[15] = r15;
 }
 
-void ssasx2_fpx2_8x1w(fpx2_8x1w r, const fpx2_8x1w a, const fpx2_8x1w b)
+void ssasx2_fpx2_8x1w(fpx2_8x1w& r, const fpx2_8x1w& a, const fpx2_8x1w& b)
 {
   const cc512i a0  = a[0 ], a1  = a[1 ], a2  = a[2 ], a3  = a[3 ];
   const cc512i a4  = a[4 ], a5  = a[5 ], a6  = a[6 ], a7  = a[7 ];
@@ -1196,7 +1196,7 @@ void ssasx2_fpx2_8x1w(fpx2_8x1w r, const fpx2_8x1w a, const fpx2_8x1w b)
   r[12] = r12; r[13] = r13; r[14] = r14; r[15] = r15;
 }
 
-void add_fpx2_4x2w(fp_4x2w r, const fp_4x2w a, const fp_4x2w b)
+void add_fpx2_4x2w(fpx2_4x2w& r, const fpx2_4x2w& a, const fpx2_4x2w& b)
 {
   cc512i a0  = a[0 ], a1  = a[1 ], a2  = a[2 ], a3  = a[3 ];
   cc512i a4  = a[4 ], a5  = a[5 ], a6  = a[6 ], a7  = a[7 ];
@@ -1274,7 +1274,7 @@ void add_fpx2_4x2w(fp_4x2w r, const fp_4x2w a, const fp_4x2w b)
   r[8 ] = r8 ; r[9 ] = r9 ; r[10] = r10; r[11] = r11;
 }
 
-void sub_fpx2_4x2w(fp_4x2w r, const fp_4x2w a, const fp_4x2w b)
+void sub_fpx2_4x2w(fpx2_4x2w& r, const fpx2_4x2w& a, const fpx2_4x2w& b)
 {
   cc512i a0  = a[0 ], a1  = a[1 ], a2  = a[2 ], a3  = a[3 ];
   cc512i a4  = a[4 ], a5  = a[5 ], a6  = a[6 ], a7  = a[7 ];
@@ -1348,7 +1348,7 @@ void sub_fpx2_4x2w(fp_4x2w r, const fp_4x2w a, const fp_4x2w b)
   r[8 ] = r8 ; r[9 ] = r9 ; r[10] = r10; r[11] = r11;
 }
 
-void asx2_fpx2_4x2w(fpx2_4x2w r, const fpx2_4x2w a, const fpx2_4x2w b)
+void asx2_fpx2_4x2w(fpx2_4x2w& r, const fpx2_4x2w& a, const fpx2_4x2w& b)
 {
   cc512i a0  = a[0 ], a1  = a[1 ], a2  = a[2 ], a3  = a[3 ];
   cc512i a4  = a[4 ], a5  = a[5 ], a6  = a[6 ], a7  = a[7 ];
@@ -1435,7 +1435,7 @@ void asx2_fpx2_4x2w(fpx2_4x2w r, const fpx2_4x2w a, const fpx2_4x2w b)
   r[8 ] = r8 ; r[9 ] = r9 ; r[10] = r10; r[11] = r11;
 }
 
-void aass_fpx2_4x2w(fpx2_4x2w r, const fpx2_4x2w a, const fpx2_4x2w b)
+void aass_fpx2_4x2w(fpx2_4x2w& r, const fpx2_4x2w& a, const fpx2_4x2w& b)
 {
   cc512i a0  = a[0 ], a1  = a[1 ], a2  = a[2 ], a3  = a[3 ];
   cc512i a4  = a[4 ], a5  = a[5 ], a6  = a[6 ], a7  = a[7 ];
@@ -1522,8 +1522,11 @@ void aass_fpx2_4x2w(fpx2_4x2w r, const fpx2_4x2w a, const fpx2_4x2w b)
   r[8 ] = r8 ; r[9 ] = r9 ; r[10] = r10; r[11] = r11;
 }
 
-void mul_fpx2_8x1w_v2(fpx2_8x1w r, const fp_8x1w a, const fp_8x1w b)
+void mul_fpx2_8x1w_v2(fpx2_8x1w& r, const fp_8x1w& a, const fp_8x1w& b)
 {
+  BLST_ASSERT_NO_OVERLAP_AVX(r, a);
+  BLST_ASSERT_NO_OVERLAP_AVX(r, b);
+
   const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
   const cc512i a4 = a[4], a5 = a[5], a6 = a[6], a7 = a[7];
   const cc512i b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
@@ -1679,13 +1682,16 @@ void mul_fpx2_8x1w_v2(fpx2_8x1w r, const fp_8x1w a, const fp_8x1w b)
   r[12] = z12; r[13] = z13; r[14] = z14; r[15] = z15; 
 }
 
-void mul_fpx2_8x1w(fpx2_8x1w r, const fp_8x1w a, const fp_8x1w b)
+void mul_fpx2_8x1w(fpx2_8x1w& r, const fp_8x1w& a, const fp_8x1w& b)
 {
   mul_fpx2_8x1w_v2(r, a, b);
 }
 
-void mul_fpx2_4x2w_v1(fpx2_4x2w r, const fp_4x2w a, const fp_4x2w b)
+void mul_fpx2_4x2w_v1(fpx2_4x2w& r, const fp_4x2w& a, const fp_4x2w& b)
 {
+  BLST_ASSERT_NO_OVERLAP_AVX(r, a);
+  BLST_ASSERT_NO_OVERLAP_AVX(r, b);
+
   const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
   const cc512i b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
   cc512i z0 = VZERO(), z1 = VZERO(), z2  = VZERO(), z3  = VZERO();
@@ -1760,13 +1766,15 @@ void mul_fpx2_4x2w_v1(fpx2_4x2w r, const fp_4x2w a, const fp_4x2w b)
   r[8 ] = z8 ; r[9 ] = z9 ; r[10] = z10; r[11] = z11;
 }
 
-void mul_fpx2_4x2w(fpx2_4x2w r, const fp_4x2w a, const fp_4x2w b)
+void mul_fpx2_4x2w(fpx2_4x2w& r, const fp_4x2w& a, const fp_4x2w& b)
 {
   mul_fpx2_4x2w_v1(r, a, b);
 }
 
-void redc_fpx2_8x1w(fp_8x1w r, const fpx2_8x1w a)
+void redc_fpx2_8x1w(fp_8x1w& r, const fpx2_8x1w& a)
 {
+  BLST_ASSERT_NO_OVERLAP_AVX(r, a);
+
   cc512i a0  = a[0 ], a1  = a[1 ], a2  = a[2 ], a3  = a[3 ];
   cc512i a4  = a[4 ], a5  = a[5 ], a6  = a[6 ], a7  = a[7 ];
   cc512i a8  = a[8 ], a9  = a[9 ], a10 = a[10], a11 = a[11];
@@ -1901,8 +1909,10 @@ void redc_fpx2_8x1w(fp_8x1w r, const fpx2_8x1w a)
   r[4] = r4; r[5] = r5; r[6] = r6; r[7] = r7;
 }
 
-void redc_fpx2_4x2w(fp_4x2w r, const fpx2_4x2w a)
+void redc_fpx2_4x2w(fp_4x2w& r, const fpx2_4x2w& a)
 {
+  BLST_ASSERT_NO_OVERLAP_AVX(r, a);
+
   cc512i a0  = a[0 ], a1  = a[1 ], a2  = a[2 ], a3  = a[3 ];
   cc512i a4  = a[4 ], a5  = a[5 ], a6  = a[6 ], a7  = a[7 ];
   cc512i a8  = a[8 ], a9  = a[9 ], a10 = a[10], a11 = a[11];

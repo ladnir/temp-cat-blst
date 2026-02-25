@@ -6,18 +6,18 @@
 namespace blst
 {
 
-    void add_fp2_8x1x1w(fp2_8x1x1w r, const fp2_8x1x1w a, const fp2_8x1x1w b)
+    void add_fp2_8x1x1w(fp2_8x1x1w& r, const fp2_8x1x1w& a, const fp2_8x1x1w& b)
     {
         add_fp_8x1w(r[0], a[0], b[0]);
         add_fp_8x1w(r[1], a[1], b[1]);
     }
 
-    void add_fp2_4x2x1w(fp2_4x2x1w r, const fp2_4x2x1w a, const fp2_4x2x1w b)
+    void add_fp2_4x2x1w(fp2_4x2x1w& r, const fp2_4x2x1w& a, const fp2_4x2x1w& b)
     {
         add_fp_8x1w(r, a, b);
     }
 
-    void sub_fp2_4x2x1w(fp2_4x2x1w r, const fp2_4x2x1w a, const fp2_4x2x1w b)
+    void sub_fp2_4x2x1w(fp2_4x2x1w& r, const fp2_4x2x1w& a, const fp2_4x2x1w& b)
     {
         sub_fp_8x1w(r, a, b);
     }
@@ -25,7 +25,7 @@ namespace blst
     // a = < D1 | D0 | C1 | C0 | B1 | B0 | A1 | A0 >  
     // b = < H1 | H0 | G1 | G0 | F1 | F0 | E1 | E0 >
     // r = < D1+H1 | D0+H0 | C1+G1 | C0+G0 | B1-F1 | B0-F0 | A1-E1 | A0-E0 >
-    void aass_fp2_4x2x1w(fp2_4x2x1w r, const fp2_4x2x1w a, const fp2_4x2x1w b)
+    void aass_fp2_4x2x1w(fp2_4x2x1w& r, const fp2_4x2x1w& a, const fp2_4x2x1w& b)
     {
         const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
         const cc512i a4 = a[4], a5 = a[5], a6 = a[6], a7 = a[7];
@@ -89,7 +89,7 @@ namespace blst
     // a = < D1 | D0 | C1 | C0 | B1 | B0 | A1 | A0 >  
     // b = < H1 | H0 | G1 | G0 | F1 | F0 | E1 | E0 >
     // r = < D1+H1 | D0+H0 | C1-G1 | C0-G0 | B1-F1 | B0-F0 | A1+E1 | A0+E0 >
-    void assa_fp2_4x2x1w(fp2_4x2x1w r, const fp2_4x2x1w a, const fp2_4x2x1w b)
+    void assa_fp2_4x2x1w(fp2_4x2x1w& r, const fp2_4x2x1w& a, const fp2_4x2x1w& b)
     {
         const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
         const cc512i a4 = a[4], a5 = a[5], a6 = a[6], a7 = a[7];
@@ -153,7 +153,7 @@ namespace blst
     // a = < D1 | D0 | C1 | C0 | B1 | B0 | A1 | A0 >  
     // b = < H1 | H0 | G1 | G0 | F1 | F0 | E1 | E0 >
     // r = < D1-H1 | D0-H0 | C1+G1 | C0+G0 | B1-F1 | B0-F0 | A1-E1 | A0-E0 >
-    void sass_fp2_4x2x1w(fp2_4x2x1w r, const fp2_4x2x1w a, const fp2_4x2x1w b)
+    void sass_fp2_4x2x1w(fp2_4x2x1w& r, const fp2_4x2x1w& a, const fp2_4x2x1w& b)
     {
         const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
         const cc512i a4 = a[4], a5 = a[5], a6 = a[6], a7 = a[7];
@@ -217,7 +217,7 @@ namespace blst
     // a = < D1 | D0 | C1 | C0 | B1 | B0 | A1 | A0 >  
     // b = < H1 | H0 | G1 | G0 | F1 | F0 | E1 | E0 >
     // r = < D1-H1 | D0-H0 | C1-G1 | C0-G0 | B1+F1 | B0+F0 | A1+E1 | A0+E0 >
-    void ssaa_fp2_4x2x1w(fp2_4x2x1w r, const fp2_4x2x1w a, const fp2_4x2x1w b)
+    void ssaa_fp2_4x2x1w(fp2_4x2x1w& r, const fp2_4x2x1w& a, const fp2_4x2x1w& b)
     {
         const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
         const cc512i a4 = a[4], a5 = a[5], a6 = a[6], a7 = a[7];
@@ -280,7 +280,7 @@ namespace blst
 
     // r0 = a0 - a1
     // r1 = a0 + a1
-    void mul_by_u_plus_1_fp2_4x2x1w(fp2_4x2x1w r, const fp2_4x2x1w a)
+    void mul_by_u_plus_1_fp2_4x2x1w(fp2_4x2x1w& r, const fp2_4x2x1w& a)
     {
         fp2_4x2x1w t0;
 
@@ -292,7 +292,7 @@ namespace blst
     // r0 = a0*b0 - a1*b1
     // r1 = a0*b1 + a1*b0
     // schoolbook
-    void mul_fp2_4x2x1w(fp2_4x2x1w r, const fp2_4x2x1w a, const fp2_4x2x1w b)
+    void mul_fp2_4x2x1w(fp2_4x2x1w& r, const fp2_4x2x1w& a, const fp2_4x2x1w& b)
     {
         fp2_4x2x1w t0, t1;
         fp2x2_4x2x1w tt0, tt1;
@@ -310,7 +310,7 @@ namespace blst
 
     // r0 = (a0 + a1)*(a0 - a1)
     // r1 = 2*a0*a1
-    void sqr_fp2_4x2x1w(fp2_4x2x1w r, const fp2_4x2x1w a)
+    void sqr_fp2_4x2x1w(fp2_4x2x1w& r, const fp2_4x2x1w& a)
     {
         fp2_4x2x1w t0, t1, t2;
         fp2x2_4x2x1w tt0;
@@ -328,7 +328,7 @@ namespace blst
     // r0 = a0*b0 - a1*b1
     // r1 = a0*b1 + a1*b0
     // schoolbook
-    void mul_fp2_2x4x1w(fp2_2x4x1w r, const fp2_2x4x1w a, const fp2_2x4x1w b)
+    void mul_fp2_2x4x1w(fp2_2x4x1w& r, const fp2_2x4x1w& a, const fp2_2x4x1w& b)
     {
         fp2_2x4x1w t0, t1;
         fp2x2_2x4x1w tt0;
@@ -343,12 +343,12 @@ namespace blst
         asx4_fp_8x1w(r, t1, t0);              // A0B1+A1B0 | A0B0-A1B1 |  ... |  ...
     }
 
-    void add_fp2_2x2x2w(fp2_2x2x2w r, const fp2_2x2x2w a, const fp2_2x2x2w b)
+    void add_fp2_2x2x2w(fp2_2x2x2w& r, const fp2_2x2x2w& a, const fp2_2x2x2w& b)
     {
         add_fp_4x2w(r, a, b);
     }
 
-    void sub_fp2_2x2x2w(fp2_2x2x2w r, const fp2_2x2x2w a, const fp2_2x2x2w b)
+    void sub_fp2_2x2x2w(fp2_2x2x2w& r, const fp2_2x2x2w& a, const fp2_2x2x2w& b)
     {
         sub_fp_4x2w(r, a, b);
     }
@@ -356,7 +356,7 @@ namespace blst
     // a = < B1' | B1 | B0' | B0 | A1' | A1 | A0' | A0 >
     // b = < D1' | D1 | D0' | D0 | C1' | C1 | C0' | C0 >
     // r = < B1'+D1' | B1+D1 | B0'+D0' | B0+D0 | A1'-C1' | A1-C1 | A0'-C0' | A0-C0 >
-    void as_fp2_2x2x2w(fp2_2x2x2w r, const fp2_2x2x2w a, const fp2_2x2x2w b)
+    void as_fp2_2x2x2w(fp2_2x2x2w& r, const fp2_2x2x2w& a, const fp2_2x2x2w& b)
     {
         const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
         const cc512i b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
@@ -413,7 +413,7 @@ namespace blst
     // a = < B1' | B1 | B0' | B0 | A1' | A1 | A0' | A0 >
     // b = < D1' | D1 | D0' | D0 | C1' | C1 | C0' | C0 >
     // r = < B1'-D1' | B1-D1 | B0'-D0' | B0-D0 | A1'+C1' | A1+C1 | A0'+C0' | A0+C0 >
-    void sa_fp2_2x2x2w(fp2_2x2x2w r, const fp2_2x2x2w a, const fp2_2x2x2w b)
+    void sa_fp2_2x2x2w(fp2_2x2x2w& r, const fp2_2x2x2w& a, const fp2_2x2x2w& b)
     {
         const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
         const cc512i b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
@@ -469,7 +469,7 @@ namespace blst
 
     // r0 = a0 - a1
     // r1 = a0 + a1
-    void mul_by_u_plus_1_fp2_2x2x2w(fp2_2x2x2w r, const fp2_2x2x2w a)
+    void mul_by_u_plus_1_fp2_2x2x2w(fp2_2x2x2w& r, const fp2_2x2x2w& a)
     {
         fp2_2x2x2w t0;
 
@@ -481,7 +481,7 @@ namespace blst
     // r0 = a0*b0 - a1*b1
     // r1 = a0*b1 + a1*b0
     // schoolbook
-    void mul_fp2_2x2x2w(fp2_2x2x2w r, const fp2_2x2x2w a, const fp2_2x2x2w b)
+    void mul_fp2_2x2x2w(fp2_2x2x2w& r, const fp2_2x2x2w& a, const fp2_2x2x2w& b)
     {
         fp2_2x2x2w t0, t1;
         fp2x2_2x2x2w tt0, tt1;
@@ -499,7 +499,7 @@ namespace blst
 
     // r0 = (a0 + a1)*(a0 - a1)
     // r1 = 2*a0*a1
-    void sqr_fp2_2x2x2w(fp2_2x2x2w r, const fp2_2x2x2w a)
+    void sqr_fp2_2x2x2w(fp2_2x2x2w& r, const fp2_2x2x2w& a)
     {
         fp2_2x2x2w t0, t1, t2;
         fp2x2_2x2x2w tt0;
@@ -517,7 +517,7 @@ namespace blst
     // r0 = a0*b0 - a1*b1
     // r1 = a0*b1 + a1*b0
     // schoolbook
-    void mul_fp2_1x4x2w(fp2_1x4x2w r, const fp2_1x4x2w a, const fp2_1x4x2w b)
+    void mul_fp2_1x4x2w(fp2_1x4x2w& r, const fp2_1x4x2w& a, const fp2_1x4x2w& b)
     {
         fp2_1x4x2w t0, t1;
         fp2x2_1x4x2w tt0;
@@ -538,19 +538,19 @@ namespace blst
     // ----------------------------------------------------------------------------
     // Fp2 double-length operations
 
-    void add_fp2x2_8x1x1w(fp2x2_8x1x1w r, const fp2x2_8x1x1w a, const fp2x2_8x1x1w b)
+    void add_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a, const fp2x2_8x1x1w& b)
     {
         add_fpx2_8x1w(r[0], a[0], b[0]);
         add_fpx2_8x1w(r[1], a[1], b[1]);
     }
 
-    void sub_fp2x2_8x1x1w(fp2x2_8x1x1w r, const fp2x2_8x1x1w a, const fp2x2_8x1x1w b)
+    void sub_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a, const fp2x2_8x1x1w& b)
     {
         sub_fpx2_8x1w(r[0], a[0], b[0]);
         sub_fpx2_8x1w(r[1], a[1], b[1]);
     }
 
-    void asx4_fp2x2_8x1x1w(fp2x2_8x1x1w r, const fp2x2_8x1x1w a, const fp2x2_8x1x1w b)
+    void asx4_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a, const fp2x2_8x1x1w& b)
     {
         asx4_fpx2_8x1w(r[0], a[0], b[0]);
         asx4_fpx2_8x1w(r[1], a[1], b[1]);
@@ -558,7 +558,7 @@ namespace blst
 
     // r0 = a0 - a1
     // r1 = a0 + a1
-    void mul_by_u_plus_1_fp2x2_8x1x1w(fp2x2_8x1x1w r, const fp2x2_8x1x1w a)
+    void mul_by_u_plus_1_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a)
     {
         sub_fpx2_8x1w(r[0], a[0], a[1]);      // a0-a1
         add_fpx2_8x1w(r[1], a[0], a[1]);      // a0+a1
@@ -567,7 +567,7 @@ namespace blst
     // r0 = a0*b0 - a1*b1
     // r1 = (a0 + a1)*(b0 + b1) - a0*b0 - a1*b1 = a0*b1 + a1*b0
     // Karatsuba
-    void mul_fp2x2_8x1x1w(fp2x2_8x1x1w r, const fp2_8x1x1w a, const fp2_8x1x1w b)
+    void mul_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2_8x1x1w& a, const fp2_8x1x1w& b)
     {
         fp_8x1w t0, t1;
         fpx2_8x1w tt0, tt1, tt2;
@@ -582,24 +582,24 @@ namespace blst
         sub_fpx2_8x1w(r[1], tt2, tt1);        // (a0+a1)*(b0+b1)-a0*b0-a1*b1
     }
 
-    void add_fp2x2_4x2x1w(fp2x2_4x2x1w r, const fp2x2_4x2x1w a, const fp2x2_4x2x1w b)
+    void add_fp2x2_4x2x1w(fp2x2_4x2x1w& r, const fp2x2_4x2x1w& a, const fp2x2_4x2x1w& b)
     {
         add_fpx2_8x1w(r, a, b);
     }
 
-    void sub_fp2x2_4x2x1w(fp2x2_4x2x1w r, const fp2x2_4x2x1w a, const fp2x2_4x2x1w b)
+    void sub_fp2x2_4x2x1w(fp2x2_4x2x1w& r, const fp2x2_4x2x1w& a, const fp2x2_4x2x1w& b)
     {
         sub_fpx2_8x1w(r, a, b);
     }
 
-    void sax2_fp2x2_4x2x1w(fp2x2_4x2x1w r, const fp2x2_4x2x1w a, const fp2x2_4x2x1w b)
+    void sax2_fp2x2_4x2x1w(fp2x2_4x2x1w& r, const fp2x2_4x2x1w& a, const fp2x2_4x2x1w& b)
     {
         ssaax2_fpx2_8x1w(r, a, b);
     }
 
     // r0 = a0 - a1
     // r1 = a0 + a1
-    void mul_by_u_plus_1_fp2x2_4x2x1w(fp2x2_4x2x1w r, const fp2x2_4x2x1w a)
+    void mul_by_u_plus_1_fp2x2_4x2x1w(fp2x2_4x2x1w& r, const fp2x2_4x2x1w& a)
     {
         fp2x2_4x2x1w tt0;
 
@@ -611,7 +611,7 @@ namespace blst
     // r0 = a0*b0 - a1*b1
     // r1 = a0*b1 + a1*b0
     // schoolbook
-    void mul_fp2x2_4x2x1w(fp2x2_4x2x1w r, const fp2_4x2x1w a, const fp2_4x2x1w b)
+    void mul_fp2x2_4x2x1w(fp2x2_4x2x1w& r, const fp2_4x2x1w& a, const fp2_4x2x1w& b)
     {
         fp2_4x2x1w t0, t1;
         fp2x2_4x2x1w tt0, tt1;
@@ -628,7 +628,7 @@ namespace blst
 
     // r0 = (a0 + a1)*(a0 - a1)
     // r1 = 2*a0*a1
-    void sqr_fp2x2_4x2x1w(fp2x2_4x2x1w r, const fp2_4x2x1w a)
+    void sqr_fp2x2_4x2x1w(fp2x2_4x2x1w& r, const fp2_4x2x1w& a)
     {
         fp2_4x2x1w t0, t1, t2;
 
@@ -641,7 +641,7 @@ namespace blst
         mul_fpx2_8x1w(r, t0, t2);             // 2*A0*A1 | (A0+A1)*(A0-A1) 
     }
 
-    void redc_fp2x2_4x2x1w(fp2_4x2x1w r, const fp2x2_4x2x1w a)
+    void redc_fp2x2_4x2x1w(fp2_4x2x1w& r, const fp2x2_4x2x1w& a)
     {
         redc_fpx2_8x1w(r, a);
     }
@@ -649,7 +649,7 @@ namespace blst
     // r0 = a0*b0 - a1*b1
     // r1 = a0*b1 + a1*b0
     // schoolbook
-    void mul_fp2x2_2x4x1w(fp2x2_2x4x1w r, const fp2_2x4x1w a, const fp2_2x4x1w b)
+    void mul_fp2x2_2x4x1w(fp2x2_2x4x1w& r, const fp2_2x4x1w& a, const fp2_2x4x1w& b)
     {
         fp2_2x4x1w t0, t1;
         fp2x2_2x4x1w tt0, tt1;
@@ -663,24 +663,24 @@ namespace blst
         asx4_fpx2_8x1w(r, tt1, tt0);          // A0*B1+A1*B0 | A0*B0-A1*B1 |  ... |  ...
     }
 
-    void redc_fp2x2_2x2x2w(fp2_2x2x2w r, const fp2x2_2x2x2w a)
+    void redc_fp2x2_2x2x2w(fp2_2x2x2w& r, const fp2x2_2x2x2w& a)
     {
         redc_fpx2_4x2w(r, a);
     }
 
-    void add_fp2x2_2x2x2w(fp2x2_2x2x2w r, const fp2x2_2x2x2w a, const fp2x2_2x2x2w b)
+    void add_fp2x2_2x2x2w(fp2x2_2x2x2w& r, const fp2x2_2x2x2w& a, const fp2x2_2x2x2w& b)
     {
         add_fpx2_4x2w(r, a, b);
     }
 
-    void sub_fp2x2_2x2x2w(fp2x2_2x2x2w r, const fp2x2_2x2x2w a, const fp2x2_2x2x2w b)
+    void sub_fp2x2_2x2x2w(fp2x2_2x2x2w& r, const fp2x2_2x2x2w& a, const fp2x2_2x2x2w& b)
     {
         sub_fpx2_4x2w(r, a, b);
     }
 
     // r0 = a0 - a1
     // r1 = a0 + a1
-    void mul_by_u_plus_1_fp2x2_2x2x2w(fp2x2_2x2x2w r, const fp2x2_2x2x2w a)
+    void mul_by_u_plus_1_fp2x2_2x2x2w(fp2x2_2x2x2w& r, const fp2x2_2x2x2w& a)
     {
         fp2x2_2x2x2w t0;
 
@@ -693,7 +693,7 @@ namespace blst
     // r0 = a0*b0 - a1*b1
     // r1 = a0*b1 + a1*b0
     // schoolbook
-    void mul_fp2x2_2x2x2w(fp2x2_2x2x2w r, const fp2_2x2x2w a, const fp2_2x2x2w b)
+    void mul_fp2x2_2x2x2w(fp2x2_2x2x2w& r, const fp2_2x2x2w& a, const fp2_2x2x2w& b)
     {
         fp2_2x2x2w t0, t1;
         fp2x2_2x2x2w tt0, tt1;
@@ -710,7 +710,7 @@ namespace blst
 
     // r0 = (a0 + a1)*(a0 - a1)
     // r1 = 2*a0*a1
-    void sqr_fp2x2_2x2x2w(fp2x2_2x2x2w r, const fp2_2x2x2w a)
+    void sqr_fp2x2_2x2x2w(fp2x2_2x2x2w& r, const fp2_2x2x2w& a)
     {
         fp2_2x2x2w t0, t1, t2;
         // a = A1 | A0 at Fp layer
@@ -725,7 +725,7 @@ namespace blst
     // r0 = a0*b0 - a1*b1
     // r1 = a0*b1 + a1*b0
     // schoolbook
-    void mul_fp2x2_1x4x2w(fp2x2_1x4x2w r, const fp2_1x4x2w a, const fp2_1x4x2w b)
+    void mul_fp2x2_1x4x2w(fp2x2_1x4x2w& r, const fp2_1x4x2w& a, const fp2_1x4x2w& b)
     {
         fp2_1x4x2w t0, t1;
         fp2x2_1x4x2w tt0, tt1;

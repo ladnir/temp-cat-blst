@@ -15,14 +15,14 @@ namespace blst
      */
 
     /// Two packed Fp4 values in `4x2x1w`-backed schedule.
-    using fp4_2x2x2x1w = cc512i[NWORDS];
+    using fp4_2x2x2x1w = fp2_4x2x1w;
     /// Widened companion layout for `fp4_2x2x2x1w`.
-    using fp4x2_2x2x2x1w = cc512i[2 * NWORDS];
+    using fp4x2_2x2x2x1w = fp2x2_4x2x1w;
 
     /// One packed Fp4 value in `2x2x2w`-backed schedule.
-    using fp4_1x2x2x2w = cc512i[VWORDS];
+    using fp4_1x2x2x2w = fp2_2x2x2w;
     /// Widened companion layout for `fp4_1x2x2x2w`.
-    using fp4x2_1x2x2x2w = cc512i[3 * VWORDS];
+    using fp4x2_1x2x2x2w = fp2x2_2x2x2w;
 
     /**
      * Square Fp4 values in `fp4_2x2x2x1w` using widened intermediates.
