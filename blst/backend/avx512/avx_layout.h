@@ -74,6 +74,42 @@ namespace blst
     }
 
     /**
+     * Per-word blend with mask `0x11`:
+     * `<H|G|F|E|D|C|B|A>` with `<P|O|N|M|L|K|J|I>`
+     * -> `<H|G|F|M|D|C|B|I>`.
+     */
+    inline void blend_0x11(cc512i* r, const cc512i* a, const cc512i* b)
+    {
+        for (u64 i = 0; i < AVX_FP_NWORDS; ++i) {
+            r[i] = VMBLEND(0x11, a[i], b[i]);
+        }
+    }
+
+    /**
+     * Per-word blend with mask `0x55`:
+     * `<H|G|F|E|D|C|B|A>` with `<P|O|N|M|L|K|J|I>`
+     * -> `<H|O|F|M|D|K|B|I>`.
+     */
+    inline void blend_0x55(cc512i* r, const cc512i* a, const cc512i* b)
+    {
+        for (u64 i = 0; i < AVX_FP_NWORDS; ++i) {
+            r[i] = VMBLEND(0x55, a[i], b[i]);
+        }
+    }
+
+    /**
+     * Per-word blend with mask `0x77`:
+     * `<H|G|F|E|D|C|B|A>` with `<P|O|N|M|L|K|J|I>`
+     * -> `<H|O|N|M|D|K|J|I>`.
+     */
+    inline void blend_0x77(cc512i* r, const cc512i* a, const cc512i* b)
+    {
+        for (u64 i = 0; i < AVX_FP_NWORDS; ++i) {
+            r[i] = VMBLEND(0x77, a[i], b[i]);
+        }
+    }
+
+    /**
      * Per-word permutation: `<H|G|F|E|D|C|B|A> -> <G|H|H|G|C|D|D|C>`.
      */
     inline void perm_2332(cc512i* r, const cc512i* a)
@@ -121,6 +157,46 @@ namespace blst
     {
         for (u64 i = 0; i < AVX_FP_NWORDS; ++i) {
             r[i] = VPERM<0x4E>(a[i]);
+        }
+    }
+
+    /**
+     * Per-word permutation: `<H|G|F|E|D|C|B|A> -> <E|F|G|H|A|B|C|D>`.
+     */
+    inline void perm_0123(cc512i* r, const cc512i* a)
+    {
+        for (u64 i = 0; i < AVX_FP_NWORDS; ++i) {
+            r[i] = VPERM<0x1B>(a[i]);
+        }
+    }
+
+    /**
+     * Per-word permutation: `<H|G|F|E|D|C|B|A> -> <E|H|E|E|A|D|A|A>`.
+     */
+    inline void perm_0300(cc512i* r, const cc512i* a)
+    {
+        for (u64 i = 0; i < AVX_FP_NWORDS; ++i) {
+            r[i] = VPERM<0x30>(a[i]);
+        }
+    }
+
+    /**
+     * Per-word permutation: `<H|G|F|E|D|C|B|A> -> <F|G|E|E|B|C|A|A>`.
+     */
+    inline void perm_1200(cc512i* r, const cc512i* a)
+    {
+        for (u64 i = 0; i < AVX_FP_NWORDS; ++i) {
+            r[i] = VPERM<0x60>(a[i]);
+        }
+    }
+
+    /**
+     * Per-word permutation: `<H|G|F|E|D|C|B|A> -> <G|E|E|E|C|A|A|A>`.
+     */
+    inline void perm_2000(cc512i* r, const cc512i* a)
+    {
+        for (u64 i = 0; i < AVX_FP_NWORDS; ++i) {
+            r[i] = VPERM<0x80>(a[i]);
         }
     }
 
@@ -211,6 +287,28 @@ namespace blst
     }
 
     /**
+     * Double-length (`2*NWORDS`) shuffle:
+     * `<H|G|F|E|D|C|B|A> -> <G|G|E|E|C|C|A|A>`.
+     */
+    inline void shuf_00_dl(cc512i* r, const cc512i* a)
+    {
+        for (u64 i = 0; i < 2 * AVX_FP_NWORDS; ++i) {
+            r[i] = VSHUF<0x44>(a[i]);
+        }
+    }
+
+    /**
+     * Double-length (`2*NWORDS`) shuffle:
+     * `<H|G|F|E|D|C|B|A> -> <H|H|F|F|D|D|B|B>`.
+     */
+    inline void shuf_11_dl(cc512i* r, const cc512i* a)
+    {
+        for (u64 i = 0; i < 2 * AVX_FP_NWORDS; ++i) {
+            r[i] = VSHUF<0xEE>(a[i]);
+        }
+    }
+
+    /**
      * Double-length (`2*NWORDS`) version of `perm_10zz`.
      */
     inline void perm_10zz_dl(cc512i* r, const cc512i* a)
@@ -247,6 +345,71 @@ namespace blst
     {
         for (u64 i = 0; i < 2 * AVX_FP_NWORDS; ++i) {
             r[i] = VMBLEND(0x33, a[i], b[i]);
+        }
+    }
+
+    /**
+     * Double-length (`2*NWORDS`) blend with mask `0x55`.
+     */
+    inline void blend_0x55_dl(cc512i* r, const cc512i* a, const cc512i* b)
+    {
+        for (u64 i = 0; i < 2 * AVX_FP_NWORDS; ++i) {
+            r[i] = VMBLEND(0x55, a[i], b[i]);
+        }
+    }
+
+    /**
+     * Double-length (`2*NWORDS`) permutation:
+     * `<H|G|F|E|D|C|B|A> -> <F|E|F|E|D|C|D|C>`.
+     */
+    inline void perm_1010_dl(cc512i* r, const cc512i* a)
+    {
+        for (u64 i = 0; i < 2 * AVX_FP_NWORDS; ++i) {
+            r[i] = VPERM<0x44>(a[i]);
+        }
+    }
+
+    /**
+     * Double-length (`2*NWORDS`) permutation:
+     * `<H|G|F|E|D|C|B|A> -> <F|E|H|G|B|A|D|C>`.
+     */
+    inline void perm_1100_dl(cc512i* r, const cc512i* a)
+    {
+        for (u64 i = 0; i < 2 * AVX_FP_NWORDS; ++i) {
+            r[i] = VPERM<0x50>(a[i]);
+        }
+    }
+
+    /**
+     * Double-length (`2*NWORDS`) permutation:
+     * `<H|G|F|E|D|C|B|A> -> <G|H|G|H|C|D|C|D>`.
+     */
+    inline void perm_2323_dl(cc512i* r, const cc512i* a)
+    {
+        for (u64 i = 0; i < 2 * AVX_FP_NWORDS; ++i) {
+            r[i] = VPERM<0xBB>(a[i]);
+        }
+    }
+
+    /**
+     * Double-length (`2*NWORDS`) permutation:
+     * `<H|G|F|E|D|C|B|A> -> <H|E|E|E|D|A|A|A>`.
+     */
+    inline void perm_3000_dl(cc512i* r, const cc512i* a)
+    {
+        for (u64 i = 0; i < 2 * AVX_FP_NWORDS; ++i) {
+            r[i] = VPERM<0xC0>(a[i]);
+        }
+    }
+
+    /**
+     * Double-length (`2*NWORDS`) permutation:
+     * `<H|G|F|E|D|C|B|A> -> <H|G|H|G|D|C|D|C>`.
+     */
+    inline void perm_3232_dl(cc512i* r, const cc512i* a)
+    {
+        for (u64 i = 0; i < 2 * AVX_FP_NWORDS; ++i) {
+            r[i] = VPERM<0xEE>(a[i]);
         }
     }
 

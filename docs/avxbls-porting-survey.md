@@ -150,6 +150,9 @@ Used by cyclotomic and higher-tower kernels.
 - No dedicated `fp6_*` typedef family.
 - Fp6/Fp12 vector kernels are composed from packed Fp2/Fp4 blocks plus lane transforms.
 - Wrapper boundaries in `fp12_tower.c` and `pairing.c` explicitly build/tear down packings using `VSET` + conversion helpers.
+- Important: these are schedule kernels, not always lane-independent kernels.
+  - internal `perm_*`, `blend_*`, and `shuf_*` operations intentionally mix slots to reuse partial products.
+  - therefore a naive "lane i equals scalar multiply i" test is often invalid unless the exact schedule mapping is documented.
 
 ---
 
@@ -363,6 +366,10 @@ Behavior:
 Pre/Post:
 
 - `Pre-L`, `Pre-M` -> widened packed outputs (`Post-W`).
+- additional contract note:
+  - output slot positions are schedule-dependent for `4x2x1x1w`, `2x2x2x1w`, and sparse `xy00z0` kernels.
+  - treat outputs as schedule blocks unless a slot map is explicitly defined.
+  - recommended validation during bring-up is scalar differential testing with broadcast/degenerate packed inputs; add strict slot-map tests once mapping is derived.
 
 ## 5.7 Fp12 and line kernels
 

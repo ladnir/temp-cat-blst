@@ -110,6 +110,17 @@ Test categories required for each function:
 3. algebraic identities/invariants when applicable,
 4. cross-layout equivalence when multiple packed layouts exist.
 
+Schedule semantics policy (critical for Fp6/Fp12 and sparse line kernels):
+
+1. do not assume every output lane corresponds to an independent scalar multiplication.
+2. many AVXBLS kernels are schedule kernels that intentionally mix lanes with `perm_*`, `blend_*`, and `shuf_*` before and after arithmetic.
+3. only use direct lane-by-lane scalar assertions when the lane contract is explicitly documented and proven in tests.
+4. when lane mapping is not yet fully documented, use schedule-agnostic differential tests:
+   - build broadcast/degenerate packs (same scalar value in all schedule slots),
+   - run AVX kernel and scalar oracle,
+   - assert scalar oracle results are present in reduced outputs.
+5. once lane contracts are derived, add strict slot-mapping tests in addition to schedule-agnostic tests.
+
 Per-function test contract (mandatory):
 
 1. for every function listed in each phase, add at least one dedicated test block named after that function,
@@ -369,6 +380,8 @@ Required tests (`avx512_fp6_tests.cpp`):
 3. cross-layout consistency checks between supported layouts.
 4. edge/random vectors with independent stress on each Fp2 limb.
 5. widened-intermediate sanity (non-reduced ranges before reduction points).
+6. schedule-agnostic broadcast tests for schedule kernels (`2x2x2x1w`, `4x2x1x1w`, sparse variants), to avoid false negatives from undocumented lane mixing.
+7. strict lane-position checks only for layouts with fully documented slot contracts.
 
 Gate:
 
