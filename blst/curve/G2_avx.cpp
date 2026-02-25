@@ -5,6 +5,13 @@
 
 namespace blst
 {
+namespace
+{
+    inline void store_u64_lanes(u64 lanes[8], const cc512i v)
+    {
+        _cc512_storeu_si512(lanes, v);
+    }
+} // namespace
 
 void line_dbl_vec_v1(
     fp2_2x2x2w l0Y3,
@@ -205,6 +212,133 @@ void line_by_Px2_2x2x2w(fp2_2x2x2w r, const fp2_2x2x2w a, const fp2_2x2x2w Px2)
     fp2x2_2x2x2w tt0;
     mul_fpx2_4x2w(tt0, a, Px2);
     redc_fpx2_4x2w(r, tt0);
+}
+
+void line_add_vector(Fp6& line, G2Point& T, const G2Point& R, const G2AffinePoint& Q)
+{
+    fp2_2x2x2w X1Y1, Z1Y2, X2, l0Y3, l1, X3, Z3;
+    cc512i in0[SWORDS / 2], in1[SWORDS / 2], in2[SWORDS / 2];
+    cc512i out0[SWORDS / 2], out1[SWORDS / 2], out2[SWORDS / 2], out3[SWORDS / 2];
+
+    for (u64 i = 0; i < SWORDS / 2; ++i) {
+        in0[i] = VSET(
+            static_cast<i64>(R.X[1][i + (SWORDS / 2)]), static_cast<i64>(R.X[1][i]),
+            static_cast<i64>(R.X[0][i + (SWORDS / 2)]), static_cast<i64>(R.X[0][i]),
+            static_cast<i64>(R.Y[1][i + (SWORDS / 2)]), static_cast<i64>(R.Y[1][i]),
+            static_cast<i64>(R.Y[0][i + (SWORDS / 2)]), static_cast<i64>(R.Y[0][i]));
+        in1[i] = VSET(
+            static_cast<i64>(R.Z[1][i + (SWORDS / 2)]), static_cast<i64>(R.Z[1][i]),
+            static_cast<i64>(R.Z[0][i + (SWORDS / 2)]), static_cast<i64>(R.Z[0][i]),
+            static_cast<i64>(Q.Y[1][i + (SWORDS / 2)]), static_cast<i64>(Q.Y[1][i]),
+            static_cast<i64>(Q.Y[0][i + (SWORDS / 2)]), static_cast<i64>(Q.Y[0][i]));
+        in2[i] = VSET(
+            static_cast<i64>(Q.X[1][i + (SWORDS / 2)]), static_cast<i64>(Q.X[1][i]),
+            static_cast<i64>(Q.X[0][i + (SWORDS / 2)]), static_cast<i64>(Q.X[0][i]),
+            static_cast<i64>(Q.X[1][i + (SWORDS / 2)]), static_cast<i64>(Q.X[1][i]),
+            static_cast<i64>(Q.X[0][i + (SWORDS / 2)]), static_cast<i64>(Q.X[0][i]));
+    }
+
+    conv_64to48_fp_4x2w(X1Y1, in0);
+    conv_64to48_fp_4x2w(Z1Y2, in1);
+    conv_64to48_fp_4x2w(X2, in2);
+
+    line_add_vec_v1(l0Y3, l1, X3, Z3, X1Y1, Z1Y2, X2);
+
+    carryp_fp_4x2w(l0Y3);
+    carryp_fp_4x2w(l1);
+    carryp_fp_4x2w(X3);
+    carryp_fp_4x2w(Z3);
+
+    conv_48to64_fp_4x2w(out0, l0Y3);
+    conv_48to64_fp_4x2w(out1, l1);
+    conv_48to64_fp_4x2w(out2, X3);
+    conv_48to64_fp_4x2w(out3, Z3);
+
+    for (u64 i = 0; i < SWORDS / 2; ++i) {
+        u64 lanes0[8], lanes1[8], lanes2[8], lanes3[8];
+        store_u64_lanes(lanes0, out0[i]);
+        store_u64_lanes(lanes1, out1[i]);
+        store_u64_lanes(lanes2, out2[i]);
+        store_u64_lanes(lanes3, out3[i]);
+
+        line[0][0][i] = lanes0[0];
+        line[0][0][i + (SWORDS / 2)] = lanes0[1];
+        line[0][1][i] = lanes0[2];
+        line[0][1][i + (SWORDS / 2)] = lanes0[3];
+
+        line[1][0][i] = lanes1[0];
+        line[1][0][i + (SWORDS / 2)] = lanes1[1];
+        line[1][1][i] = lanes1[2];
+        line[1][1][i + (SWORDS / 2)] = lanes1[3];
+
+        T.X[0][i] = lanes2[4];
+        T.X[0][i + (SWORDS / 2)] = lanes2[5];
+        T.X[1][i] = lanes2[6];
+        T.X[1][i + (SWORDS / 2)] = lanes2[7];
+
+        T.Y[0][i] = lanes0[4];
+        T.Y[0][i + (SWORDS / 2)] = lanes0[5];
+        T.Y[1][i] = lanes0[6];
+        T.Y[1][i + (SWORDS / 2)] = lanes0[7];
+
+        T.Z[0][i] = lanes3[4];
+        T.Z[0][i + (SWORDS / 2)] = lanes3[5];
+        T.Z[1][i] = lanes3[6];
+        T.Z[1][i + (SWORDS / 2)] = lanes3[7];
+
+        line[2][0][i] = T.Z[0][i];
+        line[2][0][i + (SWORDS / 2)] = T.Z[0][i + (SWORDS / 2)];
+        line[2][1][i] = T.Z[1][i];
+        line[2][1][i + (SWORDS / 2)] = T.Z[1][i + (SWORDS / 2)];
+    }
+}
+
+void line_dbl_vector(Fp6& line, G2Point& T, const G2Point& Q)
+{
+    fp2_4x2x1w X1Y1Z1, l0, l12, X3, Y3, Z3;
+    cc512i in0[SWORDS];
+    cc512i out0[SWORDS], out1[SWORDS], out2[SWORDS], out3[SWORDS], out4[SWORDS];
+
+    for (u64 i = 0; i < SWORDS; ++i) {
+        in0[i] = VSET(
+            static_cast<i64>(Q.Y[1][i]), static_cast<i64>(Q.Y[0][i]),
+            static_cast<i64>(Q.X[1][i]), static_cast<i64>(Q.X[0][i]),
+            static_cast<i64>(Q.Z[1][i]), static_cast<i64>(Q.Z[0][i]),
+            static_cast<i64>(Q.Y[1][i]), static_cast<i64>(Q.Y[0][i]));
+    }
+
+    conv_64to48_fp_8x1w(X1Y1Z1, in0);
+
+    line_dbl_vec_v2(l0, l12, X3, Y3, Z3, X1Y1Z1);
+
+    conv_48to64_fp_8x1w(out0, l0);
+    conv_48to64_fp_8x1w(out1, l12);
+    conv_48to64_fp_8x1w(out2, X3);
+    conv_48to64_fp_8x1w(out3, Y3);
+    conv_48to64_fp_8x1w(out4, Z3);
+
+    for (u64 i = 0; i < SWORDS; ++i) {
+        u64 lanes0[8], lanes1[8], lanes2[8], lanes3[8], lanes4[8];
+        store_u64_lanes(lanes0, out0[i]);
+        store_u64_lanes(lanes1, out1[i]);
+        store_u64_lanes(lanes2, out2[i]);
+        store_u64_lanes(lanes3, out3[i]);
+        store_u64_lanes(lanes4, out4[i]);
+
+        line[0][0][i] = lanes0[2];
+        line[0][1][i] = lanes0[3];
+        line[1][0][i] = lanes1[4];
+        line[1][1][i] = lanes1[5];
+        line[2][0][i] = lanes1[2];
+        line[2][1][i] = lanes1[3];
+
+        T.X[0][i] = lanes2[6];
+        T.X[1][i] = lanes2[7];
+        T.Y[0][i] = lanes3[6];
+        T.Y[1][i] = lanes3[7];
+        T.Z[0][i] = lanes4[0];
+        T.Z[1][i] = lanes4[1];
+    }
 }
 
 } // namespace blst

@@ -2,6 +2,8 @@
 #define BLST_CURVE_G2_AVX_H
 
 #include "blst/fields/Fp2_avx.h"
+#include "blst/fields/Fp12.h"
+#include "blst/curve/point.h"
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 
@@ -139,6 +141,30 @@ namespace blst
         fp2_2x2x2w r,
         const fp2_2x2x2w a,
         const fp2_2x2x2w Px2);
+
+    /**
+     * AVXBLS wrapper: mixed-addition line step in scalar point layout.
+     *
+     * Packs scalar Jacobian `R` and affine `Q` into AVXBLS `2x2x2w` schedules,
+     * runs `line_add_vec_v1`, and unpacks line coefficients plus updated Jacobian
+     * state to scalar Montgomery `Fp2` coordinates.
+     *
+     * @pre `R` and `Q` satisfy the non-exceptional `madd-2007-bl` preconditions.
+     * @post `line` holds `(l0,l1,l2)` and `T` holds the updated Jacobian point.
+     */
+    void line_add_vector(Fp6& line, G2Point& T, const G2Point& R, const G2AffinePoint& Q);
+
+    /**
+     * AVXBLS wrapper: doubling line step in scalar point layout.
+     *
+     * Packs scalar Jacobian `Q` into AVXBLS `4x2x1w` schedules, runs
+     * `line_dbl_vec_v2`, and unpacks line coefficients plus updated Jacobian
+     * state to scalar Montgomery `Fp2` coordinates.
+     *
+     * @pre `Q` is a Jacobian point in Montgomery coordinates.
+     * @post `line` holds `(l0,l1,l2)` and `T` holds `2*Q`.
+     */
+    void line_dbl_vector(Fp6& line, G2Point& T, const G2Point& Q);
 }
 
 #endif

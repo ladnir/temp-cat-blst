@@ -37,6 +37,15 @@ void rand_redc_fp2(Fp2& v, InsecureRng& rng)
     rand_redc_fp(v[1], rng);
 }
 
+void rand_redc_fp12(Fp12& v, InsecureRng& rng)
+{
+    for (size_t i = 0; i < 2; ++i) {
+        for (size_t j = 0; j < 3; ++j) {
+            rand_redc_fp2(v[i][j], rng);
+        }
+    }
+}
+
 void fill_edge_fp2(Fp2& v, int idx)
 {
     Fp two;
@@ -49,9 +58,23 @@ void fill_edge_fp2(Fp2& v, int idx)
     v[1] = *cycle[(idx + 1) & 3];
 }
 
+void fill_edge_fp12(Fp12& v, int idx)
+{
+    for (size_t i = 0; i < 2; ++i) {
+        for (size_t j = 0; j < 3; ++j) {
+            fill_edge_fp2(v[i][j], idx + static_cast<int>(3 * i + j));
+        }
+    }
+}
+
 bool fp2_equal(const Fp2& a, const Fp2& b)
 {
     return Fp::equal(a[0], b[0]) && Fp::equal(a[1], b[1]);
+}
+
+bool fp12_equal(const Fp12& a, const Fp12& b)
+{
+    return Fp12::equal(a, b) != 0;
 }
 
 template <size_t N>
@@ -441,6 +464,84 @@ TEST(Fp12Avx, SparseMulVariantsBroadcast)
             EXPECT_TRUE(contains_any(out0_v1, out1_v1, e));
             EXPECT_TRUE(contains_any(out0_v2, out1_v2, e));
         }
+    }
+}
+
+TEST(Fp12Avx, MulVectorMatchesScalar)
+{
+    InsecureRng rng;
+
+    for (int iter = 0; iter < 96; ++iter) {
+        Fp12 a{}, b{}, expected{}, got{};
+        if (iter < 16) {
+            fill_edge_fp12(a, iter + 0);
+            fill_edge_fp12(b, iter + 7);
+        } else {
+            rand_redc_fp12(a, rng);
+            rand_redc_fp12(b, rng);
+        }
+
+        Fp12::mul(expected, a, b);
+        mul_fp12_vector(got, a, b);
+        EXPECT_TRUE(fp12_equal(got, expected));
+    }
+}
+
+TEST(Fp12Avx, SqrVectorMatchesScalar)
+{
+    InsecureRng rng;
+
+    for (int iter = 0; iter < 96; ++iter) {
+        Fp12 a{}, expected{}, got{};
+        if (iter < 16) {
+            fill_edge_fp12(a, iter);
+        } else {
+            rand_redc_fp12(a, rng);
+        }
+
+        Fp12::sqr(expected, a);
+        sqr_fp12_vector(got, a);
+        EXPECT_TRUE(fp12_equal(got, expected));
+    }
+}
+
+TEST(Fp12Avx, SparseMulVectorMatchesScalar)
+{
+    InsecureRng rng;
+
+    for (int iter = 0; iter < 96; ++iter) {
+        Fp12 a{}, expected{}, got{};
+        Fp6 sparse{};
+        if (iter < 16) {
+            fill_edge_fp12(a, iter);
+            for (size_t j = 0; j < 3; ++j) {
+                fill_edge_fp2(sparse[j], iter + static_cast<int>(j) + 3);
+            }
+        } else {
+            rand_redc_fp12(a, rng);
+            for (size_t j = 0; j < 3; ++j) {
+                rand_redc_fp2(sparse[j], rng);
+            }
+        }
+
+        Fp12::mul_by_xy00z0(expected, a, sparse);
+        mul_by_xy00z0_fp12_vector(got, a, sparse);
+        EXPECT_TRUE(fp12_equal(got, expected));
+    }
+}
+
+TEST(Fp12Avx, CyclotomicSqrVectorMatchesScalar)
+{
+    InsecureRng rng;
+
+    for (int iter = 0; iter < 48; ++iter) {
+        Fp12 seed{}, cyclo{}, expected{}, got{};
+        rand_redc_fp12(seed, rng);
+        Fp12::final_exp(cyclo, seed);
+
+        Fp12::cyclotomic_sqr(expected, cyclo);
+        cyclotomic_sqr_fp12_vector(got, cyclo);
+        EXPECT_TRUE(fp12_equal(got, expected));
     }
 }
 

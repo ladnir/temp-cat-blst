@@ -2,6 +2,7 @@
 #define BLST_FIELDS_FP12_AVX_H
 
 #include "blst/fields/Fp6_avx.h"
+#include "blst/fields/Fp12.h"
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 
@@ -173,6 +174,51 @@ namespace blst
         fp2_4x2x1w r1,
         const fp2_4x2x1w a0,
         const fp2_4x2x1w a1);
+
+    /**
+     * AVXBLS wrapper: full Fp12 multiply with scalar-layout inputs/outputs.
+     *
+     * This function packs scalar `Fp12` operands into the AVXBLS `4x2x1w`
+     * multiply schedule, runs `mul_fp12_vec_v3`, and unpacks back into scalar
+     * Montgomery `Fp12` limbs.
+     *
+     * @pre `a` and `b` are Montgomery-form `Fp12` values.
+     * @post `ret` equals `a * b` in Montgomery form.
+     */
+    void mul_fp12_vector(Fp12& ret, const Fp12& a, const Fp12& b);
+
+    /**
+     * AVXBLS wrapper: sparse Fp12 multiply by `(x,y,0,0,z,0)`.
+     *
+     * Packs scalar `Fp12/Fp6` operands into AVXBLS sparse schedules, runs
+     * `mul_by_xy00z0_fp12_vec_v1`, then unpacks to scalar Montgomery layout.
+     *
+     * @pre `a` and `xy00z0` are Montgomery-form values.
+     * @post `ret` equals `a * xy00z0` in Montgomery form.
+     */
+    void mul_by_xy00z0_fp12_vector(Fp12& ret, const Fp12& a, const Fp6& xy00z0);
+
+    /**
+     * AVXBLS wrapper: full Fp12 squaring.
+     *
+     * Packs scalar `a` into the AVXBLS square schedule, runs `sqr_fp12_vec_v1`,
+     * and unpacks to scalar Montgomery layout.
+     *
+     * @pre `a` is a Montgomery-form `Fp12` value.
+     * @post `ret` equals `a^2` in Montgomery form.
+     */
+    void sqr_fp12_vector(Fp12& ret, const Fp12& a);
+
+    /**
+     * AVXBLS wrapper: cyclotomic square with scalar-layout inputs/outputs.
+     *
+     * Packs scalar `a` into AVXBLS cyclotomic schedules, runs
+     * `cyclotomic_sqr_fp12_vec_v1`, and unpacks to scalar Montgomery layout.
+     *
+     * @pre `a` is in the cyclotomic subgroup and in Montgomery form.
+     * @post `ret` equals the cyclotomic square of `a`.
+     */
+    void cyclotomic_sqr_fp12_vector(Fp12& ret, const Fp12& a);
 }
 
 #endif

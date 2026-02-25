@@ -56,6 +56,11 @@ namespace
         }
         blend_0x55_hl(&r[2 * VWORDS], &a[3 * VWORDS], &a[2 * VWORDS]);
     }
+
+    inline void store_u64_lanes(u64 lanes[8], const cc512i v)
+    {
+        _cc512_storeu_si512(lanes, v);
+    }
 } // namespace
 
 void cyclotomic_sqr_fp12_vec_v1(
@@ -458,6 +463,252 @@ void sqr_fp12_vec_v1(
     blend_0x0F(t4, t3, t2);
     perm_var(t4, t4, m0);
     sub_fp2_4x2x1w(r0, t3, t4);
+}
+
+void mul_fp12_vector(Fp12& ret, const Fp12& a, const Fp12& b)
+{
+    fp2_4x2x1w ab0, ab1, ab2;
+    fp2_2x2x2w r001, r101, r2;
+    cc512i in0[SWORDS], in1[SWORDS], in2[SWORDS];
+    cc512i out0[SWORDS / 2], out1[SWORDS / 2], out2[SWORDS / 2];
+
+    for (u64 i = 0; i < SWORDS; ++i) {
+        in0[i] = VSET(
+            static_cast<i64>(b[1][0][1][i]), static_cast<i64>(b[1][0][0][i]),
+            static_cast<i64>(a[1][0][1][i]), static_cast<i64>(a[1][0][0][i]),
+            static_cast<i64>(b[0][0][1][i]), static_cast<i64>(b[0][0][0][i]),
+            static_cast<i64>(a[0][0][1][i]), static_cast<i64>(a[0][0][0][i]));
+        in1[i] = VSET(
+            static_cast<i64>(b[1][1][1][i]), static_cast<i64>(b[1][1][0][i]),
+            static_cast<i64>(a[1][1][1][i]), static_cast<i64>(a[1][1][0][i]),
+            static_cast<i64>(b[0][1][1][i]), static_cast<i64>(b[0][1][0][i]),
+            static_cast<i64>(a[0][1][1][i]), static_cast<i64>(a[0][1][0][i]));
+        in2[i] = VSET(
+            static_cast<i64>(b[1][2][1][i]), static_cast<i64>(b[1][2][0][i]),
+            static_cast<i64>(a[1][2][1][i]), static_cast<i64>(a[1][2][0][i]),
+            static_cast<i64>(b[0][2][1][i]), static_cast<i64>(b[0][2][0][i]),
+            static_cast<i64>(a[0][2][1][i]), static_cast<i64>(a[0][2][0][i]));
+    }
+
+    conv_64to48_fp_8x1w(ab0, in0);
+    conv_64to48_fp_8x1w(ab1, in1);
+    conv_64to48_fp_8x1w(ab2, in2);
+
+    mul_fp12_vec_v3(r001, r101, r2, ab0, ab1, ab2);
+
+    carryp_fp_4x2w(r001);
+    carryp_fp_4x2w(r101);
+    carryp_fp_4x2w(r2);
+
+    conv_48to64_fp_4x2w(out0, r001);
+    conv_48to64_fp_4x2w(out1, r101);
+    conv_48to64_fp_4x2w(out2, r2);
+
+    for (u64 i = 0; i < SWORDS / 2; ++i) {
+        u64 lanes0[8], lanes1[8], lanes2[8];
+        store_u64_lanes(lanes0, out0[i]);
+        store_u64_lanes(lanes1, out1[i]);
+        store_u64_lanes(lanes2, out2[i]);
+
+        ret[0][0][0][i] = lanes0[0];
+        ret[0][0][0][i + (SWORDS / 2)] = lanes0[1];
+        ret[0][0][1][i] = lanes0[2];
+        ret[0][0][1][i + (SWORDS / 2)] = lanes0[3];
+        ret[0][1][0][i] = lanes0[4];
+        ret[0][1][0][i + (SWORDS / 2)] = lanes0[5];
+        ret[0][1][1][i] = lanes0[6];
+        ret[0][1][1][i + (SWORDS / 2)] = lanes0[7];
+
+        ret[1][0][0][i] = lanes1[0];
+        ret[1][0][0][i + (SWORDS / 2)] = lanes1[1];
+        ret[1][0][1][i] = lanes1[2];
+        ret[1][0][1][i + (SWORDS / 2)] = lanes1[3];
+        ret[1][1][0][i] = lanes1[4];
+        ret[1][1][0][i + (SWORDS / 2)] = lanes1[5];
+        ret[1][1][1][i] = lanes1[6];
+        ret[1][1][1][i + (SWORDS / 2)] = lanes1[7];
+
+        ret[0][2][0][i] = lanes2[0];
+        ret[0][2][0][i + (SWORDS / 2)] = lanes2[1];
+        ret[0][2][1][i] = lanes2[2];
+        ret[0][2][1][i + (SWORDS / 2)] = lanes2[3];
+        ret[1][2][0][i] = lanes2[4];
+        ret[1][2][0][i + (SWORDS / 2)] = lanes2[5];
+        ret[1][2][1][i] = lanes2[6];
+        ret[1][2][1][i + (SWORDS / 2)] = lanes2[7];
+    }
+}
+
+void mul_by_xy00z0_fp12_vector(Fp12& ret, const Fp12& a, const Fp6& xy00z0)
+{
+    fp2_4x2x1w r0, a01, a2, b01, b4;
+    fp2_2x2x2w r1;
+    cc512i in0[SWORDS], in1[SWORDS], in2[SWORDS], in3[SWORDS];
+    cc512i out0[SWORDS], out1[SWORDS / 2];
+
+    for (u64 i = 0; i < SWORDS; ++i) {
+        in0[i] = VSET(
+            static_cast<i64>(a[1][1][1][i]), static_cast<i64>(a[1][1][0][i]),
+            static_cast<i64>(a[1][0][1][i]), static_cast<i64>(a[1][0][0][i]),
+            static_cast<i64>(a[0][1][1][i]), static_cast<i64>(a[0][1][0][i]),
+            static_cast<i64>(a[0][0][1][i]), static_cast<i64>(a[0][0][0][i]));
+        in1[i] = VSET(
+            static_cast<i64>(a[1][2][1][i]), static_cast<i64>(a[1][2][0][i]),
+            static_cast<i64>(a[1][2][1][i]), static_cast<i64>(a[1][2][0][i]),
+            static_cast<i64>(a[0][2][1][i]), static_cast<i64>(a[0][2][0][i]),
+            static_cast<i64>(a[0][2][1][i]), static_cast<i64>(a[0][2][0][i]));
+        in2[i] = VSET(
+            static_cast<i64>(xy00z0[1][1][i]), static_cast<i64>(xy00z0[1][0][i]),
+            static_cast<i64>(xy00z0[0][1][i]), static_cast<i64>(xy00z0[0][0][i]),
+            static_cast<i64>(xy00z0[1][1][i]), static_cast<i64>(xy00z0[1][0][i]),
+            static_cast<i64>(xy00z0[0][1][i]), static_cast<i64>(xy00z0[0][0][i]));
+        in3[i] = VSET(
+            static_cast<i64>(xy00z0[2][1][i]), static_cast<i64>(xy00z0[2][0][i]),
+            static_cast<i64>(xy00z0[2][1][i]), static_cast<i64>(xy00z0[2][0][i]),
+            static_cast<i64>(xy00z0[2][1][i]), static_cast<i64>(xy00z0[2][0][i]),
+            static_cast<i64>(xy00z0[2][1][i]), static_cast<i64>(xy00z0[2][0][i]));
+    }
+
+    conv_64to48_fp_8x1w(a01, in0);
+    conv_64to48_fp_8x1w(a2, in1);
+    conv_64to48_fp_8x1w(b01, in2);
+    conv_64to48_fp_8x1w(b4, in3);
+
+    mul_by_xy00z0_fp12_vec_v1(r0, r1, a01, a2, b01, b4);
+
+    carryp_fp_4x2w(r1);
+
+    conv_48to64_fp_8x1w(out0, r0);
+    conv_48to64_fp_4x2w(out1, r1);
+
+    for (u64 i = 0; i < SWORDS; ++i) {
+        u64 lanes[8];
+        store_u64_lanes(lanes, out0[i]);
+        ret[0][2][0][i] = lanes[0];
+        ret[0][2][1][i] = lanes[1];
+        ret[0][1][0][i] = lanes[2];
+        ret[0][1][1][i] = lanes[3];
+        ret[1][0][0][i] = lanes[4];
+        ret[1][0][1][i] = lanes[5];
+        ret[1][1][0][i] = lanes[6];
+        ret[1][1][1][i] = lanes[7];
+    }
+
+    for (u64 i = 0; i < SWORDS / 2; ++i) {
+        u64 lanes[8];
+        store_u64_lanes(lanes, out1[i]);
+        ret[0][0][0][i] = lanes[0];
+        ret[0][0][0][i + (SWORDS / 2)] = lanes[1];
+        ret[0][0][1][i] = lanes[2];
+        ret[0][0][1][i + (SWORDS / 2)] = lanes[3];
+        ret[1][2][0][i] = lanes[4];
+        ret[1][2][0][i + (SWORDS / 2)] = lanes[5];
+        ret[1][2][1][i] = lanes[6];
+        ret[1][2][1][i + (SWORDS / 2)] = lanes[7];
+    }
+}
+
+void sqr_fp12_vector(Fp12& ret, const Fp12& a)
+{
+    fp2_4x2x1w r0, r1, a0, a1;
+    cc512i in0[SWORDS], in1[SWORDS];
+    cc512i out0[SWORDS], out1[SWORDS];
+
+    for (u64 i = 0; i < SWORDS; ++i) {
+        in0[i] = VSET(
+            static_cast<i64>(a[1][2][0][i]), static_cast<i64>(a[1][2][0][i]),
+            static_cast<i64>(a[0][2][1][i]), static_cast<i64>(a[0][2][0][i]),
+            static_cast<i64>(a[0][1][1][i]), static_cast<i64>(a[0][1][0][i]),
+            static_cast<i64>(a[0][0][1][i]), static_cast<i64>(a[0][0][0][i]));
+        in1[i] = VSET(
+            static_cast<i64>(a[1][2][1][i]), static_cast<i64>(a[1][2][1][i]),
+            static_cast<i64>(a[1][2][1][i]), static_cast<i64>(a[1][2][0][i]),
+            static_cast<i64>(a[1][1][1][i]), static_cast<i64>(a[1][1][0][i]),
+            static_cast<i64>(a[1][0][1][i]), static_cast<i64>(a[1][0][0][i]));
+    }
+
+    conv_64to48_fp_8x1w(a0, in0);
+    conv_64to48_fp_8x1w(a1, in1);
+
+    sqr_fp12_vec_v1(r0, r1, a0, a1);
+
+    conv_48to64_fp_8x1w(out0, r0);
+    conv_48to64_fp_8x1w(out1, r1);
+
+    for (u64 i = 0; i < SWORDS; ++i) {
+        u64 lanes0[8], lanes1[8];
+        store_u64_lanes(lanes0, out0[i]);
+        store_u64_lanes(lanes1, out1[i]);
+        ret[0][0][0][i] = lanes0[0];
+        ret[0][0][1][i] = lanes0[1];
+        ret[0][1][0][i] = lanes0[2];
+        ret[0][1][1][i] = lanes0[3];
+        ret[0][2][0][i] = lanes0[4];
+        ret[0][2][1][i] = lanes0[5];
+        ret[1][0][0][i] = lanes1[0];
+        ret[1][0][1][i] = lanes1[1];
+        ret[1][1][0][i] = lanes1[2];
+        ret[1][1][1][i] = lanes1[3];
+        ret[1][2][0][i] = lanes1[4];
+        ret[1][2][1][i] = lanes1[5];
+    }
+}
+
+void cyclotomic_sqr_fp12_vector(Fp12& ret, const Fp12& a)
+{
+    fp4_1x2x2x2w packed_a, out_a;
+    fp4_2x2x2x1w packed_bc, out_bc;
+    cc512i lanes_a[SWORDS / 2];
+    cc512i lanes_bc[SWORDS];
+
+    for (u64 i = 0; i < SWORDS / 2; ++i) {
+        lanes_a[i] = VSET(
+            static_cast<i64>(a[1][1][1][i + (SWORDS / 2)]), static_cast<i64>(a[1][1][1][i]),
+            static_cast<i64>(a[1][1][0][i + (SWORDS / 2)]), static_cast<i64>(a[1][1][0][i]),
+            static_cast<i64>(a[0][0][1][i + (SWORDS / 2)]), static_cast<i64>(a[0][0][1][i]),
+            static_cast<i64>(a[0][0][0][i + (SWORDS / 2)]), static_cast<i64>(a[0][0][0][i]));
+    }
+    conv_64to48_fp_4x2w(packed_a, lanes_a);
+
+    for (u64 i = 0; i < SWORDS; ++i) {
+        lanes_bc[i] = VSET(
+            static_cast<i64>(a[1][2][1][i]), static_cast<i64>(a[1][2][0][i]),
+            static_cast<i64>(a[0][1][1][i]), static_cast<i64>(a[0][1][0][i]),
+            static_cast<i64>(a[0][2][1][i]), static_cast<i64>(a[0][2][0][i]),
+            static_cast<i64>(a[1][0][1][i]), static_cast<i64>(a[1][0][0][i]));
+    }
+    conv_64to48_fp_8x1w(packed_bc, lanes_bc);
+
+    cyclotomic_sqr_fp12_vec_v1(out_a, out_bc, packed_a, packed_bc);
+
+    carryp_fp_4x2w(out_a);
+    conv_48to64_fp_4x2w(lanes_a, out_a);
+    for (u64 i = 0; i < SWORDS / 2; ++i) {
+        u64 lanes[8];
+        store_u64_lanes(lanes, lanes_a[i]);
+        ret[0][0][0][i] = lanes[0];
+        ret[0][0][0][i + (SWORDS / 2)] = lanes[1];
+        ret[0][0][1][i] = lanes[2];
+        ret[0][0][1][i + (SWORDS / 2)] = lanes[3];
+        ret[1][1][0][i] = lanes[4];
+        ret[1][1][0][i + (SWORDS / 2)] = lanes[5];
+        ret[1][1][1][i] = lanes[6];
+        ret[1][1][1][i + (SWORDS / 2)] = lanes[7];
+    }
+
+    conv_48to64_fp_8x1w(lanes_bc, out_bc);
+    for (u64 i = 0; i < SWORDS; ++i) {
+        u64 lanes[8];
+        store_u64_lanes(lanes, lanes_bc[i]);
+        ret[1][0][0][i] = lanes[0];
+        ret[1][0][1][i] = lanes[1];
+        ret[0][2][0][i] = lanes[2];
+        ret[0][2][1][i] = lanes[3];
+        ret[0][1][0][i] = lanes[4];
+        ret[0][1][1][i] = lanes[5];
+        ret[1][2][0][i] = lanes[6];
+        ret[1][2][1][i] = lanes[7];
+    }
 }
 
 } // namespace blst

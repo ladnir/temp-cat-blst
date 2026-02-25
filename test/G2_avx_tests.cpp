@@ -579,6 +579,70 @@ TEST(G2Avx, LineAddV1MatchesScalar)
     }
 }
 
+TEST(G2Avx, LineDblVectorMatchesScalar)
+{
+    InsecureRng rng;
+
+    for (int iter = 0; iter < 112; ++iter) {
+        JacobianPoint q{};
+        make_point(q, rng, (iter < 16) ? iter : -1);
+
+        LineEval expected_line{};
+        JacobianPoint expected_t{};
+        line_dbl_scalar(expected_line, expected_t, q);
+
+        Fp6 got_line{};
+        G2Point q_point{};
+        G2Point got_t{};
+        q_point.X = q.X;
+        q_point.Y = q.Y;
+        q_point.Z = q.Z;
+
+        line_dbl_vector(got_line, got_t, q_point);
+
+        expect_fp2_eq(got_line[0], expected_line.c0);
+        expect_fp2_eq(got_line[1], expected_line.c1);
+        expect_fp2_eq(got_line[2], expected_line.c2);
+        expect_fp2_eq(got_t.X, expected_t.X);
+        expect_fp2_eq(got_t.Y, expected_t.Y);
+        expect_fp2_eq(got_t.Z, expected_t.Z);
+    }
+}
+
+TEST(G2Avx, LineAddVectorMatchesScalar)
+{
+    InsecureRng rng;
+
+    for (int iter = 0; iter < 112; ++iter) {
+        JacobianPoint r{};
+        AffineInputPoint q{};
+        make_valid_line_add_inputs(r, q, rng, iter);
+
+        LineEval expected_line{};
+        JacobianPoint expected_t{};
+        line_add_scalar(expected_line, expected_t, r, q);
+
+        Fp6 got_line{};
+        G2Point r_point{};
+        G2AffinePoint q_point{};
+        G2Point got_t{};
+        r_point.X = r.X;
+        r_point.Y = r.Y;
+        r_point.Z = r.Z;
+        q_point.X = q.X;
+        q_point.Y = q.Y;
+
+        line_add_vector(got_line, got_t, r_point, q_point);
+
+        expect_fp2_eq(got_line[0], expected_line.c0);
+        expect_fp2_eq(got_line[1], expected_line.c1);
+        expect_fp2_eq(got_line[2], expected_line.c2);
+        expect_fp2_eq(got_t.X, expected_t.X);
+        expect_fp2_eq(got_t.Y, expected_t.Y);
+        expect_fp2_eq(got_t.Z, expected_t.Z);
+    }
+}
+
 TEST(G2Avx, LineByPx2_4x2x1w)
 {
     InsecureRng rng;

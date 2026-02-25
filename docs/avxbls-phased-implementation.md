@@ -408,6 +408,10 @@ Functions to add:
 - `mul_by_xy00z0_fp12_vec_v1`
 - `mul_by_xy00z0_fp12_vec_v2`
 - `sqr_fp12_vec_v1`
+- `mul_fp12_vector`
+- `mul_by_xy00z0_fp12_vector`
+- `sqr_fp12_vector`
+- `cyclotomic_sqr_fp12_vector`
 
 Required tests (`avx512_fp12_tests.cpp`):
 
@@ -418,6 +422,11 @@ Required tests (`avx512_fp12_tests.cpp`):
 5. sparse `xy00z0` multiply vs scalar sparse path.
 6. algebraic checks (`(a*b)*c == a*(b*c)` sample-based, `a*1=a`, `a^2=a*a`).
 7. edge/random vectors across all 12 Fp coefficients.
+8. wrapper-vs-scalar checks for:
+   - `mul_fp12_vector` vs `Fp12::mul`,
+   - `mul_by_xy00z0_fp12_vector` vs `Fp12::mul_by_xy00z0`,
+   - `sqr_fp12_vector` vs `Fp12::sqr`,
+   - `cyclotomic_sqr_fp12_vector` vs `Fp12::cyclotomic_sqr` on cyclotomic inputs.
 
 Gate:
 
@@ -439,13 +448,8 @@ Functions to add:
 - `line_add_vec_v1`
 - `line_by_Px2_4x2x1w`
 - `line_by_Px2_2x2x2w`
-
-Optional additive wrappers (still not integrated):
-
 - `line_dbl_vector`
 - `line_add_vector`
-- `add_n_dbl_n_vector`
-- `mul_n_sqr_vector`
 
 Required tests (`avx512_g2_line_tests.cpp`):
 
@@ -458,6 +462,9 @@ Required tests (`avx512_g2_line_tests.cpp`):
    - `R=(X1,Y1,Z1)` and affine `Q=(X2,Y2)` are on-curve,
    - `H = X2*Z1^2 - X1 != 0`,
    - avoid synthetic random-limb tuples as scalar-oracle inputs for this kernel.
+7. wrapper-vs-scalar checks:
+   - `line_dbl_vector` vs scalar `line_dbl`,
+   - `line_add_vector` vs scalar `line_add`.
 
 Phase-6 note from implementation:
 
@@ -494,7 +501,10 @@ For permutation/blend/shuffle helpers:
 2. every implemented function has explicit test coverage,
 3. scalar/non-AVX oracle comparisons are present for all arithmetic kernels,
 4. edge-case and randomized differential coverage is present in each phase test file,
-5. no integration routing into existing public API paths has been introduced.
+5. AVXBLS wrapper APIs are present and tested:
+   - `mul_fp12_vector`, `mul_by_xy00z0_fp12_vector`, `sqr_fp12_vector`, `cyclotomic_sqr_fp12_vector`,
+   - `line_dbl_vector`, `line_add_vector`,
+6. no integration routing into existing public API paths has been introduced.
 
 ---
 
