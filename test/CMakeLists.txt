@@ -64,10 +64,6 @@ target_include_directories(blst_tests PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_link_libraries(blst_tests PRIVATE gtest_main blst_static)
 
 
-# Add test with appropriate labels and properties
-add_test(NAME blst_tests COMMAND blst_tests)
-
-
 # Add CUDA tests if CUDA is enabled
 if(BLST_CUDA)
     set_source_files_properties(${TEST_SOURCES} PROPERTIES LANGUAGE CUDA)
