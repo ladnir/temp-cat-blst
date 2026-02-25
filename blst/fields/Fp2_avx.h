@@ -43,39 +43,39 @@ namespace blst
         }
     };
 
-    /// Two Fp vectors (c0,c1), each in `fp_8x1w`.
-    using Fp2Pack8x1x1 = AvxPackTuple<fp_8x1w, 2>;
+    /// Two Fp vectors (c0,c1), each in `FpPack8x1`.
+    using Fp2Pack8x1x1 = AvxPackTuple<FpPack8x1, 2>;
     using fp2_8x1x1w = Fp2Pack8x1x1;
     /// Widened Fp2 pair for `fp2_8x1x1w`.
-    using UFp2Pack8x1x1 = AvxPackTuple<fpx2_8x1w, 2>;
+    using UFp2Pack8x1x1 = AvxPackTuple<UFpPack8x1, 2>;
     using fp2x2_8x1x1w = UFp2Pack8x1x1;
 
     /// Four packed Fp2 values in single-length schedule (`8` vector words).
-    using Fp2Pack4x2x1 = fp_8x1w;
+    using Fp2Pack4x2x1 = FpPack8x1;
     using fp2_4x2x1w = Fp2Pack4x2x1;
     /// Widened companion layout for `fp2_4x2x1w`.
-    using UFp2Pack4x2x1 = fpx2_8x1w;
+    using UFp2Pack4x2x1 = UFpPack8x1;
     using fp2x2_4x2x1w = UFp2Pack4x2x1;
 
     /// Single-length schedule used by `mul_fp2_2x4x1w`.
-    using Fp2Pack2x4x1 = fp_8x1w;
+    using Fp2Pack2x4x1 = FpPack8x1;
     using fp2_2x4x1w = Fp2Pack2x4x1;
     /// Widened companion layout for `fp2_2x4x1w`.
-    using UFp2Pack2x4x1 = fpx2_8x1w;
+    using UFp2Pack2x4x1 = UFpPack8x1;
     using fp2x2_2x4x1w = UFp2Pack2x4x1;
 
     /// Two packed Fp2 values in half-length schedule (`4` vector words).
-    using Fp2Pack2x2x2 = fp_4x2w;
+    using Fp2Pack2x2x2 = FpPack4x2;
     using fp2_2x2x2w = Fp2Pack2x2x2;
     /// Widened companion layout for `fp2_2x2x2w`.
-    using UFp2Pack2x2x2 = fpx2_4x2w;
+    using UFp2Pack2x2x2 = UFpPack4x2;
     using fp2x2_2x2x2w = UFp2Pack2x2x2;
 
     /// Single-length schedule used by `mul_fp2_1x4x2w`.
-    using Fp2Pack1x4x2 = fp_4x2w;
+    using Fp2Pack1x4x2 = FpPack4x2;
     using fp2_1x4x2w = Fp2Pack1x4x2;
     /// Widened companion layout for `fp2_1x4x2w`.
-    using UFp2Pack1x4x2 = fpx2_4x2w;
+    using UFp2Pack1x4x2 = UFpPack4x2;
     using fp2x2_1x4x2w = UFp2Pack1x4x2;
 
     static_assert(std::is_trivially_default_constructible_v<Fp2Pack8x1x1>);

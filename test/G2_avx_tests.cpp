@@ -172,7 +172,7 @@ void expect_fp2_eq(const Fp2& got, const Fp2& expected)
     EXPECT_TRUE(fp2_equal(got, expected));
 }
 
-Fp fp_from_48_channel_8x1w(const fp_8x1w a, int ch, bool carry)
+Fp fp_from_48_channel_8x1w(const FpPack8x1 a, int ch, bool carry)
 {
     u64 r48[NWORDS] = {};
     u64 r64[SWORDS] = {};
@@ -188,7 +188,7 @@ Fp fp_from_48_channel_8x1w(const fp_8x1w a, int ch, bool carry)
     return out;
 }
 
-Fp fp_from_48_channel_4x2w(const fp_4x2w a, int ch, bool carry)
+Fp fp_from_48_channel_4x2w(const FpPack4x2 a, int ch, bool carry)
 {
     u64 r48[NWORDS] = {};
     u64 r64[SWORDS] = {};
@@ -204,7 +204,7 @@ Fp fp_from_48_channel_4x2w(const fp_4x2w a, int ch, bool carry)
     return out;
 }
 
-Fp2 fp2_from_8x1w_channels(const fp_8x1w a, int ch0, int ch1, bool carry)
+Fp2 fp2_from_8x1w_channels(const FpPack8x1 a, int ch0, int ch1, bool carry)
 {
     Fp2 out{};
     out[0] = fp_from_48_channel_8x1w(a, ch0, carry);
@@ -212,7 +212,7 @@ Fp2 fp2_from_8x1w_channels(const fp_8x1w a, int ch0, int ch1, bool carry)
     return out;
 }
 
-Fp2 fp2_from_4x2w_channels(const fp_4x2w a, int ch0, int ch1, bool carry)
+Fp2 fp2_from_4x2w_channels(const FpPack4x2 a, int ch0, int ch1, bool carry)
 {
     Fp2 out{};
     out[0] = fp_from_48_channel_4x2w(a, ch0, carry);
@@ -329,7 +329,7 @@ void pack_line_dbl_v2_input(fp2_4x2x1w& X1Y1Z1, const JacobianPoint& Q)
             static_cast<i64>(Q.Z[1][i]), static_cast<i64>(Q.Z[0][i]),
             static_cast<i64>(Q.Y[1][i]), static_cast<i64>(Q.Y[0][i]));
     }
-    conv_64to48_fp_8x1w(X1Y1Z1, t);
+    FpPack8x1::conv_64to48(X1Y1Z1, t);
 }
 
 void pack_line_dbl_v1_inputs(fp2_2x2x2w& X1Y1, fp2_2x2x2w& Z1, const JacobianPoint& Q)
@@ -348,8 +348,8 @@ void pack_line_dbl_v1_inputs(fp2_2x2x2w& X1Y1, fp2_2x2x2w& Z1, const JacobianPoi
             static_cast<i64>(Q.Z[1][i + (SWORDS / 2)]), static_cast<i64>(Q.Z[1][i]),
             static_cast<i64>(Q.Z[0][i + (SWORDS / 2)]), static_cast<i64>(Q.Z[0][i]));
     }
-    conv_64to48_fp_4x2w(X1Y1, s0);
-    conv_64to48_fp_4x2w(Z1, s1);
+    conv_64to48_FpPack4x2(X1Y1, s0);
+    conv_64to48_FpPack4x2(Z1, s1);
 }
 
 void pack_line_add_v1_inputs(
@@ -379,9 +379,9 @@ void pack_line_add_v1_inputs(
             static_cast<i64>(Q.X[1][i + (SWORDS / 2)]), static_cast<i64>(Q.X[1][i]),
             static_cast<i64>(Q.X[0][i + (SWORDS / 2)]), static_cast<i64>(Q.X[0][i]));
     }
-    conv_64to48_fp_4x2w(X1Y1, s0);
-    conv_64to48_fp_4x2w(Z1Y2, s1);
-    conv_64to48_fp_4x2w(X2, s2);
+    conv_64to48_FpPack4x2(X1Y1, s0);
+    conv_64to48_FpPack4x2(Z1Y2, s1);
+    conv_64to48_FpPack4x2(X2, s2);
 }
 
 void pack_px2_4x2x1w(fp2_4x2x1w& Px2, const Fp& X, const Fp& Y)
@@ -392,7 +392,7 @@ void pack_px2_4x2x1w(fp2_4x2x1w& Px2, const Fp& X, const Fp& Y)
             static_cast<i64>(X[i]), static_cast<i64>(X[i]), static_cast<i64>(X[i]), static_cast<i64>(X[i]),
             static_cast<i64>(Y[i]), static_cast<i64>(Y[i]), static_cast<i64>(Y[i]), static_cast<i64>(Y[i]));
     }
-    conv_64to48_fp_8x1w(Px2, t);
+    FpPack8x1::conv_64to48(Px2, t);
 }
 
 void pack_px2_2x2x2w(fp2_2x2x2w& Px2, const Fp& X, const Fp& Y)
@@ -405,7 +405,7 @@ void pack_px2_2x2x2w(fp2_2x2x2w& Px2, const Fp& X, const Fp& Y)
             static_cast<i64>(X[i + (SWORDS / 2)]), static_cast<i64>(X[i]),
             static_cast<i64>(X[i + (SWORDS / 2)]), static_cast<i64>(X[i]));
     }
-    conv_64to48_fp_4x2w(Px2, t);
+    conv_64to48_FpPack4x2(Px2, t);
 }
 
 void decode_line_dbl_v2(

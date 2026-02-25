@@ -435,7 +435,7 @@ void sqr_fp12_vec_v1(
     const cc512i m4 = VSET(4, 4, 1, 0, 7, 6, 3, 2);
     const cc512i m5 = VSET(5, 5, 5, 4, 7, 6, 3, 2);
 
-    asax6_fp_8x1w(t0, a0, a1);
+    FpPack8x1::asax6(t0, a0, a1);
     blend_0x0F(t1.data(), t0.data(), a1.data());
     perm_var(t1.data(), t1.data(), m0);
     add_fp2_4x2x1w(t1, a0, t1);
@@ -469,7 +469,7 @@ void sqr_fp12_vec_v1(
     perm_var(t3.data(), t1.data(), m5);
     blend_0x0F(t3.data(), t3.data(), t2.data());
 
-    assx6_fp_8x1w(t3, t4, t3);
+    FpPack8x1::assx6(t3, t4, t3);
     blend_0x0F(t4.data(), t3.data(), t2.data());
     perm_var(t4.data(), t4.data(), m0);
     sub_fp2_4x2x1w(r0, t3, t4);
@@ -500,19 +500,19 @@ void mul_fp12_vector(Fp12& ret, const Fp12& a, const Fp12& b)
             static_cast<i64>(a[0][2][1][i]), static_cast<i64>(a[0][2][0][i]));
     }
 
-    conv_64to48_fp_8x1w(ab0, in0.data());
-    conv_64to48_fp_8x1w(ab1, in1.data());
-    conv_64to48_fp_8x1w(ab2, in2.data());
+    FpPack8x1::conv_64to48(ab0, in0.data());
+    FpPack8x1::conv_64to48(ab1, in1.data());
+    FpPack8x1::conv_64to48(ab2, in2.data());
 
     mul_fp12_vec_v3(r001, r101, r2, ab0, ab1, ab2);
 
-    carryp_fp_4x2w(r001);
-    carryp_fp_4x2w(r101);
-    carryp_fp_4x2w(r2);
+    carryp_FpPack4x2(r001);
+    carryp_FpPack4x2(r101);
+    carryp_FpPack4x2(r2);
 
-    conv_48to64_fp_4x2w(out0.data(), r001);
-    conv_48to64_fp_4x2w(out1.data(), r101);
-    conv_48to64_fp_4x2w(out2.data(), r2);
+    conv_48to64_FpPack4x2(out0.data(), r001);
+    conv_48to64_FpPack4x2(out1.data(), r101);
+    conv_48to64_FpPack4x2(out2.data(), r2);
 
     for (u64 i = 0; i < SWORDS / 2; ++i) {
         const u64* lanes0 = reinterpret_cast<const u64*>(&out0[i]);
@@ -579,17 +579,17 @@ void mul_by_xy00z0_fp12_vector(Fp12& ret, const Fp12& a, const Fp6& xy00z0)
             static_cast<i64>(xy00z0[2][1][i]), static_cast<i64>(xy00z0[2][0][i]));
     }
 
-    conv_64to48_fp_8x1w(a01, in0.data());
-    conv_64to48_fp_8x1w(a2, in1.data());
-    conv_64to48_fp_8x1w(b01, in2.data());
-    conv_64to48_fp_8x1w(b4, in3.data());
+    FpPack8x1::conv_64to48(a01, in0.data());
+    FpPack8x1::conv_64to48(a2, in1.data());
+    FpPack8x1::conv_64to48(b01, in2.data());
+    FpPack8x1::conv_64to48(b4, in3.data());
 
     mul_by_xy00z0_fp12_vec_v1(r0, r1, a01, a2, b01, b4);
 
-    carryp_fp_4x2w(r1);
+    carryp_FpPack4x2(r1);
 
-    conv_48to64_fp_8x1w(out0.data(), r0);
-    conv_48to64_fp_4x2w(out1.data(), r1);
+    FpPack8x1::conv_48to64(out0.data(), r0);
+    conv_48to64_FpPack4x2(out1.data(), r1);
 
     for (u64 i = 0; i < SWORDS; ++i) {
         const u64* lanes = reinterpret_cast<const u64*>(&out0[i]);
@@ -634,13 +634,13 @@ void sqr_fp12_vector(Fp12& ret, const Fp12& a)
             static_cast<i64>(a[1][0][1][i]), static_cast<i64>(a[1][0][0][i]));
     }
 
-    conv_64to48_fp_8x1w(a0, in0.data());
-    conv_64to48_fp_8x1w(a1, in1.data());
+    FpPack8x1::conv_64to48(a0, in0.data());
+    FpPack8x1::conv_64to48(a1, in1.data());
 
     sqr_fp12_vec_v1(r0, r1, a0, a1);
 
-    conv_48to64_fp_8x1w(out0.data(), r0);
-    conv_48to64_fp_8x1w(out1.data(), r1);
+    FpPack8x1::conv_48to64(out0.data(), r0);
+    FpPack8x1::conv_48to64(out1.data(), r1);
 
     for (u64 i = 0; i < SWORDS; ++i) {
         const u64* lanes0 = reinterpret_cast<const u64*>(&out0[i]);
@@ -674,7 +674,7 @@ void cyclotomic_sqr_fp12_vector(Fp12& ret, const Fp12& a)
             static_cast<i64>(a[0][0][1][i + (SWORDS / 2)]), static_cast<i64>(a[0][0][1][i]),
             static_cast<i64>(a[0][0][0][i + (SWORDS / 2)]), static_cast<i64>(a[0][0][0][i]));
     }
-    conv_64to48_fp_4x2w(packed_a, lanes_a.data());
+    conv_64to48_FpPack4x2(packed_a, lanes_a.data());
 
     for (u64 i = 0; i < SWORDS; ++i) {
         lanes_bc[i] = VSET(
@@ -683,12 +683,12 @@ void cyclotomic_sqr_fp12_vector(Fp12& ret, const Fp12& a)
             static_cast<i64>(a[0][2][1][i]), static_cast<i64>(a[0][2][0][i]),
             static_cast<i64>(a[1][0][1][i]), static_cast<i64>(a[1][0][0][i]));
     }
-    conv_64to48_fp_8x1w(packed_bc, lanes_bc.data());
+    FpPack8x1::conv_64to48(packed_bc, lanes_bc.data());
 
     cyclotomic_sqr_fp12_vec_v1(out_a, out_bc, packed_a, packed_bc);
 
-    carryp_fp_4x2w(out_a);
-    conv_48to64_fp_4x2w(lanes_a.data(), out_a);
+    carryp_FpPack4x2(out_a);
+    conv_48to64_FpPack4x2(lanes_a.data(), out_a);
     for (u64 i = 0; i < SWORDS / 2; ++i) {
         const u64* lanes = reinterpret_cast<const u64*>(&lanes_a[i]);
         ret[0][0][0][i] = lanes[0];
@@ -701,7 +701,7 @@ void cyclotomic_sqr_fp12_vector(Fp12& ret, const Fp12& a)
         ret[1][1][1][i + (SWORDS / 2)] = lanes[7];
     }
 
-    conv_48to64_fp_8x1w(lanes_bc.data(), out_bc);
+    FpPack8x1::conv_48to64(lanes_bc.data(), out_bc);
     for (u64 i = 0; i < SWORDS; ++i) {
         const u64* lanes = reinterpret_cast<const u64*>(&lanes_bc[i]);
         ret[1][0][0][i] = lanes[0];

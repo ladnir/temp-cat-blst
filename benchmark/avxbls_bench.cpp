@@ -162,7 +162,7 @@ void fill_vec_words(PackT& out, u64 count, u64 seed)
     fill_vec_words(out.data(), count, seed);
 }
 
-void init_fp_inputs(fp_8x1w& a_8x1w, fp_8x1w& b_8x1w, fp_4x2w& a_4x2w, fp_4x2w& b_4x2w)
+void init_fp_inputs(FpPack8x1& a_8x1w, FpPack8x1& b_8x1w, FpPack4x2& a_4x2w, FpPack4x2& b_4x2w)
 {
     std::array<u64, NWORDS> a48 = {};
     std::array<u64, NWORDS> b48 = {};
@@ -563,33 +563,33 @@ void bench_pairing(const BenchConfig& cfg)
 
 void bench_fp(const BenchConfig& cfg)
 {
-    fp_8x1w a_8x1w{};
-    fp_8x1w b_8x1w{};
-    fp_8x1w r_8x1w{};
-    fpx2_8x1w z_8x1w{};
-    fp_4x2w a_4x2w{};
-    fp_4x2w b_4x2w{};
-    fp_4x2w r_4x2w{};
-    fpx2_4x2w z_4x2w{};
+    FpPack8x1 a_8x1w{};
+    FpPack8x1 b_8x1w{};
+    FpPack8x1 r_8x1w{};
+    UFpPack8x1 z_8x1w{};
+    FpPack4x2 a_4x2w{};
+    FpPack4x2 b_4x2w{};
+    FpPack4x2 r_4x2w{};
+    UFpPack4x2 z_4x2w{};
     init_fp_inputs(a_8x1w, b_8x1w, a_4x2w, b_4x2w);
 
     std::puts("\n=============================================================\n");
     std::puts("TIMING - FP\n");
 
-    measure_cycles("- mul_fpx2_8x1w_v2:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        mul_fpx2_8x1w_v2(z_8x1w, a_8x1w, b_8x1w);
+    measure_cycles("- mul_UFpPack8x1_v2:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        mul_UFpPack8x1_v2(z_8x1w, a_8x1w, b_8x1w);
     });
 
-    measure_cycles("- mul_fpx2_4x2w_v1:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        mul_fpx2_4x2w_v1(z_4x2w, a_4x2w, b_4x2w);
+    measure_cycles("- mul_UFpPack4x2_v1:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        mul_UFpPack4x2_v1(z_4x2w, a_4x2w, b_4x2w);
     });
 
-    measure_cycles("- redc_fpx2_8x1w:       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        redc_fpx2_8x1w(r_8x1w, z_8x1w);
+    measure_cycles("- redc_UFpPack8x1:       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        redc_UFpPack8x1(r_8x1w, z_8x1w);
     });
 
-    measure_cycles("- redc_fpx2_4x2w:       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        redc_fpx2_4x2w(r_4x2w, z_4x2w);
+    measure_cycles("- redc_UFpPack4x2:       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        redc_UFpPack4x2(r_4x2w, z_4x2w);
     });
 }
 

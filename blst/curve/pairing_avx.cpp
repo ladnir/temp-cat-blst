@@ -128,9 +128,9 @@ void add_n_dbl_n_vector(
             static_cast<i64>(Q->X[0][i + (SWORDS / 2)]), static_cast<i64>(Q->X[0][i]));
     }
 
-    conv_64to48_fp_4x2w(X1Y1, s[0].data());
-    conv_64to48_fp_4x2w(Z1Y2, s[1].data());
-    conv_64to48_fp_4x2w(X2, s[2].data());
+    conv_64to48_FpPack4x2(X1Y1, s[0].data());
+    conv_64to48_FpPack4x2(Z1Y2, s[1].data());
+    conv_64to48_FpPack4x2(X2, s[2].data());
 
     line_add_vec_v1(l0Y3, l1, X3, Z3, X1Y1, Z1Y2, X2);
 
@@ -146,7 +146,7 @@ void add_n_dbl_n_vector(
             static_cast<i64>(Px2->X[i + (SWORDS / 2)]), static_cast<i64>(Px2->X[i]),
             static_cast<i64>(Px2->X[i + (SWORDS / 2)]), static_cast<i64>(Px2->X[i]));
     }
-    conv_64to48_fp_4x2w(_Px2, s[0].data());
+    conv_64to48_FpPack4x2(_Px2, s[0].data());
 
     line_by_Px2_2x2x2w(l12, l12, _Px2);
 
@@ -170,11 +170,11 @@ void add_n_dbl_n_vector(
             static_cast<i64>(ret[0][2][1][i]), static_cast<i64>(ret[0][2][0][i]),
             static_cast<i64>(ret[0][2][1][i]), static_cast<i64>(ret[0][2][0][i]));
     }
-    conv_64to48_fp_8x1w(a01, t[0].data());
-    conv_64to48_fp_8x1w(a2, t[1].data());
+    FpPack8x1::conv_64to48(a01, t[0].data());
+    FpPack8x1::conv_64to48(a2, t[1].data());
 
-    carryp_fp_4x2w(l12);
-    carryp_fp_4x2w(l0Y3);
+    carryp_FpPack4x2(l12);
+    carryp_FpPack4x2(l0Y3);
 
     for (i = 0; i < VWORDS; ++i) {
         b4[i] = VPERMV(m0, l12[i]);
@@ -213,7 +213,7 @@ void add_n_dbl_n_vector(
             static_cast<i64>(Px2->Y[i]), static_cast<i64>(Px2->Y[i]),
             static_cast<i64>(Px2->Y[i]), static_cast<i64>(Px2->Y[i]));
     }
-    conv_64to48_fp_8x1w(__Px2, t[0].data());
+    FpPack8x1::conv_64to48(__Px2, t[0].data());
 
     while (k--) {
         perm_var(a0.data(), r0.data(), m5);
@@ -266,9 +266,9 @@ void add_n_dbl_n_vector(
         mul_by_xy00z0_fp12_vec_v1(r0, r1, a01, a2, b01, b4);
     }
 
-    carryp_fp_4x2w(r1);
-    conv_48to64_fp_8x1w(t[0].data(), r0);
-    conv_48to64_fp_4x2w(s[0].data(), r1);
+    carryp_FpPack4x2(r1);
+    FpPack8x1::conv_48to64(t[0].data(), r0);
+    conv_48to64_FpPack4x2(s[0].data(), r1);
 
     for (i = 0; i < SWORDS; ++i) {
         std::array<u64, 8> lanes;
@@ -296,9 +296,9 @@ void add_n_dbl_n_vector(
         ret[1][2][1][i + (SWORDS / 2)] = lanes[7];
     }
 
-    conv_48to64_fp_8x1w(t[0].data(), _X3);
-    conv_48to64_fp_8x1w(t[1].data(), _Y3);
-    conv_48to64_fp_8x1w(t[2].data(), _Z3);
+    FpPack8x1::conv_48to64(t[0].data(), _X3);
+    FpPack8x1::conv_48to64(t[1].data(), _Y3);
+    FpPack8x1::conv_48to64(t[2].data(), _Z3);
 
     for (i = 0; i < SWORDS; ++i) {
         std::array<u64, 8> lanes0;
@@ -360,15 +360,15 @@ void mul_n_sqr_vector(Fp12& ret, const Fp12& a, std::size_t n)
             static_cast<i64>(a[0][2][1][i]), static_cast<i64>(a[0][2][0][i]));
     }
 
-    conv_64to48_fp_8x1w(ab0, t[0].data());
-    conv_64to48_fp_8x1w(ab1, t[1].data());
-    conv_64to48_fp_8x1w(ab2, t[2].data());
+    FpPack8x1::conv_64to48(ab0, t[0].data());
+    FpPack8x1::conv_64to48(ab1, t[1].data());
+    FpPack8x1::conv_64to48(ab2, t[2].data());
 
     mul_fp12_vec_v3(r001, r101, r2, ab0, ab1, ab2);
 
-    carryp_fp_4x2w(r001);
-    carryp_fp_4x2w(r101);
-    carryp_fp_4x2w(r2);
+    carryp_FpPack4x2(r001);
+    carryp_FpPack4x2(r101);
+    carryp_FpPack4x2(r2);
 
     blend_0x0F_hl(_a.data(), r101.data(), r001.data());
 
@@ -400,8 +400,8 @@ void mul_n_sqr_vector(Fp12& ret, const Fp12& a, std::size_t n)
         cyclotomic_sqr_fp12_vec_v1(_a, _bc, _a, _bc);
     }
 
-    carryp_fp_4x2w(_a);
-    conv_48to64_fp_4x2w(s.data(), _a);
+    carryp_FpPack4x2(_a);
+    conv_48to64_FpPack4x2(s.data(), _a);
     for (i = 0; i < SWORDS / 2; ++i) {
         const u64* lanes = reinterpret_cast<const u64*>(&s[i]);
         ret[0][0][0][i] = lanes[0];
@@ -414,7 +414,7 @@ void mul_n_sqr_vector(Fp12& ret, const Fp12& a, std::size_t n)
         ret[1][1][1][i + (SWORDS / 2)] = lanes[7];
     }
 
-    conv_48to64_fp_8x1w(t[0].data(), _bc);
+    FpPack8x1::conv_48to64(t[0].data(), _bc);
     for (i = 0; i < SWORDS; ++i) {
         const u64* lanes = reinterpret_cast<const u64*>(&t[0][i]);
         ret[1][0][0][i] = lanes[0];

@@ -102,15 +102,55 @@ namespace blst
     /// - `value[ch].limb[i] == a[i].lane[ch]`
     /// - `i in [0,7]`, `ch in [0,7]`
     /// - each limb is expected in `[0, 2^48)`.
-    using FpPack8x1 = AvxPack<NWORDS>;
-    using fp_8x1w = FpPack8x1;
+    struct FpPack8x1 : public AvxPack<NWORDS>
+    {
 
-    /// @brief Widened container for `fp_8x1w` products and linear combinations.
+        /// @brief Lane-wise `conv_64to48_fp` for 8 packed channels.
+        /// @pre `a` has 6 vectors of 64-bit limbs; `r` has 8 vectors for radix-48 limbs.
+        /// @post Each lane `ch` is converted exactly as `conv_64to48_fp`.
+        static void conv_64to48(FpPack8x1& r, const cc512i* BLST_restrict a);
+
+        /// @brief Lane-wise `conv_48to64_fp` for 8 packed channels.
+        static void conv_48to64(cc512i* BLST_restrict r, const FpPack8x1& a);
+
+
+
+        /** @name Reduced Fp helpers */
+        ///@{
+        /// @brief Lane-wise modular add for reduced `FpPack8x1`.
+        /// @pre Each lane of `a` and `b` represents a reduced Montgomery Fp value.
+        /// @post `r[ch] = a[ch] + b[ch] (mod p)` and each output limb is masked to 48 bits.
+        static void add(FpPack8x1& r, const FpPack8x1& a, const FpPack8x1& b);
+
+        /// @brief Lane-wise modular subtract for reduced `FpPack8x1`.
+        /// @post `r[ch] = a[ch] - b[ch] (mod p)`, reduced to radix-48 limbs.
+        static void sub(FpPack8x1& r, const FpPack8x1& a, const FpPack8x1& b);
+
+        /// @brief Mixed add/sub helper for reduced `FpPack8x1` with alternating lane schedule.
+        /// @details With lane order `<H|G|F|E|D|C|B|A>` and `<P|O|N|M|L|K|J|I>`:
+        ///          computes `<H+P, G-O, F+N, E-M, D+L, C-K, B+J, A-I>` modulo `p`.
+        ///          Equivalently by lane index: even lanes subtract, odd lanes add.
+        /// @post Result is reduced modulo `p` per lane.
+        static void asx4(FpPack8x1& r, const FpPack8x1& a, const FpPack8x1& b);
+
+        /// @brief Mixed add/sub helper for reduced `FpPack8x1` (`asax6` schedule).
+        /// @details Computes `<H+P, G-O, F+N, E+M, D+L, C+K, B+J, A+I>` modulo `p`.
+        ///          Lane rule: add on lanes 0..5 and 7, subtract on lane 6.
+        static void asax6(FpPack8x1& r, const FpPack8x1& a, const FpPack8x1& b);
+
+        /// @brief Mixed add/sub helper for reduced `FpPack8x1` (`assx6` schedule).
+        /// @details Computes `<H+P, G-O, F-N, E-M, D-L, C-K, B-J, A-I>` modulo `p`.
+        ///          Lane rule: subtract on lanes 0..6, add on lane 7.
+        static void assx6(FpPack8x1& r, const FpPack8x1& a, const FpPack8x1& b);
+
+    };
+
+    /// @brief Widened container for `FpPack8x1` products and linear combinations.
     /// @details
     /// Stores 16 radix-48 limbs per channel (unreduced double-length value).
-    /// Logical mapping is the same as `fp_8x1w` but over indices `i in [0,15]`.
+    /// Logical mapping is the same as `FpPack8x1` but over indices `i in [0,15]`.
     using UFpPack8x1 = AvxPack<2 * NWORDS>;
-    using fpx2_8x1w = UFpPack8x1;
+    //using UFpPack8x1 = UFpPack8x1;
 
     /// @brief Four parallel reduced Fp values in "4x2w" lane-pair layout.
     /// @details
@@ -120,14 +160,14 @@ namespace blst
     /// - `value[e].limb[j] == a[word].lane[lane]`
     /// Each limb is expected in `[0, 2^48)`.
     using FpPack4x2 = AvxPack<VWORDS>;
-    using fp_4x2w = FpPack4x2;
+    //using FpPack4x2 = FpPack4x2;
 
-    /// @brief Widened container paired with `fp_4x2w` kernels.
+    /// @brief Widened container paired with `FpPack4x2` kernels.
     /// @details
     /// Contains 12 vector words (`3 * VWORDS`) as used by avxbls 4x2w double-length kernels.
     /// This is not a standalone canonical scalar layout; interpret via matching kernels.
     using UFpPack4x2 = AvxPack<3 * VWORDS>;
-    using fpx2_4x2w = UFpPack4x2;
+    //using UFpPack4x2 = UFpPack4x2;
     ///@}
 
     static_assert(std::is_trivially_default_constructible_v<FpPack8x1>);
@@ -146,15 +186,11 @@ namespace blst
     /// @post `r[0..7]` stores the same integer split into radix-48 limbs (`r[i] < 2^48`).
     void conv_64to48_fp(u64* r, const u64* a);
 
-    /// @brief Lane-wise `conv_64to48_fp` for 8 packed channels.
-    /// @pre `a` has 6 vectors of 64-bit limbs; `r` has 8 vectors for radix-48 limbs.
-    /// @post Each lane `ch` is converted exactly as `conv_64to48_fp`.
-    void conv_64to48_fp_8x1w(fp_8x1w& r, const cc512i* BLST_restrict a);
 
     /// @brief Lane-pair `conv_64to48_fp` for 4 packed channels in 4x2w layout.
     /// @pre `a` has 3 vectors (64-bit packing), `r` has 4 vectors (radix-48 packing).
     /// @post Each packed channel is converted into 8 radix-48 limbs.
-    void conv_64to48_fp_4x2w(fp_4x2w& r, const cc512i* BLST_restrict a);
+    void conv_64to48_FpPack4x2(FpPack4x2& r, const cc512i* BLST_restrict a);
 
     /// @brief Generic multi-precision conversion from base 2^64 to base 2^48.
     /// @param rlen Number of output radix-48 limbs.
@@ -168,11 +204,9 @@ namespace blst
     /// @post `r` reconstructs the same integer in 64-bit limb form.
     void conv_48to64_fp(u64* r, const u64* a);
 
-    /// @brief Lane-wise `conv_48to64_fp` for 8 packed channels.
-    void conv_48to64_fp_8x1w(cc512i* BLST_restrict r, const fp_8x1w& a);
 
     /// @brief Lane-pair `conv_48to64_fp` for 4 packed channels in 4x2w layout.
-    void conv_48to64_fp_4x2w(cc512i* BLST_restrict r, const fp_4x2w& a);
+    void conv_48to64_FpPack4x2(cc512i* BLST_restrict r, const FpPack4x2& a);
 
     /// @brief Generic multi-precision conversion from base 2^48 to base 2^64.
     /// @post High unused output limbs are zero-filled.
@@ -184,151 +218,121 @@ namespace blst
     /// @post `a[0..NWORDS-2] < 2^48`; final carry remains in `a[NWORDS-1]`.
     void carryp_mpi48(u64* a);
 
-    /// @brief Carry-propagate packed `fp_4x2w` limbs in place.
+    /// @brief Carry-propagate packed `FpPack4x2` limbs in place.
     /// @post Low three limb words are masked to 48 bits per lane.
-    void carryp_fp_4x2w(fp_4x2w& a);
+    void carryp_FpPack4x2(FpPack4x2& a);
 
     /// @brief Extract one `8x1w` lane into scalar radix-48 limbs.
     /// @param ch Lane index in `[0,7]`.
     /// @post `r[i] = a[i].lane[ch]` for `i in [0,7]`.
-    void get_channel_8x1w(u64* BLST_restrict r, const fp_8x1w& a, int ch);
+    void get_channel_8x1w(u64* BLST_restrict r, const FpPack8x1& a, int ch);
 
     /// @brief Extract one `4x2w` packed channel (two adjacent lanes).
     /// @param ch Base lane index (typically even), valid range `[0,6]`.
     /// @post `r[0..3]` come from lane `ch`, `r[4..7]` from lane `ch+1`.
-    void get_channel_4x2w(u64* BLST_restrict r, const fp_4x2w& a, int ch);
+    void get_channel_4x2w(u64* BLST_restrict r, const FpPack4x2& a, int ch);
     ///@}
 
 
-
-    /** @name Reduced Fp helpers */
-    ///@{
-    /// @brief Lane-wise modular add for reduced `fp_8x1w`.
-    /// @pre Each lane of `a` and `b` represents a reduced Montgomery Fp value.
-    /// @post `r[ch] = a[ch] + b[ch] (mod p)` and each output limb is masked to 48 bits.
-    void add_fp_8x1w(fp_8x1w& r, const fp_8x1w& a, const fp_8x1w& b);
-
-    /// @brief Lane-wise modular subtract for reduced `fp_8x1w`.
-    /// @post `r[ch] = a[ch] - b[ch] (mod p)`, reduced to radix-48 limbs.
-    void sub_fp_8x1w(fp_8x1w& r, const fp_8x1w& a, const fp_8x1w& b);
-
-    /// @brief Mixed add/sub helper for reduced `fp_8x1w` with alternating lane schedule.
-    /// @details With lane order `<H|G|F|E|D|C|B|A>` and `<P|O|N|M|L|K|J|I>`:
-    ///          computes `<H+P, G-O, F+N, E-M, D+L, C-K, B+J, A-I>` modulo `p`.
-    ///          Equivalently by lane index: even lanes subtract, odd lanes add.
-    /// @post Result is reduced modulo `p` per lane.
-    void asx4_fp_8x1w(fp_8x1w& r, const fp_8x1w& a, const fp_8x1w& b);
-
-    /// @brief Mixed add/sub helper for reduced `fp_8x1w` (`asax6` schedule).
-    /// @details Computes `<H+P, G-O, F+N, E+M, D+L, C+K, B+J, A+I>` modulo `p`.
-    ///          Lane rule: add on lanes 0..5 and 7, subtract on lane 6.
-    void asax6_fp_8x1w(fp_8x1w& r, const fp_8x1w& a, const fp_8x1w& b);
-
-    /// @brief Mixed add/sub helper for reduced `fp_8x1w` (`assx6` schedule).
-    /// @details Computes `<H+P, G-O, F-N, E-M, D-L, C-K, B-J, A-I>` modulo `p`.
-    ///          Lane rule: subtract on lanes 0..6, add on lane 7.
-    void assx6_fp_8x1w(fp_8x1w& r, const fp_8x1w& a, const fp_8x1w& b);
-
-
-    /// @brief Lane-wise modular add for reduced `fp_4x2w`.
+    /// @brief Lane-wise modular add for reduced `FpPack4x2`.
     /// @post Each packed channel equals `a + b (mod p)` in 4x2w layout.
-    void add_fp_4x2w(fp_4x2w& r, const fp_4x2w& a, const fp_4x2w& b);
+    void add_FpPack4x2(FpPack4x2& r, const FpPack4x2& a, const FpPack4x2& b);
 
-    /// @brief Lane-wise modular subtract for reduced `fp_4x2w`.
+    /// @brief Lane-wise modular subtract for reduced `FpPack4x2`.
     /// @post Each packed channel equals `a - b (mod p)` in 4x2w layout.
-    void sub_fp_4x2w(fp_4x2w& r, const fp_4x2w& a, const fp_4x2w& b);
+    void sub_FpPack4x2(FpPack4x2& r, const FpPack4x2& a, const FpPack4x2& b);
 
-    /// @brief Mixed add/sub helper for reduced `fp_4x2w` (`asx2` schedule).
+    /// @brief Mixed add/sub helper for reduced `FpPack4x2` (`asx2` schedule).
     /// @details Using avxbls symbols:
     ///          `<D'+H'-p, D+H-p, C'-G', C-G, B'+F'-p', B+F-p, A'-E', A-E>` then final conditional add.
     /// @post Reduced modulo `p` in 4x2w layout.
-    void asx2_fp_4x2w(fp_4x2w& r, const fp_4x2w& a, const fp_4x2w& b);
+    void asx2_FpPack4x2(FpPack4x2& r, const FpPack4x2& a, const FpPack4x2& b);
     ///@}
 
 
     /** @name Widened Fp helper combinations */
     ///@{
-    /// @brief Lane-wise add on widened `fpx2_8x1w` values.
+    /// @brief Lane-wise add on widened `UFpPack8x1` values.
     /// @post `r = a + b` with carry propagation and conditional correction by `p * 2^384`.
-    void add_fpx2_8x1w(fpx2_8x1w& r, const fpx2_8x1w& a, const fpx2_8x1w& b);
+    void add_UFpPack8x1(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b);
 
-    /// @brief Lane-wise subtract on widened `fpx2_8x1w` values.
+    /// @brief Lane-wise subtract on widened `UFpPack8x1` values.
     /// @post `r = a - b` with carry propagation and conditional correction by `p * 2^384`.
-    void sub_fpx2_8x1w(fpx2_8x1w& r, const fpx2_8x1w& a, const fpx2_8x1w& b);
+    void sub_UFpPack8x1(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b);
 
-    /// @brief Widened mixed helper (`aaasx2`) on `fpx2_8x1w`.
+    /// @brief Widened mixed helper (`aaasx2`) on `UFpPack8x1`.
     /// @details Computes `<H+P, G+O, F+N, E-M, D+L, C+K, B+J, A-I>` on low half,
     ///          with matching high-half correction (`-p` on add lanes), then normalizes.
-    void aaasx2_fpx2_8x1w(fpx2_8x1w& r, const fpx2_8x1w& a, const fpx2_8x1w& b);
+    void aaasx2_UFpPack8x1(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b);
 
-    /// @brief Widened mixed helper (`aassx2`) on `fpx2_8x1w`.
+    /// @brief Widened mixed helper (`aassx2`) on `UFpPack8x1`.
     /// @details Computes `<H+P, G+O, F-N, E-M, D+L, C+K, B-J, A-I>` with high-half correction and normalization.
-    void aassx2_fpx2_8x1w(fpx2_8x1w& r, const fpx2_8x1w& a, const fpx2_8x1w& b);
+    void aassx2_UFpPack8x1(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b);
 
-    /// @brief Widened mixed helper (`asx4`) on `fpx2_8x1w`.
+    /// @brief Widened mixed helper (`asx4`) on `UFpPack8x1`.
     /// @details Computes `<H+P, G-O, F+N, E-M, D+L, C-K, B+J, A-I>` with high-half correction and normalization.
-    void asx4_fpx2_8x1w(fpx2_8x1w& r, const fpx2_8x1w& a, const fpx2_8x1w& b);
+    void asx4_UFpPack8x1(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b);
 
-    /// @brief Widened mixed helper (`ssaax2`) on `fpx2_8x1w`.
+    /// @brief Widened mixed helper (`ssaax2`) on `UFpPack8x1`.
     /// @details Computes `<H-P, G-O, F+N, E+M, D-L, C-K, B+J, A+I>` with high-half correction and normalization.
-    void ssaax2_fpx2_8x1w(fpx2_8x1w& r, const fpx2_8x1w& a, const fpx2_8x1w& b);
+    void ssaax2_UFpPack8x1(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b);
 
-    /// @brief Widened mixed helper (`ssasx2`) on `fpx2_8x1w`.
+    /// @brief Widened mixed helper (`ssasx2`) on `UFpPack8x1`.
     /// @details Computes `<H-P, G-O, F+N, E-M, D-L, C-K, B+J, A-I>` with high-half correction and normalization.
-    void ssasx2_fpx2_8x1w(fpx2_8x1w& r, const fpx2_8x1w& a, const fpx2_8x1w& b);
+    void ssasx2_UFpPack8x1(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b);
 
 
-    /// @brief Lane-wise add on widened `fpx2_4x2w` values (4x2w schedule).
+    /// @brief Lane-wise add on widened `UFpPack4x2` values (4x2w schedule).
     /// @post `r = a + b` with carry propagation and conditional correction by packed `p`.
-    void add_fpx2_4x2w(fpx2_4x2w& r, const fpx2_4x2w& a, const fpx2_4x2w& b);
+    void add_UFpPack4x2(UFpPack4x2& r, const UFpPack4x2& a, const UFpPack4x2& b);
 
-    /// @brief Lane-wise subtract on widened `fpx2_4x2w` values (4x2w schedule).
+    /// @brief Lane-wise subtract on widened `UFpPack4x2` values (4x2w schedule).
     /// @post `r = a - b` with carry propagation and conditional correction by packed `p`.
-    void sub_fpx2_4x2w(fpx2_4x2w& r, const fpx2_4x2w& a, const fpx2_4x2w& b);
+    void sub_UFpPack4x2(UFpPack4x2& r, const UFpPack4x2& a, const UFpPack4x2& b);
 
-    /// @brief Widened mixed helper (`asx2`) on `fpx2_4x2w`.
+    /// @brief Widened mixed helper (`asx2`) on `UFpPack4x2`.
     /// @details Computes
     /// `<D'+H'-p, D+H-p, C'-G', C-G, B'+F'-p', B+F-p, A'-E', A-E>` then normalizes.
-    void asx2_fpx2_4x2w(fpx2_4x2w& r, const fpx2_4x2w& a, const fpx2_4x2w& b);
+    void asx2_UFpPack4x2(UFpPack4x2& r, const UFpPack4x2& a, const UFpPack4x2& b);
 
-    /// @brief Widened mixed helper (`aass`) on `fpx2_4x2w`.
+    /// @brief Widened mixed helper (`aass`) on `UFpPack4x2`.
     /// @details Computes
     /// `<D'+H'-p, D+H-p, C'+G'-p', C+G-p, B'-F', B-F, A'-E', A-E>` then normalizes.
-    void aass_fpx2_4x2w(fpx2_4x2w& r, const fpx2_4x2w& a, const fpx2_4x2w& b);
+    void aass_UFpPack4x2(UFpPack4x2& r, const UFpPack4x2& a, const UFpPack4x2& b);
     ///@}
 
 
 
     /** @name Fp multiply and reduction kernels */
     ///@{
-    /// @brief Canonical widened multiply for `fp_8x1w`.
+    /// @brief Canonical widened multiply for `FpPack8x1`.
     /// @details This codebase intentionally uses avxbls v2 only.
-    /// @post Writes unreduced double-length product to `fpx2_8x1w`.
-    void mul_fpx2_8x1w(fpx2_8x1w& r, const fp_8x1w& a, const fp_8x1w& b);
+    /// @post Writes unreduced double-length product to `UFpPack8x1`.
+    void mul_UFpPack8x1(UFpPack8x1& r, const FpPack8x1& a, const FpPack8x1& b);
 
-    /// @brief AVXBLS v2 widened multiply kernel for `fp_8x1w`.
-    /// @post Writes unreduced widened product into `fpx2_8x1w` (same layout as `mul_fpx2_8x1w`).
-    void mul_fpx2_8x1w_v2(fpx2_8x1w& r, const fp_8x1w& a, const fp_8x1w& b);
+    /// @brief AVXBLS v2 widened multiply kernel for `FpPack8x1`.
+    /// @post Writes unreduced widened product into `UFpPack8x1` (same layout as `mul_UFpPack8x1`).
+    void mul_UFpPack8x1_v2(UFpPack8x1& r, const FpPack8x1& a, const FpPack8x1& b);
 
-    /// @brief Canonical widened multiply for `fp_4x2w`.
-    /// @details Current implementation forwards to `mul_fpx2_4x2w_v1`.
-    /// @post Writes unreduced widened product into `fpx2_4x2w`.
-    void mul_fpx2_4x2w(fpx2_4x2w& r, const fp_4x2w& a, const fp_4x2w& b);
+    /// @brief Canonical widened multiply for `FpPack4x2`.
+    /// @details Current implementation forwards to `mul_UFpPack4x2_v1`.
+    /// @post Writes unreduced widened product into `UFpPack4x2`.
+    void mul_UFpPack4x2(UFpPack4x2& r, const FpPack4x2& a, const FpPack4x2& b);
 
-    /// @brief AVXBLS widened multiply kernel for `fp_4x2w`.
-    /// @post Writes unreduced widened product into `fpx2_4x2w`.
-    void mul_fpx2_4x2w_v1(fpx2_4x2w& r, const fp_4x2w& a, const fp_4x2w& b);
+    /// @brief AVXBLS widened multiply kernel for `FpPack4x2`.
+    /// @post Writes unreduced widened product into `UFpPack4x2`.
+    void mul_UFpPack4x2_v1(UFpPack4x2& r, const FpPack4x2& a, const FpPack4x2& b);
 
 
-    /// @brief Montgomery reduction from widened `8x1w` to reduced `fp_8x1w`.
-    /// @pre `a` is a valid double-length radix-48 value (typically from `mul_fpx2_8x1w*`).
+    /// @brief Montgomery reduction from widened `8x1w` to reduced `FpPack8x1`.
+    /// @pre `a` is a valid double-length radix-48 value (typically from `mul_UFpPack8x1*`).
     /// @post `r` is reduced modulo `p` in Montgomery form, radix-48 limbs.
-    void redc_fpx2_8x1w(fp_8x1w& r, const fpx2_8x1w& a);
+    void redc_UFpPack8x1(FpPack8x1& r, const UFpPack8x1& a);
 
-    /// @brief Montgomery reduction from widened `4x2w` to reduced `fp_4x2w`.
-    /// @pre `a` is a valid double-length 4x2w value (typically from `mul_fpx2_4x2w*`).
+    /// @brief Montgomery reduction from widened `4x2w` to reduced `FpPack4x2`.
+    /// @pre `a` is a valid double-length 4x2w value (typically from `mul_UFpPack4x2*`).
     /// @post `r` is reduced modulo `p` in Montgomery form, 4x2w layout.
-    void redc_fpx2_4x2w(fp_4x2w& r, const fpx2_4x2w& a);
+    void redc_UFpPack4x2(FpPack4x2& r, const UFpPack4x2& a);
     ///@}
 }
 

@@ -85,8 +85,8 @@ Meaning:
 
 Examples:
 
-- `fp_8x1w`: 8-way channels, 1 word per channel per vector slot.
-- `fp_4x2w`: 4-way channels with lane-pair packing.
+- `FpPack8x1`: 8-way channels, 1 word per channel per vector slot.
+- `FpPack4x2`: 4-way channels with lane-pair packing.
 - `fp2_2x2x2w`: 2-way, each Fp2 component split across lane-pairs.
 
 Dimension product maps to 8 logical lanes.
@@ -112,21 +112,21 @@ Dimension product maps to 8 logical lanes.
 
 ## 4.3 Fp packed types
 
-- `fp_8x1w` (`__m512i[8]`)
+- `FpPack8x1` (`__m512i[8]`)
   - Represents 8 parallel Fp values.
   - For channel `ch`, limb `i`: `elem[ch].limb[i] = a[i].lane[ch]`.
-- `fpx2_8x1w` (`__m512i[16]`)
-  - Widened product form of `fp_8x1w`.
-- `fp_4x2w` (`__m512i[4]`)
+- `UFpPack8x1` (`__m512i[16]`)
+  - Widened product form of `FpPack8x1`.
+- `FpPack4x2` (`__m512i[4]`)
   - 4 parallel Fp values with lane-pair packing.
   - Channel `ch` uses lanes `(2*ch, 2*ch+1)` for low/high limb halves.
-- `fpx2_4x2w` (`__m512i[12]`)
-  - Widened product form of `fp_4x2w`.
+- `UFpPack4x2` (`__m512i[12]`)
+  - Widened product form of `FpPack4x2`.
 
 ## 4.4 Fp2 packed types
 
-- `fp2_8x1x1w` (`fp_8x1w[2]`): two Fp planes (`c0`, `c1`) of 8-way packed values.
-- `fp2x2_8x1x1w` (`fpx2_8x1w[2]`): widened equivalent.
+- `fp2_8x1x1w` (`FpPack8x1[2]`): two Fp planes (`c0`, `c1`) of 8-way packed values.
+- `fp2x2_8x1x1w` (`UFpPack8x1[2]`): widened equivalent.
 - `fp2_4x2x1w` (`__m512i[8]`): 4-way Fp2 in lane-pair format.
 - `fp2x2_4x2x1w` (`__m512i[16]`): widened equivalent.
 - `fp2_2x4x1w` (`__m512i[8]`): 2-way/4-lane-group intermediate format.
@@ -189,29 +189,29 @@ Legend:
   - Pre: `Pre-L`; Post: `Post-L`, `Post-P`.
 - `conv_64to48_fp`: one scalar Fp conversion 64-bit-limb form -> radix-48.
   - Pre: scalar little-endian 64-bit limbs; Post: scalar radix-48 limbs.
-- `conv_64to48_fp_8x1w`: packed conversion (8x1w) to radix-48.
+- `FpPack8x1::conv_64to48`: packed conversion (8x1w) to radix-48.
   - Pre: `Pre-L`; Post: `Post-L`, `Post-N`.
 - `trace_dump__m512i`: debug register dump.
   - Pre: any `__m512i`; Post: no state change.
-- `conv_64to48_fp_4x2w`: packed conversion (4x2w) to radix-48.
+- `conv_64to48_FpPack4x2`: packed conversion (4x2w) to radix-48.
   - Pre: `Pre-L`; Post: `Post-L`, `Post-N`.
 - `conv_64to48_mpi`: generic multiprecision 64->48 conversion.
   - Pre: valid buffer sizes; Post: converted limb stream.
 - `conv_48to64_fp`: one scalar Fp conversion radix-48 -> 64-bit-limb form.
   - Pre: scalar radix-48 limbs; Post: scalar 64-bit-limb form.
-- `conv_48to64_fp_8x1w`: packed conversion (8x1w) back to 64-bit-limb packing.
+- `FpPack8x1::conv_48to64`: packed conversion (8x1w) back to 64-bit-limb packing.
   - Pre: `Pre-L`; Post: `Post-L`.
-- `conv_48to64_fp_4x2w`: packed conversion (4x2w) back to 64-bit-limb packing.
+- `conv_48to64_FpPack4x2`: packed conversion (4x2w) back to 64-bit-limb packing.
   - Pre: `Pre-L`; Post: `Post-L`.
 - `conv_48to64_mpi`: generic multiprecision 48->64 conversion.
   - Pre: valid buffers; Post: converted limb stream.
 - `carryp_mpi48`: scalar radix-48 forward carry propagation.
   - Pre: radix-48 style array; Post: normalized carry.
-- `carryp_fp_4x2w`: packed radix-48 carry propagation for 4x2w.
+- `carryp_FpPack4x2`: packed radix-48 carry propagation for 4x2w.
   - Pre: `Pre-L`; Post: `Post-L`, `Post-N`.
-- `get_channel_8x1w`: extracts one lane-channel from `fp_8x1w`.
+- `get_channel_8x1w`: extracts one lane-channel from `FpPack8x1`.
   - Pre: channel index in range; Post: scalar channel limbs.
-- `get_channel_4x2w`: extracts one packed channel from `fp_4x2w`.
+- `get_channel_4x2w`: extracts one packed channel from `FpPack4x2`.
   - Pre: channel index in range; Post: scalar channel limbs.
 
 ## 5.2 SIMD transform helpers (`fp12_avx.c`, static)
@@ -253,10 +253,10 @@ Pre/Post: `Pre-L` -> `Post-L`, `Post-P`.
 
 ### 5.3.1 Static Fp/Fpx2 helpers
 
-- `add_fp_8x1w`, `sub_fp_8x1w`, `asx4_fp_8x1w`, `asax6_fp_8x1w`, `assx6_fp_8x1w`
-- `add_fp_4x2w`, `sub_fp_4x2w`, `asx2_fp_4x2w`
-- `add_fpx2_8x1w`, `sub_fpx2_8x1w`, `aaasx2_fpx2_8x1w`, `aassx2_fpx2_8x1w`, `asx4_fpx2_8x1w`, `ssaax2_fpx2_8x1w`, `ssasx2_fpx2_8x1w`
-- `add_fpx2_4x2w`, `sub_fpx2_4x2w`, `asx2_fpx2_4x2w`, `aass_fpx2_4x2w`
+- `FpPack8x1::add`, `FpPack8x1::sub`, `FpPack8x1::asx4`, `FpPack8x1::asax6`, `FpPack8x1::assx6`
+- `add_FpPack4x2`, `sub_FpPack4x2`, `asx2_FpPack4x2`
+- `add_UFpPack8x1`, `sub_UFpPack8x1`, `aaasx2_UFpPack8x1`, `aassx2_UFpPack8x1`, `asx4_UFpPack8x1`, `ssaax2_UFpPack8x1`, `ssasx2_UFpPack8x1`
+- `add_UFpPack4x2`, `sub_UFpPack4x2`, `asx2_UFpPack4x2`, `aass_UFpPack4x2`
 
 Behavior:
 
@@ -270,12 +270,12 @@ Pre/Post:
 
 ### 5.3.2 Public Fp kernels
 
-- `mul_fpx2_8x1w` (blst alias; implementation is AVXBLS `mul_fpx2_8x1w_v2`)
-- `mul_fpx2_8x1w_v2`
-- `mul_fpx2_4x2w` (blst alias; implementation is AVXBLS `mul_fpx2_4x2w_v1`)
-- `mul_fpx2_4x2w_v1`
-- `redc_fpx2_8x1w`
-- `redc_fpx2_4x2w`
+- `mul_UFpPack8x1` (blst alias; implementation is AVXBLS `mul_UFpPack8x1_v2`)
+- `mul_UFpPack8x1_v2`
+- `mul_UFpPack4x2` (blst alias; implementation is AVXBLS `mul_UFpPack4x2_v1`)
+- `mul_UFpPack4x2_v1`
+- `redc_UFpPack8x1`
+- `redc_UFpPack4x2`
 
 Behavior:
 
@@ -463,13 +463,13 @@ Pre/Post:
 Types:
 
 - `vec384`, `vec768`
-- `fp_8x1w`, `fpx2_8x1w`, `fp_4x2w`, `fpx2_4x2w`
+- `FpPack8x1`, `UFpPack8x1`, `FpPack4x2`, `UFpPack4x2`
 
 Primary kernels:
 
-- `mul_fpx2_8x1w` / `mul_fpx2_8x1w_v2` (AVXBLS v2 kernel)
-- `mul_fpx2_4x2w_v1`
-- `redc_fpx2_8x1w`, `redc_fpx2_4x2w`
+- `mul_UFpPack8x1` / `mul_UFpPack8x1_v2` (AVXBLS v2 kernel)
+- `mul_UFpPack4x2_v1`
+- `redc_UFpPack8x1`, `redc_UFpPack4x2`
 
 ## 6.2 Fp2
 
@@ -601,9 +601,9 @@ Pairing wrappers:
 
 Port now:
 
-- Types: `fp_8x1w`, `fpx2_8x1w`, `fp_4x2w`, `fpx2_4x2w`
-- Kernels: `mul_fpx2_8x1w`/`mul_fpx2_8x1w_v2` (AVXBLS v2), `mul_fpx2_4x2w`/`mul_fpx2_4x2w_v1`
-- Reductions: `redc_fpx2_8x1w`, `redc_fpx2_4x2w`
+- Types: `FpPack8x1`, `UFpPack8x1`, `FpPack4x2`, `UFpPack4x2`
+- Kernels: `mul_UFpPack8x1`/`mul_UFpPack8x1_v2` (AVXBLS v2), `mul_UFpPack4x2`/`mul_UFpPack4x2_v1`
+- Reductions: `redc_UFpPack8x1`, `redc_UFpPack4x2`
 - Required helpers: Fp/Fpx2 add-sub/combination helpers + needed lane transforms + conversions.
 
 Test gates:
