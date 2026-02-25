@@ -521,3 +521,42 @@ During implementation, add more tests whenever:
 5. behavior differs between `BLST_AVX512_PORTABLE` and native AVX512.
 
 This plan intentionally encourages growing tests as implementation findings emerge.
+
+---
+
+## 16) AVXBLS Cycle Benchmark Mode
+
+Purpose:
+
+- provide a direct in-tree cycle benchmark with avxbls-style sections and labels,
+- measure the ported AVX kernels (and matching scalar baselines where available),
+- compare numbers against avxbls runs without changing the main benchmark flow.
+
+Runtime entry:
+
+- `blst_benchmarks --user --avxbls`
+
+Optional tuning flags:
+
+- `--iters N`
+- `--warmup N`
+
+Implemented sections:
+
+1. `TIMING - PAIRING`
+2. `TIMING - FP`
+3. `TIMING - FP2`
+4. `TIMING - FP4`
+5. `TIMING - FP6`
+6. `TIMING - FP12`
+7. `TIMING - LINE`
+
+FP-kernel version note:
+
+- this port intentionally keeps `mul_fpx2_8x1w_v2` and `mul_fpx2_4x2w_v1` only (no v1/v3/v4 FP multiply variants).
+
+Success criteria:
+
+1. `--user --avxbls` runs and prints all section headers above.
+2. each line emits `#cycle = ...` for the mapped operation.
+3. output labels stay stable so results can be diffed across runs/revisions.
