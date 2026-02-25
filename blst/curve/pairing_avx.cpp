@@ -28,8 +28,8 @@ void line_by_px2(Fp6& line, const G1AffinePoint& px2)
 
 void start_dbl_n(
     GT& ret,
-    G2Point t[],
-    const G1AffinePoint px2[],
+    G2Point* BLST_restrict t,
+    const G1AffinePoint* BLST_restrict px2,
     std::size_t n)
 {
     Fp6 line{};
@@ -50,9 +50,9 @@ void start_dbl_n(
 
 void add_n_dbl_n_generic(
     GT& ret,
-    G2Point t[],
-    const G2AffinePoint q[],
-    const G1AffinePoint px2[],
+    G2Point* BLST_restrict t,
+    const G2AffinePoint* BLST_restrict q,
+    const G1AffinePoint* BLST_restrict px2,
     std::size_t n,
     std::size_t k)
 {
@@ -294,9 +294,9 @@ void add_n_dbl_n_vector(
 
 void add_n_dbl_n(
     GT& ret,
-    G2Point t[],
-    const G2AffinePoint q[],
-    const G1AffinePoint px2[],
+    G2Point* BLST_restrict t,
+    const G2AffinePoint* BLST_restrict q,
+    const G1AffinePoint* BLST_restrict px2,
     std::size_t n,
     std::size_t k)
 {
@@ -428,12 +428,18 @@ void raise_to_z(Fp12& ret, const Fp12& a)
 
 void miller_loop_n(
     GT& ret,
-    const G2AffinePoint q[],
-    const G1AffinePoint p[],
+    const G2AffinePoint* BLST_restrict q,
+    const G1AffinePoint* BLST_restrict p,
     std::size_t n)
 {
     if (n == 0) {
         vec_copy(&ret.data, get_BLST_Rx().p12, sizeof(Fp12));
+        return;
+    }
+
+    BLST_ASSERT(q != nullptr);
+    BLST_ASSERT(p != nullptr);
+    if ((q == nullptr) || (p == nullptr)) {
         return;
     }
 
@@ -478,7 +484,9 @@ void miller_loop_n(
         return;
     }
 
-    miller_loop_n(ret, q.data(), p.data(), q.size());
+    const auto* BLST_restrict q_ptr = q.data();
+    const auto* BLST_restrict p_ptr = p.data();
+    miller_loop_n(ret, q_ptr, p_ptr, q.size());
 }
 
 void final_exp(GT& ret, const GT& f)
@@ -521,8 +529,8 @@ void final_exp(GT& ret, const GT& f)
 
 void optimal_ate_pairing(
     GT& ret,
-    const G2AffinePoint q[],
-    const G1AffinePoint p[],
+    const G2AffinePoint* BLST_restrict q,
+    const G1AffinePoint* BLST_restrict p,
     std::size_t n)
 {
     GT f{};
@@ -540,7 +548,9 @@ void optimal_ate_pairing(
         return;
     }
 
-    optimal_ate_pairing(ret, q.data(), p.data(), q.size());
+    const auto* BLST_restrict q_ptr = q.data();
+    const auto* BLST_restrict p_ptr = p.data();
+    optimal_ate_pairing(ret, q_ptr, p_ptr, q.size());
 }
 
 } // namespace blst::avx

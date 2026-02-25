@@ -13,8 +13,8 @@ namespace blst::avx
 {
 void miller_loop_n(
     GT& ret,
-    const G2AffinePoint Q[],
-    const G1AffinePoint P[],
+    const G2AffinePoint* BLST_restrict q,
+    const G1AffinePoint* BLST_restrict p,
     std::size_t n);
 
 void miller_loop_n(
@@ -26,8 +26,8 @@ void final_exp(GT& ret, const GT& f);
 
 void optimal_ate_pairing(
     GT& ret,
-    const G2AffinePoint Q[],
-    const G1AffinePoint P[],
+    const G2AffinePoint* BLST_restrict q,
+    const G1AffinePoint* BLST_restrict p,
     std::size_t n);
 
 void optimal_ate_pairing(

@@ -149,11 +149,14 @@ Use static member functions when ownership/domain is clear.
   - `blst::avx::optimal_ate_pairing(GT&, std::span<const G2AffinePoint>, std::span<const G1AffinePoint>)`
 - Existing pointer+`n` kernels remain the hot-path implementation.
 - Added defensive `n==0` handling in AVX `miller_loop_n` entry to avoid undefined behavior.
+- Converted AVX pairing entry signatures from C-array parameters to pointer + `BLST_restrict`.
+- Added AVX pairing tests for:
+  - pointer vs span equivalence (`miller_loop_n`, `optimal_ate_pairing`)
+  - empty-span identity behavior (`miller_loop_n` with `n == 0`)
 - Next implementation slice:
-  1. Move `blst::avx` pairing APIs from C-array syntax to pointer/reference form where still needed.
-  2. Add `restrict` only on AVX hot loops with clear non-alias requirements and debug overlap assertions.
-  3. Keep scalar `GT::*` paths untouched; AVX dispatch integration remains additive and explicit.
-  4. Validate with:
+  1. Add `restrict` only on AVX hot loops with clear non-alias requirements and debug overlap assertions.
+  2. Keep scalar `GT::*` paths untouched; AVX dispatch integration remains additive and explicit.
+  3. Validate with:
      - `ctest --test-dir out/build/avx512-portable-check --output-on-failure -R "Avx|avx"`
      - `ctest --test-dir out/build/avx512-portable-check --output-on-failure`
 
