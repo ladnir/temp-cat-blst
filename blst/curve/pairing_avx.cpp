@@ -348,10 +348,9 @@ void mul_n_sqr_vector(Fp12& ret, const Fp12& a, std::size_t n)
     blend_0x0F_hl(_a, r101, r001);
 
     for (i = 0; i < VWORDS; ++i) {
-        u64 lanes_r2[8], lanes_r001[8], lanes_r101[8];
-        store_u64_lanes(lanes_r2, r2[i]);
-        store_u64_lanes(lanes_r001, r001[i]);
-        store_u64_lanes(lanes_r101, r101[i]);
+        const u64* lanes_r2 = reinterpret_cast<const u64*>(&r2[i]);
+        const u64* lanes_r001 = reinterpret_cast<const u64*>(&r001[i]);
+        const u64* lanes_r101 = reinterpret_cast<const u64*>(&r101[i]);
         _bc[i] = VSET(
             static_cast<i64>(lanes_r2[6]),
             static_cast<i64>(lanes_r2[4]),
@@ -379,8 +378,7 @@ void mul_n_sqr_vector(Fp12& ret, const Fp12& a, std::size_t n)
     carryp_fp_4x2w(_a);
     conv_48to64_fp_4x2w(s, _a);
     for (i = 0; i < SWORDS / 2; ++i) {
-        u64 lanes[8];
-        store_u64_lanes(lanes, s[i]);
+        const u64* lanes = reinterpret_cast<const u64*>(&s[i]);
         ret[0][0][0][i] = lanes[0];
         ret[0][0][0][i + (SWORDS / 2)] = lanes[1];
         ret[0][0][1][i] = lanes[2];
@@ -393,8 +391,7 @@ void mul_n_sqr_vector(Fp12& ret, const Fp12& a, std::size_t n)
 
     conv_48to64_fp_8x1w(t[0], _bc);
     for (i = 0; i < SWORDS; ++i) {
-        u64 lanes[8];
-        store_u64_lanes(lanes, t[0][i]);
+        const u64* lanes = reinterpret_cast<const u64*>(&t[0][i]);
         ret[1][0][0][i] = lanes[0];
         ret[1][0][1][i] = lanes[1];
         ret[0][2][0][i] = lanes[2];

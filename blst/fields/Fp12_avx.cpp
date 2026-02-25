@@ -57,10 +57,6 @@ namespace
         blend_0x55_hl(&r[2 * VWORDS], &a[3 * VWORDS], &a[2 * VWORDS]);
     }
 
-    inline void store_u64_lanes(u64 lanes[8], const cc512i v)
-    {
-        _cc512_storeu_si512(lanes, v);
-    }
 } // namespace
 
 void cyclotomic_sqr_fp12_vec_v1(
@@ -505,10 +501,9 @@ void mul_fp12_vector(Fp12& ret, const Fp12& a, const Fp12& b)
     conv_48to64_fp_4x2w(out2, r2);
 
     for (u64 i = 0; i < SWORDS / 2; ++i) {
-        u64 lanes0[8], lanes1[8], lanes2[8];
-        store_u64_lanes(lanes0, out0[i]);
-        store_u64_lanes(lanes1, out1[i]);
-        store_u64_lanes(lanes2, out2[i]);
+        const u64* lanes0 = reinterpret_cast<const u64*>(&out0[i]);
+        const u64* lanes1 = reinterpret_cast<const u64*>(&out1[i]);
+        const u64* lanes2 = reinterpret_cast<const u64*>(&out2[i]);
 
         ret[0][0][0][i] = lanes0[0];
         ret[0][0][0][i + (SWORDS / 2)] = lanes0[1];
@@ -582,8 +577,7 @@ void mul_by_xy00z0_fp12_vector(Fp12& ret, const Fp12& a, const Fp6& xy00z0)
     conv_48to64_fp_4x2w(out1, r1);
 
     for (u64 i = 0; i < SWORDS; ++i) {
-        u64 lanes[8];
-        store_u64_lanes(lanes, out0[i]);
+        const u64* lanes = reinterpret_cast<const u64*>(&out0[i]);
         ret[0][2][0][i] = lanes[0];
         ret[0][2][1][i] = lanes[1];
         ret[0][1][0][i] = lanes[2];
@@ -595,8 +589,7 @@ void mul_by_xy00z0_fp12_vector(Fp12& ret, const Fp12& a, const Fp6& xy00z0)
     }
 
     for (u64 i = 0; i < SWORDS / 2; ++i) {
-        u64 lanes[8];
-        store_u64_lanes(lanes, out1[i]);
+        const u64* lanes = reinterpret_cast<const u64*>(&out1[i]);
         ret[0][0][0][i] = lanes[0];
         ret[0][0][0][i + (SWORDS / 2)] = lanes[1];
         ret[0][0][1][i] = lanes[2];
@@ -636,9 +629,8 @@ void sqr_fp12_vector(Fp12& ret, const Fp12& a)
     conv_48to64_fp_8x1w(out1, r1);
 
     for (u64 i = 0; i < SWORDS; ++i) {
-        u64 lanes0[8], lanes1[8];
-        store_u64_lanes(lanes0, out0[i]);
-        store_u64_lanes(lanes1, out1[i]);
+        const u64* lanes0 = reinterpret_cast<const u64*>(&out0[i]);
+        const u64* lanes1 = reinterpret_cast<const u64*>(&out1[i]);
         ret[0][0][0][i] = lanes0[0];
         ret[0][0][1][i] = lanes0[1];
         ret[0][1][0][i] = lanes0[2];
@@ -684,8 +676,7 @@ void cyclotomic_sqr_fp12_vector(Fp12& ret, const Fp12& a)
     carryp_fp_4x2w(out_a);
     conv_48to64_fp_4x2w(lanes_a, out_a);
     for (u64 i = 0; i < SWORDS / 2; ++i) {
-        u64 lanes[8];
-        store_u64_lanes(lanes, lanes_a[i]);
+        const u64* lanes = reinterpret_cast<const u64*>(&lanes_a[i]);
         ret[0][0][0][i] = lanes[0];
         ret[0][0][0][i + (SWORDS / 2)] = lanes[1];
         ret[0][0][1][i] = lanes[2];
@@ -698,8 +689,7 @@ void cyclotomic_sqr_fp12_vector(Fp12& ret, const Fp12& a)
 
     conv_48to64_fp_8x1w(lanes_bc, out_bc);
     for (u64 i = 0; i < SWORDS; ++i) {
-        u64 lanes[8];
-        store_u64_lanes(lanes, lanes_bc[i]);
+        const u64* lanes = reinterpret_cast<const u64*>(&lanes_bc[i]);
         ret[1][0][0][i] = lanes[0];
         ret[1][0][1][i] = lanes[1];
         ret[0][2][0][i] = lanes[2];
