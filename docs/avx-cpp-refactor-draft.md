@@ -185,6 +185,8 @@ Use static member functions when ownership/domain is clear.
 - AVX signature typing cleanup (completed, no ABI/runtime behavior changes):
   - converted AVX field header signatures to descriptive packed aliases (`Fp2Pack*`, `UFp2Pack*`,
     `Fp4Pack*`, `UFp4Pack*`) while keeping existing schedule aliases available.
+  - converted AVX G2 line-kernel header signatures to descriptive packed aliases
+    (`Fp2Pack2x2x2`, `Fp2Pack4x2x1`) while preserving existing schedule alias names.
   - added `Fp4Pack*`/`UFp4Pack*` aliases and POD static assertions in `Fp4_avx.h`.
   - removed remaining AVX benchmark/test C-array parameter signatures:
     - `benchmark/avxbls_bench.cpp`
