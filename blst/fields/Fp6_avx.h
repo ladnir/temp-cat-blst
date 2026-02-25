@@ -56,11 +56,11 @@ namespace blst
      * @post Outputs are widened (unreduced) Montgomery intermediates.
      */
     void mul_fp6x2_4x2x1x1w(
-        fp2x2_8x1x1w& r01,
-        fp2x2_8x1x1w& r2,
-        const fp2_8x1x1w& ab0,
-        const fp2_8x1x1w& ab1,
-        const fp2_8x1x1w& ab2);
+        UFp2Pack8x1x1& r01,
+        UFp2Pack8x1x1& r2,
+        const Fp2Pack8x1x1& ab0,
+        const Fp2Pack8x1x1& ab1,
+        const Fp2Pack8x1x1& ab2);
 
     /**
      * Karatsuba Fp6 multiply (2-way schedule).
@@ -71,11 +71,11 @@ namespace blst
      * @post Outputs are widened (unreduced) Montgomery intermediates.
      */
     void mul_fp6x2_2x2x2x1w(
-        fp2x2_4x2x1w& r01,
-        fp2x2_4x2x1w& r2,
-        const fp2_4x2x1w& ab0,
-        const fp2_4x2x1w& ab1,
-        const fp2_4x2x1w& ab2);
+        UFp2Pack4x2x1& r01,
+        UFp2Pack4x2x1& r2,
+        const Fp2Pack4x2x1& ab0,
+        const Fp2Pack4x2x1& ab1,
+        const Fp2Pack4x2x1& ab2);
 
     /**
      * Karatsuba Fp6 multiply (1-way schedule).
@@ -86,11 +86,11 @@ namespace blst
      * @post Outputs are widened (unreduced) Montgomery intermediates.
      */
     void mul_fp6x2_1x2x2x2w(
-        fp2x2_2x2x2w& r01,
-        fp2x2_2x2x2w& r2,
-        const fp2_2x2x2w& ab0,
-        const fp2_2x2x2w& ab1,
-        const fp2_2x2x2w& ab2);
+        UFp2Pack2x2x2& r01,
+        UFp2Pack2x2x2& r2,
+        const Fp2Pack2x2x2& ab0,
+        const Fp2Pack2x2x2& ab1,
+        const Fp2Pack2x2x2& ab2);
 
     /**
      * Sparse Fp6 multiply for `(x,y,0,0,z,0)` pattern (2-way schedule).
@@ -119,14 +119,14 @@ namespace blst
      * @post Outputs are widened (unreduced) Montgomery intermediates.
      */
     void mul_by_xy00z0_fp6x2_2x2x2x1w(
-        fp2x2_4x2x1w& r01,
-        fp2x2_4x2x1w& r2,
-        fp2x2_4x2x1w& r3,
-        fp2x2_4x2x1w& r45,
-        const fp2_4x2x1w& a01,
-        const fp2_4x2x1w& a2,
-        const fp2_4x2x1w& b01,
-        const fp2_4x2x1w& b4);
+        UFp2Pack4x2x1& r01,
+        UFp2Pack4x2x1& r2,
+        UFp2Pack4x2x1& r3,
+        UFp2Pack4x2x1& r45,
+        const Fp2Pack4x2x1& a01,
+        const Fp2Pack4x2x1& a2,
+        const Fp2Pack4x2x1& b01,
+        const Fp2Pack4x2x1& b4);
 
     /**
      * Sparse Fp6 multiply for `(x,y,0,0,z,0)` pattern (4-way schedule).
@@ -144,11 +144,11 @@ namespace blst
      * @post Outputs are widened (unreduced) Montgomery intermediates.
      */
     void mul_by_xy00z0_fp6x2_2x4x1x1w(
-        fp2x2_8x1x1w& r01,
-        fp2x2_8x1x1w& r23,
-        fp2x2_8x1x1w& r45,
-        const fp2_8x1x1w& a,
-        const fp2_8x1x1w& b);
+        UFp2Pack8x1x1& r01,
+        UFp2Pack8x1x1& r23,
+        UFp2Pack8x1x1& r45,
+        const Fp2Pack8x1x1& a,
+        const Fp2Pack8x1x1& b);
 }
 
 #endif

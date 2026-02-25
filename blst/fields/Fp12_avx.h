@@ -31,10 +31,10 @@ namespace blst
      * @post `ra` and `rbc` contain reduced Montgomery schedule outputs.
      */
     void cyclotomic_sqr_fp12_vec_v1(
-        fp4_1x2x2x2w& ra,
-        fp4_2x2x2x1w& rbc,
-        const fp4_1x2x2x2w& a,
-        const fp4_2x2x2x1w& bc);
+        Fp4Pack1x2x2x2& ra,
+        Fp4Pack2x2x2x1& rbc,
+        const Fp4Pack1x2x2x2& a,
+        const Fp4Pack2x2x2x1& bc);
 
     /**
      * Cyclotomic square (single-length Fp4 square path).
@@ -45,10 +45,10 @@ namespace blst
      * @post `ra` and `rbc` contain reduced Montgomery schedule outputs.
      */
     void cyclotomic_sqr_fp12_vec_v2(
-        fp4_1x2x2x2w& ra,
-        fp4_2x2x2x1w& rbc,
-        const fp4_1x2x2x2w& a,
-        const fp4_2x2x2x1w& bc);
+        Fp4Pack1x2x2x2& ra,
+        Fp4Pack2x2x2x1& rbc,
+        const Fp4Pack1x2x2x2& a,
+        const Fp4Pack2x2x2x1& bc);
 
     /**
      * Compressed cyclotomic square update of only the B/C block.
@@ -60,8 +60,8 @@ namespace blst
      * @post `rbc` contains reduced Montgomery B/C schedule output.
      */
     void compressed_cyclotomic_sqr_fp12_vec_v1(
-        fp4_2x2x2x1w& rbc,
-        const fp4_2x2x2x1w& bc);
+        Fp4Pack2x2x2x1& rbc,
+        const Fp4Pack2x2x2x1& bc);
 
     /**
      * Schoolbook Fp12 multiply, variant 1.
@@ -74,11 +74,11 @@ namespace blst
      * @post `r01` and `r2` contain reduced Montgomery schedule outputs.
      */
     void mul_fp12_vec_v1(
-        fp2_4x2x1w& r01,
-        fp2_4x2x1w& r2,
-        const fp2_8x1x1w& ab0,
-        const fp2_8x1x1w& ab1,
-        const fp2_8x1x1w& ab2);
+        Fp2Pack4x2x1& r01,
+        Fp2Pack4x2x1& r2,
+        const Fp2Pack8x1x1& ab0,
+        const Fp2Pack8x1x1& ab1,
+        const Fp2Pack8x1x1& ab2);
 
     /**
      * Schoolbook Fp12 multiply, variant 2 (double-length sub-routine path).
@@ -89,11 +89,11 @@ namespace blst
      * @post `r01` and `r2` contain reduced Montgomery schedule outputs.
      */
     void mul_fp12_vec_v2(
-        fp2_4x2x1w& r01,
-        fp2_2x2x2w& r2,
-        const fp2_8x1x1w& ab0,
-        const fp2_8x1x1w& ab1,
-        const fp2_8x1x1w& ab2);
+        Fp2Pack4x2x1& r01,
+        Fp2Pack2x2x2& r2,
+        const Fp2Pack8x1x1& ab0,
+        const Fp2Pack8x1x1& ab1,
+        const Fp2Pack8x1x1& ab2);
 
     /**
      * Karatsuba Fp12 multiply, variant 3 (`2x2x2w` sub-routines).
@@ -107,12 +107,12 @@ namespace blst
      * @post outputs contain reduced Montgomery schedule blocks.
      */
     void mul_fp12_vec_v3(
-        fp2_2x2x2w& r001,
-        fp2_2x2x2w& r101,
-        fp2_2x2x2w& r2,
-        const fp2_4x2x1w& ab0,
-        const fp2_4x2x1w& ab1,
-        const fp2_4x2x1w& ab2);
+        Fp2Pack2x2x2& r001,
+        Fp2Pack2x2x2& r101,
+        Fp2Pack2x2x2& r2,
+        const Fp2Pack4x2x1& ab0,
+        const Fp2Pack4x2x1& ab1,
+        const Fp2Pack4x2x1& ab2);
 
     /**
      * Karatsuba Fp12 multiply, variant 4 (`4x2x1w` + `2x2x2w` split).
@@ -126,12 +126,12 @@ namespace blst
      * @post outputs contain reduced Montgomery schedule blocks.
      */
     void mul_fp12_vec_v4(
-        fp2_4x2x1w& r0,
-        fp2_2x2x2w& r101,
-        fp2_2x2x2w& r12,
-        const fp2_4x2x1w& ab0,
-        const fp2_4x2x1w& ab1,
-        const fp2_4x2x1w& ab2);
+        Fp2Pack4x2x1& r0,
+        Fp2Pack2x2x2& r101,
+        Fp2Pack2x2x2& r12,
+        const Fp2Pack4x2x1& ab0,
+        const Fp2Pack4x2x1& ab1,
+        const Fp2Pack4x2x1& ab2);
 
     /**
      * Sparse Fp12 multiply by `(x,y,0,0,z,0)`, variant 1 (2-way sparse Fp6 path).
@@ -140,12 +140,12 @@ namespace blst
      * @post `r0` and `r1` contain reduced Montgomery schedule blocks.
      */
     void mul_by_xy00z0_fp12_vec_v1(
-        fp2_4x2x1w& r0,
-        fp2_2x2x2w& r1,
-        const fp2_4x2x1w& a01,
-        const fp2_4x2x1w& a2,
-        const fp2_4x2x1w& b01,
-        const fp2_4x2x1w& b4);
+        Fp2Pack4x2x1& r0,
+        Fp2Pack2x2x2& r1,
+        const Fp2Pack4x2x1& a01,
+        const Fp2Pack4x2x1& a2,
+        const Fp2Pack4x2x1& b01,
+        const Fp2Pack4x2x1& b4);
 
     /**
      * Sparse Fp12 multiply by `(x,y,0,0,z,0)`, variant 2 (4-way sparse Fp6 path).
@@ -154,10 +154,10 @@ namespace blst
      * @post `r0` and `r1` contain reduced Montgomery schedule blocks.
      */
     void mul_by_xy00z0_fp12_vec_v2(
-        fp2_4x2x1w& r0,
-        fp2_2x2x2w& r1,
-        const fp2_8x1x1w& a,
-        const fp2_8x1x1w& b);
+        Fp2Pack4x2x1& r0,
+        Fp2Pack2x2x2& r1,
+        const Fp2Pack8x1x1& a,
+        const Fp2Pack8x1x1& b);
 
     /**
      * Karatsuba-style Fp12 square, variant 1.
@@ -170,10 +170,10 @@ namespace blst
      * @post `r0` and `r1` contain reduced Montgomery schedule outputs.
      */
     void sqr_fp12_vec_v1(
-        fp2_4x2x1w& r0,
-        fp2_4x2x1w& r1,
-        const fp2_4x2x1w& a0,
-        const fp2_4x2x1w& a1);
+        Fp2Pack4x2x1& r0,
+        Fp2Pack4x2x1& r1,
+        const Fp2Pack4x2x1& a0,
+        const Fp2Pack4x2x1& a1);
 
     /**
      * AVXBLS wrapper: full Fp12 multiply with scalar-layout inputs/outputs.

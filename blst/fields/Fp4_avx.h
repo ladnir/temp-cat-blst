@@ -15,14 +15,27 @@ namespace blst
      */
 
     /// Two packed Fp4 values in `4x2x1w`-backed schedule.
-    using fp4_2x2x2x1w = fp2_4x2x1w;
+    using Fp4Pack2x2x2x1 = Fp2Pack4x2x1;
+    using fp4_2x2x2x1w = Fp4Pack2x2x2x1;
     /// Widened companion layout for `fp4_2x2x2x1w`.
-    using fp4x2_2x2x2x1w = fp2x2_4x2x1w;
+    using UFp4Pack2x2x2x1 = UFp2Pack4x2x1;
+    using fp4x2_2x2x2x1w = UFp4Pack2x2x2x1;
 
     /// One packed Fp4 value in `2x2x2w`-backed schedule.
-    using fp4_1x2x2x2w = fp2_2x2x2w;
+    using Fp4Pack1x2x2x2 = Fp2Pack2x2x2;
+    using fp4_1x2x2x2w = Fp4Pack1x2x2x2;
     /// Widened companion layout for `fp4_1x2x2x2w`.
-    using fp4x2_1x2x2x2w = fp2x2_2x2x2w;
+    using UFp4Pack1x2x2x2 = UFp2Pack2x2x2;
+    using fp4x2_1x2x2x2w = UFp4Pack1x2x2x2;
+
+    static_assert(std::is_trivially_default_constructible_v<Fp4Pack2x2x2x1>);
+    static_assert(std::is_trivially_copyable_v<Fp4Pack2x2x2x1>);
+    static_assert(std::is_trivially_default_constructible_v<UFp4Pack2x2x2x1>);
+    static_assert(std::is_trivially_copyable_v<UFp4Pack2x2x2x1>);
+    static_assert(std::is_trivially_default_constructible_v<Fp4Pack1x2x2x2>);
+    static_assert(std::is_trivially_copyable_v<Fp4Pack1x2x2x2>);
+    static_assert(std::is_trivially_default_constructible_v<UFp4Pack1x2x2x2>);
+    static_assert(std::is_trivially_copyable_v<UFp4Pack1x2x2x2>);
 
     /**
      * Square Fp4 values in `fp4_2x2x2x1w` using widened intermediates.
@@ -34,21 +47,21 @@ namespace blst
      * @pre `a` holds reduced Montgomery-form Fp2 components in `2x2x2x1w` schedule.
      * @post `r` holds reduced Montgomery-form Fp2 components in the same schedule.
      */
-    void sqr_fp4_2x2x2x1w_v1(fp4_2x2x2x1w& r, const fp4_2x2x2x1w& a);
+    void sqr_fp4_2x2x2x1w_v1(Fp4Pack2x2x2x1& r, const Fp4Pack2x2x2x1& a);
 
     /**
      * Square Fp4 values in `fp4_2x2x2x1w` using single-length intermediates.
      *
      * Formula and layout contract match `sqr_fp4_2x2x2x1w_v1`.
      */
-    void sqr_fp4_2x2x2x1w_v2(fp4_2x2x2x1w& r, const fp4_2x2x2x1w& a);
+    void sqr_fp4_2x2x2x1w_v2(Fp4Pack2x2x2x1& r, const Fp4Pack2x2x2x1& a);
 
     /**
      * Square Fp4 values in `fp4_2x2x2x1w` using a Karatsuba-style identity.
      *
      * Computes the same output as `sqr_fp4_2x2x2x1w_v1`/`v2`.
      */
-    void sqr_fp4_2x2x2x1w_v3(fp4_2x2x2x1w& r, const fp4_2x2x2x1w& a);
+    void sqr_fp4_2x2x2x1w_v3(Fp4Pack2x2x2x1& r, const Fp4Pack2x2x2x1& a);
 
     /**
      * Square Fp4 values in `fp4_1x2x2x2w` using widened intermediates.
@@ -60,14 +73,14 @@ namespace blst
      * @pre `a` holds reduced Montgomery-form Fp2 components in `1x2x2x2w` schedule.
      * @post `r` holds reduced Montgomery-form Fp2 components in the same schedule.
      */
-    void sqr_fp4_1x2x2x2w_v1(fp4_1x2x2x2w& r, const fp4_1x2x2x2w& a);
+    void sqr_fp4_1x2x2x2w_v1(Fp4Pack1x2x2x2& r, const Fp4Pack1x2x2x2& a);
 
     /**
      * Square Fp4 values in `fp4_1x2x2x2w` using single-length intermediates.
      *
      * Formula and layout contract match `sqr_fp4_1x2x2x2w_v1`.
      */
-    void sqr_fp4_1x2x2x2w_v2(fp4_1x2x2x2w& r, const fp4_1x2x2x2w& a);
+    void sqr_fp4_1x2x2x2w_v2(Fp4Pack1x2x2x2& r, const Fp4Pack1x2x2x2& a);
 }
 
 #endif

@@ -182,6 +182,13 @@ Use static member functions when ownership/domain is clear.
     - `conv_sltohl` / `conv_dltovl` typed wrappers in `Fp12_avx.cpp`
     - `fill_vec_words` typed wrapper in `benchmark/avxbls_bench.cpp`
   - validated on `avx512-portable-check` with full build + full `ctest` pass.
+- AVX signature typing cleanup (completed, no ABI/runtime behavior changes):
+  - converted AVX field header signatures to descriptive packed aliases (`Fp2Pack*`, `UFp2Pack*`,
+    `Fp4Pack*`, `UFp4Pack*`) while keeping existing schedule aliases available.
+  - added `Fp4Pack*`/`UFp4Pack*` aliases and POD static assertions in `Fp4_avx.h`.
+  - removed remaining AVX benchmark/test C-array parameter signatures:
+    - `benchmark/avxbls_bench.cpp`
+    - `test/G2_avx_tests.cpp`
 - Next implementation slice:
   1. Add `restrict` only on AVX hot loops with clear non-alias requirements and debug overlap assertions.
   2. Keep scalar `GT::*` paths untouched; AVX dispatch integration remains additive and explicit.
