@@ -11,12 +11,17 @@ set(BLST_STATIC_SRC
     "curve/GT.cpp"
     "curve/point.cpp"
     "curve/multi_scalar.cpp"
-    "curve/multi_scalar_par_G1.cpp"
-    "curve/multi_scalar_par_G2.cpp"
-    "curve/multi_scalar_par_GT.cpp"
     "sign/aggregate.cpp"
     "exports.cpp"
 )
+
+if(BLST_PARALLEL_MSM)
+    list(APPEND BLST_STATIC_SRC
+        "curve/multi_scalar_par_G1.cpp"
+        "curve/multi_scalar_par_G2.cpp"
+        "curve/multi_scalar_par_GT.cpp"
+    )
+endif()
 
 if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
     list(APPEND BLST_STATIC_SRC

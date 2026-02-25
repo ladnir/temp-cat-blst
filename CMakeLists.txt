@@ -15,6 +15,7 @@ option(BLST_TEST         "Build test executables" ON)
 option(BLST_BENCHMARK    "Build benchmark executables" ON)
 option(BLST_CUDA         "Enable CUDA support" OFF)
 option(BLST_CUDA_MSM "Enable CUDA support" ${BLST_CUDA})
+option(BLST_PARALLEL_MSM "Enable parallel MSM pipeline sources/tests/benchmarks" OFF)
 
 if( NOT DEFINED BLST_LIMB_SIZE)
 	set(BLST_LIMB_SIZE 64)
@@ -45,6 +46,7 @@ message("BLST_AVX512          = ${BLST_AVX512}")  #
 message("BLST_AVX512_PORTABLE = ${BLST_AVX512_PORTABLE}")  #
 message("BLST_CUDA            = ${BLST_CUDA}")     # enable the cude impl (gpu)
 message("BLST_CUDA_MSM        = ${BLST_CUDA_MSM}")     # enable the cude impl (gpu)
+message("BLST_PARALLEL_MSM    = ${BLST_PARALLEL_MSM}") # enable parallel MSM pipeline
 message("BLST_FAST_BUILD      = ${BLST_FAST_BUILD}") # make the cude build faster but slower runtime.
 message("BLST_LIMB_SIZE       = ${BLST_LIMB_SIZE}") # 32 or 64.
 message("BLST_TEST            = ${BLST_TEST}")      # build tests

@@ -39,9 +39,12 @@ else()
         "G1_bench.cpp"
         "G2_bench.cpp"
         "pairing_bench.cpp"
-        "MSM_bench.cpp"
         "FFT_bench.cpp"
     )
+endif()
+
+if(BLST_PARALLEL_MSM)
+    list(APPEND BENCHMARK_SOURCES "MSM_bench.cpp")
 endif()
 
 # Add CUDA benchmarks if CUDA is enabled

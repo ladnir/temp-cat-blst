@@ -32,10 +32,13 @@ set(TEST_SOURCES
     "GT_tests.cpp"
     "Pairing_tests.cpp"
     "Interface_tests.cpp"
-    "Msm_tests.cpp"
     "Fft_tests.cpp"
     "avx512_compat_test.cpp" 
 )
+
+if(BLST_PARALLEL_MSM)
+    list(APPEND TEST_SOURCES "Msm_tests.cpp")
+endif()
 
 # Add CUDA tests if CUDA is enabled
 if(BLST_CUDA)
