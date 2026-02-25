@@ -449,11 +449,23 @@ Optional additive wrappers (still not integrated):
 
 Required tests (`avx512_g2_line_tests.cpp`):
 
-1. each line kernel vs scalar line-function oracle.
+1. `line_dbl_vec_v1` and `line_dbl_vec_v2` vs scalar line-function oracle.
 2. `line_dbl` variant consistency (`v1` vs `v2`).
 3. `line_by_Px2_*` coefficient checks against scalar expansion.
 4. deterministic Miller-step traces comparing AVX and scalar intermediate states.
 5. randomized projective input sets (valid points only) with strict equality checks.
+6. `line_add_vec_v1` tests must use non-exceptional mixed-add tuples only:
+   - `R=(X1,Y1,Z1)` and affine `Q=(X2,Y2)` are on-curve,
+   - `H = X2*Z1^2 - X1 != 0`,
+   - avoid synthetic random-limb tuples as scalar-oracle inputs for this kernel.
+
+Phase-6 note from implementation:
+
+- `line_add_vec_v1` follows the same non-exceptional `madd-2007-bl` contract as avxbls.
+- Random Montgomery limb tuples are not a valid oracle domain for this kernel; use points derived from
+  real group elements (for example, scalar multiples of `G2Point::generator()`), then compare AVX
+  and scalar outputs directly.
+- Important packing detail: for this kernel, `X1Y1` is packed as `X1 | Y1` (not `Y1 | X1`).
 
 Gate:
 

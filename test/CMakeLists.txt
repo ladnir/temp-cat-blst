@@ -20,6 +20,8 @@ set(TEST_SOURCES
     "Fp2_avx_tests.cpp"
     "Fp4_avx_tests.cpp"
     "Fp6_avx_tests.cpp"
+    "Fp12_avx_tests.cpp"
+    "G2_avx_tests.cpp"
     "Fp_tests.cpp" 
     "Fp2_tests.cpp" 
     "Fp12_tests.cpp" 

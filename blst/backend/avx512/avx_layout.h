@@ -62,6 +62,30 @@ namespace blst
     }
 
     /**
+     * Per-word blend with mask `0x03`:
+     * `<H|G|F|E|D|C|B|A>` with `<P|O|N|M|L|K|J|I>`
+     * -> `<H|G|F|E|D|C|J|I>`.
+     */
+    inline void blend_0x03(cc512i* r, const cc512i* a, const cc512i* b)
+    {
+        for (u64 i = 0; i < AVX_FP_NWORDS; ++i) {
+            r[i] = VMBLEND(0x03, a[i], b[i]);
+        }
+    }
+
+    /**
+     * Per-word blend with mask `0x30`:
+     * `<H|G|F|E|D|C|B|A>` with `<P|O|N|M|L|K|J|I>`
+     * -> `<H|G|N|M|D|C|B|A>`.
+     */
+    inline void blend_0x30(cc512i* r, const cc512i* a, const cc512i* b)
+    {
+        for (u64 i = 0; i < AVX_FP_NWORDS; ++i) {
+            r[i] = VMBLEND(0x30, a[i], b[i]);
+        }
+    }
+
+    /**
      * Per-word blend with mask `0x33`:
      * `<H|G|F|E|D|C|B|A>` with `<P|O|N|M|L|K|J|I>`
      * -> `<H|G|N|M|D|C|J|I>`.
@@ -106,6 +130,42 @@ namespace blst
     {
         for (u64 i = 0; i < AVX_FP_NWORDS; ++i) {
             r[i] = VMBLEND(0x77, a[i], b[i]);
+        }
+    }
+
+    /**
+     * Per-word blend with mask `0xC0`:
+     * `<H|G|F|E|D|C|B|A>` with `<P|O|N|M|L|K|J|I>`
+     * -> `<P|O|F|E|D|C|B|A>`.
+     */
+    inline void blend_0xC0(cc512i* r, const cc512i* a, const cc512i* b)
+    {
+        for (u64 i = 0; i < AVX_FP_NWORDS; ++i) {
+            r[i] = VMBLEND(0xC0, a[i], b[i]);
+        }
+    }
+
+    /**
+     * Per-word blend with mask `0xC3`:
+     * `<H|G|F|E|D|C|B|A>` with `<P|O|N|M|L|K|J|I>`
+     * -> `<P|O|F|E|D|C|J|I>`.
+     */
+    inline void blend_0xC3(cc512i* r, const cc512i* a, const cc512i* b)
+    {
+        for (u64 i = 0; i < AVX_FP_NWORDS; ++i) {
+            r[i] = VMBLEND(0xC3, a[i], b[i]);
+        }
+    }
+
+    /**
+     * Per-word blend with mask `0x0F`:
+     * `<H|G|F|E|D|C|B|A>` with `<P|O|N|M|L|K|J|I>`
+     * -> `<H|G|F|E|L|K|J|I>`.
+     */
+    inline void blend_0x0F(cc512i* r, const cc512i* a, const cc512i* b)
+    {
+        for (u64 i = 0; i < AVX_FP_NWORDS; ++i) {
+            r[i] = VMBLEND(0x0F, a[i], b[i]);
         }
     }
 
@@ -212,6 +272,17 @@ namespace blst
     }
 
     /**
+     * Per-word variable-lane permutation.
+     * `idx` is a per-lane source selector (mod 8) applied to each vector word.
+     */
+    inline void perm_var(cc512i* r, const cc512i* a, const cc512i idx)
+    {
+        for (u64 i = 0; i < AVX_FP_NWORDS; ++i) {
+            r[i] = VPERMV(idx, a[i]);
+        }
+    }
+
+    /**
      * Half-length (`VWORDS`) version of `perm_1010`.
      * Applies `<H|G|F|E|D|C|B|A> -> <F|E|F|E|D|C|D|C>` on each word.
      */
@@ -277,6 +348,16 @@ namespace blst
     }
 
     /**
+     * Half-length (`VWORDS`) blend with mask `0x55`.
+     */
+    inline void blend_0x55_hl(cc512i* r, const cc512i* a, const cc512i* b)
+    {
+        for (u64 i = 0; i < AVX_FP_VWORDS; ++i) {
+            r[i] = VMBLEND(0x55, a[i], b[i]);
+        }
+    }
+
+    /**
      * Double-length (`2*NWORDS`) version of `shuf_01`.
      */
     inline void shuf_01_dl(cc512i* r, const cc512i* a)
@@ -335,6 +416,46 @@ namespace blst
     {
         for (u64 i = 0; i < 2 * AVX_FP_NWORDS; ++i) {
             r[i] = VZPERM<0xEE>(0x33, a[i]);
+        }
+    }
+
+    /**
+     * Double-length (`2*NWORDS`) variable-lane permutation.
+     */
+    inline void perm_var_dl(cc512i* r, const cc512i* a, const cc512i idx)
+    {
+        for (u64 i = 0; i < 2 * AVX_FP_NWORDS; ++i) {
+            r[i] = VPERMV(idx, a[i]);
+        }
+    }
+
+    /**
+     * Double-length (`2*NWORDS`) blend with mask `0x01`.
+     */
+    inline void blend_0x01_dl(cc512i* r, const cc512i* a, const cc512i* b)
+    {
+        for (u64 i = 0; i < 2 * AVX_FP_NWORDS; ++i) {
+            r[i] = VMBLEND(0x01, a[i], b[i]);
+        }
+    }
+
+    /**
+     * Double-length (`2*NWORDS`) blend with mask `0x03`.
+     */
+    inline void blend_0x03_dl(cc512i* r, const cc512i* a, const cc512i* b)
+    {
+        for (u64 i = 0; i < 2 * AVX_FP_NWORDS; ++i) {
+            r[i] = VMBLEND(0x03, a[i], b[i]);
+        }
+    }
+
+    /**
+     * Double-length (`2*NWORDS`) blend with mask `0x0F`.
+     */
+    inline void blend_0x0F_dl(cc512i* r, const cc512i* a, const cc512i* b)
+    {
+        for (u64 i = 0; i < 2 * AVX_FP_NWORDS; ++i) {
+            r[i] = VMBLEND(0x0F, a[i], b[i]);
         }
     }
 

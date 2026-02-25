@@ -401,6 +401,13 @@ Pre/Post:
 - Fp12 kernels: `Pre-L`, `Pre-M` -> `Post-L`, reduced/split outputs as declared.
 - compressed cyclotomic: updates compressed BC-part representation.
 - line kernels: packed G2 input state -> updated state and line outputs (`Post-G2`).
+- `line_add_vec_v1` specific preconditions:
+  - packed tuples must encode valid on-curve mixed-add operands `R=(X1,Y1,Z1)` and affine `Q=(X2,Y2)`,
+  - kernel is the non-exceptional `madd-2007-bl` schedule and requires `H = X2*Z1^2 - X1 != 0`,
+  - synthetic random-limb tuples are outside this contract and are not valid scalar-differential oracle inputs.
+- packing contract note:
+  - this kernel expects `X1Y1 = X1 | Y1` (the opposite order from some other schedule helpers),
+  - with that packing, strict scalar differential checks are valid for `line_add_vec_v1`.
 
 ## 5.8 Scalar/vector wrappers in `fp12_tower.c`
 
