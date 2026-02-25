@@ -267,10 +267,9 @@ Pre/Post:
 
 ### 5.3.2 Public Fp kernels
 
-- `mul_fpx2_8x1w_v1`
+- `mul_fpx2_8x1w` (blst alias; implementation is AVXBLS `mul_fpx2_8x1w_v2`)
 - `mul_fpx2_8x1w_v2`
-- `mul_fpx2_8x1w_v3`
-- `mul_fpx2_8x1w_v4`
+- `mul_fpx2_4x2w` (blst alias; implementation is AVXBLS `mul_fpx2_4x2w_v1`)
 - `mul_fpx2_4x2w_v1`
 - `redc_fpx2_8x1w`
 - `redc_fpx2_4x2w`
@@ -454,7 +453,7 @@ Types:
 
 Primary kernels:
 
-- `mul_fpx2_8x1w_v1..v4`
+- `mul_fpx2_8x1w` / `mul_fpx2_8x1w_v2` (AVXBLS v2 kernel)
 - `mul_fpx2_4x2w_v1`
 - `redc_fpx2_8x1w`, `redc_fpx2_4x2w`
 
@@ -589,7 +588,7 @@ Pairing wrappers:
 Port now:
 
 - Types: `fp_8x1w`, `fpx2_8x1w`, `fp_4x2w`, `fpx2_4x2w`
-- Kernels: `mul_fpx2_8x1w_v2` (plus variants for reference), `mul_fpx2_4x2w_v1`
+- Kernels: `mul_fpx2_8x1w`/`mul_fpx2_8x1w_v2` (AVXBLS v2), `mul_fpx2_4x2w`/`mul_fpx2_4x2w_v1`
 - Reductions: `redc_fpx2_8x1w`, `redc_fpx2_4x2w`
 - Required helpers: Fp/Fpx2 add-sub/combination helpers + needed lane transforms + conversions.
 
@@ -639,4 +638,3 @@ Test gates:
 - Do not switch generic macro-routing to AVX globally before per-phase tests pass.
 - Preserve bisectability: one phase, one test gate, then enable next phase.
 - Add phase-specific tests in `test/` aligned with existing BLST style.
-

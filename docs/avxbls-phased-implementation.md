@@ -228,10 +228,9 @@ Functions to add:
 - `sub_fpx2_4x2w`
 - `asx2_fpx2_4x2w`
 - `aass_fpx2_4x2w`
-- `mul_fpx2_8x1w_v1`
+- `mul_fpx2_8x1w` (implemented from AVXBLS `mul_fpx2_8x1w_v2`)
 - `mul_fpx2_8x1w_v2`
-- `mul_fpx2_8x1w_v3`
-- `mul_fpx2_8x1w_v4`
+- `mul_fpx2_4x2w`
 - `mul_fpx2_4x2w_v1`
 - `redc_fpx2_8x1w`
 - `redc_fpx2_4x2w`
@@ -240,10 +239,10 @@ Required tests (`avx512_fp_tests.cpp`):
 
 1. add/sub tests against scalar Fp addition/subtraction lane-by-lane.
 2. linear-combination helper tests (`as*`, `aa*`, `ss*`) against direct scalar formulas.
-3. widened multiply tests for each `mul_fpx2_*` variant vs scalar widened multiply oracle.
+3. widened multiply tests for each `mul_fpx2_*` kernel vs scalar widened multiply oracle.
 4. reduction tests (`redc_*`) vs scalar Montgomery reduction.
 5. layout equivalence tests: `8x1w` and `4x2w` produce identical canonical scalar outputs.
-6. variant equivalence tests: `v1/v2/v3/v4` outputs match after canonicalization.
+6. alias equivalence tests: `mul_fpx2_8x1w == mul_fpx2_8x1w_v2` and `mul_fpx2_4x2w == mul_fpx2_4x2w_v1`.
 7. identity/property tests: commutativity (mul/add), subtraction inverse checks.
 8. edge-case modulus boundary tests plus randomized differential tests.
 

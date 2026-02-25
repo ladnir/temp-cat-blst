@@ -34,36 +34,10 @@ namespace blst
         return _cc512_permutex_epi64<imm8>(a);
     }
 
-    inline auto VPERM(const cc512i a, int imm8) -> cc512i
-    {
-        switch (imm8) {
-        case 0x44: return VPERM<0x44>(a);
-        case 0x4E: return VPERM<0x4E>(a);
-        case 0x50: return VPERM<0x50>(a);
-        case 0xEE: return VPERM<0xEE>(a);
-        case 0xFA: return VPERM<0xFA>(a);
-        case 0xBE: return VPERM<0xBE>(a);
-        default:
-            BLST_ASSERT(false);
-            return VZERO();
-        }
-    }
-
     template <int imm8>
     inline auto VZPERM(u64 mask, const cc512i a) -> cc512i
     {
         return _cc512_maskz_permutex_epi64<imm8>(mask, a);
-    }
-
-    inline auto VZPERM(u64 mask, const cc512i a, int imm8) -> cc512i
-    {
-        switch (imm8) {
-        case 0x44: return VZPERM<0x44>(mask, a);
-        case 0xEE: return VZPERM<0xEE>(mask, a);
-        default:
-            BLST_ASSERT(false);
-            return VZERO();
-        }
     }
 
     template <int imm8>
@@ -72,32 +46,11 @@ namespace blst
         return _cc512_shuffle_epi32<imm8>(a);
     }
 
-    inline auto VSHUF(const cc512i a, int imm8) -> cc512i
-    {
-        switch (imm8) {
-        case 0x44: return VSHUF<0x44>(a);
-        case 0x4E: return VSHUF<0x4E>(a);
-        case 0xEE: return VSHUF<0xEE>(a);
-        default:
-            BLST_ASSERT(false);
-            return VZERO();
-        }
-    }
 
     template <int imm8>
     inline auto VZSHUF(u64 mask, const cc512i a) -> cc512i
     {
         return _cc512_maskz_shuffle_epi32<imm8>(mask, a);
-    }
-
-    inline auto VZSHUF(u64 mask, const cc512i a, int imm8) -> cc512i
-    {
-        switch (imm8) {
-        case 0x4E: return VZSHUF<0x4E>(mask, a);
-        default:
-            BLST_ASSERT(false);
-            return VZERO();
-        }
     }
 
     inline auto VMBLEND(u64 mask, const cc512i a, const cc512i b) -> cc512i

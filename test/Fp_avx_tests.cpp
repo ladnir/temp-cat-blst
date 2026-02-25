@@ -44,6 +44,48 @@ constexpr std::array<LaneOp, 4> kAsx2Pattern = {
     LaneOp::Sub, LaneOp::Add, LaneOp::Sub, LaneOp::Add,
 };
 
+constexpr std::array<LaneOp, 8> kAllAdd8Pattern = {
+    LaneOp::Add, LaneOp::Add, LaneOp::Add, LaneOp::Add,
+    LaneOp::Add, LaneOp::Add, LaneOp::Add, LaneOp::Add,
+};
+
+constexpr std::array<LaneOp, 8> kAllSub8Pattern = {
+    LaneOp::Sub, LaneOp::Sub, LaneOp::Sub, LaneOp::Sub,
+    LaneOp::Sub, LaneOp::Sub, LaneOp::Sub, LaneOp::Sub,
+};
+
+constexpr std::array<LaneOp, 8> kAaasx2Pattern = {
+    LaneOp::Sub, LaneOp::Add, LaneOp::Add, LaneOp::Add,
+    LaneOp::Sub, LaneOp::Add, LaneOp::Add, LaneOp::Add,
+};
+
+constexpr std::array<LaneOp, 8> kAassx2Pattern = {
+    LaneOp::Sub, LaneOp::Sub, LaneOp::Add, LaneOp::Add,
+    LaneOp::Sub, LaneOp::Sub, LaneOp::Add, LaneOp::Add,
+};
+
+constexpr std::array<LaneOp, 8> kSsaax2Pattern = {
+    LaneOp::Add, LaneOp::Add, LaneOp::Sub, LaneOp::Sub,
+    LaneOp::Add, LaneOp::Add, LaneOp::Sub, LaneOp::Sub,
+};
+
+constexpr std::array<LaneOp, 8> kSsasx2Pattern = {
+    LaneOp::Sub, LaneOp::Add, LaneOp::Sub, LaneOp::Sub,
+    LaneOp::Sub, LaneOp::Add, LaneOp::Sub, LaneOp::Sub,
+};
+
+constexpr std::array<LaneOp, 4> kAllAdd4Pattern = {
+    LaneOp::Add, LaneOp::Add, LaneOp::Add, LaneOp::Add,
+};
+
+constexpr std::array<LaneOp, 4> kAllSub4Pattern = {
+    LaneOp::Sub, LaneOp::Sub, LaneOp::Sub, LaneOp::Sub,
+};
+
+constexpr std::array<LaneOp, 4> kAass4Pattern = {
+    LaneOp::Sub, LaneOp::Sub, LaneOp::Add, LaneOp::Add,
+};
+
 auto load_lanes(const cc512i& v) -> std::array<u64, 8>
 {
     std::array<u64, 8> out{};
@@ -343,6 +385,261 @@ TEST(FpAvx, Fp4x2wOps)
     }
 }
 
+TEST(FpAvx, Widened8x1wOps)
+{
+    InsecureRng rng;
+
+    for (int iter = 0; iter < 128; ++iter) {
+        FpVec8 a{}, b{}, c{}, d{};
+        for (size_t i = 0; i < 8; ++i) {
+            rand_redc_fp(a[i], rng);
+            rand_redc_fp(b[i], rng);
+            rand_redc_fp(c[i], rng);
+            rand_redc_fp(d[i], rng);
+        }
+        force_edge_lanes(a);
+        force_edge_lanes(b);
+        force_edge_lanes(c);
+        force_edge_lanes(d);
+
+        fp_8x1w avx_a{}, avx_b{}, avx_c{}, avx_d{};
+        fpx2_8x1w wide_ab{}, wide_cd{}, wide_r{};
+        fp_8x1w red_r{};
+        FpVec8 mul_ab{}, mul_cd{}, got{}, expected{};
+
+        pack_fp_8x1w(avx_a, a);
+        pack_fp_8x1w(avx_b, b);
+        pack_fp_8x1w(avx_c, c);
+        pack_fp_8x1w(avx_d, d);
+
+        mul_fpx2_8x1w_v2(wide_ab, avx_a, avx_b);
+        mul_fpx2_8x1w_v2(wide_cd, avx_c, avx_d);
+
+        for (size_t lane = 0; lane < 8; ++lane) {
+            Fp::mul(mul_ab[lane], a[lane], b[lane]);
+            Fp::mul(mul_cd[lane], c[lane], d[lane]);
+        }
+
+        add_fpx2_8x1w(wide_r, wide_ab, wide_cd);
+        redc_fpx2_8x1w(red_r, wide_r);
+        unpack_fp_8x1w(got, red_r);
+        apply_pattern(expected, mul_ab, mul_cd, kAllAdd8Pattern);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            EXPECT_TRUE(Fp::equal(got[lane], expected[lane]));
+        }
+
+        sub_fpx2_8x1w(wide_r, wide_ab, wide_cd);
+        redc_fpx2_8x1w(red_r, wide_r);
+        unpack_fp_8x1w(got, red_r);
+        apply_pattern(expected, mul_ab, mul_cd, kAllSub8Pattern);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            EXPECT_TRUE(Fp::equal(got[lane], expected[lane]));
+        }
+
+        aaasx2_fpx2_8x1w(wide_r, wide_ab, wide_cd);
+        redc_fpx2_8x1w(red_r, wide_r);
+        unpack_fp_8x1w(got, red_r);
+        apply_pattern(expected, mul_ab, mul_cd, kAaasx2Pattern);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            EXPECT_TRUE(Fp::equal(got[lane], expected[lane]));
+        }
+
+        aassx2_fpx2_8x1w(wide_r, wide_ab, wide_cd);
+        redc_fpx2_8x1w(red_r, wide_r);
+        unpack_fp_8x1w(got, red_r);
+        apply_pattern(expected, mul_ab, mul_cd, kAassx2Pattern);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            EXPECT_TRUE(Fp::equal(got[lane], expected[lane]));
+        }
+
+        asx4_fpx2_8x1w(wide_r, wide_ab, wide_cd);
+        redc_fpx2_8x1w(red_r, wide_r);
+        unpack_fp_8x1w(got, red_r);
+        apply_pattern(expected, mul_ab, mul_cd, kAsx4Pattern);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            EXPECT_TRUE(Fp::equal(got[lane], expected[lane]));
+        }
+
+        ssaax2_fpx2_8x1w(wide_r, wide_ab, wide_cd);
+        redc_fpx2_8x1w(red_r, wide_r);
+        unpack_fp_8x1w(got, red_r);
+        apply_pattern(expected, mul_ab, mul_cd, kSsaax2Pattern);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            EXPECT_TRUE(Fp::equal(got[lane], expected[lane]));
+        }
+
+        ssasx2_fpx2_8x1w(wide_r, wide_ab, wide_cd);
+        redc_fpx2_8x1w(red_r, wide_r);
+        unpack_fp_8x1w(got, red_r);
+        apply_pattern(expected, mul_ab, mul_cd, kSsasx2Pattern);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            EXPECT_TRUE(Fp::equal(got[lane], expected[lane]));
+        }
+    }
+}
+
+TEST(FpAvx, Widened4x2wOps)
+{
+    InsecureRng rng;
+
+    for (int iter = 0; iter < 128; ++iter) {
+        FpVec4 a{}, b{}, c{}, d{};
+        for (size_t i = 0; i < 4; ++i) {
+            rand_redc_fp(a[i], rng);
+            rand_redc_fp(b[i], rng);
+            rand_redc_fp(c[i], rng);
+            rand_redc_fp(d[i], rng);
+        }
+        force_edge_lanes(a);
+        force_edge_lanes(b);
+        force_edge_lanes(c);
+        force_edge_lanes(d);
+
+        fp_4x2w avx_a{}, avx_b{}, avx_c{}, avx_d{};
+        fpx2_4x2w wide_ab{}, wide_cd{}, wide_r{};
+        fp_4x2w red_r{};
+        FpVec4 mul_ab{}, mul_cd{}, got{}, expected{};
+
+        pack_fp_4x2w(avx_a, a);
+        pack_fp_4x2w(avx_b, b);
+        pack_fp_4x2w(avx_c, c);
+        pack_fp_4x2w(avx_d, d);
+
+        mul_fpx2_4x2w_v1(wide_ab, avx_a, avx_b);
+        mul_fpx2_4x2w_v1(wide_cd, avx_c, avx_d);
+
+        for (size_t lane = 0; lane < 4; ++lane) {
+            Fp::mul(mul_ab[lane], a[lane], b[lane]);
+            Fp::mul(mul_cd[lane], c[lane], d[lane]);
+        }
+
+        add_fpx2_4x2w(wide_r, wide_ab, wide_cd);
+        redc_fpx2_4x2w(red_r, wide_r);
+        unpack_fp_4x2w(got, red_r);
+        apply_pattern(expected, mul_ab, mul_cd, kAllAdd4Pattern);
+        for (size_t lane = 0; lane < 4; ++lane) {
+            EXPECT_TRUE(Fp::equal(got[lane], expected[lane]));
+        }
+
+        sub_fpx2_4x2w(wide_r, wide_ab, wide_cd);
+        redc_fpx2_4x2w(red_r, wide_r);
+        unpack_fp_4x2w(got, red_r);
+        apply_pattern(expected, mul_ab, mul_cd, kAllSub4Pattern);
+        for (size_t lane = 0; lane < 4; ++lane) {
+            EXPECT_TRUE(Fp::equal(got[lane], expected[lane]));
+        }
+
+        asx2_fpx2_4x2w(wide_r, wide_ab, wide_cd);
+        redc_fpx2_4x2w(red_r, wide_r);
+        unpack_fp_4x2w(got, red_r);
+        apply_pattern(expected, mul_ab, mul_cd, kAsx2Pattern);
+        for (size_t lane = 0; lane < 4; ++lane) {
+            EXPECT_TRUE(Fp::equal(got[lane], expected[lane]));
+        }
+
+        aass_fpx2_4x2w(wide_r, wide_ab, wide_cd);
+        redc_fpx2_4x2w(red_r, wide_r);
+        unpack_fp_4x2w(got, red_r);
+        apply_pattern(expected, mul_ab, mul_cd, kAass4Pattern);
+        for (size_t lane = 0; lane < 4; ++lane) {
+            EXPECT_TRUE(Fp::equal(got[lane], expected[lane]));
+        }
+    }
+}
+
+TEST(FpAvx, LayoutHelpers)
+{
+    InsecureRng rng;
+    const auto sra48 = [](u64 v) -> u64 {
+        return static_cast<u64>(static_cast<i64>(v) >> BRADIX);
+    };
+
+    for (int iter = 0; iter < 128; ++iter) {
+        std::array<u64, NWORDS> carry_in{};
+        for (size_t i = 0; i < NWORDS; ++i) {
+            carry_in[i] = rng.next_u64();
+        }
+        std::array<u64, NWORDS> carry_ref = carry_in;
+
+        for (size_t i = 0; i < NWORDS - 1; ++i) {
+            carry_ref[i + 1] += (carry_ref[i] >> BRADIX);
+            carry_ref[i] &= BMASK;
+        }
+
+        carryp_mpi48(carry_in.data());
+        for (size_t i = 0; i < NWORDS; ++i) {
+            EXPECT_EQ(carry_in[i], carry_ref[i]);
+        }
+
+        fp_4x2w carry4{};
+        std::array<std::array<u64, 8>, VWORDS> carry4_ref{};
+        for (size_t i = 0; i < VWORDS; ++i) {
+            std::array<u64, 8> lanes{};
+            for (size_t lane = 0; lane < 8; ++lane) {
+                lanes[lane] = rng.next_u64();
+                carry4_ref[i][lane] = lanes[lane];
+            }
+            carry4[i] = make_vec(lanes);
+        }
+
+        for (size_t lane = 0; lane < 8; ++lane) {
+            carry4_ref[1][lane] += sra48(carry4_ref[0][lane]);
+            carry4_ref[0][lane] &= BMASK;
+            carry4_ref[2][lane] += sra48(carry4_ref[1][lane]);
+            carry4_ref[1][lane] &= BMASK;
+            carry4_ref[3][lane] += sra48(carry4_ref[2][lane]);
+            carry4_ref[2][lane] &= BMASK;
+        }
+
+        carryp_fp_4x2w(carry4);
+        for (size_t i = 0; i < VWORDS; ++i) {
+            const auto got = load_lanes(carry4[i]);
+            for (size_t lane = 0; lane < 8; ++lane) {
+                EXPECT_EQ(got[lane], carry4_ref[i][lane]);
+            }
+        }
+
+        fp_8x1w ch8{};
+        std::array<std::array<u64, 8>, NWORDS> ch8_ref{};
+        for (size_t i = 0; i < NWORDS; ++i) {
+            std::array<u64, 8> lanes{};
+            for (size_t lane = 0; lane < 8; ++lane) {
+                lanes[lane] = rng.next_u64();
+                ch8_ref[i][lane] = lanes[lane];
+            }
+            ch8[i] = make_vec(lanes);
+        }
+
+        for (size_t ch = 0; ch < 8; ++ch) {
+            std::array<u64, NWORDS> out{};
+            get_channel_8x1w(out.data(), ch8, static_cast<int>(ch));
+            for (size_t i = 0; i < NWORDS; ++i) {
+                EXPECT_EQ(out[i], ch8_ref[i][ch]);
+            }
+        }
+
+        fp_4x2w ch4{};
+        std::array<std::array<u64, 8>, VWORDS> ch4_ref{};
+        for (size_t i = 0; i < VWORDS; ++i) {
+            std::array<u64, 8> lanes{};
+            for (size_t lane = 0; lane < 8; ++lane) {
+                lanes[lane] = rng.next_u64();
+                ch4_ref[i][lane] = lanes[lane];
+            }
+            ch4[i] = make_vec(lanes);
+        }
+
+        for (size_t ch = 0; ch <= 6; ch += 2) {
+            std::array<u64, NWORDS> out{};
+            get_channel_4x2w(out.data(), ch4, static_cast<int>(ch));
+            for (size_t i = 0; i < VWORDS; ++i) {
+                EXPECT_EQ(out[i], ch4_ref[i][ch]);
+                EXPECT_EQ(out[i + VWORDS], ch4_ref[i][ch + 1]);
+            }
+        }
+    }
+}
+
 TEST(FpAvx, MulRedc8x1w)
 {
     InsecureRng rng;
@@ -360,38 +657,25 @@ TEST(FpAvx, MulRedc8x1w)
         pack_fp_8x1w(avx_a, a);
         pack_fp_8x1w(avx_b, b);
 
-        fpx2_8x1w wide_v1{}, wide_v2{}, wide_v3{}, wide_v4{};
-        fp_8x1w red_v1{}, red_v2{}, red_v3{}, red_v4{};
-        FpVec8 out_v1{}, out_v2{}, out_v3{}, out_v4{};
+        fpx2_8x1w wide_alias{}, wide_v2{};
+        fp_8x1w red_alias{}, red_v2{};
+        FpVec8 out_alias{}, out_v2{};
 
-        mul_fpx2_8x1w_v1(wide_v1, avx_a, avx_b);
-        redc_fpx2_8x1w(red_v1, wide_v1);
-        unpack_fp_8x1w(out_v1, red_v1);
+        mul_fpx2_8x1w(wide_alias, avx_a, avx_b);
+        redc_fpx2_8x1w(red_alias, wide_alias);
+        unpack_fp_8x1w(out_alias, red_alias);
 
         mul_fpx2_8x1w_v2(wide_v2, avx_a, avx_b);
         redc_fpx2_8x1w(red_v2, wide_v2);
         unpack_fp_8x1w(out_v2, red_v2);
 
-        mul_fpx2_8x1w_v3(wide_v3, avx_a, avx_b);
-        redc_fpx2_8x1w(red_v3, wide_v3);
-        unpack_fp_8x1w(out_v3, red_v3);
-
-        mul_fpx2_8x1w_v4(wide_v4, avx_a, avx_b);
-        redc_fpx2_8x1w(red_v4, wide_v4);
-        unpack_fp_8x1w(out_v4, red_v4);
-
         for (size_t lane = 0; lane < 8; ++lane) {
             Fp expected{};
             Fp::mul(expected, a[lane], b[lane]);
 
-            EXPECT_TRUE(Fp::equal(out_v1[lane], expected));
+            EXPECT_TRUE(Fp::equal(out_alias[lane], expected));
             EXPECT_TRUE(Fp::equal(out_v2[lane], expected));
-            EXPECT_TRUE(Fp::equal(out_v3[lane], expected));
-            EXPECT_TRUE(Fp::equal(out_v4[lane], expected));
-
-            EXPECT_TRUE(Fp::equal(out_v1[lane], out_v2[lane]));
-            EXPECT_TRUE(Fp::equal(out_v1[lane], out_v3[lane]));
-            EXPECT_TRUE(Fp::equal(out_v1[lane], out_v4[lane]));
+            EXPECT_TRUE(Fp::equal(out_alias[lane], out_v2[lane]));
         }
     }
 }
@@ -409,21 +693,27 @@ TEST(FpAvx, MulRedc4x2w)
         force_edge_lanes(a4);
         force_edge_lanes(b4);
 
-        fp_4x2w avx4_a{}, avx4_b{}, avx4_red{};
-        fpx2_4x2w avx4_wide{};
+        fp_4x2w avx4_a{}, avx4_b{}, avx4_red_alias{}, avx4_red_v1{};
+        fpx2_4x2w avx4_wide_alias{}, avx4_wide_v1{};
         pack_fp_4x2w(avx4_a, a4);
         pack_fp_4x2w(avx4_b, b4);
 
-        mul_fpx2_4x2w_v1(avx4_wide, avx4_a, avx4_b);
-        redc_fpx2_4x2w(avx4_red, avx4_wide);
+        mul_fpx2_4x2w(avx4_wide_alias, avx4_a, avx4_b);
+        redc_fpx2_4x2w(avx4_red_alias, avx4_wide_alias);
 
-        FpVec4 out4{};
-        unpack_fp_4x2w(out4, avx4_red);
+        mul_fpx2_4x2w_v1(avx4_wide_v1, avx4_a, avx4_b);
+        redc_fpx2_4x2w(avx4_red_v1, avx4_wide_v1);
+
+        FpVec4 out4_alias{}, out4_v1{};
+        unpack_fp_4x2w(out4_alias, avx4_red_alias);
+        unpack_fp_4x2w(out4_v1, avx4_red_v1);
 
         for (size_t lane = 0; lane < 4; ++lane) {
             Fp expected{};
             Fp::mul(expected, a4[lane], b4[lane]);
-            EXPECT_TRUE(Fp::equal(out4[lane], expected));
+            EXPECT_TRUE(Fp::equal(out4_alias[lane], expected));
+            EXPECT_TRUE(Fp::equal(out4_v1[lane], expected));
+            EXPECT_TRUE(Fp::equal(out4_alias[lane], out4_v1[lane]));
         }
 
         FpVec8 a8{}, b8{}, out8{};
@@ -446,7 +736,8 @@ TEST(FpAvx, MulRedc4x2w)
         unpack_fp_8x1w(out8, avx8_red);
 
         for (size_t lane = 0; lane < 4; ++lane) {
-            EXPECT_TRUE(Fp::equal(out4[lane], out8[lane]));
+            EXPECT_TRUE(Fp::equal(out4_alias[lane], out8[lane]));
+            EXPECT_TRUE(Fp::equal(out4_v1[lane], out8[lane]));
         }
     }
 }

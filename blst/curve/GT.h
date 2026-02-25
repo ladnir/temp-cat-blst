@@ -111,8 +111,16 @@ namespace blst {
 		 * @param[in]  nbits   Number of meaningful bits in scalar
 		 */
 		static BLST_HD void mult(GT& out, const GT& a, const byte* scalar, size_t nbits) {
-			//Fp12::cyclotomic_exp(out.data, a.data, scalar, nbits);
-			Fp12::cyclotomic_exp_glv4(out.data, a.data, (limb_t*)scalar);
+			if(nbits == 256)
+				Fp12::cyclotomic_exp_glv4(out.data, a.data, (limb_t*)scalar);
+			else
+			{
+				if (scalar == nullptr || nbits == 0) {
+					out = Fp12::one();
+					return;
+				}
+				Fp12::cyclotomic_exp(out.data, a.data, scalar, nbits);
+			}
 		}
 
 		/**
