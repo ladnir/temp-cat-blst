@@ -47,8 +47,9 @@ if(MSVC)
 else()
     set(BLST_OPTS -fPIC)
     set(BLST_DEBUG_OPT -g -O0)
-    set(BLST_RELEASE_OPT -O2 -Wall -Wextra)
-    set(BLST_RELWITHDEBINFO_OPT -g -O2 -Wall -Wextra)
+    # Match avxbls release tuning more closely for fair perf comparisons.
+    set(BLST_RELEASE_OPT -O3 -fomit-frame-pointer -fwrapv -mtune=native -Wall -Wextra)
+    set(BLST_RELWITHDEBINFO_OPT -g -O3 -fomit-frame-pointer -fwrapv -mtune=native -Wall -Wextra)
 
     set(ASM_PATTERN  ${CMAKE_CURRENT_SOURCE_DIR}/../build/assembly.S)
 endif()

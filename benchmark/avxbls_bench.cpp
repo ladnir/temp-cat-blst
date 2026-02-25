@@ -239,8 +239,101 @@ void sqr_fp4_scalar(Fp4& ret, const Fp2& a0, const Fp2& a1)
     Fp2::add(ret[1], t2, t2);
 }
 
+#if defined(BLST_ASM)
+struct UFp6Bench
+{
+    UFp2 data[3];
+
+    UFp2& operator[](std::size_t idx) { return data[idx]; }
+    const UFp2& operator[](std::size_t idx) const { return data[idx]; }
+};
+
+void add_fp2x2_scalar(UFp2& ret, const UFp2& a, const UFp2& b)
+{
+    add_mod_384x384(&ret[0], &a[0], &b[0], &get_BLST_P());
+    add_mod_384x384(&ret[1], &a[1], &b[1], &get_BLST_P());
+}
+
+void sub_fp2x2_scalar(UFp2& ret, const UFp2& a, const UFp2& b)
+{
+    sub_mod_384x384(&ret[0], &a[0], &b[0], &get_BLST_P());
+    sub_mod_384x384(&ret[1], &a[1], &b[1], &get_BLST_P());
+}
+
+void mul_by_u_plus_1_fp2x2_scalar(UFp2& ret, const UFp2& a)
+{
+    sub_mod_384x384(&ret[0], &a[0], &a[1], &get_BLST_P());
+    add_mod_384x384(&ret[1], &a[0], &a[1], &get_BLST_P());
+}
+
+void redc_fp2x2_scalar(Fp2& ret, const UFp2& a)
+{
+    Fp::redc(ret[0], a[0]);
+    Fp::redc(ret[1], a[1]);
+}
+
+void mul_fp2x2_scalar(UFp2& ret, const Fp2& a, const Fp2& b)
+{
+    mul_v382x(ret, a, b, get_BLST_P());
+}
+
+void sqr_fp2x2_scalar(UFp2& ret, const Fp2& a)
+{
+    sqr_v382x(ret, a, get_BLST_P());
+}
+
+void mul_fp6x2_scalar(UFp6Bench& ret, const Fp6& a, const Fp6& b)
+{
+    UFp2 t0{};
+    UFp2 t1{};
+    UFp2 t2{};
+    Fp2 aa{};
+    Fp2 bb{};
+    const Fp2& a0 = a[0];
+
+    mul_fp2x2_scalar(t0, a0, b[0]);
+    mul_fp2x2_scalar(t1, a[1], b[1]);
+    mul_fp2x2_scalar(t2, a[2], b[2]);
+
+    Fp2::add(aa, a[1], a[2]);
+    Fp2::add(bb, b[1], b[2]);
+    mul_fp2x2_scalar(ret[0], aa, bb);
+    sub_fp2x2_scalar(ret[0], ret[0], t1);
+    sub_fp2x2_scalar(ret[0], ret[0], t2);
+    mul_by_u_plus_1_fp2x2_scalar(ret[1], ret[0]);
+    add_fp2x2_scalar(ret[0], ret[1], t0);
+
+    Fp2::add(aa, a[0], a[1]);
+    Fp2::add(bb, b[0], b[1]);
+    mul_fp2x2_scalar(ret[1], aa, bb);
+    sub_fp2x2_scalar(ret[1], ret[1], t0);
+    sub_fp2x2_scalar(ret[1], ret[1], t1);
+    mul_by_u_plus_1_fp2x2_scalar(ret[2], t2);
+    add_fp2x2_scalar(ret[1], ret[1], ret[2]);
+
+    Fp2::add(aa, a[0], a[2]);
+    Fp2::add(bb, b[0], b[2]);
+    mul_fp2x2_scalar(ret[2], aa, bb);
+    sub_fp2x2_scalar(ret[2], ret[2], t0);
+    sub_fp2x2_scalar(ret[2], ret[2], t2);
+    add_fp2x2_scalar(ret[2], ret[2], t1);
+}
+
+void redc_fp6x2_scalar(Fp6& ret, const UFp6Bench& a)
+{
+    redc_fp2x2_scalar(ret[0], a[0]);
+    redc_fp2x2_scalar(ret[1], a[1]);
+    redc_fp2x2_scalar(ret[2], a[2]);
+}
+#endif
+
 void mul_fp6_scalar(Fp6& ret, const Fp6& a, const Fp6& b)
 {
+#if defined(BLST_ASM)
+    UFp6Bench wide{};
+    mul_fp6x2_scalar(wide, a, b);
+    redc_fp6x2_scalar(ret, wide);
+#else
     Fp2 a0b0{};
     Fp2 a1b2{};
     Fp2 a2b1{};
@@ -271,6 +364,7 @@ void mul_fp6_scalar(Fp6& ret, const Fp6& a, const Fp6& b)
     Fp2::mul(a1b1, a[1], b[1]);
     Fp2::add(t, a0b2, a2b0);
     Fp2::add(ret[2], t, a1b1);
+#endif
 }
 
 void line_dbl_scalar(LineEval& line, JacobianPoint& T, const JacobianPoint& Q)
@@ -474,7 +568,6 @@ void bench_fp(const BenchConfig& cfg)
 
     std::puts("\n=============================================================\n");
     std::puts("TIMING - FP\n");
-    std::puts("note: this port intentionally keeps the avxbls v2/v1 kernels only.");
 
     measure_cycles("- mul_fpx2_8x1w_v2:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
         mul_fpx2_8x1w_v2(z_8x1w, a_8x1w, b_8x1w);
@@ -515,6 +608,9 @@ void bench_fp2(const BenchConfig& cfg)
     Fp2 a_scalar{};
     Fp2 b_scalar{};
     Fp2 r_scalar{};
+#if defined(BLST_ASM)
+    UFp2 z_scalar{};
+#endif
 
     init_fp2_inputs(
         a_8x1x1w,
@@ -547,6 +643,12 @@ void bench_fp2(const BenchConfig& cfg)
         mul_fp2_2x2x2w(r_2x2x2w, a_2x2x2w, b_2x2x2w);
     });
 
+#if defined(BLST_ASM)
+    measure_cycles("- mul_fp2x2_scalar:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        mul_fp2x2_scalar(z_scalar, a_scalar, b_scalar);
+    });
+#endif
+
     measure_cycles("- mul_fp2x2_8x1x1w:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
         mul_fp2x2_8x1x1w(z_8x1x1w, a_8x1x1w, b_8x1x1w);
     });
@@ -578,6 +680,12 @@ void bench_fp2(const BenchConfig& cfg)
     measure_cycles("- sqr_fp2_2x2x2w:       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
         sqr_fp2_2x2x2w(r_2x2x2w, a_2x2x2w);
     });
+
+#if defined(BLST_ASM)
+    measure_cycles("- sqr_fp2x2_scalar:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        sqr_fp2x2_scalar(z_scalar, a_scalar);
+    });
+#endif
 
     measure_cycles("- sqr_fp2x2_4x2x1w:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
         sqr_fp2x2_4x2x1w(z_4x2x1w, a_4x2x1w);
