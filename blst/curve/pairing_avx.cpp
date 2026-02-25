@@ -2,8 +2,6 @@
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 
-#include <vector>
-
 #include "blst/curve/G2_avx.h"
 #include "blst/fields/Fp12_avx.h"
 
@@ -11,6 +9,8 @@ namespace blst::avx
 {
 namespace
 {
+constexpr std::size_t kMillerLoopNMax = 16;
+
 void line_by_px2(Fp6& line, const G1AffinePoint& px2)
 {
     Fp::mul(line[1][0], line[1][0], px2.X);
@@ -100,14 +100,18 @@ void miller_loop_n(
     const G1AffinePoint p[],
     std::size_t n)
 {
+    if (n > kMillerLoopNMax) {
+        return;
+    }
+
     if ((n == 1) && (vec_is_zero(&q[0], sizeof(q[0])) |
                      vec_is_zero(&p[0], sizeof(p[0])))) {
         vec_copy(&ret.data, get_BLST_Rx().p12, sizeof(Fp12));
         return;
     }
 
-    std::vector<G2Point> t(n);
-    std::vector<G1AffinePoint> px2(n);
+    G2Point t[kMillerLoopNMax];
+    G1AffinePoint px2[kMillerLoopNMax];
 
     for (std::size_t i = 0; i < n; ++i) {
         Fp::add(px2[i].X, p[i].X, p[i].X);
@@ -118,12 +122,12 @@ void miller_loop_n(
         vec_copy(&t[i].Z, &get_BLST_Rx().p2, sizeof(t[i].Z));
     }
 
-    start_dbl_n(ret, t.data(), px2.data(), n);
-    add_n_dbl_n(ret, t.data(), q, px2.data(), n, 2);
-    add_n_dbl_n(ret, t.data(), q, px2.data(), n, 3);
-    add_n_dbl_n(ret, t.data(), q, px2.data(), n, 9);
-    add_n_dbl_n(ret, t.data(), q, px2.data(), n, 32);
-    add_n_dbl_n(ret, t.data(), q, px2.data(), n, 16);
+    start_dbl_n(ret, t, px2, n);
+    add_n_dbl_n(ret, t, q, px2, n, 2);
+    add_n_dbl_n(ret, t, q, px2, n, 3);
+    add_n_dbl_n(ret, t, q, px2, n, 9);
+    add_n_dbl_n(ret, t, q, px2, n, 32);
+    add_n_dbl_n(ret, t, q, px2, n, 16);
     Fp12::conjugate(ret.data);
 }
 
