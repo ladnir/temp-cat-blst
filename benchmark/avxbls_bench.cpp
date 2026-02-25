@@ -161,7 +161,7 @@ void fill_vec_words(PackT& out, u64 count, u64 seed)
     fill_vec_words(out.data(), count, seed);
 }
 
-void init_fp_inputs(fp_8x1w a_8x1w, fp_8x1w b_8x1w, fp_4x2w a_4x2w, fp_4x2w b_4x2w)
+void init_fp_inputs(fp_8x1w& a_8x1w, fp_8x1w& b_8x1w, fp_4x2w& a_4x2w, fp_4x2w& b_4x2w)
 {
     u64 a48[NWORDS] = {};
     u64 b48[NWORDS] = {};
@@ -180,16 +180,16 @@ void init_fp_inputs(fp_8x1w a_8x1w, fp_8x1w b_8x1w, fp_4x2w a_4x2w, fp_4x2w b_4x
 }
 
 void init_fp2_inputs(
-    fp2_8x1x1w a_8x1x1w,
-    fp2_8x1x1w b_8x1x1w,
-    fp2_4x2x1w a_4x2x1w,
-    fp2_4x2x1w b_4x2x1w,
-    fp2_2x2x2w a_2x2x2w,
-    fp2_2x2x2w b_2x2x2w,
-    fp2_2x4x1w a_2x4x1w,
-    fp2_2x4x1w b_2x4x1w,
-    fp2_1x4x2w a_1x4x2w,
-    fp2_1x4x2w b_1x4x2w)
+    fp2_8x1x1w& a_8x1x1w,
+    fp2_8x1x1w& b_8x1x1w,
+    fp2_4x2x1w& a_4x2x1w,
+    fp2_4x2x1w& b_4x2x1w,
+    fp2_2x2x2w& a_2x2x2w,
+    fp2_2x2x2w& b_2x2x2w,
+    fp2_2x4x1w& a_2x4x1w,
+    fp2_2x4x1w& b_2x4x1w,
+    fp2_1x4x2w& a_1x4x2w,
+    fp2_1x4x2w& b_1x4x2w)
 {
     u64 a48[NWORDS] = {};
     u64 b48[NWORDS] = {};
@@ -481,11 +481,11 @@ void line_add_scalar(LineEval& line, JacobianPoint& T, const JacobianPoint& R, c
 void init_line_inputs(
     JacobianPoint& q_scalar,
     AffineInputPoint& r_scalar,
-    fp2_2x2x2w X1Y1,
-    fp2_2x2x2w Z1,
-    fp2_2x2x2w Z1Y2,
-    fp2_2x2x2w X2,
-    fp2_4x2x1w X1Y1Z1)
+    fp2_2x2x2w& X1Y1,
+    fp2_2x2x2w& Z1,
+    fp2_2x2x2w& Z1Y2,
+    fp2_2x2x2w& X2,
+    fp2_4x2x1w& X1Y1Z1)
 {
     q_scalar.X[0][0] = 1;
     q_scalar.X[1][0] = 2;
