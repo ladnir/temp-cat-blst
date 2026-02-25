@@ -19,7 +19,10 @@ set(BLST_STATIC_SRC
 )
 
 if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
-    list(APPEND BLST_STATIC_SRC "fields/Fp_avx.cpp")
+    list(APPEND BLST_STATIC_SRC
+        "fields/Fp_avx.cpp"
+        "fields/Fp2_avx.cpp"
+    )
 endif()
 
 if(MSVC)

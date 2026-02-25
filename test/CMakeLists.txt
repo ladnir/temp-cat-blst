@@ -17,6 +17,7 @@ FetchContent_MakeAvailable(googletest)
 # Determine test sources based on CUDA availability
 set(TEST_SOURCES
     "Fp_avx_tests.cpp"
+    "Fp2_avx_tests.cpp"
     "Fp_tests.cpp" 
     "Fp2_tests.cpp" 
     "Fp12_tests.cpp" 
