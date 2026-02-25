@@ -13,6 +13,7 @@
 
 #include "blst/curve/G2_avx.h"
 #include "blst/curve/GT.h"
+#include "blst/curve/pairing_avx.h"
 #include "blst/curve/point.h"
 #include "blst/fields/Fp12_avx.h"
 #include "blst/fields/Fp2.h"
@@ -540,17 +541,16 @@ void bench_pairing(const BenchConfig& cfg)
     GT e1{};
 
     measure_cycles("- miller_loop:        ", cfg.pairing_warmup, cfg.pairing_iters, [&]() {
-        GT::miller_loop(f, &q, &p);
+        avx::miller_loop_n(f, &q, &p, 1);
     });
 
-    GT::miller_loop(f, &q, &p);
+    avx::miller_loop_n(f, &q, &p, 1);
     measure_cycles("- final_exp:          ", cfg.pairing_warmup, cfg.pairing_iters, [&]() {
-        GT::final_mult(e1, f);
+        avx::final_exp(e1, f);
     });
 
     measure_cycles("- optimal_ate_pairing:", cfg.pairing_warmup, cfg.pairing_iters, [&]() {
-        GT::miller_loop(f, &q, &p);
-        GT::final_mult(e1, f);
+        avx::optimal_ate_pairing(e1, &q, &p, 1);
     });
 }
 
