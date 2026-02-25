@@ -3,14 +3,29 @@
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 
+#include <array>
+
 namespace blst
 {
 namespace
 {
-    inline void store_u64_lanes(u64 lanes[8], const cc512i v)
+    inline void store_u64_lanes(std::array<u64, 8>& lanes, const cc512i v)
     {
-        _cc512_storeu_si512(lanes, v);
+        _cc512_storeu_si512(lanes.data(), v);
     }
+
+#if defined(NDEBUG)
+#define BLST_ASSERT_NO_OVERLAP_PTR(a, an, b, bn) ((void)0)
+#else
+    inline bool g2_ptr_ranges_overlap(const void* a, std::size_t a_bytes, const void* b, std::size_t b_bytes)
+    {
+        const auto* ap = static_cast<const u8*>(a);
+        const auto* bp = static_cast<const u8*>(b);
+        return (ap < (bp + b_bytes)) && (bp < (ap + a_bytes));
+    }
+#define BLST_ASSERT_NO_OVERLAP_PTR(a, an, b, bn) \
+    BLST_ASSERT(!g2_ptr_ranges_overlap((a), (an), (b), (bn)))
+#endif
 } // namespace
 
 void line_dbl_vec_v1(
@@ -216,9 +231,13 @@ void line_by_Px2_2x2x2w(fp2_2x2x2w& r, const fp2_2x2x2w& a, const fp2_2x2x2w& Px
 
 void line_add_vector(Fp6& line, G2Point& T, const G2Point& R, const G2AffinePoint& Q)
 {
+    BLST_ASSERT_NO_OVERLAP_PTR(&line, sizeof(line), &T, sizeof(T));
+    BLST_ASSERT_NO_OVERLAP_PTR(&line, sizeof(line), &R, sizeof(R));
+    BLST_ASSERT_NO_OVERLAP_PTR(&line, sizeof(line), &Q, sizeof(Q));
+
     fp2_2x2x2w X1Y1, Z1Y2, X2, l0Y3, l1, X3, Z3;
-    cc512i in0[SWORDS / 2], in1[SWORDS / 2], in2[SWORDS / 2];
-    cc512i out0[SWORDS / 2], out1[SWORDS / 2], out2[SWORDS / 2], out3[SWORDS / 2];
+    std::array<cc512i, SWORDS / 2> in0, in1, in2;
+    std::array<cc512i, SWORDS / 2> out0, out1, out2, out3;
 
     for (u64 i = 0; i < SWORDS / 2; ++i) {
         in0[i] = VSET(
@@ -238,9 +257,9 @@ void line_add_vector(Fp6& line, G2Point& T, const G2Point& R, const G2AffinePoin
             static_cast<i64>(Q.X[0][i + (SWORDS / 2)]), static_cast<i64>(Q.X[0][i]));
     }
 
-    conv_64to48_fp_4x2w(X1Y1, in0);
-    conv_64to48_fp_4x2w(Z1Y2, in1);
-    conv_64to48_fp_4x2w(X2, in2);
+    conv_64to48_fp_4x2w(X1Y1, in0.data());
+    conv_64to48_fp_4x2w(Z1Y2, in1.data());
+    conv_64to48_fp_4x2w(X2, in2.data());
 
     line_add_vec_v1(l0Y3, l1, X3, Z3, X1Y1, Z1Y2, X2);
 
@@ -249,13 +268,13 @@ void line_add_vector(Fp6& line, G2Point& T, const G2Point& R, const G2AffinePoin
     carryp_fp_4x2w(X3);
     carryp_fp_4x2w(Z3);
 
-    conv_48to64_fp_4x2w(out0, l0Y3);
-    conv_48to64_fp_4x2w(out1, l1);
-    conv_48to64_fp_4x2w(out2, X3);
-    conv_48to64_fp_4x2w(out3, Z3);
+    conv_48to64_fp_4x2w(out0.data(), l0Y3);
+    conv_48to64_fp_4x2w(out1.data(), l1);
+    conv_48to64_fp_4x2w(out2.data(), X3);
+    conv_48to64_fp_4x2w(out3.data(), Z3);
 
     for (u64 i = 0; i < SWORDS / 2; ++i) {
-        u64 lanes0[8], lanes1[8], lanes2[8], lanes3[8];
+        std::array<u64, 8> lanes0, lanes1, lanes2, lanes3;
         store_u64_lanes(lanes0, out0[i]);
         store_u64_lanes(lanes1, out1[i]);
         store_u64_lanes(lanes2, out2[i]);
@@ -295,9 +314,12 @@ void line_add_vector(Fp6& line, G2Point& T, const G2Point& R, const G2AffinePoin
 
 void line_dbl_vector(Fp6& line, G2Point& T, const G2Point& Q)
 {
+    BLST_ASSERT_NO_OVERLAP_PTR(&line, sizeof(line), &T, sizeof(T));
+    BLST_ASSERT_NO_OVERLAP_PTR(&line, sizeof(line), &Q, sizeof(Q));
+
     fp2_4x2x1w X1Y1Z1, l0, l12, X3, Y3, Z3;
-    cc512i in0[SWORDS];
-    cc512i out0[SWORDS], out1[SWORDS], out2[SWORDS], out3[SWORDS], out4[SWORDS];
+    std::array<cc512i, SWORDS> in0;
+    std::array<cc512i, SWORDS> out0, out1, out2, out3, out4;
 
     for (u64 i = 0; i < SWORDS; ++i) {
         in0[i] = VSET(
@@ -307,18 +329,18 @@ void line_dbl_vector(Fp6& line, G2Point& T, const G2Point& Q)
             static_cast<i64>(Q.Y[1][i]), static_cast<i64>(Q.Y[0][i]));
     }
 
-    conv_64to48_fp_8x1w(X1Y1Z1, in0);
+    conv_64to48_fp_8x1w(X1Y1Z1, in0.data());
 
     line_dbl_vec_v2(l0, l12, X3, Y3, Z3, X1Y1Z1);
 
-    conv_48to64_fp_8x1w(out0, l0);
-    conv_48to64_fp_8x1w(out1, l12);
-    conv_48to64_fp_8x1w(out2, X3);
-    conv_48to64_fp_8x1w(out3, Y3);
-    conv_48to64_fp_8x1w(out4, Z3);
+    conv_48to64_fp_8x1w(out0.data(), l0);
+    conv_48to64_fp_8x1w(out1.data(), l12);
+    conv_48to64_fp_8x1w(out2.data(), X3);
+    conv_48to64_fp_8x1w(out3.data(), Y3);
+    conv_48to64_fp_8x1w(out4.data(), Z3);
 
     for (u64 i = 0; i < SWORDS; ++i) {
-        u64 lanes0[8], lanes1[8], lanes2[8], lanes3[8], lanes4[8];
+        std::array<u64, 8> lanes0, lanes1, lanes2, lanes3, lanes4;
         store_u64_lanes(lanes0, out0[i]);
         store_u64_lanes(lanes1, out1[i]);
         store_u64_lanes(lanes2, out2[i]);

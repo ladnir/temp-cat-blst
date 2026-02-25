@@ -3,6 +3,8 @@
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 
+#include <array>
+
 namespace blst
 {
 namespace
@@ -465,8 +467,8 @@ void mul_fp12_vector(Fp12& ret, const Fp12& a, const Fp12& b)
 {
     fp2_4x2x1w ab0, ab1, ab2;
     fp2_2x2x2w r001, r101, r2;
-    cc512i in0[SWORDS], in1[SWORDS], in2[SWORDS];
-    cc512i out0[SWORDS / 2], out1[SWORDS / 2], out2[SWORDS / 2];
+    std::array<cc512i, SWORDS> in0, in1, in2;
+    std::array<cc512i, SWORDS / 2> out0, out1, out2;
 
     for (u64 i = 0; i < SWORDS; ++i) {
         in0[i] = VSET(
@@ -486,9 +488,9 @@ void mul_fp12_vector(Fp12& ret, const Fp12& a, const Fp12& b)
             static_cast<i64>(a[0][2][1][i]), static_cast<i64>(a[0][2][0][i]));
     }
 
-    conv_64to48_fp_8x1w(ab0, in0);
-    conv_64to48_fp_8x1w(ab1, in1);
-    conv_64to48_fp_8x1w(ab2, in2);
+    conv_64to48_fp_8x1w(ab0, in0.data());
+    conv_64to48_fp_8x1w(ab1, in1.data());
+    conv_64to48_fp_8x1w(ab2, in2.data());
 
     mul_fp12_vec_v3(r001, r101, r2, ab0, ab1, ab2);
 
@@ -496,9 +498,9 @@ void mul_fp12_vector(Fp12& ret, const Fp12& a, const Fp12& b)
     carryp_fp_4x2w(r101);
     carryp_fp_4x2w(r2);
 
-    conv_48to64_fp_4x2w(out0, r001);
-    conv_48to64_fp_4x2w(out1, r101);
-    conv_48to64_fp_4x2w(out2, r2);
+    conv_48to64_fp_4x2w(out0.data(), r001);
+    conv_48to64_fp_4x2w(out1.data(), r101);
+    conv_48to64_fp_4x2w(out2.data(), r2);
 
     for (u64 i = 0; i < SWORDS / 2; ++i) {
         const u64* lanes0 = reinterpret_cast<const u64*>(&out0[i]);
@@ -538,8 +540,9 @@ void mul_by_xy00z0_fp12_vector(Fp12& ret, const Fp12& a, const Fp6& xy00z0)
 {
     fp2_4x2x1w r0, a01, a2, b01, b4;
     fp2_2x2x2w r1;
-    cc512i in0[SWORDS], in1[SWORDS], in2[SWORDS], in3[SWORDS];
-    cc512i out0[SWORDS], out1[SWORDS / 2];
+    std::array<cc512i, SWORDS> in0, in1, in2, in3;
+    std::array<cc512i, SWORDS> out0;
+    std::array<cc512i, SWORDS / 2> out1;
 
     for (u64 i = 0; i < SWORDS; ++i) {
         in0[i] = VSET(
@@ -564,17 +567,17 @@ void mul_by_xy00z0_fp12_vector(Fp12& ret, const Fp12& a, const Fp6& xy00z0)
             static_cast<i64>(xy00z0[2][1][i]), static_cast<i64>(xy00z0[2][0][i]));
     }
 
-    conv_64to48_fp_8x1w(a01, in0);
-    conv_64to48_fp_8x1w(a2, in1);
-    conv_64to48_fp_8x1w(b01, in2);
-    conv_64to48_fp_8x1w(b4, in3);
+    conv_64to48_fp_8x1w(a01, in0.data());
+    conv_64to48_fp_8x1w(a2, in1.data());
+    conv_64to48_fp_8x1w(b01, in2.data());
+    conv_64to48_fp_8x1w(b4, in3.data());
 
     mul_by_xy00z0_fp12_vec_v1(r0, r1, a01, a2, b01, b4);
 
     carryp_fp_4x2w(r1);
 
-    conv_48to64_fp_8x1w(out0, r0);
-    conv_48to64_fp_4x2w(out1, r1);
+    conv_48to64_fp_8x1w(out0.data(), r0);
+    conv_48to64_fp_4x2w(out1.data(), r1);
 
     for (u64 i = 0; i < SWORDS; ++i) {
         const u64* lanes = reinterpret_cast<const u64*>(&out0[i]);
@@ -604,8 +607,7 @@ void mul_by_xy00z0_fp12_vector(Fp12& ret, const Fp12& a, const Fp6& xy00z0)
 void sqr_fp12_vector(Fp12& ret, const Fp12& a)
 {
     fp2_4x2x1w r0, r1, a0, a1;
-    cc512i in0[SWORDS], in1[SWORDS];
-    cc512i out0[SWORDS], out1[SWORDS];
+    std::array<cc512i, SWORDS> in0, in1, out0, out1;
 
     for (u64 i = 0; i < SWORDS; ++i) {
         in0[i] = VSET(
@@ -620,13 +622,13 @@ void sqr_fp12_vector(Fp12& ret, const Fp12& a)
             static_cast<i64>(a[1][0][1][i]), static_cast<i64>(a[1][0][0][i]));
     }
 
-    conv_64to48_fp_8x1w(a0, in0);
-    conv_64to48_fp_8x1w(a1, in1);
+    conv_64to48_fp_8x1w(a0, in0.data());
+    conv_64to48_fp_8x1w(a1, in1.data());
 
     sqr_fp12_vec_v1(r0, r1, a0, a1);
 
-    conv_48to64_fp_8x1w(out0, r0);
-    conv_48to64_fp_8x1w(out1, r1);
+    conv_48to64_fp_8x1w(out0.data(), r0);
+    conv_48to64_fp_8x1w(out1.data(), r1);
 
     for (u64 i = 0; i < SWORDS; ++i) {
         const u64* lanes0 = reinterpret_cast<const u64*>(&out0[i]);
@@ -650,8 +652,8 @@ void cyclotomic_sqr_fp12_vector(Fp12& ret, const Fp12& a)
 {
     fp4_1x2x2x2w packed_a, out_a;
     fp4_2x2x2x1w packed_bc, out_bc;
-    cc512i lanes_a[SWORDS / 2];
-    cc512i lanes_bc[SWORDS];
+    std::array<cc512i, SWORDS / 2> lanes_a;
+    std::array<cc512i, SWORDS> lanes_bc;
 
     for (u64 i = 0; i < SWORDS / 2; ++i) {
         lanes_a[i] = VSET(
@@ -660,7 +662,7 @@ void cyclotomic_sqr_fp12_vector(Fp12& ret, const Fp12& a)
             static_cast<i64>(a[0][0][1][i + (SWORDS / 2)]), static_cast<i64>(a[0][0][1][i]),
             static_cast<i64>(a[0][0][0][i + (SWORDS / 2)]), static_cast<i64>(a[0][0][0][i]));
     }
-    conv_64to48_fp_4x2w(packed_a, lanes_a);
+    conv_64to48_fp_4x2w(packed_a, lanes_a.data());
 
     for (u64 i = 0; i < SWORDS; ++i) {
         lanes_bc[i] = VSET(
@@ -669,12 +671,12 @@ void cyclotomic_sqr_fp12_vector(Fp12& ret, const Fp12& a)
             static_cast<i64>(a[0][2][1][i]), static_cast<i64>(a[0][2][0][i]),
             static_cast<i64>(a[1][0][1][i]), static_cast<i64>(a[1][0][0][i]));
     }
-    conv_64to48_fp_8x1w(packed_bc, lanes_bc);
+    conv_64to48_fp_8x1w(packed_bc, lanes_bc.data());
 
     cyclotomic_sqr_fp12_vec_v1(out_a, out_bc, packed_a, packed_bc);
 
     carryp_fp_4x2w(out_a);
-    conv_48to64_fp_4x2w(lanes_a, out_a);
+    conv_48to64_fp_4x2w(lanes_a.data(), out_a);
     for (u64 i = 0; i < SWORDS / 2; ++i) {
         const u64* lanes = reinterpret_cast<const u64*>(&lanes_a[i]);
         ret[0][0][0][i] = lanes[0];
@@ -687,7 +689,7 @@ void cyclotomic_sqr_fp12_vector(Fp12& ret, const Fp12& a)
         ret[1][1][1][i + (SWORDS / 2)] = lanes[7];
     }
 
-    conv_48to64_fp_8x1w(lanes_bc, out_bc);
+    conv_48to64_fp_8x1w(lanes_bc.data(), out_bc);
     for (u64 i = 0; i < SWORDS; ++i) {
         const u64* lanes = reinterpret_cast<const u64*>(&lanes_bc[i]);
         ret[1][0][0][i] = lanes[0];

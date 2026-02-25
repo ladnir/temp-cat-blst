@@ -153,6 +153,22 @@ Use static member functions when ownership/domain is clear.
 - Added AVX pairing tests for:
   - pointer vs span equivalence (`miller_loop_n`, `optimal_ate_pairing`)
   - empty-span identity behavior (`miller_loop_n` with `n == 0`)
+- In `pairing_avx.cpp`:
+  - converted lane scratch helpers from C-array parameters to `std::array<u64, 8>&`
+  - added debug-only pointer overlap assertions for `BLST_restrict` assumptions in
+    `miller_loop_n` and `add_n_dbl_n_vector`
+- In `G2_avx.cpp` wrappers:
+  - converted lane scratch helpers from C-array parameters to `std::array<u64, 8>&`
+  - added debug-only overlap assertions for wrapper output `line` vs point inputs
+    (`line_add_vector`, `line_dbl_vector`), while preserving valid in-place point updates.
+- Additional cleanup in AVX pairing/G2 wrappers:
+  - converted remaining fixed local C arrays (`cc512i` staging buffers and `kMillerLoopNMax`
+    scratch point arrays) to `std::array` and forwarded pointers with `.data()` where needed.
+  - preserved hot-path pointer kernels and in-place semantics; no scalar path changes.
+- Additional cleanup in AVX FP12 wrappers:
+  - converted local `cc512i` staging arrays in `mul_fp12_vector`, `mul_by_xy00z0_fp12_vector`,
+    `sqr_fp12_vector`, and `cyclotomic_sqr_fp12_vector` to `std::array` with `.data()` interop.
+  - included `<array>` in `Fp12_avx.cpp`; algorithms and call graph unchanged.
 - Next implementation slice:
   1. Add `restrict` only on AVX hot loops with clear non-alias requirements and debug overlap assertions.
   2. Keep scalar `GT::*` paths untouched; AVX dispatch integration remains additive and explicit.

@@ -2,6 +2,8 @@
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 
+#include <array>
+
 #include "blst/backend/avx512/avx_layout.h"
 #include "blst/curve/G2_avx.h"
 #include "blst/fields/Fp12_avx.h"
@@ -12,10 +14,23 @@ namespace
 {
 constexpr std::size_t kMillerLoopNMax = 16;
 
-inline void store_u64_lanes(u64 lanes[8], const cc512i v)
+inline void store_u64_lanes(std::array<u64, 8>& lanes, const cc512i v)
 {
-    _cc512_storeu_si512(lanes, v);
+    _cc512_storeu_si512(lanes.data(), v);
 }
+
+#if defined(NDEBUG)
+#define BLST_ASSERT_NO_OVERLAP_PTR(a, an, b, bn) ((void)0)
+#else
+inline bool avx_ptr_ranges_overlap(const void* a, std::size_t a_bytes, const void* b, std::size_t b_bytes)
+{
+    const auto* ap = static_cast<const u8*>(a);
+    const auto* bp = static_cast<const u8*>(b);
+    return (ap < (bp + b_bytes)) && (bp < (ap + a_bytes));
+}
+#define BLST_ASSERT_NO_OVERLAP_PTR(a, an, b, bn) \
+    BLST_ASSERT(!avx_ptr_ranges_overlap((a), (an), (b), (bn)))
+#endif
 
 void line_by_px2(Fp6& line, const G1AffinePoint& px2)
 {
@@ -76,13 +91,20 @@ void add_n_dbl_n_generic(
 
 void add_n_dbl_n_vector(
     Fp12& ret,
-    G2Point* T,
-    const G2AffinePoint* Q,
-    const G1AffinePoint* Px2,
+    G2Point* BLST_restrict T,
+    const G2AffinePoint* BLST_restrict Q,
+    const G1AffinePoint* BLST_restrict Px2,
     std::size_t k)
 {
-    cc512i t[3][SWORDS];
-    cc512i s[4][SWORDS / 2];
+    BLST_ASSERT(T != nullptr);
+    BLST_ASSERT(Q != nullptr);
+    BLST_ASSERT(Px2 != nullptr);
+    BLST_ASSERT_NO_OVERLAP_PTR(T, sizeof(*T), Q, sizeof(*Q));
+    BLST_ASSERT_NO_OVERLAP_PTR(T, sizeof(*T), Px2, sizeof(*Px2));
+    BLST_ASSERT_NO_OVERLAP_PTR(Q, sizeof(*Q), Px2, sizeof(*Px2));
+
+    std::array<std::array<cc512i, SWORDS>, 3> t;
+    std::array<std::array<cc512i, SWORDS / 2>, 4> s;
     int i;
 
     fp2_2x2x2w X1Y1, Z1Y2, X2, l0Y3, l1, X3, Z3;
@@ -106,9 +128,9 @@ void add_n_dbl_n_vector(
             static_cast<i64>(Q->X[0][i + (SWORDS / 2)]), static_cast<i64>(Q->X[0][i]));
     }
 
-    conv_64to48_fp_4x2w(X1Y1, s[0]);
-    conv_64to48_fp_4x2w(Z1Y2, s[1]);
-    conv_64to48_fp_4x2w(X2, s[2]);
+    conv_64to48_fp_4x2w(X1Y1, s[0].data());
+    conv_64to48_fp_4x2w(Z1Y2, s[1].data());
+    conv_64to48_fp_4x2w(X2, s[2].data());
 
     line_add_vec_v1(l0Y3, l1, X3, Z3, X1Y1, Z1Y2, X2);
 
@@ -124,7 +146,7 @@ void add_n_dbl_n_vector(
             static_cast<i64>(Px2->X[i + (SWORDS / 2)]), static_cast<i64>(Px2->X[i]),
             static_cast<i64>(Px2->X[i + (SWORDS / 2)]), static_cast<i64>(Px2->X[i]));
     }
-    conv_64to48_fp_4x2w(_Px2, s[0]);
+    conv_64to48_fp_4x2w(_Px2, s[0].data());
 
     line_by_Px2_2x2x2w(l12, l12, _Px2);
 
@@ -148,8 +170,8 @@ void add_n_dbl_n_vector(
             static_cast<i64>(ret[0][2][1][i]), static_cast<i64>(ret[0][2][0][i]),
             static_cast<i64>(ret[0][2][1][i]), static_cast<i64>(ret[0][2][0][i]));
     }
-    conv_64to48_fp_8x1w(a01, t[0]);
-    conv_64to48_fp_8x1w(a2, t[1]);
+    conv_64to48_fp_8x1w(a01, t[0].data());
+    conv_64to48_fp_8x1w(a2, t[1].data());
 
     carryp_fp_4x2w(l12);
     carryp_fp_4x2w(l0Y3);
@@ -191,7 +213,7 @@ void add_n_dbl_n_vector(
             static_cast<i64>(Px2->Y[i]), static_cast<i64>(Px2->Y[i]),
             static_cast<i64>(Px2->Y[i]), static_cast<i64>(Px2->Y[i]));
     }
-    conv_64to48_fp_8x1w(__Px2, t[0]);
+    conv_64to48_fp_8x1w(__Px2, t[0].data());
 
     while (k--) {
         perm_var(a0, r0, m5);
@@ -245,11 +267,11 @@ void add_n_dbl_n_vector(
     }
 
     carryp_fp_4x2w(r1);
-    conv_48to64_fp_8x1w(t[0], r0);
-    conv_48to64_fp_4x2w(s[0], r1);
+    conv_48to64_fp_8x1w(t[0].data(), r0);
+    conv_48to64_fp_4x2w(s[0].data(), r1);
 
     for (i = 0; i < SWORDS; ++i) {
-        u64 lanes[8];
+        std::array<u64, 8> lanes;
         store_u64_lanes(lanes, t[0][i]);
         ret[0][2][0][i] = lanes[0];
         ret[0][2][1][i] = lanes[1];
@@ -262,7 +284,7 @@ void add_n_dbl_n_vector(
     }
 
     for (i = 0; i < SWORDS / 2; ++i) {
-        u64 lanes[8];
+        std::array<u64, 8> lanes;
         store_u64_lanes(lanes, s[0][i]);
         ret[0][0][0][i] = lanes[0];
         ret[0][0][0][i + (SWORDS / 2)] = lanes[1];
@@ -274,12 +296,14 @@ void add_n_dbl_n_vector(
         ret[1][2][1][i + (SWORDS / 2)] = lanes[7];
     }
 
-    conv_48to64_fp_8x1w(t[0], _X3);
-    conv_48to64_fp_8x1w(t[1], _Y3);
-    conv_48to64_fp_8x1w(t[2], _Z3);
+    conv_48to64_fp_8x1w(t[0].data(), _X3);
+    conv_48to64_fp_8x1w(t[1].data(), _Y3);
+    conv_48to64_fp_8x1w(t[2].data(), _Z3);
 
     for (i = 0; i < SWORDS; ++i) {
-        u64 lanes0[8], lanes1[8], lanes2[8];
+        std::array<u64, 8> lanes0;
+        std::array<u64, 8> lanes1;
+        std::array<u64, 8> lanes2;
         store_u64_lanes(lanes0, t[0][i]);
         store_u64_lanes(lanes1, t[1][i]);
         store_u64_lanes(lanes2, t[2][i]);
@@ -314,7 +338,8 @@ void mul_n_sqr_vector(Fp12& ret, const Fp12& a, std::size_t n)
     fp2_2x2x2w r001, r101, r2;
     fp4_1x2x2x2w _a;
     fp4_2x2x2x1w _bc;
-    cc512i t[3][SWORDS], s[SWORDS / 2];
+    std::array<std::array<cc512i, SWORDS>, 3> t;
+    std::array<cc512i, SWORDS / 2> s;
     int i;
 
     for (i = 0; i < SWORDS; ++i) {
@@ -335,9 +360,9 @@ void mul_n_sqr_vector(Fp12& ret, const Fp12& a, std::size_t n)
             static_cast<i64>(a[0][2][1][i]), static_cast<i64>(a[0][2][0][i]));
     }
 
-    conv_64to48_fp_8x1w(ab0, t[0]);
-    conv_64to48_fp_8x1w(ab1, t[1]);
-    conv_64to48_fp_8x1w(ab2, t[2]);
+    conv_64to48_fp_8x1w(ab0, t[0].data());
+    conv_64to48_fp_8x1w(ab1, t[1].data());
+    conv_64to48_fp_8x1w(ab2, t[2].data());
 
     mul_fp12_vec_v3(r001, r101, r2, ab0, ab1, ab2);
 
@@ -376,7 +401,7 @@ void mul_n_sqr_vector(Fp12& ret, const Fp12& a, std::size_t n)
     }
 
     carryp_fp_4x2w(_a);
-    conv_48to64_fp_4x2w(s, _a);
+    conv_48to64_fp_4x2w(s.data(), _a);
     for (i = 0; i < SWORDS / 2; ++i) {
         const u64* lanes = reinterpret_cast<const u64*>(&s[i]);
         ret[0][0][0][i] = lanes[0];
@@ -389,7 +414,7 @@ void mul_n_sqr_vector(Fp12& ret, const Fp12& a, std::size_t n)
         ret[1][1][1][i + (SWORDS / 2)] = lanes[7];
     }
 
-    conv_48to64_fp_8x1w(t[0], _bc);
+    conv_48to64_fp_8x1w(t[0].data(), _bc);
     for (i = 0; i < SWORDS; ++i) {
         const u64* lanes = reinterpret_cast<const u64*>(&t[0][i]);
         ret[1][0][0][i] = lanes[0];
@@ -442,6 +467,9 @@ void miller_loop_n(
     if ((q == nullptr) || (p == nullptr)) {
         return;
     }
+    BLST_ASSERT_NO_OVERLAP_PTR(&ret, sizeof(ret), q, sizeof(*q) * n);
+    BLST_ASSERT_NO_OVERLAP_PTR(&ret, sizeof(ret), p, sizeof(*p) * n);
+    BLST_ASSERT_NO_OVERLAP_PTR(q, sizeof(*q) * n, p, sizeof(*p) * n);
 
     if (n > kMillerLoopNMax) {
         return;
@@ -453,8 +481,8 @@ void miller_loop_n(
         return;
     }
 
-    G2Point t[kMillerLoopNMax];
-    G1AffinePoint px2[kMillerLoopNMax];
+    std::array<G2Point, kMillerLoopNMax> t;
+    std::array<G1AffinePoint, kMillerLoopNMax> px2;
 
     for (std::size_t i = 0; i < n; ++i) {
         Fp::add(px2[i].X, p[i].X, p[i].X);
@@ -465,12 +493,12 @@ void miller_loop_n(
         vec_copy(&t[i].Z, &get_BLST_Rx().p2, sizeof(t[i].Z));
     }
 
-    start_dbl_n(ret, t, px2, n);
-    add_n_dbl_n(ret, t, q, px2, n, 2);
-    add_n_dbl_n(ret, t, q, px2, n, 3);
-    add_n_dbl_n(ret, t, q, px2, n, 9);
-    add_n_dbl_n(ret, t, q, px2, n, 32);
-    add_n_dbl_n(ret, t, q, px2, n, 16);
+    start_dbl_n(ret, t.data(), px2.data(), n);
+    add_n_dbl_n(ret, t.data(), q, px2.data(), n, 2);
+    add_n_dbl_n(ret, t.data(), q, px2.data(), n, 3);
+    add_n_dbl_n(ret, t.data(), q, px2.data(), n, 9);
+    add_n_dbl_n(ret, t.data(), q, px2.data(), n, 32);
+    add_n_dbl_n(ret, t.data(), q, px2.data(), n, 16);
     Fp12::conjugate(ret.data);
 }
 
