@@ -184,27 +184,91 @@ Exit criteria:
 
 ## Phase 1: Fp x8 Core
 
-Types/APIs:
+Current codebase status (from review):
 
-- `struct FpPack8x1`
-- `add`, `sub`, `mul_v*`, `redc`, `select`
+- Already present in `blst/fields/Fp_avx.h/.cpp`: `FpPack8x1` and `UFpPack8x1` arithmetic core (`add/sub/as*`, `mul_v2`, widened add/sub/as*, `redc`, conversions).
+- Already present in `test/Fp_avx_tests.cpp`: strong differential coverage for conversions, reduced ops, widened ops, alias-equivalence for `mul` paths.
+- Missing for batch-engine construction: production AoS pack/unpack helpers and lane-mask selection helpers (currently ad hoc/test-local patterns).
 
-Testing:
+Phase 1 execution scope:
 
-- Differential tests vs scalar `Fp`
-- Edge vectors (`0`, `1`, `p-1`, carry-heavy)
-- Aliasing tests for supported cases
+- Keep existing arithmetic kernels unchanged unless a correctness bug is found.
+- Add only the low-level control/data-movement primitives needed to make Phases 2-7 mechanical.
+- Add SEO-correct Fp throughput measurements that include both kernel-only and AoS end-to-end paths.
 
-Perf gates:
+Phase 1 APIs to add (style aligned with `Fp_avx.h` static methods):
 
-- Report `FpMulReducedSEO` only (`mul + redc` path)
-- No speedup claims from unreduced mul alone
-- Prefer fused widened pipelines (`mul...add/sub...redc`) over immediate per-mul reduction.
+```cpp
+struct FpPack8x1 : public AvxPack<NWORDS>
+{
+    static void from_aos(FpPack8x1& r, const Fp* in8);
+    static void to_aos(Fp* out8, const FpPack8x1& a);
 
-Exit criteria:
+    static void from_aos_partial(FpPack8x1& r, const Fp* in, size_t n_active, const Fp& fill);
+    static void to_aos_partial(Fp* out, size_t n_active, const FpPack8x1& a);
 
-- Bit-exact parity with scalar `Fp`
-- Stable cycles/SEO across repeated runs
+    static void select(FpPack8x1& r, const FpPack8x1& a, const FpPack8x1& b, u8 lane_mask);
+};
+
+struct UFpPack8x1 : public AvxPack<2 * NWORDS>
+{
+    static void select(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b, u8 lane_mask);
+};
+```
+
+Lane contract for `lane_mask`:
+
+- Bit `i` controls lane `i` (`0 <= i < 8`).
+- `0` selects from `a`; `1` selects from `b`.
+- Must be implemented with SIMD blend/mask ops, not scalar per-lane loops in hot paths.
+
+Data layout and boundary rules:
+
+- Preserve existing `8x1w` limb layout exactly.
+- `from_aos`: lane `i` maps to `in8[i]`.
+- `from_aos_partial`: lanes `[0, n_active)` from input, lanes `[n_active, 8)` filled with caller-provided neutral (`Fp::zero()` for add chains, `Fp::one()` for mul chains).
+- `to_aos_partial`: write only `[0, n_active)`.
+- No heap allocation and no hidden scalar arithmetic fallback inside these helpers.
+
+Phase 1 files expected to change:
+
+- `blst/fields/Fp_avx.h`
+- `blst/fields/Fp_avx.cpp`
+- `test/Fp_avx_tests.cpp`
+- `benchmark/avxbls_bench.cpp`
+
+Phase 1 testing plan:
+
+- Keep all existing `FpAvx` tests passing.
+- Add round-trip tests for `from_aos`/`to_aos` using random and edge vectors.
+- Add partial-pack tests for `n_active = 0..8` with both fill values (`0`, `1`).
+- Add `select` tests for `FpPack8x1` and `UFpPack8x1` over all 256 masks (or full deterministic subset if runtime becomes problematic).
+- Add aliasing tests for `select` (`r==a` and `r==b`).
+- Add tail-shape differential test: partial pack -> `mul_v2` -> `redc` -> partial unpack vs scalar lane-by-lane reference.
+
+Phase 1 perf gates:
+
+- Report `FpMulReducedSEO` only (`mul_v2 + redc`), never unreduced mul alone.
+- Publish both:
+  - `avx_kernel`: pre-packed input, `mul_v2 + redc`
+  - `avx_e2e`: `from_aos + mul_v2 + redc + to_aos`
+- Include SEO-normalized cycles and speedup vs scalar `Fp::mul`.
+- Prefer widened fused chains (`mul...add/sub...redc`) in all microbench variants.
+
+Phase 1 success conditions:
+
+- Bit-exact parity with scalar `Fp` across new and existing tests.
+- Deterministic lane behavior for all masks and partial sizes.
+- Reproducible cycles/SEO numbers across repeated runs.
+- `avx_e2e` must demonstrate positive throughput scaling with larger `n` (block streaming), even if absolute speedup is platform-dependent.
+
+What to avoid in Phase 1:
+
+- No template/general-width abstractions (`W` remains hard-coded at 8).
+- No redesign of scalar `Fp` API.
+- No `4x2w` refactors in this phase unless needed for build breakage.
+- No embedding GT/Fp2/Fp6 logic into Phase 1; keep it strictly Fp x8 foundation.
+- No reduction-after-every-multiply rewrites that discard widened-pipeline advantages.
 
 ---
 

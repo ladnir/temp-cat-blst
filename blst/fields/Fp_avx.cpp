@@ -1,4 +1,6 @@
 #include "blst/fields/Fp_avx.h"
+#include "blst/fields/Fp.h"
+#include <array>
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 
@@ -105,6 +107,74 @@ void FpPack8x1::conv_48to64(cc512i* BLST_restrict r, const FpPack8x1& a)
   r[3] = r3; r[4] = r4; r[5] = r5; 
 }
 
+void FpPack8x1::from_aos(FpPack8x1& r, const Fp* in8)
+{
+  BLST_ASSERT(in8 != nullptr);
+
+  cc512i in64[SWORDS];
+  for (u64 limb = 0; limb < SWORDS; ++limb) {
+    std::array<u64, 8> lane_words{};
+    for (u64 lane = 0; lane < 8; ++lane) {
+      lane_words[lane] = static_cast<u64>(in8[lane][limb]);
+    }
+    in64[limb] = _cc512_loadu_si512(lane_words.data());
+  }
+
+  conv_64to48(r, in64);
+}
+
+void FpPack8x1::to_aos(Fp* out8, const FpPack8x1& a)
+{
+  BLST_ASSERT(out8 != nullptr);
+
+  cc512i out64[SWORDS];
+  conv_48to64(out64, a);
+
+  for (u64 limb = 0; limb < SWORDS; ++limb) {
+    std::array<u64, 8> lane_words{};
+    _cc512_storeu_si512(lane_words.data(), out64[limb]);
+    for (u64 lane = 0; lane < 8; ++lane) {
+      out8[lane][limb] = lane_words[lane];
+    }
+  }
+}
+
+void FpPack8x1::from_aos_partial(FpPack8x1& r, const Fp* in, std::size_t n_active, const Fp& fill)
+{
+  BLST_ASSERT(n_active <= 8);
+  BLST_ASSERT(in != nullptr || n_active == 0);
+
+  std::array<Fp, 8> tmp{};
+  for (std::size_t i = 0; i < n_active; ++i) {
+    tmp[i] = in[i];
+  }
+  for (std::size_t i = n_active; i < 8; ++i) {
+    tmp[i] = fill;
+  }
+
+  from_aos(r, tmp.data());
+}
+
+void FpPack8x1::to_aos_partial(Fp* out, std::size_t n_active, const FpPack8x1& a)
+{
+  BLST_ASSERT(n_active <= 8);
+  BLST_ASSERT(out != nullptr || n_active == 0);
+
+  std::array<Fp, 8> tmp{};
+  to_aos(tmp.data(), a);
+  for (std::size_t i = 0; i < n_active; ++i) {
+    out[i] = tmp[i];
+  }
+}
+
+void FpPack8x1::select(FpPack8x1& r, const FpPack8x1& a, const FpPack8x1& b, const u8 lane_mask)
+{
+  const u64 mask = static_cast<u64>(lane_mask);
+  for (u64 i = 0; i < NWORDS; ++i) {
+    r[i] = VMBLEND(mask, a[i], b[i]);
+  }
+}
+
 void FpPack4x2::conv_48to64(cc512i* BLST_restrict r, const FpPack4x2& a)
 {
   const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
@@ -115,6 +185,14 @@ void FpPack4x2::conv_48to64(cc512i* BLST_restrict r, const FpPack4x2& a)
   r2 = VOR(VSHL(a3, 16), VSHR(a2, 32));
 
   r[0] = r0; r[1] = r1; r[2] = r2; 
+}
+
+void UFpPack8x1::select(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b, const u8 lane_mask)
+{
+  const u64 mask = static_cast<u64>(lane_mask);
+  for (u64 i = 0; i < 2 * NWORDS; ++i) {
+    r[i] = VMBLEND(mask, a[i], b[i]);
+  }
 }
 
 void conv_48to64_mpi(u64 *r, const u64 *a, int rlen, int alen)

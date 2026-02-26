@@ -10,6 +10,8 @@
 
 namespace blst
 {
+    struct Fp;
+
     /**
      * AVX512 Fp helpers ported from avxbls.
      *
@@ -115,6 +117,31 @@ namespace blst
         /// @brief Lane-wise `conv_48to64_fp` for 8 packed channels.
         static void conv_48to64(cc512i* BLST_restrict r, const FpPack8x1& a);
 
+        /// @brief Pack 8 scalar `Fp` values (AoS) into one `FpPack8x1`.
+        /// @pre `in8` points to at least 8 reduced Montgomery `Fp` values.
+        /// @post lane `i` of `r` equals `in8[i]` in radix-48 representation.
+        static void from_aos(FpPack8x1& r, const Fp* in8);
+
+        /// @brief Unpack one `FpPack8x1` to 8 scalar `Fp` values (AoS).
+        /// @pre `out8` points to at least 8 `Fp` values.
+        /// @post `out8[i]` equals lane `i` of `a`.
+        static void to_aos(Fp* out8, const FpPack8x1& a);
+
+        /// @brief Partial AoS pack for tail handling.
+        /// @param n_active Number of active lanes in `[0,8]`.
+        /// @param fill Value used for inactive lanes.
+        /// @post lanes `[0,n_active)` are loaded from `in`, lanes `[n_active,8)` are `fill`.
+        static void from_aos_partial(FpPack8x1& r, const Fp* in, std::size_t n_active, const Fp& fill);
+
+        /// @brief Partial AoS unpack for tail handling.
+        /// @param n_active Number of active lanes in `[0,8]`.
+        /// @post only `out[0..n_active)` are written.
+        static void to_aos_partial(Fp* out, std::size_t n_active, const FpPack8x1& a);
+
+        /// @brief Lane-wise select between two packed values.
+        /// @details Bit `i` of `lane_mask` selects lane `i`: `0 -> a`, `1 -> b`.
+        static void select(FpPack8x1& r, const FpPack8x1& a, const FpPack8x1& b, u8 lane_mask);
+
 
 
         /** @name Reduced Fp helpers */
@@ -204,6 +231,10 @@ namespace blst
         /// @pre `a` is a valid double-length radix-48 value (typically from `FpPack8x1::mul*`).
         /// @post `r` is reduced modulo `p` in Montgomery form, radix-48 limbs.
         static void redc(FpPack8x1& r, const UFpPack8x1& a);
+
+        /// @brief Lane-wise select between two widened packed values.
+        /// @details Bit `i` of `lane_mask` selects lane `i`: `0 -> a`, `1 -> b`.
+        static void select(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b, u8 lane_mask);
     };
 
     struct UFpPack4x2;

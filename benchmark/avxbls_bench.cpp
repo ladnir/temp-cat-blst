@@ -624,6 +624,45 @@ void bench_fp(const BenchConfig& cfg)
     measure_cycles("- UFpPack4x2::redc:       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
         UFpPack4x2::redc(r_4x2w, z_4x2w);
     });
+
+    std::array<Fp, 8> aos_a{};
+    std::array<Fp, 8> aos_b{};
+    std::array<Fp, 8> aos_r{};
+    for (u64 lane = 0; lane < 8; ++lane) {
+        aos_a[lane] = a_scalar;
+        aos_b[lane] = b_scalar;
+    }
+
+    const u64 fp_mul_reduced_scalar = measure_cycles("- FpMulReducedSEO scalar (1x): ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        Fp::mul(r_scalar, a_scalar, b_scalar);
+    });
+
+    const u64 fp_mul_reduced_avx_kernel = measure_cycles("- FpMulReducedSEO avx_kernel (8x): ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        FpPack8x1::mul_v2(z_8x1w, a_8x1w, b_8x1w);
+        UFpPack8x1::redc(r_8x1w, z_8x1w);
+    });
+
+    const u64 fp_mul_reduced_avx_e2e = measure_cycles("- FpMulReducedSEO avx_e2e (8x): ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        FpPack8x1::from_aos(a_8x1w, aos_a.data());
+        FpPack8x1::from_aos(b_8x1w, aos_b.data());
+        FpPack8x1::mul_v2(z_8x1w, a_8x1w, b_8x1w);
+        UFpPack8x1::redc(r_8x1w, z_8x1w);
+        FpPack8x1::to_aos(aos_r.data(), r_8x1w);
+    });
+
+    const double scalar_cycles_per_seo = static_cast<double>(fp_mul_reduced_scalar);
+    const double avx_kernel_cycles_per_seo = static_cast<double>(fp_mul_reduced_avx_kernel) / 8.0;
+    const double avx_e2e_cycles_per_seo = static_cast<double>(fp_mul_reduced_avx_e2e) / 8.0;
+    const double avx_kernel_speedup = scalar_cycles_per_seo / avx_kernel_cycles_per_seo;
+    const double avx_e2e_speedup = scalar_cycles_per_seo / avx_e2e_cycles_per_seo;
+
+    std::printf("- FpMulReducedSEO cycles/SEO: scalar=%.2f avx_kernel=%.2f avx_e2e=%.2f\n",
+        scalar_cycles_per_seo,
+        avx_kernel_cycles_per_seo,
+        avx_e2e_cycles_per_seo);
+    std::printf("- FpMulReducedSEO speedup vs scalar: avx_kernel=%.2fx avx_e2e=%.2fx\n",
+        avx_kernel_speedup,
+        avx_e2e_speedup);
 }
 
 void bench_fp2(const BenchConfig& cfg)

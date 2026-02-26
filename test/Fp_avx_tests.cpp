@@ -221,6 +221,14 @@ void apply_pattern(FpVec4& out, const FpVec4& a, const FpVec4& b, const std::arr
     }
 }
 
+void apply_lane_mask_select(FpVec8& out, const FpVec8& a, const FpVec8& b, u8 lane_mask)
+{
+    for (size_t lane = 0; lane < 8; ++lane) {
+        const bool select_b = ((lane_mask >> lane) & 1U) != 0;
+        out[lane] = select_b ? b[lane] : a[lane];
+    }
+}
+
 } // namespace
 
 TEST(FpAvx, ConversionRoundTrip)
@@ -635,6 +643,222 @@ TEST(FpAvx, LayoutHelpers)
             for (size_t i = 0; i < VWORDS; ++i) {
                 EXPECT_EQ(out[i], ch4_ref[i][ch]);
                 EXPECT_EQ(out[i + VWORDS], ch4_ref[i][ch + 1]);
+            }
+        }
+    }
+}
+
+TEST(FpAvx, AosRoundTrip8x1)
+{
+    InsecureRng rng;
+
+    for (int iter = 0; iter < 256; ++iter) {
+        FpVec8 src{};
+        for (auto& e : src) {
+            rand_redc_fp(e, rng);
+        }
+        force_edge_lanes(src);
+
+        FpPack8x1 packed{};
+        FpVec8 got{};
+        FpPack8x1::from_aos(packed, src.data());
+        FpPack8x1::to_aos(got.data(), packed);
+
+        for (size_t lane = 0; lane < 8; ++lane) {
+            EXPECT_TRUE(Fp::equal(got[lane], src[lane]));
+        }
+    }
+}
+
+TEST(FpAvx, AosPartialPackUnpack8x1)
+{
+    InsecureRng rng;
+
+    for (int iter = 0; iter < 128; ++iter) {
+        FpVec8 src{};
+        for (auto& e : src) {
+            rand_redc_fp(e, rng);
+        }
+        force_edge_lanes(src);
+
+        for (size_t n_active = 0; n_active <= 8; ++n_active) {
+            FpPack8x1 packed{};
+            FpVec8 got{};
+
+            FpPack8x1::from_aos_partial(packed, src.data(), n_active, Fp::zero());
+            FpPack8x1::to_aos(got.data(), packed);
+            for (size_t lane = 0; lane < 8; ++lane) {
+                const Fp& expected = (lane < n_active) ? src[lane] : Fp::zero();
+                EXPECT_TRUE(Fp::equal(got[lane], expected));
+            }
+
+            FpPack8x1::from_aos_partial(packed, src.data(), n_active, Fp::one());
+            FpPack8x1::to_aos(got.data(), packed);
+            for (size_t lane = 0; lane < 8; ++lane) {
+                const Fp& expected = (lane < n_active) ? src[lane] : Fp::one();
+                EXPECT_TRUE(Fp::equal(got[lane], expected));
+            }
+
+            FpVec8 out_partial{};
+            for (auto& e : out_partial) {
+                rand_redc_fp(e, rng);
+            }
+            const FpVec8 out_before = out_partial;
+
+            FpPack8x1::from_aos(packed, src.data());
+            FpPack8x1::to_aos_partial(out_partial.data(), n_active, packed);
+            for (size_t lane = 0; lane < 8; ++lane) {
+                if (lane < n_active) {
+                    EXPECT_TRUE(Fp::equal(out_partial[lane], src[lane]));
+                } else {
+                    EXPECT_TRUE(Fp::equal(out_partial[lane], out_before[lane]));
+                }
+            }
+        }
+    }
+}
+
+TEST(FpAvx, Select8x1Masks)
+{
+    InsecureRng rng;
+
+    for (int iter = 0; iter < 48; ++iter) {
+        FpVec8 a{}, b{}, got{}, expected{};
+        for (size_t lane = 0; lane < 8; ++lane) {
+            rand_redc_fp(a[lane], rng);
+            rand_redc_fp(b[lane], rng);
+        }
+        force_edge_lanes(a);
+        force_edge_lanes(b);
+
+        FpPack8x1 avx_a{}, avx_b{}, avx_r{};
+        FpPack8x1::from_aos(avx_a, a.data());
+        FpPack8x1::from_aos(avx_b, b.data());
+
+        for (u16 mask = 0; mask < 256; ++mask) {
+            FpPack8x1::select(avx_r, avx_a, avx_b, static_cast<u8>(mask));
+            FpPack8x1::to_aos(got.data(), avx_r);
+            apply_lane_mask_select(expected, a, b, static_cast<u8>(mask));
+            for (size_t lane = 0; lane < 8; ++lane) {
+                EXPECT_TRUE(Fp::equal(got[lane], expected[lane]));
+            }
+
+            FpPack8x1 avx_alias_a{};
+            FpPack8x1::from_aos(avx_alias_a, a.data());
+            FpPack8x1::select(avx_alias_a, avx_alias_a, avx_b, static_cast<u8>(mask));
+            FpPack8x1::to_aos(got.data(), avx_alias_a);
+            for (size_t lane = 0; lane < 8; ++lane) {
+                EXPECT_TRUE(Fp::equal(got[lane], expected[lane]));
+            }
+
+            FpPack8x1 avx_alias_b{};
+            FpPack8x1::from_aos(avx_alias_b, b.data());
+            FpPack8x1::select(avx_alias_b, avx_a, avx_alias_b, static_cast<u8>(mask));
+            FpPack8x1::to_aos(got.data(), avx_alias_b);
+            for (size_t lane = 0; lane < 8; ++lane) {
+                EXPECT_TRUE(Fp::equal(got[lane], expected[lane]));
+            }
+        }
+    }
+}
+
+TEST(FpAvx, SelectWide8x1Masks)
+{
+    InsecureRng rng;
+
+    for (int iter = 0; iter < 40; ++iter) {
+        FpVec8 a{}, b{}, c{}, d{};
+        FpVec8 mul_ab{}, mul_cd{}, got{}, expected{};
+        for (size_t lane = 0; lane < 8; ++lane) {
+            rand_redc_fp(a[lane], rng);
+            rand_redc_fp(b[lane], rng);
+            rand_redc_fp(c[lane], rng);
+            rand_redc_fp(d[lane], rng);
+        }
+        force_edge_lanes(a);
+        force_edge_lanes(b);
+        force_edge_lanes(c);
+        force_edge_lanes(d);
+
+        for (size_t lane = 0; lane < 8; ++lane) {
+            Fp::mul(mul_ab[lane], a[lane], b[lane]);
+            Fp::mul(mul_cd[lane], c[lane], d[lane]);
+        }
+
+        FpPack8x1 avx_a{}, avx_b{}, avx_c{}, avx_d{}, red{};
+        UFpPack8x1 wide_ab{}, wide_cd{}, wide_sel{};
+
+        FpPack8x1::from_aos(avx_a, a.data());
+        FpPack8x1::from_aos(avx_b, b.data());
+        FpPack8x1::from_aos(avx_c, c.data());
+        FpPack8x1::from_aos(avx_d, d.data());
+        FpPack8x1::mul_v2(wide_ab, avx_a, avx_b);
+        FpPack8x1::mul_v2(wide_cd, avx_c, avx_d);
+
+        for (u16 mask = 0; mask < 256; ++mask) {
+            UFpPack8x1::select(wide_sel, wide_ab, wide_cd, static_cast<u8>(mask));
+            UFpPack8x1::redc(red, wide_sel);
+            FpPack8x1::to_aos(got.data(), red);
+            apply_lane_mask_select(expected, mul_ab, mul_cd, static_cast<u8>(mask));
+            for (size_t lane = 0; lane < 8; ++lane) {
+                EXPECT_TRUE(Fp::equal(got[lane], expected[lane]));
+            }
+
+            UFpPack8x1 wide_alias_a = wide_ab;
+            UFpPack8x1::select(wide_alias_a, wide_alias_a, wide_cd, static_cast<u8>(mask));
+            UFpPack8x1::redc(red, wide_alias_a);
+            FpPack8x1::to_aos(got.data(), red);
+            for (size_t lane = 0; lane < 8; ++lane) {
+                EXPECT_TRUE(Fp::equal(got[lane], expected[lane]));
+            }
+
+            UFpPack8x1 wide_alias_b = wide_cd;
+            UFpPack8x1::select(wide_alias_b, wide_ab, wide_alias_b, static_cast<u8>(mask));
+            UFpPack8x1::redc(red, wide_alias_b);
+            FpPack8x1::to_aos(got.data(), red);
+            for (size_t lane = 0; lane < 8; ++lane) {
+                EXPECT_TRUE(Fp::equal(got[lane], expected[lane]));
+            }
+        }
+    }
+}
+
+TEST(FpAvx, PartialTailMulRedc8x1w)
+{
+    InsecureRng rng;
+
+    for (int iter = 0; iter < 192; ++iter) {
+        FpVec8 a{}, b{}, out{};
+        for (size_t lane = 0; lane < 8; ++lane) {
+            rand_redc_fp(a[lane], rng);
+            rand_redc_fp(b[lane], rng);
+        }
+        force_edge_lanes(a);
+        force_edge_lanes(b);
+
+        for (size_t n_active = 0; n_active <= 8; ++n_active) {
+            FpPack8x1 avx_a{}, avx_b{}, red{};
+            UFpPack8x1 wide{};
+            FpPack8x1::from_aos_partial(avx_a, a.data(), n_active, Fp::one());
+            FpPack8x1::from_aos_partial(avx_b, b.data(), n_active, Fp::one());
+
+            FpPack8x1::mul_v2(wide, avx_a, avx_b);
+            UFpPack8x1::redc(red, wide);
+
+            for (auto& e : out) {
+                rand_redc_fp(e, rng);
+            }
+            const FpVec8 out_before = out;
+
+            FpPack8x1::to_aos_partial(out.data(), n_active, red);
+            for (size_t lane = 0; lane < 8; ++lane) {
+                if (lane < n_active) {
+                    Fp expected{};
+                    Fp::mul(expected, a[lane], b[lane]);
+                    EXPECT_TRUE(Fp::equal(out[lane], expected));
+                } else {
+                    EXPECT_TRUE(Fp::equal(out[lane], out_before[lane]));
+                }
             }
         }
     }
