@@ -138,7 +138,7 @@ void unpack_Fp2Pack2x2x2(Fp2Vec2& out, const Fp2Pack2x2x2& in)
     out[1][1] = lanes[3];
 }
 
-void pack_fp4_2x2x2x1w(fp4_2x2x2x1w& out, const Fp4Vec2& in)
+void pack_fp4_2x2x2x1w(Fp4Pack2x2x2x1& out, const Fp4Vec2& in)
 {
     Fp2Vec4 lanes = {
         in[0].c0, in[0].c1,
@@ -147,7 +147,7 @@ void pack_fp4_2x2x2x1w(fp4_2x2x2x1w& out, const Fp4Vec2& in)
     pack_Fp2Pack4x2x1(out, lanes);
 }
 
-void unpack_fp4_2x2x2x1w(Fp4Vec2& out, const fp4_2x2x2x1w& in)
+void unpack_fp4_2x2x2x1w(Fp4Vec2& out, const Fp4Pack2x2x2x1& in)
 {
     Fp2Vec4 lanes{};
     unpack_Fp2Pack4x2x1(lanes, in);
@@ -157,13 +157,13 @@ void unpack_fp4_2x2x2x1w(Fp4Vec2& out, const fp4_2x2x2x1w& in)
     out[1].c1 = lanes[3];
 }
 
-void pack_fp4_1x2x2x2w(fp4_1x2x2x2w& out, const Fp4Elem& in)
+void pack_fp4_1x2x2x2w(Fp4Pack1x2x2x2& out, const Fp4Elem& in)
 {
     Fp2Vec2 lanes = {in.c0, in.c1};
     pack_Fp2Pack2x2x2(out, lanes);
 }
 
-void unpack_fp4_1x2x2x2w(Fp4Elem& out, const fp4_1x2x2x2w& in)
+void unpack_fp4_1x2x2x2w(Fp4Elem& out, const Fp4Pack1x2x2x2& in)
 {
     Fp2Vec2 lanes{};
     unpack_Fp2Pack2x2x2(lanes, in);
@@ -220,13 +220,13 @@ TEST(Fp4Avx, Sqr2x2x2x1wVariants)
             rand_redc_fp2(a[1].c1, rng);
         }
 
-        fp4_2x2x2x1w avx_a{}, r1{}, r2{}, r3{};
+        Fp4Pack2x2x2x1 avx_a{}, r1{}, r2{}, r3{};
         Fp4Vec2 got1{}, got2{}, got3{}, expected{};
 
         pack_fp4_2x2x2x1w(avx_a, a);
-        sqr_fp4_2x2x2x1w_v1(r1, avx_a);
-        sqr_fp4_2x2x2x1w_v2(r2, avx_a);
-        sqr_fp4_2x2x2x1w_v3(r3, avx_a);
+        Fp4Pack2x2x2x1::sqr_v1(r1, avx_a);
+        Fp4Pack2x2x2x1::sqr_v2(r2, avx_a);
+        Fp4Pack2x2x2x1::sqr_v3(r3, avx_a);
 
         unpack_fp4_2x2x2x1w(got1, r1);
         unpack_fp4_2x2x2x1w(got2, r2);
@@ -264,12 +264,12 @@ TEST(Fp4Avx, Sqr1x2x2x2wVariants)
             rand_redc_fp2(a.c1, rng);
         }
 
-        fp4_1x2x2x2w avx_a{}, r1{}, r2{};
+        Fp4Pack1x2x2x2 avx_a{}, r1{}, r2{};
         Fp4Elem got1{}, got2{}, expected{};
 
         pack_fp4_1x2x2x2w(avx_a, a);
-        sqr_fp4_1x2x2x2w_v1(r1, avx_a);
-        sqr_fp4_1x2x2x2w_v2(r2, avx_a);
+        Fp4Pack1x2x2x2::sqr_v1(r1, avx_a);
+        Fp4Pack1x2x2x2::sqr_v2(r2, avx_a);
 
         unpack_fp4_1x2x2x2w(got1, r1);
         unpack_fp4_1x2x2x2w(got2, r2);

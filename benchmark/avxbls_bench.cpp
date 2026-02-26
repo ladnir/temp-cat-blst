@@ -705,10 +705,10 @@ void bench_fp2(const BenchConfig& cfg)
 
 void bench_fp4(const BenchConfig& cfg)
 {
-    fp4_2x2x2x1w a_2x2x2x1w{};
-    fp4_2x2x2x1w r_2x2x2x1w{};
-    fp4_1x2x2x2w a_1x2x2x2w{};
-    fp4_1x2x2x2w r_1x2x2x2w{};
+    Fp4Pack2x2x2x1 a_2x2x2x1w{};
+    Fp4Pack2x2x2x1 r_2x2x2x1w{};
+    Fp4Pack1x2x2x2 a_1x2x2x2w{};
+    Fp4Pack1x2x2x2 r_1x2x2x2w{};
     Fp4 r_scalar{};
     Fp2 a0_scalar{};
     Fp2 a1_scalar{};
@@ -725,12 +725,12 @@ void bench_fp4(const BenchConfig& cfg)
         sqr_fp4_scalar(r_scalar, a0_scalar, a1_scalar);
     });
 
-    measure_cycles("- sqr_fp4_2x2x2x1w_v1:  ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        sqr_fp4_2x2x2x1w_v1(r_2x2x2x1w, a_2x2x2x1w);
+    measure_cycles("- Fp4Pack2x2x2x1::sqr_v1:  ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        Fp4Pack2x2x2x1::sqr_v1(r_2x2x2x1w, a_2x2x2x1w);
     });
 
-    measure_cycles("- sqr_fp4_1x2x2x2w_v1:  ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        sqr_fp4_1x2x2x2w_v1(r_1x2x2x2w, a_1x2x2x2w);
+    measure_cycles("- Fp4Pack1x2x2x2::sqr_v1:  ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        Fp4Pack1x2x2x2::sqr_v1(r_1x2x2x2w, a_1x2x2x2w);
     });
 }
 
@@ -830,10 +830,10 @@ void bench_fp12(const BenchConfig& cfg)
     Fp12 r_scalar{};
     Fp6 b_sparse{};
 
-    fp4_1x2x2x2w ra_1x2x2x2w{};
-    fp4_1x2x2x2w a_1x2x2x2w{};
-    fp4_2x2x2x1w rbc_2x2x2x1w{};
-    fp4_2x2x2x1w bc_2x2x2x1w{};
+    Fp4Pack1x2x2x2 ra_1x2x2x2w{};
+    Fp4Pack1x2x2x2 a_1x2x2x2w{};
+    Fp4Pack2x2x2x1 rbc_2x2x2x1w{};
+    Fp4Pack2x2x2x1 bc_2x2x2x1w{};
     Fp2Pack8x1x1 a0_8x1x1w{};
     Fp2Pack8x1x1 a1_8x1x1w{};
     Fp2Pack8x1x1 a2_8x1x1w{};

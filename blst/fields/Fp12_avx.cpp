@@ -83,12 +83,12 @@ void cyclotomic_sqr_fp12_vec_v1(
     Fp4Pack2x2x2x1 tbc, t0;
     const cc512i m0 = VSET(3, 2, 1, 0, 5, 4, 7, 6);
 
-    sqr_fp4_1x2x2x2w_v1(ta, a);
+    Fp4Pack1x2x2x2::sqr_v1(ta, a);
     Fp2Pack2x2x2::as(ra, ta, a);
     Fp2Pack2x2x2::add(ra, ra, ra);
     Fp2Pack2x2x2::add(ra, ra, ta);
 
-    sqr_fp4_2x2x2x1w_v1(tbc, bc);
+    Fp4Pack2x2x2x1::sqr_v1(tbc, bc);
     Fp2Pack4x2x1::mul_by_u_plus_1(t0, tbc);
     blend_0xC0(tbc.data(), tbc.data(), t0.data());
     perm_var(tbc.data(), tbc.data(), m0);
@@ -107,12 +107,12 @@ void cyclotomic_sqr_fp12_vec_v2(
     Fp4Pack2x2x2x1 tbc, t0;
     const cc512i m0 = VSET(3, 2, 1, 0, 5, 4, 7, 6);
 
-    sqr_fp4_1x2x2x2w_v2(ta, a);
+    Fp4Pack1x2x2x2::sqr_v2(ta, a);
     Fp2Pack2x2x2::as(ra, ta, a);
     Fp2Pack2x2x2::add(ra, ra, ra);
     Fp2Pack2x2x2::add(ra, ra, ta);
 
-    sqr_fp4_2x2x2x1w_v2(tbc, bc);
+    Fp4Pack2x2x2x1::sqr_v2(tbc, bc);
     Fp2Pack4x2x1::mul_by_u_plus_1(t0, tbc);
     blend_0xC0(tbc.data(), tbc.data(), t0.data());
     perm_var(tbc.data(), tbc.data(), m0);
@@ -126,7 +126,7 @@ void compressed_cyclotomic_sqr_fp12_vec_v1(Fp4Pack2x2x2x1& rbc, const Fp4Pack2x2
     Fp4Pack2x2x2x1 tbc, t0;
     const cc512i m0 = VSET(3, 2, 1, 0, 5, 4, 7, 6);
 
-    sqr_fp4_2x2x2x1w_v1(tbc, bc);
+    Fp4Pack2x2x2x1::sqr_v1(tbc, bc);
     Fp2Pack4x2x1::mul_by_u_plus_1(t0, tbc);
     blend_0xC0(tbc.data(), tbc.data(), t0.data());
     perm_var(tbc.data(), tbc.data(), m0);

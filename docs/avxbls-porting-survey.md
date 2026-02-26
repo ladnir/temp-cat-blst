@@ -138,10 +138,10 @@ Dimension product maps to 8 logical lanes.
 
 ## 4.5 Fp4 packed types
 
-- `fp4_2x2x2x1w` (`__m512i[8]`)
-- `fp4x2_2x2x2x1w` (`__m512i[16]`)
-- `fp4_1x2x2x2w` (`__m512i[4]`)
-- `fp4x2_1x2x2x2w` (`__m512i[12]`)
+- `Fp4Pack2x2x2x1` (`__m512i[8]`)
+- `UFp4Pack2x2x2x1` (`__m512i[16]`)
+- `Fp4Pack1x2x2x2` (`__m512i[4]`)
+- `UFp4Pack1x2x2x2` (`__m512i[12]`)
 
 Used by cyclotomic and higher-tower kernels.
 
@@ -336,11 +336,11 @@ Pre/Post:
 
 ## 5.5 Fp4 kernels
 
-- `sqr_fp4_2x2x2x1w_v1`
-- `sqr_fp4_1x2x2x2w_v1`
-- `sqr_fp4_2x2x2x1w_v2` (static)
-- `sqr_fp4_2x2x2x1w_v3` (static)
-- `sqr_fp4_1x2x2x2w_v2` (static)
+- `Fp4Pack2x2x2x1::sqr_v1`
+- `Fp4Pack1x2x2x2::sqr_v1`
+- `Fp4Pack2x2x2x1::sqr_v2` (static)
+- `Fp4Pack2x2x2x1::sqr_v3` (static)
+- `Fp4Pack1x2x2x2::sqr_v2` (static)
 
 Behavior:
 
@@ -492,13 +492,13 @@ Primary kernels:
 Types:
 
 - `vec384fp4`
-- `fp4_2x2x2x1w`, `fp4x2_2x2x2x1w`
-- `fp4_1x2x2x2w`, `fp4x2_1x2x2x2w`
+- `Fp4Pack2x2x2x1`, `UFp4Pack2x2x2x1`
+- `Fp4Pack1x2x2x2`, `UFp4Pack1x2x2x2`
 
 Primary kernels:
 
-- `sqr_fp4_2x2x2x1w_v1`
-- `sqr_fp4_1x2x2x2w_v1`
+- `Fp4Pack2x2x2x1::sqr_v1`
+- `Fp4Pack1x2x2x2::sqr_v1`
 
 ## 6.4 Fp6
 

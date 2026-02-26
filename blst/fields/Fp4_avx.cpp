@@ -6,7 +6,7 @@
 namespace blst
 {
 
-void sqr_fp4_2x2x2x1w_v1(Fp4Pack2x2x2x1& r, const Fp4Pack2x2x2x1& a)
+void Fp4Pack2x2x2x1::sqr_v1(Fp4Pack2x2x2x1& r, const Fp4Pack2x2x2x1& a)
 {
     Fp4Pack2x2x2x1 t0;
     UFp4Pack2x2x2x1 tt0, tt1, tt2;
@@ -23,7 +23,7 @@ void sqr_fp4_2x2x2x1w_v1(Fp4Pack2x2x2x1& r, const Fp4Pack2x2x2x1& a)
     UFp2Pack4x2x1::redc(r, tt0);              //     2*A0*A1 | A0^2+(u+1)*(A1^2)
 }
 
-void sqr_fp4_2x2x2x1w_v2(Fp4Pack2x2x2x1& r, const Fp4Pack2x2x2x1& a)
+void Fp4Pack2x2x2x1::sqr_v2(Fp4Pack2x2x2x1& r, const Fp4Pack2x2x2x1& a)
 {
     Fp4Pack2x2x2x1 t0, t1, t2, t3;
 
@@ -38,7 +38,7 @@ void sqr_fp4_2x2x2x1w_v2(Fp4Pack2x2x2x1& r, const Fp4Pack2x2x2x1& a)
     Fp2Pack4x2x1::add(r, t2, t0);           //     2*A0*A1 | A0^2+(u+1)*(A1^2)
 }
 
-void sqr_fp4_2x2x2x1w_v3(Fp4Pack2x2x2x1& r, const Fp4Pack2x2x2x1& a)
+void Fp4Pack2x2x2x1::sqr_v3(Fp4Pack2x2x2x1& r, const Fp4Pack2x2x2x1& a)
 {
     Fp4Pack2x2x2x1 t0, t1, t2;
     UFp4Pack2x2x2x1 tt0, tt1, tt2;
@@ -63,7 +63,7 @@ void sqr_fp4_2x2x2x1w_v3(Fp4Pack2x2x2x1& r, const Fp4Pack2x2x2x1& a)
     UFp2Pack4x2x1::redc(r, tt2);               //     2*A0*A1 | (A0+A1)*(A0+A1*(u+1))-A0*A1-A0*A1*(u+1)
 }
 
-void sqr_fp4_1x2x2x2w_v1(Fp4Pack1x2x2x2& r, const Fp4Pack1x2x2x2& a)
+void Fp4Pack1x2x2x2::sqr_v1(Fp4Pack1x2x2x2& r, const Fp4Pack1x2x2x2& a)
 {
     UFp4Pack1x2x2x2 tt0, tt1, tt2;
     Fp4Pack1x2x2x2 t0;
@@ -81,7 +81,7 @@ void sqr_fp4_1x2x2x2w_v1(Fp4Pack1x2x2x2& r, const Fp4Pack1x2x2x2& a)
     UFp2Pack2x2x2::redc(r, tt0);              //     2*A0*A1 | A0^2+(u+1)*(A1^2)
 }
 
-void sqr_fp4_1x2x2x2w_v2(Fp4Pack1x2x2x2& r, const Fp4Pack1x2x2x2& a)
+void Fp4Pack1x2x2x2::sqr_v2(Fp4Pack1x2x2x2& r, const Fp4Pack1x2x2x2& a)
 {
     Fp4Pack1x2x2x2 t0, t1, t2, t3;
     const cc512i m0 = VSET(3, 2, 1, 0, 7, 6, 5, 4);

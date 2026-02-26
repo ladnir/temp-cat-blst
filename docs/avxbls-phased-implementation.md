@@ -338,11 +338,11 @@ Implementation files:
 
 Functions to add:
 
-- `sqr_fp4_2x2x2x1w_v1`
-- `sqr_fp4_1x2x2x2w_v1`
-- `sqr_fp4_2x2x2x1w_v2`
-- `sqr_fp4_2x2x2x1w_v3`
-- `sqr_fp4_1x2x2x2w_v2`
+- `Fp4Pack2x2x2x1::sqr_v1`
+- `Fp4Pack1x2x2x2::sqr_v1`
+- `Fp4Pack2x2x2x1::sqr_v2`
+- `Fp4Pack2x2x2x1::sqr_v3`
+- `Fp4Pack1x2x2x2::sqr_v2`
 
 Required tests (`avx512_fp4_tests.cpp`):
 

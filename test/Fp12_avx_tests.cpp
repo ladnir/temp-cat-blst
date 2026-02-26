@@ -227,22 +227,22 @@ void unpack_Fp2Pack2x2x2(Fp2Vec2& out, const Fp2Pack2x2x2& in)
     out[1][1] = lanes[3];
 }
 
-void pack_fp4_2x2x2x1w(fp4_2x2x2x1w& out, const Fp2Vec4& in)
+void pack_fp4_2x2x2x1w(Fp4Pack2x2x2x1& out, const Fp2Vec4& in)
 {
     pack_Fp2Pack4x2x1(out, in);
 }
 
-void unpack_fp4_2x2x2x1w(Fp2Vec4& out, const fp4_2x2x2x1w& in)
+void unpack_fp4_2x2x2x1w(Fp2Vec4& out, const Fp4Pack2x2x2x1& in)
 {
     unpack_Fp2Pack4x2x1(out, in);
 }
 
-void pack_fp4_1x2x2x2w(fp4_1x2x2x2w& out, const Fp2Vec2& in)
+void pack_fp4_1x2x2x2w(Fp4Pack1x2x2x2& out, const Fp2Vec2& in)
 {
     pack_Fp2Pack2x2x2(out, in);
 }
 
-void unpack_fp4_1x2x2x2w(Fp2Vec2& out, const fp4_1x2x2x2w& in)
+void unpack_fp4_1x2x2x2w(Fp2Vec2& out, const Fp4Pack1x2x2x2& in)
 {
     unpack_Fp2Pack2x2x2(out, in);
 }
@@ -383,8 +383,8 @@ TEST(Fp12Avx, CyclotomicVariantsAndCompressed)
             rand_redc_fp2(vbc, rng);
         }
 
-        fp4_1x2x2x2w a{}, ra1{}, ra2{};
-        fp4_2x2x2x1w bc{}, rbc1{}, rbc2{}, rbc_comp{};
+        Fp4Pack1x2x2x2 a{}, ra1{}, ra2{};
+        Fp4Pack2x2x2x1 bc{}, rbc1{}, rbc2{}, rbc_comp{};
         Fp2Vec2 out_ra1{}, out_ra2{};
         Fp2Vec4 out_rbc1{}, out_rbc2{}, out_rbc_comp{};
 
