@@ -148,7 +148,7 @@ void mul_fp12_vec_v1(
     const cc512i m0 = VSET(3, 2, 1, 0, 7, 6, 5, 4);
     const cc512i m1 = VSET(3, 2, 1, 0, 5, 4, 7, 6);
 
-    mul_fp6x2_4x2x1x1w(tt01, tt2, ab0, ab1, ab2);
+    Fp6Pack4x2x1x1::mul(tt01, tt2, ab0, ab1, ab2);
     shuf_01_UFp2Pack8x1x1(tt3, tt01);
     shuf_01_UFp2Pack8x1x1(tt4, tt2);
     blend_0x01_UFp2Pack8x1x1(tt4, tt4, tt3);
@@ -189,7 +189,7 @@ void mul_fp12_vec_v2(
     const cc512i m1 = VSET(3, 3, 2, 2, 1, 1, 0, 0);
     const cc512i m2 = VSET(5, 5, 4, 4, 7, 7, 6, 6);
 
-    mul_fp6x2_4x2x1x1w(tt01, tt2, ab0, ab1, ab2);
+    Fp6Pack4x2x1x1::mul(tt01, tt2, ab0, ab1, ab2);
     shuf_01_UFp2Pack8x1x1(tt3, tt01);
     shuf_01_UFp2Pack8x1x1(tt4, tt2);
     blend_0x01_UFp2Pack8x1x1(tt4, tt4, tt3);
@@ -235,7 +235,7 @@ void mul_fp12_vec_v3(
     const cc512i m2 = VSET(7, 7, 6, 6, 7, 7, 6, 6);
     const cc512i m3 = VSET(7, 7, 6, 6, 5, 5, 4, 4);
 
-    mul_fp6x2_2x2x2x1w(tt0, tt1, ab0, ab1, ab2);
+    Fp6Pack2x2x2x1::mul(tt0, tt1, ab0, ab1, ab2);
 
     perm_1100_dl(tt2.data(), tt0.data());
     perm_1100_dl(tt1.data(), tt1.data());
@@ -267,7 +267,7 @@ void mul_fp12_vec_v3(
     perm_var(t0.data(), ab2.data(), m3);
     conv_sltohl(s3, t0);
     Fp2Pack2x2x2::add(s2, s2, s3);
-    mul_fp6x2_1x2x2x2w(ss3, ss5, s0, s1, s2);
+    Fp6Pack1x2x2x2::mul(ss3, ss5, s0, s1, s2);
     UFp2Pack2x2x2::sub(ss3, ss3, ss4);
     perm_var_dl(tt5.data(), tt0.data(), m3);
     conv_dltovl(ss4, tt5);
@@ -298,7 +298,7 @@ void mul_fp12_vec_v4(
     const cc512i m2 = VSET(1, 0, 7, 6, 5, 4, 3, 2);
     const cc512i m3 = VSET(7, 7, 6, 6, 5, 5, 4, 4);
 
-    mul_fp6x2_2x2x2x1w(tt0, tt1, ab0, ab1, ab2);
+    Fp6Pack2x2x2x1::mul(tt0, tt1, ab0, ab1, ab2);
 
     perm_var_dl(tt2.data(), tt1.data(), m0);
     blend_0x0F_dl(tt3.data(), tt2.data(), tt0.data());
@@ -332,7 +332,7 @@ void mul_fp12_vec_v4(
     perm_var(t0.data(), ab2.data(), m3);
     conv_sltohl(s3, t0);
     Fp2Pack2x2x2::add(s2, s2, s3);
-    mul_fp6x2_1x2x2x2w(ss3, ss1, s0, s1, s2);
+    Fp6Pack1x2x2x2::mul(ss3, ss1, s0, s1, s2);
     UFp2Pack2x2x2::sub(ss3, ss3, ss4);
     perm_var_dl(tt5.data(), tt0.data(), m3);
     conv_dltovl(ss4, tt5);
@@ -357,7 +357,7 @@ void mul_by_xy00z0_fp12_vec_v1(
     const cc512i m1 = VSET(3, 3, 2, 2, 3, 3, 2, 2);
     const cc512i m2 = VSET(7, 7, 6, 6, 7, 7, 6, 6);
 
-    mul_by_xy00z0_fp6x2_2x2x2x1w(tt0, tt1, tt2, tt3, a01, a2, b01, b4);
+    Fp6Pack2x2x2x1::mul_by_xy00z0(tt0, tt1, tt2, tt3, a01, a2, b01, b4);
 
     blend_0x03_dl(tt5.data(), tt0.data(), tt1.data());
     blend_0x33_dl(tt4.data(), tt2.data(), tt3.data());
@@ -393,7 +393,7 @@ void mul_by_xy00z0_fp12_vec_v2(
     const cc512i m2 = VSET(1, 1, 1, 1, 3, 3, 3, 3);
     const cc512i m3 = VSET(5, 5, 5, 5, 7, 7, 7, 7);
 
-    mul_by_xy00z0_fp6x2_2x4x1x1w(tt0, tt1, tt2, a, b);
+    Fp6Pack4x2x1x1::mul_by_xy00z0(tt0, tt1, tt2, a, b);
 
     blend_0x33_UFp2Pack8x1x1(tt3, tt0, tt1);
     perm_var_UFp2Pack8x1x1(tt3, tt3, m0);
@@ -456,7 +456,7 @@ void sqr_fp12_vec_v1(
     blend_0x03(t2.data(), t2.data(), t3.data());
     blend_0x0F(s2.data(), s2.data(), t2.data());
 
-    mul_fp6x2_2x2x2x1w(tt0, tt1, s0, s1, s2);
+    Fp6Pack2x2x2x1::mul(tt0, tt1, s0, s1, s2);
     UFp2Pack4x2x1::redc(t0, tt0);
     UFp2Pack4x2x1::redc(t1, tt1);
 

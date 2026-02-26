@@ -293,7 +293,7 @@ TEST(Fp6Avx, Mul2x2x2x1w)
         pack_Fp2Pack4x2x1(ab1, filled_fp2<4>(a1));
         pack_Fp2Pack4x2x1(ab2, filled_fp2<4>(a2));
 
-        mul_fp6x2_2x2x2x1w(wide01, wide2, ab0, ab1, ab2);
+        Fp6Pack2x2x2x1::mul(wide01, wide2, ab0, ab1, ab2);
         UFp2Pack4x2x1::redc(red01, wide01);
         UFp2Pack4x2x1::redc(red2, wide2);
         unpack_Fp2Pack4x2x1(out01, red01);
@@ -337,7 +337,7 @@ TEST(Fp6Avx, Mul1x2x2x2w)
         pack_Fp2Pack2x2x2(ab1, {a1, b1});
         pack_Fp2Pack2x2x2(ab2, {a2, b2});
 
-        mul_fp6x2_1x2x2x2w(wide01, wide2, ab0, ab1, ab2);
+        Fp6Pack1x2x2x2::mul(wide01, wide2, ab0, ab1, ab2);
         UFp2Pack2x2x2::redc(red01, wide01);
         UFp2Pack2x2x2::redc(red2, wide2);
         unpack_Fp2Pack2x2x2(out01, red01);
@@ -375,7 +375,7 @@ TEST(Fp6Avx, Mul4x2x1x1w)
         pack_Fp2Pack8x1x1(ab1, filled_fp2<8>(a1));
         pack_Fp2Pack8x1x1(ab2, filled_fp2<8>(a2));
 
-        mul_fp6x2_4x2x1x1w(wide01, wide2, ab0, ab1, ab2);
+        Fp6Pack4x2x1x1::mul(wide01, wide2, ab0, ab1, ab2);
         redc_UFp2Pack8x1x1_local(red01, wide01);
         redc_UFp2Pack8x1x1_local(red2, wide2);
         unpack_Fp2Pack8x1x1(out01, red01);
@@ -416,7 +416,7 @@ TEST(Fp6Avx, Sparse2x2x2x1w)
         pack_Fp2Pack4x2x1(b01, filled_fp2<4>(b01v));
         pack_Fp2Pack4x2x1(b4p, filled_fp2<4>(b4v));
 
-        mul_by_xy00z0_fp6x2_2x2x2x1w(wide01, wide2, wide3, wide45, a01, a2p, b01, b4p);
+        Fp6Pack2x2x2x1::mul_by_xy00z0(wide01, wide2, wide3, wide45, a01, a2p, b01, b4p);
         UFp2Pack4x2x1::redc(red01, wide01);
         UFp2Pack4x2x1::redc(red2, wide2);
         UFp2Pack4x2x1::redc(red3, wide3);
@@ -462,7 +462,7 @@ TEST(Fp6Avx, Sparse2x4x1x1w)
         pack_Fp2Pack8x1x1(a, filled_fp2<8>(av));
         pack_Fp2Pack8x1x1(b, filled_fp2<8>(bv));
 
-        mul_by_xy00z0_fp6x2_2x4x1x1w(wide01_4, wide23_4, wide45_4, a, b);
+        Fp6Pack4x2x1x1::mul_by_xy00z0(wide01_4, wide23_4, wide45_4, a, b);
         redc_UFp2Pack8x1x1_local(red01_4, wide01_4);
         redc_UFp2Pack8x1x1_local(red23_4, wide23_4);
         redc_UFp2Pack8x1x1_local(red45_4, wide45_4);

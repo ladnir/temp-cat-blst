@@ -110,7 +110,7 @@ namespace
     }
 } // namespace
 
-void mul_fp6x2_4x2x1x1w(
+void Fp6Pack4x2x1x1::mul(
     UFp2Pack8x1x1& r01,
     UFp2Pack8x1x1& r2,
     const Fp2Pack8x1x1& ab0,
@@ -156,7 +156,7 @@ void mul_fp6x2_4x2x1x1w(
     UFp2Pack8x1x1::add(r2, tt5, tt4);
 }
 
-void mul_fp6x2_2x2x2x1w(
+void Fp6Pack2x2x2x1::mul(
     UFp2Pack4x2x1& r01,
     UFp2Pack4x2x1& r2,
     const Fp2Pack4x2x1& ab0,
@@ -202,7 +202,7 @@ void mul_fp6x2_2x2x2x1w(
     UFp2Pack4x2x1::add(r2, tt5, tt4);
 }
 
-void mul_fp6x2_1x2x2x2w(
+void Fp6Pack1x2x2x2::mul(
     UFp2Pack2x2x2& r01,
     UFp2Pack2x2x2& r2,
     const Fp2Pack2x2x2& ab0,
@@ -251,7 +251,7 @@ void mul_fp6x2_1x2x2x2w(
     UFp2Pack2x2x2::add(r2, tt5, tt4);
 }
 
-void mul_by_xy00z0_fp6x2_2x2x2x1w(
+void Fp6Pack2x2x2x1::mul_by_xy00z0(
     UFp2Pack4x2x1& r01,
     UFp2Pack4x2x1& r2,
     UFp2Pack4x2x1& r3,
@@ -284,7 +284,7 @@ void mul_by_xy00z0_fp6x2_2x2x2x1w(
     UFp2Pack4x2x1::sax2(r01, tt1, tt0);
 }
 
-void mul_by_xy00z0_fp6x2_2x4x1x1w(
+void Fp6Pack4x2x1x1::mul_by_xy00z0(
     UFp2Pack8x1x1& r01,
     UFp2Pack8x1x1& r23,
     UFp2Pack8x1x1& r45,

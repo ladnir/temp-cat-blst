@@ -800,15 +800,15 @@ void bench_fp6(const BenchConfig& cfg)
     });
 
     measure_cycles("- mul_fp6x2_2x2x2x1w:   ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        mul_fp6x2_2x2x2x1w(z01_4x2x1w, z2_4x2x1w, a0_4x2x1w, a1_4x2x1w, a2_4x2x1w);
+        Fp6Pack2x2x2x1::mul(z01_4x2x1w, z2_4x2x1w, a0_4x2x1w, a1_4x2x1w, a2_4x2x1w);
     });
 
     measure_cycles("- mul_fp6x2_1x2x2x2w:   ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        mul_fp6x2_1x2x2x2w(z01_2x2x2w, z2_2x2x2w, a0_2x2x2w, a1_2x2x2w, a2_2x2x2w);
+        Fp6Pack1x2x2x2::mul(z01_2x2x2w, z2_2x2x2w, a0_2x2x2w, a1_2x2x2w, a2_2x2x2w);
     });
 
     measure_cycles("- mul_by_xy00z0_fp6x2_2x2x2x1w: ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        mul_by_xy00z0_fp6x2_2x2x2x1w(
+        Fp6Pack2x2x2x1::mul_by_xy00z0(
             z01_4x2x1w,
             z2_4x2x1w,
             z3_4x2x1w,
@@ -820,7 +820,7 @@ void bench_fp6(const BenchConfig& cfg)
     });
 
     measure_cycles("- mul_by_xy00z0_fp6x2_2x4x1x1w: ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        mul_by_xy00z0_fp6x2_2x4x1x1w(r01_8x1x1w, r23_8x1x1w, r45_8x1x1w, a_8x1x1w, b_8x1x1w);
+        Fp6Pack4x2x1x1::mul_by_xy00z0(r01_8x1x1w, r23_8x1x1w, r45_8x1x1w, a_8x1x1w, b_8x1x1w);
     });
 }
 
