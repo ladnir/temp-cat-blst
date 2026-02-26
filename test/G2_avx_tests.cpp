@@ -319,7 +319,7 @@ void scale_line_by_px2_scalar(LineEval& line, const Fp& px, const Fp& py)
     Fp::mul(line.c2[1], line.c2[1], py);
 }
 
-void pack_line_dbl_v2_input(fp2_4x2x1w& X1Y1Z1, const JacobianPoint& Q)
+void pack_line_dbl_v2_input(Fp2Pack4x2x1& X1Y1Z1, const JacobianPoint& Q)
 {
     cc512i t[SWORDS] = {};
     for (u64 i = 0; i < SWORDS; ++i) {
@@ -332,7 +332,7 @@ void pack_line_dbl_v2_input(fp2_4x2x1w& X1Y1Z1, const JacobianPoint& Q)
     FpPack8x1::conv_64to48(X1Y1Z1, t);
 }
 
-void pack_line_dbl_v1_inputs(fp2_2x2x2w& X1Y1, fp2_2x2x2w& Z1, const JacobianPoint& Q)
+void pack_line_dbl_v1_inputs(Fp2Pack2x2x2& X1Y1, Fp2Pack2x2x2& Z1, const JacobianPoint& Q)
 {
     cc512i s0[SWORDS / 2] = {};
     cc512i s1[SWORDS / 2] = {};
@@ -353,9 +353,9 @@ void pack_line_dbl_v1_inputs(fp2_2x2x2w& X1Y1, fp2_2x2x2w& Z1, const JacobianPoi
 }
 
 void pack_line_add_v1_inputs(
-    fp2_2x2x2w& X1Y1,
-    fp2_2x2x2w& Z1Y2,
-    fp2_2x2x2w& X2,
+    Fp2Pack2x2x2& X1Y1,
+    Fp2Pack2x2x2& Z1Y2,
+    Fp2Pack2x2x2& X2,
     const JacobianPoint& R,
     const AffineInputPoint& Q)
 {
@@ -384,7 +384,7 @@ void pack_line_add_v1_inputs(
     FpPack4x2::conv_64to48(X2, s2);
 }
 
-void pack_px2_4x2x1w(fp2_4x2x1w& Px2, const Fp& X, const Fp& Y)
+void pack_px2_4x2x1w(Fp2Pack4x2x1& Px2, const Fp& X, const Fp& Y)
 {
     cc512i t[SWORDS] = {};
     for (u64 i = 0; i < SWORDS; ++i) {
@@ -395,7 +395,7 @@ void pack_px2_4x2x1w(fp2_4x2x1w& Px2, const Fp& X, const Fp& Y)
     FpPack8x1::conv_64to48(Px2, t);
 }
 
-void pack_px2_2x2x2w(fp2_2x2x2w& Px2, const Fp& X, const Fp& Y)
+void pack_px2_2x2x2w(Fp2Pack2x2x2& Px2, const Fp& X, const Fp& Y)
 {
     cc512i t[SWORDS / 2] = {};
     for (u64 i = 0; i < SWORDS / 2; ++i) {
@@ -411,11 +411,11 @@ void pack_px2_2x2x2w(fp2_2x2x2w& Px2, const Fp& X, const Fp& Y)
 void decode_line_dbl_v2(
     LineEval& line,
     JacobianPoint& T,
-    const fp2_4x2x1w l0,
-    const fp2_4x2x1w l12,
-    const fp2_4x2x1w X3,
-    const fp2_4x2x1w Y3,
-    const fp2_4x2x1w Z3)
+    const Fp2Pack4x2x1 l0,
+    const Fp2Pack4x2x1 l12,
+    const Fp2Pack4x2x1 X3,
+    const Fp2Pack4x2x1 Y3,
+    const Fp2Pack4x2x1 Z3)
 {
     line.c0 = fp2_from_8x1w_channels(l0, 2, 3, false);
     line.c1 = fp2_from_8x1w_channels(l12, 4, 5, false);
@@ -428,11 +428,11 @@ void decode_line_dbl_v2(
 void decode_line_dbl_v1(
     LineEval& line,
     JacobianPoint& T,
-    const fp2_2x2x2w l0Y3,
-    const fp2_2x2x2w l1,
-    const fp2_2x2x2w l2,
-    const fp2_2x2x2w X3,
-    const fp2_2x2x2w Z3)
+    const Fp2Pack2x2x2 l0Y3,
+    const Fp2Pack2x2x2 l1,
+    const Fp2Pack2x2x2 l2,
+    const Fp2Pack2x2x2 X3,
+    const Fp2Pack2x2x2 Z3)
 {
     line.c0 = fp2_from_4x2w_channels(l0Y3, 0, 2, true);
     line.c1 = fp2_from_4x2w_channels(l1, 0, 2, true);
@@ -445,10 +445,10 @@ void decode_line_dbl_v1(
 void decode_line_add_v1(
     LineEval& line,
     JacobianPoint& T,
-    const fp2_2x2x2w l0Y3,
-    const fp2_2x2x2w l1,
-    const fp2_2x2x2w X3,
-    const fp2_2x2x2w Z3)
+    const Fp2Pack2x2x2 l0Y3,
+    const Fp2Pack2x2x2 l1,
+    const Fp2Pack2x2x2 X3,
+    const Fp2Pack2x2x2 Z3)
 {
     line.c0 = fp2_from_4x2w_channels(l0Y3, 0, 2, true);
     line.c1 = fp2_from_4x2w_channels(l1, 0, 2, true);
@@ -472,7 +472,7 @@ TEST(G2Avx, LineDblV2MatchesScalar)
         JacobianPoint expected_t{};
         line_dbl_scalar(expected_line, expected_t, q);
 
-        fp2_4x2x1w x1y1z1{}, l0{}, l12{}, x3{}, y3{}, z3{};
+        Fp2Pack4x2x1 x1y1z1{}, l0{}, l12{}, x3{}, y3{}, z3{};
         pack_line_dbl_v2_input(x1y1z1, q);
         line_dbl_vec_v2(l0, l12, x3, y3, z3, x1y1z1);
 
@@ -501,7 +501,7 @@ TEST(G2Avx, LineDblV1MatchesScalar)
         JacobianPoint expected_t{};
         line_dbl_scalar(expected_line, expected_t, q);
 
-        fp2_2x2x2w x1y1{}, z1{}, l0y3{}, l1{}, l2{}, x3{}, z3{};
+        Fp2Pack2x2x2 x1y1{}, z1{}, l0y3{}, l1{}, l2{}, x3{}, z3{};
         pack_line_dbl_v1_inputs(x1y1, z1, q);
         line_dbl_vec_v1(l0y3, l1, l2, x3, z3, x1y1, z1);
 
@@ -526,7 +526,7 @@ TEST(G2Avx, LineDblVariantsAgree)
         JacobianPoint q{};
         make_point(q, rng, (iter < 16) ? iter : -1);
 
-        fp2_4x2x1w x1y1z1{}, l0_v2{}, l12_v2{}, x3_v2{}, y3_v2{}, z3_v2{};
+        Fp2Pack4x2x1 x1y1z1{}, l0_v2{}, l12_v2{}, x3_v2{}, y3_v2{}, z3_v2{};
         pack_line_dbl_v2_input(x1y1z1, q);
         line_dbl_vec_v2(l0_v2, l12_v2, x3_v2, y3_v2, z3_v2, x1y1z1);
 
@@ -534,7 +534,7 @@ TEST(G2Avx, LineDblVariantsAgree)
         JacobianPoint t_v2{};
         decode_line_dbl_v2(line_v2, t_v2, l0_v2, l12_v2, x3_v2, y3_v2, z3_v2);
 
-        fp2_2x2x2w x1y1{}, z1{}, l0y3_v1{}, l1_v1{}, l2_v1{}, x3_v1{}, z3_v1{};
+        Fp2Pack2x2x2 x1y1{}, z1{}, l0y3_v1{}, l1_v1{}, l2_v1{}, x3_v1{}, z3_v1{};
         pack_line_dbl_v1_inputs(x1y1, z1, q);
         line_dbl_vec_v1(l0y3_v1, l1_v1, l2_v1, x3_v1, z3_v1, x1y1, z1);
 
@@ -564,7 +564,7 @@ TEST(G2Avx, LineAddV1MatchesScalar)
         JacobianPoint expected_t{};
         line_add_scalar(expected_line, expected_t, r, q);
 
-        fp2_2x2x2w x1y1{}, z1y2{}, x2{}, l0y3{}, l1{}, x3{}, z3{};
+        Fp2Pack2x2x2 x1y1{}, z1y2{}, x2{}, l0y3{}, l1{}, x3{}, z3{};
         pack_line_add_v1_inputs(x1y1, z1y2, x2, r, q);
         line_add_vec_v1(l0y3, l1, x3, z3, x1y1, z1y2, x2);
 
@@ -668,7 +668,7 @@ TEST(G2Avx, LineByPx2_4x2x1w)
         line_dbl_scalar(expected_line, expected_t, q);
         scale_line_by_px2_scalar(expected_line, px, py);
 
-        fp2_4x2x1w x1y1z1{}, l0{}, l12{}, x3{}, y3{}, z3{}, px2{};
+        Fp2Pack4x2x1 x1y1z1{}, l0{}, l12{}, x3{}, y3{}, z3{}, px2{};
         pack_line_dbl_v2_input(x1y1z1, q);
         line_dbl_vec_v2(l0, l12, x3, y3, z3, x1y1z1);
 
@@ -705,7 +705,7 @@ TEST(G2Avx, LineByPx2_2x2x2w)
         line_dbl_scalar(expected_line, expected_t, q);
         scale_line_by_px2_scalar(expected_line, px, py);
 
-        fp2_2x2x2w x1y1{}, z1{}, l0y3{}, l1{}, l2{}, x3{}, z3{}, l12{}, px2{};
+        Fp2Pack2x2x2 x1y1{}, z1{}, l0y3{}, l1{}, l2{}, x3{}, z3{}, l12{}, px2{};
         pack_line_dbl_v1_inputs(x1y1, z1, q);
         line_dbl_vec_v1(l0y3, l1, l2, x3, z3, x1y1, z1);
         blend_0x0F_hl(l12.data(), l2.data(), l1.data());

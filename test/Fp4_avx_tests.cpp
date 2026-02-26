@@ -102,7 +102,7 @@ void unpack_FpPack4x2(FpVec4& out, const FpPack4x2& in)
     }
 }
 
-void pack_fp2_4x2x1w(fp2_4x2x1w& out, const Fp2Vec4& in)
+void pack_Fp2Pack4x2x1(Fp2Pack4x2x1& out, const Fp2Vec4& in)
 {
     FpVec8 lanes{};
     for (size_t i = 0; i < 4; ++i) {
@@ -112,7 +112,7 @@ void pack_fp2_4x2x1w(fp2_4x2x1w& out, const Fp2Vec4& in)
     pack_FpPack8x1(out, lanes);
 }
 
-void unpack_fp2_4x2x1w(Fp2Vec4& out, const fp2_4x2x1w& in)
+void unpack_Fp2Pack4x2x1(Fp2Vec4& out, const Fp2Pack4x2x1& in)
 {
     FpVec8 lanes{};
     unpack_FpPack8x1(lanes, in);
@@ -122,13 +122,13 @@ void unpack_fp2_4x2x1w(Fp2Vec4& out, const fp2_4x2x1w& in)
     }
 }
 
-void pack_fp2_2x2x2w(fp2_2x2x2w& out, const Fp2Vec2& in)
+void pack_Fp2Pack2x2x2(Fp2Pack2x2x2& out, const Fp2Vec2& in)
 {
     FpVec4 lanes = {in[0][0], in[0][1], in[1][0], in[1][1]};
     pack_FpPack4x2(out, lanes);
 }
 
-void unpack_fp2_2x2x2w(Fp2Vec2& out, const fp2_2x2x2w& in)
+void unpack_Fp2Pack2x2x2(Fp2Vec2& out, const Fp2Pack2x2x2& in)
 {
     FpVec4 lanes{};
     unpack_FpPack4x2(lanes, in);
@@ -144,13 +144,13 @@ void pack_fp4_2x2x2x1w(fp4_2x2x2x1w& out, const Fp4Vec2& in)
         in[0].c0, in[0].c1,
         in[1].c0, in[1].c1,
     };
-    pack_fp2_4x2x1w(out, lanes);
+    pack_Fp2Pack4x2x1(out, lanes);
 }
 
 void unpack_fp4_2x2x2x1w(Fp4Vec2& out, const fp4_2x2x2x1w& in)
 {
     Fp2Vec4 lanes{};
-    unpack_fp2_4x2x1w(lanes, in);
+    unpack_Fp2Pack4x2x1(lanes, in);
     out[0].c0 = lanes[0];
     out[0].c1 = lanes[1];
     out[1].c0 = lanes[2];
@@ -160,13 +160,13 @@ void unpack_fp4_2x2x2x1w(Fp4Vec2& out, const fp4_2x2x2x1w& in)
 void pack_fp4_1x2x2x2w(fp4_1x2x2x2w& out, const Fp4Elem& in)
 {
     Fp2Vec2 lanes = {in.c0, in.c1};
-    pack_fp2_2x2x2w(out, lanes);
+    pack_Fp2Pack2x2x2(out, lanes);
 }
 
 void unpack_fp4_1x2x2x2w(Fp4Elem& out, const fp4_1x2x2x2w& in)
 {
     Fp2Vec2 lanes{};
-    unpack_fp2_2x2x2w(lanes, in);
+    unpack_Fp2Pack2x2x2(lanes, in);
     out.c0 = lanes[0];
     out.c1 = lanes[1];
 }

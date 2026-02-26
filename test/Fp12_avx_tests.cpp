@@ -167,7 +167,7 @@ void unpack_FpPack4x2(FpVec4& out, const FpPack4x2& in)
     }
 }
 
-void pack_fp2_8x1x1w(fp2_8x1x1w& out, const Fp2Vec8& in)
+void pack_Fp2Pack8x1x1(Fp2Pack8x1x1& out, const Fp2Vec8& in)
 {
     FpVec8 c0{};
     FpVec8 c1{};
@@ -179,7 +179,7 @@ void pack_fp2_8x1x1w(fp2_8x1x1w& out, const Fp2Vec8& in)
     pack_FpPack8x1(out[1], c1);
 }
 
-void unpack_fp2_8x1x1w(Fp2Vec8& out, const fp2_8x1x1w& in)
+void unpack_Fp2Pack8x1x1(Fp2Vec8& out, const Fp2Pack8x1x1& in)
 {
     FpVec8 c0{};
     FpVec8 c1{};
@@ -191,7 +191,7 @@ void unpack_fp2_8x1x1w(Fp2Vec8& out, const fp2_8x1x1w& in)
     }
 }
 
-void pack_fp2_4x2x1w(fp2_4x2x1w& out, const Fp2Vec4& in)
+void pack_Fp2Pack4x2x1(Fp2Pack4x2x1& out, const Fp2Vec4& in)
 {
     FpVec8 lanes{};
     for (size_t i = 0; i < 4; ++i) {
@@ -201,7 +201,7 @@ void pack_fp2_4x2x1w(fp2_4x2x1w& out, const Fp2Vec4& in)
     pack_FpPack8x1(out, lanes);
 }
 
-void unpack_fp2_4x2x1w(Fp2Vec4& out, const fp2_4x2x1w& in)
+void unpack_Fp2Pack4x2x1(Fp2Vec4& out, const Fp2Pack4x2x1& in)
 {
     FpVec8 lanes{};
     unpack_FpPack8x1(lanes, in);
@@ -211,13 +211,13 @@ void unpack_fp2_4x2x1w(Fp2Vec4& out, const fp2_4x2x1w& in)
     }
 }
 
-void pack_fp2_2x2x2w(fp2_2x2x2w& out, const Fp2Vec2& in)
+void pack_Fp2Pack2x2x2(Fp2Pack2x2x2& out, const Fp2Vec2& in)
 {
     FpVec4 lanes = {in[0][0], in[0][1], in[1][0], in[1][1]};
     pack_FpPack4x2(out, lanes);
 }
 
-void unpack_fp2_2x2x2w(Fp2Vec2& out, const fp2_2x2x2w& in)
+void unpack_Fp2Pack2x2x2(Fp2Vec2& out, const Fp2Pack2x2x2& in)
 {
     FpVec4 lanes{};
     unpack_FpPack4x2(lanes, in);
@@ -229,22 +229,22 @@ void unpack_fp2_2x2x2w(Fp2Vec2& out, const fp2_2x2x2w& in)
 
 void pack_fp4_2x2x2x1w(fp4_2x2x2x1w& out, const Fp2Vec4& in)
 {
-    pack_fp2_4x2x1w(out, in);
+    pack_Fp2Pack4x2x1(out, in);
 }
 
 void unpack_fp4_2x2x2x1w(Fp2Vec4& out, const fp4_2x2x2x1w& in)
 {
-    unpack_fp2_4x2x1w(out, in);
+    unpack_Fp2Pack4x2x1(out, in);
 }
 
 void pack_fp4_1x2x2x2w(fp4_1x2x2x2w& out, const Fp2Vec2& in)
 {
-    pack_fp2_2x2x2w(out, in);
+    pack_Fp2Pack2x2x2(out, in);
 }
 
 void unpack_fp4_1x2x2x2w(Fp2Vec2& out, const fp4_1x2x2x2w& in)
 {
-    unpack_fp2_2x2x2w(out, in);
+    unpack_Fp2Pack2x2x2(out, in);
 }
 
 Fp2Vec6 flatten_fp12(const Fp12& f)
@@ -289,44 +289,44 @@ TEST(Fp12Avx, MulVariantsBroadcastAgainstScalar)
         Fp12::mul(expected, a, b);
         const auto exp = flatten_fp12(expected);
 
-        fp2_8x1x1w ab0_8{}, ab1_8{}, ab2_8{};
-        fp2_4x2x1w ab0_4{}, ab1_4{}, ab2_4{};
-        pack_fp2_8x1x1w(ab0_8, filled_fp2<8>(c0));
-        pack_fp2_8x1x1w(ab1_8, filled_fp2<8>(c1));
-        pack_fp2_8x1x1w(ab2_8, filled_fp2<8>(c2));
-        pack_fp2_4x2x1w(ab0_4, filled_fp2<4>(c0));
-        pack_fp2_4x2x1w(ab1_4, filled_fp2<4>(c1));
-        pack_fp2_4x2x1w(ab2_4, filled_fp2<4>(c2));
+        Fp2Pack8x1x1 ab0_8{}, ab1_8{}, ab2_8{};
+        Fp2Pack4x2x1 ab0_4{}, ab1_4{}, ab2_4{};
+        pack_Fp2Pack8x1x1(ab0_8, filled_fp2<8>(c0));
+        pack_Fp2Pack8x1x1(ab1_8, filled_fp2<8>(c1));
+        pack_Fp2Pack8x1x1(ab2_8, filled_fp2<8>(c2));
+        pack_Fp2Pack4x2x1(ab0_4, filled_fp2<4>(c0));
+        pack_Fp2Pack4x2x1(ab1_4, filled_fp2<4>(c1));
+        pack_Fp2Pack4x2x1(ab2_4, filled_fp2<4>(c2));
 
-        fp2_4x2x1w r01_v1{}, r2_v1{};
+        Fp2Pack4x2x1 r01_v1{}, r2_v1{};
         Fp2Vec4 out01_v1{}, out2_v1{};
         mul_fp12_vec_v1(r01_v1, r2_v1, ab0_8, ab1_8, ab2_8);
-        unpack_fp2_4x2x1w(out01_v1, r01_v1);
-        unpack_fp2_4x2x1w(out2_v1, r2_v1);
+        unpack_Fp2Pack4x2x1(out01_v1, r01_v1);
+        unpack_Fp2Pack4x2x1(out2_v1, r2_v1);
 
-        fp2_4x2x1w r01_v2{};
-        fp2_2x2x2w r2_v2{};
+        Fp2Pack4x2x1 r01_v2{};
+        Fp2Pack2x2x2 r2_v2{};
         Fp2Vec4 out01_v2{};
         Fp2Vec2 out2_v2{};
         mul_fp12_vec_v2(r01_v2, r2_v2, ab0_8, ab1_8, ab2_8);
-        unpack_fp2_4x2x1w(out01_v2, r01_v2);
-        unpack_fp2_2x2x2w(out2_v2, r2_v2);
+        unpack_Fp2Pack4x2x1(out01_v2, r01_v2);
+        unpack_Fp2Pack2x2x2(out2_v2, r2_v2);
 
-        fp2_2x2x2w r001_v3{}, r101_v3{}, r2_v3{};
+        Fp2Pack2x2x2 r001_v3{}, r101_v3{}, r2_v3{};
         Fp2Vec2 out001_v3{}, out101_v3{}, out2_v3{};
         mul_fp12_vec_v3(r001_v3, r101_v3, r2_v3, ab0_4, ab1_4, ab2_4);
-        unpack_fp2_2x2x2w(out001_v3, r001_v3);
-        unpack_fp2_2x2x2w(out101_v3, r101_v3);
-        unpack_fp2_2x2x2w(out2_v3, r2_v3);
+        unpack_Fp2Pack2x2x2(out001_v3, r001_v3);
+        unpack_Fp2Pack2x2x2(out101_v3, r101_v3);
+        unpack_Fp2Pack2x2x2(out2_v3, r2_v3);
 
-        fp2_4x2x1w r0_v4{};
-        fp2_2x2x2w r101_v4{}, r12_v4{};
+        Fp2Pack4x2x1 r0_v4{};
+        Fp2Pack2x2x2 r101_v4{}, r12_v4{};
         Fp2Vec4 out0_v4{};
         Fp2Vec2 out101_v4{}, out12_v4{};
         mul_fp12_vec_v4(r0_v4, r101_v4, r12_v4, ab0_4, ab1_4, ab2_4);
-        unpack_fp2_4x2x1w(out0_v4, r0_v4);
-        unpack_fp2_2x2x2w(out101_v4, r101_v4);
-        unpack_fp2_2x2x2w(out12_v4, r12_v4);
+        unpack_Fp2Pack4x2x1(out0_v4, r0_v4);
+        unpack_Fp2Pack2x2x2(out101_v4, r101_v4);
+        unpack_Fp2Pack2x2x2(out12_v4, r12_v4);
 
         for (const auto& e : exp) {
             EXPECT_TRUE(contains_any(out01_v1, out2_v1, e));
@@ -349,18 +349,18 @@ TEST(Fp12Avx, SqrBroadcastDeterministic)
             rand_redc_fp2(v, rng);
         }
 
-        fp2_4x2x1w a0{}, a1{}, r0{}, r1{};
-        fp2_4x2x1w r0b{}, r1b{};
+        Fp2Pack4x2x1 a0{}, a1{}, r0{}, r1{};
+        Fp2Pack4x2x1 r0b{}, r1b{};
         Fp2Vec4 out0{}, out1{};
         Fp2Vec4 out0b{}, out1b{};
-        pack_fp2_4x2x1w(a0, filled_fp2<4>(v));
-        pack_fp2_4x2x1w(a1, filled_fp2<4>(v));
+        pack_Fp2Pack4x2x1(a0, filled_fp2<4>(v));
+        pack_Fp2Pack4x2x1(a1, filled_fp2<4>(v));
         sqr_fp12_vec_v1(r0, r1, a0, a1);
         sqr_fp12_vec_v1(r0b, r1b, a0, a1);
-        unpack_fp2_4x2x1w(out0, r0);
-        unpack_fp2_4x2x1w(out1, r1);
-        unpack_fp2_4x2x1w(out0b, r0b);
-        unpack_fp2_4x2x1w(out1b, r1b);
+        unpack_Fp2Pack4x2x1(out0, r0);
+        unpack_Fp2Pack4x2x1(out1, r1);
+        unpack_Fp2Pack4x2x1(out0b, r0b);
+        unpack_Fp2Pack4x2x1(out1b, r1b);
 
         for (size_t i = 0; i < 4; ++i) {
             EXPECT_TRUE(fp2_equal(out0[i], out0b[i]));
@@ -425,27 +425,27 @@ TEST(Fp12Avx, SparseMulVariantsBroadcast)
             rand_redc_fp2(bv, rng);
         }
 
-        fp2_4x2x1w a01{}, a2{}, b01{}, b4{}, r0_v1{};
-        fp2_8x1x1w a8{}, b8{};
-        fp2_2x2x2w r1_v1{}, r1_v2{};
-        fp2_4x2x1w r0_v2{};
+        Fp2Pack4x2x1 a01{}, a2{}, b01{}, b4{}, r0_v1{};
+        Fp2Pack8x1x1 a8{}, b8{};
+        Fp2Pack2x2x2 r1_v1{}, r1_v2{};
+        Fp2Pack4x2x1 r0_v2{};
         Fp2Vec4 out0_v1{}, out0_v2{};
         Fp2Vec2 out1_v1{}, out1_v2{};
 
-        pack_fp2_4x2x1w(a01, filled_fp2<4>(av));
-        pack_fp2_4x2x1w(a2, filled_fp2<4>(av));
-        pack_fp2_4x2x1w(b01, filled_fp2<4>(bv));
-        pack_fp2_4x2x1w(b4, filled_fp2<4>(bv));
-        pack_fp2_8x1x1w(a8, filled_fp2<8>(av));
-        pack_fp2_8x1x1w(b8, filled_fp2<8>(bv));
+        pack_Fp2Pack4x2x1(a01, filled_fp2<4>(av));
+        pack_Fp2Pack4x2x1(a2, filled_fp2<4>(av));
+        pack_Fp2Pack4x2x1(b01, filled_fp2<4>(bv));
+        pack_Fp2Pack4x2x1(b4, filled_fp2<4>(bv));
+        pack_Fp2Pack8x1x1(a8, filled_fp2<8>(av));
+        pack_Fp2Pack8x1x1(b8, filled_fp2<8>(bv));
 
         mul_by_xy00z0_fp12_vec_v1(r0_v1, r1_v1, a01, a2, b01, b4);
         mul_by_xy00z0_fp12_vec_v2(r0_v2, r1_v2, a8, b8);
 
-        unpack_fp2_4x2x1w(out0_v1, r0_v1);
-        unpack_fp2_2x2x2w(out1_v1, r1_v1);
-        unpack_fp2_4x2x1w(out0_v2, r0_v2);
-        unpack_fp2_2x2x2w(out1_v2, r1_v2);
+        unpack_Fp2Pack4x2x1(out0_v1, r0_v1);
+        unpack_Fp2Pack2x2x2(out1_v1, r1_v1);
+        unpack_Fp2Pack4x2x1(out0_v2, r0_v2);
+        unpack_Fp2Pack2x2x2(out1_v2, r1_v2);
 
         Fp12 a_scalar{}, expected{};
         Fp6 sparse{};

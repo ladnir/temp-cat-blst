@@ -181,16 +181,16 @@ void init_fp_inputs(FpPack8x1& a_8x1w, FpPack8x1& b_8x1w, FpPack4x2& a_4x2w, FpP
 }
 
 void init_fp2_inputs(
-    fp2_8x1x1w& a_8x1x1w,
-    fp2_8x1x1w& b_8x1x1w,
-    fp2_4x2x1w& a_4x2x1w,
-    fp2_4x2x1w& b_4x2x1w,
-    fp2_2x2x2w& a_2x2x2w,
-    fp2_2x2x2w& b_2x2x2w,
-    fp2_2x4x1w& a_2x4x1w,
-    fp2_2x4x1w& b_2x4x1w,
-    fp2_1x4x2w& a_1x4x2w,
-    fp2_1x4x2w& b_1x4x2w)
+    Fp2Pack8x1x1& a_8x1x1w,
+    Fp2Pack8x1x1& b_8x1x1w,
+    Fp2Pack4x2x1& a_4x2x1w,
+    Fp2Pack4x2x1& b_4x2x1w,
+    Fp2Pack2x2x2& a_2x2x2w,
+    Fp2Pack2x2x2& b_2x2x2w,
+    Fp2Pack2x4x1& a_2x4x1w,
+    Fp2Pack2x4x1& b_2x4x1w,
+    Fp2Pack1x4x2& a_1x4x2w,
+    Fp2Pack1x4x2& b_1x4x2w)
 {
     std::array<u64, NWORDS> a48 = {};
     std::array<u64, NWORDS> b48 = {};
@@ -482,11 +482,11 @@ void line_add_scalar(LineEval& line, JacobianPoint& T, const JacobianPoint& R, c
 void init_line_inputs(
     JacobianPoint& q_scalar,
     AffineInputPoint& r_scalar,
-    fp2_2x2x2w& X1Y1,
-    fp2_2x2x2w& Z1,
-    fp2_2x2x2w& Z1Y2,
-    fp2_2x2x2w& X2,
-    fp2_4x2x1w& X1Y1Z1)
+    Fp2Pack2x2x2& X1Y1,
+    Fp2Pack2x2x2& Z1,
+    Fp2Pack2x2x2& Z1Y2,
+    Fp2Pack2x2x2& X2,
+    Fp2Pack4x2x1& X1Y1Z1)
 {
     q_scalar.X[0][0] = 1;
     q_scalar.X[1][0] = 2;
@@ -595,23 +595,23 @@ void bench_fp(const BenchConfig& cfg)
 
 void bench_fp2(const BenchConfig& cfg)
 {
-    fp2_8x1x1w a_8x1x1w{};
-    fp2_8x1x1w b_8x1x1w{};
-    fp2x2_8x1x1w z_8x1x1w{};
-    fp2_4x2x1w a_4x2x1w{};
-    fp2_4x2x1w b_4x2x1w{};
-    fp2_4x2x1w r_4x2x1w{};
-    fp2x2_4x2x1w z_4x2x1w{};
-    fp2_2x2x2w a_2x2x2w{};
-    fp2_2x2x2w b_2x2x2w{};
-    fp2_2x2x2w r_2x2x2w{};
-    fp2x2_2x2x2w z_2x2x2w{};
-    fp2_2x4x1w a_2x4x1w{};
-    fp2_2x4x1w b_2x4x1w{};
-    fp2x2_2x4x1w z_2x4x1w{};
-    fp2_1x4x2w a_1x4x2w{};
-    fp2_1x4x2w b_1x4x2w{};
-    fp2x2_1x4x2w z_1x4x2w{};
+    Fp2Pack8x1x1 a_8x1x1w{};
+    Fp2Pack8x1x1 b_8x1x1w{};
+    UFp2Pack8x1x1 z_8x1x1w{};
+    Fp2Pack4x2x1 a_4x2x1w{};
+    Fp2Pack4x2x1 b_4x2x1w{};
+    Fp2Pack4x2x1 r_4x2x1w{};
+    UFp2Pack4x2x1 z_4x2x1w{};
+    Fp2Pack2x2x2 a_2x2x2w{};
+    Fp2Pack2x2x2 b_2x2x2w{};
+    Fp2Pack2x2x2 r_2x2x2w{};
+    UFp2Pack2x2x2 z_2x2x2w{};
+    Fp2Pack2x4x1 a_2x4x1w{};
+    Fp2Pack2x4x1 b_2x4x1w{};
+    UFp2Pack2x4x1 z_2x4x1w{};
+    Fp2Pack1x4x2 a_1x4x2w{};
+    Fp2Pack1x4x2 b_1x4x2w{};
+    UFp2Pack1x4x2 z_1x4x2w{};
     Fp2 a_scalar{};
     Fp2 b_scalar{};
     Fp2 r_scalar{};
@@ -642,12 +642,12 @@ void bench_fp2(const BenchConfig& cfg)
         Fp2::mul(r_scalar, a_scalar, b_scalar);
     });
 
-    measure_cycles("- mul_fp2_4x2x1w:       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        mul_fp2_4x2x1w(r_4x2x1w, a_4x2x1w, b_4x2x1w);
+    measure_cycles("- Fp2Pack4x2x1::mul:       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        Fp2Pack4x2x1::mul(r_4x2x1w, a_4x2x1w, b_4x2x1w);
     });
 
-    measure_cycles("- mul_fp2_2x2x2w:       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        mul_fp2_2x2x2w(r_2x2x2w, a_2x2x2w, b_2x2x2w);
+    measure_cycles("- mul_Fp2Pack2x2x2:       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        Fp2Pack2x2x2::mul(r_2x2x2w, a_2x2x2w, b_2x2x2w);
     });
 
 #if defined(BLST_ASM)
@@ -656,36 +656,36 @@ void bench_fp2(const BenchConfig& cfg)
     });
 #endif
 
-    measure_cycles("- mul_fp2x2_8x1x1w:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        mul_fp2x2_8x1x1w(z_8x1x1w, a_8x1x1w, b_8x1x1w);
+    measure_cycles("- UFp2Pack8x1x1::mul:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        UFp2Pack8x1x1::mul(z_8x1x1w, a_8x1x1w, b_8x1x1w);
     });
 
-    measure_cycles("- mul_fp2x2_4x2x1w:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        mul_fp2x2_4x2x1w(z_4x2x1w, a_4x2x1w, b_4x2x1w);
+    measure_cycles("- UFp2Pack4x2x1::mul:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        UFp2Pack4x2x1::mul(z_4x2x1w, a_4x2x1w, b_4x2x1w);
     });
 
-    measure_cycles("- mul_fp2x2_2x4x1w:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        mul_fp2x2_2x4x1w(z_2x4x1w, a_2x4x1w, b_2x4x1w);
+    measure_cycles("- mul_UFp2Pack2x4x1:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        UFp2Pack2x4x1::mul(z_2x4x1w, a_2x4x1w, b_2x4x1w);
     });
 
-    measure_cycles("- mul_fp2x2_2x2x2w:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        mul_fp2x2_2x2x2w(z_2x2x2w, a_2x2x2w, b_2x2x2w);
+    measure_cycles("- mul_UFp2Pack2x2x2:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        UFp2Pack2x2x2::mul(z_2x2x2w, a_2x2x2w, b_2x2x2w);
     });
 
-    measure_cycles("- mul_fp2x2_1x4x2w:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        mul_fp2x2_1x4x2w(z_1x4x2w, a_1x4x2w, b_1x4x2w);
+    measure_cycles("- mul_UFp2Pack1x4x2:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        UFp2Pack1x4x2::mul(z_1x4x2w, a_1x4x2w, b_1x4x2w);
     });
 
     measure_cycles("- sqr_fp2_scalar:       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
         Fp2::sqr(r_scalar, a_scalar);
     });
 
-    measure_cycles("- sqr_fp2_4x2x1w:       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        sqr_fp2_4x2x1w(r_4x2x1w, a_4x2x1w);
+    measure_cycles("- Fp2Pack4x2x1::sqr:       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        Fp2Pack4x2x1::sqr(r_4x2x1w, a_4x2x1w);
     });
 
-    measure_cycles("- sqr_fp2_2x2x2w:       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        sqr_fp2_2x2x2w(r_2x2x2w, a_2x2x2w);
+    measure_cycles("- sqr_Fp2Pack2x2x2:       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        Fp2Pack2x2x2::sqr(r_2x2x2w, a_2x2x2w);
     });
 
 #if defined(BLST_ASM)
@@ -694,12 +694,12 @@ void bench_fp2(const BenchConfig& cfg)
     });
 #endif
 
-    measure_cycles("- sqr_fp2x2_4x2x1w:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        sqr_fp2x2_4x2x1w(z_4x2x1w, a_4x2x1w);
+    measure_cycles("- UFp2Pack4x2x1::sqr:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        UFp2Pack4x2x1::sqr(z_4x2x1w, a_4x2x1w);
     });
 
-    measure_cycles("- sqr_fp2x2_2x2x2w:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        sqr_fp2x2_2x2x2w(z_2x2x2w, a_2x2x2w);
+    measure_cycles("- sqr_UFp2Pack2x2x2:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        UFp2Pack2x2x2::sqr(z_2x2x2w, a_2x2x2w);
     });
 }
 
@@ -736,31 +736,31 @@ void bench_fp4(const BenchConfig& cfg)
 
 void bench_fp6(const BenchConfig& cfg)
 {
-    fp2_8x1x1w a0_8x1x1w{};
-    fp2_8x1x1w a1_8x1x1w{};
-    fp2_8x1x1w a2_8x1x1w{};
-    fp2_8x1x1w a_8x1x1w{};
-    fp2_8x1x1w b_8x1x1w{};
-    fp2_4x2x1w a0_4x2x1w{};
-    fp2_4x2x1w a1_4x2x1w{};
-    fp2_4x2x1w a2_4x2x1w{};
-    fp2_4x2x1w a01_4x2x1w{};
-    fp2_4x2x1w a2_pair_4x2x1w{};
-    fp2_4x2x1w b01_4x2x1w{};
-    fp2_4x2x1w b4_4x2x1w{};
-    fp2_2x2x2w a0_2x2x2w{};
-    fp2_2x2x2w a1_2x2x2w{};
-    fp2_2x2x2w a2_2x2x2w{};
+    Fp2Pack8x1x1 a0_8x1x1w{};
+    Fp2Pack8x1x1 a1_8x1x1w{};
+    Fp2Pack8x1x1 a2_8x1x1w{};
+    Fp2Pack8x1x1 a_8x1x1w{};
+    Fp2Pack8x1x1 b_8x1x1w{};
+    Fp2Pack4x2x1 a0_4x2x1w{};
+    Fp2Pack4x2x1 a1_4x2x1w{};
+    Fp2Pack4x2x1 a2_4x2x1w{};
+    Fp2Pack4x2x1 a01_4x2x1w{};
+    Fp2Pack4x2x1 a2_pair_4x2x1w{};
+    Fp2Pack4x2x1 b01_4x2x1w{};
+    Fp2Pack4x2x1 b4_4x2x1w{};
+    Fp2Pack2x2x2 a0_2x2x2w{};
+    Fp2Pack2x2x2 a1_2x2x2w{};
+    Fp2Pack2x2x2 a2_2x2x2w{};
 
-    fp2x2_8x1x1w r01_8x1x1w{};
-    fp2x2_8x1x1w r23_8x1x1w{};
-    fp2x2_8x1x1w r45_8x1x1w{};
-    fp2x2_4x2x1w z01_4x2x1w{};
-    fp2x2_4x2x1w z2_4x2x1w{};
-    fp2x2_4x2x1w z3_4x2x1w{};
-    fp2x2_4x2x1w z45_4x2x1w{};
-    fp2x2_2x2x2w z01_2x2x2w{};
-    fp2x2_2x2x2w z2_2x2x2w{};
+    UFp2Pack8x1x1 r01_8x1x1w{};
+    UFp2Pack8x1x1 r23_8x1x1w{};
+    UFp2Pack8x1x1 r45_8x1x1w{};
+    UFp2Pack4x2x1 z01_4x2x1w{};
+    UFp2Pack4x2x1 z2_4x2x1w{};
+    UFp2Pack4x2x1 z3_4x2x1w{};
+    UFp2Pack4x2x1 z45_4x2x1w{};
+    UFp2Pack2x2x2 z01_2x2x2w{};
+    UFp2Pack2x2x2 z2_2x2x2w{};
 
     Fp6 a_scalar{};
     Fp6 b_scalar{};
@@ -834,26 +834,26 @@ void bench_fp12(const BenchConfig& cfg)
     fp4_1x2x2x2w a_1x2x2x2w{};
     fp4_2x2x2x1w rbc_2x2x2x1w{};
     fp4_2x2x2x1w bc_2x2x2x1w{};
-    fp2_8x1x1w a0_8x1x1w{};
-    fp2_8x1x1w a1_8x1x1w{};
-    fp2_8x1x1w a2_8x1x1w{};
-    fp2_8x1x1w a_8x1x1w{};
-    fp2_8x1x1w b_8x1x1w{};
-    fp2_4x2x1w r01_4x2x1w{};
-    fp2_4x2x1w r2_4x2x1w{};
-    fp2_4x2x1w a0_4x2x1w{};
-    fp2_4x2x1w a1_4x2x1w{};
-    fp2_4x2x1w a2_4x2x1w{};
-    fp2_2x2x2w r001_2x2x2w{};
-    fp2_2x2x2w r101_2x2x2w{};
-    fp2_2x2x2w r2_2x2x2w{};
-    fp2_2x2x2w r12_2x2x2w{};
-    fp2_4x2x1w r0_4x2x1w{};
-    fp2_4x2x1w r1_4x2x1w{};
-    fp2_4x2x1w a01_4x2x1w{};
-    fp2_4x2x1w b01_4x2x1w{};
-    fp2_4x2x1w b4_4x2x1w{};
-    fp2_2x2x2w r1_2x2x2w{};
+    Fp2Pack8x1x1 a0_8x1x1w{};
+    Fp2Pack8x1x1 a1_8x1x1w{};
+    Fp2Pack8x1x1 a2_8x1x1w{};
+    Fp2Pack8x1x1 a_8x1x1w{};
+    Fp2Pack8x1x1 b_8x1x1w{};
+    Fp2Pack4x2x1 r01_4x2x1w{};
+    Fp2Pack4x2x1 r2_4x2x1w{};
+    Fp2Pack4x2x1 a0_4x2x1w{};
+    Fp2Pack4x2x1 a1_4x2x1w{};
+    Fp2Pack4x2x1 a2_4x2x1w{};
+    Fp2Pack2x2x2 r001_2x2x2w{};
+    Fp2Pack2x2x2 r101_2x2x2w{};
+    Fp2Pack2x2x2 r2_2x2x2w{};
+    Fp2Pack2x2x2 r12_2x2x2w{};
+    Fp2Pack4x2x1 r0_4x2x1w{};
+    Fp2Pack4x2x1 r1_4x2x1w{};
+    Fp2Pack4x2x1 a01_4x2x1w{};
+    Fp2Pack4x2x1 b01_4x2x1w{};
+    Fp2Pack4x2x1 b4_4x2x1w{};
+    Fp2Pack2x2x2 r1_2x2x2w{};
 
     fill_scalar_fp12(a_scalar, 19);
     fill_scalar_fp6(b_sparse, 311);
@@ -968,22 +968,22 @@ void bench_line(const BenchConfig& cfg)
     JacobianPoint t_scalar{};
     LineEval line_scalar{};
 
-    fp2_2x2x2w X1Y1{};
-    fp2_2x2x2w Z1{};
-    fp2_2x2x2w Z1Y2{};
-    fp2_2x2x2w X2{};
-    fp2_2x2x2w l0Y3{};
-    fp2_2x2x2w l1{};
-    fp2_2x2x2w l2{};
-    fp2_2x2x2w X3{};
-    fp2_2x2x2w Z3{};
+    Fp2Pack2x2x2 X1Y1{};
+    Fp2Pack2x2x2 Z1{};
+    Fp2Pack2x2x2 Z1Y2{};
+    Fp2Pack2x2x2 X2{};
+    Fp2Pack2x2x2 l0Y3{};
+    Fp2Pack2x2x2 l1{};
+    Fp2Pack2x2x2 l2{};
+    Fp2Pack2x2x2 X3{};
+    Fp2Pack2x2x2 Z3{};
 
-    fp2_4x2x1w X1Y1Z1{};
-    fp2_4x2x1w l0{};
-    fp2_4x2x1w l12{};
-    fp2_4x2x1w _X3{};
-    fp2_4x2x1w _Y3{};
-    fp2_4x2x1w _Z3{};
+    Fp2Pack4x2x1 X1Y1Z1{};
+    Fp2Pack4x2x1 l0{};
+    Fp2Pack4x2x1 l12{};
+    Fp2Pack4x2x1 _X3{};
+    Fp2Pack4x2x1 _Y3{};
+    Fp2Pack4x2x1 _Z3{};
 
     init_line_inputs(q_scalar, r_scalar, X1Y1, Z1, Z1Y2, X2, X1Y1Z1);
 

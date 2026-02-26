@@ -107,7 +107,7 @@ void add_n_dbl_n_vector(
     std::array<std::array<cc512i, SWORDS / 2>, 4> s;
     int i;
 
-    fp2_2x2x2w X1Y1, Z1Y2, X2, l0Y3, l1, X3, Z3;
+    Fp2Pack2x2x2 X1Y1, Z1Y2, X2, l0Y3, l1, X3, Z3;
     const cc512i hh = VSET(7, 6, 5, 4, 7, 6, 5, 4);
 
     for (i = 0; i < SWORDS / 2; ++i) {
@@ -137,7 +137,7 @@ void add_n_dbl_n_vector(
     perm_var_hl(X3.data(), X3.data(), hh);
     perm_var_hl(Z3.data(), Z3.data(), hh);
 
-    fp2_2x2x2w l12, _Px2;
+    Fp2Pack2x2x2 l12, _Px2;
     blend_0x0F_hl(l12.data(), Z3.data(), l1.data());
     for (i = 0; i < SWORDS / 2; ++i) {
         s[0][i] = VSET(
@@ -150,8 +150,8 @@ void add_n_dbl_n_vector(
 
     line_by_Px2_2x2x2w(l12, l12, _Px2);
 
-    fp2_4x2x1w a01, a2, b01, b4, r0;
-    fp2_2x2x2w r1;
+    Fp2Pack4x2x1 a01, a2, b01, b4, r0;
+    Fp2Pack2x2x2 r1;
     const cc512i m0 = VSET(6, 4, 6, 4, 6, 4, 6, 4);
     const cc512i m1 = VSET(7, 5, 7, 5, 7, 5, 7, 5);
     const cc512i m2 = VSET(3, 2, 1, 0, 7, 6, 5, 4);
@@ -189,9 +189,9 @@ void add_n_dbl_n_vector(
 
     mul_by_xy00z0_fp12_vec_v1(r0, r1, a01, a2, b01, b4);
 
-    fp2_4x2x1w a0, a1, _r0, _r1;
-    fp2_4x2x1w X1Y1Z1, _l0, _l12, _X3, _Y3, _Z3, __Px2;
-    fp2_2x2x2w t0;
+    Fp2Pack4x2x1 a0, a1, _r0, _r1;
+    Fp2Pack4x2x1 X1Y1Z1, _l0, _l12, _X3, _Y3, _Z3, __Px2;
+    Fp2Pack2x2x2 t0;
     const cc512i m5 = VSET(0, 0, 1, 0, 3, 2, 0, 0);
     const cc512i m6 = VSET(4, 4, 0, 0, 0, 0, 2, 0);
     const cc512i m7 = VSET(5, 5, 0, 0, 0, 0, 3, 1);
@@ -334,10 +334,10 @@ void add_n_dbl_n(
 
 void mul_n_sqr_vector(Fp12& ret, const Fp12& a, std::size_t n)
 {
-    fp2_4x2x1w ab0, ab1, ab2;
-    fp2_2x2x2w r001, r101, r2;
-    fp4_1x2x2x2w _a;
-    fp4_2x2x2x1w _bc;
+    Fp2Pack4x2x1 ab0, ab1, ab2;
+    Fp2Pack2x2x2 r001, r101, r2;
+    Fp4Pack1x2x2x2 _a;
+    Fp4Pack2x2x2x1 _bc;
     std::array<std::array<cc512i, SWORDS>, 3> t;
     std::array<cc512i, SWORDS / 2> s;
     int i;

@@ -134,7 +134,7 @@ void unpack_FpPack4x2(FpVec4& out, const FpPack4x2& in)
     }
 }
 
-void pack_fp2_8x1x1w(fp2_8x1x1w& out, const Fp2Vec8& in)
+void pack_Fp2Pack8x1x1(Fp2Pack8x1x1& out, const Fp2Vec8& in)
 {
     FpVec8 c0{};
     FpVec8 c1{};
@@ -146,7 +146,7 @@ void pack_fp2_8x1x1w(fp2_8x1x1w& out, const Fp2Vec8& in)
     pack_FpPack8x1(out[1], c1);
 }
 
-void unpack_fp2_8x1x1w(Fp2Vec8& out, const fp2_8x1x1w& in)
+void unpack_Fp2Pack8x1x1(Fp2Vec8& out, const Fp2Pack8x1x1& in)
 {
     FpVec8 c0{};
     FpVec8 c1{};
@@ -158,7 +158,7 @@ void unpack_fp2_8x1x1w(Fp2Vec8& out, const fp2_8x1x1w& in)
     }
 }
 
-void pack_fp2_4x2x1w(fp2_4x2x1w& out, const Fp2Vec4& in)
+void pack_Fp2Pack4x2x1(Fp2Pack4x2x1& out, const Fp2Vec4& in)
 {
     FpVec8 lanes{};
     for (size_t i = 0; i < 4; ++i) {
@@ -168,7 +168,7 @@ void pack_fp2_4x2x1w(fp2_4x2x1w& out, const Fp2Vec4& in)
     pack_FpPack8x1(out, lanes);
 }
 
-void unpack_fp2_4x2x1w(Fp2Vec4& out, const fp2_4x2x1w& in)
+void unpack_Fp2Pack4x2x1(Fp2Vec4& out, const Fp2Pack4x2x1& in)
 {
     FpVec8 lanes{};
     unpack_FpPack8x1(lanes, in);
@@ -178,13 +178,33 @@ void unpack_fp2_4x2x1w(Fp2Vec4& out, const fp2_4x2x1w& in)
     }
 }
 
-void pack_fp2_2x2x2w(fp2_2x2x2w& out, const Fp2Vec2& in)
+void pack_Fp2Pack2x4x1(Fp2Pack2x4x1& out, const Fp2Vec4& in)
+{
+    FpVec8 lanes{};
+    for (size_t i = 0; i < 4; ++i) {
+        lanes[2 * i] = in[i][0];
+        lanes[2 * i + 1] = in[i][1];
+    }
+    pack_FpPack8x1(out, lanes);
+}
+
+void unpack_Fp2Pack2x4x1(Fp2Vec4& out, const Fp2Pack2x4x1& in)
+{
+    FpVec8 lanes{};
+    unpack_FpPack8x1(lanes, in);
+    for (size_t i = 0; i < 4; ++i) {
+        out[i][0] = lanes[2 * i];
+        out[i][1] = lanes[2 * i + 1];
+    }
+}
+
+void pack_Fp2Pack2x2x2(Fp2Pack2x2x2& out, const Fp2Vec2& in)
 {
     FpVec4 lanes = {in[0][0], in[0][1], in[1][0], in[1][1]};
     pack_FpPack4x2(out, lanes);
 }
 
-void unpack_fp2_2x2x2w(Fp2Vec2& out, const fp2_2x2x2w& in)
+void unpack_Fp2Pack2x2x2(Fp2Vec2& out, const Fp2Pack2x2x2& in)
 {
     FpVec4 lanes{};
     unpack_FpPack4x2(lanes, in);
@@ -194,7 +214,23 @@ void unpack_fp2_2x2x2w(Fp2Vec2& out, const fp2_2x2x2w& in)
     out[1][1] = lanes[3];
 }
 
-void redc_fp2x2_8x1x1w_local(fp2_8x1x1w& r, const fp2x2_8x1x1w& a)
+void pack_Fp2Pack1x4x2(Fp2Pack1x4x2& out, const Fp2Vec2& in)
+{
+    FpVec4 lanes = {in[0][0], in[0][1], in[1][0], in[1][1]};
+    pack_FpPack4x2(out, lanes);
+}
+
+void unpack_Fp2Pack1x4x2(Fp2Vec2& out, const Fp2Pack1x4x2& in)
+{
+    FpVec4 lanes{};
+    unpack_FpPack4x2(lanes, in);
+    out[0][0] = lanes[0];
+    out[0][1] = lanes[1];
+    out[1][0] = lanes[2];
+    out[1][1] = lanes[3];
+}
+
+void redc_UFp2Pack8x1x1_local(Fp2Pack8x1x1& r, const UFp2Pack8x1x1& a)
 {
     UFpPack8x1::redc(r[0], a[0]);
     UFpPack8x1::redc(r[1], a[1]);
@@ -258,11 +294,11 @@ TEST(Fp2Avx, Add8x1x1w)
             Fp2::add(expected[i], a[i], b[i]);
         }
 
-        fp2_8x1x1w avx_a{}, avx_b{}, avx_r{};
-        pack_fp2_8x1x1w(avx_a, a);
-        pack_fp2_8x1x1w(avx_b, b);
-        add_fp2_8x1x1w(avx_r, avx_a, avx_b);
-        unpack_fp2_8x1x1w(got, avx_r);
+        Fp2Pack8x1x1 avx_a{}, avx_b{}, avx_r{};
+        pack_Fp2Pack8x1x1(avx_a, a);
+        pack_Fp2Pack8x1x1(avx_b, b);
+        Fp2Pack8x1x1::add(avx_r, avx_a, avx_b);
+        unpack_Fp2Pack8x1x1(got, avx_r);
 
         for (size_t i = 0; i < 8; ++i) {
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
@@ -281,76 +317,76 @@ TEST(Fp2Avx, Core4x2x1w)
             rand_redc_fp2(b[i], rng);
         }
 
-        fp2_4x2x1w avx_a{}, avx_b{}, avx_r{};
-        pack_fp2_4x2x1w(avx_a, a);
-        pack_fp2_4x2x1w(avx_b, b);
+        Fp2Pack4x2x1 avx_a{}, avx_b{}, avx_r{};
+        pack_Fp2Pack4x2x1(avx_a, a);
+        pack_Fp2Pack4x2x1(avx_b, b);
 
-        add_fp2_4x2x1w(avx_r, avx_a, avx_b);
-        unpack_fp2_4x2x1w(got, avx_r);
+        Fp2Pack4x2x1::add(avx_r, avx_a, avx_b);
+        unpack_Fp2Pack4x2x1(got, avx_r);
         for (size_t i = 0; i < 4; ++i) {
             Fp2::add(expected[i], a[i], b[i]);
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
             EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
         }
 
-        sub_fp2_4x2x1w(avx_r, avx_a, avx_b);
-        unpack_fp2_4x2x1w(got, avx_r);
+        Fp2Pack4x2x1::sub(avx_r, avx_a, avx_b);
+        unpack_Fp2Pack4x2x1(got, avx_r);
         for (size_t i = 0; i < 4; ++i) {
             Fp2::sub(expected[i], a[i], b[i]);
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
             EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
         }
 
-        aass_fp2_4x2x1w(avx_r, avx_a, avx_b);
-        unpack_fp2_4x2x1w(got, avx_r);
+        Fp2Pack4x2x1::aass(avx_r, avx_a, avx_b);
+        unpack_Fp2Pack4x2x1(got, avx_r);
         apply_pattern(expected, a, b, kAass4);
         for (size_t i = 0; i < 4; ++i) {
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
             EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
         }
 
-        assa_fp2_4x2x1w(avx_r, avx_a, avx_b);
-        unpack_fp2_4x2x1w(got, avx_r);
+        Fp2Pack4x2x1::assa(avx_r, avx_a, avx_b);
+        unpack_Fp2Pack4x2x1(got, avx_r);
         apply_pattern(expected, a, b, kAssa4);
         for (size_t i = 0; i < 4; ++i) {
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
             EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
         }
 
-        sass_fp2_4x2x1w(avx_r, avx_a, avx_b);
-        unpack_fp2_4x2x1w(got, avx_r);
+        Fp2Pack4x2x1::sass(avx_r, avx_a, avx_b);
+        unpack_Fp2Pack4x2x1(got, avx_r);
         apply_pattern(expected, a, b, kSass4);
         for (size_t i = 0; i < 4; ++i) {
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
             EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
         }
 
-        ssaa_fp2_4x2x1w(avx_r, avx_a, avx_b);
-        unpack_fp2_4x2x1w(got, avx_r);
+        Fp2Pack4x2x1::ssaa(avx_r, avx_a, avx_b);
+        unpack_Fp2Pack4x2x1(got, avx_r);
         apply_pattern(expected, a, b, kSsaa4);
         for (size_t i = 0; i < 4; ++i) {
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
             EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
         }
 
-        mul_by_u_plus_1_fp2_4x2x1w(avx_r, avx_a);
-        unpack_fp2_4x2x1w(got, avx_r);
+        Fp2Pack4x2x1::mul_by_u_plus_1(avx_r, avx_a);
+        unpack_Fp2Pack4x2x1(got, avx_r);
         for (size_t i = 0; i < 4; ++i) {
             Fp2::mul_by_u_plus_1(expected[i], a[i]);
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
             EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
         }
 
-        mul_fp2_4x2x1w(avx_r, avx_a, avx_b);
-        unpack_fp2_4x2x1w(got, avx_r);
+        Fp2Pack4x2x1::mul(avx_r, avx_a, avx_b);
+        unpack_Fp2Pack4x2x1(got, avx_r);
         for (size_t i = 0; i < 4; ++i) {
             Fp2::mul(expected[i], a[i], b[i]);
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
             EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
         }
 
-        sqr_fp2_4x2x1w(avx_r, avx_a);
-        unpack_fp2_4x2x1w(got, avx_r);
+        Fp2Pack4x2x1::sqr(avx_r, avx_a);
+        unpack_Fp2Pack4x2x1(got, avx_r);
         for (size_t i = 0; i < 4; ++i) {
             Fp2::sqr(expected[i], a[i]);
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
@@ -369,60 +405,60 @@ TEST(Fp2Avx, Core2x2x2w)
         rand_redc_fp2(b[0], rng);
         rand_redc_fp2(b[1], rng);
 
-        fp2_2x2x2w avx_a{}, avx_b{}, avx_r{};
-        pack_fp2_2x2x2w(avx_a, a);
-        pack_fp2_2x2x2w(avx_b, b);
+        Fp2Pack2x2x2 avx_a{}, avx_b{}, avx_r{};
+        pack_Fp2Pack2x2x2(avx_a, a);
+        pack_Fp2Pack2x2x2(avx_b, b);
 
-        add_fp2_2x2x2w(avx_r, avx_a, avx_b);
-        unpack_fp2_2x2x2w(got, avx_r);
+        Fp2Pack2x2x2::add(avx_r, avx_a, avx_b);
+        unpack_Fp2Pack2x2x2(got, avx_r);
         for (size_t i = 0; i < 2; ++i) {
             Fp2::add(expected[i], a[i], b[i]);
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
             EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
         }
 
-        sub_fp2_2x2x2w(avx_r, avx_a, avx_b);
-        unpack_fp2_2x2x2w(got, avx_r);
+        Fp2Pack2x2x2::sub(avx_r, avx_a, avx_b);
+        unpack_Fp2Pack2x2x2(got, avx_r);
         for (size_t i = 0; i < 2; ++i) {
             Fp2::sub(expected[i], a[i], b[i]);
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
             EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
         }
 
-        as_fp2_2x2x2w(avx_r, avx_a, avx_b);
-        unpack_fp2_2x2x2w(got, avx_r);
+        Fp2Pack2x2x2::as(avx_r, avx_a, avx_b);
+        unpack_Fp2Pack2x2x2(got, avx_r);
         apply_pattern(expected, a, b, kAs2);
         for (size_t i = 0; i < 2; ++i) {
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
             EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
         }
 
-        sa_fp2_2x2x2w(avx_r, avx_a, avx_b);
-        unpack_fp2_2x2x2w(got, avx_r);
+        Fp2Pack2x2x2::sa(avx_r, avx_a, avx_b);
+        unpack_Fp2Pack2x2x2(got, avx_r);
         apply_pattern(expected, a, b, kSa2);
         for (size_t i = 0; i < 2; ++i) {
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
             EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
         }
 
-        mul_by_u_plus_1_fp2_2x2x2w(avx_r, avx_a);
-        unpack_fp2_2x2x2w(got, avx_r);
+        Fp2Pack2x2x2::mul_by_u_plus_1(avx_r, avx_a);
+        unpack_Fp2Pack2x2x2(got, avx_r);
         for (size_t i = 0; i < 2; ++i) {
             Fp2::mul_by_u_plus_1(expected[i], a[i]);
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
             EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
         }
 
-        mul_fp2_2x2x2w(avx_r, avx_a, avx_b);
-        unpack_fp2_2x2x2w(got, avx_r);
+        Fp2Pack2x2x2::mul(avx_r, avx_a, avx_b);
+        unpack_Fp2Pack2x2x2(got, avx_r);
         for (size_t i = 0; i < 2; ++i) {
             Fp2::mul(expected[i], a[i], b[i]);
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
             EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
         }
 
-        sqr_fp2_2x2x2w(avx_r, avx_a);
-        unpack_fp2_2x2x2w(got, avx_r);
+        Fp2Pack2x2x2::sqr(avx_r, avx_a);
+        unpack_Fp2Pack2x2x2(got, avx_r);
         for (size_t i = 0; i < 2; ++i) {
             Fp2::sqr(expected[i], a[i]);
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
@@ -445,46 +481,46 @@ TEST(Fp2Avx, Widened8x1x1w)
             Fp2::mul(cd[i], c[i], d[i]);
         }
 
-        fp2_8x1x1w avx_a{}, avx_b{}, avx_c{}, avx_d{}, red{};
-        fp2x2_8x1x1w wide_ab{}, wide_cd{}, wide_r{};
-        pack_fp2_8x1x1w(avx_a, a);
-        pack_fp2_8x1x1w(avx_b, b);
-        pack_fp2_8x1x1w(avx_c, c);
-        pack_fp2_8x1x1w(avx_d, d);
+        Fp2Pack8x1x1 avx_a{}, avx_b{}, avx_c{}, avx_d{}, red{};
+        UFp2Pack8x1x1 wide_ab{}, wide_cd{}, wide_r{};
+        pack_Fp2Pack8x1x1(avx_a, a);
+        pack_Fp2Pack8x1x1(avx_b, b);
+        pack_Fp2Pack8x1x1(avx_c, c);
+        pack_Fp2Pack8x1x1(avx_d, d);
 
-        mul_fp2x2_8x1x1w(wide_ab, avx_a, avx_b);
-        mul_fp2x2_8x1x1w(wide_cd, avx_c, avx_d);
+        UFp2Pack8x1x1::mul(wide_ab, avx_a, avx_b);
+        UFp2Pack8x1x1::mul(wide_cd, avx_c, avx_d);
 
-        add_fp2x2_8x1x1w(wide_r, wide_ab, wide_cd);
-        redc_fp2x2_8x1x1w_local(red, wide_r);
-        unpack_fp2_8x1x1w(got, red);
+        UFp2Pack8x1x1::add(wide_r, wide_ab, wide_cd);
+        redc_UFp2Pack8x1x1_local(red, wide_r);
+        unpack_Fp2Pack8x1x1(got, red);
         for (size_t i = 0; i < 8; ++i) {
             Fp2::add(expected[i], ab[i], cd[i]);
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
             EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
         }
 
-        sub_fp2x2_8x1x1w(wide_r, wide_ab, wide_cd);
-        redc_fp2x2_8x1x1w_local(red, wide_r);
-        unpack_fp2_8x1x1w(got, red);
+        UFp2Pack8x1x1::sub(wide_r, wide_ab, wide_cd);
+        redc_UFp2Pack8x1x1_local(red, wide_r);
+        unpack_Fp2Pack8x1x1(got, red);
         for (size_t i = 0; i < 8; ++i) {
             Fp2::sub(expected[i], ab[i], cd[i]);
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
             EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
         }
 
-        asx4_fp2x2_8x1x1w(wide_r, wide_ab, wide_cd);
-        redc_fp2x2_8x1x1w_local(red, wide_r);
-        unpack_fp2_8x1x1w(got, red);
+        UFp2Pack8x1x1::asx4(wide_r, wide_ab, wide_cd);
+        redc_UFp2Pack8x1x1_local(red, wide_r);
+        unpack_Fp2Pack8x1x1(got, red);
         apply_pattern(expected, ab, cd, kAsx4_8);
         for (size_t i = 0; i < 8; ++i) {
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
             EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
         }
 
-        mul_by_u_plus_1_fp2x2_8x1x1w(wide_r, wide_ab);
-        redc_fp2x2_8x1x1w_local(red, wide_r);
-        unpack_fp2_8x1x1w(got, red);
+        UFp2Pack8x1x1::mul_by_u_plus_1(wide_r, wide_ab);
+        redc_UFp2Pack8x1x1_local(red, wide_r);
+        unpack_Fp2Pack8x1x1(got, red);
         for (size_t i = 0; i < 8; ++i) {
             Fp2::mul_by_u_plus_1(expected[i], ab[i]);
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
@@ -507,55 +543,55 @@ TEST(Fp2Avx, Widened4x2x1w)
             Fp2::mul(cd[i], c[i], d[i]);
         }
 
-        fp2_4x2x1w avx_a{}, avx_b{}, avx_c{}, avx_d{}, red{};
-        fp2x2_4x2x1w wide_ab{}, wide_cd{}, wide_r{};
-        pack_fp2_4x2x1w(avx_a, a);
-        pack_fp2_4x2x1w(avx_b, b);
-        pack_fp2_4x2x1w(avx_c, c);
-        pack_fp2_4x2x1w(avx_d, d);
+        Fp2Pack4x2x1 avx_a{}, avx_b{}, avx_c{}, avx_d{}, red{};
+        UFp2Pack4x2x1 wide_ab{}, wide_cd{}, wide_r{};
+        pack_Fp2Pack4x2x1(avx_a, a);
+        pack_Fp2Pack4x2x1(avx_b, b);
+        pack_Fp2Pack4x2x1(avx_c, c);
+        pack_Fp2Pack4x2x1(avx_d, d);
 
-        mul_fp2x2_4x2x1w(wide_ab, avx_a, avx_b);
-        mul_fp2x2_4x2x1w(wide_cd, avx_c, avx_d);
+        UFp2Pack4x2x1::mul(wide_ab, avx_a, avx_b);
+        UFp2Pack4x2x1::mul(wide_cd, avx_c, avx_d);
 
-        add_fp2x2_4x2x1w(wide_r, wide_ab, wide_cd);
-        redc_fp2x2_4x2x1w(red, wide_r);
-        unpack_fp2_4x2x1w(got, red);
+        UFp2Pack4x2x1::add(wide_r, wide_ab, wide_cd);
+        UFp2Pack4x2x1::redc(red, wide_r);
+        unpack_Fp2Pack4x2x1(got, red);
         for (size_t i = 0; i < 4; ++i) {
             Fp2::add(expected[i], ab[i], cd[i]);
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
             EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
         }
 
-        sub_fp2x2_4x2x1w(wide_r, wide_ab, wide_cd);
-        redc_fp2x2_4x2x1w(red, wide_r);
-        unpack_fp2_4x2x1w(got, red);
+        UFp2Pack4x2x1::sub(wide_r, wide_ab, wide_cd);
+        UFp2Pack4x2x1::redc(red, wide_r);
+        unpack_Fp2Pack4x2x1(got, red);
         for (size_t i = 0; i < 4; ++i) {
             Fp2::sub(expected[i], ab[i], cd[i]);
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
             EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
         }
 
-        sax2_fp2x2_4x2x1w(wide_r, wide_ab, wide_cd);
-        redc_fp2x2_4x2x1w(red, wide_r);
-        unpack_fp2_4x2x1w(got, red);
+        UFp2Pack4x2x1::sax2(wide_r, wide_ab, wide_cd);
+        UFp2Pack4x2x1::redc(red, wide_r);
+        unpack_Fp2Pack4x2x1(got, red);
         apply_pattern(expected, ab, cd, kSax2_4);
         for (size_t i = 0; i < 4; ++i) {
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
             EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
         }
 
-        mul_by_u_plus_1_fp2x2_4x2x1w(wide_r, wide_ab);
-        redc_fp2x2_4x2x1w(red, wide_r);
-        unpack_fp2_4x2x1w(got, red);
+        UFp2Pack4x2x1::mul_by_u_plus_1(wide_r, wide_ab);
+        UFp2Pack4x2x1::redc(red, wide_r);
+        unpack_Fp2Pack4x2x1(got, red);
         for (size_t i = 0; i < 4; ++i) {
             Fp2::mul_by_u_plus_1(expected[i], ab[i]);
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
             EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
         }
 
-        sqr_fp2x2_4x2x1w(wide_r, avx_a);
-        redc_fp2x2_4x2x1w(red, wide_r);
-        unpack_fp2_4x2x1w(got, red);
+        UFp2Pack4x2x1::sqr(wide_r, avx_a);
+        UFp2Pack4x2x1::redc(red, wide_r);
+        unpack_Fp2Pack4x2x1(got, red);
         for (size_t i = 0; i < 4; ++i) {
             Fp2::sqr(expected[i], a[i]);
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
@@ -583,46 +619,46 @@ TEST(Fp2Avx, Widened2x2x2w)
         Fp2::mul(cd[0], c[0], d[0]);
         Fp2::mul(cd[1], c[1], d[1]);
 
-        fp2_2x2x2w avx_a{}, avx_b{}, avx_c{}, avx_d{}, red{};
-        fp2x2_2x2x2w wide_ab{}, wide_cd{}, wide_r{};
-        pack_fp2_2x2x2w(avx_a, a);
-        pack_fp2_2x2x2w(avx_b, b);
-        pack_fp2_2x2x2w(avx_c, c);
-        pack_fp2_2x2x2w(avx_d, d);
+        Fp2Pack2x2x2 avx_a{}, avx_b{}, avx_c{}, avx_d{}, red{};
+        UFp2Pack2x2x2 wide_ab{}, wide_cd{}, wide_r{};
+        pack_Fp2Pack2x2x2(avx_a, a);
+        pack_Fp2Pack2x2x2(avx_b, b);
+        pack_Fp2Pack2x2x2(avx_c, c);
+        pack_Fp2Pack2x2x2(avx_d, d);
 
-        mul_fp2x2_2x2x2w(wide_ab, avx_a, avx_b);
-        mul_fp2x2_2x2x2w(wide_cd, avx_c, avx_d);
+        UFp2Pack2x2x2::mul(wide_ab, avx_a, avx_b);
+        UFp2Pack2x2x2::mul(wide_cd, avx_c, avx_d);
 
-        add_fp2x2_2x2x2w(wide_r, wide_ab, wide_cd);
-        redc_fp2x2_2x2x2w(red, wide_r);
-        unpack_fp2_2x2x2w(got, red);
+        UFp2Pack2x2x2::add(wide_r, wide_ab, wide_cd);
+        UFp2Pack2x2x2::redc(red, wide_r);
+        unpack_Fp2Pack2x2x2(got, red);
         for (size_t i = 0; i < 2; ++i) {
             Fp2::add(expected[i], ab[i], cd[i]);
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
             EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
         }
 
-        sub_fp2x2_2x2x2w(wide_r, wide_ab, wide_cd);
-        redc_fp2x2_2x2x2w(red, wide_r);
-        unpack_fp2_2x2x2w(got, red);
+        UFp2Pack2x2x2::sub(wide_r, wide_ab, wide_cd);
+        UFp2Pack2x2x2::redc(red, wide_r);
+        unpack_Fp2Pack2x2x2(got, red);
         for (size_t i = 0; i < 2; ++i) {
             Fp2::sub(expected[i], ab[i], cd[i]);
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
             EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
         }
 
-        mul_by_u_plus_1_fp2x2_2x2x2w(wide_r, wide_ab);
-        redc_fp2x2_2x2x2w(red, wide_r);
-        unpack_fp2_2x2x2w(got, red);
+        UFp2Pack2x2x2::mul_by_u_plus_1(wide_r, wide_ab);
+        UFp2Pack2x2x2::redc(red, wide_r);
+        unpack_Fp2Pack2x2x2(got, red);
         for (size_t i = 0; i < 2; ++i) {
             Fp2::mul_by_u_plus_1(expected[i], ab[i]);
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
             EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
         }
 
-        sqr_fp2x2_2x2x2w(wide_r, avx_a);
-        redc_fp2x2_2x2x2w(red, wide_r);
-        unpack_fp2_2x2x2w(got, red);
+        UFp2Pack2x2x2::sqr(wide_r, avx_a);
+        UFp2Pack2x2x2::redc(red, wide_r);
+        unpack_Fp2Pack2x2x2(got, red);
         for (size_t i = 0; i < 2; ++i) {
             Fp2::sqr(expected[i], a[i]);
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
@@ -641,14 +677,14 @@ TEST(Fp2Avx, Schedule2x4x1w)
             rand_redc_fp2(b[i], rng);
         }
 
-        fp2_2x4x1w avx_a{}, avx_b{}, red_direct{}, red_from_wide{};
-        fp2x2_2x4x1w wide{};
-        pack_fp2_4x2x1w(avx_a, a);
-        pack_fp2_4x2x1w(avx_b, b);
+        Fp2Pack2x4x1 avx_a{}, avx_b{}, red_direct{}, red_from_wide{};
+        UFp2Pack2x4x1 wide{};
+        pack_Fp2Pack2x4x1(avx_a, a);
+        pack_Fp2Pack2x4x1(avx_b, b);
 
-        mul_fp2_2x4x1w(red_direct, avx_a, avx_b);
-        mul_fp2x2_2x4x1w(wide, avx_a, avx_b);
-        redc_fp2x2_4x2x1w(red_from_wide, wide);
+        Fp2Pack2x4x1::mul(red_direct, avx_a, avx_b);
+        UFp2Pack2x4x1::mul(wide, avx_a, avx_b);
+        UFpPack8x1::redc(red_from_wide, wide);
 
         expect_vec_words_eq(red_direct.data(), red_from_wide.data(), NWORDS);
     }
@@ -666,12 +702,12 @@ TEST(Fp2Avx, Schedule2x4x1wScalar)
         Fp2Vec4 lanes_a = {a, a, a, a};
         Fp2Vec4 lanes_b = {b, b, b, b};
         Fp2Vec4 got{};
-        fp2_2x4x1w avx_a{}, avx_b{}, avx_r{};
+        Fp2Pack2x4x1 avx_a{}, avx_b{}, avx_r{};
 
-        pack_fp2_4x2x1w(avx_a, lanes_a);
-        pack_fp2_4x2x1w(avx_b, lanes_b);
-        mul_fp2_2x4x1w(avx_r, avx_a, avx_b);
-        unpack_fp2_4x2x1w(got, avx_r);
+        pack_Fp2Pack2x4x1(avx_a, lanes_a);
+        pack_Fp2Pack2x4x1(avx_b, lanes_b);
+        Fp2Pack2x4x1::mul(avx_r, avx_a, avx_b);
+        unpack_Fp2Pack2x4x1(got, avx_r);
 
         bool found_expected = false;
         for (size_t i = 0; i < 4; ++i) {
@@ -694,14 +730,14 @@ TEST(Fp2Avx, Schedule1x4x2w)
         rand_redc_fp2(b[0], rng);
         rand_redc_fp2(b[1], rng);
 
-        fp2_1x4x2w avx_a{}, avx_b{}, red_direct{}, red_from_wide{};
-        fp2x2_1x4x2w wide{};
-        pack_fp2_2x2x2w(avx_a, a);
-        pack_fp2_2x2x2w(avx_b, b);
+        Fp2Pack1x4x2 avx_a{}, avx_b{}, red_direct{}, red_from_wide{};
+        UFp2Pack1x4x2 wide{};
+        pack_Fp2Pack1x4x2(avx_a, a);
+        pack_Fp2Pack1x4x2(avx_b, b);
 
-        mul_fp2_1x4x2w(red_direct, avx_a, avx_b);
-        mul_fp2x2_1x4x2w(wide, avx_a, avx_b);
-        redc_fp2x2_2x2x2w(red_from_wide, wide);
+        Fp2Pack1x4x2::mul(red_direct, avx_a, avx_b);
+        UFp2Pack1x4x2::mul(wide, avx_a, avx_b);
+        UFpPack4x2::redc(red_from_wide, wide);
 
         expect_vec_words_eq(red_direct.data(), red_from_wide.data(), VWORDS);
     }
@@ -719,12 +755,12 @@ TEST(Fp2Avx, Schedule1x4x2wScalar)
         Fp2Vec2 lanes_a = {a, a};
         Fp2Vec2 lanes_b = {b, b};
         Fp2Vec2 got{};
-        fp2_1x4x2w avx_a{}, avx_b{}, avx_r{};
+        Fp2Pack1x4x2 avx_a{}, avx_b{}, avx_r{};
 
-        pack_fp2_2x2x2w(avx_a, lanes_a);
-        pack_fp2_2x2x2w(avx_b, lanes_b);
-        mul_fp2_1x4x2w(avx_r, avx_a, avx_b);
-        unpack_fp2_2x2x2w(got, avx_r);
+        pack_Fp2Pack1x4x2(avx_a, lanes_a);
+        pack_Fp2Pack1x4x2(avx_b, lanes_b);
+        Fp2Pack1x4x2::mul(avx_r, avx_a, avx_b);
+        unpack_Fp2Pack1x4x2(got, avx_r);
 
         bool found_expected = false;
         for (size_t i = 0; i < 2; ++i) {

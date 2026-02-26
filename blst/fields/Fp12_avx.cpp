@@ -9,37 +9,37 @@ namespace blst
 {
 namespace
 {
-    inline void shuf_01_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a)
+    inline void shuf_01_UFp2Pack8x1x1(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a)
     {
         shuf_01_dl(r[0].data(), a[0].data());
         shuf_01_dl(r[1].data(), a[1].data());
     }
 
-    inline void blend_0x01_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a, const fp2x2_8x1x1w& b)
+    inline void blend_0x01_UFp2Pack8x1x1(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a, const UFp2Pack8x1x1& b)
     {
         blend_0x01_dl(r[0].data(), a[0].data(), b[0].data());
         blend_0x01_dl(r[1].data(), a[1].data(), b[1].data());
     }
 
-    inline void blend_0x03_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a, const fp2x2_8x1x1w& b)
+    inline void blend_0x03_UFp2Pack8x1x1(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a, const UFp2Pack8x1x1& b)
     {
         blend_0x03_dl(r[0].data(), a[0].data(), b[0].data());
         blend_0x03_dl(r[1].data(), a[1].data(), b[1].data());
     }
 
-    inline void blend_0x33_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a, const fp2x2_8x1x1w& b)
+    inline void blend_0x33_UFp2Pack8x1x1(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a, const UFp2Pack8x1x1& b)
     {
         blend_0x33_dl(r[0].data(), a[0].data(), b[0].data());
         blend_0x33_dl(r[1].data(), a[1].data(), b[1].data());
     }
 
-    inline void perm_1032_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a)
+    inline void perm_1032_UFp2Pack8x1x1(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a)
     {
         perm_1032_dl(r[0].data(), a[0].data());
         perm_1032_dl(r[1].data(), a[1].data());
     }
 
-    inline void perm_var_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a, const cc512i idx)
+    inline void perm_var_UFp2Pack8x1x1(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a, const cc512i idx)
     {
         perm_var_dl(r[0].data(), a[0].data(), idx);
         perm_var_dl(r[1].data(), a[1].data(), idx);
@@ -74,87 +74,87 @@ namespace
 } // namespace
 
 void cyclotomic_sqr_fp12_vec_v1(
-    fp4_1x2x2x2w& ra,
-    fp4_2x2x2x1w& rbc,
-    const fp4_1x2x2x2w& a,
-    const fp4_2x2x2x1w& bc)
+    Fp4Pack1x2x2x2& ra,
+    Fp4Pack2x2x2x1& rbc,
+    const Fp4Pack1x2x2x2& a,
+    const Fp4Pack2x2x2x1& bc)
 {
-    fp4_1x2x2x2w ta;
-    fp4_2x2x2x1w tbc, t0;
+    Fp4Pack1x2x2x2 ta;
+    Fp4Pack2x2x2x1 tbc, t0;
     const cc512i m0 = VSET(3, 2, 1, 0, 5, 4, 7, 6);
 
     sqr_fp4_1x2x2x2w_v1(ta, a);
-    as_fp2_2x2x2w(ra, ta, a);
-    add_fp2_2x2x2w(ra, ra, ra);
-    add_fp2_2x2x2w(ra, ra, ta);
+    Fp2Pack2x2x2::as(ra, ta, a);
+    Fp2Pack2x2x2::add(ra, ra, ra);
+    Fp2Pack2x2x2::add(ra, ra, ta);
 
     sqr_fp4_2x2x2x1w_v1(tbc, bc);
-    mul_by_u_plus_1_fp2_4x2x1w(t0, tbc);
+    Fp2Pack4x2x1::mul_by_u_plus_1(t0, tbc);
     blend_0xC0(tbc.data(), tbc.data(), t0.data());
     perm_var(tbc.data(), tbc.data(), m0);
-    assa_fp2_4x2x1w(rbc, tbc, bc);
-    add_fp2_4x2x1w(rbc, rbc, rbc);
-    add_fp2_4x2x1w(rbc, rbc, tbc);
+    Fp2Pack4x2x1::assa(rbc, tbc, bc);
+    Fp2Pack4x2x1::add(rbc, rbc, rbc);
+    Fp2Pack4x2x1::add(rbc, rbc, tbc);
 }
 
 void cyclotomic_sqr_fp12_vec_v2(
-    fp4_1x2x2x2w& ra,
-    fp4_2x2x2x1w& rbc,
-    const fp4_1x2x2x2w& a,
-    const fp4_2x2x2x1w& bc)
+    Fp4Pack1x2x2x2& ra,
+    Fp4Pack2x2x2x1& rbc,
+    const Fp4Pack1x2x2x2& a,
+    const Fp4Pack2x2x2x1& bc)
 {
-    fp4_1x2x2x2w ta;
-    fp4_2x2x2x1w tbc, t0;
+    Fp4Pack1x2x2x2 ta;
+    Fp4Pack2x2x2x1 tbc, t0;
     const cc512i m0 = VSET(3, 2, 1, 0, 5, 4, 7, 6);
 
     sqr_fp4_1x2x2x2w_v2(ta, a);
-    as_fp2_2x2x2w(ra, ta, a);
-    add_fp2_2x2x2w(ra, ra, ra);
-    add_fp2_2x2x2w(ra, ra, ta);
+    Fp2Pack2x2x2::as(ra, ta, a);
+    Fp2Pack2x2x2::add(ra, ra, ra);
+    Fp2Pack2x2x2::add(ra, ra, ta);
 
     sqr_fp4_2x2x2x1w_v2(tbc, bc);
-    mul_by_u_plus_1_fp2_4x2x1w(t0, tbc);
+    Fp2Pack4x2x1::mul_by_u_plus_1(t0, tbc);
     blend_0xC0(tbc.data(), tbc.data(), t0.data());
     perm_var(tbc.data(), tbc.data(), m0);
-    assa_fp2_4x2x1w(rbc, tbc, bc);
-    add_fp2_4x2x1w(rbc, rbc, rbc);
-    add_fp2_4x2x1w(rbc, rbc, tbc);
+    Fp2Pack4x2x1::assa(rbc, tbc, bc);
+    Fp2Pack4x2x1::add(rbc, rbc, rbc);
+    Fp2Pack4x2x1::add(rbc, rbc, tbc);
 }
 
-void compressed_cyclotomic_sqr_fp12_vec_v1(fp4_2x2x2x1w& rbc, const fp4_2x2x2x1w& bc)
+void compressed_cyclotomic_sqr_fp12_vec_v1(Fp4Pack2x2x2x1& rbc, const Fp4Pack2x2x2x1& bc)
 {
-    fp4_2x2x2x1w tbc, t0;
+    Fp4Pack2x2x2x1 tbc, t0;
     const cc512i m0 = VSET(3, 2, 1, 0, 5, 4, 7, 6);
 
     sqr_fp4_2x2x2x1w_v1(tbc, bc);
-    mul_by_u_plus_1_fp2_4x2x1w(t0, tbc);
+    Fp2Pack4x2x1::mul_by_u_plus_1(t0, tbc);
     blend_0xC0(tbc.data(), tbc.data(), t0.data());
     perm_var(tbc.data(), tbc.data(), m0);
-    assa_fp2_4x2x1w(rbc, tbc, bc);
-    add_fp2_4x2x1w(rbc, rbc, rbc);
-    add_fp2_4x2x1w(rbc, rbc, tbc);
+    Fp2Pack4x2x1::assa(rbc, tbc, bc);
+    Fp2Pack4x2x1::add(rbc, rbc, rbc);
+    Fp2Pack4x2x1::add(rbc, rbc, tbc);
 }
 
 void mul_fp12_vec_v1(
-    fp2_4x2x1w& r01,
-    fp2_4x2x1w& r2,
-    const fp2_8x1x1w& ab0,
-    const fp2_8x1x1w& ab1,
-    const fp2_8x1x1w& ab2)
+    Fp2Pack4x2x1& r01,
+    Fp2Pack4x2x1& r2,
+    const Fp2Pack8x1x1& ab0,
+    const Fp2Pack8x1x1& ab1,
+    const Fp2Pack8x1x1& ab2)
 {
-    fp2x2_8x1x1w tt01, tt2, tt3, tt4;
-    fp2x2_4x2x1w ss0, ss1, ss2, ss3;
-    fp2_4x2x1w s0, s1;
+    UFp2Pack8x1x1 tt01, tt2, tt3, tt4;
+    UFp2Pack4x2x1 ss0, ss1, ss2, ss3;
+    Fp2Pack4x2x1 s0, s1;
     const cc512i m0 = VSET(3, 2, 1, 0, 7, 6, 5, 4);
     const cc512i m1 = VSET(3, 2, 1, 0, 5, 4, 7, 6);
 
     mul_fp6x2_4x2x1x1w(tt01, tt2, ab0, ab1, ab2);
-    shuf_01_fp2x2_8x1x1w(tt3, tt01);
-    shuf_01_fp2x2_8x1x1w(tt4, tt2);
-    blend_0x01_fp2x2_8x1x1w(tt4, tt4, tt3);
-    blend_0x01_fp2x2_8x1x1w(tt2, tt2, tt01);
-    blend_0x03_fp2x2_8x1x1w(tt01, tt01, tt4);
-    shuf_01_fp2x2_8x1x1w(tt3, tt01);
+    shuf_01_UFp2Pack8x1x1(tt3, tt01);
+    shuf_01_UFp2Pack8x1x1(tt4, tt2);
+    blend_0x01_UFp2Pack8x1x1(tt4, tt4, tt3);
+    blend_0x01_UFp2Pack8x1x1(tt2, tt2, tt01);
+    blend_0x03_UFp2Pack8x1x1(tt01, tt01, tt4);
+    shuf_01_UFp2Pack8x1x1(tt3, tt01);
     blend_0x55_dl(ss0.data(), tt3[1].data(), tt01[0].data());
     blend_0x55_dl(ss1.data(), tt01[1].data(), tt3[0].data());
     perm_1032_dl(ss2.data(), ss0.data());
@@ -162,40 +162,40 @@ void mul_fp12_vec_v1(
     perm_var_dl(ss2.data(), ss2.data(), m0);
     perm_1032_dl(ss3.data(), ss1.data());
     blend_0x33_dl(ss3.data(), ss3.data(), ss0.data());
-    add_fp2x2_4x2x1w(ss2, ss2, ss3);
-    redc_fp2x2_4x2x1w(r01, ss2);
+    UFp2Pack4x2x1::add(ss2, ss2, ss3);
+    UFp2Pack4x2x1::redc(r01, ss2);
 
     shuf_01_dl(tt3[0].data(), tt2[1].data());
     blend_0x55_dl(ss0.data(), tt3[0].data(), tt2[0].data());
-    redc_fp2x2_4x2x1w(s0, ss0);
-    mul_by_u_plus_1_fp2_4x2x1w(s1, s0);
+    UFp2Pack4x2x1::redc(s0, ss0);
+    Fp2Pack4x2x1::mul_by_u_plus_1(s1, s0);
     blend_0xC0(s1.data(), s0.data(), s1.data());
     perm_var(s0.data(), s1.data(), m1);
-    add_fp2_4x2x1w(r2, s0, s1);
+    Fp2Pack4x2x1::add(r2, s0, s1);
 }
 
 void mul_fp12_vec_v2(
-    fp2_4x2x1w& r01,
-    fp2_2x2x2w& r2,
-    const fp2_8x1x1w& ab0,
-    const fp2_8x1x1w& ab1,
-    const fp2_8x1x1w& ab2)
+    Fp2Pack4x2x1& r01,
+    Fp2Pack2x2x2& r2,
+    const Fp2Pack8x1x1& ab0,
+    const Fp2Pack8x1x1& ab1,
+    const Fp2Pack8x1x1& ab2)
 {
-    fp2x2_8x1x1w tt01, tt2, tt3, tt4;
-    fp2x2_4x2x1w ss0, ss1, ss2, ss3;
-    fp2_4x2x1w s0, s1;
-    fp2x2_2x2x2w hh0, hh1, hh2;
+    UFp2Pack8x1x1 tt01, tt2, tt3, tt4;
+    UFp2Pack4x2x1 ss0, ss1, ss2, ss3;
+    Fp2Pack4x2x1 s0, s1;
+    UFp2Pack2x2x2 hh0, hh1, hh2;
     const cc512i m0 = VSET(3, 2, 1, 0, 7, 6, 5, 4);
     const cc512i m1 = VSET(3, 3, 2, 2, 1, 1, 0, 0);
     const cc512i m2 = VSET(5, 5, 4, 4, 7, 7, 6, 6);
 
     mul_fp6x2_4x2x1x1w(tt01, tt2, ab0, ab1, ab2);
-    shuf_01_fp2x2_8x1x1w(tt3, tt01);
-    shuf_01_fp2x2_8x1x1w(tt4, tt2);
-    blend_0x01_fp2x2_8x1x1w(tt4, tt4, tt3);
-    blend_0x01_fp2x2_8x1x1w(tt2, tt2, tt01);
-    blend_0x03_fp2x2_8x1x1w(tt01, tt01, tt4);
-    shuf_01_fp2x2_8x1x1w(tt3, tt01);
+    shuf_01_UFp2Pack8x1x1(tt3, tt01);
+    shuf_01_UFp2Pack8x1x1(tt4, tt2);
+    blend_0x01_UFp2Pack8x1x1(tt4, tt4, tt3);
+    blend_0x01_UFp2Pack8x1x1(tt2, tt2, tt01);
+    blend_0x03_UFp2Pack8x1x1(tt01, tt01, tt4);
+    shuf_01_UFp2Pack8x1x1(tt3, tt01);
     blend_0x55_dl(ss0.data(), tt3[1].data(), tt01[0].data());
     blend_0x55_dl(ss1.data(), tt01[1].data(), tt3[0].data());
     perm_1032_dl(ss2.data(), ss0.data());
@@ -203,8 +203,8 @@ void mul_fp12_vec_v2(
     perm_var_dl(ss2.data(), ss2.data(), m0);
     perm_1032_dl(ss3.data(), ss1.data());
     blend_0x33_dl(ss3.data(), ss3.data(), ss0.data());
-    add_fp2x2_4x2x1w(ss2, ss2, ss3);
-    redc_fp2x2_4x2x1w(r01, ss2);
+    UFp2Pack4x2x1::add(ss2, ss2, ss3);
+    UFp2Pack4x2x1::redc(r01, ss2);
 
     shuf_01_dl(tt3[0].data(), tt2[1].data());
     blend_0x55_dl(ss0.data(), tt3[0].data(), tt2[0].data());
@@ -212,24 +212,24 @@ void mul_fp12_vec_v2(
     conv_dltovl(hh0, ss1);
     perm_var_dl(ss1.data(), ss0.data(), m2);
     conv_dltovl(hh1, ss1);
-    mul_by_u_plus_1_fp2x2_2x2x2w(hh2, hh1);
+    UFp2Pack2x2x2::mul_by_u_plus_1(hh2, hh1);
     blend_0x0F_vl(hh1.data(), hh1.data(), hh2.data());
-    add_fp2x2_2x2x2w(hh0, hh0, hh1);
-    redc_fp2x2_2x2x2w(r2, hh0);
+    UFp2Pack2x2x2::add(hh0, hh0, hh1);
+    UFp2Pack2x2x2::redc(r2, hh0);
 }
 
 void mul_fp12_vec_v3(
-    fp2_2x2x2w& r001,
-    fp2_2x2x2w& r101,
-    fp2_2x2x2w& r2,
-    const fp2_4x2x1w& ab0,
-    const fp2_4x2x1w& ab1,
-    const fp2_4x2x1w& ab2)
+    Fp2Pack2x2x2& r001,
+    Fp2Pack2x2x2& r101,
+    Fp2Pack2x2x2& r2,
+    const Fp2Pack4x2x1& ab0,
+    const Fp2Pack4x2x1& ab1,
+    const Fp2Pack4x2x1& ab2)
 {
-    fp2x2_4x2x1w tt0, tt1, tt2, tt3, tt4, tt5;
-    fp2_4x2x1w t0;
-    fp2x2_2x2x2w ss0, ss1, ss2, ss3, ss4, ss5;
-    fp2_2x2x2w s0, s1, s2, s3;
+    UFp2Pack4x2x1 tt0, tt1, tt2, tt3, tt4, tt5;
+    Fp2Pack4x2x1 t0;
+    UFp2Pack2x2x2 ss0, ss1, ss2, ss3, ss4, ss5;
+    Fp2Pack2x2x2 s0, s1, s2, s3;
     const cc512i m0 = VSET(3, 2, 1, 0, 7, 6, 5, 4);
     const cc512i m1 = VSET(3, 3, 2, 2, 1, 1, 0, 0);
     const cc512i m2 = VSET(7, 7, 6, 6, 7, 7, 6, 6);
@@ -243,11 +243,11 @@ void mul_fp12_vec_v3(
     blend_0x0F_dl(tt4.data(), tt2.data(), tt3.data());
     perm_var_dl(tt5.data(), tt0.data(), m1);
     conv_dltovl(ss0, tt4);
-    mul_by_u_plus_1_fp2x2_2x2x2w(ss1, ss0);
+    UFp2Pack2x2x2::mul_by_u_plus_1(ss1, ss0);
     blend_0x0F_vl(ss1.data(), ss0.data(), ss1.data());
     conv_dltovl(ss4, tt5);
-    add_fp2x2_2x2x2w(ss1, ss4, ss1);
-    redc_fp2x2_2x2x2w(r001, ss1);
+    UFp2Pack2x2x2::add(ss1, ss4, ss1);
+    UFp2Pack2x2x2::redc(r001, ss1);
     conv_dltovl(ss2, tt1);
     perm_var_dl(tt5.data(), tt0.data(), m2);
     conv_dltovl(ss1, tt5);
@@ -256,43 +256,43 @@ void mul_fp12_vec_v3(
     conv_sltohl(s0, t0);
     perm_var(t0.data(), ab0.data(), m3);
     conv_sltohl(s1, t0);
-    add_fp2_2x2x2w(s0, s0, s1);
+    Fp2Pack2x2x2::add(s0, s0, s1);
     perm_var(t0.data(), ab1.data(), m1);
     conv_sltohl(s1, t0);
     perm_var(t0.data(), ab1.data(), m3);
     conv_sltohl(s2, t0);
-    add_fp2_2x2x2w(s1, s1, s2);
+    Fp2Pack2x2x2::add(s1, s1, s2);
     perm_var(t0.data(), ab2.data(), m1);
     conv_sltohl(s2, t0);
     perm_var(t0.data(), ab2.data(), m3);
     conv_sltohl(s3, t0);
-    add_fp2_2x2x2w(s2, s2, s3);
+    Fp2Pack2x2x2::add(s2, s2, s3);
     mul_fp6x2_1x2x2x2w(ss3, ss5, s0, s1, s2);
-    sub_fp2x2_2x2x2w(ss3, ss3, ss4);
+    UFp2Pack2x2x2::sub(ss3, ss3, ss4);
     perm_var_dl(tt5.data(), tt0.data(), m3);
     conv_dltovl(ss4, tt5);
-    sub_fp2x2_2x2x2w(ss3, ss3, ss4);
-    redc_fp2x2_2x2x2w(r101, ss3);
-    sub_fp2x2_2x2x2w(ss5, ss5, ss2);
-    add_fp2x2_2x2x2w(ss1, ss2, ss1);
-    sub_fp2x2_2x2x2w(ss5, ss5, ss0);
+    UFp2Pack2x2x2::sub(ss3, ss3, ss4);
+    UFp2Pack2x2x2::redc(r101, ss3);
+    UFp2Pack2x2x2::sub(ss5, ss5, ss2);
+    UFp2Pack2x2x2::add(ss1, ss2, ss1);
+    UFp2Pack2x2x2::sub(ss5, ss5, ss0);
     perm_var_vl(ss5.data(), ss5.data(), m0);
     blend_0x0F_vl(ss1.data(), ss5.data(), ss1.data());
-    redc_fp2x2_2x2x2w(r2, ss1);
+    UFp2Pack2x2x2::redc(r2, ss1);
 }
 
 void mul_fp12_vec_v4(
-    fp2_4x2x1w& r0,
-    fp2_2x2x2w& r101,
-    fp2_2x2x2w& r12,
-    const fp2_4x2x1w& ab0,
-    const fp2_4x2x1w& ab1,
-    const fp2_4x2x1w& ab2)
+    Fp2Pack4x2x1& r0,
+    Fp2Pack2x2x2& r101,
+    Fp2Pack2x2x2& r12,
+    const Fp2Pack4x2x1& ab0,
+    const Fp2Pack4x2x1& ab1,
+    const Fp2Pack4x2x1& ab2)
 {
-    fp2x2_4x2x1w tt0, tt1, tt2, tt3, tt4, tt5;
-    fp2_4x2x1w t0;
-    fp2x2_2x2x2w ss0, ss1, ss2, ss3, ss4;
-    fp2_2x2x2w s0, s1, s2, s3;
+    UFp2Pack4x2x1 tt0, tt1, tt2, tt3, tt4, tt5;
+    Fp2Pack4x2x1 t0;
+    UFp2Pack2x2x2 ss0, ss1, ss2, ss3, ss4;
+    Fp2Pack2x2x2 s0, s1, s2, s3;
     const cc512i m0 = VSET(3, 2, 1, 0, 7, 6, 5, 4);
     const cc512i m1 = VSET(3, 3, 2, 2, 1, 1, 0, 0);
     const cc512i m2 = VSET(1, 0, 7, 6, 5, 4, 3, 2);
@@ -302,11 +302,11 @@ void mul_fp12_vec_v4(
 
     perm_var_dl(tt2.data(), tt1.data(), m0);
     blend_0x0F_dl(tt3.data(), tt2.data(), tt0.data());
-    mul_by_u_plus_1_fp2x2_4x2x1w(tt4, tt2);
+    UFp2Pack4x2x1::mul_by_u_plus_1(tt4, tt2);
     perm_var_dl(tt2.data(), tt0.data(), m2);
     blend_0x03_dl(tt2.data(), tt2.data(), tt4.data());
-    add_fp2x2_4x2x1w(tt3, tt3, tt2);
-    redc_fp2x2_4x2x1w(r0, tt3);
+    UFp2Pack4x2x1::add(tt3, tt3, tt2);
+    UFp2Pack4x2x1::redc(r0, tt3);
 
     perm_1100_dl(tt2.data(), tt0.data());
     perm_1100_dl(tt1.data(), tt1.data());
@@ -321,38 +321,38 @@ void mul_fp12_vec_v4(
     conv_sltohl(s0, t0);
     perm_var(t0.data(), ab0.data(), m3);
     conv_sltohl(s1, t0);
-    add_fp2_2x2x2w(s0, s0, s1);
+    Fp2Pack2x2x2::add(s0, s0, s1);
     perm_var(t0.data(), ab1.data(), m1);
     conv_sltohl(s1, t0);
     perm_var(t0.data(), ab1.data(), m3);
     conv_sltohl(s2, t0);
-    add_fp2_2x2x2w(s1, s1, s2);
+    Fp2Pack2x2x2::add(s1, s1, s2);
     perm_var(t0.data(), ab2.data(), m1);
     conv_sltohl(s2, t0);
     perm_var(t0.data(), ab2.data(), m3);
     conv_sltohl(s3, t0);
-    add_fp2_2x2x2w(s2, s2, s3);
+    Fp2Pack2x2x2::add(s2, s2, s3);
     mul_fp6x2_1x2x2x2w(ss3, ss1, s0, s1, s2);
-    sub_fp2x2_2x2x2w(ss3, ss3, ss4);
+    UFp2Pack2x2x2::sub(ss3, ss3, ss4);
     perm_var_dl(tt5.data(), tt0.data(), m3);
     conv_dltovl(ss4, tt5);
-    sub_fp2x2_2x2x2w(ss3, ss3, ss4);
-    redc_fp2x2_2x2x2w(r101, ss3);
-    sub_fp2x2_2x2x2w(ss1, ss1, ss2);
-    sub_fp2x2_2x2x2w(ss1, ss1, ss0);
-    redc_fp2x2_2x2x2w(r12, ss1);
+    UFp2Pack2x2x2::sub(ss3, ss3, ss4);
+    UFp2Pack2x2x2::redc(r101, ss3);
+    UFp2Pack2x2x2::sub(ss1, ss1, ss2);
+    UFp2Pack2x2x2::sub(ss1, ss1, ss0);
+    UFp2Pack2x2x2::redc(r12, ss1);
 }
 
 void mul_by_xy00z0_fp12_vec_v1(
-    fp2_4x2x1w& r0,
-    fp2_2x2x2w& r1,
-    const fp2_4x2x1w& a01,
-    const fp2_4x2x1w& a2,
-    const fp2_4x2x1w& b01,
-    const fp2_4x2x1w& b4)
+    Fp2Pack4x2x1& r0,
+    Fp2Pack2x2x2& r1,
+    const Fp2Pack4x2x1& a01,
+    const Fp2Pack4x2x1& a2,
+    const Fp2Pack4x2x1& b01,
+    const Fp2Pack4x2x1& b4)
 {
-    fp2x2_4x2x1w tt0, tt1, tt2, tt3, tt4, tt5;
-    fp2x2_2x2x2w ss0, ss1, ss2;
+    UFp2Pack4x2x1 tt0, tt1, tt2, tt3, tt4, tt5;
+    UFp2Pack2x2x2 ss0, ss1, ss2;
     const cc512i m0 = VSET(1, 0, 3, 2, 7, 6, 5, 4);
     const cc512i m1 = VSET(3, 3, 2, 2, 3, 3, 2, 2);
     const cc512i m2 = VSET(7, 7, 6, 6, 7, 7, 6, 6);
@@ -362,8 +362,8 @@ void mul_by_xy00z0_fp12_vec_v1(
     blend_0x03_dl(tt5.data(), tt0.data(), tt1.data());
     blend_0x33_dl(tt4.data(), tt2.data(), tt3.data());
     perm_var_dl(tt4.data(), tt4.data(), m0);
-    add_fp2x2_4x2x1w(tt5, tt5, tt4);
-    redc_fp2x2_4x2x1w(r0, tt5);
+    UFp2Pack4x2x1::add(tt5, tt5, tt4);
+    UFp2Pack4x2x1::redc(r0, tt5);
 
     perm_1100_dl(tt0.data(), tt0.data());
     perm_var_dl(tt4.data(), tt3.data(), m1);
@@ -373,21 +373,21 @@ void mul_by_xy00z0_fp12_vec_v1(
     perm_var_dl(tt3.data(), tt3.data(), m2);
     blend_0x0F_dl(tt1.data(), tt1.data(), tt3.data());
     conv_dltovl(ss1, tt1);
-    mul_by_u_plus_1_fp2x2_2x2x2w(ss2, ss1);
+    UFp2Pack2x2x2::mul_by_u_plus_1(ss2, ss1);
     blend_0x0F_vl(ss1.data(), ss1.data(), ss2.data());
-    add_fp2x2_2x2x2w(ss1, ss1, ss0);
-    redc_fp2x2_2x2x2w(r1, ss1);
+    UFp2Pack2x2x2::add(ss1, ss1, ss0);
+    UFp2Pack2x2x2::redc(r1, ss1);
 }
 
 void mul_by_xy00z0_fp12_vec_v2(
-    fp2_4x2x1w& r0,
-    fp2_2x2x2w& r1,
-    const fp2_8x1x1w& a,
-    const fp2_8x1x1w& b)
+    Fp2Pack4x2x1& r0,
+    Fp2Pack2x2x2& r1,
+    const Fp2Pack8x1x1& a,
+    const Fp2Pack8x1x1& b)
 {
-    fp2x2_8x1x1w tt0, tt1, tt2, tt3;
-    fp2x2_4x2x1w ss0, ss1;
-    fp2x2_2x2x2w hh0, hh1, hh2;
+    UFp2Pack8x1x1 tt0, tt1, tt2, tt3;
+    UFp2Pack4x2x1 ss0, ss1;
+    UFp2Pack2x2x2 hh0, hh1, hh2;
     const cc512i m0 = VSET(6, 6, 7, 7, 2, 2, 1, 1);
     const cc512i m1 = VSET(0, 0, 2, 2, 6, 6, 4, 4);
     const cc512i m2 = VSET(1, 1, 1, 1, 3, 3, 3, 3);
@@ -395,39 +395,39 @@ void mul_by_xy00z0_fp12_vec_v2(
 
     mul_by_xy00z0_fp6x2_2x4x1x1w(tt0, tt1, tt2, a, b);
 
-    blend_0x33_fp2x2_8x1x1w(tt3, tt0, tt1);
-    perm_var_fp2x2_8x1x1w(tt3, tt3, m0);
+    blend_0x33_UFp2Pack8x1x1(tt3, tt0, tt1);
+    perm_var_UFp2Pack8x1x1(tt3, tt3, m0);
     blend_0x55_dl(ss0.data(), tt3[1].data(), tt3[0].data());
-    blend_0x33_fp2x2_8x1x1w(tt3, tt1, tt2);
-    perm_var_fp2x2_8x1x1w(tt3, tt3, m1);
+    blend_0x33_UFp2Pack8x1x1(tt3, tt1, tt2);
+    perm_var_UFp2Pack8x1x1(tt3, tt3, m1);
     blend_0x55_dl(ss1.data(), tt3[1].data(), tt3[0].data());
-    add_fp2x2_4x2x1w(ss0, ss0, ss1);
-    redc_fp2x2_4x2x1w(r0, ss0);
+    UFp2Pack4x2x1::add(ss0, ss0, ss1);
+    UFp2Pack4x2x1::redc(r0, ss0);
 
-    blend_0x33_fp2x2_8x1x1w(tt3, tt0, tt2);
-    perm_var_fp2x2_8x1x1w(tt3, tt3, m2);
+    blend_0x33_UFp2Pack8x1x1(tt3, tt0, tt2);
+    perm_var_UFp2Pack8x1x1(tt3, tt3, m2);
     blend_0x33_dl(ss0.data(), tt3[1].data(), tt3[0].data());
     conv_dltovl(hh0, ss0);
-    perm_1032_fp2x2_8x1x1w(tt3, tt2);
-    blend_0x33_fp2x2_8x1x1w(tt3, tt3, tt1);
-    perm_var_fp2x2_8x1x1w(tt3, tt3, m3);
+    perm_1032_UFp2Pack8x1x1(tt3, tt2);
+    blend_0x33_UFp2Pack8x1x1(tt3, tt3, tt1);
+    perm_var_UFp2Pack8x1x1(tt3, tt3, m3);
     blend_0x33_dl(ss1.data(), tt3[1].data(), tt3[0].data());
     conv_dltovl(hh1, ss1);
-    mul_by_u_plus_1_fp2x2_2x2x2w(hh2, hh1);
+    UFp2Pack2x2x2::mul_by_u_plus_1(hh2, hh1);
     blend_0x0F_vl(hh1.data(), hh1.data(), hh2.data());
-    add_fp2x2_2x2x2w(hh1, hh1, hh0);
-    redc_fp2x2_2x2x2w(r1, hh1);
+    UFp2Pack2x2x2::add(hh1, hh1, hh0);
+    UFp2Pack2x2x2::redc(r1, hh1);
 }
 
 void sqr_fp12_vec_v1(
-    fp2_4x2x1w& r0,
-    fp2_4x2x1w& r1,
-    const fp2_4x2x1w& a0,
-    const fp2_4x2x1w& a1)
+    Fp2Pack4x2x1& r0,
+    Fp2Pack4x2x1& r1,
+    const Fp2Pack4x2x1& a0,
+    const Fp2Pack4x2x1& a1)
 {
-    fp2_4x2x1w t0, t1, t2, t3, t4;
-    fp2_4x2x1w s0, s1, s2;
-    fp2x2_4x2x1w tt0, tt1;
+    Fp2Pack4x2x1 t0, t1, t2, t3, t4;
+    Fp2Pack4x2x1 s0, s1, s2;
+    UFp2Pack4x2x1 tt0, tt1;
     const cc512i m0 = VSET(5, 4, 3, 2, 1, 0, 7, 6);
     const cc512i m1 = VSET(3, 2, 1, 0, 7, 6, 5, 4);
     const cc512i m2 = VSET(5, 4, 1, 0, 7, 6, 3, 2);
@@ -438,7 +438,7 @@ void sqr_fp12_vec_v1(
     FpPack8x1::asax6(t0, a0, a1);
     blend_0x0F(t1.data(), t0.data(), a1.data());
     perm_var(t1.data(), t1.data(), m0);
-    add_fp2_4x2x1w(t1, a0, t1);
+    Fp2Pack4x2x1::add(t1, a0, t1);
     perm_var(t2.data(), a1.data(), m1);
     blend_0x0F(t2.data(), t2.data(), a0.data());
     perm_var(s0.data(), t2.data(), m2);
@@ -457,12 +457,12 @@ void sqr_fp12_vec_v1(
     blend_0x0F(s2.data(), s2.data(), t2.data());
 
     mul_fp6x2_2x2x2x1w(tt0, tt1, s0, s1, s2);
-    redc_fp2x2_4x2x1w(t0, tt0);
-    redc_fp2x2_4x2x1w(t1, tt1);
+    UFp2Pack4x2x1::redc(t0, tt0);
+    UFp2Pack4x2x1::redc(t1, tt1);
 
     perm_var(t2.data(), t0.data(), m1);
     blend_0x0F(t2.data(), t1.data(), t2.data());
-    add_fp2_4x2x1w(r1, t2, t2);
+    Fp2Pack4x2x1::add(r1, t2, t2);
 
     perm_var(t4.data(), t1.data(), m4);
     blend_0x0F(t4.data(), t4.data(), t0.data());
@@ -472,13 +472,13 @@ void sqr_fp12_vec_v1(
     FpPack8x1::assx6(t3, t4, t3);
     blend_0x0F(t4.data(), t3.data(), t2.data());
     perm_var(t4.data(), t4.data(), m0);
-    sub_fp2_4x2x1w(r0, t3, t4);
+    Fp2Pack4x2x1::sub(r0, t3, t4);
 }
 
 void mul_fp12_vector(Fp12& ret, const Fp12& a, const Fp12& b)
 {
-    fp2_4x2x1w ab0, ab1, ab2;
-    fp2_2x2x2w r001, r101, r2;
+    Fp2Pack4x2x1 ab0, ab1, ab2;
+    Fp2Pack2x2x2 r001, r101, r2;
     std::array<cc512i, SWORDS> in0, in1, in2;
     std::array<cc512i, SWORDS / 2> out0, out1, out2;
 
@@ -550,8 +550,8 @@ void mul_fp12_vector(Fp12& ret, const Fp12& a, const Fp12& b)
 
 void mul_by_xy00z0_fp12_vector(Fp12& ret, const Fp12& a, const Fp6& xy00z0)
 {
-    fp2_4x2x1w r0, a01, a2, b01, b4;
-    fp2_2x2x2w r1;
+    Fp2Pack4x2x1 r0, a01, a2, b01, b4;
+    Fp2Pack2x2x2 r1;
     std::array<cc512i, SWORDS> in0, in1, in2, in3;
     std::array<cc512i, SWORDS> out0;
     std::array<cc512i, SWORDS / 2> out1;
@@ -618,7 +618,7 @@ void mul_by_xy00z0_fp12_vector(Fp12& ret, const Fp12& a, const Fp6& xy00z0)
 
 void sqr_fp12_vector(Fp12& ret, const Fp12& a)
 {
-    fp2_4x2x1w r0, r1, a0, a1;
+    Fp2Pack4x2x1 r0, r1, a0, a1;
     std::array<cc512i, SWORDS> in0, in1, out0, out1;
 
     for (u64 i = 0; i < SWORDS; ++i) {
@@ -662,8 +662,8 @@ void sqr_fp12_vector(Fp12& ret, const Fp12& a)
 
 void cyclotomic_sqr_fp12_vector(Fp12& ret, const Fp12& a)
 {
-    fp4_1x2x2x2w packed_a, out_a;
-    fp4_2x2x2x1w packed_bc, out_bc;
+    Fp4Pack1x2x2x2 packed_a, out_a;
+    Fp4Pack2x2x2x1 packed_bc, out_bc;
     std::array<cc512i, SWORDS / 2> lanes_a;
     std::array<cc512i, SWORDS> lanes_bc;
 

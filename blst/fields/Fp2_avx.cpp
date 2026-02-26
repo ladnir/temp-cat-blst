@@ -6,18 +6,18 @@
 namespace blst
 {
 
-    void add_fp2_8x1x1w(fp2_8x1x1w& r, const fp2_8x1x1w& a, const fp2_8x1x1w& b)
+    void Fp2Pack8x1x1::add(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a, const Fp2Pack8x1x1& b)
     {
         FpPack8x1::add(r[0], a[0], b[0]);
         FpPack8x1::add(r[1], a[1], b[1]);
     }
 
-    void add_fp2_4x2x1w(fp2_4x2x1w& r, const fp2_4x2x1w& a, const fp2_4x2x1w& b)
+    void Fp2Pack4x2x1::add(Fp2Pack4x2x1& r, const Fp2Pack4x2x1& a, const Fp2Pack4x2x1& b)
     {
         FpPack8x1::add(r, a, b);
     }
 
-    void sub_fp2_4x2x1w(fp2_4x2x1w& r, const fp2_4x2x1w& a, const fp2_4x2x1w& b)
+    void Fp2Pack4x2x1::sub(Fp2Pack4x2x1& r, const Fp2Pack4x2x1& a, const Fp2Pack4x2x1& b)
     {
         FpPack8x1::sub(r, a, b);
     }
@@ -25,7 +25,7 @@ namespace blst
     // a = < D1 | D0 | C1 | C0 | B1 | B0 | A1 | A0 >  
     // b = < H1 | H0 | G1 | G0 | F1 | F0 | E1 | E0 >
     // r = < D1+H1 | D0+H0 | C1+G1 | C0+G0 | B1-F1 | B0-F0 | A1-E1 | A0-E0 >
-    void aass_fp2_4x2x1w(fp2_4x2x1w& r, const fp2_4x2x1w& a, const fp2_4x2x1w& b)
+    void Fp2Pack4x2x1::aass(Fp2Pack4x2x1& r, const Fp2Pack4x2x1& a, const Fp2Pack4x2x1& b)
     {
         const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
         const cc512i a4 = a[4], a5 = a[5], a6 = a[6], a7 = a[7];
@@ -89,7 +89,7 @@ namespace blst
     // a = < D1 | D0 | C1 | C0 | B1 | B0 | A1 | A0 >  
     // b = < H1 | H0 | G1 | G0 | F1 | F0 | E1 | E0 >
     // r = < D1+H1 | D0+H0 | C1-G1 | C0-G0 | B1-F1 | B0-F0 | A1+E1 | A0+E0 >
-    void assa_fp2_4x2x1w(fp2_4x2x1w& r, const fp2_4x2x1w& a, const fp2_4x2x1w& b)
+    void Fp2Pack4x2x1::assa(Fp2Pack4x2x1& r, const Fp2Pack4x2x1& a, const Fp2Pack4x2x1& b)
     {
         const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
         const cc512i a4 = a[4], a5 = a[5], a6 = a[6], a7 = a[7];
@@ -153,7 +153,7 @@ namespace blst
     // a = < D1 | D0 | C1 | C0 | B1 | B0 | A1 | A0 >  
     // b = < H1 | H0 | G1 | G0 | F1 | F0 | E1 | E0 >
     // r = < D1-H1 | D0-H0 | C1+G1 | C0+G0 | B1-F1 | B0-F0 | A1-E1 | A0-E0 >
-    void sass_fp2_4x2x1w(fp2_4x2x1w& r, const fp2_4x2x1w& a, const fp2_4x2x1w& b)
+    void Fp2Pack4x2x1::sass(Fp2Pack4x2x1& r, const Fp2Pack4x2x1& a, const Fp2Pack4x2x1& b)
     {
         const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
         const cc512i a4 = a[4], a5 = a[5], a6 = a[6], a7 = a[7];
@@ -217,7 +217,7 @@ namespace blst
     // a = < D1 | D0 | C1 | C0 | B1 | B0 | A1 | A0 >  
     // b = < H1 | H0 | G1 | G0 | F1 | F0 | E1 | E0 >
     // r = < D1-H1 | D0-H0 | C1-G1 | C0-G0 | B1+F1 | B0+F0 | A1+E1 | A0+E0 >
-    void ssaa_fp2_4x2x1w(fp2_4x2x1w& r, const fp2_4x2x1w& a, const fp2_4x2x1w& b)
+    void Fp2Pack4x2x1::ssaa(Fp2Pack4x2x1& r, const Fp2Pack4x2x1& a, const Fp2Pack4x2x1& b)
     {
         const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
         const cc512i a4 = a[4], a5 = a[5], a6 = a[6], a7 = a[7];
@@ -280,9 +280,9 @@ namespace blst
 
     // r0 = a0 - a1
     // r1 = a0 + a1
-    void mul_by_u_plus_1_fp2_4x2x1w(fp2_4x2x1w& r, const fp2_4x2x1w& a)
+    void Fp2Pack4x2x1::mul_by_u_plus_1(Fp2Pack4x2x1& r, const Fp2Pack4x2x1& a)
     {
-        fp2_4x2x1w t0;
+        Fp2Pack4x2x1 t0;
 
         // a = A1 | A0 at Fp layer 
         shuf_01(t0.data(), a.data());         //     A0 |    A1
@@ -292,10 +292,10 @@ namespace blst
     // r0 = a0*b0 - a1*b1
     // r1 = a0*b1 + a1*b0
     // schoolbook
-    void mul_fp2_4x2x1w(fp2_4x2x1w& r, const fp2_4x2x1w& a, const fp2_4x2x1w& b)
+    void Fp2Pack4x2x1::mul(Fp2Pack4x2x1& r, const Fp2Pack4x2x1& a, const Fp2Pack4x2x1& b)
     {
-        fp2_4x2x1w t0, t1;
-        fp2x2_4x2x1w tt0, tt1;
+        Fp2Pack4x2x1 t0, t1;
+        UFp2Pack4x2x1 tt0, tt1;
 
         // a = A1 | A0 at Fp layer 
         // b = B1 | B0 at Fp layer
@@ -310,10 +310,10 @@ namespace blst
 
     // r0 = (a0 + a1)*(a0 - a1)
     // r1 = 2*a0*a1
-    void sqr_fp2_4x2x1w(fp2_4x2x1w& r, const fp2_4x2x1w& a)
+    void Fp2Pack4x2x1::sqr(Fp2Pack4x2x1& r, const Fp2Pack4x2x1& a)
     {
-        fp2_4x2x1w t0, t1, t2;
-        fp2x2_4x2x1w tt0;
+        Fp2Pack4x2x1 t0, t1, t2;
+        UFp2Pack4x2x1 tt0;
 
         // a = A1 | A0 at Fp layer 
         shuf_00(t0.data(), a.data());         //      A0 |              A0
@@ -328,10 +328,10 @@ namespace blst
     // r0 = a0*b0 - a1*b1
     // r1 = a0*b1 + a1*b0
     // schoolbook
-    void mul_fp2_2x4x1w(fp2_2x4x1w& r, const fp2_2x4x1w& a, const fp2_2x4x1w& b)
+    void Fp2Pack2x4x1::mul(FpPack8x1& r, const FpPack8x1& a, const FpPack8x1& b)
     {
-        fp2_2x4x1w t0, t1;
-        fp2x2_2x4x1w tt0;
+        FpPack8x1 t0, t1;
+        UFpPack8x1 tt0;
 
         // a = A1 | A0 | ... | ... at Fp layer
         // b = B1 | B0 | ... | ... at Fp layer
@@ -343,12 +343,12 @@ namespace blst
         FpPack8x1::asx4(r, t1, t0);              // A0B1+A1B0 | A0B0-A1B1 |  ... |  ...
     }
 
-    void add_fp2_2x2x2w(fp2_2x2x2w& r, const fp2_2x2x2w& a, const fp2_2x2x2w& b)
+    void Fp2Pack2x2x2::add(Fp2Pack2x2x2& r, const Fp2Pack2x2x2& a, const Fp2Pack2x2x2& b)
     {
         FpPack4x2::add(r, a, b);
     }
 
-    void sub_fp2_2x2x2w(fp2_2x2x2w& r, const fp2_2x2x2w& a, const fp2_2x2x2w& b)
+    void Fp2Pack2x2x2::sub(Fp2Pack2x2x2& r, const Fp2Pack2x2x2& a, const Fp2Pack2x2x2& b)
     {
         FpPack4x2::sub(r, a, b);
     }
@@ -356,7 +356,7 @@ namespace blst
     // a = < B1' | B1 | B0' | B0 | A1' | A1 | A0' | A0 >
     // b = < D1' | D1 | D0' | D0 | C1' | C1 | C0' | C0 >
     // r = < B1'+D1' | B1+D1 | B0'+D0' | B0+D0 | A1'-C1' | A1-C1 | A0'-C0' | A0-C0 >
-    void as_fp2_2x2x2w(fp2_2x2x2w& r, const fp2_2x2x2w& a, const fp2_2x2x2w& b)
+    void Fp2Pack2x2x2::as(Fp2Pack2x2x2& r, const Fp2Pack2x2x2& a, const Fp2Pack2x2x2& b)
     {
         const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
         const cc512i b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
@@ -413,7 +413,7 @@ namespace blst
     // a = < B1' | B1 | B0' | B0 | A1' | A1 | A0' | A0 >
     // b = < D1' | D1 | D0' | D0 | C1' | C1 | C0' | C0 >
     // r = < B1'-D1' | B1-D1 | B0'-D0' | B0-D0 | A1'+C1' | A1+C1 | A0'+C0' | A0+C0 >
-    void sa_fp2_2x2x2w(fp2_2x2x2w& r, const fp2_2x2x2w& a, const fp2_2x2x2w& b)
+    void Fp2Pack2x2x2::sa(Fp2Pack2x2x2& r, const Fp2Pack2x2x2& a, const Fp2Pack2x2x2& b)
     {
         const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
         const cc512i b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
@@ -469,9 +469,9 @@ namespace blst
 
     // r0 = a0 - a1
     // r1 = a0 + a1
-    void mul_by_u_plus_1_fp2_2x2x2w(fp2_2x2x2w& r, const fp2_2x2x2w& a)
+    void Fp2Pack2x2x2::mul_by_u_plus_1(Fp2Pack2x2x2& r, const Fp2Pack2x2x2& a)
     {
-        fp2_2x2x2w t0;
+        Fp2Pack2x2x2 t0;
 
         // a = A1 | A0 at Fp layer 
         perm_1032_hl(t0.data(), a.data());    //     A0 |    A1
@@ -481,10 +481,10 @@ namespace blst
     // r0 = a0*b0 - a1*b1
     // r1 = a0*b1 + a1*b0
     // schoolbook
-    void mul_fp2_2x2x2w(fp2_2x2x2w& r, const fp2_2x2x2w& a, const fp2_2x2x2w& b)
+    void Fp2Pack2x2x2::mul(Fp2Pack2x2x2& r, const Fp2Pack2x2x2& a, const Fp2Pack2x2x2& b)
     {
-        fp2_2x2x2w t0, t1;
-        fp2x2_2x2x2w tt0, tt1;
+        Fp2Pack2x2x2 t0, t1;
+        UFp2Pack2x2x2 tt0, tt1;
 
         // a = A1 | A0 at Fp layer
         // b = B1 | B0 at Fp layer
@@ -499,10 +499,10 @@ namespace blst
 
     // r0 = (a0 + a1)*(a0 - a1)
     // r1 = 2*a0*a1
-    void sqr_fp2_2x2x2w(fp2_2x2x2w& r, const fp2_2x2x2w& a)
+    void Fp2Pack2x2x2::sqr(Fp2Pack2x2x2& r, const Fp2Pack2x2x2& a)
     {
-        fp2_2x2x2w t0, t1, t2;
-        fp2x2_2x2x2w tt0;
+        Fp2Pack2x2x2 t0, t1, t2;
+        UFp2Pack2x2x2 tt0;
 
         // a = A1 | A0 at Fp layer
         perm_1010_hl(t0.data(), a.data());    //      A0 |              A0
@@ -517,10 +517,10 @@ namespace blst
     // r0 = a0*b0 - a1*b1
     // r1 = a0*b1 + a1*b0
     // schoolbook
-    void mul_fp2_1x4x2w(fp2_1x4x2w& r, const fp2_1x4x2w& a, const fp2_1x4x2w& b)
+    void Fp2Pack1x4x2::mul(FpPack4x2& r, const FpPack4x2& a, const FpPack4x2& b)
     {
-        fp2_1x4x2w t0, t1;
-        fp2x2_1x4x2w tt0;
+        FpPack4x2 t0, t1;
+        UFpPack4x2 tt0;
         const cc512i m0 = VSET(7, 6, 7, 6, 5, 4, 5, 4);
         const cc512i m1 = VSET(5, 4, 7, 6, 7, 6, 5, 4);
         const cc512i m2 = VSET(3, 2, 1, 0, 7, 6, 5, 4);
@@ -538,19 +538,19 @@ namespace blst
     // ----------------------------------------------------------------------------
     // Fp2 double-length operations
 
-    void add_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a, const fp2x2_8x1x1w& b)
+    void UFp2Pack8x1x1::add(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a, const UFp2Pack8x1x1& b)
     {
         UFpPack8x1::add(r[0], a[0], b[0]);
         UFpPack8x1::add(r[1], a[1], b[1]);
     }
 
-    void sub_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a, const fp2x2_8x1x1w& b)
+    void UFp2Pack8x1x1::sub(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a, const UFp2Pack8x1x1& b)
     {
         UFpPack8x1::sub(r[0], a[0], b[0]);
         UFpPack8x1::sub(r[1], a[1], b[1]);
     }
 
-    void asx4_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a, const fp2x2_8x1x1w& b)
+    void UFp2Pack8x1x1::asx4(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a, const UFp2Pack8x1x1& b)
     {
         UFpPack8x1::asx4(r[0], a[0], b[0]);
         UFpPack8x1::asx4(r[1], a[1], b[1]);
@@ -558,7 +558,7 @@ namespace blst
 
     // r0 = a0 - a1
     // r1 = a0 + a1
-    void mul_by_u_plus_1_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2x2_8x1x1w& a)
+    void UFp2Pack8x1x1::mul_by_u_plus_1(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a)
     {
         UFpPack8x1::sub(r[0], a[0], a[1]);      // a0-a1
         UFpPack8x1::add(r[1], a[0], a[1]);      // a0+a1
@@ -567,7 +567,7 @@ namespace blst
     // r0 = a0*b0 - a1*b1
     // r1 = (a0 + a1)*(b0 + b1) - a0*b0 - a1*b1 = a0*b1 + a1*b0
     // Karatsuba
-    void mul_fp2x2_8x1x1w(fp2x2_8x1x1w& r, const fp2_8x1x1w& a, const fp2_8x1x1w& b)
+    void UFp2Pack8x1x1::mul(UFp2Pack8x1x1& r, const Fp2Pack8x1x1& a, const Fp2Pack8x1x1& b)
     {
         FpPack8x1 t0, t1;
         UFpPack8x1 tt0, tt1, tt2;
@@ -582,26 +582,26 @@ namespace blst
         UFpPack8x1::sub(r[1], tt2, tt1);        // (a0+a1)*(b0+b1)-a0*b0-a1*b1
     }
 
-    void add_fp2x2_4x2x1w(fp2x2_4x2x1w& r, const fp2x2_4x2x1w& a, const fp2x2_4x2x1w& b)
+    void UFp2Pack4x2x1::add(UFp2Pack4x2x1& r, const UFp2Pack4x2x1& a, const UFp2Pack4x2x1& b)
     {
         UFpPack8x1::add(r, a, b);
     }
 
-    void sub_fp2x2_4x2x1w(fp2x2_4x2x1w& r, const fp2x2_4x2x1w& a, const fp2x2_4x2x1w& b)
+    void UFp2Pack4x2x1::sub(UFp2Pack4x2x1& r, const UFp2Pack4x2x1& a, const UFp2Pack4x2x1& b)
     {
         UFpPack8x1::sub(r, a, b);
     }
 
-    void sax2_fp2x2_4x2x1w(fp2x2_4x2x1w& r, const fp2x2_4x2x1w& a, const fp2x2_4x2x1w& b)
+    void UFp2Pack4x2x1::sax2(UFp2Pack4x2x1& r, const UFp2Pack4x2x1& a, const UFp2Pack4x2x1& b)
     {
         UFpPack8x1::ssaax2(r, a, b);
     }
 
     // r0 = a0 - a1
     // r1 = a0 + a1
-    void mul_by_u_plus_1_fp2x2_4x2x1w(fp2x2_4x2x1w& r, const fp2x2_4x2x1w& a)
+    void UFp2Pack4x2x1::mul_by_u_plus_1(UFp2Pack4x2x1& r, const UFp2Pack4x2x1& a)
     {
-        fp2x2_4x2x1w tt0;
+        UFp2Pack4x2x1 tt0;
 
         // a = A1 | A0 at Fp layer 
         shuf_01_dl(tt0.data(), a.data());     //     A0 |    A1
@@ -611,10 +611,10 @@ namespace blst
     // r0 = a0*b0 - a1*b1
     // r1 = a0*b1 + a1*b0
     // schoolbook
-    void mul_fp2x2_4x2x1w(fp2x2_4x2x1w& r, const fp2_4x2x1w& a, const fp2_4x2x1w& b)
+    void UFp2Pack4x2x1::mul(UFp2Pack4x2x1& r, const Fp2Pack4x2x1& a, const Fp2Pack4x2x1& b)
     {
-        fp2_4x2x1w t0, t1;
-        fp2x2_4x2x1w tt0, tt1;
+        Fp2Pack4x2x1 t0, t1;
+        UFp2Pack4x2x1 tt0, tt1;
 
         // a = A1 | A0 at Fp layer 
         // b = B1 | B0 at Fp layer
@@ -628,9 +628,9 @@ namespace blst
 
     // r0 = (a0 + a1)*(a0 - a1)
     // r1 = 2*a0*a1
-    void sqr_fp2x2_4x2x1w(fp2x2_4x2x1w& r, const fp2_4x2x1w& a)
+    void UFp2Pack4x2x1::sqr(UFp2Pack4x2x1& r, const Fp2Pack4x2x1& a)
     {
-        fp2_4x2x1w t0, t1, t2;
+        Fp2Pack4x2x1 t0, t1, t2;
 
         // a = A1 | A0 at Fp layer 
         shuf_00(t0.data(), a.data());         //      A0 |              A0
@@ -641,7 +641,7 @@ namespace blst
         FpPack8x1::mul(r, t0, t2);             // 2*A0*A1 | (A0+A1)*(A0-A1) 
     }
 
-    void redc_fp2x2_4x2x1w(fp2_4x2x1w& r, const fp2x2_4x2x1w& a)
+    void UFp2Pack4x2x1::redc(Fp2Pack4x2x1& r, const UFp2Pack4x2x1& a)
     {
         UFpPack8x1::redc(r, a);
     }
@@ -649,10 +649,10 @@ namespace blst
     // r0 = a0*b0 - a1*b1
     // r1 = a0*b1 + a1*b0
     // schoolbook
-    void mul_fp2x2_2x4x1w(fp2x2_2x4x1w& r, const fp2_2x4x1w& a, const fp2_2x4x1w& b)
+    void UFp2Pack2x4x1::mul(UFpPack8x1& r, const FpPack8x1& a, const FpPack8x1& b)
     {
-        fp2_2x4x1w t0, t1;
-        fp2x2_2x4x1w tt0, tt1;
+        FpPack8x1 t0, t1;
+        UFpPack8x1 tt0, tt1;
 
         // a = A1 | A0 | ... | ... at Fp layer
         // b = B1 | B0 | ... | ... at Fp layer
@@ -663,26 +663,26 @@ namespace blst
         UFpPack8x1::asx4(r, tt1, tt0);          // A0*B1+A1*B0 | A0*B0-A1*B1 |  ... |  ...
     }
 
-    void redc_fp2x2_2x2x2w(fp2_2x2x2w& r, const fp2x2_2x2x2w& a)
+    void UFp2Pack2x2x2::redc(Fp2Pack2x2x2& r, const UFp2Pack2x2x2& a)
     {
         UFpPack4x2::redc(r, a);
     }
 
-    void add_fp2x2_2x2x2w(fp2x2_2x2x2w& r, const fp2x2_2x2x2w& a, const fp2x2_2x2x2w& b)
+    void UFp2Pack2x2x2::add(UFp2Pack2x2x2& r, const UFp2Pack2x2x2& a, const UFp2Pack2x2x2& b)
     {
         UFpPack4x2::add(r, a, b);
     }
 
-    void sub_fp2x2_2x2x2w(fp2x2_2x2x2w& r, const fp2x2_2x2x2w& a, const fp2x2_2x2x2w& b)
+    void UFp2Pack2x2x2::sub(UFp2Pack2x2x2& r, const UFp2Pack2x2x2& a, const UFp2Pack2x2x2& b)
     {
         UFpPack4x2::sub(r, a, b);
     }
 
     // r0 = a0 - a1
     // r1 = a0 + a1
-    void mul_by_u_plus_1_fp2x2_2x2x2w(fp2x2_2x2x2w& r, const fp2x2_2x2x2w& a)
+    void UFp2Pack2x2x2::mul_by_u_plus_1(UFp2Pack2x2x2& r, const UFp2Pack2x2x2& a)
     {
-        fp2x2_2x2x2w t0;
+        UFp2Pack2x2x2 t0;
 
         // a = A1 | A0 at Fp layer 
         perm_1032(t0.data(), a.data());           //     A0 |    A1
@@ -693,10 +693,10 @@ namespace blst
     // r0 = a0*b0 - a1*b1
     // r1 = a0*b1 + a1*b0
     // schoolbook
-    void mul_fp2x2_2x2x2w(fp2x2_2x2x2w& r, const fp2_2x2x2w& a, const fp2_2x2x2w& b)
+    void UFp2Pack2x2x2::mul(UFp2Pack2x2x2& r, const Fp2Pack2x2x2& a, const Fp2Pack2x2x2& b)
     {
-        fp2_2x2x2w t0, t1;
-        fp2x2_2x2x2w tt0, tt1;
+        Fp2Pack2x2x2 t0, t1;
+        UFp2Pack2x2x2 tt0, tt1;
 
         // a = A1 | A0 at Fp layer 
         // b = B1 | B0 at Fp layer
@@ -710,9 +710,9 @@ namespace blst
 
     // r0 = (a0 + a1)*(a0 - a1)
     // r1 = 2*a0*a1
-    void sqr_fp2x2_2x2x2w(fp2x2_2x2x2w& r, const fp2_2x2x2w& a)
+    void UFp2Pack2x2x2::sqr(UFp2Pack2x2x2& r, const Fp2Pack2x2x2& a)
     {
-        fp2_2x2x2w t0, t1, t2;
+        Fp2Pack2x2x2 t0, t1, t2;
         // a = A1 | A0 at Fp layer
         perm_1010_hl(t0.data(), a.data());    //      A0 |              A0
         perm_1032_hl(t1.data(), a.data());    //      A0 |              A1 
@@ -725,10 +725,10 @@ namespace blst
     // r0 = a0*b0 - a1*b1
     // r1 = a0*b1 + a1*b0
     // schoolbook
-    void mul_fp2x2_1x4x2w(fp2x2_1x4x2w& r, const fp2_1x4x2w& a, const fp2_1x4x2w& b)
+    void UFp2Pack1x4x2::mul(UFpPack4x2& r, const FpPack4x2& a, const FpPack4x2& b)
     {
-        fp2_1x4x2w t0, t1;
-        fp2x2_1x4x2w tt0, tt1;
+        FpPack4x2 t0, t1;
+        UFpPack4x2 tt0, tt1;
         const cc512i m0 = VSET(7, 6, 7, 6, 5, 4, 5, 4);
         const cc512i m1 = VSET(5, 4, 7, 6, 7, 6, 5, 4);
         const cc512i m2 = VSET(3, 2, 1, 0, 7, 6, 5, 4);

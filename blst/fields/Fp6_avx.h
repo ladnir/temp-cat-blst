@@ -19,13 +19,13 @@ namespace blst
      */
 
     /// Three Fp2 components (`c0,c1,c2`) packed in the `8x1x1w` schedule.
-    using Fp6Pack4x2x1x1 = AvxPackTuple<fp2_8x1x1w, 3>;
+    using Fp6Pack4x2x1x1 = AvxPackTuple<Fp2Pack8x1x1, 3>;
     using fp6_4x2x1x1w = Fp6Pack4x2x1x1;
     /// Three Fp2 components (`c0,c1,c2`) packed in the `4x2x1w` schedule.
-    using Fp6Pack2x2x2x1 = AvxPackTuple<fp2_4x2x1w, 3>;
+    using Fp6Pack2x2x2x1 = AvxPackTuple<Fp2Pack4x2x1, 3>;
     using fp6_2x2x2x1w = Fp6Pack2x2x2x1;
     /// Three Fp2 components (`c0,c1,c2`) packed in the `2x2x2w` schedule.
-    using Fp6Pack1x2x2x2 = AvxPackTuple<fp2_2x2x2w, 3>;
+    using Fp6Pack1x2x2x2 = AvxPackTuple<Fp2Pack2x2x2, 3>;
     using fp6_1x2x2x2w = Fp6Pack1x2x2x2;
 
     static_assert(std::is_trivially_default_constructible_v<Fp6Pack4x2x1x1>);

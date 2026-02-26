@@ -28,12 +28,12 @@ This is not an ergonomics facade. This is a type/system/signature cleanup to mak
 - Use `U` prefix for unreduced/widened forms (consistent with scalar `UFp2` idea).
 
 Example mapping (phase-in via aliases first):
-- `fp2_4x2x1w` -> `Fp2Pack4x2x1`
-- `fp2x2_4x2x1w` -> `UFp2Pack4x2x1`
-- `fp2_2x2x2w` -> `Fp2Pack2x2x2`
-- `fp2x2_2x2x2w` -> `UFp2Pack2x2x2`
-- `fp2_8x1x1w` -> `Fp2Pack8x1x1`
-- `fp2x2_8x1x1w` -> `UFp2Pack8x1x1`
+- `Fp2Pack4x2x1` -> `Fp2Pack4x2x1`
+- `UFp2Pack4x2x1` -> `UFp2Pack4x2x1`
+- `Fp2Pack2x2x2` -> `Fp2Pack2x2x2`
+- `UFp2Pack2x2x2` -> `UFp2Pack2x2x2`
+- `Fp2Pack8x1x1` -> `Fp2Pack8x1x1`
+- `UFp2Pack8x1x1` -> `UFp2Pack8x1x1`
 
 ### Function naming
 - Keep existing math verb patterns (`add`, `sub`, `mul`, `sqr`, `redc`, etc.).

@@ -15,18 +15,18 @@ namespace blst
      */
 
     /// Two packed Fp4 values in `4x2x1w`-backed schedule.
-    using Fp4Pack2x2x2x1 = Fp2Pack4x2x1;
-    using fp4_2x2x2x1w = Fp4Pack2x2x2x1;
+    struct Fp4Pack2x2x2x1 : public Fp2Pack4x2x1 {};
+    struct fp4_2x2x2x1w : public Fp4Pack2x2x2x1 {};
     /// Widened companion layout for `fp4_2x2x2x1w`.
-    using UFp4Pack2x2x2x1 = UFp2Pack4x2x1;
-    using fp4x2_2x2x2x1w = UFp4Pack2x2x2x1;
+    struct UFp4Pack2x2x2x1 : public UFp2Pack4x2x1 {};
+    struct fp4x2_2x2x2x1w : public UFp4Pack2x2x2x1 {};
 
     /// One packed Fp4 value in `2x2x2w`-backed schedule.
-    using Fp4Pack1x2x2x2 = Fp2Pack2x2x2;
-    using fp4_1x2x2x2w = Fp4Pack1x2x2x2;
+    struct Fp4Pack1x2x2x2 : public Fp2Pack2x2x2 {};
+    struct fp4_1x2x2x2w : public Fp4Pack1x2x2x2 {};
     /// Widened companion layout for `fp4_1x2x2x2w`.
-    using UFp4Pack1x2x2x2 = UFp2Pack2x2x2;
-    using fp4x2_1x2x2x2w = UFp4Pack1x2x2x2;
+    struct UFp4Pack1x2x2x2 : public UFp2Pack2x2x2 {};
+    struct fp4x2_1x2x2x2w : public UFp4Pack1x2x2x2 {};
 
     static_assert(std::is_trivially_default_constructible_v<Fp4Pack2x2x2x1>);
     static_assert(std::is_trivially_copyable_v<Fp4Pack2x2x2x1>);

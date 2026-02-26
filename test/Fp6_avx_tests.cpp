@@ -139,7 +139,7 @@ void unpack_FpPack4x2(FpVec4& out, const FpPack4x2& in)
     }
 }
 
-void pack_fp2_8x1x1w(fp2_8x1x1w& out, const Fp2Vec8& in)
+void pack_Fp2Pack8x1x1(Fp2Pack8x1x1& out, const Fp2Vec8& in)
 {
     FpVec8 c0{};
     FpVec8 c1{};
@@ -151,7 +151,7 @@ void pack_fp2_8x1x1w(fp2_8x1x1w& out, const Fp2Vec8& in)
     pack_FpPack8x1(out[1], c1);
 }
 
-void unpack_fp2_8x1x1w(Fp2Vec8& out, const fp2_8x1x1w& in)
+void unpack_Fp2Pack8x1x1(Fp2Vec8& out, const Fp2Pack8x1x1& in)
 {
     FpVec8 c0{};
     FpVec8 c1{};
@@ -163,7 +163,7 @@ void unpack_fp2_8x1x1w(Fp2Vec8& out, const fp2_8x1x1w& in)
     }
 }
 
-void pack_fp2_4x2x1w(fp2_4x2x1w& out, const Fp2Vec4& in)
+void pack_Fp2Pack4x2x1(Fp2Pack4x2x1& out, const Fp2Vec4& in)
 {
     FpVec8 lanes{};
     for (size_t i = 0; i < 4; ++i) {
@@ -173,7 +173,7 @@ void pack_fp2_4x2x1w(fp2_4x2x1w& out, const Fp2Vec4& in)
     pack_FpPack8x1(out, lanes);
 }
 
-void unpack_fp2_4x2x1w(Fp2Vec4& out, const fp2_4x2x1w& in)
+void unpack_Fp2Pack4x2x1(Fp2Vec4& out, const Fp2Pack4x2x1& in)
 {
     FpVec8 lanes{};
     unpack_FpPack8x1(lanes, in);
@@ -183,13 +183,13 @@ void unpack_fp2_4x2x1w(Fp2Vec4& out, const fp2_4x2x1w& in)
     }
 }
 
-void pack_fp2_2x2x2w(fp2_2x2x2w& out, const Fp2Vec2& in)
+void pack_Fp2Pack2x2x2(Fp2Pack2x2x2& out, const Fp2Vec2& in)
 {
     FpVec4 lanes = {in[0][0], in[0][1], in[1][0], in[1][1]};
     pack_FpPack4x2(out, lanes);
 }
 
-void unpack_fp2_2x2x2w(Fp2Vec2& out, const fp2_2x2x2w& in)
+void unpack_Fp2Pack2x2x2(Fp2Vec2& out, const Fp2Pack2x2x2& in)
 {
     FpVec4 lanes{};
     unpack_FpPack4x2(lanes, in);
@@ -199,7 +199,7 @@ void unpack_fp2_2x2x2w(Fp2Vec2& out, const fp2_2x2x2w& in)
     out[1][1] = lanes[3];
 }
 
-void redc_fp2x2_8x1x1w_local(fp2_8x1x1w& r, const fp2x2_8x1x1w& a)
+void redc_UFp2Pack8x1x1_local(Fp2Pack8x1x1& r, const UFp2Pack8x1x1& a)
 {
     UFpPack8x1::redc(r[0], a[0]);
     UFpPack8x1::redc(r[1], a[1]);
@@ -285,19 +285,19 @@ TEST(Fp6Avx, Mul2x2x2x1w)
             rand_redc_fp2(a2, rng);
         }
 
-        fp2_4x2x1w ab0{}, ab1{}, ab2{}, red01{}, red2{};
-        fp2x2_4x2x1w wide01{}, wide2{};
+        Fp2Pack4x2x1 ab0{}, ab1{}, ab2{}, red01{}, red2{};
+        UFp2Pack4x2x1 wide01{}, wide2{};
         Fp2Vec4 out01{}, out2{};
 
-        pack_fp2_4x2x1w(ab0, filled_fp2<4>(a0));
-        pack_fp2_4x2x1w(ab1, filled_fp2<4>(a1));
-        pack_fp2_4x2x1w(ab2, filled_fp2<4>(a2));
+        pack_Fp2Pack4x2x1(ab0, filled_fp2<4>(a0));
+        pack_Fp2Pack4x2x1(ab1, filled_fp2<4>(a1));
+        pack_Fp2Pack4x2x1(ab2, filled_fp2<4>(a2));
 
         mul_fp6x2_2x2x2x1w(wide01, wide2, ab0, ab1, ab2);
-        redc_fp2x2_4x2x1w(red01, wide01);
-        redc_fp2x2_4x2x1w(red2, wide2);
-        unpack_fp2_4x2x1w(out01, red01);
-        unpack_fp2_4x2x1w(out2, red2);
+        UFp2Pack4x2x1::redc(red01, wide01);
+        UFp2Pack4x2x1::redc(red2, wide2);
+        unpack_Fp2Pack4x2x1(out01, red01);
+        unpack_Fp2Pack4x2x1(out2, red2);
 
         Fp2 e0{}, e1{}, e2{};
         mul_fp6_scalar(e0, e1, e2, a0, a1, a2, a0, a1, a2);
@@ -329,19 +329,19 @@ TEST(Fp6Avx, Mul1x2x2x2w)
             rand_redc_fp2(b2, rng);
         }
 
-        fp2_2x2x2w ab0{}, ab1{}, ab2{}, red01{}, red2{};
-        fp2x2_2x2x2w wide01{}, wide2{};
+        Fp2Pack2x2x2 ab0{}, ab1{}, ab2{}, red01{}, red2{};
+        UFp2Pack2x2x2 wide01{}, wide2{};
         Fp2Vec2 out01{}, out2{};
 
-        pack_fp2_2x2x2w(ab0, {a0, b0});
-        pack_fp2_2x2x2w(ab1, {a1, b1});
-        pack_fp2_2x2x2w(ab2, {a2, b2});
+        pack_Fp2Pack2x2x2(ab0, {a0, b0});
+        pack_Fp2Pack2x2x2(ab1, {a1, b1});
+        pack_Fp2Pack2x2x2(ab2, {a2, b2});
 
         mul_fp6x2_1x2x2x2w(wide01, wide2, ab0, ab1, ab2);
-        redc_fp2x2_2x2x2w(red01, wide01);
-        redc_fp2x2_2x2x2w(red2, wide2);
-        unpack_fp2_2x2x2w(out01, red01);
-        unpack_fp2_2x2x2w(out2, red2);
+        UFp2Pack2x2x2::redc(red01, wide01);
+        UFp2Pack2x2x2::redc(red2, wide2);
+        unpack_Fp2Pack2x2x2(out01, red01);
+        unpack_Fp2Pack2x2x2(out2, red2);
 
         Fp2 e0{}, e1{}, e2{};
         mul_fp6_scalar(e0, e1, e2, a0, a1, a2, b0, b1, b2);
@@ -367,19 +367,19 @@ TEST(Fp6Avx, Mul4x2x1x1w)
             rand_redc_fp2(a2, rng);
         }
 
-        fp2_8x1x1w ab0{}, ab1{}, ab2{}, red01{}, red2{};
-        fp2x2_8x1x1w wide01{}, wide2{};
+        Fp2Pack8x1x1 ab0{}, ab1{}, ab2{}, red01{}, red2{};
+        UFp2Pack8x1x1 wide01{}, wide2{};
         Fp2Vec8 out01{}, out2{};
 
-        pack_fp2_8x1x1w(ab0, filled_fp2<8>(a0));
-        pack_fp2_8x1x1w(ab1, filled_fp2<8>(a1));
-        pack_fp2_8x1x1w(ab2, filled_fp2<8>(a2));
+        pack_Fp2Pack8x1x1(ab0, filled_fp2<8>(a0));
+        pack_Fp2Pack8x1x1(ab1, filled_fp2<8>(a1));
+        pack_Fp2Pack8x1x1(ab2, filled_fp2<8>(a2));
 
         mul_fp6x2_4x2x1x1w(wide01, wide2, ab0, ab1, ab2);
-        redc_fp2x2_8x1x1w_local(red01, wide01);
-        redc_fp2x2_8x1x1w_local(red2, wide2);
-        unpack_fp2_8x1x1w(out01, red01);
-        unpack_fp2_8x1x1w(out2, red2);
+        redc_UFp2Pack8x1x1_local(red01, wide01);
+        redc_UFp2Pack8x1x1_local(red2, wide2);
+        unpack_Fp2Pack8x1x1(out01, red01);
+        unpack_Fp2Pack8x1x1(out2, red2);
 
         Fp2 e0{}, e1{}, e2{};
         mul_fp6_scalar(e0, e1, e2, a0, a1, a2, a0, a1, a2);
@@ -407,24 +407,24 @@ TEST(Fp6Avx, Sparse2x2x2x1w)
             rand_redc_fp2(b4v, rng);
         }
 
-        fp2_4x2x1w a01{}, a2p{}, b01{}, b4p{}, red01{}, red2{}, red3{}, red45{};
-        fp2x2_4x2x1w wide01{}, wide2{}, wide3{}, wide45{};
+        Fp2Pack4x2x1 a01{}, a2p{}, b01{}, b4p{}, red01{}, red2{}, red3{}, red45{};
+        UFp2Pack4x2x1 wide01{}, wide2{}, wide3{}, wide45{};
         Fp2Vec4 out01{}, out2{}, out3{}, out45{};
 
-        pack_fp2_4x2x1w(a01, filled_fp2<4>(a01v));
-        pack_fp2_4x2x1w(a2p, filled_fp2<4>(a2v));
-        pack_fp2_4x2x1w(b01, filled_fp2<4>(b01v));
-        pack_fp2_4x2x1w(b4p, filled_fp2<4>(b4v));
+        pack_Fp2Pack4x2x1(a01, filled_fp2<4>(a01v));
+        pack_Fp2Pack4x2x1(a2p, filled_fp2<4>(a2v));
+        pack_Fp2Pack4x2x1(b01, filled_fp2<4>(b01v));
+        pack_Fp2Pack4x2x1(b4p, filled_fp2<4>(b4v));
 
         mul_by_xy00z0_fp6x2_2x2x2x1w(wide01, wide2, wide3, wide45, a01, a2p, b01, b4p);
-        redc_fp2x2_4x2x1w(red01, wide01);
-        redc_fp2x2_4x2x1w(red2, wide2);
-        redc_fp2x2_4x2x1w(red3, wide3);
-        redc_fp2x2_4x2x1w(red45, wide45);
-        unpack_fp2_4x2x1w(out01, red01);
-        unpack_fp2_4x2x1w(out2, red2);
-        unpack_fp2_4x2x1w(out3, red3);
-        unpack_fp2_4x2x1w(out45, red45);
+        UFp2Pack4x2x1::redc(red01, wide01);
+        UFp2Pack4x2x1::redc(red2, wide2);
+        UFp2Pack4x2x1::redc(red3, wide3);
+        UFp2Pack4x2x1::redc(red45, wide45);
+        unpack_Fp2Pack4x2x1(out01, red01);
+        unpack_Fp2Pack4x2x1(out2, red2);
+        unpack_Fp2Pack4x2x1(out3, red3);
+        unpack_Fp2Pack4x2x1(out45, red45);
 
         Fp2 e0{}, e1{}, e2{}, e3{}, e4{}, e5{}, e3low{};
         mul_sparse_xy00z0_scalar(e0, e1, e2, e3, e4, e5, a01v, a01v, a2v, b01v, b01v, b4v);
@@ -455,20 +455,20 @@ TEST(Fp6Avx, Sparse2x4x1x1w)
             rand_redc_fp2(bv, rng);
         }
 
-        fp2_8x1x1w a{}, b{}, red01_4{}, red23_4{}, red45_4{};
-        fp2x2_8x1x1w wide01_4{}, wide23_4{}, wide45_4{};
+        Fp2Pack8x1x1 a{}, b{}, red01_4{}, red23_4{}, red45_4{};
+        UFp2Pack8x1x1 wide01_4{}, wide23_4{}, wide45_4{};
         Fp2Vec8 out01_4{}, out23_4{}, out45_4{};
 
-        pack_fp2_8x1x1w(a, filled_fp2<8>(av));
-        pack_fp2_8x1x1w(b, filled_fp2<8>(bv));
+        pack_Fp2Pack8x1x1(a, filled_fp2<8>(av));
+        pack_Fp2Pack8x1x1(b, filled_fp2<8>(bv));
 
         mul_by_xy00z0_fp6x2_2x4x1x1w(wide01_4, wide23_4, wide45_4, a, b);
-        redc_fp2x2_8x1x1w_local(red01_4, wide01_4);
-        redc_fp2x2_8x1x1w_local(red23_4, wide23_4);
-        redc_fp2x2_8x1x1w_local(red45_4, wide45_4);
-        unpack_fp2_8x1x1w(out01_4, red01_4);
-        unpack_fp2_8x1x1w(out23_4, red23_4);
-        unpack_fp2_8x1x1w(out45_4, red45_4);
+        redc_UFp2Pack8x1x1_local(red01_4, wide01_4);
+        redc_UFp2Pack8x1x1_local(red23_4, wide23_4);
+        redc_UFp2Pack8x1x1_local(red45_4, wide45_4);
+        unpack_Fp2Pack8x1x1(out01_4, red01_4);
+        unpack_Fp2Pack8x1x1(out23_4, red23_4);
+        unpack_Fp2Pack8x1x1(out45_4, red45_4);
 
         Fp2 r0{}, r1{}, r2{}, r3{}, r4{}, r5{}, r3low{}, raw_a2b1{}, raw_a2b4{};
         mul_sparse_xy00z0_scalar(r0, r1, r2, r3, r4, r5, av, av, av, bv, bv, bv);

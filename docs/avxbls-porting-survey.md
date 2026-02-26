@@ -87,7 +87,7 @@ Examples:
 
 - `FpPack8x1`: 8-way channels, 1 word per channel per vector slot.
 - `FpPack4x2`: 4-way channels with lane-pair packing.
-- `fp2_2x2x2w`: 2-way, each Fp2 component split across lane-pairs.
+- `Fp2Pack2x2x2`: 2-way, each Fp2 component split across lane-pairs.
 
 Dimension product maps to 8 logical lanes.
 
@@ -125,16 +125,16 @@ Dimension product maps to 8 logical lanes.
 
 ## 4.4 Fp2 packed types
 
-- `fp2_8x1x1w` (`FpPack8x1[2]`): two Fp planes (`c0`, `c1`) of 8-way packed values.
-- `fp2x2_8x1x1w` (`UFpPack8x1[2]`): widened equivalent.
-- `fp2_4x2x1w` (`__m512i[8]`): 4-way Fp2 in lane-pair format.
-- `fp2x2_4x2x1w` (`__m512i[16]`): widened equivalent.
-- `fp2_2x4x1w` (`__m512i[8]`): 2-way/4-lane-group intermediate format.
-- `fp2x2_2x4x1w` (`__m512i[16]`): widened equivalent.
-- `fp2_2x2x2w` (`__m512i[4]`): 2-way Fp2 line-kernel layout.
-- `fp2x2_2x2x2w` (`__m512i[12]`): widened equivalent.
-- `fp2_1x4x2w` (`__m512i[4]`): 1-way / 4 subgroup representation.
-- `fp2x2_1x4x2w` (`__m512i[12]`): widened equivalent.
+- `Fp2Pack8x1x1` (`FpPack8x1[2]`): two Fp planes (`c0`, `c1`) of 8-way packed values.
+- `UFp2Pack8x1x1` (`UFpPack8x1[2]`): widened equivalent.
+- `Fp2Pack4x2x1` (`__m512i[8]`): 4-way Fp2 in lane-pair format.
+- `UFp2Pack4x2x1` (`__m512i[16]`): widened equivalent.
+- `Fp2Pack2x4x1` (`__m512i[8]`): 2-way/4-lane-group intermediate format.
+- `UFp2Pack2x4x1` (`__m512i[16]`): widened equivalent.
+- `Fp2Pack2x2x2` (`__m512i[4]`): 2-way Fp2 line-kernel layout.
+- `UFp2Pack2x2x2` (`__m512i[12]`): widened equivalent.
+- `Fp2Pack1x4x2` (`__m512i[4]`): 1-way / 4 subgroup representation.
+- `UFp2Pack1x4x2` (`__m512i[12]`): widened equivalent.
 
 ## 4.5 Fp4 packed types
 
@@ -221,7 +221,7 @@ Legend:
 - `shuf_00`, `shuf_01`, `shuf_11`, `shuf_z1`
 - `perm_0123`, `perm_0300`, `perm_1010`, `perm_1032`, `perm_1200`, `perm_10zz`, `perm_2000`, `perm_2332`, `perm_3322`, `perm_zz32`
 - `blend_0x03`, `blend_0x11`, `blend_0x30`, `blend_0x55`, `blend_0x77`
-- `shuf_01_fp2_8x1x1w`, `perm_0123_fp2_8x1x1w`, `perm_0300_fp2_8x1x1w`, `perm_1032_fp2_8x1x1w`, `perm_1200_fp2_8x1x1w`, `perm_2000_fp2_8x1x1w`, `blend_0x11_fp2_8x1x1w`, `blend_0x33_fp2_8x1x1w`, `blend_0x55_fp2_8x1x1w`, `blend_0x77_fp2_8x1x1w`
+- `shuf_01_Fp2Pack8x1x1`, `perm_0123_Fp2Pack8x1x1`, `perm_0300_Fp2Pack8x1x1`, `perm_1032_Fp2Pack8x1x1`, `perm_1200_Fp2Pack8x1x1`, `perm_2000_Fp2Pack8x1x1`, `blend_0x11_Fp2Pack8x1x1`, `blend_0x33_Fp2Pack8x1x1`, `blend_0x55_Fp2Pack8x1x1`, `blend_0x77_Fp2Pack8x1x1`
 
 Behavior: deterministic lane rearrangement, duplication, zero-masked selection, and mixing used to set up arithmetic schedules.
 
@@ -232,9 +232,9 @@ Pre/Post for all above: `Pre-L` -> `Post-L`, `Post-P`.
 - `shuf_00_dl`, `shuf_01_dl`, `shuf_11_dl`
 - `perm_1010_dl`, `perm_1032_dl`, `perm_1100_dl`, `perm_10zz_dl`, `perm_2323_dl`, `perm_3000_dl`, `perm_3232_dl`, `perm_zz32_dl`, `perm_var_dl`
 - `blend_0x01_dl`, `blend_0x03_dl`, `blend_0x0F_dl`, `blend_0x33_dl`, `blend_0x55_dl`, `blend_0xC0_dl`
-- `shuf_00_fp2x2_8x1x1w`, `shuf_01_fp2x2_8x1x1w`, `shuf_11_fp2x2_8x1x1w`
-- `perm_1032_fp2x2_8x1x1w`, `perm_2323_fp2x2_8x1x1w`, `perm_3000_fp2x2_8x1x1w`, `perm_var_fp2x2_8x1x1w`
-- `blend_0x01_fp2x2_8x1x1w`, `blend_0x03_fp2x2_8x1x1w`, `blend_0x33_fp2x2_8x1x1w`, `blend_0x55_fp2x2_8x1x1w`
+- `shuf_00_UFp2Pack8x1x1`, `shuf_01_UFp2Pack8x1x1`, `shuf_11_UFp2Pack8x1x1`
+- `perm_1032_UFp2Pack8x1x1`, `perm_2323_UFp2Pack8x1x1`, `perm_3000_UFp2Pack8x1x1`, `perm_var_UFp2Pack8x1x1`
+- `blend_0x01_UFp2Pack8x1x1`, `blend_0x03_UFp2Pack8x1x1`, `blend_0x33_UFp2Pack8x1x1`, `blend_0x55_UFp2Pack8x1x1`
 
 Behavior: same as single-length family but for widened (`x2`) vector stacks and widened Fp2 stacks.
 
@@ -291,16 +291,16 @@ Pre/Post:
 
 ### 5.4.1 Static Fp2/Fp2x2 helpers
 
-- `add_fp2_8x1x1w`
-- `add_fp2_4x2x1w`, `sub_fp2_4x2x1w`, `aass_fp2_4x2x1w`, `assa_fp2_4x2x1w`, `sass_fp2_4x2x1w`, `ssaa_fp2_4x2x1w`, `mul_by_u_plus_1_fp2_4x2x1w`
-- `mul_fp2_2x4x1w`
-- `add_fp2_2x2x2w`, `sub_fp2_2x2x2w`, `as_fp2_2x2x2w`, `sa_fp2_2x2x2w`, `mul_by_u_plus_1_fp2_2x2x2w`
-- `mul_fp2_1x4x2w`
-- `add_fp2x2_8x1x1w`, `sub_fp2x2_8x1x1w`, `asx4_fp2x2_8x1x1w`, `mul_by_u_plus_1_fp2x2_8x1x1w`
-- `add_fp2x2_4x2x1w`, `sub_fp2x2_4x2x1w`, `sax2_fp2x2_4x2x1w`, `mul_by_u_plus_1_fp2x2_4x2x1w`
-- `redc_fp2x2_4x2x1w`
-- `redc_fp2x2_2x2x2w`
-- `add_fp2x2_2x2x2w`, `sub_fp2x2_2x2x2w`, `mul_by_u_plus_1_fp2x2_2x2x2w`
+- `add_Fp2Pack8x1x1`
+- `add_Fp2Pack4x2x1`, `sub_Fp2Pack4x2x1`, `aass_Fp2Pack4x2x1`, `assa_Fp2Pack4x2x1`, `sass_Fp2Pack4x2x1`, `ssaa_Fp2Pack4x2x1`, `mul_by_u_plus_1_Fp2Pack4x2x1`
+- `mul_Fp2Pack2x4x1`
+- `add_Fp2Pack2x2x2`, `sub_Fp2Pack2x2x2`, `as_Fp2Pack2x2x2`, `sa_Fp2Pack2x2x2`, `mul_by_u_plus_1_Fp2Pack2x2x2`
+- `mul_Fp2Pack1x4x2`
+- `add_UFp2Pack8x1x1`, `sub_UFp2Pack8x1x1`, `asx4_UFp2Pack8x1x1`, `mul_by_u_plus_1_UFp2Pack8x1x1`
+- `add_UFp2Pack4x2x1`, `sub_UFp2Pack4x2x1`, `sax2_UFp2Pack4x2x1`, `mul_by_u_plus_1_UFp2Pack4x2x1`
+- `redc_UFp2Pack4x2x1`
+- `redc_UFp2Pack2x2x2`
+- `add_UFp2Pack2x2x2`, `sub_UFp2Pack2x2x2`, `mul_by_u_plus_1_UFp2Pack2x2x2`
 
 Behavior:
 
@@ -316,13 +316,13 @@ Pre/Post:
 
 ### 5.4.2 Public Fp2/Fp2x2 kernels
 
-- `mul_fp2_4x2x1w`, `sqr_fp2_4x2x1w`
-- `mul_fp2_2x2x2w`, `sqr_fp2_2x2x2w`
-- `mul_fp2x2_8x1x1w`
-- `mul_fp2x2_4x2x1w`, `sqr_fp2x2_4x2x1w`
-- `mul_fp2x2_2x4x1w`
-- `mul_fp2x2_2x2x2w`, `sqr_fp2x2_2x2x2w`
-- `mul_fp2x2_1x4x2w`
+- `mul_Fp2Pack4x2x1`, `sqr_Fp2Pack4x2x1`
+- `mul_Fp2Pack2x2x2`, `sqr_Fp2Pack2x2x2`
+- `mul_UFp2Pack8x1x1`
+- `mul_UFp2Pack4x2x1`, `sqr_UFp2Pack4x2x1`
+- `mul_UFp2Pack2x4x1`
+- `mul_UFp2Pack2x2x2`, `sqr_UFp2Pack2x2x2`
+- `mul_UFp2Pack1x4x2`
 
 Behavior:
 
@@ -388,7 +388,7 @@ Pre/Post:
 - `line_add_vec_v1`
 - `line_by_Px2_4x2x1w`
 - `line_by_Px2_2x2x2w`
-- `trace_dump_fp2_2x2x2w_state`
+- `trace_dump_Fp2Pack2x2x2_state`
 
 Behavior:
 
@@ -476,11 +476,11 @@ Primary kernels:
 Types:
 
 - `vec384x`, `vec384fp2`
-- `fp2_8x1x1w`, `fp2x2_8x1x1w`
-- `fp2_4x2x1w`, `fp2x2_4x2x1w`
-- `fp2_2x4x1w`, `fp2x2_2x4x1w`
-- `fp2_2x2x2w`, `fp2x2_2x2x2w`
-- `fp2_1x4x2w`, `fp2x2_1x4x2w`
+- `Fp2Pack8x1x1`, `UFp2Pack8x1x1`
+- `Fp2Pack4x2x1`, `UFp2Pack4x2x1`
+- `Fp2Pack2x4x1`, `UFp2Pack2x4x1`
+- `Fp2Pack2x2x2`, `UFp2Pack2x2x2`
+- `Fp2Pack1x4x2`, `UFp2Pack1x4x2`
 
 Primary kernels:
 
@@ -542,7 +542,7 @@ Status:
 
 Packed working types:
 
-- `fp2_2x2x2w`, `fp2_4x2x1w`
+- `Fp2Pack2x2x2`, `Fp2Pack4x2x1`
 
 Primary kernels:
 
