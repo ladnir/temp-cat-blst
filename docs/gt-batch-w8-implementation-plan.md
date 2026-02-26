@@ -274,26 +274,80 @@ What to avoid in Phase 1:
 
 ## Phase 2: Fp2 x8
 
-Types/APIs:
+Current codebase status (from review):
 
-- `struct Fp2Pack8x1x1`
-- `add`, `sub`, `mul`, `sqr`, `conjugate`, `mul_by_u_plus_1`, `select`
+- `blst/fields/Fp2_avx.h/.cpp` already contains substantial AVX kernels across multiple schedules (`8x1x1`, `4x2x1`, `2x4x1`, `2x2x2`, `1x4x2`).
+- For the canonical batch path (`8x1x1`), widened operations are present (`UFp2Pack8x1x1::mul`, `add`, `sub`, `asx4`, `mul_by_u_plus_1`), but reduced-layer convenience and AoS boundary helpers are incomplete.
+- In `test/Fp2_avx_tests.cpp`, several useful helpers are still test-local (pack/unpack and local widened->reduced glue), which should be promoted to production APIs for batch layering.
 
-Testing:
+Phase 2 execution scope:
 
-- Differential vs scalar `Fp2`
-- Algebraic identities over randomized vectors
+- Standardize `Fp2Pack8x1x1` / `UFp2Pack8x1x1` as the canonical W=8 Fp2 layer used by later Fp6/Fp12/GT batch code.
+- Add missing reduced wrappers and boundary/control primitives so upper layers can avoid schedule-specific ad hoc code.
+- Do not refactor or remove existing non-canonical schedules in this phase; keep them intact for compatibility.
 
-Perf gates:
+Phase 2 APIs to add (or complete):
 
-- Report only reduced-equivalent work
-- Include end-to-end AoS boundary overhead at least once per benchmark group
-- Ensure `UFp2`-style widened paths are used where range bounds permit.
+```cpp
+struct Fp2Pack8x1x1 : public AvxPackTuple<FpPack8x1, 2>
+{
+    static void from_aos(Fp2Pack8x1x1& r, const Fp2* in8);
+    static void to_aos(Fp2* out8, const Fp2Pack8x1x1& a);
+
+    static void from_aos_partial(Fp2Pack8x1x1& r, const Fp2* in, size_t n_active, const Fp2& fill);
+    static void to_aos_partial(Fp2* out, size_t n_active, const Fp2Pack8x1x1& a);
+
+    static void add(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a, const Fp2Pack8x1x1& b);
+    static void sub(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a, const Fp2Pack8x1x1& b);
+    static void mul(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a, const Fp2Pack8x1x1& b);
+    static void sqr(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a);
+    static void conjugate(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a);
+    static void mul_by_u_plus_1(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a);
+    static void select(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a, const Fp2Pack8x1x1& b, u8 lane_mask);
+};
+
+struct UFp2Pack8x1x1 : public AvxPackTuple<UFpPack8x1, 2>
+{
+    static void redc(Fp2Pack8x1x1& r, const UFp2Pack8x1x1& a);
+    static void select(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a, const UFp2Pack8x1x1& b, u8 lane_mask);
+};
+```
+
+Data layout and tail policy:
+
+- Lane `i` always maps to tuple `i`: `in8[i] <-> lane i`.
+- Component mapping: `[0]` is real part, `[1]` is imaginary part.
+- Partial-pack fill for inactive lanes:
+  - additive chains: `Fp2::zero()`
+  - multiplicative chains: `Fp2::one()` (not `Fp::one()` broadcast to both components)
+- No scalar fallback inside these AVX APIs.
+
+Phase 2 files expected to change:
+
+- `blst/fields/Fp2_avx.h`
+- `blst/fields/Fp2_avx.cpp`
+- `test/Fp2_avx_tests.cpp`
+
+Phase 2 testing plan:
+
+- Keep all existing `Fp2Avx` tests passing.
+- Add AoS round-trip and partial-tail tests for `8x1x1`.
+- Add differential tests vs scalar `Fp2` for `sub/mul/sqr/conjugate/mul_by_u_plus_1`.
+- Add lane-mask `select` tests for reduced and widened forms (full mask coverage or deterministic exhaustive subset).
+- Add aliasing tests for supported `select` in-place cases.
+- Add tail-shape differential tests: partial pack -> op -> partial unpack vs scalar reference.
+
+Benchmark policy for Phase 2:
+
+- Benchmark runs are not required at this stage.
+- No performance gate blocks Phase 2 completion.
+- Performance measurements resume in Phase 3+ once Fp6/Fp12 integration paths are in place.
 
 Exit criteria:
 
-- Full scalar parity
-- No layout conversion inside arithmetic kernels
+- Full scalar parity for canonical `8x1x1` API surface.
+- Clean AoS boundary for Fp2 batch blocks (`from_aos*`/`to_aos*` complete).
+- No layout conversion inside arithmetic kernels.
 
 ---
 
