@@ -561,12 +561,21 @@ What to avoid in Phase 4:
 
 ---
 
-## Phase 5: GT Batch Kernels (mul/sqr)
+## Phase 5: GT Batch Kernels (add/doubling)
 
 Types/APIs:
 
-- `gt_mul8(...)`
-- `gt_cyclotomic_sqr8(...)`
+- Native SoA type: `struct GTPack8x1`
+- SoA boundary helpers: `from_aos`, `to_aos`, partial variants, `select`
+- SoA kernels:
+  - `GTPack8x1::add(GTPack8x1& out, const GTPack8x1& a, const GTPack8x1& b)`
+  - `GTPack8x1::doubling(GTPack8x1& out, const GTPack8x1& a)`
+
+Integration policy:
+
+- Keep scalar `GT` API unchanged in this phase.
+- Do not add batch methods to `GT` yet.
+- Batch scheduler will convert AoS `<->` `GTPack8x1` explicitly at boundaries.
 
 Testing:
 

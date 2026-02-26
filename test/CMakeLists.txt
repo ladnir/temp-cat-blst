@@ -30,6 +30,7 @@ set(TEST_SOURCES
     "G1_tests.cpp"
     "G2_tests.cpp"
     "GT_tests.cpp"
+    "GT_avx_tests.cpp"
     "Pairing_tests.cpp"
     "Pairing_avx_tests.cpp"
     "Interface_tests.cpp"

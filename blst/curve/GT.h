@@ -249,13 +249,13 @@ namespace blst {
 		/**
 		 * @brief Conjugate (Frobenius with n=6)
 		 */
-		static BLST_HD void conjugate(GT& a) {
-			Fp12::conjugate(a.data);
-		}
+			static BLST_HD void conjugate(GT& a) {
+				Fp12::conjugate(a.data);
+			}
 
 
-		static BLST_HD void miller_loop(GT& ret, const G2AffinePoint* Q,
-			const G1AffinePoint* P);
+			static BLST_HD void miller_loop(GT& ret, const G2AffinePoint* Q,
+				const G1AffinePoint* P);
 
 		static BLST_HD void miller_loop_n(
 			GT& ret,
@@ -278,8 +278,8 @@ namespace blst {
 			  //* @brief add n doublings: out = 2^n * (a + out)
 		//      */
 		//     static BLST_HD void add_n_dbl(GT& out, const GT& a, size_t n) {
-		//         Fp12::mul_n_sqr(out.data, a.data, n);
-		//     }
-	};
+			//         Fp12::mul_n_sqr(out.data, a.data, n);
+			//     }
+		};
 
-} // namespace blst
+	} // namespace blst

@@ -31,6 +31,7 @@ if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
         "fields/Fp6_avx.cpp"
         "fields/Fp12_avx.cpp"
         "curve/G2_avx.cpp"
+        "curve/GT_avx.cpp"
         "curve/pairing_avx.cpp"
     )
 endif()

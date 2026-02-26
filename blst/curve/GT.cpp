@@ -13,7 +13,6 @@
 
 namespace blst
 {
-
     /*
     * Line evaluations from  https://eprint.iacr.org/2010/354.pdf
     * with a twist moving common expression to line_by_Px2.
