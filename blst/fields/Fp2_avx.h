@@ -7,6 +7,8 @@
 
 namespace blst
 {
+    struct Fp2;
+
     /**
      * Lightweight aggregate for fixed-size bundles of homogeneous AVX packs.
      *
@@ -63,8 +65,39 @@ namespace blst
      */
     struct Fp2Pack8x1x1 : public AvxPackTuple<FpPack8x1, 2>
     {
+        /// Pack 8 scalar `Fp2` values (AoS) into one `Fp2Pack8x1x1`.
+        static void from_aos(Fp2Pack8x1x1& r, const Fp2* in8);
+
+        /// Unpack one `Fp2Pack8x1x1` into 8 scalar `Fp2` values (AoS).
+        static void to_aos(Fp2* out8, const Fp2Pack8x1x1& a);
+
+        /// Partial AoS pack for tail handling.
+        static void from_aos_partial(Fp2Pack8x1x1& r, const Fp2* in, std::size_t n_active, const Fp2& fill);
+
+        /// Partial AoS unpack for tail handling.
+        static void to_aos_partial(Fp2* out, std::size_t n_active, const Fp2Pack8x1x1& a);
+
         /// Component-wise modular add: r_i = a_i + b_i.
         static void add(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a, const Fp2Pack8x1x1& b);
+
+        /// Component-wise modular sub: r_i = a_i - b_i.
+        static void sub(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a, const Fp2Pack8x1x1& b);
+
+        /// Reduced Fp2 multiply.
+        static void mul(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a, const Fp2Pack8x1x1& b);
+
+        /// Reduced Fp2 square.
+        static void sqr(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a);
+
+        /// Conjugation: (a0, a1) -> (a0, -a1).
+        static void conjugate(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a);
+
+        /// Multiply by `(u+1)`: (a0, a1) -> (a0-a1, a0+a1).
+        static void mul_by_u_plus_1(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a);
+
+        /// Lane-wise select between two packed values.
+        /// Bit `i` of `lane_mask` selects lane `i`: `0 -> a`, `1 -> b`.
+        static void select(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a, const Fp2Pack8x1x1& b, u8 lane_mask);
     };
 
     /**
@@ -90,6 +123,13 @@ namespace blst
         static void mul_by_u_plus_1(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a);
         /// Karatsuba Fp2 multiply of reduced inputs, unreduced output.
         static void mul(UFp2Pack8x1x1& r, const Fp2Pack8x1x1& a, const Fp2Pack8x1x1& b);
+
+        /// Reduce widened result into reduced `Fp2Pack8x1x1`.
+        static void redc(Fp2Pack8x1x1& r, const UFp2Pack8x1x1& a);
+
+        /// Lane-wise select between two widened packed values.
+        /// Bit `i` of `lane_mask` selects lane `i`: `0 -> a`, `1 -> b`.
+        static void select(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a, const UFp2Pack8x1x1& b, u8 lane_mask);
     };
 
     /**

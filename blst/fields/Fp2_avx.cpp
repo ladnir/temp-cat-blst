@@ -1,15 +1,115 @@
 #include "blst/fields/Fp2_avx.h"
+#include "blst/fields/Fp2.h"
 #include "blst/backend/avx512/avx_layout.h"
+#include <array>
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 
 namespace blst
 {
+    void Fp2Pack8x1x1::from_aos(Fp2Pack8x1x1& r, const Fp2* in8)
+    {
+        BLST_ASSERT(in8 != nullptr);
+
+        std::array<Fp, 8> c0{};
+        std::array<Fp, 8> c1{};
+        for (size_t i = 0; i < 8; ++i) {
+            c0[i] = in8[i][0];
+            c1[i] = in8[i][1];
+        }
+
+        FpPack8x1::from_aos(r[0], c0.data());
+        FpPack8x1::from_aos(r[1], c1.data());
+    }
+
+    void Fp2Pack8x1x1::to_aos(Fp2* out8, const Fp2Pack8x1x1& a)
+    {
+        BLST_ASSERT(out8 != nullptr);
+
+        std::array<Fp, 8> c0{};
+        std::array<Fp, 8> c1{};
+        FpPack8x1::to_aos(c0.data(), a[0]);
+        FpPack8x1::to_aos(c1.data(), a[1]);
+
+        for (size_t i = 0; i < 8; ++i) {
+            out8[i][0] = c0[i];
+            out8[i][1] = c1[i];
+        }
+    }
+
+    void Fp2Pack8x1x1::from_aos_partial(Fp2Pack8x1x1& r, const Fp2* in, const std::size_t n_active, const Fp2& fill)
+    {
+        BLST_ASSERT(n_active <= 8);
+        BLST_ASSERT(in != nullptr || n_active == 0);
+
+        std::array<Fp2, 8> tmp{};
+        for (std::size_t i = 0; i < n_active; ++i) {
+            tmp[i] = in[i];
+        }
+        for (std::size_t i = n_active; i < 8; ++i) {
+            tmp[i] = fill;
+        }
+
+        from_aos(r, tmp.data());
+    }
+
+    void Fp2Pack8x1x1::to_aos_partial(Fp2* out, const std::size_t n_active, const Fp2Pack8x1x1& a)
+    {
+        BLST_ASSERT(n_active <= 8);
+        BLST_ASSERT(out != nullptr || n_active == 0);
+
+        std::array<Fp2, 8> tmp{};
+        to_aos(tmp.data(), a);
+        for (std::size_t i = 0; i < n_active; ++i) {
+            out[i] = tmp[i];
+        }
+    }
 
     void Fp2Pack8x1x1::add(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a, const Fp2Pack8x1x1& b)
     {
         FpPack8x1::add(r[0], a[0], b[0]);
         FpPack8x1::add(r[1], a[1], b[1]);
+    }
+
+    void Fp2Pack8x1x1::sub(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a, const Fp2Pack8x1x1& b)
+    {
+        FpPack8x1::sub(r[0], a[0], b[0]);
+        FpPack8x1::sub(r[1], a[1], b[1]);
+    }
+
+    void Fp2Pack8x1x1::mul(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a, const Fp2Pack8x1x1& b)
+    {
+        UFp2Pack8x1x1 wide{};
+        UFp2Pack8x1x1::mul(wide, a, b);
+        UFp2Pack8x1x1::redc(r, wide);
+    }
+
+    void Fp2Pack8x1x1::sqr(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a)
+    {
+        mul(r, a, a);
+    }
+
+    void Fp2Pack8x1x1::conjugate(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a)
+    {
+        FpPack8x1 zero{};
+        for (u64 i = 0; i < NWORDS; ++i) {
+            zero[i] = VZERO();
+        }
+
+        r[0] = a[0];
+        FpPack8x1::sub(r[1], zero, a[1]);
+    }
+
+    void Fp2Pack8x1x1::mul_by_u_plus_1(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a)
+    {
+        FpPack8x1::sub(r[0], a[0], a[1]);
+        FpPack8x1::add(r[1], a[0], a[1]);
+    }
+
+    void Fp2Pack8x1x1::select(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a, const Fp2Pack8x1x1& b, const u8 lane_mask)
+    {
+        FpPack8x1::select(r[0], a[0], b[0], lane_mask);
+        FpPack8x1::select(r[1], a[1], b[1], lane_mask);
     }
 
     void Fp2Pack4x2x1::add(Fp2Pack4x2x1& r, const Fp2Pack4x2x1& a, const Fp2Pack4x2x1& b)
@@ -580,6 +680,18 @@ namespace blst
         UFpPack8x1::sub(r[0], tt0, tt1);        // a0*b0-a1*b1
         UFpPack8x1::sub(tt2, tt2, tt0);         // (a0+a1)*(b0+b1)-a0*b0
         UFpPack8x1::sub(r[1], tt2, tt1);        // (a0+a1)*(b0+b1)-a0*b0-a1*b1
+    }
+
+    void UFp2Pack8x1x1::redc(Fp2Pack8x1x1& r, const UFp2Pack8x1x1& a)
+    {
+        UFpPack8x1::redc(r[0], a[0]);
+        UFpPack8x1::redc(r[1], a[1]);
+    }
+
+    void UFp2Pack8x1x1::select(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a, const UFp2Pack8x1x1& b, const u8 lane_mask)
+    {
+        UFpPack8x1::select(r[0], a[0], b[0], lane_mask);
+        UFpPack8x1::select(r[1], a[1], b[1], lane_mask);
     }
 
     void UFp2Pack4x2x1::add(UFp2Pack4x2x1& r, const UFp2Pack4x2x1& a, const UFp2Pack4x2x1& b)
