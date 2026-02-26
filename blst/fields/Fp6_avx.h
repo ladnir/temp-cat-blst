@@ -2,11 +2,14 @@
 #define BLST_FIELDS_FP6_AVX_H
 
 #include "blst/fields/Fp4_avx.h"
+#include <array>
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 
 namespace blst
 {
+    struct Fp6;
+
     /**
      * AVX512 Fp6 helpers ported from avxbls.
      *
@@ -17,6 +20,108 @@ namespace blst
      *
      * Naming follows avxbls schedules so kernels can be compared line-for-line.
      */
+
+    /**
+     * Canonical W=8 Fp6 pack used by the batch tower path.
+     *
+     * Component order:
+     *   c[0] + v*c[1] + v^2*c[2]
+     * where each component is a canonical `Fp2Pack8x1x1`.
+     */
+    struct Fp6Pack8x1
+    {
+        std::array<Fp2Pack8x1x1, 3> c;
+
+        BLST_FORCEINLINE Fp2Pack8x1x1& operator[](std::size_t i)
+        {
+            BLST_ASSERT(i < c.size());
+            return c[i];
+        }
+
+        BLST_FORCEINLINE const Fp2Pack8x1x1& operator[](std::size_t i) const
+        {
+            BLST_ASSERT(i < c.size());
+            return c[i];
+        }
+
+        BLST_FORCEINLINE Fp2Pack8x1x1* data()
+        {
+            return c.data();
+        }
+
+        BLST_FORCEINLINE const Fp2Pack8x1x1* data() const
+        {
+            return c.data();
+        }
+
+        /// Pack 8 scalar `Fp6` values (AoS) into one canonical `Fp6Pack8x1`.
+        static void from_aos(Fp6Pack8x1& r, const Fp6* in8);
+
+        /// Unpack one canonical `Fp6Pack8x1` into 8 scalar `Fp6` values (AoS).
+        static void to_aos(Fp6* out8, const Fp6Pack8x1& a);
+
+        /// Partial AoS pack for tail handling.
+        static void from_aos_partial(Fp6Pack8x1& r, const Fp6* in, std::size_t n_active, const Fp6& fill);
+
+        /// Partial AoS unpack for tail handling.
+        static void to_aos_partial(Fp6* out, std::size_t n_active, const Fp6Pack8x1& a);
+
+        /// Component-wise modular add: r = a + b.
+        static void add(Fp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b);
+
+        /// Component-wise modular sub: r = a - b.
+        static void sub(Fp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b);
+
+        /// Reduced Fp6 multiply.
+        static void mul(Fp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b);
+
+        /// Reduced Fp6 square.
+        static void sqr(Fp6Pack8x1& r, const Fp6Pack8x1& a);
+
+        /// Multiply by Fp6 tower nonresidue `v`: (c0,c1,c2) -> ((u+1)*c2,c0,c1).
+        static void mul_by_nonresidue(Fp6Pack8x1& r, const Fp6Pack8x1& a);
+
+        /// Lane-wise select between two packed values.
+        /// Bit `i` of `lane_mask` selects lane `i`: `0 -> a`, `1 -> b`.
+        static void select(Fp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b, u8 lane_mask);
+    };
+
+    /**
+     * Widened companion for canonical `Fp6Pack8x1`.
+     */
+    struct UFp6Pack8x1
+    {
+        std::array<UFp2Pack8x1x1, 3> c;
+
+        BLST_FORCEINLINE UFp2Pack8x1x1& operator[](std::size_t i)
+        {
+            BLST_ASSERT(i < c.size());
+            return c[i];
+        }
+
+        BLST_FORCEINLINE const UFp2Pack8x1x1& operator[](std::size_t i) const
+        {
+            BLST_ASSERT(i < c.size());
+            return c[i];
+        }
+
+        BLST_FORCEINLINE UFp2Pack8x1x1* data()
+        {
+            return c.data();
+        }
+
+        BLST_FORCEINLINE const UFp2Pack8x1x1* data() const
+        {
+            return c.data();
+        }
+
+        /// Reduce widened result into reduced `Fp6Pack8x1`.
+        static void redc(Fp6Pack8x1& r, const UFp6Pack8x1& a);
+
+        /// Lane-wise select between two widened packed values.
+        /// Bit `i` of `lane_mask` selects lane `i`: `0 -> a`, `1 -> b`.
+        static void select(UFp6Pack8x1& r, const UFp6Pack8x1& a, const UFp6Pack8x1& b, u8 lane_mask);
+    };
 
     /**
      * Fp6 schedule backed by `Fp2Pack8x1x1` components.
@@ -180,6 +285,10 @@ namespace blst
     static_assert(std::is_trivially_copyable_v<Fp6Pack4x2x1x1>);
     static_assert(std::is_trivially_default_constructible_v<UFp6Pack4x2x1x1>);
     static_assert(std::is_trivially_copyable_v<UFp6Pack4x2x1x1>);
+    static_assert(std::is_trivially_default_constructible_v<Fp6Pack8x1>);
+    static_assert(std::is_trivially_copyable_v<Fp6Pack8x1>);
+    static_assert(std::is_trivially_default_constructible_v<UFp6Pack8x1>);
+    static_assert(std::is_trivially_copyable_v<UFp6Pack8x1>);
     static_assert(std::is_trivially_default_constructible_v<Fp6Pack2x2x2x1>);
     static_assert(std::is_trivially_copyable_v<Fp6Pack2x2x2x1>);
     static_assert(std::is_trivially_default_constructible_v<UFp6Pack2x2x2x1>);

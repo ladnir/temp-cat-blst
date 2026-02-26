@@ -4,6 +4,7 @@
 
 #include "InsecureRng.h"
 #include "blst/fields/Fp2.h"
+#include "blst/fields/Fp12.h"
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 
@@ -19,6 +20,7 @@ using FpVec2 = std::array<Fp, 2>;
 using Fp2Vec8 = std::array<Fp2, 8>;
 using Fp2Vec4 = std::array<Fp2, 4>;
 using Fp2Vec2 = std::array<Fp2, 2>;
+using Fp6Vec8 = std::array<Fp6, 8>;
 
 void rand_redc_fp(Fp& v, InsecureRng& rng)
 {
@@ -49,9 +51,28 @@ void fill_edge_fp2(Fp2& v, int idx)
     v[1] = *cycle[(idx + 1) & 3];
 }
 
+void rand_redc_fp6(Fp6& v, InsecureRng& rng)
+{
+    rand_redc_fp2(v[0], rng);
+    rand_redc_fp2(v[1], rng);
+    rand_redc_fp2(v[2], rng);
+}
+
+void fill_edge_fp6(Fp6& v, int idx)
+{
+    fill_edge_fp2(v[0], idx + 0);
+    fill_edge_fp2(v[1], idx + 1);
+    fill_edge_fp2(v[2], idx + 2);
+}
+
 bool fp2_equal(const Fp2& a, const Fp2& b)
 {
     return Fp::equal(a[0], b[0]) && Fp::equal(a[1], b[1]);
+}
+
+bool fp6_equal(const Fp6& a, const Fp6& b)
+{
+    return fp2_equal(a[0], b[0]) && fp2_equal(a[1], b[1]) && fp2_equal(a[2], b[2]);
 }
 
 template <size_t N>
@@ -78,6 +99,23 @@ bool contains_fp2(const std::array<Fp2, N>& lanes, const Fp2& value)
 void expect_fp2_eq(const Fp2& got, const Fp2& expected)
 {
     EXPECT_TRUE(fp2_equal(got, expected));
+}
+
+void expect_fp6_eq(const Fp6& got, const Fp6& expected)
+{
+    EXPECT_TRUE(fp6_equal(got, expected));
+}
+
+Fp6 fp6_zero()
+{
+    return Fp6{};
+}
+
+Fp6 fp6_one()
+{
+    Fp6 one{};
+    one[0][0] = Fp::one();
+    return one;
 }
 
 void pack_FpPack8x1(FpPack8x1& out, const FpVec8& in)
@@ -231,6 +269,37 @@ void mul_fp6_scalar(Fp2& r0, Fp2& r1, Fp2& r2, const Fp2& a0, const Fp2& a1, con
     Fp2::add(r2, tmp, t02);
 }
 
+void add_fp6_scalar(Fp6& r, const Fp6& a, const Fp6& b)
+{
+    Fp2::add(r[0], a[0], b[0]);
+    Fp2::add(r[1], a[1], b[1]);
+    Fp2::add(r[2], a[2], b[2]);
+}
+
+void sub_fp6_scalar(Fp6& r, const Fp6& a, const Fp6& b)
+{
+    Fp2::sub(r[0], a[0], b[0]);
+    Fp2::sub(r[1], a[1], b[1]);
+    Fp2::sub(r[2], a[2], b[2]);
+}
+
+void mul_fp6_scalar(Fp6& r, const Fp6& a, const Fp6& b)
+{
+    mul_fp6_scalar(r[0], r[1], r[2], a[0], a[1], a[2], b[0], b[1], b[2]);
+}
+
+void sqr_fp6_scalar(Fp6& r, const Fp6& a)
+{
+    mul_fp6_scalar(r, a, a);
+}
+
+void mul_by_nonresidue_fp6_scalar(Fp6& r, const Fp6& a)
+{
+    Fp2::mul_by_u_plus_1(r[0], a[2]);
+    r[1] = a[0];
+    r[2] = a[1];
+}
+
 void mul_sparse_xy00z0_scalar(
     Fp2& r0,
     Fp2& r1,
@@ -268,6 +337,270 @@ void mul_sparse_xy00z0_scalar(
 }
 
 } // namespace
+
+TEST(Fp6Avx, CanonicalAoSRoundTrip)
+{
+    InsecureRng rng;
+
+    for (int iter = 0; iter < 160; ++iter) {
+        Fp6Vec8 in{};
+        Fp6Vec8 out{};
+        Fp6Pack8x1 pack{};
+
+        for (size_t lane = 0; lane < 8; ++lane) {
+            if (iter < 16) {
+                fill_edge_fp6(in[lane], iter + static_cast<int>(lane));
+            } else {
+                rand_redc_fp6(in[lane], rng);
+            }
+        }
+
+        Fp6Pack8x1::from_aos(pack, in.data());
+        Fp6Pack8x1::to_aos(out.data(), pack);
+
+        for (size_t lane = 0; lane < 8; ++lane) {
+            expect_fp6_eq(out[lane], in[lane]);
+        }
+    }
+}
+
+TEST(Fp6Avx, CanonicalAoSPartialRoundTrip)
+{
+    InsecureRng rng;
+    const Fp6 zero = fp6_zero();
+    const Fp6 one = fp6_one();
+    const std::array<Fp6, 2> fills = {zero, one};
+
+    for (const Fp6& fill : fills) {
+        for (size_t n_active = 0; n_active <= 8; ++n_active) {
+            Fp6Vec8 in{};
+            Fp6Vec8 out{};
+            Fp6Vec8 full{};
+            Fp6Pack8x1 pack{};
+
+            for (size_t lane = 0; lane < 8; ++lane) {
+                if (lane < 4) {
+                    fill_edge_fp6(in[lane], static_cast<int>(lane + n_active));
+                } else {
+                    rand_redc_fp6(in[lane], rng);
+                }
+            }
+
+            Fp6Pack8x1::from_aos_partial(pack, in.data(), n_active, fill);
+            Fp6Pack8x1::to_aos_partial(out.data(), n_active, pack);
+            Fp6Pack8x1::to_aos(full.data(), pack);
+
+            for (size_t lane = 0; lane < n_active; ++lane) {
+                expect_fp6_eq(out[lane], in[lane]);
+                expect_fp6_eq(full[lane], in[lane]);
+            }
+
+            for (size_t lane = n_active; lane < 8; ++lane) {
+                expect_fp6_eq(full[lane], fill);
+            }
+        }
+    }
+}
+
+TEST(Fp6Avx, CanonicalArithmetic)
+{
+    InsecureRng rng;
+
+    for (int iter = 0; iter < 128; ++iter) {
+        Fp6Vec8 a{};
+        Fp6Vec8 b{};
+        Fp6Vec8 out{};
+        Fp6Pack8x1 pa{}, pb{}, pr{};
+
+        for (size_t lane = 0; lane < 8; ++lane) {
+            if (iter < 16) {
+                fill_edge_fp6(a[lane], iter + static_cast<int>(lane));
+                fill_edge_fp6(b[lane], iter + static_cast<int>(lane + 3));
+            } else {
+                rand_redc_fp6(a[lane], rng);
+                rand_redc_fp6(b[lane], rng);
+            }
+        }
+
+        Fp6Pack8x1::from_aos(pa, a.data());
+        Fp6Pack8x1::from_aos(pb, b.data());
+
+        Fp6Pack8x1::add(pr, pa, pb);
+        Fp6Pack8x1::to_aos(out.data(), pr);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            Fp6 expected{};
+            add_fp6_scalar(expected, a[lane], b[lane]);
+            expect_fp6_eq(out[lane], expected);
+        }
+
+        Fp6Pack8x1::sub(pr, pa, pb);
+        Fp6Pack8x1::to_aos(out.data(), pr);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            Fp6 expected{};
+            sub_fp6_scalar(expected, a[lane], b[lane]);
+            expect_fp6_eq(out[lane], expected);
+        }
+
+        Fp6Pack8x1::mul(pr, pa, pb);
+        Fp6Pack8x1::to_aos(out.data(), pr);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            Fp6 expected{};
+            mul_fp6_scalar(expected, a[lane], b[lane]);
+            expect_fp6_eq(out[lane], expected);
+        }
+
+        Fp6Pack8x1::sqr(pr, pa);
+        Fp6Pack8x1::to_aos(out.data(), pr);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            Fp6 expected{};
+            sqr_fp6_scalar(expected, a[lane]);
+            expect_fp6_eq(out[lane], expected);
+        }
+
+        Fp6Pack8x1::mul_by_nonresidue(pr, pa);
+        Fp6Pack8x1::to_aos(out.data(), pr);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            Fp6 expected{};
+            mul_by_nonresidue_fp6_scalar(expected, a[lane]);
+            expect_fp6_eq(out[lane], expected);
+        }
+    }
+}
+
+TEST(Fp6Avx, CanonicalSelectReducedAndWidened)
+{
+    InsecureRng rng;
+    Fp6Vec8 a{};
+    Fp6Vec8 b{};
+    Fp6Vec8 c{};
+    Fp6Vec8 d{};
+    Fp6Vec8 out{};
+
+    for (size_t lane = 0; lane < 8; ++lane) {
+        rand_redc_fp6(a[lane], rng);
+        rand_redc_fp6(b[lane], rng);
+        rand_redc_fp6(c[lane], rng);
+        rand_redc_fp6(d[lane], rng);
+    }
+
+    Fp6Pack8x1 pa{}, pb{}, pc{}, pd{};
+    Fp6Pack8x1 pr{}, red_wa{}, red_wb{}, red_wr{};
+    Fp6Vec8 wa_ref{};
+    Fp6Vec8 wb_ref{};
+    UFp6Pack8x1 wa{};
+    UFp6Pack8x1 wb{};
+    UFp6Pack8x1 wr{};
+
+    Fp6Pack8x1::from_aos(pa, a.data());
+    Fp6Pack8x1::from_aos(pb, b.data());
+    Fp6Pack8x1::from_aos(pc, c.data());
+    Fp6Pack8x1::from_aos(pd, d.data());
+
+    for (size_t i = 0; i < 3; ++i) {
+        UFp2Pack8x1x1::mul(wa.c[i], pa.c[i], pc.c[i]);
+        UFp2Pack8x1x1::mul(wb.c[i], pb.c[i], pd.c[i]);
+    }
+    UFp6Pack8x1::redc(red_wa, wa);
+    UFp6Pack8x1::redc(red_wb, wb);
+    Fp6Pack8x1::to_aos(wa_ref.data(), red_wa);
+    Fp6Pack8x1::to_aos(wb_ref.data(), red_wb);
+
+    for (int mask = 0; mask < 256; ++mask) {
+        const u8 lane_mask = static_cast<u8>(mask);
+
+        Fp6Pack8x1::select(pr, pa, pb, lane_mask);
+        Fp6Pack8x1::to_aos(out.data(), pr);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            const Fp6& expected = ((lane_mask >> lane) & 1u) ? b[lane] : a[lane];
+            expect_fp6_eq(out[lane], expected);
+        }
+
+        Fp6Pack8x1 alias_a = pa;
+        Fp6Pack8x1::select(alias_a, alias_a, pb, lane_mask);
+        Fp6Pack8x1::to_aos(out.data(), alias_a);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            const Fp6& expected = ((lane_mask >> lane) & 1u) ? b[lane] : a[lane];
+            expect_fp6_eq(out[lane], expected);
+        }
+
+        Fp6Pack8x1 alias_b = pb;
+        Fp6Pack8x1::select(alias_b, pa, alias_b, lane_mask);
+        Fp6Pack8x1::to_aos(out.data(), alias_b);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            const Fp6& expected = ((lane_mask >> lane) & 1u) ? b[lane] : a[lane];
+            expect_fp6_eq(out[lane], expected);
+        }
+
+        UFp6Pack8x1::select(wr, wa, wb, lane_mask);
+        UFp6Pack8x1::redc(red_wr, wr);
+        Fp6Pack8x1::to_aos(out.data(), red_wr);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            const Fp6& expected = ((lane_mask >> lane) & 1u) ? wb_ref[lane] : wa_ref[lane];
+            expect_fp6_eq(out[lane], expected);
+        }
+
+        UFp6Pack8x1 alias_wa = wa;
+        UFp6Pack8x1::select(alias_wa, alias_wa, wb, lane_mask);
+        UFp6Pack8x1::redc(red_wr, alias_wa);
+        Fp6Pack8x1::to_aos(out.data(), red_wr);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            const Fp6& expected = ((lane_mask >> lane) & 1u) ? wb_ref[lane] : wa_ref[lane];
+            expect_fp6_eq(out[lane], expected);
+        }
+
+        UFp6Pack8x1 alias_wb = wb;
+        UFp6Pack8x1::select(alias_wb, wa, alias_wb, lane_mask);
+        UFp6Pack8x1::redc(red_wr, alias_wb);
+        Fp6Pack8x1::to_aos(out.data(), red_wr);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            const Fp6& expected = ((lane_mask >> lane) & 1u) ? wb_ref[lane] : wa_ref[lane];
+            expect_fp6_eq(out[lane], expected);
+        }
+    }
+}
+
+TEST(Fp6Avx, CanonicalTailMulPartial)
+{
+    InsecureRng rng;
+    const Fp6 one = fp6_one();
+
+    for (size_t n_active = 0; n_active <= 8; ++n_active) {
+        for (int iter = 0; iter < 64; ++iter) {
+            Fp6Vec8 a{};
+            Fp6Vec8 b{};
+            Fp6Vec8 out{};
+            Fp6Vec8 full{};
+            Fp6Pack8x1 pa{}, pb{}, pr{};
+
+            for (size_t lane = 0; lane < 8; ++lane) {
+                if (iter < 8) {
+                    fill_edge_fp6(a[lane], iter + static_cast<int>(lane));
+                    fill_edge_fp6(b[lane], iter + static_cast<int>(lane + 2));
+                } else {
+                    rand_redc_fp6(a[lane], rng);
+                    rand_redc_fp6(b[lane], rng);
+                }
+            }
+
+            Fp6Pack8x1::from_aos_partial(pa, a.data(), n_active, one);
+            Fp6Pack8x1::from_aos_partial(pb, b.data(), n_active, one);
+            Fp6Pack8x1::mul(pr, pa, pb);
+            Fp6Pack8x1::to_aos_partial(out.data(), n_active, pr);
+            Fp6Pack8x1::to_aos(full.data(), pr);
+
+            for (size_t lane = 0; lane < n_active; ++lane) {
+                Fp6 expected{};
+                mul_fp6_scalar(expected, a[lane], b[lane]);
+                expect_fp6_eq(out[lane], expected);
+                expect_fp6_eq(full[lane], expected);
+            }
+
+            for (size_t lane = n_active; lane < 8; ++lane) {
+                expect_fp6_eq(full[lane], one);
+            }
+        }
+    }
+}
 
 TEST(Fp6Avx, Mul2x2x2x1w)
 {

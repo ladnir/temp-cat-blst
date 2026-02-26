@@ -353,25 +353,102 @@ Exit criteria:
 
 ## Phase 3: Fp6 x8
 
-Types/APIs:
+Current codebase status (from review):
 
-- `struct Fp6Pack8x1`
-- `add`, `sub`, `mul`, `sqr`, `mul_by_nonresidue`
+- Existing AVX Fp6 kernels are present in `blst/fields/Fp6_avx.h/.cpp`, but multiple internal schedules coexist.
+- Phase 3 goal is to lock one canonical W=8 path that composes directly from Phase 2 canonical `Fp2Pack8x1x1`.
+- AoS boundary helpers for canonical Fp6 are still missing; upper layers currently rely on layout-specific wiring.
 
-Testing:
+Phase 3 execution scope:
 
-- Differential vs scalar `Fp6`
-- Stress tests for intermediate growth and reduction correctness
+- Establish canonical `Fp6Pack8x1` + `UFp6Pack8x1` APIs for W=8 tower composition.
+- Keep arithmetic scheduling AVX-friendly (widened chains), but expose a simple reduced API for Phase 4 use.
+- Do not remove legacy Fp6 schedules in this phase; isolate canonical path without breaking current callers.
 
-Perf gates:
+Phase 3 APIs to add (or complete):
 
-- Kernel cycles/SEO and AoS end-to-end cycles/SEO both required
-- Reduction boundaries in `UFp6` paths must be documented and tested.
+```cpp
+struct Fp6Pack8x1
+{
+    // canonical component order: c[0] + v*c[1] + v^2*c[2]
+    std::array<Fp2Pack8x1x1, 3> c;
+
+    static void from_aos(Fp6Pack8x1& r, const Fp6* in8);
+    static void to_aos(Fp6* out8, const Fp6Pack8x1& a);
+    static void from_aos_partial(Fp6Pack8x1& r, const Fp6* in, size_t n_active, const Fp6& fill);
+    static void to_aos_partial(Fp6* out, size_t n_active, const Fp6Pack8x1& a);
+
+    static void add(Fp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b);
+    static void sub(Fp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b);
+    static void mul(Fp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b);
+    static void sqr(Fp6Pack8x1& r, const Fp6Pack8x1& a);
+    static void mul_by_nonresidue(Fp6Pack8x1& r, const Fp6Pack8x1& a);
+    static void select(Fp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b, u8 lane_mask);
+};
+
+struct UFp6Pack8x1
+{
+    std::array<UFp2Pack8x1x1, 3> c;
+
+    static void redc(Fp6Pack8x1& r, const UFp6Pack8x1& a);
+    static void select(UFp6Pack8x1& r, const UFp6Pack8x1& a, const UFp6Pack8x1& b, u8 lane_mask);
+};
+```
+
+Data layout and tail policy:
+
+- Lane `i` maps to tuple `i` across all three `Fp2` components (`c[0], c[1], c[2]`).
+- `from_aos_partial` fill values:
+  - additive chains: `Fp6::zero()`
+  - multiplicative chains: `Fp6::one()`
+- No per-op layout conversion in arithmetic kernels; conversions only at AoS boundary helpers.
+
+Reduction strategy requirements:
+
+- Implement widened `UFp6` chains for multiply/square paths.
+- Avoid immediate reduction after every internal `Fp2` multiply unless correctness bounds force it.
+- Record reduction boundaries in code comments for each canonical `mul/sqr` kernel.
+
+Phase 3 files expected to change:
+
+- `blst/fields/Fp6_avx.h`
+- `blst/fields/Fp6_avx.cpp`
+- `test/Fp6_avx_tests.cpp`
+
+Phase 3 testing plan:
+
+- Keep existing `Fp6Avx` tests passing.
+- Add canonical `Fp6Pack8x1` AoS round-trip and partial-tail tests.
+- Differential tests vs scalar `Fp6` for `add/sub/mul/sqr/mul_by_nonresidue`.
+- Lane-mask select tests for reduced and widened forms, including aliasing cases.
+- Tail differential tests: partial pack -> op -> partial unpack vs scalar reference.
+- Adversarial vectors:
+  - all-zero/all-one lanes
+  - repeated `p-1` style Fp limbs in nested components
+  - random high-carry patterns propagated through mul/sqr.
+
+Benchmark policy for Phase 3:
+
+- Full benchmark sweeps are not required for initial Phase 3 code landing.
+- Minimum required before Phase 3 sign-off:
+  - perf smoke for canonical `Fp6 mul/sqr` kernel vs scalar reference
+  - one AoS end-to-end measurement (`from_aos + kernel + to_aos`) for visibility.
+- Full SEO tables remain required before advancing to Phase 4/5 acceptance.
 
 Exit criteria:
 
-- Scalar parity under random/adversarial vectors
-- Measurable throughput gain in AoS end-to-end mode
+- Scalar parity for canonical Fp6 API across randomized and adversarial vectors.
+- Deterministic lane/tail behavior (`n_active=0..8`).
+- Canonical Fp6 path usable by Phase 4 without introducing new layout adapters.
+- Perf smoke demonstrates no catastrophic regression (e.g., obvious order-of-magnitude loss).
+
+What to avoid in Phase 3:
+
+- No introduction of variable-width templates.
+- No named component members like `c0`, `c1`, `c2`; use C-array or `std::array` members for pack components.
+- No API-level fallback to legacy schedules behind canonical names.
+- No hidden scalar fallback inside canonical AVX methods.
+- No GT/Fp12-specific logic in Fp6 core APIs.
 
 ---
 
