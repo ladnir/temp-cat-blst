@@ -2,10 +2,63 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
+#include <type_traits>
 
 #include "blst/fields/Fp12.h"
 #include "blst/fields/Fr.h"
 using namespace blst;
+
+template<class T, class = void>
+struct has_mul_avx : std::false_type
+{
+};
+
+template<class T>
+struct has_mul_avx<T, std::void_t<decltype(&T::mul_avx)>> : std::true_type
+{
+};
+
+template<class T, class = void>
+struct has_sqr_avx : std::false_type
+{
+};
+
+template<class T>
+struct has_sqr_avx<T, std::void_t<decltype(&T::sqr_avx)>> : std::true_type
+{
+};
+
+template<class T, class = void>
+struct has_mul_by_xy00z0_avx : std::false_type
+{
+};
+
+template<class T>
+struct has_mul_by_xy00z0_avx<T, std::void_t<decltype(&T::mul_by_xy00z0_avx)>> : std::true_type
+{
+};
+
+template<class T, class = void>
+struct has_cyclotomic_sqr_avx : std::false_type
+{
+};
+
+template<class T>
+struct has_cyclotomic_sqr_avx<T, std::void_t<decltype(&T::cyclotomic_sqr_avx)>> : std::true_type
+{
+};
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+static_assert(has_mul_avx<Fp12>::value, "Fp12::mul_avx should be present when AVX is enabled");
+static_assert(has_sqr_avx<Fp12>::value, "Fp12::sqr_avx should be present when AVX is enabled");
+static_assert(has_mul_by_xy00z0_avx<Fp12>::value, "Fp12::mul_by_xy00z0_avx should be present when AVX is enabled");
+static_assert(has_cyclotomic_sqr_avx<Fp12>::value, "Fp12::cyclotomic_sqr_avx should be present when AVX is enabled");
+#else
+static_assert(!has_mul_avx<Fp12>::value, "Fp12::mul_avx should be hidden when AVX is disabled");
+static_assert(!has_sqr_avx<Fp12>::value, "Fp12::sqr_avx should be hidden when AVX is disabled");
+static_assert(!has_mul_by_xy00z0_avx<Fp12>::value, "Fp12::mul_by_xy00z0_avx should be hidden when AVX is disabled");
+static_assert(!has_cyclotomic_sqr_avx<Fp12>::value, "Fp12::cyclotomic_sqr_avx should be hidden when AVX is disabled");
+#endif
 
 // Helper: Print Fp12 element for debugging
 void print_fp12(const Fp12& a, const char* name) {
@@ -120,6 +173,50 @@ TEST(Fp12Test, Squaring) {
 	Fp12::cyclotomic_sqr(cyc_squared, a);
 	// We don't expect cyclotomic_sqr to equal regular squaring for arbitrary elements
 	// So we just test that the function runs without errors
+}
+
+TEST(Fp12Test, ExplicitScalarApisMatchDefaultApis) {
+	Fp12 a, b;
+	Fp12 mul_default, mul_scalar;
+	Fp12 sqr_default, sqr_scalar;
+	Fp12 cyclo_seed, cyclo;
+	Fp12 cyc_default, cyc_scalar;
+	Fp12 sparse_default, sparse_scalar;
+	Fp6 sparse_arg;
+
+	const Fp12 one = Fp12::one();
+	vec_copy(&a, &one, sizeof(a));
+	vec_copy(&b, &one, sizeof(b));
+
+	a[0][0][1][0] = 0x02;
+	a[0][1][0][0] = 0x03;
+	a[1][2][1][0] = 0x04;
+	b[0][2][0][0] = 0x05;
+	b[1][0][1][0] = 0x06;
+	b[1][1][0][0] = 0x07;
+
+	Fp12::mul(mul_default, a, b);
+	Fp12::mul_scalar(mul_scalar, a, b);
+	EXPECT_TRUE(Fp12::equal(mul_default, mul_scalar));
+
+	Fp12::sqr(sqr_default, a);
+	Fp12::sqr_scalar(sqr_scalar, a);
+	EXPECT_TRUE(Fp12::equal(sqr_default, sqr_scalar));
+
+	vec_zero(&sparse_arg, sizeof(sparse_arg));
+	sparse_arg[0] = b[0][0];
+	sparse_arg[1] = b[0][1];
+	sparse_arg[2] = b[0][2];
+	Fp12::mul_by_xy00z0(sparse_default, a, sparse_arg);
+	Fp12::mul_by_xy00z0_scalar(sparse_scalar, a, sparse_arg);
+	EXPECT_TRUE(Fp12::equal(sparse_default, sparse_scalar));
+
+	vec_copy(&cyclo_seed, &a, sizeof(cyclo_seed));
+	Fp12::final_exp(cyclo, cyclo_seed);
+	ASSERT_TRUE(Fp12::is_cyclotomic(cyclo));
+	Fp12::cyclotomic_sqr(cyc_default, cyclo);
+	Fp12::cyclotomic_sqr_scalar(cyc_scalar, cyclo);
+	EXPECT_TRUE(Fp12::equal(cyc_default, cyc_scalar));
 }
 
 TEST(Fp12Test, Conjugation) {

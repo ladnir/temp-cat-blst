@@ -544,20 +544,37 @@ void bench_pairing(const BenchConfig& cfg)
     G2Point::to_affine(q, q_j);
     G1Point::to_affine(p, get_BLST_G1());
 
-    GT f{};
-    GT e1{};
+    GT f_scalar{};
+    GT f_avx{};
+    GT e_scalar{};
+    GT e_avx{};
 
-    measure_cycles("- miller_loop:        ", cfg.pairing_warmup, cfg.pairing_iters, [&]() {
-        avx::miller_loop_n(f, &q, &p, 1);
+    measure_cycles("- miller_loop_scalar: ", cfg.pairing_warmup, cfg.pairing_iters, [&]() {
+        GT::miller_loop_n(f_scalar, &q, &p, 1);
     });
 
-    avx::miller_loop_n(f, &q, &p, 1);
-    measure_cycles("- final_exp:          ", cfg.pairing_warmup, cfg.pairing_iters, [&]() {
-        avx::final_exp(e1, f);
+    measure_cycles("- miller_loop_avx:    ", cfg.pairing_warmup, cfg.pairing_iters, [&]() {
+        avx::miller_loop_n(f_avx, &q, &p, 1);
     });
 
-    measure_cycles("- optimal_ate_pairing:", cfg.pairing_warmup, cfg.pairing_iters, [&]() {
-        avx::optimal_ate_pairing(e1, &q, &p, 1);
+    GT::miller_loop_n(f_scalar, &q, &p, 1);
+    avx::miller_loop_n(f_avx, &q, &p, 1);
+
+    measure_cycles("- final_exp_scalar:   ", cfg.pairing_warmup, cfg.pairing_iters, [&]() {
+        GT::final_mult(e_scalar, f_scalar);
+    });
+
+    measure_cycles("- final_exp_avx:      ", cfg.pairing_warmup, cfg.pairing_iters, [&]() {
+        avx::final_exp(e_avx, f_avx);
+    });
+
+    measure_cycles("- opt_ate_scalar:     ", cfg.pairing_warmup, cfg.pairing_iters, [&]() {
+        GT::miller_loop_n(f_scalar, &q, &p, 1);
+        GT::final_mult(e_scalar, f_scalar);
+    });
+
+    measure_cycles("- opt_ate_avx:        ", cfg.pairing_warmup, cfg.pairing_iters, [&]() {
+        avx::optimal_ate_pairing(e_avx, &q, &p, 1);
     });
 }
 
@@ -571,10 +588,22 @@ void bench_fp(const BenchConfig& cfg)
     FpPack4x2 b_4x2w{};
     FpPack4x2 r_4x2w{};
     UFpPack4x2 z_4x2w{};
+    Fp a_scalar{};
+    Fp b_scalar{};
+    Fp r_scalar{};
+    UFp z_scalar{};
     init_fp_inputs(a_8x1w, b_8x1w, a_4x2w, b_4x2w);
+    a_scalar = make_fp_from_words(TV_A);
+    b_scalar = make_fp_from_words(TV_B);
+
+    cc_mul_mont_nonred_n<NLIMBS(384)>(z_scalar.data, a_scalar.data, b_scalar.data, get_BLST_P().data, BLST_p0);
 
     std::puts("\n=============================================================\n");
     std::puts("TIMING - FP\n");
+
+    measure_cycles("- mul_fp_scalar:          ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        Fp::mul(r_scalar, a_scalar, b_scalar);
+    });
 
     measure_cycles("- FpPack8x1::mul_v2:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
         FpPack8x1::mul_v2(z_8x1w, a_8x1w, b_8x1w);
@@ -586,6 +615,10 @@ void bench_fp(const BenchConfig& cfg)
 
     measure_cycles("- UFpPack8x1::redc:       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
         UFpPack8x1::redc(r_8x1w, z_8x1w);
+    });
+
+    measure_cycles("- redc_fp_scalar:         ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        Fp::redc(r_scalar, z_scalar);
     });
 
     measure_cycles("- UFpPack4x2::redc:       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
@@ -911,7 +944,11 @@ void bench_fp12(const BenchConfig& cfg)
     std::puts("TIMING - FP12\n");
 
     measure_cycles("- cyclotomic_sqr_fp12_scalar:            ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        Fp12::cyclotomic_sqr(r_scalar, a_scalar);
+        Fp12::cyclotomic_sqr_scalar(r_scalar, a_scalar);
+    });
+
+    measure_cycles("- cyclotomic_sqr_fp12_avx_api:           ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        Fp12::cyclotomic_sqr_avx(r_scalar, a_scalar);
     });
 
     measure_cycles("- cyclotomic_sqr_fp12_vec_v1:            ", cfg.fp_warmup, cfg.fp_iters, [&]() {
@@ -923,7 +960,11 @@ void bench_fp12(const BenchConfig& cfg)
     });
 
     measure_cycles("- mul_fp12_scalar:                       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        Fp12::mul(r_scalar, a_scalar, a_scalar);
+        Fp12::mul_scalar(r_scalar, a_scalar, a_scalar);
+    });
+
+    measure_cycles("- mul_fp12_avx_api:                      ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        Fp12::mul_avx(r_scalar, a_scalar, a_scalar);
     });
 
     measure_cycles("- mul_fp12_vec_v1:                       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
@@ -943,7 +984,11 @@ void bench_fp12(const BenchConfig& cfg)
     });
 
     measure_cycles("- mul_by_xy00z0_fp12_scalar:             ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        Fp12::mul_by_xy00z0(r_scalar, a_scalar, b_sparse);
+        Fp12::mul_by_xy00z0_scalar(r_scalar, a_scalar, b_sparse);
+    });
+
+    measure_cycles("- mul_by_xy00z0_fp12_avx_api:            ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        Fp12::mul_by_xy00z0_avx(r_scalar, a_scalar, b_sparse);
     });
 
     measure_cycles("- mul_by_xy00z0_fp12_vec_v1:             ", cfg.fp_warmup, cfg.fp_iters, [&]() {
@@ -955,7 +1000,11 @@ void bench_fp12(const BenchConfig& cfg)
     });
 
     measure_cycles("- sqr_fp12_scalar:                       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        Fp12::sqr(r_scalar, a_scalar);
+        Fp12::sqr_scalar(r_scalar, a_scalar);
+    });
+
+    measure_cycles("- sqr_fp12_avx_api:                      ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        Fp12::sqr_avx(r_scalar, a_scalar);
     });
 
     measure_cycles("- sqr_fp12_vec_v1:                       ", cfg.fp_warmup, cfg.fp_iters, [&]() {

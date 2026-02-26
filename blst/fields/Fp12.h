@@ -93,8 +93,24 @@ namespace blst
 		/// @brief ret = a^2 in Fp12.
 		BLST_HD static void sqr(Fp12& ret, const Fp12& a);
 
+        /// @brief ret = a^2 in Fp12. Performed with scalar codegen (no AVX).
+		BLST_HD static void sqr_scalar(Fp12& ret, const Fp12& a);
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+        /// @brief ret = a^2 in Fp12. Performed with AVX codegen.
+        static void sqr_avx(Fp12& ret, const Fp12& a);
+#endif
+
 		/// @brief ret = a * b in Fp12.
 		BLST_HD static void mul(Fp12& ret, const Fp12& a, const Fp12& b);
+
+        /// @brief ret = a * b in Fp12, performed with scalar codegen (no AVX).
+		BLST_HD static void mul_scalar(Fp12& ret, const Fp12& a, const Fp12& b);
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+        /// @brief ret = a * b in Fp12, performed with AVX codegen.
+        static void mul_avx(Fp12& ret, const Fp12& a, const Fp12& b);
+#endif
 		
 		/// @brief ret = a * b in Fp12.
 		/// @param conj_b If true, multiplies by conjugate of b (a * conj(b)).
@@ -114,6 +130,18 @@ namespace blst
 		/// @brief ret = a^2 in Fp12, optimized for the Cyclotomic subgroup.
 		/// Faster than standard sqr() but requires input `a` to be in G_phi_12.
 		BLST_HD static void cyclotomic_sqr(Fp12& ret, const Fp12& a);
+
+		/// @brief ret = a^2 in Fp12, optimized for the Cyclotomic subgroup.
+		/// Faster than standard sqr() but requires input `a` to be in G_phi_12.
+		/// Performed with scalar codegen (no AVX).
+		BLST_HD static void cyclotomic_sqr_scalar(Fp12& ret, const Fp12& a);
+		
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+        /// @brief ret = a^2 in Fp12, optimized for the Cyclotomic subgroup.
+        /// Faster than standard sqr() but requires input `a` to be in G_phi_12.
+        /// Performed with AVX codegen.
+        static void cyclotomic_sqr_avx(Fp12& ret, const Fp12& a);
+#endif
 
 		/// @brief ret = a^exp in Fp12, using Cyclotomic squaring.
 		/// @note Input `a` MUST be in the cyclotomic subgroup.
@@ -206,6 +234,19 @@ namespace blst
 		/// @brief Fast multiplication by sparse element (xy00z0).
 		/// Used in pairing final exponentiation and Miller loop.
 		BLST_HD static void mul_by_xy00z0(Fp12& ret, const Fp12& a, const Fp6& xy00z0);
+
+
+		/// @brief Fast multiplication by sparse element (xy00z0).
+		/// Used in pairing final exponentiation and Miller loop.
+		/// Performed with scalar codegen (no AVX).
+		BLST_HD static void mul_by_xy00z0_scalar(Fp12& ret, const Fp12& a, const Fp6& xy00z0);
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+        /// @brief Fast multiplication by sparse element (xy00z0).
+        /// Used in pairing final exponentiation and Miller loop.
+        /// Performed with AVX codegen.
+        static void mul_by_xy00z0_avx(Fp12& ret, const Fp12& a, const Fp6& xy00z0);
+#endif
 
 
 		// --- Utilities ---

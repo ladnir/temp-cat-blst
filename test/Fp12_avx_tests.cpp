@@ -532,6 +532,54 @@ TEST(Fp12Avx, SparseMulVectorMatchesScalar)
     }
 }
 
+TEST(Fp12Avx, ExplicitAvxApisMatchScalarApis)
+{
+    InsecureRng rng;
+
+    for (int iter = 0; iter < 96; ++iter) {
+        Fp12 a{}, b{};
+        Fp12 mul_scalar{}, mul_avx{};
+        Fp12 sqr_scalar{}, sqr_avx{};
+        Fp12 sparse_scalar{}, sparse_avx{};
+        Fp12 cyclo_seed{}, cyclo{};
+        Fp12 cyc_scalar{}, cyc_avx{};
+        Fp6 sparse{};
+
+        if (iter < 16) {
+            fill_edge_fp12(a, iter + 0);
+            fill_edge_fp12(b, iter + 7);
+            for (size_t j = 0; j < 3; ++j) {
+                fill_edge_fp2(sparse[j], iter + static_cast<int>(j) + 11);
+            }
+        } else {
+            rand_redc_fp12(a, rng);
+            rand_redc_fp12(b, rng);
+            for (size_t j = 0; j < 3; ++j) {
+                rand_redc_fp2(sparse[j], rng);
+            }
+        }
+
+        Fp12::mul_scalar(mul_scalar, a, b);
+        Fp12::mul_avx(mul_avx, a, b);
+        EXPECT_TRUE(fp12_equal(mul_avx, mul_scalar));
+
+        Fp12::sqr_scalar(sqr_scalar, a);
+        Fp12::sqr_avx(sqr_avx, a);
+        EXPECT_TRUE(fp12_equal(sqr_avx, sqr_scalar));
+
+        Fp12::mul_by_xy00z0_scalar(sparse_scalar, a, sparse);
+        Fp12::mul_by_xy00z0_avx(sparse_avx, a, sparse);
+        EXPECT_TRUE(fp12_equal(sparse_avx, sparse_scalar));
+
+        cyclo_seed = a;
+        Fp12::final_exp(cyclo, cyclo_seed);
+        ASSERT_TRUE(Fp12::is_cyclotomic(cyclo));
+        Fp12::cyclotomic_sqr_scalar(cyc_scalar, cyclo);
+        Fp12::cyclotomic_sqr_avx(cyc_avx, cyclo);
+        EXPECT_TRUE(fp12_equal(cyc_avx, cyc_scalar));
+    }
+}
+
 TEST(Fp12Avx, CyclotomicSqrVectorMatchesScalar)
 {
     InsecureRng rng;

@@ -3,6 +3,14 @@
 
 #include "config.h"
 
+#if !defined(BLST_DEFAULT_AVX)
+# if defined(BLST_AVX512)
+#  define BLST_DEFAULT_AVX 1
+# else
+#  define BLST_DEFAULT_AVX 0
+# endif
+#endif
+
 // uint8_t, etc
 #include <stdint.h>
 #include <bit>

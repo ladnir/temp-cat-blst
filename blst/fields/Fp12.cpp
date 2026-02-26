@@ -6,6 +6,9 @@
 #include "blst/common/defines.h"
 #include "blst/backend/backend.h"
 #include "blst/fields/Fp12.h"
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+#include "blst/fields/Fp12_avx.h"
+#endif
 #include <string.h>
 #include "blst/fields/Fr.h"
 
@@ -19,6 +22,10 @@
 
 namespace blst
 {
+
+#if BLST_DEFAULT_AVX && !(defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE))
+#error "BLST_DEFAULT_AVX requires BLST_AVX512 or BLST_AVX512_PORTABLE"
+#endif
 
 
 
@@ -342,7 +349,7 @@ namespace blst
 		 * Fp12 extension
 		 */
 #if defined(__FP2x2__)
-	BLST_HD FP12_CPP_INLINE void Fp12::mul(Fp12& ret, const Fp12& a, const Fp12& b)
+	BLST_HD FP12_CPP_INLINE void Fp12::mul_scalar(Fp12& ret, const Fp12& a, const Fp12& b)
 	{
 		UFp6 t0, t1, rx;
 		Fp6 t2;
@@ -405,7 +412,7 @@ namespace blst
 		add_fp2x2(ret[2], ret[2], t1);
 	}
 
-	BLST_HD FP12_CPP_INLINE void Fp12::mul_by_xy00z0(Fp12& ret, const Fp12& a,
+	BLST_HD FP12_CPP_INLINE void Fp12::mul_by_xy00z0_scalar(Fp12& ret, const Fp12& a,
 		const Fp6& xy00z0)
 	{
 		UFp6 t0, t1, rr;
@@ -432,7 +439,7 @@ namespace blst
 		redc_fp6x2(ret[0], rr);
 	}
 #else // __FP2x2__
-	BLST_HD FP12_CPP_INLINE void Fp12::mul(Fp12& ret, const Fp12& a, const Fp12& b)
+	BLST_HD FP12_CPP_INLINE void Fp12::mul_scalar(Fp12& ret, const Fp12& a, const Fp12& b)
 	{
 		Fp6 t0, t1, t2;
 
@@ -499,7 +506,7 @@ namespace blst
 		Fp2::add(ret[0], t3, t0);    /* ... moved from above */
 	}
 
-	BLST_HD FP12_CPP_INLINE void Fp12::mul_by_xy00z0(Fp12& ret, const Fp12& a,
+	BLST_HD FP12_CPP_INLINE void Fp12::mul_by_xy00z0_scalar(Fp12& ret, const Fp12& a,
 		const Fp6& xy00z0)
 	{
 		Fp6 t0, t1, t2;
@@ -623,7 +630,7 @@ namespace blst
 	}
 #endif
 
-	BLST_HD FP12_CPP_INLINE void Fp12::sqr(Fp12& ret, const Fp12& a)
+	BLST_HD FP12_CPP_INLINE void Fp12::sqr_scalar(Fp12& ret, const Fp12& a)
 	{
 		Fp6 t0, t1;
 
@@ -759,7 +766,7 @@ namespace blst
 	}
 #endif // __FP2x2__
 
-	BLST_HD FP12_CPP_INLINE void Fp12::cyclotomic_sqr(Fp12& ret, const Fp12& a)
+	BLST_HD FP12_CPP_INLINE void Fp12::cyclotomic_sqr_scalar(Fp12& ret, const Fp12& a)
 	{
 		if (0)
 		{
@@ -839,6 +846,70 @@ namespace blst
 
 		}
 	}
+
+	BLST_HD FP12_CPP_INLINE void Fp12::mul(Fp12& ret, const Fp12& a, const Fp12& b)
+	{
+#if BLST_DEFAULT_AVX && !defined(__CUDA_ARCH__)
+		mul_avx(ret, a, b);
+#else
+		mul_scalar(ret, a, b);
+#endif
+	}
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+	FP12_CPP_INLINE void Fp12::mul_avx(Fp12& ret, const Fp12& a, const Fp12& b)
+	{
+		mul_fp12_vector(ret, a, b);
+	}
+#endif
+
+	BLST_HD FP12_CPP_INLINE void Fp12::sqr(Fp12& ret, const Fp12& a)
+	{
+#if BLST_DEFAULT_AVX && !defined(__CUDA_ARCH__)
+		sqr_avx(ret, a);
+#else
+		sqr_scalar(ret, a);
+#endif
+	}
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+	FP12_CPP_INLINE void Fp12::sqr_avx(Fp12& ret, const Fp12& a)
+	{
+		sqr_fp12_vector(ret, a);
+	}
+#endif
+
+	BLST_HD FP12_CPP_INLINE void Fp12::mul_by_xy00z0(Fp12& ret, const Fp12& a, const Fp6& xy00z0)
+	{
+#if BLST_DEFAULT_AVX && !defined(__CUDA_ARCH__)
+		mul_by_xy00z0_avx(ret, a, xy00z0);
+#else
+		mul_by_xy00z0_scalar(ret, a, xy00z0);
+#endif
+	}
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+	FP12_CPP_INLINE void Fp12::mul_by_xy00z0_avx(Fp12& ret, const Fp12& a, const Fp6& xy00z0)
+	{
+		mul_by_xy00z0_fp12_vector(ret, a, xy00z0);
+	}
+#endif
+
+	BLST_HD FP12_CPP_INLINE void Fp12::cyclotomic_sqr(Fp12& ret, const Fp12& a)
+	{
+#if BLST_DEFAULT_AVX && !defined(__CUDA_ARCH__)
+		cyclotomic_sqr_avx(ret, a);
+#else
+		cyclotomic_sqr_scalar(ret, a);
+#endif
+	}
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+	FP12_CPP_INLINE void Fp12::cyclotomic_sqr_avx(Fp12& ret, const Fp12& a)
+	{
+		cyclotomic_sqr_fp12_vector(ret, a);
+	}
+#endif
 
 	BLST_HD BLST_INLINE void frobenius_map_fp6(Fp6& ret, const Fp6& a, size_t n)
 	{

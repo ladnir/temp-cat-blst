@@ -9,6 +9,7 @@ option(BLST_ADX          "Enable ADX in the c code" ON)
 option(BLST_DEFAULT_ASM  "Enable assembly optimizations by default" ON)
 option(BLST_ASAN         "Enable Address Sanitizer" OFF)
 option(BLST_AVX512       "Enable AVX512 code paths" OFF)
+option(BLST_DEFAULT_AVX  "Prefer AVX implementations by default when available" ${BLST_AVX512})
 option(BLST_AVX512_PORTABLE "Enable AVX512 emulation code paths" OFF)
 option(BLAS_UBSAN        "Enable UB Sanitizer" OFF)
 option(BLST_TEST         "Build test executables" ON)
@@ -27,6 +28,10 @@ else()
     set(BLST_DEFAULT_ASM OFF)
 endif()
 
+if(BLST_DEFAULT_AVX AND NOT (BLST_AVX512 OR BLST_AVX512_PORTABLE))
+    message(FATAL_ERROR "BLST_DEFAULT_AVX requires BLST_AVX512 or BLST_AVX512_PORTABLE")
+endif()
+
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 
@@ -43,6 +48,7 @@ message("BLST_ASM             = ${BLST_ASM}")      # enable the asm impl (cpu)
 message("BLST_ADX             = ${BLST_ADX}")      # enable the adx instruction set (cpu)
 message("BLST_DEFAULT_ASM     = ${BLST_DEFAULT_ASM}") # use asm as the default impl.
 message("BLST_AVX512          = ${BLST_AVX512}")  #
+message("BLST_DEFAULT_AVX     = ${BLST_DEFAULT_AVX}")  #
 message("BLST_AVX512_PORTABLE = ${BLST_AVX512_PORTABLE}")  #
 message("BLST_CUDA            = ${BLST_CUDA}")     # enable the cude impl (gpu)
 message("BLST_CUDA_MSM        = ${BLST_CUDA_MSM}")     # enable the cude impl (gpu)
