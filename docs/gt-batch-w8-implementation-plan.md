@@ -1,4 +1,34 @@
-# GT Batch W=8 Implementation Plan
+# GT Batch W=8 Implementation Plan (v2)
+
+## Introduction and Context
+
+This document is a build plan for a new SIMD-oriented GT batch path in `blst`.
+
+For newcomers: the current codebase already has scalar/asm and AVX paths, but most of the
+existing AVX integration targets single-operation latency (for example, one pairing at a time).
+Recent measurements showed two important things:
+
+- Low-level AVX kernels can be very strong.
+- End-to-end pairing speedups are highly sensitive to higher-layer orchestration, data movement,
+  and machine/platform details.
+
+As a result, this v2 plan focuses on a separate fixed-width batch engine (`W=8`) that is designed
+for throughput, with strict apples-to-apples performance accounting.
+
+What this plan changes:
+
+- Adds a dedicated `W=8` tower path (`Fp -> Fp2 -> Fp6 -> Fp12 -> GT`).
+- Keeps AoS API boundaries for callers while using packed internal blocks.
+- Requires scalar-equivalent metrics so reported speedups are comparable and defensible.
+
+What this plan does not change:
+
+- It does not redesign scalar APIs.
+- It does not switch the default scalar execution path.
+- It does not introduce variable-width template dispatch.
+
+Read this plan as an implementation sequence with acceptance gates. Each phase has explicit
+correctness and performance exits before moving to the next layer.
 
 ## Scope
 
@@ -6,310 +36,404 @@ This plan defines a fixed-width (`W=8`) batch engine for independent GT tuples, 
 
 Primary operations:
 
-- Group addition in GT (`Fp12` multiply)
-- Group doubling in GT (`Fp12` cyclotomic square)
-- GT scalar multiplication with independent per-lane scalars (exponentiation)
+- GT multiply batch (`Fp12` multiply)
+- GT cyclotomic-square batch (`Fp12` cyclotomic square)
+- GT exponentiation batch with independent per-lane scalars
 
 Non-goals:
 
 - No scalar API redesign
-- No variable `W` templates
-- No immediate integration into default scalar execution path
+- No variable-width templates
+- No default-path replacement during this phase
 
-Design rule:
+Hard constraints:
 
-- Lane `i` always corresponds to tuple `i` in a batch block of 8, from `Fp` through `GT`.
+- Fixed width of 8 lanes end-to-end
+- Build bottom-up from `Fp -> Fp2 -> Fp6 -> Fp12 -> GT`
+- No hidden scalar fallback inside AVX APIs
+- No exceptions, no heap allocation in hot loops
 
 ---
 
-## Phase 0: Contracts and Baseline
+## Key Principles
 
-### APIs
+1. Lane stability:
+- Lane `i` always maps to tuple `i` in each 8-lane block.
 
-Define target batch API surface first (AoS boundary):
+2. Strong types:
+- No type aliases for schedule/layout types in the hot path.
+- Layout types are explicit structs with documented invariants.
+
+3. Scalar-equivalent accounting:
+- Performance claims must compare equivalent work.
+- For `Fp mul`, AVX comparisons must include reduction (`mul + redc`) when scalar baseline includes reduction.
+
+4. End-to-end first:
+- Kernel-only wins are not sufficient.
+- We gate with AoS API throughput (pack + kernel + unpack), not kernel-only cycles.
+
+5. Reduction strategy for AVX:
+- AVX kernels should prefer widened/unreduced intermediates (`UFp`-style) across multiply-add chains.
+- Reduce at explicit boundaries, not after every multiply, when correctness bounds allow.
+- Do not mechanically mirror scalar reduction cadence in AVX code.
+- Any early-reduction choice must be justified by measured cycles/SEO, not by scalar-code similarity.
+
+---
+
+## Measurement Contract (Required)
+
+All benchmark tables must include these columns:
+
+- Operation name
+- Path (`scalar`, `avx_kernel`, `avx_e2e`)
+- Cycles total
+- Scalar-equivalent operations (SEO)
+- Cycles per SEO
+- Speedup vs scalar (`scalar cycles/SEO` divided by `candidate cycles/SEO`)
+
+### Scalar-equivalent definitions
+
+- `FpMulReducedSEO`: one fully reduced `Fp` multiplication result.
+  - Scalar reference: `Fp::mul`
+  - AVX equivalent: `FpPack8x1::mul_*` followed by `UFpPack8x1::redc`
+
+- `GtMulSEO`: one `GT` multiplication result (`out[i] = a[i] * b[i]`)
+- `GtCyclotomicSqrSEO`: one `GT` cyclotomic square result
+- `GtExpSEO`: one `GT` exponentiation result for one base/scalar pair
+
+### Benchmark environment capture
+
+Each run must capture:
+
+- CPU model, flags, core count, sockets
+- Hypervisor presence
+- Governor / turbo state
+- Compiler and flags
+- OS/kernel
+
+Recommended commands:
+
+```bash
+lscpu
+uname -a
+cat /etc/os-release
+grep -En "model name|cpu MHz|microcode" /proc/cpuinfo | head -n 80
+cat /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null
+cat /sys/devices/system/cpu/amd_pstate/status 2>/dev/null
+cat /sys/devices/system/cpu/cpufreq/boost 2>/dev/null
+cat /sys/devices/system/cpu/cpufreq/policy0/scaling_governor 2>/dev/null
+```
+
+---
+
+## AVX Reduction Guidance (Design Constraint)
+
+AVX performance depends heavily on reduction placement. The default strategy is:
+
+- Keep intermediate values in widened form (`UFp`, `UFp2`, `UFp6`, etc.) through dependent multiply/add/sub chains.
+- Perform a single reduction at the latest safe point that preserves correctness and range bounds.
+- Treat reduction as a scheduled resource, not a per-operation reflex.
+
+Implication for implementation:
+
+- A naive line-by-line scalar port (with immediate reduction after each multiply) is not an acceptable AVX baseline.
+- AVX code may differ structurally from scalar code to preserve widened pipelines, while still matching scalar results at API boundaries.
+
+Validation requirement:
+
+- For each major kernel, record both:
+  - chosen reduction boundaries
+  - an alternative earlier-reduction variant (if implemented)
+  and keep the faster one by cycles/SEO, with correctness parity.
+
+---
+
+## API Surface (AoS Boundary)
+
+Target public APIs:
 
 - `gt_mul_batch(GT* out, const GT* a, const GT* b, size_t n)`
 - `gt_cyclotomic_sqr_batch(GT* out, const GT* a, size_t n)`
 - `gt_exp_batch(GT* out, const GT* a, const byte* scalars, size_t scalar_stride, size_t nbits, size_t n)`
 
-### Data Layout
+Rules:
 
-- External: existing AoS (`GT*`).
-- Internal: packed 8-lane blocks.
+- API inputs/outputs are AoS.
+- Internally process by 8-lane packed blocks.
+- Tail policy default is masked AVX lanes.
+- Scalar tail fallback is allowed only as a separately measured path.
 
-### Testing
+---
 
-- Build scalar-vs-batch differential harness for all three operations.
-- Add perf harness with stable warmup and pinning policy.
+## Phase Plan
 
-### Success Conditions
+## Phase 0: Contracts and Baseline
 
-- Baseline correctness harness ready.
-- Baseline throughput numbers recorded.
+Deliverables:
 
-### What to Avoid
+- Freeze metric contract (SEO + cycles/SEO).
+- Baseline scalar benchmarks for all target APIs.
+- Baseline AVX kernel-only and AVX end-to-end benchmarks.
 
-- Changing scalar API behavior.
-- Defining hot-kernel contracts late.
+Exit criteria:
+
+- Reproducible baseline numbers with environment metadata.
+- CI job can run correctness and perf smoke checks.
 
 ---
 
 ## Phase 1: Fp x8 Core
 
-### APIs
+Types/APIs:
 
-Using `Fp_avx.h` style (POD structs, static methods, explicit out args):
+- `struct FpPack8x1`
+- `add`, `sub`, `mul_v*`, `redc`, `select`
 
-- `FpPack8x1::add`
-- `FpPack8x1::sub`
-- `FpPack8x1::mul` + reduction path
-- `select` / mask-blend helpers required by exponentiation control flow
+Testing:
 
-### Data Layout
+- Differential tests vs scalar `Fp`
+- Edge vectors (`0`, `1`, `p-1`, carry-heavy)
+- Aliasing tests for supported cases
 
-- Strict lane-stable `8x1` layout.
-- No schedule-mixed operand packing in the primary batch path.
+Perf gates:
 
-### Testing
+- Report `FpMulReducedSEO` only (`mul + redc` path)
+- No speedup claims from unreduced mul alone
+- Prefer fused widened pipelines (`mul...add/sub...redc`) over immediate per-mul reduction.
 
-- Random differential tests vs scalar `Fp`.
-- Edge vectors (`0`, `1`, `p-1`, carry-heavy limbs).
-- Aliasing tests (`r==a`, `r==b` where supported).
+Exit criteria:
 
-### Success Conditions
-
-- Bit-exact parity with scalar `Fp`.
-- No correctness regressions under high-volume random tests.
-
-### What to Avoid
-
-- Per-operation pack/unpack in hot loops.
-- Data-dependent branches on secret values.
+- Bit-exact parity with scalar `Fp`
+- Stable cycles/SEO across repeated runs
 
 ---
 
 ## Phase 2: Fp2 x8
 
-### APIs
+Types/APIs:
 
 - `struct Fp2Pack8x1x1`
 - `add`, `sub`, `mul`, `sqr`, `conjugate`, `mul_by_u_plus_1`, `select`
 
-### Data Layout
+Testing:
 
-- Two `FpPack8x1` components (`c0`, `c1`), lane-stable.
+- Differential vs scalar `Fp2`
+- Algebraic identities over randomized vectors
 
-### Testing
+Perf gates:
 
-- Differential tests vs scalar `Fp2`.
-- Algebraic identity checks across random vectors.
+- Report only reduced-equivalent work
+- Include end-to-end AoS boundary overhead at least once per benchmark group
+- Ensure `UFp2`-style widened paths are used where range bounds permit.
 
-### Success Conditions
+Exit criteria:
 
-- Full parity with scalar `Fp2`.
-- Stable vector path behavior on edge inputs.
-
-### What to Avoid
-
-- Accidental fallback to schedule-oriented mixed layouts for main path.
+- Full scalar parity
+- No layout conversion inside arithmetic kernels
 
 ---
 
 ## Phase 3: Fp6 x8
 
-### APIs
+Types/APIs:
 
 - `struct Fp6Pack8x1`
 - `add`, `sub`, `mul`, `sqr`, `mul_by_nonresidue`
 
-### Data Layout
+Testing:
 
-- Three `Fp2Pack8x1x1` components (`c0`, `c1`, `c2`), lane-stable.
+- Differential vs scalar `Fp6`
+- Stress tests for intermediate growth and reduction correctness
 
-### Testing
+Perf gates:
 
-- Differential tests vs scalar `Fp6`.
-- Stress tests for temporary growth and reduction correctness.
+- Kernel cycles/SEO and AoS end-to-end cycles/SEO both required
+- Reduction boundaries in `UFp6` paths must be documented and tested.
 
-### Success Conditions
+Exit criteria:
 
-- Scalar parity maintained under randomized and adversarial vectors.
-
-### What to Avoid
-
-- Any AoS conversion inside arithmetic kernels.
+- Scalar parity under random/adversarial vectors
+- Measurable throughput gain in AoS end-to-end mode
 
 ---
 
-## Phase 4: Fp12 x8 and GT Add/Doubling
+## Phase 4: Fp12 x8
 
-### APIs
+Types/APIs:
 
 - `struct Fp12Pack8x1`
 - `mul`, `sqr`, `cyclotomic_sqr`, `conjugate`
+
+Testing:
+
+- Differential vs scalar `Fp12`
+- Cross-check vs existing AVX kernels where equivalent
+
+Perf gates:
+
+- End-to-end AoS cycles/SEO is required for acceptance
+- Pack/unpack cost must be reported explicitly
+- Avoid scalar-style eager reduction inside Fp12 chains unless it wins on cycles/SEO.
+
+Exit criteria:
+
+- Correctness parity
+- Positive end-to-end throughput gain vs scalar
+
+---
+
+## Phase 5: GT Batch Kernels (mul/sqr)
+
+Types/APIs:
+
 - `gt_mul8(...)`
 - `gt_cyclotomic_sqr8(...)`
 
-### Data Layout
+Testing:
 
-- Two `Fp6Pack8x1` components (`c0`, `c1`), lane-stable.
+- Differential vs scalar GT operations
+- In-place/out-of-place cases where supported
 
-### Testing
+Perf gates:
 
-- Differential vs scalar `Fp12` and GT operations.
-- Cross-check against existing `Fp12_avx` results where comparable.
+- Must report both:
+  - `avx_kernel` cycles/SEO
+  - `avx_e2e` cycles/SEO (AoS boundary included)
 
-### Success Conditions
+Exit criteria:
 
-- Correctness parity and measurable single-thread throughput gain.
-
-### What to Avoid
-
-- Using wrapper-style per-op repacking as the core implementation strategy.
+- Correctness parity
+- End-to-end speedup maintained for practical `n`
 
 ---
 
-## Phase 5: GT Exponentiation x8 (Independent Scalars)
+## Phase 6: GT Exponentiation x8 (independent scalars)
 
-### APIs
+Types/APIs:
 
 - `gt_exp8(GT* out8, const GT* base8, const byte* scalars8, size_t scalar_stride, size_t nbits)`
 
-Optional helper:
+Testing:
 
-- Pre-recoded per-window digit buffers for `8` lanes.
-
-### Data Layout
-
-- Packed GT lane blocks.
-- Independent scalars per lane.
-
-### Testing
-
-- Differential vs scalar `GT::mult` across:
+- Differential vs scalar `GT::mult` for:
   - random scalars
   - `0`, `1`, max, sparse, dense patterns
-  - multiple `nbits` values
+  - multiple `nbits`
 
-### Success Conditions
+Perf gates:
 
-- Scalar parity for all scalar classes.
-- Throughput gain over scalar loop on realistic batch sizes.
+- Throughput over scalar loop reported as cycles/SEO
+- Optional pre-recode path measured separately
 
-### What to Avoid
+Exit criteria:
 
-- Assuming same scalar across lanes.
-- Secret-dependent branching or table indexing.
-
----
-
-## Phase 6: `n`-size Batch Scheduler
-
-### APIs
-
-- Finalize public batch entry points from Phase 0.
-
-### Data Layout
-
-- Chunk into 8-lane blocks.
-- Tail handling for `n % 8` via masked lanes or scalar fallback.
-- Pack once per block, unpack once per block.
-
-### Testing
-
-- All `n` shapes:
-  - `n=0..16`
-  - non-multiples of 8
-  - large `n`
-- In-place and out-of-place variants where supported.
-
-### Success Conditions
-
-- Correct outputs for all tail scenarios.
-- Linear scaling trend with `n`.
-
-### What to Avoid
-
-- Heap allocation in inner loops.
-- Hidden global mutable scratch state.
+- Scalar parity across scalar classes
+- Throughput gain on realistic batch sizes
 
 ---
 
-## Phase 7: Parallel Throughput Scaling
+## Phase 7: n-Size Scheduler and Tail Handling
 
-### APIs
+Types/APIs:
 
-- Keep batch API stable; parallelism remains internal.
+- Finalize `gt_*_batch(..., n)` public entry points
 
-### Data Layout
+Policy:
 
-- Partition work by contiguous block ranges.
-- Thread-local scratch only.
+- Chunk by contiguous 8-lane blocks
+- Tail default: masked AVX lanes
+- Scalar tail path, if retained, is explicit and separately benchmarked
 
-### Testing
+Testing:
 
-- Determinism across thread counts.
-- Throughput scaling sweep across cores.
+- `n=0..16`, non-multiples of 8, large `n`
+- Determinism checks
 
-### Success Conditions
+Exit criteria:
 
-- Strong multicore scaling until hardware limits.
-- No correctness drift under concurrency.
-
-### What to Avoid
-
-- False sharing.
-- Tiny task granularity that dominates with scheduler overhead.
+- Correct tail behavior for all shapes
+- Linear scaling trend without hidden cliff at tails
 
 ---
 
-## Phase 8: Hardening and Acceptance
+## Phase 8: Parallel Throughput Scaling
 
-### APIs
+Types/APIs:
 
-- Freeze kernel contracts and naming.
-- Document lane and aliasing contracts in headers.
+- API unchanged; parallelism internal only
 
-### Data Layout
+Policy:
 
-- Lock lane-stable invariants in comments and tests.
+- Contiguous block partitioning
+- Thread-local scratch only
+- No global mutable scratch
 
-### Testing
+Testing:
 
-- Long randomized soak runs.
-- CI matrix for AVX512 native and portable modes.
-- Regression gates against scalar references.
+- Determinism across thread counts
+- Scaling sweep across cores
 
-### Success Conditions
+Exit criteria:
 
-- Correctness parity accepted.
-- Throughput targets met.
-- No scalar API regression.
-
-### What to Avoid
-
-- Silent fallback paths that hide performance regressions.
+- Strong multicore scaling until hardware limits
+- No correctness drift under concurrency
 
 ---
 
-## Style Requirements (Match `Fp_avx.h`)
+## Phase 9: Hardening and Acceptance
+
+Deliverables:
+
+- Freeze naming and contracts
+- Document aliasing and lane contracts in headers
+- CI matrix for AVX512 native and AVX512 portable modes
+
+Testing:
+
+- Long randomized soak tests
+- Regression checks vs scalar references
+
+Exit criteria:
+
+- Correctness parity accepted
+- Perf targets met with cycles/SEO accounting
+- No scalar API regression
+
+---
+
+## Style Requirements
 
 - POD structs
 - Static methods
 - Explicit out parameters
-- Clear per-function layout contracts in comments
-- `static_assert` for trivial copyability/default constructibility
+- Clear layout contracts in comments
+- `static_assert` for trivial default constructibility/copyability
 - `BLST_ASSERT` for debug-time contract checks
 
 ---
 
-## Key Risk and Mitigation
+## Risks and Mitigations
 
-Risk:
+Risk 1:
 
-- Reusing existing schedule-packed tower kernels as the primary batch representation can break lane-stable throughput design.
+- Overstating speedups via non-equivalent work comparisons
 
 Mitigation:
 
-- Keep a dedicated lane-stable `x8` tower path for batch kernels.
-- Use existing AVX kernels as arithmetic references and building blocks, not as representation constraints.
+- Enforce SEO accounting and reduced-equivalent comparisons only
+
+Risk 2:
+
+- Kernel wins lost by AoS boundary overhead
+
+Mitigation:
+
+- Require AoS end-to-end metrics from Phase 3 onward
+
+Risk 3:
+
+- Tail behavior hiding AVX regressions
+
+Mitigation:
+
+- Masked AVX tail as default; scalar tail measured separately
