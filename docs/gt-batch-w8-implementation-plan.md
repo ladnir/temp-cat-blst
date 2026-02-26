@@ -454,26 +454,110 @@ What to avoid in Phase 3:
 
 ## Phase 4: Fp12 x8
 
-Types/APIs:
+Current codebase status (from review):
 
-- `struct Fp12Pack8x1`
-- `mul`, `sqr`, `cyclotomic_sqr`, `conjugate`
+- `blst/fields/Fp12_avx.h/.cpp` already contains many strong schedule-specific kernels (`Fp12MulInput*`, sparse variants, cyclotomic-state variants) and scalar-layout wrapper entry points.
+- The missing piece for batch composition is a canonical lane-stable W=8 pack surface built on Phase 3 canonical Fp6 packs.
+- AoS partial-tail helpers and lane-mask select are not yet exposed as canonical Fp12 APIs.
 
-Testing:
+Phase 4 execution scope:
 
-- Differential vs scalar `Fp12`
-- Cross-check vs existing AVX kernels where equivalent
+- Introduce canonical `Fp12Pack8x1` + `UFp12Pack8x1` built from Phase 3 `Fp6Pack8x1`.
+- Expose reduced APIs required by GT batch layers: `add/sub/mul/sqr/cyclotomic_sqr/conjugate/select`.
+- Expose AoS boundary helpers (`from_aos*` / `to_aos*`) for clean tail handling and scheduler integration.
+- Keep legacy schedule-specific types and kernels intact; canonical APIs may call them internally if that wins on cycles/SEO.
+
+Phase 4 APIs to add (or complete):
+
+```cpp
+struct Fp12Pack8x1
+{
+    // canonical component order: c[0] + w*c[1]
+    std::array<Fp6Pack8x1, 2> c;
+
+    static void from_aos(Fp12Pack8x1& r, const Fp12* in8);
+    static void to_aos(Fp12* out8, const Fp12Pack8x1& a);
+    static void from_aos_partial(Fp12Pack8x1& r, const Fp12* in, size_t n_active, const Fp12& fill);
+    static void to_aos_partial(Fp12* out, size_t n_active, const Fp12Pack8x1& a);
+
+    static void add(Fp12Pack8x1& r, const Fp12Pack8x1& a, const Fp12Pack8x1& b);
+    static void sub(Fp12Pack8x1& r, const Fp12Pack8x1& a, const Fp12Pack8x1& b);
+    static void mul(Fp12Pack8x1& r, const Fp12Pack8x1& a, const Fp12Pack8x1& b);
+    static void sqr(Fp12Pack8x1& r, const Fp12Pack8x1& a);
+    static void cyclotomic_sqr(Fp12Pack8x1& r, const Fp12Pack8x1& a);
+    static void conjugate(Fp12Pack8x1& r, const Fp12Pack8x1& a);
+    static void select(Fp12Pack8x1& r, const Fp12Pack8x1& a, const Fp12Pack8x1& b, u8 lane_mask);
+};
+
+struct UFp12Pack8x1
+{
+    std::array<UFp6Pack8x1, 2> c;
+
+    static void redc(Fp12Pack8x1& r, const UFp12Pack8x1& a);
+    static void select(UFp12Pack8x1& r, const UFp12Pack8x1& a, const UFp12Pack8x1& b, u8 lane_mask);
+};
+```
+
+Data layout and tail policy:
+
+- Lane `i` always maps to tuple `i` across both Fp6 components.
+- Component mapping is fixed: `c[0]` is low Fp6 part, `c[1]` is high Fp6 part.
+- Partial-tail fill values:
+  - additive chains: `Fp12::zero()`
+  - multiplicative chains: `Fp12::one()`
+- No implicit lane remapping at the canonical API boundary; any schedule conversion is internal and documented.
+
+Cyclotomic contract:
+
+- `cyclotomic_sqr` requires cyclotomic-subgroup inputs.
+- Production path does not enforce subgroup checks per call (throughput-first), but tests must validate against subgroup-valid inputs and include negative/random sanity cases.
+
+Reduction strategy requirements:
+
+- Preserve widened intermediates across Fp6/Fp12 multiply-add chains where practical.
+- Reduce at explicit output boundaries, not after every internal multiply.
+- If a legacy schedule kernel imposes earlier reductions, keep that path measurable and documented; do not hide it as “canonical by default” without data.
+
+Phase 4 files expected to change:
+
+- `blst/fields/Fp12_avx.h`
+- `blst/fields/Fp12_avx.cpp`
+- `test/Fp12_avx_tests.cpp`
+- `benchmark/avxbls_bench.cpp` (only if perf gates are executed in this phase)
+
+Phase 4 testing plan:
+
+- Keep all existing `Fp12Avx` tests passing.
+- Add canonical AoS round-trip + partial-tail tests (`n_active=0..8`).
+- Differential tests vs scalar `Fp12` for `add/sub/mul/sqr/conjugate`.
+- Differential tests for `cyclotomic_sqr` with subgroup-valid vectors (and sanity checks on non-subgroup random vectors).
+- Lane-mask `select` tests for reduced and widened forms, including aliasing (`r==a`, `r==b`).
+- Tail differential tests: partial pack -> op -> partial unpack vs scalar reference.
+- Cross-check canonical `mul/sqr/cyclotomic_sqr` outputs against existing AVX wrapper functions where equivalent.
 
 Perf gates:
 
-- End-to-end AoS cycles/SEO is required for acceptance
-- Pack/unpack cost must be reported explicitly
-- Avoid scalar-style eager reduction inside Fp12 chains unless it wins on cycles/SEO.
+- Required for Phase 4 sign-off:
+  - `avx_kernel` cycles/SEO for canonical `mul`, `sqr`, and `cyclotomic_sqr`
+  - `avx_e2e` cycles/SEO including `from_aos + op + to_aos`
+- Report pack/unpack contribution explicitly.
+- Compare against scalar baseline using SEO-normalized metrics only.
+- Avoid scalar-style eager-reduction rewrites unless they win on measured cycles/SEO.
 
 Exit criteria:
 
-- Correctness parity
-- Positive end-to-end throughput gain vs scalar
+- Scalar parity for canonical Fp12 API across randomized and adversarial vectors.
+- Deterministic lane/tail behavior for all masks and `n_active=0..8`.
+- Canonical Fp12 path is directly consumable by Phase 5 GT kernels without new layout adapters.
+- Positive end-to-end throughput trend vs scalar at practical batch sizes.
+
+What to avoid in Phase 4:
+
+- No variable-width template introduction.
+- No named component members like `a0/a1`; use C-array or `std::array` members.
+- No hidden scalar fallback inside canonical AVX methods.
+- No undocumented internal schedule conversion at API boundaries.
+- No cyclotomic benchmarks or correctness claims on non-cyclotomic data.
 
 ---
 

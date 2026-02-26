@@ -73,6 +73,149 @@ namespace
 
 } // namespace
 
+void Fp12Pack8x1::from_aos(Fp12Pack8x1& r, const Fp12* in8)
+{
+    BLST_ASSERT(in8 != nullptr);
+
+    std::array<Fp6, 8> c0{};
+    std::array<Fp6, 8> c1{};
+
+    for (std::size_t i = 0; i < 8; ++i) {
+        c0[i] = in8[i][0];
+        c1[i] = in8[i][1];
+    }
+
+    Fp6Pack8x1::from_aos(r.c[0], c0.data());
+    Fp6Pack8x1::from_aos(r.c[1], c1.data());
+}
+
+void Fp12Pack8x1::to_aos(Fp12* out8, const Fp12Pack8x1& a)
+{
+    BLST_ASSERT(out8 != nullptr);
+
+    std::array<Fp6, 8> c0{};
+    std::array<Fp6, 8> c1{};
+
+    Fp6Pack8x1::to_aos(c0.data(), a.c[0]);
+    Fp6Pack8x1::to_aos(c1.data(), a.c[1]);
+
+    for (std::size_t i = 0; i < 8; ++i) {
+        out8[i][0] = c0[i];
+        out8[i][1] = c1[i];
+    }
+}
+
+void Fp12Pack8x1::from_aos_partial(
+    Fp12Pack8x1& r,
+    const Fp12* in,
+    const std::size_t n_active,
+    const Fp12& fill)
+{
+    BLST_ASSERT(n_active <= 8);
+    BLST_ASSERT(in != nullptr || n_active == 0);
+
+    std::array<Fp12, 8> tmp{};
+    for (std::size_t i = 0; i < n_active; ++i) {
+        tmp[i] = in[i];
+    }
+    for (std::size_t i = n_active; i < 8; ++i) {
+        tmp[i] = fill;
+    }
+
+    from_aos(r, tmp.data());
+}
+
+void Fp12Pack8x1::to_aos_partial(Fp12* out, const std::size_t n_active, const Fp12Pack8x1& a)
+{
+    BLST_ASSERT(n_active <= 8);
+    BLST_ASSERT(out != nullptr || n_active == 0);
+
+    std::array<Fp12, 8> tmp{};
+    to_aos(tmp.data(), a);
+    for (std::size_t i = 0; i < n_active; ++i) {
+        out[i] = tmp[i];
+    }
+}
+
+void Fp12Pack8x1::add(Fp12Pack8x1& r, const Fp12Pack8x1& a, const Fp12Pack8x1& b)
+{
+    Fp6Pack8x1::add(r.c[0], a.c[0], b.c[0]);
+    Fp6Pack8x1::add(r.c[1], a.c[1], b.c[1]);
+}
+
+void Fp12Pack8x1::sub(Fp12Pack8x1& r, const Fp12Pack8x1& a, const Fp12Pack8x1& b)
+{
+    Fp6Pack8x1::sub(r.c[0], a.c[0], b.c[0]);
+    Fp6Pack8x1::sub(r.c[1], a.c[1], b.c[1]);
+}
+
+void Fp12Pack8x1::mul(Fp12Pack8x1& r, const Fp12Pack8x1& a, const Fp12Pack8x1& b)
+{
+    Fp6Pack8x1 t0{};
+    Fp6Pack8x1 t1{};
+    Fp6Pack8x1 t2{};
+    Fp6Pack8x1 t3{};
+
+    Fp6Pack8x1::mul(t0, a.c[0], b.c[0]);
+    Fp6Pack8x1::mul(t1, a.c[1], b.c[1]);
+
+    // r.c[1] = (a0+a1)*(b0+b1) - a0*b0 - a1*b1
+    Fp6Pack8x1::add(t2, a.c[0], a.c[1]);
+    Fp6Pack8x1::add(t3, b.c[0], b.c[1]);
+    Fp6Pack8x1::mul(r.c[1], t2, t3);
+    Fp6Pack8x1::sub(r.c[1], r.c[1], t0);
+    Fp6Pack8x1::sub(r.c[1], r.c[1], t1);
+
+    // r.c[0] = a0*b0 + v*(a1*b1)
+    Fp6Pack8x1::mul_by_nonresidue(t2, t1);
+    Fp6Pack8x1::add(r.c[0], t0, t2);
+}
+
+void Fp12Pack8x1::sqr(Fp12Pack8x1& r, const Fp12Pack8x1& a)
+{
+    Fp6Pack8x1 s0{};
+    Fp6Pack8x1 s1{};
+    Fp6Pack8x1 m01{};
+    Fp6Pack8x1 t0{};
+
+    Fp6Pack8x1::sqr(s0, a.c[0]);
+    Fp6Pack8x1::sqr(s1, a.c[1]);
+    Fp6Pack8x1::mul(m01, a.c[0], a.c[1]);
+    Fp6Pack8x1::add(r.c[1], m01, m01);
+    Fp6Pack8x1::mul_by_nonresidue(t0, s1);
+    Fp6Pack8x1::add(r.c[0], s0, t0);
+}
+
+void Fp12Pack8x1::cyclotomic_sqr(Fp12Pack8x1& r, const Fp12Pack8x1& a)
+{
+    sqr(r, a);
+}
+
+void Fp12Pack8x1::conjugate(Fp12Pack8x1& r, const Fp12Pack8x1& a)
+{
+    Fp6Pack8x1 zero{};
+    r.c[0] = a.c[0];
+    Fp6Pack8x1::sub(r.c[1], zero, a.c[1]);
+}
+
+void Fp12Pack8x1::select(Fp12Pack8x1& r, const Fp12Pack8x1& a, const Fp12Pack8x1& b, const u8 lane_mask)
+{
+    Fp6Pack8x1::select(r.c[0], a.c[0], b.c[0], lane_mask);
+    Fp6Pack8x1::select(r.c[1], a.c[1], b.c[1], lane_mask);
+}
+
+void UFp12Pack8x1::redc(Fp12Pack8x1& r, const UFp12Pack8x1& a)
+{
+    UFp6Pack8x1::redc(r.c[0], a.c[0]);
+    UFp6Pack8x1::redc(r.c[1], a.c[1]);
+}
+
+void UFp12Pack8x1::select(UFp12Pack8x1& r, const UFp12Pack8x1& a, const UFp12Pack8x1& b, const u8 lane_mask)
+{
+    UFp6Pack8x1::select(r.c[0], a.c[0], b.c[0], lane_mask);
+    UFp6Pack8x1::select(r.c[1], a.c[1], b.c[1], lane_mask);
+}
+
 void Fp12CyclotomicState::sqr_v1(Fp12CyclotomicState& r, const Fp12CyclotomicState& in)
 {
     Fp4Pack1x2x2x2& ra = r.a;

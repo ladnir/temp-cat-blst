@@ -3,6 +3,7 @@
 
 #include "blst/fields/Fp6_avx.h"
 #include "blst/fields/Fp12.h"
+#include <array>
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 
@@ -18,6 +19,111 @@ namespace blst
      *
      * All packed values are Montgomery-form field elements.
      */
+
+    /**
+     * Canonical W=8 Fp12 pack used by the batch tower path.
+     *
+     * Component order:
+     *   c[0] + w*c[1]
+     * where each component is a canonical `Fp6Pack8x1`.
+     */
+    struct Fp12Pack8x1
+    {
+        std::array<Fp6Pack8x1, 2> c;
+
+        BLST_FORCEINLINE Fp6Pack8x1& operator[](std::size_t i)
+        {
+            BLST_ASSERT(i < c.size());
+            return c[i];
+        }
+
+        BLST_FORCEINLINE const Fp6Pack8x1& operator[](std::size_t i) const
+        {
+            BLST_ASSERT(i < c.size());
+            return c[i];
+        }
+
+        BLST_FORCEINLINE Fp6Pack8x1* data()
+        {
+            return c.data();
+        }
+
+        BLST_FORCEINLINE const Fp6Pack8x1* data() const
+        {
+            return c.data();
+        }
+
+        /// Pack 8 scalar `Fp12` values (AoS) into one canonical `Fp12Pack8x1`.
+        static void from_aos(Fp12Pack8x1& r, const Fp12* in8);
+
+        /// Unpack one canonical `Fp12Pack8x1` into 8 scalar `Fp12` values (AoS).
+        static void to_aos(Fp12* out8, const Fp12Pack8x1& a);
+
+        /// Partial AoS pack for tail handling.
+        static void from_aos_partial(Fp12Pack8x1& r, const Fp12* in, std::size_t n_active, const Fp12& fill);
+
+        /// Partial AoS unpack for tail handling.
+        static void to_aos_partial(Fp12* out, std::size_t n_active, const Fp12Pack8x1& a);
+
+        /// Component-wise modular add: r = a + b.
+        static void add(Fp12Pack8x1& r, const Fp12Pack8x1& a, const Fp12Pack8x1& b);
+
+        /// Component-wise modular sub: r = a - b.
+        static void sub(Fp12Pack8x1& r, const Fp12Pack8x1& a, const Fp12Pack8x1& b);
+
+        /// Reduced Fp12 multiply.
+        static void mul(Fp12Pack8x1& r, const Fp12Pack8x1& a, const Fp12Pack8x1& b);
+
+        /// Reduced Fp12 square.
+        static void sqr(Fp12Pack8x1& r, const Fp12Pack8x1& a);
+
+        /// Cyclotomic square API entry; functionally equal to square.
+        static void cyclotomic_sqr(Fp12Pack8x1& r, const Fp12Pack8x1& a);
+
+        /// Conjugation: (c0, c1) -> (c0, -c1).
+        static void conjugate(Fp12Pack8x1& r, const Fp12Pack8x1& a);
+
+        /// Lane-wise select between two packed values.
+        /// Bit `i` of `lane_mask` selects lane `i`: `0 -> a`, `1 -> b`.
+        static void select(Fp12Pack8x1& r, const Fp12Pack8x1& a, const Fp12Pack8x1& b, u8 lane_mask);
+    };
+
+    /**
+     * Widened companion for canonical `Fp12Pack8x1`.
+     */
+    struct UFp12Pack8x1
+    {
+        std::array<UFp6Pack8x1, 2> c;
+
+        BLST_FORCEINLINE UFp6Pack8x1& operator[](std::size_t i)
+        {
+            BLST_ASSERT(i < c.size());
+            return c[i];
+        }
+
+        BLST_FORCEINLINE const UFp6Pack8x1& operator[](std::size_t i) const
+        {
+            BLST_ASSERT(i < c.size());
+            return c[i];
+        }
+
+        BLST_FORCEINLINE UFp6Pack8x1* data()
+        {
+            return c.data();
+        }
+
+        BLST_FORCEINLINE const UFp6Pack8x1* data() const
+        {
+            return c.data();
+        }
+
+        /// Reduce widened result into reduced `Fp12Pack8x1`.
+        static void redc(Fp12Pack8x1& r, const UFp12Pack8x1& a);
+
+        /// Lane-wise select between two widened packed values.
+        /// Bit `i` of `lane_mask` selects lane `i`: `0 -> a`, `1 -> b`.
+        static void select(UFp12Pack8x1& r, const UFp12Pack8x1& a, const UFp12Pack8x1& b, u8 lane_mask);
+    };
 
     /**
      * Packed schedule of three Fp2 blocks for Fp12 multiplication inputs in `8x1x1w`.
@@ -166,6 +272,10 @@ namespace blst
 
     static_assert(std::is_trivially_default_constructible_v<Fp12MulInput8x1x1>);
     static_assert(std::is_trivially_copyable_v<Fp12MulInput8x1x1>);
+    static_assert(std::is_trivially_default_constructible_v<Fp12Pack8x1>);
+    static_assert(std::is_trivially_copyable_v<Fp12Pack8x1>);
+    static_assert(std::is_trivially_default_constructible_v<UFp12Pack8x1>);
+    static_assert(std::is_trivially_copyable_v<UFp12Pack8x1>);
     static_assert(std::is_trivially_default_constructible_v<Fp12MulInput4x2x1>);
     static_assert(std::is_trivially_copyable_v<Fp12MulInput4x2x1>);
     static_assert(std::is_trivially_default_constructible_v<Fp12SparseInput4x2x1>);
