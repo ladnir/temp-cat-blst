@@ -11,212 +11,191 @@ namespace blst
     /**
      * AVX512 Fp12 helpers ported from avxbls.
      *
-     * Fp12 model:
-     * - element = a0 + a1 * w, where a0,a1 are Fp6
-     * - each Fp6 = c0 + c1 * v + c2 * v^2 over Fp2 with v^3=(u+1)
-     * - all component values are Montgomery-form Fp2 values.
+     * Field model:
+     *   Fp12 = Fp6[w] / (w^2 - v)
+     *   Fp6  = Fp2[v] / (v^3 - (u + 1))
+     *   Fp2  = Fp[u] / (u^2 + 1)
      *
-     * These kernels operate on AVXBLS schedules. Some outputs are schedule blocks
-     * and not direct lane-by-lane scalar tuples unless explicitly stated.
+     * All packed values are Montgomery-form field elements.
      */
 
     /**
-     * Cyclotomic square (double-length Fp4 square path).
+     * Packed schedule of three Fp2 blocks for Fp12 multiplication inputs in `8x1x1w`.
      *
-     * Computes the Granger-Scott cyclotomic square update:
-     * - `ra` stores the updated A block (`z0,z1` side)
-     * - `rbc` stores the updated B/C block (`z2..z5` side)
+     * Algorithmic role:
+     *   packs[0] = ab0
+     *   packs[1] = ab1
+     *   packs[2] = ab2
+     * where `abk` is the pre-arranged product term lane bundle consumed by Fp12 kernels.
      *
-     * @pre `a` and `bc` are valid packed cyclotomic schedule inputs in Montgomery form.
-     * @post `ra` and `rbc` contain reduced Montgomery schedule outputs.
+     * Visual topology:
+     *   [ packs[2] | packs[1] | packs[0] ]
+     *   [   ab2    |   ab1    |   ab0    ]
      */
-    void cyclotomic_sqr_fp12_vec_v1(
-        Fp4Pack1x2x2x2& ra,
-        Fp4Pack2x2x2x1& rbc,
-        const Fp4Pack1x2x2x2& a,
-        const Fp4Pack2x2x2x1& bc);
+    struct Fp12MulInput8x1x1 : public AvxPackTuple<Fp2Pack8x1x1, 3>
+    {
+        /// Schoolbook Fp12 multiply variant 1, output as `r01` + `r2` in `4x2x1w`.
+        static void mul_v1(
+            Fp2Pack4x2x1& r01,
+            Fp2Pack4x2x1& r2,
+            const Fp12MulInput8x1x1& ab);
+
+        /// Schoolbook Fp12 multiply variant 2, output as `r01` in `4x2x1w` + `r2` in `2x2x2w`.
+        static void mul_v2(
+            Fp2Pack4x2x1& r01,
+            Fp2Pack2x2x2& r2,
+            const Fp12MulInput8x1x1& ab);
+    };
 
     /**
-     * Cyclotomic square (single-length Fp4 square path).
+     * Packed schedule of three Fp2 blocks for Fp12 multiplication inputs in `4x2x1w`.
      *
-     * Same math as `cyclotomic_sqr_fp12_vec_v1`, using the v2 Fp4 square kernels.
-     *
-     * @pre `a` and `bc` are valid packed cyclotomic schedule inputs in Montgomery form.
-     * @post `ra` and `rbc` contain reduced Montgomery schedule outputs.
+     * Algorithmic role:
+     *   packs[0] = ab0
+     *   packs[1] = ab1
+     *   packs[2] = ab2
      */
-    void cyclotomic_sqr_fp12_vec_v2(
-        Fp4Pack1x2x2x2& ra,
-        Fp4Pack2x2x2x1& rbc,
-        const Fp4Pack1x2x2x2& a,
-        const Fp4Pack2x2x2x1& bc);
+    struct Fp12MulInput4x2x1 : public AvxPackTuple<Fp2Pack4x2x1, 3>
+    {
+        /// Karatsuba Fp12 multiply variant 3 (`2x2x2w`-based split output).
+        static void mul_v3(
+            Fp2Pack2x2x2& r001,
+            Fp2Pack2x2x2& r101,
+            Fp2Pack2x2x2& r2,
+            const Fp12MulInput4x2x1& ab);
+
+        /// Karatsuba Fp12 multiply variant 4 (`4x2x1w` + `2x2x2w` split output).
+        static void mul_v4(
+            Fp2Pack4x2x1& r0,
+            Fp2Pack2x2x2& r101,
+            Fp2Pack2x2x2& r12,
+            const Fp12MulInput4x2x1& ab);
+    };
 
     /**
-     * Compressed cyclotomic square update of only the B/C block.
+     * Sparse Fp12 multiply input in `4x2x1w` schedule for `(x,y,0,0,z,0)`.
      *
-     * This is the B/C half of the cyclotomic square formula used by compressed
-     * exponentiation schedules.
-     *
-     * @pre `bc` is a valid packed B/C block in Montgomery form.
-     * @post `rbc` contains reduced Montgomery B/C schedule output.
+     * Field component mapping:
+     *   a01 = (a1 | a0)
+     *   a2  = (a2 | a2)
+     *   b01 = (b1 | b0)
+     *   b4  = (b4 | b4)
      */
-    void compressed_cyclotomic_sqr_fp12_vec_v1(
-        Fp4Pack2x2x2x1& rbc,
-        const Fp4Pack2x2x2x1& bc);
+    struct Fp12SparseInput4x2x1
+    {
+        Fp2Pack4x2x1 a01;
+        Fp2Pack4x2x1 a2;
+        Fp2Pack4x2x1 b01;
+        Fp2Pack4x2x1 b4;
+
+        /// Sparse Fp12 multiply variant 1.
+        static void mul_v1(
+            Fp2Pack4x2x1& r0,
+            Fp2Pack2x2x2& r1,
+            const Fp12SparseInput4x2x1& in);
+    };
 
     /**
-     * Schoolbook Fp12 multiply, variant 1.
+     * Sparse Fp12 multiply input in `8x1x1w` schedule for `(x,y,0,0,z,0)`.
      *
-     * Produces reduced schedule blocks:
-     * - `r01` carries `(r1[1], r1[0], r0[2], r0[1])`
-     * - `r2` carries `(r1[2], r0[0])` in the low schedule region.
-     *
-     * @pre `ab0/ab1/ab2` are valid `8x1x1w` AVXBLS packed products schedule inputs.
-     * @post `r01` and `r2` contain reduced Montgomery schedule outputs.
+     * Field component mapping:
+     *   a = packed source block for (a2,a1,a0) schedule lanes
+     *   b = packed source block for sparse multiplier lanes (b0,b1,b4)
      */
-    void mul_fp12_vec_v1(
-        Fp2Pack4x2x1& r01,
-        Fp2Pack4x2x1& r2,
-        const Fp2Pack8x1x1& ab0,
-        const Fp2Pack8x1x1& ab1,
-        const Fp2Pack8x1x1& ab2);
+    struct Fp12SparseInput8x1x1
+    {
+        Fp2Pack8x1x1 a;
+        Fp2Pack8x1x1 b;
+
+        /// Sparse Fp12 multiply variant 2.
+        static void mul_v2(
+            Fp2Pack4x2x1& r0,
+            Fp2Pack2x2x2& r1,
+            const Fp12SparseInput8x1x1& in);
+    };
 
     /**
-     * Schoolbook Fp12 multiply, variant 2 (double-length sub-routine path).
+     * Fp12 square input schedule in `4x2x1w`.
      *
-     * Output meaning matches variant 1, with `r2` emitted in `2x2x2w`.
-     *
-     * @pre `ab0/ab1/ab2` are valid `8x1x1w` AVXBLS packed products schedule inputs.
-     * @post `r01` and `r2` contain reduced Montgomery schedule outputs.
+     * Layout model:
+     *   a0 = low half schedule lanes
+     *   a1 = high half schedule lanes
      */
-    void mul_fp12_vec_v2(
-        Fp2Pack4x2x1& r01,
-        Fp2Pack2x2x2& r2,
-        const Fp2Pack8x1x1& ab0,
-        const Fp2Pack8x1x1& ab1,
-        const Fp2Pack8x1x1& ab2);
+    struct Fp12SquareInput4x2x1
+    {
+        Fp2Pack4x2x1 a0;
+        Fp2Pack4x2x1 a1;
+
+        /// Karatsuba-style Fp12 square variant 1.
+        static void sqr_v1(
+            Fp2Pack4x2x1& r0,
+            Fp2Pack4x2x1& r1,
+            const Fp12SquareInput4x2x1& in);
+    };
 
     /**
-     * Karatsuba Fp12 multiply, variant 3 (`2x2x2w` sub-routines).
+     * Cyclotomic B/C schedule block for Fp12.
      *
-     * Outputs:
-     * - `r001`: `(r0[1], r0[0])`
-     * - `r101`: `(r1[1], r1[0])`
-     * - `r2`: `(r1[2], r0[2])`
-     *
-     * @pre `ab0/ab1/ab2` are valid `4x2x1w` AVXBLS packed products schedule inputs.
-     * @post outputs contain reduced Montgomery schedule blocks.
+     * Visual mapping (Fp2 slots):
+     *   [z5 | z4 | z3 | z2] in AVXBLS `2x2x2x1w` block order.
      */
-    void mul_fp12_vec_v3(
-        Fp2Pack2x2x2& r001,
-        Fp2Pack2x2x2& r101,
-        Fp2Pack2x2x2& r2,
-        const Fp2Pack4x2x1& ab0,
-        const Fp2Pack4x2x1& ab1,
-        const Fp2Pack4x2x1& ab2);
+    struct Fp12CyclotomicBc : public Fp4Pack2x2x2x1
+    {
+        /// Compressed cyclotomic square update of B/C block only.
+        static void compressed_sqr_v1(Fp12CyclotomicBc& rbc, const Fp12CyclotomicBc& bc);
+    };
 
     /**
-     * Karatsuba Fp12 multiply, variant 4 (`4x2x1w` + `2x2x2w` split).
+     * Cyclotomic Fp12 state schedule.
      *
-     * Outputs:
-     * - `r0`: low Fp6 block (`r0[0..2]`) schedule block
-     * - `r101`: `(r1[1], r1[0])`
-     * - `r12`: contains `r1[2]` in low schedule region
-     *
-     * @pre `ab0/ab1/ab2` are valid `4x2x1w` AVXBLS packed products schedule inputs.
-     * @post outputs contain reduced Montgomery schedule blocks.
+     * Component mapping:
+     *   a  = A block (`z0,z1`) in `1x2x2x2w`
+     *   bc = B/C block (`z2..z5`) in `2x2x2x1w`
      */
-    void mul_fp12_vec_v4(
-        Fp2Pack4x2x1& r0,
-        Fp2Pack2x2x2& r101,
-        Fp2Pack2x2x2& r12,
-        const Fp2Pack4x2x1& ab0,
-        const Fp2Pack4x2x1& ab1,
-        const Fp2Pack4x2x1& ab2);
+    struct Fp12CyclotomicState
+    {
+        Fp4Pack1x2x2x2 a;
+        Fp12CyclotomicBc bc;
 
-    /**
-     * Sparse Fp12 multiply by `(x,y,0,0,z,0)`, variant 1 (2-way sparse Fp6 path).
-     *
-     * @pre `a01/a2/b01/b4` follow AVXBLS sparse schedule packing.
-     * @post `r0` and `r1` contain reduced Montgomery schedule blocks.
-     */
-    void mul_by_xy00z0_fp12_vec_v1(
-        Fp2Pack4x2x1& r0,
-        Fp2Pack2x2x2& r1,
-        const Fp2Pack4x2x1& a01,
-        const Fp2Pack4x2x1& a2,
-        const Fp2Pack4x2x1& b01,
-        const Fp2Pack4x2x1& b4);
+        /// Cyclotomic square variant 1 (double-length Fp4 sub-kernels).
+        static void sqr_v1(Fp12CyclotomicState& r, const Fp12CyclotomicState& in);
 
-    /**
-     * Sparse Fp12 multiply by `(x,y,0,0,z,0)`, variant 2 (4-way sparse Fp6 path).
-     *
-     * @pre `a` and `b` follow AVXBLS sparse `8x1x1w` schedule packing.
-     * @post `r0` and `r1` contain reduced Montgomery schedule blocks.
-     */
-    void mul_by_xy00z0_fp12_vec_v2(
-        Fp2Pack4x2x1& r0,
-        Fp2Pack2x2x2& r1,
-        const Fp2Pack8x1x1& a,
-        const Fp2Pack8x1x1& b);
+        /// Cyclotomic square variant 2 (single-length Fp4 sub-kernels).
+        static void sqr_v2(Fp12CyclotomicState& r, const Fp12CyclotomicState& in);
+    };
 
-    /**
-     * Karatsuba-style Fp12 square, variant 1.
-     *
-     * Computes `r = a^2` in packed schedule form:
-     * - `r0`: low Fp6 block schedule
-     * - `r1`: high Fp6 block schedule
-     *
-     * @pre `a0/a1` are valid AVXBLS packed square-schedule inputs.
-     * @post `r0` and `r1` contain reduced Montgomery schedule outputs.
-     */
-    void sqr_fp12_vec_v1(
-        Fp2Pack4x2x1& r0,
-        Fp2Pack4x2x1& r1,
-        const Fp2Pack4x2x1& a0,
-        const Fp2Pack4x2x1& a1);
+    static_assert(std::is_trivially_default_constructible_v<Fp12MulInput8x1x1>);
+    static_assert(std::is_trivially_copyable_v<Fp12MulInput8x1x1>);
+    static_assert(std::is_trivially_default_constructible_v<Fp12MulInput4x2x1>);
+    static_assert(std::is_trivially_copyable_v<Fp12MulInput4x2x1>);
+    static_assert(std::is_trivially_default_constructible_v<Fp12SparseInput4x2x1>);
+    static_assert(std::is_trivially_copyable_v<Fp12SparseInput4x2x1>);
+    static_assert(std::is_trivially_default_constructible_v<Fp12SparseInput8x1x1>);
+    static_assert(std::is_trivially_copyable_v<Fp12SparseInput8x1x1>);
+    static_assert(std::is_trivially_default_constructible_v<Fp12SquareInput4x2x1>);
+    static_assert(std::is_trivially_copyable_v<Fp12SquareInput4x2x1>);
+    static_assert(std::is_trivially_default_constructible_v<Fp12CyclotomicBc>);
+    static_assert(std::is_trivially_copyable_v<Fp12CyclotomicBc>);
+    static_assert(std::is_trivially_default_constructible_v<Fp12CyclotomicState>);
+    static_assert(std::is_trivially_copyable_v<Fp12CyclotomicState>);
 
     /**
      * AVXBLS wrapper: full Fp12 multiply with scalar-layout inputs/outputs.
-     *
-     * This function packs scalar `Fp12` operands into the AVXBLS `4x2x1w`
-     * multiply schedule, runs `mul_fp12_vec_v3`, and unpacks back into scalar
-     * Montgomery `Fp12` limbs.
-     *
-     * @pre `a` and `b` are Montgomery-form `Fp12` values.
-     * @post `ret` equals `a * b` in Montgomery form.
      */
     void mul_fp12_vector(Fp12& ret, const Fp12& a, const Fp12& b);
 
     /**
      * AVXBLS wrapper: sparse Fp12 multiply by `(x,y,0,0,z,0)`.
-     *
-     * Packs scalar `Fp12/Fp6` operands into AVXBLS sparse schedules, runs
-     * `mul_by_xy00z0_fp12_vec_v1`, then unpacks to scalar Montgomery layout.
-     *
-     * @pre `a` and `xy00z0` are Montgomery-form values.
-     * @post `ret` equals `a * xy00z0` in Montgomery form.
      */
     void mul_by_xy00z0_fp12_vector(Fp12& ret, const Fp12& a, const Fp6& xy00z0);
 
     /**
      * AVXBLS wrapper: full Fp12 squaring.
-     *
-     * Packs scalar `a` into the AVXBLS square schedule, runs `sqr_fp12_vec_v1`,
-     * and unpacks to scalar Montgomery layout.
-     *
-     * @pre `a` is a Montgomery-form `Fp12` value.
-     * @post `ret` equals `a^2` in Montgomery form.
      */
     void sqr_fp12_vector(Fp12& ret, const Fp12& a);
 
     /**
      * AVXBLS wrapper: cyclotomic square with scalar-layout inputs/outputs.
-     *
-     * Packs scalar `a` into AVXBLS cyclotomic schedules, runs
-     * `cyclotomic_sqr_fp12_vec_v1`, and unpacks to scalar Montgomery layout.
-     *
-     * @pre `a` is in the cyclotomic subgroup and in Montgomery form.
-     * @post `ret` equals the cyclotomic square of `a`.
      */
     void cyclotomic_sqr_fp12_vector(Fp12& ret, const Fp12& a);
 }

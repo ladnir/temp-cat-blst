@@ -289,18 +289,18 @@ TEST(Fp12Avx, MulVariantsBroadcastAgainstScalar)
         Fp12::mul(expected, a, b);
         const auto exp = flatten_fp12(expected);
 
-        Fp2Pack8x1x1 ab0_8{}, ab1_8{}, ab2_8{};
-        Fp2Pack4x2x1 ab0_4{}, ab1_4{}, ab2_4{};
-        pack_Fp2Pack8x1x1(ab0_8, filled_fp2<8>(c0));
-        pack_Fp2Pack8x1x1(ab1_8, filled_fp2<8>(c1));
-        pack_Fp2Pack8x1x1(ab2_8, filled_fp2<8>(c2));
-        pack_Fp2Pack4x2x1(ab0_4, filled_fp2<4>(c0));
-        pack_Fp2Pack4x2x1(ab1_4, filled_fp2<4>(c1));
-        pack_Fp2Pack4x2x1(ab2_4, filled_fp2<4>(c2));
+        Fp12MulInput8x1x1 ab8{};
+        Fp12MulInput4x2x1 ab4{};
+        pack_Fp2Pack8x1x1(ab8[0], filled_fp2<8>(c0));
+        pack_Fp2Pack8x1x1(ab8[1], filled_fp2<8>(c1));
+        pack_Fp2Pack8x1x1(ab8[2], filled_fp2<8>(c2));
+        pack_Fp2Pack4x2x1(ab4[0], filled_fp2<4>(c0));
+        pack_Fp2Pack4x2x1(ab4[1], filled_fp2<4>(c1));
+        pack_Fp2Pack4x2x1(ab4[2], filled_fp2<4>(c2));
 
         Fp2Pack4x2x1 r01_v1{}, r2_v1{};
         Fp2Vec4 out01_v1{}, out2_v1{};
-        mul_fp12_vec_v1(r01_v1, r2_v1, ab0_8, ab1_8, ab2_8);
+        Fp12MulInput8x1x1::mul_v1(r01_v1, r2_v1, ab8);
         unpack_Fp2Pack4x2x1(out01_v1, r01_v1);
         unpack_Fp2Pack4x2x1(out2_v1, r2_v1);
 
@@ -308,13 +308,13 @@ TEST(Fp12Avx, MulVariantsBroadcastAgainstScalar)
         Fp2Pack2x2x2 r2_v2{};
         Fp2Vec4 out01_v2{};
         Fp2Vec2 out2_v2{};
-        mul_fp12_vec_v2(r01_v2, r2_v2, ab0_8, ab1_8, ab2_8);
+        Fp12MulInput8x1x1::mul_v2(r01_v2, r2_v2, ab8);
         unpack_Fp2Pack4x2x1(out01_v2, r01_v2);
         unpack_Fp2Pack2x2x2(out2_v2, r2_v2);
 
         Fp2Pack2x2x2 r001_v3{}, r101_v3{}, r2_v3{};
         Fp2Vec2 out001_v3{}, out101_v3{}, out2_v3{};
-        mul_fp12_vec_v3(r001_v3, r101_v3, r2_v3, ab0_4, ab1_4, ab2_4);
+        Fp12MulInput4x2x1::mul_v3(r001_v3, r101_v3, r2_v3, ab4);
         unpack_Fp2Pack2x2x2(out001_v3, r001_v3);
         unpack_Fp2Pack2x2x2(out101_v3, r101_v3);
         unpack_Fp2Pack2x2x2(out2_v3, r2_v3);
@@ -323,7 +323,7 @@ TEST(Fp12Avx, MulVariantsBroadcastAgainstScalar)
         Fp2Pack2x2x2 r101_v4{}, r12_v4{};
         Fp2Vec4 out0_v4{};
         Fp2Vec2 out101_v4{}, out12_v4{};
-        mul_fp12_vec_v4(r0_v4, r101_v4, r12_v4, ab0_4, ab1_4, ab2_4);
+        Fp12MulInput4x2x1::mul_v4(r0_v4, r101_v4, r12_v4, ab4);
         unpack_Fp2Pack4x2x1(out0_v4, r0_v4);
         unpack_Fp2Pack2x2x2(out101_v4, r101_v4);
         unpack_Fp2Pack2x2x2(out12_v4, r12_v4);
@@ -349,14 +349,15 @@ TEST(Fp12Avx, SqrBroadcastDeterministic)
             rand_redc_fp2(v, rng);
         }
 
-        Fp2Pack4x2x1 a0{}, a1{}, r0{}, r1{};
+        Fp12SquareInput4x2x1 in{};
+        Fp2Pack4x2x1 r0{}, r1{};
         Fp2Pack4x2x1 r0b{}, r1b{};
         Fp2Vec4 out0{}, out1{};
         Fp2Vec4 out0b{}, out1b{};
-        pack_Fp2Pack4x2x1(a0, filled_fp2<4>(v));
-        pack_Fp2Pack4x2x1(a1, filled_fp2<4>(v));
-        sqr_fp12_vec_v1(r0, r1, a0, a1);
-        sqr_fp12_vec_v1(r0b, r1b, a0, a1);
+        pack_Fp2Pack4x2x1(in.a0, filled_fp2<4>(v));
+        pack_Fp2Pack4x2x1(in.a1, filled_fp2<4>(v));
+        Fp12SquareInput4x2x1::sqr_v1(r0, r1, in);
+        Fp12SquareInput4x2x1::sqr_v1(r0b, r1b, in);
         unpack_Fp2Pack4x2x1(out0, r0);
         unpack_Fp2Pack4x2x1(out1, r1);
         unpack_Fp2Pack4x2x1(out0b, r0b);
@@ -383,22 +384,22 @@ TEST(Fp12Avx, CyclotomicVariantsAndCompressed)
             rand_redc_fp2(vbc, rng);
         }
 
-        Fp4Pack1x2x2x2 a{}, ra1{}, ra2{};
-        Fp4Pack2x2x2x1 bc{}, rbc1{}, rbc2{}, rbc_comp{};
+        Fp12CyclotomicState in{}, out1{}, out2{};
+        Fp12CyclotomicBc rbc_comp{};
         Fp2Vec2 out_ra1{}, out_ra2{};
         Fp2Vec4 out_rbc1{}, out_rbc2{}, out_rbc_comp{};
 
-        pack_fp4_1x2x2x2w(a, filled_fp2<2>(va));
-        pack_fp4_2x2x2x1w(bc, filled_fp2<4>(vbc));
+        pack_fp4_1x2x2x2w(in.a, filled_fp2<2>(va));
+        pack_fp4_2x2x2x1w(in.bc, filled_fp2<4>(vbc));
 
-        cyclotomic_sqr_fp12_vec_v1(ra1, rbc1, a, bc);
-        cyclotomic_sqr_fp12_vec_v2(ra2, rbc2, a, bc);
-        compressed_cyclotomic_sqr_fp12_vec_v1(rbc_comp, bc);
+        Fp12CyclotomicState::sqr_v1(out1, in);
+        Fp12CyclotomicState::sqr_v2(out2, in);
+        Fp12CyclotomicBc::compressed_sqr_v1(rbc_comp, in.bc);
 
-        unpack_fp4_1x2x2x2w(out_ra1, ra1);
-        unpack_fp4_1x2x2x2w(out_ra2, ra2);
-        unpack_fp4_2x2x2x1w(out_rbc1, rbc1);
-        unpack_fp4_2x2x2x1w(out_rbc2, rbc2);
+        unpack_fp4_1x2x2x2w(out_ra1, out1.a);
+        unpack_fp4_1x2x2x2w(out_ra2, out2.a);
+        unpack_fp4_2x2x2x1w(out_rbc1, out1.bc);
+        unpack_fp4_2x2x2x1w(out_rbc2, out2.bc);
         unpack_fp4_2x2x2x1w(out_rbc_comp, rbc_comp);
 
         for (size_t i = 0; i < 2; ++i) {
@@ -425,22 +426,23 @@ TEST(Fp12Avx, SparseMulVariantsBroadcast)
             rand_redc_fp2(bv, rng);
         }
 
-        Fp2Pack4x2x1 a01{}, a2{}, b01{}, b4{}, r0_v1{};
-        Fp2Pack8x1x1 a8{}, b8{};
+        Fp12SparseInput4x2x1 in4{};
+        Fp12SparseInput8x1x1 in8{};
+        Fp2Pack4x2x1 r0_v1{};
         Fp2Pack2x2x2 r1_v1{}, r1_v2{};
         Fp2Pack4x2x1 r0_v2{};
         Fp2Vec4 out0_v1{}, out0_v2{};
         Fp2Vec2 out1_v1{}, out1_v2{};
 
-        pack_Fp2Pack4x2x1(a01, filled_fp2<4>(av));
-        pack_Fp2Pack4x2x1(a2, filled_fp2<4>(av));
-        pack_Fp2Pack4x2x1(b01, filled_fp2<4>(bv));
-        pack_Fp2Pack4x2x1(b4, filled_fp2<4>(bv));
-        pack_Fp2Pack8x1x1(a8, filled_fp2<8>(av));
-        pack_Fp2Pack8x1x1(b8, filled_fp2<8>(bv));
+        pack_Fp2Pack4x2x1(in4.a01, filled_fp2<4>(av));
+        pack_Fp2Pack4x2x1(in4.a2, filled_fp2<4>(av));
+        pack_Fp2Pack4x2x1(in4.b01, filled_fp2<4>(bv));
+        pack_Fp2Pack4x2x1(in4.b4, filled_fp2<4>(bv));
+        pack_Fp2Pack8x1x1(in8.a, filled_fp2<8>(av));
+        pack_Fp2Pack8x1x1(in8.b, filled_fp2<8>(bv));
 
-        mul_by_xy00z0_fp12_vec_v1(r0_v1, r1_v1, a01, a2, b01, b4);
-        mul_by_xy00z0_fp12_vec_v2(r0_v2, r1_v2, a8, b8);
+        Fp12SparseInput4x2x1::mul_v1(r0_v1, r1_v1, in4);
+        Fp12SparseInput8x1x1::mul_v2(r0_v2, r1_v2, in8);
 
         unpack_Fp2Pack4x2x1(out0_v1, r0_v1);
         unpack_Fp2Pack2x2x2(out1_v1, r1_v1);

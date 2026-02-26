@@ -73,12 +73,12 @@ namespace
 
 } // namespace
 
-void cyclotomic_sqr_fp12_vec_v1(
-    Fp4Pack1x2x2x2& ra,
-    Fp4Pack2x2x2x1& rbc,
-    const Fp4Pack1x2x2x2& a,
-    const Fp4Pack2x2x2x1& bc)
+void Fp12CyclotomicState::sqr_v1(Fp12CyclotomicState& r, const Fp12CyclotomicState& in)
 {
+    Fp4Pack1x2x2x2& ra = r.a;
+    Fp12CyclotomicBc& rbc = r.bc;
+    const Fp4Pack1x2x2x2& a = in.a;
+    const Fp12CyclotomicBc& bc = in.bc;
     Fp4Pack1x2x2x2 ta;
     Fp4Pack2x2x2x1 tbc, t0;
     const cc512i m0 = VSET(3, 2, 1, 0, 5, 4, 7, 6);
@@ -97,12 +97,12 @@ void cyclotomic_sqr_fp12_vec_v1(
     Fp2Pack4x2x1::add(rbc, rbc, tbc);
 }
 
-void cyclotomic_sqr_fp12_vec_v2(
-    Fp4Pack1x2x2x2& ra,
-    Fp4Pack2x2x2x1& rbc,
-    const Fp4Pack1x2x2x2& a,
-    const Fp4Pack2x2x2x1& bc)
+void Fp12CyclotomicState::sqr_v2(Fp12CyclotomicState& r, const Fp12CyclotomicState& in)
 {
+    Fp4Pack1x2x2x2& ra = r.a;
+    Fp12CyclotomicBc& rbc = r.bc;
+    const Fp4Pack1x2x2x2& a = in.a;
+    const Fp12CyclotomicBc& bc = in.bc;
     Fp4Pack1x2x2x2 ta;
     Fp4Pack2x2x2x1 tbc, t0;
     const cc512i m0 = VSET(3, 2, 1, 0, 5, 4, 7, 6);
@@ -121,7 +121,7 @@ void cyclotomic_sqr_fp12_vec_v2(
     Fp2Pack4x2x1::add(rbc, rbc, tbc);
 }
 
-void compressed_cyclotomic_sqr_fp12_vec_v1(Fp4Pack2x2x2x1& rbc, const Fp4Pack2x2x2x1& bc)
+void Fp12CyclotomicBc::compressed_sqr_v1(Fp12CyclotomicBc& rbc, const Fp12CyclotomicBc& bc)
 {
     Fp4Pack2x2x2x1 tbc, t0;
     const cc512i m0 = VSET(3, 2, 1, 0, 5, 4, 7, 6);
@@ -135,13 +135,14 @@ void compressed_cyclotomic_sqr_fp12_vec_v1(Fp4Pack2x2x2x1& rbc, const Fp4Pack2x2
     Fp2Pack4x2x1::add(rbc, rbc, tbc);
 }
 
-void mul_fp12_vec_v1(
+void Fp12MulInput8x1x1::mul_v1(
     Fp2Pack4x2x1& r01,
     Fp2Pack4x2x1& r2,
-    const Fp2Pack8x1x1& ab0,
-    const Fp2Pack8x1x1& ab1,
-    const Fp2Pack8x1x1& ab2)
+    const Fp12MulInput8x1x1& ab)
 {
+    const Fp2Pack8x1x1& ab0 = ab[0];
+    const Fp2Pack8x1x1& ab1 = ab[1];
+    const Fp2Pack8x1x1& ab2 = ab[2];
     UFp2Pack8x1x1 tt01, tt2, tt3, tt4;
     UFp2Pack4x2x1 ss0, ss1, ss2, ss3;
     Fp2Pack4x2x1 s0, s1;
@@ -174,13 +175,14 @@ void mul_fp12_vec_v1(
     Fp2Pack4x2x1::add(r2, s0, s1);
 }
 
-void mul_fp12_vec_v2(
+void Fp12MulInput8x1x1::mul_v2(
     Fp2Pack4x2x1& r01,
     Fp2Pack2x2x2& r2,
-    const Fp2Pack8x1x1& ab0,
-    const Fp2Pack8x1x1& ab1,
-    const Fp2Pack8x1x1& ab2)
+    const Fp12MulInput8x1x1& ab)
 {
+    const Fp2Pack8x1x1& ab0 = ab[0];
+    const Fp2Pack8x1x1& ab1 = ab[1];
+    const Fp2Pack8x1x1& ab2 = ab[2];
     UFp2Pack8x1x1 tt01, tt2, tt3, tt4;
     UFp2Pack4x2x1 ss0, ss1, ss2, ss3;
     Fp2Pack4x2x1 s0, s1;
@@ -218,14 +220,15 @@ void mul_fp12_vec_v2(
     UFp2Pack2x2x2::redc(r2, hh0);
 }
 
-void mul_fp12_vec_v3(
+void Fp12MulInput4x2x1::mul_v3(
     Fp2Pack2x2x2& r001,
     Fp2Pack2x2x2& r101,
     Fp2Pack2x2x2& r2,
-    const Fp2Pack4x2x1& ab0,
-    const Fp2Pack4x2x1& ab1,
-    const Fp2Pack4x2x1& ab2)
+    const Fp12MulInput4x2x1& ab)
 {
+    const Fp2Pack4x2x1& ab0 = ab[0];
+    const Fp2Pack4x2x1& ab1 = ab[1];
+    const Fp2Pack4x2x1& ab2 = ab[2];
     UFp2Pack4x2x1 tt0, tt1, tt2, tt3, tt4, tt5;
     Fp2Pack4x2x1 t0;
     UFp2Pack2x2x2 ss0, ss1, ss2, ss3, ss4, ss5;
@@ -281,14 +284,15 @@ void mul_fp12_vec_v3(
     UFp2Pack2x2x2::redc(r2, ss1);
 }
 
-void mul_fp12_vec_v4(
+void Fp12MulInput4x2x1::mul_v4(
     Fp2Pack4x2x1& r0,
     Fp2Pack2x2x2& r101,
     Fp2Pack2x2x2& r12,
-    const Fp2Pack4x2x1& ab0,
-    const Fp2Pack4x2x1& ab1,
-    const Fp2Pack4x2x1& ab2)
+    const Fp12MulInput4x2x1& ab)
 {
+    const Fp2Pack4x2x1& ab0 = ab[0];
+    const Fp2Pack4x2x1& ab1 = ab[1];
+    const Fp2Pack4x2x1& ab2 = ab[2];
     UFp2Pack4x2x1 tt0, tt1, tt2, tt3, tt4, tt5;
     Fp2Pack4x2x1 t0;
     UFp2Pack2x2x2 ss0, ss1, ss2, ss3, ss4;
@@ -343,14 +347,15 @@ void mul_fp12_vec_v4(
     UFp2Pack2x2x2::redc(r12, ss1);
 }
 
-void mul_by_xy00z0_fp12_vec_v1(
+void Fp12SparseInput4x2x1::mul_v1(
     Fp2Pack4x2x1& r0,
     Fp2Pack2x2x2& r1,
-    const Fp2Pack4x2x1& a01,
-    const Fp2Pack4x2x1& a2,
-    const Fp2Pack4x2x1& b01,
-    const Fp2Pack4x2x1& b4)
+    const Fp12SparseInput4x2x1& in)
 {
+    const Fp2Pack4x2x1& a01 = in.a01;
+    const Fp2Pack4x2x1& a2 = in.a2;
+    const Fp2Pack4x2x1& b01 = in.b01;
+    const Fp2Pack4x2x1& b4 = in.b4;
     UFp2Pack4x2x1 tt0, tt1, tt2, tt3, tt4, tt5;
     UFp2Pack2x2x2 ss0, ss1, ss2;
     const cc512i m0 = VSET(1, 0, 3, 2, 7, 6, 5, 4);
@@ -379,12 +384,13 @@ void mul_by_xy00z0_fp12_vec_v1(
     UFp2Pack2x2x2::redc(r1, ss1);
 }
 
-void mul_by_xy00z0_fp12_vec_v2(
+void Fp12SparseInput8x1x1::mul_v2(
     Fp2Pack4x2x1& r0,
     Fp2Pack2x2x2& r1,
-    const Fp2Pack8x1x1& a,
-    const Fp2Pack8x1x1& b)
+    const Fp12SparseInput8x1x1& in)
 {
+    const Fp2Pack8x1x1& a = in.a;
+    const Fp2Pack8x1x1& b = in.b;
     UFp2Pack8x1x1 tt0, tt1, tt2, tt3;
     UFp2Pack4x2x1 ss0, ss1;
     UFp2Pack2x2x2 hh0, hh1, hh2;
@@ -419,12 +425,13 @@ void mul_by_xy00z0_fp12_vec_v2(
     UFp2Pack2x2x2::redc(r1, hh1);
 }
 
-void sqr_fp12_vec_v1(
+void Fp12SquareInput4x2x1::sqr_v1(
     Fp2Pack4x2x1& r0,
     Fp2Pack4x2x1& r1,
-    const Fp2Pack4x2x1& a0,
-    const Fp2Pack4x2x1& a1)
+    const Fp12SquareInput4x2x1& in)
 {
+    const Fp2Pack4x2x1& a0 = in.a0;
+    const Fp2Pack4x2x1& a1 = in.a1;
     Fp2Pack4x2x1 t0, t1, t2, t3, t4;
     Fp2Pack4x2x1 s0, s1, s2;
     UFp2Pack4x2x1 tt0, tt1;
@@ -477,7 +484,7 @@ void sqr_fp12_vec_v1(
 
 void mul_fp12_vector(Fp12& ret, const Fp12& a, const Fp12& b)
 {
-    Fp2Pack4x2x1 ab0, ab1, ab2;
+    Fp12MulInput4x2x1 ab;
     Fp2Pack2x2x2 r001, r101, r2;
     std::array<cc512i, SWORDS> in0, in1, in2;
     std::array<cc512i, SWORDS / 2> out0, out1, out2;
@@ -500,11 +507,11 @@ void mul_fp12_vector(Fp12& ret, const Fp12& a, const Fp12& b)
             static_cast<i64>(a[0][2][1][i]), static_cast<i64>(a[0][2][0][i]));
     }
 
-    FpPack8x1::conv_64to48(ab0, in0.data());
-    FpPack8x1::conv_64to48(ab1, in1.data());
-    FpPack8x1::conv_64to48(ab2, in2.data());
+    FpPack8x1::conv_64to48(ab[0], in0.data());
+    FpPack8x1::conv_64to48(ab[1], in1.data());
+    FpPack8x1::conv_64to48(ab[2], in2.data());
 
-    mul_fp12_vec_v3(r001, r101, r2, ab0, ab1, ab2);
+    Fp12MulInput4x2x1::mul_v3(r001, r101, r2, ab);
 
     FpPack4x2::carryp(r001);
     FpPack4x2::carryp(r101);
@@ -550,7 +557,8 @@ void mul_fp12_vector(Fp12& ret, const Fp12& a, const Fp12& b)
 
 void mul_by_xy00z0_fp12_vector(Fp12& ret, const Fp12& a, const Fp6& xy00z0)
 {
-    Fp2Pack4x2x1 r0, a01, a2, b01, b4;
+    Fp2Pack4x2x1 r0;
+    Fp12SparseInput4x2x1 in;
     Fp2Pack2x2x2 r1;
     std::array<cc512i, SWORDS> in0, in1, in2, in3;
     std::array<cc512i, SWORDS> out0;
@@ -579,12 +587,12 @@ void mul_by_xy00z0_fp12_vector(Fp12& ret, const Fp12& a, const Fp6& xy00z0)
             static_cast<i64>(xy00z0[2][1][i]), static_cast<i64>(xy00z0[2][0][i]));
     }
 
-    FpPack8x1::conv_64to48(a01, in0.data());
-    FpPack8x1::conv_64to48(a2, in1.data());
-    FpPack8x1::conv_64to48(b01, in2.data());
-    FpPack8x1::conv_64to48(b4, in3.data());
+    FpPack8x1::conv_64to48(in.a01, in0.data());
+    FpPack8x1::conv_64to48(in.a2, in1.data());
+    FpPack8x1::conv_64to48(in.b01, in2.data());
+    FpPack8x1::conv_64to48(in.b4, in3.data());
 
-    mul_by_xy00z0_fp12_vec_v1(r0, r1, a01, a2, b01, b4);
+    Fp12SparseInput4x2x1::mul_v1(r0, r1, in);
 
     FpPack4x2::carryp(r1);
 
@@ -618,7 +626,8 @@ void mul_by_xy00z0_fp12_vector(Fp12& ret, const Fp12& a, const Fp6& xy00z0)
 
 void sqr_fp12_vector(Fp12& ret, const Fp12& a)
 {
-    Fp2Pack4x2x1 r0, r1, a0, a1;
+    Fp2Pack4x2x1 r0, r1;
+    Fp12SquareInput4x2x1 in;
     std::array<cc512i, SWORDS> in0, in1, out0, out1;
 
     for (u64 i = 0; i < SWORDS; ++i) {
@@ -634,10 +643,10 @@ void sqr_fp12_vector(Fp12& ret, const Fp12& a)
             static_cast<i64>(a[1][0][1][i]), static_cast<i64>(a[1][0][0][i]));
     }
 
-    FpPack8x1::conv_64to48(a0, in0.data());
-    FpPack8x1::conv_64to48(a1, in1.data());
+    FpPack8x1::conv_64to48(in.a0, in0.data());
+    FpPack8x1::conv_64to48(in.a1, in1.data());
 
-    sqr_fp12_vec_v1(r0, r1, a0, a1);
+    Fp12SquareInput4x2x1::sqr_v1(r0, r1, in);
 
     FpPack8x1::conv_48to64(out0.data(), r0);
     FpPack8x1::conv_48to64(out1.data(), r1);
@@ -662,8 +671,7 @@ void sqr_fp12_vector(Fp12& ret, const Fp12& a)
 
 void cyclotomic_sqr_fp12_vector(Fp12& ret, const Fp12& a)
 {
-    Fp4Pack1x2x2x2 packed_a, out_a;
-    Fp4Pack2x2x2x1 packed_bc, out_bc;
+    Fp12CyclotomicState in, out;
     std::array<cc512i, SWORDS / 2> lanes_a;
     std::array<cc512i, SWORDS> lanes_bc;
 
@@ -674,7 +682,7 @@ void cyclotomic_sqr_fp12_vector(Fp12& ret, const Fp12& a)
             static_cast<i64>(a[0][0][1][i + (SWORDS / 2)]), static_cast<i64>(a[0][0][1][i]),
             static_cast<i64>(a[0][0][0][i + (SWORDS / 2)]), static_cast<i64>(a[0][0][0][i]));
     }
-    FpPack4x2::conv_64to48(packed_a, lanes_a.data());
+    FpPack4x2::conv_64to48(in.a, lanes_a.data());
 
     for (u64 i = 0; i < SWORDS; ++i) {
         lanes_bc[i] = VSET(
@@ -683,12 +691,12 @@ void cyclotomic_sqr_fp12_vector(Fp12& ret, const Fp12& a)
             static_cast<i64>(a[0][2][1][i]), static_cast<i64>(a[0][2][0][i]),
             static_cast<i64>(a[1][0][1][i]), static_cast<i64>(a[1][0][0][i]));
     }
-    FpPack8x1::conv_64to48(packed_bc, lanes_bc.data());
+    FpPack8x1::conv_64to48(in.bc, lanes_bc.data());
 
-    cyclotomic_sqr_fp12_vec_v1(out_a, out_bc, packed_a, packed_bc);
+    Fp12CyclotomicState::sqr_v1(out, in);
 
-    FpPack4x2::carryp(out_a);
-    FpPack4x2::conv_48to64(lanes_a.data(), out_a);
+    FpPack4x2::carryp(out.a);
+    FpPack4x2::conv_48to64(lanes_a.data(), out.a);
     for (u64 i = 0; i < SWORDS / 2; ++i) {
         const u64* lanes = reinterpret_cast<const u64*>(&lanes_a[i]);
         ret[0][0][0][i] = lanes[0];
@@ -701,7 +709,7 @@ void cyclotomic_sqr_fp12_vector(Fp12& ret, const Fp12& a)
         ret[1][1][1][i + (SWORDS / 2)] = lanes[7];
     }
 
-    FpPack8x1::conv_48to64(lanes_bc.data(), out_bc);
+    FpPack8x1::conv_48to64(lanes_bc.data(), out.bc);
     for (u64 i = 0; i < SWORDS; ++i) {
         const u64* lanes = reinterpret_cast<const u64*>(&lanes_bc[i]);
         ret[1][0][0][i] = lanes[0];

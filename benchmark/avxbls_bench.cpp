@@ -830,10 +830,8 @@ void bench_fp12(const BenchConfig& cfg)
     Fp12 r_scalar{};
     Fp6 b_sparse{};
 
-    Fp4Pack1x2x2x2 ra_1x2x2x2w{};
-    Fp4Pack1x2x2x2 a_1x2x2x2w{};
-    Fp4Pack2x2x2x1 rbc_2x2x2x1w{};
-    Fp4Pack2x2x2x1 bc_2x2x2x1w{};
+    Fp12CyclotomicState cyclo_in{};
+    Fp12CyclotomicState cyclo_out{};
     Fp2Pack8x1x1 a0_8x1x1w{};
     Fp2Pack8x1x1 a1_8x1x1w{};
     Fp2Pack8x1x1 a2_8x1x1w{};
@@ -854,14 +852,19 @@ void bench_fp12(const BenchConfig& cfg)
     Fp2Pack4x2x1 b01_4x2x1w{};
     Fp2Pack4x2x1 b4_4x2x1w{};
     Fp2Pack2x2x2 r1_2x2x2w{};
+    Fp12MulInput8x1x1 mul_in8{};
+    Fp12MulInput4x2x1 mul_in4{};
+    Fp12SparseInput4x2x1 sparse_in4{};
+    Fp12SparseInput8x1x1 sparse_in8{};
+    Fp12SquareInput4x2x1 sqr_in{};
 
     fill_scalar_fp12(a_scalar, 19);
     fill_scalar_fp6(b_sparse, 311);
 
-    fill_vec_words(ra_1x2x2x2w, VWORDS, 901);
-    fill_vec_words(a_1x2x2x2w, VWORDS, 931);
-    fill_vec_words(rbc_2x2x2x1w, NWORDS, 961);
-    fill_vec_words(bc_2x2x2x1w, NWORDS, 991);
+    fill_vec_words(cyclo_out.a, VWORDS, 901);
+    fill_vec_words(cyclo_in.a, VWORDS, 931);
+    fill_vec_words(cyclo_out.bc, NWORDS, 961);
+    fill_vec_words(cyclo_in.bc, NWORDS, 991);
     fill_vec_words(a0_8x1x1w[0], NWORDS, 1021);
     fill_vec_words(a0_8x1x1w[1], NWORDS, 1051);
     fill_vec_words(a1_8x1x1w[0], NWORDS, 1081);
@@ -889,6 +892,21 @@ void bench_fp12(const BenchConfig& cfg)
     fill_vec_words(b4_4x2x1w, NWORDS, 1711);
     fill_vec_words(r1_2x2x2w, VWORDS, 1741);
 
+    mul_in8[0] = a0_8x1x1w;
+    mul_in8[1] = a1_8x1x1w;
+    mul_in8[2] = a2_8x1x1w;
+    mul_in4[0] = a0_4x2x1w;
+    mul_in4[1] = a1_4x2x1w;
+    mul_in4[2] = a2_4x2x1w;
+    sparse_in4.a01 = a01_4x2x1w;
+    sparse_in4.a2 = a2_4x2x1w;
+    sparse_in4.b01 = b01_4x2x1w;
+    sparse_in4.b4 = b4_4x2x1w;
+    sparse_in8.a = a_8x1x1w;
+    sparse_in8.b = b_8x1x1w;
+    sqr_in.a0 = a0_4x2x1w;
+    sqr_in.a1 = a1_4x2x1w;
+
     std::puts("\n=============================================================\n");
     std::puts("TIMING - FP12\n");
 
@@ -897,11 +915,11 @@ void bench_fp12(const BenchConfig& cfg)
     });
 
     measure_cycles("- cyclotomic_sqr_fp12_vec_v1:            ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        cyclotomic_sqr_fp12_vec_v1(ra_1x2x2x2w, rbc_2x2x2x1w, a_1x2x2x2w, bc_2x2x2x1w);
+        Fp12CyclotomicState::sqr_v1(cyclo_out, cyclo_in);
     });
 
     measure_cycles("- cyclotomic_sqr_fp12_vec_v2:            ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        cyclotomic_sqr_fp12_vec_v2(ra_1x2x2x2w, rbc_2x2x2x1w, a_1x2x2x2w, bc_2x2x2x1w);
+        Fp12CyclotomicState::sqr_v2(cyclo_out, cyclo_in);
     });
 
     measure_cycles("- mul_fp12_scalar:                       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
@@ -909,19 +927,19 @@ void bench_fp12(const BenchConfig& cfg)
     });
 
     measure_cycles("- mul_fp12_vec_v1:                       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        mul_fp12_vec_v1(r01_4x2x1w, r2_4x2x1w, a0_8x1x1w, a1_8x1x1w, a2_8x1x1w);
+        Fp12MulInput8x1x1::mul_v1(r01_4x2x1w, r2_4x2x1w, mul_in8);
     });
 
     measure_cycles("- mul_fp12_vec_v2:                       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        mul_fp12_vec_v2(r01_4x2x1w, r2_2x2x2w, a0_8x1x1w, a1_8x1x1w, a2_8x1x1w);
+        Fp12MulInput8x1x1::mul_v2(r01_4x2x1w, r2_2x2x2w, mul_in8);
     });
 
     measure_cycles("- mul_fp12_vec_v3:                       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        mul_fp12_vec_v3(r001_2x2x2w, r101_2x2x2w, r2_2x2x2w, a0_4x2x1w, a1_4x2x1w, a2_4x2x1w);
+        Fp12MulInput4x2x1::mul_v3(r001_2x2x2w, r101_2x2x2w, r2_2x2x2w, mul_in4);
     });
 
     measure_cycles("- mul_fp12_vec_v4:                       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        mul_fp12_vec_v4(r0_4x2x1w, r101_2x2x2w, r12_2x2x2w, a0_4x2x1w, a1_4x2x1w, a2_4x2x1w);
+        Fp12MulInput4x2x1::mul_v4(r0_4x2x1w, r101_2x2x2w, r12_2x2x2w, mul_in4);
     });
 
     measure_cycles("- mul_by_xy00z0_fp12_scalar:             ", cfg.fp_warmup, cfg.fp_iters, [&]() {
@@ -929,11 +947,11 @@ void bench_fp12(const BenchConfig& cfg)
     });
 
     measure_cycles("- mul_by_xy00z0_fp12_vec_v1:             ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        mul_by_xy00z0_fp12_vec_v1(r0_4x2x1w, r1_2x2x2w, a01_4x2x1w, a2_4x2x1w, b01_4x2x1w, b4_4x2x1w);
+        Fp12SparseInput4x2x1::mul_v1(r0_4x2x1w, r1_2x2x2w, sparse_in4);
     });
 
     measure_cycles("- mul_by_xy00z0_fp12_vec_v2:             ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        mul_by_xy00z0_fp12_vec_v2(r0_4x2x1w, r1_2x2x2w, a_8x1x1w, b_8x1x1w);
+        Fp12SparseInput8x1x1::mul_v2(r0_4x2x1w, r1_2x2x2w, sparse_in8);
     });
 
     measure_cycles("- sqr_fp12_scalar:                       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
@@ -941,7 +959,7 @@ void bench_fp12(const BenchConfig& cfg)
     });
 
     measure_cycles("- sqr_fp12_vec_v1:                       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        sqr_fp12_vec_v1(r0_4x2x1w, r1_4x2x1w, a0_4x2x1w, a1_4x2x1w);
+        Fp12SquareInput4x2x1::sqr_v1(r0_4x2x1w, r1_4x2x1w, sqr_in);
     });
 
     measure_cycles("- mul_fp12_vector:                       ", cfg.fp_warmup, cfg.fp_iters, [&]() {
