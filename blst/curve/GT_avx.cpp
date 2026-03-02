@@ -2,15 +2,29 @@
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 
+#include <array>
 #include <type_traits>
 
 namespace blst
 {
 namespace
 {
+    constexpr std::size_t kGtPackLanes = 8;
+    constexpr std::size_t kGtGlv4Bits = 256;
+    constexpr std::size_t kGtGlv4Limbs = 4;
+    constexpr std::size_t kGtGlv4MaxSteps = 63;
+
+    struct LaneGlv4Plan
+    {
+        u8 init_idx = 0;
+        u8 total_steps = 0;
+        std::array<u8, kGtGlv4MaxSteps + 1> mul_idx_at_step{};
+    };
+
     static_assert(std::is_standard_layout_v<GT>);
     static_assert(sizeof(GT) == sizeof(Fp12));
     static_assert(alignof(GT) == alignof(Fp12));
+    static_assert(BLST_LIMB_SIZE == 64);
 
     BLST_FORCEINLINE const Fp12* gt_as_fp12_ptr(const GT* in)
     {
@@ -20,6 +34,57 @@ namespace
     BLST_FORCEINLINE Fp12* gt_as_fp12_ptr(GT* in)
     {
         return reinterpret_cast<Fp12*>(in);
+    }
+
+    BLST_FORCEINLINE limb_t load_le_limb(const byte* in)
+    {
+        limb_t v = 0;
+        for (std::size_t i = 0; i < sizeof(limb_t); ++i) {
+            v |= static_cast<limb_t>(in[i]) << (8 * i);
+        }
+        return v;
+    }
+
+    BLST_FORCEINLINE void load_scalar_limbs_256(limb_t out[kGtGlv4Limbs], const byte* scalar_32)
+    {
+        for (std::size_t i = 0; i < kGtGlv4Limbs; ++i) {
+            out[i] = load_le_limb(scalar_32 + i * sizeof(limb_t));
+        }
+    }
+
+    BLST_FORCEINLINE int scalar_lane_msb(
+        const byte* scalars8,
+        const std::size_t scalar_stride,
+        const std::size_t lane,
+        const std::size_t nbits)
+    {
+        if ((scalars8 == nullptr) || (nbits == 0)) {
+            return -1;
+        }
+
+        const byte* lane_scalar = scalars8 + lane * scalar_stride;
+        for (std::size_t bit = nbits; bit-- > 0;) {
+            const std::size_t byte_idx = bit >> 3;
+            const std::size_t bit_idx = bit & 7;
+            if (((lane_scalar[byte_idx] >> bit_idx) & 1u) != 0) {
+                return static_cast<int>(bit);
+            }
+        }
+        return -1;
+    }
+
+    BLST_FORCEINLINE bool scalar_ge_group_order_256(const limb_t k[kGtGlv4Limbs])
+    {
+        const Fr& order = get_BLST_r();
+        for (int limb = static_cast<int>(kGtGlv4Limbs) - 1; limb >= 0; --limb) {
+            if (k[limb] > order[limb]) {
+                return true;
+            }
+            if (k[limb] < order[limb]) {
+                return false;
+            }
+        }
+        return true;
     }
 
     BLST_FORCEINLINE u8 scalar_lane_mask(
@@ -49,6 +114,206 @@ namespace
             return id;
         }();
         return kIdentityPack;
+    }
+
+    BLST_FORCEINLINE LaneGlv4Plan build_lane_glv4_plan(const GLV4_Exp& props, bool& ok)
+    {
+        LaneGlv4Plan plan{};
+        if (props.sched_len == 0) {
+            return plan;
+        }
+
+        plan.init_idx = static_cast<u8>(props.schedule[0] & 0x0F);
+        std::size_t step = 0;
+        for (std::size_t i = 1; i < props.sched_len; ++i) {
+            const u8 op = props.schedule[i];
+            const std::size_t sqr_cnt = op >> 4;
+            const u8 mul_idx = static_cast<u8>(op & 0x0F);
+            step += sqr_cnt;
+            if (step > kGtGlv4MaxSteps) {
+                ok = false;
+                return LaneGlv4Plan{};
+            }
+            if (mul_idx != 0) {
+                if (plan.mul_idx_at_step[step] != 0) {
+                    ok = false;
+                    return LaneGlv4Plan{};
+                }
+                plan.mul_idx_at_step[step] = mul_idx;
+            }
+        }
+        plan.total_steps = static_cast<u8>(step);
+        return plan;
+    }
+
+    BLST_FORCEINLINE void gt_mult_basic(
+        GTPack8x1& out,
+        const GTPack8x1& base,
+        const byte* scalars8,
+        const std::size_t scalar_stride,
+        const std::size_t nbits)
+    {
+        const GTPack8x1 base_copy = base;
+        out = gt_identity_pack();
+
+        if (nbits == 0) {
+            return;
+        }
+
+        std::array<int, kGtPackLanes> lane_msb{};
+        int max_msb = -1;
+        for (std::size_t lane = 0; lane < kGtPackLanes; ++lane) {
+            lane_msb[lane] = scalar_lane_msb(scalars8, scalar_stride, lane, nbits);
+            if (lane_msb[lane] > max_msb) {
+                max_msb = lane_msb[lane];
+            }
+        }
+        if (max_msb < 0) {
+            return;
+        }
+
+        GTPack8x1 sqr_candidate{};
+        GTPack8x1 add_candidate{};
+        for (int bit = max_msb; bit >= 0; --bit) {
+            u8 active_mask = 0;
+            for (std::size_t lane = 0; lane < kGtPackLanes; ++lane) {
+                active_mask |= static_cast<u8>((lane_msb[lane] >= bit ? 1u : 0u) << lane);
+            }
+
+            if (active_mask != 0) {
+                GTPack8x1::doubling(sqr_candidate, out);
+                GTPack8x1::select(out, out, sqr_candidate, active_mask);
+            }
+
+            const u8 lane_mask =
+                static_cast<u8>(scalar_lane_mask(scalars8, scalar_stride, static_cast<std::size_t>(bit)) &
+                                active_mask);
+            if (lane_mask != 0) {
+                GTPack8x1::add(add_candidate, out, base_copy);
+                GTPack8x1::select(out, out, add_candidate, lane_mask);
+            }
+        }
+    }
+
+    BLST_FORCEINLINE bool gt_mult_glv4(
+        GTPack8x1& out,
+        const GTPack8x1& base,
+        const byte* scalars8,
+        const std::size_t scalar_stride,
+        const std::size_t nbits)
+    {
+        BLST_ASSERT((nbits > 0) && (nbits <= kGtGlv4Bits));
+        BLST_ASSERT((scalars8 != nullptr) && (scalar_stride >= ((nbits + 7) >> 3)));
+
+        const std::size_t byte_len = (nbits + 7) >> 3;
+        const std::size_t rem_bits = nbits & 7u;
+        std::array<std::array<byte, kGtGlv4Bits / 8>, kGtPackLanes> scalar_bytes{};
+        std::array<std::array<limb_t, kGtGlv4Limbs>, kGtPackLanes> scalar_limbs{};
+        std::array<GLV4_Exp, kGtPackLanes> props{};
+        std::array<LaneGlv4Plan, kGtPackLanes> plans{};
+
+        bool ok = true;
+        std::size_t max_steps = 0;
+        for (std::size_t lane = 0; lane < kGtPackLanes; ++lane) {
+            const byte* lane_scalar = scalars8 + lane * scalar_stride;
+            for (std::size_t i = 0; i < byte_len; ++i) {
+                scalar_bytes[lane][i] = lane_scalar[i];
+            }
+            if ((rem_bits != 0) && (byte_len > 0)) {
+                const byte mask = static_cast<byte>((1u << rem_bits) - 1u);
+                scalar_bytes[lane][byte_len - 1] &= mask;
+            }
+
+            load_scalar_limbs_256(scalar_limbs[lane].data(), scalar_bytes[lane].data());
+#ifndef NDEBUG
+            BLST_ASSERT(!scalar_ge_group_order_256(scalar_limbs[lane].data()));
+#endif
+            props[lane] = Fp12::glv4_compile(scalar_limbs[lane].data());
+            plans[lane] = build_lane_glv4_plan(props[lane], ok);
+            if (!ok) {
+                return false;
+            }
+            if (plans[lane].total_steps > max_steps) {
+                max_steps = plans[lane].total_steps;
+            }
+        }
+
+        std::array<Fp12Pack8x1, 4> basis{};
+        basis[0] = base.c;
+        Fp12Pack8x1::frobenius_map(basis[1], base.c, 1);
+        Fp12Pack8x1::frobenius_map(basis[2], base.c, 2);
+        Fp12Pack8x1::frobenius_map(basis[3], base.c, 3);
+
+        for (std::size_t basis_idx = 0; basis_idx < basis.size(); ++basis_idx) {
+            u8 conj_mask = 0;
+            for (std::size_t lane = 0; lane < kGtPackLanes; ++lane) {
+                const u8 sign_bit = static_cast<u8>((props[lane].sign_mask >> basis_idx) & 1u);
+                conj_mask |= static_cast<u8>(sign_bit << lane);
+            }
+            if (conj_mask != 0) {
+                Fp12Pack8x1 conj{};
+                Fp12Pack8x1::conjugate(conj, basis[basis_idx]);
+                Fp12Pack8x1::select(basis[basis_idx], basis[basis_idx], conj, conj_mask);
+            }
+        }
+
+        std::array<Fp12Pack8x1, 16> table{};
+        table[0] = gt_identity_pack().c;
+        table[1] = basis[0];
+        table[2] = basis[1];
+        table[4] = basis[2];
+        table[8] = basis[3];
+
+        Fp12Pack8x1::mul(table[3], table[1], table[2]);
+        Fp12Pack8x1::mul(table[5], table[1], table[4]);
+        Fp12Pack8x1::mul(table[6], table[2], table[4]);
+        Fp12Pack8x1::mul(table[7], table[3], table[4]);
+
+        Fp12Pack8x1::mul(table[9], table[1], table[8]);
+        Fp12Pack8x1::mul(table[10], table[2], table[8]);
+        Fp12Pack8x1::mul(table[11], table[3], table[8]);
+        Fp12Pack8x1::mul(table[12], table[4], table[8]);
+        Fp12Pack8x1::mul(table[13], table[5], table[8]);
+        Fp12Pack8x1::mul(table[14], table[6], table[8]);
+        Fp12Pack8x1::mul(table[15], table[7], table[8]);
+
+        out = gt_identity_pack();
+        for (u8 idx = 1; idx < 16; ++idx) {
+            u8 lane_mask = 0;
+            for (std::size_t lane = 0; lane < kGtPackLanes; ++lane) {
+                lane_mask |= static_cast<u8>((plans[lane].init_idx == idx ? 1u : 0u) << lane);
+            }
+            if (lane_mask != 0) {
+                Fp12Pack8x1::select(out.c, out.c, table[idx], lane_mask);
+            }
+        }
+
+        Fp12Pack8x1 sqr_candidate{};
+        Fp12Pack8x1 mul_candidate{};
+        for (std::size_t step = 1; step <= max_steps; ++step) {
+            u8 sqr_mask = 0;
+            for (std::size_t lane = 0; lane < kGtPackLanes; ++lane) {
+                const bool lane_active = (plans[lane].init_idx != 0) && (step <= plans[lane].total_steps);
+                sqr_mask |= static_cast<u8>((lane_active ? 1u : 0u) << lane);
+            }
+            if (sqr_mask != 0) {
+                Fp12Pack8x1::cyclotomic_sqr(sqr_candidate, out.c);
+                Fp12Pack8x1::select(out.c, out.c, sqr_candidate, sqr_mask);
+            }
+
+            for (u8 idx = 1; idx < 16; ++idx) {
+                u8 mul_mask = 0;
+                for (std::size_t lane = 0; lane < kGtPackLanes; ++lane) {
+                    mul_mask |= static_cast<u8>((plans[lane].mul_idx_at_step[step] == idx ? 1u : 0u) << lane);
+                }
+                if (mul_mask != 0) {
+                    Fp12Pack8x1::mul(mul_candidate, out.c, table[idx]);
+                    Fp12Pack8x1::select(out.c, out.c, mul_candidate, mul_mask);
+                }
+            }
+        }
+
+        return true;
     }
 } // namespace
 
@@ -108,21 +373,13 @@ void GTPack8x1::mult(
         return;
     }
 
-    const GTPack8x1 base_copy = base;
-    out = gt_identity_pack();
-
-    if (nbits == 0) {
-        return;
+    if ((nbits > 128) && (nbits <= kGtGlv4Bits)) {
+        if (gt_mult_glv4(out, base, scalars8, scalar_stride, nbits)) {
+            return;
+        }
     }
 
-    GTPack8x1 add_candidate{};
-
-    for (std::size_t bit = nbits; bit-- > 0;) {
-        GTPack8x1::doubling(out, out);
-        GTPack8x1::add(add_candidate, out, base_copy);
-        const u8 lane_mask = scalar_lane_mask(scalars8, scalar_stride, bit);
-        GTPack8x1::select(out, out, add_candidate, lane_mask);
-    }
+    gt_mult_basic(out, base, scalars8, scalar_stride, nbits);
 }
 
 void GTPack8x1::add(

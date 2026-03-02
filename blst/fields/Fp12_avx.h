@@ -80,6 +80,9 @@ namespace blst
         /// Cyclotomic square API entry; functionally equal to square.
         static void cyclotomic_sqr(Fp12Pack8x1& r, const Fp12Pack8x1& a);
 
+        /// Frobenius map: r = a^(p^n), n reduced mod 4.
+        static void frobenius_map(Fp12Pack8x1& r, const Fp12Pack8x1& a, std::size_t n);
+
         /// Conjugation: (c0, c1) -> (c0, -c1).
         static void conjugate(Fp12Pack8x1& r, const Fp12Pack8x1& a);
 

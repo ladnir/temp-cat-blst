@@ -451,6 +451,43 @@ TEST(Fp12Avx, CanonicalCyclotomicSqr)
     }
 }
 
+TEST(Fp12Avx, CanonicalFrobeniusMap)
+{
+    InsecureRng rng;
+
+    for (int iter = 0; iter < 48; ++iter) {
+        Fp12Vec8 in{};
+        Fp12Vec8 out{};
+        Fp12Pack8x1 pin{};
+        Fp12Pack8x1 pout{};
+
+        for (size_t lane = 0; lane < 8; ++lane) {
+            if (iter < 16) {
+                fill_edge_fp12(in[lane], iter + static_cast<int>(lane));
+            } else {
+                rand_redc_fp12(in[lane], rng);
+            }
+        }
+
+        Fp12Pack8x1::from_aos(pin, in.data());
+        Fp12Pack8x1::frobenius_map(pout, pin, 0);
+        Fp12Pack8x1::to_aos(out.data(), pout);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            expect_fp12_eq(out[lane], in[lane]);
+        }
+
+        for (size_t n = 1; n <= 3; ++n) {
+            Fp12Pack8x1::frobenius_map(pout, pin, n);
+            Fp12Pack8x1::to_aos(out.data(), pout);
+            for (size_t lane = 0; lane < 8; ++lane) {
+                Fp12 expected{};
+                Fp12::frobenius_map(expected, in[lane], n);
+                expect_fp12_eq(out[lane], expected);
+            }
+        }
+    }
+}
+
 TEST(Fp12Avx, CanonicalSelectReducedAndWidened)
 {
     InsecureRng rng;

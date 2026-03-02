@@ -367,6 +367,43 @@ static void run_scalar_multiplication_aliasing()
     }
 }
 
+static void run_scalar_multiplication_glv4_matches_scalar()
+{
+    InsecureRng rng;
+    constexpr size_t kLaneCount = 8;
+    constexpr size_t kStride = 32;
+    const std::array<size_t, 3> nbits_cases = {129, 200, 256};
+
+    for (const size_t kNBits : nbits_cases) {
+        std::array<GT, kLaneCount> base{};
+        std::array<GT, kLaneCount> expected{};
+        std::array<GT, kLaneCount> got_pack{};
+        std::array<byte, kLaneCount * kStride> scalars{};
+        GTPack8x1 base_pack{};
+        GTPack8x1 out_pack{};
+
+        for (size_t lane = 0; lane < kLaneCount; ++lane) {
+            base[lane] = GT::identity();
+            expected[lane] = GT::identity();
+            for (size_t i = 0; i < kStride; ++i) {
+                scalars[lane * kStride + i] = 0;
+            }
+        }
+
+        make_random_gt(base[0], rng);
+        scalars[0] = 3;
+        GT::mult(expected[0], base[0], &scalars[0], kNBits);
+
+        GTPack8x1::from_aos(base_pack, base.data());
+        GTPack8x1::mult(out_pack, base_pack, scalars.data(), kStride, kNBits);
+        GTPack8x1::to_aos(got_pack.data(), out_pack);
+
+        for (size_t lane = 0; lane < kLaneCount; ++lane) {
+            EXPECT_TRUE(GT::equal(got_pack[lane], expected[lane]));
+        }
+    }
+}
+
 static void run_span_add_and_doubling_match_scalar()
 {
     InsecureRng rng;
@@ -556,6 +593,7 @@ TEST(GTBatchAvx, FastCoverage)
     run_doubling_matches_scalar_and_aliasing();
     run_scalar_multiplication_matches_scalar();
     run_scalar_multiplication_aliasing();
+    run_scalar_multiplication_glv4_matches_scalar();
     run_span_add_and_doubling_match_scalar();
     run_span_scalar_multiplication_matches_scalar();
     run_span_aliasing();

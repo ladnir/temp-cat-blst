@@ -9,6 +9,158 @@ namespace blst
 {
 namespace
 {
+    BLST_FORCEINLINE void sqr_fp4_pack(
+        Fp2Pack8x1x1& r0,
+        Fp2Pack8x1x1& r1,
+        const Fp2Pack8x1x1& a0,
+        const Fp2Pack8x1x1& a1)
+    {
+        Fp2Pack8x1x1 t0{};
+        Fp2Pack8x1x1 t1{};
+        Fp2Pack8x1x1 t2{};
+
+        Fp2Pack8x1x1::sqr(t0, a0);
+        Fp2Pack8x1x1::sqr(t1, a1);
+
+        Fp2Pack8x1x1::add(r1, a0, a1);
+        Fp2Pack8x1x1::mul_by_u_plus_1(r0, t1);
+        Fp2Pack8x1x1::add(r0, r0, t0);
+
+        Fp2Pack8x1x1::sqr(t2, r1);
+        Fp2Pack8x1x1::sub(t2, t2, t0);
+        Fp2Pack8x1x1::sub(r1, t2, t1);
+    }
+
+    BLST_FORCEINLINE Fp2 make_fp2_real(const Fp& real)
+    {
+        Fp2 out{};
+        out[0] = real;
+        out[1] = Fp::zero();
+        return out;
+    }
+
+    BLST_FORCEINLINE const std::array<Fp2Pack8x1x1, 4>& fp6_c1_coeff_packs()
+    {
+        static const std::array<Fp2Pack8x1x1, 4> kPacks = []() {
+            const std::array<Fp2, 4> kCoeff = {
+                Fp2::one(),
+                Fp2{Fp{0},
+                    Fp{TO_LIMB_T(0xcd03c9e48671f071), TO_LIMB_T(0x5dab22461fcda5d2),
+                       TO_LIMB_T(0x587042afd3851b95), TO_LIMB_T(0x8eb60ebe01bacb9e),
+                       TO_LIMB_T(0x03f97d6e83d050d2), TO_LIMB_T(0x18f0206554638741)}},
+                Fp2{Fp{TO_LIMB_T(0x30f1361b798a64e8), TO_LIMB_T(0xf3b8ddab7ece5a2a),
+                       TO_LIMB_T(0x16a8ca3ac61577f7), TO_LIMB_T(0xc26a2ff874fd029b),
+                       TO_LIMB_T(0x3636b76660701c6e), TO_LIMB_T(0x051ba4ab241b6160)}},
+                Fp2{Fp{0}, Fp{ONE_MONT_P_LIMBS}},
+            };
+
+            std::array<Fp2Pack8x1x1, 4> packs{};
+            std::array<Fp2, 8> lanes{};
+            for (std::size_t i = 0; i < packs.size(); ++i) {
+                lanes.fill(kCoeff[i]);
+                Fp2Pack8x1x1::from_aos(packs[i], lanes.data());
+            }
+            return packs;
+        }();
+        return kPacks;
+    }
+
+    BLST_FORCEINLINE const std::array<Fp2Pack8x1x1, 4>& fp6_c2_coeff_packs()
+    {
+        static const std::array<Fp2Pack8x1x1, 4> kPacks = []() {
+            const std::array<Fp2, 4> kCoeff = {
+                Fp2::one(),
+                make_fp2_real(Fp{TO_LIMB_T(0x890dc9e4867545c3), TO_LIMB_T(0x2af322533285a5d5),
+                                 TO_LIMB_T(0x50880866309b7e2c), TO_LIMB_T(0xa20d1b8c7e881024),
+                                 TO_LIMB_T(0x14e4f04fe2db9068), TO_LIMB_T(0x14e56d3f1564853a)}),
+                make_fp2_real(Fp{TO_LIMB_T(0xcd03c9e48671f071), TO_LIMB_T(0x5dab22461fcda5d2),
+                                 TO_LIMB_T(0x587042afd3851b95), TO_LIMB_T(0x8eb60ebe01bacb9e),
+                                 TO_LIMB_T(0x03f97d6e83d050d2), TO_LIMB_T(0x18f0206554638741)}),
+                make_fp2_real(Fp{TO_LIMB_T(0x43f5fffffffcaaae), TO_LIMB_T(0x32b7fff2ed47fffd),
+                                 TO_LIMB_T(0x07e83a49a2e99d69), TO_LIMB_T(0xeca8f3318332bb7a),
+                                 TO_LIMB_T(0xef148d1ea0f4c069), TO_LIMB_T(0x040ab3263eff0206)}),
+            };
+
+            std::array<Fp2Pack8x1x1, 4> packs{};
+            std::array<Fp2, 8> lanes{};
+            for (std::size_t i = 0; i < packs.size(); ++i) {
+                lanes.fill(kCoeff[i]);
+                Fp2Pack8x1x1::from_aos(packs[i], lanes.data());
+            }
+            return packs;
+        }();
+        return kPacks;
+    }
+
+    BLST_FORCEINLINE const std::array<Fp2Pack8x1x1, 4>& fp12_c1_coeff_packs()
+    {
+        static const std::array<Fp2Pack8x1x1, 4> kPacks = []() {
+            const std::array<Fp2, 4> kCoeff = {
+                Fp2::one(),
+                Fp2{
+                    Fp{TO_LIMB_T(0x07089552b319d465), TO_LIMB_T(0xc6695f92b50a8313),
+                       TO_LIMB_T(0x97e83cccd117228f), TO_LIMB_T(0xa35baecab2dc29ee),
+                       TO_LIMB_T(0x1ce393ea5daace4d), TO_LIMB_T(0x08f2220fb0fb66eb)},
+                    Fp{TO_LIMB_T(0xb2f66aad4ce5d646), TO_LIMB_T(0x5842a06bfc497cec),
+                       TO_LIMB_T(0xcf4895d42599d394), TO_LIMB_T(0xc11b9cba40a8e8d0),
+                       TO_LIMB_T(0x2e3813cbe5a0de89), TO_LIMB_T(0x110eefda88847faf)}},
+                Fp2{Fp{TO_LIMB_T(0xecfb361b798dba3a), TO_LIMB_T(0xc100ddb891865a2c),
+                       TO_LIMB_T(0x0ec08ff1232bda8e), TO_LIMB_T(0xd5c13cc6f1ca4721),
+                       TO_LIMB_T(0x47222a47bf7b5c04), TO_LIMB_T(0x0110f184e51c5f59)}},
+                Fp2{
+                    Fp{TO_LIMB_T(0x3e2f585da55c9ad1), TO_LIMB_T(0x4294213d86c18183),
+                       TO_LIMB_T(0x382844c88b623732), TO_LIMB_T(0x92ad2afd19103e18),
+                       TO_LIMB_T(0x1d794e4fac7cf0b9), TO_LIMB_T(0x0bd592fc7d825ec8)},
+                    Fp{TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),
+                       TO_LIMB_T(0x2f088dd86b4ebef1), TO_LIMB_T(0xd1ca2087da74d4a7),
+                       TO_LIMB_T(0x2da2596696cebc1d), TO_LIMB_T(0x0e2b7eedbbfd87d2)}},
+            };
+
+            std::array<Fp2Pack8x1x1, 4> packs{};
+            std::array<Fp2, 8> lanes{};
+            for (std::size_t i = 0; i < packs.size(); ++i) {
+                lanes.fill(kCoeff[i]);
+                Fp2Pack8x1x1::from_aos(packs[i], lanes.data());
+            }
+            return packs;
+        }();
+        return kPacks;
+    }
+
+    BLST_FORCEINLINE void frobenius_map_fp2_pack(
+        Fp2Pack8x1x1& r,
+        const Fp2Pack8x1x1& a,
+        const std::size_t n_mod4)
+    {
+        if ((n_mod4 & 1u) == 0) {
+            r = a;
+            return;
+        }
+        Fp2Pack8x1x1::conjugate(r, a);
+    }
+
+    BLST_FORCEINLINE void frobenius_map_fp6_pack(
+        Fp6Pack8x1& r,
+        const Fp6Pack8x1& a,
+        const std::size_t n_mod4)
+    {
+        if (n_mod4 == 0) {
+            r = a;
+            return;
+        }
+
+        frobenius_map_fp2_pack(r.c[0], a.c[0], n_mod4);
+        frobenius_map_fp2_pack(r.c[1], a.c[1], n_mod4);
+        frobenius_map_fp2_pack(r.c[2], a.c[2], n_mod4);
+
+        Fp2Pack8x1x1 t1{};
+        Fp2Pack8x1x1 t2{};
+        Fp2Pack8x1x1::mul(t1, r.c[1], fp6_c1_coeff_packs()[n_mod4]);
+        Fp2Pack8x1x1::mul(t2, r.c[2], fp6_c2_coeff_packs()[n_mod4]);
+        r.c[1] = t1;
+        r.c[2] = t2;
+    }
+
     inline void shuf_01_UFp2Pack8x1x1(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a)
     {
         shuf_01_dl(r[0].data(), a[0].data());
@@ -188,7 +340,77 @@ void Fp12Pack8x1::sqr(Fp12Pack8x1& r, const Fp12Pack8x1& a)
 
 void Fp12Pack8x1::cyclotomic_sqr(Fp12Pack8x1& r, const Fp12Pack8x1& a)
 {
-    sqr(r, a);
+    Fp2Pack8x1x1 t0_0{};
+    Fp2Pack8x1x1 t0_1{};
+    Fp2Pack8x1x1 t1_0{};
+    Fp2Pack8x1x1 t1_1{};
+    Fp2Pack8x1x1 t2_0{};
+    Fp2Pack8x1x1 t2_1{};
+    Fp2Pack8x1x1 tmp{};
+
+    // t0 = sqr_fp4(a00, a11)
+    sqr_fp4_pack(t0_0, t0_1, a.c[0].c[0], a.c[1].c[1]);
+
+    // ret00 = 2*(t0_0 - a00) + t0_0
+    Fp2Pack8x1x1::sub(r.c[0].c[0], t0_0, a.c[0].c[0]);
+    Fp2Pack8x1x1::add(r.c[0].c[0], r.c[0].c[0], r.c[0].c[0]);
+    Fp2Pack8x1x1::add(r.c[0].c[0], r.c[0].c[0], t0_0);
+
+    // ret11 = 2*(t0_1 + a11) + t0_1
+    Fp2Pack8x1x1::add(r.c[1].c[1], t0_1, a.c[1].c[1]);
+    Fp2Pack8x1x1::add(r.c[1].c[1], r.c[1].c[1], r.c[1].c[1]);
+    Fp2Pack8x1x1::add(r.c[1].c[1], r.c[1].c[1], t0_1);
+
+    // Must be computed before overwriting r.c[*] when r aliases a.
+    // t2 = sqr_fp4(a01, a12)
+    sqr_fp4_pack(t2_0, t2_1, a.c[0].c[1], a.c[1].c[2]);
+
+    // t1 = sqr_fp4(a10, a02)
+    sqr_fp4_pack(t1_0, t1_1, a.c[1].c[0], a.c[0].c[2]);
+
+    // ret01 = 2*(t1_0 - a01) + t1_0
+    Fp2Pack8x1x1::sub(r.c[0].c[1], t1_0, a.c[0].c[1]);
+    Fp2Pack8x1x1::add(r.c[0].c[1], r.c[0].c[1], r.c[0].c[1]);
+    Fp2Pack8x1x1::add(r.c[0].c[1], r.c[0].c[1], t1_0);
+
+    // ret12 = 2*(t1_1 + a12) + t1_1
+    Fp2Pack8x1x1::add(r.c[1].c[2], t1_1, a.c[1].c[2]);
+    Fp2Pack8x1x1::add(r.c[1].c[2], r.c[1].c[2], r.c[1].c[2]);
+    Fp2Pack8x1x1::add(r.c[1].c[2], r.c[1].c[2], t1_1);
+
+    // ret02 = 2*(t2_0 - a02) + t2_0
+    Fp2Pack8x1x1::sub(r.c[0].c[2], t2_0, a.c[0].c[2]);
+    Fp2Pack8x1x1::add(r.c[0].c[2], r.c[0].c[2], r.c[0].c[2]);
+    Fp2Pack8x1x1::add(r.c[0].c[2], r.c[0].c[2], t2_0);
+
+    // ret10 = 2*((u+1)*t2_1 + a10) + (u+1)*t2_1
+    Fp2Pack8x1x1::mul_by_u_plus_1(tmp, t2_1);
+    Fp2Pack8x1x1::add(r.c[1].c[0], tmp, a.c[1].c[0]);
+    Fp2Pack8x1x1::add(r.c[1].c[0], r.c[1].c[0], r.c[1].c[0]);
+    Fp2Pack8x1x1::add(r.c[1].c[0], r.c[1].c[0], tmp);
+}
+
+void Fp12Pack8x1::frobenius_map(Fp12Pack8x1& r, const Fp12Pack8x1& a, const std::size_t n)
+{
+    const std::size_t n_mod4 = n & 3u;
+    if (n_mod4 == 0) {
+        r = a;
+        return;
+    }
+
+    frobenius_map_fp6_pack(r.c[0], a.c[0], n_mod4);
+    frobenius_map_fp6_pack(r.c[1], a.c[1], n_mod4);
+
+    Fp2Pack8x1x1 c0{};
+    Fp2Pack8x1x1 c1{};
+    Fp2Pack8x1x1 c2{};
+    const Fp2Pack8x1x1& coeff = fp12_c1_coeff_packs()[n_mod4];
+    Fp2Pack8x1x1::mul(c0, r.c[1].c[0], coeff);
+    Fp2Pack8x1x1::mul(c1, r.c[1].c[1], coeff);
+    Fp2Pack8x1x1::mul(c2, r.c[1].c[2], coeff);
+    r.c[1].c[0] = c0;
+    r.c[1].c[1] = c1;
+    r.c[1].c[2] = c2;
 }
 
 void Fp12Pack8x1::conjugate(Fp12Pack8x1& r, const Fp12Pack8x1& a)

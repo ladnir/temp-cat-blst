@@ -1977,7 +1977,7 @@ namespace blst
 
 		// Helper to push
 		auto push = [&](uint8_t val) {
-			if (props.sched_len < 72) {
+			if (props.sched_len < (sizeof(props.schedule) / sizeof(props.schedule[0]))) {
 				props.schedule[props.sched_len++] = val;
 			}
 			};

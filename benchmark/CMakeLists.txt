@@ -38,6 +38,7 @@ else()
         "Fr_bench.cpp"
         "G1_bench.cpp"
         "G2_bench.cpp"
+        "GT_avx_bench.cpp"
         "pairing_bench.cpp"
         "FFT_bench.cpp"
     )
