@@ -155,18 +155,18 @@ Validation requirement:
 
 ## API Surface (AoS Boundary)
 
-Target public APIs:
+Target pack APIs in this implementation stage:
 
-- `gt_add_batch(GT* out, const GT* a, const GT* b, size_t n)`
-- `gt_doubling_batch(GT* out, const GT* a, size_t n)`
-- `gt_mult_batch(GT* out, const GT* a, const byte* scalars, size_t scalar_stride, size_t nbits, size_t n)`
+- `GTPack8x1::add(std::span<GTPack8x1> out, std::span<const GTPack8x1> a, std::span<const GTPack8x1> b)`
+- `GTPack8x1::doubling(std::span<GTPack8x1> out, std::span<const GTPack8x1> a)`
+- `GTPack8x1::mult(std::span<GTPack8x1> out, std::span<const GTPack8x1> a, std::span<const byte> scalars, size_t scalar_stride, size_t nbits)`
 
 Rules:
 
-- API inputs/outputs are AoS.
-- Internally process by 8-lane packed blocks.
-- Tail policy default is masked AVX lanes.
-- Scalar tail fallback is allowed only as a separately measured path.
+- API inputs/outputs are `GTPack8x1` arrays.
+- Work size is implied by `out.size()` packs (all lanes active).
+- Caller rounds logical tuple counts up to full packs and pads inactive lanes.
+- AoS boundary wrappers are out of scope for this phase.
 
 ---
 
@@ -630,13 +630,12 @@ Exit criteria:
 
 Types/APIs:
 
-- Finalize `gt_*_batch(..., n)` public entry points
+- Finalize span-based `GTPack8x1::add/doubling/mult(...)` entry points
 
 Policy:
 
 - Chunk by contiguous 8-lane blocks
-- Tail default: masked AVX lanes
-- Scalar tail path, if retained, is explicit and separately benchmarked
+- Tail handling is outside these pack-level APIs (caller pads to full packs)
 
 Testing:
 

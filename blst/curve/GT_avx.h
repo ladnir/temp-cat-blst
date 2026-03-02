@@ -6,6 +6,7 @@
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 
 #include "blst/fields/Fp12_avx.h"
+#include <span>
 
 namespace blst
 {
@@ -44,6 +45,30 @@ namespace blst
             GTPack8x1& out,
             const GTPack8x1& base,
             const byte* scalars8,
+            std::size_t scalar_stride,
+            std::size_t nbits);
+
+        /// Pack scheduler over full packs: out_i = a_i + b_i.
+        /// Work size is implied by out.size() packs (all 8 lanes active per pack).
+        static void add(
+            std::span<GTPack8x1> out,
+            std::span<const GTPack8x1> a,
+            std::span<const GTPack8x1> b);
+
+        /// Pack scheduler over full packs: out_i = 2 * a_i.
+        /// Work size is implied by out.size() packs (all 8 lanes active per pack).
+        static void doubling(
+            std::span<GTPack8x1> out,
+            std::span<const GTPack8x1> a);
+
+        /// Pack scheduler over full packs: out_i = k_i * base_i.
+        /// Work size is implied by out.size() packs (all 8 lanes active per pack).
+        /// Scalars are little-endian with per-lane stride and pack-contiguous layout:
+        /// [pack0_lane0, pack0_lane1, ..., pack0_lane7, pack1_lane0, ...].
+        static void mult(
+            std::span<GTPack8x1> out,
+            std::span<const GTPack8x1> base,
+            std::span<const byte> scalars,
             std::size_t scalar_stride,
             std::size_t nbits);
 
