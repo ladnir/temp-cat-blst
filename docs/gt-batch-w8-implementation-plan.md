@@ -34,11 +34,16 @@ correctness and performance exits before moving to the next layer.
 
 This plan defines a fixed-width (`W=8`) batch engine for independent GT tuples, optimized for throughput.
 
+Notation contract for this document:
+
+- GT uses additive notation.
+- Mapping to implementation: `GT` addition is cyclotomic-subgroup multiplication in `Fp12`.
+
 Primary operations:
 
-- GT multiply batch (`Fp12` multiply)
-- GT cyclotomic-square batch (`Fp12` cyclotomic square)
-- GT exponentiation batch with independent per-lane scalars
+- GT add batch (`Fp12` multiply)
+- GT doubling batch (`Fp12` cyclotomic square)
+- GT scalar-multiplication batch with independent per-lane scalars
 
 Non-goals:
 
@@ -97,9 +102,9 @@ All benchmark tables must include these columns:
   - Scalar reference: `Fp::mul`
   - AVX equivalent: `FpPack8x1::mul_*` followed by `UFpPack8x1::redc`
 
-- `GtMulSEO`: one `GT` multiplication result (`out[i] = a[i] * b[i]`)
-- `GtCyclotomicSqrSEO`: one `GT` cyclotomic square result
-- `GtExpSEO`: one `GT` exponentiation result for one base/scalar pair
+- `GtAddSEO`: one `GT` addition result (`out[i] = a[i] + b[i]`)
+- `GtDoublingSEO`: one `GT` doubling result (`out[i] = 2 * a[i]`)
+- `GtScalarMulSEO`: one `GT` scalar-multiplication result for one base/scalar pair
 
 ### Benchmark environment capture
 
@@ -152,9 +157,9 @@ Validation requirement:
 
 Target public APIs:
 
-- `gt_mul_batch(GT* out, const GT* a, const GT* b, size_t n)`
-- `gt_cyclotomic_sqr_batch(GT* out, const GT* a, size_t n)`
-- `gt_exp_batch(GT* out, const GT* a, const byte* scalars, size_t scalar_stride, size_t nbits, size_t n)`
+- `gt_add_batch(GT* out, const GT* a, const GT* b, size_t n)`
+- `gt_doubling_batch(GT* out, const GT* a, size_t n)`
+- `gt_mult_batch(GT* out, const GT* a, const byte* scalars, size_t scalar_stride, size_t nbits, size_t n)`
 
 Rules:
 
@@ -595,11 +600,12 @@ Exit criteria:
 
 ---
 
-## Phase 6: GT Exponentiation x8 (independent scalars)
+## Phase 6: GT Scalar Multiplication x8 (independent scalars)
 
 Types/APIs:
 
-- `gt_exp8(GT* out8, const GT* base8, const byte* scalars8, size_t scalar_stride, size_t nbits)`
+- `GTPack8x1::mult(GTPack8x1& out, const GTPack8x1& base, const byte* scalars8, size_t scalar_stride, size_t nbits)`
+- Implementation mapping: `GT::mult` uses cyclotomic exponentiation in `Fp12`.
 
 Testing:
 

@@ -38,6 +38,15 @@ namespace blst
         /// Group doubling (maps to cyclotomic square): r = 2*a.
         static void doubling(GTPack8x1& r, const GTPack8x1& a);
 
+        /// Independent scalar multiplication on 8 lanes: out_i = k_i * base_i.
+        /// Scalars are little-endian and lane-packed as [k0 | k1 | ... | k7].
+        static void mult(
+            GTPack8x1& out,
+            const GTPack8x1& base,
+            const byte* scalars8,
+            std::size_t scalar_stride,
+            std::size_t nbits);
+
         /// Lane-wise select between two SoA values.
         static void select(GTPack8x1& r, const GTPack8x1& a, const GTPack8x1& b, u8 lane_mask);
     };

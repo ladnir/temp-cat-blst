@@ -21,6 +21,21 @@ namespace
     {
         return reinterpret_cast<Fp12*>(in);
     }
+
+    BLST_FORCEINLINE u8 scalar_lane_mask(
+        const byte* scalars8,
+        const std::size_t scalar_stride,
+        const std::size_t bit_index)
+    {
+        const std::size_t byte_index = bit_index >> 3;
+        const std::size_t bit_in_byte = bit_index & 7;
+        u8 lane_mask = 0;
+        for (std::size_t lane = 0; lane < 8; ++lane) {
+            const byte scalar_byte = scalars8[lane * scalar_stride + byte_index];
+            lane_mask |= static_cast<u8>(((scalar_byte >> bit_in_byte) & 1u) << lane);
+        }
+        return lane_mask;
+    }
 } // namespace
 
 void GTPack8x1::from_aos(GTPack8x1& r, const GT* in8)
@@ -61,6 +76,44 @@ void GTPack8x1::add(GTPack8x1& r, const GTPack8x1& a, const GTPack8x1& b)
 void GTPack8x1::doubling(GTPack8x1& r, const GTPack8x1& a)
 {
     Fp12Pack8x1::cyclotomic_sqr(r.c, a.c);
+}
+
+void GTPack8x1::mult(
+    GTPack8x1& out,
+    const GTPack8x1& base,
+    const byte* scalars8,
+    const std::size_t scalar_stride,
+    const std::size_t nbits)
+{
+    const std::size_t required_scalar_bytes = (nbits + 7) >> 3;
+    BLST_ASSERT(scalars8 != nullptr || nbits == 0);
+    BLST_ASSERT((scalar_stride > 0) || (nbits == 0));
+    BLST_ASSERT((nbits == 0) || (scalar_stride >= required_scalar_bytes));
+
+    if ((nbits != 0) && ((scalars8 == nullptr) || (scalar_stride < required_scalar_bytes))) {
+        return;
+    }
+
+    const GTPack8x1 base_copy = base;
+
+    GT identity8[8];
+    for (std::size_t lane = 0; lane < 8; ++lane) {
+        identity8[lane] = GT::identity();
+    }
+    GTPack8x1::from_aos(out, identity8);
+
+    if (nbits == 0) {
+        return;
+    }
+
+    GTPack8x1 add_candidate{};
+
+    for (std::size_t bit = nbits; bit-- > 0;) {
+        GTPack8x1::doubling(out, out);
+        GTPack8x1::add(add_candidate, out, base_copy);
+        const u8 lane_mask = scalar_lane_mask(scalars8, scalar_stride, bit);
+        GTPack8x1::select(out, out, add_candidate, lane_mask);
+    }
 }
 
 void GTPack8x1::select(GTPack8x1& r, const GTPack8x1& a, const GTPack8x1& b, const u8 lane_mask)
