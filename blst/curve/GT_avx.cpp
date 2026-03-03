@@ -298,9 +298,10 @@ namespace
             }
         }
 
-        Fp12Pack8x1 sqr_candidate{};
-        Fp12Pack8x1 mul_candidate{};
-        Fp12Pack8x1 mul_operand{};
+        // Predecode per-step masks and operands once, then run the hot loop.
+        std::array<u8, 65> sqr_mask_at_step{};
+        std::array<u8, 65> has_mul_at_step{};
+        std::array<Fp12Pack8x1, 65> mul_operand_at_step{};
         for (std::size_t step = 1; step <= plan.max_steps; ++step) {
             u8 sqr_mask = 0;
             std::array<u8, 16> mul_masks{};
@@ -314,23 +315,35 @@ namespace
                     mul_masks[idx] |= static_cast<u8>(1u << lane);
                 }
             }
-            if (sqr_mask != 0) {
-                Fp12Pack8x1::cyclotomic_sqr(sqr_candidate, out.c);
-                Fp12Pack8x1::select(out.c, out.c, sqr_candidate, sqr_mask);
-            }
+            sqr_mask_at_step[step] = sqr_mask;
 
             u8 nonzero_mul_mask = 0;
             for (u8 idx = 1; idx < 16; ++idx) {
                 nonzero_mul_mask |= mul_masks[idx];
             }
             if (nonzero_mul_mask != 0) {
-                mul_operand = table[0];
+                has_mul_at_step[step] = 1;
+                mul_operand_at_step[step] = table[0];
                 for (u8 idx = 1; idx < 16; ++idx) {
                     if (mul_masks[idx] != 0) {
-                        Fp12Pack8x1::select(mul_operand, mul_operand, table[idx], mul_masks[idx]);
+                        Fp12Pack8x1::select(
+                            mul_operand_at_step[step], mul_operand_at_step[step], table[idx], mul_masks[idx]);
                     }
                 }
-                Fp12Pack8x1::mul(mul_candidate, out.c, mul_operand);
+            }
+        }
+
+        Fp12Pack8x1 sqr_candidate{};
+        Fp12Pack8x1 mul_candidate{};
+        for (std::size_t step = 1; step <= plan.max_steps; ++step) {
+            const u8 sqr_mask = sqr_mask_at_step[step];
+            if (sqr_mask != 0) {
+                Fp12Pack8x1::cyclotomic_sqr(sqr_candidate, out.c);
+                Fp12Pack8x1::select(out.c, out.c, sqr_candidate, sqr_mask);
+            }
+
+            if (has_mul_at_step[step] != 0) {
+                Fp12Pack8x1::mul(mul_candidate, out.c, mul_operand_at_step[step]);
                 out.c = mul_candidate;
             }
         }
