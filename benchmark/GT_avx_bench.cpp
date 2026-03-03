@@ -30,6 +30,13 @@ u64 load_le_u64(const byte* in)
     return v;
 }
 
+void load_scalar_limbs_256(limb_t out[4], const byte* scalar_32)
+{
+    for (std::size_t i = 0; i < 4; ++i) {
+        out[i] = static_cast<limb_t>(load_le_u64(scalar_32 + i * sizeof(u64)));
+    }
+}
+
 bool scalar_ge_group_order(const byte* scalar_32)
 {
     const Fr& order = get_BLST_r();
@@ -105,9 +112,11 @@ struct GTBenchData
         , b(n_tuples)
         , out_scalar(n_tuples)
         , scalars(n_tuples * kStride)
+        , scalar_props(n_tuples)
         , a_pack(n_packs)
         , b_pack(n_packs)
         , out_pack(n_packs)
+        , pack_glv4(n_packs)
     {
         std::mt19937_64 gen(0xB17A5EED1234ULL + static_cast<u64>(packs));
 
@@ -115,11 +124,19 @@ struct GTBenchData
             random_gt(a[i], gen);
             random_gt(b[i], gen);
             random_reduced_scalar_32(&scalars[i * kStride], gen);
+
+            limb_t scalar_limbs[4]{};
+            load_scalar_limbs_256(scalar_limbs, &scalars[i * kStride]);
+            scalar_props[i] = Fp12::glv4_compile(scalar_limbs);
         }
 
         for (std::size_t p = 0; p < n_packs; ++p) {
             GTPack8x1::from_aos(a_pack[p], &a[p * 8]);
             GTPack8x1::from_aos(b_pack[p], &b[p * 8]);
+
+            const bool ok =
+                GTPack8x1::compile_glv4(pack_glv4[p], &scalars[p * 8 * kStride], kStride, kNBits);
+            BLST_ASSERT(ok);
         }
     }
 
@@ -129,9 +146,11 @@ struct GTBenchData
     std::vector<GT> b;
     std::vector<GT> out_scalar;
     std::vector<byte> scalars;
+    std::vector<GLV4_Exp> scalar_props;
     std::vector<GTPack8x1> a_pack;
     std::vector<GTPack8x1> b_pack;
     std::vector<GTPack8x1> out_pack;
+    std::vector<GTGlv4Pack8x1> pack_glv4;
 };
 
 void BM_GTAdd_Scalar(benchmark::State& state)
@@ -227,6 +246,37 @@ void BM_GTScalarMult_Pack(benchmark::State& state)
     state.SetItemsProcessed(state.iterations() * data.n_tuples);
 }
 BENCHMARK(BM_GTScalarMult_Pack)->Arg(1)->Arg(4);
+
+void BM_GTScalarMult_ScalarPrecompiled(benchmark::State& state)
+{
+    const std::size_t packs = static_cast<std::size_t>(state.range(0));
+    GTBenchData data(packs);
+
+    for (auto _ : state) {
+        for (std::size_t i = 0; i < data.n_tuples; ++i) {
+            Fp12::cyclotomic_exp_glv4(data.out_scalar[i].data, data.a[i].data, data.scalar_props[i]);
+        }
+        benchmark::DoNotOptimize(data.out_scalar.data());
+    }
+    state.SetItemsProcessed(state.iterations() * data.n_tuples);
+}
+BENCHMARK(BM_GTScalarMult_ScalarPrecompiled)->Arg(1)->Arg(4);
+
+void BM_GTScalarMult_PackPrecompiled(benchmark::State& state)
+{
+    const std::size_t packs = static_cast<std::size_t>(state.range(0));
+    GTBenchData data(packs);
+
+    for (auto _ : state) {
+        GTPack8x1::mult(
+            std::span<GTPack8x1>(data.out_pack.data(), data.n_packs),
+            std::span<const GTPack8x1>(data.a_pack.data(), data.n_packs),
+            std::span<const GTGlv4Pack8x1>(data.pack_glv4.data(), data.n_packs));
+        benchmark::DoNotOptimize(data.out_pack.data());
+    }
+    state.SetItemsProcessed(state.iterations() * data.n_tuples);
+}
+BENCHMARK(BM_GTScalarMult_PackPrecompiled)->Arg(1)->Arg(4);
 
 } // namespace
 

@@ -146,6 +146,54 @@ namespace
         return plan;
     }
 
+    BLST_FORCEINLINE bool gt_compile_glv4_plan(
+        GTGlv4Pack8x1& plan,
+        const byte* scalars8,
+        const std::size_t scalar_stride,
+        const std::size_t nbits)
+    {
+        BLST_ASSERT((nbits > 0) && (nbits <= kGtGlv4Bits));
+        BLST_ASSERT((scalars8 != nullptr) && (scalar_stride >= ((nbits + 7) >> 3)));
+
+        const std::size_t byte_len = (nbits + 7) >> 3;
+        const std::size_t rem_bits = nbits & 7u;
+        std::array<std::array<byte, kGtGlv4Bits / 8>, kGtPackLanes> scalar_bytes{};
+        std::array<std::array<limb_t, kGtGlv4Limbs>, kGtPackLanes> scalar_limbs{};
+
+        bool ok = true;
+        std::size_t max_steps = 0;
+        for (std::size_t lane = 0; lane < kGtPackLanes; ++lane) {
+            const byte* lane_scalar = scalars8 + lane * scalar_stride;
+            for (std::size_t i = 0; i < byte_len; ++i) {
+                scalar_bytes[lane][i] = lane_scalar[i];
+            }
+            if ((rem_bits != 0) && (byte_len > 0)) {
+                const byte mask = static_cast<byte>((1u << rem_bits) - 1u);
+                scalar_bytes[lane][byte_len - 1] &= mask;
+            }
+
+            load_scalar_limbs_256(scalar_limbs[lane].data(), scalar_bytes[lane].data());
+#ifndef NDEBUG
+            BLST_ASSERT(!scalar_ge_group_order_256(scalar_limbs[lane].data()));
+#endif
+            plan.props[lane] = Fp12::glv4_compile(scalar_limbs[lane].data());
+            const LaneGlv4Plan lane_plan = build_lane_glv4_plan(plan.props[lane], ok);
+            if (!ok) {
+                return false;
+            }
+
+            plan.init_idx[lane] = lane_plan.init_idx;
+            plan.total_steps[lane] = lane_plan.total_steps;
+            plan.mul_idx_at_step[lane] = lane_plan.mul_idx_at_step;
+            if (lane_plan.total_steps > max_steps) {
+                max_steps = lane_plan.total_steps;
+            }
+        }
+
+        plan.max_steps = static_cast<u8>(max_steps);
+        return true;
+    }
+
     BLST_FORCEINLINE void gt_mult_basic(
         GTPack8x1& out,
         const GTPack8x1& base,
@@ -195,49 +243,11 @@ namespace
         }
     }
 
-    BLST_FORCEINLINE bool gt_mult_glv4(
+    BLST_FORCEINLINE void gt_mult_glv4_precompiled(
         GTPack8x1& out,
         const GTPack8x1& base,
-        const byte* scalars8,
-        const std::size_t scalar_stride,
-        const std::size_t nbits)
+        const GTGlv4Pack8x1& plan)
     {
-        BLST_ASSERT((nbits > 0) && (nbits <= kGtGlv4Bits));
-        BLST_ASSERT((scalars8 != nullptr) && (scalar_stride >= ((nbits + 7) >> 3)));
-
-        const std::size_t byte_len = (nbits + 7) >> 3;
-        const std::size_t rem_bits = nbits & 7u;
-        std::array<std::array<byte, kGtGlv4Bits / 8>, kGtPackLanes> scalar_bytes{};
-        std::array<std::array<limb_t, kGtGlv4Limbs>, kGtPackLanes> scalar_limbs{};
-        std::array<GLV4_Exp, kGtPackLanes> props{};
-        std::array<LaneGlv4Plan, kGtPackLanes> plans{};
-
-        bool ok = true;
-        std::size_t max_steps = 0;
-        for (std::size_t lane = 0; lane < kGtPackLanes; ++lane) {
-            const byte* lane_scalar = scalars8 + lane * scalar_stride;
-            for (std::size_t i = 0; i < byte_len; ++i) {
-                scalar_bytes[lane][i] = lane_scalar[i];
-            }
-            if ((rem_bits != 0) && (byte_len > 0)) {
-                const byte mask = static_cast<byte>((1u << rem_bits) - 1u);
-                scalar_bytes[lane][byte_len - 1] &= mask;
-            }
-
-            load_scalar_limbs_256(scalar_limbs[lane].data(), scalar_bytes[lane].data());
-#ifndef NDEBUG
-            BLST_ASSERT(!scalar_ge_group_order_256(scalar_limbs[lane].data()));
-#endif
-            props[lane] = Fp12::glv4_compile(scalar_limbs[lane].data());
-            plans[lane] = build_lane_glv4_plan(props[lane], ok);
-            if (!ok) {
-                return false;
-            }
-            if (plans[lane].total_steps > max_steps) {
-                max_steps = plans[lane].total_steps;
-            }
-        }
-
         std::array<Fp12Pack8x1, 4> basis{};
         basis[0] = base.c;
         Fp12Pack8x1::frobenius_map(basis[1], base.c, 1);
@@ -247,7 +257,7 @@ namespace
         for (std::size_t basis_idx = 0; basis_idx < basis.size(); ++basis_idx) {
             u8 conj_mask = 0;
             for (std::size_t lane = 0; lane < kGtPackLanes; ++lane) {
-                const u8 sign_bit = static_cast<u8>((props[lane].sign_mask >> basis_idx) & 1u);
+                const u8 sign_bit = static_cast<u8>((plan.props[lane].sign_mask >> basis_idx) & 1u);
                 conj_mask |= static_cast<u8>(sign_bit << lane);
             }
             if (conj_mask != 0) {
@@ -281,7 +291,7 @@ namespace
         for (u8 idx = 1; idx < 16; ++idx) {
             u8 lane_mask = 0;
             for (std::size_t lane = 0; lane < kGtPackLanes; ++lane) {
-                lane_mask |= static_cast<u8>((plans[lane].init_idx == idx ? 1u : 0u) << lane);
+                lane_mask |= static_cast<u8>((plan.init_idx[lane] == idx ? 1u : 0u) << lane);
             }
             if (lane_mask != 0) {
                 Fp12Pack8x1::select(out.c, out.c, table[idx], lane_mask);
@@ -291,15 +301,16 @@ namespace
         Fp12Pack8x1 sqr_candidate{};
         Fp12Pack8x1 mul_candidate{};
         Fp12Pack8x1 mul_operand{};
-        for (std::size_t step = 1; step <= max_steps; ++step) {
+        for (std::size_t step = 1; step <= plan.max_steps; ++step) {
             u8 sqr_mask = 0;
             std::array<u8, 16> mul_masks{};
             for (std::size_t lane = 0; lane < kGtPackLanes; ++lane) {
-                const bool lane_active = (plans[lane].init_idx != 0) && (step <= plans[lane].total_steps);
+                const bool lane_active =
+                    (plan.init_idx[lane] != 0) && (step <= static_cast<std::size_t>(plan.total_steps[lane]));
                 sqr_mask |= static_cast<u8>((lane_active ? 1u : 0u) << lane);
 
                 if (lane_active) {
-                    const u8 idx = plans[lane].mul_idx_at_step[step];
+                    const u8 idx = plan.mul_idx_at_step[lane][step];
                     mul_masks[idx] |= static_cast<u8>(1u << lane);
                 }
             }
@@ -323,7 +334,20 @@ namespace
                 out.c = mul_candidate;
             }
         }
+    }
 
+    BLST_FORCEINLINE bool gt_mult_glv4(
+        GTPack8x1& out,
+        const GTPack8x1& base,
+        const byte* scalars8,
+        const std::size_t scalar_stride,
+        const std::size_t nbits)
+    {
+        GTGlv4Pack8x1 plan{};
+        if (!gt_compile_glv4_plan(plan, scalars8, scalar_stride, nbits)) {
+            return false;
+        }
+        gt_mult_glv4_precompiled(out, base, plan);
         return true;
     }
 } // namespace
@@ -391,6 +415,32 @@ void GTPack8x1::mult(
     }
 
     gt_mult_basic(out, base, scalars8, scalar_stride, nbits);
+}
+
+bool GTPack8x1::compile_glv4(
+    GTGlv4Pack8x1& out_plan,
+    const byte* scalars8,
+    const std::size_t scalar_stride,
+    const std::size_t nbits)
+{
+    const std::size_t required_scalar_bytes = (nbits + 7) >> 3;
+    BLST_ASSERT((nbits > 0) && (nbits <= kGtGlv4Bits));
+    BLST_ASSERT(scalars8 != nullptr);
+    BLST_ASSERT(scalar_stride >= required_scalar_bytes);
+
+    if ((nbits == 0) || (nbits > kGtGlv4Bits) || (scalars8 == nullptr) || (scalar_stride < required_scalar_bytes)) {
+        return false;
+    }
+
+    return gt_compile_glv4_plan(out_plan, scalars8, scalar_stride, nbits);
+}
+
+void GTPack8x1::mult(
+    GTPack8x1& out,
+    const GTPack8x1& base,
+    const GTGlv4Pack8x1& plan)
+{
+    gt_mult_glv4_precompiled(out, base, plan);
 }
 
 void GTPack8x1::add(
@@ -470,6 +520,61 @@ void GTPack8x1::mult(
     for (std::size_t i = 0; i < n_packs; ++i) {
         const byte* pack_scalars = (nbits == 0) ? nullptr : (scalars.data() + (i * 8 * scalar_stride));
         GTPack8x1::mult(out[i], base[i], pack_scalars, scalar_stride, nbits);
+    }
+}
+
+bool GTPack8x1::compile_glv4(
+    std::span<GTGlv4Pack8x1> out_plan,
+    std::span<const byte> scalars,
+    const std::size_t scalar_stride,
+    const std::size_t nbits)
+{
+    const std::size_t required_scalar_bytes = (nbits + 7) >> 3;
+    BLST_ASSERT((nbits > 0) && (nbits <= kGtGlv4Bits));
+    BLST_ASSERT(scalar_stride >= required_scalar_bytes);
+
+    if ((nbits == 0) || (nbits > kGtGlv4Bits) || (scalar_stride < required_scalar_bytes)) {
+        return false;
+    }
+
+    if (out_plan.empty()) {
+        return true;
+    }
+
+    const std::size_t n_packs = out_plan.size();
+    const std::size_t required_scalar_span = n_packs * 8 * scalar_stride;
+    BLST_ASSERT(scalars.size() >= required_scalar_span);
+    if (scalars.size() < required_scalar_span) {
+        return false;
+    }
+
+    for (std::size_t i = 0; i < n_packs; ++i) {
+        const byte* pack_scalars = scalars.data() + (i * 8 * scalar_stride);
+        if (!GTPack8x1::compile_glv4(out_plan[i], pack_scalars, scalar_stride, nbits)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void GTPack8x1::mult(
+    std::span<GTPack8x1> out,
+    std::span<const GTPack8x1> base,
+    std::span<const GTGlv4Pack8x1> plan)
+{
+    if (out.empty()) {
+        return;
+    }
+
+    const std::size_t n_packs = out.size();
+    BLST_ASSERT(base.size() == n_packs);
+    BLST_ASSERT(plan.size() == n_packs);
+    if ((base.size() != n_packs) || (plan.size() != n_packs)) {
+        return;
+    }
+
+    for (std::size_t i = 0; i < n_packs; ++i) {
+        GTPack8x1::mult(out[i], base[i], plan[i]);
     }
 }
 

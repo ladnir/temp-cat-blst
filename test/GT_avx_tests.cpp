@@ -404,6 +404,39 @@ static void run_scalar_multiplication_glv4_matches_scalar()
     }
 }
 
+static void run_scalar_multiplication_glv4_precompiled_matches_scalar()
+{
+    InsecureRng rng;
+    constexpr size_t kLaneCount = 8;
+    constexpr size_t kStride = 32;
+    const std::array<size_t, 3> nbits_cases = {129, 200, 256};
+
+    for (const size_t kNBits : nbits_cases) {
+        std::array<GT, kLaneCount> base{};
+        std::array<GT, kLaneCount> expected{};
+        std::array<GT, kLaneCount> got_pack{};
+        std::array<byte, kLaneCount * kStride> scalars{};
+        GTPack8x1 base_pack{};
+        GTPack8x1 out_pack{};
+        GTGlv4Pack8x1 plan{};
+
+        for (size_t lane = 0; lane < kLaneCount; ++lane) {
+            make_random_gt(base[lane], rng);
+            make_reduced_scalar_little_endian(&scalars[lane * kStride], kStride, kNBits, rng);
+            GT::mult(expected[lane], base[lane], &scalars[lane * kStride], kNBits);
+        }
+
+        GTPack8x1::from_aos(base_pack, base.data());
+        ASSERT_TRUE(GTPack8x1::compile_glv4(plan, scalars.data(), kStride, kNBits));
+        GTPack8x1::mult(out_pack, base_pack, plan);
+        GTPack8x1::to_aos(got_pack.data(), out_pack);
+
+        for (size_t lane = 0; lane < kLaneCount; ++lane) {
+            EXPECT_TRUE(GT::equal(got_pack[lane], expected[lane]));
+        }
+    }
+}
+
 static void run_span_add_and_doubling_match_scalar()
 {
     InsecureRng rng;
@@ -514,6 +547,60 @@ static void run_span_scalar_multiplication_matches_scalar()
     }
 }
 
+static void run_span_scalar_multiplication_glv4_precompiled_matches_scalar()
+{
+    InsecureRng rng;
+    constexpr size_t kMaxTuples = 16;
+    constexpr size_t kMaxPacks = 2;
+    constexpr size_t kStride = 32;
+    constexpr size_t kNBits = 256;
+    const std::array<size_t, 2> n_pack_cases = {0, 2};
+
+    for (const size_t n_packs : n_pack_cases) {
+        const size_t n_padded = n_packs * 8;
+
+        std::array<GT, kMaxTuples> base{};
+        std::array<GT, kMaxTuples> expected{};
+        std::array<GT, kMaxTuples> got{};
+        std::array<GTPack8x1, kMaxPacks> pbase{};
+        std::array<GTPack8x1, kMaxPacks> pout{};
+        std::array<GTGlv4Pack8x1, kMaxPacks> plans{};
+        std::array<byte, kMaxTuples * kStride> scalars{};
+
+        for (size_t i = 0; i < kMaxTuples; ++i) {
+            make_random_gt(base[i], rng);
+            make_reduced_scalar_little_endian(&scalars[i * kStride], kStride, kNBits, rng);
+            if (i < n_padded) {
+                GT::mult(expected[i], base[i], &scalars[i * kStride], kNBits);
+            } else {
+                expected[i] = GT::identity();
+            }
+        }
+
+        for (size_t p = 0; p < n_packs; ++p) {
+            GTPack8x1::from_aos(pbase[p], &base[p * 8]);
+        }
+
+        ASSERT_TRUE(GTPack8x1::compile_glv4(
+            std::span<GTGlv4Pack8x1>(plans.data(), n_packs),
+            std::span<const byte>(scalars.data(), n_packs * 8 * kStride),
+            kStride,
+            kNBits));
+
+        GTPack8x1::mult(
+            std::span<GTPack8x1>(pout.data(), n_packs),
+            std::span<const GTPack8x1>(pbase.data(), n_packs),
+            std::span<const GTGlv4Pack8x1>(plans.data(), n_packs));
+
+        for (size_t p = 0; p < n_packs; ++p) {
+            GTPack8x1::to_aos(&got[p * 8], pout[p]);
+        }
+        for (size_t i = 0; i < n_padded; ++i) {
+            EXPECT_TRUE(GT::equal(got[i], expected[i]));
+        }
+    }
+}
+
 static void run_span_aliasing()
 {
     InsecureRng rng;
@@ -594,8 +681,10 @@ TEST(GTBatchAvx, FastCoverage)
     run_scalar_multiplication_matches_scalar();
     run_scalar_multiplication_aliasing();
     run_scalar_multiplication_glv4_matches_scalar();
+    run_scalar_multiplication_glv4_precompiled_matches_scalar();
     run_span_add_and_doubling_match_scalar();
     run_span_scalar_multiplication_matches_scalar();
+    run_span_scalar_multiplication_glv4_precompiled_matches_scalar();
     run_span_aliasing();
 }
 
