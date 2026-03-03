@@ -244,12 +244,13 @@ void BM_IFMA52Throughput_Indep(benchmark::State& state)
 template <int Chains>
 void BM_IFMA52LoHi_SeqChains(benchmark::State& state)
 {
-  static_assert(Chains >= 2 && Chains <= 4, "SeqChains PoC supports Chains in [2,4].");
+  static_assert(Chains >= 2 && Chains <= 8, "SeqChains PoC supports Chains in [2,8].");
   constexpr std::size_t kUnroll = 8;
 
   const cc512i a = VSET1(0x0000FFFFFFFFFFFFULL);
   const cc512i b = VSET1(0x00000000FFFFFFFFULL);
   cc512i x0 = VSET1(1), x1 = VSET1(2), x2 = VSET1(3), x3 = VSET1(4);
+  cc512i x4 = VSET1(5), x5 = VSET1(6), x6 = VSET1(7), x7 = VSET1(8);
 
   for (auto _ : state) {
     for (std::size_t i = 0; i < kUnroll; ++i) {
@@ -272,6 +273,30 @@ void BM_IFMA52LoHi_SeqChains(benchmark::State& state)
         x3 = VMACHI(x3, a, b);
       }
     }
+    if constexpr (Chains >= 5) {
+      for (std::size_t i = 0; i < kUnroll; ++i) {
+        x4 = VMACLO(x4, a, b);
+        x4 = VMACHI(x4, a, b);
+      }
+    }
+    if constexpr (Chains >= 6) {
+      for (std::size_t i = 0; i < kUnroll; ++i) {
+        x5 = VMACLO(x5, a, b);
+        x5 = VMACHI(x5, a, b);
+      }
+    }
+    if constexpr (Chains >= 7) {
+      for (std::size_t i = 0; i < kUnroll; ++i) {
+        x6 = VMACLO(x6, a, b);
+        x6 = VMACHI(x6, a, b);
+      }
+    }
+    if constexpr (Chains >= 8) {
+      for (std::size_t i = 0; i < kUnroll; ++i) {
+        x7 = VMACLO(x7, a, b);
+        x7 = VMACHI(x7, a, b);
+      }
+    }
   }
 
   cc512i sink = VADD(x0, x1);
@@ -280,6 +305,18 @@ void BM_IFMA52LoHi_SeqChains(benchmark::State& state)
   }
   if constexpr (Chains >= 4) {
     sink = VADD(sink, x3);
+  }
+  if constexpr (Chains >= 5) {
+    sink = VADD(sink, x4);
+  }
+  if constexpr (Chains >= 6) {
+    sink = VADD(sink, x5);
+  }
+  if constexpr (Chains >= 7) {
+    sink = VADD(sink, x6);
+  }
+  if constexpr (Chains >= 8) {
+    sink = VADD(sink, x7);
   }
   benchmark::DoNotOptimize(sink);
 
@@ -293,12 +330,13 @@ void BM_IFMA52LoHi_SeqChains(benchmark::State& state)
 template <int Chains>
 void BM_IFMA52LoHi_HandInterleavedChains(benchmark::State& state)
 {
-  static_assert(Chains >= 2 && Chains <= 4, "HandInterleaved PoC supports Chains in [2,4].");
+  static_assert(Chains >= 2 && Chains <= 8, "HandInterleaved PoC supports Chains in [2,8].");
   constexpr std::size_t kUnroll = 8;
 
   const cc512i a = VSET1(0x0000FFFFFFFFFFFFULL);
   const cc512i b = VSET1(0x00000000FFFFFFFFULL);
   cc512i x0 = VSET1(1), x1 = VSET1(2), x2 = VSET1(3), x3 = VSET1(4);
+  cc512i x4 = VSET1(5), x5 = VSET1(6), x6 = VSET1(7), x7 = VSET1(8);
 
   for (auto _ : state) {
     for (std::size_t i = 0; i < kUnroll; ++i) {
@@ -307,11 +345,19 @@ void BM_IFMA52LoHi_HandInterleavedChains(benchmark::State& state)
       x1 = VMACLO(x1, a, b);
       if constexpr (Chains >= 3) { x2 = VMACLO(x2, a, b); }
       if constexpr (Chains >= 4) { x3 = VMACLO(x3, a, b); }
+      if constexpr (Chains >= 5) { x4 = VMACLO(x4, a, b); }
+      if constexpr (Chains >= 6) { x5 = VMACLO(x5, a, b); }
+      if constexpr (Chains >= 7) { x6 = VMACLO(x6, a, b); }
+      if constexpr (Chains >= 8) { x7 = VMACLO(x7, a, b); }
 
       x0 = VMACHI(x0, a, b);
       x1 = VMACHI(x1, a, b);
       if constexpr (Chains >= 3) { x2 = VMACHI(x2, a, b); }
       if constexpr (Chains >= 4) { x3 = VMACHI(x3, a, b); }
+      if constexpr (Chains >= 5) { x4 = VMACHI(x4, a, b); }
+      if constexpr (Chains >= 6) { x5 = VMACHI(x5, a, b); }
+      if constexpr (Chains >= 7) { x6 = VMACHI(x6, a, b); }
+      if constexpr (Chains >= 8) { x7 = VMACHI(x7, a, b); }
     }
   }
 
@@ -321,6 +367,18 @@ void BM_IFMA52LoHi_HandInterleavedChains(benchmark::State& state)
   }
   if constexpr (Chains >= 4) {
     sink = VADD(sink, x3);
+  }
+  if constexpr (Chains >= 5) {
+    sink = VADD(sink, x4);
+  }
+  if constexpr (Chains >= 6) {
+    sink = VADD(sink, x5);
+  }
+  if constexpr (Chains >= 7) {
+    sink = VADD(sink, x6);
+  }
+  if constexpr (Chains >= 8) {
+    sink = VADD(sink, x7);
   }
   benchmark::DoNotOptimize(sink);
 
@@ -399,6 +457,8 @@ BENCHMARK_TEMPLATE(BM_IFMA52LoHi_SeqChains, 2);
 BENCHMARK_TEMPLATE(BM_IFMA52LoHi_HandInterleavedChains, 2);
 BENCHMARK_TEMPLATE(BM_IFMA52LoHi_SeqChains, 4);
 BENCHMARK_TEMPLATE(BM_IFMA52LoHi_HandInterleavedChains, 4);
+BENCHMARK_TEMPLATE(BM_IFMA52LoHi_SeqChains, 8);
+BENCHMARK_TEMPLATE(BM_IFMA52LoHi_HandInterleavedChains, 8);
 
 } // namespace
 
