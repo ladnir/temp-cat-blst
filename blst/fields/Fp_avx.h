@@ -8,6 +8,16 @@
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 
+#if !defined(BLST_AVX_NOINLINE)
+# if defined(_MSC_VER)
+#  define BLST_AVX_NOINLINE __declspec(noinline)
+# elif defined(__GNUC__) || defined(__clang__)
+#  define BLST_AVX_NOINLINE __attribute__((noinline))
+# else
+#  define BLST_AVX_NOINLINE
+# endif
+#endif
+
 namespace blst
 {
     struct Fp;
@@ -368,6 +378,55 @@ namespace blst
     /// @post `a[0..NWORDS-2] < 2^48`; final carry remains in `a[NWORDS-1]`.
     void carryp_mpi48(u64* a);
     ///@}
+
+    /// @brief K-wise widened multiply over `FpPack8x1` arrays.
+    /// @tparam K Number of independent packs processed per block (`1`, `2`, or `4`).
+    /// @param n_blocks Number of K-sized blocks to process.
+    template <int K>
+    BLST_AVX_NOINLINE void fp8x1_mul_v2_k(
+        UFpPack8x1* BLST_restrict out,
+        const FpPack8x1* BLST_restrict a,
+        const FpPack8x1* BLST_restrict b,
+        std::size_t n_blocks);
+
+    /// @brief K-wise Montgomery reduction over widened `UFpPack8x1` arrays.
+    /// @tparam K Number of independent packs processed per block (`1`, `2`, or `4`).
+    /// @param n_blocks Number of K-sized blocks to process.
+    template <int K>
+    BLST_AVX_NOINLINE void fp8x1_redc_k(
+        FpPack8x1* BLST_restrict out,
+        const UFpPack8x1* BLST_restrict in,
+        std::size_t n_blocks);
+
+    /// @brief K-wise composed multiply+reduce over `FpPack8x1` arrays.
+    /// @tparam K Number of independent packs processed per block (`1`, `2`, or `4`).
+    /// @param n_blocks Number of K-sized blocks to process.
+    template <int K>
+    BLST_AVX_NOINLINE void fp8x1_mul_redc_k(
+        FpPack8x1* BLST_restrict out,
+        const FpPack8x1* BLST_restrict a,
+        const FpPack8x1* BLST_restrict b,
+        std::size_t n_blocks);
+
+    /// @brief Runtime 4->2->1 dispatch for widened multiply.
+    void fp8x1_mul_v2_dispatch(
+        UFpPack8x1* BLST_restrict out,
+        const FpPack8x1* BLST_restrict a,
+        const FpPack8x1* BLST_restrict b,
+        std::size_t n_packs);
+
+    /// @brief Runtime 4->2->1 dispatch for Montgomery reduction.
+    void fp8x1_redc_dispatch(
+        FpPack8x1* BLST_restrict out,
+        const UFpPack8x1* BLST_restrict in,
+        std::size_t n_packs);
+
+    /// @brief Runtime 4->2->1 dispatch for composed multiply+reduce.
+    void fp8x1_mul_redc_dispatch(
+        FpPack8x1* BLST_restrict out,
+        const FpPack8x1* BLST_restrict a,
+        const FpPack8x1* BLST_restrict b,
+        std::size_t n_packs);
 }
 
 #endif

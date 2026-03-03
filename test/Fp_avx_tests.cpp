@@ -229,6 +229,113 @@ void apply_lane_mask_select(FpVec8& out, const FpVec8& a, const FpVec8& b, u8 la
     }
 }
 
+template <int K>
+void run_kwise_mul_v2_redc_matches_scalar(InsecureRng& rng)
+{
+    static_assert((K == 1) || (K == 2) || (K == 4));
+    constexpr size_t kBlocks = 3;
+    constexpr size_t kPacks = K * kBlocks;
+
+    std::array<FpVec8, kPacks> a{};
+    std::array<FpVec8, kPacks> b{};
+    std::array<FpVec8, kPacks> expected{};
+    std::array<FpPack8x1, kPacks> pa{};
+    std::array<FpPack8x1, kPacks> pb{};
+    std::array<FpPack8x1, kPacks> got_from_split{};
+    std::array<FpPack8x1, kPacks> got_from_fused{};
+    std::array<UFpPack8x1, kPacks> wide{};
+
+    for (size_t pack = 0; pack < kPacks; ++pack) {
+        for (size_t lane = 0; lane < 8; ++lane) {
+            rand_redc_fp(a[pack][lane], rng);
+            rand_redc_fp(b[pack][lane], rng);
+            Fp::mul(expected[pack][lane], a[pack][lane], b[pack][lane]);
+        }
+        force_edge_lanes(a[pack]);
+        force_edge_lanes(b[pack]);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            Fp::mul(expected[pack][lane], a[pack][lane], b[pack][lane]);
+        }
+        pack_FpPack8x1(pa[pack], a[pack]);
+        pack_FpPack8x1(pb[pack], b[pack]);
+    }
+
+    fp8x1_mul_v2_k<K>(wide.data(), pa.data(), pb.data(), kBlocks);
+    fp8x1_redc_k<K>(got_from_split.data(), wide.data(), kBlocks);
+
+    fp8x1_mul_redc_k<K>(got_from_fused.data(), pa.data(), pb.data(), kBlocks);
+
+    for (size_t pack = 0; pack < kPacks; ++pack) {
+        FpVec8 split_lanes{};
+        FpVec8 fused_lanes{};
+        unpack_FpPack8x1(split_lanes, got_from_split[pack]);
+        unpack_FpPack8x1(fused_lanes, got_from_fused[pack]);
+
+        for (size_t lane = 0; lane < 8; ++lane) {
+            EXPECT_TRUE(Fp::equal(split_lanes[lane], expected[pack][lane]));
+            EXPECT_TRUE(Fp::equal(fused_lanes[lane], expected[pack][lane]));
+            EXPECT_TRUE(Fp::equal(split_lanes[lane], fused_lanes[lane]));
+        }
+    }
+}
+
+void run_kwise_dispatch_matches_scalar(InsecureRng& rng)
+{
+    constexpr size_t kPacks = 7;
+    std::array<FpVec8, kPacks> a{};
+    std::array<FpVec8, kPacks> b{};
+    std::array<FpVec8, kPacks> expected{};
+    std::array<FpPack8x1, kPacks> pa{};
+    std::array<FpPack8x1, kPacks> pb{};
+    std::array<FpPack8x1, kPacks> out_direct{};
+    std::array<FpPack8x1, kPacks> out_dispatch{};
+    std::array<UFpPack8x1, kPacks> wide_direct{};
+    std::array<UFpPack8x1, kPacks> wide_dispatch{};
+
+    for (size_t pack = 0; pack < kPacks; ++pack) {
+        for (size_t lane = 0; lane < 8; ++lane) {
+            rand_redc_fp(a[pack][lane], rng);
+            rand_redc_fp(b[pack][lane], rng);
+            Fp::mul(expected[pack][lane], a[pack][lane], b[pack][lane]);
+        }
+        force_edge_lanes(a[pack]);
+        force_edge_lanes(b[pack]);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            Fp::mul(expected[pack][lane], a[pack][lane], b[pack][lane]);
+        }
+
+        pack_FpPack8x1(pa[pack], a[pack]);
+        pack_FpPack8x1(pb[pack], b[pack]);
+    }
+
+    for (size_t pack = 0; pack < kPacks; ++pack) {
+        FpPack8x1::mul_v2(wide_direct[pack], pa[pack], pb[pack]);
+        UFpPack8x1::redc(out_direct[pack], wide_direct[pack]);
+    }
+
+    fp8x1_mul_v2_dispatch(wide_dispatch.data(), pa.data(), pb.data(), kPacks);
+    fp8x1_redc_dispatch(out_dispatch.data(), wide_dispatch.data(), kPacks);
+    for (size_t pack = 0; pack < kPacks; ++pack) {
+        FpVec8 got{};
+        FpVec8 ref{};
+        unpack_FpPack8x1(got, out_dispatch[pack]);
+        unpack_FpPack8x1(ref, out_direct[pack]);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            EXPECT_TRUE(Fp::equal(got[lane], ref[lane]));
+            EXPECT_TRUE(Fp::equal(got[lane], expected[pack][lane]));
+        }
+    }
+
+    fp8x1_mul_redc_dispatch(out_dispatch.data(), pa.data(), pb.data(), kPacks);
+    for (size_t pack = 0; pack < kPacks; ++pack) {
+        FpVec8 got{};
+        unpack_FpPack8x1(got, out_dispatch[pack]);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            EXPECT_TRUE(Fp::equal(got[lane], expected[pack][lane]));
+        }
+    }
+}
+
 } // namespace
 
 TEST(FpAvx, ConversionRoundTrip)
@@ -963,6 +1070,17 @@ TEST(FpAvx, MulRedc4x2w)
             EXPECT_TRUE(Fp::equal(out4_alias[lane], out8[lane]));
             EXPECT_TRUE(Fp::equal(out4_v1[lane], out8[lane]));
         }
+    }
+}
+
+TEST(FpAvx, KWiseMulV2RedcKernels)
+{
+    InsecureRng rng;
+    for (int iter = 0; iter < 32; ++iter) {
+        run_kwise_mul_v2_redc_matches_scalar<1>(rng);
+        run_kwise_mul_v2_redc_matches_scalar<2>(rng);
+        run_kwise_mul_v2_redc_matches_scalar<4>(rng);
+        run_kwise_dispatch_matches_scalar(rng);
     }
 }
 

@@ -2117,6 +2117,260 @@ void UFpPack4x2::redc(FpPack4x2& r, const UFpPack4x2& a)
   r[0] = r0; r[1] = r1; r[2] = r2; r[3] = r3; 
 }
 
+namespace
+{
+template <int K>
+BLST_FORCEINLINE void fp8x1_mul_v2_block(
+    UFpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b)
+{
+  static_assert((K == 1) || (K == 2) || (K == 4), "fp8x1_mul_v2_block supports K in {1,2,4}");
+
+  if constexpr (K == 1) {
+    FpPack8x1::mul_v2(out[0], a[0], b[0]);
+  } else if constexpr (K == 2) {
+    FpPack8x1::mul_v2(out[0], a[0], b[0]);
+    FpPack8x1::mul_v2(out[1], a[1], b[1]);
+  } else {
+    FpPack8x1::mul_v2(out[0], a[0], b[0]);
+    FpPack8x1::mul_v2(out[1], a[1], b[1]);
+    FpPack8x1::mul_v2(out[2], a[2], b[2]);
+    FpPack8x1::mul_v2(out[3], a[3], b[3]);
+  }
+}
+
+template <int K>
+BLST_FORCEINLINE void fp8x1_redc_block(
+    FpPack8x1* BLST_restrict out,
+    const UFpPack8x1* BLST_restrict in)
+{
+  static_assert((K == 1) || (K == 2) || (K == 4), "fp8x1_redc_block supports K in {1,2,4}");
+
+  if constexpr (K == 1) {
+    UFpPack8x1::redc(out[0], in[0]);
+  } else if constexpr (K == 2) {
+    UFpPack8x1::redc(out[0], in[0]);
+    UFpPack8x1::redc(out[1], in[1]);
+  } else {
+    UFpPack8x1::redc(out[0], in[0]);
+    UFpPack8x1::redc(out[1], in[1]);
+    UFpPack8x1::redc(out[2], in[2]);
+    UFpPack8x1::redc(out[3], in[3]);
+  }
+}
+
+template <int K>
+BLST_FORCEINLINE void fp8x1_mul_redc_block(
+    FpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b)
+{
+  static_assert((K == 1) || (K == 2) || (K == 4), "fp8x1_mul_redc_block supports K in {1,2,4}");
+
+  UFpPack8x1 wide[K];
+  fp8x1_mul_v2_block<K>(wide, a, b);
+  fp8x1_redc_block<K>(out, wide);
+}
+} // namespace
+
+template <int K>
+BLST_AVX_NOINLINE void fp8x1_mul_v2_k(
+    UFpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b,
+    const std::size_t n_blocks)
+{
+  static_assert((K == 1) || (K == 2) || (K == 4), "fp8x1_mul_v2_k supports K in {1,2,4}");
+  BLST_ASSERT(out != nullptr || n_blocks == 0);
+  BLST_ASSERT(a != nullptr || n_blocks == 0);
+  BLST_ASSERT(b != nullptr || n_blocks == 0);
+
+  for (std::size_t i = 0; i < n_blocks; ++i) {
+    fp8x1_mul_v2_block<K>(out, a, b);
+    out += K;
+    a += K;
+    b += K;
+  }
+}
+
+template <int K>
+BLST_AVX_NOINLINE void fp8x1_redc_k(
+    FpPack8x1* BLST_restrict out,
+    const UFpPack8x1* BLST_restrict in,
+    const std::size_t n_blocks)
+{
+  static_assert((K == 1) || (K == 2) || (K == 4), "fp8x1_redc_k supports K in {1,2,4}");
+  BLST_ASSERT(out != nullptr || n_blocks == 0);
+  BLST_ASSERT(in != nullptr || n_blocks == 0);
+
+  for (std::size_t i = 0; i < n_blocks; ++i) {
+    fp8x1_redc_block<K>(out, in);
+    out += K;
+    in += K;
+  }
+}
+
+template <int K>
+BLST_AVX_NOINLINE void fp8x1_mul_redc_k(
+    FpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b,
+    const std::size_t n_blocks)
+{
+  static_assert((K == 1) || (K == 2) || (K == 4), "fp8x1_mul_redc_k supports K in {1,2,4}");
+  BLST_ASSERT(out != nullptr || n_blocks == 0);
+  BLST_ASSERT(a != nullptr || n_blocks == 0);
+  BLST_ASSERT(b != nullptr || n_blocks == 0);
+
+  for (std::size_t i = 0; i < n_blocks; ++i) {
+    fp8x1_mul_redc_block<K>(out, a, b);
+    out += K;
+    a += K;
+    b += K;
+  }
+}
+
+void fp8x1_mul_v2_dispatch(
+    UFpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b,
+    std::size_t n_packs)
+{
+  BLST_ASSERT(out != nullptr || n_packs == 0);
+  BLST_ASSERT(a != nullptr || n_packs == 0);
+  BLST_ASSERT(b != nullptr || n_packs == 0);
+
+  const std::size_t n4 = n_packs / 4;
+  if (n4 != 0) {
+    fp8x1_mul_v2_k<4>(out, a, b, n4);
+    out += n4 * 4;
+    a += n4 * 4;
+    b += n4 * 4;
+    n_packs -= n4 * 4;
+  }
+
+  const std::size_t n2 = n_packs / 2;
+  if (n2 != 0) {
+    fp8x1_mul_v2_k<2>(out, a, b, n2);
+    out += n2 * 2;
+    a += n2 * 2;
+    b += n2 * 2;
+    n_packs -= n2 * 2;
+  }
+
+  if (n_packs != 0) {
+    fp8x1_mul_v2_k<1>(out, a, b, n_packs);
+  }
+}
+
+void fp8x1_redc_dispatch(
+    FpPack8x1* BLST_restrict out,
+    const UFpPack8x1* BLST_restrict in,
+    std::size_t n_packs)
+{
+  BLST_ASSERT(out != nullptr || n_packs == 0);
+  BLST_ASSERT(in != nullptr || n_packs == 0);
+
+  const std::size_t n4 = n_packs / 4;
+  if (n4 != 0) {
+    fp8x1_redc_k<4>(out, in, n4);
+    out += n4 * 4;
+    in += n4 * 4;
+    n_packs -= n4 * 4;
+  }
+
+  const std::size_t n2 = n_packs / 2;
+  if (n2 != 0) {
+    fp8x1_redc_k<2>(out, in, n2);
+    out += n2 * 2;
+    in += n2 * 2;
+    n_packs -= n2 * 2;
+  }
+
+  if (n_packs != 0) {
+    fp8x1_redc_k<1>(out, in, n_packs);
+  }
+}
+
+void fp8x1_mul_redc_dispatch(
+    FpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b,
+    std::size_t n_packs)
+{
+  BLST_ASSERT(out != nullptr || n_packs == 0);
+  BLST_ASSERT(a != nullptr || n_packs == 0);
+  BLST_ASSERT(b != nullptr || n_packs == 0);
+
+  const std::size_t n4 = n_packs / 4;
+  if (n4 != 0) {
+    fp8x1_mul_redc_k<4>(out, a, b, n4);
+    out += n4 * 4;
+    a += n4 * 4;
+    b += n4 * 4;
+    n_packs -= n4 * 4;
+  }
+
+  const std::size_t n2 = n_packs / 2;
+  if (n2 != 0) {
+    fp8x1_mul_redc_k<2>(out, a, b, n2);
+    out += n2 * 2;
+    a += n2 * 2;
+    b += n2 * 2;
+    n_packs -= n2 * 2;
+  }
+
+  if (n_packs != 0) {
+    fp8x1_mul_redc_k<1>(out, a, b, n_packs);
+  }
+}
+
+template BLST_AVX_NOINLINE void fp8x1_mul_v2_k<1>(
+    UFpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b,
+    std::size_t n_blocks);
+template BLST_AVX_NOINLINE void fp8x1_mul_v2_k<2>(
+    UFpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b,
+    std::size_t n_blocks);
+template BLST_AVX_NOINLINE void fp8x1_mul_v2_k<4>(
+    UFpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b,
+    std::size_t n_blocks);
+
+template BLST_AVX_NOINLINE void fp8x1_redc_k<1>(
+    FpPack8x1* BLST_restrict out,
+    const UFpPack8x1* BLST_restrict in,
+    std::size_t n_blocks);
+template BLST_AVX_NOINLINE void fp8x1_redc_k<2>(
+    FpPack8x1* BLST_restrict out,
+    const UFpPack8x1* BLST_restrict in,
+    std::size_t n_blocks);
+template BLST_AVX_NOINLINE void fp8x1_redc_k<4>(
+    FpPack8x1* BLST_restrict out,
+    const UFpPack8x1* BLST_restrict in,
+    std::size_t n_blocks);
+
+template BLST_AVX_NOINLINE void fp8x1_mul_redc_k<1>(
+    FpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b,
+    std::size_t n_blocks);
+template BLST_AVX_NOINLINE void fp8x1_mul_redc_k<2>(
+    FpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b,
+    std::size_t n_blocks);
+template BLST_AVX_NOINLINE void fp8x1_mul_redc_k<4>(
+    FpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b,
+    std::size_t n_blocks);
+
 } // namespace blst
 
 #endif
