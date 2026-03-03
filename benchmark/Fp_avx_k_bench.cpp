@@ -111,6 +111,140 @@ struct Fp8x1RedcCoreStreamData
   std::array<LFpPack8x1, Chains> lazy{};
 };
 
+#define BLST_APPLY_C2(STMT)                                                                 \
+  do {                                                                                       \
+    { constexpr std::size_t c = 0; STMT }                                                   \
+    { constexpr std::size_t c = 1; STMT }                                                   \
+  } while (0)
+
+#define BLST_APPLY_C4(STMT)                                                                 \
+  do {                                                                                       \
+    { constexpr std::size_t c = 0; STMT }                                                   \
+    { constexpr std::size_t c = 1; STMT }                                                   \
+    { constexpr std::size_t c = 2; STMT }                                                   \
+    { constexpr std::size_t c = 3; STMT }                                                   \
+  } while (0)
+
+#define BLST_APPLY_C8(STMT)                                                                 \
+  do {                                                                                       \
+    { constexpr std::size_t c = 0; STMT }                                                   \
+    { constexpr std::size_t c = 1; STMT }                                                   \
+    { constexpr std::size_t c = 2; STMT }                                                   \
+    { constexpr std::size_t c = 3; STMT }                                                   \
+    { constexpr std::size_t c = 4; STMT }                                                   \
+    { constexpr std::size_t c = 5; STMT }                                                   \
+    { constexpr std::size_t c = 6; STMT }                                                   \
+    { constexpr std::size_t c = 7; STMT }                                                   \
+  } while (0)
+
+#define BLST_REDC_CORE_STEP(APPLY, IDX)                                                     \
+  do {                                                                                       \
+    APPLY({ u[c] = VAND(VMACLO(zero, a[(IDX)][c], montw), bmask); });                       \
+    APPLY({                                                                                  \
+      a[(IDX) + 0][c] = VMACLO(a[(IDX) + 0][c], u[c], p0);                                  \
+      a[(IDX) + 1][c] = VMACLO(a[(IDX) + 1][c], u[c], p1);                                  \
+      a[(IDX) + 2][c] = VMACLO(a[(IDX) + 2][c], u[c], p2);                                  \
+      a[(IDX) + 3][c] = VMACLO(a[(IDX) + 3][c], u[c], p3);                                  \
+      a[(IDX) + 4][c] = VMACLO(a[(IDX) + 4][c], u[c], p4);                                  \
+      a[(IDX) + 5][c] = VMACLO(a[(IDX) + 5][c], u[c], p5);                                  \
+      a[(IDX) + 6][c] = VMACLO(a[(IDX) + 6][c], u[c], p6);                                  \
+      a[(IDX) + 7][c] = VMACLO(a[(IDX) + 7][c], u[c], p7);                                  \
+    });                                                                                      \
+    APPLY({                                                                                  \
+      y[(IDX) + 0][c] = VMACHI(y[(IDX) + 0][c], u[c], p0);                                  \
+      y[(IDX) + 1][c] = VMACHI(y[(IDX) + 1][c], u[c], p1);                                  \
+      y[(IDX) + 2][c] = VMACHI(y[(IDX) + 2][c], u[c], p2);                                  \
+      y[(IDX) + 3][c] = VMACHI(y[(IDX) + 3][c], u[c], p3);                                  \
+      y[(IDX) + 4][c] = VMACHI(y[(IDX) + 4][c], u[c], p4);                                  \
+      y[(IDX) + 5][c] = VMACHI(y[(IDX) + 5][c], u[c], p5);                                  \
+      y[(IDX) + 6][c] = VMACHI(y[(IDX) + 6][c], u[c], p6);                                  \
+      y[(IDX) + 7][c] = VMACHI(y[(IDX) + 7][c], u[c], p7);                                  \
+    });                                                                                      \
+    APPLY({                                                                                  \
+      a[(IDX) + 1][c] =                                                                      \
+          VADD(VADD(a[(IDX) + 1][c], VSRA(a[(IDX) + 0][c], BRADIX)), VSHL(y[(IDX) + 0][c], BALIGN)); \
+    });                                                                                      \
+  } while (0)
+
+#define BLST_REDC_CORE_FINALIZE(APPLY)                                                      \
+  do {                                                                                       \
+    APPLY({ a[9][c] = VADD(a[9][c], VSHL(y[8][c], BALIGN)); });                             \
+    APPLY({ a[10][c] = VADD(a[10][c], VSHL(y[9][c], BALIGN)); });                           \
+    APPLY({ a[11][c] = VADD(a[11][c], VSHL(y[10][c], BALIGN)); });                          \
+    APPLY({ a[12][c] = VADD(a[12][c], VSHL(y[11][c], BALIGN)); });                          \
+    APPLY({ a[13][c] = VADD(a[13][c], VSHL(y[12][c], BALIGN)); });                          \
+    APPLY({ a[14][c] = VADD(a[14][c], VSHL(y[13][c], BALIGN)); });                          \
+    APPLY({ a[15][c] = VADD(a[15][c], VSHL(y[14][c], BALIGN)); });                          \
+                                                                                             \
+    APPLY({                                                                                  \
+      r[0][c] = a[8][c]; r[1][c] = a[9][c]; r[2][c] = a[10][c]; r[3][c] = a[11][c];       \
+      r[4][c] = a[12][c]; r[5][c] = a[13][c]; r[6][c] = a[14][c]; r[7][c] = a[15][c];     \
+    });                                                                                      \
+                                                                                             \
+    APPLY({ r[1][c] = VADD(r[1][c], VSRA(r[0][c], BRADIX)); r[0][c] = VAND(r[0][c], bmask); }); \
+    APPLY({ r[2][c] = VADD(r[2][c], VSRA(r[1][c], BRADIX)); r[1][c] = VAND(r[1][c], bmask); }); \
+    APPLY({ r[3][c] = VADD(r[3][c], VSRA(r[2][c], BRADIX)); r[2][c] = VAND(r[2][c], bmask); }); \
+    APPLY({ r[4][c] = VADD(r[4][c], VSRA(r[3][c], BRADIX)); r[3][c] = VAND(r[3][c], bmask); }); \
+    APPLY({ r[5][c] = VADD(r[5][c], VSRA(r[4][c], BRADIX)); r[4][c] = VAND(r[4][c], bmask); }); \
+    APPLY({ r[6][c] = VADD(r[6][c], VSRA(r[5][c], BRADIX)); r[5][c] = VAND(r[5][c], bmask); }); \
+    APPLY({                                                                                  \
+      r[7][c] = VADD(r[7][c], VSRA(r[6][c], BRADIX));                                       \
+      r[6][c] = VAND(r[6][c], bmask);                                                        \
+      r[7][c] = VAND(r[7][c], bmask);                                                        \
+    });                                                                                      \
+  } while (0)
+
+template <int Chains>
+BLST_FORCEINLINE void redc_core_hand_interleaved_once(
+    std::array<LFpPack8x1, Chains>& out,
+    const std::array<UFpPack8x1, Chains>& in);
+
+#define BLST_DEFINE_REDC_CORE_HAND_SPECIALIZATION(CHAINS, APPLY)                            \
+  template <>                                                                                \
+  BLST_FORCEINLINE void redc_core_hand_interleaved_once<CHAINS>(                            \
+      std::array<LFpPack8x1, CHAINS>& out,                                                  \
+      const std::array<UFpPack8x1, CHAINS>& in)                                             \
+  {                                                                                          \
+    std::array<std::array<cc512i, CHAINS>, 16> a{};                                         \
+    std::array<std::array<cc512i, CHAINS>, 15> y{};                                         \
+    std::array<std::array<cc512i, CHAINS>, 8> r{};                                          \
+    std::array<cc512i, CHAINS> u{};                                                         \
+                                                                                             \
+    const cc512i p0 = VSET1(P48[0]), p1 = VSET1(P48[1]), p2 = VSET1(P48[2]);                \
+    const cc512i p3 = VSET1(P48[3]), p4 = VSET1(P48[4]), p5 = VSET1(P48[5]);                \
+    const cc512i p6 = VSET1(P48[6]), p7 = VSET1(P48[7]);                                    \
+    const cc512i bmask = VSET1(BMASK), montw = VSET1(MONT_W_R48), zero = VZERO();          \
+                                                                                             \
+    for (std::size_t i = 0; i < 16; ++i) {                                                  \
+      APPLY({ a[i][c] = in[c][i]; });                                                       \
+    }                                                                                        \
+    for (std::size_t i = 0; i < 15; ++i) {                                                  \
+      APPLY({ y[i][c] = VZERO(); });                                                        \
+    }                                                                                        \
+                                                                                             \
+    BLST_REDC_CORE_STEP(APPLY, 0);                                                           \
+    BLST_REDC_CORE_STEP(APPLY, 1);                                                           \
+    BLST_REDC_CORE_STEP(APPLY, 2);                                                           \
+    BLST_REDC_CORE_STEP(APPLY, 3);                                                           \
+    BLST_REDC_CORE_STEP(APPLY, 4);                                                           \
+    BLST_REDC_CORE_STEP(APPLY, 5);                                                           \
+    BLST_REDC_CORE_STEP(APPLY, 6);                                                           \
+    BLST_REDC_CORE_STEP(APPLY, 7);                                                           \
+    BLST_REDC_CORE_FINALIZE(APPLY);                                                          \
+                                                                                             \
+    for (std::size_t i = 0; i < 8; ++i) {                                                   \
+      APPLY({ out[c][i] = r[i][c]; });                                                      \
+    }                                                                                        \
+  }
+
+BLST_DEFINE_REDC_CORE_HAND_SPECIALIZATION(2, BLST_APPLY_C2);
+BLST_DEFINE_REDC_CORE_HAND_SPECIALIZATION(4, BLST_APPLY_C4);
+BLST_DEFINE_REDC_CORE_HAND_SPECIALIZATION(8, BLST_APPLY_C8);
+
+#undef BLST_DEFINE_REDC_CORE_HAND_SPECIALIZATION
+#undef BLST_REDC_CORE_FINALIZE
+#undef BLST_REDC_CORE_STEP
+
 template <int K>
 void BM_Fp8x1MulV2K(benchmark::State& state)
 {
@@ -405,60 +539,110 @@ void BM_Fp8x1RedcCore_SeqChains(benchmark::State& state)
 template <int Chains>
 void BM_Fp8x1RedcCore_HandInterleavedChains(benchmark::State& state)
 {
-  static_assert(Chains >= 1 && Chains <= 8, "HandInterleaved supports Chains in [1,8].");
-  constexpr std::size_t kUnroll = 8;
-  Fp8x1RedcCoreStreamData<Chains> data{};
+  static_assert((Chains == 2) || (Chains == 4) || (Chains == 8),
+                "HandInterleaved benchmark is explicitly specialized for Chains in {2,4,8}.");
+}
 
+template <>
+void BM_Fp8x1RedcCore_HandInterleavedChains<2>(benchmark::State& state)
+{
+  constexpr std::size_t kUnroll = 8;
+  Fp8x1RedcCoreStreamData<2> data{};
   const cc512i one = VSET1(1);
+
   for (auto _ : state) {
     for (std::size_t i = 0; i < kUnroll; ++i) {
-      if constexpr (Chains >= 1) {
-        UFpPack8x1::redc_core(data.lazy[0], data.wide[0]);
-        data.wide[0][0] = VADD(data.wide[0][0], VADD(data.lazy[0][0], one));
-      }
-      if constexpr (Chains >= 2) {
-        UFpPack8x1::redc_core(data.lazy[1], data.wide[1]);
-        data.wide[1][0] = VADD(data.wide[1][0], VADD(data.lazy[1][0], one));
-      }
-      if constexpr (Chains >= 3) {
-        UFpPack8x1::redc_core(data.lazy[2], data.wide[2]);
-        data.wide[2][0] = VADD(data.wide[2][0], VADD(data.lazy[2][0], one));
-      }
-      if constexpr (Chains >= 4) {
-        UFpPack8x1::redc_core(data.lazy[3], data.wide[3]);
-        data.wide[3][0] = VADD(data.wide[3][0], VADD(data.lazy[3][0], one));
-      }
-      if constexpr (Chains >= 5) {
-        UFpPack8x1::redc_core(data.lazy[4], data.wide[4]);
-        data.wide[4][0] = VADD(data.wide[4][0], VADD(data.lazy[4][0], one));
-      }
-      if constexpr (Chains >= 6) {
-        UFpPack8x1::redc_core(data.lazy[5], data.wide[5]);
-        data.wide[5][0] = VADD(data.wide[5][0], VADD(data.lazy[5][0], one));
-      }
-      if constexpr (Chains >= 7) {
-        UFpPack8x1::redc_core(data.lazy[6], data.wide[6]);
-        data.wide[6][0] = VADD(data.wide[6][0], VADD(data.lazy[6][0], one));
-      }
-      if constexpr (Chains >= 8) {
-        UFpPack8x1::redc_core(data.lazy[7], data.wide[7]);
-        data.wide[7][0] = VADD(data.wide[7][0], VADD(data.lazy[7][0], one));
-      }
+      redc_core_hand_interleaved_once<2>(data.lazy, data.wide);
+      data.wide[0][0] = VADD(data.wide[0][0], VADD(data.lazy[0][0], one));
+      data.wide[1][0] = VADD(data.wide[1][0], VADD(data.lazy[1][0], one));
     }
   }
 
   cc512i sink = VZERO();
-  for (int c = 0; c < Chains; ++c) {
-    sink = VADD(sink, data.lazy[c][0]);
-  }
+  sink = VADD(sink, data.lazy[0][0]);
+  sink = VADD(sink, data.lazy[1][0]);
   benchmark::DoNotOptimize(sink);
 
-  const std::size_t ops_per_iter = static_cast<std::size_t>(Chains) * kUnroll;
+  const std::size_t ops_per_iter = 2 * kUnroll;
   state.SetItemsProcessed(state.iterations() * ops_per_iter);
   state.counters["redc_core_per_iter"] = static_cast<double>(ops_per_iter);
-  state.counters["chains"] = static_cast<double>(Chains);
+  state.counters["chains"] = 2.0;
   state.counters["unroll"] = static_cast<double>(kUnroll);
 }
+
+template <>
+void BM_Fp8x1RedcCore_HandInterleavedChains<4>(benchmark::State& state)
+{
+  constexpr std::size_t kUnroll = 8;
+  Fp8x1RedcCoreStreamData<4> data{};
+  const cc512i one = VSET1(1);
+
+  for (auto _ : state) {
+    for (std::size_t i = 0; i < kUnroll; ++i) {
+      redc_core_hand_interleaved_once<4>(data.lazy, data.wide);
+      data.wide[0][0] = VADD(data.wide[0][0], VADD(data.lazy[0][0], one));
+      data.wide[1][0] = VADD(data.wide[1][0], VADD(data.lazy[1][0], one));
+      data.wide[2][0] = VADD(data.wide[2][0], VADD(data.lazy[2][0], one));
+      data.wide[3][0] = VADD(data.wide[3][0], VADD(data.lazy[3][0], one));
+    }
+  }
+
+  cc512i sink = VZERO();
+  sink = VADD(sink, data.lazy[0][0]);
+  sink = VADD(sink, data.lazy[1][0]);
+  sink = VADD(sink, data.lazy[2][0]);
+  sink = VADD(sink, data.lazy[3][0]);
+  benchmark::DoNotOptimize(sink);
+
+  const std::size_t ops_per_iter = 4 * kUnroll;
+  state.SetItemsProcessed(state.iterations() * ops_per_iter);
+  state.counters["redc_core_per_iter"] = static_cast<double>(ops_per_iter);
+  state.counters["chains"] = 4.0;
+  state.counters["unroll"] = static_cast<double>(kUnroll);
+}
+
+template <>
+void BM_Fp8x1RedcCore_HandInterleavedChains<8>(benchmark::State& state)
+{
+  constexpr std::size_t kUnroll = 8;
+  Fp8x1RedcCoreStreamData<8> data{};
+  const cc512i one = VSET1(1);
+
+  for (auto _ : state) {
+    for (std::size_t i = 0; i < kUnroll; ++i) {
+      redc_core_hand_interleaved_once<8>(data.lazy, data.wide);
+      data.wide[0][0] = VADD(data.wide[0][0], VADD(data.lazy[0][0], one));
+      data.wide[1][0] = VADD(data.wide[1][0], VADD(data.lazy[1][0], one));
+      data.wide[2][0] = VADD(data.wide[2][0], VADD(data.lazy[2][0], one));
+      data.wide[3][0] = VADD(data.wide[3][0], VADD(data.lazy[3][0], one));
+      data.wide[4][0] = VADD(data.wide[4][0], VADD(data.lazy[4][0], one));
+      data.wide[5][0] = VADD(data.wide[5][0], VADD(data.lazy[5][0], one));
+      data.wide[6][0] = VADD(data.wide[6][0], VADD(data.lazy[6][0], one));
+      data.wide[7][0] = VADD(data.wide[7][0], VADD(data.lazy[7][0], one));
+    }
+  }
+
+  cc512i sink = VZERO();
+  sink = VADD(sink, data.lazy[0][0]);
+  sink = VADD(sink, data.lazy[1][0]);
+  sink = VADD(sink, data.lazy[2][0]);
+  sink = VADD(sink, data.lazy[3][0]);
+  sink = VADD(sink, data.lazy[4][0]);
+  sink = VADD(sink, data.lazy[5][0]);
+  sink = VADD(sink, data.lazy[6][0]);
+  sink = VADD(sink, data.lazy[7][0]);
+  benchmark::DoNotOptimize(sink);
+
+  const std::size_t ops_per_iter = 8 * kUnroll;
+  state.SetItemsProcessed(state.iterations() * ops_per_iter);
+  state.counters["redc_core_per_iter"] = static_cast<double>(ops_per_iter);
+  state.counters["chains"] = 8.0;
+  state.counters["unroll"] = static_cast<double>(kUnroll);
+}
+
+#undef BLST_APPLY_C2
+#undef BLST_APPLY_C4
+#undef BLST_APPLY_C8
 
 template <bool DoLo, bool DoHi>
 void BM_IFMA52Latency_DepChain(benchmark::State& state)
@@ -796,7 +980,6 @@ BENCHMARK_TEMPLATE(BM_Fp8x1MulRedc_SeqChains, 8);
 BENCHMARK_TEMPLATE(BM_Fp8x1MulRedc_HandInterleavedChains, 8);
 
 BENCHMARK_TEMPLATE(BM_Fp8x1RedcCore_SeqChains, 1);
-BENCHMARK_TEMPLATE(BM_Fp8x1RedcCore_HandInterleavedChains, 1);
 BENCHMARK_TEMPLATE(BM_Fp8x1RedcCore_SeqChains, 2);
 BENCHMARK_TEMPLATE(BM_Fp8x1RedcCore_HandInterleavedChains, 2);
 BENCHMARK_TEMPLATE(BM_Fp8x1RedcCore_SeqChains, 4);

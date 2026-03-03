@@ -325,6 +325,31 @@ Primary decision metric:
 
 - If `mul` is near IFMA roofline but `mul+redc` is not, reduction/lazy strategy is the main optimization target.
 
+### Kernel decomposition finding (native AVX-512): why `mul+redc` stayed flat
+
+Measured with dependent-chain stream benchmarks (`unroll=8`, `k=1/2/4/8`):
+
+- `Fp8x1 mul+redc`:
+  - stays ~flat around `11.15-11.49 M ops/s` across `k=1..8`
+  - hand-interleaved vs seq is minor (roughly noise to low-single-digit %)
+- `Fp8x1 redc_core`:
+  - seq: ~`19.1-19.3 M ops/s` (mostly flat)
+  - hand-interleaved: ~`21.5-21.7 M ops/s` for `k>=2` (about `+12-16%`)
+
+Interpretation:
+
+- `redc_core` alone has carry-dependent latency that benefits from stream interleaving.
+- In full `mul+redc`, that gain is diluted/hidden because each step is `mul -> redc (+normalize)` and the multiply stage plus call boundaries dominate overall throughput.
+- Practical upper bound from measurements:
+  - `mul+redc@k1` is ~`87.6 ns/op`
+  - `redc_core` best-vs-baseline saves only ~`7-8 ns/op`
+  - even perfect transfer would be only about `+8-10%` on `mul+redc`; observed net is near-flat, so most bottleneck is outside the isolated `redc_core` improvement path.
+
+Root-cause direction:
+
+- Stream-level ILP works at IFMA instruction level (shown by IFMA microbench), but current `mul+redc` composition does not expose enough of that ILP at whole-kernel level.
+- Next optimization should target arithmetic/dataflow level (fewer reduction boundaries, more accumulator/lazy work per reduction) rather than source-order hand interleaving alone.
+
 ### Comparing kernel results to IFMA ceiling
 
 For a kernel with `N_madd52` IFMA ops per operation:
