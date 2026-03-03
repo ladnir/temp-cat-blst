@@ -86,7 +86,61 @@
     vpandq \R7, \R7, \BM
 .endm
 
-.macro REDC_ROUND_BOTH6 U0, U1, C, T, A0, A1, A2, A3, A4, A5, A6, A7, B0, B1, B2, B3, B4, B5, B6, B7, Y0, Y1, Y2, Y3, Y4, Y5, Z0, Z1, Z2, Z3, Z4, Z5, BASEA, OFFA, BASEB, OFFB
+.macro REDC_CARRY8_X2 TMP0, TMP1, BM, A0, A1, A2, A3, A4, A5, A6, A7, B0, B1, B2, B3, B4, B5, B6, B7
+    vpsraq \TMP0, \A0, 48
+    vpaddq \A1, \A1, \TMP0
+    vpandq \A0, \A0, \BM
+    vpsraq \TMP1, \B0, 48
+    vpaddq \B1, \B1, \TMP1
+    vpandq \B0, \B0, \BM
+
+    vpsraq \TMP0, \A1, 48
+    vpaddq \A2, \A2, \TMP0
+    vpandq \A1, \A1, \BM
+    vpsraq \TMP1, \B1, 48
+    vpaddq \B2, \B2, \TMP1
+    vpandq \B1, \B1, \BM
+
+    vpsraq \TMP0, \A2, 48
+    vpaddq \A3, \A3, \TMP0
+    vpandq \A2, \A2, \BM
+    vpsraq \TMP1, \B2, 48
+    vpaddq \B3, \B3, \TMP1
+    vpandq \B2, \B2, \BM
+
+    vpsraq \TMP0, \A3, 48
+    vpaddq \A4, \A4, \TMP0
+    vpandq \A3, \A3, \BM
+    vpsraq \TMP1, \B3, 48
+    vpaddq \B4, \B4, \TMP1
+    vpandq \B3, \B3, \BM
+
+    vpsraq \TMP0, \A4, 48
+    vpaddq \A5, \A5, \TMP0
+    vpandq \A4, \A4, \BM
+    vpsraq \TMP1, \B4, 48
+    vpaddq \B5, \B5, \TMP1
+    vpandq \B4, \B4, \BM
+
+    vpsraq \TMP0, \A5, 48
+    vpaddq \A6, \A6, \TMP0
+    vpandq \A5, \A5, \BM
+    vpsraq \TMP1, \B5, 48
+    vpaddq \B6, \B6, \TMP1
+    vpandq \B5, \B5, \BM
+
+    vpsraq \TMP0, \A6, 48
+    vpaddq \A7, \A7, \TMP0
+    vpandq \A6, \A6, \BM
+    vpsraq \TMP1, \B6, 48
+    vpaddq \B7, \B7, \TMP1
+    vpandq \B6, \B6, \BM
+
+    vpandq \A7, \A7, \BM
+    vpandq \B7, \B7, \BM
+.endm
+
+.macro REDC_ROUND_BOTH6 U0, U1, C, T, A0, A1, A2, A3, A4, A5, A6, A7, B0, B1, B2, B3, B4, B5, B6, B7, YH, Y1, Y2, Y3, Y4, Y5, ZH, Z1, Z2, Z3, Z4, Z5, BASEA, OFFA, BASEB, OFFB
     # u0/u1 from pivot limbs
     vpxorq \U0, \U0, \U0
     vpmadd52luq \U0, \A0, ZMMWORD PTR [rip + montw_vec]
@@ -107,9 +161,9 @@
     vpaddq \B1, \B1, \T
 
     # add old queue head
-    vpsllq \T, \Y0, 4
+    vpsllq \T, \YH, 4
     vpaddq \A1, \A1, \T
-    vpsllq \T, \Z0, 4
+    vpsllq \T, \ZH, 4
     vpaddq \B1, \B1, \T
 
     # add p0 high directly to next limb
@@ -120,57 +174,46 @@
     vpsllq \T, \T, 4
     vpaddq \B1, \B1, \T
 
-    # shift queue by one slot
-    vmovdqa64 \Y0, \Y1
-    vmovdqa64 \Y1, \Y2
-    vmovdqa64 \Y2, \Y3
-    vmovdqa64 \Y3, \Y4
-    vmovdqa64 \Y4, \Y5
-    vpxorq \Y5, \Y5, \Y5
+    # queue head is consumed; tail slot is this physical head register
+    vpxorq \YH, \YH, \YH
+    vpxorq \ZH, \ZH, \ZH
 
-    vmovdqa64 \Z0, \Z1
-    vmovdqa64 \Z1, \Z2
-    vmovdqa64 \Z2, \Z3
-    vmovdqa64 \Z3, \Z4
-    vmovdqa64 \Z4, \Z5
-    vpxorq \Z5, \Z5, \Z5
-
-    # p1..p6 low/high updates (high accumulates into queue slots)
+    # p1..p6 low/high updates
     vmovdqa64 \C, ZMMWORD PTR [rip + p1_vec]
     vpmadd52luq \A1, \U0, \C
-    vpmadd52huq \Y0, \U0, \C
+    vpmadd52huq \Y1, \U0, \C
     vpmadd52luq \B1, \U1, \C
-    vpmadd52huq \Z0, \U1, \C
+    vpmadd52huq \Z1, \U1, \C
 
     vmovdqa64 \C, ZMMWORD PTR [rip + p2_vec]
     vpmadd52luq \A2, \U0, \C
-    vpmadd52huq \Y1, \U0, \C
+    vpmadd52huq \Y2, \U0, \C
     vpmadd52luq \B2, \U1, \C
-    vpmadd52huq \Z1, \U1, \C
+    vpmadd52huq \Z2, \U1, \C
 
     vmovdqa64 \C, ZMMWORD PTR [rip + p3_vec]
     vpmadd52luq \A3, \U0, \C
-    vpmadd52huq \Y2, \U0, \C
+    vpmadd52huq \Y3, \U0, \C
     vpmadd52luq \B3, \U1, \C
-    vpmadd52huq \Z2, \U1, \C
+    vpmadd52huq \Z3, \U1, \C
 
     vmovdqa64 \C, ZMMWORD PTR [rip + p4_vec]
     vpmadd52luq \A4, \U0, \C
-    vpmadd52huq \Y3, \U0, \C
+    vpmadd52huq \Y4, \U0, \C
     vpmadd52luq \B4, \U1, \C
-    vpmadd52huq \Z3, \U1, \C
+    vpmadd52huq \Z4, \U1, \C
 
     vmovdqa64 \C, ZMMWORD PTR [rip + p5_vec]
     vpmadd52luq \A5, \U0, \C
-    vpmadd52huq \Y4, \U0, \C
+    vpmadd52huq \Y5, \U0, \C
     vpmadd52luq \B5, \U1, \C
-    vpmadd52huq \Z4, \U1, \C
+    vpmadd52huq \Z5, \U1, \C
 
     vmovdqa64 \C, ZMMWORD PTR [rip + p6_vec]
     vpmadd52luq \A6, \U0, \C
-    vpmadd52huq \Y5, \U0, \C
+    vpmadd52huq \YH, \U0, \C
     vpmadd52luq \B6, \U1, \C
-    vpmadd52huq \Z5, \U1, \C
+    vpmadd52huq \ZH, \U1, \C
 
     # p7 eager fold into loaded next limb
     vmovdqa64 \A0, ZMMWORD PTR [\BASEA + \OFFA]
@@ -281,8 +324,7 @@ blst_redc_core_k2_asm:
 
     # Final carry/mask over 8 limbs each stream
     vmovdqa64 zmm31, ZMMWORD PTR [rip + bmask_vec]
-    REDC_CARRY8 zmm30, zmm31, zmm0, zmm1, zmm2, zmm3, zmm4, zmm5, zmm6, zmm7
-    REDC_CARRY8 zmm30, zmm31, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15
+    REDC_CARRY8_X2 zmm30, zmm29, zmm31, zmm0, zmm1, zmm2, zmm3, zmm4, zmm5, zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15
 
     # Store outputs
     vmovdqa64 [rdi + 0], zmm0
@@ -359,31 +401,32 @@ blst_redc_core_k2_asm_v2:
     # Round 7
     REDC_ROUND_BOTH6 zmm28, zmm29, zmm30, zmm31, zmm7, zmm0, zmm1, zmm2, zmm3, zmm4, zmm5, zmm6, zmm15, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm17, zmm18, zmm19, zmm20, zmm21, zmm16, zmm23, zmm24, zmm25, zmm26, zmm27, zmm22, rdx, 960, rcx, 960
 
-    # Tail adds for 6-slot queue (post round-7 mapping)
-    vpsllq zmm31, zmm17, 4
-    vpaddq zmm1, zmm1, zmm31
+    # Tail adds for 6-slot queue (post round-7 mapping: q0..q5 = z18,z19,z20,z21,z16,z17)
     vpsllq zmm31, zmm18, 4
-    vpaddq zmm2, zmm2, zmm31
+    vpaddq zmm1, zmm1, zmm31
     vpsllq zmm31, zmm19, 4
-    vpaddq zmm3, zmm3, zmm31
+    vpaddq zmm2, zmm2, zmm31
     vpsllq zmm31, zmm20, 4
-    vpaddq zmm4, zmm4, zmm31
+    vpaddq zmm3, zmm3, zmm31
     vpsllq zmm31, zmm21, 4
-    vpaddq zmm5, zmm5, zmm31
+    vpaddq zmm4, zmm4, zmm31
     vpsllq zmm31, zmm16, 4
+    vpaddq zmm5, zmm5, zmm31
+    vpsllq zmm31, zmm17, 4
     vpaddq zmm6, zmm6, zmm31
 
-    vpsllq zmm31, zmm23, 4
-    vpaddq zmm9, zmm9, zmm31
+    # stream1 post round-7 mapping: q0..q5 = z24,z25,z26,z27,z22,z23
     vpsllq zmm31, zmm24, 4
-    vpaddq zmm10, zmm10, zmm31
+    vpaddq zmm9, zmm9, zmm31
     vpsllq zmm31, zmm25, 4
-    vpaddq zmm11, zmm11, zmm31
+    vpaddq zmm10, zmm10, zmm31
     vpsllq zmm31, zmm26, 4
-    vpaddq zmm12, zmm12, zmm31
+    vpaddq zmm11, zmm11, zmm31
     vpsllq zmm31, zmm27, 4
-    vpaddq zmm13, zmm13, zmm31
+    vpaddq zmm12, zmm12, zmm31
     vpsllq zmm31, zmm22, 4
+    vpaddq zmm13, zmm13, zmm31
+    vpsllq zmm31, zmm23, 4
     vpaddq zmm14, zmm14, zmm31
 
     # Final carry/mask over 8 limbs each stream
