@@ -290,26 +290,37 @@ namespace
 
         Fp12Pack8x1 sqr_candidate{};
         Fp12Pack8x1 mul_candidate{};
+        Fp12Pack8x1 mul_operand{};
         for (std::size_t step = 1; step <= max_steps; ++step) {
             u8 sqr_mask = 0;
+            std::array<u8, 16> mul_masks{};
             for (std::size_t lane = 0; lane < kGtPackLanes; ++lane) {
                 const bool lane_active = (plans[lane].init_idx != 0) && (step <= plans[lane].total_steps);
                 sqr_mask |= static_cast<u8>((lane_active ? 1u : 0u) << lane);
+
+                if (lane_active) {
+                    const u8 idx = plans[lane].mul_idx_at_step[step];
+                    mul_masks[idx] |= static_cast<u8>(1u << lane);
+                }
             }
             if (sqr_mask != 0) {
                 Fp12Pack8x1::cyclotomic_sqr(sqr_candidate, out.c);
                 Fp12Pack8x1::select(out.c, out.c, sqr_candidate, sqr_mask);
             }
 
+            u8 nonzero_mul_mask = 0;
             for (u8 idx = 1; idx < 16; ++idx) {
-                u8 mul_mask = 0;
-                for (std::size_t lane = 0; lane < kGtPackLanes; ++lane) {
-                    mul_mask |= static_cast<u8>((plans[lane].mul_idx_at_step[step] == idx ? 1u : 0u) << lane);
+                nonzero_mul_mask |= mul_masks[idx];
+            }
+            if (nonzero_mul_mask != 0) {
+                mul_operand = table[0];
+                for (u8 idx = 1; idx < 16; ++idx) {
+                    if (mul_masks[idx] != 0) {
+                        Fp12Pack8x1::select(mul_operand, mul_operand, table[idx], mul_masks[idx]);
+                    }
                 }
-                if (mul_mask != 0) {
-                    Fp12Pack8x1::mul(mul_candidate, out.c, table[idx]);
-                    Fp12Pack8x1::select(out.c, out.c, mul_candidate, mul_mask);
-                }
+                Fp12Pack8x1::mul(mul_candidate, out.c, mul_operand);
+                out.c = mul_candidate;
             }
         }
 
