@@ -165,6 +165,47 @@ void sqr_fp4_pack_bench_v3(
     UFp2Pack8x1x1::redc(r1, t2);
 }
 
+void ufp2_mul_schoolbook(UFp2Pack8x1x1& r, const Fp2Pack8x1x1& a, const Fp2Pack8x1x1& b)
+{
+    UFpPack8x1 a0b0{};
+    UFpPack8x1 a1b1{};
+    UFpPack8x1 a0b1{};
+    UFpPack8x1 a1b0{};
+
+    FpPack8x1::mul(a0b0, a[0], b[0]);
+    FpPack8x1::mul(a1b1, a[1], b[1]);
+    FpPack8x1::mul(a0b1, a[0], b[1]);
+    FpPack8x1::mul(a1b0, a[1], b[0]);
+
+    UFpPack8x1::sub(r[0], a0b0, a1b1);
+    UFpPack8x1::add(r[1], a0b1, a1b0);
+}
+
+void sqr_fp4_pack_bench_v4(
+    Fp2Pack8x1x1& r0,
+    Fp2Pack8x1x1& r1,
+    const Fp2Pack8x1x1& a0,
+    const Fp2Pack8x1x1& a1)
+{
+    UFp2Pack8x1x1 t0{};
+    UFp2Pack8x1x1 t1{};
+    UFp2Pack8x1x1 m01{};
+    UFp2Pack8x1x1 t3{};
+
+    UFp2Pack8x1x1::sqr(t0, a0); // a0^2
+    UFp2Pack8x1x1::sqr(t1, a1); // a1^2
+    ufp2_mul_schoolbook(m01, a0, a1);
+
+    // r0 = a0^2 + (u+1)*a1^2
+    UFp2Pack8x1x1::mul_by_u_plus_1(t3, t1);
+    UFp2Pack8x1x1::add(t3, t3, t0);
+    UFp2Pack8x1x1::redc(r0, t3);
+
+    // r1 = 2*a0*a1
+    UFp2Pack8x1x1::add(m01, m01, m01);
+    UFp2Pack8x1x1::redc(r1, m01);
+}
+
 struct CyclotomicSqrTerms8x1
 {
     Fp2Pack8x1x1 t0_0{};
@@ -194,6 +235,13 @@ void cyclotomic_sqr_terms_only_v3(CyclotomicSqrTerms8x1& t, const Fp12Pack8x1& a
     sqr_fp4_pack_bench_v3(t.t0_0, t.t0_1, a.c[0].c[0], a.c[1].c[1]);
     sqr_fp4_pack_bench_v3(t.t2_0, t.t2_1, a.c[0].c[1], a.c[1].c[2]);
     sqr_fp4_pack_bench_v3(t.t1_0, t.t1_1, a.c[1].c[0], a.c[0].c[2]);
+}
+
+void cyclotomic_sqr_terms_only_v4(CyclotomicSqrTerms8x1& t, const Fp12Pack8x1& a)
+{
+    sqr_fp4_pack_bench_v4(t.t0_0, t.t0_1, a.c[0].c[0], a.c[1].c[1]);
+    sqr_fp4_pack_bench_v4(t.t2_0, t.t2_1, a.c[0].c[1], a.c[1].c[2]);
+    sqr_fp4_pack_bench_v4(t.t1_0, t.t1_1, a.c[1].c[0], a.c[0].c[2]);
 }
 
 void cyclotomic_sqr_combine_only(Fp12Pack8x1& r, const Fp12Pack8x1& a, const CyclotomicSqrTerms8x1& t)
@@ -230,6 +278,13 @@ void cyclotomic_sqr_pack_legacy(Fp12Pack8x1& r, const Fp12Pack8x1& a)
 {
     CyclotomicSqrTerms8x1 t{};
     cyclotomic_sqr_terms_only(t, a);
+    cyclotomic_sqr_combine_only(r, a, t);
+}
+
+void cyclotomic_sqr_pack_v4(Fp12Pack8x1& r, const Fp12Pack8x1& a)
+{
+    CyclotomicSqrTerms8x1 t{};
+    cyclotomic_sqr_terms_only_v4(t, a);
     cyclotomic_sqr_combine_only(r, a, t);
 }
 
@@ -684,6 +739,21 @@ void BM_Fp12CyclotomicSqr_Pack8x1(benchmark::State& state)
 }
 BENCHMARK(BM_Fp12CyclotomicSqr_Pack8x1)->Arg(128);
 
+void BM_Fp12CyclotomicSqr_Pack8x1_V4(benchmark::State& state)
+{
+    const std::size_t packs = static_cast<std::size_t>(state.range(0));
+    Fp12BenchData data(packs);
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs; ++p) {
+            cyclotomic_sqr_pack_v4(data.out_pack[p], data.cyclo_pack[p]);
+        }
+        benchmark::DoNotOptimize(data.out_pack.data());
+    }
+    state.SetItemsProcessed(state.iterations() * data.n_tuples);
+}
+BENCHMARK(BM_Fp12CyclotomicSqr_Pack8x1_V4)->Arg(128);
+
 void BM_Fp12CyclotomicSqr_Pack8x1_Legacy(benchmark::State& state)
 {
     const std::size_t packs = static_cast<std::size_t>(state.range(0));
@@ -746,6 +816,22 @@ void BM_Fp12CyclotomicSqr_Pack8x1_SqrFp4Only_V3(benchmark::State& state)
     state.SetItemsProcessed(state.iterations() * data.n_tuples);
 }
 BENCHMARK(BM_Fp12CyclotomicSqr_Pack8x1_SqrFp4Only_V3)->Arg(128);
+
+void BM_Fp12CyclotomicSqr_Pack8x1_SqrFp4Only_V4(benchmark::State& state)
+{
+    const std::size_t packs = static_cast<std::size_t>(state.range(0));
+    Fp12BenchData data(packs);
+    std::vector<CyclotomicSqrTerms8x1> work_terms(data.n_packs);
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs; ++p) {
+            cyclotomic_sqr_terms_only_v4(work_terms[p], data.cyclo_pack[p]);
+        }
+        benchmark::DoNotOptimize(work_terms.data());
+    }
+    state.SetItemsProcessed(state.iterations() * data.n_tuples);
+}
+BENCHMARK(BM_Fp12CyclotomicSqr_Pack8x1_SqrFp4Only_V4)->Arg(128);
 
 void BM_Fp12CyclotomicSqr_Pack8x1_CombineOnly(benchmark::State& state)
 {
