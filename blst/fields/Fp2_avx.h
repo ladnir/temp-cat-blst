@@ -123,6 +123,8 @@ namespace blst
         static void mul_by_u_plus_1(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a);
         /// Karatsuba Fp2 multiply of reduced inputs, unreduced output.
         static void mul(UFp2Pack8x1x1& r, const Fp2Pack8x1x1& a, const Fp2Pack8x1x1& b);
+        /// Fp2 square of reduced input, unreduced output.
+        static void sqr(UFp2Pack8x1x1& r, const Fp2Pack8x1x1& a);
 
         /// Reduce widened result into reduced `Fp2Pack8x1x1`.
         static void redc(Fp2Pack8x1x1& r, const UFp2Pack8x1x1& a);

@@ -86,7 +86,9 @@ namespace blst
 
     void Fp2Pack8x1x1::sqr(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a)
     {
-        mul(r, a, a);
+        UFp2Pack8x1x1 wide{};
+        UFp2Pack8x1x1::sqr(wide, a);
+        UFp2Pack8x1x1::redc(r, wide);
     }
 
     void Fp2Pack8x1x1::conjugate(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a)
@@ -680,6 +682,22 @@ namespace blst
         UFpPack8x1::sub(r[0], tt0, tt1);        // a0*b0-a1*b1
         UFpPack8x1::sub(tt2, tt2, tt0);         // (a0+a1)*(b0+b1)-a0*b0
         UFpPack8x1::sub(r[1], tt2, tt1);        // (a0+a1)*(b0+b1)-a0*b0-a1*b1
+    }
+
+    // r0 = (a0 + a1)*(a0 - a1)
+    // r1 = 2*a0*a1
+    void UFp2Pack8x1x1::sqr(UFp2Pack8x1x1& r, const Fp2Pack8x1x1& a)
+    {
+        FpPack8x1 sum{};
+        FpPack8x1 diff{};
+        UFpPack8x1 t1{};
+
+        FpPack8x1::add(sum, a[0], a[1]);
+        FpPack8x1::sub(diff, a[0], a[1]);
+        FpPack8x1::mul(r[0], sum, diff);
+
+        FpPack8x1::mul(t1, a[0], a[1]);
+        UFpPack8x1::add(r[1], t1, t1);
     }
 
     void UFp2Pack8x1x1::redc(Fp2Pack8x1x1& r, const UFp2Pack8x1x1& a)

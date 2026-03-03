@@ -777,6 +777,15 @@ TEST(Fp2Avx, Widened8x1x1w)
             EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
             EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
         }
+
+        UFp2Pack8x1x1::sqr(wide_r, avx_a);
+        UFp2Pack8x1x1::redc(red, wide_r);
+        unpack_Fp2Pack8x1x1(got, red);
+        for (size_t i = 0; i < 8; ++i) {
+            Fp2::sqr(expected[i], a[i]);
+            EXPECT_TRUE(Fp::equal(got[i][0], expected[i][0]));
+            EXPECT_TRUE(Fp::equal(got[i][1], expected[i][1]));
+        }
     }
 }
 
