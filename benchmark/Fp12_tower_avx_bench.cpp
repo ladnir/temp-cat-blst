@@ -85,6 +85,41 @@ void sqr_fp6_scalar(Fp6& r, const Fp6& a)
     mul_fp6_scalar(r, a, a);
 }
 
+void mul_fp12_pack_legacy(Fp12Pack8x1& r, const Fp12Pack8x1& a, const Fp12Pack8x1& b)
+{
+    Fp6Pack8x1 t0{};
+    Fp6Pack8x1 t1{};
+    Fp6Pack8x1 t2{};
+    Fp6Pack8x1 t3{};
+
+    Fp6Pack8x1::mul(t0, a.c[0], b.c[0]);
+    Fp6Pack8x1::mul(t1, a.c[1], b.c[1]);
+
+    Fp6Pack8x1::add(t2, a.c[0], a.c[1]);
+    Fp6Pack8x1::add(t3, b.c[0], b.c[1]);
+    Fp6Pack8x1::mul(r.c[1], t2, t3);
+    Fp6Pack8x1::sub(r.c[1], r.c[1], t0);
+    Fp6Pack8x1::sub(r.c[1], r.c[1], t1);
+
+    Fp6Pack8x1::mul_by_nonresidue(t2, t1);
+    Fp6Pack8x1::add(r.c[0], t0, t2);
+}
+
+void sqr_fp12_pack_legacy(Fp12Pack8x1& r, const Fp12Pack8x1& a)
+{
+    Fp6Pack8x1 s0{};
+    Fp6Pack8x1 s1{};
+    Fp6Pack8x1 m01{};
+    Fp6Pack8x1 t0{};
+
+    Fp6Pack8x1::sqr(s0, a.c[0]);
+    Fp6Pack8x1::sqr(s1, a.c[1]);
+    Fp6Pack8x1::mul(m01, a.c[0], a.c[1]);
+    Fp6Pack8x1::add(r.c[1], m01, m01);
+    Fp6Pack8x1::mul_by_nonresidue(t0, s1);
+    Fp6Pack8x1::add(r.c[0], s0, t0);
+}
+
 struct Fp2BenchData
 {
     explicit Fp2BenchData(const std::size_t packs)
@@ -163,6 +198,8 @@ struct Fp12BenchData
         , a_pack(n_packs)
         , b_pack(n_packs)
         , cyclo_pack(n_packs)
+        , wide_mul_pack(n_packs)
+        , wide_sqr_pack(n_packs)
         , out_pack(n_packs)
     {
         std::mt19937_64 gen(0xF1201234ULL + static_cast<u64>(packs));
@@ -177,6 +214,8 @@ struct Fp12BenchData
             Fp12Pack8x1::from_aos(a_pack[p], &a[p * 8]);
             Fp12Pack8x1::from_aos(b_pack[p], &b[p * 8]);
             Fp12Pack8x1::from_aos(cyclo_pack[p], &cyclo[p * 8]);
+            Fp12Pack8x1::mul(wide_mul_pack[p], a_pack[p], b_pack[p]);
+            Fp12Pack8x1::sqr(wide_sqr_pack[p], a_pack[p]);
         }
     }
 
@@ -189,6 +228,8 @@ struct Fp12BenchData
     std::vector<Fp12Pack8x1> a_pack;
     std::vector<Fp12Pack8x1> b_pack;
     std::vector<Fp12Pack8x1> cyclo_pack;
+    std::vector<UFp12Pack8x1> wide_mul_pack;
+    std::vector<UFp12Pack8x1> wide_sqr_pack;
     std::vector<Fp12Pack8x1> out_pack;
 };
 
@@ -342,6 +383,51 @@ void BM_Fp12Mul_Pack8x1(benchmark::State& state)
 }
 BENCHMARK(BM_Fp12Mul_Pack8x1)->Arg(128);
 
+void BM_Fp12Mul_Pack8x1_Legacy(benchmark::State& state)
+{
+    const std::size_t packs = static_cast<std::size_t>(state.range(0));
+    Fp12BenchData data(packs);
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs; ++p) {
+            mul_fp12_pack_legacy(data.out_pack[p], data.a_pack[p], data.b_pack[p]);
+        }
+        benchmark::DoNotOptimize(data.out_pack.data());
+    }
+    state.SetItemsProcessed(state.iterations() * data.n_tuples);
+}
+BENCHMARK(BM_Fp12Mul_Pack8x1_Legacy)->Arg(128);
+
+void BM_Fp12Mul_Pack8x1_WideOnly(benchmark::State& state)
+{
+    const std::size_t packs = static_cast<std::size_t>(state.range(0));
+    Fp12BenchData data(packs);
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs; ++p) {
+            Fp12Pack8x1::mul(data.wide_mul_pack[p], data.a_pack[p], data.b_pack[p]);
+        }
+        benchmark::DoNotOptimize(data.wide_mul_pack.data());
+    }
+    state.SetItemsProcessed(state.iterations() * data.n_tuples);
+}
+BENCHMARK(BM_Fp12Mul_Pack8x1_WideOnly)->Arg(128);
+
+void BM_Fp12Mul_Pack8x1_RedcOnly(benchmark::State& state)
+{
+    const std::size_t packs = static_cast<std::size_t>(state.range(0));
+    Fp12BenchData data(packs);
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs; ++p) {
+            UFp12Pack8x1::redc(data.out_pack[p], data.wide_mul_pack[p]);
+        }
+        benchmark::DoNotOptimize(data.out_pack.data());
+    }
+    state.SetItemsProcessed(state.iterations() * data.n_tuples);
+}
+BENCHMARK(BM_Fp12Mul_Pack8x1_RedcOnly)->Arg(128);
+
 void BM_Fp12Sqr_Scalar8(benchmark::State& state)
 {
     const std::size_t packs = static_cast<std::size_t>(state.range(0));
@@ -371,6 +457,51 @@ void BM_Fp12Sqr_Pack8x1(benchmark::State& state)
     state.SetItemsProcessed(state.iterations() * data.n_tuples);
 }
 BENCHMARK(BM_Fp12Sqr_Pack8x1)->Arg(128);
+
+void BM_Fp12Sqr_Pack8x1_Legacy(benchmark::State& state)
+{
+    const std::size_t packs = static_cast<std::size_t>(state.range(0));
+    Fp12BenchData data(packs);
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs; ++p) {
+            sqr_fp12_pack_legacy(data.out_pack[p], data.a_pack[p]);
+        }
+        benchmark::DoNotOptimize(data.out_pack.data());
+    }
+    state.SetItemsProcessed(state.iterations() * data.n_tuples);
+}
+BENCHMARK(BM_Fp12Sqr_Pack8x1_Legacy)->Arg(128);
+
+void BM_Fp12Sqr_Pack8x1_WideOnly(benchmark::State& state)
+{
+    const std::size_t packs = static_cast<std::size_t>(state.range(0));
+    Fp12BenchData data(packs);
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs; ++p) {
+            Fp12Pack8x1::sqr(data.wide_sqr_pack[p], data.a_pack[p]);
+        }
+        benchmark::DoNotOptimize(data.wide_sqr_pack.data());
+    }
+    state.SetItemsProcessed(state.iterations() * data.n_tuples);
+}
+BENCHMARK(BM_Fp12Sqr_Pack8x1_WideOnly)->Arg(128);
+
+void BM_Fp12Sqr_Pack8x1_RedcOnly(benchmark::State& state)
+{
+    const std::size_t packs = static_cast<std::size_t>(state.range(0));
+    Fp12BenchData data(packs);
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs; ++p) {
+            UFp12Pack8x1::redc(data.out_pack[p], data.wide_sqr_pack[p]);
+        }
+        benchmark::DoNotOptimize(data.out_pack.data());
+    }
+    state.SetItemsProcessed(state.iterations() * data.n_tuples);
+}
+BENCHMARK(BM_Fp12Sqr_Pack8x1_RedcOnly)->Arg(128);
 
 void BM_Fp12CyclotomicSqr_Scalar8(benchmark::State& state)
 {
