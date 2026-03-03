@@ -71,7 +71,7 @@ Observed effect (Linux host):
 - Lower memory-bound slots (`topdown.memory_bound_slots` dropped materially)
 - Higher IPC
 - Throughput improved to about `25.1M redc_core/s` for `BM_Fp8x1RedcCore_AsmK2`
-- `v2` reaches about `25.6M redc_core/s` in aggregate runs and about `25.8M/s` in perf-pinned runs.
+- `v2` reaches about `26.0M redc_core/s` in aggregate runs and about `26.1M/s` in perf-pinned runs.
 
 ## Remaining Limiter
 
