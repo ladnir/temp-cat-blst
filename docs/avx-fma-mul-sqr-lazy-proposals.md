@@ -260,6 +260,35 @@ Primary metrics:
 - GT full scalar-mult throughput
 - optional hardware counters for spills/load-store pressure
 
+### IFMA Roofline Baseline (native AVX-512, recorded 2026-03-03)
+
+These numbers are the current reference for IFMA-only behavior (`VPMADD52LOQ` / `VPMADD52HIQ`) from dedicated microbenchmarks:
+
+- Dependency-chain latency tests:
+  - `BM_IFMA52Latency_Lo_DepChain`: `2.99 ns` per `madd52`
+  - `BM_IFMA52Latency_Hi_DepChain`: `2.98 ns` per `madd52`
+  - `BM_IFMA52Latency_LoHi_DepChain`: `4.06 ns` per 2 `madd52` ops
+- Independent-stream throughput plateau:
+  - `Lo`: ~`6.6-6.8 G madd52/s` (best observed ~`6.72 G/s`)
+  - `Hi`: ~`6.5-6.9 G madd52/s` (best observed ~`6.82 G/s`)
+  - `Lo+Hi`: ~`6.6-6.8 G madd52/s` overall (best observed ~`6.84 G/s`)
+
+Use `6.8e9 madd52/s` as the current practical IFMA ceiling for planning.
+
+### Comparing kernel results to IFMA ceiling
+
+For a kernel with `N_madd52` IFMA ops per operation:
+
+- IFMA-only lower bound:
+  - `t_ifma_floor = N_madd52 / 6.8e9` seconds/op
+- Measured overhead factor:
+  - `overhead = t_measured / t_ifma_floor`
+
+Interpretation:
+
+- `overhead ~= 1`: near IFMA-bound.
+- Large `overhead`: bottleneck is elsewhere (reduction/carry chain, extra non-IFMA ops, spills, memory).
+
 Parameter sweeps:
 
 - `ACC_MULADD_BUDGET`: 8, 16, 32, 64

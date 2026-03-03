@@ -138,24 +138,29 @@ template <bool DoLo, bool DoHi>
 void BM_IFMA52Latency_DepChain(benchmark::State& state)
 {
   static_assert(DoLo || DoHi, "At least one IFMA op must be enabled.");
+  constexpr std::size_t kLatencyUnroll = 8;
 
   const cc512i a = VSET1(0x0000FFFFFFFFFFFFULL);
   const cc512i b = VSET1(0x00000000FFFFFFFFULL);
   cc512i x = VSET1(1);
 
   for (auto _ : state) {
-    if constexpr (DoLo) {
-      x = VMACLO(x, a, b);
-    }
-    if constexpr (DoHi) {
-      x = VMACHI(x, a, b);
+    for (std::size_t i = 0; i < kLatencyUnroll; ++i) {
+      if constexpr (DoLo) {
+        x = VMACLO(x, a, b);
+      }
+      if constexpr (DoHi) {
+        x = VMACHI(x, a, b);
+      }
     }
     benchmark::DoNotOptimize(x);
   }
 
-  const std::size_t madd_per_iter = (DoLo ? 1u : 0u) + (DoHi ? 1u : 0u);
+  const std::size_t madd_per_iter =
+      kLatencyUnroll * ((DoLo ? 1u : 0u) + (DoHi ? 1u : 0u));
   state.SetItemsProcessed(state.iterations() * madd_per_iter);
   state.counters["madd52_per_iter"] = static_cast<double>(madd_per_iter);
+  state.counters["unroll"] = static_cast<double>(kLatencyUnroll);
 }
 
 template <int Streams, bool DoLo, bool DoHi>
