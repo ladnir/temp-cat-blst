@@ -9,6 +9,7 @@
 namespace blst
 {
     struct Fp6;
+    struct UFp6Pack8x1;
 
     /**
      * AVX512 Fp6 helpers ported from avxbls.
@@ -74,9 +75,13 @@ namespace blst
 
         /// Reduced Fp6 multiply.
         static void mul(Fp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b);
+        /// Widened Fp6 multiply.
+        static void mul(UFp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b);
 
         /// Reduced Fp6 square.
         static void sqr(Fp6Pack8x1& r, const Fp6Pack8x1& a);
+        /// Widened Fp6 square.
+        static void sqr(UFp6Pack8x1& r, const Fp6Pack8x1& a);
 
         /// Multiply by Fp6 tower nonresidue `v`: (c0,c1,c2) -> ((u+1)*c2,c0,c1).
         static void mul_by_nonresidue(Fp6Pack8x1& r, const Fp6Pack8x1& a);
@@ -117,6 +122,12 @@ namespace blst
 
         /// Reduce widened result into reduced `Fp6Pack8x1`.
         static void redc(Fp6Pack8x1& r, const UFp6Pack8x1& a);
+        /// Unreduced component-wise add: r = a + b.
+        static void add(UFp6Pack8x1& r, const UFp6Pack8x1& a, const UFp6Pack8x1& b);
+        /// Unreduced component-wise sub: r = a - b.
+        static void sub(UFp6Pack8x1& r, const UFp6Pack8x1& a, const UFp6Pack8x1& b);
+        /// Multiply widened value by Fp6 nonresidue v: (c0,c1,c2) -> ((u+1)*c2,c0,c1).
+        static void mul_by_nonresidue(UFp6Pack8x1& r, const UFp6Pack8x1& a);
 
         /// Lane-wise select between two widened packed values.
         /// Bit `i` of `lane_mask` selects lane `i`: `0 -> a`, `1 -> b`.

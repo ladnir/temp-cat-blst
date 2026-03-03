@@ -422,6 +422,53 @@ TEST(Fp12Avx, CanonicalArithmeticAndConjugate)
     }
 }
 
+TEST(Fp12Avx, WideOverloadsMatchReduced)
+{
+    InsecureRng rng;
+
+    for (int iter = 0; iter < 96; ++iter) {
+        Fp12Vec8 a{};
+        Fp12Vec8 b{};
+        Fp12Vec8 out_reduced{};
+        Fp12Vec8 out_wide{};
+        Fp12Pack8x1 pa{}, pb{};
+        Fp12Pack8x1 reduced{};
+        Fp12Pack8x1 reduced_from_wide{};
+        UFp12Pack8x1 wide{};
+
+        for (size_t lane = 0; lane < 8; ++lane) {
+            if (iter < 16) {
+                fill_edge_fp12(a[lane], iter + static_cast<int>(lane));
+                fill_edge_fp12(b[lane], iter + static_cast<int>(lane + 7));
+            } else {
+                rand_redc_fp12(a[lane], rng);
+                rand_redc_fp12(b[lane], rng);
+            }
+        }
+
+        Fp12Pack8x1::from_aos(pa, a.data());
+        Fp12Pack8x1::from_aos(pb, b.data());
+
+        Fp12Pack8x1::mul(reduced, pa, pb);
+        Fp12Pack8x1::mul(wide, pa, pb);
+        UFp12Pack8x1::redc(reduced_from_wide, wide);
+        Fp12Pack8x1::to_aos(out_reduced.data(), reduced);
+        Fp12Pack8x1::to_aos(out_wide.data(), reduced_from_wide);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            expect_fp12_eq(out_wide[lane], out_reduced[lane]);
+        }
+
+        Fp12Pack8x1::sqr(reduced, pa);
+        Fp12Pack8x1::sqr(wide, pa);
+        UFp12Pack8x1::redc(reduced_from_wide, wide);
+        Fp12Pack8x1::to_aos(out_reduced.data(), reduced);
+        Fp12Pack8x1::to_aos(out_wide.data(), reduced_from_wide);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            expect_fp12_eq(out_wide[lane], out_reduced[lane]);
+        }
+    }
+}
+
 TEST(Fp12Avx, CanonicalCyclotomicSqr)
 {
     InsecureRng rng;

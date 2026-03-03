@@ -1,266 +1,166 @@
-# AVX Tower Throughput Optimization Plan (Fp -> Fp2 -> Fp6 -> Fp12 -> GT)
+# AVX Tower Micro-Benchmark Plan (Code-Only)
 
 ## Scope
 
-This document defines a concrete optimization plan to recover SIMD scaling as we move up the field tower.
+This plan is intentionally limited to code and micro-benchmarks for tower operations.
 
-Target workload assumptions:
+Target operations:
 
-1. Native AVX-512 execution (`BLST_AVX512_PORTABLE=OFF`).
-2. Independent tuples (not shared-scalar MSM style).
-3. Native SoA pack path (`8x1`) as the mainline path.
+1. `Fp12` multiplication.
+2. `Fp12` squaring.
+3. `Fp12` cyclotomic squaring.
 
-GT notation reminder:
+Supporting attribution operations:
 
-1. GT group operation uses additive notation at API level.
-2. Implementation maps GT addition to multiplicative operations in cyclotomic `Fp12`.
+1. `Fp2Pack8x1x1` multiply/square.
+2. `Fp6Pack8x1` multiply/square.
 
-## Problem Statement
+Out of scope for this document:
 
-Observed behavior:
+1. GT GLV4 scheduling work.
+2. FFT integration work.
+3. API integration beyond local overloads used by tower kernels.
 
-1. `FpPack8x1` (`k=1`) is about 3x faster than 8 scalar `Fp` operations.
-2. Tower throughput drops (for example near 2x in `Fp12`/GT paths) versus scalar x8.
+## Optimization Target
 
-Likely root cause:
+Primary target is relative parity with base-field SIMD gains:
 
-1. Scalar `Fp12` path uses widened fused arithmetic (`__FP2x2__` path).
-2. Pack canonical path reduces too frequently as it climbs the tower.
-3. Extra reduction boundaries and scheduling overhead erode the base `Fp` gain.
+1. Achieve `>= 3.0x` throughput for `Fp12Pack8x1` ops versus scalar `Fp12` reference on native AVX-512.
 
-Primary objective:
+Secondary targets:
 
-1. Preserve more widened work across `Fp2/Fp6/Fp12` before reduction.
-2. Keep canonical `8x1` SoA layout end-to-end in hot code.
-3. Improve GT throughput without changing existing scalar public APIs.
+1. Keep bit-exact correctness versus scalar reference.
+2. Keep canonical `8x1` SoA hot path.
+3. Avoid extra AoS <-> SoA conversions inside timed regions.
 
-## Design Principles
+## Benchmark Rules
 
-1. Optimize based on measured attribution, not assumptions.
-2. Keep canonical pack interfaces stable when possible.
-3. Prefer fused wide compute over introducing shuffle-heavy detours.
-4. Avoid AoS <-> SoA conversion in hot loops.
-5. Defer `k`-wise interleaving changes until tower fusion gaps are closed.
+Environment assumptions:
 
-## Phase 0: Attribution Baseline
+1. Native AVX-512 machine (`BLST_AVX512_PORTABLE=OFF`).
+2. Fixed CPU frequency/governor where possible.
+3. Release build only.
 
-### APIs
+Measurement rules:
 
-1. Add internal benchmark coverage for:
-   1. `Fp2Pack8x1x1::mul`, `Fp2Pack8x1x1::sqr`
-   2. `Fp6Pack8x1::mul`, `Fp6Pack8x1::sqr`
-   3. `Fp12Pack8x1::mul`, `Fp12Pack8x1::sqr`, `Fp12Pack8x1::cyclotomic_sqr`
-2. No public API changes.
+1. Benchmark scalar and pack paths on equivalent batches of 8 independent inputs.
+2. Report `items_per_second` and explicit speedup (`pack_ops_per_sec / scalar_ops_per_sec`).
+3. Keep conversion, random generation, and setup out of timed loops.
+4. Use repetitions and aggregate reporting for stability.
 
-### Data Layout
+Suggested benchmark families:
 
-1. Compare SoA-to-SoA and scalar-to-scalar only.
-2. No conversion overhead inside timed regions.
+1. `BM_Fp12Mul_Scalar8` vs `BM_Fp12Mul_Pack8x1`.
+2. `BM_Fp12Sqr_Scalar8` vs `BM_Fp12Sqr_Pack8x1`.
+3. `BM_Fp12CyclotomicSqr_Scalar8` vs `BM_Fp12CyclotomicSqr_Pack8x1`.
+4. Attribution: `Fp2` and `Fp6` scalar8 vs pack8x1 pairs.
 
-### Testing
+## Phase 0: Baseline Micro-Bench Harness
 
-1. Differential tests versus scalar reference for each operation.
-2. Random vectors plus edge vectors.
-3. Alias tests (`r == a`, `r == b`) where supported.
+### Code
 
-### Success Conditions
+1. Add dedicated micro-bench cases for the operation families above.
+2. Ensure scalar baselines call scalar implementations directly (no runtime dispatch ambiguity).
+3. Ensure pack baselines are canonical `8x1` kernels.
 
-1. Per-layer speed table that shows where scaling drops.
-2. Stable variance on native AVX-512 runs.
+### Tests
 
-### What to Avoid
+1. Differential tests for each benchmarked operation against scalar reference.
+2. Random vectors and deterministic edge vectors.
 
-1. Mixing this phase with algorithmic refactors.
-2. Drawing conclusions from portable-emulation timings.
+### Success
 
-## Phase 1: Add Wide Fp6 Primitives (Enabler)
+1. Stable benchmark outputs with low variance.
+2. Clear baseline table for `Fp2/Fp6/Fp12`.
 
-### APIs
+## Phase 1: Fp6 Overload Refactor for Wide Fusion
 
-Add internal wide operations in `Fp6_avx.h/.cpp`:
+### Code
 
-1. `Fp6Pack8x1::mul_wide(UFp6Pack8x1&, const Fp6Pack8x1&, const Fp6Pack8x1&)`
-2. `Fp6Pack8x1::sqr_wide(UFp6Pack8x1&, const Fp6Pack8x1&)`
-3. `UFp6Pack8x1::add/sub/mul_by_nonresidue`
+Introduce overloads in `Fp6_avx.h/.cpp`:
 
-Keep existing reduced APIs unchanged.
+1. `Fp6Pack8x1::mul(Fp6Pack8x1&, const Fp6Pack8x1&, const Fp6Pack8x1&)` (existing reduced).
+2. `Fp6Pack8x1::mul(UFp6Pack8x1&, const Fp6Pack8x1&, const Fp6Pack8x1&)` (new widened output).
+3. `Fp6Pack8x1::sqr(Fp6Pack8x1&, const Fp6Pack8x1&)` (existing reduced).
+4. `Fp6Pack8x1::sqr(UFp6Pack8x1&, const Fp6Pack8x1&)` (new widened output).
+5. Add `UFp6Pack8x1` helpers needed for fused arithmetic (`add/sub/mul_by_nonresidue`).
 
-### Data Layout
+### Tests
 
-1. Reuse canonical `Fp6Pack8x1` and `UFp6Pack8x1`.
-2. No new schedule/layout type introduced in this phase.
+1. Verify `redc(widened overload) == reduced overload` for mul/sqr.
+2. Verify alias behavior remains valid for reduced overloads.
 
-### Testing
+### Success
 
-1. Verify `redc(mul_wide(a,b)) == mul(a,b)`.
-2. Verify `redc(sqr_wide(a)) == sqr(a)`.
-3. Run randomized and adversarial vectors.
+1. No correctness regressions.
+2. Measurable reduction in `Fp6` overhead in attribution benchmarks.
 
-### Success Conditions
+## Phase 2: Fp12 Fused Overloads Using Wide Fp6
 
-1. Bit-exact parity with current reduced outputs.
-2. No regression in existing `Fp6`/`Fp12` tests.
+### Code
 
-### What to Avoid
+Introduce overloads in `Fp12_avx.h/.cpp`:
 
-1. Behavior changes in existing reduced routines.
-2. Over-expanding temporary live ranges that force spills.
+1. `Fp12Pack8x1::mul(Fp12Pack8x1&, const Fp12Pack8x1&, const Fp12Pack8x1&)` (existing reduced entry).
+2. `Fp12Pack8x1::mul(UFp12Pack8x1&, const Fp12Pack8x1&, const Fp12Pack8x1&)` (new widened output).
+3. Optional same pattern for `sqr`.
 
-## Phase 2: Rebuild Fp12 mul/sqr with Fused Wide Flow
+Implementation direction:
 
-### APIs
+1. Build in widened domain using `UFp6Pack8x1` intermediates.
+2. Defer reduction until output boundaries.
+3. Keep canonical `8x1` representation end-to-end.
 
-Internal only, in `Fp12_avx.h/.cpp`:
+### Tests
 
-1. `Fp12Pack8x1::mul_wide(UFp12Pack8x1&, const Fp12Pack8x1&, const Fp12Pack8x1&)`
-2. Optional: `Fp12Pack8x1::sqr_wide(UFp12Pack8x1&, const Fp12Pack8x1&)`
+1. Differential parity against scalar `Fp12`.
+2. Parity against previous pack reduced path.
+3. Alias and tail safety checks.
 
-`Fp12Pack8x1::mul` and `Fp12Pack8x1::sqr` remain public entry points and call fused internals.
+### Success
 
-### Data Layout
+1. Significant uplift in `Fp12` mul/sqr benchmarks.
+2. Move aggregate speedup closer to `3.0x` target.
 
-1. Stay in canonical `Fp12Pack8x1`.
-2. Use `UFp12Pack8x1` intermediates to defer reductions.
-3. Reduce at final output boundaries only where mathematically safe.
+## Phase 3: Cyclotomic Square Tightening
 
-### Testing
+### Code
 
-1. Differential tests versus scalar `Fp12`.
-2. Parity tests versus previous pack implementation.
-3. Alias and tail-safety tests.
+1. Keep `Fp12Pack8x1::cyclotomic_sqr` API unchanged.
+2. Rework internals to maximize fused operations and minimize reduction boundaries.
+3. Reuse new overloads where they lower total reduction count.
 
-### Success Conditions
+### Tests
 
-1. Throughput uplift in `Fp12` multiply/square versus current pack baseline.
-2. No correctness regressions in GT pack operations that depend on `Fp12`.
+1. Differential parity with scalar `Fp12::cyclotomic_sqr`.
+2. Random and structured subgroup inputs.
 
-### What to Avoid
+### Success
 
-1. Introducing AoS wrappers in hot pack path.
-2. Prematurely adding `k`-wise complexity during this phase.
+1. Cyclotomic square speedup approaches the same relative target trend as mul/sqr.
 
-## Phase 3: Cyclotomic Square Specialization for GT Hot Path
+## Phase 4: Benchmark-Driven Final Tuning
 
-### APIs
+### Code
 
-1. Keep `Fp12Pack8x1::cyclotomic_sqr` signature.
-2. Rework internals to maximize wide/fused arithmetic reuse.
+1. Tighten inlining policy and temporary lifetimes for hot kernels.
+2. Remove obvious register-pressure pathologies.
+3. Keep semantics and API signatures stable.
 
-### Data Layout
+### Tests
 
-1. Canonical SoA path only.
-2. Any schedule kernel use must stay pack-native and avoid scalar-layout conversions.
+1. Re-run full micro-benchmark matrix.
+2. Re-run differential correctness suite.
 
-### Testing
+### Success
 
-1. Differential tests against scalar cyclotomic square.
-2. GT subgroup-consistency tests across randomized vectors.
-
-### Success Conditions
-
-1. Clear uplift in GT doubling throughput.
-2. Correctness maintained under aliasing scenarios.
-
-### What to Avoid
-
-1. Route-through scalar `*_fp12_vector` conversion wrappers in pack hot loops.
-
-## Phase 4: GT GLV4 Throughput Cleanup
-
-### APIs
-
-1. Keep current `GTPack8x1::mult` APIs.
-2. Optionally add internal cached structures for repeated-base execution.
-
-### Data Layout
-
-1. Keep `GTPack8x1` as canonical SoA GT.
-2. Keep basis/table values in `Fp12Pack8x1` form.
-
-### Testing
-
-1. One-shot and precompiled GLV4 parity tests.
-2. Mixed random scalar widths and edge scalars.
-
-### Success Conditions
-
-1. Lower non-field overhead in GT scalar multiplication.
-2. Stable gains in repeated-call scenarios.
-
-### What to Avoid
-
-1. Any assumption that scalars are shared across tuples.
-
-## Phase 5: FFT-in-Exponent Path Integration
-
-### APIs
-
-1. Add pack-oriented helpers that accept spans of `GTPack8x1`.
-2. Keep scalar API untouched.
-
-### Data Layout
-
-1. Prepack twiddles and operands into SoA once per stage batch.
-2. No per-butterfly repacking.
-
-### Testing
-
-1. End-to-end FFT correctness against scalar reference:
-   1. Forward FFT in exponent for G1/G2 pipeline dependencies.
-   2. Inverse FFT in exponent for GT pipeline.
-2. Round-trip properties and randomized vector checks.
-
-### Success Conditions
-
-1. End-to-end throughput tracks field-level improvements.
-2. Conversion overhead is no longer dominant.
-
-### What to Avoid
-
-1. Hidden AoS <-> SoA transitions in butterfly loops.
-
-## Phase 6: Aggressive Follow-ups (Only if Needed)
-
-### APIs
-
-1. Keep external APIs stable.
-2. Add specialized internal kernels only where profiling shows bottlenecks.
-
-### Data Layout
-
-1. Reuse existing schedule types when justified.
-2. Introduce broader accumulator-wide types only if range analysis requires it.
-
-### Testing
-
-1. Full differential suite and stress tests.
-2. Performance counter review on native hardware.
-
-### Success Conditions
-
-1. Additional measurable gains after Phase 1-5 optimizations plateau.
-2. No architecture regressions or correctness risk increase.
-
-### What to Avoid
-
-1. Complexity growth without measured wins.
-2. Speculative refactors that reduce readability and maintainability.
-
-## Implementation Order
-
-1. Phase 0 (measurement baseline).
-2. Phase 1 (wide `Fp6` primitives).
-3. Phase 2 (`Fp12` fused wide flow).
-4. Phase 3 (cyclotomic square optimization).
-5. Phase 4 (GT GLV4 throughput cleanup).
-6. Phase 5 (FFT-in-exponent integration).
-7. Phase 6 only if profile-guided data justifies it.
+1. `Fp12` operations achieve or exceed `3.0x` speedup versus scalar reference.
+2. No correctness regressions.
 
 ## Exit Criteria
 
-The program is complete when:
+This plan is complete when:
 
-1. Tower-level speed loss source is fully attributed.
-2. `Fp12`/GT pack throughput materially improves versus current baseline.
-3. Existing correctness and API compatibility constraints are preserved.
-4. FFT-in-exponent workload can run on native SoA pack kernels without conversion-heavy bottlenecks.
+1. All targeted `Fp12` micro-bench operations (`mul`, `sqr`, `cyclotomic_sqr`) meet `>= 3.0x` versus scalar `Fp12`.
+2. Attribution benchmarks show where remaining losses are (if any).
+3. Differential tests are green for all changed kernels.

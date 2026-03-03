@@ -36,6 +36,7 @@ else()
         "main.cpp"
         "avxbls_bench.cpp"
         "Fp_avx_k_bench.cpp"
+        "Fp12_tower_avx_bench.cpp"
         "Fr_bench.cpp"
         "G1_bench.cpp"
         "G2_bench.cpp"

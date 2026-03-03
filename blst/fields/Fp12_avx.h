@@ -9,6 +9,8 @@
 
 namespace blst
 {
+    struct UFp12Pack8x1;
+
     /**
      * AVX512 Fp12 helpers ported from avxbls.
      *
@@ -73,9 +75,13 @@ namespace blst
 
         /// Reduced Fp12 multiply.
         static void mul(Fp12Pack8x1& r, const Fp12Pack8x1& a, const Fp12Pack8x1& b);
+        /// Widened Fp12 multiply.
+        static void mul(UFp12Pack8x1& r, const Fp12Pack8x1& a, const Fp12Pack8x1& b);
 
         /// Reduced Fp12 square.
         static void sqr(Fp12Pack8x1& r, const Fp12Pack8x1& a);
+        /// Widened Fp12 square.
+        static void sqr(UFp12Pack8x1& r, const Fp12Pack8x1& a);
 
         /// Cyclotomic square API entry; functionally equal to square.
         static void cyclotomic_sqr(Fp12Pack8x1& r, const Fp12Pack8x1& a);

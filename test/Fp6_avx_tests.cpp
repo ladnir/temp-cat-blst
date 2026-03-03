@@ -467,6 +467,53 @@ TEST(Fp6Avx, CanonicalArithmetic)
     }
 }
 
+TEST(Fp6Avx, WideOverloadsMatchReduced)
+{
+    InsecureRng rng;
+
+    for (int iter = 0; iter < 128; ++iter) {
+        Fp6Vec8 a{};
+        Fp6Vec8 b{};
+        Fp6Vec8 out_reduced{};
+        Fp6Vec8 out_wide{};
+        Fp6Pack8x1 pa{}, pb{};
+        Fp6Pack8x1 reduced{};
+        Fp6Pack8x1 reduced_from_wide{};
+        UFp6Pack8x1 wide{};
+
+        for (size_t lane = 0; lane < 8; ++lane) {
+            if (iter < 16) {
+                fill_edge_fp6(a[lane], iter + static_cast<int>(lane));
+                fill_edge_fp6(b[lane], iter + static_cast<int>(lane + 5));
+            } else {
+                rand_redc_fp6(a[lane], rng);
+                rand_redc_fp6(b[lane], rng);
+            }
+        }
+
+        Fp6Pack8x1::from_aos(pa, a.data());
+        Fp6Pack8x1::from_aos(pb, b.data());
+
+        Fp6Pack8x1::mul(reduced, pa, pb);
+        Fp6Pack8x1::mul(wide, pa, pb);
+        UFp6Pack8x1::redc(reduced_from_wide, wide);
+        Fp6Pack8x1::to_aos(out_reduced.data(), reduced);
+        Fp6Pack8x1::to_aos(out_wide.data(), reduced_from_wide);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            expect_fp6_eq(out_wide[lane], out_reduced[lane]);
+        }
+
+        Fp6Pack8x1::sqr(reduced, pa);
+        Fp6Pack8x1::sqr(wide, pa);
+        UFp6Pack8x1::redc(reduced_from_wide, wide);
+        Fp6Pack8x1::to_aos(out_reduced.data(), reduced);
+        Fp6Pack8x1::to_aos(out_wide.data(), reduced_from_wide);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            expect_fp6_eq(out_wide[lane], out_reduced[lane]);
+        }
+    }
+}
+
 TEST(Fp6Avx, CanonicalSelectReducedAndWidened)
 {
     InsecureRng rng;
