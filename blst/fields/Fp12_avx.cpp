@@ -9,33 +9,49 @@ namespace blst
 {
 namespace
 {
+    BLST_FORCEINLINE void sqr_fp2_pack_v2(UFp2Pack8x1x1& r, const Fp2Pack8x1x1& a)
+    {
+        FpPack8x1 sum{};
+        FpPack8x1 diff{};
+        UFpPack8x1 c0{};
+        UFpPack8x1 c1{};
+
+        // c0 = (a0 + a1) * (a0 - a1)
+        FpPack8x1::add(sum, a[0], a[1]);
+        FpPack8x1::sub(diff, a[0], a[1]);
+        FpPack8x1::mul(c0, sum, diff);
+
+        // c1 = 2 * a0 * a1
+        FpPack8x1::mul(c1, a[0], a[1]);
+        UFpPack8x1::add(c1, c1, c1);
+
+        r[0] = c0;
+        r[1] = c1;
+    }
+
     BLST_FORCEINLINE void sqr_fp4_pack(
         Fp2Pack8x1x1& r0,
         Fp2Pack8x1x1& r1,
         const Fp2Pack8x1x1& a0,
         const Fp2Pack8x1x1& a1)
     {
-        Fp2Pack8x1x1 s01{};
         UFp2Pack8x1x1 t0{};
         UFp2Pack8x1x1 t1{};
-        UFp2Pack8x1x1 t2{};
+        UFp2Pack8x1x1 m01{};
         UFp2Pack8x1x1 t3{};
 
-        Fp2Pack8x1x1::add(s01, a0, a1);
-        UFp2Pack8x1x1::mul(t0, a0, a0);
-        UFp2Pack8x1x1::mul(t1, a1, a1);
-        UFp2Pack8x1x1::mul(t2, s01, s01);
+        sqr_fp2_pack_v2(t0, a0); // a0^2
+        sqr_fp2_pack_v2(t1, a1); // a1^2
+        UFp2Pack8x1x1::mul(m01, a0, a1);
 
         // r0 = a0^2 + (u+1)*a1^2
         UFp2Pack8x1x1::mul_by_u_plus_1(t3, t1);
         UFp2Pack8x1x1::add(t3, t3, t0);
-
-        // r1 = (a0+a1)^2 - a0^2 - a1^2
-        UFp2Pack8x1x1::sub(t2, t2, t0);
-        UFp2Pack8x1x1::sub(t2, t2, t1);
-
         UFp2Pack8x1x1::redc(r0, t3);
-        UFp2Pack8x1x1::redc(r1, t2);
+
+        // r1 = 2*a0*a1
+        UFp2Pack8x1x1::add(m01, m01, m01);
+        UFp2Pack8x1x1::redc(r1, m01);
     }
 
     BLST_FORCEINLINE Fp2 make_fp2_real(const Fp& real)
