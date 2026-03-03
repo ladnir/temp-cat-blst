@@ -111,139 +111,240 @@ struct Fp8x1RedcCoreStreamData
   std::array<LFpPack8x1, Chains> lazy{};
 };
 
-#define BLST_APPLY_C2(STMT)                                                                 \
-  do {                                                                                       \
-    { constexpr std::size_t c = 0; STMT }                                                   \
-    { constexpr std::size_t c = 1; STMT }                                                   \
-  } while (0)
+BLST_FORCEINLINE void redc_core_hand_interleaved_k2_once(
+    LFpPack8x1& out0,
+    LFpPack8x1& out1,
+    const UFpPack8x1& in0,
+    const UFpPack8x1& in1)
+{
+  cc512i a0 = in0[0], a1 = in0[1], a2 = in0[2], a3 = in0[3];
+  cc512i a4 = in0[4], a5 = in0[5], a6 = in0[6], a7 = in0[7];
+  cc512i a8 = in0[8], a9 = in0[9], a10 = in0[10], a11 = in0[11];
+  cc512i a12 = in0[12], a13 = in0[13], a14 = in0[14], a15 = in0[15];
 
-#define BLST_APPLY_C4(STMT)                                                                 \
-  do {                                                                                       \
-    { constexpr std::size_t c = 0; STMT }                                                   \
-    { constexpr std::size_t c = 1; STMT }                                                   \
-    { constexpr std::size_t c = 2; STMT }                                                   \
-    { constexpr std::size_t c = 3; STMT }                                                   \
-  } while (0)
+  cc512i b0 = in1[0], b1 = in1[1], b2 = in1[2], b3 = in1[3];
+  cc512i b4 = in1[4], b5 = in1[5], b6 = in1[6], b7 = in1[7];
+  cc512i b8 = in1[8], b9 = in1[9], b10 = in1[10], b11 = in1[11];
+  cc512i b12 = in1[12], b13 = in1[13], b14 = in1[14], b15 = in1[15];
 
-#define BLST_APPLY_C8(STMT)                                                                 \
-  do {                                                                                       \
-    { constexpr std::size_t c = 0; STMT }                                                   \
-    { constexpr std::size_t c = 1; STMT }                                                   \
-    { constexpr std::size_t c = 2; STMT }                                                   \
-    { constexpr std::size_t c = 3; STMT }                                                   \
-    { constexpr std::size_t c = 4; STMT }                                                   \
-    { constexpr std::size_t c = 5; STMT }                                                   \
-    { constexpr std::size_t c = 6; STMT }                                                   \
-    { constexpr std::size_t c = 7; STMT }                                                   \
-  } while (0)
+  cc512i y0 = VZERO(), y1 = VZERO(), y2 = VZERO(), y3 = VZERO();
+  cc512i y4 = VZERO(), y5 = VZERO(), y6 = VZERO(), y7 = VZERO();
+  cc512i y8 = VZERO(), y9 = VZERO(), y10 = VZERO(), y11 = VZERO();
+  cc512i y12 = VZERO(), y13 = VZERO(), y14 = VZERO();
 
-#define BLST_REDC_CORE_STEP(APPLY, IDX)                                                     \
-  do {                                                                                       \
-    APPLY({ u[c] = VAND(VMACLO(zero, a[(IDX)][c], montw), bmask); });                       \
-    APPLY({                                                                                  \
-      a[(IDX) + 0][c] = VMACLO(a[(IDX) + 0][c], u[c], p0);                                  \
-      a[(IDX) + 1][c] = VMACLO(a[(IDX) + 1][c], u[c], p1);                                  \
-      a[(IDX) + 2][c] = VMACLO(a[(IDX) + 2][c], u[c], p2);                                  \
-      a[(IDX) + 3][c] = VMACLO(a[(IDX) + 3][c], u[c], p3);                                  \
-      a[(IDX) + 4][c] = VMACLO(a[(IDX) + 4][c], u[c], p4);                                  \
-      a[(IDX) + 5][c] = VMACLO(a[(IDX) + 5][c], u[c], p5);                                  \
-      a[(IDX) + 6][c] = VMACLO(a[(IDX) + 6][c], u[c], p6);                                  \
-      a[(IDX) + 7][c] = VMACLO(a[(IDX) + 7][c], u[c], p7);                                  \
-    });                                                                                      \
-    APPLY({                                                                                  \
-      y[(IDX) + 0][c] = VMACHI(y[(IDX) + 0][c], u[c], p0);                                  \
-      y[(IDX) + 1][c] = VMACHI(y[(IDX) + 1][c], u[c], p1);                                  \
-      y[(IDX) + 2][c] = VMACHI(y[(IDX) + 2][c], u[c], p2);                                  \
-      y[(IDX) + 3][c] = VMACHI(y[(IDX) + 3][c], u[c], p3);                                  \
-      y[(IDX) + 4][c] = VMACHI(y[(IDX) + 4][c], u[c], p4);                                  \
-      y[(IDX) + 5][c] = VMACHI(y[(IDX) + 5][c], u[c], p5);                                  \
-      y[(IDX) + 6][c] = VMACHI(y[(IDX) + 6][c], u[c], p6);                                  \
-      y[(IDX) + 7][c] = VMACHI(y[(IDX) + 7][c], u[c], p7);                                  \
-    });                                                                                      \
-    APPLY({                                                                                  \
-      a[(IDX) + 1][c] =                                                                      \
-          VADD(VADD(a[(IDX) + 1][c], VSRA(a[(IDX) + 0][c], BRADIX)), VSHL(y[(IDX) + 0][c], BALIGN)); \
-    });                                                                                      \
-  } while (0)
+  cc512i z0 = VZERO(), z1 = VZERO(), z2 = VZERO(), z3 = VZERO();
+  cc512i z4 = VZERO(), z5 = VZERO(), z6 = VZERO(), z7 = VZERO();
+  cc512i z8 = VZERO(), z9 = VZERO(), z10 = VZERO(), z11 = VZERO();
+  cc512i z12 = VZERO(), z13 = VZERO(), z14 = VZERO();
 
-#define BLST_REDC_CORE_FINALIZE(APPLY)                                                      \
-  do {                                                                                       \
-    APPLY({ a[9][c] = VADD(a[9][c], VSHL(y[8][c], BALIGN)); });                             \
-    APPLY({ a[10][c] = VADD(a[10][c], VSHL(y[9][c], BALIGN)); });                           \
-    APPLY({ a[11][c] = VADD(a[11][c], VSHL(y[10][c], BALIGN)); });                          \
-    APPLY({ a[12][c] = VADD(a[12][c], VSHL(y[11][c], BALIGN)); });                          \
-    APPLY({ a[13][c] = VADD(a[13][c], VSHL(y[12][c], BALIGN)); });                          \
-    APPLY({ a[14][c] = VADD(a[14][c], VSHL(y[13][c], BALIGN)); });                          \
-    APPLY({ a[15][c] = VADD(a[15][c], VSHL(y[14][c], BALIGN)); });                          \
-                                                                                             \
-    APPLY({                                                                                  \
-      r[0][c] = a[8][c]; r[1][c] = a[9][c]; r[2][c] = a[10][c]; r[3][c] = a[11][c];       \
-      r[4][c] = a[12][c]; r[5][c] = a[13][c]; r[6][c] = a[14][c]; r[7][c] = a[15][c];     \
-    });                                                                                      \
-                                                                                             \
-    APPLY({ r[1][c] = VADD(r[1][c], VSRA(r[0][c], BRADIX)); r[0][c] = VAND(r[0][c], bmask); }); \
-    APPLY({ r[2][c] = VADD(r[2][c], VSRA(r[1][c], BRADIX)); r[1][c] = VAND(r[1][c], bmask); }); \
-    APPLY({ r[3][c] = VADD(r[3][c], VSRA(r[2][c], BRADIX)); r[2][c] = VAND(r[2][c], bmask); }); \
-    APPLY({ r[4][c] = VADD(r[4][c], VSRA(r[3][c], BRADIX)); r[3][c] = VAND(r[3][c], bmask); }); \
-    APPLY({ r[5][c] = VADD(r[5][c], VSRA(r[4][c], BRADIX)); r[4][c] = VAND(r[4][c], bmask); }); \
-    APPLY({ r[6][c] = VADD(r[6][c], VSRA(r[5][c], BRADIX)); r[5][c] = VAND(r[5][c], bmask); }); \
-    APPLY({                                                                                  \
-      r[7][c] = VADD(r[7][c], VSRA(r[6][c], BRADIX));                                       \
-      r[6][c] = VAND(r[6][c], bmask);                                                        \
-      r[7][c] = VAND(r[7][c], bmask);                                                        \
-    });                                                                                      \
-  } while (0)
+  const cc512i p0 = VSET1(P48[0]), p1 = VSET1(P48[1]), p2 = VSET1(P48[2]);
+  const cc512i p3 = VSET1(P48[3]), p4 = VSET1(P48[4]), p5 = VSET1(P48[5]);
+  const cc512i p6 = VSET1(P48[6]), p7 = VSET1(P48[7]);
+  const cc512i bmask = VSET1(BMASK), montw = VSET1(MONT_W_R48), zero = VZERO();
 
-template <int Chains>
-BLST_FORCEINLINE void redc_core_hand_interleaved_once(
-    std::array<LFpPack8x1, Chains>& out,
-    const std::array<UFpPack8x1, Chains>& in);
+  cc512i u0, u1;
 
-#define BLST_DEFINE_REDC_CORE_HAND_SPECIALIZATION(CHAINS, APPLY)                            \
-  template <>                                                                                \
-  BLST_FORCEINLINE void redc_core_hand_interleaved_once<CHAINS>(                            \
-      std::array<LFpPack8x1, CHAINS>& out,                                                  \
-      const std::array<UFpPack8x1, CHAINS>& in)                                             \
-  {                                                                                          \
-    std::array<std::array<cc512i, CHAINS>, 16> a{};                                         \
-    std::array<std::array<cc512i, CHAINS>, 15> y{};                                         \
-    std::array<std::array<cc512i, CHAINS>, 8> r{};                                          \
-    std::array<cc512i, CHAINS> u{};                                                         \
-                                                                                             \
-    const cc512i p0 = VSET1(P48[0]), p1 = VSET1(P48[1]), p2 = VSET1(P48[2]);                \
-    const cc512i p3 = VSET1(P48[3]), p4 = VSET1(P48[4]), p5 = VSET1(P48[5]);                \
-    const cc512i p6 = VSET1(P48[6]), p7 = VSET1(P48[7]);                                    \
-    const cc512i bmask = VSET1(BMASK), montw = VSET1(MONT_W_R48), zero = VZERO();          \
-                                                                                             \
-    for (std::size_t i = 0; i < 16; ++i) {                                                  \
-      APPLY({ a[i][c] = in[c][i]; });                                                       \
-    }                                                                                        \
-    for (std::size_t i = 0; i < 15; ++i) {                                                  \
-      APPLY({ y[i][c] = VZERO(); });                                                        \
-    }                                                                                        \
-                                                                                             \
-    BLST_REDC_CORE_STEP(APPLY, 0);                                                           \
-    BLST_REDC_CORE_STEP(APPLY, 1);                                                           \
-    BLST_REDC_CORE_STEP(APPLY, 2);                                                           \
-    BLST_REDC_CORE_STEP(APPLY, 3);                                                           \
-    BLST_REDC_CORE_STEP(APPLY, 4);                                                           \
-    BLST_REDC_CORE_STEP(APPLY, 5);                                                           \
-    BLST_REDC_CORE_STEP(APPLY, 6);                                                           \
-    BLST_REDC_CORE_STEP(APPLY, 7);                                                           \
-    BLST_REDC_CORE_FINALIZE(APPLY);                                                          \
-                                                                                             \
-    for (std::size_t i = 0; i < 8; ++i) {                                                   \
-      APPLY({ out[c][i] = r[i][c]; });                                                      \
-    }                                                                                        \
-  }
+  u0 = VAND(VMACLO(zero, a0, montw), bmask);
+  u1 = VAND(VMACLO(zero, b0, montw), bmask);
+  a0 = VMACLO(a0, u0, p0); b0 = VMACLO(b0, u1, p0);
+  a1 = VMACLO(a1, u0, p1); b1 = VMACLO(b1, u1, p1);
+  a2 = VMACLO(a2, u0, p2); b2 = VMACLO(b2, u1, p2);
+  a3 = VMACLO(a3, u0, p3); b3 = VMACLO(b3, u1, p3);
+  a4 = VMACLO(a4, u0, p4); b4 = VMACLO(b4, u1, p4);
+  a5 = VMACLO(a5, u0, p5); b5 = VMACLO(b5, u1, p5);
+  a6 = VMACLO(a6, u0, p6); b6 = VMACLO(b6, u1, p6);
+  a7 = VMACLO(a7, u0, p7); b7 = VMACLO(b7, u1, p7);
+  y0 = VMACHI(y0, u0, p0); z0 = VMACHI(z0, u1, p0);
+  y1 = VMACHI(y1, u0, p1); z1 = VMACHI(z1, u1, p1);
+  y2 = VMACHI(y2, u0, p2); z2 = VMACHI(z2, u1, p2);
+  y3 = VMACHI(y3, u0, p3); z3 = VMACHI(z3, u1, p3);
+  y4 = VMACHI(y4, u0, p4); z4 = VMACHI(z4, u1, p4);
+  y5 = VMACHI(y5, u0, p5); z5 = VMACHI(z5, u1, p5);
+  y6 = VMACHI(y6, u0, p6); z6 = VMACHI(z6, u1, p6);
+  y7 = VMACHI(y7, u0, p7); z7 = VMACHI(z7, u1, p7);
+  a1 = VADD(VADD(a1, VSRA(a0, BRADIX)), VSHL(y0, BALIGN));
+  b1 = VADD(VADD(b1, VSRA(b0, BRADIX)), VSHL(z0, BALIGN));
 
-BLST_DEFINE_REDC_CORE_HAND_SPECIALIZATION(2, BLST_APPLY_C2);
-BLST_DEFINE_REDC_CORE_HAND_SPECIALIZATION(4, BLST_APPLY_C4);
-BLST_DEFINE_REDC_CORE_HAND_SPECIALIZATION(8, BLST_APPLY_C8);
+  u0 = VAND(VMACLO(zero, a1, montw), bmask);
+  u1 = VAND(VMACLO(zero, b1, montw), bmask);
+  a1 = VMACLO(a1, u0, p0); b1 = VMACLO(b1, u1, p0);
+  a2 = VMACLO(a2, u0, p1); b2 = VMACLO(b2, u1, p1);
+  a3 = VMACLO(a3, u0, p2); b3 = VMACLO(b3, u1, p2);
+  a4 = VMACLO(a4, u0, p3); b4 = VMACLO(b4, u1, p3);
+  a5 = VMACLO(a5, u0, p4); b5 = VMACLO(b5, u1, p4);
+  a6 = VMACLO(a6, u0, p5); b6 = VMACLO(b6, u1, p5);
+  a7 = VMACLO(a7, u0, p6); b7 = VMACLO(b7, u1, p6);
+  a8 = VMACLO(a8, u0, p7); b8 = VMACLO(b8, u1, p7);
+  y1 = VMACHI(y1, u0, p0); z1 = VMACHI(z1, u1, p0);
+  y2 = VMACHI(y2, u0, p1); z2 = VMACHI(z2, u1, p1);
+  y3 = VMACHI(y3, u0, p2); z3 = VMACHI(z3, u1, p2);
+  y4 = VMACHI(y4, u0, p3); z4 = VMACHI(z4, u1, p3);
+  y5 = VMACHI(y5, u0, p4); z5 = VMACHI(z5, u1, p4);
+  y6 = VMACHI(y6, u0, p5); z6 = VMACHI(z6, u1, p5);
+  y7 = VMACHI(y7, u0, p6); z7 = VMACHI(z7, u1, p6);
+  y8 = VMACHI(y8, u0, p7); z8 = VMACHI(z8, u1, p7);
+  a2 = VADD(VADD(a2, VSRA(a1, BRADIX)), VSHL(y1, BALIGN));
+  b2 = VADD(VADD(b2, VSRA(b1, BRADIX)), VSHL(z1, BALIGN));
 
-#undef BLST_DEFINE_REDC_CORE_HAND_SPECIALIZATION
-#undef BLST_REDC_CORE_FINALIZE
-#undef BLST_REDC_CORE_STEP
+  u0 = VAND(VMACLO(zero, a2, montw), bmask);
+  u1 = VAND(VMACLO(zero, b2, montw), bmask);
+  a2 = VMACLO(a2, u0, p0); b2 = VMACLO(b2, u1, p0);
+  a3 = VMACLO(a3, u0, p1); b3 = VMACLO(b3, u1, p1);
+  a4 = VMACLO(a4, u0, p2); b4 = VMACLO(b4, u1, p2);
+  a5 = VMACLO(a5, u0, p3); b5 = VMACLO(b5, u1, p3);
+  a6 = VMACLO(a6, u0, p4); b6 = VMACLO(b6, u1, p4);
+  a7 = VMACLO(a7, u0, p5); b7 = VMACLO(b7, u1, p5);
+  a8 = VMACLO(a8, u0, p6); b8 = VMACLO(b8, u1, p6);
+  a9 = VMACLO(a9, u0, p7); b9 = VMACLO(b9, u1, p7);
+  y2 = VMACHI(y2, u0, p0); z2 = VMACHI(z2, u1, p0);
+  y3 = VMACHI(y3, u0, p1); z3 = VMACHI(z3, u1, p1);
+  y4 = VMACHI(y4, u0, p2); z4 = VMACHI(z4, u1, p2);
+  y5 = VMACHI(y5, u0, p3); z5 = VMACHI(z5, u1, p3);
+  y6 = VMACHI(y6, u0, p4); z6 = VMACHI(z6, u1, p4);
+  y7 = VMACHI(y7, u0, p5); z7 = VMACHI(z7, u1, p5);
+  y8 = VMACHI(y8, u0, p6); z8 = VMACHI(z8, u1, p6);
+  y9 = VMACHI(y9, u0, p7); z9 = VMACHI(z9, u1, p7);
+  a3 = VADD(VADD(a3, VSRA(a2, BRADIX)), VSHL(y2, BALIGN));
+  b3 = VADD(VADD(b3, VSRA(b2, BRADIX)), VSHL(z2, BALIGN));
+
+  u0 = VAND(VMACLO(zero, a3, montw), bmask);
+  u1 = VAND(VMACLO(zero, b3, montw), bmask);
+  a3 = VMACLO(a3, u0, p0); b3 = VMACLO(b3, u1, p0);
+  a4 = VMACLO(a4, u0, p1); b4 = VMACLO(b4, u1, p1);
+  a5 = VMACLO(a5, u0, p2); b5 = VMACLO(b5, u1, p2);
+  a6 = VMACLO(a6, u0, p3); b6 = VMACLO(b6, u1, p3);
+  a7 = VMACLO(a7, u0, p4); b7 = VMACLO(b7, u1, p4);
+  a8 = VMACLO(a8, u0, p5); b8 = VMACLO(b8, u1, p5);
+  a9 = VMACLO(a9, u0, p6); b9 = VMACLO(b9, u1, p6);
+  a10 = VMACLO(a10, u0, p7); b10 = VMACLO(b10, u1, p7);
+  y3 = VMACHI(y3, u0, p0); z3 = VMACHI(z3, u1, p0);
+  y4 = VMACHI(y4, u0, p1); z4 = VMACHI(z4, u1, p1);
+  y5 = VMACHI(y5, u0, p2); z5 = VMACHI(z5, u1, p2);
+  y6 = VMACHI(y6, u0, p3); z6 = VMACHI(z6, u1, p3);
+  y7 = VMACHI(y7, u0, p4); z7 = VMACHI(z7, u1, p4);
+  y8 = VMACHI(y8, u0, p5); z8 = VMACHI(z8, u1, p5);
+  y9 = VMACHI(y9, u0, p6); z9 = VMACHI(z9, u1, p6);
+  y10 = VMACHI(y10, u0, p7); z10 = VMACHI(z10, u1, p7);
+  a4 = VADD(VADD(a4, VSRA(a3, BRADIX)), VSHL(y3, BALIGN));
+  b4 = VADD(VADD(b4, VSRA(b3, BRADIX)), VSHL(z3, BALIGN));
+
+  u0 = VAND(VMACLO(zero, a4, montw), bmask);
+  u1 = VAND(VMACLO(zero, b4, montw), bmask);
+  a4 = VMACLO(a4, u0, p0); b4 = VMACLO(b4, u1, p0);
+  a5 = VMACLO(a5, u0, p1); b5 = VMACLO(b5, u1, p1);
+  a6 = VMACLO(a6, u0, p2); b6 = VMACLO(b6, u1, p2);
+  a7 = VMACLO(a7, u0, p3); b7 = VMACLO(b7, u1, p3);
+  a8 = VMACLO(a8, u0, p4); b8 = VMACLO(b8, u1, p4);
+  a9 = VMACLO(a9, u0, p5); b9 = VMACLO(b9, u1, p5);
+  a10 = VMACLO(a10, u0, p6); b10 = VMACLO(b10, u1, p6);
+  a11 = VMACLO(a11, u0, p7); b11 = VMACLO(b11, u1, p7);
+  y4 = VMACHI(y4, u0, p0); z4 = VMACHI(z4, u1, p0);
+  y5 = VMACHI(y5, u0, p1); z5 = VMACHI(z5, u1, p1);
+  y6 = VMACHI(y6, u0, p2); z6 = VMACHI(z6, u1, p2);
+  y7 = VMACHI(y7, u0, p3); z7 = VMACHI(z7, u1, p3);
+  y8 = VMACHI(y8, u0, p4); z8 = VMACHI(z8, u1, p4);
+  y9 = VMACHI(y9, u0, p5); z9 = VMACHI(z9, u1, p5);
+  y10 = VMACHI(y10, u0, p6); z10 = VMACHI(z10, u1, p6);
+  y11 = VMACHI(y11, u0, p7); z11 = VMACHI(z11, u1, p7);
+  a5 = VADD(VADD(a5, VSRA(a4, BRADIX)), VSHL(y4, BALIGN));
+  b5 = VADD(VADD(b5, VSRA(b4, BRADIX)), VSHL(z4, BALIGN));
+
+  u0 = VAND(VMACLO(zero, a5, montw), bmask);
+  u1 = VAND(VMACLO(zero, b5, montw), bmask);
+  a5 = VMACLO(a5, u0, p0); b5 = VMACLO(b5, u1, p0);
+  a6 = VMACLO(a6, u0, p1); b6 = VMACLO(b6, u1, p1);
+  a7 = VMACLO(a7, u0, p2); b7 = VMACLO(b7, u1, p2);
+  a8 = VMACLO(a8, u0, p3); b8 = VMACLO(b8, u1, p3);
+  a9 = VMACLO(a9, u0, p4); b9 = VMACLO(b9, u1, p4);
+  a10 = VMACLO(a10, u0, p5); b10 = VMACLO(b10, u1, p5);
+  a11 = VMACLO(a11, u0, p6); b11 = VMACLO(b11, u1, p6);
+  a12 = VMACLO(a12, u0, p7); b12 = VMACLO(b12, u1, p7);
+  y5 = VMACHI(y5, u0, p0); z5 = VMACHI(z5, u1, p0);
+  y6 = VMACHI(y6, u0, p1); z6 = VMACHI(z6, u1, p1);
+  y7 = VMACHI(y7, u0, p2); z7 = VMACHI(z7, u1, p2);
+  y8 = VMACHI(y8, u0, p3); z8 = VMACHI(z8, u1, p3);
+  y9 = VMACHI(y9, u0, p4); z9 = VMACHI(z9, u1, p4);
+  y10 = VMACHI(y10, u0, p5); z10 = VMACHI(z10, u1, p5);
+  y11 = VMACHI(y11, u0, p6); z11 = VMACHI(z11, u1, p6);
+  y12 = VMACHI(y12, u0, p7); z12 = VMACHI(z12, u1, p7);
+  a6 = VADD(VADD(a6, VSRA(a5, BRADIX)), VSHL(y5, BALIGN));
+  b6 = VADD(VADD(b6, VSRA(b5, BRADIX)), VSHL(z5, BALIGN));
+
+  u0 = VAND(VMACLO(zero, a6, montw), bmask);
+  u1 = VAND(VMACLO(zero, b6, montw), bmask);
+  a6 = VMACLO(a6, u0, p0); b6 = VMACLO(b6, u1, p0);
+  a7 = VMACLO(a7, u0, p1); b7 = VMACLO(b7, u1, p1);
+  a8 = VMACLO(a8, u0, p2); b8 = VMACLO(b8, u1, p2);
+  a9 = VMACLO(a9, u0, p3); b9 = VMACLO(b9, u1, p3);
+  a10 = VMACLO(a10, u0, p4); b10 = VMACLO(b10, u1, p4);
+  a11 = VMACLO(a11, u0, p5); b11 = VMACLO(b11, u1, p5);
+  a12 = VMACLO(a12, u0, p6); b12 = VMACLO(b12, u1, p6);
+  a13 = VMACLO(a13, u0, p7); b13 = VMACLO(b13, u1, p7);
+  y6 = VMACHI(y6, u0, p0); z6 = VMACHI(z6, u1, p0);
+  y7 = VMACHI(y7, u0, p1); z7 = VMACHI(z7, u1, p1);
+  y8 = VMACHI(y8, u0, p2); z8 = VMACHI(z8, u1, p2);
+  y9 = VMACHI(y9, u0, p3); z9 = VMACHI(z9, u1, p3);
+  y10 = VMACHI(y10, u0, p4); z10 = VMACHI(z10, u1, p4);
+  y11 = VMACHI(y11, u0, p5); z11 = VMACHI(z11, u1, p5);
+  y12 = VMACHI(y12, u0, p6); z12 = VMACHI(z12, u1, p6);
+  y13 = VMACHI(y13, u0, p7); z13 = VMACHI(z13, u1, p7);
+  a7 = VADD(VADD(a7, VSRA(a6, BRADIX)), VSHL(y6, BALIGN));
+  b7 = VADD(VADD(b7, VSRA(b6, BRADIX)), VSHL(z6, BALIGN));
+
+  u0 = VAND(VMACLO(zero, a7, montw), bmask);
+  u1 = VAND(VMACLO(zero, b7, montw), bmask);
+  a7 = VMACLO(a7, u0, p0); b7 = VMACLO(b7, u1, p0);
+  a8 = VMACLO(a8, u0, p1); b8 = VMACLO(b8, u1, p1);
+  a9 = VMACLO(a9, u0, p2); b9 = VMACLO(b9, u1, p2);
+  a10 = VMACLO(a10, u0, p3); b10 = VMACLO(b10, u1, p3);
+  a11 = VMACLO(a11, u0, p4); b11 = VMACLO(b11, u1, p4);
+  a12 = VMACLO(a12, u0, p5); b12 = VMACLO(b12, u1, p5);
+  a13 = VMACLO(a13, u0, p6); b13 = VMACLO(b13, u1, p6);
+  a14 = VMACLO(a14, u0, p7); b14 = VMACLO(b14, u1, p7);
+  y7 = VMACHI(y7, u0, p0); z7 = VMACHI(z7, u1, p0);
+  y8 = VMACHI(y8, u0, p1); z8 = VMACHI(z8, u1, p1);
+  y9 = VMACHI(y9, u0, p2); z9 = VMACHI(z9, u1, p2);
+  y10 = VMACHI(y10, u0, p3); z10 = VMACHI(z10, u1, p3);
+  y11 = VMACHI(y11, u0, p4); z11 = VMACHI(z11, u1, p4);
+  y12 = VMACHI(y12, u0, p5); z12 = VMACHI(z12, u1, p5);
+  y13 = VMACHI(y13, u0, p6); z13 = VMACHI(z13, u1, p6);
+  y14 = VMACHI(y14, u0, p7); z14 = VMACHI(z14, u1, p7);
+  a8 = VADD(VADD(a8, VSRA(a7, BRADIX)), VSHL(y7, BALIGN));
+  b8 = VADD(VADD(b8, VSRA(b7, BRADIX)), VSHL(z7, BALIGN));
+
+  a9 = VADD(a9, VSHL(y8, BALIGN)); b9 = VADD(b9, VSHL(z8, BALIGN));
+  a10 = VADD(a10, VSHL(y9, BALIGN)); b10 = VADD(b10, VSHL(z9, BALIGN));
+  a11 = VADD(a11, VSHL(y10, BALIGN)); b11 = VADD(b11, VSHL(z10, BALIGN));
+  a12 = VADD(a12, VSHL(y11, BALIGN)); b12 = VADD(b12, VSHL(z11, BALIGN));
+  a13 = VADD(a13, VSHL(y12, BALIGN)); b13 = VADD(b13, VSHL(z12, BALIGN));
+  a14 = VADD(a14, VSHL(y13, BALIGN)); b14 = VADD(b14, VSHL(z13, BALIGN));
+  a15 = VADD(a15, VSHL(y14, BALIGN)); b15 = VADD(b15, VSHL(z14, BALIGN));
+
+  cc512i ra0 = a8, ra1 = a9, ra2 = a10, ra3 = a11;
+  cc512i ra4 = a12, ra5 = a13, ra6 = a14, ra7 = a15;
+  cc512i rb0 = b8, rb1 = b9, rb2 = b10, rb3 = b11;
+  cc512i rb4 = b12, rb5 = b13, rb6 = b14, rb7 = b15;
+
+  ra1 = VADD(ra1, VSRA(ra0, BRADIX)); ra0 = VAND(ra0, bmask);
+  rb1 = VADD(rb1, VSRA(rb0, BRADIX)); rb0 = VAND(rb0, bmask);
+  ra2 = VADD(ra2, VSRA(ra1, BRADIX)); ra1 = VAND(ra1, bmask);
+  rb2 = VADD(rb2, VSRA(rb1, BRADIX)); rb1 = VAND(rb1, bmask);
+  ra3 = VADD(ra3, VSRA(ra2, BRADIX)); ra2 = VAND(ra2, bmask);
+  rb3 = VADD(rb3, VSRA(rb2, BRADIX)); rb2 = VAND(rb2, bmask);
+  ra4 = VADD(ra4, VSRA(ra3, BRADIX)); ra3 = VAND(ra3, bmask);
+  rb4 = VADD(rb4, VSRA(rb3, BRADIX)); rb3 = VAND(rb3, bmask);
+  ra5 = VADD(ra5, VSRA(ra4, BRADIX)); ra4 = VAND(ra4, bmask);
+  rb5 = VADD(rb5, VSRA(rb4, BRADIX)); rb4 = VAND(rb4, bmask);
+  ra6 = VADD(ra6, VSRA(ra5, BRADIX)); ra5 = VAND(ra5, bmask);
+  rb6 = VADD(rb6, VSRA(rb5, BRADIX)); rb5 = VAND(rb5, bmask);
+  ra7 = VADD(ra7, VSRA(ra6, BRADIX)); ra6 = VAND(ra6, bmask); ra7 = VAND(ra7, bmask);
+  rb7 = VADD(rb7, VSRA(rb6, BRADIX)); rb6 = VAND(rb6, bmask); rb7 = VAND(rb7, bmask);
+
+  out0[0] = ra0; out0[1] = ra1; out0[2] = ra2; out0[3] = ra3;
+  out0[4] = ra4; out0[5] = ra5; out0[6] = ra6; out0[7] = ra7;
+  out1[0] = rb0; out1[1] = rb1; out1[2] = rb2; out1[3] = rb3;
+  out1[4] = rb4; out1[5] = rb5; out1[6] = rb6; out1[7] = rb7;
+}
 
 template <int K>
 void BM_Fp8x1MulV2K(benchmark::State& state)
@@ -552,7 +653,7 @@ void BM_Fp8x1RedcCore_HandInterleavedChains<2>(benchmark::State& state)
 
   for (auto _ : state) {
     for (std::size_t i = 0; i < kUnroll; ++i) {
-      redc_core_hand_interleaved_once<2>(data.lazy, data.wide);
+      redc_core_hand_interleaved_k2_once(data.lazy[0], data.lazy[1], data.wide[0], data.wide[1]);
       data.wide[0][0] = VADD(data.wide[0][0], VADD(data.lazy[0][0], one));
       data.wide[1][0] = VADD(data.wide[1][0], VADD(data.lazy[1][0], one));
     }
@@ -579,7 +680,8 @@ void BM_Fp8x1RedcCore_HandInterleavedChains<4>(benchmark::State& state)
 
   for (auto _ : state) {
     for (std::size_t i = 0; i < kUnroll; ++i) {
-      redc_core_hand_interleaved_once<4>(data.lazy, data.wide);
+      redc_core_hand_interleaved_k2_once(data.lazy[0], data.lazy[1], data.wide[0], data.wide[1]);
+      redc_core_hand_interleaved_k2_once(data.lazy[2], data.lazy[3], data.wide[2], data.wide[3]);
       data.wide[0][0] = VADD(data.wide[0][0], VADD(data.lazy[0][0], one));
       data.wide[1][0] = VADD(data.wide[1][0], VADD(data.lazy[1][0], one));
       data.wide[2][0] = VADD(data.wide[2][0], VADD(data.lazy[2][0], one));
@@ -610,7 +712,10 @@ void BM_Fp8x1RedcCore_HandInterleavedChains<8>(benchmark::State& state)
 
   for (auto _ : state) {
     for (std::size_t i = 0; i < kUnroll; ++i) {
-      redc_core_hand_interleaved_once<8>(data.lazy, data.wide);
+      redc_core_hand_interleaved_k2_once(data.lazy[0], data.lazy[1], data.wide[0], data.wide[1]);
+      redc_core_hand_interleaved_k2_once(data.lazy[2], data.lazy[3], data.wide[2], data.wide[3]);
+      redc_core_hand_interleaved_k2_once(data.lazy[4], data.lazy[5], data.wide[4], data.wide[5]);
+      redc_core_hand_interleaved_k2_once(data.lazy[6], data.lazy[7], data.wide[6], data.wide[7]);
       data.wide[0][0] = VADD(data.wide[0][0], VADD(data.lazy[0][0], one));
       data.wide[1][0] = VADD(data.wide[1][0], VADD(data.lazy[1][0], one));
       data.wide[2][0] = VADD(data.wide[2][0], VADD(data.lazy[2][0], one));
@@ -639,10 +744,6 @@ void BM_Fp8x1RedcCore_HandInterleavedChains<8>(benchmark::State& state)
   state.counters["chains"] = 8.0;
   state.counters["unroll"] = static_cast<double>(kUnroll);
 }
-
-#undef BLST_APPLY_C2
-#undef BLST_APPLY_C4
-#undef BLST_APPLY_C8
 
 template <bool DoLo, bool DoHi>
 void BM_IFMA52Latency_DepChain(benchmark::State& state)
