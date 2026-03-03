@@ -15,20 +15,27 @@ namespace
         const Fp2Pack8x1x1& a0,
         const Fp2Pack8x1x1& a1)
     {
-        Fp2Pack8x1x1 t0{};
-        Fp2Pack8x1x1 t1{};
-        Fp2Pack8x1x1 t2{};
+        Fp2Pack8x1x1 s01{};
+        UFp2Pack8x1x1 t0{};
+        UFp2Pack8x1x1 t1{};
+        UFp2Pack8x1x1 t2{};
+        UFp2Pack8x1x1 t3{};
 
-        Fp2Pack8x1x1::sqr(t0, a0);
-        Fp2Pack8x1x1::sqr(t1, a1);
+        Fp2Pack8x1x1::add(s01, a0, a1);
+        UFp2Pack8x1x1::mul(t0, a0, a0);
+        UFp2Pack8x1x1::mul(t1, a1, a1);
+        UFp2Pack8x1x1::mul(t2, s01, s01);
 
-        Fp2Pack8x1x1::add(r1, a0, a1);
-        Fp2Pack8x1x1::mul_by_u_plus_1(r0, t1);
-        Fp2Pack8x1x1::add(r0, r0, t0);
+        // r0 = a0^2 + (u+1)*a1^2
+        UFp2Pack8x1x1::mul_by_u_plus_1(t3, t1);
+        UFp2Pack8x1x1::add(t3, t3, t0);
 
-        Fp2Pack8x1x1::sqr(t2, r1);
-        Fp2Pack8x1x1::sub(t2, t2, t0);
-        Fp2Pack8x1x1::sub(r1, t2, t1);
+        // r1 = (a0+a1)^2 - a0^2 - a1^2
+        UFp2Pack8x1x1::sub(t2, t2, t0);
+        UFp2Pack8x1x1::sub(t2, t2, t1);
+
+        UFp2Pack8x1x1::redc(r0, t3);
+        UFp2Pack8x1x1::redc(r1, t2);
     }
 
     BLST_FORCEINLINE Fp2 make_fp2_real(const Fp& real)
