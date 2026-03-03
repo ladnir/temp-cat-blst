@@ -59,6 +59,32 @@ struct Fp8x1KBenchData
   std::vector<FpPack8x1> out;
 };
 
+template <int Chains>
+struct Fp8x1MulRedcStreamData
+{
+  static_assert(Chains >= 1 && Chains <= 8, "Chains must be in [1,8].");
+
+  Fp8x1MulRedcStreamData()
+  {
+    std::mt19937_64 gen(0xD4E5F617ULL + static_cast<u64>(Chains));
+    for (int c = 0; c < Chains; ++c) {
+      std::array<Fp, 8> lane_a{};
+      std::array<Fp, 8> lane_b{};
+      for (std::size_t lane = 0; lane < 8; ++lane) {
+        random_redc_fp(lane_a[lane], gen);
+        random_redc_fp(lane_b[lane], gen);
+      }
+      FpPack8x1::from_aos(cur[c], lane_a.data());
+      FpPack8x1::from_aos(mul_by[c], lane_b.data());
+    }
+  }
+
+  std::array<FpPack8x1, Chains> cur{};
+  std::array<FpPack8x1, Chains> mul_by{};
+  std::array<UFpPack8x1, Chains> wide{};
+  std::array<FpPack8x1, Chains> out{};
+};
+
 template <int K>
 void BM_Fp8x1MulV2K(benchmark::State& state)
 {
@@ -132,6 +158,150 @@ void BM_Fp8x1Normalize(benchmark::State& state)
   }
 
   state.SetItemsProcessed(state.iterations() * n_packs);
+}
+
+template <int Chains>
+void BM_Fp8x1MulRedc_SeqChains(benchmark::State& state)
+{
+  static_assert(Chains >= 1 && Chains <= 8, "SeqChains supports Chains in [1,8].");
+  constexpr std::size_t kUnroll = 8;
+  Fp8x1MulRedcStreamData<Chains> data{};
+
+  for (auto _ : state) {
+    if constexpr (Chains >= 1) {
+      for (std::size_t i = 0; i < kUnroll; ++i) {
+        FpPack8x1::mul_v2(data.wide[0], data.cur[0], data.mul_by[0]);
+        UFpPack8x1::redc(data.out[0], data.wide[0]);
+        data.cur[0] = data.out[0];
+      }
+    }
+    if constexpr (Chains >= 2) {
+      for (std::size_t i = 0; i < kUnroll; ++i) {
+        FpPack8x1::mul_v2(data.wide[1], data.cur[1], data.mul_by[1]);
+        UFpPack8x1::redc(data.out[1], data.wide[1]);
+        data.cur[1] = data.out[1];
+      }
+    }
+    if constexpr (Chains >= 3) {
+      for (std::size_t i = 0; i < kUnroll; ++i) {
+        FpPack8x1::mul_v2(data.wide[2], data.cur[2], data.mul_by[2]);
+        UFpPack8x1::redc(data.out[2], data.wide[2]);
+        data.cur[2] = data.out[2];
+      }
+    }
+    if constexpr (Chains >= 4) {
+      for (std::size_t i = 0; i < kUnroll; ++i) {
+        FpPack8x1::mul_v2(data.wide[3], data.cur[3], data.mul_by[3]);
+        UFpPack8x1::redc(data.out[3], data.wide[3]);
+        data.cur[3] = data.out[3];
+      }
+    }
+    if constexpr (Chains >= 5) {
+      for (std::size_t i = 0; i < kUnroll; ++i) {
+        FpPack8x1::mul_v2(data.wide[4], data.cur[4], data.mul_by[4]);
+        UFpPack8x1::redc(data.out[4], data.wide[4]);
+        data.cur[4] = data.out[4];
+      }
+    }
+    if constexpr (Chains >= 6) {
+      for (std::size_t i = 0; i < kUnroll; ++i) {
+        FpPack8x1::mul_v2(data.wide[5], data.cur[5], data.mul_by[5]);
+        UFpPack8x1::redc(data.out[5], data.wide[5]);
+        data.cur[5] = data.out[5];
+      }
+    }
+    if constexpr (Chains >= 7) {
+      for (std::size_t i = 0; i < kUnroll; ++i) {
+        FpPack8x1::mul_v2(data.wide[6], data.cur[6], data.mul_by[6]);
+        UFpPack8x1::redc(data.out[6], data.wide[6]);
+        data.cur[6] = data.out[6];
+      }
+    }
+    if constexpr (Chains >= 8) {
+      for (std::size_t i = 0; i < kUnroll; ++i) {
+        FpPack8x1::mul_v2(data.wide[7], data.cur[7], data.mul_by[7]);
+        UFpPack8x1::redc(data.out[7], data.wide[7]);
+        data.cur[7] = data.out[7];
+      }
+    }
+  }
+
+  cc512i sink = VZERO();
+  for (int c = 0; c < Chains; ++c) {
+    sink = VADD(sink, data.cur[c][0]);
+  }
+  benchmark::DoNotOptimize(sink);
+
+  const std::size_t ops_per_iter = static_cast<std::size_t>(Chains) * kUnroll;
+  state.SetItemsProcessed(state.iterations() * ops_per_iter);
+  state.counters["mul_redc_per_iter"] = static_cast<double>(ops_per_iter);
+  state.counters["chains"] = static_cast<double>(Chains);
+  state.counters["unroll"] = static_cast<double>(kUnroll);
+}
+
+template <int Chains>
+void BM_Fp8x1MulRedc_HandInterleavedChains(benchmark::State& state)
+{
+  static_assert(Chains >= 1 && Chains <= 8, "HandInterleaved supports Chains in [1,8].");
+  constexpr std::size_t kUnroll = 8;
+  Fp8x1MulRedcStreamData<Chains> data{};
+
+  for (auto _ : state) {
+    for (std::size_t i = 0; i < kUnroll; ++i) {
+      if constexpr (Chains >= 1) {
+        FpPack8x1::mul_v2(data.wide[0], data.cur[0], data.mul_by[0]);
+        UFpPack8x1::redc(data.out[0], data.wide[0]);
+        data.cur[0] = data.out[0];
+      }
+      if constexpr (Chains >= 2) {
+        FpPack8x1::mul_v2(data.wide[1], data.cur[1], data.mul_by[1]);
+        UFpPack8x1::redc(data.out[1], data.wide[1]);
+        data.cur[1] = data.out[1];
+      }
+      if constexpr (Chains >= 3) {
+        FpPack8x1::mul_v2(data.wide[2], data.cur[2], data.mul_by[2]);
+        UFpPack8x1::redc(data.out[2], data.wide[2]);
+        data.cur[2] = data.out[2];
+      }
+      if constexpr (Chains >= 4) {
+        FpPack8x1::mul_v2(data.wide[3], data.cur[3], data.mul_by[3]);
+        UFpPack8x1::redc(data.out[3], data.wide[3]);
+        data.cur[3] = data.out[3];
+      }
+      if constexpr (Chains >= 5) {
+        FpPack8x1::mul_v2(data.wide[4], data.cur[4], data.mul_by[4]);
+        UFpPack8x1::redc(data.out[4], data.wide[4]);
+        data.cur[4] = data.out[4];
+      }
+      if constexpr (Chains >= 6) {
+        FpPack8x1::mul_v2(data.wide[5], data.cur[5], data.mul_by[5]);
+        UFpPack8x1::redc(data.out[5], data.wide[5]);
+        data.cur[5] = data.out[5];
+      }
+      if constexpr (Chains >= 7) {
+        FpPack8x1::mul_v2(data.wide[6], data.cur[6], data.mul_by[6]);
+        UFpPack8x1::redc(data.out[6], data.wide[6]);
+        data.cur[6] = data.out[6];
+      }
+      if constexpr (Chains >= 8) {
+        FpPack8x1::mul_v2(data.wide[7], data.cur[7], data.mul_by[7]);
+        UFpPack8x1::redc(data.out[7], data.wide[7]);
+        data.cur[7] = data.out[7];
+      }
+    }
+  }
+
+  cc512i sink = VZERO();
+  for (int c = 0; c < Chains; ++c) {
+    sink = VADD(sink, data.cur[c][0]);
+  }
+  benchmark::DoNotOptimize(sink);
+
+  const std::size_t ops_per_iter = static_cast<std::size_t>(Chains) * kUnroll;
+  state.SetItemsProcessed(state.iterations() * ops_per_iter);
+  state.counters["mul_redc_per_iter"] = static_cast<double>(ops_per_iter);
+  state.counters["chains"] = static_cast<double>(Chains);
+  state.counters["unroll"] = static_cast<double>(kUnroll);
 }
 
 template <bool DoLo, bool DoHi>
@@ -459,6 +629,15 @@ BENCHMARK_TEMPLATE(BM_IFMA52LoHi_SeqChains, 4);
 BENCHMARK_TEMPLATE(BM_IFMA52LoHi_HandInterleavedChains, 4);
 BENCHMARK_TEMPLATE(BM_IFMA52LoHi_SeqChains, 8);
 BENCHMARK_TEMPLATE(BM_IFMA52LoHi_HandInterleavedChains, 8);
+
+BENCHMARK_TEMPLATE(BM_Fp8x1MulRedc_SeqChains, 1);
+BENCHMARK_TEMPLATE(BM_Fp8x1MulRedc_HandInterleavedChains, 1);
+BENCHMARK_TEMPLATE(BM_Fp8x1MulRedc_SeqChains, 2);
+BENCHMARK_TEMPLATE(BM_Fp8x1MulRedc_HandInterleavedChains, 2);
+BENCHMARK_TEMPLATE(BM_Fp8x1MulRedc_SeqChains, 4);
+BENCHMARK_TEMPLATE(BM_Fp8x1MulRedc_HandInterleavedChains, 4);
+BENCHMARK_TEMPLATE(BM_Fp8x1MulRedc_SeqChains, 8);
+BENCHMARK_TEMPLATE(BM_Fp8x1MulRedc_HandInterleavedChains, 8);
 
 } // namespace
 

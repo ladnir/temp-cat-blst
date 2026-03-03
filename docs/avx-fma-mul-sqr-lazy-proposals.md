@@ -292,6 +292,39 @@ This is a primary design driver:
 - Favor accumulator/lazy strategies that increase independent work between renorm/reduce steps.
 - Treat low-level IFMA scheduling as secondary unless a kernel is already close to the IFMA ceiling.
 
+### K-stream finding (LoHi chain PoC): scale streams, not source-order interleaving
+
+`BM_IFMA52LoHi_(SeqChains|HandInterleavedChains)<k>` with `unroll=8`:
+
+- `k=2`:
+  - Seq: ~`1.781 G madd52/s`
+  - Hand-interleaved: ~`1.786 G madd52/s`
+- `k=4`:
+  - Seq: ~`3.571 G madd52/s`
+  - Hand-interleaved: ~`3.560 G madd52/s`
+- `k=8`:
+  - Seq: ~`6.005 G madd52/s`
+  - Hand-interleaved: ~`6.016 G madd52/s`
+
+Conclusions:
+
+- Increasing independent streams (`k`) is the dominant lever; `k=8` approaches IFMA ceiling behavior.
+- Manual source-level "hand interleaving" vs sequential chain blocks is a wash at this stage (differences within noise, ~sub-1%).
+- For now, prioritize creating enough independent arithmetic streams in real kernels over hand-stamped instruction ordering.
+
+### Real-kernel benchmark priority (next)
+
+Use this order to maximize actionable signal:
+
+1. `mul+redc` (first target): closest to real hot path cost and captures interaction between multiply and reduction chains.
+2. `redc_core`: isolate reduction/carry latency to quantify how much of `mul+redc` is reduction-bound.
+3. `redc` (`redc_core + normalize`): quantify boundary canonicalization overhead separately.
+4. `mul` (`mul_v2` wide-only): useful as an upper bound, but lowest priority for end-to-end optimization decisions.
+
+Primary decision metric:
+
+- If `mul` is near IFMA roofline but `mul+redc` is not, reduction/lazy strategy is the main optimization target.
+
 ### Comparing kernel results to IFMA ceiling
 
 For a kernel with `N_madd52` IFMA ops per operation:
