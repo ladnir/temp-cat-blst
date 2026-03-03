@@ -159,7 +159,7 @@ struct GTGlv4DecodedPack
     std::size_t max_steps = 0;
     std::array<u8, 65> sqr_mask{};
     std::array<u8, 65> has_mul{};
-    std::array<Fp12Pack8x1, 65> mul_operand{};
+    std::array<std::array<u8, 16>, 65> mul_masks{};
 };
 
 void gt_glv4_build_table_init(GTGlv4KernelPack& kernel, const GTPack8x1& base, const GTGlv4Pack8x1& plan)
@@ -251,18 +251,21 @@ void gt_glv4_apply_loop(Fp12Pack8x1& out, const GTGlv4KernelPack& kernel, const 
     }
 }
 
-void gt_glv4_predecode(GTGlv4DecodedPack& decoded, const GTGlv4KernelPack& kernel, const GTGlv4Pack8x1& plan)
+void gt_glv4_predecode(GTGlv4DecodedPack& decoded, const GTGlv4Pack8x1& plan)
 {
     decoded.max_steps = static_cast<std::size_t>(plan.max_steps);
     for (std::size_t step = 1; step <= decoded.max_steps; ++step) {
         u8 sqr_mask = 0;
-        std::array<u8, 16> mul_masks{};
+        auto& mul_masks = decoded.mul_masks[step];
+        mul_masks.fill(0);
         for (std::size_t lane = 0; lane < 8; ++lane) {
             const bool lane_active = (plan.init_idx[lane] != 0) && (step <= static_cast<std::size_t>(plan.total_steps[lane]));
             sqr_mask |= static_cast<u8>((lane_active ? 1u : 0u) << lane);
             if (lane_active) {
                 const u8 idx = plan.mul_idx_at_step[lane][step];
-                mul_masks[idx] |= static_cast<u8>(1u << lane);
+                if (idx != 0) {
+                    mul_masks[idx] |= static_cast<u8>(1u << lane);
+                }
             }
         }
 
@@ -275,19 +278,13 @@ void gt_glv4_predecode(GTGlv4DecodedPack& decoded, const GTGlv4KernelPack& kerne
 
         if (nonzero_mul_mask != 0) {
             decoded.has_mul[step] = 1;
-            decoded.mul_operand[step] = kernel.table[0];
-            for (u8 idx = 1; idx < 16; ++idx) {
-                if (mul_masks[idx] != 0) {
-                    Fp12Pack8x1::select(decoded.mul_operand[step], decoded.mul_operand[step], kernel.table[idx], mul_masks[idx]);
-                }
-            }
         } else {
             decoded.has_mul[step] = 0;
         }
     }
 }
 
-void gt_glv4_apply_loop_predecoded(Fp12Pack8x1& out, const GTGlv4DecodedPack& decoded)
+void gt_glv4_apply_loop_predecoded(Fp12Pack8x1& out, const GTGlv4KernelPack& kernel, const GTGlv4DecodedPack& decoded)
 {
     Fp12Pack8x1 sqr_candidate{};
     Fp12Pack8x1 mul_candidate{};
@@ -300,7 +297,14 @@ void gt_glv4_apply_loop_predecoded(Fp12Pack8x1& out, const GTGlv4DecodedPack& de
         }
 
         if (decoded.has_mul[step] != 0) {
-            Fp12Pack8x1::mul(mul_candidate, out, decoded.mul_operand[step]);
+            Fp12Pack8x1 mul_operand = kernel.table[0];
+            const auto& mul_masks = decoded.mul_masks[step];
+            for (u8 idx = 1; idx < 16; ++idx) {
+                if (mul_masks[idx] != 0) {
+                    Fp12Pack8x1::select(mul_operand, mul_operand, kernel.table[idx], mul_masks[idx]);
+                }
+            }
+            Fp12Pack8x1::mul(mul_candidate, out, mul_operand);
             out = mul_candidate;
         }
     }
@@ -400,28 +404,6 @@ void BM_GTScalarMult_Pack(benchmark::State& state)
 }
 BENCHMARK(BM_GTScalarMult_Pack)->Arg(1)->Arg(4);
 
-void BM_GTScalarMult_PackGLV4_CompileOnly(benchmark::State& state)
-{
-    const std::size_t packs = static_cast<std::size_t>(state.range(0));
-    GTBenchData data(packs);
-    std::vector<GTGlv4Pack8x1> plans(data.n_packs);
-
-    for (auto _ : state) {
-        const bool ok = GTPack8x1::compile_glv4(
-            std::span<GTGlv4Pack8x1>(plans.data(), plans.size()),
-            std::span<const byte>(data.scalars.data(), data.scalars.size()),
-            kStride,
-            kNBits);
-        if (!ok) {
-            state.SkipWithError("compile_glv4 failed");
-            return;
-        }
-        benchmark::DoNotOptimize(plans.data());
-    }
-    state.SetItemsProcessed(state.iterations() * data.n_tuples);
-}
-BENCHMARK(BM_GTScalarMult_PackGLV4_CompileOnly)->Arg(1)->Arg(4);
-
 void BM_GTScalarMult_PackGLV4_PrecompiledExec(benchmark::State& state)
 {
     const std::size_t packs = static_cast<std::size_t>(state.range(0));
@@ -506,37 +488,6 @@ void BM_GTScalarMult_PackGLV4_LoopOnly(benchmark::State& state)
 }
 BENCHMARK(BM_GTScalarMult_PackGLV4_LoopOnly)->Arg(1)->Arg(4);
 
-void BM_GTScalarMult_PackGLV4_PredecodeOnly(benchmark::State& state)
-{
-    const std::size_t packs = static_cast<std::size_t>(state.range(0));
-    GTBenchData data(packs);
-    std::vector<GTGlv4Pack8x1> plans(data.n_packs);
-    std::vector<GTGlv4KernelPack> kernels(data.n_packs);
-    std::vector<GTGlv4DecodedPack> decoded(data.n_packs);
-
-    const bool ok = GTPack8x1::compile_glv4(
-        std::span<GTGlv4Pack8x1>(plans.data(), plans.size()),
-        std::span<const byte>(data.scalars.data(), data.scalars.size()),
-        kStride,
-        kNBits);
-    if (!ok) {
-        state.SkipWithError("compile_glv4 failed");
-        return;
-    }
-    for (std::size_t p = 0; p < data.n_packs; ++p) {
-        gt_glv4_build_table_init(kernels[p], data.a_pack[p], plans[p]);
-    }
-
-    for (auto _ : state) {
-        for (std::size_t p = 0; p < data.n_packs; ++p) {
-            gt_glv4_predecode(decoded[p], kernels[p], plans[p]);
-        }
-        benchmark::DoNotOptimize(decoded.data());
-    }
-    state.SetItemsProcessed(state.iterations() * data.n_tuples);
-}
-BENCHMARK(BM_GTScalarMult_PackGLV4_PredecodeOnly)->Arg(1)->Arg(4);
-
 void BM_GTScalarMult_PackGLV4_LoopOnly_Predecoded(benchmark::State& state)
 {
     const std::size_t packs = static_cast<std::size_t>(state.range(0));
@@ -556,13 +507,13 @@ void BM_GTScalarMult_PackGLV4_LoopOnly_Predecoded(benchmark::State& state)
     }
     for (std::size_t p = 0; p < data.n_packs; ++p) {
         gt_glv4_build_table_init(kernels[p], data.a_pack[p], plans[p]);
-        gt_glv4_predecode(decoded[p], kernels[p], plans[p]);
+        gt_glv4_predecode(decoded[p], plans[p]);
     }
 
     for (auto _ : state) {
         for (std::size_t p = 0; p < data.n_packs; ++p) {
             data.out_pack[p].c = kernels[p].init;
-            gt_glv4_apply_loop_predecoded(data.out_pack[p].c, decoded[p]);
+            gt_glv4_apply_loop_predecoded(data.out_pack[p].c, kernels[p], decoded[p]);
         }
         benchmark::DoNotOptimize(data.out_pack.data());
     }

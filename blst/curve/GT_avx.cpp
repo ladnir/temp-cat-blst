@@ -301,10 +301,11 @@ namespace
         // Predecode per-step masks and operands once, then run the hot loop.
         std::array<u8, 65> sqr_mask_at_step{};
         std::array<u8, 65> has_mul_at_step{};
-        std::array<Fp12Pack8x1, 65> mul_operand_at_step{};
+        std::array<std::array<u8, 16>, 65> mul_masks_at_step{};
         for (std::size_t step = 1; step <= plan.max_steps; ++step) {
             u8 sqr_mask = 0;
-            std::array<u8, 16> mul_masks{};
+            auto& mul_masks = mul_masks_at_step[step];
+            mul_masks.fill(0);
             for (std::size_t lane = 0; lane < kGtPackLanes; ++lane) {
                 const bool lane_active =
                     (plan.init_idx[lane] != 0) && (step <= static_cast<std::size_t>(plan.total_steps[lane]));
@@ -312,7 +313,9 @@ namespace
 
                 if (lane_active) {
                     const u8 idx = plan.mul_idx_at_step[lane][step];
-                    mul_masks[idx] |= static_cast<u8>(1u << lane);
+                    if (idx != 0) {
+                        mul_masks[idx] |= static_cast<u8>(1u << lane);
+                    }
                 }
             }
             sqr_mask_at_step[step] = sqr_mask;
@@ -323,13 +326,6 @@ namespace
             }
             if (nonzero_mul_mask != 0) {
                 has_mul_at_step[step] = 1;
-                mul_operand_at_step[step] = table[0];
-                for (u8 idx = 1; idx < 16; ++idx) {
-                    if (mul_masks[idx] != 0) {
-                        Fp12Pack8x1::select(
-                            mul_operand_at_step[step], mul_operand_at_step[step], table[idx], mul_masks[idx]);
-                    }
-                }
             }
         }
 
@@ -343,7 +339,14 @@ namespace
             }
 
             if (has_mul_at_step[step] != 0) {
-                Fp12Pack8x1::mul(mul_candidate, out.c, mul_operand_at_step[step]);
+                Fp12Pack8x1 mul_operand = table[0];
+                const auto& mul_masks = mul_masks_at_step[step];
+                for (u8 idx = 1; idx < 16; ++idx) {
+                    if (mul_masks[idx] != 0) {
+                        Fp12Pack8x1::select(mul_operand, mul_operand, table[idx], mul_masks[idx]);
+                    }
+                }
+                Fp12Pack8x1::mul(mul_candidate, out.c, mul_operand);
                 out.c = mul_candidate;
             }
         }
