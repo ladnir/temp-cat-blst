@@ -155,8 +155,8 @@ Acceptance target:
 
 Checkpoint status:
 - `>= 25M ops/s`: achieved.
-- `AsmK2V2` currently improves `AsmK2` by roughly `+3.4%`.
-- Latest `AsmK2V2` revision improves `AsmK2` by roughly `+2.5% .. +3.3%` depending on run mode.
+- `AsmK2V2` improved `AsmK2` by roughly `+2.5% .. +3.3%` depending on run mode.
+- `AsmK2V3` now improves `AsmK2V2` by about `+1.8%` (`~26.34M/s` vs `~25.87M/s`).
 
 ## Current Status
 - We now have a coherent explanation with measured counters:
@@ -177,11 +177,14 @@ Current schedule choice:
 - lazy-`y` queue model (close to scalar arithmetic),
 - spill-free hot body,
 - in-round constant reuse for each lo/hi IFMA pair.
+- `v3` refinement: for `p0`/`p7` high folds, stream 1 uses `C` as the temporary after constant use, reducing shared-temp dependency pressure.
 
 Measured outcome:
 - `SeqChains<2>`: ~`18.1M/s`
 - `HandInterleavedChains<2>` (C++): ~`22.9M/s`
-- `AsmK2`: ~`25.1M/s` (best current path)
+- `AsmK2`: ~`25.1M/s`
+- `AsmK2V2`: ~`25.8M/s`
+- `AsmK2V3`: ~`26.3M/s` (best current path)
 
 ## What Not To Do
 - do not broaden to `k=4/k=8` until `k=2` is clean

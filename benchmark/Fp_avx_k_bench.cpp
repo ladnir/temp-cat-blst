@@ -25,6 +25,11 @@ extern "C" void blst_redc_core_k2_asm_v2(
     LFpPack8x1* out1,
     const UFpPack8x1* in0,
     const UFpPack8x1* in1);
+extern "C" void blst_redc_core_k2_asm_v3(
+    LFpPack8x1* out0,
+    LFpPack8x1* out1,
+    const UFpPack8x1* in0,
+    const UFpPack8x1* in1);
 #define BLST_HAVE_REDC_CORE_K2_ASM 1
 #else
 #define BLST_HAVE_REDC_CORE_K2_ASM 0
@@ -402,6 +407,15 @@ BLST_FORCEINLINE void redc_core_asm_k2_v2_once(
   blst_redc_core_k2_asm_v2(&out0, &out1, &in0, &in1);
 }
 
+BLST_FORCEINLINE void redc_core_asm_k2_v3_once(
+    LFpPack8x1& out0,
+    LFpPack8x1& out1,
+    const UFpPack8x1& in0,
+    const UFpPack8x1& in1)
+{
+  blst_redc_core_k2_asm_v3(&out0, &out1, &in0, &in1);
+}
+
 template <typename Fn>
 void redc_core_asm_k2_selfcheck_impl(Fn&& fn)
 {
@@ -461,6 +475,11 @@ void redc_core_asm_k2_selfcheck()
 void redc_core_asm_k2_v2_selfcheck()
 {
   redc_core_asm_k2_selfcheck_impl(redc_core_asm_k2_v2_once);
+}
+
+void redc_core_asm_k2_v3_selfcheck()
+{
+  redc_core_asm_k2_selfcheck_impl(redc_core_asm_k2_v3_once);
 }
 #endif
 
@@ -813,6 +832,37 @@ void BM_Fp8x1RedcCore_AsmK2V2(benchmark::State& state)
   for (auto _ : state) {
     for (std::size_t i = 0; i < kUnroll; ++i) {
       redc_core_asm_k2_v2_once(data.lazy[0], data.lazy[1], data.wide[0], data.wide[1]);
+      data.wide[0][0] = VADD(data.wide[0][0], VADD(data.lazy[0][0], one));
+      data.wide[1][0] = VADD(data.wide[1][0], VADD(data.lazy[1][0], one));
+    }
+  }
+
+  cc512i sink = VZERO();
+  sink = VADD(sink, data.lazy[0][0]);
+  sink = VADD(sink, data.lazy[1][0]);
+  benchmark::DoNotOptimize(sink);
+
+  const std::size_t ops_per_iter = 2 * kUnroll;
+  state.SetItemsProcessed(state.iterations() * ops_per_iter);
+  state.counters["redc_core_per_iter"] = static_cast<double>(ops_per_iter);
+  state.counters["chains"] = 2.0;
+  state.counters["unroll"] = static_cast<double>(kUnroll);
+}
+
+void BM_Fp8x1RedcCore_AsmK2V3(benchmark::State& state)
+{
+  constexpr std::size_t kUnroll = 8;
+  Fp8x1RedcCoreStreamData<2> data{};
+  const cc512i one = VSET1(1);
+  static bool checked = false;
+  if (!checked) {
+    redc_core_asm_k2_v3_selfcheck();
+    checked = true;
+  }
+
+  for (auto _ : state) {
+    for (std::size_t i = 0; i < kUnroll; ++i) {
+      redc_core_asm_k2_v3_once(data.lazy[0], data.lazy[1], data.wide[0], data.wide[1]);
       data.wide[0][0] = VADD(data.wide[0][0], VADD(data.lazy[0][0], one));
       data.wide[1][0] = VADD(data.wide[1][0], VADD(data.lazy[1][0], one));
     }
@@ -1302,6 +1352,7 @@ BENCHMARK_TEMPLATE(BM_Fp8x1RedcCore_HandInterleavedChains, 2);
 #if BLST_HAVE_REDC_CORE_K2_ASM
 BENCHMARK(BM_Fp8x1RedcCore_AsmK2);
 BENCHMARK(BM_Fp8x1RedcCore_AsmK2V2);
+BENCHMARK(BM_Fp8x1RedcCore_AsmK2V3);
 #endif
 BENCHMARK_TEMPLATE(BM_Fp8x1RedcCore_SeqChains, 4);
 BENCHMARK_TEMPLATE(BM_Fp8x1RedcCore_HandInterleavedChains, 4);
