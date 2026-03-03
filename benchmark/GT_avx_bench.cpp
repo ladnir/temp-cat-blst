@@ -156,10 +156,16 @@ struct GTGlv4KernelPack
 
 struct GTGlv4DecodedPack
 {
+    struct StepMulSparse
+    {
+        u8 count = 0;
+        std::array<u8, 8> idx{};
+        std::array<u8, 8> lane_mask{};
+    };
+
     std::size_t max_steps = 0;
     std::array<u8, 65> sqr_mask{};
-    std::array<u8, 65> has_mul{};
-    std::array<std::array<u8, 16>, 65> mul_masks{};
+    std::array<StepMulSparse, 65> mul_terms{};
 };
 
 void gt_glv4_build_table_init(GTGlv4KernelPack& kernel, const GTPack8x1& base, const GTGlv4Pack8x1& plan)
@@ -256,31 +262,34 @@ void gt_glv4_predecode(GTGlv4DecodedPack& decoded, const GTGlv4Pack8x1& plan)
     decoded.max_steps = static_cast<std::size_t>(plan.max_steps);
     for (std::size_t step = 1; step <= decoded.max_steps; ++step) {
         u8 sqr_mask = 0;
-        auto& mul_masks = decoded.mul_masks[step];
-        mul_masks.fill(0);
+        auto& mul_terms = decoded.mul_terms[step];
+        mul_terms.count = 0;
         for (std::size_t lane = 0; lane < 8; ++lane) {
             const bool lane_active = (plan.init_idx[lane] != 0) && (step <= static_cast<std::size_t>(plan.total_steps[lane]));
             sqr_mask |= static_cast<u8>((lane_active ? 1u : 0u) << lane);
             if (lane_active) {
                 const u8 idx = plan.mul_idx_at_step[lane][step];
                 if (idx != 0) {
-                    mul_masks[idx] |= static_cast<u8>(1u << lane);
+                    const u8 lane_bit = static_cast<u8>(1u << lane);
+                    bool merged = false;
+                    for (u8 i = 0; i < mul_terms.count; ++i) {
+                        if (mul_terms.idx[i] == idx) {
+                            mul_terms.lane_mask[i] |= lane_bit;
+                            merged = true;
+                            break;
+                        }
+                    }
+                    if (!merged) {
+                        BLST_ASSERT(mul_terms.count < 8);
+                        mul_terms.idx[mul_terms.count] = idx;
+                        mul_terms.lane_mask[mul_terms.count] = lane_bit;
+                        ++mul_terms.count;
+                    }
                 }
             }
         }
 
         decoded.sqr_mask[step] = sqr_mask;
-
-        u8 nonzero_mul_mask = 0;
-        for (u8 idx = 1; idx < 16; ++idx) {
-            nonzero_mul_mask |= mul_masks[idx];
-        }
-
-        if (nonzero_mul_mask != 0) {
-            decoded.has_mul[step] = 1;
-        } else {
-            decoded.has_mul[step] = 0;
-        }
     }
 }
 
@@ -296,13 +305,12 @@ void gt_glv4_apply_loop_predecoded(Fp12Pack8x1& out, const GTGlv4KernelPack& ker
             Fp12Pack8x1::select(out, out, sqr_candidate, sqr_mask);
         }
 
-        if (decoded.has_mul[step] != 0) {
+        const auto& mul_terms = decoded.mul_terms[step];
+        if (mul_terms.count != 0) {
             Fp12Pack8x1 mul_operand = kernel.table[0];
-            const auto& mul_masks = decoded.mul_masks[step];
-            for (u8 idx = 1; idx < 16; ++idx) {
-                if (mul_masks[idx] != 0) {
-                    Fp12Pack8x1::select(mul_operand, mul_operand, kernel.table[idx], mul_masks[idx]);
-                }
+            for (u8 i = 0; i < mul_terms.count; ++i) {
+                Fp12Pack8x1::select(
+                    mul_operand, mul_operand, kernel.table[mul_terms.idx[i]], mul_terms.lane_mask[i]);
             }
             Fp12Pack8x1::mul(mul_candidate, out, mul_operand);
             out = mul_candidate;

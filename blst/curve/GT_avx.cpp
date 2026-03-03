@@ -298,14 +298,20 @@ namespace
             }
         }
 
-        // Predecode per-step masks and operands once, then run the hot loop.
-        std::array<u8, 65> sqr_mask_at_step{};
-        std::array<u8, 65> has_mul_at_step{};
-        std::array<std::array<u8, 16>, 65> mul_masks_at_step{};
+        struct StepMulSparse
+        {
+            u8 count = 0;
+            std::array<u8, kGtPackLanes> idx{};
+            std::array<u8, kGtPackLanes> lane_mask{};
+        };
+
+        // Predecode per-step masks and sparse mul terms once, then run the hot loop.
+        std::array<u8, kGtGlv4MaxSteps + 2> sqr_mask_at_step{};
+        std::array<StepMulSparse, kGtGlv4MaxSteps + 2> mul_terms_at_step{};
         for (std::size_t step = 1; step <= plan.max_steps; ++step) {
             u8 sqr_mask = 0;
-            auto& mul_masks = mul_masks_at_step[step];
-            mul_masks.fill(0);
+            auto& mul_terms = mul_terms_at_step[step];
+            mul_terms.count = 0;
             for (std::size_t lane = 0; lane < kGtPackLanes; ++lane) {
                 const bool lane_active =
                     (plan.init_idx[lane] != 0) && (step <= static_cast<std::size_t>(plan.total_steps[lane]));
@@ -314,19 +320,25 @@ namespace
                 if (lane_active) {
                     const u8 idx = plan.mul_idx_at_step[lane][step];
                     if (idx != 0) {
-                        mul_masks[idx] |= static_cast<u8>(1u << lane);
+                        const u8 lane_bit = static_cast<u8>(1u << lane);
+                        bool merged = false;
+                        for (u8 i = 0; i < mul_terms.count; ++i) {
+                            if (mul_terms.idx[i] == idx) {
+                                mul_terms.lane_mask[i] |= lane_bit;
+                                merged = true;
+                                break;
+                            }
+                        }
+                        if (!merged) {
+                            BLST_ASSERT(mul_terms.count < kGtPackLanes);
+                            mul_terms.idx[mul_terms.count] = idx;
+                            mul_terms.lane_mask[mul_terms.count] = lane_bit;
+                            ++mul_terms.count;
+                        }
                     }
                 }
             }
             sqr_mask_at_step[step] = sqr_mask;
-
-            u8 nonzero_mul_mask = 0;
-            for (u8 idx = 1; idx < 16; ++idx) {
-                nonzero_mul_mask |= mul_masks[idx];
-            }
-            if (nonzero_mul_mask != 0) {
-                has_mul_at_step[step] = 1;
-            }
         }
 
         Fp12Pack8x1 sqr_candidate{};
@@ -338,13 +350,12 @@ namespace
                 Fp12Pack8x1::select(out.c, out.c, sqr_candidate, sqr_mask);
             }
 
-            if (has_mul_at_step[step] != 0) {
+            const auto& mul_terms = mul_terms_at_step[step];
+            if (mul_terms.count != 0) {
                 Fp12Pack8x1 mul_operand = table[0];
-                const auto& mul_masks = mul_masks_at_step[step];
-                for (u8 idx = 1; idx < 16; ++idx) {
-                    if (mul_masks[idx] != 0) {
-                        Fp12Pack8x1::select(mul_operand, mul_operand, table[idx], mul_masks[idx]);
-                    }
+                for (u8 i = 0; i < mul_terms.count; ++i) {
+                    Fp12Pack8x1::select(
+                        mul_operand, mul_operand, table[mul_terms.idx[i]], mul_terms.lane_mask[i]);
                 }
                 Fp12Pack8x1::mul(mul_candidate, out.c, mul_operand);
                 out.c = mul_candidate;
