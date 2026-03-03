@@ -365,8 +365,10 @@ void Fp12Pack8x1::cyclotomic_sqr(Fp12Pack8x1& r, const Fp12Pack8x1& a)
 {
     Fp2Pack8x1x1 t0_0{};
     Fp2Pack8x1x1 t0_1{};
-    Fp2Pack8x1x1 tx_0{};
-    Fp2Pack8x1x1 tx_1{};
+    Fp2Pack8x1x1 t1_0{};
+    Fp2Pack8x1x1 t1_1{};
+    Fp2Pack8x1x1 t2_0{};
+    Fp2Pack8x1x1 t2_1{};
     Fp2Pack8x1x1 tmp{};
 
     // t0 = sqr_fp4(a00, a11)
@@ -382,55 +384,22 @@ void Fp12Pack8x1::cyclotomic_sqr(Fp12Pack8x1& r, const Fp12Pack8x1& a)
     Fp2Pack8x1x1::add(r.c[1].c[1], r.c[1].c[1], r.c[1].c[1]);
     Fp2Pack8x1x1::add(r.c[1].c[1], r.c[1].c[1], t0_1);
 
-    if (&r != &a) {
-        // Fast non-alias path: compute each sqr_fp4 term and immediately combine.
-        sqr_fp4_pack(tx_0, tx_1, a.c[1].c[0], a.c[0].c[2]); // t1
-
-        // ret01 = 2*(t1_0 - a01) + t1_0
-        Fp2Pack8x1x1::sub(r.c[0].c[1], tx_0, a.c[0].c[1]);
-        Fp2Pack8x1x1::add(r.c[0].c[1], r.c[0].c[1], r.c[0].c[1]);
-        Fp2Pack8x1x1::add(r.c[0].c[1], r.c[0].c[1], tx_0);
-
-        // ret12 = 2*(t1_1 + a12) + t1_1
-        Fp2Pack8x1x1::add(r.c[1].c[2], tx_1, a.c[1].c[2]);
-        Fp2Pack8x1x1::add(r.c[1].c[2], r.c[1].c[2], r.c[1].c[2]);
-        Fp2Pack8x1x1::add(r.c[1].c[2], r.c[1].c[2], tx_1);
-
-        sqr_fp4_pack(tx_0, tx_1, a.c[0].c[1], a.c[1].c[2]); // t2
-
-        // ret02 = 2*(t2_0 - a02) + t2_0
-        Fp2Pack8x1x1::sub(r.c[0].c[2], tx_0, a.c[0].c[2]);
-        Fp2Pack8x1x1::add(r.c[0].c[2], r.c[0].c[2], r.c[0].c[2]);
-        Fp2Pack8x1x1::add(r.c[0].c[2], r.c[0].c[2], tx_0);
-
-        // ret10 = 2*((u+1)*t2_1 + a10) + (u+1)*t2_1
-        Fp2Pack8x1x1::mul_by_u_plus_1(tmp, tx_1);
-        Fp2Pack8x1x1::add(r.c[1].c[0], tmp, a.c[1].c[0]);
-        Fp2Pack8x1x1::add(r.c[1].c[0], r.c[1].c[0], r.c[1].c[0]);
-        Fp2Pack8x1x1::add(r.c[1].c[0], r.c[1].c[0], tmp);
-        return;
-    }
-
-    // Alias-safe path for in-place operation.
-    Fp2Pack8x1x1 t2_0{};
-    Fp2Pack8x1x1 t2_1{};
-
     // Must be computed before overwriting r.c[*] when r aliases a.
     // t2 = sqr_fp4(a01, a12)
     sqr_fp4_pack(t2_0, t2_1, a.c[0].c[1], a.c[1].c[2]);
 
     // t1 = sqr_fp4(a10, a02)
-    sqr_fp4_pack(tx_0, tx_1, a.c[1].c[0], a.c[0].c[2]);
+    sqr_fp4_pack(t1_0, t1_1, a.c[1].c[0], a.c[0].c[2]);
 
     // ret01 = 2*(t1_0 - a01) + t1_0
-    Fp2Pack8x1x1::sub(r.c[0].c[1], tx_0, a.c[0].c[1]);
+    Fp2Pack8x1x1::sub(r.c[0].c[1], t1_0, a.c[0].c[1]);
     Fp2Pack8x1x1::add(r.c[0].c[1], r.c[0].c[1], r.c[0].c[1]);
-    Fp2Pack8x1x1::add(r.c[0].c[1], r.c[0].c[1], tx_0);
+    Fp2Pack8x1x1::add(r.c[0].c[1], r.c[0].c[1], t1_0);
 
     // ret12 = 2*(t1_1 + a12) + t1_1
-    Fp2Pack8x1x1::add(r.c[1].c[2], tx_1, a.c[1].c[2]);
+    Fp2Pack8x1x1::add(r.c[1].c[2], t1_1, a.c[1].c[2]);
     Fp2Pack8x1x1::add(r.c[1].c[2], r.c[1].c[2], r.c[1].c[2]);
-    Fp2Pack8x1x1::add(r.c[1].c[2], r.c[1].c[2], tx_1);
+    Fp2Pack8x1x1::add(r.c[1].c[2], r.c[1].c[2], t1_1);
 
     // ret02 = 2*(t2_0 - a02) + t2_0
     Fp2Pack8x1x1::sub(r.c[0].c[2], t2_0, a.c[0].c[2]);
