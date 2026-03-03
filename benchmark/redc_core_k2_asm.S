@@ -143,14 +143,18 @@
 .macro REDC_ROUND_BOTH6 U0, U1, C, T, A0, A1, A2, A3, A4, A5, A6, A7, B0, B1, B2, B3, B4, B5, B6, B7, YH, Y1, Y2, Y3, Y4, Y5, ZH, Z1, Z2, Z3, Z4, Z5, BASEA, OFFA, BASEB, OFFB
     # u0/u1 from pivot limbs
     vpxorq \U0, \U0, \U0
-    vpmadd52luq \U0, \A0, ZMMWORD PTR [rip + montw_vec]
-    vpandq \U0, \U0, ZMMWORD PTR [rip + bmask_vec]
+    vpbroadcastq \C, QWORD PTR [rip + montw_q]
+    vpmadd52luq \U0, \A0, \C
+    vpbroadcastq \C, QWORD PTR [rip + bmask_q]
+    vpandq \U0, \U0, \C
     vpxorq \U1, \U1, \U1
-    vpmadd52luq \U1, \B0, ZMMWORD PTR [rip + montw_vec]
-    vpandq \U1, \U1, ZMMWORD PTR [rip + bmask_vec]
+    vpbroadcastq \C, QWORD PTR [rip + montw_q]
+    vpmadd52luq \U1, \B0, \C
+    vpbroadcastq \C, QWORD PTR [rip + bmask_q]
+    vpandq \U1, \U1, \C
 
     # p0 low updates
-    vmovdqa64 \C, ZMMWORD PTR [rip + p0_vec]
+    vpbroadcastq \C, QWORD PTR [rip + p0_q]
     vpmadd52luq \A0, \U0, \C
     vpmadd52luq \B0, \U1, \C
 
@@ -179,37 +183,37 @@
     vpxorq \ZH, \ZH, \ZH
 
     # p1..p6 low/high updates
-    vmovdqa64 \C, ZMMWORD PTR [rip + p1_vec]
+    vpbroadcastq \C, QWORD PTR [rip + p1_q]
     vpmadd52luq \A1, \U0, \C
     vpmadd52huq \Y1, \U0, \C
     vpmadd52luq \B1, \U1, \C
     vpmadd52huq \Z1, \U1, \C
 
-    vmovdqa64 \C, ZMMWORD PTR [rip + p2_vec]
+    vpbroadcastq \C, QWORD PTR [rip + p2_q]
     vpmadd52luq \A2, \U0, \C
     vpmadd52huq \Y2, \U0, \C
     vpmadd52luq \B2, \U1, \C
     vpmadd52huq \Z2, \U1, \C
 
-    vmovdqa64 \C, ZMMWORD PTR [rip + p3_vec]
+    vpbroadcastq \C, QWORD PTR [rip + p3_q]
     vpmadd52luq \A3, \U0, \C
     vpmadd52huq \Y3, \U0, \C
     vpmadd52luq \B3, \U1, \C
     vpmadd52huq \Z3, \U1, \C
 
-    vmovdqa64 \C, ZMMWORD PTR [rip + p4_vec]
+    vpbroadcastq \C, QWORD PTR [rip + p4_q]
     vpmadd52luq \A4, \U0, \C
     vpmadd52huq \Y4, \U0, \C
     vpmadd52luq \B4, \U1, \C
     vpmadd52huq \Z4, \U1, \C
 
-    vmovdqa64 \C, ZMMWORD PTR [rip + p5_vec]
+    vpbroadcastq \C, QWORD PTR [rip + p5_q]
     vpmadd52luq \A5, \U0, \C
     vpmadd52huq \Y5, \U0, \C
     vpmadd52luq \B5, \U1, \C
     vpmadd52huq \Z5, \U1, \C
 
-    vmovdqa64 \C, ZMMWORD PTR [rip + p6_vec]
+    vpbroadcastq \C, QWORD PTR [rip + p6_q]
     vpmadd52luq \A6, \U0, \C
     vpmadd52huq \YH, \U0, \C
     vpmadd52luq \B6, \U1, \C
@@ -218,7 +222,7 @@
     # p7 eager fold into loaded next limb
     vmovdqa64 \A0, ZMMWORD PTR [\BASEA + \OFFA]
     vmovdqa64 \B0, ZMMWORD PTR [\BASEB + \OFFB]
-    vmovdqa64 \C, ZMMWORD PTR [rip + p7_vec]
+    vpbroadcastq \C, QWORD PTR [rip + p7_q]
     vpmadd52luq \A0, \U0, \C
     vpmadd52luq \B0, \U1, \C
     vpmadd52huq \T, \U0, \C
@@ -490,6 +494,27 @@ p6_vec:
 p7_vec:
     .quad 0x1A0111EA397F, 0x1A0111EA397F, 0x1A0111EA397F, 0x1A0111EA397F
     .quad 0x1A0111EA397F, 0x1A0111EA397F, 0x1A0111EA397F, 0x1A0111EA397F
+
+montw_q:
+    .quad 0xFFFCFFFCFFFD
+bmask_q:
+    .quad 0xFFFFFFFFFFFF
+p0_q:
+    .quad 0xFFFFFFFFAAAB
+p1_q:
+    .quad 0xB153FFFFB9FE
+p2_q:
+    .quad 0xF6241EABFFFE
+p3_q:
+    .quad 0x6730D2A0F6B0
+p4_q:
+    .quad 0x4B84F38512BF
+p5_q:
+    .quad 0x434BACD76477
+p6_q:
+    .quad 0xE69A4B1BA7B6
+p7_q:
+    .quad 0x1A0111EA397F
 
 .att_syntax prefix
 
