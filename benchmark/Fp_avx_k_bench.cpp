@@ -85,6 +85,32 @@ struct Fp8x1MulRedcStreamData
   std::array<FpPack8x1, Chains> out{};
 };
 
+template <int Chains>
+struct Fp8x1RedcCoreStreamData
+{
+  static_assert(Chains >= 1 && Chains <= 8, "Chains must be in [1,8].");
+
+  Fp8x1RedcCoreStreamData()
+  {
+    std::mt19937_64 gen(0xE71B93D4ULL + static_cast<u64>(Chains));
+    for (int c = 0; c < Chains; ++c) {
+      std::array<Fp, 8> lane_a{};
+      std::array<Fp, 8> lane_b{};
+      for (std::size_t lane = 0; lane < 8; ++lane) {
+        random_redc_fp(lane_a[lane], gen);
+        random_redc_fp(lane_b[lane], gen);
+      }
+      FpPack8x1 ap{}, bp{};
+      FpPack8x1::from_aos(ap, lane_a.data());
+      FpPack8x1::from_aos(bp, lane_b.data());
+      FpPack8x1::mul_v2(wide[c], ap, bp);
+    }
+  }
+
+  std::array<UFpPack8x1, Chains> wide{};
+  std::array<LFpPack8x1, Chains> lazy{};
+};
+
 template <int K>
 void BM_Fp8x1MulV2K(benchmark::State& state)
 {
@@ -300,6 +326,136 @@ void BM_Fp8x1MulRedc_HandInterleavedChains(benchmark::State& state)
   const std::size_t ops_per_iter = static_cast<std::size_t>(Chains) * kUnroll;
   state.SetItemsProcessed(state.iterations() * ops_per_iter);
   state.counters["mul_redc_per_iter"] = static_cast<double>(ops_per_iter);
+  state.counters["chains"] = static_cast<double>(Chains);
+  state.counters["unroll"] = static_cast<double>(kUnroll);
+}
+
+template <int Chains>
+void BM_Fp8x1RedcCore_SeqChains(benchmark::State& state)
+{
+  static_assert(Chains >= 1 && Chains <= 8, "SeqChains supports Chains in [1,8].");
+  constexpr std::size_t kUnroll = 8;
+  Fp8x1RedcCoreStreamData<Chains> data{};
+
+  const cc512i one = VSET1(1);
+  for (auto _ : state) {
+    if constexpr (Chains >= 1) {
+      for (std::size_t i = 0; i < kUnroll; ++i) {
+        UFpPack8x1::redc_core(data.lazy[0], data.wide[0]);
+        data.wide[0][0] = VADD(data.wide[0][0], VADD(data.lazy[0][0], one));
+      }
+    }
+    if constexpr (Chains >= 2) {
+      for (std::size_t i = 0; i < kUnroll; ++i) {
+        UFpPack8x1::redc_core(data.lazy[1], data.wide[1]);
+        data.wide[1][0] = VADD(data.wide[1][0], VADD(data.lazy[1][0], one));
+      }
+    }
+    if constexpr (Chains >= 3) {
+      for (std::size_t i = 0; i < kUnroll; ++i) {
+        UFpPack8x1::redc_core(data.lazy[2], data.wide[2]);
+        data.wide[2][0] = VADD(data.wide[2][0], VADD(data.lazy[2][0], one));
+      }
+    }
+    if constexpr (Chains >= 4) {
+      for (std::size_t i = 0; i < kUnroll; ++i) {
+        UFpPack8x1::redc_core(data.lazy[3], data.wide[3]);
+        data.wide[3][0] = VADD(data.wide[3][0], VADD(data.lazy[3][0], one));
+      }
+    }
+    if constexpr (Chains >= 5) {
+      for (std::size_t i = 0; i < kUnroll; ++i) {
+        UFpPack8x1::redc_core(data.lazy[4], data.wide[4]);
+        data.wide[4][0] = VADD(data.wide[4][0], VADD(data.lazy[4][0], one));
+      }
+    }
+    if constexpr (Chains >= 6) {
+      for (std::size_t i = 0; i < kUnroll; ++i) {
+        UFpPack8x1::redc_core(data.lazy[5], data.wide[5]);
+        data.wide[5][0] = VADD(data.wide[5][0], VADD(data.lazy[5][0], one));
+      }
+    }
+    if constexpr (Chains >= 7) {
+      for (std::size_t i = 0; i < kUnroll; ++i) {
+        UFpPack8x1::redc_core(data.lazy[6], data.wide[6]);
+        data.wide[6][0] = VADD(data.wide[6][0], VADD(data.lazy[6][0], one));
+      }
+    }
+    if constexpr (Chains >= 8) {
+      for (std::size_t i = 0; i < kUnroll; ++i) {
+        UFpPack8x1::redc_core(data.lazy[7], data.wide[7]);
+        data.wide[7][0] = VADD(data.wide[7][0], VADD(data.lazy[7][0], one));
+      }
+    }
+  }
+
+  cc512i sink = VZERO();
+  for (int c = 0; c < Chains; ++c) {
+    sink = VADD(sink, data.lazy[c][0]);
+  }
+  benchmark::DoNotOptimize(sink);
+
+  const std::size_t ops_per_iter = static_cast<std::size_t>(Chains) * kUnroll;
+  state.SetItemsProcessed(state.iterations() * ops_per_iter);
+  state.counters["redc_core_per_iter"] = static_cast<double>(ops_per_iter);
+  state.counters["chains"] = static_cast<double>(Chains);
+  state.counters["unroll"] = static_cast<double>(kUnroll);
+}
+
+template <int Chains>
+void BM_Fp8x1RedcCore_HandInterleavedChains(benchmark::State& state)
+{
+  static_assert(Chains >= 1 && Chains <= 8, "HandInterleaved supports Chains in [1,8].");
+  constexpr std::size_t kUnroll = 8;
+  Fp8x1RedcCoreStreamData<Chains> data{};
+
+  const cc512i one = VSET1(1);
+  for (auto _ : state) {
+    for (std::size_t i = 0; i < kUnroll; ++i) {
+      if constexpr (Chains >= 1) {
+        UFpPack8x1::redc_core(data.lazy[0], data.wide[0]);
+        data.wide[0][0] = VADD(data.wide[0][0], VADD(data.lazy[0][0], one));
+      }
+      if constexpr (Chains >= 2) {
+        UFpPack8x1::redc_core(data.lazy[1], data.wide[1]);
+        data.wide[1][0] = VADD(data.wide[1][0], VADD(data.lazy[1][0], one));
+      }
+      if constexpr (Chains >= 3) {
+        UFpPack8x1::redc_core(data.lazy[2], data.wide[2]);
+        data.wide[2][0] = VADD(data.wide[2][0], VADD(data.lazy[2][0], one));
+      }
+      if constexpr (Chains >= 4) {
+        UFpPack8x1::redc_core(data.lazy[3], data.wide[3]);
+        data.wide[3][0] = VADD(data.wide[3][0], VADD(data.lazy[3][0], one));
+      }
+      if constexpr (Chains >= 5) {
+        UFpPack8x1::redc_core(data.lazy[4], data.wide[4]);
+        data.wide[4][0] = VADD(data.wide[4][0], VADD(data.lazy[4][0], one));
+      }
+      if constexpr (Chains >= 6) {
+        UFpPack8x1::redc_core(data.lazy[5], data.wide[5]);
+        data.wide[5][0] = VADD(data.wide[5][0], VADD(data.lazy[5][0], one));
+      }
+      if constexpr (Chains >= 7) {
+        UFpPack8x1::redc_core(data.lazy[6], data.wide[6]);
+        data.wide[6][0] = VADD(data.wide[6][0], VADD(data.lazy[6][0], one));
+      }
+      if constexpr (Chains >= 8) {
+        UFpPack8x1::redc_core(data.lazy[7], data.wide[7]);
+        data.wide[7][0] = VADD(data.wide[7][0], VADD(data.lazy[7][0], one));
+      }
+    }
+  }
+
+  cc512i sink = VZERO();
+  for (int c = 0; c < Chains; ++c) {
+    sink = VADD(sink, data.lazy[c][0]);
+  }
+  benchmark::DoNotOptimize(sink);
+
+  const std::size_t ops_per_iter = static_cast<std::size_t>(Chains) * kUnroll;
+  state.SetItemsProcessed(state.iterations() * ops_per_iter);
+  state.counters["redc_core_per_iter"] = static_cast<double>(ops_per_iter);
   state.counters["chains"] = static_cast<double>(Chains);
   state.counters["unroll"] = static_cast<double>(kUnroll);
 }
@@ -638,6 +794,15 @@ BENCHMARK_TEMPLATE(BM_Fp8x1MulRedc_SeqChains, 4);
 BENCHMARK_TEMPLATE(BM_Fp8x1MulRedc_HandInterleavedChains, 4);
 BENCHMARK_TEMPLATE(BM_Fp8x1MulRedc_SeqChains, 8);
 BENCHMARK_TEMPLATE(BM_Fp8x1MulRedc_HandInterleavedChains, 8);
+
+BENCHMARK_TEMPLATE(BM_Fp8x1RedcCore_SeqChains, 1);
+BENCHMARK_TEMPLATE(BM_Fp8x1RedcCore_HandInterleavedChains, 1);
+BENCHMARK_TEMPLATE(BM_Fp8x1RedcCore_SeqChains, 2);
+BENCHMARK_TEMPLATE(BM_Fp8x1RedcCore_HandInterleavedChains, 2);
+BENCHMARK_TEMPLATE(BM_Fp8x1RedcCore_SeqChains, 4);
+BENCHMARK_TEMPLATE(BM_Fp8x1RedcCore_HandInterleavedChains, 4);
+BENCHMARK_TEMPLATE(BM_Fp8x1RedcCore_SeqChains, 8);
+BENCHMARK_TEMPLATE(BM_Fp8x1RedcCore_HandInterleavedChains, 8);
 
 } // namespace
 
