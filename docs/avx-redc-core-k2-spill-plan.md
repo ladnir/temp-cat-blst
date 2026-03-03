@@ -16,18 +16,19 @@ Benchmark command:
 ```
 
 Current means (latest runs):
-- `SeqChains<2>`: `~17.5M .. 18.3M ops/s`
-- `HandInterleavedChains<2>`: `~21.2M .. 22.3M ops/s`
-- `AsmK2`: `~23.2M .. 23.3M ops/s`
+- `SeqChains<2>`: `~18.1M ops/s`
+- `HandInterleavedChains<2>`: `~22.9M ops/s`
+- `AsmK2`: `~25.1M ops/s`
 
 Observed uplift:
-- C++ hand `k=2`: `~+20% .. +25%` over `SeqChains<2>`
-- asm `k=2`: `~+30% .. +33%` over `SeqChains<2>`
+- C++ hand `k=2`: about `+26%` over `SeqChains<2>`
+- asm `k=2`: about `+39%` over `SeqChains<2>`
 
 Recent change notes:
 - Linux benchmark-only asm `k=2` path (`blst_redc_core_k2_asm`) is now the fastest measured variant.
 - The asm path is spill-free in the kernel body.
 - The latest asm revision reduced constant-load pressure by reusing `p[i]` in a temp zmm for each lo/hi pair.
+- A follow-up revision removed extra `vmovdqa64` for `montw/bmask` in each round (restored memory-form ops), and hoisted final carry-mask to one loaded zmm reused by both carry chains.
 
 ## Objdump Findings
 
@@ -74,6 +75,10 @@ Key measured evidence (single-core `perf stat`, Linux AVX machine):
   - `topdown.memory_bound_slots` about `1.57e9`
   - `uops_dispatched.port_2_3_10` about `9.03e9`
   - throughput: about `23.26M/s`
+- asm after round/mask cleanup:
+  - IPC about `2.49`
+  - `topdown.memory_bound_slots` about `2.23e9`
+  - throughput: about `25.06M/s` (`perf` run) / `25.15M/s` (5x aggregate benchmark run)
 
 Interpretation:
 - The prior asm variant was overusing load ports due to repeated memory-form IFMAs on constants.
@@ -137,6 +142,9 @@ Acceptance target:
 - stretch: `>= 27M ops/s`
 - `>= 30M ops/s` is still aspirational without deeper arithmetic/schedule changes
 
+Checkpoint status:
+- `>= 25M ops/s`: achieved.
+
 ## Current Status
 - We now have a coherent explanation with measured counters:
   - `k=2` interleaving helps.
@@ -158,9 +166,9 @@ Current schedule choice:
 - in-round constant reuse for each lo/hi IFMA pair.
 
 Measured outcome:
-- `SeqChains<2>`: ~`17.5M .. 18.3M/s`
-- `HandInterleavedChains<2>` (C++): ~`21.2M .. 22.3M/s`
-- `AsmK2`: ~`23.2M .. 23.3M/s` (best current path)
+- `SeqChains<2>`: ~`18.1M/s`
+- `HandInterleavedChains<2>` (C++): ~`22.9M/s`
+- `AsmK2`: ~`25.1M/s` (best current path)
 
 ## What Not To Do
 - do not broaden to `k=4/k=8` until `k=2` is clean

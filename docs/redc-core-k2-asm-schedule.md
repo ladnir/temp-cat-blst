@@ -44,13 +44,15 @@ Latest change in this schedule:
 
 - Each `p[i]` is loaded once into a temp register and reused for both `vpmadd52lo`/`vpmadd52hi` of that stream.
 - This replaces repeated memory-form IFMAs for each lo/hi pair.
+- `montw`/`bmask` in the `u` derivation are back to memory-form operations (avoids extra `vmovdqa64` instructions).
+- Final carry phase loads `bmask` once and reuses it for both 8-limb carry chains.
 
 Observed effect (Linux host):
 
 - Lower load-port pressure (`uops_dispatched.port_2_3_10` dropped materially)
 - Lower memory-bound slots (`topdown.memory_bound_slots` dropped materially)
 - Higher IPC
-- Throughput improved to about `23.2M .. 23.3M redc_core/s` for `BM_Fp8x1RedcCore_AsmK2`
+- Throughput improved to about `25.1M redc_core/s` for `BM_Fp8x1RedcCore_AsmK2`
 
 ## Remaining Limiter
 

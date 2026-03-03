@@ -8,10 +8,8 @@
 
 .macro REDC_ROUND U, C, A0, A1, A2, A3, A4, A5, A6, A7, Y0, Y1, Y2, Y3, Y4, Y5, Y6, BASE, OFF
     vpxorq \U, \U, \U
-    vmovdqa64 \C, ZMMWORD PTR [rip + montw_vec]
-    vpmadd52luq \U, \A0, \C
-    vmovdqa64 \C, ZMMWORD PTR [rip + bmask_vec]
-    vpandq \U, \U, \C
+    vpmadd52luq \U, \A0, ZMMWORD PTR [rip + montw_vec]
+    vpandq \U, \U, ZMMWORD PTR [rip + bmask_vec]
 
     # new queue tail slot (logical y[r+6]) starts from zero every round
     vpxorq \Y6, \Y6, \Y6
@@ -54,36 +52,36 @@
     vpaddq \A0, \A0, \Y0
 .endm
 
-.macro REDC_CARRY8 TMP, R0, R1, R2, R3, R4, R5, R6, R7
+.macro REDC_CARRY8 TMP, BM, R0, R1, R2, R3, R4, R5, R6, R7
     vpsraq \TMP, \R0, 48
     vpaddq \R1, \R1, \TMP
-    vpandq \R0, \R0, ZMMWORD PTR [rip + bmask_vec]
+    vpandq \R0, \R0, \BM
 
     vpsraq \TMP, \R1, 48
     vpaddq \R2, \R2, \TMP
-    vpandq \R1, \R1, ZMMWORD PTR [rip + bmask_vec]
+    vpandq \R1, \R1, \BM
 
     vpsraq \TMP, \R2, 48
     vpaddq \R3, \R3, \TMP
-    vpandq \R2, \R2, ZMMWORD PTR [rip + bmask_vec]
+    vpandq \R2, \R2, \BM
 
     vpsraq \TMP, \R3, 48
     vpaddq \R4, \R4, \TMP
-    vpandq \R3, \R3, ZMMWORD PTR [rip + bmask_vec]
+    vpandq \R3, \R3, \BM
 
     vpsraq \TMP, \R4, 48
     vpaddq \R5, \R5, \TMP
-    vpandq \R4, \R4, ZMMWORD PTR [rip + bmask_vec]
+    vpandq \R4, \R4, \BM
 
     vpsraq \TMP, \R5, 48
     vpaddq \R6, \R6, \TMP
-    vpandq \R5, \R5, ZMMWORD PTR [rip + bmask_vec]
+    vpandq \R5, \R5, \BM
 
     vpsraq \TMP, \R6, 48
     vpaddq \R7, \R7, \TMP
-    vpandq \R6, \R6, ZMMWORD PTR [rip + bmask_vec]
+    vpandq \R6, \R6, \BM
 
-    vpandq \R7, \R7, ZMMWORD PTR [rip + bmask_vec]
+    vpandq \R7, \R7, \BM
 .endm
 
 blst_redc_core_k2_asm:
@@ -180,8 +178,9 @@ blst_redc_core_k2_asm:
     vpaddq zmm15, zmm15, zmm31
 
     # Final carry/mask over 8 limbs each stream
-    REDC_CARRY8 zmm30, zmm0, zmm1, zmm2, zmm3, zmm4, zmm5, zmm6, zmm7
-    REDC_CARRY8 zmm31, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15
+    vmovdqa64 zmm31, ZMMWORD PTR [rip + bmask_vec]
+    REDC_CARRY8 zmm30, zmm31, zmm0, zmm1, zmm2, zmm3, zmm4, zmm5, zmm6, zmm7
+    REDC_CARRY8 zmm30, zmm31, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15
 
     # Store outputs
     vmovdqa64 [rdi + 0], zmm0
