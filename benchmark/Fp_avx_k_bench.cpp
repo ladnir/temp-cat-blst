@@ -104,10 +104,14 @@ struct Fp8x1RedcCoreStreamData
       FpPack8x1::from_aos(ap, lane_a.data());
       FpPack8x1::from_aos(bp, lane_b.data());
       FpPack8x1::mul_v2(wide[c], ap, bp);
+      for (std::size_t limb = 0; limb < 2 * NWORDS; ++limb) {
+        delta[c][limb] = VSET1(gen() & BMASK);
+      }
     }
   }
 
   std::array<UFpPack8x1, Chains> wide{};
+  std::array<UFpPack8x1, Chains> delta{};
   std::array<LFpPack8x1, Chains> lazy{};
 };
 
@@ -572,63 +576,29 @@ void BM_Fp8x1RedcCore_SeqChains(benchmark::State& state)
   constexpr std::size_t kUnroll = 8;
   Fp8x1RedcCoreStreamData<Chains> data{};
 
-  const cc512i one = VSET1(1);
   for (auto _ : state) {
-    if constexpr (Chains >= 1) {
+    for (int c = 0; c < Chains; ++c) {
       for (std::size_t i = 0; i < kUnroll; ++i) {
-        UFpPack8x1::redc_core(data.lazy[0], data.wide[0]);
-        data.wide[0][0] = VADD(data.wide[0][0], VADD(data.lazy[0][0], one));
-      }
-    }
-    if constexpr (Chains >= 2) {
-      for (std::size_t i = 0; i < kUnroll; ++i) {
-        UFpPack8x1::redc_core(data.lazy[1], data.wide[1]);
-        data.wide[1][0] = VADD(data.wide[1][0], VADD(data.lazy[1][0], one));
-      }
-    }
-    if constexpr (Chains >= 3) {
-      for (std::size_t i = 0; i < kUnroll; ++i) {
-        UFpPack8x1::redc_core(data.lazy[2], data.wide[2]);
-        data.wide[2][0] = VADD(data.wide[2][0], VADD(data.lazy[2][0], one));
-      }
-    }
-    if constexpr (Chains >= 4) {
-      for (std::size_t i = 0; i < kUnroll; ++i) {
-        UFpPack8x1::redc_core(data.lazy[3], data.wide[3]);
-        data.wide[3][0] = VADD(data.wide[3][0], VADD(data.lazy[3][0], one));
-      }
-    }
-    if constexpr (Chains >= 5) {
-      for (std::size_t i = 0; i < kUnroll; ++i) {
-        UFpPack8x1::redc_core(data.lazy[4], data.wide[4]);
-        data.wide[4][0] = VADD(data.wide[4][0], VADD(data.lazy[4][0], one));
-      }
-    }
-    if constexpr (Chains >= 6) {
-      for (std::size_t i = 0; i < kUnroll; ++i) {
-        UFpPack8x1::redc_core(data.lazy[5], data.wide[5]);
-        data.wide[5][0] = VADD(data.wide[5][0], VADD(data.lazy[5][0], one));
-      }
-    }
-    if constexpr (Chains >= 7) {
-      for (std::size_t i = 0; i < kUnroll; ++i) {
-        UFpPack8x1::redc_core(data.lazy[6], data.wide[6]);
-        data.wide[6][0] = VADD(data.wide[6][0], VADD(data.lazy[6][0], one));
-      }
-    }
-    if constexpr (Chains >= 8) {
-      for (std::size_t i = 0; i < kUnroll; ++i) {
-        UFpPack8x1::redc_core(data.lazy[7], data.wide[7]);
-        data.wide[7][0] = VADD(data.wide[7][0], VADD(data.lazy[7][0], one));
+        UFpPack8x1::redc_core(data.lazy[c], data.wide[c]);
+        for (std::size_t limb = 0; limb < NWORDS; ++limb) {
+          data.wide[c][limb] =
+              VADD(data.wide[c][limb], VADD(data.lazy[c][limb], data.delta[c][limb]));
+          data.wide[c][limb + NWORDS] = VADD(
+              data.wide[c][limb + NWORDS],
+              VADD(VSHL(data.lazy[c][limb], BALIGN), data.delta[c][limb + NWORDS]));
+        }
       }
     }
   }
 
   cc512i sink = VZERO();
   for (int c = 0; c < Chains; ++c) {
-    sink = VADD(sink, data.lazy[c][0]);
+    for (std::size_t limb = 0; limb < NWORDS; ++limb) {
+      sink = VADD(sink, data.lazy[c][limb]);
+    }
   }
   benchmark::DoNotOptimize(sink);
+  benchmark::ClobberMemory();
 
   const std::size_t ops_per_iter = static_cast<std::size_t>(Chains) * kUnroll;
   state.SetItemsProcessed(state.iterations() * ops_per_iter);
@@ -649,20 +619,32 @@ void BM_Fp8x1RedcCore_HandInterleavedChains<2>(benchmark::State& state)
 {
   constexpr std::size_t kUnroll = 8;
   Fp8x1RedcCoreStreamData<2> data{};
-  const cc512i one = VSET1(1);
 
   for (auto _ : state) {
     for (std::size_t i = 0; i < kUnroll; ++i) {
       redc_core_hand_interleaved_k2_once(data.lazy[0], data.lazy[1], data.wide[0], data.wide[1]);
-      data.wide[0][0] = VADD(data.wide[0][0], VADD(data.lazy[0][0], one));
-      data.wide[1][0] = VADD(data.wide[1][0], VADD(data.lazy[1][0], one));
+      for (std::size_t limb = 0; limb < NWORDS; ++limb) {
+        data.wide[0][limb] =
+            VADD(data.wide[0][limb], VADD(data.lazy[0][limb], data.delta[0][limb]));
+        data.wide[0][limb + NWORDS] =
+            VADD(data.wide[0][limb + NWORDS],
+                 VADD(VSHL(data.lazy[0][limb], BALIGN), data.delta[0][limb + NWORDS]));
+        data.wide[1][limb] =
+            VADD(data.wide[1][limb], VADD(data.lazy[1][limb], data.delta[1][limb]));
+        data.wide[1][limb + NWORDS] =
+            VADD(data.wide[1][limb + NWORDS],
+                 VADD(VSHL(data.lazy[1][limb], BALIGN), data.delta[1][limb + NWORDS]));
+      }
     }
   }
 
   cc512i sink = VZERO();
-  sink = VADD(sink, data.lazy[0][0]);
-  sink = VADD(sink, data.lazy[1][0]);
+  for (std::size_t limb = 0; limb < NWORDS; ++limb) {
+    sink = VADD(sink, data.lazy[0][limb]);
+    sink = VADD(sink, data.lazy[1][limb]);
+  }
   benchmark::DoNotOptimize(sink);
+  benchmark::ClobberMemory();
 
   const std::size_t ops_per_iter = 2 * kUnroll;
   state.SetItemsProcessed(state.iterations() * ops_per_iter);
@@ -676,25 +658,45 @@ void BM_Fp8x1RedcCore_HandInterleavedChains<4>(benchmark::State& state)
 {
   constexpr std::size_t kUnroll = 8;
   Fp8x1RedcCoreStreamData<4> data{};
-  const cc512i one = VSET1(1);
 
   for (auto _ : state) {
     for (std::size_t i = 0; i < kUnroll; ++i) {
       redc_core_hand_interleaved_k2_once(data.lazy[0], data.lazy[1], data.wide[0], data.wide[1]);
       redc_core_hand_interleaved_k2_once(data.lazy[2], data.lazy[3], data.wide[2], data.wide[3]);
-      data.wide[0][0] = VADD(data.wide[0][0], VADD(data.lazy[0][0], one));
-      data.wide[1][0] = VADD(data.wide[1][0], VADD(data.lazy[1][0], one));
-      data.wide[2][0] = VADD(data.wide[2][0], VADD(data.lazy[2][0], one));
-      data.wide[3][0] = VADD(data.wide[3][0], VADD(data.lazy[3][0], one));
+      for (std::size_t limb = 0; limb < NWORDS; ++limb) {
+        data.wide[0][limb] =
+            VADD(data.wide[0][limb], VADD(data.lazy[0][limb], data.delta[0][limb]));
+        data.wide[0][limb + NWORDS] =
+            VADD(data.wide[0][limb + NWORDS],
+                 VADD(VSHL(data.lazy[0][limb], BALIGN), data.delta[0][limb + NWORDS]));
+        data.wide[1][limb] =
+            VADD(data.wide[1][limb], VADD(data.lazy[1][limb], data.delta[1][limb]));
+        data.wide[1][limb + NWORDS] =
+            VADD(data.wide[1][limb + NWORDS],
+                 VADD(VSHL(data.lazy[1][limb], BALIGN), data.delta[1][limb + NWORDS]));
+        data.wide[2][limb] =
+            VADD(data.wide[2][limb], VADD(data.lazy[2][limb], data.delta[2][limb]));
+        data.wide[2][limb + NWORDS] =
+            VADD(data.wide[2][limb + NWORDS],
+                 VADD(VSHL(data.lazy[2][limb], BALIGN), data.delta[2][limb + NWORDS]));
+        data.wide[3][limb] =
+            VADD(data.wide[3][limb], VADD(data.lazy[3][limb], data.delta[3][limb]));
+        data.wide[3][limb + NWORDS] =
+            VADD(data.wide[3][limb + NWORDS],
+                 VADD(VSHL(data.lazy[3][limb], BALIGN), data.delta[3][limb + NWORDS]));
+      }
     }
   }
 
   cc512i sink = VZERO();
-  sink = VADD(sink, data.lazy[0][0]);
-  sink = VADD(sink, data.lazy[1][0]);
-  sink = VADD(sink, data.lazy[2][0]);
-  sink = VADD(sink, data.lazy[3][0]);
+  for (std::size_t limb = 0; limb < NWORDS; ++limb) {
+    sink = VADD(sink, data.lazy[0][limb]);
+    sink = VADD(sink, data.lazy[1][limb]);
+    sink = VADD(sink, data.lazy[2][limb]);
+    sink = VADD(sink, data.lazy[3][limb]);
+  }
   benchmark::DoNotOptimize(sink);
+  benchmark::ClobberMemory();
 
   const std::size_t ops_per_iter = 4 * kUnroll;
   state.SetItemsProcessed(state.iterations() * ops_per_iter);
@@ -708,7 +710,6 @@ void BM_Fp8x1RedcCore_HandInterleavedChains<8>(benchmark::State& state)
 {
   constexpr std::size_t kUnroll = 8;
   Fp8x1RedcCoreStreamData<8> data{};
-  const cc512i one = VSET1(1);
 
   for (auto _ : state) {
     for (std::size_t i = 0; i < kUnroll; ++i) {
@@ -716,27 +717,64 @@ void BM_Fp8x1RedcCore_HandInterleavedChains<8>(benchmark::State& state)
       redc_core_hand_interleaved_k2_once(data.lazy[2], data.lazy[3], data.wide[2], data.wide[3]);
       redc_core_hand_interleaved_k2_once(data.lazy[4], data.lazy[5], data.wide[4], data.wide[5]);
       redc_core_hand_interleaved_k2_once(data.lazy[6], data.lazy[7], data.wide[6], data.wide[7]);
-      data.wide[0][0] = VADD(data.wide[0][0], VADD(data.lazy[0][0], one));
-      data.wide[1][0] = VADD(data.wide[1][0], VADD(data.lazy[1][0], one));
-      data.wide[2][0] = VADD(data.wide[2][0], VADD(data.lazy[2][0], one));
-      data.wide[3][0] = VADD(data.wide[3][0], VADD(data.lazy[3][0], one));
-      data.wide[4][0] = VADD(data.wide[4][0], VADD(data.lazy[4][0], one));
-      data.wide[5][0] = VADD(data.wide[5][0], VADD(data.lazy[5][0], one));
-      data.wide[6][0] = VADD(data.wide[6][0], VADD(data.lazy[6][0], one));
-      data.wide[7][0] = VADD(data.wide[7][0], VADD(data.lazy[7][0], one));
+      for (std::size_t limb = 0; limb < NWORDS; ++limb) {
+        data.wide[0][limb] =
+            VADD(data.wide[0][limb], VADD(data.lazy[0][limb], data.delta[0][limb]));
+        data.wide[0][limb + NWORDS] =
+            VADD(data.wide[0][limb + NWORDS],
+                 VADD(VSHL(data.lazy[0][limb], BALIGN), data.delta[0][limb + NWORDS]));
+        data.wide[1][limb] =
+            VADD(data.wide[1][limb], VADD(data.lazy[1][limb], data.delta[1][limb]));
+        data.wide[1][limb + NWORDS] =
+            VADD(data.wide[1][limb + NWORDS],
+                 VADD(VSHL(data.lazy[1][limb], BALIGN), data.delta[1][limb + NWORDS]));
+        data.wide[2][limb] =
+            VADD(data.wide[2][limb], VADD(data.lazy[2][limb], data.delta[2][limb]));
+        data.wide[2][limb + NWORDS] =
+            VADD(data.wide[2][limb + NWORDS],
+                 VADD(VSHL(data.lazy[2][limb], BALIGN), data.delta[2][limb + NWORDS]));
+        data.wide[3][limb] =
+            VADD(data.wide[3][limb], VADD(data.lazy[3][limb], data.delta[3][limb]));
+        data.wide[3][limb + NWORDS] =
+            VADD(data.wide[3][limb + NWORDS],
+                 VADD(VSHL(data.lazy[3][limb], BALIGN), data.delta[3][limb + NWORDS]));
+        data.wide[4][limb] =
+            VADD(data.wide[4][limb], VADD(data.lazy[4][limb], data.delta[4][limb]));
+        data.wide[4][limb + NWORDS] =
+            VADD(data.wide[4][limb + NWORDS],
+                 VADD(VSHL(data.lazy[4][limb], BALIGN), data.delta[4][limb + NWORDS]));
+        data.wide[5][limb] =
+            VADD(data.wide[5][limb], VADD(data.lazy[5][limb], data.delta[5][limb]));
+        data.wide[5][limb + NWORDS] =
+            VADD(data.wide[5][limb + NWORDS],
+                 VADD(VSHL(data.lazy[5][limb], BALIGN), data.delta[5][limb + NWORDS]));
+        data.wide[6][limb] =
+            VADD(data.wide[6][limb], VADD(data.lazy[6][limb], data.delta[6][limb]));
+        data.wide[6][limb + NWORDS] =
+            VADD(data.wide[6][limb + NWORDS],
+                 VADD(VSHL(data.lazy[6][limb], BALIGN), data.delta[6][limb + NWORDS]));
+        data.wide[7][limb] =
+            VADD(data.wide[7][limb], VADD(data.lazy[7][limb], data.delta[7][limb]));
+        data.wide[7][limb + NWORDS] =
+            VADD(data.wide[7][limb + NWORDS],
+                 VADD(VSHL(data.lazy[7][limb], BALIGN), data.delta[7][limb + NWORDS]));
+      }
     }
   }
 
   cc512i sink = VZERO();
-  sink = VADD(sink, data.lazy[0][0]);
-  sink = VADD(sink, data.lazy[1][0]);
-  sink = VADD(sink, data.lazy[2][0]);
-  sink = VADD(sink, data.lazy[3][0]);
-  sink = VADD(sink, data.lazy[4][0]);
-  sink = VADD(sink, data.lazy[5][0]);
-  sink = VADD(sink, data.lazy[6][0]);
-  sink = VADD(sink, data.lazy[7][0]);
+  for (std::size_t limb = 0; limb < NWORDS; ++limb) {
+    sink = VADD(sink, data.lazy[0][limb]);
+    sink = VADD(sink, data.lazy[1][limb]);
+    sink = VADD(sink, data.lazy[2][limb]);
+    sink = VADD(sink, data.lazy[3][limb]);
+    sink = VADD(sink, data.lazy[4][limb]);
+    sink = VADD(sink, data.lazy[5][limb]);
+    sink = VADD(sink, data.lazy[6][limb]);
+    sink = VADD(sink, data.lazy[7][limb]);
+  }
   benchmark::DoNotOptimize(sink);
+  benchmark::ClobberMemory();
 
   const std::size_t ops_per_iter = 8 * kUnroll;
   state.SetItemsProcessed(state.iterations() * ops_per_iter);
