@@ -1,6 +1,7 @@
 #include "blst/fields/Fp_avx.h"
 #include "blst/fields/Fp.h"
 #include <array>
+#include <atomic>
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 
@@ -10,6 +11,64 @@ const u64 P48[NWORDS] = {
     0xFFFFFFFFAAABULL, 0xB153FFFFB9FEULL, 0xF6241EABFFFEULL, 0x6730D2A0F6B0ULL,
     0x4B84F38512BFULL, 0x434BACD76477ULL, 0xE69A4B1BA7B6ULL, 0x1A0111EA397FULL,
 };
+
+namespace
+{
+#if defined(NDEBUG)
+void fp8x1_lfp_bounds_record(const LFpPack8x1&)
+{
+}
+#else
+std::atomic<u64> g_fp8x1_lfp_total_lanes{0};
+std::atomic<u64> g_fp8x1_lfp_ge_p_lanes{0};
+std::atomic<u64> g_fp8x1_lfp_max_limb{0};
+
+BLST_FORCEINLINE bool fp8x1_lane_ge_p(const u64 limbs[NWORDS])
+{
+    for (int i = static_cast<int>(NWORDS) - 1; i >= 0; --i) {
+        if (limbs[i] > P48[i]) {
+            return true;
+        }
+        if (limbs[i] < P48[i]) {
+            return false;
+        }
+    }
+    return true; // equal to p
+}
+
+void fp8x1_lfp_bounds_record(const LFpPack8x1& v)
+{
+    std::array<std::array<u64, 8>, NWORDS> words{};
+    for (std::size_t i = 0; i < NWORDS; ++i) {
+        _cc512_storeu_si512(words[i].data(), v[i]);
+    }
+
+    u64 local_max_limb = 0;
+    u64 ge_p_count = 0;
+    for (std::size_t lane = 0; lane < 8; ++lane) {
+        u64 lane_limbs[NWORDS];
+        for (std::size_t i = 0; i < NWORDS; ++i) {
+            const u64 limb = words[i][lane];
+            BLST_ASSERT(limb <= BMASK);
+            lane_limbs[i] = limb;
+            if (limb > local_max_limb) {
+                local_max_limb = limb;
+            }
+        }
+        ge_p_count += fp8x1_lane_ge_p(lane_limbs) ? 1u : 0u;
+    }
+
+    g_fp8x1_lfp_total_lanes.fetch_add(8, std::memory_order_relaxed);
+    g_fp8x1_lfp_ge_p_lanes.fetch_add(ge_p_count, std::memory_order_relaxed);
+
+    u64 prev = g_fp8x1_lfp_max_limb.load(std::memory_order_relaxed);
+    while (prev < local_max_limb &&
+           !g_fp8x1_lfp_max_limb.compare_exchange_weak(
+               prev, local_max_limb, std::memory_order_relaxed, std::memory_order_relaxed)) {
+    }
+}
+#endif
+} // namespace
 
 void conv_64to48_fp(u64 *r, const u64 *a)
 {
@@ -226,6 +285,28 @@ void carryp_mpi48(u64 *a)
     a[i+1] += a[i]>>BRADIX;
     a[i] &= BMASK;
   }
+}
+
+void fp8x1_lfp_bounds_reset()
+{
+#if !defined(NDEBUG)
+    g_fp8x1_lfp_total_lanes.store(0, std::memory_order_relaxed);
+    g_fp8x1_lfp_ge_p_lanes.store(0, std::memory_order_relaxed);
+    g_fp8x1_lfp_max_limb.store(0, std::memory_order_relaxed);
+#endif
+}
+
+LFpBoundsStats8x1 fp8x1_lfp_bounds_get()
+{
+#if defined(NDEBUG)
+    return LFpBoundsStats8x1{0, 0, 0};
+#else
+    return LFpBoundsStats8x1{
+        g_fp8x1_lfp_total_lanes.load(std::memory_order_relaxed),
+        g_fp8x1_lfp_ge_p_lanes.load(std::memory_order_relaxed),
+        g_fp8x1_lfp_max_limb.load(std::memory_order_relaxed),
+    };
+#endif
 }
 
 void FpPack4x2::carryp(FpPack4x2& a)
@@ -1849,7 +1930,7 @@ void FpPack4x2::mul(UFpPack4x2& r, const FpPack4x2& a, const FpPack4x2& b)
   FpPack4x2::mul_v1(r, a, b);
 }
 
-void UFpPack8x1::redc(FpPack8x1& r, const UFpPack8x1& a)
+void UFpPack8x1::redc_core(LFpPack8x1& r, const UFpPack8x1& a)
 {
   BLST_ASSERT_NO_OVERLAP_AVX(r, a);
 
@@ -1865,79 +1946,79 @@ void UFpPack8x1::redc(FpPack8x1& r, const UFpPack8x1& a)
   const cc512i p3 = VSET1(P48[3]), p4 = VSET1(P48[4]), p5 = VSET1(P48[5]);
   const cc512i p6 = VSET1(P48[6]), p7 = VSET1(P48[7]);
   const cc512i bmask = VSET1(BMASK), montw = VSET1(MONT_W_R48), zero = VZERO();
-  cc512i r0, r1, r2, r3, r4, r5, r6, r7, smask, u, t0;
+  cc512i r0, r1, r2, r3, r4, r5, r6, r7, u;
 
   u  = VAND(VMACLO(zero, a0, montw), bmask);
   a0 = VMACLO(a0, u, p0); a1 = VMACLO(a1, u, p1); a2 = VMACLO(a2, u, p2);
   a3 = VMACLO(a3, u, p3); a4 = VMACLO(a4, u, p4); a5 = VMACLO(a5, u, p5);
-  a6 = VMACLO(a6, u, p6); a7 = VMACLO(a7, u, p7); 
+  a6 = VMACLO(a6, u, p6); a7 = VMACLO(a7, u, p7);
   y0 = VMACHI(y0, u, p0); y1 = VMACHI(y1, u, p1); y2 = VMACHI(y2, u, p2);
   y3 = VMACHI(y3, u, p3); y4 = VMACHI(y4, u, p4); y5 = VMACHI(y5, u, p5);
-  y6 = VMACHI(y6, u, p6); y7 = VMACHI(y7, u, p7); 
+  y6 = VMACHI(y6, u, p6); y7 = VMACHI(y7, u, p7);
   a1 = VADD(VADD(a1, VSRA(a0, BRADIX)), VSHL(y0, BALIGN));
 
   u  = VAND(VMACLO(zero, a1, montw), bmask);
   a1 = VMACLO(a1, u, p0); a2 = VMACLO(a2, u, p1); a3 = VMACLO(a3, u, p2);
   a4 = VMACLO(a4, u, p3); a5 = VMACLO(a5, u, p4); a6 = VMACLO(a6, u, p5);
-  a7 = VMACLO(a7, u, p6); a8 = VMACLO(a8, u, p7); 
+  a7 = VMACLO(a7, u, p6); a8 = VMACLO(a8, u, p7);
   y1 = VMACHI(y1, u, p0); y2 = VMACHI(y2, u, p1); y3 = VMACHI(y3, u, p2);
   y4 = VMACHI(y4, u, p3); y5 = VMACHI(y5, u, p4); y6 = VMACHI(y6, u, p5);
-  y7 = VMACHI(y7, u, p6); y8 = VMACHI(y8, u, p7); 
+  y7 = VMACHI(y7, u, p6); y8 = VMACHI(y8, u, p7);
   a2 = VADD(VADD(a2, VSRA(a1, BRADIX)), VSHL(y1, BALIGN));
 
   u  = VAND(VMACLO(zero, a2, montw), bmask);
   a2 = VMACLO(a2, u, p0); a3 = VMACLO(a3, u, p1); a4 = VMACLO(a4, u, p2);
   a5 = VMACLO(a5, u, p3); a6 = VMACLO(a6, u, p4); a7 = VMACLO(a7, u, p5);
-  a8 = VMACLO(a8, u, p6); a9 = VMACLO(a9, u, p7); 
+  a8 = VMACLO(a8, u, p6); a9 = VMACLO(a9, u, p7);
   y2 = VMACHI(y2, u, p0); y3 = VMACHI(y3, u, p1); y4 = VMACHI(y4, u, p2);
   y5 = VMACHI(y5, u, p3); y6 = VMACHI(y6, u, p4); y7 = VMACHI(y7, u, p5);
-  y8 = VMACHI(y8, u, p6); y9 = VMACHI(y9, u, p7); 
+  y8 = VMACHI(y8, u, p6); y9 = VMACHI(y9, u, p7);
   a3 = VADD(VADD(a3, VSRA(a2, BRADIX)), VSHL(y2, BALIGN));
 
   u  = VAND(VMACLO(zero, a3, montw), bmask);
   a3 = VMACLO(a3, u, p0); a4  = VMACLO(a4,  u, p1); a5 = VMACLO(a5, u, p2);
   a6 = VMACLO(a6, u, p3); a7  = VMACLO(a7,  u, p4); a8 = VMACLO(a8, u, p5);
-  a9 = VMACLO(a9, u, p6); a10 = VMACLO(a10, u, p7); 
+  a9 = VMACLO(a9, u, p6); a10 = VMACLO(a10, u, p7);
   y3 = VMACHI(y3, u, p0); y4  = VMACHI(y4 , u, p1); y5 = VMACHI(y5, u, p2);
   y6 = VMACHI(y6, u, p3); y7  = VMACHI(y7 , u, p4); y8 = VMACHI(y8, u, p5);
-  y9 = VMACHI(y9, u, p6); y10 = VMACHI(y10, u, p7); 
+  y9 = VMACHI(y9, u, p6); y10 = VMACHI(y10, u, p7);
   a4 = VADD(VADD(a4, VSRA(a3, BRADIX)), VSHL(y3, BALIGN));
 
   u   = VAND(VMACLO(zero, a4, montw), bmask);
   a4  = VMACLO(a4 , u, p0); a5  = VMACLO(a5 , u, p1); a6 = VMACLO(a6, u, p2);
   a7  = VMACLO(a7 , u, p3); a8  = VMACLO(a8 , u, p4); a9 = VMACLO(a9, u, p5);
-  a10 = VMACLO(a10, u, p6); a11 = VMACLO(a11, u, p7); 
+  a10 = VMACLO(a10, u, p6); a11 = VMACLO(a11, u, p7);
   y4  = VMACHI(y4 , u, p0); y5  = VMACHI(y5 , u, p1); y6 = VMACHI(y6, u, p2);
   y7  = VMACHI(y7 , u, p3); y8  = VMACHI(y8 , u, p4); y9 = VMACHI(y9, u, p5);
-  y10 = VMACHI(y10, u, p6); y11 = VMACHI(y11, u, p7); 
+  y10 = VMACHI(y10, u, p6); y11 = VMACHI(y11, u, p7);
   a5  = VADD(VADD(a5, VSRA(a4, BRADIX)), VSHL(y4, BALIGN));
 
   u   = VAND(VMACLO(zero, a5, montw), bmask);
   a5  = VMACLO(a5 , u, p0); a6  = VMACLO(a6 , u, p1); a7  = VMACLO(a7 , u, p2);
   a8  = VMACLO(a8 , u, p3); a9  = VMACLO(a9 , u, p4); a10 = VMACLO(a10, u, p5);
-  a11 = VMACLO(a11, u, p6); a12 = VMACLO(a12, u, p7); 
+  a11 = VMACLO(a11, u, p6); a12 = VMACLO(a12, u, p7);
   y5  = VMACHI(y5 , u, p0); y6  = VMACHI(y6 , u, p1); y7  = VMACHI(y7 , u, p2);
   y8  = VMACHI(y8 , u, p3); y9  = VMACHI(y9 , u, p4); y10 = VMACHI(y10, u, p5);
-  y11 = VMACHI(y11, u, p6); y12 = VMACHI(y12, u, p7); 
-  a6  = VADD(VADD(a6, VSRA(a5, BRADIX)), VSHL(y5, BALIGN));  
+  y11 = VMACHI(y11, u, p6); y12 = VMACHI(y12, u, p7);
+  a6  = VADD(VADD(a6, VSRA(a5, BRADIX)), VSHL(y5, BALIGN));
 
   u   = VAND(VMACLO(zero, a6, montw), bmask);
   a6  = VMACLO(a6 , u, p0); a7  = VMACLO(a7 , u, p1); a8  = VMACLO(a8 , u, p2);
   a9  = VMACLO(a9 , u, p3); a10 = VMACLO(a10, u, p4); a11 = VMACLO(a11, u, p5);
-  a12 = VMACLO(a12, u, p6); a13 = VMACLO(a13, u, p7); 
+  a12 = VMACLO(a12, u, p6); a13 = VMACLO(a13, u, p7);
   y6  = VMACHI(y6 , u, p0); y7  = VMACHI(y7 , u, p1); y8  = VMACHI(y8 , u, p2);
   y9  = VMACHI(y9 , u, p3); y10 = VMACHI(y10, u, p4); y11 = VMACHI(y11, u, p5);
-  y12 = VMACHI(y12, u, p6); y13 = VMACHI(y13, u, p7); 
-  a7  = VADD(VADD(a7, VSRA(a6, BRADIX)), VSHL(y6, BALIGN));  
+  y12 = VMACHI(y12, u, p6); y13 = VMACHI(y13, u, p7);
+  a7  = VADD(VADD(a7, VSRA(a6, BRADIX)), VSHL(y6, BALIGN));
 
   u   = VAND(VMACLO(zero, a7, montw), bmask);
   a7  = VMACLO(a7 , u, p0); a8  = VMACLO(a8 , u, p1); a9  = VMACLO(a9 , u, p2);
   a10 = VMACLO(a10, u, p3); a11 = VMACLO(a11, u, p4); a12 = VMACLO(a12, u, p5);
-  a13 = VMACLO(a13, u, p6); a14 = VMACLO(a14, u, p7); 
+  a13 = VMACLO(a13, u, p6); a14 = VMACLO(a14, u, p7);
   y7  = VMACHI(y7 , u, p0); y8  = VMACHI(y8 , u, p1); y9  = VMACHI(y9 , u, p2);
   y10 = VMACHI(y10, u, p3); y11 = VMACHI(y11, u, p4); y12 = VMACHI(y12, u, p5);
-  y13 = VMACHI(y13, u, p6); y14 = VMACHI(y14, u, p7); 
-  a8  = VADD(VADD(a8, VSRA(a7, BRADIX)), VSHL(y7, BALIGN)); 
+  y13 = VMACHI(y13, u, p6); y14 = VMACHI(y14, u, p7);
+  a8  = VADD(VADD(a8, VSRA(a7, BRADIX)), VSHL(y7, BALIGN));
 
   a9  = VADD(a9 , VSHL(y8 , BALIGN));
   a10 = VADD(a10, VSHL(y9 , BALIGN));
@@ -1947,33 +2028,10 @@ void UFpPack8x1::redc(FpPack8x1& r, const UFpPack8x1& a)
   a14 = VADD(a14, VSHL(y13, BALIGN));
   a15 = VADD(a15, VSHL(y14, BALIGN));
 
-  // final subtraction 
   r0 = a8 ; r1 = a9 ; r2 = a10; r3 = a11;
   r4 = a12; r5 = a13; r6 = a14; r7 = a15;
 
-  // r = r - p
-  r0 = VSUB(r0, p0); r1 = VSUB(r1, p1); r2 = VSUB(r2, p2); r3 = VSUB(r3, p3);
-  r4 = VSUB(r4, p4); r5 = VSUB(r5, p5); r6 = VSUB(r6, p6); r7 = VSUB(r7, p7);
-
-  // get sign mask 
-  t0 = VADD(r1, VSRA(r0, BRADIX));
-  t0 = VADD(r2, VSRA(t0, BRADIX));
-  t0 = VADD(r3, VSRA(t0, BRADIX));
-  t0 = VADD(r4, VSRA(t0, BRADIX));
-  t0 = VADD(r5, VSRA(t0, BRADIX));
-  t0 = VADD(r6, VSRA(t0, BRADIX));
-  t0 = VADD(r7, VSRA(t0, BRADIX));
-
-  // if r is non-negative, smask = all-0 
-  // if r is     negative, smask = all-1
-  smask = VSRA(t0, 63);
-  // r = r + (p & smask)
-  r0 = VADD(r0, VAND(p0, smask)); r1 = VADD(r1, VAND(p1, smask)); 
-  r2 = VADD(r2, VAND(p2, smask)); r3 = VADD(r3, VAND(p3, smask)); 
-  r4 = VADD(r4, VAND(p4, smask)); r5 = VADD(r5, VAND(p5, smask)); 
-  r6 = VADD(r6, VAND(p6, smask)); r7 = VADD(r7, VAND(p7, smask)); 
-
-  // carry propagation 
+  // carry propagation only; no final subtraction of p.
   r1 = VADD(r1, VSRA(r0, BRADIX)); r0 = VAND(r0, bmask);
   r2 = VADD(r2, VSRA(r1, BRADIX)); r1 = VAND(r1, bmask);
   r3 = VADD(r3, VSRA(r2, BRADIX)); r2 = VAND(r2, bmask);
@@ -1985,6 +2043,65 @@ void UFpPack8x1::redc(FpPack8x1& r, const UFpPack8x1& a)
 
   r[0] = r0; r[1] = r1; r[2] = r2; r[3] = r3;
   r[4] = r4; r[5] = r5; r[6] = r6; r[7] = r7;
+
+  fp8x1_lfp_bounds_record(r);
+}
+
+void UFpPack8x1::normalize(FpPack8x1& r, const LFpPack8x1& a)
+{
+  BLST_ASSERT_NO_OVERLAP_AVX(r, a);
+
+  const cc512i p0 = VSET1(P48[0]), p1 = VSET1(P48[1]), p2 = VSET1(P48[2]);
+  const cc512i p3 = VSET1(P48[3]), p4 = VSET1(P48[4]), p5 = VSET1(P48[5]);
+  const cc512i p6 = VSET1(P48[6]), p7 = VSET1(P48[7]);
+  const cc512i bmask = VSET1(BMASK);
+  cc512i r0 = a[0], r1 = a[1], r2 = a[2], r3 = a[3];
+  cc512i r4 = a[4], r5 = a[5], r6 = a[6], r7 = a[7];
+  cc512i smask, t0;
+
+  // r = r - p
+  r0 = VSUB(r0, p0); r1 = VSUB(r1, p1); r2 = VSUB(r2, p2); r3 = VSUB(r3, p3);
+  r4 = VSUB(r4, p4); r5 = VSUB(r5, p5); r6 = VSUB(r6, p6); r7 = VSUB(r7, p7);
+
+  // get sign mask
+  t0 = VADD(r1, VSRA(r0, BRADIX));
+  t0 = VADD(r2, VSRA(t0, BRADIX));
+  t0 = VADD(r3, VSRA(t0, BRADIX));
+  t0 = VADD(r4, VSRA(t0, BRADIX));
+  t0 = VADD(r5, VSRA(t0, BRADIX));
+  t0 = VADD(r6, VSRA(t0, BRADIX));
+  t0 = VADD(r7, VSRA(t0, BRADIX));
+
+  // if r is non-negative, smask = all-0
+  // if r is negative,     smask = all-1
+  smask = VSRA(t0, 63);
+  // r = r + (p & smask)
+  r0 = VADD(r0, VAND(p0, smask)); r1 = VADD(r1, VAND(p1, smask));
+  r2 = VADD(r2, VAND(p2, smask)); r3 = VADD(r3, VAND(p3, smask));
+  r4 = VADD(r4, VAND(p4, smask)); r5 = VADD(r5, VAND(p5, smask));
+  r6 = VADD(r6, VAND(p6, smask)); r7 = VADD(r7, VAND(p7, smask));
+
+  // carry propagation
+  r1 = VADD(r1, VSRA(r0, BRADIX)); r0 = VAND(r0, bmask);
+  r2 = VADD(r2, VSRA(r1, BRADIX)); r1 = VAND(r1, bmask);
+  r3 = VADD(r3, VSRA(r2, BRADIX)); r2 = VAND(r2, bmask);
+  r4 = VADD(r4, VSRA(r3, BRADIX)); r3 = VAND(r3, bmask);
+  r5 = VADD(r5, VSRA(r4, BRADIX)); r4 = VAND(r4, bmask);
+  r6 = VADD(r6, VSRA(r5, BRADIX)); r5 = VAND(r5, bmask);
+  r7 = VADD(r7, VSRA(r6, BRADIX)); r6 = VAND(r6, bmask);
+                                   r7 = VAND(r7, bmask);
+
+  r[0] = r0; r[1] = r1; r[2] = r2; r[3] = r3;
+  r[4] = r4; r[5] = r5; r[6] = r6; r[7] = r7;
+}
+
+void UFpPack8x1::redc(FpPack8x1& r, const UFpPack8x1& a)
+{
+  BLST_ASSERT_NO_OVERLAP_AVX(r, a);
+
+  LFpPack8x1 lazy{};
+  UFpPack8x1::redc_core(lazy, a);
+  UFpPack8x1::normalize(r, lazy);
 }
 
 void UFpPack4x2::redc(FpPack4x2& r, const UFpPack4x2& a)

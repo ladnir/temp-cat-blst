@@ -107,6 +107,7 @@ namespace blst
 #endif
 
     struct UFpPack8x1;
+    struct LFpPack8x1;
 
     /** @name Packed AVX Fp layouts */
     ///@{
@@ -200,6 +201,14 @@ namespace blst
 
     };
 
+    /// @brief Eight parallel lazy-reduced Fp values in "8x1w" layout.
+    /// @details
+    /// Same physical layout as `FpPack8x1`, but semantic range is intentionally
+    /// non-canonical (`[0, c_l * p)` for a small constant `c_l`).
+    struct LFpPack8x1 : public AvxPack<NWORDS>
+    {
+    };
+
 
     /// @brief Widened container for `FpPack8x1` products and linear combinations.
     /// @details
@@ -236,6 +245,16 @@ namespace blst
         /// @brief Widened mixed helper (`ssasx2`) on `UFpPack8x1`.
         /// @details Computes `<H-P, G-O, F+N, E-M, D-L, C-K, B+J, A-I>` with high-half correction and normalization.
         static void ssasx2(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b);
+
+        /// @brief Montgomery reduction core from widened `8x1w` to lazy-reduced `LFpPack8x1`.
+        /// @pre `a` is a valid double-length radix-48 value (typically from `FpPack8x1::mul*`).
+        /// @post `r` has carry-propagated radix-48 limbs without final canonical subtraction.
+        static void redc_core(LFpPack8x1& r, const UFpPack8x1& a);
+
+        /// @brief Canonicalize a lazy-reduced `LFpPack8x1` into reduced `FpPack8x1`.
+        /// @pre `a` is a valid lazy-reduced radix-48 value.
+        /// @post `r` is reduced modulo `p` in Montgomery form, radix-48 limbs.
+        static void normalize(FpPack8x1& r, const LFpPack8x1& a);
 
         /// @brief Montgomery reduction from widened `8x1w` to reduced `FpPack8x1`.
         /// @pre `a` is a valid double-length radix-48 value (typically from `FpPack8x1::mul*`).
@@ -340,6 +359,8 @@ namespace blst
 
     static_assert(std::is_trivially_default_constructible_v<FpPack8x1>);
     static_assert(std::is_trivially_copyable_v<FpPack8x1>);
+    static_assert(std::is_trivially_default_constructible_v<LFpPack8x1>);
+    static_assert(std::is_trivially_copyable_v<LFpPack8x1>);
     static_assert(std::is_trivially_default_constructible_v<UFpPack8x1>);
     static_assert(std::is_trivially_copyable_v<UFpPack8x1>);
     static_assert(std::is_trivially_default_constructible_v<FpPack4x2>);
@@ -378,6 +399,20 @@ namespace blst
     /// @post `a[0..NWORDS-2] < 2^48`; final carry remains in `a[NWORDS-1]`.
     void carryp_mpi48(u64* a);
     ///@}
+
+    /// @brief Debug-only telemetry for observed lazy-reduced limb bounds.
+    struct LFpBoundsStats8x1
+    {
+        u64 total_lanes;
+        u64 ge_p_lanes;
+        u64 max_limb;
+    };
+
+    /// @brief Reset lazy-bound telemetry counters.
+    void fp8x1_lfp_bounds_reset();
+
+    /// @brief Read lazy-bound telemetry counters.
+    LFpBoundsStats8x1 fp8x1_lfp_bounds_get();
 
     /// @brief K-wise widened multiply over `FpPack8x1` arrays.
     /// @tparam K Number of independent packs processed per block (`1`, `2`, or `4`).

@@ -1011,6 +1011,58 @@ TEST(FpAvx, MulRedc8x1w)
     }
 }
 
+TEST(FpAvx, RedcCoreNormalize8x1w)
+{
+    InsecureRng rng;
+    fp8x1_lfp_bounds_reset();
+
+    for (int iter = 0; iter < 192; ++iter) {
+        FpVec8 a{}, b{};
+        for (size_t lane = 0; lane < 8; ++lane) {
+            rand_redc_fp(a[lane], rng);
+            rand_redc_fp(b[lane], rng);
+        }
+        force_edge_lanes(a);
+        force_edge_lanes(b);
+
+        FpPack8x1 avx_a{}, avx_b{};
+        UFpPack8x1 wide{};
+        FpPack8x1 red_direct{}, red_split{};
+        LFpPack8x1 lazy{};
+        FpVec8 out_direct{}, out_split{};
+
+        pack_FpPack8x1(avx_a, a);
+        pack_FpPack8x1(avx_b, b);
+
+        FpPack8x1::mul_v2(wide, avx_a, avx_b);
+        UFpPack8x1::redc(red_direct, wide);
+        UFpPack8x1::redc_core(lazy, wide);
+        UFpPack8x1::normalize(red_split, lazy);
+
+        unpack_FpPack8x1(out_direct, red_direct);
+        unpack_FpPack8x1(out_split, red_split);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            Fp expected{};
+            Fp::mul(expected, a[lane], b[lane]);
+            EXPECT_TRUE(Fp::equal(out_direct[lane], expected));
+            EXPECT_TRUE(Fp::equal(out_split[lane], expected));
+            EXPECT_TRUE(Fp::equal(out_direct[lane], out_split[lane]));
+            EXPECT_EQ(Fp::is_redc(out_split[lane]), 1);
+        }
+    }
+
+    const LFpBoundsStats8x1 stats = fp8x1_lfp_bounds_get();
+#if defined(NDEBUG)
+    EXPECT_EQ(stats.total_lanes, 0u);
+    EXPECT_EQ(stats.ge_p_lanes, 0u);
+    EXPECT_EQ(stats.max_limb, 0u);
+#else
+    EXPECT_GT(stats.total_lanes, 0u);
+    EXPECT_LE(stats.ge_p_lanes, stats.total_lanes);
+    EXPECT_LE(stats.max_limb, BMASK);
+#endif
+}
+
 TEST(FpAvx, MulRedc4x2w)
 {
     InsecureRng rng;

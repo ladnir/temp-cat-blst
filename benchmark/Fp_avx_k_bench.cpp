@@ -32,6 +32,7 @@ struct Fp8x1KBenchData
       , a(n_packs_)
       , b(n_packs_)
       , wide(n_packs_)
+      , lazy(n_packs_)
       , out(n_packs_)
   {
     std::mt19937_64 gen(0xA6B1F81EULL + static_cast<u64>(n_packs_));
@@ -46,6 +47,7 @@ struct Fp8x1KBenchData
       FpPack8x1::from_aos(a[i], lane_a.data());
       FpPack8x1::from_aos(b[i], lane_b.data());
       FpPack8x1::mul_v2(wide[i], a[i], b[i]);
+      UFpPack8x1::redc_core(lazy[i], wide[i]);
     }
   }
 
@@ -53,6 +55,7 @@ struct Fp8x1KBenchData
   std::vector<FpPack8x1> a;
   std::vector<FpPack8x1> b;
   std::vector<UFpPack8x1> wide;
+  std::vector<LFpPack8x1> lazy;
   std::vector<FpPack8x1> out;
 };
 
@@ -101,6 +104,36 @@ void BM_Fp8x1MulRedcK(benchmark::State& state)
   state.SetItemsProcessed(state.iterations() * n_packs);
 }
 
+void BM_Fp8x1RedcCore(benchmark::State& state)
+{
+  const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
+  Fp8x1KBenchData data(n_packs);
+
+  for (auto _ : state) {
+    for (std::size_t i = 0; i < n_packs; ++i) {
+      UFpPack8x1::redc_core(data.lazy[i], data.wide[i]);
+    }
+    benchmark::DoNotOptimize(data.lazy.data());
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs);
+}
+
+void BM_Fp8x1Normalize(benchmark::State& state)
+{
+  const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
+  Fp8x1KBenchData data(n_packs);
+
+  for (auto _ : state) {
+    for (std::size_t i = 0; i < n_packs; ++i) {
+      UFpPack8x1::normalize(data.out[i], data.lazy[i]);
+    }
+    benchmark::DoNotOptimize(data.out.data());
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs);
+}
+
 BENCHMARK_TEMPLATE(BM_Fp8x1MulV2K, 1)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp8x1MulV2K, 2)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp8x1MulV2K, 4)->Arg(256);
@@ -112,6 +145,9 @@ BENCHMARK_TEMPLATE(BM_Fp8x1RedcK, 4)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp8x1MulRedcK, 1)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp8x1MulRedcK, 2)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp8x1MulRedcK, 4)->Arg(256);
+
+BENCHMARK(BM_Fp8x1RedcCore)->Arg(256);
+BENCHMARK(BM_Fp8x1Normalize)->Arg(256);
 
 } // namespace
 
