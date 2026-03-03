@@ -241,6 +241,96 @@ void BM_IFMA52Throughput_Indep(benchmark::State& state)
   state.counters["madd52_per_iter"] = static_cast<double>(madd_per_iter);
 }
 
+template <int Chains>
+void BM_IFMA52LoHi_SeqChains(benchmark::State& state)
+{
+  static_assert(Chains >= 2 && Chains <= 4, "SeqChains PoC supports Chains in [2,4].");
+  constexpr std::size_t kUnroll = 8;
+
+  const cc512i a = VSET1(0x0000FFFFFFFFFFFFULL);
+  const cc512i b = VSET1(0x00000000FFFFFFFFULL);
+  cc512i x0 = VSET1(1), x1 = VSET1(2), x2 = VSET1(3), x3 = VSET1(4);
+
+  for (auto _ : state) {
+    for (std::size_t i = 0; i < kUnroll; ++i) {
+      x0 = VMACLO(x0, a, b);
+      x0 = VMACHI(x0, a, b);
+    }
+    for (std::size_t i = 0; i < kUnroll; ++i) {
+      x1 = VMACLO(x1, a, b);
+      x1 = VMACHI(x1, a, b);
+    }
+    if constexpr (Chains >= 3) {
+      for (std::size_t i = 0; i < kUnroll; ++i) {
+        x2 = VMACLO(x2, a, b);
+        x2 = VMACHI(x2, a, b);
+      }
+    }
+    if constexpr (Chains >= 4) {
+      for (std::size_t i = 0; i < kUnroll; ++i) {
+        x3 = VMACLO(x3, a, b);
+        x3 = VMACHI(x3, a, b);
+      }
+    }
+  }
+
+  cc512i sink = VADD(x0, x1);
+  if constexpr (Chains >= 3) {
+    sink = VADD(sink, x2);
+  }
+  if constexpr (Chains >= 4) {
+    sink = VADD(sink, x3);
+  }
+  benchmark::DoNotOptimize(sink);
+
+  const std::size_t madd_per_iter = static_cast<std::size_t>(Chains) * kUnroll * 2;
+  state.SetItemsProcessed(state.iterations() * madd_per_iter);
+  state.counters["madd52_per_iter"] = static_cast<double>(madd_per_iter);
+  state.counters["chains"] = static_cast<double>(Chains);
+  state.counters["unroll"] = static_cast<double>(kUnroll);
+}
+
+template <int Chains>
+void BM_IFMA52LoHi_HandInterleavedChains(benchmark::State& state)
+{
+  static_assert(Chains >= 2 && Chains <= 4, "HandInterleaved PoC supports Chains in [2,4].");
+  constexpr std::size_t kUnroll = 8;
+
+  const cc512i a = VSET1(0x0000FFFFFFFFFFFFULL);
+  const cc512i b = VSET1(0x00000000FFFFFFFFULL);
+  cc512i x0 = VSET1(1), x1 = VSET1(2), x2 = VSET1(3), x3 = VSET1(4);
+
+  for (auto _ : state) {
+    for (std::size_t i = 0; i < kUnroll; ++i) {
+      // Hand-stamped cross-chain issue pattern.
+      x0 = VMACLO(x0, a, b);
+      x1 = VMACLO(x1, a, b);
+      if constexpr (Chains >= 3) { x2 = VMACLO(x2, a, b); }
+      if constexpr (Chains >= 4) { x3 = VMACLO(x3, a, b); }
+
+      x0 = VMACHI(x0, a, b);
+      x1 = VMACHI(x1, a, b);
+      if constexpr (Chains >= 3) { x2 = VMACHI(x2, a, b); }
+      if constexpr (Chains >= 4) { x3 = VMACHI(x3, a, b); }
+    }
+  }
+
+  cc512i sink = VADD(x0, x1);
+  if constexpr (Chains >= 3) {
+    sink = VADD(sink, x2);
+  }
+  if constexpr (Chains >= 4) {
+    sink = VADD(sink, x3);
+  }
+  benchmark::DoNotOptimize(sink);
+
+  const std::size_t madd_per_iter = static_cast<std::size_t>(Chains) * kUnroll * 2;
+  state.SetItemsProcessed(state.iterations() * madd_per_iter);
+  state.counters["madd52_per_iter"] = static_cast<double>(madd_per_iter);
+  state.counters["chains"] = static_cast<double>(Chains);
+  state.counters["unroll"] = static_cast<double>(kUnroll);
+}
+
 void BM_IFMA52Latency_Lo_DepChain(benchmark::State& state)
 {
   BM_IFMA52Latency_DepChain<true, false>(state);
@@ -304,6 +394,11 @@ BENCHMARK(BM_IFMA52Throughput_LoHi_Indep4);
 BENCHMARK(BM_IFMA52Throughput_LoHi_Indep8);
 BENCHMARK(BM_IFMA52Throughput_LoHi_Indep12);
 BENCHMARK(BM_IFMA52Throughput_LoHi_Indep16);
+
+BENCHMARK_TEMPLATE(BM_IFMA52LoHi_SeqChains, 2);
+BENCHMARK_TEMPLATE(BM_IFMA52LoHi_HandInterleavedChains, 2);
+BENCHMARK_TEMPLATE(BM_IFMA52LoHi_SeqChains, 4);
+BENCHMARK_TEMPLATE(BM_IFMA52LoHi_HandInterleavedChains, 4);
 
 } // namespace
 

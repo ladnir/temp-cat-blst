@@ -264,7 +264,7 @@ Primary metrics:
 
 These numbers are the current reference for IFMA-only behavior (`VPMADD52LOQ` / `VPMADD52HIQ`) from dedicated microbenchmarks:
 
-- Dependency-chain latency tests:
+- Preliminary (single-step chain, more loop-overhead-sensitive):
   - `BM_IFMA52Latency_Lo_DepChain`: `2.99 ns` per `madd52`
   - `BM_IFMA52Latency_Hi_DepChain`: `2.98 ns` per `madd52`
   - `BM_IFMA52Latency_LoHi_DepChain`: `4.06 ns` per 2 `madd52` ops
@@ -274,6 +274,23 @@ These numbers are the current reference for IFMA-only behavior (`VPMADD52LOQ` / 
   - `Lo+Hi`: ~`6.6-6.8 G madd52/s` overall (best observed ~`6.84 G/s`)
 
 Use `6.8e9 madd52/s` as the current practical IFMA ceiling for planning.
+
+### Core discovery: dependency chains collapse IFMA throughput
+
+Unrolled dependency-chain measurements (`unroll=8`) show a much lower effective IFMA rate than independent streams:
+
+- `BM_IFMA52Latency_Lo_DepChain`: `10.8 ns` for 8 ops -> ~`0.742 G madd52/s`
+- `BM_IFMA52Latency_Hi_DepChain`: `10.8 ns` for 8 ops -> ~`0.740 G madd52/s`
+- `BM_IFMA52Latency_LoHi_DepChain`: `19.7 ns` for 16 ops -> ~`0.813 G madd52/s`
+
+Compared to the independent-stream plateau (~`6.8 G madd52/s`), dependency chains are about `8x-9x` slower.
+
+This is a primary design driver:
+
+- Minimize long carry-dependent chains in hot loops.
+- Reduce reduction boundaries and defer canonicalization.
+- Favor accumulator/lazy strategies that increase independent work between renorm/reduce steps.
+- Treat low-level IFMA scheduling as secondary unless a kernel is already close to the IFMA ceiling.
 
 ### Comparing kernel results to IFMA ceiling
 
