@@ -529,6 +529,44 @@ void BM_GTScalarMult_PackGLV4_LoopOnly_Predecoded(benchmark::State& state)
 }
 BENCHMARK(BM_GTScalarMult_PackGLV4_LoopOnly_Predecoded)->Arg(1)->Arg(4);
 
+void BM_GTScalarMult_PackGLV4_LoopOnly_Predecoded_ConstTable(benchmark::State& state)
+{
+    const std::size_t packs = static_cast<std::size_t>(state.range(0));
+    GTBenchData data(packs);
+    std::vector<GTGlv4Pack8x1> plans(data.n_packs);
+    std::vector<GTGlv4KernelPack> kernels(data.n_packs);
+    std::vector<GTGlv4DecodedPack> decoded(data.n_packs);
+
+    const bool ok = GTPack8x1::compile_glv4(
+        std::span<GTGlv4Pack8x1>(plans.data(), plans.size()),
+        std::span<const byte>(data.scalars.data(), data.scalars.size()),
+        kStride,
+        kNBits);
+    if (!ok) {
+        state.SkipWithError("compile_glv4 failed");
+        return;
+    }
+
+    for (std::size_t p = 0; p < data.n_packs; ++p) {
+        const Fp12Pack8x1 table_constant = data.a_pack[p].c;
+        kernels[p].init = gt_identity_pack_bench().c;
+        for (u8 idx = 0; idx < 16; ++idx) {
+            kernels[p].table[idx] = table_constant;
+        }
+        gt_glv4_predecode(decoded[p], plans[p]);
+    }
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs; ++p) {
+            data.out_pack[p].c = kernels[p].init;
+            gt_glv4_apply_loop_predecoded(data.out_pack[p].c, kernels[p], decoded[p]);
+        }
+        benchmark::DoNotOptimize(data.out_pack.data());
+    }
+    state.SetItemsProcessed(state.iterations() * data.n_tuples);
+}
+BENCHMARK(BM_GTScalarMult_PackGLV4_LoopOnly_Predecoded_ConstTable)->Arg(1)->Arg(4);
+
 } // namespace
 
 #endif // BLST_AVX512
