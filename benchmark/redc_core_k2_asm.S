@@ -5,6 +5,8 @@
 
 .globl blst_redc_core_k2_asm
 .type blst_redc_core_k2_asm, @function
+.globl blst_redc_core_k2_asm_v2
+.type blst_redc_core_k2_asm_v2, @function
 
 .macro REDC_ROUND U, C, A0, A1, A2, A3, A4, A5, A6, A7, Y0, Y1, Y2, Y3, Y4, Y5, Y6, BASE, OFF
     vpxorq \U, \U, \U
@@ -82,6 +84,106 @@
     vpandq \R6, \R6, \BM
 
     vpandq \R7, \R7, \BM
+.endm
+
+.macro REDC_ROUND_BOTH6 U0, U1, C, T, A0, A1, A2, A3, A4, A5, A6, A7, B0, B1, B2, B3, B4, B5, B6, B7, Y0, Y1, Y2, Y3, Y4, Y5, Z0, Z1, Z2, Z3, Z4, Z5, BASEA, OFFA, BASEB, OFFB
+    # u0/u1 from pivot limbs
+    vpxorq \U0, \U0, \U0
+    vpmadd52luq \U0, \A0, ZMMWORD PTR [rip + montw_vec]
+    vpandq \U0, \U0, ZMMWORD PTR [rip + bmask_vec]
+    vpxorq \U1, \U1, \U1
+    vpmadd52luq \U1, \B0, ZMMWORD PTR [rip + montw_vec]
+    vpandq \U1, \U1, ZMMWORD PTR [rip + bmask_vec]
+
+    # p0 low updates
+    vmovdqa64 \C, ZMMWORD PTR [rip + p0_vec]
+    vpmadd52luq \A0, \U0, \C
+    vpmadd52luq \B0, \U1, \C
+
+    # a[r+1] / b[r+1] += carry(pivot)
+    vpsraq \T, \A0, 48
+    vpaddq \A1, \A1, \T
+    vpsraq \T, \B0, 48
+    vpaddq \B1, \B1, \T
+
+    # add old queue head
+    vpsllq \T, \Y0, 4
+    vpaddq \A1, \A1, \T
+    vpsllq \T, \Z0, 4
+    vpaddq \B1, \B1, \T
+
+    # add p0 high directly to next limb
+    vpmadd52huq \T, \U0, \C
+    vpsllq \T, \T, 4
+    vpaddq \A1, \A1, \T
+    vpmadd52huq \T, \U1, \C
+    vpsllq \T, \T, 4
+    vpaddq \B1, \B1, \T
+
+    # shift queue by one slot
+    vmovdqa64 \Y0, \Y1
+    vmovdqa64 \Y1, \Y2
+    vmovdqa64 \Y2, \Y3
+    vmovdqa64 \Y3, \Y4
+    vmovdqa64 \Y4, \Y5
+    vpxorq \Y5, \Y5, \Y5
+
+    vmovdqa64 \Z0, \Z1
+    vmovdqa64 \Z1, \Z2
+    vmovdqa64 \Z2, \Z3
+    vmovdqa64 \Z3, \Z4
+    vmovdqa64 \Z4, \Z5
+    vpxorq \Z5, \Z5, \Z5
+
+    # p1..p6 low/high updates (high accumulates into queue slots)
+    vmovdqa64 \C, ZMMWORD PTR [rip + p1_vec]
+    vpmadd52luq \A1, \U0, \C
+    vpmadd52huq \Y0, \U0, \C
+    vpmadd52luq \B1, \U1, \C
+    vpmadd52huq \Z0, \U1, \C
+
+    vmovdqa64 \C, ZMMWORD PTR [rip + p2_vec]
+    vpmadd52luq \A2, \U0, \C
+    vpmadd52huq \Y1, \U0, \C
+    vpmadd52luq \B2, \U1, \C
+    vpmadd52huq \Z1, \U1, \C
+
+    vmovdqa64 \C, ZMMWORD PTR [rip + p3_vec]
+    vpmadd52luq \A3, \U0, \C
+    vpmadd52huq \Y2, \U0, \C
+    vpmadd52luq \B3, \U1, \C
+    vpmadd52huq \Z2, \U1, \C
+
+    vmovdqa64 \C, ZMMWORD PTR [rip + p4_vec]
+    vpmadd52luq \A4, \U0, \C
+    vpmadd52huq \Y3, \U0, \C
+    vpmadd52luq \B4, \U1, \C
+    vpmadd52huq \Z3, \U1, \C
+
+    vmovdqa64 \C, ZMMWORD PTR [rip + p5_vec]
+    vpmadd52luq \A5, \U0, \C
+    vpmadd52huq \Y4, \U0, \C
+    vpmadd52luq \B5, \U1, \C
+    vpmadd52huq \Z4, \U1, \C
+
+    vmovdqa64 \C, ZMMWORD PTR [rip + p6_vec]
+    vpmadd52luq \A6, \U0, \C
+    vpmadd52huq \Y5, \U0, \C
+    vpmadd52luq \B6, \U1, \C
+    vpmadd52huq \Z5, \U1, \C
+
+    # p7 eager fold into loaded next limb
+    vmovdqa64 \A0, ZMMWORD PTR [\BASEA + \OFFA]
+    vmovdqa64 \B0, ZMMWORD PTR [\BASEB + \OFFB]
+    vmovdqa64 \C, ZMMWORD PTR [rip + p7_vec]
+    vpmadd52luq \A0, \U0, \C
+    vpmadd52luq \B0, \U1, \C
+    vpmadd52huq \T, \U0, \C
+    vpsllq \T, \T, 4
+    vpaddq \A0, \A0, \T
+    vpmadd52huq \T, \U1, \C
+    vpsllq \T, \T, 4
+    vpaddq \B0, \B0, \T
 .endm
 
 blst_redc_core_k2_asm:
@@ -204,6 +306,113 @@ blst_redc_core_k2_asm:
     ret
 
 .size blst_redc_core_k2_asm, .-blst_redc_core_k2_asm
+
+blst_redc_core_k2_asm_v2:
+    # stream 0 init: zmm0..zmm7 = a0..a7
+    vmovdqa64 zmm0, [rdx + 0]
+    vmovdqa64 zmm1, [rdx + 64]
+    vmovdqa64 zmm2, [rdx + 128]
+    vmovdqa64 zmm3, [rdx + 192]
+    vmovdqa64 zmm4, [rdx + 256]
+    vmovdqa64 zmm5, [rdx + 320]
+    vmovdqa64 zmm6, [rdx + 384]
+    vmovdqa64 zmm7, [rdx + 448]
+
+    # stream 1 init: zmm8..zmm15 = b0..b7
+    vmovdqa64 zmm8,  [rcx + 0]
+    vmovdqa64 zmm9,  [rcx + 64]
+    vmovdqa64 zmm10, [rcx + 128]
+    vmovdqa64 zmm11, [rcx + 192]
+    vmovdqa64 zmm12, [rcx + 256]
+    vmovdqa64 zmm13, [rcx + 320]
+    vmovdqa64 zmm14, [rcx + 384]
+    vmovdqa64 zmm15, [rcx + 448]
+
+    # lazy hi queues: 6 slots per stream
+    vpxorq zmm16, zmm16, zmm16
+    vpxorq zmm17, zmm17, zmm17
+    vpxorq zmm18, zmm18, zmm18
+    vpxorq zmm19, zmm19, zmm19
+    vpxorq zmm20, zmm20, zmm20
+    vpxorq zmm21, zmm21, zmm21
+    vpxorq zmm22, zmm22, zmm22
+    vpxorq zmm23, zmm23, zmm23
+    vpxorq zmm24, zmm24, zmm24
+    vpxorq zmm25, zmm25, zmm25
+    vpxorq zmm26, zmm26, zmm26
+    vpxorq zmm27, zmm27, zmm27
+
+    # Round 0
+    REDC_ROUND_BOTH6 zmm28, zmm29, zmm30, zmm31, zmm0, zmm1, zmm2, zmm3, zmm4, zmm5, zmm6, zmm7, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, zmm22, zmm23, zmm24, zmm25, zmm26, zmm27, rdx, 512, rcx, 512
+    # Round 1
+    REDC_ROUND_BOTH6 zmm28, zmm29, zmm30, zmm31, zmm1, zmm2, zmm3, zmm4, zmm5, zmm6, zmm7, zmm0, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm8, zmm17, zmm18, zmm19, zmm20, zmm21, zmm16, zmm23, zmm24, zmm25, zmm26, zmm27, zmm22, rdx, 576, rcx, 576
+    # Round 2
+    REDC_ROUND_BOTH6 zmm28, zmm29, zmm30, zmm31, zmm2, zmm3, zmm4, zmm5, zmm6, zmm7, zmm0, zmm1, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15, zmm8, zmm9, zmm18, zmm19, zmm20, zmm21, zmm16, zmm17, zmm24, zmm25, zmm26, zmm27, zmm22, zmm23, rdx, 640, rcx, 640
+    # Round 3
+    REDC_ROUND_BOTH6 zmm28, zmm29, zmm30, zmm31, zmm3, zmm4, zmm5, zmm6, zmm7, zmm0, zmm1, zmm2, zmm11, zmm12, zmm13, zmm14, zmm15, zmm8, zmm9, zmm10, zmm19, zmm20, zmm21, zmm16, zmm17, zmm18, zmm25, zmm26, zmm27, zmm22, zmm23, zmm24, rdx, 704, rcx, 704
+    # Round 4
+    REDC_ROUND_BOTH6 zmm28, zmm29, zmm30, zmm31, zmm4, zmm5, zmm6, zmm7, zmm0, zmm1, zmm2, zmm3, zmm12, zmm13, zmm14, zmm15, zmm8, zmm9, zmm10, zmm11, zmm20, zmm21, zmm16, zmm17, zmm18, zmm19, zmm26, zmm27, zmm22, zmm23, zmm24, zmm25, rdx, 768, rcx, 768
+    # Round 5
+    REDC_ROUND_BOTH6 zmm28, zmm29, zmm30, zmm31, zmm5, zmm6, zmm7, zmm0, zmm1, zmm2, zmm3, zmm4, zmm13, zmm14, zmm15, zmm8, zmm9, zmm10, zmm11, zmm12, zmm21, zmm16, zmm17, zmm18, zmm19, zmm20, zmm27, zmm22, zmm23, zmm24, zmm25, zmm26, rdx, 832, rcx, 832
+    # Round 6
+    REDC_ROUND_BOTH6 zmm28, zmm29, zmm30, zmm31, zmm6, zmm7, zmm0, zmm1, zmm2, zmm3, zmm4, zmm5, zmm14, zmm15, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm16, zmm17, zmm18, zmm19, zmm20, zmm21, zmm22, zmm23, zmm24, zmm25, zmm26, zmm27, rdx, 896, rcx, 896
+    # Round 7
+    REDC_ROUND_BOTH6 zmm28, zmm29, zmm30, zmm31, zmm7, zmm0, zmm1, zmm2, zmm3, zmm4, zmm5, zmm6, zmm15, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm17, zmm18, zmm19, zmm20, zmm21, zmm16, zmm23, zmm24, zmm25, zmm26, zmm27, zmm22, rdx, 960, rcx, 960
+
+    # Tail adds for 6-slot queue (post round-7 mapping)
+    vpsllq zmm31, zmm17, 4
+    vpaddq zmm1, zmm1, zmm31
+    vpsllq zmm31, zmm18, 4
+    vpaddq zmm2, zmm2, zmm31
+    vpsllq zmm31, zmm19, 4
+    vpaddq zmm3, zmm3, zmm31
+    vpsllq zmm31, zmm20, 4
+    vpaddq zmm4, zmm4, zmm31
+    vpsllq zmm31, zmm21, 4
+    vpaddq zmm5, zmm5, zmm31
+    vpsllq zmm31, zmm16, 4
+    vpaddq zmm6, zmm6, zmm31
+
+    vpsllq zmm31, zmm23, 4
+    vpaddq zmm9, zmm9, zmm31
+    vpsllq zmm31, zmm24, 4
+    vpaddq zmm10, zmm10, zmm31
+    vpsllq zmm31, zmm25, 4
+    vpaddq zmm11, zmm11, zmm31
+    vpsllq zmm31, zmm26, 4
+    vpaddq zmm12, zmm12, zmm31
+    vpsllq zmm31, zmm27, 4
+    vpaddq zmm13, zmm13, zmm31
+    vpsllq zmm31, zmm22, 4
+    vpaddq zmm14, zmm14, zmm31
+
+    # Final carry/mask over 8 limbs each stream
+    vmovdqa64 zmm31, ZMMWORD PTR [rip + bmask_vec]
+    REDC_CARRY8 zmm30, zmm31, zmm0, zmm1, zmm2, zmm3, zmm4, zmm5, zmm6, zmm7
+    REDC_CARRY8 zmm30, zmm31, zmm8, zmm9, zmm10, zmm11, zmm12, zmm13, zmm14, zmm15
+
+    # Store outputs
+    vmovdqa64 [rdi + 0], zmm0
+    vmovdqa64 [rdi + 64], zmm1
+    vmovdqa64 [rdi + 128], zmm2
+    vmovdqa64 [rdi + 192], zmm3
+    vmovdqa64 [rdi + 256], zmm4
+    vmovdqa64 [rdi + 320], zmm5
+    vmovdqa64 [rdi + 384], zmm6
+    vmovdqa64 [rdi + 448], zmm7
+
+    vmovdqa64 [rsi + 0], zmm8
+    vmovdqa64 [rsi + 64], zmm9
+    vmovdqa64 [rsi + 128], zmm10
+    vmovdqa64 [rsi + 192], zmm11
+    vmovdqa64 [rsi + 256], zmm12
+    vmovdqa64 [rsi + 320], zmm13
+    vmovdqa64 [rsi + 384], zmm14
+    vmovdqa64 [rsi + 448], zmm15
+
+    ret
+
+.size blst_redc_core_k2_asm_v2, .-blst_redc_core_k2_asm_v2
 
 .section .rodata
 .p2align 6

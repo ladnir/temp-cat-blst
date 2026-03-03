@@ -19,16 +19,22 @@ Current means (latest runs):
 - `SeqChains<2>`: `~18.1M ops/s`
 - `HandInterleavedChains<2>`: `~22.9M ops/s`
 - `AsmK2`: `~25.1M ops/s`
+- `AsmK2V2`: `~25.6M ops/s`
 
 Observed uplift:
 - C++ hand `k=2`: about `+26%` over `SeqChains<2>`
 - asm `k=2`: about `+39%` over `SeqChains<2>`
+- asm `k=2 v2`: about `+41%` over `SeqChains<2>`
 
 Recent change notes:
 - Linux benchmark-only asm `k=2` path (`blst_redc_core_k2_asm`) is now the fastest measured variant.
 - The asm path is spill-free in the kernel body.
 - The latest asm revision reduced constant-load pressure by reusing `p[i]` in a temp zmm for each lo/hi pair.
 - A follow-up revision removed extra `vmovdqa64` for `montw/bmask` in each round (restored memory-form ops), and hoisted final carry-mask to one loaded zmm reused by both carry chains.
+- Added `AsmK2V2` A/B kernel with:
+  - dual-stream round macro,
+  - shared-constant scheduling across both streams per round (`p[i]` loaded once, applied to stream0+stream1),
+  - 6-slot lazy queues (p0 high consumed immediately into next limb).
 
 ## Objdump Findings
 
@@ -79,6 +85,11 @@ Key measured evidence (single-core `perf stat`, Linux AVX machine):
   - IPC about `2.49`
   - `topdown.memory_bound_slots` about `2.23e9`
   - throughput: about `25.06M/s` (`perf` run) / `25.15M/s` (5x aggregate benchmark run)
+- asm `k=2 v2`:
+  - IPC about `2.63`
+  - `topdown.memory_bound_slots` about `1.62e9`
+  - `topdown.backend_bound_slots` about `41.95e9` (down vs `43.94e9`)
+  - throughput: about `25.83M/s` (`perf` run), `~25.64M/s` (10x aggregate run)
 
 Interpretation:
 - The prior asm variant was overusing load ports due to repeated memory-form IFMAs on constants.
@@ -144,6 +155,7 @@ Acceptance target:
 
 Checkpoint status:
 - `>= 25M ops/s`: achieved.
+- `AsmK2V2` currently improves `AsmK2` by roughly `+3.4%`.
 
 ## Current Status
 - We now have a coherent explanation with measured counters:

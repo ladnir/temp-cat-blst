@@ -1,4 +1,4 @@
-# `redc_core` K=2 ASM Schedule (Current)
+# `redc_core` K=2 ASM Schedule (Current + V2)
 
 ## Goal
 Provide a spill-free, explicit Linux AVX512 schedule for two independent `UFpPack8x1::redc_core` streams.
@@ -6,6 +6,7 @@ Provide a spill-free, explicit Linux AVX512 schedule for two independent `UFpPac
 ## High-Level Structure
 
 - Function: `blst_redc_core_k2_asm`
+- Function: `blst_redc_core_k2_asm_v2` (A/B candidate)
 - Location: `benchmark/redc_core_k2_asm.S`
 - Inputs:
   - `out0`, `out1` (`LFpPack8x1*`)
@@ -25,6 +26,12 @@ Provide a spill-free, explicit Linux AVX512 schedule for two independent `UFpPac
 
 No stack spills are used in the kernel body.
 
+`v2` register layout:
+- stream limbs: `zmm0..zmm15`
+- stream0 queue (6): `zmm16..zmm21`
+- stream1 queue (6): `zmm22..zmm27`
+- temps: `zmm28..zmm31`
+
 ## Round Schedule
 
 For each round:
@@ -38,6 +45,16 @@ For each round:
 
 Both streams run each round in sequence with fixed register mapping.
 
+`v2` round strategy:
+- compute `u0`/`u1` first,
+- apply `p0` low first, then add:
+  - carry from pivot,
+  - old queue-head,
+  - `p0` high directly into `a[r+1]` / `b[r+1]`,
+- shift 6-slot queues,
+- apply `p1..p6` with high terms accumulated into queue slots,
+- apply `p7` with eager high-fold into loaded next limb.
+
 ## Constant-Feed Revision
 
 Latest change in this schedule:
@@ -46,6 +63,7 @@ Latest change in this schedule:
 - This replaces repeated memory-form IFMAs for each lo/hi pair.
 - `montw`/`bmask` in the `u` derivation are back to memory-form operations (avoids extra `vmovdqa64` instructions).
 - Final carry phase loads `bmask` once and reuses it for both 8-limb carry chains.
+- `v2` also loads each `p[i]` once per round and applies it to both streams.
 
 Observed effect (Linux host):
 
@@ -53,6 +71,7 @@ Observed effect (Linux host):
 - Lower memory-bound slots (`topdown.memory_bound_slots` dropped materially)
 - Higher IPC
 - Throughput improved to about `25.1M redc_core/s` for `BM_Fp8x1RedcCore_AsmK2`
+- `v2` reaches about `25.6M redc_core/s` in aggregate runs and about `25.8M/s` in perf-pinned runs.
 
 ## Remaining Limiter
 
