@@ -1,7 +1,7 @@
 #include "blst/common/defines.h"
 #include <benchmark/benchmark.h>
 
-#if defined(BLST_AVX512)
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 
 #include <array>
 #include <cstddef>
@@ -13,6 +13,29 @@
 #include "blst/fields/Fp_avx.h"
 
 using namespace blst;
+
+#if defined(_MSC_VER)
+#define BLST_BENCH_NOINLINE __declspec(noinline)
+#elif defined(__GNUC__) || defined(__clang__)
+#define BLST_BENCH_NOINLINE __attribute__((noinline))
+#else
+#define BLST_BENCH_NOINLINE
+#endif
+
+#if defined(__linux__) && defined(__x86_64__) && defined(BLST_ASM) && defined(BLST_AVX512) && !defined(BLST_AVX512_PORTABLE)
+extern "C" void blst_fp8x1_mul_redc_core_k1_asm(
+    LFpPack8x1* out,
+    const FpPack8x1* a,
+    const FpPack8x1* b);
+extern "C" void blst_fp8x1_mul_redc_core_k1_asm_span(
+    LFpPack8x1* out,
+    const FpPack8x1* a,
+    const FpPack8x1* b,
+    std::size_t n_packs);
+#define BLST_HAVE_FUSED_K1_ASM 1
+#else
+#define BLST_HAVE_FUSED_K1_ASM 0
+#endif
 
 namespace
 {
@@ -55,21 +78,6 @@ struct Fp8x1FusedBaselineData
   std::vector<FpPack8x1> out;
 };
 
-struct Fp8x1MontConsts
-{
-  cc512i p0;
-  cc512i p1;
-  cc512i p2;
-  cc512i p3;
-  cc512i p4;
-  cc512i p5;
-  cc512i p6;
-  cc512i p7;
-  cc512i bmask;
-  cc512i montw;
-  cc512i zero;
-};
-
 bool fp8x1_pack_equal(const FpPack8x1& lhs, const FpPack8x1& rhs)
 {
   std::array<Fp, 8> l{};
@@ -84,14 +92,18 @@ bool fp8x1_pack_equal(const FpPack8x1& lhs, const FpPack8x1& rhs)
   return true;
 }
 
-BLST_FORCEINLINE void fp8x1_mul_redc_core_k1_fused_baseline(
+BLST_BENCH_NOINLINE void fp8x1_mul_redc_core_k1_fused_baseline(
     LFpPack8x1& r,
     const FpPack8x1& a,
-    const FpPack8x1& b,
-    const Fp8x1MontConsts& c)
+    const FpPack8x1& b)
 {
   BLST_ASSERT_NO_OVERLAP_AVX(r, a);
   BLST_ASSERT_NO_OVERLAP_AVX(r, b);
+
+  const cc512i p0 = VSET1(P48[0]), p1 = VSET1(P48[1]), p2 = VSET1(P48[2]);
+  const cc512i p3 = VSET1(P48[3]), p4 = VSET1(P48[4]), p5 = VSET1(P48[5]);
+  const cc512i p6 = VSET1(P48[6]), p7 = VSET1(P48[7]);
+  const cc512i bmask = VSET1(BMASK), montw = VSET1(MONT_W_R48), zero = VZERO();
 
   const cc512i ia0 = a[0], ia1 = a[1], ia2 = a[2], ia3 = a[3];
   const cc512i ia4 = a[4], ia5 = a[5], ia6 = a[6], ia7 = a[7];
@@ -220,80 +232,80 @@ BLST_FORCEINLINE void fp8x1_mul_redc_core_k1_fused_baseline(
   z8  = VADD(z8, m4);   z9  = VADD(z9, m5);
   z10 = VADD(z10, m6);  z11 = VADD(z11, m7);
 
-  y0 = y1 = y2 = y3 = y4 = y5 = y6 = y7 = c.zero;
-  y8 = y9 = y10 = y11 = y12 = y13 = y14 = c.zero;
+  y0 = y1 = y2 = y3 = y4 = y5 = y6 = y7 = zero;
+  y8 = y9 = y10 = y11 = y12 = y13 = y14 = zero;
   cc512i u;
 
-  u  = VAND(VMACLO(c.zero, z0, c.montw), c.bmask);
-  z0 = VMACLO(z0, u, c.p0); z1 = VMACLO(z1, u, c.p1); z2 = VMACLO(z2, u, c.p2);
-  z3 = VMACLO(z3, u, c.p3); z4 = VMACLO(z4, u, c.p4); z5 = VMACLO(z5, u, c.p5);
-  z6 = VMACLO(z6, u, c.p6); z7 = VMACLO(z7, u, c.p7);
-  y0 = VMACHI(y0, u, c.p0); y1 = VMACHI(y1, u, c.p1); y2 = VMACHI(y2, u, c.p2);
-  y3 = VMACHI(y3, u, c.p3); y4 = VMACHI(y4, u, c.p4); y5 = VMACHI(y5, u, c.p5);
-  y6 = VMACHI(y6, u, c.p6); y7 = VMACHI(y7, u, c.p7);
+  u  = VAND(VMACLO(zero, z0, montw), bmask);
+  z0 = VMACLO(z0, u, p0); z1 = VMACLO(z1, u, p1); z2 = VMACLO(z2, u, p2);
+  z3 = VMACLO(z3, u, p3); z4 = VMACLO(z4, u, p4); z5 = VMACLO(z5, u, p5);
+  z6 = VMACLO(z6, u, p6); z7 = VMACLO(z7, u, p7);
+  y0 = VMACHI(y0, u, p0); y1 = VMACHI(y1, u, p1); y2 = VMACHI(y2, u, p2);
+  y3 = VMACHI(y3, u, p3); y4 = VMACHI(y4, u, p4); y5 = VMACHI(y5, u, p5);
+  y6 = VMACHI(y6, u, p6); y7 = VMACHI(y7, u, p7);
   z1 = VADD(VADD(z1, VSRA(z0, BRADIX)), VSHL(y0, BALIGN));
 
-  u  = VAND(VMACLO(c.zero, z1, c.montw), c.bmask);
-  z1 = VMACLO(z1, u, c.p0); z2 = VMACLO(z2, u, c.p1); z3 = VMACLO(z3, u, c.p2);
-  z4 = VMACLO(z4, u, c.p3); z5 = VMACLO(z5, u, c.p4); z6 = VMACLO(z6, u, c.p5);
-  z7 = VMACLO(z7, u, c.p6); z8 = VMACLO(z8, u, c.p7);
-  y1 = VMACHI(y1, u, c.p0); y2 = VMACHI(y2, u, c.p1); y3 = VMACHI(y3, u, c.p2);
-  y4 = VMACHI(y4, u, c.p3); y5 = VMACHI(y5, u, c.p4); y6 = VMACHI(y6, u, c.p5);
-  y7 = VMACHI(y7, u, c.p6); y8 = VMACHI(y8, u, c.p7);
+  u  = VAND(VMACLO(zero, z1, montw), bmask);
+  z1 = VMACLO(z1, u, p0); z2 = VMACLO(z2, u, p1); z3 = VMACLO(z3, u, p2);
+  z4 = VMACLO(z4, u, p3); z5 = VMACLO(z5, u, p4); z6 = VMACLO(z6, u, p5);
+  z7 = VMACLO(z7, u, p6); z8 = VMACLO(z8, u, p7);
+  y1 = VMACHI(y1, u, p0); y2 = VMACHI(y2, u, p1); y3 = VMACHI(y3, u, p2);
+  y4 = VMACHI(y4, u, p3); y5 = VMACHI(y5, u, p4); y6 = VMACHI(y6, u, p5);
+  y7 = VMACHI(y7, u, p6); y8 = VMACHI(y8, u, p7);
   z2 = VADD(VADD(z2, VSRA(z1, BRADIX)), VSHL(y1, BALIGN));
 
-  u  = VAND(VMACLO(c.zero, z2, c.montw), c.bmask);
-  z2 = VMACLO(z2, u, c.p0); z3 = VMACLO(z3, u, c.p1); z4 = VMACLO(z4, u, c.p2);
-  z5 = VMACLO(z5, u, c.p3); z6 = VMACLO(z6, u, c.p4); z7 = VMACLO(z7, u, c.p5);
-  z8 = VMACLO(z8, u, c.p6); z9 = VMACLO(z9, u, c.p7);
-  y2 = VMACHI(y2, u, c.p0); y3 = VMACHI(y3, u, c.p1); y4 = VMACHI(y4, u, c.p2);
-  y5 = VMACHI(y5, u, c.p3); y6 = VMACHI(y6, u, c.p4); y7 = VMACHI(y7, u, c.p5);
-  y8 = VMACHI(y8, u, c.p6); y9 = VMACHI(y9, u, c.p7);
+  u  = VAND(VMACLO(zero, z2, montw), bmask);
+  z2 = VMACLO(z2, u, p0); z3 = VMACLO(z3, u, p1); z4 = VMACLO(z4, u, p2);
+  z5 = VMACLO(z5, u, p3); z6 = VMACLO(z6, u, p4); z7 = VMACLO(z7, u, p5);
+  z8 = VMACLO(z8, u, p6); z9 = VMACLO(z9, u, p7);
+  y2 = VMACHI(y2, u, p0); y3 = VMACHI(y3, u, p1); y4 = VMACHI(y4, u, p2);
+  y5 = VMACHI(y5, u, p3); y6 = VMACHI(y6, u, p4); y7 = VMACHI(y7, u, p5);
+  y8 = VMACHI(y8, u, p6); y9 = VMACHI(y9, u, p7);
   z3 = VADD(VADD(z3, VSRA(z2, BRADIX)), VSHL(y2, BALIGN));
 
-  u  = VAND(VMACLO(c.zero, z3, c.montw), c.bmask);
-  z3 = VMACLO(z3, u, c.p0); z4 = VMACLO(z4, u, c.p1); z5 = VMACLO(z5, u, c.p2);
-  z6 = VMACLO(z6, u, c.p3); z7 = VMACLO(z7, u, c.p4); z8 = VMACLO(z8, u, c.p5);
-  z9 = VMACLO(z9, u, c.p6); z10 = VMACLO(z10, u, c.p7);
-  y3 = VMACHI(y3, u, c.p0); y4 = VMACHI(y4, u, c.p1); y5 = VMACHI(y5, u, c.p2);
-  y6 = VMACHI(y6, u, c.p3); y7 = VMACHI(y7, u, c.p4); y8 = VMACHI(y8, u, c.p5);
-  y9 = VMACHI(y9, u, c.p6); y10 = VMACHI(y10, u, c.p7);
+  u  = VAND(VMACLO(zero, z3, montw), bmask);
+  z3 = VMACLO(z3, u, p0); z4 = VMACLO(z4, u, p1); z5 = VMACLO(z5, u, p2);
+  z6 = VMACLO(z6, u, p3); z7 = VMACLO(z7, u, p4); z8 = VMACLO(z8, u, p5);
+  z9 = VMACLO(z9, u, p6); z10 = VMACLO(z10, u, p7);
+  y3 = VMACHI(y3, u, p0); y4 = VMACHI(y4, u, p1); y5 = VMACHI(y5, u, p2);
+  y6 = VMACHI(y6, u, p3); y7 = VMACHI(y7, u, p4); y8 = VMACHI(y8, u, p5);
+  y9 = VMACHI(y9, u, p6); y10 = VMACHI(y10, u, p7);
   z4 = VADD(VADD(z4, VSRA(z3, BRADIX)), VSHL(y3, BALIGN));
 
-  u   = VAND(VMACLO(c.zero, z4, c.montw), c.bmask);
-  z4  = VMACLO(z4, u, c.p0); z5  = VMACLO(z5, u, c.p1); z6 = VMACLO(z6, u, c.p2);
-  z7  = VMACLO(z7, u, c.p3); z8  = VMACLO(z8, u, c.p4); z9 = VMACLO(z9, u, c.p5);
-  z10 = VMACLO(z10, u, c.p6); z11 = VMACLO(z11, u, c.p7);
-  y4  = VMACHI(y4, u, c.p0); y5  = VMACHI(y5, u, c.p1); y6 = VMACHI(y6, u, c.p2);
-  y7  = VMACHI(y7, u, c.p3); y8  = VMACHI(y8, u, c.p4); y9 = VMACHI(y9, u, c.p5);
-  y10 = VMACHI(y10, u, c.p6); y11 = VMACHI(y11, u, c.p7);
+  u   = VAND(VMACLO(zero, z4, montw), bmask);
+  z4  = VMACLO(z4, u, p0); z5  = VMACLO(z5, u, p1); z6 = VMACLO(z6, u, p2);
+  z7  = VMACLO(z7, u, p3); z8  = VMACLO(z8, u, p4); z9 = VMACLO(z9, u, p5);
+  z10 = VMACLO(z10, u, p6); z11 = VMACLO(z11, u, p7);
+  y4  = VMACHI(y4, u, p0); y5  = VMACHI(y5, u, p1); y6 = VMACHI(y6, u, p2);
+  y7  = VMACHI(y7, u, p3); y8  = VMACHI(y8, u, p4); y9 = VMACHI(y9, u, p5);
+  y10 = VMACHI(y10, u, p6); y11 = VMACHI(y11, u, p7);
   z5 = VADD(VADD(z5, VSRA(z4, BRADIX)), VSHL(y4, BALIGN));
 
-  u   = VAND(VMACLO(c.zero, z5, c.montw), c.bmask);
-  z5  = VMACLO(z5, u, c.p0); z6  = VMACLO(z6, u, c.p1); z7  = VMACLO(z7, u, c.p2);
-  z8  = VMACLO(z8, u, c.p3); z9  = VMACLO(z9, u, c.p4); z10 = VMACLO(z10, u, c.p5);
-  z11 = VMACLO(z11, u, c.p6); z12 = VMACLO(z12, u, c.p7);
-  y5  = VMACHI(y5, u, c.p0); y6  = VMACHI(y6, u, c.p1); y7  = VMACHI(y7, u, c.p2);
-  y8  = VMACHI(y8, u, c.p3); y9  = VMACHI(y9, u, c.p4); y10 = VMACHI(y10, u, c.p5);
-  y11 = VMACHI(y11, u, c.p6); y12 = VMACHI(y12, u, c.p7);
+  u   = VAND(VMACLO(zero, z5, montw), bmask);
+  z5  = VMACLO(z5, u, p0); z6  = VMACLO(z6, u, p1); z7  = VMACLO(z7, u, p2);
+  z8  = VMACLO(z8, u, p3); z9  = VMACLO(z9, u, p4); z10 = VMACLO(z10, u, p5);
+  z11 = VMACLO(z11, u, p6); z12 = VMACLO(z12, u, p7);
+  y5  = VMACHI(y5, u, p0); y6  = VMACHI(y6, u, p1); y7  = VMACHI(y7, u, p2);
+  y8  = VMACHI(y8, u, p3); y9  = VMACHI(y9, u, p4); y10 = VMACHI(y10, u, p5);
+  y11 = VMACHI(y11, u, p6); y12 = VMACHI(y12, u, p7);
   z6 = VADD(VADD(z6, VSRA(z5, BRADIX)), VSHL(y5, BALIGN));
 
-  u   = VAND(VMACLO(c.zero, z6, c.montw), c.bmask);
-  z6  = VMACLO(z6, u, c.p0); z7  = VMACLO(z7, u, c.p1); z8  = VMACLO(z8, u, c.p2);
-  z9  = VMACLO(z9, u, c.p3); z10 = VMACLO(z10, u, c.p4); z11 = VMACLO(z11, u, c.p5);
-  z12 = VMACLO(z12, u, c.p6); z13 = VMACLO(z13, u, c.p7);
-  y6  = VMACHI(y6, u, c.p0); y7  = VMACHI(y7, u, c.p1); y8  = VMACHI(y8, u, c.p2);
-  y9  = VMACHI(y9, u, c.p3); y10 = VMACHI(y10, u, c.p4); y11 = VMACHI(y11, u, c.p5);
-  y12 = VMACHI(y12, u, c.p6); y13 = VMACHI(y13, u, c.p7);
+  u   = VAND(VMACLO(zero, z6, montw), bmask);
+  z6  = VMACLO(z6, u, p0); z7  = VMACLO(z7, u, p1); z8  = VMACLO(z8, u, p2);
+  z9  = VMACLO(z9, u, p3); z10 = VMACLO(z10, u, p4); z11 = VMACLO(z11, u, p5);
+  z12 = VMACLO(z12, u, p6); z13 = VMACLO(z13, u, p7);
+  y6  = VMACHI(y6, u, p0); y7  = VMACHI(y7, u, p1); y8  = VMACHI(y8, u, p2);
+  y9  = VMACHI(y9, u, p3); y10 = VMACHI(y10, u, p4); y11 = VMACHI(y11, u, p5);
+  y12 = VMACHI(y12, u, p6); y13 = VMACHI(y13, u, p7);
   z7 = VADD(VADD(z7, VSRA(z6, BRADIX)), VSHL(y6, BALIGN));
 
-  u   = VAND(VMACLO(c.zero, z7, c.montw), c.bmask);
-  z7  = VMACLO(z7, u, c.p0); z8  = VMACLO(z8, u, c.p1); z9  = VMACLO(z9, u, c.p2);
-  z10 = VMACLO(z10, u, c.p3); z11 = VMACLO(z11, u, c.p4); z12 = VMACLO(z12, u, c.p5);
-  z13 = VMACLO(z13, u, c.p6); z14 = VMACLO(z14, u, c.p7);
-  y7  = VMACHI(y7, u, c.p0); y8  = VMACHI(y8, u, c.p1); y9  = VMACHI(y9, u, c.p2);
-  y10 = VMACHI(y10, u, c.p3); y11 = VMACHI(y11, u, c.p4); y12 = VMACHI(y12, u, c.p5);
-  y13 = VMACHI(y13, u, c.p6); y14 = VMACHI(y14, u, c.p7);
+  u   = VAND(VMACLO(zero, z7, montw), bmask);
+  z7  = VMACLO(z7, u, p0); z8  = VMACLO(z8, u, p1); z9  = VMACLO(z9, u, p2);
+  z10 = VMACLO(z10, u, p3); z11 = VMACLO(z11, u, p4); z12 = VMACLO(z12, u, p5);
+  z13 = VMACLO(z13, u, p6); z14 = VMACLO(z14, u, p7);
+  y7  = VMACHI(y7, u, p0); y8  = VMACHI(y8, u, p1); y9  = VMACHI(y9, u, p2);
+  y10 = VMACHI(y10, u, p3); y11 = VMACHI(y11, u, p4); y12 = VMACHI(y12, u, p5);
+  y13 = VMACHI(y13, u, p6); y14 = VMACHI(y14, u, p7);
   z8 = VADD(VADD(z8, VSRA(z7, BRADIX)), VSHL(y7, BALIGN));
 
   z9  = VADD(z9, VSHL(y8, BALIGN));
@@ -304,17 +316,44 @@ BLST_FORCEINLINE void fp8x1_mul_redc_core_k1_fused_baseline(
   z14 = VADD(z14, VSHL(y13, BALIGN));
   z15 = VADD(z15, VSHL(y14, BALIGN));
 
-  z9  = VADD(z9, VSRA(z8, BRADIX)); z8  = VAND(z8, c.bmask);
-  z10 = VADD(z10, VSRA(z9, BRADIX)); z9  = VAND(z9, c.bmask);
-  z11 = VADD(z11, VSRA(z10, BRADIX)); z10 = VAND(z10, c.bmask);
-  z12 = VADD(z12, VSRA(z11, BRADIX)); z11 = VAND(z11, c.bmask);
-  z13 = VADD(z13, VSRA(z12, BRADIX)); z12 = VAND(z12, c.bmask);
-  z14 = VADD(z14, VSRA(z13, BRADIX)); z13 = VAND(z13, c.bmask);
-  z15 = VADD(z15, VSRA(z14, BRADIX)); z14 = VAND(z14, c.bmask);
-                                    z15 = VAND(z15, c.bmask);
+  z9  = VADD(z9, VSRA(z8, BRADIX)); z8  = VAND(z8, bmask);
+  z10 = VADD(z10, VSRA(z9, BRADIX)); z9  = VAND(z9, bmask);
+  z11 = VADD(z11, VSRA(z10, BRADIX)); z10 = VAND(z10, bmask);
+  z12 = VADD(z12, VSRA(z11, BRADIX)); z11 = VAND(z11, bmask);
+  z13 = VADD(z13, VSRA(z12, BRADIX)); z12 = VAND(z12, bmask);
+  z14 = VADD(z14, VSRA(z13, BRADIX)); z13 = VAND(z13, bmask);
+  z15 = VADD(z15, VSRA(z14, BRADIX)); z14 = VAND(z14, bmask);
+                                    z15 = VAND(z15, bmask);
 
   r[0] = z8; r[1] = z9; r[2] = z10; r[3] = z11;
   r[4] = z12; r[5] = z13; r[6] = z14; r[7] = z15;
+}
+
+BLST_FORCEINLINE void fp8x1_mul_redc_core_k1_fused_asm(
+    LFpPack8x1& r,
+    const FpPack8x1& a,
+    const FpPack8x1& b)
+{
+#if BLST_HAVE_FUSED_K1_ASM
+  blst_fp8x1_mul_redc_core_k1_asm(&r, &a, &b);
+#else
+  fp8x1_mul_redc_core_k1_fused_baseline(r, a, b);
+#endif
+}
+
+BLST_FORCEINLINE void fp8x1_mul_redc_core_k1_fused_asm_span(
+    LFpPack8x1* out,
+    const FpPack8x1* a,
+    const FpPack8x1* b,
+    std::size_t n_packs)
+{
+#if BLST_HAVE_FUSED_K1_ASM
+  blst_fp8x1_mul_redc_core_k1_asm_span(out, a, b, n_packs);
+#else
+  for (std::size_t i = 0; i < n_packs; ++i) {
+    fp8x1_mul_redc_core_k1_fused_baseline(out[i], a[i], b[i]);
+  }
+#endif
 }
 
 bool fused_k1_selfcheck()
@@ -324,14 +363,9 @@ bool fused_k1_selfcheck()
   std::vector<FpPack8x1> ref(kPacks);
   std::vector<FpPack8x1> got(kPacks);
 
-  const Fp8x1MontConsts c{
-      VSET1(P48[0]), VSET1(P48[1]), VSET1(P48[2]), VSET1(P48[3]),
-      VSET1(P48[4]), VSET1(P48[5]), VSET1(P48[6]), VSET1(P48[7]),
-      VSET1(BMASK), VSET1(MONT_W_R48), VZERO()};
-
   fp8x1_mul_redc_k<1>(ref.data(), data.a.data(), data.b.data(), kPacks);
   for (std::size_t i = 0; i < kPacks; ++i) {
-    fp8x1_mul_redc_core_k1_fused_baseline(data.lazy[i], data.a[i], data.b[i], c);
+    fp8x1_mul_redc_core_k1_fused_baseline(data.lazy[i], data.a[i], data.b[i]);
     UFpPack8x1::normalize(got[i], data.lazy[i]);
   }
 
@@ -343,6 +377,31 @@ bool fused_k1_selfcheck()
   return true;
 }
 
+bool fused_k1_asm_selfcheck()
+{
+#if !BLST_HAVE_FUSED_K1_ASM
+  return true;
+#else
+  constexpr std::size_t kPacks = 32;
+  Fp8x1FusedBaselineData data(kPacks);
+  std::vector<FpPack8x1> ref(kPacks);
+  std::vector<FpPack8x1> got(kPacks);
+
+  fp8x1_mul_redc_k<1>(ref.data(), data.a.data(), data.b.data(), kPacks);
+  for (std::size_t i = 0; i < kPacks; ++i) {
+    fp8x1_mul_redc_core_k1_fused_asm(data.lazy[i], data.a[i], data.b[i]);
+    UFpPack8x1::normalize(got[i], data.lazy[i]);
+  }
+
+  for (std::size_t i = 0; i < kPacks; ++i) {
+    if (!fp8x1_pack_equal(got[i], ref[i])) {
+      return false;
+    }
+  }
+  return true;
+#endif
+}
+
 void fused_k1_require_selfcheck(benchmark::State& state)
 {
   static std::once_flag once;
@@ -351,6 +410,21 @@ void fused_k1_require_selfcheck(benchmark::State& state)
   if (!ok) {
     state.SkipWithError("Fused K1 self-check failed (mismatch vs fp8x1_mul_redc_k<1>).");
   }
+}
+
+void fused_k1_require_asm_selfcheck(benchmark::State& state)
+{
+#if !BLST_HAVE_FUSED_K1_ASM
+  state.SkipWithError("Fused K1 ASM unavailable for this build/target.");
+  return;
+#else
+  static std::once_flag once;
+  static bool ok = true;
+  std::call_once(once, []() { ok = fused_k1_asm_selfcheck(); });
+  if (!ok) {
+    state.SkipWithError("Fused K1 ASM self-check failed (mismatch vs fp8x1_mul_redc_k<1>).");
+  }
+#endif
 }
 
 void BM_Fp8x1MulRedcK1_Current(benchmark::State& state)
@@ -370,10 +444,6 @@ void BM_Fp8x1MulRedcCoreK1_FusedBaseline(benchmark::State& state)
 {
   const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
   Fp8x1FusedBaselineData data(n_packs);
-  const Fp8x1MontConsts c{
-      VSET1(P48[0]), VSET1(P48[1]), VSET1(P48[2]), VSET1(P48[3]),
-      VSET1(P48[4]), VSET1(P48[5]), VSET1(P48[6]), VSET1(P48[7]),
-      VSET1(BMASK), VSET1(MONT_W_R48), VZERO()};
   fused_k1_require_selfcheck(state);
   if (state.skipped()) {
     return;
@@ -381,7 +451,7 @@ void BM_Fp8x1MulRedcCoreK1_FusedBaseline(benchmark::State& state)
 
   for (auto _ : state) {
     for (std::size_t i = 0; i < n_packs; ++i) {
-      fp8x1_mul_redc_core_k1_fused_baseline(data.lazy[i], data.a[i], data.b[i], c);
+      fp8x1_mul_redc_core_k1_fused_baseline(data.lazy[i], data.a[i], data.b[i]);
     }
     benchmark::DoNotOptimize(data.lazy.data());
   }
@@ -393,10 +463,6 @@ void BM_Fp8x1MulRedcK1_FusedBaseline(benchmark::State& state)
 {
   const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
   Fp8x1FusedBaselineData data(n_packs);
-  const Fp8x1MontConsts c{
-      VSET1(P48[0]), VSET1(P48[1]), VSET1(P48[2]), VSET1(P48[3]),
-      VSET1(P48[4]), VSET1(P48[5]), VSET1(P48[6]), VSET1(P48[7]),
-      VSET1(BMASK), VSET1(MONT_W_R48), VZERO()};
   fused_k1_require_selfcheck(state);
   if (state.skipped()) {
     return;
@@ -404,7 +470,46 @@ void BM_Fp8x1MulRedcK1_FusedBaseline(benchmark::State& state)
 
   for (auto _ : state) {
     for (std::size_t i = 0; i < n_packs; ++i) {
-      fp8x1_mul_redc_core_k1_fused_baseline(data.lazy[i], data.a[i], data.b[i], c);
+      fp8x1_mul_redc_core_k1_fused_baseline(data.lazy[i], data.a[i], data.b[i]);
+      UFpPack8x1::normalize(data.out[i], data.lazy[i]);
+    }
+    benchmark::DoNotOptimize(data.out.data());
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs);
+}
+
+void BM_Fp8x1MulRedcCoreK1_FusedAsm(benchmark::State& state)
+{
+  const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
+  Fp8x1FusedBaselineData data(n_packs);
+  fused_k1_require_asm_selfcheck(state);
+  if (state.skipped()) {
+    return;
+  }
+
+  for (auto _ : state) {
+    for (std::size_t i = 0; i < n_packs; ++i) {
+      fp8x1_mul_redc_core_k1_fused_asm(data.lazy[i], data.a[i], data.b[i]);
+    }
+    benchmark::DoNotOptimize(data.lazy.data());
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs);
+}
+
+void BM_Fp8x1MulRedcK1_FusedAsm(benchmark::State& state)
+{
+  const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
+  Fp8x1FusedBaselineData data(n_packs);
+  fused_k1_require_asm_selfcheck(state);
+  if (state.skipped()) {
+    return;
+  }
+
+  for (auto _ : state) {
+    for (std::size_t i = 0; i < n_packs; ++i) {
+      fp8x1_mul_redc_core_k1_fused_asm(data.lazy[i], data.a[i], data.b[i]);
       UFpPack8x1::normalize(data.out[i], data.lazy[i]);
     }
     benchmark::DoNotOptimize(data.out.data());
@@ -417,5 +522,9 @@ void BM_Fp8x1MulRedcK1_FusedBaseline(benchmark::State& state)
 BENCHMARK(BM_Fp8x1MulRedcK1_Current)->Arg(256);
 BENCHMARK(BM_Fp8x1MulRedcCoreK1_FusedBaseline)->Arg(256);
 BENCHMARK(BM_Fp8x1MulRedcK1_FusedBaseline)->Arg(256);
+#if BLST_HAVE_FUSED_K1_ASM
+BENCHMARK(BM_Fp8x1MulRedcCoreK1_FusedAsm)->Arg(256);
+BENCHMARK(BM_Fp8x1MulRedcK1_FusedAsm)->Arg(256);
+#endif
 
 #endif
