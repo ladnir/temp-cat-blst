@@ -23,6 +23,20 @@ extern "C" void blst_fp8x1_redc_core_k2(
 #define BLST_HAVE_FP8X1_REDC_CORE_K2_ASM 0
 #endif
 
+#ifndef BLST_HAVE_FP8X1_MUL_REDC_CORE_K2_ASM
+#define BLST_HAVE_FP8X1_MUL_REDC_CORE_K2_ASM 0
+#endif
+
+#if BLST_HAVE_FP8X1_MUL_REDC_CORE_K2_ASM
+extern "C" void blst_fp8x1_mul_redc_core_k2(
+    LFpPack8x1* out0,
+    LFpPack8x1* out1,
+    const FpPack8x1* a0,
+    const FpPack8x1* b0,
+    const FpPack8x1* a1,
+    const FpPack8x1* b1);
+#endif
+
 namespace
 {
 #if defined(NDEBUG)
@@ -2265,6 +2279,282 @@ BLST_FORCEINLINE void fp8x1_redc_pair(
 #endif
 }
 
+BLST_FORCEINLINE void fp8x1_mul_redc_core_k2(
+    LFpPack8x1& lazy0,
+    LFpPack8x1& lazy1,
+    const FpPack8x1& a0,
+    const FpPack8x1& b0,
+    const FpPack8x1& a1,
+    const FpPack8x1& b1)
+{
+#if BLST_HAVE_FP8X1_MUL_REDC_CORE_K2_ASM
+  blst_fp8x1_mul_redc_core_k2(&lazy0, &lazy1, &a0, &b0, &a1, &b1);
+#else
+  auto fp8x1_mul_redc_core_single_fused = [](
+      LFpPack8x1& r,
+      const FpPack8x1& a,
+      const FpPack8x1& b) {
+    BLST_ASSERT_NO_OVERLAP_AVX(r, a);
+    BLST_ASSERT_NO_OVERLAP_AVX(r, b);
+
+    const cc512i ia0 = a[0], ia1 = a[1], ia2 = a[2], ia3 = a[3];
+    const cc512i ia4 = a[4], ia5 = a[5], ia6 = a[6], ia7 = a[7];
+    const cc512i ib0 = b[0], ib1 = b[1], ib2 = b[2], ib3 = b[3];
+    const cc512i ib4 = b[4], ib5 = b[5], ib6 = b[6], ib7 = b[7];
+    cc512i ta0, ta1, ta2, ta3;
+    cc512i tb0, tb1, tb2, tb3;
+    cc512i z0  = VZERO(), z1  = VZERO(), z2  = VZERO(), z3  = VZERO();
+    cc512i z4  = VZERO(), z5  = VZERO(), z6  = VZERO(), z7  = VZERO();
+    cc512i z8  = VZERO(), z9  = VZERO(), z10 = VZERO(), z11 = VZERO();
+    cc512i z12 = VZERO(), z13 = VZERO(), z14 = VZERO(), z15 = VZERO();
+    cc512i y0  = VZERO(), y1  = VZERO(), y2  = VZERO(), y3  = VZERO();
+    cc512i y4  = VZERO(), y5  = VZERO(), y6  = VZERO(), y7  = VZERO();
+    cc512i y8  = VZERO(), y9  = VZERO(), y10 = VZERO(), y11 = VZERO();
+    cc512i y12 = VZERO(), y13 = VZERO(), y14 = VZERO(), y15 = VZERO();
+    cc512i m0  = VZERO(), m1  = VZERO(), m2  = VZERO(), m3  = VZERO();
+    cc512i m4  = VZERO(), m5  = VZERO(), m6  = VZERO(), m7  = VZERO();
+
+    z0 = VMACLO(z0, ia0, ib0);
+    y0 = VMACHI(y0, ia0, ib0);
+    y0 = VSHL(y0, BALIGN);
+
+    z1 = VMACLO(y0, ia0, ib1); z1 = VMACLO(z1, ia1, ib0);
+    y1 = VMACHI(y1, ia0, ib1); y1 = VMACHI(y1, ia1, ib0);
+    y1 = VSHL(y1, BALIGN);
+
+    z2 = VMACLO(y1, ia0, ib2); z2 = VMACLO(z2, ia1, ib1); z2 = VMACLO(z2, ia2, ib0);
+    y2 = VMACHI(y2, ia0, ib2); y2 = VMACHI(y2, ia1, ib1); y2 = VMACHI(y2, ia2, ib0);
+    y2 = VSHL(y2, BALIGN);
+
+    z3 = VMACLO(y2, ia0, ib3); z3 = VMACLO(z3, ia1, ib2); z3 = VMACLO(z3, ia2, ib1);
+    z3 = VMACLO(z3, ia3, ib0);
+    y3 = VMACHI(y3, ia0, ib3); y3 = VMACHI(y3, ia1, ib2); y3 = VMACHI(y3, ia2, ib1);
+    y3 = VMACHI(y3, ia3, ib0);
+    y3 = VSHL(y3, BALIGN);
+
+    z4 = VMACLO(y3, ia1, ib3); z4 = VMACLO(z4, ia2, ib2); z4 = VMACLO(z4, ia3, ib1);
+    y4 = VMACHI(y4, ia1, ib3); y4 = VMACHI(y4, ia2, ib2); y4 = VMACHI(y4, ia3, ib1);
+    y4 = VSHL(y4, BALIGN);
+
+    z5 = VMACLO(y4, ia2, ib3); z5 = VMACLO(z5, ia3, ib2);
+    y5 = VMACHI(y5, ia2, ib3); y5 = VMACHI(y5, ia3, ib2);
+    y5 = VSHL(y5, BALIGN);
+
+    z6 = VMACLO(y5, ia3, ib3);
+    y6 = VMACHI(y6, ia3, ib3);
+    y6 = VSHL(y6, BALIGN);
+    z7 = y6;
+
+    z8 = VMACLO(z8, ia4, ib4);
+    y8 = VMACHI(y8, ia4, ib4);
+    y8 = VSHL(y8, BALIGN);
+
+    z9 = VMACLO(y8, ia4, ib5); z9 = VMACLO(z9, ia5, ib4);
+    y9 = VMACHI(y9, ia4, ib5); y9 = VMACHI(y9, ia5, ib4);
+    y9 = VSHL(y9, BALIGN);
+
+    z10 = VMACLO(y9, ia4, ib6); z10 = VMACLO(z10, ia5, ib5); z10 = VMACLO(z10, ia6, ib4);
+    y10 = VMACHI(y10, ia4, ib6); y10 = VMACHI(y10, ia5, ib5); y10 = VMACHI(y10, ia6, ib4);
+    y10 = VSHL(y10, BALIGN);
+
+    z11 = VMACLO(y10, ia4, ib7); z11 = VMACLO(z11, ia5, ib6);
+    z11 = VMACLO(z11, ia6, ib5); z11 = VMACLO(z11, ia7, ib4);
+    y11 = VMACHI(y11, ia4, ib7); y11 = VMACHI(y11, ia5, ib6);
+    y11 = VMACHI(y11, ia6, ib5); y11 = VMACHI(y11, ia7, ib4);
+    y11 = VSHL(y11, BALIGN);
+
+    z12 = VMACLO(y11, ia5, ib7); z12 = VMACLO(z12, ia6, ib6); z12 = VMACLO(z12, ia7, ib5);
+    y12 = VMACHI(y12, ia5, ib7); y12 = VMACHI(y12, ia6, ib6); y12 = VMACHI(y12, ia7, ib5);
+    y12 = VSHL(y12, BALIGN);
+
+    z13 = VMACLO(y12, ia6, ib7); z13 = VMACLO(z13, ia7, ib6);
+    y13 = VMACHI(y13, ia6, ib7); y13 = VMACHI(y13, ia7, ib6);
+    y13 = VSHL(y13, BALIGN);
+
+    z14 = VMACLO(y13, ia7, ib7);
+    y14 = VMACHI(y14, ia7, ib7);
+    y14 = VSHL(y14, BALIGN);
+    z15 = y14;
+
+    ta0 = VADD(ia0, ia4); ta1 = VADD(ia1, ia5);
+    ta2 = VADD(ia2, ia6); ta3 = VADD(ia3, ia7);
+    tb0 = VADD(ib0, ib4); tb1 = VADD(ib1, ib5);
+    tb2 = VADD(ib2, ib6); tb3 = VADD(ib3, ib7);
+
+    y0 = y1 = y2 = y3 = y4 = y5 = y6 = y7 = VZERO();
+
+    m0 = VMACLO(m0, ta0, tb0);
+    y0 = VMACHI(y0, ta0, tb0);
+    y0 = VSHL(y0, BALIGN);
+
+    m1 = VMACLO(y0, ta0, tb1); m1 = VMACLO(m1, ta1, tb0);
+    y1 = VMACHI(y1, ta0, tb1); y1 = VMACHI(y1, ta1, tb0);
+    y1 = VSHL(y1, BALIGN);
+
+    m2 = VMACLO(y1, ta0, tb2); m2 = VMACLO(m2, ta1, tb1); m2 = VMACLO(m2, ta2, tb0);
+    y2 = VMACHI(y2, ta0, tb2); y2 = VMACHI(y2, ta1, tb1); y2 = VMACHI(y2, ta2, tb0);
+    y2 = VSHL(y2, BALIGN);
+
+    m3 = VMACLO(y2, ta0, tb3); m3 = VMACLO(m3, ta1, tb2);
+    m3 = VMACLO(m3, ta2, tb1); m3 = VMACLO(m3, ta3, tb0);
+    y3 = VMACHI(y3, ta0, tb3); y3 = VMACHI(y3, ta1, tb2);
+    y3 = VMACHI(y3, ta2, tb1); y3 = VMACHI(y3, ta3, tb0);
+    y3 = VSHL(y3, BALIGN);
+
+    m4 = VMACLO(y3, ta1, tb3); m4 = VMACLO(m4, ta2, tb2); m4 = VMACLO(m4, ta3, tb1);
+    y4 = VMACHI(y4, ta1, tb3); y4 = VMACHI(y4, ta2, tb2); y4 = VMACHI(y4, ta3, tb1);
+    y4 = VSHL(y4, BALIGN);
+
+    m5 = VMACLO(y4, ta2, tb3); m5 = VMACLO(m5, ta3, tb2);
+    y5 = VMACHI(y5, ta2, tb3); y5 = VMACHI(y5, ta3, tb2);
+    y5 = VSHL(y5, BALIGN);
+
+    m6 = VMACLO(y5, ta3, tb3);
+    y6 = VMACHI(y6, ta3, tb3);
+    y6 = VSHL(y6, BALIGN);
+    m7 = y6;
+
+    m0 = VSUB(m0, VADD(z0, z8));   m1 = VSUB(m1, VADD(z1, z9));
+    m2 = VSUB(m2, VADD(z2, z10));  m3 = VSUB(m3, VADD(z3, z11));
+    m4 = VSUB(m4, VADD(z4, z12));  m5 = VSUB(m5, VADD(z5, z13));
+    m6 = VSUB(m6, VADD(z6, z14));  m7 = VSUB(m7, VADD(z7, z15));
+
+    z4  = VADD(z4, m0);   z5  = VADD(z5, m1);
+    z6  = VADD(z6, m2);   z7  = VADD(z7, m3);
+    z8  = VADD(z8, m4);   z9  = VADD(z9, m5);
+    z10 = VADD(z10, m6);  z11 = VADD(z11, m7);
+
+    cc512i w0 = z0, w1 = z1, w2 = z2, w3 = z3;
+    cc512i w4 = z4, w5 = z5, w6 = z6, w7 = z7;
+    cc512i w8 = z8, w9 = z9, w10 = z10, w11 = z11;
+    cc512i w12 = z12, w13 = z13, w14 = z14, w15 = z15;
+
+    y0 = y1 = y2 = y3 = y4 = y5 = y6 = y7 = VZERO();
+    y8 = y9 = y10 = y11 = y12 = y13 = y14 = VZERO();
+
+    const cc512i p0 = VSET1(P48[0]), p1 = VSET1(P48[1]), p2 = VSET1(P48[2]);
+    const cc512i p3 = VSET1(P48[3]), p4 = VSET1(P48[4]), p5 = VSET1(P48[5]);
+    const cc512i p6 = VSET1(P48[6]), p7 = VSET1(P48[7]);
+    const cc512i bmask = VSET1(BMASK), montw = VSET1(MONT_W_R48), zero = VZERO();
+    cc512i u;
+
+    u  = VAND(VMACLO(zero, w0, montw), bmask);
+    w0 = VMACLO(w0, u, p0); w1 = VMACLO(w1, u, p1); w2 = VMACLO(w2, u, p2);
+    w3 = VMACLO(w3, u, p3); w4 = VMACLO(w4, u, p4); w5 = VMACLO(w5, u, p5);
+    w6 = VMACLO(w6, u, p6); w7 = VMACLO(w7, u, p7);
+    y0 = VMACHI(y0, u, p0); y1 = VMACHI(y1, u, p1); y2 = VMACHI(y2, u, p2);
+    y3 = VMACHI(y3, u, p3); y4 = VMACHI(y4, u, p4); y5 = VMACHI(y5, u, p5);
+    y6 = VMACHI(y6, u, p6); y7 = VMACHI(y7, u, p7);
+    w1 = VADD(VADD(w1, VSRA(w0, BRADIX)), VSHL(y0, BALIGN));
+
+    u  = VAND(VMACLO(zero, w1, montw), bmask);
+    w1 = VMACLO(w1, u, p0); w2 = VMACLO(w2, u, p1); w3 = VMACLO(w3, u, p2);
+    w4 = VMACLO(w4, u, p3); w5 = VMACLO(w5, u, p4); w6 = VMACLO(w6, u, p5);
+    w7 = VMACLO(w7, u, p6); w8 = VMACLO(w8, u, p7);
+    y1 = VMACHI(y1, u, p0); y2 = VMACHI(y2, u, p1); y3 = VMACHI(y3, u, p2);
+    y4 = VMACHI(y4, u, p3); y5 = VMACHI(y5, u, p4); y6 = VMACHI(y6, u, p5);
+    y7 = VMACHI(y7, u, p6); y8 = VMACHI(y8, u, p7);
+    w2 = VADD(VADD(w2, VSRA(w1, BRADIX)), VSHL(y1, BALIGN));
+
+    u  = VAND(VMACLO(zero, w2, montw), bmask);
+    w2 = VMACLO(w2, u, p0); w3 = VMACLO(w3, u, p1); w4 = VMACLO(w4, u, p2);
+    w5 = VMACLO(w5, u, p3); w6 = VMACLO(w6, u, p4); w7 = VMACLO(w7, u, p5);
+    w8 = VMACLO(w8, u, p6); w9 = VMACLO(w9, u, p7);
+    y2 = VMACHI(y2, u, p0); y3 = VMACHI(y3, u, p1); y4 = VMACHI(y4, u, p2);
+    y5 = VMACHI(y5, u, p3); y6 = VMACHI(y6, u, p4); y7 = VMACHI(y7, u, p5);
+    y8 = VMACHI(y8, u, p6); y9 = VMACHI(y9, u, p7);
+    w3 = VADD(VADD(w3, VSRA(w2, BRADIX)), VSHL(y2, BALIGN));
+
+    u  = VAND(VMACLO(zero, w3, montw), bmask);
+    w3 = VMACLO(w3, u, p0); w4 = VMACLO(w4, u, p1); w5 = VMACLO(w5, u, p2);
+    w6 = VMACLO(w6, u, p3); w7 = VMACLO(w7, u, p4); w8 = VMACLO(w8, u, p5);
+    w9 = VMACLO(w9, u, p6); w10 = VMACLO(w10, u, p7);
+    y3 = VMACHI(y3, u, p0); y4 = VMACHI(y4, u, p1); y5 = VMACHI(y5, u, p2);
+    y6 = VMACHI(y6, u, p3); y7 = VMACHI(y7, u, p4); y8 = VMACHI(y8, u, p5);
+    y9 = VMACHI(y9, u, p6); y10 = VMACHI(y10, u, p7);
+    w4 = VADD(VADD(w4, VSRA(w3, BRADIX)), VSHL(y3, BALIGN));
+
+    u   = VAND(VMACLO(zero, w4, montw), bmask);
+    w4  = VMACLO(w4, u, p0); w5  = VMACLO(w5, u, p1); w6 = VMACLO(w6, u, p2);
+    w7  = VMACLO(w7, u, p3); w8  = VMACLO(w8, u, p4); w9 = VMACLO(w9, u, p5);
+    w10 = VMACLO(w10, u, p6); w11 = VMACLO(w11, u, p7);
+    y4  = VMACHI(y4, u, p0); y5  = VMACHI(y5, u, p1); y6 = VMACHI(y6, u, p2);
+    y7  = VMACHI(y7, u, p3); y8  = VMACHI(y8, u, p4); y9 = VMACHI(y9, u, p5);
+    y10 = VMACHI(y10, u, p6); y11 = VMACHI(y11, u, p7);
+    w5 = VADD(VADD(w5, VSRA(w4, BRADIX)), VSHL(y4, BALIGN));
+
+    u   = VAND(VMACLO(zero, w5, montw), bmask);
+    w5  = VMACLO(w5, u, p0); w6  = VMACLO(w6, u, p1); w7  = VMACLO(w7, u, p2);
+    w8  = VMACLO(w8, u, p3); w9  = VMACLO(w9, u, p4); w10 = VMACLO(w10, u, p5);
+    w11 = VMACLO(w11, u, p6); w12 = VMACLO(w12, u, p7);
+    y5  = VMACHI(y5, u, p0); y6  = VMACHI(y6, u, p1); y7  = VMACHI(y7, u, p2);
+    y8  = VMACHI(y8, u, p3); y9  = VMACHI(y9, u, p4); y10 = VMACHI(y10, u, p5);
+    y11 = VMACHI(y11, u, p6); y12 = VMACHI(y12, u, p7);
+    w6 = VADD(VADD(w6, VSRA(w5, BRADIX)), VSHL(y5, BALIGN));
+
+    u   = VAND(VMACLO(zero, w6, montw), bmask);
+    w6  = VMACLO(w6, u, p0); w7  = VMACLO(w7, u, p1); w8  = VMACLO(w8, u, p2);
+    w9  = VMACLO(w9, u, p3); w10 = VMACLO(w10, u, p4); w11 = VMACLO(w11, u, p5);
+    w12 = VMACLO(w12, u, p6); w13 = VMACLO(w13, u, p7);
+    y6  = VMACHI(y6, u, p0); y7  = VMACHI(y7, u, p1); y8  = VMACHI(y8, u, p2);
+    y9  = VMACHI(y9, u, p3); y10 = VMACHI(y10, u, p4); y11 = VMACHI(y11, u, p5);
+    y12 = VMACHI(y12, u, p6); y13 = VMACHI(y13, u, p7);
+    w7 = VADD(VADD(w7, VSRA(w6, BRADIX)), VSHL(y6, BALIGN));
+
+    u   = VAND(VMACLO(zero, w7, montw), bmask);
+    w7  = VMACLO(w7, u, p0); w8  = VMACLO(w8, u, p1); w9  = VMACLO(w9, u, p2);
+    w10 = VMACLO(w10, u, p3); w11 = VMACLO(w11, u, p4); w12 = VMACLO(w12, u, p5);
+    w13 = VMACLO(w13, u, p6); w14 = VMACLO(w14, u, p7);
+    y7  = VMACHI(y7, u, p0); y8  = VMACHI(y8, u, p1); y9  = VMACHI(y9, u, p2);
+    y10 = VMACHI(y10, u, p3); y11 = VMACHI(y11, u, p4); y12 = VMACHI(y12, u, p5);
+    y13 = VMACHI(y13, u, p6); y14 = VMACHI(y14, u, p7);
+    w8 = VADD(VADD(w8, VSRA(w7, BRADIX)), VSHL(y7, BALIGN));
+
+    w9  = VADD(w9, VSHL(y8, BALIGN));
+    w10 = VADD(w10, VSHL(y9, BALIGN));
+    w11 = VADD(w11, VSHL(y10, BALIGN));
+    w12 = VADD(w12, VSHL(y11, BALIGN));
+    w13 = VADD(w13, VSHL(y12, BALIGN));
+    w14 = VADD(w14, VSHL(y13, BALIGN));
+    w15 = VADD(w15, VSHL(y14, BALIGN));
+
+    cc512i r0 = w8, r1 = w9, r2 = w10, r3 = w11;
+    cc512i r4 = w12, r5 = w13, r6 = w14, r7 = w15;
+
+    r1 = VADD(r1, VSRA(r0, BRADIX)); r0 = VAND(r0, bmask);
+    r2 = VADD(r2, VSRA(r1, BRADIX)); r1 = VAND(r1, bmask);
+    r3 = VADD(r3, VSRA(r2, BRADIX)); r2 = VAND(r2, bmask);
+    r4 = VADD(r4, VSRA(r3, BRADIX)); r3 = VAND(r3, bmask);
+    r5 = VADD(r5, VSRA(r4, BRADIX)); r4 = VAND(r4, bmask);
+    r6 = VADD(r6, VSRA(r5, BRADIX)); r5 = VAND(r5, bmask);
+    r7 = VADD(r7, VSRA(r6, BRADIX)); r6 = VAND(r6, bmask);
+                                   r7 = VAND(r7, bmask);
+
+    r[0] = r0; r[1] = r1; r[2] = r2; r[3] = r3;
+    r[4] = r4; r[5] = r5; r[6] = r6; r[7] = r7;
+    fp8x1_lfp_bounds_record(r);
+  };
+
+  fp8x1_mul_redc_core_single_fused(lazy0, a0, b0);
+  fp8x1_mul_redc_core_single_fused(lazy1, a1, b1);
+#endif
+}
+
+BLST_FORCEINLINE void fp8x1_mul_redc_pair(
+    FpPack8x1& out0,
+    FpPack8x1& out1,
+    const FpPack8x1& a0,
+    const FpPack8x1& b0,
+    const FpPack8x1& a1,
+    const FpPack8x1& b1)
+{
+  LFpPack8x1 lazy0{};
+  LFpPack8x1 lazy1{};
+  fp8x1_mul_redc_core_k2(lazy0, lazy1, a0, b0, a1, b1);
+  UFpPack8x1::normalize(out0, lazy0);
+  UFpPack8x1::normalize(out1, lazy1);
+}
+
 template <int K>
 BLST_FORCEINLINE void fp8x1_mul_v2_block(
     UFpPack8x1* BLST_restrict out,
@@ -2310,10 +2600,19 @@ BLST_FORCEINLINE void fp8x1_mul_redc_block(
     const FpPack8x1* BLST_restrict b)
 {
   static_assert((K == 1) || (K == 2) || (K == 4), "fp8x1_mul_redc_block supports K in {1,2,4}");
+  if constexpr (K == 1) {
+    UFpPack8x1 wide{};
+    FpPack8x1::mul_v2(wide, a[0], b[0]);
+    UFpPack8x1::redc(out[0], wide);
+    return;
+  }
 
-  UFpPack8x1 wide[K];
-  fp8x1_mul_v2_block<K>(wide, a, b);
-  fp8x1_redc_block<K>(out, wide);
+  if constexpr (K == 2) {
+    fp8x1_mul_redc_pair(out[0], out[1], a[0], b[0], a[1], b[1]);
+  } else {
+    fp8x1_mul_redc_pair(out[0], out[1], a[0], b[0], a[1], b[1]);
+    fp8x1_mul_redc_pair(out[2], out[3], a[2], b[2], a[3], b[3]);
+  }
 }
 } // namespace
 
