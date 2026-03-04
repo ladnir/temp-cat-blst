@@ -40,7 +40,6 @@ else()
         "main.cpp"
         "avxbls_bench.cpp"
         "Fp_avx_k_bench.cpp"
-        "redc_core_k2_asm.S"
         "Fp12_tower_avx_bench.cpp"
         "Fr_bench.cpp"
         "G1_bench.cpp"
@@ -49,14 +48,6 @@ else()
         "pairing_bench.cpp"
         "FFT_bench.cpp"
     )
-endif()
-
-if(NOT (UNIX AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64)$"))
-    list(REMOVE_ITEM BENCHMARK_SOURCES "redc_core_k2_asm.S")
-endif()
-
-if(NOT BLST_AVX512)
-    list(REMOVE_ITEM BENCHMARK_SOURCES "redc_core_k2_asm.S")
 endif()
 
 if(BLST_PARALLEL_MSM)

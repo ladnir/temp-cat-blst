@@ -12,6 +12,17 @@ const u64 P48[NWORDS] = {
     0x4B84F38512BFULL, 0x434BACD76477ULL, 0xE69A4B1BA7B6ULL, 0x1A0111EA397FULL,
 };
 
+#if defined(__linux__) && defined(__x86_64__) && defined(BLST_ASM) && defined(BLST_AVX512) && !defined(BLST_AVX512_PORTABLE)
+#define BLST_HAVE_FP8X1_REDC_CORE_K2_ASM 1
+extern "C" void blst_fp8x1_redc_core_k2(
+    LFpPack8x1* out0,
+    LFpPack8x1* out1,
+    const UFpPack8x1* in0,
+    const UFpPack8x1* in1);
+#else
+#define BLST_HAVE_FP8X1_REDC_CORE_K2_ASM 0
+#endif
+
 namespace
 {
 #if defined(NDEBUG)
@@ -2236,6 +2247,24 @@ void UFpPack4x2::redc(FpPack4x2& r, const UFpPack4x2& a)
 
 namespace
 {
+BLST_FORCEINLINE void fp8x1_redc_pair(
+    FpPack8x1& out0,
+    FpPack8x1& out1,
+    const UFpPack8x1& in0,
+    const UFpPack8x1& in1)
+{
+#if BLST_HAVE_FP8X1_REDC_CORE_K2_ASM
+  LFpPack8x1 lazy0{};
+  LFpPack8x1 lazy1{};
+  blst_fp8x1_redc_core_k2(&lazy0, &lazy1, &in0, &in1);
+  UFpPack8x1::normalize(out0, lazy0);
+  UFpPack8x1::normalize(out1, lazy1);
+#else
+  UFpPack8x1::redc(out0, in0);
+  UFpPack8x1::redc(out1, in1);
+#endif
+}
+
 template <int K>
 BLST_FORCEINLINE void fp8x1_mul_v2_block(
     UFpPack8x1* BLST_restrict out,
@@ -2267,13 +2296,10 @@ BLST_FORCEINLINE void fp8x1_redc_block(
   if constexpr (K == 1) {
     UFpPack8x1::redc(out[0], in[0]);
   } else if constexpr (K == 2) {
-    UFpPack8x1::redc(out[0], in[0]);
-    UFpPack8x1::redc(out[1], in[1]);
+    fp8x1_redc_pair(out[0], out[1], in[0], in[1]);
   } else {
-    UFpPack8x1::redc(out[0], in[0]);
-    UFpPack8x1::redc(out[1], in[1]);
-    UFpPack8x1::redc(out[2], in[2]);
-    UFpPack8x1::redc(out[3], in[3]);
+    fp8x1_redc_pair(out[0], out[1], in[0], in[1]);
+    fp8x1_redc_pair(out[2], out[3], in[2], in[3]);
   }
 }
 

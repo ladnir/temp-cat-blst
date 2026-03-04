@@ -27,7 +27,7 @@ Observed uplift:
 - asm `k=2 v2`: about `+44%` over `SeqChains<2>`
 
 Recent change notes:
-- Linux benchmark-only asm `k=2` path (`blst_redc_core_k2_asm`) is now the fastest measured variant.
+- Linux asm `k=2` path (`blst_fp8x1_redc_core_k2`) is now promoted to library and is the fastest measured variant.
 - The asm path is spill-free in the kernel body.
 - The latest asm revision reduced constant-load pressure by reusing `p[i]` in a temp zmm for each lo/hi pair.
 - A follow-up revision removed extra `vmovdqa64` for `montw/bmask` in each round (restored memory-form ops), and hoisted final carry-mask to one loaded zmm reused by both carry chains.
@@ -58,7 +58,7 @@ Hot range: `0x427750..0x429140`
 
 Conclusion: the C++ hand benchmark body remains stack-heavy because it includes harness state and large inlined setup, but this is not the limiting factor for the dedicated asm kernel path.
 
-### 3) Linux asm `k=2` kernel (`blst_redc_core_k2_asm`)
+### 3) Linux asm `k=2` kernel (`blst_fp8x1_redc_core_k2`)
 
 - IFMA count: `272` (`2 x 136`)
 - stack memory refs in kernel body: `0`
@@ -111,7 +111,7 @@ Important interpretation:
 ## Concrete Optimization Plan (Before Implementation)
 
 ### Phase 1: Keep no-spill asm as baseline
-Current baseline is `blst_redc_core_k2_asm` at about `23.3M/s`.
+Current baseline is `blst_fp8x1_redc_core_k2` (promoted from benchmark `v3`) at about `26.3M/s`.
 
 Design constraints:
 - keep two streams interleaved (`k=2`)
@@ -169,9 +169,9 @@ Checkpoint status:
 ## ASM Update
 
 We implemented and tuned a Linux benchmark-only asm kernel:
-- file: `benchmark/redc_core_k2_asm.S`
-- symbol: `blst_redc_core_k2_asm`
-- exposed as separate benchmark `BM_Fp8x1RedcCore_AsmK2` (A/B alongside C++ baselines).
+- file: `blst/fields/Fp_avx_redc_core_k2_asm.S`
+- symbol: `blst_fp8x1_redc_core_k2`
+- exposed as benchmark `BM_Fp8x1RedcCore_AsmK2`.
 
 Current schedule choice:
 - lazy-`y` queue model (close to scalar arithmetic),
