@@ -1,233 +1,214 @@
-# Fp8x1 Fused `mul+redc` K=2 Plan
+# Fp8x1 Fused mul+redc Kernel Plan (K=1 -> K=2)
 
 ## Goal
 
-Implement a true fused `FpPack8x1` `mul+redc` path for `k=2` streams in native AVX-512, with internal-only APIs and no public API changes.
+Optimize the fused `Fp8x1` `mul+redc` kernel for throughput.
 
 Primary objective:
-- increase `mul+redc` throughput by avoiding widened intermediate materialization and reducing dependency/scheduling stalls.
+- maximize arithmetic throughput while keeping register pressure low enough to scale from `k=1` to `k=2` interleaving.
 
-## Scope
+This plan is kernel-focused only.
+
+## Scope (Strict)
 
 In scope:
-- `FpPack8x1` / `UFpPack8x1` only.
-- native AVX-512 (`BLST_AVX512`, non-portable), Linux x86_64 asm path.
-- `k=2` first, then reuse for `k=4` as two `k=2` calls.
+- benchmark-only kernel development and evaluation.
+- native AVX-512 (`BLST_AVX512`, non-portable), Linux x86_64 target.
+- `k=1` kernel first, then `k=2` interleaved kernel.
 
-Out of scope (for this doc):
-- public API/ABI additions.
-- AVX portable optimization work.
-- direct GT/G1/G2 refactors.
+Out of scope:
+- library/public API changes.
+- dispatch/integration wiring.
+- AVX portable optimization.
+- GT/G1/G2 integration.
 
-## Current Baseline (for comparison)
+## Algorithm Choice
 
-Representative native AVX benchmark ranges observed:
-- `BM_Fp8x1MulRedc_SeqChains<2>`: ~`11.3M..11.5M` ops/s.
-- `BM_Fp8x1MulRedc_HandInterleavedChains<2>`: near-flat vs seq (small gain).
-- `redc_core` improved substantially with asm `k=2`, but that gain does not transfer fully to full `mul+redc` today.
+Use an integrated Montgomery **CIOS-style** kernel with in-place accumulator flow.
 
-Interpretation:
-- current bottleneck is at composed kernel level (`mul` + reduction boundary + scheduling), not just isolated `redc_core`.
+Why this choice:
+- lower live state than full-product (`z0..z15`) style.
+- better fit for `k=2` without spills.
+- clear round structure for hand scheduling and asm mapping.
 
-## Internal API Plan (No Public API)
+Not the initial target:
+- full-FIOS with aggressive per-term interleaving.
+- staged `mul_v2` then `redc_core`.
 
-### 1) Core fused primitive (internal)
+## Kernel Dataflow (Per Stream)
 
-```cpp
-BLST_AVX_NOINLINE void fp8x1_mul_redc_core_k2(
-    LFpPack8x1& out0,
-    LFpPack8x1& out1,
-    const FpPack8x1& a0,
-    const FpPack8x1& b0,
-    const FpPack8x1& a1,
-    const FpPack8x1& b1);
-```
+For `n=8` limbs:
+- maintain rolling accumulator `t[0..8]` (9 limbs).
+- each outer round `i`:
+1. accumulate `a_i * b_j` terms into `t`.
+2. compute Montgomery factor `m = t0 * n0' mod 2^48`.
+3. fold `m * p_j` into `t`.
+4. shift/advance accumulator window logically (ring index, not bulk moves).
 
-Behavior:
-- computes `(a0*b0)*R^-1 mod p` and `(a1*b1)*R^-1 mod p` in lazy form (`LFpPack8x1`).
-- no final canonical subtraction.
+Boundary:
+- keep output lazy (`LFpPack8x1`) in core benchmark.
+- measure normalize separately and combined.
 
-### 2) Canonical fused wrapper (internal)
+## Register-Pressure Strategy
 
-```cpp
-BLST_FORCEINLINE void fp8x1_mul_redc_pair(
-    FpPack8x1& out0,
-    FpPack8x1& out1,
-    const FpPack8x1& a0,
-    const FpPack8x1& b0,
-    const FpPack8x1& a1,
-    const FpPack8x1& b1);
-```
+Design constraints for `k=1` implementation:
+- avoid materializing full widened product arrays.
+- avoid duplicate temporaries (`w*`, `r*`) after reduction.
+- keep constants minimal in live registers:
+  - pin only always-used constants (`mask`, `montw`, `zero`).
+  - load/use `p[j]` with short live range.
+- use ring-indexed accumulator to avoid shuffle/move storms.
 
-Behavior:
-- calls `fp8x1_mul_redc_core_k2`, then `normalize` for both outputs.
+Target for `k=2`:
+- replicate same round machine for stream A/B.
+- interleave at round/sub-round granularity to hide IFMA latency.
+- keep stream state independent and bounded to avoid spills.
 
-### 3) Dispatch integration
+## Implementation Phases
 
-`fp8x1_mul_redc_block<K>`:
-- `K==1`: unchanged baseline C++ path.
-- `K==2`: use `fp8x1_mul_redc_pair`.
-- `K==4`: two `fp8x1_mul_redc_pair` calls.
+## Phase 1: K=1 CIOS Baseline (Benchmark-Only)
 
-## Data Layout and Scheduling Targets
+Deliverables:
+- benchmark-only fused `k=1` CIOS kernel.
+- A/B benchmarks:
+  - current `k=1` (`fp8x1_mul_redc_k<1>`)
+  - fused core only (`lazy`)
+  - fused core + normalize
 
-### Data layout
-- keep existing SoA pack layout (`FpPack8x1`, 8 limbs of `__m512i`).
-- two independent streams (`stream0`, `stream1`) processed together.
-
-### Scheduling targets
-- avoid storing full widened `UFp` intermediates to memory in the hot path.
-- keep enough independent work across streams to hide IFMA latency.
-- control live set to avoid spill/reload cycles.
-- preserve radix-48 arithmetic model used by current `redc_core`.
-
-### Register budget strategy
-- start with `k=2` only.
-- explicitly bound active temporaries per round.
-- prefer deterministic temp ownership per stream/step (avoid accidental long chains).
-
-## Phased Implementation
-
-## Phase 1: Scaffolding and Baseline Hooks
-
-APIs:
-- add internal declarations for `fp8x1_mul_redc_core_k2` + `fp8x1_mul_redc_pair`.
-- add compile guards mirroring `blst_fp8x1_redc_core_k2`.
-
-Data/layout:
-- no arithmetic changes yet.
-- fallback implementation uses existing `mul_v2` + current reduction path.
-
-Testing:
-- existing `fp8x1_mul_redc_k` tests must pass unchanged.
-- add fused-path differential tests (random vectors + edge vectors).
-
-Success:
-- zero functional regression.
-- fused hook selectable in `K==2` path under guard.
-
-Avoid:
-- no public headers/API exposure.
-- no benchmark-only logic in library code.
-
-## Phase 2: C++ Fused Baseline (Control)
-
-APIs:
-- wire `K==2` through `fp8x1_mul_redc_pair` in C++ first.
-
-Data/layout:
-- use two local widened values (`wide0`, `wide1`) as control baseline.
-
-Testing:
-- compare with old path on randomized and adversarial inputs.
-- run existing Fp/Fp2/Fp12 tests that transitively depend on Fp mul.
+Correctness:
+- deterministic differential check inside benchmark path against current kernel output.
 
 Success:
 - correctness parity.
-- benchmark baseline for fused-entry path established (even if perf-neutral).
+- measurable gain vs current `k=1`.
 
-Avoid:
-- no premature asm schedule complexity before control baseline is locked.
+## Phase 2: K=1 Schedule Tuning
 
-## Phase 3: Native ASM `fp8x1_mul_redc_core_k2` Prototype
+Focus:
+- reduce live ranges and redundant register copies.
+- tune instruction ordering inside rounds.
+- keep constant pressure low.
+- use objdump/perf evidence to drive changes (not intuition).
 
-APIs:
-- add symbol (internal): `blst_fp8x1_mul_redc_core_k2`.
-- C++ wrapper uses asm path when native AVX-512 is enabled.
+### Current Linux Findings (NoInline C++ vs K1 ASM)
 
-Data/layout:
-- first prototype may materialize some intermediates if needed for correctness.
-- prioritize functional equivalence and clear round structure.
+Measured on native AVX-512 Linux with:
+- `BM_Fp8x1MulRedcCoreK1_FusedBaseline` (C++ noinline core)
+- `BM_Fp8x1MulRedcCoreK1_FusedAsm` (hand ASM core)
 
-Testing:
-- strict differential test vs C++ reference for millions of random lanes.
-- edge patterns: max limbs, carry-heavy patterns, alternating high/low limbs.
+Throughput snapshot (latest A/B):
+- current non-fused baseline (`BM_Fp8x1MulRedcK1_Current`): `~12.71M/s`
+- C++ noinline core: `~16.24M/s`
+- C++ noinline core + normalize: `~13.74M/s`
+- ASM core: `~15.16M/s`
+- ASM core + normalize: `~12.48M/s`
+
+Objdump summary:
+- both kernels execute the same IFMA count (`232 x vpmadd52*`).
+- C++ noinline core: `0` memory-operand `vpmadd52`.
+- ASM core: `72` memory-operand `vpmadd52` (reduced from earlier `128`).
+- C++ uses stack scratch (`[rsp]`) to keep IFMA operands register-register.
+- ASM avoids stack (`0` `%rsp` refs), but still pays higher memory-form IFMA pressure.
+
+### Findings Summary
+
+- C++ is faster today for both core and core+normalize.
+- C++ is winning mostly because it achieves better register assignment in the hot path:
+  - register-register IFMA in redc rounds (`0` memory-operand `vpmadd52`)
+  - bounded stack scratch to keep IFMA operands resident
+- ASM currently avoids stack spills entirely, but pays for it with too many memory-form IFMA ops (`72`), which lowers effective throughput.
+- arithmetic work is equivalent (`232` IFMA each), so the gap is scheduling/operand-form, not operation count.
+
+### What Must Change For ASM To Win
+
+1. Reduce memory-form IFMA further (target: near zero in redc hot rounds).
+2. Allow selective, bounded scratch if it enables register-register IFMA (the same tradeoff C++ is using).
+3. Tighten constant handling:
+   - keep `p[j]` constants in registers only for the shortest useful window
+   - avoid repeated reload/rematerialization in inner reduction rounds
+4. Keep carry-chain scheduling overlapped with independent IFMA groups (avoid clustering dependency-heavy ops).
+5. Re-measure after each change with objdump counters + throughput and reject edits that only move pressure around.
+
+### Implications For K=2
+
+- K=2 can provide more ILP, but it also doubles live-state pressure.
+- If K=1 still relies on many memory-form IFMA ops, naive K=2 duplication will likely amplify memory pressure and fail to scale.
+- K=2 should be built from the K=1 winner pattern:
+  - round-level interleaving of two streams
+  - explicit live-range budgeting
+  - selective scratch allowed when it removes memory-form IFMA
+- Practical gate before full K=2 rollout:
+  - bring K=1 ASM closer to C++ operand form (substantially below current `72` memory-form IFMA) to create headroom for two-stream scheduling.
+
+### C++ Optimization Track (Kernel-Only)
+
+C++ is currently the fastest K1 baseline. Further C++ work should target:
+1. Keep IFMA operands register-register in redc rounds.
+2. Minimize stack traffic by shortening temporary lifetimes (`y`/carry staging).
+3. Preserve deterministic round structure so compiler keeps a stable schedule.
+4. Hoist constant setup pressure:
+   - keep broadcast constants in the smallest possible live window.
+   - avoid re-materializing constant vectors in hot sub-rounds.
+5. Re-check instruction mix and variance after each change; reject changes that only move work between stack and memory-form IFMA.
+
+Validation:
+- throughput benchmark with low variance (`min_time=1s`, `repetitions=10`).
+- no correctness drift.
 
 Success:
-- bit-exact canonical outputs after normalize.
-- stable benchmark execution on target AVX machine.
+- improved fused `k=1` throughput with stable variance.
 
-Avoid:
-- no assumption that prototype perf is acceptable.
+## Phase 3: K=2 Interleaved Kernel (Benchmark-Only)
 
-## Phase 4: Schedule/Live-Set Optimization (Primary Perf Phase)
+Focus:
+- hand-interleaved CIOS rounds for two streams.
+- no wrapper-only chaining; explicit interleaved body.
 
-APIs:
-- no API change.
-
-Data/layout:
-- convert prototype into a no-spill or minimal-spill schedule.
-- hand interleave stream operations where compiler scheduling is insufficient.
-- tune round order to overlap IFMA with carry/shift/add work.
-
-Testing:
-- perf + correctness after each schedule change.
-- asm inspection and perf counters (spills, uops mix, backend stalls).
+Validation:
+- compare `k=2` interleaved vs sequential two `k=1` calls.
+- inspect asm/perf for spills and backend stalls.
 
 Success:
-- target throughput: at least `+20%` over current `k=2` `mul+redc` baseline.
-- stretch target: `+30%` or better if spill-free schedule holds.
-- no correctness regressions.
+- clear gain over sequential `k=2` baseline.
+- spill behavior controlled.
 
-Avoid:
-- avoid widening scope to `k=4` asm before `k=2` is stable.
-- avoid macro-generated pseudo-interleaving that obscures true schedule.
+## Phase 4: K=2 Schedule Refinement
 
-## Phase 5: Integration and Cleanup
-
-APIs:
-- keep only one production fused path (`k=2`) and one fallback path.
-- preserve existing `K=1` behavior.
-
-Data/layout:
-- `K=4` composition via two `k=2` calls.
-
-Testing:
-- full AVX portable-local regression build/tests.
-- native AVX benchmark suite subset:
-  - `BM_Fp8x1MulRedcK<1|2|4>`
-  - `BM_Fp12Mul_(Scalar8|Pack8x1)` (impact check)
-  - GT scalar mult benchmarks (indirect impact check).
+Focus:
+- refine port utilization and dependency spacing.
+- tune unroll factor and constant handling.
+- carry forward K1 lessons:
+  - prefer register-register IFMA.
+  - use bounded scratch only when it removes memory-form IFMA pressure.
 
 Success:
-- no regressions.
-- reproducible benchmark improvement with low variance.
+- sustained gain with low variance across repeated runs.
 
-Avoid:
-- no legacy benchmark variant sprawl after winner is selected.
+## Benchmark Matrix (Minimal)
 
-## Benchmark Plan (Minimal and Stable)
+Keep only kernel-attribution benchmarks:
+- `BM_Fp8x1MulRedcK1_Current`
+- `BM_Fp8x1MulRedcCoreK1_FusedBaseline`
+- `BM_Fp8x1MulRedcK1_FusedBaseline`
+- `BM_Fp8x1MulRedcCoreK2_*` (once implemented)
+- `BM_Fp8x1MulRedcK2_*` (once implemented)
 
-Keep a small benchmark set:
-- `BM_Fp8x1MulRedcK<1|2|4>` (primary)
-- `BM_Fp8x1RedcK<1|2|4>` (secondary sanity)
-- optional microbench:
-  - fused core only
-  - table/init-free loop-only decomposition if attribution is needed.
-
-Recommended flags:
+Run with:
 - `--benchmark_min_time=1s`
 - `--benchmark_repetitions=10`
 - `--benchmark_report_aggregates_only=true`
 
-## Correctness Matrix
+## Current Targets
 
-Required:
-- random differential tests vs baseline path.
-- adversarial limb patterns.
-- cross-check through tower operations (`Fp2/Fp6/Fp12`) that consume Fp mul.
-- invariant checks for lazy outputs before normalize (debug only).
+Near-term:
+- improve fused `k=1` combined path (`core + normalize`) over current `k=1`.
 
-## Promotion Criteria
-
-Promote fused asm path as default `K==2` implementation only when:
-- all correctness gates pass.
-- benchmark gain is consistent across multiple runs on native AVX hardware.
-- no unstable spill behavior across compiler versions/flags used by project CI.
+Medium-term:
+- achieve strong `k=2` gain from interleaving with bounded register pressure.
 
 ## What To Avoid
 
-- exposing this as a public API before k-wise support is stable.
-- mixing algorithm changes and schedule changes in one patch (hard to attribute).
-- retaining obsolete benchmark variants once a winner is established.
-- optimizing AVX portable path as part of this phase.
+- no integration work while kernel design is still moving.
+- no dispatch/API churn.
+- no benchmark variant sprawl after winners are identified.
+- no assumptions about compiler auto-interleaving; verify with asm/perf.
