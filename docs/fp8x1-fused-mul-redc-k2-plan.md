@@ -5,7 +5,9 @@
 Optimize the fused `Fp8x1` `mul+redc` kernel for throughput.
 
 Primary objective:
-- maximize arithmetic throughput while keeping register pressure low enough to scale from `k=1` to `k=2` interleaving.
+- maximize `k=1` arithmetic throughput with a no-spill hand ASM path that meets or beats the C++ baseline.
+
+`k=2` interleaving work is explicitly deferred to a later phase.
 
 This plan is kernel-focused only.
 
@@ -14,36 +16,34 @@ This plan is kernel-focused only.
 In scope:
 - benchmark-only kernel development and evaluation.
 - native AVX-512 (`BLST_AVX512`, non-portable), Linux x86_64 target.
-- `k=1` kernel first, then `k=2` interleaved kernel.
+- `k=1` kernel optimization only in this phase.
 
 Out of scope:
 - library/public API changes.
 - dispatch/integration wiring.
+- additional integration churn in this phase (existing wiring remains as-is).
 - AVX portable optimization.
 - GT/G1/G2 integration.
 
 ## Algorithm Choice
 
-Use an integrated Montgomery **CIOS-style** kernel with in-place accumulator flow.
+Current working baseline is fused **Karatsuba-style `mul_v2` + `redc_core`** (`lazy` output).
 
 Why this choice:
-- lower live state than full-product (`z0..z15`) style.
-- better fit for `k=2` without spills.
-- clear round structure for hand scheduling and asm mapping.
+- CIOS was implemented and benchmarked, but underperformed current Karatsuba-based fused kernels.
+- current best throughput path is already Karatsuba-based in both C++ and K1 ASM explorations.
+- this keeps K1/K2 comparisons anchored to the fastest known arithmetic structure.
 
-Not the initial target:
-- full-FIOS with aggressive per-term interleaving.
-- staged `mul_v2` then `redc_core`.
+Not the current target:
+- CIOS/FIOS redesign unless new evidence shows a clear win.
+- architecture-portable rework.
 
 ## Kernel Dataflow (Per Stream)
 
 For `n=8` limbs:
-- maintain rolling accumulator `t[0..8]` (9 limbs).
-- each outer round `i`:
-1. accumulate `a_i * b_j` terms into `t`.
-2. compute Montgomery factor `m = t0 * n0' mod 2^48`.
-3. fold `m * p_j` into `t`.
-4. shift/advance accumulator window logically (ring index, not bulk moves).
+- form widened product via Karatsuba-style `mul_v2` structure (`z0..z15` equivalent state).
+- apply Montgomery `redc_core` to produce `LFpPack8x1`.
+- normalize as a separately measured boundary step.
 
 Boundary:
 - keep output lazy (`LFpPack8x1`) in core benchmark.
@@ -52,24 +52,21 @@ Boundary:
 ## Register-Pressure Strategy
 
 Design constraints for `k=1` implementation:
-- avoid materializing full widened product arrays.
+- keep widened/intermediate state live ranges as short as possible.
 - avoid duplicate temporaries (`w*`, `r*`) after reduction.
 - keep constants minimal in live registers:
   - pin only always-used constants (`mask`, `montw`, `zero`).
   - load/use `p[j]` with short live range.
-- use ring-indexed accumulator to avoid shuffle/move storms.
+- avoid memory-form IFMA in hot reduction rounds whenever possible.
 
-Target for `k=2`:
-- replicate same round machine for stream A/B.
-- interleave at round/sub-round granularity to hide IFMA latency.
-- keep stream state independent and bounded to avoid spills.
+`k=2` strategy notes are kept for later, but implementation is deferred.
 
 ## Implementation Phases
 
-## Phase 1: K=1 CIOS Baseline (Benchmark-Only)
+## Phase 1: K=1 Fused Karatsuba Baseline (Benchmark-Only)
 
 Deliverables:
-- benchmark-only fused `k=1` CIOS kernel.
+- benchmark-only fused `k=1` Karatsuba+redc kernel baseline and checks.
 - A/B benchmarks:
   - current `k=1` (`fp8x1_mul_redc_k<1>`)
   - fused core only (`lazy`)
@@ -94,14 +91,15 @@ Focus:
 
 Measured on native AVX-512 Linux with:
 - `BM_Fp8x1MulRedcCoreK1_FusedBaseline` (C++ noinline core)
-- `BM_Fp8x1MulRedcCoreK1_FusedAsm` (hand ASM core)
+- `BM_Fp8x1MulRedcCoreK1_FusedAsmObjClone` (object-clone ASM anchor)
+- `BM_Fp8x1MulRedcCoreK1_FusedAsmCandidate` (experimental candidate)
 
 Throughput snapshot (latest A/B):
 - current non-fused baseline (`BM_Fp8x1MulRedcK1_Current`): `~12.71M/s`
 - C++ noinline core: `~16.24M/s`
-- C++ noinline core + normalize: `~13.74M/s`
-- ASM core: `~15.16M/s`
-- ASM core + normalize: `~12.48M/s`
+- C++ noinline core + normalize: `~13.72M/s`
+- ObjClone ASM core: `~16.34M/s`
+- ObjClone ASM core + normalize: `~13.63M/s`
 
 Objdump summary:
 - both kernels execute the same IFMA count (`232 x vpmadd52*`).
@@ -122,7 +120,7 @@ Objdump summary:
 ### What Must Change For ASM To Win
 
 1. Reduce memory-form IFMA further (target: near zero in redc hot rounds).
-2. Allow selective, bounded scratch if it enables register-register IFMA (the same tradeoff C++ is using).
+2. Keep the hot path spill-free while still increasing register-register IFMA share.
 3. Tighten constant handling:
    - keep `p[j]` constants in registers only for the shortest useful window
    - avoid repeated reload/rematerialization in inner reduction rounds
@@ -136,7 +134,7 @@ Objdump summary:
 - K=2 should be built from the K=1 winner pattern:
   - round-level interleaving of two streams
   - explicit live-range budgeting
-  - selective scratch allowed when it removes memory-form IFMA
+  - keep no-spill allocation discipline from K1
 - Practical gate before full K=2 rollout:
   - bring K=1 ASM closer to C++ operand form (substantially below current `72` memory-form IFMA) to create headroom for two-stream scheduling.
 
@@ -158,10 +156,83 @@ Validation:
 Success:
 - improved fused `k=1` throughput with stable variance.
 
-## Phase 3: K=2 Interleaved Kernel (Benchmark-Only)
+### Completed K=1 Idea Results (A/B Log)
+
+Bench setup for all entries:
+- `--benchmark_min_time=0.2s` (or `1s` for stability checks), aggregate-only, Linux AVX-512.
+- compare `ObjClone` vs `Candidate` on:
+  - core only
+  - core + normalize
+
+1. Idea #1 (no-stack-spill macro candidate)
+   - core: `16.3169M/s` (ObjClone) vs `15.1324M/s` (Candidate), `-7.3%`
+   - core+normalize: `13.6141M/s` vs `12.4639M/s`, `-8.5%`
+   - Result: rejected.
+2. Idea #2 (tail/carry overlap tweak on ObjClone-derived candidate)
+   - core: `16.4122M/s` vs `16.3479M/s`, `-0.39%`
+   - core+normalize: `13.7330M/s` vs `13.6239M/s`, `-0.79%`
+   - Result: rejected.
+3. Idea #3 (move-pressure cleanup in one hot cluster)
+   - core: `16.3437M/s` vs `16.2279M/s`, `-0.71%`
+   - core+normalize: `13.6283M/s` vs `13.5991M/s`, `-0.21%`
+   - Result: rejected.
+
+### Introspection (Why Small Edits Lost)
+
+- ObjClone and baseline both run at high IPC (`~2.12-2.15`) with very low branch-miss (`~0.2-0.3%`).
+- This is not a branch/front-end bottleneck.
+- Local instruction cleanups mostly perturb a near-critical backend schedule without reducing the real dependency depth.
+- Practical implication: prioritize structural schedule changes over micro-edits.
+
+### Next K=1 Design Queue (Current)
+
+1. Two-round software-pipelined REDC (partial attempt tested)
+   - Keep rounds `i` and `i+1` in flight, moving `u`/carry availability earlier relative to IFMA groups.
+   - Expected: `+1% to +4%`.
+   - Attempt A (partial round0/1 pipeline) result:
+     - core: `16.3290M/s` (ObjClone) vs `15.0450M/s` (Candidate), `-7.9%`
+     - core+normalize: `13.6284M/s` vs `12.3698M/s`, `-9.2%`
+   - Status: rejected; keep idea open only for a full-round reschedule, not partial pair edits.
+2. Liveness-driven register map (single-home assignment)
+   - Reduce copy pressure by fixing stable register ownership across the full core.
+   - Expected: `+1% to +3%`.
+   - Attempt A (round0 high-term single-home rewrite) result:
+     - core: `16.3306M/s` (ObjClone) vs `16.2498M/s` (Candidate), `-0.49%`
+     - core+normalize: `13.6349M/s` vs `13.6141M/s`, `-0.15%`
+   - Status: rejected for now.
+   - Attempt B (late REDC constant pinning + register-carry for one long scratch value) result:
+     - structural: stack touches reduced `32 -> 29` in candidate core asm.
+     - stability run (`min_time=1s`, `repetitions=20`):
+       - core: `16.4545M/s` (ObjClone) vs `16.4517M/s` (Candidate), `-0.02%`
+       - core+normalize: `13.7289M/s` vs `13.6877M/s`, `-0.30%`
+   - Status: rejected for throughput gate (no sustained speedup).
+3. Hybrid scratch design
+   - Keep hottest chain values in registers; allow a small planned scratch ring for cold values.
+   - Expected: `+2% to +5%`.
+4. Streaming fused mul->REDC schedule
+   - Start REDC work as soon as required limbs are ready (reduce peak live state).
+   - Expected: `+3% to +8%` (high effort/risk).
+   - Attempt A (C++ streaming prototype, diagonal-on-demand schoolbook) result:
+     - core: `16.3480M/s` (ObjClone) vs `10.0602M/s` (Streaming), `-38.5%`
+     - core+normalize: `13.6984M/s` vs `9.2190M/s`, `-32.7%`
+   - Status: rejected in current form (extra mul cost dominates despite earlier REDC start).
+5. Internal dual-pack interleaving for k=1 throughput mode
+   - Two independent packs in one body to add ILP.
+   - Expected: `+5% to +12%` throughput (larger redesign).
+6. Bounded-lazy tail specialization
+   - Reduce terminal carry/mask work if tighter lazy bounds are proven safe.
+   - Expected: `+1% to +4%`.
+
+### Deferred Idea (Not In This Phase)
+
+1. Two-stream interleaving (`k=2`) to hide IFMA latency with cross-stream ILP.
+   - Expected: `+3% to +7%` throughput when register pressure is controlled.
+   - Status: deferred until the current `k=1` hand ASM path is stabilized and faster than C++ baseline.
+
+## Phase 3: K=2 Interleaved Kernel (Benchmark-Only, Deferred)
 
 Focus:
-- hand-interleaved CIOS rounds for two streams.
+- hand-interleaved fused rounds for two streams (built from K1 winner pattern).
 - no wrapper-only chaining; explicit interleaved body.
 
 Validation:
@@ -179,7 +250,7 @@ Focus:
 - tune unroll factor and constant handling.
 - carry forward K1 lessons:
   - prefer register-register IFMA.
-  - use bounded scratch only when it removes memory-form IFMA pressure.
+  - keep no-spill register allocation discipline.
 
 Success:
 - sustained gain with low variance across repeated runs.
@@ -187,11 +258,16 @@ Success:
 ## Benchmark Matrix (Minimal)
 
 Keep only kernel-attribution benchmarks:
-- `BM_Fp8x1MulRedcK1_Current`
 - `BM_Fp8x1MulRedcCoreK1_FusedBaseline`
 - `BM_Fp8x1MulRedcK1_FusedBaseline`
-- `BM_Fp8x1MulRedcCoreK2_*` (once implemented)
-- `BM_Fp8x1MulRedcK2_*` (once implemented)
+- `BM_Fp8x1MulRedcCoreK1_FusedAsmObjClone`
+- `BM_Fp8x1MulRedcK1_FusedAsmObjClone`
+- `BM_Fp8x1MulRedcCoreK1_FusedAsmCandidate`
+- `BM_Fp8x1MulRedcK1_FusedAsmCandidate`
+
+Deferred for later phase:
+- `BM_Fp8x1MulRedcCoreK2_*`
+- `BM_Fp8x1MulRedcK2_*`
 
 Run with:
 - `--benchmark_min_time=1s`
@@ -201,9 +277,10 @@ Run with:
 ## Current Targets
 
 Near-term:
-- improve fused `k=1` combined path (`core + normalize`) over current `k=1`.
+- beat C++ on fused `k=1` core while keeping no spills.
+- then improve fused `k=1` combined path (`core + normalize`).
 
-Medium-term:
+Medium-term (deferred):
 - achieve strong `k=2` gain from interleaving with bounded register pressure.
 
 ## What To Avoid

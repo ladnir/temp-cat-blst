@@ -2,12 +2,16 @@
 
 This plan is ordered by expected throughput impact, with explicit arithmetic invariants first.
 The key objective is to recover relative SIMD speedup at tower level (Fp12/GT), not only at Fp.
+At each location where lazy reduction can be placed, both reduction-placement strategies are first-class candidates and must be evaluated by measurement.
 
 ## Scope
 
 - 8x1 lane-wise SoA hot path.
 - Large-batch throughput objective (FFT-in-the-exponent / batched GT work).
 - No shuffle-heavy layout transforms in hot arithmetic unless data proves a net win.
+- For each candidate reduction boundary, evaluate both:
+  - defer reduction (`UFp`/widened accumulation), and
+  - reduce early to `LFp` then accumulate (`AccFp` path).
 
 ## Canonical Numeric Model (Must Be Fixed Before Implementation)
 
@@ -17,6 +21,7 @@ Use one explicit model and keep it consistent across code and tests.
 
 - `Fp`: radix-48 limbs, canonical reduced form.
 - `LFp`: radix-48 limbs, lazy-reduced form (not canonical), bounded.
+- `UFp`: widened unreduced limbs (2t), used for defer-reduction paths.
 - `AccFp`: widened signed accumulator limbs for sum-of-products.
 
 ### Compute representation
@@ -71,12 +76,11 @@ Initial defaults are allowed (`ACC_MULADD_BUDGET=32`), but must be justified and
 
 ## Unified Dataflow and API
 
-Use one conceptual pipeline across phases.
+Use two first-class conceptual pipelines across phases, selected per kernel boundary by benchmark data.
 
-- Internal fast path values: `LFp`
-- Sum-of-products: `AccFp` / widened `Wide`
-- Reduction: `reduce_wide_core`
-- Canonicalization: `normalize` only at boundaries
+- Path A (defer reduction): accumulate in widened form (`UFp`/`Wide`) and reduce later.
+- Path B (early lazy reduction): reduce to `LFp` earlier, then accumulate with `AccFp`.
+- In both paths, canonicalization uses `normalize` only at explicit boundaries.
 
 ### Core API set
 
@@ -95,11 +99,12 @@ Use one conceptual pipeline across phases.
 
 ### Leaf multiply path
 
-Keep one mainline leaf path:
+Keep both leaf paths as first-class options:
 
-- `mont_mul_core(LFp& out, const LFp& a, const LFp& b)` (fused Montgomery multiply)
+- `mont_mul_core(LFp& out, const LFp& a, const LFp& b)` (fused early-reduction path)
+- `mul_v2(UFp& out, ...) -> mont_redc_core(...)` (defer-reduction widened path)
 
-Legacy `mul_v2 -> redc` can remain as reference/debug transition path, but not as primary optimization target.
+Neither path is treated as legacy by policy; each kernel should keep both in the benchmark matrix until a clear winner is established for that kernel context.
 
 ## Phased Rollout (Risk-Gated)
 
@@ -130,18 +135,21 @@ Tests:
 - Repeat benchmark runs and enforce CV/variance threshold.
 - Validate checksum sinks and DCE resistance in microbench harness.
 
-### Phase 1: `LFp` + split reduction on Fp only
+### Phase 1: Boundary-option baseline on Fp only
 
 Deliverables:
 
-- `LFp` type and explicit invariants
-- `mont_redc_core` + `normalize`
-- Fp differential tests vs existing canonical path
+- `LFp` invariants and `mont_redc_core` + `normalize`
+- Fp boundary A/B baselines:
+  - defer-reduction (`mul_v2 -> redc` style)
+  - early-lazy-reduction/fused path (`mont_mul_core` style)
+- Fp differential tests vs existing canonical path for both variants
 
 Success:
 
 - No invariant violations under stress
 - Fp microbench with measurable decomposition of reduction vs normalize cost
+- per-boundary A/B decision record (which path wins, by how much, under which counters)
 - Bound telemetry captured (`max_abs_limb`, renorm frequency/headroom), with first bound/budget refinement recorded before Phase 2 expansion.
 
 Tests:
@@ -149,17 +157,19 @@ Tests:
 - Differential tests vs canonical `Fp` path.
 - Invariant tests with debug limb bound checks on random + adversarial vectors.
 
-### Phase 2: `AccFp` + reduce-once policy in Fp2
+### Phase 2: `AccFp` rollout in Fp2 with UFp comparator
 
 Deliverables:
 
 - `AccFp` primitives + `acc_renorm`
-- Fp2 mul/sqr rewritten to accumulate then reduce once per component
+- Fp2 mul/sqr rewritten to accumulate then reduce once per component (Path B)
+- matched Path A comparator variants retained for each relevant reduction boundary
 
 Success:
 
 - Correctness parity
-- Reduction count and cycles/op drop at Fp2 level
+- Reduction count and cycles/op drop at Fp2 level where Path B wins
+- explicit evidence for boundaries where Path A remains better
 - Post-refinement invariants remain stable under long compositions after applying tuned constants.
 
 Tests:
@@ -167,11 +177,11 @@ Tests:
 - Fp2 mul/sqr differential tests.
 - Long random composition tests (thousands of chained ops) with invariant assertions.
 
-### Phase 3: Fused Montgomery leaf (`mont_mul_core`)
+### Phase 3: Fused Montgomery leaf (`mont_mul_core`) where it wins
 
 Deliverables:
 
-- Replace wide-product materialization in mainline Fp mul
+- Deploy `mont_mul_core` in kernels/boundaries where it beats defer-reduction alternatives
 - Validate no spills/regression in generated code
 
 Success:
@@ -206,12 +216,14 @@ Tests:
 - Side-by-side x1 vs x2 microbench and correctness checks.
 - Spill guard re-check for x2 kernels.
 
-### Phase 5: Fp12 integration with accumulators
+### Phase 5: Fp12 integration with boundary-level A/B policy
 
 Deliverables:
 
-- Rewrite Fp12 mul/sqr and cyclotomic_sqr around `AccFp`/`AccFp2`/`AccFp4`
-- Reduce once per final component boundary
+- Rewrite Fp12 mul/sqr and cyclotomic_sqr with both strategies available per reduction boundary:
+  - defer-reduction widened accumulation
+  - early-lazy-reduction with `AccFp`/`AccFp2`/`AccFp4`
+- choose per-boundary winners from benchmark data, not a global fixed policy
 
 Success:
 
@@ -373,7 +385,10 @@ Parameter sweeps:
 A/B rule:
 
 - Keep benchmark set small and stable while iterating.
-- Remove low-value legacy variants once a direction is clearly dominated.
+- At every location where lazy reduction can be performed, benchmark both placement options:
+  - reduce earlier (`LFp` + optional `AccFp`)
+  - defer reduction (`UFp`/widened path)
+- Remove variants only after one option is clearly dominated for that specific kernel context.
 
 ## What to Avoid
 
@@ -382,3 +397,4 @@ A/B rule:
 3. Introducing shuffle-heavy transforms in hot SoA arithmetic.
 4. Depending on compiler ILP without checking spills/asm.
 5. Expanding rollout beyond phase gate without invariant evidence.
+6. Enforcing one reduction-placement strategy globally without per-boundary A/B evidence.

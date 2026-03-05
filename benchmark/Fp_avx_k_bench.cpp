@@ -6,6 +6,8 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <cstdio>
+#include <cstdlib>
 #include <random>
 #include <vector>
 
@@ -378,36 +380,34 @@ BLST_FORCEINLINE void redc_core_hand_interleaved_k2_once(
   out1[4] = r14; out1[5] = r15; out1[6] = r16; out1[7] = r17;
 }
 
-#if BLST_HAVE_REDC_CORE_K2_ASM
-BLST_FORCEINLINE void redc_core_asm_k2_once(
-    LFpPack8x1& out0,
-    LFpPack8x1& out1,
-    const UFpPack8x1& in0,
-    const UFpPack8x1& in1)
-{
-  blst_fp8x1_redc_core_k2(&out0, &out1, &in0, &in1);
-}
-
 template <typename Fn>
-void redc_core_asm_k2_selfcheck_impl(Fn&& fn)
+void redc_core_k2_selfcheck_impl(Fn&& fn, const char* tag)
 {
+#ifndef NDEBUG
   std::mt19937_64 gen(0xC001D00DULL);
-  for (int t = 0; t < 8; ++t) {
-    std::array<Fp, 8> lanes0{};
-    std::array<Fp, 8> lanes1{};
+  constexpr std::size_t kCases = 64;
+  for (std::size_t t = 0; t < kCases; ++t) {
+    std::array<Fp, 8> lanes_a0{};
+    std::array<Fp, 8> lanes_b0{};
+    std::array<Fp, 8> lanes_a1{};
+    std::array<Fp, 8> lanes_b1{};
     for (std::size_t i = 0; i < 8; ++i) {
-      random_redc_fp(lanes0[i], gen);
-      random_redc_fp(lanes1[i], gen);
+      random_redc_fp(lanes_a0[i], gen);
+      random_redc_fp(lanes_b0[i], gen);
+      random_redc_fp(lanes_a1[i], gen);
+      random_redc_fp(lanes_b1[i], gen);
     }
-    FpPack8x1 fp0{};
-    FpPack8x1 fp1{};
-    FpPack8x1::from_aos(fp0, lanes0.data());
-    FpPack8x1::from_aos(fp1, lanes1.data());
+
+    FpPack8x1 a0{}, b0{}, a1{}, b1{};
+    FpPack8x1::from_aos(a0, lanes_a0.data());
+    FpPack8x1::from_aos(b0, lanes_b0.data());
+    FpPack8x1::from_aos(a1, lanes_a1.data());
+    FpPack8x1::from_aos(b1, lanes_b1.data());
 
     UFpPack8x1 wide0{};
     UFpPack8x1 wide1{};
-    FpPack8x1::mul_v2(wide0, fp0, fp1);
-    FpPack8x1::mul_v2(wide1, fp1, fp0);
+    FpPack8x1::mul_v2(wide0, a0, b0);
+    FpPack8x1::mul_v2(wide1, a1, b1);
 
     LFpPack8x1 got0{};
     LFpPack8x1 got1{};
@@ -432,16 +432,57 @@ void redc_core_asm_k2_selfcheck_impl(Fn&& fn)
 
     for (std::size_t lane = 0; lane < 8; ++lane) {
       for (std::size_t limb = 0; limb < Fp::num_limb(); ++limb) {
-        assert(got0_lanes[lane][limb] == exp0_lanes[lane][limb]);
-        assert(got1_lanes[lane][limb] == exp1_lanes[lane][limb]);
+        if (got0_lanes[lane][limb] != exp0_lanes[lane][limb]) {
+          std::fprintf(
+              stderr,
+              "%s selfcheck failed (case=%zu stream=0 lane=%zu limb=%zu got=%llx exp=%llx)\n",
+              tag,
+              t,
+              lane,
+              limb,
+              static_cast<unsigned long long>(got0_lanes[lane][limb]),
+              static_cast<unsigned long long>(exp0_lanes[lane][limb]));
+          std::abort();
+        }
+        if (got1_lanes[lane][limb] != exp1_lanes[lane][limb]) {
+          std::fprintf(
+              stderr,
+              "%s selfcheck failed (case=%zu stream=1 lane=%zu limb=%zu got=%llx exp=%llx)\n",
+              tag,
+              t,
+              lane,
+              limb,
+              static_cast<unsigned long long>(got1_lanes[lane][limb]),
+              static_cast<unsigned long long>(exp1_lanes[lane][limb]));
+          std::abort();
+        }
       }
     }
   }
+#else
+  (void)fn;
+  (void)tag;
+#endif
+}
+
+void redc_core_hand_k2_selfcheck()
+{
+  redc_core_k2_selfcheck_impl(redc_core_hand_interleaved_k2_once, "redc_core_hand_k2");
+}
+
+#if BLST_HAVE_REDC_CORE_K2_ASM
+BLST_FORCEINLINE void redc_core_asm_k2_once(
+    LFpPack8x1& out0,
+    LFpPack8x1& out1,
+    const UFpPack8x1& in0,
+    const UFpPack8x1& in1)
+{
+  blst_fp8x1_redc_core_k2(&out0, &out1, &in0, &in1);
 }
 
 void redc_core_asm_k2_selfcheck()
 {
-  redc_core_asm_k2_selfcheck_impl(redc_core_asm_k2_once);
+  redc_core_k2_selfcheck_impl(redc_core_asm_k2_once, "redc_core_asm_k2");
 }
 #endif
 
@@ -494,6 +535,11 @@ void BM_Fp8x1RedcCore(benchmark::State& state)
 {
   const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
   Fp8x1KBenchData data(n_packs);
+  static bool checked = false;
+  if (!checked) {
+    redc_core_hand_k2_selfcheck();
+    checked = true;
+  }
 
   for (auto _ : state) {
     for (std::size_t i = 0; i < n_packs; ++i) {
@@ -714,6 +760,11 @@ void BM_Fp8x1RedcCore_HandInterleavedChains<2>(benchmark::State& state)
 {
   constexpr std::size_t kUnroll = 8;
   Fp8x1RedcCoreStreamData<2> data{};
+  static bool checked = false;
+  if (!checked) {
+    redc_core_hand_k2_selfcheck();
+    checked = true;
+  }
 
   for (auto _ : state) {
     for (std::size_t i = 0; i < kUnroll; ++i) {
@@ -753,7 +804,6 @@ void BM_Fp8x1RedcCore_AsmK2(benchmark::State& state)
 {
   constexpr std::size_t kUnroll = 8;
   Fp8x1RedcCoreStreamData<2> data{};
-  const cc512i one = VSET1(1);
   static bool checked = false;
   if (!checked) {
     redc_core_asm_k2_selfcheck();
@@ -763,15 +813,28 @@ void BM_Fp8x1RedcCore_AsmK2(benchmark::State& state)
   for (auto _ : state) {
     for (std::size_t i = 0; i < kUnroll; ++i) {
       redc_core_asm_k2_once(data.lazy[0], data.lazy[1], data.wide[0], data.wide[1]);
-      data.wide[0][0] = VADD(data.wide[0][0], VADD(data.lazy[0][0], one));
-      data.wide[1][0] = VADD(data.wide[1][0], VADD(data.lazy[1][0], one));
+      for (std::size_t limb = 0; limb < NWORDS; ++limb) {
+        data.wide[0][limb] =
+            VADD(data.wide[0][limb], VADD(data.lazy[0][limb], data.delta[0][limb]));
+        data.wide[0][limb + NWORDS] =
+            VADD(data.wide[0][limb + NWORDS],
+                 VADD(VSHL(data.lazy[0][limb], BALIGN), data.delta[0][limb + NWORDS]));
+        data.wide[1][limb] =
+            VADD(data.wide[1][limb], VADD(data.lazy[1][limb], data.delta[1][limb]));
+        data.wide[1][limb + NWORDS] =
+            VADD(data.wide[1][limb + NWORDS],
+                 VADD(VSHL(data.lazy[1][limb], BALIGN), data.delta[1][limb + NWORDS]));
+      }
     }
   }
 
   cc512i sink = VZERO();
-  sink = VADD(sink, data.lazy[0][0]);
-  sink = VADD(sink, data.lazy[1][0]);
+  for (std::size_t limb = 0; limb < NWORDS; ++limb) {
+    sink = VADD(sink, data.lazy[0][limb]);
+    sink = VADD(sink, data.lazy[1][limb]);
+  }
   benchmark::DoNotOptimize(sink);
+  benchmark::ClobberMemory();
 
   const std::size_t ops_per_iter = 2 * kUnroll;
   state.SetItemsProcessed(state.iterations() * ops_per_iter);
