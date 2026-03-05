@@ -521,6 +521,35 @@ TEST(Fp2Avx, CanonicalSelectWide8x1x1w)
     }
 }
 
+TEST(Fp2Avx, Redc8x1x1wMatchesSerialComponentReduction)
+{
+    InsecureRng rng;
+    for (int iter = 0; iter < 128; ++iter) {
+        Fp2Vec8 a{}, b{}, got{}, expected{};
+        for (size_t i = 0; i < 8; ++i) {
+            rand_redc_fp2(a[i], rng);
+            rand_redc_fp2(b[i], rng);
+        }
+
+        Fp2Pack8x1x1 avx_a{}, avx_b{}, red{}, expected_red{};
+        UFp2Pack8x1x1 wide{};
+        Fp2Pack8x1x1::from_aos(avx_a, a.data());
+        Fp2Pack8x1x1::from_aos(avx_b, b.data());
+
+        UFp2Pack8x1x1::mul(wide, avx_a, avx_b);
+        UFp2Pack8x1x1::redc(red, wide);
+        UFpPack8x1::redc(expected_red[0], wide[0]);
+        UFpPack8x1::redc(expected_red[1], wide[1]);
+
+        Fp2Pack8x1x1::to_aos(got.data(), red);
+        Fp2Pack8x1x1::to_aos(expected.data(), expected_red);
+        for (size_t lane = 0; lane < 8; ++lane) {
+            EXPECT_TRUE(Fp::equal(got[lane][0], expected[lane][0]));
+            EXPECT_TRUE(Fp::equal(got[lane][1], expected[lane][1]));
+        }
+    }
+}
+
 TEST(Fp2Avx, CanonicalPartialTailMul8x1x1w)
 {
     InsecureRng rng;

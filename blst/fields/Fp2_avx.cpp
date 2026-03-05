@@ -702,8 +702,7 @@ namespace blst
 
     void UFp2Pack8x1x1::redc(Fp2Pack8x1x1& r, const UFp2Pack8x1x1& a)
     {
-        UFpPack8x1::redc(r[0], a[0]);
-        UFpPack8x1::redc(r[1], a[1]);
+        fp8x1_redc_dispatch(r.data(), a.data(), 2);
     }
 
     void UFp2Pack8x1x1::select(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a, const UFp2Pack8x1x1& b, const u8 lane_mask)

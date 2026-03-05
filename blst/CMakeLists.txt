@@ -84,11 +84,6 @@ if(BLST_ASM)
         set_source_files_properties(${ASM_SRC} PROPERTIES LANGUAGE ASM)
     endif()
 
-    # Native AVX512 k=2 redc_core kernel (library path, not benchmark-private).
-    if(UNIX AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64)$" AND BLST_AVX512 AND NOT BLST_AVX512_PORTABLE)
-        list(APPEND ASM_SRC "${CMAKE_CURRENT_SOURCE_DIR}/fields/Fp_avx_redc_core_k2_asm.S")
-    endif()
-
 endif()
 
 if(BLST_CUDA)

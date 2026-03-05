@@ -260,10 +260,10 @@ void run_kwise_mul_redc_matches_scalar(InsecureRng& rng)
         pack_FpPack8x1(pb[pack], b[pack]);
     }
 
-    fp8x1_mul_k<K>(wide.data(), pa.data(), pb.data(), kBlocks);
-    fp8x1_redc_k<K>(got_from_split.data(), wide.data(), kBlocks);
+    blst::fp8x1_mul_k<K>(wide.data(), pa.data(), pb.data(), kBlocks);
+    blst::fp8x1_redc_k<K>(got_from_split.data(), wide.data(), kBlocks);
 
-    fp8x1_mul_redc_k<K>(got_from_fused.data(), pa.data(), pb.data(), kBlocks);
+    blst::fp8x1_mul_redc_k<K>(got_from_fused.data(), pa.data(), pb.data(), kBlocks);
 
     for (size_t pack = 0; pack < kPacks; ++pack) {
         FpVec8 split_lanes{};
@@ -313,8 +313,8 @@ void run_kwise_dispatch_matches_scalar(InsecureRng& rng)
         UFpPack8x1::redc(out_direct[pack], wide_direct[pack]);
     }
 
-    fp8x1_mul_dispatch(wide_dispatch.data(), pa.data(), pb.data(), kPacks);
-    fp8x1_redc_dispatch(out_dispatch.data(), wide_dispatch.data(), kPacks);
+    blst::fp8x1_mul_dispatch(wide_dispatch.data(), pa.data(), pb.data(), kPacks);
+    blst::fp8x1_redc_dispatch(out_dispatch.data(), wide_dispatch.data(), kPacks);
     for (size_t pack = 0; pack < kPacks; ++pack) {
         FpVec8 got{};
         FpVec8 ref{};
@@ -326,7 +326,7 @@ void run_kwise_dispatch_matches_scalar(InsecureRng& rng)
         }
     }
 
-    fp8x1_mul_redc_dispatch(out_dispatch.data(), pa.data(), pb.data(), kPacks);
+    blst::fp8x1_mul_redc_dispatch(out_dispatch.data(), pa.data(), pb.data(), kPacks);
     for (size_t pack = 0; pack < kPacks; ++pack) {
         FpVec8 got{};
         unpack_FpPack8x1(got, out_dispatch[pack]);

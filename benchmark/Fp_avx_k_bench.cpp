@@ -25,23 +25,7 @@ using namespace blst;
 #define BLST_BENCH_NOINLINE
 #endif
 
-#if defined(__linux__) && defined(__x86_64__) && defined(BLST_ASM) && defined(BLST_AVX512) && !defined(BLST_AVX512_PORTABLE)
-extern "C" void blst_fp8x1_redc_core_k2(
-    LFpPack8x1* out0,
-    LFpPack8x1* out1,
-    const UFpPack8x1* in0,
-    const UFpPack8x1* in1);
-extern "C" void blst_fp8x1_mul_v2_k2_v6b_asm(
-    UFpPack8x1* out,
-    const FpPack8x1* a,
-    const FpPack8x1* b,
-    std::size_t n_blocks);
-#define BLST_HAVE_REDC_CORE_K2_ASM 1
-#define BLST_HAVE_MUL_V2_K2_V6B_ASM 1
-#else
-#define BLST_HAVE_REDC_CORE_K2_ASM 0
 #define BLST_HAVE_MUL_V2_K2_V6B_ASM 0
-#endif
 
 namespace
 {
@@ -485,22 +469,6 @@ void redc_core_hand_k2_selfcheck()
 {
   redc_core_k2_selfcheck_impl(redc_core_hand_interleaved_k2_once, "redc_core_hand_k2");
 }
-
-#if BLST_HAVE_REDC_CORE_K2_ASM
-BLST_FORCEINLINE void redc_core_asm_k2_once(
-    LFpPack8x1& out0,
-    LFpPack8x1& out1,
-    const UFpPack8x1& in0,
-    const UFpPack8x1& in1)
-{
-  blst_fp8x1_redc_core_k2(&out0, &out1, &in0, &in1);
-}
-
-void redc_core_asm_k2_selfcheck()
-{
-  redc_core_k2_selfcheck_impl(redc_core_asm_k2_once, "redc_core_asm_k2");
-}
-#endif
 
 using MulV2K2Fn = void (*)(
     UFpPack8x1* BLST_restrict out,
@@ -1963,52 +1931,6 @@ void BM_Fp8x1RedcCore_HandInterleavedChains<2>(benchmark::State& state)
   state.counters["unroll"] = static_cast<double>(kUnroll);
 }
 
-#if BLST_HAVE_REDC_CORE_K2_ASM
-void BM_Fp8x1RedcCore_AsmK2(benchmark::State& state)
-{
-  constexpr std::size_t kUnroll = 8;
-  Fp8x1RedcCoreStreamData<2> data{};
-  static bool checked = false;
-  if (!checked) {
-    redc_core_asm_k2_selfcheck();
-    checked = true;
-  }
-
-  for (auto _ : state) {
-    for (std::size_t i = 0; i < kUnroll; ++i) {
-      redc_core_asm_k2_once(data.lazy[0], data.lazy[1], data.wide[0], data.wide[1]);
-      for (std::size_t limb = 0; limb < NWORDS; ++limb) {
-        data.wide[0][limb] =
-            VADD(data.wide[0][limb], VADD(data.lazy[0][limb], data.delta[0][limb]));
-        data.wide[0][limb + NWORDS] =
-            VADD(data.wide[0][limb + NWORDS],
-                 VADD(VSHL(data.lazy[0][limb], BALIGN), data.delta[0][limb + NWORDS]));
-        data.wide[1][limb] =
-            VADD(data.wide[1][limb], VADD(data.lazy[1][limb], data.delta[1][limb]));
-        data.wide[1][limb + NWORDS] =
-            VADD(data.wide[1][limb + NWORDS],
-                 VADD(VSHL(data.lazy[1][limb], BALIGN), data.delta[1][limb + NWORDS]));
-      }
-    }
-  }
-
-  cc512i sink = VZERO();
-  for (std::size_t limb = 0; limb < NWORDS; ++limb) {
-    sink = VADD(sink, data.lazy[0][limb]);
-    sink = VADD(sink, data.lazy[1][limb]);
-  }
-  benchmark::DoNotOptimize(sink);
-  benchmark::ClobberMemory();
-
-  const std::size_t ops_per_iter = 2 * kUnroll;
-  state.SetItemsProcessed(state.iterations() * ops_per_iter);
-  state.counters["redc_core_per_iter"] = static_cast<double>(ops_per_iter);
-  state.counters["chains"] = 2.0;
-  state.counters["unroll"] = static_cast<double>(kUnroll);
-}
-
-#endif
-
 template <>
 void BM_Fp8x1RedcCore_HandInterleavedChains<4>(benchmark::State& state)
 {
@@ -2485,9 +2407,7 @@ BENCHMARK_TEMPLATE(BM_Fp8x1MulRedc_HandInterleavedChains, 4);
 BENCHMARK_TEMPLATE(BM_Fp8x1MulRedc_SeqChains, 8);
 BENCHMARK_TEMPLATE(BM_Fp8x1MulRedc_HandInterleavedChains, 8);
 
-#if BLST_HAVE_REDC_CORE_K2_ASM
-BENCHMARK(BM_Fp8x1RedcCore_AsmK2);
-#endif
+BENCHMARK_TEMPLATE(BM_Fp8x1RedcCore_HandInterleavedChains, 2);
 
 } // namespace
 
