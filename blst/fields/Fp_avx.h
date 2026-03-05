@@ -190,13 +190,8 @@ namespace blst
 
 
         /// @brief Canonical widened multiply for `FpPack8x1`.
-        /// @details This codebase intentionally uses avxbls v2 only.
         /// @post Writes unreduced double-length product to `UFpPack8x1`.
         static void mul(UFpPack8x1& r, const FpPack8x1& a, const FpPack8x1& b);
-
-        /// @brief AVXBLS v2 widened multiply kernel for `FpPack8x1`.
-        /// @post Writes unreduced widened product into `UFpPack8x1` (same layout as `FpPack8x1::mul`).
-        static void mul_v2(UFpPack8x1& r, const FpPack8x1& a, const FpPack8x1& b);
 
 
     };
@@ -418,7 +413,7 @@ namespace blst
     /// @tparam K Number of independent packs processed per block (`1`, `2`, or `4`).
     /// @param n_blocks Number of K-sized blocks to process.
     template <int K>
-    BLST_AVX_NOINLINE void fp8x1_mul_v2_k(
+    BLST_AVX_NOINLINE void fp8x1_mul_k(
         UFpPack8x1* BLST_restrict out,
         const FpPack8x1* BLST_restrict a,
         const FpPack8x1* BLST_restrict b,
@@ -444,7 +439,7 @@ namespace blst
         std::size_t n_blocks);
 
     /// @brief Runtime 4->2->1 dispatch for widened multiply.
-    void fp8x1_mul_v2_dispatch(
+    void fp8x1_mul_dispatch(
         UFpPack8x1* BLST_restrict out,
         const FpPack8x1* BLST_restrict a,
         const FpPack8x1* BLST_restrict b,

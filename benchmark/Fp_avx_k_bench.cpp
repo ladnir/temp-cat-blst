@@ -1,13 +1,14 @@
 #include "blst/common/defines.h"
 #include <benchmark/benchmark.h>
 
-#if defined(BLST_AVX512)
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
+#include <mutex>
 #include <random>
 #include <vector>
 
@@ -16,15 +17,30 @@
 
 using namespace blst;
 
+#if defined(_MSC_VER)
+#define BLST_BENCH_NOINLINE __declspec(noinline)
+#elif defined(__GNUC__) || defined(__clang__)
+#define BLST_BENCH_NOINLINE __attribute__((noinline))
+#else
+#define BLST_BENCH_NOINLINE
+#endif
+
 #if defined(__linux__) && defined(__x86_64__) && defined(BLST_ASM) && defined(BLST_AVX512) && !defined(BLST_AVX512_PORTABLE)
 extern "C" void blst_fp8x1_redc_core_k2(
     LFpPack8x1* out0,
     LFpPack8x1* out1,
     const UFpPack8x1* in0,
     const UFpPack8x1* in1);
+extern "C" void blst_fp8x1_mul_v2_k2_v6b_asm(
+    UFpPack8x1* out,
+    const FpPack8x1* a,
+    const FpPack8x1* b,
+    std::size_t n_blocks);
 #define BLST_HAVE_REDC_CORE_K2_ASM 1
+#define BLST_HAVE_MUL_V2_K2_V6B_ASM 1
 #else
 #define BLST_HAVE_REDC_CORE_K2_ASM 0
+#define BLST_HAVE_MUL_V2_K2_V6B_ASM 0
 #endif
 
 namespace
@@ -60,7 +76,7 @@ struct Fp8x1KBenchData
       }
       FpPack8x1::from_aos(a[i], lane_a.data());
       FpPack8x1::from_aos(b[i], lane_b.data());
-      FpPack8x1::mul_v2(wide[i], a[i], b[i]);
+      FpPack8x1::mul(wide[i], a[i], b[i]);
       UFpPack8x1::redc_core(lazy[i], wide[i]);
     }
   }
@@ -117,7 +133,7 @@ struct Fp8x1RedcCoreStreamData
       FpPack8x1 ap{}, bp{};
       FpPack8x1::from_aos(ap, lane_a.data());
       FpPack8x1::from_aos(bp, lane_b.data());
-      FpPack8x1::mul_v2(wide[c], ap, bp);
+      FpPack8x1::mul(wide[c], ap, bp);
       for (std::size_t limb = 0; limb < 2 * NWORDS; ++limb) {
         delta[c][limb] = VSET1(gen() & BMASK);
       }
@@ -406,8 +422,8 @@ void redc_core_k2_selfcheck_impl(Fn&& fn, const char* tag)
 
     UFpPack8x1 wide0{};
     UFpPack8x1 wide1{};
-    FpPack8x1::mul_v2(wide0, a0, b0);
-    FpPack8x1::mul_v2(wide1, a1, b1);
+    FpPack8x1::mul(wide0, a0, b0);
+    FpPack8x1::mul(wide1, a1, b1);
 
     LFpPack8x1 got0{};
     LFpPack8x1 got1{};
@@ -486,6 +502,1154 @@ void redc_core_asm_k2_selfcheck()
 }
 #endif
 
+using MulV2K2Fn = void (*)(
+    UFpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b,
+    std::size_t n_blocks);
+
+BLST_BENCH_NOINLINE void mul_v2_k2_cpp_baseline_once(
+    UFpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b,
+    const std::size_t n_blocks)
+{
+  fp8x1_mul_k<2>(out, a, b, n_blocks);
+}
+
+BLST_BENCH_NOINLINE void mul_v2_k2_stream_low_high_once(
+    UFpPack8x1& r,
+    const FpPack8x1& a,
+    const FpPack8x1& b)
+{
+  const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
+  const cc512i a4 = a[4], a5 = a[5], a6 = a[6], a7 = a[7];
+  const cc512i b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
+  const cc512i b4 = b[4], b5 = b[5], b6 = b[6], b7 = b[7];
+
+  cc512i z0  = VZERO(), z1  = VZERO(), z2  = VZERO(), z3  = VZERO();
+  cc512i z4  = VZERO(), z5  = VZERO(), z6  = VZERO(), z7  = VZERO();
+  cc512i z8  = VZERO(), z9  = VZERO(), z10 = VZERO(), z11 = VZERO();
+  cc512i z12 = VZERO(), z13 = VZERO(), z14 = VZERO(), z15 = VZERO();
+  cc512i y0  = VZERO(), y1  = VZERO(), y2  = VZERO(), y3  = VZERO();
+  cc512i y4  = VZERO(), y5  = VZERO(), y6  = VZERO();
+  cc512i y8  = VZERO(), y9  = VZERO(), y10 = VZERO(), y11 = VZERO();
+  cc512i y12 = VZERO(), y13 = VZERO(), y14 = VZERO();
+
+  z0 = VMACLO(z0, a0, b0);
+  y0 = VMACHI(y0, a0, b0);
+  y0 = VSHL(y0, BALIGN);
+
+  z1 = VMACLO(y0, a0, b1); z1 = VMACLO(z1, a1, b0);
+  y1 = VMACHI(y1, a0, b1); y1 = VMACHI(y1, a1, b0);
+  y1 = VSHL(y1, BALIGN);
+
+  z2 = VMACLO(y1, a0, b2); z2 = VMACLO(z2, a1, b1); z2 = VMACLO(z2, a2, b0);
+  y2 = VMACHI(y2, a0, b2); y2 = VMACHI(y2, a1, b1); y2 = VMACHI(y2, a2, b0);
+  y2 = VSHL(y2, BALIGN);
+
+  z3 = VMACLO(y2, a0, b3); z3 = VMACLO(z3, a1, b2); z3 = VMACLO(z3, a2, b1);
+  z3 = VMACLO(z3, a3, b0);
+  y3 = VMACHI(y3, a0, b3); y3 = VMACHI(y3, a1, b2); y3 = VMACHI(y3, a2, b1);
+  y3 = VMACHI(y3, a3, b0);
+  y3 = VSHL(y3, BALIGN);
+
+  z4 = VMACLO(y3, a1, b3); z4 = VMACLO(z4, a2, b2); z4 = VMACLO(z4, a3, b1);
+  y4 = VMACHI(y4, a1, b3); y4 = VMACHI(y4, a2, b2); y4 = VMACHI(y4, a3, b1);
+  y4 = VSHL(y4, BALIGN);
+
+  z5 = VMACLO(y4, a2, b3); z5 = VMACLO(z5, a3, b2);
+  y5 = VMACHI(y5, a2, b3); y5 = VMACHI(y5, a3, b2);
+  y5 = VSHL(y5, BALIGN);
+
+  z6 = VMACLO(y5, a3, b3);
+  y6 = VMACHI(y6, a3, b3);
+  y6 = VSHL(y6, BALIGN);
+  z7 = y6;
+
+  z8 = VMACLO(z8, a4, b4);
+  y8 = VMACHI(y8, a4, b4);
+  y8 = VSHL(y8, BALIGN);
+
+  z9 = VMACLO(y8, a4, b5); z9 = VMACLO(z9, a5, b4);
+  y9 = VMACHI(y9, a4, b5); y9 = VMACHI(y9, a5, b4);
+  y9 = VSHL(y9, BALIGN);
+
+  z10 = VMACLO(y9, a4, b6); z10 = VMACLO(z10, a5, b5); z10 = VMACLO(z10, a6, b4);
+  y10 = VMACHI(y10, a4, b6); y10 = VMACHI(y10, a5, b5); y10 = VMACHI(y10, a6, b4);
+  y10 = VSHL(y10, BALIGN);
+
+  z11 = VMACLO(y10, a4, b7); z11 = VMACLO(z11, a5, b6);
+  z11 = VMACLO(z11, a6, b5); z11 = VMACLO(z11, a7, b4);
+  y11 = VMACHI(y11, a4, b7); y11 = VMACHI(y11, a5, b6);
+  y11 = VMACHI(y11, a6, b5); y11 = VMACHI(y11, a7, b4);
+  y11 = VSHL(y11, BALIGN);
+
+  z12 = VMACLO(y11, a5, b7); z12 = VMACLO(z12, a6, b6); z12 = VMACLO(z12, a7, b5);
+  y12 = VMACHI(y12, a5, b7); y12 = VMACHI(y12, a6, b6); y12 = VMACHI(y12, a7, b5);
+  y12 = VSHL(y12, BALIGN);
+
+  z13 = VMACLO(y12, a6, b7); z13 = VMACLO(z13, a7, b6);
+  y13 = VMACHI(y13, a6, b7); y13 = VMACHI(y13, a7, b6);
+  y13 = VSHL(y13, BALIGN);
+
+  z14 = VMACLO(y13, a7, b7);
+  y14 = VMACHI(y14, a7, b7);
+  y14 = VSHL(y14, BALIGN);
+  z15 = y14;
+
+  r[0] = z0; r[1] = z1; r[2] = z2; r[3] = z3;
+  r[4] = z4; r[5] = z5; r[6] = z6; r[7] = z7;
+  r[8] = z8; r[9] = z9; r[10] = z10; r[11] = z11;
+  r[12] = z12; r[13] = z13; r[14] = z14; r[15] = z15;
+}
+
+BLST_BENCH_NOINLINE void mul_v2_k2_stream_middle_once(
+    UFpPack8x1& r,
+    const FpPack8x1& a,
+    const FpPack8x1& b)
+{
+  const cc512i ta0 = VADD(a[0], a[4]), ta1 = VADD(a[1], a[5]);
+  const cc512i ta2 = VADD(a[2], a[6]), ta3 = VADD(a[3], a[7]);
+  const cc512i tb0 = VADD(b[0], b[4]), tb1 = VADD(b[1], b[5]);
+  const cc512i tb2 = VADD(b[2], b[6]), tb3 = VADD(b[3], b[7]);
+
+  const cc512i z4 = r[4], z5 = r[5], z6 = r[6], z7 = r[7];
+
+  cc512i y0 = VZERO(), y1 = VZERO(), y2 = VZERO(), y3 = VZERO();
+  cc512i y4 = VZERO(), y5 = VZERO(), y6 = VZERO();
+  cc512i m0 = VZERO(), m1 = VZERO(), m2 = VZERO(), m3 = VZERO();
+  cc512i m4 = VZERO(), m5 = VZERO(), m6 = VZERO(), m7 = VZERO();
+
+  m0 = VMACLO(m0, ta0, tb0);
+  y0 = VMACHI(y0, ta0, tb0);
+  y0 = VSHL(y0, BALIGN);
+
+  m1 = VMACLO(y0, ta0, tb1); m1 = VMACLO(m1, ta1, tb0);
+  y1 = VMACHI(y1, ta0, tb1); y1 = VMACHI(y1, ta1, tb0);
+  y1 = VSHL(y1, BALIGN);
+
+  m2 = VMACLO(y1, ta0, tb2); m2 = VMACLO(m2, ta1, tb1); m2 = VMACLO(m2, ta2, tb0);
+  y2 = VMACHI(y2, ta0, tb2); y2 = VMACHI(y2, ta1, tb1); y2 = VMACHI(y2, ta2, tb0);
+  y2 = VSHL(y2, BALIGN);
+
+  m3 = VMACLO(y2, ta0, tb3); m3 = VMACLO(m3, ta1, tb2);
+  m3 = VMACLO(m3, ta2, tb1); m3 = VMACLO(m3, ta3, tb0);
+  y3 = VMACHI(y3, ta0, tb3); y3 = VMACHI(y3, ta1, tb2);
+  y3 = VMACHI(y3, ta2, tb1); y3 = VMACHI(y3, ta3, tb0);
+  y3 = VSHL(y3, BALIGN);
+
+  m4 = VMACLO(y3, ta1, tb3); m4 = VMACLO(m4, ta2, tb2); m4 = VMACLO(m4, ta3, tb1);
+  y4 = VMACHI(y4, ta1, tb3); y4 = VMACHI(y4, ta2, tb2); y4 = VMACHI(y4, ta3, tb1);
+  y4 = VSHL(y4, BALIGN);
+
+  m5 = VMACLO(y4, ta2, tb3); m5 = VMACLO(m5, ta3, tb2);
+  y5 = VMACHI(y5, ta2, tb3); y5 = VMACHI(y5, ta3, tb2);
+  y5 = VSHL(y5, BALIGN);
+
+  m6 = VMACLO(y5, ta3, tb3);
+  y6 = VMACHI(y6, ta3, tb3);
+  y6 = VSHL(y6, BALIGN);
+  m7 = y6;
+
+  m0 = VSUB(m0, VADD(r[0], r[8]));
+  m1 = VSUB(m1, VADD(r[1], r[9]));
+  m2 = VSUB(m2, VADD(r[2], r[10]));
+  m3 = VSUB(m3, VADD(r[3], r[11]));
+  m4 = VSUB(m4, VADD(z4, r[12]));
+  m5 = VSUB(m5, VADD(z5, r[13]));
+  m6 = VSUB(m6, VADD(z6, r[14]));
+  m7 = VSUB(m7, VADD(z7, r[15]));
+
+  r[4] = VADD(r[4], m0); r[5] = VADD(r[5], m1);
+  r[6] = VADD(r[6], m2); r[7] = VADD(r[7], m3);
+  r[8] = VADD(r[8], m4); r[9] = VADD(r[9], m5);
+  r[10] = VADD(r[10], m6); r[11] = VADD(r[11], m7);
+}
+
+BLST_BENCH_NOINLINE void mul_v2_k2_cpp_candidate_v6b_once(
+    UFpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b,
+    const std::size_t n_blocks);
+extern "C" BLST_BENCH_NOINLINE void blst_fp8x1_mul_v2_k2_v6b_cpp_entry(
+    UFpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b,
+    std::size_t n_blocks);
+
+BLST_BENCH_NOINLINE void mul_v2_k2_cpp_candidate_v2_once(
+    UFpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b,
+    const std::size_t n_blocks)
+{
+  for (std::size_t i = 0; i < n_blocks; ++i) {
+    // Stage-ready schedule: each stream advances once prerequisites are complete.
+    mul_v2_k2_stream_low_high_once(out[0], a[0], b[0]);
+    mul_v2_k2_stream_low_high_once(out[1], a[1], b[1]);
+    mul_v2_k2_stream_middle_once(out[0], a[0], b[0]);
+    mul_v2_k2_stream_middle_once(out[1], a[1], b[1]);
+    out += 2;
+    a += 2;
+    b += 2;
+  }
+}
+
+BLST_BENCH_NOINLINE void mul_v2_k2_cpp_candidate_once(
+    UFpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b,
+    const std::size_t n_blocks)
+{
+  // Promote current best candidate: v6b pair-carry schoolbook.
+  mul_v2_k2_cpp_candidate_v6b_once(out, a, b, n_blocks);
+}
+
+BLST_BENCH_NOINLINE void mul_v2_k2_stream_full_once(
+    UFpPack8x1& r,
+    const FpPack8x1& a,
+    const FpPack8x1& b)
+{
+  {
+    const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
+    const cc512i a4 = a[4], a5 = a[5], a6 = a[6], a7 = a[7];
+    const cc512i b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
+    const cc512i b4 = b[4], b5 = b[5], b6 = b[6], b7 = b[7];
+
+    cc512i z0  = VZERO(), z1  = VZERO(), z2  = VZERO(), z3  = VZERO();
+    cc512i z4  = VZERO(), z5  = VZERO(), z6  = VZERO(), z7  = VZERO();
+    cc512i z8  = VZERO(), z9  = VZERO(), z10 = VZERO(), z11 = VZERO();
+    cc512i z12 = VZERO(), z13 = VZERO(), z14 = VZERO(), z15 = VZERO();
+    cc512i y0  = VZERO(), y1  = VZERO(), y2  = VZERO(), y3  = VZERO();
+    cc512i y4  = VZERO(), y5  = VZERO(), y6  = VZERO();
+    cc512i y8  = VZERO(), y9  = VZERO(), y10 = VZERO(), y11 = VZERO();
+    cc512i y12 = VZERO(), y13 = VZERO(), y14 = VZERO();
+
+    z0 = VMACLO(z0, a0, b0);
+    y0 = VMACHI(y0, a0, b0);
+    y0 = VSHL(y0, BALIGN);
+
+    z1 = VMACLO(y0, a0, b1); z1 = VMACLO(z1, a1, b0);
+    y1 = VMACHI(y1, a0, b1); y1 = VMACHI(y1, a1, b0);
+    y1 = VSHL(y1, BALIGN);
+
+    z2 = VMACLO(y1, a0, b2); z2 = VMACLO(z2, a1, b1); z2 = VMACLO(z2, a2, b0);
+    y2 = VMACHI(y2, a0, b2); y2 = VMACHI(y2, a1, b1); y2 = VMACHI(y2, a2, b0);
+    y2 = VSHL(y2, BALIGN);
+
+    z3 = VMACLO(y2, a0, b3); z3 = VMACLO(z3, a1, b2); z3 = VMACLO(z3, a2, b1);
+    z3 = VMACLO(z3, a3, b0);
+    y3 = VMACHI(y3, a0, b3); y3 = VMACHI(y3, a1, b2); y3 = VMACHI(y3, a2, b1);
+    y3 = VMACHI(y3, a3, b0);
+    y3 = VSHL(y3, BALIGN);
+
+    z4 = VMACLO(y3, a1, b3); z4 = VMACLO(z4, a2, b2); z4 = VMACLO(z4, a3, b1);
+    y4 = VMACHI(y4, a1, b3); y4 = VMACHI(y4, a2, b2); y4 = VMACHI(y4, a3, b1);
+    y4 = VSHL(y4, BALIGN);
+
+    z5 = VMACLO(y4, a2, b3); z5 = VMACLO(z5, a3, b2);
+    y5 = VMACHI(y5, a2, b3); y5 = VMACHI(y5, a3, b2);
+    y5 = VSHL(y5, BALIGN);
+
+    z6 = VMACLO(y5, a3, b3);
+    y6 = VMACHI(y6, a3, b3);
+    y6 = VSHL(y6, BALIGN);
+    z7 = y6;
+
+    z8 = VMACLO(z8, a4, b4);
+    y8 = VMACHI(y8, a4, b4);
+    y8 = VSHL(y8, BALIGN);
+
+    z9 = VMACLO(y8, a4, b5); z9 = VMACLO(z9, a5, b4);
+    y9 = VMACHI(y9, a4, b5); y9 = VMACHI(y9, a5, b4);
+    y9 = VSHL(y9, BALIGN);
+
+    z10 = VMACLO(y9, a4, b6); z10 = VMACLO(z10, a5, b5); z10 = VMACLO(z10, a6, b4);
+    y10 = VMACHI(y10, a4, b6); y10 = VMACHI(y10, a5, b5); y10 = VMACHI(y10, a6, b4);
+    y10 = VSHL(y10, BALIGN);
+
+    z11 = VMACLO(y10, a4, b7); z11 = VMACLO(z11, a5, b6);
+    z11 = VMACLO(z11, a6, b5); z11 = VMACLO(z11, a7, b4);
+    y11 = VMACHI(y11, a4, b7); y11 = VMACHI(y11, a5, b6);
+    y11 = VMACHI(y11, a6, b5); y11 = VMACHI(y11, a7, b4);
+    y11 = VSHL(y11, BALIGN);
+
+    z12 = VMACLO(y11, a5, b7); z12 = VMACLO(z12, a6, b6); z12 = VMACLO(z12, a7, b5);
+    y12 = VMACHI(y12, a5, b7); y12 = VMACHI(y12, a6, b6); y12 = VMACHI(y12, a7, b5);
+    y12 = VSHL(y12, BALIGN);
+
+    z13 = VMACLO(y12, a6, b7); z13 = VMACLO(z13, a7, b6);
+    y13 = VMACHI(y13, a6, b7); y13 = VMACHI(y13, a7, b6);
+    y13 = VSHL(y13, BALIGN);
+
+    z14 = VMACLO(y13, a7, b7);
+    y14 = VMACHI(y14, a7, b7);
+    y14 = VSHL(y14, BALIGN);
+    z15 = y14;
+
+    r[0] = z0; r[1] = z1; r[2] = z2; r[3] = z3;
+    r[4] = z4; r[5] = z5; r[6] = z6; r[7] = z7;
+    r[8] = z8; r[9] = z9; r[10] = z10; r[11] = z11;
+    r[12] = z12; r[13] = z13; r[14] = z14; r[15] = z15;
+  }
+
+  {
+    const cc512i ta0 = VADD(a[0], a[4]), ta1 = VADD(a[1], a[5]);
+    const cc512i ta2 = VADD(a[2], a[6]), ta3 = VADD(a[3], a[7]);
+    const cc512i tb0 = VADD(b[0], b[4]), tb1 = VADD(b[1], b[5]);
+    const cc512i tb2 = VADD(b[2], b[6]), tb3 = VADD(b[3], b[7]);
+
+    const cc512i z4 = r[4], z5 = r[5], z6 = r[6], z7 = r[7];
+
+    cc512i y0 = VZERO(), y1 = VZERO(), y2 = VZERO(), y3 = VZERO();
+    cc512i y4 = VZERO(), y5 = VZERO(), y6 = VZERO();
+    cc512i m0 = VZERO(), m1 = VZERO(), m2 = VZERO(), m3 = VZERO();
+    cc512i m4 = VZERO(), m5 = VZERO(), m6 = VZERO(), m7 = VZERO();
+
+    m0 = VMACLO(m0, ta0, tb0);
+    y0 = VMACHI(y0, ta0, tb0);
+    y0 = VSHL(y0, BALIGN);
+
+    m1 = VMACLO(y0, ta0, tb1); m1 = VMACLO(m1, ta1, tb0);
+    y1 = VMACHI(y1, ta0, tb1); y1 = VMACHI(y1, ta1, tb0);
+    y1 = VSHL(y1, BALIGN);
+
+    m2 = VMACLO(y1, ta0, tb2); m2 = VMACLO(m2, ta1, tb1); m2 = VMACLO(m2, ta2, tb0);
+    y2 = VMACHI(y2, ta0, tb2); y2 = VMACHI(y2, ta1, tb1); y2 = VMACHI(y2, ta2, tb0);
+    y2 = VSHL(y2, BALIGN);
+
+    m3 = VMACLO(y2, ta0, tb3); m3 = VMACLO(m3, ta1, tb2);
+    m3 = VMACLO(m3, ta2, tb1); m3 = VMACLO(m3, ta3, tb0);
+    y3 = VMACHI(y3, ta0, tb3); y3 = VMACHI(y3, ta1, tb2);
+    y3 = VMACHI(y3, ta2, tb1); y3 = VMACHI(y3, ta3, tb0);
+    y3 = VSHL(y3, BALIGN);
+
+    m4 = VMACLO(y3, ta1, tb3); m4 = VMACLO(m4, ta2, tb2); m4 = VMACLO(m4, ta3, tb1);
+    y4 = VMACHI(y4, ta1, tb3); y4 = VMACHI(y4, ta2, tb2); y4 = VMACHI(y4, ta3, tb1);
+    y4 = VSHL(y4, BALIGN);
+
+    m5 = VMACLO(y4, ta2, tb3); m5 = VMACLO(m5, ta3, tb2);
+    y5 = VMACHI(y5, ta2, tb3); y5 = VMACHI(y5, ta3, tb2);
+    y5 = VSHL(y5, BALIGN);
+
+    m6 = VMACLO(y5, ta3, tb3);
+    y6 = VMACHI(y6, ta3, tb3);
+    y6 = VSHL(y6, BALIGN);
+    m7 = y6;
+
+    m0 = VSUB(m0, VADD(r[0], r[8]));
+    m1 = VSUB(m1, VADD(r[1], r[9]));
+    m2 = VSUB(m2, VADD(r[2], r[10]));
+    m3 = VSUB(m3, VADD(r[3], r[11]));
+    m4 = VSUB(m4, VADD(z4, r[12]));
+    m5 = VSUB(m5, VADD(z5, r[13]));
+    m6 = VSUB(m6, VADD(z6, r[14]));
+    m7 = VSUB(m7, VADD(z7, r[15]));
+
+    r[4] = VADD(r[4], m0); r[5] = VADD(r[5], m1);
+    r[6] = VADD(r[6], m2); r[7] = VADD(r[7], m3);
+    r[8] = VADD(r[8], m4); r[9] = VADD(r[9], m5);
+    r[10] = VADD(r[10], m6); r[11] = VADD(r[11], m7);
+  }
+}
+
+BLST_BENCH_NOINLINE void mul_v2_k2_cpp_candidate_v3_once(
+    UFpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b,
+    const std::size_t n_blocks)
+{
+  for (std::size_t i = 0; i < n_blocks; ++i) {
+    // v3: per-stream full-stage helper (low/high + middle fused in one call).
+    mul_v2_k2_stream_full_once(out[0], a[0], b[0]);
+    mul_v2_k2_stream_full_once(out[1], a[1], b[1]);
+    out += 2;
+    a += 2;
+    b += 2;
+  }
+}
+
+BLST_BENCH_NOINLINE void mul_v2_k2_cpp_candidate_v4_once(
+    UFpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b,
+    const std::size_t n_blocks)
+{
+  if (n_blocks == 0) {
+    return;
+  }
+
+  UFpPack8x1* out_cur = out;
+  const FpPack8x1* a_cur = a;
+  const FpPack8x1* b_cur = b;
+
+  // Prime the first block low/high products.
+  mul_v2_k2_stream_low_high_once(out_cur[0], a_cur[0], b_cur[0]);
+  mul_v2_k2_stream_low_high_once(out_cur[1], a_cur[1], b_cur[1]);
+
+  // Wavefront schedule:
+  // next-block low/high for each stream, then current-block middle for that stream.
+  for (std::size_t block = 0; (block + 1) < n_blocks; ++block) {
+    UFpPack8x1* out_next = out_cur + 2;
+    const FpPack8x1* a_next = a_cur + 2;
+    const FpPack8x1* b_next = b_cur + 2;
+
+    mul_v2_k2_stream_low_high_once(out_next[0], a_next[0], b_next[0]);
+    mul_v2_k2_stream_middle_once(out_cur[0], a_cur[0], b_cur[0]);
+
+    mul_v2_k2_stream_low_high_once(out_next[1], a_next[1], b_next[1]);
+    mul_v2_k2_stream_middle_once(out_cur[1], a_cur[1], b_cur[1]);
+
+    out_cur = out_next;
+    a_cur = a_next;
+    b_cur = b_next;
+  }
+
+  // Drain: finalize middle stage for the last primed block.
+  mul_v2_k2_stream_middle_once(out_cur[0], a_cur[0], b_cur[0]);
+  mul_v2_k2_stream_middle_once(out_cur[1], a_cur[1], b_cur[1]);
+}
+
+BLST_BENCH_NOINLINE void mul_v2_k2_cpp_candidate_v5_once(
+    UFpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b,
+    const std::size_t n_blocks)
+{
+  for (std::size_t i = 0; i < n_blocks; ++i) {
+    // Hybrid lockstep schedule: keep split Karatsuba stages, but run stream-local
+    // low/high -> middle before switching to the second stream.
+    mul_v2_k2_stream_low_high_once(out[0], a[0], b[0]);
+    mul_v2_k2_stream_middle_once(out[0], a[0], b[0]);
+    mul_v2_k2_stream_low_high_once(out[1], a[1], b[1]);
+    mul_v2_k2_stream_middle_once(out[1], a[1], b[1]);
+    out += 2;
+    a += 2;
+    b += 2;
+  }
+}
+
+BLST_FORCEINLINE void mul_v2_k2_schoolbook_stream_once(
+    UFpPack8x1& r,
+    const FpPack8x1& a,
+    const FpPack8x1& b)
+{
+  const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
+  const cc512i a4 = a[4], a5 = a[5], a6 = a[6], a7 = a[7];
+  const cc512i b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
+  const cc512i b4 = b[4], b5 = b[5], b6 = b[6], b7 = b[7];
+
+  cc512i carry = VZERO();
+  cc512i lo = VZERO();
+  cc512i hi = VZERO();
+
+#define BLST_SB_COL_BEGIN() \
+  lo = carry;               \
+  hi = VZERO()
+#define BLST_SB_TERM(aa, bb)      \
+  lo = VMACLO(lo, (aa), (bb));    \
+  hi = VMACHI(hi, (aa), (bb))
+#define BLST_SB_COL_END(idx) \
+  r[(idx)] = lo;             \
+  carry = VSHL(hi, BALIGN)
+
+  BLST_SB_COL_BEGIN();
+  BLST_SB_TERM(a0, b0);
+  BLST_SB_COL_END(0);
+
+  BLST_SB_COL_BEGIN();
+  BLST_SB_TERM(a0, b1); BLST_SB_TERM(a1, b0);
+  BLST_SB_COL_END(1);
+
+  BLST_SB_COL_BEGIN();
+  BLST_SB_TERM(a0, b2); BLST_SB_TERM(a1, b1); BLST_SB_TERM(a2, b0);
+  BLST_SB_COL_END(2);
+
+  BLST_SB_COL_BEGIN();
+  BLST_SB_TERM(a0, b3); BLST_SB_TERM(a1, b2); BLST_SB_TERM(a2, b1); BLST_SB_TERM(a3, b0);
+  BLST_SB_COL_END(3);
+
+  BLST_SB_COL_BEGIN();
+  BLST_SB_TERM(a0, b4); BLST_SB_TERM(a1, b3); BLST_SB_TERM(a2, b2); BLST_SB_TERM(a3, b1);
+  BLST_SB_TERM(a4, b0);
+  BLST_SB_COL_END(4);
+
+  BLST_SB_COL_BEGIN();
+  BLST_SB_TERM(a0, b5); BLST_SB_TERM(a1, b4); BLST_SB_TERM(a2, b3); BLST_SB_TERM(a3, b2);
+  BLST_SB_TERM(a4, b1); BLST_SB_TERM(a5, b0);
+  BLST_SB_COL_END(5);
+
+  BLST_SB_COL_BEGIN();
+  BLST_SB_TERM(a0, b6); BLST_SB_TERM(a1, b5); BLST_SB_TERM(a2, b4); BLST_SB_TERM(a3, b3);
+  BLST_SB_TERM(a4, b2); BLST_SB_TERM(a5, b1); BLST_SB_TERM(a6, b0);
+  BLST_SB_COL_END(6);
+
+  BLST_SB_COL_BEGIN();
+  BLST_SB_TERM(a0, b7); BLST_SB_TERM(a1, b6); BLST_SB_TERM(a2, b5); BLST_SB_TERM(a3, b4);
+  BLST_SB_TERM(a4, b3); BLST_SB_TERM(a5, b2); BLST_SB_TERM(a6, b1); BLST_SB_TERM(a7, b0);
+  BLST_SB_COL_END(7);
+
+  BLST_SB_COL_BEGIN();
+  BLST_SB_TERM(a1, b7); BLST_SB_TERM(a2, b6); BLST_SB_TERM(a3, b5); BLST_SB_TERM(a4, b4);
+  BLST_SB_TERM(a5, b3); BLST_SB_TERM(a6, b2); BLST_SB_TERM(a7, b1);
+  BLST_SB_COL_END(8);
+
+  BLST_SB_COL_BEGIN();
+  BLST_SB_TERM(a2, b7); BLST_SB_TERM(a3, b6); BLST_SB_TERM(a4, b5); BLST_SB_TERM(a5, b4);
+  BLST_SB_TERM(a6, b3); BLST_SB_TERM(a7, b2);
+  BLST_SB_COL_END(9);
+
+  BLST_SB_COL_BEGIN();
+  BLST_SB_TERM(a3, b7); BLST_SB_TERM(a4, b6); BLST_SB_TERM(a5, b5); BLST_SB_TERM(a6, b4);
+  BLST_SB_TERM(a7, b3);
+  BLST_SB_COL_END(10);
+
+  BLST_SB_COL_BEGIN();
+  BLST_SB_TERM(a4, b7); BLST_SB_TERM(a5, b6); BLST_SB_TERM(a6, b5); BLST_SB_TERM(a7, b4);
+  BLST_SB_COL_END(11);
+
+  BLST_SB_COL_BEGIN();
+  BLST_SB_TERM(a5, b7); BLST_SB_TERM(a6, b6); BLST_SB_TERM(a7, b5);
+  BLST_SB_COL_END(12);
+
+  BLST_SB_COL_BEGIN();
+  BLST_SB_TERM(a6, b7); BLST_SB_TERM(a7, b6);
+  BLST_SB_COL_END(13);
+
+  BLST_SB_COL_BEGIN();
+  BLST_SB_TERM(a7, b7);
+  BLST_SB_COL_END(14);
+
+  r[15] = carry;
+
+#undef BLST_SB_COL_BEGIN
+#undef BLST_SB_TERM
+#undef BLST_SB_COL_END
+}
+
+BLST_BENCH_NOINLINE void mul_v2_k2_cpp_candidate_v6_once(
+    UFpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b,
+    const std::size_t n_blocks)
+{
+  for (std::size_t i = 0; i < n_blocks; ++i) {
+    // v6: full schoolbook (more IFMA, more regular dependency graph) for A/B testing.
+    mul_v2_k2_schoolbook_stream_once(out[0], a[0], b[0]);
+    mul_v2_k2_schoolbook_stream_once(out[1], a[1], b[1]);
+    out += 2;
+    a += 2;
+    b += 2;
+  }
+}
+
+BLST_FORCEINLINE void mul_v2_k2_schoolbook_stream_paircarry_once(
+    UFpPack8x1& r,
+    const FpPack8x1& a,
+    const FpPack8x1& b)
+{
+  const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
+  const cc512i a4 = a[4], a5 = a[5], a6 = a[6], a7 = a[7];
+  const cc512i b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
+  const cc512i b4 = b[4], b5 = b[5], b6 = b[6], b7 = b[7];
+
+  cc512i carry = VZERO();
+  cc512i lo0 = VZERO(), hi0 = VZERO();
+  cc512i lo1 = VZERO(), hi1 = VZERO();
+
+#define BLST_SB_PC_PAIR_BEGIN() \
+  lo0 = carry;                  \
+  hi0 = VZERO()
+#define BLST_SB_PC_TERM0(aa, bb)    \
+  lo0 = VMACLO(lo0, (aa), (bb));    \
+  hi0 = VMACHI(hi0, (aa), (bb))
+#define BLST_SB_PC_PAIR_MID()  \
+  lo1 = VSHL(hi0, BALIGN);     \
+  hi1 = VZERO()
+#define BLST_SB_PC_TERM1(aa, bb)    \
+  lo1 = VMACLO(lo1, (aa), (bb));    \
+  hi1 = VMACHI(hi1, (aa), (bb))
+#define BLST_SB_PC_PAIR_END(idx0, idx1) \
+  r[(idx0)] = lo0;                     \
+  r[(idx1)] = lo1;                     \
+  carry = VSHL(hi1, BALIGN)
+
+  BLST_SB_PC_PAIR_BEGIN();
+  BLST_SB_PC_TERM0(a0, b0);
+  BLST_SB_PC_PAIR_MID();
+  BLST_SB_PC_TERM1(a0, b1); BLST_SB_PC_TERM1(a1, b0);
+  BLST_SB_PC_PAIR_END(0, 1);
+
+  BLST_SB_PC_PAIR_BEGIN();
+  BLST_SB_PC_TERM0(a0, b2); BLST_SB_PC_TERM0(a1, b1); BLST_SB_PC_TERM0(a2, b0);
+  BLST_SB_PC_PAIR_MID();
+  BLST_SB_PC_TERM1(a0, b3); BLST_SB_PC_TERM1(a1, b2); BLST_SB_PC_TERM1(a2, b1); BLST_SB_PC_TERM1(a3, b0);
+  BLST_SB_PC_PAIR_END(2, 3);
+
+  BLST_SB_PC_PAIR_BEGIN();
+  BLST_SB_PC_TERM0(a0, b4); BLST_SB_PC_TERM0(a1, b3); BLST_SB_PC_TERM0(a2, b2); BLST_SB_PC_TERM0(a3, b1);
+  BLST_SB_PC_TERM0(a4, b0);
+  BLST_SB_PC_PAIR_MID();
+  BLST_SB_PC_TERM1(a0, b5); BLST_SB_PC_TERM1(a1, b4); BLST_SB_PC_TERM1(a2, b3); BLST_SB_PC_TERM1(a3, b2);
+  BLST_SB_PC_TERM1(a4, b1); BLST_SB_PC_TERM1(a5, b0);
+  BLST_SB_PC_PAIR_END(4, 5);
+
+  BLST_SB_PC_PAIR_BEGIN();
+  BLST_SB_PC_TERM0(a0, b6); BLST_SB_PC_TERM0(a1, b5); BLST_SB_PC_TERM0(a2, b4); BLST_SB_PC_TERM0(a3, b3);
+  BLST_SB_PC_TERM0(a4, b2); BLST_SB_PC_TERM0(a5, b1); BLST_SB_PC_TERM0(a6, b0);
+  BLST_SB_PC_PAIR_MID();
+  BLST_SB_PC_TERM1(a0, b7); BLST_SB_PC_TERM1(a1, b6); BLST_SB_PC_TERM1(a2, b5); BLST_SB_PC_TERM1(a3, b4);
+  BLST_SB_PC_TERM1(a4, b3); BLST_SB_PC_TERM1(a5, b2); BLST_SB_PC_TERM1(a6, b1); BLST_SB_PC_TERM1(a7, b0);
+  BLST_SB_PC_PAIR_END(6, 7);
+
+  BLST_SB_PC_PAIR_BEGIN();
+  BLST_SB_PC_TERM0(a1, b7); BLST_SB_PC_TERM0(a2, b6); BLST_SB_PC_TERM0(a3, b5); BLST_SB_PC_TERM0(a4, b4);
+  BLST_SB_PC_TERM0(a5, b3); BLST_SB_PC_TERM0(a6, b2); BLST_SB_PC_TERM0(a7, b1);
+  BLST_SB_PC_PAIR_MID();
+  BLST_SB_PC_TERM1(a2, b7); BLST_SB_PC_TERM1(a3, b6); BLST_SB_PC_TERM1(a4, b5); BLST_SB_PC_TERM1(a5, b4);
+  BLST_SB_PC_TERM1(a6, b3); BLST_SB_PC_TERM1(a7, b2);
+  BLST_SB_PC_PAIR_END(8, 9);
+
+  BLST_SB_PC_PAIR_BEGIN();
+  BLST_SB_PC_TERM0(a3, b7); BLST_SB_PC_TERM0(a4, b6); BLST_SB_PC_TERM0(a5, b5); BLST_SB_PC_TERM0(a6, b4);
+  BLST_SB_PC_TERM0(a7, b3);
+  BLST_SB_PC_PAIR_MID();
+  BLST_SB_PC_TERM1(a4, b7); BLST_SB_PC_TERM1(a5, b6); BLST_SB_PC_TERM1(a6, b5); BLST_SB_PC_TERM1(a7, b4);
+  BLST_SB_PC_PAIR_END(10, 11);
+
+  BLST_SB_PC_PAIR_BEGIN();
+  BLST_SB_PC_TERM0(a5, b7); BLST_SB_PC_TERM0(a6, b6); BLST_SB_PC_TERM0(a7, b5);
+  BLST_SB_PC_PAIR_MID();
+  BLST_SB_PC_TERM1(a6, b7); BLST_SB_PC_TERM1(a7, b6);
+  BLST_SB_PC_PAIR_END(12, 13);
+
+  // Final pair: column 14 has one term; column 15 is carry only.
+  BLST_SB_PC_PAIR_BEGIN();
+  BLST_SB_PC_TERM0(a7, b7);
+  r[14] = lo0;
+  r[15] = VSHL(hi0, BALIGN);
+
+#undef BLST_SB_PC_PAIR_BEGIN
+#undef BLST_SB_PC_TERM0
+#undef BLST_SB_PC_PAIR_MID
+#undef BLST_SB_PC_TERM1
+#undef BLST_SB_PC_PAIR_END
+}
+
+BLST_BENCH_NOINLINE void mul_v2_k2_cpp_candidate_v6b_once(
+    UFpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b,
+    const std::size_t n_blocks)
+{
+  for (std::size_t i = 0; i < n_blocks; ++i) {
+    // v6b: full-schoolbook with 2-column carry cadence (pair-carry).
+    mul_v2_k2_schoolbook_stream_paircarry_once(out[0], a[0], b[0]);
+    mul_v2_k2_schoolbook_stream_paircarry_once(out[1], a[1], b[1]);
+    out += 2;
+    a += 2;
+    b += 2;
+  }
+}
+
+BLST_BENCH_NOINLINE void mul_v2_k1_cpp_candidate_v6b_once(
+    UFpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b,
+    const std::size_t n_blocks)
+{
+  for (std::size_t i = 0; i < n_blocks; ++i) {
+    // k=1 benchmark-only candidate: same pair-carry schoolbook inner style as v6b.
+    mul_v2_k2_schoolbook_stream_paircarry_once(out[0], a[0], b[0]);
+    ++out;
+    ++a;
+    ++b;
+  }
+}
+
+extern "C" BLST_BENCH_NOINLINE void blst_fp8x1_mul_v2_k2_v6b_cpp_entry(
+    UFpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b,
+    const std::size_t n_blocks)
+{
+  mul_v2_k2_cpp_candidate_v6b_once(out, a, b, n_blocks);
+}
+
+BLST_FORCEINLINE void mul_v2_k2_schoolbook_dual_interleaved_once(
+    UFpPack8x1& r0,
+    UFpPack8x1& r1,
+    const FpPack8x1& a0,
+    const FpPack8x1& b0,
+    const FpPack8x1& a1,
+    const FpPack8x1& b1)
+{
+  cc512i carry0 = VZERO(), carry1 = VZERO();
+  cc512i lo0 = VZERO(), hi0 = VZERO();
+  cc512i lo1 = VZERO(), hi1 = VZERO();
+
+#define BLST_SB2_COL_BEGIN() \
+  lo0 = carry0;              \
+  hi0 = VZERO();             \
+  lo1 = carry1;              \
+  hi1 = VZERO()
+#define BLST_SB2_TERM(i, j)             \
+  lo0 = VMACLO(lo0, a0[(i)], b0[(j)]);  \
+  hi0 = VMACHI(hi0, a0[(i)], b0[(j)]);  \
+  lo1 = VMACLO(lo1, a1[(i)], b1[(j)]);  \
+  hi1 = VMACHI(hi1, a1[(i)], b1[(j)])
+#define BLST_SB2_COL_END(idx)    \
+  r0[(idx)] = lo0;               \
+  carry0 = VSHL(hi0, BALIGN);    \
+  r1[(idx)] = lo1;               \
+  carry1 = VSHL(hi1, BALIGN)
+
+  BLST_SB2_COL_BEGIN();
+  BLST_SB2_TERM(0, 0);
+  BLST_SB2_COL_END(0);
+
+  BLST_SB2_COL_BEGIN();
+  BLST_SB2_TERM(0, 1); BLST_SB2_TERM(1, 0);
+  BLST_SB2_COL_END(1);
+
+  BLST_SB2_COL_BEGIN();
+  BLST_SB2_TERM(0, 2); BLST_SB2_TERM(1, 1); BLST_SB2_TERM(2, 0);
+  BLST_SB2_COL_END(2);
+
+  BLST_SB2_COL_BEGIN();
+  BLST_SB2_TERM(0, 3); BLST_SB2_TERM(1, 2); BLST_SB2_TERM(2, 1); BLST_SB2_TERM(3, 0);
+  BLST_SB2_COL_END(3);
+
+  BLST_SB2_COL_BEGIN();
+  BLST_SB2_TERM(0, 4); BLST_SB2_TERM(1, 3); BLST_SB2_TERM(2, 2); BLST_SB2_TERM(3, 1);
+  BLST_SB2_TERM(4, 0);
+  BLST_SB2_COL_END(4);
+
+  BLST_SB2_COL_BEGIN();
+  BLST_SB2_TERM(0, 5); BLST_SB2_TERM(1, 4); BLST_SB2_TERM(2, 3); BLST_SB2_TERM(3, 2);
+  BLST_SB2_TERM(4, 1); BLST_SB2_TERM(5, 0);
+  BLST_SB2_COL_END(5);
+
+  BLST_SB2_COL_BEGIN();
+  BLST_SB2_TERM(0, 6); BLST_SB2_TERM(1, 5); BLST_SB2_TERM(2, 4); BLST_SB2_TERM(3, 3);
+  BLST_SB2_TERM(4, 2); BLST_SB2_TERM(5, 1); BLST_SB2_TERM(6, 0);
+  BLST_SB2_COL_END(6);
+
+  BLST_SB2_COL_BEGIN();
+  BLST_SB2_TERM(0, 7); BLST_SB2_TERM(1, 6); BLST_SB2_TERM(2, 5); BLST_SB2_TERM(3, 4);
+  BLST_SB2_TERM(4, 3); BLST_SB2_TERM(5, 2); BLST_SB2_TERM(6, 1); BLST_SB2_TERM(7, 0);
+  BLST_SB2_COL_END(7);
+
+  BLST_SB2_COL_BEGIN();
+  BLST_SB2_TERM(1, 7); BLST_SB2_TERM(2, 6); BLST_SB2_TERM(3, 5); BLST_SB2_TERM(4, 4);
+  BLST_SB2_TERM(5, 3); BLST_SB2_TERM(6, 2); BLST_SB2_TERM(7, 1);
+  BLST_SB2_COL_END(8);
+
+  BLST_SB2_COL_BEGIN();
+  BLST_SB2_TERM(2, 7); BLST_SB2_TERM(3, 6); BLST_SB2_TERM(4, 5); BLST_SB2_TERM(5, 4);
+  BLST_SB2_TERM(6, 3); BLST_SB2_TERM(7, 2);
+  BLST_SB2_COL_END(9);
+
+  BLST_SB2_COL_BEGIN();
+  BLST_SB2_TERM(3, 7); BLST_SB2_TERM(4, 6); BLST_SB2_TERM(5, 5); BLST_SB2_TERM(6, 4);
+  BLST_SB2_TERM(7, 3);
+  BLST_SB2_COL_END(10);
+
+  BLST_SB2_COL_BEGIN();
+  BLST_SB2_TERM(4, 7); BLST_SB2_TERM(5, 6); BLST_SB2_TERM(6, 5); BLST_SB2_TERM(7, 4);
+  BLST_SB2_COL_END(11);
+
+  BLST_SB2_COL_BEGIN();
+  BLST_SB2_TERM(5, 7); BLST_SB2_TERM(6, 6); BLST_SB2_TERM(7, 5);
+  BLST_SB2_COL_END(12);
+
+  BLST_SB2_COL_BEGIN();
+  BLST_SB2_TERM(6, 7); BLST_SB2_TERM(7, 6);
+  BLST_SB2_COL_END(13);
+
+  BLST_SB2_COL_BEGIN();
+  BLST_SB2_TERM(7, 7);
+  BLST_SB2_COL_END(14);
+
+  r0[15] = carry0;
+  r1[15] = carry1;
+
+#undef BLST_SB2_COL_BEGIN
+#undef BLST_SB2_TERM
+#undef BLST_SB2_COL_END
+}
+
+BLST_BENCH_NOINLINE void mul_v2_k2_cpp_candidate_v6a_once(
+    UFpPack8x1* BLST_restrict out,
+    const FpPack8x1* BLST_restrict a,
+    const FpPack8x1* BLST_restrict b,
+    const std::size_t n_blocks)
+{
+  for (std::size_t i = 0; i < n_blocks; ++i) {
+    // v6a: full-schoolbook with dual-stream diagonal interleave.
+    mul_v2_k2_schoolbook_dual_interleaved_once(out[0], out[1], a[0], b[0], a[1], b[1]);
+    out += 2;
+    a += 2;
+    b += 2;
+  }
+}
+
+void mul_v2_k2_selfcheck_impl(MulV2K2Fn fn, const char* tag)
+{
+  constexpr std::size_t kCases = 32;
+  constexpr std::size_t kBlocks = 7;
+  constexpr std::size_t kPacks = kBlocks * 2;
+
+  std::mt19937_64 gen(0xB61AF1330C5D119FULL);
+  std::array<FpPack8x1, kPacks> a{};
+  std::array<FpPack8x1, kPacks> b{};
+  std::array<UFpPack8x1, kPacks> got{};
+  std::array<UFpPack8x1, kPacks> exp{};
+
+  for (std::size_t t = 0; t < kCases; ++t) {
+    for (std::size_t i = 0; i < kPacks; ++i) {
+      std::array<Fp, 8> lane_a{};
+      std::array<Fp, 8> lane_b{};
+      for (std::size_t lane = 0; lane < 8; ++lane) {
+        random_redc_fp(lane_a[lane], gen);
+        random_redc_fp(lane_b[lane], gen);
+      }
+      FpPack8x1::from_aos(a[i], lane_a.data());
+      FpPack8x1::from_aos(b[i], lane_b.data());
+    }
+
+    mul_v2_k2_cpp_baseline_once(exp.data(), a.data(), b.data(), kBlocks);
+    fn(got.data(), a.data(), b.data(), kBlocks);
+
+    for (std::size_t i = 0; i < kPacks; ++i) {
+      FpPack8x1 got_redc{}, exp_redc{};
+      UFpPack8x1::redc(got_redc, got[i]);
+      UFpPack8x1::redc(exp_redc, exp[i]);
+
+      std::array<Fp, 8> got_lanes{}, exp_lanes{};
+      FpPack8x1::to_aos(got_lanes.data(), got_redc);
+      FpPack8x1::to_aos(exp_lanes.data(), exp_redc);
+
+      for (std::size_t lane = 0; lane < 8; ++lane) {
+        for (std::size_t limb = 0; limb < Fp::num_limb(); ++limb) {
+          if (got_lanes[lane][limb] != exp_lanes[lane][limb]) {
+            std::fprintf(
+                stderr,
+                "%s selfcheck failed (case=%zu pack=%zu lane=%zu limb=%zu got=%llx exp=%llx)\n",
+                tag,
+                t,
+                i,
+                lane,
+                limb,
+                static_cast<unsigned long long>(got_lanes[lane][limb]),
+                static_cast<unsigned long long>(exp_lanes[lane][limb]));
+            std::abort();
+          }
+        }
+      }
+    }
+  }
+}
+
+void mul_v2_k1_selfcheck_impl(MulV2K2Fn fn, const char* tag)
+{
+  constexpr std::size_t kCases = 32;
+  constexpr std::size_t kBlocks = 11;
+  constexpr std::size_t kPacks = kBlocks;
+
+  std::mt19937_64 gen(0x91D7B0AF3C2E44D1ULL);
+  std::array<FpPack8x1, kPacks> a{};
+  std::array<FpPack8x1, kPacks> b{};
+  std::array<UFpPack8x1, kPacks> got{};
+  std::array<UFpPack8x1, kPacks> exp{};
+
+  for (std::size_t t = 0; t < kCases; ++t) {
+    for (std::size_t i = 0; i < kPacks; ++i) {
+      std::array<Fp, 8> lane_a{};
+      std::array<Fp, 8> lane_b{};
+      for (std::size_t lane = 0; lane < 8; ++lane) {
+        random_redc_fp(lane_a[lane], gen);
+        random_redc_fp(lane_b[lane], gen);
+      }
+      FpPack8x1::from_aos(a[i], lane_a.data());
+      FpPack8x1::from_aos(b[i], lane_b.data());
+    }
+
+    fp8x1_mul_k<1>(exp.data(), a.data(), b.data(), kBlocks);
+    fn(got.data(), a.data(), b.data(), kBlocks);
+
+    for (std::size_t i = 0; i < kPacks; ++i) {
+      FpPack8x1 got_redc{}, exp_redc{};
+      UFpPack8x1::redc(got_redc, got[i]);
+      UFpPack8x1::redc(exp_redc, exp[i]);
+
+      std::array<Fp, 8> got_lanes{}, exp_lanes{};
+      FpPack8x1::to_aos(got_lanes.data(), got_redc);
+      FpPack8x1::to_aos(exp_lanes.data(), exp_redc);
+
+      for (std::size_t lane = 0; lane < 8; ++lane) {
+        for (std::size_t limb = 0; limb < Fp::num_limb(); ++limb) {
+          if (got_lanes[lane][limb] != exp_lanes[lane][limb]) {
+            std::fprintf(
+                stderr,
+                "%s selfcheck failed (case=%zu pack=%zu lane=%zu limb=%zu got=%llx exp=%llx)\n",
+                tag,
+                t,
+                i,
+                lane,
+                limb,
+                static_cast<unsigned long long>(got_lanes[lane][limb]),
+                static_cast<unsigned long long>(exp_lanes[lane][limb]));
+            std::abort();
+          }
+        }
+      }
+    }
+  }
+}
+
+void mul_v2_k1_v6b_selfcheck_once()
+{
+  static std::once_flag once;
+  std::call_once(once, []() {
+    mul_v2_k1_selfcheck_impl(mul_v2_k1_cpp_candidate_v6b_once, "mul_v2_k1_cpp_candidate_v6b");
+  });
+}
+
+void mul_v2_k2_selfcheck_once()
+{
+  static std::once_flag once;
+  std::call_once(once, []() {
+    mul_v2_k2_selfcheck_impl(mul_v2_k2_cpp_candidate_once, "mul_v2_k2_cpp_candidate");
+  });
+}
+
+void mul_v2_k2_v3_selfcheck_once()
+{
+  static std::once_flag once;
+  std::call_once(once, []() {
+    mul_v2_k2_selfcheck_impl(mul_v2_k2_cpp_candidate_v3_once, "mul_v2_k2_cpp_candidate_v3");
+  });
+}
+
+void mul_v2_k2_v4_selfcheck_once()
+{
+  static std::once_flag once;
+  std::call_once(once, []() {
+    mul_v2_k2_selfcheck_impl(mul_v2_k2_cpp_candidate_v4_once, "mul_v2_k2_cpp_candidate_v4");
+  });
+}
+
+void mul_v2_k2_v5_selfcheck_once()
+{
+  static std::once_flag once;
+  std::call_once(once, []() {
+    mul_v2_k2_selfcheck_impl(mul_v2_k2_cpp_candidate_v5_once, "mul_v2_k2_cpp_candidate_v5");
+  });
+}
+
+void mul_v2_k2_v6_selfcheck_once()
+{
+  static std::once_flag once;
+  std::call_once(once, []() {
+    mul_v2_k2_selfcheck_impl(mul_v2_k2_cpp_candidate_v6_once, "mul_v2_k2_cpp_candidate_v6");
+  });
+}
+
+void mul_v2_k2_v6a_selfcheck_once()
+{
+  static std::once_flag once;
+  std::call_once(once, []() {
+    mul_v2_k2_selfcheck_impl(mul_v2_k2_cpp_candidate_v6a_once, "mul_v2_k2_cpp_candidate_v6a");
+  });
+}
+
+void mul_v2_k2_v6b_selfcheck_once()
+{
+  static std::once_flag once;
+  std::call_once(once, []() {
+    mul_v2_k2_selfcheck_impl(mul_v2_k2_cpp_candidate_v6b_once, "mul_v2_k2_cpp_candidate_v6b");
+  });
+}
+
+#if BLST_HAVE_MUL_V2_K2_V6B_ASM
+void mul_v2_k2_v6b_asm_selfcheck_once()
+{
+  static std::once_flag once;
+  std::call_once(once, []() {
+    mul_v2_k2_selfcheck_impl(blst_fp8x1_mul_v2_k2_v6b_asm, "blst_fp8x1_mul_v2_k2_v6b_asm");
+  });
+}
+#endif
+
+BLST_FORCEINLINE void bench_consume_wide(std::vector<UFpPack8x1>& wide)
+{
+  if (wide.empty()) {
+    return;
+  }
+  benchmark::DoNotOptimize(wide.front()[0]);
+  benchmark::DoNotOptimize(wide.back()[2 * NWORDS - 1]);
+  benchmark::ClobberMemory();
+}
+
+BLST_FORCEINLINE void bench_consume_lazy(std::vector<LFpPack8x1>& lazy)
+{
+  if (lazy.empty()) {
+    return;
+  }
+  benchmark::DoNotOptimize(lazy.front()[0]);
+  benchmark::DoNotOptimize(lazy.back()[NWORDS - 1]);
+  benchmark::ClobberMemory();
+}
+
+BLST_FORCEINLINE void bench_consume_out(std::vector<FpPack8x1>& out)
+{
+  if (out.empty()) {
+    return;
+  }
+  benchmark::DoNotOptimize(out.front()[0]);
+  benchmark::DoNotOptimize(out.back()[NWORDS - 1]);
+  benchmark::ClobberMemory();
+}
+
+void BM_Fp8x1MulV2K2_CppCandidate(benchmark::State& state)
+{
+  const std::size_t n_blocks = static_cast<std::size_t>(state.range(0));
+  const std::size_t n_packs = n_blocks * 2;
+  Fp8x1KBenchData data(n_packs);
+  mul_v2_k2_selfcheck_once();
+
+  for (auto _ : state) {
+    mul_v2_k2_cpp_candidate_once(data.wide.data(), data.a.data(), data.b.data(), n_blocks);
+    bench_consume_wide(data.wide);
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs);
+}
+
+void BM_Fp8x1MulV2K2_CppCandidateV3(benchmark::State& state)
+{
+  const std::size_t n_blocks = static_cast<std::size_t>(state.range(0));
+  const std::size_t n_packs = n_blocks * 2;
+  Fp8x1KBenchData data(n_packs);
+  mul_v2_k2_v3_selfcheck_once();
+
+  for (auto _ : state) {
+    mul_v2_k2_cpp_candidate_v3_once(data.wide.data(), data.a.data(), data.b.data(), n_blocks);
+    bench_consume_wide(data.wide);
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs);
+}
+
+void BM_Fp8x1MulV2K2_CppCandidateV4(benchmark::State& state)
+{
+  const std::size_t n_blocks = static_cast<std::size_t>(state.range(0));
+  const std::size_t n_packs = n_blocks * 2;
+  Fp8x1KBenchData data(n_packs);
+  mul_v2_k2_v4_selfcheck_once();
+
+  for (auto _ : state) {
+    mul_v2_k2_cpp_candidate_v4_once(data.wide.data(), data.a.data(), data.b.data(), n_blocks);
+    bench_consume_wide(data.wide);
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs);
+}
+
+void BM_Fp8x1MulV2K2_CppCandidateV5(benchmark::State& state)
+{
+  const std::size_t n_blocks = static_cast<std::size_t>(state.range(0));
+  const std::size_t n_packs = n_blocks * 2;
+  Fp8x1KBenchData data(n_packs);
+  mul_v2_k2_v5_selfcheck_once();
+
+  for (auto _ : state) {
+    mul_v2_k2_cpp_candidate_v5_once(data.wide.data(), data.a.data(), data.b.data(), n_blocks);
+    bench_consume_wide(data.wide);
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs);
+}
+
+void BM_Fp8x1MulV2K2_CppCandidateV6(benchmark::State& state)
+{
+  const std::size_t n_blocks = static_cast<std::size_t>(state.range(0));
+  const std::size_t n_packs = n_blocks * 2;
+  Fp8x1KBenchData data(n_packs);
+  mul_v2_k2_v6_selfcheck_once();
+
+  for (auto _ : state) {
+    mul_v2_k2_cpp_candidate_v6_once(data.wide.data(), data.a.data(), data.b.data(), n_blocks);
+    bench_consume_wide(data.wide);
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs);
+}
+
+void BM_Fp8x1MulV2K2_CppCandidateV6A(benchmark::State& state)
+{
+  const std::size_t n_blocks = static_cast<std::size_t>(state.range(0));
+  const std::size_t n_packs = n_blocks * 2;
+  Fp8x1KBenchData data(n_packs);
+  mul_v2_k2_v6a_selfcheck_once();
+
+  for (auto _ : state) {
+    mul_v2_k2_cpp_candidate_v6a_once(data.wide.data(), data.a.data(), data.b.data(), n_blocks);
+    bench_consume_wide(data.wide);
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs);
+}
+
+void BM_Fp8x1MulV2K2_CppCandidateV6B(benchmark::State& state)
+{
+  const std::size_t n_blocks = static_cast<std::size_t>(state.range(0));
+  const std::size_t n_packs = n_blocks * 2;
+  Fp8x1KBenchData data(n_packs);
+  mul_v2_k2_v6b_selfcheck_once();
+
+  for (auto _ : state) {
+    mul_v2_k2_cpp_candidate_v6b_once(data.wide.data(), data.a.data(), data.b.data(), n_blocks);
+    bench_consume_wide(data.wide);
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs);
+}
+
+#if BLST_HAVE_MUL_V2_K2_V6B_ASM
+void BM_Fp8x1MulV2K2_CppCandidateV6BAsm(benchmark::State& state)
+{
+  const std::size_t n_blocks = static_cast<std::size_t>(state.range(0));
+  const std::size_t n_packs = n_blocks * 2;
+  Fp8x1KBenchData data(n_packs);
+  mul_v2_k2_v6b_asm_selfcheck_once();
+
+  for (auto _ : state) {
+    blst_fp8x1_mul_v2_k2_v6b_asm(data.wide.data(), data.a.data(), data.b.data(), n_blocks);
+    bench_consume_wide(data.wide);
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs);
+}
+#endif
+
+void BM_Fp8x1MulV2K1_CppCandidateV6B(benchmark::State& state)
+{
+  const std::size_t n_blocks = static_cast<std::size_t>(state.range(0));
+  const std::size_t n_packs = n_blocks;
+  Fp8x1KBenchData data(n_packs);
+  mul_v2_k1_v6b_selfcheck_once();
+
+  for (auto _ : state) {
+    mul_v2_k1_cpp_candidate_v6b_once(data.wide.data(), data.a.data(), data.b.data(), n_blocks);
+    bench_consume_wide(data.wide);
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs);
+}
+
 template <int K>
 void BM_Fp8x1MulV2K(benchmark::State& state)
 {
@@ -494,8 +1658,8 @@ void BM_Fp8x1MulV2K(benchmark::State& state)
   Fp8x1KBenchData data(n_packs);
 
   for (auto _ : state) {
-    fp8x1_mul_v2_k<K>(data.wide.data(), data.a.data(), data.b.data(), n_blocks);
-    benchmark::DoNotOptimize(data.wide.data());
+    fp8x1_mul_k<K>(data.wide.data(), data.a.data(), data.b.data(), n_blocks);
+    bench_consume_wide(data.wide);
   }
 
   state.SetItemsProcessed(state.iterations() * n_packs);
@@ -510,7 +1674,7 @@ void BM_Fp8x1RedcK(benchmark::State& state)
 
   for (auto _ : state) {
     fp8x1_redc_k<K>(data.out.data(), data.wide.data(), n_blocks);
-    benchmark::DoNotOptimize(data.out.data());
+    bench_consume_out(data.out);
   }
 
   state.SetItemsProcessed(state.iterations() * n_packs);
@@ -525,7 +1689,7 @@ void BM_Fp8x1MulRedcK(benchmark::State& state)
 
   for (auto _ : state) {
     fp8x1_mul_redc_k<K>(data.out.data(), data.a.data(), data.b.data(), n_blocks);
-    benchmark::DoNotOptimize(data.out.data());
+    bench_consume_out(data.out);
   }
 
   state.SetItemsProcessed(state.iterations() * n_packs);
@@ -545,7 +1709,7 @@ void BM_Fp8x1RedcCore(benchmark::State& state)
     for (std::size_t i = 0; i < n_packs; ++i) {
       UFpPack8x1::redc_core(data.lazy[i], data.wide[i]);
     }
-    benchmark::DoNotOptimize(data.lazy.data());
+    bench_consume_lazy(data.lazy);
   }
 
   state.SetItemsProcessed(state.iterations() * n_packs);
@@ -560,7 +1724,7 @@ void BM_Fp8x1Normalize(benchmark::State& state)
     for (std::size_t i = 0; i < n_packs; ++i) {
       UFpPack8x1::normalize(data.out[i], data.lazy[i]);
     }
-    benchmark::DoNotOptimize(data.out.data());
+    bench_consume_out(data.out);
   }
 
   state.SetItemsProcessed(state.iterations() * n_packs);
@@ -576,56 +1740,56 @@ void BM_Fp8x1MulRedc_SeqChains(benchmark::State& state)
   for (auto _ : state) {
     if constexpr (Chains >= 1) {
       for (std::size_t i = 0; i < kUnroll; ++i) {
-        FpPack8x1::mul_v2(data.wide[0], data.cur[0], data.mul_by[0]);
+        FpPack8x1::mul(data.wide[0], data.cur[0], data.mul_by[0]);
         UFpPack8x1::redc(data.out[0], data.wide[0]);
         data.cur[0] = data.out[0];
       }
     }
     if constexpr (Chains >= 2) {
       for (std::size_t i = 0; i < kUnroll; ++i) {
-        FpPack8x1::mul_v2(data.wide[1], data.cur[1], data.mul_by[1]);
+        FpPack8x1::mul(data.wide[1], data.cur[1], data.mul_by[1]);
         UFpPack8x1::redc(data.out[1], data.wide[1]);
         data.cur[1] = data.out[1];
       }
     }
     if constexpr (Chains >= 3) {
       for (std::size_t i = 0; i < kUnroll; ++i) {
-        FpPack8x1::mul_v2(data.wide[2], data.cur[2], data.mul_by[2]);
+        FpPack8x1::mul(data.wide[2], data.cur[2], data.mul_by[2]);
         UFpPack8x1::redc(data.out[2], data.wide[2]);
         data.cur[2] = data.out[2];
       }
     }
     if constexpr (Chains >= 4) {
       for (std::size_t i = 0; i < kUnroll; ++i) {
-        FpPack8x1::mul_v2(data.wide[3], data.cur[3], data.mul_by[3]);
+        FpPack8x1::mul(data.wide[3], data.cur[3], data.mul_by[3]);
         UFpPack8x1::redc(data.out[3], data.wide[3]);
         data.cur[3] = data.out[3];
       }
     }
     if constexpr (Chains >= 5) {
       for (std::size_t i = 0; i < kUnroll; ++i) {
-        FpPack8x1::mul_v2(data.wide[4], data.cur[4], data.mul_by[4]);
+        FpPack8x1::mul(data.wide[4], data.cur[4], data.mul_by[4]);
         UFpPack8x1::redc(data.out[4], data.wide[4]);
         data.cur[4] = data.out[4];
       }
     }
     if constexpr (Chains >= 6) {
       for (std::size_t i = 0; i < kUnroll; ++i) {
-        FpPack8x1::mul_v2(data.wide[5], data.cur[5], data.mul_by[5]);
+        FpPack8x1::mul(data.wide[5], data.cur[5], data.mul_by[5]);
         UFpPack8x1::redc(data.out[5], data.wide[5]);
         data.cur[5] = data.out[5];
       }
     }
     if constexpr (Chains >= 7) {
       for (std::size_t i = 0; i < kUnroll; ++i) {
-        FpPack8x1::mul_v2(data.wide[6], data.cur[6], data.mul_by[6]);
+        FpPack8x1::mul(data.wide[6], data.cur[6], data.mul_by[6]);
         UFpPack8x1::redc(data.out[6], data.wide[6]);
         data.cur[6] = data.out[6];
       }
     }
     if constexpr (Chains >= 8) {
       for (std::size_t i = 0; i < kUnroll; ++i) {
-        FpPack8x1::mul_v2(data.wide[7], data.cur[7], data.mul_by[7]);
+        FpPack8x1::mul(data.wide[7], data.cur[7], data.mul_by[7]);
         UFpPack8x1::redc(data.out[7], data.wide[7]);
         data.cur[7] = data.out[7];
       }
@@ -655,42 +1819,42 @@ void BM_Fp8x1MulRedc_HandInterleavedChains(benchmark::State& state)
   for (auto _ : state) {
     for (std::size_t i = 0; i < kUnroll; ++i) {
       if constexpr (Chains >= 1) {
-        FpPack8x1::mul_v2(data.wide[0], data.cur[0], data.mul_by[0]);
+        FpPack8x1::mul(data.wide[0], data.cur[0], data.mul_by[0]);
         UFpPack8x1::redc(data.out[0], data.wide[0]);
         data.cur[0] = data.out[0];
       }
       if constexpr (Chains >= 2) {
-        FpPack8x1::mul_v2(data.wide[1], data.cur[1], data.mul_by[1]);
+        FpPack8x1::mul(data.wide[1], data.cur[1], data.mul_by[1]);
         UFpPack8x1::redc(data.out[1], data.wide[1]);
         data.cur[1] = data.out[1];
       }
       if constexpr (Chains >= 3) {
-        FpPack8x1::mul_v2(data.wide[2], data.cur[2], data.mul_by[2]);
+        FpPack8x1::mul(data.wide[2], data.cur[2], data.mul_by[2]);
         UFpPack8x1::redc(data.out[2], data.wide[2]);
         data.cur[2] = data.out[2];
       }
       if constexpr (Chains >= 4) {
-        FpPack8x1::mul_v2(data.wide[3], data.cur[3], data.mul_by[3]);
+        FpPack8x1::mul(data.wide[3], data.cur[3], data.mul_by[3]);
         UFpPack8x1::redc(data.out[3], data.wide[3]);
         data.cur[3] = data.out[3];
       }
       if constexpr (Chains >= 5) {
-        FpPack8x1::mul_v2(data.wide[4], data.cur[4], data.mul_by[4]);
+        FpPack8x1::mul(data.wide[4], data.cur[4], data.mul_by[4]);
         UFpPack8x1::redc(data.out[4], data.wide[4]);
         data.cur[4] = data.out[4];
       }
       if constexpr (Chains >= 6) {
-        FpPack8x1::mul_v2(data.wide[5], data.cur[5], data.mul_by[5]);
+        FpPack8x1::mul(data.wide[5], data.cur[5], data.mul_by[5]);
         UFpPack8x1::redc(data.out[5], data.wide[5]);
         data.cur[5] = data.out[5];
       }
       if constexpr (Chains >= 7) {
-        FpPack8x1::mul_v2(data.wide[6], data.cur[6], data.mul_by[6]);
+        FpPack8x1::mul(data.wide[6], data.cur[6], data.mul_by[6]);
         UFpPack8x1::redc(data.out[6], data.wide[6]);
         data.cur[6] = data.out[6];
       }
       if constexpr (Chains >= 8) {
-        FpPack8x1::mul_v2(data.wide[7], data.cur[7], data.mul_by[7]);
+        FpPack8x1::mul(data.wide[7], data.cur[7], data.mul_by[7]);
         UFpPack8x1::redc(data.out[7], data.wide[7]);
         data.cur[7] = data.out[7];
       }
@@ -1263,6 +2427,17 @@ void BM_IFMA52Throughput_LoHi_Indep16(benchmark::State& state) { BM_IFMA52Throug
 BENCHMARK_TEMPLATE(BM_Fp8x1MulV2K, 1)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp8x1MulV2K, 2)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp8x1MulV2K, 4)->Arg(256);
+BENCHMARK(BM_Fp8x1MulV2K1_CppCandidateV6B)->Arg(256);
+BENCHMARK(BM_Fp8x1MulV2K2_CppCandidate)->Arg(256);
+BENCHMARK(BM_Fp8x1MulV2K2_CppCandidateV3)->Arg(256);
+BENCHMARK(BM_Fp8x1MulV2K2_CppCandidateV4)->Arg(256);
+BENCHMARK(BM_Fp8x1MulV2K2_CppCandidateV5)->Arg(256);
+BENCHMARK(BM_Fp8x1MulV2K2_CppCandidateV6)->Arg(256);
+BENCHMARK(BM_Fp8x1MulV2K2_CppCandidateV6A)->Arg(256);
+BENCHMARK(BM_Fp8x1MulV2K2_CppCandidateV6B)->Arg(256);
+#if BLST_HAVE_MUL_V2_K2_V6B_ASM
+BENCHMARK(BM_Fp8x1MulV2K2_CppCandidateV6BAsm)->Arg(256);
+#endif
 
 BENCHMARK_TEMPLATE(BM_Fp8x1RedcK, 1)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp8x1RedcK, 2)->Arg(256);
@@ -1316,4 +2491,4 @@ BENCHMARK(BM_Fp8x1RedcCore_AsmK2);
 
 } // namespace
 
-#endif // BLST_AVX512
+#endif // BLST_AVX512 || BLST_AVX512_PORTABLE

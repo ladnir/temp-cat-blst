@@ -77,6 +77,7 @@ endif()
 # Native AVX-512 benchmark-only fused k=1 mul+redc core ASM kernel.
 if(UNIX AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64)$" AND BLST_ASM AND BLST_AVX512 AND NOT BLST_AVX512_PORTABLE)
     list(APPEND BENCHMARK_SOURCES "Fp_avx_fused_core_k1_asm.S")
+    list(APPEND BENCHMARK_SOURCES "Fp_avx_mul_v2_k2_v6b_asm.S")
 endif()
 
 # Create benchmark executable

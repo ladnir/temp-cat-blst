@@ -1706,169 +1706,103 @@ void UFpPack4x2::aass(UFpPack4x2& r, const UFpPack4x2& a, const UFpPack4x2& b)
   r[8 ] = r8 ; r[9 ] = r9 ; r[10] = r10; r[11] = r11;
 }
 
-void FpPack8x1::mul_v2(UFpPack8x1& r, const FpPack8x1& a, const FpPack8x1& b)
+BLST_FORCEINLINE void fp8x1_mul_schoolbook_paircarry(
+    UFpPack8x1& r,
+    const FpPack8x1& a,
+    const FpPack8x1& b)
 {
-  BLST_ASSERT_NO_OVERLAP_AVX(r, a);
-  BLST_ASSERT_NO_OVERLAP_AVX(r, b);
-
   const cc512i a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
   const cc512i a4 = a[4], a5 = a[5], a6 = a[6], a7 = a[7];
   const cc512i b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
   const cc512i b4 = b[4], b5 = b[5], b6 = b[6], b7 = b[7];
-  const cc512i bmask = VSET1(BMASK);
-  cc512i ta0, ta1, ta2, ta3;
-  cc512i tb0, tb1, tb2, tb3;
-  cc512i z0  = VZERO(), z1  = VZERO(), z2  = VZERO(), z3  = VZERO();
-  cc512i z4  = VZERO(), z5  = VZERO(), z6  = VZERO(), z7  = VZERO();
-  cc512i z8  = VZERO(), z9  = VZERO(), z10 = VZERO(), z11 = VZERO();
-  cc512i z12 = VZERO(), z13 = VZERO(), z14 = VZERO(), z15 = VZERO();
-  cc512i y0  = VZERO(), y1  = VZERO(), y2  = VZERO(), y3  = VZERO();
-  cc512i y4  = VZERO(), y5  = VZERO(), y6  = VZERO(), y7  = VZERO();
-  cc512i y8  = VZERO(), y9  = VZERO(), y10 = VZERO(), y11 = VZERO();
-  cc512i y12 = VZERO(), y13 = VZERO(), y14 = VZERO(), y15 = VZERO();
-  cc512i m0  = VZERO(), m1  = VZERO(), m2  = VZERO(), m3  = VZERO();
-  cc512i m4  = VZERO(), m5  = VZERO(), m6  = VZERO(), m7  = VZERO();
 
-  // compute zL(z0-z7) by aL(a0-a3) * bL(b0-b4)
+  cc512i carry = VZERO();
+  cc512i lo0 = VZERO(), hi0 = VZERO();
+  cc512i lo1 = VZERO(), hi1 = VZERO();
 
-  z0 = VMACLO(z0, a0, b0);
-  y0 = VMACHI(y0, a0, b0);
-  y0 = VSHL(y0, BALIGN);
+#define BLST_SB_PC_PAIR_BEGIN() \
+  lo0 = carry;                  \
+  hi0 = VZERO()
+#define BLST_SB_PC_TERM0(aa, bb)    \
+  lo0 = VMACLO(lo0, (aa), (bb));    \
+  hi0 = VMACHI(hi0, (aa), (bb))
+#define BLST_SB_PC_PAIR_MID() \
+  lo1 = VSHL(hi0, BALIGN);    \
+  hi1 = VZERO()
+#define BLST_SB_PC_TERM1(aa, bb)    \
+  lo1 = VMACLO(lo1, (aa), (bb));    \
+  hi1 = VMACHI(hi1, (aa), (bb))
+#define BLST_SB_PC_PAIR_END(idx0, idx1) \
+  r[(idx0)] = lo0;                      \
+  r[(idx1)] = lo1;                      \
+  carry = VSHL(hi1, BALIGN)
 
-  z1 = VMACLO(y0, a0, b1); z1 = VMACLO(z1, a1, b0);
-  y1 = VMACHI(y1, a0, b1); y1 = VMACHI(y1, a1, b0);
-  y1 = VSHL(y1, BALIGN);
+  BLST_SB_PC_PAIR_BEGIN();
+  BLST_SB_PC_TERM0(a0, b0);
+  BLST_SB_PC_PAIR_MID();
+  BLST_SB_PC_TERM1(a0, b1); BLST_SB_PC_TERM1(a1, b0);
+  BLST_SB_PC_PAIR_END(0, 1);
 
-  z2 = VMACLO(y1, a0, b2); z2 = VMACLO(z2, a1, b1); z2 = VMACLO(z2, a2, b0);
-  y2 = VMACHI(y2, a0, b2); y2 = VMACHI(y2, a1, b1); y2 = VMACHI(y2, a2, b0);
-  y2 = VSHL(y2, BALIGN);
+  BLST_SB_PC_PAIR_BEGIN();
+  BLST_SB_PC_TERM0(a0, b2); BLST_SB_PC_TERM0(a1, b1); BLST_SB_PC_TERM0(a2, b0);
+  BLST_SB_PC_PAIR_MID();
+  BLST_SB_PC_TERM1(a0, b3); BLST_SB_PC_TERM1(a1, b2); BLST_SB_PC_TERM1(a2, b1); BLST_SB_PC_TERM1(a3, b0);
+  BLST_SB_PC_PAIR_END(2, 3);
 
-  z3 = VMACLO(y2, a0, b3); z3 = VMACLO(z3, a1, b2); z3 = VMACLO(z3, a2, b1); 
-  z3 = VMACLO(z3, a3, b0);
-  y3 = VMACHI(y3, a0, b3); y3 = VMACHI(y3, a1, b2); y3 = VMACHI(y3, a2, b1); 
-  y3 = VMACHI(y3, a3, b0);
-  y3 = VSHL(y3, BALIGN);
+  BLST_SB_PC_PAIR_BEGIN();
+  BLST_SB_PC_TERM0(a0, b4); BLST_SB_PC_TERM0(a1, b3); BLST_SB_PC_TERM0(a2, b2); BLST_SB_PC_TERM0(a3, b1);
+  BLST_SB_PC_TERM0(a4, b0);
+  BLST_SB_PC_PAIR_MID();
+  BLST_SB_PC_TERM1(a0, b5); BLST_SB_PC_TERM1(a1, b4); BLST_SB_PC_TERM1(a2, b3); BLST_SB_PC_TERM1(a3, b2);
+  BLST_SB_PC_TERM1(a4, b1); BLST_SB_PC_TERM1(a5, b0);
+  BLST_SB_PC_PAIR_END(4, 5);
 
-  z4 = VMACLO(y3, a1, b3); z4 = VMACLO(z4, a2, b2); z4 = VMACLO(z4, a3, b1);
-  y4 = VMACHI(y4, a1, b3); y4 = VMACHI(y4, a2, b2); y4 = VMACHI(y4, a3, b1);
-  y4 = VSHL(y4, BALIGN);
+  BLST_SB_PC_PAIR_BEGIN();
+  BLST_SB_PC_TERM0(a0, b6); BLST_SB_PC_TERM0(a1, b5); BLST_SB_PC_TERM0(a2, b4); BLST_SB_PC_TERM0(a3, b3);
+  BLST_SB_PC_TERM0(a4, b2); BLST_SB_PC_TERM0(a5, b1); BLST_SB_PC_TERM0(a6, b0);
+  BLST_SB_PC_PAIR_MID();
+  BLST_SB_PC_TERM1(a0, b7); BLST_SB_PC_TERM1(a1, b6); BLST_SB_PC_TERM1(a2, b5); BLST_SB_PC_TERM1(a3, b4);
+  BLST_SB_PC_TERM1(a4, b3); BLST_SB_PC_TERM1(a5, b2); BLST_SB_PC_TERM1(a6, b1); BLST_SB_PC_TERM1(a7, b0);
+  BLST_SB_PC_PAIR_END(6, 7);
 
-  z5 = VMACLO(y4, a2, b3); z5 = VMACLO(z5, a3, b2);
-  y5 = VMACHI(y5, a2, b3); y5 = VMACHI(y5, a3, b2);
-  y5 = VSHL(y5, BALIGN);
+  BLST_SB_PC_PAIR_BEGIN();
+  BLST_SB_PC_TERM0(a1, b7); BLST_SB_PC_TERM0(a2, b6); BLST_SB_PC_TERM0(a3, b5); BLST_SB_PC_TERM0(a4, b4);
+  BLST_SB_PC_TERM0(a5, b3); BLST_SB_PC_TERM0(a6, b2); BLST_SB_PC_TERM0(a7, b1);
+  BLST_SB_PC_PAIR_MID();
+  BLST_SB_PC_TERM1(a2, b7); BLST_SB_PC_TERM1(a3, b6); BLST_SB_PC_TERM1(a4, b5); BLST_SB_PC_TERM1(a5, b4);
+  BLST_SB_PC_TERM1(a6, b3); BLST_SB_PC_TERM1(a7, b2);
+  BLST_SB_PC_PAIR_END(8, 9);
 
-  z6 = VMACLO(y5, a3, b3);
-  y6 = VMACHI(y6, a3, b3);
-  y6 = VSHL(y6, BALIGN);
+  BLST_SB_PC_PAIR_BEGIN();
+  BLST_SB_PC_TERM0(a3, b7); BLST_SB_PC_TERM0(a4, b6); BLST_SB_PC_TERM0(a5, b5); BLST_SB_PC_TERM0(a6, b4);
+  BLST_SB_PC_TERM0(a7, b3);
+  BLST_SB_PC_PAIR_MID();
+  BLST_SB_PC_TERM1(a4, b7); BLST_SB_PC_TERM1(a5, b6); BLST_SB_PC_TERM1(a6, b5); BLST_SB_PC_TERM1(a7, b4);
+  BLST_SB_PC_PAIR_END(10, 11);
 
-  z7 = y6;
+  BLST_SB_PC_PAIR_BEGIN();
+  BLST_SB_PC_TERM0(a5, b7); BLST_SB_PC_TERM0(a6, b6); BLST_SB_PC_TERM0(a7, b5);
+  BLST_SB_PC_PAIR_MID();
+  BLST_SB_PC_TERM1(a6, b7); BLST_SB_PC_TERM1(a7, b6);
+  BLST_SB_PC_PAIR_END(12, 13);
 
-  // compute zH(z8-z15) by aH(a4-a7) * bH(b4-b7)
+  BLST_SB_PC_PAIR_BEGIN();
+  BLST_SB_PC_TERM0(a7, b7);
+  r[14] = lo0;
+  r[15] = VSHL(hi0, BALIGN);
 
-  z8 = VMACLO(z8, a4, b4);
-  y8 = VMACHI(y8, a4, b4);
-  y8 = VSHL(y8, BALIGN);
-
-  z9 = VMACLO(y8, a4, b5); z9 = VMACLO(z9, a5, b4);
-  y9 = VMACHI(y9, a4, b5); y9 = VMACHI(y9, a5, b4);
-  y9 = VSHL(y9, BALIGN);
-
-  z10 = VMACLO(y9,  a4, b6); z10 = VMACLO(z10, a5, b5); 
-  z10 = VMACLO(z10, a6, b4);
-  y10 = VMACHI(y10, a4, b6); y10 = VMACHI(y10, a5, b5); 
-  y10 = VMACHI(y10, a6, b4);
-  y10 = VSHL(y10, BALIGN);
-
-  z11 = VMACLO(y10, a4, b7); z11 = VMACLO(z11, a5, b6);
-  z11 = VMACLO(z11, a6, b5); z11 = VMACLO(z11, a7, b4);
-  y11 = VMACHI(y11, a4, b7); y11 = VMACHI(y11, a5, b6);
-  y11 = VMACHI(y11, a6, b5); y11 = VMACHI(y11, a7, b4);
-  y11 = VSHL(y11, BALIGN);
-
-  z12 = VMACLO(y11, a5, b7); z12 = VMACLO(z12, a6, b6);
-  z12 = VMACLO(z12, a7, b5);
-  y12 = VMACHI(y12, a5, b7); y12 = VMACHI(y12, a6, b6);
-  y12 = VMACHI(y12, a7, b5);
-  y12 = VSHL(y12, BALIGN);
-
-  z13 = VMACLO(y12, a6, b7); z13 = VMACLO(z13, a7, b6);
-  y13 = VMACHI(y13, a6, b7); y13 = VMACHI(y13, a7, b6);
-  y13 = VSHL(y13, BALIGN);
-
-  z14 = VMACLO(y13, a7, b7);
-  y14 = VMACHI(y14, a7, b7);
-  y14 = VSHL(y14, BALIGN);
-
-  z15 = y14;
-
-  // ta(ta0-ta3) = aL(a0-a3) + aH(a4-a7)
-  ta0 = VADD(a0, a4); ta1 = VADD(a1, a5);
-  ta2 = VADD(a2, a6); ta3 = VADD(a3, a7);
-
-  // tb(tb0-tb3) = bL(b0-b3) + bH(b4-b7)
-  tb0 = VADD(b0, b4); tb1 = VADD(b1, b5); 
-  tb2 = VADD(b2, b6); tb3 = VADD(b3, b7);
-
-  // zM = ta * tb - zL - zH 
-  
-  y0 = y1 = y2 = y3 = y4 = y5 = y6 = y7 = VZERO();
-
-  m0 = VMACLO(m0, ta0, tb0);
-  y0 = VMACHI(y0, ta0, tb0);
-  y0 = VSHL(y0, BALIGN);
-
-  m1 = VMACLO(y0, ta0, tb1); m1 = VMACLO(m1, ta1, tb0);
-  y1 = VMACHI(y1, ta0, tb1); y1 = VMACHI(y1, ta1, tb0);
-  y1 = VSHL(y1, BALIGN);
-
-  m2 = VMACLO(y1, ta0, tb2); m2 = VMACLO(m2, ta1, tb1); 
-  m2 = VMACLO(m2, ta2, tb0);
-  y2 = VMACHI(y2, ta0, tb2); y2 = VMACHI(y2, ta1, tb1); 
-  y2 = VMACHI(y2, ta2, tb0);
-  y2 = VSHL(y2, BALIGN);
-
-  m3 = VMACLO(y2, ta0, tb3); m3 = VMACLO(m3, ta1, tb2); 
-  m3 = VMACLO(m3, ta2, tb1); m3 = VMACLO(m3, ta3, tb0);
-  y3 = VMACHI(y3, ta0, tb3); y3 = VMACHI(y3, ta1, tb2); 
-  y3 = VMACHI(y3, ta2, tb1); y3 = VMACHI(y3, ta3, tb0);
-  y3 = VSHL(y3, BALIGN);
-
-  m4 = VMACLO(y3, ta1, tb3); m4 = VMACLO(m4, ta2, tb2); 
-  m4 = VMACLO(m4, ta3, tb1);
-  y4 = VMACHI(y4, ta1, tb3); y4 = VMACHI(y4, ta2, tb2); 
-  y4 = VMACHI(y4, ta3, tb1);
-  y4 = VSHL(y4, BALIGN);
-
-  m5 = VMACLO(y4, ta2, tb3); m5 = VMACLO(m5, ta3, tb2);
-  y5 = VMACHI(y5, ta2, tb3); y5 = VMACHI(y5, ta3, tb2);
-  y5 = VSHL(y5, BALIGN);
-
-  m6 = VMACLO(y5, ta3, tb3);
-  y6 = VMACHI(y6, ta3, tb3);
-  y6 = VSHL(y6, BALIGN);
-
-  m7 = y6;
-
-  m0 = VSUB(m0, VADD(z0, z8 )); m1 = VSUB(m1, VADD(z1, z9 ));
-  m2 = VSUB(m2, VADD(z2, z10)); m3 = VSUB(m3, VADD(z3, z11));
-  m4 = VSUB(m4, VADD(z4, z12)); m5 = VSUB(m5, VADD(z5, z13));
-  m6 = VSUB(m6, VADD(z6, z14)); m7 = VSUB(m7, VADD(z7, z15));
-
-  // z = z + zM
-  z4  = VADD(z4 , m0); z5  = VADD(z5 , m1);
-  z6  = VADD(z6 , m2); z7  = VADD(z7 , m3);
-  z8  = VADD(z8 , m4); z9  = VADD(z9 , m5);
-  z10 = VADD(z10, m6); z11 = VADD(z11, m7);
-
-  r[0 ] = z0 ; r[1 ] = z1 ; r[2 ] = z2 ; r[3 ] = z3 ;
-  r[4 ] = z4 ; r[5 ] = z5 ; r[6 ] = z6 ; r[7 ] = z7 ;
-  r[8 ] = z8 ; r[9 ] = z9 ; r[10] = z10; r[11] = z11;
-  r[12] = z12; r[13] = z13; r[14] = z14; r[15] = z15; 
+#undef BLST_SB_PC_PAIR_BEGIN
+#undef BLST_SB_PC_TERM0
+#undef BLST_SB_PC_PAIR_MID
+#undef BLST_SB_PC_TERM1
+#undef BLST_SB_PC_PAIR_END
 }
 
 void FpPack8x1::mul(UFpPack8x1& r, const FpPack8x1& a, const FpPack8x1& b)
 {
-  FpPack8x1::mul_v2(r, a, b);
+  BLST_ASSERT_NO_OVERLAP_AVX(r, a);
+  BLST_ASSERT_NO_OVERLAP_AVX(r, b);
+  fp8x1_mul_schoolbook_paircarry(r, a, b);
 }
 
 void FpPack4x2::mul_v1(UFpPack4x2& r, const FpPack4x2& a, const FpPack4x2& b)
@@ -2556,23 +2490,23 @@ BLST_FORCEINLINE void fp8x1_mul_redc_pair(
 }
 
 template <int K>
-BLST_FORCEINLINE void fp8x1_mul_v2_block(
+BLST_FORCEINLINE void fp8x1_mul_block(
     UFpPack8x1* BLST_restrict out,
     const FpPack8x1* BLST_restrict a,
     const FpPack8x1* BLST_restrict b)
 {
-  static_assert((K == 1) || (K == 2) || (K == 4), "fp8x1_mul_v2_block supports K in {1,2,4}");
+  static_assert((K == 1) || (K == 2) || (K == 4), "fp8x1_mul_block supports K in {1,2,4}");
 
   if constexpr (K == 1) {
-    FpPack8x1::mul_v2(out[0], a[0], b[0]);
+    FpPack8x1::mul(out[0], a[0], b[0]);
   } else if constexpr (K == 2) {
-    FpPack8x1::mul_v2(out[0], a[0], b[0]);
-    FpPack8x1::mul_v2(out[1], a[1], b[1]);
+    FpPack8x1::mul(out[0], a[0], b[0]);
+    FpPack8x1::mul(out[1], a[1], b[1]);
   } else {
-    FpPack8x1::mul_v2(out[0], a[0], b[0]);
-    FpPack8x1::mul_v2(out[1], a[1], b[1]);
-    FpPack8x1::mul_v2(out[2], a[2], b[2]);
-    FpPack8x1::mul_v2(out[3], a[3], b[3]);
+    FpPack8x1::mul(out[0], a[0], b[0]);
+    FpPack8x1::mul(out[1], a[1], b[1]);
+    FpPack8x1::mul(out[2], a[2], b[2]);
+    FpPack8x1::mul(out[3], a[3], b[3]);
   }
 }
 
@@ -2602,7 +2536,7 @@ BLST_FORCEINLINE void fp8x1_mul_redc_block(
   static_assert((K == 1) || (K == 2) || (K == 4), "fp8x1_mul_redc_block supports K in {1,2,4}");
   if constexpr (K == 1) {
     UFpPack8x1 wide{};
-    FpPack8x1::mul_v2(wide, a[0], b[0]);
+    FpPack8x1::mul(wide, a[0], b[0]);
     UFpPack8x1::redc(out[0], wide);
     return;
   }
@@ -2617,19 +2551,19 @@ BLST_FORCEINLINE void fp8x1_mul_redc_block(
 } // namespace
 
 template <int K>
-BLST_AVX_NOINLINE void fp8x1_mul_v2_k(
+BLST_AVX_NOINLINE void fp8x1_mul_k(
     UFpPack8x1* BLST_restrict out,
     const FpPack8x1* BLST_restrict a,
     const FpPack8x1* BLST_restrict b,
     const std::size_t n_blocks)
 {
-  static_assert((K == 1) || (K == 2) || (K == 4), "fp8x1_mul_v2_k supports K in {1,2,4}");
+  static_assert((K == 1) || (K == 2) || (K == 4), "fp8x1_mul_k supports K in {1,2,4}");
   BLST_ASSERT(out != nullptr || n_blocks == 0);
   BLST_ASSERT(a != nullptr || n_blocks == 0);
   BLST_ASSERT(b != nullptr || n_blocks == 0);
 
   for (std::size_t i = 0; i < n_blocks; ++i) {
-    fp8x1_mul_v2_block<K>(out, a, b);
+    fp8x1_mul_block<K>(out, a, b);
     out += K;
     a += K;
     b += K;
@@ -2673,7 +2607,7 @@ BLST_AVX_NOINLINE void fp8x1_mul_redc_k(
   }
 }
 
-void fp8x1_mul_v2_dispatch(
+void fp8x1_mul_dispatch(
     UFpPack8x1* BLST_restrict out,
     const FpPack8x1* BLST_restrict a,
     const FpPack8x1* BLST_restrict b,
@@ -2685,7 +2619,7 @@ void fp8x1_mul_v2_dispatch(
 
   const std::size_t n4 = n_packs / 4;
   if (n4 != 0) {
-    fp8x1_mul_v2_k<4>(out, a, b, n4);
+    fp8x1_mul_k<4>(out, a, b, n4);
     out += n4 * 4;
     a += n4 * 4;
     b += n4 * 4;
@@ -2694,7 +2628,7 @@ void fp8x1_mul_v2_dispatch(
 
   const std::size_t n2 = n_packs / 2;
   if (n2 != 0) {
-    fp8x1_mul_v2_k<2>(out, a, b, n2);
+    fp8x1_mul_k<2>(out, a, b, n2);
     out += n2 * 2;
     a += n2 * 2;
     b += n2 * 2;
@@ -2702,7 +2636,7 @@ void fp8x1_mul_v2_dispatch(
   }
 
   if (n_packs != 0) {
-    fp8x1_mul_v2_k<1>(out, a, b, n_packs);
+    fp8x1_mul_k<1>(out, a, b, n_packs);
   }
 }
 
@@ -2768,17 +2702,17 @@ void fp8x1_mul_redc_dispatch(
   }
 }
 
-template BLST_AVX_NOINLINE void fp8x1_mul_v2_k<1>(
+template BLST_AVX_NOINLINE void fp8x1_mul_k<1>(
     UFpPack8x1* BLST_restrict out,
     const FpPack8x1* BLST_restrict a,
     const FpPack8x1* BLST_restrict b,
     std::size_t n_blocks);
-template BLST_AVX_NOINLINE void fp8x1_mul_v2_k<2>(
+template BLST_AVX_NOINLINE void fp8x1_mul_k<2>(
     UFpPack8x1* BLST_restrict out,
     const FpPack8x1* BLST_restrict a,
     const FpPack8x1* BLST_restrict b,
     std::size_t n_blocks);
-template BLST_AVX_NOINLINE void fp8x1_mul_v2_k<4>(
+template BLST_AVX_NOINLINE void fp8x1_mul_k<4>(
     UFpPack8x1* BLST_restrict out,
     const FpPack8x1* BLST_restrict a,
     const FpPack8x1* BLST_restrict b,

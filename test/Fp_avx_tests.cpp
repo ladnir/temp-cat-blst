@@ -230,7 +230,7 @@ void apply_lane_mask_select(FpVec8& out, const FpVec8& a, const FpVec8& b, u8 la
 }
 
 template <int K>
-void run_kwise_mul_v2_redc_matches_scalar(InsecureRng& rng)
+void run_kwise_mul_redc_matches_scalar(InsecureRng& rng)
 {
     static_assert((K == 1) || (K == 2) || (K == 4));
     constexpr size_t kBlocks = 3;
@@ -260,7 +260,7 @@ void run_kwise_mul_v2_redc_matches_scalar(InsecureRng& rng)
         pack_FpPack8x1(pb[pack], b[pack]);
     }
 
-    fp8x1_mul_v2_k<K>(wide.data(), pa.data(), pb.data(), kBlocks);
+    fp8x1_mul_k<K>(wide.data(), pa.data(), pb.data(), kBlocks);
     fp8x1_redc_k<K>(got_from_split.data(), wide.data(), kBlocks);
 
     fp8x1_mul_redc_k<K>(got_from_fused.data(), pa.data(), pb.data(), kBlocks);
@@ -309,11 +309,11 @@ void run_kwise_dispatch_matches_scalar(InsecureRng& rng)
     }
 
     for (size_t pack = 0; pack < kPacks; ++pack) {
-        FpPack8x1::mul_v2(wide_direct[pack], pa[pack], pb[pack]);
+        FpPack8x1::mul(wide_direct[pack], pa[pack], pb[pack]);
         UFpPack8x1::redc(out_direct[pack], wide_direct[pack]);
     }
 
-    fp8x1_mul_v2_dispatch(wide_dispatch.data(), pa.data(), pb.data(), kPacks);
+    fp8x1_mul_dispatch(wide_dispatch.data(), pa.data(), pb.data(), kPacks);
     fp8x1_redc_dispatch(out_dispatch.data(), wide_dispatch.data(), kPacks);
     for (size_t pack = 0; pack < kPacks; ++pack) {
         FpVec8 got{};
@@ -527,8 +527,8 @@ TEST(FpAvx, Widened8x1wOps)
         pack_FpPack8x1(avx_c, c);
         pack_FpPack8x1(avx_d, d);
 
-        FpPack8x1::mul_v2(wide_ab, avx_a, avx_b);
-        FpPack8x1::mul_v2(wide_cd, avx_c, avx_d);
+        FpPack8x1::mul(wide_ab, avx_a, avx_b);
+        FpPack8x1::mul(wide_cd, avx_c, avx_d);
 
         for (size_t lane = 0; lane < 8; ++lane) {
             Fp::mul(mul_ab[lane], a[lane], b[lane]);
@@ -899,8 +899,8 @@ TEST(FpAvx, SelectWide8x1Masks)
         FpPack8x1::from_aos(avx_b, b.data());
         FpPack8x1::from_aos(avx_c, c.data());
         FpPack8x1::from_aos(avx_d, d.data());
-        FpPack8x1::mul_v2(wide_ab, avx_a, avx_b);
-        FpPack8x1::mul_v2(wide_cd, avx_c, avx_d);
+        FpPack8x1::mul(wide_ab, avx_a, avx_b);
+        FpPack8x1::mul(wide_cd, avx_c, avx_d);
 
         for (u16 mask = 0; mask < 256; ++mask) {
             UFpPack8x1::select(wide_sel, wide_ab, wide_cd, static_cast<u8>(mask));
@@ -949,7 +949,7 @@ TEST(FpAvx, PartialTailMulRedc8x1w)
             FpPack8x1::from_aos_partial(avx_a, a.data(), n_active, Fp::one());
             FpPack8x1::from_aos_partial(avx_b, b.data(), n_active, Fp::one());
 
-            FpPack8x1::mul_v2(wide, avx_a, avx_b);
+            FpPack8x1::mul(wide, avx_a, avx_b);
             UFpPack8x1::redc(red, wide);
 
             for (auto& e : out) {
@@ -996,7 +996,7 @@ TEST(FpAvx, MulRedc8x1w)
         UFpPack8x1::redc(red_alias, wide_alias);
         unpack_FpPack8x1(out_alias, red_alias);
 
-        FpPack8x1::mul_v2(wide_v2, avx_a, avx_b);
+        FpPack8x1::mul(wide_v2, avx_a, avx_b);
         UFpPack8x1::redc(red_v2, wide_v2);
         unpack_FpPack8x1(out_v2, red_v2);
 
@@ -1034,7 +1034,7 @@ TEST(FpAvx, RedcCoreNormalize8x1w)
         pack_FpPack8x1(avx_a, a);
         pack_FpPack8x1(avx_b, b);
 
-        FpPack8x1::mul_v2(wide, avx_a, avx_b);
+        FpPack8x1::mul(wide, avx_a, avx_b);
         UFpPack8x1::redc(red_direct, wide);
         UFpPack8x1::redc_core(lazy, wide);
         UFpPack8x1::normalize(red_split, lazy);
@@ -1114,7 +1114,7 @@ TEST(FpAvx, MulRedc4x2w)
         pack_FpPack8x1(avx8_a, a8);
         pack_FpPack8x1(avx8_b, b8);
 
-        FpPack8x1::mul_v2(avx8_wide, avx8_a, avx8_b);
+        FpPack8x1::mul(avx8_wide, avx8_a, avx8_b);
         UFpPack8x1::redc(avx8_red, avx8_wide);
         unpack_FpPack8x1(out8, avx8_red);
 
@@ -1125,13 +1125,13 @@ TEST(FpAvx, MulRedc4x2w)
     }
 }
 
-TEST(FpAvx, KWiseMulV2RedcKernels)
+TEST(FpAvx, KWiseMulRedcKernels)
 {
     InsecureRng rng;
     for (int iter = 0; iter < 32; ++iter) {
-        run_kwise_mul_v2_redc_matches_scalar<1>(rng);
-        run_kwise_mul_v2_redc_matches_scalar<2>(rng);
-        run_kwise_mul_v2_redc_matches_scalar<4>(rng);
+        run_kwise_mul_redc_matches_scalar<1>(rng);
+        run_kwise_mul_redc_matches_scalar<2>(rng);
+        run_kwise_mul_redc_matches_scalar<4>(rng);
         run_kwise_dispatch_matches_scalar(rng);
     }
 }

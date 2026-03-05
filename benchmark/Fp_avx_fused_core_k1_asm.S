@@ -540,6 +540,10 @@ blst_fp8x1_mul_redc_core_k1_asm:
     ret
 .size blst_fp8x1_mul_redc_core_k1_asm, .-blst_fp8x1_mul_redc_core_k1_asm
 
+// Compatibility alias used by fused baseline benchmark candidate wiring.
+.globl blst_fp8x1_mul_redc_core_k1_candidate_asm
+.set blst_fp8x1_mul_redc_core_k1_candidate_asm, blst_fp8x1_mul_redc_core_k1_asm
+
 .globl blst_fp8x1_mul_redc_core_k1_asm_span
 .type blst_fp8x1_mul_redc_core_k1_asm_span, @function
 blst_fp8x1_mul_redc_core_k1_asm_span:

@@ -605,8 +605,8 @@ void bench_fp(const BenchConfig& cfg)
         Fp::mul(r_scalar, a_scalar, b_scalar);
     });
 
-    measure_cycles("- FpPack8x1::mul_v2:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        FpPack8x1::mul_v2(z_8x1w, a_8x1w, b_8x1w);
+    measure_cycles("- FpPack8x1::mul:        ", cfg.fp_warmup, cfg.fp_iters, [&]() {
+        FpPack8x1::mul(z_8x1w, a_8x1w, b_8x1w);
     });
 
     measure_cycles("- FpPack4x2::mul_v1:     ", cfg.fp_warmup, cfg.fp_iters, [&]() {
@@ -638,14 +638,14 @@ void bench_fp(const BenchConfig& cfg)
     });
 
     const u64 fp_mul_reduced_avx_kernel = measure_cycles("- FpMulReducedSEO avx_kernel (8x): ", cfg.fp_warmup, cfg.fp_iters, [&]() {
-        FpPack8x1::mul_v2(z_8x1w, a_8x1w, b_8x1w);
+        FpPack8x1::mul(z_8x1w, a_8x1w, b_8x1w);
         UFpPack8x1::redc(r_8x1w, z_8x1w);
     });
 
     const u64 fp_mul_reduced_avx_e2e = measure_cycles("- FpMulReducedSEO avx_e2e (8x): ", cfg.fp_warmup, cfg.fp_iters, [&]() {
         FpPack8x1::from_aos(a_8x1w, aos_a.data());
         FpPack8x1::from_aos(b_8x1w, aos_b.data());
-        FpPack8x1::mul_v2(z_8x1w, a_8x1w, b_8x1w);
+        FpPack8x1::mul(z_8x1w, a_8x1w, b_8x1w);
         UFpPack8x1::redc(r_8x1w, z_8x1w);
         FpPack8x1::to_aos(aos_r.data(), r_8x1w);
     });
