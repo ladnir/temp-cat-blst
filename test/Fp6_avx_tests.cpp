@@ -22,6 +22,7 @@ using Fp2Vec4 = std::array<Fp2, 4>;
 using Fp2Vec2 = std::array<Fp2, 2>;
 using Fp6Vec8 = std::array<Fp6, 8>;
 
+
 void rand_redc_fp(Fp& v, InsecureRng& rng)
 {
     for (u64 i = 0; i < v.num_limb(); ++i) {

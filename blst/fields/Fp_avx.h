@@ -106,8 +106,17 @@ namespace blst
 #define BLST_ASSERT_NO_OVERLAP_AVX(a, b) ::blst::avx_assert_no_overlap((a), (b))
 #endif
 
-    struct UFpPack8x1;
     struct LFpPack8x1;
+    struct LUFpPack8x1;
+    struct UFpPack8x1;
+
+    /// @brief Compile-time renormalization policy for lazy widened `LUFpPack8x1`.
+    enum class LUFpRenormClass
+    {
+        Tight,
+        Medium,
+        Loose,
+    };
 
     /** @name Packed AVX Fp layouts */
     ///@{
@@ -202,6 +211,57 @@ namespace blst
     /// non-canonical (`[0, c_l * p)` for a small constant `c_l`).
     struct LFpPack8x1 : public AvxPack<NWORDS>
     {
+    };
+
+    /// @brief Lazy widened companion for `UFpPack8x1` in "8x1w" layout.
+    /// @details
+    /// Same physical 16-limb radix-48 storage as `UFpPack8x1`, but semantic range
+    /// is intentionally relaxed and signed for local linear-combination regions.
+    ///
+    /// Representation model:
+    /// - one widened value per AVX lane
+    /// - value uses radix `R = 2^48`
+    /// - limbs may be negative and may temporarily exceed 48 bits
+    ///
+    /// Contract:
+    /// - `LUFpPack8x1` is not accepted by existing `UFpPack8x1::redc_core`
+    /// - `renorm<B>` keeps the value in the lazy widened domain while shrinking
+    ///   limb growth
+    /// - `normalize(UFpPack8x1&, const LUFpPack8x1&)` restores the strict widened
+    ///   `UFpPack8x1` contract at an explicit boundary
+    struct LUFpPack8x1 : public AvxPack<2 * NWORDS>
+    {
+        /// @brief Lane-wise lazy widened add.
+        /// @post `r = a + b` in the lazy widened signed domain, without restoring
+        ///       the strict `UFpPack8x1` bounded contract.
+        static void add(LUFpPack8x1& r, const LUFpPack8x1& a, const LUFpPack8x1& b);
+        static void add(LUFpPack8x1& r, const UFpPack8x1& a, const LUFpPack8x1& b);
+        static void add(LUFpPack8x1& r, const LUFpPack8x1& a, const UFpPack8x1& b);
+        static void add(LUFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b);
+
+        /// @brief Lane-wise lazy widened subtract.
+        /// @post `r = a - b` in the lazy widened signed domain, without restoring
+        ///       the strict `UFpPack8x1` bounded contract.
+        static void sub(LUFpPack8x1& r, const LUFpPack8x1& a, const LUFpPack8x1& b);
+        static void sub(LUFpPack8x1& r, const UFpPack8x1& a, const LUFpPack8x1& b);
+        static void sub(LUFpPack8x1& r, const LUFpPack8x1& a, const UFpPack8x1& b);
+        static void sub(LUFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b);
+
+        /// @brief Compile-time renormalization for the lazy widened domain.
+        /// @details `B` selects the expected drift class known by the caller.
+        ///          The represented integer value is unchanged.
+        template <LUFpRenormClass B>
+        static void renorm(LUFpPack8x1& r, const LUFpPack8x1& a);
+
+        /// @brief Normalize lazy widened storage back into strict widened `UFpPack8x1`.
+        /// @details This is an explicit boundary operation. It performs any
+        ///          required carry propagation and high-half correction so the
+        ///          output again satisfies the current `UFpPack8x1` contract.
+        static void normalize(UFpPack8x1& r, const LUFpPack8x1& a);
+
+        /// @brief Lane-wise select between two lazy widened packed values.
+        /// @details Bit `i` of `lane_mask` selects lane `i`: `0 -> a`, `1 -> b`.
+        static void select(LUFpPack8x1& r, const LUFpPack8x1& a, const LUFpPack8x1& b, u8 lane_mask);
     };
 
 
@@ -352,10 +412,42 @@ namespace blst
     
     };
 
+    template <LUFpRenormClass B>
+    BLST_FORCEINLINE void LUFpPack8x1::renorm(LUFpPack8x1& r, const LUFpPack8x1& a)
+    {
+        BLST_ASSERT_NO_OVERLAP_AVX(r, a);
+
+        cc512i limbs[2 * NWORDS];
+        for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+            limbs[i] = a[i];
+        }
+
+        for (std::size_t i = 0; i < (2 * NWORDS) - 1; ++i) {
+            const cc512i carry = VSRA(limbs[i], BRADIX);
+            limbs[i] = VSUB(limbs[i], VSHL(carry, BRADIX));
+            limbs[i + 1] = VADD(limbs[i + 1], carry);
+        }
+
+        if constexpr (B == LUFpRenormClass::Tight) {
+            // One signed carry pass is sufficient for the initial conservative implementation.
+        } else if constexpr (B == LUFpRenormClass::Medium) {
+            // Reserved for future tighter medium-drift repair once bounds are tuned.
+        } else {
+            static_assert(B == LUFpRenormClass::Loose);
+            // Reserved for future loose-drift repair once bounds are tuned.
+        }
+
+        for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+            r[i] = limbs[i];
+        }
+    }
+
     static_assert(std::is_trivially_default_constructible_v<FpPack8x1>);
     static_assert(std::is_trivially_copyable_v<FpPack8x1>);
     static_assert(std::is_trivially_default_constructible_v<LFpPack8x1>);
     static_assert(std::is_trivially_copyable_v<LFpPack8x1>);
+    static_assert(std::is_trivially_default_constructible_v<LUFpPack8x1>);
+    static_assert(std::is_trivially_copyable_v<LUFpPack8x1>);
     static_assert(std::is_trivially_default_constructible_v<UFpPack8x1>);
     static_assert(std::is_trivially_copyable_v<UFpPack8x1>);
     static_assert(std::is_trivially_default_constructible_v<FpPack4x2>);

@@ -73,6 +73,114 @@ struct Fp8x1KBenchData
   std::vector<FpPack8x1> out;
 };
 
+BLST_FORCEINLINE void bench_copy_as_lufp(LUFpPack8x1& dst, const UFpPack8x1& src)
+{
+  for (std::size_t limb = 0; limb < 2 * NWORDS; ++limb) {
+    dst[limb] = src[limb];
+  }
+}
+
+BLST_FORCEINLINE void bench_copy_wide(UFpPack8x1& dst, const UFpPack8x1& src)
+{
+  for (std::size_t limb = 0; limb < 2 * NWORDS; ++limb) {
+    dst[limb] = src[limb];
+  }
+}
+
+BLST_FORCEINLINE void bench_add_wide_raw(UFpPack8x1& dst, const UFpPack8x1& a, const UFpPack8x1& b)
+{
+  for (std::size_t limb = 0; limb < 2 * NWORDS; ++limb) {
+    dst[limb] = VADD(a[limb], b[limb]);
+  }
+}
+
+struct Fp8x1LUFpBenchData
+{
+  explicit Fp8x1LUFpBenchData(const std::size_t n_packs)
+      : n_packs_(n_packs)
+      , lazy_a(n_packs_)
+      , lazy_b(n_packs_)
+      , lazy_in(n_packs_)
+      , lazy_out(n_packs_)
+  {
+    std::mt19937_64 gen(0x6C7546708F1A2D3EULL + static_cast<u64>(n_packs_));
+
+    for (std::size_t i = 0; i < n_packs_; ++i) {
+      std::array<Fp, 8> lane_a{};
+      std::array<Fp, 8> lane_b{};
+      std::array<Fp, 8> lane_c{};
+      std::array<Fp, 8> lane_d{};
+      FpPack8x1 pack_a{}, pack_b{}, pack_c{}, pack_d{};
+
+      for (std::size_t lane = 0; lane < 8; ++lane) {
+        random_redc_fp(lane_a[lane], gen);
+        random_redc_fp(lane_b[lane], gen);
+        random_redc_fp(lane_c[lane], gen);
+        random_redc_fp(lane_d[lane], gen);
+      }
+
+      FpPack8x1::from_aos(pack_a, lane_a.data());
+      FpPack8x1::from_aos(pack_b, lane_b.data());
+      FpPack8x1::from_aos(pack_c, lane_c.data());
+      FpPack8x1::from_aos(pack_d, lane_d.data());
+      UFpPack8x1 wide_a_i{};
+      UFpPack8x1 wide_b_i{};
+      FpPack8x1::mul(wide_a_i, pack_a, pack_b);
+      FpPack8x1::mul(wide_b_i, pack_c, pack_d);
+
+      bench_copy_as_lufp(lazy_a[i], wide_a_i);
+      bench_copy_as_lufp(lazy_b[i], wide_b_i);
+
+      LUFpPack8x1::sub(lazy_in[i], wide_a_i, wide_b_i);
+    }
+  }
+
+  const std::size_t n_packs_;
+  std::vector<LUFpPack8x1> lazy_a;
+  std::vector<LUFpPack8x1> lazy_b;
+  std::vector<LUFpPack8x1> lazy_in;
+  std::vector<LUFpPack8x1> lazy_out;
+};
+
+struct Fp8x1UFpBenchData
+{
+  explicit Fp8x1UFpBenchData(const std::size_t n_packs)
+      : n_packs_(n_packs)
+      , wide_a(n_packs_)
+      , wide_b(n_packs_)
+      , wide_out(n_packs_)
+  {
+    std::mt19937_64 gen(0x5546708F1A2D3E6CULL + static_cast<u64>(n_packs_));
+
+    for (std::size_t i = 0; i < n_packs_; ++i) {
+      std::array<Fp, 8> lane_a{};
+      std::array<Fp, 8> lane_b{};
+      std::array<Fp, 8> lane_c{};
+      std::array<Fp, 8> lane_d{};
+      FpPack8x1 pack_a{}, pack_b{}, pack_c{}, pack_d{};
+
+      for (std::size_t lane = 0; lane < 8; ++lane) {
+        random_redc_fp(lane_a[lane], gen);
+        random_redc_fp(lane_b[lane], gen);
+        random_redc_fp(lane_c[lane], gen);
+        random_redc_fp(lane_d[lane], gen);
+      }
+
+      FpPack8x1::from_aos(pack_a, lane_a.data());
+      FpPack8x1::from_aos(pack_b, lane_b.data());
+      FpPack8x1::from_aos(pack_c, lane_c.data());
+      FpPack8x1::from_aos(pack_d, lane_d.data());
+      FpPack8x1::mul(wide_a[i], pack_a, pack_b);
+      FpPack8x1::mul(wide_b[i], pack_c, pack_d);
+    }
+  }
+
+  const std::size_t n_packs_;
+  std::vector<UFpPack8x1> wide_a;
+  std::vector<UFpPack8x1> wide_b;
+  std::vector<UFpPack8x1> wide_out;
+};
+
 template <int Chains>
 struct Fp8x1MulRedcStreamData
 {
@@ -1471,6 +1579,16 @@ BLST_FORCEINLINE void bench_consume_lazy(std::vector<LFpPack8x1>& lazy)
   benchmark::ClobberMemory();
 }
 
+BLST_FORCEINLINE void bench_consume_luwide(std::vector<LUFpPack8x1>& lazy)
+{
+  if (lazy.empty()) {
+    return;
+  }
+  benchmark::DoNotOptimize(lazy.front()[0]);
+  benchmark::DoNotOptimize(lazy.back()[2 * NWORDS - 1]);
+  benchmark::ClobberMemory();
+}
+
 BLST_FORCEINLINE void bench_consume_out(std::vector<FpPack8x1>& out)
 {
   if (out.empty()) {
@@ -1693,6 +1811,128 @@ void BM_Fp8x1Normalize(benchmark::State& state)
       UFpPack8x1::normalize(data.out[i], data.lazy[i]);
     }
     bench_consume_out(data.out);
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs);
+}
+
+void BM_Fp8x1UFpAdd(benchmark::State& state)
+{
+  const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
+  Fp8x1UFpBenchData data(n_packs);
+
+  for (auto _ : state) {
+    for (std::size_t i = 0; i < n_packs; ++i) {
+      UFpPack8x1::add(data.wide_out[i], data.wide_a[i], data.wide_b[i]);
+    }
+    bench_consume_wide(data.wide_out);
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs);
+}
+
+void BM_Fp8x1WideCopy(benchmark::State& state)
+{
+  const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
+  Fp8x1UFpBenchData data(n_packs);
+
+  for (auto _ : state) {
+    for (std::size_t i = 0; i < n_packs; ++i) {
+      bench_copy_wide(data.wide_out[i], data.wide_a[i]);
+    }
+    bench_consume_wide(data.wide_out);
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs);
+}
+
+void BM_Fp8x1WideAddRaw(benchmark::State& state)
+{
+  const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
+  Fp8x1UFpBenchData data(n_packs);
+
+  for (auto _ : state) {
+    for (std::size_t i = 0; i < n_packs; ++i) {
+      bench_add_wide_raw(data.wide_out[i], data.wide_a[i], data.wide_b[i]);
+    }
+    bench_consume_wide(data.wide_out);
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs);
+}
+
+void BM_Fp8x1UFpSub(benchmark::State& state)
+{
+  const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
+  Fp8x1UFpBenchData data(n_packs);
+
+  for (auto _ : state) {
+    for (std::size_t i = 0; i < n_packs; ++i) {
+      UFpPack8x1::sub(data.wide_out[i], data.wide_a[i], data.wide_b[i]);
+    }
+    bench_consume_wide(data.wide_out);
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs);
+}
+
+void BM_Fp8x1LUFpAdd(benchmark::State& state)
+{
+  const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
+  Fp8x1LUFpBenchData data(n_packs);
+
+  for (auto _ : state) {
+    for (std::size_t i = 0; i < n_packs; ++i) {
+      LUFpPack8x1::add(data.lazy_out[i], data.lazy_a[i], data.lazy_b[i]);
+    }
+    bench_consume_luwide(data.lazy_out);
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs);
+}
+
+void BM_Fp8x1LUFpSub(benchmark::State& state)
+{
+  const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
+  Fp8x1LUFpBenchData data(n_packs);
+
+  for (auto _ : state) {
+    for (std::size_t i = 0; i < n_packs; ++i) {
+      LUFpPack8x1::sub(data.lazy_out[i], data.lazy_a[i], data.lazy_b[i]);
+    }
+    bench_consume_luwide(data.lazy_out);
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs);
+}
+
+template <LUFpRenormClass B>
+void BM_Fp8x1LUFpRenorm(benchmark::State& state)
+{
+  const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
+  Fp8x1LUFpBenchData data(n_packs);
+
+  for (auto _ : state) {
+    for (std::size_t i = 0; i < n_packs; ++i) {
+      LUFpPack8x1::renorm<B>(data.lazy_out[i], data.lazy_in[i]);
+    }
+    bench_consume_luwide(data.lazy_out);
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs);
+}
+
+void BM_Fp8x1LUFpNormalize(benchmark::State& state)
+{
+  const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
+  Fp8x1LUFpBenchData data(n_packs);
+  std::vector<UFpPack8x1> wide_out(n_packs);
+
+  for (auto _ : state) {
+    for (std::size_t i = 0; i < n_packs; ++i) {
+      LUFpPack8x1::normalize(wide_out[i], data.lazy_in[i]);
+    }
+    bench_consume_wide(wide_out);
   }
 
   state.SetItemsProcessed(state.iterations() * n_packs);
@@ -2371,6 +2611,16 @@ BENCHMARK_TEMPLATE(BM_Fp8x1MulRedcK, 4)->Arg(256);
 
 BENCHMARK(BM_Fp8x1RedcCore)->Arg(256);
 BENCHMARK(BM_Fp8x1Normalize)->Arg(256);
+BENCHMARK(BM_Fp8x1WideCopy)->Arg(256);
+BENCHMARK(BM_Fp8x1WideAddRaw)->Arg(256);
+BENCHMARK(BM_Fp8x1UFpAdd)->Arg(256);
+BENCHMARK(BM_Fp8x1UFpSub)->Arg(256);
+BENCHMARK(BM_Fp8x1LUFpAdd)->Arg(256);
+BENCHMARK(BM_Fp8x1LUFpSub)->Arg(256);
+BENCHMARK_TEMPLATE(BM_Fp8x1LUFpRenorm, LUFpRenormClass::Tight)->Arg(256);
+BENCHMARK_TEMPLATE(BM_Fp8x1LUFpRenorm, LUFpRenormClass::Medium)->Arg(256);
+BENCHMARK_TEMPLATE(BM_Fp8x1LUFpRenorm, LUFpRenormClass::Loose)->Arg(256);
+BENCHMARK(BM_Fp8x1LUFpNormalize)->Arg(256);
 
 BENCHMARK(BM_IFMA52Latency_Lo_DepChain);
 BENCHMARK(BM_IFMA52Latency_Hi_DepChain);

@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstring>
+#include <vector>
 
 #include "blst/fields/Fp.h"
 #include "InsecureRng.h"
@@ -226,6 +227,159 @@ void apply_lane_mask_select(FpVec8& out, const FpVec8& a, const FpVec8& b, u8 la
     for (size_t lane = 0; lane < 8; ++lane) {
         const bool select_b = ((lane_mask >> lane) & 1U) != 0;
         out[lane] = select_b ? b[lane] : a[lane];
+    }
+}
+
+void copy_as_lufp(LUFpPack8x1& out, const UFpPack8x1& in)
+{
+    static_assert(sizeof(out) == sizeof(in));
+    std::memcpy(&out, &in, sizeof(out));
+}
+
+bool equal_UFpPack8x1(const UFpPack8x1& a, const UFpPack8x1& b)
+{
+    return std::memcmp(&a, &b, sizeof(a)) == 0;
+}
+
+bool ufp_high_ge_p(const std::array<u64, NWORDS>& high)
+{
+    for (size_t i = NWORDS; i-- > 0;) {
+        if (high[i] > P48[i]) {
+            return true;
+        }
+        if (high[i] < P48[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool is_valid_UFpPack8x1(const UFpPack8x1& a)
+{
+    std::array<std::array<u64, 8>, 2 * NWORDS> words{};
+    for (size_t i = 0; i < 2 * NWORDS; ++i) {
+        _cc512_storeu_si512(words[i].data(), a[i]);
+    }
+
+    for (size_t lane = 0; lane < 8; ++lane) {
+        std::array<u64, NWORDS> high{};
+        for (size_t i = 0; i < 2 * NWORDS; ++i) {
+            const u64 limb = words[i][lane];
+            if (limb > BMASK) {
+                return false;
+            }
+            if (i >= NWORDS) {
+                high[i - NWORDS] = limb;
+            }
+        }
+        if (ufp_high_ge_p(high)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool equal_UFpPack8x1_modp(const UFpPack8x1& a, const UFpPack8x1& b)
+{
+    FpPack8x1 red_a{};
+    FpPack8x1 red_b{};
+    FpVec8 lanes_a{};
+    FpVec8 lanes_b{};
+
+    UFpPack8x1::redc(red_a, a);
+    UFpPack8x1::redc(red_b, b);
+    unpack_FpPack8x1(lanes_a, red_a);
+    unpack_FpPack8x1(lanes_b, red_b);
+
+    for (size_t lane = 0; lane < 8; ++lane) {
+        if (!Fp::equal(lanes_a[lane], lanes_b[lane])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void make_random_wide_mul(UFpPack8x1& out, InsecureRng& rng, int edge_idx)
+{
+    FpVec8 a{};
+    FpVec8 b{};
+    FpPack8x1 avx_a{};
+    FpPack8x1 avx_b{};
+
+    for (size_t lane = 0; lane < 8; ++lane) {
+        rand_redc_fp(a[lane], rng);
+        rand_redc_fp(b[lane], rng);
+    }
+    force_edge_lanes(a);
+    force_edge_lanes(b);
+
+    if ((edge_idx & 1) == 0) {
+        a[0] = Fp::zero();
+        b[1] = Fp::one();
+    } else {
+        a[2] = Fp::one();
+        b[3] = Fp::zero();
+    }
+
+    pack_FpPack8x1(avx_a, a);
+    pack_FpPack8x1(avx_b, b);
+    FpPack8x1::mul(out, avx_a, avx_b);
+}
+
+template <LUFpRenormClass B>
+void run_lufp_chain_with_policy(InsecureRng& rng)
+{
+    constexpr std::array<LaneOp, 6> kOps = {
+        LaneOp::Sub, LaneOp::Add, LaneOp::Sub,
+        LaneOp::Sub, LaneOp::Add, LaneOp::Sub,
+    };
+    constexpr size_t kSources = 4;
+
+    constexpr size_t kRenormPeriod = []() constexpr {
+        if constexpr (B == LUFpRenormClass::Tight) {
+            return static_cast<size_t>(1);
+        } else if constexpr (B == LUFpRenormClass::Medium) {
+            return static_cast<size_t>(2);
+        } else {
+            static_assert(B == LUFpRenormClass::Loose);
+            return static_cast<size_t>(3);
+        }
+    }();
+
+    for (int iter = 0; iter < 96; ++iter) {
+        UFpPack8x1 strict{};
+        LUFpPack8x1 lazy{};
+        LUFpPack8x1 lazy_next{};
+        LUFpPack8x1 lazy_tmp{};
+        UFpPack8x1 normalized{};
+        std::array<UFpPack8x1, kSources> src{};
+
+        make_random_wide_mul(strict, rng, iter);
+        copy_as_lufp(lazy, strict);
+        for (size_t i = 0; i < kSources; ++i) {
+            make_random_wide_mul(src[i], rng, iter + static_cast<int>(i + 1));
+        }
+
+        for (size_t step = 0; step < kOps.size(); ++step) {
+            const UFpPack8x1& s = src[step % kSources];
+            if (kOps[step] == LaneOp::Add) {
+                UFpPack8x1::add(strict, strict, s);
+                LUFpPack8x1::add(lazy_next, lazy, s);
+            } else {
+                UFpPack8x1::sub(strict, strict, s);
+                LUFpPack8x1::sub(lazy_next, lazy, s);
+            }
+            lazy = lazy_next;
+
+            if (((step + 1) % kRenormPeriod) == 0) {
+                LUFpPack8x1::renorm<B>(lazy_tmp, lazy);
+                lazy = lazy_tmp;
+            }
+
+            LUFpPack8x1::normalize(normalized, lazy);
+            EXPECT_TRUE(is_valid_UFpPack8x1(normalized));
+            EXPECT_TRUE(equal_UFpPack8x1_modp(normalized, strict));
+        }
     }
 }
 
@@ -591,6 +745,276 @@ TEST(FpAvx, Widened8x1wOps)
             EXPECT_TRUE(Fp::equal(got[lane], expected[lane]));
         }
     }
+}
+
+TEST(FpAvx, LazyWidened8x1wOps)
+{
+    InsecureRng rng;
+
+    for (int iter = 0; iter < 128; ++iter) {
+        FpVec8 a{}, b{}, c{}, d{};
+        for (size_t i = 0; i < 8; ++i) {
+            rand_redc_fp(a[i], rng);
+            rand_redc_fp(b[i], rng);
+            rand_redc_fp(c[i], rng);
+            rand_redc_fp(d[i], rng);
+        }
+        force_edge_lanes(a);
+        force_edge_lanes(b);
+        force_edge_lanes(c);
+        force_edge_lanes(d);
+
+        FpPack8x1 avx_a{}, avx_b{}, avx_c{}, avx_d{};
+        pack_FpPack8x1(avx_a, a);
+        pack_FpPack8x1(avx_b, b);
+        pack_FpPack8x1(avx_c, c);
+        pack_FpPack8x1(avx_d, d);
+
+        UFpPack8x1 wide_ab{}, wide_cd{}, wide_ref{};
+        FpPack8x1::mul(wide_ab, avx_a, avx_b);
+        FpPack8x1::mul(wide_cd, avx_c, avx_d);
+
+        LUFpPack8x1 lazy_ab{}, lazy_cd{}, lazy_work{}, lazy_renorm{};
+        copy_as_lufp(lazy_ab, wide_ab);
+        copy_as_lufp(lazy_cd, wide_cd);
+
+        UFpPack8x1 got_unrenorm{}, got_renorm{}, got_lazy_inputs{};
+
+        UFpPack8x1::add(wide_ref, wide_ab, wide_cd);
+        LUFpPack8x1::add(lazy_work, wide_ab, wide_cd);
+        LUFpPack8x1::normalize(got_unrenorm, lazy_work);
+        EXPECT_TRUE(is_valid_UFpPack8x1(got_unrenorm));
+        LUFpPack8x1::renorm<LUFpRenormClass::Medium>(lazy_renorm, lazy_work);
+        LUFpPack8x1::normalize(got_renorm, lazy_renorm);
+        EXPECT_TRUE(is_valid_UFpPack8x1(got_renorm));
+        LUFpPack8x1::add(lazy_work, lazy_ab, lazy_cd);
+        LUFpPack8x1::normalize(got_lazy_inputs, lazy_work);
+        EXPECT_TRUE(is_valid_UFpPack8x1(got_lazy_inputs));
+
+        EXPECT_TRUE(equal_UFpPack8x1(got_unrenorm, wide_ref));
+        EXPECT_TRUE(equal_UFpPack8x1(got_renorm, wide_ref));
+        EXPECT_TRUE(equal_UFpPack8x1(got_lazy_inputs, wide_ref));
+
+        UFpPack8x1::sub(wide_ref, wide_ab, wide_cd);
+        LUFpPack8x1::sub(lazy_work, wide_ab, wide_cd);
+        LUFpPack8x1::normalize(got_unrenorm, lazy_work);
+        EXPECT_TRUE(is_valid_UFpPack8x1(got_unrenorm));
+        LUFpPack8x1::renorm<LUFpRenormClass::Medium>(lazy_renorm, lazy_work);
+        LUFpPack8x1::normalize(got_renorm, lazy_renorm);
+        EXPECT_TRUE(is_valid_UFpPack8x1(got_renorm));
+        LUFpPack8x1::sub(lazy_work, lazy_ab, lazy_cd);
+        LUFpPack8x1::normalize(got_lazy_inputs, lazy_work);
+        EXPECT_TRUE(is_valid_UFpPack8x1(got_lazy_inputs));
+
+        EXPECT_TRUE(equal_UFpPack8x1(got_unrenorm, wide_ref));
+        EXPECT_TRUE(equal_UFpPack8x1(got_renorm, wide_ref));
+        EXPECT_TRUE(equal_UFpPack8x1(got_lazy_inputs, wide_ref));
+    }
+}
+
+TEST(FpAvx, LazyWidened8x1wStress)
+{
+    constexpr size_t kPacks = 256;
+    InsecureRng rng;
+
+    std::vector<UFpPack8x1> wide_a(kPacks), wide_b(kPacks), wide_ref(kPacks), wide_out(kPacks);
+    std::vector<LUFpPack8x1> lazy_a(kPacks), lazy_b(kPacks), lazy_in(kPacks), lazy_tmp(kPacks);
+
+    for (size_t pack = 0; pack < kPacks; ++pack) {
+        FpVec8 a{}, b{}, c{}, d{};
+        for (size_t i = 0; i < 8; ++i) {
+            rand_redc_fp(a[i], rng);
+            rand_redc_fp(b[i], rng);
+            rand_redc_fp(c[i], rng);
+            rand_redc_fp(d[i], rng);
+        }
+        force_edge_lanes(a);
+        force_edge_lanes(b);
+        force_edge_lanes(c);
+        force_edge_lanes(d);
+
+        FpPack8x1 avx_a{}, avx_b{}, avx_c{}, avx_d{};
+        pack_FpPack8x1(avx_a, a);
+        pack_FpPack8x1(avx_b, b);
+        pack_FpPack8x1(avx_c, c);
+        pack_FpPack8x1(avx_d, d);
+
+        FpPack8x1::mul(wide_a[pack], avx_a, avx_b);
+        FpPack8x1::mul(wide_b[pack], avx_c, avx_d);
+        copy_as_lufp(lazy_a[pack], wide_a[pack]);
+        copy_as_lufp(lazy_b[pack], wide_b[pack]);
+        LUFpPack8x1::sub(lazy_in[pack], wide_a[pack], wide_b[pack]);
+    }
+
+    for (int iter = 0; iter < 32; ++iter) {
+        for (size_t pack = 0; pack < kPacks; ++pack) {
+            UFpPack8x1::add(wide_ref[pack], wide_a[pack], wide_b[pack]);
+            LUFpPack8x1::add(lazy_tmp[pack], lazy_a[pack], lazy_b[pack]);
+            LUFpPack8x1::normalize(wide_out[pack], lazy_tmp[pack]);
+            EXPECT_TRUE(is_valid_UFpPack8x1(wide_out[pack]));
+            EXPECT_TRUE(equal_UFpPack8x1(wide_out[pack], wide_ref[pack]));
+
+            UFpPack8x1::sub(wide_ref[pack], wide_a[pack], wide_b[pack]);
+            LUFpPack8x1::renorm<LUFpRenormClass::Medium>(lazy_tmp[pack], lazy_in[pack]);
+            LUFpPack8x1::normalize(wide_out[pack], lazy_tmp[pack]);
+            EXPECT_TRUE(is_valid_UFpPack8x1(wide_out[pack]));
+            EXPECT_TRUE(equal_UFpPack8x1(wide_out[pack], wide_ref[pack]));
+        }
+    }
+}
+
+TEST(FpAvx, LazyWidened8x1wNormalizeRoundTripModP)
+{
+    InsecureRng rng;
+
+    for (int iter = 0; iter < 256; ++iter) {
+        UFpPack8x1 wide{};
+        LUFpPack8x1 lazy{};
+        LUFpPack8x1 lazy_renorm{};
+        UFpPack8x1 got{};
+
+        make_random_wide_mul(wide, rng, iter);
+        copy_as_lufp(lazy, wide);
+        LUFpPack8x1::normalize(got, lazy);
+        EXPECT_TRUE(is_valid_UFpPack8x1(got));
+        EXPECT_TRUE(equal_UFpPack8x1_modp(got, wide));
+
+        LUFpPack8x1::renorm<LUFpRenormClass::Tight>(lazy_renorm, lazy);
+        LUFpPack8x1::normalize(got, lazy_renorm);
+        EXPECT_TRUE(is_valid_UFpPack8x1(got));
+        EXPECT_TRUE(equal_UFpPack8x1_modp(got, wide));
+
+        LUFpPack8x1::renorm<LUFpRenormClass::Medium>(lazy_renorm, lazy);
+        LUFpPack8x1::normalize(got, lazy_renorm);
+        EXPECT_TRUE(is_valid_UFpPack8x1(got));
+        EXPECT_TRUE(equal_UFpPack8x1_modp(got, wide));
+
+        LUFpPack8x1::renorm<LUFpRenormClass::Loose>(lazy_renorm, lazy);
+        LUFpPack8x1::normalize(got, lazy_renorm);
+        EXPECT_TRUE(is_valid_UFpPack8x1(got));
+        EXPECT_TRUE(equal_UFpPack8x1_modp(got, wide));
+    }
+}
+
+TEST(FpAvx, LazyWidened8x1wMixedOverloads)
+{
+    InsecureRng rng;
+
+    for (int iter = 0; iter < 160; ++iter) {
+        UFpPack8x1 wide_a{};
+        UFpPack8x1 wide_b{};
+        UFpPack8x1 strict{};
+        UFpPack8x1 got{};
+        LUFpPack8x1 lazy_a{};
+        LUFpPack8x1 lazy_b{};
+        LUFpPack8x1 lazy_r{};
+        LUFpPack8x1 lazy_renorm{};
+
+        make_random_wide_mul(wide_a, rng, iter);
+        make_random_wide_mul(wide_b, rng, iter + 17);
+        copy_as_lufp(lazy_a, wide_a);
+        copy_as_lufp(lazy_b, wide_b);
+
+        UFpPack8x1::add(strict, wide_a, wide_b);
+        LUFpPack8x1::add(lazy_r, lazy_a, lazy_b);
+        LUFpPack8x1::normalize(got, lazy_r);
+        EXPECT_TRUE(is_valid_UFpPack8x1(got));
+        EXPECT_TRUE(equal_UFpPack8x1_modp(got, strict));
+        LUFpPack8x1::renorm<LUFpRenormClass::Medium>(lazy_renorm, lazy_r);
+        LUFpPack8x1::normalize(got, lazy_renorm);
+        EXPECT_TRUE(is_valid_UFpPack8x1(got));
+        EXPECT_TRUE(equal_UFpPack8x1_modp(got, strict));
+
+        LUFpPack8x1::add(lazy_r, wide_a, lazy_b);
+        LUFpPack8x1::normalize(got, lazy_r);
+        EXPECT_TRUE(is_valid_UFpPack8x1(got));
+        EXPECT_TRUE(equal_UFpPack8x1_modp(got, strict));
+
+        LUFpPack8x1::add(lazy_r, lazy_a, wide_b);
+        LUFpPack8x1::normalize(got, lazy_r);
+        EXPECT_TRUE(is_valid_UFpPack8x1(got));
+        EXPECT_TRUE(equal_UFpPack8x1_modp(got, strict));
+
+        LUFpPack8x1::add(lazy_r, wide_a, wide_b);
+        LUFpPack8x1::normalize(got, lazy_r);
+        EXPECT_TRUE(is_valid_UFpPack8x1(got));
+        EXPECT_TRUE(equal_UFpPack8x1_modp(got, strict));
+
+        UFpPack8x1::sub(strict, wide_a, wide_b);
+        LUFpPack8x1::sub(lazy_r, lazy_a, lazy_b);
+        LUFpPack8x1::normalize(got, lazy_r);
+        EXPECT_TRUE(is_valid_UFpPack8x1(got));
+        EXPECT_TRUE(equal_UFpPack8x1_modp(got, strict));
+        LUFpPack8x1::renorm<LUFpRenormClass::Medium>(lazy_renorm, lazy_r);
+        LUFpPack8x1::normalize(got, lazy_renorm);
+        EXPECT_TRUE(is_valid_UFpPack8x1(got));
+        EXPECT_TRUE(equal_UFpPack8x1_modp(got, strict));
+
+        LUFpPack8x1::sub(lazy_r, wide_a, lazy_b);
+        LUFpPack8x1::normalize(got, lazy_r);
+        EXPECT_TRUE(is_valid_UFpPack8x1(got));
+        EXPECT_TRUE(equal_UFpPack8x1_modp(got, strict));
+
+        LUFpPack8x1::sub(lazy_r, lazy_a, wide_b);
+        LUFpPack8x1::normalize(got, lazy_r);
+        EXPECT_TRUE(is_valid_UFpPack8x1(got));
+        EXPECT_TRUE(equal_UFpPack8x1(got, strict));
+
+        LUFpPack8x1::sub(lazy_r, wide_a, wide_b);
+        LUFpPack8x1::normalize(got, lazy_r);
+        EXPECT_TRUE(is_valid_UFpPack8x1(got));
+        EXPECT_TRUE(equal_UFpPack8x1(got, strict));
+    }
+}
+
+TEST(FpAvx, LazyWidened8x1wSelectAndAlias)
+{
+    InsecureRng rng;
+
+    for (int iter = 0; iter < 32; ++iter) {
+        UFpPack8x1 wide_a{};
+        UFpPack8x1 wide_b{};
+        UFpPack8x1 strict{};
+        UFpPack8x1 got{};
+        LUFpPack8x1 lazy_a{};
+        LUFpPack8x1 lazy_b{};
+        LUFpPack8x1 lazy_r{};
+
+        make_random_wide_mul(wide_a, rng, iter);
+        make_random_wide_mul(wide_b, rng, iter + 101);
+        copy_as_lufp(lazy_a, wide_a);
+        copy_as_lufp(lazy_b, wide_b);
+
+        for (int mask = 0; mask < 256; ++mask) {
+            const u8 lane_mask = static_cast<u8>(mask);
+
+            UFpPack8x1::select(strict, wide_a, wide_b, lane_mask);
+            LUFpPack8x1::select(lazy_r, lazy_a, lazy_b, lane_mask);
+            LUFpPack8x1::normalize(got, lazy_r);
+            EXPECT_TRUE(is_valid_UFpPack8x1(got));
+            EXPECT_TRUE(equal_UFpPack8x1_modp(got, strict));
+
+            LUFpPack8x1 alias_a = lazy_a;
+            LUFpPack8x1::select(alias_a, alias_a, lazy_b, lane_mask);
+            LUFpPack8x1::normalize(got, alias_a);
+            EXPECT_TRUE(is_valid_UFpPack8x1(got));
+            EXPECT_TRUE(equal_UFpPack8x1_modp(got, strict));
+
+            LUFpPack8x1 alias_b = lazy_b;
+            LUFpPack8x1::select(alias_b, lazy_a, alias_b, lane_mask);
+            LUFpPack8x1::normalize(got, alias_b);
+            EXPECT_TRUE(is_valid_UFpPack8x1(got));
+            EXPECT_TRUE(equal_UFpPack8x1_modp(got, strict));
+        }
+    }
+}
+
+TEST(FpAvx, LazyWidened8x1wChainPolicies)
+{
+    InsecureRng rng;
+    run_lufp_chain_with_policy<LUFpRenormClass::Tight>(rng);
+    run_lufp_chain_with_policy<LUFpRenormClass::Medium>(rng);
+    run_lufp_chain_with_policy<LUFpRenormClass::Loose>(rng);
 }
 
 TEST(FpAvx, Widened4x2wOps)

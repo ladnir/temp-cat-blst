@@ -82,6 +82,97 @@ void fp8x1_lfp_bounds_record(const LFpPack8x1& v)
     }
 }
 #endif
+
+BLST_FORCEINLINE i64 lufp_floor_div_radix(const i64 x)
+{
+    if (x >= 0) {
+        return x >> BRADIX;
+    }
+    return -static_cast<i64>((static_cast<u64>(-x) + BMASK) >> BRADIX);
+}
+
+BLST_FORCEINLINE void lufp_scalar_signed_renorm_range(i64* limbs, const std::size_t begin, const std::size_t end)
+{
+    for (std::size_t i = begin; i < end; ++i) {
+        const i64 carry = lufp_floor_div_radix(limbs[i]);
+        limbs[i] -= (carry << BRADIX);
+        limbs[i + 1] += carry;
+    }
+}
+
+BLST_FORCEINLINE bool lufp_scalar_high_negative(const i64* limbs)
+{
+    return limbs[15] < 0;
+}
+
+BLST_FORCEINLINE bool lufp_scalar_high_ge_p(const i64* limbs)
+{
+    for (int i = static_cast<int>(NWORDS) - 1; i >= 0; --i) {
+        const i64 limb = limbs[8 + i];
+        const i64 mod = static_cast<i64>(P48[i]);
+        if (limb > mod) {
+            return true;
+        }
+        if (limb < mod) {
+            return false;
+        }
+    }
+    return true;
+}
+
+BLST_FORCEINLINE void lufp_scalar_high_add_p(i64* limbs)
+{
+    for (std::size_t i = 0; i < NWORDS; ++i) {
+        limbs[8 + i] += static_cast<i64>(P48[i]);
+    }
+    lufp_scalar_signed_renorm_range(limbs, 8, 15);
+}
+
+BLST_FORCEINLINE void lufp_scalar_high_sub_p(i64* limbs)
+{
+    for (std::size_t i = 0; i < NWORDS; ++i) {
+        limbs[8 + i] -= static_cast<i64>(P48[i]);
+    }
+    lufp_scalar_signed_renorm_range(limbs, 8, 15);
+}
+
+BLST_FORCEINLINE void lufp_scalar_normalize_to_ufp(i64* limbs)
+{
+    lufp_scalar_signed_renorm_range(limbs, 0, 15);
+
+    int guard = 0;
+    while (lufp_scalar_high_negative(limbs)) {
+        lufp_scalar_high_add_p(limbs);
+        if (++guard > 64) {
+            break;
+        }
+    }
+
+    guard = 0;
+    while (lufp_scalar_high_ge_p(limbs)) {
+        lufp_scalar_high_sub_p(limbs);
+        if (++guard > 64) {
+            break;
+        }
+    }
+
+    BLST_ASSERT(!lufp_scalar_high_negative(limbs));
+    BLST_ASSERT(!lufp_scalar_high_ge_p(limbs));
+    for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+        BLST_ASSERT(limbs[i] >= 0);
+        BLST_ASSERT(static_cast<u64>(limbs[i]) <= BMASK);
+    }
+}
+
+template <class A, class B, class Op>
+BLST_FORCEINLINE void lufp8x1_binary_op(LUFpPack8x1& r, const A& a, const B& b, Op&& op)
+{
+    BLST_ASSERT_NO_OVERLAP_AVX(r, a);
+    BLST_ASSERT_NO_OVERLAP_AVX(r, b);
+    for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+        r[i] = op(a[i], b[i]);
+    }
+}
 } // namespace
 
 void conv_64to48_fp(u64 *r, const u64 *a)
@@ -265,6 +356,82 @@ void UFpPack8x1::select(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b,
   const u64 mask = static_cast<u64>(lane_mask);
   for (u64 i = 0; i < 2 * NWORDS; ++i) {
     r[i] = VMBLEND(mask, a[i], b[i]);
+  }
+}
+
+void LUFpPack8x1::select(LUFpPack8x1& r, const LUFpPack8x1& a, const LUFpPack8x1& b, const u8 lane_mask)
+{
+  const u64 mask = static_cast<u64>(lane_mask);
+  for (u64 i = 0; i < 2 * NWORDS; ++i) {
+    r[i] = VMBLEND(mask, a[i], b[i]);
+  }
+}
+
+void LUFpPack8x1::add(LUFpPack8x1& r, const LUFpPack8x1& a, const LUFpPack8x1& b)
+{
+  lufp8x1_binary_op(r, a, b, [](const cc512i& x, const cc512i& y) { return VADD(x, y); });
+}
+
+void LUFpPack8x1::add(LUFpPack8x1& r, const UFpPack8x1& a, const LUFpPack8x1& b)
+{
+  lufp8x1_binary_op(r, a, b, [](const cc512i& x, const cc512i& y) { return VADD(x, y); });
+}
+
+void LUFpPack8x1::add(LUFpPack8x1& r, const LUFpPack8x1& a, const UFpPack8x1& b)
+{
+  lufp8x1_binary_op(r, a, b, [](const cc512i& x, const cc512i& y) { return VADD(x, y); });
+}
+
+void LUFpPack8x1::add(LUFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
+{
+  lufp8x1_binary_op(r, a, b, [](const cc512i& x, const cc512i& y) { return VADD(x, y); });
+}
+
+void LUFpPack8x1::sub(LUFpPack8x1& r, const LUFpPack8x1& a, const LUFpPack8x1& b)
+{
+  lufp8x1_binary_op(r, a, b, [](const cc512i& x, const cc512i& y) { return VSUB(x, y); });
+}
+
+void LUFpPack8x1::sub(LUFpPack8x1& r, const UFpPack8x1& a, const LUFpPack8x1& b)
+{
+  lufp8x1_binary_op(r, a, b, [](const cc512i& x, const cc512i& y) { return VSUB(x, y); });
+}
+
+void LUFpPack8x1::sub(LUFpPack8x1& r, const LUFpPack8x1& a, const UFpPack8x1& b)
+{
+  lufp8x1_binary_op(r, a, b, [](const cc512i& x, const cc512i& y) { return VSUB(x, y); });
+}
+
+void LUFpPack8x1::sub(LUFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
+{
+  lufp8x1_binary_op(r, a, b, [](const cc512i& x, const cc512i& y) { return VSUB(x, y); });
+}
+
+void LUFpPack8x1::normalize(UFpPack8x1& r, const LUFpPack8x1& a)
+{
+  BLST_ASSERT_NO_OVERLAP_AVX(r, a);
+
+  std::array<std::array<u64, 8>, 2 * NWORDS> words{};
+  for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+    _cc512_storeu_si512(words[i].data(), a[i]);
+  }
+
+  std::array<std::array<u64, 8>, 2 * NWORDS> out_words{};
+  for (std::size_t lane = 0; lane < 8; ++lane) {
+    i64 limbs[2 * NWORDS];
+    for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+      limbs[i] = static_cast<i64>(words[i][lane]);
+    }
+
+    lufp_scalar_normalize_to_ufp(limbs);
+
+    for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+      out_words[i][lane] = static_cast<u64>(limbs[i]);
+    }
+  }
+
+  for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+    r[i] = _cc512_loadu_si512(out_words[i].data());
   }
 }
 
