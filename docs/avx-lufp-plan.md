@@ -1,346 +1,418 @@
 # AVX-512 `LUFp` Plan
 
-This note proposes a new lazy widened domain for the AVX-512 IFMA path:
-`LUFp` = lazy widened `Fp`.
+This document is the execution plan for the AVX-512 lazy widened field work.
+It replaces the earlier append-only notes with a single current plan.
 
-The purpose of `LUFp` is to make widened linear-combination regions cheaper than
-the current strict `UFp` path, while keeping the existing `UFp` contract intact.
+Companion methodology note:
 
-## Motivation
+- [lazy-renorm-strategy.md](/c/Users/peter/repo/blst/docs/lazy-renorm-strategy.md)
 
-Current `UFpPack8x1` add/sub kernels are not "just limb-wise add/sub."
-They restore a strict bounded widened representation after every operation:
+## Purpose
 
-- carry propagation across all 16 limbs
-- conditional correction by `p * 2^384`
-- final limb masking back to radix-48 form
-
-This is correct and useful, but expensive. Profiling in GT / Fp12 code shows:
-
-- `UFpPack8x1::sub` is a major hotspot
-- `UFpPack8x1::add` is also noticeable
-- these costs are paid repeatedly in Karatsuba-style combine regions
-
-The likely reason is not that the current kernels are poorly written. The issue is
-that the current `UFp` contract is tight, so every combine step pays to re-enter it.
-
-## Goal
-
-Introduce a second widened domain with a looser contract:
+Introduce a lazy widened domain for the AVX-512 IFMA path:
 
 - `UFp`: strict widened domain, unchanged
-- `LUFp`: lazy widened domain for local signed linear combinations
+- `LUFp`: lazy widened domain for local linear-combination regions
 
-`LUFp` should make add/sub-style combine regions cheaper, then convert back to
-strict `UFp` only at explicit boundaries.
+The purpose of `LUFp` is to remove repeated strict widened repair from hot
+combine regions while keeping the current `UFp` contract intact at explicit
+boundaries.
+
+## Current Status
+
+Implemented today:
+
+- `LUFpPack8x1` exists in the core library as a documented lazy widened
+  companion to `UFpPack8x1`
+- mixed `UFp` / `LUFp` `add/sub` support exists
+- bounded `LUFp -> UFp` normalize support exists in the core library
+- focused `LUFp` tests exist in [Fp_avx_tests.cpp](/c/Users/peter/repo/blst/test/Fp_avx_tests.cpp)
+- benchmark-only `Fp6` experiments exist in
+  [Fp12_tower_avx_bench.cpp](/c/Users/peter/repo/blst/benchmark/Fp12_tower_avx_bench.cpp)
+
+What is not settled yet:
+
+- the long-term renorm API
+- the correct bound classes for schedule-preserving `Fp6` paths
+- the final repair kernel shape for those classes
+- whether `Fp6 mul` and `Fp6 sqr` can beat the current packed baseline with a
+  real bounded implementation
+
+## Goals
+
+- preserve the current strict `UFp` contract
+- make widened add/sub-style combine regions cheaper than strict `UFp`
+- keep all repair and conversion boundaries explicit and documented
+- derive exact source and target bounds for measured kernels
+- preserve the baseline `Fp6` schedules as closely as possible
 
 ## Non-Goals
 
-- Do not weaken the existing `UFp` contract in place.
-- Do not make `redc_core` silently accept values outside its proven input model.
-- Do not add per-object runtime metadata for drift or bounds.
-- Do not start with a worst-case generic renorm for all callers.
-- Do not redesign the tower around `LUFp` before the bounds and APIs are stable.
+- do not weaken the existing `UFp` contract in place
+- do not make `redc_core` silently accept broader widened inputs
+- do not add runtime drift metadata to each object
+- do not integrate benchmark-only mock paths into the library
+- do not roll out a generic renorm family before the first real `Fp6` wins are
+  proven
+
+## What The Benchmark Work Has Established
+
+The benchmark file
+[Fp12_tower_avx_bench.cpp](/c/Users/peter/repo/blst/benchmark/Fp12_tower_avx_bench.cpp)
+has established the following:
+
+- strict widened `UFp` repair is a real cost center
+- primitive add/sub microbench alone is not enough to predict tower wins
+- blanket renorm after lazy operations is too expensive
+- schedule preservation matters more than ad hoc `LUFp` rewrites
+- the correct near-term ceiling is the baseline schedule with widened repair
+  removed
+
+These are the important benchmark categories:
+
+- real `LUFp`
+  - benchmark path that uses real lazy add/sub and real `LUFp -> UFp`
+    normalize
+- `BaselineNoRepair`
+  - benchmark-only copy of the baseline widened schedule with strict widened
+    repair deleted
+  - this is the current ceiling/reference
+- `LUFp_NoNormalize`
+  - explicit parity/mock harness only
+  - useful to verify that a lazy path collapses to the no-repair baseline when
+    all repair is disabled
+- `LUFp_RenormNoNormalize`
+  - explicit negative control
+  - showed that renorm-after-every-op is not a viable direction
+
+These paths are not interchangeable. Only the real `LUFp` path is an
+implementation candidate. The others are benchmark methodology tools.
 
 ## Representation Model
 
-`LUFpPack8x1` should use the same physical storage layout as `UFpPack8x1`:
+Model a widened value as:
 
-- 16 limbs
-- radix `R = 2^48`
-- one widened value per AVX lane
+- `X = lo + R * hi`
+- `R = 2^384`
 
-The semantic difference is that `LUFp` is a lazy signed widened domain:
+Track bounds separately:
 
-- limbs may be negative
-- limbs may temporarily exceed 48 bits
-- value is not required to satisfy the strict `UFp` bounded contract after every op
+- low-half slack in units of `R`
+- high-half slack in units of `p`
 
-This is the key design choice. A cheap `LUFp::sub` is only interesting if it is
-allowed to stay negative without immediately adding `p * 2^384`.
+Uniform naming:
 
-## Type Naming and Documentation
-
-`LUFp` by itself is not descriptive enough, so the type must be documented very
-explicitly in the header.
-
-Suggested documentation summary:
-
-- "Lazy widened companion for `UFpPack8x1` used for local signed linear
-  combinations before returning to the strict widened domain."
-- "Same physical 16-limb radix-48 layout as `UFpPack8x1`, but semantic range is
-  relaxed and signed."
-- "Not accepted by existing `redc_core` unless a dedicated lazy-widened reduction
-  contract is later proven."
-
-## Core Contract
-
-The initial contract should be conservative and simple:
-
-- `UFpPack8x1` remains the only widened type directly accepted by existing
-  `redc_core`.
-- `LUFpPack8x1` is closed under cheap local add/sub/fused-combine operations.
-- `LUFpPack8x1::renorm<B>` reduces limb growth while staying in the `LUFp` domain.
-- `LUFpPack8x1::normalize(UFpPack8x1&, const LUFpPack8x1&)` returns to the strict
-  widened `UFp` contract.
-
-The most important invariant is:
-
-- `LUFp` may drift within a documented signed bound
-- `normalize(UFp&, const LUFp&)` must restore the current `UFp` contract exactly
-
-## API Shape
-
-The API should follow the existing house style.
-
-Suggested first version:
-
-- `struct LUFpPack8x1 : public AvxPack<2 * NWORDS> {};`
-- `static void add(LUFpPack8x1& r, const LUFpPack8x1& a, const LUFpPack8x1& b);`
-- `static void sub(LUFpPack8x1& r, const LUFpPack8x1& a, const LUFpPack8x1& b);`
-- `template <LUFpRenormClass B> static void renorm(LUFpPack8x1& r, const LUFpPack8x1& a);`
-- `static void normalize(UFpPack8x1& r, const LUFpPack8x1& a);`
-- `static void select(LUFpPack8x1& r, const LUFpPack8x1& a, const LUFpPack8x1& b, u8 lane_mask);`
-
-Then add mixed and fused helpers:
-
-- `add/sub` overloads for mixed `UFp` / `LUFp` inputs
-- `aaasx2`
-- `aassx2`
-- `asx4`
-- `ssaax2`
-- `ssasx2`
-
-## Mixed Overloads
-
-Callers should not need an explicit `promote(...)` in hot code.
-
-Even though `UFp` is a valid `LUFp` value semantically, forcing explicit promotion
-risks unnecessary copies or awkward call sites.
-
-Preferred approach:
-
-- provide overloads taking `UFp` inputs directly
-- share one internal implementation for both `UFp` and `LUFp` sources
+- `LNegA_PosB`: `-A*R <= lo < B*R`
+- `HNegA_PosB`: `-A*p <= hi < B*p`
 
 Examples:
 
-- `add(LUFp&, const UFp&,  const UFp&)`
-- `add(LUFp&, const UFp&,  const LUFp&)`
-- `add(LUFp&, const LUFp&, const UFp&)`
-- `add(LUFp&, const LUFp&, const LUFp&)`
+- narrow `Fp` embedded in widened form:
+  - `LNeg0_Pos1_HNeg0_Pos0`
+- strict widened `UFp`:
+  - `LNeg0_Pos1_HNeg0_Pos1`
 
-Same pattern for `sub` and fused helpers.
+This notation should be used in:
 
-An explicit `promote` helper may still exist for debug or convenience use, but it
-should not be required for performance-sensitive code.
+- helper contracts
+- debug assertions
+- bound worksheets
+- benchmark notes
 
-## Renorm Policy
+## Why Low Slack Matters
 
-`renorm` should use a compile-time policy parameter, not a runtime numeric bound.
+If low limbs are forced canonical after every conceptual add/sub, a single low
+carry or borrow can get rounded into an extra full `+p` or `-p` in the high
+bound. That is too pessimistic.
 
-Suggested shape:
+Allowing low-half slack means:
 
-- `renorm<LUFpRenormClass::Tight>(...)`
-- `renorm<LUFpRenormClass::Medium>(...)`
-- `renorm<LUFpRenormClass::Loose>(...)`
+- low carry/borrow can be deferred
+- high bounds do not inflate prematurely
+- one final bounded repair can often replace many intermediate repairs
 
-Rationale:
+## Mixed Wide And Narrow Inputs
 
-- callers often know the drift class statically
-- compile-time policy keeps codegen regular
-- `if constexpr` can select the minimum carry/repair logic needed
-- avoids a single worst-case renorm for every call site
+Treat narrow as widened with exact zero high half:
 
-The policy should describe:
+- narrow embedded: `LNeg0_Pos1_HNeg0_Pos0`
 
-- maximum expected pre-renorm limb magnitude
-- postcondition target after renorm
-- intended use sites
+So:
 
-Initial intent:
+- wide + narrow first widens low slack
+- wide - narrow first widens low slack
+- high drift should only be charged when a repair boundary deliberately folds
+  low slack back into the chosen target class
 
-- `Tight`: very short combine chains
-- `Medium`: common local Karatsuba regions
-- `Loose`: near the conservative operation budget limit
+## Repair Framing
 
-## Bounds Strategy
+`renorm` and `normalize` are both repair kernels.
 
-Use static bounds plus debug validation. Do not store dynamic drift metadata in
-every object.
+They differ by target class:
 
-Recommended process:
+- `renorm`
+  - repairs into a cheaper lazy class
+- `normalize`
+  - repairs into a stricter final consumer-legal class
 
-1. Document a conservative signed limb bound for `LUFp`.
-2. Derive per-op growth bounds for:
-   - `add`
-   - `sub`
-   - each fused helper
-3. Define a conservative operation budget before `renorm`
-4. Define `renorm<B>` postconditions
-5. Validate with debug telemetry and adversarial tests
+Neither should be assumed to use repeated single-`p` correction. Depending on
+the source and target bounds, both may need scaled-`p` repair.
 
-Suggested initial debug constants:
+The methodology for repair placement and repair-shape choice lives in
+[lazy-renorm-strategy.md](/c/Users/peter/repo/blst/docs/lazy-renorm-strategy.md).
 
-- `LUFP_LIMB_BOUND = 2^61`
-- `LUFP_RENORM_TARGET = 2^50`
-- `LUFP_OP_BUDGET = 8`
+## Repair Implementation Options
 
-These are starting points only. They must be tuned by measurement and stress.
+The repair implementation is not fixed yet. For a given source and target class,
+the candidates are:
 
-## Relationship to `UFp`
+- one-sided ladder
+- biased one-sided ladder
+- ternary symmetric ladder
+- independent two-sided ladder
 
-This design depends on keeping the roles separate:
+We are not choosing one globally yet. The source and target bound contract
+should stay fixed; the chosen repair kernel for that contract should be driven
+by benchmark results.
 
-- `UFp`
-  - strict widened domain
-  - used by existing `redc_core`
-  - current semantics unchanged
-- `LUFp`
-  - lazy widened domain
-  - cheap local combine domain
-  - must be normalized back to `UFp` before strict interfaces
+## Current Design Direction
 
-This means:
+The current best hypothesis is:
 
-- delaying current `UFp` correction logic does break the current `UFp` contract
-- `LUFp` exists specifically so that this delay is explicit and documented
+- `Fp6 mul`
+  - preserve the baseline widened schedule exactly
+  - try to avoid intermediate `renorm`
+  - use one final repair if the derived bound allows it
+- `Fp6 sqr`
+  - preserve the baseline widened schedule exactly
+  - may require one selective renorm, most likely in the long `c2` path
 
-## First Use Sites
+This is intentionally different from "generic renorm first."
 
-The first target should be subtraction-heavy widened combine regions, not general
-rewrites of the whole tower.
+## Immediate Execution Order
 
-Best initial candidates:
+The next work should happen in this order:
 
-- `Fp6Pack8x1::mul` in [Fp6_avx.cpp](/c/Users/peter/repo/blst/blst/fields/Fp6_avx.cpp)
-- `Fp6Pack8x1::sqr` in [Fp6_avx.cpp](/c/Users/peter/repo/blst/blst/fields/Fp6_avx.cpp)
-- `Fp12Pack8x1::mul` in [Fp12_avx.cpp](/c/Users/peter/repo/blst/blst/fields/Fp12_avx.cpp)
-- GT GLV4 loop paths in [GT_avx.cpp](/c/Users/peter/repo/blst/blst/curve/GT_avx.cpp) only after lower-layer wins are proven
+1. exact bound worksheet for schedule-preserving `Fp6 mul`
+2. final repair kernel for the actual `Fp6 mul` output class
+3. schedule-preserving `Fp6 mul` implementation using that repair kernel
+4. exact bound worksheet for schedule-preserving `Fp6 sqr`
+5. if required, one selective renorm plus final repair for `Fp6 sqr`
 
-Why these first:
+The plan does not currently start with:
 
-- they are combine-heavy
-- profiling already shows `UFp add/sub` is significant there
-- many formulas are subtraction-heavy Karatsuba combinations
+- generic renorm-family rollout
+- broad tower integration
+- lazy narrow implementation
 
-## Expected Outcomes
+## Phase Plan
 
-If `LUFp` works as intended:
+### Phase 0: Benchmark Hygiene
 
-- local widened add/sub becomes substantially cheaper than current `UFp add/sub`
-- combine-heavy Fp6/Fp12/GT code pays strict `UFp` normalization less often
-- reduction remains explicit and provable at boundaries
+Implement:
 
-Expected measurable outcomes:
+- keep `BaselineNoRepair` as the explicit performance ceiling
+- keep `LUFp_NoNormalize` only as an explicitly labeled mock/parity harness
+- keep `LUFp_RenormNoNormalize` only as an explicitly labeled negative control
+- do not treat benchmark-only mock paths as integration candidates
 
-- lower share for `UFpPack8x1::sub` and `UFpPack8x1::add` in GT / Fp12 profiles
-- better throughput for packed `Fp12 mul`, `Fp12 cyclotomic_sqr`, and GT scalar-mult
-- no correctness regressions and no invariant violations under stress
+Tests gating this phase:
 
-## What To Watch
+- preserve explicit comments in the benchmark file identifying mock/reference
+  paths
+- keep correctness checking on real implementation candidates only
 
-- `LUFp` can become a correctness trap if bounds are vague.
-- `renorm` can erase the benefit if used too aggressively or implemented as a
-  universal worst-case pass.
-- `normalize(LUFp -> UFp)` must be very clearly documented as a strict boundary op.
-- It is easy to overfit fused helpers without a reusable abstraction.
+Performance requirement:
 
-## What Not To Do
+- none
 
-- Do not make `redc_core` accept `LUFp` early unless there is a written proof.
-- Do not add runtime per-object drift counters in release code.
-- Do not convert every existing `UFp` helper into `LUFp` at once.
-- Do not start with `k>1` renorm kernels.
+### Phase 1: Bound Worksheet For Baseline `Fp6 Mul`
 
-The likely order is:
+Implement:
 
-1. single-object `LUFp add/sub`
-2. `renorm<B>`
-3. `normalize(LUFp -> UFp)`
-4. mixed overloads
-5. fused helpers
-6. only later, benchmark whether `renorm_k2` is worth adding
+- derive the bound of every widened intermediate in the current baseline `Fp6`
+  `mul` schedule
+- use `LNegA_PosB_HNegC_PosD` notation throughout
+- include mixed wide/narrow transitions explicitly
+- include `mul_by_u_plus_1` explicitly
+- determine the narrowest final repair target that lets `mul` avoid
+  intermediate renorm
 
-## Benchmark Plan
+Tests gating this phase:
 
-Before any tower integration, benchmark:
+- every bound step must correspond to a concrete operation in the baseline
+  widened schedule
+- add debug assertions or helper comments for every precondition that will later
+  be enforced in code
 
-- `LUFp add`
-- `LUFp sub`
-- `renorm<Tight/Medium/Loose>`
-- `normalize(LUFp -> UFp)`
-- `UFp add` / `UFp sub` as the baseline comparator
+Performance requirement:
 
-Then benchmark tower kernels with small targeted substitutions:
+- none
 
-- one Fp6 combine region
-- one Fp12 combine region
-- one GT loop path
+### Phase 2: Final Repair Kernel For `Fp6 Mul`
 
-The realistic question is not whether isolated `LUFp add/sub` is faster. The
-real question is whether `LUFp` wins after including:
+Implement:
 
-- any required `renorm<B>`
-- the final `normalize(LUFp -> UFp)`
-- surrounding mul/select/reduction costs
+- one real repair kernel for the exact final `Fp6 mul` output class
+- benchmark candidate repair shapes for that class only:
+  - one-sided ladder
+  - biased one-sided ladder
+  - ternary symmetric ladder
+  - independent two-sided ladder if useful as a reference
+- keep the source and target bound contract fixed while comparing kernels
 
-So the benchmark plan should always run at two levels:
+Tests gating this phase:
 
-### Level 1: Primitive A/B
+- exact equality with a scalar/reference repair for all values in the documented
+  source class
+- edge coverage for the negative and positive extremes of the source class
+- exact postcondition proof for the target class, not only modular equivalence
 
-Measure the direct cost of:
+Performance requirement:
 
-- `UFp add`
-- `UFp sub`
-- `LUFp add`
-- `LUFp sub`
-- `LUFp renorm<Tight>`
-- `LUFp renorm<Medium>`
-- `LUFp renorm<Loose>`
-- `LUFp normalize -> UFp`
+- must be materially faster than the current bounded normalize path for the same
+  class
+- if it is not materially faster, stop and revisit the bound class before
+  integrating it into `Fp6 mul`
 
-This establishes whether the lazy widened domain is plausibly competitive before
-touching tower code.
+### Phase 3: Schedule-Preserving `Fp6 Mul`
 
-### Level 2: Realistic Kernel A/B
+Implement:
 
-Measure one real combine-heavy kernel where only the widened local-combine domain
-changes and everything else stays fixed.
+- rebuild `Fp6 mul` as a line-by-line preservation of the existing widened
+  baseline schedule
+- replace only the targeted widened combine repair with the new bound-driven
+  lazy path
+- avoid intermediate renorm unless the worksheet proves it is required
 
-The best first target is:
+Tests gating this phase:
 
-- `Fp6Pack8x1::mul` in [Fp6_avx.cpp](/c/Users/peter/repo/blst/blst/fields/Fp6_avx.cpp)
+- exact equality against current `Fp6Pack8x1::mul`
+- randomized and edge-biased corpus
+- debug assertions that every intermediate entering the final repair kernel
+  satisfies the documented source bound
 
-Recommended first A/B:
+Performance requirement:
 
-- baseline: current `UFp2` / `UFp` combine path
-- variant: use `LUFp` only inside the subtraction-heavy widened combine region
-- keep the same algorithm
-- keep the same reduction boundary
-- keep mul and final reduction unchanged
+- first checkpoint:
+  - within `5%` of `BaselineNoRepair`
+- continuation bar:
+  - beat the current packed baseline by at least `10%`
 
-That gives the cleanest answer to the real design question:
+### Phase 4: Bound Worksheet For Baseline `Fp6 Sqr`
 
-- does `LUFp` beat `UFp` in an actual tower use case after paying for `renorm`
-  and `normalize`?
+Implement:
 
-Only after that should the plan expand to:
+- derive the bound of every widened intermediate in the current baseline `Fp6`
+  `sqr` schedule
+- explicitly analyze the long `c2` chain
+- explicitly analyze split and fanout points
+- determine whether `sqr` can also use final-repair-only or whether one
+  selective renorm is forced
 
-- one Fp12 combine region
-- one GT loop slice
+Tests gating this phase:
 
-Use the same profiling approach already used for GT:
+- every bound step must correspond to a concrete operation in the baseline
+  widened schedule
+- every claimed forced renorm point must be justified by a documented
+  precondition failure, not by guesswork
 
-- pinned core
-- throughput benchmark
-- `perf record` / `perf report`
+Performance requirement:
 
-## Summary
+- none
 
-`LUFp` is not a replacement for `UFp`. It is a new lazy widened domain whose job
-is to make local signed combine regions cheaper.
+### Phase 5: Minimum-Repair `Fp6 Sqr`
 
-The design should preserve the current strict `UFp` boundary, use compile-time
-`renorm<B>` policies, prefer mixed overloads over explicit promotion in hot code,
-and start with narrow benchmarked integrations before broader rollout.
+Implement:
+
+- preserve the baseline widened `Fp6 sqr` schedule exactly
+- if the worksheet allows it, use final repair only
+- if not, introduce exactly one real selective renorm at the justified point and
+  no earlier
+
+Tests gating this phase:
+
+- exact equality against current `Fp6Pack8x1::sqr`
+- targeted edge cases around the deepest `c2` path
+- debug assertions for the selective renorm precondition and the final repair
+  precondition
+
+Performance requirement:
+
+- first checkpoint:
+  - within `5%` of `BaselineNoRepair`
+- continuation bar:
+  - beat the current packed baseline by at least `8%`
+
+### Phase 6: Cleanup And Generalization
+
+Implement only after `Fp6 mul` and `Fp6 sqr` show real wins:
+
+- replace temporary policy-style names in measured paths with exact bound-based
+  kernel naming
+- remove or quarantine obsolete benchmark-only paths
+- consider broader tower integration
+- consider lazy narrow based on the same topology-aware methodology
+
+Tests gating this phase:
+
+- every measured helper must have an exact bound contract
+- benchmark-only mock paths must stay clearly labeled or be removed
+
+Performance requirement:
+
+- no regression relative to the winning `Fp6` implementations
+
+## Testing Rules
+
+For every real implementation phase:
+
+- test arithmetic equality against the current implementation
+- test exact postcondition, not just modular equality, for repair kernels
+- include randomized inputs and edge-biased inputs
+- use debug assertions for all documented preconditions
+
+For benchmark-only mock paths:
+
+- they must be explicitly labeled as mock/reference/negative-control paths
+- they must not be confused with integration candidates
+
+## Performance Rules
+
+Primitive microbench is a sanity check, not the final decision maker.
+
+The real decision points are:
+
+- does the repair kernel beat the current bounded normalize for the same
+  documented class
+- does schedule-preserving `Fp6 mul` approach `BaselineNoRepair`
+- does schedule-preserving `Fp6 sqr` approach `BaselineNoRepair`
+- do the real paths beat the current packed baseline by the stated bars
+
+## Rule For Future Experiments
+
+Either:
+
+- the path is fully implemented with its documented bound contracts
+
+or:
+
+- it must be called out explicitly as a mock experiment before it is built or
+  benchmarked
+
+This rule applies especially to:
+
+- fake no-normalize paths
+- parity harnesses
+- negative-control renorm experiments
+
+## Deferred Work
+
+Explicitly deferred until after real `Fp6` wins:
+
+- generic renorm-family rollout
+- broad `Fp12` / GT integration
+- multiply contracts for broader lazy widened inputs
+- lazy narrow implementation
+
+These remain interesting, but they are not the next execution steps.

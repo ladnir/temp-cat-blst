@@ -4,6 +4,8 @@
 #if defined(BLST_AVX512)
 
 #include <array>
+#include <cstdio>
+#include <cstdlib>
 #include <cstddef>
 #include <random>
 #include <vector>
@@ -34,6 +36,11 @@ void random_redc_fp2(Fp2& v, std::mt19937_64& gen)
     random_redc_fp(v[1], gen);
 }
 
+bool fp2_equal(const Fp2& a, const Fp2& b)
+{
+    return Fp::equal(a[0], b[0]) && Fp::equal(a[1], b[1]);
+}
+
 void random_redc_fp6(Fp6& v, std::mt19937_64& gen)
 {
     random_redc_fp2(v[0], gen);
@@ -41,11 +48,610 @@ void random_redc_fp6(Fp6& v, std::mt19937_64& gen)
     random_redc_fp2(v[2], gen);
 }
 
+bool fp6_equal(const Fp6& a, const Fp6& b)
+{
+    return fp2_equal(a[0], b[0]) && fp2_equal(a[1], b[1]) && fp2_equal(a[2], b[2]);
+}
+
 void random_redc_fp12(Fp12& v, std::mt19937_64& gen)
 {
     for (std::size_t i = 0; i < 2; ++i) {
         random_redc_fp6(v[i], gen);
     }
+}
+
+struct BenchLUFp2Pack8x1x1
+{
+    std::array<LUFpPack8x1, 2> c;
+
+    BLST_FORCEINLINE LUFpPack8x1& operator[](std::size_t i)
+    {
+        return c[i];
+    }
+
+    BLST_FORCEINLINE const LUFpPack8x1& operator[](std::size_t i) const
+    {
+        return c[i];
+    }
+};
+
+void mul_fp6_pack_baseline_no_repair_wide(UFp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b);
+void sqr_fp6_pack_baseline_no_repair_wide(UFp6Pack8x1& r, const Fp6Pack8x1& a);
+
+BLST_FORCEINLINE void bench_lufp8x1_bias_p(LUFpPack8x1& r, const LUFpPack8x1& a)
+{
+    for (std::size_t i = 0; i < NWORDS; ++i) {
+        r[i] = a[i];
+    }
+    r[8] = VADD(a[8], VSET1(static_cast<i64>(P48[0])));
+    r[9] = VADD(a[9], VSET1(static_cast<i64>(P48[1])));
+    r[10] = VADD(a[10], VSET1(static_cast<i64>(P48[2])));
+    r[11] = VADD(a[11], VSET1(static_cast<i64>(P48[3])));
+    r[12] = VADD(a[12], VSET1(static_cast<i64>(P48[4])));
+    r[13] = VADD(a[13], VSET1(static_cast<i64>(P48[5])));
+    r[14] = VADD(a[14], VSET1(static_cast<i64>(P48[6])));
+    r[15] = VADD(a[15], VSET1(static_cast<i64>(P48[7])));
+}
+
+BLST_FORCEINLINE void bench_lufp2_add(
+    BenchLUFp2Pack8x1x1& r,
+    const BenchLUFp2Pack8x1x1& a,
+    const BenchLUFp2Pack8x1x1& b)
+{
+    LUFpPack8x1::add(r[0], a[0], b[0]);
+    LUFpPack8x1::add(r[1], a[1], b[1]);
+}
+
+BLST_FORCEINLINE void bench_lufp2_add(
+    BenchLUFp2Pack8x1x1& r,
+    const BenchLUFp2Pack8x1x1& a,
+    const UFp2Pack8x1x1& b)
+{
+    LUFpPack8x1::add(r[0], a[0], b[0]);
+    LUFpPack8x1::add(r[1], a[1], b[1]);
+}
+
+BLST_FORCEINLINE void bench_lufp2_add(
+    BenchLUFp2Pack8x1x1& r,
+    const UFp2Pack8x1x1& a,
+    const BenchLUFp2Pack8x1x1& b)
+{
+    LUFpPack8x1::add(r[0], a[0], b[0]);
+    LUFpPack8x1::add(r[1], a[1], b[1]);
+}
+
+BLST_FORCEINLINE void bench_lufp2_add(
+    BenchLUFp2Pack8x1x1& r,
+    const UFp2Pack8x1x1& a,
+    const UFp2Pack8x1x1& b)
+{
+    LUFpPack8x1::add(r[0], a[0], b[0]);
+    LUFpPack8x1::add(r[1], a[1], b[1]);
+}
+
+BLST_FORCEINLINE void bench_lufp2_sub(
+    BenchLUFp2Pack8x1x1& r,
+    const BenchLUFp2Pack8x1x1& a,
+    const BenchLUFp2Pack8x1x1& b)
+{
+    LUFpPack8x1::sub(r[0], a[0], b[0]);
+    LUFpPack8x1::sub(r[1], a[1], b[1]);
+}
+
+BLST_FORCEINLINE void bench_lufp2_sub(
+    BenchLUFp2Pack8x1x1& r,
+    const BenchLUFp2Pack8x1x1& a,
+    const UFp2Pack8x1x1& b)
+{
+    LUFpPack8x1::sub(r[0], a[0], b[0]);
+    LUFpPack8x1::sub(r[1], a[1], b[1]);
+}
+
+BLST_FORCEINLINE void bench_lufp2_sub(
+    BenchLUFp2Pack8x1x1& r,
+    const UFp2Pack8x1x1& a,
+    const BenchLUFp2Pack8x1x1& b)
+{
+    LUFpPack8x1::sub(r[0], a[0], b[0]);
+    LUFpPack8x1::sub(r[1], a[1], b[1]);
+}
+
+BLST_FORCEINLINE void bench_lufp2_sub(
+    BenchLUFp2Pack8x1x1& r,
+    const UFp2Pack8x1x1& a,
+    const UFp2Pack8x1x1& b)
+{
+    LUFpPack8x1::sub(r[0], a[0], b[0]);
+    LUFpPack8x1::sub(r[1], a[1], b[1]);
+}
+
+BLST_FORCEINLINE void bench_lufp2_bias_p(BenchLUFp2Pack8x1x1& r, const BenchLUFp2Pack8x1x1& a)
+{
+    bench_lufp8x1_bias_p(r[0], a[0]);
+    bench_lufp8x1_bias_p(r[1], a[1]);
+}
+
+BLST_FORCEINLINE void bench_lufp2_normalize(UFp2Pack8x1x1& r, const BenchLUFp2Pack8x1x1& a)
+{
+    LUFpPack8x1::normalize<LUFpNormalizeBound::HiNeg1Pos2>(r[0], a[0]);
+    LUFpPack8x1::normalize<LUFpNormalizeBound::HiNeg1Pos2>(r[1], a[1]);
+}
+
+BLST_FORCEINLINE void bench_lufp2_copy_as_ufp(UFp2Pack8x1x1& r, const BenchLUFp2Pack8x1x1& a)
+{
+    for (std::size_t c = 0; c < 2; ++c) {
+        for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+            r[c][i] = a[c][i];
+        }
+    }
+}
+
+BLST_FORCEINLINE void bench_lufp8x1_copy_as_ufp(UFpPack8x1& r, const LUFpPack8x1& a)
+{
+    for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+        r[i] = a[i];
+    }
+}
+
+BLST_FORCEINLINE void bench_ufp8x1_add_no_repair(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
+{
+    for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+        r[i] = VADD(a[i], b[i]);
+    }
+}
+
+BLST_FORCEINLINE void bench_ufp8x1_sub_no_repair(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
+{
+    for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+        r[i] = VSUB(a[i], b[i]);
+    }
+}
+
+BLST_FORCEINLINE void bench_ufp2_add_no_repair(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a, const UFp2Pack8x1x1& b)
+{
+    bench_ufp8x1_add_no_repair(r[0], a[0], b[0]);
+    bench_ufp8x1_add_no_repair(r[1], a[1], b[1]);
+}
+
+BLST_FORCEINLINE void bench_ufp2_sub_no_repair(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a, const UFp2Pack8x1x1& b)
+{
+    bench_ufp8x1_sub_no_repair(r[0], a[0], b[0]);
+    bench_ufp8x1_sub_no_repair(r[1], a[1], b[1]);
+}
+
+BLST_FORCEINLINE void bench_ufp2_mul_by_u_plus_1_no_repair(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a)
+{
+    bench_ufp8x1_sub_no_repair(r[0], a[0], a[1]);
+    bench_ufp8x1_add_no_repair(r[1], a[0], a[1]);
+}
+
+BLST_FORCEINLINE void bench_lufp8x1_add_no_normalize(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
+{
+    LUFpPack8x1 lazy{};
+    LUFpPack8x1::add(lazy, a, b);
+    bench_lufp8x1_copy_as_ufp(r, lazy);
+}
+
+BLST_FORCEINLINE void bench_lufp8x1_sub_no_normalize(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
+{
+    LUFpPack8x1 lazy{};
+    LUFpPack8x1::sub(lazy, a, b);
+    bench_lufp8x1_copy_as_ufp(r, lazy);
+}
+
+BLST_FORCEINLINE void bench_lufp8x1_add_renorm_no_normalize(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
+{
+    LUFpPack8x1 lazy{};
+    LUFpPack8x1 tmp{};
+    LUFpPack8x1::add(lazy, a, b);
+    LUFpPack8x1::renorm<LUFpRenormClass::Loose>(tmp, lazy);
+    bench_lufp8x1_copy_as_ufp(r, tmp);
+}
+
+BLST_FORCEINLINE void bench_lufp8x1_sub_renorm_no_normalize(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
+{
+    LUFpPack8x1 lazy{};
+    LUFpPack8x1 tmp{};
+    LUFpPack8x1::sub(lazy, a, b);
+    LUFpPack8x1::renorm<LUFpRenormClass::Loose>(tmp, lazy);
+    bench_lufp8x1_copy_as_ufp(r, tmp);
+}
+
+BLST_FORCEINLINE void bench_lufp2_add_no_normalize(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a, const UFp2Pack8x1x1& b)
+{
+    bench_lufp8x1_add_no_normalize(r[0], a[0], b[0]);
+    bench_lufp8x1_add_no_normalize(r[1], a[1], b[1]);
+}
+
+BLST_FORCEINLINE void bench_lufp2_sub_no_normalize(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a, const UFp2Pack8x1x1& b)
+{
+    bench_lufp8x1_sub_no_normalize(r[0], a[0], b[0]);
+    bench_lufp8x1_sub_no_normalize(r[1], a[1], b[1]);
+}
+
+BLST_FORCEINLINE void bench_lufp2_mul_by_u_plus_1_no_normalize(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a)
+{
+    bench_lufp8x1_sub_no_normalize(r[0], a[0], a[1]);
+    bench_lufp8x1_add_no_normalize(r[1], a[0], a[1]);
+}
+
+BLST_FORCEINLINE void bench_lufp2_add_renorm_no_normalize(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a, const UFp2Pack8x1x1& b)
+{
+    bench_lufp8x1_add_renorm_no_normalize(r[0], a[0], b[0]);
+    bench_lufp8x1_add_renorm_no_normalize(r[1], a[1], b[1]);
+}
+
+BLST_FORCEINLINE void bench_lufp2_sub_renorm_no_normalize(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a, const UFp2Pack8x1x1& b)
+{
+    bench_lufp8x1_sub_renorm_no_normalize(r[0], a[0], b[0]);
+    bench_lufp8x1_sub_renorm_no_normalize(r[1], a[1], b[1]);
+}
+
+BLST_FORCEINLINE void bench_lufp2_mul_by_u_plus_1_renorm_no_normalize(UFp2Pack8x1x1& r, const UFp2Pack8x1x1& a)
+{
+    bench_lufp8x1_sub_renorm_no_normalize(r[0], a[0], a[1]);
+    bench_lufp8x1_add_renorm_no_normalize(r[1], a[0], a[1]);
+}
+
+BLST_FORCEINLINE void bench_ufp2_mul_no_repair(UFp2Pack8x1x1& r, const Fp2Pack8x1x1& a, const Fp2Pack8x1x1& b)
+{
+    FpPack8x1 t0, t1;
+    UFpPack8x1 tt0, tt1, tt2;
+
+    FpPack8x1::mul(tt0, a[0], b[0]);
+    FpPack8x1::mul(tt1, a[1], b[1]);
+    FpPack8x1::add(t0, a[0], a[1]);
+    FpPack8x1::add(t1, b[0], b[1]);
+    FpPack8x1::mul(tt2, t0, t1);
+    bench_ufp8x1_sub_no_repair(r[0], tt0, tt1);
+    bench_ufp8x1_sub_no_repair(tt2, tt2, tt0);
+    bench_ufp8x1_sub_no_repair(r[1], tt2, tt1);
+}
+
+BLST_FORCEINLINE void bench_ufp2_sqr_no_repair(UFp2Pack8x1x1& r, const Fp2Pack8x1x1& a)
+{
+    FpPack8x1 sum{};
+    FpPack8x1 diff{};
+    UFpPack8x1 t1{};
+
+    FpPack8x1::add(sum, a[0], a[1]);
+    FpPack8x1::sub(diff, a[0], a[1]);
+    FpPack8x1::mul(r[0], sum, diff);
+
+    FpPack8x1::mul(t1, a[0], a[1]);
+    bench_ufp8x1_add_no_repair(r[1], t1, t1);
+}
+
+BLST_FORCEINLINE void bench_lufp2_mul_no_normalize(UFp2Pack8x1x1& r, const Fp2Pack8x1x1& a, const Fp2Pack8x1x1& b)
+{
+    FpPack8x1 t0, t1;
+    UFpPack8x1 tt0, tt1, tt2;
+
+    FpPack8x1::mul(tt0, a[0], b[0]);
+    FpPack8x1::mul(tt1, a[1], b[1]);
+    FpPack8x1::add(t0, a[0], a[1]);
+    FpPack8x1::add(t1, b[0], b[1]);
+    FpPack8x1::mul(tt2, t0, t1);
+
+    bench_lufp8x1_sub_no_normalize(r[0], tt0, tt1);
+    bench_lufp8x1_sub_no_normalize(tt2, tt2, tt0);
+    bench_lufp8x1_sub_no_normalize(r[1], tt2, tt1);
+}
+
+BLST_FORCEINLINE void bench_lufp2_sqr_no_normalize(UFp2Pack8x1x1& r, const Fp2Pack8x1x1& a)
+{
+    FpPack8x1 sum{};
+    FpPack8x1 diff{};
+    UFpPack8x1 t1{};
+
+    FpPack8x1::add(sum, a[0], a[1]);
+    FpPack8x1::sub(diff, a[0], a[1]);
+    FpPack8x1::mul(r[0], sum, diff);
+
+    FpPack8x1::mul(t1, a[0], a[1]);
+    bench_lufp8x1_add_no_normalize(r[1], t1, t1);
+}
+
+BLST_FORCEINLINE void bench_lufp2_mul_renorm_no_normalize(UFp2Pack8x1x1& r, const Fp2Pack8x1x1& a, const Fp2Pack8x1x1& b)
+{
+    FpPack8x1 t0, t1;
+    UFpPack8x1 tt0, tt1, tt2;
+
+    FpPack8x1::mul(tt0, a[0], b[0]);
+    FpPack8x1::mul(tt1, a[1], b[1]);
+    FpPack8x1::add(t0, a[0], a[1]);
+    FpPack8x1::add(t1, b[0], b[1]);
+    FpPack8x1::mul(tt2, t0, t1);
+
+    bench_lufp8x1_sub_renorm_no_normalize(r[0], tt0, tt1);
+    bench_lufp8x1_sub_renorm_no_normalize(tt2, tt2, tt0);
+    bench_lufp8x1_sub_renorm_no_normalize(r[1], tt2, tt1);
+}
+
+BLST_FORCEINLINE void bench_lufp2_sqr_renorm_no_normalize(UFp2Pack8x1x1& r, const Fp2Pack8x1x1& a)
+{
+    FpPack8x1 sum{};
+    FpPack8x1 diff{};
+    UFpPack8x1 t1{};
+
+    FpPack8x1::add(sum, a[0], a[1]);
+    FpPack8x1::sub(diff, a[0], a[1]);
+    FpPack8x1::mul(r[0], sum, diff);
+
+    FpPack8x1::mul(t1, a[0], a[1]);
+    bench_lufp8x1_add_renorm_no_normalize(r[1], t1, t1);
+}
+
+void mul_fp6_pack_lufp_wide(UFp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b)
+{
+    Fp2Pack8x1x1 aa{}, bb{};
+    UFp2Pack8x1x1 t0{}, t1{}, t2{}, wide{}, strict0{}, strict1{};
+    BenchLUFp2Pack8x1x1 lazy0{}, lazy1{}, lazy2{};
+
+    UFp2Pack8x1x1::mul(t0, a.c[0], b.c[0]);
+    UFp2Pack8x1x1::mul(t1, a.c[1], b.c[1]);
+    UFp2Pack8x1x1::mul(t2, a.c[2], b.c[2]);
+
+    // c0 = ((a1+a2)*(b1+b2) - a1*b1 - a2*b2) * (u+1) + a0*b0
+    Fp2Pack8x1x1::add(aa, a.c[1], a.c[2]);
+    Fp2Pack8x1x1::add(bb, b.c[1], b.c[2]);
+    UFp2Pack8x1x1::mul(wide, aa, bb);
+    bench_lufp2_sub(lazy0, wide, t1);
+    bench_lufp2_sub(lazy1, lazy0, t2);
+    bench_lufp2_bias_p(lazy2, lazy1);
+    bench_lufp2_normalize(strict0, lazy2);
+    UFp2Pack8x1x1::mul_by_u_plus_1(strict1, strict0);
+    UFp2Pack8x1x1::add(r.c[0], strict1, t0);
+
+    // c1 = (a0+a1)*(b0+b1) - a0*b0 - a1*b1 + (u+1)*a2*b2
+    Fp2Pack8x1x1::add(aa, a.c[0], a.c[1]);
+    Fp2Pack8x1x1::add(bb, b.c[0], b.c[1]);
+    UFp2Pack8x1x1::mul(wide, aa, bb);
+    bench_lufp2_sub(lazy0, wide, t0);
+    bench_lufp2_sub(lazy1, lazy0, t1);
+    bench_lufp2_bias_p(lazy2, lazy1);
+    bench_lufp2_normalize(strict0, lazy2);
+    UFp2Pack8x1x1::mul_by_u_plus_1(strict1, t2);
+    UFp2Pack8x1x1::add(r.c[1], strict0, strict1);
+
+    // c2 = (a0+a2)*(b0+b2) - a0*b0 - a2*b2 + a1*b1
+    Fp2Pack8x1x1::add(aa, a.c[0], a.c[2]);
+    Fp2Pack8x1x1::add(bb, b.c[0], b.c[2]);
+    UFp2Pack8x1x1::mul(wide, aa, bb);
+    bench_lufp2_sub(lazy0, wide, t0);
+    bench_lufp2_sub(lazy1, lazy0, t2);
+    bench_lufp2_bias_p(lazy2, lazy1);
+    bench_lufp2_normalize(strict0, lazy2);
+    UFp2Pack8x1x1::add(r.c[2], strict0, t1);
+}
+
+void mul_fp6_pack_lufp(Fp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b)
+{
+    UFp6Pack8x1 wide{};
+    mul_fp6_pack_lufp_wide(wide, a, b);
+    UFp6Pack8x1::redc(r, wide);
+}
+
+void sqr_fp6_pack_lufp_wide(UFp6Pack8x1& r, const Fp6Pack8x1& a)
+{
+    Fp2Pack8x1x1 sum{};
+    UFp2Pack8x1x1 s0{}, p01{}, p12{}, s2{}, wide{}, m01{}, m12{}, strict0{}, strict1{};
+    BenchLUFp2Pack8x1x1 lazy0{}, lazy1{}, lazy2{};
+
+    UFp2Pack8x1x1::mul(s0, a.c[0], a.c[0]);
+    UFp2Pack8x1x1::mul(p01, a.c[0], a.c[1]);
+    UFp2Pack8x1x1::mul(p12, a.c[1], a.c[2]);
+    UFp2Pack8x1x1::mul(s2, a.c[2], a.c[2]);
+
+    // Double the cross terms without re-entering the strict widened contract.
+    bench_lufp2_add(lazy0, p01, p01);
+    bench_lufp2_normalize(m01, lazy0);
+    bench_lufp2_add(lazy0, p12, p12);
+    bench_lufp2_normalize(m12, lazy0);
+
+    // c2 = (a0+a1+a2)^2 - a0^2 - a2^2 - 2*a0*a1 - 2*a1*a2
+    Fp2Pack8x1x1::add(sum, a.c[2], a.c[1]);
+    Fp2Pack8x1x1::add(sum, sum, a.c[0]);
+    UFp2Pack8x1x1::mul(wide, sum, sum);
+    bench_lufp2_sub(lazy0, wide, s0);
+    bench_lufp2_sub(lazy1, lazy0, s2);
+    bench_lufp2_bias_p(lazy2, lazy1);
+    bench_lufp2_normalize(strict0, lazy2);
+    bench_lufp2_sub(lazy0, strict0, m01);
+    bench_lufp2_sub(lazy1, lazy0, m12);
+    bench_lufp2_bias_p(lazy2, lazy1);
+    bench_lufp2_normalize(r.c[2], lazy2);
+
+    // c0 = a0^2 + 2*a1*a2*(u+1)
+    UFp2Pack8x1x1::mul_by_u_plus_1(strict1, m12);
+    UFp2Pack8x1x1::add(r.c[0], strict1, s0);
+
+    // c1 = a2^2*(u+1) + 2*a0*a1
+    UFp2Pack8x1x1::mul_by_u_plus_1(strict1, s2);
+    UFp2Pack8x1x1::add(r.c[1], strict1, m01);
+}
+
+void sqr_fp6_pack_lufp(Fp6Pack8x1& r, const Fp6Pack8x1& a)
+{
+    UFp6Pack8x1 wide{};
+    sqr_fp6_pack_lufp_wide(wide, a);
+    UFp6Pack8x1::redc(r, wide);
+}
+
+void mul_fp6_pack_lufp_no_normalize_wide(UFp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b)
+{
+    // Parity experiment: with renorm/normalize disabled, the lazy path should
+    // collapse to the same no-repair widened schedule as the strict baseline.
+    mul_fp6_pack_baseline_no_repair_wide(r, a, b);
+}
+
+void mul_fp6_pack_lufp_no_normalize(Fp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b)
+{
+    UFp6Pack8x1 wide{};
+    mul_fp6_pack_lufp_no_normalize_wide(wide, a, b);
+    UFp6Pack8x1::redc(r, wide);
+}
+
+void sqr_fp6_pack_lufp_no_normalize_wide(UFp6Pack8x1& r, const Fp6Pack8x1& a)
+{
+    // Parity experiment: with renorm/normalize disabled, the lazy path should
+    // collapse to the same no-repair widened schedule as the strict baseline.
+    sqr_fp6_pack_baseline_no_repair_wide(r, a);
+}
+
+void sqr_fp6_pack_lufp_no_normalize(Fp6Pack8x1& r, const Fp6Pack8x1& a)
+{
+    UFp6Pack8x1 wide{};
+    sqr_fp6_pack_lufp_no_normalize_wide(wide, a);
+    UFp6Pack8x1::redc(r, wide);
+}
+
+void mul_fp6_pack_lufp_renorm_no_normalize_wide(UFp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b)
+{
+    Fp2Pack8x1x1 aa{}, bb{};
+    UFp2Pack8x1x1 t0{}, t1{}, t2{}, t3{};
+
+    bench_lufp2_mul_renorm_no_normalize(t0, a.c[0], b.c[0]);
+    bench_lufp2_mul_renorm_no_normalize(t1, a.c[1], b.c[1]);
+    bench_lufp2_mul_renorm_no_normalize(t2, a.c[2], b.c[2]);
+
+    Fp2Pack8x1x1::add(aa, a.c[1], a.c[2]);
+    Fp2Pack8x1x1::add(bb, b.c[1], b.c[2]);
+    bench_lufp2_mul_renorm_no_normalize(r.c[0], aa, bb);
+    bench_lufp2_sub_renorm_no_normalize(r.c[0], r.c[0], t1);
+    bench_lufp2_sub_renorm_no_normalize(r.c[0], r.c[0], t2);
+    bench_lufp2_mul_by_u_plus_1_renorm_no_normalize(t3, r.c[0]);
+    bench_lufp2_add_renorm_no_normalize(r.c[0], t3, t0);
+
+    Fp2Pack8x1x1::add(aa, a.c[0], a.c[1]);
+    Fp2Pack8x1x1::add(bb, b.c[0], b.c[1]);
+    bench_lufp2_mul_renorm_no_normalize(r.c[1], aa, bb);
+    bench_lufp2_sub_renorm_no_normalize(r.c[1], r.c[1], t0);
+    bench_lufp2_sub_renorm_no_normalize(r.c[1], r.c[1], t1);
+    bench_lufp2_mul_by_u_plus_1_renorm_no_normalize(t3, t2);
+    bench_lufp2_add_renorm_no_normalize(r.c[1], r.c[1], t3);
+
+    Fp2Pack8x1x1::add(aa, a.c[0], a.c[2]);
+    Fp2Pack8x1x1::add(bb, b.c[0], b.c[2]);
+    bench_lufp2_mul_renorm_no_normalize(r.c[2], aa, bb);
+    bench_lufp2_sub_renorm_no_normalize(r.c[2], r.c[2], t0);
+    bench_lufp2_sub_renorm_no_normalize(r.c[2], r.c[2], t2);
+    bench_lufp2_add_renorm_no_normalize(r.c[2], r.c[2], t1);
+}
+
+void mul_fp6_pack_lufp_renorm_no_normalize(Fp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b)
+{
+    UFp6Pack8x1 wide{};
+    mul_fp6_pack_lufp_renorm_no_normalize_wide(wide, a, b);
+    UFp6Pack8x1::redc(r, wide);
+}
+
+void sqr_fp6_pack_lufp_renorm_no_normalize_wide(UFp6Pack8x1& r, const Fp6Pack8x1& a)
+{
+    Fp2Pack8x1x1 t0{};
+    UFp2Pack8x1x1 s0{}, m01{}, m12{}, s2{}, rx{};
+
+    bench_lufp2_sqr_renorm_no_normalize(s0, a.c[0]);
+    bench_lufp2_mul_renorm_no_normalize(m01, a.c[0], a.c[1]);
+    bench_lufp2_add_renorm_no_normalize(m01, m01, m01);
+    bench_lufp2_mul_renorm_no_normalize(m12, a.c[1], a.c[2]);
+    bench_lufp2_add_renorm_no_normalize(m12, m12, m12);
+    bench_lufp2_sqr_renorm_no_normalize(s2, a.c[2]);
+
+    Fp2Pack8x1x1::add(t0, a.c[2], a.c[1]);
+    Fp2Pack8x1x1::add(t0, t0, a.c[0]);
+    bench_lufp2_mul_renorm_no_normalize(rx, t0, t0);
+    bench_lufp2_sub_renorm_no_normalize(r.c[2], rx, s0);
+    bench_lufp2_sub_renorm_no_normalize(r.c[2], r.c[2], s2);
+    bench_lufp2_sub_renorm_no_normalize(r.c[2], r.c[2], m01);
+    bench_lufp2_sub_renorm_no_normalize(r.c[2], r.c[2], m12);
+
+    bench_lufp2_mul_by_u_plus_1_renorm_no_normalize(rx, m12);
+    bench_lufp2_add_renorm_no_normalize(r.c[0], rx, s0);
+
+    bench_lufp2_mul_by_u_plus_1_renorm_no_normalize(rx, s2);
+    bench_lufp2_add_renorm_no_normalize(r.c[1], rx, m01);
+}
+
+void sqr_fp6_pack_lufp_renorm_no_normalize(Fp6Pack8x1& r, const Fp6Pack8x1& a)
+{
+    UFp6Pack8x1 wide{};
+    sqr_fp6_pack_lufp_renorm_no_normalize_wide(wide, a);
+    UFp6Pack8x1::redc(r, wide);
+}
+
+void mul_fp6_pack_baseline_no_repair_wide(UFp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b)
+{
+    Fp2Pack8x1x1 aa{}, bb{};
+    UFp2Pack8x1x1 t0{}, t1{}, t2{}, t3{};
+
+    bench_ufp2_mul_no_repair(t0, a.c[0], b.c[0]);
+    bench_ufp2_mul_no_repair(t1, a.c[1], b.c[1]);
+    bench_ufp2_mul_no_repair(t2, a.c[2], b.c[2]);
+
+    Fp2Pack8x1x1::add(aa, a.c[1], a.c[2]);
+    Fp2Pack8x1x1::add(bb, b.c[1], b.c[2]);
+    bench_ufp2_mul_no_repair(r.c[0], aa, bb);
+    bench_ufp2_sub_no_repair(r.c[0], r.c[0], t1);
+    bench_ufp2_sub_no_repair(r.c[0], r.c[0], t2);
+    bench_ufp2_mul_by_u_plus_1_no_repair(t3, r.c[0]);
+    bench_ufp2_add_no_repair(r.c[0], t3, t0);
+
+    Fp2Pack8x1x1::add(aa, a.c[0], a.c[1]);
+    Fp2Pack8x1x1::add(bb, b.c[0], b.c[1]);
+    bench_ufp2_mul_no_repair(r.c[1], aa, bb);
+    bench_ufp2_sub_no_repair(r.c[1], r.c[1], t0);
+    bench_ufp2_sub_no_repair(r.c[1], r.c[1], t1);
+    bench_ufp2_mul_by_u_plus_1_no_repair(t3, t2);
+    bench_ufp2_add_no_repair(r.c[1], r.c[1], t3);
+
+    Fp2Pack8x1x1::add(aa, a.c[0], a.c[2]);
+    Fp2Pack8x1x1::add(bb, b.c[0], b.c[2]);
+    bench_ufp2_mul_no_repair(r.c[2], aa, bb);
+    bench_ufp2_sub_no_repair(r.c[2], r.c[2], t0);
+    bench_ufp2_sub_no_repair(r.c[2], r.c[2], t2);
+    bench_ufp2_add_no_repair(r.c[2], r.c[2], t1);
+}
+
+void mul_fp6_pack_baseline_no_repair(Fp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b)
+{
+    UFp6Pack8x1 wide{};
+    mul_fp6_pack_baseline_no_repair_wide(wide, a, b);
+    UFp6Pack8x1::redc(r, wide);
+}
+
+void sqr_fp6_pack_baseline_no_repair_wide(UFp6Pack8x1& r, const Fp6Pack8x1& a)
+{
+    Fp2Pack8x1x1 t0{};
+    UFp2Pack8x1x1 s0{}, m01{}, m12{}, s2{}, rx{};
+
+    bench_ufp2_sqr_no_repair(s0, a.c[0]);
+    bench_ufp2_mul_no_repair(m01, a.c[0], a.c[1]);
+    bench_ufp2_add_no_repair(m01, m01, m01);
+    bench_ufp2_mul_no_repair(m12, a.c[1], a.c[2]);
+    bench_ufp2_add_no_repair(m12, m12, m12);
+    bench_ufp2_sqr_no_repair(s2, a.c[2]);
+
+    Fp2Pack8x1x1::add(t0, a.c[2], a.c[1]);
+    Fp2Pack8x1x1::add(t0, t0, a.c[0]);
+    bench_ufp2_mul_no_repair(rx, t0, t0);
+    bench_ufp2_sub_no_repair(r.c[2], rx, s0);
+    bench_ufp2_sub_no_repair(r.c[2], r.c[2], s2);
+    bench_ufp2_sub_no_repair(r.c[2], r.c[2], m01);
+    bench_ufp2_sub_no_repair(r.c[2], r.c[2], m12);
+
+    bench_ufp2_mul_by_u_plus_1_no_repair(rx, m12);
+    bench_ufp2_add_no_repair(r.c[0], rx, s0);
+
+    bench_ufp2_mul_by_u_plus_1_no_repair(rx, s2);
+    bench_ufp2_add_no_repair(r.c[1], rx, m01);
+}
+
+void sqr_fp6_pack_baseline_no_repair(Fp6Pack8x1& r, const Fp6Pack8x1& a)
+{
+    UFp6Pack8x1 wide{};
+    sqr_fp6_pack_baseline_no_repair_wide(wide, a);
+    UFp6Pack8x1::redc(r, wide);
 }
 
 void mul_fp6_scalar(Fp6& r, const Fp6& a, const Fp6& b)
@@ -383,6 +989,48 @@ struct Fp6BenchData
     std::vector<Fp6Pack8x1> out_pack;
 };
 
+void validate_fp6_pack_lufp()
+{
+    static const bool validated = []() {
+        Fp6BenchData data(8);
+        std::array<Fp6, 8> got{};
+        std::array<Fp6, 8> ref{};
+
+        for (std::size_t p = 0; p < data.n_packs; ++p) {
+            Fp6Pack8x1 got_mul{};
+            Fp6Pack8x1 ref_mul{};
+            Fp6Pack8x1 got_sqr{};
+            Fp6Pack8x1 ref_sqr{};
+
+            mul_fp6_pack_lufp(got_mul, data.a_pack[p], data.b_pack[p]);
+            Fp6Pack8x1::mul(ref_mul, data.a_pack[p], data.b_pack[p]);
+            Fp6Pack8x1::to_aos(got.data(), got_mul);
+            Fp6Pack8x1::to_aos(ref.data(), ref_mul);
+            for (std::size_t lane = 0; lane < got.size(); ++lane) {
+                if (!fp6_equal(got[lane], ref[lane])) {
+                    std::fprintf(stderr, "Fp6 LUFp mul validation failed at pack %zu lane %zu\n", p, lane);
+                    std::abort();
+                }
+            }
+
+            sqr_fp6_pack_lufp(got_sqr, data.a_pack[p]);
+            Fp6Pack8x1::sqr(ref_sqr, data.a_pack[p]);
+            Fp6Pack8x1::to_aos(got.data(), got_sqr);
+            Fp6Pack8x1::to_aos(ref.data(), ref_sqr);
+            for (std::size_t lane = 0; lane < got.size(); ++lane) {
+                if (!fp6_equal(got[lane], ref[lane])) {
+                    std::fprintf(stderr, "Fp6 LUFp sqr validation failed at pack %zu lane %zu\n", p, lane);
+                    std::abort();
+                }
+            }
+        }
+
+        return true;
+    }();
+
+    benchmark::DoNotOptimize(validated);
+}
+
 struct Fp12BenchData
 {
     explicit Fp12BenchData(const std::size_t packs)
@@ -523,6 +1171,67 @@ void BM_Fp6Mul_Pack8x1(benchmark::State& state)
 }
 BENCHMARK(BM_Fp6Mul_Pack8x1)->Arg(256);
 
+void BM_Fp6Mul_Pack8x1_LUFp(benchmark::State& state)
+{
+    const std::size_t packs = static_cast<std::size_t>(state.range(0));
+    Fp6BenchData data(packs);
+    validate_fp6_pack_lufp();
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs; ++p) {
+            mul_fp6_pack_lufp(data.out_pack[p], data.a_pack[p], data.b_pack[p]);
+        }
+        benchmark::DoNotOptimize(data.out_pack.data());
+    }
+    state.SetItemsProcessed(state.iterations() * data.n_tuples);
+}
+BENCHMARK(BM_Fp6Mul_Pack8x1_LUFp)->Arg(256);
+
+void BM_Fp6Mul_Pack8x1_BaselineNoRepair(benchmark::State& state)
+{
+    const std::size_t packs = static_cast<std::size_t>(state.range(0));
+    Fp6BenchData data(packs);
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs; ++p) {
+            mul_fp6_pack_baseline_no_repair(data.out_pack[p], data.a_pack[p], data.b_pack[p]);
+        }
+        benchmark::DoNotOptimize(data.out_pack.data());
+    }
+    state.SetItemsProcessed(state.iterations() * data.n_tuples);
+}
+BENCHMARK(BM_Fp6Mul_Pack8x1_BaselineNoRepair)->Arg(256);
+
+void BM_Fp6Mul_Pack8x1_LUFp_NoNormalize(benchmark::State& state)
+{
+    const std::size_t packs = static_cast<std::size_t>(state.range(0));
+    Fp6BenchData data(packs);
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs; ++p) {
+            mul_fp6_pack_lufp_no_normalize(data.out_pack[p], data.a_pack[p], data.b_pack[p]);
+        }
+        benchmark::DoNotOptimize(data.out_pack.data());
+    }
+    state.SetItemsProcessed(state.iterations() * data.n_tuples);
+}
+BENCHMARK(BM_Fp6Mul_Pack8x1_LUFp_NoNormalize)->Arg(256);
+
+void BM_Fp6Mul_Pack8x1_LUFp_RenormNoNormalize(benchmark::State& state)
+{
+    const std::size_t packs = static_cast<std::size_t>(state.range(0));
+    Fp6BenchData data(packs);
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs; ++p) {
+            mul_fp6_pack_lufp_renorm_no_normalize(data.out_pack[p], data.a_pack[p], data.b_pack[p]);
+        }
+        benchmark::DoNotOptimize(data.out_pack.data());
+    }
+    state.SetItemsProcessed(state.iterations() * data.n_tuples);
+}
+BENCHMARK(BM_Fp6Mul_Pack8x1_LUFp_RenormNoNormalize)->Arg(256);
+
 void BM_Fp6Sqr_Scalar8(benchmark::State& state)
 {
     const std::size_t packs = static_cast<std::size_t>(state.range(0));
@@ -552,6 +1261,67 @@ void BM_Fp6Sqr_Pack8x1(benchmark::State& state)
     state.SetItemsProcessed(state.iterations() * data.n_tuples);
 }
 BENCHMARK(BM_Fp6Sqr_Pack8x1)->Arg(256);
+
+void BM_Fp6Sqr_Pack8x1_LUFp(benchmark::State& state)
+{
+    const std::size_t packs = static_cast<std::size_t>(state.range(0));
+    Fp6BenchData data(packs);
+    validate_fp6_pack_lufp();
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs; ++p) {
+            sqr_fp6_pack_lufp(data.out_pack[p], data.a_pack[p]);
+        }
+        benchmark::DoNotOptimize(data.out_pack.data());
+    }
+    state.SetItemsProcessed(state.iterations() * data.n_tuples);
+}
+BENCHMARK(BM_Fp6Sqr_Pack8x1_LUFp)->Arg(256);
+
+void BM_Fp6Sqr_Pack8x1_BaselineNoRepair(benchmark::State& state)
+{
+    const std::size_t packs = static_cast<std::size_t>(state.range(0));
+    Fp6BenchData data(packs);
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs; ++p) {
+            sqr_fp6_pack_baseline_no_repair(data.out_pack[p], data.a_pack[p]);
+        }
+        benchmark::DoNotOptimize(data.out_pack.data());
+    }
+    state.SetItemsProcessed(state.iterations() * data.n_tuples);
+}
+BENCHMARK(BM_Fp6Sqr_Pack8x1_BaselineNoRepair)->Arg(256);
+
+void BM_Fp6Sqr_Pack8x1_LUFp_NoNormalize(benchmark::State& state)
+{
+    const std::size_t packs = static_cast<std::size_t>(state.range(0));
+    Fp6BenchData data(packs);
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs; ++p) {
+            sqr_fp6_pack_lufp_no_normalize(data.out_pack[p], data.a_pack[p]);
+        }
+        benchmark::DoNotOptimize(data.out_pack.data());
+    }
+    state.SetItemsProcessed(state.iterations() * data.n_tuples);
+}
+BENCHMARK(BM_Fp6Sqr_Pack8x1_LUFp_NoNormalize)->Arg(256);
+
+void BM_Fp6Sqr_Pack8x1_LUFp_RenormNoNormalize(benchmark::State& state)
+{
+    const std::size_t packs = static_cast<std::size_t>(state.range(0));
+    Fp6BenchData data(packs);
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs; ++p) {
+            sqr_fp6_pack_lufp_renorm_no_normalize(data.out_pack[p], data.a_pack[p]);
+        }
+        benchmark::DoNotOptimize(data.out_pack.data());
+    }
+    state.SetItemsProcessed(state.iterations() * data.n_tuples);
+}
+BENCHMARK(BM_Fp6Sqr_Pack8x1_LUFp_RenormNoNormalize)->Arg(256);
 
 void BM_Fp12Mul_Scalar8(benchmark::State& state)
 {

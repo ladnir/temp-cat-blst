@@ -118,6 +118,13 @@ namespace blst
         Loose,
     };
 
+    /// @brief Compile-time bound class for fast `LUFpPack8x1 -> UFpPack8x1` normalization.
+    enum class LUFpNormalizeBound
+    {
+        /// @brief After signed carry, the high half satisfies `-p <= H < 2p`.
+        HiNeg1Pos2,
+    };
+
     /** @name Packed AVX Fp layouts */
     ///@{
     /// @brief Eight parallel reduced Fp values in "8x1w" layout.
@@ -259,9 +266,18 @@ namespace blst
         ///          output again satisfies the current `UFpPack8x1` contract.
         static void normalize(UFpPack8x1& r, const LUFpPack8x1& a);
 
+        /// @brief Fast bounded normalize from lazy widened to strict widened storage.
+        /// @details The caller is responsible for maintaining the documented
+        ///          compile-time bound class for the high half after signed carry.
+        template <LUFpNormalizeBound B>
+        static void normalize(UFpPack8x1& r, const LUFpPack8x1& a);
+
         /// @brief Lane-wise select between two lazy widened packed values.
         /// @details Bit `i` of `lane_mask` selects lane `i`: `0 -> a`, `1 -> b`.
         static void select(LUFpPack8x1& r, const LUFpPack8x1& a, const LUFpPack8x1& b, u8 lane_mask);
+
+    private:
+        static void normalize_hi_neg1_pos2(UFpPack8x1& r, const LUFpPack8x1& a);
     };
 
 
@@ -439,6 +455,16 @@ namespace blst
 
         for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
             r[i] = limbs[i];
+        }
+    }
+
+    template <LUFpNormalizeBound B>
+    BLST_FORCEINLINE void LUFpPack8x1::normalize(UFpPack8x1& r, const LUFpPack8x1& a)
+    {
+        if constexpr (B == LUFpNormalizeBound::HiNeg1Pos2) {
+            normalize_hi_neg1_pos2(r, a);
+        } else {
+            static_assert(B == LUFpNormalizeBound::HiNeg1Pos2);
         }
     }
 

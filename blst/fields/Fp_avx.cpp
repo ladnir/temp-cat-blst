@@ -173,6 +173,125 @@ BLST_FORCEINLINE void lufp8x1_binary_op(LUFpPack8x1& r, const A& a, const B& b, 
         r[i] = op(a[i], b[i]);
     }
 }
+
+BLST_FORCEINLINE void lufp8x1_signed_carry_range(cc512i* limbs, const std::size_t begin, const std::size_t end)
+{
+    for (std::size_t i = begin; i < end; ++i) {
+        const cc512i carry = VSRA(limbs[i], BRADIX);
+        limbs[i] = VSUB(limbs[i], VSHL(carry, BRADIX));
+        limbs[i + 1] = VADD(limbs[i + 1], carry);
+    }
+}
+
+BLST_FORCEINLINE auto lufp8x1_mask_eq_epi64(const cc512i a, const cc512i b) -> u8
+{
+#if BLST_AVX_NATIVE
+    return static_cast<u8>(_mm512_cmpeq_epi64_mask(to_native_512(a), to_native_512(b)));
+#else
+    std::array<u64, 8> lhs{};
+    std::array<u64, 8> rhs{};
+    _cc512_storeu_si512(lhs.data(), a);
+    _cc512_storeu_si512(rhs.data(), b);
+    u8 mask = 0;
+    for (u8 lane = 0; lane < 8; ++lane) {
+        if (lhs[lane] == rhs[lane]) {
+            mask |= static_cast<u8>(1u << lane);
+        }
+    }
+    return mask;
+#endif
+}
+
+BLST_FORCEINLINE auto lufp8x1_mask_gt_epi64(const cc512i a, const cc512i b) -> u8
+{
+#if BLST_AVX_NATIVE
+    return static_cast<u8>(_mm512_cmpgt_epi64_mask(to_native_512(a), to_native_512(b)));
+#else
+    std::array<u64, 8> lhs{};
+    std::array<u64, 8> rhs{};
+    _cc512_storeu_si512(lhs.data(), a);
+    _cc512_storeu_si512(rhs.data(), b);
+    u8 mask = 0;
+    for (u8 lane = 0; lane < 8; ++lane) {
+        if (static_cast<i64>(lhs[lane]) > static_cast<i64>(rhs[lane])) {
+            mask |= static_cast<u8>(1u << lane);
+        }
+    }
+    return mask;
+#endif
+}
+
+BLST_FORCEINLINE auto lufp8x1_high_ge_p_mask(const cc512i* limbs) -> u8
+{
+    u8 eq_mask = 0xFF;
+    u8 gt_mask = 0;
+
+    for (int i = static_cast<int>(NWORDS) - 1; i >= 0; --i) {
+        const cc512i mod = VSET1(static_cast<i64>(P48[i]));
+        const u8 gt_i = lufp8x1_mask_gt_epi64(limbs[8 + i], mod);
+        const u8 eq_i = lufp8x1_mask_eq_epi64(limbs[8 + i], mod);
+        gt_mask |= static_cast<u8>(eq_mask & gt_i);
+        eq_mask &= eq_i;
+    }
+
+    return static_cast<u8>(gt_mask | eq_mask);
+}
+
+BLST_FORCEINLINE void lufp8x1_high_add_p_masked(cc512i* limbs, const u8 lane_mask)
+{
+    limbs[8] = VMADD(limbs[8], lane_mask, limbs[8], VSET1(static_cast<i64>(P48[0])));
+    limbs[9] = VMADD(limbs[9], lane_mask, limbs[9], VSET1(static_cast<i64>(P48[1])));
+    limbs[10] = VMADD(limbs[10], lane_mask, limbs[10], VSET1(static_cast<i64>(P48[2])));
+    limbs[11] = VMADD(limbs[11], lane_mask, limbs[11], VSET1(static_cast<i64>(P48[3])));
+    limbs[12] = VMADD(limbs[12], lane_mask, limbs[12], VSET1(static_cast<i64>(P48[4])));
+    limbs[13] = VMADD(limbs[13], lane_mask, limbs[13], VSET1(static_cast<i64>(P48[5])));
+    limbs[14] = VMADD(limbs[14], lane_mask, limbs[14], VSET1(static_cast<i64>(P48[6])));
+    limbs[15] = VMADD(limbs[15], lane_mask, limbs[15], VSET1(static_cast<i64>(P48[7])));
+}
+
+BLST_FORCEINLINE void lufp8x1_high_sub_p_masked(cc512i* limbs, const u8 lane_mask)
+{
+    limbs[8] = VMSUB(limbs[8], lane_mask, limbs[8], VSET1(static_cast<i64>(P48[0])));
+    limbs[9] = VMSUB(limbs[9], lane_mask, limbs[9], VSET1(static_cast<i64>(P48[1])));
+    limbs[10] = VMSUB(limbs[10], lane_mask, limbs[10], VSET1(static_cast<i64>(P48[2])));
+    limbs[11] = VMSUB(limbs[11], lane_mask, limbs[11], VSET1(static_cast<i64>(P48[3])));
+    limbs[12] = VMSUB(limbs[12], lane_mask, limbs[12], VSET1(static_cast<i64>(P48[4])));
+    limbs[13] = VMSUB(limbs[13], lane_mask, limbs[13], VSET1(static_cast<i64>(P48[5])));
+    limbs[14] = VMSUB(limbs[14], lane_mask, limbs[14], VSET1(static_cast<i64>(P48[6])));
+    limbs[15] = VMSUB(limbs[15], lane_mask, limbs[15], VSET1(static_cast<i64>(P48[7])));
+}
+
+#if !defined(NDEBUG)
+void lufp8x1_debug_assert_hi_neg1_pos2(const cc512i* limbs)
+{
+    std::array<std::array<u64, 8>, 2 * NWORDS> words{};
+    for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+        _cc512_storeu_si512(words[i].data(), limbs[i]);
+    }
+
+    for (std::size_t lane = 0; lane < 8; ++lane) {
+        i64 work[2 * NWORDS]{};
+        for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+            work[i] = static_cast<i64>(words[i][lane]);
+        }
+
+        i64 lower[2 * NWORDS]{};
+        i64 upper[2 * NWORDS]{};
+        for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+            lower[i] = work[i];
+            upper[i] = work[i];
+        }
+
+        lufp_scalar_high_add_p(lower);
+        BLST_ASSERT(!lufp_scalar_high_negative(lower));
+
+        if (lufp_scalar_high_ge_p(upper)) {
+            lufp_scalar_high_sub_p(upper);
+        }
+        BLST_ASSERT(!lufp_scalar_high_ge_p(upper));
+    }
+}
+#endif
 } // namespace
 
 void conv_64to48_fp(u64 *r, const u64 *a)
@@ -433,6 +552,47 @@ void LUFpPack8x1::normalize(UFpPack8x1& r, const LUFpPack8x1& a)
   for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
     r[i] = _cc512_loadu_si512(out_words[i].data());
   }
+}
+
+void LUFpPack8x1::normalize_hi_neg1_pos2(UFpPack8x1& r, const LUFpPack8x1& a)
+{
+  BLST_ASSERT_NO_OVERLAP_AVX(r, a);
+
+  cc512i limbs[2 * NWORDS];
+  for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+    limbs[i] = a[i];
+  }
+
+  lufp8x1_signed_carry_range(limbs, 0, (2 * NWORDS) - 1);
+
+#if !defined(NDEBUG)
+  lufp8x1_debug_assert_hi_neg1_pos2(limbs);
+#endif
+
+  const u8 neg_mask = lufp8x1_mask_gt_epi64(VZERO(), limbs[15]);
+  lufp8x1_high_add_p_masked(limbs, neg_mask);
+  lufp8x1_signed_carry_range(limbs, NWORDS, (2 * NWORDS) - 1);
+
+  const u8 ge_mask = lufp8x1_high_ge_p_mask(limbs);
+  lufp8x1_high_sub_p_masked(limbs, ge_mask);
+  lufp8x1_signed_carry_range(limbs, NWORDS, (2 * NWORDS) - 1);
+
+  const cc512i bmask = VSET1(BMASK);
+  for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+    r[i] = VAND(limbs[i], bmask);
+  }
+
+#if !defined(NDEBUG)
+  UFpPack8x1 ref{};
+  LUFpPack8x1::normalize(ref, a);
+  for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+    std::array<u64, 8> got{};
+    std::array<u64, 8> want{};
+    _cc512_storeu_si512(got.data(), r[i]);
+    _cc512_storeu_si512(want.data(), ref[i]);
+    BLST_ASSERT(got == want);
+  }
+#endif
 }
 
 void conv_48to64_mpi(u64 *r, const u64 *a, int rlen, int alen)

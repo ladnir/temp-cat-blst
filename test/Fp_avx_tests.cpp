@@ -236,6 +236,16 @@ void copy_as_lufp(LUFpPack8x1& out, const UFpPack8x1& in)
     std::memcpy(&out, &in, sizeof(out));
 }
 
+void bias_lufp_high_by_p(LUFpPack8x1& out, const LUFpPack8x1& in)
+{
+    for (size_t i = 0; i < 2 * NWORDS; ++i) {
+        out[i] = in[i];
+    }
+    for (size_t i = 0; i < NWORDS; ++i) {
+        out[NWORDS + i] = VADD(out[NWORDS + i], VSET1(static_cast<i64>(P48[i])));
+    }
+}
+
 bool equal_UFpPack8x1(const UFpPack8x1& a, const UFpPack8x1& b)
 {
     return std::memcmp(&a, &b, sizeof(a)) == 0;
@@ -964,6 +974,47 @@ TEST(FpAvx, LazyWidened8x1wMixedOverloads)
         LUFpPack8x1::normalize(got, lazy_r);
         EXPECT_TRUE(is_valid_UFpPack8x1(got));
         EXPECT_TRUE(equal_UFpPack8x1(got, strict));
+    }
+}
+
+TEST(FpAvx, LazyWidened8x1wBoundedNormalizeFast)
+{
+    InsecureRng rng;
+
+    for (int iter = 0; iter < 192; ++iter) {
+        UFpPack8x1 wide_a{};
+        UFpPack8x1 wide_b{};
+        UFpPack8x1 strict{};
+        UFpPack8x1 got_generic{};
+        UFpPack8x1 got_fast{};
+        LUFpPack8x1 lazy{};
+        LUFpPack8x1 lazy_biased{};
+
+        make_random_wide_mul(wide_a, rng, iter);
+        make_random_wide_mul(wide_b, rng, iter + 97);
+
+        UFpPack8x1::add(strict, wide_a, wide_b);
+        LUFpPack8x1::add(lazy, wide_a, wide_b);
+        LUFpPack8x1::normalize(got_generic, lazy);
+        LUFpPack8x1::normalize<LUFpNormalizeBound::HiNeg1Pos2>(got_fast, lazy);
+        EXPECT_TRUE(is_valid_UFpPack8x1(got_fast));
+        EXPECT_TRUE(equal_UFpPack8x1(got_fast, strict));
+        EXPECT_TRUE(equal_UFpPack8x1(got_fast, got_generic));
+
+        UFpPack8x1::sub(strict, wide_a, wide_b);
+        LUFpPack8x1::sub(lazy, wide_a, wide_b);
+        LUFpPack8x1::normalize(got_generic, lazy);
+        LUFpPack8x1::normalize<LUFpNormalizeBound::HiNeg1Pos2>(got_fast, lazy);
+        EXPECT_TRUE(is_valid_UFpPack8x1(got_fast));
+        EXPECT_TRUE(equal_UFpPack8x1(got_fast, strict));
+        EXPECT_TRUE(equal_UFpPack8x1(got_fast, got_generic));
+
+        bias_lufp_high_by_p(lazy_biased, lazy);
+        LUFpPack8x1::normalize(got_generic, lazy_biased);
+        LUFpPack8x1::normalize<LUFpNormalizeBound::HiNeg1Pos2>(got_fast, lazy_biased);
+        EXPECT_TRUE(is_valid_UFpPack8x1(got_fast));
+        EXPECT_TRUE(equal_UFpPack8x1(got_fast, strict));
+        EXPECT_TRUE(equal_UFpPack8x1(got_fast, got_generic));
     }
 }
 
