@@ -12,6 +12,16 @@ const u64 P48[NWORDS] = {
     0x4B84F38512BFULL, 0x434BACD76477ULL, 0xE69A4B1BA7B6ULL, 0x1A0111EA397FULL,
 };
 
+const u64 P48X2[NWORDS] = {
+    0xFFFFFFFF5556ULL, 0x62A7FFFF73FDULL, 0xEC483D57FFFDULL, 0xCE61A541ED61ULL,
+    0x9709E70A257EULL, 0x869759AEC8EEULL, 0xCD3496374F6CULL, 0x340223D472FFULL,
+};
+
+const u64 P48X4[NWORDS] = {
+    0xFFFFFFFEAAACULL, 0xC54FFFFEE7FBULL, 0xD8907AAFFFFAULL, 0x9CC34A83DAC3ULL,
+    0x2E13CE144AFDULL, 0x0D2EB35D91DDULL, 0x9A692C6E9ED9ULL, 0x680447A8E5FFULL,
+};
+
 #ifndef BLST_HAVE_FP8X1_MUL_REDC_CORE_K2_ASM
 #define BLST_HAVE_FP8X1_MUL_REDC_CORE_K2_ASM 0
 #endif
@@ -136,6 +146,37 @@ BLST_FORCEINLINE void lufp_scalar_high_sub_p(i64* limbs)
     lufp_scalar_signed_renorm_range(limbs, 8, 15);
 }
 
+BLST_FORCEINLINE bool lufp_scalar_high_ge_mod(const i64* limbs, const u64* mod)
+{
+    for (int i = static_cast<int>(NWORDS) - 1; i >= 0; --i) {
+        const i64 lhs = limbs[8 + i];
+        const i64 rhs = static_cast<i64>(mod[i]);
+        if (lhs > rhs) {
+            return true;
+        }
+        if (lhs < rhs) {
+            return false;
+        }
+    }
+    return true;
+}
+
+BLST_FORCEINLINE void lufp_scalar_high_add_mod(i64* limbs, const u64* mod)
+{
+    for (std::size_t i = 0; i < NWORDS; ++i) {
+        limbs[8 + i] += static_cast<i64>(mod[i]);
+    }
+    lufp_scalar_signed_renorm_range(limbs, 8, 15);
+}
+
+BLST_FORCEINLINE void lufp_scalar_high_sub_mod(i64* limbs, const u64* mod)
+{
+    for (std::size_t i = 0; i < NWORDS; ++i) {
+        limbs[8 + i] -= static_cast<i64>(mod[i]);
+    }
+    lufp_scalar_signed_renorm_range(limbs, 8, 15);
+}
+
 BLST_FORCEINLINE void lufp_scalar_normalize_to_ufp(i64* limbs)
 {
     lufp_scalar_signed_renorm_range(limbs, 0, 15);
@@ -164,8 +205,8 @@ BLST_FORCEINLINE void lufp_scalar_normalize_to_ufp(i64* limbs)
     }
 }
 
-template <class A, class B, class Op>
-BLST_FORCEINLINE void lufp8x1_binary_op(LUFpPack8x1& r, const A& a, const B& b, Op&& op)
+template <class R, class A, class B, class Op>
+BLST_FORCEINLINE void lufp8x1_binary_op(R& r, const A& a, const B& b, Op&& op)
 {
     BLST_ASSERT_NO_OVERLAP_AVX(r, a);
     BLST_ASSERT_NO_OVERLAP_AVX(r, b);
@@ -237,6 +278,22 @@ BLST_FORCEINLINE auto lufp8x1_high_ge_p_mask(const cc512i* limbs) -> u8
     return static_cast<u8>(gt_mask | eq_mask);
 }
 
+BLST_FORCEINLINE auto lufp8x1_high_ge_mod_mask(const cc512i* limbs, const u64* mod) -> u8
+{
+    u8 eq_mask = 0xFF;
+    u8 gt_mask = 0;
+
+    for (int i = static_cast<int>(NWORDS) - 1; i >= 0; --i) {
+        const cc512i mod_i = VSET1(static_cast<i64>(mod[i]));
+        const u8 gt_i = lufp8x1_mask_gt_epi64(limbs[8 + i], mod_i);
+        const u8 eq_i = lufp8x1_mask_eq_epi64(limbs[8 + i], mod_i);
+        gt_mask |= static_cast<u8>(eq_mask & gt_i);
+        eq_mask &= eq_i;
+    }
+
+    return static_cast<u8>(gt_mask | eq_mask);
+}
+
 BLST_FORCEINLINE void lufp8x1_high_add_p_masked(cc512i* limbs, const u8 lane_mask)
 {
     limbs[8] = VMADD(limbs[8], lane_mask, limbs[8], VSET1(static_cast<i64>(P48[0])));
@@ -259,6 +316,22 @@ BLST_FORCEINLINE void lufp8x1_high_sub_p_masked(cc512i* limbs, const u8 lane_mas
     limbs[13] = VMSUB(limbs[13], lane_mask, limbs[13], VSET1(static_cast<i64>(P48[5])));
     limbs[14] = VMSUB(limbs[14], lane_mask, limbs[14], VSET1(static_cast<i64>(P48[6])));
     limbs[15] = VMSUB(limbs[15], lane_mask, limbs[15], VSET1(static_cast<i64>(P48[7])));
+}
+
+BLST_FORCEINLINE void lufp8x1_high_add_mod_masked(cc512i* limbs, const u8 lane_mask, const u64* mod)
+{
+    for (std::size_t i = 0; i < NWORDS; ++i) {
+        limbs[8 + i] = VMADD(
+            limbs[8 + i], lane_mask, limbs[8 + i], VSET1(static_cast<i64>(mod[i])));
+    }
+}
+
+BLST_FORCEINLINE void lufp8x1_high_sub_mod_masked(cc512i* limbs, const u8 lane_mask, const u64* mod)
+{
+    for (std::size_t i = 0; i < NWORDS; ++i) {
+        limbs[8 + i] = VMSUB(
+            limbs[8 + i], lane_mask, limbs[8 + i], VSET1(static_cast<i64>(mod[i])));
+    }
 }
 
 #if !defined(NDEBUG)
@@ -288,6 +361,46 @@ void lufp8x1_debug_assert_hi_neg1_pos2(const cc512i* limbs)
         if (lufp_scalar_high_ge_p(upper)) {
             lufp_scalar_high_sub_p(upper);
         }
+        BLST_ASSERT(!lufp_scalar_high_ge_p(upper));
+    }
+}
+
+void lufp8x1_debug_assert_hi_neg4_pos4(const cc512i* limbs)
+{
+    std::array<std::array<u64, 8>, 2 * NWORDS> words{};
+    for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+        _cc512_storeu_si512(words[i].data(), limbs[i]);
+    }
+
+    for (std::size_t lane = 0; lane < 8; ++lane) {
+        i64 work[2 * NWORDS]{};
+        for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+            work[i] = static_cast<i64>(words[i][lane]);
+        }
+
+        i64 lower[2 * NWORDS]{};
+        i64 upper[2 * NWORDS]{};
+        for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+            lower[i] = work[i];
+            upper[i] = work[i];
+        }
+
+        lufp_scalar_high_add_mod(lower, P48X4);
+        if (lufp_scalar_high_negative(lower)) {
+            lufp_scalar_high_add_p(lower);
+        }
+        BLST_ASSERT(!lufp_scalar_high_negative(lower));
+
+        if (lufp_scalar_high_ge_mod(upper, P48X4)) {
+            lufp_scalar_high_sub_mod(upper, P48X4);
+        }
+        if (lufp_scalar_high_ge_mod(upper, P48X2)) {
+            lufp_scalar_high_sub_mod(upper, P48X2);
+        }
+        if (lufp_scalar_high_ge_p(upper)) {
+            lufp_scalar_high_sub_p(upper);
+        }
+        BLST_ASSERT(!lufp_scalar_high_negative(lower));
         BLST_ASSERT(!lufp_scalar_high_ge_p(upper));
     }
 }
@@ -575,6 +688,59 @@ void LUFpPack8x1::normalize_hi_neg1_pos2(UFpPack8x1& r, const LUFpPack8x1& a)
 
   const u8 ge_mask = lufp8x1_high_ge_p_mask(limbs);
   lufp8x1_high_sub_p_masked(limbs, ge_mask);
+  lufp8x1_signed_carry_range(limbs, NWORDS, (2 * NWORDS) - 1);
+
+  const cc512i bmask = VSET1(BMASK);
+  for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+    r[i] = VAND(limbs[i], bmask);
+  }
+
+#if !defined(NDEBUG)
+  UFpPack8x1 ref{};
+  LUFpPack8x1::normalize(ref, a);
+  for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+    std::array<u64, 8> got{};
+    std::array<u64, 8> want{};
+    _cc512_storeu_si512(got.data(), r[i]);
+    _cc512_storeu_si512(want.data(), ref[i]);
+    BLST_ASSERT(got == want);
+  }
+#endif
+}
+
+void LUFpPack8x1::normalize_hi_neg4_pos4(UFpPack8x1& r, const LUFpPack8x1& a)
+{
+  BLST_ASSERT_NO_OVERLAP_AVX(r, a);
+
+  cc512i limbs[2 * NWORDS];
+  for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+    limbs[i] = a[i];
+  }
+
+  lufp8x1_signed_carry_range(limbs, 0, (2 * NWORDS) - 1);
+
+#if !defined(NDEBUG)
+  lufp8x1_debug_assert_hi_neg4_pos4(limbs);
+#endif
+
+  const u8 neg_mask = lufp8x1_mask_gt_epi64(VZERO(), limbs[15]);
+  lufp8x1_high_add_mod_masked(limbs, neg_mask, P48X4);
+  lufp8x1_signed_carry_range(limbs, NWORDS, (2 * NWORDS) - 1);
+
+  const u8 neg_fix_mask = lufp8x1_mask_gt_epi64(VZERO(), limbs[15]);
+  lufp8x1_high_add_p_masked(limbs, neg_fix_mask);
+  lufp8x1_signed_carry_range(limbs, NWORDS, (2 * NWORDS) - 1);
+
+  const u8 ge_4p_mask = lufp8x1_high_ge_mod_mask(limbs, P48X4);
+  lufp8x1_high_sub_mod_masked(limbs, ge_4p_mask, P48X4);
+  lufp8x1_signed_carry_range(limbs, NWORDS, (2 * NWORDS) - 1);
+
+  const u8 ge_2p_mask = lufp8x1_high_ge_mod_mask(limbs, P48X2);
+  lufp8x1_high_sub_mod_masked(limbs, ge_2p_mask, P48X2);
+  lufp8x1_signed_carry_range(limbs, NWORDS, (2 * NWORDS) - 1);
+
+  const u8 ge_p_mask = lufp8x1_high_ge_p_mask(limbs);
+  lufp8x1_high_sub_p_masked(limbs, ge_p_mask);
   lufp8x1_signed_carry_range(limbs, NWORDS, (2 * NWORDS) - 1);
 
   const cc512i bmask = VSET1(BMASK);

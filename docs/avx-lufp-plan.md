@@ -161,13 +161,27 @@ the source and target bounds, both may need scaled-`p` repair.
 The methodology for repair placement and repair-shape choice lives in
 [lazy-renorm-strategy.md](/c/Users/peter/repo/blst/docs/lazy-renorm-strategy.md).
 
+The current boundary design rule is:
+
+- keep the hot path as raw limb-wise add/sub with no early physical bias
+- statically track the lazy source class as before
+- at the boundary, choose a precomputed bias so that after carry the value lands
+  in a sign-friendly one-sided class such as `[-k p, p)`
+- then repair using sign-driven stages:
+  - linear `+p` if `k` is very small
+  - binary `+2^i p` if `k` is larger
+- fall back to upper-threshold lex compare only if a source class cannot be
+  mapped efficiently into that sign-driven form
+
 ## Repair Implementation Options
 
 The repair implementation is not fixed yet. For a given source and target class,
 the candidates are:
 
-- one-sided ladder
-- biased one-sided ladder
+- sign-driven one-sided ladder after a precomputed bias
+- linear `+p` sign ladder
+- binary `+2^i p` sign ladder
+- lex-compare-based ladder only as a reference/fallback
 - ternary symmetric ladder
 - independent two-sided ladder
 
@@ -235,8 +249,15 @@ Implement:
 - use `LNegA_PosB_HNegC_PosD` notation throughout
 - include mixed wide/narrow transitions explicitly
 - include `mul_by_u_plus_1` explicitly
+- make the carry transform explicit:
+  - the common raw source class is `LNeg4_Pos4_HNeg4_Pos4`
+  - after low carry folding, the injected quotient is `q = floor(L / R)` with
+    `q in {-4, -3, -2, -1, 0, 1, 2, 3}`
+  - so the carried high class is `H' = H + q`, i.e. `[-4p - 4, 4p + 3)`
 - determine the narrowest final repair target that lets `mul` avoid
   intermediate renorm
+- maintain the working derivation in
+  [fp6-mul-bound-worksheet.md](/c/Users/peter/repo/blst/docs/fp6-mul-bound-worksheet.md)
 
 Tests gating this phase:
 
@@ -244,6 +265,11 @@ Tests gating this phase:
   widened schedule
 - add debug assertions or helper comments for every precondition that will later
   be enforced in code
+- distinguish clearly between:
+  - the pre-carry grouped source class
+  - the post-carry high class actually consumed by repair
+- do not round the small carry-induced slack `[-4, 3]` into a whole extra
+  multiple of `p` without an explicit justification
 
 Performance requirement:
 
@@ -253,18 +279,24 @@ Performance requirement:
 
 Implement:
 
-- one real repair kernel for the exact final `Fp6 mul` output class
+- one real repair kernel for the exact carried `Fp6 mul` output class
+- treat the current `1/2/4-step` repair ladders as scenario probes only; they
+  are not yet the proven `Fp6 mul` boundary
 - benchmark candidate repair shapes for that class only:
-  - one-sided ladder
-  - biased one-sided ladder
-  - ternary symmetric ladder
-  - independent two-sided ladder if useful as a reference
+  - sign-driven one-sided ladder after a precomputed bias
+  - linear `+p` sign ladder
+  - binary `+2^i p` sign ladder
+  - lex-compare-based ladder only as a reference/fallback
 - keep the source and target bound contract fixed while comparing kernels
+- the base case must collapse to the same structure as the current `UFp add`
+  kernel when the source class is the exact `UFp` add class
 
 Tests gating this phase:
 
 - exact equality with a scalar/reference repair for all values in the documented
   source class
+- exact equality with a scalar/reference repair for the carried class implied by
+  `LNeg4_Pos4_HNeg4_Pos4 -> [-4p - 4, 4p + 3)`
 - edge coverage for the negative and positive extremes of the source class
 - exact postcondition proof for the target class, not only modular equivalence
 
@@ -272,6 +304,8 @@ Performance requirement:
 
 - must be materially faster than the current bounded normalize path for the same
   class
+- for the exact one-add source class, the sign-driven boundary should be at or
+  near parity with the existing `UFp add` structure
 - if it is not materially faster, stop and revisit the bound class before
   integrating it into `Fp6 mul`
 
@@ -416,3 +450,13 @@ Explicitly deferred until after real `Fp6` wins:
 - lazy narrow implementation
 
 These remain interesting, but they are not the next execution steps.
+
+One specific deferred opportunity is worth calling out explicitly:
+
+- if a future lazy narrow type becomes multiply-legal under a documented bound,
+  then `Fp6 mul` has a second optimization frontier before the widened combine
+  region
+  - specifically, the six narrow `Fp2` pre-adds that currently must be repaired
+    before multiply
+  - this does not change the current wide-only Phase 1/2/3 work, but it is a
+    real follow-on opportunity once multiply input contracts are revisited

@@ -336,6 +336,42 @@ void make_random_wide_mul(UFpPack8x1& out, InsecureRng& rng, int edge_idx)
     FpPack8x1::mul(out, avx_a, avx_b);
 }
 
+void make_random_lufp_hi_neg4_pos4(LUFpPack8x1& out, InsecureRng& rng, int edge_idx)
+{
+    UFpPack8x1 w0{};
+    UFpPack8x1 w1{};
+    UFpPack8x1 w2{};
+    UFpPack8x1 w3{};
+    UFpPack8x1 w4{};
+    UFpPack8x1 w5{};
+    UFpPack8x1 w6{};
+    LUFpPack8x1 pre0{};
+    LUFpPack8x1 pre1{};
+    LUFpPack8x1 tmp{};
+
+    make_random_wide_mul(w0, rng, edge_idx + 0);
+    make_random_wide_mul(w1, rng, edge_idx + 1);
+    make_random_wide_mul(w2, rng, edge_idx + 2);
+    make_random_wide_mul(w3, rng, edge_idx + 3);
+    make_random_wide_mul(w4, rng, edge_idx + 4);
+    make_random_wide_mul(w5, rng, edge_idx + 5);
+    make_random_wide_mul(w6, rng, edge_idx + 6);
+
+    LUFpPack8x1::sub(pre0, w0, w1);
+    LUFpPack8x1::sub(pre0, pre0, w2);
+
+    LUFpPack8x1::sub(pre1, w3, w4);
+    LUFpPack8x1::sub(pre1, pre1, w5);
+
+    if ((edge_idx & 1) == 0) {
+        LUFpPack8x1::add(tmp, pre0, pre1);
+    } else {
+        LUFpPack8x1::sub(tmp, pre0, pre1);
+    }
+
+    LUFpPack8x1::add(out, tmp, w6);
+}
+
 template <LUFpRenormClass B>
 void run_lufp_chain_with_policy(InsecureRng& rng)
 {
@@ -1014,6 +1050,24 @@ TEST(FpAvx, LazyWidened8x1wBoundedNormalizeFast)
         LUFpPack8x1::normalize<LUFpNormalizeBound::HiNeg1Pos2>(got_fast, lazy_biased);
         EXPECT_TRUE(is_valid_UFpPack8x1(got_fast));
         EXPECT_TRUE(equal_UFpPack8x1(got_fast, strict));
+        EXPECT_TRUE(equal_UFpPack8x1(got_fast, got_generic));
+    }
+}
+
+TEST(FpAvx, LazyWidened8x1wBoundedNormalizeHiNeg4Pos4)
+{
+    InsecureRng rng;
+
+    for (int iter = 0; iter < 192; ++iter) {
+        LUFpPack8x1 lazy{};
+        UFpPack8x1 got_generic{};
+        UFpPack8x1 got_fast{};
+
+        make_random_lufp_hi_neg4_pos4(lazy, rng, 7 * iter);
+
+        LUFpPack8x1::normalize(got_generic, lazy);
+        LUFpPack8x1::normalize<LUFpNormalizeBound::HiNeg4Pos4>(got_fast, lazy);
+        EXPECT_TRUE(is_valid_UFpPack8x1(got_fast));
         EXPECT_TRUE(equal_UFpPack8x1(got_fast, got_generic));
     }
 }

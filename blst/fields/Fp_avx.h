@@ -123,6 +123,11 @@ namespace blst
     {
         /// @brief After signed carry, the high half satisfies `-p <= H < 2p`.
         HiNeg1Pos2,
+        /// @brief Intended for `Fp6 mul` final-repair inputs derived from the
+        ///        `LNeg4_Pos4_HNeg4_Pos4` worksheet class.
+        /// @details The specialization is deliberately narrow and benchmarked
+        ///          only for that exact use case.
+        HiNeg4Pos4,
     };
 
     /** @name Packed AVX Fp layouts */
@@ -278,9 +283,19 @@ namespace blst
 
     private:
         static void normalize_hi_neg1_pos2(UFpPack8x1& r, const LUFpPack8x1& a);
+        static void normalize_hi_neg4_pos4(UFpPack8x1& r, const LUFpPack8x1& a);
     };
 
-
+    /// @brief Redundant widened companion for `UFpPack8x1` in "8x1w" layout.
+    /// @details
+    /// Same physical 16-limb radix-48 storage as `UFpPack8x1`, but intended for
+    /// fully carry-lazy local combine regions.
+    ///
+    /// Representation model:
+    /// - one widened value per AVX lane
+    /// - value uses radix `R = 2^48`
+    /// - limbs may be negative and may temporarily exceed 48 bits
+    /// - no inter-limb carry propagation is implied by `add/sub`
     /// @brief Widened container for `FpPack8x1` products and linear combinations.
     /// @details
     /// Stores 16 radix-48 limbs per channel (unreduced double-length value).
@@ -463,8 +478,11 @@ namespace blst
     {
         if constexpr (B == LUFpNormalizeBound::HiNeg1Pos2) {
             normalize_hi_neg1_pos2(r, a);
+        } else if constexpr (B == LUFpNormalizeBound::HiNeg4Pos4) {
+            normalize_hi_neg4_pos4(r, a);
         } else {
-            static_assert(B == LUFpNormalizeBound::HiNeg1Pos2);
+            static_assert(
+                B == LUFpNormalizeBound::HiNeg1Pos2 || B == LUFpNormalizeBound::HiNeg4Pos4);
         }
     }
 

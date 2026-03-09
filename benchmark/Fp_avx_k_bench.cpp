@@ -6,6 +6,7 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <cstring>
 #include <cstdio>
 #include <cstdlib>
 #include <mutex>
@@ -80,6 +81,36 @@ BLST_FORCEINLINE void bench_copy_as_lufp(LUFpPack8x1& dst, const UFpPack8x1& src
   }
 }
 
+BLST_FORCEINLINE void bench_make_lufp_hi_neg4_pos4(
+    LUFpPack8x1& out,
+    const UFpPack8x1& w0,
+    const UFpPack8x1& w1,
+    const UFpPack8x1& w2,
+    const UFpPack8x1& w3,
+    const UFpPack8x1& w4,
+    const UFpPack8x1& w5,
+    const UFpPack8x1& w6,
+    const bool plus_branch)
+{
+  LUFpPack8x1 pre0{};
+  LUFpPack8x1 pre1{};
+  LUFpPack8x1 tmp{};
+
+  LUFpPack8x1::sub(pre0, w0, w1);
+  LUFpPack8x1::sub(pre0, pre0, w2);
+
+  LUFpPack8x1::sub(pre1, w3, w4);
+  LUFpPack8x1::sub(pre1, pre1, w5);
+
+  if (plus_branch) {
+    LUFpPack8x1::add(tmp, pre0, pre1);
+  } else {
+    LUFpPack8x1::sub(tmp, pre0, pre1);
+  }
+
+  LUFpPack8x1::add(out, tmp, w6);
+}
+
 BLST_FORCEINLINE void bench_copy_wide(UFpPack8x1& dst, const UFpPack8x1& src)
 {
   for (std::size_t limb = 0; limb < 2 * NWORDS; ++limb) {
@@ -94,6 +125,313 @@ BLST_FORCEINLINE void bench_add_wide_raw(UFpPack8x1& dst, const UFpPack8x1& a, c
   }
 }
 
+std::array<u64, NWORDS> bench_make_scaled_mod(const u64 scale)
+{
+  std::array<u64, NWORDS> out{};
+  u64 carry = 0;
+  for (std::size_t i = 0; i < NWORDS; ++i) {
+    const unsigned __int128 accum =
+        static_cast<unsigned __int128>(P48[i]) * scale + carry;
+    out[i] = static_cast<u64>(accum) & BMASK;
+    carry = static_cast<u64>(accum >> BRADIX);
+  }
+  return out;
+}
+
+const std::array<u64, NWORDS> kBenchP48X1 = bench_make_scaled_mod(1);
+const std::array<u64, NWORDS> kBenchP48X2 = bench_make_scaled_mod(2);
+const std::array<u64, NWORDS> kBenchP48X3 = bench_make_scaled_mod(3);
+const std::array<u64, NWORDS> kBenchP48X4 = bench_make_scaled_mod(4);
+const std::array<u64, NWORDS> kBenchP48X7 = bench_make_scaled_mod(7);
+
+std::array<cc512i, NWORDS> bench_broadcast_mod(const std::array<u64, NWORDS>& mod)
+{
+  std::array<cc512i, NWORDS> out{};
+  for (std::size_t i = 0; i < NWORDS; ++i) {
+    out[i] = VSET1(static_cast<i64>(mod[i]));
+  }
+  return out;
+}
+
+std::array<cc512i, NWORDS> bench_make_lane_varying_vec(
+    const std::array<u64, NWORDS>& base, const u64 lane_step)
+{
+  std::array<cc512i, NWORDS> out{};
+  for (std::size_t i = 0; i < NWORDS; ++i) {
+    const u64 b = base[i];
+    out[i] = VSET(
+        static_cast<i64>(b + 7u * lane_step),
+        static_cast<i64>(b + 6u * lane_step),
+        static_cast<i64>(b + 5u * lane_step),
+        static_cast<i64>(b + 4u * lane_step),
+        static_cast<i64>(b + 3u * lane_step),
+        static_cast<i64>(b + 2u * lane_step),
+        static_cast<i64>(b + 1u * lane_step),
+        static_cast<i64>(b + 0u * lane_step));
+  }
+  return out;
+}
+
+const std::array<cc512i, NWORDS> kBenchP48X1Vec = bench_broadcast_mod(kBenchP48X1);
+const std::array<cc512i, NWORDS> kBenchP48X2Vec = bench_broadcast_mod(kBenchP48X2);
+const std::array<cc512i, NWORDS> kBenchP48X3Vec = bench_broadcast_mod(kBenchP48X3);
+const std::array<cc512i, NWORDS> kBenchP48X4Vec = bench_broadcast_mod(kBenchP48X4);
+const std::array<cc512i, NWORDS> kBenchP48X7Vec = bench_broadcast_mod(kBenchP48X7);
+const std::array<u64, NWORDS> kBenchCompareSeed64 = {
+    0x000000001111ULL, 0x000000022222ULL, 0x000000033333ULL, 0x000000044444ULL,
+    0x000000055555ULL, 0x000000066666ULL, 0x000000077777ULL, 0x000000088888ULL,
+};
+const std::array<u64, NWORDS> kBenchCompareKick64 = {
+    0x000000000123ULL, 0x000000004567ULL, 0x000000089ABCULL, 0x0000000DEF01ULL,
+    0x000000123456ULL, 0x0000000789ABULL, 0x0000000CDEF0ULL, 0x00000013579BULL,
+};
+const std::array<cc512i, NWORDS> kBenchCompareSeedVec = bench_make_lane_varying_vec(kBenchCompareSeed64, 0x11ULL);
+const std::array<cc512i, NWORDS> kBenchCompareKickVec = bench_make_lane_varying_vec(kBenchCompareKick64, 0x101ULL);
+
+template <u64 Scale>
+BLST_FORCEINLINE const std::array<cc512i, NWORDS>& bench_mod_vec();
+
+template <>
+BLST_FORCEINLINE const std::array<cc512i, NWORDS>& bench_mod_vec<1>() { return kBenchP48X1Vec; }
+template <>
+BLST_FORCEINLINE const std::array<cc512i, NWORDS>& bench_mod_vec<2>() { return kBenchP48X2Vec; }
+template <>
+BLST_FORCEINLINE const std::array<cc512i, NWORDS>& bench_mod_vec<3>() { return kBenchP48X3Vec; }
+template <>
+BLST_FORCEINLINE const std::array<cc512i, NWORDS>& bench_mod_vec<4>() { return kBenchP48X4Vec; }
+template <>
+BLST_FORCEINLINE const std::array<cc512i, NWORDS>& bench_mod_vec<7>() { return kBenchP48X7Vec; }
+
+BLST_FORCEINLINE void bench_mutate_compare_high(cc512i* limbs)
+{
+  cc512i prev = limbs[(2 * NWORDS) - 1];
+  for (std::size_t i = 0; i < NWORDS; ++i) {
+    const cc512i cur = limbs[NWORDS + i];
+    limbs[NWORDS + i] = VXOR(VADD(cur, kBenchCompareKickVec[i]), prev);
+    prev = cur;
+  }
+}
+
+BLST_FORCEINLINE void bench_seed_compare_high(cc512i* limbs)
+{
+  for (std::size_t i = 0; i < NWORDS; ++i) {
+    limbs[NWORDS + i] = kBenchCompareSeedVec[i];
+  }
+}
+
+BLST_FORCEINLINE void bench_signed_carry_range(cc512i* limbs, const std::size_t begin, const std::size_t end)
+{
+  for (std::size_t i = begin; i < end; ++i) {
+    const cc512i carry = VSRA(limbs[i], BRADIX);
+    limbs[i] = VSUB(limbs[i], VSHL(carry, BRADIX));
+    limbs[i + 1] = VADD(limbs[i + 1], carry);
+  }
+}
+
+BLST_FORCEINLINE auto bench_mask_eq_epi64(const cc512i a, const cc512i b) -> u8
+{
+#if BLST_AVX_NATIVE
+  return static_cast<u8>(_mm512_cmpeq_epi64_mask(to_native_512(a), to_native_512(b)));
+#else
+  std::array<u64, 8> lhs{};
+  std::array<u64, 8> rhs{};
+  _cc512_storeu_si512(lhs.data(), a);
+  _cc512_storeu_si512(rhs.data(), b);
+  u8 mask = 0;
+  for (u8 lane = 0; lane < 8; ++lane) {
+    if (lhs[lane] == rhs[lane]) {
+      mask |= static_cast<u8>(1u << lane);
+    }
+  }
+  return mask;
+#endif
+}
+
+BLST_FORCEINLINE auto bench_mask_gt_epi64(const cc512i a, const cc512i b) -> u8
+{
+#if BLST_AVX_NATIVE
+  return static_cast<u8>(_mm512_cmpgt_epi64_mask(to_native_512(a), to_native_512(b)));
+#else
+  std::array<u64, 8> lhs{};
+  std::array<u64, 8> rhs{};
+  _cc512_storeu_si512(lhs.data(), a);
+  _cc512_storeu_si512(rhs.data(), b);
+  u8 mask = 0;
+  for (u8 lane = 0; lane < 8; ++lane) {
+    if (static_cast<i64>(lhs[lane]) > static_cast<i64>(rhs[lane])) {
+      mask |= static_cast<u8>(1u << lane);
+    }
+  }
+  return mask;
+#endif
+}
+
+struct BenchGtEq
+{
+  u8 gt;
+  u8 eq;
+};
+
+struct BenchThreeWayBuckets
+{
+  u8 ge_p;
+  u8 ge_2p;
+  u8 ge_3p;
+};
+
+BLST_FORCEINLINE auto bench_gt_eq_pair(const cc512i a, const cc512i b) -> BenchGtEq
+{
+#if BLST_AVX_NATIVE
+  return BenchGtEq{
+      static_cast<u8>(_mm512_cmpgt_epi64_mask(to_native_512(a), to_native_512(b))),
+      static_cast<u8>(_mm512_cmpeq_epi64_mask(to_native_512(a), to_native_512(b))),
+  };
+#else
+  return BenchGtEq{
+      bench_mask_gt_epi64(a, b),
+      bench_mask_eq_epi64(a, b),
+  };
+#endif
+}
+
+BLST_FORCEINLINE auto bench_gt_eq_combine_hi_lo(const BenchGtEq hi, const BenchGtEq lo) -> BenchGtEq
+{
+#if BLST_AVX_NATIVE
+  const __mmask8 hi_gt = static_cast<__mmask8>(hi.gt);
+  const __mmask8 hi_eq = static_cast<__mmask8>(hi.eq);
+  const __mmask8 lo_gt = static_cast<__mmask8>(lo.gt);
+  const __mmask8 lo_eq = static_cast<__mmask8>(lo.eq);
+  return BenchGtEq{
+      static_cast<u8>(_kor_mask8(hi_gt, _kand_mask8(hi_eq, lo_gt))),
+      static_cast<u8>(_kand_mask8(hi_eq, lo_eq)),
+  };
+#else
+  return BenchGtEq{
+      static_cast<u8>(hi.gt | (hi.eq & lo.gt)),
+      static_cast<u8>(hi.eq & lo.eq),
+  };
+#endif
+}
+
+template <u64 Scale>
+BLST_FORCEINLINE auto bench_high_ge_mod_mask_prefix_lex(const cc512i* limbs) -> u8
+{
+  const auto& mod_vec = bench_mod_vec<Scale>();
+
+  const BenchGtEq c7 = bench_gt_eq_pair(limbs[NWORDS + 7], mod_vec[7]);
+  const BenchGtEq c6 = bench_gt_eq_pair(limbs[NWORDS + 6], mod_vec[6]);
+  const BenchGtEq c5 = bench_gt_eq_pair(limbs[NWORDS + 5], mod_vec[5]);
+  const BenchGtEq c4 = bench_gt_eq_pair(limbs[NWORDS + 4], mod_vec[4]);
+  const BenchGtEq c3 = bench_gt_eq_pair(limbs[NWORDS + 3], mod_vec[3]);
+  const BenchGtEq c2 = bench_gt_eq_pair(limbs[NWORDS + 2], mod_vec[2]);
+  const BenchGtEq c1 = bench_gt_eq_pair(limbs[NWORDS + 1], mod_vec[1]);
+  const BenchGtEq c0 = bench_gt_eq_pair(limbs[NWORDS + 0], mod_vec[0]);
+
+  const BenchGtEq c76 = bench_gt_eq_combine_hi_lo(c7, c6);
+  const BenchGtEq c54 = bench_gt_eq_combine_hi_lo(c5, c4);
+  const BenchGtEq c32 = bench_gt_eq_combine_hi_lo(c3, c2);
+  const BenchGtEq c10 = bench_gt_eq_combine_hi_lo(c1, c0);
+
+  const BenchGtEq c7654 = bench_gt_eq_combine_hi_lo(c76, c54);
+  const BenchGtEq c3210 = bench_gt_eq_combine_hi_lo(c32, c10);
+  const BenchGtEq all = bench_gt_eq_combine_hi_lo(c7654, c3210);
+
+#if BLST_AVX_NATIVE
+  return static_cast<u8>(_kor_mask8(static_cast<__mmask8>(all.gt), static_cast<__mmask8>(all.eq)));
+#else
+  return static_cast<u8>(all.gt | all.eq);
+#endif
+}
+
+BLST_FORCEINLINE auto bench_high_ge_p_2p_3p_masks_fused(const cc512i* limbs)
+    -> BenchThreeWayBuckets
+{
+  const BenchGtEq p7 = bench_gt_eq_pair(limbs[NWORDS + 7], kBenchP48X1Vec[7]);
+  const BenchGtEq p6 = bench_gt_eq_pair(limbs[NWORDS + 6], kBenchP48X1Vec[6]);
+  const BenchGtEq p5 = bench_gt_eq_pair(limbs[NWORDS + 5], kBenchP48X1Vec[5]);
+  const BenchGtEq p4 = bench_gt_eq_pair(limbs[NWORDS + 4], kBenchP48X1Vec[4]);
+  const BenchGtEq p3 = bench_gt_eq_pair(limbs[NWORDS + 3], kBenchP48X1Vec[3]);
+  const BenchGtEq p2 = bench_gt_eq_pair(limbs[NWORDS + 2], kBenchP48X1Vec[2]);
+  const BenchGtEq p1 = bench_gt_eq_pair(limbs[NWORDS + 1], kBenchP48X1Vec[1]);
+  const BenchGtEq p0 = bench_gt_eq_pair(limbs[NWORDS + 0], kBenchP48X1Vec[0]);
+
+  const BenchGtEq p27 = bench_gt_eq_pair(limbs[NWORDS + 7], kBenchP48X2Vec[7]);
+  const BenchGtEq p26 = bench_gt_eq_pair(limbs[NWORDS + 6], kBenchP48X2Vec[6]);
+  const BenchGtEq p25 = bench_gt_eq_pair(limbs[NWORDS + 5], kBenchP48X2Vec[5]);
+  const BenchGtEq p24 = bench_gt_eq_pair(limbs[NWORDS + 4], kBenchP48X2Vec[4]);
+  const BenchGtEq p23 = bench_gt_eq_pair(limbs[NWORDS + 3], kBenchP48X2Vec[3]);
+  const BenchGtEq p22 = bench_gt_eq_pair(limbs[NWORDS + 2], kBenchP48X2Vec[2]);
+  const BenchGtEq p21 = bench_gt_eq_pair(limbs[NWORDS + 1], kBenchP48X2Vec[1]);
+  const BenchGtEq p20 = bench_gt_eq_pair(limbs[NWORDS + 0], kBenchP48X2Vec[0]);
+
+  const BenchGtEq p37 = bench_gt_eq_pair(limbs[NWORDS + 7], kBenchP48X3Vec[7]);
+  const BenchGtEq p36 = bench_gt_eq_pair(limbs[NWORDS + 6], kBenchP48X3Vec[6]);
+  const BenchGtEq p35 = bench_gt_eq_pair(limbs[NWORDS + 5], kBenchP48X3Vec[5]);
+  const BenchGtEq p34 = bench_gt_eq_pair(limbs[NWORDS + 4], kBenchP48X3Vec[4]);
+  const BenchGtEq p33 = bench_gt_eq_pair(limbs[NWORDS + 3], kBenchP48X3Vec[3]);
+  const BenchGtEq p32 = bench_gt_eq_pair(limbs[NWORDS + 2], kBenchP48X3Vec[2]);
+  const BenchGtEq p31 = bench_gt_eq_pair(limbs[NWORDS + 1], kBenchP48X3Vec[1]);
+  const BenchGtEq p30 = bench_gt_eq_pair(limbs[NWORDS + 0], kBenchP48X3Vec[0]);
+
+  const BenchGtEq p76 = bench_gt_eq_combine_hi_lo(p7, p6);
+  const BenchGtEq p54 = bench_gt_eq_combine_hi_lo(p5, p4);
+  const BenchGtEq p32g = bench_gt_eq_combine_hi_lo(p3, p2);
+  const BenchGtEq p10 = bench_gt_eq_combine_hi_lo(p1, p0);
+  const BenchGtEq p7654 = bench_gt_eq_combine_hi_lo(p76, p54);
+  const BenchGtEq p3210 = bench_gt_eq_combine_hi_lo(p32g, p10);
+  const BenchGtEq pall = bench_gt_eq_combine_hi_lo(p7654, p3210);
+
+  const BenchGtEq p276 = bench_gt_eq_combine_hi_lo(p27, p26);
+  const BenchGtEq p254 = bench_gt_eq_combine_hi_lo(p25, p24);
+  const BenchGtEq p232 = bench_gt_eq_combine_hi_lo(p23, p22);
+  const BenchGtEq p210 = bench_gt_eq_combine_hi_lo(p21, p20);
+  const BenchGtEq p27654 = bench_gt_eq_combine_hi_lo(p276, p254);
+  const BenchGtEq p23210 = bench_gt_eq_combine_hi_lo(p232, p210);
+  const BenchGtEq p2all = bench_gt_eq_combine_hi_lo(p27654, p23210);
+
+  const BenchGtEq p376 = bench_gt_eq_combine_hi_lo(p37, p36);
+  const BenchGtEq p354 = bench_gt_eq_combine_hi_lo(p35, p34);
+  const BenchGtEq p332 = bench_gt_eq_combine_hi_lo(p33, p32);
+  const BenchGtEq p310 = bench_gt_eq_combine_hi_lo(p31, p30);
+  const BenchGtEq p37654 = bench_gt_eq_combine_hi_lo(p376, p354);
+  const BenchGtEq p33210 = bench_gt_eq_combine_hi_lo(p332, p310);
+  const BenchGtEq p3all = bench_gt_eq_combine_hi_lo(p37654, p33210);
+
+#if BLST_AVX_NATIVE
+  return BenchThreeWayBuckets{
+      static_cast<u8>(_kor_mask8(static_cast<__mmask8>(pall.gt), static_cast<__mmask8>(pall.eq))),
+      static_cast<u8>(_kor_mask8(static_cast<__mmask8>(p2all.gt), static_cast<__mmask8>(p2all.eq))),
+      static_cast<u8>(_kor_mask8(static_cast<__mmask8>(p3all.gt), static_cast<__mmask8>(p3all.eq))),
+  };
+#else
+  return BenchThreeWayBuckets{
+      static_cast<u8>(pall.gt | pall.eq),
+      static_cast<u8>(p2all.gt | p2all.eq),
+      static_cast<u8>(p3all.gt | p3all.eq),
+  };
+#endif
+}
+
+template <u64 Scale>
+BLST_FORCEINLINE void bench_high_add_mod_masked(cc512i* limbs, const u8 lane_mask)
+{
+  const auto& mod_vec = bench_mod_vec<Scale>();
+  for (std::size_t i = 0; i < NWORDS; ++i) {
+    limbs[NWORDS + i] = VMADD(
+        limbs[NWORDS + i], lane_mask, limbs[NWORDS + i], mod_vec[i]);
+  }
+}
+
+template <u64 Scale>
+BLST_FORCEINLINE void bench_high_sub_mod_masked(cc512i* limbs, const u8 lane_mask)
+{
+  const auto& mod_vec = bench_mod_vec<Scale>();
+  for (std::size_t i = 0; i < NWORDS; ++i) {
+    limbs[NWORDS + i] = VMSUB(
+        limbs[NWORDS + i], lane_mask, limbs[NWORDS + i], mod_vec[i]);
+  }
+}
+
 struct Fp8x1LUFpBenchData
 {
   explicit Fp8x1LUFpBenchData(const std::size_t n_packs)
@@ -101,6 +439,7 @@ struct Fp8x1LUFpBenchData
       , lazy_a(n_packs_)
       , lazy_b(n_packs_)
       , lazy_in(n_packs_)
+      , lazy_in_hi_neg4_pos4(n_packs_)
       , lazy_out(n_packs_)
   {
     std::mt19937_64 gen(0x6C7546708F1A2D3EULL + static_cast<u64>(n_packs_));
@@ -125,13 +464,33 @@ struct Fp8x1LUFpBenchData
       FpPack8x1::from_aos(pack_d, lane_d.data());
       UFpPack8x1 wide_a_i{};
       UFpPack8x1 wide_b_i{};
+      UFpPack8x1 wide_c_i{};
+      UFpPack8x1 wide_d_i{};
+      UFpPack8x1 wide_e_i{};
+      UFpPack8x1 wide_f_i{};
+      UFpPack8x1 wide_g_i{};
       FpPack8x1::mul(wide_a_i, pack_a, pack_b);
       FpPack8x1::mul(wide_b_i, pack_c, pack_d);
+      FpPack8x1::mul(wide_c_i, pack_a, pack_c);
+      FpPack8x1::mul(wide_d_i, pack_b, pack_d);
+      FpPack8x1::mul(wide_e_i, pack_a, pack_d);
+      FpPack8x1::mul(wide_f_i, pack_b, pack_c);
+      FpPack8x1::mul(wide_g_i, pack_a, pack_a);
 
       bench_copy_as_lufp(lazy_a[i], wide_a_i);
       bench_copy_as_lufp(lazy_b[i], wide_b_i);
 
       LUFpPack8x1::sub(lazy_in[i], wide_a_i, wide_b_i);
+      bench_make_lufp_hi_neg4_pos4(
+          lazy_in_hi_neg4_pos4[i],
+          wide_a_i,
+          wide_b_i,
+          wide_c_i,
+          wide_d_i,
+          wide_e_i,
+          wide_f_i,
+          wide_g_i,
+          (i & 1u) == 0u);
     }
   }
 
@@ -139,6 +498,7 @@ struct Fp8x1LUFpBenchData
   std::vector<LUFpPack8x1> lazy_a;
   std::vector<LUFpPack8x1> lazy_b;
   std::vector<LUFpPack8x1> lazy_in;
+  std::vector<LUFpPack8x1> lazy_in_hi_neg4_pos4;
   std::vector<LUFpPack8x1> lazy_out;
 };
 
@@ -179,6 +539,53 @@ struct Fp8x1UFpBenchData
   std::vector<UFpPack8x1> wide_a;
   std::vector<UFpPack8x1> wide_b;
   std::vector<UFpPack8x1> wide_out;
+};
+
+struct Fp8x1WidePairBenchData
+{
+  explicit Fp8x1WidePairBenchData(const std::size_t n_packs)
+      : n_packs_(n_packs)
+      , wide_a(n_packs_)
+      , wide_b(n_packs_)
+      , lazy_a(n_packs_)
+      , lazy_b(n_packs_)
+      , wide_out(n_packs_)
+      , lazy_out(n_packs_)
+  {
+    std::mt19937_64 gen(0x8D13D4375BA14E29ULL + static_cast<u64>(n_packs_));
+
+    for (std::size_t i = 0; i < n_packs_; ++i) {
+      std::array<Fp, 8> lane_a{};
+      std::array<Fp, 8> lane_b{};
+      std::array<Fp, 8> lane_c{};
+      std::array<Fp, 8> lane_d{};
+      FpPack8x1 pack_a{}, pack_b{}, pack_c{}, pack_d{};
+
+      for (std::size_t lane = 0; lane < 8; ++lane) {
+        random_redc_fp(lane_a[lane], gen);
+        random_redc_fp(lane_b[lane], gen);
+        random_redc_fp(lane_c[lane], gen);
+        random_redc_fp(lane_d[lane], gen);
+      }
+
+      FpPack8x1::from_aos(pack_a, lane_a.data());
+      FpPack8x1::from_aos(pack_b, lane_b.data());
+      FpPack8x1::from_aos(pack_c, lane_c.data());
+      FpPack8x1::from_aos(pack_d, lane_d.data());
+      FpPack8x1::mul(wide_a[i], pack_a, pack_b);
+      FpPack8x1::mul(wide_b[i], pack_c, pack_d);
+      bench_copy_as_lufp(lazy_a[i], wide_a[i]);
+      bench_copy_as_lufp(lazy_b[i], wide_b[i]);
+    }
+  }
+
+  const std::size_t n_packs_;
+  std::vector<UFpPack8x1> wide_a;
+  std::vector<UFpPack8x1> wide_b;
+  std::vector<LUFpPack8x1> lazy_a;
+  std::vector<LUFpPack8x1> lazy_b;
+  std::vector<UFpPack8x1> wide_out;
+  std::vector<LUFpPack8x1> lazy_out;
 };
 
 template <int Chains>
@@ -1906,6 +2313,92 @@ void BM_Fp8x1LUFpSub(benchmark::State& state)
   state.SetItemsProcessed(state.iterations() * n_packs);
 }
 
+template <int Rounds>
+void BM_Fp8x1UFpAddChain(benchmark::State& state)
+{
+  const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
+  Fp8x1WidePairBenchData data(n_packs);
+
+  for (auto _ : state) {
+    for (std::size_t i = 0; i < n_packs; ++i) {
+      UFpPack8x1 x = data.wide_a[i];
+      const UFpPack8x1 y = data.wide_b[i];
+      for (int round = 0; round < Rounds; ++round) {
+        UFpPack8x1::add(x, x, y);
+      }
+      data.wide_out[i] = x;
+    }
+    bench_consume_wide(data.wide_out);
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs * static_cast<std::size_t>(Rounds));
+}
+
+template <int Rounds>
+void BM_Fp8x1LUFpAddChain(benchmark::State& state)
+{
+  const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
+  Fp8x1WidePairBenchData data(n_packs);
+
+  for (auto _ : state) {
+    for (std::size_t i = 0; i < n_packs; ++i) {
+      LUFpPack8x1 x = data.lazy_a[i];
+      const LUFpPack8x1 y = data.lazy_b[i];
+      for (int round = 0; round < Rounds; ++round) {
+        LUFpPack8x1::add(x, x, y);
+      }
+      data.lazy_out[i] = x;
+    }
+    bench_consume_luwide(data.lazy_out);
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs * static_cast<std::size_t>(Rounds));
+}
+
+template <int Rounds>
+void BM_Fp8x1UFpAddSubChain(benchmark::State& state)
+{
+  const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
+  Fp8x1WidePairBenchData data(n_packs);
+
+  for (auto _ : state) {
+    for (std::size_t i = 0; i < n_packs; ++i) {
+      UFpPack8x1 x = data.wide_a[i];
+      UFpPack8x1 y = data.wide_b[i];
+      for (int round = 0; round < Rounds; ++round) {
+        UFpPack8x1::add(x, x, y);
+        UFpPack8x1::sub(y, x, y);
+      }
+      data.wide_out[i] = x;
+    }
+    bench_consume_wide(data.wide_out);
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs * static_cast<std::size_t>(2 * Rounds));
+}
+
+template <int Rounds>
+void BM_Fp8x1LUFpAddSubChain(benchmark::State& state)
+{
+  const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
+  Fp8x1WidePairBenchData data(n_packs);
+
+  for (auto _ : state) {
+    for (std::size_t i = 0; i < n_packs; ++i) {
+      LUFpPack8x1 x = data.lazy_a[i];
+      LUFpPack8x1 y = data.lazy_b[i];
+      for (int round = 0; round < Rounds; ++round) {
+        LUFpPack8x1::add(x, x, y);
+        LUFpPack8x1::sub(y, x, y);
+      }
+      data.lazy_out[i] = x;
+    }
+    bench_consume_luwide(data.lazy_out);
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs * static_cast<std::size_t>(2 * Rounds));
+}
+
 template <LUFpRenormClass B>
 void BM_Fp8x1LUFpRenorm(benchmark::State& state)
 {
@@ -1922,6 +2415,292 @@ void BM_Fp8x1LUFpRenorm(benchmark::State& state)
   state.SetItemsProcessed(state.iterations() * n_packs);
 }
 
+template <int Rounds>
+void BM_Fp8x1CarryKickOnlyChain(benchmark::State& state)
+{
+  cc512i limbs[2 * NWORDS]{};
+  const cc512i kick = VSET1(static_cast<i64>(1ULL << BRADIX));
+
+  for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+    limbs[i] = VZERO();
+  }
+
+  for (auto _ : state) {
+    for (int round = 0; round < Rounds; ++round) {
+      for (std::size_t i = 0; i < (2 * NWORDS) - 1; ++i) {
+        limbs[i] = VADD(limbs[i], kick);
+      }
+    }
+  }
+
+  benchmark::DoNotOptimize(limbs[0]);
+  benchmark::DoNotOptimize(limbs[(2 * NWORDS) - 1]);
+  state.SetItemsProcessed(state.iterations() * static_cast<std::size_t>(Rounds));
+}
+
+template <int Rounds>
+void BM_Fp8x1CarryChain(benchmark::State& state)
+{
+  cc512i limbs[2 * NWORDS]{};
+  const cc512i kick = VSET1(static_cast<i64>(1ULL << BRADIX));
+
+  for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+    limbs[i] = VZERO();
+  }
+
+  for (auto _ : state) {
+    for (int round = 0; round < Rounds; ++round) {
+      for (std::size_t i = 0; i < (2 * NWORDS) - 1; ++i) {
+        limbs[i] = VADD(limbs[i], kick);
+      }
+      bench_signed_carry_range(limbs, 0, (2 * NWORDS) - 1);
+    }
+  }
+
+  benchmark::DoNotOptimize(limbs[0]);
+  benchmark::DoNotOptimize(limbs[(2 * NWORDS) - 1]);
+  state.SetItemsProcessed(state.iterations() * static_cast<std::size_t>(Rounds));
+}
+
+template <int Steps>
+BLST_FORCEINLINE void bench_repair_round(cc512i* limbs)
+{
+  if constexpr (Steps == 1) {
+    bench_high_add_mod_masked<1>(limbs, 0xFF);
+    const u8 ge_p = bench_high_ge_mod_mask_prefix_lex<1>(limbs);
+    bench_high_sub_mod_masked<1>(limbs, ge_p);
+  } else if constexpr (Steps == 2) {
+    bench_high_add_mod_masked<3>(limbs, 0xFF);
+    const u8 ge_2p = bench_high_ge_mod_mask_prefix_lex<2>(limbs);
+    bench_high_sub_mod_masked<2>(limbs, ge_2p);
+    const u8 ge_p = bench_high_ge_mod_mask_prefix_lex<1>(limbs);
+    bench_high_sub_mod_masked<1>(limbs, ge_p);
+  } else if constexpr (Steps == 4) {
+    bench_high_add_mod_masked<7>(limbs, 0xFF);
+    const u8 ge_4p = bench_high_ge_mod_mask_prefix_lex<4>(limbs);
+    bench_high_sub_mod_masked<4>(limbs, ge_4p);
+    const u8 ge_2p = bench_high_ge_mod_mask_prefix_lex<2>(limbs);
+    bench_high_sub_mod_masked<2>(limbs, ge_2p);
+    const u8 ge_p = bench_high_ge_mod_mask_prefix_lex<1>(limbs);
+    bench_high_sub_mod_masked<1>(limbs, ge_p);
+  } else {
+    static_assert(Steps == 3, "Repair chain supports 1, 2, 3, or 4 steps.");
+    bench_high_sub_mod_masked<1>(limbs, 0xFF);
+    const u8 neg_mask = bench_mask_gt_epi64(VZERO(), limbs[(2 * NWORDS) - 1]);
+    bench_high_add_mod_masked<4>(limbs, neg_mask);
+    const u8 ge_2p = bench_high_ge_mod_mask_prefix_lex<2>(limbs);
+    bench_high_sub_mod_masked<2>(limbs, ge_2p);
+    const u8 ge_p = bench_high_ge_mod_mask_prefix_lex<1>(limbs);
+    bench_high_sub_mod_masked<1>(limbs, ge_p);
+  }
+}
+
+BLST_FORCEINLINE void bench_repair_round_fused_2step(cc512i* limbs)
+{
+  bench_high_add_mod_masked<3>(limbs, 0xFF);
+
+  const BenchThreeWayBuckets ge = bench_high_ge_p_2p_3p_masks_fused(limbs);
+  const u8 sub_3p = ge.ge_3p;
+  const u8 sub_2p = static_cast<u8>(ge.ge_2p & static_cast<u8>(~ge.ge_3p));
+  const u8 sub_1p = static_cast<u8>(ge.ge_p & static_cast<u8>(~ge.ge_2p));
+
+  bench_high_sub_mod_masked<3>(limbs, sub_3p);
+  bench_high_sub_mod_masked<2>(limbs, sub_2p);
+  bench_high_sub_mod_masked<1>(limbs, sub_1p);
+}
+
+template <int Steps>
+BLST_FORCEINLINE void bench_repair_apply_round(cc512i* limbs, const u8 lane_mask)
+{
+  if constexpr (Steps == 1) {
+    bench_high_add_mod_masked<1>(limbs, lane_mask);
+    bench_high_sub_mod_masked<1>(limbs, lane_mask);
+  } else if constexpr (Steps == 2) {
+    bench_high_add_mod_masked<3>(limbs, lane_mask);
+    bench_high_sub_mod_masked<2>(limbs, lane_mask);
+    bench_high_sub_mod_masked<1>(limbs, lane_mask);
+  } else if constexpr (Steps == 4) {
+    bench_high_add_mod_masked<7>(limbs, lane_mask);
+    bench_high_sub_mod_masked<4>(limbs, lane_mask);
+    bench_high_sub_mod_masked<2>(limbs, lane_mask);
+    bench_high_sub_mod_masked<1>(limbs, lane_mask);
+  } else {
+    static_assert(Steps == 3, "Repair apply chain supports 1, 2, 3, or 4 steps.");
+    bench_high_sub_mod_masked<1>(limbs, lane_mask);
+    bench_high_add_mod_masked<4>(limbs, lane_mask);
+    bench_high_sub_mod_masked<2>(limbs, lane_mask);
+    bench_high_sub_mod_masked<1>(limbs, lane_mask);
+  }
+}
+
+template <int Steps, int Rounds>
+void BM_Fp8x1RepairChainImpl(benchmark::State& state)
+{
+  cc512i limbs[2 * NWORDS]{};
+
+  for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+    limbs[i] = VZERO();
+  }
+  bench_seed_compare_high(limbs);
+
+  for (auto _ : state) {
+    for (int round = 0; round < Rounds; ++round) {
+      bench_repair_round<Steps>(limbs);
+    }
+  }
+
+  benchmark::DoNotOptimize(limbs[NWORDS]);
+  benchmark::DoNotOptimize(limbs[(2 * NWORDS) - 1]);
+  state.SetItemsProcessed(state.iterations() * static_cast<std::size_t>(Rounds));
+}
+
+template <int Steps, int Rounds>
+void BM_Fp8x1RepairChainPrefixLex(benchmark::State& state)
+{
+  BM_Fp8x1RepairChainImpl<Steps, Rounds>(state);
+}
+
+template <int Rounds>
+void BM_Fp8x1RepairChainFused3Way(benchmark::State& state)
+{
+  cc512i limbs[2 * NWORDS]{};
+
+  for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+    limbs[i] = VZERO();
+  }
+  bench_seed_compare_high(limbs);
+
+  for (auto _ : state) {
+    for (int round = 0; round < Rounds; ++round) {
+      bench_repair_round_fused_2step(limbs);
+    }
+  }
+
+  benchmark::DoNotOptimize(limbs[NWORDS]);
+  benchmark::DoNotOptimize(limbs[(2 * NWORDS) - 1]);
+  state.SetItemsProcessed(state.iterations() * static_cast<std::size_t>(Rounds));
+}
+
+template <int Steps, int Rounds>
+void BM_Fp8x1RepairApplyChain(benchmark::State& state)
+{
+  cc512i limbs[2 * NWORDS]{};
+  u8 lane_mask = 0xA5;
+
+  for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+    limbs[i] = VZERO();
+  }
+
+  for (auto _ : state) {
+    for (int round = 0; round < Rounds; ++round) {
+      lane_mask = static_cast<u8>((lane_mask << 1) | (lane_mask >> 7));
+      bench_repair_apply_round<Steps>(limbs, lane_mask);
+    }
+  }
+
+  benchmark::DoNotOptimize(lane_mask);
+  benchmark::DoNotOptimize(limbs[NWORDS]);
+  benchmark::DoNotOptimize(limbs[(2 * NWORDS) - 1]);
+  state.SetItemsProcessed(state.iterations() * static_cast<std::size_t>(Rounds));
+}
+
+template <int Rounds>
+void BM_Fp8x1RepairNegMaskChain(benchmark::State& state)
+{
+  cc512i top = VSET1(-1);
+  u8 mask_acc = 0;
+
+  for (auto _ : state) {
+    for (int round = 0; round < Rounds; ++round) {
+      mask_acc ^= bench_mask_gt_epi64(VZERO(), top);
+    }
+  }
+
+  benchmark::DoNotOptimize(mask_acc);
+  benchmark::DoNotOptimize(top);
+  state.SetItemsProcessed(state.iterations() * static_cast<std::size_t>(Rounds));
+}
+
+template <int Rounds>
+void BM_Fp8x1RepairHighKickChain(benchmark::State& state)
+{
+  cc512i limbs[2 * NWORDS]{};
+  const cc512i kick = VSET1(1);
+
+  for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+    limbs[i] = VZERO();
+  }
+
+  for (auto _ : state) {
+    for (int round = 0; round < Rounds; ++round) {
+      limbs[NWORDS] = VADD(limbs[NWORDS], kick);
+    }
+  }
+
+  benchmark::DoNotOptimize(limbs[NWORDS]);
+  state.SetItemsProcessed(state.iterations() * static_cast<std::size_t>(Rounds));
+}
+
+template <int Compares, int Rounds>
+void BM_Fp8x1RepairCompareChainImpl(benchmark::State& state)
+{
+  cc512i limbs[2 * NWORDS]{};
+  u8 mask_acc = 0;
+
+  for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+    limbs[i] = VZERO();
+  }
+  bench_seed_compare_high(limbs);
+
+  for (auto _ : state) {
+    for (int round = 0; round < Rounds; ++round) {
+      bench_mutate_compare_high(limbs);
+      if constexpr (Compares >= 1) {
+        mask_acc ^= bench_high_ge_mod_mask_prefix_lex<1>(limbs);
+      }
+      if constexpr (Compares >= 2) {
+        mask_acc ^= bench_high_ge_mod_mask_prefix_lex<2>(limbs);
+      }
+    }
+  }
+
+  benchmark::DoNotOptimize(mask_acc);
+  benchmark::DoNotOptimize(limbs[NWORDS]);
+  state.SetItemsProcessed(state.iterations() * static_cast<std::size_t>(Rounds));
+}
+
+template <int Compares, int Rounds>
+void BM_Fp8x1RepairCompareChainPrefixLex(benchmark::State& state)
+{
+  BM_Fp8x1RepairCompareChainImpl<Compares, Rounds>(state);
+}
+
+template <int Rounds>
+void BM_Fp8x1RepairCompareChainFused3Way(benchmark::State& state)
+{
+  cc512i limbs[2 * NWORDS]{};
+  u8 mask_acc = 0;
+
+  for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
+    limbs[i] = VZERO();
+  }
+  bench_seed_compare_high(limbs);
+
+  for (auto _ : state) {
+    for (int round = 0; round < Rounds; ++round) {
+      bench_mutate_compare_high(limbs);
+      const BenchThreeWayBuckets ge = bench_high_ge_p_2p_3p_masks_fused(limbs);
+      mask_acc ^= ge.ge_p;
+      mask_acc ^= ge.ge_2p;
+      mask_acc ^= ge.ge_3p;
+    }
+  }
+
+  benchmark::DoNotOptimize(mask_acc);
+  benchmark::DoNotOptimize(limbs[NWORDS]);
+  state.SetItemsProcessed(state.iterations() * static_cast<std::size_t>(Rounds));
+}
+
 void BM_Fp8x1LUFpNormalize(benchmark::State& state)
 {
   const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
@@ -1931,6 +2710,39 @@ void BM_Fp8x1LUFpNormalize(benchmark::State& state)
   for (auto _ : state) {
     for (std::size_t i = 0; i < n_packs; ++i) {
       LUFpPack8x1::normalize(wide_out[i], data.lazy_in[i]);
+    }
+    bench_consume_wide(wide_out);
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs);
+}
+
+void BM_Fp8x1LUFpNormalizeHiNeg4Pos4(benchmark::State& state)
+{
+  const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
+  Fp8x1LUFpBenchData data(n_packs);
+  std::vector<UFpPack8x1> wide_out(n_packs);
+
+  for (auto _ : state) {
+    for (std::size_t i = 0; i < n_packs; ++i) {
+      LUFpPack8x1::normalize<LUFpNormalizeBound::HiNeg4Pos4>(
+          wide_out[i], data.lazy_in_hi_neg4_pos4[i]);
+    }
+    bench_consume_wide(wide_out);
+  }
+
+  state.SetItemsProcessed(state.iterations() * n_packs);
+}
+
+void BM_Fp8x1LUFpNormalizeGenericHiNeg4Pos4(benchmark::State& state)
+{
+  const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
+  Fp8x1LUFpBenchData data(n_packs);
+  std::vector<UFpPack8x1> wide_out(n_packs);
+
+  for (auto _ : state) {
+    for (std::size_t i = 0; i < n_packs; ++i) {
+      LUFpPack8x1::normalize(wide_out[i], data.lazy_in_hi_neg4_pos4[i]);
     }
     bench_consume_wide(wide_out);
   }
@@ -2617,10 +3429,32 @@ BENCHMARK(BM_Fp8x1UFpAdd)->Arg(256);
 BENCHMARK(BM_Fp8x1UFpSub)->Arg(256);
 BENCHMARK(BM_Fp8x1LUFpAdd)->Arg(256);
 BENCHMARK(BM_Fp8x1LUFpSub)->Arg(256);
+BENCHMARK_TEMPLATE(BM_Fp8x1UFpAddChain, 16)->Arg(256);
+BENCHMARK_TEMPLATE(BM_Fp8x1LUFpAddChain, 16)->Arg(256);
+BENCHMARK_TEMPLATE(BM_Fp8x1UFpAddSubChain, 16)->Arg(256);
+BENCHMARK_TEMPLATE(BM_Fp8x1LUFpAddSubChain, 16)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp8x1LUFpRenorm, LUFpRenormClass::Tight)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp8x1LUFpRenorm, LUFpRenormClass::Medium)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp8x1LUFpRenorm, LUFpRenormClass::Loose)->Arg(256);
+BENCHMARK_TEMPLATE(BM_Fp8x1CarryKickOnlyChain, 128);
+BENCHMARK_TEMPLATE(BM_Fp8x1CarryChain, 128);
+BENCHMARK_TEMPLATE(BM_Fp8x1RepairChainPrefixLex, 1, 256);
+BENCHMARK_TEMPLATE(BM_Fp8x1RepairChainPrefixLex, 2, 256);
+BENCHMARK_TEMPLATE(BM_Fp8x1RepairChainPrefixLex, 3, 256);
+BENCHMARK_TEMPLATE(BM_Fp8x1RepairChainPrefixLex, 4, 256);
+BENCHMARK_TEMPLATE(BM_Fp8x1RepairChainFused3Way, 256);
+BENCHMARK_TEMPLATE(BM_Fp8x1RepairApplyChain, 1, 256);
+BENCHMARK_TEMPLATE(BM_Fp8x1RepairApplyChain, 2, 256);
+BENCHMARK_TEMPLATE(BM_Fp8x1RepairApplyChain, 3, 256);
+BENCHMARK_TEMPLATE(BM_Fp8x1RepairApplyChain, 4, 256);
+BENCHMARK_TEMPLATE(BM_Fp8x1RepairNegMaskChain, 256);
+BENCHMARK_TEMPLATE(BM_Fp8x1RepairHighKickChain, 256);
+BENCHMARK_TEMPLATE(BM_Fp8x1RepairCompareChainPrefixLex, 1, 256);
+BENCHMARK_TEMPLATE(BM_Fp8x1RepairCompareChainPrefixLex, 2, 256);
+BENCHMARK_TEMPLATE(BM_Fp8x1RepairCompareChainFused3Way, 256);
 BENCHMARK(BM_Fp8x1LUFpNormalize)->Arg(256);
+BENCHMARK(BM_Fp8x1LUFpNormalizeHiNeg4Pos4)->Arg(256);
+BENCHMARK(BM_Fp8x1LUFpNormalizeGenericHiNeg4Pos4)->Arg(256);
 
 BENCHMARK(BM_IFMA52Latency_Lo_DepChain);
 BENCHMARK(BM_IFMA52Latency_Hi_DepChain);
