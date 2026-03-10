@@ -1156,82 +1156,8 @@ void BM_Fp6Mul_Scalar8(benchmark::State& state)
 }
 BENCHMARK(BM_Fp6Mul_Scalar8)->Arg(256);
 
-void BM_Fp6Mul_Pack8x1(benchmark::State& state)
-{
-    const std::size_t packs = static_cast<std::size_t>(state.range(0));
-    Fp6BenchData data(packs);
-
-    for (auto _ : state) {
-        for (std::size_t p = 0; p < data.n_packs; ++p) {
-            Fp6Pack8x1::mul(data.out_pack[p], data.a_pack[p], data.b_pack[p]);
-        }
-        benchmark::DoNotOptimize(data.out_pack.data());
-    }
-    state.SetItemsProcessed(state.iterations() * data.n_tuples);
-}
-BENCHMARK(BM_Fp6Mul_Pack8x1)->Arg(256);
-
-void BM_Fp6Mul_Pack8x1_LUFp(benchmark::State& state)
-{
-    const std::size_t packs = static_cast<std::size_t>(state.range(0));
-    Fp6BenchData data(packs);
-    validate_fp6_pack_lufp();
-
-    for (auto _ : state) {
-        for (std::size_t p = 0; p < data.n_packs; ++p) {
-            mul_fp6_pack_lufp(data.out_pack[p], data.a_pack[p], data.b_pack[p]);
-        }
-        benchmark::DoNotOptimize(data.out_pack.data());
-    }
-    state.SetItemsProcessed(state.iterations() * data.n_tuples);
-}
-BENCHMARK(BM_Fp6Mul_Pack8x1_LUFp)->Arg(256);
-
-void BM_Fp6Mul_Pack8x1_BaselineNoRepair(benchmark::State& state)
-{
-    const std::size_t packs = static_cast<std::size_t>(state.range(0));
-    Fp6BenchData data(packs);
-
-    for (auto _ : state) {
-        for (std::size_t p = 0; p < data.n_packs; ++p) {
-            mul_fp6_pack_baseline_no_repair(data.out_pack[p], data.a_pack[p], data.b_pack[p]);
-        }
-        benchmark::DoNotOptimize(data.out_pack.data());
-    }
-    state.SetItemsProcessed(state.iterations() * data.n_tuples);
-}
-BENCHMARK(BM_Fp6Mul_Pack8x1_BaselineNoRepair)->Arg(256);
-
-void BM_Fp6Mul_Pack8x1_LUFp_NoNormalize(benchmark::State& state)
-{
-    const std::size_t packs = static_cast<std::size_t>(state.range(0));
-    Fp6BenchData data(packs);
-
-    for (auto _ : state) {
-        for (std::size_t p = 0; p < data.n_packs; ++p) {
-            mul_fp6_pack_lufp_no_normalize(data.out_pack[p], data.a_pack[p], data.b_pack[p]);
-        }
-        benchmark::DoNotOptimize(data.out_pack.data());
-    }
-    state.SetItemsProcessed(state.iterations() * data.n_tuples);
-}
-BENCHMARK(BM_Fp6Mul_Pack8x1_LUFp_NoNormalize)->Arg(256);
-
-void BM_Fp6Mul_Pack8x1_LUFp_RenormNoNormalize(benchmark::State& state)
-{
-    const std::size_t packs = static_cast<std::size_t>(state.range(0));
-    Fp6BenchData data(packs);
-
-    for (auto _ : state) {
-        for (std::size_t p = 0; p < data.n_packs; ++p) {
-            mul_fp6_pack_lufp_renorm_no_normalize(data.out_pack[p], data.a_pack[p], data.b_pack[p]);
-        }
-        benchmark::DoNotOptimize(data.out_pack.data());
-    }
-    state.SetItemsProcessed(state.iterations() * data.n_tuples);
-}
-BENCHMARK(BM_Fp6Mul_Pack8x1_LUFp_RenormNoNormalize)->Arg(256);
-
+// remove? legacy Fp6 sqr baseline remains here because the new accounting suite
+// does not cover sqr yet.
 void BM_Fp6Sqr_Scalar8(benchmark::State& state)
 {
     const std::size_t packs = static_cast<std::size_t>(state.range(0));
@@ -1262,6 +1188,7 @@ void BM_Fp6Sqr_Pack8x1(benchmark::State& state)
 }
 BENCHMARK(BM_Fp6Sqr_Pack8x1)->Arg(256);
 
+// remove? legacy LUFp sqr experiment; still unique until sqr enters the new suite.
 void BM_Fp6Sqr_Pack8x1_LUFp(benchmark::State& state)
 {
     const std::size_t packs = static_cast<std::size_t>(state.range(0));
@@ -1278,6 +1205,7 @@ void BM_Fp6Sqr_Pack8x1_LUFp(benchmark::State& state)
 }
 BENCHMARK(BM_Fp6Sqr_Pack8x1_LUFp)->Arg(256);
 
+// remove? legacy no-repair sqr ceiling experiment; still unique until sqr enters the new suite.
 void BM_Fp6Sqr_Pack8x1_BaselineNoRepair(benchmark::State& state)
 {
     const std::size_t packs = static_cast<std::size_t>(state.range(0));
@@ -1293,6 +1221,7 @@ void BM_Fp6Sqr_Pack8x1_BaselineNoRepair(benchmark::State& state)
 }
 BENCHMARK(BM_Fp6Sqr_Pack8x1_BaselineNoRepair)->Arg(256);
 
+// remove? legacy no-normalize sqr experiment; still unique until sqr enters the new suite.
 void BM_Fp6Sqr_Pack8x1_LUFp_NoNormalize(benchmark::State& state)
 {
     const std::size_t packs = static_cast<std::size_t>(state.range(0));
@@ -1308,6 +1237,7 @@ void BM_Fp6Sqr_Pack8x1_LUFp_NoNormalize(benchmark::State& state)
 }
 BENCHMARK(BM_Fp6Sqr_Pack8x1_LUFp_NoNormalize)->Arg(256);
 
+// remove? legacy renorm-no-normalize sqr experiment; still unique until sqr enters the new suite.
 void BM_Fp6Sqr_Pack8x1_LUFp_RenormNoNormalize(benchmark::State& state)
 {
     const std::size_t packs = static_cast<std::size_t>(state.range(0));

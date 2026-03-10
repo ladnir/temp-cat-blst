@@ -130,10 +130,9 @@ std::array<u64, NWORDS> bench_make_scaled_mod(const u64 scale)
   std::array<u64, NWORDS> out{};
   u64 carry = 0;
   for (std::size_t i = 0; i < NWORDS; ++i) {
-    const unsigned __int128 accum =
-        static_cast<unsigned __int128>(P48[i]) * scale + carry;
-    out[i] = static_cast<u64>(accum) & BMASK;
-    carry = static_cast<u64>(accum >> BRADIX);
+    const u64 accum = P48[i] * scale + carry;
+    out[i] = accum & BMASK;
+    carry = accum >> BRADIX;
   }
   return out;
 }
@@ -2223,21 +2222,6 @@ void BM_Fp8x1Normalize(benchmark::State& state)
   state.SetItemsProcessed(state.iterations() * n_packs);
 }
 
-void BM_Fp8x1UFpAdd(benchmark::State& state)
-{
-  const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
-  Fp8x1UFpBenchData data(n_packs);
-
-  for (auto _ : state) {
-    for (std::size_t i = 0; i < n_packs; ++i) {
-      UFpPack8x1::add(data.wide_out[i], data.wide_a[i], data.wide_b[i]);
-    }
-    bench_consume_wide(data.wide_out);
-  }
-
-  state.SetItemsProcessed(state.iterations() * n_packs);
-}
-
 void BM_Fp8x1WideCopy(benchmark::State& state)
 {
   const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
@@ -2268,93 +2252,7 @@ void BM_Fp8x1WideAddRaw(benchmark::State& state)
   state.SetItemsProcessed(state.iterations() * n_packs);
 }
 
-void BM_Fp8x1UFpSub(benchmark::State& state)
-{
-  const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
-  Fp8x1UFpBenchData data(n_packs);
-
-  for (auto _ : state) {
-    for (std::size_t i = 0; i < n_packs; ++i) {
-      UFpPack8x1::sub(data.wide_out[i], data.wide_a[i], data.wide_b[i]);
-    }
-    bench_consume_wide(data.wide_out);
-  }
-
-  state.SetItemsProcessed(state.iterations() * n_packs);
-}
-
-void BM_Fp8x1LUFpAdd(benchmark::State& state)
-{
-  const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
-  Fp8x1LUFpBenchData data(n_packs);
-
-  for (auto _ : state) {
-    for (std::size_t i = 0; i < n_packs; ++i) {
-      LUFpPack8x1::add(data.lazy_out[i], data.lazy_a[i], data.lazy_b[i]);
-    }
-    bench_consume_luwide(data.lazy_out);
-  }
-
-  state.SetItemsProcessed(state.iterations() * n_packs);
-}
-
-void BM_Fp8x1LUFpSub(benchmark::State& state)
-{
-  const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
-  Fp8x1LUFpBenchData data(n_packs);
-
-  for (auto _ : state) {
-    for (std::size_t i = 0; i < n_packs; ++i) {
-      LUFpPack8x1::sub(data.lazy_out[i], data.lazy_a[i], data.lazy_b[i]);
-    }
-    bench_consume_luwide(data.lazy_out);
-  }
-
-  state.SetItemsProcessed(state.iterations() * n_packs);
-}
-
-template <int Rounds>
-void BM_Fp8x1UFpAddChain(benchmark::State& state)
-{
-  const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
-  Fp8x1WidePairBenchData data(n_packs);
-
-  for (auto _ : state) {
-    for (std::size_t i = 0; i < n_packs; ++i) {
-      UFpPack8x1 x = data.wide_a[i];
-      const UFpPack8x1 y = data.wide_b[i];
-      for (int round = 0; round < Rounds; ++round) {
-        UFpPack8x1::add(x, x, y);
-      }
-      data.wide_out[i] = x;
-    }
-    bench_consume_wide(data.wide_out);
-  }
-
-  state.SetItemsProcessed(state.iterations() * n_packs * static_cast<std::size_t>(Rounds));
-}
-
-template <int Rounds>
-void BM_Fp8x1LUFpAddChain(benchmark::State& state)
-{
-  const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
-  Fp8x1WidePairBenchData data(n_packs);
-
-  for (auto _ : state) {
-    for (std::size_t i = 0; i < n_packs; ++i) {
-      LUFpPack8x1 x = data.lazy_a[i];
-      const LUFpPack8x1 y = data.lazy_b[i];
-      for (int round = 0; round < Rounds; ++round) {
-        LUFpPack8x1::add(x, x, y);
-      }
-      data.lazy_out[i] = x;
-    }
-    bench_consume_luwide(data.lazy_out);
-  }
-
-  state.SetItemsProcessed(state.iterations() * n_packs * static_cast<std::size_t>(Rounds));
-}
-
+// remove? legacy mixed add/sub throughput probe; not replaced by accounting suite yet.
 template <int Rounds>
 void BM_Fp8x1UFpAddSubChain(benchmark::State& state)
 {
@@ -2397,22 +2295,6 @@ void BM_Fp8x1LUFpAddSubChain(benchmark::State& state)
   }
 
   state.SetItemsProcessed(state.iterations() * n_packs * static_cast<std::size_t>(2 * Rounds));
-}
-
-template <LUFpRenormClass B>
-void BM_Fp8x1LUFpRenorm(benchmark::State& state)
-{
-  const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
-  Fp8x1LUFpBenchData data(n_packs);
-
-  for (auto _ : state) {
-    for (std::size_t i = 0; i < n_packs; ++i) {
-      LUFpPack8x1::renorm<B>(data.lazy_out[i], data.lazy_in[i]);
-    }
-    bench_consume_luwide(data.lazy_out);
-  }
-
-  state.SetItemsProcessed(state.iterations() * n_packs);
 }
 
 template <int Rounds>
@@ -2701,6 +2583,8 @@ void BM_Fp8x1RepairCompareChainFused3Way(benchmark::State& state)
   state.SetItemsProcessed(state.iterations() * static_cast<std::size_t>(Rounds));
 }
 
+// remove? legacy generic normalize path; superseded for report work, but still
+// useful as a reference until the new suite fully replaces ad hoc probes.
 void BM_Fp8x1LUFpNormalize(benchmark::State& state)
 {
   const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
@@ -2717,6 +2601,7 @@ void BM_Fp8x1LUFpNormalize(benchmark::State& state)
   state.SetItemsProcessed(state.iterations() * n_packs);
 }
 
+// remove? legacy class-specific normalize experiment; still unique today.
 void BM_Fp8x1LUFpNormalizeHiNeg4Pos4(benchmark::State& state)
 {
   const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
@@ -2734,6 +2619,7 @@ void BM_Fp8x1LUFpNormalizeHiNeg4Pos4(benchmark::State& state)
   state.SetItemsProcessed(state.iterations() * n_packs);
 }
 
+// remove? legacy generic-vs-specialized normalize comparison; still unique today.
 void BM_Fp8x1LUFpNormalizeGenericHiNeg4Pos4(benchmark::State& state)
 {
   const std::size_t n_packs = static_cast<std::size_t>(state.range(0));
@@ -3425,17 +3311,8 @@ BENCHMARK(BM_Fp8x1RedcCore)->Arg(256);
 BENCHMARK(BM_Fp8x1Normalize)->Arg(256);
 BENCHMARK(BM_Fp8x1WideCopy)->Arg(256);
 BENCHMARK(BM_Fp8x1WideAddRaw)->Arg(256);
-BENCHMARK(BM_Fp8x1UFpAdd)->Arg(256);
-BENCHMARK(BM_Fp8x1UFpSub)->Arg(256);
-BENCHMARK(BM_Fp8x1LUFpAdd)->Arg(256);
-BENCHMARK(BM_Fp8x1LUFpSub)->Arg(256);
-BENCHMARK_TEMPLATE(BM_Fp8x1UFpAddChain, 16)->Arg(256);
-BENCHMARK_TEMPLATE(BM_Fp8x1LUFpAddChain, 16)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp8x1UFpAddSubChain, 16)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp8x1LUFpAddSubChain, 16)->Arg(256);
-BENCHMARK_TEMPLATE(BM_Fp8x1LUFpRenorm, LUFpRenormClass::Tight)->Arg(256);
-BENCHMARK_TEMPLATE(BM_Fp8x1LUFpRenorm, LUFpRenormClass::Medium)->Arg(256);
-BENCHMARK_TEMPLATE(BM_Fp8x1LUFpRenorm, LUFpRenormClass::Loose)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp8x1CarryKickOnlyChain, 128);
 BENCHMARK_TEMPLATE(BM_Fp8x1CarryChain, 128);
 BENCHMARK_TEMPLATE(BM_Fp8x1RepairChainPrefixLex, 1, 256);

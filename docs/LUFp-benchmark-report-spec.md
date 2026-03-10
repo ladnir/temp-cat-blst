@@ -20,7 +20,7 @@ This spec defines the required report structure and the required red-flag rules.
 
 Recommended filename:
 
-- `out/benchmarks/<timestamp>-<commit>-report.md`
+- `docs/report/<timestamp>-<commit>-report.md`
 
 ## Report Order
 

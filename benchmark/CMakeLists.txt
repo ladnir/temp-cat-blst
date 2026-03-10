@@ -39,6 +39,9 @@ else()
     list(APPEND BENCHMARK_SOURCES
         "main.cpp"
         "avxbls_bench.cpp"
+        "Fp_avx_ufp_bench.cpp"
+        "Fp_avx_lufp_v2_bench.cpp"
+        "Fp_avx_renorm_bench.cpp"
         "Fp_avx_k_bench.cpp"
         "Fp_avx_fused_baseline_bench.cpp"
         "Fp12_tower_avx_bench.cpp"
