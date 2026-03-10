@@ -2,371 +2,312 @@
 
 ## Goal
 
-Build a coherent benchmark suite for `UFp`, `LUFp`, and `renorm` that:
+Build a coherent benchmark suite around the canonical `LUFp v2` path.
 
-- keeps benchmark code easy to read and maintain;
-- separates full end-to-end timings from constituent-part timings;
-- provides stage timings whose deltas add up to the full function timing;
-- avoids misleading results caused by mismatched sinks, storage, or benchmark structure.
+The suite must:
 
-Accuracy is the top priority.
+- measure the real accepted `v2` implementation, not legacy `LUFp` code;
+- keep constituent accounting trustworthy;
+- preserve the performance of the canonical `RawAdd`, `RawAddBias`, `RawAddBiasCarry`, `Full`, and `FullSign4` stages;
+- support migration to canonical `v2` `Fp6` integration;
+- make focused canonical runs valid and useful.
 
-## Speed-of-Light Methodology
+Accuracy comes first.
 
-The benchmark suite should be interpreted with a speed-of-light mindset.
+## Canonical Benchmark Principle
 
-For each important kernel family:
+The benchmark suite is not required to preserve legacy `LUFp` paths.
 
-- start from first principles;
-- estimate a lower bound or roofline;
-- compare the measured result against that bound;
-- treat the gap as an investigation target.
+For this plan:
 
-Rules:
+- canonical `LUFp` means the `v2` implementation path rooted in `benchmark/internal/Fp_avx_lufp_v2_impl.h`;
+- legacy `LUFpPack8x1`, `normalize<...>`, and `renorm<...>` benchmark paths are not part of the target suite;
+- benchmarks that still depend on old slow `LUFp` code should be migrated or deleted.
 
-- state assumptions explicitly;
-- distinguish facts from inference;
-- distinguish inference from speculation;
-- do not explain a gap without evidence;
-- be open-minded about why the measured result is above the lower bound.
+## Performance Guardrail
 
-This methodology complements the benchmark suite:
+The canonical add-family is the primary performance guardrail for the migration.
 
-- accounting benchmarks tell us where measured time goes;
-- speed-of-light reasoning tells us how far we are from the best plausible outcome.
+Accepted baseline for `4096 = 256 * 16` add operations:
 
-## Benchmark Types
+- `RawAdd`: `12216 ns`
+- `RawAddBias`: `19346 ns`
+- `RawAddBiasCarry`: `49990 ns`
+- `Full`: `81305 ns`
+- `FullSign4`: `181537 ns`
 
-We will use two distinct benchmark styles.
+Accepted stage deltas:
+
+- bias: `1.74 ns`
+- carry: `7.48 ns`
+- 1-step repair: `7.65 ns`
+- 4-step repair over `RawAddBiasCarry`: `32.12 ns`
+
+Acceptance rule:
+
+- the canonical add-family must remain within `3%` of this baseline;
+- the 1-step and 4-step repair deltas are canaries and must also remain within `3%`.
+
+## Hot-Path Rule
+
+The canonical `v2` implementation must stay lean and compiler-friendly.
+
+Do not add:
+
+- abstraction layers on the canonical hot path;
+- helper indirection that risks worse inlining or constant propagation;
+- cleanups that make the measured code structurally heavier;
+- sharing between canonical and experimental code if it makes canonical codegen worse.
+
+The implementation should prefer:
+
+- direct stage code;
+- compile-time stage gating with `if constexpr`;
+- visible hot helpers;
+- minimal temporary materialization;
+- minimal non-arithmetic overhead in measured paths.
+
+## Benchmark Methodology
+
+We use two benchmark styles.
 
 ### 1. Accounting benchmarks
 
-These are the primary benchmarks for attribution.
+These are the source of truth for constituent attribution.
 
 Properties:
 
 - one kernel family per operation;
 - one compile-time stage enum per family;
-- one templated implementation with `if constexpr` gating each stage;
-- stages are cumulative;
-- stage deltas must add up to the full benchmark by construction.
+- one templated implementation with `if constexpr` stage gating;
+- stages are cumulative within a chosen path;
+- deltas are derived from measured cumulative stages.
+
+For families with alternative terminal stages, report those terminal deltas relative to their shared predecessor.
 
 Example:
 
-- `RawAdd`
-- `RawAddPlusBias`
-- `RawAddPlusBiasPlusCarry`
-- `Full`
+- canonical `LUFp v2` add uses:
+  - `RawAdd`
+  - `RawAddBias`
+  - `RawAddBiasCarry`
+  - `Full`
+  - `FullSign4`
 
-Then:
+Interpretation:
 
-- `bias cost = stage(Bias) - stage(RawAdd)`
-- `carry cost = stage(Carry) - stage(Bias)`
-- `repair cost = stage(Full) - stage(Carry)`
-
-This is the only benchmark style that should be used for "what part of the full function costs what?"
+- bias cost = `RawAddBias - RawAdd`
+- carry cost = `RawAddBiasCarry - RawAddBias`
+- 1-step repair cost = `Full - RawAddBiasCarry`
+- 4-step repair cost = `FullSign4 - RawAddBiasCarry`
 
 ### 2. Pure kernel microbenchmarks
 
 These are secondary.
 
-Properties:
+They are useful for:
 
-- isolate one kernel such as `add`, `mul`, or `renorm`;
-- useful for ceiling/throughput studies;
-- useful for checking whether a specific primitive changed;
-- do not need to sum exactly to the full function.
+- isolated primitive checks;
+- throughput or speed-of-light studies;
+- validating whether a specific primitive changed.
 
-These are useful, but they are not the source of truth for constituent accounting.
+They are not the source of truth for constituent attribution.
 
-They are, however, useful supporting inputs for speed-of-light estimates.
+## Run Profiles
+
+Reports and validation runs must be interpreted relative to an explicit profile.
+
+### Canonical add-only
+
+Required families:
+
+- `UFp add accounting`
+- `LUFp v2 add accounting`
+
+Use this profile for:
+
+- refactors that should not perturb the canonical add path;
+- benchmark canary runs;
+- quick remote validation.
+
+### Canonical core
+
+Required families:
+
+- `UFp add accounting`
+- `LUFp v2 add accounting`
+- `LUFp v2 renorm accounting`
+
+Use this profile for:
+
+- validating the canonical exact-add and renorm story together.
+
+### Canonical full
+
+Required families:
+
+- `UFp add accounting`
+- `LUFp v2 add accounting`
+- `LUFp v2 renorm accounting`
+- `UFp Fp6 mul accounting`
+- canonical `LUFp v2 Fp6 mul accounting`
+
+This profile becomes the full target once canonical `v2` `Fp6` integration exists.
+
+### Exploratory
+
+Use this only when intentionally benchmarking:
+
+- experimental code;
+- partial migrations;
+- one-off focused kernels.
+
+Exploratory runs must be labeled as exploratory in the report.
 
 ## File Layout
 
-Planned files:
+Canonical and migration files:
 
 - `benchmark/Fp_avx_ufp_bench.cpp`
-- `benchmark/Fp_avx_lufp_bench.cpp`
+- `benchmark/Fp_avx_lufp_v2_bench.cpp`
 - `benchmark/Fp_avx_renorm_bench.cpp`
-- `benchmark/internal/Fp_avx_bench_kernels.h`
+- `benchmark/internal/Fp_avx_lufp_v2_impl.h`
 
 Rules:
 
-- `Fp_avx_ufp_bench.cpp` contains only `UFp` benchmark families.
-- `Fp_avx_lufp_bench.cpp` contains only `LUFp` benchmark families.
-- `Fp_avx_renorm_bench.cpp` contains only `renorm` benchmark families.
-- shared setup, fixtures, sinks, and stage-gated helper kernels live in `benchmark/internal/Fp_avx_bench_kernels.h`.
+- `Fp_avx_ufp_bench.cpp` contains the `UFp` benchmark families;
+- `Fp_avx_lufp_v2_bench.cpp` contains the canonical `LUFp v2` benchmark families;
+- `Fp_avx_renorm_bench.cpp` contains canonical `LUFp v2` renorm benchmarks;
+- `Fp_avx_lufp_v2_impl.h` contains accepted canonical `v2` code;
+- canonical `Fp6` `LUFp v2` support code should live in `Fp_avx_lufp_v2_impl.h`, not in a separate experimental benchmark header.
 
-Existing ad hoc benchmark experiments should be removed or moved once the new suite replaces them.
+Legacy `LUFp` benchmark helpers should not continue to grow.
 
-## Coding Style For Accounting Benchmarks
+## Current Canonical Families
 
-Each accounting family should use:
-
-- one stage enum;
-- one templated kernel implementation;
-- one templated benchmark entry point.
-
-Pattern:
-
-```cpp
-enum class UFpAddStage
-{
-    RawAdd,
-    RawAddBias,
-    RawAddBiasCarry,
-    Full,
-};
-
-template <UFpAddStage Stage>
-BLST_FORCEINLINE void ufp_add_accounting(
-    UFpPack8x1& r,
-    const UFpPack8x1& a,
-    const UFpPack8x1& b)
-{
-    // Always do the raw add.
-
-    if constexpr (Stage >= UFpAddStage::RawAddBias) {
-        // Bias stage.
-    }
-    if constexpr (Stage >= UFpAddStage::RawAddBiasCarry) {
-        // Carry stage.
-    }
-    if constexpr (Stage >= UFpAddStage::Full) {
-        // Final repair stage.
-    }
-}
-```
-
-This keeps the implementation coherent and prevents drift between variants.
-
-## Benchmark Families
-
-### UFp
+### UFp add
 
 In `benchmark/Fp_avx_ufp_bench.cpp`:
 
-#### A. UFp add
+- `BM_UFpAddAccounting<UFpAddStage::RawAdd>`
+- `BM_UFpAddAccounting<UFpAddStage::RawAddBias>`
+- `BM_UFpAddAccounting<UFpAddStage::RawAddBiasCarry>`
+- `BM_UFpAddAccounting<UFpAddStage::Full>`
 
-- `BM_UFpAdd_Full`
-- `BM_UFpAdd_Accounting<Stage>`
+### LUFp v2 add
 
-Planned stages:
+In `benchmark/Fp_avx_lufp_v2_bench.cpp`:
 
-- `RawAdd`
-- `RawAddBias`
-- `RawAddBiasCarry`
-- `Full`
+- `BM_LUFpAddAccounting<LUFpAddStage::RawAdd>`
+- `BM_LUFpAddAccounting<LUFpAddStage::RawAddBias>`
+- `BM_LUFpAddAccounting<LUFpAddStage::RawAddBiasCarry>`
+- `BM_LUFpAddAccounting<LUFpAddStage::Full>`
+- `BM_LUFpAddAccounting<LUFpAddStage::FullSign4>`
 
-#### B. UFp add microbenchmarks
+These are the canonical `LUFp v2` add benchmarks.
 
-These are secondary and should correspond to real sub-kernels:
-
-- raw limb add;
-- bias-only;
-- carry-only;
-- repair-only if it exists as a meaningful isolated piece.
-
-The primary attribution still comes from the accounting family above.
-
-The `UFp add` family should support a speed-of-light summary that reports:
-
-- lower-bound estimate;
-- measured full timing;
-- ratio of measured to lower bound;
-- what is known vs what is inferred.
-
-#### C. Fp6 x UFp
-
-- `BM_Fp6Mul_UFp_Full`
-- `BM_Fp6Mul_UFp_Accounting<Stage>`
-
-Planned stages:
-
-- `PreAdd`
-- `PreAddMul`
-- `PreAddMulWideCombine`
-- `Full`
-
-From these and the known op counts we derive:
-
-- average time per `Fp2` multiply;
-- average time per wide combine add/sub;
-- average time for the remaining stage.
-
-These stage deltas must sum to the full `Fp6` timing.
-
-The `Fp6 x UFp` family should also support a speed-of-light summary that reports:
-
-- lower-bound estimate from topology and kernel structure;
-- measured full timing;
-- measured stage timings;
-- the remaining unexplained gap, if any.
-
-### LUFp
-
-In `benchmark/Fp_avx_lufp_bench.cpp`:
-
-#### A. LUFp add
-
-- `BM_LUFpAdd_Full`
-- `BM_LUFpAdd_Accounting<Stage>`
-
-Planned stages:
-
-- `RawAdd`
-- `RawAddRenorm`
-
-If the `LUFp` add family later needs more substructure, extend the enum rather than adding separate near-duplicate functions.
-
-#### B. LUFp add microbenchmarks
-
-Secondary:
-
-- raw limb add;
-- raw limb sub;
-- optional exact renorm base case;
-- optional generalized renorm classes.
-
-These microbenchmarks are also useful for establishing lower-bound expectations for `LUFp`.
-
-#### C. Fp6 x LUFp
-
-- `BM_Fp6Mul_LUFp_Full`
-- `BM_Fp6Mul_LUFp_Accounting<Stage>`
-
-Planned stages:
-
-- `PreAdd`
-- `PreAddMul`
-- `PreAddMulRawLazyCombine`
-- `PreAddMulRawLazyCombineRenorm`
-- `Full`
-
-This isolates:
-
-- multiply work;
-- raw lazy combine work;
-- renorm work;
-- any remaining full-pipeline work.
-
-Again, these stages must add up to the full benchmark.
-
-The `Fp6 x LUFp` family should make it possible to report:
-
-- expected advantage from cheaper raw lazy add/sub;
-- expected renorm cost;
-- measured full timing;
-- the gap between expectation and measurement;
-- a clear split between proven causes and hypotheses.
-
-### Renorm
+### LUFp v2 renorm
 
 In `benchmark/Fp_avx_renorm_bench.cpp`:
 
-- `BM_Renorm_<Class>_Full`
-- `BM_Renorm_<Class>_Accounting<Stage>`
+- `BM_LUFpV2ExactAddRenormAccounting<LUFpV2ExactAddRenormStage::Bias>`
+- `BM_LUFpV2ExactAddRenormAccounting<LUFpV2ExactAddRenormStage::BiasCarry>`
+- `BM_LUFpV2ExactAddRenormAccounting<LUFpV2ExactAddRenormStage::Full>`
+- `BM_LUFpV2ExactAddRenormAccounting<LUFpV2ExactAddRenormStage::FullSign4>`
 
-Benchmarks should be defined by exact classes, not vague names.
+These benchmarks measure the same `v2` exact-add renorm primitives used by the canonical add-family path.
 
-Examples:
+### UFp Fp6 mul
 
-- `ExactAdd`
-- `Fp6MulCommon`
+In `benchmark/Fp_avx_ufp_bench.cpp`:
 
-Planned stages:
+- `BM_Fp6MulUfpAccounting<UFpFp6MulStage::PreAdd>`
+- `BM_Fp6MulUfpAccounting<UFpFp6MulStage::PreAddMul>`
+- `BM_Fp6MulUfpAccounting<UFpFp6MulStage::Full>`
 
-- `Bias`
-- `BiasCarry`
-- `BiasCarryRepair1`
-- `...`
-- `Full`
+This is the current comparison baseline for `Fp6`.
 
-This gives exact cost of:
+### LUFp v2 Fp6 mul
 
-- bias;
-- carry;
-- each repair stage.
+In `benchmark/Fp_avx_lufp_v2_bench.cpp`:
 
-It should also support a speed-of-light analysis for each renorm class:
+- `BM_Fp6MulLufpAccounting<LUFpFp6MulStage::PreAdd>`
+- `BM_Fp6MulLufpAccounting<LUFpFp6MulStage::PreAddMul>`
+- `BM_Fp6MulLufpAccounting<LUFpFp6MulStage::PreAddMulRawCombine>`
+- `BM_Fp6MulLufpAccounting<LUFpFp6MulStage::Full>`
 
-- lower-bound estimate from bias + carry + repair structure;
-- measured timing;
-- unexplained gap, if any.
+This family is intended to be the canonical `v2` `Fp6` benchmark path end to end.
+
+## Remaining Migration Gaps
+
+The suite is now aligned around canonical `v2` for add and renorm.
+
+The remaining gaps are:
+
+- `benchmark/Fp12_tower_avx_bench.cpp`
+  - still benchmarks legacy `LUFpPack8x1` tower paths and should be migrated or deleted
+- `benchmark/internal/Fp_avx_bench_kernels.h`
+  - still contains legacy `LUFp` benchmark helpers that should shrink as the old path is removed
+
+## Desired End State
+
+The desired suite is:
+
+- canonical `UFp` add accounting;
+- canonical `LUFp v2` add accounting;
+- canonical `LUFp v2` renorm accounting;
+- canonical `UFp` `Fp6` accounting;
+- canonical `LUFp v2` `Fp6` accounting.
+
+Legacy `LUFp` tower or normalize benchmarks should either:
+
+- migrate to canonical `v2`;
+- or be deleted.
 
 ## Accuracy Rules
 
 These rules apply to every benchmark family.
 
-1. Accounting variants must have the same sink shape.
+1. Accounting variants must keep the same sink shape.
 
-- same output storage style;
-- same temporaries when possible;
-- same benchmark loop shape.
+2. Compared variants must keep comparable storage behavior.
 
-2. Do not compare variants with mismatched storage behavior.
+3. Compared hot kernels must stay on equal footing for inlining and visibility.
 
-- Example: do not compare one benchmark that writes multiple large lazy vectors per iteration to one benchmark that writes one strict output and then claim the difference is arithmetic cost.
+4. Canonical-path refactors must be benchmarked, not assumed safe.
 
-3. Keep compared hot kernels on equal footing for inlining.
+5. Benchmark only on an idle server.
 
-- If one compared kernel is visible in the translation unit, the other should be too.
+6. Do not build and benchmark at the same time.
 
-4. Benchmark only on an idle server.
+7. If a gap is unexplained, say so plainly.
 
-5. Do not build and benchmark at the same time.
+## Removal Rule
 
-6. For close results, collect both:
+Delete benchmark code when all of the following are true:
 
-- benchmark timing;
-- `perf stat` style counters such as cycles and instructions, if needed later.
+- it measures legacy `LUFp` behavior;
+- it is not needed for the canonical `v2` target;
+- it does not support the current benchmark methodology.
 
-7. Every important family should support a speed-of-light summary.
-
-At minimum, it should be possible to report:
-
-- lower-bound estimate;
-- measured timing;
-- gap;
-- known causes of the gap;
-- unknown causes of the gap.
-
-8. If a gap is not explained, say so plainly.
-
-Do not convert an unexplained gap into an implicit explanation.
-
-## What To Remove Or Move
-
-The current ad hoc benchmark experiments should not remain spread across unrelated files once the new suite is in place.
-
-Planned cleanup:
-
-- move reusable helpers into `benchmark/internal/Fp_avx_bench_kernels.h`;
-- move `UFp`-specific decomposition into `benchmark/Fp_avx_ufp_bench.cpp`;
-- move `LUFp`-specific decomposition into `benchmark/Fp_avx_lufp_bench.cpp`;
-- move `renorm` decomposition into `benchmark/Fp_avx_renorm_bench.cpp`;
-- remove obsolete experimental benchmark paths after replacement.
+There is no requirement to keep obsolete slow benchmark paths once the canonical `v2` replacement exists.
 
 ## Execution Order
 
-1. Implement `UFp add` accounting family.
-2. Implement `LUFp add` accounting family.
-3. Implement `renorm` accounting family.
-4. Implement `Fp6 x UFp` accounting family.
-5. Implement `Fp6 x LUFp` accounting family.
-6. Remove superseded ad hoc benchmark code.
+1. Keep the canonical `LUFp v2` add-family stable.
+2. Update docs and reporting around the real canonical suite.
+3. Replace legacy renorm benchmarks with canonical `v2` renorm benchmarks.
+4. Keep `LUFp v2` `Fp6` integration in canonical `impl` code and benchmark it directly.
+5. Remove legacy `LUFp` benchmark code that no longer serves the target suite.
 
 ## Decision Rule
 
-When there is a disagreement between:
+When microbenchmarks and accounting benchmarks disagree:
 
-- a pure kernel microbenchmark;
-- and an accounting benchmark;
-
-the accounting benchmark wins for constituent attribution.
+- accounting benchmarks win for constituent attribution.
 
 When a speed-of-light estimate and measured timing disagree:
 
-- the measured timing is the fact;
-- the gap becomes an investigation item;
-- any explanation of that gap must be marked as inference or speculation unless directly supported by evidence.
+- measured timing is the fact;
+- the gap is an investigation item;
+- unsupported causal claims are not allowed.

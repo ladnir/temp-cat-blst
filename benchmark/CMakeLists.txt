@@ -41,6 +41,7 @@ else()
         "avxbls_bench.cpp"
         "Fp_avx_ufp_bench.cpp"
         "Fp_avx_lufp_v2_bench.cpp"
+        "Fp_avx_lufp_v2_fp6_bench.cpp"
         "Fp_avx_renorm_bench.cpp"
         "Fp_avx_k_bench.cpp"
         "Fp_avx_fused_baseline_bench.cpp"

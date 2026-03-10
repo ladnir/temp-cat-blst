@@ -4,257 +4,134 @@
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 
 #include <array>
+#include <cstddef>
+#include <random>
+#include <vector>
 
-#include "benchmark/internal/Fp_avx_bench_kernels.h"
+#include "blst/fields/Fp.h"
+#include "benchmark/internal/Fp_avx_lufp_v2_impl.h"
 
 using namespace blst;
-using namespace blst::bench_internal;
+using namespace blst::bench_lufp_v2;
 
 namespace
 {
-std::array<u64, NWORDS> make_scaled_mod(const u64 scale)
+void random_redc_fp(Fp& v, std::mt19937_64& gen)
 {
-    std::array<u64, NWORDS> out{};
-    u64 carry = 0;
-    for (std::size_t i = 0; i < NWORDS; ++i) {
-        const u64 accum = P48[i] * scale + carry;
-        out[i] = accum & BMASK;
-        carry = accum >> BRADIX;
+    for (u64 i = 0; i < v.num_limb(); ++i) {
+        v[i] = gen();
     }
-    return out;
-}
-
-std::array<cc512i, NWORDS> broadcast_mod(const std::array<u64, NWORDS>& mod)
-{
-    std::array<cc512i, NWORDS> out{};
-    for (std::size_t i = 0; i < NWORDS; ++i) {
-        out[i] = VSET1(static_cast<i64>(mod[i]));
-    }
-    return out;
-}
-
-const std::array<cc512i, NWORDS> kP1 = broadcast_mod(make_scaled_mod(1));
-const std::array<cc512i, NWORDS> kP2 = broadcast_mod(make_scaled_mod(2));
-const std::array<cc512i, NWORDS> kP4 = broadcast_mod(make_scaled_mod(4));
-
-struct BenchGtEq
-{
-    u8 gt;
-    u8 eq;
-};
-
-BLST_FORCEINLINE auto mask_eq_epi64(const cc512i a, const cc512i b) -> u8
-{
-#if BLST_AVX_NATIVE
-    return static_cast<u8>(_mm512_cmpeq_epi64_mask(to_native_512(a), to_native_512(b)));
-#else
-    std::array<u64, 8> lhs{};
-    std::array<u64, 8> rhs{};
-    _cc512_storeu_si512(lhs.data(), a);
-    _cc512_storeu_si512(rhs.data(), b);
-    u8 mask = 0;
-    for (u8 lane = 0; lane < 8; ++lane) {
-        if (lhs[lane] == rhs[lane]) {
-            mask |= static_cast<u8>(1u << lane);
-        }
-    }
-    return mask;
-#endif
-}
-
-BLST_FORCEINLINE auto mask_gt_epi64(const cc512i a, const cc512i b) -> u8
-{
-#if BLST_AVX_NATIVE
-    return static_cast<u8>(_mm512_cmpgt_epi64_mask(to_native_512(a), to_native_512(b)));
-#else
-    std::array<u64, 8> lhs{};
-    std::array<u64, 8> rhs{};
-    _cc512_storeu_si512(lhs.data(), a);
-    _cc512_storeu_si512(rhs.data(), b);
-    u8 mask = 0;
-    for (u8 lane = 0; lane < 8; ++lane) {
-        if (static_cast<i64>(lhs[lane]) > static_cast<i64>(rhs[lane])) {
-            mask |= static_cast<u8>(1u << lane);
-        }
-    }
-    return mask;
-#endif
-}
-
-BLST_FORCEINLINE auto gt_eq_pair(const cc512i a, const cc512i b) -> BenchGtEq
-{
-    return BenchGtEq{mask_gt_epi64(a, b), mask_eq_epi64(a, b)};
-}
-
-BLST_FORCEINLINE auto gt_eq_combine_hi_lo(const BenchGtEq hi, const BenchGtEq lo) -> BenchGtEq
-{
-#if BLST_AVX_NATIVE
-    const __mmask8 hi_gt = static_cast<__mmask8>(hi.gt);
-    const __mmask8 hi_eq = static_cast<__mmask8>(hi.eq);
-    const __mmask8 lo_gt = static_cast<__mmask8>(lo.gt);
-    const __mmask8 lo_eq = static_cast<__mmask8>(lo.eq);
-    return BenchGtEq{
-        static_cast<u8>(_kor_mask8(hi_gt, _kand_mask8(hi_eq, lo_gt))),
-        static_cast<u8>(_kand_mask8(hi_eq, lo_eq)),
-    };
-#else
-    return BenchGtEq{
-        static_cast<u8>(hi.gt | (hi.eq & lo.gt)),
-        static_cast<u8>(hi.eq & lo.eq),
-    };
-#endif
-}
-
-template <u64 Scale>
-BLST_FORCEINLINE auto high_ge_mod_mask_prefix_lex(const cc512i* limbs) -> u8
-{
-    const auto& mod_vec = Scale == 1 ? kP1 : (Scale == 2 ? kP2 : kP4);
-    const BenchGtEq c7 = gt_eq_pair(limbs[NWORDS + 7], mod_vec[7]);
-    const BenchGtEq c6 = gt_eq_pair(limbs[NWORDS + 6], mod_vec[6]);
-    const BenchGtEq c5 = gt_eq_pair(limbs[NWORDS + 5], mod_vec[5]);
-    const BenchGtEq c4 = gt_eq_pair(limbs[NWORDS + 4], mod_vec[4]);
-    const BenchGtEq c3 = gt_eq_pair(limbs[NWORDS + 3], mod_vec[3]);
-    const BenchGtEq c2 = gt_eq_pair(limbs[NWORDS + 2], mod_vec[2]);
-    const BenchGtEq c1 = gt_eq_pair(limbs[NWORDS + 1], mod_vec[1]);
-    const BenchGtEq c0 = gt_eq_pair(limbs[NWORDS + 0], mod_vec[0]);
-
-    const BenchGtEq c76 = gt_eq_combine_hi_lo(c7, c6);
-    const BenchGtEq c54 = gt_eq_combine_hi_lo(c5, c4);
-    const BenchGtEq c32 = gt_eq_combine_hi_lo(c3, c2);
-    const BenchGtEq c10 = gt_eq_combine_hi_lo(c1, c0);
-    const BenchGtEq c7654 = gt_eq_combine_hi_lo(c76, c54);
-    const BenchGtEq c3210 = gt_eq_combine_hi_lo(c32, c10);
-    const BenchGtEq all = gt_eq_combine_hi_lo(c7654, c3210);
-
-#if BLST_AVX_NATIVE
-    return static_cast<u8>(_kor_mask8(static_cast<__mmask8>(all.gt), static_cast<__mmask8>(all.eq)));
-#else
-    return static_cast<u8>(all.gt | all.eq);
-#endif
-}
-
-template <u64 Scale>
-BLST_FORCEINLINE void high_sub_mod_masked(cc512i* limbs, const u8 lane_mask)
-{
-    const auto& mod_vec = Scale == 1 ? kP1 : (Scale == 2 ? kP2 : kP4);
-    for (std::size_t i = 0; i < NWORDS; ++i) {
-        limbs[NWORDS + i] = VMSUB(limbs[NWORDS + i], lane_mask, limbs[NWORDS + i], mod_vec[i]);
+    while (Fp::is_redc(v) == 0) {
+        Fp::rshift(v, v, 1);
     }
 }
 
-BLST_FORCEINLINE void signed_carry_range(cc512i* limbs, const std::size_t begin, const std::size_t end)
+BLST_FORCEINLINE void consume_wide(const std::vector<UFpPack8x1>& data)
 {
-    const cc512i bmask = VSET1(BMASK);
-    for (std::size_t i = begin; i < end; ++i) {
-        limbs[i + 1] = VADD(limbs[i + 1], VSRA(limbs[i], BRADIX));
-        limbs[i] = VAND(limbs[i], bmask);
+    if (data.empty()) {
+        return;
     }
+    benchmark::DoNotOptimize(data.front()[0]);
+    benchmark::DoNotOptimize(data.back()[(2 * NWORDS) - 1]);
+    benchmark::ClobberMemory();
 }
 
-struct RenormBenchData
+struct LUFpV2ExactAddRenormBenchData
 {
-    explicit RenormBenchData(const std::size_t n_packs)
+    explicit LUFpV2ExactAddRenormBenchData(const std::size_t n_packs)
         : n_packs_(n_packs)
-        , in(n_packs_)
-        , out(n_packs_)
+        , lazy_in(n_packs_)
+        , wide_out(n_packs_)
     {
-        std::mt19937_64 gen(0x6C7546708F1A2D3EULL + static_cast<u64>(n_packs_));
+        std::mt19937_64 gen(0xA6DDEB4A5512C4B1ULL + static_cast<u64>(n_packs_));
+
         for (std::size_t i = 0; i < n_packs_; ++i) {
             std::array<Fp, 8> lane_a{};
             std::array<Fp, 8> lane_b{};
-            FpPack8x1 pack_a{}, pack_b{};
+            std::array<Fp, 8> lane_c{};
+            std::array<Fp, 8> lane_d{};
+            FpPack8x1 pack_a{}, pack_b{}, pack_c{}, pack_d{};
             UFpPack8x1 wide_a{}, wide_b{};
+
             for (std::size_t lane = 0; lane < 8; ++lane) {
                 random_redc_fp(lane_a[lane], gen);
                 random_redc_fp(lane_b[lane], gen);
+                random_redc_fp(lane_c[lane], gen);
+                random_redc_fp(lane_d[lane], gen);
             }
+
             FpPack8x1::from_aos(pack_a, lane_a.data());
             FpPack8x1::from_aos(pack_b, lane_b.data());
-            FpPack8x1::mul(wide_a, pack_a, pack_a);
-            FpPack8x1::mul(wide_b, pack_b, pack_b);
-            LUFpPack8x1::sub(in[i], wide_a, wide_b);
+            FpPack8x1::from_aos(pack_c, lane_c.data());
+            FpPack8x1::from_aos(pack_d, lane_d.data());
+
+            FpPack8x1::mul(wide_a, pack_a, pack_b);
+            FpPack8x1::mul(wide_b, pack_c, pack_d);
+
+            bench_copy_as_v2(lazy_in[i], wide_a);
+            LUFpPack8x1V2::add(lazy_in[i], lazy_in[i], reinterpret_cast<const LUFpPack8x1V2&>(wide_b));
         }
     }
 
     const std::size_t n_packs_;
-    std::vector<LUFpPack8x1> in;
-    std::vector<UFpPack8x1> out;
+    std::vector<LUFpPack8x1V2> lazy_in;
+    std::vector<UFpPack8x1> wide_out;
 };
 
-void BM_LUFpNormalizeHiNeg1Pos2(benchmark::State& state)
+enum class LUFpV2ExactAddRenormStage
 {
-    RenormBenchData data(static_cast<std::size_t>(state.range(0)));
-    for (auto _ : state) {
-        for (std::size_t p = 0; p < data.n_packs_; ++p) {
-            LUFpPack8x1::normalize<LUFpNormalizeBound::HiNeg1Pos2>(data.out[p], data.in[p]);
+    Bias,
+    BiasCarry,
+    Full,
+    FullSign4,
+};
+
+template <LUFpV2ExactAddRenormStage Stage>
+BLST_FORCEINLINE void lufp_v2_exact_add_renorm_accounting(UFpPack8x1& r, const LUFpPack8x1V2& a)
+{
+    v2_bias_neg_p(r, a);
+
+    if constexpr (Stage >= LUFpV2ExactAddRenormStage::BiasCarry) {
+        const cc512i smask = v2_carry_from_biased(r);
+        benchmark::DoNotOptimize(smask);
+
+        if constexpr (Stage == LUFpV2ExactAddRenormStage::Full) {
+            v2_repair_one_step_from_sign(r, smask);
+        } else if constexpr (Stage == LUFpV2ExactAddRenormStage::FullSign4) {
+            cc512i s = v2_repair_sign_step<4>(r, smask);
+            s = v2_repair_sign_step<2>(r, s);
+            s = v2_repair_sign_step<1>(r, s);
+            benchmark::DoNotOptimize(v2_repair_sign_step<1>(r, s));
         }
-        consume_wide(data.out);
     }
 }
 
-void BM_LUFpCarryChain(benchmark::State& state)
+template <LUFpV2ExactAddRenormStage Stage>
+void BM_LUFpV2ExactAddRenormAccounting(benchmark::State& state)
 {
-    constexpr std::size_t kRounds = 128;
-    RenormBenchData data(static_cast<std::size_t>(state.range(0)));
+    constexpr std::size_t kRounds = 16;
+    LUFpV2ExactAddRenormBenchData data(static_cast<std::size_t>(state.range(0)));
+
     for (auto _ : state) {
         for (std::size_t p = 0; p < data.n_packs_; ++p) {
-            cc512i limbs[2 * NWORDS]{};
-            for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
-                limbs[i] = data.in[p][i];
-            }
+            UFpPack8x1 out{};
             for (std::size_t round = 0; round < kRounds; ++round) {
-                signed_carry_range(limbs, 0, (2 * NWORDS) - 1);
+                lufp_v2_exact_add_renorm_accounting<Stage>(out, data.lazy_in[p]);
             }
-            for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
-                data.out[p][i] = limbs[i];
-            }
+            data.wide_out[p] = out;
         }
-        consume_wide(data.out);
+        consume_wide(data.wide_out);
     }
+
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) *
+                            static_cast<int64_t>(data.n_packs_) *
+                            static_cast<int64_t>(kRounds));
 }
 
-template <std::size_t Steps>
-void BM_LUFpRepairPrefixLex(benchmark::State& state)
-{
-    constexpr std::size_t kRounds = 256;
-    RenormBenchData data(static_cast<std::size_t>(state.range(0)));
-    for (auto _ : state) {
-        for (std::size_t p = 0; p < data.n_packs_; ++p) {
-            cc512i limbs[2 * NWORDS]{};
-            for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
-                limbs[i] = data.in[p][i];
-            }
-            for (std::size_t round = 0; round < kRounds; ++round) {
-                signed_carry_range(limbs, 0, (2 * NWORDS) - 1);
-                if constexpr (Steps >= 1) {
-                    const u8 ge1 = high_ge_mod_mask_prefix_lex<1>(limbs);
-                    high_sub_mod_masked<1>(limbs, ge1);
-                    signed_carry_range(limbs, NWORDS, (2 * NWORDS) - 1);
-                }
-                if constexpr (Steps >= 2) {
-                    const u8 ge2 = high_ge_mod_mask_prefix_lex<2>(limbs);
-                    high_sub_mod_masked<2>(limbs, ge2);
-                    signed_carry_range(limbs, NWORDS, (2 * NWORDS) - 1);
-                }
-                if constexpr (Steps >= 4) {
-                    const u8 ge4 = high_ge_mod_mask_prefix_lex<4>(limbs);
-                    high_sub_mod_masked<4>(limbs, ge4);
-                    signed_carry_range(limbs, NWORDS, (2 * NWORDS) - 1);
-                }
-            }
-            for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
-                data.out[p][i] = limbs[i];
-            }
-        }
-        consume_wide(data.out);
-    }
-}
-
-BENCHMARK(BM_LUFpNormalizeHiNeg1Pos2)->Arg(256);
-BENCHMARK(BM_LUFpCarryChain)->Arg(256);
-BENCHMARK_TEMPLATE(BM_LUFpRepairPrefixLex, 1)->Arg(256);
-BENCHMARK_TEMPLATE(BM_LUFpRepairPrefixLex, 2)->Arg(256);
-BENCHMARK_TEMPLATE(BM_LUFpRepairPrefixLex, 4)->Arg(256);
+BENCHMARK_TEMPLATE(BM_LUFpV2ExactAddRenormAccounting, LUFpV2ExactAddRenormStage::Bias)->Arg(256);
+BENCHMARK_TEMPLATE(BM_LUFpV2ExactAddRenormAccounting, LUFpV2ExactAddRenormStage::BiasCarry)->Arg(256);
+BENCHMARK_TEMPLATE(BM_LUFpV2ExactAddRenormAccounting, LUFpV2ExactAddRenormStage::Full)->Arg(256);
+BENCHMARK_TEMPLATE(BM_LUFpV2ExactAddRenormAccounting, LUFpV2ExactAddRenormStage::FullSign4)->Arg(256);
 }
 
 #endif
