@@ -7,6 +7,7 @@
 
 #include "blst/fields/Fp.h"
 #include "benchmark/internal/Fp_avx_lufp_v2_impl.h"
+#include "benchmark/internal/Fp_avx_lufp_v2_experimental.h"
 
 using namespace blst;
 using namespace blst::bench_lufp_v2;
