@@ -55,12 +55,12 @@ FAMILIES = {
         "BM_Fp6MulLufpAccounting<LUFpFp6MulStage::Full>/256",
     ],
     "LUFp v2 Fp6 renorm accounting": [
-        "BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::CopyBias>/256",
-        "BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::CopyBiasCarry>/256",
-        "BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::CopyBiasCarrySign4>/256",
-        "BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::CopyBiasCarrySign42>/256",
-        "BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::CopyBiasCarrySign421>/256",
-        "BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::CopyBiasCarrySign4211>/256",
+        "BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::Bias>/256",
+        "BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::BiasCarry>/256",
+        "BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::BiasCarrySign4>/256",
+        "BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::BiasCarrySign42>/256",
+        "BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::BiasCarrySign421>/256",
+        "BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::BiasCarrySign4211>/256",
         "BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::Full>/256",
     ],
 }
@@ -349,9 +349,9 @@ def speed_of_light_lines(results: Dict[str, Aggregate]) -> List[str]:
         ),
         (
             "LUFp v2 Fp6 renorm accounting",
-            "BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::CopyBias>/256",
+            "BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::Bias>/256",
             "BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::Full>/256",
-            "Lower bound is the measured copy-plus-bias stage. Assumption: carry, repair, and output are non-negative overhead.",
+            "Lower bound is the measured bias stage. Assumption: carry, repair, and output are non-negative overhead.",
         ),
     ]
 
@@ -425,14 +425,14 @@ def per_operation_rows(results: Dict[str, Aggregate]) -> List[List[str]]:
         rows.append(["LUFp v2 Fp6 mul", "final renorm/output boundary", fmt_ns((full - raw_combine) / 256)])
 
     if family_present(results, "LUFp v2 Fp6 renorm accounting"):
-        bias = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::CopyBias>/256"].mean
-        carry = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::CopyBiasCarry>/256"].mean
-        sign4 = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::CopyBiasCarrySign4>/256"].mean
-        sign42 = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::CopyBiasCarrySign42>/256"].mean
-        sign421 = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::CopyBiasCarrySign421>/256"].mean
-        sign4211 = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::CopyBiasCarrySign4211>/256"].mean
+        bias = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::Bias>/256"].mean
+        carry = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::BiasCarry>/256"].mean
+        sign4 = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::BiasCarrySign4>/256"].mean
+        sign42 = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::BiasCarrySign42>/256"].mean
+        sign421 = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::BiasCarrySign421>/256"].mean
+        sign4211 = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::BiasCarrySign4211>/256"].mean
         full = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::Full>/256"].mean
-        rows.append(["LUFp v2 Fp6 renorm", "copy+bias (6 components)", fmt_ns(bias / (256 * 6))])
+        rows.append(["LUFp v2 Fp6 renorm", "bias (6 components)", fmt_ns(bias / (256 * 6))])
         rows.append(["LUFp v2 Fp6 renorm", "carry delta (6 components)", fmt_ns((carry - bias) / (256 * 6))])
         rows.append(["LUFp v2 Fp6 renorm", "sign4 delta (6 components)", fmt_ns((sign4 - carry) / (256 * 6))])
         rows.append(["LUFp v2 Fp6 renorm", "sign2 delta (6 components)", fmt_ns((sign42 - sign4) / (256 * 6))])
@@ -470,12 +470,12 @@ def fp6_operation_accounting_lines(results: Dict[str, Aggregate]) -> List[str]:
         pre_add_mul = results["BM_Fp6MulLufpAccounting<LUFpFp6MulStage::PreAddMul>/256"].mean / 256.0
         raw_combine = results["BM_Fp6MulLufpAccounting<LUFpFp6MulStage::PreAddMulRawCombine>/256"].mean / 256.0
         full = results["BM_Fp6MulLufpAccounting<LUFpFp6MulStage::Full>/256"].mean / 256.0
-        renorm_bias = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::CopyBias>/256"].mean / 256.0
-        renorm_carry = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::CopyBiasCarry>/256"].mean / 256.0
-        renorm_sign4 = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::CopyBiasCarrySign4>/256"].mean / 256.0
-        renorm_sign42 = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::CopyBiasCarrySign42>/256"].mean / 256.0
-        renorm_sign421 = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::CopyBiasCarrySign421>/256"].mean / 256.0
-        renorm_sign4211 = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::CopyBiasCarrySign4211>/256"].mean / 256.0
+        renorm_bias = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::Bias>/256"].mean / 256.0
+        renorm_carry = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::BiasCarry>/256"].mean / 256.0
+        renorm_sign4 = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::BiasCarrySign4>/256"].mean / 256.0
+        renorm_sign42 = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::BiasCarrySign42>/256"].mean / 256.0
+        renorm_sign421 = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::BiasCarrySign421>/256"].mean / 256.0
+        renorm_sign4211 = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::BiasCarrySign4211>/256"].mean / 256.0
         renorm_full = results["BM_LUFpV2Fp6MulCommonRenormAccounting<LUFpV2Fp6MulCommonRenormStage::Full>/256"].mean / 256.0
 
         mul_total = pre_add_mul - pre_add
@@ -499,7 +499,7 @@ def fp6_operation_accounting_lines(results: Dict[str, Aggregate]) -> List[str]:
                 ["Narrow pre-add", "6 Fp2 adds", fmt_ns(pre_add), fmt_ns(pre_add / 6.0), "Measured by `PreAdd`."],
                 ["Fp2 mul", "6 Fp2 muls", fmt_ns(mul_total), fmt_ns(mul_total / 6.0), "Measured by `PreAddMul - PreAdd`."],
                 ["Raw lazy combine", "13 LUFp2 add/sub-like ops", fmt_ns(raw_total), fmt_ns(raw_total / 13.0), "Measured by `PreAddMulRawCombine - PreAddMul`."],
-                ["Renorm copy+bias", "6 components", fmt_ns(bias_total), fmt_ns(bias_total / 6.0), "Measured independently on raw-combine outputs."],
+                ["Renorm bias", "6 components", fmt_ns(bias_total), fmt_ns(bias_total / 6.0), "Measured independently on raw-combine outputs."],
                 ["Renorm carry", "6 components", fmt_ns(carry_total), fmt_ns(carry_total / 6.0), "Measured independently on raw-combine outputs."],
                 ["Renorm sign4", "6 components", fmt_ns(sign4_total), fmt_ns(sign4_total / 6.0), "Measured independently on raw-combine outputs."],
                 ["Renorm sign2", "6 components", fmt_ns(sign2_total), fmt_ns(sign2_total / 6.0), "Measured independently on raw-combine outputs."],
