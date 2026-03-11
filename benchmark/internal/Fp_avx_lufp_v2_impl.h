@@ -517,6 +517,41 @@ namespace blst::bench_lufp_v2
         return sign_mask;
     }
 
+    template <u32 Scale>
+    BLST_FORCEINLINE void v2_high_sub_scaled(cc512i* limbs)
+    {
+        if constexpr (Scale == 0u) {
+            return;
+        } else if constexpr (Scale == 1u) {
+            v2_high_sub_const(limbs, kV2P48X1Vec);
+        } else if constexpr (Scale == 2u) {
+            v2_high_sub_const(limbs, kV2P48X2Vec);
+        } else if constexpr (Scale == 3u) {
+            v2_high_sub_const(limbs, kV2P48X2Vec);
+            v2_high_sub_const(limbs, kV2P48X1Vec);
+        } else if constexpr (Scale == 4u) {
+            v2_high_sub_const(limbs, kV2P48X4Vec);
+        } else {
+            static_assert(Scale <= 4u, "unsupported delayed-repair bias scale");
+        }
+    }
+
+    template <u32 BiasScale, u64... Scales>
+    BLST_FORCEINLINE void lufp_v2_renorm_delayed_centered(UFpPack8x1& in_out)
+    {
+        v2_high_sub_scaled<BiasScale>(in_out.data());
+        v2_signed_carry_range(in_out.data(), 0, (2 * NWORDS) - 1);
+        const v2_lane_mask_t sign_mask = v2_signbit_mask(in_out[(2 * NWORDS) - 1]);
+        static_cast<void>(v2_sign_step_sequence<Scales...>(in_out.data(), sign_mask));
+    }
+
+    template <u32 BiasScale, u64... Scales>
+    BLST_FORCEINLINE void lufp2_v2_renorm_delayed_centered(UFp2Pack8x1x1& in_out)
+    {
+        lufp_v2_renorm_delayed_centered<BiasScale, Scales...>(in_out[0]);
+        lufp_v2_renorm_delayed_centered<BiasScale, Scales...>(in_out[1]);
+    }
+
     BLST_FORCEINLINE void lufp_v2_renorm_exact_add(UFpPack8x1& in_out)
     {
         const cc512i smask = v2_carry_from_biased(in_out);
@@ -736,6 +771,12 @@ namespace blst::bench_lufp_v2
         lufp_v2_fp6_mul_common_renorm_half_fast(in_out[1]);
     }
 
+    BLST_FORCEINLINE void lufp2_v2_renorm_fp6_mul_common_final_step(UFp2Pack8x1x1& in_out)
+    {
+        lufp_v2_fp6_mul_common_renorm_half_step_candidate(in_out[0]);
+        lufp_v2_fp6_mul_common_renorm_half_step_candidate(in_out[1]);
+    }
+
     BLST_FORCEINLINE void lufp2_v2_renorm_fp6_mul_common_step_candidate(UFp2Pack8x1x1& in_out)
     {
         lufp_v2_fp6_mul_common_renorm_half_step_candidate(in_out[0]);
@@ -822,7 +863,8 @@ namespace blst::bench_lufp_v2
             const cc512i x11 = VSUB(VSUB(w[1][limb], t1[1][limb]), t2[1][limb]);
             r.c[0][1][limb] = VADD(VADD(x10, x11), t0[1][limb]);
         }
-        lufp2_v2_renorm_fp6_mul_common_fast(r.c[0]);
+        // c0 final halves fit within a symmetric [-4p, 4p) envelope.
+        lufp2_v2_renorm_delayed_centered<3u, 4u, 2u, 1u>(r.c[0]);
 
         Fp2Pack8x1x1::add(aa, a.c[0], a.c[1]);
         Fp2Pack8x1x1::add(bb, b.c[0], b.c[1]);
@@ -835,7 +877,8 @@ namespace blst::bench_lufp_v2
                 VSUB(VSUB(w[1][limb], t0[1][limb]), t1[1][limb]),
                 VADD(t2[0][limb], t2[1][limb]));
         }
-        lufp2_v2_renorm_fp6_mul_common_fast(r.c[1]);
+        // c1 final halves fit within a symmetric [-3p, 3p) envelope.
+        lufp2_v2_renorm_delayed_centered<2u, 4u, 1u>(r.c[1]);
 
         Fp2Pack8x1x1::add(aa, a.c[0], a.c[2]);
         Fp2Pack8x1x1::add(bb, b.c[0], b.c[2]);
@@ -844,7 +887,8 @@ namespace blst::bench_lufp_v2
             r.c[2][0][limb] = VADD(VSUB(VSUB(w[0][limb], t0[0][limb]), t2[0][limb]), t1[0][limb]);
             r.c[2][1][limb] = VADD(VSUB(VSUB(w[1][limb], t0[1][limb]), t2[1][limb]), t1[1][limb]);
         }
-        lufp2_v2_renorm_fp6_mul_common_fast(r.c[2]);
+        // c2 final halves fit within a symmetric [-2p, 2p) envelope.
+        lufp2_v2_renorm_delayed_centered<1u, 2u, 1u>(r.c[2]);
     }
 
     inline void mul_fp6_pack_lufpv2_wide_safe(UFp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b)
@@ -949,8 +993,96 @@ namespace blst::bench_lufp_v2
         lufp2_v2_renorm_exact_add(r.c[2]);
     }
 
-    inline void mul_fp6_pack_lufpv2_wide_step_candidate_final_fast(UFp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b)
+    inline void mul_fp6_pack_lufpv2_wide_exact_add_every_op(UFp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b)
     {
+        mul_fp6_pack_lufpv2_wide_step_candidate(r, a, b);
+    }
+
+    inline void mul_fp6_pack_lufpv2_wide_delayed_block_final(UFp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b)
+    {
+        mul_fp6_pack_lufpv2_wide(r, a, b);
+    }
+
+    template <u32 Mask>
+    inline void mul_fp6_pack_lufpv2_wide_step_candidate_sparse(UFp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b)
+    {
+        Fp2Pack8x1x1 aa, bb;
+        UFp2Pack8x1x1 t0, t1, t2;
+        UFp2Pack8x1x1 t3;
+
+        UFp2Pack8x1x1::mul(t0, a.c[0], b.c[0]);
+        UFp2Pack8x1x1::mul(t1, a.c[1], b.c[1]);
+        UFp2Pack8x1x1::mul(t2, a.c[2], b.c[2]);
+
+        Fp2Pack8x1x1::add(aa, a.c[1], a.c[2]);
+        Fp2Pack8x1x1::add(bb, b.c[1], b.c[2]);
+        UFp2Pack8x1x1::mul(r.c[0], aa, bb);
+        lufp2_v2_sub(r.c[0], r.c[0], t1);
+        if constexpr ((Mask & (1u << 0)) != 0u) {
+            lufp2_v2_renorm_exact_add(r.c[0]);
+        }
+        lufp2_v2_sub(r.c[0], r.c[0], t2);
+        if constexpr ((Mask & (1u << 1)) != 0u) {
+            lufp2_v2_renorm_exact_add(r.c[0]);
+        }
+        lufp2_v2_mul_by_u_plus_1(t3, r.c[0]);
+        if constexpr ((Mask & (1u << 2)) != 0u) {
+            lufp2_v2_renorm_exact_add(t3);
+        }
+        lufp2_v2_add(r.c[0], t3, t0);
+        if constexpr ((Mask & (1u << 3)) != 0u) {
+            lufp2_v2_renorm_exact_add(r.c[0]);
+        }
+
+        Fp2Pack8x1x1::add(aa, a.c[0], a.c[1]);
+        Fp2Pack8x1x1::add(bb, b.c[0], b.c[1]);
+        UFp2Pack8x1x1::mul(r.c[1], aa, bb);
+        lufp2_v2_sub(r.c[1], r.c[1], t0);
+        if constexpr ((Mask & (1u << 4)) != 0u) {
+            lufp2_v2_renorm_exact_add(r.c[1]);
+        }
+        lufp2_v2_sub(r.c[1], r.c[1], t1);
+        if constexpr ((Mask & (1u << 5)) != 0u) {
+            lufp2_v2_renorm_exact_add(r.c[1]);
+        }
+        lufp2_v2_mul_by_u_plus_1(t3, t2);
+        if constexpr ((Mask & (1u << 6)) != 0u) {
+            lufp2_v2_renorm_exact_add(t3);
+        }
+        lufp2_v2_add(r.c[1], r.c[1], t3);
+        if constexpr ((Mask & (1u << 7)) != 0u) {
+            lufp2_v2_renorm_exact_add(r.c[1]);
+        }
+
+        Fp2Pack8x1x1::add(aa, a.c[0], a.c[2]);
+        Fp2Pack8x1x1::add(bb, b.c[0], b.c[2]);
+        UFp2Pack8x1x1::mul(r.c[2], aa, bb);
+        lufp2_v2_sub(r.c[2], r.c[2], t0);
+        if constexpr ((Mask & (1u << 8)) != 0u) {
+            lufp2_v2_renorm_exact_add(r.c[2]);
+        }
+        lufp2_v2_sub(r.c[2], r.c[2], t2);
+        if constexpr ((Mask & (1u << 9)) != 0u) {
+            lufp2_v2_renorm_exact_add(r.c[2]);
+        }
+        lufp2_v2_add(r.c[2], r.c[2], t1);
+        if constexpr ((Mask & (1u << 10)) != 0u) {
+            lufp2_v2_renorm_exact_add(r.c[2]);
+        }
+    }
+
+    template <u32 ReMask, u32 ImMask>
+    inline void mul_fp6_pack_lufpv2_wide_step_candidate_half_sparse(UFp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b)
+    {
+        auto renorm_halves = [](UFp2Pack8x1x1& v, const u32 bit) {
+            if ((ReMask & (1u << bit)) != 0u) {
+                lufp_v2_renorm_exact_add(v[0]);
+            }
+            if ((ImMask & (1u << bit)) != 0u) {
+                lufp_v2_renorm_exact_add(v[1]);
+            }
+        };
+
         Fp2Pack8x1x1 aa0{}, aa1{}, aa2{};
         Fp2Pack8x1x1 bb0{}, bb1{}, bb2{};
         UFp2Pack8x1x1 t0{}, t1{}, t2{};
@@ -973,31 +1105,31 @@ namespace blst::bench_lufp_v2
 
         r.c[0] = w0;
         lufp2_v2_sub(r.c[0], r.c[0], t1);
-        lufp2_v2_renorm_exact_add(r.c[0]);
+        renorm_halves(r.c[0], 0);
         lufp2_v2_sub(r.c[0], r.c[0], t2);
-        lufp2_v2_renorm_exact_add(r.c[0]);
+        renorm_halves(r.c[0], 1);
         lufp2_v2_mul_by_u_plus_1(t3, r.c[0]);
-        lufp2_v2_renorm_exact_add(t3);
+        renorm_halves(t3, 2);
         lufp2_v2_add(r.c[0], t3, t0);
-        lufp2_v2_renorm_fp6_mul_common_step_candidate(r.c[0]);
+        renorm_halves(r.c[0], 3);
 
         r.c[1] = w1;
         lufp2_v2_sub(r.c[1], r.c[1], t0);
-        lufp2_v2_renorm_exact_add(r.c[1]);
+        renorm_halves(r.c[1], 4);
         lufp2_v2_sub(r.c[1], r.c[1], t1);
-        lufp2_v2_renorm_exact_add(r.c[1]);
+        renorm_halves(r.c[1], 5);
         lufp2_v2_mul_by_u_plus_1(t3, t2);
-        lufp2_v2_renorm_exact_add(t3);
+        renorm_halves(t3, 6);
         lufp2_v2_add(r.c[1], r.c[1], t3);
-        lufp2_v2_renorm_fp6_mul_common_step_candidate(r.c[1]);
+        renorm_halves(r.c[1], 7);
 
         r.c[2] = w2;
         lufp2_v2_sub(r.c[2], r.c[2], t0);
-        lufp2_v2_renorm_exact_add(r.c[2]);
+        renorm_halves(r.c[2], 8);
         lufp2_v2_sub(r.c[2], r.c[2], t2);
-        lufp2_v2_renorm_exact_add(r.c[2]);
+        renorm_halves(r.c[2], 9);
         lufp2_v2_add(r.c[2], r.c[2], t1);
-        lufp2_v2_renorm_fp6_mul_common_step_candidate(r.c[2]);
+        renorm_halves(r.c[2], 10);
     }
 
     inline void mul_fp6_pack_lufpv2_wide_step_candidate_relaxed2(UFp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b)

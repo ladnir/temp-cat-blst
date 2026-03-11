@@ -218,10 +218,340 @@ bool fp2_pair_words_equal(const UFp2Pack8x1x1& a, const UFp2Pack8x1x1& b)
            packed_words_equal(pack_to_i64_words(a[1]), pack_to_i64_words(b[1]));
 }
 
+void report_half_repair_match(const char* half_label, const char* repair_label, const UFpPack8x1& got, const UFpPack8x1& want)
+{
+    if (packed_words_equal(pack_to_i64_words(got), pack_to_i64_words(want))) {
+        std::fprintf(stderr, "  %s matches %s\n", half_label, repair_label);
+    }
+}
+
+void debug_search_half_repairs(const char* half_label, const UFpPack8x1& raw, const UFpPack8x1& want)
+{
+    UFpPack8x1 got{};
+
+    got = raw;
+    lufp_v2_fp6_mul_common_renorm_half_safe(got);
+    report_half_repair_match(half_label, "safe", got, want);
+
+    got = raw;
+    lufp_v2_fp6_mul_common_renorm_half_fast(got);
+    report_half_repair_match(half_label, "fast", got, want);
+
+    got = raw;
+    lufp_v2_fp6_mul_common_renorm_half_step_candidate(got);
+    report_half_repair_match(half_label, "final_step", got, want);
+
+    got = raw;
+    lufp_v2_renorm_exact_add(got);
+    report_half_repair_match(half_label, "exact_add", got, want);
+
+    got = raw;
+    lufp_v2_renorm_exact_add(got);
+    lufp_v2_renorm_exact_add(got);
+    report_half_repair_match(half_label, "exact_add_twice", got, want);
+
+    got = raw;
+    lufp_v2_renorm_relaxed2_step211(got);
+    report_half_repair_match(half_label, "step211", got, want);
+
+    got = raw;
+    lufp_v2_fp6_mul_common_renorm_half_step_candidate(got);
+    lufp_v2_renorm_exact_add(got);
+    report_half_repair_match(half_label, "final_step_then_exact_add", got, want);
+
+    got = raw;
+    lufp_v2_renorm_relaxed2_step211(got);
+    lufp_v2_renorm_exact_add(got);
+    report_half_repair_match(half_label, "step211_then_exact_add", got, want);
+
+    got = raw;
+    lufp_v2_fp6_mul_common_renorm_half_step_candidate(got);
+    lufp_v2_renorm_relaxed2_step211(got);
+    report_half_repair_match(half_label, "final_step_then_step211", got, want);
+}
+
+void debug_search_half_sign_sequences(const char* half_label, const UFpPack8x1& raw, const UFpPack8x1& want)
+{
+    static constexpr u64 kScales[3] = { 1, 2, 4 };
+    static constexpr const char* kScaleNames[3] = { "1", "2", "4" };
+
+    auto print_sequence = [&](const std::array<int, 6>& digits, const int len) {
+        std::fprintf(stderr, "  %s sign-seq:", half_label);
+        if (len == 0) {
+            std::fprintf(stderr, " <empty>");
+        }
+        for (int i = 0; i < len; ++i) {
+            std::fprintf(stderr, " %s", kScaleNames[digits[static_cast<std::size_t>(i)]]);
+        }
+        std::fprintf(stderr, "\n");
+    };
+
+    for (int len = 0; len <= 6; ++len) {
+        const int variants = len == 0 ? 1 : static_cast<int>(std::pow(3, len));
+        int printed = 0;
+        for (int variant = 0; variant < variants; ++variant) {
+            std::array<int, 6> digits{};
+            int code = variant;
+            for (int i = 0; i < len; ++i) {
+                digits[static_cast<std::size_t>(i)] = code % 3;
+                code /= 3;
+            }
+
+            UFpPack8x1 got = raw;
+            v2_high_sub_const(got.data(), kV2Bias3PPlus3Vec);
+            v2_signed_carry_range(got.data(), 0, (2 * NWORDS) - 1);
+            v2_lane_mask_t sign_mask = v2_signbit_mask(got[(2 * NWORDS) - 1]);
+            for (int i = 0; i < len; ++i) {
+                const int digit = digits[static_cast<std::size_t>(i)];
+                if (kScales[digit] == 1) {
+                    sign_mask = v2_sign_step<1>(got.data(), sign_mask);
+                } else if (kScales[digit] == 2) {
+                    sign_mask = v2_sign_step<2>(got.data(), sign_mask);
+                } else {
+                    sign_mask = v2_sign_step<4>(got.data(), sign_mask);
+                }
+            }
+
+            if (packed_words_equal(pack_to_i64_words(got), pack_to_i64_words(want))) {
+                print_sequence(digits, len);
+                ++printed;
+                if (printed == 4) {
+                    break;
+                }
+            }
+        }
+        if (printed != 0) {
+            return;
+        }
+    }
+    std::fprintf(stderr, "  %s sign-seq: no match up to len 6\n", half_label);
+}
+
 void lufp2_v2_renorm_exact_add_pair(UFp2Pack8x1x1& in_out)
 {
     lufp_v2_renorm_exact_add(in_out[0]);
     lufp_v2_renorm_exact_add(in_out[1]);
+}
+
+u32 popcount_u32(u32 value)
+{
+    u32 count = 0;
+    while (value != 0) {
+        count += (value & 1u);
+        value >>= 1;
+    }
+    return count;
+}
+
+void maybe_renorm_exact_add(UFp2Pack8x1x1& in_out, const u32 mask, const u32 bit)
+{
+    if ((mask & (1u << bit)) != 0u) {
+        lufp2_v2_renorm_exact_add(in_out);
+    }
+}
+
+void maybe_renorm_exact_add_halves(UFp2Pack8x1x1& in_out, const u32 re_mask, const u32 im_mask, const u32 bit)
+{
+    if ((re_mask & (1u << bit)) != 0u) {
+        lufp_v2_renorm_exact_add(in_out[0]);
+    }
+    if ((im_mask & (1u << bit)) != 0u) {
+        lufp_v2_renorm_exact_add(in_out[1]);
+    }
+}
+
+bool step_candidate_half_mask_matches_reference(const Fp6Pack8x1& a, const Fp6Pack8x1& b, const u32 re_mask, const u32 im_mask)
+{
+    Fp2Pack8x1x1 aa0{}, aa1{}, aa2{};
+    Fp2Pack8x1x1 bb0{}, bb1{}, bb2{};
+    UFp2Pack8x1x1 t0{}, t1{}, t2{};
+    UFp2Pack8x1x1 w0{}, w1{}, w2{};
+    UFp2Pack8x1x1 t3{};
+    UFp6Pack8x1 candidate{};
+    Fp6Pack8x1 candidate_redc{};
+    Fp6Pack8x1 ref_mul{};
+    std::array<Fp6, 8> got_candidate{};
+    std::array<Fp6, 8> ref{};
+
+    Fp2Pack8x1x1::add(aa0, a.c[1], a.c[2]);
+    Fp2Pack8x1x1::add(bb0, b.c[1], b.c[2]);
+    Fp2Pack8x1x1::add(aa1, a.c[0], a.c[1]);
+    Fp2Pack8x1x1::add(bb1, b.c[0], b.c[1]);
+    Fp2Pack8x1x1::add(aa2, a.c[0], a.c[2]);
+    Fp2Pack8x1x1::add(bb2, b.c[0], b.c[2]);
+
+    UFp2Pack8x1x1::mul(t0, a.c[0], b.c[0]);
+    UFp2Pack8x1x1::mul(t1, a.c[1], b.c[1]);
+    UFp2Pack8x1x1::mul(t2, a.c[2], b.c[2]);
+    UFp2Pack8x1x1::mul(w0, aa0, bb0);
+    UFp2Pack8x1x1::mul(w1, aa1, bb1);
+    UFp2Pack8x1x1::mul(w2, aa2, bb2);
+
+    candidate.c[0] = w0;
+    lufp2_v2_sub(candidate.c[0], candidate.c[0], t1);
+    maybe_renorm_exact_add_halves(candidate.c[0], re_mask, im_mask, 0);
+    lufp2_v2_sub(candidate.c[0], candidate.c[0], t2);
+    maybe_renorm_exact_add_halves(candidate.c[0], re_mask, im_mask, 1);
+    lufp2_v2_mul_by_u_plus_1(t3, candidate.c[0]);
+    maybe_renorm_exact_add_halves(t3, re_mask, im_mask, 2);
+    lufp2_v2_add(candidate.c[0], t3, t0);
+    maybe_renorm_exact_add_halves(candidate.c[0], re_mask, im_mask, 3);
+
+    candidate.c[1] = w1;
+    lufp2_v2_sub(candidate.c[1], candidate.c[1], t0);
+    maybe_renorm_exact_add_halves(candidate.c[1], re_mask, im_mask, 4);
+    lufp2_v2_sub(candidate.c[1], candidate.c[1], t1);
+    maybe_renorm_exact_add_halves(candidate.c[1], re_mask, im_mask, 5);
+    lufp2_v2_mul_by_u_plus_1(t3, t2);
+    maybe_renorm_exact_add_halves(t3, re_mask, im_mask, 6);
+    lufp2_v2_add(candidate.c[1], candidate.c[1], t3);
+    maybe_renorm_exact_add_halves(candidate.c[1], re_mask, im_mask, 7);
+
+    candidate.c[2] = w2;
+    lufp2_v2_sub(candidate.c[2], candidate.c[2], t0);
+    maybe_renorm_exact_add_halves(candidate.c[2], re_mask, im_mask, 8);
+    lufp2_v2_sub(candidate.c[2], candidate.c[2], t2);
+    maybe_renorm_exact_add_halves(candidate.c[2], re_mask, im_mask, 9);
+    lufp2_v2_add(candidate.c[2], candidate.c[2], t1);
+    maybe_renorm_exact_add_halves(candidate.c[2], re_mask, im_mask, 10);
+
+    UFp6Pack8x1::redc(candidate_redc, candidate);
+    Fp6Pack8x1::mul(ref_mul, a, b);
+    Fp6Pack8x1::to_aos(got_candidate.data(), candidate_redc);
+    Fp6Pack8x1::to_aos(ref.data(), ref_mul);
+    for (std::size_t lane = 0; lane < got_candidate.size(); ++lane) {
+        if (!fp6_equal(got_candidate[lane], ref[lane])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void debug_search_step_candidate_masks(const Fp6Pack8x1& a, const Fp6Pack8x1& b)
+{
+    static constexpr const char* kCheckpointNames[11] = {
+        "c0_sub_t1",
+        "c0_sub_t2",
+        "c0_uplus1",
+        "c0_add_t0",
+        "c1_sub_t0",
+        "c1_sub_t1",
+        "c1_uplus1_t2",
+        "c1_add_t3",
+        "c2_sub_t0",
+        "c2_sub_t2",
+        "c2_add_t1",
+    };
+
+    u32 best_count = 32;
+    std::array<u32, 16> best_masks{};
+    std::size_t best_masks_size = 0;
+
+    for (u32 mask = 0; mask < (1u << 11); ++mask) {
+        if (!step_candidate_half_mask_matches_reference(a, b, mask, mask)) {
+            continue;
+        }
+
+        const u32 count = popcount_u32(mask);
+        if (count < best_count) {
+            best_count = count;
+            best_masks_size = 0;
+        }
+        if (count == best_count && best_masks_size < best_masks.size()) {
+            best_masks[best_masks_size++] = mask;
+        }
+    }
+
+    if (best_masks_size == 0) {
+        std::fprintf(stderr, "no passing exact-add subset found\n");
+        return;
+    }
+
+    std::fprintf(stderr, "best passing exact-add subset count: %u\n", static_cast<unsigned>(best_count));
+    for (std::size_t i = 0; i < best_masks_size; ++i) {
+        const u32 mask = best_masks[i];
+        std::fprintf(stderr, "  mask 0x%03x:", static_cast<unsigned>(mask));
+        for (u32 bit = 0; bit < 11; ++bit) {
+            if ((mask & (1u << bit)) != 0u) {
+                std::fprintf(stderr, " %s", kCheckpointNames[bit]);
+            }
+        }
+        std::fprintf(stderr, "\n");
+    }
+}
+
+void debug_search_step_candidate_half_masks(const Fp6Pack8x1& a, const Fp6Pack8x1& b)
+{
+    static constexpr const char* kCheckpointNames[11] = {
+        "c0_sub_t1",
+        "c0_sub_t2",
+        "c0_uplus1",
+        "c0_add_t0",
+        "c1_sub_t0",
+        "c1_sub_t1",
+        "c1_uplus1_t2",
+        "c1_add_t3",
+        "c2_sub_t0",
+        "c2_sub_t2",
+        "c2_add_t1",
+    };
+    static constexpr u32 kBaseMasks[4] = { 0x362u, 0x3C2u, 0x562u, 0x5C2u };
+
+    u32 best_count = 32;
+    struct HalfMaskResult
+    {
+        u32 base_mask;
+        u32 re_mask;
+        u32 im_mask;
+    };
+    std::array<HalfMaskResult, 16> best_results{};
+    std::size_t best_results_size = 0;
+
+    for (const u32 base_mask : kBaseMasks) {
+        for (u32 re_mask = base_mask;; re_mask = (re_mask - 1u) & base_mask) {
+            for (u32 im_mask = base_mask;; im_mask = (im_mask - 1u) & base_mask) {
+                if (step_candidate_half_mask_matches_reference(a, b, re_mask, im_mask)) {
+                    const u32 count = popcount_u32(re_mask) + popcount_u32(im_mask);
+                    if (count < best_count) {
+                        best_count = count;
+                        best_results_size = 0;
+                    }
+                    if (count == best_count && best_results_size < best_results.size()) {
+                        best_results[best_results_size++] = { base_mask, re_mask, im_mask };
+                    }
+                }
+                if (im_mask == 0u) {
+                    break;
+                }
+            }
+            if (re_mask == 0u) {
+                break;
+            }
+        }
+    }
+
+    if (best_results_size == 0) {
+        std::fprintf(stderr, "no passing half exact-add subset found under sparse-5 masks\n");
+        return;
+    }
+
+    std::fprintf(stderr, "best passing half exact-add count under sparse-5 masks: %u\n", static_cast<unsigned>(best_count));
+    for (std::size_t i = 0; i < best_results_size; ++i) {
+        const HalfMaskResult& result = best_results[i];
+        std::fprintf(stderr, "  base 0x%03x | re:", static_cast<unsigned>(result.base_mask));
+        for (u32 bit = 0; bit < 11; ++bit) {
+            if ((result.re_mask & (1u << bit)) != 0u) {
+                std::fprintf(stderr, " %s", kCheckpointNames[bit]);
+            }
+        }
+        std::fprintf(stderr, " | im:");
+        for (u32 bit = 0; bit < 11; ++bit) {
+            if ((result.im_mask & (1u << bit)) != 0u) {
+                std::fprintf(stderr, " %s", kCheckpointNames[bit]);
+            }
+        }
+        std::fprintf(stderr, "\n");
+    }
 }
 
 void debug_compare_step_candidate_manual_sequence(const Fp6Pack8x1& a, const Fp6Pack8x1& b)
@@ -413,6 +743,146 @@ BLST_FORCEINLINE void bench_consume_fp6_wide(const std::vector<UFp6Pack8x1>& dat
     benchmark::ClobberMemory();
 }
 
+Fp2 make_fp2(const Fp& re, const Fp& im)
+{
+    Fp2 out{};
+    out[0] = re;
+    out[1] = im;
+    return out;
+}
+
+Fp6 make_fp6(const Fp2& c0, const Fp2& c1, const Fp2& c2)
+{
+    Fp6 out{};
+    out[0] = c0;
+    out[1] = c1;
+    out[2] = c2;
+    return out;
+}
+
+Fp6 adversarial_fp6_from_code(const std::array<Fp2, 9>& patterns, std::size_t code, const bool is_a)
+{
+    std::array<std::size_t, 3> digits{};
+    const std::size_t offset = is_a ? 0 : 3;
+    for (std::size_t i = 0; i < 3; ++i) {
+        digits[i] = code % patterns.size();
+        code /= patterns.size();
+    }
+    return make_fp6(patterns[digits[0 + offset - offset]], patterns[digits[1 + offset - offset]], patterns[digits[2 + offset - offset]]);
+}
+
+void decode_adversarial_case(
+    const std::array<Fp2, 9>& patterns, const std::size_t code, Fp6& a, Fp6& b)
+{
+    std::size_t tmp = code;
+    std::array<std::size_t, 6> digits{};
+    for (std::size_t i = 0; i < digits.size(); ++i) {
+        digits[i] = tmp % patterns.size();
+        tmp /= patterns.size();
+    }
+
+    a = make_fp6(patterns[digits[0]], patterns[digits[1]], patterns[digits[2]]);
+    b = make_fp6(patterns[digits[3]], patterns[digits[4]], patterns[digits[5]]);
+}
+
+template <typename MulFn>
+void validate_lufp_v2_fp6_adversarial(const char* label, MulFn&& mul_fn)
+{
+    validate_lufp_v2_core_ops();
+
+    const Fp zero = Fp::zero();
+    const Fp one = Fp::one();
+    Fp minus_one{};
+    Fp::neg(minus_one, one);
+
+    const std::array<Fp2, 9> patterns = {
+        make_fp2(zero, zero),
+        make_fp2(one, zero),
+        make_fp2(zero, one),
+        make_fp2(one, one),
+        make_fp2(minus_one, zero),
+        make_fp2(zero, minus_one),
+        make_fp2(minus_one, minus_one),
+        make_fp2(one, minus_one),
+        make_fp2(minus_one, one),
+    };
+
+    constexpr std::size_t kBatch = 8;
+    constexpr std::size_t kTotalCases = 531441; // 9^6
+
+    std::array<Fp6, kBatch> a_scalar{};
+    std::array<Fp6, kBatch> b_scalar{};
+    std::array<Fp6, kBatch> got_candidate{};
+    std::array<Fp6, kBatch> got_safe{};
+    std::array<Fp6, kBatch> ref{};
+
+    for (std::size_t base = 0; base < kTotalCases; base += kBatch) {
+        for (std::size_t lane = 0; lane < kBatch; ++lane) {
+            const std::size_t case_idx = (base + lane < kTotalCases) ? (base + lane) : (kTotalCases - 1);
+            decode_adversarial_case(patterns, case_idx, a_scalar[lane], b_scalar[lane]);
+        }
+
+        Fp6Pack8x1 a_pack{};
+        Fp6Pack8x1 b_pack{};
+        UFp6Pack8x1 candidate{};
+        UFp6Pack8x1 safe{};
+        Fp6Pack8x1 candidate_redc{};
+        Fp6Pack8x1 safe_redc{};
+        Fp6Pack8x1 ref_mul{};
+
+        Fp6Pack8x1::from_aos(a_pack, a_scalar.data());
+        Fp6Pack8x1::from_aos(b_pack, b_scalar.data());
+
+        mul_fn(candidate, a_pack, b_pack);
+        UFp6Pack8x1::redc(candidate_redc, candidate);
+
+        mul_fp6_pack_lufpv2_wide_safe(safe, a_pack, b_pack);
+        UFp6Pack8x1::redc(safe_redc, safe);
+
+        Fp6Pack8x1::mul(ref_mul, a_pack, b_pack);
+
+        Fp6Pack8x1::to_aos(got_candidate.data(), candidate_redc);
+        Fp6Pack8x1::to_aos(got_safe.data(), safe_redc);
+        Fp6Pack8x1::to_aos(ref.data(), ref_mul);
+
+        for (std::size_t lane = 0; lane < kBatch && (base + lane) < kTotalCases; ++lane) {
+            if (!fp6_equal(got_candidate[lane], ref[lane])) {
+                std::fprintf(stderr,
+                             "%s adversarial validation failed at case %zu lane %zu\n",
+                             label,
+                             base + lane,
+                             lane);
+                dump_fp6("a", a_scalar[lane]);
+                dump_fp6("b", b_scalar[lane]);
+                dump_fp6("candidate", got_candidate[lane]);
+                dump_fp6("safe", got_safe[lane]);
+                dump_fp6("ref", ref[lane]);
+                std::abort();
+            }
+        }
+    }
+
+    std::fprintf(stderr, "%s adversarial validation checked %zu structured cases\n", label, kTotalCases);
+}
+
+void validate_lufp_v2_fp6_step_candidate_sparse5b_adversarial()
+{
+    validate_lufp_v2_fp6_adversarial(
+        "Sparse5B",
+        [](UFp6Pack8x1& out, const Fp6Pack8x1& a, const Fp6Pack8x1& b) {
+            mul_fp6_pack_lufpv2_wide_step_candidate_sparse<0x3C2u>(out, a, b);
+        });
+}
+
+void validate_lufp_v2_fp6_delayed_block_final_adversarial()
+{
+    validate_lufp_v2_fp6_adversarial(
+        "DelayedBlockFinal",
+        [](UFp6Pack8x1& out, const Fp6Pack8x1& a, const Fp6Pack8x1& b) {
+            mul_fp6_pack_lufpv2_wide_delayed_block_final(out, a, b);
+        });
+}
+
 //struct LUFp6Pack8x1Raw
 //{
 //    LUFp2Pack8x1x1 c[3];
@@ -485,6 +955,9 @@ struct Fp6Pack8x1V2BenchData
     std::vector<Fp6Pack8x1> b_pack;
     std::vector<UFp6Pack8x1> out_wide;
 };
+
+template <typename MulFn>
+void validate_lufp_v2_fp6_kernel(const char* label, MulFn&& mul_fn);
 
 void validate_lufp_v2_core_ops()
 {
@@ -584,52 +1057,11 @@ void validate_lufp_v2_core_ops()
 
 void validate_lufp_v2_fp6()
 {
-    validate_lufp_v2_core_ops();
-    Fp6Pack8x1V2BenchData data(1);
-    std::array<Fp6, 8> got_safe{};
-    std::array<Fp6, 8> got_accounting{};
-    std::array<Fp6, 8> ref{};
-
-    for (std::size_t p = 0; p < data.n_packs_; ++p) {
-        Fp6Pack8x1 safe_redc{};
-        Fp6Pack8x1 accounting_redc{};
-        Fp6Pack8x1 ref_mul{};
-        UFp6Pack8x1 safe{};
-        UFp6Pack8x1 accounting{};
-
-        mul_fp6_pack_lufpv2_wide_safe(safe, data.a_pack[p], data.b_pack[p]);
-        UFp6Pack8x1::redc(safe_redc, safe);
-
-        prepare_lufp_v2_fp6_raw(accounting, data.a_pack[p], data.b_pack[p]);
-        lufp2_v2_renorm_fp6_mul_common_safe(accounting.c[0]);
-        lufp2_v2_renorm_fp6_mul_common_safe(accounting.c[1]);
-        lufp2_v2_renorm_fp6_mul_common_safe(accounting.c[2]);
-        UFp6Pack8x1::redc(accounting_redc, accounting);
-
-        Fp6Pack8x1::mul(ref_mul, data.a_pack[p], data.b_pack[p]);
-
-        Fp6Pack8x1::to_aos(got_safe.data(), safe_redc);
-        Fp6Pack8x1::to_aos(got_accounting.data(), accounting_redc);
-        Fp6Pack8x1::to_aos(ref.data(), ref_mul);
-        for (std::size_t lane = 0; lane < got_safe.size(); ++lane) {
-            if (!fp6_equal(got_safe[lane], ref[lane])) {
-                std::fprintf(stderr, "Fp6 LUFp v2 safe validation failed at pack %zu lane %zu\n", p, lane);
-                dump_fp6("safe", got_safe[lane]);
-                dump_fp6("accounting", got_accounting[lane]);
-                dump_fp6("ref", ref[lane]);
-                std::abort();
-            }
-        }
-
-        for (std::size_t lane = 0; lane < got_accounting.size(); ++lane) {
-            if (!fp6_equal(got_accounting[lane], ref[lane])) {
-                std::fprintf(stderr, "Fp6 LUFp v2 accounting validation failed at pack %zu lane %zu\n", p, lane);
-                dump_fp6("accounting", got_accounting[lane]);
-                dump_fp6("ref", ref[lane]);
-                std::abort();
-            }
-        }
-    }
+    validate_lufp_v2_fp6_kernel(
+        "wide",
+        [](UFp6Pack8x1& out, const Fp6Pack8x1& a, const Fp6Pack8x1& b) {
+            mul_fp6_pack_lufpv2_wide(out, a, b);
+        });
 }
 
 void validate_lufp_v2_fp6_step_candidate()
@@ -680,6 +1112,135 @@ void validate_lufp_v2_fp6_step_candidate()
     }
 }
 
+template <typename MulFn>
+void validate_lufp_v2_fp6_kernel(const char* label, MulFn&& mul_fn)
+{
+    validate_lufp_v2_core_ops();
+    Fp6Pack8x1V2BenchData data(1);
+    std::array<Fp6, 8> got_candidate{};
+    std::array<Fp6, 8> got_safe{};
+    std::array<Fp6, 8> ref{};
+
+    for (std::size_t p = 0; p < data.n_packs_; ++p) {
+        Fp6Pack8x1 candidate_redc{};
+        Fp6Pack8x1 safe_redc{};
+        Fp6Pack8x1 ref_mul{};
+        UFp6Pack8x1 candidate{};
+        UFp6Pack8x1 safe{};
+
+        mul_fn(candidate, data.a_pack[p], data.b_pack[p]);
+        UFp6Pack8x1::redc(candidate_redc, candidate);
+
+        mul_fp6_pack_lufpv2_wide_safe(safe, data.a_pack[p], data.b_pack[p]);
+        UFp6Pack8x1::redc(safe_redc, safe);
+
+        Fp6Pack8x1::mul(ref_mul, data.a_pack[p], data.b_pack[p]);
+
+        Fp6Pack8x1::to_aos(got_candidate.data(), candidate_redc);
+        Fp6Pack8x1::to_aos(got_safe.data(), safe_redc);
+        Fp6Pack8x1::to_aos(ref.data(), ref_mul);
+
+        for (std::size_t lane = 0; lane < got_candidate.size(); ++lane) {
+            if (!fp6_equal(got_candidate[lane], ref[lane])) {
+                std::fprintf(stderr, "Fp6 LUFp v2 %s validation failed at pack %zu lane %zu\n", label, p, lane);
+                dump_fp6("candidate", got_candidate[lane]);
+                dump_fp6("safe", got_safe[lane]);
+                dump_fp6("ref", ref[lane]);
+                std::abort();
+            }
+        }
+    }
+}
+
+void validate_lufp_v2_fp6_exact_add_every_op()
+{
+    validate_lufp_v2_fp6_kernel(
+        "exact-add-every-op",
+        [](UFp6Pack8x1& out, const Fp6Pack8x1& a, const Fp6Pack8x1& b) {
+            mul_fp6_pack_lufpv2_wide_exact_add_every_op(out, a, b);
+        });
+}
+
+template <u32 Mask>
+void validate_lufp_v2_fp6_step_candidate_sparse(const char* label)
+{
+    validate_lufp_v2_core_ops();
+    Fp6Pack8x1V2BenchData data(1);
+    std::array<Fp6, 8> got_candidate{};
+    std::array<Fp6, 8> got_safe{};
+    std::array<Fp6, 8> ref{};
+
+    for (std::size_t p = 0; p < data.n_packs_; ++p) {
+        Fp6Pack8x1 candidate_redc{};
+        Fp6Pack8x1 safe_redc{};
+        Fp6Pack8x1 ref_mul{};
+        UFp6Pack8x1 candidate{};
+        UFp6Pack8x1 safe{};
+
+        mul_fp6_pack_lufpv2_wide_step_candidate_sparse<Mask>(candidate, data.a_pack[p], data.b_pack[p]);
+        UFp6Pack8x1::redc(candidate_redc, candidate);
+
+        mul_fp6_pack_lufpv2_wide_safe(safe, data.a_pack[p], data.b_pack[p]);
+        UFp6Pack8x1::redc(safe_redc, safe);
+
+        Fp6Pack8x1::mul(ref_mul, data.a_pack[p], data.b_pack[p]);
+
+        Fp6Pack8x1::to_aos(got_candidate.data(), candidate_redc);
+        Fp6Pack8x1::to_aos(got_safe.data(), safe_redc);
+        Fp6Pack8x1::to_aos(ref.data(), ref_mul);
+
+        for (std::size_t lane = 0; lane < got_candidate.size(); ++lane) {
+            if (!fp6_equal(got_candidate[lane], ref[lane])) {
+                std::fprintf(stderr, "Fp6 LUFp v2 %s validation failed at pack %zu lane %zu\n", label, p, lane);
+                dump_fp6("candidate", got_candidate[lane]);
+                dump_fp6("safe", got_safe[lane]);
+                dump_fp6("ref", ref[lane]);
+                std::abort();
+            }
+        }
+    }
+}
+
+template <u32 ReMask, u32 ImMask>
+void validate_lufp_v2_fp6_step_candidate_half_sparse(const char* label)
+{
+    validate_lufp_v2_core_ops();
+    Fp6Pack8x1V2BenchData data(1);
+    std::array<Fp6, 8> got_candidate{};
+    std::array<Fp6, 8> got_safe{};
+    std::array<Fp6, 8> ref{};
+
+    for (std::size_t p = 0; p < data.n_packs_; ++p) {
+        Fp6Pack8x1 candidate_redc{};
+        Fp6Pack8x1 safe_redc{};
+        Fp6Pack8x1 ref_mul{};
+        UFp6Pack8x1 candidate{};
+        UFp6Pack8x1 safe{};
+
+        mul_fp6_pack_lufpv2_wide_step_candidate_half_sparse<ReMask, ImMask>(candidate, data.a_pack[p], data.b_pack[p]);
+        UFp6Pack8x1::redc(candidate_redc, candidate);
+
+        mul_fp6_pack_lufpv2_wide_safe(safe, data.a_pack[p], data.b_pack[p]);
+        UFp6Pack8x1::redc(safe_redc, safe);
+
+        Fp6Pack8x1::mul(ref_mul, data.a_pack[p], data.b_pack[p]);
+
+        Fp6Pack8x1::to_aos(got_candidate.data(), candidate_redc);
+        Fp6Pack8x1::to_aos(got_safe.data(), safe_redc);
+        Fp6Pack8x1::to_aos(ref.data(), ref_mul);
+
+        for (std::size_t lane = 0; lane < got_candidate.size(); ++lane) {
+            if (!fp6_equal(got_candidate[lane], ref[lane])) {
+                std::fprintf(stderr, "Fp6 LUFp v2 %s validation failed at pack %zu lane %zu\n", label, p, lane);
+                dump_fp6("candidate", got_candidate[lane]);
+                dump_fp6("safe", got_safe[lane]);
+                dump_fp6("ref", ref[lane]);
+                std::abort();
+            }
+        }
+    }
+}
+
 void validate_lufp_v2_fp6_step_candidate_relaxed2()
 {
     validate_lufp_v2_core_ops();
@@ -710,45 +1271,6 @@ void validate_lufp_v2_fp6_step_candidate_relaxed2()
         for (std::size_t lane = 0; lane < got_candidate.size(); ++lane) {
             if (!fp6_equal(got_candidate[lane], ref[lane])) {
                 std::fprintf(stderr, "Fp6 LUFp v2 step-candidate-relaxed2 validation failed at pack %zu lane %zu\n", p, lane);
-                dump_fp6("candidate", got_candidate[lane]);
-                dump_fp6("safe", got_safe[lane]);
-                dump_fp6("ref", ref[lane]);
-                std::abort();
-            }
-        }
-    }
-}
-
-void validate_lufp_v2_fp6_step_candidate_final_fast()
-{
-    validate_lufp_v2_core_ops();
-    Fp6Pack8x1V2BenchData data(1);
-    std::array<Fp6, 8> got_candidate{};
-    std::array<Fp6, 8> got_safe{};
-    std::array<Fp6, 8> ref{};
-
-    for (std::size_t p = 0; p < data.n_packs_; ++p) {
-        Fp6Pack8x1 candidate_redc{};
-        Fp6Pack8x1 safe_redc{};
-        Fp6Pack8x1 ref_mul{};
-        UFp6Pack8x1 candidate{};
-        UFp6Pack8x1 safe{};
-
-        mul_fp6_pack_lufpv2_wide_step_candidate_final_fast(candidate, data.a_pack[p], data.b_pack[p]);
-        UFp6Pack8x1::redc(candidate_redc, candidate);
-
-        mul_fp6_pack_lufpv2_wide_safe(safe, data.a_pack[p], data.b_pack[p]);
-        UFp6Pack8x1::redc(safe_redc, safe);
-
-        Fp6Pack8x1::mul(ref_mul, data.a_pack[p], data.b_pack[p]);
-
-        Fp6Pack8x1::to_aos(got_candidate.data(), candidate_redc);
-        Fp6Pack8x1::to_aos(got_safe.data(), safe_redc);
-        Fp6Pack8x1::to_aos(ref.data(), ref_mul);
-
-        for (std::size_t lane = 0; lane < got_candidate.size(); ++lane) {
-            if (!fp6_equal(got_candidate[lane], ref[lane])) {
-                std::fprintf(stderr, "Fp6 LUFp v2 step-candidate-final-fast validation failed at pack %zu lane %zu\n", p, lane);
                 dump_fp6("candidate", got_candidate[lane]);
                 dump_fp6("safe", got_safe[lane]);
                 dump_fp6("ref", ref[lane]);
@@ -1012,14 +1534,14 @@ void BM_Fp6MulLufpWideStepCandidate(benchmark::State& state)
                             static_cast<int64_t>(data.n_packs_));
 }
 
-void BM_Fp6MulLufpWideStepCandidateRelaxed2(benchmark::State& state)
+void BM_Fp6MulLufpWideExactAddEveryOp(benchmark::State& state)
 {
-    validate_lufp_v2_fp6_step_candidate_relaxed2();
+    validate_lufp_v2_fp6_exact_add_every_op();
     Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
 
     for (auto _ : state) {
         for (std::size_t p = 0; p < data.n_packs_; ++p) {
-            mul_fp6_pack_lufpv2_wide_step_candidate_relaxed2(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
+            mul_fp6_pack_lufpv2_wide_exact_add_every_op(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
         }
         bench_consume_fp6_wide(data.out_wide);
     }
@@ -1028,14 +1550,110 @@ void BM_Fp6MulLufpWideStepCandidateRelaxed2(benchmark::State& state)
                             static_cast<int64_t>(data.n_packs_));
 }
 
-void BM_Fp6MulLufpWideStepCandidateFinalFast(benchmark::State& state)
+void BM_Fp6MulLufpWideStepCandidateSparse5A(benchmark::State& state)
 {
-    validate_lufp_v2_fp6_step_candidate_final_fast();
+    validate_lufp_v2_fp6_step_candidate_sparse<0x362u>("step-candidate-sparse5a");
     Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
 
     for (auto _ : state) {
         for (std::size_t p = 0; p < data.n_packs_; ++p) {
-            mul_fp6_pack_lufpv2_wide_step_candidate_final_fast(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
+            mul_fp6_pack_lufpv2_wide_step_candidate_sparse<0x362u>(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
+        }
+        bench_consume_fp6_wide(data.out_wide);
+    }
+
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) *
+                            static_cast<int64_t>(data.n_packs_));
+}
+
+void BM_Fp6MulLufpWideStepCandidateSparse5B(benchmark::State& state)
+{
+    validate_lufp_v2_fp6_step_candidate_sparse<0x3C2u>("step-candidate-sparse5b");
+    Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs_; ++p) {
+            mul_fp6_pack_lufpv2_wide_step_candidate_sparse<0x3C2u>(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
+        }
+        bench_consume_fp6_wide(data.out_wide);
+    }
+
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) *
+                            static_cast<int64_t>(data.n_packs_));
+}
+
+void BM_Fp6MulLufpWideStepCandidateSparse5C(benchmark::State& state)
+{
+    validate_lufp_v2_fp6_step_candidate_sparse<0x562u>("step-candidate-sparse5c");
+    Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs_; ++p) {
+            mul_fp6_pack_lufpv2_wide_step_candidate_sparse<0x562u>(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
+        }
+        bench_consume_fp6_wide(data.out_wide);
+    }
+
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) *
+                            static_cast<int64_t>(data.n_packs_));
+}
+
+void BM_Fp6MulLufpWideStepCandidateSparse5D(benchmark::State& state)
+{
+    validate_lufp_v2_fp6_step_candidate_sparse<0x5C2u>("step-candidate-sparse5d");
+    Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs_; ++p) {
+            mul_fp6_pack_lufpv2_wide_step_candidate_sparse<0x5C2u>(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
+        }
+        bench_consume_fp6_wide(data.out_wide);
+    }
+
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) *
+                            static_cast<int64_t>(data.n_packs_));
+}
+
+void BM_Fp6MulLufpWideStepCandidateHalfSparse8A(benchmark::State& state)
+{
+    validate_lufp_v2_fp6_step_candidate_half_sparse<0x5C2u, 0x482u>("step-candidate-half-sparse8a");
+    Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs_; ++p) {
+            mul_fp6_pack_lufpv2_wide_step_candidate_half_sparse<0x5C2u, 0x482u>(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
+        }
+        bench_consume_fp6_wide(data.out_wide);
+    }
+
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) *
+                            static_cast<int64_t>(data.n_packs_));
+}
+
+void BM_Fp6MulLufpWideStepCandidateHalfSparse8B(benchmark::State& state)
+{
+    validate_lufp_v2_fp6_step_candidate_half_sparse<0x5C2u, 0x182u>("step-candidate-half-sparse8b");
+    Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs_; ++p) {
+            mul_fp6_pack_lufpv2_wide_step_candidate_half_sparse<0x5C2u, 0x182u>(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
+        }
+        bench_consume_fp6_wide(data.out_wide);
+    }
+
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) *
+                            static_cast<int64_t>(data.n_packs_));
+}
+
+void BM_Fp6MulLufpWideStepCandidateRelaxed2(benchmark::State& state)
+{
+    validate_lufp_v2_fp6_step_candidate_relaxed2();
+    Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs_; ++p) {
+            mul_fp6_pack_lufpv2_wide_step_candidate_relaxed2(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
         }
         bench_consume_fp6_wide(data.out_wide);
     }
@@ -1060,12 +1678,50 @@ void BM_Fp6MulLufpWideStepCandidateHybrid(benchmark::State& state)
                             static_cast<int64_t>(data.n_packs_));
 }
 
+void BM_Fp6MulLufpWideStepCandidateSparse5BAdversarialSearch(benchmark::State& state)
+{
+    static bool validated = false;
+    if (!validated) {
+        validate_lufp_v2_fp6_step_candidate_sparse5b_adversarial();
+        validated = true;
+    }
+
+    for (auto _ : state) {
+        benchmark::DoNotOptimize(validated);
+    }
+
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
+}
+
+void BM_Fp6MulLufpWideDelayedBlockFinalAdversarialSearch(benchmark::State& state)
+{
+    static bool validated = false;
+    if (!validated) {
+        validate_lufp_v2_fp6_delayed_block_final_adversarial();
+        validated = true;
+    }
+
+    for (auto _ : state) {
+        benchmark::DoNotOptimize(validated);
+    }
+
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
+}
+
 BENCHMARK(BM_Fp6MulLufpWide)->Arg(256);
 BENCHMARK(BM_Fp6MulLufpWideSafe)->Arg(256);
 BENCHMARK(BM_Fp6MulLufpWideStepCandidate)->Arg(256);
+BENCHMARK(BM_Fp6MulLufpWideExactAddEveryOp)->Arg(256);
+BENCHMARK(BM_Fp6MulLufpWideStepCandidateSparse5A)->Arg(256);
+BENCHMARK(BM_Fp6MulLufpWideStepCandidateSparse5B)->Arg(256);
+BENCHMARK(BM_Fp6MulLufpWideStepCandidateSparse5C)->Arg(256);
+BENCHMARK(BM_Fp6MulLufpWideStepCandidateSparse5D)->Arg(256);
+BENCHMARK(BM_Fp6MulLufpWideStepCandidateHalfSparse8A)->Arg(256);
+BENCHMARK(BM_Fp6MulLufpWideStepCandidateHalfSparse8B)->Arg(256);
 BENCHMARK(BM_Fp6MulLufpWideStepCandidateRelaxed2)->Arg(256);
-BENCHMARK(BM_Fp6MulLufpWideStepCandidateFinalFast)->Arg(256);
 BENCHMARK(BM_Fp6MulLufpWideStepCandidateHybrid)->Arg(256);
+BENCHMARK(BM_Fp6MulLufpWideStepCandidateSparse5BAdversarialSearch);
+BENCHMARK(BM_Fp6MulLufpWideDelayedBlockFinalAdversarialSearch);
 BENCHMARK_TEMPLATE(BM_Fp6MulLufpAccounting, LUFpFp6MulStage::PreAdd)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp6MulLufpAccounting, LUFpFp6MulStage::PreAddMul)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp6MulLufpAccounting, LUFpFp6MulStage::PreAddMulRawCombine)->Arg(256);
