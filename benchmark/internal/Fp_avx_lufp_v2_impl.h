@@ -432,12 +432,6 @@ namespace blst::bench_lufp_v2
         lufp_v2_add(r[1], a[0], a[1]);
     }
 
-    enum class LUFpV2Fp6RenormTail
-    {
-        Sign4211,
-        Parallel21,
-    };
-
     BLST_FORCEINLINE auto v2_carry_high_half_with_sign(cc512i* limbs) -> v2_lane_mask_t
     {
         const cc512i bmask = VSET1(BMASK);
@@ -449,30 +443,6 @@ namespace blst::bench_lufp_v2
         return v2_signbit_mask(limbs[NWORDS - 1]);
     }
 
-    template <u64 Scale>
-    BLST_FORCEINLINE auto v2_sign_step_high_from_src(
-        cc512i* dst_high, const cc512i* src_high, const v2_lane_mask_t neg_mask) -> v2_lane_mask_t
-    {
-        const auto& words = v2_scaled_vecs<Scale>();
-        dst_high[0] = VMADD(src_high[0], neg_mask, src_high[0], words[0]);
-        dst_high[1] = VMADD(src_high[1], neg_mask, src_high[1], words[1]);
-        dst_high[2] = VMADD(src_high[2], neg_mask, src_high[2], words[2]);
-        dst_high[3] = VMADD(src_high[3], neg_mask, src_high[3], words[3]);
-        dst_high[4] = VMADD(src_high[4], neg_mask, src_high[4], words[4]);
-        dst_high[5] = VMADD(src_high[5], neg_mask, src_high[5], words[5]);
-        dst_high[6] = VMADD(src_high[6], neg_mask, src_high[6], words[6]);
-        dst_high[7] = VMADD(src_high[7], neg_mask, src_high[7], words[7]);
-        return v2_carry_high_half_with_sign(dst_high);
-    }
-
-    BLST_FORCEINLINE void v2_select_high_lanes(UFpPack8x1& r, const cc512i* high, const v2_lane_mask_t lane_mask)
-    {
-        for (std::size_t limb = 0; limb < NWORDS; ++limb) {
-            r[NWORDS + limb] = VMBLEND(lane_mask, r[NWORDS + limb], high[limb]);
-        }
-    }
-
-    template <LUFpV2Fp6RenormTail Tail>
     BLST_FORCEINLINE void lufp_v2_fp6_mul_common_renorm_half(UFpPack8x1& r)
     {
         r[NWORDS + 0] = VSUB(r[NWORDS + 0], kV2Bias3PPlus3Vec[0]);
@@ -487,27 +457,8 @@ namespace blst::bench_lufp_v2
         sign_mask = v2_sign_step<4>(r.data(), sign_mask);
         sign_mask = v2_sign_step<2>(r.data(), sign_mask);
 
-        if constexpr (Tail == LUFpV2Fp6RenormTail::Sign4211) {
-            sign_mask = v2_sign_step<1>(r.data(), sign_mask);
-            v2_sign_step<1>(r.data(), sign_mask);
-            //v2_sign_step_sequence<1, 1>(r.data(), sign_mask);
-        } else {
-            cc512i y1_high[NWORDS];
-            cc512i y2_high[NWORDS];
-            const v2_lane_mask_t sign_after_plus_p = v2_sign_step_high_from_src<1>(y1_high, r.data(), sign_mask);
-            v2_sign_step_high_from_src<2>(y2_high, r.data(), sign_mask);
-
-            const v2_lane_mask_t select_y1 = static_cast<v2_lane_mask_t>(sign_mask & static_cast<v2_lane_mask_t>(~sign_after_plus_p));
-            const v2_lane_mask_t select_y2 = static_cast<v2_lane_mask_t>(sign_mask & sign_after_plus_p);
-
-            v2_select_high_lanes(r, y1_high, select_y1);
-            v2_select_high_lanes(r, y2_high, select_y2);
-        }
-    }
-
-    BLST_FORCEINLINE void lufp_v2_fp6_mul_common_renorm_half_parallel21(UFpPack8x1& r)
-    {
-        lufp_v2_fp6_mul_common_renorm_half<LUFpV2Fp6RenormTail::Parallel21>(r);
+        sign_mask = v2_sign_step<1>(r.data(), sign_mask);
+        v2_sign_step<1>(r.data(), sign_mask);
     }
 
     BLST_FORCEINLINE void lufp_v2_c0_lo_renorm(
@@ -525,7 +476,7 @@ namespace blst::bench_lufp_v2
             const cc512i x1 = VSUB(VSUB(a1[limb], b1[limb]), c1[limb]);
             r[limb] = VADD(VSUB(x0, x1), d0[limb]);
         }
-        lufp_v2_fp6_mul_common_renorm_half<LUFpV2Fp6RenormTail::Sign4211>(r);
+        lufp_v2_fp6_mul_common_renorm_half(r);
     }
 
     BLST_FORCEINLINE void lufp_v2_c0_hi_renorm(
@@ -543,7 +494,7 @@ namespace blst::bench_lufp_v2
             const cc512i x1 = VSUB(VSUB(a1[limb], b1[limb]), c1[limb]);
             r[limb] = VADD(VADD(x0, x1), d1[limb]);
         }
-        lufp_v2_fp6_mul_common_renorm_half<LUFpV2Fp6RenormTail::Sign4211>(r);
+        lufp_v2_fp6_mul_common_renorm_half(r);
     }
 
     BLST_FORCEINLINE void lufp_v2_c1_lo_renorm(
@@ -557,7 +508,7 @@ namespace blst::bench_lufp_v2
         for (std::size_t limb = 0; limb < 2 * NWORDS; ++limb) {
             r[limb] = VADD(VSUB(VSUB(a[limb], b[limb]), c[limb]), VSUB(d0[limb], d1[limb]));
         }
-        lufp_v2_fp6_mul_common_renorm_half<LUFpV2Fp6RenormTail::Sign4211>(r);
+        lufp_v2_fp6_mul_common_renorm_half(r);
     }
 
     BLST_FORCEINLINE void lufp_v2_c1_hi_renorm(
@@ -566,7 +517,7 @@ namespace blst::bench_lufp_v2
         for (std::size_t limb = 0; limb < 2 * NWORDS; ++limb) {
             r[limb] = VADD(VSUB(VSUB(a[limb], b[limb]), c[limb]), VADD(d0[limb], d1[limb]));
         }
-        lufp_v2_fp6_mul_common_renorm_half<LUFpV2Fp6RenormTail::Sign4211>(r);
+        lufp_v2_fp6_mul_common_renorm_half(r);
     }
 
     BLST_FORCEINLINE void lufp_v2_sub2_add_renorm(
@@ -575,19 +526,13 @@ namespace blst::bench_lufp_v2
         for (std::size_t limb = 0; limb < 2 * NWORDS; ++limb) {
             r[limb] = VADD(VSUB(VSUB(a[limb], b[limb]), c[limb]), d[limb]);
         }
-        lufp_v2_fp6_mul_common_renorm_half<LUFpV2Fp6RenormTail::Sign4211>(r);
+        lufp_v2_fp6_mul_common_renorm_half(r);
     }
 
     BLST_FORCEINLINE void lufp2_v2_renorm_fp6_mul_common(UFp2Pack8x1x1& in_out)
     {
-        lufp_v2_fp6_mul_common_renorm_half<LUFpV2Fp6RenormTail::Sign4211>(in_out[0]);
-        lufp_v2_fp6_mul_common_renorm_half<LUFpV2Fp6RenormTail::Sign4211>(in_out[1]);
-    }
-
-    BLST_FORCEINLINE void lufp2_v2_renorm_fp6_mul_common_parallel21(UFp2Pack8x1x1& in_out)
-    {
-        lufp_v2_fp6_mul_common_renorm_half<LUFpV2Fp6RenormTail::Parallel21>(in_out[0]);
-        lufp_v2_fp6_mul_common_renorm_half<LUFpV2Fp6RenormTail::Parallel21>(in_out[1]);
+        lufp_v2_fp6_mul_common_renorm_half(in_out[0]);
+        lufp_v2_fp6_mul_common_renorm_half(in_out[1]);
     }
 
     BLST_FORCEINLINE void mul_fp6_pack_lufpv2_combine_only_raw(
@@ -668,53 +613,4 @@ namespace blst::bench_lufp_v2
         lufp2_v2_renorm_fp6_mul_common(r.c[2]);
     }
 
-    inline void mul_fp6_pack_lufpv2_wide_parallel21(UFp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b)
-    {
-        Fp2Pack8x1x1 aa, bb;
-        UFp2Pack8x1x1 t0, t1, t2;
-        UFp2Pack8x1x1 w;
-
-        UFp2Pack8x1x1::mul(t0, a.c[0], b.c[0]);
-        UFp2Pack8x1x1::mul(t1, a.c[1], b.c[1]);
-        UFp2Pack8x1x1::mul(t2, a.c[2], b.c[2]);
-
-        Fp2Pack8x1x1::add(aa, a.c[1], a.c[2]);
-        Fp2Pack8x1x1::add(bb, b.c[1], b.c[2]);
-        UFp2Pack8x1x1::mul(w, aa, bb);
-
-        for (std::size_t limb = 0; limb < 2 * NWORDS; ++limb) {
-            const cc512i x00 = VSUB(VSUB(w[0][limb], t1[0][limb]), t2[0][limb]);
-            const cc512i x01 = VSUB(VSUB(w[1][limb], t1[1][limb]), t2[1][limb]);
-            r.c[0][0][limb] = VADD(VSUB(x00, x01), t0[0][limb]);
-
-            const cc512i x10 = VSUB(VSUB(w[0][limb], t1[0][limb]), t2[0][limb]);
-            const cc512i x11 = VSUB(VSUB(w[1][limb], t1[1][limb]), t2[1][limb]);
-            r.c[0][1][limb] = VADD(VADD(x10, x11), t0[1][limb]);
-        }
-        lufp2_v2_renorm_fp6_mul_common_parallel21(r.c[0]);
-
-        Fp2Pack8x1x1::add(aa, a.c[0], a.c[1]);
-        Fp2Pack8x1x1::add(bb, b.c[0], b.c[1]);
-        UFp2Pack8x1x1::mul(w, aa, bb);
-
-        for (std::size_t limb = 0; limb < 2 * NWORDS; ++limb) {
-            r.c[1][0][limb] = VADD(
-                VSUB(VSUB(w[0][limb], t0[0][limb]), t1[0][limb]),
-                VSUB(t2[0][limb], t2[1][limb]));
-            r.c[1][1][limb] = VADD(
-                VSUB(VSUB(w[1][limb], t0[1][limb]), t1[1][limb]),
-                VADD(t2[0][limb], t2[1][limb]));
-        }
-        lufp2_v2_renorm_fp6_mul_common_parallel21(r.c[1]);
-
-        Fp2Pack8x1x1::add(aa, a.c[0], a.c[2]);
-        Fp2Pack8x1x1::add(bb, b.c[0], b.c[2]);
-        UFp2Pack8x1x1::mul(w, aa, bb);
-
-        for (std::size_t limb = 0; limb < 2 * NWORDS; ++limb) {
-            r.c[2][0][limb] = VADD(VSUB(VSUB(w[0][limb], t0[0][limb]), t2[0][limb]), t1[0][limb]);
-            r.c[2][1][limb] = VADD(VSUB(VSUB(w[1][limb], t0[1][limb]), t2[1][limb]), t1[1][limb]);
-        }
-        lufp2_v2_renorm_fp6_mul_common_parallel21(r.c[2]);
-    }
 }

@@ -1,7 +1,10 @@
 #include "blst/common/defines.h"
 #include <benchmark/benchmark.h>
 
+#include <array>
 #include <cstddef>
+#include <cstdio>
+#include <cstdlib>
 #include <random>
 #include <vector>
 
@@ -13,6 +16,16 @@ using namespace blst::bench_lufp_v2;
 
 namespace
 {
+bool fp2_equal(const Fp2& a, const Fp2& b)
+{
+    return Fp::equal(a[0], b[0]) && Fp::equal(a[1], b[1]);
+}
+
+bool fp6_equal(const Fp6& a, const Fp6& b)
+{
+    return fp2_equal(a[0], b[0]) && fp2_equal(a[1], b[1]) && fp2_equal(a[2], b[2]);
+}
+
 void random_redc_fp(Fp& v, std::mt19937_64& gen)
 {
     for (u64 i = 0; i < v.num_limb(); ++i) {
@@ -106,6 +119,49 @@ struct Fp6Pack8x1V2BenchData
     std::vector<UFp6Pack8x1> out_wide;
 };
 
+void validate_lufp_v2_fp6()
+{
+    Fp6Pack8x1V2BenchData data(1);
+    std::array<Fp6, 8> got{};
+    std::array<Fp6, 8> ref{};
+
+    for (std::size_t p = 0; p < data.n_packs_; ++p) {
+        Fp6Pack8x1 wide_redc{};
+        Fp6Pack8x1 accounting_redc{};
+        Fp6Pack8x1 ref_mul{};
+        UFp6Pack8x1 wide{};
+        UFp6Pack8x1 accounting{};
+
+        mul_fp6_pack_lufpv2_wide(wide, data.a_pack[p], data.b_pack[p]);
+        UFp6Pack8x1::redc(wide_redc, wide);
+
+        prepare_lufp_v2_fp6_raw(accounting, data.a_pack[p], data.b_pack[p]);
+        lufp2_v2_renorm_fp6_mul_common(accounting.c[0]);
+        lufp2_v2_renorm_fp6_mul_common(accounting.c[1]);
+        lufp2_v2_renorm_fp6_mul_common(accounting.c[2]);
+        UFp6Pack8x1::redc(accounting_redc, accounting);
+
+        Fp6Pack8x1::mul(ref_mul, data.a_pack[p], data.b_pack[p]);
+
+        Fp6Pack8x1::to_aos(got.data(), wide_redc);
+        Fp6Pack8x1::to_aos(ref.data(), ref_mul);
+        for (std::size_t lane = 0; lane < got.size(); ++lane) {
+            if (!fp6_equal(got[lane], ref[lane])) {
+                std::fprintf(stderr, "Fp6 LUFp v2 wide validation failed at pack %zu lane %zu\n", p, lane);
+                std::abort();
+            }
+        }
+
+        Fp6Pack8x1::to_aos(got.data(), accounting_redc);
+        for (std::size_t lane = 0; lane < got.size(); ++lane) {
+            if (!fp6_equal(got[lane], ref[lane])) {
+                std::fprintf(stderr, "Fp6 LUFp v2 accounting validation failed at pack %zu lane %zu\n", p, lane);
+                std::abort();
+            }
+        }
+    }
+}
+
 enum class LUFpFp6MulStage
 {
     PreAdd,
@@ -182,6 +238,7 @@ BLST_FORCEINLINE void lufp_fp6_mul_accounting_v2(Fp6Pack8x1V2BenchData& data)
 template <LUFpFp6MulStage Stage>
 void BM_Fp6MulLufpAccounting(benchmark::State& state)
 {
+    validate_lufp_v2_fp6();
     Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
 
     for (auto _ : state) {
@@ -245,6 +302,7 @@ BLST_FORCEINLINE void lufp_v2_fp6_mul_common_renorm_accounting(UFpPack8x1& in_ou
 template <LUFpV2Fp6MulCommonRenormStage Stage>
 void BM_LUFpV2Fp6MulCommonRenormAccounting(benchmark::State& state)
 {
+    validate_lufp_v2_fp6();
     Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
 
     for (auto _ : state) {
@@ -276,6 +334,7 @@ void BM_LUFpV2Fp6MulCommonRenormAccounting(benchmark::State& state)
 
 void BM_Fp6MulLufpWide(benchmark::State& state)
 {
+    validate_lufp_v2_fp6();
     Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
 
     for (auto _ : state) {
@@ -289,51 +348,7 @@ void BM_Fp6MulLufpWide(benchmark::State& state)
                             static_cast<int64_t>(data.n_packs_));
 }
 
-void BM_Fp6MulLufpWideParallel21(benchmark::State& state)
-{
-    Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
-
-    for (auto _ : state) {
-        for (std::size_t p = 0; p < data.n_packs_; ++p) {
-            mul_fp6_pack_lufpv2_wide_parallel21(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
-        }
-        bench_consume_fp6_wide(data.out_wide);
-    }
-
-    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) *
-                            static_cast<int64_t>(data.n_packs_));
-}
-
-void BM_LUFpV2Fp6MulCommonRenormParallel21(benchmark::State& state)
-{
-    Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
-
-    for (auto _ : state) {
-        state.PauseTiming();
-        for (std::size_t p = 0; p < data.n_packs_; ++p) {
-            prepare_lufp_v2_fp6_raw(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
-        }
-        state.ResumeTiming();
-
-        for (std::size_t p = 0; p < data.n_packs_; ++p) {
-            lufp_v2_fp6_mul_common_renorm_half_parallel21(data.out_wide[p].c[0][0]);
-            lufp_v2_fp6_mul_common_renorm_half_parallel21(data.out_wide[p].c[0][1]);
-            lufp_v2_fp6_mul_common_renorm_half_parallel21(data.out_wide[p].c[1][0]);
-            lufp_v2_fp6_mul_common_renorm_half_parallel21(data.out_wide[p].c[1][1]);
-            lufp_v2_fp6_mul_common_renorm_half_parallel21(data.out_wide[p].c[2][0]);
-            lufp_v2_fp6_mul_common_renorm_half_parallel21(data.out_wide[p].c[2][1]);
-        }
-
-        bench_consume_fp6_wide(data.out_wide);
-    }
-
-    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) *
-                            static_cast<int64_t>(data.n_packs_) *
-                            static_cast<int64_t>(6));
-}
-
 BENCHMARK(BM_Fp6MulLufpWide)->Arg(256);
-BENCHMARK(BM_Fp6MulLufpWideParallel21)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp6MulLufpAccounting, LUFpFp6MulStage::PreAdd)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp6MulLufpAccounting, LUFpFp6MulStage::PreAddMul)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp6MulLufpAccounting, LUFpFp6MulStage::PreAddMulRawCombine)->Arg(256);
@@ -346,5 +361,4 @@ BENCHMARK_TEMPLATE(BM_LUFpV2Fp6MulCommonRenormAccounting, LUFpV2Fp6MulCommonReno
 BENCHMARK_TEMPLATE(BM_LUFpV2Fp6MulCommonRenormAccounting, LUFpV2Fp6MulCommonRenormStage::BiasCarrySign421)->Arg(256);
 BENCHMARK_TEMPLATE(BM_LUFpV2Fp6MulCommonRenormAccounting, LUFpV2Fp6MulCommonRenormStage::BiasCarrySign4211)->Arg(256);
 BENCHMARK_TEMPLATE(BM_LUFpV2Fp6MulCommonRenormAccounting, LUFpV2Fp6MulCommonRenormStage::Full)->Arg(256);
-BENCHMARK(BM_LUFpV2Fp6MulCommonRenormParallel21)->Arg(256);
 }
