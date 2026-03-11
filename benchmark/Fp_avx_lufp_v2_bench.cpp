@@ -23,36 +23,6 @@ void random_redc_fp(Fp& v, std::mt19937_64& gen)
     }
 }
 
-BLST_FORCEINLINE void bench_make_v2_hi_neg4_pos4(
-    LUFpPack8x1V2& out,
-    const UFpPack8x1& w0,
-    const UFpPack8x1& w1,
-    const UFpPack8x1& w2,
-    const UFpPack8x1& w3,
-    const UFpPack8x1& w4,
-    const UFpPack8x1& w5,
-    const UFpPack8x1& w6,
-    const bool plus_branch)
-{
-    LUFpPack8x1V2 pre0{};
-    LUFpPack8x1V2 pre1{};
-    LUFpPack8x1V2 tmp{};
-
-    LUFpPack8x1V2::sub(pre0, reinterpret_cast<const LUFpPack8x1V2&>(w0), reinterpret_cast<const LUFpPack8x1V2&>(w1));
-    LUFpPack8x1V2::sub(pre0, pre0, reinterpret_cast<const LUFpPack8x1V2&>(w2));
-
-    LUFpPack8x1V2::sub(pre1, reinterpret_cast<const LUFpPack8x1V2&>(w3), reinterpret_cast<const LUFpPack8x1V2&>(w4));
-    LUFpPack8x1V2::sub(pre1, pre1, reinterpret_cast<const LUFpPack8x1V2&>(w5));
-
-    if (plus_branch) {
-        LUFpPack8x1V2::add(tmp, pre0, pre1);
-    } else {
-        LUFpPack8x1V2::sub(tmp, pre0, pre1);
-    }
-
-    LUFpPack8x1V2::add(out, tmp, reinterpret_cast<const LUFpPack8x1V2&>(w6));
-}
-
 BLST_FORCEINLINE void bench_consume_wide_v2(const std::vector<UFpPack8x1>& data)
 {
     if (data.empty()) {
@@ -63,7 +33,7 @@ BLST_FORCEINLINE void bench_consume_wide_v2(const std::vector<UFpPack8x1>& data)
     benchmark::ClobberMemory();
 }
 
-BLST_FORCEINLINE void bench_consume_luwide_v2(const std::vector<LUFpPack8x1V2>& data)
+BLST_FORCEINLINE void bench_consume_luwide_v2(const std::vector<UFpPack8x1>& data)
 {
     if (data.empty()) {
         return;
@@ -79,9 +49,7 @@ struct Fp8x1LUFpV2BenchData
         : n_packs_(n_packs)
         , wide_a(n_packs_)
         , wide_b(n_packs_)
-        , lazy_b(n_packs_)
         , lazy_tmp(n_packs_)
-        , lazy_fp6_common(n_packs_)
         , wide_out(n_packs_)
     {
         std::mt19937_64 gen(0xD2C2B3A41516ULL + static_cast<u64>(n_packs_));
@@ -106,33 +74,13 @@ struct Fp8x1LUFpV2BenchData
             FpPack8x1::from_aos(pack_d, lane_d.data());
             FpPack8x1::mul(wide_a[i], pack_a, pack_b);
             FpPack8x1::mul(wide_b[i], pack_c, pack_d);
-            bench_copy_as_v2(lazy_b[i], wide_b[i]);
-
-            UFpPack8x1 wide_c{}, wide_d{}, wide_e{}, wide_f{}, wide_g{};
-            FpPack8x1::mul(wide_c, pack_a, pack_c);
-            FpPack8x1::mul(wide_d, pack_b, pack_d);
-            FpPack8x1::mul(wide_e, pack_a, pack_d);
-            FpPack8x1::mul(wide_f, pack_b, pack_c);
-            FpPack8x1::mul(wide_g, pack_a, pack_a);
-            bench_make_v2_hi_neg4_pos4(
-                lazy_fp6_common[i],
-                wide_a[i],
-                wide_b[i],
-                wide_c,
-                wide_d,
-                wide_e,
-                wide_f,
-                wide_g,
-                (i & 1u) == 0u);
         }
     }
 
     const std::size_t n_packs_;
     std::vector<UFpPack8x1> wide_a;
     std::vector<UFpPack8x1> wide_b;
-    std::vector<LUFpPack8x1V2> lazy_b;
-    std::vector<LUFpPack8x1V2> lazy_tmp;
-    std::vector<LUFpPack8x1V2> lazy_fp6_common;
+    std::vector<UFpPack8x1> lazy_tmp;
     std::vector<UFpPack8x1> wide_out;
 };
 
@@ -149,12 +97,8 @@ template <LUFpAddStage Stage>
 BLST_FORCEINLINE void lufp_add_accounting_v2(UFpPack8x1& r, const UFpPack8x1& a, const UFpPack8x1& b)
 {
     if constexpr (Stage == LUFpAddStage::RawAdd) {
-        LUFpPack8x1V2 lazy{};
-        bench_copy_as_v2(reinterpret_cast<LUFpPack8x1V2&>(lazy), a);
-        LUFpPack8x1V2::add(lazy, lazy, reinterpret_cast<const LUFpPack8x1V2&>(b));
-        for (std::size_t i = 0; i < 2 * NWORDS; ++i) {
-            r[i] = lazy[i];
-        }
+        r = a;
+        lufp_v2_add(r, r, b);
     } else {
         UFpPack8x1 wide{};
         v2_add_bias_neg_p(wide, a, b);
@@ -206,10 +150,9 @@ void BM_LUFpAddChain(benchmark::State& state)
 
     for (auto _ : state) {
         for (std::size_t p = 0; p < data.n_packs_; ++p) {
-            LUFpPack8x1V2 acc{};
-            bench_copy_as_v2(acc, data.wide_a[p]);
+            UFpPack8x1 acc = data.wide_a[p];
             for (std::size_t round = 0; round < kRounds; ++round) {
-                LUFpPack8x1V2::add(acc, acc, data.lazy_b[p]);
+                lufp_v2_add(acc, acc, data.wide_b[p]);
             }
             data.lazy_tmp[p] = acc;
         }

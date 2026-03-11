@@ -292,6 +292,44 @@ namespace blst
     };
 
 
+
+
+
+
+
+
+    BLST_FORCEINLINE void Fp2Pack8x1x1::add(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a, const Fp2Pack8x1x1& b)
+    {
+        FpPack8x1::add(r[0], a[0], b[0]);
+        FpPack8x1::add(r[1], a[1], b[1]);
+    }
+
+    BLST_FORCEINLINE void Fp2Pack8x1x1::sub(Fp2Pack8x1x1& r, const Fp2Pack8x1x1& a, const Fp2Pack8x1x1& b)
+    {
+        FpPack8x1::sub(r[0], a[0], b[0]);
+        FpPack8x1::sub(r[1], a[1], b[1]);
+    }
+
+    // r0 = a0*b0 - a1*b1
+    // r1 = (a0 + a1)*(b0 + b1) - a0*b0 - a1*b1 = a0*b1 + a1*b0
+    // Karatsuba
+    inline void UFp2Pack8x1x1::mul(UFp2Pack8x1x1& r, const Fp2Pack8x1x1& a, const Fp2Pack8x1x1& b)
+    {
+        FpPack8x1 t0, t1;
+        UFpPack8x1 tt0, tt1, tt2;
+
+        FpPack8x1::mul(tt0, a[0], b[0]);       // a0*b0
+        FpPack8x1::mul(tt1, a[1], b[1]);       // a1*b1
+        FpPack8x1::add(t0, a[0], a[1]);          // a0+a1
+        FpPack8x1::add(t1, b[0], b[1]);          // b0+b1
+        FpPack8x1::mul(tt2, t0, t1);           // (a0+a1)*(b0+b1)
+        UFpPack8x1::sub(r[0], tt0, tt1);        // a0*b0-a1*b1
+        UFpPack8x1::sub(tt2, tt2, tt0);         // (a0+a1)*(b0+b1)-a0*b0
+        UFpPack8x1::sub(r[1], tt2, tt1);        // (a0+a1)*(b0+b1)-a0*b0-a1*b1
+    }
+
+
+
     static_assert(std::is_trivially_default_constructible_v<Fp2Pack8x1x1>);
     static_assert(std::is_trivially_copyable_v<Fp2Pack8x1x1>);
     static_assert(std::is_trivially_default_constructible_v<UFp2Pack8x1x1>);

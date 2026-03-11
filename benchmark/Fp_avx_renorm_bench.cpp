@@ -68,13 +68,13 @@ struct LUFpV2ExactAddRenormBenchData
             FpPack8x1::mul(wide_a, pack_a, pack_b);
             FpPack8x1::mul(wide_b, pack_c, pack_d);
 
-            bench_copy_as_v2(lazy_in[i], wide_a);
-            LUFpPack8x1V2::add(lazy_in[i], lazy_in[i], reinterpret_cast<const LUFpPack8x1V2&>(wide_b));
+            lazy_in[i] = wide_a;
+            lufp_v2_add(lazy_in[i], lazy_in[i], wide_b);
         }
     }
 
     const std::size_t n_packs_;
-    std::vector<LUFpPack8x1V2> lazy_in;
+    std::vector<UFpPack8x1> lazy_in;
     std::vector<UFpPack8x1> wide_out;
 };
 
@@ -87,7 +87,7 @@ enum class LUFpV2ExactAddRenormStage
 };
 
 template <LUFpV2ExactAddRenormStage Stage>
-BLST_FORCEINLINE void lufp_v2_exact_add_renorm_accounting(UFpPack8x1& r, const LUFpPack8x1V2& a)
+BLST_FORCEINLINE void lufp_v2_exact_add_renorm_accounting(UFpPack8x1& r, const UFpPack8x1& a)
 {
     v2_bias_neg_p(r, a);
 
