@@ -174,7 +174,7 @@ void dump_step_candidate_half_debug(const char* label, const UFpPack8x1& raw)
     const u8 ge_p_mask = v2_high_ge_p_mask_u8(safe_state.data());
 
     v2_high_sub_const(candidate_state.data(), kV2Bias3PPlus3Vec);
-    const u8 sign0 = lane_mask_to_u8(v2_carry_range_with_sign(candidate_state.data(), 0, (2 * NWORDS) - 1));
+    const u8 sign0 = lane_mask_to_u8(v2_carry_range_with_sign<0, (2 * NWORDS) - 1>(candidate_state.data()));
     const u8 sign4 = lane_mask_to_u8(v2_sign_step<4>(candidate_state.data(), static_cast<v2_lane_mask_t>(sign0)));
     const u8 sign42 = lane_mask_to_u8(v2_sign_step<2>(candidate_state.data(), static_cast<v2_lane_mask_t>(sign4)));
     const u8 sign421 = lane_mask_to_u8(v2_sign_step<1>(candidate_state.data(), static_cast<v2_lane_mask_t>(sign42)));
@@ -854,7 +854,7 @@ struct Fp6Pack8x1V2BenchData
 };
 
 template <typename MulFn>
-void validate_lufp_v2_fp6_kernel(const char* label, MulFn&& mul_fn);
+void validate_lufp_v2_fp6_kernel(const char* label, MulFn&& mul_fn, bool validate_core_ops = true);
 
 void validate_lufp_v2_core_ops()
 {
@@ -914,6 +914,7 @@ void validate_lufp_v2_core_ops()
 
     validate_v2_sign_step_case<1>(gen);
     validate_v2_sign_step_case<2>(gen);
+    validate_v2_sign_step_case<3>(gen);
     validate_v2_sign_step_case<4>(gen);
 
     {
@@ -955,10 +956,20 @@ void validate_lufp_v2_core_ops()
 void validate_lufp_v2_fp6()
 {
     validate_lufp_v2_fp6_kernel(
-        "debug",
+        "wide",
         [](UFp6Pack8x1& out, const Fp6Pack8x1& a, const Fp6Pack8x1& b) {
-            mul_fp6_pack_lufpv2_debug(out, a, b);
+            mul_fp6_pack_lufpv2_wide(out, a, b);
         });
+}
+
+void validate_lufp_v2_fp6_fuse_only()
+{
+    validate_lufp_v2_fp6_kernel(
+        "fuse",
+        [](UFp6Pack8x1& out, const Fp6Pack8x1& a, const Fp6Pack8x1& b) {
+            mul_fp6_pack_lufpv2_fuse(out, a, b);
+        },
+        false);
 }
 
 void validate_lufp_v2_fp6_raw_renorm_any()
@@ -1131,9 +1142,11 @@ void debug_dump_fp6_raw_renorm_variants(const Fp6Pack8x1& a_pack, const Fp6Pack8
 }
 
 template <typename MulFn>
-void validate_lufp_v2_fp6_kernel(const char* label, MulFn&& mul_fn)
+void validate_lufp_v2_fp6_kernel(const char* label, MulFn&& mul_fn, const bool validate_core_ops)
 {
-    validate_lufp_v2_core_ops();
+    if (validate_core_ops) {
+        validate_lufp_v2_core_ops();
+    }
     Fp6Pack8x1V2BenchData data(1);
     std::array<Fp6, 8> got_candidate{};
     std::array<Fp6, 8> ref{};
@@ -1271,7 +1284,7 @@ BLST_FORCEINLINE void lufp_v2_fp6_mul_common_renorm_accounting(UFpPack8x1& in_ou
     v2_high_sub_const(in_out.data(), kV2Bias3PPlus3Vec);
 
     if constexpr (Stage >= LUFpV2Fp6MulCommonRenormStage::BiasCarry) {
-        u8 sign_mask = v2_carry_range_with_sign(in_out.data(), 0, (2 * NWORDS) - 1);
+        u8 sign_mask = v2_carry_range_with_sign<0, (2 * NWORDS) - 1>(in_out.data());
 
         if constexpr (Stage >= LUFpV2Fp6MulCommonRenormStage::BiasCarrySign4) {
             sign_mask = v2_sign_step<4>(in_out.data(), sign_mask);
@@ -1361,14 +1374,13 @@ void BM_Fp6MulLufpWideBroken(benchmark::State& state)
                             static_cast<int64_t>(data.n_packs_));
 }
 
-void BM_Fp6MulLufpDebug(benchmark::State& state)
+void BM_Fp6MulLufpFuse(benchmark::State& state)
 {
-    validate_lufp_v2_fp6();
     Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
 
     for (auto _ : state) {
         for (std::size_t p = 0; p < data.n_packs_; ++p) {
-            mul_fp6_pack_lufpv2_debug(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
+            mul_fp6_pack_lufpv2_fuse(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
         }
         bench_consume_fp6_wide(data.out_wide);
     }
@@ -1395,11 +1407,31 @@ void BM_Fp6RawNegativeFoldSanity(benchmark::State& state)
     state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
 }
 
+void BM_Fp6MulLufpWideSanity(benchmark::State& state)
+{
+    validate_lufp_v2_fp6();
+    for (auto _ : state) {
+        benchmark::ClobberMemory();
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
+}
+
+void BM_Fp6MulLufpFuseSanity(benchmark::State& state)
+{
+    validate_lufp_v2_fp6_fuse_only();
+    for (auto _ : state) {
+        benchmark::ClobberMemory();
+    }
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
+}
+
 BENCHMARK(BM_Fp6MulLufpWide)->Arg(256);
+BENCHMARK(BM_Fp6MulLufpFuse)->Arg(256);
 BENCHMARK(BM_Fp6MulLufpWideBroken)->Arg(256);
-BENCHMARK(BM_Fp6MulLufpDebug)->Arg(256);
 BENCHMARK(BM_Fp6RawRenormAnySanity)->Arg(1);
 BENCHMARK(BM_Fp6RawNegativeFoldSanity)->Arg(1);
+BENCHMARK(BM_Fp6MulLufpWideSanity)->Arg(1);
+BENCHMARK(BM_Fp6MulLufpFuseSanity)->Arg(1);
 BENCHMARK_TEMPLATE(BM_Fp6MulLufpAccounting, LUFpFp6MulStage::PreAdd)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp6MulLufpAccounting, LUFpFp6MulStage::PreAddMul)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp6MulLufpAccounting, LUFpFp6MulStage::PreAddMulRawCombine)->Arg(256);
