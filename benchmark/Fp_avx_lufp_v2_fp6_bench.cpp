@@ -162,13 +162,13 @@ void dump_step_candidate_half_debug(const char* label, const UFpPack8x1& raw)
     UFpPack8x1 safe_state = raw;
     UFpPack8x1 candidate_state = raw;
 
-    v2_signed_carry_range(safe_state.data(), 0, (2 * NWORDS) - 1);
+    v2_signed_carry_range<0, (2 * NWORDS) - 1>(safe_state.data());
     const u8 neg_mask = lane_mask_to_u8(v2_signbit_mask(safe_state[(2 * NWORDS) - 1]));
     v2_high_add_mod_masked_u8(safe_state.data(), neg_mask, kV2P48X4.data());
-    v2_signed_carry_range(safe_state.data(), NWORDS, (2 * NWORDS) - 1);
+    v2_signed_carry_range<NWORDS, (2 * NWORDS) - 1>(safe_state.data());
     const u8 neg_fix_mask = lane_mask_to_u8(v2_signbit_mask(safe_state[(2 * NWORDS) - 1]));
     v2_high_add_mod_masked_u8(safe_state.data(), neg_fix_mask, kV2P48X1.data());
-    v2_signed_carry_range(safe_state.data(), NWORDS, (2 * NWORDS) - 1);
+    v2_signed_carry_range<NWORDS, (2 * NWORDS) - 1>(safe_state.data());
     const u8 ge_4p_mask = v2_high_ge_mod_mask_u8(safe_state.data(), kV2P48X4.data());
     const u8 ge_2p_mask = v2_high_ge_mod_mask_u8(safe_state.data(), kV2P48X2.data());
     const u8 ge_p_mask = v2_high_ge_p_mask_u8(safe_state.data());
@@ -299,7 +299,7 @@ void debug_search_half_sign_sequences(const char* half_label, const UFpPack8x1& 
 
             UFpPack8x1 got = raw;
             v2_high_sub_const(got.data(), kV2Bias3PPlus3Vec);
-            v2_signed_carry_range(got.data(), 0, (2 * NWORDS) - 1);
+            v2_signed_carry_range<0, (2 * NWORDS) - 1>(got.data());
             v2_lane_mask_t sign_mask = v2_signbit_mask(got[(2 * NWORDS) - 1]);
             for (int i = 0; i < len; ++i) {
                 const int digit = digits[static_cast<std::size_t>(i)];
@@ -785,109 +785,6 @@ void decode_adversarial_case(
     b = make_fp6(patterns[digits[3]], patterns[digits[4]], patterns[digits[5]]);
 }
 
-template <typename MulFn>
-void validate_lufp_v2_fp6_adversarial(const char* label, MulFn&& mul_fn)
-{
-    validate_lufp_v2_core_ops();
-
-    const Fp zero = Fp::zero();
-    const Fp one = Fp::one();
-    Fp minus_one{};
-    Fp::neg(minus_one, one);
-
-    const std::array<Fp2, 9> patterns = {
-        make_fp2(zero, zero),
-        make_fp2(one, zero),
-        make_fp2(zero, one),
-        make_fp2(one, one),
-        make_fp2(minus_one, zero),
-        make_fp2(zero, minus_one),
-        make_fp2(minus_one, minus_one),
-        make_fp2(one, minus_one),
-        make_fp2(minus_one, one),
-    };
-
-    constexpr std::size_t kBatch = 8;
-    constexpr std::size_t kTotalCases = 531441; // 9^6
-
-    std::array<Fp6, kBatch> a_scalar{};
-    std::array<Fp6, kBatch> b_scalar{};
-    std::array<Fp6, kBatch> got_candidate{};
-    std::array<Fp6, kBatch> got_safe{};
-    std::array<Fp6, kBatch> ref{};
-
-    for (std::size_t base = 0; base < kTotalCases; base += kBatch) {
-        for (std::size_t lane = 0; lane < kBatch; ++lane) {
-            const std::size_t case_idx = (base + lane < kTotalCases) ? (base + lane) : (kTotalCases - 1);
-            decode_adversarial_case(patterns, case_idx, a_scalar[lane], b_scalar[lane]);
-        }
-
-        Fp6Pack8x1 a_pack{};
-        Fp6Pack8x1 b_pack{};
-        UFp6Pack8x1 candidate{};
-        UFp6Pack8x1 safe{};
-        Fp6Pack8x1 candidate_redc{};
-        Fp6Pack8x1 safe_redc{};
-        Fp6Pack8x1 ref_mul{};
-
-        Fp6Pack8x1::from_aos(a_pack, a_scalar.data());
-        Fp6Pack8x1::from_aos(b_pack, b_scalar.data());
-
-        mul_fn(candidate, a_pack, b_pack);
-        UFp6Pack8x1::redc(candidate_redc, candidate);
-
-        mul_fp6_pack_lufpv2_wide_safe(safe, a_pack, b_pack);
-        UFp6Pack8x1::redc(safe_redc, safe);
-
-        Fp6Pack8x1::mul(ref_mul, a_pack, b_pack);
-
-        Fp6Pack8x1::to_aos(got_candidate.data(), candidate_redc);
-        Fp6Pack8x1::to_aos(got_safe.data(), safe_redc);
-        Fp6Pack8x1::to_aos(ref.data(), ref_mul);
-
-        for (std::size_t lane = 0; lane < kBatch && (base + lane) < kTotalCases; ++lane) {
-            if (!fp6_equal(got_candidate[lane], ref[lane])) {
-                std::fprintf(stderr,
-                             "%s adversarial validation failed at case %zu lane %zu\n",
-                             label,
-                             base + lane,
-                             lane);
-                dump_fp6("a", a_scalar[lane]);
-                dump_fp6("b", b_scalar[lane]);
-                dump_fp6("candidate", got_candidate[lane]);
-                dump_fp6("safe", got_safe[lane]);
-                dump_fp6("ref", ref[lane]);
-                std::abort();
-            }
-        }
-    }
-
-    std::fprintf(stderr, "%s adversarial validation checked %zu structured cases\n", label, kTotalCases);
-}
-
-void validate_lufp_v2_fp6_step_candidate_sparse5b_adversarial()
-{
-    validate_lufp_v2_fp6_adversarial(
-        "Sparse5B",
-        [](UFp6Pack8x1& out, const Fp6Pack8x1& a, const Fp6Pack8x1& b) {
-            mul_fp6_pack_lufpv2_wide_step_candidate_sparse<0x3C2u>(out, a, b);
-        });
-}
-
-void validate_lufp_v2_fp6_delayed_block_final_adversarial()
-{
-    validate_lufp_v2_fp6_adversarial(
-        "DelayedBlockFinal",
-        [](UFp6Pack8x1& out, const Fp6Pack8x1& a, const Fp6Pack8x1& b) {
-            mul_fp6_pack_lufpv2_wide_delayed_block_final(out, a, b);
-        });
-}
-
-//struct LUFp6Pack8x1Raw
-//{
-//    LUFp2Pack8x1x1 c[3];
-//};
-
 BLST_FORCEINLINE void prepare_lufp_v2_fp6_raw(UFp6Pack8x1& out, const Fp6Pack8x1& a, const Fp6Pack8x1& b)
 {
     Fp2Pack8x1x1 aa0{}, aa1{}, aa2{};
@@ -1004,7 +901,7 @@ void validate_lufp_v2_core_ops()
 
         UFpPack8x1 got{};
         pack_from_i64_words(got, input);
-        v2_signed_carry_range(got.data(), 0, (2 * NWORDS) - 1);
+        v2_signed_carry_range<0, (2 * NWORDS) - 1>(got.data());
         const PackedI64Words got_words = pack_to_i64_words(got);
 
         if (!packed_words_equal(got_words, expected)) {
@@ -1058,55 +955,176 @@ void validate_lufp_v2_core_ops()
 void validate_lufp_v2_fp6()
 {
     validate_lufp_v2_fp6_kernel(
-        "wide",
+        "debug",
         [](UFp6Pack8x1& out, const Fp6Pack8x1& a, const Fp6Pack8x1& b) {
-            mul_fp6_pack_lufpv2_wide(out, a, b);
+            mul_fp6_pack_lufpv2_debug(out, a, b);
         });
 }
 
-void validate_lufp_v2_fp6_step_candidate()
+void validate_lufp_v2_fp6_raw_renorm_any()
 {
     validate_lufp_v2_core_ops();
     Fp6Pack8x1V2BenchData data(1);
-    std::array<Fp6, 8> got_candidate{};
-    std::array<Fp6, 8> got_safe{};
+    std::array<Fp6, 8> got{};
     std::array<Fp6, 8> ref{};
 
     for (std::size_t p = 0; p < data.n_packs_; ++p) {
-        Fp6Pack8x1 candidate_redc{};
-        Fp6Pack8x1 safe_redc{};
+        UFp6Pack8x1 raw{};
+        Fp6Pack8x1 got_redc{};
         Fp6Pack8x1 ref_mul{};
-        UFp6Pack8x1 candidate{};
-        UFp6Pack8x1 safe{};
 
-        mul_fp6_pack_lufpv2_wide_step_candidate(candidate, data.a_pack[p], data.b_pack[p]);
-        UFp6Pack8x1::redc(candidate_redc, candidate);
-
-        mul_fp6_pack_lufpv2_wide_safe(safe, data.a_pack[p], data.b_pack[p]);
-        UFp6Pack8x1::redc(safe_redc, safe);
+        prepare_lufp_v2_fp6_raw(raw, data.a_pack[p], data.b_pack[p]);
+        renorm_any(raw);
+        UFp6Pack8x1::redc(got_redc, raw);
 
         Fp6Pack8x1::mul(ref_mul, data.a_pack[p], data.b_pack[p]);
 
-        Fp6Pack8x1::to_aos(got_candidate.data(), candidate_redc);
-        Fp6Pack8x1::to_aos(got_safe.data(), safe_redc);
+        Fp6Pack8x1::to_aos(got.data(), got_redc);
         Fp6Pack8x1::to_aos(ref.data(), ref_mul);
 
-        for (std::size_t lane = 0; lane < got_candidate.size(); ++lane) {
-            if (!fp6_equal(got_candidate[lane], ref[lane])) {
-                std::fprintf(stderr, "Fp6 LUFp v2 step-candidate validation failed at pack %zu lane %zu\n", p, lane);
-                debug_compare_step_candidate_manual_sequence(data.a_pack[p], data.b_pack[p]);
-                UFp6Pack8x1 raw{};
-                prepare_lufp_v2_fp6_raw(raw, data.a_pack[p], data.b_pack[p]);
-                dump_step_candidate_half_debug("c0.re", raw.c[0][0]);
-                dump_step_candidate_half_debug("c0.im", raw.c[0][1]);
-                dump_step_candidate_half_debug("c1.re", raw.c[1][0]);
-                dump_step_candidate_half_debug("c1.im", raw.c[1][1]);
-                dump_step_candidate_half_debug("c2.re", raw.c[2][0]);
-                dump_step_candidate_half_debug("c2.im", raw.c[2][1]);
-                dump_fp6("candidate", got_candidate[lane]);
-                dump_fp6("safe", got_safe[lane]);
+        for (std::size_t lane = 0; lane < got.size(); ++lane) {
+            if (!fp6_equal(got[lane], ref[lane])) {
+                std::fprintf(stderr, "Fp6 raw + renorm_any validation failed at pack %zu lane %zu\n", p, lane);
+                dump_fp6("got", got[lane]);
                 dump_fp6("ref", ref[lane]);
                 std::abort();
+            }
+        }
+    }
+
+    std::fprintf(stderr, "Fp6 raw + renorm_any validation passed\n");
+}
+
+void renorm_negative_fold_fp6(UFp6Pack8x1& in_out)
+{
+    lufp_v2_renorm_negative_fold<3u, 4u>(in_out.c[0][0]);
+    lufp_v2_renorm_negative_fold<4u, 3u>(in_out.c[0][1]);
+    lufp_v2_renorm_negative_fold<3u, 2u>(in_out.c[1][0]);
+    lufp_v2_renorm_negative_fold<2u, 3u>(in_out.c[1][1]);
+    lufp_v2_renorm_negative_fold<2u, 2u>(in_out.c[2][0]);
+    lufp_v2_renorm_negative_fold<2u, 2u>(in_out.c[2][1]);
+}
+
+void validate_lufp_v2_fp6_raw_negative_fold()
+{
+    validate_lufp_v2_core_ops();
+    Fp6Pack8x1V2BenchData data(1);
+    std::array<Fp6, 8> got{};
+    std::array<Fp6, 8> ref{};
+
+    for (std::size_t p = 0; p < data.n_packs_; ++p) {
+        UFp6Pack8x1 raw{};
+        UFp6Pack8x1 any{};
+        Fp6Pack8x1 got_redc{};
+        Fp6Pack8x1 any_redc{};
+        Fp6Pack8x1 ref_mul{};
+        std::array<Fp6, 8> any_got{};
+
+        prepare_lufp_v2_fp6_raw(raw, data.a_pack[p], data.b_pack[p]);
+        any = raw;
+
+        renorm_negative_fold_fp6(raw);
+        renorm_any(any);
+
+        UFp6Pack8x1::redc(got_redc, raw);
+        UFp6Pack8x1::redc(any_redc, any);
+        Fp6Pack8x1::mul(ref_mul, data.a_pack[p], data.b_pack[p]);
+
+        Fp6Pack8x1::to_aos(got.data(), got_redc);
+        Fp6Pack8x1::to_aos(any_got.data(), any_redc);
+        Fp6Pack8x1::to_aos(ref.data(), ref_mul);
+
+        for (std::size_t lane = 0; lane < got.size(); ++lane) {
+            if (!fp6_equal(got[lane], any_got[lane])) {
+                std::fprintf(stderr, "Fp6 raw + negative-fold differs from renorm_any at pack %zu lane %zu\n", p, lane);
+                dump_fp6("negative_fold", got[lane]);
+                dump_fp6("renorm_any", any_got[lane]);
+                dump_fp6("ref", ref[lane]);
+                std::abort();
+            }
+            if (!fp6_equal(got[lane], ref[lane])) {
+                std::fprintf(stderr, "Fp6 raw + negative-fold validation failed at pack %zu lane %zu\n", p, lane);
+                dump_fp6("got", got[lane]);
+                dump_fp6("renorm_any", any_got[lane]);
+                dump_fp6("ref", ref[lane]);
+                std::abort();
+            }
+        }
+    }
+
+    std::fprintf(stderr, "Fp6 raw + negative-fold validation passed\n");
+}
+
+void debug_dump_fp6_raw_renorm_variants(const Fp6Pack8x1& a_pack, const Fp6Pack8x1& b_pack, std::size_t lane)
+{
+    UFp6Pack8x1 raw{};
+    UFp6Pack8x1 fast{};
+    UFp6Pack8x1 step{};
+    UFp6Pack8x1 fold{};
+    UFp6Pack8x1 any{};
+    UFp6Pack8x1 safe{};
+    Fp6Pack8x1 fast_redc{};
+    Fp6Pack8x1 step_redc{};
+    Fp6Pack8x1 fold_redc{};
+    Fp6Pack8x1 any_redc{};
+    Fp6Pack8x1 safe_redc{};
+    Fp6Pack8x1 ref_mul{};
+    std::array<Fp6, 8> fast_aos{};
+    std::array<Fp6, 8> step_aos{};
+    std::array<Fp6, 8> fold_aos{};
+    std::array<Fp6, 8> any_aos{};
+    std::array<Fp6, 8> safe_aos{};
+    std::array<Fp6, 8> ref_aos{};
+
+    prepare_lufp_v2_fp6_raw(raw, a_pack, b_pack);
+    fast = raw;
+    step = raw;
+    fold = raw;
+    any = raw;
+    safe = raw;
+
+    for (std::size_t c = 0; c < 3; ++c) {
+        lufp2_v2_renorm_fp6_mul_common_fast(fast.c[c]);
+        lufp2_v2_renorm_fp6_mul_common_step_candidate(step.c[c]);
+        lufp2_v2_renorm_fp6_mul_common_safe(safe.c[c]);
+    }
+    renorm_negative_fold_fp6(fold);
+    renorm_any(any);
+
+    UFp6Pack8x1::redc(fast_redc, fast);
+    UFp6Pack8x1::redc(step_redc, step);
+    UFp6Pack8x1::redc(fold_redc, fold);
+    UFp6Pack8x1::redc(any_redc, any);
+    UFp6Pack8x1::redc(safe_redc, safe);
+    Fp6Pack8x1::mul(ref_mul, a_pack, b_pack);
+
+    Fp6Pack8x1::to_aos(fast_aos.data(), fast_redc);
+    Fp6Pack8x1::to_aos(step_aos.data(), step_redc);
+    Fp6Pack8x1::to_aos(fold_aos.data(), fold_redc);
+    Fp6Pack8x1::to_aos(any_aos.data(), any_redc);
+    Fp6Pack8x1::to_aos(safe_aos.data(), safe_redc);
+    Fp6Pack8x1::to_aos(ref_aos.data(), ref_mul);
+
+    dump_fp6("fast", fast_aos[lane]);
+    dump_fp6("step", step_aos[lane]);
+    dump_fp6("negative_fold", fold_aos[lane]);
+    dump_fp6("any", any_aos[lane]);
+    dump_fp6("safe", safe_aos[lane]);
+    dump_fp6("ref_raw", ref_aos[lane]);
+
+    for (std::size_t c = 0; c < 3; ++c) {
+        for (std::size_t d = 0; d < 2; ++d) {
+            const char* suffix = d == 0 ? "re" : "im";
+            std::fprintf(stderr, "raw c%zu.%s\n", c, suffix);
+            dump_packed_words("raw", pack_to_i64_words(raw.c[c][d]));
+            dump_packed_words("fast_half", pack_to_i64_words(fast.c[c][d]));
+            dump_packed_words("step_half", pack_to_i64_words(step.c[c][d]));
+            dump_packed_words("safe_half", pack_to_i64_words(safe.c[c][d]));
+            if (!packed_words_equal(pack_to_i64_words(fast.c[c][d]), pack_to_i64_words(safe.c[c][d]))) {
+                char half_label[16];
+                std::snprintf(half_label, sizeof(half_label), "c%zu.%s", c, suffix);
+                debug_search_half_repairs(half_label, raw.c[c][d], safe.c[c][d]);
+                debug_search_half_sign_sequences(half_label, raw.c[c][d], safe.c[c][d]);
             }
         }
     }
@@ -1118,201 +1136,27 @@ void validate_lufp_v2_fp6_kernel(const char* label, MulFn&& mul_fn)
     validate_lufp_v2_core_ops();
     Fp6Pack8x1V2BenchData data(1);
     std::array<Fp6, 8> got_candidate{};
-    std::array<Fp6, 8> got_safe{};
     std::array<Fp6, 8> ref{};
 
     for (std::size_t p = 0; p < data.n_packs_; ++p) {
         Fp6Pack8x1 candidate_redc{};
-        Fp6Pack8x1 safe_redc{};
         Fp6Pack8x1 ref_mul{};
         UFp6Pack8x1 candidate{};
-        UFp6Pack8x1 safe{};
 
         mul_fn(candidate, data.a_pack[p], data.b_pack[p]);
         UFp6Pack8x1::redc(candidate_redc, candidate);
 
-        mul_fp6_pack_lufpv2_wide_safe(safe, data.a_pack[p], data.b_pack[p]);
-        UFp6Pack8x1::redc(safe_redc, safe);
-
         Fp6Pack8x1::mul(ref_mul, data.a_pack[p], data.b_pack[p]);
 
         Fp6Pack8x1::to_aos(got_candidate.data(), candidate_redc);
-        Fp6Pack8x1::to_aos(got_safe.data(), safe_redc);
         Fp6Pack8x1::to_aos(ref.data(), ref_mul);
 
         for (std::size_t lane = 0; lane < got_candidate.size(); ++lane) {
             if (!fp6_equal(got_candidate[lane], ref[lane])) {
                 std::fprintf(stderr, "Fp6 LUFp v2 %s validation failed at pack %zu lane %zu\n", label, p, lane);
                 dump_fp6("candidate", got_candidate[lane]);
-                dump_fp6("safe", got_safe[lane]);
                 dump_fp6("ref", ref[lane]);
-                std::abort();
-            }
-        }
-    }
-}
-
-void validate_lufp_v2_fp6_exact_add_every_op()
-{
-    validate_lufp_v2_fp6_kernel(
-        "exact-add-every-op",
-        [](UFp6Pack8x1& out, const Fp6Pack8x1& a, const Fp6Pack8x1& b) {
-            mul_fp6_pack_lufpv2_wide_exact_add_every_op(out, a, b);
-        });
-}
-
-template <u32 Mask>
-void validate_lufp_v2_fp6_step_candidate_sparse(const char* label)
-{
-    validate_lufp_v2_core_ops();
-    Fp6Pack8x1V2BenchData data(1);
-    std::array<Fp6, 8> got_candidate{};
-    std::array<Fp6, 8> got_safe{};
-    std::array<Fp6, 8> ref{};
-
-    for (std::size_t p = 0; p < data.n_packs_; ++p) {
-        Fp6Pack8x1 candidate_redc{};
-        Fp6Pack8x1 safe_redc{};
-        Fp6Pack8x1 ref_mul{};
-        UFp6Pack8x1 candidate{};
-        UFp6Pack8x1 safe{};
-
-        mul_fp6_pack_lufpv2_wide_step_candidate_sparse<Mask>(candidate, data.a_pack[p], data.b_pack[p]);
-        UFp6Pack8x1::redc(candidate_redc, candidate);
-
-        mul_fp6_pack_lufpv2_wide_safe(safe, data.a_pack[p], data.b_pack[p]);
-        UFp6Pack8x1::redc(safe_redc, safe);
-
-        Fp6Pack8x1::mul(ref_mul, data.a_pack[p], data.b_pack[p]);
-
-        Fp6Pack8x1::to_aos(got_candidate.data(), candidate_redc);
-        Fp6Pack8x1::to_aos(got_safe.data(), safe_redc);
-        Fp6Pack8x1::to_aos(ref.data(), ref_mul);
-
-        for (std::size_t lane = 0; lane < got_candidate.size(); ++lane) {
-            if (!fp6_equal(got_candidate[lane], ref[lane])) {
-                std::fprintf(stderr, "Fp6 LUFp v2 %s validation failed at pack %zu lane %zu\n", label, p, lane);
-                dump_fp6("candidate", got_candidate[lane]);
-                dump_fp6("safe", got_safe[lane]);
-                dump_fp6("ref", ref[lane]);
-                std::abort();
-            }
-        }
-    }
-}
-
-template <u32 ReMask, u32 ImMask>
-void validate_lufp_v2_fp6_step_candidate_half_sparse(const char* label)
-{
-    validate_lufp_v2_core_ops();
-    Fp6Pack8x1V2BenchData data(1);
-    std::array<Fp6, 8> got_candidate{};
-    std::array<Fp6, 8> got_safe{};
-    std::array<Fp6, 8> ref{};
-
-    for (std::size_t p = 0; p < data.n_packs_; ++p) {
-        Fp6Pack8x1 candidate_redc{};
-        Fp6Pack8x1 safe_redc{};
-        Fp6Pack8x1 ref_mul{};
-        UFp6Pack8x1 candidate{};
-        UFp6Pack8x1 safe{};
-
-        mul_fp6_pack_lufpv2_wide_step_candidate_half_sparse<ReMask, ImMask>(candidate, data.a_pack[p], data.b_pack[p]);
-        UFp6Pack8x1::redc(candidate_redc, candidate);
-
-        mul_fp6_pack_lufpv2_wide_safe(safe, data.a_pack[p], data.b_pack[p]);
-        UFp6Pack8x1::redc(safe_redc, safe);
-
-        Fp6Pack8x1::mul(ref_mul, data.a_pack[p], data.b_pack[p]);
-
-        Fp6Pack8x1::to_aos(got_candidate.data(), candidate_redc);
-        Fp6Pack8x1::to_aos(got_safe.data(), safe_redc);
-        Fp6Pack8x1::to_aos(ref.data(), ref_mul);
-
-        for (std::size_t lane = 0; lane < got_candidate.size(); ++lane) {
-            if (!fp6_equal(got_candidate[lane], ref[lane])) {
-                std::fprintf(stderr, "Fp6 LUFp v2 %s validation failed at pack %zu lane %zu\n", label, p, lane);
-                dump_fp6("candidate", got_candidate[lane]);
-                dump_fp6("safe", got_safe[lane]);
-                dump_fp6("ref", ref[lane]);
-                std::abort();
-            }
-        }
-    }
-}
-
-void validate_lufp_v2_fp6_step_candidate_relaxed2()
-{
-    validate_lufp_v2_core_ops();
-    Fp6Pack8x1V2BenchData data(1);
-    std::array<Fp6, 8> got_candidate{};
-    std::array<Fp6, 8> got_safe{};
-    std::array<Fp6, 8> ref{};
-
-    for (std::size_t p = 0; p < data.n_packs_; ++p) {
-        Fp6Pack8x1 candidate_redc{};
-        Fp6Pack8x1 safe_redc{};
-        Fp6Pack8x1 ref_mul{};
-        UFp6Pack8x1 candidate{};
-        UFp6Pack8x1 safe{};
-
-        mul_fp6_pack_lufpv2_wide_step_candidate_relaxed2(candidate, data.a_pack[p], data.b_pack[p]);
-        UFp6Pack8x1::redc(candidate_redc, candidate);
-
-        mul_fp6_pack_lufpv2_wide_safe(safe, data.a_pack[p], data.b_pack[p]);
-        UFp6Pack8x1::redc(safe_redc, safe);
-
-        Fp6Pack8x1::mul(ref_mul, data.a_pack[p], data.b_pack[p]);
-
-        Fp6Pack8x1::to_aos(got_candidate.data(), candidate_redc);
-        Fp6Pack8x1::to_aos(got_safe.data(), safe_redc);
-        Fp6Pack8x1::to_aos(ref.data(), ref_mul);
-
-        for (std::size_t lane = 0; lane < got_candidate.size(); ++lane) {
-            if (!fp6_equal(got_candidate[lane], ref[lane])) {
-                std::fprintf(stderr, "Fp6 LUFp v2 step-candidate-relaxed2 validation failed at pack %zu lane %zu\n", p, lane);
-                dump_fp6("candidate", got_candidate[lane]);
-                dump_fp6("safe", got_safe[lane]);
-                dump_fp6("ref", ref[lane]);
-                std::abort();
-            }
-        }
-    }
-}
-
-void validate_lufp_v2_fp6_step_candidate_hybrid()
-{
-    validate_lufp_v2_core_ops();
-    Fp6Pack8x1V2BenchData data(1);
-    std::array<Fp6, 8> got_candidate{};
-    std::array<Fp6, 8> got_safe{};
-    std::array<Fp6, 8> ref{};
-
-    for (std::size_t p = 0; p < data.n_packs_; ++p) {
-        Fp6Pack8x1 candidate_redc{};
-        Fp6Pack8x1 safe_redc{};
-        Fp6Pack8x1 ref_mul{};
-        UFp6Pack8x1 candidate{};
-        UFp6Pack8x1 safe{};
-
-        mul_fp6_pack_lufpv2_wide_step_candidate_hybrid(candidate, data.a_pack[p], data.b_pack[p]);
-        UFp6Pack8x1::redc(candidate_redc, candidate);
-
-        mul_fp6_pack_lufpv2_wide_safe(safe, data.a_pack[p], data.b_pack[p]);
-        UFp6Pack8x1::redc(safe_redc, safe);
-
-        Fp6Pack8x1::mul(ref_mul, data.a_pack[p], data.b_pack[p]);
-
-        Fp6Pack8x1::to_aos(got_candidate.data(), candidate_redc);
-        Fp6Pack8x1::to_aos(got_safe.data(), safe_redc);
-        Fp6Pack8x1::to_aos(ref.data(), ref_mul);
-
-        for (std::size_t lane = 0; lane < got_candidate.size(); ++lane) {
-            if (!fp6_equal(got_candidate[lane], ref[lane])) {
-                std::fprintf(stderr, "Fp6 LUFp v2 step-candidate-hybrid validation failed at pack %zu lane %zu\n", p, lane);
-                dump_fp6("candidate", got_candidate[lane]);
-                dump_fp6("safe", got_safe[lane]);
-                dump_fp6("ref", ref[lane]);
+                debug_dump_fp6_raw_renorm_variants(data.a_pack[p], data.b_pack[p], lane);
                 std::abort();
             }
         }
@@ -1502,14 +1346,29 @@ void BM_Fp6MulLufpWide(benchmark::State& state)
                             static_cast<int64_t>(data.n_packs_));
 }
 
-void BM_Fp6MulLufpWideSafe(benchmark::State& state)
+void BM_Fp6MulLufpWideBroken(benchmark::State& state)
+{
+    Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs_; ++p) {
+            mul_fp6_pack_lufpv2_wide_broken(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
+        }
+        bench_consume_fp6_wide(data.out_wide);
+    }
+
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) *
+                            static_cast<int64_t>(data.n_packs_));
+}
+
+void BM_Fp6MulLufpDebug(benchmark::State& state)
 {
     validate_lufp_v2_fp6();
     Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
 
     for (auto _ : state) {
         for (std::size_t p = 0; p < data.n_packs_; ++p) {
-            mul_fp6_pack_lufpv2_wide_safe(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
+            mul_fp6_pack_lufpv2_debug(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
         }
         bench_consume_fp6_wide(data.out_wide);
     }
@@ -1518,210 +1377,29 @@ void BM_Fp6MulLufpWideSafe(benchmark::State& state)
                             static_cast<int64_t>(data.n_packs_));
 }
 
-void BM_Fp6MulLufpWideStepCandidate(benchmark::State& state)
+void BM_Fp6RawRenormAnySanity(benchmark::State& state)
 {
-    validate_lufp_v2_fp6_step_candidate();
-    Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
-
+    validate_lufp_v2_fp6_raw_renorm_any();
     for (auto _ : state) {
-        for (std::size_t p = 0; p < data.n_packs_; ++p) {
-            mul_fp6_pack_lufpv2_wide_step_candidate(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
-        }
-        bench_consume_fp6_wide(data.out_wide);
+        benchmark::ClobberMemory();
     }
-
-    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) *
-                            static_cast<int64_t>(data.n_packs_));
-}
-
-void BM_Fp6MulLufpWideExactAddEveryOp(benchmark::State& state)
-{
-    validate_lufp_v2_fp6_exact_add_every_op();
-    Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
-
-    for (auto _ : state) {
-        for (std::size_t p = 0; p < data.n_packs_; ++p) {
-            mul_fp6_pack_lufpv2_wide_exact_add_every_op(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
-        }
-        bench_consume_fp6_wide(data.out_wide);
-    }
-
-    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) *
-                            static_cast<int64_t>(data.n_packs_));
-}
-
-void BM_Fp6MulLufpWideStepCandidateSparse5A(benchmark::State& state)
-{
-    validate_lufp_v2_fp6_step_candidate_sparse<0x362u>("step-candidate-sparse5a");
-    Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
-
-    for (auto _ : state) {
-        for (std::size_t p = 0; p < data.n_packs_; ++p) {
-            mul_fp6_pack_lufpv2_wide_step_candidate_sparse<0x362u>(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
-        }
-        bench_consume_fp6_wide(data.out_wide);
-    }
-
-    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) *
-                            static_cast<int64_t>(data.n_packs_));
-}
-
-void BM_Fp6MulLufpWideStepCandidateSparse5B(benchmark::State& state)
-{
-    validate_lufp_v2_fp6_step_candidate_sparse<0x3C2u>("step-candidate-sparse5b");
-    Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
-
-    for (auto _ : state) {
-        for (std::size_t p = 0; p < data.n_packs_; ++p) {
-            mul_fp6_pack_lufpv2_wide_step_candidate_sparse<0x3C2u>(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
-        }
-        bench_consume_fp6_wide(data.out_wide);
-    }
-
-    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) *
-                            static_cast<int64_t>(data.n_packs_));
-}
-
-void BM_Fp6MulLufpWideStepCandidateSparse5C(benchmark::State& state)
-{
-    validate_lufp_v2_fp6_step_candidate_sparse<0x562u>("step-candidate-sparse5c");
-    Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
-
-    for (auto _ : state) {
-        for (std::size_t p = 0; p < data.n_packs_; ++p) {
-            mul_fp6_pack_lufpv2_wide_step_candidate_sparse<0x562u>(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
-        }
-        bench_consume_fp6_wide(data.out_wide);
-    }
-
-    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) *
-                            static_cast<int64_t>(data.n_packs_));
-}
-
-void BM_Fp6MulLufpWideStepCandidateSparse5D(benchmark::State& state)
-{
-    validate_lufp_v2_fp6_step_candidate_sparse<0x5C2u>("step-candidate-sparse5d");
-    Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
-
-    for (auto _ : state) {
-        for (std::size_t p = 0; p < data.n_packs_; ++p) {
-            mul_fp6_pack_lufpv2_wide_step_candidate_sparse<0x5C2u>(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
-        }
-        bench_consume_fp6_wide(data.out_wide);
-    }
-
-    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) *
-                            static_cast<int64_t>(data.n_packs_));
-}
-
-void BM_Fp6MulLufpWideStepCandidateHalfSparse8A(benchmark::State& state)
-{
-    validate_lufp_v2_fp6_step_candidate_half_sparse<0x5C2u, 0x482u>("step-candidate-half-sparse8a");
-    Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
-
-    for (auto _ : state) {
-        for (std::size_t p = 0; p < data.n_packs_; ++p) {
-            mul_fp6_pack_lufpv2_wide_step_candidate_half_sparse<0x5C2u, 0x482u>(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
-        }
-        bench_consume_fp6_wide(data.out_wide);
-    }
-
-    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) *
-                            static_cast<int64_t>(data.n_packs_));
-}
-
-void BM_Fp6MulLufpWideStepCandidateHalfSparse8B(benchmark::State& state)
-{
-    validate_lufp_v2_fp6_step_candidate_half_sparse<0x5C2u, 0x182u>("step-candidate-half-sparse8b");
-    Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
-
-    for (auto _ : state) {
-        for (std::size_t p = 0; p < data.n_packs_; ++p) {
-            mul_fp6_pack_lufpv2_wide_step_candidate_half_sparse<0x5C2u, 0x182u>(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
-        }
-        bench_consume_fp6_wide(data.out_wide);
-    }
-
-    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) *
-                            static_cast<int64_t>(data.n_packs_));
-}
-
-void BM_Fp6MulLufpWideStepCandidateRelaxed2(benchmark::State& state)
-{
-    validate_lufp_v2_fp6_step_candidate_relaxed2();
-    Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
-
-    for (auto _ : state) {
-        for (std::size_t p = 0; p < data.n_packs_; ++p) {
-            mul_fp6_pack_lufpv2_wide_step_candidate_relaxed2(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
-        }
-        bench_consume_fp6_wide(data.out_wide);
-    }
-
-    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) *
-                            static_cast<int64_t>(data.n_packs_));
-}
-
-void BM_Fp6MulLufpWideStepCandidateHybrid(benchmark::State& state)
-{
-    validate_lufp_v2_fp6_step_candidate_hybrid();
-    Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
-
-    for (auto _ : state) {
-        for (std::size_t p = 0; p < data.n_packs_; ++p) {
-            mul_fp6_pack_lufpv2_wide_step_candidate_hybrid(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
-        }
-        bench_consume_fp6_wide(data.out_wide);
-    }
-
-    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) *
-                            static_cast<int64_t>(data.n_packs_));
-}
-
-void BM_Fp6MulLufpWideStepCandidateSparse5BAdversarialSearch(benchmark::State& state)
-{
-    static bool validated = false;
-    if (!validated) {
-        validate_lufp_v2_fp6_step_candidate_sparse5b_adversarial();
-        validated = true;
-    }
-
-    for (auto _ : state) {
-        benchmark::DoNotOptimize(validated);
-    }
-
     state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
 }
 
-void BM_Fp6MulLufpWideDelayedBlockFinalAdversarialSearch(benchmark::State& state)
+void BM_Fp6RawNegativeFoldSanity(benchmark::State& state)
 {
-    static bool validated = false;
-    if (!validated) {
-        validate_lufp_v2_fp6_delayed_block_final_adversarial();
-        validated = true;
-    }
-
+    validate_lufp_v2_fp6_raw_negative_fold();
     for (auto _ : state) {
-        benchmark::DoNotOptimize(validated);
+        benchmark::ClobberMemory();
     }
-
     state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
 }
 
 BENCHMARK(BM_Fp6MulLufpWide)->Arg(256);
-BENCHMARK(BM_Fp6MulLufpWideSafe)->Arg(256);
-BENCHMARK(BM_Fp6MulLufpWideStepCandidate)->Arg(256);
-BENCHMARK(BM_Fp6MulLufpWideExactAddEveryOp)->Arg(256);
-BENCHMARK(BM_Fp6MulLufpWideStepCandidateSparse5A)->Arg(256);
-BENCHMARK(BM_Fp6MulLufpWideStepCandidateSparse5B)->Arg(256);
-BENCHMARK(BM_Fp6MulLufpWideStepCandidateSparse5C)->Arg(256);
-BENCHMARK(BM_Fp6MulLufpWideStepCandidateSparse5D)->Arg(256);
-BENCHMARK(BM_Fp6MulLufpWideStepCandidateHalfSparse8A)->Arg(256);
-BENCHMARK(BM_Fp6MulLufpWideStepCandidateHalfSparse8B)->Arg(256);
-BENCHMARK(BM_Fp6MulLufpWideStepCandidateRelaxed2)->Arg(256);
-BENCHMARK(BM_Fp6MulLufpWideStepCandidateHybrid)->Arg(256);
-BENCHMARK(BM_Fp6MulLufpWideStepCandidateSparse5BAdversarialSearch);
-BENCHMARK(BM_Fp6MulLufpWideDelayedBlockFinalAdversarialSearch);
+BENCHMARK(BM_Fp6MulLufpWideBroken)->Arg(256);
+BENCHMARK(BM_Fp6MulLufpDebug)->Arg(256);
+BENCHMARK(BM_Fp6RawRenormAnySanity)->Arg(1);
+BENCHMARK(BM_Fp6RawNegativeFoldSanity)->Arg(1);
 BENCHMARK_TEMPLATE(BM_Fp6MulLufpAccounting, LUFpFp6MulStage::PreAdd)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp6MulLufpAccounting, LUFpFp6MulStage::PreAddMul)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp6MulLufpAccounting, LUFpFp6MulStage::PreAddMulRawCombine)->Arg(256);
