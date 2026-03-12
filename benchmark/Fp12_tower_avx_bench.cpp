@@ -15,6 +15,7 @@
 #include "blst/fields/Fp2_avx.h"
 #include "blst/fields/Fp6_avx.h"
 #include "blst/fields/Fp12_avx.h"
+#include "benchmark/internal/Fp_avx_lufp_v2_impl.h"
 
 using namespace blst;
 
@@ -51,6 +52,51 @@ void random_redc_fp6(Fp6& v, std::mt19937_64& gen)
 bool fp6_equal(const Fp6& a, const Fp6& b)
 {
     return fp2_equal(a[0], b[0]) && fp2_equal(a[1], b[1]) && fp2_equal(a[2], b[2]);
+}
+
+bool fp12_equal(const Fp12& a, const Fp12& b)
+{
+    return fp6_equal(a[0], b[0]) && fp6_equal(a[1], b[1]);
+}
+
+void dump_fp(const char* label, const Fp& v)
+{
+    std::fprintf(
+        stderr,
+        "%s = [%016llx %016llx %016llx %016llx %016llx %016llx]\n",
+        label,
+        static_cast<unsigned long long>(v[5]),
+        static_cast<unsigned long long>(v[4]),
+        static_cast<unsigned long long>(v[3]),
+        static_cast<unsigned long long>(v[2]),
+        static_cast<unsigned long long>(v[1]),
+        static_cast<unsigned long long>(v[0]));
+}
+
+void dump_fp2(const char* label, const Fp2& v)
+{
+    std::fprintf(stderr, "%s.re\n", label);
+    dump_fp("  ", v[0]);
+    std::fprintf(stderr, "%s.im\n", label);
+    dump_fp("  ", v[1]);
+}
+
+void dump_fp6(const char* label, const Fp6& v)
+{
+    std::fprintf(stderr, "%s.c0\n", label);
+    dump_fp2("  ", v[0]);
+    std::fprintf(stderr, "%s.c1\n", label);
+    dump_fp2("  ", v[1]);
+    std::fprintf(stderr, "%s.c2\n", label);
+    dump_fp2("  ", v[2]);
+}
+
+void dump_fp12(const char* label, const Fp12& v)
+{
+    std::fprintf(stderr, "%s.c0\n", label);
+    dump_fp6("  ", v[0]);
+    std::fprintf(stderr, "%s.c1\n", label);
+    dump_fp6("  ", v[1]);
 }
 
 void random_redc_fp12(Fp12& v, std::mt19937_64& gen)
@@ -908,6 +954,36 @@ void mul_fp12_pack_legacy(Fp12Pack8x1& r, const Fp12Pack8x1& a, const Fp12Pack8x
     Fp6Pack8x1::add(r.c[0], t0, t2);
 }
 
+void mul_fp12_pack_lufpv2_fp6_safe_wide(UFp12Pack8x1& r, const Fp12Pack8x1& a, const Fp12Pack8x1& b)
+{
+    UFp6Pack8x1 t0{};
+    UFp6Pack8x1 t1{};
+    UFp6Pack8x1 t2{};
+    Fp6Pack8x1 t3{};
+    Fp6Pack8x1 t4{};
+
+    // Experimental baseline: keep canonical Fp12 algebra and use the current
+    // benchmark-only LUFp v2 Fp6 winner for the three inner products.
+    blst::bench_lufp_v2::mul_fp6_pack_lufpv2_wide(t0, a.c[0], b.c[0]);
+    blst::bench_lufp_v2::mul_fp6_pack_lufpv2_wide(t1, a.c[1], b.c[1]);
+
+    Fp6Pack8x1::add(t3, a.c[0], a.c[1]);
+    Fp6Pack8x1::add(t4, b.c[0], b.c[1]);
+    blst::bench_lufp_v2::mul_fp6_pack_lufpv2_wide(r.c[1], t3, t4);
+    UFp6Pack8x1::sub(r.c[1], r.c[1], t0);
+    UFp6Pack8x1::sub(r.c[1], r.c[1], t1);
+
+    UFp6Pack8x1::mul_by_nonresidue(t2, t1);
+    UFp6Pack8x1::add(r.c[0], t0, t2);
+}
+
+void mul_fp12_pack_lufpv2_fp6_safe(Fp12Pack8x1& r, const Fp12Pack8x1& a, const Fp12Pack8x1& b)
+{
+    UFp12Pack8x1 wide{};
+    mul_fp12_pack_lufpv2_fp6_safe_wide(wide, a, b);
+    UFp12Pack8x1::redc(r, wide);
+}
+
 void sqr_fp12_pack_legacy(Fp12Pack8x1& r, const Fp12Pack8x1& a)
 {
     Fp6Pack8x1 s0{};
@@ -1044,6 +1120,7 @@ struct Fp12BenchData
         , b_pack(n_packs)
         , cyclo_pack(n_packs)
         , wide_mul_pack(n_packs)
+        , wide_mul_pack_lufpv2_fp6_safe(n_packs)
         , wide_sqr_pack(n_packs)
         , cyclo_terms(n_packs)
         , out_pack(n_packs)
@@ -1061,6 +1138,7 @@ struct Fp12BenchData
             Fp12Pack8x1::from_aos(b_pack[p], &b[p * 8]);
             Fp12Pack8x1::from_aos(cyclo_pack[p], &cyclo[p * 8]);
             Fp12Pack8x1::mul(wide_mul_pack[p], a_pack[p], b_pack[p]);
+            mul_fp12_pack_lufpv2_fp6_safe_wide(wide_mul_pack_lufpv2_fp6_safe[p], a_pack[p], b_pack[p]);
             Fp12Pack8x1::sqr(wide_sqr_pack[p], a_pack[p]);
             cyclotomic_sqr_terms_only(cyclo_terms[p], cyclo_pack[p]);
         }
@@ -1076,10 +1154,118 @@ struct Fp12BenchData
     std::vector<Fp12Pack8x1> b_pack;
     std::vector<Fp12Pack8x1> cyclo_pack;
     std::vector<UFp12Pack8x1> wide_mul_pack;
+    std::vector<UFp12Pack8x1> wide_mul_pack_lufpv2_fp6_safe;
     std::vector<UFp12Pack8x1> wide_sqr_pack;
     std::vector<CyclotomicSqrTerms8x1> cyclo_terms;
     std::vector<Fp12Pack8x1> out_pack;
 };
+
+void debug_fp12_pack_lufpv2_fp6_failure(
+    const Fp12Pack8x1& a_pack,
+    const Fp12Pack8x1& b_pack,
+    const Fp12Pack8x1& got_pack,
+    const Fp12Pack8x1& ref_pack,
+    const std::size_t lane)
+{
+    UFp6Pack8x1 lufp_t0{};
+    UFp6Pack8x1 lufp_t1{};
+    UFp6Pack8x1 lufp_m{};
+    Fp6Pack8x1 lufp_t0_redc{};
+    Fp6Pack8x1 lufp_t1_redc{};
+    Fp6Pack8x1 lufp_m_redc{};
+    Fp6Pack8x1 ref_t0{};
+    Fp6Pack8x1 ref_t1{};
+    Fp6Pack8x1 ref_m{};
+    Fp12Pack8x1 reduced_products_recompose{};
+    Fp6Pack8x1 t3{};
+    std::array<Fp12, 8> a{};
+    std::array<Fp12, 8> b{};
+    std::array<Fp12, 8> got{};
+    std::array<Fp12, 8> ref{};
+    std::array<Fp6, 8> t0_lufp{};
+    std::array<Fp6, 8> t1_lufp{};
+    std::array<Fp6, 8> m_lufp{};
+    std::array<Fp6, 8> t0_ref{};
+    std::array<Fp6, 8> t1_ref{};
+    std::array<Fp6, 8> m_ref{};
+    std::array<Fp12, 8> reduced_products_recompose_aos{};
+
+    blst::bench_lufp_v2::mul_fp6_pack_lufpv2_wide(lufp_t0, a_pack.c[0], b_pack.c[0]);
+    blst::bench_lufp_v2::mul_fp6_pack_lufpv2_wide(lufp_t1, a_pack.c[1], b_pack.c[1]);
+    Fp6Pack8x1::add(t3, a_pack.c[0], a_pack.c[1]);
+    Fp6Pack8x1 tmp{};
+    Fp6Pack8x1::add(tmp, b_pack.c[0], b_pack.c[1]);
+    blst::bench_lufp_v2::mul_fp6_pack_lufpv2_wide(lufp_m, t3, tmp);
+
+    UFp6Pack8x1::redc(lufp_t0_redc, lufp_t0);
+    UFp6Pack8x1::redc(lufp_t1_redc, lufp_t1);
+    UFp6Pack8x1::redc(lufp_m_redc, lufp_m);
+
+    Fp6Pack8x1::mul(ref_t0, a_pack.c[0], b_pack.c[0]);
+    Fp6Pack8x1::mul(ref_t1, a_pack.c[1], b_pack.c[1]);
+    Fp6Pack8x1::mul(ref_m, t3, tmp);
+
+    reduced_products_recompose.c[1] = lufp_m_redc;
+    Fp6Pack8x1::sub(reduced_products_recompose.c[1], reduced_products_recompose.c[1], lufp_t0_redc);
+    Fp6Pack8x1::sub(reduced_products_recompose.c[1], reduced_products_recompose.c[1], lufp_t1_redc);
+    Fp6Pack8x1::mul_by_nonresidue(reduced_products_recompose.c[0], lufp_t1_redc);
+    Fp6Pack8x1::add(reduced_products_recompose.c[0], reduced_products_recompose.c[0], lufp_t0_redc);
+
+    Fp12Pack8x1::to_aos(a.data(), a_pack);
+    Fp12Pack8x1::to_aos(b.data(), b_pack);
+    Fp12Pack8x1::to_aos(got.data(), got_pack);
+    Fp12Pack8x1::to_aos(ref.data(), ref_pack);
+    Fp6Pack8x1::to_aos(t0_lufp.data(), lufp_t0_redc);
+    Fp6Pack8x1::to_aos(t1_lufp.data(), lufp_t1_redc);
+    Fp6Pack8x1::to_aos(m_lufp.data(), lufp_m_redc);
+    Fp6Pack8x1::to_aos(t0_ref.data(), ref_t0);
+    Fp6Pack8x1::to_aos(t1_ref.data(), ref_t1);
+    Fp6Pack8x1::to_aos(m_ref.data(), ref_m);
+    Fp12Pack8x1::to_aos(reduced_products_recompose_aos.data(), reduced_products_recompose);
+
+    std::fprintf(stderr, "Fp12 LUFp v2 Fp6 baseline failure diagnostics for lane %zu\n", lane);
+    dump_fp12("a", a[lane]);
+    dump_fp12("b", b[lane]);
+    dump_fp12("got", got[lane]);
+    dump_fp12("ref", ref[lane]);
+    dump_fp6("t0_lufp_redc", t0_lufp[lane]);
+    dump_fp6("t0_ref", t0_ref[lane]);
+    dump_fp6("t1_lufp_redc", t1_lufp[lane]);
+    dump_fp6("t1_ref", t1_ref[lane]);
+    dump_fp6("m_lufp_redc", m_lufp[lane]);
+    dump_fp6("m_ref", m_ref[lane]);
+    dump_fp12("recompose_from_reduced_lufp_products", reduced_products_recompose_aos[lane]);
+}
+
+void validate_fp12_pack_lufpv2_fp6_safe()
+{
+    static const bool validated = []() {
+        Fp12BenchData data(8);
+        std::array<Fp12, 8> got{};
+        std::array<Fp12, 8> ref{};
+
+        for (std::size_t p = 0; p < data.n_packs; ++p) {
+            Fp12Pack8x1 got_mul{};
+            mul_fp12_pack_lufpv2_fp6_safe(got_mul, data.a_pack[p], data.b_pack[p]);
+            Fp12Pack8x1::mul(data.out_pack[p], data.a_pack[p], data.b_pack[p]);
+
+            Fp12Pack8x1::to_aos(got.data(), got_mul);
+            Fp12Pack8x1::to_aos(ref.data(), data.out_pack[p]);
+            for (std::size_t lane = 0; lane < 8; ++lane) {
+                if (!fp12_equal(got[lane], ref[lane])) {
+                    std::fprintf(stderr, "Fp12 LUFp v2 Fp6 safe baseline validation failed at pack %zu lane %zu\n", p, lane);
+                    debug_fp12_pack_lufpv2_fp6_failure(data.a_pack[p], data.b_pack[p], got_mul, data.out_pack[p], lane);
+                    std::fflush(stderr);
+                    std::abort();
+                }
+            }
+        }
+
+        return true;
+    }();
+
+    benchmark::DoNotOptimize(validated);
+}
 
 void BM_Fp2Mul_Scalar8(benchmark::State& state)
 {
@@ -1298,6 +1484,23 @@ void BM_Fp12Mul_Pack8x1_Legacy(benchmark::State& state)
 }
 BENCHMARK(BM_Fp12Mul_Pack8x1_Legacy)->Arg(128);
 
+void BM_Fp12Mul_Pack8x1_LUFpV2Fp6Safe(benchmark::State& state)
+{
+    validate_fp12_pack_lufpv2_fp6_safe();
+
+    const std::size_t packs = static_cast<std::size_t>(state.range(0));
+    Fp12BenchData data(packs);
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs; ++p) {
+            mul_fp12_pack_lufpv2_fp6_safe(data.out_pack[p], data.a_pack[p], data.b_pack[p]);
+        }
+        benchmark::DoNotOptimize(data.out_pack.data());
+    }
+    state.SetItemsProcessed(state.iterations() * data.n_tuples);
+}
+BENCHMARK(BM_Fp12Mul_Pack8x1_LUFpV2Fp6Safe)->Arg(128);
+
 void BM_Fp12Mul_Pack8x1_WideOnly(benchmark::State& state)
 {
     const std::size_t packs = static_cast<std::size_t>(state.range(0));
@@ -1313,6 +1516,23 @@ void BM_Fp12Mul_Pack8x1_WideOnly(benchmark::State& state)
 }
 BENCHMARK(BM_Fp12Mul_Pack8x1_WideOnly)->Arg(128);
 
+void BM_Fp12Mul_Pack8x1_LUFpV2Fp6Safe_WideOnly(benchmark::State& state)
+{
+    validate_fp12_pack_lufpv2_fp6_safe();
+
+    const std::size_t packs = static_cast<std::size_t>(state.range(0));
+    Fp12BenchData data(packs);
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs; ++p) {
+            mul_fp12_pack_lufpv2_fp6_safe_wide(data.wide_mul_pack_lufpv2_fp6_safe[p], data.a_pack[p], data.b_pack[p]);
+        }
+        benchmark::DoNotOptimize(data.wide_mul_pack_lufpv2_fp6_safe.data());
+    }
+    state.SetItemsProcessed(state.iterations() * data.n_tuples);
+}
+BENCHMARK(BM_Fp12Mul_Pack8x1_LUFpV2Fp6Safe_WideOnly)->Arg(128);
+
 void BM_Fp12Mul_Pack8x1_RedcOnly(benchmark::State& state)
 {
     const std::size_t packs = static_cast<std::size_t>(state.range(0));
@@ -1327,6 +1547,23 @@ void BM_Fp12Mul_Pack8x1_RedcOnly(benchmark::State& state)
     state.SetItemsProcessed(state.iterations() * data.n_tuples);
 }
 BENCHMARK(BM_Fp12Mul_Pack8x1_RedcOnly)->Arg(128);
+
+void BM_Fp12Mul_Pack8x1_LUFpV2Fp6Safe_RedcOnly(benchmark::State& state)
+{
+    validate_fp12_pack_lufpv2_fp6_safe();
+
+    const std::size_t packs = static_cast<std::size_t>(state.range(0));
+    Fp12BenchData data(packs);
+
+    for (auto _ : state) {
+        for (std::size_t p = 0; p < data.n_packs; ++p) {
+            UFp12Pack8x1::redc(data.out_pack[p], data.wide_mul_pack_lufpv2_fp6_safe[p]);
+        }
+        benchmark::DoNotOptimize(data.out_pack.data());
+    }
+    state.SetItemsProcessed(state.iterations() * data.n_tuples);
+}
+BENCHMARK(BM_Fp12Mul_Pack8x1_LUFpV2Fp6Safe_RedcOnly)->Arg(128);
 
 void BM_Fp12Sqr_Scalar8(benchmark::State& state)
 {

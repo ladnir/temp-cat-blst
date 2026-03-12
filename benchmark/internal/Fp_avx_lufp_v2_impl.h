@@ -1205,59 +1205,8 @@ namespace blst::bench_lufp_v2
         lufp2_v2_add(c2, c2, t1);
     }
 
-    // Baseline FP6 LUFp-v2 multiply: raw combine followed by the proven strict-negative renorm.
+    // Baseline FP6 LUFp-v2 multiply: raw combine followed by the fused strict-negative renorm.
     inline void mul_fp6_pack_lufpv2_wide(UFp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b)
-    {
-        Fp2Pack8x1x1 aa, bb;
-        UFp2Pack8x1x1 t0, t1, t2;
-        UFp2Pack8x1x1 w;
-
-        UFp2Pack8x1x1::mul(t0, a.c[0], b.c[0]);
-        UFp2Pack8x1x1::mul(t1, a.c[1], b.c[1]);
-        UFp2Pack8x1x1::mul(t2, a.c[2], b.c[2]);
-
-        Fp2Pack8x1x1::add(aa, a.c[1], a.c[2]);
-        Fp2Pack8x1x1::add(bb, b.c[1], b.c[2]);
-        UFp2Pack8x1x1::mul(w, aa, bb);
-        for (std::size_t limb = 0; limb < 2 * NWORDS; ++limb) {
-            const cc512i x00 = VSUB(VSUB(w[0][limb], t1[0][limb]), t2[0][limb]);
-            const cc512i x01 = VSUB(VSUB(w[1][limb], t1[1][limb]), t2[1][limb]);
-            r.c[0][0][limb] = VADD(VSUB(x00, x01), t0[0][limb]);
-
-            const cc512i x10 = VSUB(VSUB(w[0][limb], t1[0][limb]), t2[0][limb]);
-            const cc512i x11 = VSUB(VSUB(w[1][limb], t1[1][limb]), t2[1][limb]);
-            r.c[0][1][limb] = VADD(VADD(x10, x11), t0[1][limb]);
-        }
-        lufp_v2_renorm_negative_fold<3u, 4u>(r.c[0][0]);
-        lufp_v2_renorm_negative_fold<4u, 3u>(r.c[0][1]);
-
-        Fp2Pack8x1x1::add(aa, a.c[0], a.c[1]);
-        Fp2Pack8x1x1::add(bb, b.c[0], b.c[1]);
-        UFp2Pack8x1x1::mul(w, aa, bb);
-        for (std::size_t limb = 0; limb < 2 * NWORDS; ++limb) {
-            r.c[1][0][limb] = VADD(
-                VSUB(VSUB(w[0][limb], t0[0][limb]), t1[0][limb]),
-                VSUB(t2[0][limb], t2[1][limb]));
-            r.c[1][1][limb] = VADD(
-                VSUB(VSUB(w[1][limb], t0[1][limb]), t1[1][limb]),
-                VADD(t2[0][limb], t2[1][limb]));
-        }
-        lufp_v2_renorm_negative_fold<3u, 2u>(r.c[1][0]);
-        lufp_v2_renorm_negative_fold<2u, 3u>(r.c[1][1]);
-
-        Fp2Pack8x1x1::add(aa, a.c[0], a.c[2]);
-        Fp2Pack8x1x1::add(bb, b.c[0], b.c[2]);
-        UFp2Pack8x1x1::mul(w, aa, bb);
-        for (std::size_t limb = 0; limb < 2 * NWORDS; ++limb) {
-            r.c[2][0][limb] = VADD(VSUB(VSUB(w[0][limb], t0[0][limb]), t2[0][limb]), t1[0][limb]);
-            r.c[2][1][limb] = VADD(VSUB(VSUB(w[1][limb], t0[1][limb]), t2[1][limb]), t1[1][limb]);
-        }
-        lufp_v2_renorm_negative_fold<2u, 2u>(r.c[2][0]);
-        lufp_v2_renorm_negative_fold<2u, 2u>(r.c[2][1]);
-    }
-
-    // Experimental FP6 LUFp-v2 multiply: same raw combine, but with the fused strict-negative renorm.
-    inline void mul_fp6_pack_lufpv2_fuse(UFp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b)
     {
         Fp2Pack8x1x1 aa, bb;
         UFp2Pack8x1x1 t0, t1, t2;

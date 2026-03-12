@@ -962,16 +962,6 @@ void validate_lufp_v2_fp6()
         });
 }
 
-void validate_lufp_v2_fp6_fuse_only()
-{
-    validate_lufp_v2_fp6_kernel(
-        "fuse",
-        [](UFp6Pack8x1& out, const Fp6Pack8x1& a, const Fp6Pack8x1& b) {
-            mul_fp6_pack_lufpv2_fuse(out, a, b);
-        },
-        false);
-}
-
 void validate_lufp_v2_fp6_raw_renorm_any()
 {
     validate_lufp_v2_core_ops();
@@ -1065,7 +1055,6 @@ void validate_lufp_v2_fp6_raw_negative_fold()
 
     std::fprintf(stderr, "Fp6 raw + negative-fold validation passed\n");
 }
-
 void debug_dump_fp6_raw_renorm_variants(const Fp6Pack8x1& a_pack, const Fp6Pack8x1& b_pack, std::size_t lane)
 {
     UFp6Pack8x1 raw{};
@@ -1374,21 +1363,6 @@ void BM_Fp6MulLufpWideBroken(benchmark::State& state)
                             static_cast<int64_t>(data.n_packs_));
 }
 
-void BM_Fp6MulLufpFuse(benchmark::State& state)
-{
-    Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
-
-    for (auto _ : state) {
-        for (std::size_t p = 0; p < data.n_packs_; ++p) {
-            mul_fp6_pack_lufpv2_fuse(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
-        }
-        bench_consume_fp6_wide(data.out_wide);
-    }
-
-    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) *
-                            static_cast<int64_t>(data.n_packs_));
-}
-
 void BM_Fp6RawRenormAnySanity(benchmark::State& state)
 {
     validate_lufp_v2_fp6_raw_renorm_any();
@@ -1416,22 +1390,11 @@ void BM_Fp6MulLufpWideSanity(benchmark::State& state)
     state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
 }
 
-void BM_Fp6MulLufpFuseSanity(benchmark::State& state)
-{
-    validate_lufp_v2_fp6_fuse_only();
-    for (auto _ : state) {
-        benchmark::ClobberMemory();
-    }
-    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
-}
-
 BENCHMARK(BM_Fp6MulLufpWide)->Arg(256);
-BENCHMARK(BM_Fp6MulLufpFuse)->Arg(256);
 BENCHMARK(BM_Fp6MulLufpWideBroken)->Arg(256);
 BENCHMARK(BM_Fp6RawRenormAnySanity)->Arg(1);
 BENCHMARK(BM_Fp6RawNegativeFoldSanity)->Arg(1);
 BENCHMARK(BM_Fp6MulLufpWideSanity)->Arg(1);
-BENCHMARK(BM_Fp6MulLufpFuseSanity)->Arg(1);
 BENCHMARK_TEMPLATE(BM_Fp6MulLufpAccounting, LUFpFp6MulStage::PreAdd)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp6MulLufpAccounting, LUFpFp6MulStage::PreAddMul)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp6MulLufpAccounting, LUFpFp6MulStage::PreAddMulRawCombine)->Arg(256);

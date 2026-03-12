@@ -101,6 +101,7 @@ namespace blst {
             printf("  File: %s\n", file);
             printf("  Line: %d\n", line);
             printf("  Function: %s\n", function);
+            fflush(stdout);
 
 #if defined(_MSC_VER)
             // Visual Studio specific - trigger debugger breakpoint

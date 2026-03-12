@@ -1,42 +1,50 @@
-# `WideDelayedBlockFinal` Proof Note
+# `Fp6 mul` Fused Strict-Negative Proof Note
 
-This note gives an explicit elementary proof for the arithmetic and range
-contract of:
+This note documents the arithmetic and range contract of the current benchmark
+`Fp6` winner:
 
-- `mul_fp6_pack_lufpv2_wide_delayed_block_final(...)`
+- `mul_fp6_pack_lufpv2_wide(...)`
 
 implemented in
-[Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L1049).
+[Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L1209).
 
-It proves:
+The file name is historical. This note no longer describes the older delayed
+block-final winner. That older centered path is still kept in the benchmark
+file as:
 
-1. the raw unrepaired `c0`, `c1`, `c2` formulas are the correct `Fp6` Karatsuba
-   formulas
-2. each final `Fp` half enters the documented delayed-repair source envelope
-3. the implemented delayed repair maps those envelopes into explicit nonnegative
-   target envelopes
+- `mul_fp6_pack_lufpv2_wide_broken(...)`
+
+for A/B comparison only.
+
+What is proved here:
+
+1. the raw unrepaired `c0`, `c1`, `c2` formulas are the correct `Fp6`
+   Karatsuba formulas
+2. each final `Fp` half enters the documented one-sided source envelope
+3. the implemented fused strict-negative repair maps those envelopes into the
+   canonical widened target class `[0, p)` per `Fp` half
 4. every repair step preserves the represented value modulo `p`
 
 This note does **not** re-prove:
 
-- the correctness of the library Montgomery reduction itself
+- the correctness of the widened multiply/add/sub primitives
+- the correctness of the Montgomery reduction path
 - machine-level absence of signed overflow in the SIMD lane arithmetic
 
 So the final theorem is:
 
 - assuming the existing widened arithmetic primitives are exact on the stated
-  integer values, and assuming `UFpPack8x1::redc` is correct on the resulting
-  widened outputs, `WideDelayedBlockFinal` computes the correct `Fp6`
-  product
+  integer values, and assuming `UFp6Pack8x1::redc` is correct, the current
+  fused `Wide` kernel computes the correct `Fp6` product
 
 Related notes:
 
 - [fp6-mul-sparse5b-bounds.md](/c/Users/peter/repo/blst/docs/fp6-mul-sparse5b-bounds.md)
-- [fp6-mul-repair-path-plan.md](/c/Users/peter/repo/blst/docs/fp6-mul-repair-path-plan.md)
+- [fp6-mul-debug-explainer.md](/c/Users/peter/repo/blst/docs/fp6-mul-debug-explainer.md)
 
 ## 1. Model
 
-Fix one SIMD lane and one `Fp` half. We work entirely in ordinary integers.
+Fix one SIMD lane and one `Fp` half. Work entirely in ordinary integers.
 
 Write a widened value as:
 
@@ -47,16 +55,16 @@ X = lo + R * hi
 where:
 
 - `R = 2^384`
-- `lo` is the lower 384-bit radix value
-- `hi` is the upper 384-bit radix value
+- `lo` is the low radix-48 half
+- `hi` is the high radix-48 half
 
-We use the standard strict widened source class:
+Use the strict widened source class:
 
 ```text
 W := { lo + R*hi : 0 <= lo < R and 0 <= hi < p }.
 ```
 
-We also use:
+Also use:
 
 ```text
 C(P,N) := exact sum of P positive W-terms and N negative W-terms.
@@ -67,6 +75,183 @@ So:
 - `W = C(1,0)`
 - `W - W = C(1,1)`
 - `W + W = C(2,0)`
+
+## 1.5 Methodology
+
+The current methodology is:
+
+1. derive an exact one-sided source interval for each final `Fp` half
+2. bias by `B*p` so the source class `[-A*p, B*p)` becomes a strict-negative
+   class `[-(A+B)*p, 0)`
+3. walk that strict-negative class back toward `0` with descending repair
+   scales
+4. fold the final `+p` canonicalization into the same step machine
+
+This is the core idea behind the current winner.
+
+It is not a symmetric "repair around zero" design. It is a one-sided design:
+
+- first force the state into a purely negative class
+- then only keep repaired candidates that are still negative
+- stop when the remaining class is `[-p, 0)`
+- then add the final `+p` to land in `[0, p)`
+
+For a source interval:
+
+```text
+X in [-A*p, B*p)
+```
+
+the algorithm starts with:
+
+```text
+X <- X - B*p
+```
+
+so:
+
+```text
+X in [-(A+B)*p, 0).
+```
+
+Then it applies descending repair scales:
+
+```text
+4, 2, 1
+```
+
+for the current `Fp6` classes. At each repair scale `a`, the reference
+operation is:
+
+```text
+X' = X + a*p
+if X' < 0:
+    X = X'
+```
+
+So the step does **not** mean:
+
+- "if `X < 0`, add `a*p`"
+
+It means:
+
+- "if `X < -a*p`, replace `X` by `X + a*p`"
+
+That difference is the entire reason the earlier fast substitution attempts
+failed.
+
+### Why bias to strict negative?
+
+Because it turns an asymmetric interval problem into a one-sided shrink
+problem.
+
+Once the state is in `[-M*p, 0)`, every repair step has a simple meaning:
+
+- try adding `a*p`
+- keep the candidate only if it is still negative
+
+That means each step shrinks the remaining interval toward `0` without ever
+crossing into the wrong positive representative class.
+
+For the current `Fp6` source classes:
+
+- `c0.re in [-3p, 4p)` becomes `[-7p, 0)` after bias by `4p`
+- `c0.im in [-4p, 3p)` becomes `[-7p, 0)` after bias by `3p`
+- `c1.re in [-3p, 2p)` becomes `[-5p, 0)` after bias by `2p`
+- `c1.im in [-2p, 3p)` becomes `[-5p, 0)` after bias by `3p`
+- `c2.re`, `c2.im in [-2p, 2p)` become `[-4p, 0)` after bias by `2p`
+
+Those are exactly the negative classes that the `4 -> 2 -> 1` ladder reduces
+to `[-p, 0)`.
+
+### Why does the fused version work?
+
+The fused implementation is an optimization of the same algorithm, not a
+different algorithm.
+
+The reference step machine is:
+
+```text
+X' = X + a_i*p
+if X' < 0:
+    keep X'
+else:
+    keep X
+```
+
+The fused machine carries the previous step decision forward as a sign bit and
+updates the next candidate by:
+
+```text
+X <- X + a_i*p - (!sign) * a_{i-1} * p
+```
+
+This works because:
+
+- if the previous candidate was kept, there is nothing to undo
+- if the previous candidate was rejected, undoing the prior `a_{i-1}*p` is
+  exactly what returns to the accepted pre-step state
+
+So the fused recurrence is just the reference keep-negative machine with the
+"undo previous rejected step" logic folded into the next update.
+
+The terminal `<1,1>` step is the same idea again:
+
+- if the final candidate is still negative, add the final `+p`
+- otherwise leave it alone
+
+That is why `<1,1>` is not a special ad hoc case. It is the final
+canonicalization folded into the same recurrence.
+
+### What failed before
+
+Several earlier ideas looked plausible but were wrong.
+
+1. Symmetric block-level schedules were too coarse.
+
+The old broken winner treated the final blocks as:
+
+- `c0 in [-4p, 4p)`
+- `c1 in [-3p, 3p)`
+- `c2 in [-2p, 2p)`
+
+and applied one centered block repair per `Fp2`. That was fast, but it was not
+actually a proved match for the concrete per-half source classes.
+
+2. Replacing keep-negative steps with plain sign steps was wrong.
+
+`v2_sign_step<a>` means:
+
+- add `a*p` on lanes already known negative
+
+but the strict-negative algorithm needs:
+
+- add `a*p` only when the value is below `-a*p`
+
+Those are not equivalent. The interval `[-a*p, 0)` is the difference.
+
+3. The old hand-tuned `c1` schedule was insufficient.
+
+The restored historical `c1` schedule:
+
+- `<2;3,1>` for `c1.re`
+- `<3;3,1>` for `c1.im`
+
+looks tighter, but it does not actually shrink `[-5p, 0)` to `[-p, 0)`. That
+is why the old restored `wide` failed debug validation even though `c0` and
+`c2` looked fine.
+
+4. Generic correctness without a debug oracle was not enough.
+
+The project only stabilized once `renorm_any` was used as the explicit oracle
+for:
+
+- raw combine correctness
+- candidate renorm equivalence
+- fast-path postconditions
+
+That is the practical lesson: the bounds proof and the executable postcondition
+have to agree.
 
 ## 2. Raw `Fp6` Formulas
 
@@ -90,11 +275,10 @@ c2 = (m2 - t0 - t2) + t1
 ```
 
 This is exactly what the code does in
-[Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L1055),
-[Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L1059),
-[Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L1074),
+[Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L1219),
+[Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L1235),
 and
-[Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L1088).
+[Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L1249).
 
 ### Lemma 2.1
 
@@ -204,10 +388,10 @@ Summing `P` positive and `N` negative terms gives a raw value whose lower part
 lies in `(-N*R, P*R)` and whose upper part lies in `(-N*p, P*p)`.
 
 The function `v2_signed_carry_range(...)` in
-[Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L311)
+[Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L325)
 propagates signed radix carries from the low half into the high half without
 changing the represented integer. After this carry, the low half is canonical
-in `[0, R)`, and the entire remaining signed drift is in the high half.
+in `[0, R)`, and the remaining signed drift is in the high half.
 
 So the high interval is exactly `[-N*p, P*p)`.
 
@@ -226,287 +410,304 @@ c2.re in [-2p, 2p)
 c2.im in [-2p, 2p)
 ```
 
-Therefore:
+These are exactly the live kernel instantiations:
 
-```text
-c0 fits symmetric envelope [-4p, 4p)
-c1 fits symmetric envelope [-3p, 3p)
-c2 fits symmetric envelope [-2p, 2p)
-```
+- `c0.re -> <A, B> = <3, 4>`
+- `c0.im -> <4, 3>`
+- `c1.re -> <3, 2>`
+- `c1.im -> <2, 3>`
+- `c2.re`, `c2.im -> <2, 2>`
 
-These are exactly the source envelopes used by the kernel comments at
-[Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L1071),
-[Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L1085),
+See
+[Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L1231),
+[Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L1245),
 and
-[Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L1099).
+[Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L1255).
 
-## 5. Delayed Repair Operator
+## 5. Reference Strict-Negative Repair
 
-The helper
-[lufp_v2_renorm_delayed_centered](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L539)
-does three things:
+For a source interval `[-A*p, B*p)`, define:
 
 ```text
-1. subtract BiasScale * p from the high half
-2. perform full signed carry
-3. apply a sequence of sign steps
+Bias_B(X) := X - B*p
 ```
 
-Formally, define:
+and for `a >= 1`:
 
 ```text
-Bias_k(X) := X - k*p
+Keep_a(X) :=
+    X + a*p   if X + a*p < 0
+    X         otherwise.
 ```
 
-and for `s >= 1`:
+Let:
 
 ```text
-Step_s(X) :=
-    X + s*p   if X < 0
-    X         if X >= 0
+a0 := 2^floor(log2(A + B)).
 ```
 
-Then the integer effect of the helper is:
+The reference one-sided repair ladder is:
 
 ```text
-Repair_{k; s1,...,sr}(X)
-= Step_sr(...Step_s2(Step_s1(Bias_k(X)))).
+RefFold_{A,B}(X)
+= (+p) after Keep_1(...Keep_2(Keep_4(Bias_B(X)))...)
 ```
+
+with descending powers of two from `a0` to `1`.
+
+For the current `Fp6` source classes:
+
+- `A + B = 7` for `c0.re` and `c0.im`
+- `A + B = 5` for `c1.re` and `c1.im`
+- `A + B = 4` for `c2.re` and `c2.im`
+
+So every current half uses the same descending ladder:
+
+```text
+4, 2, 1
+```
+
+followed by the final `+p`.
 
 ### Lemma 5.1
 
-`Bias_k` changes the represented value by `-k*p`, hence preserves the value
-modulo `p`.
+`Bias_B` preserves the represented value modulo `p`.
 
 ### Proof
 
-Immediate, because subtracting `k*p` changes the integer by a multiple of `p`.
+Immediate, because it subtracts a multiple of `p`.
 
 ### Lemma 5.2
 
-Each `Step_s` changes the represented value by either `0` or `s*p`, hence
-preserves the value modulo `p`.
+`Keep_a` preserves the represented value modulo `p`.
 
 ### Proof
 
-By definition:
-
-- if `X >= 0`, `Step_s(X) = X`
-- if `X < 0`, `Step_s(X) = X + s*p`
-
-In both cases the difference is a multiple of `p`.
+It changes the value by either `0` or `a*p`.
 
 ### Lemma 5.3
 
-If `X` lies in `[A, B)`, then:
+For the current source classes, after bias we have:
 
-```text
-Step_s(X) lies in [min(A + s*p, 0), max(B, s*p)).
-```
+- `[-3p, 4p) - 4p = [-7p, 0)`
+- `[-4p, 3p) - 3p = [-7p, 0)`
+- `[-3p, 2p) - 2p = [-5p, 0)`
+- `[-2p, 3p) - 3p = [-5p, 0)`
+- `[-2p, 2p) - 2p = [-4p, 0)`
 
-### Proof
-
-Split into two disjoint cases.
-
-If `X < 0`, then:
-
-```text
-X in [A, 0)
-=> X + s*p in [A + s*p, s*p).
-```
-
-If `X >= 0`, then:
-
-```text
-X in [0, B).
-```
-
-Taking the union gives the stated interval.
-
-## 6. Explicit Block Repairs
-
-The kernel uses:
-
-- `c0`: `Repair_{3; 4,2,1}`
-- `c1`: `Repair_{2; 4,1}`
-- `c2`: `Repair_{1; 2,1}`
-
-See:
-
-- [Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L1072)
-- [Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L1086)
-- [Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L1100)
-
-We now compute each target interval explicitly.
-
-### 6.1 `c0`
-
-From Corollary 4.2:
-
-```text
-c0 in [-4p, 4p).
-```
-
-After bias by `3p`:
-
-```text
-[-4p, 4p) - 3p = [-7p, p).
-```
-
-Apply `Step_4`. By Lemma 5.3:
-
-```text
-[-7p, p) -> [-3p, 4p).
-```
-
-Apply `Step_2`:
-
-```text
-[-3p, 4p) -> [-p, 4p).
-```
-
-Apply `Step_1`:
-
-```text
-[-p, 4p) -> [0, 4p).
-```
-
-So:
-
-```text
-Repair_{3;4,2,1}(c0) in [0, 4p).
-```
-
-### 6.2 `c1`
-
-From Corollary 4.2:
-
-```text
-c1 in [-3p, 3p).
-```
-
-After bias by `2p`:
-
-```text
-[-3p, 3p) - 2p = [-5p, p).
-```
-
-Apply `Step_4`:
-
-```text
-[-5p, p) -> [-p, 4p).
-```
-
-Apply `Step_1`:
-
-```text
-[-p, 4p) -> [0, 4p).
-```
-
-So:
-
-```text
-Repair_{2;4,1}(c1) in [0, 4p).
-```
-
-### 6.3 `c2`
-
-From Corollary 4.2:
-
-```text
-c2 in [-2p, 2p).
-```
-
-After bias by `1p`:
-
-```text
-[-2p, 2p) - p = [-3p, p).
-```
-
-Apply `Step_2`:
-
-```text
-[-3p, p) -> [-p, 2p).
-```
-
-Apply `Step_1`:
-
-```text
-[-p, 2p) -> [0, 2p).
-```
-
-So:
-
-```text
-Repair_{1;2,1}(c2) in [0, 2p).
-```
-
-## 7. Congruence Preservation
-
-### Lemma 7.1
-
-Each block repair preserves the raw block value modulo `p`.
+Applying `Keep_4`, `Keep_2`, `Keep_1` maps each of these to `[-p, 0)`.
 
 ### Proof
 
-Each block repair is a composition of:
+For `[-7p, 0)`:
 
-- one bias by a multiple of `p`
-- several conditional additions by multiples of `p`
+- after `Keep_4`: `[-4p, 0)`
+- after `Keep_2`: `[-2p, 0)`
+- after `Keep_1`: `[-p, 0)`
 
-By Lemma 5.1 and Lemma 5.2, every stage preserves the represented value modulo
-`p`. Therefore the full composition preserves the represented value modulo `p`.
+For `[-5p, 0)`:
+
+- after `Keep_4`: `[-4p, 0)`
+- after `Keep_2`: `[-2p, 0)`
+- after `Keep_1`: `[-p, 0)`
+
+For `[-4p, 0)`:
+
+- after `Keep_4`: `[-4p, 0)`
+- after `Keep_2`: `[-2p, 0)`
+- after `Keep_1`: `[-p, 0)`
+
+So every current half reaches `[-p, 0)`, and the final `+p` maps that to
+`[0, p)`.
+
+## 6. Fused Strict-Negative Repair
+
+The live code does not execute the reference ladder literally. It uses the
+fused helper
+[v2_keep_negative_fuse_step](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L725)
+through
+[lufp_v2_renorm_negative_fold_fused](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L789).
+
+The first fused step is the seed:
+
+```text
+Candidate_0 = Bias_B(X) + a0*p
+```
+
+and returns:
+
+```text
+s0 = 1 if Candidate_0 < 0
+     0 otherwise.
+```
+
+For later steps the fused recurrence is:
+
+```text
+Candidate_i
+= Candidate_{i-1} + a_i*p - (1 - s_{i-1}) * a_{i-1} * p
+```
+
+and it returns:
+
+```text
+s_i = 1 if Candidate_i < 0
+      0 otherwise.
+```
+
+The terminal `<1,1>` step folds the final `+p` into the same recurrence:
+
+```text
+Final
+= Candidate_last + p - (1 - s_last) * 1*p.
+```
+
+### Lemma 6.1
+
+The fused recurrence produces exactly the same candidate sequence as the
+reference `Keep_a` ladder.
+
+### Proof
+
+Assume `Candidate_{i-1}` is the candidate produced at the previous reference
+step, and `s_{i-1}` records whether that candidate was still negative.
+
+There are two cases.
+
+If `s_{i-1} = 1`, the previous candidate was kept by the reference ladder, so
+the accepted state entering the next step is exactly `Candidate_{i-1}`. The
+next reference candidate is therefore:
+
+```text
+Candidate_{i-1} + a_i*p.
+```
+
+The fused recurrence gives the same value because the subtract term vanishes.
+
+If `s_{i-1} = 0`, the previous candidate was rejected by the reference ladder.
+Since the previous candidate was formed by adding `a_{i-1}*p`, the accepted
+state is:
+
+```text
+Candidate_{i-1} - a_{i-1}*p.
+```
+
+So the next reference candidate is:
+
+```text
+Candidate_{i-1} - a_{i-1}*p + a_i*p,
+```
+
+which is exactly the fused recurrence when `s_{i-1} = 0`.
+
+So the fused step produces the same candidate as the reference ladder in both
+cases.
+
+### Lemma 6.2
+
+The terminal fused `<1,1>` step produces the same final state as the explicit
+final `+p` in the reference ladder.
+
+### Proof
+
+Again split into two cases.
+
+If `s_last = 1`, the last candidate was kept, so the reference ladder adds
+`+p` to that candidate. The fused terminal step becomes:
+
+```text
+Candidate_last + p.
+```
+
+If `s_last = 0`, the last candidate was rejected. The accepted state is:
+
+```text
+Candidate_last - p.
+```
+
+Then the explicit final `+p` returns:
+
+```text
+Candidate_last.
+```
+
+The fused terminal step with `s_last = 0` is:
+
+```text
+Candidate_last + p - p = Candidate_last.
+```
+
+So the fused terminal step matches the reference finalization in both cases.
+
+### Corollary 6.3
+
+`lufp_v2_renorm_negative_fold_fused<A,B>(...)` is value-equivalent to the
+reference strict-negative ladder for the same `<A, B>` source class.
+
+## 7. Final Range Contract
+
+By Corollary 4.2, every half of the raw `Fp6` result lies in its stated
+`[-A*p, B*p)` source class.
+
+By Lemma 5.3, the reference strict-negative ladder maps every current source
+class to `[-p, 0)`, and the final `+p` maps that to `[0, p)`.
+
+By Corollary 6.3, the fused implementation is value-equivalent to that
+reference ladder.
+
+Therefore the live fused repair maps every current `Fp6` half to:
+
+```text
+[0, p).
+```
+
+Since every repair stage changes the value only by multiples of `p`, the final
+canonical widened outputs remain congruent modulo `p` to the correct raw
+product.
 
 ## 8. Final Theorem
 
 ### Theorem 8.1
 
-For each lane, `mul_fp6_pack_lufpv2_wide_delayed_block_final(...)` computes
-three widened `Fp2` outputs `c0`, `c1`, `c2` such that:
+For each lane, `mul_fp6_pack_lufpv2_wide(...)` computes three widened `Fp2`
+outputs `c0`, `c1`, `c2` such that:
 
 1. each output is congruent modulo `p` to the correct raw `Fp6` product block
-2. `c0` ends in `[0, 4p)` per `Fp` half
-3. `c1` ends in `[0, 4p)` per `Fp` half
-4. `c2` ends in `[0, 2p)` per `Fp` half
+2. every final `Fp` half lies in `[0, p)`
 
 ### Proof
 
 Section 2 and Section 3 give the correct raw algebraic formulas.
 
-Corollary 4.2 gives the source intervals:
+Corollary 4.2 gives the source envelopes:
 
-- `c0 in [-4p, 4p)`
-- `c1 in [-3p, 3p)`
-- `c2 in [-2p, 2p)`
+- `c0.re in [-3p, 4p)`
+- `c0.im in [-4p, 3p)`
+- `c1.re in [-3p, 2p)`
+- `c1.im in [-2p, 3p)`
+- `c2.re in [-2p, 2p)`
+- `c2.im in [-2p, 2p)`
 
-Section 6 proves that the implemented repairs map these intervals to:
+Section 5 proves that the reference strict-negative ladder maps those current
+source classes into `[0, p)`.
 
-- `c0 -> [0, 4p)`
-- `c1 -> [0, 4p)`
-- `c2 -> [0, 2p)`
+Section 6 proves that the fused implementation is equivalent to that reference
+ladder.
 
-Section 7 proves that each repair preserves congruence modulo `p`.
-
-Therefore the repaired block outputs are congruent to the correct raw `Fp6`
-product and lie in the claimed explicit target intervals.
+Therefore the live fused repair produces canonical widened outputs in `[0, p)`
+while preserving congruence modulo `p`.
 
 ### Corollary 8.2
 
-Assuming the existing reduction path
+Assuming `UFp6Pack8x1::redc` correctly reduces widened values from that target
+class, the reduced output of `mul_fp6_pack_lufpv2_wide(...)` is the correct
+`Fp6` product.
 
-- `UFp6Pack8x1::redc`
+## 9. Historical Note
 
-correctly reduces widened values from those target intervals, the reduced output
-of `WideDelayedBlockFinal` is the correct `Fp6` product.
+The older delayed-centered path:
 
-## 9. What Is Still Assumed
+- `mul_fp6_pack_lufpv2_wide_broken(...)`
 
-This note is a proof of the kernel-level arithmetic and range contract. It
-still relies on the following already-existing components:
-
-1. the widened multiply/add/sub primitives compute the exact intended integers
-2. the carry primitives preserve the represented integer exactly
-3. `UFpPack8x1::redc` correctly reduces the resulting widened outputs
-
-Those are shared trust assumptions for the rest of the widened arithmetic code
-too. They are not unique to `WideDelayedBlockFinal`.
+is still useful as a performance reference, but it is no longer the current
+baseline and is not the subject of this proof note.
