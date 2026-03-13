@@ -954,24 +954,6 @@ void mul_fp12_pack_legacy(Fp12Pack8x1& r, const Fp12Pack8x1& a, const Fp12Pack8x
     Fp6Pack8x1::add(r.c[0], t0, t2);
 }
 
-void mul_fp12_pack_lufpv2_fp6_safe_wide(UFp12Pack8x1& r, const Fp12Pack8x1& a, const Fp12Pack8x1& b)
-{
-    UFp6Pack8x1 t0, t1, t2;
-    Fp6Pack8x1 t3, t4;
-
-    blst::bench_lufp_v2::mul_fp6_pack_lufpv2_wide(t0, a.c[0], b.c[0]);
-    blst::bench_lufp_v2::mul_fp6_pack_lufpv2_wide(t1, a.c[1], b.c[1]);
-
-    Fp6Pack8x1::add(t3, a.c[0], a.c[1]);
-    Fp6Pack8x1::add(t4, b.c[0], b.c[1]);
-    blst::bench_lufp_v2::mul_fp6_pack_lufpv2_wide(r.c[1], t3, t4);
-    UFp6Pack8x1::sub(r.c[1], r.c[1], t0);
-    UFp6Pack8x1::sub(r.c[1], r.c[1], t1);
-
-    UFp6Pack8x1::mul_by_nonresidue(t2, t1);
-    UFp6Pack8x1::add(r.c[0], t0, t2);
-}
-
 void sqr_fp12_pack_legacy(Fp12Pack8x1& r, const Fp12Pack8x1& a)
 {
     Fp6Pack8x1 s0{};
@@ -1128,7 +1110,8 @@ struct Fp12BenchData
             Fp12Pack8x1::from_aos(cyclo_pack[p], &cyclo[p * 8]);
             Fp12Pack8x1::mul(wide_mul_pack[p], a_pack[p], b_pack[p]);
             blst::bench_lufp_v2::mul_fp12_pack_lufpv2_wide(wide_mul_pack_lufpv2[p], a_pack[p], b_pack[p]);
-            mul_fp12_pack_lufpv2_fp6_safe_wide(wide_mul_pack_lufpv2_fp6_safe[p], a_pack[p], b_pack[p]);
+            blst::bench_lufp_v2::mul_fp12_pack_lufpv2_fp6_safe_wide(
+                wide_mul_pack_lufpv2_fp6_safe[p], a_pack[p], b_pack[p]);
             Fp12Pack8x1::sqr(wide_sqr_pack[p], a_pack[p]);
             cyclotomic_sqr_terms_only(cyclo_terms[p], cyclo_pack[p]);
         }
@@ -1238,7 +1221,7 @@ void validate_fp12_pack_lufpv2_fp6_safe()
         for (std::size_t p = 0; p < data.n_packs; ++p) {
             UFp12Pack8x1 wide;
             Fp12Pack8x1 got_mul;
-            mul_fp12_pack_lufpv2_fp6_safe_wide(wide, data.a_pack[p], data.b_pack[p]);
+            blst::bench_lufp_v2::mul_fp12_pack_lufpv2_fp6_safe_wide(wide, data.a_pack[p], data.b_pack[p]);
             UFp12Pack8x1::redc(got_mul, wide);
             Fp12Pack8x1::mul(data.out_pack[p], data.a_pack[p], data.b_pack[p]);
 
@@ -1541,7 +1524,7 @@ void BM_Fp12Mul_Pack8x1_LUFpV2Fp6Safe(benchmark::State& state)
     for (auto _ : state) {
         for (std::size_t p = 0; p < data.n_packs; ++p) {
             UFp12Pack8x1 wide;
-            mul_fp12_pack_lufpv2_fp6_safe_wide(wide, data.a_pack[p], data.b_pack[p]);
+            blst::bench_lufp_v2::mul_fp12_pack_lufpv2_fp6_safe_wide(wide, data.a_pack[p], data.b_pack[p]);
             UFp12Pack8x1::redc(data.out_pack[p], wide);
         }
         benchmark::DoNotOptimize(data.out_pack.data());
@@ -1591,7 +1574,8 @@ void BM_Fp12Mul_Pack8x1_LUFpV2Fp6Safe_WideOnly(benchmark::State& state)
 
     for (auto _ : state) {
         for (std::size_t p = 0; p < data.n_packs; ++p) {
-            mul_fp12_pack_lufpv2_fp6_safe_wide(data.wide_mul_pack_lufpv2_fp6_safe[p], data.a_pack[p], data.b_pack[p]);
+            blst::bench_lufp_v2::mul_fp12_pack_lufpv2_fp6_safe_wide(
+                data.wide_mul_pack_lufpv2_fp6_safe[p], data.a_pack[p], data.b_pack[p]);
         }
         benchmark::DoNotOptimize(data.wide_mul_pack_lufpv2_fp6_safe.data());
     }
