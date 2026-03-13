@@ -17,6 +17,11 @@ The only completed optimization result so far is at the `Fp6` layer.
 
 In benchmark `LUFp v2` code, `Fp6` multiplication was improved from roughly `2200 ns/Fp6` to roughly `1660 ns/Fp6` by deriving the final one-sided block bounds and implementing the fused strict-negative repair.
 
+That result was then improved again by upstreaming the seeded first-step entry
+into the live fused helper. The current live measurement is about
+`1611 ns/Fp6`, with the broken historical reference still around
+`1567 ns/Fp6`.
+
 Nothing analogous has been implemented for `Fp12` yet.
 
 This document is therefore not a report on an existing `Fp12` implementation. It is a design brief for how to start one, using the same reasoning pattern that worked for `Fp6`.
@@ -171,8 +176,8 @@ These are the files that matter for this work.
 
 - [Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h)
   - the promoted `Fp6` winner lives here
-  - current live `Fp6` winner starts at [Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L1209)
-  - fused strict-negative helpers live earlier in the file
+  - current live `Fp6` winner starts at [Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L1268)
+  - the generic fused strict-negative renorm helper is at [Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L830)
 - [Fp_avx_lufp_v2_fp6_bench.cpp](/c/Users/peter/repo/blst/benchmark/Fp_avx_lufp_v2_fp6_bench.cpp)
   - benchmark and validation harness for the `Fp6` work
 - [Fp12_tower_avx_bench.cpp](/c/Users/peter/repo/blst/benchmark/Fp12_tower_avx_bench.cpp)
@@ -214,7 +219,7 @@ That is why `Fp6` performance directly matters for `Fp12`.
 
 ## Reference: Current Fp6 Winner
 
-The promoted `Fp6` kernel in [Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L1209) computes the three Karatsuba blocks and then applies the fused strict-negative repair independently to each final `Fp` half.
+The promoted `Fp6` kernel in [Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L1268) computes the three Karatsuba blocks and then applies the fused strict-negative repair independently to each final `Fp` half.
 
 The live source classes are:
 
@@ -231,7 +236,19 @@ At a high level, the winner does this:
 2. compute the three Karatsuba cross-products
 3. form the raw `c0`, `c1`, `c2` blocks using only linear ops
 4. bias each `Fp` half into a strict-negative class
-5. run the fused repair ladder `4 -> 2 -> 1 -> <1,1>`
+5. run the fused repair ladder `4 -> 2 -> 1 -> <1,1>` or `2 -> 1 -> <1,1>`,
+   depending on the proved per-half source class
+
+One implementation detail matters for future work: the live generic helper no
+longer always materializes `x - B*p` and then applies the first repair step
+separately. When `B <= bit_floor(A + B)`, it starts from the equivalent seeded
+state:
+
+- `x + (bit_floor(A + B) - B) * p`
+
+That "seed4" idea was first benchmarked as a separate `Fp6` candidate and then
+upstreamed into the generic `lufp_v2_renorm_negative_fold_fused<A, B>` helper.
+The proof contract stayed the same; only the entry state changed.
 
 Operationally, the current winner returns a widened `UFp6` value with all six `Fp` halves in:
 
@@ -314,7 +331,7 @@ What is real today:
 - the `Fp6` fused strict-negative design is implemented
 - the `Fp6` fused strict-negative design is benchmarked
 - the `Fp6` fused strict-negative design is documented and proved at the kernel level
-- the practical result is roughly `2200 ns/Fp6 -> 1660 ns/Fp6`
+- the practical result is roughly `2200 ns/Fp6 -> 1660 ns/Fp6 -> 1611 ns/Fp6`
 - the old delayed-centered path is kept only as a broken benchmark reference
 
 What is not real today:
@@ -415,11 +432,50 @@ If this works, the expected win comes from:
 
 As of the latest remote measurements, the relevant current baselines are:
 
-- `Fp6 LUFp v2 Wide`: about `1660 ns/Fp6`
+- `Fp6 LUFp v2 Wide`: about `1611 ns/Fp6`
+- `Fp6 LUFp v2 WideBroken`: about `1567 ns/Fp6`
 - current canonical `Fp12`: about `7165 ns/Fp12`
 - legacy `Fp12`: about `7224 ns/Fp12`
 
 So there is room, but `Fp12` will only benefit if the lazy `Fp6` interface is actually composable.
+
+## What We Learned After Promoting The Fp6 Winner
+
+Two implementation findings are relevant for the eventual `Fp12` work.
+
+### 1. The real win was the seeded fused entry, not a new tower formula
+
+The measured `Fp6` improvement after the first fused strict-negative design came
+from shortening the renorm entry path:
+
+- raw `Fp6` combine stayed algebraically unchanged
+- the helper started directly from the post-first-step candidate when the first
+  repair scale covered the strict-negative bias
+- that reduced raw renorm cost and survived into full `Fp6` cost
+
+So the next `Fp12` work should keep the same mindset:
+
+- do not change the tower algebra without a strong reason
+- look first at the delayed repair boundary and its entry state
+
+### 2. The sign-mask codegen suspicion did not produce a new win
+
+Object inspection of the live `Fp6` winner showed GCC scalarizing parts of the
+sign-mask path inside the very large inlined multiply symbol. A native-mask
+helper experiment was tried specifically to recover `vpmovq2m`-style codegen in
+that hot symbol.
+
+That experiment did not change:
+
+- object size
+- sign-mask instruction shape
+- or benchmark numbers in a meaningful way
+
+So there is no new promoted optimization result from that line of work today.
+For `Fp12`, the actionable lesson is simply:
+
+- prefer concrete proof/benchmark wins over codegen speculation
+- verify any assembly-motivated change with both object inspection and end-to-end timing
 
 ## Validation Plan
 
@@ -440,7 +496,7 @@ There is no new `Fp12` path to validate yet. The purpose of this section is to d
 If you are new to the project, the most important thing to internalize is this:
 
 - `Fp6` was won by delaying repair to the end of the `Fp6` block
-- the current concrete win is roughly `2200 ns/Fp6 -> 1660 ns/Fp6`
+- the current concrete win is roughly `2200 ns/Fp6 -> 1660 ns/Fp6 -> 1611 ns/Fp6`
 - `Fp12` has not been redesigned yet
 - the current task is to build that redesign from the same proof pattern, starting from a composable post-carry interface
 

@@ -25,6 +25,18 @@ This worksheet covers:
 This worksheet does not define the final repair kernel. It only derives the
 source classes that such a kernel must accept.
 
+## Status Note
+
+This worksheet is still useful as the Phase 1 derivation of the raw
+schedule-preserving envelope, but it is no longer the exact contract of the
+promoted benchmark winner.
+
+The live `LUFp v2` `Fp6` winner in
+[Fp_avx_lufp_v2_impl.h](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L1268)
+keeps the same raw `Fp6` combine derived here, then refines the final repair to
+use per-half post-carry source classes instead of one common
+`LNeg4_Pos4_HNeg4_Pos4` envelope.
+
 ## Baseline Schedule
 
 The widened baseline implementation is:
@@ -264,6 +276,72 @@ schedule-preserving lazy-combine version of `Fp6 mul`.
 
 This is the main output of Phase 1.
 
+## Current Winner: Refined Post-Carry Classes
+
+The promoted fused strict-negative renorm does not use the single common class
+above directly.
+
+After the raw `Fp6` combine and post-carry normalization, the current live
+winner repairs each `Fp` half from its own tighter one-sided interval:
+
+- `c0.re in [-3p, 4p)`
+- `c0.im in [-4p, 3p)`
+- `c1.re in [-3p, 2p)`
+- `c1.im in [-2p, 3p)`
+- `c2.re in [-2p, 2p)`
+- `c2.im in [-2p, 2p)`
+
+Those are implemented by the six calls to
+[lufp_v2_renorm_negative_fold_fused<A, B>](/c/Users/peter/repo/blst/benchmark/internal/Fp_avx_lufp_v2_impl.h#L830)
+in the live winner:
+
+- `c0.re -> <3,4>`
+- `c0.im -> <4,3>`
+- `c1.re -> <3,2>`
+- `c1.im -> <2,3>`
+- `c2.re/im -> <2,2>`
+
+So the worksheet's `LNeg4_Pos4_HNeg4_Pos4` class remains the correct common
+Phase 1 bound, but the implemented winner improves on it by carrying the final
+proof through to tighter per-half post-carry contracts.
+
+## Current Winner: Seeded Fused Entry
+
+The live fused helper also no longer materializes the initial strict-negative
+bias and the first repair step as two separate states.
+
+For a one-sided source class `[-A*p, B*p)`, the helper chooses:
+
+- `first_scale = bit_floor(A + B)`
+
+and when `B <= first_scale`, it starts directly from the post-first-step
+candidate:
+
+- `(x - B*p) + first_scale*p = x + (first_scale - B)*p`
+
+This was first explored as a separate `seed4` candidate for the `Fp6`
+`c0.re/c0.im` classes and then upstreamed into the generic
+`lufp_v2_renorm_negative_fold_fused<A, B>` helper. The proof contract did not
+change; only the way the first bias/step pair is materialized changed.
+
+For the current `Fp6` source classes that means:
+
+- the `<3,4>` and `<4,3>` repairs start from the seeded `4`-scale entry
+- the `<3,2>`, `<2,3>`, and `<2,2>` repairs use the same generic fused helper
+  with their own first scales
+
+## Current Measurements
+
+Fresh AVX-server measurements of the current live winner gave:
+
+- `BM_Fp6MulLufpWide/256_mean`: `412529 ns` CPU total, `1611.44 ns / Fp6`
+- `BM_Fp6MulLufpWide/256_median`: `411220 ns` CPU total, `1606.33 ns / Fp6`
+- `BM_Fp6RawRenormNegativeFoldFused.../256_mean`: `82104 ns` CPU total, `320.72 ns / Fp6`
+- `BM_Fp6MulLufpWideBroken/256_mean`: `401050 ns` CPU total, `1566.60 ns / Fp6`
+
+Relative to the earlier live fused baseline at about `1678.55 ns / Fp6`, the
+upstreamed seeded entry saves about `67 ns / Fp6`, roughly `4%`.
+
 ## Important Observation: `c0` Is The Driver
 
 `c0` determines the common class.
@@ -377,6 +455,14 @@ For the current baseline widened `Fp6 mul` schedule:
 - `c0` is the bound-driving path
 - the narrowest common final wide source class is:
   - `LNeg4_Pos4_HNeg4_Pos4`
+
+For the current promoted `LUFp v2` `Fp6` winner:
+
+- the raw `Fp6` combine is unchanged
+- the live repair uses tighter per-half post-carry classes
+- the fused strict-negative helper uses the upstreamed seeded entry when the
+  first repair scale covers the strict-negative bias
+- the measured live result is about `1611 ns / Fp6` on the AVX server
 
 So the next step should be:
 

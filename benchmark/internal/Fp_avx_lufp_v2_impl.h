@@ -465,6 +465,19 @@ namespace blst::bench_lufp_v2
         limbs[NWORDS + 7] = VSUB(limbs[NWORDS + 7], words[7]);
     }
 
+    // Adds a fixed widened constant to every lane of the high half.
+    BLST_FORCEINLINE void v2_high_add_const(cc512i* limbs, const std::array<cc512i, NWORDS>& words)
+    {
+        limbs[NWORDS + 0] = VADD(limbs[NWORDS + 0], words[0]);
+        limbs[NWORDS + 1] = VADD(limbs[NWORDS + 1], words[1]);
+        limbs[NWORDS + 2] = VADD(limbs[NWORDS + 2], words[2]);
+        limbs[NWORDS + 3] = VADD(limbs[NWORDS + 3], words[3]);
+        limbs[NWORDS + 4] = VADD(limbs[NWORDS + 4], words[4]);
+        limbs[NWORDS + 5] = VADD(limbs[NWORDS + 5], words[5]);
+        limbs[NWORDS + 6] = VADD(limbs[NWORDS + 6], words[6]);
+        limbs[NWORDS + 7] = VADD(limbs[NWORDS + 7], words[7]);
+    }
+
     // Adds a fixed widened constant to the high half on the selected lanes.
     BLST_FORCEINLINE void v2_high_add_const_masked(
         cc512i* limbs, const std::array<cc512i, NWORDS>& words, const v2_lane_mask_t lane_mask)
@@ -641,13 +654,13 @@ namespace blst::bench_lufp_v2
         if constexpr (Scale == 0u) {
             return;
         } else if constexpr (Scale == 1u) {
-            v2_high_add_const_masked(limbs, kV2P48X1Vec, static_cast<v2_lane_mask_t>(0xFFu));
+            v2_high_add_const(limbs, kV2P48X1Vec);
         } else if constexpr (Scale == 2u) {
-            v2_high_add_const_masked(limbs, kV2P48X2Vec, static_cast<v2_lane_mask_t>(0xFFu));
+            v2_high_add_const(limbs, kV2P48X2Vec);
         } else if constexpr (Scale == 3u) {
-            v2_high_add_const_masked(limbs, kV2P48X3Vec, static_cast<v2_lane_mask_t>(0xFFu));
+            v2_high_add_const(limbs, kV2P48X3Vec);
         } else if constexpr (Scale == 4u) {
-            v2_high_add_const_masked(limbs, kV2P48X4Vec, static_cast<v2_lane_mask_t>(0xFFu));
+            v2_high_add_const(limbs, kV2P48X4Vec);
         } else {
             static_assert(Scale <= 4u, "missing exact precomputed add scale");
         }
@@ -782,9 +795,37 @@ namespace blst::bench_lufp_v2
         BLST_ASSERT(renorm_any_stable(in_out));
     }
 
-    // Fused strict-negative renorm:
-    //   same interval algorithm as lufp_v2_renorm_negative_fold, but each step uses the
-    //   fused recurrence x <- x + a_i p - (!sign) * a_{i-1} p and folds the final +p into <1,1>.
+    // Fused strict-negative renorm for a proved one-sided source class x in [-A*p, B*p).
+    //
+    // Reference algorithm:
+    //   1. bias into strict negative: x <- x - B*p, so x in [-(A+B)*p, 0)
+    //   2. walk descending repair scales a_i = bit_floor(A+B), ..., 2, 1
+    //      keeping only candidates that remain negative:
+    //          x' = x + a_i*p
+    //          if x' < 0: x <- x'
+    //   3. fold the final +p canonicalization into the terminal <1,1> step
+    //
+    // The fused machine implements the same state transition, but carries forward the
+    // previous keep/reject decision as a sign bit and updates the next candidate by:
+    //     x <- x + a_i*p - (!sign) * a_{i-1}*p
+    // so a rejected prior candidate is undone implicitly instead of by restoring an
+    // older state.
+    //
+    // The function now has two entry modes:
+    //   - seeded fast path, used when B <= first_scale:
+    //       instead of materializing x - B*p and then applying the first step +first_scale*p,
+    //       start directly from their sum:
+    //           (x - B*p) + first_scale*p = x + (first_scale - B)*p
+    //       After the initial carry/sign pass, the state is exactly the post-first-step
+    //       candidate of the reference algorithm, so the remaining fused ladder can start
+    //       at PrevScale = first_scale.
+    //   - generic fallback:
+    //       perform the explicit bias x <- x - B*p first, then run the original fused ladder
+    //       seeded from PrevScale = 0.
+    //
+    // This is still the same strict-negative proof contract as
+    // lufp_v2_renorm_negative_fold(...); only the way the first bias/step pair is
+    // materialized has changed.
     template <u32 A, u32 B>
     BLST_FORCEINLINE void lufp_v2_renorm_negative_fold_fused(UFpPack8x1& in_out)
     {
@@ -793,11 +834,29 @@ namespace blst::bench_lufp_v2
         constexpr u32 kBias = B;
         constexpr u32 kFirstScale = v2_bit_floor_u32(A + B);
 
-        v2_high_sub_scaled<kBias>(in_out.data());
-        v2_signed_carry_range<0, (2 * NWORDS) - 1>(in_out.data());
         if constexpr (kFirstScale != 0u) {
-            static_cast<void>(
-                v2_keep_negative_fuse_ladder<0u, kFirstScale>(in_out.data(), static_cast<v2_lane_mask_t>(0u)));
+            if constexpr (kBias <= kFirstScale) {
+                // Start directly at the post-first-step candidate:
+                // (x - B*p) + kFirstScale*p == x + (kFirstScale - B)*p.
+                constexpr u32 kSeedScale = kFirstScale - kBias;
+                v2_high_add_scaled<kSeedScale>(in_out.data());
+                const v2_lane_mask_t sign_mask =
+                    v2_carry_range_with_sign<0, (2 * NWORDS) - 1>(in_out.data());
+                if constexpr (kFirstScale > 1u) {
+                    static_cast<void>(
+                        v2_keep_negative_fuse_ladder<kFirstScale, kFirstScale / 2u>(in_out.data(), sign_mask));
+                } else {
+                    static_cast<void>(v2_keep_negative_fuse_step<1u, 1u>(in_out.data(), sign_mask));
+                }
+            } else {
+                v2_high_sub_scaled<kBias>(in_out.data());
+                v2_signed_carry_range<0, (2 * NWORDS) - 1>(in_out.data());
+                static_cast<void>(
+                    v2_keep_negative_fuse_ladder<0u, kFirstScale>(in_out.data(), static_cast<v2_lane_mask_t>(0u)));
+            }
+        } else {
+            v2_high_sub_scaled<kBias>(in_out.data());
+            v2_signed_carry_range<0, (2 * NWORDS) - 1>(in_out.data());
         }
 
         BLST_ASSERT(renorm_any_stable(in_out));

@@ -27,6 +27,18 @@ bool fp6_equal(const Fp6& a, const Fp6& b)
     return fp2_equal(a[0], b[0]) && fp2_equal(a[1], b[1]) && fp2_equal(a[2], b[2]);
 }
 
+bool fp6_wide_equal(const UFp6Pack8x1& a, const UFp6Pack8x1& b)
+{
+    for (std::size_t c = 0; c < 3; ++c) {
+        for (std::size_t d = 0; d < 2; ++d) {
+            if (!lufp_v2_equal(a.c[c][d], b.c[c][d])) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 void dump_fp(const char* label, const Fp& v)
 {
     std::fprintf(
@@ -962,6 +974,51 @@ void validate_lufp_v2_fp6()
         });
 }
 
+void validate_lufp_v2_fp6_fused_live()
+{
+    validate_lufp_v2_core_ops();
+    Fp6Pack8x1V2BenchData data(1);
+    std::array<Fp6, 8> got_wide{};
+    std::array<Fp6, 8> got_any{};
+    std::array<Fp6, 8> ref{};
+
+    for (std::size_t p = 0; p < data.n_packs_; ++p) {
+        UFp6Pack8x1 wide{};
+        UFp6Pack8x1 any{};
+        Fp6Pack8x1 wide_redc{};
+        Fp6Pack8x1 any_redc{};
+        Fp6Pack8x1 ref_mul{};
+
+        mul_fp6_pack_lufpv2_wide(wide, data.a_pack[p], data.b_pack[p]);
+        any = wide;
+        renorm_any(any);
+
+        if (!fp6_wide_equal(wide, any)) {
+            std::fprintf(stderr, "Fp6 LUFp v2 fused result is not a renorm_any fixed point at pack %zu\n", p);
+            std::abort();
+        }
+
+        UFp6Pack8x1::redc(wide_redc, wide);
+        UFp6Pack8x1::redc(any_redc, any);
+        Fp6Pack8x1::mul(ref_mul, data.a_pack[p], data.b_pack[p]);
+
+        Fp6Pack8x1::to_aos(got_wide.data(), wide_redc);
+        Fp6Pack8x1::to_aos(got_any.data(), any_redc);
+        Fp6Pack8x1::to_aos(ref.data(), ref_mul);
+
+        for (std::size_t lane = 0; lane < got_wide.size(); ++lane) {
+            if (!fp6_equal(got_wide[lane], got_any[lane]) ||
+                !fp6_equal(got_wide[lane], ref[lane])) {
+                std::fprintf(stderr, "Fp6 LUFp v2 fused validation failed at pack %zu lane %zu\n", p, lane);
+                dump_fp6("wide", got_wide[lane]);
+                dump_fp6("renorm_any", got_any[lane]);
+                dump_fp6("ref", ref[lane]);
+                std::abort();
+            }
+        }
+    }
+}
+
 void validate_lufp_v2_fp6_raw_renorm_any()
 {
     validate_lufp_v2_core_ops();
@@ -1384,10 +1441,43 @@ void BM_Fp6RawNegativeFoldSanity(benchmark::State& state)
 void BM_Fp6MulLufpWideSanity(benchmark::State& state)
 {
     validate_lufp_v2_fp6();
+    validate_lufp_v2_fp6_fused_live();
     for (auto _ : state) {
         benchmark::ClobberMemory();
     }
     state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
+}
+
+void renorm_negative_fold_fp6_fused(UFp6Pack8x1& in_out)
+{
+    lufp_v2_renorm_negative_fold_fused<3u, 4u>(in_out.c[0][0]);
+    lufp_v2_renorm_negative_fold_fused<4u, 3u>(in_out.c[0][1]);
+    lufp_v2_renorm_negative_fold_fused<3u, 2u>(in_out.c[1][0]);
+    lufp_v2_renorm_negative_fold_fused<2u, 3u>(in_out.c[1][1]);
+    lufp_v2_renorm_negative_fold_fused<2u, 2u>(in_out.c[2][0]);
+    lufp_v2_renorm_negative_fold_fused<2u, 2u>(in_out.c[2][1]);
+}
+
+template <void (*RenormFn)(UFp6Pack8x1&)>
+void BM_Fp6RawRenormNegativeFoldFused(benchmark::State& state)
+{
+    Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
+
+    for (auto _ : state) {
+        state.PauseTiming();
+        for (std::size_t p = 0; p < data.n_packs_; ++p) {
+            prepare_lufp_v2_fp6_raw(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
+        }
+        state.ResumeTiming();
+
+        for (std::size_t p = 0; p < data.n_packs_; ++p) {
+            RenormFn(data.out_wide[p]);
+        }
+        bench_consume_fp6_wide(data.out_wide);
+    }
+
+    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) *
+                            static_cast<int64_t>(data.n_packs_));
 }
 
 BENCHMARK(BM_Fp6MulLufpWide)->Arg(256);
@@ -1395,6 +1485,7 @@ BENCHMARK(BM_Fp6MulLufpWideBroken)->Arg(256);
 BENCHMARK(BM_Fp6RawRenormAnySanity)->Arg(1);
 BENCHMARK(BM_Fp6RawNegativeFoldSanity)->Arg(1);
 BENCHMARK(BM_Fp6MulLufpWideSanity)->Arg(1);
+BENCHMARK_TEMPLATE(BM_Fp6RawRenormNegativeFoldFused, renorm_negative_fold_fp6_fused)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp6MulLufpAccounting, LUFpFp6MulStage::PreAdd)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp6MulLufpAccounting, LUFpFp6MulStage::PreAddMul)->Arg(256);
 BENCHMARK_TEMPLATE(BM_Fp6MulLufpAccounting, LUFpFp6MulStage::PreAddMulRawCombine)->Arg(256);
