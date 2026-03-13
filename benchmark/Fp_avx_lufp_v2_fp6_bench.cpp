@@ -1019,6 +1019,8 @@ void validate_lufp_v2_fp6_fused_live()
     }
 }
 
+void renorm_negative_fold_fp6_fused(UFp6Pack8x1& in_out);
+
 void validate_lufp_v2_fp6_raw_renorm_any()
 {
     validate_lufp_v2_core_ops();
@@ -1405,21 +1407,6 @@ void BM_Fp6MulLufpWide(benchmark::State& state)
                             static_cast<int64_t>(data.n_packs_));
 }
 
-void BM_Fp6MulLufpWideBroken(benchmark::State& state)
-{
-    Fp6Pack8x1V2BenchData data(static_cast<std::size_t>(state.range(0)));
-
-    for (auto _ : state) {
-        for (std::size_t p = 0; p < data.n_packs_; ++p) {
-            mul_fp6_pack_lufpv2_wide_broken(data.out_wide[p], data.a_pack[p], data.b_pack[p]);
-        }
-        bench_consume_fp6_wide(data.out_wide);
-    }
-
-    state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) *
-                            static_cast<int64_t>(data.n_packs_));
-}
-
 void BM_Fp6RawRenormAnySanity(benchmark::State& state)
 {
     validate_lufp_v2_fp6_raw_renorm_any();
@@ -1481,7 +1468,6 @@ void BM_Fp6RawRenormNegativeFoldFused(benchmark::State& state)
 }
 
 BENCHMARK(BM_Fp6MulLufpWide)->Arg(256);
-BENCHMARK(BM_Fp6MulLufpWideBroken)->Arg(256);
 BENCHMARK(BM_Fp6RawRenormAnySanity)->Arg(1);
 BENCHMARK(BM_Fp6RawNegativeFoldSanity)->Arg(1);
 BENCHMARK(BM_Fp6MulLufpWideSanity)->Arg(1);

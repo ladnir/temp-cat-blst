@@ -7,6 +7,7 @@
 
 #include "blst/fields/Fp.h"
 #include "blst/fields/Fp12.h"
+#include "blst/fields/Fp12_avx.h"
 #include "blst/fields/Fp_avx.h"
 #include "blst/fields/Fp6_avx.h"
 
@@ -37,6 +38,16 @@ namespace blst::bench_lufp_v2
     inline const std::array<u64, NWORDS> kV2P48X4 = {
         0xFFFFFFFEAAACULL, 0xC54FFFFEE7FBULL, 0xD8907AAFFFFAULL, 0x9CC34A83DAC3ULL,
         0x2E13CE144AFDULL, 0x0D2EB35D91DDULL, 0x9A692C6E9ED9ULL, 0x680447A8E5FFULL,
+    };
+
+    inline const std::array<u64, NWORDS> kV2P48X8 = {
+        0xFFFFFFFD5558ULL, 0x8A9FFFFDCFF7ULL, 0xB120F55FFFF5ULL, 0x39869507B587ULL,
+        0x5C279C2895FBULL, 0x1A5D66BB23BAULL, 0x34D258DD3DB2ULL, 0xD0088F51CBFFULL,
+    };
+
+    inline const std::array<u64, NWORDS> kV2P48X16 = {
+        0xFFFFFFFAAAB0ULL, 0x153FFFFB9FEFULL, 0x6241EABFFFEBULL, 0x730D2A0F6B0FULL,
+        0xB84F38512BF6ULL, 0x34BACD764774ULL, 0x69A4B1BA7B64ULL, 0x1A0111EA397FEULL,
     };
 
     inline const std::array<u64, NWORDS> kV2Bias3PPlus3 = {
@@ -125,6 +136,44 @@ namespace blst::bench_lufp_v2
              0x0000680447A8E5FFLL, 0x0000680447A8E5FFLL, 0x0000680447A8E5FFLL, 0x0000680447A8E5FFLL),
     };
 
+    inline const std::array<cc512i, NWORDS> kV2P48X8Vec = {
+        VSET(0x0000FFFFFFFD5558LL, 0x0000FFFFFFFD5558LL, 0x0000FFFFFFFD5558LL, 0x0000FFFFFFFD5558LL,
+             0x0000FFFFFFFD5558LL, 0x0000FFFFFFFD5558LL, 0x0000FFFFFFFD5558LL, 0x0000FFFFFFFD5558LL),
+        VSET(0x00008A9FFFFDCFF7LL, 0x00008A9FFFFDCFF7LL, 0x00008A9FFFFDCFF7LL, 0x00008A9FFFFDCFF7LL,
+             0x00008A9FFFFDCFF7LL, 0x00008A9FFFFDCFF7LL, 0x00008A9FFFFDCFF7LL, 0x00008A9FFFFDCFF7LL),
+        VSET(0x0000B120F55FFFF5LL, 0x0000B120F55FFFF5LL, 0x0000B120F55FFFF5LL, 0x0000B120F55FFFF5LL,
+             0x0000B120F55FFFF5LL, 0x0000B120F55FFFF5LL, 0x0000B120F55FFFF5LL, 0x0000B120F55FFFF5LL),
+        VSET(0x000039869507B587LL, 0x000039869507B587LL, 0x000039869507B587LL, 0x000039869507B587LL,
+             0x000039869507B587LL, 0x000039869507B587LL, 0x000039869507B587LL, 0x000039869507B587LL),
+        VSET(0x00005C279C2895FBLL, 0x00005C279C2895FBLL, 0x00005C279C2895FBLL, 0x00005C279C2895FBLL,
+             0x00005C279C2895FBLL, 0x00005C279C2895FBLL, 0x00005C279C2895FBLL, 0x00005C279C2895FBLL),
+        VSET(0x00001A5D66BB23BALL, 0x00001A5D66BB23BALL, 0x00001A5D66BB23BALL, 0x00001A5D66BB23BALL,
+             0x00001A5D66BB23BALL, 0x00001A5D66BB23BALL, 0x00001A5D66BB23BALL, 0x00001A5D66BB23BALL),
+        VSET(0x000034D258DD3DB2LL, 0x000034D258DD3DB2LL, 0x000034D258DD3DB2LL, 0x000034D258DD3DB2LL,
+             0x000034D258DD3DB2LL, 0x000034D258DD3DB2LL, 0x000034D258DD3DB2LL, 0x000034D258DD3DB2LL),
+        VSET(0x0000D0088F51CBFFLL, 0x0000D0088F51CBFFLL, 0x0000D0088F51CBFFLL, 0x0000D0088F51CBFFLL,
+             0x0000D0088F51CBFFLL, 0x0000D0088F51CBFFLL, 0x0000D0088F51CBFFLL, 0x0000D0088F51CBFFLL),
+    };
+
+    inline const std::array<cc512i, NWORDS> kV2P48X16Vec = {
+        VSET(0x0000FFFFFFFAAAB0LL, 0x0000FFFFFFFAAAB0LL, 0x0000FFFFFFFAAAB0LL, 0x0000FFFFFFFAAAB0LL,
+             0x0000FFFFFFFAAAB0LL, 0x0000FFFFFFFAAAB0LL, 0x0000FFFFFFFAAAB0LL, 0x0000FFFFFFFAAAB0LL),
+        VSET(0x0000153FFFFB9FEFLL, 0x0000153FFFFB9FEFLL, 0x0000153FFFFB9FEFLL, 0x0000153FFFFB9FEFLL,
+             0x0000153FFFFB9FEFLL, 0x0000153FFFFB9FEFLL, 0x0000153FFFFB9FEFLL, 0x0000153FFFFB9FEFLL),
+        VSET(0x00006241EABFFFEBLL, 0x00006241EABFFFEBLL, 0x00006241EABFFFEBLL, 0x00006241EABFFFEBLL,
+             0x00006241EABFFFEBLL, 0x00006241EABFFFEBLL, 0x00006241EABFFFEBLL, 0x00006241EABFFFEBLL),
+        VSET(0x0000730D2A0F6B0FLL, 0x0000730D2A0F6B0FLL, 0x0000730D2A0F6B0FLL, 0x0000730D2A0F6B0FLL,
+             0x0000730D2A0F6B0FLL, 0x0000730D2A0F6B0FLL, 0x0000730D2A0F6B0FLL, 0x0000730D2A0F6B0FLL),
+        VSET(0x0000B84F38512BF6LL, 0x0000B84F38512BF6LL, 0x0000B84F38512BF6LL, 0x0000B84F38512BF6LL,
+             0x0000B84F38512BF6LL, 0x0000B84F38512BF6LL, 0x0000B84F38512BF6LL, 0x0000B84F38512BF6LL),
+        VSET(0x000034BACD764774LL, 0x000034BACD764774LL, 0x000034BACD764774LL, 0x000034BACD764774LL,
+             0x000034BACD764774LL, 0x000034BACD764774LL, 0x000034BACD764774LL, 0x000034BACD764774LL),
+        VSET(0x000069A4B1BA7B64LL, 0x000069A4B1BA7B64LL, 0x000069A4B1BA7B64LL, 0x000069A4B1BA7B64LL,
+             0x000069A4B1BA7B64LL, 0x000069A4B1BA7B64LL, 0x000069A4B1BA7B64LL, 0x000069A4B1BA7B64LL),
+        VSET(0x0001A0111EA397FELL, 0x0001A0111EA397FELL, 0x0001A0111EA397FELL, 0x0001A0111EA397FELL,
+             0x0001A0111EA397FELL, 0x0001A0111EA397FELL, 0x0001A0111EA397FELL, 0x0001A0111EA397FELL),
+    };
+
     inline const std::array<cc512i, NWORDS> kV2Bias3PPlus3Vec = {
         VSET(0x0000FFFFFFFF0004LL, 0x0000FFFFFFFF0004LL, 0x0000FFFFFFFF0004LL, 0x0000FFFFFFFF0004LL,
              0x0000FFFFFFFF0004LL, 0x0000FFFFFFFF0004LL, 0x0000FFFFFFFF0004LL, 0x0000FFFFFFFF0004LL),
@@ -160,8 +209,16 @@ namespace blst::bench_lufp_v2
         else if constexpr (Scale == 4) {
             return kV2P48X4;
         }
+        else if constexpr (Scale == 8) {
+            return kV2P48X8;
+        }
+        else if constexpr (Scale == 16) {
+            return kV2P48X16;
+        }
         else {
-            static_assert(Scale == 1 || Scale == 2 || Scale == 3 || Scale == 4, "unsupported v2 sign-step scale");
+            static_assert(
+                Scale == 1 || Scale == 2 || Scale == 3 || Scale == 4 || Scale == 8 || Scale == 16,
+                "unsupported v2 sign-step scale");
             return kV2P48X1;
         }
     }
@@ -182,8 +239,16 @@ namespace blst::bench_lufp_v2
         else if constexpr (Scale == 4) {
             return kV2P48X4Vec;
         }
+        else if constexpr (Scale == 8) {
+            return kV2P48X8Vec;
+        }
+        else if constexpr (Scale == 16) {
+            return kV2P48X16Vec;
+        }
         else {
-            static_assert(Scale == 1 || Scale == 2 || Scale == 3 || Scale == 4, "unsupported v2 sign-step scale");
+            static_assert(
+                Scale == 1 || Scale == 2 || Scale == 3 || Scale == 4 || Scale == 8 || Scale == 16,
+                "unsupported v2 sign-step scale");
             return kV2P48X1Vec;
         }
     }
@@ -642,8 +707,26 @@ namespace blst::bench_lufp_v2
             v2_high_sub_const(limbs, kV2P48X3Vec);
         } else if constexpr (Scale == 4u) {
             v2_high_sub_const(limbs, kV2P48X4Vec);
+        } else if constexpr (Scale == 8u) {
+            v2_high_sub_const(limbs, kV2P48X8Vec);
+        } else if constexpr (Scale == 16u) {
+            v2_high_sub_const(limbs, kV2P48X16Vec);
         } else {
-            static_assert(Scale <= 4u, "missing exact precomputed subtract scale");
+            if constexpr (Scale >= 16u) {
+                v2_high_sub_scaled<16u>(limbs);
+                v2_high_sub_scaled<Scale - 16u>(limbs);
+            } else if constexpr (Scale >= 8u) {
+                v2_high_sub_scaled<8u>(limbs);
+                v2_high_sub_scaled<Scale - 8u>(limbs);
+            } else if constexpr (Scale >= 4u) {
+                v2_high_sub_scaled<4u>(limbs);
+                v2_high_sub_scaled<Scale - 4u>(limbs);
+            } else if constexpr (Scale >= 2u) {
+                v2_high_sub_scaled<2u>(limbs);
+                v2_high_sub_scaled<Scale - 2u>(limbs);
+            } else {
+                static_assert(Scale == 0u || Scale == 1u, "unexpected subtract scale decomposition");
+            }
         }
     }
 
@@ -661,8 +744,26 @@ namespace blst::bench_lufp_v2
             v2_high_add_const(limbs, kV2P48X3Vec);
         } else if constexpr (Scale == 4u) {
             v2_high_add_const(limbs, kV2P48X4Vec);
+        } else if constexpr (Scale == 8u) {
+            v2_high_add_const(limbs, kV2P48X8Vec);
+        } else if constexpr (Scale == 16u) {
+            v2_high_add_const(limbs, kV2P48X16Vec);
         } else {
-            static_assert(Scale <= 4u, "missing exact precomputed add scale");
+            if constexpr (Scale >= 16u) {
+                v2_high_add_scaled<16u>(limbs);
+                v2_high_add_scaled<Scale - 16u>(limbs);
+            } else if constexpr (Scale >= 8u) {
+                v2_high_add_scaled<8u>(limbs);
+                v2_high_add_scaled<Scale - 8u>(limbs);
+            } else if constexpr (Scale >= 4u) {
+                v2_high_add_scaled<4u>(limbs);
+                v2_high_add_scaled<Scale - 4u>(limbs);
+            } else if constexpr (Scale >= 2u) {
+                v2_high_add_scaled<2u>(limbs);
+                v2_high_add_scaled<Scale - 2u>(limbs);
+            } else {
+                static_assert(Scale == 0u || Scale == 1u, "unexpected add scale decomposition");
+            }
         }
     }
 
@@ -683,8 +784,26 @@ namespace blst::bench_lufp_v2
             v2_high_add_const_masked(limbs, kV2P48X3Vec, lane_mask);
         } else if constexpr (Scale == 4u) {
             v2_high_add_const_masked(limbs, kV2P48X4Vec, lane_mask);
+        } else if constexpr (Scale == 8u) {
+            v2_high_add_const_masked(limbs, kV2P48X8Vec, lane_mask);
+        } else if constexpr (Scale == 16u) {
+            v2_high_add_const_masked(limbs, kV2P48X16Vec, lane_mask);
         } else {
-            static_assert(Scale <= 4u, "missing exact precomputed masked add scale");
+            if constexpr (Scale >= 16u) {
+                v2_high_add_scaled_masked<16u>(limbs, lane_mask);
+                v2_high_add_scaled_masked<Scale - 16u>(limbs, lane_mask);
+            } else if constexpr (Scale >= 8u) {
+                v2_high_add_scaled_masked<8u>(limbs, lane_mask);
+                v2_high_add_scaled_masked<Scale - 8u>(limbs, lane_mask);
+            } else if constexpr (Scale >= 4u) {
+                v2_high_add_scaled_masked<4u>(limbs, lane_mask);
+                v2_high_add_scaled_masked<Scale - 4u>(limbs, lane_mask);
+            } else if constexpr (Scale >= 2u) {
+                v2_high_add_scaled_masked<2u>(limbs, lane_mask);
+                v2_high_add_scaled_masked<Scale - 2u>(limbs, lane_mask);
+            } else {
+                static_assert(Scale == 0u || Scale == 1u, "unexpected masked add scale decomposition");
+            }
         }
     }
 
@@ -705,8 +824,26 @@ namespace blst::bench_lufp_v2
             v2_high_sub_const_masked(limbs, kV2P48X3Vec, lane_mask);
         } else if constexpr (Scale == 4u) {
             v2_high_sub_const_masked(limbs, kV2P48X4Vec, lane_mask);
+        } else if constexpr (Scale == 8u) {
+            v2_high_sub_const_masked(limbs, kV2P48X8Vec, lane_mask);
+        } else if constexpr (Scale == 16u) {
+            v2_high_sub_const_masked(limbs, kV2P48X16Vec, lane_mask);
         } else {
-            static_assert(Scale <= 4u, "missing exact precomputed masked subtract scale");
+            if constexpr (Scale >= 16u) {
+                v2_high_sub_scaled_masked<16u>(limbs, lane_mask);
+                v2_high_sub_scaled_masked<Scale - 16u>(limbs, lane_mask);
+            } else if constexpr (Scale >= 8u) {
+                v2_high_sub_scaled_masked<8u>(limbs, lane_mask);
+                v2_high_sub_scaled_masked<Scale - 8u>(limbs, lane_mask);
+            } else if constexpr (Scale >= 4u) {
+                v2_high_sub_scaled_masked<4u>(limbs, lane_mask);
+                v2_high_sub_scaled_masked<Scale - 4u>(limbs, lane_mask);
+            } else if constexpr (Scale >= 2u) {
+                v2_high_sub_scaled_masked<2u>(limbs, lane_mask);
+                v2_high_sub_scaled_masked<Scale - 2u>(limbs, lane_mask);
+            } else {
+                static_assert(Scale == 0u || Scale == 1u, "unexpected masked subtract scale decomposition");
+            }
         }
     }
 
@@ -860,25 +997,6 @@ namespace blst::bench_lufp_v2
         }
 
         BLST_ASSERT(renorm_any_stable(in_out));
-    }
-
-    // Older delayed-centered renorm family used by the broken fast winner kept for A/B comparison.
-    template <u32 BiasScale, u64... Scales>
-    BLST_FORCEINLINE void lufp_v2_renorm_delayed_centered(UFpPack8x1& in_out)
-    {
-        v2_high_sub_scaled<BiasScale>(in_out.data());
-        v2_signed_carry_range<0, (2 * NWORDS) - 1>(in_out.data());
-        const v2_lane_mask_t sign_mask = v2_signbit_mask(in_out[(2 * NWORDS) - 1]);
-        static_cast<void>(v2_sign_step_sequence<Scales...>(in_out.data(), sign_mask));
-        BLST_ASSERT(renorm_any_stable(in_out));
-    }
-
-    // Applies the delayed-centered renorm independently to the real and imaginary halves.
-    template <u32 BiasScale, u64... Scales>
-    BLST_FORCEINLINE void lufp2_v2_renorm_delayed_centered(UFp2Pack8x1x1& in_out)
-    {
-        lufp_v2_renorm_delayed_centered<BiasScale, Scales...>(in_out[0]);
-        lufp_v2_renorm_delayed_centered<BiasScale, Scales...>(in_out[1]);
     }
 
     // Very slow canonicalizer used only as a debug oracle for widened half values.
@@ -1036,6 +1154,30 @@ namespace blst::bench_lufp_v2
     {
         lufp_v2_sub(r[0], a[0], a[1]);
         lufp_v2_add(r[1], a[0], a[1]);
+    }
+
+    // Widened Fp6 add done component-wise with no repair.
+    BLST_FORCEINLINE void lufp6_v2_add(UFp6Pack8x1& r, const UFp6Pack8x1& a, const UFp6Pack8x1& b)
+    {
+        lufp2_v2_add(r.c[0], a.c[0], b.c[0]);
+        lufp2_v2_add(r.c[1], a.c[1], b.c[1]);
+        lufp2_v2_add(r.c[2], a.c[2], b.c[2]);
+    }
+
+    // Widened Fp6 subtract done component-wise with no repair.
+    BLST_FORCEINLINE void lufp6_v2_sub(UFp6Pack8x1& r, const UFp6Pack8x1& a, const UFp6Pack8x1& b)
+    {
+        lufp2_v2_sub(r.c[0], a.c[0], b.c[0]);
+        lufp2_v2_sub(r.c[1], a.c[1], b.c[1]);
+        lufp2_v2_sub(r.c[2], a.c[2], b.c[2]);
+    }
+
+    // Widened Fp6 multiply by the tower nonresidue with no repair.
+    BLST_FORCEINLINE void lufp6_v2_mul_by_nonresidue(UFp6Pack8x1& r, const UFp6Pack8x1& a)
+    {
+        lufp2_v2_mul_by_u_plus_1(r.c[0], a.c[2]);
+        r.c[1] = a.c[0];
+        r.c[2] = a.c[1];
     }
 
     // Carries only the high half and returns the resulting sign mask.
@@ -1244,7 +1386,7 @@ namespace blst::bench_lufp_v2
         const UFp2Pack8x1x1& w1,
         const UFp2Pack8x1x1& w2)
     {
-        UFp2Pack8x1x1 t3{};
+        UFp2Pack8x1x1 t3;
 
         c0 = w0;
         lufp2_v2_sub(c0, c0, t1);
@@ -1264,103 +1406,85 @@ namespace blst::bench_lufp_v2
         lufp2_v2_add(c2, c2, t1);
     }
 
-    // Baseline FP6 LUFp-v2 multiply: raw combine followed by the fused strict-negative renorm.
+    template <bool DoRenorm = true>
     inline void mul_fp6_pack_lufpv2_wide(UFp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b)
     {
-        Fp2Pack8x1x1 aa, bb;
+        Fp2Pack8x1x1 aa0, aa1, aa2;
+        Fp2Pack8x1x1 bb0, bb1, bb2;
         UFp2Pack8x1x1 t0, t1, t2;
-        UFp2Pack8x1x1 w;
+        UFp2Pack8x1x1 w0, w1, w2;
+
+        Fp2Pack8x1x1::add(aa0, a.c[1], a.c[2]);
+        Fp2Pack8x1x1::add(bb0, b.c[1], b.c[2]);
+        Fp2Pack8x1x1::add(aa1, a.c[0], a.c[1]);
+        Fp2Pack8x1x1::add(bb1, b.c[0], b.c[1]);
+        Fp2Pack8x1x1::add(aa2, a.c[0], a.c[2]);
+        Fp2Pack8x1x1::add(bb2, b.c[0], b.c[2]);
 
         UFp2Pack8x1x1::mul(t0, a.c[0], b.c[0]);
         UFp2Pack8x1x1::mul(t1, a.c[1], b.c[1]);
         UFp2Pack8x1x1::mul(t2, a.c[2], b.c[2]);
+        UFp2Pack8x1x1::mul(w0, aa0, bb0);
+        UFp2Pack8x1x1::mul(w1, aa1, bb1);
+        UFp2Pack8x1x1::mul(w2, aa2, bb2);
 
-        Fp2Pack8x1x1::add(aa, a.c[1], a.c[2]);
-        Fp2Pack8x1x1::add(bb, b.c[1], b.c[2]);
-        UFp2Pack8x1x1::mul(w, aa, bb);
-        for (std::size_t limb = 0; limb < 2 * NWORDS; ++limb) {
-            const cc512i x00 = VSUB(VSUB(w[0][limb], t1[0][limb]), t2[0][limb]);
-            const cc512i x01 = VSUB(VSUB(w[1][limb], t1[1][limb]), t2[1][limb]);
-            r.c[0][0][limb] = VADD(VSUB(x00, x01), t0[0][limb]);
-
-            const cc512i x10 = VSUB(VSUB(w[0][limb], t1[0][limb]), t2[0][limb]);
-            const cc512i x11 = VSUB(VSUB(w[1][limb], t1[1][limb]), t2[1][limb]);
-            r.c[0][1][limb] = VADD(VADD(x10, x11), t0[1][limb]);
+        mul_fp6_pack_lufpv2_combine_only_raw(
+            r.c[0],
+            r.c[1],
+            r.c[2],
+            t0,
+            t1,
+            t2,
+            w0,
+            w1,
+            w2);
+        if constexpr (DoRenorm) {
+            lufp_v2_renorm_negative_fold_fused<3u, 4u>(r.c[0][0]);
+            lufp_v2_renorm_negative_fold_fused<4u, 3u>(r.c[0][1]);
+            lufp_v2_renorm_negative_fold_fused<3u, 2u>(r.c[1][0]);
+            lufp_v2_renorm_negative_fold_fused<2u, 3u>(r.c[1][1]);
+            lufp_v2_renorm_negative_fold_fused<2u, 2u>(r.c[2][0]);
+            lufp_v2_renorm_negative_fold_fused<2u, 2u>(r.c[2][1]);
         }
-        lufp_v2_renorm_negative_fold_fused<3u, 4u>(r.c[0][0]);
-        lufp_v2_renorm_negative_fold_fused<4u, 3u>(r.c[0][1]);
-
-        Fp2Pack8x1x1::add(aa, a.c[0], a.c[1]);
-        Fp2Pack8x1x1::add(bb, b.c[0], b.c[1]);
-        UFp2Pack8x1x1::mul(w, aa, bb);
-        for (std::size_t limb = 0; limb < 2 * NWORDS; ++limb) {
-            r.c[1][0][limb] = VADD(
-                VSUB(VSUB(w[0][limb], t0[0][limb]), t1[0][limb]),
-                VSUB(t2[0][limb], t2[1][limb]));
-            r.c[1][1][limb] = VADD(
-                VSUB(VSUB(w[1][limb], t0[1][limb]), t1[1][limb]),
-                VADD(t2[0][limb], t2[1][limb]));
-        }
-        lufp_v2_renorm_negative_fold_fused<3u, 2u>(r.c[1][0]);
-        lufp_v2_renorm_negative_fold_fused<2u, 3u>(r.c[1][1]);
-
-        Fp2Pack8x1x1::add(aa, a.c[0], a.c[2]);
-        Fp2Pack8x1x1::add(bb, b.c[0], b.c[2]);
-        UFp2Pack8x1x1::mul(w, aa, bb);
-        for (std::size_t limb = 0; limb < 2 * NWORDS; ++limb) {
-            r.c[2][0][limb] = VADD(VSUB(VSUB(w[0][limb], t0[0][limb]), t2[0][limb]), t1[0][limb]);
-            r.c[2][1][limb] = VADD(VSUB(VSUB(w[1][limb], t0[1][limb]), t2[1][limb]), t1[1][limb]);
-        }
-        lufp_v2_renorm_negative_fold_fused<2u, 2u>(r.c[2][0]);
-        lufp_v2_renorm_negative_fold_fused<2u, 2u>(r.c[2][1]);
     }
 
-    // Restored historical fast winner kept as a broken reference point for A/B benchmarking.
-    inline void mul_fp6_pack_lufpv2_wide_broken(UFp6Pack8x1& r, const Fp6Pack8x1& a, const Fp6Pack8x1& b)
+    inline void mul_fp12_pack_lufpv2_wide(UFp12Pack8x1& r, const Fp12Pack8x1& a, const Fp12Pack8x1& b);
+
+    inline void mul_fp12_pack_lufpv2_correct(UFp12Pack8x1& r, const Fp12Pack8x1& a, const Fp12Pack8x1& b)
     {
-        Fp2Pack8x1x1 aa, bb;
-        UFp2Pack8x1x1 t0, t1, t2;
-        UFp2Pack8x1x1 w;
-
-        UFp2Pack8x1x1::mul(t0, a.c[0], b.c[0]);
-        UFp2Pack8x1x1::mul(t1, a.c[1], b.c[1]);
-        UFp2Pack8x1x1::mul(t2, a.c[2], b.c[2]);
-
-        Fp2Pack8x1x1::add(aa, a.c[1], a.c[2]);
-        Fp2Pack8x1x1::add(bb, b.c[1], b.c[2]);
-        UFp2Pack8x1x1::mul(w, aa, bb);
-        for (std::size_t limb = 0; limb < 2 * NWORDS; ++limb) {
-            const cc512i x00 = VSUB(VSUB(w[0][limb], t1[0][limb]), t2[0][limb]);
-            const cc512i x01 = VSUB(VSUB(w[1][limb], t1[1][limb]), t2[1][limb]);
-            r.c[0][0][limb] = VADD(VSUB(x00, x01), t0[0][limb]);
-
-            const cc512i x10 = VSUB(VSUB(w[0][limb], t1[0][limb]), t2[0][limb]);
-            const cc512i x11 = VSUB(VSUB(w[1][limb], t1[1][limb]), t2[1][limb]);
-            r.c[0][1][limb] = VADD(VADD(x10, x11), t0[1][limb]);
-        }
-        lufp2_v2_renorm_delayed_centered<3u, 4u, 2u, 1u>(r.c[0]);
-
-        Fp2Pack8x1x1::add(aa, a.c[0], a.c[1]);
-        Fp2Pack8x1x1::add(bb, b.c[0], b.c[1]);
-        UFp2Pack8x1x1::mul(w, aa, bb);
-        for (std::size_t limb = 0; limb < 2 * NWORDS; ++limb) {
-            r.c[1][0][limb] = VADD(
-                VSUB(VSUB(w[0][limb], t0[0][limb]), t1[0][limb]),
-                VSUB(t2[0][limb], t2[1][limb]));
-            r.c[1][1][limb] = VADD(
-                VSUB(VSUB(w[1][limb], t0[1][limb]), t1[1][limb]),
-                VADD(t2[0][limb], t2[1][limb]));
-        }
-        lufp2_v2_renorm_delayed_centered<2u, 4u, 1u>(r.c[1]);
-
-        Fp2Pack8x1x1::add(aa, a.c[0], a.c[2]);
-        Fp2Pack8x1x1::add(bb, b.c[0], b.c[2]);
-        UFp2Pack8x1x1::mul(w, aa, bb);
-        for (std::size_t limb = 0; limb < 2 * NWORDS; ++limb) {
-            r.c[2][0][limb] = VADD(VSUB(VSUB(w[0][limb], t0[0][limb]), t2[0][limb]), t1[0][limb]);
-            r.c[2][1][limb] = VADD(VSUB(VSUB(w[1][limb], t0[1][limb]), t2[1][limb]), t1[1][limb]);
-        }
-        lufp2_v2_renorm_delayed_centered<1u, 2u, 1u>(r.c[2]);
+        mul_fp12_pack_lufpv2_wide(r, a, b);
     }
+    // True always-wide Fp12 candidate: no carries or renorms after the inner Fp6 multiplies.
+    inline void mul_fp12_pack_lufpv2_wide(UFp12Pack8x1& r, const Fp12Pack8x1& a, const Fp12Pack8x1& b)
+    {
+        UFp6Pack8x1 t0, t1, m, vt1;
+        Fp6Pack8x1 sum_a, sum_b;
 
+        mul_fp6_pack_lufpv2_wide<false>(t0, a.c[0], b.c[0]);
+        mul_fp6_pack_lufpv2_wide<false>(t1, a.c[1], b.c[1]);
+        Fp6Pack8x1::add(sum_a, a.c[0], a.c[1]);
+        Fp6Pack8x1::add(sum_b, b.c[0], b.c[1]);
+        mul_fp6_pack_lufpv2_wide<false>(m, sum_a, sum_b);
+
+        r.c[1] = m;
+        lufp6_v2_sub(r.c[1], r.c[1], t0);
+        lufp6_v2_sub(r.c[1], r.c[1], t1);
+        lufp_v2_renorm_negative_fold_fused<11u, 10u>(r.c[1].c[0][0]);
+        lufp_v2_renorm_negative_fold_fused<10u, 11u>(r.c[1].c[0][1]);
+        lufp_v2_renorm_negative_fold_fused<7u, 8u>(r.c[1].c[1][0]);
+        lufp_v2_renorm_negative_fold_fused<8u, 7u>(r.c[1].c[1][1]);
+        lufp_v2_renorm_negative_fold_fused<6u, 6u>(r.c[1].c[2][0]);
+        lufp_v2_renorm_negative_fold_fused<6u, 6u>(r.c[1].c[2][1]);
+
+        lufp6_v2_mul_by_nonresidue(vt1, t1);
+        lufp6_v2_add(r.c[0], t0, vt1);
+
+        // Final Fp12 per-half source classes from the worksheet.
+        lufp_v2_renorm_negative_fold_fused<7u, 8u>(r.c[0].c[0][0]);
+        lufp_v2_renorm_negative_fold_fused<8u, 7u>(r.c[0].c[0][1]);
+        lufp_v2_renorm_negative_fold_fused<6u, 6u>(r.c[0].c[1][0]);
+        lufp_v2_renorm_negative_fold_fused<6u, 6u>(r.c[0].c[1][1]);
+        lufp_v2_renorm_negative_fold_fused<5u, 4u>(r.c[0].c[2][0]);
+        lufp_v2_renorm_negative_fold_fused<4u, 5u>(r.c[0].c[2][1]);
+    }
 }
