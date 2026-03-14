@@ -1188,13 +1188,29 @@ namespace blst::bench_lufp_v2
         lufp2_v2_sub(r.c[2], a.c[2], b.c[2]);
     }
 
-    // Widened Fp6 multiply by the tower nonresidue with no repair.
-    BLST_FORCEINLINE void lufp6_v2_mul_by_nonresidue(UFp6Pack8x1& in_out)
+    // Widened Fp6 subtract of two inputs done component-wise with no repair.
+    BLST_FORCEINLINE void lufp6_v2_sub2(UFp6Pack8x1& r, const UFp6Pack8x1& a, const UFp6Pack8x1& b, const UFp6Pack8x1& c)
     {
-        const UFp2Pack8x1x1 old_c0 = in_out.c[0];
-        lufp2_v2_mul_by_u_plus_1(in_out.c[0], in_out.c[2]);
-        in_out.c[2] = in_out.c[1];
-        in_out.c[1] = old_c0;
+        lufp2_v2_sub2(r.c[0], a.c[0], b.c[0], c.c[0]);
+        lufp2_v2_sub2(r.c[1], a.c[1], b.c[1], c.c[1]);
+        lufp2_v2_sub2(r.c[2], a.c[2], b.c[2], c.c[2]);
+    }
+
+    // Widened Fp6 multiply by the tower nonresidue with no repair.
+    BLST_FORCEINLINE void lufp6_v2_mul_by_nonresidue(UFp6Pack8x1& r, const UFp6Pack8x1& a)
+    {
+        lufp2_v2_mul_by_u_plus_1(r.c[0], a.c[2]);
+        r.c[1] = a.c[0];
+        r.c[2] = a.c[1];
+    }
+
+    // Widened Fp6 r = a + v*b with no repair.
+    BLST_FORCEINLINE void lufp6_v2_add_mul_by_nonresidue(UFp6Pack8x1& r, const UFp6Pack8x1& a, const UFp6Pack8x1& b)
+    {
+        lufp2_v2_mul_by_u_plus_1(r.c[0], b.c[2]);
+        lufp2_v2_add(r.c[0], a.c[0], r.c[0]);
+        lufp2_v2_add(r.c[1], a.c[1], b.c[0]);
+        lufp2_v2_add(r.c[2], a.c[2], b.c[1]);
     }
 
     // Carries only the high half and returns the resulting sign mask.
@@ -1444,18 +1460,19 @@ namespace blst::bench_lufp_v2
     // True always-wide Fp12 candidate: no carries or renorms after the inner Fp6 multiplies.
     inline void mul_fp12_pack_lufpv2_wide(UFp12Pack8x1& r, const Fp12Pack8x1& a, const Fp12Pack8x1& b)
     {
-        UFp6Pack8x1 t0, t1, t2;
-        Fp6Pack8x1 t3, t4;
+        UFp6Pack8x1 t0, t1;
 
         mul_fp6_pack_lufpv2_wide<false>(t0, a.c[0], b.c[0]);
         mul_fp6_pack_lufpv2_wide<false>(t1, a.c[1], b.c[1]);
 
-        Fp6Pack8x1::add(t3, a.c[0], a.c[1]);
-        Fp6Pack8x1::add(t4, b.c[0], b.c[1]);
-        mul_fp6_pack_lufpv2_wide<false>(r.c[1], t3, t4);
+        {
+            Fp6Pack8x1 t3, t4;
+            Fp6Pack8x1::add(t3, a.c[0], a.c[1]);
+            Fp6Pack8x1::add(t4, b.c[0], b.c[1]);
+            mul_fp6_pack_lufpv2_wide<false>(r.c[1], t3, t4);
+        }
 
-        lufp6_v2_sub(r.c[1], r.c[1], t0);
-        lufp6_v2_sub(r.c[1], r.c[1], t1);
+        lufp6_v2_sub2(r.c[1], r.c[1], t0, t1);
         lufp_v2_renorm_negative_fold_fused<11u, 10u>(r.c[1].c[0][0]);
         lufp_v2_renorm_negative_fold_fused<10u, 11u>(r.c[1].c[0][1]);
         lufp_v2_renorm_negative_fold_fused<7u, 8u>(r.c[1].c[1][0]);
@@ -1463,9 +1480,7 @@ namespace blst::bench_lufp_v2
         lufp_v2_renorm_negative_fold_fused<6u, 6u>(r.c[1].c[2][0]);
         lufp_v2_renorm_negative_fold_fused<6u, 6u>(r.c[1].c[2][1]);
 
-        t2 = t1;
-        lufp6_v2_mul_by_nonresidue(t2);
-        lufp6_v2_add(r.c[0], t0, t2);
+        lufp6_v2_add_mul_by_nonresidue(r.c[0], t0, t1);
 
         // Final Fp12 per-half source classes from the worksheet.
         lufp_v2_renorm_negative_fold_fused<7u, 8u>(r.c[0].c[0][0]);
@@ -1474,7 +1489,6 @@ namespace blst::bench_lufp_v2
         lufp_v2_renorm_negative_fold_fused<6u, 6u>(r.c[0].c[1][1]);
         lufp_v2_renorm_negative_fold_fused<5u, 4u>(r.c[0].c[2][0]);
         lufp_v2_renorm_negative_fold_fused<4u, 5u>(r.c[0].c[2][1]);
-
     }
 
     inline void mul_fp12_pack_lufpv2_fp6_safe_wide(UFp12Pack8x1& r, const Fp12Pack8x1& a, const Fp12Pack8x1& b)
