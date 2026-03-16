@@ -17,6 +17,7 @@ option(BLST_BENCHMARK    "Build benchmark executables" ON)
 option(BLST_CUDA         "Enable CUDA support" OFF)
 option(BLST_CUDA_MSM "Enable CUDA support" ${BLST_CUDA})
 option(BLST_PARALLEL_MSM "Enable parallel MSM pipeline sources/tests/benchmarks" OFF)
+option(BLST_CRNS_BATCH_VROOM_VENDOR "Build the vendored VROOM comparison backend" OFF)
 
 if( NOT DEFINED BLST_LIMB_SIZE)
 	set(BLST_LIMB_SIZE 64)
@@ -53,6 +54,7 @@ message("BLST_AVX512_PORTABLE = ${BLST_AVX512_PORTABLE}")  #
 message("BLST_CUDA            = ${BLST_CUDA}")     # enable the cude impl (gpu)
 message("BLST_CUDA_MSM        = ${BLST_CUDA_MSM}")     # enable the cude impl (gpu)
 message("BLST_PARALLEL_MSM    = ${BLST_PARALLEL_MSM}") # enable parallel MSM pipeline
+message("BLST_CRNS_BATCH_VROOM_VENDOR = ${BLST_CRNS_BATCH_VROOM_VENDOR}") # build vendored VROOM comparison backend
 message("BLST_FAST_BUILD      = ${BLST_FAST_BUILD}") # make the cude build faster but slower runtime.
 message("BLST_LIMB_SIZE       = ${BLST_LIMB_SIZE}") # 32 or 64.
 message("BLST_TEST            = ${BLST_TEST}")      # build tests
@@ -63,6 +65,24 @@ message(STATUS "C compiler: ${CMAKE_C_COMPILER}")
 message(STATUS "C++ compiler: ${CMAKE_CXX_COMPILER}")
 message(STATUS "C++ compiler ID: ${CMAKE_CXX_COMPILER_ID}")
 message(STATUS "C++ compiler version: ${CMAKE_CXX_COMPILER_VERSION}")
+
+if(BLST_CRNS_BATCH_VROOM_VENDOR)
+    find_path(BLST_GMP_INCLUDE_DIR gmpxx.h)
+    find_library(BLST_GMP_LIBRARY gmp)
+    find_library(BLST_GMPXX_LIBRARY gmpxx)
+
+    if(BLST_GMP_INCLUDE_DIR AND BLST_GMP_LIBRARY AND BLST_GMPXX_LIBRARY)
+        set(BLST_HAVE_CRNS_BATCH_VROOM_VENDOR ON)
+        message(STATUS "Vendored VROOM backend enabled")
+        message(STATUS "  GMP include: ${BLST_GMP_INCLUDE_DIR}")
+        message(STATUS "  GMP libs: ${BLST_GMPXX_LIBRARY};${BLST_GMP_LIBRARY}")
+    else()
+        set(BLST_HAVE_CRNS_BATCH_VROOM_VENDOR OFF)
+        message(WARNING "BLST_CRNS_BATCH_VROOM_VENDOR requested, but GMP/gmpxx was not found. Vendored VROOM targets will be skipped.")
+    endif()
+else()
+    set(BLST_HAVE_CRNS_BATCH_VROOM_VENDOR OFF)
+endif()
 
 
 # Make sure these vars are copied into the try-compile's cache.

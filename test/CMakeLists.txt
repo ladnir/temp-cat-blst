@@ -42,6 +42,10 @@ if(BLST_PARALLEL_MSM)
     list(APPEND TEST_SOURCES "Msm_tests.cpp")
 endif()
 
+if(BLST_HAVE_CRNS_BATCH_VROOM_VENDOR)
+    list(APPEND TEST_SOURCES "Vroom_vendor_tests.cpp")
+endif()
+
 # Add CUDA tests if CUDA is enabled
 if(BLST_CUDA)
     # Enable CUDA language
@@ -70,6 +74,10 @@ add_executable(blst_tests ${TEST_SOURCES})
 
 target_include_directories(blst_tests PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_link_libraries(blst_tests PRIVATE gtest_main blst_static)
+
+if(BLST_HAVE_CRNS_BATCH_VROOM_VENDOR)
+    target_link_libraries(blst_tests PRIVATE blst_vroom_vendor)
+endif()
 
 
 # Add CUDA tests if CUDA is enabled

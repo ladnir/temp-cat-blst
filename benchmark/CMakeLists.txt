@@ -59,6 +59,14 @@ if(BLST_PARALLEL_MSM)
     list(APPEND BENCHMARK_SOURCES "MSM_bench.cpp")
 endif()
 
+if(BLST_HAVE_CRNS_BATCH_VROOM_VENDOR)
+    list(APPEND BENCHMARK_SOURCES "Vroom_vendor_bench.cpp")
+endif()
+
+if(BLST_HAVE_CRNS_BATCH_VROOM_VENDOR AND (BLST_AVX512 OR BLST_AVX512_PORTABLE))
+    list(APPEND BENCHMARK_SOURCES "Fp12_compare_bench.cpp")
+endif()
+
 # Add CUDA benchmarks if CUDA is enabled
 #if(BLST_CUDA)
 #    # Enable CUDA language
@@ -90,6 +98,10 @@ add_executable(blst_benchmarks ${BENCHMARK_SOURCES})
 target_include_directories(blst_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_link_libraries(blst_benchmarks PRIVATE benchmark::benchmark blst_static)
 
+if(BLST_HAVE_CRNS_BATCH_VROOM_VENDOR)
+    target_link_libraries(blst_benchmarks PRIVATE blst_vroom_vendor)
+endif()
+
 # Set CUDA properties if CUDA is enabled
 if(BLST_CUDA)
     set_source_files_properties(${BENCHMARK_SOURCES} PROPERTIES LANGUAGE CUDA)
@@ -107,3 +119,15 @@ add_custom_target(run_benchmarks
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Running benchmarks..."
 )
+
+if(BLST_HAVE_CRNS_BATCH_VROOM_VENDOR)
+    add_executable(vroom_vendor_benchmark "Vroom_vendor_bench.cpp")
+    target_include_directories(vroom_vendor_benchmark PRIVATE ${CMAKE_CURRENT_LIST_DIR})
+    target_link_libraries(vroom_vendor_benchmark PRIVATE benchmark::benchmark_main benchmark::benchmark blst_vroom_vendor)
+endif()
+
+if(BLST_HAVE_CRNS_BATCH_VROOM_VENDOR AND (BLST_AVX512 OR BLST_AVX512_PORTABLE))
+    add_executable(fp12_compare_benchmark "Fp12_compare_bench.cpp")
+    target_include_directories(fp12_compare_benchmark PRIVATE ${CMAKE_CURRENT_LIST_DIR})
+    target_link_libraries(fp12_compare_benchmark PRIVATE benchmark::benchmark_main benchmark::benchmark blst_static blst_vroom_vendor)
+endif()
