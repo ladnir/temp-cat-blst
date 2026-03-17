@@ -1,6 +1,12 @@
 #include "blst/fields/Fp12_avx.h"
 #include "blst/backend/avx512/avx_layout.h"
 
+/*
+ * WARNING: This file is intentionally excluded from the active build during the
+ * VROOM backend reset. It is retained only as reference and must not be wired
+ * back into active code until the post-reset AVX API is defined.
+ */
+
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 
 #include <array>

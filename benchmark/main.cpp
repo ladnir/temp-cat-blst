@@ -2,7 +2,6 @@
 #include <benchmark/benchmark.h>
 #include <cstring>
 #include <iostream>
-#include "avxbls_bench.h"
 
 #ifdef BLST_CUDA
 #include "blst/fields/Fp12.h"
@@ -705,7 +704,7 @@ void user(int argc, char** argv)
 	//FpMain();
 	if (argc > 2 && argv[2] && strcmp(argv[2], "--avxbls") == 0)
 	{
-		run_avxbls_cycle_bench(argc, argv);
+		std::cout << "--avxbls is intentionally disabled during the VROOM backend reset." << std::endl;
 		return;
 	}
 
@@ -737,7 +736,7 @@ void user(int argc, char** argv)
 	}
 
 
-	std::cout << "use --avxbls, --pp, --soa or --tile" << std::endl;
+	std::cout << "use --pp, --soa or --tile" << std::endl;
 	//G1Main();
 }
 
@@ -746,13 +745,13 @@ void user(int argc, char** argv)
 void user(int argc, char** argv)
 {
 	if (argc > 2 && argv[2] && strcmp(argv[2], "--avxbls") == 0) {
-		run_avxbls_cycle_bench(argc, argv);
+		std::cout << "--avxbls is intentionally disabled during the VROOM backend reset." << std::endl;
 		return;
 	}
 
 	(void)argc;
 	(void)argv;
-	std::cout << "BLST_CUDA is disabled; only --user --avxbls is available in this build." << std::endl;
+	std::cout << "BLST_CUDA is disabled." << std::endl;
 }
 
 #endif

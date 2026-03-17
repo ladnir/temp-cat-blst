@@ -7,7 +7,6 @@
 #include "blst/backend/backend.h"
 #include "blst/fields/Fp12.h"
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-#include "blst/fields/Fp12_avx.h"
 #endif
 #include <string.h>
 #include "blst/fields/Fr.h"
@@ -849,65 +848,53 @@ namespace blst
 
 	BLST_HD FP12_CPP_INLINE void Fp12::mul(Fp12& ret, const Fp12& a, const Fp12& b)
 	{
-#if BLST_DEFAULT_AVX && !defined(__CUDA_ARCH__)
-		mul_avx(ret, a, b);
-#else
 		mul_scalar(ret, a, b);
-#endif
 	}
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 	FP12_CPP_INLINE void Fp12::mul_avx(Fp12& ret, const Fp12& a, const Fp12& b)
 	{
-		mul_fp12_vector(ret, a, b);
+		BLST_ASSERT(false && "TODO: Fp12 packed AVX backend is intentionally disabled during the VROOM reset");
+		mul_scalar(ret, a, b);
 	}
 #endif
 
 	BLST_HD FP12_CPP_INLINE void Fp12::sqr(Fp12& ret, const Fp12& a)
 	{
-#if BLST_DEFAULT_AVX && !defined(__CUDA_ARCH__)
-		sqr_avx(ret, a);
-#else
 		sqr_scalar(ret, a);
-#endif
 	}
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 	FP12_CPP_INLINE void Fp12::sqr_avx(Fp12& ret, const Fp12& a)
 	{
-		sqr_fp12_vector(ret, a);
+		BLST_ASSERT(false && "TODO: Fp12 packed AVX backend is intentionally disabled during the VROOM reset");
+		sqr_scalar(ret, a);
 	}
 #endif
 
 	BLST_HD FP12_CPP_INLINE void Fp12::mul_by_xy00z0(Fp12& ret, const Fp12& a, const Fp6& xy00z0)
 	{
-#if BLST_DEFAULT_AVX && !defined(__CUDA_ARCH__)
-		mul_by_xy00z0_avx(ret, a, xy00z0);
-#else
 		mul_by_xy00z0_scalar(ret, a, xy00z0);
-#endif
 	}
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 	FP12_CPP_INLINE void Fp12::mul_by_xy00z0_avx(Fp12& ret, const Fp12& a, const Fp6& xy00z0)
 	{
-		mul_by_xy00z0_fp12_vector(ret, a, xy00z0);
+		BLST_ASSERT(false && "TODO: Fp12 packed AVX backend is intentionally disabled during the VROOM reset");
+		mul_by_xy00z0_scalar(ret, a, xy00z0);
 	}
 #endif
 
 	BLST_HD FP12_CPP_INLINE void Fp12::cyclotomic_sqr(Fp12& ret, const Fp12& a)
 	{
-#if BLST_DEFAULT_AVX && !defined(__CUDA_ARCH__)
-		cyclotomic_sqr_avx(ret, a);
-#else
 		cyclotomic_sqr_scalar(ret, a);
-#endif
 	}
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 	FP12_CPP_INLINE void Fp12::cyclotomic_sqr_avx(Fp12& ret, const Fp12& a)
 	{
-		cyclotomic_sqr_fp12_vector(ret, a);
+		BLST_ASSERT(false && "TODO: Fp12 packed AVX backend is intentionally disabled during the VROOM reset");
+		cyclotomic_sqr_scalar(ret, a);
 	}
 #endif
 

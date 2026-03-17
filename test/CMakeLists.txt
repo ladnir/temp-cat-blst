@@ -18,10 +18,6 @@ FetchContent_MakeAvailable(googletest)
 set(TEST_SOURCES
     "Fp_avx_tests.cpp"
     "Fp2_avx_tests.cpp"
-    "Fp4_avx_tests.cpp"
-    "Fp6_avx_tests.cpp"
-    "Fp12_avx_tests.cpp"
-    "G2_avx_tests.cpp"
     "Fp_tests.cpp" 
     "Fp2_tests.cpp" 
     "Fp12_tests.cpp" 
@@ -30,9 +26,7 @@ set(TEST_SOURCES
     "G1_tests.cpp"
     "G2_tests.cpp"
     "GT_tests.cpp"
-    "GT_avx_tests.cpp"
     "Pairing_tests.cpp"
-    "Pairing_avx_tests.cpp"
     "Interface_tests.cpp"
     "Fft_tests.cpp"
     "avx512_compat_test.cpp" 
@@ -40,10 +34,6 @@ set(TEST_SOURCES
 
 if(BLST_PARALLEL_MSM)
     list(APPEND TEST_SOURCES "Msm_tests.cpp")
-endif()
-
-if(BLST_HAVE_CRNS_BATCH_VROOM_VENDOR)
-    list(APPEND TEST_SOURCES "Vroom_vendor_tests.cpp")
 endif()
 
 # Add CUDA tests if CUDA is enabled
@@ -74,10 +64,6 @@ add_executable(blst_tests ${TEST_SOURCES})
 
 target_include_directories(blst_tests PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_link_libraries(blst_tests PRIVATE gtest_main blst_static)
-
-if(BLST_HAVE_CRNS_BATCH_VROOM_VENDOR)
-    target_link_libraries(blst_tests PRIVATE blst_vroom_vendor)
-endif()
 
 
 # Add CUDA tests if CUDA is enabled

@@ -27,12 +27,6 @@ if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
     list(APPEND BLST_STATIC_SRC
         "fields/Fp_avx.cpp"
         "fields/Fp2_avx.cpp"
-        "fields/Fp4_avx.cpp"
-        "fields/Fp6_avx.cpp"
-        "fields/Fp12_avx.cpp"
-        "curve/G2_avx.cpp"
-        "curve/GT_avx.cpp"
-        "curve/pairing_avx.cpp"
     )
 endif()
 
@@ -183,35 +177,6 @@ configure_file(
 )
 
 target_include_directories(blst_static PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-
-if(BLST_HAVE_CRNS_BATCH_VROOM_VENDOR)
-    add_library(blst_vroom_vendor STATIC "crns_batch/VroomLiteral.cpp")
-    target_compile_definitions(blst_vroom_vendor PUBLIC BLST_CRNS_BATCH_VROOM_VENDOR)
-    target_compile_options(blst_vroom_vendor PUBLIC ${BLST_OPTS})
-    target_compile_options(blst_vroom_vendor PUBLIC
-      $<$<COMPILE_LANGUAGE:CUDA>:--std=c++20>
-      $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:MSVC>>:/std:c++latest>
-      $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-std=c++23>
-    )
-    target_include_directories(blst_vroom_vendor PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)
-    target_include_directories(blst_vroom_vendor PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/..)
-    target_include_directories(blst_vroom_vendor PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-    target_include_directories(blst_vroom_vendor PUBLIC ${BLST_GMP_INCLUDE_DIR})
-    target_link_libraries(blst_vroom_vendor PUBLIC blst_static ${BLST_GMPXX_LIBRARY} ${BLST_GMP_LIBRARY})
-
-    if(NOT MSVC)
-        target_compile_definitions(blst_vroom_vendor PUBLIC __ADX__)
-        target_compile_options(blst_vroom_vendor PUBLIC
-            -mavx512ifma
-            -Wno-sign-conversion
-            -Wno-unused-function
-            -Wno-ignored-attributes
-            -Wno-unknown-pragmas
-        )
-    endif()
-endif()
-
-
 
 if(BLST_CUDA)
     enable_language(CUDA)

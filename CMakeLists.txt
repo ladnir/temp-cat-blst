@@ -67,22 +67,9 @@ message(STATUS "C++ compiler ID: ${CMAKE_CXX_COMPILER_ID}")
 message(STATUS "C++ compiler version: ${CMAKE_CXX_COMPILER_VERSION}")
 
 if(BLST_CRNS_BATCH_VROOM_VENDOR)
-    find_path(BLST_GMP_INCLUDE_DIR gmpxx.h)
-    find_library(BLST_GMP_LIBRARY gmp)
-    find_library(BLST_GMPXX_LIBRARY gmpxx)
-
-    if(BLST_GMP_INCLUDE_DIR AND BLST_GMP_LIBRARY AND BLST_GMPXX_LIBRARY)
-        set(BLST_HAVE_CRNS_BATCH_VROOM_VENDOR ON)
-        message(STATUS "Vendored VROOM backend enabled")
-        message(STATUS "  GMP include: ${BLST_GMP_INCLUDE_DIR}")
-        message(STATUS "  GMP libs: ${BLST_GMPXX_LIBRARY};${BLST_GMP_LIBRARY}")
-    else()
-        set(BLST_HAVE_CRNS_BATCH_VROOM_VENDOR OFF)
-        message(WARNING "BLST_CRNS_BATCH_VROOM_VENDOR requested, but GMP/gmpxx was not found. Vendored VROOM targets will be skipped.")
-    endif()
-else()
-    set(BLST_HAVE_CRNS_BATCH_VROOM_VENDOR OFF)
+    message(WARNING "BLST_CRNS_BATCH_VROOM_VENDOR is temporarily unavailable during the VROOM backend reset.")
 endif()
+set(BLST_HAVE_CRNS_BATCH_VROOM_VENDOR OFF)
 
 
 # Make sure these vars are copied into the try-compile's cache.

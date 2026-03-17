@@ -1,6 +1,12 @@
 #ifndef BLST_CURVE_G2_AVX_H
 #define BLST_CURVE_G2_AVX_H
 
+/*
+ * WARNING: This file is intentionally excluded from the active build during the
+ * VROOM backend reset. It is retained only as reference and must not be wired
+ * back into active code until the post-reset AVX API is defined.
+ */
+
 #include "blst/fields/Fp2_avx.h"
 #include "blst/fields/Fp12.h"
 #include "blst/curve/point.h"
