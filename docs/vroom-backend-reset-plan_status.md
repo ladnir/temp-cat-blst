@@ -210,3 +210,89 @@ This document records the concrete execution baseline and current status for
 - gate interpretation:
   - both required checkpoint medians are within the `5%` default pass rule
   - no persistent directional drift is visible in this checkpoint
+
+## Phase 6 Status
+
+- added a scalar `Fp12` multiplication baseline benchmark:
+  - `benchmark/Vroom_fp12_scalar_baseline_bench.cpp`
+  - benchmark name: `BM_FP12_ScalarMulBaseline`
+- aligned direct VROOM and scalar `Fp12` benchmark inputs through one shared
+  seeded coefficient helper:
+  - `blst/vroom/tests/vroom_basefield_test_utils.hpp`
+  - `blst/vroom/bench/Vroom_fp12_bench.cpp`
+- added a repeatable remote parity runner:
+  - `scripts/run_vroom_remote_parity.sh`
+- parity runner behavior:
+  - packages the current `blst` worktree snapshot over `HEAD`
+  - packages upstream VROOM from pinned commit
+    `31e98bbf7f32e1345299d4276dd6a5bc44dc0b69`
+  - uploads both snapshots to the AVX-512 server
+  - rebuilds both sides with Clang 21 and `-O3 -march=native`
+  - runs:
+    - upstream `BM_ModMul`
+    - upstream `BM_FP12_Mul`
+    - in-tree `BM_ModMul`
+    - in-tree `BM_FP12_Mul`
+    - in-tree scalar `BM_FP12_ScalarMulBaseline`
+  - writes JSON reports plus a text summary under `out/vroom-parity/<run-id>/`
+- latest scripted remote parity result:
+  - run id: `20260317T193705Z`
+  - report directory: `out/vroom-parity/20260317T193705Z/`
+  - upstream `BM_ModMul` median: `35.938 ns`
+  - in-tree `BM_ModMul` median: `35.969 ns`
+  - median drift: `+0.085%`
+  - upstream `BM_FP12_Mul` median: `431.805 ns`
+  - in-tree `BM_FP12_Mul` median: `432.173 ns`
+  - median drift: `+0.085%`
+  - scalar `BM_FP12_ScalarMulBaseline` median: `1836.087 ns`
+  - parity result: pass for both required gates
+- local validation after Phase 6 wiring:
+  - `cmake --build out/build/x64-Debug --config Debug --target blst_benchmarks`
+    succeeded
+  - `ctest --test-dir out/build/x64-Debug --output-on-failure -C Debug` passed
+  - passing test count: `250/250`
+
+## Phase 7 Status
+
+- added the next isolated copied-VROOM `Fp12` operation:
+  - cyclotomic square via `FP12Ring::fp12_flat_cyclotomic_sqr`
+- added deterministic correctness coverage:
+  - `blst/vroom/tests/Vroom_fp12_tests.cpp`
+  - test name: `VroomFp12.CyclotomicSqrMatchesScalarBlstFp12`
+  - input shape:
+    - seeded scalar `Fp12`
+    - scalar `final_exp` to enter the cyclotomic subgroup
+    - convert back to copied VROOM coefficients
+- added direct benchmark parity coverage:
+  - `blst/vroom/bench/Vroom_fp12_cyclotomic_bench.cpp`
+  - benchmark name: `BM_FP12_CyclotomicSqr`
+- added scalar reference benchmark:
+  - `benchmark/Vroom_fp12_scalar_cyclotomic_baseline_bench.cpp`
+  - benchmark name: `BM_FP12_ScalarCyclotomicSqrBaseline`
+- benchmark-layout note:
+  - adding `BM_FP12_CyclotomicSqr` into the existing `Vroom_fp12_bench.cpp`
+    translation unit caused a persistent `BM_FP12_Mul` parity miss just above the
+    `5%` gate
+  - the cyclotomic benchmark and scalar cyclotomic baseline were moved into their
+    own translation units to restore the previously established `BM_FP12_Mul`
+    benchmark shape
+  - after that split, `BM_FP12_Mul` parity returned to pass
+- latest scripted remote parity result:
+  - run id: `20260317T200410Z`
+  - report directory: `out/vroom-parity/20260317T200410Z/`
+  - upstream `BM_ModMul` median: `35.939 ns`
+  - in-tree `BM_ModMul` median: `35.986 ns`
+  - median drift: `+0.130%`
+  - upstream `BM_FP12_Mul` median: `431.938 ns`
+  - in-tree `BM_FP12_Mul` median: `431.931 ns`
+  - median drift: `-0.002%`
+  - upstream `BM_FP12_CyclotomicSqr` median: `349.855 ns`
+  - in-tree `BM_FP12_CyclotomicSqr` median: `350.132 ns`
+  - median drift: `+0.079%`
+  - scalar `BM_FP12_ScalarMulBaseline` median: `1834.359 ns`
+  - scalar `BM_FP12_ScalarCyclotomicSqrBaseline` median: `825.861 ns`
+  - parity result: pass for all tracked gates
+- local validation after Phase 7 wiring:
+  - `cmake --build out/build/x64-Debug --config Debug` succeeded
+  - `ctest --test-dir out/build/x64-Debug --output-on-failure -C Debug` passed
+  - passing test count: `251/251`

@@ -9,6 +9,7 @@
 #include "blst/vroom/src/fp12.hpp"
 
 #include <array>
+#include <cstdint>
 #include <utility>
 
 namespace blst_vroom_test {
@@ -112,6 +113,19 @@ inline blst::Fp12 bigint_array_to_scalar_fp12(const std::array<BigInt, 12>& coef
     return out;
 }
 
+inline std::array<BigInt, 12> seeded_fp12_coeffs(uint64_t seed)
+{
+    const BigInt modulus = modulus_bigint();
+    gmp_randclass rng(gmp_randinit_default);
+    rng.seed(seed);
+
+    std::array<BigInt, 12> coeffs;
+    for (BigInt& coeff : coeffs) {
+        coeff = BigInt(rng.get_z_range(modulus.get_mpz()));
+    }
+    return coeffs;
+}
+
 inline VroomFp12 make_vroom_fp12(const VroomRing& ring, const std::array<BigInt, 12>& coeffs)
 {
     VroomFp12 out = {};
@@ -121,11 +135,36 @@ inline VroomFp12 make_vroom_fp12(const VroomRing& ring, const std::array<BigInt,
     return out;
 }
 
-inline std::array<BigInt, 12> vroom_fp12_to_bigints(const VroomRing& ring, const VroomFp12& value)
+inline VroomFp12 make_vroom_fp12_from_seed(const VroomRing& ring, uint64_t seed)
+{
+    return make_vroom_fp12(ring, seeded_fp12_coeffs(seed));
+}
+
+inline blst::Fp12 make_scalar_fp12_from_seed(uint64_t seed)
+{
+    return bigint_array_to_scalar_fp12(seeded_fp12_coeffs(seed));
+}
+
+inline blst::Fp12 make_scalar_cyclotomic_fp12_from_seed(uint64_t seed)
+{
+    blst::Fp12 out = make_scalar_fp12_from_seed(seed);
+    blst::Fp12::final_exp(out, out);
+    return out;
+}
+
+inline VroomFp12 make_vroom_cyclotomic_fp12_from_seed(const VroomRing& ring, uint64_t seed)
+{
+    return make_vroom_fp12(ring, scalar_fp12_to_bigints(make_scalar_cyclotomic_fp12_from_seed(seed)));
+}
+
+template<class VroomFp12Like>
+inline std::array<BigInt, 12> vroom_fp12_to_bigints(const VroomRing& ring, const VroomFp12Like& value)
 {
     std::array<BigInt, 12> out;
     for (size_t i = 0; i < out.size(); ++i) {
-        out[i] = ring.to_bigint(value[i]);
+        typename VroomRing::StandardElement canonical = {};
+        canonical.m2 = value[i].m2;
+        out[i] = ring.to_bigint(canonical);
     }
     return out;
 }

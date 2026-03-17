@@ -150,6 +150,34 @@ TEST(VroomFp12, SqrMatchesScalarBlstFp12)
     }
 }
 
+TEST(VroomFp12, CyclotomicSqrMatchesScalarBlstFp12)
+{
+    const VroomRing ring(blst_vroom_test::modulus_bigint());
+    const VroomFp12Ring fp12ring(ring);
+    const std::array<uint64_t, 4> seeds = {{42, 123, 456, 789}};
+
+    for (size_t case_idx = 0; case_idx < seeds.size(); ++case_idx) {
+        const uint64_t seed = seeds[case_idx];
+        const auto vroom_value = blst_vroom_test::make_vroom_cyclotomic_fp12_from_seed(ring, seed);
+        const auto vroom_result = fp12ring.fp12_flat_cyclotomic_sqr(vroom_value, ring);
+
+        const blst::Fp12 scalar_value = blst_vroom_test::make_scalar_cyclotomic_fp12_from_seed(seed);
+        ASSERT_TRUE(blst::Fp12::is_cyclotomic(scalar_value));
+
+        blst::Fp12 scalar_result = {};
+        blst::Fp12::cyclotomic_sqr(scalar_result, scalar_value);
+        ASSERT_TRUE(blst::Fp12::is_cyclotomic(scalar_result));
+
+        const auto vroom_bigints = blst_vroom_test::vroom_fp12_to_bigints(ring, vroom_result);
+        const auto scalar_bigints = blst_vroom_test::scalar_fp12_to_bigints(scalar_result);
+
+        for (size_t i = 0; i < vroom_bigints.size(); ++i) {
+            SCOPED_TRACE("case=" + std::to_string(case_idx) + " coeff=" + std::to_string(i));
+            EXPECT_EQ(vroom_bigints[i].to_string(), scalar_bigints[i].to_string());
+        }
+    }
+}
+
 TEST(VroomFp12, RoundTripBoundaryCoefficientsPreserveCanonicalValues)
 {
     const VroomRing ring(blst_vroom_test::modulus_bigint());

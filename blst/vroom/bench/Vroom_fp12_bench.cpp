@@ -11,16 +11,7 @@ using blst_vroom_test::VroomRing;
 
 VroomFp12Ring::StandardElement generate_random_fp12(const VroomRing& ring, uint64_t seed)
 {
-    VroomFp12Ring::StandardElement result = {};
-    const BigInt modulus = blst_vroom_test::modulus_bigint();
-    volatile uint64_t stable_seed = seed;
-    gmp_randclass rng(gmp_randinit_default);
-    rng.seed(stable_seed);
-
-    for (size_t i = 0; i < result.size(); ++i) {
-        result[i] = ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz())));
-    }
-    return result;
+    return blst_vroom_test::make_vroom_fp12_from_seed(ring, seed);
 }
 
 static void BM_FP12_Mul(benchmark::State& state)
