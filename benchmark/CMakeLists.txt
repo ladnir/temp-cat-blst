@@ -56,6 +56,8 @@ if(BLST_HAVE_VROOM_BASEFIELD)
     list(APPEND BENCHMARK_SOURCES "Vroom_fp12_scalar_baseline_bench.cpp")
     list(APPEND BENCHMARK_SOURCES "../blst/vroom/bench/Vroom_fp12_cyclotomic_bench.cpp")
     list(APPEND BENCHMARK_SOURCES "Vroom_fp12_scalar_cyclotomic_baseline_bench.cpp")
+    list(APPEND BENCHMARK_SOURCES "../blst/vroom/bench/Vroom_fp12_sparse_bench.cpp")
+    list(APPEND BENCHMARK_SOURCES "Vroom_fp12_sparse_scalar_baseline_bench.cpp")
 endif()
 
 if(BLST_PARALLEL_MSM)

@@ -8,6 +8,7 @@
 namespace {
 
 using blst_vroom_test::VroomFp12Ring;
+using blst_vroom_test::VroomFp12;
 using blst_vroom_test::VroomRing;
 
 std::array<BigInt, 12> make_linear_coeffs(const BigInt& modulus, uint64_t base, uint64_t stride)
@@ -176,6 +177,73 @@ TEST(VroomFp12, CyclotomicSqrMatchesScalarBlstFp12)
             EXPECT_EQ(vroom_bigints[i].to_string(), scalar_bigints[i].to_string());
         }
     }
+}
+
+TEST(VroomFp12, MulByXy00z0MatchesScalarBlstFp12)
+{
+    const VroomRing ring(blst_vroom_test::modulus_bigint());
+    const VroomFp12Ring fp12ring(ring);
+    const std::array<std::pair<uint64_t, uint64_t>, 4> seeds = {{
+        {42, 123},
+        {456, 789},
+        {17, 33},
+        {99, 7},
+    }};
+
+    for (size_t case_idx = 0; case_idx < seeds.size(); ++case_idx) {
+        const auto [x_seed, sparse_seed] = seeds[case_idx];
+        const auto vroom_value = blst_vroom_test::make_vroom_fp12_from_seed(ring, x_seed);
+        const auto sparse_coeffs = blst_vroom_test::make_vroom_sparse_fp6_from_seed(ring, sparse_seed);
+        const auto c_term = blst_vroom_test::make_vroom_fp2_from_sparse6(sparse_coeffs, 0);
+        const auto x_term = blst_vroom_test::make_vroom_fp2_from_sparse6(sparse_coeffs, 1);
+        const auto y_term = blst_vroom_test::make_vroom_fp2_from_sparse6(sparse_coeffs, 2);
+
+        VroomFp12 result = {};
+        fp12ring.flat_mulxy00z0(result, vroom_value, c_term, x_term, y_term, ring);
+
+        const blst::Fp12 scalar_value = blst_vroom_test::make_scalar_fp12_from_seed(x_seed);
+        const blst::Fp6 scalar_sparse = blst_vroom_test::make_scalar_sparse_fp6_from_seed(sparse_seed);
+        blst::Fp12 scalar_result = {};
+        blst::Fp12::mul_by_xy00z0(scalar_result, scalar_value, scalar_sparse);
+
+        const auto vroom_bigints = blst_vroom_test::vroom_fp12_to_bigints(ring, result);
+        const auto scalar_bigints = blst_vroom_test::scalar_fp12_to_bigints(scalar_result);
+
+        for (size_t i = 0; i < vroom_bigints.size(); ++i) {
+            SCOPED_TRACE("case=" + std::to_string(case_idx) + " coeff=" + std::to_string(i));
+            EXPECT_EQ(vroom_bigints[i].to_string(), scalar_bigints[i].to_string());
+        }
+    }
+}
+
+TEST(VroomFp12, MulByXy00z0FixedVectorsMatchScalarBlstFp12)
+{
+    const VroomRing ring(blst_vroom_test::modulus_bigint());
+    const VroomFp12Ring fp12ring(ring);
+    const BigInt modulus = blst_vroom_test::modulus_bigint();
+    const auto fp12_coeffs = make_boundary_coeffs(modulus);
+    const std::array<BigInt, 6> sparse_coeffs = {
+        BigInt(1), BigInt(2), BigInt(3), BigInt(5), BigInt(8), BigInt(13),
+    };
+
+    const auto vroom_value = blst_vroom_test::make_vroom_fp12(ring, fp12_coeffs);
+    const auto sparse_vroom = blst_vroom_test::make_vroom_sparse_fp6_coeffs(ring, sparse_coeffs);
+    const auto c_term = blst_vroom_test::make_vroom_fp2_from_sparse6(sparse_vroom, 0);
+    const auto x_term = blst_vroom_test::make_vroom_fp2_from_sparse6(sparse_vroom, 1);
+    const auto y_term = blst_vroom_test::make_vroom_fp2_from_sparse6(sparse_vroom, 2);
+
+    VroomFp12 result = {};
+    fp12ring.flat_mulxy00z0(result, vroom_value, c_term, x_term, y_term, ring);
+
+    const blst::Fp12 scalar_value = blst_vroom_test::bigint_array_to_scalar_fp12(fp12_coeffs);
+    const blst::Fp6 scalar_sparse = blst_vroom_test::bigint_array_to_scalar_fp6(sparse_coeffs);
+    blst::Fp12 scalar_result = {};
+    blst::Fp12::mul_by_xy00z0(scalar_result, scalar_value, scalar_sparse);
+
+    expect_fp12_bigints_equal(
+        blst_vroom_test::vroom_fp12_to_bigints(ring, result),
+        blst_vroom_test::scalar_fp12_to_bigints(scalar_result),
+        "fixed sparse mul");
 }
 
 TEST(VroomFp12, RoundTripBoundaryCoefficientsPreserveCanonicalValues)

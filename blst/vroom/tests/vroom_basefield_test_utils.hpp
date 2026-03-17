@@ -157,6 +157,52 @@ inline VroomFp12 make_vroom_cyclotomic_fp12_from_seed(const VroomRing& ring, uin
     return make_vroom_fp12(ring, scalar_fp12_to_bigints(make_scalar_cyclotomic_fp12_from_seed(seed)));
 }
 
+inline std::array<BigInt, 6> seeded_sparse_fp6_coeffs(uint64_t seed)
+{
+    const BigInt modulus = modulus_bigint();
+    gmp_randclass rng(gmp_randinit_default);
+    rng.seed(seed);
+
+    std::array<BigInt, 6> coeffs;
+    for (BigInt& coeff : coeffs) {
+        coeff = BigInt(rng.get_z_range(modulus.get_mpz()));
+    }
+    return coeffs;
+}
+
+inline blst::Fp6 bigint_array_to_scalar_fp6(const std::array<BigInt, 6>& coeffs)
+{
+    blst::Fp6 out = {};
+    out[0] = bigint_pair_to_scalar_fp2(coeffs[0], coeffs[1]);
+    out[1] = bigint_pair_to_scalar_fp2(coeffs[2], coeffs[3]);
+    out[2] = bigint_pair_to_scalar_fp2(coeffs[4], coeffs[5]);
+    return out;
+}
+
+inline blst::Fp6 make_scalar_sparse_fp6_from_seed(uint64_t seed)
+{
+    return bigint_array_to_scalar_fp6(seeded_sparse_fp6_coeffs(seed));
+}
+
+inline std::array<VroomRing::StandardElement, 6> make_vroom_sparse_fp6_coeffs(const VroomRing& ring, const std::array<BigInt, 6>& coeffs)
+{
+    std::array<VroomRing::StandardElement, 6> out = {};
+    for (size_t i = 0; i < out.size(); ++i) {
+        out[i] = ring.from_bigint(coeffs[i]);
+    }
+    return out;
+}
+
+inline std::array<VroomRing::StandardElement, 6> make_vroom_sparse_fp6_from_seed(const VroomRing& ring, uint64_t seed)
+{
+    return make_vroom_sparse_fp6_coeffs(ring, seeded_sparse_fp6_coeffs(seed));
+}
+
+inline VroomFp2 make_vroom_fp2_from_sparse6(const std::array<VroomRing::StandardElement, 6>& coeffs, size_t pair_idx)
+{
+    return VroomFp2(coeffs[pair_idx * 2], coeffs[pair_idx * 2 + 1]);
+}
+
 template<class VroomFp12Like>
 inline std::array<BigInt, 12> vroom_fp12_to_bigints(const VroomRing& ring, const VroomFp12Like& value)
 {

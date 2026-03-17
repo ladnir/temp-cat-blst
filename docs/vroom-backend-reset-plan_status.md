@@ -256,6 +256,8 @@ This document records the concrete execution baseline and current status for
 
 - added the next isolated copied-VROOM `Fp12` operation:
   - cyclotomic square via `FP12Ring::fp12_flat_cyclotomic_sqr`
+- added the next pairing-adjacent copied-VROOM `Fp12` operation:
+  - sparse multiplication via `FP12Ring::flat_mulxy00z0`
 - added deterministic correctness coverage:
   - `blst/vroom/tests/Vroom_fp12_tests.cpp`
   - test name: `VroomFp12.CyclotomicSqrMatchesScalarBlstFp12`
@@ -266,9 +268,15 @@ This document records the concrete execution baseline and current status for
 - added direct benchmark parity coverage:
   - `blst/vroom/bench/Vroom_fp12_cyclotomic_bench.cpp`
   - benchmark name: `BM_FP12_CyclotomicSqr`
+- added direct sparse benchmark parity coverage:
+  - `blst/vroom/bench/Vroom_fp12_sparse_bench.cpp`
+  - benchmark name: `BM_FP12_MulByXy0z00`
 - added scalar reference benchmark:
   - `benchmark/Vroom_fp12_scalar_cyclotomic_baseline_bench.cpp`
   - benchmark name: `BM_FP12_ScalarCyclotomicSqrBaseline`
+- added scalar sparse reference benchmark:
+  - `benchmark/Vroom_fp12_sparse_scalar_baseline_bench.cpp`
+  - benchmark name: `BM_FP12_ScalarMulByXy0z00Baseline`
 - benchmark-layout note:
   - adding `BM_FP12_CyclotomicSqr` into the existing `Vroom_fp12_bench.cpp`
     translation unit caused a persistent `BM_FP12_Mul` parity miss just above the
@@ -278,21 +286,25 @@ This document records the concrete execution baseline and current status for
     benchmark shape
   - after that split, `BM_FP12_Mul` parity returned to pass
 - latest scripted remote parity result:
-  - run id: `20260317T200410Z`
-  - report directory: `out/vroom-parity/20260317T200410Z/`
-  - upstream `BM_ModMul` median: `35.939 ns`
-  - in-tree `BM_ModMul` median: `35.986 ns`
-  - median drift: `+0.130%`
-  - upstream `BM_FP12_Mul` median: `431.938 ns`
-  - in-tree `BM_FP12_Mul` median: `431.931 ns`
-  - median drift: `-0.002%`
-  - upstream `BM_FP12_CyclotomicSqr` median: `349.855 ns`
-  - in-tree `BM_FP12_CyclotomicSqr` median: `350.132 ns`
-  - median drift: `+0.079%`
-  - scalar `BM_FP12_ScalarMulBaseline` median: `1834.359 ns`
-  - scalar `BM_FP12_ScalarCyclotomicSqrBaseline` median: `825.861 ns`
+  - run id: `20260317T201950Z`
+  - report directory: `out/vroom-parity/20260317T201950Z/`
+  - upstream `BM_ModMul` median: `35.948 ns`
+  - in-tree `BM_ModMul` median: `36.012 ns`
+  - median drift: `+0.177%`
+  - upstream `BM_FP12_Mul` median: `431.739 ns`
+  - in-tree `BM_FP12_Mul` median: `432.647 ns`
+  - median drift: `+0.210%`
+  - upstream `BM_FP12_CyclotomicSqr` median: `349.897 ns`
+  - in-tree `BM_FP12_CyclotomicSqr` median: `349.949 ns`
+  - median drift: `+0.015%`
+  - upstream `BM_FP12_MulByXy0z00` median: `363.573 ns`
+  - in-tree `BM_FP12_MulByXy0z00` median: `362.540 ns`
+  - median drift: `-0.284%`
+  - scalar `BM_FP12_ScalarMulBaseline` median: `1834.011 ns`
+  - scalar `BM_FP12_ScalarCyclotomicSqrBaseline` median: `824.584 ns`
+  - scalar `BM_FP12_ScalarMulByXy0z00Baseline` median: `1244.392 ns`
   - parity result: pass for all tracked gates
 - local validation after Phase 7 wiring:
   - `cmake --build out/build/x64-Debug --config Debug` succeeded
   - `ctest --test-dir out/build/x64-Debug --output-on-failure -C Debug` passed
-  - passing test count: `251/251`
+  - passing test count: `253/253`
