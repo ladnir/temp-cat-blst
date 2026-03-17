@@ -50,6 +50,11 @@ else()
     )
 endif()
 
+if(BLST_HAVE_VROOM_BASEFIELD)
+    list(APPEND BENCHMARK_SOURCES "../blst/vroom/bench/Vroom_basefield_bench.cpp")
+    list(APPEND BENCHMARK_SOURCES "../blst/vroom/bench/Vroom_fp12_bench.cpp")
+endif()
+
 if(BLST_PARALLEL_MSM)
     list(APPEND BENCHMARK_SOURCES "MSM_bench.cpp")
 endif()
@@ -83,7 +88,16 @@ endif()
 add_executable(blst_benchmarks ${BENCHMARK_SOURCES})
 
 target_include_directories(blst_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(blst_benchmarks PRIVATE benchmark::benchmark blst_static)
+target_link_libraries(blst_benchmarks PRIVATE benchmark::benchmark blst_static blst_vroom_headers)
+
+if(BLST_HAVE_VROOM_BASEFIELD AND MSVC)
+    add_custom_command(TARGET blst_benchmarks POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<$<CONFIG:Debug>:${BLST_VROOM_MPIR_DEBUG_DLL}>
+            $<$<NOT:$<CONFIG:Debug>>:${BLST_VROOM_MPIR_RELEASE_DLL}>
+            $<TARGET_FILE_DIR:blst_benchmarks>
+    )
+endif()
 
 # Set CUDA properties if CUDA is enabled
 if(BLST_CUDA)
