@@ -3,7 +3,10 @@
 #include "blst/fields/Fp.h"
 #include "blst/fields/Fp2.h"
 #include "blst/fields/Fp12.h"
+#include "blst/curve/GT.h"
+#include "blst/curve/point.h"
 #include "blst/vroom/cpu/precompute/gmp_wrapper.hpp"
+#include "blst/vroom/src/ec.hpp"
 #include "blst/vroom/src/bounded_ring.hpp"
 #include "blst/vroom/src/fp2.hpp"
 #include "blst/vroom/src/fp12.hpp"
@@ -19,9 +22,24 @@ using VroomFp2Ring = FP2Ring<VroomRing>;
 using VroomFp2 = VroomFp2Ring::StandardElement;
 using VroomFp12Ring = FP12Ring<VroomRing>;
 using VroomFp12 = VroomFp12Ring::StandardElement;
+using VroomAffineFp = AffinePoint<VroomRing::StandardElement>;
+using VroomAffineFp2 = AffinePoint<VroomFp2>;
+using VroomProjectiveFp2 = ProjectivePoint<VroomFp2>;
 
 inline constexpr char kBls12_381BaseModulus[] =
     "4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787";
+inline constexpr char kG1GeneratorX[] =
+    "3685416753713387016781088315183077757961620795782546409894578378688607592378376318836054947676345821548104185464507";
+inline constexpr char kG1GeneratorY[] =
+    "1339506544944476473020471379941921221584933875938349620426543736416511423956333506472724655353366534992391756441569";
+inline constexpr char kG2GeneratorXC0[] =
+    "352701069587466618187139116011060144890029952792775240219908644239793785735715026873347600343865175952761926303160";
+inline constexpr char kG2GeneratorXC1[] =
+    "3059144344244213709971259814753781636986470325476647558659373206291635324768958432433509563104347017837885763365758";
+inline constexpr char kG2GeneratorYC0[] =
+    "1985150602287291935568054521177171638300868978215655730859378665066344726373823718423869104263333984641494340347905";
+inline constexpr char kG2GeneratorYC1[] =
+    "927553665492332455747201965776037880757740193453592970025027978793976877002675564980949289727957565575433344219582";
 
 inline BigInt modulus_bigint()
 {
@@ -75,6 +93,118 @@ inline std::pair<BigInt, BigInt> scalar_fp2_to_bigints(const blst::Fp2& value)
 inline VroomFp2 make_vroom_fp2(const VroomRing& ring, const BigInt& x, const BigInt& y)
 {
     return VroomFp2(ring.from_bigint(x), ring.from_bigint(y));
+}
+
+inline blst::G1AffinePoint make_scalar_g1_generator_affine()
+{
+    blst::G1AffinePoint affine = {};
+    affine.X = bigint_to_scalar_fp(BigInt(kG1GeneratorX, 10));
+    affine.Y = bigint_to_scalar_fp(BigInt(kG1GeneratorY, 10));
+    return affine;
+}
+
+inline blst::G2AffinePoint make_scalar_g2_generator_affine()
+{
+    blst::G2AffinePoint affine = {};
+    affine.X = bigint_pair_to_scalar_fp2(BigInt(kG2GeneratorXC0, 10), BigInt(kG2GeneratorXC1, 10));
+    affine.Y = bigint_pair_to_scalar_fp2(BigInt(kG2GeneratorYC0, 10), BigInt(kG2GeneratorYC1, 10));
+    return affine;
+}
+
+inline blst::G1AffinePoint make_scalar_g1_doubled_affine()
+{
+    const blst::G1Point generator = blst::G1Point::generator();
+    blst::G1Point doubled = {};
+    blst::G1Point::doubling(doubled, generator);
+
+    blst::G1AffinePoint affine = {};
+    blst::G1Point::to_affine(affine, doubled);
+    return affine;
+}
+
+inline blst::G2AffinePoint make_scalar_g2_doubled_affine()
+{
+    const blst::G2Point generator = blst::G2Point::generator();
+    blst::G2Point doubled = {};
+    blst::G2Point::doubling(doubled, generator);
+
+    blst::G2AffinePoint affine = {};
+    blst::G2Point::to_affine(affine, doubled);
+    return affine;
+}
+
+inline VroomAffineFp make_vroom_g1_affine(const VroomRing& ring, const blst::G1AffinePoint& point)
+{
+    return {
+        ring.from_bigint(scalar_fp_to_bigint(point.X)),
+        ring.from_bigint(scalar_fp_to_bigint(point.Y)),
+    };
+}
+
+inline VroomAffineFp2 make_vroom_g2_affine(const VroomRing& ring, const blst::G2AffinePoint& point)
+{
+    const auto x = scalar_fp2_to_bigints(point.X);
+    const auto y = scalar_fp2_to_bigints(point.Y);
+    return {
+        make_vroom_fp2(ring, x.first, x.second),
+        make_vroom_fp2(ring, y.first, y.second),
+    };
+}
+
+inline VroomAffineFp make_vroom_g1_generator_affine(const VroomRing& ring)
+{
+    return make_vroom_g1_affine(ring, make_scalar_g1_generator_affine());
+}
+
+inline VroomAffineFp2 make_vroom_g2_generator_affine(const VroomRing& ring)
+{
+    return make_vroom_g2_affine(ring, make_scalar_g2_generator_affine());
+}
+
+inline blst::G1AffinePoint make_scalar_px2(const blst::G1AffinePoint& point)
+{
+    blst::G1AffinePoint px2 = {};
+    blst::Fp::add(px2.X, point.X, point.X);
+    blst::Fp::neg(px2.X, px2.X);
+    blst::Fp::add(px2.Y, point.Y, point.Y);
+    return px2;
+}
+
+inline blst::Fp12 make_scalar_miller_first_step(const blst::G1AffinePoint& p, const blst::G2AffinePoint& q)
+{
+    blst::Fp6 qlines[68] = {};
+    blst::GT::precompute_lines(qlines, q);
+
+    const blst::G1AffinePoint px2 = make_scalar_px2(p);
+    blst::Fp6 line = {};
+    line[0] = qlines[0][0];
+    line[1] = qlines[0][1];
+    line[2] = qlines[0][2];
+
+    blst::Fp::mul(line[1][0], line[1][0], px2.X);
+    blst::Fp::mul(line[1][1], line[1][1], px2.X);
+    blst::Fp::mul(line[2][0], line[2][0], px2.Y);
+    blst::Fp::mul(line[2][1], line[2][1], px2.Y);
+
+    blst::Fp12 out = {};
+    out[0][0] = line[0];
+    out[0][1] = line[1];
+    out[1][1] = line[2];
+    return out;
+}
+
+inline blst::GT make_scalar_miller_loop(const blst::G1AffinePoint& p, const blst::G2AffinePoint& q)
+{
+    blst::GT result = {};
+    blst::GT::miller_loop(result, &q, &p);
+    return result;
+}
+
+inline blst::GT make_scalar_final_pairing(const blst::G1AffinePoint& p, const blst::G2AffinePoint& q)
+{
+    blst::GT result = make_scalar_miller_loop(p, q);
+    blst::GT::final_mult(result, result);
+    return result;
 }
 
 inline std::array<BigInt, 12> scalar_fp12_to_bigints(const blst::Fp12& value)

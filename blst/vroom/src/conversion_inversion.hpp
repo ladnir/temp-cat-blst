@@ -1,251 +1,295 @@
 #pragma once
-#include "../cpu/vector/vector_impl.hpp"
-#include "../cpu/precompute/gmp_wrapper.hpp"
-#include <array>
-#include <stdint.h>
-#include <cstring>
-#include <string>
-#include "constexpr_utils.hpp"
-#include "../blst/vect.h"
-#include "../blst/fields.h"
 
-// Forward declaration - function is in blst/recip.c
-extern "C" {
-    void ct_inverse_mod_384_wrapper(vec384 out, const vec384 inp);
-    void blst_fp12_inverse(vec384fp12 ret, const vec384fp12 a);
-}
-#include "../blst/consts.h"
 #include "fp12.hpp"
+#include "../cpu/vector/vector_impl.hpp"
+
+#include "blst/fields/Fp.h"
+#include "blst/fields/Fp12.h"
+
+#include <array>
+#include <cstddef>
+#include <cstring>
+
+namespace vroom_blst_scalar_bridge {
+
+inline blst::Fp bigint_to_scalar_fp(const BigInt& value)
+{
+    blst::Fp standard = {};
+    size_t written = 0;
+    mpz_export(standard.data, &written, -1, sizeof(standard.data[0]), 0, 0, value.get_mpz().get_mpz_t());
+
+    blst::Fp mont = {};
+    blst::Fp::to_mont(mont, standard);
+    return mont;
+}
+
+inline BigInt scalar_fp_to_bigint(const blst::Fp& value)
+{
+    blst::Fp standard = {};
+    blst::Fp::from_mont(standard, value);
+
+    mpz_class out;
+    mpz_import(out.get_mpz_t(), blst::Fp::num_limb(), -1, sizeof(standard.data[0]), 0, 0, standard.data);
+    return BigInt(out);
+}
+
+template<class Ring>
+inline blst::Fp ring_to_scalar_fp(const Ring& ring, const typename Ring::StandardElement& value)
+{
+    return bigint_to_scalar_fp(ring.to_bigint(value));
+}
+
+template<class Ring>
+inline typename Ring::StandardElement scalar_fp_to_ring(const Ring& ring, const blst::Fp& value)
+{
+    return ring.from_bigint(scalar_fp_to_bigint(value));
+}
+
+template<class Ring>
+inline blst::Fp12 ring_fp12_to_scalar(
+    const Ring& ring,
+    const std::array<typename Ring::StandardElement, 12>& value)
+{
+    blst::Fp12 out = {};
+    out[0][0][0] = ring_to_scalar_fp(ring, value[0]);
+    out[0][0][1] = ring_to_scalar_fp(ring, value[1]);
+    out[0][1][0] = ring_to_scalar_fp(ring, value[2]);
+    out[0][1][1] = ring_to_scalar_fp(ring, value[3]);
+    out[0][2][0] = ring_to_scalar_fp(ring, value[4]);
+    out[0][2][1] = ring_to_scalar_fp(ring, value[5]);
+    out[1][0][0] = ring_to_scalar_fp(ring, value[6]);
+    out[1][0][1] = ring_to_scalar_fp(ring, value[7]);
+    out[1][1][0] = ring_to_scalar_fp(ring, value[8]);
+    out[1][1][1] = ring_to_scalar_fp(ring, value[9]);
+    out[1][2][0] = ring_to_scalar_fp(ring, value[10]);
+    out[1][2][1] = ring_to_scalar_fp(ring, value[11]);
+    return out;
+}
+
+template<class Ring>
+inline std::array<typename Ring::StandardElement, 12> scalar_fp12_to_ring(
+    const Ring& ring,
+    const blst::Fp12& value)
+{
+    return {
+        scalar_fp_to_ring(ring, value[0][0][0]),
+        scalar_fp_to_ring(ring, value[0][0][1]),
+        scalar_fp_to_ring(ring, value[0][1][0]),
+        scalar_fp_to_ring(ring, value[0][1][1]),
+        scalar_fp_to_ring(ring, value[0][2][0]),
+        scalar_fp_to_ring(ring, value[0][2][1]),
+        scalar_fp_to_ring(ring, value[1][0][0]),
+        scalar_fp_to_ring(ring, value[1][0][1]),
+        scalar_fp_to_ring(ring, value[1][1][0]),
+        scalar_fp_to_ring(ring, value[1][1][1]),
+        scalar_fp_to_ring(ring, value[1][2][0]),
+        scalar_fp_to_ring(ring, value[1][2][1]),
+    };
+}
+
+}  // namespace vroom_blst_scalar_bridge
+
+namespace vroom_blst_direct_bridge {
 
 template<int limbs>
-AVXVector<limbs> to_vec(uint8_t *le_buf) {
-    // Convert from vec384 format (6×64-bit limbs) to RNS format (8×52-bit limbs)
-    // Input: 384 bits in little-endian 64-bit limbs
-    // Output: 8×52-bit limbs (416 bits, but top bits will be zero)
-    
+AVXVector<limbs> to_vec(uint8_t* le_buf)
+{
     static_assert(limbs == 8, "to_vec currently only supports 8 limbs");
-    
-    uint64_t *limbs_64 = (uint64_t *)le_buf;
-    std::array<uint64_t, 8> digits;
-    
-    // Extract 8×52-bit limbs from 6×64-bit limbs
-    // Limb 0: bits [0:52) from limbs_64[0]
+
+    uint64_t* limbs_64 = reinterpret_cast<uint64_t*>(le_buf);
+    std::array<uint64_t, 8> digits = {};
+
     digits[0] = limbs_64[0] & ((1ULL << 52) - 1);
-    
-    // Limb 1: bits [52:104) = bits [52:64) from limbs_64[0] + bits [0:40) from limbs_64[1]
     digits[1] = ((limbs_64[0] >> 52) | (limbs_64[1] << 12)) & ((1ULL << 52) - 1);
-    
-    // Limb 2: bits [104:156) = bits [40:64) from limbs_64[1] + bits [0:28) from limbs_64[2]
     digits[2] = ((limbs_64[1] >> 40) | (limbs_64[2] << 24)) & ((1ULL << 52) - 1);
-    
-    // Limb 3: bits [156:208) = bits [28:64) from limbs_64[2] + bits [0:16) from limbs_64[3]
     digits[3] = ((limbs_64[2] >> 28) | (limbs_64[3] << 36)) & ((1ULL << 52) - 1);
-    
-    // Limb 4: bits [208:260) = bits [16:64) from limbs_64[3] + bits [0:4) from limbs_64[4]
     digits[4] = ((limbs_64[3] >> 16) | (limbs_64[4] << 48)) & ((1ULL << 52) - 1);
-    
-    // Limb 5: bits [260:312) = bits [4:56) from limbs_64[4]
     digits[5] = (limbs_64[4] >> 4) & ((1ULL << 52) - 1);
-    
-    // Limb 6: bits [312:364) = bits [56:64) from limbs_64[4] + bits [0:44) from limbs_64[5]
     digits[6] = ((limbs_64[4] >> 56) | (limbs_64[5] << 8)) & ((1ULL << 52) - 1);
-    
-    // Limb 7: bits [364:416) = bits [44:64) from limbs_64[5] (only 20 bits, rest is zero)
     digits[7] = (limbs_64[5] >> 44) & ((1ULL << 52) - 1);
-    
+
     return AVXVector<limbs>(digits);
 }
 
-template<bool montgomery=false>
-void from_vec(AVXVector<8> &vec_lo, AVXVector<8> &vec_hi, vec384 ret) {
-    std::array<uint64_t, 8> digits_lo;
-    std::array<uint64_t, 8> digits_hi;
+template<bool montgomery = false>
+void from_vec(AVXVector<8>& vec_lo, AVXVector<8>& vec_hi, blst::Fp& ret)
+{
+    std::array<uint64_t, 8> digits_lo = {};
+    std::array<uint64_t, 8> digits_hi = {};
     vec_hi.store(digits_hi.data());
     vec_lo.store(digits_lo.data());
-    std::array<uint64_t, 8 + 1> digits;
+
+    std::array<uint64_t, 9> digits = {};
     digits[0] = digits_lo[0];
-    for (int i = 1; i < 8; i++) {
+    for (int i = 1; i < 8; ++i) {
         digits[i] = digits_hi[i - 1] + digits_lo[i];
     }
     digits[8] = digits_hi[7];
-    vec768 n_data_even_64;
-    vec768 n_data_odd_64;
-    uint8_t *n_data_even = (uint8_t *) n_data_even_64;
-    uint8_t *n_data_odd = (uint8_t *) n_data_odd_64;
-    memset(n_data_even, 0, sizeof(vec768));
-    memset(n_data_odd, 0, sizeof(vec768));
+
+    const blst::Fp& kRR = blst::get_BLST_RR();
+    blst::UFp n_data_even_64 = {};
+    blst::UFp n_data_odd_64 = {};
+    uint8_t* n_data_even = reinterpret_cast<uint8_t*>(n_data_even_64.data);
+    uint8_t* n_data_odd = reinterpret_cast<uint8_t*>(n_data_odd_64.data);
+
     for (int i = 0; i < 9; i += 2) {
-        *(uint64_t *)(n_data_even + (i / 2) * 13) = digits[i];
+        *reinterpret_cast<uint64_t*>(n_data_even + (i / 2) * 13) = digits[i];
     }
     for (int i = 1; i < 8; i += 2) {
-        *(uint64_t *)(n_data_odd + (i / 2) * 13 + 6) = digits[i] << 4;
+        *reinterpret_cast<uint64_t*>(n_data_odd + (i / 2) * 13 + 6) = digits[i] << 4;
     }
-    
-    // Add n_data_even and n_data_odd together with carry propagation
-    vec768 sum;
-    memset(sum, 0, sizeof(vec768));
+
+    blst::UFp sum = {};
     uint64_t carry = 0;
-    for (int i = 0; i < 9; i++) {
-        uint64_t a = n_data_even_64[i];
-        uint64_t b = n_data_odd_64[i];
+    for (int i = 0; i < 9; ++i) {
+        uint64_t a = n_data_even_64.data[i];
+        uint64_t b = n_data_odd_64.data[i];
         uint64_t s = a + b + carry;
-        sum[i] = s;
+        sum.data[i] = s;
         carry = (s < a) || (carry && s == a) ? 1 : 0;
     }
-    // Always: redc_fp -> multiply by RR -> redc_fp (gives normal form)
-    vec384 temp;
-    redc_fp(temp, sum);  // temp = sum * R^-1 mod p
-    vec768 prod;
-    mul_384(prod, temp, BLS12_381_RR);  // prod = sum * R
-    redc_fp(ret, prod);  // ret = sum (normal form)
-    
-    if (montgomery) {
-        // For Montgomery form: multiply by RR again
-        vec768 prod2;
-        mul_384(prod2, ret, BLS12_381_RR);  // prod2 = sum * R^2
-        redc_fp(ret, prod2);  // ret = sum * R (Montgomery form)
+
+    blst::Fp temp = {};
+    blst::Fp::redc(temp, sum);
+    blst::Fp::mul(ret, temp, kRR);
+
+    if constexpr (montgomery) {
+        blst::Fp mont = {};
+        blst::Fp::to_mont(mont, ret);
+        ret = mont;
     }
 }
 
-
-template<class Ring, bool montgomery=false>
-void convert_to_int(const Ring & ring, typename Ring::StandardElement & a, vec384 ret) {
+template<class Ring, bool montgomery = false>
+void convert_to_int(const Ring& ring, typename Ring::StandardElement& a, blst::Fp& ret)
+{
     AVXVector<8> out_hi = AVXVector<8>(0);
     AVXVector<8> out_lo = AVXVector<8>(0);
     ring.sys.convert_from.conversion_matrix.rns_reduce_raw(a.m2.data, out_hi, out_lo);
     from_vec<montgomery>(out_lo, out_hi, ret);
 }
 
-template<class Ring, bool montgomery=false>
-auto convert_to_rns(const Ring & ring, const vec384 ret) {
-    vec384 temp_ret;
+template<class Ring, bool montgomery = false>
+auto convert_to_rns(const Ring& ring, const blst::Fp& value)
+{
+    blst::Fp canonical = {};
     if constexpr (montgomery) {
-        from_fp(temp_ret, ret);
+        blst::Fp::from_mont(canonical, value);
     } else {
-        vec_copy(temp_ret, ret, sizeof(vec384));
+        canonical = value;
     }
-    AVXVector<8> l = to_vec<8>((uint8_t *) temp_ret);
+
+    AVXVector<8> l = to_vec<8>(reinterpret_cast<uint8_t*>(canonical.data));
     return ring.template convert_to_rns_batch<1>(std::array<AVXVector<8>, 1>{l})[0];
 }
 
 template<class Ring>
-auto invert_via_blst(const Ring & ring, typename Ring::StandardElement & a) {
-    vec384 ret;
-    convert_to_int<Ring, false>(ring, a, ret);
-    ct_inverse_mod_384_wrapper(ret, ret);
-    return convert_to_rns<Ring, false>(ring, ret);
+blst::Fp ring_to_scalar_fp(const Ring& ring, const typename Ring::StandardElement& value)
+{
+    typename Ring::StandardElement mutable_value = value;
+    blst::Fp mont = {};
+    convert_to_int<Ring, true>(ring, mutable_value, mont);
+    return mont;
+}
+
+template<class Ring>
+typename Ring::StandardElement scalar_fp_to_ring(const Ring& ring, const blst::Fp& value)
+{
+    return convert_to_rns<Ring, true>(ring, value);
+}
+
+template<class Ring>
+blst::Fp12 ring_fp12_to_scalar(
+    const Ring& ring,
+    const std::array<typename Ring::StandardElement, 12>& value)
+{
+    blst::Fp12 out = {};
+    out[0][0][0] = ring_to_scalar_fp(ring, value[0]);
+    out[0][0][1] = ring_to_scalar_fp(ring, value[1]);
+    out[0][1][0] = ring_to_scalar_fp(ring, value[2]);
+    out[0][1][1] = ring_to_scalar_fp(ring, value[3]);
+    out[0][2][0] = ring_to_scalar_fp(ring, value[4]);
+    out[0][2][1] = ring_to_scalar_fp(ring, value[5]);
+    out[1][0][0] = ring_to_scalar_fp(ring, value[6]);
+    out[1][0][1] = ring_to_scalar_fp(ring, value[7]);
+    out[1][1][0] = ring_to_scalar_fp(ring, value[8]);
+    out[1][1][1] = ring_to_scalar_fp(ring, value[9]);
+    out[1][2][0] = ring_to_scalar_fp(ring, value[10]);
+    out[1][2][1] = ring_to_scalar_fp(ring, value[11]);
+    return out;
+}
+
+template<class Ring>
+std::array<typename Ring::StandardElement, 12> scalar_fp12_to_ring(
+    const Ring& ring,
+    const blst::Fp12& value)
+{
+    return {
+        scalar_fp_to_ring(ring, value[0][0][0]),
+        scalar_fp_to_ring(ring, value[0][0][1]),
+        scalar_fp_to_ring(ring, value[0][1][0]),
+        scalar_fp_to_ring(ring, value[0][1][1]),
+        scalar_fp_to_ring(ring, value[0][2][0]),
+        scalar_fp_to_ring(ring, value[0][2][1]),
+        scalar_fp_to_ring(ring, value[1][0][0]),
+        scalar_fp_to_ring(ring, value[1][0][1]),
+        scalar_fp_to_ring(ring, value[1][1][0]),
+        scalar_fp_to_ring(ring, value[1][1][1]),
+        scalar_fp_to_ring(ring, value[1][2][0]),
+        scalar_fp_to_ring(ring, value[1][2][1]),
+    };
+}
+
+}  // namespace vroom_blst_direct_bridge
+
+template<class Ring>
+auto invert_via_blst(const Ring& ring, typename Ring::StandardElement& a)
+{
+    blst::Fp scalar = vroom_blst_scalar_bridge::ring_to_scalar_fp(ring, a);
+    blst::Fp inverse = {};
+    blst::Fp::reciprocal(inverse, scalar);
+    return vroom_blst_scalar_bridge::scalar_fp_to_ring(ring, inverse);
 }
 
 template<class Ring>
 class BLSTInverter {
-    public:
+public:
     using StandardElement = typename Ring::StandardElement;
 
-    StandardElement invert(const StandardElement &a, const Ring &ring) const {
-        return invert_via_blst(ring, const_cast<StandardElement&>(a));
+    StandardElement invert(const StandardElement& a, const Ring& ring) const
+    {
+        StandardElement mutable_a = a;
+        return invert_via_blst(ring, mutable_a);
     }
 };
 
-// Convert FP12 (12 ring elements) from ring form to BLST Montgomery form,
-// call blst_fp12_inverse, convert back to ring form
 template<class Ring>
 std::array<typename Ring::StandardElement, 12> invert_fp12_via_blst(
     const Ring& ring,
-    const std::array<typename Ring::StandardElement, 12>& fp12_ring
-) {
-    // Step 1: Convert ring form to BLST Montgomery form using convert_to_int
-    vec384fp12 fp12_mont;
-    // vec384fp12 is vec384fp6[2], vec384fp6 is vec384x[3], vec384x is vec384[2]
-    // For index i (0-11): fp12_mont[i/6][(i%6)/2][i%2]
-    for (int i = 0; i < 12; i++) {
-        convert_to_int<Ring, true>(ring, const_cast<typename Ring::StandardElement&>(fp12_ring[i]), 
-                       fp12_mont[i/6][(i%6)/2][i%2]);
-    }
-    
-    // Step 2: Call blst_fp12_inverse
-    vec384fp12 fp12_inv_mont;
-    blst_fp12_inverse(fp12_inv_mont, fp12_mont);
-    
-    // Step 3: Convert BLST Montgomery form back to ring form using convert_to_rns
-    std::array<typename Ring::StandardElement, 12> fp12_inv_ring;
-    for (int i = 0; i < 12; i++) {
-        fp12_inv_ring[i] = convert_to_rns<Ring, true>(ring, fp12_inv_mont[i/6][(i%6)/2][i%2]);
-    }
-    
-    return fp12_inv_ring;
-}
-
-// --- BigInt-based FP12 inversion via BLST ---
-// This path converts ring -> BigInt (normal form) -> vec384 Montgomery (BLST),
-// calls blst_fp12_inverse, then converts back to BigInt (normal form) -> ring.
-static inline void bigint_to_vec384_normal(vec384 out, const BigInt& a) {
-    // Assumes `a` is already in normal form and non-negative (e.g. output of ring.to_bigint()).
-    std::string hex_str = a.to_string(16);
-    while (hex_str.length() < 96) {
-        hex_str = "0" + hex_str;
-    }
-
-    memset(out, 0, sizeof(vec384));
-    for (int i = 0; i < 6; i++) {
-        std::string limb_hex = hex_str.substr((5 - i) * 16, 16);
-        out[i] = std::stoull(limb_hex, nullptr, 16);
-    }
-}
-
-static inline BigInt vec384_normal_to_bigint(const vec384 a) {
-    BigInt result(0);
-    BigInt two_to_64 = BigInt(1) << 64;
-    for (int i = 5; i >= 0; i--) {
-        result = result * two_to_64 + BigInt(static_cast<unsigned long>(a[i]));
-    }
-    return result;
-}
-
-static inline void bigint_to_vec384_montgomery(vec384 out, const BigInt& a) {
-    vec384 normal;
-    bigint_to_vec384_normal(normal, a);
-
-    // out = normal * R^2 mod p
-    vec768 prod;
-    mul_384(prod, normal, BLS12_381_RR);
-    redc_fp(out, prod);
-}
-
-static inline BigInt vec384_montgomery_to_bigint(const vec384 a) {
-    vec384 normal;
-    from_fp(normal, a);
-    return vec384_normal_to_bigint(normal);
+    const std::array<typename Ring::StandardElement, 12>& fp12_ring)
+{
+    blst::Fp12 scalar = vroom_blst_direct_bridge::ring_fp12_to_scalar(ring, fp12_ring);
+    blst::Fp12 inverse = {};
+    blst::Fp12::inverse(inverse, scalar);
+    return vroom_blst_direct_bridge::scalar_fp12_to_ring(ring, inverse);
 }
 
 template<class Ring>
 std::array<typename Ring::StandardElement, 12> invert_fp12_via_blst_bigint(
     const Ring& ring,
-    const std::array<typename Ring::StandardElement, 12>& fp12_ring
-) {
-    vec384fp12 fp12_mont;
-    for (int i = 0; i < 12; i++) {
-        BigInt v = ring.to_bigint(fp12_ring[i]);
-        bigint_to_vec384_montgomery(fp12_mont[i/6][(i%6)/2][i%2], v);
-    }
-
-    vec384fp12 fp12_inv_mont;
-    blst_fp12_inverse(fp12_inv_mont, fp12_mont);
-
-    std::array<BigInt, 12> inv_bigints;
-    for (int i = 0; i < 12; i++) {
-        inv_bigints[i] = vec384_montgomery_to_bigint(fp12_inv_mont[i/6][(i%6)/2][i%2]);
-    }
-
-    return ring.template from_bigint_batch<12>(inv_bigints);
+    const std::array<typename Ring::StandardElement, 12>& fp12_ring)
+{
+    return invert_fp12_via_blst(ring, fp12_ring);
 }
 
-// FP12 inversion provider using invert_fp12_via_blst_bigint
 template<class Ring>
 class FP12BLSTInverter {
 public:
     using StandardElement = std::array<typename Ring::StandardElement, 12>;
     using FP12R = FP12Ring<Ring>;
-    StandardElement invert(const StandardElement& f, const FP12R& /* fp12ring */, const Ring& ring) const {
+
+    StandardElement invert(const StandardElement& f, const FP12R&, const Ring& ring) const
+    {
         return invert_fp12_via_blst(ring, f);
     }
 };
@@ -255,11 +299,12 @@ class FP12RNS_BLSTInverter {
 public:
     using FP12R = FP12Ring<Ring>;
     using StandardElement = typename FP12R::StandardElement;
-
     using Inverter = BLSTInverter<Ring>;
+
     Inverter inverter;
 
-    StandardElement invert(const StandardElement& f, const FP12R& fp12ring, const Ring& ring) const {
+    StandardElement invert(const StandardElement& f, const FP12R& fp12ring, const Ring& ring) const
+    {
         return fp12ring.template fp12_flat_inverse<Inverter>(f, inverter, ring);
     }
 };

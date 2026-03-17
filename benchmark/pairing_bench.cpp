@@ -38,7 +38,7 @@ static void generate_random_g2_point(G2Point& p) {
 // ========== PAIRING BENCHMARKS ==========
 
 // Benchmark for Miller loop (single pairing)
-static void BM_MillerLoop(benchmark::State& state) {
+static void BM_BlstScalarMillerLoop(benchmark::State& state) {
     G1Point g1;
     G2Point g2;
     generate_random_g1_point(g1);
@@ -56,7 +56,7 @@ static void BM_MillerLoop(benchmark::State& state) {
     }
     state.SetItemsProcessed(state.iterations());
 }
-BENCHMARK(BM_MillerLoop);
+BENCHMARK(BM_BlstScalarMillerLoop);
 
 // Benchmark for final exponentiation
 static void BM_FinalExp(benchmark::State& state) {

@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include "blst/vroom/src/conversion_inversion.hpp"
 #include "blst/vroom/tests/vroom_basefield_test_utils.hpp"
 
 #include <array>
@@ -262,6 +263,28 @@ TEST(VroomFp12, RoundTripBoundaryCoefficientsPreserveCanonicalValues)
         const auto round_trip = blst_vroom_test::vroom_fp12_to_bigints(ring, vroom_value);
 
         expect_fp12_bigints_equal(round_trip, coeffs, "round-trip case=" + std::to_string(case_idx));
+    }
+}
+
+TEST(VroomFp12, BlstInverterMatchesScalarBlstInverse)
+{
+    const VroomRing ring(blst_vroom_test::modulus_bigint());
+    const std::array<uint64_t, 4> seeds = {{42, 123, 456, 789}};
+
+    for (size_t case_idx = 0; case_idx < seeds.size(); ++case_idx) {
+        const uint64_t seed = seeds[case_idx];
+        const auto coeffs = blst_vroom_test::seeded_fp12_coeffs(seed);
+        const auto vroom_value = blst_vroom_test::make_vroom_fp12(ring, coeffs);
+        const auto vroom_inverse = invert_fp12_via_blst(ring, vroom_value);
+
+        const blst::Fp12 scalar_value = blst_vroom_test::bigint_array_to_scalar_fp12(coeffs);
+        blst::Fp12 scalar_inverse = {};
+        blst::Fp12::inverse(scalar_inverse, scalar_value);
+
+        expect_fp12_bigints_equal(
+            blst_vroom_test::vroom_fp12_to_bigints(ring, vroom_inverse),
+            blst_vroom_test::scalar_fp12_to_bigints(scalar_inverse),
+            "inverse case=" + std::to_string(case_idx));
     }
 }
 

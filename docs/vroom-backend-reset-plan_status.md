@@ -308,3 +308,244 @@ This document records the concrete execution baseline and current status for
   - `cmake --build out/build/x64-Debug --config Debug` succeeded
   - `ctest --test-dir out/build/x64-Debug --output-on-failure -C Debug` passed
   - passing test count: `253/253`
+
+## Phase 8 Status
+
+- added copied-VROOM Miller benchmark coverage:
+  - `blst/vroom/bench/Vroom_miller_bench.cpp`
+  - benchmark names:
+    - `BM_MillerLoop_DoubleStep`
+    - `BM_MillerLoop_AddStep`
+    - `BM_MillerLoop`
+- added copied-VROOM Miller correctness coverage through scalar final
+  exponentiation:
+  - `blst/vroom/tests/Vroom_miller_tests.cpp`
+  - test name:
+    - `VroomPairing.MillerLoopThenScalarFinalExpMatchesScalarBlstOnReferencePairs`
+  - reference cases:
+    - generator `G1` with generator `G2`
+    - doubled `G1` with generator `G2`
+    - generator `G1` with doubled `G2`
+  - validation shape:
+    - run copied VROOM `miller_loop`
+    - convert the copied VROOM `Fp12` result into scalar `blst::Fp12`
+    - run scalar `blst::Fp12::final_exp`
+    - compare against scalar `blst::GT::miller_loop` plus `final_mult`
+- extended shared test helpers for copied-VROOM pairing inputs:
+  - upstream VROOM generator constants are now centralized in
+    `blst/vroom/tests/vroom_basefield_test_utils.hpp`
+  - scalar and copied-VROOM pairing fixtures now derive from the same
+    coordinate source
+- extended the remote parity runner:
+  - `scripts/run_vroom_remote_parity.sh` now also runs:
+    - upstream `BM_MillerLoop_DoubleStep`
+    - upstream `BM_MillerLoop_AddStep`
+    - upstream `BM_MillerLoop`
+    - in-tree `BM_MillerLoop_DoubleStep`
+    - in-tree `BM_MillerLoop_AddStep`
+    - in-tree `BM_MillerLoop`
+- benchmark naming note:
+  - the benchmark binary already contained a scalar `BM_MillerLoop` in
+    `benchmark/pairing_bench.cpp`
+  - that scalar benchmark was renamed to `BM_BlstScalarMillerLoop` so the
+    copied-VROOM `BM_MillerLoop` parity benchmark has a unique name
+- latest scripted remote parity result:
+  - run id: `20260317T213033Z`
+  - report directory: `out/vroom-parity/20260317T213033Z/`
+  - upstream `BM_ModMul` median: `35.959 ns`
+  - in-tree `BM_ModMul` median: `35.953 ns`
+  - median drift: `-0.017%`
+  - upstream `BM_FP12_Mul` median: `431.813 ns`
+  - in-tree `BM_FP12_Mul` median: `431.794 ns`
+  - median drift: `-0.004%`
+  - upstream `BM_FP12_CyclotomicSqr` median: `349.883 ns`
+  - in-tree `BM_FP12_CyclotomicSqr` median: `350.148 ns`
+  - median drift: `+0.076%`
+  - upstream `BM_FP12_MulByXy0z00` median: `363.524 ns`
+  - in-tree `BM_FP12_MulByXy0z00` median: `362.795 ns`
+  - median drift: `-0.201%`
+  - upstream `BM_MillerLoop_DoubleStep` median: `901.819 ns`
+  - in-tree `BM_MillerLoop_DoubleStep` median: `905.982 ns`
+  - median drift: `+0.462%`
+  - upstream `BM_MillerLoop_AddStep` median: `990.510 ns`
+  - in-tree `BM_MillerLoop_AddStep` median: `994.841 ns`
+  - median drift: `+0.437%`
+  - upstream `BM_MillerLoop` median: `86933.714 ns`
+  - in-tree `BM_MillerLoop` median: `87157.637 ns`
+  - median drift: `+0.258%`
+  - scalar `BM_FP12_ScalarMulBaseline` median: `1836.211 ns`
+  - scalar `BM_FP12_ScalarCyclotomicSqrBaseline` median: `824.246 ns`
+  - scalar `BM_FP12_ScalarMulByXy0z00Baseline` median: `1241.542 ns`
+  - parity result: pass for all tracked gates
+- local validation after Phase 8 wiring:
+  - `cmake --build out/build/x64-Debug --config Debug --target blst_tests`
+    succeeded
+  - `cmake --build out/build/x64-Debug --config Debug --target blst_benchmarks`
+    succeeded
+  - `./test/blst_tests.exe --gtest_filter=VroomPairing.*` passed
+  - `ctest --test-dir out/build/x64-Debug --output-on-failure -C Debug` passed
+  - passing test count: `254/254`
+  - local benchmark smoke passed for:
+    - `BM_MillerLoop_DoubleStep`
+    - `BM_MillerLoop_AddStep`
+    - `BM_MillerLoop`
+
+## Phase 9 Status
+
+- added the in-tree copied-VROOM full pairing wrapper path:
+  - `blst/vroom/src/pairing.hpp`
+  - now exercised directly in-tree through both:
+    - `FP12BLSTInverter`
+    - `FP12RNS_BLSTInverter`
+- replaced the dead low-level conversion bridge in:
+  - `blst/vroom/src/conversion_inversion.hpp`
+  - current bridge strategy:
+    - convert copied VROOM field elements to scalar `blst::Fp` / `blst::Fp12`
+    - use scalar `blst` inversion routines
+    - convert back into copied VROOM ring elements
+  - this is a real implementation path, not a mock, but it does not yet reuse
+    the old `avxbls/src` low-level inverse entry points because those exact
+    wrapper symbols are not present in this repository build
+- added direct correctness coverage for the copied-VROOM pairing wrapper:
+  - `blst/vroom/tests/Vroom_pairing_tests.cpp`
+  - test names:
+    - `VroomPairing.PairingBlstInverterMatchesScalarBlst`
+    - `VroomPairing.PairingRnsBlstInverterMatchesScalarBlst`
+  - reference cases:
+    - generator `G1` with generator `G2`
+    - doubled `G1` with generator `G2`
+    - generator `G1` with doubled `G2`
+- added direct wrapper benchmarks:
+  - `blst/vroom/bench/Vroom_pairing_bench.cpp`
+  - benchmark names:
+    - `BM_Pairing_BLST_Inverter`
+    - `BM_Pairing_RNS_BLST_Inverter`
+- added scalar full-pairing baseline benchmark:
+  - `benchmark/Vroom_pairing_scalar_baseline_bench.cpp`
+  - benchmark name:
+    - `BM_BlstScalarPairingFinalExp`
+- extended the remote parity runner:
+  - `scripts/run_vroom_remote_parity.sh` now also runs:
+    - upstream `BM_Pairing_BLST_Inverter`
+    - upstream `BM_Pairing_RNS_BLST_Inverter`
+    - in-tree `BM_Pairing_BLST_Inverter`
+    - in-tree `BM_Pairing_RNS_BLST_Inverter`
+    - scalar `BM_BlstScalarPairingFinalExp`
+- latest scripted remote parity result:
+  - run id: `20260317T220552Z`
+  - report directory: `out/vroom-parity/20260317T220552Z/`
+  - upstream `BM_ModMul` median: `35.918 ns`
+  - in-tree `BM_ModMul` median: `35.926 ns`
+  - median drift: `+0.024%`
+  - upstream `BM_FP12_Mul` median: `431.972 ns`
+  - in-tree `BM_FP12_Mul` median: `428.666 ns`
+  - median drift: `-0.765%`
+  - upstream `BM_FP12_CyclotomicSqr` median: `349.905 ns`
+  - in-tree `BM_FP12_CyclotomicSqr` median: `349.915 ns`
+  - median drift: `+0.003%`
+  - upstream `BM_FP12_MulByXy0z00` median: `363.572 ns`
+  - in-tree `BM_FP12_MulByXy0z00` median: `362.278 ns`
+  - median drift: `-0.356%`
+  - upstream `BM_MillerLoop_DoubleStep` median: `901.611 ns`
+  - in-tree `BM_MillerLoop_DoubleStep` median: `898.226 ns`
+  - median drift: `-0.375%`
+  - upstream `BM_MillerLoop_AddStep` median: `990.613 ns`
+  - in-tree `BM_MillerLoop_AddStep` median: `993.133 ns`
+  - median drift: `+0.254%`
+  - upstream `BM_MillerLoop` median: `86921.294 ns`
+  - in-tree `BM_MillerLoop` median: `87142.792 ns`
+  - median drift: `+0.255%`
+  - upstream `BM_Pairing_BLST_Inverter` median: `230432.620 ns`
+  - in-tree `BM_Pairing_BLST_Inverter` median: `260506.403 ns`
+  - median drift: `+13.051%`
+  - upstream `BM_Pairing_RNS_BLST_Inverter` median: `225867.415 ns`
+  - in-tree `BM_Pairing_RNS_BLST_Inverter` median: `226668.142 ns`
+  - median drift: `+0.355%`
+  - scalar `BM_BlstScalarPairingFinalExp` median: `584363.667 ns`
+  - parity result:
+    - pass for `BM_Pairing_RNS_BLST_Inverter`
+    - fail for `BM_Pairing_BLST_Inverter`
+- interpretation of the remaining gap:
+  - the full copied-VROOM pairing wrapper path is now present and correct
+  - the RNS-backed wrapper path is already within the `5%` parity gate
+  - the direct `FP12BLSTInverter` path still pays too much conversion and/or
+    inversion overhead compared with upstream and needs a dedicated follow-up
+- local validation after Phase 9 wiring:
+  - `cmake --build out/build/x64-Debug --config Debug --target blst_tests`
+    succeeded
+  - `cmake --build out/build/x64-Debug --config Debug --target blst_benchmarks`
+    succeeded
+  - `./test/blst_tests.exe --gtest_filter=VroomPairing.*` passed
+  - `ctest --test-dir out/build/x64-Debug --output-on-failure -C Debug` passed
+  - passing test count: `256/256`
+  - local benchmark smoke passed for:
+    - `BM_Pairing_BLST_Inverter`
+    - `BM_Pairing_RNS_BLST_Inverter`
+    - `BM_BlstScalarPairingFinalExp`
+
+## Phase 10 Status
+
+- closed the remaining `FP12BLSTInverter` parity gap in:
+  - `blst/vroom/src/conversion_inversion.hpp`
+- bridge change:
+  - kept the scalar `BigInt` bridge for the single-field `BLSTInverter`
+    helper used by the already-passing RNS inverse path
+  - replaced the `FP12BLSTInverter` hot-path bridge with a direct
+    ring-to-`blst::Fp12` conversion using native `blst::Fp` / `blst::UFp`
+    types
+  - this avoids the old per-coefficient `BigInt` conversion cost inside the
+    full pairing benchmark
+- implementation note:
+  - an attempted direct include of the old `avxbls/src` C headers exposed an
+    include-guard collision with the in-tree `blst` headers
+  - the final fix avoids that collision entirely by using the current
+    repository's `blst::Fp`, `blst::UFp`, and Montgomery helpers instead of
+    trying to force the legacy C header path through the build
+- added direct correctness coverage for the new bridge:
+  - `blst/vroom/tests/Vroom_fp12_tests.cpp`
+  - new test:
+    - `VroomFp12.BlstInverterMatchesScalarBlstInverse`
+- latest scripted remote parity result:
+  - run id: `20260317T230024Z`
+  - report directory: `out/vroom-parity/20260317T230024Z/`
+  - upstream `BM_ModMul` median: `35.950 ns`
+  - in-tree `BM_ModMul` median: `35.978 ns`
+  - median drift: `+0.078%`
+  - upstream `BM_FP12_Mul` median: `432.097 ns`
+  - in-tree `BM_FP12_Mul` median: `432.063 ns`
+  - median drift: `-0.008%`
+  - upstream `BM_FP12_CyclotomicSqr` median: `349.931 ns`
+  - in-tree `BM_FP12_CyclotomicSqr` median: `349.982 ns`
+  - median drift: `+0.015%`
+  - upstream `BM_FP12_MulByXy0z00` median: `363.685 ns`
+  - in-tree `BM_FP12_MulByXy0z00` median: `362.356 ns`
+  - median drift: `-0.365%`
+  - upstream `BM_MillerLoop_DoubleStep` median: `901.529 ns`
+  - in-tree `BM_MillerLoop_DoubleStep` median: `898.489 ns`
+  - median drift: `-0.337%`
+  - upstream `BM_MillerLoop_AddStep` median: `990.867 ns`
+  - in-tree `BM_MillerLoop_AddStep` median: `992.461 ns`
+  - median drift: `+0.161%`
+  - upstream `BM_MillerLoop` median: `86930.559 ns`
+  - in-tree `BM_MillerLoop` median: `87137.630 ns`
+  - median drift: `+0.238%`
+  - upstream `BM_Pairing_BLST_Inverter` median: `230562.197 ns`
+  - in-tree `BM_Pairing_BLST_Inverter` median: `230054.270 ns`
+  - median drift: `-0.220%`
+  - upstream `BM_Pairing_RNS_BLST_Inverter` median: `223737.859 ns`
+  - in-tree `BM_Pairing_RNS_BLST_Inverter` median: `226605.505 ns`
+  - median drift: `+1.282%`
+  - scalar `BM_FP12_ScalarMulBaseline` median: `1839.244 ns`
+  - scalar `BM_FP12_ScalarCyclotomicSqrBaseline` median: `825.366 ns`
+  - scalar `BM_FP12_ScalarMulByXy0z00Baseline` median: `1241.310 ns`
+  - scalar `BM_BlstScalarPairingFinalExp` median: `585616.167 ns`
+  - parity result: pass for all tracked gates, including the previously failing
+    `BM_Pairing_BLST_Inverter`
+- local validation after the direct-bridge change:
+  - `cmake --build out/build/x64-Debug --config Debug --target blst_tests blst_benchmarks`
+    succeeded
+  - `./test/blst_tests.exe` passed
+  - passing test count: `257/257`
+  - targeted benchmark smoke passed for:
+    - `BM_Pairing_BLST_Inverter`
+    - `BM_Pairing_RNS_BLST_Inverter`

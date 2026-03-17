@@ -35,6 +35,8 @@ set(TEST_SOURCES
 if(BLST_HAVE_VROOM_BASEFIELD)
     list(APPEND TEST_SOURCES "../blst/vroom/tests/Vroom_basefield_tests.cpp")
     list(APPEND TEST_SOURCES "../blst/vroom/tests/Vroom_fp12_tests.cpp")
+    list(APPEND TEST_SOURCES "../blst/vroom/tests/Vroom_miller_tests.cpp")
+    list(APPEND TEST_SOURCES "../blst/vroom/tests/Vroom_pairing_tests.cpp")
 endif()
 
 if(BLST_PARALLEL_MSM)

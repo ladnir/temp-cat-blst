@@ -181,17 +181,28 @@ UPSTREAM_MODMUL_JSON="$(run_remote_json "upstream_modmul" "cd '${REMOTE_RUN_DIR}
 UPSTREAM_FP12_JSON="$(run_remote_json "upstream_fp12_mul" "cd '${REMOTE_RUN_DIR}/VROOM_upstream/src' && taskset -c ${PIN_CORE} ./bench_pairing --benchmark_filter='^BM_FP12_Mul$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
 UPSTREAM_FP12_CYCLO_JSON="$(run_remote_json "upstream_fp12_cyclotomic_sqr" "cd '${REMOTE_RUN_DIR}/VROOM_upstream/src' && taskset -c ${PIN_CORE} ./bench_pairing --benchmark_filter='^BM_FP12_CyclotomicSqr$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
 UPSTREAM_FP12_SPARSE_JSON="$(run_remote_json "upstream_fp12_mul_by_xy0z00" "cd '${REMOTE_RUN_DIR}/VROOM_upstream/src' && taskset -c ${PIN_CORE} ./bench_pairing --benchmark_filter='^BM_FP12_MulByXy0z00$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
+UPSTREAM_MILLER_DOUBLE_JSON="$(run_remote_json "upstream_miller_double_step" "cd '${REMOTE_RUN_DIR}/VROOM_upstream/src' && taskset -c ${PIN_CORE} ./bench_pairing --benchmark_filter='^BM_MillerLoop_DoubleStep$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
+UPSTREAM_MILLER_ADD_JSON="$(run_remote_json "upstream_miller_add_step" "cd '${REMOTE_RUN_DIR}/VROOM_upstream/src' && taskset -c ${PIN_CORE} ./bench_pairing --benchmark_filter='^BM_MillerLoop_AddStep$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
+UPSTREAM_MILLER_JSON="$(run_remote_json "upstream_miller_loop" "cd '${REMOTE_RUN_DIR}/VROOM_upstream/src' && taskset -c ${PIN_CORE} ./bench_pairing --benchmark_filter='^BM_MillerLoop$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
+UPSTREAM_PAIRING_BLST_JSON="$(run_remote_json "upstream_pairing_blst_inverter" "cd '${REMOTE_RUN_DIR}/VROOM_upstream/src' && taskset -c ${PIN_CORE} ./bench_pairing --benchmark_filter='^BM_Pairing_BLST_Inverter$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
+UPSTREAM_PAIRING_RNS_JSON="$(run_remote_json "upstream_pairing_rns_blst_inverter" "cd '${REMOTE_RUN_DIR}/VROOM_upstream/src' && taskset -c ${PIN_CORE} ./bench_pairing --benchmark_filter='^BM_Pairing_RNS_BLST_Inverter$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
 INTREE_MODMUL_JSON="$(run_remote_json "intree_modmul" "cd '${REMOTE_RUN_DIR}/blst_current/out/parity-clang21/benchmark' && taskset -c ${PIN_CORE} ./blst_benchmarks --benchmark_filter='^BM_ModMul$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
 INTREE_FP12_JSON="$(run_remote_json "intree_fp12_mul" "cd '${REMOTE_RUN_DIR}/blst_current/out/parity-clang21/benchmark' && taskset -c ${PIN_CORE} ./blst_benchmarks --benchmark_filter='^BM_FP12_Mul$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
 INTREE_FP12_CYCLO_JSON="$(run_remote_json "intree_fp12_cyclotomic_sqr" "cd '${REMOTE_RUN_DIR}/blst_current/out/parity-clang21/benchmark' && taskset -c ${PIN_CORE} ./blst_benchmarks --benchmark_filter='^BM_FP12_CyclotomicSqr$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
 INTREE_FP12_SPARSE_JSON="$(run_remote_json "intree_fp12_mul_by_xy0z00" "cd '${REMOTE_RUN_DIR}/blst_current/out/parity-clang21/benchmark' && taskset -c ${PIN_CORE} ./blst_benchmarks --benchmark_filter='^BM_FP12_MulByXy0z00$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
+INTREE_MILLER_DOUBLE_JSON="$(run_remote_json "intree_miller_double_step" "cd '${REMOTE_RUN_DIR}/blst_current/out/parity-clang21/benchmark' && taskset -c ${PIN_CORE} ./blst_benchmarks --benchmark_filter='^BM_MillerLoop_DoubleStep$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
+INTREE_MILLER_ADD_JSON="$(run_remote_json "intree_miller_add_step" "cd '${REMOTE_RUN_DIR}/blst_current/out/parity-clang21/benchmark' && taskset -c ${PIN_CORE} ./blst_benchmarks --benchmark_filter='^BM_MillerLoop_AddStep$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
+INTREE_MILLER_JSON="$(run_remote_json "intree_miller_loop" "cd '${REMOTE_RUN_DIR}/blst_current/out/parity-clang21/benchmark' && taskset -c ${PIN_CORE} ./blst_benchmarks --benchmark_filter='^BM_MillerLoop$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
+INTREE_PAIRING_BLST_JSON="$(run_remote_json "intree_pairing_blst_inverter" "cd '${REMOTE_RUN_DIR}/blst_current/out/parity-clang21/benchmark' && taskset -c ${PIN_CORE} ./blst_benchmarks --benchmark_filter='^BM_Pairing_BLST_Inverter$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
+INTREE_PAIRING_RNS_JSON="$(run_remote_json "intree_pairing_rns_blst_inverter" "cd '${REMOTE_RUN_DIR}/blst_current/out/parity-clang21/benchmark' && taskset -c ${PIN_CORE} ./blst_benchmarks --benchmark_filter='^BM_Pairing_RNS_BLST_Inverter$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
 SCALAR_FP12_JSON="$(run_remote_json "scalar_fp12_mul" "cd '${REMOTE_RUN_DIR}/blst_current/out/parity-clang21/benchmark' && taskset -c ${PIN_CORE} ./blst_benchmarks --benchmark_filter='^BM_FP12_ScalarMulBaseline$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
 SCALAR_FP12_CYCLO_JSON="$(run_remote_json "scalar_fp12_cyclotomic_sqr" "cd '${REMOTE_RUN_DIR}/blst_current/out/parity-clang21/benchmark' && taskset -c ${PIN_CORE} ./blst_benchmarks --benchmark_filter='^BM_FP12_ScalarCyclotomicSqrBaseline$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
 SCALAR_FP12_SPARSE_JSON="$(run_remote_json "scalar_fp12_mul_by_xy0z00" "cd '${REMOTE_RUN_DIR}/blst_current/out/parity-clang21/benchmark' && taskset -c ${PIN_CORE} ./blst_benchmarks --benchmark_filter='^BM_FP12_ScalarMulByXy0z00Baseline$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
+SCALAR_PAIRING_JSON="$(run_remote_json "scalar_pairing_final_exp" "cd '${REMOTE_RUN_DIR}/blst_current/out/parity-clang21/benchmark' && taskset -c ${PIN_CORE} ./blst_benchmarks --benchmark_filter='^BM_BlstScalarPairingFinalExp$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
 
 SUMMARY_PATH="${LOCAL_REPORT_DIR}/summary.txt"
 
-python3 - "${UPSTREAM_MODMUL_JSON}" "${INTREE_MODMUL_JSON}" "${UPSTREAM_FP12_JSON}" "${INTREE_FP12_JSON}" "${UPSTREAM_FP12_CYCLO_JSON}" "${INTREE_FP12_CYCLO_JSON}" "${UPSTREAM_FP12_SPARSE_JSON}" "${INTREE_FP12_SPARSE_JSON}" "${SCALAR_FP12_JSON}" "${SCALAR_FP12_CYCLO_JSON}" "${SCALAR_FP12_SPARSE_JSON}" "${SUMMARY_PATH}" <<'PY'
+python3 - "${UPSTREAM_MODMUL_JSON}" "${INTREE_MODMUL_JSON}" "${UPSTREAM_FP12_JSON}" "${INTREE_FP12_JSON}" "${UPSTREAM_FP12_CYCLO_JSON}" "${INTREE_FP12_CYCLO_JSON}" "${UPSTREAM_FP12_SPARSE_JSON}" "${INTREE_FP12_SPARSE_JSON}" "${UPSTREAM_MILLER_DOUBLE_JSON}" "${INTREE_MILLER_DOUBLE_JSON}" "${UPSTREAM_MILLER_ADD_JSON}" "${INTREE_MILLER_ADD_JSON}" "${UPSTREAM_MILLER_JSON}" "${INTREE_MILLER_JSON}" "${UPSTREAM_PAIRING_BLST_JSON}" "${INTREE_PAIRING_BLST_JSON}" "${UPSTREAM_PAIRING_RNS_JSON}" "${INTREE_PAIRING_RNS_JSON}" "${SCALAR_FP12_JSON}" "${SCALAR_FP12_CYCLO_JSON}" "${SCALAR_FP12_SPARSE_JSON}" "${SCALAR_PAIRING_JSON}" "${SUMMARY_PATH}" <<'PY'
 import json
 import pathlib
 import sys
@@ -211,10 +222,21 @@ up_cyclo_name, up_cyclo, cyclo_unit = load_median(sys.argv[5])
 in_cyclo_name, in_cyclo, _ = load_median(sys.argv[6])
 up_sparse_name, up_sparse, sparse_unit = load_median(sys.argv[7])
 in_sparse_name, in_sparse, _ = load_median(sys.argv[8])
-scalar_name, scalar_fp12, scalar_unit = load_median(sys.argv[9])
-scalar_cyclo_name, scalar_cyclo, scalar_cyclo_unit = load_median(sys.argv[10])
-scalar_sparse_name, scalar_sparse, scalar_sparse_unit = load_median(sys.argv[11])
-summary_path = pathlib.Path(sys.argv[12])
+up_miller_double_name, up_miller_double, miller_double_unit = load_median(sys.argv[9])
+in_miller_double_name, in_miller_double, _ = load_median(sys.argv[10])
+up_miller_add_name, up_miller_add, miller_add_unit = load_median(sys.argv[11])
+in_miller_add_name, in_miller_add, _ = load_median(sys.argv[12])
+up_miller_name, up_miller, miller_unit = load_median(sys.argv[13])
+in_miller_name, in_miller, _ = load_median(sys.argv[14])
+up_pairing_blst_name, up_pairing_blst, pairing_blst_unit = load_median(sys.argv[15])
+in_pairing_blst_name, in_pairing_blst, _ = load_median(sys.argv[16])
+up_pairing_rns_name, up_pairing_rns, pairing_rns_unit = load_median(sys.argv[17])
+in_pairing_rns_name, in_pairing_rns, _ = load_median(sys.argv[18])
+scalar_name, scalar_fp12, scalar_unit = load_median(sys.argv[19])
+scalar_cyclo_name, scalar_cyclo, scalar_cyclo_unit = load_median(sys.argv[20])
+scalar_sparse_name, scalar_sparse, scalar_sparse_unit = load_median(sys.argv[21])
+scalar_pairing_name, scalar_pairing, scalar_pairing_unit = load_median(sys.argv[22])
+summary_path = pathlib.Path(sys.argv[23])
 
 def drift_percent(current, baseline):
     return ((current - baseline) / baseline) * 100.0
@@ -223,6 +245,11 @@ mod_drift = drift_percent(in_mod, up_mod)
 fp12_drift = drift_percent(in_fp12, up_fp12)
 cyclo_drift = drift_percent(in_cyclo, up_cyclo)
 sparse_drift = drift_percent(in_sparse, up_sparse)
+miller_double_drift = drift_percent(in_miller_double, up_miller_double)
+miller_add_drift = drift_percent(in_miller_add, up_miller_add)
+miller_drift = drift_percent(in_miller, up_miller)
+pairing_blst_drift = drift_percent(in_pairing_blst, up_pairing_blst)
+pairing_rns_drift = drift_percent(in_pairing_rns, up_pairing_rns)
 
 lines = [
     f"upstream {up_mod_name}: {up_mod:.3f} {mod_unit}",
@@ -237,13 +264,34 @@ lines = [
     f"upstream {up_sparse_name}: {up_sparse:.3f} {sparse_unit}",
     f"in-tree  {in_sparse_name}: {in_sparse:.3f} {sparse_unit}",
     f"drift BM_FP12_MulByXy0z00: {sparse_drift:+.3f}%",
+    f"upstream {up_miller_double_name}: {up_miller_double:.3f} {miller_double_unit}",
+    f"in-tree  {in_miller_double_name}: {in_miller_double:.3f} {miller_double_unit}",
+    f"drift BM_MillerLoop_DoubleStep: {miller_double_drift:+.3f}%",
+    f"upstream {up_miller_add_name}: {up_miller_add:.3f} {miller_add_unit}",
+    f"in-tree  {in_miller_add_name}: {in_miller_add:.3f} {miller_add_unit}",
+    f"drift BM_MillerLoop_AddStep: {miller_add_drift:+.3f}%",
+    f"upstream {up_miller_name}: {up_miller:.3f} {miller_unit}",
+    f"in-tree  {in_miller_name}: {in_miller:.3f} {miller_unit}",
+    f"drift BM_MillerLoop: {miller_drift:+.3f}%",
+    f"upstream {up_pairing_blst_name}: {up_pairing_blst:.3f} {pairing_blst_unit}",
+    f"in-tree  {in_pairing_blst_name}: {in_pairing_blst:.3f} {pairing_blst_unit}",
+    f"drift BM_Pairing_BLST_Inverter: {pairing_blst_drift:+.3f}%",
+    f"upstream {up_pairing_rns_name}: {up_pairing_rns:.3f} {pairing_rns_unit}",
+    f"in-tree  {in_pairing_rns_name}: {in_pairing_rns:.3f} {pairing_rns_unit}",
+    f"drift BM_Pairing_RNS_BLST_Inverter: {pairing_rns_drift:+.3f}%",
     f"scalar   {scalar_name}: {scalar_fp12:.3f} {scalar_unit}",
     f"scalar   {scalar_cyclo_name}: {scalar_cyclo:.3f} {scalar_cyclo_unit}",
     f"scalar   {scalar_sparse_name}: {scalar_sparse:.3f} {scalar_sparse_unit}",
+    f"scalar   {scalar_pairing_name}: {scalar_pairing:.3f} {scalar_pairing_unit}",
     f"BM_ModMul parity gate: {'PASS' if abs(mod_drift) <= 5.0 else 'FAIL'}",
     f"BM_FP12_Mul parity gate: {'PASS' if abs(fp12_drift) <= 5.0 else 'FAIL'}",
     f"BM_FP12_CyclotomicSqr parity gate: {'PASS' if abs(cyclo_drift) <= 5.0 else 'FAIL'}",
     f"BM_FP12_MulByXy0z00 parity gate: {'PASS' if abs(sparse_drift) <= 5.0 else 'FAIL'}",
+    f"BM_MillerLoop_DoubleStep parity gate: {'PASS' if abs(miller_double_drift) <= 5.0 else 'FAIL'}",
+    f"BM_MillerLoop_AddStep parity gate: {'PASS' if abs(miller_add_drift) <= 5.0 else 'FAIL'}",
+    f"BM_MillerLoop parity gate: {'PASS' if abs(miller_drift) <= 5.0 else 'FAIL'}",
+    f"BM_Pairing_BLST_Inverter parity gate: {'PASS' if abs(pairing_blst_drift) <= 5.0 else 'FAIL'}",
+    f"BM_Pairing_RNS_BLST_Inverter parity gate: {'PASS' if abs(pairing_rns_drift) <= 5.0 else 'FAIL'}",
 ]
 
 summary_path.write_text("\n".join(lines) + "\n")
