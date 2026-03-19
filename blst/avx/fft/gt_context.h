@@ -16,10 +16,10 @@
 
 namespace blst {
 
-inline constexpr char kVroomGt52BaseModulus[] =
+inline constexpr char kAvxGt52BaseModulus[] =
     "4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787";
 
-struct VroomGt52
+struct AvxGt52
 {
     using Ring = BoundedRing<>;
     using Fp12Ring = FP12Ring<Ring>;
@@ -27,12 +27,12 @@ struct VroomGt52
 
     Element data = {};
 
-    VroomGt52() = default;
-    explicit VroomGt52(const Element& value) : data(value) {}
+    AvxGt52() = default;
+    explicit AvxGt52(const Element& value) : data(value) {}
 
     static const Ring& ring()
     {
-        static const Ring instance(BigInt(kVroomGt52BaseModulus, 10));
+        static const Ring instance(BigInt(kAvxGt52BaseModulus, 10));
         return instance;
     }
 
@@ -42,17 +42,17 @@ struct VroomGt52
         return instance;
     }
 
-    static VroomGt52 identity()
+    static AvxGt52 identity()
     {
-        return VroomGt52(fp12ring().one(ring()));
+        return AvxGt52(fp12ring().one(ring()));
     }
 
-    static VroomGt52 from_scalar(const GT& value)
+    static AvxGt52 from_scalar(const GT& value)
     {
-        return VroomGt52(vroom_blst_direct_bridge::scalar_fp12_to_ring(ring(), value.data));
+        return AvxGt52(vroom_blst_direct_bridge::scalar_fp12_to_ring(ring(), value.data));
     }
 
-    static GT to_scalar(const VroomGt52& value)
+    static GT to_scalar(const AvxGt52& value)
     {
         GT out = {};
         out.data = vroom_blst_direct_bridge::ring_fp12_to_scalar(ring(), value.data);
@@ -72,7 +72,7 @@ inline std::array<uint64_t, 4> fr_to_limbs_le(const Fr& value)
     };
 }
 
-struct VroomGt52PreparedRoots
+struct AvxGt52PreparedRoots
 {
     std::span<const Fr> scalars;
     std::vector<std::array<uint64_t, 4>> limbs;
@@ -82,7 +82,7 @@ struct VroomGt52PreparedRoots
     VroomGLV4Exp scale_compiled = {};
     bool has_scale = false;
 
-    explicit VroomGt52PreparedRoots(std::span<const Fr> input_scalars = {})
+    explicit AvxGt52PreparedRoots(std::span<const Fr> input_scalars = {})
         : scalars(input_scalars)
     {
         limbs.reserve(scalars.size());
@@ -104,12 +104,12 @@ struct VroomGt52PreparedRoots
     }
 };
 
-struct VroomGt52CoeffCtx
+struct AvxGt52CoeffCtx
 {
     class ScopedRoots
     {
     public:
-        explicit ScopedRoots(const VroomGt52PreparedRoots& roots)
+        explicit ScopedRoots(const AvxGt52PreparedRoots& roots)
             : previous_(prepared_roots_)
         {
             prepared_roots_ = &roots;
@@ -124,30 +124,30 @@ struct VroomGt52CoeffCtx
         ScopedRoots& operator=(const ScopedRoots&) = delete;
 
     private:
-        const VroomGt52PreparedRoots* previous_;
+        const AvxGt52PreparedRoots* previous_;
     };
 
-    static auto plus(const VroomGt52& a, const VroomGt52& b)
+    static auto plus(const AvxGt52& a, const AvxGt52& b)
     {
-        return VroomGt52(VroomGt52::fp12ring().fp12_flat_mul(a.data, b.data, VroomGt52::ring()));
+        return AvxGt52(AvxGt52::fp12ring().fp12_flat_mul(a.data, b.data, AvxGt52::ring()));
     }
 
-    static auto minus(const VroomGt52& a, const VroomGt52& b)
+    static auto minus(const AvxGt52& a, const AvxGt52& b)
     {
-        const auto b_inv = VroomGt52::fp12ring().fp12_flat_conjugate(b.data, VroomGt52::ring());
-        return VroomGt52(VroomGt52::fp12ring().fp12_flat_mul(a.data, b_inv, VroomGt52::ring()));
+        const auto b_inv = AvxGt52::fp12ring().fp12_flat_conjugate(b.data, AvxGt52::ring());
+        return AvxGt52(AvxGt52::fp12ring().fp12_flat_mul(a.data, b_inv, AvxGt52::ring()));
     }
 
-    static auto mult(const VroomGt52& a, const Fr& b)
+    static auto mult(const AvxGt52& a, const Fr& b)
     {
-        const auto& ring = VroomGt52::ring();
-        const auto& fp12ring = VroomGt52::fp12ring();
+        const auto& ring = AvxGt52::ring();
+        const auto& fp12ring = AvxGt52::fp12ring();
 
         if (prepared_roots_ != nullptr && !prepared_roots_->scalars.empty()) {
             const Fr* base = prepared_roots_->scalars.data();
             if (&b >= base && &b < base + prepared_roots_->scalars.size()) {
                 const std::size_t idx = static_cast<std::size_t>(&b - base);
-                return VroomGt52(vroom_cyclotomic_exp_glv4(
+                return AvxGt52(vroom_cyclotomic_exp_glv4(
                     a.data,
                     prepared_roots_->compiled[idx],
                     fp12ring,
@@ -158,7 +158,7 @@ struct VroomGt52CoeffCtx
         if (prepared_roots_ != nullptr &&
             prepared_roots_->has_scale &&
             Fr::equal(b, prepared_roots_->scale_scalar)) {
-            return VroomGt52(vroom_cyclotomic_exp_glv4(
+            return AvxGt52(vroom_cyclotomic_exp_glv4(
                 a.data,
                 prepared_roots_->scale_compiled,
                 fp12ring,
@@ -166,7 +166,7 @@ struct VroomGt52CoeffCtx
         }
 
         const std::array<uint64_t, 4> scalar_limbs = fr_to_limbs_le(b);
-        return VroomGt52(vroom_cyclotomic_exp_glv4(a.data, scalar_limbs.data(), fp12ring, ring));
+        return AvxGt52(vroom_cyclotomic_exp_glv4(a.data, scalar_limbs.data(), fp12ring, ring));
     }
 
     static auto inverse(const Fr& a)
@@ -185,25 +185,25 @@ struct VroomGt52CoeffCtx
     }
 
 private:
-    inline static thread_local const VroomGt52PreparedRoots* prepared_roots_ = nullptr;
+    inline static thread_local const AvxGt52PreparedRoots* prepared_roots_ = nullptr;
 };
 
-inline std::vector<VroomGt52> scalar_gt_vector_to_vroom52(std::span<const GT> values)
+inline std::vector<AvxGt52> scalar_gt_vector_to_avx52(std::span<const GT> values)
 {
-    std::vector<VroomGt52> out;
+    std::vector<AvxGt52> out;
     out.reserve(values.size());
     for (const GT& value : values) {
-        out.push_back(VroomGt52::from_scalar(value));
+        out.push_back(AvxGt52::from_scalar(value));
     }
     return out;
 }
 
-inline std::vector<GT> vroom52_vector_to_scalar_gt(std::span<const VroomGt52> values)
+inline std::vector<GT> avx52_vector_to_scalar_gt(std::span<const AvxGt52> values)
 {
     std::vector<GT> out;
     out.reserve(values.size());
-    for (const VroomGt52& value : values) {
-        out.push_back(VroomGt52::to_scalar(value));
+    for (const AvxGt52& value : values) {
+        out.push_back(AvxGt52::to_scalar(value));
     }
     return out;
 }

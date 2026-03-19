@@ -2,7 +2,7 @@
 
 #include "blst/avx/fp12/conversion_inversion.h"
 #include "blst/avx/fp12/final_exponentiation.h"
-#include "blst/avx/tests/vroom_basefield_test_utils.hpp"
+#include "blst/avx/tests/avx_test_utils.h"
 
 #include <array>
 #include <string>

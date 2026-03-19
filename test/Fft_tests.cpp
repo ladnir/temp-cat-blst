@@ -642,20 +642,20 @@ TEST(Fft, GTVroom52InverseFftMatchesScalar) {
     std::vector<GT> scalar_freq_domain = time_domain;
     fft<GT, Fr, GTCoeffCtx>(scalar_freq_domain, roots, false);
 
-    std::vector<VroomGt52> vroom_freq_domain = scalar_gt_vector_to_vroom52(std::span<const GT>(scalar_freq_domain));
-    VroomGt52PreparedRoots prepared_inv_roots{std::span<const Fr>(inv_roots)};
+    std::vector<AvxGt52> avx_freq_domain = scalar_gt_vector_to_avx52(std::span<const GT>(scalar_freq_domain));
+    AvxGt52PreparedRoots prepared_inv_roots{std::span<const Fr>(inv_roots)};
     prepared_inv_roots.set_scale_from_size(N);
-    VroomGt52CoeffCtx::ScopedRoots scoped_roots(prepared_inv_roots);
+    AvxGt52CoeffCtx::ScopedRoots scoped_roots(prepared_inv_roots);
 
-    fft<VroomGt52, Fr, VroomGt52CoeffCtx>(vroom_freq_domain, inv_roots, true);
+    fft<AvxGt52, Fr, AvxGt52CoeffCtx>(avx_freq_domain, inv_roots, true);
 
-    const std::vector<GT> vroom_round_trip = vroom52_vector_to_scalar_gt(std::span<const VroomGt52>(vroom_freq_domain));
+    const std::vector<GT> avx_round_trip = avx52_vector_to_scalar_gt(std::span<const AvxGt52>(avx_freq_domain));
 
     bool match = true;
     for (size_t i = 0; i < N; ++i) {
-        if (!GT::equal(vroom_round_trip[i], time_domain[i])) {
+        if (!GT::equal(avx_round_trip[i], time_domain[i])) {
             match = false;
-            std::cout << "VROOM GT inverse FFT mismatch at index " << i << std::endl;
+            std::cout << "AVX GT inverse FFT mismatch at index " << i << std::endl;
             break;
         }
     }

@@ -2,7 +2,7 @@
 
 #define BLST_VROOM_SKIP_TEST_VALUES
 #include "blst/avx/src/scalar_mult.hpp"
-#include "blst/avx/tests/vroom_basefield_test_utils.hpp"
+#include "blst/avx/tests/avx_test_utils.h"
 
 namespace {
 

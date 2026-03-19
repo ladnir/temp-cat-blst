@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "blst/avx/src/pairing.hpp"
-#include "blst/avx/tests/vroom_basefield_test_utils.hpp"
+#include "blst/avx/tests/avx_test_utils.h"
 
 #include <array>
 #include <string>

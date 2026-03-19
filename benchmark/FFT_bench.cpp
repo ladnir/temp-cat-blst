@@ -121,9 +121,9 @@ namespace
 		return data;
 	}
 
-	static std::vector<VroomGt52> make_vroom_gt_data(const std::vector<GT>& scalar_data)
+	static std::vector<AvxGt52> make_avx_gt_data(const std::vector<GT>& scalar_data)
 	{
-		return scalar_gt_vector_to_vroom52(std::span<const GT>(scalar_data));
+		return scalar_gt_vector_to_avx52(std::span<const GT>(scalar_data));
 	}
 
 	// ============================================================================
@@ -320,21 +320,21 @@ namespace
 		std::vector<GT> freq_domain_scalar = time_domain;
 		fft<GT, Fr, GTCoeffCtx>(freq_domain_scalar, roots, /*inverse*/ false);
 
-		const std::vector<VroomGt52> freq_domain = make_vroom_gt_data(freq_domain_scalar);
-		std::vector<VroomGt52> data = freq_domain;
+		const std::vector<AvxGt52> freq_domain = make_avx_gt_data(freq_domain_scalar);
+		std::vector<AvxGt52> data = freq_domain;
 
 		const auto precompute_begin = std::chrono::steady_clock::now();
-		VroomGt52PreparedRoots prepared_inv_roots{std::span<const Fr>(inv_roots)};
+		AvxGt52PreparedRoots prepared_inv_roots{std::span<const Fr>(inv_roots)};
 		prepared_inv_roots.set_scale_from_size(N);
 		const auto precompute_end = std::chrono::steady_clock::now();
 		const double precompute_ms = std::chrono::duration<double, std::milli>(precompute_end - precompute_begin).count();
 
-		VroomGt52CoeffCtx::ScopedRoots scoped_roots(prepared_inv_roots);
+		AvxGt52CoeffCtx::ScopedRoots scoped_roots(prepared_inv_roots);
 
 		for (auto _ : state) {
 			data = freq_domain;
 			benchmark::DoNotOptimize(data.data());
-			fft<VroomGt52, Fr, VroomGt52CoeffCtx>(data, inv_roots, /*inverse*/ true);
+			fft<AvxGt52, Fr, AvxGt52CoeffCtx>(data, inv_roots, /*inverse*/ true);
 			benchmark::ClobberMemory();
 		}
 
