@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include "blst/avx/src/conversion_inversion.hpp"
-#include "blst/avx/src/final_exponentiation.hpp"
+#include "blst/avx/fp12/conversion_inversion.h"
+#include "blst/avx/fp12/final_exponentiation.h"
 #include "blst/avx/tests/vroom_basefield_test_utils.hpp"
 
 #include <array>

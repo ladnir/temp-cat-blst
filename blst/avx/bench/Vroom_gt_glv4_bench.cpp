@@ -1,6 +1,6 @@
 #include <benchmark/benchmark.h>
 
-#include "blst/avx/src/gt_glv4.hpp"
+#include "blst/avx/gt/glv4.h"
 #include "blst/avx/tests/vroom_basefield_test_utils.hpp"
 
 namespace {

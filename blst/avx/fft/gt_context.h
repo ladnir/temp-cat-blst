@@ -4,9 +4,9 @@
 #include "blst/curve/GT.h"
 #include "blst/fields/Fr.h"
 #include "blst/avx/src/bounded_ring.hpp"
-#include "blst/avx/src/conversion_inversion.hpp"
-#include "blst/avx/src/fp12.hpp"
-#include "blst/avx/src/gt_glv4.hpp"
+#include "blst/avx/fp12/conversion_inversion.h"
+#include "blst/avx/fp12/fp12.h"
+#include "blst/avx/gt/glv4.h"
 
 #include <array>
 #include <cstddef>

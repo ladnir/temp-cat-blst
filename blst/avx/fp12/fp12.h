@@ -4,7 +4,7 @@
 #include <type_traits>
 #include <iostream>
 #include "../cpu/precompute/gmp_wrapper.hpp"
-#include "fp2.hpp"
+#include "../fp2/fp2.h"
 
 /*
 template<class... Args>

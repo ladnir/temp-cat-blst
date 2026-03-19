@@ -1,7 +1,7 @@
 #pragma once
 #include "ring_element.hpp"
-#include "fp2.hpp"
-#include "fp12.hpp"
+#include "../fp2/fp2.h"
+#include "../fp12/fp12.h"
 #include "ec.hpp"
 
 template<class Ring>

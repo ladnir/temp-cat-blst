@@ -1,5 +1,5 @@
 #pragma once
-#include "fp12.hpp"
+#include "fp12.h"
 #include <cstddef>
 
 template<class Element1, class Element2, class Ring>

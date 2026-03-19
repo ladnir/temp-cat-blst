@@ -7,7 +7,7 @@ extern "C" {
 }
 #include "pairing.hpp"
 #include "bounded_ring.hpp"
-#include "fp2.hpp"
+#include "../fp2/fp2.h"
 #include <iostream>
 #include <iomanip>
 #include <random>

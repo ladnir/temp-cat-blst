@@ -1,6 +1,6 @@
 #pragma once
-#include "preprocess.hpp"
-#include "ring_element.hpp"
+#include "../src/preprocess.hpp"
+#include "../src/ring_element.hpp"
 #include <tuple>
 #include <array>
 #include <type_traits>

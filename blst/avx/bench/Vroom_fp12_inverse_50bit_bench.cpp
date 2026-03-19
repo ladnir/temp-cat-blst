@@ -1,6 +1,6 @@
 #include <benchmark/benchmark.h>
 
-#include "blst/avx/src/conversion_inversion.hpp"
+#include "blst/avx/fp12/conversion_inversion.h"
 #include "blst/avx/tests/vroom_basefield_test_utils.hpp"
 
 namespace {

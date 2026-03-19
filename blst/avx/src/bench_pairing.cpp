@@ -2,13 +2,13 @@
 #include <random>
 #include <array>
 #include <cstdint>
-#include "fp12.hpp"
-#include "fp2.hpp"
+#include "../fp12/fp12.h"
+#include "../fp2/fp2.h"
 #include "bounded_ring.hpp"
-#include "final_exponentiation.hpp"
+#include "../fp12/final_exponentiation.h"
 #include "miller.hpp"
 #include "inversion.hpp"
-#include "conversion_inversion.hpp"
+#include "../fp12/conversion_inversion.h"
 #include "pairing.hpp"
 #include "ec.hpp"
 #include "scalar_mult.hpp"

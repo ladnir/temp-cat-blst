@@ -1,6 +1,6 @@
 #include <benchmark/benchmark.h>
 
-#include "blst/avx/src/final_exponentiation.hpp"
+#include "blst/avx/fp12/final_exponentiation.h"
 #include "blst/avx/tests/vroom_basefield_test_utils.hpp"
 
 namespace {

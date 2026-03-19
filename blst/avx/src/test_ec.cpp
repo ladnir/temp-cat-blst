@@ -1,7 +1,7 @@
 #include "ec.hpp"
 #include "bounded_ring.hpp"
-#include "fp2.hpp"
-#include "conversion_inversion.hpp"
+#include "../fp2/fp2.h"
+#include "../fp12/conversion_inversion.h"
 #include "../cpu/precompute/gmp_wrapper.hpp"
 #include <random>
 #include <cassert>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "fp12.hpp"
+#include "fp12.h"
 #include "../cpu/vector/vector_impl.hpp"
 
 #include "blst/fields/Fp.h"

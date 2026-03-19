@@ -9,8 +9,8 @@ extern "C" {
 }
 #include "scalar_mult.hpp"
 #include "bounded_ring.hpp"
-#include "fp2.hpp"
-#include "conversion_inversion.hpp"
+#include "../fp2/fp2.h"
+#include "../fp12/conversion_inversion.h"
 #include <iostream>
 #include <iomanip>
 #include <random>
