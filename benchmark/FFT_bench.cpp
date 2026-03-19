@@ -11,6 +11,7 @@
 #include "blst/fft/context.h"
 #include "blst/fft/ctFft.h"
 #include "blst/fft/middle_product.h"
+#include "blst/fft/vroom_gt_context.h"
 #include "blst/common/timer.h"
 
 #include "blst/common/defines.h"
@@ -118,6 +119,11 @@ namespace
 			GT::add(acc, acc, base);
 		}
 		return data;
+	}
+
+	static std::vector<VroomGt52> make_vroom_gt_data(const std::vector<GT>& scalar_data)
+	{
+		return scalar_gt_vector_to_vroom52(std::span<const GT>(scalar_data));
 	}
 
 	// ============================================================================
@@ -295,11 +301,45 @@ namespace
 		for (auto _ : state) {
 			data = freq_domain;
 			benchmark::DoNotOptimize(data.data());
-			fft<GT, Fr, GTCoeffCtx>(data, inv_roots, /*inverse*/ false);
+			fft<GT, Fr, GTCoeffCtx>(data, inv_roots, /*inverse*/ true);
 			benchmark::ClobberMemory();
 		}
 
 		state.counters["N"] = static_cast<double>(N);
+		state.counters["iFFTs/sec"] = benchmark::Counter(1, benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+	}
+
+	static void bench_gt_ifft_vroom52_precomputed_cpu(benchmark::State& state)
+	{
+		const size_t N = static_cast<size_t>(state.range(0));
+
+		const std::vector<Fr> roots = make_roots(N);
+		const std::vector<Fr> inv_roots = make_inv_roots(roots);
+
+		const std::vector<GT> time_domain = make_gt_data(N);
+		std::vector<GT> freq_domain_scalar = time_domain;
+		fft<GT, Fr, GTCoeffCtx>(freq_domain_scalar, roots, /*inverse*/ false);
+
+		const std::vector<VroomGt52> freq_domain = make_vroom_gt_data(freq_domain_scalar);
+		std::vector<VroomGt52> data = freq_domain;
+
+		const auto precompute_begin = std::chrono::steady_clock::now();
+		VroomGt52PreparedRoots prepared_inv_roots{std::span<const Fr>(inv_roots)};
+		prepared_inv_roots.set_scale_from_size(N);
+		const auto precompute_end = std::chrono::steady_clock::now();
+		const double precompute_ms = std::chrono::duration<double, std::milli>(precompute_end - precompute_begin).count();
+
+		VroomGt52CoeffCtx::ScopedRoots scoped_roots(prepared_inv_roots);
+
+		for (auto _ : state) {
+			data = freq_domain;
+			benchmark::DoNotOptimize(data.data());
+			fft<VroomGt52, Fr, VroomGt52CoeffCtx>(data, inv_roots, /*inverse*/ true);
+			benchmark::ClobberMemory();
+		}
+
+		state.counters["N"] = static_cast<double>(N);
+		state.counters["root_glv4_precompute_ms"] = benchmark::Counter(precompute_ms);
 		state.counters["iFFTs/sec"] = benchmark::Counter(1, benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
 	}
 
@@ -1402,6 +1442,11 @@ FFT_SIZES
 //->UseRealTime();
 
 BENCHMARK(bench_gt_ifft_cpu)
+FFT_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK(bench_gt_ifft_vroom52_precomputed_cpu)
 FFT_SIZES
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();

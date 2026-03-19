@@ -66,7 +66,7 @@ void fft(std::span<G> a, std::span<const F> roots, bool invert) {
 			for (int j = 1; j < half; j++) {
 				// In a real implementation, you'd precompute or select roots 
 				// based on 'len' and 'invert'
-				F w = roots[j * (n / len)];
+				const F& w = roots[j * (n / len)];
 
 				G u = a[i + j];
 				G t = CoeffCtx::mult(a[i + j + half], w);

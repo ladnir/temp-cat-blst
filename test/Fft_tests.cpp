@@ -9,6 +9,7 @@
 #include "blst/fft/context.h"
 #include "blst/fft/ctFft.h"
 #include "blst/fft/middle_product.h"
+#include "blst/fft/vroom_gt_context.h"
 //
 //using F65537 = BasicFp<65537, u32, u64>;
 using namespace blst;
@@ -603,6 +604,63 @@ TEST(Fft, GTFftRoundTrip) {
     }
 
     EXPECT_TRUE(match) << "GT FFT round-trip failed";
+}
+
+TEST(Fft, GTVroom52InverseFftMatchesScalar) {
+    const size_t N = 16;
+
+    G1AffinePoint p_aff = {};
+    G2AffinePoint q_aff = {};
+    G1Point::to_affine(p_aff, G1Point::generator());
+    G2Point::to_affine(q_aff, G2Point::generator());
+
+    GT base = {};
+    GT::miller_loop(base, &q_aff, &p_aff);
+    GT::final_mult(base, base);
+
+    std::vector<GT> time_domain(N);
+    time_domain[0] = GT::identity();
+    GT accum = base;
+    for (size_t i = 1; i < N; ++i) {
+        time_domain[i] = accum;
+        GT::add(accum, accum, base);
+    }
+
+    Fr prim = primRootOfUnity<Fr>(N);
+    std::vector<Fr> roots(N);
+    Fr current_root = Fr::one();
+    for (size_t i = 0; i < N; ++i) {
+        roots[i] = current_root;
+        Fr::mul(current_root, current_root, prim);
+    }
+
+    std::vector<Fr> inv_roots(N);
+    for (size_t i = 0; i < N; ++i) {
+        Fr::reciprocal(inv_roots[i], roots[i]);
+    }
+
+    std::vector<GT> scalar_freq_domain = time_domain;
+    fft<GT, Fr, GTCoeffCtx>(scalar_freq_domain, roots, false);
+
+    std::vector<VroomGt52> vroom_freq_domain = scalar_gt_vector_to_vroom52(std::span<const GT>(scalar_freq_domain));
+    VroomGt52PreparedRoots prepared_inv_roots{std::span<const Fr>(inv_roots)};
+    prepared_inv_roots.set_scale_from_size(N);
+    VroomGt52CoeffCtx::ScopedRoots scoped_roots(prepared_inv_roots);
+
+    fft<VroomGt52, Fr, VroomGt52CoeffCtx>(vroom_freq_domain, inv_roots, true);
+
+    const std::vector<GT> vroom_round_trip = vroom52_vector_to_scalar_gt(std::span<const VroomGt52>(vroom_freq_domain));
+
+    bool match = true;
+    for (size_t i = 0; i < N; ++i) {
+        if (!GT::equal(vroom_round_trip[i], time_domain[i])) {
+            match = false;
+            std::cout << "VROOM GT inverse FFT mismatch at index " << i << std::endl;
+            break;
+        }
+    }
+
+    EXPECT_TRUE(match) << "VROOM GT inverse FFT round-trip failed";
 }
 
 // Test that GT scalar multiplication (exponentiation) distributes correctly
