@@ -97,11 +97,11 @@ namespace blst {
         // Host code version with full debugging support
         BLST_FORCEINLINE void assert_handler(const char* condition_str, const char* file, int line, const char* function) {
             // Print detailed assertion information
-            printf("BLST_ASSERT failed: %s\n", condition_str);
-            printf("  File: %s\n", file);
-            printf("  Line: %d\n", line);
-            printf("  Function: %s\n", function);
-            fflush(stdout);
+            fprintf(stderr, "BLST_ASSERT failed: %s\n", condition_str);
+            fprintf(stderr, "  File: %s\n", file);
+            fprintf(stderr, "  Line: %d\n", line);
+            fprintf(stderr, "  Function: %s\n", function);
+            fflush(stderr);
 
 #if defined(_MSC_VER)
             // Visual Studio specific - trigger debugger breakpoint
