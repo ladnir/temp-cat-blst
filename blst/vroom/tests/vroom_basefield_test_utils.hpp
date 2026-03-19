@@ -104,6 +104,24 @@ inline std::array<uint8_t, 32> seeded_scalar_bytes_le(uint64_t seed)
     return bigint_to_bytes_le_array<32>(seeded_scalar_bigint(seed));
 }
 
+inline std::array<uint64_t, 4> scalar_bytes_to_limbs_le(const std::array<uint8_t, 32>& bytes)
+{
+    std::array<uint64_t, 4> limbs = {};
+    for (size_t limb_idx = 0; limb_idx < limbs.size(); ++limb_idx) {
+        uint64_t limb = 0;
+        for (size_t byte_idx = 0; byte_idx < sizeof(uint64_t); ++byte_idx) {
+            limb |= static_cast<uint64_t>(bytes[limb_idx * sizeof(uint64_t) + byte_idx]) << (byte_idx * 8);
+        }
+        limbs[limb_idx] = limb;
+    }
+    return limbs;
+}
+
+inline std::array<uint64_t, 4> seeded_scalar_limbs_le(uint64_t seed)
+{
+    return scalar_bytes_to_limbs_le(seeded_scalar_bytes_le(seed));
+}
+
 inline blst::Fp bigint_to_scalar_fp(const BigInt& value)
 {
     blst::Fp standard = {};

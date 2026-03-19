@@ -1174,3 +1174,60 @@ This document records the concrete execution baseline and current status for
 - direct benchmark-surface audit result after Phase 19:
   - the copied in-tree benchmark names now cover the full upstream surfaces of
     both `src/bench_pairing.cpp` and `src/bench_pairing_50bit.cpp`
+
+## Phase 20 Status
+
+- added direct copied-VROOM `GT/Fp12` cyclotomic exponentiation support for the
+  `52-bit` ring:
+  - baseline double-and-multiply cyclotomic exponentiation
+  - runtime `GLV4` split and execution
+  - precompiled `GLV4` schedule execution
+- added the direct implementation in:
+  - `blst/vroom/src/gt_glv4.hpp`
+- helper-layer additions:
+  - `blst/vroom/tests/vroom_basefield_test_utils.hpp` now exposes
+    little-endian 256-bit scalar limbs derived from the seeded scalar helper
+- added direct correctness coverage in:
+  - `blst/vroom/tests/Vroom_gt_glv4_tests.cpp`
+  - new tests:
+    - `VroomGtGlv4.RuntimeAndCompiledMatchScalarBlst`
+    - `VroomGtGlv4.ZeroScalarReturnsIdentity`
+    - `VroomGtGlv4.SplitMatchesScalarBlstSplit`
+- added scalar and direct-VROOM benchmark coverage in:
+  - `benchmark/Vroom_gt_glv4_scalar_bench.cpp`
+  - `blst/vroom/bench/Vroom_gt_glv4_bench.cpp`
+  - benchmark names:
+    - `BM_GTScalarCyclotomicExp_Basic`
+    - `BM_GTScalarCyclotomicExp_GLV4`
+    - `BM_GTScalarCyclotomicExp_GLV4_Constant`
+    - `BM_VroomGTCyclotomicExp_Basic_52`
+    - `BM_VroomGTCyclotomicExp_GLV4_52`
+    - `BM_VroomGTCyclotomicExp_GLV4_Constant_52`
+- measurement workflow:
+  - added `scripts/run_vroom_remote_glv4_speedup.sh`
+  - this snapshots the current tree, builds a server-only Release benchmark and
+    test configuration, runs `VroomGtGlv4.*`, and reports scalar versus VROOM
+    `GLV4` speedups
+- latest remote `GLV4` speedup report:
+  - run id: `20260319T151620Z`
+  - report directory: `out/vroom-glv4/20260319T151620Z/`
+  - scalar baseline `BM_GTScalarCyclotomicExp_Basic` median: `418579.157 ns`
+  - scalar `GLV4` `BM_GTScalarCyclotomicExp_GLV4` median: `174405.150 ns`
+  - scalar `GLV4` constant `BM_GTScalarCyclotomicExp_GLV4_Constant` median:
+    `174421.333 ns`
+  - scalar `GLV4` speedup over the basic scalar exponent path: `2.400x`
+  - direct VROOM baseline `BM_VroomGTCyclotomicExp_Basic_52` median:
+    `144496.798 ns`
+  - direct VROOM `GLV4` `BM_VroomGTCyclotomicExp_GLV4_52` median:
+    `53788.506 ns`
+  - direct VROOM `GLV4` constant
+    `BM_VroomGTCyclotomicExp_GLV4_Constant_52` median: `53892.687 ns`
+  - direct VROOM `GLV4` speedup over the basic VROOM exponent path: `2.686x`
+  - VROOM-to-scalar `GLV4` speedup ratio: `1.119x`
+- validation mode for Phase 20:
+  - local compilation intentionally paused per current workflow
+  - remote Release correctness and benchmark run on the AVX-512 server:
+    - run directory: `/home/ec2-user/vroom-glv4/20260319T151620Z/blst_current`
+    - test command:
+      - `./out/glv4-clang21/test/blst_tests --gtest_filter='VroomGtGlv4.*'`
+    - result: pass
