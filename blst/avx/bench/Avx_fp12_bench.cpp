@@ -6,19 +6,19 @@
 
 namespace {
 
-using blst_vroom_test::VroomFp12Ring;
-using blst_vroom_test::VroomRing;
+using blst_avx_test::AvxFp12Ring;
+using blst_avx_test::AvxRing;
 
-VroomFp12Ring::StandardElement generate_random_fp12(const VroomRing& ring, uint64_t seed)
+AvxFp12Ring::StandardElement generate_random_fp12(const AvxRing& ring, uint64_t seed)
 {
-    return blst_vroom_test::make_vroom_fp12_from_seed(ring, seed);
+    return blst_avx_test::make_vroom_fp12_from_seed(ring, seed);
 }
 
 static void BM_FP12_Mul(benchmark::State& state)
 {
-    const BigInt modulus = blst_vroom_test::modulus_bigint();
-    const VroomRing ring(modulus);
-    const VroomFp12Ring fp12ring(ring);
+    const BigInt modulus = blst_avx_test::modulus_bigint();
+    const AvxRing ring(modulus);
+    const AvxFp12Ring fp12ring(ring);
     volatile uint64_t seed_left = 42;
     volatile uint64_t seed_right = 123;
     const auto left = generate_random_fp12(ring, seed_left);
@@ -37,9 +37,9 @@ static void BM_FP12_Mul(benchmark::State& state)
 
 static void BM_FP12_Sqr(benchmark::State& state)
 {
-    const BigInt modulus = blst_vroom_test::modulus_bigint();
-    const VroomRing ring(modulus);
-    const VroomFp12Ring fp12ring(ring);
+    const BigInt modulus = blst_avx_test::modulus_bigint();
+    const AvxRing ring(modulus);
+    const AvxFp12Ring fp12ring(ring);
     volatile uint64_t seed = 42;
     const auto value = generate_random_fp12(ring, seed);
 

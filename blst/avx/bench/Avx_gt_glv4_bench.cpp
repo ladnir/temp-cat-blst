@@ -5,15 +5,15 @@
 
 namespace {
 
-using blst_vroom_test::VroomFp12Ring;
-using blst_vroom_test::VroomRing;
+using blst_avx_test::AvxFp12Ring;
+using blst_avx_test::AvxRing;
 
 static void BM_VroomGTCyclotomicExp_Basic_52(benchmark::State& state)
 {
-    const VroomRing ring(blst_vroom_test::modulus_bigint());
-    const VroomFp12Ring fp12ring(ring);
-    const auto base = blst_vroom_test::make_vroom_cyclotomic_fp12_from_seed(ring, 42);
-    const auto scalar_limbs = blst_vroom_test::seeded_scalar_limbs_le(123);
+    const AvxRing ring(blst_avx_test::modulus_bigint());
+    const AvxFp12Ring fp12ring(ring);
+    const auto base = blst_avx_test::make_vroom_cyclotomic_fp12_from_seed(ring, 42);
+    const auto scalar_limbs = blst_avx_test::seeded_scalar_limbs_le(123);
 
     benchmark::DoNotOptimize(base);
     benchmark::DoNotOptimize(scalar_limbs);
@@ -28,10 +28,10 @@ static void BM_VroomGTCyclotomicExp_Basic_52(benchmark::State& state)
 
 static void BM_VroomGTCyclotomicExp_GLV4_52(benchmark::State& state)
 {
-    const VroomRing ring(blst_vroom_test::modulus_bigint());
-    const VroomFp12Ring fp12ring(ring);
-    const auto base = blst_vroom_test::make_vroom_cyclotomic_fp12_from_seed(ring, 42);
-    const auto scalar_limbs = blst_vroom_test::seeded_scalar_limbs_le(123);
+    const AvxRing ring(blst_avx_test::modulus_bigint());
+    const AvxFp12Ring fp12ring(ring);
+    const auto base = blst_avx_test::make_vroom_cyclotomic_fp12_from_seed(ring, 42);
+    const auto scalar_limbs = blst_avx_test::seeded_scalar_limbs_le(123);
 
     benchmark::DoNotOptimize(base);
     benchmark::DoNotOptimize(scalar_limbs);
@@ -46,10 +46,10 @@ static void BM_VroomGTCyclotomicExp_GLV4_52(benchmark::State& state)
 
 static void BM_VroomGTCyclotomicExp_GLV4_Constant_52(benchmark::State& state)
 {
-    const VroomRing ring(blst_vroom_test::modulus_bigint());
-    const VroomFp12Ring fp12ring(ring);
-    const auto base = blst_vroom_test::make_vroom_cyclotomic_fp12_from_seed(ring, 42);
-    const auto scalar_limbs = blst_vroom_test::seeded_scalar_limbs_le(123);
+    const AvxRing ring(blst_avx_test::modulus_bigint());
+    const AvxFp12Ring fp12ring(ring);
+    const auto base = blst_avx_test::make_vroom_cyclotomic_fp12_from_seed(ring, 42);
+    const auto scalar_limbs = blst_avx_test::seeded_scalar_limbs_le(123);
     const VroomGLV4Exp props = vroom_glv4_compile(scalar_limbs.data());
 
     benchmark::DoNotOptimize(base);

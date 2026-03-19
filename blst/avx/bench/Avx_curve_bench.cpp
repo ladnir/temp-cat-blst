@@ -4,19 +4,19 @@
 
 namespace {
 
-using blst_vroom_test::VroomCurveFp2Ring;
-using blst_vroom_test::VroomCurveG1;
-using blst_vroom_test::VroomCurveG2;
-using blst_vroom_test::VroomCurveRing;
+using blst_avx_test::AvxCurveFp2Ring;
+using blst_avx_test::AvxCurveG1;
+using blst_avx_test::AvxCurveG2;
+using blst_avx_test::AvxCurveRing;
 
 static void BM_G1_Add(benchmark::State& state)
 {
-    const VroomCurveRing ring(blst_vroom_test::modulus_bigint());
-    const VroomCurveG1 g1 = {};
+    const AvxCurveRing ring(blst_avx_test::modulus_bigint());
+    const AvxCurveG1 g1 = {};
     volatile uint64_t seed1 = 42;
     volatile uint64_t seed2 = 123;
-    const auto p = blst_vroom_test::make_random_vroom_curve_g1_projective(ring, seed1);
-    const auto q = blst_vroom_test::make_random_vroom_curve_g1_projective(ring, seed2);
+    const auto p = blst_avx_test::make_random_vroom_curve_g1_projective(ring, seed1);
+    const auto q = blst_avx_test::make_random_vroom_curve_g1_projective(ring, seed2);
 
     benchmark::DoNotOptimize(p);
     benchmark::DoNotOptimize(q);
@@ -31,12 +31,12 @@ static void BM_G1_Add(benchmark::State& state)
 
 static void BM_G1_MixedAdd(benchmark::State& state)
 {
-    const VroomCurveRing ring(blst_vroom_test::modulus_bigint());
-    const VroomCurveG1 g1 = {};
+    const AvxCurveRing ring(blst_avx_test::modulus_bigint());
+    const AvxCurveG1 g1 = {};
     volatile uint64_t seed1 = 42;
     volatile uint64_t seed2 = 123;
-    const auto p = blst_vroom_test::make_random_vroom_curve_g1_projective(ring, seed1);
-    const auto q_affine = blst_vroom_test::make_random_vroom_curve_g1_affine(ring, seed2);
+    const auto p = blst_avx_test::make_random_vroom_curve_g1_projective(ring, seed1);
+    const auto q_affine = blst_avx_test::make_random_vroom_curve_g1_affine(ring, seed2);
 
     benchmark::DoNotOptimize(p);
     benchmark::DoNotOptimize(q_affine);
@@ -51,10 +51,10 @@ static void BM_G1_MixedAdd(benchmark::State& state)
 
 static void BM_G1_Double(benchmark::State& state)
 {
-    const VroomCurveRing ring(blst_vroom_test::modulus_bigint());
-    const VroomCurveG1 g1 = {};
+    const AvxCurveRing ring(blst_avx_test::modulus_bigint());
+    const AvxCurveG1 g1 = {};
     volatile uint64_t seed = 42;
-    const auto p = blst_vroom_test::make_random_vroom_curve_g1_projective(ring, seed);
+    const auto p = blst_avx_test::make_random_vroom_curve_g1_projective(ring, seed);
 
     benchmark::DoNotOptimize(p);
 
@@ -68,13 +68,13 @@ static void BM_G1_Double(benchmark::State& state)
 
 static void BM_G2_Add(benchmark::State& state)
 {
-    const VroomCurveRing ring(blst_vroom_test::modulus_bigint());
-    const VroomCurveFp2Ring fp2ring(ring);
-    const VroomCurveG2 g2 = {};
+    const AvxCurveRing ring(blst_avx_test::modulus_bigint());
+    const AvxCurveFp2Ring fp2ring(ring);
+    const AvxCurveG2 g2 = {};
     volatile uint64_t seed1 = 42;
     volatile uint64_t seed2 = 123;
-    const auto p = blst_vroom_test::make_random_vroom_curve_g2_projective(fp2ring, ring, seed1);
-    const auto q = blst_vroom_test::make_random_vroom_curve_g2_projective(fp2ring, ring, seed2);
+    const auto p = blst_avx_test::make_random_vroom_curve_g2_projective(fp2ring, ring, seed1);
+    const auto q = blst_avx_test::make_random_vroom_curve_g2_projective(fp2ring, ring, seed2);
 
     benchmark::DoNotOptimize(p);
     benchmark::DoNotOptimize(q);
@@ -89,13 +89,13 @@ static void BM_G2_Add(benchmark::State& state)
 
 static void BM_G2_MixedAdd(benchmark::State& state)
 {
-    const VroomCurveRing ring(blst_vroom_test::modulus_bigint());
-    const VroomCurveFp2Ring fp2ring(ring);
-    const VroomCurveG2 g2 = {};
+    const AvxCurveRing ring(blst_avx_test::modulus_bigint());
+    const AvxCurveFp2Ring fp2ring(ring);
+    const AvxCurveG2 g2 = {};
     volatile uint64_t seed1 = 42;
     volatile uint64_t seed2 = 123;
-    const auto p = blst_vroom_test::make_random_vroom_curve_g2_projective(fp2ring, ring, seed1);
-    const auto q_affine = blst_vroom_test::make_random_vroom_curve_g2_affine(ring, seed2);
+    const auto p = blst_avx_test::make_random_vroom_curve_g2_projective(fp2ring, ring, seed1);
+    const auto q_affine = blst_avx_test::make_random_vroom_curve_g2_affine(ring, seed2);
 
     benchmark::DoNotOptimize(p);
     benchmark::DoNotOptimize(q_affine);
@@ -110,11 +110,11 @@ static void BM_G2_MixedAdd(benchmark::State& state)
 
 static void BM_G2_Double(benchmark::State& state)
 {
-    const VroomCurveRing ring(blst_vroom_test::modulus_bigint());
-    const VroomCurveFp2Ring fp2ring(ring);
-    const VroomCurveG2 g2 = {};
+    const AvxCurveRing ring(blst_avx_test::modulus_bigint());
+    const AvxCurveFp2Ring fp2ring(ring);
+    const AvxCurveG2 g2 = {};
     volatile uint64_t seed = 42;
-    const auto p = blst_vroom_test::make_random_vroom_curve_g2_projective(fp2ring, ring, seed);
+    const auto p = blst_avx_test::make_random_vroom_curve_g2_projective(fp2ring, ring, seed);
 
     benchmark::DoNotOptimize(p);
 

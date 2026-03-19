@@ -6,7 +6,7 @@ namespace {
 
 static void BM_FP12_ScalarCyclotomicSqrBaseline(benchmark::State& state)
 {
-    const blst::Fp12 value = blst_vroom_test::make_scalar_cyclotomic_fp12_from_seed(42);
+    const blst::Fp12 value = blst_avx_test::make_scalar_cyclotomic_fp12_from_seed(42);
 
     benchmark::DoNotOptimize(value);
 

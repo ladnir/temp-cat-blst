@@ -6,21 +6,21 @@
 
 namespace {
 
-using blst_vroom_test::Vroom50Fp2Ring;
-using blst_vroom_test::Vroom50Ring;
+using blst_avx_test::Avx50Fp2Ring;
+using blst_avx_test::Avx50Ring;
 
-Vroom50Fp2Ring::StandardElement random_fp2_50bit(gmp_randclass& rng, const BigInt& modulus, const Vroom50Ring& ring)
+Avx50Fp2Ring::StandardElement random_fp2_50bit(gmp_randclass& rng, const BigInt& modulus, const Avx50Ring& ring)
 {
-    return blst_vroom_test::make_vroom_fp2(
+    return blst_avx_test::make_vroom_fp2(
         ring,
         BigInt(rng.get_z_range(modulus.get_mpz())),
         BigInt(rng.get_z_range(modulus.get_mpz())));
 }
 
 template<int Batch>
-std::array<Vroom50Ring::StandardElement, Batch> make_modmul_inputs_50bit(const Vroom50Ring& ring, gmp_randclass& rng, const BigInt& modulus)
+std::array<Avx50Ring::StandardElement, Batch> make_modmul_inputs_50bit(const Avx50Ring& ring, gmp_randclass& rng, const BigInt& modulus)
 {
-    std::array<Vroom50Ring::StandardElement, Batch> values = {};
+    std::array<Avx50Ring::StandardElement, Batch> values = {};
     for (int i = 0; i < Batch; ++i) {
         values[i] = ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz())));
     }
@@ -29,8 +29,8 @@ std::array<Vroom50Ring::StandardElement, Batch> make_modmul_inputs_50bit(const V
 
 static void BM_ModMul_50bit(benchmark::State& state)
 {
-    const BigInt modulus = blst_vroom_test::modulus_bigint();
-    const Vroom50Ring ring(modulus);
+    const BigInt modulus = blst_avx_test::modulus_bigint();
+    const Avx50Ring ring(modulus);
 
     gmp_randclass rng(gmp_randinit_default);
     rng.seed(42);
@@ -53,8 +53,8 @@ static void BM_ModMul_50bit(benchmark::State& state)
 #define BLST_VROOM_DEFINE_BATCH_MODMUL_BENCH_50(BATCH)                                \
     static void BM_BatchModMul_##BATCH##_50bit(benchmark::State& state)               \
     {                                                                                  \
-        const BigInt modulus = blst_vroom_test::modulus_bigint();                     \
-        const Vroom50Ring ring(modulus);                                               \
+        const BigInt modulus = blst_avx_test::modulus_bigint();                     \
+        const Avx50Ring ring(modulus);                                               \
         gmp_randclass rng(gmp_randinit_default);                                       \
         rng.seed(42);                                                                  \
         const auto left = make_modmul_inputs_50bit<BATCH>(ring, rng, modulus);        \
@@ -87,9 +87,9 @@ BLST_VROOM_DEFINE_BATCH_MODMUL_BENCH_50(12);
 
 static void BM_FP2_Mul_50bit(benchmark::State& state)
 {
-    const BigInt modulus = blst_vroom_test::modulus_bigint();
-    const Vroom50Ring ring(modulus);
-    const Vroom50Fp2Ring fp2ring(ring);
+    const BigInt modulus = blst_avx_test::modulus_bigint();
+    const Avx50Ring ring(modulus);
+    const Avx50Fp2Ring fp2ring(ring);
 
     gmp_randclass rng(gmp_randinit_default);
     rng.seed(52);
@@ -109,9 +109,9 @@ static void BM_FP2_Mul_50bit(benchmark::State& state)
 
 static void BM_FP2_Sqr_50bit(benchmark::State& state)
 {
-    const BigInt modulus = blst_vroom_test::modulus_bigint();
-    const Vroom50Ring ring(modulus);
-    const Vroom50Fp2Ring fp2ring(ring);
+    const BigInt modulus = blst_avx_test::modulus_bigint();
+    const Avx50Ring ring(modulus);
+    const Avx50Fp2Ring fp2ring(ring);
 
     gmp_randclass rng(gmp_randinit_default);
     rng.seed(53);

@@ -6,16 +6,16 @@
 
 namespace {
 
-using blst_vroom_test::Vroom50Fp12Ring;
-using blst_vroom_test::Vroom50Ring;
+using blst_avx_test::Avx50Fp12Ring;
+using blst_avx_test::Avx50Ring;
 
 static void BM_FP12_FinalExp_BLST_Inverter_50bit(benchmark::State& state)
 {
-    const Vroom50Ring ring(blst_vroom_test::modulus_bigint());
-    const Vroom50Fp12Ring fp12ring(ring);
-    const FP12BLSTInverter<Vroom50Ring> inverter = {};
+    const Avx50Ring ring(blst_avx_test::modulus_bigint());
+    const Avx50Fp12Ring fp12ring(ring);
+    const FP12BLSTInverter<Avx50Ring> inverter = {};
     volatile uint64_t seed = 42;
-    const auto value = blst_vroom_test::make_vroom_fp12_from_seed(ring, seed);
+    const auto value = blst_avx_test::make_vroom_fp12_from_seed(ring, seed);
 
     benchmark::DoNotOptimize(value);
 
@@ -29,11 +29,11 @@ static void BM_FP12_FinalExp_BLST_Inverter_50bit(benchmark::State& state)
 
 static void BM_FP12_FinalExp_RNS_BLST_Inverter_50bit(benchmark::State& state)
 {
-    const Vroom50Ring ring(blst_vroom_test::modulus_bigint());
-    const Vroom50Fp12Ring fp12ring(ring);
-    const FP12RNS_BLSTInverter<Vroom50Ring> inverter = {};
+    const Avx50Ring ring(blst_avx_test::modulus_bigint());
+    const Avx50Fp12Ring fp12ring(ring);
+    const FP12RNS_BLSTInverter<Avx50Ring> inverter = {};
     volatile uint64_t seed = 42;
-    const auto value = blst_vroom_test::make_vroom_fp12_from_seed(ring, seed);
+    const auto value = blst_avx_test::make_vroom_fp12_from_seed(ring, seed);
 
     benchmark::DoNotOptimize(value);
 

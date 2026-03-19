@@ -5,13 +5,13 @@
 
 namespace {
 
-using blst_vroom_test::VroomRing;
+using blst_avx_test::AvxRing;
 
 static void BM_Inverse(benchmark::State& state)
 {
-    const BigInt modulus = blst_vroom_test::modulus_bigint();
-    const VroomRing ring(modulus);
-    const BLS381AddChainInversion<VroomRing> inverter(ring);
+    const BigInt modulus = blst_avx_test::modulus_bigint();
+    const AvxRing ring(modulus);
+    const BLS381AddChainInversion<AvxRing> inverter(ring);
 
     gmp_randclass rng(gmp_randinit_default);
     rng.seed(42);

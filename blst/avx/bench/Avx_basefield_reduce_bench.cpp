@@ -6,20 +6,20 @@
 
 namespace {
 
-using blst_vroom_test::VroomRing;
+using blst_avx_test::AvxRing;
 
 template<int Batch>
-std::array<VroomRing::ReadyElement<VroomRing::MAX_ADD>, Batch> make_ready_elements(const VroomRing& ring)
+std::array<AvxRing::ReadyElement<AvxRing::MAX_ADD>, Batch> make_ready_elements(const AvxRing& ring)
 {
-    const BigInt modulus = blst_vroom_test::modulus_bigint();
+    const BigInt modulus = blst_avx_test::modulus_bigint();
     gmp_randclass rng(gmp_randinit_default);
     rng.seed(42);
 
-    std::array<VroomRing::ReadyElement<VroomRing::MAX_ADD>, Batch> ready_elements = {};
+    std::array<AvxRing::ReadyElement<AvxRing::MAX_ADD>, Batch> ready_elements = {};
     for (int i = 0; i < Batch; ++i) {
         const auto left = ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz())));
         const auto right = ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz())));
-        ready_elements[i] = ring.template ready<VroomRing::MAX_ADD>(left * right);
+        ready_elements[i] = ring.template ready<AvxRing::MAX_ADD>(left * right);
     }
     return ready_elements;
 }
@@ -27,7 +27,7 @@ std::array<VroomRing::ReadyElement<VroomRing::MAX_ADD>, Batch> make_ready_elemen
 #define BLST_VROOM_DEFINE_BATCH_REDUCE_BENCH(BATCH)                                \
     static void BM_BatchReduceExpand_##BATCH(benchmark::State& state)              \
     {                                                                              \
-        const VroomRing ring(blst_vroom_test::modulus_bigint());                   \
+        const AvxRing ring(blst_avx_test::modulus_bigint());                   \
         const auto ready_elements = make_ready_elements<BATCH>(ring);              \
                                                                                    \
         benchmark::DoNotOptimize(ready_elements);                                  \

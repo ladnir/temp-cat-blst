@@ -6,20 +6,20 @@
 
 namespace {
 
-using blst_vroom_test::VroomCurve50Fp2Ring;
-using blst_vroom_test::VroomCurve50G1;
-using blst_vroom_test::VroomCurve50G2;
-using blst_vroom_test::VroomCurve50Ring;
+using blst_avx_test::AvxCurve50Fp2Ring;
+using blst_avx_test::AvxCurve50G1;
+using blst_avx_test::AvxCurve50G2;
+using blst_avx_test::AvxCurve50Ring;
 
 static void BM_G1_ScalarMult_GLV_50bit(benchmark::State& state)
 {
-    const VroomCurve50Ring ring(blst_vroom_test::modulus_bigint());
-    const VroomCurve50G1 g1 = {};
-    const GLVMult<VroomCurve50Ring> glv(g1, ring);
+    const AvxCurve50Ring ring(blst_avx_test::modulus_bigint());
+    const AvxCurve50G1 g1 = {};
+    const GLVMult<AvxCurve50Ring> glv(g1, ring);
 
     volatile uint64_t seed_point = 42;
-    const auto point = blst_vroom_test::make_random_vroom_curve50_g1_projective(ring, seed_point);
-    const auto scalar_bytes = blst_vroom_test::seeded_scalar_bytes_le(123);
+    const auto point = blst_avx_test::make_random_vroom_curve50_g1_projective(ring, seed_point);
+    const auto scalar_bytes = blst_avx_test::seeded_scalar_bytes_le(123);
 
     benchmark::DoNotOptimize(point);
     benchmark::DoNotOptimize(scalar_bytes);
@@ -34,14 +34,14 @@ static void BM_G1_ScalarMult_GLV_50bit(benchmark::State& state)
 
 static void BM_G2_ScalarMult_GLS_50bit(benchmark::State& state)
 {
-    const VroomCurve50Ring ring(blst_vroom_test::modulus_bigint());
-    const VroomCurve50Fp2Ring fp2ring(ring);
-    const VroomCurve50G2 g2 = {};
-    const GLSMult<VroomCurve50Ring> gls(ring);
+    const AvxCurve50Ring ring(blst_avx_test::modulus_bigint());
+    const AvxCurve50Fp2Ring fp2ring(ring);
+    const AvxCurve50G2 g2 = {};
+    const GLSMult<AvxCurve50Ring> gls(ring);
 
     volatile uint64_t seed_point = 42;
-    const auto point = blst_vroom_test::make_random_vroom_curve50_g2_projective(fp2ring, ring, seed_point);
-    const auto scalar_bytes = blst_vroom_test::seeded_scalar_bytes_le(321);
+    const auto point = blst_avx_test::make_random_vroom_curve50_g2_projective(fp2ring, ring, seed_point);
+    const auto scalar_bytes = blst_avx_test::seeded_scalar_bytes_le(321);
 
     benchmark::DoNotOptimize(point);
     benchmark::DoNotOptimize(scalar_bytes);

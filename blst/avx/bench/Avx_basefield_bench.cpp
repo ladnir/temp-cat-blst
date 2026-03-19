@@ -6,12 +6,12 @@
 
 namespace {
 
-using blst_vroom_test::VroomFp2Ring;
-using blst_vroom_test::VroomRing;
+using blst_avx_test::AvxFp2Ring;
+using blst_avx_test::AvxRing;
 
-VroomFp2Ring::StandardElement random_fp2(gmp_randclass& rng, const BigInt& modulus, const VroomRing& ring)
+AvxFp2Ring::StandardElement random_fp2(gmp_randclass& rng, const BigInt& modulus, const AvxRing& ring)
 {
-    return blst_vroom_test::make_vroom_fp2(
+    return blst_avx_test::make_vroom_fp2(
         ring,
         BigInt(rng.get_z_range(modulus.get_mpz())),
         BigInt(rng.get_z_range(modulus.get_mpz())));
@@ -19,8 +19,8 @@ VroomFp2Ring::StandardElement random_fp2(gmp_randclass& rng, const BigInt& modul
 
 static void BM_ModMul(benchmark::State& state)
 {
-    const BigInt modulus = blst_vroom_test::modulus_bigint();
-    const VroomRing ring(modulus);
+    const BigInt modulus = blst_avx_test::modulus_bigint();
+    const AvxRing ring(modulus);
 
     gmp_randclass rng(gmp_randinit_default);
     rng.seed(42);
@@ -43,13 +43,13 @@ static void BM_ModMul(benchmark::State& state)
 
 static void BM_BatchModMul_8(benchmark::State& state)
 {
-    const BigInt modulus = blst_vroom_test::modulus_bigint();
-    const VroomRing ring(modulus);
+    const BigInt modulus = blst_avx_test::modulus_bigint();
+    const AvxRing ring(modulus);
 
     gmp_randclass rng(gmp_randinit_default);
     rng.seed(42);
-    std::array<VroomRing::StandardElement, 8> left;
-    std::array<VroomRing::StandardElement, 8> right;
+    std::array<AvxRing::StandardElement, 8> left;
+    std::array<AvxRing::StandardElement, 8> right;
 
     for (int i = 0; i < 8; ++i) {
         left[i] = ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz())));
@@ -69,9 +69,9 @@ static void BM_BatchModMul_8(benchmark::State& state)
 
 static void BM_FP2_Mul(benchmark::State& state)
 {
-    const BigInt modulus = blst_vroom_test::modulus_bigint();
-    const VroomRing ring(modulus);
-    const VroomFp2Ring fp2ring(ring);
+    const BigInt modulus = blst_avx_test::modulus_bigint();
+    const AvxRing ring(modulus);
+    const AvxFp2Ring fp2ring(ring);
 
     gmp_randclass rng(gmp_randinit_default);
     rng.seed(52);
@@ -91,9 +91,9 @@ static void BM_FP2_Mul(benchmark::State& state)
 
 static void BM_FP2_Sqr(benchmark::State& state)
 {
-    const BigInt modulus = blst_vroom_test::modulus_bigint();
-    const VroomRing ring(modulus);
-    const VroomFp2Ring fp2ring(ring);
+    const BigInt modulus = blst_avx_test::modulus_bigint();
+    const AvxRing ring(modulus);
+    const AvxFp2Ring fp2ring(ring);
 
     gmp_randclass rng(gmp_randinit_default);
     rng.seed(53);

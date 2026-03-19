@@ -15,42 +15,42 @@
 #include <cstdint>
 #include <utility>
 
-namespace blst_vroom_test {
+namespace blst_avx_test {
 
-using VroomRing = BoundedRing<>;
-using VroomFp2Ring = FP2Ring<VroomRing>;
-using VroomFp2 = VroomFp2Ring::StandardElement;
-using VroomFp12Ring = FP12Ring<VroomRing>;
-using VroomFp12 = VroomFp12Ring::StandardElement;
-using Vroom50Ring = BoundedRing<381, 8, 50>;
-using Vroom50Fp2Ring = FP2Ring<Vroom50Ring>;
-using Vroom50Fp2 = Vroom50Fp2Ring::StandardElement;
-using Vroom50Fp12Ring = FP12Ring<Vroom50Ring>;
-using Vroom50Fp12 = Vroom50Fp12Ring::StandardElement;
-using VroomAffineFp = AffinePoint<VroomRing::StandardElement>;
-using VroomAffineFp2 = AffinePoint<VroomFp2>;
-using VroomProjectiveFp2 = ProjectivePoint<VroomFp2>;
-using VroomProjectiveFp = ProjectivePoint<VroomRing::StandardElement>;
-using VroomG1 = G1<VroomRing>;
-using VroomG2 = G2<VroomRing>;
-using VroomCurveRing = BoundedRing<381, 8, 52, -1932, 2377, 12>;
-using VroomCurveFp2Ring = FP2Ring<VroomCurveRing>;
-using VroomCurveFp2 = VroomCurveFp2Ring::StandardElement;
-using VroomCurveAffineFp = AffinePoint<VroomCurveRing::StandardElement>;
-using VroomCurveAffineFp2 = AffinePoint<VroomCurveFp2>;
-using VroomCurveProjectiveFp = ProjectivePoint<VroomCurveRing::StandardElement>;
-using VroomCurveProjectiveFp2 = ProjectivePoint<VroomCurveFp2>;
-using VroomCurveG1 = G1<VroomCurveRing>;
-using VroomCurveG2 = G2<VroomCurveRing>;
-using VroomCurve50Ring = BoundedRing<381, 8, 50, -1932, 2377, 12>;
-using VroomCurve50Fp2Ring = FP2Ring<VroomCurve50Ring>;
-using VroomCurve50Fp2 = VroomCurve50Fp2Ring::StandardElement;
-using VroomCurve50AffineFp = AffinePoint<VroomCurve50Ring::StandardElement>;
-using VroomCurve50AffineFp2 = AffinePoint<VroomCurve50Fp2>;
-using VroomCurve50ProjectiveFp = ProjectivePoint<VroomCurve50Ring::StandardElement>;
-using VroomCurve50ProjectiveFp2 = ProjectivePoint<VroomCurve50Fp2>;
-using VroomCurve50G1 = G1<VroomCurve50Ring>;
-using VroomCurve50G2 = G2<VroomCurve50Ring>;
+using AvxRing = BoundedRing<>;
+using AvxFp2Ring = FP2Ring<AvxRing>;
+using AvxFp2 = AvxFp2Ring::StandardElement;
+using AvxFp12Ring = FP12Ring<AvxRing>;
+using AvxFp12 = AvxFp12Ring::StandardElement;
+using Avx50Ring = BoundedRing<381, 8, 50>;
+using Avx50Fp2Ring = FP2Ring<Avx50Ring>;
+using Avx50Fp2 = Avx50Fp2Ring::StandardElement;
+using Avx50Fp12Ring = FP12Ring<Avx50Ring>;
+using Avx50Fp12 = Avx50Fp12Ring::StandardElement;
+using AvxAffineFp = AffinePoint<AvxRing::StandardElement>;
+using AvxAffineFp2 = AffinePoint<AvxFp2>;
+using AvxProjectiveFp2 = ProjectivePoint<AvxFp2>;
+using AvxProjectiveFp = ProjectivePoint<AvxRing::StandardElement>;
+using AvxG1 = G1<AvxRing>;
+using AvxG2 = G2<AvxRing>;
+using AvxCurveRing = BoundedRing<381, 8, 52, -1932, 2377, 12>;
+using AvxCurveFp2Ring = FP2Ring<AvxCurveRing>;
+using AvxCurveFp2 = AvxCurveFp2Ring::StandardElement;
+using AvxCurveAffineFp = AffinePoint<AvxCurveRing::StandardElement>;
+using AvxCurveAffineFp2 = AffinePoint<AvxCurveFp2>;
+using AvxCurveProjectiveFp = ProjectivePoint<AvxCurveRing::StandardElement>;
+using AvxCurveProjectiveFp2 = ProjectivePoint<AvxCurveFp2>;
+using AvxCurveG1 = G1<AvxCurveRing>;
+using AvxCurveG2 = G2<AvxCurveRing>;
+using AvxCurve50Ring = BoundedRing<381, 8, 50, -1932, 2377, 12>;
+using AvxCurve50Fp2Ring = FP2Ring<AvxCurve50Ring>;
+using AvxCurve50Fp2 = AvxCurve50Fp2Ring::StandardElement;
+using AvxCurve50AffineFp = AffinePoint<AvxCurve50Ring::StandardElement>;
+using AvxCurve50AffineFp2 = AffinePoint<AvxCurve50Fp2>;
+using AvxCurve50ProjectiveFp = ProjectivePoint<AvxCurve50Ring::StandardElement>;
+using AvxCurve50ProjectiveFp2 = ProjectivePoint<AvxCurve50Fp2>;
+using AvxCurve50G1 = G1<AvxCurve50Ring>;
+using AvxCurve50G2 = G2<AvxCurve50Ring>;
 
 inline constexpr char kBls12_381BaseModulus[] =
     "4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787";
@@ -258,37 +258,37 @@ inline AffinePoint<typename FP2Ring<Ring>::StandardElement> make_vroom_g2_genera
     return make_vroom_g2_affine(ring, make_scalar_g2_generator_affine());
 }
 
-inline VroomProjectiveFp make_vroom_g1_projective(const VroomRing& ring, const VroomAffineFp& point)
+inline AvxProjectiveFp make_vroom_g1_projective(const AvxRing& ring, const AvxAffineFp& point)
 {
     return {point.x, point.y, ring.one()};
 }
 
-inline VroomProjectiveFp2 make_vroom_g2_projective(const VroomFp2Ring& fp2ring, const VroomAffineFp2& point)
+inline AvxProjectiveFp2 make_vroom_g2_projective(const AvxFp2Ring& fp2ring, const AvxAffineFp2& point)
 {
     return {point.x, point.y, fp2ring.one()};
 }
 
-inline VroomCurveProjectiveFp make_vroom_curve_g1_projective(const VroomCurveRing& ring, const VroomCurveAffineFp& point)
+inline AvxCurveProjectiveFp make_vroom_curve_g1_projective(const AvxCurveRing& ring, const AvxCurveAffineFp& point)
 {
     return {point.x, point.y, ring.one()};
 }
 
-inline VroomCurveProjectiveFp2 make_vroom_curve_g2_projective(const VroomCurveFp2Ring& fp2ring, const VroomCurveAffineFp2& point)
+inline AvxCurveProjectiveFp2 make_vroom_curve_g2_projective(const AvxCurveFp2Ring& fp2ring, const AvxCurveAffineFp2& point)
 {
     return {point.x, point.y, fp2ring.one()};
 }
 
-inline VroomCurve50ProjectiveFp make_vroom_curve50_g1_projective(const VroomCurve50Ring& ring, const VroomCurve50AffineFp& point)
+inline AvxCurve50ProjectiveFp make_vroom_curve50_g1_projective(const AvxCurve50Ring& ring, const AvxCurve50AffineFp& point)
 {
     return {point.x, point.y, ring.one()};
 }
 
-inline VroomCurve50ProjectiveFp2 make_vroom_curve50_g2_projective(const VroomCurve50Fp2Ring& fp2ring, const VroomCurve50AffineFp2& point)
+inline AvxCurve50ProjectiveFp2 make_vroom_curve50_g2_projective(const AvxCurve50Fp2Ring& fp2ring, const AvxCurve50AffineFp2& point)
 {
     return {point.x, point.y, fp2ring.one()};
 }
 
-inline VroomProjectiveFp make_random_vroom_g1_projective(const VroomRing& ring, uint64_t seed)
+inline AvxProjectiveFp make_random_vroom_g1_projective(const AvxRing& ring, uint64_t seed)
 {
     const BigInt modulus = modulus_bigint();
     gmp_randclass rng(gmp_randinit_default);
@@ -300,7 +300,7 @@ inline VroomProjectiveFp make_random_vroom_g1_projective(const VroomRing& ring, 
     };
 }
 
-inline VroomAffineFp make_random_vroom_g1_affine(const VroomRing& ring, uint64_t seed)
+inline AvxAffineFp make_random_vroom_g1_affine(const AvxRing& ring, uint64_t seed)
 {
     const BigInt modulus = modulus_bigint();
     gmp_randclass rng(gmp_randinit_default);
@@ -311,38 +311,38 @@ inline VroomAffineFp make_random_vroom_g1_affine(const VroomRing& ring, uint64_t
     };
 }
 
-inline VroomProjectiveFp2 make_random_vroom_g2_projective(const VroomFp2Ring& fp2ring, const VroomRing& ring, uint64_t seed)
+inline AvxProjectiveFp2 make_random_vroom_g2_projective(const AvxFp2Ring& fp2ring, const AvxRing& ring, uint64_t seed)
 {
     const BigInt modulus = modulus_bigint();
     gmp_randclass rng(gmp_randinit_default);
     rng.seed(seed);
     return {
-        VroomFp2(
+        AvxFp2(
             ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz()))),
             ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz())))),
-        VroomFp2(
+        AvxFp2(
             ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz()))),
             ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz())))),
         fp2ring.one(),
     };
 }
 
-inline VroomAffineFp2 make_random_vroom_g2_affine(const VroomRing& ring, uint64_t seed)
+inline AvxAffineFp2 make_random_vroom_g2_affine(const AvxRing& ring, uint64_t seed)
 {
     const BigInt modulus = modulus_bigint();
     gmp_randclass rng(gmp_randinit_default);
     rng.seed(seed);
     return {
-        VroomFp2(
+        AvxFp2(
             ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz()))),
             ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz())))),
-        VroomFp2(
+        AvxFp2(
             ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz()))),
             ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz())))),
     };
 }
 
-inline VroomCurveProjectiveFp make_random_vroom_curve_g1_projective(const VroomCurveRing& ring, uint64_t seed)
+inline AvxCurveProjectiveFp make_random_vroom_curve_g1_projective(const AvxCurveRing& ring, uint64_t seed)
 {
     const BigInt modulus = modulus_bigint();
     gmp_randclass rng(gmp_randinit_default);
@@ -354,7 +354,7 @@ inline VroomCurveProjectiveFp make_random_vroom_curve_g1_projective(const VroomC
     };
 }
 
-inline VroomCurveAffineFp make_random_vroom_curve_g1_affine(const VroomCurveRing& ring, uint64_t seed)
+inline AvxCurveAffineFp make_random_vroom_curve_g1_affine(const AvxCurveRing& ring, uint64_t seed)
 {
     const BigInt modulus = modulus_bigint();
     gmp_randclass rng(gmp_randinit_default);
@@ -365,38 +365,38 @@ inline VroomCurveAffineFp make_random_vroom_curve_g1_affine(const VroomCurveRing
     };
 }
 
-inline VroomCurveProjectiveFp2 make_random_vroom_curve_g2_projective(const VroomCurveFp2Ring& fp2ring, const VroomCurveRing& ring, uint64_t seed)
+inline AvxCurveProjectiveFp2 make_random_vroom_curve_g2_projective(const AvxCurveFp2Ring& fp2ring, const AvxCurveRing& ring, uint64_t seed)
 {
     const BigInt modulus = modulus_bigint();
     gmp_randclass rng(gmp_randinit_default);
     rng.seed(seed);
     return {
-        VroomCurveFp2(
+        AvxCurveFp2(
             ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz()))),
             ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz())))),
-        VroomCurveFp2(
+        AvxCurveFp2(
             ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz()))),
             ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz())))),
         fp2ring.one(),
     };
 }
 
-inline VroomCurveAffineFp2 make_random_vroom_curve_g2_affine(const VroomCurveRing& ring, uint64_t seed)
+inline AvxCurveAffineFp2 make_random_vroom_curve_g2_affine(const AvxCurveRing& ring, uint64_t seed)
 {
     const BigInt modulus = modulus_bigint();
     gmp_randclass rng(gmp_randinit_default);
     rng.seed(seed);
     return {
-        VroomCurveFp2(
+        AvxCurveFp2(
             ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz()))),
             ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz())))),
-        VroomCurveFp2(
+        AvxCurveFp2(
             ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz()))),
             ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz())))),
     };
 }
 
-inline VroomCurve50ProjectiveFp make_random_vroom_curve50_g1_projective(const VroomCurve50Ring& ring, uint64_t seed)
+inline AvxCurve50ProjectiveFp make_random_vroom_curve50_g1_projective(const AvxCurve50Ring& ring, uint64_t seed)
 {
     const BigInt modulus = modulus_bigint();
     gmp_randclass rng(gmp_randinit_default);
@@ -408,7 +408,7 @@ inline VroomCurve50ProjectiveFp make_random_vroom_curve50_g1_projective(const Vr
     };
 }
 
-inline VroomCurve50AffineFp make_random_vroom_curve50_g1_affine(const VroomCurve50Ring& ring, uint64_t seed)
+inline AvxCurve50AffineFp make_random_vroom_curve50_g1_affine(const AvxCurve50Ring& ring, uint64_t seed)
 {
     const BigInt modulus = modulus_bigint();
     gmp_randclass rng(gmp_randinit_default);
@@ -419,32 +419,32 @@ inline VroomCurve50AffineFp make_random_vroom_curve50_g1_affine(const VroomCurve
     };
 }
 
-inline VroomCurve50ProjectiveFp2 make_random_vroom_curve50_g2_projective(const VroomCurve50Fp2Ring& fp2ring, const VroomCurve50Ring& ring, uint64_t seed)
+inline AvxCurve50ProjectiveFp2 make_random_vroom_curve50_g2_projective(const AvxCurve50Fp2Ring& fp2ring, const AvxCurve50Ring& ring, uint64_t seed)
 {
     const BigInt modulus = modulus_bigint();
     gmp_randclass rng(gmp_randinit_default);
     rng.seed(seed);
     return {
-        VroomCurve50Fp2(
+        AvxCurve50Fp2(
             ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz()))),
             ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz())))),
-        VroomCurve50Fp2(
+        AvxCurve50Fp2(
             ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz()))),
             ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz())))),
         fp2ring.one(),
     };
 }
 
-inline VroomCurve50AffineFp2 make_random_vroom_curve50_g2_affine(const VroomCurve50Ring& ring, uint64_t seed)
+inline AvxCurve50AffineFp2 make_random_vroom_curve50_g2_affine(const AvxCurve50Ring& ring, uint64_t seed)
 {
     const BigInt modulus = modulus_bigint();
     gmp_randclass rng(gmp_randinit_default);
     rng.seed(seed);
     return {
-        VroomCurve50Fp2(
+        AvxCurve50Fp2(
             ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz()))),
             ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz())))),
-        VroomCurve50Fp2(
+        AvxCurve50Fp2(
             ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz()))),
             ring.from_bigint(BigInt(rng.get_z_range(modulus.get_mpz())))),
     };
@@ -706,8 +706,8 @@ inline typename FP2Ring<Ring>::StandardElement make_vroom_fp2_from_sparse6(const
     return typename FP2Ring<Ring>::StandardElement(coeffs[pair_idx * 2], coeffs[pair_idx * 2 + 1]);
 }
 
-template<class Ring, class VroomFp12Like>
-inline std::array<BigInt, 12> vroom_fp12_to_bigints(const Ring& ring, const VroomFp12Like& value)
+template<class Ring, class AvxFp12Like>
+inline std::array<BigInt, 12> vroom_fp12_to_bigints(const Ring& ring, const AvxFp12Like& value)
 {
     std::array<BigInt, 12> out;
     for (size_t i = 0; i < out.size(); ++i) {
@@ -718,4 +718,4 @@ inline std::array<BigInt, 12> vroom_fp12_to_bigints(const Ring& ring, const Vroo
     return out;
 }
 
-}  // namespace blst_vroom_test
+}  // namespace blst_avx_test
