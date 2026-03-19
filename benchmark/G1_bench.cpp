@@ -32,7 +32,7 @@ static void generate_random_g1_point(G1Point& p) {
 // ========== POINT ADDITION BENCHMARKS ==========
 
 // Benchmark for G1 point addition (Jacobian)
-static void BM_G1_Add(benchmark::State& state) {
+static void BM_BlstScalarG1_Add(benchmark::State& state) {
     G1Point a, b, c;
     generate_random_g1_point(a);
     generate_random_g1_point(b);
@@ -43,7 +43,7 @@ static void BM_G1_Add(benchmark::State& state) {
     }
     state.SetItemsProcessed(state.iterations());
 }
-BENCHMARK(BM_G1_Add);
+BENCHMARK(BM_BlstScalarG1_Add);
 
 // Benchmark for G1 point addition with an affine point
 static void BM_G1_AddAffine(benchmark::State& state) {
@@ -66,7 +66,7 @@ BENCHMARK(BM_G1_AddAffine);
 // ========== POINT DOUBLING BENCHMARK ==========
 
 // Benchmark for G1 point doubling
-static void BM_G1_Double(benchmark::State& state) {
+static void BM_BlstScalarG1_Double(benchmark::State& state) {
     G1Point a, c;
     generate_random_g1_point(a);
 
@@ -76,7 +76,7 @@ static void BM_G1_Double(benchmark::State& state) {
     }
     state.SetItemsProcessed(state.iterations());
 }
-BENCHMARK(BM_G1_Double);
+BENCHMARK(BM_BlstScalarG1_Double);
 
 // ========== SCALAR MULTIPLICATION BENCHMARK ==========
 

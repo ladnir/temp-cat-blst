@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "blst/vroom/src/conversion_inversion.hpp"
+#include "blst/vroom/src/final_exponentiation.hpp"
 #include "blst/vroom/tests/vroom_basefield_test_utils.hpp"
 
 #include <array>
@@ -195,9 +196,9 @@ TEST(VroomFp12, MulByXy00z0MatchesScalarBlstFp12)
         const auto [x_seed, sparse_seed] = seeds[case_idx];
         const auto vroom_value = blst_vroom_test::make_vroom_fp12_from_seed(ring, x_seed);
         const auto sparse_coeffs = blst_vroom_test::make_vroom_sparse_fp6_from_seed(ring, sparse_seed);
-        const auto c_term = blst_vroom_test::make_vroom_fp2_from_sparse6(sparse_coeffs, 0);
-        const auto x_term = blst_vroom_test::make_vroom_fp2_from_sparse6(sparse_coeffs, 1);
-        const auto y_term = blst_vroom_test::make_vroom_fp2_from_sparse6(sparse_coeffs, 2);
+        const auto c_term = blst_vroom_test::make_vroom_fp2_from_sparse6<VroomRing>(sparse_coeffs, 0);
+        const auto x_term = blst_vroom_test::make_vroom_fp2_from_sparse6<VroomRing>(sparse_coeffs, 1);
+        const auto y_term = blst_vroom_test::make_vroom_fp2_from_sparse6<VroomRing>(sparse_coeffs, 2);
 
         VroomFp12 result = {};
         fp12ring.flat_mulxy00z0(result, vroom_value, c_term, x_term, y_term, ring);
@@ -229,9 +230,9 @@ TEST(VroomFp12, MulByXy00z0FixedVectorsMatchScalarBlstFp12)
 
     const auto vroom_value = blst_vroom_test::make_vroom_fp12(ring, fp12_coeffs);
     const auto sparse_vroom = blst_vroom_test::make_vroom_sparse_fp6_coeffs(ring, sparse_coeffs);
-    const auto c_term = blst_vroom_test::make_vroom_fp2_from_sparse6(sparse_vroom, 0);
-    const auto x_term = blst_vroom_test::make_vroom_fp2_from_sparse6(sparse_vroom, 1);
-    const auto y_term = blst_vroom_test::make_vroom_fp2_from_sparse6(sparse_vroom, 2);
+    const auto c_term = blst_vroom_test::make_vroom_fp2_from_sparse6<VroomRing>(sparse_vroom, 0);
+    const auto x_term = blst_vroom_test::make_vroom_fp2_from_sparse6<VroomRing>(sparse_vroom, 1);
+    const auto y_term = blst_vroom_test::make_vroom_fp2_from_sparse6<VroomRing>(sparse_vroom, 2);
 
     VroomFp12 result = {};
     fp12ring.flat_mulxy00z0(result, vroom_value, c_term, x_term, y_term, ring);
@@ -286,6 +287,160 @@ TEST(VroomFp12, BlstInverterMatchesScalarBlstInverse)
             blst_vroom_test::scalar_fp12_to_bigints(scalar_inverse),
             "inverse case=" + std::to_string(case_idx));
     }
+}
+
+TEST(VroomFp12, ConjugateMatchesScalarBlstFp12)
+{
+    const VroomRing ring(blst_vroom_test::modulus_bigint());
+    const VroomFp12Ring fp12ring(ring);
+    const std::array<uint64_t, 4> seeds = {{42, 123, 456, 789}};
+
+    for (size_t case_idx = 0; case_idx < seeds.size(); ++case_idx) {
+        const uint64_t seed = seeds[case_idx];
+        const auto vroom_value = blst_vroom_test::make_vroom_fp12_from_seed(ring, seed);
+        const auto vroom_result = fp12ring.fp12_flat_conjugate(vroom_value, ring);
+
+        blst::Fp12 scalar_result = blst_vroom_test::make_scalar_fp12_from_seed(seed);
+        blst::Fp12::conjugate(scalar_result);
+
+        expect_fp12_bigints_equal(
+            blst_vroom_test::vroom_fp12_to_bigints(ring, vroom_result),
+            blst_vroom_test::scalar_fp12_to_bigints(scalar_result),
+            "conjugate case=" + std::to_string(case_idx));
+    }
+}
+
+TEST(VroomFp12, FrobeniusMapsMatchScalarBlstFp12)
+{
+    const VroomRing ring(blst_vroom_test::modulus_bigint());
+    const VroomFp12Ring fp12ring(ring);
+    const std::array<uint64_t, 4> seeds = {{42, 123, 456, 789}};
+
+    for (size_t case_idx = 0; case_idx < seeds.size(); ++case_idx) {
+        const uint64_t seed = seeds[case_idx];
+        const auto vroom_value = blst_vroom_test::make_vroom_fp12_from_seed(ring, seed);
+        const blst::Fp12 scalar_value = blst_vroom_test::make_scalar_fp12_from_seed(seed);
+
+        const auto vroom_frob1 = fp12ring.fp12_flat_frobenius_map1(vroom_value, ring);
+        const auto vroom_frob2 = fp12ring.fp12_flat_frobenius_map2(vroom_value, ring);
+        const auto vroom_frob3 = fp12ring.fp12_flat_frobenius_map3(vroom_value, ring);
+
+        blst::Fp12 scalar_frob1 = {};
+        blst::Fp12 scalar_frob2 = {};
+        blst::Fp12 scalar_frob3 = {};
+        blst::Fp12::frobenius_map(scalar_frob1, scalar_value, 1);
+        blst::Fp12::frobenius_map(scalar_frob2, scalar_value, 2);
+        blst::Fp12::frobenius_map(scalar_frob3, scalar_value, 3);
+
+        expect_fp12_bigints_equal(
+            blst_vroom_test::vroom_fp12_to_bigints(ring, vroom_frob1),
+            blst_vroom_test::scalar_fp12_to_bigints(scalar_frob1),
+            "frob1 case=" + std::to_string(case_idx));
+        expect_fp12_bigints_equal(
+            blst_vroom_test::vroom_fp12_to_bigints(ring, vroom_frob2),
+            blst_vroom_test::scalar_fp12_to_bigints(scalar_frob2),
+            "frob2 case=" + std::to_string(case_idx));
+        expect_fp12_bigints_equal(
+            blst_vroom_test::vroom_fp12_to_bigints(ring, vroom_frob3),
+            blst_vroom_test::scalar_fp12_to_bigints(scalar_frob3),
+            "frob3 case=" + std::to_string(case_idx));
+    }
+}
+
+TEST(VroomFp12, FinalExpAfterInverseMatchesScalarBlstFinalExp)
+{
+    const VroomRing ring(blst_vroom_test::modulus_bigint());
+    const VroomFp12Ring fp12ring(ring);
+    const std::array<std::pair<uint64_t, uint64_t>, 4> seeds = {{
+        {42, 123},
+        {456, 789},
+        {17, 33},
+        {99, 7},
+    }};
+
+    for (size_t case_idx = 0; case_idx < seeds.size(); ++case_idx) {
+        const uint64_t value_seed = seeds[case_idx].first;
+        const auto coeffs = blst_vroom_test::seeded_fp12_coeffs(value_seed);
+        const auto vroom_value = blst_vroom_test::make_vroom_fp12(ring, coeffs);
+
+        const blst::Fp12 scalar_value = blst_vroom_test::bigint_array_to_scalar_fp12(coeffs);
+        blst::Fp12 scalar_inverse = {};
+        blst::Fp12 scalar_result = {};
+        blst::Fp12::inverse(scalar_inverse, scalar_value);
+        blst::Fp12::final_exp(scalar_result, scalar_value);
+
+        const auto vroom_inverse =
+            blst_vroom_test::make_vroom_fp12(ring, blst_vroom_test::scalar_fp12_to_bigints(scalar_inverse));
+        const auto vroom_result = final_exp_after_inverse(vroom_value, vroom_inverse, fp12ring, ring);
+
+        expect_fp12_bigints_equal(
+            blst_vroom_test::vroom_fp12_to_bigints(ring, vroom_result),
+            blst_vroom_test::scalar_fp12_to_bigints(scalar_result),
+            "final-exp-after-inverse case=" + std::to_string(case_idx));
+    }
+}
+
+TEST(VroomFp12, RnsBlstInverterMatchesScalarBlstInverse)
+{
+    const VroomRing ring(blst_vroom_test::modulus_bigint());
+    const VroomFp12Ring fp12ring(ring);
+    const FP12RNS_BLSTInverter<VroomRing> inverter = {};
+    const std::array<uint64_t, 4> seeds = {{42, 123, 456, 789}};
+
+    for (size_t case_idx = 0; case_idx < seeds.size(); ++case_idx) {
+        const uint64_t seed = seeds[case_idx];
+        const auto coeffs = blst_vroom_test::seeded_fp12_coeffs(seed);
+        const auto vroom_value = blst_vroom_test::make_vroom_fp12(ring, coeffs);
+        const auto vroom_inverse = inverter.invert(vroom_value, fp12ring, ring);
+
+        const blst::Fp12 scalar_value = blst_vroom_test::bigint_array_to_scalar_fp12(coeffs);
+        blst::Fp12 scalar_inverse = {};
+        blst::Fp12::inverse(scalar_inverse, scalar_value);
+
+        expect_fp12_bigints_equal(
+            blst_vroom_test::vroom_fp12_to_bigints(ring, vroom_inverse),
+            blst_vroom_test::scalar_fp12_to_bigints(scalar_inverse),
+            "rns inverse case=" + std::to_string(case_idx));
+    }
+}
+
+template<class InverterFactory>
+void expect_final_exp_matches_scalar(const std::string& label, InverterFactory make_inverter)
+{
+    const VroomRing ring(blst_vroom_test::modulus_bigint());
+    const VroomFp12Ring fp12ring(ring);
+    const std::array<uint64_t, 4> seeds = {{42, 123, 456, 789}};
+
+    for (size_t case_idx = 0; case_idx < seeds.size(); ++case_idx) {
+        const uint64_t seed = seeds[case_idx];
+        const auto coeffs = blst_vroom_test::seeded_fp12_coeffs(seed);
+        const auto vroom_value = blst_vroom_test::make_vroom_fp12(ring, coeffs);
+        const auto inverter = make_inverter();
+        const auto vroom_result = final_exp(vroom_value, inverter, fp12ring, ring);
+
+        const blst::Fp12 scalar_value = blst_vroom_test::bigint_array_to_scalar_fp12(coeffs);
+        blst::Fp12 scalar_result = {};
+        blst::Fp12::final_exp(scalar_result, scalar_value);
+
+        expect_fp12_bigints_equal(
+            blst_vroom_test::vroom_fp12_to_bigints(ring, vroom_result),
+            blst_vroom_test::scalar_fp12_to_bigints(scalar_result),
+            label + " case=" + std::to_string(case_idx));
+    }
+}
+
+TEST(VroomFp12, FinalExpBlstInverterMatchesScalarBlst)
+{
+    expect_final_exp_matches_scalar(
+        "final exp blst inverter",
+        []() { return FP12BLSTInverter<VroomRing>{}; });
+}
+
+TEST(VroomFp12, FinalExpRnsBlstInverterMatchesScalarBlst)
+{
+    expect_final_exp_matches_scalar(
+        "final exp rns blst inverter",
+        []() { return FP12RNS_BLSTInverter<VroomRing>{}; });
 }
 
 }  // namespace

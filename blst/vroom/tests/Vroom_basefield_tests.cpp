@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include "blst/vroom/src/inversion.hpp"
 #include "blst/vroom/tests/vroom_basefield_test_utils.hpp"
 #include "blst/vroom/test_data/test_values.hpp"
 
@@ -10,6 +11,41 @@ namespace {
 
 using blst_vroom_test::VroomFp2Ring;
 using blst_vroom_test::VroomRing;
+
+template<int Batch>
+void expect_batch_reduce_expand_matches_scalar(const VroomRing& ring, uint64_t seed)
+{
+    const BigInt modulus = blst_vroom_test::modulus_bigint();
+    gmp_randclass rng(gmp_randinit_default);
+    rng.seed(seed);
+
+    std::array<BigInt, Batch> left_bigints = {};
+    std::array<BigInt, Batch> right_bigints = {};
+    std::array<VroomRing::ReadyElement<VroomRing::MAX_ADD>, Batch> ready_elements = {};
+
+    for (int i = 0; i < Batch; ++i) {
+        left_bigints[i] = BigInt(rng.get_z_range(modulus.get_mpz()));
+        right_bigints[i] = BigInt(rng.get_z_range(modulus.get_mpz()));
+        const auto left = ring.from_bigint(left_bigints[i]);
+        const auto right = ring.from_bigint(right_bigints[i]);
+        ready_elements[i] = ring.template ready<VroomRing::MAX_ADD>(left * right);
+    }
+
+    const auto result = ring.batch_reduce_expand<Batch>(ready_elements);
+
+    for (int i = 0; i < Batch; ++i) {
+        SCOPED_TRACE("batch=" + std::to_string(Batch) + " lane=" + std::to_string(i));
+
+        const blst::Fp left_scalar = blst_vroom_test::bigint_to_scalar_fp(left_bigints[i]);
+        const blst::Fp right_scalar = blst_vroom_test::bigint_to_scalar_fp(right_bigints[i]);
+        blst::Fp scalar_result = {};
+        blst::Fp::mul(scalar_result, left_scalar, right_scalar);
+
+        EXPECT_EQ(
+            ring.to_bigint(result[i]).to_string(),
+            blst_vroom_test::scalar_fp_to_bigint(scalar_result).to_string());
+    }
+}
 
 TEST(VroomBaseField, FromBigIntMatchesKnownRnsVectors)
 {
@@ -74,6 +110,47 @@ TEST(VroomBaseField, BatchModMul8MatchesScalarBlstFp)
                 blst_vroom_test::scalar_fp_to_bigint(scalar_result).to_string());
         }
     }
+}
+
+TEST(VroomBaseField, AddChainInverseMatchesScalarBlstFp)
+{
+    const VroomRing ring(blst_vroom_test::modulus_bigint());
+    const BigInt modulus = blst_vroom_test::modulus_bigint();
+    const BLS381AddChainInversion<VroomRing> inverter(ring);
+    gmp_randclass rng(gmp_randinit_default);
+    rng.seed(42);
+
+    for (int i = 0; i < 8; ++i) {
+        BigInt value(rng.get_z_range(modulus.get_mpz()));
+        if (value == BigInt(0)) {
+            value = BigInt(1);
+        }
+
+        const auto element = ring.from_bigint(value);
+        const auto result = inverter.invert(element, ring);
+
+        const blst::Fp scalar_value = blst_vroom_test::bigint_to_scalar_fp(value);
+        blst::Fp scalar_inverse = {};
+        blst::Fp::reciprocal(scalar_inverse, scalar_value);
+
+        SCOPED_TRACE("case=" + std::to_string(i));
+        EXPECT_EQ(
+            ring.to_bigint(result).to_string(),
+            blst_vroom_test::scalar_fp_to_bigint(scalar_inverse).to_string());
+    }
+}
+
+TEST(VroomBaseField, BatchReduceExpandMatchesScalarBlstFp)
+{
+    const VroomRing ring(blst_vroom_test::modulus_bigint());
+
+    expect_batch_reduce_expand_matches_scalar<1>(ring, 42);
+    expect_batch_reduce_expand_matches_scalar<2>(ring, 42);
+    expect_batch_reduce_expand_matches_scalar<3>(ring, 42);
+    expect_batch_reduce_expand_matches_scalar<4>(ring, 42);
+    expect_batch_reduce_expand_matches_scalar<5>(ring, 42);
+    expect_batch_reduce_expand_matches_scalar<6>(ring, 42);
+    expect_batch_reduce_expand_matches_scalar<12>(ring, 42);
 }
 
 TEST(VroomBaseField, Fp2MulMatchesScalarBlstFp2)

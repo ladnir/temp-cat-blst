@@ -245,10 +245,10 @@ std::array<typename Ring::StandardElement, 12> scalar_fp12_to_ring(
 template<class Ring>
 auto invert_via_blst(const Ring& ring, typename Ring::StandardElement& a)
 {
-    blst::Fp scalar = vroom_blst_scalar_bridge::ring_to_scalar_fp(ring, a);
+    blst::Fp scalar = vroom_blst_direct_bridge::ring_to_scalar_fp(ring, a);
     blst::Fp inverse = {};
     blst::Fp::reciprocal(inverse, scalar);
-    return vroom_blst_scalar_bridge::scalar_fp_to_ring(ring, inverse);
+    return vroom_blst_direct_bridge::scalar_fp_to_ring(ring, inverse);
 }
 
 template<class Ring>

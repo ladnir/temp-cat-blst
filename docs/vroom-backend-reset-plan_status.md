@@ -549,3 +549,628 @@ This document records the concrete execution baseline and current status for
   - targeted benchmark smoke passed for:
     - `BM_Pairing_BLST_Inverter`
     - `BM_Pairing_RNS_BLST_Inverter`
+
+## Phase 11 Status
+
+- added the next direct copied-VROOM final-exponentiation helper surface:
+  - `Fp12` conjugation
+  - `Fp12` Frobenius maps for `n = 1, 2, 3`
+  - `final_exp_after_inverse`
+- added direct correctness coverage in:
+  - `blst/vroom/tests/Vroom_fp12_tests.cpp`
+  - new tests:
+    - `VroomFp12.ConjugateMatchesScalarBlstFp12`
+    - `VroomFp12.FrobeniusMapsMatchScalarBlstFp12`
+    - `VroomFp12.FinalExpAfterInverseMatchesScalarBlstFinalExp`
+- added direct benchmark coverage in separate translation units to avoid
+  disturbing the already-stable `BM_FP12_Mul` layout:
+  - `blst/vroom/bench/Vroom_fp12_frobenius_bench.cpp`
+  - `blst/vroom/bench/Vroom_fp12_finalexp_bench.cpp`
+  - benchmark names:
+    - `BM_FP12_Conjugate`
+    - `BM_FP12_FrobeniusMap1`
+    - `BM_FP12_FrobeniusMap2`
+    - `BM_FP12_FrobeniusMap3`
+    - `BM_FP12_FinalExpAfterInverse`
+- extended the remote parity runner:
+  - `scripts/run_vroom_remote_parity.sh` now also runs:
+    - upstream and in-tree `BM_FP12_Conjugate`
+    - upstream and in-tree `BM_FP12_FrobeniusMap1`
+    - upstream and in-tree `BM_FP12_FrobeniusMap2`
+    - upstream and in-tree `BM_FP12_FrobeniusMap3`
+    - upstream and in-tree `BM_FP12_FinalExpAfterInverse`
+- latest scripted remote parity result:
+  - run id: `20260318T165248Z`
+  - report directory: `out/vroom-parity/20260318T165248Z/`
+  - upstream `BM_ModMul` median: `34.918 ns`
+  - in-tree `BM_ModMul` median: `35.212 ns`
+  - median drift: `+0.844%`
+  - upstream `BM_FP12_Mul` median: `414.819 ns`
+  - in-tree `BM_FP12_Mul` median: `417.297 ns`
+  - median drift: `+0.597%`
+  - upstream `BM_FP12_CyclotomicSqr` median: `335.612 ns`
+  - in-tree `BM_FP12_CyclotomicSqr` median: `337.759 ns`
+  - median drift: `+0.640%`
+  - upstream `BM_FP12_Conjugate` median: `11.956 ns`
+  - in-tree `BM_FP12_Conjugate` median: `11.925 ns`
+  - median drift: `-0.254%`
+  - upstream `BM_FP12_FrobeniusMap1` median: `232.229 ns`
+  - in-tree `BM_FP12_FrobeniusMap1` median: `232.411 ns`
+  - median drift: `+0.078%`
+  - upstream `BM_FP12_FrobeniusMap2` median: `187.725 ns`
+  - in-tree `BM_FP12_FrobeniusMap2` median: `185.889 ns`
+  - median drift: `-0.978%`
+  - upstream `BM_FP12_FrobeniusMap3` median: `153.476 ns`
+  - in-tree `BM_FP12_FrobeniusMap3` median: `152.919 ns`
+  - median drift: `-0.363%`
+  - upstream `BM_FP12_FinalExpAfterInverse` median: `125165.964 ns`
+  - in-tree `BM_FP12_FinalExpAfterInverse` median: `125766.145 ns`
+  - median drift: `+0.480%`
+  - upstream `BM_FP12_MulByXy0z00` median: `349.501 ns`
+  - in-tree `BM_FP12_MulByXy0z00` median: `349.188 ns`
+  - median drift: `-0.090%`
+  - upstream `BM_MillerLoop_DoubleStep` median: `870.579 ns`
+  - in-tree `BM_MillerLoop_DoubleStep` median: `865.925 ns`
+  - median drift: `-0.535%`
+  - upstream `BM_MillerLoop_AddStep` median: `950.969 ns`
+  - in-tree `BM_MillerLoop_AddStep` median: `952.372 ns`
+  - median drift: `+0.148%`
+  - upstream `BM_MillerLoop` median: `83362.179 ns`
+  - in-tree `BM_MillerLoop` median: `83670.871 ns`
+  - median drift: `+0.370%`
+  - upstream `BM_Pairing_BLST_Inverter` median: `222139.164 ns`
+  - in-tree `BM_Pairing_BLST_Inverter` median: `221863.363 ns`
+  - median drift: `-0.124%`
+  - upstream `BM_Pairing_RNS_BLST_Inverter` median: `214538.618 ns`
+  - in-tree `BM_Pairing_RNS_BLST_Inverter` median: `218658.419 ns`
+  - median drift: `+1.920%`
+  - scalar `BM_FP12_ScalarMulBaseline` median: `1794.287 ns`
+  - scalar `BM_FP12_ScalarCyclotomicSqrBaseline` median: `806.488 ns`
+  - scalar `BM_FP12_ScalarMulByXy0z00Baseline` median: `1211.178 ns`
+  - scalar `BM_BlstScalarPairingFinalExp` median: `570529.577 ns`
+  - parity result: pass for all tracked gates
+- local validation after Phase 11 wiring:
+  - `cmake --build out/build/x64-Debug --config Debug --target blst_tests blst_benchmarks`
+    succeeded
+  - `ctest --test-dir out/build/x64-Debug --output-on-failure -C Debug` passed
+  - passing test count: `260/260`
+  - targeted benchmark smoke passed for:
+    - `BM_FP12_Conjugate`
+    - `BM_FP12_FrobeniusMap1`
+    - `BM_FP12_FrobeniusMap2`
+    - `BM_FP12_FrobeniusMap3`
+    - `BM_FP12_FinalExpAfterInverse`
+
+## Phase 12 Status
+
+- added the remaining low-level copied-VROOM base-field primitive coverage:
+  - addition-chain field inverse via `BLS381AddChainInversion`
+  - `batch_reduce_expand` for supported upstream benchmark arities:
+    - `1`
+    - `2`
+    - `3`
+    - `4`
+    - `5`
+    - `6`
+    - `12`
+- added direct correctness coverage in:
+  - `blst/vroom/tests/Vroom_basefield_tests.cpp`
+  - new tests:
+    - `VroomBaseField.AddChainInverseMatchesScalarBlstFp`
+    - `VroomBaseField.BatchReduceExpandMatchesScalarBlstFp`
+- added direct benchmark coverage in separate translation units:
+  - `blst/vroom/bench/Vroom_basefield_inverse_bench.cpp`
+  - `blst/vroom/bench/Vroom_basefield_reduce_bench.cpp`
+  - benchmark names:
+    - `BM_Inverse`
+    - `BM_BatchReduceExpand_1`
+    - `BM_BatchReduceExpand_2`
+    - `BM_BatchReduceExpand_3`
+    - `BM_BatchReduceExpand_4`
+    - `BM_BatchReduceExpand_5`
+    - `BM_BatchReduceExpand_6`
+    - `BM_BatchReduceExpand_12`
+- extended the remote parity runner:
+  - `scripts/run_vroom_remote_parity.sh` now also runs:
+    - upstream and in-tree `BM_Inverse`
+    - upstream and in-tree `BM_BatchReduceExpand_1`
+    - upstream and in-tree `BM_BatchReduceExpand_2`
+    - upstream and in-tree `BM_BatchReduceExpand_3`
+    - upstream and in-tree `BM_BatchReduceExpand_4`
+    - upstream and in-tree `BM_BatchReduceExpand_5`
+    - upstream and in-tree `BM_BatchReduceExpand_6`
+    - upstream and in-tree `BM_BatchReduceExpand_12`
+- latest scripted remote parity result:
+  - run id: `20260318T211148Z`
+  - report directory: `out/vroom-parity/20260318T211148Z/`
+  - upstream `BM_Inverse` median: `25631.592 ns`
+  - in-tree `BM_Inverse` median: `25729.025 ns`
+  - median drift: `+0.380%`
+  - upstream `BM_BatchReduceExpand_1` median: `25.100 ns`
+  - in-tree `BM_BatchReduceExpand_1` median: `25.135 ns`
+  - median drift: `+0.141%`
+  - upstream `BM_BatchReduceExpand_2` median: `45.747 ns`
+  - in-tree `BM_BatchReduceExpand_2` median: `45.545 ns`
+  - median drift: `-0.443%`
+  - upstream `BM_BatchReduceExpand_3` median: `64.344 ns`
+  - in-tree `BM_BatchReduceExpand_3` median: `64.303 ns`
+  - median drift: `-0.064%`
+  - upstream `BM_BatchReduceExpand_4` median: `83.062 ns`
+  - in-tree `BM_BatchReduceExpand_4` median: `82.519 ns`
+  - median drift: `-0.654%`
+  - upstream `BM_BatchReduceExpand_5` median: `96.711 ns`
+  - in-tree `BM_BatchReduceExpand_5` median: `97.068 ns`
+  - median drift: `+0.369%`
+  - upstream `BM_BatchReduceExpand_6` median: `123.979 ns`
+  - in-tree `BM_BatchReduceExpand_6` median: `124.064 ns`
+  - median drift: `+0.069%`
+  - upstream `BM_BatchReduceExpand_12` median: `265.396 ns`
+  - in-tree `BM_BatchReduceExpand_12` median: `266.371 ns`
+  - median drift: `+0.367%`
+  - parity result: pass for all new tracked gates
+- validation mode for Phase 12:
+  - local compilation intentionally paused per current workflow
+  - remote Release correctness run on the AVX-512 server:
+    - `./out/parity-tests-clang21/test/blst_tests --gtest_filter='VroomBaseField.AddChainInverseMatchesScalarBlstFp:VroomBaseField.BatchReduceExpandMatchesScalarBlstFp'`
+    - result: pass
+
+## Phase 13 Status
+
+- added the next direct copied-VROOM curve-operation surface:
+  - `G1` projective add
+  - `G1` mixed add
+  - `G1` double
+  - `G2` projective add
+  - `G2` mixed add
+  - `G2` double
+- implementation note:
+  - copied VROOM curve arithmetic requires the upstream curve ring shape
+    `BoundedRing<381, 8, 52, -1932, 2377, 12>`
+  - the first in-tree attempt mistakenly reused the default base-field ring and
+    failed to compile due insufficient precomputed reduction table depth
+  - the final harness uses a dedicated curve-ring alias and matching helper
+    constructors for random benchmark inputs
+- benchmark naming note:
+  - the repository already had scalar `BM_G1_Add`, `BM_G1_Double`,
+    `BM_G2_Add`, and `BM_G2_Double` benchmarks in `benchmark/G1_bench.cpp` and
+    `benchmark/G2_bench.cpp`
+  - those scalar benchmarks were renamed to:
+    - `BM_BlstScalarG1_Add`
+    - `BM_BlstScalarG1_Double`
+    - `BM_BlstScalarG2_Add`
+    - `BM_BlstScalarG2_Double`
+  - this was necessary so the copied-VROOM direct curve benchmarks could own
+    the upstream parity names without collision
+- added direct correctness coverage in:
+  - `blst/vroom/tests/Vroom_curve_tests.cpp`
+  - new tests:
+    - `VroomCurve.G1AddMixedAddAndDoubleMatchScalarBlst`
+    - `VroomCurve.G2AddMixedAddAndDoubleMatchScalarBlst`
+- added direct benchmark coverage in:
+  - `blst/vroom/bench/Vroom_curve_bench.cpp`
+  - benchmark names:
+    - `BM_G1_Add`
+    - `BM_G1_MixedAdd`
+    - `BM_G1_Double`
+    - `BM_G2_Add`
+    - `BM_G2_MixedAdd`
+    - `BM_G2_Double`
+- extended the remote parity runner:
+  - `scripts/run_vroom_remote_parity.sh` now also runs:
+    - upstream and in-tree `BM_G1_Add`
+    - upstream and in-tree `BM_G1_MixedAdd`
+    - upstream and in-tree `BM_G1_Double`
+    - upstream and in-tree `BM_G2_Add`
+    - upstream and in-tree `BM_G2_MixedAdd`
+    - upstream and in-tree `BM_G2_Double`
+- latest scripted remote parity result:
+  - run id: `20260318T211148Z`
+  - report directory: `out/vroom-parity/20260318T211148Z/`
+  - upstream `BM_G1_Add` median: `223.134 ns`
+  - in-tree `BM_G1_Add` median: `222.396 ns`
+  - median drift: `-0.331%`
+  - upstream `BM_G1_MixedAdd` median: `222.937 ns`
+  - in-tree `BM_G1_MixedAdd` median: `222.847 ns`
+  - median drift: `-0.040%`
+  - upstream `BM_G1_Double` median: `211.973 ns`
+  - in-tree `BM_G1_Double` median: `210.159 ns`
+  - median drift: `-0.856%`
+  - upstream `BM_G2_Add` median: `493.299 ns`
+  - in-tree `BM_G2_Add` median: `494.006 ns`
+  - median drift: `+0.143%`
+  - upstream `BM_G2_MixedAdd` median: `455.518 ns`
+  - in-tree `BM_G2_MixedAdd` median: `458.877 ns`
+  - median drift: `+0.738%`
+  - upstream `BM_G2_Double` median: `379.370 ns`
+  - in-tree `BM_G2_Double` median: `379.291 ns`
+  - median drift: `-0.021%`
+  - parity result: pass for all new tracked gates
+- remote Release correctness validation on the same snapshot:
+  - run directory: `/home/ec2-user/vroom-parity/20260318T211148Z/blst_current`
+  - command:
+    - `./out/parity-tests-clang21/test/blst_tests --gtest_filter='VroomCurve.*:VroomBaseField.AddChainInverseMatchesScalarBlstFp:VroomBaseField.BatchReduceExpandMatchesScalarBlstFp'`
+  - result: pass
+
+## Phase 14 Status
+
+- added the next direct copied-VROOM scalar-multiplication surface:
+  - `G1` GLV scalar multiplication through `GLVMult`
+  - `G2` GLS scalar multiplication through `GLSMult`
+- compatibility note:
+  - copied `scalar_mult.hpp` assumed upstream VROOM’s sibling `blst/` layout and
+    global helper names
+  - the in-tree version now resolves both layouts:
+    - upstream `../blst/...` when building in the vendor tree
+    - local `blst/common/...` and `blst/backend/...` when building under `blst/vroom`
+  - copied `src/gmp_wrapper.hpp` now supports `BLST_VROOM_SKIP_TEST_VALUES`
+    so new scalar-mult translation units can avoid pulling in duplicate
+    `test_values.hpp` globals during the monolithic test link
+- added direct correctness coverage in:
+  - `blst/vroom/tests/Vroom_scalar_mult_tests.cpp`
+  - new tests:
+    - `VroomScalarMult.G1ScalarMultGlvMatchesScalarBlst`
+    - `VroomScalarMult.G2ScalarMultGlsMatchesScalarBlst`
+  - both tests compare copied-VROOM byte-array and `BigInt` entry points against
+    scalar `blst` scalar multiplication on valid generator-derived points
+- added direct benchmark coverage in:
+  - `blst/vroom/bench/Vroom_scalar_mult_bench.cpp`
+  - benchmark names:
+    - `BM_G1_ScalarMult_GLV`
+    - `BM_G2_ScalarMult_GLS`
+- extended the remote parity runner:
+  - `scripts/run_vroom_remote_parity.sh` now also runs:
+    - upstream and in-tree `BM_G1_ScalarMult_GLV`
+    - upstream and in-tree `BM_G2_ScalarMult_GLS`
+- latest scripted remote parity result:
+  - run id: `20260318T214239Z`
+  - report directory: `out/vroom-parity/20260318T214239Z/`
+  - upstream `BM_G1_ScalarMult_GLV` median: `46022.856 ns`
+  - in-tree `BM_G1_ScalarMult_GLV` median: `45919.691 ns`
+  - median drift: `-0.224%`
+  - upstream `BM_G2_ScalarMult_GLS` median: `68959.491 ns`
+  - in-tree `BM_G2_ScalarMult_GLS` median: `69476.797 ns`
+  - median drift: `+0.750%`
+  - parity result: pass for both new tracked gates
+- validation mode for Phase 14:
+  - local compilation intentionally paused per current workflow
+  - remote Release correctness run on the AVX-512 server:
+    - run directory: `/home/ec2-user/vroom-parity/20260318T214239Z/blst_current`
+    - command:
+      - `./out/parity-tests-clang21/test/blst_tests --gtest_filter='VroomScalarMult.*'`
+    - result: pass
+
+## Phase 15 Status
+
+- added the next copied-VROOM parameter-set slice:
+  - 50-bit `G1` GLV scalar multiplication
+  - 50-bit `G2` GLS scalar multiplication
+- implementation note:
+  - this phase keeps the same copied `scalar_mult.hpp` surface and exercises it
+    under `BoundedRing<381, 8, 50, -1932, 2377, 12>`
+  - shared test helpers now expose dedicated 50-bit curve aliases and random
+    projective/affine constructors
+- added direct correctness coverage in:
+  - `blst/vroom/tests/Vroom_scalar_mult_50bit_tests.cpp`
+  - new tests:
+    - `VroomScalarMult50Bit.G1ScalarMultGlvMatchesScalarBlst`
+    - `VroomScalarMult50Bit.G2ScalarMultGlsMatchesScalarBlst`
+- added direct benchmark coverage in:
+  - `blst/vroom/bench/Vroom_scalar_mult_50bit_bench.cpp`
+  - benchmark names:
+    - `BM_G1_ScalarMult_GLV_50bit`
+    - `BM_G2_ScalarMult_GLS_50bit`
+- extended the remote parity runner:
+  - `scripts/run_vroom_remote_parity.sh` now also:
+    - builds upstream `bench_pairing_50bit`
+    - runs upstream and in-tree `BM_G1_ScalarMult_GLV_50bit`
+    - runs upstream and in-tree `BM_G2_ScalarMult_GLS_50bit`
+- latest scripted remote parity result:
+  - run id: `20260319T020039Z`
+  - report directory: `out/vroom-parity/20260319T020039Z/`
+  - upstream `BM_G1_ScalarMult_GLV_50bit` median: `42670.828 ns`
+  - in-tree `BM_G1_ScalarMult_GLV_50bit` median: `42623.742 ns`
+  - median drift: `-0.110%`
+  - upstream `BM_G2_ScalarMult_GLS_50bit` median: `65796.291 ns`
+  - in-tree `BM_G2_ScalarMult_GLS_50bit` median: `65189.799 ns`
+  - median drift: `-0.922%`
+  - parity result: pass for both new tracked gates
+- validation mode for Phase 15:
+  - local compilation intentionally paused per current workflow
+  - remote Release correctness run on the AVX-512 server:
+    - run directory: `/home/ec2-user/vroom-parity/20260319T020039Z/blst_current`
+    - command:
+      - `./out/parity-tests-clang21/test/blst_tests --gtest_filter='VroomScalarMult50Bit.*'`
+    - result: pass
+
+## Phase 16 Status
+
+- added the next copied-VROOM 50-bit tower and wrapper surface:
+  - 50-bit `Fp12` multiply and square
+  - 50-bit `Fp12` cyclotomic square
+  - 50-bit `Fp12` conjugate and Frobenius maps `1/2/3`
+  - 50-bit `Fp12` multiply-by-`xy00z0`
+  - 50-bit `Fp12` inverse through `FP12BLSTInverter` and `FP12RNS_BLSTInverter`
+  - 50-bit final exponentiation wrapper paths through both inverter flavors
+  - 50-bit full pairing wrapper paths through both inverter flavors
+- implementation notes:
+  - shared VROOM helper factories now accept ring-generic `Fp12` and affine generator paths so the same test scaffolding can drive both 52-bit and 50-bit rings
+  - the 50-bit final-exponentiation wrapper benchmark needed the copied inverter header explicitly included
+  - the 50-bit sparse `Fp12` benchmark initially drifted because the destination `Fp12` object was zero-initialized inside the hot loop while upstream leaves it uninitialized before `flat_mulxy00z0` overwrites it
+  - the in-tree benchmark now matches upstream’s benchmark shape for that path
+- added direct correctness coverage in:
+  - `blst/vroom/tests/Vroom_fp12_50bit_tests.cpp`
+  - `blst/vroom/tests/Vroom_pairing_50bit_tests.cpp`
+  - new tests:
+    - `VroomFp1250Bit.MulMatchesScalarBlstFp12`
+    - `VroomFp1250Bit.CyclotomicSqrMatchesScalarBlstFp12`
+    - `VroomFp1250Bit.MulByXy00z0MatchesScalarBlstFp12`
+    - `VroomFp1250Bit.BlstInverterMatchesScalarBlstInverse`
+    - `VroomFp1250Bit.RnsBlstInverterMatchesScalarBlstInverse`
+    - `VroomFp1250Bit.FinalExpBlstInverterMatchesScalarBlst`
+    - `VroomFp1250Bit.FinalExpRnsBlstInverterMatchesScalarBlst`
+    - `VroomPairing50Bit.PairingBlstInverterMatchesScalarBlst`
+    - `VroomPairing50Bit.PairingRnsBlstInverterMatchesScalarBlst`
+- added direct benchmark coverage in:
+  - `blst/vroom/bench/Vroom_fp12_50bit_bench.cpp`
+  - `blst/vroom/bench/Vroom_fp12_inverse_50bit_bench.cpp`
+  - `blst/vroom/bench/Vroom_fp12_finalexp_wrapper_50bit_bench.cpp`
+  - `blst/vroom/bench/Vroom_pairing_50bit_bench.cpp`
+  - benchmark names:
+    - `BM_FP12_Mul_50bit`
+    - `BM_FP12_Sqr_50bit`
+    - `BM_FP12_CyclotomicSqr_50bit`
+    - `BM_FP12_Conjugate_50bit`
+    - `BM_FP12_FrobeniusMap1_50bit`
+    - `BM_FP12_FrobeniusMap2_50bit`
+    - `BM_FP12_FrobeniusMap3_50bit`
+    - `BM_FP12_FinalExpAfterInverse_50bit`
+    - `BM_FP12_MulByXy0z00_50bit`
+    - `BM_FP12_Inverse_BLST_50bit`
+    - `BM_FP12_Inverse_RNS_BLST_50bit`
+    - `BM_FP12_FinalExp_BLST_Inverter_50bit`
+    - `BM_FP12_FinalExp_RNS_BLST_Inverter_50bit`
+    - `BM_Pairing_BLST_Inverter_50bit`
+    - `BM_Pairing_RNS_BLST_Inverter_50bit`
+- extended the remote parity runner:
+  - `scripts/run_vroom_remote_parity.sh` now also runs the upstream `bench_pairing_50bit` counterparts and compares them against all new in-tree 50-bit benchmark names above
+- latest scripted remote parity result:
+  - run id: `20260319T044912Z`
+  - report directory: `out/vroom-parity/20260319T044912Z/`
+  - upstream `BM_FP12_Mul` median: `419.458 ns`
+  - in-tree `BM_FP12_Mul_50bit` median: `419.310 ns`
+  - median drift: `-0.035%`
+  - upstream `BM_FP12_Sqr` median: `357.458 ns`
+  - in-tree `BM_FP12_Sqr_50bit` median: `357.178 ns`
+  - median drift: `-0.078%`
+  - upstream `BM_FP12_CyclotomicSqr` median: `323.795 ns`
+  - in-tree `BM_FP12_CyclotomicSqr_50bit` median: `322.676 ns`
+  - median drift: `-0.345%`
+  - upstream `BM_FP12_Conjugate` median: `11.959 ns`
+  - in-tree `BM_FP12_Conjugate_50bit` median: `11.959 ns`
+  - median drift: `-0.002%`
+  - upstream `BM_FP12_FrobeniusMap1` median: `219.116 ns`
+  - in-tree `BM_FP12_FrobeniusMap1_50bit` median: `221.082 ns`
+  - median drift: `+0.897%`
+  - upstream `BM_FP12_FrobeniusMap2` median: `180.868 ns`
+  - in-tree `BM_FP12_FrobeniusMap2_50bit` median: `182.828 ns`
+  - median drift: `+1.083%`
+  - upstream `BM_FP12_FrobeniusMap3` median: `140.806 ns`
+  - in-tree `BM_FP12_FrobeniusMap3_50bit` median: `143.825 ns`
+  - median drift: `+2.144%`
+  - upstream `BM_FP12_FinalExpAfterInverse` median: `120123.300 ns`
+  - in-tree `BM_FP12_FinalExpAfterInverse_50bit` median: `120036.125 ns`
+  - median drift: `-0.073%`
+  - upstream `BM_FP12_MulByXy0z00` median: `353.578 ns`
+  - in-tree `BM_FP12_MulByXy0z00_50bit` median: `353.655 ns`
+  - median drift: `+0.022%`
+  - upstream `BM_FP12_Inverse_BLST` median: `9001.469 ns`
+  - in-tree `BM_FP12_Inverse_BLST_50bit` median: `9049.043 ns`
+  - median drift: `+0.529%`
+  - upstream `BM_FP12_Inverse_RNS_BLST` median: `4234.665 ns`
+  - in-tree `BM_FP12_Inverse_RNS_BLST_50bit` median: `4342.548 ns`
+  - median drift: `+2.548%`
+  - upstream `BM_FP12_FinalExp_BLST_Inverter` median: `131374.294 ns`
+  - in-tree `BM_FP12_FinalExp_BLST_Inverter_50bit` median: `131578.428 ns`
+  - median drift: `+0.155%`
+  - upstream `BM_FP12_FinalExp_RNS_BLST_Inverter` median: `125110.647 ns`
+  - in-tree `BM_FP12_FinalExp_RNS_BLST_Inverter_50bit` median: `125594.070 ns`
+  - median drift: `+0.386%`
+  - upstream `BM_Pairing_BLST_Inverter` median: `212005.805 ns`
+  - in-tree `BM_Pairing_BLST_Inverter_50bit` median: `211771.699 ns`
+  - median drift: `-0.110%`
+  - upstream `BM_Pairing_RNS_BLST_Inverter` median: `205907.982 ns`
+  - in-tree `BM_Pairing_RNS_BLST_Inverter_50bit` median: `205311.853 ns`
+  - median drift: `-0.290%`
+  - parity result: pass for all new tracked 50-bit gates
+- validation mode for Phase 16:
+  - local compilation intentionally paused per current workflow
+  - remote Release correctness run on the AVX-512 server:
+    - run directory: `/home/ec2-user/vroom-parity/20260319T044912Z/blst_current`
+    - command:
+      - `./out/parity-tests-clang21/test/blst_tests --gtest_filter='VroomFp1250Bit.*:VroomPairing50Bit.*'`
+    - result: pass
+
+## Phase 17 Status
+
+- added the next copied-VROOM 50-bit Miller surface:
+  - `Miller::double_step`
+  - `Miller::add_step`
+  - `Miller::miller_loop`
+- added direct correctness coverage in:
+  - `blst/vroom/tests/Vroom_miller_50bit_tests.cpp`
+  - new test:
+    - `VroomPairing50Bit.MillerLoopThenScalarFinalExpMatchesScalarBlstOnReferencePairs`
+  - this checks copied VROOM 50-bit Miller output after scalar `blst` final exponentiation against scalar `blst` final pairing on generator and doubled reference pairs
+- added direct benchmark coverage in:
+  - `blst/vroom/bench/Vroom_miller_50bit_bench.cpp`
+  - benchmark names:
+    - `BM_MillerLoop_DoubleStep_50bit`
+    - `BM_MillerLoop_AddStep_50bit`
+    - `BM_MillerLoop_50bit`
+- extended the remote parity runner:
+  - `scripts/run_vroom_remote_parity.sh` now also runs the upstream `bench_pairing_50bit` Miller benchmarks and compares them against the new in-tree 50-bit Miller benchmark names
+- latest scripted remote parity result:
+  - run id: `20260319T045825Z`
+  - report directory: `out/vroom-parity/20260319T045825Z/`
+  - upstream `BM_MillerLoop_DoubleStep` median: `837.904 ns`
+  - in-tree `BM_MillerLoop_DoubleStep_50bit` median: `840.757 ns`
+  - median drift: `+0.341%`
+  - upstream `BM_MillerLoop_AddStep` median: `957.097 ns`
+  - in-tree `BM_MillerLoop_AddStep_50bit` median: `951.995 ns`
+  - median drift: `-0.533%`
+  - upstream `BM_MillerLoop` median: `80336.485 ns`
+  - in-tree `BM_MillerLoop_50bit` median: `81152.991 ns`
+  - median drift: `+1.016%`
+  - parity result: pass for all new tracked 50-bit Miller gates
+- validation mode for Phase 17:
+  - local compilation intentionally paused per current workflow
+  - remote Release correctness run on the AVX-512 server:
+    - run directory: `/home/ec2-user/vroom-parity/20260319T045825Z/blst_current`
+    - command:
+      - `./out/parity-tests-clang21/test/blst_tests --gtest_filter='VroomPairing50Bit.*'`
+    - result: pass
+
+## Phase 18 Status
+
+- added the next copied-VROOM 50-bit curve surface:
+  - `G1` add, mixed-add, and double
+  - `G2` add, mixed-add, and double
+- validation note:
+  - the first parity sample after adding the new 50-bit curve benchmark translation unit produced a one-off `BM_FP12_FinalExp_RNS_BLST_Inverter_50bit` drift just over the `5%` gate
+  - a full rerun on the same snapshot returned that benchmark to `+2.289%`
+  - this phase therefore uses the stable rerun as the recorded checkpoint and treats the first result as benchmark noise rather than a persistent regression
+- added direct correctness coverage in:
+  - `blst/vroom/tests/Vroom_curve_50bit_tests.cpp`
+  - new tests:
+    - `VroomCurve50Bit.G1AddMixedAddAndDoubleMatchScalarBlst`
+    - `VroomCurve50Bit.G2AddMixedAddAndDoubleMatchScalarBlst`
+- added direct benchmark coverage in:
+  - `blst/vroom/bench/Vroom_curve_50bit_bench.cpp`
+  - benchmark names:
+    - `BM_G1_Add_50bit`
+    - `BM_G1_MixedAdd_50bit`
+    - `BM_G1_Double_50bit`
+    - `BM_G2_Add_50bit`
+    - `BM_G2_MixedAdd_50bit`
+    - `BM_G2_Double_50bit`
+- extended the remote parity runner:
+  - `scripts/run_vroom_remote_parity.sh` now also runs the upstream 50-bit curve benchmarks from `bench_pairing_50bit` and compares them against the new in-tree suffixed benchmark names
+- latest scripted remote parity result:
+  - run id: `20260319T051257Z`
+  - report directory: `out/vroom-parity/20260319T051257Z/`
+  - upstream `BM_G1_Add` median: `207.027 ns`
+  - in-tree `BM_G1_Add_50bit` median: `207.304 ns`
+  - median drift: `+0.134%`
+  - upstream `BM_G1_MixedAdd` median: `199.069 ns`
+  - in-tree `BM_G1_MixedAdd_50bit` median: `199.431 ns`
+  - median drift: `+0.182%`
+  - upstream `BM_G1_Double` median: `192.884 ns`
+  - in-tree `BM_G1_Double_50bit` median: `191.970 ns`
+  - median drift: `-0.474%`
+  - upstream `BM_G2_Add` median: `494.728 ns`
+  - in-tree `BM_G2_Add_50bit` median: `496.932 ns`
+  - median drift: `+0.445%`
+  - upstream `BM_G2_MixedAdd` median: `421.446 ns`
+  - in-tree `BM_G2_MixedAdd_50bit` median: `422.454 ns`
+  - median drift: `+0.239%`
+  - upstream `BM_G2_Double` median: `349.912 ns`
+  - in-tree `BM_G2_Double_50bit` median: `351.846 ns`
+  - median drift: `+0.553%`
+  - parity result: pass for all new tracked 50-bit curve gates
+- validation mode for Phase 18:
+  - local compilation intentionally paused per current workflow
+  - remote Release correctness run on the AVX-512 server:
+    - run directory: `/home/ec2-user/vroom-parity/20260319T051257Z/blst_current`
+    - command:
+      - `./out/parity-tests-clang21/test/blst_tests --gtest_filter='VroomCurve50Bit.*'`
+    - result: pass
+
+## Phase 19 Status
+
+- added the remaining copied-VROOM 50-bit base-field and `Fp2` surface from
+  upstream `bench_pairing_50bit`:
+  - `modmul`
+  - `batch_modmul` arities `1/2/3/4/5/6/7/8/10/12`
+  - `batch_reduce_expand` arities `1/2/3/4/5/6/12`
+  - add-chain inverse
+  - `Fp2` multiply
+  - `Fp2` square
+- added direct correctness coverage in:
+  - `blst/vroom/tests/Vroom_basefield_50bit_tests.cpp`
+  - new tests:
+    - `VroomBaseField50Bit.ModMulMatchesScalarBlstFp`
+    - `VroomBaseField50Bit.BatchModMulMatchesScalarBlstFp`
+    - `VroomBaseField50Bit.AddChainInverseMatchesScalarBlstFp`
+    - `VroomBaseField50Bit.BatchReduceExpandMatchesScalarBlstFp`
+    - `VroomBaseField50Bit.Fp2MulMatchesScalarBlstFp2`
+    - `VroomBaseField50Bit.Fp2SquareMatchesScalarBlstFp2`
+    - `VroomBaseField50Bit.Fp2EdgeValuesAndIdentitiesMatchScalarBlstFp2`
+- added direct benchmark coverage in:
+  - `blst/vroom/bench/Vroom_basefield_50bit_bench.cpp`
+  - `blst/vroom/bench/Vroom_basefield_inverse_50bit_bench.cpp`
+  - `blst/vroom/bench/Vroom_basefield_reduce_50bit_bench.cpp`
+  - benchmark names:
+    - `BM_ModMul_50bit`
+    - `BM_BatchModMul_1_50bit`
+    - `BM_BatchModMul_2_50bit`
+    - `BM_BatchModMul_3_50bit`
+    - `BM_BatchModMul_4_50bit`
+    - `BM_BatchModMul_5_50bit`
+    - `BM_BatchModMul_6_50bit`
+    - `BM_BatchModMul_7_50bit`
+    - `BM_BatchModMul_8_50bit`
+    - `BM_BatchModMul_10_50bit`
+    - `BM_BatchModMul_12_50bit`
+    - `BM_BatchReduceExpand_1_50bit`
+    - `BM_BatchReduceExpand_2_50bit`
+    - `BM_BatchReduceExpand_3_50bit`
+    - `BM_BatchReduceExpand_4_50bit`
+    - `BM_BatchReduceExpand_5_50bit`
+    - `BM_BatchReduceExpand_6_50bit`
+    - `BM_BatchReduceExpand_12_50bit`
+    - `BM_FP2_Mul_50bit`
+    - `BM_FP2_Sqr_50bit`
+    - `BM_Inverse_50bit`
+- helper-layer note:
+  - shared VROOM test helpers now construct `Fp2` values generically over the
+    selected ring type so the same scalar-reference scaffolding can drive both
+    52-bit and 50-bit copied rings
+- extended the remote parity runner:
+  - `scripts/run_vroom_remote_parity.sh` now also runs the upstream 50-bit
+    base-field and `Fp2` benchmarks from `bench_pairing_50bit` and compares
+    them against the new in-tree suffixed benchmark names
+- latest scripted remote parity result:
+  - run id: `20260319T062838Z`
+  - report directory: `out/vroom-parity/20260319T062838Z/`
+  - upstream `BM_ModMul` median: `32.373 ns`
+  - in-tree `BM_ModMul_50bit` median: `32.101 ns`
+  - median drift: `-0.838%`
+  - upstream `BM_BatchModMul_12` median: `289.294 ns`
+  - in-tree `BM_BatchModMul_12_50bit` median: `288.962 ns`
+  - median drift: `-0.115%`
+  - upstream `BM_BatchReduceExpand_12` median: `260.620 ns`
+  - in-tree `BM_BatchReduceExpand_12_50bit` median: `261.009 ns`
+  - median drift: `+0.149%`
+  - upstream `BM_FP2_Mul` median: `56.522 ns`
+  - in-tree `BM_FP2_Mul_50bit` median: `56.459 ns`
+  - median drift: `-0.112%`
+  - upstream `BM_FP2_Sqr` median: `56.013 ns`
+  - in-tree `BM_FP2_Sqr_50bit` median: `55.714 ns`
+  - median drift: `-0.534%`
+  - upstream `BM_Inverse` median: `23784.848 ns`
+  - in-tree `BM_Inverse_50bit` median: `23651.150 ns`
+  - median drift: `-0.562%`
+  - parity result: pass for all new tracked 50-bit base-field and `Fp2` gates
+- validation mode for Phase 19:
+  - local compilation intentionally paused per current workflow
+  - remote Release correctness run on the AVX-512 server:
+    - run directory: `/home/ec2-user/vroom-parity/20260319T062838Z/blst_current`
+    - build command:
+      - `cmake -S . -B out/parity-tests-clang21 -G Ninja -DCMAKE_C_COMPILER='/opt/llvm-21/bin/clang' -DCMAKE_CXX_COMPILER='/opt/llvm-21/bin/clang++' -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS_RELEASE='-O3 -march=native' -DCMAKE_CXX_FLAGS_RELEASE='-O3 -march=native' -DBLST_PORTABLE=OFF -DBLST_ASM=ON -DBLST_ADX=ON -DBLST_AVX512=ON -DBLST_DEFAULT_AVX=ON -DBLST_AVX512_PORTABLE=OFF -DBLST_BENCHMARK=OFF -DBLST_TEST=ON -DBLST_CUDA=OFF`
+      - `cmake --build out/parity-tests-clang21 --target blst_tests -j2`
+    - test command:
+      - `./out/parity-tests-clang21/test/blst_tests --gtest_filter='VroomBaseField50Bit.*'`
+    - result: pass
+- direct benchmark-surface audit result after Phase 19:
+  - the copied in-tree benchmark names now cover the full upstream surfaces of
+    both `src/bench_pairing.cpp` and `src/bench_pairing_50bit.cpp`

@@ -1,9 +1,15 @@
 #pragma once
 #include "ec.hpp"
 #include "constexpr_utils.hpp"
+#if __has_include("../blst/vect.h")
 #include "../blst/vect.h"
 #include "../blst/bytes.h"
 #include "../blst/ec_mult.h"
+#else
+#include "../../common/vect.h"
+#include "../../common/bytes.h"
+#include "../../backend/backend.h"
+#endif
 #include "gmp_wrapper.hpp"
 #include <array>
 #include <cstring>
@@ -232,10 +238,17 @@ typename Curve::ProjPoint scalar_mult_table(const BigInt &scalar, const typename
 // Wrapper functions for blst division operations
 // Returns {remainder, quotient} to match BigInt version ordering: {sk_zz_r, sk_zz}
 inline std::pair<std::array<uint8_t, 16>, std::array<uint8_t, 16>> div_by_zz(const std::array<uint8_t, 32> &a) {
+#if __has_include("../blst/vect.h")
     union { vec256 l; pow256 s; } val;
     limbs_from_le_bytes(val.l, a.data(), 32);
     blst_div_by_zz(val.l);
     le_bytes_from_limbs(val.s, val.l, 32);
+#else
+    union { blst::vec_256 l; blst::pow256 s; } val;
+    blst::limbs_from_le_bytes(val.l, a.data(), 32);
+    blst::div_by_zz(val.l);
+    blst::le_bytes_from_limbs(val.s, val.l, 32);
+#endif
     
     std::array<uint8_t, 16> remainder;
     std::array<uint8_t, 16> quotient;
@@ -250,6 +263,7 @@ inline std::pair<std::array<uint8_t, 16>, std::array<uint8_t, 16>> div_by_zz(con
 
 // Returns {remainder, quotient} to match BigInt version ordering
 inline std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>> div_by_z(const std::array<uint8_t, 16> &a) {
+#if __has_include("../blst/vect.h")
     // Define types for 128-bit operations (similar to pow256/vec256)
     typedef byte pow128[16];
     typedef limb_t vec128[NLIMBS(128)];
@@ -258,6 +272,15 @@ inline std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>> div_by_z(const 
     limbs_from_le_bytes(val.l, a.data(), 16);
     blst_div_by_z(val.l);
     le_bytes_from_limbs(val.s, val.l, 16);
+#else
+    typedef blst::byte pow128[16];
+    typedef blst::limb_t vec128[blst::NLIMBS(128)];
+
+    union { vec128 l; pow128 s; } val;
+    blst::limbs_from_le_bytes(val.l, a.data(), 16);
+    blst::div_by_z(val.l);
+    blst::le_bytes_from_limbs(val.s, val.l, 16);
+#endif
     
     std::array<uint8_t, 8> remainder;
     std::array<uint8_t, 8> quotient;
