@@ -11,7 +11,7 @@
 #include "blst/fft/context.h"
 #include "blst/fft/ctFft.h"
 #include "blst/fft/middle_product.h"
-#include "blst/fft/vroom_gt_context.h"
+#include "blst/avx/fft/gt_context.h"
 #include "blst/common/timer.h"
 
 #include "blst/common/defines.h"

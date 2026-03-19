@@ -1,6 +1,6 @@
 #include <benchmark/benchmark.h>
 
-#include "blst/vroom/tests/vroom_basefield_test_utils.hpp"
+#include "blst/avx/tests/vroom_basefield_test_utils.hpp"
 
 namespace {
 

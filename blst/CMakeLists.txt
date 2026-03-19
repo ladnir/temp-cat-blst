@@ -178,7 +178,7 @@ configure_file(
 
 target_include_directories(blst_static PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 
-add_subdirectory(vroom)
+add_subdirectory(avx)
 
 if(BLST_CUDA)
     enable_language(CUDA)
