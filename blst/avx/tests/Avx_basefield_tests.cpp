@@ -84,19 +84,19 @@ TEST(AvxBaseField, BatchModMul8MatchesScalarBlstFp)
     rng.seed(42);
 
     for (int round = 0; round < 8; ++round) {
-        std::array<AvxRing::StandardElement, 8> left_vroom;
-        std::array<AvxRing::StandardElement, 8> right_vroom;
+        std::array<AvxRing::StandardElement, 8> left_avx;
+        std::array<AvxRing::StandardElement, 8> right_avx;
         std::array<BigInt, 8> left_bigints;
         std::array<BigInt, 8> right_bigints;
 
         for (int i = 0; i < 8; ++i) {
             left_bigints[i] = BigInt(rng.get_z_range(modulus.get_mpz()));
             right_bigints[i] = BigInt(rng.get_z_range(modulus.get_mpz()));
-            left_vroom[i] = ring.from_bigint(left_bigints[i]);
-            right_vroom[i] = ring.from_bigint(right_bigints[i]);
+            left_avx[i] = ring.from_bigint(left_bigints[i]);
+            right_avx[i] = ring.from_bigint(right_bigints[i]);
         }
 
-        const auto vroom_result = ring.batch_modmul<8>(left_vroom, right_vroom);
+        const auto avx_result = ring.batch_modmul<8>(left_avx, right_avx);
 
         for (int i = 0; i < 8; ++i) {
             SCOPED_TRACE("round=" + std::to_string(round) + " lane=" + std::to_string(i));
@@ -106,7 +106,7 @@ TEST(AvxBaseField, BatchModMul8MatchesScalarBlstFp)
             blst::Fp scalar_result = {};
             blst::Fp::mul(scalar_result, left_scalar, right_scalar);
 
-            EXPECT_EQ(ring.to_bigint(vroom_result[i]).to_string(),
+            EXPECT_EQ(ring.to_bigint(avx_result[i]).to_string(),
                 blst_avx_test::scalar_fp_to_bigint(scalar_result).to_string());
         }
     }
@@ -167,9 +167,9 @@ TEST(AvxBaseField, Fp2MulMatchesScalarBlstFp2)
         const BigInt bx(rng.get_z_range(modulus.get_mpz()));
         const BigInt by(rng.get_z_range(modulus.get_mpz()));
 
-        const auto vroom_left = blst_avx_test::make_avx_fp2(ring, ax, ay);
-        const auto vroom_right = blst_avx_test::make_avx_fp2(ring, bx, by);
-        const auto vroom_result = fp2ring.mul(vroom_left, vroom_right)[0];
+        const auto avx_left = blst_avx_test::make_avx_fp2(ring, ax, ay);
+        const auto avx_right = blst_avx_test::make_avx_fp2(ring, bx, by);
+        const auto avx_result = fp2ring.mul(avx_left, avx_right)[0];
 
         const blst::Fp2 scalar_left = blst_avx_test::bigint_pair_to_scalar_fp2(ax, ay);
         const blst::Fp2 scalar_right = blst_avx_test::bigint_pair_to_scalar_fp2(bx, by);
@@ -178,8 +178,8 @@ TEST(AvxBaseField, Fp2MulMatchesScalarBlstFp2)
         const auto [scalar_x, scalar_y] = blst_avx_test::scalar_fp2_to_bigints(scalar_result);
 
         SCOPED_TRACE("case=" + std::to_string(i));
-        EXPECT_EQ(ring.to_bigint(vroom_result.x()).to_string(), scalar_x.to_string());
-        EXPECT_EQ(ring.to_bigint(vroom_result.y()).to_string(), scalar_y.to_string());
+        EXPECT_EQ(ring.to_bigint(avx_result.x()).to_string(), scalar_x.to_string());
+        EXPECT_EQ(ring.to_bigint(avx_result.y()).to_string(), scalar_y.to_string());
     }
 }
 
@@ -195,8 +195,8 @@ TEST(AvxBaseField, Fp2SquareMatchesScalarBlstFp2)
         const BigInt ax(rng.get_z_range(modulus.get_mpz()));
         const BigInt ay(rng.get_z_range(modulus.get_mpz()));
 
-        const auto vroom_value = blst_avx_test::make_avx_fp2(ring, ax, ay);
-        const auto vroom_result = fp2ring.square(vroom_value)[0];
+        const auto avx_value = blst_avx_test::make_avx_fp2(ring, ax, ay);
+        const auto avx_result = fp2ring.square(avx_value)[0];
 
         const blst::Fp2 scalar_value = blst_avx_test::bigint_pair_to_scalar_fp2(ax, ay);
         blst::Fp2 scalar_result = {};
@@ -204,8 +204,8 @@ TEST(AvxBaseField, Fp2SquareMatchesScalarBlstFp2)
         const auto [scalar_x, scalar_y] = blst_avx_test::scalar_fp2_to_bigints(scalar_result);
 
         SCOPED_TRACE("case=" + std::to_string(i));
-        EXPECT_EQ(ring.to_bigint(vroom_result.x()).to_string(), scalar_x.to_string());
-        EXPECT_EQ(ring.to_bigint(vroom_result.y()).to_string(), scalar_y.to_string());
+        EXPECT_EQ(ring.to_bigint(avx_result.x()).to_string(), scalar_x.to_string());
+        EXPECT_EQ(ring.to_bigint(avx_result.y()).to_string(), scalar_y.to_string());
     }
 }
 
@@ -228,38 +228,38 @@ TEST(AvxBaseField, Fp2EdgeValuesAndIdentitiesMatchScalarBlstFp2)
         {max_reduced, max_reduced},
     }};
 
-    const auto vroom_one = fp2ring.one();
-    const auto vroom_zero = blst_avx_test::make_avx_fp2(ring, zero, zero);
+    const auto avx_one = fp2ring.one();
+    const auto avx_zero = blst_avx_test::make_avx_fp2(ring, zero, zero);
     const blst::Fp2 scalar_one = blst_avx_test::bigint_pair_to_scalar_fp2(one, zero);
     const blst::Fp2 scalar_zero = blst_avx_test::bigint_pair_to_scalar_fp2(zero, zero);
 
     for (size_t i = 0; i < cases.size(); ++i) {
         const auto& [x, y] = cases[i];
-        const auto vroom_value = blst_avx_test::make_avx_fp2(ring, x, y);
+        const auto avx_value = blst_avx_test::make_avx_fp2(ring, x, y);
         const blst::Fp2 scalar_value = blst_avx_test::bigint_pair_to_scalar_fp2(x, y);
 
-        const auto vroom_square = fp2ring.square(vroom_value)[0];
+        const auto avx_square = fp2ring.square(avx_value)[0];
         blst::Fp2 scalar_square = {};
         blst::Fp2::sqr(scalar_square, scalar_value);
         const auto [scalar_sqr_x, scalar_sqr_y] = blst_avx_test::scalar_fp2_to_bigints(scalar_square);
 
-        const auto vroom_mul_one = fp2ring.mul(vroom_value, vroom_one)[0];
+        const auto avx_mul_one = fp2ring.mul(avx_value, avx_one)[0];
         blst::Fp2 scalar_mul_one = {};
         blst::Fp2::mul(scalar_mul_one, scalar_value, scalar_one);
         const auto [scalar_mul_one_x, scalar_mul_one_y] = blst_avx_test::scalar_fp2_to_bigints(scalar_mul_one);
 
-        const auto vroom_mul_zero = fp2ring.mul(vroom_value, vroom_zero)[0];
+        const auto avx_mul_zero = fp2ring.mul(avx_value, avx_zero)[0];
         blst::Fp2 scalar_mul_zero = {};
         blst::Fp2::mul(scalar_mul_zero, scalar_value, scalar_zero);
         const auto [scalar_mul_zero_x, scalar_mul_zero_y] = blst_avx_test::scalar_fp2_to_bigints(scalar_mul_zero);
 
         SCOPED_TRACE("case=" + std::to_string(i));
-        EXPECT_EQ(ring.to_bigint(vroom_square.x()).to_string(), scalar_sqr_x.to_string());
-        EXPECT_EQ(ring.to_bigint(vroom_square.y()).to_string(), scalar_sqr_y.to_string());
-        EXPECT_EQ(ring.to_bigint(vroom_mul_one.x()).to_string(), scalar_mul_one_x.to_string());
-        EXPECT_EQ(ring.to_bigint(vroom_mul_one.y()).to_string(), scalar_mul_one_y.to_string());
-        EXPECT_EQ(ring.to_bigint(vroom_mul_zero.x()).to_string(), scalar_mul_zero_x.to_string());
-        EXPECT_EQ(ring.to_bigint(vroom_mul_zero.y()).to_string(), scalar_mul_zero_y.to_string());
+        EXPECT_EQ(ring.to_bigint(avx_square.x()).to_string(), scalar_sqr_x.to_string());
+        EXPECT_EQ(ring.to_bigint(avx_square.y()).to_string(), scalar_sqr_y.to_string());
+        EXPECT_EQ(ring.to_bigint(avx_mul_one.x()).to_string(), scalar_mul_one_x.to_string());
+        EXPECT_EQ(ring.to_bigint(avx_mul_one.y()).to_string(), scalar_mul_one_y.to_string());
+        EXPECT_EQ(ring.to_bigint(avx_mul_zero.x()).to_string(), scalar_mul_zero_x.to_string());
+        EXPECT_EQ(ring.to_bigint(avx_mul_zero.y()).to_string(), scalar_mul_zero_y.to_string());
     }
 }
 

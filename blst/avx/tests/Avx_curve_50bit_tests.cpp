@@ -17,10 +17,10 @@ TEST(AvxCurve50Bit, G1AddMixedAddAndDoubleMatchScalarBlst)
     const blst::G1AffinePoint scalar_generator_affine = blst_avx_test::make_scalar_g1_generator_affine();
     const blst::G1AffinePoint scalar_doubled_affine = blst_avx_test::make_scalar_g1_doubled_affine();
 
-    const auto vroom_generator_affine = blst_avx_test::make_avx_g1_affine(ring, scalar_generator_affine);
-    const auto vroom_doubled_affine = blst_avx_test::make_avx_g1_affine(ring, scalar_doubled_affine);
-    const auto vroom_generator_projective = blst_avx_test::make_avx_curve50_g1_projective(ring, vroom_generator_affine);
-    const auto vroom_doubled_projective = blst_avx_test::make_avx_curve50_g1_projective(ring, vroom_doubled_affine);
+    const auto avx_generator_affine = blst_avx_test::make_avx_g1_affine(ring, scalar_generator_affine);
+    const auto avx_doubled_affine = blst_avx_test::make_avx_g1_affine(ring, scalar_doubled_affine);
+    const auto avx_generator_projective = blst_avx_test::make_avx_curve50_g1_projective(ring, avx_generator_affine);
+    const auto avx_doubled_projective = blst_avx_test::make_avx_curve50_g1_projective(ring, avx_doubled_affine);
 
     blst::G1Point scalar_generator_projective = {};
     blst::G1Point::from_affine(scalar_generator_projective, scalar_generator_affine);
@@ -42,13 +42,13 @@ TEST(AvxCurve50Bit, G1AddMixedAddAndDoubleMatchScalarBlst)
     blst::G1AffinePoint scalar_double_affine = {};
     blst::G1Point::to_affine(scalar_double_affine, scalar_double_projective);
 
-    const auto vroom_add = g1.add_point(vroom_generator_projective, vroom_doubled_projective, ring);
-    const auto vroom_mixed_add = g1.add_mixed_point(vroom_generator_projective, vroom_doubled_affine, ring);
-    const auto vroom_double = g1.double_point(vroom_generator_projective, ring);
+    const auto avx_add = g1.add_point(avx_generator_projective, avx_doubled_projective, ring);
+    const auto avx_mixed_add = g1.add_mixed_point(avx_generator_projective, avx_doubled_affine, ring);
+    const auto avx_double = g1.double_point(avx_generator_projective, ring);
 
-    const auto add_affine = blst_avx_test::avx_g1_projective_to_affine_bigints(ring, vroom_add);
-    const auto mixed_add_affine = blst_avx_test::avx_g1_projective_to_affine_bigints(ring, vroom_mixed_add);
-    const auto double_affine = blst_avx_test::avx_g1_projective_to_affine_bigints(ring, vroom_double);
+    const auto add_affine = blst_avx_test::avx_g1_projective_to_affine_bigints(ring, avx_add);
+    const auto mixed_add_affine = blst_avx_test::avx_g1_projective_to_affine_bigints(ring, avx_mixed_add);
+    const auto double_affine = blst_avx_test::avx_g1_projective_to_affine_bigints(ring, avx_double);
 
     EXPECT_EQ(add_affine.first.to_string(), blst_avx_test::scalar_fp_to_bigint(scalar_add_affine.X).to_string());
     EXPECT_EQ(add_affine.second.to_string(), blst_avx_test::scalar_fp_to_bigint(scalar_add_affine.Y).to_string());
@@ -67,10 +67,10 @@ TEST(AvxCurve50Bit, G2AddMixedAddAndDoubleMatchScalarBlst)
     const blst::G2AffinePoint scalar_generator_affine = blst_avx_test::make_scalar_g2_generator_affine();
     const blst::G2AffinePoint scalar_doubled_affine = blst_avx_test::make_scalar_g2_doubled_affine();
 
-    const auto vroom_generator_affine = blst_avx_test::make_avx_g2_affine(ring, scalar_generator_affine);
-    const auto vroom_doubled_affine = blst_avx_test::make_avx_g2_affine(ring, scalar_doubled_affine);
-    const auto vroom_generator_projective = blst_avx_test::make_avx_curve50_g2_projective(fp2ring, vroom_generator_affine);
-    const auto vroom_doubled_projective = blst_avx_test::make_avx_curve50_g2_projective(fp2ring, vroom_doubled_affine);
+    const auto avx_generator_affine = blst_avx_test::make_avx_g2_affine(ring, scalar_generator_affine);
+    const auto avx_doubled_affine = blst_avx_test::make_avx_g2_affine(ring, scalar_doubled_affine);
+    const auto avx_generator_projective = blst_avx_test::make_avx_curve50_g2_projective(fp2ring, avx_generator_affine);
+    const auto avx_doubled_projective = blst_avx_test::make_avx_curve50_g2_projective(fp2ring, avx_doubled_affine);
 
     blst::G2Point scalar_generator_projective = {};
     blst::G2Point::from_affine(scalar_generator_projective, scalar_generator_affine);
@@ -92,13 +92,13 @@ TEST(AvxCurve50Bit, G2AddMixedAddAndDoubleMatchScalarBlst)
     blst::G2AffinePoint scalar_double_affine = {};
     blst::G2Point::to_affine(scalar_double_affine, scalar_double_projective);
 
-    const auto vroom_add = g2.add_point(vroom_generator_projective, vroom_doubled_projective, fp2ring);
-    const auto vroom_mixed_add = g2.add_mixed_point(vroom_generator_projective, vroom_doubled_affine, fp2ring);
-    const auto vroom_double = g2.double_point(vroom_generator_projective, fp2ring);
+    const auto avx_add = g2.add_point(avx_generator_projective, avx_doubled_projective, fp2ring);
+    const auto avx_mixed_add = g2.add_mixed_point(avx_generator_projective, avx_doubled_affine, fp2ring);
+    const auto avx_double = g2.double_point(avx_generator_projective, fp2ring);
 
-    const auto add_affine = blst_avx_test::avx_g2_projective_to_affine_bigints(ring, vroom_add);
-    const auto mixed_add_affine = blst_avx_test::avx_g2_projective_to_affine_bigints(ring, vroom_mixed_add);
-    const auto double_affine = blst_avx_test::avx_g2_projective_to_affine_bigints(ring, vroom_double);
+    const auto add_affine = blst_avx_test::avx_g2_projective_to_affine_bigints(ring, avx_add);
+    const auto mixed_add_affine = blst_avx_test::avx_g2_projective_to_affine_bigints(ring, avx_mixed_add);
+    const auto double_affine = blst_avx_test::avx_g2_projective_to_affine_bigints(ring, avx_double);
 
     const auto scalar_add_x = blst_avx_test::scalar_fp2_to_bigints(scalar_add_affine.X);
     const auto scalar_add_y = blst_avx_test::scalar_fp2_to_bigints(scalar_add_affine.Y);

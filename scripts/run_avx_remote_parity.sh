@@ -8,7 +8,7 @@ PLINK_KEY="${PLINK_KEY:-/c/Users/peter/OneDrive/keys/aws_2_19_26.ppk}"
 REMOTE_HOST="${REMOTE_HOST:-18.188.231.170}"
 REMOTE_USER="${REMOTE_USER:-ec2-user}"
 REMOTE_HOSTKEY="${REMOTE_HOSTKEY:-ssh-ed25519 255 SHA256:/qd0qT37U/NAXgZT1kN6kSHaiyhoqQUXrlQBQXTa4Go}"
-REMOTE_BASE="${REMOTE_BASE:-/home/ec2-user/vroom-parity}"
+REMOTE_BASE="${REMOTE_BASE:-/home/ec2-user/avx-parity}"
 UPSTREAM_VROOM_REPO="${UPSTREAM_VROOM_REPO:-$ROOT_DIR/../VROOM}"
 UPSTREAM_VROOM_COMMIT="${UPSTREAM_VROOM_COMMIT:-31e98bbf7f32e1345299d4276dd6a5bc44dc0b69}"
 CLANG_ROOT="${CLANG_ROOT:-/opt/llvm-21/bin}"
@@ -17,7 +17,7 @@ REPETITIONS="${REPETITIONS:-5}"
 MIN_TIME="${MIN_TIME:-0.05s}"
 RUN_ID="${RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 REMOTE_RUN_DIR="${REMOTE_BASE}/${RUN_ID}"
-LOCAL_REPORT_DIR="${ROOT_DIR}/out/vroom-parity/${RUN_ID}"
+LOCAL_REPORT_DIR="${ROOT_DIR}/out/avx-parity/${RUN_ID}"
 
 resolve_windows_path()
 {

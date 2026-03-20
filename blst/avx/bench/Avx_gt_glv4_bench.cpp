@@ -8,7 +8,7 @@ namespace {
 using blst_avx_test::AvxFp12Ring;
 using blst_avx_test::AvxRing;
 
-static void BM_VroomGTCyclotomicExp_Basic_52(benchmark::State& state)
+static void BM_AvxGTCyclotomicExp_Basic_52(benchmark::State& state)
 {
     const AvxRing ring(blst_avx_test::modulus_bigint());
     const AvxFp12Ring fp12ring(ring);
@@ -23,10 +23,10 @@ static void BM_VroomGTCyclotomicExp_Basic_52(benchmark::State& state)
         benchmark::DoNotOptimize(result);
     }
 
-    state.SetLabel("VroomGTCyclotomicExp_Basic_52");
+    state.SetLabel("AvxGTCyclotomicExp_Basic_52");
 }
 
-static void BM_VroomGTCyclotomicExp_GLV4_52(benchmark::State& state)
+static void BM_AvxGTCyclotomicExp_GLV4_52(benchmark::State& state)
 {
     const AvxRing ring(blst_avx_test::modulus_bigint());
     const AvxFp12Ring fp12ring(ring);
@@ -41,10 +41,10 @@ static void BM_VroomGTCyclotomicExp_GLV4_52(benchmark::State& state)
         benchmark::DoNotOptimize(result);
     }
 
-    state.SetLabel("VroomGTCyclotomicExp_GLV4_52");
+    state.SetLabel("AvxGTCyclotomicExp_GLV4_52");
 }
 
-static void BM_VroomGTCyclotomicExp_GLV4_Constant_52(benchmark::State& state)
+static void BM_AvxGTCyclotomicExp_GLV4_Constant_52(benchmark::State& state)
 {
     const AvxRing ring(blst_avx_test::modulus_bigint());
     const AvxFp12Ring fp12ring(ring);
@@ -60,11 +60,11 @@ static void BM_VroomGTCyclotomicExp_GLV4_Constant_52(benchmark::State& state)
         benchmark::DoNotOptimize(result);
     }
 
-    state.SetLabel("VroomGTCyclotomicExp_GLV4_Constant_52");
+    state.SetLabel("AvxGTCyclotomicExp_GLV4_Constant_52");
 }
 
-BENCHMARK(BM_VroomGTCyclotomicExp_Basic_52);
-BENCHMARK(BM_VroomGTCyclotomicExp_GLV4_52);
-BENCHMARK(BM_VroomGTCyclotomicExp_GLV4_Constant_52);
+BENCHMARK(BM_AvxGTCyclotomicExp_Basic_52);
+BENCHMARK(BM_AvxGTCyclotomicExp_GLV4_52);
+BENCHMARK(BM_AvxGTCyclotomicExp_GLV4_Constant_52);
 
 }  // namespace

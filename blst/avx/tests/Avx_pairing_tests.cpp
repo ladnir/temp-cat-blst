@@ -40,13 +40,13 @@ void expect_pairing_matches_scalar(const std::string& label, InverterFactory mak
     for (size_t case_idx = 0; case_idx < cases.size(); ++case_idx) {
         const blst::G1AffinePoint& scalar_g1 = cases[case_idx].first;
         const blst::G2AffinePoint& scalar_g2 = cases[case_idx].second;
-        const AvxAffineFp vroom_g1 = blst_avx_test::make_avx_g1_affine(ring, scalar_g1);
-        const AvxAffineFp2 vroom_g2 = blst_avx_test::make_avx_g2_affine(ring, scalar_g2);
+        const AvxAffineFp avx_g1 = blst_avx_test::make_avx_g1_affine(ring, scalar_g1);
+        const AvxAffineFp2 avx_g2 = blst_avx_test::make_avx_g2_affine(ring, scalar_g2);
         const auto inverter = make_inverter();
 
         const auto actual = blst_avx_test::avx_fp12_to_bigints(
             ring,
-            pairing(vroom_g1, vroom_g2, inverter, fp2ring, fp12ring, ring));
+            pairing(avx_g1, avx_g2, inverter, fp2ring, fp12ring, ring));
         const auto expected = blst_avx_test::scalar_fp12_to_bigints(
             blst_avx_test::make_scalar_final_pairing(scalar_g1, scalar_g2).data);
 

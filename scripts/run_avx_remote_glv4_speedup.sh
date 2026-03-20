@@ -8,14 +8,14 @@ PLINK_KEY="${PLINK_KEY:-/c/Users/peter/OneDrive/keys/aws_2_19_26.ppk}"
 REMOTE_HOST="${REMOTE_HOST:-18.188.231.170}"
 REMOTE_USER="${REMOTE_USER:-ec2-user}"
 REMOTE_HOSTKEY="${REMOTE_HOSTKEY:-ssh-ed25519 255 SHA256:/qd0qT37U/NAXgZT1kN6kSHaiyhoqQUXrlQBQXTa4Go}"
-REMOTE_BASE="${REMOTE_BASE:-/home/ec2-user/vroom-glv4}"
+REMOTE_BASE="${REMOTE_BASE:-/home/ec2-user/avx-glv4}"
 CLANG_ROOT="${CLANG_ROOT:-/opt/llvm-21/bin}"
 PIN_CORE="${PIN_CORE:-0}"
 REPETITIONS="${REPETITIONS:-5}"
 MIN_TIME="${MIN_TIME:-0.05s}"
 RUN_ID="${RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 REMOTE_RUN_DIR="${REMOTE_BASE}/${RUN_ID}"
-LOCAL_REPORT_DIR="${ROOT_DIR}/out/vroom-glv4/${RUN_ID}"
+LOCAL_REPORT_DIR="${ROOT_DIR}/out/avx-glv4/${RUN_ID}"
 
 resolve_windows_path()
 {
@@ -138,17 +138,17 @@ remote "rm -rf '${REMOTE_RUN_DIR}/blst_current' && mkdir -p '${REMOTE_RUN_DIR}/b
 
 remote "cd '${REMOTE_RUN_DIR}/blst_current' && cmake -S . -B out/glv4-clang21 -G Ninja -DCMAKE_C_COMPILER='${CLANG_ROOT}/clang' -DCMAKE_CXX_COMPILER='${CLANG_ROOT}/clang++' -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS_RELEASE='-O3 -march=native' -DCMAKE_CXX_FLAGS_RELEASE='-O3 -march=native' -DBLST_PORTABLE=OFF -DBLST_ASM=ON -DBLST_ADX=ON -DBLST_AVX512=ON -DBLST_DEFAULT_AVX=ON -DBLST_AVX512_PORTABLE=OFF -DBLST_BENCHMARK=ON -DBLST_TEST=ON -DBLST_CUDA=OFF >/dev/null && cmake --build out/glv4-clang21 --target blst_benchmarks blst_tests -j2 >/dev/null"
 
-remote "cd '${REMOTE_RUN_DIR}/blst_current' && ./out/glv4-clang21/test/blst_tests --gtest_filter='VroomGtGlv4.*' >/dev/null"
+remote "cd '${REMOTE_RUN_DIR}/blst_current' && ./out/glv4-clang21/test/blst_tests --gtest_filter='AvxGtGlv4.*' >/dev/null"
 
 SCALAR_BASIC_JSON="$(run_remote_json "scalar_basic" "cd '${REMOTE_RUN_DIR}/blst_current/out/glv4-clang21/benchmark' && taskset -c ${PIN_CORE} ./blst_benchmarks --benchmark_filter='^BM_GTScalarCyclotomicExp_Basic$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
 SCALAR_GLV4_JSON="$(run_remote_json "scalar_glv4" "cd '${REMOTE_RUN_DIR}/blst_current/out/glv4-clang21/benchmark' && taskset -c ${PIN_CORE} ./blst_benchmarks --benchmark_filter='^BM_GTScalarCyclotomicExp_GLV4$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
 SCALAR_GLV4_CONST_JSON="$(run_remote_json "scalar_glv4_constant" "cd '${REMOTE_RUN_DIR}/blst_current/out/glv4-clang21/benchmark' && taskset -c ${PIN_CORE} ./blst_benchmarks --benchmark_filter='^BM_GTScalarCyclotomicExp_GLV4_Constant$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
-VROOM_BASIC_JSON="$(run_remote_json "vroom_basic_52" "cd '${REMOTE_RUN_DIR}/blst_current/out/glv4-clang21/benchmark' && taskset -c ${PIN_CORE} ./blst_benchmarks --benchmark_filter='^BM_VroomGTCyclotomicExp_Basic_52$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
-VROOM_GLV4_JSON="$(run_remote_json "vroom_glv4_52" "cd '${REMOTE_RUN_DIR}/blst_current/out/glv4-clang21/benchmark' && taskset -c ${PIN_CORE} ./blst_benchmarks --benchmark_filter='^BM_VroomGTCyclotomicExp_GLV4_52$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
-VROOM_GLV4_CONST_JSON="$(run_remote_json "vroom_glv4_constant_52" "cd '${REMOTE_RUN_DIR}/blst_current/out/glv4-clang21/benchmark' && taskset -c ${PIN_CORE} ./blst_benchmarks --benchmark_filter='^BM_VroomGTCyclotomicExp_GLV4_Constant_52$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
+AVX_BASIC_JSON="$(run_remote_json "avx_basic_52" "cd '${REMOTE_RUN_DIR}/blst_current/out/glv4-clang21/benchmark' && taskset -c ${PIN_CORE} ./blst_benchmarks --benchmark_filter='^BM_AvxGTCyclotomicExp_Basic_52$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
+AVX_GLV4_JSON="$(run_remote_json "avx_glv4_52" "cd '${REMOTE_RUN_DIR}/blst_current/out/glv4-clang21/benchmark' && taskset -c ${PIN_CORE} ./blst_benchmarks --benchmark_filter='^BM_AvxGTCyclotomicExp_GLV4_52$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
+AVX_GLV4_CONST_JSON="$(run_remote_json "avx_glv4_constant_52" "cd '${REMOTE_RUN_DIR}/blst_current/out/glv4-clang21/benchmark' && taskset -c ${PIN_CORE} ./blst_benchmarks --benchmark_filter='^BM_AvxGTCyclotomicExp_GLV4_Constant_52$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
 
 SUMMARY_PATH="${LOCAL_REPORT_DIR}/summary.txt"
-python3 - "${SCALAR_BASIC_JSON}" "${SCALAR_GLV4_JSON}" "${SCALAR_GLV4_CONST_JSON}" "${VROOM_BASIC_JSON}" "${VROOM_GLV4_JSON}" "${VROOM_GLV4_CONST_JSON}" "${SUMMARY_PATH}" <<'PY'
+python3 - "${SCALAR_BASIC_JSON}" "${SCALAR_GLV4_JSON}" "${SCALAR_GLV4_CONST_JSON}" "${AVX_BASIC_JSON}" "${AVX_GLV4_JSON}" "${AVX_GLV4_CONST_JSON}" "${SUMMARY_PATH}" <<'PY'
 import json
 import pathlib
 import sys
@@ -166,9 +166,9 @@ def speedup(baseline, optimized):
 scalar_basic_name, scalar_basic, unit = load_median(sys.argv[1])
 scalar_glv4_name, scalar_glv4, _ = load_median(sys.argv[2])
 scalar_const_name, scalar_const, _ = load_median(sys.argv[3])
-vroom_basic_name, vroom_basic, _ = load_median(sys.argv[4])
-vroom_glv4_name, vroom_glv4, _ = load_median(sys.argv[5])
-vroom_const_name, vroom_const, _ = load_median(sys.argv[6])
+avx_basic_name, avx_basic, _ = load_median(sys.argv[4])
+avx_glv4_name, avx_glv4, _ = load_median(sys.argv[5])
+avx_const_name, avx_const, _ = load_median(sys.argv[6])
 
 lines = [
     f"{scalar_basic_name}: {scalar_basic:.3f} {unit}",
@@ -176,12 +176,12 @@ lines = [
     f"{scalar_const_name}: {scalar_const:.3f} {unit}",
     f"scalar glv4 speedup: {speedup(scalar_basic, scalar_glv4):.3f}x",
     f"scalar glv4 constant speedup: {speedup(scalar_basic, scalar_const):.3f}x",
-    f"{vroom_basic_name}: {vroom_basic:.3f} {unit}",
-    f"{vroom_glv4_name}: {vroom_glv4:.3f} {unit}",
-    f"{vroom_const_name}: {vroom_const:.3f} {unit}",
-    f"vroom glv4 speedup: {speedup(vroom_basic, vroom_glv4):.3f}x",
-    f"vroom glv4 constant speedup: {speedup(vroom_basic, vroom_const):.3f}x",
-    f"vroom/scalar glv4 speedup ratio: {speedup(vroom_basic, vroom_glv4) / speedup(scalar_basic, scalar_glv4):.3f}x",
+    f"{avx_basic_name}: {avx_basic:.3f} {unit}",
+    f"{avx_glv4_name}: {avx_glv4:.3f} {unit}",
+    f"{avx_const_name}: {avx_const:.3f} {unit}",
+    f"avx glv4 speedup: {speedup(avx_basic, avx_glv4):.3f}x",
+    f"avx glv4 constant speedup: {speedup(avx_basic, avx_const):.3f}x",
+    f"avx/scalar glv4 speedup ratio: {speedup(avx_basic, avx_glv4) / speedup(scalar_basic, scalar_glv4):.3f}x",
 ]
 
 pathlib.Path(sys.argv[7]).write_text("\n".join(lines) + "\n")

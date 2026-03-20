@@ -309,7 +309,7 @@ namespace
 		state.counters["iFFTs/sec"] = benchmark::Counter(1, benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
 	}
 
-	static void bench_gt_ifft_vroom52_precomputed_cpu(benchmark::State& state)
+	static void bench_gt_ifft_avx52_precomputed_cpu(benchmark::State& state)
 	{
 		const size_t N = static_cast<size_t>(state.range(0));
 
@@ -1446,7 +1446,7 @@ FFT_SIZES
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();
 
-BENCHMARK(bench_gt_ifft_vroom52_precomputed_cpu)
+BENCHMARK(bench_gt_ifft_avx52_precomputed_cpu)
 FFT_SIZES
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();

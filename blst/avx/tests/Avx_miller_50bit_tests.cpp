@@ -37,9 +37,9 @@ TEST(AvxPairing50Bit, MillerLoopThenScalarFinalExpMatchesScalarBlstOnReferencePa
     for (size_t case_idx = 0; case_idx < cases.size(); ++case_idx) {
         const blst::G1AffinePoint& scalar_g1 = cases[case_idx].first;
         const blst::G2AffinePoint& scalar_g2 = cases[case_idx].second;
-        const auto vroom_g1 = blst_avx_test::make_avx_g1_affine(ring, scalar_g1);
-        const auto vroom_g2 = blst_avx_test::make_avx_g2_affine(ring, scalar_g2);
-        Miller<Avx50Ring> miller(vroom_g1, vroom_g2, ring);
+        const auto avx_g1 = blst_avx_test::make_avx_g1_affine(ring, scalar_g1);
+        const auto avx_g2 = blst_avx_test::make_avx_g2_affine(ring, scalar_g2);
+        Miller<Avx50Ring> miller(avx_g1, avx_g2, ring);
 
         blst::Fp12 actual_final = blst_avx_test::bigint_array_to_scalar_fp12(
             blst_avx_test::avx_fp12_to_bigints(ring, miller.miller_loop(ring, fp2ring, fp12ring)));

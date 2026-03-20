@@ -1,7 +1,7 @@
 # AVX Backend
 
-This directory contains the promoted AVX backend, derived from the earlier
-literal in-tree VROOM import described in `docs/vroom-backend-reset-plan.md`.
+This directory contains the promoted AVX backend, following the structure
+described in `docs/backend-refactor-plan.md`.
 
 ## Current State
 

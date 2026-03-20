@@ -606,7 +606,7 @@ TEST(Fft, GTFftRoundTrip) {
     EXPECT_TRUE(match) << "GT FFT round-trip failed";
 }
 
-TEST(Fft, GTVroom52InverseFftMatchesScalar) {
+TEST(Fft, GTAvx52InverseFftMatchesScalar) {
     const size_t N = 16;
 
     G1AffinePoint p_aff = {};
