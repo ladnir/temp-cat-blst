@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <cstring>
 
-namespace vroom_blst_scalar_bridge {
+namespace avx_blst_scalar_bridge {
 
 inline blst::Fp bigint_to_scalar_fp(const BigInt& value)
 {
@@ -87,9 +87,9 @@ inline std::array<typename Ring::StandardElement, 12> scalar_fp12_to_ring(
     };
 }
 
-}  // namespace vroom_blst_scalar_bridge
+}  // namespace avx_blst_scalar_bridge
 
-namespace vroom_blst_direct_bridge {
+namespace avx_blst_direct_bridge {
 
 template<int limbs>
 AVXVector<limbs> to_vec(uint8_t* le_buf)
@@ -240,15 +240,15 @@ std::array<typename Ring::StandardElement, 12> scalar_fp12_to_ring(
     };
 }
 
-}  // namespace vroom_blst_direct_bridge
+}  // namespace avx_blst_direct_bridge
 
 template<class Ring>
 auto invert_via_blst(const Ring& ring, typename Ring::StandardElement& a)
 {
-    blst::Fp scalar = vroom_blst_direct_bridge::ring_to_scalar_fp(ring, a);
+    blst::Fp scalar = avx_blst_direct_bridge::ring_to_scalar_fp(ring, a);
     blst::Fp inverse = {};
     blst::Fp::reciprocal(inverse, scalar);
-    return vroom_blst_direct_bridge::scalar_fp_to_ring(ring, inverse);
+    return avx_blst_direct_bridge::scalar_fp_to_ring(ring, inverse);
 }
 
 template<class Ring>
@@ -268,10 +268,10 @@ std::array<typename Ring::StandardElement, 12> invert_fp12_via_blst(
     const Ring& ring,
     const std::array<typename Ring::StandardElement, 12>& fp12_ring)
 {
-    blst::Fp12 scalar = vroom_blst_direct_bridge::ring_fp12_to_scalar(ring, fp12_ring);
+    blst::Fp12 scalar = avx_blst_direct_bridge::ring_fp12_to_scalar(ring, fp12_ring);
     blst::Fp12 inverse = {};
     blst::Fp12::inverse(inverse, scalar);
-    return vroom_blst_direct_bridge::scalar_fp12_to_ring(ring, inverse);
+    return avx_blst_direct_bridge::scalar_fp12_to_ring(ring, inverse);
 }
 
 template<class Ring>

@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "blst/avx/src/pairing.hpp"
+#include "blst/avx/pairing/pairing.h"
 #include "blst/avx/tests/avx_test_utils.h"
 
 #include <array>

@@ -1,6 +1,6 @@
 #pragma once
-#include "ec.hpp"
-#include "constexpr_utils.hpp"
+#include "ec.h"
+#include "../src/constexpr_utils.hpp"
 #if __has_include("../blst/vect.h")
 #include "../blst/vect.h"
 #include "../blst/bytes.h"
@@ -10,7 +10,7 @@
 #include "../../common/bytes.h"
 #include "../../backend/backend.h"
 #endif
-#include "gmp_wrapper.hpp"
+#include "../src/gmp_wrapper.hpp"
 #include <array>
 #include <cstring>
 #include <cstdint>

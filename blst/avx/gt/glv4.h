@@ -10,13 +10,13 @@
 #include <intrin.h>
 #endif
 
-struct VroomGLV4Exp {
+struct AvxGLV4Exp {
     uint8_t sign_mask = 0;
     uint8_t sched_len = 0;
     std::array<uint8_t, 70> schedule = {};
 };
 
-namespace vroom_gt_glv4_detail {
+namespace avx_gt_glv4_detail {
 
 static constexpr uint64_t kBlsZ = 0xd201000000010000ULL;
 
@@ -89,13 +89,13 @@ inline void gt_split_scalar_4d(int64_t k_out[4], const uint64_t k_in[4])
     k_out[3] = -k_out[3];
 }
 
-}  // namespace vroom_gt_glv4_detail
+}  // namespace avx_gt_glv4_detail
 
-inline VroomGLV4Exp vroom_glv4_compile(const uint64_t* scalar)
+inline AvxGLV4Exp avx_glv4_compile(const uint64_t* scalar)
 {
-    VroomGLV4Exp props = {};
+    AvxGLV4Exp props = {};
     int64_t k[4] = {};
-    vroom_gt_glv4_detail::gt_split_scalar_4d(k, scalar);
+    avx_gt_glv4_detail::gt_split_scalar_4d(k, scalar);
 
     uint64_t abs_k[4] = {};
     for (int i = 0; i < 4; ++i) {
@@ -164,7 +164,7 @@ inline VroomGLV4Exp vroom_glv4_compile(const uint64_t* scalar)
 }
 
 template<class Ring>
-inline typename FP12Ring<Ring>::StandardElement vroom_cyclotomic_exp_basic(
+inline typename FP12Ring<Ring>::StandardElement avx_cyclotomic_exp_basic(
     const typename FP12Ring<Ring>::StandardElement& base,
     const uint64_t* scalar,
     const FP12Ring<Ring>& fp12ring,
@@ -196,9 +196,9 @@ inline typename FP12Ring<Ring>::StandardElement vroom_cyclotomic_exp_basic(
 }
 
 template<class Ring>
-inline typename FP12Ring<Ring>::StandardElement vroom_cyclotomic_exp_glv4(
+inline typename FP12Ring<Ring>::StandardElement avx_cyclotomic_exp_glv4(
     const typename FP12Ring<Ring>::StandardElement& base,
-    const VroomGLV4Exp& props,
+    const AvxGLV4Exp& props,
     const FP12Ring<Ring>& fp12ring,
     const Ring& ring)
 {
@@ -258,11 +258,11 @@ inline typename FP12Ring<Ring>::StandardElement vroom_cyclotomic_exp_glv4(
 }
 
 template<class Ring>
-inline typename FP12Ring<Ring>::StandardElement vroom_cyclotomic_exp_glv4(
+inline typename FP12Ring<Ring>::StandardElement avx_cyclotomic_exp_glv4(
     const typename FP12Ring<Ring>::StandardElement& base,
     const uint64_t* scalar,
     const FP12Ring<Ring>& fp12ring,
     const Ring& ring)
 {
-    return vroom_cyclotomic_exp_glv4(base, vroom_glv4_compile(scalar), fp12ring, ring);
+    return avx_cyclotomic_exp_glv4(base, avx_glv4_compile(scalar), fp12ring, ring);
 }

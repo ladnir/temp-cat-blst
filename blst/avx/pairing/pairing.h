@@ -1,5 +1,5 @@
 #pragma once
-#include "miller.hpp"
+#include "miller.h"
 #include "../fp12/final_exponentiation.h"
 #include "../fp12/conversion_inversion.h"
 
@@ -36,4 +36,3 @@ inline auto pairing_with_blst_inverter(
     FP12RNS_BLSTInverter<Ring> inverter;
     return pairing(P, Q, inverter, fp2ring, fp12ring, ring);
 }
-

@@ -7,7 +7,7 @@ extern "C" {
 #include "../blst/bytes.h"
 #include "../blst/ec_mult.h"
 }
-#include "scalar_mult.hpp"
+#include "../curve/scalar_mult.h"
 #include "bounded_ring.hpp"
 #include "../fp2/fp2.h"
 #include "../fp12/conversion_inversion.h"

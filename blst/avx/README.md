@@ -1,20 +1,20 @@
-# VROOM Landing Zone
+# AVX Backend
 
-This directory is the Phase 2 landing zone for the literal in-tree VROOM import
-described in `docs/vroom-backend-reset-plan.md`.
+This directory contains the promoted AVX backend, derived from the earlier
+literal in-tree VROOM import described in `docs/vroom-backend-reset-plan.md`.
 
 ## Current State
 
 - the literal upstream `cpu/`, `src/`, and `test_data/` trees are present
 - build wiring exists via `blst/avx/CMakeLists.txt`
-- copied VROOM base-field headers are now consumable through
-  `blst_vroom_headers`
+- copied AVX base-field headers are now consumable through
+  `blst_avx_headers`
 - the first `blst`-owned base-field tests and benchmarks live under
   `blst/avx/tests/` and `blst/avx/bench/`
 
 ## Directory Boundary Rule
 
-Copied upstream VROOM core must stay in these paths:
+Copied upstream AVX core must stay in these paths:
 
 - `blst/avx/cpu/vector/`
 - `blst/avx/cpu/reduction/`

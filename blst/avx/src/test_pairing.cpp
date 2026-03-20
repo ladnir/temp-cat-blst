@@ -5,7 +5,7 @@ extern "C" {
 #include "../blst/consts.h"
 #include "../blst/point.h"
 }
-#include "pairing.hpp"
+#include "../pairing/pairing.h"
 #include "bounded_ring.hpp"
 #include "../fp2/fp2.h"
 #include <iostream>
@@ -227,4 +227,3 @@ int main() {
         return 1;
     }
 }
-

@@ -32,7 +32,7 @@ set(TEST_SOURCES
     "avx512_compat_test.cpp" 
 )
 
-if(BLST_HAVE_VROOM_BASEFIELD)
+if(BLST_HAVE_AVX_BASEFIELD)
     list(APPEND TEST_SOURCES "../blst/avx/tests/Avx_basefield_tests.cpp")
     list(APPEND TEST_SOURCES "../blst/avx/tests/Avx_basefield_50bit_tests.cpp")
     list(APPEND TEST_SOURCES "../blst/avx/tests/Avx_curve_tests.cpp")
@@ -79,13 +79,13 @@ endif()
 add_executable(blst_tests ${TEST_SOURCES})
 
 target_include_directories(blst_tests PRIVATE ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(blst_tests PRIVATE gtest_main blst_static blst_vroom_headers)
+target_link_libraries(blst_tests PRIVATE gtest_main blst_static blst_avx_headers)
 
-if(BLST_HAVE_VROOM_BASEFIELD AND MSVC)
+if(BLST_HAVE_AVX_BASEFIELD AND MSVC)
     add_custom_command(TARGET blst_tests POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<$<CONFIG:Debug>:${BLST_VROOM_MPIR_DEBUG_DLL}>
-            $<$<NOT:$<CONFIG:Debug>>:${BLST_VROOM_MPIR_RELEASE_DLL}>
+            $<$<CONFIG:Debug>:${BLST_AVX_MPIR_DEBUG_DLL}>
+            $<$<NOT:$<CONFIG:Debug>>:${BLST_AVX_MPIR_RELEASE_DLL}>
             $<TARGET_FILE_DIR:blst_tests>
     )
 endif()

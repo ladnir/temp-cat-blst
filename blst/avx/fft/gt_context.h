@@ -49,13 +49,13 @@ struct AvxGt52
 
     static AvxGt52 from_scalar(const GT& value)
     {
-        return AvxGt52(vroom_blst_direct_bridge::scalar_fp12_to_ring(ring(), value.data));
+        return AvxGt52(avx_blst_direct_bridge::scalar_fp12_to_ring(ring(), value.data));
     }
 
     static GT to_scalar(const AvxGt52& value)
     {
         GT out = {};
-        out.data = vroom_blst_direct_bridge::ring_fp12_to_scalar(ring(), value.data);
+        out.data = avx_blst_direct_bridge::ring_fp12_to_scalar(ring(), value.data);
         return out;
     }
 };
@@ -76,10 +76,10 @@ struct AvxGt52PreparedRoots
 {
     std::span<const Fr> scalars;
     std::vector<std::array<uint64_t, 4>> limbs;
-    std::vector<VroomGLV4Exp> compiled;
+    std::vector<AvxGLV4Exp> compiled;
     Fr scale_scalar = {};
     std::array<uint64_t, 4> scale_limbs = {};
-    VroomGLV4Exp scale_compiled = {};
+    AvxGLV4Exp scale_compiled = {};
     bool has_scale = false;
 
     explicit AvxGt52PreparedRoots(std::span<const Fr> input_scalars = {})
@@ -89,7 +89,7 @@ struct AvxGt52PreparedRoots
         compiled.reserve(scalars.size());
         for (const Fr& scalar : scalars) {
             limbs.push_back(fr_to_limbs_le(scalar));
-            compiled.push_back(vroom_glv4_compile(limbs.back().data()));
+            compiled.push_back(avx_glv4_compile(limbs.back().data()));
         }
     }
 
@@ -99,7 +99,7 @@ struct AvxGt52PreparedRoots
         Fr::from_uint64(scale_scalar, static_cast<uint64_t>(n));
         Fr::reciprocal(scale_scalar, scale_scalar);
         scale_limbs = fr_to_limbs_le(scale_scalar);
-        scale_compiled = vroom_glv4_compile(scale_limbs.data());
+        scale_compiled = avx_glv4_compile(scale_limbs.data());
         has_scale = true;
     }
 };
@@ -147,7 +147,7 @@ struct AvxGt52CoeffCtx
             const Fr* base = prepared_roots_->scalars.data();
             if (&b >= base && &b < base + prepared_roots_->scalars.size()) {
                 const std::size_t idx = static_cast<std::size_t>(&b - base);
-                return AvxGt52(vroom_cyclotomic_exp_glv4(
+                return AvxGt52(avx_cyclotomic_exp_glv4(
                     a.data,
                     prepared_roots_->compiled[idx],
                     fp12ring,
@@ -158,7 +158,7 @@ struct AvxGt52CoeffCtx
         if (prepared_roots_ != nullptr &&
             prepared_roots_->has_scale &&
             Fr::equal(b, prepared_roots_->scale_scalar)) {
-            return AvxGt52(vroom_cyclotomic_exp_glv4(
+            return AvxGt52(avx_cyclotomic_exp_glv4(
                 a.data,
                 prepared_roots_->scale_compiled,
                 fp12ring,
@@ -166,7 +166,7 @@ struct AvxGt52CoeffCtx
         }
 
         const std::array<uint64_t, 4> scalar_limbs = fr_to_limbs_le(b);
-        return AvxGt52(vroom_cyclotomic_exp_glv4(a.data, scalar_limbs.data(), fp12ring, ring));
+        return AvxGt52(avx_cyclotomic_exp_glv4(a.data, scalar_limbs.data(), fp12ring, ring));
     }
 
     static auto inverse(const Fr& a)

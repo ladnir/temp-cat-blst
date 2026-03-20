@@ -33,10 +33,10 @@ void expect_vroom_glv4_matches_scalar(
     const auto scalar_limbs = blst_avx_test::seeded_scalar_limbs_le(scalar_seed);
     const auto scalar_bytes = blst_avx_test::seeded_scalar_bytes_le(scalar_seed);
 
-    const auto basic = vroom_cyclotomic_exp_basic(vroom_base, scalar_limbs.data(), fp12ring, ring);
-    const auto runtime_glv4 = vroom_cyclotomic_exp_glv4(vroom_base, scalar_limbs.data(), fp12ring, ring);
-    const VroomGLV4Exp props = vroom_glv4_compile(scalar_limbs.data());
-    const auto compiled_glv4 = vroom_cyclotomic_exp_glv4(vroom_base, props, fp12ring, ring);
+    const auto basic = avx_cyclotomic_exp_basic(vroom_base, scalar_limbs.data(), fp12ring, ring);
+    const auto runtime_glv4 = avx_cyclotomic_exp_glv4(vroom_base, scalar_limbs.data(), fp12ring, ring);
+    const AvxGLV4Exp props = avx_glv4_compile(scalar_limbs.data());
+    const auto compiled_glv4 = avx_cyclotomic_exp_glv4(vroom_base, props, fp12ring, ring);
 
     const blst::Fp12 scalar_base = blst_avx_test::make_scalar_cyclotomic_fp12_from_seed(base_seed);
     blst::Fp12 scalar_basic = {};
@@ -75,9 +75,9 @@ TEST(AvxGtGlv4, ZeroScalarReturnsIdentity)
     const auto base = blst_avx_test::make_avx_cyclotomic_fp12_from_seed(ring, 42);
     const std::array<uint64_t, 4> zero_scalar = {};
 
-    const auto basic = vroom_cyclotomic_exp_basic(base, zero_scalar.data(), fp12ring, ring);
-    const auto runtime_glv4 = vroom_cyclotomic_exp_glv4(base, zero_scalar.data(), fp12ring, ring);
-    const auto compiled_glv4 = vroom_cyclotomic_exp_glv4(base, vroom_glv4_compile(zero_scalar.data()), fp12ring, ring);
+    const auto basic = avx_cyclotomic_exp_basic(base, zero_scalar.data(), fp12ring, ring);
+    const auto runtime_glv4 = avx_cyclotomic_exp_glv4(base, zero_scalar.data(), fp12ring, ring);
+    const auto compiled_glv4 = avx_cyclotomic_exp_glv4(base, avx_glv4_compile(zero_scalar.data()), fp12ring, ring);
     const auto expected = blst_avx_test::avx_fp12_to_bigints(ring, fp12ring.one(ring));
 
     expect_fp12_bigints_equal(blst_avx_test::avx_fp12_to_bigints(ring, basic), expected, "zero basic");
@@ -93,7 +93,7 @@ TEST(AvxGtGlv4, SplitMatchesScalarBlstSplit)
         int64_t vroom_split[4] = {};
 
         blst::Fp12::gt_split_scalar_4d(scalar_split, scalar_limbs.data());
-        vroom_gt_glv4_detail::gt_split_scalar_4d(vroom_split, scalar_limbs.data());
+        avx_gt_glv4_detail::gt_split_scalar_4d(vroom_split, scalar_limbs.data());
 
         for (size_t i = 0; i < 4; ++i) {
             EXPECT_EQ(vroom_split[i], scalar_split[i]) << "seed=" << scalar_seed << " idx=" << i;

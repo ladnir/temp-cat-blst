@@ -1,6 +1,6 @@
 #include <benchmark/benchmark.h>
 
-#include "blst/avx/src/miller.hpp"
+#include "blst/avx/pairing/miller.h"
 #include "blst/avx/tests/avx_test_utils.h"
 
 namespace {

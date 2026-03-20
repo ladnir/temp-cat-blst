@@ -1,8 +1,8 @@
 #pragma once
-#include "ring_element.hpp"
+#include "../src/ring_element.hpp"
 #include "../fp2/fp2.h"
 #include "../fp12/fp12.h"
-#include "ec.hpp"
+#include "../curve/ec.h"
 
 template<class Ring>
 class Miller {

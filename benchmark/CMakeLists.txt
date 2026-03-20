@@ -50,7 +50,7 @@ else()
     )
 endif()
 
-if(BLST_HAVE_VROOM_BASEFIELD)
+if(BLST_HAVE_AVX_BASEFIELD)
     list(APPEND BENCHMARK_SOURCES "Avx_gt_glv4_scalar_bench.cpp")
     list(APPEND BENCHMARK_SOURCES "../blst/avx/bench/Avx_basefield_bench.cpp")
     list(APPEND BENCHMARK_SOURCES "../blst/avx/bench/Avx_basefield_inverse_bench.cpp")
@@ -116,13 +116,13 @@ endif()
 add_executable(blst_benchmarks ${BENCHMARK_SOURCES})
 
 target_include_directories(blst_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(blst_benchmarks PRIVATE benchmark::benchmark blst_static blst_vroom_headers)
+target_link_libraries(blst_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers)
 
-if(BLST_HAVE_VROOM_BASEFIELD AND MSVC)
+if(BLST_HAVE_AVX_BASEFIELD AND MSVC)
     add_custom_command(TARGET blst_benchmarks POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<$<CONFIG:Debug>:${BLST_VROOM_MPIR_DEBUG_DLL}>
-            $<$<NOT:$<CONFIG:Debug>>:${BLST_VROOM_MPIR_RELEASE_DLL}>
+            $<$<CONFIG:Debug>:${BLST_AVX_MPIR_DEBUG_DLL}>
+            $<$<NOT:$<CONFIG:Debug>>:${BLST_AVX_MPIR_RELEASE_DLL}>
             $<TARGET_FILE_DIR:blst_benchmarks>
     )
 endif()

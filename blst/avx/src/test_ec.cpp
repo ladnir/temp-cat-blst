@@ -1,4 +1,4 @@
-#include "ec.hpp"
+#include "../curve/ec.h"
 #include "bounded_ring.hpp"
 #include "../fp2/fp2.h"
 #include "../fp12/conversion_inversion.h"

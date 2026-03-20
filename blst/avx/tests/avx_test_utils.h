@@ -6,7 +6,7 @@
 #include "blst/curve/GT.h"
 #include "blst/curve/point.h"
 #include "blst/avx/cpu/precompute/gmp_wrapper.hpp"
-#include "blst/avx/src/ec.hpp"
+#include "blst/avx/curve/ec.h"
 #include "blst/avx/src/bounded_ring.hpp"
 #include "blst/avx/fp2/fp2.h"
 #include "blst/avx/fp12/fp12.h"

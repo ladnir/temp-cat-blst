@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
 #define BLST_VROOM_SKIP_TEST_VALUES
-#include "blst/avx/src/scalar_mult.hpp"
+#include "blst/avx/curve/scalar_mult.h"
 #include "blst/avx/tests/avx_test_utils.h"
 
 namespace {

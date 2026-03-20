@@ -6,12 +6,12 @@
 #include "../fp2/fp2.h"
 #include "bounded_ring.hpp"
 #include "../fp12/final_exponentiation.h"
-#include "miller.hpp"
+#include "../pairing/miller.h"
 #include "inversion.hpp"
 #include "../fp12/conversion_inversion.h"
-#include "pairing.hpp"
-#include "ec.hpp"
-#include "scalar_mult.hpp"
+#include "../pairing/pairing.h"
+#include "../curve/ec.h"
+#include "../curve/scalar_mult.h"
 #include "../cpu/precompute/gmp_wrapper.hpp"
 #include "../test_data/test_values.hpp"
 
@@ -1448,4 +1448,3 @@ BENCHMARK(BM_Pairing_BLST_Inverter);
 BENCHMARK(BM_Pairing_RNS_BLST_Inverter);
 
 BENCHMARK_MAIN();
-
