@@ -1,7 +1,7 @@
 #pragma once
 #include "miller.h"
-#include "../fp12/final_exponentiation.h"
-#include "../fp12/conversion_inversion.h"
+#include "blst/avx/fields/final_exponentiation.h"
+#include "blst/avx/fields/conversion_inversion.h"
 
 // Pairing function that combines miller loop and final exponentiation
 // Similar to blst pairing.c: blst_miller_loop followed by blst_final_exp

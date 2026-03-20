@@ -2,13 +2,13 @@
 #include <random>
 #include <array>
 #include <cstdint>
-#include "blst/avx/fp12/fp12.h"
-#include "blst/avx/fp2/fp2.h"
+#include "blst/avx/fields/fp12.h"
+#include "blst/avx/fields/fp2.h"
 #include "blst/avx/rns/bounded_ring.h"
-#include "blst/avx/fp12/final_exponentiation.h"
+#include "blst/avx/fields/final_exponentiation.h"
 #include "blst/avx/pairing/miller.h"
 #include "blst/avx/rns/inversion.h"
-#include "blst/avx/fp12/conversion_inversion.h"
+#include "blst/avx/fields/conversion_inversion.h"
 #include "blst/avx/pairing/pairing.h"
 #include "blst/avx/curve/ec.h"
 #include "blst/avx/curve/scalar_mult.h"

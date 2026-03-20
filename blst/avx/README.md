@@ -5,7 +5,7 @@ described in `docs/backend-refactor-plan.md`.
 
 ## Current State
 
-- the promoted AVX core lives under `cpu/`, `rns/`, `fp2/`, `fp12/`, `curve/`, `pairing/`, `gt/`, and `fft/`
+- the promoted AVX core lives under `cpu/`, `rns/`, `fields/`, `curve/`, `pairing/`, `gt/`, and `fft/`
 - build wiring exists via `blst/avx/CMakeLists.txt`
 - copied AVX base-field headers are now consumable through
   `blst_avx_headers`

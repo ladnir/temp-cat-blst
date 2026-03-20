@@ -1,7 +1,7 @@
 #pragma once
 
 #include "blst/backend/backend.h"
-#include "blst/avx/fp12/fp12.h"
+#include "blst/avx/fields/fp12.h"
 
 #include <array>
 #include <cstdint>

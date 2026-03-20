@@ -7,7 +7,7 @@ extern "C" {
 }
 #include "blst/avx/pairing/pairing.h"
 #include "blst/avx/rns/bounded_ring.h"
-#include "blst/avx/fp2/fp2.h"
+#include "blst/avx/fields/fp2.h"
 #include <iostream>
 #include <iomanip>
 #include <random>

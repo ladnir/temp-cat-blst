@@ -5,7 +5,7 @@
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 
-namespace blst
+namespace blst::avx
 {
     void Fp2Pack8x1x1::from_aos(Fp2Pack8x1x1& r, const Fp2* in8)
     {

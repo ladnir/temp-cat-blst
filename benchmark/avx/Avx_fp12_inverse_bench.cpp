@@ -1,6 +1,6 @@
 #include <benchmark/benchmark.h>
 
-#include "blst/avx/fp12/conversion_inversion.h"
+#include "blst/avx/fields/conversion_inversion.h"
 #include "test/avx/avx_test_utils.h"
 
 using namespace blst::avx;

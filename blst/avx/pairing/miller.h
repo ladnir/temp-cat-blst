@@ -1,7 +1,7 @@
 #pragma once
 #include "../rns/ring_element.h"
-#include "../fp2/fp2.h"
-#include "../fp12/fp12.h"
+#include "blst/avx/fields/fp2.h"
+#include "blst/avx/fields/fp12.h"
 #include "../curve/ec.h"
 
 namespace blst::avx {

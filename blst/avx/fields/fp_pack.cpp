@@ -5,7 +5,7 @@
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 
-namespace blst
+namespace blst::avx
 {
 
 
@@ -3099,5 +3099,10 @@ template BLST_AVX_NOINLINE void fp8x1_mul_redc_k<4>(
     std::size_t n_blocks);
 
 } // namespace blst
+
+namespace blst
+{
+const std::array<u64, avx::NWORDS> P48 = avx::P48;
+}
 
 #endif

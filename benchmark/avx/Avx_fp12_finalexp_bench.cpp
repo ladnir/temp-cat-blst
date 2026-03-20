@@ -1,6 +1,6 @@
 #include <benchmark/benchmark.h>
 
-#include "blst/avx/fp12/final_exponentiation.h"
+#include "blst/avx/fields/final_exponentiation.h"
 #include "test/avx/avx_test_utils.h"
 
 using namespace blst::avx;

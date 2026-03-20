@@ -8,8 +8,8 @@
 #include "blst/avx/cpu/precompute/gmp_wrapper.hpp"
 #include "blst/avx/curve/ec.h"
 #include "blst/avx/rns/bounded_ring.h"
-#include "blst/avx/fp2/fp2.h"
-#include "blst/avx/fp12/fp12.h"
+#include "blst/avx/fields/fp2.h"
+#include "blst/avx/fields/fp12.h"
 
 #include <array>
 #include <cstdint>

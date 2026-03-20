@@ -31,15 +31,12 @@ if(BLST_CUDA)
     list(APPEND BENCHMARK_SOURCES
         "Fp12_bench.cpp"
         "main.cpp"
-        "avxbls_bench.cpp"
         "Fp12Coop_bench.cpp"
         "FFT_bench.cpp"
     )
 else()
     list(APPEND BENCHMARK_SOURCES
         "main.cpp"
-        "Fp_avx_lufp_v2_bench.cpp"
-        "Fp_avx_renorm_bench.cpp"
         "Fp_avx_k_bench.cpp"
         "Fp_avx_fused_baseline_bench.cpp"
         "Fr_bench.cpp"
@@ -130,7 +127,6 @@ endif()
 # Set CUDA properties if CUDA is enabled
 if(BLST_CUDA)
     set_source_files_properties(${BENCHMARK_SOURCES} PROPERTIES LANGUAGE CUDA)
-    set_source_files_properties(avxbls_bench.cpp PROPERTIES LANGUAGE CXX)
 
     set_target_properties(blst_benchmarks PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
     target_compile_options(blst_benchmarks PRIVATE -linetable -Xptxas=-O3  -Xptxas=-v ) #-maxrregcount=64

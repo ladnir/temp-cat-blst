@@ -25,8 +25,8 @@ endif()
 
 if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
     list(APPEND BLST_STATIC_SRC
-        "fields/Fp_avx.cpp"
-        "fields/Fp2_avx.cpp"
+        "avx/fields/fp_pack.cpp"
+        "avx/fields/fp2_pack.cpp"
     )
 endif()
 
