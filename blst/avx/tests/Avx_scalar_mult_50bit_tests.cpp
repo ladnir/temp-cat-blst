@@ -11,7 +11,7 @@ using blst_avx_test::AvxCurve50G1;
 using blst_avx_test::AvxCurve50G2;
 using blst_avx_test::AvxCurve50Ring;
 
-TEST(VroomScalarMult50Bit, G1ScalarMultGlvMatchesScalarBlst)
+TEST(AvxScalarMult50Bit, G1ScalarMultGlvMatchesScalarBlst)
 {
     const AvxCurve50Ring ring(blst_avx_test::modulus_bigint());
     const AvxCurve50G1 g1 = {};
@@ -22,8 +22,8 @@ TEST(VroomScalarMult50Bit, G1ScalarMultGlvMatchesScalarBlst)
         blst::G1AffinePoint scalar_base_affine = {};
         blst::G1Point::to_affine(scalar_base_affine, scalar_base);
 
-        const auto vroom_base_affine = blst_avx_test::make_vroom_g1_affine(ring, scalar_base_affine);
-        const auto vroom_base = blst_avx_test::make_vroom_curve50_g1_projective(ring, vroom_base_affine);
+        const auto vroom_base_affine = blst_avx_test::make_avx_g1_affine(ring, scalar_base_affine);
+        const auto vroom_base = blst_avx_test::make_avx_curve50_g1_projective(ring, vroom_base_affine);
         const BigInt scalar_bigint = blst_avx_test::seeded_scalar_bigint(test_case.second);
         const auto scalar_bytes = blst_avx_test::seeded_scalar_bytes_le(test_case.second);
 
@@ -34,8 +34,8 @@ TEST(VroomScalarMult50Bit, G1ScalarMultGlvMatchesScalarBlst)
 
         const auto vroom_result_bytes = glv.multiply(vroom_base, scalar_bytes, ring);
         const auto vroom_result_bigint = glv.multiply(vroom_base, scalar_bigint, ring);
-        const auto vroom_affine_bytes = blst_avx_test::vroom_g1_projective_to_affine_bigints(ring, vroom_result_bytes);
-        const auto vroom_affine_bigint = blst_avx_test::vroom_g1_projective_to_affine_bigints(ring, vroom_result_bigint);
+        const auto vroom_affine_bytes = blst_avx_test::avx_g1_projective_to_affine_bigints(ring, vroom_result_bytes);
+        const auto vroom_affine_bigint = blst_avx_test::avx_g1_projective_to_affine_bigints(ring, vroom_result_bigint);
 
         const auto expected_x = blst_avx_test::scalar_fp_to_bigint(scalar_result_affine.X).to_string();
         const auto expected_y = blst_avx_test::scalar_fp_to_bigint(scalar_result_affine.Y).to_string();
@@ -47,7 +47,7 @@ TEST(VroomScalarMult50Bit, G1ScalarMultGlvMatchesScalarBlst)
     }
 }
 
-TEST(VroomScalarMult50Bit, G2ScalarMultGlsMatchesScalarBlst)
+TEST(AvxScalarMult50Bit, G2ScalarMultGlsMatchesScalarBlst)
 {
     const AvxCurve50Ring ring(blst_avx_test::modulus_bigint());
     const AvxCurve50Fp2Ring fp2ring(ring);
@@ -59,8 +59,8 @@ TEST(VroomScalarMult50Bit, G2ScalarMultGlsMatchesScalarBlst)
         blst::G2AffinePoint scalar_base_affine = {};
         blst::G2Point::to_affine(scalar_base_affine, scalar_base);
 
-        const auto vroom_base_affine = blst_avx_test::make_vroom_g2_affine(ring, scalar_base_affine);
-        const auto vroom_base = blst_avx_test::make_vroom_curve50_g2_projective(fp2ring, vroom_base_affine);
+        const auto vroom_base_affine = blst_avx_test::make_avx_g2_affine(ring, scalar_base_affine);
+        const auto vroom_base = blst_avx_test::make_avx_curve50_g2_projective(fp2ring, vroom_base_affine);
         const BigInt scalar_bigint = blst_avx_test::seeded_scalar_bigint(test_case.second);
         const auto scalar_bytes = blst_avx_test::seeded_scalar_bytes_le(test_case.second);
 
@@ -71,8 +71,8 @@ TEST(VroomScalarMult50Bit, G2ScalarMultGlsMatchesScalarBlst)
 
         const auto vroom_result_bytes = gls.multiply(vroom_base, scalar_bytes, fp2ring, g2, ring);
         const auto vroom_result_bigint = gls.multiply(vroom_base, scalar_bigint, fp2ring, g2, ring);
-        const auto vroom_affine_bytes = blst_avx_test::vroom_g2_projective_to_affine_bigints(ring, vroom_result_bytes);
-        const auto vroom_affine_bigint = blst_avx_test::vroom_g2_projective_to_affine_bigints(ring, vroom_result_bigint);
+        const auto vroom_affine_bytes = blst_avx_test::avx_g2_projective_to_affine_bigints(ring, vroom_result_bytes);
+        const auto vroom_affine_bigint = blst_avx_test::avx_g2_projective_to_affine_bigints(ring, vroom_result_bigint);
 
         const auto expected_x = blst_avx_test::scalar_fp2_to_bigints(scalar_result_affine.X);
         const auto expected_y = blst_avx_test::scalar_fp2_to_bigints(scalar_result_affine.Y);

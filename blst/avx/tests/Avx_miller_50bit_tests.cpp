@@ -23,7 +23,7 @@ void expect_fp12_bigints_equal_50bit_miller(
     }
 }
 
-TEST(VroomPairing50Bit, MillerLoopThenScalarFinalExpMatchesScalarBlstOnReferencePairs)
+TEST(AvxPairing50Bit, MillerLoopThenScalarFinalExpMatchesScalarBlstOnReferencePairs)
 {
     const Avx50Ring ring(blst_avx_test::modulus_bigint());
     const Avx50Fp2Ring fp2ring(ring);
@@ -37,12 +37,12 @@ TEST(VroomPairing50Bit, MillerLoopThenScalarFinalExpMatchesScalarBlstOnReference
     for (size_t case_idx = 0; case_idx < cases.size(); ++case_idx) {
         const blst::G1AffinePoint& scalar_g1 = cases[case_idx].first;
         const blst::G2AffinePoint& scalar_g2 = cases[case_idx].second;
-        const auto vroom_g1 = blst_avx_test::make_vroom_g1_affine(ring, scalar_g1);
-        const auto vroom_g2 = blst_avx_test::make_vroom_g2_affine(ring, scalar_g2);
+        const auto vroom_g1 = blst_avx_test::make_avx_g1_affine(ring, scalar_g1);
+        const auto vroom_g2 = blst_avx_test::make_avx_g2_affine(ring, scalar_g2);
         Miller<Avx50Ring> miller(vroom_g1, vroom_g2, ring);
 
         blst::Fp12 actual_final = blst_avx_test::bigint_array_to_scalar_fp12(
-            blst_avx_test::vroom_fp12_to_bigints(ring, miller.miller_loop(ring, fp2ring, fp12ring)));
+            blst_avx_test::avx_fp12_to_bigints(ring, miller.miller_loop(ring, fp2ring, fp12ring)));
         blst::Fp12::final_exp(actual_final, actual_final);
         const auto actual = blst_avx_test::scalar_fp12_to_bigints(actual_final);
         const auto expected = blst_avx_test::scalar_fp12_to_bigints(

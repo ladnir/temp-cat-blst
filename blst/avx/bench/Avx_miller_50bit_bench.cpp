@@ -15,8 +15,8 @@ static void BM_MillerLoop_DoubleStep_50bit(benchmark::State& state)
     const Avx50Ring ring(modulus);
     const Avx50Fp2Ring fp2ring(ring);
     const Avx50Fp12Ring fp12ring(ring);
-    const auto g1 = blst_avx_test::make_vroom_g1_generator_affine(ring);
-    const auto g2 = blst_avx_test::make_vroom_g2_generator_affine(ring);
+    const auto g1 = blst_avx_test::make_avx_g1_generator_affine(ring);
+    const auto g2 = blst_avx_test::make_avx_g2_generator_affine(ring);
     Miller<Avx50Ring> miller(g1, g2, ring);
 
     ProjectivePoint<Avx50Fp2Ring::StandardElement> point(g2.x, g2.y, Avx50Fp2Ring::one(ring));
@@ -40,8 +40,8 @@ static void BM_MillerLoop_AddStep_50bit(benchmark::State& state)
     const Avx50Ring ring(modulus);
     const Avx50Fp2Ring fp2ring(ring);
     const Avx50Fp12Ring fp12ring(ring);
-    const auto g1 = blst_avx_test::make_vroom_g1_generator_affine(ring);
-    const auto g2 = blst_avx_test::make_vroom_g2_generator_affine(ring);
+    const auto g1 = blst_avx_test::make_avx_g1_generator_affine(ring);
+    const auto g2 = blst_avx_test::make_avx_g2_generator_affine(ring);
     Miller<Avx50Ring> miller(g1, g2, ring);
 
     ProjectivePoint<Avx50Fp2Ring::StandardElement> point(g2.x, g2.y, Avx50Fp2Ring::one(ring));
@@ -66,8 +66,8 @@ static void BM_MillerLoop_50bit(benchmark::State& state)
     const Avx50Ring ring(modulus);
     const Avx50Fp2Ring fp2ring(ring);
     const Avx50Fp12Ring fp12ring(ring);
-    const auto g1 = blst_avx_test::make_vroom_g1_generator_affine(ring);
-    const auto g2 = blst_avx_test::make_vroom_g2_generator_affine(ring);
+    const auto g1 = blst_avx_test::make_avx_g1_generator_affine(ring);
+    const auto g2 = blst_avx_test::make_avx_g2_generator_affine(ring);
     Miller<Avx50Ring> miller(g1, g2, ring);
 
     for (auto _ : state) {

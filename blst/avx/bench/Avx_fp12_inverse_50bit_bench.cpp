@@ -12,7 +12,7 @@ static void BM_FP12_Inverse_BLST_50bit(benchmark::State& state)
 {
     const Avx50Ring ring(blst_avx_test::modulus_bigint());
     volatile uint64_t seed = 42;
-    const auto value = blst_avx_test::make_vroom_fp12_from_seed(ring, seed);
+    const auto value = blst_avx_test::make_avx_fp12_from_seed(ring, seed);
 
     benchmark::DoNotOptimize(value);
 
@@ -30,7 +30,7 @@ static void BM_FP12_Inverse_RNS_BLST_50bit(benchmark::State& state)
     const Avx50Fp12Ring fp12ring(ring);
     const FP12RNS_BLSTInverter<Avx50Ring> inverter = {};
     volatile uint64_t seed = 42;
-    const auto value = blst_avx_test::make_vroom_fp12_from_seed(ring, seed);
+    const auto value = blst_avx_test::make_avx_fp12_from_seed(ring, seed);
 
     benchmark::DoNotOptimize(value);
 

@@ -24,7 +24,7 @@ void expect_fp12_bigints_equal_50bit(
     }
 }
 
-TEST(VroomFp1250Bit, MulMatchesScalarBlstFp12)
+TEST(AvxFp1250Bit, MulMatchesScalarBlstFp12)
 {
     const Avx50Ring ring(blst_avx_test::modulus_bigint());
     const Avx50Fp12Ring fp12ring(ring);
@@ -40,8 +40,8 @@ TEST(VroomFp1250Bit, MulMatchesScalarBlstFp12)
             right_coeffs[i] = BigInt(rng.get_z_range(modulus.get_mpz()));
         }
 
-        const auto vroom_left = blst_avx_test::make_vroom_fp12(ring, left_coeffs);
-        const auto vroom_right = blst_avx_test::make_vroom_fp12(ring, right_coeffs);
+        const auto vroom_left = blst_avx_test::make_avx_fp12(ring, left_coeffs);
+        const auto vroom_right = blst_avx_test::make_avx_fp12(ring, right_coeffs);
         const auto vroom_result = fp12ring.fp12_flat_mul(vroom_left, vroom_right, ring);
 
         const blst::Fp12 scalar_left = blst_avx_test::bigint_array_to_scalar_fp12(left_coeffs);
@@ -50,13 +50,13 @@ TEST(VroomFp1250Bit, MulMatchesScalarBlstFp12)
         blst::Fp12::mul(scalar_result, scalar_left, scalar_right);
 
         expect_fp12_bigints_equal_50bit(
-            blst_avx_test::vroom_fp12_to_bigints(ring, vroom_result),
+            blst_avx_test::avx_fp12_to_bigints(ring, vroom_result),
             blst_avx_test::scalar_fp12_to_bigints(scalar_result),
             "case=" + std::to_string(case_idx));
     }
 }
 
-TEST(VroomFp1250Bit, CyclotomicSqrMatchesScalarBlstFp12)
+TEST(AvxFp1250Bit, CyclotomicSqrMatchesScalarBlstFp12)
 {
     const Avx50Ring ring(blst_avx_test::modulus_bigint());
     const Avx50Fp12Ring fp12ring(ring);
@@ -64,7 +64,7 @@ TEST(VroomFp1250Bit, CyclotomicSqrMatchesScalarBlstFp12)
 
     for (size_t case_idx = 0; case_idx < seeds.size(); ++case_idx) {
         const uint64_t seed = seeds[case_idx];
-        const auto vroom_value = blst_avx_test::make_vroom_cyclotomic_fp12_from_seed(ring, seed);
+        const auto vroom_value = blst_avx_test::make_avx_cyclotomic_fp12_from_seed(ring, seed);
         const auto vroom_result = fp12ring.fp12_flat_cyclotomic_sqr(vroom_value, ring);
 
         const blst::Fp12 scalar_value = blst_avx_test::make_scalar_cyclotomic_fp12_from_seed(seed);
@@ -72,13 +72,13 @@ TEST(VroomFp1250Bit, CyclotomicSqrMatchesScalarBlstFp12)
         blst::Fp12::cyclotomic_sqr(scalar_result, scalar_value);
 
         expect_fp12_bigints_equal_50bit(
-            blst_avx_test::vroom_fp12_to_bigints(ring, vroom_result),
+            blst_avx_test::avx_fp12_to_bigints(ring, vroom_result),
             blst_avx_test::scalar_fp12_to_bigints(scalar_result),
             "case=" + std::to_string(case_idx));
     }
 }
 
-TEST(VroomFp1250Bit, MulByXy00z0MatchesScalarBlstFp12)
+TEST(AvxFp1250Bit, MulByXy00z0MatchesScalarBlstFp12)
 {
     const Avx50Ring ring(blst_avx_test::modulus_bigint());
     const Avx50Fp12Ring fp12ring(ring);
@@ -91,11 +91,11 @@ TEST(VroomFp1250Bit, MulByXy00z0MatchesScalarBlstFp12)
 
     for (size_t case_idx = 0; case_idx < seeds.size(); ++case_idx) {
         const auto [x_seed, sparse_seed] = seeds[case_idx];
-        const auto vroom_value = blst_avx_test::make_vroom_fp12_from_seed(ring, x_seed);
-        const auto sparse_coeffs = blst_avx_test::make_vroom_sparse_fp6_from_seed(ring, sparse_seed);
-        const auto c_term = blst_avx_test::make_vroom_fp2_from_sparse6<Avx50Ring>(sparse_coeffs, 0);
-        const auto x_term = blst_avx_test::make_vroom_fp2_from_sparse6<Avx50Ring>(sparse_coeffs, 1);
-        const auto y_term = blst_avx_test::make_vroom_fp2_from_sparse6<Avx50Ring>(sparse_coeffs, 2);
+        const auto vroom_value = blst_avx_test::make_avx_fp12_from_seed(ring, x_seed);
+        const auto sparse_coeffs = blst_avx_test::make_avx_sparse_fp6_from_seed(ring, sparse_seed);
+        const auto c_term = blst_avx_test::make_avx_fp2_from_sparse6<Avx50Ring>(sparse_coeffs, 0);
+        const auto x_term = blst_avx_test::make_avx_fp2_from_sparse6<Avx50Ring>(sparse_coeffs, 1);
+        const auto y_term = blst_avx_test::make_avx_fp2_from_sparse6<Avx50Ring>(sparse_coeffs, 2);
 
         Avx50Fp12 result = {};
         fp12ring.flat_mulxy00z0(result, vroom_value, c_term, x_term, y_term, ring);
@@ -106,16 +106,16 @@ TEST(VroomFp1250Bit, MulByXy00z0MatchesScalarBlstFp12)
         blst::Fp12::mul_by_xy00z0(scalar_result, scalar_value, scalar_sparse);
 
         expect_fp12_bigints_equal_50bit(
-            blst_avx_test::vroom_fp12_to_bigints(ring, result),
+            blst_avx_test::avx_fp12_to_bigints(ring, result),
             blst_avx_test::scalar_fp12_to_bigints(scalar_result),
             "case=" + std::to_string(case_idx));
     }
 }
 
-TEST(VroomFp1250Bit, BlstInverterMatchesScalarBlstInverse)
+TEST(AvxFp1250Bit, BlstInverterMatchesScalarBlstInverse)
 {
     const Avx50Ring ring(blst_avx_test::modulus_bigint());
-    const auto value = blst_avx_test::make_vroom_fp12_from_seed(ring, 42);
+    const auto value = blst_avx_test::make_avx_fp12_from_seed(ring, 42);
     const auto actual = invert_fp12_via_blst(ring, value);
 
     blst::Fp12 scalar_value = blst_avx_test::make_scalar_fp12_from_seed(42);
@@ -123,17 +123,17 @@ TEST(VroomFp1250Bit, BlstInverterMatchesScalarBlstInverse)
     blst::Fp12::inverse(scalar_inverse, scalar_value);
 
     expect_fp12_bigints_equal_50bit(
-        blst_avx_test::vroom_fp12_to_bigints(ring, actual),
+        blst_avx_test::avx_fp12_to_bigints(ring, actual),
         blst_avx_test::scalar_fp12_to_bigints(scalar_inverse),
         "blst inverter");
 }
 
-TEST(VroomFp1250Bit, RnsBlstInverterMatchesScalarBlstInverse)
+TEST(AvxFp1250Bit, RnsBlstInverterMatchesScalarBlstInverse)
 {
     const Avx50Ring ring(blst_avx_test::modulus_bigint());
     const Avx50Fp12Ring fp12ring(ring);
     const FP12RNS_BLSTInverter<Avx50Ring> inverter = {};
-    const auto value = blst_avx_test::make_vroom_fp12_from_seed(ring, 42);
+    const auto value = blst_avx_test::make_avx_fp12_from_seed(ring, 42);
     const auto actual = inverter.invert(value, fp12ring, ring);
 
     blst::Fp12 scalar_value = blst_avx_test::make_scalar_fp12_from_seed(42);
@@ -141,17 +141,17 @@ TEST(VroomFp1250Bit, RnsBlstInverterMatchesScalarBlstInverse)
     blst::Fp12::inverse(scalar_inverse, scalar_value);
 
     expect_fp12_bigints_equal_50bit(
-        blst_avx_test::vroom_fp12_to_bigints(ring, actual),
+        blst_avx_test::avx_fp12_to_bigints(ring, actual),
         blst_avx_test::scalar_fp12_to_bigints(scalar_inverse),
         "rns inverter");
 }
 
-TEST(VroomFp1250Bit, FinalExpBlstInverterMatchesScalarBlst)
+TEST(AvxFp1250Bit, FinalExpBlstInverterMatchesScalarBlst)
 {
     const Avx50Ring ring(blst_avx_test::modulus_bigint());
     const Avx50Fp12Ring fp12ring(ring);
     const FP12BLSTInverter<Avx50Ring> inverter = {};
-    const auto value = blst_avx_test::make_vroom_fp12_from_seed(ring, 42);
+    const auto value = blst_avx_test::make_avx_fp12_from_seed(ring, 42);
     const auto actual = final_exp(value, inverter, fp12ring, ring);
 
     blst::Fp12 scalar_value = blst_avx_test::make_scalar_fp12_from_seed(42);
@@ -159,17 +159,17 @@ TEST(VroomFp1250Bit, FinalExpBlstInverterMatchesScalarBlst)
     blst::Fp12::final_exp(scalar_final, scalar_value);
 
     expect_fp12_bigints_equal_50bit(
-        blst_avx_test::vroom_fp12_to_bigints(ring, actual),
+        blst_avx_test::avx_fp12_to_bigints(ring, actual),
         blst_avx_test::scalar_fp12_to_bigints(scalar_final),
         "final exp blst");
 }
 
-TEST(VroomFp1250Bit, FinalExpRnsBlstInverterMatchesScalarBlst)
+TEST(AvxFp1250Bit, FinalExpRnsBlstInverterMatchesScalarBlst)
 {
     const Avx50Ring ring(blst_avx_test::modulus_bigint());
     const Avx50Fp12Ring fp12ring(ring);
     const FP12RNS_BLSTInverter<Avx50Ring> inverter = {};
-    const auto value = blst_avx_test::make_vroom_fp12_from_seed(ring, 42);
+    const auto value = blst_avx_test::make_avx_fp12_from_seed(ring, 42);
     const auto actual = final_exp(value, inverter, fp12ring, ring);
 
     blst::Fp12 scalar_value = blst_avx_test::make_scalar_fp12_from_seed(42);
@@ -177,7 +177,7 @@ TEST(VroomFp1250Bit, FinalExpRnsBlstInverterMatchesScalarBlst)
     blst::Fp12::final_exp(scalar_final, scalar_value);
 
     expect_fp12_bigints_equal_50bit(
-        blst_avx_test::vroom_fp12_to_bigints(ring, actual),
+        blst_avx_test::avx_fp12_to_bigints(ring, actual),
         blst_avx_test::scalar_fp12_to_bigints(scalar_final),
         "final exp rns");
 }

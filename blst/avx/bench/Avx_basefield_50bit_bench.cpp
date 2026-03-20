@@ -11,7 +11,7 @@ using blst_avx_test::Avx50Ring;
 
 Avx50Fp2Ring::StandardElement random_fp2_50bit(gmp_randclass& rng, const BigInt& modulus, const Avx50Ring& ring)
 {
-    return blst_avx_test::make_vroom_fp2(
+    return blst_avx_test::make_avx_fp2(
         ring,
         BigInt(rng.get_z_range(modulus.get_mpz())),
         BigInt(rng.get_z_range(modulus.get_mpz())));

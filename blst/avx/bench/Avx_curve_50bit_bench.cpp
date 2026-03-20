@@ -15,8 +15,8 @@ static void BM_G1_Add_50bit(benchmark::State& state)
     const AvxCurve50G1 g1 = {};
     volatile uint64_t seed1 = 42;
     volatile uint64_t seed2 = 123;
-    const auto p = blst_avx_test::make_random_vroom_curve50_g1_projective(ring, seed1);
-    const auto q = blst_avx_test::make_random_vroom_curve50_g1_projective(ring, seed2);
+    const auto p = blst_avx_test::make_random_avx_curve50_g1_projective(ring, seed1);
+    const auto q = blst_avx_test::make_random_avx_curve50_g1_projective(ring, seed2);
 
     benchmark::DoNotOptimize(p);
     benchmark::DoNotOptimize(q);
@@ -35,8 +35,8 @@ static void BM_G1_MixedAdd_50bit(benchmark::State& state)
     const AvxCurve50G1 g1 = {};
     volatile uint64_t seed1 = 42;
     volatile uint64_t seed2 = 123;
-    const auto p = blst_avx_test::make_random_vroom_curve50_g1_projective(ring, seed1);
-    const auto q_affine = blst_avx_test::make_random_vroom_curve50_g1_affine(ring, seed2);
+    const auto p = blst_avx_test::make_random_avx_curve50_g1_projective(ring, seed1);
+    const auto q_affine = blst_avx_test::make_random_avx_curve50_g1_affine(ring, seed2);
 
     benchmark::DoNotOptimize(p);
     benchmark::DoNotOptimize(q_affine);
@@ -54,7 +54,7 @@ static void BM_G1_Double_50bit(benchmark::State& state)
     const AvxCurve50Ring ring(blst_avx_test::modulus_bigint());
     const AvxCurve50G1 g1 = {};
     volatile uint64_t seed = 42;
-    const auto p = blst_avx_test::make_random_vroom_curve50_g1_projective(ring, seed);
+    const auto p = blst_avx_test::make_random_avx_curve50_g1_projective(ring, seed);
 
     benchmark::DoNotOptimize(p);
 
@@ -73,8 +73,8 @@ static void BM_G2_Add_50bit(benchmark::State& state)
     const AvxCurve50G2 g2 = {};
     volatile uint64_t seed1 = 42;
     volatile uint64_t seed2 = 123;
-    const auto p = blst_avx_test::make_random_vroom_curve50_g2_projective(fp2ring, ring, seed1);
-    const auto q = blst_avx_test::make_random_vroom_curve50_g2_projective(fp2ring, ring, seed2);
+    const auto p = blst_avx_test::make_random_avx_curve50_g2_projective(fp2ring, ring, seed1);
+    const auto q = blst_avx_test::make_random_avx_curve50_g2_projective(fp2ring, ring, seed2);
 
     benchmark::DoNotOptimize(p);
     benchmark::DoNotOptimize(q);
@@ -94,8 +94,8 @@ static void BM_G2_MixedAdd_50bit(benchmark::State& state)
     const AvxCurve50G2 g2 = {};
     volatile uint64_t seed1 = 42;
     volatile uint64_t seed2 = 123;
-    const auto p = blst_avx_test::make_random_vroom_curve50_g2_projective(fp2ring, ring, seed1);
-    const auto q_affine = blst_avx_test::make_random_vroom_curve50_g2_affine(ring, seed2);
+    const auto p = blst_avx_test::make_random_avx_curve50_g2_projective(fp2ring, ring, seed1);
+    const auto q_affine = blst_avx_test::make_random_avx_curve50_g2_affine(ring, seed2);
 
     benchmark::DoNotOptimize(p);
     benchmark::DoNotOptimize(q_affine);
@@ -114,7 +114,7 @@ static void BM_G2_Double_50bit(benchmark::State& state)
     const AvxCurve50Fp2Ring fp2ring(ring);
     const AvxCurve50G2 g2 = {};
     volatile uint64_t seed = 42;
-    const auto p = blst_avx_test::make_random_vroom_curve50_g2_projective(fp2ring, ring, seed);
+    const auto p = blst_avx_test::make_random_avx_curve50_g2_projective(fp2ring, ring, seed);
 
     benchmark::DoNotOptimize(p);
 

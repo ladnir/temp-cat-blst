@@ -11,7 +11,7 @@ using blst_avx_test::AvxRing;
 
 AvxFp12Ring::StandardElement generate_random_fp12(const AvxRing& ring, uint64_t seed)
 {
-    return blst_avx_test::make_vroom_fp12_from_seed(ring, seed);
+    return blst_avx_test::make_avx_fp12_from_seed(ring, seed);
 }
 
 static void BM_FP12_Mul(benchmark::State& state)

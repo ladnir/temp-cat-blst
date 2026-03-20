@@ -29,7 +29,7 @@ void expect_vroom_glv4_matches_scalar(
     uint64_t scalar_seed,
     const std::string& label)
 {
-    const auto vroom_base = blst_avx_test::make_vroom_cyclotomic_fp12_from_seed(ring, base_seed);
+    const auto vroom_base = blst_avx_test::make_avx_cyclotomic_fp12_from_seed(ring, base_seed);
     const auto scalar_limbs = blst_avx_test::seeded_scalar_limbs_le(scalar_seed);
     const auto scalar_bytes = blst_avx_test::seeded_scalar_bytes_le(scalar_seed);
 
@@ -47,9 +47,9 @@ void expect_vroom_glv4_matches_scalar(
     const auto expected = blst_avx_test::scalar_fp12_to_bigints(scalar_glv4);
     const auto expected_basic = blst_avx_test::scalar_fp12_to_bigints(scalar_basic);
 
-    const auto basic_bigints = blst_avx_test::vroom_fp12_to_bigints(ring, basic);
-    const auto runtime_bigints = blst_avx_test::vroom_fp12_to_bigints(ring, runtime_glv4);
-    const auto compiled_bigints = blst_avx_test::vroom_fp12_to_bigints(ring, compiled_glv4);
+    const auto basic_bigints = blst_avx_test::avx_fp12_to_bigints(ring, basic);
+    const auto runtime_bigints = blst_avx_test::avx_fp12_to_bigints(ring, runtime_glv4);
+    const auto compiled_bigints = blst_avx_test::avx_fp12_to_bigints(ring, compiled_glv4);
 
     expect_fp12_bigints_equal(basic_bigints, expected_basic, label + " basic");
     expect_fp12_bigints_equal(runtime_bigints, expected, label + " runtime");
@@ -57,7 +57,7 @@ void expect_vroom_glv4_matches_scalar(
     expect_fp12_bigints_equal(runtime_bigints, compiled_bigints, label + " runtime_vs_compiled");
 }
 
-TEST(VroomGtGlv4, RuntimeAndCompiledMatchScalarBlst)
+TEST(AvxGtGlv4, RuntimeAndCompiledMatchScalarBlst)
 {
     const AvxRing ring(blst_avx_test::modulus_bigint());
     const AvxFp12Ring fp12ring(ring);
@@ -68,24 +68,24 @@ TEST(VroomGtGlv4, RuntimeAndCompiledMatchScalarBlst)
     }
 }
 
-TEST(VroomGtGlv4, ZeroScalarReturnsIdentity)
+TEST(AvxGtGlv4, ZeroScalarReturnsIdentity)
 {
     const AvxRing ring(blst_avx_test::modulus_bigint());
     const AvxFp12Ring fp12ring(ring);
-    const auto base = blst_avx_test::make_vroom_cyclotomic_fp12_from_seed(ring, 42);
+    const auto base = blst_avx_test::make_avx_cyclotomic_fp12_from_seed(ring, 42);
     const std::array<uint64_t, 4> zero_scalar = {};
 
     const auto basic = vroom_cyclotomic_exp_basic(base, zero_scalar.data(), fp12ring, ring);
     const auto runtime_glv4 = vroom_cyclotomic_exp_glv4(base, zero_scalar.data(), fp12ring, ring);
     const auto compiled_glv4 = vroom_cyclotomic_exp_glv4(base, vroom_glv4_compile(zero_scalar.data()), fp12ring, ring);
-    const auto expected = blst_avx_test::vroom_fp12_to_bigints(ring, fp12ring.one(ring));
+    const auto expected = blst_avx_test::avx_fp12_to_bigints(ring, fp12ring.one(ring));
 
-    expect_fp12_bigints_equal(blst_avx_test::vroom_fp12_to_bigints(ring, basic), expected, "zero basic");
-    expect_fp12_bigints_equal(blst_avx_test::vroom_fp12_to_bigints(ring, runtime_glv4), expected, "zero runtime");
-    expect_fp12_bigints_equal(blst_avx_test::vroom_fp12_to_bigints(ring, compiled_glv4), expected, "zero compiled");
+    expect_fp12_bigints_equal(blst_avx_test::avx_fp12_to_bigints(ring, basic), expected, "zero basic");
+    expect_fp12_bigints_equal(blst_avx_test::avx_fp12_to_bigints(ring, runtime_glv4), expected, "zero runtime");
+    expect_fp12_bigints_equal(blst_avx_test::avx_fp12_to_bigints(ring, compiled_glv4), expected, "zero compiled");
 }
 
-TEST(VroomGtGlv4, SplitMatchesScalarBlstSplit)
+TEST(AvxGtGlv4, SplitMatchesScalarBlstSplit)
 {
     for (const uint64_t scalar_seed : std::array<uint64_t, 4>{{123, 321, 777, 999}}) {
         const auto scalar_limbs = blst_avx_test::seeded_scalar_limbs_le(scalar_seed);

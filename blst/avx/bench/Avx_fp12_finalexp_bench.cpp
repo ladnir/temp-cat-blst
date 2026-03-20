@@ -14,8 +14,8 @@ static void BM_FP12_FinalExpAfterInverse(benchmark::State& state)
     const AvxFp12Ring fp12ring(ring);
     volatile uint64_t seed_f = 42;
     volatile uint64_t seed_inv = 123;
-    const auto value = blst_avx_test::make_vroom_fp12_from_seed(ring, seed_f);
-    const auto inverse = blst_avx_test::make_vroom_fp12_from_seed(ring, seed_inv);
+    const auto value = blst_avx_test::make_avx_fp12_from_seed(ring, seed_f);
+    const auto inverse = blst_avx_test::make_avx_fp12_from_seed(ring, seed_inv);
 
     benchmark::DoNotOptimize(value);
     benchmark::DoNotOptimize(inverse);

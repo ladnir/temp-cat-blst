@@ -81,7 +81,7 @@ void expect_batch_modmul_matches_scalar_50bit(const Avx50Ring& ring, uint64_t se
     }
 }
 
-TEST(VroomBaseField50Bit, ModMulMatchesScalarBlstFp)
+TEST(AvxBaseField50Bit, ModMulMatchesScalarBlstFp)
 {
     const Avx50Ring ring(blst_avx_test::modulus_bigint());
     const BigInt modulus = blst_avx_test::modulus_bigint();
@@ -106,7 +106,7 @@ TEST(VroomBaseField50Bit, ModMulMatchesScalarBlstFp)
     }
 }
 
-TEST(VroomBaseField50Bit, BatchModMulMatchesScalarBlstFp)
+TEST(AvxBaseField50Bit, BatchModMulMatchesScalarBlstFp)
 {
     const Avx50Ring ring(blst_avx_test::modulus_bigint());
 
@@ -122,7 +122,7 @@ TEST(VroomBaseField50Bit, BatchModMulMatchesScalarBlstFp)
     expect_batch_modmul_matches_scalar_50bit<12>(ring, 42);
 }
 
-TEST(VroomBaseField50Bit, AddChainInverseMatchesScalarBlstFp)
+TEST(AvxBaseField50Bit, AddChainInverseMatchesScalarBlstFp)
 {
     const Avx50Ring ring(blst_avx_test::modulus_bigint());
     const BigInt modulus = blst_avx_test::modulus_bigint();
@@ -149,7 +149,7 @@ TEST(VroomBaseField50Bit, AddChainInverseMatchesScalarBlstFp)
     }
 }
 
-TEST(VroomBaseField50Bit, BatchReduceExpandMatchesScalarBlstFp)
+TEST(AvxBaseField50Bit, BatchReduceExpandMatchesScalarBlstFp)
 {
     const Avx50Ring ring(blst_avx_test::modulus_bigint());
 
@@ -162,7 +162,7 @@ TEST(VroomBaseField50Bit, BatchReduceExpandMatchesScalarBlstFp)
     expect_batch_reduce_expand_matches_scalar_50bit<12>(ring, 42);
 }
 
-TEST(VroomBaseField50Bit, Fp2MulMatchesScalarBlstFp2)
+TEST(AvxBaseField50Bit, Fp2MulMatchesScalarBlstFp2)
 {
     const Avx50Ring ring(blst_avx_test::modulus_bigint());
     const Avx50Fp2Ring fp2ring(ring);
@@ -176,8 +176,8 @@ TEST(VroomBaseField50Bit, Fp2MulMatchesScalarBlstFp2)
         const BigInt bx(rng.get_z_range(modulus.get_mpz()));
         const BigInt by(rng.get_z_range(modulus.get_mpz()));
 
-        const auto vroom_left = blst_avx_test::make_vroom_fp2(ring, ax, ay);
-        const auto vroom_right = blst_avx_test::make_vroom_fp2(ring, bx, by);
+        const auto vroom_left = blst_avx_test::make_avx_fp2(ring, ax, ay);
+        const auto vroom_right = blst_avx_test::make_avx_fp2(ring, bx, by);
         const auto vroom_result = fp2ring.mul(vroom_left, vroom_right)[0];
 
         const blst::Fp2 scalar_left = blst_avx_test::bigint_pair_to_scalar_fp2(ax, ay);
@@ -192,7 +192,7 @@ TEST(VroomBaseField50Bit, Fp2MulMatchesScalarBlstFp2)
     }
 }
 
-TEST(VroomBaseField50Bit, Fp2SquareMatchesScalarBlstFp2)
+TEST(AvxBaseField50Bit, Fp2SquareMatchesScalarBlstFp2)
 {
     const Avx50Ring ring(blst_avx_test::modulus_bigint());
     const Avx50Fp2Ring fp2ring(ring);
@@ -204,7 +204,7 @@ TEST(VroomBaseField50Bit, Fp2SquareMatchesScalarBlstFp2)
         const BigInt ax(rng.get_z_range(modulus.get_mpz()));
         const BigInt ay(rng.get_z_range(modulus.get_mpz()));
 
-        const auto vroom_value = blst_avx_test::make_vroom_fp2(ring, ax, ay);
+        const auto vroom_value = blst_avx_test::make_avx_fp2(ring, ax, ay);
         const auto vroom_result = fp2ring.square(vroom_value)[0];
 
         const blst::Fp2 scalar_value = blst_avx_test::bigint_pair_to_scalar_fp2(ax, ay);
@@ -218,7 +218,7 @@ TEST(VroomBaseField50Bit, Fp2SquareMatchesScalarBlstFp2)
     }
 }
 
-TEST(VroomBaseField50Bit, Fp2EdgeValuesAndIdentitiesMatchScalarBlstFp2)
+TEST(AvxBaseField50Bit, Fp2EdgeValuesAndIdentitiesMatchScalarBlstFp2)
 {
     const Avx50Ring ring(blst_avx_test::modulus_bigint());
     const Avx50Fp2Ring fp2ring(ring);
@@ -238,13 +238,13 @@ TEST(VroomBaseField50Bit, Fp2EdgeValuesAndIdentitiesMatchScalarBlstFp2)
     }};
 
     const auto vroom_one = fp2ring.one();
-    const auto vroom_zero = blst_avx_test::make_vroom_fp2(ring, zero, zero);
+    const auto vroom_zero = blst_avx_test::make_avx_fp2(ring, zero, zero);
     const blst::Fp2 scalar_one = blst_avx_test::bigint_pair_to_scalar_fp2(one, zero);
     const blst::Fp2 scalar_zero = blst_avx_test::bigint_pair_to_scalar_fp2(zero, zero);
 
     for (size_t i = 0; i < cases.size(); ++i) {
         const auto& [x, y] = cases[i];
-        const auto vroom_value = blst_avx_test::make_vroom_fp2(ring, x, y);
+        const auto vroom_value = blst_avx_test::make_avx_fp2(ring, x, y);
         const blst::Fp2 scalar_value = blst_avx_test::bigint_pair_to_scalar_fp2(x, y);
 
         const auto vroom_square = fp2ring.square(vroom_value)[0];

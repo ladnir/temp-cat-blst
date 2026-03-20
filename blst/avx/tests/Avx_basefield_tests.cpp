@@ -47,7 +47,7 @@ void expect_batch_reduce_expand_matches_scalar(const AvxRing& ring, uint64_t see
     }
 }
 
-TEST(VroomBaseField, FromBigIntMatchesKnownRnsVectors)
+TEST(AvxBaseField, FromBigIntMatchesKnownRnsVectors)
 {
     const AvxRing ring(blst_avx_test::modulus_bigint());
 
@@ -63,7 +63,7 @@ TEST(VroomBaseField, FromBigIntMatchesKnownRnsVectors)
     EXPECT_EQ(c_element.m2.data.to_array(), c_m2);
 }
 
-TEST(VroomBaseField, ModMulMatchesKnownAnswer)
+TEST(AvxBaseField, ModMulMatchesKnownAnswer)
 {
     const AvxRing ring(blst_avx_test::modulus_bigint());
 
@@ -76,7 +76,7 @@ TEST(VroomBaseField, ModMulMatchesKnownAnswer)
     EXPECT_EQ(ring.to_bigint(result).to_string(), BigInt(::c_correct, 10).to_string());
 }
 
-TEST(VroomBaseField, BatchModMul8MatchesScalarBlstFp)
+TEST(AvxBaseField, BatchModMul8MatchesScalarBlstFp)
 {
     const AvxRing ring(blst_avx_test::modulus_bigint());
     const BigInt modulus = blst_avx_test::modulus_bigint();
@@ -112,7 +112,7 @@ TEST(VroomBaseField, BatchModMul8MatchesScalarBlstFp)
     }
 }
 
-TEST(VroomBaseField, AddChainInverseMatchesScalarBlstFp)
+TEST(AvxBaseField, AddChainInverseMatchesScalarBlstFp)
 {
     const AvxRing ring(blst_avx_test::modulus_bigint());
     const BigInt modulus = blst_avx_test::modulus_bigint();
@@ -140,7 +140,7 @@ TEST(VroomBaseField, AddChainInverseMatchesScalarBlstFp)
     }
 }
 
-TEST(VroomBaseField, BatchReduceExpandMatchesScalarBlstFp)
+TEST(AvxBaseField, BatchReduceExpandMatchesScalarBlstFp)
 {
     const AvxRing ring(blst_avx_test::modulus_bigint());
 
@@ -153,7 +153,7 @@ TEST(VroomBaseField, BatchReduceExpandMatchesScalarBlstFp)
     expect_batch_reduce_expand_matches_scalar<12>(ring, 42);
 }
 
-TEST(VroomBaseField, Fp2MulMatchesScalarBlstFp2)
+TEST(AvxBaseField, Fp2MulMatchesScalarBlstFp2)
 {
     const AvxRing ring(blst_avx_test::modulus_bigint());
     const AvxFp2Ring fp2ring(ring);
@@ -167,8 +167,8 @@ TEST(VroomBaseField, Fp2MulMatchesScalarBlstFp2)
         const BigInt bx(rng.get_z_range(modulus.get_mpz()));
         const BigInt by(rng.get_z_range(modulus.get_mpz()));
 
-        const auto vroom_left = blst_avx_test::make_vroom_fp2(ring, ax, ay);
-        const auto vroom_right = blst_avx_test::make_vroom_fp2(ring, bx, by);
+        const auto vroom_left = blst_avx_test::make_avx_fp2(ring, ax, ay);
+        const auto vroom_right = blst_avx_test::make_avx_fp2(ring, bx, by);
         const auto vroom_result = fp2ring.mul(vroom_left, vroom_right)[0];
 
         const blst::Fp2 scalar_left = blst_avx_test::bigint_pair_to_scalar_fp2(ax, ay);
@@ -183,7 +183,7 @@ TEST(VroomBaseField, Fp2MulMatchesScalarBlstFp2)
     }
 }
 
-TEST(VroomBaseField, Fp2SquareMatchesScalarBlstFp2)
+TEST(AvxBaseField, Fp2SquareMatchesScalarBlstFp2)
 {
     const AvxRing ring(blst_avx_test::modulus_bigint());
     const AvxFp2Ring fp2ring(ring);
@@ -195,7 +195,7 @@ TEST(VroomBaseField, Fp2SquareMatchesScalarBlstFp2)
         const BigInt ax(rng.get_z_range(modulus.get_mpz()));
         const BigInt ay(rng.get_z_range(modulus.get_mpz()));
 
-        const auto vroom_value = blst_avx_test::make_vroom_fp2(ring, ax, ay);
+        const auto vroom_value = blst_avx_test::make_avx_fp2(ring, ax, ay);
         const auto vroom_result = fp2ring.square(vroom_value)[0];
 
         const blst::Fp2 scalar_value = blst_avx_test::bigint_pair_to_scalar_fp2(ax, ay);
@@ -209,7 +209,7 @@ TEST(VroomBaseField, Fp2SquareMatchesScalarBlstFp2)
     }
 }
 
-TEST(VroomBaseField, Fp2EdgeValuesAndIdentitiesMatchScalarBlstFp2)
+TEST(AvxBaseField, Fp2EdgeValuesAndIdentitiesMatchScalarBlstFp2)
 {
     const AvxRing ring(blst_avx_test::modulus_bigint());
     const AvxFp2Ring fp2ring(ring);
@@ -229,13 +229,13 @@ TEST(VroomBaseField, Fp2EdgeValuesAndIdentitiesMatchScalarBlstFp2)
     }};
 
     const auto vroom_one = fp2ring.one();
-    const auto vroom_zero = blst_avx_test::make_vroom_fp2(ring, zero, zero);
+    const auto vroom_zero = blst_avx_test::make_avx_fp2(ring, zero, zero);
     const blst::Fp2 scalar_one = blst_avx_test::bigint_pair_to_scalar_fp2(one, zero);
     const blst::Fp2 scalar_zero = blst_avx_test::bigint_pair_to_scalar_fp2(zero, zero);
 
     for (size_t i = 0; i < cases.size(); ++i) {
         const auto& [x, y] = cases[i];
-        const auto vroom_value = blst_avx_test::make_vroom_fp2(ring, x, y);
+        const auto vroom_value = blst_avx_test::make_avx_fp2(ring, x, y);
         const blst::Fp2 scalar_value = blst_avx_test::bigint_pair_to_scalar_fp2(x, y);
 
         const auto vroom_square = fp2ring.square(vroom_value)[0];

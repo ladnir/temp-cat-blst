@@ -12,7 +12,7 @@ static void BM_FP12_Conjugate(benchmark::State& state)
     const AvxRing ring(blst_avx_test::modulus_bigint());
     const AvxFp12Ring fp12ring(ring);
     volatile uint64_t seed = 42;
-    const auto value = blst_avx_test::make_vroom_fp12_from_seed(ring, seed);
+    const auto value = blst_avx_test::make_avx_fp12_from_seed(ring, seed);
 
     benchmark::DoNotOptimize(value);
 
@@ -29,7 +29,7 @@ static void BM_FP12_FrobeniusMap1(benchmark::State& state)
     const AvxRing ring(blst_avx_test::modulus_bigint());
     const AvxFp12Ring fp12ring(ring);
     volatile uint64_t seed = 42;
-    const auto value = blst_avx_test::make_vroom_fp12_from_seed(ring, seed);
+    const auto value = blst_avx_test::make_avx_fp12_from_seed(ring, seed);
 
     benchmark::DoNotOptimize(value);
 
@@ -46,7 +46,7 @@ static void BM_FP12_FrobeniusMap2(benchmark::State& state)
     const AvxRing ring(blst_avx_test::modulus_bigint());
     const AvxFp12Ring fp12ring(ring);
     volatile uint64_t seed = 42;
-    const auto value = blst_avx_test::make_vroom_fp12_from_seed(ring, seed);
+    const auto value = blst_avx_test::make_avx_fp12_from_seed(ring, seed);
 
     benchmark::DoNotOptimize(value);
 
@@ -63,7 +63,7 @@ static void BM_FP12_FrobeniusMap3(benchmark::State& state)
     const AvxRing ring(blst_avx_test::modulus_bigint());
     const AvxFp12Ring fp12ring(ring);
     volatile uint64_t seed = 42;
-    const auto value = blst_avx_test::make_vroom_fp12_from_seed(ring, seed);
+    const auto value = blst_avx_test::make_avx_fp12_from_seed(ring, seed);
 
     benchmark::DoNotOptimize(value);
 
