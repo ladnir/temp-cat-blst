@@ -8,7 +8,7 @@
 #include "blst/fields/Fp2.h"
 #include "blst/scalar/curve/point.h"
 #include "blst/scalar/curve/GT.h"
-#include "blst/curve/bulk_addition.h"
+#include "blst/scalar/curve/bulk_addition.h"
 
 #ifdef __CUDACC__
 #include <cuda/std/span>

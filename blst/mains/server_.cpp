@@ -17,9 +17,6 @@
 #ifndef __BLST_CGO__
 # include "blst/common/rb_tree.cpp"
 #endif
-#ifdef BLST_FR_PENTAROOT
-# include "blst/fields/pentaroot.cpp"
-#endif
 #ifndef __BLST_NO_CPUID__
 //# include "blst/common/cpuid.cpp"
 #endif

@@ -62,7 +62,7 @@
 #include "blst/fields/Fr.h"
 #include "blst/fields/Fp.h"
 #include "blst/fields/Fp2.h"
-#include "blst/curve/ec_mult.h"
+#include "blst/scalar/curve/ec_mult.h"
 
 namespace blst::scalar
 {

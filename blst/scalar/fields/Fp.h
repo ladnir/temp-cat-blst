@@ -11,10 +11,10 @@
 #include "blst/config.h"
 #include "blst/common/defines.h"
 #include "blst/backend/backend.h"
-#include "blst/fields/recip-addchain.h"
+#include "blst/scalar/fields/recip-addchain.h"
 #include <type_traits>
 
-#include "blst/fields/sqrt-addchain.h"
+#include "blst/scalar/fields/sqrt-addchain.h"
 //
 //#ifdef __CUDA_ARCH__
 //#include "blst/backend/cuda/add_mod_cuda.h"

@@ -9,7 +9,7 @@
 #include "blst/common/vect.h"
 #include "blst/config.h"
 #include "blst/common/defines.h" 
-#include "blst/fields/recip-addchain.h"
+#include "blst/scalar/fields/recip-addchain.h"
 #include "blst/scalar/fields/Fp.h"
 
 
