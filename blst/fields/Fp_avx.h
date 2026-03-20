@@ -3,6 +3,7 @@
 
 #include "blst/common/defines.h"
 #include "blst/backend/avx512/avx_ops.h"
+#include "blst/fields/Fp.h"
 #include <cstddef>
 #include <type_traits>
 #include <array>
@@ -21,8 +22,6 @@
 
 namespace blst
 {
-    struct Fp;
-
     /**
      * AVX512 Fp helpers ported from avxbls.
      *

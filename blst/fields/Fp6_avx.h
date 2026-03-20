@@ -8,13 +8,13 @@
  */
 
 #include "blst/fields/Fp4_avx.h"
+#include "blst/fields/Fp12.h"
 #include <array>
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 
 namespace blst
 {
-    struct Fp6;
     struct UFp6Pack8x1;
 
     /**

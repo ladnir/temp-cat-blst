@@ -29,7 +29,7 @@
 template<typename Field>
 void add_chain_recip_sqrt(Field& out, const Field& inp) {
 	Field t[16];
-	vec_copy(&t[13], &inp, sizeof(Field));/*    0: 1 */
+	blst::vec_copy(&t[13], &inp, sizeof(Field));/*    0: 1 */
 	Field::sqr(t[0], t[13]);                   /*    1: 2 */
 	Field::mul(t[8], t[0], t[13]);             /*    2: 3 */
 	Field::sqr(t[4], t[0]);                    /*    3: 4 */

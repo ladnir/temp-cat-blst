@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "multi_scalar.h"
+#include "blst/scalar/curve/multi_scalar.h"
 
-namespace blst
+namespace blst::scalar
 {
 #ifdef __CUDACC__
 	template<typename T>

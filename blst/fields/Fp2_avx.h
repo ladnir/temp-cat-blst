@@ -1,14 +1,13 @@
 #ifndef BLST_FIELDS_FP2_AVX_H
 #define BLST_FIELDS_FP2_AVX_H
 
+#include "blst/fields/Fp2.h"
 #include "blst/fields/Fp_avx.h"
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 
 namespace blst
 {
-    struct Fp2;
-
     /**
      * Lightweight aggregate for fixed-size bundles of homogeneous AVX packs.
      *

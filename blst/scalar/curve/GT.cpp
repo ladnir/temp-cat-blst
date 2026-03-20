@@ -4,14 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "blst/curve/point.h"
-#include "blst/curve/GT.h"
+#include "blst/scalar/curve/point.h"
+#include "blst/scalar/curve/GT.h"
 
 #ifndef MILLER_LOOP_N_MAX
 # define MILLER_LOOP_N_MAX 16
 #endif
 
-namespace blst
+namespace blst::scalar
 {
     /*
     * Line evaluations from  https://eprint.iacr.org/2010/354.pdf

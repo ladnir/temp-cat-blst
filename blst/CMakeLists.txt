@@ -5,12 +5,12 @@
 set(BLST_STATIC_SRC  
     "backend/backend_portable.cpp"
     "sign/keygen.cpp"
-    "fields/Fr.cpp"
-    "fields/Fp.cpp"
-    "fields/Fp12.cpp"
-    "curve/GT.cpp"
-    "curve/point.cpp"
-    "curve/multi_scalar.cpp"
+    "scalar/fields/Fr.cpp"
+    "scalar/fields/Fp.cpp"
+    "scalar/fields/Fp12.cpp"
+    "scalar/curve/GT.cpp"
+    "scalar/curve/point.cpp"
+    "scalar/curve/multi_scalar.cpp"
     "sign/aggregate.cpp"
     "exports.cpp"
 )

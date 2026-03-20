@@ -52,9 +52,9 @@
   */
 
 
-#include "blst/curve/point.h"
+#include "blst/scalar/curve/point.h"
 
-namespace blst
+namespace blst::scalar
 {
 
 
