@@ -8,7 +8,7 @@
 
 #include "blst/fields/Fp.h"
 #include "blst/fields/Fp_cuda.h"
-#include "blst/fields/parallel_prefix.h"
+#include "blst/cuda/fields/parallel_prefix.h"
 #include "blst/exports.h"
 #include "InsecureRng.h"
 

@@ -17,9 +17,9 @@ set(BLST_STATIC_SRC
 
 if(BLST_PARALLEL_MSM)
     list(APPEND BLST_STATIC_SRC
-        "curve/multi_scalar_par_G1.cpp"
-        "curve/multi_scalar_par_G2.cpp"
-        "curve/multi_scalar_par_GT.cpp"
+        "cuda/curve/multi_scalar_par_G1.cpp"
+        "cuda/curve/multi_scalar_par_G2.cpp"
+        "cuda/curve/multi_scalar_par_GT.cpp"
     )
 endif()
 
@@ -87,13 +87,13 @@ if(BLST_CUDA)
     
     #set(BLST_STATIC_SRC ${BLST_STATIC_SRC} cuda_kernel.cpp)
     set(BLST_STATIC_SRC ${BLST_STATIC_SRC} 
-        fields/Fr_cuda.cpp
-        fields/Fp_cuda.cpp
-        fields/Fp2_cuda.cpp
-        fields/Fp12_cuda.cpp
-        curve/G1_cuda.cpp
-        curve/G2_cuda.cpp
-        curve/GT_cuda.cpp
+        cuda/fields/Fr.cpp
+        cuda/fields/Fp.cpp
+        cuda/fields/Fp2.cpp
+        cuda/fields/Fp12.cpp
+        cuda/curve/G1.cpp
+        cuda/curve/G2.cpp
+        cuda/curve/GT.cpp
     )
     #if(BLST_FAST_BUILD)
     #    set(FAST_OPT  $<$<COMPILE_LANGUAGE:CUDA>:-O0>)

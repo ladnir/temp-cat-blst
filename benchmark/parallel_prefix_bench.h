@@ -4,7 +4,7 @@
 #include <thrust/device_vector.h>
 #include "blst/fields/Fp12.h"
 #include "blst/backend/cuda/mul_mont_cuda.h"
-#include "blst/fields/parallel_prefix.h"
+#include "blst/cuda/fields/parallel_prefix.h"
 using namespace blst;
 
 namespace {

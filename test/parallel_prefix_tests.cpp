@@ -12,7 +12,7 @@
 #include "blst/fields/Fp.h"
 #include "blst/fields/Fp2.h"
 #include "InsecureRng.h"
-#include "blst/fields/parallel_prefix.h"
+#include "blst/cuda/fields/parallel_prefix.h"
 #include "blst/backend/cuda/CSA_cuda.h"
 #include "blst/backend/cuda/mul_mont_cuda.h"
 
