@@ -3,6 +3,8 @@
 #include <array>
 #include <cstdint>
 
+namespace blst::avx {
+
 template<int limbs>
 class GenRNS {
     public:
@@ -310,3 +312,5 @@ inline void gen_precompute_wide_min(
         }
     }
 }
+
+}  // namespace blst::avx

@@ -1,9 +1,11 @@
 #pragma once
 #include "vector_impl.hpp"
 #include "../precompute/precompute.hpp"
-#include "../../src/constexpr_utils.hpp"
+#include "../../common/constexpr_utils.h"
 #include <type_traits>
 #include <iostream>
+
+namespace blst::avx {
 
 template <int in_limbs, int out_limbs, int IN_DIGITS=1, int OUT_DIGITS=1, int INBITS = 52, int OUTBITS = 52>
 class RNSMatrix {
@@ -347,3 +349,5 @@ class RNSMatrix {
         return postmult;
     }
 };
+
+}  // namespace blst::avx

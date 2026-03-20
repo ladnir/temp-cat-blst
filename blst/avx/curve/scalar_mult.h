@@ -1,6 +1,6 @@
 #pragma once
 #include "ec.h"
-#include "../src/constexpr_utils.hpp"
+#include "../common/constexpr_utils.h"
 #if __has_include("../blst/vect.h")
 #include "../blst/vect.h"
 #include "../blst/bytes.h"
@@ -10,11 +10,13 @@
 #include "../../common/bytes.h"
 #include "../../backend/backend.h"
 #endif
-#include "../src/gmp_wrapper.hpp"
+#include "../common/gmp_wrapper.h"
 #include <array>
 #include <cstring>
 #include <cstdint>
 // Modified from blst
+
+namespace blst::avx {
 
 template<class Curve, class Ring, int table_log_size>
 class PrecomputedTable {
@@ -448,3 +450,5 @@ class GLSMult {
         return table_msm<G2Curve, FP2RingType, 64, table_log_size, 4>(scalars, tables, curve, fp2ring);
     }
 };
+
+}  // namespace blst::avx

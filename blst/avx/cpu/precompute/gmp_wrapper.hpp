@@ -7,6 +7,8 @@
 #include <stdexcept>
 #include <ctime>
 
+namespace blst::avx {
+
 class BigInt {
 private:
     mpz_class value;
@@ -379,5 +381,7 @@ inline bool operator==(long lhs, const BigInt& rhs) {
 inline bool operator!=(long lhs, const BigInt& rhs) {
     return BigInt(lhs) != rhs;
 }
+
+}  // namespace blst::avx
 
 #endif // GMP_WRAPPER_HPP

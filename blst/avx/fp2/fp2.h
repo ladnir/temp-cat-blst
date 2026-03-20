@@ -1,10 +1,12 @@
 #pragma once
-#include "../src/preprocess.hpp"
-#include "../src/ring_element.hpp"
+#include "../common/preprocess.h"
+#include "../rns/ring_element.h"
 #include <tuple>
 #include <array>
 #include <type_traits>
 // Forward declaration
+namespace blst::avx {
+
 template<class X, class Y, class minusY>
 class FP2N;
 
@@ -338,3 +340,5 @@ class FP2Ring {
         return FP2<decltype(ring.negate(fp2.x())), decltype(ring.negate(fp2.y()))>(ring.negate(fp2.x()), ring.negate(fp2.y()));
     }
 };
+
+}  // namespace blst::avx

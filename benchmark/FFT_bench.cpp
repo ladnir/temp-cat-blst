@@ -21,6 +21,7 @@
 #endif
 
 using namespace blst;
+using namespace blst::avx;
 
 namespace
 {

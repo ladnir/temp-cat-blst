@@ -1,8 +1,10 @@
 #pragma once
-#include "../src/ring_element.hpp"
+#include "../rns/ring_element.h"
 #include "../fp2/fp2.h"
 #include "../fp12/fp12.h"
 #include "../curve/ec.h"
+
+namespace blst::avx {
 
 template<class Ring>
 class Miller {
@@ -184,3 +186,5 @@ class Miller {
         return f;
     }
 };
+
+}  // namespace blst::avx

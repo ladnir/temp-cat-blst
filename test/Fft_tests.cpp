@@ -13,6 +13,7 @@
 //
 //using F65537 = BasicFp<65537, u32, u64>;
 using namespace blst;
+using namespace blst::avx;
 /**
  * Naive polynomial multiplication (discrete convolution)
  * @tparam G The Group type for coefficients of A (e.g., G1)
@@ -660,7 +661,7 @@ TEST(Fft, GTAvx52InverseFftMatchesScalar) {
         }
     }
 
-    EXPECT_TRUE(match) << "VROOM GT inverse FFT round-trip failed";
+    EXPECT_TRUE(match) << "AVX GT inverse FFT round-trip failed";
 }
 
 // Test that GT scalar multiplication (exponentiation) distributes correctly

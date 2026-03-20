@@ -5,13 +5,15 @@
 #include <cstdio>
 #include <immintrin.h>
 #include <cassert>
-#include "../../src/constexpr_utils.hpp"
+#include "../../common/constexpr_utils.h"
 
 // Fallback implementation of AVXVector using standard operations
 // This provides the same interface as the AVX512 implementation but uses
 // loops and standard operations instead of SIMD instructions
 
 // Helper functions
+namespace blst::avx {
+
 inline constexpr int ceil_div(int n, int d) {
     return (n + d - 1) / d;
 }
@@ -325,3 +327,5 @@ public:
         return data;
     }
 };
+
+}  // namespace blst::avx

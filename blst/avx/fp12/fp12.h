@@ -6,6 +6,8 @@
 #include "../cpu/precompute/gmp_wrapper.hpp"
 #include "../fp2/fp2.h"
 
+namespace blst::avx {
+
 /*
 template<class... Args>
 class FP12Element {
@@ -914,3 +916,5 @@ class FP12Ring {
 		return fp6_flat_inverse_to_fp12(x, f6_inv, ring);
 	}
 };
+
+}  // namespace blst::avx

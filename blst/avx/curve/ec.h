@@ -1,6 +1,8 @@
 #pragma once
-#include "../src/preprocess.hpp"
+#include "../common/preprocess.h"
 #include <type_traits>
+
+namespace blst::avx {
 
 template<class RingElement>
 class ProjectivePoint {
@@ -305,3 +307,5 @@ class G2 {
         return ProjPoint(ring.zero(), ring.one(), ring.zero());
     }
 };
+
+}  // namespace blst::avx

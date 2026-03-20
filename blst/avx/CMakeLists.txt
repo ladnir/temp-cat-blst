@@ -1,7 +1,7 @@
 # Phase 4 base-field bring-up.
 #
-# The imported VROOM core is header-driven. This target only carries the
-# dependency surface needed to compile the copied base-field layer.
+# The imported AVX core is header-driven. This target only carries the
+# dependency surface needed to compile the promoted base-field layer.
 
 set(BLST_AVX_CORE_SOURCES)
 set(BLST_AVX_ADAPTER_SOURCES)

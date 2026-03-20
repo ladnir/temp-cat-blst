@@ -8,6 +8,8 @@
 // Perhaps if a vector only uses one limb, you can abstract accodingly
 
 
+namespace blst::avx {
+
 inline constexpr int ceil_div(int n, int d) {
     return (n + d - 1) / d;
 }
@@ -276,3 +278,5 @@ class AVXVector {
         return result;
     }
 };
+
+}  // namespace blst::avx

@@ -10,6 +10,8 @@
 #include <cstddef>
 #include <cstring>
 
+namespace blst::avx {
+
 namespace avx_blst_scalar_bridge {
 
 inline blst::Fp bigint_to_scalar_fp(const BigInt& value)
@@ -308,3 +310,5 @@ public:
         return fp12ring.template fp12_flat_inverse<Inverter>(f, inverter, ring);
     }
 };
+
+}  // namespace blst::avx

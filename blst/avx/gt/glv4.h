@@ -10,6 +10,8 @@
 #include <intrin.h>
 #endif
 
+namespace blst::avx {
+
 struct AvxGLV4Exp {
     uint8_t sign_mask = 0;
     uint8_t sched_len = 0;
@@ -266,3 +268,5 @@ inline typename FP12Ring<Ring>::StandardElement avx_cyclotomic_exp_glv4(
 {
     return avx_cyclotomic_exp_glv4(base, avx_glv4_compile(scalar), fp12ring, ring);
 }
+
+}  // namespace blst::avx

@@ -2,6 +2,8 @@
 #include "fp12.h"
 #include <cstddef>
 
+namespace blst::avx {
+
 template<class Element1, class Element2, class Ring>
 inline auto mul_n_sqr(const Element1 &a, const Element2 &b, size_t n, const FP12Ring<Ring> &fp12ring, const Ring &ring) {
     auto result = fp12ring.recast_common(fp12ring.fp12_flat_mul(a, b, ring));
@@ -91,3 +93,5 @@ inline auto final_exp(
     // Call final_exp_after_inverse with f and f_inverse
     return final_exp_after_inverse(f, f_inverse, fp12ring, ring);
 }
+
+}  // namespace blst::avx

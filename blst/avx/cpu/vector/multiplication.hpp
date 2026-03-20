@@ -6,6 +6,8 @@
 #include "conversion.hpp"
 #include <tuple>
 
+namespace blst::avx {
+
 template <template <int> class Reduction, int limbs>
 inline AVXVector<limbs> ele_mult(const AVXVector<limbs> &a, const AVXVector<limbs> & b, const Reduction<limbs> &r) {
     auto ab_lo = AVXVector<limbs>(0).mullo(a, b);
@@ -358,3 +360,5 @@ inline IntRNS2System<bits, limbs> make_IntRNS2SystemMontgomery(
     );
     return sys;
 }
+
+}  // namespace blst::avx

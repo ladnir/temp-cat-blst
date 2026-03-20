@@ -6,6 +6,8 @@
 #include <array>
 
 // Helper function to reinterpret a BigInt as words of specified bit length
+namespace blst::avx {
+
 template<int limbs, int word_length>
 inline void word_reinterpret(const BigInt &integer, std::array<uint64_t, limbs> &digits) {
     BigInt mask = (BigInt(1) << word_length) - 1;
@@ -109,3 +111,5 @@ class ConvertFromRNS {
         return conversion_matrix;
     }
 };
+
+}  // namespace blst::avx

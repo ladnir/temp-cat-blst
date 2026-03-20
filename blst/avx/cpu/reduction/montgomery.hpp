@@ -5,6 +5,8 @@
 #include <immintrin.h>
 #endif
 
+namespace blst::avx {
+
 template <int limbs>
 class MontgomeryReduce {
 
@@ -158,3 +160,5 @@ class MontgomeryReduce {
     static constexpr int get_hi_bit_shift() { return hi_bit_shift; }
 
 };
+
+}  // namespace blst::avx

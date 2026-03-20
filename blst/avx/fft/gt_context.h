@@ -3,7 +3,7 @@
 #include "blst/common/defines.h"
 #include "blst/curve/GT.h"
 #include "blst/fields/Fr.h"
-#include "blst/avx/src/bounded_ring.hpp"
+#include "blst/avx/rns/bounded_ring.h"
 #include "blst/avx/fp12/conversion_inversion.h"
 #include "blst/avx/fp12/fp12.h"
 #include "blst/avx/gt/glv4.h"
@@ -14,7 +14,7 @@
 #include <span>
 #include <vector>
 
-namespace blst {
+namespace blst::avx {
 
 inline constexpr char kAvxGt52BaseModulus[] =
     "4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787";
@@ -208,4 +208,4 @@ inline std::vector<GT> avx52_vector_to_scalar_gt(std::span<const AvxGt52> values
     return out;
 }
 
-}  // namespace blst
+}  // namespace blst::avx

@@ -704,7 +704,7 @@ void user(int argc, char** argv)
 	//FpMain();
 	if (argc > 2 && argv[2] && strcmp(argv[2], "--avxbls") == 0)
 	{
-		std::cout << "--avxbls is intentionally disabled during the VROOM backend reset." << std::endl;
+		std::cout << "--avxbls is intentionally disabled during the AVX backend refactor." << std::endl;
 		return;
 	}
 
@@ -745,7 +745,7 @@ void user(int argc, char** argv)
 void user(int argc, char** argv)
 {
 	if (argc > 2 && argv[2] && strcmp(argv[2], "--avxbls") == 0) {
-		std::cout << "--avxbls is intentionally disabled during the VROOM backend reset." << std::endl;
+		std::cout << "--avxbls is intentionally disabled during the AVX backend refactor." << std::endl;
 		return;
 	}
 

@@ -5,12 +5,12 @@ described in `docs/backend-refactor-plan.md`.
 
 ## Current State
 
-- the literal upstream `cpu/`, `src/`, and `test_data/` trees are present
+- the promoted AVX core lives under `cpu/`, `rns/`, `fp2/`, `fp12/`, `curve/`, `pairing/`, `gt/`, and `fft/`
 - build wiring exists via `blst/avx/CMakeLists.txt`
 - copied AVX base-field headers are now consumable through
   `blst_avx_headers`
-- the first `blst`-owned base-field tests and benchmarks live under
-  `blst/avx/tests/` and `blst/avx/bench/`
+- the AVX-owned tests and benchmarks now live under
+  `test/avx/` and `benchmark/avx/`
 
 ## Directory Boundary Rule
 
@@ -19,14 +19,12 @@ Copied upstream AVX core must stay in these paths:
 - `blst/avx/cpu/vector/`
 - `blst/avx/cpu/reduction/`
 - `blst/avx/cpu/precompute/`
-- `blst/avx/src/`
-- `blst/avx/test_data/`
+- `blst/avx/rns/`
 
-`blst`-owned code must stay in these paths:
+`blst`-owned AVX integration code must stay in these paths:
 
 - `blst/avx/adapters/`
-- `blst/avx/tests/`
-- `blst/avx/bench/`
+- `test/avx/test_data/`
 
 ## Import Rule
 

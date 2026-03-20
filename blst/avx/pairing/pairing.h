@@ -5,6 +5,8 @@
 
 // Pairing function that combines miller loop and final exponentiation
 // Similar to blst pairing.c: blst_miller_loop followed by blst_final_exp
+namespace blst::avx {
+
 template<class Ring, class FP12Inverter>
 inline auto pairing(
     const AffinePoint<typename Ring::StandardElement> &P,  // G1 point
@@ -36,3 +38,5 @@ inline auto pairing_with_blst_inverter(
     FP12RNS_BLSTInverter<Ring> inverter;
     return pairing(P, Q, inverter, fp2ring, fp12ring, ring);
 }
+
+}  // namespace blst::avx
