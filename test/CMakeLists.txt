@@ -44,6 +44,7 @@ if(BLST_HAVE_AVX_BASEFIELD)
     list(APPEND TEST_SOURCES "avx/Avx_pairing_50bit_tests.cpp")
     list(APPEND TEST_SOURCES "avx/Avx_scalar_mult_tests.cpp")
     list(APPEND TEST_SOURCES "avx/Avx_scalar_mult_50bit_tests.cpp")
+    list(APPEND TEST_SOURCES "avx/Avx_wrapper_tests.cpp")
 endif()
 
 if(BLST_PARALLEL_MSM)
