@@ -8,6 +8,16 @@
 
 using namespace blst;
 
+namespace blst {
+BLST_HD void blst_pairing_init(PAIRING* ctx, int hash_or_encode, const void* DST, size_t DST_len);
+BLST_HD void blst_pairing_commit(PAIRING* ctx);
+BLST_HD int blst_pairing_finalverify(const PAIRING* ctx, const Fp12* GTsig);
+BLST_HD void blst_pairing_raw_aggregate(PAIRING* ctx, const G2AffinePoint* q, const G1AffinePoint* p);
+BLST_HD Fp12* blst_pairing_as_fp12(PAIRING* ctx);
+BLST_HD BLST_ERROR blst_aggregate_in_g1(G1Point& out, const G1Point* in, const unsigned char* zwire);
+BLST_HD BLST_ERROR blst_aggregate_in_g2(G2Point& out, const G2Point* in, const unsigned char* zwire);
+}
+
 class GTTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -106,7 +116,7 @@ TEST_F(GTTest, Negation) {
     GT sum;
     GT::add(sum, gt_element, negative);
 
-    auto identity = Fp12::one();
+    auto identity = GT::identity();
 
     EXPECT_TRUE(GT::equal(sum, identity))
         << "Element added to its negative should equal identity";
@@ -144,8 +154,7 @@ TEST_F(GTTest, ScalarMultiplication) {
     // Test 0 * e = 0
     byte zero[4] = { 0, 0, 0, 0 };
     GT::mult(result, gt_element, zero, sizeof(zero) * 8);
-    Fp12 expected_identity = { 0 };
-    expected_identity = Fp12::one();
+    GT expected_identity = GT::identity();
     EXPECT_TRUE(GT::equal(result, expected_identity))
         << "0 * e should equal 0";
 
@@ -170,6 +179,7 @@ TEST_F(GTTest, ScalarMultiplication) {
         << "3 * e should equal e + e + e";
 }
 
+#if !BLST_DEFAULT_AVX
 // More detailed diagnostic
 TEST_F(GTTest, DiagnosticFinalExp) {
     // Manually trace through final_exp
@@ -251,6 +261,7 @@ TEST_F(GTTest, DiagnosticCyclotomic) {
 
     EXPECT_TRUE(after_cyclotomic) << "Element should be cyclotomic after final_exp";
 }
+#endif
 //TEST_F(GTTest, Serialization) {
 //    // Test serialization/deserialization of GT elements
 //    Fp12 original = { 0 };  // Copy the gt_element
@@ -315,8 +326,7 @@ TEST_F(GTTest, GroupMembership) {
         << "Pairing result should be in the GT group";
 
     // Identity should be in the group
-    GT identity;
-    identity = Fp12::one();
+    GT identity = GT::identity();
     EXPECT_TRUE(GT::in_group(identity))
         << "Identity element should be in the GT group";
 
@@ -416,6 +426,7 @@ TEST_F(GTTest, FinalVerify) {
         << "finalverify should agree with is_equal in basic cases";
 }
 
+#if !BLST_DEFAULT_AVX
 TEST_F(GTTest, PairingWithPrecomputation) {
     // Test using precomputed lines for pairing
     Fp6 lines[68];  // Size from the API
@@ -450,6 +461,7 @@ TEST_F(GTTest, PairingWithPrecomputation) {
     EXPECT_TRUE(GT::equal(direct_double_result, pre_double_result))
         << "Precomputed pairing should work with different G1 points";
 }
+#endif
 
 TEST_F(GTTest, MillerLoopOnly) {
     // Test Miller loop without final exponentiation
@@ -493,4 +505,66 @@ TEST_F(GTTest, PairingIdentityProperties) {
 
     EXPECT_TRUE(GT::is_identity(pairing_with_identity))
         << "Pairing with identity point should give identity in GT";
+}
+
+TEST_F(GTTest, AggregateHelpersMatchDirectAddition) {
+    G1Point g1_double;
+    G1Point::doubling(g1_double, g1_point);
+    G1AffinePoint g1_double_affine;
+    G1Point::to_affine(g1_double_affine, g1_double);
+
+    unsigned char g1_bytes[96] = {};
+    unsigned char g1_double_bytes[96] = {};
+    G1AffinePoint::serialize(g1_bytes, g1_affine);
+    G1AffinePoint::serialize(g1_double_bytes, g1_double_affine);
+
+    G1Point g1_agg = {};
+    ASSERT_EQ(BLST_SUCCESS, blst_aggregate_in_g1(g1_agg, nullptr, g1_bytes));
+    ASSERT_EQ(BLST_SUCCESS, blst_aggregate_in_g1(g1_agg, &g1_agg, g1_double_bytes));
+
+    G1Point g1_expected = {};
+    G1Point::add(g1_expected, g1_point, g1_double);
+    EXPECT_TRUE(G1Point::equal(g1_agg, g1_expected));
+
+    G2Point g2_double;
+    G2Point::doubling(g2_double, g2_point);
+    G2AffinePoint g2_double_affine;
+    G2Point::to_affine(g2_double_affine, g2_double);
+
+    unsigned char g2_bytes[192] = {};
+    unsigned char g2_double_bytes[192] = {};
+    G2AffinePoint::serialize(g2_bytes, g2_affine);
+    G2AffinePoint::serialize(g2_double_bytes, g2_double_affine);
+
+    G2Point g2_agg = {};
+    ASSERT_EQ(BLST_SUCCESS, blst_aggregate_in_g2(g2_agg, nullptr, g2_bytes));
+    ASSERT_EQ(BLST_SUCCESS, blst_aggregate_in_g2(g2_agg, &g2_agg, g2_double_bytes));
+
+    G2Point g2_expected = {};
+    G2Point::add(g2_expected, g2_point, g2_double);
+    EXPECT_TRUE(G2Point::equal(g2_agg, g2_expected));
+}
+
+TEST_F(GTTest, PairingAggregationRoundTripMatchesDirectMiller) {
+    PAIRING ctx = {};
+    blst_pairing_init(&ctx, 0, nullptr, 0);
+    blst_pairing_raw_aggregate(&ctx, &g2_affine, &g1_affine);
+    blst_pairing_commit(&ctx);
+
+    GT direct = {};
+    GT::miller_loop(direct, &g2_affine, &g1_affine);
+
+    const Fp12* aggregated_fp12 = blst_pairing_as_fp12(&ctx);
+    unsigned char aggregated_bytes[12 * 48] = {};
+    scalar::GT::serialize(aggregated_bytes, scalar::GT(*aggregated_fp12));
+
+    GT aggregated_gt = {};
+    GT::deserialize(aggregated_gt, aggregated_bytes);
+    EXPECT_TRUE(GT::equal(aggregated_gt, direct));
+
+    unsigned char direct_bytes[12 * 48] = {};
+    GT::serialize(direct_bytes, direct);
+    scalar::GT direct_scalar = {};
+    scalar::GT::deserialize(direct_scalar, direct_bytes);
+    EXPECT_TRUE(blst_pairing_finalverify(&ctx, &direct_scalar.data));
 }

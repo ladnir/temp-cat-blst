@@ -111,11 +111,29 @@ inline blst::scalar::G1AffinePoint curve_g1_affine_to_scalar(const CurveG1Affine
     return out;
 }
 
+inline blst::scalar::G1Point curve_g1_to_scalar(const CurveG1Projective& point)
+{
+    blst::scalar::G1Point out = {};
+    out.X = ring_fp_to_scalar(point.x);
+    out.Y = ring_fp_to_scalar(point.y);
+    out.Z = ring_fp_to_scalar(point.z);
+    return out;
+}
+
 inline blst::scalar::G2AffinePoint curve_g2_affine_to_scalar(const CurveG2Affine& point)
 {
     blst::scalar::G2AffinePoint out = {};
     out.X = ring_fp2_to_scalar(point.x);
     out.Y = ring_fp2_to_scalar(point.y);
+    return out;
+}
+
+inline blst::scalar::G2Point curve_g2_to_scalar(const CurveG2Projective& point)
+{
+    blst::scalar::G2Point out = {};
+    out.X = ring_fp2_to_scalar(point.x);
+    out.Y = ring_fp2_to_scalar(point.y);
+    out.Z = ring_fp2_to_scalar(point.z);
     return out;
 }
 
@@ -199,6 +217,47 @@ inline CurveG2Projective affine_to_projective(const CurveG2Affine& point)
     return {point.x, point.y, curve_fp2_ring().one()};
 }
 
+inline const CurveRing::StandardElement& aprime_e1()
+{
+    static const CurveRing::StandardElement value =
+        scalar_fp_to_ring(blst::scalar::get_BLST_Aprime_E1());
+    return value;
+}
+
+inline const CurveFp2Ring::StandardElement& aprime_e2()
+{
+    static const CurveFp2Ring::StandardElement value =
+        scalar_fp2_to_ring(blst::scalar::get_BLST_Aprime_E2());
+    return value;
+}
+
+inline CurveFp2Ring::StandardElement fp2_conjugate(const CurveFp2Ring::StandardElement& value)
+{
+    return {value.x(), curve_ring().standard_negate(value.y())};
+}
+
+inline const CurveFp2Ring::StandardElement& psi_frobenius_x()
+{
+    static const CurveFp2Ring::StandardElement value(
+        curve_ring().zero(),
+        curve_g2_gls().psi_x_i);
+    return value;
+}
+
+inline const CurveFp2Ring::StandardElement& psi_frobenius_y()
+{
+    static const CurveFp2Ring::StandardElement value(
+        curve_g2_gls().psi_y_r,
+        curve_g2_gls().psi_y_i);
+    return value;
+}
+
+inline const std::array<byte, 32>& minus_z_bytes()
+{
+    static const std::array<byte, 32> value = {0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0xd2};
+    return value;
+}
+
 }  // namespace avx_curve_detail
 
 struct G1AffinePoint
@@ -239,11 +298,14 @@ struct G1Point
     constexpr G1Point(const Field_type& x, const Field_type& y, const Field_type& z) : X(x), Y(y), Z(z) {}
 
     static void dadd(G1Point& out, const G1Point& a, const G1Point& b);
+    static void dadd(G1Point& out, const G1Point& a, const G1Point& b, const Field_type* a4);
     static void dadd(G1Point& out, const G1Point& a, const G1AffinePoint& b);
     static void add(G1Point& out, const G1Point& a, const G1Point& b);
     static void add(G1Point& out, const G1Point& a, const G1AffinePoint& b);
     static void doubling(G1Point& out, const G1Point& a);
     static void mult(G1Point& out, const G1Point& a, const byte* scalar, size_t nbits);
+    static void sign(G1Point& out, const G1Point& in, const pow256 SK);
+    static void to_pk2(unsigned char* out, G1AffinePoint* PK, const pow256 SK);
     static void cneg(G1Point& p, limb_t cbit);
     static void neg(G1Point& out, const G1Point& p);
     static void to_affine(G1AffinePoint& out, const G1Point& in);
@@ -303,11 +365,14 @@ struct G2Point
     constexpr G2Point(const Field_type& x, const Field_type& y, const Field_type& z) : X(x), Y(y), Z(z) {}
 
     static void dadd(G2Point& out, const G2Point& a, const G2Point& b);
+    static void dadd(G2Point& out, const G2Point& a, const G2Point& b, const Field_type* a4);
     static void dadd(G2Point& out, const G2Point& a, const G2AffinePoint& b);
     static void add(G2Point& out, const G2Point& a, const G2Point& b);
     static void add(G2Point& out, const G2Point& a, const G2AffinePoint& b);
     static void doubling(G2Point& out, const G2Point& a);
     static void mult(G2Point& out, const G2Point& a, const byte* scalar, size_t nbits);
+    static void sign(G2Point& out, const G2Point& in, const pow256 SK);
+    static void to_pk2(unsigned char* out, G2AffinePoint* PK, const pow256 SK);
     static void cneg(G2Point& p, limb_t cbit);
     static void neg(G2Point& out, const G2Point& p);
     static void to_affine(G2AffinePoint& out, const G2Point& in);
@@ -435,7 +500,12 @@ inline BLST_ERROR G1AffinePoint::uncompress(G1AffinePoint& out, const unsigned c
     return err;
 }
 
-inline void G1Point::dadd(G1Point& out, const G1Point& a, const G1Point& b) { add(out, a, b); }
+inline void G1Point::dadd(G1Point& out, const G1Point& a, const G1Point& b) { dadd(out, a, b, nullptr); }
+inline void G1Point::dadd(G1Point& out, const G1Point& a, const G1Point& b, const Field_type* a4)
+{
+    const auto raw = avx_curve_detail::curve_g1().dadd({a.X, a.Y, a.Z}, {b.X, b.Y, b.Z}, avx_curve_detail::curve_ring(), a4);
+    out = {raw.x, raw.y, raw.z};
+}
 inline void G1Point::dadd(G1Point& out, const G1Point& a, const G1AffinePoint& b) { add(out, a, b); }
 
 inline void G1Point::add(G1Point& out, const G1Point& a, const G1Point& b)
@@ -462,6 +532,32 @@ inline void G1Point::mult(G1Point& out, const G1Point& a, const byte* scalar, si
     const auto scalar_bytes = avx_curve_detail::scalar_to_fixed_le_bytes(scalar, nbits);
     const auto raw = avx_curve_detail::curve_g1_glv().multiply({a.X, a.Y, a.Z}, scalar_bytes, avx_curve_detail::curve_ring());
     out = {raw.x, raw.y, raw.z};
+}
+
+inline void G1Point::sign(G1Point& out, const G1Point& in, const pow256 SK)
+{
+    const blst::scalar::G1Point scalar_in =
+        avx_curve_detail::curve_g1_to_scalar({in.X, in.Y, in.Z});
+    blst::scalar::G1Point scalar_out = {};
+    blst::scalar::G1Point::sign(scalar_out, scalar_in, SK);
+    out = {
+        avx_curve_detail::scalar_fp_to_ring(scalar_out.X),
+        avx_curve_detail::scalar_fp_to_ring(scalar_out.Y),
+        avx_curve_detail::scalar_fp_to_ring(scalar_out.Z),
+    };
+}
+
+inline void G1Point::to_pk2(unsigned char* out, G1AffinePoint* PK, const pow256 SK)
+{
+    blst::scalar::G1AffinePoint scalar_pk = {};
+    blst::scalar::G1AffinePoint* scalar_pk_ptr = PK != nullptr ? &scalar_pk : nullptr;
+    blst::scalar::G1Point::to_pk2(out, scalar_pk_ptr, SK);
+    if (PK != nullptr) {
+        *PK = {
+            avx_curve_detail::scalar_fp_to_ring(scalar_pk.X),
+            avx_curve_detail::scalar_fp_to_ring(scalar_pk.Y),
+        };
+    }
 }
 
 inline void G1Point::cneg(G1Point& p, limb_t cbit)
@@ -676,7 +772,12 @@ inline BLST_ERROR G2AffinePoint::uncompress(G2AffinePoint& out, const unsigned c
     return err;
 }
 
-inline void G2Point::dadd(G2Point& out, const G2Point& a, const G2Point& b) { add(out, a, b); }
+inline void G2Point::dadd(G2Point& out, const G2Point& a, const G2Point& b) { dadd(out, a, b, nullptr); }
+inline void G2Point::dadd(G2Point& out, const G2Point& a, const G2Point& b, const Field_type* a4)
+{
+    const auto raw = avx_curve_detail::curve_g2().dadd({a.X, a.Y, a.Z}, {b.X, b.Y, b.Z}, avx_curve_detail::curve_fp2_ring(), a4);
+    out = {raw.x, raw.y, raw.z};
+}
 inline void G2Point::dadd(G2Point& out, const G2Point& a, const G2AffinePoint& b) { add(out, a, b); }
 
 inline void G2Point::add(G2Point& out, const G2Point& a, const G2Point& b)
@@ -708,6 +809,32 @@ inline void G2Point::mult(G2Point& out, const G2Point& a, const byte* scalar, si
         avx_curve_detail::curve_g2(),
         avx_curve_detail::curve_ring());
     out = {raw.x, raw.y, raw.z};
+}
+
+inline void G2Point::sign(G2Point& out, const G2Point& in, const pow256 SK)
+{
+    const blst::scalar::G2Point scalar_in =
+        avx_curve_detail::curve_g2_to_scalar({in.X, in.Y, in.Z});
+    blst::scalar::G2Point scalar_out = {};
+    blst::scalar::G2Point::sign(scalar_out, scalar_in, SK);
+    out = {
+        avx_curve_detail::scalar_fp2_to_ring(scalar_out.X),
+        avx_curve_detail::scalar_fp2_to_ring(scalar_out.Y),
+        avx_curve_detail::scalar_fp2_to_ring(scalar_out.Z),
+    };
+}
+
+inline void G2Point::to_pk2(unsigned char* out, G2AffinePoint* PK, const pow256 SK)
+{
+    blst::scalar::G2AffinePoint scalar_pk = {};
+    blst::scalar::G2AffinePoint* scalar_pk_ptr = PK != nullptr ? &scalar_pk : nullptr;
+    blst::scalar::G2Point::to_pk2(out, scalar_pk_ptr, SK);
+    if (PK != nullptr) {
+        *PK = {
+            avx_curve_detail::scalar_fp2_to_ring(scalar_pk.X),
+            avx_curve_detail::scalar_fp2_to_ring(scalar_pk.Y),
+        };
+    }
 }
 
 inline void G2Point::cneg(G2Point& p, limb_t cbit)
@@ -814,6 +941,100 @@ inline void G2Point::compress(unsigned char* out, const G2Point& in)
     G2AffinePoint affine = {};
     to_affine(affine, in);
     G2AffinePoint::compress(out, affine);
+}
+
+inline const G1Point::Field_type& get_BLST_Aprime_E1()
+{
+    return avx_curve_detail::aprime_e1();
+}
+
+inline const G2Point::Field_type& get_BLST_Aprime_E2()
+{
+    return avx_curve_detail::aprime_e2();
+}
+
+inline const G1Point& get_BLST_G1()
+{
+    return G1Point::generator();
+}
+
+inline const G2Point& get_BLST_G2()
+{
+    return G2Point::generator();
+}
+
+inline const G1Point& get_BLST_NEG_G1()
+{
+    static const G1Point neg = [] {
+        G1Point out = G1Point::generator();
+        G1Point::cneg(out, 1);
+        return out;
+    }();
+    return neg;
+}
+
+inline const G2Point& get_BLST_NEG_G2()
+{
+    static const G2Point neg = [] {
+        G2Point out = G2Point::generator();
+        G2Point::cneg(out, 1);
+        return out;
+    }();
+    return neg;
+}
+
+inline void psi(G2Point& out, const G2Point& in)
+{
+    out.X = avx_curve_detail::curve_fp2_ring().mul(
+        avx_curve_detail::fp2_conjugate(in.X),
+        avx_curve_detail::psi_frobenius_x())[0];
+    out.Y = avx_curve_detail::curve_fp2_ring().mul(
+        avx_curve_detail::fp2_conjugate(in.Y),
+        avx_curve_detail::psi_frobenius_y())[0];
+    out.Z = avx_curve_detail::fp2_conjugate(in.Z);
+}
+
+inline void print(const char* name, const G1Point& p)
+{
+    blst::scalar::print(
+        name,
+        avx_curve_detail::curve_g1_to_scalar({p.X, p.Y, p.Z}));
+}
+
+inline void print(const char* name, const G2Point& p)
+{
+    blst::scalar::print(
+        name,
+        avx_curve_detail::curve_g2_to_scalar({p.X, p.Y, p.Z}));
+}
+
+inline void print(const char* name, const G1AffinePoint& p)
+{
+    blst::scalar::print(
+        name,
+        avx_curve_detail::curve_g1_affine_to_scalar({p.X, p.Y}));
+}
+
+inline void print(const char* name, const G2AffinePoint& p)
+{
+    blst::scalar::print(
+        name,
+        avx_curve_detail::curve_g2_affine_to_scalar({p.X, p.Y}));
+}
+
+template<typename Group>
+inline void times_minus_z(Group& out, const Group& in);
+
+template<>
+inline void times_minus_z<G1Point>(G1Point& out, const G1Point& in)
+{
+    G1Point::mult(out, in, avx_curve_detail::minus_z_bytes().data(), 64);
+}
+
+template<>
+inline void times_minus_z<G2Point>(G2Point& out, const G2Point& in)
+{
+    G2Point::mult(out, in, avx_curve_detail::minus_z_bytes().data(), 64);
 }
 
 }  // namespace blst::avx

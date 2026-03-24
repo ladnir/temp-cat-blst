@@ -25,6 +25,7 @@ set(TEST_SOURCES
     "G2_tests.cpp"
     "GT_tests.cpp"
     "Pairing_tests.cpp"
+    "Backend_alias_tests.cpp"
     "Interface_tests.cpp"
     "Fft_tests.cpp"
     "avx512_compat_test.cpp" 

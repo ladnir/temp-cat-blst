@@ -3,7 +3,9 @@
 #include "blst/avx/fields/conversion_inversion.h"
 #include "blst/avx/fields/final_exponentiation.h"
 #include "blst/avx/fields/fp12.h"
+#include "blst/avx/curve/point.h"
 #include "blst/avx/gt/glv4.h"
+#include "blst/avx/pairing/miller.h"
 #include "blst/avx/rns/bounded_ring.h"
 #include "blst/scalar/curve/GT.h"
 
@@ -184,6 +186,77 @@ struct GT
     {
         FP12RNS_BLSTInverter<avx_gt_detail::Ring> inverter;
         out.data = final_exp(f.data, inverter, avx_gt_detail::fp12ring(), avx_gt_detail::ring());
+    }
+
+    static void miller_loop(GT& ret, const G2AffinePoint* Q, const G1AffinePoint* P)
+    {
+        const G2AffinePoint& q = Q ? *Q : G2AffinePoint::generator();
+        const G1AffinePoint& p = P ? *P : G1AffinePoint::generator();
+
+        if (G2AffinePoint::is_inf(q) || G1AffinePoint::is_inf(p)) {
+            ret = identity();
+            return;
+        }
+
+        const FP2Ring<avx_gt_detail::Ring> fp2ring(avx_gt_detail::ring());
+        const Miller<avx_gt_detail::Ring> miller(
+            {p.X, p.Y},
+            {q.X, q.Y},
+            avx_gt_detail::ring());
+        ret.data = miller.miller_loop(
+            avx_gt_detail::ring(),
+            fp2ring,
+            avx_gt_detail::fp12ring());
+    }
+
+    static void miller_loop_n(
+        GT& out,
+        const G2AffinePoint Q[],
+        const G1AffinePoint P[],
+        size_t n)
+    {
+        out = identity();
+        for (size_t i = 0; i < n; ++i) {
+            GT pair = {};
+            miller_loop(pair, &Q[i], &P[i]);
+            out.data = avx_gt_detail::fp12ring().fp12_flat_mul(
+                out.data,
+                pair.data,
+                avx_gt_detail::ring());
+        }
+    }
+
+    static void miller_loop_n(
+        GT& out,
+        const G2AffinePoint* const Qs[],
+        const G1AffinePoint* const Ps[],
+        size_t n)
+    {
+        out = identity();
+        if (n == 0) {
+            return;
+        }
+
+        const G2AffinePoint* qptr = nullptr;
+        const G1AffinePoint* pptr = nullptr;
+
+        for (size_t i = 0; i < n; ++i) {
+            qptr = Qs[i] ? Qs[i] : qptr + 1;
+            pptr = Ps[i] ? Ps[i] : pptr + 1;
+            BLST_ASSERT(qptr != nullptr);
+            BLST_ASSERT(pptr != nullptr);
+
+            if (G2AffinePoint::is_inf(*qptr) || G1AffinePoint::is_inf(*pptr)) {
+                continue;
+            }
+
+            GT pair = {};
+            miller_loop(pair, qptr, pptr);
+            out.data = avx_gt_detail::fp12ring().fp12_flat_mul(
+                out.data,
+                pair.data,
+                avx_gt_detail::ring());
+        }
     }
 
     static void mult_by_z(GT& out, const GT& a)

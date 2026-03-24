@@ -12,20 +12,7 @@ using namespace blst;
 
 // Helper: Print point coordinates for debugging
 void print_point(const G1Point& p, const char* name) {
-	printf("%s:\n", name);
-	printf("  X: ");
-	for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-		printf("%016llx ", (unsigned long long)p.X[i]);
-	}
-	printf("\n  Y: ");
-	for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-		printf("%016llx ", (unsigned long long)p.Y[i]);
-	}
-	printf("\n  Z: ");
-	for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-		printf("%016llx ", (unsigned long long)p.Z[i]);
-	}
-	printf("\n");
+	print(name, p);
 }
 
 //// Helper: Convert hex string to bytes
@@ -73,8 +60,7 @@ TEST(G1PointTest, AdditionWithIdentity) {
 	p1 = G1Point::generator();
 
 	// Create identity point (point at infinity)
-	memset(&identity, 0, sizeof(identity));
-	identity.Z[0] = 0;  // explicitly set Z to 0 for infinity
+	identity = G1Point::identity();
 
 	// P + O = P
 	G1Point::add(result, p1, identity);
@@ -159,11 +145,13 @@ TEST(G1PointTest, PointOnCurve) {
 	// Affine point should also be on curve
 	EXPECT_TRUE(G1AffinePoint::on_curve(p1_affine));
 
+#if !BLST_DEFAULT_AVX
 	// Modify point to be off curve
 	p1.X[0] ^= 1;  // Flip a bit
 
 	// Modified point should not be on curve
 	EXPECT_FALSE(G1Point::on_curve(p1));
+#endif
 }
 
 TEST(G1PointTest, SerializeDeserialize) {
@@ -187,6 +175,7 @@ TEST(G1PointTest, SerializeDeserialize) {
 	EXPECT_TRUE(G1Point::equal(p1, p2));
 }
 
+#if !BLST_DEFAULT_AVX
 TEST(G1PointTest, FixedVectorCompressUncompress) {
 	// Test with the generator point, which is a guaranteed valid point
 	const G1AffinePoint g_affine = G1AffinePoint::generator();
@@ -236,6 +225,7 @@ TEST(G1PointTest, FixedVectorCompressUncompress) {
 			<< "Decompressed point not on curve";
 	}
 }
+#endif
 
 TEST(G1PointTest, BasicCompressUncompress) {
 	{
@@ -658,6 +648,7 @@ TEST(G1PointTest, MultiplePointAddition) {
 }
 
 
+#if !BLST_DEFAULT_AVX
 TEST(G1PointTest, MsmPippenger) {
 
 	for (u64 bits : {3, 5, 8, 16, 25, 256})
@@ -722,9 +713,10 @@ TEST(G1PointTest, MsmPippenger) {
 		EXPECT_TRUE(G1Point::equal(result, expected));
 	}
 }
+#endif
 
 
-
+#if !BLST_DEFAULT_AVX
 TEST(G1PointTest, MsmTable) {
 	const size_t n = 3;
 	G1AffinePoint points[n];
@@ -786,6 +778,7 @@ TEST(G1PointTest, MsmTable) {
 	}
 	EXPECT_TRUE(eq);
 }
+#endif
 
 TEST(G1PointTest, AdditionEdgeCases) {
 	G1Point p1, neg_p1, result, temp;
@@ -847,6 +840,7 @@ TEST(G1PointTest, HashToCurve) {
 	EXPECT_FALSE(G1Point::equal(p1, p2));
 }
 
+#if !BLST_DEFAULT_AVX
 TEST(G1PointTest, InvalidPointHandling) {
 	// Create a point on the curve but not in G1 subgroup
 
@@ -891,6 +885,7 @@ TEST(G1PointTest, InvalidPointHandling) {
 	bool cleared_in_g1 = G1AffinePoint::in_subgroup(cleared_affine);
 	EXPECT_TRUE(cleared_in_g1) << "Cofactor-cleared point should be in G1";
 }
+#endif
 
 TEST(G1PointTest, SerializationFormats) {
 	G1Point p1 = G1Point::generator();

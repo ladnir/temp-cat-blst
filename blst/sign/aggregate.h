@@ -11,7 +11,10 @@ namespace blst
 {
 
 
-    typedef union { G1Point e1; G2Point e2; } AggregatedSignature;
+    typedef struct {
+        G1Point e1;
+        G2Point e2;
+    } AggregatedSignature;
     typedef struct {
         unsigned int ctrl;
         unsigned int nelems;

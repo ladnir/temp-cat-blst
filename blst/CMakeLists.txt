@@ -180,6 +180,10 @@ target_include_directories(blst_static PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 
 add_subdirectory(avx)
 
+if(BLST_DEFAULT_AVX)
+    target_link_libraries(blst_static PUBLIC blst_avx_headers)
+endif()
+
 if(BLST_CUDA)
     enable_language(CUDA)
     find_package(CUDAToolkit REQUIRED)

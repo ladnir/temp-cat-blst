@@ -1,5 +1,6 @@
 #pragma once
 #include "../common/preprocess.h"
+#include "blst/common/vect.h"
 #include <type_traits>
 
 namespace blst::avx {
@@ -54,6 +55,9 @@ class AffinePoint {
         return ctime_select(condition, replacement);
     }
 };
+
+template<class Ring>
+class FP2Ring;
 
 // ~5% faster, but doesn't work with new type system yet because it needs to preserve rns bounds across expansion.
 /*
@@ -248,6 +252,72 @@ ProjectivePoint<typename Ring::StandardElement> PointDouble(const ProjectivePoin
     return ProjectivePoint<typename Ring::StandardElement>(x3, y3, z3);
 }
 
+template<class Element>
+INLINE bool PointCoordIsZero(const Element& value)
+{
+    return vec_is_zero(&value, sizeof(value)) != 0;
+}
+
+template<class Ring, class Element>
+INLINE typename Ring::StandardElement NormalizePointCoord(const Element& value, const Ring& ring)
+{
+    return ring.batch_reduce_expand(ring.prep_left(value) * ring.one())[0];
+}
+
+template<class Ring>
+INLINE bool ProjectiveEqual(
+    const ProjectivePoint<typename Ring::StandardElement>& P,
+    const ProjectivePoint<typename Ring::StandardElement>& Q,
+    const Ring& ring)
+{
+    auto [u1, u2, s1, s2] = ring.batch_reduce_expand(
+        ring.prep_left(P.x) * Q.z,
+        ring.prep_left(Q.x) * P.z,
+        ring.prep_left(P.y) * Q.z,
+        ring.prep_left(Q.y) * P.z);
+    const auto h = u2 - u1;
+    const auto r = s2 - s1;
+    return PointCoordIsZero(h) && PointCoordIsZero(r);
+}
+
+template<class Ring>
+ProjectivePoint<typename Ring::StandardElement> PointDoubleA(
+    const ProjectivePoint<typename Ring::StandardElement>& P,
+    const typename Ring::StandardElement& a4,
+    const Ring& ring)
+{
+    constexpr auto _2 = std::integral_constant<int, 2>{};
+    constexpr auto _3 = std::integral_constant<int, 3>{};
+    constexpr auto _8 = std::integral_constant<int, 8>{};
+    constexpr auto _12 = std::integral_constant<int, 12>{};
+
+    auto xx_wide = ring.prep_left(P.x) * P.x;
+    auto yy_wide = ring.prep_left(P.y) * P.y;
+    auto zz_wide = ring.prep_left(P.z) * P.z;
+    auto xy_wide = ring.prep_left(P.x) * P.y;
+    auto yz_wide = ring.prep_left(P.y) * P.z;
+
+    auto [xx, yy, zz, xy, yz] = ring.batch_reduce_expand(xx_wide, yy_wide, zz_wide, xy_wide, yz_wide);
+    auto a_zz = ring.batch_reduce_expand(ring.prep_left(a4) * zz)[0];
+    auto n = NormalizePointCoord(xx * _3 + a_zz, ring);
+    auto yz2 = yz * _2;
+    auto s = ring.batch_reduce_expand(ring.prep_left(xy) * yz)[0];
+    auto n2 = ring.batch_reduce_expand(ring.prep_left(n) * n)[0];
+    auto yyzz = ring.batch_reduce_expand(ring.prep_left(yy) * zz)[0];
+
+    auto x_core = ring.prep(n2 - s * _8);
+    auto y_core = ring.prep(s * _12 - n2);
+    auto z_core = ring.prep(yyzz * _8);
+
+    auto [x3, y3_pos, y3_neg, z3] = ring.batch_reduce_expand(
+        ring.prep_left(yz2) * x_core,
+        ring.prep_left(n) * y_core,
+        ring.prep_left(yy) * z_core,
+        ring.prep_left(yz) * z_core);
+    auto y3 = NormalizePointCoord(y3_pos + ring.standard_negate(y3_neg), ring);
+    return ProjectivePoint<typename Ring::StandardElement>(x3, y3, z3);
+}
+
 
 template<class Ring>
 class G1 {
@@ -267,6 +337,22 @@ class G1 {
         return PointDouble<Ring>(P, ring);
     }
 
+    ProjPoint dadd(const ProjPoint& P, const ProjPoint& Q, const Ring& ring, const typename Ring::StandardElement* a4) const {
+        if (PointCoordIsZero(P.z)) {
+            return Q;
+        }
+        if (PointCoordIsZero(Q.z)) {
+            return P;
+        }
+        if (!ProjectiveEqual<Ring>(P, Q, ring)) {
+            return PointAdd<Ring>(P, Q, ring);
+        }
+        if (a4 == nullptr) {
+            return PointDouble<Ring>(P, ring);
+        }
+        return PointDoubleA<Ring>(P, *a4, ring);
+    }
+
     INLINE ProjPoint negate(const ProjPoint &P, const Ring &ring) const {
         return ProjPoint(P.x, ring.standard_negate(P.y), P.z);
     }
@@ -276,9 +362,6 @@ class G1 {
     }
 
 };
-
-// Forward declaration
-template<class Ring> class FP2Ring;
 
 template<class Ring>
 class G2 {
@@ -297,6 +380,22 @@ class G2 {
 
     ProjPoint double_point(const ProjPoint &P, const FP2RingType &ring) const {
         return PointDouble<FP2RingType>(P, ring);
+    }
+
+    ProjPoint dadd(const ProjPoint& P, const ProjPoint& Q, const FP2RingType& ring, const typename FP2RingType::StandardElement* a4) const {
+        if (PointCoordIsZero(P.z)) {
+            return Q;
+        }
+        if (PointCoordIsZero(Q.z)) {
+            return P;
+        }
+        if (!ProjectiveEqual<FP2RingType>(P, Q, ring)) {
+            return PointAdd<FP2RingType>(P, Q, ring);
+        }
+        if (a4 == nullptr) {
+            return PointDouble<FP2RingType>(P, ring);
+        }
+        return PointDoubleA<FP2RingType>(P, *a4, ring);
     }
 
     INLINE ProjPoint negate(const ProjPoint &P, const FP2RingType &ring) const {

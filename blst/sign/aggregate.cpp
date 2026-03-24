@@ -11,6 +11,40 @@
 
 namespace blst
 {
+    namespace {
+
+    template<class Point, class Affine>
+    BLST_HD void point_from_affine(Point& out, const Affine& in)
+    {
+        Point::from_affine(out, in);
+    }
+
+    template<class Affine, class Point>
+    BLST_HD Affine point_to_affine(const Point& in)
+    {
+        Affine out = {};
+        Point::to_affine(out, in);
+        return out;
+    }
+
+    BLST_HD void gt_from_fp12_boundary(GT& out, const Fp12& in)
+    {
+        unsigned char serialized[12 * 48] = {};
+        scalar::GT::serialize(serialized, scalar::GT(in));
+        GT::deserialize(out, serialized);
+    }
+
+    BLST_HD void fp12_from_gt_boundary(Fp12& out, const GT& in)
+    {
+        unsigned char serialized[12 * 48] = {};
+        GT::serialize(serialized, in);
+        scalar::GT scalar_gt = {};
+        scalar::GT::deserialize(scalar_gt, serialized);
+        out = scalar_gt.data;
+    }
+
+    }  // namespace
+
 
     /*
      * Usage pattern on single-processor system is
@@ -83,13 +117,6 @@ namespace blst
         return pairing_get_dst(ctx);
     }
 
-    BLST_HD void FROM_AFFINE(auto& out, const auto& in) 
-    { 
-        vec_copy(&out.X, &in.X, 2*sizeof(in.X)), 
-        vec_select(&out.Z, &in.X, &get_BLST_Rx().p, sizeof(in.X), 
-                             vec_is_zero(&in.X, 2*sizeof(in.X))); 
-    } 
-
     /*
      * Optional |nbits|-wide |scalar| is used to facilitate multiple aggregated
      * signature verification as discussed at
@@ -117,18 +144,18 @@ namespace blst
          * count on the corresponding infinite public key to be rejected,
          * in case the signature is non-aggregated that is.
          */
-        if (sig != NULL && !vec_is_zero(sig, sizeof(*sig))) {
+        if (sig != NULL && !G1AffinePoint::is_inf(*sig)) {
             G1Point& S = ctx->AggrSign.e1;
             G1Point P;
 
-            FROM_AFFINE(P, *sig);
+            point_from_affine(P, *sig);
 
             if (sig_groupcheck && !G1Point::in_subgroup(P))
                 return BLST_POINT_NOT_IN_GROUP;
 
             if (ctx->ctrl & AGGR_SIGN_SET) {
                 if (nbits != 0 && scalar != NULL) {
-                    mult_window<G1Point,5>(P, P, scalar, nbits);
+                    G1Point::mult(P, P, scalar, nbits);
                     G1Point::dadd(S, S, P);
                 }
                 else {
@@ -138,9 +165,9 @@ namespace blst
             else {
                 ctx->ctrl |= AGGR_SIGN_SET;
                 if (nbits != 0 && scalar != NULL)
-                    mult_window<G1Point,5>(S, P, scalar, nbits);
+                    G1Point::mult(S, P, scalar, nbits);
                 else
-                    vec_copy(&S, &P, sizeof(P));
+                    S = P;
             }
         }
 
@@ -152,13 +179,13 @@ namespace blst
             /*
              * Reject infinite public keys.
              */
-            if (vec_is_zero(PK, sizeof(*PK)))
+            if (G2AffinePoint::is_inf(*PK))
                 return BLST_PK_IS_INFINITY;
 
             if (pk_groupcheck) {
                 G2Point P;
 
-                FROM_AFFINE(P, *PK);
+                point_from_affine(P, *PK);
                 if (!G2Point::in_subgroup(P))
                     return BLST_POINT_NOT_IN_GROUP;
             }
@@ -175,13 +202,11 @@ namespace blst
                     (const unsigned char*)aug, aug_len);
 
             if (nbits != 0 && scalar != NULL)
-                mult_window<G1Point,5>(H, H, scalar, nbits);
-
-            G1Point::from_jacobian(H, H);
+                G1Point::mult(H, H, scalar, nbits);
 
             n = ctx->nelems;
-            vec_copy(ctx->Q + n, PK, sizeof(G2AffinePoint));
-            vec_copy(ctx->P + n, &H, sizeof(G1AffinePoint));
+            ctx->Q[n] = *PK;
+            ctx->P[n] = point_to_affine<G1AffinePoint>(H);
             if (++n == N_MAX) {
                 if (ctx->ctrl & AGGR_GT_SET) {
                     GT gt;
@@ -273,19 +298,18 @@ namespace blst
          * count on the corresponding infinite public key to be rejected,
          * in case the signature is non-aggregated that is.
          */
-        if (sig != NULL && !vec_is_zero(sig, sizeof(*sig))) {
+        if (sig != NULL && !G2AffinePoint::is_inf(*sig)) {
             G2Point& S = ctx->AggrSign.e2;
             G2Point P;
 
-            FROM_AFFINE(P, *sig);
+            point_from_affine(P, *sig);
 
             if (sig_groupcheck && !G2Point::in_subgroup(P))
                 return BLST_POINT_NOT_IN_GROUP;
 
             if (ctx->ctrl & AGGR_SIGN_SET) {
                 if (nbits != 0 && scalar != NULL) {
-
-                    mult_window< G2Point,5>(P, P, scalar, nbits);
+                    G2Point::mult(P, P, scalar, nbits);
                     G2Point::dadd(S, S, P);
                 }
                 else {
@@ -295,9 +319,9 @@ namespace blst
             else {
                 ctx->ctrl |= AGGR_SIGN_SET;
                 if (nbits != 0 && scalar != NULL)
-                    mult_window<G2Point,5>(S, P, scalar, nbits);
+                    G2Point::mult(S, P, scalar, nbits);
                 else
-                    vec_copy(&S, &P, sizeof(P));
+                    S = P;
             }
         }
 
@@ -310,13 +334,13 @@ namespace blst
             /*
              * Reject infinite public keys.
              */
-            if (vec_is_zero(PK, sizeof(*PK)))
+            if (G1AffinePoint::is_inf(*PK))
                 return BLST_PK_IS_INFINITY;
 
             if (pk_groupcheck) {
                 G1Point P;
 
-                FROM_AFFINE(P, *PK);
+                point_from_affine(P, *PK);
                 if (!G1Point::in_subgroup(P))
                     return BLST_POINT_NOT_IN_GROUP;
             }
@@ -332,18 +356,17 @@ namespace blst
                     (const unsigned char*)DST, ctx->DST_len,
                     (const unsigned char*)aug, aug_len);
 
-            G2Point::from_jacobian(H, H);
-
+            G1AffinePoint scaled_pk = {};
             if (nbits != 0 && scalar != NULL) {
-                FROM_AFFINE(pk, *PK);
-                mult_window<G1Point,5>(pk, pk, scalar, nbits);
-                G1Point::from_jacobian(pk, pk);
-                PK = (const G1AffinePoint*)&pk;
+                point_from_affine(pk, *PK);
+                G1Point::mult(pk, pk, scalar, nbits);
+                scaled_pk = point_to_affine<G1AffinePoint>(pk);
+                PK = &scaled_pk;
             }
 
             n = ctx->nelems;
-            vec_copy(ctx->Q + n, &H, sizeof(G2AffinePoint));
-            vec_copy(ctx->P + n, &PK, sizeof(G1AffinePoint));
+            ctx->Q[n] = point_to_affine<G2AffinePoint>(H);
+            ctx->P[n] = *PK;
             if (++n == N_MAX) {
                 if (ctx->ctrl & AGGR_GT_SET) {
                     GT gt;
@@ -459,8 +482,7 @@ namespace blst
             }
             else if (ctx1->ctrl & AGGR_SIGN_SET) {
                 ctx->ctrl |= AGGR_SIGN_SET;
-                vec_copy(&ctx->AggrSign.e1, &ctx1->AggrSign.e1,
-                    sizeof(ctx->AggrSign.e1));
+                ctx->AggrSign.e1 = ctx1->AggrSign.e1;
             }
             break;
         case AGGR_MIN_PK:
@@ -470,8 +492,7 @@ namespace blst
             }
             else if (ctx1->ctrl & AGGR_SIGN_SET) {
                 ctx->ctrl |= AGGR_SIGN_SET;
-                vec_copy(&ctx->AggrSign.e2, &ctx1->AggrSign.e2,
-                    sizeof(ctx->AggrSign.e2));
+                ctx->AggrSign.e2 = ctx1->AggrSign.e2;
             }
             break;
         case AGGR_UNDEFINED:
@@ -485,7 +506,7 @@ namespace blst
         }
         else if (ctx1->ctrl & AGGR_GT_SET) {
             ctx->ctrl |= AGGR_GT_SET;
-            vec_copy(&ctx->gt, &ctx1->gt, sizeof(ctx->gt));
+            ctx->gt = ctx1->gt;
         }
 
         return BLST_SUCCESS;
@@ -499,22 +520,24 @@ namespace blst
             return 0;
 
         if (GTsig != NULL) {
-            vec_copy(&gt, GTsig, sizeof(GT));
+            gt_from_fp12_boundary(gt, *GTsig);
         }
         else if (ctx->ctrl & AGGR_SIGN_SET) {
-            AggregatedSignature AggrSign;
-
             switch (ctx->ctrl & MIN_SIG_OR_PK) {
             case AGGR_MIN_SIG:
-                G1Point::from_jacobian(AggrSign.e1, ctx->AggrSign.e1);
-                GT::miller_loop_n(gt, (const G2AffinePoint*)&get_BLST_G2(),
-                    (const G1AffinePoint*)&AggrSign.e1, 1);
+            {
+                const G2AffinePoint& g2 = G2AffinePoint::generator();
+                const G1AffinePoint sig = point_to_affine<G1AffinePoint>(ctx->AggrSign.e1);
+                GT::miller_loop_n(gt, &g2, &sig, 1);
                 break;
+            }
             case AGGR_MIN_PK:
-                G2Point::from_jacobian(AggrSign.e2, ctx->AggrSign.e2);
-                GT::miller_loop_n(gt, (const G2AffinePoint*)&AggrSign.e2,
-                    (const G1AffinePoint*)&get_BLST_G1(), 1);
+            {
+                const G1AffinePoint& g1 = G1AffinePoint::generator();
+                const G2AffinePoint sig = point_to_affine<G2AffinePoint>(ctx->AggrSign.e2);
+                GT::miller_loop_n(gt, &sig, &g1, 1);
                 break;
+            }
             default:
                 return 0;
             }
@@ -524,16 +547,14 @@ namespace blst
              * The aggregated signature was infinite, relation between the
              * hashes and the public keys has to be VERY special...
              */
-            vec_copy(&gt, get_BLST_Rx().p12, sizeof(GT));
+            gt = GT::identity();
         }
 
 		GT::conjugate(gt);
         GT::add(gt, gt, ctx->gt);
         GT::final_mult(gt, gt);
 
-        /* return gt==1 */
-        return vec_is_equal(&gt.data[0][0], get_BLST_Rx().p2, sizeof(gt.data[0][0])) &
-            vec_is_zero(&gt.data[0][1], sizeof(GT) - sizeof(gt.data[0][0]));
+        return GT::is_identity(gt);
     }
 
     BLST_HD int blst_pairing_finalverify(const PAIRING* ctx, const Fp12* GTsig)
@@ -543,16 +564,12 @@ namespace blst
 
     BLST_HD int blst_fp12_finalverify(const GT& GT1, const GT& GT2)
     {
-        GT gt;
-         
-        vec_copy(&gt, &GT1, sizeof(gt));
+        GT gt = GT1;
         GT::conjugate(gt);
-        GT::add(gt, gt, (GT&)GT2);
+        GT::add(gt, gt, GT2);
         GT::final_mult(gt, gt);
 
-        /* return gt==1 */
-        return (int)(vec_is_equal(&gt[0][0], &get_BLST_Rx().p2, sizeof(gt[0][0])) &
-            vec_is_zero(&gt[0][1], sizeof(gt) - sizeof(gt[0][0])));
+        return (int)GT::is_identity(gt);
     }
 
     BLST_HD void blst_pairing_raw_aggregate(PAIRING* ctx, const G2AffinePoint* q,
@@ -560,12 +577,12 @@ namespace blst
     {
         unsigned int n;
 
-        if (vec_is_zero(q, sizeof(*q)) & vec_is_zero(p, sizeof(*p)))
+        if (G2AffinePoint::is_inf(*q) & G1AffinePoint::is_inf(*p))
             return;
 
         n = ctx->nelems;
-        vec_copy(ctx->Q + n, q, sizeof(*q));
-        vec_copy(ctx->P + n, p, sizeof(*p));
+        ctx->Q[n] = *q;
+        ctx->P[n] = *p;
         if (++n == N_MAX) {
             if (ctx->ctrl & AGGR_GT_SET) {
                 GT gt;
@@ -583,8 +600,10 @@ namespace blst
 
     BLST_HD Fp12* blst_pairing_as_fp12(PAIRING* ctx)
     {
+        static thread_local Fp12 out = {};
         PAIRING_Commit(ctx);
-        return &ctx->gt.data;
+        fp12_from_gt_boundary(out, ctx->gt);
+        return &out;
     }
 
     /*
@@ -598,29 +617,30 @@ namespace blst
     BLST_HD BLST_ERROR blst_aggregate_in_g1(G1Point& out, const G1Point* in,
         const unsigned char* zwire)
     {
-        G1Point P;
+        G1AffinePoint affine = {};
+        G1Point P = {};
         BLST_ERROR ret;
 
-        ret = G1AffinePoint::deserialize(*(G1AffinePoint*)&P, zwire);
+        ret = G1AffinePoint::deserialize(affine, zwire);
 
         if (ret != BLST_SUCCESS)
             return ret;
 
-        if (vec_is_zero(&P, sizeof(G1AffinePoint))) {
+        if (G1AffinePoint::is_inf(affine)) {
             if (in == NULL)
-                vec_zero(&out, sizeof(out));
+                out = G1Point::identity();
             return BLST_SUCCESS;
         }
 
-        vec_copy(P.Z.data, get_BLST_Rx().p.data, sizeof(P.Z));
+        G1Point::from_affine(P, affine);
 
         if (!G1Point::in_subgroup(P))
             return BLST_POINT_NOT_IN_GROUP;
 
         if (in == NULL)
-            vec_copy(&out, &P, sizeof(P));
+            out = P;
         else
-            G1Point::dadd(out, *in, *(G1AffinePoint*)&P);
+            G1Point::dadd(out, *in, affine);
 
         return BLST_SUCCESS;
     }
@@ -628,42 +648,45 @@ namespace blst
     BLST_HD BLST_ERROR blst_aggregate_in_g2(G2Point& out, const G2Point* in,
         const unsigned char* zwire)
     {
-        G2Point P[1];
+        G2AffinePoint affine = {};
+        G2Point P = {};
         BLST_ERROR ret;
 
-        ret = G2AffinePoint::deserialize(*(G2AffinePoint*)P, zwire);
+        ret = G2AffinePoint::deserialize(affine, zwire);
 
         if (ret != BLST_SUCCESS)
             return ret;
 
-        if (vec_is_zero(P, sizeof(G2AffinePoint))) {
+        if (G2AffinePoint::is_inf(affine)) {
             if (in == NULL)
-                vec_zero(&out, sizeof(out));
+                out = G2Point::identity();
             return BLST_SUCCESS;
         }
 
-        vec_copy(&P->Z, get_BLST_Rx().p.data, sizeof(P->Z));
+        G2Point::from_affine(P, affine);
 
-        if (!G2Point::in_subgroup(*P))
+        if (!G2Point::in_subgroup(P))
             return BLST_POINT_NOT_IN_GROUP;
 
         if (in == NULL) {
-            vec_copy(&out, P, sizeof(P));
+            out = P;
         }
         else {
-            G2Point::dadd(out, *in, *(G2AffinePoint*)P);
+            G2Point::dadd(out, *in, affine);
         }
         return BLST_SUCCESS;
     }
 
     BLST_HD void blst_aggregated_in_g1(GT& ret, const G1AffinePoint& sig)
     {
-        GT::miller_loop_n(ret, (const G2AffinePoint*)&get_BLST_G2(), &sig, 1);
+        const G2AffinePoint& g2 = G2AffinePoint::generator();
+        GT::miller_loop_n(ret, &g2, &sig, 1);
     }
 
     BLST_HD void blst_aggregated_in_g2(GT& ret, const G2AffinePoint& sig)
     {
-        GT::miller_loop_n(ret, &sig, (const G1AffinePoint*)&get_BLST_G1(), 1);
+        const G1AffinePoint& g1 = G1AffinePoint::generator();
+        GT::miller_loop_n(ret, &sig, &g1, 1);
     }
 
     BLST_HD BLST_ERROR blst_core_verify_pk_in_g1(const G1AffinePoint* pk,

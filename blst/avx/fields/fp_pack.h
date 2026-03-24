@@ -108,7 +108,7 @@ namespace blst::avx
         BLST_ASSERT(!avx_ranges_overlap(a.data(), sizeof(a), b.data(), sizeof(b)));
     }
 
-#define BLST_ASSERT_NO_OVERLAP_AVX(a, b) ::blst::avx_assert_no_overlap((a), (b))
+#define BLST_ASSERT_NO_OVERLAP_AVX(a, b) ::blst::avx::avx_assert_no_overlap((a), (b))
 #endif
 
     struct LFpPack8x1;

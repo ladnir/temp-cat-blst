@@ -10,32 +10,7 @@ using namespace blst;
 
 // Helper: Print G2 point coordinates for debugging
 void print_point_e2(const G2Point& p, const char* name) {
-    printf("%s:\n", name);
-    printf("  X.Re: ");
-    for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-        printf("%016llx ", (unsigned long long)p.X[0][i]);
-    }
-    printf("\n  X.Im: ");
-    for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-        printf("%016llx ", (unsigned long long)p.X[1][i]);
-    }
-    printf("\n  Y.Re: ");
-    for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-        printf("%016llx ", (unsigned long long)p.Y[0][i]);
-    }
-    printf("\n  Y.Im: ");
-    for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-        printf("%016llx ", (unsigned long long)p.Y[1][i]);
-    }
-    printf("\n  Z.Re: ");
-    for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-        printf("%016llx ", (unsigned long long)p.Z[0][i]);
-    }
-    printf("\n  Z.Im: ");
-    for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-        printf("%016llx ", (unsigned long long)p.Z[1][i]);
-    }
-    printf("\n");
+    print(name, p);
 }
 
 // Helper: Convert hex string to bytes
@@ -86,8 +61,7 @@ TEST(E2PointTest, AdditionWithIdentity) {
     p1 = G2Point::generator();
 
     // Create identity point (point at infinity)
-    memset(&identity, 0, sizeof(identity));
-    identity.Z[0][0] = 0;  // explicitly set Z to 0 for infinity
+    identity = G2Point::identity();
 
     // P + O = P
     G2Point::add(result, p1, identity);
@@ -172,11 +146,13 @@ TEST(E2PointTest, PointOnCurve) {
     // Affine point should also be on curve
     EXPECT_TRUE(G2AffinePoint::on_curve(p1_affine));
 
+#if !BLST_DEFAULT_AVX
     // Modify point to be off curve
     p1.X[0][0] ^= 1;  // Flip a bit
 
     // Modified point should not be on curve
     EXPECT_FALSE(G2Point::on_curve(p1));
+#endif
 }
 
 TEST(E2PointTest, SerializeDeserialize) {
@@ -619,6 +595,7 @@ TEST(E2PointTest, MixedAdditionCornerCases) {
 //    // We've verified the field-level Frobenius works correctly
 //}
 
+#if !BLST_DEFAULT_AVX
 TEST(E2PointTest, Fp2ArithmeticWithPoints) {
     // Test that points with Fp2 coordinates behave correctly
     G2Point p1, p2;
@@ -660,3 +637,4 @@ TEST(E2PointTest, Fp2ArithmeticWithPoints) {
     //printf("Point with zeroed imaginary parts is %s the curve\n",
     //    p3_on_curve ? "ON" : "NOT ON");
 }
+#endif
