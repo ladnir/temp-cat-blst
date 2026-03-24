@@ -598,12 +598,17 @@ namespace blst
         ctx->nelems = n;
     }
 
-    BLST_HD Fp12* blst_pairing_as_fp12(PAIRING* ctx)
+    BLST_HD Fp12 blst_pairing_as_fp12(PAIRING* ctx)
     {
-        static thread_local Fp12 out = {};
         PAIRING_Commit(ctx);
+        Fp12 out = {};
         fp12_from_gt_boundary(out, ctx->gt);
-        return &out;
+        return out;
+    }
+
+    BLST_HD void blst_pairing_as_fp12_to(Fp12* out, PAIRING* ctx)
+    {
+        *out = blst_pairing_as_fp12(ctx);
     }
 
     /*

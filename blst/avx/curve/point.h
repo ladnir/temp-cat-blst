@@ -1043,16 +1043,35 @@ inline void print(const char* name, const G2AffinePoint& p)
 template<typename Group>
 inline void times_minus_z(Group& out, const Group& in);
 
+template<typename Group>
+inline void add_n_dbl(Group& out, const Group& p, size_t n)
+{
+    Group::dadd(out, out, p);
+    while (n-- != 0) {
+        Group::doubling(out, out);
+    }
+}
+
 template<>
 inline void times_minus_z<G1Point>(G1Point& out, const G1Point& in)
 {
-    G1Point::mult(out, in, avx_curve_detail::minus_z_bytes().data(), 64);
+    G1Point::doubling(out, in);
+    add_n_dbl(out, in, 2);
+    add_n_dbl(out, in, 3);
+    add_n_dbl(out, in, 9);
+    add_n_dbl(out, in, 32);
+    add_n_dbl(out, in, 16);
 }
 
 template<>
 inline void times_minus_z<G2Point>(G2Point& out, const G2Point& in)
 {
-    G2Point::mult(out, in, avx_curve_detail::minus_z_bytes().data(), 64);
+    G2Point::doubling(out, in);
+    add_n_dbl(out, in, 2);
+    add_n_dbl(out, in, 3);
+    add_n_dbl(out, in, 9);
+    add_n_dbl(out, in, 32);
+    add_n_dbl(out, in, 16);
 }
 
 }  // namespace blst::avx

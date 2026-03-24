@@ -394,6 +394,30 @@ TEST(AvxWrapper, AprimeConstantsMatchScalar)
     EXPECT_TRUE(blst::Fp::equal(scalar_e2[1], avx_e2_scalar[1]));
 }
 
+TEST(AvxWrapper, G1ScalarBoundaryRoundTripMatchesScalar)
+{
+    static constexpr unsigned char msg[] = "g1 scalar boundary";
+    static constexpr unsigned char dst[] = "BLS_SIG_BLS12381G1_XMD:SHA-256_SSWU_RO_TEST";
+
+    blst::scalar::G1Point scalar_hash = {};
+    blst::scalar::Hash_to_curve<blst::scalar::G1Point>(
+        scalar_hash, msg, sizeof(msg) - 1, dst, sizeof(dst) - 1, nullptr, 0);
+
+    expect_same_affine(scalar_hash, scalar_to_avx(scalar_hash));
+}
+
+TEST(AvxWrapper, G2ScalarBoundaryRoundTripMatchesScalar)
+{
+    static constexpr unsigned char msg[] = "g2 scalar boundary";
+    static constexpr unsigned char dst[] = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_TEST";
+
+    blst::scalar::G2Point scalar_hash = {};
+    blst::scalar::Hash_to_curve<blst::scalar::G2Point>(
+        scalar_hash, msg, sizeof(msg) - 1, dst, sizeof(dst) - 1, nullptr, 0);
+
+    expect_same_affine(scalar_hash, scalar_to_avx(scalar_hash));
+}
+
 TEST(AvxWrapper, G1DaddWithAprimeMatchesScalar)
 {
     blst::scalar::G1Point scalar_a = {};
@@ -410,12 +434,14 @@ TEST(AvxWrapper, G1DaddWithAprimeMatchesScalar)
     blst::scalar::G1Point::dadd(scalar_double, scalar_a, scalar_a, &scalar_a4);
     blst::avx::G1Point avx_double = {};
     blst::avx::G1Point::dadd(avx_double, avx_a, avx_a, &avx_a4);
+    SCOPED_TRACE("double");
     expect_same_affine(scalar_double, avx_double);
 
     blst::scalar::G1Point scalar_sum = {};
     blst::scalar::G1Point::dadd(scalar_sum, scalar_a, scalar_b, &scalar_a4);
     blst::avx::G1Point avx_sum = {};
     blst::avx::G1Point::dadd(avx_sum, avx_a, avx_b, &avx_a4);
+    SCOPED_TRACE("sum");
     expect_same_affine(scalar_sum, avx_sum);
 }
 
@@ -435,12 +461,14 @@ TEST(AvxWrapper, G2DaddWithAprimeMatchesScalar)
     blst::scalar::G2Point::dadd(scalar_double, scalar_a, scalar_a, &scalar_a4);
     blst::avx::G2Point avx_double = {};
     blst::avx::G2Point::dadd(avx_double, avx_a, avx_a, &avx_a4);
+    SCOPED_TRACE("double");
     expect_same_affine(scalar_double, avx_double);
 
     blst::scalar::G2Point scalar_sum = {};
     blst::scalar::G2Point::dadd(scalar_sum, scalar_a, scalar_b, &scalar_a4);
     blst::avx::G2Point avx_sum = {};
     blst::avx::G2Point::dadd(avx_sum, avx_a, avx_b, &avx_a4);
+    SCOPED_TRACE("sum");
     expect_same_affine(scalar_sum, avx_sum);
 }
 
@@ -480,9 +508,10 @@ TEST(AvxWrapper, G1TimesMinusZMatchesScalar)
     const std::array<blst::byte, 32> scalar = {0xab, 0xcd, 0xef, 0x01, 0x23, 0x45, 0x67, 0x89};
     blst::scalar::G1Point::mult(scalar_inputs[1], blst::scalar::G1Point::generator(), scalar.data(), 256);
 
-    blst::scalar::map_to_isogenous<blst::scalar::G1Point>(
-        scalar_inputs[2],
-        blst::scalar::G1AffinePoint::generator().X);
+    static constexpr unsigned char msg[] = "avx g1 times_minus_z";
+    static constexpr unsigned char dst[] = "BLS_SIG_BLS12381G1_XMD:SHA-256_SSWU_RO_TEST";
+    blst::scalar::Hash_to_curve<blst::scalar::G1Point>(
+        scalar_inputs[2], msg, sizeof(msg) - 1, dst, sizeof(dst) - 1, nullptr, 0);
 
     scalar_inputs[3] = blst::scalar::G1Point::identity();
 
@@ -508,9 +537,10 @@ TEST(AvxWrapper, G2TimesMinusZMatchesScalar)
     const std::array<blst::byte, 32> scalar = {0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10};
     blst::scalar::G2Point::mult(scalar_inputs[1], blst::scalar::G2Point::generator(), scalar.data(), 256);
 
-    blst::scalar::map_to_isogenous<blst::scalar::G2Point>(
-        scalar_inputs[2],
-        blst::scalar::G2AffinePoint::generator().X);
+    static constexpr unsigned char msg[] = "avx g2 times_minus_z";
+    static constexpr unsigned char dst[] = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_TEST";
+    blst::scalar::Hash_to_curve<blst::scalar::G2Point>(
+        scalar_inputs[2], msg, sizeof(msg) - 1, dst, sizeof(dst) - 1, nullptr, 0);
 
     scalar_inputs[3] = blst::scalar::G2Point::identity();
 

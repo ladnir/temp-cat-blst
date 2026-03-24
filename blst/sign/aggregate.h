@@ -27,6 +27,8 @@ namespace blst
     } PAIRING;
 
     BLST_HD int blst_fp12_finalverify(const GT& GT1, const GT& GT2);
+    BLST_HD Fp12 blst_pairing_as_fp12(PAIRING* ctx);
+    BLST_HD void blst_pairing_as_fp12_to(Fp12* out, PAIRING* ctx);
 
 }
 //BLST_EXTERN_C_END

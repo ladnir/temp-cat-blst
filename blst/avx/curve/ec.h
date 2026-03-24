@@ -281,40 +281,66 @@ INLINE bool ProjectiveEqual(
 }
 
 template<class Ring>
-ProjectivePoint<typename Ring::StandardElement> PointDoubleA(
+ProjectivePoint<typename Ring::StandardElement> PointDaddA(
     const ProjectivePoint<typename Ring::StandardElement>& P,
+    const ProjectivePoint<typename Ring::StandardElement>& Q,
     const typename Ring::StandardElement& a4,
     const Ring& ring)
 {
     constexpr auto _2 = std::integral_constant<int, 2>{};
-    constexpr auto _3 = std::integral_constant<int, 3>{};
-    constexpr auto _8 = std::integral_constant<int, 8>{};
-    constexpr auto _12 = std::integral_constant<int, 12>{};
 
-    auto xx_wide = ring.prep_left(P.x) * P.x;
-    auto yy_wide = ring.prep_left(P.y) * P.y;
-    auto zz_wide = ring.prep_left(P.z) * P.z;
-    auto xy_wide = ring.prep_left(P.x) * P.y;
-    auto yz_wide = ring.prep_left(P.y) * P.z;
+    auto u1_wide = ring.prep_left(P.x) * Q.z;
+    auto u2_wide = ring.prep_left(Q.x) * P.z;
+    auto s1_wide = ring.prep_left(P.y) * Q.z;
+    auto s2_wide = ring.prep_left(Q.y) * P.z;
+    auto z_wide = ring.prep_left(P.z) * Q.z;
 
-    auto [xx, yy, zz, xy, yz] = ring.batch_reduce_expand(xx_wide, yy_wide, zz_wide, xy_wide, yz_wide);
+    auto [u1, u2, s1, s2, z] = ring.batch_reduce_expand(
+        u1_wide,
+        u2_wide,
+        s1_wide,
+        s2_wide,
+        z_wide);
+
+    auto t = NormalizePointCoord(u1 + u2, ring);
+    auto m = NormalizePointCoord(s1 + s2, ring);
+
+    auto tt_wide = ring.prep_left(t) * t;
+    auto u1u2_wide = ring.prep_left(u1) * u2;
+    auto zz_wide = ring.prep_left(z) * z;
+    auto f_wide = ring.prep_left(z) * m;
+
+    auto [tt, u1u2, zz, f] = ring.batch_reduce_expand(
+        tt_wide,
+        u1u2_wide,
+        zz_wide,
+        f_wide);
+
     auto a_zz = ring.batch_reduce_expand(ring.prep_left(a4) * zz)[0];
-    auto n = NormalizePointCoord(xx * _3 + a_zz, ring);
-    auto yz2 = yz * _2;
-    auto s = ring.batch_reduce_expand(ring.prep_left(xy) * yz)[0];
-    auto n2 = ring.batch_reduce_expand(ring.prep_left(n) * n)[0];
-    auto yyzz = ring.batch_reduce_expand(ring.prep_left(yy) * zz)[0];
+    auto r = NormalizePointCoord(tt - u1u2 + a_zz, ring);
+    auto l = ring.batch_reduce_expand(ring.prep_left(m) * f)[0];
 
-    auto x_core = ring.prep(n2 - s * _8);
-    auto y_core = ring.prep(s * _12 - n2);
-    auto z_core = ring.prep(yyzz * _8);
+    auto g_wide = ring.prep_left(t) * l;
+    auto r2_wide = ring.prep_left(r) * r;
+    auto f2_wide = ring.prep_left(f) * f;
+    auto ll_wide = ring.prep_left(l) * l;
 
-    auto [x3, y3_pos, y3_neg, z3] = ring.batch_reduce_expand(
-        ring.prep_left(yz2) * x_core,
-        ring.prep_left(n) * y_core,
-        ring.prep_left(yy) * z_core,
-        ring.prep_left(yz) * z_core);
-    auto y3 = NormalizePointCoord(y3_pos + ring.standard_negate(y3_neg), ring);
+    auto [g, r2, f2, ll] = ring.batch_reduce_expand(
+        g_wide,
+        r2_wide,
+        f2_wide,
+        ll_wide);
+
+    auto w = NormalizePointCoord(r2 - g, ring);
+    auto g_minus_2w = NormalizePointCoord(g - w * _2, ring);
+    auto two_f = NormalizePointCoord(f * _2, ring);
+
+    auto [x3, y3_term, z3] = ring.batch_reduce_expand(
+        ring.prep_left(two_f) * w,
+        ring.prep_left(r) * g_minus_2w,
+        ring.prep_left(two_f) * f2);
+
+    auto y3 = NormalizePointCoord(y3_term - ll, ring);
     return ProjectivePoint<typename Ring::StandardElement>(x3, y3, z3);
 }
 
@@ -344,13 +370,13 @@ class G1 {
         if (PointCoordIsZero(Q.z)) {
             return P;
         }
+        if (a4 != nullptr) {
+            return PointDaddA<Ring>(P, Q, *a4, ring);
+        }
         if (!ProjectiveEqual<Ring>(P, Q, ring)) {
             return PointAdd<Ring>(P, Q, ring);
         }
-        if (a4 == nullptr) {
-            return PointDouble<Ring>(P, ring);
-        }
-        return PointDoubleA<Ring>(P, *a4, ring);
+        return PointDouble<Ring>(P, ring);
     }
 
     INLINE ProjPoint negate(const ProjPoint &P, const Ring &ring) const {
@@ -389,13 +415,13 @@ class G2 {
         if (PointCoordIsZero(Q.z)) {
             return P;
         }
+        if (a4 != nullptr) {
+            return PointDaddA<FP2RingType>(P, Q, *a4, ring);
+        }
         if (!ProjectiveEqual<FP2RingType>(P, Q, ring)) {
             return PointAdd<FP2RingType>(P, Q, ring);
         }
-        if (a4 == nullptr) {
-            return PointDouble<FP2RingType>(P, ring);
-        }
-        return PointDoubleA<FP2RingType>(P, *a4, ring);
+        return PointDouble<FP2RingType>(P, ring);
     }
 
     INLINE ProjPoint negate(const ProjPoint &P, const FP2RingType &ring) const {

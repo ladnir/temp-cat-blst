@@ -671,7 +671,7 @@ static extern
 void blst_pairing_raw_aggregate([In, Out] long[] ctx, [In] long[] q,
                                                       [In] long[] p);
 [DllImport("blst.dll", CallingConvention = CallingConvention.Cdecl)]
-static extern IntPtr blst_pairing_as_fp12([In] long[] ctx);
+static extern void blst_pairing_as_fp12_to([Out] long[] ret, [In] long[] ctx);
 
 public struct Pairing {
     private readonly long[] ctx;
@@ -747,9 +747,7 @@ public struct Pairing {
     {   raw_aggregate(q, p);   }
     public PT as_fp12()
     {   var ret = new PT(true);
-        GCHandle h = GCHandle.Alloc(ctx, GCHandleType.Pinned);
-        Marshal.Copy(blst_pairing_as_fp12(ctx), ret.fp12, 0, ret.fp12.Length);
-        h.Free();
+        blst_pairing_as_fp12_to(ret.fp12, ctx);
         return ret;
     }
 }

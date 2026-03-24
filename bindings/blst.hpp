@@ -840,6 +840,7 @@ private:
     blst_fp12 value;
 
     PT(const blst_fp12 *v)  { value = *v; }
+    PT(const blst_fp12& v)  { value = v; }
 public:
     PT(const P1_Affine& p)  { blst_aggregated_in_g1(&value, p); }
     PT(const P2_Affine& q)  { blst_aggregated_in_g2(&value, q); }

@@ -470,7 +470,7 @@ impl Pairing {
     }
 
     pub fn as_fp12(&mut self) -> blst_fp12 {
-        unsafe { *blst_pairing_as_fp12(self.ctx()) }
+        unsafe { blst_pairing_as_fp12(self.ctx()) }
     }
 }
 
