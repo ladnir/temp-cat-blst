@@ -34,38 +34,60 @@ namespace avx_map_to_G_detail {
 
 inline scalar::G1Point to_scalar(const G1Point& point)
 {
-    return {
-        avx_curve_detail::ring_fp_to_scalar(point.X),
-        avx_curve_detail::ring_fp_to_scalar(point.Y),
-        avx_curve_detail::ring_fp_to_scalar(point.Z),
-    };
+    G1AffinePoint affine = {};
+    G1Point::to_affine(affine, point);
+
+    scalar::G1AffinePoint scalar_affine = {};
+    scalar_affine.X = avx_curve_detail::ring_fp_to_scalar(affine.X);
+    scalar_affine.Y = avx_curve_detail::ring_fp_to_scalar(affine.Y);
+
+    scalar::G1Point out = {};
+    scalar::G1Point::from_affine(out, scalar_affine);
+    return out;
 }
 
 inline scalar::G2Point to_scalar(const G2Point& point)
 {
-    return {
-        avx_curve_detail::ring_fp2_to_scalar(point.X),
-        avx_curve_detail::ring_fp2_to_scalar(point.Y),
-        avx_curve_detail::ring_fp2_to_scalar(point.Z),
-    };
+    G2AffinePoint affine = {};
+    G2Point::to_affine(affine, point);
+
+    scalar::G2AffinePoint scalar_affine = {};
+    scalar_affine.X = avx_curve_detail::ring_fp2_to_scalar(affine.X);
+    scalar_affine.Y = avx_curve_detail::ring_fp2_to_scalar(affine.Y);
+
+    scalar::G2Point out = {};
+    scalar::G2Point::from_affine(out, scalar_affine);
+    return out;
 }
 
 inline G1Point from_scalar(const scalar::G1Point& point)
 {
-    return {
-        avx_curve_detail::scalar_fp_to_ring(point.X),
-        avx_curve_detail::scalar_fp_to_ring(point.Y),
-        avx_curve_detail::scalar_fp_to_ring(point.Z),
+    scalar::G1AffinePoint scalar_affine = {};
+    scalar::G1Point::to_affine(scalar_affine, point);
+
+    G1AffinePoint affine = {
+        avx_curve_detail::scalar_fp_to_ring(scalar_affine.X),
+        avx_curve_detail::scalar_fp_to_ring(scalar_affine.Y),
     };
+
+    G1Point out = {};
+    G1Point::from_affine(out, affine);
+    return out;
 }
 
 inline G2Point from_scalar(const scalar::G2Point& point)
 {
-    return {
-        avx_curve_detail::scalar_fp2_to_ring(point.X),
-        avx_curve_detail::scalar_fp2_to_ring(point.Y),
-        avx_curve_detail::scalar_fp2_to_ring(point.Z),
+    scalar::G2AffinePoint scalar_affine = {};
+    scalar::G2Point::to_affine(scalar_affine, point);
+
+    G2AffinePoint affine = {
+        avx_curve_detail::scalar_fp2_to_ring(scalar_affine.X),
+        avx_curve_detail::scalar_fp2_to_ring(scalar_affine.Y),
     };
+
+    G2Point out = {};
+    G2Point::from_affine(out, affine);
+    return out;
 }
 
 inline scalar::Fp to_scalar(const G1Point::Field_type& value)

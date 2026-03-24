@@ -536,15 +536,24 @@ inline void G1Point::mult(G1Point& out, const G1Point& a, const byte* scalar, si
 
 inline void G1Point::sign(G1Point& out, const G1Point& in, const pow256 SK)
 {
-    const blst::scalar::G1Point scalar_in =
-        avx_curve_detail::curve_g1_to_scalar({in.X, in.Y, in.Z});
+    G1AffinePoint affine = {};
+    to_affine(affine, in);
+
+    blst::scalar::G1AffinePoint scalar_affine = {};
+    scalar_affine.X = avx_curve_detail::ring_fp_to_scalar(affine.X);
+    scalar_affine.Y = avx_curve_detail::ring_fp_to_scalar(affine.Y);
+
+    blst::scalar::G1Point scalar_in = {};
+    blst::scalar::G1Point::from_affine(scalar_in, scalar_affine);
     blst::scalar::G1Point scalar_out = {};
     blst::scalar::G1Point::sign(scalar_out, scalar_in, SK);
-    out = {
-        avx_curve_detail::scalar_fp_to_ring(scalar_out.X),
-        avx_curve_detail::scalar_fp_to_ring(scalar_out.Y),
-        avx_curve_detail::scalar_fp_to_ring(scalar_out.Z),
+    blst::scalar::G1AffinePoint scalar_out_affine = {};
+    blst::scalar::G1Point::to_affine(scalar_out_affine, scalar_out);
+    G1AffinePoint out_affine = {
+        avx_curve_detail::scalar_fp_to_ring(scalar_out_affine.X),
+        avx_curve_detail::scalar_fp_to_ring(scalar_out_affine.Y),
     };
+    from_affine(out, out_affine);
 }
 
 inline void G1Point::to_pk2(unsigned char* out, G1AffinePoint* PK, const pow256 SK)
@@ -813,15 +822,24 @@ inline void G2Point::mult(G2Point& out, const G2Point& a, const byte* scalar, si
 
 inline void G2Point::sign(G2Point& out, const G2Point& in, const pow256 SK)
 {
-    const blst::scalar::G2Point scalar_in =
-        avx_curve_detail::curve_g2_to_scalar({in.X, in.Y, in.Z});
+    G2AffinePoint affine = {};
+    to_affine(affine, in);
+
+    blst::scalar::G2AffinePoint scalar_affine = {};
+    scalar_affine.X = avx_curve_detail::ring_fp2_to_scalar(affine.X);
+    scalar_affine.Y = avx_curve_detail::ring_fp2_to_scalar(affine.Y);
+
+    blst::scalar::G2Point scalar_in = {};
+    blst::scalar::G2Point::from_affine(scalar_in, scalar_affine);
     blst::scalar::G2Point scalar_out = {};
     blst::scalar::G2Point::sign(scalar_out, scalar_in, SK);
-    out = {
-        avx_curve_detail::scalar_fp2_to_ring(scalar_out.X),
-        avx_curve_detail::scalar_fp2_to_ring(scalar_out.Y),
-        avx_curve_detail::scalar_fp2_to_ring(scalar_out.Z),
+    blst::scalar::G2AffinePoint scalar_out_affine = {};
+    blst::scalar::G2Point::to_affine(scalar_out_affine, scalar_out);
+    G2AffinePoint out_affine = {
+        avx_curve_detail::scalar_fp2_to_ring(scalar_out_affine.X),
+        avx_curve_detail::scalar_fp2_to_ring(scalar_out_affine.Y),
     };
+    from_affine(out, out_affine);
 }
 
 inline void G2Point::to_pk2(unsigned char* out, G2AffinePoint* PK, const pow256 SK)
