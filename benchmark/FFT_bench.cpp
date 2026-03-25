@@ -473,22 +473,21 @@ namespace
 		const size_t n = static_cast<size_t>(state.range(0));
 		const std::vector<G1Point> A_orig = make_g1_data(n, /*seed*/ 0xDEADBEEFULL);
 		const std::vector<G2Point> B_orig = make_g2_data(2 * n, /*seed*/ 0xCAFEBABEULL);
-		const auto precomputed_b = precompute_middle_product_b(
-			std::span<const G2Point>(B_orig), n, MiddleProductAlgorithm::BasicFFT);
 		std::vector<GT> out(n, GT::identity());
+		const size_t m = middle_product_basic_fft_size(n);
 
 		for (auto _ : state) {
 			benchmark::DoNotOptimize(out.data());
-			middle_product(
+			middle_product_basic(
 				std::span<const G1Point>(A_orig),
-				precomputed_b,
+				std::span<const G2Point>(B_orig),
 				std::span<GT>(out));
 
 			benchmark::ClobberMemory();
 		}
 
 		state.counters["n"] = static_cast<double>(n);
-		state.counters["m"] = static_cast<double>(precomputed_b.fft_size);
+		state.counters["m"] = static_cast<double>(m);
 		state.counters["ops/sec"] = benchmark::Counter(1, benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
 	}
 
@@ -498,14 +497,12 @@ namespace
 		const size_t n = static_cast<size_t>(state.range(0));
 		const std::vector<G1Point> A_orig = make_g1_data(n, /*seed*/ 0xDEADBEEFULL);
 		const std::vector<G2Point> B_orig = make_g2_data(2 * n, /*seed*/ 0xCAFEBABEULL);
-		TimingStats pre_stats;
-		const auto precomputed_b = precompute_middle_product_b(
-			std::span<const G2Point>(B_orig), n, MiddleProductAlgorithm::BasicFFT, &pre_stats);
 		std::vector<GT> out(n, GT::identity());
+		const size_t m = middle_product_basic_fft_size(n);
 
 		// Accumulators for phase timings (in nanoseconds)
 		double time_fft_g1 = 0;
-		double time_fft_g2 = 0; // online path uses precomputed B
+		double time_fft_g2 = 0;
 		double time_pairing = 0;
 		double time_ifft_gt = 0;
 		double time_roots = 0;
@@ -521,9 +518,9 @@ namespace
 
 		for (auto _ : state) {
 			TimingStats iter_stats;
-			middle_product(
+			middle_product_basic(
 				std::span<const G1Point>(A_orig),
-				precomputed_b,
+				std::span<const G2Point>(B_orig),
 				std::span<GT>(out),
 				&iter_stats);
 			benchmark::ClobberMemory();
@@ -532,21 +529,21 @@ namespace
 			time_fft_g2 += static_cast<double>(iter_stats.get_ns("poly_mult.fft_b_ns"));
 			time_pairing += static_cast<double>(iter_stats.get_ns("poly_mult.pointwise_ns"));
 			time_ifft_gt += static_cast<double>(iter_stats.get_ns("poly_mult.ifft_ns"));
-			time_roots += static_cast<double>(iter_stats.get_ns("basic_pre.roots_ns"));
-			time_roots += static_cast<double>(iter_stats.get_ns("basic_pre.inv_roots_ns"));
-			time_extract += static_cast<double>(iter_stats.get_ns("basic_pre.extract_ns"));
+			time_roots += static_cast<double>(iter_stats.get_ns("middle_product_basic.roots_ns"));
+			time_roots += static_cast<double>(iter_stats.get_ns("middle_product_basic.inv_roots_ns"));
+			time_extract += static_cast<double>(iter_stats.get_ns("middle_product_basic.extract_ns"));
 			fft_a_total += static_cast<double>(iter_stats.get_ns("poly_mult.fft_a.butterflies_total"));
 			fft_a_exec += static_cast<double>(iter_stats.get_ns("poly_mult.fft_a.butterflies_executed"));
 			fft_a_skip += static_cast<double>(iter_stats.get_ns("poly_mult.fft_a.butterflies_skipped"));
 			fft_b_total += static_cast<double>(iter_stats.get_ns("poly_mult.fft_b.butterflies_total"));
 			fft_b_exec += static_cast<double>(iter_stats.get_ns("poly_mult.fft_b.butterflies_executed"));
 			fft_b_skip += static_cast<double>(iter_stats.get_ns("poly_mult.fft_b.butterflies_skipped"));
-			online_total += static_cast<double>(iter_stats.get_ns("basic_pre.total_ns"));
+			online_total += static_cast<double>(iter_stats.get_ns("middle_product_basic.total_ns"));
 			iterations++;
 		}
 
 		state.counters["n"] = static_cast<double>(n);
-		state.counters["m"] = static_cast<double>(precomputed_b.fft_size);
+		state.counters["m"] = static_cast<double>(m);
 
 		// Absolute times in milliseconds
 		state.counters["fft_g1_ms"] = benchmark::Counter(time_fft_g1 / 1e6 / iterations);
@@ -567,18 +564,6 @@ namespace
 		state.counters["fft_b_bfly_skip"] = benchmark::Counter(fft_b_skip / iterations);
 		state.counters["fft_b_skip_ratio"] = benchmark::Counter(
 			(fft_b_total > 0.0) ? (fft_b_skip / fft_b_total) : 0.0);
-		const double pre_b_total = static_cast<double>(pre_stats.get_ns("precompute.fft_b.butterflies_total"));
-		const double pre_b_exec = static_cast<double>(pre_stats.get_ns("precompute.fft_b.butterflies_executed"));
-		const double pre_b_skip = static_cast<double>(pre_stats.get_ns("precompute.fft_b.butterflies_skipped"));
-		state.counters["pre_b_bfly_total"] = benchmark::Counter(pre_b_total);
-		state.counters["pre_b_bfly_exec"] = benchmark::Counter(pre_b_exec);
-		state.counters["pre_b_bfly_skip"] = benchmark::Counter(pre_b_skip);
-		state.counters["pre_b_skip_ratio"] = benchmark::Counter(
-			(pre_b_total > 0.0) ? (pre_b_skip / pre_b_total) : 0.0);
-		state.counters["offline_precompute_once_ms"] = benchmark::Counter(
-			(static_cast<double>(pre_stats.get_ns("precompute.roots_ns")) +
-				static_cast<double>(pre_stats.get_ns("precompute.basic_fft_b_ns"))) /
-			1e6);
 	}
 
 	// Detailed benchmark for Basic FFT path with NO truncation/pruning.
@@ -586,7 +571,7 @@ namespace
 	static void bench_middle_product_basic_no_trunc_detailed(benchmark::State& state)
 	{
 		const size_t n = static_cast<size_t>(state.range(0));
-		const size_t m = middle_product_fft_size(n, MiddleProductAlgorithm::BasicFFT);
+			const size_t m = middle_product_basic_fft_size(n);
 		const std::vector<G1Point> A_orig = make_g1_data(n, /*seed*/ 0xDEADBEEFULL);
 		const std::vector<G2Point> B_orig = make_g2_data(2 * n, /*seed*/ 0xCAFEBABEULL);
 		const std::vector<Fr> roots = make_roots(m);
@@ -935,9 +920,9 @@ namespace
 		const std::vector<G2Point> B_orig = make_g2_data(2 * n, /*seed*/ 0xCAFEBABEULL);
 		TimingStats pre_stats;
 		const auto precomputed_b = precompute_middle_product_b(
-			std::span<const G2Point>(B_orig), n, MiddleProductAlgorithm::OneIfftCyclic, &pre_stats);
+			std::span<const G2Point>(B_orig), n, &pre_stats);
 		std::vector<GT> out(n, GT::identity());
-		MiddleProductOneIfftWorkspace workspace;
+		MiddleProductWorkspace workspace;
 
 		double time_fft_g1 = 0;
                 double time_pairing = 0;
@@ -950,23 +935,21 @@ namespace
 
 		for (auto _ : state) {
 			TimingStats iter_stats;
-			middle_product_oneifft_cyclic(
-				std::span<const G1Point>(A_orig),
-				precomputed_b,
-				std::span<GT>(out),
-				workspace,
-				&iter_stats);
+				middle_product(
+					std::span<const G1Point>(A_orig),
+					precomputed_b,
+					std::span<GT>(out),
+					workspace,
+					&iter_stats);
 			benchmark::ClobberMemory();
 
-			time_fft_g1 += static_cast<double>(iter_stats.get_ns("oneifft_pre.fft_a_ns"));
-                        time_pairing += static_cast<double>(iter_stats.get_ns("oneifft_pre.pointwise_ns"));
-                        time_ifft_gt += static_cast<double>(iter_stats.get_ns("oneifft_pre.ifft_ns"));
-                        time_fill += static_cast<double>(iter_stats.get_ns("oneifft_pre.fill_a_fft_ns"));
-                        time_fill += static_cast<double>(iter_stats.get_ns("oneifft_pre.fill_c_fft_ns"));
-                        time_roots += static_cast<double>(iter_stats.get_ns("oneifft_pre.roots_ns"));
-                        time_roots += static_cast<double>(iter_stats.get_ns("oneifft_pre.inv_roots_ns"));
-                        time_extract += static_cast<double>(iter_stats.get_ns("oneifft_pre.extract_ns"));
-			online_total += static_cast<double>(iter_stats.get_ns("oneifft_pre.total_ns"));
+				time_fft_g1 += static_cast<double>(iter_stats.get_ns("middle_product_pre.fft_a_ns"));
+	                        time_pairing += static_cast<double>(iter_stats.get_ns("middle_product_pre.pointwise_ns"));
+	                        time_ifft_gt += static_cast<double>(iter_stats.get_ns("middle_product_pre.ifft_ns"));
+	                        time_fill += static_cast<double>(iter_stats.get_ns("middle_product_pre.fill_a_fft_ns"));
+	                        time_fill += static_cast<double>(iter_stats.get_ns("middle_product_pre.fill_c_fft_ns"));
+	                        time_extract += static_cast<double>(iter_stats.get_ns("middle_product_pre.extract_ns"));
+				online_total += static_cast<double>(iter_stats.get_ns("middle_product_pre.total_ns"));
 			iterations++;
 		}
 
@@ -980,13 +963,13 @@ namespace
                 state.counters["extract_ms"] = benchmark::Counter(time_extract / 1e6 / iterations);
 		state.counters["online_total_ms"] = benchmark::Counter(online_total / 1e6 / iterations);
 		state.counters["online_compute_ms"] = benchmark::Counter((online_total - time_roots) / 1e6 / iterations);
-		state.counters["offline_precompute_once_ms"] = benchmark::Counter(
-			(static_cast<double>(pre_stats.get_ns("precompute.roots_ns")) +
-				static_cast<double>(pre_stats.get_ns("precompute.oneifft_fft_b0_ns")) +
-				static_cast<double>(pre_stats.get_ns("precompute.oneifft_fft_b1_ns")) +
-				static_cast<double>(pre_stats.get_ns("precompute.oneifft_fold_ns"))) /
-			1e6);
-	}
+			state.counters["offline_precompute_once_ms"] = benchmark::Counter(
+				(static_cast<double>(pre_stats.get_ns("middle_product_precompute.roots_ns")) +
+					static_cast<double>(pre_stats.get_ns("middle_product_precompute.fft_b0_ns")) +
+					static_cast<double>(pre_stats.get_ns("middle_product_precompute.fft_b1_ns")) +
+					static_cast<double>(pre_stats.get_ns("middle_product_precompute.fold_ns"))) /
+				1e6);
+		}
 
 	static void bench_middle_product_one_ifft_lines_detailed(benchmark::State& state)
 	{
@@ -997,11 +980,10 @@ namespace
 		const auto precomputed_b = precompute_middle_product_b(
 			std::span<const G2Point>(B_orig),
 			n,
-			MiddleProductAlgorithm::OneIfftCyclic,
 			&pre_stats,
-			OneIfftPairingMode::PrecomputedLines);
+			MiddleProductPairingMode::PrecomputedLines);
 		std::vector<GT> out(n, GT::identity());
-		MiddleProductOneIfftWorkspace workspace;
+		MiddleProductWorkspace workspace;
 
 		double time_fft_g1 = 0;
 		double time_pairing = 0;
@@ -1014,23 +996,21 @@ namespace
 
 		for (auto _ : state) {
 			TimingStats iter_stats;
-			middle_product_oneifft_cyclic(
-				std::span<const G1Point>(A_orig),
-				precomputed_b,
-				std::span<GT>(out),
-				workspace,
-				&iter_stats);
+				middle_product(
+					std::span<const G1Point>(A_orig),
+					precomputed_b,
+					std::span<GT>(out),
+					workspace,
+					&iter_stats);
 			benchmark::ClobberMemory();
 
-			time_fft_g1 += static_cast<double>(iter_stats.get_ns("oneifft_pre.fft_a_ns"));
-			time_pairing += static_cast<double>(iter_stats.get_ns("oneifft_pre.pointwise_ns"));
-			time_ifft_gt += static_cast<double>(iter_stats.get_ns("oneifft_pre.ifft_ns"));
-			time_fill += static_cast<double>(iter_stats.get_ns("oneifft_pre.fill_a_fft_ns"));
-			time_fill += static_cast<double>(iter_stats.get_ns("oneifft_pre.fill_c_fft_ns"));
-			time_roots += static_cast<double>(iter_stats.get_ns("oneifft_pre.roots_ns"));
-			time_roots += static_cast<double>(iter_stats.get_ns("oneifft_pre.inv_roots_ns"));
-			time_extract += static_cast<double>(iter_stats.get_ns("oneifft_pre.extract_ns"));
-			online_total += static_cast<double>(iter_stats.get_ns("oneifft_pre.total_ns"));
+				time_fft_g1 += static_cast<double>(iter_stats.get_ns("middle_product_pre.fft_a_ns"));
+				time_pairing += static_cast<double>(iter_stats.get_ns("middle_product_pre.pointwise_ns"));
+				time_ifft_gt += static_cast<double>(iter_stats.get_ns("middle_product_pre.ifft_ns"));
+				time_fill += static_cast<double>(iter_stats.get_ns("middle_product_pre.fill_a_fft_ns"));
+				time_fill += static_cast<double>(iter_stats.get_ns("middle_product_pre.fill_c_fft_ns"));
+				time_extract += static_cast<double>(iter_stats.get_ns("middle_product_pre.extract_ns"));
+				online_total += static_cast<double>(iter_stats.get_ns("middle_product_pre.total_ns"));
 			iterations++;
 		}
 
@@ -1044,16 +1024,16 @@ namespace
 		state.counters["extract_ms"] = benchmark::Counter(time_extract / 1e6 / iterations);
 		state.counters["online_total_ms"] = benchmark::Counter(online_total / 1e6 / iterations);
 		state.counters["online_compute_ms"] = benchmark::Counter((online_total - time_roots) / 1e6 / iterations);
-		state.counters["offline_precompute_once_ms"] = benchmark::Counter(
-			(static_cast<double>(pre_stats.get_ns("precompute.roots_ns")) +
-				static_cast<double>(pre_stats.get_ns("precompute.oneifft_fft_b0_ns")) +
-				static_cast<double>(pre_stats.get_ns("precompute.oneifft_fft_b1_ns")) +
-				static_cast<double>(pre_stats.get_ns("precompute.oneifft_fold_ns")) +
-				static_cast<double>(pre_stats.get_ns("precompute.oneifft_lines_ns"))) /
-			1e6);
-		state.counters["offline_precompute_lines_ms"] =
-			benchmark::Counter(static_cast<double>(pre_stats.get_ns("precompute.oneifft_lines_ns")) / 1e6);
-	}
+			state.counters["offline_precompute_once_ms"] = benchmark::Counter(
+				(static_cast<double>(pre_stats.get_ns("middle_product_precompute.roots_ns")) +
+					static_cast<double>(pre_stats.get_ns("middle_product_precompute.fft_b0_ns")) +
+					static_cast<double>(pre_stats.get_ns("middle_product_precompute.fft_b1_ns")) +
+					static_cast<double>(pre_stats.get_ns("middle_product_precompute.fold_ns")) +
+					static_cast<double>(pre_stats.get_ns("middle_product_precompute.lines_ns"))) /
+				1e6);
+			state.counters["offline_precompute_lines_ms"] =
+				benchmark::Counter(static_cast<double>(pre_stats.get_ns("middle_product_precompute.lines_ns")) / 1e6);
+		}
 
         // Benchmark middle_product_fft: computes middle n coefficients of (size n) * (size 2n) convolution
 #if 0
@@ -1176,7 +1156,7 @@ namespace
 	static void bench_g1_fft_full_middle_shape_detailed(benchmark::State& state)
 	{
 		const size_t n = static_cast<size_t>(state.range(0));
-		const size_t m = middle_product_fft_size(n, MiddleProductAlgorithm::BasicFFT);
+			const size_t m = middle_product_basic_fft_size(n);
 		const size_t xn = fft_admissible_size(n, m);
 		const std::vector<Fr> roots = make_roots(m);
 		const std::vector<G1Point> a_orig = make_g1_data(n, /*seed*/ 0xA11CEULL);
@@ -1216,7 +1196,7 @@ namespace
 	static void bench_g1_fft_trunc_middle_shape_detailed(benchmark::State& state)
 	{
 		const size_t n = static_cast<size_t>(state.range(0));
-		const size_t m = middle_product_fft_size(n, MiddleProductAlgorithm::BasicFFT);
+			const size_t m = middle_product_basic_fft_size(n);
 		const size_t xn = fft_admissible_size(n, m);
 		const std::vector<Fr> roots = make_roots(m);
 		const std::vector<G1Point> a_orig = make_g1_data(n, /*seed*/ 0xA11CEULL);
@@ -1271,7 +1251,7 @@ namespace
 	static void bench_gt_ifft_full_middle_shape_detailed(benchmark::State& state)
 	{
 		const size_t n = static_cast<size_t>(state.range(0));
-		const size_t m = middle_product_fft_size(n, MiddleProductAlgorithm::OneIfftCyclic);
+			const size_t m = middle_product_fft_size(n);
 		const std::vector<Fr> roots = make_roots(m);
 		const std::vector<Fr> inv_roots = make_inv_roots(roots);
 		const std::vector<GT> time_domain = make_gt_data(m);
@@ -1304,7 +1284,7 @@ namespace
 	static void bench_gt_ifft_trunc_middle_shape_detailed(benchmark::State& state)
 	{
 		const size_t n = static_cast<size_t>(state.range(0));
-		const size_t m = middle_product_fft_size(n, MiddleProductAlgorithm::OneIfftCyclic);
+			const size_t m = middle_product_fft_size(n);
 		const std::vector<Fr> roots = make_roots(m);
 		const std::vector<Fr> inv_roots = make_inv_roots(roots);
 		const std::vector<GT> time_domain = make_gt_data(m);
