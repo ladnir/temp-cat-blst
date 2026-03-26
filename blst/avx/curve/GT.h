@@ -11,6 +11,7 @@
 
 #include <array>
 #include <cstddef>
+#include <utility>
 
 namespace blst::avx {
 
@@ -18,12 +19,22 @@ namespace avx_gt_detail {
 
 using Ring = BoundedRing<>;
 using FP12 = FP12Ring<Ring>;
+using PairingFp2 = FP2Ring<Ring>;
+using PairingFp2Element = PairingFp2::StandardElement;
+using PairingFp2Prepared = FP2N<typename Ring::StandardElement, typename Ring::StandardElement, typename Ring::StandardElement>;
+using PairingFp2LeftPrepared = decltype(std::declval<PairingFp2Element>().prep_left(std::declval<const Ring&>()));
 
 inline const Ring& ring()
 {
     static const Ring value(
         BigInt("4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787",
                10));
+    return value;
+}
+
+inline const PairingFp2& fp2ring()
+{
+    static const PairingFp2 value(ring());
     return value;
 }
 
@@ -60,7 +71,188 @@ inline typename FP12::StandardElement to_standard(const Element& value)
     return fp12ring().fp12_flat_mul(fp12ring().one(ring()), value, ring());
 }
 
+inline PairingFp2Prepared prep_left_helper(const PairingFp2Element& point)
+{
+    return PairingFp2Prepared(point.x(), point.y(), ring().standard_negate(point.y()));
+}
+
+template<class T>
+inline PairingFp2Element normalize_fp2(const T& value)
+{
+    return fp2ring().batch_reduce_expand(value.prep_left(ring()).mul_fp(ring().one()))[0];
+}
+
+struct PreparedLine
+{
+    PairingFp2Element c = {};
+    PairingFp2LeftPrepared x = PairingFp2Element().prep_left(ring());
+    PairingFp2LeftPrepared y = PairingFp2Element().prep_left(ring());
+};
+
+struct alignas(64) PreparedLineTable
+{
+    PreparedLine lines[68];
+};
+
+inline typename FP12::StandardElement make_line_value(
+    const PairingFp2Element& c,
+    const PairingFp2Element& x,
+    const PairingFp2Element& y)
+{
+    return {
+        c.x(),
+        c.y(),
+        x.x(),
+        x.y(),
+        ring().zero(),
+        ring().zero(),
+        ring().zero(),
+        ring().zero(),
+        y.x(),
+        y.y(),
+        ring().zero(),
+        ring().zero(),
+    };
+}
+
+inline G1AffinePoint make_px2(const G1AffinePoint& point)
+{
+    G1AffinePoint out = {};
+    out.X = ring().standard_negate(NormalizePointCoord(point.X + point.X, ring()));
+    out.Y = NormalizePointCoord(point.Y + point.Y, ring());
+    return out;
+}
+
+inline auto scale_line_xy(const PreparedLine& in, const G1AffinePoint& p)
+{
+    return fp2ring().batch_reduce_expand(
+        in.x.mul_fp(p.X),
+        in.y.mul_fp(p.Y));
+}
+
+inline void apply_prepared_line(
+    typename FP12::StandardElement& data,
+    const PreparedLine& line,
+    const G1AffinePoint& p)
+{
+    const auto scaled = scale_line_xy(line, p);
+    fp12ring().flat_mulxy00z0(data, data, line.c, scaled[0], scaled[1], ring());
+}
+
+inline void line_add(PreparedLine& line, G2Point& T, const G2Point& R, const G2AffinePoint& Q)
+{
+    static constexpr auto kThree = std::integral_constant<int, 3>{};
+
+    const PairingFp2Prepared qx = prep_left_helper(Q.X);
+    const PairingFp2Prepared qy = prep_left_helper(Q.Y);
+
+    const auto x2x1 = qx * R.X;
+    const auto x2y1 = qx * R.Y;
+    const auto x2z1 = qx * R.Z;
+    const auto y2x1 = qy * R.X;
+    const auto y2y1 = qy * R.Y;
+    const auto y2z1 = qy * R.Z;
+
+    const auto [x2x1_reduced, x2y1_reduced, x2z1_reduced, y2x1_reduced, y2y1_reduced, y2z1_reduced] =
+        fp2ring().batch_reduce_expand(x2x1, x2y1, x2z1, y2x1, y2y1, y2z1);
+
+    line.c = normalize_fp2(x2y1_reduced - y2x1_reduced);
+    line.x = normalize_fp2(y2z1_reduced - R.Y).prep_left(ring());
+    line.y = normalize_fp2(R.X - x2z1_reduced).prep_left(ring());
+
+    auto x2y1_plus_y2x1 = (x2y1_reduced + y2x1_reduced).prep_left(ring());
+    const auto y2z1_plus_y1 = (y2z1_reduced + R.Y).prep(ring());
+    const auto x2z1_plus_x1 = x2z1_reduced + R.X;
+    const auto three_x2x1 = (x2x1_reduced * kThree).prep(ring());
+    const auto b3z1 = fp2ring().mul_3b(R.Z).prep(ring());
+    auto y2y1_plus_b3z1 = (y2y1_reduced + b3z1).prep_left(ring());
+    const auto y2y1_minus_b3z1 = (y2y1_reduced - b3z1).prep(ring());
+    auto b3_x2z1_plus_x1 = fp2ring().mul_3b(x2z1_plus_x1).prep_left(ring());
+
+    const auto t2_19 = x2y1_plus_y2x1 * y2y1_minus_b3z1;
+    const auto x3_20 = t2_19.mul_sub_accumulate(b3_x2z1_plus_x1, y2z1_plus_y1, ring());
+    const auto y3_21 = b3_x2z1_plus_x1 * three_x2x1;
+    const auto y3_23 = y3_21.mul_accumulate(y2y1_plus_b3z1, y2y1_minus_b3z1);
+    const auto z3_25 = y2y1_plus_b3z1 * y2z1_plus_y1;
+    const auto z3_26 = z3_25.mul_accumulate(x2y1_plus_y2x1, three_x2x1);
+
+    const auto [x3, y3, z3] = fp2ring().batch_reduce_expand(x3_20, y3_23, z3_26);
+    T.X = x3;
+    T.Y = y3;
+    T.Z = z3;
+}
+
+inline void line_dbl(PreparedLine& line, G2Point& T, const G2Point& Q)
+{
+    static constexpr auto kTwo = std::integral_constant<int, 2>{};
+    static constexpr auto kThree = std::integral_constant<int, 3>{};
+    static constexpr auto kEight = std::integral_constant<int, 8>{};
+
+    const auto px = Q.X.prep_left(ring());
+    const auto py = Q.Y.prep_left(ring());
+    const auto pz = Q.Z.prep_left(ring());
+
+    const auto yy = py.square();
+    const auto zz = pz.square();
+    const auto xx = px.square();
+    const auto xy = px * py.to_fp2();
+    const auto yz = py * pz.to_fp2();
+
+    const auto [xx_reduced, yy_reduced, zz_reduced, xy_reduced, yz_reduced] =
+        fp2ring().batch_reduce_expand(xx, yy, zz, xy, yz);
+
+    const auto eight_yy = (yy_reduced * kEight).prep_left(ring());
+    const auto b3_zz = fp2ring().mul_3b(zz_reduced).prep(ring());
+    const auto yy_plus_b3_zz = (yy_reduced + b3_zz).prep(ring());
+    const auto b9_zz = b3_zz * kThree;
+    const auto yy_minus_b9_zz = (yy_reduced - b9_zz).prep_left(ring());
+    const auto two_xy = (xy_reduced * kTwo).prep(ring());
+
+    line.c = normalize_fp2(b3_zz - yy_reduced);
+    line.x = normalize_fp2(xx_reduced * kThree).prep_left(ring());
+    line.y = fp2ring().standard_negate(normalize_fp2(yz_reduced * kTwo)).prep_left(ring());
+
+    const auto y3_14 = yy_minus_b9_zz * yy_plus_b3_zz;
+    const auto x3_18 = yy_minus_b9_zz * two_xy;
+    const auto z3_10 = eight_yy * yz_reduced;
+    const auto y3_15 = y3_14.mul_accumulate(eight_yy, b3_zz);
+
+    const auto [x3, y3, z3] = fp2ring().batch_reduce_expand(x3_18, y3_15, z3_10);
+    T.X = x3;
+    T.Y = y3;
+    T.Z = z3;
+}
+
+inline void pre_add_n_dbl(PreparedLine lines[], G2Point& t, const G2AffinePoint& q, size_t n)
+{
+    line_add(lines[0], t, t, q);
+    ++lines;
+    while (n-- != 0) {
+        line_dbl(lines[0], t, t);
+        ++lines;
+    }
+}
+
+inline void apply_add_n_dbl(
+    typename FP12::StandardElement& data,
+    const PreparedLine lines[],
+    const G1AffinePoint& p,
+    size_t n)
+{
+    apply_prepared_line(data, lines[0], p);
+    ++lines;
+
+    while (n-- != 0) {
+        data = fp12ring().fp12_flat_sqr(data, ring());
+        apply_prepared_line(data, lines[0], p);
+        ++lines;
+    }
+}
+
 }  // namespace avx_gt_detail
+
+using PreparedLine = avx_gt_detail::PreparedLine;
+using PreparedLineTable = avx_gt_detail::PreparedLineTable;
 
 struct GT
 {
@@ -259,12 +451,42 @@ struct GT
         }
     }
 
+    static void precompute_lines(PreparedLine Qlines[68], const G2AffinePoint& Q)
+    {
+        G2Point t = {};
+        t.X = Q.X;
+        t.Y = Q.Y;
+        t.Z = avx_gt_detail::fp2ring().one();
+
+        avx_gt_detail::line_dbl(Qlines[0], t, t);
+        avx_gt_detail::pre_add_n_dbl(&Qlines[1], t, Q, 2);
+        avx_gt_detail::pre_add_n_dbl(&Qlines[4], t, Q, 3);
+        avx_gt_detail::pre_add_n_dbl(&Qlines[8], t, Q, 9);
+        avx_gt_detail::pre_add_n_dbl(&Qlines[18], t, Q, 32);
+        avx_gt_detail::pre_add_n_dbl(&Qlines[51], t, Q, 16);
+    }
+
     static void precompute_lines(blst::scalar::Fp6 Qlines[68], const G2AffinePoint& Q)
     {
         blst::scalar::G2AffinePoint scalar_q = {};
         scalar_q.X = avx_curve_detail::ring_fp2_to_scalar(Q.X);
         scalar_q.Y = avx_curve_detail::ring_fp2_to_scalar(Q.Y);
         blst::scalar::GT::precompute_lines(Qlines, scalar_q);
+    }
+
+    static void miller_loop_lines(
+        GT& ret,
+        const PreparedLine Qlines[68],
+        const G1AffinePoint& P)
+    {
+        const auto first_line = avx_gt_detail::scale_line_xy(Qlines[0], P);
+        ret.data = avx_gt_detail::make_line_value(Qlines[0].c, first_line[0], first_line[1]);
+        avx_gt_detail::apply_add_n_dbl(ret.data, &Qlines[1], P, 2);
+        avx_gt_detail::apply_add_n_dbl(ret.data, &Qlines[4], P, 3);
+        avx_gt_detail::apply_add_n_dbl(ret.data, &Qlines[8], P, 9);
+        avx_gt_detail::apply_add_n_dbl(ret.data, &Qlines[18], P, 32);
+        avx_gt_detail::apply_add_n_dbl(ret.data, &Qlines[51], P, 16);
+        ret.data = avx_gt_detail::fp12ring().fp12_flat_conjugate(ret.data, avx_gt_detail::ring());
     }
 
     static void miller_loop_lines(

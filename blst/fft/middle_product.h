@@ -27,7 +27,7 @@ namespace blst {
         PrecomputedLines,
     };
 
-    struct alignas(64) MiddleProductPreparedLineTable {
+    struct alignas(64) MiddleProductPreparedScalarLineTable {
         Fp6 lines[68];
     };
 
@@ -155,7 +155,7 @@ namespace blst {
             using GtFftElement = scalar::GT;
             using GtCoeffCtx = GroupFftCoeffCtx<GtFftElement>;
             using PreparedInverseRoots = std::vector<Fr>;
-            using PreparedLineTable = MiddleProductPreparedLineTable;
+            using PreparedLineTable = MiddleProductPreparedScalarLineTable;
 
             static G1Point g1_infinity()
             {
@@ -276,7 +276,7 @@ namespace blst {
             using G2CoeffCtx = GroupFftCoeffCtx<G2Point>;
             using GtFftElement = avx::AvxGt52;
             using PreparedInverseRoots = avx::AvxGt52PreparedRoots;
-            using PreparedLineTable = MiddleProductPreparedLineTable;
+            using PreparedLineTable = avx::PreparedLineTable;
 
             static G1Point g1_infinity()
             {
