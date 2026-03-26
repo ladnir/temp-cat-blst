@@ -174,62 +174,64 @@ inline typename FP2Ring<Ring>::StandardElement make_avx_fp2(const Ring& ring, co
     return typename FP2Ring<Ring>::StandardElement(ring.from_bigint(x), ring.from_bigint(y));
 }
 
-inline blst::G1AffinePoint make_scalar_g1_generator_affine()
+inline blst::scalar::G1AffinePoint make_scalar_g1_generator_affine()
 {
-    blst::G1AffinePoint affine = {};
+    blst::scalar::G1AffinePoint affine = {};
     affine.X = bigint_to_scalar_fp(BigInt(kG1GeneratorX, 10));
     affine.Y = bigint_to_scalar_fp(BigInt(kG1GeneratorY, 10));
     return affine;
 }
 
-inline blst::G2AffinePoint make_scalar_g2_generator_affine()
+inline blst::scalar::G2AffinePoint make_scalar_g2_generator_affine()
 {
-    blst::G2AffinePoint affine = {};
+    blst::scalar::G2AffinePoint affine = {};
     affine.X = bigint_pair_to_scalar_fp2(BigInt(kG2GeneratorXC0, 10), BigInt(kG2GeneratorXC1, 10));
     affine.Y = bigint_pair_to_scalar_fp2(BigInt(kG2GeneratorYC0, 10), BigInt(kG2GeneratorYC1, 10));
     return affine;
 }
 
-inline blst::G1AffinePoint make_scalar_g1_doubled_affine()
+inline blst::scalar::G1AffinePoint make_scalar_g1_doubled_affine()
 {
-    const blst::G1Point generator = blst::G1Point::generator();
-    blst::G1Point doubled = {};
-    blst::G1Point::doubling(doubled, generator);
+    const blst::scalar::G1Point generator = blst::scalar::G1Point::generator();
+    blst::scalar::G1Point doubled = {};
+    blst::scalar::G1Point::doubling(doubled, generator);
 
-    blst::G1AffinePoint affine = {};
-    blst::G1Point::to_affine(affine, doubled);
+    blst::scalar::G1AffinePoint affine = {};
+    blst::scalar::G1Point::to_affine(affine, doubled);
     return affine;
 }
 
-inline blst::G1Point make_scalar_g1_projective_from_seed(uint64_t seed)
+inline blst::scalar::G1Point make_scalar_g1_projective_from_seed(uint64_t seed)
 {
     const std::array<uint8_t, 32> scalar_bytes = seeded_scalar_bytes_le(seed);
-    blst::G1Point point = {};
-    blst::G1Point::mult(point, blst::G1Point::generator(), scalar_bytes.data(), 256);
+    blst::scalar::G1Point point = {};
+    blst::scalar::G1Point::mult(point, blst::scalar::G1Point::generator(), scalar_bytes.data(), 256);
     return point;
 }
 
-inline blst::G2Point make_scalar_g2_projective_from_seed(uint64_t seed)
+inline blst::scalar::G2Point make_scalar_g2_projective_from_seed(uint64_t seed)
 {
     const std::array<uint8_t, 32> scalar_bytes = seeded_scalar_bytes_le(seed);
-    blst::G2Point point = {};
-    blst::G2Point::mult(point, blst::G2Point::generator(), scalar_bytes.data(), 256);
+    blst::scalar::G2Point point = {};
+    blst::scalar::G2Point::mult(point, blst::scalar::G2Point::generator(), scalar_bytes.data(), 256);
     return point;
 }
 
-inline blst::G2AffinePoint make_scalar_g2_doubled_affine()
+inline blst::scalar::G2AffinePoint make_scalar_g2_doubled_affine()
 {
-    const blst::G2Point generator = blst::G2Point::generator();
-    blst::G2Point doubled = {};
-    blst::G2Point::doubling(doubled, generator);
+    const blst::scalar::G2Point generator = blst::scalar::G2Point::generator();
+    blst::scalar::G2Point doubled = {};
+    blst::scalar::G2Point::doubling(doubled, generator);
 
-    blst::G2AffinePoint affine = {};
-    blst::G2Point::to_affine(affine, doubled);
+    blst::scalar::G2AffinePoint affine = {};
+    blst::scalar::G2Point::to_affine(affine, doubled);
     return affine;
 }
 
 template<class Ring>
-inline AffinePoint<typename Ring::StandardElement> make_avx_g1_affine(const Ring& ring, const blst::G1AffinePoint& point)
+inline AffinePoint<typename Ring::StandardElement> make_avx_g1_affine(
+    const Ring& ring,
+    const blst::scalar::G1AffinePoint& point)
 {
     return {
         ring.from_bigint(scalar_fp_to_bigint(point.X)),
@@ -238,7 +240,9 @@ inline AffinePoint<typename Ring::StandardElement> make_avx_g1_affine(const Ring
 }
 
 template<class Ring>
-inline AffinePoint<typename FP2Ring<Ring>::StandardElement> make_avx_g2_affine(const Ring& ring, const blst::G2AffinePoint& point)
+inline AffinePoint<typename FP2Ring<Ring>::StandardElement> make_avx_g2_affine(
+    const Ring& ring,
+    const blst::scalar::G2AffinePoint& point)
 {
     const auto x = scalar_fp2_to_bigints(point.X);
     const auto y = scalar_fp2_to_bigints(point.Y);
@@ -452,21 +456,23 @@ inline AvxCurve50AffineFp2 make_random_avx_curve50_g2_affine(const AvxCurve50Rin
     };
 }
 
-inline blst::G1AffinePoint make_scalar_px2(const blst::G1AffinePoint& point)
+inline blst::scalar::G1AffinePoint make_scalar_px2(const blst::scalar::G1AffinePoint& point)
 {
-    blst::G1AffinePoint px2 = {};
+    blst::scalar::G1AffinePoint px2 = {};
     blst::Fp::add(px2.X, point.X, point.X);
     blst::Fp::neg(px2.X, px2.X);
     blst::Fp::add(px2.Y, point.Y, point.Y);
     return px2;
 }
 
-inline blst::Fp12 make_scalar_miller_first_step(const blst::G1AffinePoint& p, const blst::G2AffinePoint& q)
+inline blst::Fp12 make_scalar_miller_first_step(
+    const blst::scalar::G1AffinePoint& p,
+    const blst::scalar::G2AffinePoint& q)
 {
     blst::Fp6 qlines[68] = {};
-    blst::GT::precompute_lines(qlines, q);
+    blst::scalar::GT::precompute_lines(qlines, q);
 
-    const blst::G1AffinePoint px2 = make_scalar_px2(p);
+    const blst::scalar::G1AffinePoint px2 = make_scalar_px2(p);
     blst::Fp6 line = {};
     line[0] = qlines[0][0];
     line[1] = qlines[0][1];
@@ -484,17 +490,21 @@ inline blst::Fp12 make_scalar_miller_first_step(const blst::G1AffinePoint& p, co
     return out;
 }
 
-inline blst::GT make_scalar_miller_loop(const blst::G1AffinePoint& p, const blst::G2AffinePoint& q)
+inline blst::scalar::GT make_scalar_miller_loop(
+    const blst::scalar::G1AffinePoint& p,
+    const blst::scalar::G2AffinePoint& q)
 {
-    blst::GT result = {};
-    blst::GT::miller_loop(result, &q, &p);
+    blst::scalar::GT result = {};
+    blst::scalar::GT::miller_loop(result, &q, &p);
     return result;
 }
 
-inline blst::GT make_scalar_final_pairing(const blst::G1AffinePoint& p, const blst::G2AffinePoint& q)
+inline blst::scalar::GT make_scalar_final_pairing(
+    const blst::scalar::G1AffinePoint& p,
+    const blst::scalar::G2AffinePoint& q)
 {
-    blst::GT result = make_scalar_miller_loop(p, q);
-    blst::GT::final_mult(result, result);
+    blst::scalar::GT result = make_scalar_miller_loop(p, q);
+    blst::scalar::GT::final_mult(result, result);
     return result;
 }
 

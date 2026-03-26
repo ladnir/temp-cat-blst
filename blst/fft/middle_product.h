@@ -3,101 +3,34 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <span>
+#include <type_traits>
 #include <vector>
 
+#include "blst/avx/curve/GT.h"
+#include "blst/avx/curve/map_to_G.h"
+#include "blst/avx/fft/gt_context.h"
 #include "blst/common/defines.h"
 #include "blst/common/timer.h"
 #include "blst/curve/GT.h"
 #include "blst/curve/point.h"
-#include "blst/fft/context.h"
 #include "blst/fft/ctFft.h"
 #include "blst/fft/primitveRoot.h"
 #include "blst/fields/Fr.h"
+#include "blst/scalar/curve/GT.h"
+#include "blst/scalar/curve/point.h"
 
 namespace blst {
-
-    // Middle product for G1 x G2 -> GT:
-    // - input A has n coefficients in G1
-    // - input B has 2n coefficients in G2
-    // - output is the middle n coefficients of the full convolution
-    //
-    // This file intentionally exposes only two production paths:
-    // 1. middle_product_basic: a simple reference implementation that recomputes
-    //    everything each call.
-    // 2. middle_product: the reduced-iFFT implementation used for the faster path.
-    //
-    // The reduced-iFFT path also supports a precomputed-B form for repeated calls
-    // with the same G2 input.
 
     enum class MiddleProductPairingMode {
         Direct,
         PrecomputedLines,
     };
 
-    // Stores precomputed Miller-loop line data for one G2 point in the reduced
-    // middle-product path.
     struct alignas(64) MiddleProductPreparedLineTable {
         Fp6 lines[68];
     };
 
-    // Holds the fixed-B precomputation for the reduced middle-product algorithm.
-    //
-    // Invariants:
-    // - n > 0
-    // - fft_size is a power of two and fft_size >= 2n
-    // - b_fft.size() == fft_size
-    // - roots.size() == fft_size
-    // - inv_roots.size() == fft_size
-    // - when pairing_mode == PrecomputedLines, precomputed_lines.size() is
-    //   either 0 or fft_size
-    struct MiddleProductPrecomputedB {
-        std::size_t n = 0;
-        std::size_t fft_size = 0;
-        MiddleProductPairingMode pairing_mode = MiddleProductPairingMode::Direct;
-        std::vector<G2Point> b_fft;
-        std::vector<MiddleProductPreparedLineTable> precomputed_lines;
-        std::vector<uint8_t> b_is_zero;
-        std::vector<Fr> roots;
-        std::vector<Fr> inv_roots;
-    };
-
-    // Scratch buffers reused across calls to the reduced middle-product path.
-    //
-    // Invariants after ensure_size(m):
-    // - a_fft.size() == m
-    // - c_fft.size() == m
-    struct MiddleProductWorkspace {
-        std::vector<G1Point> a_fft;
-        std::vector<GT> c_fft;
-
-        // Resize scratch storage to exactly m coefficients.
-        //
-        // @param m FFT domain size. Must be the fft_size used by the associated
-        //   middle-product precomputation.
-        void ensure_size(std::size_t m)
-        {
-            if (a_fft.size() != m) {
-                a_fft.assign(m, G1Point::infinity());
-            }
-            if (c_fft.size() != m) {
-                c_fft.assign(m, GT::identity());
-            }
-        }
-    };
-
-    // Return the FFT size used by the simple reference implementation.
-    //
-    // The basic path computes the full convolution and extracts the middle n
-    // coefficients, so it needs an FFT size large enough for 3n - 1 terms.
-    //
-    // @param n Number of G1 coefficients in A. Must satisfy n > 0.
-    // @return Smallest power of two >= 3n - 1.
-    //
-    // Invariants:
-    // - return value is a power of two
-    // - return value >= 3n - 1
     inline std::size_t middle_product_basic_fft_size(std::size_t n)
     {
         BLST_ASSERT(n > 0);
@@ -110,17 +43,6 @@ namespace blst {
         return fft_size;
     }
 
-    // Return the FFT size used by the reduced middle-product algorithm.
-    //
-    // The reduced path works in a 2n-sized cyclic domain and only computes the
-    // output window that is actually needed.
-    //
-    // @param n Number of G1 coefficients in A. Must satisfy n > 0.
-    // @return Smallest power of two >= 2n.
-    //
-    // Invariants:
-    // - return value is a power of two
-    // - return value >= 2n
     inline std::size_t middle_product_fft_size(std::size_t n)
     {
         BLST_ASSERT(n > 0);
@@ -133,17 +55,6 @@ namespace blst {
         return fft_size;
     }
 
-    // Round an active prefix length up to the truncated-FFT schedule used by the
-    // implementation.
-    //
-    // @param x Requested active prefix length.
-    // @param fft_size FFT domain size. Must be a non-zero power of two.
-    // @return Rounded prefix length, clamped to [1, fft_size].
-    //
-    // Invariants:
-    // - return value >= 1
-    // - return value <= fft_size
-    // - return value is a multiple of 16 unless it is exactly fft_size
     inline std::size_t fft_admissible_size(std::size_t x, std::size_t fft_size)
     {
         BLST_ASSERT(fft_size > 0);
@@ -159,8 +70,6 @@ namespace blst {
             x = fft_size;
         }
 
-        // Match NTL's near-full truncation heuristic: for small sizes round up
-        // earlier (n - n/8), for larger sizes later (n - n/16).
         const std::size_t near_full =
             (fft_size >= 1024) ? (fft_size - (fft_size >> 4)) : (fft_size - (fft_size >> 3));
         if (x > near_full) {
@@ -170,11 +79,6 @@ namespace blst {
         return x;
     }
 
-    // Construct the forward roots of unity for an n-point FFT domain.
-    //
-    // @param n FFT domain size. Must be a supported power of two in Fr.
-    // @return Vector of size n containing successive powers of a primitive
-    //   n-th root of unity, starting at 1.
     inline std::vector<Fr> make_fft_roots(std::size_t n)
     {
         Fr prim = primRootOfUnity<Fr>(n);
@@ -187,11 +91,6 @@ namespace blst {
         return roots;
     }
 
-    // Construct inverse roots corresponding to a forward root table.
-    //
-    // @param roots Forward roots table.
-    // @return Vector of size roots.size() where each entry is the multiplicative
-    //   inverse of the corresponding forward root.
     inline std::vector<Fr> make_ifft_roots(std::span<const Fr> roots)
     {
         std::vector<Fr> inv_roots(roots.size());
@@ -201,111 +100,618 @@ namespace blst {
         return inv_roots;
     }
 
-    // Precompute the fixed 2n-sized G2 input for the reduced-iFFT middle-product
-    // path. This is intended for repeated calls with the same B input.
-    //
-    // @param b Fixed G2 coefficients. Must contain exactly 2n points.
-    // @param n Number of output coefficients, and the number of G1 coefficients
-    //   expected by the corresponding middle_product(...) calls.
-    // @param timings Optional timing sink. May be null.
-    // @param pairing_mode Selects direct pairings or precomputed Miller lines
-    //   during the pointwise multiplication step.
-    // @return Precomputed state for repeated reduced middle-product evaluations.
-    //
-    // Invariants:
-    // - n > 0
-    // - b.size() == 2 * n
-    // - returned state satisfies the invariants documented on
-    //   MiddleProductPrecomputedB
+    namespace detail {
+
+        template<class Group>
+        struct GroupFftCoeffCtx {
+            static auto plus(const Group& a, const Group& b)
+            {
+                Group r;
+                Group::dadd(r, a, b);
+                return r;
+            }
+
+            static auto minus(const Group& a, const Group& b)
+            {
+                Group neg_b;
+                Group::neg(neg_b, b);
+                Group r;
+                Group::dadd(r, a, neg_b);
+                return r;
+            }
+
+            static auto mult(const Group& a, const Fr& b)
+            {
+                Group r;
+                Fr b_non_mont = {};
+                Fr::from_mont(b_non_mont, b);
+                Group::mult(r, a, reinterpret_cast<const byte*>(&b_non_mont), 256);
+                return r;
+            }
+
+            static auto inverse(const Fr& a)
+            {
+                Fr r = {};
+                Fr::reciprocal(r, a);
+                return r;
+            }
+
+            template<typename F>
+            static auto from_u64(uint64_t a)
+            {
+                Fr r = {};
+                Fr::from_uint64(r, a);
+                return r;
+            }
+        };
+
+        struct ScalarMiddleProductContext {
+            using G1Point = scalar::G1Point;
+            using G2Point = scalar::G2Point;
+            using G1AffinePoint = scalar::G1AffinePoint;
+            using G2AffinePoint = scalar::G2AffinePoint;
+            using G1CoeffCtx = GroupFftCoeffCtx<G1Point>;
+            using G2CoeffCtx = GroupFftCoeffCtx<G2Point>;
+            using GtFftElement = scalar::GT;
+            using GtCoeffCtx = GroupFftCoeffCtx<GtFftElement>;
+            using PreparedInverseRoots = std::vector<Fr>;
+            using PreparedLineTable = MiddleProductPreparedLineTable;
+
+            static G1Point g1_infinity()
+            {
+                return G1Point::infinity();
+            }
+
+            static G2Point g2_infinity()
+            {
+                return G2Point::infinity();
+            }
+
+            static G1Point to_backend_g1(const blst::G1Point& point)
+            {
+#if BLST_DEFAULT_AVX
+                return avx::avx_map_to_G_detail::to_scalar(point);
+#else
+                return point;
+#endif
+            }
+
+            static G2Point to_backend_g2(const blst::G2Point& point)
+            {
+#if BLST_DEFAULT_AVX
+                return avx::avx_map_to_G_detail::to_scalar(point);
+#else
+                return point;
+#endif
+            }
+
+            static GT to_public_gt(const GtFftElement& value)
+            {
+#if BLST_DEFAULT_AVX
+                return avx::AvxGt52::to_default(avx::AvxGt52::from_scalar(value));
+#else
+                return value;
+#endif
+            }
+
+            static PreparedInverseRoots make_inverse_roots(std::span<const Fr> roots)
+            {
+                return make_ifft_roots(roots);
+            }
+
+            static std::size_t inverse_roots_size(const PreparedInverseRoots& roots)
+            {
+                return roots.size();
+            }
+
+            static void prepare_lines(PreparedLineTable& out, const G2Point& point)
+            {
+                G2AffinePoint point_affine = {};
+                G2Point::to_affine(point_affine, point);
+                scalar::GT::precompute_lines(out.lines, point_affine);
+            }
+
+            static GtFftElement pointwise_pair_direct(const G1Point& left, const G2Point& right)
+            {
+                G1AffinePoint p_aff = {};
+                G1Point::to_affine(p_aff, left);
+                G2AffinePoint q_aff = {};
+                G2Point::to_affine(q_aff, right);
+
+                GtFftElement pair = GtFftElement::identity();
+                GtFftElement::miller_loop(pair, &q_aff, &p_aff);
+                GtFftElement::final_mult(pair, pair);
+                return pair;
+            }
+
+            static GtFftElement pointwise_pair_lines(
+                const PreparedLineTable& lines,
+                const G1Point& point)
+            {
+                G1AffinePoint point_affine = {};
+                G1Point::to_affine(point_affine, point);
+
+                GtFftElement pair = GtFftElement::identity();
+                GtFftElement::miller_loop_lines(pair, lines.lines, point_affine);
+                GtFftElement::final_mult(pair, pair);
+                return pair;
+            }
+
+            static GtFftElement identity()
+            {
+                return GtFftElement::identity();
+            }
+
+            static void inverse_fft_middle_window(
+                std::span<GtFftElement> values,
+                const PreparedInverseRoots& inv_roots,
+                std::size_t start,
+                std::size_t length)
+            {
+                fft_inverse_truncated_range<GtFftElement, Fr, GtCoeffCtx>(
+                    values,
+                    std::span<const Fr>(inv_roots),
+                    start,
+                    length);
+            }
+
+            static void extract_middle_window(
+                std::span<GT> out,
+                std::span<const GtFftElement> values,
+                std::size_t start,
+                std::size_t length)
+            {
+                for (std::size_t i = 0; i < length; ++i) {
+                    out[i] = to_public_gt(values[start + i]);
+                }
+            }
+        };
+
+        struct AvxMiddleProductContext {
+            using G1Point = avx::G1Point;
+            using G2Point = avx::G2Point;
+            using G1AffinePoint = avx::G1AffinePoint;
+            using G2AffinePoint = avx::G2AffinePoint;
+            using G1CoeffCtx = GroupFftCoeffCtx<G1Point>;
+            using G2CoeffCtx = GroupFftCoeffCtx<G2Point>;
+            using GtFftElement = avx::AvxGt52;
+            using PreparedInverseRoots = avx::AvxGt52PreparedRoots;
+            using PreparedLineTable = MiddleProductPreparedLineTable;
+
+            static G1Point g1_infinity()
+            {
+                return G1Point::infinity();
+            }
+
+            static G2Point g2_infinity()
+            {
+                return G2Point::infinity();
+            }
+
+            static G1Point to_backend_g1(const blst::G1Point& point)
+            {
+#if BLST_DEFAULT_AVX
+                return point;
+#else
+                return avx::avx_map_to_G_detail::from_scalar(point);
+#endif
+            }
+
+            static G2Point to_backend_g2(const blst::G2Point& point)
+            {
+#if BLST_DEFAULT_AVX
+                return point;
+#else
+                return avx::avx_map_to_G_detail::from_scalar(point);
+#endif
+            }
+
+            static GT to_public_gt(const GtFftElement& value)
+            {
+                return avx::AvxGt52::to_default(value);
+            }
+
+            static PreparedInverseRoots make_inverse_roots(std::span<const Fr> roots)
+            {
+                PreparedInverseRoots prepared(roots);
+                prepared.set_scale_from_size(roots.size());
+                return prepared;
+            }
+
+            static std::size_t inverse_roots_size(const PreparedInverseRoots& roots)
+            {
+                return roots.size();
+            }
+
+            static void prepare_lines(PreparedLineTable& out, const G2Point& point)
+            {
+                G2AffinePoint point_affine = {};
+                G2Point::to_affine(point_affine, point);
+                avx::GT::precompute_lines(out.lines, point_affine);
+            }
+
+            static GtFftElement pointwise_pair_direct(const G1Point& left, const G2Point& right)
+            {
+                G1AffinePoint p_aff = {};
+                G1Point::to_affine(p_aff, left);
+                G2AffinePoint q_aff = {};
+                G2Point::to_affine(q_aff, right);
+
+                avx::GT pair = avx::GT::identity();
+                avx::GT::miller_loop(pair, &q_aff, &p_aff);
+                avx::GT::final_mult(pair, pair);
+                return GtFftElement(pair.data);
+            }
+
+            static GtFftElement pointwise_pair_lines(
+                const PreparedLineTable& lines,
+                const G1Point& point)
+            {
+                G1AffinePoint point_affine = {};
+                G1Point::to_affine(point_affine, point);
+
+                avx::GT pair = avx::GT::identity();
+                avx::GT::miller_loop_lines(pair, lines.lines, point_affine);
+                avx::GT::final_mult(pair, pair);
+                return GtFftElement(pair.data);
+            }
+
+            static GtFftElement identity()
+            {
+                return GtFftElement::identity();
+            }
+
+            static void inverse_fft_middle_window(
+                std::span<GtFftElement> values,
+                const PreparedInverseRoots& inv_roots,
+                std::size_t start,
+                std::size_t length)
+            {
+                avx::AvxGt52CoeffCtx::ScopedRoots scoped_roots(inv_roots);
+                fft_inverse_truncated_range<GtFftElement, Fr, avx::AvxGt52CoeffCtx>(
+                    values,
+                    inv_roots.scalar_span(),
+                    start,
+                    length);
+            }
+
+            static void extract_middle_window(
+                std::span<GT> out,
+                std::span<const GtFftElement> values,
+                std::size_t start,
+                std::size_t length)
+            {
+                for (std::size_t i = 0; i < length; ++i) {
+                    out[i] = to_public_gt(values[start + i]);
+                }
+            }
+        };
+
+#if BLST_DEFAULT_AVX
+        using DefaultMiddleProductContext = AvxMiddleProductContext;
+#else
+        using DefaultMiddleProductContext = ScalarMiddleProductContext;
+#endif
+
+        template<class Context>
+        struct MiddleProductPrecomputedBImpl {
+            std::size_t n = 0;
+            std::size_t fft_size = 0;
+            MiddleProductPairingMode pairing_mode = MiddleProductPairingMode::Direct;
+            std::vector<typename Context::G2Point> b_fft;
+            std::vector<typename Context::PreparedLineTable> precomputed_lines;
+            std::vector<uint8_t> b_is_zero;
+            std::vector<Fr> roots;
+            typename Context::PreparedInverseRoots inv_roots;
+        };
+
+        template<class Context>
+        struct MiddleProductWorkspaceImpl {
+            std::vector<typename Context::G1Point> a_fft;
+            std::vector<typename Context::GtFftElement> c_fft;
+
+            void ensure_size(std::size_t m)
+            {
+                if (a_fft.size() != m) {
+                    a_fft.assign(m, Context::g1_infinity());
+                }
+                if (c_fft.size() != m) {
+                    c_fft.assign(m, Context::identity());
+                }
+            }
+        };
+
+        template<class Context>
+        inline std::vector<typename Context::G1Point> convert_g1_inputs(
+            std::span<const blst::G1Point> input)
+        {
+            std::vector<typename Context::G1Point> out;
+            out.reserve(input.size());
+            for (const blst::G1Point& point : input) {
+                out.push_back(Context::to_backend_g1(point));
+            }
+            return out;
+        }
+
+        template<class Context>
+        inline std::vector<typename Context::G2Point> convert_g2_inputs(
+            std::span<const blst::G2Point> input)
+        {
+            std::vector<typename Context::G2Point> out;
+            out.reserve(input.size());
+            for (const blst::G2Point& point : input) {
+                out.push_back(Context::to_backend_g2(point));
+            }
+            return out;
+        }
+
+        template<class Context>
+        inline MiddleProductPrecomputedBImpl<Context> precompute_middle_product_b_impl(
+            std::span<const typename Context::G2Point> b,
+            std::size_t n,
+            TimingStats* timings,
+            MiddleProductPairingMode pairing_mode)
+        {
+            ScopedTimer total_timer(timings, "middle_product_precompute.total_ns");
+            BLST_ASSERT(n > 0);
+            BLST_ASSERT(b.size() == 2 * n);
+
+            MiddleProductPrecomputedBImpl<Context> precomputed;
+            precomputed.n = n;
+            precomputed.fft_size = middle_product_fft_size(n);
+            precomputed.pairing_mode = pairing_mode;
+            precomputed.b_fft.assign(precomputed.fft_size, Context::g2_infinity());
+
+            {
+                ScopedTimer timer(timings, "middle_product_precompute.roots_ns");
+                precomputed.roots = make_fft_roots(precomputed.fft_size);
+            }
+            precomputed.inv_roots = Context::make_inverse_roots(precomputed.roots);
+
+            std::vector<typename Context::G2Point> b0_fft(precomputed.fft_size, Context::g2_infinity());
+            std::vector<typename Context::G2Point> b1_fft(precomputed.fft_size, Context::g2_infinity());
+            for (std::size_t i = 0; i < n; ++i) {
+                b0_fft[i] = b[i];
+                b1_fft[i] = b[n + i];
+            }
+
+            const std::size_t xn_b = fft_admissible_size(n, precomputed.fft_size);
+            {
+                ScopedTimer timer(timings, "middle_product_precompute.fft_b0_ns");
+                fft_forward_truncated_prefix<typename Context::G2Point, Fr, typename Context::G2CoeffCtx>(
+                    b0_fft,
+                    std::span<const Fr>(precomputed.roots),
+                    xn_b,
+                    timings,
+                    "middle_product_precompute.fft_b0");
+            }
+            {
+                ScopedTimer timer(timings, "middle_product_precompute.fft_b1_ns");
+                fft_forward_truncated_prefix<typename Context::G2Point, Fr, typename Context::G2CoeffCtx>(
+                    b1_fft,
+                    std::span<const Fr>(precomputed.roots),
+                    xn_b,
+                    timings,
+                    "middle_product_precompute.fft_b1");
+            }
+            {
+                ScopedTimer timer(timings, "middle_product_precompute.fold_ns");
+                for (std::size_t j = 0; j < precomputed.fft_size; ++j) {
+                    const std::size_t idx =
+                        (j * (n % precomputed.fft_size)) % precomputed.fft_size;
+                    const Fr& zeta = precomputed.roots[idx];
+                    const auto zeta_b1 = Context::G2CoeffCtx::mult(b1_fft[j], zeta);
+                    precomputed.b_fft[j] = Context::G2CoeffCtx::plus(b0_fft[j], zeta_b1);
+                }
+            }
+
+            if (pairing_mode == MiddleProductPairingMode::PrecomputedLines) {
+                ScopedTimer timer(timings, "middle_product_precompute.lines_ns");
+                precomputed.precomputed_lines.resize(precomputed.fft_size);
+                precomputed.b_is_zero.resize(precomputed.fft_size);
+                for (std::size_t j = 0; j < precomputed.fft_size; ++j) {
+                    const bool is_zero = (Context::G2Point::is_inf(precomputed.b_fft[j]) != 0);
+                    precomputed.b_is_zero[j] = static_cast<uint8_t>(is_zero ? 1 : 0);
+                    if (is_zero) {
+                        continue;
+                    }
+                    Context::prepare_lines(precomputed.precomputed_lines[j], precomputed.b_fft[j]);
+                }
+            }
+
+            return precomputed;
+        }
+
+        template<class Context>
+        inline void middle_product_impl(
+            std::span<const typename Context::G1Point> a,
+            const MiddleProductPrecomputedBImpl<Context>& precomputed_b,
+            std::span<GT> out,
+            MiddleProductWorkspaceImpl<Context>& workspace,
+            TimingStats* timings)
+        {
+            ScopedTimer total_timer(timings, "middle_product_pre.total_ns");
+            const std::size_t n = a.size();
+            BLST_ASSERT(n > 0);
+            BLST_ASSERT(precomputed_b.n == n);
+            BLST_ASSERT(out.size() >= n);
+            BLST_ASSERT(precomputed_b.b_fft.size() == precomputed_b.fft_size);
+            BLST_ASSERT(precomputed_b.roots.size() == precomputed_b.fft_size);
+            BLST_ASSERT(Context::inverse_roots_size(precomputed_b.inv_roots) == precomputed_b.fft_size);
+
+            workspace.ensure_size(precomputed_b.fft_size);
+            std::span<typename Context::G1Point> a_fft(workspace.a_fft);
+            std::span<typename Context::GtFftElement> c_fft(workspace.c_fft);
+
+            {
+                ScopedTimer timer(timings, "middle_product_pre.fill_a_fft_ns");
+                std::fill(a_fft.begin(), a_fft.end(), Context::g1_infinity());
+            }
+            {
+                ScopedTimer timer(timings, "middle_product_pre.copy_a_ns");
+                std::copy(a.begin(), a.end(), a_fft.begin());
+            }
+            {
+                ScopedTimer timer(timings, "middle_product_pre.fill_c_fft_ns");
+            }
+
+            const std::size_t xn_a = fft_admissible_size(n, precomputed_b.fft_size);
+            {
+                ScopedTimer timer(timings, "middle_product_pre.fft_a_ns");
+                fft_forward_truncated_prefix<typename Context::G1Point, Fr, typename Context::G1CoeffCtx>(
+                    a_fft,
+                    std::span<const Fr>(precomputed_b.roots),
+                    xn_a,
+                    timings,
+                    "middle_product_pre.fft_a");
+            }
+            {
+                ScopedTimer timer(timings, "middle_product_pre.pointwise_ns");
+                if (precomputed_b.pairing_mode == MiddleProductPairingMode::PrecomputedLines &&
+                    precomputed_b.precomputed_lines.size() == precomputed_b.fft_size) {
+                    const bool has_zero_mask =
+                        (precomputed_b.b_is_zero.size() == precomputed_b.fft_size);
+                    for (std::size_t i = 0; i < precomputed_b.fft_size; ++i) {
+                        if (Context::G1Point::is_inf(a_fft[i]) != 0 ||
+                            (has_zero_mask && precomputed_b.b_is_zero[i] != 0)) {
+                            c_fft[i] = Context::identity();
+                            continue;
+                        }
+                        c_fft[i] = Context::pointwise_pair_lines(
+                            precomputed_b.precomputed_lines[i],
+                            a_fft[i]);
+                    }
+                }
+                else {
+                    for (std::size_t i = 0; i < precomputed_b.fft_size; ++i) {
+                        c_fft[i] = Context::pointwise_pair_direct(a_fft[i], precomputed_b.b_fft[i]);
+                    }
+                }
+            }
+            {
+                ScopedTimer timer(timings, "middle_product_pre.ifft_ns");
+                Context::inverse_fft_middle_window(c_fft, precomputed_b.inv_roots, n, n);
+            }
+            {
+                ScopedTimer timer(timings, "middle_product_pre.extract_ns");
+                Context::extract_middle_window(out, c_fft, n, n);
+            }
+        }
+
+        template<class Context>
+        inline MiddleProductPrecomputedBImpl<Context> precompute_middle_product_b_public(
+            std::span<const blst::G2Point> b,
+            std::size_t n,
+            TimingStats* timings,
+            MiddleProductPairingMode pairing_mode)
+        {
+            const std::vector<typename Context::G2Point> converted = convert_g2_inputs<Context>(b);
+            return precompute_middle_product_b_impl<Context>(
+                std::span<const typename Context::G2Point>(converted),
+                n,
+                timings,
+                pairing_mode);
+        }
+
+        template<class Context>
+        inline void middle_product_public(
+            std::span<const blst::G1Point> a,
+            const MiddleProductPrecomputedBImpl<Context>& precomputed_b,
+            std::span<GT> out,
+            MiddleProductWorkspaceImpl<Context>& workspace,
+            TimingStats* timings)
+        {
+            const std::vector<typename Context::G1Point> converted_a = convert_g1_inputs<Context>(a);
+            middle_product_impl<Context>(
+                std::span<const typename Context::G1Point>(converted_a),
+                precomputed_b,
+                out,
+                workspace,
+                timings);
+        }
+
+        template<class Context>
+        inline void middle_product_public(
+            std::span<const blst::G1Point> a,
+            std::span<const blst::G2Point> b,
+            std::span<GT> out,
+            TimingStats* timings)
+        {
+            ScopedTimer total_timer(timings, "middle_product.total_ns");
+            const std::size_t n = a.size();
+            BLST_ASSERT(n > 0);
+            BLST_ASSERT(b.size() == 2 * n);
+            BLST_ASSERT(out.size() >= n);
+
+            const auto precomputed =
+                precompute_middle_product_b_public<Context>(b, n, timings, MiddleProductPairingMode::Direct);
+            MiddleProductWorkspaceImpl<Context> workspace;
+            middle_product_public<Context>(a, precomputed, out, workspace, timings);
+        }
+
+    } // namespace detail
+
+    using MiddleProductScalarContext = detail::ScalarMiddleProductContext;
+    using MiddleProductAvxContext = detail::AvxMiddleProductContext;
+    using MiddleProductDefaultContext = detail::DefaultMiddleProductContext;
+
+    using MiddleProductPrecomputedBScalar =
+        detail::MiddleProductPrecomputedBImpl<MiddleProductScalarContext>;
+    using MiddleProductPrecomputedBAvx =
+        detail::MiddleProductPrecomputedBImpl<MiddleProductAvxContext>;
+    using MiddleProductPrecomputedB =
+        detail::MiddleProductPrecomputedBImpl<MiddleProductDefaultContext>;
+
+    using MiddleProductWorkspaceScalar =
+        detail::MiddleProductWorkspaceImpl<MiddleProductScalarContext>;
+    using MiddleProductWorkspaceAvx =
+        detail::MiddleProductWorkspaceImpl<MiddleProductAvxContext>;
+    using MiddleProductWorkspace =
+        detail::MiddleProductWorkspaceImpl<MiddleProductDefaultContext>;
+
+    inline MiddleProductPrecomputedBScalar precompute_middle_product_b_scalar(
+        std::span<const G2Point> b,
+        std::size_t n,
+        TimingStats* timings = nullptr,
+        MiddleProductPairingMode pairing_mode = MiddleProductPairingMode::Direct)
+    {
+        BLST_ASSERT(n > 0);
+        BLST_ASSERT(b.size() == 2 * n);
+        return detail::precompute_middle_product_b_public<MiddleProductScalarContext>(
+            b,
+            n,
+            timings,
+            pairing_mode);
+    }
+
+    inline MiddleProductPrecomputedBAvx precompute_middle_product_b_avx(
+        std::span<const G2Point> b,
+        std::size_t n,
+        TimingStats* timings = nullptr,
+        MiddleProductPairingMode pairing_mode = MiddleProductPairingMode::Direct)
+    {
+        BLST_ASSERT(n > 0);
+        BLST_ASSERT(b.size() == 2 * n);
+        return detail::precompute_middle_product_b_public<MiddleProductAvxContext>(
+            b,
+            n,
+            timings,
+            pairing_mode);
+    }
+
     inline MiddleProductPrecomputedB precompute_middle_product_b(
         std::span<const G2Point> b,
         std::size_t n,
         TimingStats* timings = nullptr,
         MiddleProductPairingMode pairing_mode = MiddleProductPairingMode::Direct)
     {
-        ScopedTimer total_timer(timings, "middle_product_precompute.total_ns");
-        BLST_ASSERT(n > 0);
-        BLST_ASSERT(b.size() == 2 * n);
-
-        MiddleProductPrecomputedB precomputed;
-        precomputed.n = n;
-        precomputed.fft_size = middle_product_fft_size(n);
-        precomputed.pairing_mode = pairing_mode;
-        precomputed.b_fft.assign(precomputed.fft_size, G2Point::infinity());
-
-        {
-            ScopedTimer timer(timings, "middle_product_precompute.roots_ns");
-            precomputed.roots = make_fft_roots(precomputed.fft_size);
-        }
-        precomputed.inv_roots = make_ifft_roots(precomputed.roots);
-
-        std::vector<G2Point> b0_fft(precomputed.fft_size, G2Point::infinity());
-        std::vector<G2Point> b1_fft(precomputed.fft_size, G2Point::infinity());
-        for (std::size_t i = 0; i < n; ++i) {
-            b0_fft[i] = b[i];
-            b1_fft[i] = b[n + i];
-        }
-
-        const std::size_t xn_b = fft_admissible_size(n, precomputed.fft_size);
-        {
-            ScopedTimer timer(timings, "middle_product_precompute.fft_b0_ns");
-            fft_forward_truncated_prefix<G2Point, Fr, G2CoeffCtx>(
-                b0_fft,
-                std::span<const Fr>(precomputed.roots),
-                xn_b,
-                timings,
-                "middle_product_precompute.fft_b0");
-        }
-        {
-            ScopedTimer timer(timings, "middle_product_precompute.fft_b1_ns");
-            fft_forward_truncated_prefix<G2Point, Fr, G2CoeffCtx>(
-                b1_fft,
-                std::span<const Fr>(precomputed.roots),
-                xn_b,
-                timings,
-                "middle_product_precompute.fft_b1");
-        }
-        {
-            ScopedTimer timer(timings, "middle_product_precompute.fold_ns");
-            for (std::size_t j = 0; j < precomputed.fft_size; ++j) {
-                const std::size_t idx = (j * (n % precomputed.fft_size)) % precomputed.fft_size;
-                const Fr zeta = precomputed.roots[idx];
-                const G2Point zeta_b1 = G2CoeffCtx::mult(b1_fft[j], zeta);
-                precomputed.b_fft[j] = G2CoeffCtx::plus(b0_fft[j], zeta_b1);
-            }
-        }
-
-        if (pairing_mode == MiddleProductPairingMode::PrecomputedLines) {
-            ScopedTimer timer(timings, "middle_product_precompute.lines_ns");
-            precomputed.precomputed_lines.resize(precomputed.fft_size);
-            precomputed.b_is_zero.resize(precomputed.fft_size);
-            for (std::size_t j = 0; j < precomputed.fft_size; ++j) {
-                const bool is_zero = (G2Point::is_inf(precomputed.b_fft[j]) != 0);
-                precomputed.b_is_zero[j] = static_cast<uint8_t>(is_zero ? 1 : 0);
-                if (is_zero) {
-                    continue;
-                }
-                G2AffinePoint q_aff;
-                G2Point::to_affine(q_aff, precomputed.b_fft[j]);
-                GT::precompute_lines(precomputed.precomputed_lines[j].lines, q_aff);
-            }
-        }
-
-        return precomputed;
+#if BLST_DEFAULT_AVX
+        return precompute_middle_product_b_avx(b, n, timings, pairing_mode);
+#else
+        return precompute_middle_product_b_scalar(b, n, timings, pairing_mode);
+#endif
     }
 
-    // Reference implementation. This keeps the full basic FFT flow in one place
-    // and intentionally does not offer a precomputed-B variant.
-    //
-    // @param a G1 coefficients of length n.
-    // @param b G2 coefficients of length 2n.
-    // @param out Output buffer for the middle n GT coefficients.
-    // @param timings Optional timing sink. May be null.
-    //
-    // Invariants:
-    // - a.size() > 0
-    // - b.size() == 2 * a.size()
-    // - out.size() >= a.size()
     inline void middle_product_basic(
         std::span<const G1Point> a,
         std::span<const G2Point> b,
@@ -362,174 +768,103 @@ namespace blst {
         }
     }
 
-    // Reduced middle-product overload for a fixed, precomputed B input with an
-    // explicit reusable workspace.
-    //
-    // @param a G1 coefficients of length n.
-    // @param precomputed_b Fixed-B precomputation produced by
-    //   precompute_middle_product_b(...).
-    // @param out Output buffer for the middle n GT coefficients.
-    // @param workspace Scratch storage reused across calls.
-    // @param timings Optional timing sink. May be null.
-    //
-    // Invariants:
-    // - a.size() > 0
-    // - precomputed_b.n == a.size()
-    // - out.size() >= a.size()
-    // - precomputed_b satisfies the invariants documented on
-    //   MiddleProductPrecomputedB
+    inline void middle_product_scalar(
+        std::span<const G1Point> a,
+        const MiddleProductPrecomputedBScalar& precomputed_b,
+        std::span<GT> out,
+        MiddleProductWorkspaceScalar& workspace,
+        TimingStats* timings = nullptr)
+    {
+        BLST_ASSERT(precomputed_b.n == a.size());
+        detail::middle_product_public<MiddleProductScalarContext>(
+            a,
+            precomputed_b,
+            out,
+            workspace,
+            timings);
+    }
+
+    inline void middle_product_avx(
+        std::span<const G1Point> a,
+        const MiddleProductPrecomputedBAvx& precomputed_b,
+        std::span<GT> out,
+        MiddleProductWorkspaceAvx& workspace,
+        TimingStats* timings = nullptr)
+    {
+        BLST_ASSERT(precomputed_b.n == a.size());
+        detail::middle_product_public<MiddleProductAvxContext>(
+            a,
+            precomputed_b,
+            out,
+            workspace,
+            timings);
+    }
+
     inline void middle_product(
         std::span<const G1Point> a,
         const MiddleProductPrecomputedB& precomputed_b,
         std::span<GT> out,
         MiddleProductWorkspace& workspace,
-        TimingStats* timings = nullptr);
+        TimingStats* timings = nullptr)
+    {
+#if BLST_DEFAULT_AVX
+        middle_product_avx(a, precomputed_b, out, workspace, timings);
+#else
+        middle_product_scalar(a, precomputed_b, out, workspace, timings);
+#endif
+    }
 
-    // Reduced middle-product overload that accepts the raw 2n-sized G2 input.
-    //
-    // This is the production fast path without explicit precompute reuse. It
-    // internally precomputes the fixed-B state and then runs the reduced-iFFT
-    // algorithm.
-    //
-    // @param a G1 coefficients of length n.
-    // @param b G2 coefficients of length 2n.
-    // @param out Output buffer for the middle n GT coefficients.
-    // @param timings Optional timing sink. May be null.
-    //
-    // Invariants:
-    // - a.size() > 0
-    // - b.size() == 2 * a.size()
-    // - out.size() >= a.size()
+    inline void middle_product_scalar(
+        std::span<const G1Point> a,
+        std::span<const G2Point> b,
+        std::span<GT> out,
+        TimingStats* timings = nullptr)
+    {
+        detail::middle_product_public<MiddleProductScalarContext>(a, b, out, timings);
+    }
+
+    inline void middle_product_avx(
+        std::span<const G1Point> a,
+        std::span<const G2Point> b,
+        std::span<GT> out,
+        TimingStats* timings = nullptr)
+    {
+        detail::middle_product_public<MiddleProductAvxContext>(a, b, out, timings);
+    }
+
     inline void middle_product(
         std::span<const G1Point> a,
         std::span<const G2Point> b,
         std::span<GT> out,
         TimingStats* timings = nullptr)
     {
-        ScopedTimer total_timer(timings, "middle_product.total_ns");
-        const std::size_t n = a.size();
-        BLST_ASSERT(n > 0);
-        BLST_ASSERT(b.size() == 2 * n);
-        BLST_ASSERT(out.size() >= n);
-
-        const MiddleProductPrecomputedB precomputed = precompute_middle_product_b(b, n, timings);
-        MiddleProductWorkspace workspace;
-        middle_product(a, precomputed, out, workspace, timings);
+#if BLST_DEFAULT_AVX
+        middle_product_avx(a, b, out, timings);
+#else
+        middle_product_scalar(a, b, out, timings);
+#endif
     }
 
-    // Reduced middle-product overload for a fixed, precomputed B input with an
-    // explicit reusable workspace.
-    //
-    // This is the lowest-level production entry point for repeated calls with
-    // the same G2 input.
-    //
-    // @param a G1 coefficients of length n.
-    // @param precomputed_b Fixed-B precomputation produced by
-    //   precompute_middle_product_b(...).
-    // @param out Output buffer for the middle n GT coefficients.
-    // @param workspace Scratch storage reused across calls.
-    // @param timings Optional timing sink. May be null.
-    //
-    // Invariants:
-    // - a.size() > 0
-    // - precomputed_b.n == a.size()
-    // - out.size() >= a.size()
-    // - precomputed_b.b_fft.size() == precomputed_b.fft_size
-    // - precomputed_b.roots.size() == precomputed_b.fft_size
-    // - precomputed_b.inv_roots.size() == precomputed_b.fft_size
-    inline void middle_product(
+    inline void middle_product_scalar(
         std::span<const G1Point> a,
-        const MiddleProductPrecomputedB& precomputed_b,
+        const MiddleProductPrecomputedBScalar& precomputed_b,
         std::span<GT> out,
-        MiddleProductWorkspace& workspace,
-        TimingStats* timings)
+        TimingStats* timings = nullptr)
     {
-        ScopedTimer total_timer(timings, "middle_product_pre.total_ns");
-        const std::size_t n = a.size();
-        BLST_ASSERT(n > 0);
-        BLST_ASSERT(precomputed_b.n == n);
-        BLST_ASSERT(out.size() >= n);
-        BLST_ASSERT(precomputed_b.b_fft.size() == precomputed_b.fft_size);
-        BLST_ASSERT(precomputed_b.roots.size() == precomputed_b.fft_size);
-        BLST_ASSERT(precomputed_b.inv_roots.size() == precomputed_b.fft_size);
-
-        workspace.ensure_size(precomputed_b.fft_size);
-        std::span<G1Point> a_fft(workspace.a_fft);
-        std::span<GT> c_fft(workspace.c_fft);
-
-        {
-            ScopedTimer timer(timings, "middle_product_pre.fill_a_fft_ns");
-            std::memset(a_fft.data(), 0, a_fft.size_bytes());
-        }
-        {
-            ScopedTimer timer(timings, "middle_product_pre.fill_c_fft_ns");
-            std::memset(c_fft.data(), 0, c_fft.size_bytes());
-        }
-        {
-            ScopedTimer timer(timings, "middle_product_pre.copy_a_ns");
-            std::memcpy(a_fft.data(), a.data(), n * sizeof(G1Point));
-        }
-
-        const std::size_t xn_a = fft_admissible_size(n, precomputed_b.fft_size);
-        {
-            ScopedTimer timer(timings, "middle_product_pre.fft_a_ns");
-            fft_forward_truncated_prefix<G1Point, Fr, G1CoeffCtx>(
-                a_fft,
-                std::span<const Fr>(precomputed_b.roots),
-                xn_a,
-                timings,
-                "middle_product_pre.fft_a");
-        }
-        {
-            ScopedTimer timer(timings, "middle_product_pre.pointwise_ns");
-            if (precomputed_b.pairing_mode == MiddleProductPairingMode::PrecomputedLines &&
-                precomputed_b.precomputed_lines.size() == precomputed_b.fft_size) {
-                const bool has_zero_mask = (precomputed_b.b_is_zero.size() == precomputed_b.fft_size);
-                for (std::size_t i = 0; i < precomputed_b.fft_size; ++i) {
-                    if (G1Point::is_inf(a_fft[i]) != 0 ||
-                        (has_zero_mask && precomputed_b.b_is_zero[i] != 0)) {
-                        c_fft[i] = GT::identity();
-                        continue;
-                    }
-                    G1AffinePoint p_aff;
-                    G1Point::to_affine(p_aff, a_fft[i]);
-                    GT::miller_loop_lines(c_fft[i], precomputed_b.precomputed_lines[i].lines, p_aff);
-                    GT::final_mult(c_fft[i], c_fft[i]);
-                }
-            }
-            else {
-                for (std::size_t i = 0; i < precomputed_b.fft_size; ++i) {
-                    c_fft[i] = CoeffCtx::mult(a_fft[i], precomputed_b.b_fft[i]);
-                }
-            }
-        }
-        {
-            ScopedTimer timer(timings, "middle_product_pre.ifft_ns");
-            fft_inverse_truncated_range<GT, Fr, GTCoeffCtx>(
-                c_fft,
-                std::span<const Fr>(precomputed_b.inv_roots),
-                n,
-                n);
-        }
-        {
-            ScopedTimer timer(timings, "middle_product_pre.extract_ns");
-            std::memcpy(out.data(), c_fft.data() + n, n * sizeof(GT));
-        }
+        MiddleProductWorkspaceScalar workspace;
+        middle_product_scalar(a, precomputed_b, out, workspace, timings);
     }
 
-    // Reduced middle-product overload for a fixed, precomputed B input using an
-    // internal temporary workspace.
-    //
-    // @param a G1 coefficients of length n.
-    // @param precomputed_b Fixed-B precomputation produced by
-    //   precompute_middle_product_b(...).
-    // @param out Output buffer for the middle n GT coefficients.
-    // @param timings Optional timing sink. May be null.
-    //
-    // Invariants:
-    // - a.size() > 0
-    // - precomputed_b.n == a.size()
-    // - out.size() >= a.size()
+    inline void middle_product_avx(
+        std::span<const G1Point> a,
+        const MiddleProductPrecomputedBAvx& precomputed_b,
+        std::span<GT> out,
+        TimingStats* timings = nullptr)
+    {
+        MiddleProductWorkspaceAvx workspace;
+        middle_product_avx(a, precomputed_b, out, workspace, timings);
+    }
+
     inline void middle_product(
         std::span<const G1Point> a,
         const MiddleProductPrecomputedB& precomputed_b,
@@ -539,8 +874,5 @@ namespace blst {
         MiddleProductWorkspace workspace;
         middle_product(a, precomputed_b, out, workspace, timings);
     }
-
-    // TODO(BLST_CUDA): mirror middle_product_basic(), middle_product(), and
-    // precompute_middle_product_b() on GPU.
 
 } // namespace blst

@@ -47,16 +47,31 @@ struct AvxGt52
         return AvxGt52(fp12ring().one(ring()));
     }
 
-    static AvxGt52 from_scalar(const GT& value)
+    static AvxGt52 from_scalar(const blst::scalar::GT& value)
     {
         return AvxGt52(avx_blst_direct_bridge::scalar_fp12_to_ring(ring(), value.data));
     }
 
-    static GT to_scalar(const AvxGt52& value)
+    static AvxGt52 from_default(const blst::GT& value)
     {
-        GT out = {};
+#if BLST_DEFAULT_AVX
+        return AvxGt52(value.data);
+#else
+        return from_scalar(value);
+#endif
+    }
+
+    static blst::GT to_default(const AvxGt52& value)
+    {
+#if BLST_DEFAULT_AVX
+        blst::avx::GT out = {};
+        out.data = value.data;
+        return out;
+#else
+        blst::scalar::GT out = {};
         out.data = avx_blst_direct_bridge::ring_fp12_to_scalar(ring(), value.data);
         return out;
+#endif
     }
 };
 
@@ -74,7 +89,7 @@ inline std::array<uint64_t, 4> fr_to_limbs_le(const Fr& value)
 
 struct AvxGt52PreparedRoots
 {
-    std::span<const Fr> scalars;
+    std::vector<Fr> scalars;
     std::vector<std::array<uint64_t, 4>> limbs;
     std::vector<AvxGLV4Exp> compiled;
     Fr scale_scalar = {};
@@ -83,14 +98,24 @@ struct AvxGt52PreparedRoots
     bool has_scale = false;
 
     explicit AvxGt52PreparedRoots(std::span<const Fr> input_scalars = {})
-        : scalars(input_scalars)
     {
+        scalars.assign(input_scalars.begin(), input_scalars.end());
         limbs.reserve(scalars.size());
         compiled.reserve(scalars.size());
         for (const Fr& scalar : scalars) {
             limbs.push_back(fr_to_limbs_le(scalar));
             compiled.push_back(avx_glv4_compile(limbs.back().data()));
         }
+    }
+
+    std::span<const Fr> scalar_span() const
+    {
+        return scalars;
+    }
+
+    std::size_t size() const
+    {
+        return scalars.size();
     }
 
     void set_scale_from_size(std::size_t n)
@@ -188,22 +213,22 @@ private:
     inline static thread_local const AvxGt52PreparedRoots* prepared_roots_ = nullptr;
 };
 
-inline std::vector<AvxGt52> scalar_gt_vector_to_avx52(std::span<const GT> values)
+inline std::vector<AvxGt52> scalar_gt_vector_to_avx52(std::span<const blst::GT> values)
 {
     std::vector<AvxGt52> out;
     out.reserve(values.size());
-    for (const GT& value : values) {
-        out.push_back(AvxGt52::from_scalar(value));
+    for (const blst::GT& value : values) {
+        out.push_back(AvxGt52::from_default(value));
     }
     return out;
 }
 
-inline std::vector<GT> avx52_vector_to_scalar_gt(std::span<const AvxGt52> values)
+inline std::vector<blst::GT> avx52_vector_to_scalar_gt(std::span<const AvxGt52> values)
 {
-    std::vector<GT> out;
+    std::vector<blst::GT> out;
     out.reserve(values.size());
     for (const AvxGt52& value : values) {
-        out.push_back(AvxGt52::to_scalar(value));
+        out.push_back(AvxGt52::to_default(value));
     }
     return out;
 }

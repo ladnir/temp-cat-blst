@@ -863,7 +863,7 @@ void fft_forward_truncated_prefix(
                 for (std::size_t idx = 0; idx < stage_work.left_nonzero.size(); ++idx) {
                         const std::size_t left = stage_work.left_nonzero[idx];
                         const std::size_t right = left + half;
-                        F w = roots[stage_work.twiddle_nonzero[idx]];
+                        const F& w = roots[stage_work.twiddle_nonzero[idx]];
                         G u = a[left];
                         G t = CoeffCtx::mult(a[right], w);
                         a[left] = CoeffCtx::plus(u, t);
@@ -931,7 +931,7 @@ void fft_inverse_truncated_range(
                                 x[right] = CoeffCtx::minus(u, t);
                         }
                         else {
-                                F w = inv_roots[j * stride];
+                                const F& w = inv_roots[j * stride];
                                 G u = x[left];
                                 G t = CoeffCtx::mult(x[right], w);
                                 x[left] = CoeffCtx::plus(u, t);

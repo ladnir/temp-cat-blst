@@ -305,6 +305,7 @@ struct G1Point
     static void doubling(G1Point& out, const G1Point& a);
     static void mult(G1Point& out, const G1Point& a, const byte* scalar, size_t nbits);
     static void sign(G1Point& out, const G1Point& in, const pow256 SK);
+    static void to_pk(G1Point& out, const pow256 SK);
     static void to_pk2(unsigned char* out, G1AffinePoint* PK, const pow256 SK);
     static void cneg(G1Point& p, limb_t cbit);
     static void neg(G1Point& out, const G1Point& p);
@@ -372,6 +373,7 @@ struct G2Point
     static void doubling(G2Point& out, const G2Point& a);
     static void mult(G2Point& out, const G2Point& a, const byte* scalar, size_t nbits);
     static void sign(G2Point& out, const G2Point& in, const pow256 SK);
+    static void to_pk(G2Point& out, const pow256 SK);
     static void to_pk2(unsigned char* out, G2AffinePoint* PK, const pow256 SK);
     static void cneg(G2Point& p, limb_t cbit);
     static void neg(G2Point& out, const G2Point& p);
@@ -554,6 +556,11 @@ inline void G1Point::sign(G1Point& out, const G1Point& in, const pow256 SK)
         avx_curve_detail::scalar_fp_to_ring(scalar_out_affine.Y),
     };
     from_affine(out, out_affine);
+}
+
+inline void G1Point::to_pk(G1Point& out, const pow256 SK)
+{
+    sign(out, generator(), SK);
 }
 
 inline void G1Point::to_pk2(unsigned char* out, G1AffinePoint* PK, const pow256 SK)
@@ -840,6 +847,11 @@ inline void G2Point::sign(G2Point& out, const G2Point& in, const pow256 SK)
         avx_curve_detail::scalar_fp2_to_ring(scalar_out_affine.Y),
     };
     from_affine(out, out_affine);
+}
+
+inline void G2Point::to_pk(G2Point& out, const pow256 SK)
+{
+    sign(out, generator(), SK);
 }
 
 inline void G2Point::to_pk2(unsigned char* out, G2AffinePoint* PK, const pow256 SK)
