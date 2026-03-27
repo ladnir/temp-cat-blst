@@ -1,12 +1,38 @@
 #include <gtest/gtest.h>
 
+#include <span>
 #include <type_traits>
+#include <vector>
 
 #include "blst/curve/GT.h"
 #include "blst/curve/map_to_G.h"
 #include "blst/curve/point.h"
+#include "blst/fft/middle_product.h"
+#include "blst/fields/Fr.h"
 
 using namespace blst;
+
+static G1Point point_from_scalar_g1(u64 scalar)
+{
+    G1Point out = {};
+    Fr scalar_mont = {};
+    Fr::from_uint64(scalar_mont, scalar);
+    Fr scalar_non_mont = {};
+    Fr::from_mont(scalar_non_mont, scalar_mont);
+    G1Point::mult(out, G1Point::generator(), reinterpret_cast<const byte*>(&scalar_non_mont), 256);
+    return out;
+}
+
+static G2Point point_from_scalar_g2(u64 scalar)
+{
+    G2Point out = {};
+    Fr scalar_mont = {};
+    Fr::from_uint64(scalar_mont, scalar);
+    Fr scalar_non_mont = {};
+    Fr::from_mont(scalar_non_mont, scalar_mont);
+    G2Point::mult(out, G2Point::generator(), reinterpret_cast<const byte*>(&scalar_non_mont), 256);
+    return out;
+}
 
 TEST(BackendAlias, TopLevelAliasesMatchConfig)
 {
@@ -123,4 +149,426 @@ TEST(BackendAlias, TopLevelPairingSurfaceMatchesBilinearDoubling)
 
     EXPECT_TRUE(GT::equal(lhs, rhs));
     EXPECT_TRUE(GT::equal(lhs, doubled));
+}
+
+TEST(BackendAlias, MiddleProductReducedMatchesBasicOnSmallVector)
+{
+    using ScalarCtx = blst::detail::ScalarMiddleProductContext;
+    using AvxCtx = blst::detail::AvxMiddleProductContext;
+
+    const std::vector<u64> a_scalars = { 3, 5, 7 };
+    const std::vector<u64> b_scalars = { 11, 13, 17, 19, 23, 29 };
+
+    std::vector<G1Point> a_points;
+    std::vector<G2Point> b_points;
+    a_points.reserve(a_scalars.size());
+    b_points.reserve(b_scalars.size());
+
+    for (u64 scalar : a_scalars) {
+        a_points.push_back(point_from_scalar_g1(scalar));
+    }
+    for (u64 scalar : b_scalars) {
+        b_points.push_back(point_from_scalar_g2(scalar));
+    }
+
+    std::vector<GT> basic(a_points.size(), GT::identity());
+    std::vector<GT> reduced_scalar(a_points.size(), GT::identity());
+    std::vector<GT> reduced_raw(a_points.size(), GT::identity());
+    std::vector<GT> reduced_pre(a_points.size(), GT::identity());
+
+    middle_product_basic(
+        std::span<const G1Point>(a_points),
+        std::span<const G2Point>(b_points),
+        std::span<GT>(basic));
+
+    middle_product(
+        std::span<const G1Point>(a_points),
+        std::span<const G2Point>(b_points),
+        std::span<GT>(reduced_raw));
+
+    middle_product_scalar(
+        std::span<const G1Point>(a_points),
+        std::span<const G2Point>(b_points),
+        std::span<GT>(reduced_scalar));
+
+    const auto precomputed_b = precompute_middle_product_b(
+        std::span<const G2Point>(b_points),
+        a_points.size());
+    middle_product(
+        std::span<const G1Point>(a_points),
+        precomputed_b,
+        std::span<GT>(reduced_pre));
+
+    for (std::size_t i = 0; i < a_points.size(); ++i) {
+        EXPECT_TRUE(GT::equal(basic[i], reduced_scalar[i]))
+            << "Reduced scalar mismatch vs basic at i=" << i;
+        EXPECT_TRUE(GT::equal(basic[i], reduced_raw[i]))
+            << "Reduced raw mismatch vs basic at i=" << i;
+        EXPECT_TRUE(GT::equal(basic[i], reduced_pre[i]))
+            << "Reduced precomputed mismatch vs basic at i=" << i;
+    }
+
+    const auto scalar_precomputed = blst::detail::precompute_middle_product_b_public<ScalarCtx>(
+        std::span<const G2Point>(b_points),
+        a_points.size(),
+        nullptr,
+        MiddleProductPairingMode::Direct);
+    const auto avx_precomputed = blst::detail::precompute_middle_product_b_public<AvxCtx>(
+        std::span<const G2Point>(b_points),
+        a_points.size(),
+        nullptr,
+        MiddleProductPairingMode::Direct);
+
+    const auto scalar_a = blst::detail::convert_g1_inputs<ScalarCtx>(std::span<const G1Point>(a_points));
+    const auto avx_a = blst::detail::convert_g1_inputs<AvxCtx>(std::span<const G1Point>(a_points));
+
+    std::vector<ScalarCtx::G1Point> scalar_a_fft(
+        scalar_precomputed.fft_size,
+        ScalarCtx::g1_infinity());
+    std::vector<AvxCtx::G1Point> avx_a_fft(
+        avx_precomputed.fft_size,
+        AvxCtx::g1_infinity());
+    std::copy(scalar_a.begin(), scalar_a.end(), scalar_a_fft.begin());
+    std::copy(avx_a.begin(), avx_a.end(), avx_a_fft.begin());
+
+    const std::size_t xn_a = fft_admissible_size(a_points.size(), scalar_precomputed.fft_size);
+    fft_forward_truncated_prefix<ScalarCtx::G1Point, Fr, ScalarCtx::G1CoeffCtx>(
+        std::span<ScalarCtx::G1Point>(scalar_a_fft),
+        std::span<const Fr>(scalar_precomputed.roots),
+        xn_a,
+        nullptr,
+        "backend_alias.scalar_fft");
+    fft_forward_truncated_prefix<AvxCtx::G1Point, Fr, AvxCtx::G1CoeffCtx>(
+        std::span<AvxCtx::G1Point>(avx_a_fft),
+        std::span<const Fr>(avx_precomputed.roots),
+        xn_a,
+        nullptr,
+        "backend_alias.avx_fft");
+
+    std::vector<ScalarCtx::GtFftElement> scalar_c_fft(
+        scalar_precomputed.fft_size,
+        ScalarCtx::identity());
+    std::vector<AvxCtx::GtFftElement> avx_c_fft(
+        avx_precomputed.fft_size,
+        AvxCtx::identity());
+    for (std::size_t i = 0; i < scalar_precomputed.fft_size; ++i) {
+        scalar_c_fft[i] = ScalarCtx::pointwise_pair_direct(scalar_a_fft[i], scalar_precomputed.b_fft[i]);
+        avx_c_fft[i] = AvxCtx::pointwise_pair_direct(avx_a_fft[i], avx_precomputed.b_fft[i]);
+        EXPECT_TRUE(GT::equal(ScalarCtx::to_public_gt(scalar_c_fft[i]), AvxCtx::to_public_gt(avx_c_fft[i])))
+            << "Scalar/AVX reduced pointwise mismatch at fft index " << i;
+    }
+
+    {
+        const AvxCtx::GtFftElement sample = avx_c_fft[1];
+        for (std::size_t i = 0; i < avx_precomputed.inv_roots.size(); ++i) {
+            const Fr& root = avx_precomputed.inv_roots.scalar_span()[i];
+
+            blst::avx::AvxGt52 via_prepared = {};
+            {
+                blst::avx::AvxGt52CoeffCtx::ScopedRoots scoped_roots(avx_precomputed.inv_roots);
+                via_prepared = blst::avx::AvxGt52CoeffCtx::mult(sample, root);
+            }
+
+            Fr root_copy = root;
+            const blst::avx::AvxGt52 via_fallback = blst::avx::AvxGt52CoeffCtx::mult(sample, root_copy);
+            EXPECT_TRUE(GT::equal(
+                blst::avx::AvxGt52::to_default(via_prepared),
+                blst::avx::AvxGt52::to_default(via_fallback)))
+                << "Prepared root mismatch at inverse root index " << i;
+        }
+    }
+
+    auto scalar_c_fft_full = scalar_c_fft;
+    auto avx_c_fft_full_prepared = avx_c_fft;
+    auto avx_c_fft_full_fallback = avx_c_fft;
+    auto avx_c_fft_trunc_fallback = avx_c_fft;
+
+    fft<ScalarCtx::GtFftElement, Fr, ScalarCtx::GtCoeffCtx>(
+        std::span<ScalarCtx::GtFftElement>(scalar_c_fft_full),
+        std::span<const Fr>(scalar_precomputed.inv_roots),
+        true);
+
+    {
+        blst::avx::AvxGt52CoeffCtx::ScopedRoots scoped_roots(avx_precomputed.inv_roots);
+        fft<AvxCtx::GtFftElement, Fr, blst::avx::AvxGt52CoeffCtx>(
+            std::span<AvxCtx::GtFftElement>(avx_c_fft_full_prepared),
+            avx_precomputed.inv_roots.scalar_span(),
+            true);
+    }
+
+    {
+        std::vector<Fr> inv_roots_copy(
+            avx_precomputed.inv_roots.scalar_span().begin(),
+            avx_precomputed.inv_roots.scalar_span().end());
+        fft<AvxCtx::GtFftElement, Fr, blst::avx::AvxGt52CoeffCtx>(
+            std::span<AvxCtx::GtFftElement>(avx_c_fft_full_fallback),
+            std::span<const Fr>(inv_roots_copy),
+            true);
+    }
+
+    {
+        auto scalar_stage = scalar_c_fft;
+        auto avx_stage = avx_c_fft;
+        std::vector<Fr> inv_roots_copy(
+            avx_precomputed.inv_roots.scalar_span().begin(),
+            avx_precomputed.inv_roots.scalar_span().end());
+
+        bit_reverse(std::span<ScalarCtx::GtFftElement>(scalar_stage));
+        bit_reverse(std::span<AvxCtx::GtFftElement>(avx_stage));
+
+        for (std::size_t len = 2, stage = 0; len <= scalar_stage.size(); len <<= 1, ++stage) {
+            const std::size_t half = len >> 1;
+            for (std::size_t i = 0; i < scalar_stage.size(); i += len) {
+                {
+                    const auto u_scalar = scalar_stage[i];
+                    const auto t_scalar = scalar_stage[i + half];
+                    scalar_stage[i] = ScalarCtx::GtCoeffCtx::plus(u_scalar, t_scalar);
+                    scalar_stage[i + half] = ScalarCtx::GtCoeffCtx::minus(u_scalar, t_scalar);
+
+                    const auto u_avx = avx_stage[i];
+                    const auto t_avx = avx_stage[i + half];
+                    avx_stage[i] = blst::avx::AvxGt52CoeffCtx::plus(u_avx, t_avx);
+                    avx_stage[i + half] = blst::avx::AvxGt52CoeffCtx::minus(u_avx, t_avx);
+                }
+
+                for (std::size_t j = 1; j < half; ++j) {
+                    const Fr& w_scalar = scalar_precomputed.inv_roots[j * (scalar_stage.size() / len)];
+                    const Fr& w_avx = inv_roots_copy[j * (avx_stage.size() / len)];
+
+                    const auto u_scalar = scalar_stage[i + j];
+                    const auto t_scalar =
+                        ScalarCtx::GtCoeffCtx::mult(scalar_stage[i + j + half], w_scalar);
+                    const auto u_avx = avx_stage[i + j];
+                    const auto base_avx = avx_stage[i + j + half];
+                    const auto t_avx =
+                        blst::avx::AvxGt52CoeffCtx::mult(base_avx, w_avx);
+                    const std::array<uint64_t, 4> w_limbs = blst::avx::fr_to_limbs_le(w_avx);
+                    const blst::avx::AvxGt52 t_avx_basic(
+                        blst::avx::avx_cyclotomic_exp_basic(
+                            base_avx.data,
+                            w_limbs.data(),
+                            blst::avx::AvxGt52::fp12ring(),
+                            blst::avx::AvxGt52::ring()));
+
+                    EXPECT_TRUE(GT::equal(
+                        ScalarCtx::to_public_gt(u_scalar),
+                        AvxCtx::to_public_gt(u_avx)))
+                        << "Scalar/AVX stage input mismatch at stage=" << stage
+                        << ", len=" << len
+                        << ", block=" << i
+                        << ", j=" << j;
+                    EXPECT_TRUE(GT::equal(
+                        ScalarCtx::to_public_gt(t_scalar),
+                        AvxCtx::to_public_gt(t_avx)))
+                        << "Scalar/AVX twiddle-product mismatch at stage=" << stage
+                        << ", len=" << len
+                        << ", block=" << i
+                        << ", j=" << j;
+                    EXPECT_TRUE(GT::equal(
+                        AvxCtx::to_public_gt(t_avx),
+                        AvxCtx::to_public_gt(t_avx_basic)))
+                        << "AVX GLV/basic twiddle-product mismatch at stage=" << stage
+                        << ", len=" << len
+                        << ", block=" << i
+                        << ", j=" << j;
+
+                    scalar_stage[i + j] = ScalarCtx::GtCoeffCtx::plus(u_scalar, t_scalar);
+                    scalar_stage[i + j + half] = ScalarCtx::GtCoeffCtx::minus(u_scalar, t_scalar);
+                    avx_stage[i + j] = blst::avx::AvxGt52CoeffCtx::plus(u_avx, t_avx);
+                    avx_stage[i + j + half] = blst::avx::AvxGt52CoeffCtx::minus(u_avx, t_avx);
+                }
+            }
+
+            for (std::size_t i = 0; i < scalar_stage.size(); ++i) {
+                EXPECT_TRUE(GT::equal(
+                    ScalarCtx::to_public_gt(scalar_stage[i]),
+                    AvxCtx::to_public_gt(avx_stage[i])))
+                    << "Scalar/AVX stage mismatch at stage=" << stage
+                    << ", len=" << len
+                    << ", fft index=" << i;
+            }
+        }
+    }
+
+    ScalarCtx::inverse_fft_middle_window(
+        std::span<ScalarCtx::GtFftElement>(scalar_c_fft),
+        scalar_precomputed.inv_roots,
+        a_points.size(),
+        a_points.size());
+    AvxCtx::inverse_fft_middle_window(
+        std::span<AvxCtx::GtFftElement>(avx_c_fft),
+        avx_precomputed.inv_roots,
+        a_points.size(),
+        a_points.size());
+    {
+        std::vector<Fr> inv_roots_copy(
+            avx_precomputed.inv_roots.scalar_span().begin(),
+            avx_precomputed.inv_roots.scalar_span().end());
+        fft_inverse_truncated_range<AvxCtx::GtFftElement, Fr, blst::avx::AvxGt52CoeffCtx>(
+            std::span<AvxCtx::GtFftElement>(avx_c_fft_trunc_fallback),
+            std::span<const Fr>(inv_roots_copy),
+            a_points.size(),
+            a_points.size());
+    }
+
+    for (std::size_t i = 0; i < scalar_c_fft_full.size(); ++i) {
+        EXPECT_TRUE(GT::equal(
+            ScalarCtx::to_public_gt(scalar_c_fft_full[i]),
+            AvxCtx::to_public_gt(avx_c_fft_full_prepared[i])))
+            << "Scalar/AVX full-iFFT prepared mismatch at fft index " << i;
+        EXPECT_TRUE(GT::equal(
+            AvxCtx::to_public_gt(avx_c_fft_full_prepared[i]),
+            AvxCtx::to_public_gt(avx_c_fft_full_fallback[i])))
+            << "AVX full-iFFT prepared/fallback mismatch at fft index " << i;
+    }
+
+    for (std::size_t i = 0; i < a_points.size(); ++i) {
+        EXPECT_TRUE(GT::equal(
+            ScalarCtx::to_public_gt(scalar_c_fft[a_points.size() + i]),
+            AvxCtx::to_public_gt(avx_c_fft[a_points.size() + i])))
+            << "Scalar/AVX reduced post-iFFT mismatch at output index " << i;
+        EXPECT_TRUE(GT::equal(
+            AvxCtx::to_public_gt(avx_c_fft[a_points.size() + i]),
+            AvxCtx::to_public_gt(avx_c_fft_trunc_fallback[a_points.size() + i])))
+            << "AVX truncated-iFFT prepared/fallback mismatch at output index " << i;
+        EXPECT_TRUE(GT::equal(
+            ScalarCtx::to_public_gt(scalar_c_fft[a_points.size() + i]),
+            ScalarCtx::to_public_gt(scalar_c_fft_full[a_points.size() + i])))
+            << "Scalar truncated/full mismatch at output index " << i;
+        EXPECT_TRUE(GT::equal(
+            AvxCtx::to_public_gt(avx_c_fft[a_points.size() + i]),
+            AvxCtx::to_public_gt(avx_c_fft_full_prepared[a_points.size() + i])))
+            << "AVX truncated/full prepared mismatch at output index " << i;
+    }
+}
+
+TEST(BackendAlias, AvxGtInverseFftStageReplayMatchesScalar)
+{
+    using ScalarCtx = blst::detail::ScalarMiddleProductContext;
+    using AvxCtx = blst::detail::AvxMiddleProductContext;
+
+    const std::vector<u64> a_scalars = { 3, 5, 7 };
+    const std::vector<u64> b_scalars = { 11, 13, 17, 19, 23, 29 };
+
+    std::vector<G1Point> a_points;
+    std::vector<G2Point> b_points;
+    for (u64 scalar : a_scalars) {
+        a_points.push_back(point_from_scalar_g1(scalar));
+    }
+    for (u64 scalar : b_scalars) {
+        b_points.push_back(point_from_scalar_g2(scalar));
+    }
+
+    const auto scalar_precomputed = blst::detail::precompute_middle_product_b_public<ScalarCtx>(
+        std::span<const G2Point>(b_points),
+        a_points.size(),
+        nullptr,
+        MiddleProductPairingMode::Direct);
+    const auto avx_precomputed = blst::detail::precompute_middle_product_b_public<AvxCtx>(
+        std::span<const G2Point>(b_points),
+        a_points.size(),
+        nullptr,
+        MiddleProductPairingMode::Direct);
+
+    const auto scalar_a = blst::detail::convert_g1_inputs<ScalarCtx>(std::span<const G1Point>(a_points));
+    const auto avx_a = blst::detail::convert_g1_inputs<AvxCtx>(std::span<const G1Point>(a_points));
+
+    std::vector<ScalarCtx::G1Point> scalar_a_fft(
+        scalar_precomputed.fft_size,
+        ScalarCtx::g1_infinity());
+    std::vector<AvxCtx::G1Point> avx_a_fft(
+        avx_precomputed.fft_size,
+        AvxCtx::g1_infinity());
+    std::copy(scalar_a.begin(), scalar_a.end(), scalar_a_fft.begin());
+    std::copy(avx_a.begin(), avx_a.end(), avx_a_fft.begin());
+
+    const std::size_t xn_a = fft_admissible_size(a_points.size(), scalar_precomputed.fft_size);
+    fft_forward_truncated_prefix<ScalarCtx::G1Point, Fr, ScalarCtx::G1CoeffCtx>(
+        std::span<ScalarCtx::G1Point>(scalar_a_fft),
+        std::span<const Fr>(scalar_precomputed.roots),
+        xn_a,
+        nullptr,
+        "backend_alias.scalar_fft");
+    fft_forward_truncated_prefix<AvxCtx::G1Point, Fr, AvxCtx::G1CoeffCtx>(
+        std::span<AvxCtx::G1Point>(avx_a_fft),
+        std::span<const Fr>(avx_precomputed.roots),
+        xn_a,
+        nullptr,
+        "backend_alias.avx_fft");
+
+    std::vector<ScalarCtx::GtFftElement> scalar_stage(
+        scalar_precomputed.fft_size,
+        ScalarCtx::identity());
+    std::vector<AvxCtx::GtFftElement> avx_stage(
+        avx_precomputed.fft_size,
+        AvxCtx::identity());
+    for (std::size_t i = 0; i < scalar_precomputed.fft_size; ++i) {
+        scalar_stage[i] = ScalarCtx::pointwise_pair_direct(scalar_a_fft[i], scalar_precomputed.b_fft[i]);
+        avx_stage[i] = AvxCtx::pointwise_pair_direct(avx_a_fft[i], avx_precomputed.b_fft[i]);
+    }
+
+    bit_reverse(std::span<ScalarCtx::GtFftElement>(scalar_stage));
+    bit_reverse(std::span<AvxCtx::GtFftElement>(avx_stage));
+
+    std::vector<Fr> inv_roots_copy(
+        avx_precomputed.inv_roots.scalar_span().begin(),
+        avx_precomputed.inv_roots.scalar_span().end());
+
+    for (std::size_t len = 2, stage = 0; len <= scalar_stage.size(); len <<= 1, ++stage) {
+        const std::size_t half = len >> 1;
+        for (std::size_t i = 0; i < scalar_stage.size(); i += len) {
+            {
+                const auto u_scalar = scalar_stage[i];
+                const auto t_scalar = scalar_stage[i + half];
+                scalar_stage[i] = ScalarCtx::GtCoeffCtx::plus(u_scalar, t_scalar);
+                scalar_stage[i + half] = ScalarCtx::GtCoeffCtx::minus(u_scalar, t_scalar);
+
+                const auto u_avx = avx_stage[i];
+                const auto t_avx = avx_stage[i + half];
+                avx_stage[i] = blst::avx::AvxGt52CoeffCtx::plus(u_avx, t_avx);
+                avx_stage[i + half] = blst::avx::AvxGt52CoeffCtx::minus(u_avx, t_avx);
+            }
+
+            for (std::size_t j = 1; j < half; ++j) {
+                const Fr& w_scalar = scalar_precomputed.inv_roots[j * (scalar_stage.size() / len)];
+                const Fr& w_avx = inv_roots_copy[j * (avx_stage.size() / len)];
+
+                const auto u_scalar = scalar_stage[i + j];
+                const auto t_scalar =
+                    ScalarCtx::GtCoeffCtx::mult(scalar_stage[i + j + half], w_scalar);
+                const auto u_avx = avx_stage[i + j];
+                const auto t_avx =
+                    blst::avx::AvxGt52CoeffCtx::mult(avx_stage[i + j + half], w_avx);
+
+                EXPECT_TRUE(GT::equal(
+                    ScalarCtx::to_public_gt(u_scalar),
+                    AvxCtx::to_public_gt(u_avx)))
+                    << "Scalar/AVX stage input mismatch at stage=" << stage
+                    << ", len=" << len
+                    << ", block=" << i
+                    << ", j=" << j;
+                EXPECT_TRUE(GT::equal(
+                    ScalarCtx::to_public_gt(t_scalar),
+                    AvxCtx::to_public_gt(t_avx)))
+                    << "Scalar/AVX twiddle-product mismatch at stage=" << stage
+                    << ", len=" << len
+                    << ", block=" << i
+                    << ", j=" << j;
+
+                scalar_stage[i + j] = ScalarCtx::GtCoeffCtx::plus(u_scalar, t_scalar);
+                scalar_stage[i + j + half] = ScalarCtx::GtCoeffCtx::minus(u_scalar, t_scalar);
+                avx_stage[i + j] = blst::avx::AvxGt52CoeffCtx::plus(u_avx, t_avx);
+                avx_stage[i + j + half] = blst::avx::AvxGt52CoeffCtx::minus(u_avx, t_avx);
+            }
+        }
+
+        for (std::size_t i = 0; i < scalar_stage.size(); ++i) {
+            EXPECT_TRUE(GT::equal(
+                ScalarCtx::to_public_gt(scalar_stage[i]),
+                AvxCtx::to_public_gt(avx_stage[i])))
+                << "Scalar/AVX stage mismatch at stage=" << stage
+                << ", len=" << len
+                << ", fft index=" << i;
+        }
+    }
 }

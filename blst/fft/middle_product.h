@@ -102,6 +102,70 @@ namespace blst {
 
     namespace detail {
 
+        struct BasicMiddleProductCoeffCtx {
+            template<typename G, typename F>
+            static auto plus(const G& a, const F& b)
+            {
+                G r;
+                G::dadd(r, a, b);
+                return r;
+            }
+
+            template<typename G, typename F>
+            static auto minus(const G& a, const F& b)
+            {
+                G r;
+                F neg_b;
+                F::neg(neg_b, b);
+                G::dadd(r, a, neg_b);
+                return r;
+            }
+
+            template<typename G, typename F>
+            static auto mult(const G& a, const F& b)
+            {
+                if constexpr (std::is_same_v<G, F>) {
+                    G r;
+                    G::mul(r, a, b);
+                    return r;
+                } else {
+                    G r;
+                    F b_non_mont = {};
+                    F::from_mont(b_non_mont, b);
+                    G::mult(r, a, reinterpret_cast<const byte*>(&b_non_mont), 256);
+                    return r;
+                }
+            }
+
+            static auto mult(const G1Point& a, const G2Point& b)
+            {
+                G1AffinePoint p_aff = {};
+                G1Point::to_affine(p_aff, a);
+                G2AffinePoint q_aff = {};
+                G2Point::to_affine(q_aff, b);
+
+                GT pair = GT::identity();
+                GT::miller_loop(pair, &q_aff, &p_aff);
+                GT::final_mult(pair, pair);
+                return pair;
+            }
+
+            static auto inverse(const Fr& a)
+            {
+                Fr r = {};
+                Fr::reciprocal(r, a);
+                return r;
+            }
+
+            template<typename F>
+            static auto from_u64(uint64_t a)
+            {
+                Fr r = {};
+                Fr::from_uint64(r, a);
+                return r;
+            }
+        };
+
         template<class Group>
         struct GroupFftCoeffCtx {
             static auto plus(const Group& a, const Group& b)
@@ -313,7 +377,8 @@ namespace blst {
 
             static PreparedInverseRoots make_inverse_roots(std::span<const Fr> roots)
             {
-                PreparedInverseRoots prepared(roots);
+                const std::vector<Fr> inv_roots = make_ifft_roots(roots);
+                PreparedInverseRoots prepared{std::span<const Fr>(inv_roots)};
                 prepared.set_scale_from_size(roots.size());
                 return prepared;
             }
@@ -749,7 +814,7 @@ namespace blst {
 
         const std::size_t xn_a = fft_admissible_size(n, fft_size);
         const std::size_t xn_b = fft_admissible_size(2 * n, fft_size);
-        poly_mult_fft<G1Point, G2Point, GT, Fr, CoeffCtx>(
+        poly_mult_fft<G1Point, G2Point, GT, Fr, detail::BasicMiddleProductCoeffCtx>(
             a_fft,
             b_fft,
             false,
