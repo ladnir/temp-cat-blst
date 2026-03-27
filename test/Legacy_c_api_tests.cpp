@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <type_traits>
+#include <vector>
 
 #include "blst/curve/GT.h"
 #include "blst/curve/point.h"
@@ -69,6 +70,15 @@ bool blst_p1_is_inf(const blst::scalar::G1Point* a);
 const blst::scalar::G1Point* blst_p1_generator(void);
 bool blst_p1_affine_in_g1(const blst::scalar::G1AffinePoint* p);
 bool blst_p1_affine_is_equal(const blst::scalar::G1AffinePoint* a, const blst::scalar::G1AffinePoint* b);
+void blst_p1s_to_affine(blst::scalar::G1AffinePoint dst[], const blst::scalar::G1Point* const points[], size_t npoints);
+void blst_p1s_add(blst::scalar::G1Point* ret, const blst::scalar::G1AffinePoint* const points[], size_t npoints);
+size_t blst_p1s_mult_wbits_precompute_sizeof(size_t wbits, size_t npoints);
+void blst_p1s_mult_wbits_precompute(blst::scalar::G1AffinePoint table[], size_t wbits, const blst::scalar::G1AffinePoint* const points[], size_t npoints);
+size_t blst_p1s_mult_wbits_scratch_sizeof(size_t npoints);
+void blst_p1s_mult_wbits(blst::scalar::G1Point* ret, const blst::scalar::G1AffinePoint table[], size_t wbits, size_t npoints, const unsigned char* const scalars[], size_t nbits, blst::limb_t* scratch);
+size_t blst_p1s_mult_pippenger_scratch_sizeof(size_t npoints);
+void blst_p1s_mult_pippenger(blst::scalar::G1Point* ret, const blst::scalar::G1AffinePoint* const points[], size_t npoints, const unsigned char* const scalars[], size_t nbits, blst::limb_t* scratch);
+void blst_p1s_tile_pippenger(blst::scalar::G1Point* ret, const blst::scalar::G1AffinePoint* const points[], size_t npoints, const unsigned char* const scalars[], size_t nbits, blst::limb_t* scratch, size_t bit0, size_t window);
 void blst_p1_affine_serialize(unsigned char out[96], const blst::scalar::G1AffinePoint* in);
 void blst_p1_affine_compress(unsigned char out[48], const blst::scalar::G1AffinePoint* in);
 blst::BLST_ERROR blst_p1_uncompress(blst::scalar::G1AffinePoint* out, const unsigned char in[48]);
@@ -87,14 +97,26 @@ bool blst_p2_is_inf(const blst::scalar::G2Point* a);
 const blst::scalar::G2Point* blst_p2_generator(void);
 bool blst_p2_affine_in_g2(const blst::scalar::G2AffinePoint* p);
 bool blst_p2_affine_is_equal(const blst::scalar::G2AffinePoint* a, const blst::scalar::G2AffinePoint* b);
+void blst_p2s_to_affine(blst::scalar::G2AffinePoint dst[], const blst::scalar::G2Point* const points[], size_t npoints);
+void blst_p2s_add(blst::scalar::G2Point* ret, const blst::scalar::G2AffinePoint* const points[], size_t npoints);
+size_t blst_p2s_mult_pippenger_scratch_sizeof(size_t npoints);
+void blst_p2s_mult_pippenger(blst::scalar::G2Point* ret, const blst::scalar::G2AffinePoint* const points[], size_t npoints, const unsigned char* const scalars[], size_t nbits, blst::limb_t* scratch);
 void blst_p2_affine_serialize(unsigned char out[192], const blst::scalar::G2AffinePoint* in);
 void blst_p2_affine_compress(unsigned char out[96], const blst::scalar::G2AffinePoint* in);
 blst::BLST_ERROR blst_p2_uncompress(blst::scalar::G2AffinePoint* out, const unsigned char in[96]);
 blst::BLST_ERROR blst_p2_deserialize(blst::scalar::G2AffinePoint* out, const unsigned char in[192]);
 
 void blst_miller_loop(blst::Fp12* ret, const blst::scalar::G2AffinePoint* Q, const blst::scalar::G1AffinePoint* P);
+void blst_miller_loop_n(blst::Fp12* ret, const blst::scalar::G2AffinePoint* const Qs[], const blst::scalar::G1AffinePoint* const Ps[], size_t n);
 void blst_precompute_lines(blst::Fp6 Qlines[68], const blst::scalar::G2AffinePoint* Q);
 void blst_miller_loop_lines(blst::Fp12* ret, const blst::Fp6 Qlines[68], const blst::scalar::G1AffinePoint* P);
+void blst_hash_to_g2(blst::scalar::G2Point* out, const unsigned char* msg, size_t msg_len, const unsigned char* DST, size_t DST_len, const unsigned char* aug, size_t aug_len);
+size_t blst_pairing_sizeof(void);
+void blst_pairing_init(void* new_ctx, bool hash_or_encode, const unsigned char* DST, size_t DST_len);
+blst::BLST_ERROR blst_pairing_chk_n_aggr_pk_in_g1(void* ctx, const blst::scalar::G1AffinePoint* PK, bool pk_grpchk, const blst::scalar::G2AffinePoint* signature, bool sig_grpchk, const unsigned char* msg, size_t msg_len, const unsigned char* aug, size_t aug_len);
+void blst_pairing_commit(void* ctx);
+bool blst_pairing_finalverify(const void* ctx, const blst::Fp12* gtsig);
+void blst_aggregated_in_g2(blst::Fp12* out, const blst::scalar::G2AffinePoint* signature);
 }
 
 namespace {
@@ -171,6 +193,11 @@ BoundaryG2 p2_mul(std::uint64_t scalar)
 bool fp2_equal(const BoundaryFp2& a, const BoundaryFp2& b)
 {
     return BoundaryFp::equal(a[0], b[0]) != 0 && BoundaryFp::equal(a[1], b[1]) != 0;
+}
+
+std::vector<unsigned char> packed_scalars(std::initializer_list<unsigned char> scalars)
+{
+    return std::vector<unsigned char>(scalars);
 }
 
 } // namespace
@@ -368,6 +395,231 @@ TEST(LegacyCApi, G2ProjectiveAndAffineRoundTrip)
     EXPECT_TRUE(blst_p2_is_equal(&point, &restored));
 }
 
+TEST(LegacyCApi, G1MultipointAffineAndAddMatchSinglePointOps)
+{
+    std::array<BoundaryG1, 3> points = {p1_mul(3), p1_mul(5), p1_mul(7)};
+    std::array<BoundaryG1Affine, 3> affines = {};
+    const BoundaryG1* point_ptrs[2] = {points.data(), nullptr};
+    const BoundaryG1Affine* affine_ptrs[2] = {affines.data(), nullptr};
+
+    blst_p1s_to_affine(affines.data(), point_ptrs, points.size());
+    for (size_t i = 0; i < points.size(); ++i) {
+        BoundaryG1Affine expected = {};
+        blst_p1_to_affine(&expected, &points[i]);
+        EXPECT_TRUE(blst_p1_affine_is_equal(&affines[i], &expected));
+    }
+
+    BoundaryG1 sum = {};
+    blst_p1s_add(&sum, affine_ptrs, affines.size());
+
+    BoundaryG1 expected_sum = points[0];
+    blst_p1_add_or_double(&expected_sum, &expected_sum, &points[1]);
+    blst_p1_add_or_double(&expected_sum, &expected_sum, &points[2]);
+    EXPECT_TRUE(blst_p1_is_equal(&sum, &expected_sum));
+}
+
+TEST(LegacyCApi, G1MultipointPippengerMatchesSinglePointOps)
+{
+    std::array<BoundaryG1, 3> points = {p1_mul(3), p1_mul(5), p1_mul(7)};
+    std::array<BoundaryG1Affine, 3> affines = {};
+    const BoundaryG1* point_ptrs[2] = {points.data(), nullptr};
+    blst_p1s_to_affine(affines.data(), point_ptrs, points.size());
+    const BoundaryG1Affine* affine_ptrs[2] = {affines.data(), nullptr};
+
+    const std::vector<unsigned char> scalar_blob = packed_scalars({2, 3, 5});
+    const unsigned char* scalar_ptrs[2] = {scalar_blob.data(), nullptr};
+
+    std::vector<blst::limb_t> pippenger_scratch(
+        blst_p1s_mult_pippenger_scratch_sizeof(affines.size()) / sizeof(blst::limb_t));
+    BoundaryG1 pippenger = {};
+    blst_p1s_mult_pippenger(&pippenger, affine_ptrs, affines.size(), scalar_ptrs, 8, pippenger_scratch.data());
+
+    BoundaryG1 expected_msm = {};
+    BoundaryG1 term = {};
+    const auto s0 = scalar_bytes(2);
+    blst_p1_mult(&expected_msm, &points[0], s0.data(), 8);
+    const auto s1 = scalar_bytes(3);
+    blst_p1_mult(&term, &points[1], s1.data(), 8);
+    blst_p1_add_or_double(&expected_msm, &expected_msm, &term);
+    const auto s2 = scalar_bytes(5);
+    blst_p1_mult(&term, &points[2], s2.data(), 8);
+    blst_p1_add_or_double(&expected_msm, &expected_msm, &term);
+    EXPECT_TRUE(blst_p1_is_equal(&pippenger, &expected_msm));
+}
+
+TEST(LegacyCApi, G1MultipointWbitsMatchesSinglePointOps)
+{
+    std::array<BoundaryG1, 3> points = {p1_mul(3), p1_mul(5), p1_mul(7)};
+    std::array<BoundaryG1Affine, 3> affines = {};
+    const BoundaryG1* point_ptrs[2] = {points.data(), nullptr};
+    blst_p1s_to_affine(affines.data(), point_ptrs, points.size());
+    const BoundaryG1Affine* affine_ptrs[2] = {affines.data(), nullptr};
+    const std::vector<unsigned char> scalar_blob = packed_scalars({2, 3, 5});
+    const unsigned char* scalar_ptrs[2] = {scalar_blob.data(), nullptr};
+
+    BoundaryG1 expected_msm = {};
+    BoundaryG1 term = {};
+    const auto s0 = scalar_bytes(2);
+    blst_p1_mult(&expected_msm, &points[0], s0.data(), 8);
+    const auto s1 = scalar_bytes(3);
+    blst_p1_mult(&term, &points[1], s1.data(), 8);
+    blst_p1_add_or_double(&expected_msm, &expected_msm, &term);
+    const auto s2 = scalar_bytes(5);
+    blst_p1_mult(&term, &points[2], s2.data(), 8);
+    blst_p1_add_or_double(&expected_msm, &expected_msm, &term);
+
+    const size_t wbits = 4;
+    std::vector<BoundaryG1Affine> table(
+        blst_p1s_mult_wbits_precompute_sizeof(wbits, affines.size()) / sizeof(BoundaryG1Affine));
+    std::vector<blst::limb_t> wbits_scratch(
+        blst_p1s_mult_wbits_scratch_sizeof(affines.size()) / sizeof(blst::limb_t));
+    blst_p1s_mult_wbits_precompute(table.data(), wbits, affine_ptrs, affines.size());
+
+    BoundaryG1 wbits_result = {};
+    blst_p1s_mult_wbits(
+        &wbits_result,
+        table.data(),
+        wbits,
+        affines.size(),
+        scalar_ptrs,
+        8,
+        wbits_scratch.data());
+    EXPECT_TRUE(blst_p1_is_equal(&wbits_result, &expected_msm));
+}
+
+TEST(LegacyCApi, G1MultipointTileMatchesSinglePointOps)
+{
+    auto run_case = [](const std::array<BoundaryG1, 3>& points,
+                       const std::vector<unsigned char>& scalar_blob,
+                       size_t nbits,
+                       const BoundaryG1& expected_msm) {
+        std::array<BoundaryG1Affine, 3> affines = {};
+        const BoundaryG1* point_ptrs[2] = {points.data(), nullptr};
+        blst_p1s_to_affine(affines.data(), point_ptrs, points.size());
+        const BoundaryG1Affine* affine_ptrs[2] = {affines.data(), nullptr};
+        const unsigned char* scalar_ptrs[2] = {scalar_blob.data(), nullptr};
+
+        const size_t window = 4;
+        const size_t bucket_words = blst_p1s_mult_pippenger_scratch_sizeof(0) / sizeof(blst::limb_t);
+        std::vector<blst::limb_t> scratch(bucket_words << (window - 1));
+
+        BoundaryG1 tiled = {};
+        bool first = true;
+        for (size_t bit0 = ((nbits - 1) / window) * window;;) {
+            BoundaryG1 tile = {};
+            std::fill(scratch.begin(), scratch.end(), 0);
+            blst_p1s_tile_pippenger(
+                &tile,
+                affine_ptrs,
+                affines.size(),
+                scalar_ptrs,
+                nbits,
+                scratch.data(),
+                bit0,
+                window);
+            if (first) {
+                tiled = tile;
+                first = false;
+            } else {
+                for (size_t i = 0; i < window; ++i) {
+                    blst_p1_double(&tiled, &tiled);
+                }
+                blst_p1_add_or_double(&tiled, &tiled, &tile);
+            }
+            if (bit0 == 0) {
+                break;
+            }
+            bit0 -= window;
+        }
+
+        EXPECT_TRUE(blst_p1_is_equal(&tiled, &expected_msm));
+    };
+
+    {
+        std::array<BoundaryG1, 3> points = {p1_mul(3), p1_mul(5), p1_mul(7)};
+        const std::vector<unsigned char> scalar_blob = packed_scalars({2, 3, 5});
+        BoundaryG1 expected_msm = {};
+        BoundaryG1 term = {};
+        const auto s0 = scalar_bytes(2);
+        blst_p1_mult(&expected_msm, &points[0], s0.data(), 8);
+        const auto s1 = scalar_bytes(3);
+        blst_p1_mult(&term, &points[1], s1.data(), 8);
+        blst_p1_add_or_double(&expected_msm, &expected_msm, &term);
+        const auto s2 = scalar_bytes(5);
+        blst_p1_mult(&term, &points[2], s2.data(), 8);
+        blst_p1_add_or_double(&expected_msm, &expected_msm, &term);
+        run_case(points, scalar_blob, 8, expected_msm);
+    }
+
+    {
+        std::array<BoundaryG1, 3> points = {p1_mul(3), p1_mul(5), p1_mul(7)};
+        const std::array<std::uint16_t, 3> scalar_values = {0x101, 0x155, 0x0ab};
+        std::vector<unsigned char> scalar_blob = {
+            static_cast<unsigned char>(scalar_values[0] & 0xff),
+            static_cast<unsigned char>(scalar_values[0] >> 8),
+            static_cast<unsigned char>(scalar_values[1] & 0xff),
+            static_cast<unsigned char>(scalar_values[1] >> 8),
+            static_cast<unsigned char>(scalar_values[2] & 0xff),
+            static_cast<unsigned char>(scalar_values[2] >> 8),
+        };
+
+        BoundaryG1 expected_msm = {};
+        BoundaryG1 term = {};
+        const auto s0 = scalar_bytes(scalar_values[0]);
+        blst_p1_mult(&expected_msm, &points[0], s0.data(), 10);
+        const auto s1 = scalar_bytes(scalar_values[1]);
+        blst_p1_mult(&term, &points[1], s1.data(), 10);
+        blst_p1_add_or_double(&expected_msm, &expected_msm, &term);
+        const auto s2 = scalar_bytes(scalar_values[2]);
+        blst_p1_mult(&term, &points[2], s2.data(), 10);
+        blst_p1_add_or_double(&expected_msm, &expected_msm, &term);
+        run_case(points, scalar_blob, 10, expected_msm);
+    }
+}
+
+TEST(LegacyCApi, G2MultipointWrappersMatchSinglePointOps)
+{
+    std::array<BoundaryG2, 3> points = {p2_mul(11), p2_mul(13), p2_mul(17)};
+    std::array<BoundaryG2Affine, 3> affines = {};
+    const BoundaryG2* point_ptrs[2] = {points.data(), nullptr};
+    const BoundaryG2Affine* affine_ptrs[2] = {affines.data(), nullptr};
+
+    blst_p2s_to_affine(affines.data(), point_ptrs, points.size());
+    for (size_t i = 0; i < points.size(); ++i) {
+        BoundaryG2Affine expected = {};
+        blst_p2_to_affine(&expected, &points[i]);
+        EXPECT_TRUE(blst_p2_affine_is_equal(&affines[i], &expected));
+    }
+
+    BoundaryG2 sum = {};
+    blst_p2s_add(&sum, affine_ptrs, affines.size());
+
+    BoundaryG2 expected_sum = points[0];
+    blst_p2_add_or_double(&expected_sum, &expected_sum, &points[1]);
+    blst_p2_add_or_double(&expected_sum, &expected_sum, &points[2]);
+    EXPECT_TRUE(blst_p2_is_equal(&sum, &expected_sum));
+
+    const std::vector<unsigned char> scalar_blob = packed_scalars({2, 3, 5});
+    const unsigned char* scalar_ptrs[2] = {scalar_blob.data(), nullptr};
+    std::vector<blst::limb_t> scratch(
+        blst_p2s_mult_pippenger_scratch_sizeof(affines.size()) / sizeof(blst::limb_t));
+
+    BoundaryG2 pippenger = {};
+    blst_p2s_mult_pippenger(&pippenger, affine_ptrs, affines.size(), scalar_ptrs, 8, scratch.data());
+
+    BoundaryG2 expected_msm = {};
+    BoundaryG2 term = {};
+    const auto s0 = scalar_bytes(2);
+    blst_p2_mult(&expected_msm, &points[0], s0.data(), 8);
+    const auto s1 = scalar_bytes(3);
+    blst_p2_mult(&term, &points[1], s1.data(), 8);
+    blst_p2_add_or_double(&expected_msm, &expected_msm, &term);
+    const auto s2 = scalar_bytes(5);
+    blst_p2_mult(&term, &points[2], s2.data(), 8);
+    blst_p2_add_or_double(&expected_msm, &expected_msm, &term);
+    EXPECT_TRUE(blst_p2_is_equal(&pippenger, &expected_msm));
+}
+
 TEST(LegacyCApi, PairingPrimitivesMatchBackend)
 {
     const BoundaryG1 p = p1_mul(3);
@@ -400,4 +652,89 @@ TEST(LegacyCApi, PairingPrimitivesMatchBackend)
     const BoundaryGt expected = gt_to_boundary(expected_public);
 
     EXPECT_TRUE(blst::Fp12::equal(final_exp, expected));
+}
+
+TEST(LegacyCApi, MillerLoopNMatchesNaiveProduct)
+{
+    std::array<BoundaryG1, 3> ps = {p1_mul(3), p1_mul(5), p1_mul(7)};
+    std::array<BoundaryG2, 3> qs = {p2_mul(11), p2_mul(13), p2_mul(17)};
+    std::array<BoundaryG1Affine, 3> ps_affine = {};
+    std::array<BoundaryG2Affine, 3> qs_affine = {};
+    const BoundaryG1* p_ptrs[2] = {ps.data(), nullptr};
+    const BoundaryG2* q_ptrs[2] = {qs.data(), nullptr};
+    const BoundaryG1Affine* ps_affine_ptrs[2] = {ps_affine.data(), nullptr};
+    const BoundaryG2Affine* qs_affine_ptrs[2] = {qs_affine.data(), nullptr};
+
+    blst_p1s_to_affine(ps_affine.data(), p_ptrs, ps.size());
+    blst_p2s_to_affine(qs_affine.data(), q_ptrs, qs.size());
+
+    BoundaryGt combined = {};
+    blst_miller_loop_n(&combined, qs_affine_ptrs, ps_affine_ptrs, ps.size());
+
+    BoundaryGt naive = *blst_fp12_one();
+    for (size_t i = 0; i < ps.size(); ++i) {
+        BoundaryGt term = {};
+        blst_miller_loop(&term, &qs_affine[i], &ps_affine[i]);
+        blst_fp12_mul(&naive, &naive, &term);
+    }
+
+    EXPECT_TRUE(blst_fp12_is_equal(&combined, &naive));
+}
+
+TEST(LegacyCApi, PairingAggregateAllowsNullSignatureAfterFirstElement)
+{
+    const auto dst = std::to_array("BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_");
+    const auto sk0 = scalar_bytes(3);
+    const auto sk1 = scalar_bytes(5);
+    const BoundaryG1 pk0 = p1_mul(3);
+    const BoundaryG1 pk1 = p1_mul(5);
+    const std::array<unsigned char, 3> msg0 = {'a', 'b', 'c'};
+    const std::array<unsigned char, 3> msg1 = {'d', 'e', 'f'};
+    BoundaryG2 hash0 = {};
+    BoundaryG2 hash1 = {};
+    BoundaryG2 sig0 = {};
+    BoundaryG2 sig1 = {};
+    BoundaryG2 agg_sig = {};
+    blst_hash_to_g2(&hash0, msg0.data(), msg0.size(), reinterpret_cast<const unsigned char*>(dst.data()), dst.size() - 1, nullptr, 0);
+    blst_hash_to_g2(&hash1, msg1.data(), msg1.size(), reinterpret_cast<const unsigned char*>(dst.data()), dst.size() - 1, nullptr, 0);
+    blst_p2_mult(&sig0, &hash0, sk0.data(), 255);
+    blst_p2_mult(&sig1, &hash1, sk1.data(), 255);
+    blst_p2_add_or_double(&agg_sig, &sig0, &sig1);
+    BoundaryG1Affine pk0_affine = {};
+    BoundaryG1Affine pk1_affine = {};
+    BoundaryG2Affine sig_affine = {};
+    blst_p1_to_affine(&pk0_affine, &pk0);
+    blst_p1_to_affine(&pk1_affine, &pk1);
+    blst_p2_to_affine(&sig_affine, &agg_sig);
+
+    std::vector<unsigned long long> raw(blst_pairing_sizeof() / sizeof(unsigned long long));
+    void* ctx = raw.data();
+    blst_pairing_init(ctx, true, reinterpret_cast<const unsigned char*>(dst.data()), dst.size() - 1);
+    ASSERT_EQ(
+        blst_pairing_chk_n_aggr_pk_in_g1(
+            ctx,
+            &pk0_affine,
+            true,
+            &sig_affine,
+            true,
+            msg0.data(),
+            msg0.size(),
+            nullptr,
+            0),
+        blst::BLST_SUCCESS);
+    ASSERT_EQ(
+        blst_pairing_chk_n_aggr_pk_in_g1(
+            ctx,
+            &pk1_affine,
+            true,
+            nullptr,
+            false,
+            msg1.data(),
+            msg1.size(),
+            nullptr,
+            0),
+        blst::BLST_SUCCESS);
+
+    blst_pairing_commit(ctx);
+    EXPECT_TRUE(blst_pairing_finalverify(ctx, nullptr));
 }
