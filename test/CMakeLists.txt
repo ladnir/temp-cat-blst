@@ -18,6 +18,8 @@ FetchContent_MakeAvailable(googletest)
 # default aliases resolve to.
 set(PUBLIC_API_TEST_SOURCES
     "Backend_alias_tests.cpp"
+    "Legacy_c_api_tests.cpp"
+    "MiddleProduct_c_api_tests.cpp"
 )
 
 # Scalar backend tests are allowed to use scalar-only internals and helper APIs.

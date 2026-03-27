@@ -12,6 +12,8 @@ set(BLST_STATIC_SRC
     "scalar/curve/point.cpp"
     "scalar/curve/multi_scalar.cpp"
     "sign/aggregate.cpp"
+    "legacy_c_api.cpp"
+    "middle_product_c_api.cpp"
     "exports.cpp"
 )
 
@@ -179,6 +181,10 @@ configure_file(
 target_include_directories(blst_static PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 
 add_subdirectory(avx)
+
+if(BLST_HAVE_AVX_BASEFIELD)
+    target_link_libraries(blst_static PRIVATE blst_avx_headers)
+endif()
 
 if(BLST_DEFAULT_AVX)
     target_link_libraries(blst_static PUBLIC blst_avx_headers)

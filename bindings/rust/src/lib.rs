@@ -11,12 +11,16 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
-use alloc::vec;
-use alloc::vec::Vec;
-use core::any::Any;
 use core::mem::{transmute, MaybeUninit};
 use core::ptr;
 use zeroize::Zeroize;
+
+#[cfg(feature = "legacy-rust-bindings")]
+use alloc::vec;
+#[cfg(feature = "legacy-rust-bindings")]
+use alloc::vec::Vec;
+#[cfg(feature = "legacy-rust-bindings")]
+use core::any::Any;
 
 #[cfg(feature = "std")]
 use std::sync::{atomic::*, mpsc::channel, Arc};
@@ -38,8 +42,8 @@ mod mt {
     use threadpool::ThreadPool;
 
     pub fn da_pool() -> ThreadPool {
-        INIT: Once = Once::new();
-        mut POOL: *const Mutex<ThreadPool> = ptr::null();
+        static INIT: Once = Once::new();
+        static mut POOL: *const Mutex<ThreadPool> = ptr::null();
 
         INIT.call_once(|| {
             let pool = Mutex::new(ThreadPool::default());
@@ -91,6 +95,268 @@ mod mt {
 }
 
 include!("bindings.rs");
+
+#[repr(C)]
+pub struct blst_middle_product_precomputed_b {
+    _private: [u8; 0],
+}
+
+extern "C" {
+    fn blst_middle_product_precompute_b(
+        b: *const blst_p2,
+        n: usize,
+    ) -> *mut blst_middle_product_precomputed_b;
+    fn blst_middle_product(
+        a: *const blst_p1,
+        n: usize,
+        precomputed_b: *const blst_middle_product_precomputed_b,
+        out: *mut blst_fp12,
+    ) -> bool;
+    fn blst_middle_product_precomputed_b_free(
+        precomputed_b: *mut blst_middle_product_precomputed_b,
+    );
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MiddleProductError {
+    EmptyInput,
+    InvalidBLength,
+    LengthMismatch,
+    OutputTooSmall,
+    PrecomputeFailed,
+    BackendFailure,
+}
+
+#[derive(Debug)]
+pub struct MiddleProductPrecomputedB {
+    raw: *mut blst_middle_product_precomputed_b,
+    n: usize,
+}
+
+impl MiddleProductPrecomputedB {
+    pub fn new(b: &[blst_p2]) -> Result<Self, MiddleProductError> {
+        precompute_middle_product_b(b)
+    }
+
+    pub fn len(&self) -> usize {
+        self.n
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.n == 0
+    }
+}
+
+impl Drop for MiddleProductPrecomputedB {
+    fn drop(&mut self) {
+        if !self.raw.is_null() {
+            unsafe { blst_middle_product_precomputed_b_free(self.raw) };
+        }
+    }
+}
+
+pub fn precompute_middle_product_b(
+    b: &[blst_p2],
+) -> Result<MiddleProductPrecomputedB, MiddleProductError> {
+    if b.is_empty() {
+        return Err(MiddleProductError::EmptyInput);
+    }
+    if b.len() % 2 != 0 {
+        return Err(MiddleProductError::InvalidBLength);
+    }
+
+    let n = b.len() / 2;
+    let raw = unsafe { blst_middle_product_precompute_b(b.as_ptr(), n) };
+    if raw.is_null() {
+        return Err(MiddleProductError::PrecomputeFailed);
+    }
+
+    Ok(MiddleProductPrecomputedB { raw, n })
+}
+
+pub fn middle_product(
+    a: &[blst_p1],
+    precomputed_b: &MiddleProductPrecomputedB,
+    out: &mut [blst_fp12],
+) -> Result<(), MiddleProductError> {
+    if a.len() != precomputed_b.n {
+        return Err(MiddleProductError::LengthMismatch);
+    }
+    if out.len() < precomputed_b.n {
+        return Err(MiddleProductError::OutputTooSmall);
+    }
+
+    let ok = unsafe {
+        blst_middle_product(
+            a.as_ptr(),
+            precomputed_b.n,
+            precomputed_b.raw,
+            out.as_mut_ptr(),
+        )
+    };
+    if ok {
+        Ok(())
+    } else {
+        Err(MiddleProductError::BackendFailure)
+    }
+}
+
+#[cfg(test)]
+mod middle_product_tests {
+    use super::*;
+
+    fn zero_fp12() -> blst_fp12 {
+        blst_fp12 {
+            fp6: [blst_fp6::default(), blst_fp6::default()],
+        }
+    }
+
+    fn scalar_bytes(value: u64) -> [u8; 32] {
+        let mut out = [0u8; 32];
+        for (i, byte) in value.to_le_bytes().iter().enumerate() {
+            out[i] = *byte;
+        }
+        out
+    }
+
+    fn fr_to_words(value: &blst_fr) -> [u64; 4] {
+        let mut out = [0u64; 4];
+        unsafe {
+            blst_uint64_from_fr(out.as_mut_ptr(), value);
+        }
+        out
+    }
+
+    fn fp_to_words(value: &blst_fp) -> [u64; 6] {
+        let mut out = [0u64; 6];
+        unsafe {
+            blst_uint64_from_fp(out.as_mut_ptr(), value);
+        }
+        out
+    }
+
+    #[test]
+    fn precompute_rejects_empty_input() {
+        let b: [blst_p2; 0] = [];
+        assert!(matches!(
+            precompute_middle_product_b(&b),
+            Err(MiddleProductError::EmptyInput)
+        ));
+    }
+
+    #[test]
+    fn precompute_rejects_odd_length() {
+        let b = [blst_p2::default()];
+        assert!(matches!(
+            precompute_middle_product_b(&b),
+            Err(MiddleProductError::InvalidBLength)
+        ));
+    }
+
+    #[test]
+    fn middle_product_rejects_length_mismatch() {
+        let b = [blst_p2::default(), blst_p2::default()];
+        let precomputed = precompute_middle_product_b(&b).unwrap();
+        let a = [blst_p1::default(), blst_p1::default()];
+        let mut out = [zero_fp12()];
+
+        assert_eq!(
+            middle_product(&a, &precomputed, &mut out),
+            Err(MiddleProductError::LengthMismatch)
+        );
+    }
+
+    #[test]
+    fn middle_product_rejects_small_output_buffer() {
+        let b = [blst_p2::default(), blst_p2::default()];
+        let precomputed = precompute_middle_product_b(&b).unwrap();
+        let a = [blst_p1::default()];
+        let mut out: [blst_fp12; 0] = [];
+
+        assert_eq!(
+            middle_product(&a, &precomputed, &mut out),
+            Err(MiddleProductError::OutputTooSmall)
+        );
+    }
+
+    #[test]
+    fn middle_product_accepts_zero_boundary_points() {
+        let b = [blst_p2::default(), blst_p2::default()];
+        let precomputed = MiddleProductPrecomputedB::new(&b).unwrap();
+        assert_eq!(precomputed.len(), 1);
+        assert!(!precomputed.is_empty());
+
+        let a = [blst_p1::default()];
+        let mut out = [zero_fp12()];
+
+        middle_product(&a, &precomputed, &mut out).unwrap();
+    }
+
+    #[test]
+    fn legacy_c_api_primitives_accept_nonzero_points() {
+        unsafe {
+            let p_scalar = scalar_bytes(3);
+            let q_scalar = scalar_bytes(11);
+
+            let mut p = blst_p1::default();
+            let mut q = blst_p2::default();
+            blst_p1_mult(&mut p, blst_p1_generator(), p_scalar.as_ptr(), 256);
+            blst_p2_mult(&mut q, blst_p2_generator(), q_scalar.as_ptr(), 256);
+
+            assert!(blst_p1_in_g1(&p));
+            assert!(blst_p2_in_g2(&q));
+
+            let mut p_affine = blst_p1_affine::default();
+            let mut q_affine = blst_p2_affine::default();
+            blst_p1_to_affine(&mut p_affine, &p);
+            blst_p2_to_affine(&mut q_affine, &q);
+
+            let gt = blst_fp12::miller_loop(&q_affine, &p_affine).final_exp();
+            assert!(gt.in_group());
+            assert_eq!(gt * blst_fp12::default(), gt);
+            assert!(blst_fp12::finalverify(&gt, &gt));
+        }
+    }
+
+    #[test]
+    fn legacy_field_c_api_primitives_round_trip() {
+        unsafe {
+            let five_words = [5u64, 0, 0, 0];
+            let one_fr_words = [1u64, 0, 0, 0];
+            let mut five = blst_fr::default();
+            let mut one_fr = blst_fr::default();
+            blst_fr_from_uint64(&mut five, five_words.as_ptr());
+            blst_fr_from_uint64(&mut one_fr, one_fr_words.as_ptr());
+
+            let mut inverse = blst_fr::default();
+            let mut product = blst_fr::default();
+            blst_fr_inverse(&mut inverse, &five);
+            blst_fr_mul(&mut product, &five, &inverse);
+            assert_eq!(fr_to_words(&product), one_fr_words);
+
+            let three_words = [3u64, 0, 0, 0, 0, 0];
+            let one_fp_words = [1u64, 0, 0, 0, 0, 0];
+            let mut three = blst_fp::default();
+            let mut one_fp = blst_fp::default();
+            blst_fp_from_uint64(&mut three, three_words.as_ptr());
+            blst_fp_from_uint64(&mut one_fp, one_fp_words.as_ptr());
+
+            let mut fp_inverse = blst_fp::default();
+            let mut fp_product = blst_fp::default();
+            blst_fp_inverse(&mut fp_inverse, &three);
+            blst_fp_mul(&mut fp_product, &three, &fp_inverse);
+            assert_eq!(fp_to_words(&fp_product), one_fp_words);
+
+            let mut square = blst_fp::default();
+            let mut sqrt = blst_fp::default();
+            blst_fp_sqr(&mut square, &three);
+            assert!(blst_fp_is_square(&square));
+            assert!(blst_fp_sqrt(&mut sqrt, &square));
+            blst_fp_sqr(&mut fp_product, &sqrt);
+            assert_eq!(fp_to_words(&fp_product), fp_to_words(&square));
+        }
+    }
+}
 
 impl PartialEq for blst_p1 {
     fn eq(&self, other: &Self) -> bool {
@@ -278,11 +544,13 @@ impl blst_scalar {
     }
 }
 
+#[cfg(feature = "legacy-rust-bindings")]
 #[derive(Debug)]
 pub struct Pairing {
     v: Box<[u64]>,
 }
 
+#[cfg(feature = "legacy-rust-bindings")]
 impl Pairing {
     pub fn new(hash_or_encode: bool, dst: &[u8]) -> Self {
         let v: Vec<u64> = vec![0; unsafe { blst_pairing_sizeof() } / 8];
@@ -474,6 +742,7 @@ impl Pairing {
     }
 }
 
+#[cfg(feature = "legacy-rust-bindings")]
 pub fn uniq(msgs: &[&[u8]]) -> bool {
     let n_elems = msgs.len();
 
@@ -506,6 +775,7 @@ pub fn print_bytes(bytes: &[u8], name: &str) {
     println!();
 }
 
+#[cfg(feature = "legacy-rust-bindings")]
 macro_rules! sig_variant_impl {
     (
         $name:expr,
@@ -2187,6 +2457,7 @@ macro_rules! sig_variant_impl {
     };
 }
 
+#[cfg(feature = "legacy-rust-bindings")]
 pub mod min_pk {
     use super::*;
 
@@ -2231,6 +2502,7 @@ pub mod min_pk {
     );
 }
 
+#[cfg(feature = "legacy-rust-bindings")]
 pub mod min_sig {
     use super::*;
 
@@ -2275,6 +2547,7 @@ pub mod min_sig {
     );
 }
 
+#[cfg(feature = "legacy-rust-bindings")]
 pub trait MultiPoint {
     type Output;
 
@@ -2285,13 +2558,13 @@ pub trait MultiPoint {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", feature = "legacy-rust-bindings"))]
 include!("pippenger.rs");
 
-#[cfg(not(feature = "std"))]
+#[cfg(all(not(feature = "std"), feature = "legacy-rust-bindings"))]
 include!("pippenger-no_std.rs");
 
-#[cfg(test)]
+#[cfg(all(test, feature = "legacy-rust-bindings"))]
 mod fp12_test {
     use super::*;
     use rand::{RngCore, SeedableRng};
@@ -2344,7 +2617,7 @@ mod fp12_test {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "legacy-rust-bindings"))]
 mod sk_test {
     use super::*;
     use rand::{RngCore, SeedableRng};

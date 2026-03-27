@@ -37,8 +37,11 @@ void blst_fr_ct_bfly(Fr& x0, Fr& x1, const Fr& twiddle) { Fr::ct_bfly(x0, x1, tw
 void blst_fr_gs_bfly(Fr& x0, Fr& x1, const Fr& twiddle) { Fr::gs_bfly(x0, x1, twiddle); }
 void blst_fr_sqr(Fr& ret, const Fr& a) { Fr::sqr(ret, a); }
 void blst_fr_cneg(Fr& ret, const Fr& a, int flag) { Fr::cneg(ret, a, flag); }
+void blst_fr_eucl_inverse(Fr& ret, const Fr& a) { Fr::reciprocal(ret, a); }
+void blst_fr_inverse(Fr& ret, const Fr& a) { Fr::reciprocal(ret, a); }
 void blst_fr_to(Fr& ret, const Fr& a) { Fr::to_mont(ret, a); }
 void blst_fr_from(Fr& ret, const Fr& a) { Fr::from_mont(ret, a); }
+void blst_fr_from_uint64(Fr& ret, const unsigned long long a[4]) { Fr::from_uint64(ret, a); }
 void blst_fr_from_scalar(Fr& ret, const pow256 a) { Fr::from_scalar(ret, a); }
 void blst_scalar_from_fr(pow256 ret, const Fr& a) { Fr::to_scaler(ret, a); }
 int blst_scalar_fr_check(const pow256 a) { 
@@ -80,6 +83,18 @@ void blst_fp_sqr(Fp& ret, const Fp& a)
 
 void blst_fp_cneg(Fp& ret, const Fp& a, int flag)
 {   Fp::cneg(ret, a, is_zero(flag) ^ 1);   }
+
+void blst_fp_eucl_inverse(Fp& ret, const Fp& a)
+{   Fp::reciprocal(ret, a);   }
+
+void blst_fp_inverse(Fp& ret, const Fp& a)
+{   Fp::flt_reciprocal(ret, a);   }
+
+int blst_fp_sqrt(Fp& ret, const Fp& a)
+{   return (int)Fp::sqrt(ret, a);   }
+
+int blst_fp_is_square(const Fp& a)
+{   return (int)Fp::is_sqrt(a);   }
 
 void blst_fp_to(Fp& ret, const Fp& a)
 {   Fp::mul(ret, a, get_BLST_RR());   }
@@ -214,6 +229,18 @@ void blst_fp2_sqr(Fp2& ret, const Fp2& a)
 
 void blst_fp2_cneg(Fp2& ret, const Fp2& a, int flag)
 {   Fp2::cneg(ret, a, is_zero(flag) ^ 1);   }
+
+void blst_fp2_eucl_inverse(Fp2& ret, const Fp2& a)
+{   Fp2::reciprocal(ret, a);   }
+
+void blst_fp2_inverse(Fp2& ret, const Fp2& a)
+{   Fp2::flt_reciprocal(ret, a);   }
+
+int blst_fp2_sqrt(Fp2& ret, const Fp2& a)
+{   return (int)Fp2::sqrt(ret, a);   }
+
+int blst_fp2_is_square(const Fp2& a)
+{   return Fp2::is_square(a);   }
 
 /*
  * Scalar serialization/deserialization.
@@ -439,6 +466,11 @@ void blst_sha256(unsigned char md[32], const void *msg, size_t len)
  */
 void blst_scalar_from_hexascii(pow256 ret, const char *hex)
 {   bytes_from_hexascii(ret, sizeof(pow256), hex);   }
+
+void blst_fr_from_hexascii(Fr& ret, const char *hex)
+{
+    Fr::from_hexascii(ret, hex);
+}
 
 void blst_fp_from_hexascii(Fp& ret, const char *hex)
 {

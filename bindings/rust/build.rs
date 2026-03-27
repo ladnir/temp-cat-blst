@@ -1,34 +1,7 @@
-#![allow(unused_imports)]
-
-extern crate cc;
-
 use std::env;
+use std::fs;
 use std::path::{Path, PathBuf};
-
-fn assembly(
-    file_vec: &mut Vec<PathBuf>,
-    base_dir: &Path,
-    _arch: &str,
-    _is_msvc: bool,
-) {
-    #[cfg(target_env = "msvc")]
-    if _is_msvc {
-        let sfx = match _arch {
-            "x86_64" => "x86_64",
-            "aarch64" => "armv8",
-            _ => "unknown",
-        };
-        let files =
-            glob::glob(&format!("{}/win64/*-{}.asm", base_dir.display(), sfx))
-                .expect("unable to collect assembly files");
-        for file in files {
-            file_vec.push(file.unwrap());
-        }
-        return;
-    }
-
-    file_vec.push(base_dir.join("assembly.S"));
-}
+use std::process::Command;
 
 fn main() {
     if env::var("CARGO_FEATURE_SERDE_SECRET").is_ok() {
@@ -41,8 +14,6 @@ fn main() {
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
     let target_env = env::var("CARGO_CFG_TARGET_ENV").unwrap();
     let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
-    let target_family = env::var("CARGO_CFG_TARGET_FAMILY").unwrap_or_default();
-
     let target_no_std = target_os.eq("none")
         || (target_os.eq("unknown") && target_arch.eq("wasm32"))
         || target_os.eq("uefi")
@@ -84,164 +55,173 @@ fn main() {
             .into();
     }
     println!("Using blst source directory {}", blst_base_dir.display());
+    println!(
+        "cargo:rerun-if-changed={}",
+        blst_base_dir.join("CMakeLists.txt").display()
+    );
+    println!(
+        "cargo:rerun-if-changed={}",
+        blst_base_dir.join("blst").display()
+    );
+    println!(
+        "cargo:rerun-if-changed={}",
+        blst_base_dir.join("bindings").display()
+    );
 
-    // Set CC environment variable to choose alternative C compiler.
-    // Optimization level depends on whether or not --release is passed
-    // or implied.
-
-    if target_os.eq("uefi") && env::var("CC").is_err() {
-        match std::process::Command::new("clang")
-            .arg("--version")
-            .output()
-        {
-            Ok(_) => env::set_var("CC", "clang"),
-            Err(_) => { /* no clang in sight, just ignore the error */ }
-        }
+    let portable = cfg!(feature = "portable");
+    if portable && cfg!(feature = "force-adx") {
+        panic!("cannot compile with both `portable` and `force-adx` features");
     }
 
-    if target_env.eq("sgx") && env::var("CC").is_err() {
-        match std::process::Command::new("clang")
-            .arg("--version")
-            .output()
-        {
-            Ok(out) => {
-                let version = String::from_utf8(out.stdout)
-                    .unwrap_or("unintelligible".to_string());
-                if let Some(x) = version.find("clang version ") {
-                    let x = x + 14;
-                    let y = version[x..].find('.').unwrap_or(0);
-                    if version[x..x + y].parse::<i32>().unwrap_or(0) >= 11 {
-                        env::set_var("CC", "clang");
-                    }
-                }
-            }
-            Err(_) => { /* no clang in sight, just ignore the error */ }
-        }
-    }
-
-    if target_env.eq("msvc")
-        && env::var("CARGO_CFG_TARGET_POINTER_WIDTH").unwrap().eq("32")
-        && env::var("CC").is_err()
-    {
-        match std::process::Command::new("clang-cl")
-            .args(["-m32", "--version"])
-            .output()
-        {
-            Ok(out) => {
-                if String::from_utf8(out.stdout)
-                    .unwrap_or("unintelligible".to_string())
-                    .contains("Target: i386-pc-windows-msvc")
-                {
-                    env::set_var("CC", "clang-cl");
-                }
-            }
-            Err(_) => { /* no clang-cl in sight, just ignore the error */ }
-        }
-    }
-
-    let mut cc = cc::Build::new();
-
-    let c_src_dir = blst_base_dir.join("src");
-    println!("cargo:rerun-if-changed={}", c_src_dir.display());
-    let mut file_vec = vec![c_src_dir.join("server.c")];
-
-    if target_arch.eq("x86_64") || target_arch.eq("aarch64") {
-        let asm_dir = blst_base_dir.join("build");
-        println!("cargo:rerun-if-changed={}", asm_dir.display());
-        assembly(
-            &mut file_vec,
-            &asm_dir,
-            &target_arch,
-            cc.get_compiler().is_like_msvc(),
-        );
+    let enable_asm = !portable
+        && !target_no_std
+        && (target_arch.eq("x86_64") || target_arch.eq("aarch64"));
+    let enable_adx = enable_asm && should_enable_adx(&target_arch, &target_env);
+    let profile = env::var("PROFILE").unwrap_or_else(|_| "debug".to_string());
+    let build_type = if profile.eq_ignore_ascii_case("release") {
+        "Release"
     } else {
-        cc.define("__BLST_NO_ASM__", None);
+        "Debug"
+    };
+    let build_dir = PathBuf::from(env::var("OUT_DIR").unwrap()).join("cmake");
+    let use_ninja =
+        env::var_os("CMAKE_GENERATOR").is_none() && command_works("ninja", &["--version"]);
+
+    let mut configure = Command::new("cmake");
+    configure.arg("-S").arg(&blst_base_dir);
+    configure.arg("-B").arg(&build_dir);
+    if use_ninja {
+        configure.args(["-G", "Ninja"]);
     }
-    match (cfg!(feature = "portable"), cfg!(feature = "force-adx")) {
-        (true, false) => {
-            if target_arch.eq("x86_64") && target_env.eq("sgx") {
-                panic!("'portable' is not supported on SGX target");
-            }
-            println!("Compiling in portable mode without ISA extensions");
-            cc.define("__BLST_PORTABLE__", None);
-        }
-        (false, true) => {
-            if target_arch.eq("x86_64") {
-                println!("Enabling ADX support via `force-adx` feature");
-                cc.define("__ADX__", None);
-            } else {
-                println!("`force-adx` is ignored for non-x86_64 targets");
-            }
-        }
-        (false, false) => {
-            if target_arch.eq("x86_64") {
-                if target_env.eq("sgx") {
-                    println!("Enabling ADX for Intel SGX target");
-                    cc.define("__ADX__", None);
-                } else if env::var("CARGO_ENCODED_RUSTFLAGS")
-                    .unwrap_or_default()
-                    .contains("target-cpu=")
-                {
-                    // If target-cpu is specified on the rustc command line,
-                    // then obey the resulting target-features.
-                    let feat_list = env::var("CARGO_CFG_TARGET_FEATURE")
-                        .unwrap_or_default();
-                    let features: Vec<_> = feat_list.split(',').collect();
-                    if !features.contains(&"ssse3") {
-                        println!(
-                            "Compiling in portable mode without ISA extensions"
-                        );
-                        cc.define("__BLST_PORTABLE__", None);
-                    } else if features.contains(&"adx") {
-                        println!(
-                            "Enabling ADX because it was set as target-feature"
-                        );
-                        cc.define("__ADX__", None);
-                    }
-                } else {
-                    #[cfg(target_arch = "x86_64")]
-                    if std::is_x86_feature_detected!("adx") {
-                        println!(
-                            "Enabling ADX because it was detected on the host"
-                        );
-                        cc.define("__ADX__", None);
-                    }
-                }
-            }
-        }
-        (true, true) => panic!(
-            "Cannot compile with both `portable` and `force-adx` features"
-        ),
+    configure.arg(format!("-DCMAKE_BUILD_TYPE={build_type}"));
+    if target_env.eq("msvc") {
+        configure.arg("-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL");
     }
-    if target_env.eq("msvc") && cc.get_compiler().is_like_msvc() {
-        cc.flag("-Zl");
+    configure.args([
+        "-DBLST_BUILD_SHARED=OFF",
+        "-DBLST_TEST=OFF",
+        "-DBLST_BENCHMARK=OFF",
+        "-DBLST_CUDA=OFF",
+        "-DBLST_CUDA_MSM=OFF",
+        "-DBLST_PARALLEL_MSM=OFF",
+        "-DBLST_CRNS_BATCH_VROOM_VENDOR=OFF",
+    ]);
+    configure.arg(format!("-DBLST_PORTABLE={}", on_off(portable)));
+    configure.arg(format!("-DBLST_ASM={}", on_off(enable_asm)));
+    configure.arg(format!("-DBLST_DEFAULT_ASM={}", on_off(enable_asm)));
+    configure.arg(format!("-DBLST_ADX={}", on_off(enable_adx)));
+    push_env_define(&mut configure, "BLST_AVX512");
+    push_env_define(&mut configure, "BLST_DEFAULT_AVX");
+    push_env_define(&mut configure, "BLST_AVX512_PORTABLE");
+    run(&mut configure, "configure blst with CMake");
+
+    let mut build = Command::new("cmake");
+    build.arg("--build").arg(&build_dir);
+    build.args(["--target", "blst_static"]);
+    if !use_ninja && target_env.eq("msvc") {
+        build.args(["--config", build_type]);
     }
-    cc.flag_if_supported("-mno-avx") // avoid costly transitions
-        .flag_if_supported("-fno-builtin")
-        .flag_if_supported("-Wno-unused-function")
-        .flag_if_supported("-Wno-unused-command-line-argument");
-    if target_arch.eq("wasm32") || target_family.is_empty() {
-        cc.flag("-ffreestanding");
+    run(&mut build, "build blst_static");
+
+    let lib_name = if target_env.eq("msvc") {
+        "blst.lib"
+    } else {
+        "libblst.a"
+    };
+    let lib_dir = find_parent_dir_containing(&build_dir, lib_name)
+        .unwrap_or_else(|| panic!("unable to locate {lib_name} under {}", build_dir.display()));
+
+    println!("cargo:rustc-link-search=native={}", lib_dir.display());
+    println!("cargo:rustc-link-lib=static=blst");
+    if !target_env.eq("msvc") {
+        let cpp_runtime = if target_os.eq("macos") || target_os.eq("ios") {
+            "c++"
+        } else {
+            "stdc++"
+        };
+        println!("cargo:rustc-link-lib={cpp_runtime}");
     }
-    if target_arch.eq("wasm32") || target_no_std {
-        cc.define("SCRATCH_LIMIT", "(45 * 1024)");
-    }
-    if target_env.eq("sgx") {
-        cc.flag_if_supported("-mlvi-hardening");
-        cc.define("__SGX_LVI_HARDENING__", None);
-        cc.define("__BLST_NO_CPUID__", None);
-        cc.define("__ELF__", None);
-        cc.define("SCRATCH_LIMIT", "(45 * 1024)");
-    }
-    if !cfg!(debug_assertions) {
-        cc.opt_level(2);
-    }
-    cc.files(&file_vec).compile("blst");
 
     // pass some DEP_BLST_* variables to dependents
     println!(
         "cargo:BINDINGS={}",
         blst_base_dir.join("bindings").to_string_lossy()
     );
-    println!("cargo:C_SRC={}", c_src_dir.to_string_lossy());
+    println!(
+        "cargo:C_SRC={}",
+        blst_base_dir.join("blst").to_string_lossy()
+    );
+}
+
+fn on_off(value: bool) -> &'static str {
+    if value { "ON" } else { "OFF" }
+}
+
+fn should_enable_adx(target_arch: &str, target_env: &str) -> bool {
+    if target_arch != "x86_64" {
+        return false;
+    }
+    if cfg!(feature = "force-adx") || target_env.eq("sgx") {
+        return true;
+    }
+    if env::var("CARGO_ENCODED_RUSTFLAGS")
+        .unwrap_or_default()
+        .contains("target-cpu=")
+    {
+        return env::var("CARGO_CFG_TARGET_FEATURE")
+            .unwrap_or_default()
+            .split(',')
+            .any(|feature| feature == "adx");
+    }
+    #[cfg(target_arch = "x86_64")]
+    {
+        std::is_x86_feature_detected!("adx")
+    }
+    #[cfg(not(target_arch = "x86_64"))]
+    {
+        false
+    }
+}
+
+fn push_env_define(command: &mut Command, name: &str) {
+    if let Ok(value) = env::var(name) {
+        command.arg(format!("-D{name}={value}"));
+    }
+}
+
+fn command_works(command: &str, args: &[&str]) -> bool {
+    Command::new(command)
+        .args(args)
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
+fn run(command: &mut Command, context: &str) {
+    let status = command
+        .status()
+        .unwrap_or_else(|err| panic!("failed to {context}: {err}", context = context, err = err));
+    if !status.success() {
+        panic!(
+            "{context} failed with status {status}",
+            context = context,
+            status = status
+        );
+    }
+}
+
+fn find_parent_dir_containing(root: &Path, file_name: &str) -> Option<PathBuf> {
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let entries = fs::read_dir(&dir).ok()?;
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                stack.push(path);
+            } else if path.file_name().and_then(|name| name.to_str()) == Some(file_name) {
+                return path.parent().map(Path::to_path_buf);
+            }
+        }
+    }
+    None
 }
