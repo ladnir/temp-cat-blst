@@ -33,8 +33,10 @@ namespace blst
     using scalar::get_BLST_sqrt_minus_sqrt_minus_1;
     using scalar::get_BLST_sqrt_sqrt_minus_1;
 
+#if defined(BLST_ASM) && !defined(__CUDA_ARCH__)
     using scalar::mul_v382x;
     using scalar::sqr_v382x;
+#endif
 }
 
 #endif /* __BLS12_381_ASM_FIELDS_H__ */

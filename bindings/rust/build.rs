@@ -41,19 +41,7 @@ fn main() {
     }
 
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-
-    let mut blst_base_dir = manifest_dir.join("blst");
-    if !blst_base_dir.exists() {
-        // Reach out to ../.., which is the root of the blst repo.
-        // Use an absolute path to avoid issues with relative paths
-        // being treated as strings by `cc` and getting concatenated
-        // in ways that reach out of the OUT_DIR.
-        blst_base_dir = manifest_dir
-            .parent()
-            .and_then(|dir| dir.parent())
-            .expect("can't access parent of parent of current directory")
-            .into();
-    }
+    let blst_base_dir = resolve_blst_source_dir(&manifest_dir);
     println!("Using blst source directory {}", blst_base_dir.display());
     println!(
         "cargo:rerun-if-changed={}",
@@ -164,6 +152,29 @@ fn main() {
 
 fn on_off(value: bool) -> &'static str {
     if value { "ON" } else { "OFF" }
+}
+
+fn resolve_blst_source_dir(manifest_dir: &Path) -> PathBuf {
+    let packaged_root = manifest_dir.join("blst");
+    if packaged_root.join("CMakeLists.txt").is_file() {
+        return packaged_root;
+    }
+
+    if manifest_dir.join("CMakeLists.txt").is_file() {
+        return manifest_dir.to_path_buf();
+    }
+
+    manifest_dir
+        .parent()
+        .and_then(|dir| dir.parent())
+        .filter(|dir| dir.join("CMakeLists.txt").is_file())
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| {
+            panic!(
+                "unable to locate blst source root from {}",
+                manifest_dir.display()
+            )
+        })
 }
 
 fn should_enable_adx(target_arch: &str, target_env: &str) -> bool {
