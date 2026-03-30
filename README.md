@@ -61,13 +61,24 @@ Unless deemed appropriate to implement, bindings for other languages will be pro
 
 ## API
 
-The blst API is defined in the C header [bindings/blst.h](bindings/blst.h). The API can be categorized as follows, with some example operations:
+The main scalar C API is defined in [bindings/blst.h](bindings/blst.h) together with the split headers under [bindings/](bindings). The API can be categorized as follows, with some example operations:
 - Field Operations (add, sub, mul, neg, inv, to/from Montgomery)
 - Curve Operations (add, double, mul, to/from affine, group check)
 - Intermediate (hash to curve, pairing, serdes)
 - BLS12-381 signature (sign, verify, aggregate)
 
-Note: there is also an auxiliary header file, [bindings/blst_aux.h](bindings/blst_aux.h), that is used as a staging area for experimental interfaces that may or may not get promoted to blst.h.
+The split headers are:
+
+- [bindings/blst_types.h](bindings/blst_types.h)
+  - shared POD C types and layout definitions
+- [bindings/blst_scalar.h](bindings/blst_scalar.h)
+  - scalar/public C API
+- [bindings/blst_avx.h](bindings/blst_avx.h)
+  - expert AVX C API
+- [bindings/blst_middle_product.h](bindings/blst_middle_product.h)
+  - middle-product C API
+- [bindings/blst_aux.h](bindings/blst_aux.h)
+  - compatibility umbrella that includes the split surfaces
 
 ## Introductory Tutorial
 
@@ -179,14 +190,31 @@ For more details see the Go binding [readme](bindings/go/README.md).
 ### [Rust](bindings/rust)
 [`blst`](https://crates.io/crates/blst) is the Rust binding crate.
 
-To use min-pk version:
+Low-level/raw use:
+```
+use blst::{blst_fp12, blst_p1, blst_p2};
+```
+
+To use the middle-product API:
+```
+use blst::{middle_product, precompute_middle_product_b};
+```
+
+To use the high-level min-pk version:
 ```
 use blst::min_pk::*;
 ```
 
-To use min-sig version:
+To use the high-level min-sig version:
 ```
 use blst::min_sig::*;
+```
+
+Useful Rust commands:
+```
+cargo test --lib
+cargo test --lib --features full-rust-bindings
+cargo run --example smoke
 ```
 
 For more details see the Rust binding [readme](bindings/rust/README.md).
@@ -196,7 +224,11 @@ For more details see the Rust binding [readme](bindings/rust/README.md).
 **Root** - Contains various configuration files, documentation, licensing, and a build script
 * **Bindings** - Contains the files that define the blst interface
     * blst.h - provides C API to blst library
-    * blst_aux.h - contains experimental functions not yet committed for long-term maintenance
+    * blst_types.h - provides shared POD C types used across the split headers
+    * blst_scalar.h - provides the scalar/public C API
+    * blst_avx.h - provides the expert AVX C API
+    * blst_middle_product.h - provides the middle-product C API
+    * blst_aux.h - compatibility umbrella that includes the split C surfaces
     * blst.hpp - provides foundational class-oriented C++ interface to blst library
     * blst.swg - provides SWIG definitions for creating blst bindings for other languages, such as Java and Python
     * **C#** - folder containing C# bindings and an example of how to use them
@@ -205,7 +237,7 @@ For more details see the Rust binding [readme](bindings/rust/README.md).
     * **Java** - folder containing an example of how to use SWIG Java bindings for blst
     * **Node.js** - folder containing an example of how to use SWIG Javascript bindings for blst
     * **Python** - folder containing an example of how to use SWIG Python bindings for blst
-    * **Rust** - folder containing Rust bindings for blst, including tests and benchmarks
+    * **Rust** - folder containing Rust bindings for blst, including tests, benchmarks, and examples
     * **Vectors**
         * **Hash_to_curve**: folder containing test for hash_to_curve from IETF specification
 * **Src** - folder containing C code for lower level blst functions such as field operations, extension field operations, hash-to-field, and more
