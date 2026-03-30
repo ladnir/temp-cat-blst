@@ -87,6 +87,11 @@ inline std::vector<NativeG1> convert_g1_inputs(std::span<const BoundaryG1> input
     return out;
 }
 
+inline NativeG1 convert_g1_input(const BoundaryG1& input)
+{
+    return blst::avx::avx_map_to_G_detail::from_scalar(input);
+}
+
 inline std::vector<NativeG2> convert_g2_inputs(std::span<const BoundaryG2> input)
 {
     std::vector<NativeG2> out;
@@ -123,6 +128,18 @@ inline void run_native(
         workspace,
         nullptr);
 }
+
+inline void run_update_native(
+    const BoundaryG1& a0,
+    const NativePrecomputedB& precomputed_b,
+    std::span<PublicGt> out)
+{
+    blst::detail::update_impl<blst::MiddleProductAvxContext>(
+        convert_g1_input(a0),
+        precomputed_b,
+        out,
+        nullptr);
+}
 #else
 #define BLST_MIDDLE_PRODUCT_USE_AVX 0
 using NativePrecomputedB = blst::MiddleProductPrecomputedBScalar;
@@ -150,6 +167,18 @@ inline void run_native(
         precomputed_b,
         out,
         workspace,
+        nullptr);
+}
+
+inline void run_update_native(
+    const BoundaryG1& a0,
+    const NativePrecomputedB& precomputed_b,
+    std::span<PublicGt> out)
+{
+    blst::detail::update_impl<blst::MiddleProductScalarContext>(
+        a0,
+        precomputed_b,
+        out,
         nullptr);
 }
 #endif
@@ -211,6 +240,55 @@ bool blst_middle_product(
 
         for (std::size_t i = 0; i < n; ++i) {
             reinterpret_cast<BoundaryFp12*>(out)[i] = gt_to_boundary(native_out[i]);
+        }
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+bool blst_middle_product_update(
+    const blst_p1* a0,
+    const blst_middle_product_precomputed_b* precomputed_b,
+    blst_fp12* out)
+{
+    if (a0 == nullptr || out == nullptr || precomputed_b == nullptr || precomputed_b->n == 0) {
+        return false;
+    }
+
+    try {
+        const std::size_t n = precomputed_b->n;
+        std::vector<PublicGt> native_out(n, PublicGt::identity());
+        run_update_native(
+            *reinterpret_cast<const BoundaryG1*>(a0),
+            precomputed_b->value,
+            std::span<PublicGt>(native_out));
+
+        for (std::size_t i = 0; i < n; ++i) {
+            reinterpret_cast<BoundaryFp12*>(out)[i] = gt_to_boundary(native_out[i]);
+        }
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+bool blst_middle_product_combine(
+    const blst_fp12* mid,
+    const blst_fp12* cnst,
+    size_t n,
+    blst_fp12* out)
+{
+    if (mid == nullptr || cnst == nullptr || out == nullptr || n == 0) {
+        return false;
+    }
+
+    try {
+        auto* out_values = reinterpret_cast<BoundaryFp12*>(out);
+        const auto* mid_values = reinterpret_cast<const BoundaryFp12*>(mid);
+        const auto* cnst_values = reinterpret_cast<const BoundaryFp12*>(cnst);
+        for (std::size_t i = 0; i < n; ++i) {
+            BoundaryFp12::mul(out_values[i], mid_values[i], cnst_values[i]);
         }
         return true;
     } catch (...) {

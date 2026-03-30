@@ -463,7 +463,10 @@ namespace blst {
             std::size_t n = 0;
             std::size_t fft_size = 0;
             MiddleProductPairingMode pairing_mode = MiddleProductPairingMode::Direct;
+            std::vector<typename Context::G2Point> b_tail;
             std::vector<typename Context::G2Point> b_fft;
+            std::vector<typename Context::PreparedLineTable> tail_precomputed_lines;
+            std::vector<uint8_t> tail_b_is_zero;
             std::vector<typename Context::PreparedLineTable> precomputed_lines;
             std::vector<uint8_t> b_is_zero;
             std::vector<Fr> roots;
@@ -525,6 +528,7 @@ namespace blst {
             precomputed.n = n;
             precomputed.fft_size = middle_product_fft_size(n);
             precomputed.pairing_mode = pairing_mode;
+            precomputed.b_tail.assign(n, Context::g2_infinity());
             precomputed.b_fft.assign(precomputed.fft_size, Context::g2_infinity());
 
             {
@@ -537,7 +541,8 @@ namespace blst {
             std::vector<typename Context::G2Point> b1_fft(precomputed.fft_size, Context::g2_infinity());
             for (std::size_t i = 0; i < n; ++i) {
                 b0_fft[i] = b[i];
-                b1_fft[i] = b[n + i];
+                precomputed.b_tail[i] = b[n + i];
+                b1_fft[i] = precomputed.b_tail[i];
             }
 
             const std::size_t xn_b = fft_admissible_size(n, precomputed.fft_size);
@@ -572,6 +577,16 @@ namespace blst {
 
             if (pairing_mode == MiddleProductPairingMode::PrecomputedLines) {
                 ScopedTimer timer(timings, "middle_product_precompute.lines_ns");
+                precomputed.tail_precomputed_lines.resize(n);
+                precomputed.tail_b_is_zero.resize(n);
+                for (std::size_t i = 0; i < n; ++i) {
+                    const bool is_zero = (Context::G2Point::is_inf(precomputed.b_tail[i]) != 0);
+                    precomputed.tail_b_is_zero[i] = static_cast<uint8_t>(is_zero ? 1 : 0);
+                    if (is_zero) {
+                        continue;
+                    }
+                    Context::prepare_lines(precomputed.tail_precomputed_lines[i], precomputed.b_tail[i]);
+                }
                 precomputed.precomputed_lines.resize(precomputed.fft_size);
                 precomputed.b_is_zero.resize(precomputed.fft_size);
                 for (std::size_t j = 0; j < precomputed.fft_size; ++j) {
@@ -664,6 +679,46 @@ namespace blst {
         }
 
         template<class Context>
+        inline void update_impl(
+            const typename Context::G1Point& a0,
+            const MiddleProductPrecomputedBImpl<Context>& precomputed_b,
+            std::span<GT> out,
+            TimingStats* timings)
+        {
+            ScopedTimer total_timer(timings, "middle_product_update.total_ns");
+            const std::size_t n = precomputed_b.n;
+            BLST_ASSERT(n > 0);
+            BLST_ASSERT(precomputed_b.b_tail.size() == n);
+            BLST_ASSERT(out.size() >= n);
+
+            if (Context::G1Point::is_inf(a0) != 0) {
+                std::fill(out.begin(), out.begin() + n, GT::identity());
+                return;
+            }
+
+            {
+                ScopedTimer timer(timings, "middle_product_update.pointwise_ns");
+                if (precomputed_b.pairing_mode == MiddleProductPairingMode::PrecomputedLines &&
+                    precomputed_b.tail_precomputed_lines.size() == n) {
+                    const bool has_zero_mask = (precomputed_b.tail_b_is_zero.size() == n);
+                    for (std::size_t i = 0; i < n; ++i) {
+                        if (has_zero_mask && precomputed_b.tail_b_is_zero[i] != 0) {
+                            out[i] = GT::identity();
+                            continue;
+                        }
+                        out[i] = Context::to_public_gt(
+                            Context::pointwise_pair_lines(precomputed_b.tail_precomputed_lines[i], a0));
+                    }
+                } else {
+                    for (std::size_t i = 0; i < n; ++i) {
+                        out[i] = Context::to_public_gt(
+                            Context::pointwise_pair_direct(a0, precomputed_b.b_tail[i]));
+                    }
+                }
+            }
+        }
+
+        template<class Context>
         inline MiddleProductPrecomputedBImpl<Context> precompute_middle_product_b_public(
             std::span<const blst::G2Point> b,
             std::size_t n,
@@ -693,6 +748,17 @@ namespace blst {
                 out,
                 workspace,
                 timings);
+        }
+
+        template<class Context>
+        inline void update_public(
+            const blst::G1Point& a0,
+            const MiddleProductPrecomputedBImpl<Context>& precomputed_b,
+            std::span<GT> out,
+            TimingStats* timings)
+        {
+            const typename Context::G1Point converted_a0 = Context::to_backend_g1(a0);
+            update_impl<Context>(converted_a0, precomputed_b, out, timings);
         }
 
         template<class Context>
@@ -938,6 +1004,50 @@ namespace blst {
     {
         MiddleProductWorkspace workspace;
         middle_product(a, precomputed_b, out, workspace, timings);
+    }
+
+    inline void update_scalar(
+        const G1Point& a0,
+        const MiddleProductPrecomputedBScalar& precomputed_b,
+        std::span<GT> out,
+        TimingStats* timings = nullptr)
+    {
+        detail::update_public<MiddleProductScalarContext>(a0, precomputed_b, out, timings);
+    }
+
+    inline void update_avx(
+        const G1Point& a0,
+        const MiddleProductPrecomputedBAvx& precomputed_b,
+        std::span<GT> out,
+        TimingStats* timings = nullptr)
+    {
+        detail::update_public<MiddleProductAvxContext>(a0, precomputed_b, out, timings);
+    }
+
+    inline void update(
+        const G1Point& a0,
+        const MiddleProductPrecomputedB& precomputed_b,
+        std::span<GT> out,
+        TimingStats* timings = nullptr)
+    {
+#if BLST_DEFAULT_AVX
+        update_avx(a0, precomputed_b, out, timings);
+#else
+        update_scalar(a0, precomputed_b, out, timings);
+#endif
+    }
+
+    inline void combine(
+        std::span<const GT> mid,
+        std::span<const GT> cnst,
+        std::span<GT> out)
+    {
+        BLST_ASSERT(mid.size() == cnst.size());
+        BLST_ASSERT(out.size() >= mid.size());
+
+        for (std::size_t i = 0; i < mid.size(); ++i) {
+            GT::add(out[i], mid[i], cnst[i]);
+        }
     }
 
 } // namespace blst

@@ -9,6 +9,8 @@
 //! - precompute `b` once
 //! - reuse the returned handle
 //! - write outputs into caller-provided `&mut [blst_fp12]`
+//! - recover the constant-term contribution with `update`
+//! - combine GT outputs with `combine`
 
 use crate::*;
 
@@ -26,6 +28,17 @@ extern "C" {
         a: *const blst_p1,
         n: usize,
         precomputed_b: *const blst_middle_product_precomputed_b,
+        out: *mut blst_fp12,
+    ) -> bool;
+    fn blst_middle_product_update(
+        a0: *const blst_p1,
+        precomputed_b: *const blst_middle_product_precomputed_b,
+        out: *mut blst_fp12,
+    ) -> bool;
+    fn blst_middle_product_combine(
+        mid: *const blst_fp12,
+        cnst: *const blst_fp12,
+        n: usize,
         out: *mut blst_fp12,
     ) -> bool;
     fn blst_middle_product_precomputed_b_free(
@@ -129,6 +142,53 @@ pub fn middle_product(
     }
 }
 
+/// Computes the constant-term contribution for one G1 point against a
+/// precomputed `b` tail.
+pub fn update(
+    a0: &blst_p1,
+    precomputed_b: &MiddleProductPrecomputedB,
+    out: &mut [blst_fp12],
+) -> Result<(), MiddleProductError> {
+    if out.len() < precomputed_b.n {
+        return Err(MiddleProductError::OutputTooSmall);
+    }
+
+    let ok = unsafe {
+        blst_middle_product_update(a0, precomputed_b.raw, out.as_mut_ptr())
+    };
+    if ok {
+        Ok(())
+    } else {
+        Err(MiddleProductError::BackendFailure)
+    }
+}
+
+/// Combines two GT output vectors elementwise.
+pub fn combine(
+    mid: &[blst_fp12],
+    cnst: &[blst_fp12],
+    out: &mut [blst_fp12],
+) -> Result<(), MiddleProductError> {
+    if mid.len() != cnst.len() {
+        return Err(MiddleProductError::LengthMismatch);
+    }
+    if out.len() < mid.len() {
+        return Err(MiddleProductError::OutputTooSmall);
+    }
+    if mid.is_empty() {
+        return Ok(());
+    }
+
+    let ok = unsafe {
+        blst_middle_product_combine(mid.as_ptr(), cnst.as_ptr(), mid.len(), out.as_mut_ptr())
+    };
+    if ok {
+        Ok(())
+    } else {
+        Err(MiddleProductError::BackendFailure)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -194,5 +254,37 @@ mod tests {
         let mut out = [zero_fp12()];
 
         middle_product(&a, &precomputed, &mut out).unwrap();
+    }
+
+    #[test]
+    fn update_accepts_zero_boundary_points() {
+        let b = [blst_p2::default(), blst_p2::default()];
+        let precomputed = MiddleProductPrecomputedB::new(&b).unwrap();
+        let a0 = blst_p1::default();
+        let mut out = [zero_fp12()];
+
+        update(&a0, &precomputed, &mut out).unwrap();
+        assert_eq!(out[0], blst_fp12::default());
+    }
+
+    #[test]
+    fn combine_rejects_length_mismatch() {
+        let mid = [zero_fp12()];
+        let cnst = [zero_fp12(), zero_fp12()];
+        let mut out = [zero_fp12(); 2];
+
+        assert_eq!(
+            combine(&mid, &cnst, &mut out),
+            Err(MiddleProductError::LengthMismatch)
+        );
+    }
+
+    #[test]
+    fn combine_accepts_empty_vectors() {
+        let mid: [blst_fp12; 0] = [];
+        let cnst: [blst_fp12; 0] = [];
+        let mut out: [blst_fp12; 0] = [];
+
+        combine(&mid, &cnst, &mut out).unwrap();
     }
 }

@@ -99,8 +99,8 @@ mod primitives;
 mod pairing;
 
 pub use middle_product::{
-    blst_middle_product_precomputed_b, middle_product,
-    precompute_middle_product_b, MiddleProductError,
+    blst_middle_product_precomputed_b, combine, middle_product,
+    precompute_middle_product_b, update, MiddleProductError,
     MiddleProductPrecomputedB,
 };
 #[cfg(feature = "full-rust-bindings")]

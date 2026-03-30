@@ -10,7 +10,8 @@ Current structure:
   - raw generated bindings import
   - top-level re-exports
 - `src/middle_product.rs`
-  - safe `precompute(b)` and `middle_product(a, precomputed_b, out)` wrappers
+  - safe `precompute(b)`, `middle_product(a, precomputed_b, out)`,
+    `update(a0, precomputed_b, out)`, and `combine(mid, cnst, out)` wrappers
 - `src/primitives.rs`
   - low-level scalar-ABI helpers for points, Fp12, and scalar hashing
 - `src/pairing.rs`
@@ -34,6 +35,8 @@ Recommended entry points:
 - Middle product:
   - `precompute_middle_product_b`
   - `middle_product`
+  - `update`
+  - `combine`
 - High-level signature API:
   - enable `full-rust-bindings`
   - use `min_pk` or `min_sig`

@@ -442,6 +442,53 @@ TEST(BackendAlias, MiddleProductReducedMatchesBasicOnSmallVector)
     }
 }
 
+TEST(BackendAlias, MiddleProductUpdateAndCombineReconstructFullResult)
+{
+    const std::vector<u64> a_scalars = { 3, 5, 7, 11 };
+    const std::vector<u64> b_scalars = { 13, 17, 19, 23, 29, 31, 37, 41 };
+
+    std::vector<G1Point> a_full;
+    std::vector<G1Point> a_without_constant;
+    std::vector<G2Point> b_points;
+    a_full.reserve(a_scalars.size());
+    a_without_constant.reserve(a_scalars.size());
+    b_points.reserve(b_scalars.size());
+
+    for (std::size_t i = 0; i < a_scalars.size(); ++i) {
+        const G1Point point = point_from_scalar_g1(a_scalars[i]);
+        a_full.push_back(point);
+        a_without_constant.push_back((i == 0) ? G1Point::infinity() : point);
+    }
+    for (u64 scalar : b_scalars) {
+        b_points.push_back(point_from_scalar_g2(scalar));
+    }
+
+    const auto precomputed_b = precompute_middle_product_b(
+        std::span<const G2Point>(b_points),
+        a_full.size());
+
+    std::vector<GT> expected(a_full.size(), GT::identity());
+    std::vector<GT> mid(a_full.size(), GT::identity());
+    std::vector<GT> cnst(a_full.size(), GT::identity());
+    std::vector<GT> combined(a_full.size(), GT::identity());
+
+    middle_product(
+        std::span<const G1Point>(a_full),
+        precomputed_b,
+        std::span<GT>(expected));
+    middle_product(
+        std::span<const G1Point>(a_without_constant),
+        precomputed_b,
+        std::span<GT>(mid));
+    update(a_full[0], precomputed_b, std::span<GT>(cnst));
+    combine(std::span<const GT>(mid), std::span<const GT>(cnst), std::span<GT>(combined));
+
+    for (std::size_t i = 0; i < expected.size(); ++i) {
+        EXPECT_TRUE(GT::equal(expected[i], combined[i]))
+            << "Update/combine mismatch at i=" << i;
+    }
+}
+
 TEST(BackendAlias, AvxGtInverseFftStageReplayMatchesScalar)
 {
     using ScalarCtx = blst::detail::ScalarMiddleProductContext;

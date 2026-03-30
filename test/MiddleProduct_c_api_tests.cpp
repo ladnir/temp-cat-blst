@@ -26,6 +26,15 @@ bool blst_middle_product(
     size_t n,
     const blst_middle_product_precomputed_b* precomputed_b,
     blst::Fp12* out);
+bool blst_middle_product_update(
+    const blst::scalar::G1Point* a0,
+    const blst_middle_product_precomputed_b* precomputed_b,
+    blst::Fp12* out);
+bool blst_middle_product_combine(
+    const blst::Fp12* mid,
+    const blst::Fp12* cnst,
+    size_t n,
+    blst::Fp12* out);
 void blst_middle_product_precomputed_b_free(
     blst_middle_product_precomputed_b* precomputed_b);
 }
@@ -178,6 +187,46 @@ TEST(MiddleProductCApi, RejectsLengthMismatch)
 
     std::vector<BoundaryGt> out(2);
     EXPECT_FALSE(blst_middle_product(a.data(), 1, precomputed, out.data()));
+
+    blst_middle_product_precomputed_b_free(precomputed);
+}
+
+TEST(MiddleProductCApi, UpdateAndCombineReconstructFullResult)
+{
+    const std::vector<BoundaryG1> a_full = {g1(3), g1(5), g1(7), g1(11)};
+    const std::vector<BoundaryG1> a_without_constant = {
+        BoundaryG1::infinity(),
+        g1(5),
+        g1(7),
+        g1(11),
+    };
+    const std::vector<BoundaryG2> b = {
+        g2(13), g2(17), g2(19), g2(23),
+        g2(29), g2(31), g2(37), g2(41),
+    };
+
+    blst_middle_product_precomputed_b* precomputed =
+        blst_middle_product_precompute_b(b.data(), a_full.size());
+    ASSERT_NE(precomputed, nullptr);
+
+    std::vector<BoundaryGt> expected(a_full.size());
+    std::vector<BoundaryGt> mid(a_full.size());
+    std::vector<BoundaryGt> cnst(a_full.size());
+    std::vector<BoundaryGt> combined(a_full.size());
+
+    ASSERT_TRUE(blst_middle_product(a_full.data(), a_full.size(), precomputed, expected.data()));
+    ASSERT_TRUE(blst_middle_product(
+        a_without_constant.data(),
+        a_without_constant.size(),
+        precomputed,
+        mid.data()));
+    ASSERT_TRUE(blst_middle_product_update(&a_full[0], precomputed, cnst.data()));
+    ASSERT_TRUE(blst_middle_product_combine(mid.data(), cnst.data(), combined.size(), combined.data()));
+
+    for (std::size_t i = 0; i < expected.size(); ++i) {
+        EXPECT_TRUE(blst::Fp12::equal(expected[i], combined[i]))
+            << "update/combine mismatch at output index " << i;
+    }
 
     blst_middle_product_precomputed_b_free(precomputed);
 }

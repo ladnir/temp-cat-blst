@@ -197,7 +197,7 @@ use blst::{blst_fp12, blst_p1, blst_p2};
 
 To use the middle-product API:
 ```
-use blst::{middle_product, precompute_middle_product_b};
+use blst::{combine, middle_product, precompute_middle_product_b, update};
 ```
 
 To use the high-level min-pk version:

@@ -56,7 +56,8 @@ The Rust crate is split by surface area:
 - `src/primitives.rs`
   - thin helpers around the scalar C ABI
 - `src/middle_product.rs`
-  - `precompute(b)` and `middle_product(a, precomputed_b, out)`
+  - `precompute(b)`, `middle_product(a, precomputed_b, out)`,
+    `update(a0, precomputed_b, out)`, and `combine(mid, cnst, out)`
 - `src/pairing.rs`
   - owned pairing context wrapper
 - `src/pippenger.rs`
@@ -78,7 +79,7 @@ use blst::{blst_fp12, blst_p1, blst_p2};
 
 Middle-product use:
 ```rust
-use blst::{middle_product, precompute_middle_product_b};
+use blst::{combine, middle_product, precompute_middle_product_b, update};
 ```
 
 High-level signature use:
