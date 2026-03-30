@@ -1316,7 +1316,7 @@ extern "C" {
     );
 }
 extern "C" {
-    pub fn blst_pairing_as_fp12(ctx: *mut blst_pairing) -> *mut blst_fp12;
+    pub fn blst_pairing_as_fp12(ctx: *mut blst_pairing) -> blst_fp12;
 }
 extern "C" {
     pub fn blst_bendian_from_fp12(out: *mut byte, a: *const blst_fp12);

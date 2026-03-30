@@ -13,12 +13,17 @@ include = [
     "**/*.rs",
     "/Cargo.toml",
     "/README.md",
+    "/docs/**",
     "/rustfmt.toml",
     "/blst/src/*.c",
     "/blst/src/*.h*",
     "/blst/build/**",
     "/blst/bindings/blst.h",
     "/blst/bindings/blst_aux.h",
+    "/blst/bindings/blst_types.h",
+    "/blst/bindings/blst_scalar.h",
+    "/blst/bindings/blst_avx.h",
+    "/blst/bindings/blst_middle_product.h",
     "/blst/bindings/blst.hpp",
 ]
 links = "blst"
@@ -30,19 +35,19 @@ default = []
 # Compile in portable mode, without ISA extensions.
 # Binary can be executed on all systems.
 portable = []
+# Enable AVX-backed native code paths.
+avx = []
 # Enable ADX even if the host CPU doesn't support it.
 # Binary can be executed on Broadwell+ and Ryzen+ systems.
 force-adx = []
 # Suppress multi-threading.
 # Engaged on wasm32 target architecture automatically.
 no-threads = []
+# Keep the full high-level Rust wrapper surface feature-gated while
+# the smaller middle-product-first surface remains the default.
+full-rust-bindings = []
 # Add support for serializing SecretKey, not suitable for production.
 serde-secret = ["serde"]
-
-[build-dependencies]
-cc = "1.0"
-[target.'cfg(target_env = "msvc")'.build-dependencies]
-glob = "0.3"
 
 [dependencies]
 zeroize = { version = "^1.1", features = ["zeroize_derive"] }

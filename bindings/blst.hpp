@@ -21,7 +21,7 @@
 namespace blst {
 
 #if __cplusplus >= 201703L
-static const app__string_view None;
+const app__string_view None;
 #endif
 
 #if __cplusplus < 201103L && !defined(nullptr)
@@ -233,7 +233,7 @@ public:
                            const std::string& DST = "",
                            const app__string_view aug = None) const;
 #endif
-    static P1_Affine generator()
+    P1_Affine generator()
     {   return P1_Affine(blst_p1_affine_generator());   }
 
 private:
@@ -334,11 +334,11 @@ public:
     P1* dbl()
     {   blst_p1_double(&point, &point); return this;   }
 #ifndef SWIG
-    static P1 add(const P1& a, const P1& b)
+    P1 add(const P1& a, const P1& b)
     {   P1 ret; blst_p1_add_or_double(ret, a, b); return ret;   }
-    static P1 add(const P1& a, const P1_Affine& b)
+    P1 add(const P1& a, const P1_Affine& b)
     {   P1 ret; blst_p1_add_or_double_affine(ret, a, b); return ret;   }
-    static P1 dbl(const P1& a)
+    P1 dbl(const P1& a)
     {   P1 ret; blst_p1_double(ret, a); return ret;   }
 #endif
     static P1 generator()
@@ -366,51 +366,51 @@ private:
 public:
 #ifndef SWIG
     P1_Affines() {}
-    P1_Affines(size_t wbits, const P1_Affine* const points[], size_t npoints)
+    P1_Affines(size_t wbits, const P1_Affine* const points[], size_t npoints_)
     {   this->wbits = wbits;
-        this->npoints = npoints;
-        table.resize(npoints << (wbits-1));
+        this->npoints = npoints_;
+        table.resize(npoints_ << (wbits-1));
         blst_p1s_mult_wbits_precompute(table[0], wbits,
                         reinterpret_cast<const blst_p1_affine *const*>(points),
-                        npoints);
+                        npoints_);
     }
-    P1_Affines(size_t wbits, const P1_Affine points[], size_t npoints)
+    P1_Affines(size_t wbits, const P1_Affine points[], size_t npoints_)
     {   const P1_Affine* const ptrs[2] = { points, nullptr };
-        P1_Affines(wbits, ptrs, npoints);
+        P1_Affines(wbits, ptrs, npoints_);
     }
     P1_Affines(size_t wbits, const std::vector<P1_Affine> points)
     {   P1_Affines(wbits, &points[0], points.size());   }
 
-    P1_Affines(size_t wbits, const P1* const points[], size_t npoints)
-    {   size_t cap = npoints << (wbits-1);
+    P1_Affines(size_t wbits, const P1* const points[], size_t npoints_)
+    {   size_t cap = npoints_ << (wbits-1);
 
         this->wbits = wbits;
-        this->npoints = npoints;
+        this->npoints = npoints_;
         table.resize(cap);
-        blst_p1s_to_affine(table[cap-npoints],
+        blst_p1s_to_affine(table[cap-npoints_],
                            reinterpret_cast<const blst_p1 *const*>(points),
-                           npoints);
-        const blst_p1_affine* const ptrs[2] = { table[cap-npoints], nullptr };
-        blst_p1s_mult_wbits_precompute(table[0], wbits, ptrs, npoints);
+                           npoints_);
+        const blst_p1_affine* const ptrs[2] = { table[cap-npoints_], nullptr };
+        blst_p1s_mult_wbits_precompute(table[0], wbits, ptrs, npoints_);
     }
-    P1_Affines(size_t wbits, const P1 points[], size_t npoints)
+    P1_Affines(size_t wbits, const P1 points[], size_t npoints_)
     {   const P1* const ptrs[2] = { points, nullptr };
-        P1_Affines(wbits, ptrs, npoints);
+        P1_Affines(wbits, ptrs, npoints_);
     }
     P1_Affines(size_t wbits, const std::vector<P1> points)
     {   P1_Affines(wbits, &points[0], points.size());   }
 
-    P1_Affines(const P1* const points[], size_t npoints)
+    P1_Affines(const P1* const points[], size_t npoints_)
     {   this->wbits = 0;
-        this->npoints = npoints;
-        table.resize(npoints);
+        this->npoints = npoints_;
+        table.resize(npoints_);
         blst_p1s_to_affine(table[0],
                            reinterpret_cast<const blst_p1 *const*>(points),
-                           npoints);
+                           npoints_);
     }
-    P1_Affines(const P1 points[], size_t npoints)
+    P1_Affines(const P1 points[], size_t npoints_)
     {   const P1* const ptrs[2] = { points, nullptr };
-        P1_Affines(ptrs, npoints);
+        P1_Affines(ptrs, npoints_);
     }
     P1_Affines(const std::vector<P1> points)
     {   P1_Affines(&points[0], points.size());   }
@@ -433,56 +433,56 @@ public:
         return ret;
     }
 
-    static std::vector<P1_Affine> from(const P1* const points[], size_t npoints)
+    std::vector<P1_Affine> from(const P1* const points[], size_t npoints_)
     {   std::vector<P1_Affine> ret;
-        ret.resize(npoints);
+        ret.resize(npoints_);
         blst_p1s_to_affine(ret[0],
                            reinterpret_cast<const blst_p1 *const*>(points),
-                           npoints);
+                           npoints_);
         return ret;
     }
-    static std::vector<P1_Affine> from(const P1 points[], size_t npoints)
+    std::vector<P1_Affine> from(const P1 points[], size_t npoints_)
     {   const P1* const ptrs[2] = { points, nullptr };
-        return from(ptrs, npoints);
+        return from(ptrs, npoints_);
     }
-    static std::vector<P1_Affine> from(std::vector<P1> points)
+    std::vector<P1_Affine> from(std::vector<P1> points)
     {   return from(&points[0], points.size());   }
 #endif
 
-    static P1 mult_pippenger(const P1_Affine* const points[], size_t npoints,
+    P1 mult_pippenger(const P1_Affine* const points[], size_t npoints_,
                              const byte* const scalars[], size_t nbits)
     {   P1 ret;
-        size_t sz = blst_p1s_mult_pippenger_scratch_sizeof(npoints);
+        size_t sz = blst_p1s_mult_pippenger_scratch_sizeof(npoints_);
         std::unique_ptr<limb_t[]> scratch{new limb_t[sz/sizeof(limb_t)]};
         blst_p1s_mult_pippenger(ret,
                     reinterpret_cast<const blst_p1_affine *const*>(points),
-                    npoints, scalars, nbits, scratch.get());
+                    npoints_, scalars, nbits, scratch.get());
         return ret;
     }
 #ifndef SWIG
-    static P1 mult_pippenger(const P1_Affine points[], size_t npoints,
+    P1 mult_pippenger(const P1_Affine points[], size_t npoints_,
                              const byte* const scalars[], size_t nbits)
     {   const P1_Affine* const ptrs[2] = { points, nullptr };
-        return mult_pippenger(ptrs, npoints, scalars, nbits);
+        return mult_pippenger(ptrs, npoints_, scalars, nbits);
     }
-    static P1 mult_pippenger(const std::vector<P1_Affine> points,
+    P1 mult_pippenger(const std::vector<P1_Affine> points,
                              const byte* const scalars[], size_t nbits)
     {   return mult_pippenger(&points[0], points.size(), scalars, nbits);   }
 #endif
 
-    static P1 add(const P1_Affine* const points[], size_t npoints)
+    P1 add(const P1_Affine* const points[], size_t npoints_)
     {   P1 ret;
         blst_p1s_add(ret,
                      reinterpret_cast<const blst_p1_affine *const*>(points),
-                     npoints);
+                     npoints_);
         return ret;
     }
 #ifndef SWIG
-    static P1 add(const P1_Affine points[], size_t npoints)
+    P1 add(const P1_Affine points[], size_t npoints_)
     {   const P1_Affine* const ptrs[2] = { points, nullptr };
-        return add(ptrs, npoints);
+        return add(ptrs, npoints_);
     }
-    static P1 add(const std::vector<P1_Affine> points)
+    P1 add(const std::vector<P1_Affine> points)
     {   return add(&points[0], points.size());   }
 #endif
 };
@@ -531,7 +531,7 @@ public:
                            const std::string& DST = "",
                            const app__string_view aug = None) const;
 #endif
-    static P2_Affine generator()
+    P2_Affine generator()
     {   return P2_Affine(blst_p2_affine_generator());   }
 
 private:
@@ -632,11 +632,11 @@ public:
     P2* dbl()
     {   blst_p2_double(&point, &point); return this;   }
 #ifndef SWIG
-    static P2 add(const P2& a, const P2& b)
+    P2 add(const P2& a, const P2& b)
     {   P2 ret; blst_p2_add_or_double(ret, a, b); return ret;   }
-    static P2 add(const P2& a, const P2_Affine& b)
+    P2 add(const P2& a, const P2_Affine& b)
     {   P2 ret; blst_p2_add_or_double_affine(ret, a, b); return ret;   }
-    static P2 dbl(const P2& a)
+    P2 dbl(const P2& a)
     {   P2 ret; blst_p2_double(ret, a); return ret;   }
 #endif
     static P2 generator()
@@ -664,51 +664,51 @@ private:
 public:
 #ifndef SWIG
     P2_Affines() {}
-    P2_Affines(size_t wbits, const P2_Affine* const points[], size_t npoints)
+    P2_Affines(size_t wbits, const P2_Affine* const points[], size_t npoints_)
     {   this->wbits = wbits;
-        this->npoints = npoints;
-        table.resize(npoints << (wbits-1));
+        this->npoints = npoints_;
+        table.resize(npoints_ << (wbits-1));
         blst_p2s_mult_wbits_precompute(table[0], wbits,
                         reinterpret_cast<const blst_p2_affine *const*>(points),
-                        npoints);
+                        npoints_);
     }
-    P2_Affines(size_t wbits, const P2_Affine points[], size_t npoints)
+    P2_Affines(size_t wbits, const P2_Affine points[], size_t npoints_)
     {   const P2_Affine* const ptrs[2] = { points, nullptr };
-        P2_Affines(wbits, ptrs, npoints);
+        P2_Affines(wbits, ptrs, npoints_);
     }
     P2_Affines(size_t wbits, const std::vector<P2_Affine> points)
     {   P2_Affines(wbits, &points[0], points.size());   }
 
-    P2_Affines(size_t wbits, const P2* const points[], size_t npoints)
-    {   size_t cap = npoints << (wbits-1);
+    P2_Affines(size_t wbits, const P2* const points[], size_t npoints_)
+    {   size_t cap = npoints_ << (wbits-1);
 
         this->wbits = wbits;
-        this->npoints = npoints;
+        this->npoints = npoints_;
         table.resize(cap);
-        blst_p2s_to_affine(table[cap-npoints],
+        blst_p2s_to_affine(table[cap-npoints_],
                            reinterpret_cast<const blst_p2 *const*>(points),
-                           npoints);
-        const blst_p2_affine* const ptrs[2] = { table[cap-npoints], nullptr };
-        blst_p2s_mult_wbits_precompute(table[0], wbits, ptrs, npoints);
+                           npoints_);
+        const blst_p2_affine* const ptrs[2] = { table[cap-npoints_], nullptr };
+        blst_p2s_mult_wbits_precompute(table[0], wbits, ptrs, npoints_);
     }
-    P2_Affines(size_t wbits, const P2 points[], size_t npoints)
+    P2_Affines(size_t wbits, const P2 points[], size_t npoints_)
     {   const P2* const ptrs[2] = { points, nullptr };
-        P2_Affines(wbits, ptrs, npoints);
+        P2_Affines(wbits, ptrs, npoints_);
     }
     P2_Affines(size_t wbits, const std::vector<P2> points)
     {   P2_Affines(wbits, &points[0], points.size());   }
 
-    P2_Affines(const P2* const points[], size_t npoints)
+    P2_Affines(const P2* const points[], size_t npoints_)
     {   this->wbits = 0;
-        this->npoints = npoints;
-        table.resize(npoints);
+        this->npoints = npoints_;
+        table.resize(npoints_);
         blst_p2s_to_affine(table[0],
                            reinterpret_cast<const blst_p2 *const*>(points),
-                           npoints);
+                           npoints_);
     }
-    P2_Affines(const P2 points[], size_t npoints)
+    P2_Affines(const P2 points[], size_t npoints_)
     {   const P2* const ptrs[2] = { points, nullptr };
-        P2_Affines(ptrs, npoints);
+        P2_Affines(ptrs, npoints_);
     }
     P2_Affines(const std::vector<P2> points)
     {   P2_Affines(&points[0], points.size());   }
@@ -731,56 +731,56 @@ public:
         return ret;
     }
 
-    static std::vector<P2_Affine> from(const P2* const points[], size_t npoints)
+    std::vector<P2_Affine> from(const P2* const points[], size_t npoints_)
     {   std::vector<P2_Affine> ret;
-        ret.resize(npoints);
+        ret.resize(npoints_);
         blst_p2s_to_affine(ret[0],
                            reinterpret_cast<const blst_p2 *const*>(points),
-                           npoints);
+                           npoints_);
         return ret;
     }
-    static std::vector<P2_Affine> from(const P2 points[], size_t npoints)
+    std::vector<P2_Affine> from(const P2 points[], size_t npoints_)
     {   const P2* const ptrs[2] = { points, nullptr };
-        return from(ptrs, npoints);
+        return from(ptrs, npoints_);
     }
-    static std::vector<P2_Affine> from(std::vector<P2> points)
+    std::vector<P2_Affine> from(std::vector<P2> points)
     {   return from(&points[0], points.size());   }
 #endif
 
-    static P2 mult_pippenger(const P2_Affine* const points[], size_t npoints,
+    P2 mult_pippenger(const P2_Affine* const points[], size_t npoints_,
                              const byte* const scalars[], size_t nbits)
     {   P2 ret;
-        size_t sz = blst_p2s_mult_pippenger_scratch_sizeof(npoints);
+        size_t sz = blst_p2s_mult_pippenger_scratch_sizeof(npoints_);
         std::unique_ptr<limb_t[]> scratch{new limb_t[sz/sizeof(limb_t)]};
         blst_p2s_mult_pippenger(ret,
                     reinterpret_cast<const blst_p2_affine *const*>(points),
-                    npoints, scalars, nbits, scratch.get());
+                    npoints_, scalars, nbits, scratch.get());
         return ret;
     }
 #ifndef SWIG
-    static P2 mult_pippenger(const P2_Affine points[], size_t npoints,
+    P2 mult_pippenger(const P2_Affine points[], size_t npoints_,
                              const byte* const scalars[], size_t nbits)
     {   const P2_Affine* const ptrs[2] = { points, nullptr };
-        return mult_pippenger(ptrs, npoints, scalars, nbits);
+        return mult_pippenger(ptrs, npoints_, scalars, nbits);
     }
-    static P2 mult_pippenger(const std::vector<P2_Affine> points,
+    P2 mult_pippenger(const std::vector<P2_Affine> points,
                              const byte* const scalars[], size_t nbits)
     {   return mult_pippenger(&points[0], points.size(), scalars, nbits);   }
 #endif
 
-    static P2 add(const P2_Affine* const points[], size_t npoints)
+    P2 add(const P2_Affine* const points[], size_t npoints_)
     {   P2 ret;
         blst_p2s_add(ret,
                      reinterpret_cast<const blst_p2_affine *const*>(points),
-                     npoints);
+                     npoints_);
         return ret;
     }
 #ifndef SWIG
-    static P2 add(const P2_Affine points[], size_t npoints)
+    P2 add(const P2_Affine points[], size_t npoints_)
     {   const P2_Affine* const ptrs[2] = { points, nullptr };
-        return add(ptrs, npoints);
+        return add(ptrs, npoints_);
     }
-    static P2 add(const std::vector<P2_Affine> points)
+    P2 add(const std::vector<P2_Affine> points)
     {   return add(&points[0], points.size());   }
 #endif
 };
@@ -840,6 +840,7 @@ private:
     blst_fp12 value;
 
     PT(const blst_fp12 *v)  { value = *v; }
+    PT(const blst_fp12& v)  { value = v; }
 public:
     PT(const P1_Affine& p)  { blst_aggregated_in_g1(&value, p); }
     PT(const P2_Affine& q)  { blst_aggregated_in_g2(&value, q); }
@@ -861,9 +862,9 @@ public:
     void to_bendian(byte out[48*12]) const
     {   blst_bendian_from_fp12(out, &value);   }
 
-    static bool finalverify(const PT& gt1, const PT& gt2)
+    bool finalverify(const PT& gt1, const PT& gt2)
     {   return blst_fp12_finalverify(gt1, gt2);   }
-    static PT one() { return PT(blst_fp12_one()); }
+    PT one() { return PT(blst_fp12_one()); }
 
 private:
     friend class Pairing;

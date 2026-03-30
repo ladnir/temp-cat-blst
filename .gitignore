@@ -1,5 +1,6 @@
 # Prerequisites
 *.d
+out/
 
 # Object files
 *.o
@@ -70,3 +71,7 @@ bindings/node.js
 bindings/emscripten
 bin/
 obj/
+/.vs
+/out/build/x64-Debug
+
+avxbls/

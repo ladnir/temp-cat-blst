@@ -2,6 +2,8 @@
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
 
+#![doc = include_str!("../docs/overview.md")]
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
@@ -11,18 +13,19 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
+#[cfg(feature = "full-rust-bindings")]
 use alloc::vec;
+#[cfg(feature = "full-rust-bindings")]
 use alloc::vec::Vec;
-use core::any::Any;
-use core::mem::{transmute, MaybeUninit};
+#[cfg(feature = "full-rust-bindings")]
+use core::mem::MaybeUninit;
+use core::mem::transmute;
 use core::ptr;
 use zeroize::Zeroize;
-
-#[cfg(feature = "std")]
-use std::sync::{atomic::*, mpsc::channel, Arc};
-
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+#[cfg(all(feature = "full-rust-bindings", feature = "std"))]
+use std::sync::{atomic::*, mpsc::channel, Arc};
 
 #[cfg(feature = "std")]
 trait ThreadPoolExt {
@@ -91,421 +94,21 @@ mod mt {
 }
 
 include!("bindings.rs");
+mod middle_product;
+mod primitives;
+mod pairing;
 
-impl PartialEq for blst_p1 {
-    fn eq(&self, other: &Self) -> bool {
-        unsafe { blst_p1_is_equal(self, other) }
-    }
-}
-
-impl PartialEq for blst_p1_affine {
-    fn eq(&self, other: &Self) -> bool {
-        unsafe { blst_p1_affine_is_equal(self, other) }
-    }
-}
-
-impl PartialEq for blst_p2 {
-    fn eq(&self, other: &Self) -> bool {
-        unsafe { blst_p2_is_equal(self, other) }
-    }
-}
-
-impl PartialEq for blst_p2_affine {
-    fn eq(&self, other: &Self) -> bool {
-        unsafe { blst_p2_affine_is_equal(self, other) }
-    }
-}
-
-impl Default for blst_fp12 {
-    fn default() -> Self {
-        unsafe { *blst_fp12_one() }
-    }
-}
-
-impl PartialEq for blst_fp12 {
-    fn eq(&self, other: &Self) -> bool {
-        unsafe { blst_fp12_is_equal(self, other) }
-    }
-}
-
-impl core::ops::Mul for blst_fp12 {
-    type Output = Self;
-
-    fn mul(self, other: Self) -> Self {
-        let mut out = MaybeUninit::<blst_fp12>::uninit();
-        unsafe {
-            blst_fp12_mul(out.as_mut_ptr(), &self, &other);
-            out.assume_init()
-        }
-    }
-}
-
-impl core::ops::MulAssign for blst_fp12 {
-    fn mul_assign(&mut self, other: Self) {
-        unsafe { blst_fp12_mul(self, self, &other) }
-    }
-}
-
-impl blst_fp12 {
-    pub fn miller_loop(q: &blst_p2_affine, p: &blst_p1_affine) -> Self {
-        let mut out = MaybeUninit::<blst_fp12>::uninit();
-        unsafe {
-            blst_miller_loop(out.as_mut_ptr(), q, p);
-            out.assume_init()
-        }
-    }
-
-    #[cfg(not(feature = "std"))]
-    pub fn miller_loop_n(q: &[blst_p2_affine], p: &[blst_p1_affine]) -> Self {
-        let n_elems = q.len();
-        if n_elems != p.len() || n_elems == 0 {
-            panic!("inputs' lengths mismatch");
-        }
-        let qs: [*const _; 2] = [&q[0], ptr::null()];
-        let ps: [*const _; 2] = [&p[0], ptr::null()];
-        let mut out = MaybeUninit::<blst_fp12>::uninit();
-        unsafe {
-            blst_miller_loop_n(out.as_mut_ptr(), &qs[0], &ps[0], n_elems);
-            out.assume_init()
-        }
-    }
-
-    #[cfg(feature = "std")]
-    pub fn miller_loop_n(q: &[blst_p2_affine], p: &[blst_p1_affine]) -> Self {
-        let n_elems = q.len();
-        if n_elems != p.len() || n_elems == 0 {
-            panic!("inputs' lengths mismatch");
-        }
-
-        let pool = mt::da_pool();
-
-        let mut n_workers = pool.max_count();
-        if n_workers == 1 {
-            let qs: [*const _; 2] = [&q[0], ptr::null()];
-            let ps: [*const _; 2] = [&p[0], ptr::null()];
-            let mut out = MaybeUninit::<blst_fp12>::uninit();
-            unsafe {
-                blst_miller_loop_n(out.as_mut_ptr(), &qs[0], &ps[0], n_elems);
-                return out.assume_init();
-            }
-        }
-
-        let (tx, rx) = channel();
-        let counter = Arc::new(AtomicUsize::new(0));
-
-        let stride = core::cmp::min((n_elems + n_workers - 1) / n_workers, 16);
-        n_workers = core::cmp::min((n_elems + stride - 1) / stride, n_workers);
-        for _ in 0..n_workers {
-            let tx = tx.clone();
-            let counter = counter.clone();
-
-            pool.joined_execute(move || {
-                let mut acc = blst_fp12::default();
-                let mut tmp = MaybeUninit::<blst_fp12>::uninit();
-                let mut qs: [*const _; 2] = [ptr::null(), ptr::null()];
-                let mut ps: [*const _; 2] = [ptr::null(), ptr::null()];
-
-                loop {
-                    let work = counter.fetch_add(stride, Ordering::Relaxed);
-                    if work >= n_elems {
-                        break;
-                    }
-                    let n = core::cmp::min(n_elems - work, stride);
-                    qs[0] = &q[work];
-                    ps[0] = &p[work];
-                    unsafe {
-                        blst_miller_loop_n(tmp.as_mut_ptr(), &qs[0], &ps[0], n);
-                        acc *= tmp.assume_init();
-                    }
-                }
-
-                tx.send(acc).expect("disaster");
-            });
-        }
-
-        let mut acc = rx.recv().unwrap();
-        for _ in 1..n_workers {
-            acc *= rx.recv().unwrap();
-        }
-
-        acc
-    }
-
-    pub fn final_exp(&self) -> Self {
-        let mut out = MaybeUninit::<blst_fp12>::uninit();
-        unsafe {
-            blst_final_exp(out.as_mut_ptr(), self);
-            out.assume_init()
-        }
-    }
-
-    pub fn in_group(&self) -> bool {
-        unsafe { blst_fp12_in_group(self) }
-    }
-
-    pub fn finalverify(a: &Self, b: &Self) -> bool {
-        unsafe { blst_fp12_finalverify(a, b) }
-    }
-
-    pub fn to_bendian(&self) -> [u8; 48 * 12] {
-        let mut out = MaybeUninit::<[u8; 48 * 12]>::uninit();
-        unsafe {
-            blst_bendian_from_fp12(out.as_mut_ptr() as *mut u8, self);
-            out.assume_init()
-        }
-    }
-}
-
-impl blst_scalar {
-    pub fn hash_to(msg: &[u8], dst: &[u8]) -> Option<Self> {
-        unsafe {
-            let mut out = <Self>::default();
-            let mut elem = [0u8; 48];
-            blst_expand_message_xmd(
-                elem.as_mut_ptr(),
-                elem.len(),
-                msg.as_ptr(),
-                msg.len(),
-                dst.as_ptr(),
-                dst.len(),
-            );
-            if blst_scalar_from_be_bytes(&mut out, elem.as_ptr(), elem.len()) {
-                Some(out)
-            } else {
-                None
-            }
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct Pairing {
-    v: Box<[u64]>,
-}
-
-impl Pairing {
-    pub fn new(hash_or_encode: bool, dst: &[u8]) -> Self {
-        let v: Vec<u64> = vec![0; unsafe { blst_pairing_sizeof() } / 8];
-        let mut obj = Self {
-            v: v.into_boxed_slice(),
-        };
-        obj.init(hash_or_encode, dst);
-        obj
-    }
-
-    pub fn init(&mut self, hash_or_encode: bool, dst: &[u8]) {
-        unsafe {
-            blst_pairing_init(
-                self.ctx(),
-                hash_or_encode,
-                dst.as_ptr(),
-                dst.len(),
-            )
-        }
-    }
-    fn ctx(&mut self) -> *mut blst_pairing {
-        self.v.as_mut_ptr() as *mut blst_pairing
-    }
-    fn const_ctx(&self) -> *const blst_pairing {
-        self.v.as_ptr() as *const blst_pairing
-    }
-
-    pub fn aggregate(
-        &mut self,
-        pk: &dyn Any,
-        pk_validate: bool,
-        sig: &dyn Any,
-        sig_groupcheck: bool,
-        msg: &[u8],
-        aug: &[u8],
-    ) -> BLST_ERROR {
-        if pk.is::<blst_p1_affine>() {
-            unsafe {
-                blst_pairing_chk_n_aggr_pk_in_g1(
-                    self.ctx(),
-                    match pk.downcast_ref::<blst_p1_affine>() {
-                        Some(pk) => pk,
-                        None => ptr::null(),
-                    },
-                    pk_validate,
-                    match sig.downcast_ref::<blst_p2_affine>() {
-                        Some(sig) => sig,
-                        None => ptr::null(),
-                    },
-                    sig_groupcheck,
-                    msg.as_ptr(),
-                    msg.len(),
-                    aug.as_ptr(),
-                    aug.len(),
-                )
-            }
-        } else if pk.is::<blst_p2_affine>() {
-            unsafe {
-                blst_pairing_chk_n_aggr_pk_in_g2(
-                    self.ctx(),
-                    match pk.downcast_ref::<blst_p2_affine>() {
-                        Some(pk) => pk,
-                        None => ptr::null(),
-                    },
-                    pk_validate,
-                    match sig.downcast_ref::<blst_p1_affine>() {
-                        Some(sig) => sig,
-                        None => ptr::null(),
-                    },
-                    sig_groupcheck,
-                    msg.as_ptr(),
-                    msg.len(),
-                    aug.as_ptr(),
-                    aug.len(),
-                )
-            }
-        } else {
-            panic!("whaaaa?")
-        }
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    pub fn mul_n_aggregate(
-        &mut self,
-        pk: &dyn Any,
-        pk_validate: bool,
-        sig: &dyn Any,
-        sig_groupcheck: bool,
-        scalar: &[u8],
-        nbits: usize,
-        msg: &[u8],
-        aug: &[u8],
-    ) -> BLST_ERROR {
-        if pk.is::<blst_p1_affine>() {
-            unsafe {
-                blst_pairing_chk_n_mul_n_aggr_pk_in_g1(
-                    self.ctx(),
-                    match pk.downcast_ref::<blst_p1_affine>() {
-                        Some(pk) => pk,
-                        None => ptr::null(),
-                    },
-                    pk_validate,
-                    match sig.downcast_ref::<blst_p2_affine>() {
-                        Some(sig) => sig,
-                        None => ptr::null(),
-                    },
-                    sig_groupcheck,
-                    scalar.as_ptr(),
-                    nbits,
-                    msg.as_ptr(),
-                    msg.len(),
-                    aug.as_ptr(),
-                    aug.len(),
-                )
-            }
-        } else if pk.is::<blst_p2_affine>() {
-            unsafe {
-                blst_pairing_chk_n_mul_n_aggr_pk_in_g2(
-                    self.ctx(),
-                    match pk.downcast_ref::<blst_p2_affine>() {
-                        Some(pk) => pk,
-                        None => ptr::null(),
-                    },
-                    pk_validate,
-                    match sig.downcast_ref::<blst_p1_affine>() {
-                        Some(sig) => sig,
-                        None => ptr::null(),
-                    },
-                    sig_groupcheck,
-                    scalar.as_ptr(),
-                    nbits,
-                    msg.as_ptr(),
-                    msg.len(),
-                    aug.as_ptr(),
-                    aug.len(),
-                )
-            }
-        } else {
-            panic!("whaaaa?")
-        }
-    }
-
-    pub fn aggregated(gtsig: &mut blst_fp12, sig: &dyn Any) {
-        if sig.is::<blst_p1_affine>() {
-            unsafe {
-                blst_aggregated_in_g1(
-                    gtsig,
-                    sig.downcast_ref::<blst_p1_affine>().unwrap(),
-                )
-            }
-        } else if sig.is::<blst_p2_affine>() {
-            unsafe {
-                blst_aggregated_in_g2(
-                    gtsig,
-                    sig.downcast_ref::<blst_p2_affine>().unwrap(),
-                )
-            }
-        } else {
-            panic!("whaaaa?")
-        }
-    }
-
-    pub fn commit(&mut self) {
-        unsafe { blst_pairing_commit(self.ctx()) }
-    }
-
-    pub fn merge(&mut self, ctx1: &Self) -> BLST_ERROR {
-        unsafe { blst_pairing_merge(self.ctx(), ctx1.const_ctx()) }
-    }
-
-    pub fn finalverify(&self, gtsig: Option<&blst_fp12>) -> bool {
-        unsafe {
-            blst_pairing_finalverify(
-                self.const_ctx(),
-                match gtsig {
-                    Some(gtsig) => gtsig,
-                    None => ptr::null(),
-                },
-            )
-        }
-    }
-
-    pub fn raw_aggregate(&mut self, q: &blst_p2_affine, p: &blst_p1_affine) {
-        unsafe { blst_pairing_raw_aggregate(self.ctx(), q, p) }
-    }
-
-    pub fn as_fp12(&mut self) -> blst_fp12 {
-        unsafe { *blst_pairing_as_fp12(self.ctx()) }
-    }
-}
-
-pub fn uniq(msgs: &[&[u8]]) -> bool {
-    let n_elems = msgs.len();
-
-    if n_elems == 1 {
-        return true;
-    } else if n_elems == 2 {
-        return msgs[0] != msgs[1];
-    }
-
-    let mut v: Vec<u64> = vec![0; unsafe { blst_uniq_sizeof(n_elems) } / 8];
-    let ctx = v.as_mut_ptr() as *mut blst_uniq;
-
-    unsafe { blst_uniq_init(ctx) };
-
-    for msg in msgs.iter() {
-        if !unsafe { blst_uniq_test(ctx, msg.as_ptr(), msg.len()) } {
-            return false;
-        }
-    }
-
-    true
-}
-
+pub use middle_product::{
+    blst_middle_product_precomputed_b, middle_product,
+    precompute_middle_product_b, MiddleProductError,
+    MiddleProductPrecomputedB,
+};
+#[cfg(feature = "full-rust-bindings")]
+pub use pairing::{uniq, Pairing};
 #[cfg(feature = "std")]
-pub fn print_bytes(bytes: &[u8], name: &str) {
-    print!("{} ", name);
-    for b in bytes.iter() {
-        print!("{:02x}", b);
-    }
-    println!();
-}
+pub use pairing::print_bytes;
 
+#[cfg(feature = "full-rust-bindings")]
 macro_rules! sig_variant_impl {
     (
         $name:expr,
@@ -2187,6 +1790,7 @@ macro_rules! sig_variant_impl {
     };
 }
 
+#[cfg(feature = "full-rust-bindings")]
 pub mod min_pk {
     use super::*;
 
@@ -2231,6 +1835,7 @@ pub mod min_pk {
     );
 }
 
+#[cfg(feature = "full-rust-bindings")]
 pub mod min_sig {
     use super::*;
 
@@ -2275,6 +1880,7 @@ pub mod min_sig {
     );
 }
 
+#[cfg(feature = "full-rust-bindings")]
 pub trait MultiPoint {
     type Output;
 
@@ -2285,13 +1891,13 @@ pub trait MultiPoint {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", feature = "full-rust-bindings"))]
 include!("pippenger.rs");
 
-#[cfg(not(feature = "std"))]
+#[cfg(all(not(feature = "std"), feature = "full-rust-bindings"))]
 include!("pippenger-no_std.rs");
 
-#[cfg(test)]
+#[cfg(all(test, feature = "full-rust-bindings"))]
 mod fp12_test {
     use super::*;
     use rand::{RngCore, SeedableRng};
@@ -2344,7 +1950,7 @@ mod fp12_test {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "full-rust-bindings"))]
 mod sk_test {
     use super::*;
     use rand::{RngCore, SeedableRng};

@@ -3,16 +3,37 @@
 The `blst` crate provides a rust interface to the blst BLS12-381 signature library.
 
 ## Build
-[bindgen](https://github.com/rust-lang/rust-bindgen) is used to generate FFI bindings to blst.h. Then [build.rs](https://github.com/supranational/blst/blob/master/bindings/rust/build.rs) invokes C compiler to compile everything into libblst.a within the rust target build area. On Linux it's possible to choose compiler by setting `CC` environment variable.
+[bindgen](https://github.com/rust-lang/rust-bindgen) is used to generate FFI bindings from the C headers under `bindings/`. Then [build.rs](https://github.com/supranational/blst/blob/master/bindings/rust/build.rs) invokes CMake to build the native blst library inside Cargo's target area and links the resulting static library into the crate. On Linux it is still possible to choose the compiler by setting `CC` and `CXX`.
 
 Everything can be built and run with the typical cargo commands:
 
 ```
-cargo test
+cargo test --lib
+cargo run --example smoke
 cargo bench
 ```
 
-If the target application crashes with an "illegal instruction" exception [after copying to an older system], activate `portable` feature when building blst. Conversely, if you compile on an older Intel system, but will execute the binary on a newer one, consider instead activating <nobr>`force-adx`</nobr> feature. Though keep in mind that [cc](https://crates.io/crates/cc) passes the value of `CFLAGS` environment variable to the C compiler, and if set to contain specific flags, it can interfere with feature selection. <nobr>`-D__BLST_PORTABLE__`</nobr> and <nobr>`-D__ADX__`</nobr> are the said features' equivalents.
+Relevant Cargo features:
+
+- `full-rust-bindings`
+  - enables the higher-level Rust API such as `min_pk`, `min_sig`, aggregation helpers, and pairing helpers
+- `avx`
+  - enables the AVX-backed native build
+  - on Windows this maps to the portable AVX implementation
+  - on Linux native AVX requires Clang 21 or newer unless the native CMake build is explicitly configured to allow an unsupported compiler
+- `portable`
+  - enables the portable scalar build
+- `force-adx`
+  - forces ADX on supported x86_64 targets
+
+Examples:
+
+```
+cargo test --lib
+cargo test --lib --features full-rust-bindings
+cargo run --example smoke
+cargo run --example smoke --features full-rust-bindings
+```
 
 To compile for WebAssembly, your clang has to recognize `--target=wasm32`. Alternatively you can build your project with `CC` environment variable set to `emcc`, the [Emscripten compiler](https://emscripten.org), and `AR` set to `emar`, naturally, with both commands available on your `PATH`.
 
@@ -27,8 +48,40 @@ rmp = "=0.8.12"
 #criterion = "0.3"
 ```
 
+## Layout
+The Rust crate is split by surface area:
+
+- `src/lib.rs`
+  - crate entry point and top-level re-exports
+- `src/primitives.rs`
+  - thin helpers around the scalar C ABI
+- `src/middle_product.rs`
+  - `precompute(b)` and `middle_product(a, precomputed_b, out)`
+- `src/pairing.rs`
+  - owned pairing context wrapper
+- `src/pippenger.rs`
+  - multi-point helpers used by the full high-level API
+
+Additional narrative docs live in `docs/`:
+
+- `docs/overview.md`
+- `docs/middle_product.md`
+- `docs/full_bindings.md`
+
 ## Usage
-There are two primary modes of operation that can be chosen based on declaration path:
+There are three primary ways to use the crate.
+
+Low-level/raw use:
+```rust
+use blst::{blst_fp12, blst_p1, blst_p2};
+```
+
+Middle-product use:
+```rust
+use blst::{middle_product, precompute_middle_product_b};
+```
+
+High-level signature use:
 
 For minimal-pubkey-size operations:
 ```rust
@@ -68,4 +121,8 @@ let err = sig.verify(true, msg, dst, &[], &pk, true);
 assert_eq!(err, blst::BLST_ERROR::BLST_SUCCESS);
 ```
 
-See the tests in src/lib.rs and benchmarks in benches/blst_benches.rs for further examples of usage.
+See:
+
+- `examples/smoke.rs` for a runnable smoke example
+- `src/lib.rs` and the submodules under `src/` for unit-test examples
+- `benches/blst_benches.rs` for benchmark-style usage

@@ -2,7 +2,7 @@
 
 ## Reporting a Vulnerability
 
-To report security issues please send an e-mail to hello@supranational.net. 
+To report security issues please send an e-mail to peterrindal@gmail.com 
 
 For sensitive information or critical issues, please contact the above e-mail address with 'CRITICAL' in the subject line and we will respond with a mechanism to securely communicate.
 
