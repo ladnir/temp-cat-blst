@@ -41,7 +41,14 @@ void blst_fr_eucl_inverse(Fr& ret, const Fr& a) { Fr::reciprocal(ret, a); }
 void blst_fr_inverse(Fr& ret, const Fr& a) { Fr::reciprocal(ret, a); }
 void blst_fr_to(Fr& ret, const Fr& a) { Fr::to_mont(ret, a); }
 void blst_fr_from(Fr& ret, const Fr& a) { Fr::from_mont(ret, a); }
-void blst_fr_from_uint64(Fr& ret, const unsigned long long a[4]) { Fr::from_uint64(ret, a); }
+void blst_fr_from_uint64(Fr& ret, const unsigned long long a[4])
+{
+    u64 words[4];
+    for (int i = 0; i < 4; ++i) {
+        words[i] = static_cast<u64>(a[i]);
+    }
+    Fr::from_uint64(ret, words);
+}
 void blst_fr_from_scalar(Fr& ret, const pow256 a) { Fr::from_scalar(ret, a); }
 void blst_scalar_from_fr(pow256 ret, const Fr& a) { Fr::to_scaler(ret, a); }
 int blst_scalar_fr_check(const pow256 a) { 

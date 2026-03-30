@@ -4,6 +4,7 @@
 #include "blst/curve/map_to_G.h"
 #include "blst/curve/point.h"
 #include "blst/fields/Fp12.h"
+#include "blst/fields/hash_to_field.h"
 #include "blst/sign/aggregate.h"
 #include "blst/scalar/curve/GT.h"
 #include "blst/scalar/curve/multi_scalar.h"
@@ -18,6 +19,7 @@
 #include <vector>
 
 namespace blst {
+struct rb_tree;
 size_t blst_pairing_sizeof(void);
 void blst_pairing_init(PAIRING* ctx, int hash_or_encode, const void* DST, size_t DST_len);
 const void* blst_pairing_get_dst(const PAIRING* ctx);
@@ -46,6 +48,9 @@ void blst_keygen_v4_5(pow256 SK, const void* IKM, size_t IKM_len, const void* sa
 void blst_keygen_v5(pow256 SK, const void* IKM, size_t IKM_len, const void* salt, size_t salt_len, const void* info, size_t info_len);
 void blst_derive_master_eip2333(pow256 SK, const void* seed, size_t seed_len);
 void blst_derive_child_eip2333(pow256 SK, const pow256 parent_SK, unsigned int child_index);
+size_t blst_uniq_sizeof(size_t n_nodes);
+void blst_uniq_init(rb_tree* tree);
+int blst_uniq_test(rb_tree* tree, const void* data, size_t len);
 }
 
 namespace blst::scalar {
@@ -120,8 +125,6 @@ static_assert(std::is_trivially_copyable_v<BoundaryG1Affine>);
 static_assert(std::is_trivially_copyable_v<BoundaryG2>);
 static_assert(std::is_trivially_copyable_v<BoundaryG2Affine>);
 static_assert(std::is_trivially_copyable_v<BoundaryFp12>);
-static_assert(alignof(BoundaryPairing) <= alignof(std::uint64_t));
-
 inline PublicGt boundary_to_public_gt(const BoundaryFp12& value)
 {
     unsigned char serialized[12 * 48] = {};
@@ -232,8 +235,13 @@ inline const BoundaryPairing* as_pairing(const void* ctx)
     return reinterpret_cast<const BoundaryPairing*>(ctx);
 }
 
+inline blst::rb_tree* as_uniq(void* tree)
+{
+    return reinterpret_cast<blst::rb_tree*>(tree);
+}
+
 template<typename Group, typename GroupZZ>
-inline void legacy_point_integrate_buckets(Group& out, GroupZZ buckets[], size_t wbits)
+inline void c_api_point_integrate_buckets(Group& out, GroupZZ buckets[], size_t wbits)
 {
     GroupZZ ret = {};
     GroupZZ acc = {};
@@ -252,7 +260,7 @@ inline void legacy_point_integrate_buckets(Group& out, GroupZZ buckets[], size_t
 }
 
 template<typename AffineGroup, typename GroupZZ>
-inline void legacy_point_bucket(GroupZZ buckets[], blst::limb_t booth_idx, size_t wbits, const AffineGroup& point)
+inline void c_api_point_bucket(GroupZZ buckets[], blst::limb_t booth_idx, size_t wbits, const AffineGroup& point)
 {
     const bool booth_sign = ((booth_idx >> wbits) & 1) != 0;
 
@@ -263,7 +271,7 @@ inline void legacy_point_bucket(GroupZZ buckets[], blst::limb_t booth_idx, size_
 }
 
 template<typename GroupZZ>
-inline void legacy_point_prefetch(const GroupZZ buckets[], blst::limb_t booth_idx, size_t wbits)
+inline void c_api_point_prefetch(const GroupZZ buckets[], blst::limb_t booth_idx, size_t wbits)
 {
     booth_idx &= (static_cast<blst::limb_t>(1) << wbits) - 1;
     if (booth_idx--) {
@@ -274,7 +282,7 @@ inline void legacy_point_prefetch(const GroupZZ buckets[], blst::limb_t booth_id
 }
 
 template<typename Group, typename AffineGroup, typename GroupZZ>
-inline void legacy_points_tile_pippenger(
+inline void c_api_points_tile_pippenger(
     Group& ret,
     const AffineGroup* const points[],
     size_t npoints,
@@ -307,16 +315,16 @@ inline void legacy_points_tile_pippenger(
     for (; i < npoints; ++i) {
         auto current = next;
         next = extract_window();
-        legacy_point_prefetch(buckets, next.second, we.encode_size);
-        legacy_point_bucket(buckets, current.second, we.encode_size, *current.first);
+        c_api_point_prefetch(buckets, next.second, we.encode_size);
+        c_api_point_bucket(buckets, current.second, we.encode_size, *current.first);
     }
 
-    legacy_point_bucket(buckets, next.second, we.encode_size, *next.first);
-    legacy_point_integrate_buckets(ret, buckets, we.encode_size - 1);
+    c_api_point_bucket(buckets, next.second, we.encode_size, *next.first);
+    c_api_point_integrate_buckets(ret, buckets, we.encode_size - 1);
 }
 
 template<typename Group, typename AffineGroup>
-inline void legacy_points_add(Group& out, const AffineGroup* const points[], size_t npoints)
+inline void c_api_points_add(Group& out, const AffineGroup* const points[], size_t npoints)
 {
     out = {};
     if (npoints == 0) {
@@ -337,6 +345,36 @@ BLST_EXTERN_C_BEGIN_
 void blst_fp12_mul(BoundaryFp12* ret, const BoundaryFp12* a, const BoundaryFp12* b)
 {
     BoundaryFp12::mul(*ret, *a, *b);
+}
+
+void blst_fp12_sqr(BoundaryFp12* ret, const BoundaryFp12* a)
+{
+    BoundaryFp12::sqr(*ret, *a);
+}
+
+void blst_fp12_cyclotomic_sqr(BoundaryFp12* ret, const BoundaryFp12* a)
+{
+    BoundaryFp12::cyclotomic_sqr(*ret, *a);
+}
+
+void blst_fp12_mul_by_xy00z0(BoundaryFp12* ret, const BoundaryFp12* a, const BoundaryFp6* xy00z0)
+{
+    BoundaryFp12::mul_by_xy00z0(*ret, *a, *xy00z0);
+}
+
+void blst_fp12_conjugate(BoundaryFp12* a)
+{
+    BoundaryFp12::conjugate(*a);
+}
+
+void blst_fp12_inverse(BoundaryFp12* ret, const BoundaryFp12* a)
+{
+    BoundaryFp12::inverse(*ret, *a);
+}
+
+void blst_fp12_frobenius_map(BoundaryFp12* ret, const BoundaryFp12* a, size_t n)
+{
+    BoundaryFp12::frobenius_map(*ret, *a, n);
 }
 
 bool blst_fp12_is_equal(const BoundaryFp12* a, const BoundaryFp12* b)
@@ -416,7 +454,7 @@ void blst_p1_double(BoundaryG1* out, const BoundaryG1* a)
     *out = public_to_boundary_g1(result);
 }
 
-void blst_p1_mult(BoundaryG1* out, const BoundaryG1* p, const byte* scalar, size_t nbits)
+void blst_p1_mult(BoundaryG1* out, const BoundaryG1* p, const blst::byte* scalar, size_t nbits)
 {
     PublicG1 result = {};
     PublicG1::mult(result, boundary_to_public_g1(*p), scalar, nbits);
@@ -442,6 +480,11 @@ void blst_p1_from_affine(BoundaryG1* out, const BoundaryG1Affine* in)
     *out = public_to_boundary_g1(point);
 }
 
+void blst_p1_from_jacobian(BoundaryG1* out, const BoundaryG1* in)
+{
+    BoundaryG1::from_jacobian(*out, *in);
+}
+
 bool blst_p1_on_curve(const BoundaryG1* p)
 {
     return BoundaryG1::on_curve(*p) != 0;
@@ -465,6 +508,11 @@ bool blst_p1_is_inf(const BoundaryG1* a)
 const BoundaryG1* blst_p1_generator(void)
 {
     return &BoundaryG1::generator();
+}
+
+void blst_p1_unchecked_mult(BoundaryG1* out, const BoundaryG1* p, const blst::byte* scalar, size_t nbits)
+{
+    blst_p1_mult(out, p, scalar, nbits);
 }
 
 bool blst_p1_affine_on_curve(const BoundaryG1Affine* p)
@@ -506,7 +554,7 @@ void blst_p1s_add(BoundaryG1* ret, const BoundaryG1Affine* const points[], size_
         *ret = {};
         return;
     }
-    legacy_points_add(*ret, points, npoints);
+    c_api_points_add(*ret, points, npoints);
 }
 
 size_t blst_p1s_mult_wbits_precompute_sizeof(size_t wbits, size_t npoints)
@@ -592,7 +640,7 @@ void blst_p1s_tile_pippenger(
         *ret = {};
         return;
     }
-    legacy_points_tile_pippenger(
+    c_api_points_tile_pippenger(
         *ret,
         points,
         npoints,
@@ -678,7 +726,7 @@ void blst_p2_double(BoundaryG2* out, const BoundaryG2* a)
     *out = public_to_boundary_g2(result);
 }
 
-void blst_p2_mult(BoundaryG2* out, const BoundaryG2* p, const byte* scalar, size_t nbits)
+void blst_p2_mult(BoundaryG2* out, const BoundaryG2* p, const blst::byte* scalar, size_t nbits)
 {
     PublicG2 result = {};
     PublicG2::mult(result, boundary_to_public_g2(*p), scalar, nbits);
@@ -704,6 +752,11 @@ void blst_p2_from_affine(BoundaryG2* out, const BoundaryG2Affine* in)
     *out = public_to_boundary_g2(point);
 }
 
+void blst_p2_from_jacobian(BoundaryG2* out, const BoundaryG2* in)
+{
+    BoundaryG2::from_jacobian(*out, *in);
+}
+
 bool blst_p2_on_curve(const BoundaryG2* p)
 {
     return BoundaryG2::on_curve(*p) != 0;
@@ -727,6 +780,11 @@ bool blst_p2_is_inf(const BoundaryG2* a)
 const BoundaryG2* blst_p2_generator(void)
 {
     return &BoundaryG2::generator();
+}
+
+void blst_p2_unchecked_mult(BoundaryG2* out, const BoundaryG2* p, const blst::byte* scalar, size_t nbits)
+{
+    blst_p2_mult(out, p, scalar, nbits);
 }
 
 bool blst_p2_affine_on_curve(const BoundaryG2Affine* p)
@@ -768,7 +826,7 @@ void blst_p2s_add(BoundaryG2* ret, const BoundaryG2Affine* const points[], size_
         *ret = {};
         return;
     }
-    legacy_points_add(*ret, points, npoints);
+    c_api_points_add(*ret, points, npoints);
 }
 
 size_t blst_p2s_mult_wbits_precompute_sizeof(size_t wbits, size_t npoints)
@@ -854,7 +912,7 @@ void blst_p2s_tile_pippenger(
         *ret = {};
         return;
     }
-    legacy_points_tile_pippenger(
+    c_api_points_tile_pippenger(
         *ret,
         points,
         npoints,
@@ -956,6 +1014,11 @@ void blst_miller_loop_lines(BoundaryFp12* ret, const BoundaryFp6 Qlines[68], con
 size_t blst_pairing_sizeof(void)
 {
     return blst::blst_pairing_sizeof();
+}
+
+size_t blst_pairing_alignof(void)
+{
+    return alignof(BoundaryPairing);
 }
 
 void blst_pairing_init(void* new_ctx, bool hash_or_encode, const unsigned char* DST, size_t DST_len)
@@ -1334,6 +1397,51 @@ void blst_derive_child_eip2333(blst::byte* out_SK, const blst::byte* SK, unsigne
     blst::blst_derive_child_eip2333(out_SK, SK, child_index);
 }
 
+size_t blst_uniq_sizeof(size_t n_nodes)
+{
+    return blst::blst_uniq_sizeof(n_nodes);
+}
+
+void blst_uniq_init(void* tree)
+{
+    blst::blst_uniq_init(as_uniq(tree));
+}
+
+bool blst_uniq_test(void* tree, const blst::byte* msg, size_t len)
+{
+    return blst::blst_uniq_test(as_uniq(tree), msg, len) != 0;
+}
+
+void blst_expand_message_xmd(blst::byte* out, size_t out_len, const blst::byte* msg, size_t msg_len, const blst::byte* DST, size_t DST_len)
+{
+    blst::scalar::blst_expand_message_xmd(out, out_len, msg, msg_len, DST, DST_len);
+}
+
+size_t blst_p1_sizeof(void)
+{
+    return sizeof(BoundaryG1);
+}
+
+size_t blst_p1_affine_sizeof(void)
+{
+    return sizeof(BoundaryG1Affine);
+}
+
+size_t blst_p2_sizeof(void)
+{
+    return sizeof(BoundaryG2);
+}
+
+size_t blst_p2_affine_sizeof(void)
+{
+    return sizeof(BoundaryG2Affine);
+}
+
+size_t blst_fp12_sizeof(void)
+{
+    return sizeof(BoundaryFp12);
+}
+
 void blst_encode_to_g1(
     BoundaryG1* out,
     const blst::byte* msg,
@@ -1388,6 +1496,16 @@ void blst_hash_to_g2(
     PublicG2 public_out = {};
     blst::Hash_to_curve(public_out, msg, msg_len, DST, DST_len, aug, aug_len);
     *out = public_to_boundary_g2(public_out);
+}
+
+void blst_map_to_g1(BoundaryG1* out, const blst::Fp* u, const blst::Fp* v)
+{
+    blst::scalar::map_to_curve(*out, *u, v);
+}
+
+void blst_map_to_g2(BoundaryG2* out, const blst::Fp2* u, const blst::Fp2* v)
+{
+    blst::scalar::map_to_curve(*out, *u, v);
 }
 
 void blst_sk_to_pk_in_g1(BoundaryG1* out_pk, const blst::byte* SK)

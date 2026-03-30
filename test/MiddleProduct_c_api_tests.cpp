@@ -71,6 +71,15 @@ BoundaryG2 g2(uint64_t scalar)
 
 BoundaryGt gt_to_fp12(const PublicGt& value)
 {
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    {
+        unsigned char serialized[12 * 48] = {};
+        PublicGt::serialize(serialized, value);
+        blst::scalar::GT scalar_gt = {};
+        blst::scalar::GT::deserialize(scalar_gt, serialized);
+        return scalar_gt.data;
+    }
+#else
     if constexpr (std::is_same_v<PublicGt, blst::scalar::GT>) {
         return value.data;
     } else {
@@ -80,6 +89,7 @@ BoundaryGt gt_to_fp12(const PublicGt& value)
         blst::scalar::GT::deserialize(scalar_gt, serialized);
         return scalar_gt.data;
     }
+#endif
 }
 
 std::vector<PublicG1> to_public_g1(const std::vector<BoundaryG1>& input)

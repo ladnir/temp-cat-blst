@@ -160,6 +160,14 @@ typedef enum {
 typedef uint8_t byte;
 typedef uint64_t limb_t;
 
+#if defined(_MSC_VER)
+# define BLST_AUX_ALIGNAS(n) __declspec(align(n))
+#elif defined(__GNUC__) || defined(__clang__)
+# define BLST_AUX_ALIGNAS(n) __attribute__((aligned(n)))
+#else
+# define BLST_AUX_ALIGNAS(n)
+#endif
+
 typedef struct { byte b[256 / 8]; } blst_scalar;
 typedef struct { limb_t l[256 / 8 / sizeof(limb_t)]; } blst_fr;
 typedef struct { limb_t l[384 / 8 / sizeof(limb_t)]; } blst_fp;
@@ -172,7 +180,23 @@ typedef struct { blst_fp x, y; } blst_p1_affine;
 typedef struct { blst_fp2 x, y, z; } blst_p2;
 typedef struct { blst_fp2 x, y; } blst_p2_affine;
 
+enum {
+    BLST_AVX_ALIGNMENT = 64,
+    BLST_AVX_P1_SIZE = 384,
+    BLST_AVX_P1_AFFINE_SIZE = 256,
+    BLST_AVX_P2_SIZE = 768,
+    BLST_AVX_P2_AFFINE_SIZE = 512,
+    BLST_AVX_FP12_SIZE = 1536,
+};
+
+typedef struct BLST_AUX_ALIGNAS(BLST_AVX_ALIGNMENT) { byte b[BLST_AVX_P1_SIZE]; } blst_avx_p1;
+typedef struct BLST_AUX_ALIGNAS(BLST_AVX_ALIGNMENT) { byte b[BLST_AVX_P1_AFFINE_SIZE]; } blst_avx_p1_affine;
+typedef struct BLST_AUX_ALIGNAS(BLST_AVX_ALIGNMENT) { byte b[BLST_AVX_P2_SIZE]; } blst_avx_p2;
+typedef struct BLST_AUX_ALIGNAS(BLST_AVX_ALIGNMENT) { byte b[BLST_AVX_P2_AFFINE_SIZE]; } blst_avx_p2_affine;
+typedef struct BLST_AUX_ALIGNAS(BLST_AVX_ALIGNMENT) { byte b[BLST_AVX_FP12_SIZE]; } blst_avx_fp12;
+
 typedef struct blst_opaque blst_pairing;
+typedef struct blst_opaque blst_uniq;
 typedef struct blst_middle_product_precomputed_b blst_middle_product_precomputed_b;
 
 void blst_fr_add(blst_fr* ret, const blst_fr* a, const blst_fr* b);
@@ -233,6 +257,12 @@ bool blst_fp2_sqrt(blst_fp2* ret, const blst_fp2* a);
 bool blst_fp2_is_square(const blst_fp2* a);
 
 void blst_fp12_mul(blst_fp12* ret, const blst_fp12* a, const blst_fp12* b);
+void blst_fp12_sqr(blst_fp12* ret, const blst_fp12* a);
+void blst_fp12_cyclotomic_sqr(blst_fp12* ret, const blst_fp12* a);
+void blst_fp12_mul_by_xy00z0(blst_fp12* ret, const blst_fp12* a, const blst_fp6* xy00z0);
+void blst_fp12_conjugate(blst_fp12* a);
+void blst_fp12_inverse(blst_fp12* ret, const blst_fp12* a);
+void blst_fp12_frobenius_map(blst_fp12* ret, const blst_fp12* a, size_t n);
 bool blst_fp12_is_equal(const blst_fp12* a, const blst_fp12* b);
 bool blst_fp12_is_one(const blst_fp12* a);
 bool blst_fp12_in_group(const blst_fp12* a);
@@ -250,11 +280,13 @@ void blst_p1_mult(blst_p1* out, const blst_p1* p, const byte* scalar, size_t nbi
 void blst_p1_cneg(blst_p1* p, bool cbit);
 void blst_p1_to_affine(blst_p1_affine* out, const blst_p1* in);
 void blst_p1_from_affine(blst_p1* out, const blst_p1_affine* in);
+void blst_p1_from_jacobian(blst_p1* out, const blst_p1* in);
 bool blst_p1_on_curve(const blst_p1* p);
 bool blst_p1_in_g1(const blst_p1* p);
 bool blst_p1_is_equal(const blst_p1* a, const blst_p1* b);
 bool blst_p1_is_inf(const blst_p1* a);
 const blst_p1* blst_p1_generator(void);
+void blst_p1_unchecked_mult(blst_p1* out, const blst_p1* p, const byte* scalar, size_t nbits);
 bool blst_p1_affine_on_curve(const blst_p1_affine* p);
 bool blst_p1_affine_in_g1(const blst_p1_affine* p);
 bool blst_p1_affine_is_equal(const blst_p1_affine* a, const blst_p1_affine* b);
@@ -285,11 +317,13 @@ void blst_p2_mult(blst_p2* out, const blst_p2* p, const byte* scalar, size_t nbi
 void blst_p2_cneg(blst_p2* p, bool cbit);
 void blst_p2_to_affine(blst_p2_affine* out, const blst_p2* in);
 void blst_p2_from_affine(blst_p2* out, const blst_p2_affine* in);
+void blst_p2_from_jacobian(blst_p2* out, const blst_p2* in);
 bool blst_p2_on_curve(const blst_p2* p);
 bool blst_p2_in_g2(const blst_p2* p);
 bool blst_p2_is_equal(const blst_p2* a, const blst_p2* b);
 bool blst_p2_is_inf(const blst_p2* a);
 const blst_p2* blst_p2_generator(void);
+void blst_p2_unchecked_mult(blst_p2* out, const blst_p2* p, const byte* scalar, size_t nbits);
 bool blst_p2_affine_on_curve(const blst_p2_affine* p);
 bool blst_p2_affine_in_g2(const blst_p2_affine* p);
 bool blst_p2_affine_is_equal(const blst_p2_affine* a, const blst_p2_affine* b);
@@ -316,6 +350,7 @@ void blst_miller_loop_n(blst_fp12* ret, const blst_p2_affine* const Qs[], const 
 void blst_precompute_lines(blst_fp6 Qlines[68], const blst_p2_affine* Q);
 void blst_miller_loop_lines(blst_fp12* ret, const blst_fp6 Qlines[68], const blst_p1_affine* P);
 size_t blst_pairing_sizeof(void);
+size_t blst_pairing_alignof(void);
 void blst_pairing_init(blst_pairing* new_ctx, bool hash_or_encode, const byte* DST, size_t DST_len);
 const byte* blst_pairing_get_dst(const blst_pairing* ctx);
 void blst_pairing_commit(blst_pairing* ctx);
@@ -349,6 +384,8 @@ void blst_encode_to_g1(blst_p1* out, const byte* msg, size_t msg_len, const byte
 void blst_hash_to_g1(blst_p1* out, const byte* msg, size_t msg_len, const byte* DST, size_t DST_len, const byte* aug, size_t aug_len);
 void blst_encode_to_g2(blst_p2* out, const byte* msg, size_t msg_len, const byte* DST, size_t DST_len, const byte* aug, size_t aug_len);
 void blst_hash_to_g2(blst_p2* out, const byte* msg, size_t msg_len, const byte* DST, size_t DST_len, const byte* aug, size_t aug_len);
+void blst_map_to_g1(blst_p1* out, const blst_fp* u, const blst_fp* v);
+void blst_map_to_g2(blst_p2* out, const blst_fp2* u, const blst_fp2* v);
 void blst_sk_to_pk_in_g1(blst_p1* out_pk, const blst_scalar* SK);
 void blst_sign_pk_in_g1(blst_p2* out_sig, const blst_p2* hash, const blst_scalar* SK);
 void blst_sk_to_pk_in_g2(blst_p2* out_pk, const blst_scalar* SK);
@@ -357,6 +394,60 @@ void blst_sk_to_pk2_in_g1(byte out[96], blst_p1_affine* out_pk, const blst_scala
 void blst_sign_pk2_in_g1(byte out[192], blst_p2_affine* out_sig, const blst_p2* hash, const blst_scalar* SK);
 void blst_sk_to_pk2_in_g2(byte out[192], blst_p2_affine* out_pk, const blst_scalar* SK);
 void blst_sign_pk2_in_g2(byte out[96], blst_p1_affine* out_sig, const blst_p1* hash, const blst_scalar* SK);
+size_t blst_uniq_sizeof(size_t n_nodes);
+void blst_uniq_init(blst_uniq* tree);
+bool blst_uniq_test(blst_uniq* tree, const byte* msg, size_t len);
+void blst_expand_message_xmd(byte* out, size_t out_len, const byte* msg, size_t msg_len, const byte* DST, size_t DST_len);
+size_t blst_p1_sizeof(void);
+size_t blst_p1_affine_sizeof(void);
+size_t blst_p2_sizeof(void);
+size_t blst_p2_affine_sizeof(void);
+size_t blst_fp12_sizeof(void);
+
+bool blst_avx_enabled(void);
+size_t blst_avx_p1_sizeof(void);
+size_t blst_avx_p1_alignof(void);
+size_t blst_avx_p1_affine_sizeof(void);
+size_t blst_avx_p1_affine_alignof(void);
+size_t blst_avx_p2_sizeof(void);
+size_t blst_avx_p2_alignof(void);
+size_t blst_avx_p2_affine_sizeof(void);
+size_t blst_avx_p2_affine_alignof(void);
+size_t blst_avx_fp12_sizeof(void);
+size_t blst_avx_fp12_alignof(void);
+
+bool blst_avx_p1_from_scalar(blst_avx_p1* out, const blst_p1* in);
+bool blst_p1_from_avx(blst_p1* out, const blst_avx_p1* in);
+bool blst_avx_p1_affine_from_scalar(blst_avx_p1_affine* out, const blst_p1_affine* in);
+bool blst_p1_affine_from_avx(blst_p1_affine* out, const blst_avx_p1_affine* in);
+bool blst_avx_p1_add(blst_avx_p1* out, const blst_avx_p1* a, const blst_avx_p1* b);
+bool blst_avx_p1_mult(blst_avx_p1* out, const blst_avx_p1* p, const byte* scalar, size_t nbits);
+bool blst_avx_p1_to_affine(blst_avx_p1_affine* out, const blst_avx_p1* in);
+bool blst_avx_p1_from_affine(blst_avx_p1* out, const blst_avx_p1_affine* in);
+bool blst_avx_p1_in_g1(const blst_avx_p1* p);
+bool blst_avx_p1_is_equal(const blst_avx_p1* a, const blst_avx_p1* b);
+const blst_avx_p1* blst_avx_p1_generator(void);
+
+bool blst_avx_p2_from_scalar(blst_avx_p2* out, const blst_p2* in);
+bool blst_p2_from_avx(blst_p2* out, const blst_avx_p2* in);
+bool blst_avx_p2_affine_from_scalar(blst_avx_p2_affine* out, const blst_p2_affine* in);
+bool blst_p2_affine_from_avx(blst_p2_affine* out, const blst_avx_p2_affine* in);
+bool blst_avx_p2_add(blst_avx_p2* out, const blst_avx_p2* a, const blst_avx_p2* b);
+bool blst_avx_p2_mult(blst_avx_p2* out, const blst_avx_p2* p, const byte* scalar, size_t nbits);
+bool blst_avx_p2_to_affine(blst_avx_p2_affine* out, const blst_avx_p2* in);
+bool blst_avx_p2_from_affine(blst_avx_p2* out, const blst_avx_p2_affine* in);
+bool blst_avx_p2_in_g2(const blst_avx_p2* p);
+bool blst_avx_p2_is_equal(const blst_avx_p2* a, const blst_avx_p2* b);
+const blst_avx_p2* blst_avx_p2_generator(void);
+
+bool blst_avx_fp12_from_scalar(blst_avx_fp12* out, const blst_fp12* in);
+bool blst_fp12_from_avx(blst_fp12* out, const blst_avx_fp12* in);
+bool blst_avx_fp12_mul(blst_avx_fp12* ret, const blst_avx_fp12* a, const blst_avx_fp12* b);
+bool blst_avx_fp12_sqr(blst_avx_fp12* ret, const blst_avx_fp12* a);
+bool blst_avx_fp12_final_exp(blst_avx_fp12* ret, const blst_avx_fp12* a);
+bool blst_avx_fp12_is_equal(const blst_avx_fp12* a, const blst_avx_fp12* b);
+bool blst_avx_fp12_in_group(const blst_avx_fp12* a);
+const blst_avx_fp12* blst_avx_fp12_one(void);
 
 blst_middle_product_precomputed_b* blst_middle_product_precompute_b(const blst_p2* b, size_t n);
 bool blst_middle_product(const blst_p1* a, size_t n, const blst_middle_product_precomputed_b* precomputed_b, blst_fp12* out);

@@ -69,8 +69,14 @@ fn main() {
     );
 
     let portable = cfg!(feature = "portable");
+    let enable_avx = cfg!(feature = "avx");
+    let enable_avx_portable = enable_avx && target_os.eq("windows");
+    let enable_avx_native = enable_avx && !enable_avx_portable;
     if portable && cfg!(feature = "force-adx") {
         panic!("cannot compile with both `portable` and `force-adx` features");
+    }
+    if portable && enable_avx {
+        panic!("cannot compile with both `portable` and `avx` features");
     }
 
     let enable_asm = !portable
@@ -110,9 +116,9 @@ fn main() {
     configure.arg(format!("-DBLST_ASM={}", on_off(enable_asm)));
     configure.arg(format!("-DBLST_DEFAULT_ASM={}", on_off(enable_asm)));
     configure.arg(format!("-DBLST_ADX={}", on_off(enable_adx)));
-    push_env_define(&mut configure, "BLST_AVX512");
-    push_env_define(&mut configure, "BLST_DEFAULT_AVX");
-    push_env_define(&mut configure, "BLST_AVX512_PORTABLE");
+    configure.arg(format!("-DBLST_AVX512={}", on_off(enable_avx_native)));
+    configure.arg(format!("-DBLST_AVX512_PORTABLE={}", on_off(enable_avx_portable)));
+    configure.arg(format!("-DBLST_DEFAULT_AVX={}", on_off(enable_avx)));
     run(&mut configure, "configure blst with CMake");
 
     let mut build = Command::new("cmake");
@@ -133,6 +139,9 @@ fn main() {
 
     println!("cargo:rustc-link-search=native={}", lib_dir.display());
     println!("cargo:rustc-link-lib=static=blst");
+    if enable_avx {
+        emit_avx_link_deps(&blst_base_dir, &target_env, build_type, &build_dir);
+    }
     if !target_env.eq("msvc") {
         let cpp_runtime = if target_os.eq("macos") || target_os.eq("ios") {
             "c++"
@@ -183,18 +192,58 @@ fn should_enable_adx(target_arch: &str, target_env: &str) -> bool {
     }
 }
 
-fn push_env_define(command: &mut Command, name: &str) {
-    if let Ok(value) = env::var(name) {
-        command.arg(format!("-D{name}={value}"));
-    }
-}
-
 fn command_works(command: &str, args: &[&str]) -> bool {
     Command::new(command)
         .args(args)
         .status()
         .map(|status| status.success())
         .unwrap_or(false)
+}
+
+fn emit_avx_link_deps(
+    blst_base_dir: &Path,
+    target_env: &str,
+    build_type: &str,
+    cargo_build_dir: &Path,
+) {
+    if target_env.eq("msvc") {
+        let vcpkg_root = blst_base_dir
+            .parent()
+            .expect("blst repo should have a parent directory")
+            .join("vcpkg")
+            .join("installed")
+            .join("x64-windows");
+        let lib_dir = if build_type.eq_ignore_ascii_case("release") {
+            vcpkg_root.join("lib")
+        } else {
+            vcpkg_root.join("debug").join("lib")
+        };
+        let dll_path = if build_type.eq_ignore_ascii_case("release") {
+            vcpkg_root.join("bin").join("mpir.dll")
+        } else {
+            vcpkg_root.join("debug").join("bin").join("mpir.dll")
+        };
+        println!("cargo:rustc-link-search=native={}", lib_dir.display());
+        println!("cargo:rustc-link-lib=mpir");
+        copy_runtime_dll(&dll_path, cargo_build_dir);
+    } else {
+        println!("cargo:rustc-link-lib=gmpxx");
+        println!("cargo:rustc-link-lib=gmp");
+    }
+}
+
+fn copy_runtime_dll(dll_path: &Path, cargo_build_dir: &Path) {
+    println!("cargo:rerun-if-changed={}", dll_path.display());
+    let Some(profile_dir) = cargo_build_dir.ancestors().nth(4) else {
+        return;
+    };
+    let copies = [profile_dir.join("mpir.dll"), profile_dir.join("deps").join("mpir.dll")];
+    for target in copies {
+        if let Some(parent) = target.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        let _ = fs::copy(dll_path, target);
+    }
 }
 
 fn run(command: &mut Command, context: &str) {

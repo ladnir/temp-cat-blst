@@ -11,6 +11,7 @@ option(BLST_ASAN         "Enable Address Sanitizer" OFF)
 option(BLST_AVX512       "Enable AVX512 code paths" OFF)
 option(BLST_DEFAULT_AVX  "Prefer AVX implementations by default when available" ${BLST_AVX512})
 option(BLST_AVX512_PORTABLE "Enable AVX512 emulation code paths" OFF)
+option(BLST_ALLOW_UNSUPPORTED_AVX_COMPILER "Allow AVX builds with unsupported compilers" OFF)
 option(BLAS_UBSAN        "Enable UB Sanitizer" OFF)
 option(BLST_TEST         "Build test executables" ON)
 option(BLST_BENCHMARK    "Build benchmark executables" ON)
@@ -33,6 +34,29 @@ if(BLST_DEFAULT_AVX AND NOT (BLST_AVX512 OR BLST_AVX512_PORTABLE))
     message(FATAL_ERROR "BLST_DEFAULT_AVX requires BLST_AVX512 or BLST_AVX512_PORTABLE")
 endif()
 
+if(BLST_AVX512)
+    set(BLST_AVX_COMPILER_SUPPORTED OFF)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
+       AND NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 21.0.0)
+        set(BLST_AVX_COMPILER_SUPPORTED ON)
+    endif()
+
+    if(NOT BLST_AVX_COMPILER_SUPPORTED)
+        if(BLST_ALLOW_UNSUPPORTED_AVX_COMPILER)
+            message(WARNING
+                "AVX support requires Clang 21 or newer. "
+                "Proceeding with unsupported compiler "
+                "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION} "
+                "because BLST_ALLOW_UNSUPPORTED_AVX_COMPILER=ON.")
+        else()
+            message(FATAL_ERROR
+                "AVX support requires Clang 21 or newer. "
+                "Detected ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}. "
+                "Set BLST_ALLOW_UNSUPPORTED_AVX_COMPILER=ON to override this check.")
+        endif()
+    endif()
+endif()
+
 if(MSVC AND NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
@@ -53,6 +77,7 @@ message("BLST_DEFAULT_ASM     = ${BLST_DEFAULT_ASM}") # use asm as the default i
 message("BLST_AVX512          = ${BLST_AVX512}")  #
 message("BLST_DEFAULT_AVX     = ${BLST_DEFAULT_AVX}")  #
 message("BLST_AVX512_PORTABLE = ${BLST_AVX512_PORTABLE}")  #
+message("BLST_ALLOW_UNSUPPORTED_AVX_COMPILER = ${BLST_ALLOW_UNSUPPORTED_AVX_COMPILER}")  #
 message("BLST_CUDA            = ${BLST_CUDA}")     # enable the cude impl (gpu)
 message("BLST_CUDA_MSM        = ${BLST_CUDA_MSM}")     # enable the cude impl (gpu)
 message("BLST_PARALLEL_MSM    = ${BLST_PARALLEL_MSM}") # enable parallel MSM pipeline

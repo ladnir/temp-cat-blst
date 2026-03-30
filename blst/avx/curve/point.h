@@ -335,8 +335,8 @@ struct G2AffinePoint
     Field_type X;
     Field_type Y;
 
-    constexpr G2AffinePoint() = default;
-    constexpr G2AffinePoint(const Field_type& x, const Field_type& y) : X(x), Y(y) {}
+    G2AffinePoint() = default;
+    G2AffinePoint(const Field_type& x, const Field_type& y) : X(x), Y(y) {}
 
     static const G2AffinePoint& generator();
     static int equal(const G2AffinePoint& a, const G2AffinePoint& b);
@@ -362,8 +362,8 @@ struct G2Point
     Field_type Y;
     Field_type Z;
 
-    constexpr G2Point() = default;
-    constexpr G2Point(const Field_type& x, const Field_type& y, const Field_type& z) : X(x), Y(y), Z(z) {}
+    G2Point() = default;
+    G2Point(const Field_type& x, const Field_type& y, const Field_type& z) : X(x), Y(y), Z(z) {}
 
     static void dadd(G2Point& out, const G2Point& a, const G2Point& b);
     static void dadd(G2Point& out, const G2Point& a, const G2Point& b, const Field_type* a4);

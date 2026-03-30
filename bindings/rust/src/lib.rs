@@ -10,16 +10,22 @@
 
 extern crate alloc;
 
+#[cfg(feature = "full-rust-bindings")]
+use alloc::alloc::{alloc_zeroed, dealloc, handle_alloc_error};
 use alloc::boxed::Box;
+#[cfg(feature = "full-rust-bindings")]
+use core::alloc::Layout;
 use core::mem::{transmute, MaybeUninit};
 use core::ptr;
+#[cfg(feature = "full-rust-bindings")]
+use core::ptr::NonNull;
 use zeroize::Zeroize;
 
-#[cfg(feature = "legacy-rust-bindings")]
+#[cfg(feature = "full-rust-bindings")]
 use alloc::vec;
-#[cfg(feature = "legacy-rust-bindings")]
+#[cfg(feature = "full-rust-bindings")]
 use alloc::vec::Vec;
-#[cfg(feature = "legacy-rust-bindings")]
+#[cfg(feature = "full-rust-bindings")]
 use core::any::Any;
 
 #[cfg(feature = "std")]
@@ -115,6 +121,8 @@ extern "C" {
     fn blst_middle_product_precomputed_b_free(
         precomputed_b: *mut blst_middle_product_precomputed_b,
     );
+    #[cfg(feature = "full-rust-bindings")]
+    fn blst_pairing_alignof() -> usize;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -293,7 +301,7 @@ mod middle_product_tests {
     }
 
     #[test]
-    fn legacy_c_api_primitives_accept_nonzero_points() {
+    fn c_api_primitives_accept_nonzero_points() {
         unsafe {
             let p_scalar = scalar_bytes(3);
             let q_scalar = scalar_bytes(11);
@@ -319,7 +327,7 @@ mod middle_product_tests {
     }
 
     #[test]
-    fn legacy_field_c_api_primitives_round_trip() {
+    fn field_c_api_primitives_round_trip() {
         unsafe {
             let five_words = [5u64, 0, 0, 0];
             let one_fr_words = [1u64, 0, 0, 0];
@@ -544,18 +552,30 @@ impl blst_scalar {
     }
 }
 
-#[cfg(feature = "legacy-rust-bindings")]
+#[cfg(feature = "full-rust-bindings")]
 #[derive(Debug)]
 pub struct Pairing {
-    v: Box<[u64]>,
+    storage: NonNull<u8>,
+    layout: Layout,
 }
 
-#[cfg(feature = "legacy-rust-bindings")]
+#[cfg(feature = "full-rust-bindings")]
 impl Pairing {
     pub fn new(hash_or_encode: bool, dst: &[u8]) -> Self {
-        let v: Vec<u64> = vec![0; unsafe { blst_pairing_sizeof() } / 8];
+        let size = unsafe { blst_pairing_sizeof() };
+        let align = unsafe { blst_pairing_alignof() };
+        let layout = Layout::from_size_align(size.max(1), align)
+            .expect("invalid blst_pairing layout");
+        let storage = unsafe {
+            let ptr = alloc_zeroed(layout);
+            if ptr.is_null() {
+                handle_alloc_error(layout);
+            }
+            NonNull::new_unchecked(ptr)
+        };
         let mut obj = Self {
-            v: v.into_boxed_slice(),
+            storage,
+            layout,
         };
         obj.init(hash_or_encode, dst);
         obj
@@ -572,10 +592,10 @@ impl Pairing {
         }
     }
     fn ctx(&mut self) -> *mut blst_pairing {
-        self.v.as_mut_ptr() as *mut blst_pairing
+        self.storage.as_ptr() as *mut blst_pairing
     }
     fn const_ctx(&self) -> *const blst_pairing {
-        self.v.as_ptr() as *const blst_pairing
+        self.storage.as_ptr() as *const blst_pairing
     }
 
     pub fn aggregate(
@@ -742,7 +762,17 @@ impl Pairing {
     }
 }
 
-#[cfg(feature = "legacy-rust-bindings")]
+#[cfg(feature = "full-rust-bindings")]
+impl Drop for Pairing {
+    fn drop(&mut self) {
+        unsafe { dealloc(self.storage.as_ptr(), self.layout) };
+    }
+}
+
+#[cfg(feature = "full-rust-bindings")]
+unsafe impl Send for Pairing {}
+
+#[cfg(feature = "full-rust-bindings")]
 pub fn uniq(msgs: &[&[u8]]) -> bool {
     let n_elems = msgs.len();
 
@@ -775,7 +805,7 @@ pub fn print_bytes(bytes: &[u8], name: &str) {
     println!();
 }
 
-#[cfg(feature = "legacy-rust-bindings")]
+#[cfg(feature = "full-rust-bindings")]
 macro_rules! sig_variant_impl {
     (
         $name:expr,
@@ -2457,7 +2487,7 @@ macro_rules! sig_variant_impl {
     };
 }
 
-#[cfg(feature = "legacy-rust-bindings")]
+#[cfg(feature = "full-rust-bindings")]
 pub mod min_pk {
     use super::*;
 
@@ -2502,7 +2532,7 @@ pub mod min_pk {
     );
 }
 
-#[cfg(feature = "legacy-rust-bindings")]
+#[cfg(feature = "full-rust-bindings")]
 pub mod min_sig {
     use super::*;
 
@@ -2547,7 +2577,7 @@ pub mod min_sig {
     );
 }
 
-#[cfg(feature = "legacy-rust-bindings")]
+#[cfg(feature = "full-rust-bindings")]
 pub trait MultiPoint {
     type Output;
 
@@ -2558,13 +2588,13 @@ pub trait MultiPoint {
     }
 }
 
-#[cfg(all(feature = "std", feature = "legacy-rust-bindings"))]
+#[cfg(all(feature = "std", feature = "full-rust-bindings"))]
 include!("pippenger.rs");
 
-#[cfg(all(not(feature = "std"), feature = "legacy-rust-bindings"))]
+#[cfg(all(not(feature = "std"), feature = "full-rust-bindings"))]
 include!("pippenger-no_std.rs");
 
-#[cfg(all(test, feature = "legacy-rust-bindings"))]
+#[cfg(all(test, feature = "full-rust-bindings"))]
 mod fp12_test {
     use super::*;
     use rand::{RngCore, SeedableRng};
@@ -2617,7 +2647,7 @@ mod fp12_test {
     }
 }
 
-#[cfg(all(test, feature = "legacy-rust-bindings"))]
+#[cfg(all(test, feature = "full-rust-bindings"))]
 mod sk_test {
     use super::*;
     use rand::{RngCore, SeedableRng};

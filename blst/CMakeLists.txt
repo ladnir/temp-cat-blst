@@ -4,6 +4,7 @@
 # ---- Static Library Configuration ----
 set(BLST_STATIC_SRC  
     "backend/backend_portable.cpp"
+    "common/rb_tree.cpp"
     "sign/keygen.cpp"
     "scalar/fields/Fr.cpp"
     "scalar/fields/Fp.cpp"
@@ -12,7 +13,8 @@ set(BLST_STATIC_SRC
     "scalar/curve/point.cpp"
     "scalar/curve/multi_scalar.cpp"
     "sign/aggregate.cpp"
-    "legacy_c_api.cpp"
+    "c_api.cpp"
+    "avx_c_api.cpp"
     "middle_product_c_api.cpp"
     "exports.cpp"
 )

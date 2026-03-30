@@ -11,11 +11,37 @@
 #include "blst/fields/Fp2.h"
 #include "blst/fields/Fp.h"
 #include "blst/fields/Fr.h"
+#include "blst/scalar/fields/hash_to_field.h"
 #include "blst/scalar/curve/GT.h"
 #include "blst/scalar/curve/point.h"
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 #include "blst/avx/curve/map_to_G.h"
 #endif
+
+struct alignas(64) BlstAvxP1
+{
+    unsigned char b[384];
+};
+
+struct alignas(64) BlstAvxP1Affine
+{
+    unsigned char b[256];
+};
+
+struct alignas(64) BlstAvxP2
+{
+    unsigned char b[768];
+};
+
+struct alignas(64) BlstAvxP2Affine
+{
+    unsigned char b[512];
+};
+
+struct alignas(64) BlstAvxFp12
+{
+    unsigned char b[1536];
+};
 
 extern "C" {
 void blst_fr_add(blst::Fr* ret, const blst::Fr* a, const blst::Fr* b);
@@ -50,6 +76,12 @@ int blst_fp2_sqrt(blst::Fp2* ret, const blst::Fp2* a);
 int blst_fp2_is_square(const blst::Fp2* a);
 
 void blst_fp12_mul(blst::Fp12* ret, const blst::Fp12* a, const blst::Fp12* b);
+void blst_fp12_sqr(blst::Fp12* ret, const blst::Fp12* a);
+void blst_fp12_cyclotomic_sqr(blst::Fp12* ret, const blst::Fp12* a);
+void blst_fp12_mul_by_xy00z0(blst::Fp12* ret, const blst::Fp12* a, const blst::Fp6* xy00z0);
+void blst_fp12_conjugate(blst::Fp12* a);
+void blst_fp12_inverse(blst::Fp12* ret, const blst::Fp12* a);
+void blst_fp12_frobenius_map(blst::Fp12* ret, const blst::Fp12* a, size_t n);
 bool blst_fp12_is_equal(const blst::Fp12* a, const blst::Fp12* b);
 bool blst_fp12_is_one(const blst::Fp12* a);
 bool blst_fp12_in_group(const blst::Fp12* a);
@@ -61,8 +93,10 @@ void blst_p1_add(blst::scalar::G1Point* out, const blst::scalar::G1Point* a, con
 void blst_p1_add_or_double(blst::scalar::G1Point* out, const blst::scalar::G1Point* a, const blst::scalar::G1Point* b);
 void blst_p1_double(blst::scalar::G1Point* out, const blst::scalar::G1Point* a);
 void blst_p1_mult(blst::scalar::G1Point* out, const blst::scalar::G1Point* p, const unsigned char* scalar, size_t nbits);
+void blst_p1_unchecked_mult(blst::scalar::G1Point* out, const blst::scalar::G1Point* p, const unsigned char* scalar, size_t nbits);
 void blst_p1_to_affine(blst::scalar::G1AffinePoint* out, const blst::scalar::G1Point* in);
 void blst_p1_from_affine(blst::scalar::G1Point* out, const blst::scalar::G1AffinePoint* in);
+void blst_p1_from_jacobian(blst::scalar::G1Point* out, const blst::scalar::G1Point* in);
 bool blst_p1_on_curve(const blst::scalar::G1Point* p);
 bool blst_p1_in_g1(const blst::scalar::G1Point* p);
 bool blst_p1_is_equal(const blst::scalar::G1Point* a, const blst::scalar::G1Point* b);
@@ -88,8 +122,10 @@ void blst_p2_add(blst::scalar::G2Point* out, const blst::scalar::G2Point* a, con
 void blst_p2_add_or_double(blst::scalar::G2Point* out, const blst::scalar::G2Point* a, const blst::scalar::G2Point* b);
 void blst_p2_double(blst::scalar::G2Point* out, const blst::scalar::G2Point* a);
 void blst_p2_mult(blst::scalar::G2Point* out, const blst::scalar::G2Point* p, const unsigned char* scalar, size_t nbits);
+void blst_p2_unchecked_mult(blst::scalar::G2Point* out, const blst::scalar::G2Point* p, const unsigned char* scalar, size_t nbits);
 void blst_p2_to_affine(blst::scalar::G2AffinePoint* out, const blst::scalar::G2Point* in);
 void blst_p2_from_affine(blst::scalar::G2Point* out, const blst::scalar::G2AffinePoint* in);
+void blst_p2_from_jacobian(blst::scalar::G2Point* out, const blst::scalar::G2Point* in);
 bool blst_p2_on_curve(const blst::scalar::G2Point* p);
 bool blst_p2_in_g2(const blst::scalar::G2Point* p);
 bool blst_p2_is_equal(const blst::scalar::G2Point* a, const blst::scalar::G2Point* b);
@@ -111,12 +147,60 @@ void blst_miller_loop_n(blst::Fp12* ret, const blst::scalar::G2AffinePoint* cons
 void blst_precompute_lines(blst::Fp6 Qlines[68], const blst::scalar::G2AffinePoint* Q);
 void blst_miller_loop_lines(blst::Fp12* ret, const blst::Fp6 Qlines[68], const blst::scalar::G1AffinePoint* P);
 void blst_hash_to_g2(blst::scalar::G2Point* out, const unsigned char* msg, size_t msg_len, const unsigned char* DST, size_t DST_len, const unsigned char* aug, size_t aug_len);
+void blst_map_to_g1(blst::scalar::G1Point* out, const blst::Fp* u, const blst::Fp* v);
+void blst_map_to_g2(blst::scalar::G2Point* out, const blst::Fp2* u, const blst::Fp2* v);
 size_t blst_pairing_sizeof(void);
 void blst_pairing_init(void* new_ctx, bool hash_or_encode, const unsigned char* DST, size_t DST_len);
 blst::BLST_ERROR blst_pairing_chk_n_aggr_pk_in_g1(void* ctx, const blst::scalar::G1AffinePoint* PK, bool pk_grpchk, const blst::scalar::G2AffinePoint* signature, bool sig_grpchk, const unsigned char* msg, size_t msg_len, const unsigned char* aug, size_t aug_len);
 void blst_pairing_commit(void* ctx);
 bool blst_pairing_finalverify(const void* ctx, const blst::Fp12* gtsig);
 void blst_aggregated_in_g2(blst::Fp12* out, const blst::scalar::G2AffinePoint* signature);
+size_t blst_uniq_sizeof(size_t n_nodes);
+void blst_uniq_init(void* tree);
+bool blst_uniq_test(void* tree, const unsigned char* msg, size_t len);
+void blst_expand_message_xmd(unsigned char* out, size_t out_len, const unsigned char* msg, size_t msg_len, const unsigned char* DST, size_t DST_len);
+size_t blst_p1_sizeof(void);
+size_t blst_p1_affine_sizeof(void);
+size_t blst_p2_sizeof(void);
+size_t blst_p2_affine_sizeof(void);
+size_t blst_fp12_sizeof(void);
+bool blst_avx_enabled(void);
+size_t blst_avx_p1_sizeof(void);
+size_t blst_avx_p1_alignof(void);
+size_t blst_avx_p2_sizeof(void);
+size_t blst_avx_p2_alignof(void);
+size_t blst_avx_fp12_sizeof(void);
+size_t blst_avx_fp12_alignof(void);
+bool blst_avx_p1_from_scalar(BlstAvxP1* out, const blst::scalar::G1Point* in);
+bool blst_p1_from_avx(blst::scalar::G1Point* out, const BlstAvxP1* in);
+bool blst_avx_p1_affine_from_scalar(BlstAvxP1Affine* out, const blst::scalar::G1AffinePoint* in);
+bool blst_p1_affine_from_avx(blst::scalar::G1AffinePoint* out, const BlstAvxP1Affine* in);
+bool blst_avx_p1_add(BlstAvxP1* out, const BlstAvxP1* a, const BlstAvxP1* b);
+bool blst_avx_p1_mult(BlstAvxP1* out, const BlstAvxP1* p, const unsigned char* scalar, size_t nbits);
+bool blst_avx_p1_to_affine(BlstAvxP1Affine* out, const BlstAvxP1* in);
+bool blst_avx_p1_from_affine(BlstAvxP1* out, const BlstAvxP1Affine* in);
+bool blst_avx_p1_in_g1(const BlstAvxP1* p);
+bool blst_avx_p1_is_equal(const BlstAvxP1* a, const BlstAvxP1* b);
+const BlstAvxP1* blst_avx_p1_generator(void);
+bool blst_avx_p2_from_scalar(BlstAvxP2* out, const blst::scalar::G2Point* in);
+bool blst_p2_from_avx(blst::scalar::G2Point* out, const BlstAvxP2* in);
+bool blst_avx_p2_affine_from_scalar(BlstAvxP2Affine* out, const blst::scalar::G2AffinePoint* in);
+bool blst_p2_affine_from_avx(blst::scalar::G2AffinePoint* out, const BlstAvxP2Affine* in);
+bool blst_avx_p2_add(BlstAvxP2* out, const BlstAvxP2* a, const BlstAvxP2* b);
+bool blst_avx_p2_mult(BlstAvxP2* out, const BlstAvxP2* p, const unsigned char* scalar, size_t nbits);
+bool blst_avx_p2_to_affine(BlstAvxP2Affine* out, const BlstAvxP2* in);
+bool blst_avx_p2_from_affine(BlstAvxP2* out, const BlstAvxP2Affine* in);
+bool blst_avx_p2_in_g2(const BlstAvxP2* p);
+bool blst_avx_p2_is_equal(const BlstAvxP2* a, const BlstAvxP2* b);
+const BlstAvxP2* blst_avx_p2_generator(void);
+bool blst_avx_fp12_from_scalar(BlstAvxFp12* out, const blst::Fp12* in);
+bool blst_fp12_from_avx(blst::Fp12* out, const BlstAvxFp12* in);
+bool blst_avx_fp12_mul(BlstAvxFp12* ret, const BlstAvxFp12* a, const BlstAvxFp12* b);
+bool blst_avx_fp12_sqr(BlstAvxFp12* ret, const BlstAvxFp12* a);
+bool blst_avx_fp12_final_exp(BlstAvxFp12* ret, const BlstAvxFp12* a);
+bool blst_avx_fp12_is_equal(const BlstAvxFp12* a, const BlstAvxFp12* b);
+bool blst_avx_fp12_in_group(const BlstAvxFp12* a);
+const BlstAvxFp12* blst_avx_fp12_one(void);
 }
 
 namespace {
@@ -202,7 +286,7 @@ std::vector<unsigned char> packed_scalars(std::initializer_list<unsigned char> s
 
 } // namespace
 
-TEST(LegacyCApi, FrPrimitivesRoundTripAndInverse)
+TEST(CApi, FrPrimitivesRoundTripAndInverse)
 {
     const unsigned long long five_words[4] = {5, 0, 0, 0};
     const unsigned long long one_words[4] = {1, 0, 0, 0};
@@ -237,7 +321,135 @@ TEST(LegacyCApi, FrPrimitivesRoundTripAndInverse)
     EXPECT_TRUE(BoundaryFr::equal(inverse_eucl, inverse));
 }
 
-TEST(LegacyCApi, FpPrimitivesRoundTripInverseAndSqrt)
+TEST(CApi, AvxExpertP1RoundTripAndOps)
+{
+    if (!blst_avx_enabled()) {
+        GTEST_SKIP() << "AVX expert C API is unavailable in this build.";
+    }
+
+    EXPECT_EQ(blst_avx_p1_sizeof(), sizeof(BlstAvxP1));
+    EXPECT_EQ(blst_avx_p1_alignof(), alignof(BlstAvxP1));
+
+    const BoundaryG1 p = p1_mul(3);
+    const BoundaryG1 q = p1_mul(5);
+    BlstAvxP1 avx_p = {};
+    BlstAvxP1 avx_q = {};
+    BlstAvxP1 avx_sum = {};
+    BoundaryG1 sum = {};
+    BoundaryG1 expected = {};
+
+    ASSERT_TRUE(blst_avx_p1_from_scalar(&avx_p, &p));
+    ASSERT_TRUE(blst_avx_p1_from_scalar(&avx_q, &q));
+    EXPECT_TRUE(blst_avx_p1_in_g1(&avx_p));
+    ASSERT_TRUE(blst_avx_p1_add(&avx_sum, &avx_p, &avx_q));
+    ASSERT_TRUE(blst_p1_from_avx(&sum, &avx_sum));
+    blst_p1_add(&expected, &p, &q);
+    EXPECT_TRUE(BoundaryG1::equal(sum, expected));
+
+    BoundaryG1Affine p_affine = {};
+    blst_p1_to_affine(&p_affine, &p);
+    BlstAvxP1Affine avx_p_affine = {};
+    BoundaryG1Affine roundtrip_affine = {};
+    ASSERT_TRUE(blst_avx_p1_affine_from_scalar(&avx_p_affine, &p_affine));
+    ASSERT_TRUE(blst_p1_affine_from_avx(&roundtrip_affine, &avx_p_affine));
+    EXPECT_TRUE(BoundaryG1Affine::equal(p_affine, roundtrip_affine));
+
+    const auto* avx_generator = blst_avx_p1_generator();
+    ASSERT_NE(avx_generator, nullptr);
+    const auto scalar = scalar_bytes(7);
+    BlstAvxP1 avx_product = {};
+    BoundaryG1 product = {};
+    ASSERT_TRUE(blst_avx_p1_mult(&avx_product, avx_generator, scalar.data(), 256));
+    ASSERT_TRUE(blst_p1_from_avx(&product, &avx_product));
+    EXPECT_TRUE(BoundaryG1::equal(product, p1_mul(7)));
+    EXPECT_TRUE(blst_avx_p1_is_equal(avx_generator, avx_generator));
+}
+
+TEST(CApi, AvxExpertP2RoundTripAndOps)
+{
+    if (!blst_avx_enabled()) {
+        GTEST_SKIP() << "AVX expert C API is unavailable in this build.";
+    }
+
+    EXPECT_EQ(blst_avx_p2_sizeof(), sizeof(BlstAvxP2));
+    EXPECT_EQ(blst_avx_p2_alignof(), alignof(BlstAvxP2));
+
+    const BoundaryG2 p = p2_mul(11);
+    const BoundaryG2 q = p2_mul(13);
+    BlstAvxP2 avx_p = {};
+    BlstAvxP2 avx_q = {};
+    BlstAvxP2 avx_sum = {};
+    BoundaryG2 sum = {};
+    BoundaryG2 expected = {};
+
+    ASSERT_TRUE(blst_avx_p2_from_scalar(&avx_p, &p));
+    ASSERT_TRUE(blst_avx_p2_from_scalar(&avx_q, &q));
+    EXPECT_TRUE(blst_avx_p2_in_g2(&avx_p));
+    ASSERT_TRUE(blst_avx_p2_add(&avx_sum, &avx_p, &avx_q));
+    ASSERT_TRUE(blst_p2_from_avx(&sum, &avx_sum));
+    blst_p2_add(&expected, &p, &q);
+    EXPECT_TRUE(BoundaryG2::equal(sum, expected));
+
+    BoundaryG2Affine p_affine = {};
+    blst_p2_to_affine(&p_affine, &p);
+    BlstAvxP2Affine avx_p_affine = {};
+    BoundaryG2Affine roundtrip_affine = {};
+    ASSERT_TRUE(blst_avx_p2_affine_from_scalar(&avx_p_affine, &p_affine));
+    ASSERT_TRUE(blst_p2_affine_from_avx(&roundtrip_affine, &avx_p_affine));
+    EXPECT_TRUE(BoundaryG2Affine::equal(p_affine, roundtrip_affine));
+
+    const auto* avx_generator = blst_avx_p2_generator();
+    ASSERT_NE(avx_generator, nullptr);
+    const auto scalar = scalar_bytes(17);
+    BlstAvxP2 avx_product = {};
+    BoundaryG2 product = {};
+    ASSERT_TRUE(blst_avx_p2_mult(&avx_product, avx_generator, scalar.data(), 256));
+    ASSERT_TRUE(blst_p2_from_avx(&product, &avx_product));
+    EXPECT_TRUE(BoundaryG2::equal(product, p2_mul(17)));
+    EXPECT_TRUE(blst_avx_p2_is_equal(avx_generator, avx_generator));
+}
+
+TEST(CApi, AvxExpertFp12RoundTripAndOps)
+{
+    if (!blst_avx_enabled()) {
+        GTEST_SKIP() << "AVX expert C API is unavailable in this build.";
+    }
+
+    EXPECT_EQ(blst_avx_fp12_sizeof(), sizeof(BlstAvxFp12));
+    EXPECT_EQ(blst_avx_fp12_alignof(), alignof(BlstAvxFp12));
+
+    const BoundaryG1 p = p1_mul(3);
+    const BoundaryG2 q = p2_mul(11);
+    BoundaryG1Affine p_affine = {};
+    BoundaryG2Affine q_affine = {};
+    blst_p1_to_affine(&p_affine, &p);
+    blst_p2_to_affine(&q_affine, &q);
+
+    BoundaryGt miller = {};
+    BoundaryGt expected = {};
+    blst_miller_loop(&miller, &q_affine, &p_affine);
+    blst_final_exp(&expected, &miller);
+
+    BlstAvxFp12 avx_miller = {};
+    BlstAvxFp12 avx_expected = {};
+    BlstAvxFp12 avx_product = {};
+    BoundaryGt roundtrip = {};
+    BoundaryGt scalar_product = {};
+    ASSERT_TRUE(blst_avx_fp12_from_scalar(&avx_miller, &miller));
+    ASSERT_TRUE(blst_avx_fp12_final_exp(&avx_expected, &avx_miller));
+    ASSERT_TRUE(blst_fp12_from_avx(&roundtrip, &avx_expected));
+    EXPECT_TRUE(BoundaryGt::equal(roundtrip, expected));
+    EXPECT_TRUE(blst_avx_fp12_in_group(&avx_expected));
+
+    const auto* avx_one = blst_avx_fp12_one();
+    ASSERT_NE(avx_one, nullptr);
+    ASSERT_TRUE(blst_avx_fp12_mul(&avx_product, &avx_expected, avx_one));
+    ASSERT_TRUE(blst_fp12_from_avx(&scalar_product, &avx_product));
+    EXPECT_TRUE(BoundaryGt::equal(scalar_product, expected));
+    EXPECT_TRUE(blst_avx_fp12_is_equal(&avx_product, &avx_expected));
+}
+
+TEST(CApi, FpPrimitivesRoundTripInverseAndSqrt)
 {
     const unsigned long long three_words[6] = {3, 0, 0, 0, 0, 0};
     const unsigned long long one_words[6] = {1, 0, 0, 0, 0, 0};
@@ -279,7 +491,7 @@ TEST(LegacyCApi, FpPrimitivesRoundTripInverseAndSqrt)
     EXPECT_TRUE(BoundaryFp::equal(product, square));
 }
 
-TEST(LegacyCApi, Fp2PrimitivesInverseAndSqrt)
+TEST(CApi, Fp2PrimitivesInverseAndSqrt)
 {
     const unsigned long long two_words[6] = {2, 0, 0, 0, 0, 0};
     const unsigned long long one_words[6] = {1, 0, 0, 0, 0, 0};
@@ -313,7 +525,7 @@ TEST(LegacyCApi, Fp2PrimitivesInverseAndSqrt)
     EXPECT_TRUE(fp2_equal(product, square));
 }
 
-TEST(LegacyCApi, G1ProjectiveAndAffineRoundTrip)
+TEST(CApi, G1ProjectiveAndAffineRoundTrip)
 {
     const auto scalar = scalar_bytes(5);
     BoundaryG1 point = {};
@@ -354,7 +566,7 @@ TEST(LegacyCApi, G1ProjectiveAndAffineRoundTrip)
     EXPECT_TRUE(blst_p1_is_equal(&point, &restored));
 }
 
-TEST(LegacyCApi, G2ProjectiveAndAffineRoundTrip)
+TEST(CApi, G2ProjectiveAndAffineRoundTrip)
 {
     const auto scalar = scalar_bytes(7);
     BoundaryG2 point = {};
@@ -395,7 +607,7 @@ TEST(LegacyCApi, G2ProjectiveAndAffineRoundTrip)
     EXPECT_TRUE(blst_p2_is_equal(&point, &restored));
 }
 
-TEST(LegacyCApi, G1MultipointAffineAndAddMatchSinglePointOps)
+TEST(CApi, G1MultipointAffineAndAddMatchSinglePointOps)
 {
     std::array<BoundaryG1, 3> points = {p1_mul(3), p1_mul(5), p1_mul(7)};
     std::array<BoundaryG1Affine, 3> affines = {};
@@ -418,7 +630,7 @@ TEST(LegacyCApi, G1MultipointAffineAndAddMatchSinglePointOps)
     EXPECT_TRUE(blst_p1_is_equal(&sum, &expected_sum));
 }
 
-TEST(LegacyCApi, G1MultipointPippengerMatchesSinglePointOps)
+TEST(CApi, G1MultipointPippengerMatchesSinglePointOps)
 {
     std::array<BoundaryG1, 3> points = {p1_mul(3), p1_mul(5), p1_mul(7)};
     std::array<BoundaryG1Affine, 3> affines = {};
@@ -447,7 +659,7 @@ TEST(LegacyCApi, G1MultipointPippengerMatchesSinglePointOps)
     EXPECT_TRUE(blst_p1_is_equal(&pippenger, &expected_msm));
 }
 
-TEST(LegacyCApi, G1MultipointWbitsMatchesSinglePointOps)
+TEST(CApi, G1MultipointWbitsMatchesSinglePointOps)
 {
     std::array<BoundaryG1, 3> points = {p1_mul(3), p1_mul(5), p1_mul(7)};
     std::array<BoundaryG1Affine, 3> affines = {};
@@ -487,7 +699,7 @@ TEST(LegacyCApi, G1MultipointWbitsMatchesSinglePointOps)
     EXPECT_TRUE(blst_p1_is_equal(&wbits_result, &expected_msm));
 }
 
-TEST(LegacyCApi, G1MultipointTileMatchesSinglePointOps)
+TEST(CApi, G1MultipointTileMatchesSinglePointOps)
 {
     auto run_case = [](const std::array<BoundaryG1, 3>& points,
                        const std::vector<unsigned char>& scalar_blob,
@@ -577,7 +789,7 @@ TEST(LegacyCApi, G1MultipointTileMatchesSinglePointOps)
     }
 }
 
-TEST(LegacyCApi, G2MultipointWrappersMatchSinglePointOps)
+TEST(CApi, G2MultipointWrappersMatchSinglePointOps)
 {
     std::array<BoundaryG2, 3> points = {p2_mul(11), p2_mul(13), p2_mul(17)};
     std::array<BoundaryG2Affine, 3> affines = {};
@@ -620,7 +832,7 @@ TEST(LegacyCApi, G2MultipointWrappersMatchSinglePointOps)
     EXPECT_TRUE(blst_p2_is_equal(&pippenger, &expected_msm));
 }
 
-TEST(LegacyCApi, PairingPrimitivesMatchBackend)
+TEST(CApi, PairingPrimitivesMatchBackend)
 {
     const BoundaryG1 p = p1_mul(3);
     const BoundaryG2 q = p2_mul(11);
@@ -654,7 +866,7 @@ TEST(LegacyCApi, PairingPrimitivesMatchBackend)
     EXPECT_TRUE(blst::Fp12::equal(final_exp, expected));
 }
 
-TEST(LegacyCApi, MillerLoopNMatchesNaiveProduct)
+TEST(CApi, MillerLoopNMatchesNaiveProduct)
 {
     std::array<BoundaryG1, 3> ps = {p1_mul(3), p1_mul(5), p1_mul(7)};
     std::array<BoundaryG2, 3> qs = {p2_mul(11), p2_mul(13), p2_mul(17)};
@@ -681,7 +893,7 @@ TEST(LegacyCApi, MillerLoopNMatchesNaiveProduct)
     EXPECT_TRUE(blst_fp12_is_equal(&combined, &naive));
 }
 
-TEST(LegacyCApi, PairingAggregateAllowsNullSignatureAfterFirstElement)
+TEST(CApi, PairingAggregateAllowsNullSignatureAfterFirstElement)
 {
     const auto dst = std::to_array("BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_");
     const auto sk0 = scalar_bytes(3);
@@ -737,4 +949,137 @@ TEST(LegacyCApi, PairingAggregateAllowsNullSignatureAfterFirstElement)
 
     blst_pairing_commit(ctx);
     EXPECT_TRUE(blst_pairing_finalverify(ctx, nullptr));
+}
+
+TEST(CApi, Fp12UtilityWrappersMatchScalarBackend)
+{
+    const BoundaryGt a = blst::scalar::GT::generator().data;
+    BoundaryGt mul = {};
+    BoundaryGt sqr = {};
+    BoundaryGt cyclo = {};
+    BoundaryGt inverse = {};
+    BoundaryGt frob = {};
+    BoundaryGt conjugated = a;
+
+    blst_fp12_mul(&mul, &a, &a);
+    blst_fp12_sqr(&sqr, &a);
+    blst_fp12_cyclotomic_sqr(&cyclo, &a);
+    blst_fp12_inverse(&inverse, &a);
+    blst_fp12_frobenius_map(&frob, &a, 2);
+    blst_fp12_conjugate(&conjugated);
+
+    BoundaryGt expected_mul = {};
+    BoundaryGt expected_inverse = {};
+    BoundaryGt expected_frob = {};
+    BoundaryGt expected_conjugated = a;
+    BoundaryFp6 line = {};
+    BoundaryGt xy_mul = {};
+    BoundaryGt expected_xy_mul = {};
+
+    const unsigned long long five_words[6] = {5, 0, 0, 0, 0, 0};
+    const unsigned long long seven_words[6] = {7, 0, 0, 0, 0, 0};
+    const unsigned long long eleven_words[6] = {11, 0, 0, 0, 0, 0};
+    BoundaryFp five = {};
+    BoundaryFp seven = {};
+    BoundaryFp eleven = {};
+
+    BoundaryGt::mul(expected_mul, a, a);
+    BoundaryGt::inverse(expected_inverse, a);
+    BoundaryGt::frobenius_map(expected_frob, a, 2);
+    BoundaryGt::conjugate(expected_conjugated);
+    blst_fp_from_uint64(&five, five_words);
+    blst_fp_from_uint64(&seven, seven_words);
+    blst_fp_from_uint64(&eleven, eleven_words);
+    line[0][0] = five;
+    line[0][1] = seven;
+    line[2][0] = eleven;
+    BoundaryGt::mul_by_xy00z0(expected_xy_mul, a, line);
+    blst_fp12_mul_by_xy00z0(&xy_mul, &a, &line);
+
+    EXPECT_TRUE(BoundaryGt::equal(mul, expected_mul));
+    EXPECT_TRUE(BoundaryGt::equal(sqr, expected_mul));
+    EXPECT_TRUE(BoundaryGt::equal(cyclo, expected_mul));
+    EXPECT_TRUE(BoundaryGt::equal(inverse, expected_inverse));
+    EXPECT_TRUE(BoundaryGt::equal(frob, expected_frob));
+    EXPECT_TRUE(BoundaryGt::equal(conjugated, expected_conjugated));
+    EXPECT_TRUE(BoundaryGt::equal(xy_mul, expected_xy_mul));
+}
+
+TEST(CApi, MappingAndUncheckedWrappersMatchScalarBackend)
+{
+    BoundaryFp u = {};
+    BoundaryFp v = {};
+    BoundaryFp2 u2 = {};
+    BoundaryFp2 v2 = {};
+    BoundaryG1 mapped_g1 = {};
+    BoundaryG2 mapped_g2 = {};
+    BoundaryG1 expected_g1 = {};
+    BoundaryG2 expected_g2 = {};
+    BoundaryG1 checked_g1 = {};
+    BoundaryG1 unchecked_g1 = {};
+    BoundaryG2 checked_g2 = {};
+    BoundaryG2 unchecked_g2 = {};
+    BoundaryG1 normalized_g1 = {};
+    BoundaryG2 normalized_g2 = {};
+    const unsigned long long three_words[6] = {3, 0, 0, 0, 0, 0};
+    const unsigned long long five_words[6] = {5, 0, 0, 0, 0, 0};
+    const unsigned long long seven_words[6] = {7, 0, 0, 0, 0, 0};
+    const unsigned long long eleven_words[6] = {11, 0, 0, 0, 0, 0};
+    const unsigned long long thirteen_words[6] = {13, 0, 0, 0, 0, 0};
+    const unsigned long long seventeen_words[6] = {17, 0, 0, 0, 0, 0};
+
+    blst_fp_from_uint64(&u, three_words);
+    blst_fp_from_uint64(&v, five_words);
+    blst_fp_from_uint64(&u2[0], seven_words);
+    blst_fp_from_uint64(&u2[1], eleven_words);
+    blst_fp_from_uint64(&v2[0], thirteen_words);
+    blst_fp_from_uint64(&v2[1], seventeen_words);
+
+    blst_map_to_g1(&mapped_g1, &u, &v);
+    blst_map_to_g2(&mapped_g2, &u2, &v2);
+    blst::scalar::map_to_curve(expected_g1, u, &v);
+    blst::scalar::map_to_curve(expected_g2, u2, &v2);
+
+    const auto scalar = scalar_bytes(19);
+    const BoundaryG1 point_g1 = p1_mul(23);
+    const BoundaryG2 point_g2 = p2_mul(29);
+    blst_p1_mult(&checked_g1, &point_g1, scalar.data(), 256);
+    blst_p1_unchecked_mult(&unchecked_g1, &point_g1, scalar.data(), 256);
+    blst_p2_mult(&checked_g2, &point_g2, scalar.data(), 256);
+    blst_p2_unchecked_mult(&unchecked_g2, &point_g2, scalar.data(), 256);
+    blst_p1_from_jacobian(&normalized_g1, &point_g1);
+    blst_p2_from_jacobian(&normalized_g2, &point_g2);
+
+    EXPECT_TRUE(BoundaryG1::equal(mapped_g1, expected_g1));
+    EXPECT_TRUE(BoundaryG2::equal(mapped_g2, expected_g2));
+    EXPECT_TRUE(BoundaryG1::equal(checked_g1, unchecked_g1));
+    EXPECT_TRUE(BoundaryG2::equal(checked_g2, unchecked_g2));
+    EXPECT_TRUE(BoundaryG1::equal(normalized_g1, point_g1));
+    EXPECT_TRUE(BoundaryG2::equal(normalized_g2, point_g2));
+    EXPECT_TRUE(BoundaryFp::equal(normalized_g1.Z, BoundaryG1::generator().Z));
+    EXPECT_TRUE(fp2_equal(normalized_g2.Z, BoundaryG2::generator().Z));
+}
+
+TEST(CApi, ExpandMessageUniqAndSizeWrappersWork)
+{
+    std::array<unsigned char, 64> out = {};
+    std::array<unsigned char, 64> expected = {};
+    constexpr unsigned char msg[] = {'a', 'b', 'c'};
+    constexpr unsigned char dst[] = {'B', 'L', 'S', '-', 'X', 'M', 'D'};
+
+    blst_expand_message_xmd(out.data(), out.size(), msg, sizeof(msg), dst, sizeof(dst));
+    blst::scalar::blst_expand_message_xmd(expected.data(), expected.size(), msg, sizeof(msg), dst, sizeof(dst));
+    EXPECT_EQ(out, expected);
+
+    std::vector<std::uint64_t> uniq_bytes(blst_uniq_sizeof(4) / sizeof(std::uint64_t));
+    void* uniq = uniq_bytes.data();
+    blst_uniq_init(uniq);
+    EXPECT_TRUE(blst_uniq_test(uniq, msg, sizeof(msg)));
+    EXPECT_FALSE(blst_uniq_test(uniq, msg, sizeof(msg)));
+
+    EXPECT_EQ(blst_p1_sizeof(), sizeof(BoundaryG1));
+    EXPECT_EQ(blst_p1_affine_sizeof(), sizeof(BoundaryG1Affine));
+    EXPECT_EQ(blst_p2_sizeof(), sizeof(BoundaryG2));
+    EXPECT_EQ(blst_p2_affine_sizeof(), sizeof(BoundaryG2Affine));
+    EXPECT_EQ(blst_fp12_sizeof(), sizeof(BoundaryGt));
 }
