@@ -1,3 +1,5 @@
+#include "bindings/blst_middle_product.h"
+
 #include "blst/fft/context.h"
 #include "blst/fft/middle_product.h"
 
@@ -152,6 +154,8 @@ inline void run_native(
 }
 #endif
 
+} // namespace
+
 struct blst_middle_product_precomputed_b
 {
     std::size_t n;
@@ -165,12 +169,10 @@ struct blst_middle_product_precomputed_b
     }
 };
 
-} // namespace
-
-BLST_EXTERN_C_BEGIN_
+extern "C" {
 
 blst_middle_product_precomputed_b* blst_middle_product_precompute_b(
-    const BoundaryG2* b,
+    const blst_p2* b,
     size_t n)
 {
     if (b == nullptr || n == 0) {
@@ -178,7 +180,9 @@ blst_middle_product_precomputed_b* blst_middle_product_precompute_b(
     }
 
     try {
-        auto precomputed = precompute_native(std::span<const BoundaryG2>(b, 2 * n), n);
+        auto precomputed = precompute_native(
+            std::span<const BoundaryG2>(reinterpret_cast<const BoundaryG2*>(b), 2 * n),
+            n);
         return new blst_middle_product_precomputed_b(n, std::move(precomputed));
     } catch (...) {
         return nullptr;
@@ -186,10 +190,10 @@ blst_middle_product_precomputed_b* blst_middle_product_precompute_b(
 }
 
 bool blst_middle_product(
-    const BoundaryG1* a,
+    const blst_p1* a,
     size_t n,
     const blst_middle_product_precomputed_b* precomputed_b,
-    BoundaryFp12* out)
+    blst_fp12* out)
 {
     if (a == nullptr || out == nullptr || precomputed_b == nullptr || n == 0) {
         return false;
@@ -201,12 +205,12 @@ bool blst_middle_product(
     try {
         std::vector<PublicGt> native_out(n, PublicGt::identity());
         run_native(
-            std::span<const BoundaryG1>(a, n),
+            std::span<const BoundaryG1>(reinterpret_cast<const BoundaryG1*>(a), n),
             precomputed_b->value,
             std::span<PublicGt>(native_out));
 
         for (std::size_t i = 0; i < n; ++i) {
-            out[i] = gt_to_boundary(native_out[i]);
+            reinterpret_cast<BoundaryFp12*>(out)[i] = gt_to_boundary(native_out[i]);
         }
         return true;
     } catch (...) {
@@ -220,4 +224,4 @@ void blst_middle_product_precomputed_b_free(
     delete precomputed_b;
 }
 
-BLST_EXTERN_C_END_
+}

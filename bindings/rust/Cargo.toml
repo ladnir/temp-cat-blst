@@ -13,12 +13,17 @@ include = [
     "**/*.rs",
     "/Cargo.toml",
     "/README.md",
+    "/docs/**",
     "/rustfmt.toml",
     "/blst/src/*.c",
     "/blst/src/*.h*",
     "/blst/build/**",
     "/blst/bindings/blst.h",
     "/blst/bindings/blst_aux.h",
+    "/blst/bindings/blst_types.h",
+    "/blst/bindings/blst_scalar.h",
+    "/blst/bindings/blst_avx.h",
+    "/blst/bindings/blst_middle_product.h",
     "/blst/bindings/blst.hpp",
 ]
 links = "blst"

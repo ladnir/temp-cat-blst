@@ -1,4 +1,4 @@
-#include "bindings/blst_aux.h"
+#include "bindings/blst_avx.h"
 
 #include "blst/scalar/curve/GT.h"
 #include "blst/scalar/curve/point.h"
