@@ -91,14 +91,18 @@ fn main() {
     if target_env.eq("msvc") {
         configure.arg("-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL");
         if let Some(cl_path) = find_msvc_cl() {
-            configure.arg(format!("-DCMAKE_C_COMPILER={}", cl_path.display()));
-            configure.arg(format!("-DCMAKE_CXX_COMPILER={}", cl_path.display()));
+            let cl_path = to_cmake_path(&cl_path);
+            configure.arg(format!("-DCMAKE_C_COMPILER={cl_path}"));
+            configure.arg(format!("-DCMAKE_CXX_COMPILER={cl_path}"));
         }
         if let Some(rc_path) = find_windows_sdk_tool("rc.exe") {
-            configure.arg(format!("-DCMAKE_RC_COMPILER={}", rc_path.display()));
+            configure.arg(format!(
+                "-DCMAKE_RC_COMPILER={}",
+                to_cmake_path(&rc_path)
+            ));
         }
         if let Some(mt_path) = find_windows_sdk_tool("mt.exe") {
-            configure.arg(format!("-DCMAKE_MT={}", mt_path.display()));
+            configure.arg(format!("-DCMAKE_MT={}", to_cmake_path(&mt_path)));
         }
     }
     configure.args([
@@ -162,6 +166,10 @@ fn main() {
 
 fn on_off(value: bool) -> &'static str {
     if value { "ON" } else { "OFF" }
+}
+
+fn to_cmake_path(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
 }
 
 fn resolve_blst_source_dir(manifest_dir: &Path) -> PathBuf {
