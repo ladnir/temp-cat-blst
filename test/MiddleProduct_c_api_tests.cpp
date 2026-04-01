@@ -107,7 +107,12 @@ std::vector<PublicG1> to_public_g1(const std::vector<BoundaryG1>& input)
         if constexpr (std::is_same_v<PublicPoint, BoundaryPoint>) {
             return point;
         } else {
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
             return blst::avx::avx_map_to_G_detail::from_scalar(point);
+#else
+            static_assert(std::is_same_v<PublicPoint, BoundaryPoint>, "Scalar builds should not require AVX point conversion.");
+            return point;
+#endif
         }
     };
 
@@ -125,7 +130,12 @@ std::vector<PublicG2> to_public_g2(const std::vector<BoundaryG2>& input)
         if constexpr (std::is_same_v<PublicPoint, BoundaryPoint>) {
             return point;
         } else {
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
             return blst::avx::avx_map_to_G_detail::from_scalar(point);
+#else
+            static_assert(std::is_same_v<PublicPoint, BoundaryPoint>, "Scalar builds should not require AVX point conversion.");
+            return point;
+#endif
         }
     };
 
