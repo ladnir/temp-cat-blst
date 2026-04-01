@@ -997,7 +997,7 @@ namespace blst::scalar
 
 	BLST_HD FP12_CPP_INLINE void Fp12::from_bendian(Fp12& ret, const unsigned char serialized[12 * 48]) {
 		// Clear the output first
-		for (int i = 0; i < sizeof(Fp12); ++i)
+		for (size_t i = 0; i < sizeof(Fp12); ++i)
 			((unsigned char*)&ret)[i] = 0;
 
 		// Fp12& is structured as ret[2][3][2] representing:
@@ -1061,7 +1061,7 @@ namespace blst::scalar
 		// Make a copy of the base to prevent issues if a == ret
 		Fp12 base;
 		//memcpy(base, a, sizeof(Fp12));
-		for (int i = 0; i < sizeof(Fp12); ++i)
+		for (size_t i = 0; i < sizeof(Fp12); ++i)
 			((unsigned char*)&base)[i] = ((unsigned char*)&a)[i];
 
 		// Start with 1
@@ -1386,7 +1386,6 @@ namespace blst::scalar
 		limb_t k[4];
 		// Assume LE bytes
 		// Simple load if aligned, else cautious load
-		const u64* k64 = (const u64*)scalar_bytes; // Warning: alignment
 		// Safe copy:
 		for (int i = 0; i < 4; i++) {
 			// primitive manual load for portability/safety
@@ -1411,7 +1410,7 @@ namespace blst::scalar
 
 	BLST_HD GLV_JSF_Exp Fp12::glv_recode_jsf(const limb_t* k1, const limb_t* k2)
 	{
-		GLV_JSF_Exp result = { 0 }; // Zero-initialize for safe bitwise OR in set()
+		GLV_JSF_Exp result = {}; // Zero-initialize for safe bitwise OR in set()
 		unsigned d1 = 0, d2 = 0; // Carries for k1, k2
 		unsigned u, v;
 		int i = 0;

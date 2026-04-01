@@ -842,7 +842,7 @@ struct PairingCoeffCtx
     }
 };
 TEST(Fft, PolyMultFft) {
-    auto n = 8;
+    size_t n = 8;
     size_t N = n * 2; // FFT size
 
     // 1. Setup data: G1 points (A) and G2 points (B)

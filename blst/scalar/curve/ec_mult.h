@@ -127,7 +127,7 @@ namespace blst::scalar
 
 		// this index takes into account the possible `borrow` from the 
 		// next window and index the value that we need to add or subtract
-		auto booth_idx = booth_encoding & (1 << window_size) - 1;
+		auto booth_idx = booth_encoding & ((1 << window_size) - 1);
 
 		// we will default p to the first element.
 		// we then select the active row from the rest.

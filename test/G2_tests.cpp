@@ -615,9 +615,7 @@ TEST(E2PointTest, Fp2ArithmeticWithPoints) {
         << "Conjugating Fp2 components didn't change the point";
 
     // Check if it's still on the curve (likely not)
-    bool still_on_curve = G2Point::on_curve(p2);
-    //printf("After Fp2 component conjugation, point is %s the curve\n",
-    //    still_on_curve ? "ON" : "NOT ON");
+    EXPECT_FALSE(G2Point::on_curve(p2));
         
     // Let's try another approach: create a point with real parts only
     G2Point p3;
@@ -633,8 +631,6 @@ TEST(E2PointTest, Fp2ArithmeticWithPoints) {
         << "Zeroing imaginary parts didn't change the point";
         
     // Check if it's on the curve (unlikely)
-    bool p3_on_curve = G2Point::on_curve(p3);
-    //printf("Point with zeroed imaginary parts is %s the curve\n",
-    //    p3_on_curve ? "ON" : "NOT ON");
+    EXPECT_FALSE(G2Point::on_curve(p3));
 }
 #endif

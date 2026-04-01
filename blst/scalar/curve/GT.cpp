@@ -235,11 +235,9 @@ namespace blst::scalar
         const G1AffinePoint P[], 
         size_t n)
     {
-//#if !defined(__STDC_VERSION__) || __STDC_VERSION__<199901 \
-//                               || defined(__STDC_NO_VLA__)
-//        G2Point& T = (G2Point&)alloca(n * sizeof(G2Point));
-//        G1AffinePoint* Px2 = (G1AffinePoint*)alloca(n * sizeof(G1AffinePoint));
-//#else
+        // Historical VLA/alloca fallback kept here for reference:
+        // G2Point& T = (G2Point&)alloca(n * sizeof(G2Point));
+        // G1AffinePoint* Px2 = (G1AffinePoint*)alloca(n * sizeof(G1AffinePoint));
         if (n > MILLER_LOOP_N_MAX)
             return;
 
