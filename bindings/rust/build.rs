@@ -77,33 +77,35 @@ fn main() {
     } else {
         "Debug"
     };
-    let build_dir = PathBuf::from(env::var("OUT_DIR").unwrap()).join("cmake");
-    let use_ninja =
-        env::var_os("CMAKE_GENERATOR").is_none() && command_works("ninja", &["--version"]);
+    let user_generator = env::var_os("CMAKE_GENERATOR");
+    let use_ninja = user_generator.is_none()
+        && !target_env.eq("msvc")
+        && command_works("ninja", &["--version"]);
+    let build_dir_name = if use_ninja {
+        "cmake-ninja"
+    } else if target_env.eq("msvc") && user_generator.is_none() {
+        "cmake-msvc"
+    } else {
+        "cmake"
+    };
+    let build_dir = PathBuf::from(env::var("OUT_DIR").unwrap()).join(build_dir_name);
 
     let mut configure = Command::new("cmake");
     configure.arg("-S").arg(&blst_base_dir);
     configure.arg("-B").arg(&build_dir);
     if use_ninja {
         configure.args(["-G", "Ninja"]);
+    } else if target_env.eq("msvc") && user_generator.is_none() {
+        if let Some(generator) = find_visual_studio_generator() {
+            configure.args(["-G", generator]);
+        }
+        if let Some(generator_arch) = msvc_cmake_arch(&target_arch) {
+            configure.args(["-A", generator_arch]);
+        }
     }
     configure.arg(format!("-DCMAKE_BUILD_TYPE={build_type}"));
     if target_env.eq("msvc") {
         configure.arg("-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL");
-        if let Some(cl_path) = find_msvc_cl() {
-            let cl_path = to_cmake_path(&cl_path);
-            configure.arg(format!("-DCMAKE_C_COMPILER={cl_path}"));
-            configure.arg(format!("-DCMAKE_CXX_COMPILER={cl_path}"));
-        }
-        if let Some(rc_path) = find_windows_sdk_tool("rc.exe") {
-            configure.arg(format!(
-                "-DCMAKE_RC_COMPILER={}",
-                to_cmake_path(&rc_path)
-            ));
-        }
-        if let Some(mt_path) = find_windows_sdk_tool("mt.exe") {
-            configure.arg(format!("-DCMAKE_MT={}", to_cmake_path(&mt_path)));
-        }
     }
     configure.args([
         "-DBLST_BUILD_SHARED=OFF",
@@ -168,10 +170,6 @@ fn on_off(value: bool) -> &'static str {
     if value { "ON" } else { "OFF" }
 }
 
-fn to_cmake_path(path: &Path) -> String {
-    path.to_string_lossy().replace('\\', "/")
-}
-
 fn resolve_blst_source_dir(manifest_dir: &Path) -> PathBuf {
     let packaged_root = manifest_dir.join("blst");
     if packaged_root.join("CMakeLists.txt").is_file() {
@@ -229,12 +227,7 @@ fn command_works(command: &str, args: &[&str]) -> bool {
         .unwrap_or(false)
 }
 
-fn find_msvc_cl() -> Option<PathBuf> {
-    let from_where = find_tool_with_where("cl.exe");
-    if from_where.is_some() {
-        return from_where;
-    }
-
+fn find_visual_studio_generator() -> Option<&'static str> {
     let vswhere = PathBuf::from(r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe");
     if !vswhere.is_file() {
         return None;
@@ -247,8 +240,8 @@ fn find_msvc_cl() -> Option<PathBuf> {
             "*",
             "-requires",
             "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
-            "-find",
-            r"VC\Tools\MSVC\**\bin\Hostx64\x64\cl.exe",
+            "-property",
+            "installationVersion",
         ])
         .output()
         .ok()
@@ -258,53 +251,26 @@ fn find_msvc_cl() -> Option<PathBuf> {
                 stdout
                     .lines()
                     .map(str::trim)
-                    .find(|line| line.to_ascii_lowercase().ends_with("\\cl.exe"))
-                    .map(PathBuf::from)
+                    .find_map(|line| {
+                        let major = line.split('.').next()?;
+                        match major {
+                            "17" => Some("Visual Studio 17 2022"),
+                            "16" => Some("Visual Studio 16 2019"),
+                            "15" => Some("Visual Studio 15 2017"),
+                            _ => None,
+                        }
+                    })
             })
         })
 }
 
-fn find_windows_sdk_tool(tool: &str) -> Option<PathBuf> {
-    let from_where = find_tool_with_where(tool);
-    if from_where.is_some() {
-        return from_where;
+fn msvc_cmake_arch(target_arch: &str) -> Option<&'static str> {
+    match target_arch {
+        "x86_64" => Some("x64"),
+        "x86" => Some("Win32"),
+        "aarch64" => Some("ARM64"),
+        _ => None,
     }
-
-    let sdk_bin = PathBuf::from(r"C:\Program Files (x86)\Windows Kits\10\bin");
-    let entries = fs::read_dir(sdk_bin).ok()?;
-    let mut versions: Vec<PathBuf> = entries
-        .flatten()
-        .map(|entry| entry.path())
-        .filter(|path| path.is_dir())
-        .collect();
-    versions.sort();
-    versions.reverse();
-
-    for version_dir in versions {
-        let candidate = version_dir.join("x64").join(tool);
-        if candidate.is_file() {
-            return Some(candidate);
-        }
-    }
-
-    None
-}
-
-fn find_tool_with_where(tool: &str) -> Option<PathBuf> {
-    Command::new("where.exe")
-        .arg(tool)
-        .output()
-        .ok()
-        .filter(|output| output.status.success())
-        .and_then(|output| {
-            String::from_utf8(output.stdout).ok().and_then(|stdout| {
-                stdout
-                    .lines()
-                    .map(str::trim)
-                    .find(|line| line.to_ascii_lowercase().ends_with(tool))
-                    .map(PathBuf::from)
-            })
-        })
 }
 
 fn emit_avx_link_deps(
