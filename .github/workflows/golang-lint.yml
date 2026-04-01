@@ -1,18 +1,7 @@
 name: golang-lint
 
 on:
-  push:
-    branches:
-      - '**'
-    paths:
-      - 'bindings/go/*.go'
-      - '.github/workflows/golang-lint.yml'
-      - '.golangci.yml'
-  pull_request:
-    branches:
-      - master
-    paths:
-      - 'bindings/go/*.go'
+  workflow_dispatch:
 
 jobs:
   golang-lint:

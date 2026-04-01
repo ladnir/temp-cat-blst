@@ -13,6 +13,7 @@
 #include "blst/fields/Fr.h"
 #include "blst/scalar/fields/hash_to_field.h"
 #include "blst/scalar/curve/GT.h"
+#include "blst/scalar/curve/map_to_G.h"
 #include "blst/scalar/curve/point.h"
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 #include "blst/avx/curve/map_to_G.h"

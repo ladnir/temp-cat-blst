@@ -1,21 +1,7 @@
 name: "CodeQL"
 
 on:
-  push:
-    branches:
-      - '**'
-    paths:
-      - 'blst/**'
-      - 'bindings/**'
-      - 'build/**'
-      - '.github/workflows/codeql-analysis.yml'
-  pull_request:
-    branches:
-      - master
-    paths:
-      - 'blst/**'
-      - 'bindings/**'
-      - 'build/**'
+  workflow_dispatch:
   #schedule:
   #  - cron: '0 23+ * * 4'
 

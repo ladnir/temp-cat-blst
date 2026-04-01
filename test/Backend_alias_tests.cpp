@@ -154,7 +154,6 @@ TEST(BackendAlias, TopLevelPairingSurfaceMatchesBilinearDoubling)
 TEST(BackendAlias, MiddleProductReducedMatchesBasicOnSmallVector)
 {
     using ScalarCtx = blst::detail::ScalarMiddleProductContext;
-    using AvxCtx = blst::detail::AvxMiddleProductContext;
 
     const std::vector<u64> a_scalars = { 3, 5, 7 };
     const std::vector<u64> b_scalars = { 11, 13, 17, 19, 23, 29 };
@@ -213,6 +212,8 @@ TEST(BackendAlias, MiddleProductReducedMatchesBasicOnSmallVector)
         a_points.size(),
         nullptr,
         MiddleProductPairingMode::Direct);
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    using AvxCtx = blst::detail::AvxMiddleProductContext;
     const auto avx_precomputed = blst::detail::precompute_middle_product_b_public<AvxCtx>(
         std::span<const G2Point>(b_points),
         a_points.size(),
@@ -440,6 +441,7 @@ TEST(BackendAlias, MiddleProductReducedMatchesBasicOnSmallVector)
             AvxCtx::to_public_gt(avx_c_fft_full_prepared[a_points.size() + i])))
             << "AVX truncated/full prepared mismatch at output index " << i;
     }
+#endif
 }
 
 TEST(BackendAlias, MiddleProductUpdateAndCombineReconstructFullResult)
@@ -489,6 +491,7 @@ TEST(BackendAlias, MiddleProductUpdateAndCombineReconstructFullResult)
     }
 }
 
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 TEST(BackendAlias, AvxGtInverseFftStageReplayMatchesScalar)
 {
     using ScalarCtx = blst::detail::ScalarMiddleProductContext;
@@ -619,3 +622,4 @@ TEST(BackendAlias, AvxGtInverseFftStageReplayMatchesScalar)
         }
     }
 }
+#endif

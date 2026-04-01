@@ -7,9 +7,6 @@
 #include <type_traits>
 #include <vector>
 
-#include "blst/avx/curve/GT.h"
-#include "blst/avx/curve/map_to_G.h"
-#include "blst/avx/fft/gt_context.h"
 #include "blst/common/defines.h"
 #include "blst/common/timer.h"
 #include "blst/curve/GT.h"
@@ -19,6 +16,12 @@
 #include "blst/fields/Fr.h"
 #include "blst/scalar/curve/GT.h"
 #include "blst/scalar/curve/point.h"
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+#include "blst/avx/curve/GT.h"
+#include "blst/avx/curve/map_to_G.h"
+#include "blst/avx/fft/gt_context.h"
+#endif
 
 namespace blst {
 
@@ -331,6 +334,7 @@ namespace blst {
             }
         };
 
+    #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
         struct AvxMiddleProductContext {
             using G1Point = avx::G1Point;
             using G2Point = avx::G2Point;
@@ -451,6 +455,7 @@ namespace blst {
                 }
             }
         };
+    #endif
 
 #if BLST_DEFAULT_AVX
         using DefaultMiddleProductContext = AvxMiddleProductContext;
@@ -783,20 +788,26 @@ namespace blst {
     } // namespace detail
 
     using MiddleProductScalarContext = detail::ScalarMiddleProductContext;
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
     using MiddleProductAvxContext = detail::AvxMiddleProductContext;
+#endif
     using MiddleProductDefaultContext = detail::DefaultMiddleProductContext;
 
     using MiddleProductPrecomputedBScalar =
         detail::MiddleProductPrecomputedBImpl<MiddleProductScalarContext>;
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
     using MiddleProductPrecomputedBAvx =
         detail::MiddleProductPrecomputedBImpl<MiddleProductAvxContext>;
+#endif
     using MiddleProductPrecomputedB =
         detail::MiddleProductPrecomputedBImpl<MiddleProductDefaultContext>;
 
     using MiddleProductWorkspaceScalar =
         detail::MiddleProductWorkspaceImpl<MiddleProductScalarContext>;
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
     using MiddleProductWorkspaceAvx =
         detail::MiddleProductWorkspaceImpl<MiddleProductAvxContext>;
+#endif
     using MiddleProductWorkspace =
         detail::MiddleProductWorkspaceImpl<MiddleProductDefaultContext>;
 
@@ -815,6 +826,7 @@ namespace blst {
             pairing_mode);
     }
 
+    #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
     inline MiddleProductPrecomputedBAvx precompute_middle_product_b_avx(
         std::span<const G2Point> b,
         std::size_t n,
@@ -829,6 +841,7 @@ namespace blst {
             timings,
             pairing_mode);
     }
+    #endif
 
     inline MiddleProductPrecomputedB precompute_middle_product_b(
         std::span<const G2Point> b,
@@ -915,6 +928,7 @@ namespace blst {
             timings);
     }
 
+    #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
     inline void middle_product_avx(
         std::span<const G1Point> a,
         const MiddleProductPrecomputedBAvx& precomputed_b,
@@ -930,6 +944,7 @@ namespace blst {
             workspace,
             timings);
     }
+    #endif
 
     inline void middle_product(
         std::span<const G1Point> a,
@@ -954,6 +969,7 @@ namespace blst {
         detail::middle_product_public<MiddleProductScalarContext>(a, b, out, timings);
     }
 
+    #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
     inline void middle_product_avx(
         std::span<const G1Point> a,
         std::span<const G2Point> b,
@@ -962,6 +978,7 @@ namespace blst {
     {
         detail::middle_product_public<MiddleProductAvxContext>(a, b, out, timings);
     }
+    #endif
 
     inline void middle_product(
         std::span<const G1Point> a,
@@ -986,6 +1003,7 @@ namespace blst {
         middle_product_scalar(a, precomputed_b, out, workspace, timings);
     }
 
+    #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
     inline void middle_product_avx(
         std::span<const G1Point> a,
         const MiddleProductPrecomputedBAvx& precomputed_b,
@@ -995,6 +1013,7 @@ namespace blst {
         MiddleProductWorkspaceAvx workspace;
         middle_product_avx(a, precomputed_b, out, workspace, timings);
     }
+    #endif
 
     inline void middle_product(
         std::span<const G1Point> a,
@@ -1015,6 +1034,7 @@ namespace blst {
         detail::update_public<MiddleProductScalarContext>(a0, precomputed_b, out, timings);
     }
 
+    #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
     inline void update_avx(
         const G1Point& a0,
         const MiddleProductPrecomputedBAvx& precomputed_b,
@@ -1023,6 +1043,7 @@ namespace blst {
     {
         detail::update_public<MiddleProductAvxContext>(a0, precomputed_b, out, timings);
     }
+    #endif
 
     inline void update(
         const G1Point& a0,

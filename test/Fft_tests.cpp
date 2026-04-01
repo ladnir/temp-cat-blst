@@ -9,11 +9,15 @@
 #include "blst/fft/context.h"
 #include "blst/fft/ctFft.h"
 #include "blst/fft/middle_product.h"
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 #include "blst/avx/fft/gt_context.h"
+#endif
 //
 //using F65537 = BasicFp<65537, u32, u64>;
 using namespace blst;
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 using namespace blst::avx;
+#endif
 /**
  * Naive polynomial multiplication (discrete convolution)
  * @tparam G The Group type for coefficients of A (e.g., G1)
@@ -607,6 +611,7 @@ TEST(Fft, GTFftRoundTrip) {
     EXPECT_TRUE(match) << "GT FFT round-trip failed";
 }
 
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 TEST(Fft, GTAvx52InverseFftMatchesScalar) {
     const size_t N = 16;
 
@@ -663,6 +668,7 @@ TEST(Fft, GTAvx52InverseFftMatchesScalar) {
 
     EXPECT_TRUE(match) << "AVX GT inverse FFT round-trip failed";
 }
+#endif
 
 // Test that GT scalar multiplication (exponentiation) distributes correctly
 TEST(Fft, GTScalarMult) {
