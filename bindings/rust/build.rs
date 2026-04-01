@@ -94,6 +94,12 @@ fn main() {
             configure.arg(format!("-DCMAKE_C_COMPILER={}", cl_path.display()));
             configure.arg(format!("-DCMAKE_CXX_COMPILER={}", cl_path.display()));
         }
+        if let Some(rc_path) = find_windows_sdk_tool("rc.exe") {
+            configure.arg(format!("-DCMAKE_RC_COMPILER={}", rc_path.display()));
+        }
+        if let Some(mt_path) = find_windows_sdk_tool("mt.exe") {
+            configure.arg(format!("-DCMAKE_MT={}", mt_path.display()));
+        }
     }
     configure.args([
         "-DBLST_BUILD_SHARED=OFF",
@@ -216,20 +222,7 @@ fn command_works(command: &str, args: &[&str]) -> bool {
 }
 
 fn find_msvc_cl() -> Option<PathBuf> {
-    let from_where = Command::new("where.exe")
-        .arg("cl.exe")
-        .output()
-        .ok()
-        .filter(|output| output.status.success())
-        .and_then(|output| {
-            String::from_utf8(output.stdout).ok().and_then(|stdout| {
-                stdout
-                    .lines()
-                    .map(str::trim)
-                    .find(|line| line.to_ascii_lowercase().ends_with("\\cl.exe"))
-                    .map(PathBuf::from)
-            })
-        });
+    let from_where = find_tool_with_where("cl.exe");
     if from_where.is_some() {
         return from_where;
     }
@@ -258,6 +251,49 @@ fn find_msvc_cl() -> Option<PathBuf> {
                     .lines()
                     .map(str::trim)
                     .find(|line| line.to_ascii_lowercase().ends_with("\\cl.exe"))
+                    .map(PathBuf::from)
+            })
+        })
+}
+
+fn find_windows_sdk_tool(tool: &str) -> Option<PathBuf> {
+    let from_where = find_tool_with_where(tool);
+    if from_where.is_some() {
+        return from_where;
+    }
+
+    let sdk_bin = PathBuf::from(r"C:\Program Files (x86)\Windows Kits\10\bin");
+    let entries = fs::read_dir(sdk_bin).ok()?;
+    let mut versions: Vec<PathBuf> = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.is_dir())
+        .collect();
+    versions.sort();
+    versions.reverse();
+
+    for version_dir in versions {
+        let candidate = version_dir.join("x64").join(tool);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+
+    None
+}
+
+fn find_tool_with_where(tool: &str) -> Option<PathBuf> {
+    Command::new("where.exe")
+        .arg(tool)
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .and_then(|output| {
+            String::from_utf8(output.stdout).ok().and_then(|stdout| {
+                stdout
+                    .lines()
+                    .map(str::trim)
+                    .find(|line| line.to_ascii_lowercase().ends_with(tool))
                     .map(PathBuf::from)
             })
         })
