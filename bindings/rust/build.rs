@@ -90,6 +90,10 @@ fn main() {
     configure.arg(format!("-DCMAKE_BUILD_TYPE={build_type}"));
     if target_env.eq("msvc") {
         configure.arg("-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL");
+        if let Some(cl_path) = find_msvc_cl() {
+            configure.arg(format!("-DCMAKE_C_COMPILER={}", cl_path.display()));
+            configure.arg(format!("-DCMAKE_CXX_COMPILER={}", cl_path.display()));
+        }
     }
     configure.args([
         "-DBLST_BUILD_SHARED=OFF",
@@ -209,6 +213,54 @@ fn command_works(command: &str, args: &[&str]) -> bool {
         .status()
         .map(|status| status.success())
         .unwrap_or(false)
+}
+
+fn find_msvc_cl() -> Option<PathBuf> {
+    let from_where = Command::new("where.exe")
+        .arg("cl.exe")
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .and_then(|output| {
+            String::from_utf8(output.stdout).ok().and_then(|stdout| {
+                stdout
+                    .lines()
+                    .map(str::trim)
+                    .find(|line| line.to_ascii_lowercase().ends_with("\\cl.exe"))
+                    .map(PathBuf::from)
+            })
+        });
+    if from_where.is_some() {
+        return from_where;
+    }
+
+    let vswhere = PathBuf::from(r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe");
+    if !vswhere.is_file() {
+        return None;
+    }
+
+    Command::new(vswhere)
+        .args([
+            "-latest",
+            "-products",
+            "*",
+            "-requires",
+            "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+            "-find",
+            r"VC\Tools\MSVC\**\bin\Hostx64\x64\cl.exe",
+        ])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .and_then(|output| {
+            String::from_utf8(output.stdout).ok().and_then(|stdout| {
+                stdout
+                    .lines()
+                    .map(str::trim)
+                    .find(|line| line.to_ascii_lowercase().ends_with("\\cl.exe"))
+                    .map(PathBuf::from)
+            })
+        })
 }
 
 fn emit_avx_link_deps(
