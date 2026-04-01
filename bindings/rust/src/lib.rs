@@ -22,7 +22,7 @@ use core::mem::MaybeUninit;
 use core::mem::transmute;
 use core::ptr;
 use zeroize::Zeroize;
-#[cfg(feature = "serde")]
+#[cfg(all(feature = "full-rust-bindings", feature = "serde"))]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(all(feature = "full-rust-bindings", feature = "std"))]
 use std::sync::{atomic::*, mpsc::channel, Arc};

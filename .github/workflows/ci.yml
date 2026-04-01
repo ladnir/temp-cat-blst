@@ -9,6 +9,9 @@ on:
     branches:
       - master
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   cmake:
     runs-on: ${{ matrix.os }}
@@ -53,6 +56,7 @@ jobs:
         shell: bash
         run: |
           cmake -S . -B "${{ matrix.build_dir }}" \
+            -DCMAKE_BUILD_TYPE=Release \
             -DBLST_TEST=ON \
             -DBLST_BENCHMARK=OFF \
             -DBLST_CUDA=OFF \
@@ -63,7 +67,12 @@ jobs:
 
       - name: Build
         shell: bash
-        run: cmake --build "${{ matrix.build_dir }}" --target blst_tests
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cmake --build "${{ matrix.build_dir }}" --config Release --target blst_tests
+          else
+            cmake --build "${{ matrix.build_dir }}" --target blst_tests
+          fi
 
       - name: Test
         shell: bash

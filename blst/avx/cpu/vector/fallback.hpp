@@ -65,7 +65,7 @@ public:
         }
     }
 
-    inline constexpr AVXVector(const std::array<__m512i, VEC_LIMBS> &array) {
+    inline constexpr AVXVector(const __m512i (&array)[VEC_LIMBS]) {
         union {
             __m512i m;
             uint64_t u[8];

@@ -15,7 +15,7 @@ void print_array(const std::array<T, N>& values, std::string_view name)
         if (i != 0) {
             std::cout << ", ";
         }
-        std::cout << static_cast<unsigned long long>(values[i]);
+        std::cout << static_cast<unsigned long long>(values[i]) << "ULL";
     }
     std::cout << "}};\n";
 }
@@ -33,7 +33,7 @@ void print_matrix(const std::array<std::array<T, Cols>, Rows>& values, std::stri
             if (col != 0) {
                 std::cout << ", ";
             }
-            std::cout << static_cast<unsigned long long>(values[row][col]);
+            std::cout << static_cast<unsigned long long>(values[row][col]) << "ULL";
         }
         std::cout << "}";
     }

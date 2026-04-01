@@ -66,7 +66,7 @@ endif()
 
 message("Configuration:")
 message("CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
-if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE STREQUAL "Release")
     message("\n\nWARNING: Not in Release build mode, may be significantly slower.\n\n")
 endif()
 
