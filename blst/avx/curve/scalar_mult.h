@@ -10,7 +10,9 @@
 #include "../../common/bytes.h"
 #include "../../backend/backend.h"
 #endif
+#if BLST_AVX_VALIDATE_CONSTANTS
 #include "../common/gmp_wrapper.h"
+#endif
 #include <array>
 #include <cstring>
 #include <cstdint>
@@ -64,11 +66,13 @@ class ScalarForExponent {
     static constexpr int limbs = ceil_div(scalar_bits, 8);
     std::array<uint8_t, limbs> data;
 
+#if BLST_AVX_VALIDATE_CONSTANTS
     ScalarForExponent(const BigInt &scalar) {
         for (int i = 0; i < limbs; i++) {
             data[i] = (scalar >> (i * 8)).to_ulong() & 255;
         }
     }
+#endif
 
     ScalarForExponent(const std::array<uint8_t, limbs> &raw_data) : data(raw_data) {}
 
@@ -189,6 +193,7 @@ typename Curve::ProjPoint table_msm(const std::array<ScalarForExponent<scalar_bi
     return result;
 }
 
+#if BLST_AVX_VALIDATE_CONSTANTS
 template<class Curve, class Ring, int scalar_bits, int table_log_size, int num_tables>
 typename Curve::ProjPoint table_msm(const std::array<BigInt, num_tables> &scalars, const std::array<PrecomputedTable<Curve, Ring, table_log_size>, num_tables> &tables, const Curve &curve, const Ring &ring) {
     constexpr int wbits = table_log_size;
@@ -229,12 +234,15 @@ typename Curve::ProjPoint table_msm(const std::array<BigInt, num_tables> &scalar
     }
     return result;
 }
+#endif
 
+#if BLST_AVX_VALIDATE_CONSTANTS
 template<class Curve, class Ring, int scalar_bits, int table_log_size>
 typename Curve::ProjPoint scalar_mult_table(const BigInt &scalar, const typename Curve::ProjPoint &P, const Curve &curve, const Ring &ring) {
     PrecomputedTable<Curve, Ring, table_log_size> table(P, curve, ring);
     return table_msm<Curve, Ring, scalar_bits, table_log_size, 1>(std::array<BigInt, 1>{scalar}, std::array<PrecomputedTable<Curve, Ring, table_log_size>, 1>{table}, curve, ring);
 }
+#endif
 
 
 // Wrapper functions for blst division operations
@@ -306,11 +314,8 @@ class GLVMult {
     typename Ring::StandardElement beta_inv;
     G1Curve curve;
 
-    BigInt zz;
-
     GLVMult(const G1Curve &curve, const Ring &ring) : curve(curve) {
         beta = ring.from_hex("0x5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffefffe");
-        zz = BigInt("ac45a4010001a4020000000100000000", 16);
     }
 
     template<int batch_size>
@@ -343,9 +348,11 @@ class GLVMult {
         return table_msm<G1Curve, Ring, 128, table_log_size, 2>(scalars, tables, curve, ring);
     }
 
+#if BLST_AVX_VALIDATE_CONSTANTS
     template<int table_log_size=4>
     ProjectivePoint multiply(const ProjectivePoint &P, const BigInt &SK, const Ring &ring) const {
         constexpr int table_size = 1 << table_log_size;
+        const BigInt zz("ac45a4010001a4020000000100000000", 16);
         BigInt sk_zz = SK / zz;
         BigInt sk_zz_r = SK % zz;
         std::array<BigInt, 2> scalars = {sk_zz_r, sk_zz};
@@ -357,6 +364,7 @@ class GLVMult {
         std::array<PrecomputedTable<G1Curve, Ring, table_log_size>, 2> tables = {tableP, tablePhi};
         return table_msm<G1Curve, Ring, 128, table_log_size, 2>(scalars, tables, curve, ring);
     }
+#endif
 };
 
 template<class Ring>
@@ -371,16 +379,10 @@ class GLSMult {
     typename Ring::StandardElement psi_y_r;
     typename Ring::StandardElement psi_y_i;
 
-    BigInt z;
-    BigInt zz;
-
     GLSMult(const Ring &ring) {
         psi_x_i = ring.from_hex("0x1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaad");
         psi_y_r = ring.from_hex("0x135203e60180a68ee2e9c448d77a2cd91c3dedd930b1cf60ef396489f61eb45e304466cf3e67fa0af1ee7b04121bdea2");
         psi_y_i = ring.from_hex("0x06af0e0437ff400b6831e36d6bd17ffe48395dabc2d3435e77f76e17009241c5ee67992f72ec05f4c81084fbede3cc09");
-
-        z = BigInt("d201000000010000", 16);
-        zz = BigInt("ac45a4010001a4020000000100000000", 16);
     }
    
     ProjectivePoint minus_psi(ProjectivePoint P, const FP2RingType &/* fp2ring */, const Ring &ring) const {
@@ -424,9 +426,12 @@ class GLSMult {
         return table_msm<G2Curve, FP2RingType, 64, table_log_size, 4>(scalars, tables, curve, fp2ring);
     }
 
+#if BLST_AVX_VALIDATE_CONSTANTS
     template<int table_log_size=4>
     ProjectivePoint multiply(const ProjectivePoint &P, const BigInt &SK, const FP2RingType &fp2ring, const G2Curve &curve, const Ring &ring) const {
         constexpr int table_size = 1 << table_log_size;
+        const BigInt z("d201000000010000", 16);
+        const BigInt zz("ac45a4010001a4020000000100000000", 16);
         BigInt sk_zz_high = SK / zz;
         BigInt sk_zz_low = SK % zz;
         BigInt sk_z_low_low = sk_zz_low % z;
@@ -449,6 +454,7 @@ class GLSMult {
         std::array<PrecomputedTable<G2Curve, FP2RingType, table_log_size>, 4> tables = {tableP, tablePsi, tablePsi2, tablePsi3};
         return table_msm<G2Curve, FP2RingType, 64, table_log_size, 4>(scalars, tables, curve, fp2ring);
     }
+#endif
 };
 
 }  // namespace blst::avx

@@ -24,17 +24,9 @@ using CurveG1Affine = AffinePoint<typename CurveRing::StandardElement>;
 using CurveG2Projective = ProjectivePoint<typename CurveFp2Ring::StandardElement>;
 using CurveG2Affine = AffinePoint<typename CurveFp2Ring::StandardElement>;
 
-inline const BigInt& base_modulus()
-{
-    static const BigInt modulus(
-        "4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787",
-        10);
-    return modulus;
-}
-
 inline const CurveRing& curve_ring()
 {
-    static const CurveRing ring(base_modulus());
+    static const CurveRing ring;
     return ring;
 }
 
@@ -70,7 +62,9 @@ inline const GLSMult<CurveRing>& curve_g2_gls()
 
 inline bool is_zero(const CurveRing::StandardElement& value)
 {
-    return curve_ring().to_bigint(value) == BigInt(0);
+    const blst::Fp scalar = avx_blst_direct_bridge::ring_to_scalar_fp(curve_ring(), value);
+    const blst::Fp zero = {};
+    return blst::Fp::equal(scalar, zero);
 }
 
 inline bool is_zero(const CurveFp2Ring::StandardElement& value)

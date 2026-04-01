@@ -15,9 +15,6 @@
 //
 //using F65537 = BasicFp<65537, u32, u64>;
 using namespace blst;
-#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-using namespace blst::avx;
-#endif
 /**
  * Naive polynomial multiplication (discrete convolution)
  * @tparam G The Group type for coefficients of A (e.g., G1)
@@ -648,14 +645,16 @@ TEST(Fft, GTAvx52InverseFftMatchesScalar) {
     std::vector<GT> scalar_freq_domain = time_domain;
     fft<GT, Fr, GTCoeffCtx>(scalar_freq_domain, roots, false);
 
-    std::vector<AvxGt52> avx_freq_domain = scalar_gt_vector_to_avx52(std::span<const GT>(scalar_freq_domain));
-    AvxGt52PreparedRoots prepared_inv_roots{std::span<const Fr>(inv_roots)};
+    std::vector<blst::avx::AvxGt52> avx_freq_domain =
+        blst::avx::scalar_gt_vector_to_avx52(std::span<const GT>(scalar_freq_domain));
+    blst::avx::AvxGt52PreparedRoots prepared_inv_roots{std::span<const Fr>(inv_roots)};
     prepared_inv_roots.set_scale_from_size(N);
-    AvxGt52CoeffCtx::ScopedRoots scoped_roots(prepared_inv_roots);
+    blst::avx::AvxGt52CoeffCtx::ScopedRoots scoped_roots(prepared_inv_roots);
 
-    fft<AvxGt52, Fr, AvxGt52CoeffCtx>(avx_freq_domain, inv_roots, true);
+    fft<blst::avx::AvxGt52, Fr, blst::avx::AvxGt52CoeffCtx>(avx_freq_domain, inv_roots, true);
 
-    const std::vector<GT> avx_round_trip = avx52_vector_to_scalar_gt(std::span<const AvxGt52>(avx_freq_domain));
+    const std::vector<GT> avx_round_trip =
+        blst::avx::avx52_vector_to_scalar_gt(std::span<const blst::avx::AvxGt52>(avx_freq_domain));
 
     bool match = true;
     for (size_t i = 0; i < N; ++i) {

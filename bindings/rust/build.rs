@@ -143,9 +143,6 @@ fn main() {
 
     println!("cargo:rustc-link-search=native={}", lib_dir.display());
     println!("cargo:rustc-link-lib=static=blst");
-    if enable_avx {
-        emit_avx_link_deps(&blst_base_dir, &target_env, build_type, &build_dir);
-    }
     if !target_env.eq("msvc") {
         let cpp_runtime = if target_os.eq("macos") || target_os.eq("ios") {
             "c++"
@@ -270,52 +267,6 @@ fn msvc_cmake_arch(target_arch: &str) -> Option<&'static str> {
         "x86" => Some("Win32"),
         "aarch64" => Some("ARM64"),
         _ => None,
-    }
-}
-
-fn emit_avx_link_deps(
-    blst_base_dir: &Path,
-    target_env: &str,
-    build_type: &str,
-    cargo_build_dir: &Path,
-) {
-    if target_env.eq("msvc") {
-        let vcpkg_root = blst_base_dir
-            .parent()
-            .expect("blst repo should have a parent directory")
-            .join("vcpkg")
-            .join("installed")
-            .join("x64-windows");
-        let lib_dir = if build_type.eq_ignore_ascii_case("release") {
-            vcpkg_root.join("lib")
-        } else {
-            vcpkg_root.join("debug").join("lib")
-        };
-        let dll_path = if build_type.eq_ignore_ascii_case("release") {
-            vcpkg_root.join("bin").join("mpir.dll")
-        } else {
-            vcpkg_root.join("debug").join("bin").join("mpir.dll")
-        };
-        println!("cargo:rustc-link-search=native={}", lib_dir.display());
-        println!("cargo:rustc-link-lib=mpir");
-        copy_runtime_dll(&dll_path, cargo_build_dir);
-    } else {
-        println!("cargo:rustc-link-lib=gmpxx");
-        println!("cargo:rustc-link-lib=gmp");
-    }
-}
-
-fn copy_runtime_dll(dll_path: &Path, cargo_build_dir: &Path) {
-    println!("cargo:rerun-if-changed={}", dll_path.display());
-    let Some(profile_dir) = cargo_build_dir.ancestors().nth(4) else {
-        return;
-    };
-    let copies = [profile_dir.join("mpir.dll"), profile_dir.join("deps").join("mpir.dll")];
-    for target in copies {
-        if let Some(parent) = target.parent() {
-            let _ = fs::create_dir_all(parent);
-        }
-        let _ = fs::copy(dll_path, target);
     }
 }
 

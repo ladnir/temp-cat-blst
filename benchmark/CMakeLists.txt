@@ -47,7 +47,7 @@ else()
     )
 endif()
 
-if(BLST_HAVE_AVX_BASEFIELD)
+if(BLST_HAVE_AVX_VALIDATION_GMP)
     list(APPEND BENCHMARK_SOURCES "avx/Avx_gt_glv4_scalar_bench.cpp")
     list(APPEND BENCHMARK_SOURCES "avx/Avx_basefield_bench.cpp")
     list(APPEND BENCHMARK_SOURCES "avx/Avx_basefield_inverse_bench.cpp")
@@ -115,7 +115,7 @@ add_executable(blst_benchmarks ${BENCHMARK_SOURCES})
 target_include_directories(blst_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_link_libraries(blst_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers)
 
-if(BLST_HAVE_AVX_BASEFIELD AND MSVC)
+if(BLST_HAVE_AVX_VALIDATION_GMP AND MSVC)
     add_custom_command(TARGET blst_benchmarks POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<$<CONFIG:Debug>:${BLST_AVX_MPIR_DEBUG_DLL}>

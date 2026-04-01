@@ -103,28 +103,36 @@ BoundaryGt gt_to_fp12(const PublicGt& value)
 
 std::vector<PublicG1> to_public_g1(const std::vector<BoundaryG1>& input)
 {
+    auto convert = []<class PublicPoint, class BoundaryPoint>(const BoundaryPoint& point) -> PublicPoint {
+        if constexpr (std::is_same_v<PublicPoint, BoundaryPoint>) {
+            return point;
+        } else {
+            return blst::avx::avx_map_to_G_detail::from_scalar(point);
+        }
+    };
+
     std::vector<PublicG1> out;
     out.reserve(input.size());
     for (const BoundaryG1& point : input) {
-#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-        out.push_back(blst::avx::avx_map_to_G_detail::from_scalar(point));
-#else
-        out.push_back(point);
-#endif
+        out.push_back(convert.template operator()<PublicG1>(point));
     }
     return out;
 }
 
 std::vector<PublicG2> to_public_g2(const std::vector<BoundaryG2>& input)
 {
+    auto convert = []<class PublicPoint, class BoundaryPoint>(const BoundaryPoint& point) -> PublicPoint {
+        if constexpr (std::is_same_v<PublicPoint, BoundaryPoint>) {
+            return point;
+        } else {
+            return blst::avx::avx_map_to_G_detail::from_scalar(point);
+        }
+    };
+
     std::vector<PublicG2> out;
     out.reserve(input.size());
     for (const BoundaryG2& point : input) {
-#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-        out.push_back(blst::avx::avx_map_to_G_detail::from_scalar(point));
-#else
-        out.push_back(point);
-#endif
+        out.push_back(convert.template operator()<PublicG2>(point));
     }
     return out;
 }

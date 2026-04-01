@@ -1,10 +1,14 @@
 #pragma once
 #include "changebase.hpp"
 #include "vector_impl.hpp"
-#include "../precompute/precompute.hpp"
 #include "../reduction/montgomery.hpp"
 #include "conversion.hpp"
+#include "../../runtime_constants.h"
 #include <tuple>
+
+#if BLST_AVX_VALIDATE_CONSTANTS
+#include "../precompute/precompute.hpp"
+#endif
 
 namespace blst::avx {
 
@@ -25,6 +29,7 @@ class IntRNS2 {
     const Reduction<limbs1> m1;
     const Reduction<limbs2> m2;
 
+#if BLST_AVX_VALIDATE_CONSTANTS
     // Constructor building precompute with separate premult/postmult for each matrix
     inline IntRNS2(
         const std::array<uint64_t, limbs1> &moduli_in_m1,
@@ -42,6 +47,23 @@ class IntRNS2 {
     {
         (void)target_modulus;
     }
+#endif
+
+    inline IntRNS2(
+        const std::array<uint64_t, limbs1>& moduli_in_m1,
+        const std::array<uint64_t, limbs2>& moduli_in_m2,
+        const std::array<std::array<uint64_t, limbs2>, limbs1>& r1_rns_mat,
+        const std::array<uint64_t, limbs2>& r1_correction,
+        const std::array<uint64_t, limbs1>& r1_sqe,
+        const std::array<std::array<uint64_t, limbs1>, limbs2>& r2_rns_mat,
+        const std::array<uint64_t, limbs1>& r2_correction,
+        const std::array<uint64_t, limbs2>& r2_sqe
+    )
+    : r1(r1_rns_mat, r1_correction, r1_sqe, moduli_in_m2)
+    , r2(r2_rns_mat, r2_correction, r2_sqe, moduli_in_m1)
+    , m1(moduli_in_m1)
+    , m2(moduli_in_m2)
+    {}
 
     inline void mul_reduce(const AVXVector<limbs1> &a1, const AVXVector<limbs2> &a2, const AVXVector<limbs1> &b1, const AVXVector<limbs2> &b2, AVXVector<limbs1> &out1, AVXVector<limbs2> &out2) const {
         auto ab_m1 = ele_mult(a1, b1, m1);
@@ -103,6 +125,7 @@ class IntRNS2 {
 
 // Factory for Montgomery variant (single template parameter: limbs). Assumes limbs1==limbs2==limbs.
 // Generates moduli using GenRNS; aborts if target cannot be reached with the given limb count.
+#if BLST_AVX_VALIDATE_CONSTANTS
 template<int limbs>
 inline IntRNS2<MontgomeryReduce, limbs, limbs> make_IntRNS2Montgomery(
     const BigInt &target,
@@ -142,6 +165,7 @@ inline IntRNS2<MontgomeryReduce, limbs, limbs> make_IntRNS2Montgomery(
 
     return IntRNS2<MontgomeryReduce, limbs, limbs>(moduli1, moduli2, target, premult1, postmult1, premult2, postmult2);
 }
+#endif
 
 template<class T, std::size_t l1, std::size_t l2>
 std::array<T, l1 + l2> concat(const std::array<T, l1> &a, const std::array<T, l2> &b) {
@@ -155,6 +179,7 @@ std::array<T, l1 + l2> concat(const std::array<T, l1> &a, const std::array<T, l2
     return result;
 }
 
+#if BLST_AVX_VALIDATE_CONSTANTS
 template<int num_moduli>
 BigInt rns_reconstruct_full(const std::array<int64_t, num_moduli> &residues, const std::array<uint64_t, num_moduli> &moduli, const BigInt &M1M2) {
     BigInt result = BigInt(0);
@@ -171,6 +196,7 @@ BigInt rns_reconstruct_full(const std::array<int64_t, num_moduli> &residues, con
     }
     return result_mod;
 }
+#endif
 
 template<int bits, int limbs, template <int> class Reduction=MontgomeryReduce>
 struct IntRNS2System {
@@ -179,6 +205,7 @@ struct IntRNS2System {
     ConvertFromRNS<bits, limbs> convert_from;
     std::array<uint64_t, limbs> moduli1;
     std::array<uint64_t, limbs> moduli2;
+#if BLST_AVX_VALIDATE_CONSTANTS
     BigInt M1;
     BigInt M2;
     BigInt M1M2;
@@ -186,7 +213,9 @@ struct IntRNS2System {
     BigInt total_rotation;
     BigInt total_inv_rotation;
     BigInt inv_factor_target;
+#endif
 
+#if BLST_AVX_VALIDATE_CONSTANTS
     inline IntRNS2System(
         IntRNS2<Reduction, limbs, limbs> intrns2,
         ConvertToRNS<bits, limbs> convert_to,
@@ -200,10 +229,19 @@ struct IntRNS2System {
         const BigInt &total_rotation,
         const BigInt &total_inv_rotation,
         const BigInt &inv_factor_target
-    
     ) : intrns2(intrns2), convert_to(convert_to), convert_from(convert_from), moduli1(moduli1), moduli2(moduli2), M1(M1), M2(M2), M1M2(M1M2), target(target), total_rotation(total_rotation), total_inv_rotation(total_inv_rotation), inv_factor_target(inv_factor_target) {
     }
+#endif
 
+    inline IntRNS2System(
+        IntRNS2<Reduction, limbs, limbs> intrns2,
+        ConvertToRNS<bits, limbs> convert_to,
+        ConvertFromRNS<bits, limbs> convert_from,
+        const std::array<uint64_t, limbs>& moduli1,
+        const std::array<uint64_t, limbs>& moduli2
+    ) : intrns2(intrns2), convert_to(convert_to), convert_from(convert_from), moduli1(moduli1), moduli2(moduli2) {}
+
+#if BLST_AVX_VALIDATE_CONSTANTS
     // Convert a BigInt to Montgomery form in RNS representation
     // Returns (a_m1, a_m2) where a_m1 is in moduli1 and a_m2 is in moduli2
     inline std::pair<AVXVector<limbs>, AVXVector<limbs>> to_mont_avx(const BigInt &a) const {
@@ -296,9 +334,11 @@ struct IntRNS2System {
     ) const {
         intrns2.raw_mul(a_m1, a_m2, b_m1, b_m2, out_m1, out_m2);
     }
+#endif
 };
 
 // Factory producing IntRNS2 plus compatible converters following python_reduction.IntRNS2
+#if BLST_AVX_VALIDATE_CONSTANTS
 template<int bits, int limbs, template <int> class Reduction=MontgomeryReduce>
 inline IntRNS2System<bits, limbs> make_IntRNS2SystemMontgomery(
     const BigInt &target,
@@ -358,6 +398,39 @@ inline IntRNS2System<bits, limbs> make_IntRNS2SystemMontgomery(
         total_inv_rotation,
         inv_factor_target
     );
+    return sys;
+}
+#endif
+
+template<int bits, int limbs>
+inline IntRNS2System<bits, limbs> make_IntRNS2SystemBaked(const RuntimeConstantsView& constants)
+{
+    static_assert(bits == 381, "The baked AVX constants currently cover only the BLS12-381 field.");
+    static_assert(limbs == 8, "The baked AVX constants currently cover only the 8-limb AVX configurations.");
+
+    std::array<uint64_t, 1> moduli_out = {1};
+    IntRNS2System<bits, limbs> sys(
+        IntRNS2<MontgomeryReduce, limbs, limbs>(
+            constants.moduli1,
+            constants.moduli2,
+            constants.r1_rns_mat,
+            constants.r1_correction,
+            constants.r1_shifted_quotient_estimations,
+            constants.r2_rns_mat,
+            constants.r2_correction,
+            constants.r2_shifted_quotient_estimations),
+        ConvertToRNS<bits, limbs>(
+            constants.convert_to_rns_mat,
+            constants.convert_to_correction,
+            constants.convert_to_shifted_quotient_estimations,
+            constants.moduli2),
+        ConvertFromRNS<bits, limbs>(
+            constants.convert_from_rns_mat,
+            constants.convert_from_correction,
+            constants.convert_from_shifted_quotient_estimations,
+            moduli_out),
+        constants.moduli1,
+        constants.moduli2);
     return sys;
 }
 

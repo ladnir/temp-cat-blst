@@ -2,12 +2,17 @@
 #include "vector_impl.hpp"
 #include "changebase.hpp"
 #include "../reduction/montgomery.hpp"
-#include "../precompute/gmp_wrapper.hpp"
+#include "../../common/constexpr_utils.h"
 #include <array>
+
+#if BLST_AVX_VALIDATE_CONSTANTS
+#include "../precompute/gmp_wrapper.hpp"
+#endif
 
 // Helper function to reinterpret a BigInt as words of specified bit length
 namespace blst::avx {
 
+#if BLST_AVX_VALIDATE_CONSTANTS
 template<int limbs, int word_length>
 inline void word_reinterpret(const BigInt &integer, std::array<uint64_t, limbs> &digits) {
     BigInt mask = (BigInt(1) << word_length) - 1;
@@ -16,6 +21,7 @@ inline void word_reinterpret(const BigInt &integer, std::array<uint64_t, limbs> 
         digits[i] = (shifted & mask).to_u64();
     }
 }
+#endif
 
 // The convenience constructor in RNSMatrix now uses IN_DIGITS and OUT_DIGITS from class template
 
@@ -27,11 +33,21 @@ class ConvertToRNS {
     const RNSMatrix<limbs_in, limbs_out, indigits, 1> conversion_matrix;  // OUT_DIGITS=1 (not bit width!)
 
 
+#if BLST_AVX_VALIDATE_CONSTANTS
     inline ConvertToRNS(const BigInt &premult, const BigInt &postmult, const BigInt &target, const std::array<uint64_t, limbs_out> &moduli_out) 
         : conversion_matrix(std::array<BigInt,1>{target}, moduli_out, BigInt(0), premult, postmult) {
         // Now uses IN_DIGITS=indigits (8) and OUT_DIGITS=1 from class template
     }
+#endif
 
+    inline ConvertToRNS(
+        const std::array<std::array<uint64_t, limbs_out>, indigits>& rns_values_tf,
+        const std::array<uint64_t, limbs_out>& correction_vec,
+        const std::array<uint64_t, indigits>& sqe_tf,
+        const std::array<uint64_t, limbs_out>& moduli_out)
+        : conversion_matrix(rns_values_tf, correction_vec, sqe_tf, moduli_out) {}
+
+#if BLST_AVX_VALIDATE_CONSTANTS
     template<template <int> class Reduction>
     inline AVXVector<limbs_out> convert_to_rns(const BigInt &integer, const Reduction<limbs_out> &reducer) const {
         std::array<uint64_t, indigits> digits;
@@ -55,6 +71,7 @@ class ConvertToRNS {
         conversion_matrix.template rns_reduce_raw_batch<batch>(&inputs, out_hi, out_lo);
         return std::make_pair(out_hi, out_lo);
     }
+#endif
 
     // Test accessor
     const RNSMatrix<limbs_in, limbs_out, indigits, 1>& get_conversion_matrix() const {
@@ -64,6 +81,7 @@ class ConvertToRNS {
 
 // Helper function to reconstruct a BigInt from words of specified bit length
 // Could probably be done more efficiently with bit operations.
+#if BLST_AVX_VALIDATE_CONSTANTS
 template<int limbs, int in_limbs, int word_length>
 inline BigInt int_reconstruct(const std::array<uint64_t, in_limbs> &digits) {
     static_assert(limbs <= in_limbs, "limbs must be less than or equal to in_limbs");
@@ -73,6 +91,7 @@ inline BigInt int_reconstruct(const std::array<uint64_t, in_limbs> &digits) {
     }
     return result;
 }
+#endif
 
 template<int bits,int limbs_in>
 class ConvertFromRNS {
@@ -84,10 +103,20 @@ class ConvertFromRNS {
     static constexpr int outdigits = ceil_div(bits + 4, 52);
     static constexpr int outdigits_rounded = AVXVector<outdigits>::VEC_LIMBS * AVXVector<outdigits>::LIMBS_PER_VEC; // Rounds up to the nearest LIMBS_PER_VEC. Needed to prevent buffer overflow in store
     const RNSMatrix<limbs_in, 1, 1, outdigits> conversion_matrix;  // OUT_DIGITS=outdigits
+#if BLST_AVX_VALIDATE_CONSTANTS
     const BigInt target;
     inline ConvertFromRNS(const BigInt &premult, const BigInt &postmult, const BigInt &target, const std::array<uint64_t, limbs_in> &moduli_in)
         : conversion_matrix(moduli_in, std::array<BigInt,1>{target}, BigInt(0), premult, postmult), target(target) {}
+#endif
 
+    inline ConvertFromRNS(
+        const std::array<std::array<uint64_t, outdigits>, limbs_in>& rns_values_tf,
+        const std::array<uint64_t, outdigits>& correction_vec,
+        const std::array<uint64_t, limbs_in>& sqe_tf,
+        const std::array<uint64_t, 1>& moduli_out)
+        : conversion_matrix(rns_values_tf, correction_vec, sqe_tf, moduli_out) {}
+
+#if BLST_AVX_VALIDATE_CONSTANTS
     inline BigInt convert_from_rns(const AVXVector<limbs_in> &residues) const {
         AVXVector<outdigits> out_hi = AVXVector<outdigits>(0);
         AVXVector<outdigits> out_lo = AVXVector<outdigits>(0);
@@ -105,6 +134,7 @@ class ConvertFromRNS {
         i += int_reconstruct<outdigits, outdigits_rounded, 52>(digits_hi) << 52;
         return i % target;
     }
+#endif
     
     // Test accessor
     const RNSMatrix<limbs_in, 1, 1, outdigits>& get_conversion_matrix() const {

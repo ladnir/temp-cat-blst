@@ -3,8 +3,12 @@
 #include <cstdint>
 #include <type_traits>
 #include <iostream>
-#include "../cpu/precompute/gmp_wrapper.hpp"
+#include "../runtime_constants.h"
 #include "blst/avx/fields/fp2.h"
+
+#if BLST_AVX_VALIDATE_CONSTANTS
+#include "../common/gmp_wrapper.h"
+#endif
 
 namespace blst::avx {
 
@@ -103,7 +107,16 @@ class FP12Ring {
 		frob2_5 = ring.from_hex("0x1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaad");
 		frob3_2 = ring.from_hex("0x135203e60180a68ee2e9c448d77a2cd91c3dedd930b1cf60ef396489f61eb45e304466cf3e67fa0af1ee7b04121bdea2");
 		frob3_3 = ring.from_hex("0x6af0e0437ff400b6831e36d6bd17ffe48395dabc2d3435e77f76e17009241c5ee67992f72ec05f4c81084fbede3cc09");
-		offset = ring.template compute_wide_offset<offset_ele_bound, offset_rns_bound>();
+		const auto& constants = runtime_constants<Ring::StandardBoundedElement::ELEMENT_BITS>();
+		using OffsetElementType = BoundedElement<Bounds<offset_ele_bound, offset_ele_bound + 1>, Ring::StandardBoundedElement::LIMBS, Ring::StandardBoundedElement::ELEMENT_BITS>;
+		using OffsetWideType = WideElement<Bounds<offset_ele_bound, offset_ele_bound + 1>, Ring::StandardBoundedElement::LIMBS, Ring::StandardBoundedElement::ELEMENT_BITS>;
+		offset = typename Ring::template WideOffsetElement<offset_ele_bound, offset_rns_bound>(
+			OffsetWideType(
+				OffsetElementType(AVXVector<Ring::StandardBoundedElement::LIMBS>(constants.fp12_offset_m1_high)),
+				OffsetElementType(AVXVector<Ring::StandardBoundedElement::LIMBS>(constants.fp12_offset_m1_low))),
+			OffsetWideType(
+				OffsetElementType(AVXVector<Ring::StandardBoundedElement::LIMBS>(constants.fp12_offset_m2_high)),
+				OffsetElementType(AVXVector<Ring::StandardBoundedElement::LIMBS>(constants.fp12_offset_m2_low))));
 	}
     /*
 	auto expand(const CommonElement &x, const Ring &ring) const {
@@ -186,6 +199,7 @@ class FP12Ring {
 		return std::array<typename Ring::StandardElement, 12> {ring.one(), ring.zero(), ring.zero(), ring.zero(), ring.zero(), ring.zero(), ring.zero(), ring.zero(), ring.zero(), ring.zero(), ring.zero(), ring.zero()};
 	}
 
+#if BLST_AVX_VALIDATE_CONSTANTS
 	bool check_bounds(const Ring & ring) const {
 		auto r = ring.check_bounds(offset, "fp12 offset");
 		if (r.first != BigInt(0)) {
@@ -193,6 +207,15 @@ class FP12Ring {
 		}
 		return r.second;
 	}
+
+	const auto& offset_value() const {
+		return offset;
+	}
+#else
+	const auto& offset_value() const {
+		return offset;
+	}
+#endif
 
 	/* 
 	Polynomial 0(22) : 1 x0y0 -1 x1y1 +1 x2y4 -1 x2y5 -1 x3y4 -1 x3y5 +1 x4y2 -1 x4y3 -1 x5y2 -1 x5y3 +1 x6y10 -1 x6y11 -1 x7y10 -1 x7y11 +1 x8y8 -1 x8y9 -1 x9y8 -1 x9y9 +1 x10y6 -1 x10y7 -1 x11y6 -1 x11y7

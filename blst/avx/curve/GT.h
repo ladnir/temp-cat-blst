@@ -26,9 +26,7 @@ using PairingFp2LeftPrepared = decltype(std::declval<PairingFp2Element>().prep_l
 
 inline const Ring& ring()
 {
-    static const Ring value(
-        BigInt("4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787",
-               10));
+    static const Ring value;
     return value;
 }
 

@@ -11,6 +11,7 @@ option(BLST_ASAN         "Enable Address Sanitizer" OFF)
 option(BLST_AVX512       "Enable AVX512 code paths" OFF)
 option(BLST_DEFAULT_AVX  "Prefer AVX implementations by default when available" ${BLST_AVX512})
 option(BLST_AVX512_PORTABLE "Enable AVX512 emulation code paths" OFF)
+option(BLST_AVX_VALIDATE_CONSTANTS "Enable GMP-backed validation of baked AVX constants" OFF)
 option(BLST_ALLOW_UNSUPPORTED_AVX_COMPILER "Allow AVX builds with unsupported compilers" OFF)
 option(BLAS_UBSAN        "Enable UB Sanitizer" OFF)
 option(BLST_TEST         "Build test executables" ON)
@@ -77,6 +78,7 @@ message("BLST_DEFAULT_ASM     = ${BLST_DEFAULT_ASM}") # use asm as the default i
 message("BLST_AVX512          = ${BLST_AVX512}")  #
 message("BLST_DEFAULT_AVX     = ${BLST_DEFAULT_AVX}")  #
 message("BLST_AVX512_PORTABLE = ${BLST_AVX512_PORTABLE}")  #
+message("BLST_AVX_VALIDATE_CONSTANTS = ${BLST_AVX_VALIDATE_CONSTANTS}")  #
 message("BLST_ALLOW_UNSUPPORTED_AVX_COMPILER = ${BLST_ALLOW_UNSUPPORTED_AVX_COMPILER}")  #
 message("BLST_CUDA            = ${BLST_CUDA}")     # enable the cude impl (gpu)
 message("BLST_CUDA_MSM        = ${BLST_CUDA_MSM}")     # enable the cude impl (gpu)

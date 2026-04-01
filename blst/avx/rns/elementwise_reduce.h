@@ -171,6 +171,18 @@ class MontgomeryReduce2 {
         return min_sub_reduce<2, 1>(reduce_wide(bounded)).data;
     }
 
+    INLINE void get_moduli(std::array<uint64_t, limbs>& out) const {
+        moduli_multiples[0].store(out.data());
+    }
+
+    INLINE void get_mont_factor(std::array<uint64_t, limbs>& out) const {
+        mont_arr.store(out.data());
+    }
+
+    INLINE void get_t_squared(std::array<uint64_t, limbs>& out) const {
+        mont_convert_factor.store(out.data());
+    }
+
 
 };
 

@@ -10,8 +10,13 @@
 #include <cstddef>
 #include <cstring>
 
+#if BLST_AVX_VALIDATE_CONSTANTS
+#include "../common/gmp_wrapper.h"
+#endif
+
 namespace blst::avx {
 
+#if BLST_AVX_VALIDATE_CONSTANTS
 namespace avx_blst_scalar_bridge {
 
 inline blst::Fp bigint_to_scalar_fp(const BigInt& value)
@@ -90,6 +95,7 @@ inline std::array<typename Ring::StandardElement, 12> scalar_fp12_to_ring(
 }
 
 }  // namespace avx_blst_scalar_bridge
+#endif
 
 namespace avx_blst_direct_bridge {
 

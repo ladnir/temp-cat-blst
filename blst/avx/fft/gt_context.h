@@ -32,7 +32,7 @@ struct AvxGt52
 
     static const Ring& ring()
     {
-        static const Ring instance(BigInt(kAvxGt52BaseModulus, 10));
+        static const Ring instance;
         return instance;
     }
 

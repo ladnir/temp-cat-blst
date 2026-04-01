@@ -2,8 +2,10 @@
 #include "ring_element.h"
 #include "elementwise_reduce.h"
 #include "change_base.h"
-#include "../cpu/precompute/gmp_wrapper.hpp"
 #include "../cpu/vector/multiplication.hpp"
+#include "../runtime_constants.h"
+#include "../../common/bytes.h"
+#include "../../fields/Fp.h"
 #include <array>
 #include <tuple>
 #include <utility>
@@ -33,8 +35,6 @@ class BoundedRing {
     static constexpr int required_redundance_bits = ceil_log2(RNS_REDUNDANT_MULTIPLE);
     static_assert(modulus_bits + required_redundance_bits <= RNS_BITS, "Modulus bits + required redundance must be less than or equal to RNS bits (conservative bound)");
 
-    BigInt modulus;
-    
     public:
     
     // In theory we could pass these reducers to the IntRNS2System constructor (also would fix the hardcoded 52 bit operations for the IntRNS2System)
@@ -74,6 +74,51 @@ class BoundedRing {
 
     private:
 
+    static INLINE StandardElement make_standard_element(
+        const std::array<uint64_t, limbs>& m1,
+        const std::array<uint64_t, limbs>& m2)
+    {
+        return StandardElement(StandardBoundedElement(AVXVector<limbs>(m1)), StandardBoundedElement(AVXVector<limbs>(m2)));
+    }
+
+    template<int64_t rns_bound>
+    static INLINE OffsetElement<rns_bound> make_offset_element(
+        const std::array<uint64_t, limbs>& m1,
+        const std::array<uint64_t, limbs>& m2)
+    {
+        return OffsetElement<rns_bound>(FullyReducedElement(AVXVector<limbs>(m1)), FullyReducedElement(AVXVector<limbs>(m2)));
+    }
+
+    static INLINE AVXVector<limbs> scalar_fp_to_digits(const blst::Fp& value)
+    {
+        static_assert(limbs == 8, "The baked AVX field bridge currently supports only the 8-limb AVX layouts.");
+
+        blst::Fp canonical = {};
+        blst::Fp::from_mont(canonical, value);
+
+        const uint64_t* limbs_64 = canonical.data;
+        std::array<uint64_t, 8> digits = {};
+        digits[0] = limbs_64[0] & ((1ULL << 52) - 1);
+        digits[1] = ((limbs_64[0] >> 52) | (limbs_64[1] << 12)) & ((1ULL << 52) - 1);
+        digits[2] = ((limbs_64[1] >> 40) | (limbs_64[2] << 24)) & ((1ULL << 52) - 1);
+        digits[3] = ((limbs_64[2] >> 28) | (limbs_64[3] << 36)) & ((1ULL << 52) - 1);
+        digits[4] = ((limbs_64[3] >> 16) | (limbs_64[4] << 48)) & ((1ULL << 52) - 1);
+        digits[5] = (limbs_64[4] >> 4) & ((1ULL << 52) - 1);
+        digits[6] = ((limbs_64[4] >> 56) | (limbs_64[5] << 8)) & ((1ULL << 52) - 1);
+        digits[7] = (limbs_64[5] >> 44) & ((1ULL << 52) - 1);
+        return AVXVector<limbs>(digits);
+    }
+
+#if BLST_AVX_VALIDATE_CONSTANTS
+    static INLINE const BigInt& base_modulus_bigint()
+    {
+        static const BigInt modulus(
+            "4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787",
+            10);
+        return modulus;
+    }
+#endif
+
     // One in RNS
     StandardElement one_;
     // Used to make the largest possible negative value positive.
@@ -86,35 +131,21 @@ class BoundedRing {
 
     public:
 
-    BoundedRing(const BigInt &modulus)
-        : modulus(modulus)
+    BoundedRing()
+        :
         // 2 * RNS_MAX to allow for negative range
         // 9p * max redundance for elementwise reduction
-        , sys(make_IntRNS2SystemMontgomery<modulus_bits, limbs>(modulus, element_bits, RNS_REDUNDANT_MULTIPLE))
+          sys(make_IntRNS2SystemBaked<modulus_bits, limbs>(runtime_constants<element_bits>()))
          // There reducers differ in that they return without conditional correction (this should help when element_bits = 50, but has no advantage at 52)
         , montgomery_reduce_m1(sys.moduli1)
         , montgomery_reduce_m2(sys.moduli2)
         // To and from operate on 52 bit chunks independently of element bits, we let the system handle the digit calculation.
     {
-        auto one_exact = sys.to_mont_exact(BigInt(1));
-        auto one_m1 = StandardBoundedElement(AVXVector<limbs>(one_exact.first));
-        auto one_m2 = StandardBoundedElement(AVXVector<limbs>(one_exact.second));
-        one_ = StandardElement(one_m1, one_m2);
-        // This also needs the multiplication by (3p)*(3p) = 9p^2 redundance for products.
-        auto max_neg_offset_exact = sys.to_mont_exact(BigInt(-RNS_MAX_NEG*9*modulus*modulus), true);
-        auto max_neg_m1 = FullyReducedElement(AVXVector<limbs>(max_neg_offset_exact.first));
-        auto max_neg_m2 = FullyReducedElement(AVXVector<limbs>(max_neg_offset_exact.second));
-        max_neg_offset = OffsetElement<-RNS_MAX_NEG>(max_neg_m1, max_neg_m2);
-
-        // 3p = 1 RNS bound.
-        auto modulus_in_rns_exact = sys.to_mont_exact(3*modulus);
-        auto modulus_in_rns_m1 = FullyReducedElement(AVXVector<limbs>(modulus_in_rns_exact.first));
-        auto modulus_in_rns_m2 = FullyReducedElement(AVXVector<limbs>(modulus_in_rns_exact.second));
-        modulus_in_rns = OffsetElement<1>(modulus_in_rns_m1, modulus_in_rns_m2);
-        auto six_modulus_in_rns_exact = sys.to_mont_exact(6*3*modulus);
-        auto six_modulus_in_rns_m1 = FullyReducedElement(AVXVector<limbs>(six_modulus_in_rns_exact.first));
-        auto six_modulus_in_rns_m2 = FullyReducedElement(AVXVector<limbs>(six_modulus_in_rns_exact.second));
-        six_modulus_in_rns = OffsetElement<6>(six_modulus_in_rns_m1, six_modulus_in_rns_m2);
+        const auto& constants = runtime_constants<element_bits>();
+        one_ = make_standard_element(constants.one_m1, constants.one_m2);
+        max_neg_offset = make_offset_element<-RNS_MAX_NEG>(constants.max_neg_offset_m1, constants.max_neg_offset_m2);
+        modulus_in_rns = make_offset_element<1>(constants.modulus_in_rns_m1, constants.modulus_in_rns_m2);
+        six_modulus_in_rns = make_offset_element<6>(constants.six_modulus_in_rns_m1, constants.six_modulus_in_rns_m2);
     }
 
     static INLINE StandardElement zero() {
@@ -123,6 +154,18 @@ class BoundedRing {
 
     INLINE StandardElement one() const {
         return one_;
+    }
+
+    INLINE const auto& max_neg_offset_value() const {
+        return max_neg_offset;
+    }
+
+    INLINE const auto& modulus_in_rns_value() const {
+        return modulus_in_rns;
+    }
+
+    INLINE const auto& six_modulus_in_rns_value() const {
+        return six_modulus_in_rns;
     }
     
     static INLINE auto wrap(const std::pair<AVXVector<limbs>, AVXVector<limbs>> &elements) {
@@ -138,17 +181,15 @@ class BoundedRing {
 
     template<int bytes>
     INLINE auto from_hex(const char(&lit)[bytes]) const {
-        // Strip "0x" or "0X" prefix if present, as GMP's mpz_set_str doesn't accept it when base is explicitly set
-        std::string hex_str(lit);
-        if (hex_str.length() >= 2 && (hex_str.substr(0, 2) == "0x" || hex_str.substr(0, 2) == "0X")) {
-            hex_str = hex_str.substr(2);
+        blst::Fp canonical = {};
+        const char* hex = lit;
+        if (bytes >= 3 && lit[0] == '0' && (lit[1] == 'x' || lit[1] == 'X')) {
+            hex = lit + 2;
         }
-        BigInt a = BigInt(hex_str.c_str(), 16);
-        return wrap(sys.to_mont_exact(a, false));
-    }
-
-    INLINE BigInt to_bigint(const StandardElement &element) const {
-        return sys.from_mont_avx(element.m2.data);
+        blst::limbs_from_hexascii(canonical.data, sizeof(canonical), hex);
+        blst::Fp mont = {};
+        blst::Fp::to_mont(mont, canonical);
+        return convert_to_rns_batch<1>(std::array<AVXVector<limbs>, 1>{scalar_fp_to_digits(mont)})[0];
     }
 
     template<int lower_bound, int upper_bound, class RNSBounds>
@@ -382,7 +423,8 @@ class BoundedRing {
         return batch_expand<batch>(c_m2);
     }
 
-    
+
+#if BLST_AVX_VALIDATE_CONSTANTS
     template<int batch>
     INLINE std::array<StandardElement, batch> from_bigint_batch(const std::array<BigInt, batch> &a) const {
         auto [c_m2_hi, c_m2_lo] = sys.convert_to.template batch_convert_to_rns<batch>(a);
@@ -393,6 +435,7 @@ class BoundedRing {
         }
         return batch_expand<batch>(result);
     }
+#endif
 
     template<int batch>
     INLINE std::array<StandardElement, batch> convert_to_rns_batch(const std::array<AVXVector<limbs>, batch> &c_m2) const {
@@ -407,10 +450,12 @@ class BoundedRing {
         return batch_expand<batch>(result);
     }
     
+    #if BLST_AVX_VALIDATE_CONSTANTS
     INLINE StandardElement from_bigint(const BigInt &a) const {
         std::array<BigInt, 1> a_array = {a};
         return from_bigint_batch<1>(a_array)[0];
     }
+    #endif
 
     // Helper to convert variadic arguments to array using index_sequence
     template<int64_t A, typename... Args, std::size_t... I>
@@ -470,13 +515,14 @@ class BoundedRing {
         return x * std::integral_constant<int, 12>();
     }
 
-    
+
     // Find a number matching the bounds.
+#if BLST_AVX_VALIDATE_CONSTANTS
     template<int ele_bound, int rns_bound>
     INLINE WideOffsetElement<ele_bound, rns_bound> compute_wide_offset() const {
         static_assert(ele_bound >= 0, "Element bound must be non-negative");
         static_assert(ele_bound <= 1ull << (64 - 52), "Element bound must be less than or equal to 2**(64 - 52)");
-        BigInt desired_value = 9 * rns_bound * modulus * modulus;
+        BigInt desired_value = 9 * rns_bound * base_modulus_bigint() * base_modulus_bigint();
         auto desired_value_rns = sys.to_mont_exact(desired_value, true);
         std::array<uint64_t, limbs> val_m1_high;
         std::array<uint64_t, limbs> val_m2_high;
@@ -517,7 +563,9 @@ class BoundedRing {
         auto w2 = WType(ElementType(val_m2_high_avx), ElementType(val_m2_low_avx));
         return WideOffsetElement<ele_bound, rns_bound>(w1, w2);
     }
+#endif
 
+#if BLST_AVX_VALIDATE_CONSTANTS
     template<int64_t lower, int64_t upper, int64_t rns_lower, int64_t rns_upper>
     INLINE auto check_bounds(const ExpandedElement<BoundedElement<Bounds<lower, upper>, limbs, element_bits>, Bounds<rns_lower, rns_upper>> &element, const std::string &context = "") const {
         bool ok = true;
@@ -651,6 +699,7 @@ class BoundedRing {
         
         return ok;
     }
+#endif
 };
 
 }  // namespace blst::avx

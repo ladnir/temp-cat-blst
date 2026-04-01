@@ -1,6 +1,6 @@
 #pragma once
 #include "../vector/vector_impl.hpp"
-#include "../precompute/gmp_wrapper.hpp"
+#include "../../common/constexpr_utils.h"
 #ifndef USE_AVX512_FALLBACK
 #include <immintrin.h>
 #endif
@@ -36,17 +36,13 @@ class MontgomeryReduce {
         uint64_t mont_arr[LOAD_SIZE];
         uint64_t tsq_arr[LOAD_SIZE];
 
-        // Prepare BigInt constants
-        BigInt r_mod = BigInt(1) << mulbits;           // 2^mulbits
-        BigInt t2 = BigInt(1) << (2 * bits);           // 2^(2*bits)
+        constexpr uint64_t r_mod = uint64_t(1) << mulbits;
+        const uint128_t t2 = uint128_t(1) << (2 * bits);
 
         for (int i = 0; i < limbs; i++) {
             moduli_arr[i] = moduli_in[i];
-            BigInt m(moduli_in[i]);
-            BigInt inv = m.mod_inverse(r_mod);
-            mont_arr[i] = inv.to_u64();
-            BigInt tsq = t2 % m;
-            tsq_arr[i] = tsq.to_u64();
+            mont_arr[i] = mod_inverse(moduli_in[i], r_mod);
+            tsq_arr[i] = t2 % moduli_in[i];
         }
         // If vector width exceeds limbs, zero the rest
         for (int i = limbs; i < LOAD_SIZE; i++) {

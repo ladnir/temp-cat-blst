@@ -110,7 +110,7 @@ INLINE auto batch_change_base(const std::array<ReadyToReduce<WideM2, ReducedM1>,
         out_hi[i] = inputs[i].acc.high.data;
         out_lo[i] = inputs[i].acc.low.data;
     }
-    rns_matrix.template rns_reduce_raw_batch<batch, 2>(&residues1, out_hi, out_lo);
+    rns_matrix.template rns_reduce_raw_batch_shifted<batch>(&residues1, out_hi, out_lo);
     // Adds m1_bound limbs time in accumulate loop
     // correction is bounded by m1_bound * limbs, and add_correction adds another m1_bound * limbs
     auto change_base_bounds = Bounds<0, 2*limbs*ReducedM1::bounds.upper>{};

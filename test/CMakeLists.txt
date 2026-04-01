@@ -41,6 +41,7 @@ set(SCALAR_BACKEND_TEST_SOURCES
 
 # AVX backend tests should exercise the explicit blst::avx surface.
 set(AVX_BACKEND_TEST_SOURCES)
+set(AVX_VALIDATION_TEST_SOURCES)
 
 set(TEST_SOURCES
     ${PUBLIC_API_TEST_SOURCES}
@@ -50,27 +51,16 @@ if(NOT BLST_DEFAULT_AVX)
     list(APPEND TEST_SOURCES ${SCALAR_BACKEND_TEST_SOURCES})
 endif()
 
-if(BLST_HAVE_AVX_BASEFIELD)
-    list(APPEND AVX_BACKEND_TEST_SOURCES
-        "avx/Avx_basefield_tests.cpp"
-        "avx/Avx_basefield_50bit_tests.cpp"
-        "avx/Avx_curve_tests.cpp"
-        "avx/Avx_curve_50bit_tests.cpp"
-        "avx/Avx_fp12_tests.cpp"
-        "avx/Avx_fp12_50bit_tests.cpp"
-        "avx/Avx_gt_glv4_tests.cpp"
-        "avx/Avx_miller_tests.cpp"
-        "avx/Avx_miller_50bit_tests.cpp"
-        "avx/Avx_pairing_tests.cpp"
-        "avx/Avx_pairing_50bit_tests.cpp"
-        "avx/Avx_scalar_mult_tests.cpp"
-        "avx/Avx_scalar_mult_50bit_tests.cpp"
-        "avx/Avx_wrapper_tests.cpp"
-    )
-endif()
-
 if(BLST_HAVE_AVX_BASEFIELD AND NOT BLST_DEFAULT_AVX)
     list(APPEND TEST_SOURCES ${AVX_BACKEND_TEST_SOURCES})
+endif()
+
+if(BLST_HAVE_AVX_VALIDATION_GMP)
+    list(APPEND AVX_VALIDATION_TEST_SOURCES
+        "avx/runtime_constants_validation_support.cpp"
+        "avx/Avx_runtime_constants_validation_tests.cpp"
+    )
+    list(APPEND TEST_SOURCES ${AVX_VALIDATION_TEST_SOURCES})
 endif()
 
 if(BLST_PARALLEL_MSM)
@@ -106,7 +96,7 @@ add_executable(blst_tests ${TEST_SOURCES})
 target_include_directories(blst_tests PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_link_libraries(blst_tests PRIVATE gtest_main blst_static blst_avx_headers)
 
-if(BLST_HAVE_AVX_BASEFIELD AND MSVC)
+if(BLST_HAVE_AVX_VALIDATION_GMP AND MSVC)
     add_custom_command(TARGET blst_tests POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<$<CONFIG:Debug>:${BLST_AVX_MPIR_DEBUG_DLL}>
