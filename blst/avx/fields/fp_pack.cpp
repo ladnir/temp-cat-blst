@@ -743,7 +743,7 @@ void conv_48to64_mpi(u64 *r, const u64 *a, int rlen, int alen)
 
 void carryp_mpi48(u64 *a)
 {
-  int i;
+  u64 i;
 
   for (i = 0; i < NWORDS-1; i++) {
     a[i+1] += a[i]>>BRADIX;
@@ -787,7 +787,7 @@ void FpPack4x2::carryp(FpPack4x2& a)
 
 void FpPack8x1::get_channel(u64* BLST_restrict r, const FpPack8x1& a, const int ch) 
 {
-  int i;
+  u64 i;
 
   for(i = 0; i < NWORDS; i++) {
     r[i] = ((u64 *)&a[i])[ch];
@@ -796,7 +796,7 @@ void FpPack8x1::get_channel(u64* BLST_restrict r, const FpPack8x1& a, const int 
 
 void FpPack4x2::get_channel(u64* BLST_restrict r, const FpPack4x2& a, const int ch) 
 {
-  int i;
+  u64 i;
 
   for(i = 0; i < VWORDS; i++) {
     r[i] = ((u64 *)&a[i])[ch];
@@ -1591,7 +1591,7 @@ void UFpPack4x2::add(UFpPack4x2& r, const UFpPack4x2& a, const UFpPack4x2& b)
   const cc512i bmask0 = VSET(0, BMASK, 0, BMASK, 0, BMASK, 0, BMASK);
   const cc512i bmask1 = VSET1(BMASK);
   cc512i r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11; 
-  cc512i t0, t1, t2, t3, smask;
+  cc512i t0, smask;
 
   // r = a + b
   r0  = VADD(a0 , b0 ); r1  = VADD(a1 , b1 );
@@ -1669,7 +1669,7 @@ void UFpPack4x2::sub(UFpPack4x2& r, const UFpPack4x2& a, const UFpPack4x2& b)
   const cc512i bmask0 = VSET(0, BMASK, 0, BMASK, 0, BMASK, 0, BMASK);
   const cc512i bmask1 = VSET1(BMASK);
   cc512i r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11; 
-  cc512i t0, t1, t2, t3, smask;
+  cc512i t0, smask;
 
   // r = a - b
   r0  = VSUB(a0 , b0 ); r1  = VSUB(a1 , b1 );
@@ -2595,7 +2595,7 @@ BLST_FORCEINLINE void fp8x1_mul_redc_core_k2(
     cc512i y0  = VZERO(), y1  = VZERO(), y2  = VZERO(), y3  = VZERO();
     cc512i y4  = VZERO(), y5  = VZERO(), y6  = VZERO(), y7  = VZERO();
     cc512i y8  = VZERO(), y9  = VZERO(), y10 = VZERO(), y11 = VZERO();
-    cc512i y12 = VZERO(), y13 = VZERO(), y14 = VZERO(), y15 = VZERO();
+    cc512i y12 = VZERO(), y13 = VZERO(), y14 = VZERO();
     cc512i m0  = VZERO(), m1  = VZERO(), m2  = VZERO(), m3  = VZERO();
     cc512i m4  = VZERO(), m5  = VZERO(), m6  = VZERO(), m7  = VZERO();
 
