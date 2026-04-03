@@ -187,7 +187,7 @@ namespace blst
                 info, info_len, 1, &scratch.ctx);
 
             /* SK = OS2IP(OKM) mod r */
-            vec_zero(scratch.key.data, sizeof(scratch.key));
+            vec_zero(scratch.ufr, sizeof(scratch.ufr));
             limbs_from_be_bytes(scratch.ufr, scratch.OKM, sizeof(scratch.OKM));
             Fr::redc(scratch.key, scratch.ufr);
             /*
