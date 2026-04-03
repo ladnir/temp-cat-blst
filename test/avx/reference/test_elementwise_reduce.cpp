@@ -239,7 +239,7 @@ void test_elementwise_reduce() {
 
 int main() {
     std::cout << "Testing Elementwise Reduce operations" << std::endl;
-    std::cout << "Using -DUSE_AVX512_FALLBACK" << std::endl;
+    std::cout << "Using wrapper-backed AVXVector implementation" << std::endl;
     std::cout << "Moduli: t = 1, 3, 5, 7, 11, 13, 17, 19" << std::endl;
     
     // Test with limbs=8, element_bits=52

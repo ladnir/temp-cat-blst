@@ -20,7 +20,7 @@
 #  include <cstdio>  // for printf
 #  include <cstdlib> // for abort
 #  if defined(_MSC_VER) && !defined(__CUDA_ARCH__)
-#    include <windows.h> // for IsDebuggerPresent
+extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
 #  endif
 #endif
 

@@ -1,9 +1,6 @@
 #pragma once
 #include "../vector/vector_impl.hpp"
 #include "../../common/constexpr_utils.h"
-#ifndef USE_AVX512_FALLBACK
-#include <immintrin.h>
-#endif
 
 namespace blst::avx {
 
@@ -27,11 +24,7 @@ class MontgomeryReduce {
 
     // Constructor that computes parameters from moduli, matching python_reduction.MontgomeryReduce
     inline MontgomeryReduce(const std::array<uint64_t, limbs> &moduli_in) {
-#ifdef USE_AVX512_FALLBACK
-        constexpr int LOAD_SIZE = limbs;
-#else
         constexpr int LOAD_SIZE = AVXVector<limbs>::VEC_LIMBS * AVXVector<limbs>::LIMBS_PER_VEC;
-#endif
         uint64_t moduli_arr[LOAD_SIZE];
         uint64_t mont_arr[LOAD_SIZE];
         uint64_t tsq_arr[LOAD_SIZE];

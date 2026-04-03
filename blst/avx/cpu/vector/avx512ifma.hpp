@@ -1,12 +1,11 @@
 #pragma once
-#include <immintrin.h>
-#include <stdint.h>
-#include <cstdio>
+
+#include "blst/backend/avx512/intrin_compat.h"
+
+#include <algorithm>
 #include <array>
-
-// Class abstracting vector of length greater than 1 AVX vector.
-// Perhaps if a vector only uses one limb, you can abstract accodingly
-
+#include <cstdint>
+#include <cstdio>
 
 namespace blst::avx {
 
@@ -14,46 +13,42 @@ inline constexpr int ceil_div(int n, int d) {
     return (n + d - 1) / d;
 }
 
-typedef __m512i AVXScalar;
+using AVXScalar = cc512i;
 
 inline AVXScalar Scalar(uint64_t v) {
-    return _mm512_set1_epi64(v);
+    return _cc512_set1_epi64(static_cast<long long>(v));
 }
 
-// Used in constexpr like code, which is why it is a separate function as _mm512_set1_epi64 is not constexpr
 inline AVXScalar get_scalar_mask(int bits) {
-    uint64_t v = ((uint64_t)(1) << bits) - 1;
-    int64_t vi = (int64_t)(v);
-    __m512i repl = {vi,vi,vi,vi,vi,vi,vi,vi};
-    return AVXScalar(repl);
+    const uint64_t value = (static_cast<uint64_t>(1) << bits) - 1;
+    return Scalar(value);
 }
 
 inline AVXScalar scalar_shift(const AVXScalar &s, int bits) {
-    return _mm512_srli_epi64(s, bits);
+    return _cc512_srli_epi64(s, bits);
 }
 
-// number of 52 bit limbs
 template <int limbs>
 class AVXVector {
-    // 8 52 bit limbs per AVX vector
-    public:
+public:
     static constexpr int LIMBS_PER_VEC = 8;
     static constexpr int VEC_LIMBS = ceil_div(limbs, LIMBS_PER_VEC);
 
-    public:
-    std::array<__m512i, VEC_LIMBS> data;
-    inline __m512i operator[] (const int idx) const {
-        return data[idx];
-    }
-    inline __m512i& operator[] (const int idx) {
+    std::array<cc512i, VEC_LIMBS> data;
+
+    inline cc512i operator[] (const int idx) const {
         return data[idx];
     }
 
+    inline cc512i& operator[] (const int idx) {
+        return data[idx];
+    }
 
     AVXVector() = default;
+
     inline AVXVector(uint64_t v) {
         for (int i = 0; i < VEC_LIMBS; i++) {
-            data[i] = _mm512_set1_epi64(v);
+            data[i] = Scalar(v);
         }
     }
 
@@ -65,7 +60,7 @@ class AVXVector {
         load(values.data());
     }
 
-    inline constexpr AVXVector(const std::array<__m512i, VEC_LIMBS> &array) {
+    inline AVXVector(const std::array<cc512i, VEC_LIMBS> &array) {
         for (int i = 0; i < VEC_LIMBS; i++) {
             data[i] = array[i];
         }
@@ -74,20 +69,19 @@ class AVXVector {
     inline AVXVector permute(const AVXVector &perm) const {
         AVXVector out;
         for (int i = 0; i < VEC_LIMBS; i++) {
-            out[i] = _mm512_permutexvar_epi64(data[i], perm[i]);
+            out[i] = _cc512_permutexvar_epi64(perm[i], data[i]);
         }
         return out;
     }
 
-    inline __m512i getm512() const {
+    inline cc512i getm512() const {
         return data[0];
     }
-
 
     inline AVXVector mulhi(const AVXVector &a, const AVXVector &b) const {
         AVXVector out;
         for (int i = 0; i < VEC_LIMBS; i++) {
-            out[i] = _mm512_madd52hi_epu64(data[i], a[i], b[i]);
+            out[i] = _cc512_madd52hi_epu64(data[i], a[i], b[i]);
         }
         return out;
     }
@@ -95,7 +89,7 @@ class AVXVector {
     inline AVXVector mullo(const AVXVector &a, const AVXVector &b) const {
         AVXVector out;
         for (int i = 0; i < VEC_LIMBS; i++) {
-            out[i] = _mm512_madd52lo_epu64(data[i], a[i], b[i]);
+            out[i] = _cc512_madd52lo_epu64(data[i], a[i], b[i]);
         }
         return out;
     }
@@ -103,7 +97,7 @@ class AVXVector {
     inline AVXVector mulhi_scalar(const AVXVector &a, const AVXScalar &s) const {
         AVXVector out;
         for (int i = 0; i < VEC_LIMBS; i++) {
-            out[i] = _mm512_madd52hi_epu64(data[i], a[i], s);
+            out[i] = _cc512_madd52hi_epu64(data[i], a[i], s);
         }
         return out;
     }
@@ -111,7 +105,7 @@ class AVXVector {
     inline AVXVector mullo_scalar(const AVXVector &a, const AVXScalar &s) const {
         AVXVector out;
         for (int i = 0; i < VEC_LIMBS; i++) {
-            out[i] = _mm512_madd52lo_epu64(data[i], a[i], s);
+            out[i] = _cc512_madd52lo_epu64(data[i], a[i], s);
         }
         return out;
     }
@@ -119,7 +113,7 @@ class AVXVector {
     inline AVXVector srli(const int bits) const {
         AVXVector out;
         for (int i = 0; i < VEC_LIMBS; i++) {
-            out[i] = _mm512_srli_epi64(data[i], bits);
+            out[i] = _cc512_srli_epi64(data[i], bits);
         }
         return out;
     }
@@ -127,7 +121,7 @@ class AVXVector {
     inline AVXVector slli(const int bits) const {
         AVXVector out;
         for (int i = 0; i < VEC_LIMBS; i++) {
-            out[i] = _mm512_slli_epi64(data[i], bits);
+            out[i] = _cc512_slli_epi64(data[i], bits);
         }
         return out;
     }
@@ -135,7 +129,7 @@ class AVXVector {
     inline AVXVector add(const AVXVector &other) const {
         AVXVector out;
         for (int i = 0; i < VEC_LIMBS; i++) {
-            out[i] = _mm512_add_epi64(data[i], other[i]);
+            out[i] = _cc512_add_epi64(data[i], other[i]);
         }
         return out;
     }
@@ -143,8 +137,8 @@ class AVXVector {
     inline AVXVector sub_min(const AVXVector &other) const {
         AVXVector out;
         for (int i = 0; i < VEC_LIMBS; i++) {
-            __m512i diff = _mm512_sub_epi64(data[i], other[i]);
-            out[i] = _mm512_min_epu64(data[i], diff);
+            const cc512i diff = _cc512_sub_epi64(data[i], other[i]);
+            out[i] = _cc512_min_epu64(data[i], diff);
         }
         return out;
     }
@@ -152,7 +146,7 @@ class AVXVector {
     inline AVXVector min(const AVXVector &other) const {
         AVXVector out;
         for (int i = 0; i < VEC_LIMBS; i++) {
-            out[i] = _mm512_min_epu64(data[i], other[i]);
+            out[i] = _cc512_min_epu64(data[i], other[i]);
         }
         return out;
     }
@@ -160,18 +154,17 @@ class AVXVector {
     inline AVXVector add_min(const AVXVector &other) const {
         AVXVector out;
         for (int i = 0; i < VEC_LIMBS; i++) {
-            __m512i diff = _mm512_add_epi64(data[i], other[i]);
-            out[i] = _mm512_min_epu64(data[i], diff);
+            const cc512i sum = _cc512_add_epi64(data[i], other[i]);
+            out[i] = _cc512_min_epu64(data[i], sum);
         }
         return out;
     }
 
     inline AVXVector cmp_sub(const AVXVector &value) const {
-        // HEXL: subtract, min
         AVXVector out;
         for (int i = 0; i < VEC_LIMBS; i++) {
-            __mmask8 mask = _mm512_cmpge_epi64_mask(data[i], value[i]);
-            out[i] = _mm512_mask_sub_epi64(data[i], mask, data[i], value[i]);
+            const uint64_t mask = _cc512_cmpge_epi64_mask(data[i], value[i]);
+            out[i] = _cc512_mask_sub_epi64(data[i], mask, data[i], value[i]);
         }
         return out;
     }
@@ -179,18 +172,17 @@ class AVXVector {
     inline AVXVector cmp_add(const AVXVector &v1, const AVXVector &v2, const AVXVector &val) {
         AVXVector out;
         for (int i = 0; i < VEC_LIMBS; i++) {
-            __mmask8 mask = _mm512_cmpgt_epi64_mask(v1[i], v2[i]);
-            out[i] = _mm512_mask_add_epi64(data[i], mask, data[i], val[i]);
+            const uint64_t mask = _cc512_cmpgt_epi64_mask(v1[i], v2[i]);
+            out[i] = _cc512_mask_add_epi64(data[i], mask, data[i], val[i]);
         }
         return out;
     }
 
-    // Conditional add without modulo: if v1 > v2, add val to this
     inline AVXVector mask_add_cond(const AVXVector &v1, const AVXVector &v2, const AVXVector &val) const {
         AVXVector out;
         for (int i = 0; i < VEC_LIMBS; i++) {
-            __mmask8 mask = _mm512_cmpgt_epi64_mask(v1[i], v2[i]);
-            out[i] = _mm512_mask_add_epi64(data[i], mask, data[i], val[i]);
+            const uint64_t mask = _cc512_cmpgt_epi64_mask(v1[i], v2[i]);
+            out[i] = _cc512_mask_add_epi64(data[i], mask, data[i], val[i]);
         }
         return out;
     }
@@ -198,7 +190,7 @@ class AVXVector {
     inline AVXVector and_scalar(const AVXScalar &other) const {
         AVXVector out;
         for (int i = 0; i < VEC_LIMBS; i++) {
-            out[i] = _mm512_and_epi64(data[i], other);
+            out[i] = _cc512_and_si512(data[i], other);
         }
         return out;
     }
@@ -206,19 +198,16 @@ class AVXVector {
     inline AVXVector bit_or(const AVXVector &other) const {
         AVXVector out;
         for (int i = 0; i < VEC_LIMBS; i++) {
-            out[i] = _mm512_or_epi64(data[i], other[i]);
+            out[i] = _cc512_or_si512(data[i], other[i]);
         }
         return out;
     }
 
     inline AVXVector ctime_select(const bool selection, const AVXVector &b) const {
-        // If selection is true, select a
-        // Blend selects b if mask is set to 1 (so if selection is false mask = 255)
-        // __mmask8 = selection ? 0 : 255; // Is this constant time?
-        __mmask8 mask = uint8_t(!selection) * ~uint8_t(0);
+        const uint64_t mask = static_cast<uint64_t>(static_cast<uint8_t>(!selection) * static_cast<uint8_t>(~uint8_t(0)));
         AVXVector out;
         for (int i = 0; i < VEC_LIMBS; i++) {
-            out[i] = _mm512_mask_blend_epi64(mask, data[i], b[i]);
+            out[i] = _cc512_mask_blend_epi64(mask, data[i], b[i]);
         }
         return out;
     }
@@ -226,42 +215,31 @@ class AVXVector {
     inline AVXVector sub(const AVXVector & other) const {
         AVXVector out;
         for (int i = 0; i < VEC_LIMBS; i++) {
-            out[i] = _mm512_sub_epi64(data[i], other[i]);
+            out[i] = _cc512_sub_epi64(data[i], other[i]);
         }
         return out;
     }
 
     inline uint64_t extract0() const {
-        // apparently fast?
-        return *(uint64_t*)(data);
+        std::array<uint64_t, LIMBS_PER_VEC> lanes{};
+        _cc512_storeu_si512(lanes.data(), data[0]);
+        return lanes[0];
     }
 
     inline void store(uint64_t* dst) const {
         for (int i = 0; i < VEC_LIMBS; i++) {
-            _mm512_storeu_epi64(dst + LIMBS_PER_VEC*i, data[i]);
+            _cc512_storeu_si512(dst + LIMBS_PER_VEC * i, data[i]);
         }
     }
 
     inline void load(uint64_t* src) {
         for (int i = 0; i < VEC_LIMBS; i++) {
-            data[i] = _mm512_loadu_epi64(src + LIMBS_PER_VEC*i);
+            data[i] = _cc512_loadu_si512(src + LIMBS_PER_VEC * i);
         }
     }
 
-    // inline void load(const std::array<uint64_t, VEC_LIMBS * LIMBS_PER_VEC> &src) {
-    //     for (int i = 0; i < VEC_LIMBS; i++) {
-    //         data[i] = _mm512_load_epi64(src.data() + LIMBS_PER_VEC*i);
-    //     }
-    // }
-
-    // inline void store(std::array<uint64_t, VEC_LIMBS * LIMBS_PER_VEC> &dst) const {
-    //     for (int i = 0; i < VEC_LIMBS; i++) {
-    //         _mm512_store_epi64(dst.data() + LIMBS_PER_VEC*i, data[i]);
-    //     }
-    // }
-
     inline void print(const char* label) const {
-        std::array<uint64_t, VEC_LIMBS * LIMBS_PER_VEC> values;
+        std::array<uint64_t, VEC_LIMBS * LIMBS_PER_VEC> values{};
         store(values.data());
         printf("%s: [", label);
         for (int i = 0; i < limbs; i++) {
@@ -271,9 +249,9 @@ class AVXVector {
     }
 
     inline std::array<uint64_t, limbs> to_array() const {
-        std::array<uint64_t, VEC_LIMBS * LIMBS_PER_VEC> values;
+        std::array<uint64_t, VEC_LIMBS * LIMBS_PER_VEC> values{};
         store(values.data());
-        std::array<uint64_t, limbs> result;
+        std::array<uint64_t, limbs> result{};
         std::copy(values.data(), values.data() + limbs, result.data());
         return result;
     }

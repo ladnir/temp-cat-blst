@@ -170,10 +170,6 @@ target_compile_options(blst_static PUBLIC
 # for in source builds, we need to include the build dir too (config.h)
 target_include_directories(blst_static PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/..)
 
-if(MSVC)
-    target_compile_definitions(blst_static PUBLIC NOMINMAX)
-endif()
-
 
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/config.h.in

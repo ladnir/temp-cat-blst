@@ -8,10 +8,6 @@ add_library(blst_avx_headers INTERFACE)
 set(BLST_HAVE_AVX_BASEFIELD OFF CACHE INTERNAL "Whether the copied AVX base-field layer is enabled.")
 set(BLST_HAVE_AVX_VALIDATION_GMP OFF CACHE INTERNAL "Whether GMP/MPIR is available for AVX constant validation.")
 
-if(BLST_AVX512_PORTABLE)
-    target_compile_definitions(blst_avx_headers INTERFACE USE_AVX512_FALLBACK)
-endif()
-
 if(BLST_AVX_VALIDATE_CONSTANTS)
     target_compile_definitions(blst_avx_headers INTERFACE BLST_AVX_VALIDATE_CONSTANTS=1)
 endif()

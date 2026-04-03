@@ -322,6 +322,37 @@ namespace blst
         return out;
     }
 
+    inline auto min_epu64_portable(const cc512i a, const cc512i b) -> cc512i
+    {
+        cc512i out{};
+        for (u64 i = 0; i < 8; ++i) {
+            out.lane[i] = (a.lane[i] < b.lane[i]) ? a.lane[i] : b.lane[i];
+        }
+        return out;
+    }
+
+    inline auto cmpgt_epi64_mask_portable(const cc512i a, const cc512i b) -> u64
+    {
+        u64 mask = 0;
+        for (u64 i = 0; i < 8; ++i) {
+            if (static_cast<i64>(a.lane[i]) > static_cast<i64>(b.lane[i])) {
+                mask |= (u64{1} << i);
+            }
+        }
+        return mask;
+    }
+
+    inline auto cmpge_epi64_mask_portable(const cc512i a, const cc512i b) -> u64
+    {
+        u64 mask = 0;
+        for (u64 i = 0; i < 8; ++i) {
+            if (static_cast<i64>(a.lane[i]) >= static_cast<i64>(b.lane[i])) {
+                mask |= (u64{1} << i);
+            }
+        }
+        return mask;
+    }
+
     template <int imm8>
     inline auto shuffle_epi32_portable(const cc512i a) -> cc512i
     {
@@ -652,6 +683,33 @@ namespace blst
         return from_native_512(_mm512_mask_blend_epi64(static_cast<__mmask8>(mask), to_native_512(a), to_native_512(b)));
 #else
         return mask_blend_epi64_portable(mask, a, b);
+#endif
+    }
+
+    BLST_FORCEINLINE auto _cc512_min_epu64(const cc512i a, const cc512i b) -> cc512i
+    {
+#if BLST_AVX_NATIVE
+        return from_native_512(_mm512_min_epu64(to_native_512(a), to_native_512(b)));
+#else
+        return min_epu64_portable(a, b);
+#endif
+    }
+
+    BLST_FORCEINLINE auto _cc512_cmpgt_epi64_mask(const cc512i a, const cc512i b) -> u64
+    {
+#if BLST_AVX_NATIVE
+        return static_cast<u64>(_mm512_cmpgt_epi64_mask(to_native_512(a), to_native_512(b)));
+#else
+        return cmpgt_epi64_mask_portable(a, b);
+#endif
+    }
+
+    BLST_FORCEINLINE auto _cc512_cmpge_epi64_mask(const cc512i a, const cc512i b) -> u64
+    {
+#if BLST_AVX_NATIVE
+        return static_cast<u64>(_mm512_cmpge_epi64_mask(to_native_512(a), to_native_512(b)));
+#else
+        return cmpge_epi64_mask_portable(a, b);
 #endif
     }
 
