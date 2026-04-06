@@ -8,6 +8,7 @@
 #include "blst/scalar/fields/Fp12.h"
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 #endif
+#include <bit>
 #include <string.h>
 #include "blst/fields/Fr.h"
 
@@ -1806,7 +1807,9 @@ namespace blst::scalar
 			bool carry = false;
 			if (r > (BLS_Z / 2)) {
 				carry = true;
-				k_out[i] = (int64_t)r - (int64_t)BLS_Z;
+				// Assume two's complement and reinterpret the wrapped
+				// unsigned delta as the intended negative balanced digit.
+				k_out[i] = std::bit_cast<int64_t>(r - BLS_Z);
 			}
 			else {
 				k_out[i] = (int64_t)r;

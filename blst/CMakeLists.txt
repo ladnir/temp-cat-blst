@@ -195,36 +195,8 @@ if(BLST_CUDA)
     target_include_directories(blst_static PUBLIC $<$<CXX_COMPILER_ID:MSVC>:${CUDAToolkit_INCLUDE_DIRS}>)
 endif()
 
-
-
-# Function to enable ASan for a target
-if(BLST_ASAN)
-    if(MSVC)
-        # Enable ASan for Visual Studio
-        target_compile_options(blst_static PRIVATE /fsanitize=address)
-            
-    elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-        # For GCC and Clang
-        target_compile_options(blst_static PRIVATE -fsanitize=address -fno-omit-frame-pointer)
-        target_link_options(blst_static PRIVATE -fsanitize=address)
-    endif()
-endif()
-
-if(BLAS_UBSAN)
-    if(MSVC)
-        # Enable UBSan for Visual Studio
-        if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        # UBSAN requires no iterator debugging in MSVC
-            #target_compile_definitions(blst_static PUBLIC _ITERATOR_DEBUG_LEVEL=0;_HAS_ITERATOR_DEBUGGING=0)
-            target_compile_options(blst_static PUBLIC /clang:-fsanitize=undefined)
-        else()
-            message(WARNING "UBSan is not supported with MSVC, only Clang on Windows")
-        endif()
-    elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-        # For GCC and Clang
-        target_compile_options(blst_static PUBLIC -fsanitize=undefined -fno-omit-frame-pointer)
-        target_link_options(blst_static PUBLIC -fsanitize=undefined)
-    endif()
+if(TARGET blst_sanitizers)
+    target_link_libraries(blst_static PUBLIC blst_sanitizers)
 endif()
 
 

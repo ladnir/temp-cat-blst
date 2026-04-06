@@ -4,6 +4,7 @@
 #include "blst/avx/fields/fp12.h"
 
 #include <array>
+#include <bit>
 #include <cstdint>
 
 #if defined(_MSC_VER) && defined(_M_X64)
@@ -63,7 +64,9 @@ inline void gt_split_scalar_4d(int64_t k_out[4], const uint64_t k_in[4])
         bool carry = false;
         if (remainder > (kBlsZ / 2)) {
             carry = true;
-            k_out[i] = static_cast<int64_t>(remainder) - static_cast<int64_t>(kBlsZ);
+            // Assume two's complement and reinterpret the wrapped
+            // unsigned delta as the intended negative balanced digit.
+            k_out[i] = std::bit_cast<int64_t>(remainder - kBlsZ);
         } else {
             k_out[i] = static_cast<int64_t>(remainder);
         }

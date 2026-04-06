@@ -13,7 +13,10 @@ option(BLST_DEFAULT_AVX  "Prefer AVX implementations by default when available" 
 option(BLST_AVX512_PORTABLE "Enable AVX512 emulation code paths" OFF)
 option(BLST_AVX_VALIDATE_CONSTANTS "Enable GMP-backed validation of baked AVX constants" OFF)
 option(BLST_ALLOW_UNSUPPORTED_AVX_COMPILER "Allow AVX builds with unsupported compilers" OFF)
-option(BLAS_UBSAN        "Enable UB Sanitizer" OFF)
+if(DEFINED BLAS_UBSAN AND NOT DEFINED BLST_UBSAN)
+    set(BLST_UBSAN "${BLAS_UBSAN}")
+endif()
+option(BLST_UBSAN        "Enable Undefined Behavior Sanitizer" OFF)
 option(BLST_TEST         "Build test executables" ON)
 option(BLST_BENCHMARK    "Build benchmark executables" ON)
 option(BLST_CUDA         "Enable CUDA support" OFF)
@@ -62,6 +65,105 @@ if(MSVC AND NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 
+if(DEFINED BLAS_UBSAN)
+    message(WARNING "BLAS_UBSAN is deprecated; use BLST_UBSAN instead.")
+endif()
+
+add_library(blst_sanitizers INTERFACE)
+
+if(BLST_ASAN OR BLST_UBSAN)
+    if(MSVC)
+        if(BLST_ASAN)
+            target_compile_options(blst_sanitizers INTERFACE /fsanitize=address)
+            target_link_options(blst_sanitizers INTERFACE /fsanitize=address)
+        endif()
+
+        if(BLST_UBSAN)
+            if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+                target_compile_options(blst_sanitizers INTERFACE /clang:-fsanitize=undefined)
+                target_link_options(blst_sanitizers INTERFACE /clang:-fsanitize=undefined)
+            else()
+                message(WARNING "UBSan is not supported with MSVC, only Clang on Windows")
+            endif()
+        endif()
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        set(BLST_SANITIZER_COMPILE_FLAGS)
+        set(BLST_SANITIZER_LINK_FLAGS)
+        set(BLST_SANITIZER_RPATHS)
+        if(BLST_ASAN)
+            list(APPEND BLST_SANITIZER_COMPILE_FLAGS -fsanitize=address)
+            list(APPEND BLST_SANITIZER_LINK_FLAGS -fsanitize=address)
+        endif()
+        if(BLST_UBSAN)
+            list(APPEND BLST_SANITIZER_COMPILE_FLAGS -fsanitize=undefined)
+            list(APPEND BLST_SANITIZER_LINK_FLAGS -fsanitize=undefined)
+        endif()
+        list(APPEND BLST_SANITIZER_COMPILE_FLAGS -fno-omit-frame-pointer)
+
+        target_compile_options(blst_sanitizers INTERFACE
+            $<$<COMPILE_LANGUAGE:C>:${BLST_SANITIZER_COMPILE_FLAGS}>
+            $<$<COMPILE_LANGUAGE:CXX>:${BLST_SANITIZER_COMPILE_FLAGS}>)
+        target_link_options(blst_sanitizers INTERFACE ${BLST_SANITIZER_LINK_FLAGS})
+
+        if(UNIX)
+            set(BLST_SANITIZER_RUNTIME_DIR "${CMAKE_BINARY_DIR}/sanitizer-runtime")
+
+            if(BLST_ASAN)
+                execute_process(
+                    COMMAND ${CMAKE_CXX_COMPILER} -print-file-name=libasan.so
+                    OUTPUT_VARIABLE BLST_ASAN_RUNTIME
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
+                if(BLST_ASAN_RUNTIME AND EXISTS "${BLST_ASAN_RUNTIME}")
+                    file(MAKE_DIRECTORY "${BLST_SANITIZER_RUNTIME_DIR}")
+                    get_filename_component(BLST_ASAN_RUNTIME_REALPATH "${BLST_ASAN_RUNTIME}" REALPATH)
+                    get_filename_component(BLST_ASAN_RUNTIME_DIR "${BLST_ASAN_RUNTIME_REALPATH}" DIRECTORY)
+                    list(APPEND BLST_SANITIZER_RPATHS "${BLST_ASAN_RUNTIME_DIR}")
+                    get_filename_component(BLST_ASAN_RUNTIME_NAME "${BLST_ASAN_RUNTIME_REALPATH}" NAME)
+                    if(BLST_ASAN_RUNTIME_NAME MATCHES "^(.*\\.so\\.[0-9]+)\\..*$")
+                        set(BLST_ASAN_SONAME "${CMAKE_MATCH_1}")
+                        execute_process(
+                            COMMAND ${CMAKE_COMMAND} -E create_symlink
+                                "${BLST_ASAN_RUNTIME_REALPATH}"
+                                "${BLST_SANITIZER_RUNTIME_DIR}/${BLST_ASAN_SONAME}")
+                        list(APPEND BLST_SANITIZER_RPATHS "${BLST_SANITIZER_RUNTIME_DIR}")
+                    endif()
+                endif()
+            endif()
+
+            if(BLST_UBSAN)
+                execute_process(
+                    COMMAND ${CMAKE_CXX_COMPILER} -print-file-name=libubsan.so
+                    OUTPUT_VARIABLE BLST_UBSAN_RUNTIME
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
+                if(BLST_UBSAN_RUNTIME AND EXISTS "${BLST_UBSAN_RUNTIME}")
+                    file(MAKE_DIRECTORY "${BLST_SANITIZER_RUNTIME_DIR}")
+                    get_filename_component(BLST_UBSAN_RUNTIME_REALPATH "${BLST_UBSAN_RUNTIME}" REALPATH)
+                    get_filename_component(BLST_UBSAN_RUNTIME_DIR "${BLST_UBSAN_RUNTIME_REALPATH}" DIRECTORY)
+                    list(APPEND BLST_SANITIZER_RPATHS "${BLST_UBSAN_RUNTIME_DIR}")
+                    get_filename_component(BLST_UBSAN_RUNTIME_NAME "${BLST_UBSAN_RUNTIME_REALPATH}" NAME)
+                    if(BLST_UBSAN_RUNTIME_NAME MATCHES "^(.*\\.so\\.[0-9]+)\\..*$")
+                        set(BLST_UBSAN_SONAME "${CMAKE_MATCH_1}")
+                        execute_process(
+                            COMMAND ${CMAKE_COMMAND} -E create_symlink
+                                "${BLST_UBSAN_RUNTIME_REALPATH}"
+                                "${BLST_SANITIZER_RUNTIME_DIR}/${BLST_UBSAN_SONAME}")
+                        list(APPEND BLST_SANITIZER_RPATHS "${BLST_SANITIZER_RUNTIME_DIR}")
+                    endif()
+                endif()
+            endif()
+
+            list(REMOVE_DUPLICATES BLST_SANITIZER_RPATHS)
+            foreach(BLST_SANITIZER_RPATH IN LISTS BLST_SANITIZER_RPATHS)
+                target_link_options(blst_sanitizers INTERFACE "-Wl,-rpath,${BLST_SANITIZER_RPATH}")
+            endforeach()
+        endif()
+    else()
+        message(WARNING
+            "Sanitizers requested, but no sanitizer flags are configured for "
+            "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}.")
+    endif()
+endif()
+
 
 
 message("Configuration:")
@@ -80,6 +182,8 @@ message("BLST_DEFAULT_AVX     = ${BLST_DEFAULT_AVX}")  #
 message("BLST_AVX512_PORTABLE = ${BLST_AVX512_PORTABLE}")  #
 message("BLST_AVX_VALIDATE_CONSTANTS = ${BLST_AVX_VALIDATE_CONSTANTS}")  #
 message("BLST_ALLOW_UNSUPPORTED_AVX_COMPILER = ${BLST_ALLOW_UNSUPPORTED_AVX_COMPILER}")  #
+message("BLST_ASAN            = ${BLST_ASAN}")     # enable address sanitizer
+message("BLST_UBSAN           = ${BLST_UBSAN}")    # enable undefined behavior sanitizer
 message("BLST_CUDA            = ${BLST_CUDA}")     # enable the cude impl (gpu)
 message("BLST_CUDA_MSM        = ${BLST_CUDA_MSM}")     # enable the cude impl (gpu)
 message("BLST_PARALLEL_MSM    = ${BLST_PARALLEL_MSM}") # enable parallel MSM pipeline
