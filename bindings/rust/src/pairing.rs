@@ -258,7 +258,7 @@ unsafe impl Send for Pairing {}
 pub fn uniq(msgs: &[&[u8]]) -> bool {
     let n_elems = msgs.len();
 
-    if n_elems == 1 {
+    if n_elems == 0 || n_elems == 1 {
         return true;
     } else if n_elems == 2 {
         return msgs[0] != msgs[1];

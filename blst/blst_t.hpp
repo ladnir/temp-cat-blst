@@ -431,6 +431,9 @@ public:
     {
         vec_zero(val, sizeof(val));
 
+        if (n == 0)
+            return *this;
+
         vec256 digit;
         size_t rem = (n - 1) % 32 + 1;
         n -= rem;

@@ -135,7 +135,11 @@ int rb_tree_insert(struct rb_tree *tree, const void *data, size_t len)
 #undef PAINT_BLACK
 
 size_t blst_uniq_sizeof(size_t n_nodes)
-{   return sizeof(struct rb_tree) + sizeof(struct node)*(n_nodes-1);   }
+{
+    if (n_nodes == 0)
+        return 0;
+    return sizeof(struct rb_tree) + sizeof(struct node)*(n_nodes-1);
+}
 
 void blst_uniq_init(struct rb_tree *tree)
 {

@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cstring>
 
 #include "bindings/blst.h"
 
@@ -61,4 +62,20 @@ TEST(BindingHeader, DeriveMasterIsDeterministicForSameInputs)
     blst_derive_master_eip2333(&sk2, ikm.data(), ikm.size());
 
     EXPECT_EQ(std::memcmp(&sk1, &sk2, sizeof(sk1)), 0);
+}
+
+TEST(BindingHeader, ScalarHelperSurfaceIsExposedAndStable)
+{
+    EXPECT_EQ(static_cast<int>(BLST_BAD_SCALAR), 7);
+
+    std::array<byte, 1> one_be = {1};
+    blst_scalar one = {};
+    blst_scalar two = {};
+    blst_scalar zero = {};
+
+    EXPECT_TRUE(blst_scalar_from_be_bytes(&one, one_be.data(), one_be.size()));
+    EXPECT_TRUE(blst_sk_add_n_check(&two, &one, &one));
+    EXPECT_TRUE(blst_sk_sub_n_check(&one, &two, &one));
+    EXPECT_TRUE(blst_sk_mul_n_check(&two, &one, &two));
+    EXPECT_FALSE(blst_scalar_from_be_bytes(&zero, nullptr, 0));
 }

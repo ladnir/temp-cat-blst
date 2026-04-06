@@ -380,6 +380,32 @@ TEST(AvxWrapper, GTMillerLoopNPointerMatchesScalar)
     EXPECT_EQ(0, std::memcmp(scalar_bytes, avx_bytes, sizeof(avx_bytes)));
 }
 
+TEST(AvxWrapper, GTMillerLoopNEmptyInputReturnsIdentityForScalarAndAvx)
+{
+    blst::GT scalar_multi = {};
+    blst::GT::miller_loop_n(scalar_multi, nullptr, nullptr, 0);
+    EXPECT_TRUE(blst::GT::is_identity(scalar_multi));
+
+    blst::avx::GT avx_multi = {};
+    blst::avx::GT::miller_loop_n(avx_multi, nullptr, nullptr, 0);
+    EXPECT_TRUE(blst::avx::GT::is_identity(avx_multi));
+}
+
+TEST(AvxWrapper, GTMillerLoopNLeadingNullPointerReturnsIdentityForScalarAndAvx)
+{
+    const std::array<const blst::G1AffinePoint*, 1> scalar_ps_ptrs = {nullptr};
+    const std::array<const blst::G2AffinePoint*, 1> scalar_qs_ptrs = {nullptr};
+    blst::GT scalar_multi = {};
+    blst::GT::miller_loop_n(scalar_multi, scalar_qs_ptrs.data(), scalar_ps_ptrs.data(), scalar_ps_ptrs.size());
+    EXPECT_TRUE(blst::GT::is_identity(scalar_multi));
+
+    const std::array<const blst::avx::G1AffinePoint*, 1> avx_ps_ptrs = {nullptr};
+    const std::array<const blst::avx::G2AffinePoint*, 1> avx_qs_ptrs = {nullptr};
+    blst::avx::GT avx_multi = {};
+    blst::avx::GT::miller_loop_n(avx_multi, avx_qs_ptrs.data(), avx_ps_ptrs.data(), avx_ps_ptrs.size());
+    EXPECT_TRUE(blst::avx::GT::is_identity(avx_multi));
+}
+
 TEST(AvxWrapper, AprimeConstantsMatchScalar)
 {
     const auto& scalar_e1 = blst::scalar::get_BLST_Aprime_E1();

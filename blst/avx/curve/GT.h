@@ -426,6 +426,9 @@ struct GT
         if (n == 0) {
             return;
         }
+        if (Qs == nullptr || Ps == nullptr || Qs[0] == nullptr || Ps[0] == nullptr) {
+            return;
+        }
 
         const G2AffinePoint* qptr = nullptr;
         const G1AffinePoint* pptr = nullptr;

@@ -259,6 +259,23 @@ inline void c_api_point_integrate_buckets(Group& out, GroupZZ buckets[], size_t 
     blst::scalar::msm_to_jacobian(out, ret);
 }
 
+inline bool c_api_valid_wbits(size_t wbits)
+{
+    return blst::scalar::detail::valid_wbits(wbits);
+}
+
+template<typename T>
+inline bool c_api_has_valid_array_head(const T* const items[], size_t n)
+{
+    return n == 0 || (items != nullptr && items[0] != nullptr);
+}
+
+template<typename T, typename U>
+inline bool c_api_has_valid_pair_heads(const T* const xs[], const U* const ys[], size_t n)
+{
+    return n == 0 || (xs != nullptr && ys != nullptr && xs[0] != nullptr && ys[0] != nullptr);
+}
+
 template<typename AffineGroup, typename GroupZZ>
 inline void c_api_point_bucket(GroupZZ buckets[], blst::limb_t booth_idx, size_t wbits, const AffineGroup& point)
 {
@@ -292,6 +309,11 @@ inline void c_api_points_tile_pippenger(
     size_t bit0,
     size_t window)
 {
+    ret = {};
+    if (npoints == 0 || !c_api_has_valid_pair_heads(points, scalars, npoints)) {
+        return;
+    }
+
     BLST_ASSERT(npoints > 1);
 
     const size_t window_idx = bit0 / window;
@@ -327,7 +349,7 @@ template<typename Group, typename AffineGroup>
 inline void c_api_points_add(Group& out, const AffineGroup* const points[], size_t npoints)
 {
     out = {};
-    if (npoints == 0) {
+    if (npoints == 0 || !c_api_has_valid_array_head(points, npoints)) {
         return;
     }
 
@@ -545,12 +567,18 @@ void blst_p1s_to_affine(BoundaryG1Affine* dst, const BoundaryG1* const points[],
     if (npoints == 0) {
         return;
     }
+    if (!c_api_has_valid_array_head(points, npoints)) {
+        for (size_t i = 0; i < npoints; ++i) {
+            dst[i] = {};
+        }
+        return;
+    }
     blst::scalar::points_to_affine<blst::Fp>(dst, points, npoints);
 }
 
 void blst_p1s_add(BoundaryG1* ret, const BoundaryG1Affine* const points[], size_t npoints)
 {
-    if (npoints == 0) {
+    if (npoints == 0 || !c_api_has_valid_array_head(points, npoints)) {
         *ret = {};
         return;
     }
@@ -559,6 +587,9 @@ void blst_p1s_add(BoundaryG1* ret, const BoundaryG1Affine* const points[], size_
 
 size_t blst_p1s_mult_wbits_precompute_sizeof(size_t wbits, size_t npoints)
 {
+    if (!c_api_valid_wbits(wbits)) {
+        return 0;
+    }
     return blst::scalar::points_mult_wbits_precompute_sizeof<blst::Fp>(wbits, npoints);
 }
 
@@ -568,6 +599,9 @@ void blst_p1s_mult_wbits_precompute(
     const BoundaryG1Affine* const points[],
     size_t npoints)
 {
+    if (!c_api_valid_wbits(wbits) || !c_api_has_valid_array_head(points, npoints)) {
+        return;
+    }
     blst::scalar::msm_precompute_wbits<blst::Fp>(table, wbits, points, npoints);
 }
 
@@ -585,7 +619,7 @@ void blst_p1s_mult_wbits(
     size_t nbits,
     blst::limb_t* scratch)
 {
-    if (npoints == 0) {
+    if (npoints == 0 || !c_api_valid_wbits(wbits) || scalars == nullptr || scalars[0] == nullptr) {
         *ret = {};
         return;
     }
@@ -612,7 +646,7 @@ void blst_p1s_mult_pippenger(
     size_t nbits,
     blst::limb_t* scratch)
 {
-    if (npoints == 0) {
+    if (npoints == 0 || !c_api_has_valid_pair_heads(points, scalars, npoints)) {
         *ret = {};
         return;
     }
@@ -636,7 +670,7 @@ void blst_p1s_tile_pippenger(
     size_t bit0,
     size_t window)
 {
-    if (npoints == 0) {
+    if (npoints == 0 || !c_api_has_valid_pair_heads(points, scalars, npoints)) {
         *ret = {};
         return;
     }
@@ -817,12 +851,18 @@ void blst_p2s_to_affine(BoundaryG2Affine* dst, const BoundaryG2* const points[],
     if (npoints == 0) {
         return;
     }
+    if (!c_api_has_valid_array_head(points, npoints)) {
+        for (size_t i = 0; i < npoints; ++i) {
+            dst[i] = {};
+        }
+        return;
+    }
     blst::scalar::points_to_affine<blst::Fp2>(dst, points, npoints);
 }
 
 void blst_p2s_add(BoundaryG2* ret, const BoundaryG2Affine* const points[], size_t npoints)
 {
-    if (npoints == 0) {
+    if (npoints == 0 || !c_api_has_valid_array_head(points, npoints)) {
         *ret = {};
         return;
     }
@@ -831,6 +871,9 @@ void blst_p2s_add(BoundaryG2* ret, const BoundaryG2Affine* const points[], size_
 
 size_t blst_p2s_mult_wbits_precompute_sizeof(size_t wbits, size_t npoints)
 {
+    if (!c_api_valid_wbits(wbits)) {
+        return 0;
+    }
     return blst::scalar::points_mult_wbits_precompute_sizeof<blst::Fp2>(wbits, npoints);
 }
 
@@ -840,6 +883,9 @@ void blst_p2s_mult_wbits_precompute(
     const BoundaryG2Affine* const points[],
     size_t npoints)
 {
+    if (!c_api_valid_wbits(wbits) || !c_api_has_valid_array_head(points, npoints)) {
+        return;
+    }
     blst::scalar::msm_precompute_wbits<blst::Fp2>(table, wbits, points, npoints);
 }
 
@@ -857,7 +903,7 @@ void blst_p2s_mult_wbits(
     size_t nbits,
     blst::limb_t* scratch)
 {
-    if (npoints == 0) {
+    if (npoints == 0 || !c_api_valid_wbits(wbits) || scalars == nullptr || scalars[0] == nullptr) {
         *ret = {};
         return;
     }
@@ -884,7 +930,7 @@ void blst_p2s_mult_pippenger(
     size_t nbits,
     blst::limb_t* scratch)
 {
-    if (npoints == 0) {
+    if (npoints == 0 || !c_api_has_valid_pair_heads(points, scalars, npoints)) {
         *ret = {};
         return;
     }
@@ -908,7 +954,7 @@ void blst_p2s_tile_pippenger(
     size_t bit0,
     size_t window)
 {
-    if (npoints == 0) {
+    if (npoints == 0 || !c_api_has_valid_pair_heads(points, scalars, npoints)) {
         *ret = {};
         return;
     }
@@ -978,6 +1024,11 @@ void blst_miller_loop_n(
     const BoundaryG1Affine* const Ps[],
     size_t n)
 {
+    if (n == 0 || !c_api_has_valid_pair_heads(Qs, Ps, n)) {
+        *ret = public_to_boundary_gt(PublicGt::identity());
+        return;
+    }
+
     std::vector<PublicG2Affine> q_values(n);
     std::vector<PublicG1Affine> p_values(n);
     const BoundaryG2Affine* current_q = nullptr;

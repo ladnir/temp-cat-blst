@@ -7,6 +7,7 @@
 #include "blst/curve/GT.h"
 #include "blst/curve/map_to_G.h"
 #include "blst/curve/point.h"
+#include "blst/scalar/curve/GT.h"
 #include "blst/fft/middle_product.h"
 #include "blst/fields/Fr.h"
 
@@ -150,6 +151,44 @@ TEST(BackendAlias, TopLevelPairingSurfaceMatchesBilinearDoubling)
     EXPECT_TRUE(GT::equal(lhs, rhs));
     EXPECT_TRUE(GT::equal(lhs, doubled));
 }
+
+TEST(BackendAlias, ScalarMillerLoopNEmptyAndMalformedLeadingPointersReturnIdentity)
+{
+    blst::scalar::GT scalar_multi = {};
+    const blst::scalar::G2AffinePoint* const* scalar_empty_qs = nullptr;
+    const blst::scalar::G1AffinePoint* const* scalar_empty_ps = nullptr;
+    blst::scalar::GT::miller_loop_n(scalar_multi, scalar_empty_qs, scalar_empty_ps, 0);
+    EXPECT_TRUE(blst::scalar::GT::is_identity(scalar_multi));
+
+    const std::array<const blst::scalar::G1AffinePoint*, 1> scalar_ps = {nullptr};
+    const std::array<const blst::scalar::G2AffinePoint*, 1> scalar_qs = {nullptr};
+    blst::scalar::GT::miller_loop_n(
+        scalar_multi,
+        scalar_qs.data(),
+        scalar_ps.data(),
+        scalar_ps.size());
+    EXPECT_TRUE(blst::scalar::GT::is_identity(scalar_multi));
+}
+
+#if BLST_DEFAULT_AVX
+TEST(BackendAlias, AvxMillerLoopNEmptyAndMalformedLeadingPointersReturnIdentity)
+{
+    blst::avx::GT avx_multi = {};
+    const blst::avx::G2AffinePoint* const* avx_empty_qs = nullptr;
+    const blst::avx::G1AffinePoint* const* avx_empty_ps = nullptr;
+    blst::avx::GT::miller_loop_n(avx_multi, avx_empty_qs, avx_empty_ps, 0);
+    EXPECT_TRUE(blst::avx::GT::is_identity(avx_multi));
+
+    const std::array<const blst::avx::G1AffinePoint*, 1> avx_ps = {nullptr};
+    const std::array<const blst::avx::G2AffinePoint*, 1> avx_qs = {nullptr};
+    blst::avx::GT::miller_loop_n(
+        avx_multi,
+        avx_qs.data(),
+        avx_ps.data(),
+        avx_ps.size());
+    EXPECT_TRUE(blst::avx::GT::is_identity(avx_multi));
+}
+#endif
 
 TEST(BackendAlias, MiddleProductReducedMatchesBasicOnSmallVector)
 {

@@ -160,13 +160,17 @@ public struct SecretKey {
     }
 
     public void keygen(byte[] IKM, string info="")
-    {   if (key == null) key = new byte[32];
+    {   if (IKM == null || IKM.Length < 32)
+            throw new Exception(ERROR.BAD_ENCODING);
+        if (key == null) key = new byte[32];
         byte[] info_bytes = Encoding.UTF8.GetBytes(info);
         blst_keygen(key, IKM, (size_t)IKM.Length,
                          info_bytes, (size_t)info_bytes.Length);
     }
     public void keygen_v3(byte[] IKM, string info="")
-    {   if (key == null) key = new byte[32];
+    {   if (IKM == null || IKM.Length < 32)
+            throw new Exception(ERROR.BAD_ENCODING);
+        if (key == null) key = new byte[32];
         byte[] info_bytes = Encoding.UTF8.GetBytes(info);
         blst_keygen_v3(key, IKM, (size_t)IKM.Length,
                             info_bytes, (size_t)info_bytes.Length);
@@ -180,7 +184,11 @@ public struct SecretKey {
                               info_bytes, (size_t)info_bytes.Length);
     }
     public void keygen_v5(byte[] IKM, byte[] salt, string info="")
-    {   if (key == null) key = new byte[32];
+    {   if (IKM == null || IKM.Length < 32)
+            throw new Exception(ERROR.BAD_ENCODING);
+        if (salt == null)
+            throw new ArgumentNullException(nameof(salt));
+        if (key == null) key = new byte[32];
         byte[] info_bytes = Encoding.UTF8.GetBytes(info);
         blst_keygen_v5(key, IKM, (size_t)IKM.Length,
                             salt, (size_t)salt.Length,
@@ -227,10 +235,10 @@ public struct SecretKey {
 }
 
 [DllImport("blst.dll", CallingConvention = CallingConvention.Cdecl)]
-static extern void blst_scalar_from_be_bytes([Out] byte[] ret, [In] byte[] inp,
+static extern bool blst_scalar_from_be_bytes([Out] byte[] ret, [In] byte[] inp,
                                                                size_t inp_len);
 [DllImport("blst.dll", CallingConvention = CallingConvention.Cdecl)]
-static extern void blst_scalar_from_le_bytes([Out] byte[] ret, [In] byte[] inp,
+static extern bool blst_scalar_from_le_bytes([Out] byte[] ret, [In] byte[] inp,
                                                                size_t inp_len);
 [DllImport("blst.dll", CallingConvention = CallingConvention.Cdecl)]
 static extern bool blst_sk_add_n_check([Out] byte[] ret, [In] byte[] a,
@@ -262,11 +270,13 @@ public struct Scalar {
 
     public void from_bendian(byte[] inp)
     {   if (val == null) val = new byte[32];
-        blst_scalar_from_be_bytes(val, inp, (size_t)inp.Length);
+        if (!blst_scalar_from_be_bytes(val, inp, (size_t)inp.Length))
+            throw new Exception(ERROR.BAD_SCALAR);
     }
     public void from_lendian(byte[] inp)
     {   if (val == null) val = new byte[32];
-        blst_scalar_from_le_bytes(val, inp, (size_t)inp.Length);
+        if (!blst_scalar_from_le_bytes(val, inp, (size_t)inp.Length))
+            throw new Exception(ERROR.BAD_SCALAR);
     }
 
     public byte[] to_bendian()

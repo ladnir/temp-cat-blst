@@ -253,6 +253,9 @@ namespace blst::scalar
 		const AffinePoint<Field>* const points[],
 		size_t npoints)
 	{
+		if (!detail::valid_wbits(wbits) || npoints == 0 || points == nullptr || points[0] == nullptr)
+			return;
+
 		size_t total = npoints << (wbits - 1);
 		size_t nwin = (size_t)1 << (wbits - 1);
 		size_t nmin = wbits > 9 ? (size_t)1 : (size_t)1 << (9 - wbits);
@@ -372,6 +375,11 @@ namespace blst::scalar
 		const size_t nbits,
 		span<Point<Field>> scratch)
 	{
+		if (!detail::valid_wbits(wbits) || npoints == 0 || scalars == nullptr ||
+			scalars[0] == nullptr || scratch.empty()) {
+			ret = Point<Field>::infinity();
+			return;
+		}
 
 		// scalar_s will walk through the array of scalar pointers.
 		// if they passed in one array (scalars[1]==0), we will just keep using that pointer.

@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <type_traits>
@@ -45,6 +46,13 @@ struct alignas(64) BlstAvxFp12
 };
 
 extern "C" {
+bool blst_scalar_from_le_bytes(blst::pow256 out, const unsigned char* in, size_t len);
+bool blst_scalar_from_be_bytes(blst::pow256 out, const unsigned char* in, size_t len);
+bool blst_sk_add_n_check(blst::pow256 out, const blst::pow256 a, const blst::pow256 b);
+bool blst_sk_sub_n_check(blst::pow256 out, const blst::pow256 a, const blst::pow256 b);
+bool blst_sk_mul_n_check(blst::pow256 out, const blst::pow256 a, const blst::pow256 b);
+void blst_sk_inverse(blst::pow256 out, const blst::pow256 a);
+
 void blst_fr_add(blst::Fr* ret, const blst::Fr* a, const blst::Fr* b);
 void blst_fr_mul(blst::Fr* ret, const blst::Fr* a, const blst::Fr* b);
 void blst_fr_sqr(blst::Fr* ret, const blst::Fr* a);
@@ -105,6 +113,7 @@ bool blst_p1_is_inf(const blst::scalar::G1Point* a);
 const blst::scalar::G1Point* blst_p1_generator(void);
 bool blst_p1_affine_in_g1(const blst::scalar::G1AffinePoint* p);
 bool blst_p1_affine_is_equal(const blst::scalar::G1AffinePoint* a, const blst::scalar::G1AffinePoint* b);
+bool blst_p1_affine_is_inf(const blst::scalar::G1AffinePoint* a);
 void blst_p1s_to_affine(blst::scalar::G1AffinePoint dst[], const blst::scalar::G1Point* const points[], size_t npoints);
 void blst_p1s_add(blst::scalar::G1Point* ret, const blst::scalar::G1AffinePoint* const points[], size_t npoints);
 size_t blst_p1s_mult_wbits_precompute_sizeof(size_t wbits, size_t npoints);
@@ -159,6 +168,8 @@ void blst_aggregated_in_g2(blst::Fp12* out, const blst::scalar::G2AffinePoint* s
 size_t blst_uniq_sizeof(size_t n_nodes);
 void blst_uniq_init(void* tree);
 bool blst_uniq_test(void* tree, const unsigned char* msg, size_t len);
+void blst_keygen(blst::pow256 out_SK, const unsigned char* IKM, size_t IKM_len, const unsigned char* info, size_t info_len);
+void blst_keygen_v5(blst::pow256 out_SK, const unsigned char* IKM, size_t IKM_len, const unsigned char* salt, size_t salt_len, const unsigned char* info, size_t info_len);
 void blst_expand_message_xmd(unsigned char* out, size_t out_len, const unsigned char* msg, size_t msg_len, const unsigned char* DST, size_t DST_len);
 size_t blst_p1_sizeof(void);
 size_t blst_p1_affine_sizeof(void);
@@ -226,6 +237,16 @@ std::array<unsigned char, 32> scalar_bytes(std::uint64_t value)
         out[i] = static_cast<unsigned char>(value >> (8 * i));
     }
     return out;
+}
+
+bool scalar_is_zero(const blst::pow256& value)
+{
+    for (unsigned char byte : value) {
+        if (byte != 0) {
+            return false;
+        }
+    }
+    return true;
 }
 
 BoundaryGt gt_to_boundary(const PublicGt& value)
@@ -894,6 +915,18 @@ TEST(CApi, MillerLoopNMatchesNaiveProduct)
     EXPECT_TRUE(blst_fp12_is_equal(&combined, &naive));
 }
 
+TEST(CApi, MillerLoopNEmptyAndMalformedLeadingPointersReturnIdentity)
+{
+    BoundaryGt out = {};
+    blst_miller_loop_n(&out, nullptr, nullptr, 0);
+    EXPECT_TRUE(blst_fp12_is_one(&out));
+
+    const BoundaryG1Affine* ps[1] = {nullptr};
+    const BoundaryG2Affine* qs[1] = {nullptr};
+    blst_miller_loop_n(&out, qs, ps, 1);
+    EXPECT_TRUE(blst_fp12_is_one(&out));
+}
+
 TEST(CApi, PairingAggregateAllowsNullSignatureAfterFirstElement)
 {
     const auto dst = std::to_array("BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_");
@@ -1072,6 +1105,7 @@ TEST(CApi, ExpandMessageUniqAndSizeWrappersWork)
     blst::scalar::blst_expand_message_xmd(expected.data(), expected.size(), msg, sizeof(msg), dst, sizeof(dst));
     EXPECT_EQ(out, expected);
 
+    EXPECT_EQ(blst_uniq_sizeof(0), 0u);
     std::vector<std::uint64_t> uniq_bytes(blst_uniq_sizeof(4) / sizeof(std::uint64_t));
     void* uniq = uniq_bytes.data();
     blst_uniq_init(uniq);
@@ -1083,4 +1117,57 @@ TEST(CApi, ExpandMessageUniqAndSizeWrappersWork)
     EXPECT_EQ(blst_p2_sizeof(), sizeof(BoundaryG2));
     EXPECT_EQ(blst_p2_affine_sizeof(), sizeof(BoundaryG2Affine));
     EXPECT_EQ(blst_fp12_sizeof(), sizeof(BoundaryGt));
+}
+
+TEST(CApi, ScalarByteDecodersRejectEmptyInputAndClearOutput)
+{
+    blst::pow256 out = {};
+    std::fill_n(out, sizeof(out), static_cast<unsigned char>(0xA5));
+    EXPECT_FALSE(blst_scalar_from_le_bytes(out, nullptr, 0));
+    EXPECT_TRUE(scalar_is_zero(out));
+
+    std::fill_n(out, sizeof(out), static_cast<unsigned char>(0x5A));
+    EXPECT_FALSE(blst_scalar_from_be_bytes(out, nullptr, 0));
+    EXPECT_TRUE(scalar_is_zero(out));
+}
+
+TEST(CApi, KeygenInvalidInputsZeroizeOutput)
+{
+    blst::pow256 out = {};
+    std::fill_n(out, sizeof(out), static_cast<unsigned char>(0xA5));
+
+    const std::array<unsigned char, 31> short_ikm = {};
+    blst_keygen(out, short_ikm.data(), short_ikm.size(), nullptr, 0);
+    EXPECT_TRUE(scalar_is_zero(out));
+
+    std::fill_n(out, sizeof(out), static_cast<unsigned char>(0x5A));
+    const auto valid_ikm = scalar_bytes(9);
+    blst_keygen_v5(out, valid_ikm.data(), valid_ikm.size(), nullptr, 0, nullptr, 0);
+    EXPECT_TRUE(scalar_is_zero(out));
+}
+
+TEST(CApi, WbitsApisRejectOutOfRangeValues)
+{
+    EXPECT_EQ(blst_p1s_mult_wbits_precompute_sizeof(0, 4), 0u);
+    EXPECT_EQ(blst_p1s_mult_wbits_precompute_sizeof(15, 4), 0u);
+
+    BoundaryG1 out = p1_mul(3);
+    const auto scalar = scalar_bytes(7);
+    const unsigned char* scalar_ptrs[2] = {scalar.data(), nullptr};
+    blst_p1s_mult_wbits(&out, nullptr, 0, 1, scalar_ptrs, 256, nullptr);
+    EXPECT_TRUE(blst_p1_is_inf(&out));
+}
+
+TEST(CApi, LeadingNullPointArraysAreRejectedWithoutPointerArithmetic)
+{
+    BoundaryG1 sum = p1_mul(3);
+    const BoundaryG1Affine* points[1] = {nullptr};
+    blst_p1s_add(&sum, points, 1);
+    EXPECT_TRUE(blst_p1_is_inf(&sum));
+
+    BoundaryG1Affine affine_out[1];
+    affine_out[0] = {};
+    const BoundaryG1* proj_points[1] = {nullptr};
+    blst_p1s_to_affine(affine_out, proj_points, 1);
+    EXPECT_TRUE(blst_p1_affine_is_inf(&affine_out[0]));
 }

@@ -25,6 +25,14 @@ namespace blst::scalar
 	using span = std::span<T>;
 #endif
 
+	namespace detail
+	{
+		BLST_HD BLST_INLINE constexpr bool valid_wbits(size_t wbits)
+		{
+			return wbits >= 2 && wbits <= 14;
+		}
+	}
+
 
 	//
 	BLST_HD BLST_INLINE auto msm_to_jacobian(Point<Fp>& out, const Pointxyzz<Fp>& in) { Pointxyzz<Fp>::to_Jacobian(out, in); }
@@ -133,6 +141,8 @@ namespace blst::scalar
 	template<typename Field>
 	size_t points_mult_wbits_precompute_sizeof(size_t wbits, size_t npoints)
 	{
+		if (!detail::valid_wbits(wbits))
+			return 0;
 		return (sizeof(AffinePoint<Field>) * npoints) << (wbits - 1);
 	}
 

@@ -86,8 +86,11 @@ impl blst_fp12 {
     /// Computes the product of Miller loops over paired affine slices.
     pub fn miller_loop_n(q: &[blst_p2_affine], p: &[blst_p1_affine]) -> Self {
         let n_elems = q.len();
-        if n_elems != p.len() || n_elems == 0 {
+        if n_elems != p.len() {
             panic!("inputs' lengths mismatch");
+        }
+        if n_elems == 0 {
+            return Self::default();
         }
         let qs: [*const _; 2] = [&q[0], ptr::null()];
         let ps: [*const _; 2] = [&p[0], ptr::null()];
@@ -102,8 +105,11 @@ impl blst_fp12 {
     /// Computes the product of Miller loops over paired affine slices.
     pub fn miller_loop_n(q: &[blst_p2_affine], p: &[blst_p1_affine]) -> Self {
         let n_elems = q.len();
-        if n_elems != p.len() || n_elems == 0 {
+        if n_elems != p.len() {
             panic!("inputs' lengths mismatch");
+        }
+        if n_elems == 0 {
+            return Self::default();
         }
 
         let pool = crate::mt::da_pool();

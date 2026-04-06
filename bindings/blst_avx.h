@@ -28,6 +28,11 @@ enum {
  * Invariants:
  * - These layouts are stable for the current expert AVX ABI.
  * - The byte arrays are intentionally opaque to C and Rust callers.
+ * - Callers may allocate storage of this size and alignment and pass it back
+ *   to the library, but must not inspect or mutate the internal
+ *   representation except through these entry points.
+ * - The library intentionally reinterprets these shells as its internal AVX
+ *   types after validating size, alignment, and layout assumptions.
  * - The storage is aligned for native AVX builds; portable AVX builds may use
  *   a weaker internal alignment while remaining representable by these shells.
  */

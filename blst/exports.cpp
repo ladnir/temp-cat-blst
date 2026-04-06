@@ -401,6 +401,11 @@ void blst_uint64_from_fr(unsigned long long ret[4], const Fr& a)
 
 int blst_scalar_from_le_bytes(pow256 out, const unsigned char *bytes, size_t n)
 {
+    if (n == 0) {
+        vec_zero(out, sizeof(pow256));
+        return 0;
+    }
+
     size_t rem = (n - 1) % 32 + 1;
     struct { Fr out, digit; } t;
     limb_t ret;
@@ -429,6 +434,11 @@ int blst_scalar_from_le_bytes(pow256 out, const unsigned char *bytes, size_t n)
 
 int blst_scalar_from_be_bytes(pow256 out, const unsigned char *bytes, size_t n)
 {
+    if (n == 0) {
+        vec_zero(out, sizeof(pow256));
+        return 0;
+    }
+
     size_t rem = (n - 1) % 32 + 1;
     struct { Fr out, digit; } t;
     limb_t ret;

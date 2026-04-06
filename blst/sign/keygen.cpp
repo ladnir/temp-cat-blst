@@ -10,6 +10,8 @@
 #include "blst/fields/Fp.h"
 #include "blst/fields/Fr.h"
 
+#include <limits>
+
 //BLST_EXTERN_C_BEGIN
 
 namespace blst
@@ -99,7 +101,7 @@ namespace blst
         HMAC_final(PRK, ctx);
     }
 
-    void HKDF_Expand(unsigned char* OKM, size_t L,
+    bool HKDF_Expand(unsigned char* OKM, size_t L,
         const unsigned char PRK[32],
         const void* info, size_t info_len,
 #ifndef __BLST_HKDF_TESTMODE__
@@ -107,7 +109,14 @@ namespace blst
 #endif
         HMAC_SHA256_CTX* ctx)
     {
-        unsigned char* info_prime = (unsigned char*)malloc(info_len + 2 + 1);
+        if (info_len > std::numeric_limits<size_t>::max() - 3) {
+            return false;
+        }
+
+        unsigned char* info_prime = (unsigned char*)malloc(info_len + 3);
+        if (info_prime == NULL) {
+            return false;
+        }
 
         HMAC_init(ctx, PRK, 32);
 
@@ -135,7 +144,8 @@ namespace blst
         }
         blst_sha256_bcopy_v(OKM, ctx->tail.c, L);
 
-		free(info_prime);
+        free(info_prime);
+        return true;
     }
 
 #ifndef __BLST_HKDF_TESTMODE__
@@ -183,8 +193,12 @@ namespace blst
                 IKM, IKM_len, 1, &scratch.ctx);
 
             /* OKM = HKDF-Expand(PRK, key_info || I2OSP(L, 2), L) */
-            HKDF_Expand(scratch.OKM, sizeof(scratch.OKM), scratch.PRK,
-                info, info_len, 1, &scratch.ctx);
+            if (!HKDF_Expand(scratch.OKM, sizeof(scratch.OKM), scratch.PRK,
+                info, info_len, 1, &scratch.ctx)) {
+                vec_zero(SK, sizeof(pow256));
+                vec_zero(&scratch, sizeof(scratch));
+                return;
+            }
 
             /* SK = OS2IP(OKM) mod r */
             vec_zero(scratch.ufr, sizeof(scratch.ufr));
@@ -276,8 +290,12 @@ namespace blst
         /* lamport_0 = IKM_to_lamport_SK(IKM, salt) */
         HKDF_Extract(scratch.PRK, salt, sizeof(salt), scratch.IKM, 32, 0,
             &scratch.ctx);
-        HKDF_Expand(scratch.lamport[0], sizeof(scratch.lamport),
-            scratch.PRK, NULL, 0, 0, &scratch.ctx);
+        if (!HKDF_Expand(scratch.lamport[0], sizeof(scratch.lamport),
+            scratch.PRK, NULL, 0, 0, &scratch.ctx)) {
+            vec_zero(PK, sizeof(pow256));
+            vec_zero(&scratch, sizeof(scratch));
+            return;
+        }
 
         vec_zero(scratch.ctx.ctx.buf, sizeof(scratch.ctx.ctx.buf));
         scratch.ctx.ctx.buf[32] = 0x80;
@@ -302,8 +320,12 @@ namespace blst
         /* lamport_1 = IKM_to_lamport_SK(not_IKM, salt) */
         HKDF_Extract(scratch.PRK, salt, sizeof(salt), scratch.IKM, 32, 0,
             &scratch.ctx);
-        HKDF_Expand(scratch.lamport[0], sizeof(scratch.lamport),
-            scratch.PRK, NULL, 0, 0, &scratch.ctx);
+        if (!HKDF_Expand(scratch.lamport[0], sizeof(scratch.lamport),
+            scratch.PRK, NULL, 0, 0, &scratch.ctx)) {
+            vec_zero(PK, sizeof(pow256));
+            vec_zero(&scratch, sizeof(scratch));
+            return;
+        }
 
         vec_zero(scratch.ctx.ctx.buf, sizeof(scratch.ctx.ctx.buf));
         scratch.ctx.ctx.buf[32] = 0x80;

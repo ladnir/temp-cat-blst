@@ -34,6 +34,25 @@ typedef struct blst_opaque blst_uniq;
  * - `BLST_ERROR` reports decoding, subgroup, or verification failures.
  */
 
+/**
+ * Scalar byte helpers.
+ *
+ * Invariants:
+ * - `blst_scalar_from_{le,be}_bytes` accept variable-length inputs.
+ * - Zero-length input decodes to the zero scalar, clears `out`, and returns
+ *   `false`.
+ * - The checked arithmetic helpers return `false` when the resulting scalar is
+ *   zero or otherwise rejected by the scalar validity contract.
+ */
+bool blst_scalar_fr_check(const blst_scalar* a);
+bool blst_sk_check(const blst_scalar* a);
+bool blst_sk_add_n_check(blst_scalar* out, const blst_scalar* a, const blst_scalar* b);
+bool blst_sk_sub_n_check(blst_scalar* out, const blst_scalar* a, const blst_scalar* b);
+bool blst_sk_mul_n_check(blst_scalar* out, const blst_scalar* a, const blst_scalar* b);
+void blst_sk_inverse(blst_scalar* out, const blst_scalar* a);
+bool blst_scalar_from_le_bytes(blst_scalar* out, const byte* in, size_t len);
+bool blst_scalar_from_be_bytes(blst_scalar* out, const byte* in, size_t len);
+
 /** Adds two Montgomery-form Fr values and writes the sum to `ret`. */
 void blst_fr_add(blst_fr* ret, const blst_fr* a, const blst_fr* b);
 /** Subtracts `b` from `a` in Fr and writes the difference to `ret`. */
@@ -238,23 +257,23 @@ bool blst_p1_affine_is_equal(const blst_p1_affine* a, const blst_p1_affine* b);
 bool blst_p1_affine_is_inf(const blst_p1_affine* a);
 /** Returns a pointer to immutable static storage holding the affine G1 generator. */
 const blst_p1_affine* blst_p1_affine_generator(void);
-/** Batch-converts `npoints` projective G1 inputs into affine outputs. */
+/** Batch-converts `npoints` projective G1 inputs into affine outputs; when `npoints > 0`, `points[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. */
 void blst_p1s_to_affine(blst_p1_affine dst[], const blst_p1* const points[], size_t npoints);
-/** Adds `npoints` affine G1 inputs and writes the total into `ret`. */
+/** Adds `npoints` affine G1 inputs and writes the total into `ret`; when `npoints > 0`, `points[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. */
 void blst_p1s_add(blst_p1* ret, const blst_p1_affine* const points[], size_t npoints);
-/** Returns the table size needed for G1 wbits precomputation. */
+/** Returns the table size needed for G1 wbits precomputation, or 0 when `wbits` is outside the supported range `[2, 14]`. */
 size_t blst_p1s_mult_wbits_precompute_sizeof(size_t wbits, size_t npoints);
-/** Precomputes a G1 wbits multiplication table for `npoints` affine inputs. */
+/** Precomputes a G1 wbits multiplication table for `npoints` affine inputs; `wbits` must lie in `[2, 14]` and `points[0]` must be non-null when `npoints > 0`. */
 void blst_p1s_mult_wbits_precompute(blst_p1_affine table[], size_t wbits, const blst_p1_affine* const points[], size_t npoints);
 /** Returns the scratch size needed by the G1 wbits MSM routine. */
 size_t blst_p1s_mult_wbits_scratch_sizeof(size_t npoints);
-/** Evaluates a G1 MSM from a wbits precompute table and caller-owned scratch. */
+/** Evaluates a G1 MSM from a wbits precompute table and caller-owned scratch; `wbits` must lie in `[2, 14]` and `scalars[0]` must be non-null when `npoints > 0`. */
 void blst_p1s_mult_wbits(blst_p1* ret, const blst_p1_affine table[], size_t wbits, size_t npoints, const byte* const scalars[], size_t nbits, limb_t* scratch);
 /** Returns the scratch size needed by the G1 Pippenger MSM routine. */
 size_t blst_p1s_mult_pippenger_scratch_sizeof(size_t npoints);
-/** Evaluates a G1 MSM with Pippenger using caller-owned scratch memory. */
+/** Evaluates a G1 MSM with Pippenger using caller-owned scratch memory; when `npoints > 0`, `points[0]` and `scalars[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. */
 void blst_p1s_mult_pippenger(blst_p1* ret, const blst_p1_affine* const points[], size_t npoints, const byte* const scalars[], size_t nbits, limb_t* scratch);
-/** Evaluates one tiled window of a G1 Pippenger MSM. */
+/** Evaluates one tiled window of a G1 Pippenger MSM; when `npoints > 0`, `points[0]` and `scalars[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. */
 void blst_p1s_tile_pippenger(blst_p1* ret, const blst_p1_affine* const points[], size_t npoints, const byte* const scalars[], size_t nbits, limb_t* scratch, size_t bit0, size_t window);
 /** Serializes a G1 projective point into a 96-byte uncompressed encoding. */
 void blst_p1_serialize(byte out[96], const blst_p1* in);
@@ -317,23 +336,23 @@ bool blst_p2_affine_is_equal(const blst_p2_affine* a, const blst_p2_affine* b);
 bool blst_p2_affine_is_inf(const blst_p2_affine* a);
 /** Returns a pointer to immutable static storage holding the affine G2 generator. */
 const blst_p2_affine* blst_p2_affine_generator(void);
-/** Batch-converts `npoints` projective G2 inputs into affine outputs. */
+/** Batch-converts `npoints` projective G2 inputs into affine outputs; when `npoints > 0`, `points[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. */
 void blst_p2s_to_affine(blst_p2_affine dst[], const blst_p2* const points[], size_t npoints);
-/** Adds `npoints` affine G2 inputs and writes the total into `ret`. */
+/** Adds `npoints` affine G2 inputs and writes the total into `ret`; when `npoints > 0`, `points[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. */
 void blst_p2s_add(blst_p2* ret, const blst_p2_affine* const points[], size_t npoints);
-/** Returns the table size needed for G2 wbits precomputation. */
+/** Returns the table size needed for G2 wbits precomputation, or 0 when `wbits` is outside the supported range `[2, 14]`. */
 size_t blst_p2s_mult_wbits_precompute_sizeof(size_t wbits, size_t npoints);
-/** Precomputes a G2 wbits multiplication table for `npoints` affine inputs. */
+/** Precomputes a G2 wbits multiplication table for `npoints` affine inputs; `wbits` must lie in `[2, 14]` and `points[0]` must be non-null when `npoints > 0`. */
 void blst_p2s_mult_wbits_precompute(blst_p2_affine table[], size_t wbits, const blst_p2_affine* const points[], size_t npoints);
 /** Returns the scratch size needed by the G2 wbits MSM routine. */
 size_t blst_p2s_mult_wbits_scratch_sizeof(size_t npoints);
-/** Evaluates a G2 MSM from a wbits precompute table and caller-owned scratch. */
+/** Evaluates a G2 MSM from a wbits precompute table and caller-owned scratch; `wbits` must lie in `[2, 14]` and `scalars[0]` must be non-null when `npoints > 0`. */
 void blst_p2s_mult_wbits(blst_p2* ret, const blst_p2_affine table[], size_t wbits, size_t npoints, const byte* const scalars[], size_t nbits, limb_t* scratch);
 /** Returns the scratch size needed by the G2 Pippenger MSM routine. */
 size_t blst_p2s_mult_pippenger_scratch_sizeof(size_t npoints);
-/** Evaluates a G2 MSM with Pippenger using caller-owned scratch memory. */
+/** Evaluates a G2 MSM with Pippenger using caller-owned scratch memory; when `npoints > 0`, `points[0]` and `scalars[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. */
 void blst_p2s_mult_pippenger(blst_p2* ret, const blst_p2_affine* const points[], size_t npoints, const byte* const scalars[], size_t nbits, limb_t* scratch);
-/** Evaluates one tiled window of a G2 Pippenger MSM. */
+/** Evaluates one tiled window of a G2 Pippenger MSM; when `npoints > 0`, `points[0]` and `scalars[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. */
 void blst_p2s_tile_pippenger(blst_p2* ret, const blst_p2_affine* const points[], size_t npoints, const byte* const scalars[], size_t nbits, limb_t* scratch, size_t bit0, size_t window);
 /** Serializes a G2 projective point into a 192-byte uncompressed encoding. */
 void blst_p2_serialize(byte out[192], const blst_p2* in);
@@ -359,7 +378,15 @@ BLST_ERROR blst_p2_deserialize(blst_p2_affine* out, const byte in[192]);
  */
 /** Computes a Miller loop from affine `(Q, P)` inputs and writes it to `ret`. */
 void blst_miller_loop(blst_fp12* ret, const blst_p2_affine* Q, const blst_p1_affine* P);
-/** Multiplies `n` Miller loops together from paired affine input arrays. */
+/**
+ * Multiplies `n` Miller loops together from paired affine input arrays.
+ *
+ * Pointer-array contract:
+ * - when `n == 0`, `ret` receives the Fp12 multiplicative identity
+ * - when `n > 0`, `Qs[0]` and `Ps[0]` must be non-null
+ * - a later null entry means "continue from the next contiguous element after
+ *   the previous non-null entry"
+ */
 void blst_miller_loop_n(blst_fp12* ret, const blst_p2_affine* const Qs[], const blst_p1_affine* const Ps[], size_t n);
 /** Precomputes the 68 line-function coefficients needed for repeated Miller loops with `Q`. */
 void blst_precompute_lines(blst_fp6 Qlines[68], const blst_p2_affine* Q);
@@ -425,15 +452,15 @@ BLST_ERROR blst_core_verify_pk_in_g2(const blst_p2_affine* pk, const blst_p1_aff
  * - `blst_expand_message_xmd` implements the XMD expand step used by the hash
  *   to curve suite.
  */
-/** Derives a secret key from `IKM` and optional `info` using the default keygen scheme. */
+/** Derives a secret key from `IKM` and optional `info` using the default keygen scheme; `IKM_len` must be at least 32 bytes or `out_SK` is cleared to zero. */
 void blst_keygen(blst_scalar* out_SK, const byte* IKM, size_t IKM_len, const byte* info, size_t info_len);
-/** Derives a secret key using the v3 keygen scheme. */
+/** Derives a secret key using the v3 keygen scheme; `IKM_len` must be at least 32 bytes or `out_SK` is cleared to zero. */
 void blst_keygen_v3(blst_scalar* out_SK, const byte* IKM, size_t IKM_len, const byte* info, size_t info_len);
-/** Derives a secret key using the v4.5 keygen scheme with explicit salt. */
+/** Derives a secret key using the v4.5 keygen scheme with explicit salt; `IKM_len` must be at least 32 bytes or `out_SK` is cleared to zero. */
 void blst_keygen_v4_5(blst_scalar* out_SK, const byte* IKM, size_t IKM_len, const byte* salt, size_t salt_len, const byte* info, size_t info_len);
-/** Derives a secret key using the v5 keygen scheme with explicit salt. */
+/** Derives a secret key using the v5 keygen scheme with explicit salt; `IKM_len` must be at least 32 bytes, `salt` must be non-null, and invalid input clears `out_SK` to zero. */
 void blst_keygen_v5(blst_scalar* out_SK, const byte* IKM, size_t IKM_len, const byte* salt, size_t salt_len, const byte* info, size_t info_len);
-/** Derives the EIP-2333 master secret key from `IKM`. */
+/** Derives the EIP-2333 master secret key from `IKM`; `IKM_len` must be at least 32 bytes or `out_SK` is cleared to zero. */
 void blst_derive_master_eip2333(blst_scalar* out_SK, const byte* IKM, size_t IKM_len);
 /** Derives the EIP-2333 child secret key for `child_index` from `SK`. */
 void blst_derive_child_eip2333(blst_scalar* out_SK, const blst_scalar* SK, uint32_t child_index);
@@ -465,7 +492,7 @@ void blst_sign_pk2_in_g1(byte out[192], blst_p2_affine* out_sig, const blst_p2* 
 void blst_sk_to_pk2_in_g2(byte out[192], blst_p2_affine* out_pk, const blst_scalar* SK);
 /** Signs a G1 hash point, writes the affine signature, and optionally serializes it into `out`. */
 void blst_sign_pk2_in_g2(byte out[96], blst_p1_affine* out_sig, const blst_p1* hash, const blst_scalar* SK);
-/** Returns the exact allocation size required for a `blst_uniq` tree with `n_nodes`. */
+/** Returns the exact allocation size required for a `blst_uniq` tree with `n_nodes`; returns 0 when `n_nodes == 0`. */
 size_t blst_uniq_sizeof(size_t n_nodes);
 /** Initializes caller-owned `blst_uniq` storage. */
 void blst_uniq_init(blst_uniq* tree);

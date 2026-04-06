@@ -49,6 +49,14 @@ static_assert(std::is_trivially_copyable_v<AvxG2>);
 static_assert(std::is_trivially_copyable_v<AvxG2Affine>);
 static_assert(std::is_trivially_copyable_v<AvxGt>);
 
+/*
+ * The expert AVX C ABI intentionally accepts caller-allocated opaque shells
+ * from bindings/blst_avx.h and reinterprets them as the internal AVX types
+ * after checking size, alignment, and trivial layout properties. This is an
+ * explicit ABI boundary choice for supported toolchains, not an accidental
+ * internal aliasing pattern callers may extend beyond these entry points.
+ */
+
 inline AvxG1* as_avx(blst_avx_p1* point)
 {
     return reinterpret_cast<AvxG1*>(point);

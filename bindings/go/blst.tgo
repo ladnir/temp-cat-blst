@@ -275,8 +275,8 @@ func KeyGenV45(ikm []byte, salt []byte, optional ...[]byte) *SecretKey {
         info = optional[0]
     }
     C.blst_keygen_v4_5(&sk.cgo, (*C.byte)(&ikm[0]), C.size_t(len(ikm)),
-                                (*C.byte)(&salt[0]), C.size_t(len(salt)),
-                                ptrOrNil(info), C.size_t(len(info)))
+        ptrOrEmptyNonNil(salt), C.size_t(len(salt)),
+        ptrOrNil(info), C.size_t(len(info)))
     // Postponing secret key zeroing till garbage collection can be too
     // late to be effective, but every little bit helps...
     runtime.SetFinalizer(&sk, func(sk *SecretKey) { sk.Zeroize() })
@@ -284,7 +284,7 @@ func KeyGenV45(ikm []byte, salt []byte, optional ...[]byte) *SecretKey {
 }
 
 func KeyGenV5(ikm []byte, salt []byte, optional ...[]byte) *SecretKey {
-    if len(ikm) < 32 {
+    if len(ikm) < 32 || salt == nil {
         return nil
     }
     var sk SecretKey
@@ -293,8 +293,8 @@ func KeyGenV5(ikm []byte, salt []byte, optional ...[]byte) *SecretKey {
         info = optional[0]
     }
     C.blst_keygen_v5(&sk.cgo, (*C.byte)(&ikm[0]), C.size_t(len(ikm)),
-                              (*C.byte)(&salt[0]), C.size_t(len(salt)),
-                              ptrOrNil(info), C.size_t(len(info)))
+        ptrOrEmptyNonNil(salt), C.size_t(len(salt)),
+        ptrOrNil(info), C.size_t(len(info)))
     // Postponing secret key zeroing till garbage collection can be too
     // late to be effective, but every little bit helps...
     runtime.SetFinalizer(&sk, func(sk *SecretKey) { sk.Zeroize() })
@@ -378,8 +378,12 @@ func Fp12MillerLoop(q *P2Affine, p *P1Affine) *Fp12 {
 }
 
 func Fp12MillerLoopN(qs []P2Affine, ps []P1Affine) *Fp12 {
-    if len(qs) != len(ps) || len(qs) == 0 {
+    if len(qs) != len(ps) {
         panic("inputs' lengths mismatch")
+    }
+    if len(qs) == 0 {
+        pt := Fp12One()
+        return &pt
     }
 
     nElems := uint32(len(qs))
@@ -465,10 +469,22 @@ func (pt *Fp12) asPtr() *C.blst_fp12 {
     return nil
 }
 
+var zeroByte byte
+
 func ptrOrNil(bytes []byte) *C.byte {
     var ptr *C.byte
     if len(bytes) > 0 {
         ptr = (*C.byte)(&bytes[0])
     }
     return ptr
+}
+
+func ptrOrEmptyNonNil(bytes []byte) *C.byte {
+    if len(bytes) > 0 {
+        return (*C.byte)(&bytes[0])
+    }
+    if bytes != nil {
+        return (*C.byte)(unsafe.Pointer(&zeroByte))
+    }
+    return nil
 }

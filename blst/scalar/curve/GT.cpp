@@ -235,6 +235,11 @@ namespace blst::scalar
         const G1AffinePoint P[], 
         size_t n)
     {
+        if (n == 0) {
+            vec_copy(&ret, get_BLST_Rx().p12, sizeof(Fp12));
+            return;
+        }
+
         // Historical VLA/alloca fallback kept here for reference:
         // G2Point& T = (G2Point&)alloca(n * sizeof(G2Point));
         // G1AffinePoint* Px2 = (G1AffinePoint*)alloca(n * sizeof(G1AffinePoint));
@@ -379,6 +384,14 @@ namespace blst::scalar
         const G1AffinePoint* const Ps[],
         size_t n)
     {   /* ~10KB of stack storage */
+        vec_copy(&out, get_BLST_Rx().p12, sizeof(Fp12));
+        if (n == 0) {
+            return;
+        }
+        if (Qs == NULL || Ps == NULL || Qs[0] == NULL || Ps[0] == NULL) {
+            return;
+        }
+
         G2Point T[MILLER_LOOP_N_MAX];
         G2AffinePoint Q[MILLER_LOOP_N_MAX];
         G1AffinePoint Px2[MILLER_LOOP_N_MAX];

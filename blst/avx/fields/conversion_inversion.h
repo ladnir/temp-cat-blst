@@ -99,6 +99,11 @@ inline std::array<typename Ring::StandardElement, 12> scalar_fp12_to_ring(
 
 namespace avx_blst_direct_bridge {
 
+inline void store_u64_unaligned(uint8_t* dst, uint64_t value)
+{
+    std::memcpy(dst, &value, sizeof(value));
+}
+
 template<int limbs>
 AVXVector<limbs> to_vec(uint8_t* le_buf)
 {
@@ -141,10 +146,10 @@ void from_vec(AVXVector<8>& vec_lo, AVXVector<8>& vec_hi, blst::Fp& ret)
     uint8_t* n_data_odd = reinterpret_cast<uint8_t*>(n_data_odd_64.data);
 
     for (int i = 0; i < 9; i += 2) {
-        *reinterpret_cast<uint64_t*>(n_data_even + (i / 2) * 13) = digits[i];
+        store_u64_unaligned(n_data_even + (i / 2) * 13, digits[i]);
     }
     for (int i = 1; i < 8; i += 2) {
-        *reinterpret_cast<uint64_t*>(n_data_odd + (i / 2) * 13 + 6) = digits[i] << 4;
+        store_u64_unaligned(n_data_odd + (i / 2) * 13 + 6, digits[i] << 4);
     }
 
     blst::UFp sum = {};
