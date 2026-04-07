@@ -264,6 +264,11 @@ inline bool c_api_valid_wbits(size_t wbits)
     return blst::scalar::detail::valid_wbits(wbits);
 }
 
+inline bool c_api_valid_pippenger_window(size_t window)
+{
+    return window > 0 && window < (sizeof(blst::limb_t) * 8);
+}
+
 template<typename T>
 inline bool c_api_has_valid_array_head(const T* const items[], size_t n)
 {
@@ -310,14 +315,15 @@ inline void c_api_points_tile_pippenger(
     size_t window)
 {
     ret = {};
-    if (npoints == 0 || !c_api_has_valid_pair_heads(points, scalars, npoints)) {
+    if (npoints == 0 || !c_api_has_valid_pair_heads(points, scalars, npoints) ||
+        buckets == nullptr || !c_api_valid_pippenger_window(window) ||
+        nbits == 0 || bit0 >= nbits) {
         return;
     }
 
-    BLST_ASSERT(npoints > 1);
-
     const size_t window_idx = bit0 / window;
     const blst::scalar::WindowExtract we(window_idx, window, nbits);
+    blst::vec_zero(buckets, sizeof(buckets[0]) << (we.encode_size - 1));
     size_t i = 0;
     const blst::byte* scalar = *scalars++;
     const AffineGroup* point = *points++;
@@ -650,6 +656,16 @@ void blst_p1s_mult_pippenger(
         *ret = {};
         return;
     }
+    if (npoints == 1) {
+        BoundaryG1 point = {};
+        BoundaryG1::from_affine(point, *points[0]);
+        BoundaryG1::mult(*ret, point, scalars[0], nbits);
+        return;
+    }
+    if (scratch == nullptr) {
+        *ret = {};
+        return;
+    }
     blst::scalar::msm_mult_pippenger<BoundaryG1, BoundaryG1Affine, blst::scalar::Pointxyzz<blst::Fp>>(
         *ret,
         points,
@@ -670,7 +686,9 @@ void blst_p1s_tile_pippenger(
     size_t bit0,
     size_t window)
 {
-    if (npoints == 0 || !c_api_has_valid_pair_heads(points, scalars, npoints)) {
+    if (npoints == 0 || !c_api_has_valid_pair_heads(points, scalars, npoints) ||
+        scratch == nullptr || !c_api_valid_pippenger_window(window) ||
+        nbits == 0 || bit0 >= nbits) {
         *ret = {};
         return;
     }
@@ -934,6 +952,16 @@ void blst_p2s_mult_pippenger(
         *ret = {};
         return;
     }
+    if (npoints == 1) {
+        BoundaryG2 point = {};
+        BoundaryG2::from_affine(point, *points[0]);
+        BoundaryG2::mult(*ret, point, scalars[0], nbits);
+        return;
+    }
+    if (scratch == nullptr) {
+        *ret = {};
+        return;
+    }
     blst::scalar::msm_mult_pippenger<BoundaryG2, BoundaryG2Affine, blst::scalar::Pointxyzz<blst::Fp2>>(
         *ret,
         points,
@@ -954,7 +982,9 @@ void blst_p2s_tile_pippenger(
     size_t bit0,
     size_t window)
 {
-    if (npoints == 0 || !c_api_has_valid_pair_heads(points, scalars, npoints)) {
+    if (npoints == 0 || !c_api_has_valid_pair_heads(points, scalars, npoints) ||
+        scratch == nullptr || !c_api_valid_pippenger_window(window) ||
+        nbits == 0 || bit0 >= nbits) {
         *ret = {};
         return;
     }

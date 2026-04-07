@@ -235,21 +235,10 @@ namespace blst::scalar
         const G1AffinePoint P[], 
         size_t n)
     {
+        vec_copy(&ret, get_BLST_Rx().p12, sizeof(Fp12));
         if (n == 0) {
-            vec_copy(&ret, get_BLST_Rx().p12, sizeof(Fp12));
             return;
         }
-
-        // Historical VLA/alloca fallback kept here for reference:
-        // G2Point& T = (G2Point&)alloca(n * sizeof(G2Point));
-        // G1AffinePoint* Px2 = (G1AffinePoint*)alloca(n * sizeof(G1AffinePoint));
-        if (n > MILLER_LOOP_N_MAX)
-            return;
-
-        G2Point T[MILLER_LOOP_N_MAX];
-        G1AffinePoint Px2[MILLER_LOOP_N_MAX];
-//#endif
-        size_t i;
 
         if ((n == 1) && (vec_is_zero(&Q[0], sizeof(Q[0])) |
             vec_is_zero(&P[0], sizeof(P[0])))) {
@@ -257,28 +246,38 @@ namespace blst::scalar
              * Special case of infinite aggregated signature, pair the additive
              * group's identity with the multiplicative group's identity.
              */
-            vec_copy(&ret, get_BLST_Rx().p12, sizeof(Fp12));
             return;
         }
 
-        for (i = 0; i < n; i++) {
-            /* Move common expression from line evaluation to line_by_Px2.  */
-            Fp::add(Px2[i].X, P[i].X, P[i].X);
-            Fp::neg(Px2[i].X, Px2[i].X);
-            Fp::add(Px2[i].Y, P[i].Y, P[i].Y);
+        size_t offset = 0;
+        while (offset < n) {
+            const size_t batch = std::min(n - offset, static_cast<size_t>(MILLER_LOOP_N_MAX));
+            G2Point T[MILLER_LOOP_N_MAX];
+            G1AffinePoint Px2[MILLER_LOOP_N_MAX];
+            GT chunk = {};
 
-            vec_copy(&T[i].X, &Q[i].X, 2 * sizeof(T[i].X));
-            vec_copy(&T[i].Z, &get_BLST_Rx().p2, sizeof(T[i].Z));
+            for (size_t i = 0; i < batch; i++) {
+                /* Move common expression from line evaluation to line_by_Px2.  */
+                Fp::add(Px2[i].X, P[offset + i].X, P[offset + i].X);
+                Fp::neg(Px2[i].X, Px2[i].X);
+                Fp::add(Px2[i].Y, P[offset + i].Y, P[offset + i].Y);
+
+                vec_copy(&T[i].X, &Q[offset + i].X, 2 * sizeof(T[i].X));
+                vec_copy(&T[i].Z, &get_BLST_Rx().p2, sizeof(T[i].Z));
+            }
+
+            /* first step is ret = 1^2*line, which is replaced with ret = line  */
+            start_dbl_n(chunk, T, Px2, batch);                /* 0x2                  */
+            add_n_dbl_n(chunk, T, &Q[offset], Px2, batch, 2); /* ..0xc                */
+            add_n_dbl_n(chunk, T, &Q[offset], Px2, batch, 3); /* ..0x68               */
+            add_n_dbl_n(chunk, T, &Q[offset], Px2, batch, 9); /* ..0xd200             */
+            add_n_dbl_n(chunk, T, &Q[offset], Px2, batch, 32);/* ..0xd20100000000     */
+            add_n_dbl_n(chunk, T, &Q[offset], Px2, batch, 16);/* ..0xd201000000010000 */
+            Fp12::conjugate(chunk.data);                      /* account for z being negative */
+            Fp12::mul(ret.data, ret.data, chunk.data);
+
+            offset += batch;
         }
-
-        /* first step is ret = 1^2*line, which is replaced with ret = line  */
-        start_dbl_n(ret, T, Px2, n);                /* 0x2                  */
-        add_n_dbl_n(ret, T, Q, Px2, n, 2);          /* ..0xc                */
-        add_n_dbl_n(ret, T, Q, Px2, n, 3);          /* ..0x68               */
-        add_n_dbl_n(ret, T, Q, Px2, n, 9);          /* ..0xd200             */
-        add_n_dbl_n(ret, T, Q, Px2, n, 32);         /* ..0xd20100000000     */
-        add_n_dbl_n(ret, T, Q, Px2, n, 16);         /* ..0xd201000000010000 */
-        Fp12::conjugate(ret.data);                /* account for z being negative */
     }
 
 

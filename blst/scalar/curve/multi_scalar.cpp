@@ -205,6 +205,10 @@ namespace blst::scalar
 		Point<Field> src[],
 		size_t wbits, size_t npoints)
 	{
+		if (npoints == 0) {
+			return;
+		}
+
 		size_t total = npoints << (wbits - 1);
 		size_t nwin = (size_t)1 << (wbits - 1);
 		size_t i, j;
@@ -256,7 +260,10 @@ namespace blst::scalar
 		if (!detail::valid_wbits(wbits) || npoints == 0 || points == nullptr || points[0] == nullptr)
 			return;
 
-		size_t total = npoints << (wbits - 1);
+		size_t total = 0;
+		if (!detail::checked_shl_size(npoints, wbits - 1, total)) {
+			return;
+		}
 		size_t nwin = (size_t)1 << (wbits - 1);
 		size_t nmin = wbits > 9 ? (size_t)1 : (size_t)1 << (9 - wbits);
 		size_t i, top = 0;
@@ -280,7 +287,29 @@ namespace blst::scalar
 			top += stride << (wbits - 1);
 			npoints -= stride;
 		}
-		rows = row = (Point<Field>*)malloc(2 * sizeof(AffinePoint<Field>) * npoints * nwin);
+		if (npoints == 0) {
+			return;
+		}
+
+		size_t rows_bytes = 0;
+		if (!detail::checked_mul_size(2 * sizeof(AffinePoint<Field>), npoints, rows_bytes) ||
+			!detail::checked_mul_size(rows_bytes, nwin, rows_bytes) ||
+			rows_bytes > static_cast<size_t>(-1) - sizeof(Field)) {
+			size_t table_bytes = 0;
+			if (detail::checked_mul_size(sizeof(AffinePoint<Field>), total, table_bytes)) {
+				vec_zero(table, table_bytes);
+			}
+			return;
+		}
+
+		rows = row = (Point<Field>*)malloc(rows_bytes + sizeof(Field));
+		if (rows == nullptr) {
+			size_t table_bytes = 0;
+			if (detail::checked_mul_size(sizeof(AffinePoint<Field>), total, table_bytes)) {
+				vec_zero(table, table_bytes);
+			}
+			return;
+		}
 		for (i = 0; i < npoints; i++, row += nwin)
 		{
 			point = *points ? *points++ : point + 1;

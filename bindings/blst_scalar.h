@@ -261,7 +261,7 @@ const blst_p1_affine* blst_p1_affine_generator(void);
 void blst_p1s_to_affine(blst_p1_affine dst[], const blst_p1* const points[], size_t npoints);
 /** Adds `npoints` affine G1 inputs and writes the total into `ret`; when `npoints > 0`, `points[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. */
 void blst_p1s_add(blst_p1* ret, const blst_p1_affine* const points[], size_t npoints);
-/** Returns the table size needed for G1 wbits precomputation, or 0 when `wbits` is outside the supported range `[2, 14]`. */
+/** Returns the table size needed for G1 wbits precomputation, or 0 when `wbits` is outside the supported range `[2, 14]` or the size computation would overflow. */
 size_t blst_p1s_mult_wbits_precompute_sizeof(size_t wbits, size_t npoints);
 /** Precomputes a G1 wbits multiplication table for `npoints` affine inputs; `wbits` must lie in `[2, 14]` and `points[0]` must be non-null when `npoints > 0`. */
 void blst_p1s_mult_wbits_precompute(blst_p1_affine table[], size_t wbits, const blst_p1_affine* const points[], size_t npoints);
@@ -271,9 +271,9 @@ size_t blst_p1s_mult_wbits_scratch_sizeof(size_t npoints);
 void blst_p1s_mult_wbits(blst_p1* ret, const blst_p1_affine table[], size_t wbits, size_t npoints, const byte* const scalars[], size_t nbits, limb_t* scratch);
 /** Returns the scratch size needed by the G1 Pippenger MSM routine. */
 size_t blst_p1s_mult_pippenger_scratch_sizeof(size_t npoints);
-/** Evaluates a G1 MSM with Pippenger using caller-owned scratch memory; when `npoints > 0`, `points[0]` and `scalars[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. */
+/** Evaluates a G1 MSM with Pippenger using caller-owned scratch memory; when `npoints == 1`, the wrapper falls back to single-point multiplication, and when `npoints > 1`, `scratch`, `points[0]`, and `scalars[0]` must be non-null. Later null entries mean contiguous continuation from the previous non-null element. */
 void blst_p1s_mult_pippenger(blst_p1* ret, const blst_p1_affine* const points[], size_t npoints, const byte* const scalars[], size_t nbits, limb_t* scratch);
-/** Evaluates one tiled window of a G1 Pippenger MSM; when `npoints > 0`, `points[0]` and `scalars[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. */
+/** Evaluates one tiled window of a G1 Pippenger MSM; when `npoints > 0`, `scratch`, `points[0]`, and `scalars[0]` must be non-null, `window` must be non-zero, and `bit0` must be less than `nbits`. Later null entries mean contiguous continuation from the previous non-null element. */
 void blst_p1s_tile_pippenger(blst_p1* ret, const blst_p1_affine* const points[], size_t npoints, const byte* const scalars[], size_t nbits, limb_t* scratch, size_t bit0, size_t window);
 /** Serializes a G1 projective point into a 96-byte uncompressed encoding. */
 void blst_p1_serialize(byte out[96], const blst_p1* in);
@@ -340,7 +340,7 @@ const blst_p2_affine* blst_p2_affine_generator(void);
 void blst_p2s_to_affine(blst_p2_affine dst[], const blst_p2* const points[], size_t npoints);
 /** Adds `npoints` affine G2 inputs and writes the total into `ret`; when `npoints > 0`, `points[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. */
 void blst_p2s_add(blst_p2* ret, const blst_p2_affine* const points[], size_t npoints);
-/** Returns the table size needed for G2 wbits precomputation, or 0 when `wbits` is outside the supported range `[2, 14]`. */
+/** Returns the table size needed for G2 wbits precomputation, or 0 when `wbits` is outside the supported range `[2, 14]` or the size computation would overflow. */
 size_t blst_p2s_mult_wbits_precompute_sizeof(size_t wbits, size_t npoints);
 /** Precomputes a G2 wbits multiplication table for `npoints` affine inputs; `wbits` must lie in `[2, 14]` and `points[0]` must be non-null when `npoints > 0`. */
 void blst_p2s_mult_wbits_precompute(blst_p2_affine table[], size_t wbits, const blst_p2_affine* const points[], size_t npoints);
@@ -350,9 +350,9 @@ size_t blst_p2s_mult_wbits_scratch_sizeof(size_t npoints);
 void blst_p2s_mult_wbits(blst_p2* ret, const blst_p2_affine table[], size_t wbits, size_t npoints, const byte* const scalars[], size_t nbits, limb_t* scratch);
 /** Returns the scratch size needed by the G2 Pippenger MSM routine. */
 size_t blst_p2s_mult_pippenger_scratch_sizeof(size_t npoints);
-/** Evaluates a G2 MSM with Pippenger using caller-owned scratch memory; when `npoints > 0`, `points[0]` and `scalars[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. */
+/** Evaluates a G2 MSM with Pippenger using caller-owned scratch memory; when `npoints == 1`, the wrapper falls back to single-point multiplication, and when `npoints > 1`, `scratch`, `points[0]`, and `scalars[0]` must be non-null. Later null entries mean contiguous continuation from the previous non-null element. */
 void blst_p2s_mult_pippenger(blst_p2* ret, const blst_p2_affine* const points[], size_t npoints, const byte* const scalars[], size_t nbits, limb_t* scratch);
-/** Evaluates one tiled window of a G2 Pippenger MSM; when `npoints > 0`, `points[0]` and `scalars[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. */
+/** Evaluates one tiled window of a G2 Pippenger MSM; when `npoints > 0`, `scratch`, `points[0]`, and `scalars[0]` must be non-null, `window` must be non-zero, and `bit0` must be less than `nbits`. Later null entries mean contiguous continuation from the previous non-null element. */
 void blst_p2s_tile_pippenger(blst_p2* ret, const blst_p2_affine* const points[], size_t npoints, const byte* const scalars[], size_t nbits, limb_t* scratch, size_t bit0, size_t window);
 /** Serializes a G2 projective point into a 192-byte uncompressed encoding. */
 void blst_p2_serialize(byte out[192], const blst_p2* in);
@@ -388,9 +388,9 @@ void blst_miller_loop(blst_fp12* ret, const blst_p2_affine* Q, const blst_p1_aff
  *   the previous non-null entry"
  */
 void blst_miller_loop_n(blst_fp12* ret, const blst_p2_affine* const Qs[], const blst_p1_affine* const Ps[], size_t n);
-/** Precomputes the 68 line-function coefficients needed for repeated Miller loops with `Q`. */
+/** Precomputes the 68 line-function coefficients needed for repeated Miller loops with `Q`; when `Q` is null, the G2 generator is used. */
 void blst_precompute_lines(blst_fp6 Qlines[68], const blst_p2_affine* Q);
-/** Runs a Miller loop using a precomputed `Qlines` table and affine `P`. */
+/** Runs a Miller loop using a precomputed `Qlines` table and affine `P`; when `P` is null, the G1 generator is used. */
 void blst_miller_loop_lines(blst_fp12* ret, const blst_fp6 Qlines[68], const blst_p1_affine* P);
 /** Returns the exact storage size, in bytes, required for one `blst_pairing` object. */
 size_t blst_pairing_sizeof(void);
@@ -498,7 +498,7 @@ size_t blst_uniq_sizeof(size_t n_nodes);
 void blst_uniq_init(blst_uniq* tree);
 /** Tests and records whether `msg[0..len)` is new to the uniqueness tree. */
 bool blst_uniq_test(blst_uniq* tree, const byte* msg, size_t len);
-/** Expands `msg` into `out_len` bytes using the XMD construction and `DST`. */
+/** Expands `msg` into `out_len` bytes using the XMD construction and `DST`; unsupported lengths or internal allocation failure clear `out` to zero. */
 void blst_expand_message_xmd(byte* out, size_t out_len, const byte* msg, size_t msg_len, const byte* DST, size_t DST_len);
 /** Returns `sizeof(blst_p1)` for ABI consumers that need runtime verification. */
 size_t blst_p1_sizeof(void);

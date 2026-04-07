@@ -11,6 +11,12 @@
 
 namespace blst::scalar
 {
+    BLST_HD BLST_INLINE void zero_bytes(unsigned char* bytes, size_t len)
+    {
+        while (len--) {
+            *bytes++ = 0;
+        }
+    }
 
 #ifdef expand_message_xmd
     BLST_HD void expand_message_xmd(unsigned char* bytes, size_t len_in_bytes,
@@ -155,16 +161,31 @@ namespace blst::scalar
         const unsigned char* msg, size_t msg_len,
         const unsigned char* DST, size_t DST_len)
     {
+        if (len_in_bytes == 0 || bytes == nullptr) {
+            return;
+        }
+
+        if (len_in_bytes > static_cast<size_t>(-1) - 31) {
+            zero_bytes(bytes, len_in_bytes);
+            return;
+        }
+
         size_t buf_len = (len_in_bytes + 31) & ((size_t)0 - 32);
         unsigned char* buf_ptr = bytes;
 
-        if (buf_len > 255 * 32)
+        if (buf_len > 255 * 32) {
+            zero_bytes(bytes, len_in_bytes);
             return;
+        }
 
         if (buf_len != len_in_bytes)
         {
             //buf_ptr = (unsigned char*)alloca(buf_len);
 			buf_ptr = (unsigned char*)malloc(buf_len);
+            if (buf_ptr == nullptr) {
+                zero_bytes(bytes, len_in_bytes);
+                return;
+            }
         }
 
         expand_message_xmd(buf_ptr, len_in_bytes, NULL, 0, msg, msg_len,

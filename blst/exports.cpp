@@ -114,67 +114,70 @@ void blst_fp_from(Fp& ret, const Fp& a)
  */
 void blst_fp_from_uint32(Fp& ret, const unsigned int a[12])
 {
+    Fp in = {};
+
     if (sizeof(limb_t) == 8) {
-        int i;
-        for (i = 0; i < 6; i++)
-            ret[i] = a[2*i] | ((limb_t)a[2*i+1] << (32 & (8*sizeof(limb_t)-1)));
-        a = (const unsigned int *)&ret;
+        for (int i = 0; i < 6; i++) {
+            in[i] = static_cast<limb_t>(a[2 * i]) |
+                    (static_cast<limb_t>(a[2 * i + 1]) << 32);
+        }
+    } else {
+        for (int i = 0; i < 12; ++i) {
+            in[i] = static_cast<limb_t>(a[i]);
+        }
     }
-    Fp::mul(ret, *(const Fp *)a, get_BLST_RR());
+    Fp::mul(ret, in, get_BLST_RR());
 }
 
 void blst_uint32_from_fp(unsigned int ret[12], const Fp& a)
 {
-    if (sizeof(limb_t) == 4) {
-        Fp::from_mont(*(Fp *)ret, a);
-    } else {
-        Fp out;
-        int i;
+    Fp out = {};
 
-        Fp::from_mont(out, a);
-        for (i = 0; i < 6; i++) {
+    Fp::from_mont(out, a);
+    if (sizeof(limb_t) == 4) {
+        for (int i = 0; i < 12; ++i) {
+            ret[i] = static_cast<unsigned int>(out[i]);
+        }
+    } else {
+        for (int i = 0; i < 6; i++) {
             limb_t limb = out[i];
-            ret[2*i]   = (unsigned int)limb;
-            ret[2*i+1] = (unsigned int)(limb >> (32 & (8*sizeof(limb)-1)));
+            ret[2 * i] = static_cast<unsigned int>(limb);
+            ret[2 * i + 1] = static_cast<unsigned int>(limb >> 32);
         }
     }
 }
 
 void blst_fp_from_uint64(Fp& ret, const unsigned long long a[6])
 {
-    const union {
-        long one;
-        char little;
-    } is_endian = { 1 };
+    Fp in = {};
 
-    if (sizeof(limb_t) == 4 && !is_endian.little) {
-        int i;
-        for (i = 0; i < 6; i++) {
-            unsigned long long ll= a[i];
-            ret[2*i]   = (limb_t)ll;
-            ret[2*i+1] = (limb_t)(ll >> 32);
+    if (sizeof(limb_t) == 8) {
+        for (int i = 0; i < 6; ++i) {
+            in[i] = static_cast<limb_t>(a[i]);
         }
-        a = (const unsigned long long *)ret.data;
+    } else {
+        for (int i = 0; i < 6; i++) {
+            unsigned long long ll = a[i];
+            in[2 * i] = static_cast<limb_t>(ll);
+            in[2 * i + 1] = static_cast<limb_t>(ll >> 32);
+        }
     }
-    Fp::mul(ret, *(const Fp*)a, get_BLST_RR());
+    Fp::mul(ret, in, get_BLST_RR());
 }
 
 void blst_uint64_from_fp(unsigned long long ret[6], const Fp& a)
 {
-    const union {
-        long one;
-        char little;
-    } is_endian = { 1 };
+    Fp out = {};
 
-    if (sizeof(limb_t) == 8 || is_endian.little) {
-        Fp::from_mont(*(Fp *)ret, a);
+    Fp::from_mont(out, a);
+    if (sizeof(limb_t) == 8) {
+        for (int i = 0; i < 6; ++i) {
+            ret[i] = static_cast<unsigned long long>(out[i]);
+        }
     } else {
-        Fp out;
-        int i;
-
-        Fp::from_mont(out, a);
-        for (i = 0; i < 6; i++)
-            ret[i] = out[2*i] | ((unsigned long long)out[2*i+1] << 32);
+        for (int i = 0; i < 6; i++)
+            ret[i] = static_cast<unsigned long long>(out[2 * i]) |
+                     (static_cast<unsigned long long>(out[2 * i + 1]) << 32);
     }
 }
 
@@ -381,22 +384,19 @@ void blst_lendian_from_scalar(unsigned char ret[32], const pow256 a)
 
 void blst_uint64_from_fr(unsigned long long ret[4], const Fr& a)
 {
-    const union {
-        long one;
-        char little;
-    } is_endian = { 1 };
+    Fr out = {};
 
-    if (sizeof(limb_t) == 8 || is_endian.little) {
-        Fr::from_mont(*(Fr *)ret, a);
+    Fr::from_mont(out, a);
+    if (sizeof(limb_t) == 8) {
+        for (int i = 0; i < 4; ++i) {
+            ret[i] = static_cast<unsigned long long>(out[i]);
+        }
     } else {
-        Fr out;
-        int i;
-
-        Fr::from_mont(out, a);
-        for (i = 0; i < 4; i++)
-            ret[i] = out[2*i] | ((unsigned long long)out[2*i+1] << 32);
-        vec_zero(out.data, sizeof(out));
+        for (int i = 0; i < 4; i++)
+            ret[i] = static_cast<unsigned long long>(out[2 * i]) |
+                     (static_cast<unsigned long long>(out[2 * i + 1]) << 32);
     }
+    vec_zero(out.data, sizeof(out));
 }
 
 int blst_scalar_from_le_bytes(pow256 out, const unsigned char *bytes, size_t n)

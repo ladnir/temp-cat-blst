@@ -7,4 +7,3 @@ sha version. figure out what version should be called
 optimize generic squaring. currently uses mul, but can be optimized
 
 investigate mul_by_v_fp6
-

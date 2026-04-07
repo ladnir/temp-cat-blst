@@ -31,6 +31,22 @@ namespace blst::scalar
 		{
 			return wbits >= 2 && wbits <= 14;
 		}
+
+		BLST_HD BLST_INLINE constexpr bool checked_mul_size(size_t a, size_t b, size_t& out)
+		{
+			if (a != 0 && b > static_cast<size_t>(-1) / a)
+				return false;
+			out = a * b;
+			return true;
+		}
+
+		BLST_HD BLST_INLINE constexpr bool checked_shl_size(size_t value, size_t shift, size_t& out)
+		{
+			if (shift >= sizeof(size_t) * 8 || value > (static_cast<size_t>(-1) >> shift))
+				return false;
+			out = value << shift;
+			return true;
+		}
 	}
 
 
@@ -143,7 +159,12 @@ namespace blst::scalar
 	{
 		if (!detail::valid_wbits(wbits))
 			return 0;
-		return (sizeof(AffinePoint<Field>) * npoints) << (wbits - 1);
+		size_t bytes = 0;
+		if (!detail::checked_mul_size(sizeof(AffinePoint<Field>), npoints, bytes))
+			return 0;
+		if (!detail::checked_shl_size(bytes, wbits - 1, bytes))
+			return 0;
+		return bytes;
 	}
 
 
