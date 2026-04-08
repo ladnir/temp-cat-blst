@@ -113,7 +113,7 @@ class RNSMatrix {
         correction_shift.load((uint64_t*)correction_shift_vec.data());
     }
 
-    inline void accumulate_loop(AVXVector<out_limbs * OUT_DIGITS> &out_hi, AVXVector<out_limbs * OUT_DIGITS> &out_lo, const AVXVector<in_limbs * IN_DIGITS> &residues, uint128_t &k_raw) const {
+    INLINE void accumulate_loop(AVXVector<out_limbs * OUT_DIGITS> &out_hi, AVXVector<out_limbs * OUT_DIGITS> &out_lo, const AVXVector<in_limbs * IN_DIGITS> &residues, uint128_t &k_raw) const {
         // Need to allocate space with padding, although we should only iterate over the actual limbs.
         std::array<uint64_t, AVXVector<in_limbs * IN_DIGITS>::VEC_LIMBS * AVXVector<in_limbs * IN_DIGITS>::LIMBS_PER_VEC> scalars;
         residues.store(scalars.data());
@@ -126,7 +126,7 @@ class RNSMatrix {
         }
     }
 
-    inline uint64_t add_correction(AVXVector<out_limbs * OUT_DIGITS> &out_hi, AVXVector<out_limbs * OUT_DIGITS> &out_lo, uint128_t raw, const AVXVector<out_limbs * OUT_DIGITS> &c_value) const {
+    INLINE uint64_t add_correction(AVXVector<out_limbs * OUT_DIGITS> &out_hi, AVXVector<out_limbs * OUT_DIGITS> &out_lo, uint128_t raw, const AVXVector<out_limbs * OUT_DIGITS> &c_value) const {
         uint64_t k = raw >> precision;
         /*std::cout << "  [DEBUG C++ add_correction] k_raw=" << (uint64_t)(raw >> 64) << ":" << (uint64_t)raw << ", k=" << k << std::endl;*/
         AVXScalar sk = Scalar(k);
@@ -140,7 +140,7 @@ class RNSMatrix {
     }
 
     template<int batch>
-    inline void add_correction_batch(OutBatchArray<batch> &out_hi, OutBatchArray<batch> &out_lo, std::array<uint128_t, batch> &k_raw, const AVXVector<out_limbs * OUT_DIGITS> &c_value) const {
+    INLINE void add_correction_batch(OutBatchArray<batch> &out_hi, OutBatchArray<batch> &out_lo, std::array<uint128_t, batch> &k_raw, const AVXVector<out_limbs * OUT_DIGITS> &c_value) const {
         std::array<AVXScalar, batch> sk;
         for (int i = 0; i < batch; i++) {
             sk[i] = Scalar(k_raw[i] >> precision);
@@ -171,7 +171,7 @@ class RNSMatrix {
 
     
     template<int batch>
-    inline void add_correction_batch2(OutBatchArray<batch> &out_hi, OutBatchArray<batch> &out_lo, std::array<uint128_t, batch> &k_raw, const AVXVector<out_limbs * OUT_DIGITS> &c_value, const AVXVector<out_limbs * OUT_DIGITS> &c_value_shift) const {
+    INLINE void add_correction_batch2(OutBatchArray<batch> &out_hi, OutBatchArray<batch> &out_lo, std::array<uint128_t, batch> &k_raw, const AVXVector<out_limbs * OUT_DIGITS> &c_value, const AVXVector<out_limbs * OUT_DIGITS> &c_value_shift) const {
         std::array<AVXScalar, batch> sk;
         for (int i = 0; i < batch; i++) {
             sk[i] = Scalar(k_raw[i] >> precision);
@@ -195,7 +195,7 @@ class RNSMatrix {
         }
     }
 
-    inline void rns_reduce_raw(const AVXVector<in_limbs * IN_DIGITS> &residues1, AVXVector<out_limbs * OUT_DIGITS> &out_hi, AVXVector<out_limbs * OUT_DIGITS> &out_lo) const {
+    INLINE void rns_reduce_raw(const AVXVector<in_limbs * IN_DIGITS> &residues1, AVXVector<out_limbs * OUT_DIGITS> &out_hi, AVXVector<out_limbs * OUT_DIGITS> &out_lo) const {
         uint128_t k_raw = 0;
         accumulate_loop(out_hi, out_lo, residues1, k_raw);
         (void)add_correction(out_hi, out_lo, k_raw, correction);
@@ -218,7 +218,7 @@ class RNSMatrix {
     }
 
     template<int batch>
-    inline void accumulate_loop_batch_tree_1_level(
+    INLINE void accumulate_loop_batch_tree_1_level(
         const ScalarBatchArray<batch>& scalars,
         std::array<uint128_t, batch> &k_raw,
         OutBatchArray<batch> &out_hi,
@@ -250,7 +250,7 @@ class RNSMatrix {
     }
 
     template<int batch>
-    inline void rns_reduce_raw_batch(const InBatchArray<batch> *residues1, OutBatchArray<batch> &out_hi, OutBatchArray<batch> &out_lo) const {
+    INLINE void rns_reduce_raw_batch(const InBatchArray<batch> *residues1, OutBatchArray<batch> &out_hi, OutBatchArray<batch> &out_lo) const {
         const ScalarBatchArray<batch>* scalars = reinterpret_cast<const ScalarBatchArray<batch>*>(residues1);
         std::array<uint128_t, batch> k_raw = {};
         for (int i = 0; i < in_limbs * IN_DIGITS; i++) {
@@ -266,7 +266,7 @@ class RNSMatrix {
     }
 
     template<int batch>
-    inline void rns_reduce_raw_batch_shifted(const InBatchArray<batch> *residues1, OutBatchArray<batch> &out_hi, OutBatchArray<batch> &out_lo) const {
+    INLINE void rns_reduce_raw_batch_shifted(const InBatchArray<batch> *residues1, OutBatchArray<batch> &out_hi, OutBatchArray<batch> &out_lo) const {
         const ScalarBatchArray<batch>* scalars = reinterpret_cast<const ScalarBatchArray<batch>*>(residues1);
         std::array<uint128_t, batch> k_raw = {};
         for (int i = 0; i < in_limbs * IN_DIGITS; i++) {
@@ -282,7 +282,7 @@ class RNSMatrix {
     }
 
     template<int batch>
-    inline void rns_reduce_raw_batch_tree_1_level(const InBatchArray<batch> *residues1, OutBatchArray<batch> &out_hi, OutBatchArray<batch> &out_lo) const {
+    INLINE void rns_reduce_raw_batch_tree_1_level(const InBatchArray<batch> *residues1, OutBatchArray<batch> &out_hi, OutBatchArray<batch> &out_lo) const {
         const ScalarBatchArray<batch>* scalars = reinterpret_cast<const ScalarBatchArray<batch>*>(residues1);
         std::array<uint128_t, batch> k_raw = {};
         accumulate_loop_batch_tree_1_level<batch>(*scalars, k_raw, out_hi, out_lo);
