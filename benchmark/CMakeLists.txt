@@ -33,6 +33,7 @@ if(BLST_CUDA)
         "main.cpp"
         "Fp12Coop_bench.cpp"
         "FFT_bench.cpp"
+        "MiddleProduct_bench.cpp"
     )
 else()
     list(APPEND BENCHMARK_SOURCES
@@ -44,6 +45,7 @@ else()
         "G2_bench.cpp"
         "pairing_bench.cpp"
         "FFT_bench.cpp"
+        "MiddleProduct_bench.cpp"
     )
 endif()
 

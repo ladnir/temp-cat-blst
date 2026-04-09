@@ -20,6 +20,7 @@ set(PUBLIC_API_TEST_SOURCES
     "Backend_alias_tests.cpp"
     "BindingHeader_tests.cpp"
     "C_api_tests.cpp"
+    "MiddleProduct_direct_tests.cpp"
     "MiddleProduct_c_api_tests.cpp"
 )
 

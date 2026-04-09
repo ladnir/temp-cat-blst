@@ -1,0 +1,438 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{bm}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{listings}
+\usepackage{inconsolata}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!50!black,
+  urlcolor=blue!50!black,
+  citecolor=blue!50!black,
+  pdftitle={Middle Product via Multipairing},
+  pdfauthor={OpenAI}
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Middle Product via Multipairing}
+\rhead{\thepage}
+\setlength{\headheight}{14pt}
+
+\titleformat{\section}{\large\bfseries\color{blue!35!black}}{\thesection.}{0.5em}{}
+\titleformat{\subsection}{\normalsize\bfseries\color{blue!20!black}}{\thesubsection.}{0.5em}{}
+
+\lstdefinestyle{mystyle}{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\bfseries\color{blue!50!black},
+  commentstyle=\itshape\color{black!55},
+  frame=single,
+  framerule=0.4pt,
+  rulecolor=\color{black!20},
+  backgroundcolor=\color{black!2},
+  showstringspaces=false,
+  columns=fullflexible,
+  keepspaces=true,
+  xleftmargin=0.5em,
+  xrightmargin=0.5em
+}
+\lstset{style=mystyle}
+
+\newcommand{\GT}{G_T}
+
+\begin{document}
+
+\begin{center}
+  {\LARGE \textbf{Middle Product via Multipairing}}\\[0.5em]
+  {\large Technical note}\\[0.75em]
+\end{center}
+
+\noindent
+This note describes a direct middle-product implementation based on
+multipairing. The goal is not to replace the optimized FFT formulation at
+large sizes. The goal is to understand a small-size execution path whose
+native batching primitive is the pairing itself.
+
+\section{Problem statement}
+
+Let
+\[
+A(x) = a_0 + a_1 x + \cdots + a_{n-1} x^{n-1}
+\]
+and
+\[
+B(x) = b_0 + b_1 x + \cdots + b_{2n-1} x^{2n-1},
+\]
+where the coefficients of $A$ lie in one pairing input group, the coefficients
+of $B$ lie in the other pairing input group, and coefficient multiplication is
+the bilinear pairing
+\[
+a_i \circ b_j \in \GT.
+\]
+
+Define
+\[
+C(x) = A(x)B(x) = \sum_{k=0}^{3n-2} C_k x^k.
+\]
+We only want the middle window
+\[
+C_n, C_{n+1}, \dots, C_{2n-1}.
+\]
+
+For each $r \in \{0,\dots,n-1\}$,
+\[
+C_{n+r} = \sum_{i=0}^{n-1} a_i \circ b_{n+r-i}.
+\]
+This is the middle product.
+
+\section{Naive direct evaluation}
+
+The literal implementation is:
+
+\begin{lstlisting}
+for r in 0..n-1:
+    acc = 0 in G_T
+    for i in 0..n-1:
+        acc += pair(a[i], b[n + r - i])
+    out[r] = acc
+\end{lstlisting}
+
+This performs $n^2$ bilinear products.
+It is simple and exact, but it does not exploit the fact that pairings are
+normally implemented as a two-phase computation:
+\begin{enumerate}[itemsep=0.3em, topsep=0.4em]
+  \item Miller accumulation,
+  \item final exponentiation.
+\end{enumerate}
+
+That structure motivates a direct multipairing formulation.
+
+\section{Multipairing reformulation}
+
+For a fixed output index $r$, define the pair list
+\[
+(a_0, b_{n+r}),
+\ (a_1, b_{n+r-1}),
+\ \dots,
+\ (a_{n-1}, b_r).
+\]
+Then the same coefficient can be written as one multipairing:
+\[
+C_{n+r}
+=
+\mathrm{MultiPair}\big((a_i, b_{n+r-i})_{i=0}^{n-1}\big).
+\]
+
+This does \emph{not} change the asymptotic cost.
+We still have $n$ outputs, each involving $n$ input pairs, so total work
+remains $O(n^2)$.
+The gain is in constant factors:
+\begin{itemize}[itemsep=0.3em, topsep=0.4em]
+  \item one Miller pass can accumulate many pairs,
+  \item one final exponentiation serves the whole output,
+  \item line-table precomputation can be reused,
+  \item zero and trivial terms can be skipped in bulk.
+\end{itemize}
+
+\section{Why multipairing is the natural primitive}
+
+MSM is the right batching primitive for linear combinations inside $G_1$ or
+$G_2$.
+This problem is different.
+The coefficient formula is already bilinear in $(a_i, b_j)$ and lands in
+\GT.
+
+So for the direct middle-product path, the natural batching primitive is:
+\begin{quote}
+Batch many pair contributions into one multipairing per output coefficient.
+\end{quote}
+
+This keeps the computation aligned with the algebra:
+\[
+\sum_i a_i \circ b_{n+r-i}.
+\]
+It also matches what pairing libraries are usually optimized to do well:
+share Miller-loop work across many pairs and postpone the final exponentiation
+until the end of the batch.
+
+\section{Precomputation strategy}
+
+The most useful precomputation is on the $B$ side.
+For each coefficient $b_j$, precompute the data needed to evaluate a Miller
+contribution quickly.
+In practice this means storing one of:
+\begin{itemize}[itemsep=0.3em, topsep=0.4em]
+  \item an affine or other reduced representation of $b_j$,
+  \item a prepared line table for $b_j$,
+  \item any backend-specific pairing precompute object.
+\end{itemize}
+
+Then output $r$ only needs the contiguous prepared window
+\[
+b_r,\ b_{r+1},\ \dots,\ b_{r+n-1},
+\]
+read in reverse against
+\[
+a_{n-1},\ a_{n-2},\ \dots,\ a_0.
+\]
+
+A useful precompute object therefore stores:
+\begin{enumerate}[itemsep=0.3em, topsep=0.4em]
+  \item the original problem size $n$,
+  \item prepared data for all $2n$ coefficients of $B$,
+  \item optional zero flags for fast skipping,
+  \item optional contiguous views or index helpers for output windows.
+\end{enumerate}
+
+\section{Concrete direct algorithm}
+
+\subsection{Offline precomputation}
+
+\begin{lstlisting}
+precompute_B_for_multipair(B):
+    pre.n = len(B) / 2
+    for j in 0..2*n-1:
+        pre.zero[j] = is_zero(B[j])
+        if not pre.zero[j]:
+            pre.lines[j] = prepare_pairing_lines(B[j])
+    return pre
+\end{lstlisting}
+
+\subsection{Online evaluation}
+
+\begin{lstlisting}
+middle_product_multipair(A, pre):
+    n = len(A)
+    for r in 0..n-1:
+        mp = multipair_identity()
+        for i in 0..n-1:
+            j = n + r - i
+            if is_zero(A[i]) or pre.zero[j]:
+                continue
+            multipair_accumulate(mp, A[i], pre.lines[j])
+        out[r] = multipair_finalize(mp)
+    return out
+\end{lstlisting}
+
+This is still the same exact formula
+\[
+C_{n+r} = \sum_{i=0}^{n-1} a_i \circ b_{n+r-i},
+\]
+just implemented through the library's batched pairing machinery rather than
+as $n$ separate pairings.
+
+\section{Update and combine view}
+
+If the API already separates the middle product into:
+\begin{enumerate}[itemsep=0.3em, topsep=0.4em]
+  \item a main middle-product evaluation,
+  \item a constant-term or shifted update,
+  \item a combine step in \GT,
+\end{enumerate}
+then the direct multipairing path fits that shape naturally.
+
+For example, the contribution of $a_0$ alone is
+\[
+a_0 \circ b_n,\ a_0 \circ b_{n+1},\ \dots,\ a_0 \circ b_{2n-1},
+\]
+which is just the length-$n$ vector obtained by pairing one fixed $a_0$ with
+the upper half of $B$.
+The remaining coefficients can be treated similarly, and the final result is
+the accumulation of those per-coefficient contributions in \GT.
+
+This observation does not change complexity, but it means the direct
+multipairing path can often be made to mirror the same high-level API shape as
+the FFT path.
+
+\section{Comparison with the optimized FFT path}
+
+The optimized FFT middle-product path has much better asymptotic behavior:
+\[
+O(n \log n)
+\]
+group transforms, plus pointwise pairing work in the evaluation domain.
+
+The direct multipairing path remains:
+\[
+O(n^2)
+\]
+in total pair inputs.
+
+So the expected tradeoff is:
+\begin{itemize}[itemsep=0.3em, topsep=0.4em]
+  \item \textbf{Multipairing path:} small sizes, simple control flow, good
+  constant factors, minimal transform machinery.
+  \item \textbf{FFT path:} medium and large sizes, better asymptotics, more
+  structure and precomputation.
+\end{itemize}
+
+The direct path is therefore best viewed as a small-size competitor or fallback,
+not as a replacement for the FFT design.
+
+\section{Benchmark plan}
+
+The first benchmark goal is very simple:
+\begin{quote}
+Find the largest $n$ for which direct multipairing beats the optimized FFT
+middle product on real AVX hardware.
+\end{quote}
+
+That benchmark should measure at least:
+\begin{enumerate}[itemsep=0.3em, topsep=0.4em]
+  \item direct multipairing with no precompute,
+  \item direct multipairing with prepared $B$ data,
+  \item optimized FFT with its existing precompute path,
+  \item online-only versus online-plus-offline totals.
+\end{enumerate}
+
+Representative sizes might be
+\[
+n \in \{2,4,8,16,32,64,128\}.
+\]
+
+The outcome of this benchmark is a dispatch threshold:
+\begin{itemize}[itemsep=0.3em, topsep=0.4em]
+  \item use direct multipairing below the threshold,
+  \item use the optimized FFT path above the threshold.
+\end{itemize}
+
+\section{Implementation plan}
+
+\subsection{Phase 1: standalone batched pairing kernel}
+
+Build a reusable kernel for:
+\begin{enumerate}[itemsep=0.3em, topsep=0.4em]
+  \item preparing one $B$ coefficient for pairing,
+  \item accumulating many $(A_i, B_j)$ contributions into one multipair object,
+  \item finalizing the batched result into \GT.
+\end{enumerate}
+
+This should be benchmarked independently before wiring it into a full
+middle-product path.
+
+\subsection{Phase 2: direct middle-product implementation}
+
+Build a clean direct implementation around that kernel:
+\begin{itemize}[itemsep=0.3em, topsep=0.4em]
+  \item precompute $B$,
+  \item for each output $r$, accumulate the diagonal
+  $(a_i, b_{n+r-i})$ into one multipair,
+  \item finalize to produce $C_{n+r}$.
+\end{itemize}
+
+\subsection{Phase 3: correctness}
+
+Compare the direct multipairing outputs against:
+\begin{enumerate}[itemsep=0.3em, topsep=0.4em]
+  \item a naive reference implementation,
+  \item the existing optimized FFT middle-product path.
+\end{enumerate}
+
+Use deterministic vectors and cover zero-heavy cases, boundary sizes, and
+prepared-line versus unprepared modes.
+
+\subsection{Phase 4: crossover measurement}
+
+Benchmark the direct multipairing path against the optimized FFT path on real
+AVX hardware.
+The deliverable is an empirical threshold, not a proof.
+
+\subsection{Phase 5: optional dispatch integration}
+
+Only after the crossover is understood should any runtime dispatch be added.
+The simplest policy is:
+\begin{lstlisting}
+if n <= threshold:
+    use direct multipairing
+else:
+    use optimized FFT
+\end{lstlisting}
+
+\section{What to keep from the current work}
+
+The current experimental work should be filtered rather than discarded
+wholesale.
+The important distinction is:
+\begin{quote}
+Keep the scaffolding and measurement structure; replace the naive per-term
+pairing kernel.
+\end{quote}
+
+\subsection{Keep}
+
+The following pieces remain useful for the multipairing plan:
+\begin{itemize}[itemsep=0.3em, topsep=0.4em]
+  \item the standalone planning note itself,
+  \item the test wiring and benchmark wiring,
+  \item deterministic input generation for $G_1$ and $G_2$ vectors,
+  \item output-comparison helpers against the existing FFT path,
+  \item the offline-versus-online timing split,
+  \item the scalar-versus-AVX benchmark structure,
+  \item the precompute / evaluate / update / combine API shape.
+\end{itemize}
+
+These pieces are useful because they are agnostic to whether the internal
+kernel is naive direct pairing or true multipairing.
+
+\subsection{Rewrite}
+
+The current direct kernel should not be kept as the candidate implementation.
+It should be replaced by a genuine multipairing core:
+\begin{itemize}[itemsep=0.3em, topsep=0.4em]
+  \item replace the one-term-at-a-time pairing helper,
+  \item replace the nested ``pair then add into \GT'' inner loop,
+  \item introduce a multipair object with accumulate and finalize steps,
+  \item preserve prepared-line and zero-mask precomputation where useful.
+\end{itemize}
+
+In other words, the outer shape survives, but the computational heart changes.
+
+\subsection{Demote}
+
+The current naive direct implementation is still valuable as a reference
+oracle, but it should no longer be treated as the performance candidate.
+Any benchmark conclusions derived from:
+\begin{quote}
+naive direct versus FFT
+\end{quote}
+should be treated as obsolete for the multipairing decision.
+
+\subsection{Practical repository guidance}
+
+In repository terms, the intended reuse pattern is:
+\begin{itemize}[itemsep=0.3em, topsep=0.4em]
+  \item keep the tests and benchmarks as harnesses,
+  \item keep the deterministic generators and comparison logic,
+  \item keep the precompute container idea on the $B$ side,
+  \item throw away the naive per-term pairing core,
+  \item replace it with true multipair accumulation.
+\end{itemize}
+
+\section{Summary}
+
+The direct middle-product formula is already pairing-shaped.
+That makes multipairing the most natural small-size batching primitive.
+It does not change the $O(n^2)$ asymptotics, but it can substantially reduce
+constant factors by sharing Miller work and amortizing final exponentiation.
+
+So the practical strategy is:
+\begin{enumerate}[itemsep=0.3em, topsep=0.4em]
+  \item keep the optimized FFT path as the large-size solution,
+  \item build a direct multipairing path as a small-size competitor,
+  \item benchmark both on real AVX hardware,
+  \item dispatch based on measured crossover.
+\end{enumerate}
+
+\end{document}
