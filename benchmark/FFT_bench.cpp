@@ -1,5 +1,6 @@
 #include <benchmark/benchmark.h>
 
+#include <algorithm>
 #include <vector>
 #include <random>
 #include <chrono>
@@ -12,6 +13,9 @@
 #include "blst/fft/ctFft.h"
 #include "blst/fft/middle_product.h"
 #include "blst/avx/fft/gt_context.h"
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+#include "blst/avx/fft/g1_dense_transform.h"
+#endif
 #include "blst/common/timer.h"
 
 #include "blst/common/defines.h"
@@ -76,6 +80,28 @@ namespace
 		}
 		return data;
 	}
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+	static std::vector<blst::avx::G1Point> make_avx_g1_data(size_t N, uint64_t seed)
+	{
+		std::mt19937_64 rng(seed);
+		std::uniform_int_distribution<uint64_t> dist(1, (uint64_t)-1);
+
+		std::vector<blst::avx::G1Point> data(N);
+		for (size_t i = 0; i < N; ++i) {
+			Fr s = {};
+			Fr::from_uint64(s, dist(rng));
+			Fr s_non_mont = {};
+			Fr::from_mont(s_non_mont, s);
+			blst::avx::G1Point::mult(
+				data[i],
+				blst::avx::G1Point::generator(),
+				reinterpret_cast<const byte*>(&s_non_mont),
+				256);
+		}
+		return data;
+	}
+#endif
 
 	static std::vector<G2Point> make_g2_data(size_t N, uint64_t seed)
 	{
@@ -148,6 +174,104 @@ namespace
 		state.counters["N"] = static_cast<double>(N);
 		state.counters["FFTs/sec"] = benchmark::Counter(1, benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
 	}
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+	template<std::size_t M>
+	static void bench_avx_g1_dense_transform_cpu_impl(benchmark::State& state)
+	{
+		const auto plan = blst::avx::make_g1_dense_transform_plan<M>();
+		const std::vector<blst::avx::G1Point> original = make_avx_g1_data(M, /*seed*/ 0xD35EA11CEULL);
+		std::array<blst::avx::G1Point, M> out = {};
+
+		for (auto _ : state) {
+			benchmark::DoNotOptimize(original.data());
+			blst::avx::g1_dense_transform<M>(
+				std::span<const blst::avx::G1Point>(original.data(), original.size()),
+				plan,
+				std::span<blst::avx::G1Point>(out.data(), out.size()));
+			benchmark::ClobberMemory();
+		}
+
+		state.counters["N"] = static_cast<double>(M);
+		state.counters["Transforms/sec"] = benchmark::Counter(
+			1,
+			benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+	}
+
+	static void bench_avx_g1_dense_transform_cpu(benchmark::State& state)
+	{
+		switch (static_cast<std::size_t>(state.range(0))) {
+		case 2:
+			bench_avx_g1_dense_transform_cpu_impl<2>(state);
+			return;
+		case 4:
+			bench_avx_g1_dense_transform_cpu_impl<4>(state);
+			return;
+		case 8:
+			bench_avx_g1_dense_transform_cpu_impl<8>(state);
+			return;
+		case 16:
+			bench_avx_g1_dense_transform_cpu_impl<16>(state);
+			return;
+		case 32:
+			bench_avx_g1_dense_transform_cpu_impl<32>(state);
+			return;
+		default:
+			state.SkipWithError("unsupported dense-transform size");
+			return;
+		}
+	}
+
+	template<std::size_t M>
+	static void bench_avx_g1_fft_cpu_impl(benchmark::State& state)
+	{
+		using AvxG1 = blst::avx::G1Point;
+		using AvxCoeffCtx = blst::avx::DenseTransformCoeffCtx<AvxG1>;
+
+		const auto plan = blst::avx::make_g1_dense_transform_plan<M>();
+		const std::vector<AvxG1> original = make_avx_g1_data(M, /*seed*/ 0xD35EA11CEULL);
+		std::array<AvxG1, M> data = {};
+
+		for (auto _ : state) {
+			std::copy(original.begin(), original.end(), data.begin());
+			benchmark::DoNotOptimize(data.data());
+			fft<AvxG1, Fr, AvxCoeffCtx>(
+				std::span<AvxG1>(data.data(), data.size()),
+				std::span<const Fr>(plan.roots.data(), plan.roots.size()),
+				false);
+			benchmark::ClobberMemory();
+		}
+
+		state.counters["N"] = static_cast<double>(M);
+		state.counters["FFTs/sec"] = benchmark::Counter(
+			1,
+			benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+	}
+
+	static void bench_avx_g1_fft_cpu(benchmark::State& state)
+	{
+		switch (static_cast<std::size_t>(state.range(0))) {
+		case 2:
+			bench_avx_g1_fft_cpu_impl<2>(state);
+			return;
+		case 4:
+			bench_avx_g1_fft_cpu_impl<4>(state);
+			return;
+		case 8:
+			bench_avx_g1_fft_cpu_impl<8>(state);
+			return;
+		case 16:
+			bench_avx_g1_fft_cpu_impl<16>(state);
+			return;
+		case 32:
+			bench_avx_g1_fft_cpu_impl<32>(state);
+			return;
+		default:
+			state.SkipWithError("unsupported AVX FFT size");
+			return;
+		}
+	}
+#endif
 
 	//static void bench_g1_fft_dif_cpu(benchmark::State& state)
 	//{
@@ -1514,6 +1638,9 @@ static void bench_middle_product_fft_detailed(benchmark::State& state)
 #define FFT_SIZES \
 ->Arg(256)->Arg(512)->Arg(1024)->Arg(2048)->Arg(4096)->Arg(8192)->Arg(16384)
 
+#define SMALL_FFT_SIZES \
+->Arg(2)->Arg(4)->Arg(8)->Arg(16)->Arg(32)
+
 // Smaller sizes for expensive operations (middle product involves pairings)
 #define MIDDLE_PROD_SIZES \
 ->DenseRange(64, 512, 32)
@@ -1530,6 +1657,18 @@ BENCHMARK(bench_g1_fft_cpu)
 FFT_SIZES
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+BENCHMARK(bench_avx_g1_fft_cpu)
+SMALL_FFT_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK(bench_avx_g1_dense_transform_cpu)
+SMALL_FFT_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+#endif
 
 
 //BENCHMARK(bench_g1_fft_dif_cpu)
