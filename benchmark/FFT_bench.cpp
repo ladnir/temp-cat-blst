@@ -1516,11 +1516,13 @@ static void bench_middle_product_fft_detailed(benchmark::State& state)
 
 // Smaller sizes for expensive operations (middle product involves pairings)
 #define MIDDLE_PROD_SIZES \
-->DenseRange(64, 512, 32)
+->Arg(2)->Arg(4)->Arg(8)->Arg(12)->Arg(16)->Arg(24)->Arg(32)->Arg(48)->Arg(64) \
+->DenseRange(96, 512, 32)
 
 // Medium sweep for detailed reports (non power-of-two n included).
 #define MIDDLE_PROD_SWEEP_SIZES \
-->DenseRange(64, 512, 32)
+->Arg(2)->Arg(4)->Arg(8)->Arg(12)->Arg(16)->Arg(24)->Arg(32)->Arg(48)->Arg(64) \
+->DenseRange(96, 512, 32)
 
 // ============================================================================
 // Radix-2 FFT benchmarks (baseline)

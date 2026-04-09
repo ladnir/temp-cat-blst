@@ -237,7 +237,8 @@ static void bench_middle_product_update_direct_avx_lines(benchmark::State& state
 } // namespace
 
 #define DIRECT_MIDDLE_PROD_SIZES \
-->DenseRange(64, 256, 32)
+->Arg(2)->Arg(4)->Arg(8)->Arg(12)->Arg(16)->Arg(24)->Arg(32)->Arg(48)->Arg(64) \
+->DenseRange(96, 256, 32)
 
 BENCHMARK(bench_middle_product_direct_scalar)
 DIRECT_MIDDLE_PROD_SIZES

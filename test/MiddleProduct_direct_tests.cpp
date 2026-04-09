@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <type_traits>
 #include <vector>
 
 #include "MiddleProduct_reference.h"
@@ -78,6 +79,32 @@ std::vector<G2Point> make_g2_data(std::size_t n)
 }
 
 template<class Context>
+auto fft_precompute_for_context(
+    std::span<const G2Point> b,
+    std::size_t n,
+    blst::TimingStats* timings)
+{
+    if constexpr (std::is_same_v<Context, blst::MiddleProductScalarContext>) {
+        return blst::precompute_middle_product_b_scalar(b, n, timings);
+    } else {
+        return blst::precompute_middle_product_b(b, n, timings);
+    }
+}
+
+template<class Context, class PrecomputedB>
+void fft_middle_product_for_context(
+    std::span<const G1Point> a,
+    const PrecomputedB& precomputed_b,
+    std::span<GT> out)
+{
+    if constexpr (std::is_same_v<Context, blst::MiddleProductScalarContext>) {
+        blst::middle_product_scalar(a, precomputed_b, out);
+    } else {
+        blst::middle_product(a, precomputed_b, out);
+    }
+}
+
+template<class Context>
 void expect_direct_matches_fft(
     std::span<const G1Point> a,
     std::span<const G2Point> b,
@@ -87,17 +114,13 @@ void expect_direct_matches_fft(
     const auto direct_precomputed =
         precompute_middle_product_b_direct<Context>(b, n, nullptr, pairing_mode);
     const auto fft_precomputed =
-        blst::precompute_middle_product_b(
-            b,
-            n,
-            nullptr,
-            pairing_mode);
+        fft_precompute_for_context<Context>(b, n, nullptr);
 
     std::vector<GT> direct_out(n, GT::identity());
     std::vector<GT> fft_out(n, GT::identity());
 
     middle_product_direct<Context>(a, direct_precomputed, std::span<GT>(direct_out));
-    blst::middle_product(a, fft_precomputed, std::span<GT>(fft_out));
+    fft_middle_product_for_context<Context>(a, fft_precomputed, std::span<GT>(fft_out));
 
     for (std::size_t i = 0; i < n; ++i) {
         EXPECT_TRUE(GT::equal(direct_out[i], fft_out[i]))
@@ -142,7 +165,7 @@ void expect_update_and_combine_matches_fft(
 
 } // namespace
 
-TEST(MiddleProductDirect, ScalarMatchesDefaultFft)
+TEST(MiddleProductDirect, ScalarMatchesScalarFft)
 {
     const std::vector<std::size_t> sizes = { 3, 5, 9, 16 };
 
@@ -156,7 +179,7 @@ TEST(MiddleProductDirect, ScalarMatchesDefaultFft)
     }
 }
 
-TEST(MiddleProductDirect, ScalarPrecomputedLinesMatchesDefaultFft)
+TEST(MiddleProductDirect, ScalarPrecomputedLinesMatchesScalarFft)
 {
     const std::vector<std::size_t> sizes = { 3, 5, 9, 16 };
 

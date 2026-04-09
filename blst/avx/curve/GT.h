@@ -17,6 +17,8 @@ namespace blst::avx {
 
 namespace avx_gt_detail {
 
+inline constexpr size_t kMillerLoopNMax = 16;
+
 using Ring = BoundedRing<>;
 using FP12 = FP12Ring<Ring>;
 using PairingFp2 = FP2Ring<Ring>;
@@ -247,6 +249,49 @@ inline void apply_add_n_dbl(
     }
 }
 
+inline void start_dbl_n(
+    typename FP12::StandardElement& data,
+    G2Point T[],
+    const G1AffinePoint P[],
+    size_t n)
+{
+    BLST_ASSERT(n != 0);
+
+    PreparedLine line = {};
+    line_dbl(line, T[0], T[0]);
+    const auto first = scale_line_xy(line, P[0]);
+    data = make_line_value(line.c, first[0], first[1]);
+
+    for (size_t i = 1; i < n; ++i) {
+        line_dbl(line, T[i], T[i]);
+        apply_prepared_line(data, line, P[i]);
+    }
+}
+
+inline void add_n_dbl_n(
+    typename FP12::StandardElement& data,
+    G2Point T[],
+    const G2AffinePoint Q[],
+    const G1AffinePoint P[],
+    size_t n,
+    size_t k)
+{
+    PreparedLine line = {};
+
+    for (size_t i = 0; i < n; ++i) {
+        line_add(line, T[i], T[i], Q[i]);
+        apply_prepared_line(data, line, P[i]);
+    }
+
+    while (k-- != 0) {
+        data = fp12ring().fp12_flat_sqr(data, ring());
+        for (size_t i = 0; i < n; ++i) {
+            line_dbl(line, T[i], T[i]);
+            apply_prepared_line(data, line, P[i]);
+        }
+    }
+}
+
 }  // namespace avx_gt_detail
 
 using PreparedLine = avx_gt_detail::PreparedLine;
@@ -406,12 +451,44 @@ struct GT
         size_t n)
     {
         out = identity();
-        for (size_t i = 0; i < n; ++i) {
-            GT pair = {};
-            miller_loop(pair, &Q[i], &P[i]);
+        if (n == 0) {
+            return;
+        }
+
+        size_t offset = 0;
+        while (offset < n) {
+            G2Point T[avx_gt_detail::kMillerLoopNMax] = {};
+            G2AffinePoint q_batch[avx_gt_detail::kMillerLoopNMax] = {};
+            G1AffinePoint p_batch[avx_gt_detail::kMillerLoopNMax] = {};
+            size_t batch = 0;
+
+            while (offset < n && batch < avx_gt_detail::kMillerLoopNMax) {
+                if (!G2AffinePoint::is_inf(Q[offset]) && !G1AffinePoint::is_inf(P[offset])) {
+                    q_batch[batch] = Q[offset];
+                    p_batch[batch] = P[offset];
+                    T[batch].X = Q[offset].X;
+                    T[batch].Y = Q[offset].Y;
+                    T[batch].Z = avx_gt_detail::fp2ring().one();
+                    ++batch;
+                }
+                ++offset;
+            }
+
+            if (batch == 0) {
+                continue;
+            }
+
+            typename GT::Field_type chunk = {};
+            avx_gt_detail::start_dbl_n(chunk, T, p_batch, batch);
+            avx_gt_detail::add_n_dbl_n(chunk, T, q_batch, p_batch, batch, 2);
+            avx_gt_detail::add_n_dbl_n(chunk, T, q_batch, p_batch, batch, 3);
+            avx_gt_detail::add_n_dbl_n(chunk, T, q_batch, p_batch, batch, 9);
+            avx_gt_detail::add_n_dbl_n(chunk, T, q_batch, p_batch, batch, 32);
+            avx_gt_detail::add_n_dbl_n(chunk, T, q_batch, p_batch, batch, 16);
+            chunk = avx_gt_detail::fp12ring().fp12_flat_conjugate(chunk, avx_gt_detail::ring());
             out.data = avx_gt_detail::fp12ring().fp12_flat_mul(
                 out.data,
-                pair.data,
+                chunk,
                 avx_gt_detail::ring());
         }
     }
@@ -432,6 +509,29 @@ struct GT
 
         const G2AffinePoint* qptr = nullptr;
         const G1AffinePoint* pptr = nullptr;
+        G2Point T[avx_gt_detail::kMillerLoopNMax] = {};
+        G2AffinePoint q_batch[avx_gt_detail::kMillerLoopNMax] = {};
+        G1AffinePoint p_batch[avx_gt_detail::kMillerLoopNMax] = {};
+        size_t batch = 0;
+
+        auto flush_batch = [&]() {
+            if (batch == 0) {
+                return;
+            }
+            typename GT::Field_type chunk = {};
+            avx_gt_detail::start_dbl_n(chunk, T, p_batch, batch);
+            avx_gt_detail::add_n_dbl_n(chunk, T, q_batch, p_batch, batch, 2);
+            avx_gt_detail::add_n_dbl_n(chunk, T, q_batch, p_batch, batch, 3);
+            avx_gt_detail::add_n_dbl_n(chunk, T, q_batch, p_batch, batch, 9);
+            avx_gt_detail::add_n_dbl_n(chunk, T, q_batch, p_batch, batch, 32);
+            avx_gt_detail::add_n_dbl_n(chunk, T, q_batch, p_batch, batch, 16);
+            chunk = avx_gt_detail::fp12ring().fp12_flat_conjugate(chunk, avx_gt_detail::ring());
+            out.data = avx_gt_detail::fp12ring().fp12_flat_mul(
+                out.data,
+                chunk,
+                avx_gt_detail::ring());
+            batch = 0;
+        };
 
         for (size_t i = 0; i < n; ++i) {
             qptr = Qs[i] ? Qs[i] : qptr + 1;
@@ -443,13 +543,19 @@ struct GT
                 continue;
             }
 
-            GT pair = {};
-            miller_loop(pair, qptr, pptr);
-            out.data = avx_gt_detail::fp12ring().fp12_flat_mul(
-                out.data,
-                pair.data,
-                avx_gt_detail::ring());
+            q_batch[batch] = *qptr;
+            p_batch[batch] = *pptr;
+            T[batch].X = qptr->X;
+            T[batch].Y = qptr->Y;
+            T[batch].Z = avx_gt_detail::fp2ring().one();
+            ++batch;
+
+            if (batch == avx_gt_detail::kMillerLoopNMax) {
+                flush_batch();
+            }
         }
+
+        flush_batch();
     }
 
     static void precompute_lines(PreparedLine Qlines[68], const G2AffinePoint& Q)
