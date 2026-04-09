@@ -331,6 +331,52 @@ namespace blst::scalar
         }
     }
 
+    BLST_HD void start_lines_n(
+        GT& ret,
+        const Fp6* const Qlines[],
+        const G1AffinePoint Px2[],
+        size_t n)
+    {
+        BLST_ASSERT(n != 0);
+
+        Fp6 line;
+        post_line_by_Px2(line, Qlines[0][0], Px2[0]);
+        vec_zero(&ret, sizeof(GT));
+        vec_copy(&ret.data[0][0], &line[0], 2 * sizeof(Fp2));
+        vec_copy(&ret.data[1][1], &line[2], sizeof(Fp2));
+
+        for (size_t i = 1; i < n; ++i) {
+            post_line_by_Px2(line, Qlines[i][0], Px2[i]);
+            Fp12::mul_by_xy00z0(ret.data, ret.data, line);
+        }
+    }
+
+    BLST_HD void post_add_n_dbl_n(
+        GT& ret,
+        const Fp6* const Qlines[],
+        const G1AffinePoint Px2[],
+        size_t n,
+        size_t start,
+        size_t k)
+    {
+        Fp6 line;
+        size_t line_idx = start;
+
+        for (size_t i = 0; i < n; ++i) {
+            post_line_by_Px2(line, Qlines[i][line_idx], Px2[i]);
+            Fp12::mul_by_xy00z0(ret.data, ret.data, line);
+        }
+
+        while (k--) {
+            ++line_idx;
+            Fp12::sqr(ret.data, ret.data);
+            for (size_t i = 0; i < n; ++i) {
+                post_line_by_Px2(line, Qlines[i][line_idx], Px2[i]);
+                Fp12::mul_by_xy00z0(ret.data, ret.data, line);
+            }
+        }
+    }
+
     BLST_HD void GT::miller_loop_lines(GT& ret, const Fp6 Qlines[68],
         const G1AffinePoint& P)
     {
@@ -353,6 +399,78 @@ namespace blst::scalar
         post_add_n_dbl(ret, &Qlines[18], Px2, 32);  /* ..0xd20100000000     */
         post_add_n_dbl(ret, &Qlines[51], Px2, 16);  /* ..0xd201000000010000 */
         Fp12::conjugate(ret.data);                /* account for z being negative */
+    }
+
+    BLST_HD void GT::miller_loop_lines_n(
+        GT& out,
+        const Fp6* const Qlines[],
+        const G1AffinePoint* const Ps[],
+        size_t n)
+    {
+        vec_copy(&out, get_BLST_Rx().p12, sizeof(Fp12));
+        if (n == 0 || Qlines == NULL || Ps == NULL || Qlines[0] == NULL || Ps[0] == NULL) {
+            return;
+        }
+
+        G1AffinePoint Px2[MILLER_LOOP_N_MAX];
+        const Fp6* line_batch[MILLER_LOOP_N_MAX];
+        size_t batch = 0;
+        const Fp6* lines_ptr = NULL;
+        const G1AffinePoint* pptr = NULL;
+
+        // Preserve the old generic/null-skipping entry point, but steer hot call
+        // sites to the no-chunk preprocessed variant below.
+        for (size_t i = 0; i < n; ++i) {
+            lines_ptr = Qlines[i] ? Qlines[i] : lines_ptr + 68;
+            pptr = Ps[i] ? Ps[i] : pptr + 1;
+            BLST_ASSERT(lines_ptr != NULL);
+            BLST_ASSERT(pptr != NULL);
+
+            if (G1AffinePoint::is_inf(*pptr)) {
+                continue;
+            }
+
+            line_batch[batch] = lines_ptr;
+            Fp::add(Px2[batch].X, pptr->X, pptr->X);
+            Fp::neg(Px2[batch].X, Px2[batch].X);
+            Fp::add(Px2[batch].Y, pptr->Y, pptr->Y);
+            ++batch;
+
+            if (batch == MILLER_LOOP_N_MAX) {
+                GT chunk = {};
+                GT::miller_loop_lines_n_preprocessed(chunk, line_batch, Px2, batch);
+                Fp12::mul(out.data, out.data, chunk.data);
+                batch = 0;
+            }
+        }
+
+        if (batch == 0) {
+            return;
+        }
+
+        GT tail = {};
+        GT::miller_loop_lines_n_preprocessed(tail, line_batch, Px2, batch);
+        Fp12::mul(out.data, out.data, tail.data);
+    }
+
+    BLST_HD void GT::miller_loop_lines_n_preprocessed(
+        GT& out,
+        const Fp6* const Qlines[],
+        const G1AffinePoint Px2[],
+        size_t n)
+    {
+        vec_copy(&out, get_BLST_Rx().p12, sizeof(Fp12));
+        if (n == 0 || Qlines == NULL || Px2 == NULL || Qlines[0] == NULL) {
+            return;
+        }
+
+        start_lines_n(out, Qlines, Px2, n);             /* 0x2                  */
+        post_add_n_dbl_n(out, Qlines, Px2, n, 1, 2);    /* ..0xc                */
+        post_add_n_dbl_n(out, Qlines, Px2, n, 4, 3);    /* ..0x68               */
+        post_add_n_dbl_n(out, Qlines, Px2, n, 8, 9);    /* ..0xd200             */
+        post_add_n_dbl_n(out, Qlines, Px2, n, 18, 32);  /* ..0xd20100000000     */
+        post_add_n_dbl_n(out, Qlines, Px2, n, 51, 16);  /* ..0xd201000000010000 */
+        Fp12::conjugate(out.data);
     }
 
 #ifdef INTERNAL_TESTMODE

@@ -88,19 +88,39 @@ inline std::vector<uint8_t> direct_make_g2_affine(
 }
 
 template<class Context>
-inline void direct_make_g1_affine(
-    std::vector<typename Context::G1AffinePoint>& out_affine,
-    std::vector<uint8_t>& out_is_zero,
+inline void direct_collect_nonzero_g1_affine(
+    std::vector<typename Context::G1AffinePoint>& out_affine_nonzero,
+    std::vector<std::size_t>& out_indices_nonzero,
     std::span<const typename Context::G1Point> input)
 {
-    out_affine.resize(input.size());
-    out_is_zero.resize(input.size());
+    out_affine_nonzero.clear();
+    out_indices_nonzero.clear();
+    out_affine_nonzero.reserve(input.size());
+    out_indices_nonzero.reserve(input.size());
+
     for (std::size_t i = 0; i < input.size(); ++i) {
-        const bool zero = (Context::G1Point::is_inf(input[i]) != 0);
-        out_is_zero[i] = static_cast<uint8_t>(zero ? 1 : 0);
-        if (!zero) {
-            Context::G1Point::to_affine(out_affine[i], input[i]);
+        if (Context::G1Point::is_inf(input[i]) != 0) {
+            continue;
         }
+        typename Context::G1AffinePoint affine = {};
+        Context::G1Point::to_affine(affine, input[i]);
+        out_affine_nonzero.push_back(affine);
+        out_indices_nonzero.push_back(i);
+    }
+}
+
+inline void direct_prepare_scalar_line_eval_points(
+    std::vector<blst::scalar::G1AffinePoint>& out_px2,
+    std::span<const blst::scalar::G1AffinePoint> input)
+{
+    out_px2.clear();
+    out_px2.reserve(input.size());
+    for (const blst::scalar::G1AffinePoint& point : input) {
+        blst::scalar::G1AffinePoint px2 = {};
+        blst::scalar::Fp::add(px2.X, point.X, point.X);
+        blst::scalar::Fp::neg(px2.X, px2.X);
+        blst::scalar::Fp::add(px2.Y, point.Y, point.Y);
+        out_px2.push_back(px2);
     }
 }
 
@@ -141,8 +161,8 @@ inline DirectMiddleProductPrecomputedB<Context> precompute_middle_product_b_dire
 }
 
 template<class Context>
-inline GT direct_pair_term(
-    const typename Context::G1Point& left,
+inline GT direct_pair_term_affine(
+    const typename Context::G1AffinePoint& left_affine,
     const DirectMiddleProductPrecomputedB<Context>& precomputed_b,
     std::size_t b_index)
 {
@@ -150,14 +170,28 @@ inline GT direct_pair_term(
         return GT::identity();
     }
 
+    using PairingGt = DirectPairingGt<Context>;
+
     if (precomputed_b.pairing_mode == MiddleProductPairingMode::PrecomputedLines &&
         precomputed_b.prepared_lines.size() == precomputed_b.b.size()) {
-        return Context::to_public_gt(
-            Context::pointwise_pair_lines(precomputed_b.prepared_lines[b_index], left));
+        PairingGt miller = PairingGt::identity();
+        PairingGt::miller_loop_lines(
+            miller,
+            precomputed_b.prepared_lines[b_index].lines,
+            left_affine);
+        PairingGt final_pair = PairingGt::identity();
+        PairingGt::final_mult(final_pair, miller);
+        return direct_pairing_gt_to_public<Context>(final_pair);
     }
 
-    return Context::to_public_gt(
-        Context::pointwise_pair_direct(left, precomputed_b.b[b_index]));
+    PairingGt miller = PairingGt::identity();
+    PairingGt::miller_loop(
+        miller,
+        &precomputed_b.b_affine[b_index],
+        &left_affine);
+    PairingGt final_pair = PairingGt::identity();
+    PairingGt::final_mult(final_pair, miller);
+    return direct_pairing_gt_to_public<Context>(final_pair);
 }
 
 template<class Context>
@@ -166,8 +200,8 @@ inline GT direct_multipair_window(
     std::span<const std::size_t> a_indices_nonzero,
     const DirectMiddleProductPrecomputedB<Context>& precomputed_b,
     std::size_t output_index,
-    std::vector<typename Context::G1AffinePoint>& p_batch,
-    std::vector<typename Context::G2AffinePoint>& q_batch)
+    std::vector<const typename Context::G1AffinePoint*>& p_batch,
+    std::vector<const typename Context::G2AffinePoint*>& q_batch)
 {
     p_batch.clear();
     q_batch.clear();
@@ -178,8 +212,8 @@ inline GT direct_multipair_window(
         if (precomputed_b.b_is_zero[j] != 0) {
             continue;
         }
-        p_batch.push_back(a_affine_nonzero[nz]);
-        q_batch.push_back(precomputed_b.b_affine[j]);
+        p_batch.push_back(&a_affine_nonzero[nz]);
+        q_batch.push_back(&precomputed_b.b_affine[j]);
     }
 
     if (p_batch.empty()) {
@@ -205,36 +239,132 @@ inline GT direct_multipair_lines_window(
     std::span<const typename Context::G1AffinePoint> a_affine_nonzero,
     std::span<const std::size_t> a_indices_nonzero,
     const DirectMiddleProductPrecomputedB<Context>& precomputed_b,
-    std::size_t output_index)
+    std::size_t output_index,
+    std::vector<const typename Context::G1AffinePoint*>& p_batch,
+    std::vector<const blst::scalar::Fp6*>* line_batch_scalar = nullptr)
 {
     using PairingGt = DirectPairingGt<Context>;
 
-    PairingGt miller_acc = PairingGt::identity();
-    bool has_term = false;
+    p_batch.clear();
 
-    for (std::size_t nz = 0; nz < a_affine_nonzero.size(); ++nz) {
+    if constexpr (std::is_same_v<PairingGt, blst::scalar::GT>) {
+        BLST_ASSERT(line_batch_scalar != nullptr);
+        auto& line_batch = *line_batch_scalar;
+        line_batch.clear();
+
+        for (std::size_t nz = 0; nz < a_affine_nonzero.size(); ++nz) {
+            const std::size_t i = a_indices_nonzero[nz];
+            const std::size_t j = precomputed_b.n + output_index - i;
+            if (precomputed_b.b_is_zero[j] != 0) {
+                continue;
+            }
+            p_batch.push_back(&a_affine_nonzero[nz]);
+            line_batch.push_back(precomputed_b.prepared_lines[j].lines);
+        }
+
+        if (p_batch.empty()) {
+            return GT::identity();
+        }
+
+        PairingGt miller = PairingGt::identity();
+        PairingGt::miller_loop_lines_n(
+            miller,
+            line_batch.data(),
+            p_batch.data(),
+            p_batch.size());
+
+        PairingGt final_pair = PairingGt::identity();
+        PairingGt::final_mult(final_pair, miller);
+        return direct_pairing_gt_to_public<Context>(final_pair);
+    } else {
+        PairingGt miller_acc = PairingGt::identity();
+        bool has_term = false;
+
+        for (std::size_t nz = 0; nz < a_affine_nonzero.size(); ++nz) {
+            const std::size_t i = a_indices_nonzero[nz];
+            const std::size_t j = precomputed_b.n + output_index - i;
+            if (precomputed_b.b_is_zero[j] != 0) {
+                continue;
+            }
+
+            PairingGt miller_term = PairingGt::identity();
+            PairingGt::miller_loop_lines(
+                miller_term,
+                precomputed_b.prepared_lines[j].lines,
+                a_affine_nonzero[nz]);
+            PairingGt::add(miller_acc, miller_acc, miller_term);
+            has_term = true;
+        }
+
+        if (!has_term) {
+            return GT::identity();
+        }
+
+        PairingGt final_pair = PairingGt::identity();
+        PairingGt::final_mult(final_pair, miller_acc);
+        return direct_pairing_gt_to_public<Context>(final_pair);
+    }
+}
+
+inline GT direct_multipair_lines_window_scalar_preprocessed(
+    std::span<const blst::scalar::G1AffinePoint> a_line_points,
+    std::span<const std::size_t> a_indices_nonzero,
+    const DirectMiddleProductPrecomputedB<blst::MiddleProductScalarContext>& precomputed_b,
+    std::size_t output_index,
+    std::vector<const blst::scalar::Fp6*>& line_batch,
+    std::vector<blst::scalar::G1AffinePoint>& px2_batch)
+{
+    line_batch.clear();
+    px2_batch.clear();
+
+    for (std::size_t nz = 0; nz < a_line_points.size(); ++nz) {
         const std::size_t i = a_indices_nonzero[nz];
         const std::size_t j = precomputed_b.n + output_index - i;
         if (precomputed_b.b_is_zero[j] != 0) {
             continue;
         }
-
-        PairingGt miller_term = PairingGt::identity();
-        PairingGt::miller_loop_lines(
-            miller_term,
-            precomputed_b.prepared_lines[j].lines,
-            a_affine_nonzero[nz]);
-        PairingGt::add(miller_acc, miller_acc, miller_term);
-        has_term = true;
+        px2_batch.push_back(a_line_points[nz]);
+        line_batch.push_back(precomputed_b.prepared_lines[j].lines);
     }
 
-    if (!has_term) {
+    if (line_batch.empty()) {
         return GT::identity();
     }
 
-    PairingGt final_pair = PairingGt::identity();
-    PairingGt::final_mult(final_pair, miller_acc);
-    return direct_pairing_gt_to_public<Context>(final_pair);
+    blst::scalar::GT miller = blst::scalar::GT::identity();
+    blst::scalar::GT::miller_loop_lines_n_preprocessed(
+        miller,
+        line_batch.data(),
+        px2_batch.data(),
+        line_batch.size());
+
+    blst::scalar::GT final_pair = blst::scalar::GT::identity();
+    blst::scalar::GT::final_mult(final_pair, miller);
+    return direct_pairing_gt_to_public<blst::MiddleProductScalarContext>(final_pair);
+}
+
+inline GT direct_multipair_lines_window_scalar_dense(
+    std::span<const blst::scalar::G1AffinePoint> a_line_points,
+    const DirectMiddleProductPrecomputedB<blst::MiddleProductScalarContext>& precomputed_b,
+    std::size_t output_index,
+    std::vector<const blst::scalar::Fp6*>& line_batch)
+{
+    const std::size_t n = precomputed_b.n;
+    line_batch.resize(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        line_batch[i] = precomputed_b.prepared_lines[n + output_index - i].lines;
+    }
+
+    blst::scalar::GT miller = blst::scalar::GT::identity();
+    blst::scalar::GT::miller_loop_lines_n_preprocessed(
+        miller,
+        line_batch.data(),
+        a_line_points.data(),
+        line_batch.size());
+
+    blst::scalar::GT final_pair = blst::scalar::GT::identity();
+    blst::scalar::GT::final_mult(final_pair, miller);
+    return direct_pairing_gt_to_public<blst::MiddleProductScalarContext>(final_pair);
 }
 
 template<class Context>
@@ -251,32 +381,19 @@ inline void middle_product_direct(
     BLST_ASSERT(precomputed_b.b.size() == 2 * n);
     BLST_ASSERT(out.size() >= n);
 
-    {
-        ScopedTimer timer(timings, "middle_product_direct.fill_ns");
-        std::fill(out.begin(), out.begin() + n, GT::identity());
-    }
-
     const std::vector<typename Context::G1Point> converted_a = direct_convert_g1_inputs<Context>(a);
-    std::vector<typename Context::G1AffinePoint> affine_a;
-    std::vector<uint8_t> a_is_zero;
-    direct_make_g1_affine<Context>(affine_a, a_is_zero, std::span<const typename Context::G1Point>(converted_a));
     std::vector<typename Context::G1AffinePoint> affine_a_nonzero;
     std::vector<std::size_t> a_indices_nonzero;
-    affine_a_nonzero.reserve(n);
-    a_indices_nonzero.reserve(n);
-    for (std::size_t i = 0; i < n; ++i) {
-        if (a_is_zero[i] != 0) {
-            continue;
-        }
-        affine_a_nonzero.push_back(affine_a[i]);
-        a_indices_nonzero.push_back(i);
-    }
+    direct_collect_nonzero_g1_affine<Context>(
+        affine_a_nonzero,
+        a_indices_nonzero,
+        std::span<const typename Context::G1Point>(converted_a));
 
     {
         ScopedTimer timer(timings, "middle_product_direct.pointwise_ns");
         if (precomputed_b.pairing_mode == MiddleProductPairingMode::Direct) {
-            std::vector<typename Context::G1AffinePoint> p_batch;
-            std::vector<typename Context::G2AffinePoint> q_batch;
+            std::vector<const typename Context::G1AffinePoint*> p_batch;
+            std::vector<const typename Context::G2AffinePoint*> q_batch;
             p_batch.reserve(affine_a_nonzero.size());
             q_batch.reserve(affine_a_nonzero.size());
             for (std::size_t k = 0; k < n; ++k) {
@@ -289,12 +406,55 @@ inline void middle_product_direct(
                     q_batch);
             }
         } else {
-            for (std::size_t k = 0; k < n; ++k) {
-                out[k] = direct_multipair_lines_window<Context>(
-                    std::span<const typename Context::G1AffinePoint>(affine_a_nonzero),
-                    std::span<const std::size_t>(a_indices_nonzero),
-                    precomputed_b,
-                    k);
+            if constexpr (std::is_same_v<DirectPairingGt<Context>, blst::scalar::GT>) {
+                std::vector<blst::scalar::G1AffinePoint> a_line_points;
+                direct_prepare_scalar_line_eval_points(
+                    a_line_points,
+                    std::span<const blst::scalar::G1AffinePoint>(affine_a_nonzero));
+
+                std::vector<const blst::scalar::Fp6*> line_batch_scalar;
+                line_batch_scalar.reserve(affine_a_nonzero.size());
+                const bool dense_a = (a_indices_nonzero.size() == n);
+                const bool dense_b =
+                    std::find(
+                        precomputed_b.b_is_zero.begin(),
+                        precomputed_b.b_is_zero.end(),
+                        static_cast<uint8_t>(1)) == precomputed_b.b_is_zero.end();
+
+                if (dense_a && dense_b) {
+                    for (std::size_t k = 0; k < n; ++k) {
+                        out[k] = direct_multipair_lines_window_scalar_dense(
+                            std::span<const blst::scalar::G1AffinePoint>(a_line_points),
+                            precomputed_b,
+                            k,
+                            line_batch_scalar);
+                    }
+                } else {
+                    std::vector<blst::scalar::G1AffinePoint> px2_batch_scalar;
+                    px2_batch_scalar.reserve(affine_a_nonzero.size());
+                    for (std::size_t k = 0; k < n; ++k) {
+                        out[k] = direct_multipair_lines_window_scalar_preprocessed(
+                            std::span<const blst::scalar::G1AffinePoint>(a_line_points),
+                            std::span<const std::size_t>(a_indices_nonzero),
+                            precomputed_b,
+                            k,
+                            line_batch_scalar,
+                            px2_batch_scalar);
+                    }
+                }
+            } else {
+                std::vector<const typename Context::G1AffinePoint*> p_batch;
+                p_batch.reserve(affine_a_nonzero.size());
+                std::vector<const blst::scalar::Fp6*> line_batch_scalar;
+                for (std::size_t k = 0; k < n; ++k) {
+                    out[k] = direct_multipair_lines_window<Context>(
+                        std::span<const typename Context::G1AffinePoint>(affine_a_nonzero),
+                        std::span<const std::size_t>(a_indices_nonzero),
+                        precomputed_b,
+                        k,
+                        p_batch,
+                        &line_batch_scalar);
+                }
             }
         }
     }
@@ -318,10 +478,13 @@ inline void update_direct(
         return;
     }
 
+    typename Context::G1AffinePoint affine_a0 = {};
+    Context::G1Point::to_affine(affine_a0, converted_a0);
+
     {
         ScopedTimer timer(timings, "middle_product_direct_update.pointwise_ns");
         for (std::size_t k = 0; k < precomputed_b.n; ++k) {
-            out[k] = direct_pair_term<Context>(converted_a0, precomputed_b, precomputed_b.n + k);
+            out[k] = direct_pair_term_affine<Context>(affine_a0, precomputed_b, precomputed_b.n + k);
         }
     }
 }

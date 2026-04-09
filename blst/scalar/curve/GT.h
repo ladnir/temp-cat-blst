@@ -274,6 +274,18 @@ namespace blst::scalar {
 		static BLST_HD void miller_loop_lines(GT& ret, const Fp6 Qlines[68],
 			const G1AffinePoint& P);
 
+		static BLST_HD void miller_loop_lines_n(
+			GT& out,
+			const Fp6* const Qlines[],
+			const G1AffinePoint* const Ps[],
+			size_t n);
+
+		static BLST_HD void miller_loop_lines_n_preprocessed(
+			GT& out,
+			const Fp6* const Qlines[],
+			const G1AffinePoint Px2[],
+			size_t n);
+
 		//     /**
 			  //* @brief add n doublings: out = 2^n * (a + out)
 		//      */
