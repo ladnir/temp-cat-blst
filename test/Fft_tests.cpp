@@ -1812,7 +1812,7 @@ TEST(Fft, MiddleProductWorkspaceMatchesDefault)
     }
 }
 
-TEST(Fft, MiddleProductPrecomputedLinesMatchesDirect)
+TEST(Fft, MiddleProductMultipairMatchesFft)
 {
     const std::vector<std::size_t> test_sizes = { 6, 10, 24 };
 
@@ -1831,34 +1831,23 @@ TEST(Fft, MiddleProductPrecomputedLinesMatchesDirect)
 
         const std::vector<G1Point> a_points = points_from_scalars_g1(a_scalars);
         const std::vector<G2Point> b_points = points_from_scalars_g2(b_scalars);
-        const auto direct = precompute_middle_product_b(
-            std::span<const G2Point>(b_points),
-            n);
-        const auto lines = precompute_middle_product_b(
-            std::span<const G2Point>(b_points),
-            n,
-            nullptr,
-            MiddleProductPairingMode::PrecomputedLines);
-
-        std::vector<GT> out_direct(n, GT::identity());
-        std::vector<GT> out_lines(n, GT::identity());
-        MiddleProductWorkspace workspace_direct;
-        MiddleProductWorkspace workspace_lines;
+        std::vector<GT> out_fft(n, GT::identity());
+        std::vector<GT> out_multipair(n, GT::identity());
 
         middle_product(
             std::span<const G1Point>(a_points),
-            direct,
-            std::span<GT>(out_direct),
-            workspace_direct);
+            std::span<const G2Point>(b_points),
+            std::span<GT>(out_fft),
+            MiddleProductAlgorithm::Fft);
         middle_product(
             std::span<const G1Point>(a_points),
-            lines,
-            std::span<GT>(out_lines),
-            workspace_lines);
+            std::span<const G2Point>(b_points),
+            std::span<GT>(out_multipair),
+            MiddleProductAlgorithm::Multipair);
 
         for (std::size_t i = 0; i < n; ++i) {
-            EXPECT_TRUE(GT::equal(out_direct[i], out_lines[i]))
-                << "Reduced precomputed lines mismatch at n=" << n << ", i=" << i;
+            EXPECT_TRUE(GT::equal(out_fft[i], out_multipair[i]))
+                << "Reduced multipair mismatch at n=" << n << ", i=" << i;
         }
     }
 }

@@ -25,9 +25,10 @@
 
 namespace blst {
 
-    enum class MiddleProductPairingMode {
-        Direct,
-        PrecomputedLines,
+    enum class MiddleProductAlgorithm {
+        Fft,
+        Multipair,
+        Auto,
     };
 
     struct alignas(64) MiddleProductPreparedScalarLineTable {
@@ -291,19 +292,6 @@ namespace blst {
                 return pair;
             }
 
-            static GtFftElement pointwise_pair_lines(
-                const PreparedLineTable& lines,
-                const G1Point& point)
-            {
-                G1AffinePoint point_affine = {};
-                G1Point::to_affine(point_affine, point);
-
-                GtFftElement pair = GtFftElement::identity();
-                GtFftElement::miller_loop_lines(pair, lines.lines, point_affine);
-                GtFftElement::final_mult(pair, pair);
-                return pair;
-            }
-
             static GtFftElement identity()
             {
                 return GtFftElement::identity();
@@ -412,19 +400,6 @@ namespace blst {
                 return GtFftElement(pair.data);
             }
 
-            static GtFftElement pointwise_pair_lines(
-                const PreparedLineTable& lines,
-                const G1Point& point)
-            {
-                G1AffinePoint point_affine = {};
-                G1Point::to_affine(point_affine, point);
-
-                avx::GT pair = avx::GT::identity();
-                avx::GT::miller_loop_lines(pair, lines.lines, point_affine);
-                avx::GT::final_mult(pair, pair);
-                return GtFftElement(pair.data);
-            }
-
             static GtFftElement identity()
             {
                 return GtFftElement::identity();
@@ -467,13 +442,8 @@ namespace blst {
         struct MiddleProductPrecomputedBImpl {
             std::size_t n = 0;
             std::size_t fft_size = 0;
-            MiddleProductPairingMode pairing_mode = MiddleProductPairingMode::Direct;
             std::vector<typename Context::G2Point> b_tail;
             std::vector<typename Context::G2Point> b_fft;
-            std::vector<typename Context::PreparedLineTable> tail_precomputed_lines;
-            std::vector<uint8_t> tail_b_is_zero;
-            std::vector<typename Context::PreparedLineTable> precomputed_lines;
-            std::vector<uint8_t> b_is_zero;
             std::vector<Fr> roots;
             typename Context::PreparedInverseRoots inv_roots;
         };
@@ -522,8 +492,7 @@ namespace blst {
         inline MiddleProductPrecomputedBImpl<Context> precompute_middle_product_b_impl(
             std::span<const typename Context::G2Point> b,
             std::size_t n,
-            TimingStats* timings,
-            MiddleProductPairingMode pairing_mode)
+            TimingStats* timings)
         {
             ScopedTimer total_timer(timings, "middle_product_precompute.total_ns");
             BLST_ASSERT(n > 0);
@@ -532,7 +501,6 @@ namespace blst {
             MiddleProductPrecomputedBImpl<Context> precomputed;
             precomputed.n = n;
             precomputed.fft_size = middle_product_fft_size(n);
-            precomputed.pairing_mode = pairing_mode;
             precomputed.b_tail.assign(n, Context::g2_infinity());
             precomputed.b_fft.assign(precomputed.fft_size, Context::g2_infinity());
 
@@ -577,30 +545,6 @@ namespace blst {
                     const Fr& zeta = precomputed.roots[idx];
                     const auto zeta_b1 = Context::G2CoeffCtx::mult(b1_fft[j], zeta);
                     precomputed.b_fft[j] = Context::G2CoeffCtx::plus(b0_fft[j], zeta_b1);
-                }
-            }
-
-            if (pairing_mode == MiddleProductPairingMode::PrecomputedLines) {
-                ScopedTimer timer(timings, "middle_product_precompute.lines_ns");
-                precomputed.tail_precomputed_lines.resize(n);
-                precomputed.tail_b_is_zero.resize(n);
-                for (std::size_t i = 0; i < n; ++i) {
-                    const bool is_zero = (Context::G2Point::is_inf(precomputed.b_tail[i]) != 0);
-                    precomputed.tail_b_is_zero[i] = static_cast<uint8_t>(is_zero ? 1 : 0);
-                    if (is_zero) {
-                        continue;
-                    }
-                    Context::prepare_lines(precomputed.tail_precomputed_lines[i], precomputed.b_tail[i]);
-                }
-                precomputed.precomputed_lines.resize(precomputed.fft_size);
-                precomputed.b_is_zero.resize(precomputed.fft_size);
-                for (std::size_t j = 0; j < precomputed.fft_size; ++j) {
-                    const bool is_zero = (Context::G2Point::is_inf(precomputed.b_fft[j]) != 0);
-                    precomputed.b_is_zero[j] = static_cast<uint8_t>(is_zero ? 1 : 0);
-                    if (is_zero) {
-                        continue;
-                    }
-                    Context::prepare_lines(precomputed.precomputed_lines[j], precomputed.b_fft[j]);
                 }
             }
 
@@ -652,25 +596,8 @@ namespace blst {
             }
             {
                 ScopedTimer timer(timings, "middle_product_pre.pointwise_ns");
-                if (precomputed_b.pairing_mode == MiddleProductPairingMode::PrecomputedLines &&
-                    precomputed_b.precomputed_lines.size() == precomputed_b.fft_size) {
-                    const bool has_zero_mask =
-                        (precomputed_b.b_is_zero.size() == precomputed_b.fft_size);
-                    for (std::size_t i = 0; i < precomputed_b.fft_size; ++i) {
-                        if (Context::G1Point::is_inf(a_fft[i]) != 0 ||
-                            (has_zero_mask && precomputed_b.b_is_zero[i] != 0)) {
-                            c_fft[i] = Context::identity();
-                            continue;
-                        }
-                        c_fft[i] = Context::pointwise_pair_lines(
-                            precomputed_b.precomputed_lines[i],
-                            a_fft[i]);
-                    }
-                }
-                else {
-                    for (std::size_t i = 0; i < precomputed_b.fft_size; ++i) {
-                        c_fft[i] = Context::pointwise_pair_direct(a_fft[i], precomputed_b.b_fft[i]);
-                    }
+                for (std::size_t i = 0; i < precomputed_b.fft_size; ++i) {
+                    c_fft[i] = Context::pointwise_pair_direct(a_fft[i], precomputed_b.b_fft[i]);
                 }
             }
             {
@@ -703,22 +630,9 @@ namespace blst {
 
             {
                 ScopedTimer timer(timings, "middle_product_update.pointwise_ns");
-                if (precomputed_b.pairing_mode == MiddleProductPairingMode::PrecomputedLines &&
-                    precomputed_b.tail_precomputed_lines.size() == n) {
-                    const bool has_zero_mask = (precomputed_b.tail_b_is_zero.size() == n);
-                    for (std::size_t i = 0; i < n; ++i) {
-                        if (has_zero_mask && precomputed_b.tail_b_is_zero[i] != 0) {
-                            out[i] = GT::identity();
-                            continue;
-                        }
-                        out[i] = Context::to_public_gt(
-                            Context::pointwise_pair_lines(precomputed_b.tail_precomputed_lines[i], a0));
-                    }
-                } else {
-                    for (std::size_t i = 0; i < n; ++i) {
-                        out[i] = Context::to_public_gt(
-                            Context::pointwise_pair_direct(a0, precomputed_b.b_tail[i]));
-                    }
+                for (std::size_t i = 0; i < n; ++i) {
+                    out[i] = Context::to_public_gt(
+                        Context::pointwise_pair_direct(a0, precomputed_b.b_tail[i]));
                 }
             }
         }
@@ -727,15 +641,13 @@ namespace blst {
         inline MiddleProductPrecomputedBImpl<Context> precompute_middle_product_b_public(
             std::span<const blst::G2Point> b,
             std::size_t n,
-            TimingStats* timings,
-            MiddleProductPairingMode pairing_mode)
+            TimingStats* timings)
         {
             const std::vector<typename Context::G2Point> converted = convert_g2_inputs<Context>(b);
             return precompute_middle_product_b_impl<Context>(
                 std::span<const typename Context::G2Point>(converted),
                 n,
-                timings,
-                pairing_mode);
+                timings);
         }
 
         template<class Context>
@@ -780,7 +692,7 @@ namespace blst {
             BLST_ASSERT(out.size() >= n);
 
             const auto precomputed =
-                precompute_middle_product_b_public<Context>(b, n, timings, MiddleProductPairingMode::Direct);
+                precompute_middle_product_b_public<Context>(b, n, timings);
             MiddleProductWorkspaceImpl<Context> workspace;
             middle_product_public<Context>(a, precomputed, out, workspace, timings);
         }
@@ -811,48 +723,526 @@ namespace blst {
     using MiddleProductWorkspace =
         detail::MiddleProductWorkspaceImpl<MiddleProductDefaultContext>;
 
+    template<class Context>
+    struct MiddleProductPrecomputedBMultipairImpl {
+        std::size_t n = 0;
+        std::vector<typename Context::PreparedLineTable> prepared_lines;
+        std::vector<uint8_t> b_is_zero;
+    };
+
+    template<class Context>
+    struct MiddleProductWorkspaceMultipairImpl {
+        std::vector<typename Context::G1AffinePoint> affine_a_nonzero;
+        std::vector<std::size_t> a_indices_nonzero;
+    };
+
+    template<>
+    struct MiddleProductWorkspaceMultipairImpl<MiddleProductScalarContext> {
+        std::vector<MiddleProductScalarContext::G1AffinePoint> affine_a_nonzero;
+        std::vector<std::size_t> a_indices_nonzero;
+        std::vector<scalar::G1AffinePoint> a_line_points;
+        std::vector<const Fp6*> line_batch_scalar;
+        std::vector<scalar::G1AffinePoint> px2_batch_scalar;
+    };
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    template<>
+    struct MiddleProductWorkspaceMultipairImpl<MiddleProductAvxContext> {
+        std::vector<MiddleProductAvxContext::G1AffinePoint> affine_a_nonzero;
+        std::vector<std::size_t> a_indices_nonzero;
+        std::vector<const MiddleProductAvxContext::G1AffinePoint*> p_batch;
+        std::vector<const avx::PreparedLine*> line_batch_avx;
+        std::vector<avx::GT> miller_batch;
+        std::vector<avx::GT> final_batch;
+    };
+#endif
+
+#if BLST_DEFAULT_AVX
+    using MiddleProductDefaultMultipairContext = MiddleProductAvxContext;
+#else
+    using MiddleProductDefaultMultipairContext = MiddleProductScalarContext;
+#endif
+
+    using MiddleProductPrecomputedBMultipairScalar =
+        MiddleProductPrecomputedBMultipairImpl<MiddleProductScalarContext>;
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    using MiddleProductPrecomputedBMultipairAvx =
+        MiddleProductPrecomputedBMultipairImpl<MiddleProductAvxContext>;
+#endif
+    using MiddleProductPrecomputedBMultipair =
+        MiddleProductPrecomputedBMultipairImpl<MiddleProductDefaultMultipairContext>;
+
+    using MiddleProductWorkspaceMultipairScalar =
+        MiddleProductWorkspaceMultipairImpl<MiddleProductScalarContext>;
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    using MiddleProductWorkspaceMultipairAvx =
+        MiddleProductWorkspaceMultipairImpl<MiddleProductAvxContext>;
+#endif
+    using MiddleProductWorkspaceMultipair =
+        MiddleProductWorkspaceMultipairImpl<MiddleProductDefaultMultipairContext>;
+
+    inline bool middle_product_is_dense_mask(std::span<const uint8_t> is_zero)
+    {
+        return std::find(is_zero.begin(), is_zero.end(), static_cast<uint8_t>(1)) == is_zero.end();
+    }
+
+    template<class Context>
+    inline std::vector<typename Context::G1Point> middle_product_convert_multipair_g1_inputs(
+        std::span<const G1Point> input)
+    {
+        std::vector<typename Context::G1Point> out;
+        out.reserve(input.size());
+        for (const G1Point& point : input) {
+            out.push_back(Context::to_backend_g1(point));
+        }
+        return out;
+    }
+
+    template<class Context>
+    inline std::vector<typename Context::G2Point> middle_product_convert_multipair_g2_inputs(
+        std::span<const G2Point> input)
+    {
+        std::vector<typename Context::G2Point> out;
+        out.reserve(input.size());
+        for (const G2Point& point : input) {
+            out.push_back(Context::to_backend_g2(point));
+        }
+        return out;
+    }
+
+    template<class Context>
+    inline void middle_product_collect_multipair_g1_affine(
+        std::vector<typename Context::G1AffinePoint>& out_affine_nonzero,
+        std::vector<std::size_t>& out_indices_nonzero,
+        std::span<const typename Context::G1Point> input)
+    {
+        out_affine_nonzero.clear();
+        out_indices_nonzero.clear();
+        out_affine_nonzero.reserve(input.size());
+        out_indices_nonzero.reserve(input.size());
+
+        for (std::size_t i = 0; i < input.size(); ++i) {
+            if (Context::G1Point::is_inf(input[i]) != 0) {
+                continue;
+            }
+            typename Context::G1AffinePoint affine = {};
+            Context::G1Point::to_affine(affine, input[i]);
+            out_affine_nonzero.push_back(affine);
+            out_indices_nonzero.push_back(i);
+        }
+    }
+
+    inline void middle_product_prepare_scalar_line_eval_points(
+        std::vector<scalar::G1AffinePoint>& out_px2,
+        std::span<const scalar::G1AffinePoint> input)
+    {
+        out_px2.clear();
+        out_px2.reserve(input.size());
+        for (const scalar::G1AffinePoint& point : input) {
+            scalar::G1AffinePoint px2 = {};
+            scalar::Fp::add(px2.X, point.X, point.X);
+            scalar::Fp::neg(px2.X, px2.X);
+            scalar::Fp::add(px2.Y, point.Y, point.Y);
+            out_px2.push_back(px2);
+        }
+    }
+
+    template<class Context>
+    inline MiddleProductPrecomputedBMultipairImpl<Context> precompute_middle_product_b_multipair_impl(
+        std::span<const G2Point> b,
+        std::size_t n,
+        TimingStats* timings = nullptr)
+    {
+        ScopedTimer total_timer(timings, "middle_product_multipair_precompute.total_ns");
+        BLST_ASSERT(n > 0);
+        BLST_ASSERT(b.size() == 2 * n);
+
+        MiddleProductPrecomputedBMultipairImpl<Context> precomputed;
+        precomputed.n = n;
+        precomputed.prepared_lines.resize(2 * n);
+        precomputed.b_is_zero.resize(2 * n);
+
+        const std::vector<typename Context::G2Point> converted =
+            middle_product_convert_multipair_g2_inputs<Context>(b);
+        for (std::size_t j = 0; j < converted.size(); ++j) {
+            const bool is_zero = (Context::G2Point::is_inf(converted[j]) != 0);
+            precomputed.b_is_zero[j] = static_cast<uint8_t>(is_zero ? 1 : 0);
+            if (is_zero) {
+                continue;
+            }
+            Context::prepare_lines(precomputed.prepared_lines[j], converted[j]);
+        }
+
+        return precomputed;
+    }
+
+    inline GT middle_product_multipair_scalar_window_dense(
+        std::span<const scalar::G1AffinePoint> a_line_points,
+        const MiddleProductPrecomputedBMultipairScalar& precomputed_b,
+        std::size_t output_index,
+        std::vector<const Fp6*>& line_batch)
+    {
+        const std::size_t n = precomputed_b.n;
+        line_batch.resize(n);
+        for (std::size_t i = 0; i < n; ++i) {
+            line_batch[i] = precomputed_b.prepared_lines[n + output_index - i].lines;
+        }
+
+        scalar::GT miller = scalar::GT::identity();
+        scalar::GT::miller_loop_lines_n_preprocessed(
+            miller,
+            line_batch.data(),
+            a_line_points.data(),
+            line_batch.size());
+
+        scalar::GT final_pair = scalar::GT::identity();
+        scalar::GT::final_mult(final_pair, miller);
+        return MiddleProductScalarContext::to_public_gt(final_pair);
+    }
+
+    inline GT middle_product_multipair_scalar_window_sparse(
+        std::span<const scalar::G1AffinePoint> a_line_points,
+        std::span<const std::size_t> a_indices_nonzero,
+        const MiddleProductPrecomputedBMultipairScalar& precomputed_b,
+        std::size_t output_index,
+        std::vector<const Fp6*>& line_batch,
+        std::vector<scalar::G1AffinePoint>& px2_batch)
+    {
+        line_batch.clear();
+        px2_batch.clear();
+
+        for (std::size_t nz = 0; nz < a_line_points.size(); ++nz) {
+            const std::size_t i = a_indices_nonzero[nz];
+            const std::size_t j = precomputed_b.n + output_index - i;
+            if (precomputed_b.b_is_zero[j] != 0) {
+                continue;
+            }
+            px2_batch.push_back(a_line_points[nz]);
+            line_batch.push_back(precomputed_b.prepared_lines[j].lines);
+        }
+
+        if (line_batch.empty()) {
+            return GT::identity();
+        }
+
+        scalar::GT miller = scalar::GT::identity();
+        scalar::GT::miller_loop_lines_n_preprocessed(
+            miller,
+            line_batch.data(),
+            px2_batch.data(),
+            line_batch.size());
+
+        scalar::GT final_pair = scalar::GT::identity();
+        scalar::GT::final_mult(final_pair, miller);
+        return MiddleProductScalarContext::to_public_gt(final_pair);
+    }
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    inline avx::GT middle_product_multipair_avx_window_dense(
+        std::span<const avx::G1AffinePoint> a_affine_nonzero,
+        const MiddleProductPrecomputedBMultipairAvx& precomputed_b,
+        std::size_t output_index,
+        std::vector<const avx::PreparedLine*>& line_batch)
+    {
+        const std::size_t n = precomputed_b.n;
+        line_batch.resize(n);
+        for (std::size_t i = 0; i < n; ++i) {
+            line_batch[i] = precomputed_b.prepared_lines[n + output_index - i].lines;
+        }
+
+        avx::GT miller = avx::GT::identity();
+        avx::GT::miller_loop_lines_n_preprocessed(
+            miller,
+            line_batch.data(),
+            a_affine_nonzero.data(),
+            line_batch.size());
+        return miller;
+    }
+
+    inline avx::GT middle_product_multipair_avx_window_sparse(
+        std::span<const avx::G1AffinePoint> a_affine_nonzero,
+        std::span<const std::size_t> a_indices_nonzero,
+        const MiddleProductPrecomputedBMultipairAvx& precomputed_b,
+        std::size_t output_index,
+        std::vector<const avx::G1AffinePoint*>& p_batch,
+        std::vector<const avx::PreparedLine*>& line_batch)
+    {
+        p_batch.clear();
+        line_batch.clear();
+
+        for (std::size_t nz = 0; nz < a_affine_nonzero.size(); ++nz) {
+            const std::size_t i = a_indices_nonzero[nz];
+            const std::size_t j = precomputed_b.n + output_index - i;
+            if (precomputed_b.b_is_zero[j] != 0) {
+                continue;
+            }
+            p_batch.push_back(&a_affine_nonzero[nz]);
+            line_batch.push_back(precomputed_b.prepared_lines[j].lines);
+        }
+
+        if (line_batch.empty()) {
+            return avx::GT::identity();
+        }
+
+        avx::GT miller = avx::GT::identity();
+        avx::GT::miller_loop_lines_n(
+            miller,
+            line_batch.data(),
+            p_batch.data(),
+            line_batch.size());
+        return miller;
+    }
+
+    inline void middle_product_finalize_avx_millers(
+        std::span<GT> out,
+        std::span<const avx::GT> millers,
+        std::vector<avx::GT>& final_pairs)
+    {
+        BLST_ASSERT(out.size() >= millers.size());
+        final_pairs.resize(millers.size());
+        avx::GT::final_mult_n(final_pairs.data(), millers.data(), millers.size());
+        for (std::size_t i = 0; i < millers.size(); ++i) {
+            out[i] = MiddleProductAvxContext::to_public_gt(avx::AvxGt52(final_pairs[i].data));
+        }
+    }
+#endif
+
+    template<class Context>
+    inline void middle_product_multipair_impl(
+        std::span<const typename Context::G1Point> a,
+        const MiddleProductPrecomputedBMultipairImpl<Context>& precomputed_b,
+        std::span<GT> out,
+        MiddleProductWorkspaceMultipairImpl<Context>& workspace,
+        TimingStats* timings = nullptr)
+    {
+        ScopedTimer total_timer(timings, "middle_product_multipair.total_ns");
+        const std::size_t n = a.size();
+        BLST_ASSERT(n > 0);
+        BLST_ASSERT(precomputed_b.n == n);
+        BLST_ASSERT(precomputed_b.prepared_lines.size() == 2 * n);
+        BLST_ASSERT(precomputed_b.b_is_zero.size() == 2 * n);
+        BLST_ASSERT(out.size() >= n);
+
+        middle_product_collect_multipair_g1_affine<Context>(
+            workspace.affine_a_nonzero,
+            workspace.a_indices_nonzero,
+            a);
+
+        {
+            ScopedTimer timer(timings, "middle_product_multipair.pointwise_ns");
+            if constexpr (std::is_same_v<Context, MiddleProductScalarContext>) {
+                middle_product_prepare_scalar_line_eval_points(
+                    workspace.a_line_points,
+                    std::span<const scalar::G1AffinePoint>(workspace.affine_a_nonzero));
+
+                const bool dense_a = (workspace.a_indices_nonzero.size() == n);
+                const bool dense_b = middle_product_is_dense_mask(std::span<const uint8_t>(precomputed_b.b_is_zero));
+
+                if (dense_a && dense_b) {
+                    for (std::size_t k = 0; k < n; ++k) {
+                        out[k] = middle_product_multipair_scalar_window_dense(
+                            std::span<const scalar::G1AffinePoint>(workspace.a_line_points),
+                            precomputed_b,
+                            k,
+                            workspace.line_batch_scalar);
+                    }
+                } else {
+                    for (std::size_t k = 0; k < n; ++k) {
+                        out[k] = middle_product_multipair_scalar_window_sparse(
+                            std::span<const scalar::G1AffinePoint>(workspace.a_line_points),
+                            std::span<const std::size_t>(workspace.a_indices_nonzero),
+                            precomputed_b,
+                            k,
+                            workspace.line_batch_scalar,
+                            workspace.px2_batch_scalar);
+                    }
+                }
+            } else {
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+                const bool dense_a = (workspace.a_indices_nonzero.size() == n);
+                const bool dense_b = middle_product_is_dense_mask(std::span<const uint8_t>(precomputed_b.b_is_zero));
+                workspace.miller_batch.resize(n);
+
+                if (dense_a && dense_b) {
+                    for (std::size_t k = 0; k < n; ++k) {
+                        workspace.miller_batch[k] = middle_product_multipair_avx_window_dense(
+                            std::span<const avx::G1AffinePoint>(workspace.affine_a_nonzero),
+                            precomputed_b,
+                            k,
+                            workspace.line_batch_avx);
+                    }
+                } else {
+                    workspace.p_batch.reserve(workspace.affine_a_nonzero.size());
+                    workspace.line_batch_avx.reserve(workspace.affine_a_nonzero.size());
+                    for (std::size_t k = 0; k < n; ++k) {
+                        workspace.miller_batch[k] = middle_product_multipair_avx_window_sparse(
+                            std::span<const avx::G1AffinePoint>(workspace.affine_a_nonzero),
+                            std::span<const std::size_t>(workspace.a_indices_nonzero),
+                            precomputed_b,
+                            k,
+                            workspace.p_batch,
+                            workspace.line_batch_avx);
+                    }
+                }
+                middle_product_finalize_avx_millers(
+                    out.first(n),
+                    std::span<const avx::GT>(workspace.miller_batch),
+                    workspace.final_batch);
+#endif
+            }
+        }
+    }
+
+    template<class Context>
+    inline void middle_product_multipair_public(
+        std::span<const G1Point> a,
+        const MiddleProductPrecomputedBMultipairImpl<Context>& precomputed_b,
+        std::span<GT> out,
+        MiddleProductWorkspaceMultipairImpl<Context>& workspace,
+        TimingStats* timings = nullptr)
+    {
+        const std::vector<typename Context::G1Point> converted_a =
+            middle_product_convert_multipair_g1_inputs<Context>(a);
+        middle_product_multipair_impl<Context>(
+            std::span<const typename Context::G1Point>(converted_a),
+            precomputed_b,
+            out,
+            workspace,
+            timings);
+    }
+
+    template<class Context>
+    inline void update_multipair_impl(
+        const typename Context::G1Point& a0,
+        const MiddleProductPrecomputedBMultipairImpl<Context>& precomputed_b,
+        std::span<GT> out,
+        TimingStats* timings = nullptr)
+    {
+        ScopedTimer total_timer(timings, "middle_product_multipair_update.total_ns");
+        const std::size_t n = precomputed_b.n;
+        BLST_ASSERT(n > 0);
+        BLST_ASSERT(precomputed_b.prepared_lines.size() == 2 * n);
+        BLST_ASSERT(precomputed_b.b_is_zero.size() == 2 * n);
+        BLST_ASSERT(out.size() >= n);
+
+        if (Context::G1Point::is_inf(a0) != 0) {
+            std::fill(out.begin(), out.begin() + n, GT::identity());
+            return;
+        }
+
+        typename Context::G1AffinePoint affine_a0 = {};
+        Context::G1Point::to_affine(affine_a0, a0);
+
+        {
+            ScopedTimer timer(timings, "middle_product_multipair_update.pointwise_ns");
+            if constexpr (std::is_same_v<Context, MiddleProductScalarContext>) {
+                for (std::size_t k = 0; k < n; ++k) {
+                    if (precomputed_b.b_is_zero[n + k] != 0) {
+                        out[k] = GT::identity();
+                        continue;
+                    }
+                    scalar::GT miller = scalar::GT::identity();
+                    scalar::GT::miller_loop_lines(
+                        miller,
+                        precomputed_b.prepared_lines[n + k].lines,
+                        affine_a0);
+                    scalar::GT final_pair = scalar::GT::identity();
+                    scalar::GT::final_mult(final_pair, miller);
+                    out[k] = MiddleProductScalarContext::to_public_gt(final_pair);
+                }
+            } else {
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+                std::vector<avx::GT> millers(n, avx::GT::identity());
+                std::vector<avx::GT> finals;
+                for (std::size_t k = 0; k < n; ++k) {
+                    if (precomputed_b.b_is_zero[n + k] != 0) {
+                        continue;
+                    }
+                    avx::GT::miller_loop_lines(
+                        millers[k],
+                        precomputed_b.prepared_lines[n + k].lines,
+                        affine_a0);
+                }
+                middle_product_finalize_avx_millers(
+                    out.first(n),
+                    std::span<const avx::GT>(millers),
+                    finals);
+#endif
+            }
+        }
+    }
+
     inline MiddleProductPrecomputedBScalar precompute_middle_product_b_scalar(
         std::span<const G2Point> b,
         std::size_t n,
-        TimingStats* timings = nullptr,
-        MiddleProductPairingMode pairing_mode = MiddleProductPairingMode::Direct)
+        TimingStats* timings = nullptr)
     {
         BLST_ASSERT(n > 0);
         BLST_ASSERT(b.size() == 2 * n);
         return detail::precompute_middle_product_b_public<MiddleProductScalarContext>(
             b,
             n,
-            timings,
-            pairing_mode);
+            timings);
     }
 
     #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
     inline MiddleProductPrecomputedBAvx precompute_middle_product_b_avx(
         std::span<const G2Point> b,
         std::size_t n,
-        TimingStats* timings = nullptr,
-        MiddleProductPairingMode pairing_mode = MiddleProductPairingMode::Direct)
+        TimingStats* timings = nullptr)
     {
         BLST_ASSERT(n > 0);
         BLST_ASSERT(b.size() == 2 * n);
         return detail::precompute_middle_product_b_public<MiddleProductAvxContext>(
             b,
             n,
-            timings,
-            pairing_mode);
+            timings);
     }
     #endif
 
     inline MiddleProductPrecomputedB precompute_middle_product_b(
         std::span<const G2Point> b,
         std::size_t n,
-        TimingStats* timings = nullptr,
-        MiddleProductPairingMode pairing_mode = MiddleProductPairingMode::Direct)
+        TimingStats* timings = nullptr)
     {
 #if BLST_DEFAULT_AVX
-        return precompute_middle_product_b_avx(b, n, timings, pairing_mode);
+        return precompute_middle_product_b_avx(b, n, timings);
 #else
-        return precompute_middle_product_b_scalar(b, n, timings, pairing_mode);
+        return precompute_middle_product_b_scalar(b, n, timings);
+#endif
+    }
+
+    inline MiddleProductPrecomputedBMultipairScalar precompute_middle_product_b_multipair_scalar(
+        std::span<const G2Point> b,
+        std::size_t n,
+        TimingStats* timings = nullptr)
+    {
+        BLST_ASSERT(n > 0);
+        BLST_ASSERT(b.size() == 2 * n);
+        return precompute_middle_product_b_multipair_impl<MiddleProductScalarContext>(b, n, timings);
+    }
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    inline MiddleProductPrecomputedBMultipairAvx precompute_middle_product_b_multipair_avx(
+        std::span<const G2Point> b,
+        std::size_t n,
+        TimingStats* timings = nullptr)
+    {
+        BLST_ASSERT(n > 0);
+        BLST_ASSERT(b.size() == 2 * n);
+        return precompute_middle_product_b_multipair_impl<MiddleProductAvxContext>(b, n, timings);
+    }
+#endif
+
+    inline MiddleProductPrecomputedBMultipair precompute_middle_product_b_multipair(
+        std::span<const G2Point> b,
+        std::size_t n,
+        TimingStats* timings = nullptr)
+    {
+#if BLST_DEFAULT_AVX
+        return precompute_middle_product_b_multipair_avx(b, n, timings);
+#else
+        return precompute_middle_product_b_multipair_scalar(b, n, timings);
 #endif
     }
 
@@ -928,6 +1318,22 @@ namespace blst {
             timings);
     }
 
+    inline void middle_product_multipair_scalar(
+        std::span<const G1Point> a,
+        const MiddleProductPrecomputedBMultipairScalar& precomputed_b,
+        std::span<GT> out,
+        MiddleProductWorkspaceMultipairScalar& workspace,
+        TimingStats* timings = nullptr)
+    {
+        BLST_ASSERT(precomputed_b.n == a.size());
+        middle_product_multipair_public<MiddleProductScalarContext>(
+            a,
+            precomputed_b,
+            out,
+            workspace,
+            timings);
+    }
+
     #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
     inline void middle_product_avx(
         std::span<const G1Point> a,
@@ -938,6 +1344,22 @@ namespace blst {
     {
         BLST_ASSERT(precomputed_b.n == a.size());
         detail::middle_product_public<MiddleProductAvxContext>(
+            a,
+            precomputed_b,
+            out,
+            workspace,
+            timings);
+    }
+
+    inline void middle_product_multipair_avx(
+        std::span<const G1Point> a,
+        const MiddleProductPrecomputedBMultipairAvx& precomputed_b,
+        std::span<GT> out,
+        MiddleProductWorkspaceMultipairAvx& workspace,
+        TimingStats* timings = nullptr)
+    {
+        BLST_ASSERT(precomputed_b.n == a.size());
+        middle_product_multipair_public<MiddleProductAvxContext>(
             a,
             precomputed_b,
             out,
@@ -959,6 +1381,22 @@ namespace blst {
         middle_product_scalar(a, precomputed_b, out, workspace, timings);
 #endif
     }
+
+    inline void middle_product_multipair(
+        std::span<const G1Point> a,
+        const MiddleProductPrecomputedBMultipair& precomputed_b,
+        std::span<GT> out,
+        MiddleProductWorkspaceMultipair& workspace,
+        TimingStats* timings = nullptr)
+    {
+#if BLST_DEFAULT_AVX
+        middle_product_multipair_avx(a, precomputed_b, out, workspace, timings);
+#else
+        middle_product_multipair_scalar(a, precomputed_b, out, workspace, timings);
+#endif
+    }
+
+    inline constexpr std::size_t middle_product_auto_multipair_max_n = 24;
 
     inline void middle_product_scalar(
         std::span<const G1Point> a,
@@ -993,6 +1431,152 @@ namespace blst {
 #endif
     }
 
+    inline void middle_product_multipair_scalar(
+        std::span<const G1Point> a,
+        std::span<const G2Point> b,
+        std::span<GT> out,
+        TimingStats* timings = nullptr)
+    {
+        const auto precomputed = precompute_middle_product_b_multipair_scalar(b, a.size(), timings);
+        MiddleProductWorkspaceMultipairScalar workspace;
+        middle_product_multipair_scalar(a, precomputed, out, workspace, timings);
+    }
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    inline void middle_product_multipair_avx(
+        std::span<const G1Point> a,
+        std::span<const G2Point> b,
+        std::span<GT> out,
+        TimingStats* timings = nullptr)
+    {
+        const auto precomputed = precompute_middle_product_b_multipair_avx(b, a.size(), timings);
+        MiddleProductWorkspaceMultipairAvx workspace;
+        middle_product_multipair_avx(a, precomputed, out, workspace, timings);
+    }
+#endif
+
+    inline void middle_product_multipair(
+        std::span<const G1Point> a,
+        std::span<const G2Point> b,
+        std::span<GT> out,
+        TimingStats* timings = nullptr)
+    {
+#if BLST_DEFAULT_AVX
+        middle_product_multipair_avx(a, b, out, timings);
+#else
+        middle_product_multipair_scalar(a, b, out, timings);
+#endif
+    }
+
+    inline void middle_product_scalar(
+        std::span<const G1Point> a,
+        std::span<const G2Point> b,
+        std::span<GT> out,
+        MiddleProductAlgorithm algorithm,
+        TimingStats* timings)
+    {
+        switch (algorithm) {
+        case MiddleProductAlgorithm::Fft:
+            middle_product_scalar(a, b, out, timings);
+            break;
+        case MiddleProductAlgorithm::Multipair:
+            middle_product_multipair_scalar(a, b, out, timings);
+            break;
+        case MiddleProductAlgorithm::Auto:
+            if (a.size() <= middle_product_auto_multipair_max_n) {
+                middle_product_multipair_scalar(a, b, out, timings);
+            } else {
+                middle_product_scalar(a, b, out, timings);
+            }
+            break;
+        default:
+            BLST_ASSERT(false && "Unsupported middle product algorithm");
+        }
+    }
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    inline void middle_product_avx(
+        std::span<const G1Point> a,
+        std::span<const G2Point> b,
+        std::span<GT> out,
+        MiddleProductAlgorithm algorithm,
+        TimingStats* timings)
+    {
+        switch (algorithm) {
+        case MiddleProductAlgorithm::Fft:
+            middle_product_avx(a, b, out, timings);
+            break;
+        case MiddleProductAlgorithm::Multipair:
+            middle_product_multipair_avx(a, b, out, timings);
+            break;
+        case MiddleProductAlgorithm::Auto:
+            if (a.size() <= middle_product_auto_multipair_max_n) {
+                middle_product_multipair_avx(a, b, out, timings);
+            } else {
+                middle_product_avx(a, b, out, timings);
+            }
+            break;
+        default:
+            BLST_ASSERT(false && "Unsupported middle product algorithm");
+        }
+    }
+#endif
+
+    inline void middle_product(
+        std::span<const G1Point> a,
+        std::span<const G2Point> b,
+        std::span<GT> out,
+        MiddleProductAlgorithm algorithm,
+        TimingStats* timings = nullptr)
+    {
+        switch (algorithm) {
+        case MiddleProductAlgorithm::Fft:
+            middle_product(a, b, out, timings);
+            break;
+        case MiddleProductAlgorithm::Multipair:
+            middle_product_multipair(a, b, out, timings);
+            break;
+        case MiddleProductAlgorithm::Auto:
+            if (a.size() <= middle_product_auto_multipair_max_n) {
+                middle_product_multipair(a, b, out, timings);
+            } else {
+                middle_product(a, b, out, timings);
+            }
+            break;
+        default:
+            BLST_ASSERT(false && "Unsupported middle product algorithm");
+        }
+    }
+
+    inline void middle_product_scalar(
+        std::span<const G1Point> a,
+        std::span<const G2Point> b,
+        std::span<GT> out,
+        MiddleProductAlgorithm algorithm)
+    {
+        middle_product_scalar(a, b, out, algorithm, nullptr);
+    }
+
+    #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    inline void middle_product_avx(
+        std::span<const G1Point> a,
+        std::span<const G2Point> b,
+        std::span<GT> out,
+        MiddleProductAlgorithm algorithm)
+    {
+        middle_product_avx(a, b, out, algorithm, nullptr);
+    }
+    #endif
+
+    inline void middle_product(
+        std::span<const G1Point> a,
+        std::span<const G2Point> b,
+        std::span<GT> out,
+        MiddleProductAlgorithm algorithm)
+    {
+        middle_product(a, b, out, algorithm, nullptr);
+    }
+
     inline void middle_product_scalar(
         std::span<const G1Point> a,
         const MiddleProductPrecomputedBScalar& precomputed_b,
@@ -1001,6 +1585,16 @@ namespace blst {
     {
         MiddleProductWorkspaceScalar workspace;
         middle_product_scalar(a, precomputed_b, out, workspace, timings);
+    }
+
+    inline void middle_product_multipair_scalar(
+        std::span<const G1Point> a,
+        const MiddleProductPrecomputedBMultipairScalar& precomputed_b,
+        std::span<GT> out,
+        TimingStats* timings = nullptr)
+    {
+        MiddleProductWorkspaceMultipairScalar workspace;
+        middle_product_multipair_scalar(a, precomputed_b, out, workspace, timings);
     }
 
     #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
@@ -1012,6 +1606,16 @@ namespace blst {
     {
         MiddleProductWorkspaceAvx workspace;
         middle_product_avx(a, precomputed_b, out, workspace, timings);
+    }
+
+    inline void middle_product_multipair_avx(
+        std::span<const G1Point> a,
+        const MiddleProductPrecomputedBMultipairAvx& precomputed_b,
+        std::span<GT> out,
+        TimingStats* timings = nullptr)
+    {
+        MiddleProductWorkspaceMultipairAvx workspace;
+        middle_product_multipair_avx(a, precomputed_b, out, workspace, timings);
     }
     #endif
 
@@ -1025,6 +1629,16 @@ namespace blst {
         middle_product(a, precomputed_b, out, workspace, timings);
     }
 
+    inline void middle_product_multipair(
+        std::span<const G1Point> a,
+        const MiddleProductPrecomputedBMultipair& precomputed_b,
+        std::span<GT> out,
+        TimingStats* timings = nullptr)
+    {
+        MiddleProductWorkspaceMultipair workspace;
+        middle_product_multipair(a, precomputed_b, out, workspace, timings);
+    }
+
     inline void update_scalar(
         const G1Point& a0,
         const MiddleProductPrecomputedBScalar& precomputed_b,
@@ -1032,6 +1646,19 @@ namespace blst {
         TimingStats* timings = nullptr)
     {
         detail::update_public<MiddleProductScalarContext>(a0, precomputed_b, out, timings);
+    }
+
+    inline void update_multipair_scalar(
+        const G1Point& a0,
+        const MiddleProductPrecomputedBMultipairScalar& precomputed_b,
+        std::span<GT> out,
+        TimingStats* timings = nullptr)
+    {
+        update_multipair_impl<MiddleProductScalarContext>(
+            MiddleProductScalarContext::to_backend_g1(a0),
+            precomputed_b,
+            out,
+            timings);
     }
 
     #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
@@ -1042,6 +1669,19 @@ namespace blst {
         TimingStats* timings = nullptr)
     {
         detail::update_public<MiddleProductAvxContext>(a0, precomputed_b, out, timings);
+    }
+
+    inline void update_multipair_avx(
+        const G1Point& a0,
+        const MiddleProductPrecomputedBMultipairAvx& precomputed_b,
+        std::span<GT> out,
+        TimingStats* timings = nullptr)
+    {
+        update_multipair_impl<MiddleProductAvxContext>(
+            MiddleProductAvxContext::to_backend_g1(a0),
+            precomputed_b,
+            out,
+            timings);
     }
     #endif
 
@@ -1055,6 +1695,19 @@ namespace blst {
         update_avx(a0, precomputed_b, out, timings);
 #else
         update_scalar(a0, precomputed_b, out, timings);
+#endif
+    }
+
+    inline void update_multipair(
+        const G1Point& a0,
+        const MiddleProductPrecomputedBMultipair& precomputed_b,
+        std::span<GT> out,
+        TimingStats* timings = nullptr)
+    {
+#if BLST_DEFAULT_AVX
+        update_multipair_avx(a0, precomputed_b, out, timings);
+#else
+        update_multipair_scalar(a0, precomputed_b, out, timings);
 #endif
     }
 

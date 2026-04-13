@@ -1086,70 +1086,6 @@ namespace
 				1e6);
 		}
 
-	static void bench_middle_product_one_ifft_lines_detailed(benchmark::State& state)
-	{
-		const size_t n = static_cast<size_t>(state.range(0));
-		const std::vector<G1Point> A_orig = make_g1_data(n, /*seed*/ 0xDEADBEEFULL);
-		const std::vector<G2Point> B_orig = make_g2_data(2 * n, /*seed*/ 0xCAFEBABEULL);
-		TimingStats pre_stats;
-		const auto precomputed_b = precompute_middle_product_b(
-			std::span<const G2Point>(B_orig),
-			n,
-			&pre_stats,
-			MiddleProductPairingMode::PrecomputedLines);
-		std::vector<GT> out(n, GT::identity());
-		MiddleProductWorkspace workspace;
-
-		double time_fft_g1 = 0;
-		double time_pairing = 0;
-		double time_ifft_gt = 0;
-		double time_fill = 0;
-		double time_roots = 0;
-		double time_extract = 0;
-		double online_total = 0;
-		int64_t iterations = 0;
-
-		for (auto _ : state) {
-			TimingStats iter_stats;
-				middle_product(
-					std::span<const G1Point>(A_orig),
-					precomputed_b,
-					std::span<GT>(out),
-					workspace,
-					&iter_stats);
-			benchmark::ClobberMemory();
-
-				time_fft_g1 += static_cast<double>(iter_stats.get_ns("middle_product_pre.fft_a_ns"));
-				time_pairing += static_cast<double>(iter_stats.get_ns("middle_product_pre.pointwise_ns"));
-				time_ifft_gt += static_cast<double>(iter_stats.get_ns("middle_product_pre.ifft_ns"));
-				time_fill += static_cast<double>(iter_stats.get_ns("middle_product_pre.fill_a_fft_ns"));
-				time_fill += static_cast<double>(iter_stats.get_ns("middle_product_pre.fill_c_fft_ns"));
-				time_extract += static_cast<double>(iter_stats.get_ns("middle_product_pre.extract_ns"));
-				online_total += static_cast<double>(iter_stats.get_ns("middle_product_pre.total_ns"));
-			iterations++;
-		}
-
-		state.counters["n"] = static_cast<double>(n);
-		state.counters["m"] = static_cast<double>(precomputed_b.fft_size);
-		state.counters["fft_g1_ms"] = benchmark::Counter(time_fft_g1 / 1e6 / iterations);
-		state.counters["pairing_ms"] = benchmark::Counter(time_pairing / 1e6 / iterations);
-		state.counters["ifft_gt_ms"] = benchmark::Counter(time_ifft_gt / 1e6 / iterations);
-		state.counters["fill_ms"] = benchmark::Counter(time_fill / 1e6 / iterations);
-		state.counters["roots_ms"] = benchmark::Counter(time_roots / 1e6 / iterations);
-		state.counters["extract_ms"] = benchmark::Counter(time_extract / 1e6 / iterations);
-		state.counters["online_total_ms"] = benchmark::Counter(online_total / 1e6 / iterations);
-		state.counters["online_compute_ms"] = benchmark::Counter((online_total - time_roots) / 1e6 / iterations);
-			state.counters["offline_precompute_once_ms"] = benchmark::Counter(
-				(static_cast<double>(pre_stats.get_ns("middle_product_precompute.roots_ns")) +
-					static_cast<double>(pre_stats.get_ns("middle_product_precompute.fft_b0_ns")) +
-					static_cast<double>(pre_stats.get_ns("middle_product_precompute.fft_b1_ns")) +
-					static_cast<double>(pre_stats.get_ns("middle_product_precompute.fold_ns")) +
-					static_cast<double>(pre_stats.get_ns("middle_product_precompute.lines_ns"))) /
-				1e6);
-			state.counters["offline_precompute_lines_ms"] =
-				benchmark::Counter(static_cast<double>(pre_stats.get_ns("middle_product_precompute.lines_ns")) / 1e6);
-		}
-
         // Benchmark middle_product_fft: computes middle n coefficients of (size n) * (size 2n) convolution
 #if 0
         static void bench_middle_product_fft(benchmark::State& state)
@@ -1683,11 +1619,6 @@ MIDDLE_PROD_SIZES
 
 BENCHMARK(bench_middle_product_one_ifft_detailed)
 MIDDLE_PROD_SIZES
-->Unit(benchmark::kMillisecond)
-->UseRealTime();
-
-BENCHMARK(bench_middle_product_one_ifft_lines_detailed)
-->Arg(128)
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();
 

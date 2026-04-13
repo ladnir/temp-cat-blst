@@ -110,8 +110,7 @@ inline NativePrecomputedB precompute_native(
     return blst::detail::precompute_middle_product_b_impl<blst::MiddleProductAvxContext>(
         std::span<const NativeG2>(converted),
         n,
-        nullptr,
-        blst::MiddleProductPairingMode::Direct);
+        nullptr);
 }
 
 inline void run_native(
@@ -152,8 +151,7 @@ inline NativePrecomputedB precompute_native(
     return blst::detail::precompute_middle_product_b_impl<blst::MiddleProductScalarContext>(
         std::span<const BoundaryG2>(b),
         n,
-        nullptr,
-        blst::MiddleProductPairingMode::Direct);
+        nullptr);
 }
 
 inline void run_native(

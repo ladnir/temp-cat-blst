@@ -12,6 +12,7 @@
 #include <array>
 #include <cstddef>
 #include <utility>
+#include <vector>
 
 namespace blst::avx {
 
@@ -113,14 +114,6 @@ inline typename FP12::StandardElement make_line_value(
         ring().zero(),
         ring().zero(),
     };
-}
-
-inline G1AffinePoint make_px2(const G1AffinePoint& point)
-{
-    G1AffinePoint out = {};
-    out.X = ring().standard_negate(NormalizePointCoord(point.X + point.X, ring()));
-    out.Y = NormalizePointCoord(point.Y + point.Y, ring());
-    return out;
 }
 
 inline auto scale_line_xy(const PreparedLine& in, const G1AffinePoint& p)
@@ -246,6 +239,84 @@ inline void apply_add_n_dbl(
         data = fp12ring().fp12_flat_sqr(data, ring());
         apply_prepared_line(data, lines[0], p);
         ++lines;
+    }
+}
+
+inline void start_lines_n(
+    typename FP12::StandardElement& data,
+    const PreparedLine* const Qlines[],
+    const G1AffinePoint P[],
+    size_t n)
+{
+    BLST_ASSERT(n != 0);
+
+    const auto first = scale_line_xy(Qlines[0][0], P[0]);
+    data = make_line_value(Qlines[0][0].c, first[0], first[1]);
+
+    for (size_t i = 1; i < n; ++i) {
+        apply_prepared_line(data, Qlines[i][0], P[i]);
+    }
+}
+
+inline void start_lines_n(
+    typename FP12::StandardElement& data,
+    const PreparedLine* const Qlines[],
+    const G1AffinePoint* const P[],
+    size_t n)
+{
+    BLST_ASSERT(n != 0);
+
+    const auto first = scale_line_xy(Qlines[0][0], *P[0]);
+    data = make_line_value(Qlines[0][0].c, first[0], first[1]);
+
+    for (size_t i = 1; i < n; ++i) {
+        apply_prepared_line(data, Qlines[i][0], *P[i]);
+    }
+}
+
+inline void post_add_n_dbl_n(
+    typename FP12::StandardElement& data,
+    const PreparedLine* const Qlines[],
+    const G1AffinePoint P[],
+    size_t n,
+    size_t start,
+    size_t k)
+{
+    size_t line_idx = start;
+
+    for (size_t i = 0; i < n; ++i) {
+        apply_prepared_line(data, Qlines[i][line_idx], P[i]);
+    }
+
+    while (k-- != 0) {
+        ++line_idx;
+        data = fp12ring().fp12_flat_sqr(data, ring());
+        for (size_t i = 0; i < n; ++i) {
+            apply_prepared_line(data, Qlines[i][line_idx], P[i]);
+        }
+    }
+}
+
+inline void post_add_n_dbl_n(
+    typename FP12::StandardElement& data,
+    const PreparedLine* const Qlines[],
+    const G1AffinePoint* const P[],
+    size_t n,
+    size_t start,
+    size_t k)
+{
+    size_t line_idx = start;
+
+    for (size_t i = 0; i < n; ++i) {
+        apply_prepared_line(data, Qlines[i][line_idx], *P[i]);
+    }
+
+    while (k-- != 0) {
+        ++line_idx;
+        data = fp12ring().fp12_flat_sqr(data, ring());
+        for (size_t i = 0; i < n; ++i) {
+            apply_prepared_line(data, Qlines[i][line_idx], *P[i]);
+        }
     }
 }
 
@@ -423,6 +494,59 @@ struct GT
         out.data = final_exp(f.data, inverter, avx_gt_detail::fp12ring(), avx_gt_detail::ring());
     }
 
+    static void final_mult_n(GT out[], const GT in[], size_t n)
+    {
+        if (n == 0 || out == nullptr || in == nullptr) {
+            return;
+        }
+
+        const auto& fp12 = avx_gt_detail::fp12ring();
+        const auto& ring = avx_gt_detail::ring();
+        BLSTInverter<avx_gt_detail::Ring> inverter;
+        using FieldElement = avx_gt_detail::Ring::StandardElement;
+        using FP12Element = Field_type;
+        using FP6InverseElement = decltype(fp12.fp12_flat_inverse_to_fp6(std::declval<FP12Element>(), ring));
+        using FP2InverseElement = decltype(fp12.fp6_flat_inverse_to_fp2_c0_c1_c2(std::declval<FP6InverseElement>(), ring));
+        using FP2RetElement = decltype(fp12.fp6_flat_inverse_to_fp2_ret(
+            std::declval<FP2InverseElement>(),
+            std::declval<FP6InverseElement>(),
+            ring));
+
+        std::vector<FP6InverseElement> f6_terms(n);
+        std::vector<FP2InverseElement> f2_c0_c1_c2_terms(n);
+        std::vector<FP2RetElement> f2_terms(n);
+        std::vector<FieldElement> f1_terms(n);
+        for (size_t i = 0; i < n; ++i) {
+            f6_terms[i] = fp12.fp12_flat_inverse_to_fp6(in[i].data, ring);
+            f2_c0_c1_c2_terms[i] = fp12.fp6_flat_inverse_to_fp2_c0_c1_c2(f6_terms[i], ring);
+            f2_terms[i] = fp12.fp6_flat_inverse_to_fp2_ret(f2_c0_c1_c2_terms[i], f6_terms[i], ring);
+            f1_terms[i] = fp12.fp2_flat_inverse_to_fp(f2_terms[i], ring)[0];
+        }
+
+        // Batch the base-field inversion that dominates fp12 inversion in final exponentiation.
+        std::vector<FieldElement> prefix_products(n);
+        prefix_products[0] = f1_terms[0];
+        for (size_t i = 1; i < n; ++i) {
+            prefix_products[i] = ring.modmul(prefix_products[i - 1], f1_terms[i]);
+        }
+
+        std::vector<FieldElement> f1_inverses(n);
+        FieldElement running_inverse = inverter.invert(prefix_products[n - 1], ring);
+        for (size_t i = n; i-- > 1;) {
+            f1_inverses[i] = ring.modmul(prefix_products[i - 1], running_inverse);
+            running_inverse = ring.modmul(running_inverse, f1_terms[i]);
+        }
+        f1_inverses[0] = running_inverse;
+
+        for (size_t i = 0; i < n; ++i) {
+            std::array<FieldElement, 1> f1_inv = {f1_inverses[i]};
+            const auto f2_inv = fp12.fp_flat_inverse_to_fp2(f2_terms[i], f1_inv, ring);
+            const auto f6_inv = fp12.fp2_flat_inverse_to_fp6(f2_c0_c1_c2_terms[i], f2_inv, ring);
+            const auto f_inverse = fp12.fp6_flat_inverse_to_fp12(in[i].data, f6_inv, ring);
+            out[i].data = final_exp_after_inverse(in[i].data, f_inverse, fp12, ring);
+        }
+    }
+
     static void miller_loop(GT& ret, const G2AffinePoint* Q, const G1AffinePoint* P)
     {
         const G2AffinePoint& q = Q ? *Q : G2AffinePoint::generator();
@@ -594,6 +718,49 @@ struct GT
         avx_gt_detail::apply_add_n_dbl(ret.data, &Qlines[18], P, 32);
         avx_gt_detail::apply_add_n_dbl(ret.data, &Qlines[51], P, 16);
         ret.data = avx_gt_detail::fp12ring().fp12_flat_conjugate(ret.data, avx_gt_detail::ring());
+    }
+
+    static void miller_loop_lines_n(
+        GT& out,
+        const PreparedLine* const Qlines[],
+        const G1AffinePoint* const Ps[],
+        size_t n)
+    {
+        out = identity();
+        if (n == 0 || Qlines == nullptr || Ps == nullptr || Qlines[0] == nullptr || Ps[0] == nullptr) {
+            return;
+        }
+
+        // These offsets mirror the BLS12-381 Miller schedule segments already used by
+        // the direct batched Miller path: start with the first doubled line, then
+        // walk the fixed add+double runs 2, 3, 9, 32, and 16.
+        avx_gt_detail::start_lines_n(out.data, Qlines, Ps, n);
+        avx_gt_detail::post_add_n_dbl_n(out.data, Qlines, Ps, n, 1, 2);
+        avx_gt_detail::post_add_n_dbl_n(out.data, Qlines, Ps, n, 4, 3);
+        avx_gt_detail::post_add_n_dbl_n(out.data, Qlines, Ps, n, 8, 9);
+        avx_gt_detail::post_add_n_dbl_n(out.data, Qlines, Ps, n, 18, 32);
+        avx_gt_detail::post_add_n_dbl_n(out.data, Qlines, Ps, n, 51, 16);
+        out.data = avx_gt_detail::fp12ring().fp12_flat_conjugate(out.data, avx_gt_detail::ring());
+    }
+
+    static void miller_loop_lines_n_preprocessed(
+        GT& out,
+        const PreparedLine* const Qlines[],
+        const G1AffinePoint P[],
+        size_t n)
+    {
+        out = identity();
+        if (n == 0 || Qlines == nullptr || P == nullptr || Qlines[0] == nullptr) {
+            return;
+        }
+
+        avx_gt_detail::start_lines_n(out.data, Qlines, P, n);
+        avx_gt_detail::post_add_n_dbl_n(out.data, Qlines, P, n, 1, 2);
+        avx_gt_detail::post_add_n_dbl_n(out.data, Qlines, P, n, 4, 3);
+        avx_gt_detail::post_add_n_dbl_n(out.data, Qlines, P, n, 8, 9);
+        avx_gt_detail::post_add_n_dbl_n(out.data, Qlines, P, n, 18, 32);
+        avx_gt_detail::post_add_n_dbl_n(out.data, Qlines, P, n, 51, 16);
+        out.data = avx_gt_detail::fp12ring().fp12_flat_conjugate(out.data, avx_gt_detail::ring());
     }
 
     static void miller_loop_lines(

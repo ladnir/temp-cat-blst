@@ -249,15 +249,13 @@ TEST(BackendAlias, MiddleProductReducedMatchesBasicOnSmallVector)
     const auto scalar_precomputed = blst::detail::precompute_middle_product_b_public<ScalarCtx>(
         std::span<const G2Point>(b_points),
         a_points.size(),
-        nullptr,
-        MiddleProductPairingMode::Direct);
+        nullptr);
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
     using AvxCtx = blst::detail::AvxMiddleProductContext;
     const auto avx_precomputed = blst::detail::precompute_middle_product_b_public<AvxCtx>(
         std::span<const G2Point>(b_points),
         a_points.size(),
-        nullptr,
-        MiddleProductPairingMode::Direct);
+        nullptr);
 
     const auto scalar_a = blst::detail::convert_g1_inputs<ScalarCtx>(std::span<const G1Point>(a_points));
     const auto avx_a = blst::detail::convert_g1_inputs<AvxCtx>(std::span<const G1Point>(a_points));
@@ -551,13 +549,11 @@ TEST(BackendAlias, AvxGtInverseFftStageReplayMatchesScalar)
     const auto scalar_precomputed = blst::detail::precompute_middle_product_b_public<ScalarCtx>(
         std::span<const G2Point>(b_points),
         a_points.size(),
-        nullptr,
-        MiddleProductPairingMode::Direct);
+        nullptr);
     const auto avx_precomputed = blst::detail::precompute_middle_product_b_public<AvxCtx>(
         std::span<const G2Point>(b_points),
         a_points.size(),
-        nullptr,
-        MiddleProductPairingMode::Direct);
+        nullptr);
 
     const auto scalar_a = blst::detail::convert_g1_inputs<ScalarCtx>(std::span<const G1Point>(a_points));
     const auto avx_a = blst::detail::convert_g1_inputs<AvxCtx>(std::span<const G1Point>(a_points));
