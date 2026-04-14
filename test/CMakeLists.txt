@@ -19,6 +19,7 @@ FetchContent_MakeAvailable(googletest)
 set(PUBLIC_API_TEST_SOURCES
     "Backend_alias_tests.cpp"
     "BindingHeader_tests.cpp"
+    "Btx_tests.cpp"
     "C_api_tests.cpp"
     "MiddleProduct_algorithm_tests.cpp"
     "MiddleProduct_c_api_tests.cpp"
@@ -97,11 +98,15 @@ endif()
 add_executable(blst_tests ${TEST_SOURCES})
 
 target_include_directories(blst_tests PRIVATE ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(blst_tests PRIVATE gtest_main blst_static blst_avx_headers bte_trx)
+target_link_libraries(blst_tests PRIVATE gtest_main blst_static blst_avx_headers bte_trx bte_btx)
 
 add_executable(bte_trx_tests Trx_tests.cpp)
 target_include_directories(bte_trx_tests PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_link_libraries(bte_trx_tests PRIVATE gtest_main blst_static blst_avx_headers bte_trx)
+
+add_executable(bte_btx_tests Btx_tests.cpp)
+target_include_directories(bte_btx_tests PRIVATE ${CMAKE_CURRENT_LIST_DIR})
+target_link_libraries(bte_btx_tests PRIVATE gtest_main blst_static blst_avx_headers bte_btx)
 
 if(BLST_HAVE_AVX_VALIDATION_GMP AND MSVC)
     add_custom_command(TARGET blst_tests POST_BUILD
@@ -131,5 +136,9 @@ gtest_discover_tests(blst_tests
 )
 
 gtest_discover_tests(bte_trx_tests
+  DISCOVERY_TIMEOUT 60
+)
+
+gtest_discover_tests(bte_btx_tests
   DISCOVERY_TIMEOUT 60
 )

@@ -49,7 +49,7 @@ else()
     )
 endif()
 
-list(APPEND BENCHMARK_SOURCES "Trx_bench.cpp")
+list(APPEND BENCHMARK_SOURCES "Trx_bench.cpp" "Btx_bench.cpp" "BtxBeat_head_to_head_bench.cpp")
 
 if(BLST_HAVE_AVX_VALIDATION_GMP)
     list(APPEND BENCHMARK_SOURCES "avx/Avx_gt_glv4_scalar_bench.cpp")
@@ -118,7 +118,7 @@ add_executable(blst_benchmarks ${BENCHMARK_SOURCES})
 
 target_include_directories(blst_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_include_directories(blst_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
-target_link_libraries(blst_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers bte_trx)
+target_link_libraries(blst_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers bte_trx bte_btx)
 
 add_executable(bte_trx_benchmarks
     "main.cpp"
@@ -127,6 +127,15 @@ add_executable(bte_trx_benchmarks
 target_include_directories(bte_trx_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_include_directories(bte_trx_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
 target_link_libraries(bte_trx_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers bte_trx)
+
+add_executable(bte_btx_benchmarks
+    "main.cpp"
+    "Btx_bench.cpp"
+    "BtxBeat_head_to_head_bench.cpp"
+)
+target_include_directories(bte_btx_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
+target_include_directories(bte_btx_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
+target_link_libraries(bte_btx_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers bte_btx)
 
 if(BLST_HAVE_AVX_VALIDATION_GMP AND MSVC)
     add_custom_command(TARGET blst_benchmarks POST_BUILD
@@ -159,4 +168,11 @@ add_custom_target(run_bte_trx_benchmarks
     DEPENDS bte_trx_benchmarks
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Running BTE TrX benchmarks..."
+)
+
+add_custom_target(run_bte_btx_benchmarks
+    COMMAND bte_btx_benchmarks
+    DEPENDS bte_btx_benchmarks
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    COMMENT "Running BTE BTX benchmarks..."
 )
