@@ -228,6 +228,7 @@ add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:--allow-unsupported-compiler>)
 
 #add_subdirectory(check)
 add_subdirectory(blst)
+add_subdirectory(BTE)
 
 enable_testing()
 

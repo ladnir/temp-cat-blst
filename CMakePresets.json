@@ -73,6 +73,28 @@
       }
     },
     {
+      "name": "x64-Debug-Scalar",
+      "displayName": "Windows x64 Debug (Scalar)",
+      "description": "Windows debug build with the scalar backend selected at the top-level blst API.",
+      "inherits": "x64-Debug",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "BLST_DEFAULT_AVX": false,
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
+      }
+    },
+    {
+      "name": "x64-Debug-Avx",
+      "displayName": "Windows x64 Debug (AVX)",
+      "description": "Windows debug build with the AVX backend selected at the top-level blst API.",
+      "inherits": "x64-Debug",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "BLST_DEFAULT_AVX": true,
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
+      }
+    },
+    {
       "name": "x64-Release",
       "displayName": "Windows x64 Release",
       "description": "Target Windows with the Visual Studio development environment.",
@@ -97,6 +119,31 @@
             "Windows"
           ]
         }
+      }
+    },
+    {
+      "name": "x64-Release-Scalar",
+      "displayName": "Windows x64 Release (Scalar)",
+      "description": "Windows release build with the scalar backend selected at the top-level blst API.",
+      "inherits": "x64-Release",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "BLST_DEFAULT_AVX": false,
+        "BLST_CUDA": false,
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
+      }
+    },
+    {
+      "name": "x64-Release-Avx",
+      "displayName": "Windows x64 Release (AVX)",
+      "description": "Windows release build with the AVX backend selected at the top-level blst API.",
+      "inherits": "x64-Release",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "BLST_DEFAULT_AVX": true,
+        "BLST_AVX512_PORTABLE": true,
+        "BLST_CUDA": false,
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
       }
     }
   ]

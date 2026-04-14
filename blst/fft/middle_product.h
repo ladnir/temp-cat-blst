@@ -1527,7 +1527,7 @@ namespace blst {
         std::span<const G2Point> b,
         std::span<GT> out,
         MiddleProductAlgorithm algorithm,
-        TimingStats* timings = nullptr)
+        TimingStats* timings)
     {
         switch (algorithm) {
         case MiddleProductAlgorithm::Fft:
