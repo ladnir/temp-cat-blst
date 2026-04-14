@@ -60,8 +60,9 @@ namespace bte::btx
     struct PreparedPublicParameters
     {
         PublicParameters public_parameters;
-        std::vector<blst::MiddleProductPrecomputedB> fft_precomputed_b_by_batch_size;
-        std::vector<blst::MiddleProductPrecomputedB> alpha_precomputed_b_by_batch_size;
+        // Filled on demand for the specific batch sizes actually decrypted.
+        mutable std::vector<blst::MiddleProductPrecomputedB> fft_precomputed_b_by_batch_size;
+        mutable std::vector<blst::MiddleProductPrecomputedB> alpha_precomputed_b_by_batch_size;
     };
 
     struct Ciphertext

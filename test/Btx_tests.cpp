@@ -91,6 +91,16 @@ TEST(Btx, SetupPublishesExpectedPowerLayout)
     EXPECT_EQ(
         fixture.prepared_public_parameters.alpha_precomputed_b_by_batch_size.size(),
         fixture.params.max_batch_size + 1);
+    for (std::size_t batch_size = 1;
+         batch_size <= fixture.params.max_batch_size;
+         ++batch_size) {
+        EXPECT_EQ(
+            fixture.prepared_public_parameters.fft_precomputed_b_by_batch_size[batch_size].n,
+            0U);
+        EXPECT_EQ(
+            fixture.prepared_public_parameters.alpha_precomputed_b_by_batch_size[batch_size].n,
+            0U);
+    }
 }
 
 TEST(Btx, EndToEndNaiveThresholdFlowRecoversDerivedKeys)
@@ -249,6 +259,51 @@ TEST(Btx, PreparedFinalizeUsesCachedAlphaPathAndMatchesDirectFinalize)
     for (std::size_t i = 0; i < direct.size(); ++i) {
         EXPECT_EQ(prepared[i], direct[i]) << "prepared alpha mismatch at slot " << i;
         EXPECT_EQ(prepared[i], encrypted[i].key) << "prepared alpha key mismatch at slot " << i;
+    }
+}
+
+TEST(Btx, PreparedCachesPopulateOnlyForRequestedBatchSize)
+{
+    BtxFixture fixture;
+    const std::vector<EncryptionResult> encrypted = fixture.encrypt_batch(3);
+    const std::vector<Ciphertext> ciphertexts = fixture.extract_ciphertexts(encrypted);
+
+    const BatchDecryptionPrecomputation precomputation = PrecomputeBatchDecryption(
+        fixture.prepared_public_parameters,
+        ciphertexts,
+        CrossTermAlgorithm::MiddleProductFft);
+    EXPECT_EQ(
+        fixture.prepared_public_parameters.fft_precomputed_b_by_batch_size[3].n,
+        3U);
+    EXPECT_EQ(
+        fixture.prepared_public_parameters.fft_precomputed_b_by_batch_size[4].n,
+        0U);
+
+    const ThresholdRequest request =
+        BuildThresholdRequest(fixture.setup.public_parameters, ciphertexts);
+    const std::array<PartialDecryptionShare, 2> shares = {
+        CreatePartialDecryptionShare(fixture.setup.secret_shares[0], request),
+        CreatePartialDecryptionShare(fixture.setup.secret_shares[1], request),
+    };
+    const blst::G1Point sbk = CombinePartialDecryptionShares(
+        std::span<const PartialDecryptionShare>(shares.data(), shares.size()),
+        fixture.setup.public_parameters);
+
+    const std::vector<Bytes> recovered = FinalizeBatchDecryption(
+        fixture.params,
+        fixture.prepared_public_parameters,
+        precomputation,
+        sbk);
+    EXPECT_EQ(
+        fixture.prepared_public_parameters.alpha_precomputed_b_by_batch_size[3].n,
+        3U);
+    EXPECT_EQ(
+        fixture.prepared_public_parameters.alpha_precomputed_b_by_batch_size[4].n,
+        0U);
+
+    ASSERT_EQ(recovered.size(), encrypted.size());
+    for (std::size_t i = 0; i < recovered.size(); ++i) {
+        EXPECT_EQ(recovered[i], encrypted[i].key) << "prepared lazy-cache mismatch at slot " << i;
     }
 }
 
