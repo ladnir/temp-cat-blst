@@ -4,6 +4,8 @@
 #include <cstring>
 
 #include "bindings/blst.h"
+#include "bindings/blst_btx.h"
+#include "bindings/blst_trx.h"
 
 TEST(BindingHeader, BlstUmbrellaExposesKeygenAndPkApis)
 {

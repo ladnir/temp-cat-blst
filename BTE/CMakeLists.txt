@@ -23,7 +23,10 @@ if(TARGET blst_sanitizers)
     target_link_libraries(bte_building_blocks PUBLIC blst_sanitizers)
 endif()
 
-add_library(bte_trx STATIC "trx/core.cpp")
+add_library(bte_trx STATIC
+    "trx/core.cpp"
+    "trx/c_api.cpp"
+)
 target_include_directories(bte_trx PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/..
 )
@@ -39,6 +42,7 @@ endif()
 
 add_library(bte_btx STATIC
     "btx/core.cpp"
+    "btx/c_api.cpp"
     "btx/serialization.cpp"
 )
 target_include_directories(bte_btx PUBLIC

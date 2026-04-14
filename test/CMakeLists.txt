@@ -19,10 +19,12 @@ FetchContent_MakeAvailable(googletest)
 set(PUBLIC_API_TEST_SOURCES
     "Backend_alias_tests.cpp"
     "BindingHeader_tests.cpp"
+    "Btx_c_api_tests.cpp"
     "Btx_tests.cpp"
     "C_api_tests.cpp"
     "MiddleProduct_algorithm_tests.cpp"
     "MiddleProduct_c_api_tests.cpp"
+    "Trx_c_api_tests.cpp"
     "Trx_tests.cpp"
 )
 
