@@ -3,8 +3,11 @@ name: build
 on:
   push:
     branches:
-      - codex/mac-ci-debug
+      - '**'
   workflow_dispatch:
+  pull_request:
+    branches:
+      - master
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -17,6 +20,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - os: ubuntu-latest
+            mode: scalar
+            build_dir: out/build/ci-scalar
+            compiler_flags: ""
+            cmake_flags: >-
+              -DBLST_AVX512=OFF
+              -DBLST_AVX512_PORTABLE=OFF
+              -DBLST_DEFAULT_AVX=OFF
           - os: macos-latest
             mode: scalar
             build_dir: out/build/ci-scalar
@@ -24,6 +35,24 @@ jobs:
             cmake_flags: >-
               -DBLST_AVX512=OFF
               -DBLST_AVX512_PORTABLE=OFF
+              -DBLST_DEFAULT_AVX=OFF
+          - os: windows-latest
+            mode: scalar
+            build_dir: out/build/ci-scalar
+            compiler_flags: >-
+              -DCMAKE_C_COMPILER=cl
+              -DCMAKE_CXX_COMPILER=cl
+            cmake_flags: >-
+              -DBLST_AVX512=OFF
+              -DBLST_AVX512_PORTABLE=OFF
+              -DBLST_DEFAULT_AVX=OFF
+          - os: ubuntu-latest
+            mode: avx-portable
+            build_dir: out/build/ci-avx-portable
+            compiler_flags: ""
+            cmake_flags: >-
+              -DBLST_AVX512=OFF
+              -DBLST_AVX512_PORTABLE=ON
               -DBLST_DEFAULT_AVX=OFF
 
     steps:
@@ -58,3 +87,44 @@ jobs:
       - name: Test
         shell: bash
         run: ctest --test-dir "${{ matrix.build_dir }}/test" --output-on-failure --parallel 4
+
+  rust:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Get date
+        id: get-date
+        shell: bash
+        run: echo "date=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            **/Cargo.lock
+            **/bindings/rust/target
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ steps.get-date.outputs.date }}
+
+      - name: Test Rust crate
+        shell: bash
+        run: |
+          if [ -d "$HOME/.cargo/bin" ] && ! which cargo > /dev/null 2>&1; then
+              export PATH="$HOME/.cargo/bin:$PATH"
+          fi
+          rustc --version --verbose
+          export CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
+          cd bindings/rust
+
+          cargo test --release --lib
+          cargo test --release --lib --features full-rust-bindings
+          cargo test --release --lib --features portable
+          cargo test --release --lib --features serde-secret
+          cargo run --release --example smoke
+          cargo run --release --example smoke --features full-rust-bindings
