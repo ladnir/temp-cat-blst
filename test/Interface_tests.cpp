@@ -714,6 +714,7 @@ TEST(InterfaceTests, RShiftMod384) {
 }
 
 // Test for redcx_mont_384
+#if defined(BLST_ADX) && (defined(__x86_64__) || defined(__x86_64) || defined(_M_X64))
 TEST(InterfaceTests, RedcxMont384) {
 	UFp a;
 	Fp p, ret_asm, ret_portable;
@@ -738,6 +739,7 @@ TEST(InterfaceTests, RedcxMont384) {
 		EXPECT_TRUE(Fp_equal(ret_asm, ret_portable)) << "Mismatch in redcx_mont_384";
 	}
 }
+#endif
 
 // Test for redc_mont_384
 TEST(InterfaceTests, RedcMont384) {
@@ -754,16 +756,17 @@ TEST(InterfaceTests, RedcMont384) {
 		for (int i = 0; i < NLIMBS(768); ++i) {
 			a[i] = rand();
 		}
-		memcpy(p, get_BLST_P(), sizeof(Fp));
+		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
 		// Compute using both implementations
-		redc_mont_384(ret_asm, a, p, n0); // ASM implementation
-		cc_redc_mont_384(ret_portable, a, p, n0); // Portable implementation
+		redc_mont_384(ret_asm.data, a.data, p.data, n0); // ASM implementation
+		cc_redc_mont_n<NLIMBS(384)>(ret_portable.data, a.data, p.data, n0);
 
 		EXPECT_TRUE(Fp_equal(ret_asm, ret_portable)) << "Mismatch in redc_mont_384";
 	}
 #endif
 }
+
 
 TEST(InterfaceTests, DivBy2Mod384) {
 	Fp a, p, ret_asm, ret_portable;
@@ -1300,8 +1303,7 @@ static inline std::pair<limb_t, limb_t> random_left_aligned_divisor(std::mt19937
 	limb_t d_lo = dist(rng);
 	return { d_hi, d_lo };
 }
-
-// Sample R in [0, D] to satisfy the stated precondition “dividend top limb_ts not larger than divisor”
+// Sample R in [0, D] to satisfy the stated precondition "dividend top limb_ts not larger than divisor"
 static inline std::pair<limb_t, limb_t> random_R_leq_D(std::mt19937_64& rng, limb_t d_hi, limb_t d_lo) {
 	std::uniform_int_distribution<limb_t> dist;
 	while (true) {
@@ -1310,8 +1312,7 @@ static inline std::pair<limb_t, limb_t> random_R_leq_D(std::mt19937_64& rng, lim
 		if (r_hi < d_hi || (r_hi == d_hi && r_lo <= d_lo)) return { r_hi, r_lo };
 	}
 }
-
-// Thin wrappers so we don’t duplicate the div_top packing or change call order by mistake.
+// Thin wrappers so we don't duplicate the div_top packing or change call order by mistake.
 static inline limb_t uut_call(limb_t r_hi, limb_t r_lo, limb_t d_lo, limb_t d_hi) {
 	limb_t div_top[2] = { r_lo, r_hi };
 	return cc_div_3_limbs(div_top, d_lo, d_hi);
