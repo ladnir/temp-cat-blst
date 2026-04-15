@@ -7,6 +7,9 @@
 #include "BTE/building_blocks/blst_cpp.h"
 #include "BTE/building_blocks/hkdf_sha256.h"
 #include "BTE/building_blocks/lagrange.h"
+#if BLST_DEFAULT_AVX
+#include "blst/avx/curve/map_to_G.h"
+#endif
 #include "blst/curve/multi_scalar.h"
 #include "blst/fft/middle_product.h"
 
@@ -146,15 +149,21 @@ namespace bte::btx
                 return out;
             }
 
-            std::vector<blst::G1AffinePoint> affine_points(points.size());
+            std::vector<blst::scalar::G1AffinePoint> affine_points(points.size());
             std::vector<std::uint8_t> scalar_blob(points.size() * 32, 0);
             for (std::size_t i = 0; i < points.size(); ++i) {
-                blst::G1Point::to_affine(affine_points[i], points[i]);
+#if BLST_DEFAULT_AVX
+                const blst::scalar::G1Point scalar_point =
+                    blst::avx::avx_map_to_G_detail::to_scalar(points[i]);
+                blst::scalar::G1Point::to_affine(affine_points[i], scalar_point);
+#else
+                blst::scalar::G1Point::to_affine(affine_points[i], points[i]);
+#endif
                 const std::array<std::uint8_t, 32> scalar_bytes = fr_to_scalar_bytes(scalars[i]);
                 std::memcpy(scalar_blob.data() + (i * 32), scalar_bytes.data(), scalar_bytes.size());
             }
 
-            blst::G1AffinePoint* point_params[2] = { affine_points.data(), nullptr };
+            blst::scalar::G1AffinePoint* point_params[2] = { affine_points.data(), nullptr };
             const blst::byte* scalar_params[2] = { scalar_blob.data(), nullptr };
 
             const std::size_t scratch_bytes =
@@ -162,19 +171,23 @@ namespace bte::btx
             std::vector<blst::Pointxyzz<blst::Fp>> scratch(
                 scratch_bytes / sizeof(blst::Pointxyzz<blst::Fp>));
 
-            blst::G1Point out{};
+            blst::scalar::G1Point scalar_out{};
             blst::msm_mult_pippenger<
-                blst::Point<blst::Fp>,
-                blst::AffinePoint<blst::Fp>,
-                blst::Pointxyzz<blst::Fp>>(
-                out,
+                blst::scalar::Point<blst::scalar::Fp>,
+                blst::scalar::AffinePoint<blst::scalar::Fp>,
+                blst::scalar::Pointxyzz<blst::scalar::Fp>>(
+                scalar_out,
                 point_params,
                 points.size(),
                 scalar_params,
                 256,
                 scratch.data(),
                 blst::pippenger_window_size(points.size()));
-            return out;
+#if BLST_DEFAULT_AVX
+            return blst::avx::avx_map_to_G_detail::from_scalar(scalar_out);
+#else
+            return scalar_out;
+#endif
         }
 
         blst::G2Point scale_g2(const blst::G2Point& point, const blst::Fr& scalar)
