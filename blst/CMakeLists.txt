@@ -29,8 +29,7 @@ endif()
 
 if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
     list(APPEND BLST_STATIC_SRC
-        "avx/fields/fp_pack.cpp"
-        "avx/fields/fp2_pack.cpp"
+        "backend/avx512/intrin_compat.cpp"
     )
 endif()
 
@@ -179,10 +178,6 @@ configure_file(
 target_include_directories(blst_static PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 
 add_subdirectory(avx)
-
-if(BLST_HAVE_AVX_BASEFIELD)
-    target_link_libraries(blst_static PRIVATE blst_avx_headers)
-endif()
 
 if(BLST_DEFAULT_AVX)
     target_link_libraries(blst_static PUBLIC blst_avx_headers)
