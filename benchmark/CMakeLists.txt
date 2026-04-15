@@ -110,7 +110,7 @@ add_executable(blst_benchmarks ${BENCHMARK_SOURCES})
 
 target_include_directories(blst_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_include_directories(blst_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
-target_link_libraries(blst_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers bte_trx bte_btx)
+target_link_libraries(blst_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers bte)
 
 add_executable(bte_trx_benchmarks
     "main.cpp"
@@ -118,7 +118,7 @@ add_executable(bte_trx_benchmarks
 )
 target_include_directories(bte_trx_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_include_directories(bte_trx_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
-target_link_libraries(bte_trx_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers bte_trx)
+target_link_libraries(bte_trx_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers bte)
 
 add_executable(bte_btx_benchmarks
     "main.cpp"
@@ -127,7 +127,7 @@ add_executable(bte_btx_benchmarks
 )
 target_include_directories(bte_btx_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_include_directories(bte_btx_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
-target_link_libraries(bte_btx_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers bte_btx)
+target_link_libraries(bte_btx_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers bte)
 
 if(BLST_HAVE_AVX_VALIDATION_GMP AND MSVC)
     add_custom_command(TARGET blst_benchmarks POST_BUILD

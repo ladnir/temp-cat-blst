@@ -23,6 +23,7 @@ jobs:
           - os: ubuntu-latest
             mode: scalar
             build_dir: out/build/ci-scalar
+            compiler_flags: ""
             cmake_flags: >-
               -DBLST_AVX512=OFF
               -DBLST_AVX512_PORTABLE=OFF
@@ -30,6 +31,9 @@ jobs:
           - os: windows-latest
             mode: scalar
             build_dir: out/build/ci-scalar
+            compiler_flags: >-
+              -DCMAKE_C_COMPILER=cl
+              -DCMAKE_CXX_COMPILER=cl
             cmake_flags: >-
               -DBLST_AVX512=OFF
               -DBLST_AVX512_PORTABLE=OFF
@@ -37,6 +41,7 @@ jobs:
           - os: ubuntu-latest
             mode: avx-portable
             build_dir: out/build/ci-avx-portable
+            compiler_flags: ""
             cmake_flags: >-
               -DBLST_AVX512=OFF
               -DBLST_AVX512_PORTABLE=ON
@@ -44,6 +49,9 @@ jobs:
           - os: windows-latest
             mode: avx-portable
             build_dir: out/build/ci-avx-portable
+            compiler_flags: >-
+              -DCMAKE_C_COMPILER=cl
+              -DCMAKE_CXX_COMPILER=cl
             cmake_flags: >-
               -DBLST_AVX512=OFF
               -DBLST_AVX512_PORTABLE=ON
@@ -51,6 +59,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+
+      - name: Set up MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
 
       - name: Configure
         shell: bash
@@ -64,13 +76,14 @@ jobs:
             -DBLST_CUDA_MSM=OFF \
             -DBLST_PARALLEL_MSM=OFF \
             -DBLST_CRNS_BATCH_VROOM_VENDOR=OFF \
+            ${{ matrix.compiler_flags }} \
             ${{ matrix.cmake_flags }}
 
       - name: Build
         shell: bash
         run: >
           cmake --build "${{ matrix.build_dir }}"
-          --target blst_tests bte_trx_tests bte_btx_tests
+          --target blst_tests
           --parallel 4
 
       - name: Test

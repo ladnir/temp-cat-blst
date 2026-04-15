@@ -94,15 +94,7 @@ endif()
 add_executable(blst_tests ${TEST_SOURCES})
 
 target_include_directories(blst_tests PRIVATE ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(blst_tests PRIVATE gtest_main blst_static blst_avx_headers bte_trx bte_btx)
-
-add_executable(bte_trx_tests Trx_tests.cpp)
-target_include_directories(bte_trx_tests PRIVATE ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(bte_trx_tests PRIVATE gtest_main blst_static blst_avx_headers bte_trx)
-
-add_executable(bte_btx_tests Btx_tests.cpp)
-target_include_directories(bte_btx_tests PRIVATE ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(bte_btx_tests PRIVATE gtest_main blst_static blst_avx_headers bte_btx)
+target_link_libraries(blst_tests PRIVATE gtest_main blst_static blst_avx_headers bte)
 
 if(BLST_HAVE_AVX_VALIDATION_GMP AND MSVC)
     add_custom_command(TARGET blst_tests POST_BUILD
@@ -129,12 +121,4 @@ gtest_discover_tests(blst_tests
   # WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
   # TEST_PREFIX "unit."
   # PROPERTIES LABELS "unit"
-)
-
-gtest_discover_tests(bte_trx_tests
-  DISCOVERY_TIMEOUT 60
-)
-
-gtest_discover_tests(bte_btx_tests
-  DISCOVERY_TIMEOUT 60
 )
