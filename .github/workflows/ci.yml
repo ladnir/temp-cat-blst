@@ -28,6 +28,14 @@ jobs:
               -DBLST_AVX512=OFF
               -DBLST_AVX512_PORTABLE=OFF
               -DBLST_DEFAULT_AVX=OFF
+          - os: macos-latest
+            mode: scalar
+            build_dir: out/build/ci-scalar
+            compiler_flags: ""
+            cmake_flags: >-
+              -DBLST_AVX512=OFF
+              -DBLST_AVX512_PORTABLE=OFF
+              -DBLST_DEFAULT_AVX=OFF
           - os: windows-latest
             mode: scalar
             build_dir: out/build/ci-scalar
@@ -42,16 +50,6 @@ jobs:
             mode: avx-portable
             build_dir: out/build/ci-avx-portable
             compiler_flags: ""
-            cmake_flags: >-
-              -DBLST_AVX512=OFF
-              -DBLST_AVX512_PORTABLE=ON
-              -DBLST_DEFAULT_AVX=OFF
-          - os: windows-latest
-            mode: avx-portable
-            build_dir: out/build/ci-avx-portable
-            compiler_flags: >-
-              -DCMAKE_C_COMPILER=cl
-              -DCMAKE_CXX_COMPILER=cl
             cmake_flags: >-
               -DBLST_AVX512=OFF
               -DBLST_AVX512_PORTABLE=ON
