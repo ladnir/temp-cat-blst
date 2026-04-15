@@ -174,6 +174,14 @@ namespace
                 setup.public_parameters,
                 ciphertexts,
                 CrossTermAlgorithm::MiddleProductAuto);
+
+            // Warm the lazily materialized alpha cache so prepared finalize
+            // benchmarks measure the steady-state online path.
+            benchmark::DoNotOptimize(FinalizeBatchDecryption(
+                params,
+                prepared_public_parameters,
+                precomputed_fft_prepared,
+                aggregate_predecryption_key));
         }
     };
 

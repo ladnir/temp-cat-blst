@@ -24,6 +24,7 @@ set(PUBLIC_API_TEST_SOURCES
     "C_api_tests.cpp"
     "MiddleProduct_algorithm_tests.cpp"
     "MiddleProduct_c_api_tests.cpp"
+    "Pfe_tests.cpp"
     "Trx_c_api_tests.cpp"
     "Trx_tests.cpp"
 )
@@ -117,6 +118,7 @@ include(GoogleTest)        # 4) glue between GTest and CTest
 # 5) Auto-discover TEST() cases inside blst_tests and register them with CTest
 gtest_discover_tests(blst_tests
   DISCOVERY_TIMEOUT 60
+  DISCOVERY_MODE PRE_TEST
   # Optional:
   # WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
   # TEST_PREFIX "unit."

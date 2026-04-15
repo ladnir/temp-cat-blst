@@ -11,6 +11,7 @@ set(BTE_SOURCES
     "btx/core.cpp"
     "btx/c_api.cpp"
     "btx/serialization.cpp"
+    "pfe/core.cpp"
 )
 
 add_library(bte STATIC ${BTE_SOURCES})
