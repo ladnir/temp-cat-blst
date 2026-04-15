@@ -202,6 +202,41 @@ void mul_by_3_mod_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp p);
 /* @brief asm: multiply complex by i */
 void mul_by_1_plus_i_mod_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp p);
 
+#if defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC)
+void mul_mont_sparse_256(asm_Fr ret, const asm_Fr a, const asm_Fr b,
+    const asm_Fr p, blst::limb_t n0);
+void sqr_mont_sparse_256(asm_Fr ret, const asm_Fr a, const asm_Fr p, blst::limb_t n0);
+void redc_mont_256(asm_Fr ret, const asm_UFr a, const asm_Fr p, blst::limb_t n0);
+void from_mont_256(asm_Fr ret, const asm_Fr a, const asm_Fr p, blst::limb_t n0);
+
+void mul_mont_384(asm_Fp ret, const asm_Fp a, const asm_Fp b, const asm_Fp p, blst::limb_t n0);
+void sqr_mont_384(asm_Fp ret, const asm_Fp a, const asm_Fp p, blst::limb_t n0);
+void from_mont_384(asm_Fp ret, const asm_Fp a, const asm_Fp p, blst::limb_t n0);
+void sqr_n_mul_mont_383(asm_Fp ret, const asm_Fp a, size_t count,
+    const asm_Fp p, blst::limb_t n0, const asm_Fp b);
+blst::limb_t sgn0_pty_mont_384(const asm_Fp a, const asm_Fp p, blst::limb_t n0);
+void ct_inverse_mod_384(asm_UFp ret, const asm_Fp inp, const asm_Fp mod, const asm_Fp modx);
+
+void mul_mont_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp2 b,
+    const asm_Fp p, blst::limb_t n0);
+void sqr_mont_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp p, blst::limb_t n0);
+
+#define mulx_mont_sparse_256 mul_mont_sparse_256
+#define sqrx_mont_sparse_256 sqr_mont_sparse_256
+#define redcx_mont_256 redc_mont_256
+#define fromx_mont_256 from_mont_256
+
+#define mulx_mont_384 mul_mont_384
+#define sqrx_mont_384 sqr_mont_384
+#define fromx_mont_384 from_mont_384
+#define sqrx_n_mul_mont_383 sqr_n_mul_mont_383
+#define sgn0x_pty_mont_384 sgn0_pty_mont_384
+#define ctx_inverse_mod_384 ct_inverse_mod_384
+
+#define mulx_mont_384x mul_mont_384x
+#define sqrx_mont_384x sqr_mont_384x
+#endif
+
 /* @brief asm: sha256 block processing */
 void blst_sha256_block_data_order(unsigned int* v, const void* inp, size_t blocks);
 
