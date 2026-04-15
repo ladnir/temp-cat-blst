@@ -215,11 +215,13 @@ void from_mont_384(asm_Fp ret, const asm_Fp a, const asm_Fp p, blst::limb_t n0);
 void sqr_n_mul_mont_383(asm_Fp ret, const asm_Fp a, size_t count,
     const asm_Fp p, blst::limb_t n0, const asm_Fp b);
 blst::limb_t sgn0_pty_mont_384(const asm_Fp a, const asm_Fp p, blst::limb_t n0);
+blst::limb_t sgn0_pty_mont_384x(const asm_Fp2 a, const asm_Fp p, blst::limb_t n0);
 void ct_inverse_mod_384(asm_UFp ret, const asm_Fp inp, const asm_Fp mod, const asm_Fp modx);
 
 void mul_mont_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp2 b,
     const asm_Fp p, blst::limb_t n0);
 void sqr_mont_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp p, blst::limb_t n0);
+void sqr_mont_382x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp p, blst::limb_t n0);
 
 #define mulx_mont_sparse_256 mul_mont_sparse_256
 #define sqrx_mont_sparse_256 sqr_mont_sparse_256
@@ -231,10 +233,12 @@ void sqr_mont_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp p, blst::limb_t n0
 #define fromx_mont_384 from_mont_384
 #define sqrx_n_mul_mont_383 sqr_n_mul_mont_383
 #define sgn0x_pty_mont_384 sgn0_pty_mont_384
+#define sgn0x_pty_mont_384x sgn0_pty_mont_384x
 #define ctx_inverse_mod_384 ct_inverse_mod_384
 
 #define mulx_mont_384x mul_mont_384x
 #define sqrx_mont_384x sqr_mont_384x
+#define sqrx_mont_382x sqr_mont_382x
 #endif
 
 /* @brief asm: sha256 block processing */
