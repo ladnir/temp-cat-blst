@@ -24,6 +24,23 @@ option(BLST_CUDA_MSM "Enable CUDA support" ${BLST_CUDA})
 option(BLST_PARALLEL_MSM "Enable parallel MSM pipeline sources/tests/benchmarks" OFF)
 option(BLST_CRNS_BATCH_VROOM_VENDOR "Build the vendored VROOM comparison backend" OFF)
 
+set(BLST_TARGET_IS_X86_64 OFF)
+if(APPLE AND DEFINED CMAKE_OSX_ARCHITECTURES AND NOT CMAKE_OSX_ARCHITECTURES STREQUAL "")
+    if(CMAKE_OSX_ARCHITECTURES STREQUAL "x86_64")
+        set(BLST_TARGET_IS_X86_64 ON)
+    endif()
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|X86_64|amd64|AMD64|x64|X64)$")
+    set(BLST_TARGET_IS_X86_64 ON)
+endif()
+
+if(BLST_ADX AND NOT BLST_TARGET_IS_X86_64)
+    message(STATUS
+        "Disabling BLST_ADX for non-x86_64 target "
+        "(CMAKE_SYSTEM_PROCESSOR='${CMAKE_SYSTEM_PROCESSOR}', "
+        "CMAKE_OSX_ARCHITECTURES='${CMAKE_OSX_ARCHITECTURES}').")
+    set(BLST_ADX OFF)
+endif()
+
 if( NOT DEFINED BLST_LIMB_SIZE)
 	set(BLST_LIMB_SIZE 64)
 endif()
