@@ -1,0 +1,666 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{booktabs}
+
+\newcommand{\Gt}{\mathbb{G}_T}
+\newcommand{\Gone}{\mathbb{G}_1}
+\newcommand{\Gtwo}{\mathbb{G}_2}
+\newcommand{\Fr}{\mathbb{F}_r}
+\newcommand{\Fp}{\mathbb{F}_p}
+\newcommand{\Fpk}{\mathbb{F}_{p^{12}}}
+\newcommand{\MLpre}{\mathrm{ML_{pre}}}
+\newcommand{\FE}{\mathrm{FE}}
+\newcommand{\midd}{\mathrm{mid}}
+
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+
+\theoremstyle{remark}
+\newtheorem*{remark}{Remark}
+
+\title{Middle Product via Pairings on BLS12-381}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+%======================================================================
+\part*{I.\quad Polynomial algorithms}
+%======================================================================
+
+\medskip\noindent\textit{The algorithms in this part are due to
+Hanrot, Quercia, and Zimmermann~\cite{HQZ04}.
+We give self-contained proofs for the reader's convenience.}
+
+\section{Problem}
+
+Let $R$ be a commutative ring.
+Given polynomials
+$A(x) = \sum_{i=0}^{N-1} a_i x^i$
+and $B(x) = \sum_{j=0}^{2N-2} b_j x^j$
+over~$R$,
+their product $C = A \cdot B$ has degree $\le 3N{-}3$,
+with coefficients
+$c_k = \sum_{i+j=k} a_i b_j$.
+
+\medskip\noindent\textbf{Goal.}
+Compute the $N$ \emph{middle coefficients}
+$c_{N-1}, c_N, \ldots, c_{2N-2}$.
+
+\medskip
+We write $\midd(A, B)$ for the vector of middle coefficients:
+\begin{equation}\label{eq:mid}
+\midd(A,B)_m = c_{N-1+m} = \sum_{i=0}^{N-1} a_i\, b_{N-1+m-i},
+\qquad m = 0, \ldots, N{-}1.
+\end{equation}
+
+\noindent
+In many applications $B$ is fixed and only~$A$ varies.
+This allows precomputing $B$-dependent data
+to reduce the per-query cost;
+we discuss this optimization separately
+in each algorithm below.
+
+\section{Karatsuba middle product}
+
+\subsection{Base case ($N = 2$)}
+
+Let $A = (a_0, a_1)$ and $B = (b_0, b_1, b_2)$.
+The middle coefficients are
+$c_1 = a_0 b_1 + a_1 b_0$
+and $c_2 = a_0 b_2 + a_1 b_1$.
+
+\medskip\noindent
+The naive computation uses four multiplications.
+Using only three:
+\begin{align*}
+\alpha &= a_1 \cdot (b_0 + b_1), \\
+\beta &= (a_1 - a_0) \cdot b_1, \\
+\gamma &= a_0 \cdot (b_1 + b_2).
+\end{align*}
+Then:
+\begin{align*}
+\alpha - \beta &= a_1 b_0 + a_1 b_1 - a_1 b_1 + a_0 b_1
+= a_0 b_1 + a_1 b_0 = c_1, \\
+\gamma + \beta &= a_0 b_1 + a_0 b_2 + a_1 b_1 - a_0 b_1
+= a_1 b_1 + a_0 b_2 = c_2.
+\end{align*}
+Each of the three multiplications pairs
+a linear form in~$A$ with a linear form in~$B$.
+If $B$ is fixed, the $B$-dependent quantities
+$(b_0 + b_1)$, $b_1$, $(b_1 + b_2)$
+can be precomputed.
+
+\subsection{Splitting identity and algorithm ($N = 2^k$)}
+
+Assume $N = 2^k \ge 2$ and split into equal halves:
+\[
+A_{\mathrm{lo}} = (a_0, \ldots, a_{N/2-1}), \qquad
+A_{\mathrm{hi}} = (a_{N/2}, \ldots, a_{N-1}).
+\]
+Define three overlapping windows of~$B$,
+each of length $N{-}1$:
+\begin{align*}
+B^{(0)} &= (b_0, \ldots, b_{N-2}), \\
+B^{(1)} &= (b_{N/2}, \ldots, b_{N/2+N-2}), \\
+B^{(2)} &= (b_N, \ldots, b_{2N-2}).
+\end{align*}
+
+\begin{proposition}\label{prop:split}
+The middle coefficients decompose as:
+\begin{align*}
+\midd(A, B)_m &=
+\midd(A_{\mathrm{lo}}, B^{(1)})_m
++ \midd(A_{\mathrm{hi}}, B^{(0)})_m,
+\quad m = 0, \ldots, \tfrac{N}{2}{-}1, \\[3pt]
+\midd(A, B)_{N/2+m} &=
+\midd(A_{\mathrm{lo}}, B^{(2)})_m
++ \midd(A_{\mathrm{hi}}, B^{(1)})_m,
+\quad m = 0, \ldots, \tfrac{N}{2}{-}1.
+\end{align*}
+\end{proposition}
+
+\begin{proof}
+From~\eqref{eq:mid},
+$c_{N-1+m} = \sum_{i=0}^{N-1} a_i\, b_{N-1+m-i}$.
+Splitting at $i = N/2$:
+\[
+c_{N-1+m}
+= \underbrace{\sum_{i=0}^{N/2-1} a_i\, b_{N-1+m-i}}_{
+  \text{$b$-indices in } [N/2{+}m,\; N{-}1{+}m]}
+\;+\;
+\underbrace{\sum_{j=0}^{N/2-1} a_{N/2+j}\, b_{N/2-1+m-j}}_{
+  \text{$b$-indices in } [m,\; N/2{-}1{+}m]}.
+\]
+For $0 \le m < N/2$:
+the first sum is $\midd(A_{\mathrm{lo}}, B^{(1)})_m$;
+the second is $\midd(A_{\mathrm{hi}}, B^{(0)})_m$.
+For $m = N/2 + m'$ with $0 \le m' < N/2$:
+the first sum uses $B^{(2)}$;
+the second uses $B^{(1)}$.
+\end{proof}
+
+\paragraph{Karatsuba's trick.}
+The window $B^{(1)}$ appears in both output halves,
+yielding four sub-middle-products.
+We reduce to three.
+Define
+$S = B^{(0)} + B^{(1)}$,\;
+$T = B^{(1)}$,\;
+$U = B^{(1)} + B^{(2)}$,
+and compute
+\begin{alignat*}{2}
+\alpha &= \midd(A_{\mathrm{hi}},\; S),\qquad
+  &&\text{(size $N/2$)}\\
+\beta  &= \midd(A_{\mathrm{hi}} - A_{\mathrm{lo}},\; T),\qquad
+  &&\text{(size $N/2$)}\\
+\gamma &= \midd(A_{\mathrm{lo}},\; U).\qquad
+  &&\text{(size $N/2$)}
+\end{alignat*}
+By linearity of $\midd$ in both arguments:
+\begin{align*}
+\alpha - \beta
+&= \midd(A_{\mathrm{hi}}, B^{(0)}{+}B^{(1)})
+ - \midd(A_{\mathrm{hi}}{-}A_{\mathrm{lo}}, B^{(1)}) \\
+&= \midd(A_{\mathrm{hi}}, B^{(0)})
+ + \midd(A_{\mathrm{lo}}, B^{(1)})
+= \text{lower half,} \\[3pt]
+\gamma + \beta
+&= \midd(A_{\mathrm{lo}}, B^{(1)}{+}B^{(2)})
+ + \midd(A_{\mathrm{hi}}{-}A_{\mathrm{lo}}, B^{(1)}) \\
+&= \midd(A_{\mathrm{hi}}, B^{(1)})
+ + \midd(A_{\mathrm{lo}}, B^{(2)})
+= \text{upper half.}
+\end{align*}
+Each recursive multiplication pairs
+a linear form in~$A$ with a linear form in~$B$
+($S$, $T$, $U$ depend only on~$B$).
+
+\paragraph{Complexity.}
+The recurrence $K(N) = 3\,K(N/2)$ with $K(1) = 1$
+gives $K(N) = N^{\log_2 3} \approx N^{1.585}$ ring multiplications.
+All other operations are additions.
+
+\subsection{General algorithm (arbitrary $N$)}\label{sec:gen-alg}
+
+The same splitting identity and Karatsuba trick
+apply for arbitrary $N \ge 2$
+with $N_0 = \lfloor N/2 \rfloor$,
+$N_1 = \lceil N/2 \rceil = N - N_0$.
+When $N$ is even, $N_0 = N_1$ and the algorithm
+is identical to the power-of-two case.
+The only change when $N$ is odd is the $\beta$~call:
+$A_{\mathrm{hi}}$ has $N_1 = N_0 + 1$ entries while
+$A_{\mathrm{lo}}$ has $N_0$, so we left-pad $A_{\mathrm{lo}}$
+with a zero to form the difference
+$Q = A_{\mathrm{hi}} - (0, A_{\mathrm{lo}})$.
+
+\medskip\noindent
+\textbf{Algorithm} $\mathrm{MP}(a[0\mathinner{.\,.} N{-}1],\;
+  b[0\mathinner{.\,.} 2N{-}2])
+  \;\to\; c[0\mathinner{.\,.} N{-}1]$.
+
+\begin{enumerate}
+\setcounter{enumi}{-1}
+\item If $N = 1$: return $[a_0 \cdot b_0]$.
+\item Set $N_0 \gets \lfloor N/2 \rfloor$,\;
+      $N_1 \gets N - N_0$.
+
+\item \emph{A-vectors.}
+\begin{align*}
+P[i] &\gets a_{N_0+i}, && i = 0,\ldots,N_1{-}1
+  \quad\text{($= A_{\mathrm{hi}}$),} \\
+R[i] &\gets a_i, && i = 0,\ldots,N_0{-}1
+  \quad\text{($= A_{\mathrm{lo}}$).}
+\end{align*}
+If $N$ is even ($N_0 = N_1$):
+\[
+Q[i] \gets a_{N_0+i} - a_i, \qquad i = 0,\ldots, N_1{-}1.
+\]
+If $N$ is odd ($N_1 = N_0 + 1$):
+\[
+Q[0] \gets a_{N_0},\qquad
+Q[i] \gets a_{N_0+i} - a_{i-1},\quad i = 1,\ldots, N_1{-}1.
+\]
+
+\item \emph{B-vectors.}
+\begin{align*}
+S[i] &\gets b_i + b_{N_1+i},
+  && i = 0,\ldots, 2N_1{-}2
+  \quad\text{(length $2N_1{-}1$),}\\
+T[i] &\gets b_{N_1+i},
+  && i = 0,\ldots, 2N_1{-}2
+  \quad\text{(length $2N_1{-}1$),}\\
+U[i] &\gets b_{N_1+i} + b_{2N_1+i},
+  && i = 0,\ldots, 2N_0{-}2
+  \quad\text{(length $2N_0{-}1$).}
+\end{align*}
+
+\item \emph{Three recursive calls.}
+\begin{align*}
+\alpha &\gets \mathrm{MP}(P,\; S),
+  &&\text{size } N_1, \\
+\beta  &\gets \mathrm{MP}(Q,\; T),
+  &&\text{size } N_1, \\
+\gamma &\gets \mathrm{MP}(R,\; U),
+  &&\text{size } N_0.
+\end{align*}
+
+\item \emph{Recombine.}
+\[
+c_i \gets \alpha_i - \beta_i,\; i = 0,\ldots,N_1{-}1;
+\qquad
+c_{N_1+j} \gets \gamma_j + \beta_j,\; j = 0,\ldots,N_0{-}1.
+\]
+\end{enumerate}
+
+\paragraph{Complexity.}
+The multiplication count $K(N)$ satisfies
+$K(1) = 1$ and
+\[
+K(N) = 2\,K(\lceil N/2 \rceil) + K(\lfloor N/2 \rfloor).
+\]
+This gives $K(N) = \Theta(N^{\log_2 3})$,
+with $K(N) = N^{\log_2 3}$ exactly when $N$ is a power of two.
+In the cost estimates of Part~II we write $K(N)$
+for the exact count
+and use $N^{1.585}$ as shorthand when $N = 2^k$.
+
+\subsection{Precomputation for fixed $B$}
+
+When $B$ is fixed across multiple queries,
+the $B$-vectors $S$, $T$, $U$ at every recursion level
+depend only on~$B$ and can be precomputed once.
+The recursion tree has $K(N)$ leaves
+(one ring element each).
+If the data is laid out in depth-first traversal order,
+the online phase streams through it sequentially.
+
+When $B$ is not fixed, the $B$-vectors are computed
+on-the-fly during each middle product evaluation.
+The number of ring multiplications is unchanged;
+only the additive overhead (forming $S$ and $U$)
+is no longer amortized.
+
+\section{FFT middle product}
+
+\begin{lemma}\label{lem:cyclic}
+Let $R_m$ denote the $m$-th coefficient of
+the cyclic convolution
+$A(x) \cdot B(x) \bmod (x^{2N} - 1)$.
+Then the middle coefficients of $A \cdot B$
+appear unmodified at positions $N{-}1$ through $2N{-}2$:
+\[
+R_m = c_m \quad \text{for all } m = N{-}1, \ldots, 2N{-}2.
+\]
+\end{lemma}
+
+\begin{proof}
+The product $A \cdot B$ has degree $\le 3N{-}3$,
+so its coefficients $c_k$ are zero for $k \ge 3N{-}2$.
+Reducing modulo $x^{2N} - 1$ wraps the coefficient at position $m + 2N$
+onto position~$m$, giving
+$R_m = c_m + c_{m+2N}$.
+For the wraparound term $c_{m+2N}$ to vanish,
+it suffices that $m + 2N > 3N{-}3$, i.e., $m > N{-}3$.
+Since every middle position satisfies $m \ge N{-}1 > N{-}3$,
+the wraparound vanishes and $R_m = c_m$.
+\end{proof}
+
+\paragraph{Algorithm.}
+Let $N = 2^k$ and let $\omega \in R$
+be a primitive $2N$-th root of unity.
+\begin{enumerate}
+\item DFT of $B$ (zero-padded to length~$2N$):
+$\hat{B}_j = B(\omega^j)$ for $j = 0, \ldots, 2N{-}1$.
+\item DFT of $A$ (zero-padded to length~$2N$):
+$\hat{A}_j = A(\omega^j)$.
+\item $2N$ pointwise multiplications:
+$\hat{C}_j = \hat{A}_j \cdot \hat{B}_j$.
+\item Inverse DFT: recover $R_0, \ldots, R_{2N-1}$.
+\item Extract $R_{N-1}, \ldots, R_{2N-2}$.
+\end{enumerate}
+
+\noindent
+When $B$ is fixed, step~1 is performed once
+and reused for every new~$A$.
+
+\paragraph{Cost.}
+$2N$ multiplications in~$R$,
+plus $O(N \log N)$ additions
+and multiplications by roots of unity.
+When $B$ is fixed, the online cost per query
+is one forward DFT, $2N$ pointwise multiplications,
+and one inverse DFT.
+
+\section{Connection to bilinear complexity}
+
+The Karatsuba and FFT middle product algorithms
+can be understood through a more general principle.
+
+\medskip
+A \emph{bilinear algorithm} for a bilinear map
+$\Psi(A, B) \colon R^p \times R^q \to R^r$
+expresses it as
+$\Psi(A,B) = \sum_{k=1}^{M} \alpha_k(A) \cdot \beta_k(B) \cdot w_k$,
+where $\alpha_k$, $\beta_k$ are linear forms
+and $w_k \in R^r$ are fixed.
+The minimum such $M$ is the \emph{bilinear complexity}
+of~$\Psi$.
+
+Both the middle product and standard polynomial multiplication
+are bilinear maps.
+Fixing one argument (say~$A$) makes them linear,
+and Tellegen's transposition principle~\cite{HQZ04}
+shows that transposing a linear algorithm
+for multiplication by~$A$
+yields a linear algorithm for the middle product with~$A$ fixed,
+preserving the number of multiplications.
+By unfolding the dependence on~$A$,
+this implies:
+
+\begin{theorem}
+The middle product
+$\midd \colon R^N \times R^{2N-1} \to R^N$
+and balanced polynomial multiplication
+$\mathrm{Mult} \colon R^N \times R^N \to R^{2N-1}$
+have the same bilinear complexity.
+\end{theorem}
+
+This gives an alternative proof that
+$N^{\log_2 3}$ multiplications suffice
+(via Karatsuba for balanced multiplication)
+and that $2N$ multiplications suffice
+(via FFT for balanced multiplication).
+The explicit algorithms in Sections~2 and~3
+can be seen as direct constructions achieving these bounds.
+
+The proof and a detailed formal development
+appear in the appendix of~\cite{HQZ04}.
+
+\begin{thebibliography}{9}
+\bibitem{HQZ04}
+G.~Hanrot, M.~Quercia, and P.~Zimmermann,
+\emph{The middle product algorithm~I: Speeding up the division
+and square root of power series},
+Appl.\ Algebra Eng.\ Commun.\ Comput.\ \textbf{14} (2004), 415--438.
+\end{thebibliography}
+
+%======================================================================
+\part*{II.\quad Specialization to pairings on BLS12-381}
+%======================================================================
+
+\section{Setting}
+
+We take $a_i \in \Gone$, $b_j \in \Gtwo$,
+and ``multiplication'' $a_i \cdot b_j = e(a_i, b_j) \in \Gt$
+via the BLS12-381 optimal ate pairing.
+The output ring is $\Gt$ (written multiplicatively):
+polynomial ``addition'' becomes $\Gt$~multiplication,
+``subtraction'' becomes multiplication by an inverse.
+
+\medskip\noindent
+Throughout Part~II, $B$ is \textbf{fixed}
+(i.e.\ the $\Gtwo$~points $b_0, \ldots, b_{2N-2}$ are known in advance).
+For the naive and FFT methods,
+we precompute $\Gtwo$~line data for the $O(N)$ fixed points;
+the storage is modest.
+For Karatsuba, we consider both
+precomputed ($O(N^{1.585})$ storage) and
+non-precomputed ($O(N)$ storage) variants.
+
+\medskip\noindent
+Two structural properties of~$\Gt$:
+\begin{itemize}
+\item \textbf{Cheap inversion.}
+$\Gt$ lies in the cyclotomic subgroup of~$\Fpk^*$,
+where $g^{-1} = g^{p^6}$:
+a negation of one component, essentially free.
+
+\item \textbf{The final exponentiation is a homomorphism.}
+$f \mapsto f^{(p^{12}-1)/r}$ from~$\Fpk^*$ to~$\Gt$
+commutes with multiplication and inversion.
+\end{itemize}
+
+\section{Cost model}
+
+All costs are in \emph{pairing-equivalents}
+($1 =$ one full pairing $\approx 0.75$\,ms with \texttt{blst}).
+
+\begin{center}
+\begin{tabular}{llr}
+\toprule
+\textbf{Operation} & \textbf{Symbol} & \textbf{Cost} \\
+\midrule
+Miller loop (precomputed $\Gtwo$ lines) & $\MLpre$ & 0.27 \\
+Miller loop (no precomputation) & $\mathrm{ML}$ & 0.43 \\
+Final exponentiation & $\FE$ & 0.57 \\
+Full pairing with precomp ($\MLpre + \FE$) & & 0.84 \\
+$\Gt$ exponentiation (255-bit, GLS-4) & & 0.50 \\
+$\Gone$ scalar multiplication (255-bit, GLV) & & 0.10 \\
+$\Fpk$ or $\Gt$ multiplication & & 0.04 \\
+$\Gt$ inversion (cyclotomic conjugation) & & $\approx 0$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent
+The Miller loop / final exponentiation split
+is from \texttt{blst} benchmarks.\footnote{%
+\texttt{hackmd.io/@gnark/eccbench}}
+The $\Gt$~exponentiation and $\Gone$~scalar multiplication costs
+are estimates based on
+GLS-4 and GLV algorithmic structure.
+
+\section{Karatsuba with precomputation and deferred final exponentiation}
+
+Here $B$ is fixed and we precompute
+the entire tree of $B$-vectors from Section~2.3,
+storing $\Gtwo$~line data at each of the $N^{1.585}$ leaves.
+
+In the Karatsuba recursion, the recombination at each level
+uses only $\Gt$~multiplication and inversion---no exponentiation.
+Since the final exponentiation is a homomorphism,
+it commutes past these operations.
+We work with Miller loop outputs
+(in~$\Fpk^*$) throughout the recursion,
+applying the final exponentiation
+only to the $N$ output values.
+
+Cost per recursive pairing:
+$\MLpre + 0.04 = 0.31$
+(Miller loop plus $\Fpk$ recombination).
+Plus $N$ final exponentiations at the end.
+
+\[
+\boxed{T_{\mathrm{kara}} = 0.31\,K(N) + 0.57\,N}
+\]
+
+\noindent
+(For $N = 2^k$ this is $0.31\,N^{1.585} + 0.57\,N$.)
+
+\paragraph{Storage.}
+$K(N)$ leaves $\times$ ${\sim}\,20$\,KB line data each.
+For $N = 2^k$ this is $N^{1.585} \times 20$\,KB.
+Sequential access via depth-first layout.
+
+\section{Karatsuba without precomputation (deferred final exponentiation)}
+
+The $O(K(N))$ storage for the precomputed $B$-tree
+can become prohibitive
+(e.g.\ ${\sim}\,47$\,MB at $N = 128$,
+${\sim}\,140$\,MB at $N = 256$).
+If we forgo precomputation entirely,
+each recursive pairing uses a full (unprecomputed) Miller loop
+at cost $\mathrm{ML} = 0.43$ instead of $\MLpre = 0.27$.
+The deferred final exponentiation still applies,
+so the cost per recursive pairing becomes
+$\mathrm{ML} + 0.04 = 0.47$.
+
+\[
+\boxed{T_{\mathrm{kara,nopre}} = 0.47\,K(N) + 0.57\,N}
+\]
+
+\noindent
+(For $N = 2^k$ this is $0.47\,N^{1.585} + 0.57\,N$.)
+
+\paragraph{Storage.}
+$O(N)$ only (the input data).
+No precomputation phase.
+
+\paragraph{Trade-off.}
+The ratio of leading coefficients is $0.47/0.31 \approx 1.52$,
+so the no-precomp variant is about $52\%$ more expensive
+per recursive pairing.
+The advantage is zero setup cost
+and dramatically less memory,
+which may be decisive for large~$N$
+or when $N$ is not known in advance.
+
+\section{FFT with individual final exponentiations}
+
+Since $B$ is fixed,
+the $\Gtwo$-valued DFT outputs
+$\hat{B}_j = B(\omega^j)$ are precomputed once.
+For each~$\hat{B}_j$,
+we also precompute the Miller loop line functions
+(${\sim}\,20$\,KB per point using \texttt{blst\_precompute\_lines}),
+reducing the online Miller loop cost
+from $\mathrm{ML} = 0.43$ to $\MLpre = 0.27$ per pairing.
+
+The inverse DFT butterflies
+exponentiate $\Gt$~elements by twiddle factors
+(${\sim}\,255$-bit elements of~$\Fr$),
+using GLS-4 decomposition and cyclotomic squaring.
+These require elements in the cyclotomic subgroup~$\Gt$,
+i.e., fully exponentiated.
+Therefore each of the $2N$ pairings
+must include its own final exponentiation,
+at a cost of $\MLpre + \FE = 0.84$ each.
+
+Multi-pairing batching does not apply:
+we need $2N$ individual $\Gt$ values, not their product.
+
+With $L = \log_2(2N)$:
+\[
+\boxed{T_{\mathrm{fft}}
+= \underbrace{1.68\,N}_{2N \text{ pairings at } 0.84}
+\;+\; \underbrace{0.10\,NL}_{\Gone\text{ DFT}}
+\;+\; \underbrace{0.54\,NL}_{\Gt\text{ IDFT}}
+= 1.68\,N + 0.64\,NL}
+\]
+
+\paragraph{Storage.}
+$2N$ precomputed $\Gtwo$ points with line data:
+$O(N)$, about $40N$\,KB.
+
+\section{Comparison}
+
+\subsection{Cost formulas}
+
+The naive method computes each output
+as a product of $N$ pairings sharing one final exponentiation:
+$T_{\mathrm{naive}} = 0.31\,N^2 + 0.57\,N$.
+(The naive and FFT methods use $\Gtwo$~line precomputation
+for the $O(N)$ fixed $B$-points,
+which is modest in storage.)
+
+\begin{center}
+\begin{tabular}{rrrrrrr}
+\toprule
+$N$ & $L$ & Naive & Kara & Kara (no pre) & FFT & Best \\
+\midrule
+4 & 3 & 7 & 5 & 7 & 14 & Kara \\
+8 & 4 & 24 & 13 & 17 & 34 & Kara \\
+16 & 5 & 88 & 34 & 47 & 78 & Kara \\
+32 & 6 & 336 & 94 & 132 & 177 & Kara \\
+64 & 7 & 1{,}306 & 263 & 379 & 394 & Kara \\
+128 & 8 & 5{,}152 & 751 & 1{,}101 & 870 & Kara \\
+256 & 9 & 20{,}462 & 2{,}180 & 3{,}230 & 1{,}905 & FFT \\
+512 & 10 & 81{,}557 & 6{,}395 & 9{,}543 & 4{,}137 & FFT \\
+1{,}024 & 11 & 325{,}642 & 18{,}894 & 28{,}337 & 8{,}929 & FFT \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Crossovers}
+
+\paragraph{Naive vs.\ Karatsuba.}
+Karatsuba (with or without precomputation) wins for all $N \ge 2$
+(same leading coefficient, smaller exponent).
+
+\paragraph{Karatsuba (precomp) vs.\ FFT.}
+Around $N \approx 180$.
+Two effects compound:
+
+\emph{(1) Deferred FE helps Karatsuba.}
+Karatsuba pays $\MLpre = 0.27$ per pairing,
+amortizing $\FE = 0.57$ over $N$ outputs.
+
+\emph{(2) Individual FE hurts FFT.}
+The FFT pays $\MLpre + \FE = 0.84$ per pairing
+because the $\Gt$~IDFT butterflies
+require fully exponentiated inputs.
+
+\emph{(3) Sensitivity to constants.}
+Since $N^{0.585}$ grows slowly,
+a factor-$\alpha$ change in the leading coefficient
+shifts the crossover by~$\alpha^{1/0.585} \approx \alpha^{1.71}$.
+
+\paragraph{Karatsuba (no precomp) vs.\ FFT.}
+Around $N \approx 70$.
+Without precomputation the Karatsuba leading coefficient
+rises from $0.31$ to $0.47$,
+so the FFT regime begins much sooner.
+For applications where storage is constrained
+or $N$ varies unpredictably,
+this is the relevant crossover.
+
+\subsection{Storage}
+
+\begin{center}
+\begin{tabular}{rrrrr}
+\toprule
+$N$ & Naive / FFT & Kara (no pre) & Kara ($\Gtwo$ only) & Kara (with lines) \\
+\midrule
+128 & ${\sim}\,5$\,MB & ${\sim}\,0$\,MB & ${\sim}\,0.5$\,MB & ${\sim}\,47$\,MB \\
+256 & ${\sim}\,10$\,MB & ${\sim}\,0$\,MB & ${\sim}\,1.4$\,MB & ${\sim}\,140$\,MB \\
+512 & ${\sim}\,20$\,MB & ${\sim}\,0$\,MB & ${\sim}\,4$\,MB & ${\sim}\,420$\,MB \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent
+``Kara (no pre)'' stores only the input data ($O(N)$).
+Naive and FFT store precomputed $\Gtwo$~line data
+for $O(N)$ points.
+
+\section{Summary}
+
+For $N$ in the range 100--1000:
+\begin{itemize}
+\item $N \lesssim 180$:
+\textbf{Karatsuba with precomputation} is optimal,
+if the $O(N^{1.585})$ storage is acceptable.
+Deferred final exponentiation,
+sequential memory access.
+
+\item $N \lesssim 70$:
+\textbf{Karatsuba without precomputation} is optimal
+among methods with $O(N)$ storage.
+Same algorithmic structure,
+but each pairing uses a full Miller loop ($\mathrm{ML} = 0.43$).
+
+\item $N \gtrsim 180$ (or $N \gtrsim 70$ without precomp):
+\textbf{FFT} is optimal.
+$O(N)$ storage, $O(N \log N)$ online cost.
+Bottleneck is the $\Gt$~inverse DFT.
+
+\item \textbf{Naive} is never optimal for $N \ge 2$.
+\end{itemize}
+
+\end{document}
