@@ -52,7 +52,8 @@ list(APPEND BENCHMARK_SOURCES
     "Btx_bench.cpp"
     "BtxBeat_head_to_head_bench.cpp"
     "Pfe_bench.cpp"
-    "PfeBtx_head_to_head_bench.cpp")
+    "PfeBtx_head_to_head_bench.cpp"
+    "PfeBeat_head_to_head_bench.cpp")
 
 if(BLST_HAVE_AVX_VALIDATION_GMP)
     list(APPEND BENCHMARK_SOURCES "avx/Avx_gt_glv4_scalar_bench.cpp")
@@ -129,6 +130,7 @@ add_executable(bte_btx_benchmarks
     "main.cpp"
     "Btx_bench.cpp"
     "BtxBeat_head_to_head_bench.cpp"
+    "PfeBeat_head_to_head_bench.cpp"
 )
 target_include_directories(bte_btx_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_include_directories(bte_btx_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
@@ -138,6 +140,7 @@ add_executable(bte_pfe_benchmarks
     "main.cpp"
     "Pfe_bench.cpp"
     "PfeBtx_head_to_head_bench.cpp"
+    "PfeBeat_head_to_head_bench.cpp"
 )
 target_include_directories(bte_pfe_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_include_directories(bte_pfe_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
