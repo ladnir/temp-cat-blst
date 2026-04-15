@@ -283,6 +283,51 @@ namespace bte::btx
             return public_parameters.g2_powers[exponent];
         }
 
+        blst::G2Point public_g2_centered_offset(
+            const PublicParameters& public_parameters,
+            const std::ptrdiff_t offset)
+        {
+            // The published ladder stores [tau^1]..[tau^(2*Bmax)] with the center omitted,
+            // so the centered offsets run from -Bmax through +(Bmax - 1).
+            const std::ptrdiff_t min_offset =
+                -static_cast<std::ptrdiff_t>(public_parameters.max_batch_size);
+            const std::ptrdiff_t max_offset =
+                static_cast<std::ptrdiff_t>(public_parameters.max_batch_size) - 1;
+            if (offset < min_offset || offset > max_offset) {
+                throw std::invalid_argument("Requested BTX centered CRS offset is out of range");
+            }
+
+            const std::size_t exponent = static_cast<std::size_t>(
+                static_cast<std::ptrdiff_t>(public_parameters.max_batch_size + 1) + offset);
+            return public_g2_power(public_parameters, exponent);
+        }
+
+        std::vector<blst::G2Point> make_beta_middle_product_kernel(
+            const PublicParameters& public_parameters,
+            const std::size_t batch_size)
+        {
+            std::vector<blst::G2Point> kernel(2 * batch_size, blst::G2Point::infinity());
+            for (std::size_t j = 1; j < kernel.size(); ++j) {
+                const std::ptrdiff_t offset =
+                    static_cast<std::ptrdiff_t>(batch_size) - static_cast<std::ptrdiff_t>(j);
+                kernel[j] = public_g2_centered_offset(public_parameters, offset);
+            }
+            return kernel;
+        }
+
+        std::vector<blst::G2Point> make_alpha_middle_product_kernel(
+            const PublicParameters& public_parameters,
+            const std::size_t batch_size)
+        {
+            std::vector<blst::G2Point> kernel(2 * batch_size, blst::G2Point::infinity());
+            for (std::size_t i = 0; i < batch_size; ++i) {
+                kernel[batch_size + i] = public_g2_centered_offset(
+                    public_parameters,
+                    -static_cast<std::ptrdiff_t>(i + 1));
+            }
+            return kernel;
+        }
+
         blst::MiddleProductAlgorithm to_middle_product_algorithm(const CrossTermAlgorithm algorithm)
         {
             switch (algorithm) {
@@ -312,9 +357,13 @@ namespace bte::btx
                         continue;
                     }
 
-                    const std::size_t exponent =
-                        public_parameters.max_batch_size + 1 - (i + 1) + (k + 1);
-                    sum = add_gt(sum, pairing(ciphertexts[k].c1, public_g2_power(public_parameters, exponent)));
+                    const std::ptrdiff_t offset =
+                        static_cast<std::ptrdiff_t>(k) - static_cast<std::ptrdiff_t>(i);
+                    sum = add_gt(
+                        sum,
+                        pairing(
+                            ciphertexts[k].c1,
+                            public_g2_centered_offset(public_parameters, offset)));
                 }
                 beta[i] = sum;
             }
@@ -334,11 +383,8 @@ namespace bte::btx
                 a.push_back(ciphertext.c1);
             }
 
-            std::vector<blst::G2Point> b(2 * batch_size, blst::G2Point::infinity());
-            for (std::size_t j = 1; j < b.size(); ++j) {
-                const std::size_t exponent = public_parameters.max_batch_size + batch_size + 1 - j;
-                b[j] = public_g2_power(public_parameters, exponent);
-            }
+            const std::vector<blst::G2Point> b =
+                make_beta_middle_product_kernel(public_parameters, batch_size);
 
             std::vector<blst::GT> beta(batch_size, blst::GT::identity());
             if (algorithm == CrossTermAlgorithm::MiddleProductFft) {
@@ -361,28 +407,46 @@ namespace bte::btx
             return beta;
         }
 
-        std::vector<blst::G2Point> make_fft_b_vector(
-            const PublicParameters& public_parameters,
+        const blst::MiddleProductPrecomputedB& ensure_precomputed_beta(
+            const PreparedPublicParameters& prepared_public_parameters,
             const std::size_t batch_size)
         {
-            std::vector<blst::G2Point> b(2 * batch_size, blst::G2Point::infinity());
-            for (std::size_t j = 1; j < b.size(); ++j) {
-                const std::size_t exponent = public_parameters.max_batch_size + batch_size + 1 - j;
-                b[j] = public_g2_power(public_parameters, exponent);
+            if (batch_size >= prepared_public_parameters.fft_precomputed_b_by_batch_size.size()) {
+                throw std::invalid_argument("BTX prepared FFT cache does not cover this batch size");
             }
-            return b;
+
+            blst::MiddleProductPrecomputedB& slot =
+                prepared_public_parameters.fft_precomputed_b_by_batch_size[batch_size];
+            if (slot.n != batch_size) {
+                const std::vector<blst::G2Point> b = make_beta_middle_product_kernel(
+                    prepared_public_parameters.public_parameters,
+                    batch_size);
+                slot = blst::precompute_middle_product_b(
+                    std::span<const blst::G2Point>(b.data(), b.size()),
+                    batch_size);
+            }
+            return slot;
         }
 
-        std::vector<blst::G2Point> make_alpha_b_vector(
-            const PublicParameters& public_parameters,
+        const blst::MiddleProductPrecomputedB& ensure_precomputed_alpha(
+            const PreparedPublicParameters& prepared_public_parameters,
             const std::size_t batch_size)
         {
-            std::vector<blst::G2Point> b(2 * batch_size, blst::G2Point::infinity());
-            for (std::size_t i = 0; i < batch_size; ++i) {
-                const std::size_t exponent = public_parameters.max_batch_size - i;
-                b[batch_size + i] = public_g2_power(public_parameters, exponent);
+            if (batch_size >= prepared_public_parameters.alpha_precomputed_b_by_batch_size.size()) {
+                throw std::invalid_argument("BTX prepared alpha cache does not cover this batch size");
             }
-            return b;
+
+            blst::MiddleProductPrecomputedB& slot =
+                prepared_public_parameters.alpha_precomputed_b_by_batch_size[batch_size];
+            if (slot.n != batch_size) {
+                const std::vector<blst::G2Point> b = make_alpha_middle_product_kernel(
+                    prepared_public_parameters.public_parameters,
+                    batch_size);
+                slot = blst::precompute_middle_product_b(
+                    std::span<const blst::G2Point>(b.data(), b.size()),
+                    batch_size);
+            }
+            return slot;
         }
 
         std::vector<blst::GT> compute_cross_terms_prepared_fft(
@@ -396,15 +460,11 @@ namespace bte::btx
                 a.push_back(ciphertext.c1);
             }
 
-            if (batch_size >= prepared_public_parameters.fft_precomputed_b_by_batch_size.size()) {
-                throw std::invalid_argument("BTX prepared FFT cache does not cover this batch size");
-            }
-
             std::vector<blst::GT> beta(batch_size, blst::GT::identity());
             blst::MiddleProductWorkspace workspace;
             blst::middle_product(
                 std::span<const blst::G1Point>(a.data(), a.size()),
-                prepared_public_parameters.fft_precomputed_b_by_batch_size[batch_size],
+                ensure_precomputed_beta(prepared_public_parameters, batch_size),
                 std::span<blst::GT>(beta.data(), beta.size()),
                 workspace);
             return beta;
@@ -471,19 +531,6 @@ namespace bte::btx
         prepared.public_parameters = public_parameters;
         prepared.fft_precomputed_b_by_batch_size.resize(public_parameters.max_batch_size + 1);
         prepared.alpha_precomputed_b_by_batch_size.resize(public_parameters.max_batch_size + 1);
-        for (std::size_t batch_size = 1; batch_size <= public_parameters.max_batch_size; ++batch_size) {
-            const std::vector<blst::G2Point> fft_b = make_fft_b_vector(public_parameters, batch_size);
-            prepared.fft_precomputed_b_by_batch_size[batch_size] =
-                blst::precompute_middle_product_b(
-                    std::span<const blst::G2Point>(fft_b.data(), fft_b.size()),
-                    batch_size);
-
-            const std::vector<blst::G2Point> alpha_b = make_alpha_b_vector(public_parameters, batch_size);
-            prepared.alpha_precomputed_b_by_batch_size[batch_size] =
-                blst::precompute_middle_product_b(
-                    std::span<const blst::G2Point>(alpha_b.data(), alpha_b.size()),
-                    batch_size);
-        }
         return prepared;
     }
 
@@ -643,9 +690,11 @@ namespace bte::btx
         std::vector<Bytes> keys;
         keys.reserve(precomputation.ciphertexts.size());
         for (std::size_t i = 0; i < precomputation.ciphertexts.size(); ++i) {
-            const std::size_t exponent = public_parameters.max_batch_size - i;
-            const blst::GT alpha =
-                pairing(aggregate_predecryption_key, public_g2_power(public_parameters, exponent));
+            const blst::GT alpha = pairing(
+                aggregate_predecryption_key,
+                public_g2_centered_offset(
+                    public_parameters,
+                    -static_cast<std::ptrdiff_t>(i + 1)));
             const blst::GT gamma = sub_gt(alpha, precomputation.beta[i]);
             keys.push_back(kdf_from_gt(params, gamma));
         }
@@ -674,7 +723,7 @@ namespace bte::btx
         std::vector<blst::GT> alpha(batch_size, blst::GT::identity());
         blst::update(
             aggregate_predecryption_key,
-            prepared_public_parameters.alpha_precomputed_b_by_batch_size[batch_size],
+            ensure_precomputed_alpha(prepared_public_parameters, batch_size),
             std::span<blst::GT>(alpha.data(), alpha.size()));
 
         std::vector<Bytes> keys;
