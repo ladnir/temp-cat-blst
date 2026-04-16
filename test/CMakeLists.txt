@@ -21,6 +21,7 @@ set(PUBLIC_API_TEST_SOURCES
     "BindingHeader_tests.cpp"
     "Btx_c_api_tests.cpp"
     "Btx_tests.cpp"
+    "Beat_tests.cpp"
     "C_api_tests.cpp"
     "MiddleProduct_algorithm_tests.cpp"
     "MiddleProduct_c_api_tests.cpp"

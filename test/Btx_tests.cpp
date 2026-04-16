@@ -2,11 +2,13 @@
 #include <cstdint>
 #include <span>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include "BTE/btx/core.h"
+#include "BTE/building_blocks/lagrange.h"
 #include "BTE/btx/serialization.h"
 #include "blst/curve/GT.h"
 #include "InsecureRng.h"
@@ -15,6 +17,39 @@ using namespace bte::btx;
 
 namespace
 {
+    std::array<std::uint8_t, 32> fr_to_scalar_bytes(const blst::Fr& scalar)
+    {
+        std::array<std::uint8_t, 32> bytes{};
+        blst::Fr::to_scaler(bytes.data(), scalar);
+        return bytes;
+    }
+
+    blst::G1Point scale_g1(const blst::G1Point& point, const blst::Fr& scalar)
+    {
+        const std::array<std::uint8_t, 32> scalar_bytes = fr_to_scalar_bytes(scalar);
+        blst::G1Point out{};
+        blst::G1Point::mult(out, point, scalar_bytes.data(), 256);
+        return out;
+    }
+
+    blst::G1Point add_g1(const blst::G1Point& lhs, const blst::G1Point& rhs)
+    {
+        blst::G1Point out{};
+        blst::G1Point::dadd(out, lhs, rhs);
+        return out;
+    }
+
+    blst::G1Point naive_msm_sum_g1(
+        const std::span<const blst::G1Point> points,
+        const std::span<const blst::Fr> scalars)
+    {
+        blst::G1Point out = blst::G1Point::infinity();
+        for (std::size_t i = 0; i < points.size(); ++i) {
+            out = add_g1(out, scale_g1(points[i], scalars[i]));
+        }
+        return out;
+    }
+
     struct BtxFixture
     {
         BtxParameters params;
@@ -22,9 +57,11 @@ namespace
         SetupResult setup;
         PreparedPublicParameters prepared_public_parameters;
 
-        BtxFixture()
-            : params{8, 4, 2, 32, "BTE_BTX_KDF_SALT_V1", "BTE_BTX_KDF_INFO_V1"},
-              rng(0x1029384756abcdefULL),
+        explicit BtxFixture(
+            BtxParameters params_in = BtxParameters{8, 4, 2, 32, "BTE_BTX_KDF_SALT_V1", "BTE_BTX_KDF_INFO_V1"},
+            const std::uint64_t seed = 0x1029384756abcdefULL)
+            : params(std::move(params_in)),
+              rng(seed),
               setup(Setup(params, [this](std::span<std::uint8_t> out) { fill_random(out); })),
               prepared_public_parameters(PreparePublicParameters(setup.public_parameters))
         {
@@ -324,6 +361,65 @@ TEST(Btx, CombineSharesRejectsInsufficientThreshold)
             std::span<const PartialDecryptionShare>(insufficient.data(), insufficient.size()),
             fixture.setup.public_parameters),
         std::invalid_argument);
+}
+
+TEST(Btx, CreatePartialDecryptionShareMatchesNaiveMsmAtEightSlotCutoff)
+{
+    BtxFixture fixture(
+        BtxParameters{8, 16, 8, 32, "BTE_BTX_KDF_SALT_V1", "BTE_BTX_KDF_INFO_V1"},
+        0x2233445566778899ULL);
+    const std::vector<EncryptionResult> encrypted = fixture.encrypt_batch(8);
+    const std::vector<Ciphertext> ciphertexts = fixture.extract_ciphertexts(encrypted);
+
+    const ThresholdRequest request =
+        BuildThresholdRequest(fixture.setup.public_parameters, ciphertexts);
+    const PartialDecryptionShare share =
+        CreatePartialDecryptionShare(fixture.setup.secret_shares[0], request);
+
+    const blst::G1Point expected = naive_msm_sum_g1(
+        std::span<const blst::G1Point>(request.ordered_c1.data(), request.ordered_c1.size()),
+        std::span<const blst::Fr>(
+            fixture.setup.secret_shares[0].tau_power_shares.data(),
+            request.ordered_c1.size()));
+
+    EXPECT_TRUE(blst::G1Point::equal(share.value, expected));
+}
+
+TEST(Btx, CombinePartialDecryptionSharesMatchesNaiveMsmAtEightShareCutoff)
+{
+    BtxFixture fixture(
+        BtxParameters{8, 16, 8, 32, "BTE_BTX_KDF_SALT_V1", "BTE_BTX_KDF_INFO_V1"},
+        0x33445566778899aaULL);
+    const std::vector<EncryptionResult> encrypted = fixture.encrypt_batch(8);
+    const std::vector<Ciphertext> ciphertexts = fixture.extract_ciphertexts(encrypted);
+
+    const ThresholdRequest request =
+        BuildThresholdRequest(fixture.setup.public_parameters, ciphertexts);
+
+    std::vector<PartialDecryptionShare> shares;
+    shares.reserve(fixture.params.threshold);
+    for (std::size_t i = 0; i < fixture.params.threshold; ++i) {
+        shares.push_back(CreatePartialDecryptionShare(fixture.setup.secret_shares[i], request));
+    }
+
+    const blst::G1Point combined = CombinePartialDecryptionShares(
+        std::span<const PartialDecryptionShare>(shares.data(), shares.size()),
+        fixture.setup.public_parameters);
+
+    std::vector<std::uint32_t> indices;
+    indices.reserve(shares.size());
+    std::vector<blst::G1Point> share_points;
+    share_points.reserve(shares.size());
+    for (const PartialDecryptionShare& share : shares) {
+        indices.push_back(share.index);
+        share_points.push_back(share.value);
+    }
+    const std::vector<blst::Fr> lambdas = bte::building_blocks::lagrange_at_zero(indices);
+    const blst::G1Point expected = naive_msm_sum_g1(
+        std::span<const blst::G1Point>(share_points.data(), share_points.size()),
+        std::span<const blst::Fr>(lambdas.data(), lambdas.size()));
+
+    EXPECT_TRUE(blst::G1Point::equal(combined, expected));
 }
 
 TEST(Btx, SerializationRoundTripPreservesObjects)

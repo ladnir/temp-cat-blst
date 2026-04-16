@@ -9,6 +9,7 @@
 #include "BTE/building_blocks/lagrange.h"
 #if BLST_DEFAULT_AVX
 #include "blst/avx/curve/map_to_G.h"
+#include "blst/avx/curve/multi_scalar.h"
 #endif
 #include "blst/curve/multi_scalar.h"
 #include "blst/fft/middle_product.h"
@@ -149,16 +150,20 @@ namespace bte::btx
                 return out;
             }
 
-            std::vector<blst::scalar::G1AffinePoint> affine_points(points.size());
-            std::vector<std::uint8_t> scalar_blob(points.size() * 32, 0);
-            for (std::size_t i = 0; i < points.size(); ++i) {
 #if BLST_DEFAULT_AVX
-                const blst::scalar::G1Point scalar_point =
-                    blst::avx::avx_map_to_G_detail::to_scalar(points[i]);
-                blst::scalar::G1Point::to_affine(affine_points[i], scalar_point);
+            // The AVX Pippenger prototype is not yet algebraically correct for
+            // BTX share generation. Keep the AVX path fully native for now by
+            // using direct AVX scalar multiplies plus point additions.
+            blst::G1Point out = blst::G1Point::infinity();
+            for (std::size_t i = 0; i < points.size(); ++i) {
+                out = add_g1(out, scale_g1(points[i], scalars[i]));
+            }
+            return out;
 #else
+            std::vector<std::uint8_t> scalar_blob(points.size() * 32, 0);
+            std::vector<blst::scalar::G1AffinePoint> affine_points(points.size());
+            for (std::size_t i = 0; i < points.size(); ++i) {
                 blst::scalar::G1Point::to_affine(affine_points[i], points[i]);
-#endif
                 const std::array<std::uint8_t, 32> scalar_bytes = fr_to_scalar_bytes(scalars[i]);
                 std::memcpy(scalar_blob.data() + (i * 32), scalar_bytes.data(), scalar_bytes.size());
             }
@@ -183,9 +188,6 @@ namespace bte::btx
                 256,
                 scratch.data(),
                 blst::pippenger_window_size(points.size()));
-#if BLST_DEFAULT_AVX
-            return blst::avx::avx_map_to_G_detail::from_scalar(scalar_out);
-#else
             return scalar_out;
 #endif
         }

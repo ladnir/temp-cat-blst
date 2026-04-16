@@ -75,18 +75,6 @@ namespace
             static_cast<std::int64_t>(threshold));
     }
 
-    void set_batch_and_threshold_counters(
-        benchmark::State& state,
-        const std::size_t batch_size,
-        const std::size_t threshold)
-    {
-        state.counters["batch"] = static_cast<double>(batch_size);
-        state.counters["threshold"] = static_cast<double>(threshold);
-        state.SetItemsProcessed(
-            static_cast<std::int64_t>(state.iterations()) *
-            static_cast<std::int64_t>(batch_size));
-    }
-
     void apply_batch_args(benchmark::internal::Benchmark* benchmark_handle)
     {
         for (const int batch_size : { 1, 8, 32, 64, 128, 512 }) {
@@ -112,7 +100,6 @@ namespace
         ThresholdRequest request;
         std::vector<PartialDecryptionShare> threshold_shares;
         blst::G1Point aggregate_predecryption_key = blst::G1Point::infinity();
-        BatchDecryptionPrecomputation precomputed_public;
         BatchDecryptionPrecomputation precomputed_prepared;
 
         PfeBenchmarkContext(
@@ -151,7 +138,6 @@ namespace
                     threshold_shares.size()),
                 setup.public_parameters);
 
-            precomputed_public = PrecomputeBatchDecryption(setup.public_parameters, ciphertexts);
             precomputed_prepared = PrecomputeBatchDecryption(prepared_public_parameters, ciphertexts);
         }
     };
@@ -160,76 +146,10 @@ namespace
     constexpr std::size_t kDefaultThreshold = 8;
     constexpr std::size_t kDefaultServerCount = 16;
 
-    static void BM_Pfe_Setup(benchmark::State& state)
+    static void BM_Pfe_PartialDecrypt(benchmark::State& state)
     {
         const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
-        const PfeParameters params{
-            batch_size,
-            kDefaultServerCount,
-            kDefaultThreshold,
-            32,
-            "BTE_PFE_KDF_SALT_V1",
-            "BTE_PFE_KDF_INFO_V1"
-        };
-        DeterministicRng rng(0xcf500000ULL + batch_size);
-
-        for (auto _ : state) {
-            benchmark::DoNotOptimize(Setup(
-                params,
-                [&rng](std::span<std::uint8_t> out) { rng.fill(out); }));
-            benchmark::ClobberMemory();
-        }
-
-        set_batch_and_threshold_counters(state, batch_size, kDefaultThreshold);
-    }
-
-    static void BM_Pfe_PreparePublicParameters(benchmark::State& state)
-    {
-        const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
-        PfeBenchmarkContext ctx(batch_size, kDefaultThreshold, kDefaultServerCount, 0xcf510000ULL + batch_size);
-
-        for (auto _ : state) {
-            benchmark::DoNotOptimize(PreparePublicParameters(ctx.setup.public_parameters));
-            benchmark::ClobberMemory();
-        }
-
-        set_batch_counter(state, batch_size);
-    }
-
-    static void BM_Pfe_Encrypt(benchmark::State& state)
-    {
-        PfeBenchmarkContext ctx(kDefaultBatchSize, kDefaultThreshold, kDefaultServerCount, 0xcf520000ULL);
-        DeterministicRng rng(0xcf520100ULL);
-
-        for (auto _ : state) {
-            benchmark::DoNotOptimize(Encrypt(
-                ctx.params,
-                ctx.setup.public_parameters,
-                [&rng](std::span<std::uint8_t> out) { rng.fill(out); }));
-            benchmark::ClobberMemory();
-        }
-
-        state.counters["batch"] = 1.0;
-        state.SetItemsProcessed(static_cast<std::int64_t>(state.iterations()));
-    }
-
-    static void BM_Pfe_BuildThresholdRequest(benchmark::State& state)
-    {
-        const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
-        PfeBenchmarkContext ctx(batch_size, kDefaultThreshold, kDefaultServerCount, 0xcf530000ULL + batch_size);
-
-        for (auto _ : state) {
-            benchmark::DoNotOptimize(BuildThresholdRequest(ctx.setup.public_parameters, ctx.ciphertexts));
-            benchmark::ClobberMemory();
-        }
-
-        set_batch_counter(state, batch_size);
-    }
-
-    static void BM_Pfe_CreatePartialDecryptionShare(benchmark::State& state)
-    {
-        const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
-        PfeBenchmarkContext ctx(batch_size, kDefaultThreshold, kDefaultServerCount, 0xcf540000ULL + batch_size);
+        PfeBenchmarkContext ctx(batch_size, kDefaultThreshold, kDefaultServerCount, 0xcf500000ULL + batch_size);
 
         for (auto _ : state) {
             benchmark::DoNotOptimize(CreatePartialDecryptionShare(
@@ -241,11 +161,11 @@ namespace
         set_batch_counter(state, batch_size);
     }
 
-    static void BM_Pfe_CombinePartialDecryptionShares(benchmark::State& state)
+    static void BM_Pfe_Combine(benchmark::State& state)
     {
         const std::size_t threshold = static_cast<std::size_t>(state.range(0));
         const std::size_t server_count = std::max(kDefaultServerCount, threshold);
-        PfeBenchmarkContext ctx(kDefaultBatchSize, threshold, server_count, 0xcf550000ULL + threshold);
+        PfeBenchmarkContext ctx(kDefaultBatchSize, threshold, server_count, 0xcf510000ULL + threshold);
 
         for (auto _ : state) {
             benchmark::DoNotOptimize(CombinePartialDecryptionShares(
@@ -259,25 +179,10 @@ namespace
         set_threshold_counter(state, threshold);
     }
 
-    static void BM_Pfe_PrecomputeBatchDecryption_Public(benchmark::State& state)
+    static void BM_Pfe_Precompute(benchmark::State& state)
     {
         const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
-        PfeBenchmarkContext ctx(batch_size, kDefaultThreshold, kDefaultServerCount, 0xcf560000ULL + batch_size);
-
-        for (auto _ : state) {
-            benchmark::DoNotOptimize(PrecomputeBatchDecryption(
-                ctx.setup.public_parameters,
-                ctx.ciphertexts));
-            benchmark::ClobberMemory();
-        }
-
-        set_batch_counter(state, batch_size);
-    }
-
-    static void BM_Pfe_PrecomputeBatchDecryption_Prepared(benchmark::State& state)
-    {
-        const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
-        PfeBenchmarkContext ctx(batch_size, kDefaultThreshold, kDefaultServerCount, 0xcf570000ULL + batch_size);
+        PfeBenchmarkContext ctx(batch_size, kDefaultThreshold, kDefaultServerCount, 0xcf520000ULL + batch_size);
 
         for (auto _ : state) {
             benchmark::DoNotOptimize(PrecomputeBatchDecryption(
@@ -289,27 +194,10 @@ namespace
         set_batch_counter(state, batch_size);
     }
 
-    static void BM_Pfe_FinalizeBatchDecryption_Public(benchmark::State& state)
+    static void BM_Pfe_Open(benchmark::State& state)
     {
         const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
-        PfeBenchmarkContext ctx(batch_size, kDefaultThreshold, kDefaultServerCount, 0xcf580000ULL + batch_size);
-
-        for (auto _ : state) {
-            benchmark::DoNotOptimize(FinalizeBatchDecryption(
-                ctx.params,
-                ctx.setup.public_parameters,
-                ctx.precomputed_public,
-                ctx.aggregate_predecryption_key));
-            benchmark::ClobberMemory();
-        }
-
-        set_batch_counter(state, batch_size);
-    }
-
-    static void BM_Pfe_FinalizeBatchDecryption_Prepared(benchmark::State& state)
-    {
-        const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
-        PfeBenchmarkContext ctx(batch_size, kDefaultThreshold, kDefaultServerCount, 0xcf590000ULL + batch_size);
+        PfeBenchmarkContext ctx(batch_size, kDefaultThreshold, kDefaultServerCount, 0xcf530000ULL + batch_size);
 
         for (auto _ : state) {
             benchmark::DoNotOptimize(FinalizeBatchDecryption(
@@ -323,27 +211,10 @@ namespace
         set_batch_counter(state, batch_size);
     }
 
-    static void BM_Pfe_RecoverBatchKeys_Public(benchmark::State& state)
+    static void BM_Pfe_PrecomputeOpen(benchmark::State& state)
     {
         const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
-        PfeBenchmarkContext ctx(batch_size, kDefaultThreshold, kDefaultServerCount, 0xcf5a0000ULL + batch_size);
-
-        for (auto _ : state) {
-            benchmark::DoNotOptimize(RecoverBatchKeys(
-                ctx.params,
-                ctx.setup.public_parameters,
-                ctx.ciphertexts,
-                ctx.aggregate_predecryption_key));
-            benchmark::ClobberMemory();
-        }
-
-        set_batch_counter(state, batch_size);
-    }
-
-    static void BM_Pfe_RecoverBatchKeys_Prepared(benchmark::State& state)
-    {
-        const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
-        PfeBenchmarkContext ctx(batch_size, kDefaultThreshold, kDefaultServerCount, 0xcf5b0000ULL + batch_size);
+        PfeBenchmarkContext ctx(batch_size, kDefaultThreshold, kDefaultServerCount, 0xcf540000ULL + batch_size);
 
         for (auto _ : state) {
             benchmark::DoNotOptimize(RecoverBatchKeys(
@@ -358,15 +229,8 @@ namespace
     }
 }
 
-BENCHMARK(BM_Pfe_Setup)->Apply(apply_batch_args)->UseRealTime();
-BENCHMARK(BM_Pfe_PreparePublicParameters)->Apply(apply_batch_args)->UseRealTime();
-BENCHMARK(BM_Pfe_Encrypt)->UseRealTime();
-BENCHMARK(BM_Pfe_BuildThresholdRequest)->Apply(apply_batch_args)->UseRealTime();
-BENCHMARK(BM_Pfe_CreatePartialDecryptionShare)->Apply(apply_batch_args)->UseRealTime();
-BENCHMARK(BM_Pfe_CombinePartialDecryptionShares)->Apply(apply_threshold_args)->UseRealTime();
-BENCHMARK(BM_Pfe_PrecomputeBatchDecryption_Public)->Apply(apply_batch_args)->UseRealTime();
-BENCHMARK(BM_Pfe_PrecomputeBatchDecryption_Prepared)->Apply(apply_batch_args)->UseRealTime();
-BENCHMARK(BM_Pfe_FinalizeBatchDecryption_Public)->Apply(apply_batch_args)->UseRealTime();
-BENCHMARK(BM_Pfe_FinalizeBatchDecryption_Prepared)->Apply(apply_batch_args)->UseRealTime();
-BENCHMARK(BM_Pfe_RecoverBatchKeys_Public)->Apply(apply_batch_args)->UseRealTime();
-BENCHMARK(BM_Pfe_RecoverBatchKeys_Prepared)->Apply(apply_batch_args)->UseRealTime();
+BENCHMARK(BM_Pfe_PartialDecrypt)->Apply(apply_batch_args)->UseRealTime();
+BENCHMARK(BM_Pfe_Combine)->Apply(apply_threshold_args)->UseRealTime();
+BENCHMARK(BM_Pfe_Precompute)->Apply(apply_batch_args)->UseRealTime();
+BENCHMARK(BM_Pfe_Open)->Apply(apply_batch_args)->UseRealTime();
+BENCHMARK(BM_Pfe_PrecomputeOpen)->Apply(apply_batch_args)->UseRealTime();

@@ -5,6 +5,9 @@
  */
 
 #include "blst/scalar/curve/multi_scalar.h"
+#if BLST_DEFAULT_AVX
+#include "blst/avx/curve/point.h"
+#endif
 
 namespace blst::scalar
 {
@@ -808,6 +811,41 @@ namespace blst::scalar
 			printf("Pippenger final result:  %llu\n", (long long unsigned int)hash);
 		}
 	}
+#if BLST_DEFAULT_AVX
+}
+
+namespace blst::avx
+{
+	BLST_HD BLST_INLINE void msm_to_jacobian(G1Point& out, const G1Point& in)
+	{
+		out = in;
+	}
+
+	BLST_HD BLST_INLINE void msm_add_or_sub(
+		G1Point& out,
+		const G1Point& p1,
+		const G1AffinePoint& p2,
+		bool_t subtract)
+	{
+		G1AffinePoint adjusted = p2;
+		if (subtract) {
+			adjusted.Y = avx_curve_detail::curve_ring().standard_negate(adjusted.Y);
+		}
+		if (G1Point::is_inf(p1)) {
+			G1Point::from_affine(out, adjusted);
+			return;
+		}
+		if (G1AffinePoint::is_inf(adjusted)) {
+			out = p1;
+			return;
+		}
+		G1Point::add(out, p1, adjusted);
+	}
+}
+
+namespace blst::scalar
+{
+#endif
 	template
 		BLST_HD BLST_CPP_INLINE void msm_mult_pippenger(
 			Point<Fp>& ret,
@@ -838,6 +876,18 @@ namespace blst::scalar
 			GT buckets[],
 			size_t window_size,
 			bool print);
+#if BLST_DEFAULT_AVX
+	template
+		BLST_HD BLST_CPP_INLINE void msm_mult_pippenger(
+			blst::avx::G1Point& ret,
+			const blst::avx::G1AffinePoint* const points[],
+			size_t npoints,
+			const byte* const scalars[],
+			size_t nbits,
+			blst::avx::G1Point buckets[],
+			size_t window_size,
+			bool print);
+#endif
 
 	//template<typename Group>
 	//BLST_HD BLST_CPP_INLINE size_t msm_mult_pippenger_scratch_sizeof_(size_t npoints)

@@ -179,7 +179,7 @@ namespace
                 btx_ciphertexts,
                 btx::CrossTermAlgorithm::MiddleProductFft);
 
-            // Warm BTX's lazily materialized alpha cache so the timed "online"
+            // Warm BTX's lazily materialized alpha cache so the timed open
             // benchmarks measure only the prepared finalize path.
             benchmark::DoNotOptimize(btx::FinalizeBatchDecryption(
                 btx_params,
@@ -192,7 +192,7 @@ namespace
     constexpr std::size_t kDefaultThreshold = 8;
     constexpr std::size_t kDefaultServerCount = 16;
 
-    static void BM_PfeVsBtx_Offline_PfePrepared(benchmark::State& state)
+    static void BM_PfeVsBtx_Precompute_Pfe(benchmark::State& state)
     {
         const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
         ComparisonContext ctx(batch_size, kDefaultThreshold, kDefaultServerCount, 0xd7100000ULL + batch_size);
@@ -207,7 +207,7 @@ namespace
         set_batch_counter(state, batch_size);
     }
 
-    static void BM_PfeVsBtx_Offline_BtxPrepared(benchmark::State& state)
+    static void BM_PfeVsBtx_Precompute_Btx(benchmark::State& state)
     {
         const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
         ComparisonContext ctx(batch_size, kDefaultThreshold, kDefaultServerCount, 0xd7200000ULL + batch_size);
@@ -223,7 +223,7 @@ namespace
         set_batch_counter(state, batch_size);
     }
 
-    static void BM_PfeVsBtx_Online_PfePrepared(benchmark::State& state)
+    static void BM_PfeVsBtx_Open_Pfe(benchmark::State& state)
     {
         const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
         ComparisonContext ctx(batch_size, kDefaultThreshold, kDefaultServerCount, 0xd7300000ULL + batch_size);
@@ -240,7 +240,7 @@ namespace
         set_batch_counter(state, batch_size);
     }
 
-    static void BM_PfeVsBtx_Online_BtxPrepared(benchmark::State& state)
+    static void BM_PfeVsBtx_Open_Btx(benchmark::State& state)
     {
         const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
         ComparisonContext ctx(batch_size, kDefaultThreshold, kDefaultServerCount, 0xd7400000ULL + batch_size);
@@ -257,7 +257,7 @@ namespace
         set_batch_counter(state, batch_size);
     }
 
-    static void BM_PfeVsBtx_EndToEnd_PfePrepared(benchmark::State& state)
+    static void BM_PfeVsBtx_PrecomputeOpen_Pfe(benchmark::State& state)
     {
         const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
         ComparisonContext ctx(batch_size, kDefaultThreshold, kDefaultServerCount, 0xd7500000ULL + batch_size);
@@ -274,7 +274,7 @@ namespace
         set_batch_counter(state, batch_size);
     }
 
-    static void BM_PfeVsBtx_EndToEnd_BtxPrepared(benchmark::State& state)
+    static void BM_PfeVsBtx_PrecomputeOpen_Btx(benchmark::State& state)
     {
         const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
         ComparisonContext ctx(batch_size, kDefaultThreshold, kDefaultServerCount, 0xd7600000ULL + batch_size);
@@ -293,9 +293,9 @@ namespace
     }
 }
 
-BENCHMARK(BM_PfeVsBtx_Offline_PfePrepared)->Apply(apply_batch_args)->UseRealTime();
-BENCHMARK(BM_PfeVsBtx_Offline_BtxPrepared)->Apply(apply_batch_args)->UseRealTime();
-BENCHMARK(BM_PfeVsBtx_Online_PfePrepared)->Apply(apply_batch_args)->UseRealTime();
-BENCHMARK(BM_PfeVsBtx_Online_BtxPrepared)->Apply(apply_batch_args)->UseRealTime();
-BENCHMARK(BM_PfeVsBtx_EndToEnd_PfePrepared)->Apply(apply_batch_args)->UseRealTime();
-BENCHMARK(BM_PfeVsBtx_EndToEnd_BtxPrepared)->Apply(apply_batch_args)->UseRealTime();
+BENCHMARK(BM_PfeVsBtx_Precompute_Pfe)->Apply(apply_batch_args)->UseRealTime();
+BENCHMARK(BM_PfeVsBtx_Precompute_Btx)->Apply(apply_batch_args)->UseRealTime();
+BENCHMARK(BM_PfeVsBtx_Open_Pfe)->Apply(apply_batch_args)->UseRealTime();
+BENCHMARK(BM_PfeVsBtx_Open_Btx)->Apply(apply_batch_args)->UseRealTime();
+BENCHMARK(BM_PfeVsBtx_PrecomputeOpen_Pfe)->Apply(apply_batch_args)->UseRealTime();
+BENCHMARK(BM_PfeVsBtx_PrecomputeOpen_Btx)->Apply(apply_batch_args)->UseRealTime();

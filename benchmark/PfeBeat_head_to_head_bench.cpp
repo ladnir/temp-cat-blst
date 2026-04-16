@@ -8,12 +8,13 @@
 #include <stdexcept>
 #include <vector>
 
+#include "BTE/beat/core.h"
 #include "BTE/btx/core.h"
 #include "BTE/pfe/core.h"
-#include "blst/fft/middle_product.h"
 
 namespace
 {
+    namespace beat = bte::beat;
     namespace pfe = bte::pfe;
     namespace btx = bte::btx;
 
@@ -94,10 +95,25 @@ namespace
             static_cast<std::int64_t>(batch_size));
     }
 
+    void set_threshold_counter(benchmark::State& state, const std::size_t threshold)
+    {
+        state.counters["threshold"] = static_cast<double>(threshold);
+        state.SetItemsProcessed(
+            static_cast<std::int64_t>(state.iterations()) *
+            static_cast<std::int64_t>(threshold));
+    }
+
     void apply_batch_args(benchmark::internal::Benchmark* benchmark_handle)
     {
-        for (const int batch_size : { 1, 8, 32, 64, 128, 512 }) {
+        for (const int batch_size : { 1, 8, 32, 64, 128, 256, 512 }) {
             benchmark_handle->Arg(batch_size);
+        }
+    }
+
+    void apply_threshold_args(benchmark::internal::Benchmark* benchmark_handle)
+    {
+        for (const int threshold : { 2, 4, 8, 16 }) {
+            benchmark_handle->Arg(threshold);
         }
     }
 
@@ -106,11 +122,24 @@ namespace
     std::unique_ptr<ComparisonContext> build_context(
         benchmark::State& state,
         const std::size_t batch_size,
+        const std::size_t threshold,
+        const std::size_t num_servers,
         const std::uint64_t seed);
 
     struct ComparisonContext
     {
         std::size_t batch_size = 0;
+
+        beat::BeatParameters beat_params{};
+        DeterministicRng beat_rng;
+        beat::SetupResult beat_setup;
+        beat::PreparedPublicParameters beat_prepared;
+        std::vector<beat::EncryptionResult> beat_encrypted;
+        std::vector<beat::Ciphertext> beat_ciphertexts;
+        beat::ThresholdRequest beat_request;
+        std::vector<beat::PartialDecryptionShare> beat_shares;
+        blst::G1Point beat_aggregate_predecryption_key = blst::G1Point::infinity();
+        beat::BatchDecryptionPrecomputation beat_precomputed;
 
         pfe::PfeParameters pfe_params{};
         DeterministicRng pfe_rng;
@@ -129,7 +158,6 @@ namespace
         btx::PreparedPublicParameters btx_prepared;
         std::vector<btx::EncryptionResult> btx_encrypted;
         std::vector<btx::Ciphertext> btx_ciphertexts;
-        std::vector<blst::G1Point> beat_c1_points;
         btx::ThresholdRequest btx_request;
         std::vector<btx::PartialDecryptionShare> btx_shares;
         blst::G1Point btx_aggregate_predecryption_key = blst::G1Point::infinity();
@@ -141,6 +169,13 @@ namespace
             const std::size_t num_servers,
             const std::uint64_t seed)
             : batch_size(std::max<std::size_t>(in_batch_size, 1)),
+              beat_params{ batch_size, num_servers, threshold, 32,
+                           "BTE_BEAT_KDF_SALT_V1", "BTE_BEAT_KDF_INFO_V1" },
+              beat_rng(seed ^ 0x0101010101010101ULL),
+              beat_setup(beat::Setup(
+                  beat_params,
+                  [this](std::span<std::uint8_t> out) { beat_rng.fill(out); })),
+              beat_prepared(beat::PreparePublicParameters(beat_setup.public_parameters)),
               pfe_params{ batch_size, num_servers, threshold, 32,
                           "BTE_PFE_KDF_SALT_V1", "BTE_PFE_KDF_INFO_V1" },
               pfe_rng(seed ^ 0x1111111111111111ULL),
@@ -156,9 +191,14 @@ namespace
                   [this](std::span<std::uint8_t> out) { btx_rng.fill(out); })),
               btx_prepared(btx::PreparePublicParameters(btx_setup.public_parameters))
         {
+            beat_encrypted.reserve(batch_size);
             pfe_encrypted.reserve(batch_size);
             btx_encrypted.reserve(batch_size);
             for (std::size_t i = 0; i < batch_size; ++i) {
+                beat_encrypted.push_back(beat::Encrypt(
+                    beat_params,
+                    beat_setup.public_parameters,
+                    [this](std::span<std::uint8_t> out) { beat_rng.fill(out); }));
                 pfe_encrypted.push_back(pfe::Encrypt(
                     pfe_params,
                     pfe_setup.public_parameters,
@@ -169,19 +209,26 @@ namespace
                     [this](std::span<std::uint8_t> out) { btx_rng.fill(out); }));
             }
 
+            beat_ciphertexts.reserve(batch_size);
+            for (const beat::EncryptionResult& item : beat_encrypted) {
+                beat_ciphertexts.push_back(item.ciphertext);
+            }
             pfe_ciphertexts = extract_pfe_ciphertexts(
                 std::span<const pfe::EncryptionResult>(pfe_encrypted.data(), pfe_encrypted.size()));
             btx_ciphertexts = extract_btx_ciphertexts(
                 std::span<const btx::EncryptionResult>(btx_encrypted.data(), btx_encrypted.size()));
-            beat_c1_points = extract_btx_c1_points(
-                std::span<const btx::Ciphertext>(btx_ciphertexts.data(), btx_ciphertexts.size()));
 
+            beat_request = beat::BuildThresholdRequest(beat_setup.public_parameters, beat_ciphertexts);
             pfe_request = pfe::BuildThresholdRequest(pfe_setup.public_parameters, pfe_ciphertexts);
             btx_request = btx::BuildThresholdRequest(btx_setup.public_parameters, btx_ciphertexts);
 
+            beat_shares.reserve(threshold);
             pfe_shares.reserve(threshold);
             btx_shares.reserve(threshold);
             for (std::size_t i = 0; i < threshold; ++i) {
+                beat_shares.push_back(beat::CreatePartialDecryptionShare(
+                    beat_setup.secret_shares[i],
+                    beat_request));
                 pfe_shares.push_back(pfe::CreatePartialDecryptionShare(
                     pfe_setup.secret_shares[i],
                     pfe_request));
@@ -190,6 +237,9 @@ namespace
                     btx_request));
             }
 
+            beat_aggregate_predecryption_key = beat::CombinePartialDecryptionShares(
+                std::span<const beat::PartialDecryptionShare>(beat_shares.data(), beat_shares.size()),
+                beat_setup.public_parameters);
             pfe_aggregate_predecryption_key = pfe::CombinePartialDecryptionShares(
                 std::span<const pfe::PartialDecryptionShare>(pfe_shares.data(), pfe_shares.size()),
                 pfe_setup.public_parameters);
@@ -197,13 +247,20 @@ namespace
                 std::span<const btx::PartialDecryptionShare>(btx_shares.data(), btx_shares.size()),
                 btx_setup.public_parameters);
 
+            beat_precomputed = beat::PrecomputeBatchDecryption(beat_prepared, beat_ciphertexts);
             pfe_precomputed = pfe::PrecomputeBatchDecryption(pfe_prepared, pfe_ciphertexts);
             btx_precomputed = btx::PrecomputeBatchDecryption(
                 btx_prepared,
                 btx_ciphertexts,
                 btx::CrossTermAlgorithm::MiddleProductFft);
 
-            // Warm BTX's lazily populated alpha cache so the timed online path is
+            benchmark::DoNotOptimize(beat::FinalizeBatchDecryption(
+                beat_params,
+                beat_prepared,
+                beat_precomputed,
+                beat_aggregate_predecryption_key));
+
+            // Warm BTX's lazily populated alpha cache so the timed open path is
             // only the actual finalize step.
             benchmark::DoNotOptimize(btx::FinalizeBatchDecryption(
                 btx_params,
@@ -213,19 +270,22 @@ namespace
         }
     };
 
+    constexpr std::size_t kDefaultBatchSize = 32;
     constexpr std::size_t kDefaultThreshold = 8;
     constexpr std::size_t kDefaultServerCount = 16;
 
     std::unique_ptr<ComparisonContext> build_context(
         benchmark::State& state,
         const std::size_t batch_size,
+        const std::size_t threshold,
+        const std::size_t num_servers,
         const std::uint64_t seed)
     {
         try {
             return std::make_unique<ComparisonContext>(
                 batch_size,
-                kDefaultThreshold,
-                kDefaultServerCount,
+                threshold,
+                num_servers,
                 seed);
         } catch (const std::exception& ex) {
             std::fprintf(stderr, "three-way benchmark context error: %s\n", ex.what());
@@ -237,11 +297,128 @@ namespace
         return nullptr;
     }
 
-    static void BM_BtxPfeBeat_Offline_PfePrepared(benchmark::State& state)
+    static void BM_BtxPfeBeat_PartialDecrypt_Pfe(benchmark::State& state)
     {
         const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
         const std::unique_ptr<ComparisonContext> ctx =
-            build_context(state, batch_size, 0xf7100000ULL + batch_size);
+            build_context(state, batch_size, kDefaultThreshold, kDefaultServerCount, 0xf7050000ULL + batch_size);
+        if (!ctx) {
+            return;
+        }
+
+        for (auto _ : state) {
+            benchmark::DoNotOptimize(pfe::CreatePartialDecryptionShare(
+                ctx->pfe_setup.secret_shares.front(),
+                ctx->pfe_request));
+            benchmark::ClobberMemory();
+        }
+
+        set_batch_counter(state, batch_size);
+    }
+
+    static void BM_BtxPfeBeat_PartialDecrypt_Btx(benchmark::State& state)
+    {
+        const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
+        const std::unique_ptr<ComparisonContext> ctx =
+            build_context(state, batch_size, kDefaultThreshold, kDefaultServerCount, 0xf7060000ULL + batch_size);
+        if (!ctx) {
+            return;
+        }
+
+        for (auto _ : state) {
+            benchmark::DoNotOptimize(btx::CreatePartialDecryptionShare(
+                ctx->btx_setup.secret_shares.front(),
+                ctx->btx_request));
+            benchmark::ClobberMemory();
+        }
+
+        set_batch_counter(state, batch_size);
+    }
+
+    static void BM_BtxPfeBeat_PartialDecrypt_Beat(benchmark::State& state)
+    {
+        const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
+        const std::unique_ptr<ComparisonContext> ctx =
+            build_context(state, batch_size, kDefaultThreshold, kDefaultServerCount, 0xf7070000ULL + batch_size);
+        if (!ctx) {
+            return;
+        }
+
+        for (auto _ : state) {
+            benchmark::DoNotOptimize(beat::CreatePartialDecryptionShare(
+                ctx->beat_setup.secret_shares.front(),
+                ctx->beat_request));
+            benchmark::ClobberMemory();
+        }
+
+        set_batch_counter(state, batch_size);
+    }
+
+    static void BM_BtxPfeBeat_Combine_Pfe(benchmark::State& state)
+    {
+        const std::size_t threshold = static_cast<std::size_t>(state.range(0));
+        const std::size_t server_count = std::max(kDefaultServerCount, threshold);
+        const std::unique_ptr<ComparisonContext> ctx =
+            build_context(state, kDefaultBatchSize, threshold, server_count, 0xf7080000ULL + threshold);
+        if (!ctx) {
+            return;
+        }
+
+        for (auto _ : state) {
+            benchmark::DoNotOptimize(pfe::CombinePartialDecryptionShares(
+                std::span<const pfe::PartialDecryptionShare>(ctx->pfe_shares.data(), threshold),
+                ctx->pfe_setup.public_parameters));
+            benchmark::ClobberMemory();
+        }
+
+        set_threshold_counter(state, threshold);
+    }
+
+    static void BM_BtxPfeBeat_Combine_Btx(benchmark::State& state)
+    {
+        const std::size_t threshold = static_cast<std::size_t>(state.range(0));
+        const std::size_t server_count = std::max(kDefaultServerCount, threshold);
+        const std::unique_ptr<ComparisonContext> ctx =
+            build_context(state, kDefaultBatchSize, threshold, server_count, 0xf7090000ULL + threshold);
+        if (!ctx) {
+            return;
+        }
+
+        for (auto _ : state) {
+            benchmark::DoNotOptimize(btx::CombinePartialDecryptionShares(
+                std::span<const btx::PartialDecryptionShare>(ctx->btx_shares.data(), threshold),
+                ctx->btx_setup.public_parameters));
+            benchmark::ClobberMemory();
+        }
+
+        set_threshold_counter(state, threshold);
+    }
+
+    static void BM_BtxPfeBeat_Combine_Beat(benchmark::State& state)
+    {
+        const std::size_t threshold = static_cast<std::size_t>(state.range(0));
+        const std::size_t server_count = std::max(kDefaultServerCount, threshold);
+        const std::unique_ptr<ComparisonContext> ctx =
+            build_context(state, kDefaultBatchSize, threshold, server_count, 0xf70a0000ULL + threshold);
+        if (!ctx) {
+            return;
+        }
+
+        for (auto _ : state) {
+            benchmark::DoNotOptimize(beat::CombinePartialDecryptionShares(
+                std::span<const beat::PartialDecryptionShare>(ctx->beat_shares.data(), threshold),
+                ctx->beat_setup.public_parameters));
+            benchmark::ClobberMemory();
+        }
+
+        set_threshold_counter(state, threshold);
+    }
+
+    static void BM_BtxPfeBeat_Precompute_Pfe(benchmark::State& state)
+    {
+        const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
+        const std::unique_ptr<ComparisonContext> ctx =
+            build_context(state, batch_size, kDefaultThreshold, kDefaultServerCount, 0xf7100000ULL + batch_size);
         if (!ctx) {
             return;
         }
@@ -256,11 +433,11 @@ namespace
         set_batch_counter(state, batch_size);
     }
 
-    static void BM_BtxPfeBeat_Offline_BtxPrepared(benchmark::State& state)
+    static void BM_BtxPfeBeat_Precompute_Btx(benchmark::State& state)
     {
         const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
         const std::unique_ptr<ComparisonContext> ctx =
-            build_context(state, batch_size, 0xf7200000ULL + batch_size);
+            build_context(state, batch_size, kDefaultThreshold, kDefaultServerCount, 0xf7200000ULL + batch_size);
         if (!ctx) {
             return;
         }
@@ -276,36 +453,30 @@ namespace
         set_batch_counter(state, batch_size);
     }
 
-    static void BM_BtxPfeBeat_Offline_BeatPreparedMiddleProduct(benchmark::State& state)
+    static void BM_BtxPfeBeat_Precompute_Beat(benchmark::State& state)
     {
         const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
         const std::unique_ptr<ComparisonContext> ctx =
-            build_context(state, batch_size, 0xf7300000ULL + batch_size);
+            build_context(state, batch_size, kDefaultThreshold, kDefaultServerCount, 0xf7300000ULL + batch_size);
         if (!ctx) {
             return;
         }
 
-        std::vector<blst::GT> out(batch_size, blst::GT::identity());
-        blst::MiddleProductWorkspace workspace;
-
         for (auto _ : state) {
-            blst::middle_product(
-                std::span<const blst::G1Point>(ctx->beat_c1_points.data(), ctx->beat_c1_points.size()),
-                ctx->btx_prepared.fft_precomputed_b_by_batch_size[batch_size],
-                std::span<blst::GT>(out.data(), out.size()),
-                workspace);
-            benchmark::DoNotOptimize(out.data());
+            benchmark::DoNotOptimize(beat::PrecomputeBatchDecryption(
+                ctx->beat_prepared,
+                ctx->beat_ciphertexts));
             benchmark::ClobberMemory();
         }
 
         set_batch_counter(state, batch_size);
     }
 
-    static void BM_BtxPfeBeat_Online_PfePrepared(benchmark::State& state)
+    static void BM_BtxPfeBeat_Open_Pfe(benchmark::State& state)
     {
         const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
         const std::unique_ptr<ComparisonContext> ctx =
-            build_context(state, batch_size, 0xf7400000ULL + batch_size);
+            build_context(state, batch_size, kDefaultThreshold, kDefaultServerCount, 0xf7400000ULL + batch_size);
         if (!ctx) {
             return;
         }
@@ -322,11 +493,11 @@ namespace
         set_batch_counter(state, batch_size);
     }
 
-    static void BM_BtxPfeBeat_Online_BtxPrepared(benchmark::State& state)
+    static void BM_BtxPfeBeat_Open_Btx(benchmark::State& state)
     {
         const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
         const std::unique_ptr<ComparisonContext> ctx =
-            build_context(state, batch_size, 0xf7500000ULL + batch_size);
+            build_context(state, batch_size, kDefaultThreshold, kDefaultServerCount, 0xf7500000ULL + batch_size);
         if (!ctx) {
             return;
         }
@@ -343,23 +514,21 @@ namespace
         set_batch_counter(state, batch_size);
     }
 
-    static void BM_BtxPfeBeat_Online_BeatPreparedUpdate(benchmark::State& state)
+    static void BM_BtxPfeBeat_Open_Beat(benchmark::State& state)
     {
         const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
         const std::unique_ptr<ComparisonContext> ctx =
-            build_context(state, batch_size, 0xf7600000ULL + batch_size);
+            build_context(state, batch_size, kDefaultThreshold, kDefaultServerCount, 0xf7600000ULL + batch_size);
         if (!ctx) {
             return;
         }
 
-        std::vector<blst::GT> out(batch_size, blst::GT::identity());
-
         for (auto _ : state) {
-            blst::update(
-                ctx->btx_aggregate_predecryption_key,
-                ctx->btx_prepared.alpha_precomputed_b_by_batch_size[batch_size],
-                std::span<blst::GT>(out.data(), out.size()));
-            benchmark::DoNotOptimize(out.data());
+            benchmark::DoNotOptimize(beat::FinalizeBatchDecryption(
+                ctx->beat_params,
+                ctx->beat_prepared,
+                ctx->beat_precomputed,
+                ctx->beat_aggregate_predecryption_key));
             benchmark::ClobberMemory();
         }
 
@@ -367,9 +536,15 @@ namespace
     }
 }
 
-BENCHMARK(BM_BtxPfeBeat_Offline_PfePrepared)->Apply(apply_batch_args)->UseRealTime();
-BENCHMARK(BM_BtxPfeBeat_Offline_BtxPrepared)->Apply(apply_batch_args)->UseRealTime();
-BENCHMARK(BM_BtxPfeBeat_Offline_BeatPreparedMiddleProduct)->Apply(apply_batch_args)->UseRealTime();
-BENCHMARK(BM_BtxPfeBeat_Online_PfePrepared)->Apply(apply_batch_args)->UseRealTime();
-BENCHMARK(BM_BtxPfeBeat_Online_BtxPrepared)->Apply(apply_batch_args)->UseRealTime();
-BENCHMARK(BM_BtxPfeBeat_Online_BeatPreparedUpdate)->Apply(apply_batch_args)->UseRealTime();
+BENCHMARK(BM_BtxPfeBeat_PartialDecrypt_Pfe)->Apply(apply_batch_args)->UseRealTime();
+BENCHMARK(BM_BtxPfeBeat_PartialDecrypt_Btx)->Apply(apply_batch_args)->UseRealTime();
+BENCHMARK(BM_BtxPfeBeat_PartialDecrypt_Beat)->Apply(apply_batch_args)->UseRealTime();
+BENCHMARK(BM_BtxPfeBeat_Combine_Pfe)->Apply(apply_threshold_args)->UseRealTime();
+BENCHMARK(BM_BtxPfeBeat_Combine_Btx)->Apply(apply_threshold_args)->UseRealTime();
+BENCHMARK(BM_BtxPfeBeat_Combine_Beat)->Apply(apply_threshold_args)->UseRealTime();
+BENCHMARK(BM_BtxPfeBeat_Precompute_Pfe)->Apply(apply_batch_args)->UseRealTime();
+BENCHMARK(BM_BtxPfeBeat_Precompute_Btx)->Apply(apply_batch_args)->UseRealTime();
+BENCHMARK(BM_BtxPfeBeat_Precompute_Beat)->Apply(apply_batch_args)->UseRealTime();
+BENCHMARK(BM_BtxPfeBeat_Open_Pfe)->Apply(apply_batch_args)->UseRealTime();
+BENCHMARK(BM_BtxPfeBeat_Open_Btx)->Apply(apply_batch_args)->UseRealTime();
+BENCHMARK(BM_BtxPfeBeat_Open_Beat)->Apply(apply_batch_args)->UseRealTime();

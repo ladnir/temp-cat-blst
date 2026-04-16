@@ -139,13 +139,21 @@ namespace
                 prepared_public_parameters,
                 ciphertexts,
                 CrossTermAlgorithm::MiddleProductFft);
+
+            // Warm the lazily materialized alpha cache so prepared open
+            // benchmarks measure the steady-state path.
+            benchmark::DoNotOptimize(FinalizeBatchDecryption(
+                params,
+                prepared_public_parameters,
+                btx_precomputation,
+                aggregate_predecryption_key));
         }
     };
 
     constexpr std::size_t kDefaultThreshold = 8;
     constexpr std::size_t kDefaultServerCount = 16;
 
-    static void BM_BtxVsBeat_Offline_BtxPrepared(benchmark::State& state)
+    static void BM_BtxVsBeat_Precompute_Btx(benchmark::State& state)
     {
         const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
         HeadToHeadContext ctx(batch_size, kDefaultThreshold, kDefaultServerCount, 0xbea70000ULL + batch_size);
@@ -161,7 +169,7 @@ namespace
         set_batch_counter(state, batch_size);
     }
 
-    static void BM_BtxVsBeat_Offline_BeatPreparedMiddleProduct(benchmark::State& state)
+    static void BM_BtxVsBeat_Precompute_Beat(benchmark::State& state)
     {
         const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
         HeadToHeadContext ctx(batch_size, kDefaultThreshold, kDefaultServerCount, 0xbea80000ULL + batch_size);
@@ -182,7 +190,7 @@ namespace
         set_batch_counter(state, batch_size);
     }
 
-    static void BM_BtxVsBeat_Online_BtxPrepared(benchmark::State& state)
+    static void BM_BtxVsBeat_Open_Btx(benchmark::State& state)
     {
         const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
         HeadToHeadContext ctx(batch_size, kDefaultThreshold, kDefaultServerCount, 0xbea90000ULL + batch_size);
@@ -199,7 +207,7 @@ namespace
         set_batch_counter(state, batch_size);
     }
 
-    static void BM_BtxVsBeat_Online_BeatPreparedUpdate(benchmark::State& state)
+    static void BM_BtxVsBeat_Open_Beat(benchmark::State& state)
     {
         const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
         HeadToHeadContext ctx(batch_size, kDefaultThreshold, kDefaultServerCount, 0xbeaa0000ULL + batch_size);
@@ -219,7 +227,7 @@ namespace
     }
 }
 
-BENCHMARK(BM_BtxVsBeat_Offline_BtxPrepared)->Apply(apply_batch_args)->UseRealTime();
-BENCHMARK(BM_BtxVsBeat_Offline_BeatPreparedMiddleProduct)->Apply(apply_batch_args)->UseRealTime();
-BENCHMARK(BM_BtxVsBeat_Online_BtxPrepared)->Apply(apply_batch_args)->UseRealTime();
-BENCHMARK(BM_BtxVsBeat_Online_BeatPreparedUpdate)->Apply(apply_batch_args)->UseRealTime();
+BENCHMARK(BM_BtxVsBeat_Precompute_Btx)->Apply(apply_batch_args)->UseRealTime();
+BENCHMARK(BM_BtxVsBeat_Precompute_Beat)->Apply(apply_batch_args)->UseRealTime();
+BENCHMARK(BM_BtxVsBeat_Open_Btx)->Apply(apply_batch_args)->UseRealTime();
+BENCHMARK(BM_BtxVsBeat_Open_Beat)->Apply(apply_batch_args)->UseRealTime();
