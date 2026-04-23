@@ -571,6 +571,10 @@ namespace bte::btx
     {
         validate_batch_size(public_parameters, ciphertexts.size());
 
+        // TODO(BTX-hardening): mirror the paper's valid-index set U instead of
+        // blindly forwarding every ciphertext. A malformed c1 currently flows
+        // into both the threshold MSM and the beta precompute and can poison
+        // the whole batch instead of being isolated to one slot.
         ThresholdRequest request{};
         request.ordered_c1.reserve(ciphertexts.size());
         for (const Ciphertext& ciphertext : ciphertexts) {
@@ -627,6 +631,10 @@ namespace bte::btx
             share_points.push_back(share.value);
         }
 
+        // TODO(BTX-hardening): add the paper's share-verification path before
+        // interpolation. Today we accept arbitrary (index, value) pairs here,
+        // so one malformed or malicious share can corrupt the reconstructed
+        // aggregate predecryption key for the whole batch.
         return msm_sum_g1(
             std::span<const blst::G1Point>(share_points.data(), share_points.size()),
             std::span<const blst::Fr>(lambdas.data(), lambdas.size()));
@@ -702,6 +710,9 @@ namespace bte::btx
 
         std::vector<Bytes> keys;
         keys.reserve(precomputation.ciphertexts.size());
+        // TODO(BTX-hardening): once we track the paper's valid-index set U
+        // through precompute/decrypt, return bottom for invalid slots instead
+        // of deriving a key for every ciphertext position unconditionally.
         for (std::size_t i = 0; i < precomputation.ciphertexts.size(); ++i) {
             const blst::GT alpha = pairing(
                 aggregate_predecryption_key,
@@ -741,6 +752,9 @@ namespace bte::btx
 
         std::vector<Bytes> keys;
         keys.reserve(batch_size);
+        // TODO(BTX-hardening): once we track the paper's valid-index set U
+        // through precompute/decrypt, return bottom for invalid slots instead
+        // of deriving a key for every ciphertext position unconditionally.
         for (std::size_t i = 0; i < batch_size; ++i) {
             const blst::GT gamma = sub_gt(alpha[i], precomputation.beta[i]);
             keys.push_back(kdf_from_gt(params, gamma));

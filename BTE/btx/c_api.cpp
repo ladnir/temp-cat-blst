@@ -49,6 +49,10 @@ namespace
 
     blst::G1Point to_public_g1(const blst_p1& point)
     {
+        // TODO(BTX-hardening): validate caller-supplied blst_p1 inputs before
+        // mapping them into the internal backend. The BTX C API currently
+        // trusts these points, unlike the serialization path which performs
+        // decompression and subgroup checks.
         const auto& scalar_point = reinterpret_cast<const BoundaryG1&>(point);
 #if BLST_DEFAULT_AVX
         return blst::avx::avx_map_to_G_detail::from_scalar(scalar_point);
