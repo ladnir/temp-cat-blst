@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
+#include <array>
 #include <iostream>
 #include "config.h"
 #include "blst/curve/GT.h"
@@ -84,6 +85,21 @@ namespace
 
     bool bool_equal(const bool& a, const bool& b) {
         return a == b;
+    }
+
+    std::array<u64, 4> scalar_from_modulus_minus(std::array<u64, 4> delta)
+    {
+        const Fr& modulus = get_BLST_r();
+        std::array<u64, 4> out = { modulus[0], modulus[1], modulus[2], modulus[3] };
+
+        u64 borrow = 0;
+        for (size_t i = 0; i < out.size(); ++i) {
+            const u64 sub = delta[i] + borrow;
+            borrow = (out[i] < sub) ? 1 : 0;
+            out[i] -= sub;
+        }
+
+        return out;
     }
 
     // Global flag for CUDA availability
@@ -1331,6 +1347,57 @@ TEST(GTOpsCUDA, AdvancedExponentiation) {
     }
 
     // Cleanup
+    CUDA_CHECK(cudaFree(d_bases));
+    CUDA_CHECK(cudaFree(d_result));
+    CUDA_CHECK(cudaFree(d_exponents));
+}
+
+TEST(GTOpsCUDA, Exponentiation256BitReducedScalars) {
+    if (!GTCUDAEnvironment::IsCudaAvailable()) {
+        GTEST_SKIP() << "CUDA not available";
+    }
+
+    constexpr size_t num_elements = 5;
+    constexpr size_t exp_bits = 256;
+    constexpr size_t exp_bytes = exp_bits / 8;
+
+    GT* d_bases = nullptr;
+    GT* d_result = nullptr;
+    unsigned char* d_exponents = nullptr;
+    GT h_bases[num_elements];
+    unsigned char h_exponents[num_elements * exp_bytes] = {};
+    GT h_cuda_result[num_elements], h_cpu_result[num_elements];
+
+    InsecureRng rng;
+    create_test_gt_elements(h_bases, num_elements, rng);
+
+    const std::array<std::array<u64, 4>, num_elements> reduced_scalars = {
+        std::array<u64, 4>{1, 0, 0, 0},
+        scalar_from_modulus_minus({1, 0, 0, 0}),
+        scalar_from_modulus_minus({0x12345, 0, 0, 0}),
+        scalar_from_modulus_minus({0, 0x6789, 0, 0}),
+        scalar_from_modulus_minus({0, 0, 0, 0x55})
+    };
+
+    for (size_t i = 0; i < num_elements; ++i) {
+        memcpy(&h_exponents[i * exp_bytes], reduced_scalars[i].data(), exp_bytes);
+        GT::mult(h_cpu_result[i], h_bases[i], &h_exponents[i * exp_bytes], exp_bits);
+    }
+
+    CUDA_CHECK(cudaMalloc(&d_bases, num_elements * sizeof(GT)));
+    CUDA_CHECK(cudaMalloc(&d_result, num_elements * sizeof(GT)));
+    CUDA_CHECK(cudaMalloc(&d_exponents, num_elements * exp_bytes));
+
+    CUDA_CHECK(cudaMemcpy(d_bases, h_bases, num_elements * sizeof(GT), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_exponents, h_exponents, num_elements * exp_bytes, cudaMemcpyHostToDevice));
+
+    batched_error_code result = pow_gt_vec(d_result, d_bases, d_exponents, exp_bits, num_elements);
+    EXPECT_TRUE(check_batched_success(result));
+
+    CUDA_CHECK(cudaMemcpy(h_cuda_result, d_result, num_elements * sizeof(GT), cudaMemcpyDeviceToHost));
+
+    EXPECT_TRUE(compare_results(h_cuda_result, h_cpu_result, num_elements, gt_element_equal));
+
     CUDA_CHECK(cudaFree(d_bases));
     CUDA_CHECK(cudaFree(d_result));
     CUDA_CHECK(cudaFree(d_exponents));

@@ -1751,15 +1751,15 @@ namespace blst::scalar
 		*rem = (uint64_t)(p % div);
 		return (uint64_t)(p / div);
 #else
-		// Fallback for purely portable arithmetic (bit-by-bit or half-word)
-		// Simplified bitwise restoring division for test purposes if intrinsics missing
-		// Slow but functional.
+		// Portable fallback. Keep the carry bit from the left shift explicitly so
+		// divisors above 2^63 still produce correct 65-bit intermediate remainders.
 		if (hi >= div) { /* overflow case, strict 128/64 implies q fits in 64, so hi < div */ }
 		uint64_t r = hi;
 		uint64_t q = 0;
 		for (int i = 63; i >= 0; i--) {
+			const uint64_t carry = r >> 63;
 			r = (r << 1) | ((lo >> i) & 1);
-			if (r >= div) {
+			if (carry || r >= div) {
 				r -= div;
 				q |= (1ULL << i);
 			}

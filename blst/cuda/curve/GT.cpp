@@ -6,7 +6,7 @@
 
 #include "blst/curve/point.h"
 #include "blst/curve/GT.h"
-#include "pairing.h"
+#include "blst/curve/pairing.h"
 #include "blst/curve/GT_cuda.h"
 #include "blst/exports.h"
 #include "blst/common/errors.h"

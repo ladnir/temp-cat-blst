@@ -118,7 +118,7 @@ namespace blst::scalar {
 			} else {
 				// For non-256-bit scalars, fall back to the basic cyclotomic exponentiation.
 				Fp12::cyclotomic_exp(out.data, a.data, scalar, nbits);
-            }
+			}
 		}
 
 		/**

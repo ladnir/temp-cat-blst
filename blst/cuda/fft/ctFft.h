@@ -213,21 +213,24 @@ namespace blst {
         int idx0 = i + j;
         int idx1 = i + j + half;
 
-        Fr w = roots[j * (n / len)];
-
         GT u = a[idx0];
-        GT t;
+        GT t = a[idx1];
 
-        // Scalar multiplication: t = a[idx1] * w (Fp12 exponentiation)
-        Fr w_non_mont;
-        Fr::from_mont(w_non_mont, w);
-        GT::mult(t, a[idx1], reinterpret_cast<const byte*>(&w_non_mont), 256);
+        // Match the CPU FFT fast path exactly when w == 1.
+        if (j != 0) {
+            Fr w = roots[j * (n / len)];
+            Fr w_non_mont;
+            Fr::from_mont(w_non_mont, w);
+            GT::mult(t, a[idx1], reinterpret_cast<const byte*>(&w_non_mont), 256);
+        }
 
-        // a[idx0] = u + t (Fp12 multiplication)
-        GT::add(a[idx0], u, t);
+        // Mirror the CPU GTCoeffCtx path exactly: subtraction is negation
+        // followed by the GT group operation, rather than the GT::sub helper.
+        GT::dadd(a[idx0], u, t);
 
-        // a[idx1] = u - t (Fp12 division)
-        GT::sub(a[idx1], u, t);
+        GT neg_t;
+        GT::neg(neg_t, t);
+        GT::dadd(a[idx1], u, neg_t);
     }
 
     /**
