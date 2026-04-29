@@ -3,12 +3,12 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PLINK_EXE="${PLINK_EXE:-/c/Users/peter/OneDrive/tools/plink.exe}"
-PLINK_KEY="${PLINK_KEY:-/c/Users/peter/OneDrive/keys/aws_2_19_26.ppk}"
+PLINK_EXE="${PLINK_EXE:-plink}"
+PLINK_KEY="${PLINK_KEY:-/path/to/key}"
 REMOTE_HOST="${REMOTE_HOST:-18.188.231.170}"
 REMOTE_USER="${REMOTE_USER:-ec2-user}"
 REMOTE_HOSTKEY="${REMOTE_HOSTKEY:-ssh-ed25519 255 SHA256:/qd0qT37U/NAXgZT1kN6kSHaiyhoqQUXrlQBQXTa4Go}"
-REMOTE_BASE="${REMOTE_BASE:-/home/ec2-user/avx-fft}"
+REMOTE_BASE="${REMOTE_BASE:-/tmp/avx-fft}"
 CLANG_ROOT="${CLANG_ROOT:-/opt/llvm-21/bin}"
 PIN_CORE="${PIN_CORE:-0}"
 REPETITIONS="${REPETITIONS:-5}"

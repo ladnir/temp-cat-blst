@@ -1170,7 +1170,7 @@ namespace temp {
 		acc.hi = acc.hi + c;
 	}
 
-	// If you want to use Peter's helper instead of add_limb_into_wide:
+	// Alternative helper form for comparison with add_limb_into_wide:
 	// BLST_HD BLST_FORCEINLINE
 	// void cc_add_wide_wide_limb(wide64* ret, const wide64& a, const uint64_t& b)
 	// { wide64 aa = a; ret->lo = aa.lo + b; ret->hi = aa.hi + ((ret->lo < aa.lo) ? 1ull : 0ull); }

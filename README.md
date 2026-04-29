@@ -1,13 +1,42 @@
-[![Actions status](https://github.com/supranational/blst/workflows/build/badge.svg)](https://github.com/supranational/blst/actions) [![CodeQL status](https://github.com/supranational/blst/workflows/CodeQL/badge.svg)](https://github.com/supranational/blst/actions/workflows/codeql-analysis.yml)
 <div align="left">
   <img src=blst_logo_small.png>
 </div>
 
-# blst
+# BTX + blst CCS 2026 Review Artifact
+
+This repository is an anonymous CCS 2026 review artifact for BTX. It contains
+the BTX implementation and supporting cryptographic building blocks integrated
+with blst, a high-performance BLS12-381 library. The artifact is provided so
+reviewers can inspect the implementation and evaluate the experiments described
+in the submitted paper.
+
+## Review-only availability
+
+This artifact is not a public release of the BTX code. It is provided only for
+the CCS 2026 peer-review process, under the confidentiality expectations of that
+process. The unpublished BTX-related additions and modifications are provided
+under the [BTX Delta Review-Only Terms](BTX_DELTA_REVIEW_TERMS.md). Reviewers
+must not use, copy, redistribute, publish, benchmark, incorporate, or rely on
+that unpublished BTX Delta for any purpose other than evaluating the current CCS
+2026 submission. The authors intend to release code publicly later, at a time,
+location, and release boundary of their choosing. The public release is delayed
+for business reasons.
+
+This review-only notice does not change the terms of any third-party or
+pre-existing open-source components included in this repository. In particular,
+the original blst code remains subject to its existing license.
+
+# blst with BTX extensions
 blst (pronounced 'blast') is a BLS12-381 signature library focused on performance and security. It is written in C and assembly.
+
+This artifact extends blst with BTX-related code, middle-product and FFT support,
+and benchmark/test harnesses used by the paper.
 
 ## Table of Contents
 
+  * [Review-only availability](#review-only-availability)
+  * [BTX artifact overview](#btx-artifact-overview)
+  * [Artifact build and test](#artifact-build-and-test)
   * [Status](#status)
   * [General notes on implementation](#general-notes-on-implementation)
   * [Platform and Language Compatibility](#platform-and-language-compatibility)
@@ -25,6 +54,52 @@ blst (pronounced 'blast') is a BLS12-381 signature library focused on performanc
   * [Repository Structure](#repository-structure)
   * [Performance](#performance)
   * [License](#license)
+
+## BTX artifact overview
+
+The BTX implementation lives under [BTE/btx](BTE/btx). Supporting protocol and
+cryptographic components are under [BTE/building_blocks](BTE/building_blocks),
+[BTE/pfe](BTE/pfe), and [BTE/trx](BTE/trx).
+
+The blst-side extensions used by the artifact include:
+
+- the middle-product C API in [bindings/blst_middle_product.h](bindings/blst_middle_product.h);
+- FFT and middle-product kernels under [blst/fft](blst/fft);
+- scalar and AVX paths used by the BTX experiments;
+- CMake build options for CPU, AVX, benchmark, and optional CUDA builds;
+- tests in [test](test), including BTX, PFE, TRX, FFT, and middle-product tests;
+- benchmark drivers in [benchmark](benchmark), including BTX, PFE, TRX, pairing,
+  FFT, and middle-product benchmarks.
+
+## Artifact build and test
+
+The artifact uses CMake presets for the main C++ build. On Windows with a Visual
+Studio/Ninja environment:
+
+```sh
+cmake --preset x64-Release-Avx
+cmake --build out/build/x64-Release-Avx
+ctest --test-dir out/build/x64-Release-Avx
+```
+
+For a scalar CPU build without CUDA:
+
+```sh
+cmake --preset x64-Release-Scalar
+cmake --build out/build/x64-Release-Scalar
+ctest --test-dir out/build/x64-Release-Scalar
+```
+
+On Linux or WSL with Ninja:
+
+```sh
+cmake --preset linux
+cmake --build out/build/linux
+ctest --test-dir out/build/linux
+```
+
+CUDA support is controlled by the `BLST_CUDA` and `BLST_CUDA_MSM` CMake options
+and requires a matching CUDA toolkit and GPU driver.
 
 ## Status
 **This library is under active development**
@@ -255,4 +330,10 @@ For more details see the Rust binding [readme](bindings/rust/README.md).
 Currently both the [Go](bindings/go) and [Rust](bindings/rust) bindings provide benchmarks for a variety of signature related operations.
 
 ## License
-The blst library is licensed under the [Apache License Version 2.0](LICENSE) software license.
+The original blst library is licensed under the [Apache License Version 2.0](LICENSE)
+software license.
+
+The authors' unpublished BTX-related additions and modifications in this review
+artifact are provided under the [BTX Delta Review-Only Terms](BTX_DELTA_REVIEW_TERMS.md),
+except where a file or component states different terms or where pre-existing
+third-party/open-source license terms apply.
