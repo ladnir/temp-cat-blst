@@ -37,6 +37,7 @@ and benchmark/test harnesses used by the paper.
   * [Review-only availability](#review-only-availability)
   * [BTX artifact overview](#btx-artifact-overview)
   * [Artifact build and test](#artifact-build-and-test)
+  * [Reproducing the paper results](#reproducing-the-paper-results)
   * [Status](#status)
   * [General notes on implementation](#general-notes-on-implementation)
   * [Platform and Language Compatibility](#platform-and-language-compatibility)
@@ -100,6 +101,135 @@ ctest --test-dir out/build/linux
 
 CUDA support is controlled by the `BLST_CUDA` and `BLST_CUDA_MSM` CMake options
 and requires a matching CUDA toolkit and GPU driver.
+
+## Reproducing the paper results
+
+The paper's reported timings were collected on a single AWS machine with an
+Intel Xeon Platinum 8488C CPU, AVX-512 and ADX enabled, Clang 21.1.8, and a
+release build using native code generation. Absolute runtimes are hardware and
+compiler sensitive; the most robust way to check the artifact is to compare the
+relative trends and the phase decomposition rather than expecting bit-for-bit
+identical millisecond values on a different host.
+
+Run benchmarks one process at a time on an otherwise idle machine. Do not run
+multiple benchmark binaries concurrently. For cleaner measurements, pin the
+benchmark process to one physical core and keep CPU frequency settings stable.
+
+A representative Linux/WSL release build is:
+
+```sh
+cmake -S . -B out/build/ccs2026-release -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_COMPILER=clang \
+  -DCMAKE_CXX_COMPILER=clang++ \
+  -DCMAKE_C_FLAGS_RELEASE="-O3 -march=native" \
+  -DCMAKE_CXX_FLAGS_RELEASE="-O3 -march=native" \
+  -DBLST_ASM=ON \
+  -DBLST_ADX=ON \
+  -DBLST_AVX512=ON \
+  -DBLST_DEFAULT_AVX=ON \
+  -DBLST_CUDA=OFF \
+  -DBLST_TEST=ON \
+  -DBLST_BENCHMARK=ON
+
+cmake --build out/build/ccs2026-release --target \
+  bte_btx_benchmarks bte_pfe_benchmarks bte_trx_benchmarks
+
+ctest --test-dir out/build/ccs2026-release
+```
+
+The main paper table reports total single-core decryption time for batch sizes
+32, 64, 128, 256, and 512. These totals are computed from phase measurements,
+not from one monolithic end-to-end executable. The relevant benchmark binaries
+are:
+
+- `out/build/ccs2026-release/benchmark/bte_btx_benchmarks`
+  - BTX phases and the BTX-vs-BEAT head-to-head comparison.
+- `out/build/ccs2026-release/benchmark/bte_pfe_benchmarks`
+  - PFE phases and the PFE-vs-BTX head-to-head comparison.
+- `out/build/ccs2026-release/benchmark/bte_trx_benchmarks`
+  - threshold/robustness and ciphertext-proof measurements used for the common
+    NIZK/checking terms.
+
+To reproduce the head-to-head BTX/PFE numbers for the paper's largest batch
+size, run:
+
+```sh
+taskset -c 0 out/build/ccs2026-release/benchmark/bte_pfe_benchmarks \
+  --benchmark_filter='^BM_PfeVsBtx_.*512$' \
+  --benchmark_repetitions=3 \
+  --benchmark_report_aggregates_only=true \
+  --benchmark_format=json \
+  --benchmark_out=out/pfe-btx-512.json
+```
+
+To collect the full BTX/PFE batch sweep used by the main table and appendix:
+
+```sh
+taskset -c 0 out/build/ccs2026-release/benchmark/bte_pfe_benchmarks \
+  --benchmark_filter='^BM_PfeVsBtx_.*$|^BM_Pfe_.*$' \
+  --benchmark_repetitions=3 \
+  --benchmark_report_aggregates_only=true \
+  --benchmark_format=json \
+  --benchmark_out=out/pfe-btx.json
+```
+
+To collect the BTX/BEAT comparison:
+
+```sh
+taskset -c 0 out/build/ccs2026-release/benchmark/bte_btx_benchmarks \
+  --benchmark_filter='^BM_BtxVsBeat_.*$|^BM_Btx_.*$' \
+  --benchmark_repetitions=3 \
+  --benchmark_report_aggregates_only=true \
+  --benchmark_format=json \
+  --benchmark_out=out/btx-beat.json
+```
+
+To collect the threshold and checking microbenchmarks:
+
+```sh
+taskset -c 0 out/build/ccs2026-release/benchmark/bte_trx_benchmarks \
+  --benchmark_filter='^BM_Trx_.*$' \
+  --benchmark_repetitions=3 \
+  --benchmark_report_aggregates_only=true \
+  --benchmark_format=json \
+  --benchmark_out=out/trx.json
+```
+
+The benchmark names correspond to the paper phases as follows:
+
+- `BM_PfeVsBtx_Offline_*` measures the batch-dependent precomputation phase.
+- `BM_PfeVsBtx_Online_*` measures the final opening phase after threshold
+  decryption material is available.
+- `BM_PfeVsBtx_EndToEnd_*` measures precompute plus open for PFE and BTX.
+- `BM_BtxVsBeat_Offline_*` and `BM_BtxVsBeat_Online_*` measure the analogous
+  BTX and BEAT phases.
+- `BM_Btx_CreatePartialDecryptionShare`,
+  `BM_Pfe_CreatePartialDecryptionShare`, and related `BM_Trx_*` benchmarks give
+  the per-item threshold/checking costs reported in the appendix.
+
+The table in the paper fixes 512 valid server shares. The benchmark code directly
+measures the batch-dependent phases and small-threshold combine costs, then the
+paper computes:
+
+```text
+total_without_nizk =
+  batch_size * partial_decrypt_ms_per_item
+  + combine_ms_for_512_shares
+  + batch_size * precompute_ms_per_item
+  + batch_size * open_ms_per_item
+
+nizk_term =
+  batch_size * ciphertext_check_ms_per_item
+```
+
+The main table reports `total_without_nizk + nizk_term` as `X+Y`, where `X` is
+`total_without_nizk` and `Y` is `nizk_term`. For example, the paper reports the
+512-item row as approximately BTX `598.0+51.2` ms, PFE `1206.8+51.2` ms, and
+BEAT `619.0+51.2` ms on the evaluation host. Re-running on a different CPU or
+with a different compiler should preserve the qualitative result: BTX and BEAT
+are close, while BTX is substantially faster than PFE because PFE's final open
+phase performs more pairing work.
 
 ## Status
 **This library is under active development**

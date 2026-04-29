@@ -238,7 +238,7 @@ namespace
 
     void apply_batch_args(benchmark::internal::Benchmark* benchmark_handle)
     {
-        for (const int batch_size : { 1, 8, 32, 64, 128 }) {
+        for (const int batch_size : { 1, 8, 32, 64, 128, 256, 512 }) {
             benchmark_handle->Arg(batch_size);
         }
     }
