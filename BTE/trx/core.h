@@ -52,6 +52,12 @@ namespace bte::trx
         std::size_t context_id,
         const Crs& crs);
 
+    BatchDigest BuildBatchDigestFromVerified(
+        const TrxParameters& params,
+        std::span<const VerifiedCiphertext> ciphertexts,
+        std::size_t context_id,
+        const Crs& crs);
+
     std::vector<blst::G1Point> ComputeEvalProofs(
         const BatchDigest& digest,
         const Crs& crs);

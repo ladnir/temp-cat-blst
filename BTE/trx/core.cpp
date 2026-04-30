@@ -343,6 +343,55 @@ namespace bte::trx
             blst::GT::add(out, left, right);
             return out;
         }
+
+        BatchDigest build_digest_from_verified_ciphertexts(
+            const TrxParameters& params,
+            const std::span<const VerifiedCiphertext> ciphertexts,
+            const std::span<const std::size_t> valid_indices,
+            const std::size_t context_id,
+            const Crs& crs)
+        {
+            if (context_id >= crs.contexts.size()) {
+                throw std::invalid_argument("Context id is out of range");
+            }
+            if (ciphertexts.empty()) {
+                throw std::invalid_argument("Need at least one verified ciphertext");
+            }
+            if (ciphertexts.size() > params.max_batch_size) {
+                throw std::runtime_error("Batch exceeds configured maximum size");
+            }
+            if (!valid_indices.empty() && valid_indices.size() != ciphertexts.size()) {
+                throw std::invalid_argument("Valid index list must match verified ciphertext count");
+            }
+
+            BatchDigest digest{};
+            digest.context_id = context_id;
+            digest.valid_ciphertexts.assign(ciphertexts.begin(), ciphertexts.end());
+            digest.valid_indices.reserve(ciphertexts.size());
+            digest.tags.reserve(ciphertexts.size());
+            for (std::size_t i = 0; i < ciphertexts.size(); ++i) {
+                digest.valid_indices.push_back(valid_indices.empty() ? i : valid_indices[i]);
+                digest.tags.push_back(ciphertexts[i].tag);
+            }
+
+            std::unordered_set<std::string> seen_tags;
+            seen_tags.reserve(digest.tags.size());
+            for (const blst::Fr& tag : digest.tags) {
+                const std::array<std::uint8_t, 32> tag_bytes = fr_to_scalar_bytes(tag);
+                const std::string key(tag_bytes.begin(), tag_bytes.end());
+                if (!seen_tags.insert(key).second) {
+                    throw std::runtime_error("Duplicate tags are rejected in v1");
+                }
+            }
+
+            digest.polynomial = bte::building_blocks::build_vanishing_polynomial(digest.tags);
+            digest.commitment = bte::building_blocks::commit_polynomial(
+                std::span<const blst::G1Point>(
+                    crs.contexts[context_id].g1_powers.data(),
+                    crs.contexts[context_id].g1_powers.size()),
+                digest.polynomial);
+            return digest;
+        }
     }
 
     Crs GenerateCRS(const TrxParameters& params, const RandomBytesSource& rng)
@@ -542,15 +591,12 @@ namespace bte::trx
         const std::size_t context_id,
         const Crs& crs)
     {
-        if (context_id >= crs.contexts.size()) {
-            throw std::invalid_argument("Context id is out of range");
-        }
         if (ciphertexts.empty()) {
             throw std::invalid_argument("Need at least one ciphertext");
         }
 
-        BatchDigest digest{};
-        digest.context_id = context_id;
+        std::vector<std::size_t> valid_indices;
+        std::vector<VerifiedCiphertext> verified_ciphertexts;
 
         for (std::size_t i = 0; i < ciphertexts.size(); ++i) {
             const std::optional<VerifiedCiphertext> verified = VerifyCiphertext(
@@ -562,35 +608,19 @@ namespace bte::trx
             if (!verified.has_value()) {
                 continue;
             }
-            digest.valid_indices.push_back(i);
-            digest.valid_ciphertexts.push_back(*verified);
-            digest.tags.push_back(verified->tag);
+            valid_indices.push_back(i);
+            verified_ciphertexts.push_back(*verified);
         }
 
-        if (digest.valid_ciphertexts.empty()) {
+        if (verified_ciphertexts.empty()) {
             throw std::runtime_error("No valid ciphertexts remain after verification");
         }
-        if (digest.valid_ciphertexts.size() > params.max_batch_size) {
-            throw std::runtime_error("Batch exceeds configured maximum size");
-        }
-
-        std::unordered_set<std::string> seen_tags;
-        seen_tags.reserve(digest.tags.size());
-        for (const blst::Fr& tag : digest.tags) {
-            const std::array<std::uint8_t, 32> tag_bytes = fr_to_scalar_bytes(tag);
-            const std::string key(tag_bytes.begin(), tag_bytes.end());
-            if (!seen_tags.insert(key).second) {
-                throw std::runtime_error("Duplicate tags are rejected in v1");
-            }
-        }
-
-        digest.polynomial = bte::building_blocks::build_vanishing_polynomial(digest.tags);
-        digest.commitment = bte::building_blocks::commit_polynomial(
-            std::span<const blst::G1Point>(
-                crs.contexts[context_id].g1_powers.data(),
-                crs.contexts[context_id].g1_powers.size()),
-            digest.polynomial);
-        return digest;
+        return build_digest_from_verified_ciphertexts(
+            params,
+            std::span<const VerifiedCiphertext>(verified_ciphertexts.data(), verified_ciphertexts.size()),
+            std::span<const std::size_t>(valid_indices.data(), valid_indices.size()),
+            context_id,
+            crs);
     }
 
     BatchDigest BuildBatchDigest(
@@ -607,6 +637,20 @@ namespace bte::trx
         return BuildBatchDigest(
             params,
             std::span<const CiphertextEnvelope>(envelopes.data(), envelopes.size()),
+            context_id,
+            crs);
+    }
+
+    BatchDigest BuildBatchDigestFromVerified(
+        const TrxParameters& params,
+        const std::span<const VerifiedCiphertext> ciphertexts,
+        const std::size_t context_id,
+        const Crs& crs)
+    {
+        return build_digest_from_verified_ciphertexts(
+            params,
+            ciphertexts,
+            std::span<const std::size_t>(),
             context_id,
             crs);
     }

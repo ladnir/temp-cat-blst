@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -150,6 +151,7 @@ namespace
         EncryptionKey encryption_key;
         std::vector<EncryptedCiphertext> encrypted;
         std::vector<CiphertextEnvelope> envelopes;
+        std::vector<VerifiedCiphertext> verified_ciphertexts;
         BatchDigest digest;
         std::vector<blst::G1Point> proofs;
         std::vector<PartialDecryptionShare> threshold_shares;
@@ -196,9 +198,26 @@ namespace
                     [this](std::span<std::uint8_t> out) { rng.fill(out); }));
             }
             envelopes = to_envelopes(encrypted);
-            digest = BuildBatchDigest(
+
+            verified_ciphertexts.reserve(encrypted.size());
+            for (const EncryptedCiphertext& item : encrypted) {
+                const std::optional<VerifiedCiphertext> verified = VerifyCiphertext(
+                    params,
+                    item.ciphertext,
+                    std::span<const std::uint8_t>(
+                        item.associated_data.data(),
+                        item.associated_data.size()));
+                if (!verified.has_value()) {
+                    throw std::runtime_error("TRX benchmark generated an invalid ciphertext");
+                }
+                verified_ciphertexts.push_back(*verified);
+            }
+
+            digest = BuildBatchDigestFromVerified(
                 params,
-                std::span<const CiphertextEnvelope>(envelopes.data(), envelopes.size()),
+                std::span<const VerifiedCiphertext>(
+                    verified_ciphertexts.data(),
+                    verified_ciphertexts.size()),
                 0,
                 crs);
             proofs = ComputeEvalProofs(digest, crs);
@@ -245,7 +264,7 @@ namespace
 
     void apply_threshold_args(benchmark::internal::Benchmark* benchmark_handle)
     {
-        for (const int threshold : { 2, 4, 8, 16, 32 }) {
+        for (const int threshold : { 2, 4, 8, 16, 32, 512 }) {
             benchmark_handle->Arg(threshold);
         }
     }
@@ -445,6 +464,122 @@ namespace
         set_batch_counter(state, batch_size);
     }
 
+    static void BM_Trx_Phase_CtxtCheck(benchmark::State& state)
+    {
+        const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
+        TrxBenchmarkContext ctx(batch_size, kDefaultThreshold, kDefaultValidatorCount, 2, 0x33340000ULL + batch_size);
+
+        for (auto _ : state) {
+            for (const EncryptedCiphertext& encrypted : ctx.encrypted) {
+                benchmark::DoNotOptimize(VerifyCiphertext(
+                    ctx.params,
+                    encrypted.ciphertext,
+                    encrypted.associated_data));
+            }
+            benchmark::ClobberMemory();
+        }
+
+        set_batch_counter(state, batch_size);
+    }
+
+    static void BM_Trx_Phase_Precompute(benchmark::State& state)
+    {
+        const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
+        TrxBenchmarkContext ctx(batch_size, kDefaultThreshold, kDefaultValidatorCount, 2, 0x44450000ULL + batch_size);
+
+        for (auto _ : state) {
+            BatchDigest digest = BuildBatchDigestFromVerified(
+                ctx.params,
+                std::span<const VerifiedCiphertext>(
+                    ctx.verified_ciphertexts.data(),
+                    ctx.verified_ciphertexts.size()),
+                0,
+                ctx.crs);
+            benchmark::DoNotOptimize(ComputeEvalProofs(digest, ctx.crs));
+            benchmark::ClobberMemory();
+        }
+
+        set_batch_counter(state, batch_size);
+    }
+
+    static void BM_Trx_Phase_PartialDecrypt(benchmark::State& state)
+    {
+        const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
+        TrxBenchmarkContext ctx(batch_size, kDefaultThreshold, kDefaultValidatorCount, 2, 0x66670000ULL + batch_size);
+
+        for (auto _ : state) {
+            benchmark::DoNotOptimize(CreatePartialDecryption(
+                ctx.params,
+                ctx.secret_shares.front(),
+                ctx.digest,
+                ctx.public_key_material));
+            benchmark::ClobberMemory();
+        }
+
+        set_batch_counter(state, batch_size);
+    }
+
+    static void BM_Trx_Phase_ServerCheck(benchmark::State& state)
+    {
+        const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
+        TrxBenchmarkContext ctx(batch_size, kDefaultThreshold, kDefaultValidatorCount, 2, 0x77780000ULL + batch_size);
+        const PartialDecryptionShare& share = ctx.threshold_shares.front();
+        const ValidatorPublicShare& public_share = ctx.public_shares.front();
+
+        for (auto _ : state) {
+            benchmark::DoNotOptimize(VerifyPartialDecryption(
+                ctx.params,
+                share,
+                public_share,
+                ctx.digest,
+                ctx.public_key_material));
+            benchmark::ClobberMemory();
+        }
+
+        set_batch_counter(state, batch_size);
+    }
+
+    static void BM_Trx_Phase_Combine(benchmark::State& state)
+    {
+        const std::uint32_t threshold = static_cast<std::uint32_t>(state.range(0));
+        const std::uint32_t validator_count = std::max(kDefaultValidatorCount, threshold);
+        TrxBenchmarkContext ctx(32, threshold, validator_count, 2, 0x88890000ULL + threshold);
+
+        for (auto _ : state) {
+            benchmark::DoNotOptimize(CombineShares(
+                std::span<const PartialDecryptionShare>(
+                    ctx.threshold_shares.data(),
+                    ctx.threshold_shares.size()),
+                ctx.digest,
+                ctx.public_key_material));
+            benchmark::ClobberMemory();
+        }
+
+        set_threshold_counter(state, threshold);
+    }
+
+    static void BM_Trx_Phase_Open(benchmark::State& state)
+    {
+        const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
+        TrxBenchmarkContext ctx(batch_size, kDefaultThreshold, kDefaultValidatorCount, 2, 0x999a0000ULL + batch_size);
+
+        for (auto _ : state) {
+            for (std::size_t i = 0; i < ctx.proofs.size(); ++i) {
+                benchmark::DoNotOptimize(DecapsulateOne(
+                    ctx.params,
+                    ctx.digest,
+                    i,
+                    ctx.proofs[i],
+                    ctx.sigma,
+                    ctx.crs,
+                    ctx.public_key_material));
+            }
+            benchmark::ClobberMemory();
+        }
+
+        set_batch_counter(state, batch_size);
+    }
+
     static void BM_Trx_EndToEndBatch(benchmark::State& state)
     {
         const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
@@ -501,3 +636,9 @@ BENCHMARK(BM_Trx_VerifyPartialDecryption)->Apply(apply_batch_args);
 BENCHMARK(BM_Trx_CombineShares)->Apply(apply_threshold_args);
 BENCHMARK(BM_Trx_DecapsulateOne)->Apply(apply_batch_args);
 BENCHMARK(BM_Trx_EndToEndBatch)->Apply(apply_batch_args);
+BENCHMARK(BM_Trx_Phase_CtxtCheck)->Apply(apply_batch_args);
+BENCHMARK(BM_Trx_Phase_Precompute)->Apply(apply_batch_args);
+BENCHMARK(BM_Trx_Phase_PartialDecrypt)->Apply(apply_batch_args);
+BENCHMARK(BM_Trx_Phase_ServerCheck)->Apply(apply_batch_args);
+BENCHMARK(BM_Trx_Phase_Combine)->Apply(apply_threshold_args);
+BENCHMARK(BM_Trx_Phase_Open)->Apply(apply_batch_args);

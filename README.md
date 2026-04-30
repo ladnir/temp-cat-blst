@@ -144,12 +144,12 @@ not from one monolithic end-to-end executable. The relevant benchmark binaries
 are:
 
 - `out/build/ccs2026-release/benchmark/bte_btx_benchmarks`
-  - BTX phases and the BTX-vs-BEAT head-to-head comparison.
+  - BTX phases and the BTX-vs-BEAT++ head-to-head comparison.
 - `out/build/ccs2026-release/benchmark/bte_pfe_benchmarks`
   - PFE phases and the PFE-vs-BTX head-to-head comparison.
 - `out/build/ccs2026-release/benchmark/bte_trx_benchmarks`
-  - threshold/robustness and ciphertext-proof measurements used for the common
-    NIZK/checking terms.
+  - TRX phases and the TRX threshold, robustness, and ciphertext-proof
+    measurements.
 
 To reproduce the head-to-head BTX/PFE numbers for the paper's largest batch
 size, run:
@@ -174,7 +174,7 @@ taskset -c 0 out/build/ccs2026-release/benchmark/bte_pfe_benchmarks \
   --benchmark_out=out/pfe-btx.json
 ```
 
-To collect the BTX/BEAT comparison:
+To collect the BTX/BEAT++ comparison:
 
 ```sh
 taskset -c 0 out/build/ccs2026-release/benchmark/bte_btx_benchmarks \
@@ -202,34 +202,57 @@ The benchmark names correspond to the paper phases as follows:
 - `BM_PfeVsBtx_Online_*` measures the final opening phase after threshold
   decryption material is available.
 - `BM_PfeVsBtx_EndToEnd_*` measures precompute plus open for PFE and BTX.
-- `BM_BtxVsBeat_Offline_*` and `BM_BtxVsBeat_Online_*` measure the analogous
-  BTX and BEAT phases.
+- `BM_BtxVsBeat_Offline_BeatPlusPlus40`,
+  `BM_BtxVsBeat_Online_BeatPlusPlus40`,
+  `BM_BtxVsBeat_CtxtCheck_BeatPlusPlus40`,
+  `BM_BtxVsBeat_Combine_BeatPlusPlus40`, and
+  `BM_BtxVsBeat_ServerCheck_BeatPlusPlus40` measure the paper's 40-bit
+  BEAT++ cuckoo-hashing parameter set.
+- `BM_BtxVsBeat_Offline_BeatPlusPlus128`,
+  `BM_BtxVsBeat_Online_BeatPlusPlus128`,
+  `BM_BtxVsBeat_CtxtCheck_BeatPlusPlus128`,
+  `BM_BtxVsBeat_Combine_BeatPlusPlus128`, and
+  `BM_BtxVsBeat_ServerCheck_BeatPlusPlus128` measure the heuristic 128-bit
+  BEAT++ parameter set used in the paper.
+- The BEAT++ offline, online, combine, and server-check benchmarks charge `d`
+  BEAT executions at power-of-two sub-batch size `m`. The ciphertext-check
+  benchmarks charge `c * batch_size` client DLEq verifications. The parameter
+  search and the selected `(c,d,m)` tables are recorded in `scripts/hashing.py`.
 - `BM_Btx_CreatePartialDecryptionShare`,
-  `BM_Pfe_CreatePartialDecryptionShare`, and related `BM_Trx_*` benchmarks give
-  the per-item threshold/checking costs reported in the appendix.
+  `BM_Pfe_CreatePartialDecryptionShare`, and `BM_Trx_Phase_*` benchmarks give
+  the per-item threshold and phase costs reported in the appendix.
 
 The table in the paper fixes 512 valid server shares. The benchmark code directly
-measures the batch-dependent phases and small-threshold combine costs, then the
-paper computes:
+measures the batch-dependent phases, the 512-share combine costs, and the
+server-share checking costs. The paper reports two totals:
 
 ```text
-total_without_nizk =
+without_combine_check =
   batch_size * partial_decrypt_ms_per_item
-  + combine_ms_for_512_shares
   + batch_size * precompute_ms_per_item
   + batch_size * open_ms_per_item
+  + batch_size * ciphertext_check_ms_per_item
 
-nizk_term =
-  batch_size * ciphertext_check_ms_per_item
+with_combine_check =
+  without_combine_check
+  + combine_ms_for_512_shares
+  + batch_size * server_check_ms_per_item
 ```
 
-The main table reports `total_without_nizk + nizk_term` as `X+Y`, where `X` is
-`total_without_nizk` and `Y` is `nizk_term`. For example, the paper reports the
-512-item row as approximately BTX `598.0+51.2` ms, PFE `1206.8+51.2` ms, and
-BEAT `619.0+51.2` ms on the evaluation host. Re-running on a different CPU or
-with a different compiler should preserve the qualitative result: BTX and BEAT
-are close, while BTX is substantially faster than PFE because PFE's final open
-phase performs more pairing work.
+For example, on the evaluation host the 512-item row reports BTX as
+approximately `639.5` ms without combine+check and `767.5` ms with
+combine+check. The corresponding with-combine+check totals are approximately
+PFE `1325.1` ms, TRX `4391.4` ms, BEAT++-40 `21345.8` ms, and BEAT++-128
+`20690.9` ms. The abstract's approximately `598` ms BTX figure uses the
+narrower decryption-core convention that excludes threshold-share combination,
+server-share checking, and client ciphertext-proof checking.
+
+Re-running on a different CPU or with a different compiler should preserve the
+qualitative trends rather than the exact millisecond values: BTX is faster than
+PFE because it has lower batch-dependent precomputation and fewer final-opening
+pairings, TRX pays a larger precomputation/proof-generation cost, and
+collision-aware BEAT++ becomes expensive because the cuckoo-hashing layer
+requires multiple independent server executions per batch.
 
 ## Status
 **This library is under active development**

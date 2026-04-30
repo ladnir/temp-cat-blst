@@ -96,7 +96,7 @@ namespace
 
     void apply_threshold_args(benchmark::internal::Benchmark* benchmark_handle)
     {
-        for (const int threshold : { 2, 4, 8, 16 }) {
+        for (const int threshold : { 2, 4, 8, 16, 512 }) {
             benchmark_handle->Arg(threshold);
         }
     }
