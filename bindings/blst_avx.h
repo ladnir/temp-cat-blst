@@ -115,6 +115,30 @@ bool blst_avx_p1_add(blst_avx_p1* out, const blst_avx_p1* a, const blst_avx_p1* 
  * - `nbits` is the number of meaningful low bits in `scalar`.
  */
 bool blst_avx_p1_mult(blst_avx_p1* out, const blst_avx_p1* p, const byte* scalar, size_t nbits);
+
+/** Returns bucket scratch bytes required by `blst_avx_p1_mult_pippenger`. */
+size_t blst_avx_p1_mult_pippenger_scratch_sizeof(size_t npoints);
+/** Returns byte-flag scratch bytes required by `blst_avx_p1_mult_pippenger`. */
+size_t blst_avx_p1_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints);
+
+/**
+ * Variable-time Pippenger MSM over AVX G1 affine points.
+ *
+ * `scalars` is a contiguous array of `npoints` little-endian scalars, each
+ * `(nbits+7)/8` bytes. `scratch` and `bucket_used` must point to caller-owned
+ * storage of at least the sizes returned by the two scratch helpers above.
+ */
+bool blst_avx_p1_mult_pippenger(
+    blst_avx_p1* out,
+    const blst_avx_p1_affine* points,
+    const byte* scalars,
+    size_t npoints,
+    size_t nbits,
+    void* scratch,
+    size_t scratch_bytes,
+    byte* bucket_used,
+    size_t bucket_used_bytes);
+
 /** Converts an AVX G1 projective point to AVX affine form. */
 bool blst_avx_p1_to_affine(blst_avx_p1_affine* out, const blst_avx_p1* in);
 /** Converts an AVX G1 affine point to AVX projective form. */
@@ -150,6 +174,30 @@ bool blst_avx_p2_add(blst_avx_p2* out, const blst_avx_p2* a, const blst_avx_p2* 
  * Parameters mirror `blst_avx_p1_mult`.
  */
 bool blst_avx_p2_mult(blst_avx_p2* out, const blst_avx_p2* p, const byte* scalar, size_t nbits);
+
+/** Returns bucket scratch bytes required by `blst_avx_p2_mult_pippenger`. */
+size_t blst_avx_p2_mult_pippenger_scratch_sizeof(size_t npoints);
+/** Returns byte-flag scratch bytes required by `blst_avx_p2_mult_pippenger`. */
+size_t blst_avx_p2_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints);
+
+/**
+ * Variable-time Pippenger MSM over AVX G2 affine points.
+ *
+ * `scalars` is a contiguous array of `npoints` little-endian scalars, each
+ * `(nbits+7)/8` bytes. `scratch` and `bucket_used` must point to caller-owned
+ * storage of at least the sizes returned by the two scratch helpers above.
+ */
+bool blst_avx_p2_mult_pippenger(
+    blst_avx_p2* out,
+    const blst_avx_p2_affine* points,
+    const byte* scalars,
+    size_t npoints,
+    size_t nbits,
+    void* scratch,
+    size_t scratch_bytes,
+    byte* bucket_used,
+    size_t bucket_used_bytes);
+
 /** Converts an AVX G2 projective point to AVX affine form. */
 bool blst_avx_p2_to_affine(blst_avx_p2_affine* out, const blst_avx_p2* in);
 /** Converts an AVX G2 affine point to AVX projective form. */

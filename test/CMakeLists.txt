@@ -47,6 +47,7 @@ set(SCALAR_BACKEND_TEST_SOURCES
 )
 
 set(AVX_VALIDATION_TEST_SOURCES)
+set(AVX_TEST_SOURCES)
 
 set(TEST_SOURCES
     ${PUBLIC_API_TEST_SOURCES}
@@ -62,6 +63,13 @@ if(BLST_HAVE_AVX_VALIDATION_GMP)
         "avx/Avx_runtime_constants_validation_tests.cpp"
     )
     list(APPEND TEST_SOURCES ${AVX_VALIDATION_TEST_SOURCES})
+endif()
+
+if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
+    list(APPEND AVX_TEST_SOURCES
+        "avx/Avx_msm_tests.cpp"
+    )
+    list(APPEND TEST_SOURCES ${AVX_TEST_SOURCES})
 endif()
 
 if(BLST_PARALLEL_MSM)

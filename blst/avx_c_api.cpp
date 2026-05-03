@@ -7,10 +7,12 @@
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 #include "blst/avx/curve/GT.h"
 #include "blst/avx/curve/map_to_G.h"
+#include "blst/avx/curve/multi_scalar.h"
 #include "blst/avx/curve/point.h"
 #endif
 
 #include <cstddef>
+#include <cstdint>
 #include <type_traits>
 
 namespace {
@@ -157,6 +159,11 @@ inline ScalarFp12* as_scalar(blst_fp12* value)
     return reinterpret_cast<ScalarFp12*>(value);
 }
 
+inline bool is_aligned(const void* ptr, size_t alignment)
+{
+    return (reinterpret_cast<uintptr_t>(ptr) & (alignment - 1)) == 0;
+}
+
 inline AvxGt scalar_fp12_to_avx(const ScalarFp12& value)
 {
     unsigned char serialized[12 * 48] = {};
@@ -292,6 +299,76 @@ bool blst_avx_p1_mult(blst_avx_p1* out, const blst_avx_p1* p, const byte* scalar
     (void)p;
     (void)scalar;
     (void)nbits;
+    return false;
+#endif
+}
+
+size_t blst_avx_p1_mult_pippenger_scratch_sizeof(size_t npoints)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    return blst::avx::avx_g1_mult_pippenger_scratch_sizeof(npoints);
+#else
+    (void)npoints;
+    return 0;
+#endif
+}
+
+size_t blst_avx_p1_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    return blst::avx::avx_g1_mult_pippenger_bucket_used_scratch_sizeof(npoints);
+#else
+    (void)npoints;
+    return 0;
+#endif
+}
+
+bool blst_avx_p1_mult_pippenger(
+    blst_avx_p1* out,
+    const blst_avx_p1_affine* points,
+    const byte* scalars,
+    size_t npoints,
+    size_t nbits,
+    void* scratch,
+    size_t scratch_bytes,
+    byte* bucket_used,
+    size_t bucket_used_bytes)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (out == nullptr || nbits > 256) {
+        return false;
+    }
+    if (npoints == 0 || nbits == 0) {
+        *as_avx(out) = AvxG1::infinity();
+        return true;
+    }
+    const size_t required_scratch = blst::avx::avx_g1_mult_pippenger_scratch_sizeof(npoints);
+    const size_t required_bucket_used = blst::avx::avx_g1_mult_pippenger_bucket_used_scratch_sizeof(npoints);
+    if (points == nullptr || scalars == nullptr || scratch == nullptr || bucket_used == nullptr ||
+        scratch_bytes < required_scratch || bucket_used_bytes < required_bucket_used ||
+        !is_aligned(scratch, alignof(blst::avx::AvxG1PippengerBucket))) {
+        return false;
+    }
+    blst::avx::avx_g1_mult_pippenger(
+        *as_avx(out),
+        as_avx(points),
+        scalars,
+        npoints,
+        nbits,
+        reinterpret_cast<blst::avx::AvxG1PippengerBucket*>(scratch),
+        blst::avx::avx_g1_pippenger_window_size(npoints),
+        bucket_used);
+    return true;
+#else
+    (void)out;
+    (void)points;
+    (void)scalars;
+    (void)npoints;
+    (void)nbits;
+    (void)scratch;
+    (void)scratch_bytes;
+    (void)bucket_used;
+    (void)bucket_used_bytes;
     return false;
 #endif
 }
@@ -449,6 +526,76 @@ bool blst_avx_p2_mult(blst_avx_p2* out, const blst_avx_p2* p, const byte* scalar
     (void)p;
     (void)scalar;
     (void)nbits;
+    return false;
+#endif
+}
+
+size_t blst_avx_p2_mult_pippenger_scratch_sizeof(size_t npoints)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    return blst::avx::avx_g2_mult_pippenger_scratch_sizeof(npoints);
+#else
+    (void)npoints;
+    return 0;
+#endif
+}
+
+size_t blst_avx_p2_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    return blst::avx::avx_g2_mult_pippenger_bucket_used_scratch_sizeof(npoints);
+#else
+    (void)npoints;
+    return 0;
+#endif
+}
+
+bool blst_avx_p2_mult_pippenger(
+    blst_avx_p2* out,
+    const blst_avx_p2_affine* points,
+    const byte* scalars,
+    size_t npoints,
+    size_t nbits,
+    void* scratch,
+    size_t scratch_bytes,
+    byte* bucket_used,
+    size_t bucket_used_bytes)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (out == nullptr || nbits > 256) {
+        return false;
+    }
+    if (npoints == 0 || nbits == 0) {
+        *as_avx(out) = AvxG2::infinity();
+        return true;
+    }
+    const size_t required_scratch = blst::avx::avx_g2_mult_pippenger_scratch_sizeof(npoints);
+    const size_t required_bucket_used = blst::avx::avx_g2_mult_pippenger_bucket_used_scratch_sizeof(npoints);
+    if (points == nullptr || scalars == nullptr || scratch == nullptr || bucket_used == nullptr ||
+        scratch_bytes < required_scratch || bucket_used_bytes < required_bucket_used ||
+        !is_aligned(scratch, alignof(blst::avx::AvxG2PippengerBucket))) {
+        return false;
+    }
+    blst::avx::avx_g2_mult_pippenger(
+        *as_avx(out),
+        as_avx(points),
+        scalars,
+        npoints,
+        nbits,
+        reinterpret_cast<blst::avx::AvxG2PippengerBucket*>(scratch),
+        blst::avx::avx_g2_pippenger_window_size(npoints),
+        bucket_used);
+    return true;
+#else
+    (void)out;
+    (void)points;
+    (void)scalars;
+    (void)npoints;
+    (void)nbits;
+    (void)scratch;
+    (void)scratch_bytes;
+    (void)bucket_used;
+    (void)bucket_used_bytes;
     return false;
 #endif
 }
