@@ -16,7 +16,11 @@ use core::mem::MaybeUninit;
 use core::ptr;
 
 #[cfg(feature = "std")]
-use std::sync::{atomic::{AtomicUsize, Ordering}, mpsc::channel, Arc};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    mpsc::channel,
+    Arc,
+};
 
 impl PartialEq for blst_p1 {
     fn eq(&self, other: &Self) -> bool {
@@ -220,7 +224,9 @@ impl blst_scalar {
 
 #[cfg(test)]
 mod tests {
-    use crate::{blst_fp, blst_fr, blst_p1, blst_p1_affine, blst_p2, blst_p2_affine};
+    use crate::{
+        blst_fp, blst_fr, blst_p1, blst_p1_affine, blst_p2, blst_p2_affine,
+    };
 
     use super::*;
 

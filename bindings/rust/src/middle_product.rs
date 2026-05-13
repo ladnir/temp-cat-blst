@@ -180,7 +180,12 @@ pub fn combine(
     }
 
     let ok = unsafe {
-        blst_middle_product_combine(mid.as_ptr(), cnst.as_ptr(), mid.len(), out.as_mut_ptr())
+        blst_middle_product_combine(
+            mid.as_ptr(),
+            cnst.as_ptr(),
+            mid.len(),
+            out.as_mut_ptr(),
+        )
     };
     if ok {
         Ok(())

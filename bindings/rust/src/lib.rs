@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #![doc = include_str!("../docs/overview.md")]
-
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
@@ -17,15 +16,15 @@ use alloc::boxed::Box;
 use alloc::vec;
 #[cfg(feature = "full-rust-bindings")]
 use alloc::vec::Vec;
+use core::mem::transmute;
 #[cfg(feature = "full-rust-bindings")]
 use core::mem::MaybeUninit;
-use core::mem::transmute;
 use core::ptr;
-use zeroize::Zeroize;
 #[cfg(all(feature = "full-rust-bindings", feature = "serde"))]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(all(feature = "full-rust-bindings", feature = "std"))]
 use std::sync::{atomic::*, mpsc::channel, Arc};
+use zeroize::Zeroize;
 
 #[cfg(feature = "std")]
 trait ThreadPoolExt {
@@ -95,18 +94,18 @@ mod mt {
 
 include!("bindings.rs");
 mod middle_product;
-mod primitives;
 mod pairing;
+mod primitives;
 
 pub use middle_product::{
     blst_middle_product_precomputed_b, combine, middle_product,
     precompute_middle_product_b, update, MiddleProductError,
     MiddleProductPrecomputedB,
 };
-#[cfg(feature = "full-rust-bindings")]
-pub use pairing::{uniq, Pairing};
 #[cfg(feature = "std")]
 pub use pairing::print_bytes;
+#[cfg(feature = "full-rust-bindings")]
+pub use pairing::{uniq, Pairing};
 
 #[cfg(feature = "full-rust-bindings")]
 macro_rules! sig_variant_impl {
@@ -383,9 +382,7 @@ macro_rules! sig_variant_impl {
         // of the secret key material.
         impl<'a> From<&'a SecretKey> for &'a blst_scalar {
             fn from(sk: &'a SecretKey) -> Self {
-                unsafe {
-                    transmute::<&SecretKey, Self>(sk)
-                }
+                unsafe { transmute::<&SecretKey, Self>(sk) }
             }
         }
 
@@ -1320,8 +1317,7 @@ macro_rules! sig_variant_impl {
 
             fn add(&self) -> Self::Output {
                 Self::Output {
-                    point: unsafe { transmute::<&[_], &[$pk_aff]>(self) }
-                        .add(),
+                    point: unsafe { transmute::<&[_], &[$pk_aff]>(self) }.add(),
                 }
             }
 

@@ -82,7 +82,8 @@ fn main() {
     } else {
         "cmake"
     };
-    let build_dir = PathBuf::from(env::var("OUT_DIR").unwrap()).join(build_dir_name);
+    let build_dir =
+        PathBuf::from(env::var("OUT_DIR").unwrap()).join(build_dir_name);
 
     let mut configure = Command::new("cmake");
     configure.arg("-S").arg(&blst_base_dir);
@@ -115,7 +116,10 @@ fn main() {
     configure.arg(format!("-DBLST_DEFAULT_ASM={}", on_off(enable_asm)));
     configure.arg(format!("-DBLST_ADX={}", on_off(enable_adx)));
     configure.arg(format!("-DBLST_AVX512={}", on_off(enable_avx_native)));
-    configure.arg(format!("-DBLST_AVX512_PORTABLE={}", on_off(enable_avx_portable)));
+    configure.arg(format!(
+        "-DBLST_AVX512_PORTABLE={}",
+        on_off(enable_avx_portable)
+    ));
     configure.arg(format!("-DBLST_DEFAULT_AVX={}", on_off(enable_avx)));
     run(&mut configure, "configure blst with CMake");
 
@@ -133,7 +137,9 @@ fn main() {
         "libblst.a"
     };
     let lib_dir = find_parent_dir_containing(&build_dir, lib_name)
-        .unwrap_or_else(|| panic!("unable to locate {lib_name} under {}", build_dir.display()));
+        .unwrap_or_else(|| {
+            panic!("unable to locate {lib_name} under {}", build_dir.display())
+        });
 
     println!("cargo:rustc-link-search=native={}", lib_dir.display());
     println!("cargo:rustc-link-lib=static=blst");
@@ -158,7 +164,11 @@ fn main() {
 }
 
 fn on_off(value: bool) -> &'static str {
-    if value { "ON" } else { "OFF" }
+    if value {
+        "ON"
+    } else {
+        "OFF"
+    }
 }
 
 fn resolve_blst_source_dir(manifest_dir: &Path) -> PathBuf {
@@ -219,7 +229,9 @@ fn command_works(command: &str, args: &[&str]) -> bool {
 }
 
 fn find_visual_studio_generator() -> Option<&'static str> {
-    let vswhere = PathBuf::from(r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe");
+    let vswhere = PathBuf::from(
+        r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe",
+    );
     if !vswhere.is_file() {
         return None;
     }
@@ -239,18 +251,15 @@ fn find_visual_studio_generator() -> Option<&'static str> {
         .filter(|output| output.status.success())
         .and_then(|output| {
             String::from_utf8(output.stdout).ok().and_then(|stdout| {
-                stdout
-                    .lines()
-                    .map(str::trim)
-                    .find_map(|line| {
-                        let major = line.split('.').next()?;
-                        match major {
-                            "17" => Some("Visual Studio 17 2022"),
-                            "16" => Some("Visual Studio 16 2019"),
-                            "15" => Some("Visual Studio 15 2017"),
-                            _ => None,
-                        }
-                    })
+                stdout.lines().map(str::trim).find_map(|line| {
+                    let major = line.split('.').next()?;
+                    match major {
+                        "17" => Some("Visual Studio 17 2022"),
+                        "16" => Some("Visual Studio 16 2019"),
+                        "15" => Some("Visual Studio 15 2017"),
+                        _ => None,
+                    }
+                })
             })
         })
 }
@@ -265,9 +274,9 @@ fn msvc_cmake_arch(target_arch: &str) -> Option<&'static str> {
 }
 
 fn run(command: &mut Command, context: &str) {
-    let status = command
-        .status()
-        .unwrap_or_else(|err| panic!("failed to {context}: {err}", context = context, err = err));
+    let status = command.status().unwrap_or_else(|err| {
+        panic!("failed to {context}: {err}", context = context, err = err)
+    });
     if !status.success() {
         panic!(
             "{context} failed with status {status}",
@@ -285,7 +294,9 @@ fn find_parent_dir_containing(root: &Path, file_name: &str) -> Option<PathBuf> {
             let path = entry.path();
             if path.is_dir() {
                 stack.push(path);
-            } else if path.file_name().and_then(|name| name.to_str()) == Some(file_name) {
+            } else if path.file_name().and_then(|name| name.to_str())
+                == Some(file_name)
+            {
                 return path.parent().map(Path::to_path_buf);
             }
         }
