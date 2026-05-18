@@ -63,6 +63,7 @@ if(BLST_HAVE_AVX_VALIDATION_GMP)
     list(APPEND BENCHMARK_SOURCES "avx/Avx_basefield_inverse_50bit_bench.cpp")
     list(APPEND BENCHMARK_SOURCES "avx/Avx_basefield_reduce_50bit_bench.cpp")
     list(APPEND BENCHMARK_SOURCES "avx/Avx_curve_bench.cpp")
+    list(APPEND BENCHMARK_SOURCES "avx/Avx_group_ops_bench.cpp")
     list(APPEND BENCHMARK_SOURCES "avx/Avx_curve_50bit_bench.cpp")
     list(APPEND BENCHMARK_SOURCES "avx/Avx_scalar_mult_bench.cpp")
     list(APPEND BENCHMARK_SOURCES "avx/Avx_scalar_mult_50bit_bench.cpp")
@@ -116,6 +117,16 @@ add_executable(blst_benchmarks ${BENCHMARK_SOURCES})
 target_include_directories(blst_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_include_directories(blst_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
 target_link_libraries(blst_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers bte)
+
+if(BLST_HAVE_AVX_VALIDATION_GMP)
+    add_executable(avx_group_ops_benchmarks
+        "main.cpp"
+        "avx/Avx_group_ops_bench.cpp"
+    )
+    target_include_directories(avx_group_ops_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
+    target_include_directories(avx_group_ops_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
+    target_link_libraries(avx_group_ops_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers bte)
+endif()
 
 add_executable(bte_trx_benchmarks
     "main.cpp"
