@@ -76,6 +76,9 @@ TEST(AvxMsm, G1PippengerMatchesNaive)
 
     blst::avx::G1Point expected = blst::avx::G1Point::infinity();
     for (size_t i = 0; i < kCount; ++i) {
+        if (blst::avx::G1AffinePoint::is_inf(points[i])) {
+            continue;
+        }
         blst::avx::G1Point point = {};
         blst::avx::G1Point::from_affine(point, points[i]);
         blst::avx::G1Point::mult(point, point, scalars.data() + i * 32, 256);
@@ -101,6 +104,30 @@ TEST(AvxMsm, G1PippengerWithCallerScratchMatchesNaive)
 
     blst::avx::G1Point expected = blst::avx::G1Point::infinity();
     for (size_t i = 0; i < kCount; ++i) {
+        if (blst::avx::G1AffinePoint::is_inf(points[i])) {
+            continue;
+        }
+        blst::avx::G1Point point = {};
+        blst::avx::G1Point::from_affine(point, points[i]);
+        blst::avx::G1Point::mult(point, point, scalars.data() + i * 32, 256);
+        blst::avx::G1Point::dadd(expected, expected, point);
+    }
+
+    EXPECT_TRUE(blst::avx::G1Point::equal(msm, expected));
+}
+
+TEST(AvxMsm, G1PippengerHonorsAffineIdentitySentinel)
+{
+    constexpr size_t kCount = 17;
+    std::vector<blst::avx::G1AffinePoint> points = g1_points(kCount);
+    points[3] = {};
+    const std::vector<blst::byte> scalars = scalar_batch(kCount);
+
+    blst::avx::G1Point msm = {};
+    blst::avx::avx_g1_mult_pippenger(msm, points.data(), scalars.data(), kCount, 256);
+
+    blst::avx::G1Point expected = blst::avx::G1Point::infinity();
+    for (size_t i = 0; i < kCount; ++i) {
         blst::avx::G1Point point = {};
         blst::avx::G1Point::from_affine(point, points[i]);
         blst::avx::G1Point::mult(point, point, scalars.data() + i * 32, 256);
@@ -121,6 +148,30 @@ TEST(AvxMsm, G2PippengerMatchesNaive)
 
     blst::avx::G2Point expected = blst::avx::G2Point::infinity();
     for (size_t i = 0; i < kCount; ++i) {
+        blst::avx::G2Point point = {};
+        blst::avx::G2Point::from_affine(point, points[i]);
+        blst::avx::G2Point::mult(point, point, scalars.data() + i * 32, 256);
+        blst::avx::G2Point::dadd(expected, expected, point);
+    }
+
+    EXPECT_TRUE(blst::avx::G2Point::equal(msm, expected));
+}
+
+TEST(AvxMsm, G2PippengerHonorsAffineIdentitySentinel)
+{
+    constexpr size_t kCount = 17;
+    std::vector<blst::avx::G2AffinePoint> points = g2_points(kCount);
+    points[3] = {};
+    const std::vector<blst::byte> scalars = scalar_batch(kCount);
+
+    blst::avx::G2Point msm = {};
+    blst::avx::avx_g2_mult_pippenger(msm, points.data(), scalars.data(), kCount, 256);
+
+    blst::avx::G2Point expected = blst::avx::G2Point::infinity();
+    for (size_t i = 0; i < kCount; ++i) {
+        if (blst::avx::G2AffinePoint::is_inf(points[i])) {
+            continue;
+        }
         blst::avx::G2Point point = {};
         blst::avx::G2Point::from_affine(point, points[i]);
         blst::avx::G2Point::mult(point, point, scalars.data() + i * 32, 256);

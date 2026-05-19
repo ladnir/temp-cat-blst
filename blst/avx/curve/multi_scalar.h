@@ -177,18 +177,16 @@ struct WindowExtract
 
 inline G1AffinePoint maybe_negate(const G1AffinePoint& point, bool negate)
 {
-    if (!negate) {
-        return point;
-    }
-    return {point.X, avx_curve_detail::curve_ring().standard_negate(point.Y)};
+    G1AffinePoint out = point;
+    G1AffinePoint::cneg(out, negate);
+    return out;
 }
 
 inline G2AffinePoint maybe_negate(const G2AffinePoint& point, bool negate)
 {
-    if (!negate) {
-        return point;
-    }
-    return {point.X, avx_curve_detail::curve_fp2_ring().standard_negate(point.Y)};
+    G2AffinePoint out = point;
+    G2AffinePoint::cneg(out, negate);
+    return out;
 }
 
 using G1PippengerBucket = G1Point;

@@ -410,7 +410,7 @@ inline int G1AffinePoint::equal(const G1AffinePoint& a, const G1AffinePoint& b)
 
 inline bool_t G1AffinePoint::is_inf(const G1AffinePoint& p)
 {
-    return avx_curve_detail::is_zero(p.X) && avx_curve_detail::is_zero(p.Y);
+    return PointCoordIsZero(p.X) & PointCoordIsZero(p.Y);
 }
 
 inline bool_t G1AffinePoint::on_curve(const G1AffinePoint& p)
@@ -425,9 +425,10 @@ inline bool_t G1AffinePoint::in_subgroup(const G1AffinePoint& p)
 
 inline void G1AffinePoint::cneg(G1AffinePoint& inOut, bool_t c)
 {
-    if (c) {
-        inOut.Y = avx_curve_detail::curve_ring().standard_negate(inOut.Y);
-    }
+    G1AffinePoint neg = inOut;
+    neg.Y = avx_curve_detail::curve_ring().standard_negate(neg.Y);
+    vec_select(&neg, &inOut, &neg, sizeof(G1AffinePoint), is_inf(inOut));
+    vec_select(&inOut, &neg, &inOut, sizeof(G1AffinePoint), c);
 }
 
 inline limb_t G1AffinePoint::serialize_BE(unsigned char* out, const G1AffinePoint& in)
@@ -572,9 +573,9 @@ inline void G1Point::to_pk2(unsigned char* out, G1AffinePoint* PK, const pow256 
 
 inline void G1Point::cneg(G1Point& p, limb_t cbit)
 {
-    if (cbit) {
-        p.Y = avx_curve_detail::curve_ring().standard_negate(p.Y);
-    }
+    G1Point neg = p;
+    neg.Y = avx_curve_detail::curve_ring().standard_negate(neg.Y);
+    vec_select(&p, &neg, &p, sizeof(G1Point), cbit);
 }
 
 inline void G1Point::neg(G1Point& out, const G1Point& p)
@@ -696,7 +697,7 @@ inline int G2AffinePoint::equal(const G2AffinePoint& a, const G2AffinePoint& b)
 
 inline bool_t G2AffinePoint::is_inf(const G2AffinePoint& p)
 {
-    return avx_curve_detail::is_zero(p.X) && avx_curve_detail::is_zero(p.Y);
+    return PointCoordIsZero(p.X) & PointCoordIsZero(p.Y);
 }
 
 inline bool_t G2AffinePoint::on_curve(const G2AffinePoint& p)
@@ -711,9 +712,10 @@ inline bool_t G2AffinePoint::in_subgroup(const G2AffinePoint& p)
 
 inline void G2AffinePoint::cneg(G2AffinePoint& inOut, bool_t c)
 {
-    if (c) {
-        inOut.Y = avx_curve_detail::curve_fp2_ring().standard_negate(inOut.Y);
-    }
+    G2AffinePoint neg = inOut;
+    neg.Y = avx_curve_detail::curve_fp2_ring().standard_negate(neg.Y);
+    vec_select(&neg, &inOut, &neg, sizeof(G2AffinePoint), is_inf(inOut));
+    vec_select(&inOut, &neg, &inOut, sizeof(G2AffinePoint), c);
 }
 
 inline limb_t G2AffinePoint::serialize_BE(unsigned char* out, const G2AffinePoint& in)
@@ -863,9 +865,9 @@ inline void G2Point::to_pk2(unsigned char* out, G2AffinePoint* PK, const pow256 
 
 inline void G2Point::cneg(G2Point& p, limb_t cbit)
 {
-    if (cbit) {
-        p.Y = avx_curve_detail::curve_fp2_ring().standard_negate(p.Y);
-    }
+    G2Point neg = p;
+    neg.Y = avx_curve_detail::curve_fp2_ring().standard_negate(neg.Y);
+    vec_select(&p, &neg, &p, sizeof(G2Point), cbit);
 }
 
 inline void G2Point::neg(G2Point& out, const G2Point& p)

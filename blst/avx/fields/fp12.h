@@ -182,6 +182,18 @@ class FP12Ring {
 		};
 	}
 
+	template<int64_t Z>
+	INLINE StandardElement narrow_to_standard(const CommonElement<Z> &x, const Ring &ring) const {
+		const auto one = ring.one();
+		return ring.batch_reduce_expand(
+			ring.prep_left(x[0]) * one, ring.prep_left(x[1]) * one,
+			ring.prep_left(x[2]) * one, ring.prep_left(x[3]) * one,
+			ring.prep_left(x[4]) * one, ring.prep_left(x[5]) * one,
+			ring.prep_left(x[6]) * one, ring.prep_left(x[7]) * one,
+			ring.prep_left(x[8]) * one, ring.prep_left(x[9]) * one,
+			ring.prep_left(x[10]) * one, ring.prep_left(x[11]) * one);
+	}
+
 	template<typename... Args>
 	INLINE auto batch_reduce(const Ring &ring, Args&&... args) const {
 		constexpr int batch = sizeof...(Args);

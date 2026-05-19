@@ -72,6 +72,12 @@ inline typename FP12::StandardElement to_standard(const Element& value)
     return fp12ring().fp12_flat_mul(fp12ring().one(ring()), value, ring());
 }
 
+template<int64_t N>
+INLINE typename FP12::StandardElement narrow_to_standard(const typename FP12::template CommonElement<N>& value)
+{
+    return fp12ring().narrow_to_standard(value, ring());
+}
+
 inline PairingFp2Prepared prep_left_helper(const PairingFp2Element& point)
 {
     return PairingFp2Prepared(point.x(), point.y(), ring().standard_negate(point.y()));
@@ -396,10 +402,12 @@ struct GT
         out.data = avx_gt_detail::fp12ring().fp12_flat_mul(a.data, b_inv, avx_gt_detail::ring());
     }
 
-    static void doubling(GT& out, const GT& a)
+    static INLINE void doubling(GT& out, const GT& a)
     {
-        out.data = avx_gt_detail::to_standard(
-            avx_gt_detail::fp12ring().fp12_flat_cyclotomic_sqr(a.data, avx_gt_detail::ring()));
+        // The public GT representation is standard. Internal callers that can
+        // keep CommonElement<6> should prefer fp12_flat_cyclotomic_sqr and
+        // delay normalization, as the GLV exponentiation path does.
+        add(out, a, a);
     }
 
     static void add_n_dbl(GT& out, const GT& a, size_t n)
@@ -779,13 +787,13 @@ struct GT
 
     static void mult_by_z(GT& out, const GT& a)
     {
-        out.data = avx_gt_detail::to_standard(
+        out.data = avx_gt_detail::narrow_to_standard(
             raise_to_z(a.data, avx_gt_detail::fp12ring(), avx_gt_detail::ring()));
     }
 
     static void mult_by_z_div_by_2(GT& out, const GT& a)
     {
-        out.data = avx_gt_detail::to_standard(
+        out.data = avx_gt_detail::narrow_to_standard(
             raise_to_z_div_by_2(a.data, avx_gt_detail::fp12ring(), avx_gt_detail::ring()));
     }
 
