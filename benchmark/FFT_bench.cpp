@@ -282,6 +282,34 @@ namespace
 		state.counters["N"] = static_cast<double>(N);
 		state.counters["FFTs/sec"] = benchmark::Counter(1, benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
 	}
+
+	static void bench_g1_fft_gpu_prepared(benchmark::State& state)
+	{
+		const size_t N = static_cast<size_t>(state.range(0));
+
+		const std::vector<Fr> roots = make_roots(N);
+		const std::vector<G1Point> original = make_g1_data(N, /*seed*/ 0xC0FFEEULL);
+		std::vector<G1Point> data = original;
+
+		const auto precompute_begin = std::chrono::steady_clock::now();
+		CudaFftPreparedRoots<G1Point> prepared_roots(roots);
+		CudaFftWorkspace<G1Point> workspace;
+		workspace.ensure(N);
+		const auto precompute_end = std::chrono::steady_clock::now();
+		const double prepared_once_ms =
+			std::chrono::duration<double, std::milli>(precompute_end - precompute_begin).count();
+
+		for (auto _ : state) {
+			data = original;
+			benchmark::DoNotOptimize(data.data());
+			fft_cuda(data, prepared_roots, workspace, /*inverse*/ false);
+			benchmark::ClobberMemory();
+		}
+
+		state.counters["N"] = static_cast<double>(N);
+		state.counters["prepared_once_ms"] = benchmark::Counter(prepared_once_ms);
+		state.counters["FFTs/sec"] = benchmark::Counter(1, benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+	}
 #endif
 
 	static void bench_gt_ifft_cpu(benchmark::State& state)
@@ -365,6 +393,40 @@ namespace
 		}
 
 		state.counters["N"] = static_cast<double>(N);
+		state.counters["iFFTs/sec"] = benchmark::Counter(1, benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+	}
+
+	static void bench_gt_ifft_gpu_prepared(benchmark::State& state)
+	{
+		const size_t N = static_cast<size_t>(state.range(0));
+
+		const std::vector<Fr> roots = make_roots(N);
+		const std::vector<Fr> inv_roots = make_inv_roots(roots);
+
+		const auto precompute_begin = std::chrono::steady_clock::now();
+		CudaFftPreparedRoots<GT> prepared_roots(roots);
+		CudaFftPreparedRoots<GT> prepared_inv_roots(inv_roots);
+		CudaFftWorkspace<GT> workspace;
+		workspace.ensure(N);
+		const auto precompute_end = std::chrono::steady_clock::now();
+		const double prepared_once_ms =
+			std::chrono::duration<double, std::milli>(precompute_end - precompute_begin).count();
+
+		const std::vector<GT> time_domain = make_gt_data(N);
+		std::vector<GT> freq_domain = time_domain;
+		fft_cuda(freq_domain, prepared_roots, workspace, /*inverse*/ false);
+
+		std::vector<GT> data = freq_domain;
+
+		for (auto _ : state) {
+			data = freq_domain;
+			benchmark::DoNotOptimize(data.data());
+			fft_cuda(data, prepared_inv_roots, workspace, /*inverse*/ true);
+			benchmark::ClobberMemory();
+		}
+
+		state.counters["N"] = static_cast<double>(N);
+		state.counters["prepared_once_ms"] = benchmark::Counter(prepared_once_ms);
 		state.counters["iFFTs/sec"] = benchmark::Counter(1, benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
 	}
 #endif
@@ -1575,7 +1637,17 @@ FFT_SIZES
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();
 
+BENCHMARK(bench_g1_fft_gpu_prepared)
+FFT_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
 BENCHMARK(bench_gt_ifft_gpu)
+FFT_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK(bench_gt_ifft_gpu_prepared)
 FFT_SIZES
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();

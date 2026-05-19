@@ -128,6 +128,14 @@ if(BLST_HAVE_AVX_VALIDATION_GMP)
     target_link_libraries(avx_group_ops_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers bte)
 endif()
 
+add_executable(fft_benchmarks
+    "main.cpp"
+    "FFT_cuda_scalar_bench.cpp"
+)
+target_include_directories(fft_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
+target_include_directories(fft_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
+target_link_libraries(fft_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers bte)
+
 add_executable(bte_trx_benchmarks
     "main.cpp"
     "Trx_bench.cpp"
@@ -166,9 +174,12 @@ endif()
 # Set CUDA properties if CUDA is enabled
 if(BLST_CUDA)
     set_source_files_properties(${BENCHMARK_SOURCES} PROPERTIES LANGUAGE CUDA)
+    set_source_files_properties("FFT_cuda_scalar_bench.cpp" PROPERTIES LANGUAGE CUDA)
 
     set_target_properties(blst_benchmarks PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+    set_target_properties(fft_benchmarks PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
     target_compile_options(blst_benchmarks PRIVATE -linetable -Xptxas=-O3  -Xptxas=-v ) #-maxrregcount=64
+    target_compile_options(fft_benchmarks PRIVATE -linetable -Xptxas=-O3  -Xptxas=-v ) #-maxrregcount=64
     
 endif()
 

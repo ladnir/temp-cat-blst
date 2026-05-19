@@ -51,6 +51,27 @@ namespace
 		return r;
 	}
 
+	std::vector<Fr> make_roots(size_t n)
+	{
+		Fr prim = primRootOfUnity<Fr>(n);
+		std::vector<Fr> roots(n);
+		Fr current = Fr::one();
+		for (size_t i = 0; i < n; ++i) {
+			roots[i] = current;
+			Fr::mul(current, current, prim);
+		}
+		return roots;
+	}
+
+	std::vector<Fr> make_inverse_roots(const std::vector<Fr>& roots)
+	{
+		std::vector<Fr> inv_roots(roots.size());
+		for (size_t i = 0; i < roots.size(); ++i) {
+			Fr::reciprocal(inv_roots[i], roots[i]);
+		}
+		return inv_roots;
+	}
+
 }
 
 #ifdef BLST_CUDA
@@ -140,6 +161,36 @@ TEST(FftCuda, CompareWithCpu) {
 	}
 
 	EXPECT_TRUE(match) << "CUDA FFT does not match CPU FFT";
+}
+
+TEST(FftCuda, PreparedRootsReuseFrRoundTrip) {
+	size_t N = 16;
+
+	std::vector<Fr> original(N);
+	for (size_t i = 0; i < N; ++i) {
+		original[i] = Fr::from_uint64((i + 1) * 5);
+	}
+	std::vector<Fr> data = original;
+
+	const std::vector<Fr> roots = make_roots(N);
+	const std::vector<Fr> inv_roots = make_inverse_roots(roots);
+
+	CudaFftPreparedRoots<Fr> forward_roots(roots);
+	CudaFftPreparedRoots<Fr> inverse_roots(inv_roots);
+	CudaFftWorkspace<Fr> workspace;
+
+	fft_cuda(data, forward_roots, workspace, false);
+	fft_cuda(data, inverse_roots, workspace, true);
+
+	bool match = true;
+	for (size_t i = 0; i < N; ++i) {
+		if (!Fr::equal(data[i], original[i])) {
+			match = false;
+			break;
+		}
+	}
+
+	EXPECT_TRUE(match) << "Prepared CUDA Fr FFT round-trip failed";
 }
 
 TEST(FftCuda, Convolution) {
@@ -288,6 +339,34 @@ TEST(FftCuda, G1CompareWithCpu) {
 	}
 
 	EXPECT_TRUE(match) << "CUDA G1 FFT does not match CPU FFT";
+}
+
+TEST(FftCuda, G1PreparedRootsCompareWithCpu) {
+	size_t N = 8;
+
+	std::vector<G1Point> cpu_data(N);
+	for (size_t i = 0; i < N; ++i) {
+		cpu_data[i] = g1((i + 1) * 3);
+	}
+	std::vector<G1Point> gpu_data = cpu_data;
+
+	const std::vector<Fr> roots = make_roots(N);
+
+	fft<G1Point, Fr, G1CoeffCtx>(cpu_data, roots, false);
+
+	CudaFftPreparedRoots<G1Point> prepared_roots(roots);
+	CudaFftWorkspace<G1Point> workspace;
+	fft_cuda(gpu_data, prepared_roots, workspace, false);
+
+	bool match = true;
+	for (size_t i = 0; i < N; ++i) {
+		if (!G1Point::equal(cpu_data[i], gpu_data[i])) {
+			match = false;
+			break;
+		}
+	}
+
+	EXPECT_TRUE(match) << "Prepared CUDA G1 FFT does not match CPU FFT";
 }
 
 // ==================== G2 CUDA FFT Tests ====================
@@ -480,6 +559,48 @@ TEST(FftCuda, GTCompareWithCpu) {
 	}
 
 	EXPECT_TRUE(match) << "CUDA GT FFT does not match CPU FFT";
+}
+
+TEST(FftCuda, GTPreparedRootsRoundTrip) {
+	size_t N = 8;
+
+	G1AffinePoint P_aff;
+	G2AffinePoint Q_aff;
+	G1Point::to_affine(P_aff, G1Point::generator());
+	G2Point::to_affine(Q_aff, G2Point::generator());
+
+	GT base;
+	GT::miller_loop(base, &Q_aff, &P_aff);
+	GT::final_mult(base, base);
+
+	std::vector<GT> original(N);
+	original[0] = GT::identity();
+	GT accum = base;
+	for (size_t i = 1; i < N; ++i) {
+		original[i] = accum;
+		GT::add(accum, accum, base);
+	}
+
+	std::vector<GT> data = original;
+	const std::vector<Fr> roots = make_roots(N);
+	const std::vector<Fr> inv_roots = make_inverse_roots(roots);
+
+	CudaFftPreparedRoots<GT> forward_roots(roots);
+	CudaFftPreparedRoots<GT> inverse_roots(inv_roots);
+	CudaFftWorkspace<GT> workspace;
+
+	fft_cuda(data, forward_roots, workspace, false);
+	fft_cuda(data, inverse_roots, workspace, true);
+
+	bool match = true;
+	for (size_t i = 0; i < N; ++i) {
+		if (!GT::equal(data[i], original[i])) {
+			match = false;
+			break;
+		}
+	}
+
+	EXPECT_TRUE(match) << "Prepared CUDA GT FFT round-trip failed";
 }
 
 // ==================== Mixed Convolution Test (G1 * Fr) ====================
