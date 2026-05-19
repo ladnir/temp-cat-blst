@@ -23,6 +23,7 @@ include = [
     "/blst/bindings/blst_types.h",
     "/blst/bindings/blst_scalar.h",
     "/blst/bindings/blst_avx.h",
+    "/blst/bindings/blst_fft.h",
     "/blst/bindings/blst_middle_product.h",
     "/blst/bindings/blst.hpp",
 ]

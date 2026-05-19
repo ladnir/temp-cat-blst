@@ -121,8 +121,26 @@ bool blst_avx_p1_to_affine(blst_avx_p1_affine* out, const blst_avx_p1* in);
 bool blst_avx_p1_from_affine(blst_avx_p1* out, const blst_avx_p1_affine* in);
 /** Returns `true` when the AVX G1 point is in the correct subgroup. */
 bool blst_avx_p1_in_g1(const blst_avx_p1* p);
+/** Returns `true` when the AVX G1 point is the point at infinity. */
+bool blst_avx_p1_is_inf(const blst_avx_p1* p);
 /** Returns `true` when the two AVX G1 points represent the same point. */
 bool blst_avx_p1_is_equal(const blst_avx_p1* a, const blst_avx_p1* b);
+/** Compresses an AVX G1 projective point to the standard 48-byte encoding. */
+bool blst_avx_p1_compress(byte out[48], const blst_avx_p1* in);
+/** Serializes an AVX G1 projective point to the standard 96-byte affine encoding. */
+bool blst_avx_p1_serialize(byte out[96], const blst_avx_p1* in);
+/** Parses a standard 48-byte compressed G1 encoding into AVX projective form. */
+BLST_ERROR blst_avx_p1_uncompress(blst_avx_p1* out, const byte in[48]);
+/** Returns caller-owned scratch bytes needed by AVX G1 Pippenger MSM. */
+size_t blst_avx_p1s_mult_pippenger_scratch_sizeof(size_t npoints);
+/** Computes a projective AVX G1 MSM with Pippenger and caller-owned scratch. */
+bool blst_avx_p1s_mult_pippenger(
+    blst_avx_p1* out,
+    const blst_avx_p1* points,
+    size_t npoints,
+    const byte* scalars,
+    size_t nbits,
+    limb_t* scratch);
 
 /**
  * Returns the AVX G1 generator.
@@ -156,8 +174,24 @@ bool blst_avx_p2_to_affine(blst_avx_p2_affine* out, const blst_avx_p2* in);
 bool blst_avx_p2_from_affine(blst_avx_p2* out, const blst_avx_p2_affine* in);
 /** Returns `true` when the AVX G2 point is in the correct subgroup. */
 bool blst_avx_p2_in_g2(const blst_avx_p2* p);
+/** Returns `true` when the AVX G2 point is the point at infinity. */
+bool blst_avx_p2_is_inf(const blst_avx_p2* p);
 /** Returns `true` when the two AVX G2 points represent the same point. */
 bool blst_avx_p2_is_equal(const blst_avx_p2* a, const blst_avx_p2* b);
+/** Compresses an AVX G2 projective point to the standard 96-byte encoding. */
+bool blst_avx_p2_compress(byte out[96], const blst_avx_p2* in);
+/** Parses a standard 96-byte compressed G2 encoding into AVX projective form. */
+BLST_ERROR blst_avx_p2_uncompress(blst_avx_p2* out, const byte in[96]);
+/** Returns caller-owned scratch bytes needed by AVX G2 Pippenger MSM. */
+size_t blst_avx_p2s_mult_pippenger_scratch_sizeof(size_t npoints);
+/** Computes a projective AVX G2 MSM with Pippenger and caller-owned scratch. */
+bool blst_avx_p2s_mult_pippenger(
+    blst_avx_p2* out,
+    const blst_avx_p2* points,
+    size_t npoints,
+    const byte* scalars,
+    size_t nbits,
+    limb_t* scratch);
 
 /**
  * Returns the AVX G2 generator.
@@ -198,6 +232,11 @@ bool blst_avx_fp12_in_group(const blst_avx_fp12* a);
  * - Null only when AVX is unavailable.
  */
 const blst_avx_fp12* blst_avx_fp12_one(void);
+
+/**
+ * Computes final_exponentiation(miller_loop(g2, g1)) in AVX-native form.
+ */
+bool blst_avx_pairing(blst_avx_fp12* out, const blst_avx_p1* g1, const blst_avx_p2* g2);
 
 #ifdef __cplusplus
 }
