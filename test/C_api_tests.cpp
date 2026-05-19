@@ -348,6 +348,17 @@ std::vector<unsigned char> scalar_batch(std::initializer_list<std::uint64_t> sca
     return out;
 }
 
+std::vector<unsigned char> scalar_batch(std::initializer_list<std::uint64_t> scalars, size_t nbytes)
+{
+    std::vector<unsigned char> out;
+    out.reserve(scalars.size() * nbytes);
+    for (std::uint64_t scalar : scalars) {
+        const auto bytes = scalar_bytes(scalar);
+        out.insert(out.end(), bytes.begin(), bytes.begin() + static_cast<std::ptrdiff_t>(nbytes));
+    }
+    return out;
+}
+
 } // namespace
 
 TEST(CApi, FrPrimitivesRoundTripAndInverse)
@@ -601,6 +612,149 @@ TEST(CApi, AvxExpertP2PippengerMatchesScalar)
         bucket_used.size()));
     ASSERT_TRUE(blst_p2_from_avx(&roundtrip, &msm));
     EXPECT_TRUE(BoundaryG2::equal(roundtrip, expected));
+}
+
+TEST(CApi, AvxExpertP1PippengerShortScalarsMatchScalar)
+{
+    if (!blst_avx_enabled()) {
+        GTEST_SKIP() << "AVX expert C API is unavailable in this build.";
+    }
+
+    constexpr size_t kCount = 4;
+    constexpr size_t kBits = 128;
+    constexpr size_t kBytes = kBits / 8;
+    const std::array<std::uint64_t, kCount> point_scalars = {3, 5, 7, 11};
+    const std::array<std::uint64_t, kCount> msm_scalars = {13, 17, 19, 23};
+    const std::vector<unsigned char> scalars =
+        scalar_batch({msm_scalars[0], msm_scalars[1], msm_scalars[2], msm_scalars[3]}, kBytes);
+    std::array<BlstAvxP1Affine, kCount> avx_points = {};
+    BoundaryG1 expected = {};
+
+    for (size_t i = 0; i < kCount; ++i) {
+        BoundaryG1 point = p1_mul(point_scalars[i]);
+        BoundaryG1Affine affine = {};
+        blst_p1_to_affine(&affine, &point);
+        ASSERT_TRUE(blst_avx_p1_affine_from_scalar(&avx_points[i], &affine));
+
+        BoundaryG1 term = {};
+        blst_p1_mult(&term, &point, scalars.data() + i * kBytes, kBits);
+        blst_p1_add(&expected, &expected, &term);
+    }
+
+    const size_t scratch_bytes = blst_avx_p1_mult_pippenger_scratch_sizeof(kCount);
+    const size_t bucket_used_bytes = blst_avx_p1_mult_pippenger_bucket_used_scratch_sizeof(kCount);
+    ASSERT_GT(scratch_bytes, 0u);
+    ASSERT_GT(bucket_used_bytes, 0u);
+    std::vector<BlstAvxP1> scratch((scratch_bytes + sizeof(BlstAvxP1) - 1) / sizeof(BlstAvxP1));
+    std::vector<unsigned char> bucket_used(bucket_used_bytes);
+
+    BlstAvxP1 msm = {};
+    BoundaryG1 roundtrip = {};
+    ASSERT_TRUE(blst_avx_p1_mult_pippenger(
+        &msm,
+        avx_points.data(),
+        scalars.data(),
+        kCount,
+        kBits,
+        scratch.data(),
+        scratch.size() * sizeof(BlstAvxP1),
+        bucket_used.data(),
+        bucket_used.size()));
+    ASSERT_TRUE(blst_p1_from_avx(&roundtrip, &msm));
+    EXPECT_TRUE(BoundaryG1::equal(roundtrip, expected));
+}
+
+TEST(CApi, AvxExpertP2PippengerShortScalarsMatchScalar)
+{
+    if (!blst_avx_enabled()) {
+        GTEST_SKIP() << "AVX expert C API is unavailable in this build.";
+    }
+
+    constexpr size_t kCount = 4;
+    constexpr size_t kBits = 128;
+    constexpr size_t kBytes = kBits / 8;
+    const std::array<std::uint64_t, kCount> point_scalars = {3, 5, 7, 11};
+    const std::array<std::uint64_t, kCount> msm_scalars = {13, 17, 19, 23};
+    const std::vector<unsigned char> scalars =
+        scalar_batch({msm_scalars[0], msm_scalars[1], msm_scalars[2], msm_scalars[3]}, kBytes);
+    std::array<BlstAvxP2Affine, kCount> avx_points = {};
+    BoundaryG2 expected = {};
+
+    for (size_t i = 0; i < kCount; ++i) {
+        BoundaryG2 point = p2_mul(point_scalars[i]);
+        BoundaryG2Affine affine = {};
+        blst_p2_to_affine(&affine, &point);
+        ASSERT_TRUE(blst_avx_p2_affine_from_scalar(&avx_points[i], &affine));
+
+        BoundaryG2 term = {};
+        blst_p2_mult(&term, &point, scalars.data() + i * kBytes, kBits);
+        blst_p2_add(&expected, &expected, &term);
+    }
+
+    const size_t scratch_bytes = blst_avx_p2_mult_pippenger_scratch_sizeof(kCount);
+    const size_t bucket_used_bytes = blst_avx_p2_mult_pippenger_bucket_used_scratch_sizeof(kCount);
+    ASSERT_GT(scratch_bytes, 0u);
+    ASSERT_GT(bucket_used_bytes, 0u);
+    std::vector<BlstAvxP2> scratch((scratch_bytes + sizeof(BlstAvxP2) - 1) / sizeof(BlstAvxP2));
+    std::vector<unsigned char> bucket_used(bucket_used_bytes);
+
+    BlstAvxP2 msm = {};
+    BoundaryG2 roundtrip = {};
+    ASSERT_TRUE(blst_avx_p2_mult_pippenger(
+        &msm,
+        avx_points.data(),
+        scalars.data(),
+        kCount,
+        kBits,
+        scratch.data(),
+        scratch.size() * sizeof(BlstAvxP2),
+        bucket_used.data(),
+        bucket_used.size()));
+    ASSERT_TRUE(blst_p2_from_avx(&roundtrip, &msm));
+    EXPECT_TRUE(BoundaryG2::equal(roundtrip, expected));
+}
+
+TEST(CApi, AvxExpertPippengerRejectsOverflowSizedInputs)
+{
+    if (!blst_avx_enabled()) {
+        GTEST_SKIP() << "AVX expert C API is unavailable in this build.";
+    }
+
+    constexpr size_t kHuge = std::numeric_limits<size_t>::max();
+    EXPECT_EQ(blst_avx_p1_mult_pippenger_scratch_sizeof(kHuge), 0u);
+    EXPECT_EQ(blst_avx_p1_mult_pippenger_bucket_used_scratch_sizeof(kHuge), 0u);
+    EXPECT_EQ(blst_avx_p2_mult_pippenger_scratch_sizeof(kHuge), 0u);
+    EXPECT_EQ(blst_avx_p2_mult_pippenger_bucket_used_scratch_sizeof(kHuge), 0u);
+
+    BlstAvxP1 p1_out = {};
+    BlstAvxP1Affine p1_point = {};
+    BlstAvxP1 p1_scratch = {};
+    BlstAvxP2 p2_out = {};
+    BlstAvxP2Affine p2_point = {};
+    BlstAvxP2 p2_scratch = {};
+    std::array<unsigned char, 32> scalar = {};
+    std::array<unsigned char, 1> bucket_used = {};
+
+    EXPECT_FALSE(blst_avx_p1_mult_pippenger(
+        &p1_out,
+        &p1_point,
+        scalar.data(),
+        kHuge,
+        256,
+        &p1_scratch,
+        sizeof(p1_scratch),
+        bucket_used.data(),
+        bucket_used.size()));
+    EXPECT_FALSE(blst_avx_p2_mult_pippenger(
+        &p2_out,
+        &p2_point,
+        scalar.data(),
+        kHuge,
+        256,
+        &p2_scratch,
+        sizeof(p2_scratch),
+        bucket_used.data(),
+        bucket_used.size()));
 }
 
 TEST(CApi, AvxExpertFp12RoundTripAndOps)

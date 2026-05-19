@@ -7,11 +7,46 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <vector>
 
 namespace blst::avx {
 
 namespace avx_msm_detail {
+
+constexpr size_t kMaxScalarBits = 256;
+constexpr size_t kMaxWindowBits = 16;
+constexpr size_t kG2GlsDispatchMaxNpoints = 8192;
+
+inline bool checked_mul_size(size_t a, size_t b, size_t& out)
+{
+    if (a != 0 && b > std::numeric_limits<size_t>::max() / a) {
+        out = 0;
+        return false;
+    }
+    out = a * b;
+    return true;
+}
+
+inline bool checked_lshift_size(size_t value, size_t shift, size_t& out)
+{
+    if (shift >= sizeof(size_t) * 8 || value > (std::numeric_limits<size_t>::max() >> shift)) {
+        out = 0;
+        return false;
+    }
+    out = value << shift;
+    return true;
+}
+
+inline bool window_size_is_valid(size_t window_size)
+{
+    return window_size != 0 && window_size <= kMaxWindowBits;
+}
+
+inline size_t clamp_window_size(size_t window_size)
+{
+    return std::min(window_size, kMaxWindowBits);
+}
 
 inline size_t pippenger_window_size_fallback(size_t npoints)
 {
@@ -21,13 +56,13 @@ inline size_t pippenger_window_size_fallback(size_t npoints)
     }
 
     if (wbits > 12) {
-        return wbits - 3;
+        return clamp_window_size(wbits - 3);
     }
     if (wbits > 8) {
-        return wbits - 2;
+        return clamp_window_size(wbits - 2);
     }
     if (wbits > 4) {
-        return wbits - 1;
+        return clamp_window_size(wbits - 1);
     }
     return wbits != 0 ? 2 : 1;
 }
@@ -95,7 +130,11 @@ inline size_t g2_pippenger_window_size(size_t npoints)
 
 inline size_t g1_glv_pippenger_window_size(size_t npoints)
 {
-    return pippenger_window_size_fallback(2 * npoints);
+    size_t split_npoints = 0;
+    if (!checked_mul_size(npoints, 2, split_npoints)) {
+        return kMaxWindowBits;
+    }
+    return pippenger_window_size_fallback(split_npoints);
 }
 
 inline size_t g2_gls_pippenger_window_size(size_t npoints)
@@ -115,7 +154,11 @@ inline size_t g2_gls_pippenger_window_size(size_t npoints)
     if (npoints <= 32768) {
         return 13;
     }
-    return pippenger_window_size_fallback(4 * npoints);
+    size_t split_npoints = 0;
+    if (!checked_mul_size(npoints, 4, split_npoints)) {
+        return kMaxWindowBits;
+    }
+    return pippenger_window_size_fallback(split_npoints);
 }
 
 inline size_t pippenger_window_size(size_t npoints)
@@ -123,11 +166,90 @@ inline size_t pippenger_window_size(size_t npoints)
     return std::max(g1_pippenger_window_size(npoints), g2_pippenger_window_size(npoints));
 }
 
+inline bool bucket_count_for_window(size_t window_size, size_t& out)
+{
+    if (!window_size_is_valid(window_size)) {
+        out = 0;
+        return false;
+    }
+    return checked_lshift_size(1, window_size - 1, out);
+}
+
+inline size_t bucket_count_or_zero(size_t window_size)
+{
+    size_t count = 0;
+    return bucket_count_for_window(window_size, count) ? count : 0;
+}
+
+inline size_t bucket_scratch_sizeof(size_t npoints, size_t window_size, size_t bucket_size)
+{
+    if (npoints == 0) {
+        return 0;
+    }
+    size_t count = 0;
+    size_t bytes = 0;
+    if (!bucket_count_for_window(window_size, count) || !checked_mul_size(count, bucket_size, bytes)) {
+        return 0;
+    }
+    return bytes;
+}
+
+inline size_t bucket_used_scratch_sizeof(size_t npoints, size_t window_size)
+{
+    if (npoints == 0) {
+        return 0;
+    }
+    return bucket_count_or_zero(window_size);
+}
+
+template<class AffinePoint>
+inline bool point_count_is_addressable(size_t npoints)
+{
+    size_t bytes = 0;
+    return checked_mul_size(npoints, sizeof(AffinePoint), bytes);
+}
+
+template<class AffinePoint>
+inline bool scalar_count_is_addressable(size_t npoints, size_t nbits)
+{
+    if (nbits > kMaxScalarBits) {
+        return false;
+    }
+    const size_t nbytes = (nbits + 7) / 8;
+    size_t bytes = 0;
+    return checked_mul_size(npoints, nbytes, bytes);
+}
+
+template<class AffinePoint>
+inline bool msm_inputs_are_valid(size_t npoints, size_t nbits, size_t window_size)
+{
+    return window_size_is_valid(window_size) &&
+        scalar_count_is_addressable<AffinePoint>(npoints, nbits) &&
+        point_count_is_addressable<AffinePoint>(npoints);
+}
+
+inline bool split_count(size_t npoints, size_t factor, size_t& out)
+{
+    return checked_mul_size(npoints, factor, out);
+}
+
+inline size_t array_scratch_sizeof(size_t npoints, size_t factor, size_t element_size)
+{
+    size_t count = 0;
+    size_t bytes = 0;
+    if (npoints == 0 || !split_count(npoints, factor, count) || !checked_mul_size(count, element_size, bytes)) {
+        return 0;
+    }
+    return bytes;
+}
+
 inline limb_t get_wval_limb(const byte* scalar, size_t bit0, size_t nbits)
 {
+    BLST_ASSERT(nbits <= 17);
     const size_t byte_index = bit0 >> 3;
     const size_t bit_shift = bit0 & 7u;
     const size_t bytes = (bit_shift + nbits + 7u) >> 3;
+    BLST_ASSERT(bytes <= 3);
     limb_t out = scalar[byte_index];
     if (bytes > 1) {
         out |= static_cast<limb_t>(scalar[byte_index + 1]) << 8;
@@ -158,13 +280,17 @@ struct WindowExtract
 
     WindowExtract(size_t window_idx, size_t window_size, size_t nbits)
     {
+        BLST_ASSERT(window_size_is_valid(window_size));
+        BLST_ASSERT(nbits <= kMaxScalarBits);
         const size_t window_begin = window_idx * window_size;
         missing_overlap = window_begin == 0 ? 1 : 0;
         extract_begin = window_begin > 0 ? window_begin - 1 : 0;
         const size_t window_end = std::min(window_begin + window_size, nbits);
         extract_size = window_end - extract_begin;
+        BLST_ASSERT(extract_size != 0 && extract_size <= 17);
         extracted_mask = (static_cast<limb_t>(1) << extract_size) - 1;
         encode_size = std::min(nbits - window_begin + 1, window_size);
+        BLST_ASSERT(encode_size != 0);
     }
 
     limb_t extract(const byte* scalar) const
@@ -223,42 +349,26 @@ inline void bucket_add_affine(BucketPoint& out, const BucketPoint& a, const Affi
 
 inline void bucket_add_affine(G2Point& out, const G2Point& a, const G2AffinePoint& point, bool subtract)
 {
-    if (subtract) {
-        const G2AffinePoint signed_point = maybe_negate(point, true);
-        G2Point::add(out, a, signed_point);
-    } else {
-        G2Point::add(out, a, point);
-    }
+    const G2AffinePoint signed_point = maybe_negate(point, subtract);
+    G2Point::add(out, a, signed_point);
 }
 
 inline void bucket_add_affine(G1Point& out, const G1Point& a, const G1AffinePoint& point, bool subtract)
 {
-    if (subtract) {
-        const G1AffinePoint signed_point = maybe_negate(point, true);
-        G1Point::add(out, a, signed_point);
-    } else {
-        G1Point::add(out, a, point);
-    }
+    const G1AffinePoint signed_point = maybe_negate(point, subtract);
+    G1Point::add(out, a, signed_point);
 }
 
 inline void bucket_set_affine(G1Point& out, const G1AffinePoint& point, bool subtract)
 {
-    if (subtract) {
-        const G1AffinePoint signed_point = maybe_negate(point, true);
-        G1Point::from_affine(out, signed_point);
-    } else {
-        G1Point::from_affine(out, point);
-    }
+    const G1AffinePoint signed_point = maybe_negate(point, subtract);
+    G1Point::from_affine(out, signed_point);
 }
 
 inline void bucket_set_affine(G2Point& out, const G2AffinePoint& point, bool subtract)
 {
-    if (subtract) {
-        const G2AffinePoint signed_point = maybe_negate(point, true);
-        G2Point::from_affine(out, signed_point);
-    } else {
-        G2Point::from_affine(out, point);
-    }
+    const G2AffinePoint signed_point = maybe_negate(point, subtract);
+    G2Point::from_affine(out, signed_point);
 }
 
 template<class BucketPoint>
@@ -344,7 +454,12 @@ inline void point_prefetch(const BucketPoint* buckets, limb_t booth_idx, size_t 
 template<class ProjectivePoint, class BucketPoint>
 inline void point_integrate_buckets(ProjectivePoint& out, BucketPoint* buckets, size_t wbits)
 {
-    size_t n = static_cast<size_t>(1) << wbits;
+    size_t n = 0;
+    if (!checked_lshift_size(1, wbits, n) || n == 0) {
+        out = ProjectivePoint::infinity();
+        BLST_ASSERT(false && "invalid AVX MSM bucket count");
+        return;
+    }
     BucketPoint acc = buckets[--n];
     BucketPoint ret = buckets[n];
     buckets[n] = bucket_zero<BucketPoint>();
@@ -360,7 +475,12 @@ inline void point_integrate_buckets(ProjectivePoint& out, BucketPoint* buckets, 
 template<class ProjectivePoint, class BucketPoint>
 inline void point_integrate_buckets(ProjectivePoint& out, BucketPoint* buckets, const uint8_t* bucket_used, uint8_t bucket_tag, size_t wbits)
 {
-    size_t n = static_cast<size_t>(1) << wbits;
+    size_t n = 0;
+    if (!checked_lshift_size(1, wbits, n)) {
+        out = ProjectivePoint::infinity();
+        BLST_ASSERT(false && "invalid AVX MSM bucket count");
+        return;
+    }
     BucketPoint acc = bucket_zero<BucketPoint>();
     BucketPoint ret = bucket_zero<BucketPoint>();
     bool acc_nonzero = false;
@@ -401,7 +521,12 @@ void points_tile_pippenger(
     size_t window_size)
 {
     const WindowExtract window(window_idx, window_size, nbits);
-    const size_t bucket_count = static_cast<size_t>(1) << (window.encode_size - 1);
+    size_t bucket_count = 0;
+    if (!bucket_count_for_window(window.encode_size, bucket_count)) {
+        ret = ProjectivePoint::infinity();
+        BLST_ASSERT(false && "invalid AVX MSM bucket count");
+        return;
+    }
     if (bucket_used == nullptr) {
         std::fill_n(buckets, bucket_count, bucket_zero<BucketPoint>());
     }
@@ -448,11 +573,20 @@ void mult_pippenger(
     }
 
     window_size = window_size != 0 ? window_size : pippenger_window_size(npoints);
+    if (!msm_inputs_are_valid<AffinePoint>(npoints, nbits, window_size)) {
+        BLST_ASSERT(false && "invalid AVX MSM shape");
+        return;
+    }
     const size_t num_windows = 1 + nbits / window_size;
     ProjectivePoint tile = ProjectivePoint::infinity();
     uint8_t bucket_tag = 1;
+    const size_t bucket_count = bucket_count_or_zero(window_size);
+    if (bucket_count == 0) {
+        BLST_ASSERT(false && "invalid AVX MSM bucket count");
+        return;
+    }
     if (bucket_used != nullptr) {
-        std::fill_n(bucket_used, static_cast<size_t>(1) << (window_size - 1), 0);
+        std::fill_n(bucket_used, bucket_count, 0);
     }
 
     for (size_t window_index = num_windows; window_index-- > 0;) {
@@ -465,7 +599,7 @@ void mult_pippenger(
             }
         }
         if (bucket_used != nullptr && ++bucket_tag == 0) {
-            std::fill_n(bucket_used, static_cast<size_t>(1) << (window_size - 1), 0);
+            std::fill_n(bucket_used, bucket_count, 0);
             bucket_tag = 1;
         }
     }
@@ -481,8 +615,14 @@ void mult_pippenger_alloc(
     size_t window_size)
 {
     window_size = window_size != 0 ? window_size : pippenger_window_size(npoints);
-    std::vector<BucketPoint> buckets(static_cast<size_t>(1) << (window_size - 1));
-    std::vector<uint8_t> bucket_used(static_cast<size_t>(1) << (window_size - 1));
+    const size_t bucket_count = bucket_count_or_zero(window_size);
+    if (bucket_count == 0) {
+        ret = ProjectivePoint::infinity();
+        BLST_ASSERT(false && "invalid AVX MSM bucket count");
+        return;
+    }
+    std::vector<BucketPoint> buckets(bucket_count);
+    std::vector<uint8_t> bucket_used(bucket_count);
     mult_pippenger(ret, points, scalars, npoints, nbits, buckets.data(), bucket_used.data(), window_size);
 }
 
@@ -513,68 +653,145 @@ inline size_t avx_g2_gls_pippenger_window_size(size_t npoints)
     return avx_msm_detail::g2_gls_pippenger_window_size(npoints);
 }
 
-inline size_t avx_g1_mult_pippenger_scratch_sizeof(size_t npoints)
+inline size_t avx_g1_mult_pippenger_plain_scratch_sizeof(size_t npoints)
 {
-    return sizeof(avx_msm_detail::G1PippengerBucket) << (avx_g1_pippenger_window_size(npoints) - 1);
+    if (!avx_msm_detail::point_count_is_addressable<G1AffinePoint>(npoints)) {
+        return 0;
+    }
+    return avx_msm_detail::bucket_scratch_sizeof(
+        npoints, avx_g1_pippenger_window_size(npoints), sizeof(avx_msm_detail::G1PippengerBucket));
 }
 
-inline size_t avx_g1_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints)
+inline size_t avx_g1_mult_pippenger_plain_bucket_used_scratch_sizeof(size_t npoints)
 {
-    return static_cast<size_t>(1) << (avx_g1_pippenger_window_size(npoints) - 1);
+    if (!avx_msm_detail::point_count_is_addressable<G1AffinePoint>(npoints)) {
+        return 0;
+    }
+    return avx_msm_detail::bucket_used_scratch_sizeof(npoints, avx_g1_pippenger_window_size(npoints));
 }
 
 inline size_t avx_g1_mult_pippenger_glv_scratch_sizeof(size_t npoints)
 {
-    return sizeof(avx_msm_detail::G1PippengerBucket) << (avx_g1_glv_pippenger_window_size(npoints) - 1);
+    size_t split_npoints = 0;
+    if (!avx_msm_detail::split_count(npoints, 2, split_npoints) ||
+        !avx_msm_detail::point_count_is_addressable<G1AffinePoint>(split_npoints)) {
+        return 0;
+    }
+    return avx_msm_detail::bucket_scratch_sizeof(
+        split_npoints, avx_g1_glv_pippenger_window_size(npoints), sizeof(avx_msm_detail::G1PippengerBucket));
 }
 
 inline size_t avx_g1_mult_pippenger_glv_bucket_used_scratch_sizeof(size_t npoints)
 {
-    return static_cast<size_t>(1) << (avx_g1_glv_pippenger_window_size(npoints) - 1);
+    size_t split_npoints = 0;
+    if (!avx_msm_detail::split_count(npoints, 2, split_npoints) ||
+        !avx_msm_detail::point_count_is_addressable<G1AffinePoint>(split_npoints)) {
+        return 0;
+    }
+    return avx_msm_detail::bucket_used_scratch_sizeof(split_npoints, avx_g1_glv_pippenger_window_size(npoints));
 }
 
 inline size_t avx_g1_mult_pippenger_glv_points_scratch_sizeof(size_t npoints)
 {
-    return sizeof(G1AffinePoint) * 2 * npoints;
+    return avx_msm_detail::array_scratch_sizeof(npoints, 2, sizeof(G1AffinePoint));
 }
 
 inline size_t avx_g1_mult_pippenger_glv_scalars_scratch_sizeof(size_t npoints)
 {
-    return 32 * npoints;
+    return avx_msm_detail::array_scratch_sizeof(npoints, 1, 32);
 }
 
-inline size_t avx_g2_mult_pippenger_scratch_sizeof(size_t npoints)
+inline size_t avx_g1_mult_pippenger_scratch_sizeof(size_t npoints)
 {
-    return sizeof(avx_msm_detail::G2PippengerBucket) << (avx_g2_pippenger_window_size(npoints) - 1);
+    return std::max(
+        avx_g1_mult_pippenger_plain_scratch_sizeof(npoints),
+        avx_g1_mult_pippenger_glv_scratch_sizeof(npoints));
 }
 
-inline size_t avx_g2_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints)
+inline size_t avx_g1_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints)
 {
-    return static_cast<size_t>(1) << (avx_g2_pippenger_window_size(npoints) - 1);
+    return std::max(
+        avx_g1_mult_pippenger_plain_bucket_used_scratch_sizeof(npoints),
+        avx_g1_mult_pippenger_glv_bucket_used_scratch_sizeof(npoints));
+}
+
+inline size_t avx_g2_mult_pippenger_plain_scratch_sizeof(size_t npoints)
+{
+    if (!avx_msm_detail::point_count_is_addressable<G2AffinePoint>(npoints)) {
+        return 0;
+    }
+    return avx_msm_detail::bucket_scratch_sizeof(
+        npoints, avx_g2_pippenger_window_size(npoints), sizeof(avx_msm_detail::G2PippengerBucket));
+}
+
+inline size_t avx_g2_mult_pippenger_plain_bucket_used_scratch_sizeof(size_t npoints)
+{
+    if (!avx_msm_detail::point_count_is_addressable<G2AffinePoint>(npoints)) {
+        return 0;
+    }
+    return avx_msm_detail::bucket_used_scratch_sizeof(npoints, avx_g2_pippenger_window_size(npoints));
 }
 
 inline size_t avx_g2_mult_pippenger_gls_scratch_sizeof(size_t npoints)
 {
-    return sizeof(avx_msm_detail::G2PippengerBucket) << (avx_g2_gls_pippenger_window_size(npoints) - 1);
+    size_t split_npoints = 0;
+    if (!avx_msm_detail::split_count(npoints, 4, split_npoints) ||
+        !avx_msm_detail::point_count_is_addressable<G2AffinePoint>(split_npoints)) {
+        return 0;
+    }
+    return avx_msm_detail::bucket_scratch_sizeof(
+        split_npoints, avx_g2_gls_pippenger_window_size(npoints), sizeof(avx_msm_detail::G2PippengerBucket));
 }
 
 inline size_t avx_g2_mult_pippenger_gls_bucket_used_scratch_sizeof(size_t npoints)
 {
-    return static_cast<size_t>(1) << (avx_g2_gls_pippenger_window_size(npoints) - 1);
+    size_t split_npoints = 0;
+    if (!avx_msm_detail::split_count(npoints, 4, split_npoints) ||
+        !avx_msm_detail::point_count_is_addressable<G2AffinePoint>(split_npoints)) {
+        return 0;
+    }
+    return avx_msm_detail::bucket_used_scratch_sizeof(split_npoints, avx_g2_gls_pippenger_window_size(npoints));
 }
 
 inline size_t avx_g2_mult_pippenger_gls_points_scratch_sizeof(size_t npoints)
 {
-    return sizeof(G2AffinePoint) * 4 * npoints;
+    return avx_msm_detail::array_scratch_sizeof(npoints, 4, sizeof(G2AffinePoint));
 }
 
 inline size_t avx_g2_mult_pippenger_gls_scalars_scratch_sizeof(size_t npoints)
 {
-    return 32 * npoints;
+    return avx_msm_detail::array_scratch_sizeof(npoints, 1, 32);
+}
+
+inline size_t avx_g2_mult_pippenger_scratch_sizeof(size_t npoints)
+{
+    const size_t plain = avx_g2_mult_pippenger_plain_scratch_sizeof(npoints);
+    if (npoints > avx_msm_detail::kG2GlsDispatchMaxNpoints) {
+        return plain;
+    }
+    return std::max(plain, avx_g2_mult_pippenger_gls_scratch_sizeof(npoints));
+}
+
+inline size_t avx_g2_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints)
+{
+    const size_t plain = avx_g2_mult_pippenger_plain_bucket_used_scratch_sizeof(npoints);
+    if (npoints > avx_msm_detail::kG2GlsDispatchMaxNpoints) {
+        return plain;
+    }
+    return std::max(plain, avx_g2_mult_pippenger_gls_bucket_used_scratch_sizeof(npoints));
 }
 
 using AvxG1PippengerBucket = avx_msm_detail::G1PippengerBucket;
 using AvxG2PippengerBucket = avx_msm_detail::G2PippengerBucket;
+
+inline void avx_g1_mult_pippenger_glv(
+    G1Point& ret,
+    const G1AffinePoint* points,
+    const byte* scalars,
+    size_t npoints,
+    AvxG1PippengerBucket* buckets,
+    size_t window_size,
+    uint8_t* bucket_used);
 
 inline void avx_g1_mult_pippenger(
     G1Point& ret,
@@ -586,13 +803,24 @@ inline void avx_g1_mult_pippenger(
     size_t window_size = 0,
     uint8_t* bucket_used = nullptr)
 {
+    if (nbits == 256 && window_size == 0) {
+        avx_g1_mult_pippenger_glv(ret, points, scalars, npoints, buckets, 0, bucket_used);
+        return;
+    }
+
     window_size = window_size != 0 ? window_size : avx_g1_pippenger_window_size(npoints);
+    const size_t bucket_count = avx_msm_detail::bucket_count_or_zero(window_size);
+    if (bucket_count == 0) {
+        ret = G1Point::infinity();
+        BLST_ASSERT(false && "invalid AVX G1 MSM window size");
+        return;
+    }
     if (buckets != nullptr) {
         if (bucket_used != nullptr) {
             avx_msm_detail::mult_pippenger(
                 ret, points, scalars, npoints, nbits, buckets, bucket_used, window_size);
         } else {
-            std::vector<uint8_t> local_bucket_used(static_cast<size_t>(1) << (window_size - 1));
+            std::vector<uint8_t> local_bucket_used(bucket_count);
             avx_msm_detail::mult_pippenger(
                 ret, points, scalars, npoints, nbits, buckets, local_bucket_used.data(), window_size);
         }
@@ -612,6 +840,13 @@ inline void avx_g1_mult_pippenger_glv_prepare(
     if (npoints == 0 || split_points == nullptr || split_scalars == nullptr || points == nullptr || scalars == nullptr) {
         return;
     }
+    size_t split_npoints = 0;
+    if (!avx_msm_detail::split_count(npoints, 2, split_npoints) ||
+        !avx_msm_detail::point_count_is_addressable<G1AffinePoint>(npoints) ||
+        !avx_msm_detail::scalar_count_is_addressable<G1AffinePoint>(npoints, 256)) {
+        BLST_ASSERT(false && "invalid AVX G1 GLV prepare shape");
+        return;
+    }
 
     const auto& ring = avx_curve_detail::curve_ring();
     const auto& glv = avx_curve_detail::curve_g1_glv();
@@ -626,7 +861,6 @@ inline void avx_g1_mult_pippenger_glv_prepare(
             const G1AffinePoint& point = points[i + j];
             split_points[2 * (i + j)] = point;
             xs[j] = point.X;
-            split_points[2 * (i + j) + 1].Y = ring.standard_negate(point.Y);
 
             std::array<uint8_t, 32> scalar = {};
             std::memcpy(scalar.data(), scalars + 32 * (i + j), 32);
@@ -636,13 +870,18 @@ inline void avx_g1_mult_pippenger_glv_prepare(
         }
         const auto phis = ring.template batch_modmul<batch>(xs, betas);
         for (size_t j = 0; j < batch; ++j) {
-            split_points[2 * (i + j) + 1].X = phis[j];
+            G1AffinePoint phi = points[i + j];
+            phi.X = phis[j];
+            G1AffinePoint::cneg(phi, true);
+            split_points[2 * (i + j) + 1] = phi;
         }
     }
     for (; i < npoints; ++i) {
         split_points[2 * i] = points[i];
-        split_points[2 * i + 1].X = ring.modmul(points[i].X, glv.beta);
-        split_points[2 * i + 1].Y = ring.standard_negate(points[i].Y);
+        G1AffinePoint phi = points[i];
+        phi.X = ring.modmul(points[i].X, glv.beta);
+        G1AffinePoint::cneg(phi, true);
+        split_points[2 * i + 1] = phi;
 
         std::array<uint8_t, 32> scalar = {};
         std::memcpy(scalar.data(), scalars + 32 * i, 32);
@@ -662,18 +901,25 @@ inline void avx_g1_mult_pippenger_glv_prepared(
     uint8_t* bucket_used = nullptr)
 {
     window_size = window_size != 0 ? window_size : avx_g1_glv_pippenger_window_size(npoints);
+    size_t split_npoints = 0;
+    const size_t bucket_count = avx_msm_detail::bucket_count_or_zero(window_size);
+    if (!avx_msm_detail::split_count(npoints, 2, split_npoints) || bucket_count == 0) {
+        ret = G1Point::infinity();
+        BLST_ASSERT(false && "invalid AVX G1 GLV MSM shape");
+        return;
+    }
     if (buckets != nullptr) {
         if (bucket_used != nullptr) {
             avx_msm_detail::mult_pippenger(
-                ret, split_points, split_scalars, 2 * npoints, 128, buckets, bucket_used, window_size);
+                ret, split_points, split_scalars, split_npoints, 128, buckets, bucket_used, window_size);
         } else {
-            std::vector<uint8_t> local_bucket_used(static_cast<size_t>(1) << (window_size - 1));
+            std::vector<uint8_t> local_bucket_used(bucket_count);
             avx_msm_detail::mult_pippenger(
-                ret, split_points, split_scalars, 2 * npoints, 128, buckets, local_bucket_used.data(), window_size);
+                ret, split_points, split_scalars, split_npoints, 128, buckets, local_bucket_used.data(), window_size);
         }
     } else {
         avx_msm_detail::mult_pippenger_alloc<G1Point, G1AffinePoint, AvxG1PippengerBucket>(
-            ret, split_points, split_scalars, 2 * npoints, 128, window_size);
+            ret, split_points, split_scalars, split_npoints, 128, window_size);
     }
 }
 
@@ -691,8 +937,18 @@ inline void avx_g1_mult_pippenger_glv(
         return;
     }
 
-    std::vector<G1AffinePoint> split_points(2 * npoints);
-    std::vector<byte> split_scalars(2 * npoints * 16);
+    size_t split_npoints = 0;
+    size_t split_point_bytes = 0;
+    size_t split_scalar_bytes = 0;
+    if (!avx_msm_detail::split_count(npoints, 2, split_npoints) ||
+        !avx_msm_detail::checked_mul_size(split_npoints, sizeof(G1AffinePoint), split_point_bytes) ||
+        !avx_msm_detail::checked_mul_size(split_npoints, 16, split_scalar_bytes)) {
+        BLST_ASSERT(false && "invalid AVX G1 GLV split count");
+        return;
+    }
+
+    std::vector<G1AffinePoint> split_points(split_npoints);
+    std::vector<byte> split_scalars(split_scalar_bytes);
     avx_g1_mult_pippenger_glv_prepare(split_points.data(), split_scalars.data(), points, scalars, npoints);
 
     avx_g1_mult_pippenger_glv_prepared(
@@ -779,6 +1035,13 @@ inline void avx_g2_mult_pippenger_gls_prepare(
     if (npoints == 0 || split_points == nullptr || split_scalars == nullptr || points == nullptr || scalars == nullptr) {
         return;
     }
+    size_t split_npoints = 0;
+    if (!avx_msm_detail::split_count(npoints, 4, split_npoints) ||
+        !avx_msm_detail::point_count_is_addressable<G2AffinePoint>(npoints) ||
+        !avx_msm_detail::scalar_count_is_addressable<G2AffinePoint>(npoints, 256)) {
+        BLST_ASSERT(false && "invalid AVX G2 GLS prepare shape");
+        return;
+    }
 
     constexpr size_t batch = 4;
     size_t i = 0;
@@ -837,18 +1100,25 @@ inline void avx_g2_mult_pippenger_gls_prepared(
     uint8_t* bucket_used = nullptr)
 {
     window_size = window_size != 0 ? window_size : avx_g2_gls_pippenger_window_size(npoints);
+    size_t split_npoints = 0;
+    const size_t bucket_count = avx_msm_detail::bucket_count_or_zero(window_size);
+    if (!avx_msm_detail::split_count(npoints, 4, split_npoints) || bucket_count == 0) {
+        ret = G2Point::infinity();
+        BLST_ASSERT(false && "invalid AVX G2 GLS MSM shape");
+        return;
+    }
     if (buckets != nullptr) {
         if (bucket_used != nullptr) {
             avx_msm_detail::mult_pippenger(
-                ret, split_points, split_scalars, 4 * npoints, 64, buckets, bucket_used, window_size);
+                ret, split_points, split_scalars, split_npoints, 64, buckets, bucket_used, window_size);
         } else {
-            std::vector<uint8_t> local_bucket_used(static_cast<size_t>(1) << (window_size - 1));
+            std::vector<uint8_t> local_bucket_used(bucket_count);
             avx_msm_detail::mult_pippenger(
-                ret, split_points, split_scalars, 4 * npoints, 64, buckets, local_bucket_used.data(), window_size);
+                ret, split_points, split_scalars, split_npoints, 64, buckets, local_bucket_used.data(), window_size);
         }
     } else {
         avx_msm_detail::mult_pippenger_alloc<G2Point, G2AffinePoint, AvxG2PippengerBucket>(
-            ret, split_points, split_scalars, 4 * npoints, 64, window_size);
+            ret, split_points, split_scalars, split_npoints, 64, window_size);
     }
 }
 
@@ -866,8 +1136,18 @@ inline void avx_g2_mult_pippenger_gls(
         return;
     }
 
-    std::vector<G2AffinePoint> split_points(4 * npoints);
-    std::vector<byte> split_scalars(4 * npoints * 8);
+    size_t split_npoints = 0;
+    size_t split_point_bytes = 0;
+    size_t split_scalar_bytes = 0;
+    if (!avx_msm_detail::split_count(npoints, 4, split_npoints) ||
+        !avx_msm_detail::checked_mul_size(split_npoints, sizeof(G2AffinePoint), split_point_bytes) ||
+        !avx_msm_detail::checked_mul_size(split_npoints, 8, split_scalar_bytes)) {
+        BLST_ASSERT(false && "invalid AVX G2 GLS split count");
+        return;
+    }
+
+    std::vector<G2AffinePoint> split_points(split_npoints);
+    std::vector<byte> split_scalars(split_scalar_bytes);
     avx_g2_mult_pippenger_gls_prepare(split_points.data(), split_scalars.data(), points, scalars, npoints);
     avx_g2_mult_pippenger_gls_prepared(
         ret, split_points.data(), split_scalars.data(), npoints, buckets, window_size, bucket_used);
@@ -883,13 +1163,24 @@ inline void avx_g2_mult_pippenger(
     size_t window_size = 0,
     uint8_t* bucket_used = nullptr)
 {
+    if (nbits == 256 && window_size == 0 && npoints <= avx_msm_detail::kG2GlsDispatchMaxNpoints) {
+        avx_g2_mult_pippenger_gls(ret, points, scalars, npoints, buckets, 0, bucket_used);
+        return;
+    }
+
     window_size = window_size != 0 ? window_size : avx_g2_pippenger_window_size(npoints);
+    const size_t bucket_count = avx_msm_detail::bucket_count_or_zero(window_size);
+    if (bucket_count == 0) {
+        ret = G2Point::infinity();
+        BLST_ASSERT(false && "invalid AVX G2 MSM window size");
+        return;
+    }
     if (buckets != nullptr) {
         if (bucket_used != nullptr) {
             avx_msm_detail::mult_pippenger(
                 ret, points, scalars, npoints, nbits, buckets, bucket_used, window_size);
         } else {
-            std::vector<uint8_t> local_bucket_used(static_cast<size_t>(1) << (window_size - 1));
+            std::vector<uint8_t> local_bucket_used(bucket_count);
             avx_msm_detail::mult_pippenger(
                 ret, points, scalars, npoints, nbits, buckets, local_bucket_used.data(), window_size);
         }

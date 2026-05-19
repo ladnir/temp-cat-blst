@@ -342,9 +342,14 @@ bool blst_avx_p1_mult_pippenger(
         *as_avx(out) = AvxG1::infinity();
         return true;
     }
-    const size_t required_scratch = blst::avx::avx_g1_mult_pippenger_scratch_sizeof(npoints);
-    const size_t required_bucket_used = blst::avx::avx_g1_mult_pippenger_bucket_used_scratch_sizeof(npoints);
-    if (points == nullptr || scalars == nullptr || scratch == nullptr || bucket_used == nullptr ||
+    const size_t required_scratch = nbits == 256
+        ? blst::avx::avx_g1_mult_pippenger_scratch_sizeof(npoints)
+        : blst::avx::avx_g1_mult_pippenger_plain_scratch_sizeof(npoints);
+    const size_t required_bucket_used = nbits == 256
+        ? blst::avx::avx_g1_mult_pippenger_bucket_used_scratch_sizeof(npoints)
+        : blst::avx::avx_g1_mult_pippenger_plain_bucket_used_scratch_sizeof(npoints);
+    if (required_scratch == 0 || required_bucket_used == 0 ||
+        points == nullptr || scalars == nullptr || scratch == nullptr || bucket_used == nullptr ||
         scratch_bytes < required_scratch || bucket_used_bytes < required_bucket_used ||
         !is_aligned(scratch, alignof(blst::avx::AvxG1PippengerBucket))) {
         return false;
@@ -356,7 +361,7 @@ bool blst_avx_p1_mult_pippenger(
         npoints,
         nbits,
         reinterpret_cast<blst::avx::AvxG1PippengerBucket*>(scratch),
-        blst::avx::avx_g1_pippenger_window_size(npoints),
+        0,
         bucket_used);
     return true;
 #else
@@ -569,9 +574,14 @@ bool blst_avx_p2_mult_pippenger(
         *as_avx(out) = AvxG2::infinity();
         return true;
     }
-    const size_t required_scratch = blst::avx::avx_g2_mult_pippenger_scratch_sizeof(npoints);
-    const size_t required_bucket_used = blst::avx::avx_g2_mult_pippenger_bucket_used_scratch_sizeof(npoints);
-    if (points == nullptr || scalars == nullptr || scratch == nullptr || bucket_used == nullptr ||
+    const size_t required_scratch = nbits == 256
+        ? blst::avx::avx_g2_mult_pippenger_scratch_sizeof(npoints)
+        : blst::avx::avx_g2_mult_pippenger_plain_scratch_sizeof(npoints);
+    const size_t required_bucket_used = nbits == 256
+        ? blst::avx::avx_g2_mult_pippenger_bucket_used_scratch_sizeof(npoints)
+        : blst::avx::avx_g2_mult_pippenger_plain_bucket_used_scratch_sizeof(npoints);
+    if (required_scratch == 0 || required_bucket_used == 0 ||
+        points == nullptr || scalars == nullptr || scratch == nullptr || bucket_used == nullptr ||
         scratch_bytes < required_scratch || bucket_used_bytes < required_bucket_used ||
         !is_aligned(scratch, alignof(blst::avx::AvxG2PippengerBucket))) {
         return false;
@@ -583,7 +593,7 @@ bool blst_avx_p2_mult_pippenger(
         npoints,
         nbits,
         reinterpret_cast<blst::avx::AvxG2PippengerBucket*>(scratch),
-        blst::avx::avx_g2_pippenger_window_size(npoints),
+        0,
         bucket_used);
     return true;
 #else
