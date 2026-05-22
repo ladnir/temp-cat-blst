@@ -169,6 +169,7 @@ extern "C" {
     pub fn blst_avx_p1_is_equal(a: *const blst_avx_p1, b: *const blst_avx_p1) -> bool;
     pub fn blst_avx_p1_compress(out: *mut byte, input: *const blst_avx_p1) -> bool;
     pub fn blst_avx_p1_serialize(out: *mut byte, input: *const blst_avx_p1) -> bool;
+    pub fn blst_avx_p1_deserialize(out: *mut blst_avx_p1, input: *const byte) -> BLST_ERROR;
     pub fn blst_avx_p1_uncompress(out: *mut blst_avx_p1, input: *const byte) -> BLST_ERROR;
     pub fn blst_avx_p1s_mult_pippenger_scratch_sizeof(npoints: usize) -> usize;
     pub fn blst_avx_p1s_mult_pippenger(

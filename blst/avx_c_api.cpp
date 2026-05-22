@@ -590,6 +590,25 @@ bool blst_avx_p1_serialize(byte out[96], const blst_avx_p1* in)
 #endif
 }
 
+BLST_ERROR blst_avx_p1_deserialize(blst_avx_p1* out, const byte in[96])
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (out == nullptr || in == nullptr) {
+        return BLST_BAD_ENCODING;
+    }
+    AvxG1Affine affine = {};
+    const blst::BLST_ERROR err = AvxG1Affine::deserialize(affine, in);
+    if (err == blst::BLST_SUCCESS) {
+        AvxG1::from_affine(*as_avx(out), affine);
+    }
+    return static_cast<BLST_ERROR>(err);
+#else
+    (void)out;
+    (void)in;
+    return BLST_BAD_ENCODING;
+#endif
+}
+
 BLST_ERROR blst_avx_p1_uncompress(blst_avx_p1* out, const byte in[48])
 {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)

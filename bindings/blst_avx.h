@@ -129,6 +129,8 @@ bool blst_avx_p1_is_equal(const blst_avx_p1* a, const blst_avx_p1* b);
 bool blst_avx_p1_compress(byte out[48], const blst_avx_p1* in);
 /** Serializes an AVX G1 projective point to the standard 96-byte affine encoding. */
 bool blst_avx_p1_serialize(byte out[96], const blst_avx_p1* in);
+/** Parses a standard 96-byte uncompressed G1 encoding into AVX projective form. */
+BLST_ERROR blst_avx_p1_deserialize(blst_avx_p1* out, const byte in[96]);
 /** Parses a standard 48-byte compressed G1 encoding into AVX projective form. */
 BLST_ERROR blst_avx_p1_uncompress(blst_avx_p1* out, const byte in[48]);
 /** Returns caller-owned scratch bytes needed by AVX G1 Pippenger MSM. */
