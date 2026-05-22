@@ -112,7 +112,7 @@ pub use avx::{
     blst_avx_p2_generator, blst_avx_p2_in_g2, blst_avx_p2_is_equal, blst_avx_p2_is_inf,
     blst_avx_p2_mult, blst_avx_p2_sizeof, blst_avx_p2_to_affine, blst_avx_p2_uncompress,
     blst_avx_p2s_mult_pippenger, blst_avx_p2s_mult_pippenger_scratch_sizeof,
-    blst_avx_pairing,
+    blst_avx_pairing, blst_fp12_from_avx,
 };
 pub use fft::{
     fr_fft, fr_fft_transpose_forward, fr_interpolate, fr_interpolate_fft_domain, FftError,

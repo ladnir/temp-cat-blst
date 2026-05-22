@@ -217,6 +217,7 @@ extern "C" {
         a: *const blst_avx_fp12,
         b: *const blst_avx_fp12,
     ) -> bool;
+    pub fn blst_fp12_from_avx(out: *mut blst_fp12, input: *const blst_avx_fp12) -> bool;
     pub fn blst_avx_pairing(
         out: *mut blst_avx_fp12,
         g1: *const blst_avx_p1,
