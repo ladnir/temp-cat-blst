@@ -759,6 +759,21 @@ bool blst_avx_p2_add(blst_avx_p2* out, const blst_avx_p2* a, const blst_avx_p2* 
 #endif
 }
 
+bool blst_avx_p2_cneg(blst_avx_p2* p, bool cbit)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (p == nullptr) {
+        return false;
+    }
+    AvxG2::cneg(*as_avx(p), cbit ? 1 : 0);
+    return true;
+#else
+    (void)p;
+    (void)cbit;
+    return false;
+#endif
+}
+
 bool blst_avx_p2_mult(blst_avx_p2* out, const blst_avx_p2* p, const byte* scalar, size_t nbits)
 {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)

@@ -187,6 +187,7 @@ extern "C" {
         a: *const blst_avx_p2,
         b: *const blst_avx_p2,
     ) -> bool;
+    pub fn blst_avx_p2_cneg(p: *mut blst_avx_p2, cbit: bool) -> bool;
     pub fn blst_avx_p2_mult(
         out: *mut blst_avx_p2,
         p: *const blst_avx_p2,

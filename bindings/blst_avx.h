@@ -163,6 +163,8 @@ bool blst_avx_p2_affine_from_scalar(blst_avx_p2_affine* out, const blst_p2_affin
 bool blst_p2_affine_from_avx(blst_p2_affine* out, const blst_avx_p2_affine* in);
 /** Adds two AVX G2 projective points and writes the sum to `out`. */
 bool blst_avx_p2_add(blst_avx_p2* out, const blst_avx_p2* a, const blst_avx_p2* b);
+/** Conditionally negates an AVX G2 projective point in place. */
+bool blst_avx_p2_cneg(blst_avx_p2* p, bool cbit);
 
 /**
  * Multiplies an AVX G2 projective point by an unsigned little-endian scalar.
