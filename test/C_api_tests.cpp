@@ -196,6 +196,18 @@ bool blst_avx_p1_affine_from_scalar(BlstAvxP1Affine* out, const blst::scalar::G1
 bool blst_p1_affine_from_avx(blst::scalar::G1AffinePoint* out, const BlstAvxP1Affine* in);
 bool blst_avx_p1_add(BlstAvxP1* out, const BlstAvxP1* a, const BlstAvxP1* b);
 bool blst_avx_p1_mult(BlstAvxP1* out, const BlstAvxP1* p, const unsigned char* scalar, size_t nbits);
+size_t blst_avx_p1_mult_pippenger_scratch_sizeof(size_t npoints);
+size_t blst_avx_p1_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints);
+bool blst_avx_p1_mult_pippenger(
+    BlstAvxP1* out,
+    const BlstAvxP1Affine* points,
+    const unsigned char* scalars,
+    size_t npoints,
+    size_t nbits,
+    void* scratch,
+    size_t scratch_bytes,
+    unsigned char* bucket_used,
+    size_t bucket_used_bytes);
 bool blst_avx_p1_to_affine(BlstAvxP1Affine* out, const BlstAvxP1* in);
 bool blst_avx_p1_from_affine(BlstAvxP1* out, const BlstAvxP1Affine* in);
 bool blst_avx_p1_in_g1(const BlstAvxP1* p);
@@ -207,6 +219,18 @@ bool blst_avx_p2_affine_from_scalar(BlstAvxP2Affine* out, const blst::scalar::G2
 bool blst_p2_affine_from_avx(blst::scalar::G2AffinePoint* out, const BlstAvxP2Affine* in);
 bool blst_avx_p2_add(BlstAvxP2* out, const BlstAvxP2* a, const BlstAvxP2* b);
 bool blst_avx_p2_mult(BlstAvxP2* out, const BlstAvxP2* p, const unsigned char* scalar, size_t nbits);
+size_t blst_avx_p2_mult_pippenger_scratch_sizeof(size_t npoints);
+size_t blst_avx_p2_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints);
+bool blst_avx_p2_mult_pippenger(
+    BlstAvxP2* out,
+    const BlstAvxP2Affine* points,
+    const unsigned char* scalars,
+    size_t npoints,
+    size_t nbits,
+    void* scratch,
+    size_t scratch_bytes,
+    unsigned char* bucket_used,
+    size_t bucket_used_bytes);
 bool blst_avx_p2_to_affine(BlstAvxP2Affine* out, const BlstAvxP2* in);
 bool blst_avx_p2_from_affine(BlstAvxP2* out, const BlstAvxP2Affine* in);
 bool blst_avx_p2_in_g2(const BlstAvxP2* p);
@@ -311,6 +335,28 @@ bool fp2_equal(const BoundaryFp2& a, const BoundaryFp2& b)
 std::vector<unsigned char> packed_scalars(std::initializer_list<unsigned char> scalars)
 {
     return std::vector<unsigned char>(scalars);
+}
+
+std::vector<unsigned char> scalar_batch(std::initializer_list<std::uint64_t> scalars)
+{
+    std::vector<unsigned char> out;
+    out.reserve(scalars.size() * 32);
+    for (std::uint64_t scalar : scalars) {
+        const auto bytes = scalar_bytes(scalar);
+        out.insert(out.end(), bytes.begin(), bytes.end());
+    }
+    return out;
+}
+
+std::vector<unsigned char> scalar_batch(std::initializer_list<std::uint64_t> scalars, size_t nbytes)
+{
+    std::vector<unsigned char> out;
+    out.reserve(scalars.size() * nbytes);
+    for (std::uint64_t scalar : scalars) {
+        const auto bytes = scalar_bytes(scalar);
+        out.insert(out.end(), bytes.begin(), bytes.begin() + static_cast<std::ptrdiff_t>(nbytes));
+    }
+    return out;
 }
 
 } // namespace
@@ -470,6 +516,245 @@ TEST(CApi, AvxExpertP2RoundTripAndOps)
     ASSERT_TRUE(blst_p2_from_avx(&product, &avx_product));
     EXPECT_TRUE(BoundaryG2::equal(product, p2_mul(17)));
     EXPECT_TRUE(blst_avx_p2_is_equal(avx_generator, avx_generator));
+}
+
+TEST(CApi, AvxExpertP1PippengerMatchesScalar)
+{
+    if (!blst_avx_enabled()) {
+        GTEST_SKIP() << "AVX expert C API is unavailable in this build.";
+    }
+
+    constexpr size_t kCount = 4;
+    const std::array<std::uint64_t, kCount> point_scalars = {3, 5, 7, 11};
+    const std::array<std::uint64_t, kCount> msm_scalars = {13, 17, 19, 23};
+    const std::vector<unsigned char> scalars =
+        scalar_batch({msm_scalars[0], msm_scalars[1], msm_scalars[2], msm_scalars[3]});
+    std::array<BlstAvxP1Affine, kCount> avx_points = {};
+    BoundaryG1 expected = {};
+
+    for (size_t i = 0; i < kCount; ++i) {
+        BoundaryG1 point = p1_mul(point_scalars[i]);
+        BoundaryG1Affine affine = {};
+        blst_p1_to_affine(&affine, &point);
+        ASSERT_TRUE(blst_avx_p1_affine_from_scalar(&avx_points[i], &affine));
+
+        BoundaryG1 term = {};
+        blst_p1_mult(&term, &point, scalars.data() + i * 32, 256);
+        blst_p1_add(&expected, &expected, &term);
+    }
+
+    const size_t scratch_bytes = blst_avx_p1_mult_pippenger_scratch_sizeof(kCount);
+    const size_t bucket_used_bytes = blst_avx_p1_mult_pippenger_bucket_used_scratch_sizeof(kCount);
+    ASSERT_GT(scratch_bytes, 0u);
+    ASSERT_GT(bucket_used_bytes, 0u);
+    std::vector<BlstAvxP1> scratch((scratch_bytes + sizeof(BlstAvxP1) - 1) / sizeof(BlstAvxP1));
+    std::vector<unsigned char> bucket_used(bucket_used_bytes);
+
+    BlstAvxP1 msm = {};
+    BoundaryG1 roundtrip = {};
+    ASSERT_TRUE(blst_avx_p1_mult_pippenger(
+        &msm,
+        avx_points.data(),
+        scalars.data(),
+        kCount,
+        256,
+        scratch.data(),
+        scratch.size() * sizeof(BlstAvxP1),
+        bucket_used.data(),
+        bucket_used.size()));
+    ASSERT_TRUE(blst_p1_from_avx(&roundtrip, &msm));
+    EXPECT_TRUE(BoundaryG1::equal(roundtrip, expected));
+}
+
+TEST(CApi, AvxExpertP2PippengerMatchesScalar)
+{
+    if (!blst_avx_enabled()) {
+        GTEST_SKIP() << "AVX expert C API is unavailable in this build.";
+    }
+
+    constexpr size_t kCount = 4;
+    const std::array<std::uint64_t, kCount> point_scalars = {3, 5, 7, 11};
+    const std::array<std::uint64_t, kCount> msm_scalars = {13, 17, 19, 23};
+    const std::vector<unsigned char> scalars =
+        scalar_batch({msm_scalars[0], msm_scalars[1], msm_scalars[2], msm_scalars[3]});
+    std::array<BlstAvxP2Affine, kCount> avx_points = {};
+    BoundaryG2 expected = {};
+
+    for (size_t i = 0; i < kCount; ++i) {
+        BoundaryG2 point = p2_mul(point_scalars[i]);
+        BoundaryG2Affine affine = {};
+        blst_p2_to_affine(&affine, &point);
+        ASSERT_TRUE(blst_avx_p2_affine_from_scalar(&avx_points[i], &affine));
+
+        BoundaryG2 term = {};
+        blst_p2_mult(&term, &point, scalars.data() + i * 32, 256);
+        blst_p2_add(&expected, &expected, &term);
+    }
+
+    const size_t scratch_bytes = blst_avx_p2_mult_pippenger_scratch_sizeof(kCount);
+    const size_t bucket_used_bytes = blst_avx_p2_mult_pippenger_bucket_used_scratch_sizeof(kCount);
+    ASSERT_GT(scratch_bytes, 0u);
+    ASSERT_GT(bucket_used_bytes, 0u);
+    std::vector<BlstAvxP2> scratch((scratch_bytes + sizeof(BlstAvxP2) - 1) / sizeof(BlstAvxP2));
+    std::vector<unsigned char> bucket_used(bucket_used_bytes);
+
+    BlstAvxP2 msm = {};
+    BoundaryG2 roundtrip = {};
+    ASSERT_TRUE(blst_avx_p2_mult_pippenger(
+        &msm,
+        avx_points.data(),
+        scalars.data(),
+        kCount,
+        256,
+        scratch.data(),
+        scratch.size() * sizeof(BlstAvxP2),
+        bucket_used.data(),
+        bucket_used.size()));
+    ASSERT_TRUE(blst_p2_from_avx(&roundtrip, &msm));
+    EXPECT_TRUE(BoundaryG2::equal(roundtrip, expected));
+}
+
+TEST(CApi, AvxExpertP1PippengerShortScalarsMatchScalar)
+{
+    if (!blst_avx_enabled()) {
+        GTEST_SKIP() << "AVX expert C API is unavailable in this build.";
+    }
+
+    constexpr size_t kCount = 4;
+    constexpr size_t kBits = 128;
+    constexpr size_t kBytes = kBits / 8;
+    const std::array<std::uint64_t, kCount> point_scalars = {3, 5, 7, 11};
+    const std::array<std::uint64_t, kCount> msm_scalars = {13, 17, 19, 23};
+    const std::vector<unsigned char> scalars =
+        scalar_batch({msm_scalars[0], msm_scalars[1], msm_scalars[2], msm_scalars[3]}, kBytes);
+    std::array<BlstAvxP1Affine, kCount> avx_points = {};
+    BoundaryG1 expected = {};
+
+    for (size_t i = 0; i < kCount; ++i) {
+        BoundaryG1 point = p1_mul(point_scalars[i]);
+        BoundaryG1Affine affine = {};
+        blst_p1_to_affine(&affine, &point);
+        ASSERT_TRUE(blst_avx_p1_affine_from_scalar(&avx_points[i], &affine));
+
+        BoundaryG1 term = {};
+        blst_p1_mult(&term, &point, scalars.data() + i * kBytes, kBits);
+        blst_p1_add(&expected, &expected, &term);
+    }
+
+    const size_t scratch_bytes = blst_avx_p1_mult_pippenger_scratch_sizeof(kCount);
+    const size_t bucket_used_bytes = blst_avx_p1_mult_pippenger_bucket_used_scratch_sizeof(kCount);
+    ASSERT_GT(scratch_bytes, 0u);
+    ASSERT_GT(bucket_used_bytes, 0u);
+    std::vector<BlstAvxP1> scratch((scratch_bytes + sizeof(BlstAvxP1) - 1) / sizeof(BlstAvxP1));
+    std::vector<unsigned char> bucket_used(bucket_used_bytes);
+
+    BlstAvxP1 msm = {};
+    BoundaryG1 roundtrip = {};
+    ASSERT_TRUE(blst_avx_p1_mult_pippenger(
+        &msm,
+        avx_points.data(),
+        scalars.data(),
+        kCount,
+        kBits,
+        scratch.data(),
+        scratch.size() * sizeof(BlstAvxP1),
+        bucket_used.data(),
+        bucket_used.size()));
+    ASSERT_TRUE(blst_p1_from_avx(&roundtrip, &msm));
+    EXPECT_TRUE(BoundaryG1::equal(roundtrip, expected));
+}
+
+TEST(CApi, AvxExpertP2PippengerShortScalarsMatchScalar)
+{
+    if (!blst_avx_enabled()) {
+        GTEST_SKIP() << "AVX expert C API is unavailable in this build.";
+    }
+
+    constexpr size_t kCount = 4;
+    constexpr size_t kBits = 128;
+    constexpr size_t kBytes = kBits / 8;
+    const std::array<std::uint64_t, kCount> point_scalars = {3, 5, 7, 11};
+    const std::array<std::uint64_t, kCount> msm_scalars = {13, 17, 19, 23};
+    const std::vector<unsigned char> scalars =
+        scalar_batch({msm_scalars[0], msm_scalars[1], msm_scalars[2], msm_scalars[3]}, kBytes);
+    std::array<BlstAvxP2Affine, kCount> avx_points = {};
+    BoundaryG2 expected = {};
+
+    for (size_t i = 0; i < kCount; ++i) {
+        BoundaryG2 point = p2_mul(point_scalars[i]);
+        BoundaryG2Affine affine = {};
+        blst_p2_to_affine(&affine, &point);
+        ASSERT_TRUE(blst_avx_p2_affine_from_scalar(&avx_points[i], &affine));
+
+        BoundaryG2 term = {};
+        blst_p2_mult(&term, &point, scalars.data() + i * kBytes, kBits);
+        blst_p2_add(&expected, &expected, &term);
+    }
+
+    const size_t scratch_bytes = blst_avx_p2_mult_pippenger_scratch_sizeof(kCount);
+    const size_t bucket_used_bytes = blst_avx_p2_mult_pippenger_bucket_used_scratch_sizeof(kCount);
+    ASSERT_GT(scratch_bytes, 0u);
+    ASSERT_GT(bucket_used_bytes, 0u);
+    std::vector<BlstAvxP2> scratch((scratch_bytes + sizeof(BlstAvxP2) - 1) / sizeof(BlstAvxP2));
+    std::vector<unsigned char> bucket_used(bucket_used_bytes);
+
+    BlstAvxP2 msm = {};
+    BoundaryG2 roundtrip = {};
+    ASSERT_TRUE(blst_avx_p2_mult_pippenger(
+        &msm,
+        avx_points.data(),
+        scalars.data(),
+        kCount,
+        kBits,
+        scratch.data(),
+        scratch.size() * sizeof(BlstAvxP2),
+        bucket_used.data(),
+        bucket_used.size()));
+    ASSERT_TRUE(blst_p2_from_avx(&roundtrip, &msm));
+    EXPECT_TRUE(BoundaryG2::equal(roundtrip, expected));
+}
+
+TEST(CApi, AvxExpertPippengerRejectsOverflowSizedInputs)
+{
+    if (!blst_avx_enabled()) {
+        GTEST_SKIP() << "AVX expert C API is unavailable in this build.";
+    }
+
+    constexpr size_t kHuge = std::numeric_limits<size_t>::max();
+    EXPECT_EQ(blst_avx_p1_mult_pippenger_scratch_sizeof(kHuge), 0u);
+    EXPECT_EQ(blst_avx_p1_mult_pippenger_bucket_used_scratch_sizeof(kHuge), 0u);
+    EXPECT_EQ(blst_avx_p2_mult_pippenger_scratch_sizeof(kHuge), 0u);
+    EXPECT_EQ(blst_avx_p2_mult_pippenger_bucket_used_scratch_sizeof(kHuge), 0u);
+
+    BlstAvxP1 p1_out = {};
+    BlstAvxP1Affine p1_point = {};
+    BlstAvxP1 p1_scratch = {};
+    BlstAvxP2 p2_out = {};
+    BlstAvxP2Affine p2_point = {};
+    BlstAvxP2 p2_scratch = {};
+    std::array<unsigned char, 32> scalar = {};
+    std::array<unsigned char, 1> bucket_used = {};
+
+    EXPECT_FALSE(blst_avx_p1_mult_pippenger(
+        &p1_out,
+        &p1_point,
+        scalar.data(),
+        kHuge,
+        256,
+        &p1_scratch,
+        sizeof(p1_scratch),
+        bucket_used.data(),
+        bucket_used.size()));
+    EXPECT_FALSE(blst_avx_p2_mult_pippenger(
+        &p2_out,
+        &p2_point,
+        scalar.data(),
+        kHuge,
+        256,
+        &p2_scratch,
+        sizeof(p2_scratch),
+        bucket_used.data(),
+        bucket_used.size()));
 }
 
 TEST(CApi, AvxExpertFp12RoundTripAndOps)

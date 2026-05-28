@@ -371,25 +371,39 @@ class BoundedRing {
         return result;
     }
 
+    template<class ElementType, class RNSBoundsType>
+    INLINE auto small_m2(const ExpandedElement<ElementType, RNSBoundsType>& element) const {
+        return SmallElement<ElementType, RNSBoundsType>(element.m2);
+    }
 
-    template<class E1, class E2, class E3, class E4, class E5, class E6>
-    INLINE auto batch_expand(const E1 &e1, const E2 &e2, const E3 &e3, const E4 &e4, const E5 &e5, const E6 &e6) const {
-        std::array<StandardBoundedElement, 6> data;
-        data[0] = e1.element;
-        data[1] = e2.element;
-        data[2] = e3.element;
-        data[3] = e4.element;
-        data[4] = e5.element;
-        data[5] = e6.element;
-        auto expanded = batch_expand<6>(data);
-        // Reapply bounds
-        auto e1_expanded = ExpandedElement<StandardBoundedElement, std::remove_cv_t<decltype(e1.rns_bounds)>>(expanded[0], e1);
-        auto e2_expanded = ExpandedElement<StandardBoundedElement, std::remove_cv_t<decltype(e2.rns_bounds)>>(expanded[1], e2);
-        auto e3_expanded = ExpandedElement<StandardBoundedElement, std::remove_cv_t<decltype(e3.rns_bounds)>>(expanded[2], e3);
-        auto e4_expanded = ExpandedElement<StandardBoundedElement, std::remove_cv_t<decltype(e4.rns_bounds)>>(expanded[3], e4);
-        auto e5_expanded = ExpandedElement<StandardBoundedElement, std::remove_cv_t<decltype(e5.rns_bounds)>>(expanded[4], e5);
-        auto e6_expanded = ExpandedElement<StandardBoundedElement, std::remove_cv_t<decltype(e6.rns_bounds)>>(expanded[5], e6);
-        return std::tuple<decltype(e1_expanded), decltype(e2_expanded), decltype(e3_expanded), decltype(e4_expanded), decltype(e5_expanded), decltype(e6_expanded)>{e1_expanded, e2_expanded, e3_expanded, e4_expanded, e5_expanded, e6_expanded};
+
+    template<typename... Args, std::size_t... I>
+    INLINE auto make_expand_array_impl(const std::tuple<Args...>& args, std::index_sequence<I...>) const {
+        return std::array<StandardBoundedElement, sizeof...(Args)>{std::get<I>(args).element...};
+    }
+
+    template<class E, class Expanded>
+    INLINE auto reattach_expand_bounds(const E& e, const Expanded& expanded) const {
+        return ExpandedElement<StandardBoundedElement, std::remove_cv_t<decltype(e.rns_bounds)>>(expanded, e);
+    }
+
+    template<typename... Args, std::size_t... I>
+    INLINE auto reattach_expand_tuple_impl(
+        const std::tuple<Args...>& args,
+        const std::array<StandardBoundedElement, sizeof...(Args)>& expanded,
+        std::index_sequence<I...>) const {
+        return std::tuple<decltype(reattach_expand_bounds(std::get<I>(args), expanded[I]))...>{
+            reattach_expand_bounds(std::get<I>(args), expanded[I])...};
+    }
+
+    template<typename... Args>
+    INLINE auto batch_expand(const Args&... args) const {
+        constexpr int batch = static_cast<int>(sizeof...(Args));
+        static_assert(batch > 0, "batch_expand requires at least one argument");
+        const auto tuple = std::tie(args...);
+        const auto data = make_expand_array_impl(tuple, std::make_index_sequence<sizeof...(Args)>{});
+        const auto expanded = batch_expand<batch>(data);
+        return reattach_expand_tuple_impl(tuple, expanded, std::make_index_sequence<sizeof...(Args)>{});
     }
 
     // Reduce, sets RNS bound to 1

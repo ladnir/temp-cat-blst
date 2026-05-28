@@ -4,7 +4,7 @@
 #include "blst/backend/cuda/add_mod_cuda.h"
 #include "blst/backend/cuda/mul_mont_cuda.h"
 
-namespace blst::scalar
+namespace blst
 {
 	template
 		BLST_DEVICE void ptx_add_mod_u64<blst::scalar::Fr>(

@@ -242,6 +242,9 @@ endif()
 
 # applies to all targets
 add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:--allow-unsupported-compiler>)
+if(MSVC)
+    add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/Zc:preprocessor>)
+endif()
 
 #add_subdirectory(check)
 add_subdirectory(blst)

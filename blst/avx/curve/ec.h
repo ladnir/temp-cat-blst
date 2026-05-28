@@ -59,6 +59,12 @@ class AffinePoint {
 template<class Ring>
 class FP2Ring;
 
+template<class Element>
+INLINE bool PointCoordIsZero(const Element& value);
+
+template<class RingElement>
+INLINE bool PointIsZero(const AffinePoint<RingElement>& point);
+
 // ~5% faster, but doesn't work with new type system yet because it needs to preserve rns bounds across expansion.
 /*
 template<class Ring, class OffsetElement>
@@ -129,12 +135,6 @@ ProjectivePoint<typename Ring::StandardElement> PointAdd(const ProjectivePoint<t
     auto t5_11_wide = ring.prep_left(t4_9) * ring.prep(x3_10);
     auto x3_16_wide = ring.prep_left(t3_14) * ring.prep(y3_15);
 
-    // The simplest solution is to use tab completion or scripting to write out the cases for 1..12 inputs
-    // 
-    // expand(SmallElement<BoundedElement<Bounds<l, u>>, )
-    // ring.prep() -> mont 2 auto
-    // batch<> with avx limbs as inputs
-    // reattach rns bounds.
     auto [t0_1, t1_2, t2_3, t3_6, t5_11, x3_16] = ring.batch_reduce(t0_1_wide, t1_2_wide, t2_3_wide, t3_6_wide, t5_11_wide, x3_16_wide);
     auto t4_7 = t0_1 + t1_2;
     auto x3_12 = t1_2 + t2_3;
@@ -215,7 +215,62 @@ ProjectivePoint<typename Ring::StandardElement> PointMixedAdd(const ProjectivePo
     auto z3_33_wide =  z3_32 + t0_31;
     
     auto [x3_27, y3_30, z3_33] = ring.batch_reduce_expand(x3_27_wide, y3_30_wide, z3_33_wide);
-    return ProjectivePoint<typename Ring::StandardElement>(x3_27, y3_30, z3_33);
+    return ProjectivePoint<typename Ring::StandardElement>(x3_27, y3_30, z3_33)
+        .ctime_replace_if(PointIsZero(Q), P);
+}
+
+template<class Ring>
+ProjectivePoint<typename Ring::StandardElement> PointMixedAddUnexpanded(const ProjectivePoint<typename Ring::StandardElement> &P, const AffinePoint<typename Ring::StandardElement> &Q, const Ring &ring) {
+    auto t3_4 = P.x + P.y;
+    auto t3_14 = P.x + P.z;
+    auto t4_9 = P.y + P.z;
+    auto t4_5 = Q.x + Q.y;
+    auto one = ring.one();
+    auto x3_10 = Q.y + one;
+    auto y3_15 = Q.x + one;
+
+    auto t0_1_wide = ring.prep_left(P.x) * Q.x;
+    auto t1_2_wide = ring.prep_left(P.y) * Q.y;
+    auto t3_6_wide = ring.prep_left(t3_4) * ring.prep(t4_5);
+    auto t5_11_wide = ring.prep_left(t4_9) * ring.prep(x3_10);
+    auto x3_16_wide = ring.prep_left(t3_14) * ring.prep(y3_15);
+
+    auto [t0_1, t1_2, t3_6, t5_11, x3_16] =
+        ring.batch_reduce(t0_1_wide, t1_2_wide, t3_6_wide, t5_11_wide, x3_16_wide);
+    auto t2_3 = ring.small_m2(P.z);
+    auto t4_7 = t0_1 + t1_2;
+    auto x3_12 = t1_2 + t2_3;
+    auto y3_17 = t0_1 + t2_3;
+    auto y3_18 = x3_16 - y3_17;
+    auto x3_19 = t0_1 + t0_1;
+    auto t2_21 = ring.mul_3b(t2_3);
+
+    auto t3_8_s = ring.prep(t3_6 - t4_7);
+    auto y3_24_s = ring.prep(ring.mul_3b(y3_18));
+    auto z3_22_s = ring.prep(t1_2 + t2_21);
+    auto t1_23_s = ring.prep(t1_2 - t2_21);
+    auto t4_13_s = ring.prep(t5_11 - x3_12);
+    auto t0_20_s = ring.prep(t0_1 + x3_19);
+
+    auto [t3_8, y3_24, z3_22, t1_23, t4_13, t0_20] =
+        ring.batch_expand(t3_8_s, y3_24_s, z3_22_s, t1_23_s, t4_13_s, t0_20_s);
+
+    auto t4_13l = ring.prep_left(t4_13);
+    auto t1_23l = ring.prep_left(t1_23);
+    auto t0_20l = ring.prep_left(t0_20);
+    auto x3_25 = t4_13l * ring.negate(y3_24);
+    auto t2_26 = t1_23l * t3_8;
+    auto y3_28 = t0_20l * y3_24;
+    auto t1_29 = t1_23l * z3_22;
+    auto t0_31 = t0_20l * t3_8;
+    auto z3_32 = t4_13l * z3_22;
+    auto x3_27_wide = t2_26 + x3_25;
+    auto y3_30_wide = t1_29 + y3_28;
+    auto z3_33_wide = z3_32 + t0_31;
+
+    auto [x3_27, y3_30, z3_33] = ring.batch_reduce_expand(x3_27_wide, y3_30_wide, z3_33_wide);
+    return ProjectivePoint<typename Ring::StandardElement>(x3_27, y3_30, z3_33)
+        .ctime_replace_if(PointIsZero(Q), P);
 }
 
 // https://eprint.iacr.org/2015/1060.pdf Algorithm 9
@@ -256,6 +311,12 @@ template<class Element>
 INLINE bool PointCoordIsZero(const Element& value)
 {
     return vec_is_zero(&value, sizeof(value)) != 0;
+}
+
+template<class RingElement>
+INLINE bool PointIsZero(const AffinePoint<RingElement>& point)
+{
+    return PointCoordIsZero(point.x) & PointCoordIsZero(point.y);
 }
 
 template<class Ring, class Element>
@@ -356,7 +417,7 @@ class G1 {
     }
 
     ProjPoint add_mixed_point(const ProjPoint &P, const AffPoint &Q, const Ring &ring) const {
-        return PointMixedAdd<Ring>(P, Q, ring);
+        return PointMixedAddUnexpanded<Ring>(P, Q, ring);
     }
 
     ProjPoint double_point(const ProjPoint &P, const Ring &ring) const {
@@ -364,19 +425,14 @@ class G1 {
     }
 
     ProjPoint dadd(const ProjPoint& P, const ProjPoint& Q, const Ring& ring, const typename Ring::StandardElement* a4) const {
-        if (PointCoordIsZero(P.z)) {
-            return Q;
-        }
-        if (PointCoordIsZero(Q.z)) {
-            return P;
-        }
+        ProjPoint result = {};
         if (a4 != nullptr) {
-            return PointDaddA<Ring>(P, Q, *a4, ring);
+            result = PointDaddA<Ring>(P, Q, *a4, ring);
+        } else {
+            result = PointAdd<Ring>(P, Q, ring);
         }
-        if (!ProjectiveEqual<Ring>(P, Q, ring)) {
-            return PointAdd<Ring>(P, Q, ring);
-        }
-        return PointDouble<Ring>(P, ring);
+        result = result.ctime_replace_if(PointCoordIsZero(Q.z), P);
+        return result.ctime_replace_if(PointCoordIsZero(P.z), Q);
     }
 
     INLINE ProjPoint negate(const ProjPoint &P, const Ring &ring) const {
@@ -409,19 +465,14 @@ class G2 {
     }
 
     ProjPoint dadd(const ProjPoint& P, const ProjPoint& Q, const FP2RingType& ring, const typename FP2RingType::StandardElement* a4) const {
-        if (PointCoordIsZero(P.z)) {
-            return Q;
-        }
-        if (PointCoordIsZero(Q.z)) {
-            return P;
-        }
+        ProjPoint result = {};
         if (a4 != nullptr) {
-            return PointDaddA<FP2RingType>(P, Q, *a4, ring);
+            result = PointDaddA<FP2RingType>(P, Q, *a4, ring);
+        } else {
+            result = PointAdd<FP2RingType>(P, Q, ring);
         }
-        if (!ProjectiveEqual<FP2RingType>(P, Q, ring)) {
-            return PointAdd<FP2RingType>(P, Q, ring);
-        }
-        return PointDouble<FP2RingType>(P, ring);
+        result = result.ctime_replace_if(PointCoordIsZero(Q.z), P);
+        return result.ctime_replace_if(PointCoordIsZero(P.z), Q);
     }
 
     INLINE ProjPoint negate(const ProjPoint &P, const FP2RingType &ring) const {

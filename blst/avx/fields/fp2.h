@@ -225,43 +225,44 @@ class FP2Ring {
         return result;
     }
 
-    // Variadic template version for batch_expand (6 arguments version matching bounded_ring)
-    template<class E1, class E2, class E3, class E4, class E5, class E6>
-    INLINE auto batch_expand(const E1 &e1, const E2 &e2, const E3 &e3, const E4 &e4, const E5 &e5, const E6 &e6) const {
-        std::array<typename Ring::StandardBoundedElement, 12> data;
-        data[0] = e1.x().element;
-        data[1] = e1.y().element;
-        data[2] = e2.x().element;
-        data[3] = e2.y().element;
-        data[4] = e3.x().element;
-        data[5] = e3.y().element;
-        data[6] = e4.x().element;
-        data[7] = e4.y().element;
-        data[8] = e5.x().element;
-        data[9] = e5.y().element;
-        data[10] = e6.x().element;
-        data[11] = e6.y().element;
-        auto expanded = ring.template batch_expand<12>(data);
-        // Reconstruct FP2 elements with ExpandedElement types, preserving bounds
-        using ExpandedX1 = ExpandedElement<typename Ring::StandardBoundedElement, std::remove_cv_t<decltype(e1.x().rns_bounds)>>;
-        using ExpandedY1 = ExpandedElement<typename Ring::StandardBoundedElement, std::remove_cv_t<decltype(e1.y().rns_bounds)>>;
-        using ExpandedX2 = ExpandedElement<typename Ring::StandardBoundedElement, std::remove_cv_t<decltype(e2.x().rns_bounds)>>;
-        using ExpandedY2 = ExpandedElement<typename Ring::StandardBoundedElement, std::remove_cv_t<decltype(e2.y().rns_bounds)>>;
-        using ExpandedX3 = ExpandedElement<typename Ring::StandardBoundedElement, std::remove_cv_t<decltype(e3.x().rns_bounds)>>;
-        using ExpandedY3 = ExpandedElement<typename Ring::StandardBoundedElement, std::remove_cv_t<decltype(e3.y().rns_bounds)>>;
-        using ExpandedX4 = ExpandedElement<typename Ring::StandardBoundedElement, std::remove_cv_t<decltype(e4.x().rns_bounds)>>;
-        using ExpandedY4 = ExpandedElement<typename Ring::StandardBoundedElement, std::remove_cv_t<decltype(e4.y().rns_bounds)>>;
-        using ExpandedX5 = ExpandedElement<typename Ring::StandardBoundedElement, std::remove_cv_t<decltype(e5.x().rns_bounds)>>;
-        using ExpandedY5 = ExpandedElement<typename Ring::StandardBoundedElement, std::remove_cv_t<decltype(e5.y().rns_bounds)>>;
-        using ExpandedX6 = ExpandedElement<typename Ring::StandardBoundedElement, std::remove_cv_t<decltype(e6.x().rns_bounds)>>;
-        using ExpandedY6 = ExpandedElement<typename Ring::StandardBoundedElement, std::remove_cv_t<decltype(e6.y().rns_bounds)>>;
-        auto e1_expanded = FP2<ExpandedX1, ExpandedY1>(ExpandedX1(expanded[0], e1.x()), ExpandedY1(expanded[1], e1.y()));
-        auto e2_expanded = FP2<ExpandedX2, ExpandedY2>(ExpandedX2(expanded[2], e2.x()), ExpandedY2(expanded[3], e2.y()));
-        auto e3_expanded = FP2<ExpandedX3, ExpandedY3>(ExpandedX3(expanded[4], e3.x()), ExpandedY3(expanded[5], e3.y()));
-        auto e4_expanded = FP2<ExpandedX4, ExpandedY4>(ExpandedX4(expanded[6], e4.x()), ExpandedY4(expanded[7], e4.y()));
-        auto e5_expanded = FP2<ExpandedX5, ExpandedY5>(ExpandedX5(expanded[8], e5.x()), ExpandedY5(expanded[9], e5.y()));
-        auto e6_expanded = FP2<ExpandedX6, ExpandedY6>(ExpandedX6(expanded[10], e6.x()), ExpandedY6(expanded[11], e6.y()));
-        return std::tuple<decltype(e1_expanded), decltype(e2_expanded), decltype(e3_expanded), decltype(e4_expanded), decltype(e5_expanded), decltype(e6_expanded)>{e1_expanded, e2_expanded, e3_expanded, e4_expanded, e5_expanded, e6_expanded};
+    template<typename... Args, std::size_t... I>
+    INLINE auto make_expand_array_impl(const std::tuple<Args...>& args, std::index_sequence<I...>) const {
+        return std::array<typename Ring::StandardBoundedElement, 2 * sizeof...(Args)>{
+            std::get<I>(args).x().element..., std::get<I>(args).y().element...};
+    }
+
+    template<class E, class ExpandedX, class ExpandedY>
+    INLINE auto reattach_expand_bounds(const E& e, const ExpandedX& expanded_x, const ExpandedY& expanded_y) const {
+        using OutX = ExpandedElement<typename Ring::StandardBoundedElement, std::remove_cv_t<decltype(e.x().rns_bounds)>>;
+        using OutY = ExpandedElement<typename Ring::StandardBoundedElement, std::remove_cv_t<decltype(e.y().rns_bounds)>>;
+        return FP2<OutX, OutY>(OutX(expanded_x, e.x()), OutY(expanded_y, e.y()));
+    }
+
+    template<typename... Args, std::size_t... I>
+    INLINE auto reattach_expand_tuple_impl(
+        const std::tuple<Args...>& args,
+        const std::array<typename Ring::StandardBoundedElement, 2 * sizeof...(Args)>& expanded,
+        std::index_sequence<I...>) const {
+        constexpr size_t batch = sizeof...(Args);
+        return std::tuple<decltype(reattach_expand_bounds(std::get<I>(args), expanded[I], expanded[I + batch]))...>{
+            reattach_expand_bounds(std::get<I>(args), expanded[I], expanded[I + batch])...};
+    }
+
+    template<typename... Args>
+    INLINE auto batch_expand(const Args&... args) const {
+        constexpr int batch = static_cast<int>(sizeof...(Args));
+        static_assert(batch > 0, "batch_expand requires at least one argument");
+        const auto tuple = std::tie(args...);
+        const auto data = make_expand_array_impl(tuple, std::make_index_sequence<sizeof...(Args)>{});
+        const auto expanded = ring.template batch_expand<2 * batch>(data);
+        return reattach_expand_tuple_impl(tuple, expanded, std::make_index_sequence<sizeof...(Args)>{});
+    }
+
+    template<class X, class Y>
+    INLINE auto small_m2(const FP2<X, Y>& fp2) const {
+        return FP2<decltype(ring.small_m2(fp2.x())), decltype(ring.small_m2(fp2.y()))>(
+            ring.small_m2(fp2.x()),
+            ring.small_m2(fp2.y()));
     }
 
     template<int upper_bound, class X, class Y>
