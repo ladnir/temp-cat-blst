@@ -100,22 +100,26 @@ mod pairing;
 mod primitives;
 
 pub use avx::{
-    blst_avx_enabled, blst_avx_fp12, blst_avx_fp12_alignof, blst_avx_fp12_is_equal,
-    blst_avx_fp12_sizeof, blst_avx_p1, blst_avx_p1_add, blst_avx_p1_affine,
-    blst_avx_p1_affine_alignof, blst_avx_p1_affine_sizeof, blst_avx_p1_alignof,
-    blst_avx_p1_compress, blst_avx_p1_deserialize, blst_avx_p1_generator, blst_avx_p1_in_g1,
-    blst_avx_p1_is_equal, blst_avx_p1_is_inf, blst_avx_p1_mult, blst_avx_p1_serialize,
+    blst_avx_enabled, blst_avx_fp12, blst_avx_fp12_alignof,
+    blst_avx_fp12_is_equal, blst_avx_fp12_sizeof, blst_avx_p1, blst_avx_p1_add,
+    blst_avx_p1_affine, blst_avx_p1_affine_alignof, blst_avx_p1_affine_sizeof,
+    blst_avx_p1_alignof, blst_avx_p1_compress, blst_avx_p1_deserialize,
+    blst_avx_p1_generator, blst_avx_p1_in_g1, blst_avx_p1_is_equal,
+    blst_avx_p1_is_inf, blst_avx_p1_mult, blst_avx_p1_serialize,
     blst_avx_p1_sizeof, blst_avx_p1_to_affine, blst_avx_p1_uncompress,
-    blst_avx_p1s_mult_pippenger, blst_avx_p1s_mult_pippenger_scratch_sizeof, blst_avx_p2, blst_avx_p2_add, blst_avx_p2_cneg,
-    blst_avx_p2_affine, blst_avx_p2_affine_alignof,
-    blst_avx_p2_affine_sizeof, blst_avx_p2_alignof, blst_avx_p2_compress,
-    blst_avx_p2_generator, blst_avx_p2_in_g2, blst_avx_p2_is_equal, blst_avx_p2_is_inf,
-    blst_avx_p2_mult, blst_avx_p2_sizeof, blst_avx_p2_to_affine, blst_avx_p2_uncompress,
-    blst_avx_p2s_mult_pippenger, blst_avx_p2s_mult_pippenger_scratch_sizeof,
-    blst_avx_pairing, blst_fp12_from_avx,
+    blst_avx_p1s_mult_pippenger, blst_avx_p1s_mult_pippenger_scratch_sizeof,
+    blst_avx_p2, blst_avx_p2_add, blst_avx_p2_affine,
+    blst_avx_p2_affine_alignof, blst_avx_p2_affine_sizeof, blst_avx_p2_alignof,
+    blst_avx_p2_cneg, blst_avx_p2_compress, blst_avx_p2_generator,
+    blst_avx_p2_in_g2, blst_avx_p2_is_equal, blst_avx_p2_is_inf,
+    blst_avx_p2_mult, blst_avx_p2_sizeof, blst_avx_p2_to_affine,
+    blst_avx_p2_uncompress, blst_avx_p2s_mult_pippenger,
+    blst_avx_p2s_mult_pippenger_scratch_sizeof, blst_avx_pairing,
+    blst_fp12_from_avx,
 };
 pub use fft::{
-    fr_fft, fr_fft_transpose_forward, fr_interpolate, fr_interpolate_fft_domain, FftError,
+    fr_fft, fr_fft_transpose_forward, fr_interpolate,
+    fr_interpolate_fft_domain, FftError,
 };
 pub use middle_product::{
     blst_middle_product_precomputed_b, combine, middle_product,

@@ -52,10 +52,14 @@ pub fn fr_fft(values: &mut [blst_fr], inverse: bool) -> Result<(), FftError> {
 /// This is the verifier kernel for BVE-style Vandermonde contractions. It uses
 /// BLST's native full-size FFT implementation rather than materializing the
 /// Vandermonde matrix in Rust.
-pub fn fr_fft_transpose_forward(values: &mut [blst_fr]) -> Result<(), FftError> {
+pub fn fr_fft_transpose_forward(
+    values: &mut [blst_fr],
+) -> Result<(), FftError> {
     check_fft_input(values)?;
 
-    let ok = unsafe { blst_fr_fft_transpose_forward(values.as_mut_ptr(), values.len()) };
+    let ok = unsafe {
+        blst_fr_fft_transpose_forward(values.as_mut_ptr(), values.len())
+    };
     if ok {
         Ok(())
     } else {
@@ -107,7 +111,9 @@ pub fn fr_interpolate_fft_domain(
     if indices.is_empty() {
         return Err(FftError::EmptyInput);
     }
-    if indices.len() != values.len() || indices.len() != output.len() || !fft_len.is_power_of_two()
+    if indices.len() != values.len()
+        || indices.len() != output.len()
+        || !fft_len.is_power_of_two()
     {
         return Err(FftError::InvalidSize);
     }
@@ -297,7 +303,8 @@ mod tests {
         }
 
         let mut recovered = [fr_from_u64(0); 5];
-        fr_interpolate_fft_domain(&indices, &values, fft_len, &mut recovered).unwrap();
+        fr_interpolate_fft_domain(&indices, &values, fft_len, &mut recovered)
+            .unwrap();
 
         assert_eq!(recovered, coefficients);
     }

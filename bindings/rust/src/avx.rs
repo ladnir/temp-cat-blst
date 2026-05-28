@@ -166,11 +166,26 @@ extern "C" {
     ) -> bool;
     pub fn blst_avx_p1_in_g1(p: *const blst_avx_p1) -> bool;
     pub fn blst_avx_p1_is_inf(p: *const blst_avx_p1) -> bool;
-    pub fn blst_avx_p1_is_equal(a: *const blst_avx_p1, b: *const blst_avx_p1) -> bool;
-    pub fn blst_avx_p1_compress(out: *mut byte, input: *const blst_avx_p1) -> bool;
-    pub fn blst_avx_p1_serialize(out: *mut byte, input: *const blst_avx_p1) -> bool;
-    pub fn blst_avx_p1_deserialize(out: *mut blst_avx_p1, input: *const byte) -> BLST_ERROR;
-    pub fn blst_avx_p1_uncompress(out: *mut blst_avx_p1, input: *const byte) -> BLST_ERROR;
+    pub fn blst_avx_p1_is_equal(
+        a: *const blst_avx_p1,
+        b: *const blst_avx_p1,
+    ) -> bool;
+    pub fn blst_avx_p1_compress(
+        out: *mut byte,
+        input: *const blst_avx_p1,
+    ) -> bool;
+    pub fn blst_avx_p1_serialize(
+        out: *mut byte,
+        input: *const blst_avx_p1,
+    ) -> bool;
+    pub fn blst_avx_p1_deserialize(
+        out: *mut blst_avx_p1,
+        input: *const byte,
+    ) -> BLST_ERROR;
+    pub fn blst_avx_p1_uncompress(
+        out: *mut blst_avx_p1,
+        input: *const byte,
+    ) -> BLST_ERROR;
     pub fn blst_avx_p1s_mult_pippenger_scratch_sizeof(npoints: usize) -> usize;
     pub fn blst_avx_p1s_mult_pippenger(
         out: *mut blst_avx_p1,
@@ -200,9 +215,18 @@ extern "C" {
     ) -> bool;
     pub fn blst_avx_p2_in_g2(p: *const blst_avx_p2) -> bool;
     pub fn blst_avx_p2_is_inf(p: *const blst_avx_p2) -> bool;
-    pub fn blst_avx_p2_is_equal(a: *const blst_avx_p2, b: *const blst_avx_p2) -> bool;
-    pub fn blst_avx_p2_compress(out: *mut byte, input: *const blst_avx_p2) -> bool;
-    pub fn blst_avx_p2_uncompress(out: *mut blst_avx_p2, input: *const byte) -> BLST_ERROR;
+    pub fn blst_avx_p2_is_equal(
+        a: *const blst_avx_p2,
+        b: *const blst_avx_p2,
+    ) -> bool;
+    pub fn blst_avx_p2_compress(
+        out: *mut byte,
+        input: *const blst_avx_p2,
+    ) -> bool;
+    pub fn blst_avx_p2_uncompress(
+        out: *mut blst_avx_p2,
+        input: *const byte,
+    ) -> BLST_ERROR;
     pub fn blst_avx_p2s_mult_pippenger_scratch_sizeof(npoints: usize) -> usize;
     pub fn blst_avx_p2s_mult_pippenger(
         out: *mut blst_avx_p2,
@@ -218,7 +242,10 @@ extern "C" {
         a: *const blst_avx_fp12,
         b: *const blst_avx_fp12,
     ) -> bool;
-    pub fn blst_fp12_from_avx(out: *mut blst_fp12, input: *const blst_avx_fp12) -> bool;
+    pub fn blst_fp12_from_avx(
+        out: *mut blst_fp12,
+        input: *const blst_avx_fp12,
+    ) -> bool;
     pub fn blst_avx_pairing(
         out: *mut blst_avx_fp12,
         g1: *const blst_avx_p1,
