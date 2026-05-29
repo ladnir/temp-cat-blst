@@ -39,15 +39,14 @@ bool valid_fft_size(const std::size_t n)
 std::vector<NativeFr> make_roots(const std::size_t n, const bool inverse)
 {
     NativeFr primitive = blst::primRootOfUnity<NativeFr>(n);
+    if (inverse) {
+        NativeFr::reciprocal(primitive, primitive);
+    }
     std::vector<NativeFr> roots(n);
     NativeFr current = NativeFr::one();
 
     for (std::size_t i = 0; i < n; ++i) {
-        if (inverse) {
-            NativeFr::reciprocal(roots[i], current);
-        } else {
-            roots[i] = current;
-        }
+        roots[i] = current;
         NativeFr::mul(current, current, primitive);
     }
 
@@ -512,11 +511,15 @@ bool interpolate_fft_domain_suffix_with_scratch(
         (void)required_scratch;
 
         const NativeFr primitive = blst::primRootOfUnity<NativeFr>(fft_len);
+        NativeFr inverse_primitive = primitive;
+        NativeFr::reciprocal(inverse_primitive, inverse_primitive);
         NativeFr current = NativeFr::one();
+        NativeFr inverse_current = NativeFr::one();
         for (std::size_t i = 0; i < fft_len; ++i) {
             roots[i] = current;
-            NativeFr::reciprocal(inv_roots[i], current);
+            inv_roots[i] = inverse_current;
             NativeFr::mul(current, current, primitive);
+            NativeFr::mul(inverse_current, inverse_current, inverse_primitive);
         }
 
         std::fill(product.begin(), product.end(), fr_zero());
