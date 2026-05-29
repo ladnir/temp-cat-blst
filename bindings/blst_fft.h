@@ -90,6 +90,33 @@ bool blst_fr_interpolate_fft_domain_suffix(
     size_t ell,
     size_t fft_len);
 
+/**
+ * Returns the caller-owned Fr scratch length required by
+ * `blst_fr_interpolate_fft_domain_suffix_with_scratch`.
+ *
+ * The returned unit is `blst_fr` elements, not bytes. A zero return means the
+ * shape is invalid.
+ */
+size_t blst_fr_interpolate_fft_domain_suffix_scratch_len(size_t n, size_t fft_len);
+
+/**
+ * Scratch-backed variant of `blst_fr_interpolate_fft_domain_suffix`.
+ *
+ * `scratch` must point to at least
+ * `blst_fr_interpolate_fft_domain_suffix_scratch_len(n, fft_len)` writable Fr
+ * elements. The scratch buffer is fully caller-owned and may be reused across
+ * calls with the same or smaller shape.
+ */
+bool blst_fr_interpolate_fft_domain_suffix_with_scratch(
+    blst_fr* out_suffix,
+    const size_t* indices,
+    const blst_fr* values,
+    size_t n,
+    size_t ell,
+    size_t fft_len,
+    blst_fr* scratch,
+    size_t scratch_len);
+
 #ifdef __cplusplus
 }
 #endif
