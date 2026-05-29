@@ -271,8 +271,12 @@ size_t blst_p1s_mult_wbits_scratch_sizeof(size_t npoints);
 void blst_p1s_mult_wbits(blst_p1* ret, const blst_p1_affine table[], size_t wbits, size_t npoints, const byte* const scalars[], size_t nbits, limb_t* scratch);
 /** Returns the scratch size needed by the G1 Pippenger MSM routine. */
 size_t blst_p1s_mult_pippenger_scratch_sizeof(size_t npoints);
+/** Returns the scratch size needed by the G1 Pippenger MSM routine for an explicit window, or 0 when `window` is invalid. */
+size_t blst_p1s_mult_pippenger_window_scratch_sizeof(size_t window);
 /** Evaluates a G1 MSM with Pippenger using caller-owned scratch memory; when `npoints == 1`, the wrapper falls back to single-point multiplication, and when `npoints > 1`, `scratch`, `points[0]`, and `scalars[0]` must be non-null. Later null entries mean contiguous continuation from the previous non-null element. */
 void blst_p1s_mult_pippenger(blst_p1* ret, const blst_p1_affine* const points[], size_t npoints, const byte* const scalars[], size_t nbits, limb_t* scratch);
+/** Evaluates a G1 MSM with Pippenger using an explicit window size. */
+void blst_p1s_mult_pippenger_window(blst_p1* ret, const blst_p1_affine* const points[], size_t npoints, const byte* const scalars[], size_t nbits, limb_t* scratch, size_t window);
 /** Evaluates one tiled window of a G1 Pippenger MSM; when `npoints > 0`, `scratch`, `points[0]`, and `scalars[0]` must be non-null, `window` must be non-zero, and `bit0` must be less than `nbits`. Later null entries mean contiguous continuation from the previous non-null element. */
 void blst_p1s_tile_pippenger(blst_p1* ret, const blst_p1_affine* const points[], size_t npoints, const byte* const scalars[], size_t nbits, limb_t* scratch, size_t bit0, size_t window);
 /** Serializes a G1 projective point into a 96-byte uncompressed encoding. */

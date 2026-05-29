@@ -771,6 +771,9 @@ extern "C" {
     pub fn blst_p1s_mult_pippenger_scratch_sizeof(npoints: usize) -> usize;
 }
 extern "C" {
+    pub fn blst_p1s_mult_pippenger_window_scratch_sizeof(window: usize) -> usize;
+}
+extern "C" {
     pub fn blst_p1s_mult_pippenger(
         ret: *mut blst_p1,
         points: *const *const blst_p1_affine,
@@ -778,6 +781,17 @@ extern "C" {
         scalars: *const *const byte,
         nbits: usize,
         scratch: *mut limb_t,
+    );
+}
+extern "C" {
+    pub fn blst_p1s_mult_pippenger_window(
+        ret: *mut blst_p1,
+        points: *const *const blst_p1_affine,
+        npoints: usize,
+        scalars: *const *const byte,
+        nbits: usize,
+        scratch: *mut limb_t,
+        window: usize,
     );
 }
 extern "C" {

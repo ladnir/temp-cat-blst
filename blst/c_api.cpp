@@ -644,6 +644,14 @@ size_t blst_p1s_mult_pippenger_scratch_sizeof(size_t npoints)
     return sizeof(blst::scalar::G1PointZZ) << (blst::scalar::pippenger_window_size(npoints) - 1);
 }
 
+size_t blst_p1s_mult_pippenger_window_scratch_sizeof(size_t window)
+{
+    if (!c_api_valid_pippenger_window(window)) {
+        return 0;
+    }
+    return sizeof(blst::scalar::G1PointZZ) << (window - 1);
+}
+
 void blst_p1s_mult_pippenger(
     BoundaryG1* ret,
     const BoundaryG1Affine* const points[],
@@ -674,6 +682,40 @@ void blst_p1s_mult_pippenger(
         nbits,
         reinterpret_cast<blst::scalar::Pointxyzz<blst::Fp>*>(scratch),
         0);
+}
+
+void blst_p1s_mult_pippenger_window(
+    BoundaryG1* ret,
+    const BoundaryG1Affine* const points[],
+    size_t npoints,
+    const blst::byte* const scalars[],
+    size_t nbits,
+    blst::limb_t* scratch,
+    size_t window)
+{
+    if (npoints == 0 || !c_api_valid_pippenger_window(window) ||
+        !c_api_has_valid_pair_heads(points, scalars, npoints)) {
+        *ret = {};
+        return;
+    }
+    if (npoints == 1) {
+        BoundaryG1 point = {};
+        BoundaryG1::from_affine(point, *points[0]);
+        BoundaryG1::mult(*ret, point, scalars[0], nbits);
+        return;
+    }
+    if (scratch == nullptr) {
+        *ret = {};
+        return;
+    }
+    blst::scalar::msm_mult_pippenger<BoundaryG1, BoundaryG1Affine, blst::scalar::Pointxyzz<blst::Fp>>(
+        *ret,
+        points,
+        npoints,
+        scalars,
+        nbits,
+        reinterpret_cast<blst::scalar::Pointxyzz<blst::Fp>*>(scratch),
+        window);
 }
 
 void blst_p1s_tile_pippenger(
