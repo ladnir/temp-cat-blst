@@ -532,4 +532,94 @@ bool blst_fr_interpolate_fft_domain(
     }
 }
 
+bool blst_fr_interpolate_fft_domain_suffix(
+    blst_fr* out_suffix,
+    const size_t* indices,
+    const blst_fr* values,
+    size_t n,
+    size_t ell,
+    size_t fft_len)
+{
+    if (out_suffix == nullptr || indices == nullptr || values == nullptr ||
+        n == 0 || ell > n || !valid_fft_size(fft_len)) {
+        return false;
+    }
+
+    try {
+        const std::vector<NativeFr> roots = make_roots(fft_len, false);
+        const std::vector<NativeFr> inv_roots = make_roots(fft_len, true);
+        const auto* native_values = reinterpret_cast<const NativeFr*>(values);
+        auto* native_out = reinterpret_cast<NativeFr*>(out_suffix);
+
+        std::vector<NativeFr> product(n + 1, fr_zero());
+        product[0] = NativeFr::one();
+        std::size_t degree = 0;
+        for (std::size_t sample = 0; sample < n; ++sample) {
+            if (indices[sample] >= fft_len) {
+                return false;
+            }
+            const NativeFr& point = roots[indices[sample]];
+            product[degree + 1] = product[degree];
+            for (std::size_t coeff = degree; coeff > 0; --coeff) {
+                product[coeff] =
+                    fr_sub(product[coeff - 1], fr_mul(point, product[coeff]));
+            }
+            product[0] = fr_neg(fr_mul(point, product[0]));
+            ++degree;
+        }
+
+        std::vector<NativeFr> derivative_evals(fft_len, fr_zero());
+        for (std::size_t coeff = 1; coeff <= n; ++coeff) {
+            derivative_evals[coeff - 1] =
+                fr_mul(product[coeff], NativeFr::from_uint64(coeff));
+        }
+        fft<NativeFr, NativeFr, blst::FrCoeffCtx>(
+            std::span<NativeFr>(derivative_evals),
+            std::span<const NativeFr>(roots),
+            false);
+
+        std::vector<NativeFr> denominators;
+        denominators.reserve(n);
+        for (std::size_t sample = 0; sample < n; ++sample) {
+            const NativeFr denominator = derivative_evals[indices[sample]];
+            if (fr_is_zero(denominator)) {
+                return false;
+            }
+            denominators.push_back(denominator);
+        }
+        const std::vector<NativeFr> denominator_inverses = batch_invert_nonzero(denominators);
+
+        std::vector<NativeFr> quotient_domain(fft_len, fr_zero());
+        const NativeFr fft_len_scalar = NativeFr::from_uint64(fft_len);
+        for (std::size_t sample = 0; sample < n; ++sample) {
+            const std::size_t index = indices[sample];
+            const NativeFr& inverse_root = roots[(fft_len - index) % fft_len];
+            const NativeFr domain_derivative = fr_mul(fft_len_scalar, inverse_root);
+            const NativeFr weighted_value =
+                fr_mul(native_values[sample], denominator_inverses[sample]);
+            quotient_domain[index] = fr_mul(weighted_value, domain_derivative);
+        }
+        fft<NativeFr, NativeFr, blst::FrCoeffCtx>(
+            std::span<NativeFr>(quotient_domain),
+            std::span<const NativeFr>(inv_roots),
+            true);
+
+        const std::size_t suffix_len = n - ell;
+        for (std::size_t suffix_index = 0; suffix_index < suffix_len; ++suffix_index) {
+            const std::size_t target_degree = fft_len + ell + suffix_index;
+            const std::size_t min_product_index = ell + suffix_index + 1;
+            NativeFr acc = fr_zero();
+            for (std::size_t product_index = min_product_index; product_index <= n;
+                 ++product_index) {
+                const std::size_t quotient_index = target_degree - product_index;
+                acc = fr_add(acc, fr_mul(product[product_index], quotient_domain[quotient_index]));
+            }
+            native_out[suffix_index] = acc;
+        }
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
 }

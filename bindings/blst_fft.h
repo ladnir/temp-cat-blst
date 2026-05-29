@@ -75,6 +75,21 @@ bool blst_fr_interpolate_fft_domain(
     size_t n,
     size_t fft_len);
 
+/**
+ * Interpolates only the high coefficient suffix used by BVE receivers.
+ *
+ * Given n values at FFT-domain indices and an offset ell, writes coefficients
+ * ell..n-1 of the unique degree-<n interpolant to out_suffix. The out buffer
+ * must contain n-ell writable Fr values.
+ */
+bool blst_fr_interpolate_fft_domain_suffix(
+    blst_fr* out_suffix,
+    const size_t* indices,
+    const blst_fr* values,
+    size_t n,
+    size_t ell,
+    size_t fft_len);
+
 #ifdef __cplusplus
 }
 #endif

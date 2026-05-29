@@ -119,7 +119,7 @@ pub use avx::{
 };
 pub use fft::{
     fr_fft, fr_fft_transpose_forward, fr_interpolate,
-    fr_interpolate_fft_domain, FftError,
+    fr_interpolate_fft_domain, fr_interpolate_fft_domain_suffix, FftError,
 };
 pub use middle_product::{
     blst_middle_product_precomputed_b, combine, middle_product,

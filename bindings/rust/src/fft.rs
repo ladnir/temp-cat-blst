@@ -22,6 +22,14 @@ extern "C" {
         n: usize,
         fft_len: usize,
     ) -> bool;
+    fn blst_fr_interpolate_fft_domain_suffix(
+        out_suffix: *mut blst_fr,
+        indices: *const usize,
+        values: *const blst_fr,
+        n: usize,
+        ell: usize,
+        fft_len: usize,
+    ) -> bool;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -124,6 +132,44 @@ pub fn fr_interpolate_fft_domain(
             indices.as_ptr(),
             values.as_ptr(),
             indices.len(),
+            fft_len,
+        )
+    };
+    if ok {
+        Ok(())
+    } else {
+        Err(FftError::BackendFailure)
+    }
+}
+
+/// Interpolates only coefficients `ell..n` from FFT-domain samples.
+///
+/// `output.len()` must equal `indices.len() - ell`.
+pub fn fr_interpolate_fft_domain_suffix(
+    indices: &[usize],
+    values: &[blst_fr],
+    ell: usize,
+    fft_len: usize,
+    output: &mut [blst_fr],
+) -> Result<(), FftError> {
+    if indices.is_empty() {
+        return Err(FftError::EmptyInput);
+    }
+    if indices.len() != values.len()
+        || ell > indices.len()
+        || output.len() != indices.len() - ell
+        || !fft_len.is_power_of_two()
+    {
+        return Err(FftError::InvalidSize);
+    }
+
+    let ok = unsafe {
+        blst_fr_interpolate_fft_domain_suffix(
+            output.as_mut_ptr(),
+            indices.as_ptr(),
+            values.as_ptr(),
+            indices.len(),
+            ell,
             fft_len,
         )
     };
