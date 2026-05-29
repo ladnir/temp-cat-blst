@@ -186,6 +186,19 @@ extern "C" {
         out: *mut blst_avx_p1,
         input: *const byte,
     ) -> BLST_ERROR;
+    pub fn blst_avx_p1_mult_pippenger_scratch_sizeof(npoints: usize) -> usize;
+    pub fn blst_avx_p1_mult_pippenger_bucket_used_scratch_sizeof(npoints: usize) -> usize;
+    pub fn blst_avx_p1_mult_pippenger(
+        out: *mut blst_avx_p1,
+        points: *const blst_avx_p1_affine,
+        scalars: *const byte,
+        npoints: usize,
+        nbits: usize,
+        scratch: *mut core::ffi::c_void,
+        scratch_bytes: usize,
+        bucket_used: *mut byte,
+        bucket_used_bytes: usize,
+    ) -> bool;
     pub fn blst_avx_p1s_mult_pippenger_scratch_sizeof(npoints: usize) -> usize;
     pub fn blst_avx_p1s_mult_pippenger(
         out: *mut blst_avx_p1,
