@@ -120,6 +120,10 @@ bool blst_avx_p1_mult(blst_avx_p1* out, const blst_avx_p1* p, const byte* scalar
 size_t blst_avx_p1_mult_pippenger_scratch_sizeof(size_t npoints);
 /** Returns byte-flag scratch bytes required by `blst_avx_p1_mult_pippenger`. */
 size_t blst_avx_p1_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints);
+/** Returns split-point scratch bytes required by allocation-free G1 GLV MSM. */
+size_t blst_avx_p1_mult_pippenger_glv_points_scratch_sizeof(size_t npoints);
+/** Returns split-scalar scratch bytes required by allocation-free G1 GLV MSM. */
+size_t blst_avx_p1_mult_pippenger_glv_scalars_scratch_sizeof(size_t npoints);
 
 /**
  * Variable-time Pippenger MSM over AVX G1 affine points.
@@ -138,6 +142,28 @@ bool blst_avx_p1_mult_pippenger(
     size_t scratch_bytes,
     byte* bucket_used,
     size_t bucket_used_bytes);
+
+/**
+ * Variable-time GLV Pippenger MSM over AVX G1 affine points with all scratch
+ * supplied by the caller.
+ *
+ * `scalars` is a contiguous array of `npoints` 32-byte little-endian scalars.
+ * `scratch`, `bucket_used`, `split_points`, and `split_scalars` must point to
+ * caller-owned storage of at least the sizes returned by the scratch helpers.
+ */
+bool blst_avx_p1_mult_pippenger_glv_with_scratch(
+    blst_avx_p1* out,
+    const blst_avx_p1_affine* points,
+    const byte* scalars,
+    size_t npoints,
+    void* scratch,
+    size_t scratch_bytes,
+    byte* bucket_used,
+    size_t bucket_used_bytes,
+    blst_avx_p1_affine* split_points,
+    size_t split_points_bytes,
+    byte* split_scalars,
+    size_t split_scalars_bytes);
 
 /** Converts an AVX G1 projective point to AVX affine form. */
 bool blst_avx_p1_to_affine(blst_avx_p1_affine* out, const blst_avx_p1* in);
