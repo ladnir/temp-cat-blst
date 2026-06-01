@@ -165,6 +165,29 @@ bool blst_avx_p1_mult_pippenger_glv_with_scratch(
     byte* split_scalars,
     size_t split_scalars_bytes);
 
+/** Returns bucket scratch bytes needed by explicit-window AVX G1 GLV MSM. */
+size_t blst_avx_p1_mult_pippenger_glv_window_scratch_sizeof(size_t npoints, size_t window);
+/** Returns byte-flag scratch bytes needed by explicit-window AVX G1 GLV MSM. */
+size_t blst_avx_p1_mult_pippenger_glv_window_bucket_used_scratch_sizeof(size_t npoints, size_t window);
+/**
+ * Variable-time GLV Pippenger MSM over AVX G1 affine points using an explicit
+ * window and caller-owned scratch. Intended for benchmarking/tuning small MSMs.
+ */
+bool blst_avx_p1_mult_pippenger_glv_window_with_scratch(
+    blst_avx_p1* out,
+    const blst_avx_p1_affine* points,
+    const byte* scalars,
+    size_t npoints,
+    size_t window,
+    void* scratch,
+    size_t scratch_bytes,
+    byte* bucket_used,
+    size_t bucket_used_bytes,
+    blst_avx_p1_affine* split_points,
+    size_t split_points_bytes,
+    byte* split_scalars,
+    size_t split_scalars_bytes);
+
 /** Converts an AVX G1 projective point to AVX affine form. */
 bool blst_avx_p1_to_affine(blst_avx_p1_affine* out, const blst_avx_p1* in);
 /** Converts an AVX G1 affine point to AVX projective form. */

@@ -671,6 +671,115 @@ bool blst_avx_p1_mult_pippenger_glv_with_scratch(
 #endif
 }
 
+size_t blst_avx_p1_mult_pippenger_glv_window_scratch_sizeof(size_t npoints, size_t window)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    size_t split_npoints = 0;
+    if (!blst::avx::avx_msm_detail::window_size_is_valid(window) ||
+        !blst::avx::avx_msm_detail::split_count(npoints, 2, split_npoints) ||
+        !blst::avx::avx_msm_detail::point_count_is_addressable<AvxG1Affine>(split_npoints)) {
+        return 0;
+    }
+    return blst::avx::avx_msm_detail::bucket_scratch_sizeof(
+        split_npoints, window, sizeof(blst::avx::AvxG1PippengerBucket));
+#else
+    (void)npoints;
+    (void)window;
+    return 0;
+#endif
+}
+
+size_t blst_avx_p1_mult_pippenger_glv_window_bucket_used_scratch_sizeof(size_t npoints, size_t window)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    size_t split_npoints = 0;
+    if (!blst::avx::avx_msm_detail::window_size_is_valid(window) ||
+        !blst::avx::avx_msm_detail::split_count(npoints, 2, split_npoints) ||
+        !blst::avx::avx_msm_detail::point_count_is_addressable<AvxG1Affine>(split_npoints)) {
+        return 0;
+    }
+    return blst::avx::avx_msm_detail::bucket_used_scratch_sizeof(split_npoints, window);
+#else
+    (void)npoints;
+    (void)window;
+    return 0;
+#endif
+}
+
+bool blst_avx_p1_mult_pippenger_glv_window_with_scratch(
+    blst_avx_p1* out,
+    const blst_avx_p1_affine* points,
+    const byte* scalars,
+    size_t npoints,
+    size_t window,
+    void* scratch,
+    size_t scratch_bytes,
+    byte* bucket_used,
+    size_t bucket_used_bytes,
+    blst_avx_p1_affine* split_points,
+    size_t split_points_bytes,
+    byte* split_scalars,
+    size_t split_scalars_bytes)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (out == nullptr) {
+        return false;
+    }
+    if (npoints == 0) {
+        *as_avx(out) = AvxG1::infinity();
+        return true;
+    }
+    const size_t required_scratch =
+        blst_avx_p1_mult_pippenger_glv_window_scratch_sizeof(npoints, window);
+    const size_t required_bucket_used =
+        blst_avx_p1_mult_pippenger_glv_window_bucket_used_scratch_sizeof(npoints, window);
+    const size_t required_split_points =
+        blst::avx::avx_g1_mult_pippenger_glv_points_scratch_sizeof(npoints);
+    const size_t required_split_scalars =
+        blst::avx::avx_g1_mult_pippenger_glv_scalars_scratch_sizeof(npoints);
+    if (required_scratch == 0 || required_bucket_used == 0 ||
+        required_split_points == 0 || required_split_scalars == 0 ||
+        points == nullptr || scalars == nullptr || scratch == nullptr || bucket_used == nullptr ||
+        split_points == nullptr || split_scalars == nullptr ||
+        scratch_bytes < required_scratch || bucket_used_bytes < required_bucket_used ||
+        split_points_bytes < required_split_points || split_scalars_bytes < required_split_scalars ||
+        !is_aligned(scratch, alignof(blst::avx::AvxG1PippengerBucket)) ||
+        !is_aligned(split_points, alignof(blst::avx::G1AffinePoint))) {
+        return false;
+    }
+    blst::avx::avx_g1_mult_pippenger_glv_prepare(
+        as_avx(split_points),
+        split_scalars,
+        as_avx(points),
+        scalars,
+        npoints);
+    blst::avx::avx_g1_mult_pippenger_glv_prepared(
+        *as_avx(out),
+        as_avx(split_points),
+        split_scalars,
+        npoints,
+        reinterpret_cast<blst::avx::AvxG1PippengerBucket*>(scratch),
+        window,
+        bucket_used);
+    return true;
+#else
+    (void)out;
+    (void)points;
+    (void)scalars;
+    (void)npoints;
+    (void)window;
+    (void)scratch;
+    (void)scratch_bytes;
+    (void)bucket_used;
+    (void)bucket_used_bytes;
+    (void)split_points;
+    (void)split_points_bytes;
+    (void)split_scalars;
+    (void)split_scalars_bytes;
+    return false;
+#endif
+}
+
 bool blst_avx_p1_to_affine(blst_avx_p1_affine* out, const blst_avx_p1* in)
 {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)

@@ -215,6 +215,29 @@ extern "C" {
         split_scalars: *mut byte,
         split_scalars_bytes: usize,
     ) -> bool;
+    pub fn blst_avx_p1_mult_pippenger_glv_window_scratch_sizeof(
+        npoints: usize,
+        window: usize,
+    ) -> usize;
+    pub fn blst_avx_p1_mult_pippenger_glv_window_bucket_used_scratch_sizeof(
+        npoints: usize,
+        window: usize,
+    ) -> usize;
+    pub fn blst_avx_p1_mult_pippenger_glv_window_with_scratch(
+        out: *mut blst_avx_p1,
+        points: *const blst_avx_p1_affine,
+        scalars: *const byte,
+        npoints: usize,
+        window: usize,
+        scratch: *mut core::ffi::c_void,
+        scratch_bytes: usize,
+        bucket_used: *mut byte,
+        bucket_used_bytes: usize,
+        split_points: *mut blst_avx_p1_affine,
+        split_points_bytes: usize,
+        split_scalars: *mut byte,
+        split_scalars_bytes: usize,
+    ) -> bool;
     pub fn blst_avx_p1s_mult_pippenger_scratch_sizeof(npoints: usize) -> usize;
     pub fn blst_avx_p1s_mult_pippenger(
         out: *mut blst_avx_p1,
