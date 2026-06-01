@@ -172,6 +172,8 @@ size_t blst_avx_p1_mult_pippenger_glv_window_bucket_used_scratch_sizeof(size_t n
 /**
  * Variable-time GLV Pippenger MSM over AVX G1 affine points using an explicit
  * window and caller-owned scratch. Intended for benchmarking/tuning small MSMs.
+ * Current BTX-DKG measurements did not justify using this from production; the
+ * auto-window GLV API remains the production path.
  */
 bool blst_avx_p1_mult_pippenger_glv_window_with_scratch(
     blst_avx_p1* out,
