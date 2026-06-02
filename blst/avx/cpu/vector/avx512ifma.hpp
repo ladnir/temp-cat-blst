@@ -212,6 +212,39 @@ public:
         return out;
     }
 
+    inline bool_t is_zero() const {
+        const cc512i zero = Scalar(0);
+        uint64_t diff = 0;
+        for (int i = 0; i < VEC_LIMBS; i++) {
+            constexpr uint64_t full_mask = (uint64_t(1) << LIMBS_PER_VEC) - 1;
+            const int remaining = limbs - i * LIMBS_PER_VEC;
+            const int active = remaining < LIMBS_PER_VEC ? remaining : LIMBS_PER_VEC;
+            const uint64_t active_mask = active == LIMBS_PER_VEC ? full_mask : ((uint64_t(1) << active) - 1);
+            const uint64_t eq_mask =
+                _cc512_cmpge_epi64_mask(data[i], zero) &
+                _cc512_cmpge_epi64_mask(zero, data[i]) &
+                active_mask;
+            diff |= eq_mask ^ active_mask;
+        }
+        return diff == 0;
+    }
+
+    inline bool_t equal(const AVXVector &other) const {
+        uint64_t diff = 0;
+        for (int i = 0; i < VEC_LIMBS; i++) {
+            constexpr uint64_t full_mask = (uint64_t(1) << LIMBS_PER_VEC) - 1;
+            const int remaining = limbs - i * LIMBS_PER_VEC;
+            const int active = remaining < LIMBS_PER_VEC ? remaining : LIMBS_PER_VEC;
+            const uint64_t active_mask = active == LIMBS_PER_VEC ? full_mask : ((uint64_t(1) << active) - 1);
+            const uint64_t eq_mask =
+                _cc512_cmpge_epi64_mask(data[i], other[i]) &
+                _cc512_cmpge_epi64_mask(other[i], data[i]) &
+                active_mask;
+            diff |= eq_mask ^ active_mask;
+        }
+        return diff == 0;
+    }
+
     inline AVXVector sub(const AVXVector & other) const {
         AVXVector out;
         for (int i = 0; i < VEC_LIMBS; i++) {
@@ -232,7 +265,7 @@ public:
         }
     }
 
-    inline void load(uint64_t* src) {
+    inline void load(const uint64_t* src) {
         for (int i = 0; i < VEC_LIMBS; i++) {
             data[i] = _cc512_loadu_si512(src + LIMBS_PER_VEC * i);
         }

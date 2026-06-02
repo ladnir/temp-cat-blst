@@ -77,10 +77,10 @@ class RNSMatrix {
 
         // Load into members
         for (int i = 0; i < in_limbs * IN_DIGITS; i++) {
-            rns_mat[i].load((uint64_t*)rns_values_tf[i].data());
+            rns_mat[i].load(rns_values_tf[i].data());
             shifted_quotient_estimations[i] = sqe_tf[i].to_u64();
         }
-        correction.load((uint64_t*)correction_vec.data());
+        correction.load(correction_vec.data());
        
         // Cannot use shifted version if binary output.
         if (moduli_out_big[0] < BigInt(1) << 64) {
@@ -88,7 +88,7 @@ class RNSMatrix {
                 correction_shift_vec[i] = ((uint128_t)(correction_vec[i]) * (1ull << mulbits)) % moduli_out_big[i].to_u64();
             }
         }
-        correction_shift.load((uint64_t*)correction_shift_vec.data());
+        correction_shift.load(correction_shift_vec.data());
     }
 #endif
 
@@ -101,16 +101,16 @@ class RNSMatrix {
         std::array<uint64_t, out_limbs * OUT_DIGITS> correction_shift_vec{};
 
         for (int i = 0; i < in_limbs * IN_DIGITS; i++) {
-            rns_mat[i].load((uint64_t*)rns_values_tf[i].data());
+            rns_mat[i].load(rns_values_tf[i].data());
             shifted_quotient_estimations[i] = sqe_tf[i];
         }
-        correction.load((uint64_t*)correction_vec.data());
+        correction.load(correction_vec.data());
 
         for (int i = 0; i < out_limbs * OUT_DIGITS; i++) {
             const uint64_t modulus = moduli_out[i / OUT_DIGITS];
             correction_shift_vec[i] = mod_mul(correction_vec[i], uint64_t(1) << mulbits, modulus);
         }
-        correction_shift.load((uint64_t*)correction_shift_vec.data());
+        correction_shift.load(correction_shift_vec.data());
     }
 
     INLINE void accumulate_loop(AVXVector<out_limbs * OUT_DIGITS> &out_hi, AVXVector<out_limbs * OUT_DIGITS> &out_lo, const AVXVector<in_limbs * IN_DIGITS> &residues, uint128_t &k_raw) const {
@@ -251,11 +251,14 @@ class RNSMatrix {
 
     template<int batch>
     INLINE void rns_reduce_raw_batch(const InBatchArray<batch> *residues1, OutBatchArray<batch> &out_hi, OutBatchArray<batch> &out_lo) const {
-        const ScalarBatchArray<batch>* scalars = reinterpret_cast<const ScalarBatchArray<batch>*>(residues1);
+        ScalarBatchArray<batch> scalars;
+        for (int j = 0; j < batch; j++) {
+            (*residues1)[j].store(scalars[j].data());
+        }
         std::array<uint128_t, batch> k_raw = {};
         for (int i = 0; i < in_limbs * IN_DIGITS; i++) {
             for (int j = 0; j < batch; j++) {
-                uint64_t s = (*scalars)[j][i];
+                uint64_t s = scalars[j][i];
                 AVXScalar sv = Scalar(s);
                 k_raw[j] += (uint128_t)(s) * (uint128_t)(shifted_quotient_estimations[i]);
                 out_hi[j] = out_hi[j].mulhi_scalar(rns_mat[i], sv);
@@ -267,11 +270,14 @@ class RNSMatrix {
 
     template<int batch>
     INLINE void rns_reduce_raw_batch_shifted(const InBatchArray<batch> *residues1, OutBatchArray<batch> &out_hi, OutBatchArray<batch> &out_lo) const {
-        const ScalarBatchArray<batch>* scalars = reinterpret_cast<const ScalarBatchArray<batch>*>(residues1);
+        ScalarBatchArray<batch> scalars;
+        for (int j = 0; j < batch; j++) {
+            (*residues1)[j].store(scalars[j].data());
+        }
         std::array<uint128_t, batch> k_raw = {};
         for (int i = 0; i < in_limbs * IN_DIGITS; i++) {
             for (int j = 0; j < batch; j++) {
-                uint64_t s = (*scalars)[j][i];
+                uint64_t s = scalars[j][i];
                 AVXScalar sv = Scalar(s);
                 k_raw[j] += (uint128_t)(s) * (uint128_t)(shifted_quotient_estimations[i]);
                 out_hi[j] = out_hi[j].mulhi_scalar(rns_mat[i], sv);
@@ -283,9 +289,12 @@ class RNSMatrix {
 
     template<int batch>
     INLINE void rns_reduce_raw_batch_tree_1_level(const InBatchArray<batch> *residues1, OutBatchArray<batch> &out_hi, OutBatchArray<batch> &out_lo) const {
-        const ScalarBatchArray<batch>* scalars = reinterpret_cast<const ScalarBatchArray<batch>*>(residues1);
+        ScalarBatchArray<batch> scalars;
+        for (int j = 0; j < batch; j++) {
+            (*residues1)[j].store(scalars[j].data());
+        }
         std::array<uint128_t, batch> k_raw = {};
-        accumulate_loop_batch_tree_1_level<batch>(*scalars, k_raw, out_hi, out_lo);
+        accumulate_loop_batch_tree_1_level<batch>(scalars, k_raw, out_hi, out_lo);
         add_correction_batch<batch>(out_hi, out_lo, k_raw, correction);
     }
     
@@ -352,7 +361,7 @@ class RNSMatrix {
     inline AVXVector<out_limbs * OUT_DIGITS> rns_reduce(const AVXVector<in_limbs * IN_DIGITS> &residues1, const Reducer& reducer) const {
         /*// Debug: print scalars after word_reinterpret
         std::array<uint64_t, in_limbs * IN_DIGITS> scalars;
-        residues1.store((uint64_t*)scalars.data());
+        residues1.store(scalars.data());
         std::cout << "  [DEBUG C++ rns_reduce] scalars=[";
         for (int i = 0; i < in_limbs * IN_DIGITS; i++) {
             std::cout << scalars[i];
@@ -364,8 +373,8 @@ class RNSMatrix {
         AVXVector<out_limbs * OUT_DIGITS> out_lo = AVXVector<out_limbs * OUT_DIGITS>(0);
         rns_reduce_raw(residues1, out_hi, out_lo);
         /*std::array<uint64_t, out_limbs * OUT_DIGITS> final_hi, final_lo;
-        out_hi.store((uint64_t*)final_hi.data());
-        out_lo.store((uint64_t*)final_lo.data());
+        out_hi.store(final_hi.data());
+        out_lo.store(final_lo.data());
         std::cout << "  [DEBUG C++ rns_reduce] before reducer.reduce_full: out_hi=[";
         for (int i = 0; i < out_limbs * OUT_DIGITS; i++) {
             std::cout << final_hi[i];
@@ -379,7 +388,7 @@ class RNSMatrix {
         std::cout << "]" << std::endl;*/
         AVXVector<out_limbs * OUT_DIGITS> result = reducer.reduce_full(out_hi, out_lo);
         /*std::array<uint64_t, out_limbs * OUT_DIGITS> result_arr;
-        result.store((uint64_t*)result_arr.data());
+        result.store(result_arr.data());
         std::cout << "  [DEBUG C++ rns_reduce] final result=[";
         for (int i = 0; i < out_limbs * OUT_DIGITS; i++) {
             std::cout << result_arr[i];
@@ -392,7 +401,7 @@ class RNSMatrix {
     // Test accessors
     inline void get_rns_mat(std::array<std::array<uint64_t, out_limbs * OUT_DIGITS>, in_limbs * IN_DIGITS> &out) const {
         for (int i = 0; i < in_limbs * IN_DIGITS; i++) {
-            rns_mat[i].store((uint64_t*)out[i].data());
+            rns_mat[i].store(out[i].data());
         }
     }
     

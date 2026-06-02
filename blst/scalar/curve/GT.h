@@ -166,8 +166,8 @@ namespace blst::scalar {
 		 * @brief Group generator (returns Fp12::one())
 		 */
 		static BLST_HD const GT& generator() {
-
-			return (GT&)Fp12::one();
+			static const GT g(Fp12::one());
+			return g;
 		}
 
 		/**

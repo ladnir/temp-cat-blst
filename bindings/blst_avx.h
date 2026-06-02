@@ -9,8 +9,9 @@
 
 #include "blst_types.h"
 
-#ifdef __cplusplus
-extern "C" {
+#if defined(__cplusplus) && defined(BLST_AVX_USE_CPP_TYPES)
+#include "blst/avx/curve/GT.h"
+#include "blst/avx/curve/point.h"
 #endif
 
 enum {
@@ -31,16 +32,29 @@ enum {
  * - Callers may allocate storage of this size and alignment and pass it back
  *   to the library, but must not inspect or mutate the internal
  *   representation except through these entry points.
- * - The library intentionally reinterprets these shells as its internal AVX
- *   types after validating size, alignment, and layout assumptions.
+ * - C callers see opaque aligned byte storage. C++ AVX builds see the real
+ *   internal AVX types, which avoids violating strict-aliasing/effective-type
+ *   rules inside the implementation while preserving the C ABI layout.
  * - The storage is aligned for native AVX builds; portable AVX builds may use
  *   a weaker internal alignment while remaining representable by these shells.
  */
+#if defined(__cplusplus) && defined(BLST_AVX_USE_CPP_TYPES)
+typedef blst::avx::G1Point blst_avx_p1;
+typedef blst::avx::G1AffinePoint blst_avx_p1_affine;
+typedef blst::avx::G2Point blst_avx_p2;
+typedef blst::avx::G2AffinePoint blst_avx_p2_affine;
+typedef blst::avx::GT blst_avx_fp12;
+#else
 typedef struct BLST_AUX_ALIGNAS(BLST_AVX_ALIGNMENT) { byte b[BLST_AVX_P1_SIZE]; } blst_avx_p1;
 typedef struct BLST_AUX_ALIGNAS(BLST_AVX_ALIGNMENT) { byte b[BLST_AVX_P1_AFFINE_SIZE]; } blst_avx_p1_affine;
 typedef struct BLST_AUX_ALIGNAS(BLST_AVX_ALIGNMENT) { byte b[BLST_AVX_P2_SIZE]; } blst_avx_p2;
 typedef struct BLST_AUX_ALIGNAS(BLST_AVX_ALIGNMENT) { byte b[BLST_AVX_P2_AFFINE_SIZE]; } blst_avx_p2_affine;
 typedef struct BLST_AUX_ALIGNAS(BLST_AVX_ALIGNMENT) { byte b[BLST_AVX_FP12_SIZE]; } blst_avx_fp12;
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Reports whether the current build contains the expert AVX API.

@@ -105,7 +105,7 @@ class IntRNS2 {
             a2_hi_copy[i] = a2_hi[i];
             a2_lo_copy[i] = a2_lo[i];
         }
-        r1.template rns_reduce_raw_batch<batch>(a1, a2_hi_copy, a2_lo_copy);
+        r1.template rns_reduce_raw_batch<batch>(&a1, a2_hi_copy, a2_lo_copy);
         out2 = m2.template reduce_full_batch<batch>(a2_hi_copy, a2_lo_copy);
     }
 
@@ -117,7 +117,7 @@ class IntRNS2 {
             z_hi[i] = AVXVector<limbs1>(0);
             z_lo[i] = AVXVector<limbs1>(0);
         }
-        r2.template rns_reduce_raw_batch<batch>(out2, z_hi, z_lo);
+        r2.template rns_reduce_raw_batch<batch>(&out2, z_hi, z_lo);
         // Do I also need reduce_full_batch to amortize loading of Montgomery factors?
         out1 = m1.template reduce_full_batch<batch>(z_hi, z_lo);
     }

@@ -55,6 +55,14 @@ class SmallElement {
         auto new_rns_bounds = rns_bounds.template recast<new_lower, new_upper>();
         return SmallElement<decltype(element), decltype(new_rns_bounds)>(element);
     }
+
+    INLINE bool_t is_zero() const {
+        return element.is_zero();
+    }
+
+    INLINE bool_t equal(const SmallElement &other) const {
+        return element.equal(other.element);
+    }
 };
 
 template<class Element, class RNSBounds>
@@ -151,6 +159,14 @@ class ExpandedElement {
 
     INLINE auto ctime_select(bool selection, const ExpandedElement &other) const {
         return ExpandedElement(m1.ctime_select(selection, other.m1), m2.ctime_select(selection, other.m2));
+    }
+
+    INLINE bool_t is_zero() const {
+        return m1.is_zero() & m2.is_zero();
+    }
+
+    INLINE bool_t equal(const ExpandedElement &other) const {
+        return m1.equal(other.m1) & m2.equal(other.m2);
     }
 
     // Clearer API: replace self with replacement if condition is true

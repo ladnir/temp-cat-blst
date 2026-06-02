@@ -89,6 +89,25 @@ inline PairingFp2Element normalize_fp2(const T& value)
     return fp2ring().batch_reduce_expand(value.prep_left(ring()).mul_fp(ring().one()))[0];
 }
 
+template<class T>
+inline T ctime_select_value(bool_t selection, const T& when_true, const T& when_false)
+{
+    return when_true.ctime_select(selection, when_false);
+}
+
+template<class T, size_t N>
+inline std::array<T, N> ctime_select_value(
+    bool_t selection,
+    const std::array<T, N>& when_true,
+    const std::array<T, N>& when_false)
+{
+    std::array<T, N> out = {};
+    for (size_t i = 0; i < N; ++i) {
+        out[i] = ctime_select_value(selection, when_true[i], when_false[i]);
+    }
+    return out;
+}
+
 struct PreparedLine
 {
     PairingFp2Element c = {};
@@ -431,9 +450,9 @@ struct GT
 
     static void cneg(GT& p, limb_t cbit)
     {
-        if (cbit) {
-            p.data = avx_gt_detail::fp12ring().fp12_flat_conjugate(p.data, avx_gt_detail::ring());
-        }
+        GT neg = {};
+        neg.data = avx_gt_detail::fp12ring().fp12_flat_conjugate(p.data, avx_gt_detail::ring());
+        p.data = avx_gt_detail::ctime_select_value(cbit, neg.data, p.data);
     }
 
     static void neg(GT& out, const GT& p)
@@ -443,12 +462,15 @@ struct GT
 
     static void cswap(GT& a, GT& b, bool_t cbit)
     {
-        vec_cswap(&a, &b, sizeof(GT), cbit);
+        const GT aa = a;
+        const GT bb = b;
+        a.data = avx_gt_detail::ctime_select_value(cbit, bb.data, aa.data);
+        b.data = avx_gt_detail::ctime_select_value(cbit, aa.data, bb.data);
     }
 
     static void ccopy(GT& a, const GT& b, bool_t cbit)
     {
-        vec_select(&a, &b, &a, sizeof(GT), cbit);
+        a.data = avx_gt_detail::ctime_select_value(cbit, b.data, a.data);
     }
 
     static limb_t equal(const GT& a, const GT& b)

@@ -390,6 +390,40 @@ struct G2Point
     static void compress(unsigned char* out, const G2Point& in);
 };
 
+inline G1AffinePoint ctime_select_g1_affine(bool_t selection, const G1AffinePoint& when_true, const G1AffinePoint& when_false)
+{
+    return {
+        when_true.X.ctime_select(selection, when_false.X),
+        when_true.Y.ctime_select(selection, when_false.Y),
+    };
+}
+
+inline G1Point ctime_select_g1(bool_t selection, const G1Point& when_true, const G1Point& when_false)
+{
+    return {
+        when_true.X.ctime_select(selection, when_false.X),
+        when_true.Y.ctime_select(selection, when_false.Y),
+        when_true.Z.ctime_select(selection, when_false.Z),
+    };
+}
+
+inline G2AffinePoint ctime_select_g2_affine(bool_t selection, const G2AffinePoint& when_true, const G2AffinePoint& when_false)
+{
+    return {
+        when_true.X.ctime_select(selection, when_false.X),
+        when_true.Y.ctime_select(selection, when_false.Y),
+    };
+}
+
+inline G2Point ctime_select_g2(bool_t selection, const G2Point& when_true, const G2Point& when_false)
+{
+    return {
+        when_true.X.ctime_select(selection, when_false.X),
+        when_true.Y.ctime_select(selection, when_false.Y),
+        when_true.Z.ctime_select(selection, when_false.Z),
+    };
+}
+
 inline const G1AffinePoint& G1AffinePoint::generator()
 {
     static const G1AffinePoint g = [] {
@@ -427,8 +461,8 @@ inline void G1AffinePoint::cneg(G1AffinePoint& inOut, bool_t c)
 {
     G1AffinePoint neg = inOut;
     neg.Y = avx_curve_detail::curve_ring().standard_negate(neg.Y);
-    vec_select(&neg, &inOut, &neg, sizeof(G1AffinePoint), is_inf(inOut));
-    vec_select(&inOut, &neg, &inOut, sizeof(G1AffinePoint), c);
+    neg = ctime_select_g1_affine(is_inf(inOut), inOut, neg);
+    inOut = ctime_select_g1_affine(c, neg, inOut);
 }
 
 inline limb_t G1AffinePoint::serialize_BE(unsigned char* out, const G1AffinePoint& in)
@@ -575,7 +609,7 @@ inline void G1Point::cneg(G1Point& p, limb_t cbit)
 {
     G1Point neg = p;
     neg.Y = avx_curve_detail::curve_ring().standard_negate(neg.Y);
-    vec_select(&p, &neg, &p, sizeof(G1Point), cbit);
+    p = ctime_select_g1(cbit, neg, p);
 }
 
 inline void G1Point::neg(G1Point& out, const G1Point& p)
@@ -603,8 +637,18 @@ inline void G1Point::from_jacobian(G1Point& out, const G1Point& in)
     from_affine(out, affine);
 }
 
-inline void G1Point::cswap(G1Point& a, G1Point& b, bool_t cbit) { vec_cswap(&a, &b, sizeof(G1Point), cbit); }
-inline void G1Point::ccopy(G1Point& a, const G1Point& b, bool_t cbit) { vec_select(&a, &b, &a, sizeof(G1Point), cbit); }
+inline void G1Point::cswap(G1Point& a, G1Point& b, bool_t cbit)
+{
+    const G1Point aa = a;
+    const G1Point bb = b;
+    a = ctime_select_g1(cbit, bb, aa);
+    b = ctime_select_g1(cbit, aa, bb);
+}
+
+inline void G1Point::ccopy(G1Point& a, const G1Point& b, bool_t cbit)
+{
+    a = ctime_select_g1(cbit, b, a);
+}
 
 inline limb_t G1Point::equal(const G1Point& a, const G1Point& b)
 {
@@ -714,8 +758,8 @@ inline void G2AffinePoint::cneg(G2AffinePoint& inOut, bool_t c)
 {
     G2AffinePoint neg = inOut;
     neg.Y = avx_curve_detail::curve_fp2_ring().standard_negate(neg.Y);
-    vec_select(&neg, &inOut, &neg, sizeof(G2AffinePoint), is_inf(inOut));
-    vec_select(&inOut, &neg, &inOut, sizeof(G2AffinePoint), c);
+    neg = ctime_select_g2_affine(is_inf(inOut), inOut, neg);
+    inOut = ctime_select_g2_affine(c, neg, inOut);
 }
 
 inline limb_t G2AffinePoint::serialize_BE(unsigned char* out, const G2AffinePoint& in)
@@ -867,7 +911,7 @@ inline void G2Point::cneg(G2Point& p, limb_t cbit)
 {
     G2Point neg = p;
     neg.Y = avx_curve_detail::curve_fp2_ring().standard_negate(neg.Y);
-    vec_select(&p, &neg, &p, sizeof(G2Point), cbit);
+    p = ctime_select_g2(cbit, neg, p);
 }
 
 inline void G2Point::neg(G2Point& out, const G2Point& p)
@@ -895,8 +939,18 @@ inline void G2Point::from_jacobian(G2Point& out, const G2Point& in)
     from_affine(out, affine);
 }
 
-inline void G2Point::cswap(G2Point& a, G2Point& b, bool_t cbit) { vec_cswap(&a, &b, sizeof(G2Point), cbit); }
-inline void G2Point::ccopy(G2Point& a, const G2Point& b, bool_t cbit) { vec_select(&a, &b, &a, sizeof(G2Point), cbit); }
+inline void G2Point::cswap(G2Point& a, G2Point& b, bool_t cbit)
+{
+    const G2Point aa = a;
+    const G2Point bb = b;
+    a = ctime_select_g2(cbit, bb, aa);
+    b = ctime_select_g2(cbit, aa, bb);
+}
+
+inline void G2Point::ccopy(G2Point& a, const G2Point& b, bool_t cbit)
+{
+    a = ctime_select_g2(cbit, b, a);
+}
 
 inline limb_t G2Point::equal(const G2Point& a, const G2Point& b)
 {

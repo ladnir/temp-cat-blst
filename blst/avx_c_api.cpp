@@ -1,3 +1,4 @@
+#define BLST_AVX_USE_CPP_TYPES 1
 #include "bindings/blst_avx.h"
 
 #include "blst/scalar/curve/GT.h"
@@ -51,6 +52,11 @@ static_assert(std::is_trivially_copyable_v<AvxG1Affine>);
 static_assert(std::is_trivially_copyable_v<AvxG2>);
 static_assert(std::is_trivially_copyable_v<AvxG2Affine>);
 static_assert(std::is_trivially_copyable_v<AvxGt>);
+static_assert(std::is_same_v<blst_avx_p1, AvxG1>);
+static_assert(std::is_same_v<blst_avx_p1_affine, AvxG1Affine>);
+static_assert(std::is_same_v<blst_avx_p2, AvxG2>);
+static_assert(std::is_same_v<blst_avx_p2_affine, AvxG2Affine>);
+static_assert(std::is_same_v<blst_avx_fp12, AvxGt>);
 
 /*
  * The expert AVX C ABI intentionally accepts caller-allocated opaque shells

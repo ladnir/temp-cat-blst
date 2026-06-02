@@ -133,15 +133,15 @@ class MontgomeryReduce {
 
     // Test accessors
     inline void get_moduli(std::array<uint64_t, limbs> &out) const {
-        moduli.store((uint64_t*)out.data());
+        moduli.store(out.data());
     }
     
     inline void get_mont_factor(std::array<uint64_t, limbs> &out) const {
-        mont_factor.store((uint64_t*)out.data());
+        mont_factor.store(out.data());
     }
     
     inline void get_t_squared(std::array<uint64_t, limbs> &out) const {
-        t_squared.store((uint64_t*)out.data());
+        t_squared.store(out.data());
     }
     
     static constexpr int get_mulbits() { return mulbits; }

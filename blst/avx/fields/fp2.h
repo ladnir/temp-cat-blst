@@ -94,6 +94,14 @@ class FP2 {
         return FP2<X, Y>(x_.ctime_select(condition, other.x()), y_.ctime_select(condition, other.y()));
     }
 
+    INLINE bool_t is_zero() const {
+        return x_.is_zero() & y_.is_zero();
+    }
+
+    INLINE bool_t equal(const FP2<X, Y> &other) const {
+        return x_.equal(other.x()) & y_.equal(other.y());
+    }
+
     // Clearer API: replace self with replacement if condition is true
     // ctime_select(selection, b) returns *this when selection is true, b when false
     // So we need to negate: if condition is true, we want replacement (not *this)

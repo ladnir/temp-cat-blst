@@ -310,7 +310,7 @@ ProjectivePoint<typename Ring::StandardElement> PointDouble(const ProjectivePoin
 template<class Element>
 INLINE bool PointCoordIsZero(const Element& value)
 {
-    return vec_is_zero(&value, sizeof(value)) != 0;
+    return value.is_zero() != 0;
 }
 
 template<class RingElement>

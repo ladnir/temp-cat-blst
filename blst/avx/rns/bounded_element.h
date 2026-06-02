@@ -130,6 +130,14 @@ class BoundedElement {
         return BoundedElement(data.ctime_select(selection, other.data));
     }
 
+    INLINE bool_t is_zero() const {
+        return data.is_zero();
+    }
+
+    INLINE bool_t equal(const BoundedElement &other) const {
+        return data.equal(other.data);
+    }
+
     // Clearer API: replace self with replacement if condition is true
     // ctime_select(selection, b) returns *this when selection is true, b when false
     // So we need to negate: if condition is true, we want replacement (not *this)

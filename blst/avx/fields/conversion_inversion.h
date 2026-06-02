@@ -99,17 +99,27 @@ inline std::array<typename Ring::StandardElement, 12> scalar_fp12_to_ring(
 
 namespace avx_blst_direct_bridge {
 
-inline void store_u64_unaligned(uint8_t* dst, uint64_t value)
+inline uint64_t load_u64_unaligned(const unsigned char* src)
+{
+    uint64_t value = 0;
+    std::memcpy(&value, src, sizeof(value));
+    return value;
+}
+
+inline void store_u64_unaligned(unsigned char* dst, uint64_t value)
 {
     std::memcpy(dst, &value, sizeof(value));
 }
 
 template<int limbs>
-AVXVector<limbs> to_vec(uint8_t* le_buf)
+AVXVector<limbs> to_vec(const unsigned char* le_buf)
 {
     static_assert(limbs == 8, "to_vec currently only supports 8 limbs");
 
-    uint64_t* limbs_64 = reinterpret_cast<uint64_t*>(le_buf);
+    std::array<uint64_t, 6> limbs_64 = {};
+    for (size_t i = 0; i < limbs_64.size(); ++i) {
+        limbs_64[i] = load_u64_unaligned(le_buf + i * sizeof(uint64_t));
+    }
     std::array<uint64_t, 8> digits = {};
 
     digits[0] = limbs_64[0] & ((1ULL << 52) - 1);
@@ -142,8 +152,8 @@ void from_vec(AVXVector<8>& vec_lo, AVXVector<8>& vec_hi, blst::Fp& ret)
     const blst::Fp& kRR = blst::get_BLST_RR();
     blst::UFp n_data_even_64 = {};
     blst::UFp n_data_odd_64 = {};
-    uint8_t* n_data_even = reinterpret_cast<uint8_t*>(n_data_even_64.data);
-    uint8_t* n_data_odd = reinterpret_cast<uint8_t*>(n_data_odd_64.data);
+    unsigned char* n_data_even = reinterpret_cast<unsigned char*>(n_data_even_64.data);
+    unsigned char* n_data_odd = reinterpret_cast<unsigned char*>(n_data_odd_64.data);
 
     for (int i = 0; i < 9; i += 2) {
         store_u64_unaligned(n_data_even + (i / 2) * 13, digits[i]);
@@ -192,7 +202,8 @@ auto convert_to_rns(const Ring& ring, const blst::Fp& value)
         canonical = value;
     }
 
-    AVXVector<8> l = to_vec<8>(reinterpret_cast<uint8_t*>(canonical.data));
+    const unsigned char* canonical_bytes = reinterpret_cast<const unsigned char*>(canonical.data);
+    AVXVector<8> l = to_vec<8>(canonical_bytes);
     return ring.template convert_to_rns_batch<1>(std::array<AVXVector<8>, 1>{l})[0];
 }
 
