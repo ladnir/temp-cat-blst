@@ -303,7 +303,15 @@ extern "C" {
         out: *mut byte,
         input: *const blst_avx_p2,
     ) -> bool;
+    pub fn blst_avx_p2_serialize(
+        out: *mut byte,
+        input: *const blst_avx_p2,
+    ) -> bool;
     pub fn blst_avx_p2_uncompress(
+        out: *mut blst_avx_p2,
+        input: *const byte,
+    ) -> BLST_ERROR;
+    pub fn blst_avx_p2_deserialize(
         out: *mut blst_avx_p2,
         input: *const byte,
     ) -> BLST_ERROR;
