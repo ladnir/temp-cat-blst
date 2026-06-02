@@ -130,35 +130,15 @@ inline size_t avx_pippenger_scratch_sizeof(const size_t npoints)
 
 inline AvxG1 g1_add_complete(const AvxG1& a, const AvxG1& b)
 {
-    if (AvxG1::is_inf(a)) {
-        return b;
-    }
-    if (AvxG1::is_inf(b)) {
-        return a;
-    }
     AvxG1 out = {};
-    if (AvxG1::equal(a, b)) {
-        AvxG1::doubling(out, a);
-    } else {
-        AvxG1::dadd(out, a, b);
-    }
+    AvxG1::dadd(out, a, b);
     return out;
 }
 
 inline AvxG2 g2_add_complete(const AvxG2& a, const AvxG2& b)
 {
-    if (AvxG2::is_inf(a)) {
-        return b;
-    }
-    if (AvxG2::is_inf(b)) {
-        return a;
-    }
     AvxG2 out = {};
-    if (AvxG2::equal(a, b)) {
-        AvxG2::doubling(out, a);
-    } else {
-        AvxG2::dadd(out, a, b);
-    }
+    AvxG2::dadd(out, a, b);
     return out;
 }
 
@@ -470,15 +450,7 @@ bool blst_avx_p1_add(blst_avx_p1* out, const blst_avx_p1* a, const blst_avx_p1* 
     if (out == nullptr || a == nullptr || b == nullptr) {
         return false;
     }
-    if (AvxG1::is_inf(*as_avx(a))) {
-        *as_avx(out) = *as_avx(b);
-    } else if (AvxG1::is_inf(*as_avx(b))) {
-        *as_avx(out) = *as_avx(a);
-    } else if (AvxG1::equal(*as_avx(a), *as_avx(b))) {
-        AvxG1::doubling(*as_avx(out), *as_avx(a));
-    } else {
-        AvxG1::dadd(*as_avx(out), *as_avx(a), *as_avx(b));
-    }
+    AvxG1::dadd(*as_avx(out), *as_avx(a), *as_avx(b));
     return true;
 #else
     (void)out;
@@ -1022,15 +994,7 @@ bool blst_avx_p2_add(blst_avx_p2* out, const blst_avx_p2* a, const blst_avx_p2* 
     if (out == nullptr || a == nullptr || b == nullptr) {
         return false;
     }
-    if (AvxG2::is_inf(*as_avx(a))) {
-        *as_avx(out) = *as_avx(b);
-    } else if (AvxG2::is_inf(*as_avx(b))) {
-        *as_avx(out) = *as_avx(a);
-    } else if (AvxG2::equal(*as_avx(a), *as_avx(b))) {
-        AvxG2::doubling(*as_avx(out), *as_avx(a));
-    } else {
-        AvxG2::dadd(*as_avx(out), *as_avx(a), *as_avx(b));
-    }
+    AvxG2::dadd(*as_avx(out), *as_avx(a), *as_avx(b));
     return true;
 #else
     (void)out;
