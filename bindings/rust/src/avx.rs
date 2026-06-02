@@ -247,6 +247,7 @@ extern "C" {
         nbits: usize,
         scratch: *mut limb_t,
     ) -> bool;
+    pub fn blst_avx_p1_cneg(p: *mut blst_avx_p1, cbit: bool) -> bool;
     pub fn blst_avx_p1_generator() -> *const blst_avx_p1;
 
     pub fn blst_avx_p2_add(

@@ -113,7 +113,7 @@ pub use avx::{
     blst_avx_p1_mult_pippenger_glv_window_bucket_used_scratch_sizeof,
     blst_avx_p1_mult_pippenger_glv_window_scratch_sizeof,
     blst_avx_p1_mult_pippenger_glv_window_with_scratch,
-    blst_avx_p1_mult_pippenger_scratch_sizeof, blst_avx_p1_serialize,
+    blst_avx_p1_mult_pippenger_scratch_sizeof, blst_avx_p1_cneg, blst_avx_p1_serialize,
     blst_avx_p1_sizeof, blst_avx_p1_to_affine, blst_avx_p1_uncompress,
     blst_avx_p1s_mult_pippenger, blst_avx_p1s_mult_pippenger_scratch_sizeof,
     blst_avx_p2, blst_avx_p2_add, blst_avx_p2_affine,

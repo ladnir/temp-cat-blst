@@ -200,6 +200,8 @@ bool blst_avx_p1_in_g1(const blst_avx_p1* p);
 bool blst_avx_p1_is_inf(const blst_avx_p1* p);
 /** Returns `true` when the two AVX G1 points represent the same point. */
 bool blst_avx_p1_is_equal(const blst_avx_p1* a, const blst_avx_p1* b);
+/** Conditionally negates an AVX G1 projective point in place. */
+bool blst_avx_p1_cneg(blst_avx_p1* p, bool cbit);
 /** Compresses an AVX G1 projective point to the standard 48-byte encoding. */
 bool blst_avx_p1_compress(byte out[48], const blst_avx_p1* in);
 /** Serializes an AVX G1 projective point to the standard 96-byte affine encoding. */
