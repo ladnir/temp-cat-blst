@@ -248,6 +248,13 @@ extern "C" {
         scratch: *mut limb_t,
     ) -> bool;
     pub fn blst_avx_p1_cneg(p: *mut blst_avx_p1, cbit: bool) -> bool;
+    pub fn blst_avx_p1_batch_subgroup_check(
+        points: *const *const blst_avx_p1,
+        count: usize,
+        coefficients: *const byte,
+        width: usize,
+        shift: *const blst_avx_p1,
+    ) -> bool;
     pub fn blst_avx_p1_generator() -> *const blst_avx_p1;
 
     pub fn blst_avx_p2_add(
@@ -256,6 +263,13 @@ extern "C" {
         b: *const blst_avx_p2,
     ) -> bool;
     pub fn blst_avx_p2_cneg(p: *mut blst_avx_p2, cbit: bool) -> bool;
+    pub fn blst_avx_p2_batch_subgroup_check(
+        points: *const *const blst_avx_p2,
+        count: usize,
+        coefficients: *const byte,
+        width: usize,
+        shift: *const blst_avx_p2,
+    ) -> bool;
     pub fn blst_avx_p2_mult(
         out: *mut blst_avx_p2,
         p: *const blst_avx_p2,

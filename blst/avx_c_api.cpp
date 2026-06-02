@@ -148,6 +148,56 @@ inline AvxG2 g2_add_complete(const AvxG2& a, const AvxG2& b)
     return out;
 }
 
+template<typename Point, typename AddComplete, typename InSubgroup>
+inline bool batch_subgroup_check_projective(
+    const Point* const* points,
+    const size_t count,
+    const byte* coefficients,
+    const size_t width,
+    const Point& shift,
+    AddComplete add_complete,
+    InSubgroup in_subgroup)
+{
+    if (width == 0 || count == 0) {
+        return true;
+    }
+    if (points == nullptr || coefficients == nullptr) {
+        return false;
+    }
+    for (size_t round = 0; round < width; ++round) {
+        Point sum = shift;
+        Point negative_sum = Point::identity();
+        bool has_negative = false;
+        const byte* row = coefficients + round * count;
+        for (size_t i = 0; i < count; ++i) {
+            if (points[i] == nullptr) {
+                return false;
+            }
+            switch (row[i]) {
+            case 0:
+                break;
+            case 1:
+                sum = add_complete(sum, *points[i]);
+                break;
+            case 2:
+                negative_sum = add_complete(negative_sum, *points[i]);
+                has_negative = true;
+                break;
+            default:
+                return false;
+            }
+        }
+        if (has_negative) {
+            Point::neg(negative_sum, negative_sum);
+            sum = add_complete(sum, negative_sum);
+        }
+        if (!in_subgroup(sum)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 inline void g1_add_into_bucket(AvxG1& bucket, blst::limb_t booth_idx, const size_t wbits, const AvxG1& point)
 {
     const bool subtract = ((booth_idx >> wbits) & 1) != 0;
@@ -477,6 +527,35 @@ bool blst_avx_p1_cneg(blst_avx_p1* p, bool cbit)
 #else
     (void)p;
     (void)cbit;
+    return false;
+#endif
+}
+
+bool blst_avx_p1_batch_subgroup_check(
+    const blst_avx_p1* const* points,
+    size_t count,
+    const byte* coefficients,
+    size_t width,
+    const blst_avx_p1* shift)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (shift == nullptr) {
+        return false;
+    }
+    return batch_subgroup_check_projective<AvxG1>(
+        reinterpret_cast<const AvxG1* const*>(points),
+        count,
+        coefficients,
+        width,
+        *as_avx(shift),
+        g1_add_complete,
+        [](const AvxG1& point) { return AvxG1::in_subgroup(point); });
+#else
+    (void)points;
+    (void)count;
+    (void)coefficients;
+    (void)width;
+    (void)shift;
     return false;
 #endif
 }
@@ -1036,6 +1115,35 @@ bool blst_avx_p2_cneg(blst_avx_p2* p, bool cbit)
 #else
     (void)p;
     (void)cbit;
+    return false;
+#endif
+}
+
+bool blst_avx_p2_batch_subgroup_check(
+    const blst_avx_p2* const* points,
+    size_t count,
+    const byte* coefficients,
+    size_t width,
+    const blst_avx_p2* shift)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (shift == nullptr) {
+        return false;
+    }
+    return batch_subgroup_check_projective<AvxG2>(
+        reinterpret_cast<const AvxG2* const*>(points),
+        count,
+        coefficients,
+        width,
+        *as_avx(shift),
+        g2_add_complete,
+        [](const AvxG2& point) { return AvxG2::in_subgroup(point); });
+#else
+    (void)points;
+    (void)count;
+    (void)coefficients;
+    (void)width;
+    (void)shift;
     return false;
 #endif
 }

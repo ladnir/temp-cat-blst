@@ -216,6 +216,21 @@ bool blst_avx_p1_is_inf(const blst_avx_p1* p);
 bool blst_avx_p1_is_equal(const blst_avx_p1* a, const blst_avx_p1* b);
 /** Conditionally negates an AVX G1 projective point in place. */
 bool blst_avx_p1_cneg(blst_avx_p1* p, bool cbit);
+/**
+ * Runs `width` rounds of the {-1,0,+1} random-linear-combination subgroup
+ * check over AVX G1 projective points.
+ *
+ * `points` is an array of `count` point pointers. `coefficients` is row-major
+ * with `width * count` bytes; coefficient values are 0, 1, or 2, where 2
+ * means -1. `shift` is the subgroup random-shift element used to initialize
+ * each round sum.
+ */
+bool blst_avx_p1_batch_subgroup_check(
+    const blst_avx_p1* const* points,
+    size_t count,
+    const byte* coefficients,
+    size_t width,
+    const blst_avx_p1* shift);
 /** Compresses an AVX G1 projective point to the standard 48-byte encoding. */
 bool blst_avx_p1_compress(byte out[48], const blst_avx_p1* in);
 /** Serializes an AVX G1 projective point to the standard 96-byte affine encoding. */
@@ -256,6 +271,18 @@ bool blst_p2_affine_from_avx(blst_p2_affine* out, const blst_avx_p2_affine* in);
 bool blst_avx_p2_add(blst_avx_p2* out, const blst_avx_p2* a, const blst_avx_p2* b);
 /** Conditionally negates an AVX G2 projective point in place. */
 bool blst_avx_p2_cneg(blst_avx_p2* p, bool cbit);
+/**
+ * Runs `width` rounds of the {-1,0,+1} random-linear-combination subgroup
+ * check over AVX G2 projective points.
+ *
+ * Layout and coefficient conventions match `blst_avx_p1_batch_subgroup_check`.
+ */
+bool blst_avx_p2_batch_subgroup_check(
+    const blst_avx_p2* const* points,
+    size_t count,
+    const byte* coefficients,
+    size_t width,
+    const blst_avx_p2* shift);
 
 /**
  * Multiplies an AVX G2 projective point by an unsigned little-endian scalar.
