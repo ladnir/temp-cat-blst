@@ -164,6 +164,18 @@ extern "C" {
         out: *mut blst_avx_p1_affine,
         input: *const blst_avx_p1,
     ) -> bool;
+    pub fn blst_avx_p1_affine_from_scalar(
+        out: *mut blst_avx_p1_affine,
+        input: *const blst_p1_affine,
+    ) -> bool;
+    pub fn blst_p1_affine_from_avx(
+        out: *mut blst_p1_affine,
+        input: *const blst_avx_p1_affine,
+    ) -> bool;
+    pub fn blst_avx_p1_from_affine(
+        out: *mut blst_avx_p1,
+        input: *const blst_avx_p1_affine,
+    ) -> bool;
     pub fn blst_avx_p1_in_g1(p: *const blst_avx_p1) -> bool;
     pub fn blst_avx_p1_is_inf(p: *const blst_avx_p1) -> bool;
     pub fn blst_avx_p1_is_equal(
@@ -187,9 +199,15 @@ extern "C" {
         input: *const byte,
     ) -> BLST_ERROR;
     pub fn blst_avx_p1_mult_pippenger_scratch_sizeof(npoints: usize) -> usize;
-    pub fn blst_avx_p1_mult_pippenger_bucket_used_scratch_sizeof(npoints: usize) -> usize;
-    pub fn blst_avx_p1_mult_pippenger_glv_points_scratch_sizeof(npoints: usize) -> usize;
-    pub fn blst_avx_p1_mult_pippenger_glv_scalars_scratch_sizeof(npoints: usize) -> usize;
+    pub fn blst_avx_p1_mult_pippenger_bucket_used_scratch_sizeof(
+        npoints: usize,
+    ) -> usize;
+    pub fn blst_avx_p1_mult_pippenger_glv_points_scratch_sizeof(
+        npoints: usize,
+    ) -> usize;
+    pub fn blst_avx_p1_mult_pippenger_glv_scalars_scratch_sizeof(
+        npoints: usize,
+    ) -> usize;
     pub fn blst_avx_p1_mult_pippenger(
         out: *mut blst_avx_p1,
         points: *const blst_avx_p1_affine,
@@ -277,7 +295,9 @@ extern "C" {
         nbits: usize,
     ) -> bool;
     pub fn blst_avx_p2_mult_pippenger_scratch_sizeof(npoints: usize) -> usize;
-    pub fn blst_avx_p2_mult_pippenger_bucket_used_scratch_sizeof(npoints: usize) -> usize;
+    pub fn blst_avx_p2_mult_pippenger_bucket_used_scratch_sizeof(
+        npoints: usize,
+    ) -> usize;
     pub fn blst_avx_p2_mult_pippenger(
         out: *mut blst_avx_p2,
         points: *const blst_avx_p2_affine,
