@@ -128,6 +128,16 @@ if(BLST_HAVE_AVX_VALIDATION_GMP)
     target_link_libraries(avx_group_ops_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers bte)
 endif()
 
+if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
+    add_executable(avx_gt_msm_benchmarks
+        "main.cpp"
+        "avx/Avx_gt_msm_bench.cpp"
+    )
+    target_include_directories(avx_gt_msm_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
+    target_include_directories(avx_gt_msm_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
+    target_link_libraries(avx_gt_msm_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers)
+endif()
+
 add_executable(bte_trx_benchmarks
     "main.cpp"
     "Trx_bench.cpp"

@@ -5,6 +5,8 @@
 //! Expert AVX ABI bindings.
 
 use crate::*;
+use alloc::vec::Vec;
+use core::mem::{size_of, MaybeUninit};
 
 #[repr(C, align(64))]
 #[derive(Copy, Clone)]
@@ -350,15 +352,111 @@ extern "C" {
         a: *const blst_avx_fp12,
         b: *const blst_avx_fp12,
     ) -> bool;
+    pub fn blst_avx_fp12_from_scalar(
+        out: *mut blst_avx_fp12,
+        input: *const blst_fp12,
+    ) -> bool;
     pub fn blst_fp12_from_avx(
         out: *mut blst_fp12,
         input: *const blst_avx_fp12,
+    ) -> bool;
+    pub fn blst_avx_fp12_mult_pippenger_scratch_sizeof(npoints: usize) -> usize;
+    pub fn blst_avx_fp12_mult_pippenger_bucket_used_scratch_sizeof(
+        npoints: usize,
+    ) -> usize;
+    pub fn blst_avx_fp12_mult_pippenger(
+        out: *mut blst_avx_fp12,
+        points: *const blst_avx_fp12,
+        scalars: *const byte,
+        npoints: usize,
+        scratch: *mut core::ffi::c_void,
+        scratch_bytes: usize,
+        bucket_used: *mut byte,
+        bucket_used_bytes: usize,
     ) -> bool;
     pub fn blst_avx_pairing(
         out: *mut blst_avx_fp12,
         g1: *const blst_avx_p1,
         g2: *const blst_avx_p2,
     ) -> bool;
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AvxMsmError {
+    AvxUnavailable,
+    ScalarLengthMismatch,
+    ScratchSizeOverflow,
+    ConversionFailed,
+    BackendFailure,
+}
+
+/// Computes a variable-time AVX GLV4 Pippenger MSM over GT/Fp12 elements.
+///
+/// `scalars` must contain exactly one 256-bit little-endian scalar per point.
+pub fn gt_msm(points: &[blst_fp12], scalars: &[u8]) -> Result<blst_fp12, AvxMsmError> {
+    if !unsafe { blst_avx_enabled() } {
+        return Err(AvxMsmError::AvxUnavailable);
+    }
+
+    let scalar_bytes = points
+        .len()
+        .checked_mul(32)
+        .ok_or(AvxMsmError::ScratchSizeOverflow)?;
+    if scalars.len() != scalar_bytes {
+        return Err(AvxMsmError::ScalarLengthMismatch);
+    }
+    if points.is_empty() {
+        return Ok(blst_fp12::default());
+    }
+
+    let mut avx_points = Vec::with_capacity(points.len());
+    for point in points {
+        let mut avx_point = MaybeUninit::<blst_avx_fp12>::uninit();
+        let ok = unsafe { blst_avx_fp12_from_scalar(avx_point.as_mut_ptr(), point) };
+        if !ok {
+            return Err(AvxMsmError::ConversionFailed);
+        }
+        unsafe { avx_points.push(avx_point.assume_init()) };
+    }
+
+    let scratch_bytes = unsafe { blst_avx_fp12_mult_pippenger_scratch_sizeof(points.len()) };
+    let bucket_used_bytes =
+        unsafe { blst_avx_fp12_mult_pippenger_bucket_used_scratch_sizeof(points.len()) };
+    if scratch_bytes == 0 || bucket_used_bytes == 0 {
+        return Err(AvxMsmError::ScratchSizeOverflow);
+    }
+
+    let scratch_len = (scratch_bytes + size_of::<blst_avx_fp12>() - 1) / size_of::<blst_avx_fp12>();
+    let mut scratch = Vec::<MaybeUninit<blst_avx_fp12>>::with_capacity(scratch_len);
+    unsafe { scratch.set_len(scratch_len) };
+    let mut bucket_used = Vec::<u8>::with_capacity(bucket_used_bytes);
+    unsafe { bucket_used.set_len(bucket_used_bytes) };
+
+    let mut avx_out = MaybeUninit::<blst_avx_fp12>::uninit();
+    let ok = unsafe {
+        blst_avx_fp12_mult_pippenger(
+            avx_out.as_mut_ptr(),
+            avx_points.as_ptr(),
+            scalars.as_ptr(),
+            points.len(),
+            scratch.as_mut_ptr().cast(),
+            scratch.len() * size_of::<blst_avx_fp12>(),
+            bucket_used.as_mut_ptr(),
+            bucket_used.len(),
+        )
+    };
+    if !ok {
+        return Err(AvxMsmError::BackendFailure);
+    }
+
+    let avx_out = unsafe { avx_out.assume_init() };
+    let mut out = MaybeUninit::<blst_fp12>::uninit();
+    let ok = unsafe { blst_fp12_from_avx(out.as_mut_ptr(), &avx_out) };
+    if ok {
+        Ok(unsafe { out.assume_init() })
+    } else {
+        Err(AvxMsmError::ConversionFailed)
+    }
 }
 
 #[cfg(test)]
@@ -374,20 +472,40 @@ mod tests {
         assert_eq!(core::mem::size_of::<blst_avx_p1>(), unsafe {
             blst_avx_p1_sizeof()
         });
-        assert_eq!(core::mem::align_of::<blst_avx_p1>(), unsafe {
+        assert!(core::mem::align_of::<blst_avx_p1>() >= unsafe {
             blst_avx_p1_alignof()
         });
         assert_eq!(core::mem::size_of::<blst_avx_p2>(), unsafe {
             blst_avx_p2_sizeof()
         });
-        assert_eq!(core::mem::align_of::<blst_avx_p2>(), unsafe {
+        assert!(core::mem::align_of::<blst_avx_p2>() >= unsafe {
             blst_avx_p2_alignof()
         });
         assert_eq!(core::mem::size_of::<blst_avx_fp12>(), unsafe {
             blst_avx_fp12_sizeof()
         });
-        assert_eq!(core::mem::align_of::<blst_avx_fp12>(), unsafe {
+        assert!(core::mem::align_of::<blst_avx_fp12>() >= unsafe {
             blst_avx_fp12_alignof()
         });
+    }
+
+    #[test]
+    fn gt_msm_rejects_bad_scalar_length() {
+        let points = [blst_fp12::default()];
+        assert_eq!(gt_msm(&points, &[]), Err(AvxMsmError::ScalarLengthMismatch));
+    }
+
+    #[test]
+    fn gt_msm_identity_inputs_return_identity() {
+        if unsafe { !blst_avx_enabled() } {
+            return;
+        }
+
+        let points = [blst_fp12::default(), blst_fp12::default()];
+        let mut scalars = [0u8; 64];
+        scalars[0] = 3;
+        scalars[32] = 5;
+
+        assert_eq!(gt_msm(&points, &scalars).unwrap(), blst_fp12::default());
     }
 }

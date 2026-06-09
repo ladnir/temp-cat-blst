@@ -394,6 +394,55 @@ inline bool is_aligned(const void* ptr, size_t alignment)
     return (reinterpret_cast<uintptr_t>(ptr) & (alignment - 1)) == 0;
 }
 
+inline bool checked_add_size(size_t a, size_t b, size_t& out)
+{
+    if (b > static_cast<size_t>(-1) - a) {
+        out = 0;
+        return false;
+    }
+    out = a + b;
+    return true;
+}
+
+inline bool align_up_size(size_t value, size_t alignment, size_t& out)
+{
+    const size_t mask = alignment - 1;
+    if ((alignment & mask) != 0 || value > static_cast<size_t>(-1) - mask) {
+        out = 0;
+        return false;
+    }
+    out = (value + mask) & ~mask;
+    return true;
+}
+
+inline bool gt_msm_scratch_layout(
+    size_t npoints,
+    size_t& bucket_bytes,
+    size_t& split_points_offset,
+    size_t& split_scalars_offset,
+    size_t& total_bytes)
+{
+    bucket_bytes = blst::avx::avx_gt_mult_pippenger_glv4_scratch_sizeof(npoints);
+    const size_t split_point_bytes = blst::avx::avx_gt_mult_pippenger_glv4_points_scratch_sizeof(npoints);
+    const size_t split_scalar_bytes = blst::avx::avx_gt_mult_pippenger_glv4_scalars_scratch_sizeof(npoints);
+    if (bucket_bytes == 0 || split_point_bytes == 0 || split_scalar_bytes == 0) {
+        split_points_offset = 0;
+        split_scalars_offset = 0;
+        total_bytes = 0;
+        return false;
+    }
+    if (!align_up_size(bucket_bytes, alignof(AvxGt), split_points_offset)) {
+        return false;
+    }
+    if (!checked_add_size(split_points_offset, split_point_bytes, split_scalars_offset)) {
+        return false;
+    }
+    if (!checked_add_size(split_scalars_offset, split_scalar_bytes, total_bytes)) {
+        return false;
+    }
+    return true;
+}
+
 inline AvxGt scalar_fp12_to_avx(const ScalarFp12& value)
 {
     unsigned char serialized[12 * 48] = {};
@@ -1470,6 +1519,91 @@ bool blst_avx_fp12_sqr(blst_avx_fp12* ret, const blst_avx_fp12* a)
 #else
     (void)ret;
     (void)a;
+    return false;
+#endif
+}
+
+size_t blst_avx_fp12_mult_pippenger_scratch_sizeof(size_t npoints)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    size_t bucket_bytes = 0;
+    size_t split_points_offset = 0;
+    size_t split_scalars_offset = 0;
+    size_t total_bytes = 0;
+    if (!gt_msm_scratch_layout(npoints, bucket_bytes, split_points_offset, split_scalars_offset, total_bytes)) {
+        return 0;
+    }
+    return total_bytes;
+#else
+    (void)npoints;
+    return 0;
+#endif
+}
+
+size_t blst_avx_fp12_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    return blst::avx::avx_gt_mult_pippenger_glv4_bucket_used_scratch_sizeof(npoints);
+#else
+    (void)npoints;
+    return 0;
+#endif
+}
+
+bool blst_avx_fp12_mult_pippenger(
+    blst_avx_fp12* out,
+    const blst_avx_fp12* points,
+    const byte* scalars,
+    size_t npoints,
+    void* scratch,
+    size_t scratch_bytes,
+    byte* bucket_used,
+    size_t bucket_used_bytes)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    if (out == nullptr) {
+        return false;
+    }
+    if (npoints == 0) {
+        *as_avx(out) = AvxGt::identity();
+        return true;
+    }
+
+    size_t bucket_bytes = 0;
+    size_t split_points_offset = 0;
+    size_t split_scalars_offset = 0;
+    size_t required_scratch = 0;
+    const size_t required_bucket_used =
+        blst::avx::avx_gt_mult_pippenger_glv4_bucket_used_scratch_sizeof(npoints);
+    if (!gt_msm_scratch_layout(npoints, bucket_bytes, split_points_offset, split_scalars_offset, required_scratch) ||
+        required_bucket_used == 0 ||
+        points == nullptr || scalars == nullptr || scratch == nullptr || bucket_used == nullptr ||
+        scratch_bytes < required_scratch || bucket_used_bytes < required_bucket_used ||
+        !is_aligned(scratch, alignof(AvxGt))) {
+        return false;
+    }
+
+    auto* scratch_bytes_base = reinterpret_cast<byte*>(scratch);
+    blst::avx::avx_gt_mult_pippenger_glv4(
+        *as_avx(out),
+        as_avx(points),
+        scalars,
+        npoints,
+        reinterpret_cast<blst::avx::AvxGtPippengerBucket*>(scratch_bytes_base),
+        0,
+        bucket_used,
+        reinterpret_cast<AvxGt*>(scratch_bytes_base + split_points_offset),
+        scratch_bytes_base + split_scalars_offset);
+    return true;
+#else
+    (void)out;
+    (void)points;
+    (void)scalars;
+    (void)npoints;
+    (void)scratch;
+    (void)scratch_bytes;
+    (void)bucket_used;
+    (void)bucket_used_bytes;
     return false;
 #endif
 }

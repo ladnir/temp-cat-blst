@@ -6,6 +6,8 @@
 
 #include "blst/scalar/curve/multi_scalar.h"
 
+#include <type_traits>
+
 namespace blst::scalar
 {
 #ifdef __CUDACC__
@@ -69,6 +71,22 @@ namespace blst::scalar
 		//{
 		//	return vec_is_zero(&p.Z, sizeof(p.Z));
 		//}
+
+		template<typename Group>
+		BLST_HD BLST_CPP_INLINE void set_msm_identity(Group& out)
+		{
+			if constexpr (std::is_same_v<Group, GT>) {
+				out = GT::identity();
+			} else {
+				vec_zero(&out, sizeof(out));
+			}
+		}
+
+		template<typename Group>
+		BLST_HD BLST_CPP_INLINE void clear_msm_bucket(Group& out)
+		{
+			set_msm_identity(out);
+		}
 	} // namespace detail
 
 	// Converts an array of (possibly sparse) Jacobian points 
@@ -567,14 +585,14 @@ namespace blst::scalar
 		/* Calculate sum of x[i-1]*i for i=1 through 1<<|wbits|. */
 		vec_copy(&acc, &buckets[--n], sizeof(acc));
 		vec_copy(&ret, &buckets[n], sizeof(ret));
-		vec_zero(&buckets[n], sizeof(buckets[n]));
+		detail::clear_msm_bucket(buckets[n]);
 
 
 		// computes Σ d·S_d
 		while (n--) {
 			GroupZZ::dadd(acc, acc, buckets[n]);
 			GroupZZ::dadd(ret, ret, acc);
-			vec_zero(&buckets[n], sizeof(buckets[n]));
+			detail::clear_msm_bucket(buckets[n]);
 		}
 		msm_to_jacobian(out, ret);
 	}
@@ -763,8 +781,10 @@ namespace blst::scalar
 		Group tile;
 
 		window_size = window_size ? window_size : pippenger_window_size(npoints);
-		vec_zero(buckets, sizeof(buckets[0]) << (window_size - 1));
-		vec_zero(&ret, sizeof(ret));
+		for (size_t i = 0, n = (size_t)1 << (window_size - 1); i < n; ++i) {
+			detail::clear_msm_bucket(buckets[i]);
+		}
+		detail::set_msm_identity(ret);
 
 		if (print)
 		{

@@ -361,6 +361,30 @@ bool blst_avx_fp12_mul(blst_avx_fp12* ret, const blst_avx_fp12* a, const blst_av
 /** Squares an AVX GT/Fp12 value and writes the result to `ret`. */
 bool blst_avx_fp12_sqr(blst_avx_fp12* ret, const blst_avx_fp12* a);
 
+/** Returns aggregate scratch bytes required by `blst_avx_fp12_mult_pippenger`. */
+size_t blst_avx_fp12_mult_pippenger_scratch_sizeof(size_t npoints);
+/** Returns byte-flag scratch bytes required by `blst_avx_fp12_mult_pippenger`. */
+size_t blst_avx_fp12_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints);
+
+/**
+ * Variable-time GLV4 Pippenger MSM over AVX GT/Fp12 values.
+ *
+ * `scalars` is a contiguous array of `npoints` 256-bit little-endian scalars.
+ * `scratch` must be aligned to `BLST_AVX_ALIGNMENT` and at least
+ * `blst_avx_fp12_mult_pippenger_scratch_sizeof(npoints)` bytes. `bucket_used`
+ * must have at least
+ * `blst_avx_fp12_mult_pippenger_bucket_used_scratch_sizeof(npoints)` bytes.
+ */
+bool blst_avx_fp12_mult_pippenger(
+    blst_avx_fp12* out,
+    const blst_avx_fp12* points,
+    const byte* scalars,
+    size_t npoints,
+    void* scratch,
+    size_t scratch_bytes,
+    byte* bucket_used,
+    size_t bucket_used_bytes);
+
 /**
  * Applies the final exponentiation to an AVX Miller-loop value.
  *

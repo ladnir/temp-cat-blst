@@ -1,5 +1,6 @@
 #pragma once
 
+#include "GT.h"
 #include "point.h"
 
 #include <algorithm>
@@ -317,6 +318,7 @@ inline G2AffinePoint maybe_negate(const G2AffinePoint& point, bool negate)
 
 using G1PippengerBucket = G1Point;
 using G2PippengerBucket = G2Point;
+using GtPippengerBucket = GT;
 
 template<class BucketPoint>
 inline BucketPoint bucket_zero()
@@ -341,6 +343,24 @@ inline G2Point bucket_zero<G2Point>()
     return G2Point::infinity();
 }
 
+template<>
+inline GT bucket_zero<GT>()
+{
+    return GT::identity();
+}
+
+template<class ProjectivePoint>
+inline ProjectivePoint msm_identity()
+{
+    return ProjectivePoint::infinity();
+}
+
+template<>
+inline GT msm_identity<GT>()
+{
+    return GT::identity();
+}
+
 template<class BucketPoint, class AffinePoint>
 inline void bucket_add_affine(BucketPoint& out, const BucketPoint& a, const AffinePoint& point, bool subtract)
 {
@@ -359,6 +379,13 @@ inline void bucket_add_affine(G1Point& out, const G1Point& a, const G1AffinePoin
     G1Point::add(out, a, signed_point);
 }
 
+inline void bucket_add_affine(GT& out, const GT& a, const GT& point, bool subtract)
+{
+    GT signed_point = point;
+    GT::cneg(signed_point, subtract);
+    GT::add(out, a, signed_point);
+}
+
 inline void bucket_set_affine(G1Point& out, const G1AffinePoint& point, bool subtract)
 {
     const G1AffinePoint signed_point = maybe_negate(point, subtract);
@@ -369,6 +396,12 @@ inline void bucket_set_affine(G2Point& out, const G2AffinePoint& point, bool sub
 {
     const G2AffinePoint signed_point = maybe_negate(point, subtract);
     G2Point::from_affine(out, signed_point);
+}
+
+inline void bucket_set_affine(GT& out, const GT& point, bool subtract)
+{
+    out = point;
+    GT::cneg(out, subtract);
 }
 
 template<class BucketPoint>
@@ -395,6 +428,33 @@ inline void bucket_to_jacobian(G2Point& out, const G2Point& in)
 inline void bucket_to_jacobian(G1Point& out, const G1Point& in)
 {
     out = in;
+}
+
+inline void bucket_to_jacobian(GT& out, const GT& in)
+{
+    out = in;
+}
+
+template<class ProjectivePoint>
+inline void msm_add(ProjectivePoint& out, const ProjectivePoint& a, const ProjectivePoint& b)
+{
+    ProjectivePoint::add(out, a, b);
+}
+
+inline void msm_double(G1Point& out, const G1Point& a)
+{
+    G1Point::doubling(out, a);
+}
+
+inline void msm_double(G2Point& out, const G2Point& a)
+{
+    G2Point::doubling(out, a);
+}
+
+inline void msm_double(GT& out, const GT& a)
+{
+    out.data = avx_gt_detail::narrow_to_standard(
+        avx_gt_detail::fp12ring().fp12_flat_cyclotomic_sqr(a.data, avx_gt_detail::ring()));
 }
 
 template<class BucketPoint, class AffinePoint>
@@ -456,7 +516,7 @@ inline void point_integrate_buckets(ProjectivePoint& out, BucketPoint* buckets, 
 {
     size_t n = 0;
     if (!checked_lshift_size(1, wbits, n) || n == 0) {
-        out = ProjectivePoint::infinity();
+        out = msm_identity<ProjectivePoint>();
         BLST_ASSERT(false && "invalid AVX MSM bucket count");
         return;
     }
@@ -477,7 +537,7 @@ inline void point_integrate_buckets(ProjectivePoint& out, BucketPoint* buckets, 
 {
     size_t n = 0;
     if (!checked_lshift_size(1, wbits, n)) {
-        out = ProjectivePoint::infinity();
+        out = msm_identity<ProjectivePoint>();
         BLST_ASSERT(false && "invalid AVX MSM bucket count");
         return;
     }
@@ -523,7 +583,7 @@ void points_tile_pippenger(
     const WindowExtract window(window_idx, window_size, nbits);
     size_t bucket_count = 0;
     if (!bucket_count_for_window(window.encode_size, bucket_count)) {
-        ret = ProjectivePoint::infinity();
+        ret = msm_identity<ProjectivePoint>();
         BLST_ASSERT(false && "invalid AVX MSM bucket count");
         return;
     }
@@ -567,7 +627,7 @@ void mult_pippenger(
     uint8_t* bucket_used,
     size_t window_size)
 {
-    ret = ProjectivePoint::infinity();
+    ret = msm_identity<ProjectivePoint>();
     if (npoints == 0 || points == nullptr || scalars == nullptr || nbits == 0) {
         return;
     }
@@ -578,7 +638,7 @@ void mult_pippenger(
         return;
     }
     const size_t num_windows = 1 + nbits / window_size;
-    ProjectivePoint tile = ProjectivePoint::infinity();
+    ProjectivePoint tile = msm_identity<ProjectivePoint>();
     uint8_t bucket_tag = 1;
     const size_t bucket_count = bucket_count_or_zero(window_size);
     if (bucket_count == 0) {
@@ -592,10 +652,10 @@ void mult_pippenger(
     for (size_t window_index = num_windows; window_index-- > 0;) {
         points_tile_pippenger(
             tile, points, scalars, npoints, nbits, buckets, bucket_used, bucket_tag, window_index, window_size);
-        ProjectivePoint::add(ret, ret, tile);
+        msm_add(ret, ret, tile);
         if (window_index != 0) {
             for (size_t i = 0; i < window_size; ++i) {
-                ProjectivePoint::doubling(ret, ret);
+                msm_double(ret, ret);
             }
         }
         if (bucket_used != nullptr && ++bucket_tag == 0) {
@@ -617,7 +677,7 @@ void mult_pippenger_alloc(
     window_size = window_size != 0 ? window_size : pippenger_window_size(npoints);
     const size_t bucket_count = bucket_count_or_zero(window_size);
     if (bucket_count == 0) {
-        ret = ProjectivePoint::infinity();
+        ret = msm_identity<ProjectivePoint>();
         BLST_ASSERT(false && "invalid AVX MSM bucket count");
         return;
     }
@@ -651,6 +711,15 @@ inline size_t avx_g1_glv_pippenger_window_size(size_t npoints)
 inline size_t avx_g2_gls_pippenger_window_size(size_t npoints)
 {
     return avx_msm_detail::g2_gls_pippenger_window_size(npoints);
+}
+
+inline size_t avx_gt_glv4_pippenger_window_size(size_t npoints)
+{
+    size_t split_npoints = 0;
+    if (!avx_msm_detail::split_count(npoints, 4, split_npoints)) {
+        return avx_msm_detail::kMaxWindowBits;
+    }
+    return avx_msm_detail::pippenger_window_size_fallback(split_npoints);
 }
 
 inline size_t avx_g1_mult_pippenger_plain_scratch_sizeof(size_t npoints)
@@ -781,8 +850,50 @@ inline size_t avx_g2_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints)
     return std::max(plain, avx_g2_mult_pippenger_gls_bucket_used_scratch_sizeof(npoints));
 }
 
+inline size_t avx_gt_mult_pippenger_glv4_scratch_sizeof(size_t npoints)
+{
+    size_t split_npoints = 0;
+    if (!avx_msm_detail::split_count(npoints, 4, split_npoints) ||
+        !avx_msm_detail::point_count_is_addressable<GT>(split_npoints)) {
+        return 0;
+    }
+    return avx_msm_detail::bucket_scratch_sizeof(
+        split_npoints, avx_gt_glv4_pippenger_window_size(npoints), sizeof(avx_msm_detail::GtPippengerBucket));
+}
+
+inline size_t avx_gt_mult_pippenger_glv4_bucket_used_scratch_sizeof(size_t npoints)
+{
+    size_t split_npoints = 0;
+    if (!avx_msm_detail::split_count(npoints, 4, split_npoints) ||
+        !avx_msm_detail::point_count_is_addressable<GT>(split_npoints)) {
+        return 0;
+    }
+    return avx_msm_detail::bucket_used_scratch_sizeof(split_npoints, avx_gt_glv4_pippenger_window_size(npoints));
+}
+
+inline size_t avx_gt_mult_pippenger_glv4_points_scratch_sizeof(size_t npoints)
+{
+    return avx_msm_detail::array_scratch_sizeof(npoints, 4, sizeof(GT));
+}
+
+inline size_t avx_gt_mult_pippenger_glv4_scalars_scratch_sizeof(size_t npoints)
+{
+    return avx_msm_detail::array_scratch_sizeof(npoints, 4, 8);
+}
+
+inline size_t avx_gt_mult_pippenger_scratch_sizeof(size_t npoints)
+{
+    return avx_gt_mult_pippenger_glv4_scratch_sizeof(npoints);
+}
+
+inline size_t avx_gt_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints)
+{
+    return avx_gt_mult_pippenger_glv4_bucket_used_scratch_sizeof(npoints);
+}
+
 using AvxG1PippengerBucket = avx_msm_detail::G1PippengerBucket;
 using AvxG2PippengerBucket = avx_msm_detail::G2PippengerBucket;
+using AvxGtPippengerBucket = avx_msm_detail::GtPippengerBucket;
 
 inline void avx_g1_mult_pippenger_glv(
     G1Point& ret,
@@ -1188,6 +1299,144 @@ inline void avx_g2_mult_pippenger(
         avx_msm_detail::mult_pippenger_alloc<G2Point, G2AffinePoint, AvxG2PippengerBucket>(
             ret, points, scalars, npoints, nbits, window_size);
     }
+}
+
+inline void avx_gt_mult_pippenger_glv4_prepare(
+    GT* split_points,
+    byte* split_scalars,
+    const GT* points,
+    const byte* scalars,
+    size_t npoints)
+{
+    if (npoints == 0 || split_points == nullptr || split_scalars == nullptr || points == nullptr || scalars == nullptr) {
+        return;
+    }
+    size_t split_npoints = 0;
+    if (!avx_msm_detail::split_count(npoints, 4, split_npoints) ||
+        !avx_msm_detail::point_count_is_addressable<GT>(split_npoints) ||
+        !avx_msm_detail::scalar_count_is_addressable<GT>(npoints, 256)) {
+        BLST_ASSERT(false && "invalid AVX GT GLV4 prepare shape");
+        return;
+    }
+
+    for (size_t i = 0; i < npoints; ++i) {
+        const GT& point = points[i];
+        std::array<uint64_t, 4> scalar = {};
+        std::memcpy(scalar.data(), scalars + 32 * i, 32);
+
+        int64_t parts[4] = {};
+        avx_gt_glv4_detail::gt_split_scalar_4d(parts, scalar.data());
+
+        split_points[4 * i] = point;
+        GT::frobenius_map(split_points[4 * i + 1], point, 1);
+        GT::frobenius_map(split_points[4 * i + 2], point, 2);
+        GT::frobenius_map(split_points[4 * i + 3], point, 3);
+
+        for (size_t j = 0; j < 4; ++j) {
+            uint64_t magnitude = 0;
+            if (parts[j] < 0) {
+                GT::conjugate(split_points[4 * i + j]);
+                magnitude = 0 - static_cast<uint64_t>(parts[j]);
+            } else {
+                magnitude = static_cast<uint64_t>(parts[j]);
+            }
+            std::memcpy(split_scalars + (4 * i + j) * 8, &magnitude, 8);
+        }
+    }
+}
+
+inline void avx_gt_mult_pippenger_glv4_prepared(
+    GT& ret,
+    const GT* split_points,
+    const byte* split_scalars,
+    size_t npoints,
+    AvxGtPippengerBucket* buckets = nullptr,
+    size_t window_size = 0,
+    uint8_t* bucket_used = nullptr)
+{
+    window_size = window_size != 0 ? window_size : avx_gt_glv4_pippenger_window_size(npoints);
+    size_t split_npoints = 0;
+    const size_t bucket_count = avx_msm_detail::bucket_count_or_zero(window_size);
+    if (!avx_msm_detail::split_count(npoints, 4, split_npoints) || bucket_count == 0) {
+        ret = GT::identity();
+        BLST_ASSERT(false && "invalid AVX GT GLV4 MSM shape");
+        return;
+    }
+    if (buckets != nullptr) {
+        if (bucket_used != nullptr) {
+            avx_msm_detail::mult_pippenger(
+                ret, split_points, split_scalars, split_npoints, 64, buckets, bucket_used, window_size);
+        } else {
+            std::vector<uint8_t> local_bucket_used(bucket_count);
+            avx_msm_detail::mult_pippenger(
+                ret, split_points, split_scalars, split_npoints, 64, buckets, local_bucket_used.data(), window_size);
+        }
+    } else {
+        avx_msm_detail::mult_pippenger_alloc<GT, GT, AvxGtPippengerBucket>(
+            ret, split_points, split_scalars, split_npoints, 64, window_size);
+    }
+}
+
+inline void avx_gt_mult_pippenger_glv4(
+    GT& ret,
+    const GT* points,
+    const byte* scalars,
+    size_t npoints,
+    AvxGtPippengerBucket* buckets = nullptr,
+    size_t window_size = 0,
+    uint8_t* bucket_used = nullptr,
+    GT* split_points_scratch = nullptr,
+    byte* split_scalars_scratch = nullptr)
+{
+    ret = GT::identity();
+    if (npoints == 0 || points == nullptr || scalars == nullptr) {
+        return;
+    }
+
+    size_t split_npoints = 0;
+    size_t split_point_bytes = 0;
+    size_t split_scalar_bytes = 0;
+    if (!avx_msm_detail::split_count(npoints, 4, split_npoints) ||
+        !avx_msm_detail::checked_mul_size(split_npoints, sizeof(GT), split_point_bytes) ||
+        !avx_msm_detail::checked_mul_size(split_npoints, 8, split_scalar_bytes)) {
+        BLST_ASSERT(false && "invalid AVX GT GLV4 split count");
+        return;
+    }
+
+    if (split_points_scratch != nullptr && split_scalars_scratch != nullptr) {
+        avx_gt_mult_pippenger_glv4_prepare(split_points_scratch, split_scalars_scratch, points, scalars, npoints);
+        avx_gt_mult_pippenger_glv4_prepared(
+            ret, split_points_scratch, split_scalars_scratch, npoints, buckets, window_size, bucket_used);
+        return;
+    }
+    if (split_points_scratch != nullptr || split_scalars_scratch != nullptr) {
+        BLST_ASSERT(false && "AVX GT GLV4 split scratch must provide both point and scalar buffers");
+        return;
+    }
+
+    std::vector<GT> split_points(split_npoints);
+    std::vector<byte> split_scalars(split_scalar_bytes);
+    avx_gt_mult_pippenger_glv4_prepare(split_points.data(), split_scalars.data(), points, scalars, npoints);
+    avx_gt_mult_pippenger_glv4_prepared(
+        ret, split_points.data(), split_scalars.data(), npoints, buckets, window_size, bucket_used);
+}
+
+inline void avx_gt_mult_pippenger(
+    GT& ret,
+    const GT* points,
+    const byte* scalars,
+    size_t npoints,
+    size_t nbits,
+    AvxGtPippengerBucket* buckets = nullptr,
+    size_t window_size = 0,
+    uint8_t* bucket_used = nullptr)
+{
+    if (nbits != 256) {
+        ret = GT::identity();
+        BLST_ASSERT(false && "AVX GT MSM uses the GLV4 path and requires 256-bit scalars");
+        return;
+    }
+    avx_gt_mult_pippenger_glv4(ret, points, scalars, npoints, buckets, window_size, bucket_used);
 }
 
 }  // namespace blst::avx

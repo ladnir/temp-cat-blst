@@ -128,7 +128,11 @@ pub use avx::{
     blst_avx_p2_mult_pippenger_scratch_sizeof, blst_avx_p2_serialize,
     blst_avx_p2_sizeof, blst_avx_p2_to_affine, blst_avx_p2_uncompress,
     blst_avx_p2s_mult_pippenger, blst_avx_p2s_mult_pippenger_scratch_sizeof,
-    blst_avx_pairing, blst_fp12_from_avx, blst_p1_affine_from_avx,
+    blst_avx_pairing, blst_avx_fp12_from_scalar,
+    blst_avx_fp12_mult_pippenger,
+    blst_avx_fp12_mult_pippenger_bucket_used_scratch_sizeof,
+    blst_avx_fp12_mult_pippenger_scratch_sizeof, blst_fp12_from_avx,
+    blst_p1_affine_from_avx, gt_msm, AvxMsmError,
 };
 pub use fft::{
     fr_fft, fr_fft_transpose_forward, fr_interpolate,
