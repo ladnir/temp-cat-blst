@@ -71,10 +71,15 @@ fn main() {
     } else {
         "Debug"
     };
-    let user_generator = env::var_os("CMAKE_GENERATOR");
+    let user_generator = env::var("CMAKE_GENERATOR").ok();
     let use_ninja = user_generator.is_none()
         && !target_env.eq("msvc")
         && command_works("ninja", &["--version"]);
+    let msvc_generator = if target_env.eq("msvc") && user_generator.is_none() {
+        find_visual_studio_generator()
+    } else {
+        None
+    };
     let build_dir_name = if use_ninja {
         "cmake-ninja"
     } else if target_env.eq("msvc") && user_generator.is_none() {
@@ -84,6 +89,14 @@ fn main() {
     };
     let build_dir =
         PathBuf::from(env::var("OUT_DIR").unwrap()).join(build_dir_name);
+    let requested_generator = if use_ninja {
+        Some("Ninja")
+    } else if target_env.eq("msvc") && user_generator.is_none() {
+        msvc_generator
+    } else {
+        user_generator.as_deref()
+    };
+    clear_stale_cmake_cache(&build_dir, requested_generator);
 
     let mut configure = Command::new("cmake");
     configure.arg("-S").arg(&blst_base_dir);
@@ -91,7 +104,7 @@ fn main() {
     if use_ninja {
         configure.args(["-G", "Ninja"]);
     } else if target_env.eq("msvc") && user_generator.is_none() {
-        if let Some(generator) = find_visual_studio_generator() {
+        if let Some(generator) = msvc_generator {
             configure.args(["-G", generator]);
         }
         if let Some(generator_arch) = msvc_cmake_arch(&target_arch) {
@@ -228,6 +241,48 @@ fn command_works(command: &str, args: &[&str]) -> bool {
         .unwrap_or(false)
 }
 
+fn clear_stale_cmake_cache(
+    build_dir: &Path,
+    requested_generator: Option<&str>,
+) {
+    let cache_path = build_dir.join("CMakeCache.txt");
+    let Ok(cache) = fs::read_to_string(&cache_path) else {
+        return;
+    };
+
+    let generator_mismatch = requested_generator
+        .and_then(|generator| {
+            cmake_cache_value(&cache, "CMAKE_GENERATOR")
+                .map(|cached_generator| cached_generator != generator)
+        })
+        .unwrap_or(false);
+    let stale_instance = cmake_cache_value(&cache, "CMAKE_GENERATOR_INSTANCE")
+        .filter(|instance| !instance.is_empty())
+        .map(|instance| !Path::new(instance).exists())
+        .unwrap_or(false);
+
+    if generator_mismatch || stale_instance {
+        println!(
+            "cargo:warning=removing stale CMake build directory {}",
+            build_dir.display()
+        );
+        fs::remove_dir_all(build_dir).unwrap_or_else(|err| {
+            panic!(
+                "failed to remove stale CMake build directory {}: {err}",
+                build_dir.display()
+            )
+        });
+    }
+}
+
+fn cmake_cache_value<'a>(cache: &'a str, key: &str) -> Option<&'a str> {
+    cache.lines().find_map(|line| {
+        let (entry, value) = line.split_once('=')?;
+        let name = entry.split_once(':').map_or(entry, |(name, _)| name);
+        (name == key).then(|| value.trim())
+    })
+}
+
 fn find_visual_studio_generator() -> Option<&'static str> {
     let vswhere = PathBuf::from(
         r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe",
@@ -254,6 +309,7 @@ fn find_visual_studio_generator() -> Option<&'static str> {
                 stdout.lines().map(str::trim).find_map(|line| {
                     let major = line.split('.').next()?;
                     match major {
+                        "18" => Some("Visual Studio 18 2026"),
                         "17" => Some("Visual Studio 17 2022"),
                         "16" => Some("Visual Studio 16 2019"),
                         "15" => Some("Visual Studio 15 2017"),
