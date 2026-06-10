@@ -394,10 +394,6 @@ pub enum AvxMsmError {
 ///
 /// `scalars` must contain exactly one 256-bit little-endian scalar per point.
 pub fn gt_msm(points: &[blst_fp12], scalars: &[u8]) -> Result<blst_fp12, AvxMsmError> {
-    if !unsafe { blst_avx_enabled() } {
-        return Err(AvxMsmError::AvxUnavailable);
-    }
-
     let scalar_bytes = points
         .len()
         .checked_mul(32)
@@ -405,6 +401,11 @@ pub fn gt_msm(points: &[blst_fp12], scalars: &[u8]) -> Result<blst_fp12, AvxMsmE
     if scalars.len() != scalar_bytes {
         return Err(AvxMsmError::ScalarLengthMismatch);
     }
+
+    if !unsafe { blst_avx_enabled() } {
+        return Err(AvxMsmError::AvxUnavailable);
+    }
+
     if points.is_empty() {
         return Ok(blst_fp12::default());
     }

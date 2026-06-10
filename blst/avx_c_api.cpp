@@ -1,4 +1,9 @@
+#include "blst/config.h"
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 #define BLST_AVX_USE_CPP_TYPES 1
+#endif
+
 #include "bindings/blst_avx.h"
 
 #include "blst/scalar/curve/GT.h"
@@ -32,16 +37,16 @@ using AvxG2 = blst::avx::G2Point;
 using AvxG2Affine = blst::avx::G2AffinePoint;
 using AvxGt = blst::avx::GT;
 
-static_assert(sizeof(blst_avx_p1) == sizeof(AvxG1));
-static_assert(alignof(blst_avx_p1) >= alignof(AvxG1));
-static_assert(sizeof(blst_avx_p1_affine) == sizeof(AvxG1Affine));
-static_assert(alignof(blst_avx_p1_affine) >= alignof(AvxG1Affine));
-static_assert(sizeof(blst_avx_p2) == sizeof(AvxG2));
-static_assert(alignof(blst_avx_p2) >= alignof(AvxG2));
-static_assert(sizeof(blst_avx_p2_affine) == sizeof(AvxG2Affine));
-static_assert(alignof(blst_avx_p2_affine) >= alignof(AvxG2Affine));
-static_assert(sizeof(blst_avx_fp12) == sizeof(AvxGt));
-static_assert(alignof(blst_avx_fp12) >= alignof(AvxGt));
+static_assert(BLST_AVX_P1_SIZE == sizeof(AvxG1));
+static_assert(BLST_AVX_ALIGNMENT >= alignof(AvxG1));
+static_assert(BLST_AVX_P1_AFFINE_SIZE == sizeof(AvxG1Affine));
+static_assert(BLST_AVX_ALIGNMENT >= alignof(AvxG1Affine));
+static_assert(BLST_AVX_P2_SIZE == sizeof(AvxG2));
+static_assert(BLST_AVX_ALIGNMENT >= alignof(AvxG2));
+static_assert(BLST_AVX_P2_AFFINE_SIZE == sizeof(AvxG2Affine));
+static_assert(BLST_AVX_ALIGNMENT >= alignof(AvxG2Affine));
+static_assert(BLST_AVX_FP12_SIZE == sizeof(AvxGt));
+static_assert(BLST_AVX_ALIGNMENT >= alignof(AvxGt));
 static_assert(std::is_standard_layout_v<AvxG1>);
 static_assert(std::is_standard_layout_v<AvxG1Affine>);
 static_assert(std::is_standard_layout_v<AvxG2>);
@@ -476,15 +481,15 @@ bool blst_avx_enabled(void)
 }
 
 size_t blst_avx_p1_sizeof(void) { return sizeof(blst_avx_p1); }
-size_t blst_avx_p1_alignof(void) { return alignof(blst_avx_p1); }
+size_t blst_avx_p1_alignof(void) { return BLST_AVX_ALIGNMENT; }
 size_t blst_avx_p1_affine_sizeof(void) { return sizeof(blst_avx_p1_affine); }
-size_t blst_avx_p1_affine_alignof(void) { return alignof(blst_avx_p1_affine); }
+size_t blst_avx_p1_affine_alignof(void) { return BLST_AVX_ALIGNMENT; }
 size_t blst_avx_p2_sizeof(void) { return sizeof(blst_avx_p2); }
-size_t blst_avx_p2_alignof(void) { return alignof(blst_avx_p2); }
+size_t blst_avx_p2_alignof(void) { return BLST_AVX_ALIGNMENT; }
 size_t blst_avx_p2_affine_sizeof(void) { return sizeof(blst_avx_p2_affine); }
-size_t blst_avx_p2_affine_alignof(void) { return alignof(blst_avx_p2_affine); }
+size_t blst_avx_p2_affine_alignof(void) { return BLST_AVX_ALIGNMENT; }
 size_t blst_avx_fp12_sizeof(void) { return sizeof(blst_avx_fp12); }
-size_t blst_avx_fp12_alignof(void) { return alignof(blst_avx_fp12); }
+size_t blst_avx_fp12_alignof(void) { return BLST_AVX_ALIGNMENT; }
 
 bool blst_avx_p1_from_scalar(blst_avx_p1* out, const blst_p1* in)
 {

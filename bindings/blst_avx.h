@@ -9,7 +9,8 @@
 
 #include "blst_types.h"
 
-#if defined(__cplusplus) && defined(BLST_AVX_USE_CPP_TYPES)
+#if defined(__cplusplus) && defined(BLST_AVX_USE_CPP_TYPES) && \
+    (defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE))
 #include "blst/avx/curve/GT.h"
 #include "blst/avx/curve/point.h"
 #endif
@@ -38,7 +39,8 @@ enum {
  * - The storage is aligned for native AVX builds; portable AVX builds may use
  *   a weaker internal alignment while remaining representable by these shells.
  */
-#if defined(__cplusplus) && defined(BLST_AVX_USE_CPP_TYPES)
+#if defined(__cplusplus) && defined(BLST_AVX_USE_CPP_TYPES) && \
+    (defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE))
 typedef blst::avx::G1Point blst_avx_p1;
 typedef blst::avx::G1AffinePoint blst_avx_p1_affine;
 typedef blst::avx::G2Point blst_avx_p2;
