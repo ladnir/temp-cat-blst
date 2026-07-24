@@ -32,6 +32,44 @@ extern "C" {
 bool blst_fr_fft(blst_fr* values, size_t n, bool inverse);
 
 /**
+ * Returns the caller-owned `blst_fr` element count required for a prepared
+ * radix-two FFT domain of size `n`.
+ *
+ * The prepared storage contains forward root powers and the inverse-size
+ * scale. A zero return means `n` is not a supported non-zero power of two.
+ */
+size_t blst_fr_fft_domain_len(size_t n);
+
+/**
+ * Initializes caller-owned storage for a radix-two FFT domain of size `n`.
+ *
+ * `domain` must point to at least `domain_len` writable `blst_fr` elements,
+ * and `domain_len` must be at least `blst_fr_fft_domain_len(n)`. The prepared
+ * values remain in Montgomery form and may be reused by any number of forward
+ * or inverse transforms of exactly `n` values.
+ */
+bool blst_fr_fft_domain_init(
+    blst_fr* domain,
+    size_t domain_len,
+    size_t n);
+
+/**
+ * Runs the owned BLST FFT in place using a caller-prepared domain.
+ *
+ * The function allocates no memory and generates no roots. `values` points to
+ * `n` writable Montgomery-form values. `domain` must have been initialized for
+ * exactly `n` by `blst_fr_fft_domain_init`; the two ranges must not overlap.
+ * The inverse transform uses reciprocal powers derived from the stored forward
+ * roots and applies the prepared `1/n` scale.
+ */
+bool blst_fr_fft_with_domain(
+    blst_fr* values,
+    size_t n,
+    const blst_fr* domain,
+    size_t domain_len,
+    bool inverse);
+
+/**
  * Runs the transpose-equivalent of the forward Fr FFT in-place.
  *
  * This is the verifier-side BVE scalar kernel: callers scatter sparse

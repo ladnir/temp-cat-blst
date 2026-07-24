@@ -44,8 +44,8 @@ struct DefaultCoeffCtx
 
 };
 
-template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
-void fft(std::span<G> a, std::span<const F> roots, bool invert) {
+template <bool InverseFromForwardRoots, typename G, typename F, typename CoeffCtx>
+void fft_butterflies(std::span<G> a, std::span<const F> roots) {
 	int n = a.size();
 	bit_reverse(a);
 
@@ -64,9 +64,11 @@ void fft(std::span<G> a, std::span<const F> roots, bool invert) {
 			}
 
 			for (int j = 1; j < half; j++) {
-				// In a real implementation, you'd precompute or select roots 
-				// based on 'len' and 'invert'
-				const F& w = roots[j * (n / len)];
+				int root_index = j * (n / len);
+				if constexpr (InverseFromForwardRoots) {
+					root_index = n - root_index;
+				}
+				const F& w = roots[root_index];
 
 				G u = a[i + j];
 				G t = CoeffCtx::mult(a[i + j + half], w);
@@ -75,13 +77,40 @@ void fft(std::span<G> a, std::span<const F> roots, bool invert) {
 			}
 		}
 	}
+}
 
-	// Integrated scaling for inverse FFT 
+template <typename G, typename F, typename CoeffCtx>
+void fft_scale(std::span<G> a, const F& inverse_size) {
+	for (G& x : a) {
+		x = CoeffCtx::mult(x, inverse_size);
+	}
+}
+
+template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
+void fft(std::span<G> a, std::span<const F> roots, bool invert) {
+	fft_butterflies<false, G, F, CoeffCtx>(a, roots);
+
+	// Integrated scaling for inverse FFT.
 	if (invert) {
-		F inv_n = CoeffCtx::inverse(CoeffCtx::template from_u64<F>(n));
-		for (G& x : a) {
-			x = CoeffCtx::mult(x, inv_n); // Scale every group element by 1/n
-		}
+		F inv_n = CoeffCtx::inverse(CoeffCtx::template from_u64<F>(a.size()));
+		fft_scale<G, F, CoeffCtx>(a, inv_n);
+	}
+}
+
+// Runs a transform from one forward root table. The inverse path selects
+// reciprocal powers by index at compile time inside the butterfly loop and
+// uses the caller's prepared 1/n scale.
+template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
+void fft_with_forward_roots(
+	std::span<G> a,
+	std::span<const F> forward_roots,
+	bool invert,
+	const F& inverse_size) {
+	if (invert) {
+		fft_butterflies<true, G, F, CoeffCtx>(a, forward_roots);
+		fft_scale<G, F, CoeffCtx>(a, inverse_size);
+	} else {
+		fft_butterflies<false, G, F, CoeffCtx>(a, forward_roots);
 	}
 }
 

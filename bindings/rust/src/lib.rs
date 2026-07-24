@@ -135,8 +135,9 @@ pub use avx::{
     blst_p1_affine_from_avx, gt_msm, AvxMsmError,
 };
 pub use fft::{
-    fr_fft, fr_fft_transpose_forward, fr_interpolate,
-    fr_interpolate_fft_domain, fr_interpolate_fft_domain_suffix,
+    fr_fft, fr_fft_domain_init, fr_fft_domain_len, fr_fft_transpose_forward,
+    fr_fft_with_domain, fr_interpolate, fr_interpolate_fft_domain,
+    fr_interpolate_fft_domain_suffix,
     fr_interpolate_fft_domain_suffix_scratch_len,
     fr_interpolate_fft_domain_suffix_with_scratch, FftError,
 };

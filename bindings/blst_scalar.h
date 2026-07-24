@@ -65,6 +65,14 @@ void blst_fr_lshift(blst_fr* ret, const blst_fr* a, size_t count);
 void blst_fr_rshift(blst_fr* ret, const blst_fr* a, size_t count);
 /** Multiplies two Montgomery-form Fr values and writes the product to `ret`. */
 void blst_fr_mul(blst_fr* ret, const blst_fr* a, const blst_fr* b);
+/**
+ * Raises `a` to a public little-endian exponent and writes the result to `ret`.
+ *
+ * A zero-bit exponent produces one. Otherwise `nbits` identifies the highest
+ * set bit and `exponent` must contain at least `(nbits + 7) / 8` readable
+ * bytes. Inputs and output may alias.
+ */
+void blst_fr_pow(blst_fr* ret, const blst_fr* a, const byte* exponent, size_t nbits);
 /** Squares a Montgomery-form Fr value and writes the result to `ret`. */
 void blst_fr_sqr(blst_fr* ret, const blst_fr* a);
 /** Negates `a` in Fr when `flag` is true; otherwise copies `a` into `ret`. */
@@ -81,6 +89,8 @@ void blst_uint64_from_fr(uint64_t ret[4], const blst_fr* a);
 void blst_fr_from_scalar(blst_fr* ret, const blst_scalar* a);
 /** Converts a Montgomery-form Fr value into the scalar byte representation. */
 void blst_scalar_from_fr(blst_scalar* ret, const blst_fr* a);
+/** Bulk-converts contiguous Montgomery-form field elements into canonical little-endian scalars. Empty input succeeds without storage; nonempty input requires both arrays. */
+bool blst_scalars_from_fr(blst_scalar out[], const blst_fr scalars[], size_t npoints);
 /** Applies the constant-time butterfly step used by the Fr FFT routines. */
 void blst_fr_ct_bfly(blst_fr* x0, blst_fr* x1, const blst_fr* twiddle);
 /** Applies the Gentleman-Sande butterfly step used by the Fr FFT routines. */
@@ -201,6 +211,29 @@ bool blst_fp12_in_group(const blst_fp12* a);
 const blst_fp12* blst_fp12_one(void);
 /** Applies the pairing final exponentiation to `f` and writes the result to `ret`. */
 void blst_final_exp(blst_fp12* ret, const blst_fp12* f);
+/** Returns immutable static storage holding the additive GT identity. */
+const blst_fp12* blst_gt_identity(void);
+/** Returns immutable static storage holding pairing(G1 generator, G2 generator). */
+const blst_fp12* blst_gt_generator(void);
+/** Returns `true` when target-group elements `a` and `b` are equal. */
+bool blst_gt_is_equal(const blst_fp12* a, const blst_fp12* b);
+/** Returns `true` when target-group element `p` is the additive identity. */
+bool blst_gt_is_identity(const blst_fp12* p);
+/** Adds target-group elements `a` and `b`. Inputs and output may alias. */
+void blst_gt_add(blst_fp12* out, const blst_fp12* a, const blst_fp12* b);
+/** Subtracts target-group element `b` from `a`. Inputs and output may alias. */
+void blst_gt_sub(blst_fp12* out, const blst_fp12* a, const blst_fp12* b);
+/** Negates target-group element `p`. Input and output may alias. */
+void blst_gt_neg(blst_fp12* out, const blst_fp12* p);
+/** Doubles target-group element `p`. Input and output may alias. */
+void blst_gt_double(blst_fp12* out, const blst_fp12* p);
+/**
+ * Multiplies target-group element `p` by a little-endian scalar.
+ *
+ * `p` must already lie in GT and `nbits` must not exceed 256. The operation
+ * is cyclotomic exponentiation; it does not validate subgroup membership.
+ */
+void blst_gt_mult(blst_fp12* out, const blst_fp12* p, const byte* scalar, size_t nbits);
 /** Returns `true` when `gt1` and `gt2` pass the final GT verification check. */
 bool blst_fp12_finalverify(const blst_fp12* gt1, const blst_fp12* gt2);
 /** Encodes an Fp12 value into a 576-byte big-endian string. */
@@ -217,10 +250,14 @@ void blst_bendian_from_fp12(byte out[48 * 12], const blst_fp12* a);
  */
 /** Adds two G1 projective points and writes the sum to `out`. */
 void blst_p1_add(blst_p1* out, const blst_p1* a, const blst_p1* b);
+/** Subtracts G1 projective point `b` from `a` and writes the result to `out`. */
+void blst_p1_sub(blst_p1* out, const blst_p1* a, const blst_p1* b);
 /** Adds `a` and `b`, doubling when they represent the same G1 point. */
 void blst_p1_add_or_double(blst_p1* out, const blst_p1* a, const blst_p1* b);
 /** Adds a projective G1 point and an affine G1 point and writes the sum to `out`. */
 void blst_p1_add_affine(blst_p1* out, const blst_p1* a, const blst_p1_affine* b);
+/** Subtracts affine G1 point `b` from projective `a` and writes the result to `out`. */
+void blst_p1_sub_affine(blst_p1* out, const blst_p1* a, const blst_p1_affine* b);
 /** Adds or doubles using a projective `a` and affine `b` G1 input. */
 void blst_p1_add_or_double_affine(blst_p1* out, const blst_p1* a, const blst_p1_affine* b);
 /** Doubles the G1 projective point `a` and writes the result to `out`. */
@@ -229,6 +266,8 @@ void blst_p1_double(blst_p1* out, const blst_p1* a);
 void blst_p1_mult(blst_p1* out, const blst_p1* p, const byte* scalar, size_t nbits);
 /** Negates `p` in place when `cbit` is true; otherwise leaves it unchanged. */
 void blst_p1_cneg(blst_p1* p, bool cbit);
+/** Conditionally negates affine G1 point `p` in place. */
+void blst_p1_affine_cneg(blst_p1_affine* p, bool cbit);
 /** Converts a G1 projective point into affine form. */
 void blst_p1_to_affine(blst_p1_affine* out, const blst_p1* in);
 /** Converts a G1 affine point into projective form. */
@@ -275,6 +314,18 @@ size_t blst_p1s_mult_pippenger_scratch_sizeof(size_t npoints);
 size_t blst_p1s_mult_pippenger_window_scratch_sizeof(size_t window);
 /** Evaluates a G1 MSM with Pippenger using caller-owned scratch memory; when `npoints == 1`, the wrapper falls back to single-point multiplication, and when `npoints > 1`, `scratch`, `points[0]`, and `scalars[0]` must be non-null. Later null entries mean contiguous continuation from the previous non-null element. */
 void blst_p1s_mult_pippenger(blst_p1* ret, const blst_p1_affine* const points[], size_t npoints, const byte* const scalars[], size_t nbits, limb_t* scratch);
+/** Returns total scratch bytes for a contiguous G1 MSM from native Montgomery-form `blst_fr` scalars, including canonical scalar preparation and Pippenger buckets. Zero is valid for an empty MSM and otherwise reports an unrepresentable size. */
+size_t blst_p1s_mult_pippenger_fr_scratch_sizeof(size_t npoints);
+/** Evaluates a contiguous G1 MSM from native Montgomery-form `blst_fr` scalars. Scratch must be limb-aligned and contain at least the queried byte count. Empty input writes the identity and requires no input or scratch storage. */
+bool blst_p1s_mult_pippenger_fr(blst_p1* ret, const blst_p1_affine points[], const blst_fr scalars[], size_t npoints, limb_t* scratch, size_t scratch_size);
+/** Returns caller-owned scratch bytes for the selected contiguous G1 MSM implementation. This is a capacity query: storage for `max_points` supports every input length through that capacity. */
+size_t blst_p1s_mult_fr_scratch_sizeof(size_t max_points);
+/** Evaluates a contiguous G1 MSM from native Montgomery-form `blst_fr` scalars using the measured scalar-backend policy. Inputs must be prevalidated subgroup points; identity points are accepted and use the Pippenger fallback. */
+bool blst_p1s_mult_fr(blst_p1* ret, const blst_p1_affine points[], const blst_fr scalars[], size_t npoints, limb_t* scratch, size_t scratch_size);
+/** Returns total scratch bytes for the explicit G1 batch-affine MSM, including canonical scalar preparation. Supported batch sizes are 128 and 384; `window` must be non-zero and no larger than 32. Zero denotes either empty input or invalid/unrepresentable parameters. */
+size_t blst_p1s_mult_batch_affine_fr_scratch_sizeof(size_t npoints, size_t window, size_t batch_size);
+/** Evaluates a contiguous G1 MSM with the explicit batch-affine algorithm. Inputs are public, prevalidated, non-identity subgroup points and native Montgomery-form scalars. Scratch must be limb-aligned and contain at least the queried byte count. This routine performs no allocation and no input validation. */
+bool blst_p1s_mult_batch_affine_fr(blst_p1* ret, const blst_p1_affine points[], const blst_fr scalars[], size_t npoints, limb_t* scratch, size_t scratch_size, size_t window, size_t batch_size);
 /** Evaluates a G1 MSM with Pippenger using an explicit window size. */
 void blst_p1s_mult_pippenger_window(blst_p1* ret, const blst_p1_affine* const points[], size_t npoints, const byte* const scalars[], size_t nbits, limb_t* scratch, size_t window);
 /** Evaluates one tiled window of a G1 Pippenger MSM; when `npoints > 0`, `scratch`, `points[0]`, and `scalars[0]` must be non-null, `window` must be non-zero, and `bit0` must be less than `nbits`. Later null entries mean contiguous continuation from the previous non-null element. */
@@ -300,10 +351,14 @@ BLST_ERROR blst_p1_deserialize(blst_p1_affine* out, const byte in[96]);
  */
 /** Adds two G2 projective points and writes the sum to `out`. */
 void blst_p2_add(blst_p2* out, const blst_p2* a, const blst_p2* b);
+/** Subtracts G2 projective point `b` from `a` and writes the result to `out`. */
+void blst_p2_sub(blst_p2* out, const blst_p2* a, const blst_p2* b);
 /** Adds `a` and `b`, doubling when they represent the same G2 point. */
 void blst_p2_add_or_double(blst_p2* out, const blst_p2* a, const blst_p2* b);
 /** Adds a projective G2 point and an affine G2 point and writes the sum to `out`. */
 void blst_p2_add_affine(blst_p2* out, const blst_p2* a, const blst_p2_affine* b);
+/** Subtracts affine G2 point `b` from projective `a` and writes the result to `out`. */
+void blst_p2_sub_affine(blst_p2* out, const blst_p2* a, const blst_p2_affine* b);
 /** Adds or doubles using a projective `a` and affine `b` G2 input. */
 void blst_p2_add_or_double_affine(blst_p2* out, const blst_p2* a, const blst_p2_affine* b);
 /** Doubles the G2 projective point `a` and writes the result to `out`. */
@@ -312,6 +367,8 @@ void blst_p2_double(blst_p2* out, const blst_p2* a);
 void blst_p2_mult(blst_p2* out, const blst_p2* p, const byte* scalar, size_t nbits);
 /** Negates `p` in place when `cbit` is true; otherwise leaves it unchanged. */
 void blst_p2_cneg(blst_p2* p, bool cbit);
+/** Conditionally negates affine G2 point `p` in place. */
+void blst_p2_affine_cneg(blst_p2_affine* p, bool cbit);
 /** Converts a G2 projective point into affine form. */
 void blst_p2_to_affine(blst_p2_affine* out, const blst_p2* in);
 /** Converts a G2 affine point into projective form. */
@@ -354,8 +411,24 @@ size_t blst_p2s_mult_wbits_scratch_sizeof(size_t npoints);
 void blst_p2s_mult_wbits(blst_p2* ret, const blst_p2_affine table[], size_t wbits, size_t npoints, const byte* const scalars[], size_t nbits, limb_t* scratch);
 /** Returns the scratch size needed by the G2 Pippenger MSM routine. */
 size_t blst_p2s_mult_pippenger_scratch_sizeof(size_t npoints);
+/** Returns the scratch size needed by the G2 Pippenger MSM routine for an explicit window, or 0 when `window` is invalid. */
+size_t blst_p2s_mult_pippenger_window_scratch_sizeof(size_t window);
 /** Evaluates a G2 MSM with Pippenger using caller-owned scratch memory; when `npoints == 1`, the wrapper falls back to single-point multiplication, and when `npoints > 1`, `scratch`, `points[0]`, and `scalars[0]` must be non-null. Later null entries mean contiguous continuation from the previous non-null element. */
 void blst_p2s_mult_pippenger(blst_p2* ret, const blst_p2_affine* const points[], size_t npoints, const byte* const scalars[], size_t nbits, limb_t* scratch);
+/** Evaluates a G2 MSM with Pippenger using an explicit window size. */
+void blst_p2s_mult_pippenger_window(blst_p2* ret, const blst_p2_affine* const points[], size_t npoints, const byte* const scalars[], size_t nbits, limb_t* scratch, size_t window);
+/** Returns total scratch bytes for a contiguous G2 MSM from native Montgomery-form `blst_fr` scalars, including canonical scalar preparation and Pippenger buckets. Zero is valid for an empty MSM and otherwise reports an unrepresentable size. */
+size_t blst_p2s_mult_pippenger_fr_scratch_sizeof(size_t npoints);
+/** Evaluates a contiguous G2 MSM from native Montgomery-form `blst_fr` scalars. Scratch must be limb-aligned and contain at least the queried byte count. Empty input writes the identity and requires no input or scratch storage. */
+bool blst_p2s_mult_pippenger_fr(blst_p2* ret, const blst_p2_affine points[], const blst_fr scalars[], size_t npoints, limb_t* scratch, size_t scratch_size);
+/** Returns caller-owned scratch bytes for the selected contiguous G2 MSM implementation. This is a capacity query: storage for `max_points` supports every input length through that capacity. */
+size_t blst_p2s_mult_fr_scratch_sizeof(size_t max_points);
+/** Evaluates a contiguous G2 MSM from native Montgomery-form `blst_fr` scalars using the measured scalar-backend policy. Inputs must be prevalidated subgroup points; identity points are accepted and use the Pippenger fallback. */
+bool blst_p2s_mult_fr(blst_p2* ret, const blst_p2_affine points[], const blst_fr scalars[], size_t npoints, limb_t* scratch, size_t scratch_size);
+/** Returns total scratch bytes for the explicit G2 batch-affine MSM, including canonical scalar preparation. Supported batch sizes are 128 and 384; `window` must be non-zero and no larger than 32. Zero denotes either empty input or invalid/unrepresentable parameters. */
+size_t blst_p2s_mult_batch_affine_fr_scratch_sizeof(size_t npoints, size_t window, size_t batch_size);
+/** Evaluates a contiguous G2 MSM with the explicit batch-affine algorithm. Inputs are public, prevalidated, non-identity subgroup points and native Montgomery-form scalars. Scratch must be limb-aligned and contain at least the queried byte count. This routine performs no allocation and no input validation. */
+bool blst_p2s_mult_batch_affine_fr(blst_p2* ret, const blst_p2_affine points[], const blst_fr scalars[], size_t npoints, limb_t* scratch, size_t scratch_size, size_t window, size_t batch_size);
 /** Evaluates one tiled window of a G2 Pippenger MSM; when `npoints > 0`, `scratch`, `points[0]`, and `scalars[0]` must be non-null, `window` must be non-zero, and `bit0` must be less than `nbits`. Later null entries mean contiguous continuation from the previous non-null element. */
 void blst_p2s_tile_pippenger(blst_p2* ret, const blst_p2_affine* const points[], size_t npoints, const byte* const scalars[], size_t nbits, limb_t* scratch, size_t bit0, size_t window);
 /** Serializes a G2 projective point into a 192-byte uncompressed encoding. */

@@ -79,6 +79,7 @@
       "inherits": "x64-Debug",
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "cacheVariables": {
+        "BLST_PORTABLE": false,
         "BLST_DEFAULT_AVX": false,
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
       }
@@ -128,6 +129,8 @@
       "inherits": "x64-Release",
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BLST_PORTABLE": false,
         "BLST_DEFAULT_AVX": false,
         "BLST_CUDA": false,
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"

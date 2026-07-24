@@ -33,6 +33,14 @@ void blst_fr_mul_by_3(Fr& ret, const Fr& a) { Fr::mul_by_3(ret, a); }
 void blst_fr_lshift(Fr& ret, const Fr& a, size_t count) { Fr::lshift(ret, a, count); }
 void blst_fr_rshift(Fr& ret, const Fr& a, size_t count) { Fr::rshift(ret, a, count); }
 void blst_fr_mul(Fr& ret, const Fr& a, const Fr& b) { Fr::mul(ret, a, b); }
+void blst_fr_pow(Fr& ret, const Fr& a, const byte* exponent, size_t nbits)
+{
+    if (nbits == 0) {
+        ret = Fr::one();
+        return;
+    }
+    Fr::exp(ret, a, exponent, nbits);
+}
 void blst_fr_ct_bfly(Fr& x0, Fr& x1, const Fr& twiddle) { Fr::ct_bfly(x0, x1, twiddle); }
 void blst_fr_gs_bfly(Fr& x0, Fr& x1, const Fr& twiddle) { Fr::gs_bfly(x0, x1, twiddle); }
 void blst_fr_sqr(Fr& ret, const Fr& a) { Fr::sqr(ret, a); }

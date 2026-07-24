@@ -13,6 +13,68 @@
 
 namespace blst::scalar
 {
+#define BLST_GT_GENERATOR_LIMBS                                           \
+Fp6{                                                                      \
+    Fp2{                                                                  \
+        Fp{ TO_LIMB_T(0x1972e433a01f85c5), TO_LIMB_T(0x97d32b76fd772538), \
+            TO_LIMB_T(0xc8ce546fc96bcdf9), TO_LIMB_T(0xcef63e7366d40614), \
+            TO_LIMB_T(0xa611342781843780), TO_LIMB_T(0x13f3448a3fc6d825) },\
+        Fp{ TO_LIMB_T(0xd26331b02e9d6995), TO_LIMB_T(0x9d68a482f7797e7d), \
+            TO_LIMB_T(0x9c9b29248d39ea92), TO_LIMB_T(0xf4801ca2e13107aa), \
+            TO_LIMB_T(0xa16c0732bdbcb066), TO_LIMB_T(0x083ca4afba360478) } \
+    },                                                                    \
+    Fp2{                                                                  \
+        Fp{ TO_LIMB_T(0x59e261db0916b641), TO_LIMB_T(0x2716b6f4b23e960d), \
+            TO_LIMB_T(0xc8e55b10a0bd9c45), TO_LIMB_T(0x0bdb0bd99c4deda8), \
+            TO_LIMB_T(0x8cf89ebf57fdaac5), TO_LIMB_T(0x12d6b7929e777a5e) },\
+        Fp{ TO_LIMB_T(0x5fc85188b0e15f35), TO_LIMB_T(0x34a06e3a8f096365), \
+            TO_LIMB_T(0xdb3126a6e02ad62c), TO_LIMB_T(0xfc6f5aa97d9a990b), \
+            TO_LIMB_T(0xa12f55f5eb89c210), TO_LIMB_T(0x1723703a926f8889) } \
+    },                                                                    \
+    Fp2{                                                                  \
+        Fp{ TO_LIMB_T(0x93588f2971828778), TO_LIMB_T(0x43f65b8611ab7585), \
+            TO_LIMB_T(0x3183aaf5ec279fdf), TO_LIMB_T(0xfa73d7e18ac99df6), \
+            TO_LIMB_T(0x64e176a6a64c99b0), TO_LIMB_T(0x179fa78c58388f1f) },\
+        Fp{ TO_LIMB_T(0x672a0a11ca2aef12), TO_LIMB_T(0x0d11b9b52aa3f16b), \
+            TO_LIMB_T(0xa44412d0699d056e), TO_LIMB_T(0xc01d0177221a5ba5), \
+            TO_LIMB_T(0x66e0cede6c735529), TO_LIMB_T(0x05f5a71e9fddc339) } \
+    }                                                                     \
+},                                                                        \
+Fp6{                                                                      \
+    Fp2{                                                                  \
+        Fp{ TO_LIMB_T(0xd30a88a1b062c679), TO_LIMB_T(0x5ac56a5d35fc8304), \
+            TO_LIMB_T(0xd0c834a6a81f290d), TO_LIMB_T(0xcd5430c2da3707c7), \
+            TO_LIMB_T(0xf0c27ff780500af0), TO_LIMB_T(0x09245da6e2d72eae) },\
+        Fp{ TO_LIMB_T(0x9f2e0676791b5156), TO_LIMB_T(0xe2d1c8234918fe13), \
+            TO_LIMB_T(0x4c9e459f3c561bf4), TO_LIMB_T(0xa3e85e53b9d3e3c1), \
+            TO_LIMB_T(0x820a121e21a70020), TO_LIMB_T(0x15af618341c59acc) } \
+    },                                                                    \
+    Fp2{                                                                  \
+        Fp{ TO_LIMB_T(0x7c95658c24993ab1), TO_LIMB_T(0x73eb38721ca886b9), \
+            TO_LIMB_T(0x5256d749477434bc), TO_LIMB_T(0x8ba41902ea504a8b), \
+            TO_LIMB_T(0x04a3d3f80c86ce6d), TO_LIMB_T(0x18a64a87fb686eaa) },\
+        Fp{ TO_LIMB_T(0xbb83e71bb920cf26), TO_LIMB_T(0x2a5277ac92a73945), \
+            TO_LIMB_T(0xfc0ee59f94f046a0), TO_LIMB_T(0x7158cdf3786058f7), \
+            TO_LIMB_T(0x7cc1061b82f945f6), TO_LIMB_T(0x03f847aa9fdbe567) } \
+    },                                                                    \
+    Fp2{                                                                  \
+        Fp{ TO_LIMB_T(0x8078dba56134e657), TO_LIMB_T(0x1cd7ec9a43998a6e), \
+            TO_LIMB_T(0xb1aa599a1a993766), TO_LIMB_T(0xc9a0f62f0842ee44), \
+            TO_LIMB_T(0x8e159be3b605dffa), TO_LIMB_T(0x0c86ba0d4af13fc2) },\
+        Fp{ TO_LIMB_T(0xe80ff2a06a52ffb1), TO_LIMB_T(0x7694ca48721a906c), \
+            TO_LIMB_T(0x7583183e03b08514), TO_LIMB_T(0xf567afdd40cee4e2), \
+            TO_LIMB_T(0x9a6d96d2e526a5fc), TO_LIMB_T(0x197e9f49861f2242) } \
+    }                                                                     \
+}
+
+    constexpr GT BLST_GT_GENERATOR_HOST =
+        Fp12{ BLST_GT_GENERATOR_LIMBS };
+
+    const GT& GT::generator()
+    {
+        return BLST_GT_GENERATOR_HOST;
+    }
+
     /*
     * Line evaluations from  https://eprint.iacr.org/2010/354.pdf
     * with a twist moving common expression to line_by_Px2.

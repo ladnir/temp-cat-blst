@@ -114,7 +114,13 @@ namespace blst::scalar {
 			if (nbits  == 256) {
 				// For 256-bit scalars, we can use the optimized GLV-4 path.
 				// This is a common case for BLS signatures where scalars are 256 bits.
-				Fp12::cyclotomic_exp_glv4(out.data, a.data, (const limb_t*)scalar);
+				// The public byte-string API does not promise limb alignment.
+				alignas(limb_t) byte aligned_scalar[32];
+				vec_copy(aligned_scalar, scalar, sizeof(aligned_scalar));
+				Fp12::cyclotomic_exp_glv4(
+					out.data,
+					a.data,
+					reinterpret_cast<const limb_t*>(aligned_scalar));
 			} else {
 				// For non-256-bit scalars, fall back to the basic cyclotomic exponentiation.
 				Fp12::cyclotomic_exp(out.data, a.data, scalar, nbits);
@@ -163,12 +169,11 @@ namespace blst::scalar {
 		}
 
 		/**
-		 * @brief Group generator (returns Fp12::one())
+		 * @brief Canonical GT generator pairing(G1::generator(), G2::generator()).
+		 * @details Computed once on first host use and returned from immutable
+		 * static storage.
 		 */
-		static BLST_HD const GT& generator() {
-			static const GT g(Fp12::one());
-			return g;
-		}
+		static const GT& generator();
 
 		/**
 		 * @brief Returns the identity element (Fp12::one())

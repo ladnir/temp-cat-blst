@@ -69,6 +69,73 @@ pub fn fr_fft(values: &mut [blst_fr], inverse: bool) -> Result<(), FftError> {
     }
 }
 
+/// Returns the number of `blst_fr` elements required by a prepared domain.
+pub fn fr_fft_domain_len(n: usize) -> Result<usize, FftError> {
+    check_fft_size(n)?;
+
+    let len = unsafe { blst_fr_fft_domain_len(n) };
+    if len == 0 {
+        Err(FftError::BackendFailure)
+    } else {
+        Ok(len)
+    }
+}
+
+/// Initializes exact-size caller-owned storage for a prepared FFT domain.
+///
+/// Domain construction fills forward root powers and the inverse-size scale in
+/// Montgomery form. The returned storage may be reused for any number of
+/// transforms of exactly `n` values.
+pub fn fr_fft_domain_init(
+    domain: &mut [blst_fr],
+    n: usize,
+) -> Result<(), FftError> {
+    let required = fr_fft_domain_len(n)?;
+    if domain.len() != required {
+        return Err(FftError::InvalidSize);
+    }
+
+    let ok = unsafe {
+        blst_fr_fft_domain_init(domain.as_mut_ptr(), domain.len(), n)
+    };
+    if ok {
+        Ok(())
+    } else {
+        Err(FftError::BackendFailure)
+    }
+}
+
+/// Runs an allocation-free in-place FFT using a prepared caller-owned domain.
+///
+/// `domain` must have been initialized by `fr_fft_domain_init` for exactly the
+/// current value count. Forward and inverse transforms both reuse its one
+/// forward-root table; inverse execution includes the prepared `1/n` scale.
+pub fn fr_fft_with_domain(
+    values: &mut [blst_fr],
+    domain: &[blst_fr],
+    inverse: bool,
+) -> Result<(), FftError> {
+    check_fft_input(values)?;
+    if domain.len() != fr_fft_domain_len(values.len())? {
+        return Err(FftError::InvalidSize);
+    }
+
+    let ok = unsafe {
+        blst_fr_fft_with_domain(
+            values.as_mut_ptr(),
+            values.len(),
+            domain.as_ptr(),
+            domain.len(),
+            inverse,
+        )
+    };
+    if ok {
+        Ok(())
+    } else {
+        Err(FftError::BackendFailure)
+    }
+}
+
 /// Runs the transpose-equivalent of the forward BLST Fr FFT in-place.
 ///
 /// This is the verifier kernel for BVE-style Vandermonde contractions. It uses
@@ -262,19 +329,19 @@ pub fn fr_interpolate_fft_domain_suffix_with_scratch(
     }
 }
 
-fn check_fft_input(values: &[blst_fr]) -> Result<(), FftError> {
-    if values.is_empty() {
+fn check_fft_size(n: usize) -> Result<(), FftError> {
+    if n == 0 {
         return Err(FftError::EmptyInput);
     }
-    if !values.len().is_power_of_two() {
+    if !n.is_power_of_two() || n > i32::MAX as usize {
         return Err(FftError::InvalidSize);
     }
-    assert!(
-        values.len() <= i32::MAX as usize,
-        "blst Fr FFT length exceeds the C++ reference implementation limit"
-    );
 
     Ok(())
+}
+
+fn check_fft_input(values: &[blst_fr]) -> Result<(), FftError> {
+    check_fft_size(values.len())
 }
 
 #[cfg(test)]
@@ -341,6 +408,75 @@ mod tests {
         fr_fft(&mut values, true).unwrap();
 
         assert_eq!(values, input);
+    }
+
+    #[test]
+    fn prepared_domain_rejects_invalid_shapes() {
+        assert_eq!(fr_fft_domain_len(0), Err(FftError::EmptyInput));
+        assert_eq!(fr_fft_domain_len(3), Err(FftError::InvalidSize));
+
+        let mut short_domain = [fr_from_u64(0); 8];
+        assert_eq!(
+            fr_fft_domain_init(&mut short_domain, 8),
+            Err(FftError::InvalidSize)
+        );
+
+        let mut values = [fr_from_u64(1); 8];
+        assert_eq!(
+            fr_fft_with_domain(&mut values, &short_domain, false),
+            Err(FftError::InvalidSize)
+        );
+    }
+
+    #[test]
+    fn prepared_fft_matches_allocating_fft_and_round_trips() {
+        for n in [1usize, 2, 4, 8, 32] {
+            let input: Vec<_> = (0..n)
+                .map(|i| fr_from_u64((i as u64 + 1) * 17 + 3))
+                .collect();
+            let mut domain =
+                vec![fr_from_u64(0); fr_fft_domain_len(n).unwrap()];
+            fr_fft_domain_init(&mut domain, n).unwrap();
+
+            let mut expected = input.clone();
+            fr_fft(&mut expected, false).unwrap();
+
+            let mut actual = input.clone();
+            fr_fft_with_domain(&mut actual, &domain, false).unwrap();
+            assert_eq!(actual, expected, "forward mismatch for n={n}");
+
+            fr_fft_with_domain(&mut actual, &domain, true).unwrap();
+            assert_eq!(actual, input, "round-trip mismatch for n={n}");
+        }
+    }
+
+    #[test]
+    fn prepared_fft_matches_natural_order_dft() {
+        const N: usize = 8;
+        let input = [
+            fr_from_u64(2),
+            fr_from_u64(7),
+            fr_from_u64(1),
+            fr_from_u64(8),
+            fr_from_u64(2),
+            fr_from_u64(8),
+            fr_from_u64(1),
+            fr_from_u64(8),
+        ];
+        let mut domain = [fr_from_u64(0); N + 1];
+        fr_fft_domain_init(&mut domain, N).unwrap();
+
+        let mut expected = [fr_from_u64(0); N];
+        for (evaluation_index, evaluation) in expected.iter_mut().enumerate() {
+            for (coefficient_index, coefficient) in input.iter().enumerate() {
+                let root = &domain[(evaluation_index * coefficient_index) % N];
+                *evaluation = fr_add(evaluation, &fr_mul(coefficient, root));
+            }
+        }
+
+        let mut actual = input;
+        fr_fft_with_domain(&mut actual, &domain, false).unwrap();
+        assert_eq!(actual, expected);
     }
 
     #[test]

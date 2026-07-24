@@ -274,6 +274,14 @@ extern "C" {
     pub fn blst_fr_mul(ret: *mut blst_fr, a: *const blst_fr, b: *const blst_fr);
 }
 extern "C" {
+    pub fn blst_fr_pow(
+        ret: *mut blst_fr,
+        a: *const blst_fr,
+        exponent: *const byte,
+        nbits: usize,
+    );
+}
+extern "C" {
     pub fn blst_fr_sqr(ret: *mut blst_fr, a: *const blst_fr);
 }
 extern "C" {
@@ -286,6 +294,25 @@ extern "C" {
     pub fn blst_fr_inverse(ret: *mut blst_fr, a: *const blst_fr);
 }
 extern "C" {
+    pub fn blst_fr_fft_domain_len(n: usize) -> usize;
+}
+extern "C" {
+    pub fn blst_fr_fft_domain_init(
+        domain: *mut blst_fr,
+        domain_len: usize,
+        n: usize,
+    ) -> bool;
+}
+extern "C" {
+    pub fn blst_fr_fft_with_domain(
+        values: *mut blst_fr,
+        n: usize,
+        domain: *const blst_fr,
+        domain_len: usize,
+        inverse: bool,
+    ) -> bool;
+}
+extern "C" {
     pub fn blst_fr_from_uint64(ret: *mut blst_fr, a: *const u64);
 }
 extern "C" {
@@ -296,6 +323,13 @@ extern "C" {
 }
 extern "C" {
     pub fn blst_scalar_from_fr(ret: *mut blst_scalar, a: *const blst_fr);
+}
+extern "C" {
+    pub fn blst_scalars_from_fr(
+        out: *mut blst_scalar,
+        scalars: *const blst_fr,
+        npoints: usize,
+    ) -> bool;
 }
 extern "C" {
     pub fn blst_fp_add(ret: *mut blst_fp, a: *const blst_fp, b: *const blst_fp);
@@ -521,10 +555,16 @@ extern "C" {
     pub fn blst_p1_add(out: *mut blst_p1, a: *const blst_p1, b: *const blst_p1);
 }
 extern "C" {
+    pub fn blst_p1_sub(out: *mut blst_p1, a: *const blst_p1, b: *const blst_p1);
+}
+extern "C" {
     pub fn blst_p1_add_or_double(out: *mut blst_p1, a: *const blst_p1, b: *const blst_p1);
 }
 extern "C" {
     pub fn blst_p1_add_affine(out: *mut blst_p1, a: *const blst_p1, b: *const blst_p1_affine);
+}
+extern "C" {
+    pub fn blst_p1_sub_affine(out: *mut blst_p1, a: *const blst_p1, b: *const blst_p1_affine);
 }
 extern "C" {
     pub fn blst_p1_add_or_double_affine(
@@ -541,6 +581,9 @@ extern "C" {
 }
 extern "C" {
     pub fn blst_p1_cneg(p: *mut blst_p1, cbit: bool);
+}
+extern "C" {
+    pub fn blst_p1_affine_cneg(p: *mut blst_p1_affine, cbit: bool);
 }
 extern "C" {
     pub fn blst_p1_to_affine(out: *mut blst_p1_affine, in_: *const blst_p1);
@@ -675,10 +718,16 @@ extern "C" {
     pub fn blst_p2_add(out: *mut blst_p2, a: *const blst_p2, b: *const blst_p2);
 }
 extern "C" {
+    pub fn blst_p2_sub(out: *mut blst_p2, a: *const blst_p2, b: *const blst_p2);
+}
+extern "C" {
     pub fn blst_p2_add_or_double(out: *mut blst_p2, a: *const blst_p2, b: *const blst_p2);
 }
 extern "C" {
     pub fn blst_p2_add_affine(out: *mut blst_p2, a: *const blst_p2, b: *const blst_p2_affine);
+}
+extern "C" {
+    pub fn blst_p2_sub_affine(out: *mut blst_p2, a: *const blst_p2, b: *const blst_p2_affine);
 }
 extern "C" {
     pub fn blst_p2_add_or_double_affine(
@@ -695,6 +744,9 @@ extern "C" {
 }
 extern "C" {
     pub fn blst_p2_cneg(p: *mut blst_p2, cbit: bool);
+}
+extern "C" {
+    pub fn blst_p2_affine_cneg(p: *mut blst_p2_affine, cbit: bool);
 }
 extern "C" {
     pub fn blst_p2_to_affine(out: *mut blst_p2_affine, in_: *const blst_p2);
@@ -784,6 +836,51 @@ extern "C" {
     );
 }
 extern "C" {
+    pub fn blst_p1s_mult_pippenger_fr_scratch_sizeof(npoints: usize) -> usize;
+}
+extern "C" {
+    pub fn blst_p1s_mult_pippenger_fr(
+        ret: *mut blst_p1,
+        points: *const blst_p1_affine,
+        scalars: *const blst_fr,
+        npoints: usize,
+        scratch: *mut limb_t,
+        scratch_size: usize,
+    ) -> bool;
+}
+extern "C" {
+    pub fn blst_p1s_mult_fr_scratch_sizeof(max_points: usize) -> usize;
+}
+extern "C" {
+    pub fn blst_p1s_mult_fr(
+        ret: *mut blst_p1,
+        points: *const blst_p1_affine,
+        scalars: *const blst_fr,
+        npoints: usize,
+        scratch: *mut limb_t,
+        scratch_size: usize,
+    ) -> bool;
+}
+extern "C" {
+    pub fn blst_p1s_mult_batch_affine_fr_scratch_sizeof(
+        npoints: usize,
+        window: usize,
+        batch_size: usize,
+    ) -> usize;
+}
+extern "C" {
+    pub fn blst_p1s_mult_batch_affine_fr(
+        ret: *mut blst_p1,
+        points: *const blst_p1_affine,
+        scalars: *const blst_fr,
+        npoints: usize,
+        scratch: *mut limb_t,
+        scratch_size: usize,
+        window: usize,
+        batch_size: usize,
+    ) -> bool;
+}
+extern "C" {
     pub fn blst_p1s_mult_pippenger_window(
         ret: *mut blst_p1,
         points: *const *const blst_p1_affine,
@@ -845,6 +942,9 @@ extern "C" {
     pub fn blst_p2s_mult_pippenger_scratch_sizeof(npoints: usize) -> usize;
 }
 extern "C" {
+    pub fn blst_p2s_mult_pippenger_window_scratch_sizeof(window: usize) -> usize;
+}
+extern "C" {
     pub fn blst_p2s_mult_pippenger(
         ret: *mut blst_p2,
         points: *const *const blst_p2_affine,
@@ -853,6 +953,62 @@ extern "C" {
         nbits: usize,
         scratch: *mut limb_t,
     );
+}
+extern "C" {
+    pub fn blst_p2s_mult_pippenger_window(
+        ret: *mut blst_p2,
+        points: *const *const blst_p2_affine,
+        npoints: usize,
+        scalars: *const *const byte,
+        nbits: usize,
+        scratch: *mut limb_t,
+        window: usize,
+    );
+}
+extern "C" {
+    pub fn blst_p2s_mult_pippenger_fr_scratch_sizeof(npoints: usize) -> usize;
+}
+extern "C" {
+    pub fn blst_p2s_mult_pippenger_fr(
+        ret: *mut blst_p2,
+        points: *const blst_p2_affine,
+        scalars: *const blst_fr,
+        npoints: usize,
+        scratch: *mut limb_t,
+        scratch_size: usize,
+    ) -> bool;
+}
+extern "C" {
+    pub fn blst_p2s_mult_fr_scratch_sizeof(max_points: usize) -> usize;
+}
+extern "C" {
+    pub fn blst_p2s_mult_fr(
+        ret: *mut blst_p2,
+        points: *const blst_p2_affine,
+        scalars: *const blst_fr,
+        npoints: usize,
+        scratch: *mut limb_t,
+        scratch_size: usize,
+    ) -> bool;
+}
+extern "C" {
+    pub fn blst_p2s_mult_batch_affine_fr_scratch_sizeof(
+        npoints: usize,
+        window: usize,
+        batch_size: usize,
+    ) -> usize;
+}
+extern "C" {
+    pub fn blst_p2s_mult_batch_affine_fr(
+        ret: *mut blst_p2,
+        points: *const blst_p2_affine,
+        scalars: *const blst_fr,
+        npoints: usize,
+        scratch: *mut limb_t,
+        scratch_size: usize,
+        window: usize,
+        batch_size: usize,
+    ) -> bool;
 }
 extern "C" {
     pub fn blst_p2s_tile_pippenger(
@@ -990,6 +1146,38 @@ extern "C" {
 }
 extern "C" {
     pub fn blst_final_exp(ret: *mut blst_fp12, f: *const blst_fp12);
+}
+extern "C" {
+    pub fn blst_gt_identity() -> *const blst_fp12;
+}
+extern "C" {
+    pub fn blst_gt_generator() -> *const blst_fp12;
+}
+extern "C" {
+    pub fn blst_gt_is_equal(a: *const blst_fp12, b: *const blst_fp12) -> bool;
+}
+extern "C" {
+    pub fn blst_gt_is_identity(p: *const blst_fp12) -> bool;
+}
+extern "C" {
+    pub fn blst_gt_add(out: *mut blst_fp12, a: *const blst_fp12, b: *const blst_fp12);
+}
+extern "C" {
+    pub fn blst_gt_sub(out: *mut blst_fp12, a: *const blst_fp12, b: *const blst_fp12);
+}
+extern "C" {
+    pub fn blst_gt_neg(out: *mut blst_fp12, p: *const blst_fp12);
+}
+extern "C" {
+    pub fn blst_gt_double(out: *mut blst_fp12, p: *const blst_fp12);
+}
+extern "C" {
+    pub fn blst_gt_mult(
+        out: *mut blst_fp12,
+        p: *const blst_fp12,
+        scalar: *const byte,
+        nbits: usize,
+    );
 }
 extern "C" {
     pub fn blst_precompute_lines(Qlines: *mut blst_fp6, Q: *const blst_p2_affine);

@@ -23,6 +23,7 @@ EXPORTS
 	blst_fr_lshift
 	blst_fr_rshift
 	blst_fr_mul
+	blst_fr_pow
 	blst_fr_sqr
 	blst_fr_cneg
 	blst_fr_eucl_inverse
@@ -73,12 +74,15 @@ EXPORTS
 	blst_fp12_in_group
 	blst_fp12_one
 	blst_p1_add
+	blst_p1_sub
 	blst_p1_add_or_double
 	blst_p1_add_affine
+	blst_p1_sub_affine
 	blst_p1_add_or_double_affine
 	blst_p1_double
 	blst_p1_mult
 	blst_p1_cneg
+	blst_p1_affine_cneg
 	blst_p1_to_affine
 	blst_p1_from_affine
 	blst_p1_on_curve
@@ -92,12 +96,15 @@ EXPORTS
 	blst_p1_affine_is_inf
 	blst_p1_affine_generator
 	blst_p2_add
+	blst_p2_sub
 	blst_p2_add_or_double
 	blst_p2_add_affine
+	blst_p2_sub_affine
 	blst_p2_add_or_double_affine
 	blst_p2_double
 	blst_p2_mult
 	blst_p2_cneg
+	blst_p2_affine_cneg
 	blst_p2_to_affine
 	blst_p2_from_affine
 	blst_p2_on_curve
@@ -154,6 +161,15 @@ EXPORTS
 	blst_miller_loop
 	blst_miller_loop_n
 	blst_final_exp
+	blst_gt_identity
+	blst_gt_generator
+	blst_gt_is_equal
+	blst_gt_is_identity
+	blst_gt_add
+	blst_gt_sub
+	blst_gt_neg
+	blst_gt_double
+	blst_gt_mult
 	blst_precompute_lines
 	blst_miller_loop_lines
 	blst_fp12_finalverify

@@ -41,7 +41,10 @@ else()
         "Fr_bench.cpp"
         "G1_bench.cpp"
         "G2_bench.cpp"
+        "ScalarBatchAffineMsm_bench.cpp"
+        "ScalarPrimitive_bench.cpp"
         "pairing_bench.cpp"
+        "ScalarMsm_bench.cpp"
         "FFT_bench.cpp"
         "MiddleProduct_multipair_bench.cpp"
     )

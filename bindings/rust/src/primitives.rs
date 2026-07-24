@@ -281,6 +281,67 @@ mod tests {
     }
 
     #[test]
+    fn group_c_api_extensions_link_and_agree() {
+        unsafe {
+            let two = scalar_bytes(2);
+
+            let g1 = *blst_p1_generator();
+            let mut g1_twice = blst_p1::default();
+            let mut g1_difference = blst_p1::default();
+            blst_p1_mult(&mut g1_twice, &g1, two.as_ptr(), 256);
+            blst_p1_sub(&mut g1_difference, &g1_twice, &g1);
+            assert!(blst_p1_is_equal(&g1_difference, &g1));
+
+            let mut g1_affine = blst_p1_affine::default();
+            blst_p1_to_affine(&mut g1_affine, &g1);
+            blst_p1_affine_cneg(&mut g1_affine, true);
+            blst_p1_sub_affine(&mut g1_difference, &g1, &g1_affine);
+            assert!(blst_p1_is_equal(&g1_difference, &g1_twice));
+
+            let g2 = *blst_p2_generator();
+            let mut g2_twice = blst_p2::default();
+            let mut g2_difference = blst_p2::default();
+            blst_p2_mult(&mut g2_twice, &g2, two.as_ptr(), 256);
+            blst_p2_sub(&mut g2_difference, &g2_twice, &g2);
+            assert!(blst_p2_is_equal(&g2_difference, &g2));
+
+            let mut g2_affine = blst_p2_affine::default();
+            blst_p2_to_affine(&mut g2_affine, &g2);
+            blst_p2_affine_cneg(&mut g2_affine, true);
+            blst_p2_sub_affine(&mut g2_difference, &g2, &g2_affine);
+            assert!(blst_p2_is_equal(&g2_difference, &g2_twice));
+
+            let mut g1_pairing_affine = blst_p1_affine::default();
+            let mut g2_pairing_affine = blst_p2_affine::default();
+            blst_p1_to_affine(&mut g1_pairing_affine, &g1);
+            blst_p2_to_affine(&mut g2_pairing_affine, &g2);
+            let gt =
+                blst_fp12::miller_loop(&g2_pairing_affine, &g1_pairing_affine)
+                    .final_exp();
+            assert!(blst_gt_is_equal(blst_gt_generator(), &gt));
+            assert!(blst_gt_is_identity(blst_gt_identity()));
+
+            let mut gt_added = blst_fp12::default();
+            let mut gt_doubled = blst_fp12::default();
+            let mut gt_negated = blst_fp12::default();
+            let mut gt_cancelled = blst_fp12::default();
+            let mut gt_difference = blst_fp12::default();
+            blst_gt_add(&mut gt_added, &gt, &gt);
+            blst_gt_double(&mut gt_doubled, &gt);
+            blst_gt_neg(&mut gt_negated, &gt);
+            blst_gt_add(&mut gt_cancelled, &gt, &gt_negated);
+            blst_gt_sub(&mut gt_difference, &gt_doubled, &gt);
+            assert!(blst_gt_is_equal(&gt_added, &gt_doubled));
+            assert!(blst_gt_is_identity(&gt_cancelled));
+            assert!(blst_gt_is_equal(&gt_difference, &gt));
+
+            let mut gt_twice = blst_fp12::default();
+            blst_gt_mult(&mut gt_twice, &gt, two.as_ptr(), 256);
+            assert_eq!(gt_twice, gt * gt);
+        }
+    }
+
+    #[test]
     fn field_c_api_primitives_round_trip() {
         unsafe {
             let five_words = [5u64, 0, 0, 0];
@@ -292,9 +353,29 @@ mod tests {
 
             let mut inverse = blst_fr::default();
             let mut product = blst_fr::default();
+            let mut power = blst_fr::default();
+            let mut power_zero = blst_fr::default();
             blst_fr_inverse(&mut inverse, &five);
             blst_fr_mul(&mut product, &five, &inverse);
+            let exponent_three = [3u8];
+            blst_fr_pow(&mut power, &five, exponent_three.as_ptr(), 2);
+            blst_fr_pow(&mut power_zero, &five, core::ptr::null(), 0);
             assert_eq!(fr_to_words(&product), one_fr_words);
+            assert_eq!(fr_to_words(&power), [125, 0, 0, 0]);
+            assert_eq!(fr_to_words(&power_zero), one_fr_words);
+
+            let fields = [one_fr, five];
+            let mut bulk = [blst_scalar::default(), blst_scalar::default()];
+            let mut individual =
+                [blst_scalar::default(), blst_scalar::default()];
+            assert!(blst_scalars_from_fr(
+                bulk.as_mut_ptr(),
+                fields.as_ptr(),
+                fields.len()
+            ));
+            blst_scalar_from_fr(&mut individual[0], &fields[0]);
+            blst_scalar_from_fr(&mut individual[1], &fields[1]);
+            assert_eq!(bulk, individual);
 
             let three_words = [3u64, 0, 0, 0, 0, 0];
             let one_fp_words = [1u64, 0, 0, 0, 0, 0];

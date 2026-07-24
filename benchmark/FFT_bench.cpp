@@ -4,6 +4,7 @@
 #include <random>
 #include <chrono>
 
+#include "blst/common/defines.h"
 #include "blst/fields/Fr.h"
 #include "blst/curve/point.h"
 #include "blst/curve/GT.h"
@@ -11,10 +12,10 @@
 #include "blst/fft/context.h"
 #include "blst/fft/ctFft.h"
 #include "blst/fft/middle_product.h"
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 #include "blst/avx/fft/gt_context.h"
+#endif
 #include "blst/common/timer.h"
-
-#include "blst/common/defines.h"
 
 #if defined(BLST_CUDA)
 #include "blst/fft/ctFft_cuda.h"
@@ -121,10 +122,12 @@ namespace
 		return data;
 	}
 
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 	static std::vector<blst::avx::AvxGt52> make_avx_gt_data(const std::vector<GT>& scalar_data)
 	{
 		return blst::avx::scalar_gt_vector_to_avx52(std::span<const GT>(scalar_data));
 	}
+#endif
 
 	// ============================================================================
 	// Radix-2 FFT benchmarks (existing)
@@ -309,6 +312,7 @@ namespace
 		state.counters["iFFTs/sec"] = benchmark::Counter(1, benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
 	}
 
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 	static void bench_gt_ifft_avx52_precomputed_cpu(benchmark::State& state)
 	{
 		const size_t N = static_cast<size_t>(state.range(0));
@@ -342,6 +346,7 @@ namespace
 		state.counters["root_glv4_precompute_ms"] = benchmark::Counter(precompute_ms);
 		state.counters["iFFTs/sec"] = benchmark::Counter(1, benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
 	}
+#endif
 
 #if defined(BLST_CUDA)
 	static void bench_gt_ifft_gpu(benchmark::State& state)
@@ -1028,6 +1033,7 @@ namespace
 				1e6);
 		}
 
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
         static void bench_middle_product_avx_detailed(benchmark::State& state)
 	{
 		const size_t n = static_cast<size_t>(state.range(0));
@@ -1085,6 +1091,7 @@ namespace
 					static_cast<double>(pre_stats.get_ns("middle_product_precompute.fold_ns"))) /
 				1e6);
 		}
+#endif
 
         // Benchmark middle_product_fft: computes middle n coefficients of (size n) * (size 2n) convolution
 #if 0
@@ -1480,10 +1487,12 @@ FFT_SIZES
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();
 
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 BENCHMARK(bench_gt_ifft_avx52_precomputed_cpu)
 FFT_SIZES
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();
+#endif
 
 
 #if 0
@@ -1612,10 +1621,12 @@ MIDDLE_PROD_SIZES
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();
 
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 BENCHMARK(bench_middle_product_avx_detailed)
 MIDDLE_PROD_SIZES
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();
+#endif
 
 BENCHMARK(bench_middle_product_one_ifft_detailed)
 MIDDLE_PROD_SIZES

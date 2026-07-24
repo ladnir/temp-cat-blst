@@ -329,6 +329,30 @@ namespace blst::scalar
 		return sizeof(Group) << (pippenger_window_size(npoints) - 1);
 	}
 
+	/*
+	 * Batch-affine Pippenger accumulation for short-Weierstrass groups over
+	 * Fp or Fp2. The implementation batches distinct affine bucket updates
+	 * behind one variable-time field reciprocal and retains projective
+	 * collision buckets. Scratch is caller-owned, uninitialized storage.
+	 *
+	 * BatchSize is deliberately a compile-time parameter. The production
+	 * planner can select among explicitly instantiated kernels without
+	 * introducing variable-sized inner loops or heap allocation.
+	 */
+	template<typename Field, size_t BatchSize>
+	size_t msm_mult_batch_affine_scratch_sizeof(size_t window_size);
+
+	template<typename Field, size_t BatchSize>
+	bool msm_mult_batch_affine(
+		Point<Field>& ret,
+		const AffinePoint<Field> points[],
+		const byte scalars[],
+		size_t npoints,
+		size_t nbits,
+		limb_t scratch[],
+		size_t scratch_size,
+		size_t window_size);
+
 	//template<typename Group, typename AffineGroup, typename GroupZZ>
 	//BLST_HD BLST_INLINE void msm_tile_pippenger(
 	//	Group& ret,

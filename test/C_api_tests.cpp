@@ -57,6 +57,7 @@ void blst_sk_inverse(blst::pow256 out, const blst::pow256 a);
 
 void blst_fr_add(blst::Fr* ret, const blst::Fr* a, const blst::Fr* b);
 void blst_fr_mul(blst::Fr* ret, const blst::Fr* a, const blst::Fr* b);
+void blst_fr_pow(blst::Fr* ret, const blst::Fr* a, const unsigned char* exponent, size_t nbits);
 void blst_fr_sqr(blst::Fr* ret, const blst::Fr* a);
 void blst_fr_eucl_inverse(blst::Fr* ret, const blst::Fr* a);
 void blst_fr_inverse(blst::Fr* ret, const blst::Fr* a);
@@ -100,13 +101,25 @@ bool blst_fp12_is_one(const blst::Fp12* a);
 bool blst_fp12_in_group(const blst::Fp12* a);
 const blst::Fp12* blst_fp12_one(void);
 void blst_final_exp(blst::Fp12* ret, const blst::Fp12* f);
+const blst::Fp12* blst_gt_identity(void);
+const blst::Fp12* blst_gt_generator(void);
+bool blst_gt_is_equal(const blst::Fp12* a, const blst::Fp12* b);
+bool blst_gt_is_identity(const blst::Fp12* p);
+void blst_gt_add(blst::Fp12* out, const blst::Fp12* a, const blst::Fp12* b);
+void blst_gt_sub(blst::Fp12* out, const blst::Fp12* a, const blst::Fp12* b);
+void blst_gt_neg(blst::Fp12* out, const blst::Fp12* p);
+void blst_gt_double(blst::Fp12* out, const blst::Fp12* p);
+void blst_gt_mult(blst::Fp12* out, const blst::Fp12* p, const unsigned char* scalar, size_t nbits);
 bool blst_fp12_finalverify(const blst::Fp12* gt1, const blst::Fp12* gt2);
 
 void blst_p1_add(blst::scalar::G1Point* out, const blst::scalar::G1Point* a, const blst::scalar::G1Point* b);
+void blst_p1_sub(blst::scalar::G1Point* out, const blst::scalar::G1Point* a, const blst::scalar::G1Point* b);
 void blst_p1_add_or_double(blst::scalar::G1Point* out, const blst::scalar::G1Point* a, const blst::scalar::G1Point* b);
+void blst_p1_sub_affine(blst::scalar::G1Point* out, const blst::scalar::G1Point* a, const blst::scalar::G1AffinePoint* b);
 void blst_p1_double(blst::scalar::G1Point* out, const blst::scalar::G1Point* a);
 void blst_p1_mult(blst::scalar::G1Point* out, const blst::scalar::G1Point* p, const unsigned char* scalar, size_t nbits);
 void blst_p1_unchecked_mult(blst::scalar::G1Point* out, const blst::scalar::G1Point* p, const unsigned char* scalar, size_t nbits);
+void blst_p1_affine_cneg(blst::scalar::G1AffinePoint* p, bool cbit);
 void blst_p1_to_affine(blst::scalar::G1AffinePoint* out, const blst::scalar::G1Point* in);
 void blst_p1_from_affine(blst::scalar::G1Point* out, const blst::scalar::G1AffinePoint* in);
 void blst_p1_from_jacobian(blst::scalar::G1Point* out, const blst::scalar::G1Point* in);
@@ -134,10 +147,13 @@ blst::BLST_ERROR blst_p1_uncompress(blst::scalar::G1AffinePoint* out, const unsi
 blst::BLST_ERROR blst_p1_deserialize(blst::scalar::G1AffinePoint* out, const unsigned char in[96]);
 
 void blst_p2_add(blst::scalar::G2Point* out, const blst::scalar::G2Point* a, const blst::scalar::G2Point* b);
+void blst_p2_sub(blst::scalar::G2Point* out, const blst::scalar::G2Point* a, const blst::scalar::G2Point* b);
 void blst_p2_add_or_double(blst::scalar::G2Point* out, const blst::scalar::G2Point* a, const blst::scalar::G2Point* b);
+void blst_p2_sub_affine(blst::scalar::G2Point* out, const blst::scalar::G2Point* a, const blst::scalar::G2AffinePoint* b);
 void blst_p2_double(blst::scalar::G2Point* out, const blst::scalar::G2Point* a);
 void blst_p2_mult(blst::scalar::G2Point* out, const blst::scalar::G2Point* p, const unsigned char* scalar, size_t nbits);
 void blst_p2_unchecked_mult(blst::scalar::G2Point* out, const blst::scalar::G2Point* p, const unsigned char* scalar, size_t nbits);
+void blst_p2_affine_cneg(blst::scalar::G2AffinePoint* p, bool cbit);
 void blst_p2_to_affine(blst::scalar::G2AffinePoint* out, const blst::scalar::G2Point* in);
 void blst_p2_from_affine(blst::scalar::G2Point* out, const blst::scalar::G2AffinePoint* in);
 void blst_p2_from_jacobian(blst::scalar::G2Point* out, const blst::scalar::G2Point* in);
@@ -389,11 +405,18 @@ TEST(CApi, FrPrimitivesRoundTripAndInverse)
     BoundaryFr inverse_eucl = {};
     BoundaryFr inverse = {};
     BoundaryFr product = {};
+    BoundaryFr power = {};
+    BoundaryFr power_zero = {};
     blst_fr_eucl_inverse(&inverse_eucl, &five);
     blst_fr_inverse(&inverse, &five);
     blst_fr_mul(&product, &five, &inverse_eucl);
+    const std::array<unsigned char, 1> exponent_three = {3};
+    blst_fr_pow(&power, &five, exponent_three.data(), 2);
+    blst_fr_pow(&power_zero, &five, nullptr, 0);
     EXPECT_TRUE(BoundaryFr::equal(product, one));
     EXPECT_TRUE(BoundaryFr::equal(inverse_eucl, inverse));
+    EXPECT_TRUE(BoundaryFr::equal(power, BoundaryFr::from_uint64(125)));
+    EXPECT_TRUE(BoundaryFr::equal(power_zero, one));
 }
 
 TEST(CApi, FpUint32RoundTripAcceptsOnlyUint32Alignment)
@@ -1318,6 +1341,176 @@ TEST(CApi, PairingPrimitivesMatchBackend)
     EXPECT_TRUE(blst::Fp12::equal(final_exp, expected));
 }
 
+TEST(CApi, PointSubtractionAndAffineNegationMatchExpectedMultiples)
+{
+    const BoundaryG1 p1_eight = p1_mul(8);
+    const BoundaryG1 p1_three = p1_mul(3);
+    const BoundaryG1 p1_five = p1_mul(5);
+    BoundaryG1Affine p1_three_affine = {};
+    BoundaryG1 p1_difference = {};
+    BoundaryG1 p1_mixed_difference = {};
+    blst_p1_to_affine(&p1_three_affine, &p1_three);
+    blst_p1_sub(&p1_difference, &p1_eight, &p1_three);
+    blst_p1_sub_affine(&p1_mixed_difference, &p1_eight, &p1_three_affine);
+    EXPECT_TRUE(blst_p1_is_equal(&p1_difference, &p1_five));
+    EXPECT_TRUE(blst_p1_is_equal(&p1_mixed_difference, &p1_five));
+
+    BoundaryG1 p1_alias_left = p1_eight;
+    BoundaryG1 p1_alias_right = p1_three;
+    blst_p1_sub(&p1_alias_left, &p1_alias_left, &p1_three);
+    blst_p1_sub(&p1_alias_right, &p1_eight, &p1_alias_right);
+    EXPECT_TRUE(blst_p1_is_equal(&p1_alias_left, &p1_five));
+    EXPECT_TRUE(blst_p1_is_equal(&p1_alias_right, &p1_five));
+
+    BoundaryG1 p1_equal_difference = {};
+    blst_p1_sub(&p1_equal_difference, &p1_three, &p1_three);
+    EXPECT_TRUE(blst_p1_is_inf(&p1_equal_difference));
+
+    const BoundaryG1Affine p1_original_affine = p1_three_affine;
+    blst_p1_affine_cneg(&p1_three_affine, false);
+    EXPECT_TRUE(blst_p1_affine_is_equal(&p1_three_affine, &p1_original_affine));
+    blst_p1_affine_cneg(&p1_three_affine, true);
+    BoundaryG1 p1_negated = {};
+    BoundaryG1 p1_identity = {};
+    blst_p1_from_affine(&p1_negated, &p1_three_affine);
+    blst_p1_add_or_double(&p1_identity, &p1_three, &p1_negated);
+    EXPECT_TRUE(blst_p1_is_inf(&p1_identity));
+
+    const BoundaryG2 p2_eight = p2_mul(8);
+    const BoundaryG2 p2_three = p2_mul(3);
+    const BoundaryG2 p2_five = p2_mul(5);
+    BoundaryG2Affine p2_three_affine = {};
+    BoundaryG2 p2_difference = {};
+    BoundaryG2 p2_mixed_difference = {};
+    blst_p2_to_affine(&p2_three_affine, &p2_three);
+    blst_p2_sub(&p2_difference, &p2_eight, &p2_three);
+    blst_p2_sub_affine(&p2_mixed_difference, &p2_eight, &p2_three_affine);
+    EXPECT_TRUE(blst_p2_is_equal(&p2_difference, &p2_five));
+    EXPECT_TRUE(blst_p2_is_equal(&p2_mixed_difference, &p2_five));
+
+    BoundaryG2 p2_alias_left = p2_eight;
+    BoundaryG2 p2_alias_right = p2_three;
+    blst_p2_sub(&p2_alias_left, &p2_alias_left, &p2_three);
+    blst_p2_sub(&p2_alias_right, &p2_eight, &p2_alias_right);
+    EXPECT_TRUE(blst_p2_is_equal(&p2_alias_left, &p2_five));
+    EXPECT_TRUE(blst_p2_is_equal(&p2_alias_right, &p2_five));
+
+    BoundaryG2 p2_equal_difference = {};
+    blst_p2_sub(&p2_equal_difference, &p2_three, &p2_three);
+    EXPECT_TRUE(blst_p2_is_inf(&p2_equal_difference));
+
+    const BoundaryG2Affine p2_original_affine = p2_three_affine;
+    blst_p2_affine_cneg(&p2_three_affine, false);
+    EXPECT_TRUE(blst_p2_affine_is_equal(&p2_three_affine, &p2_original_affine));
+    blst_p2_affine_cneg(&p2_three_affine, true);
+    BoundaryG2 p2_negated = {};
+    BoundaryG2 p2_identity = {};
+    blst_p2_from_affine(&p2_negated, &p2_three_affine);
+    blst_p2_add_or_double(&p2_identity, &p2_three, &p2_negated);
+    EXPECT_TRUE(blst_p2_is_inf(&p2_identity));
+}
+
+TEST(CApi, TargetGroupScalarMultiplicationMatchesPairingBilinearity)
+{
+    const BoundaryG1 p = p1_mul(1);
+    const BoundaryG1 p_times_five = p1_mul(5);
+    const BoundaryG2 q = p2_mul(1);
+    BoundaryG1Affine p_affine = {};
+    BoundaryG1Affine p_times_five_affine = {};
+    BoundaryG2Affine q_affine = {};
+    blst_p1_to_affine(&p_affine, &p);
+    blst_p1_to_affine(&p_times_five_affine, &p_times_five);
+    blst_p2_to_affine(&q_affine, &q);
+
+    BoundaryGt miller = {};
+    BoundaryGt base = {};
+    BoundaryGt expected_miller = {};
+    BoundaryGt expected = {};
+    blst_miller_loop(&miller, &q_affine, &p_affine);
+    blst_final_exp(&base, &miller);
+    blst_miller_loop(&expected_miller, &q_affine, &p_times_five_affine);
+    blst_final_exp(&expected, &expected_miller);
+
+    EXPECT_TRUE(blst_gt_is_equal(blst_gt_generator(), &base));
+    EXPECT_TRUE(blst_gt_is_identity(blst_gt_identity()));
+    EXPECT_FALSE(blst_gt_is_identity(&base));
+
+    BoundaryGt doubled = {};
+    BoundaryGt added = {};
+    BoundaryGt negated = {};
+    BoundaryGt cancelled = {};
+    BoundaryGt difference = {};
+    blst_gt_double(&doubled, &base);
+    blst_gt_add(&added, &base, &base);
+    blst_gt_neg(&negated, &base);
+    blst_gt_add(&cancelled, &base, &negated);
+    blst_gt_sub(&difference, &doubled, &base);
+    EXPECT_TRUE(blst_gt_is_equal(&doubled, &added));
+    EXPECT_TRUE(blst_gt_is_identity(&cancelled));
+    EXPECT_TRUE(blst_gt_is_equal(&difference, &base));
+
+    BoundaryGt alias = base;
+    blst_gt_add(&alias, &alias, &base);
+    EXPECT_TRUE(blst_gt_is_equal(&alias, &doubled));
+    blst_gt_sub(&alias, &alias, &base);
+    EXPECT_TRUE(blst_gt_is_equal(&alias, &base));
+    blst_gt_neg(&alias, &alias);
+    EXPECT_TRUE(blst_gt_is_equal(&alias, &negated));
+    blst_gt_double(&alias, &base);
+    EXPECT_TRUE(blst_gt_is_equal(&alias, &doubled));
+
+    const auto five = scalar_bytes(5);
+    std::array<unsigned char, 33> unaligned_five = {};
+    std::copy(five.begin(), five.end(), unaligned_five.begin() + 1);
+    BoundaryGt short_scalar = {};
+    BoundaryGt full_scalar = {};
+    BoundaryGt unaligned_full_scalar = {};
+    blst_gt_mult(&short_scalar, &base, five.data(), 3);
+    blst_gt_mult(&full_scalar, &base, five.data(), 256);
+    blst_gt_mult(&unaligned_full_scalar, &base, unaligned_five.data() + 1, 256);
+    EXPECT_TRUE(blst_fp12_is_equal(&short_scalar, &expected));
+    EXPECT_TRUE(blst_fp12_is_equal(&full_scalar, &expected));
+    EXPECT_TRUE(blst_fp12_is_equal(&unaligned_full_scalar, &expected));
+
+    const auto zero = scalar_bytes(0);
+    const auto one = scalar_bytes(1);
+    BoundaryGt zero_product = {};
+    BoundaryGt alias_product = base;
+    blst_gt_mult(&zero_product, &base, zero.data(), 256);
+    blst_gt_mult(&alias_product, &alias_product, one.data(), 256);
+    EXPECT_TRUE(blst_fp12_is_one(&zero_product));
+    EXPECT_TRUE(blst_fp12_is_equal(&alias_product, &base));
+
+    constexpr std::array<unsigned char, 32> scalar_modulus_minus_one = {
+        0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff,
+        0xfe, 0x5b, 0xfe, 0xff, 0x02, 0xa4, 0xbd, 0x53,
+        0x05, 0xd8, 0xa1, 0x09, 0x08, 0xd8, 0x39, 0x33,
+        0x48, 0x7d, 0x9d, 0x29, 0x53, 0xa7, 0xed, 0x73,
+    };
+    BoundaryGt modulus_minus_one_product = {};
+    BoundaryGt inverse = base;
+    blst_gt_mult(
+        &modulus_minus_one_product,
+        &base,
+        scalar_modulus_minus_one.data(),
+        256);
+    blst_fp12_conjugate(&inverse);
+    EXPECT_TRUE(blst_fp12_is_equal(&modulus_minus_one_product, &inverse));
+
+    constexpr std::uint64_t deterministic_scalar = 0xdeadbeef;
+    const BoundaryG1 p_deterministic = p1_mul(deterministic_scalar);
+    BoundaryG1Affine p_deterministic_affine = {};
+    BoundaryGt deterministic_miller = {};
+    BoundaryGt deterministic_expected = {};
+    BoundaryGt deterministic_product = {};
+    blst_p1_to_affine(&p_deterministic_affine, &p_deterministic);
+    blst_miller_loop(&deterministic_miller, &q_affine, &p_deterministic_affine);
+    blst_final_exp(&deterministic_expected, &deterministic_miller);
+    const auto deterministic_bytes = scalar_bytes(deterministic_scalar);
+    blst_gt_mult(&deterministic_product, &base, deterministic_bytes.data(), 256);
+    EXPECT_TRUE(blst_fp12_is_equal(&deterministic_product, &deterministic_expected));
+}
+
 TEST(CApi, MillerLoopNMatchesNaiveProduct)
 {
     std::array<BoundaryG1, 3> ps = {p1_mul(3), p1_mul(5), p1_mul(7)};
@@ -1466,7 +1659,7 @@ TEST(CApi, PairingAggregateAllowsNullSignatureAfterFirstElement)
 
 TEST(CApi, Fp12UtilityWrappersMatchScalarBackend)
 {
-    const BoundaryGt a = blst::scalar::GT::generator().data;
+    const BoundaryGt a = *blst_gt_generator();
     BoundaryGt mul = {};
     BoundaryGt sqr = {};
     BoundaryGt cyclo = {};

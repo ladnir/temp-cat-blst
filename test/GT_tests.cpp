@@ -55,6 +55,13 @@ TEST_F(GTTest, Identity) {
         << "a + 0 should equal a in GT";
 }
 
+TEST_F(GTTest, GeneratorMatchesCanonicalPairing) {
+    const GT& generator = GT::generator();
+
+    EXPECT_TRUE(GT::equal(generator, gt_element));
+    EXPECT_FALSE(GT::is_identity(generator));
+}
+
 TEST_F(GTTest, Addition) {
     // Create another element for testing
     GT another_gt;

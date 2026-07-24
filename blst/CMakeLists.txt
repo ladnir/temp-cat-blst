@@ -12,6 +12,7 @@ set(BLST_STATIC_SRC
     "scalar/curve/GT.cpp"
     "scalar/curve/point.cpp"
     "scalar/curve/multi_scalar.cpp"
+    "scalar/curve/multi_scalar_batch_affine.cpp"
     "sign/aggregate.cpp"
     "c_api.cpp"
     "avx_c_api.cpp"

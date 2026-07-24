@@ -174,6 +174,7 @@ fn main() {
         "cargo:C_SRC={}",
         blst_base_dir.join("blst").to_string_lossy()
     );
+    println!("cargo:CONFIG_INCLUDE={}", build_dir.to_string_lossy());
 }
 
 fn on_off(value: bool) -> &'static str {

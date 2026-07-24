@@ -36,19 +36,24 @@ bool valid_fft_size(const std::size_t n)
     return n <= static_cast<std::size_t>(std::numeric_limits<int>::max());
 }
 
-std::vector<NativeFr> make_roots(const std::size_t n, const bool inverse)
+void fill_roots(std::span<NativeFr> roots, const bool inverse)
 {
-    NativeFr primitive = blst::primRootOfUnity<NativeFr>(n);
+    NativeFr primitive = blst::primRootOfUnity<NativeFr>(roots.size());
     if (inverse) {
         NativeFr::reciprocal(primitive, primitive);
     }
-    std::vector<NativeFr> roots(n);
     NativeFr current = NativeFr::one();
 
-    for (std::size_t i = 0; i < n; ++i) {
+    for (std::size_t i = 0; i < roots.size(); ++i) {
         roots[i] = current;
         NativeFr::mul(current, current, primitive);
     }
+}
+
+std::vector<NativeFr> make_roots(const std::size_t n, const bool inverse)
+{
+    std::vector<NativeFr> roots(n);
+    fill_roots(roots, inverse);
 
     return roots;
 }
@@ -608,6 +613,60 @@ bool blst_fr_fft(blst_fr* values, size_t n, bool inverse)
             std::span<NativeFr>(native_values, n),
             std::span<const NativeFr>(roots),
             inverse);
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+size_t blst_fr_fft_domain_len(size_t n)
+{
+    if (!valid_fft_size(n)) {
+        return 0;
+    }
+    return n + 1;
+}
+
+bool blst_fr_fft_domain_init(blst_fr* domain, size_t domain_len, size_t n)
+{
+    const std::size_t required = blst_fr_fft_domain_len(n);
+    if (domain == nullptr || required == 0 || domain_len < required) {
+        return false;
+    }
+
+    try {
+        auto* native_domain = reinterpret_cast<NativeFr*>(domain);
+        fill_roots(std::span<NativeFr>(native_domain, n), false);
+
+        const NativeFr size = NativeFr::from_uint64(n);
+        NativeFr::reciprocal(native_domain[n], size);
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+bool blst_fr_fft_with_domain(
+    blst_fr* values,
+    size_t n,
+    const blst_fr* domain,
+    size_t domain_len,
+    bool inverse)
+{
+    const std::size_t required = blst_fr_fft_domain_len(n);
+    if (values == nullptr || domain == nullptr || required == 0 ||
+        domain_len < required) {
+        return false;
+    }
+
+    try {
+        auto* native_values = reinterpret_cast<NativeFr*>(values);
+        const auto* native_domain = reinterpret_cast<const NativeFr*>(domain);
+        fft_with_forward_roots<NativeFr, NativeFr, blst::FrCoeffCtx>(
+            std::span<NativeFr>(native_values, n),
+            std::span<const NativeFr>(native_domain, n),
+            inverse,
+            native_domain[n]);
         return true;
     } catch (...) {
         return false;
