@@ -8,6 +8,8 @@
 - Never run two benchmark processes concurrently.
 - Keep changes small enough to review and revert independently.
 - Every fix receives a regression before its upstream row is closed.
+- Use the risk-proportional tiers in `VALIDATION_POLICY.md`; reserve full
+  supported-profile matrices for subsystem and milestone gates.
 - Generator repair must reproduce the fork before importing upstream assembly
   changes.
 

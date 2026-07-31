@@ -41,6 +41,7 @@ for compatibility.
 | `FINDINGS.md` | Security, correctness, performance, and maintainability findings |
 | `STATUS.md` | Current phase, gates, metrics, and next review queue |
 | `HARDENING_PLAN.md` | Dependency-aware implementation and validation phases |
+| `VALIDATION_POLICY.md` | Risk-proportional checks and subsystem/milestone validation gates |
 | `BTX_FREEZE.md` | No-touch policy and merge prerequisite for frozen BTx/BTE |
 | `CUDA_EXPERIMENTAL.md` | Retention and non-production policy for opt-in CUDA |
 | `PHASE_*.md` | Implemented hardening and validation evidence |
@@ -92,6 +93,10 @@ for compatibility.
 8. Update the file-manifest row. A file may be marked `complete` only when every
    required column is populated.
 9. Run the integrity checker again.
+
+Use `VALIDATION_POLICY.md` to select the smallest check set that directly
+exercises each change. Full supported-profile matrices are subsystem,
+milestone, and release gates rather than per-commit requirements.
 
 Use one benchmark process at a time. Benchmark evidence must include the build
 profile, CPU, instruction-set assumptions, command, sample count, and raw result

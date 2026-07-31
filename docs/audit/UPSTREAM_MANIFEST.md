@@ -44,9 +44,9 @@ No row is closed merely because its language binding is scheduled for removal.
 | 7 | `374b7cd` | 2025-10-02 | removal_candidate | Refresh `.golangci.yml` | not_applicable | closed | Go lint configuration removed in Phase 6B |
 | 8 | `17226b2` | 2025-10-10 | conceptual | Go infinity-uncompress test fix | translate | validated | Test intent translated to retained scalar C, native C++, Rust, and AVX public paths with exact 48/96-byte inputs; see `AUD-012` and `PHASE_01.md` |
 | 9 | `097818a` | 2025-10-13 | removal_candidate | Go WASM diagnostic binding | not_applicable | closed | Go/WASM surface removed in Phase 6B |
-| 10 | `cf739f0` | 2025-10-27 | direct | Add `blst_fp_from_{l,b}e_bytes` | translate | reviewing | API absent; translate into split C header/C++ export architecture with zero-length hardening |
+| 10 | `cf739f0` | 2025-10-27 | direct | Add `blst_fp_from_{l,b}e_bytes` | translate | validated | Allocation-free split-header/native-export translation committed as `f962830`; empty input has explicit null-safe zero semantics and bytewise-oracle boundary tests pass; see `PHASE_07A.md` |
 | 11 | `dd5e80b` | 2025-10-27 | direct | Foolproof zero-length `blst_fr_from_{l,b}e_bytes` | already_equivalent | closed | Stronger local fix `d6a55c08`; zeroes output and returns false; C/header regressions passed in `x64-Debug` |
-| 12 | `9c35e86` | 2025-10-27 | direct | Refresh generated build outputs | translate | reviewing | Generated companion to `cf739f0`; never apply standalone; regenerate Rust FFI/exports after tooling repair |
+| 12 | `9c35e86` | 2025-10-27 | direct | Refresh generated build outputs | translate | validated | The exact six-line Rust FFI companion was applied with `cf739f0` in `f962830`; focused Rust link/behavior coverage passes; reproduce through bindgen when that retained workflow is next exercised; see `PHASE_07A.md` |
 | 13 | `b79e2bc` | 2025-10-27 | removal_candidate | SWIG Python 4.4 compatibility | not_applicable | closed | Python/SWIG and Java-only surface removed in Phase 6C |
 | 14 | `6aa1fe7` | 2025-10-28 | conceptual | C++/SWIG Java 4.4 compatibility | not_applicable | closed | Java/SWIG surface removed in Phase 6C; retained native C++ API unchanged |
 | 15 | `d497208` | 2025-10-28 | removal_candidate | Harmonize Java Android build | not_applicable | closed | Java Android build only and later reverted |
