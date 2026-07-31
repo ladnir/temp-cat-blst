@@ -4,11 +4,12 @@ Last updated: 2026-07-30
 
 ## Current phase
 
-Phase 3C is implemented, validated, and committed. The accepted upstream
-assembly chain is translated through the reproducible 100-file generator
-path; scalar direct-ADX, scalar portable-dispatch, and AVX-512 portable suites
-pass. All accepted assembly rows are closed. Upstream manifest translation
-and file-by-file review remain the controlling workstreams.
+Phase 4 is implemented, validated, and committed. Scalar fixed-table MSM
+precomputation now uses bounded stack chunking with no heap fallback. Direct
+ADX, portable dispatch, AVX-512, optimized MSVC, and Linux ASan profiles pass.
+The integration review also restored q+x portable assembly inclusion for
+ELF, COFF, and Mach-O wrappers. Upstream manifest translation and file-by-file
+review remain the controlling workstreams.
 
 ## Ordered gates
 
@@ -16,7 +17,7 @@ and file-by-file review remain the controlling workstreams.
 | --- | --- | --- |
 | 1. Audit infrastructure | complete | Inventory and integrity checks pass |
 | 2. Upstream manifest | in progress | Every upstream-only commit has a documented decision |
-| 3. Core scalar audit | not started | Scalar dependency chain complete with evidence |
+| 3. Core scalar audit | in progress | Scalar dependency chain complete with evidence |
 | 4. AVX-512 audit | not started | AVX-512 chain and scalar differential coverage complete |
 | 5. FFT/middle-product audit | not started | Algorithms, limits, and differential tests complete |
 | 6. Supported API/bindings | not started | C, C++, and Rust surfaces complete |
@@ -42,7 +43,7 @@ and file-by-file review remain the controlling workstreams.
 
 ## Immediate upstream queue
 
-The first three hardening phases resolved the following escalated
+Completed hardening phases resolved the following escalated
 security/correctness and provenance candidates:
 
 1. `1172c18` — Rust `Pairing` DST ownership translated and validated.
@@ -50,7 +51,8 @@ security/correctness and provenance candidates:
 3. `6271918` — Rust Pippenger large-system routing translated and validated.
 4. `dd5e80b` — stronger local equivalent confirmed and closed.
 5. `a3c15d6` — zero-length-salt assembly-path fix validated.
-6. `84926f2` — local heap workaround still requires bounded translation.
+6. `84926f2` — allocation-free bounded scalar MSM precompute translated and
+   validated.
 7. `AUD-009` — deterministic assembly generation is validated.
 8. `41b511a` and `14cd09a` — Win64 fallback-symbol guards translated and
    validated through the verified generator path.
@@ -59,6 +61,8 @@ security/correctness and provenance candidates:
    changes translated and validated in Phase 3C.
 10. `AUD-017` — fork-specific native C++ assembly mapping restored and
     validated across direct and portable dispatch.
+11. `AUD-018` — portable ELF/COFF/Mach-O wrappers include both q dispatchers
+    and x providers; Linux GCC/ASan validation passed.
 
 ## File-review dependency order
 
@@ -78,10 +82,10 @@ security/correctness and provenance candidates:
 
 Current generated inventory:
 
-- 618 repository files accounted for;
+- 619 repository files accounted for;
 - 155 in-scope production;
 - 114 generated production;
-- 131 in-scope support;
+- 132 in-scope support;
 - 59 benchmark files explicitly excluded;
 - 123 planned-removal files;
 - 36 documentation/archive files.
@@ -91,25 +95,25 @@ Upstream progress:
 - 63 of 63 commits have decisions;
 - 32 are closed as already equivalent, deliberate rejection, or verified
   removal-only changes;
-- 14 accepted ports/translations are validated;
-- 17 remain reviewing while accepted translations, policy decisions, or
+- 15 accepted ports/translations are validated;
+- 16 remain reviewing while accepted translations, policy decisions, or
   validation are completed;
 - 0 remain pending.
 
-Findings: 17 total. Thirteen are validated. Four remain open: 2 medium, 1 low,
+Findings: 18 total. Fifteen are validated. Three remain open: 1 medium, 1 low,
 and 1 informational planned-removal item.
 
 
 ## Next action
 
-Begin Phase 4 with `AUD-005`: replace the scalar MSM precompute heap fallback
-with bounded allocation-free chunking. Preserve checked arithmetic and cover
-G1/G2, packed and pointer-array layouts, infinity, and both sides of every
-scratch threshold.
+Begin Phase 5 with `AUD-011`: replace the capacity-blind uniqueness-tree API
+with the accepted capacity-aware C and Rust contract. Bound traversal and
+allocation arithmetic before migrating callers and adding large-tree,
+overflow, duplicate, and resource-exhaustion tests.
 
 No production file should be marked complete before its related implementation
 and validation evidence closes the corresponding upstream rows.
 
 Phase evidence is recorded in `PHASE_01.md`, `PHASE_02.md`, `PHASE_03A.md`,
-`PHASE_03B.md`, and `PHASE_03C.md`; the remaining dependency order and exit
-gates are in `HARDENING_PLAN.md`.
+`PHASE_03B.md`, `PHASE_03C.md`, and `PHASE_04.md`; the remaining dependency
+order and exit gates are in `HARDENING_PLAN.md`.
