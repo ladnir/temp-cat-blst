@@ -146,7 +146,9 @@ tree tests, and C/Rust wrapper validation.
 
 - [x] Remove `bindings/blst.hpp` and all active packaging, build, test, and
   public-documentation references (`PHASE_06A.md`).
-- Remove CUDA, Go, BTx/BTE, and unsupported bindings through reviewed changes.
+- [x] Remove Go bindings, module/lint tooling, CI, CGo shims, and orphaned
+  amalgamation (`PHASE_06B.md`).
+- Remove CUDA, BTx/BTE, and unsupported bindings through reviewed changes.
 - Harden CodeQL, sanitizers, warnings, and supported build matrices.
 - Begin CatBLST rename and two-prefix ABI work only after the upstream
   implementation rows are closed.

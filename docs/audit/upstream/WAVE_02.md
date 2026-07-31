@@ -23,7 +23,7 @@ C/C++/Rust code.
 | `e7f90de` | reject | Upstream version `0.3.16` would falsely claim upstream release identity. CatBLST needs an independent crate name/version/publish policy. |
 | `dece82e` | translate | Local dev manifest still directly depends on `rand 0.8`. Use `rand_core` traits with the retained ChaCha RNG, preserve MSRV, and compile-check all Rust targets without auditing benchmarks. |
 | `23e330f` | not_applicable | Zig is removed. Its owned trailing-DST design strengthens the selected translation options for Rust `1172c18`; C++ already owns/copies DST. |
-| `23cdd8a` | not_applicable | Go is removed. The shared scalar-length bug remains actionable through Rust `96a46e6`; raw C/C++ pointer/bit-length contracts need documentation. |
+| `23cdd8a` | not_applicable | Go was removed in Phase 6B. The shared scalar-length bug remains actionable through Rust `96a46e6`; raw C/C++ pointer/bit-length contracts need documentation. |
 | `54e6e55` | reject | Do not import upstream version `0.3.17`; resolve once under the CatBLST package identity. |
 
 ### Channel translation constraints
@@ -94,7 +94,7 @@ directly, avoiding the Python harness's generic exponentiation in routine tests.
 
 | Commits | Reason |
 | --- | --- |
-| `3aa4b71`, `374b7cd`, `097818a`, `ce49aad`, `7c17bf5`, `3ede151` | Go documentation, lint, WASM stub, or workflow only |
+| `3aa4b71`, `374b7cd`, `097818a`, `ce49aad`, `7c17bf5`, `3ede151` | Go documentation, lint, WASM stub, or workflow only; removed in Phase 6B |
 | `b79e2bc`, `2594ed1` | Python/SWIG-only compatibility |
 | `d497208`, `0438d74` | Java Android change and its revert |
 | `7f04257`, `68c1d90`, `8065152`, `4eb6250`, `f41f715`, `8aaaef0` | Zig binding/build/generator/CI/version only |
@@ -131,7 +131,8 @@ upstream unpinned installation pattern.
 Decision: `not_applicable` for Go, closed with a retained link.
 
 Rust empty slices already provide the non-null/zero-length case that triggers
-`AUD-004`. Its C and Rust regression belongs to `a3c15d6`; no Go code is kept.
+`AUD-004`. Its C and Rust regression belongs to `a3c15d6`; Go code was removed
+in Phase 6B.
 
 ### `06a5711`: retained uniqueness tree
 

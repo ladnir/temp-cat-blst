@@ -4,12 +4,12 @@ Last updated: 2026-07-31
 
 ## Current phase
 
-Phase 6 has begun. Phase 6A removed the unsupported C-over-ABI C++ wrapper and
-all active package, build, test, and public-documentation references while
-retaining the native C++ implementation. Scalar C/native C++, AVX-512 build,
-Rust test, package-content, and reference checks pass. Phase 5 uniqueness-tree
-hardening also remains validated. Upstream manifest translation and
-file-by-file review remain the controlling workstreams.
+Phase 6B removed Go language support, its module/lint/CI infrastructure, CGo
+shims, and an orphaned stale amalgamation while retaining C, native C++, and
+Rust. Scalar C/native C++, AVX-512 build, Rust test, package-content, and
+reference checks pass. Phase 6A legacy-wrapper removal and Phase 5
+uniqueness-tree hardening also remain validated. Upstream manifest translation
+and file-by-file review remain the controlling workstreams.
 
 ## Ordered gates
 
@@ -35,8 +35,9 @@ file-by-file review remain the controlling workstreams.
   unsafe legacy contracts or materially improve correctness and performance.
 - Retained algorithm areas: FFT and middle product.
 - Benchmarks remain inventoried but are excluded from file-by-file audit.
-- Planned removal: CUDA, Go, BTx/BTE, C#, Java, Node.js,
-  Python/SWIG, and Emscripten binding support.
+- Go support was removed in Phase 6B.
+- Planned removal: CUDA, BTx/BTE, C#, Java, Node.js, Python/SWIG, and
+  Emscripten binding support.
 - Future project name: CatBLST.
 - Future C ABI: build-time selection of exactly one generated prefix,
   `blst_` or `catblst_`; no runtime dispatch.
@@ -68,6 +69,8 @@ security/correctness and provenance candidates:
     cross-language validation.
 13. `e61acc2`, `d4ca0f2`, and `AUD-006` — the unsupported C-over-ABI C++
     wrapper was removed with clean C, native C++, and Rust validation.
+14. Go-only upstream rows and `AUD-019` — Go support and its orphaned stale
+    amalgamation were removed with clean retained-language validation.
 
 ## File-review dependency order
 
@@ -87,12 +90,12 @@ security/correctness and provenance candidates:
 
 Current generated inventory:
 
-- 622 repository files accounted for;
-- 156 in-scope production;
-- 114 generated production;
+- 604 repository files accounted for;
+- 155 in-scope production;
+- 113 generated production;
 - 136 in-scope support;
 - 59 benchmark files explicitly excluded;
-- 121 planned-removal files;
+- 105 planned-removal files;
 - 36 documentation/archive files.
 
 Upstream progress:
@@ -105,20 +108,21 @@ Upstream progress:
   validation are completed;
 - 0 remain pending.
 
-Findings: 18 total. Seventeen are validated. One low finding remains open.
+Findings: 19 total. Eighteen are validated. One low finding remains open.
 
 
 ## Next action
 
-Continue Phase 6 with Go-language support removal as a separate reviewed
-change. Keep CUDA and BTx/BTE removal isolated so retained FFT and
-middle-product dependencies are proved before deletion. Regenerate the file
-manifest and run the C, native C++, and Rust matrices after each batch.
+Continue Phase 6 by removing the remaining unsupported language bindings and
+SWIG as a separate reviewed change. Keep CUDA and BTx/BTE removal isolated so
+retained FFT and middle-product dependencies are proved before deletion.
+Regenerate the file manifest and run the C, native C++, and Rust matrices after
+each batch.
 
 No production file should be marked complete before its related implementation
 and validation evidence closes the corresponding upstream rows.
 
 Phase evidence is recorded in `PHASE_01.md`, `PHASE_02.md`, `PHASE_03A.md`,
-`PHASE_03B.md`, `PHASE_03C.md`, `PHASE_04.md`, `PHASE_05.md`, and
-`PHASE_06A.md`; the remaining dependency order and exit gates are in
-`HARDENING_PLAN.md`.
+`PHASE_03B.md`, `PHASE_03C.md`, `PHASE_04.md`, `PHASE_05.md`,
+`PHASE_06A.md`, and `PHASE_06B.md`; the remaining dependency order and exit
+gates are in `HARDENING_PLAN.md`.

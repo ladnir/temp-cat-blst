@@ -11,8 +11,8 @@ BLST-derived codebase that is expected to become CatBLST.
    time, with explicit evidence.
 3. Harden and validate the scalar and AVX-512 implementations.
 4. Preserve the FFT and middle-product implementations.
-5. Prepare planned removal of CUDA, Go, BTx/BTE, and unsupported language
-   bindings.
+5. Remove CUDA, BTx/BTE, and unsupported language bindings through reviewed
+   changes; Go was removed in Phase 6B.
 6. Rename the project and introduce a configurable C ABI prefix only after the
    upstream and code audits are under control.
 
