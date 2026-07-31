@@ -5,6 +5,26 @@
 use core::ops::{Index, IndexMut};
 use core::slice::SliceIndex;
 
+#[inline]
+fn scalar_layout(npoints: usize, nbits: usize) -> Option<(usize, usize)> {
+    let nbytes = nbits / 8 + usize::from(nbits % 8 != 0);
+    nbytes
+        .checked_mul(npoints)
+        .map(|scalar_bytes| (nbytes, scalar_bytes))
+}
+
+/// # Safety
+///
+/// Every element through `values.len()` must have been initialized as `T`.
+#[inline]
+unsafe fn assume_init_vec<T>(mut values: Vec<MaybeUninit<T>>) -> Vec<T> {
+    let ptr = values.as_mut_ptr().cast::<T>();
+    let len = values.len();
+    let capacity = values.capacity();
+    core::mem::forget(values);
+    Vec::from_raw_parts(ptr, len, capacity)
+}
+
 macro_rules! pippenger_mult_impl {
     (
         $points:ident,
@@ -50,15 +70,23 @@ macro_rules! pippenger_mult_impl {
 
             pub fn from(points: &[$point]) -> Self {
                 let npoints = points.len();
-                let mut ret = Self {
-                    points: Vec::with_capacity(npoints),
-                };
-                #[allow(clippy::uninit_vec)]
-                unsafe { ret.points.set_len(npoints) };
+                if npoints == 0 {
+                    return Self { points: Vec::new() };
+                }
 
-                let p: [*const $point; 2] = [&points[0], ptr::null()];
-                unsafe { $to_affines(&mut ret.points[0], &p[0], npoints) };
-                ret
+                let mut affine = Vec::with_capacity(npoints);
+                affine.resize_with(npoints, MaybeUninit::uninit);
+                let p: [*const $point; 2] = [points.as_ptr(), ptr::null()];
+                unsafe {
+                    $to_affines(
+                        affine.as_mut_ptr().cast::<$point_affine>(),
+                        &p[0],
+                        npoints,
+                    );
+                    Self {
+                        points: assume_init_vec(affine),
+                    }
+                }
             }
 
             #[inline]
@@ -77,28 +105,32 @@ macro_rules! pippenger_mult_impl {
 
             fn mult(&self, scalars: &[u8], nbits: usize) -> $point {
                 let npoints = self.len();
-                let nbytes = (nbits + 7) / 8;
+                let (_, scalar_bytes) = scalar_layout(npoints, nbits)
+                    .unwrap_or_else(|| panic!("scalars length mismatch"));
 
-                if scalars.len() < nbytes * npoints {
+                if scalars.len() < scalar_bytes {
                     panic!("scalars length mismatch");
                 }
+                if npoints == 0 || nbits == 0 {
+                    return <$point>::default();
+                }
 
-                let p: [*const $point_affine; 2] = [&self[0], ptr::null()];
-                let s: [*const u8; 2] = [&scalars[0], ptr::null()];
+                let p: [*const $point_affine; 2] = [self.as_ptr(), ptr::null()];
+                let s: [*const u8; 2] = [scalars.as_ptr(), ptr::null()];
 
                 let mut ret = <$point>::default();
                 unsafe {
-                    let mut scratch: Vec<u64> =
-                        Vec::with_capacity($scratch_sizeof(npoints) / 8);
-                    #[allow(clippy::uninit_vec)]
-                    scratch.set_len(scratch.capacity());
+                    let scratch_words = $scratch_sizeof(npoints) / 8;
+                    let mut scratch = Vec::with_capacity(scratch_words);
+                    scratch
+                        .resize_with(scratch_words, MaybeUninit::<u64>::uninit);
                     $multi_scalar_mult(
                         &mut ret,
                         &p[0],
                         npoints,
                         &s[0],
                         nbits,
-                        &mut scratch[0],
+                        scratch.as_mut_ptr().cast::<u64>(),
                     );
                 }
                 ret
@@ -107,7 +139,11 @@ macro_rules! pippenger_mult_impl {
             fn add(&self) -> $point {
                 let npoints = self.len();
 
-                let p: [*const _; 2] = [&self[0], ptr::null()];
+                if npoints == 0 {
+                    return <$point>::default();
+                }
+
+                let p: [*const _; 2] = [self.as_ptr(), ptr::null()];
                 let mut ret = <$point>::default();
                 unsafe { $add(&mut ret, &p[0], npoints) };
 
@@ -177,3 +213,18 @@ pippenger_mult_impl!(
     blst_p2_affine_is_inf,
     blst_p2_affine_in_g2,
 );
+
+#[cfg(test)]
+mod pippenger_no_std_layout_tests {
+    use super::*;
+
+    #[test]
+    fn scalar_layout_rejects_overflow() {
+        assert_eq!(scalar_layout(0, usize::MAX), Some((usize::MAX / 8 + 1, 0)));
+        assert_eq!(
+            scalar_layout(1, usize::MAX),
+            Some((usize::MAX / 8 + 1, usize::MAX / 8 + 1))
+        );
+        assert_eq!(scalar_layout(usize::MAX, usize::MAX), None);
+    }
+}

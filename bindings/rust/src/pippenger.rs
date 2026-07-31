@@ -2,30 +2,115 @@
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
 
+use core::cell::UnsafeCell;
 use core::num::Wrapping;
 use core::ops::{Index, IndexMut};
 use core::slice::SliceIndex;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::Barrier;
 
 struct tile {
     x: usize,
     dx: usize,
     y: usize,
-    dy: usize,
 }
 
-// Minimalist core::cell::Cell stand-in, but with Sync marker, which
-// makes it possible to pass it to multiple threads. It works, because
-// *here* each Cell is written only once and by just one thread.
-#[repr(transparent)]
-struct Cell<T: ?Sized> {
-    value: T,
+// Keep concurrently updated accumulators on separate cache lines. Both curve
+// point sizes would otherwise make adjacent workers share a boundary line.
+#[repr(align(64))]
+struct Cell<T: Copy> {
+    value: UnsafeCell<MaybeUninit<T>>,
 }
-unsafe impl<T: ?Sized + Sync> Sync for Cell<T> {}
-impl<T> Cell<T> {
-    pub fn as_ptr(&self) -> *mut T {
-        &self.value as *const T as *mut T
+// Each slot has exactly one worker writer. Readers only access a slot after
+// its row counter or completion barrier performs an acquire operation. Copy
+// excludes destructors because read() intentionally leaves the slot storage.
+unsafe impl<T: Copy + Send> Sync for Cell<T> {}
+impl<T: Copy> Cell<T> {
+    #[inline]
+    fn uninit() -> Self {
+        Self {
+            value: UnsafeCell::new(MaybeUninit::uninit()),
+        }
     }
+
+    #[inline]
+    pub fn as_ptr(&self) -> *mut T {
+        self.value.get().cast::<T>()
+    }
+
+    #[inline]
+    unsafe fn read(&self) -> T {
+        self.as_ptr().read()
+    }
+}
+
+#[inline]
+fn scalar_layout(npoints: usize, nbits: usize) -> Option<(usize, usize)> {
+    let nbytes = nbits / 8 + usize::from(nbits % 8 != 0);
+    nbytes
+        .checked_mul(npoints)
+        .map(|scalar_bytes| (nbytes, scalar_bytes))
+}
+
+/// # Safety
+///
+/// Every element through `values.len()` must have been initialized as `T`.
+#[inline]
+unsafe fn assume_init_vec<T>(mut values: Vec<MaybeUninit<T>>) -> Vec<T> {
+    let ptr = values.as_mut_ptr().cast::<T>();
+    let len = values.len();
+    let capacity = values.capacity();
+    core::mem::forget(values);
+    Vec::from_raw_parts(ptr, len, capacity)
+}
+
+#[inline]
+fn pippenger_ncpus(ncpus: usize) -> usize {
+    #[cfg(all(test, not(feature = "no-threads")))]
+    {
+        return TEST_PIPPENGER_NCPUS.with(|override_ncpus| {
+            let override_ncpus = override_ncpus.get();
+            if override_ncpus == 0 {
+                ncpus
+            } else {
+                override_ncpus
+            }
+        });
+    }
+
+    #[cfg(any(not(test), feature = "no-threads"))]
+    ncpus
+}
+
+#[cfg(all(test, not(feature = "no-threads")))]
+std::thread_local! {
+    static TEST_PIPPENGER_NCPUS: std::cell::Cell<usize> =
+        std::cell::Cell::new(0);
+}
+
+#[cfg(all(test, not(feature = "no-threads")))]
+fn with_pippenger_ncpus<T>(ncpus: usize, f: impl FnOnce() -> T) -> T {
+    struct Reset<'a> {
+        slot: &'a std::cell::Cell<usize>,
+        previous: usize,
+    }
+
+    impl Drop for Reset<'_> {
+        fn drop(&mut self) {
+            self.slot.set(self.previous);
+        }
+    }
+
+    assert_ne!(ncpus, 0);
+    TEST_PIPPENGER_NCPUS.with(|slot| {
+        let reset = Reset {
+            slot,
+            previous: slot.replace(ncpus),
+        };
+        let ret = f();
+        drop(reset);
+        ret
+    })
 }
 
 macro_rules! pippenger_mult_impl {
@@ -74,17 +159,27 @@ macro_rules! pippenger_mult_impl {
 
             pub fn from(points: &[$point]) -> Self {
                 let npoints = points.len();
-                let mut ret = Self {
-                    points: Vec::with_capacity(npoints),
-                };
-                unsafe { ret.points.set_len(npoints) };
+                if npoints == 0 {
+                    return Self { points: Vec::new() };
+                }
+
+                let mut affine = Vec::with_capacity(npoints);
+                affine.resize_with(npoints, MaybeUninit::uninit);
 
                 let pool = mt::da_pool();
                 let ncpus = pool.max_count();
                 if ncpus < 2 || npoints < 768 {
-                    let p: [*const $point; 2] = [&points[0], ptr::null()];
-                    unsafe { $to_affines(&mut ret.points[0], &p[0], npoints) };
-                    return ret;
+                    let p: [*const $point; 2] = [points.as_ptr(), ptr::null()];
+                    unsafe {
+                        $to_affines(
+                            affine.as_mut_ptr().cast::<$point_affine>(),
+                            &p[0],
+                            npoints,
+                        );
+                        return Self {
+                            points: assume_init_vec(affine),
+                        };
+                    }
                 }
 
                 let mut nslices = (npoints + 511) / 512;
@@ -95,17 +190,23 @@ macro_rules! pippenger_mult_impl {
                     (npoints / nslices + 1, Wrapping(npoints % nslices));
                 let mut x = 0usize;
                 while x < npoints {
-                    let out = &mut ret.points[x];
-                    let inp = &points[x];
-
                     delta -= (rem == Wrapping(0)) as usize;
                     rem -= Wrapping(1);
+                    let start = x;
                     x += delta;
+                    let out = &mut affine[start..x];
+                    let inp = &points[start..x];
 
                     let wg = wg.clone();
                     pool.joined_execute(move || {
-                        let p: [*const $point; 2] = [inp, ptr::null()];
-                        unsafe { $to_affines(out, &p[0], delta) };
+                        let p: [*const $point; 2] = [inp.as_ptr(), ptr::null()];
+                        unsafe {
+                            $to_affines(
+                                out.as_mut_ptr().cast::<$point_affine>(),
+                                &p[0],
+                                delta,
+                            )
+                        };
                         if wg.1.fetch_sub(1, Ordering::AcqRel) == 1 {
                             wg.0.wait();
                         }
@@ -113,7 +214,9 @@ macro_rules! pippenger_mult_impl {
                 }
                 wg.0.wait();
 
-                ret
+                Self {
+                    points: unsafe { assume_init_vec(affine) },
+                }
             }
 
             #[inline]
@@ -132,23 +235,30 @@ macro_rules! pippenger_mult_impl {
 
             fn mult(&self, scalars: &[u8], nbits: usize) -> $point {
                 let npoints = self.len();
-                let nbytes = (nbits + 7) / 8;
+                let (nbytes, scalar_bytes) = scalar_layout(npoints, nbits)
+                    .unwrap_or_else(|| panic!("scalars length mismatch"));
 
-                if scalars.len() < nbytes * npoints {
+                if scalars.len() < scalar_bytes {
                     panic!("scalars length mismatch");
+                }
+                if npoints == 0 || nbits == 0 {
+                    return <$point>::default();
                 }
 
                 let pool = mt::da_pool();
-                let ncpus = pool.max_count();
+                let ncpus = pippenger_ncpus(pool.max_count());
                 if ncpus < 2 {
-                    let p: [*const $point_affine; 2] = [&self[0], ptr::null()];
-                    let s: [*const u8; 2] = [&scalars[0], ptr::null()];
+                    let p: [*const $point_affine; 2] =
+                        [self.as_ptr(), ptr::null()];
+                    let s: [*const u8; 2] = [scalars.as_ptr(), ptr::null()];
 
                     unsafe {
-                        let mut scratch: Vec<u64> =
-                            Vec::with_capacity($scratch_sizeof(npoints) / 8);
-                        #[allow(clippy::uninit_vec)]
-                        scratch.set_len(scratch.capacity());
+                        let scratch_words = $scratch_sizeof(npoints) / 8;
+                        let mut scratch = Vec::with_capacity(scratch_words);
+                        scratch.resize_with(
+                            scratch_words,
+                            MaybeUninit::<u64>::uninit,
+                        );
                         let mut ret = <$point>::default();
                         $multi_scalar_mult(
                             &mut ret,
@@ -156,54 +266,85 @@ macro_rules! pippenger_mult_impl {
                             npoints,
                             &s[0],
                             nbits,
-                            &mut scratch[0],
+                            scratch.as_mut_ptr().cast::<u64>(),
                         );
                         return ret;
                     }
                 }
 
-                if npoints < 32 {
-                    let (tx, rx) = channel();
-                    let counter = Arc::new(AtomicUsize::new(0));
+                if npoints < 32 || npoints < ncpus {
                     let n_workers = core::cmp::min(ncpus, npoints);
 
-                    for _ in 0..n_workers {
-                        let tx = tx.clone();
-                        let counter = counter.clone();
+                    let mut acc: Vec<Cell<$point>> =
+                        Vec::with_capacity(n_workers);
+                    acc.resize_with(n_workers, Cell::uninit);
+                    let acc = &acc[..];
+
+                    let wg = Arc::new((
+                        Barrier::new(2),
+                        AtomicUsize::new(n_workers),
+                        AtomicUsize::new(0),
+                        AtomicBool::new(false),
+                    ));
+
+                    for i in 0..n_workers {
+                        let wg = wg.clone();
 
                         pool.joined_execute(move || {
-                            let mut acc = <$point>::default();
-                            let mut tmp = <$point>::default();
-                            let mut first = true;
+                            let acc = acc[i].as_ptr();
+                            let result = catch_unwind(AssertUnwindSafe(|| {
+                                let mut tmp = <$point>::default();
+                                let mut first = true;
 
-                            loop {
-                                let work =
-                                    counter.fetch_add(1, Ordering::Relaxed);
-                                if work >= npoints {
-                                    break;
-                                }
+                                loop {
+                                    let work =
+                                        wg.2.fetch_add(1, Ordering::Relaxed);
+                                    if work >= npoints {
+                                        break;
+                                    }
 
-                                unsafe {
-                                    $from_affine(&mut tmp, &self[work]);
-                                    let scalar = &scalars[nbytes * work];
-                                    if first {
-                                        $mult(&mut acc, &tmp, scalar, nbits);
-                                        first = false;
-                                    } else {
-                                        $mult(&mut tmp, &tmp, scalar, nbits);
-                                        $add_or_double(&mut acc, &acc, &tmp);
+                                    unsafe {
+                                        $from_affine(&mut tmp, &self[work]);
+                                        let scalar =
+                                            scalars.as_ptr().add(nbytes * work);
+                                        if first {
+                                            $mult(acc, &tmp, scalar, nbits);
+                                            first = false;
+                                        } else {
+                                            $mult(
+                                                &mut tmp, &tmp, scalar, nbits,
+                                            );
+                                            $add_or_double(acc, acc, &tmp);
+                                        }
                                     }
                                 }
+
+                                if first {
+                                    unsafe { acc.write(<$point>::default()) };
+                                }
+                            }));
+                            if result.is_err() {
+                                unsafe { acc.write(<$point>::default()) };
+                                wg.3.store(true, Ordering::Release);
                             }
 
-                            tx.send(acc).expect("disaster");
+                            if wg.1.fetch_sub(1, Ordering::AcqRel) == 1 {
+                                wg.0.wait();
+                            }
                         });
                     }
 
-                    let mut ret = rx.recv().expect("disaster");
-                    for _ in 1..n_workers {
-                        let p = rx.recv().expect("disaster");
-                        unsafe { $add_or_double(&mut ret, &ret, &p) };
+                    wg.0.wait();
+
+                    if wg.3.load(Ordering::Acquire) {
+                        panic!("Pippenger worker panicked");
+                    }
+
+                    let mut ret = unsafe { acc[0].read() };
+                    for worker in &acc[1..n_workers] {
+                        unsafe {
+                            $add_or_double(&mut ret, &ret, worker.as_ptr())
+                        };
                     }
 
                     return ret;
@@ -213,32 +354,27 @@ macro_rules! pippenger_mult_impl {
                     breakdown(nbits, pippenger_window_size(npoints), ncpus);
 
                 // |grid[]| holds "coordinates" and place for result
+                let grid_len =
+                    nx.checked_mul(ny).expect("Pippenger grid size overflow");
                 let mut grid: Vec<(tile, Cell<$point>)> =
-                    Vec::with_capacity(nx * ny);
-                #[allow(clippy::uninit_vec)]
-                unsafe { grid.set_len(grid.capacity()) };
+                    Vec::with_capacity(grid_len);
                 let dx = npoints / nx;
                 let mut y = window * (ny - 1);
-                let mut total = 0usize;
 
-                while total < nx {
-                    grid[total].0.x = total * dx;
-                    grid[total].0.dx = dx;
-                    grid[total].0.y = y;
-                    grid[total].0.dy = nbits - y;
-                    total += 1;
+                for x in 0..nx {
+                    grid.push((tile { x: x * dx, dx, y }, Cell::uninit()));
                 }
-                grid[total - 1].0.dx = npoints - grid[total - 1].0.x;
+                let last = grid.last_mut().expect("nonzero Pippenger grid");
+                last.0.dx = npoints - last.0.x;
                 while y != 0 {
                     y -= window;
                     for i in 0..nx {
-                        grid[total].0.x = grid[i].0.x;
-                        grid[total].0.dx = grid[i].0.dx;
-                        grid[total].0.y = y;
-                        grid[total].0.dy = window;
-                        total += 1;
+                        let x = grid[i].0.x;
+                        let dx = grid[i].0.dx;
+                        grid.push((tile { x, dx, y }, Cell::uninit()));
                     }
                 }
+                let total = grid.len();
                 let grid = &grid[..];
 
                 let points = &self[..];
@@ -269,8 +405,8 @@ macro_rules! pippenger_mult_impl {
                             let x = grid[work].0.x;
                             let y = grid[work].0.y;
 
-                            p[0] = &points[x];
-                            s[0] = &scalars[x * nbytes];
+                            p[0] = unsafe { points.as_ptr().add(x) };
+                            s[0] = unsafe { scalars.as_ptr().add(x * nbytes) };
                             unsafe {
                                 $tile_mult(
                                     grid[work].1.as_ptr(),
@@ -292,6 +428,7 @@ macro_rules! pippenger_mult_impl {
                         }
                     });
                 }
+                drop(tx);
 
                 let mut ret = <$point>::default();
                 let mut rows = vec![false; ny];
@@ -328,10 +465,14 @@ macro_rules! pippenger_mult_impl {
             fn add(&self) -> $point {
                 let npoints = self.len();
 
+                if npoints == 0 {
+                    return <$point>::default();
+                }
+
                 let pool = mt::da_pool();
                 let ncpus = pool.max_count();
                 if ncpus < 2 || npoints < 384 {
-                    let p: [*const _; 2] = [&self[0], ptr::null()];
+                    let p: [*const _; 2] = [self.as_ptr(), ptr::null()];
                     let mut ret = <$point>::default();
                     unsafe { $add(&mut ret, &p[0], npoints) };
                     return ret;
@@ -358,7 +499,7 @@ macro_rules! pippenger_mult_impl {
                             if work >= npoints {
                                 break;
                             }
-                            p[0] = &self[work];
+                            p[0] = unsafe { self.as_ptr().add(work) };
                             if work + chunk > npoints {
                                 chunk = npoints - work;
                             }
@@ -371,6 +512,7 @@ macro_rules! pippenger_mult_impl {
                         tx.send(acc).expect("disaster");
                     });
                 }
+                drop(tx);
 
                 let mut ret = rx.recv().unwrap();
                 for _ in 1..n_workers {
@@ -401,7 +543,7 @@ macro_rules! pippenger_mult_impl {
                     for i in 0..npoints {
                         check(&self[i])?
                     }
-                    return Ok(())
+                    return Ok(());
                 }
 
                 let counter = Arc::new(AtomicUsize::new(0));
@@ -505,14 +647,16 @@ fn breakdown(
     window: usize,
     ncpus: usize,
 ) -> (usize, usize, usize) {
-    let mut nx: usize;
-    let mut wnd: usize;
+    let window = core::cmp::max(window, 1);
+    let ncpus = core::cmp::max(ncpus, 1);
+    let mut nx = 1usize;
+    let mut wnd = window;
 
-    if nbits > window * ncpus {
+    if nbits > window.saturating_mul(ncpus) {
         nx = 1;
         wnd = num_bits(ncpus / 4);
         if (window + wnd) > 18 {
-            wnd = window - wnd;
+            wnd = window.saturating_sub(wnd).max(1);
         } else {
             wnd = (nbits / window + ncpus - 1) / ncpus;
             if (nbits / (window + 1) + ncpus - 1) / ncpus < wnd {
@@ -521,15 +665,15 @@ fn breakdown(
                 wnd = window;
             }
         }
-    } else {
+    } else if window > 3 {
         nx = 2;
         wnd = window - 2;
-        while (nbits / wnd + 1) * nx < ncpus {
+        while wnd > 1 && (nbits / wnd + 1) * nx < ncpus {
             nx += 1;
-            wnd = window - num_bits(3 * nx / 2);
+            wnd = window.saturating_sub(num_bits(3 * nx / 2)).max(1);
         }
         nx -= 1;
-        wnd = window - num_bits(3 * nx / 2);
+        wnd = window.saturating_sub(num_bits(3 * nx / 2)).max(1);
     }
     let ny = nbits / wnd + 1;
     wnd = nbits / ny + 1;
@@ -547,4 +691,49 @@ fn pippenger_window_size(npoints: usize) -> usize {
         return wbits - 3;
     }
     2
+}
+
+#[cfg(test)]
+mod pippenger_planner_tests {
+    use super::*;
+
+    #[test]
+    fn breakdown_dimensions_remain_nonzero() {
+        const NBITS: [usize; 6] = [0, 1, 8, 255, 512, 100_000];
+        const WINDOWS: [usize; 7] = [0, 1, 2, 3, 4, 8, 18];
+        const NCPUS: [usize; 10] = [0, 1, 2, 4, 16, 64, 256, 1024, 8192, 65536];
+
+        for nbits in NBITS {
+            for window in WINDOWS {
+                for ncpus in NCPUS {
+                    let (nx, ny, wnd) = breakdown(nbits, window, ncpus);
+                    assert_ne!(
+                        nx, 0,
+                        "nbits={}, window={}, ncpus={}",
+                        nbits, window, ncpus
+                    );
+                    assert_ne!(
+                        ny, 0,
+                        "nbits={}, window={}, ncpus={}",
+                        nbits, window, ncpus
+                    );
+                    assert_ne!(
+                        wnd, 0,
+                        "nbits={}, window={}, ncpus={}",
+                        nbits, window, ncpus
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn scalar_layout_rejects_overflow() {
+        assert_eq!(scalar_layout(0, usize::MAX), Some((usize::MAX / 8 + 1, 0)));
+        assert_eq!(
+            scalar_layout(1, usize::MAX),
+            Some((usize::MAX / 8 + 1, usize::MAX / 8 + 1))
+        );
+        assert_eq!(scalar_layout(usize::MAX, usize::MAX), None);
+    }
 }
