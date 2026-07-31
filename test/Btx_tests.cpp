@@ -163,6 +163,61 @@ TEST(Btx, MiddleProductCrossTermsMatchNaive)
     }
 }
 
+TEST(Btx, VerifyAggregatePredecryptionKeyAcceptsCombinedShares)
+{
+    BtxFixture fixture;
+    const std::vector<EncryptionResult> encrypted = fixture.encrypt_batch(4);
+    const std::vector<Ciphertext> ciphertexts = fixture.extract_ciphertexts(encrypted);
+
+    const ThresholdRequest request =
+        BuildThresholdRequest(fixture.setup.public_parameters, ciphertexts);
+    const std::array<PartialDecryptionShare, 2> shares = {
+        CreatePartialDecryptionShare(fixture.setup.secret_shares[0], request),
+        CreatePartialDecryptionShare(fixture.setup.secret_shares[2], request),
+    };
+    const blst::G1Point sbk = CombinePartialDecryptionShares(
+        std::span<const PartialDecryptionShare>(shares.data(), shares.size()),
+        fixture.setup.public_parameters);
+
+    EXPECT_TRUE(VerifyAggregatePredecryptionKey(
+        request,
+        sbk,
+        fixture.setup.public_parameters));
+}
+
+TEST(Btx, VerifyAggregatePredecryptionKeyRejectsTampering)
+{
+    BtxFixture fixture;
+    const std::vector<EncryptionResult> encrypted = fixture.encrypt_batch(4);
+    const std::vector<Ciphertext> ciphertexts = fixture.extract_ciphertexts(encrypted);
+
+    const ThresholdRequest request =
+        BuildThresholdRequest(fixture.setup.public_parameters, ciphertexts);
+    const std::array<PartialDecryptionShare, 2> shares = {
+        CreatePartialDecryptionShare(fixture.setup.secret_shares[0], request),
+        CreatePartialDecryptionShare(fixture.setup.secret_shares[1], request),
+    };
+    const blst::G1Point sbk = CombinePartialDecryptionShares(
+        std::span<const PartialDecryptionShare>(shares.data(), shares.size()),
+        fixture.setup.public_parameters);
+
+    blst::G1Point wrong_sbk{};
+    blst::G1Point::dadd(wrong_sbk, sbk, blst::G1Point::generator());
+    EXPECT_FALSE(VerifyAggregatePredecryptionKey(
+        request,
+        wrong_sbk,
+        fixture.setup.public_parameters));
+
+    ThresholdRequest wrong_request = request;
+    blst::G1Point wrong_c1{};
+    blst::G1Point::dadd(wrong_c1, wrong_request.ordered_c1[0], blst::G1Point::generator());
+    wrong_request.ordered_c1[0] = wrong_c1;
+    EXPECT_FALSE(VerifyAggregatePredecryptionKey(
+        wrong_request,
+        sbk,
+        fixture.setup.public_parameters));
+}
+
 TEST(Btx, RecoverBatchKeysWithMiddleProductMatchesEncryptorKeys)
 {
     BtxFixture fixture;

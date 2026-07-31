@@ -27,6 +27,17 @@ namespace bte::btx
         std::span<const PartialDecryptionShare> shares,
         const PublicParameters& public_parameters);
 
+    bool VerifyAggregatePredecryptionKey(
+        const ThresholdRequest& request,
+        const blst::G1Point& aggregate_predecryption_key,
+        const PublicParameters& public_parameters);
+
+    bool VerifyAggregatePredecryptionKey(
+        const ThresholdRequest& request,
+        const blst::G1Point& aggregate_predecryption_key,
+        const PublicParameters& public_parameters,
+        AggregatePredecryptionKeyVerificationWorkspace& workspace);
+
     std::vector<blst::GT> ComputeCrossTerms(
         const PublicParameters& public_parameters,
         std::span<const Ciphertext> ciphertexts,

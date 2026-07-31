@@ -87,6 +87,19 @@ namespace
             static_cast<std::int64_t>(batch_size));
     }
 
+    void set_server_check_counters(
+        benchmark::State& state,
+        const std::size_t batch_size,
+        const std::size_t num_servers)
+    {
+        state.counters["batch"] = static_cast<double>(batch_size);
+        state.counters["servers"] = static_cast<double>(num_servers);
+        state.counters["pairing_terms"] = static_cast<double>(batch_size + 1);
+        state.SetItemsProcessed(
+            static_cast<std::int64_t>(state.iterations()) *
+            static_cast<std::int64_t>(batch_size + 1));
+    }
+
     void apply_batch_args(benchmark::internal::Benchmark* benchmark_handle)
     {
         for (const int batch_size : { 1, 8, 32, 64, 128 }) {
@@ -98,6 +111,20 @@ namespace
     {
         for (const int threshold : { 2, 4, 8, 16 }) {
             benchmark_handle->Arg(threshold);
+        }
+    }
+
+    void apply_server_check_server_args(benchmark::internal::Benchmark* benchmark_handle)
+    {
+        for (const int server_count : { 8, 16, 32, 64, 128, 256, 512 }) {
+            benchmark_handle->Args({ 512, server_count });
+        }
+    }
+
+    void apply_server_check_batch_args(benchmark::internal::Benchmark* benchmark_handle)
+    {
+        for (const int batch_size : { 32, 64, 128, 256, 512 }) {
+            benchmark_handle->Args({ batch_size, 512 });
         }
     }
 
@@ -182,6 +209,55 @@ namespace
                 prepared_public_parameters,
                 precomputed_fft_prepared,
                 aggregate_predecryption_key));
+        }
+    };
+
+    struct BtxServerCheckContext
+    {
+        BtxParameters params{};
+        DeterministicRng rng;
+        SetupResult setup;
+        std::vector<EncryptionResult> encrypted;
+        std::vector<Ciphertext> ciphertexts;
+        ThresholdRequest request;
+        std::vector<PartialDecryptionShare> threshold_shares;
+        blst::G1Point aggregate_predecryption_key = blst::G1Point::infinity();
+        AggregatePredecryptionKeyVerificationWorkspace verification_workspace;
+
+        BtxServerCheckContext(
+            const std::size_t batch_size,
+            const std::size_t threshold,
+            const std::size_t num_servers,
+            const std::uint64_t seed)
+            : params{ batch_size, num_servers, threshold, 32,
+                      "BTE_BTX_KDF_SALT_V1", "BTE_BTX_KDF_INFO_V1" },
+              rng(seed),
+              setup(Setup(params, [this](std::span<std::uint8_t> out) { rng.fill(out); }))
+        {
+            encrypted.reserve(batch_size);
+            for (std::size_t i = 0; i < batch_size; ++i) {
+                encrypted.push_back(Encrypt(
+                    params,
+                    setup.public_parameters,
+                    [this](std::span<std::uint8_t> out) { rng.fill(out); }));
+            }
+
+            ciphertexts = extract_ciphertexts(
+                std::span<const EncryptionResult>(encrypted.data(), encrypted.size()));
+            request = BuildThresholdRequest(setup.public_parameters, ciphertexts);
+
+            threshold_shares.reserve(threshold);
+            for (std::size_t i = 0; i < threshold; ++i) {
+                threshold_shares.push_back(CreatePartialDecryptionShare(
+                    setup.secret_shares[i],
+                    request));
+            }
+
+            aggregate_predecryption_key = CombinePartialDecryptionShares(
+                std::span<const PartialDecryptionShare>(
+                    threshold_shares.data(),
+                    threshold_shares.size()),
+                setup.public_parameters);
         }
     };
 
@@ -286,6 +362,68 @@ namespace
         }
 
         set_threshold_counter(state, threshold);
+    }
+
+    static void BM_Btx_VerifyAggregatePredecryptionKey_ByServerCount(benchmark::State& state)
+    {
+        const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
+        const std::size_t server_count = static_cast<std::size_t>(state.range(1));
+        BtxServerCheckContext ctx(
+            batch_size,
+            kDefaultThreshold,
+            server_count,
+            0xb7120000ULL + (batch_size << 16) + server_count);
+
+        if (!VerifyAggregatePredecryptionKey(
+                ctx.request,
+                ctx.aggregate_predecryption_key,
+                ctx.setup.public_parameters,
+                ctx.verification_workspace)) {
+            state.SkipWithError("BTX aggregate predecryption key check failed during setup");
+            return;
+        }
+
+        for (auto _ : state) {
+            benchmark::DoNotOptimize(VerifyAggregatePredecryptionKey(
+                ctx.request,
+                ctx.aggregate_predecryption_key,
+                ctx.setup.public_parameters,
+                ctx.verification_workspace));
+            benchmark::ClobberMemory();
+        }
+
+        set_server_check_counters(state, batch_size, server_count);
+    }
+
+    static void BM_Btx_VerifyAggregatePredecryptionKey_ByBatchSize(benchmark::State& state)
+    {
+        const std::size_t batch_size = static_cast<std::size_t>(state.range(0));
+        const std::size_t server_count = static_cast<std::size_t>(state.range(1));
+        BtxServerCheckContext ctx(
+            batch_size,
+            kDefaultThreshold,
+            server_count,
+            0xb7130000ULL + (batch_size << 16) + server_count);
+
+        if (!VerifyAggregatePredecryptionKey(
+                ctx.request,
+                ctx.aggregate_predecryption_key,
+                ctx.setup.public_parameters,
+                ctx.verification_workspace)) {
+            state.SkipWithError("BTX aggregate predecryption key check failed during setup");
+            return;
+        }
+
+        for (auto _ : state) {
+            benchmark::DoNotOptimize(VerifyAggregatePredecryptionKey(
+                ctx.request,
+                ctx.aggregate_predecryption_key,
+                ctx.setup.public_parameters,
+                ctx.verification_workspace));
+            benchmark::ClobberMemory();
+        }
+
+        set_server_check_counters(state, batch_size, server_count);
     }
 
     static void BM_Btx_ComputeCrossTerms_Naive(benchmark::State& state)
@@ -499,6 +637,12 @@ BENCHMARK(BM_Btx_Encrypt);
 BENCHMARK(BM_Btx_BuildThresholdRequest)->Apply(apply_batch_args);
 BENCHMARK(BM_Btx_CreatePartialDecryptionShare)->Apply(apply_batch_args);
 BENCHMARK(BM_Btx_CombinePartialDecryptionShares)->Apply(apply_threshold_args);
+BENCHMARK(BM_Btx_VerifyAggregatePredecryptionKey_ByServerCount)
+    ->Apply(apply_server_check_server_args)
+    ->UseRealTime();
+BENCHMARK(BM_Btx_VerifyAggregatePredecryptionKey_ByBatchSize)
+    ->Apply(apply_server_check_batch_args)
+    ->UseRealTime();
 BENCHMARK(BM_Btx_ComputeCrossTerms_Naive)->Apply(apply_batch_args);
 BENCHMARK(BM_Btx_ComputeCrossTerms_FftPublic)->Apply(apply_batch_args);
 BENCHMARK(BM_Btx_ComputeCrossTerms_FftPrepared)->Apply(apply_batch_args);

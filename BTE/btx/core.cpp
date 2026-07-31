@@ -640,6 +640,61 @@ namespace bte::btx
             std::span<const blst::Fr>(lambdas.data(), lambdas.size()));
     }
 
+    bool VerifyAggregatePredecryptionKey(
+        const ThresholdRequest& request,
+        const blst::G1Point& aggregate_predecryption_key,
+        const PublicParameters& public_parameters)
+    {
+        AggregatePredecryptionKeyVerificationWorkspace workspace{};
+        return VerifyAggregatePredecryptionKey(
+            request,
+            aggregate_predecryption_key,
+            public_parameters,
+            workspace);
+    }
+
+    bool VerifyAggregatePredecryptionKey(
+        const ThresholdRequest& request,
+        const blst::G1Point& aggregate_predecryption_key,
+        const PublicParameters& public_parameters,
+        AggregatePredecryptionKeyVerificationWorkspace& workspace)
+    {
+        validate_batch_size(public_parameters, request.ordered_c1.size());
+
+        const std::size_t batch_size = request.ordered_c1.size();
+        const std::size_t pair_count = batch_size + 1;
+        workspace.g1_affine.resize(pair_count);
+        workspace.g2_affine.resize(pair_count);
+        workspace.g1_ptrs.resize(pair_count);
+        workspace.g2_ptrs.resize(pair_count);
+
+        for (std::size_t i = 0; i < batch_size; ++i) {
+            blst::G1Point::to_affine(workspace.g1_affine[i], request.ordered_c1[i]);
+            blst::G2Point::to_affine(
+                workspace.g2_affine[i],
+                public_g2_power(public_parameters, i + 1));
+            workspace.g1_ptrs[i] = &workspace.g1_affine[i];
+            workspace.g2_ptrs[i] = &workspace.g2_affine[i];
+        }
+
+        blst::G1Point neg_aggregate{};
+        blst::G1Point::neg(neg_aggregate, aggregate_predecryption_key);
+        blst::G1Point::to_affine(workspace.g1_affine[batch_size], neg_aggregate);
+        blst::G2Point::to_affine(workspace.g2_affine[batch_size], blst::G2Point::generator());
+        workspace.g1_ptrs[batch_size] = &workspace.g1_affine[batch_size];
+        workspace.g2_ptrs[batch_size] = &workspace.g2_affine[batch_size];
+
+        blst::GT miller{};
+        blst::GT::miller_loop_n(
+            miller,
+            workspace.g2_ptrs.data(),
+            workspace.g1_ptrs.data(),
+            workspace.g1_ptrs.size());
+        blst::GT out{};
+        blst::GT::final_mult(out, miller);
+        return blst::GT::equal(out, blst::GT::identity()) != 0;
+    }
+
     std::vector<blst::GT> ComputeCrossTerms(
         const PublicParameters& public_parameters,
         const std::span<const Ciphertext> ciphertexts,

@@ -87,6 +87,14 @@ namespace bte::btx
         blst::G1Point value = blst::G1Point::infinity();
     };
 
+    struct AggregatePredecryptionKeyVerificationWorkspace
+    {
+        std::vector<blst::G1AffinePoint> g1_affine;
+        std::vector<blst::G2AffinePoint> g2_affine;
+        std::vector<const blst::G1AffinePoint*> g1_ptrs;
+        std::vector<const blst::G2AffinePoint*> g2_ptrs;
+    };
+
     struct BatchDecryptionPrecomputation
     {
         std::vector<Ciphertext> ciphertexts;
