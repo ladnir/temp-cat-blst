@@ -36,15 +36,12 @@ function Get-Classification
         $lower -eq 'bindings/blst_btx.h' -or
         $lower -eq 'bindings/blst_trx.h' -or
         $lower -like 'test/btx*' -or
-        $lower.StartsWith('bindings/go/') -or
         $lower.StartsWith('bindings/c#/') -or
         $lower.StartsWith('bindings/emscripten/') -or
         $lower.StartsWith('bindings/java/') -or
         $lower.StartsWith('bindings/node.js/') -or
         $lower.StartsWith('bindings/python/') -or
-        $lower -eq 'bindings/blst.swg' -or
-        $lower -eq 'go.mod' -or
-        $lower -eq '.golangci.yml'
+        $lower -eq 'bindings/blst.swg'
 
     $cudaRemoval =
         $lower.StartsWith('blst/cuda/') -or
@@ -85,12 +82,6 @@ function Get-Classification
         {
             $subsystem = 'btx_bte'
             $notes = 'Planned removal: BTx/BTE will move to a separate repository.'
-        }
-        elseif ($lower.StartsWith('bindings/go/') -or $lower -eq 'go.mod' -or
-                $lower -eq '.golangci.yml')
-        {
-            $subsystem = 'go_binding'
-            $notes = 'Planned removal: Go is not a supported language surface.'
         }
         else
         {

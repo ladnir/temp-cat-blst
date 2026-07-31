@@ -48,16 +48,10 @@ The library deliberately abstains from dealing with memory management and multi-
 
 This library primarily supports x86_64 and ARM64 hardware platforms, and Linux, Mac, and Windows operating systems. But it does have a portable replacement for the assembly modules, which can be compiled for a plethora of other platforms. Problem reports for these will be considered and are likely to be addressed.
 
-This repository includes explicit bindings for:
-- [Go](bindings/go)
-- [Rust](bindings/rust)
-
-Unless deemed appropriate to implement, bindings for other languages will be provided using [SWIG](http://swig.org). Proof-of-concept scripts are available for:
-- [Python](bindings/python)
-- [Java](bindings/java)
-- [Node.js](bindings/node.js)
-- [Emscripten](bindings/emscripten)
-- [C#](bindings/c%23)
+The supported language surfaces are the [C API](bindings/blst.h), the native
+[C++ implementation and API](blst), and the [Rust binding](bindings/rust).
+Other binding directories are legacy, unsupported surfaces scheduled for
+removal.
 
 ## API
 
@@ -162,30 +156,9 @@ Windows (Visual C)
 \some\where\build.bat
 ```
 
-If final application crashes with an "illegal instruction" exception [after copying to another system], pass <nobr>`-D__BLST_PORTABLE__`</nobr> on `build.sh` command line. If you don't use build.sh, complement the `CFLAGS` environment variable with the said command line option. If you compile a Go application, you will need to modify the `CGO_CFLAGS` variable instead. And if you compile a Rust application, you can pass <nobr>`--features portable`</nobr> to `cargo build`. Alternatively, if you compile on an older Intel system, but will execute application on a newer one, consider instead passing <nobr>`--features force-adx`</nobr> for better performance.
+If final application crashes with an "illegal instruction" exception [after copying to another system], pass <nobr>`-D__BLST_PORTABLE__`</nobr> on `build.sh` command line. If you don't use build.sh, complement the `CFLAGS` environment variable with the said command line option. If you compile a Rust application, you can pass <nobr>`--features portable`</nobr> to `cargo build`. Alternatively, if you compile on an older Intel system, but will execute application on a newer one, consider instead passing <nobr>`--features force-adx`</nobr> for better performance.
 
 ## Language-specific notes
-
-### [Go](bindings/go)
-There are two primary modes of operation that can be chosen based on type definitions in the application.
-
-For minimal-pubkey-size operations:
-```
-type PublicKey = blst.P1Affine
-type Signature = blst.P2Affine
-type AggregateSignature = blst.P2Aggregate
-type AggregatePublicKey = blst.P1Aggregate
-```
-
-For minimal-signature-size operations:
-```
-type PublicKey = blst.P2Affine
-type Signature = blst.P1Affine
-type AggregateSignature = blst.P1Aggregate
-type AggregatePublicKey = blst.P2Aggregate
-```
-
-For more details see the Go binding [readme](bindings/go/README.md).
 
 ### [Rust](bindings/rust)
 [`blst`](https://crates.io/crates/blst) is the Rust binding crate.
@@ -232,7 +205,6 @@ For more details see the Rust binding [readme](bindings/rust/README.md).
     * blst.swg - provides SWIG definitions for creating blst bindings for other languages, such as Java and Python
     * **C#** - folder containing C# bindings and an example of how to use them
     * **Emscripten**  - folder containing an example of how to use Emscripten WebAssembly bindings from Javascript
-    * **Go** - folder containing Go bindings for blst, including tests and benchmarks
     * **Java** - folder containing an example of how to use SWIG Java bindings for blst
     * **Node.js** - folder containing an example of how to use SWIG Javascript bindings for blst
     * **Python** - folder containing an example of how to use SWIG Python bindings for blst
@@ -251,7 +223,7 @@ For more details see the Rust binding [readme](bindings/rust/README.md).
 [1]: See [refresh.sh](build/refresh.sh) for usage. This method allows for simple reuse of optimized assembly across various platforms with minimal effort.
 
 ## Performance
-Currently both the [Go](bindings/go) and [Rust](bindings/rust) bindings provide benchmarks for a variety of signature related operations.
+The [Rust binding](bindings/rust) provides benchmarks for a variety of signature-related operations.
 
 ## License
 The blst library is licensed under the [Apache License Version 2.0](LICENSE) software license.
