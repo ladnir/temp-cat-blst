@@ -450,7 +450,13 @@ BLST_ERROR blst_p2_deserialize(blst_p2_affine* out, const byte in[192]);
  * Invariants:
  * - `blst_pairing_sizeof()` and `blst_pairing_alignof()` describe the exact
  *   storage requirements for `blst_pairing`.
- * - `blst_pairing_get_dst()` returns a borrowed pointer owned by `ctx`.
+ * - `blst_pairing_init()` normally borrows `DST`; the caller must keep those
+ *   bytes alive and unchanged while the context can still aggregate messages.
+ * - When `DST` points exactly `blst_pairing_sizeof()` bytes past `ctx`, the
+ *   implementation stores a relocatable self-relative reference. In that
+ *   layout, the caller owns one allocation containing `[ctx | DST]`.
+ * - `blst_pairing_get_dst()` returns the active borrowed DST pointer; its
+ *   lifetime is governed by the preceding ownership rule.
  * - `msg` and `aug` are byte strings of the supplied lengths.
  */
 /** Computes a Miller loop from affine `(Q, P)` inputs and writes it to `ret`. */

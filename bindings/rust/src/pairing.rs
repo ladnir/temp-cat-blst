@@ -18,11 +18,24 @@ use core::alloc::Layout;
 #[cfg(feature = "full-rust-bindings")]
 use core::any::Any;
 #[cfg(feature = "full-rust-bindings")]
+use core::mem;
+#[cfg(feature = "full-rust-bindings")]
 use core::ptr::{self, NonNull};
 
 #[cfg(feature = "full-rust-bindings")]
 extern "C" {
     fn blst_pairing_alignof() -> usize;
+}
+
+#[cfg(feature = "full-rust-bindings")]
+fn pairing_layout(
+    context_size: usize,
+    context_align: usize,
+    dst_capacity: usize,
+) -> Option<Layout> {
+    context_size.checked_add(dst_capacity).and_then(|size| {
+        Layout::from_size_align(size.max(1), context_align).ok()
+    })
 }
 
 /// Owned pairing context with correct native size and alignment.
@@ -31,16 +44,25 @@ extern "C" {
 pub struct Pairing {
     storage: NonNull<u8>,
     layout: Layout,
+    context_size: usize,
 }
 
 #[cfg(feature = "full-rust-bindings")]
 impl Pairing {
-    /// Allocates and initializes a pairing context for the given DST.
+    /// Allocates and initializes a pairing context with an owned copy of `dst`.
+    ///
+    /// The native context and DST occupy one allocation. The DST begins exactly
+    /// at the end of the native context, which engages the native context's
+    /// relocatable trailing-DST representation.
     pub fn new(hash_or_encode: bool, dst: &[u8]) -> Self {
-        let size = unsafe { blst_pairing_sizeof() };
+        Self::allocate(hash_or_encode, dst)
+    }
+
+    fn allocate(hash_or_encode: bool, dst: &[u8]) -> Self {
+        let context_size = unsafe { blst_pairing_sizeof() };
         let align = unsafe { blst_pairing_alignof() };
-        let layout = Layout::from_size_align(size.max(1), align)
-            .expect("invalid blst_pairing layout");
+        let layout = pairing_layout(context_size, align, dst.len())
+            .expect("invalid or overflowing blst_pairing layout");
         let storage = unsafe {
             let ptr = alloc_zeroed(layout);
             if ptr.is_null() {
@@ -48,21 +70,46 @@ impl Pairing {
             }
             NonNull::new_unchecked(ptr)
         };
-        let mut obj = Self { storage, layout };
-        obj.init(hash_or_encode, dst);
+
+        let mut obj = Self {
+            storage,
+            layout,
+            context_size,
+        };
+        obj.initialize(hash_or_encode, dst);
         obj
     }
 
-    /// Reinitializes an existing pairing context.
+    /// Reinitializes the pairing context with an owned copy of `dst`.
+    ///
+    /// Existing storage is reused when its trailing capacity is sufficient.
+    /// Growth initializes a replacement allocation before releasing the old
+    /// context, so `dst` remains valid throughout reinitialization.
     pub fn init(&mut self, hash_or_encode: bool, dst: &[u8]) {
-        unsafe {
-            blst_pairing_init(
-                self.ctx(),
-                hash_or_encode,
-                dst.as_ptr(),
-                dst.len(),
-            )
+        if dst.len() <= self.dst_capacity() {
+            self.initialize(hash_or_encode, dst);
+        } else {
+            let mut replacement = Self::allocate(hash_or_encode, dst);
+            mem::swap(self, &mut replacement);
         }
+    }
+
+    fn initialize(&mut self, hash_or_encode: bool, dst: &[u8]) {
+        let owned_dst = self.dst_storage();
+        unsafe {
+            if !dst.is_empty() {
+                ptr::copy_nonoverlapping(dst.as_ptr(), owned_dst, dst.len());
+            }
+            blst_pairing_init(self.ctx(), hash_or_encode, owned_dst, dst.len())
+        }
+    }
+
+    fn dst_storage(&self) -> *mut u8 {
+        unsafe { self.storage.as_ptr().add(self.context_size) }
+    }
+
+    fn dst_capacity(&self) -> usize {
+        self.layout.size() - self.context_size
     }
 
     fn ctx(&mut self) -> *mut blst_pairing {
@@ -129,6 +176,9 @@ impl Pairing {
     }
 
     /// Aggregates one weighted verification item into the pairing context.
+    ///
+    /// Returns [`BLST_ERROR::BLST_BAD_SCALAR`] without entering native code
+    /// when `scalar` does not contain all `nbits` requested by the caller.
     pub fn mul_n_aggregate(
         &mut self,
         pk: &dyn Any,
@@ -140,6 +190,11 @@ impl Pairing {
         msg: &[u8],
         aug: &[u8],
     ) -> BLST_ERROR {
+        let scalar_bytes = nbits / 8 + usize::from(nbits % 8 != 0);
+        if scalar.len() < scalar_bytes {
+            return BLST_ERROR::BLST_BAD_SCALAR;
+        }
+
         if pk.is::<blst_p1_affine>() {
             unsafe {
                 blst_pairing_chk_n_mul_n_aggr_pk_in_g1(
@@ -250,8 +305,185 @@ impl Drop for Pairing {
     }
 }
 
+// SAFETY: `Pairing` exclusively owns its native context and trailing DST
+// allocation. Moving it between threads does not change either address, and
+// the native context has no thread affinity. Mutation still requires `&mut
+// self`; `Pairing` deliberately does not implement `Sync` or `Clone`.
 #[cfg(feature = "full-rust-bindings")]
 unsafe impl Send for Pairing {}
+
+#[cfg(all(test, feature = "full-rust-bindings"))]
+mod tests {
+    use super::*;
+    use core::slice;
+
+    fn assert_owned_dst(pairing: &Pairing, expected: &[u8]) {
+        let native_dst = unsafe { blst_pairing_get_dst(pairing.const_ctx()) };
+        assert_eq!(native_dst, pairing.dst_storage());
+        assert_eq!(
+            unsafe { slice::from_raw_parts(native_dst, expected.len()) },
+            expected
+        );
+    }
+
+    fn generators() -> (blst_p1_affine, blst_p2_affine) {
+        unsafe { (*blst_p1_affine_generator(), *blst_p2_affine_generator()) }
+    }
+
+    fn aggregate_generator_pair(
+        pairing: &mut Pairing,
+        msg: &[u8],
+    ) -> BLST_ERROR {
+        let (g1, g2) = generators();
+        pairing.aggregate(&g1, true, &g2, true, msg, &[])
+    }
+
+    fn assert_mul_n_result(scalar: &[u8], nbits: usize, expected: BLST_ERROR) {
+        let (g1, g2) = generators();
+
+        let mut g1_pairing = Pairing::new(true, b"scalar length DST");
+        assert_eq!(
+            g1_pairing.mul_n_aggregate(
+                &g1,
+                false,
+                &g2,
+                false,
+                scalar,
+                nbits,
+                b"message",
+                &[],
+            ),
+            expected
+        );
+
+        let mut g2_pairing = Pairing::new(true, b"scalar length DST");
+        assert_eq!(
+            g2_pairing.mul_n_aggregate(
+                &g2,
+                false,
+                &g1,
+                false,
+                scalar,
+                nbits,
+                b"message",
+                &[],
+            ),
+            expected
+        );
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn owns_temporary_dst_and_moves_safely_between_threads() {
+        let pairing = {
+            let temporary_dst = b"temporary pairing DST".to_vec();
+            Pairing::new(true, &temporary_dst)
+        };
+
+        let pairing = std::thread::spawn(move || {
+            assert_owned_dst(&pairing, b"temporary pairing DST");
+            pairing
+        })
+        .join()
+        .expect("pairing thread panicked");
+
+        assert_owned_dst(&pairing, b"temporary pairing DST");
+    }
+
+    #[test]
+    fn init_reuses_capacity_and_reallocates_before_growth() {
+        let mut pairing = Pairing::new(true, b"initial-capacity");
+        let initial_storage = pairing.storage;
+        let initial_capacity = pairing.dst_capacity();
+
+        pairing.init(false, b"short");
+        assert_eq!(pairing.storage, initial_storage);
+        assert_eq!(pairing.dst_capacity(), initial_capacity);
+        assert_owned_dst(&pairing, b"short");
+
+        let grown_dst = vec![0x5au8; initial_capacity + 1];
+        pairing.init(true, &grown_dst);
+        assert_ne!(pairing.storage, initial_storage);
+        assert_eq!(pairing.dst_capacity(), grown_dst.len());
+        assert_owned_dst(&pairing, &grown_dst);
+    }
+
+    #[test]
+    fn empty_dst_uses_trailing_native_representation() {
+        let mut pairing = Pairing::new(true, &[]);
+        assert_eq!(
+            unsafe { blst_pairing_get_dst(pairing.const_ctx()) },
+            pairing.dst_storage()
+        );
+        assert_eq!(pairing.dst_capacity(), 0);
+        assert_eq!(pairing.layout.size(), pairing.context_size);
+        assert_eq!(pairing.layout.align(), unsafe { blst_pairing_alignof() });
+
+        assert_eq!(
+            aggregate_generator_pair(&mut pairing, b"empty DST message"),
+            BLST_ERROR::BLST_SUCCESS
+        );
+        pairing.commit();
+        assert!(!pairing.finalverify(None));
+    }
+
+    #[test]
+    fn allocation_layout_rejects_size_overflow() {
+        assert!(pairing_layout(1, 1, usize::MAX).is_none());
+    }
+
+    #[test]
+    fn independently_owned_contexts_merge_without_borrowing_dst() {
+        let mut left = {
+            let dst = b"shared merge DST".to_vec();
+            Pairing::new(true, &dst)
+        };
+        let mut right = {
+            let dst = b"shared merge DST".to_vec();
+            Pairing::new(true, &dst)
+        };
+
+        assert_eq!(
+            aggregate_generator_pair(&mut left, b"left"),
+            BLST_ERROR::BLST_SUCCESS
+        );
+        assert_eq!(
+            aggregate_generator_pair(&mut right, b"right"),
+            BLST_ERROR::BLST_SUCCESS
+        );
+        left.commit();
+        right.commit();
+        assert_eq!(left.merge(&right), BLST_ERROR::BLST_SUCCESS);
+        drop(right);
+        assert_owned_dst(&left, b"shared merge DST");
+    }
+
+    #[test]
+    fn mul_n_aggregate_rejects_undersized_scalars_for_both_groups() {
+        for (scalar, nbits) in [
+            (&[][..], 1),
+            (&[][..], 7),
+            (&[][..], 8),
+            (&[0u8][..], 9),
+            (&[][..], usize::MAX),
+        ] {
+            assert_mul_n_result(scalar, nbits, BLST_ERROR::BLST_BAD_SCALAR);
+        }
+    }
+
+    #[test]
+    fn mul_n_aggregate_accepts_zero_and_exact_scalar_lengths() {
+        for (scalar, nbits) in [
+            (&[][..], 0),
+            (&[1u8][..], 1),
+            (&[1u8][..], 7),
+            (&[1u8][..], 8),
+            (&[1u8, 0u8][..], 9),
+        ] {
+            assert_mul_n_result(scalar, nbits, BLST_ERROR::BLST_SUCCESS);
+        }
+    }
+}
 
 /// Returns `true` when all message slices are distinct.
 #[cfg(feature = "full-rust-bindings")]
