@@ -4,14 +4,11 @@ Last updated: 2026-07-31
 
 ## Current phase
 
-Phase 7A translated the upstream arbitrary-length Fp decoder API and its Rust
-FFI companion with allocation-free chunking and explicit null-safe empty-input
-semantics. BTx/BTE is frozen, not a removal candidate: do not modify, audit,
-extract, or remove it until its required future merge is ready. CUDA is
-retained as opt-in experimental code outside the scalar/AVX-512
-production-readiness claim. Focused C/native C++, Rust FFI, symbol, header, and
-AVX-512 build checks pass. Upstream manifest translation and file-by-file
-review remain the controlling workstreams.
+Phase 7B translated the upstream C2x public-header fix into the split type
+header. Normal C99 through draft-C2x modes now use `<stdbool.h>`, while the
+Rust-bindgen path retains its explicit `_Bool` mapping. BTx/BTE is frozen, not
+a removal candidate, and CUDA remains opt-in experimental. Upstream manifest
+translation and file-by-file review remain the controlling workstreams.
 
 ## Ordered gates
 
@@ -81,23 +78,24 @@ security/correctness and provenance candidates:
 
 16. `cf739f0` and `9c35e86` - allocation-free variable-length Fp decoders and
     their Rust FFI companion were translated and validated in Phase 7A.
+17. `f262a6e` - the C2x `bool` ambiguity was translated into the split public
+    type header and validated across available C modes in Phase 7B.
 
 ## Remaining upstream queue
 
-Thirteen rows remain `reviewing`, grouped into six implementation packets:
+Twelve rows remain `reviewing`, grouped into five implementation packets:
 
 | Packet | Rows | Required outcome |
 | --- | --- | --- |
-| C2x public-header compatibility | `f262a6e` | Resolve the retained `bool`/`_Bool` ambiguity across supported C modes |
 | Rust API and dependency hygiene | `b83544b`, `dece82e` | Add `sub_aggregate`; remove the unnecessary direct `rand` development dependency without raising MSRV |
 | Rust parallel performance | `07b109d` | Decide and validate bounded grid/add queue translation without regressing the Phase 2 worker-result design |
 | CHERI/ARM generator and artifacts | `2e1948b`, `ed865dc`, `fe85dc3` | Port `scbnds` source changes through the verified generator; obtain ARM/CHERI validation or record the hardware block |
 | Retained CI/WASI/CodeQL | `85808fd`, `33d3f3a`, `68b58bd`, `f62244e` | Decide Rust WASI support, pin/verify tooling, and modernize retained C/C++/Rust CodeQL/actions |
 | Conformance vectors and release claim | `ff66582`, `67fc54b` | Translate authoritative vectors into C++/Rust scalar+AVX tests before accepting the BLS V6 documentation claim |
 
-The next recommended packet is `f262a6e`. It is a narrow public-header
-compatibility change and should use standalone C-mode compilation plus the
-closest header regression, not a full build matrix.
+The next recommended packet is `b83544b` plus `dece82e`. It is a contained Rust
+API/dependency packet and should use focused aggregate tests, Cargo dependency
+inspection, formatting, and one native link path rather than the C/AVX matrix.
 
 ## File-review dependency order
 
@@ -117,10 +115,10 @@ closest header regression, not a full build matrix.
 
 Current generated inventory:
 
-- 588 repository files accounted for;
+- 589 repository files accounted for;
 - 155 in-scope production;
 - 113 generated production;
-- 141 in-scope support;
+- 142 in-scope support;
 - 59 benchmark files explicitly excluded;
 - 32 frozen BTx/BTE files pending the required merge;
 - 52 retained experimental CUDA files;
@@ -132,8 +130,8 @@ Upstream progress:
 - 63 of 63 commits have decisions;
 - 32 are closed as already equivalent, deliberate rejection, or verified
   removal-only changes;
-- 18 accepted ports/translations are validated;
-- 13 remain reviewing while accepted translations, policy decisions, or
+- 19 accepted ports/translations are validated;
+- 12 remain reviewing while accepted translations, policy decisions, or
   validation are completed;
 - 0 remain pending.
 
@@ -143,15 +141,17 @@ Findings: 20 total. Nineteen are validated. One low finding remains open.
 ## Next action
 
 Do not touch BTx/BTE, and do not include experimental CUDA in the primary
-production-readiness gate. Continue with the 13 upstream rows still marked
-`reviewing`, starting with `f262a6e`. Apply `VALIDATION_POLICY.md`: run focused
-checks in the change loop, batch related work for subsystem suites, and reserve
-the full supported matrix for milestone gates.
+production-readiness gate. Continue with the 12 upstream rows still marked
+`reviewing`, starting with `b83544b` and `dece82e`. Apply
+`VALIDATION_POLICY.md`: run focused checks in the change loop, batch related
+work for subsystem suites, and reserve the full supported matrix for milestone
+gates.
 
 No production file should be marked complete before its related implementation
 and validation evidence closes the corresponding upstream rows.
 
 Phase evidence is recorded in `PHASE_01.md`, `PHASE_02.md`, `PHASE_03A.md`,
 `PHASE_03B.md`, `PHASE_03C.md`, `PHASE_04.md`, `PHASE_05.md`,
-`PHASE_06A.md`, `PHASE_06B.md`, `PHASE_06C.md`, and `PHASE_07A.md`; the
-remaining dependency order and exit gates are in `HARDENING_PLAN.md`.
+`PHASE_06A.md`, `PHASE_06B.md`, `PHASE_06C.md`, `PHASE_07A.md`, and
+`PHASE_07B.md`; the remaining dependency order and exit gates are in
+`HARDENING_PLAN.md`.
