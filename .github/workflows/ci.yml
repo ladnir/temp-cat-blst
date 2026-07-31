@@ -28,11 +28,12 @@ jobs:
               -DBLST_AVX512=OFF
               -DBLST_AVX512_PORTABLE=OFF
               -DBLST_DEFAULT_AVX=OFF
-          - os: macos-latest
+          - os: macos-15
             mode: scalar
             build_dir: out/build/ci-scalar
             compiler_flags: ""
             cmake_flags: >-
+              -DCMAKE_OSX_ARCHITECTURES=arm64
               -DBLST_AVX512=OFF
               -DBLST_AVX512_PORTABLE=OFF
               -DBLST_DEFAULT_AVX=OFF
@@ -57,6 +58,13 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+
+      - name: Verify Apple Silicon runner
+        if: matrix.os == 'macos-15'
+        shell: bash
+        run: |
+          test "${{ runner.arch }}" = "ARM64"
+          test "$(uname -m)" = "arm64"
 
       - name: Set up MSVC
         if: runner.os == 'Windows'
@@ -94,10 +102,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-15]
 
     steps:
       - uses: actions/checkout@v5
+
+      - name: Verify Apple Silicon runner
+        if: matrix.os == 'macos-15'
+        shell: bash
+        run: |
+          test "${{ runner.arch }}" = "ARM64"
+          test "$(uname -m)" = "arm64"
 
       - name: Get date
         id: get-date
