@@ -1833,6 +1833,31 @@ TEST(CApi, KeygenInvalidInputsZeroizeOutput)
     EXPECT_TRUE(scalar_is_zero(out));
 }
 
+TEST(CApi, KeygenV5AcceptsNonNullEmptySalt)
+{
+    constexpr unsigned char expected[32] = {
+        0x10, 0xc1, 0x86, 0xc2, 0xce, 0xf3, 0x66, 0x40,
+        0xd9, 0x97, 0xe4, 0xec, 0x01, 0x4f, 0xe5, 0xbe,
+        0xc9, 0xa1, 0x91, 0x5f, 0x8a, 0x1b, 0x2c, 0x43,
+        0x27, 0x4c, 0x17, 0x3f, 0xca, 0x3d, 0xba, 0x19
+    };
+    const auto valid_ikm = scalar_bytes(9);
+    const unsigned char non_null_empty_salt = 0;
+    blst::pow256 first = {};
+    blst::pow256 second = {};
+
+    blst_keygen_v5(
+        first, valid_ikm.data(), valid_ikm.size(),
+        &non_null_empty_salt, 0, nullptr, 0);
+    blst_keygen_v5(
+        second, valid_ikm.data(), valid_ikm.size(),
+        &non_null_empty_salt, 0, nullptr, 0);
+
+    EXPECT_FALSE(scalar_is_zero(first));
+    EXPECT_EQ(0, std::memcmp(first, expected, sizeof(expected)));
+    EXPECT_EQ(0, std::memcmp(first, second, sizeof(first)));
+}
+
 TEST(CApi, WbitsApisRejectOutOfRangeValues)
 {
     EXPECT_EQ(blst_p1s_mult_wbits_precompute_sizeof(0, 4), 0u);

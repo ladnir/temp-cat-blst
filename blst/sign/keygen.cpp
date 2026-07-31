@@ -43,7 +43,7 @@ namespace blst
             sha256_update(&ctx->ctx, K, K_len);
             sha256_final(ctx->tail.c, &ctx->ctx);
         }
-        else {
+        else if (K_len != 0) {
             blst_sha256_bcopy_v(ctx->tail.c, K, K_len);
         }
 

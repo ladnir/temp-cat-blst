@@ -1434,6 +1434,24 @@ macro_rules! sig_variant_impl {
             }
 
             #[test]
+            fn test_key_gen_v5_empty_salt() {
+                let expected = [
+                    0x19, 0xba, 0x3d, 0xca, 0x3f, 0x17, 0x4c, 0x27, 0x43, 0x2c,
+                    0x1b, 0x8a, 0x5f, 0x91, 0xa1, 0xc9, 0xbe, 0xe5, 0x4f, 0x01,
+                    0xec, 0xe4, 0x97, 0xd9, 0x40, 0x66, 0xf3, 0xce, 0xc2, 0x86,
+                    0xc1, 0x10,
+                ];
+                let mut ikm = [0u8; 32];
+                ikm[0] = 9;
+
+                let first = SecretKey::key_gen_v5(&ikm, &[], &[]).unwrap();
+                let second = SecretKey::key_gen_v5(&ikm, &[], &[]).unwrap();
+
+                assert_eq!(first.to_bytes(), expected);
+                assert_eq!(first.to_bytes(), second.to_bytes());
+            }
+
+            #[test]
             fn test_aggregate() {
                 let num_msgs = 10;
                 let dst = b"BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_";
