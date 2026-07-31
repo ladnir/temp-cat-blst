@@ -18,11 +18,11 @@ until implementation and validation are linked from the canonical manifest.
 
 Decision: `not_applicable`.
 
-Local `bindings/blst.hpp` still has the upstream defects, but the project does
-not support this C++ convenience layer over the C ABI. C++ support refers to
-the native C++ implementation/API. Remove the wrapper, its commented test,
-SWIG references, Rust package include entry, and public documentation rather
-than porting wrapper fixes.
+At wave review, local `bindings/blst.hpp` still had the upstream defects. The
+unsupported C-over-ABI wrapper, its commented test, SWIG C++ branch, Rust
+package entry, and public documentation were removed in Phase 6A rather than
+porting wrapper fixes. C++ support continues to refer to the native C++
+implementation and API.
 
 Required validation:
 
@@ -71,8 +71,8 @@ Performance impact: linear in input chunks and outside core field kernels.
 
 Decision: `not_applicable`.
 
-This applies only to `bindings/blst.hpp`. Remove that unsupported wrapper
-instead of maintaining its compiler-version policy.
+This applied only to `bindings/blst.hpp`. Phase 6A removed that unsupported
+wrapper instead of maintaining its compiler-version policy.
 
 ### `f262a6e9985f84e1d2842960a158dc768b217884`
 

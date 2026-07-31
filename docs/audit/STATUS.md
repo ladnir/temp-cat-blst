@@ -1,16 +1,15 @@
 # Audit Status
 
-Last updated: 2026-07-30
+Last updated: 2026-07-31
 
 ## Current phase
 
-Phase 5 is implemented, validated, and committed. The shared uniqueness tree
-now has checked size/alignment, stored capacity, bounded traversal, safe length
-comparison, explicit results, and a migrated Rust helper. Scalar, portable
-dispatch, targeted AVX-512, Linux ASan, Rust, public-header, and 32-bit compile
-validation pass. `blst/common/rb_tree.cpp` and its internal header are the first
-production files to complete the full per-file checklist. Upstream manifest
-translation and file-by-file review remain the controlling workstreams.
+Phase 6 has begun. Phase 6A removed the unsupported C-over-ABI C++ wrapper and
+all active package, build, test, and public-documentation references while
+retaining the native C++ implementation. Scalar C/native C++, AVX-512 build,
+Rust test, package-content, and reference checks pass. Phase 5 uniqueness-tree
+hardening also remains validated. Upstream manifest translation and
+file-by-file review remain the controlling workstreams.
 
 ## Ordered gates
 
@@ -21,8 +20,8 @@ translation and file-by-file review remain the controlling workstreams.
 | 3. Core scalar audit | in progress | Scalar dependency chain complete with evidence |
 | 4. AVX-512 audit | not started | AVX-512 chain and scalar differential coverage complete |
 | 5. FFT/middle-product audit | not started | Algorithms, limits, and differential tests complete |
-| 6. Supported API/bindings | not started | C, C++, and Rust surfaces complete |
-| 7. Planned removals | not started | CUDA, Go, BTx/BTE, and other bindings removed cleanly |
+| 6. Supported API/bindings | in progress | C, C++, and Rust surfaces complete |
+| 7. Planned removals | in progress | CUDA, Go, BTx/BTE, and other bindings removed cleanly |
 | 8. Rename and ABI mode | not started | CatBLST rename and generated two-prefix ABI validated |
 | 9. Release readiness | not started | CI, packaging, security policy, and release evidence complete |
 
@@ -30,8 +29,8 @@ translation and file-by-file review remain the controlling workstreams.
 
 - Primary production profiles: scalar and AVX-512.
 - Supported language surfaces: C, C++, and Rust.
-- C++ support is native; the `bindings/blst.hpp` wrapper over the C ABI is a
-  planned removal.
+- C++ support is native; the legacy `bindings/blst.hpp` wrapper over the C ABI
+  was removed in Phase 6A.
 - Pre-production breaking API/ABI changes are acceptable when they remove
   unsafe legacy contracts or materially improve correctness and performance.
 - Retained algorithm areas: FFT and middle product.
@@ -67,6 +66,8 @@ security/correctness and provenance candidates:
 12. `06a5711` / `AUD-011` — the retained C/Rust uniqueness tree now bounds
     traversal and storage, reports exact outcomes, and passes Phase 5
     cross-language validation.
+13. `e61acc2`, `d4ca0f2`, and `AUD-006` — the unsupported C-over-ABI C++
+    wrapper was removed with clean C, native C++, and Rust validation.
 
 ## File-review dependency order
 
@@ -86,12 +87,12 @@ security/correctness and provenance candidates:
 
 Current generated inventory:
 
-- 623 repository files accounted for;
+- 622 repository files accounted for;
 - 156 in-scope production;
 - 114 generated production;
-- 135 in-scope support;
+- 136 in-scope support;
 - 59 benchmark files explicitly excluded;
-- 123 planned-removal files;
+- 121 planned-removal files;
 - 36 documentation/archive files.
 
 Upstream progress:
@@ -104,16 +105,13 @@ Upstream progress:
   validation are completed;
 - 0 remain pending.
 
-Findings: 18 total. Sixteen are validated. Two remain open: one low and one
-informational planned-removal item.
+Findings: 18 total. Seventeen are validated. One low finding remains open.
 
 
 ## Next action
 
-Begin Phase 6 with the smallest supported-surface removal batch: delete the
-unsupported C-over-ABI `bindings/blst.hpp` wrapper and all package,
-documentation, and build references (`AUD-006`), then remove Go in a separate
-reviewed change. Keep CUDA and BTx/BTE removal isolated so retained FFT and
+Continue Phase 6 with Go-language support removal as a separate reviewed
+change. Keep CUDA and BTx/BTE removal isolated so retained FFT and
 middle-product dependencies are proved before deletion. Regenerate the file
 manifest and run the C, native C++, and Rust matrices after each batch.
 
@@ -121,5 +119,6 @@ No production file should be marked complete before its related implementation
 and validation evidence closes the corresponding upstream rows.
 
 Phase evidence is recorded in `PHASE_01.md`, `PHASE_02.md`, `PHASE_03A.md`,
-`PHASE_03B.md`, `PHASE_03C.md`, `PHASE_04.md`, and `PHASE_05.md`; the remaining
-dependency order and exit gates are in `HARDENING_PLAN.md`.
+`PHASE_03B.md`, `PHASE_03C.md`, `PHASE_04.md`, `PHASE_05.md`, and
+`PHASE_06A.md`; the remaining dependency order and exit gates are in
+`HARDENING_PLAN.md`.

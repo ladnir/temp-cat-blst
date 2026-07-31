@@ -144,7 +144,8 @@ tree tests, and C/Rust wrapper validation.
 
 ## Phase 6 — cleanup and release controls
 
-- Remove `bindings/blst.hpp` and all packaging/documentation references.
+- [x] Remove `bindings/blst.hpp` and all active packaging, build, test, and
+  public-documentation references (`PHASE_06A.md`).
 - Remove CUDA, Go, BTx/BTE, and unsupported bindings through reviewed changes.
 - Harden CodeQL, sanitizers, warnings, and supported build matrices.
 - Begin CatBLST rename and two-prefix ABI work only after the upstream

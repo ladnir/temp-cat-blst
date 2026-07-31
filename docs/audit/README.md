@@ -21,8 +21,8 @@ audit shortcut, and removal candidates remain inventoried until their deletion
 is reviewed and committed.
 
 C++ support means the native C++ implementation and API. The legacy
-`bindings/blst.hpp` convenience layer over the C ABI is not supported and is a
-planned-removal surface.
+`bindings/blst.hpp` convenience layer over the C ABI was removed in Phase 6A;
+it is not part of the supported C++ surface.
 
 The project is pre-production and has no external users. Breaking source or ABI
 changes are acceptable when they materially improve safety, correctness,

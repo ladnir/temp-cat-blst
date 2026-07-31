@@ -35,7 +35,7 @@ No row is closed merely because its language binding is scheduled for removal.
 
 | # | Commit | Date | Initial relevance | Subject | Decision | Status | Evidence / notes |
 | ---: | --- | --- | --- | --- | --- | --- | --- |
-| 1 | `e61acc2` | 2025-09-17 | direct | `bindings/blst.hpp`: smooth some edges | not_applicable | closed | `bindings/blst.hpp` is an unsupported C-over-ABI wrapper scheduled for removal; see `AUD-006` |
+| 1 | `e61acc2` | 2025-09-17 | direct | `bindings/blst.hpp`: smooth some edges | not_applicable | closed | The unsupported C-over-ABI wrapper was removed in Phase 6A; see `AUD-006` |
 | 2 | `07b109d` | 2025-09-19 | direct | Rust: use `sync_channel` to optimize allocations | translate | reviewing | Phase 2 replaced the small-work queue with cache-separated result slots and made remaining queues disconnect safely; decide bounded grid/add queue translation during the full Rust performance review |
 | 3 | `b83544b` | 2025-09-19 | direct | Rust: add `sub_aggregate` | port | reviewing | Retained additive Rust API; required p1/p2 cneg FFI already exists |
 | 4 | `1519e46` | 2025-09-19 | direct | Fix `blst_256_t` right-shift operator typos | port | validated | Both operators use modular right shift with portable/assembly dispatch; independent oracle and zero-shift tests pass; see `AUD-007` and `PHASE_01.md` |
@@ -52,7 +52,7 @@ No row is closed merely because its language binding is scheduled for removal.
 | 15 | `d497208` | 2025-10-28 | removal_candidate | Harmonize Java Android build | not_applicable | closed | Java Android build only and later reverted |
 | 16 | `d7ab1f0` | 2025-10-30 | conceptual | Rework C++/SWIG `bytes_t` | not_applicable | closed | Affects the unsupported C-over-ABI wrapper and SWIG surfaces; native C++ API design is separate |
 | 17 | `0438d74` | 2025-10-30 | removal_candidate | Revert Java build modification | not_applicable | closed | Java-only revert; close with `d497208` |
-| 18 | `d4ca0f2` | 2025-11-17 | direct | Correct C++ standard support claim | not_applicable | closed | Applies only to `bindings/blst.hpp`, which is scheduled for removal |
+| 18 | `d4ca0f2` | 2025-11-17 | direct | Correct C++ standard support claim | not_applicable | closed | Applied only to the C-over-ABI wrapper removed in Phase 6A |
 | 19 | `85808fd` | 2025-11-17 | conceptual | Cache Wasmtime in CI | translate | reviewing | Retain Rust WASI testing only if supported; pin and verify Wasmtime rather than curl-to-shell |
 | 20 | `33d3f3a` | 2025-11-17 | conceptual | Fix CI YAML syntax | translate | reviewing | Superseded detail of the retained Rust WASI workflow translation |
 | 21 | `7f04257` | 2025-11-25 | removal_candidate | Add Zig bindings | not_applicable | closed | Zig binding/build files only |
