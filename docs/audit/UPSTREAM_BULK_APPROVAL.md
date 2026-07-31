@@ -3,10 +3,10 @@
 ## Record
 
 - Date: 2026-07-31
-- Scope: the final 10 upstream rows still marked `reviewing`
+- Scope: the final 10 upstream rows originally marked `reviewing`
 - Decision state: approved for implementation under the translations below
-- Validation state: `07b109d` superseded and closed with validation evidence;
-  nine rows remain
+- Validation state: `07b109d` is superseded and closed; the three CHERI rows
+  are validated; six rows remain
 - Benchmarks: excluded and not run
 - BTx/BTE: frozen and untouched
 - CUDA: retained experimental and outside these packets
@@ -77,7 +77,7 @@ Internet-Draft is an IETF standard.
 ## Execution order
 
 1. Caller-threaded Rust runtime - completed in Phase 8.
-2. CHERI/ARM generator and exact regenerated artifacts.
+2. CHERI/ARM generator and exact regenerated artifacts - completed in Phase 9.
 3. Pairing and signature conformance evidence, followed by accurate README
    language.
 4. CI/WASI/CodeQL policy update, after the test targets it should invoke are

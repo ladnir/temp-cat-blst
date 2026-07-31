@@ -4,11 +4,11 @@ Last updated: 2026-07-31
 
 ## Current phase
 
-Phase 8 removed all implicit Rust scheduling and closed upstream `07b109d`
-under a stronger caller-threaded runtime contract. Nine upstream rows remain
-in three approved implementation packets. BTx/BTE remains frozen and CUDA
-remains opt-in experimental. Upstream implementation and file-by-file review
-are the controlling workstreams.
+Phase 9 confined CHERI inverse scratch capabilities, hardened ARM translator
+operands, and repaired the 256-bit inverse oracle. Six upstream rows remain in
+two approved implementation packets. BTx/BTE remains frozen and CUDA remains
+opt-in experimental. Upstream implementation and file-by-file review are the
+controlling workstreams.
 
 ## Ordered gates
 
@@ -87,21 +87,24 @@ security/correctness and provenance candidates:
 19. `07b109d` / `AUD-021` - the upstream bounded-channel optimization was
     superseded by removal of the global Rust pool, unsafe scoped-job lifetime
     erasure, and every internal scheduler path in Phase 8.
+20. `2e1948b`, `ed865dc`, and `fe85dc3` - CHERI inverse scratch confinement,
+    exact regeneration of 10 ARM artifacts, translator operand hardening, and
+    a corrected inverse oracle were validated in Phase 9.
 
 ## Bulk-approved upstream implementation queue
 
-Nine rows remain `reviewing`, grouped into three approved implementation
+Six rows remain `reviewing`, grouped into two approved implementation
 packets. The full constraints are recorded in `UPSTREAM_BULK_APPROVAL.md`.
 
 | Packet | Rows | Required outcome |
 | --- | --- | --- |
-| CHERI/ARM generator and artifacts | `2e1948b`, `ed865dc`, `fe85dc3` | Port `scbnds` source changes through the verified generator, regenerate exactly 10 ARM artifacts, and leave `blst.def` for `AUD-016` |
 | Conformance vectors and release language | `ff66582`, `67fc54b` | Translate pairing draft-13 vectors into C++/Rust scalar+AVX tests, then make only the exact signature-draft claim supported by separate signature vectors |
 | Retained CI/WASI/CodeQL | `85808fd`, `33d3f3a`, `68b58bd`, `f62244e` | Add verified Rust WASI coverage and modernize retained C/C++/Rust actions and CodeQL with immutable pins |
 
-The next recommended packet is the CHERI/ARM generator chain: port the two
-source changes together, regenerate only the exact 10 expected ARM artifacts,
-and leave `blst.def` for `AUD-016`.
+The next recommended packet is conformance evidence: translate the pairing
+draft-13 vectors into retained C++ and Rust tests, exercise scalar and AVX-512
+paths, then make only the exact signature-draft claim established by separate
+signature vectors.
 
 ## File-review dependency order
 
@@ -121,10 +124,10 @@ and leave `blst.def` for `AUD-016`.
 
 Current generated inventory:
 
-- 592 repository files accounted for;
+- 594 repository files accounted for;
 - 154 in-scope production;
 - 113 generated production;
-- 146 in-scope support;
+- 148 in-scope support;
 - 59 benchmark files explicitly excluded;
 - 32 frozen BTx/BTE files pending the required merge;
 - 52 retained experimental CUDA files;
@@ -136,20 +139,20 @@ Upstream progress:
 - 63 of 63 commits have final decisions and the decision gate is complete;
 - 33 are closed as already equivalent, deliberate rejection, or verified
   removal-only changes;
-- 21 accepted ports/translations are validated;
-- 9 are bulk-approved and remain reviewing while their translations and
+- 24 accepted ports/translations are validated;
+- 6 are bulk-approved and remain reviewing while their translations and
   validation are completed;
 - 0 remain pending.
 
-Findings: 21 total. Twenty are validated. One low finding remains open.
+Findings: 23 total. Twenty-two are validated. One low finding remains open.
 
 
 ## Next action
 
 Do not touch BTx/BTE, and do not include experimental CUDA in the primary
-production-readiness gate. Implement the three remaining bulk-approved packets
-recorded in `UPSTREAM_BULK_APPROVAL.md`, starting with the CHERI/ARM generator
-chain. Apply
+production-readiness gate. Implement the two remaining bulk-approved packets
+recorded in `UPSTREAM_BULK_APPROVAL.md`, starting with conformance vectors and
+release language. Apply
 `VALIDATION_POLICY.md`: run focused checks in the change loop, batch related
 work for subsystem suites, and reserve the full supported matrix for milestone
 gates.
@@ -160,5 +163,5 @@ and validation evidence closes the corresponding upstream rows.
 Phase evidence is recorded in `PHASE_01.md`, `PHASE_02.md`, `PHASE_03A.md`,
 `PHASE_03B.md`, `PHASE_03C.md`, `PHASE_04.md`, `PHASE_05.md`,
 `PHASE_06A.md`, `PHASE_06B.md`, `PHASE_06C.md`, `PHASE_07A.md`,
-`PHASE_07B.md`, `PHASE_07C.md`, and `PHASE_08.md`; the remaining dependency
-order and exit gates are in `HARDENING_PLAN.md`.
+`PHASE_07B.md`, `PHASE_07C.md`, `PHASE_08.md`, and `PHASE_09.md`; the remaining
+dependency order and exit gates are in `HARDENING_PLAN.md`.

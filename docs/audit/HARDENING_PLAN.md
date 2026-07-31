@@ -180,3 +180,23 @@ superseded.
 Exit gate: default, full-binding, portable, and forced no-std Rust evidence;
 deterministic validation errors; no production thread creation or scheduler
 dependency.
+
+## Phase 9 — CHERI inverse scratch confinement
+
+State: complete with target-toolchain residuals. Implementation and focused
+validation are recorded in `PHASE_09.md`; upstream `2e1948b`, `ed865dc`, and
+`fe85dc3` plus `AUD-022` and `AUD-023` are validated.
+
+- Bound both inverse routines' aligned scratch capability to 512 bytes.
+- Preserve that bound while alternating between the two 256-byte halves.
+- Harden complete-register translation for all affected CHERI synthetic
+  instructions.
+- Regenerate only the exact 10 affected ARM artifacts and leave `blst.def`
+  unchanged.
+- Repair the 256-bit inverse test's modulus and independent correctness
+  oracle.
+
+Exit gate: deterministic generation, exact changed-output allowlist,
+byte-identical ordinary ARM projections, translator regression, and focused
+inverse tests. Native AArch64 and Morello/CHERI assembly and execution remain
+release evidence to collect when those toolchains are available.
