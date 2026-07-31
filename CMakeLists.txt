@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.27)
 project(blst CXX)
 
 option(BLST_BUILD_SHARED "Build shared library" OFF)
-option(BLST_PORTABLE     "Force portable C implementation (no assembly)" ON)
+option(BLST_PORTABLE     "Build portable implementations and CPU-dispatched assembly fallbacks" ON)
 option(BLST_ASM          "Enable assembly optimizations" ON)
 option(BLST_ADX          "Enable ADX in the c code" ON)
 option(BLST_DEFAULT_ASM  "Enable assembly optimizations by default" ON)

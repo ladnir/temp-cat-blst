@@ -1,4 +1,5 @@
 OPTION	DOTNAME
+ifdef __BLST_PORTABLE__
 EXTERN	mul_mont_384x$1:NEAR
 EXTERN	sqr_mont_384x$1:NEAR
 EXTERN	mul_382x$1:NEAR
@@ -14,6 +15,7 @@ EXTERN	sqr_mont_384$1:NEAR
 EXTERN	sqr_n_mul_mont_384$1:NEAR
 EXTERN	sqr_n_mul_mont_383$1:NEAR
 EXTERN	sqr_mont_382x$1:NEAR
+endif
 _DATA	SEGMENT
 COMM	__blst_platform_cap:DWORD:1
 _DATA	ENDS
@@ -232,7 +234,7 @@ $L$SEH_begin_mul_mont_384x::
 	mov	rdx,r8
 	mov	rcx,r9
 	mov	r8,QWORD PTR[40+rsp]
-ifdef BLST_PORTABLE
+ifdef __BLST_PORTABLE__
 	test	DWORD PTR[__blst_platform_cap],1
 	jnz	mul_mont_384x$1
 endif
@@ -366,7 +368,7 @@ $L$SEH_begin_sqr_mont_384x::
 	mov	rsi,rdx
 	mov	rdx,r8
 	mov	rcx,r9
-ifdef BLST_PORTABLE
+ifdef __BLST_PORTABLE__
 	test	DWORD PTR[__blst_platform_cap],1
 	jnz	sqr_mont_384x$1
 endif
@@ -508,7 +510,7 @@ $L$SEH_begin_mul_382x::
 	mov	rsi,rdx
 	mov	rdx,r8
 	mov	rcx,r9
-ifdef BLST_PORTABLE
+ifdef __BLST_PORTABLE__
 	test	DWORD PTR[__blst_platform_cap],1
 	jnz	mul_382x$1
 endif
@@ -660,7 +662,7 @@ $L$SEH_begin_sqr_382x::
 	mov	rdi,rcx
 	mov	rsi,rdx
 	mov	rdx,r8
-ifdef BLST_PORTABLE
+ifdef __BLST_PORTABLE__
 	test	DWORD PTR[__blst_platform_cap],1
 	jnz	sqr_382x$1
 endif
@@ -810,7 +812,7 @@ $L$SEH_begin_mul_384::
 	mov	rdi,rcx
 	mov	rsi,rdx
 	mov	rdx,r8
-ifdef BLST_PORTABLE
+ifdef __BLST_PORTABLE__
 	test	DWORD PTR[__blst_platform_cap],1
 	jnz	mul_384$1
 endif
@@ -1159,7 +1161,7 @@ $L$SEH_begin_sqr_384::
 
 	mov	rdi,rcx
 	mov	rsi,rdx
-ifdef BLST_PORTABLE
+ifdef __BLST_PORTABLE__
 	test	DWORD PTR[__blst_platform_cap],1
 	jnz	sqr_384$1
 endif
@@ -1429,7 +1431,7 @@ $L$SEH_begin_sqr_mont_384::
 	mov	rsi,rdx
 	mov	rdx,r8
 	mov	rcx,r9
-ifdef BLST_PORTABLE
+ifdef __BLST_PORTABLE__
 	test	DWORD PTR[__blst_platform_cap],1
 	jnz	sqr_mont_384$1
 endif
@@ -1514,7 +1516,7 @@ $L$SEH_begin_redc_mont_384::
 	mov	rsi,rdx
 	mov	rdx,r8
 	mov	rcx,r9
-ifdef BLST_PORTABLE
+ifdef __BLST_PORTABLE__
 	test	DWORD PTR[__blst_platform_cap],1
 	jnz	redc_mont_384$1
 endif
@@ -1589,7 +1591,7 @@ $L$SEH_begin_from_mont_384::
 	mov	rsi,rdx
 	mov	rdx,r8
 	mov	rcx,r9
-ifdef BLST_PORTABLE
+ifdef __BLST_PORTABLE__
 	test	DWORD PTR[__blst_platform_cap],1
 	jnz	from_mont_384$1
 endif
@@ -2049,7 +2051,7 @@ $L$SEH_begin_sgn0_pty_mont_384::
 	mov	rdi,rcx
 	mov	rsi,rdx
 	mov	rdx,r8
-ifdef BLST_PORTABLE
+ifdef __BLST_PORTABLE__
 	test	DWORD PTR[__blst_platform_cap],1
 	jnz	sgn0_pty_mont_384$1
 endif
@@ -2144,7 +2146,7 @@ $L$SEH_begin_sgn0_pty_mont_384x::
 	mov	rdi,rcx
 	mov	rsi,rdx
 	mov	rdx,r8
-ifdef BLST_PORTABLE
+ifdef __BLST_PORTABLE__
 	test	DWORD PTR[__blst_platform_cap],1
 	jnz	sgn0_pty_mont_384x$1
 endif
@@ -2290,7 +2292,7 @@ $L$SEH_begin_mul_mont_384::
 	mov	rdx,r8
 	mov	rcx,r9
 	mov	r8,QWORD PTR[40+rsp]
-ifdef BLST_PORTABLE
+ifdef __BLST_PORTABLE__
 	test	DWORD PTR[__blst_platform_cap],1
 	jnz	mul_mont_384$1
 endif
@@ -2980,7 +2982,7 @@ $L$SEH_begin_sqr_n_mul_mont_384::
 	mov	rcx,r9
 	mov	r8,QWORD PTR[40+rsp]
 	mov	r9,QWORD PTR[48+rsp]
-ifdef BLST_PORTABLE
+ifdef __BLST_PORTABLE__
 	test	DWORD PTR[__blst_platform_cap],1
 	jnz	sqr_n_mul_mont_384$1
 endif
@@ -3088,7 +3090,7 @@ $L$SEH_begin_sqr_n_mul_mont_383::
 	mov	rcx,r9
 	mov	r8,QWORD PTR[40+rsp]
 	mov	r9,QWORD PTR[48+rsp]
-ifdef BLST_PORTABLE
+ifdef __BLST_PORTABLE__
 	test	DWORD PTR[__blst_platform_cap],1
 	jnz	sqr_n_mul_mont_383$1
 endif
@@ -3773,7 +3775,7 @@ $L$SEH_begin_sqr_mont_382x::
 	mov	rsi,rdx
 	mov	rdx,r8
 	mov	rcx,r9
-ifdef BLST_PORTABLE
+ifdef __BLST_PORTABLE__
 	test	DWORD PTR[__blst_platform_cap],1
 	jnz	sqr_mont_382x$1
 endif

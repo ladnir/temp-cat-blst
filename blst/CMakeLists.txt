@@ -78,6 +78,12 @@ if(BLST_ASM)
     if(MSVC)
         enable_language(ASM_MASM)
         set_source_files_properties(${ASM_SRC} PROPERTIES LANGUAGE ASM_MASM)
+        if(BLST_PORTABLE)
+            # Match build/assembly.S: BLST_PORTABLE is the public build option,
+            # while __BLST_PORTABLE__ is the assembly-internal dispatch guard.
+            set_source_files_properties(${ASM_SRC} PROPERTIES
+                COMPILE_DEFINITIONS "__BLST_PORTABLE__")
+        endif()
     else()
         enable_language(ASM)
         set_source_files_properties(${ASM_SRC} PROPERTIES LANGUAGE ASM)
