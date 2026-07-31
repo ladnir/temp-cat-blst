@@ -604,7 +604,7 @@ namespace blst::scalar
 	// ret = a * R, where R is the montgomery constant 2^384
 	BLST_HD BLST_FORCEINLINE  void Fr::to_mont(Fr& ret, const Fr& a)
 	{
-		Fr::mul(ret, a, get_BLST_rRR());
+		Fr::mul(ret, get_BLST_rRR(), a);
 	}
 
 	// ret = a mod p
