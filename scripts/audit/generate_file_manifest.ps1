@@ -35,13 +35,7 @@ function Get-Classification
         $lower.StartsWith('bte/') -or
         $lower -eq 'bindings/blst_btx.h' -or
         $lower -eq 'bindings/blst_trx.h' -or
-        $lower -like 'test/btx*' -or
-        $lower.StartsWith('bindings/c#/') -or
-        $lower.StartsWith('bindings/emscripten/') -or
-        $lower.StartsWith('bindings/java/') -or
-        $lower.StartsWith('bindings/node.js/') -or
-        $lower.StartsWith('bindings/python/') -or
-        $lower -eq 'bindings/blst.swg'
+        $lower -like 'test/btx*'
 
     $cudaRemoval =
         $lower.StartsWith('blst/cuda/') -or

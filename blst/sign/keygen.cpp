@@ -167,10 +167,7 @@ namespace blst
             return;
         }
 
-        /*
-         * Vet |info| since some callers were caught to be sloppy, e.g.
-         * SWIG-4.0-generated Python wrapper...
-         */
+        /* Vet |info| before using a caller-supplied length. */
         info_len = info == NULL ? 0 : info_len;
 
         if (salt == NULL) {

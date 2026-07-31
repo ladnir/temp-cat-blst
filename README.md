@@ -50,8 +50,6 @@ This library primarily supports x86_64 and ARM64 hardware platforms, and Linux, 
 
 The supported language surfaces are the [C API](bindings/blst.h), the native
 [C++ implementation and API](blst), and the [Rust binding](bindings/rust).
-Other binding directories are legacy, unsupported surfaces scheduled for
-removal.
 
 ## API
 
@@ -202,12 +200,6 @@ For more details see the Rust binding [readme](bindings/rust/README.md).
     * blst_avx.h - provides the expert AVX C API
     * blst_middle_product.h - provides the middle-product C API
     * blst_aux.h - compatibility umbrella that includes the split C surfaces
-    * blst.swg - provides SWIG definitions for creating blst bindings for other languages, such as Java and Python
-    * **C#** - folder containing C# bindings and an example of how to use them
-    * **Emscripten**  - folder containing an example of how to use Emscripten WebAssembly bindings from Javascript
-    * **Java** - folder containing an example of how to use SWIG Java bindings for blst
-    * **Node.js** - folder containing an example of how to use SWIG Javascript bindings for blst
-    * **Python** - folder containing an example of how to use SWIG Python bindings for blst
     * **Rust** - folder containing Rust bindings for blst, including tests, benchmarks, and examples
     * **Vectors**
         * **Hash_to_curve**: folder containing test for hash_to_curve from IETF specification
