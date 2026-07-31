@@ -26,6 +26,13 @@ Relevant Cargo features:
 - `force-adx`
   - forces ADX on supported x86_64 targets
 
+ARM64 and Morello/CHERI builds are retained experimental but are not fully
+supported or release-qualified. They fail by default even when a prebuilt
+native archive is present. Set `BLST_ALLOW_UNTESTED_ARM64=1` to attempt an
+ARM64 Cargo build. A CHERI pure-capability build additionally requires
+`BLST_ALLOW_UNTESTED_CHERI=1`. These environment variables are explicit risk
+acknowledgements, not support or ABI guarantees.
+
 Examples:
 
 ```

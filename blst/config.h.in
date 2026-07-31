@@ -13,8 +13,19 @@
 #cmakedefine BLST_CUDA         // enable cuda kernels
 #cmakedefine BLST_CUDA_MSM     // enable cuda msm kernels
 #cmakedefine BLST_PARALLEL_MSM // enable parallel msm pipeline
+#cmakedefine BLST_ALLOW_UNTESTED_ARM64 // allow experimental ARM64 compilation
+#cmakedefine BLST_ALLOW_UNTESTED_CHERI // allow experimental CHERI compilation
 #cmakedefine BLST_FAST_BUILD   // faster build but slower runtime, reduced CUDA inlining.
 #define BLST_LIMB_SIZE ${BLST_LIMB_SIZE}
+
+#if (defined(__aarch64__) || defined(__aarch64) || defined(_M_ARM64) || \
+     defined(_M_ARM64EC)) && !defined(BLST_ALLOW_UNTESTED_ARM64)
+# error "ARM64 is experimental; configure with BLST_ALLOW_UNTESTED_ARM64=ON to attempt an unsupported build"
+#endif
+
+#if defined(__CHERI_PURE_CAPABILITY__) && !defined(BLST_ALLOW_UNTESTED_CHERI)
+# error "CHERI pure-capability is experimental; configure with BLST_ALLOW_UNTESTED_CHERI=ON to attempt an unsupported build"
+#endif
 
 # ifdef __CUDACC__
 // this function is called from GPU code

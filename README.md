@@ -52,7 +52,18 @@ more stringent environments like Intel SGX or ARM TrustZone straightforward.
 
 ## Platform and Language Compatibility
 
-This library primarily supports x86_64 and ARM64 hardware platforms, and Linux, Mac, and Windows operating systems. But it does have a portable replacement for the assembly modules, which can be compiled for a plethora of other platforms. Problem reports for these will be considered and are likely to be addressed.
+The production-qualified hardware target is currently x86_64. ARM64 and
+Morello/CHERI sources are retained because they may work, but they have not
+completed the CatBLST release-validation gate and are not fully supported.
+They are disabled by default rather than silently shipping as supported
+targets.
+
+To attempt an experimental CMake build, set
+`BLST_ALLOW_UNTESTED_ARM64=ON`. A CHERI pure-capability build additionally
+requires `BLST_ALLOW_UNTESTED_CHERI=ON`. These options acknowledge an
+unsupported build; they do not confer production-readiness or ABI guarantees.
+Rust builds use the same option names as environment variables with a true
+value such as `1` or `ON`.
 
 The supported language surfaces are the [C API](bindings/blst.h), the native
 [C++ implementation and API](blst), and the [Rust binding](bindings/rust).

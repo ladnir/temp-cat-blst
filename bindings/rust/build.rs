@@ -17,6 +17,27 @@ fn main() {
         println!("cargo:rustc-cfg=feature=\"std\"");
     }
     println!("cargo:rerun-if-env-changed=BLST_TEST_NO_STD");
+    println!("cargo:rerun-if-env-changed=BLST_ALLOW_UNTESTED_ARM64");
+    println!("cargo:rerun-if-env-changed=BLST_ALLOW_UNTESTED_CHERI");
+
+    let allow_untested_arm64 = env_flag("BLST_ALLOW_UNTESTED_ARM64");
+    let allow_untested_cheri = env_flag("BLST_ALLOW_UNTESTED_CHERI");
+    let target_is_cheri = env::var("CARGO_CFG_TARGET_POINTER_WIDTH").as_deref()
+        == Ok("128")
+        || target_env.to_ascii_lowercase().contains("cheri")
+        || target_env.to_ascii_lowercase().contains("purecap");
+    if target_is_cheri && !(allow_untested_arm64 && allow_untested_cheri) {
+        panic!(
+            "CHERI pure-capability builds are experimental and unqualified; set both \
+             BLST_ALLOW_UNTESTED_ARM64=1 and BLST_ALLOW_UNTESTED_CHERI=1 to attempt one"
+        );
+    }
+    if target_arch.eq("aarch64") && !allow_untested_arm64 {
+        panic!(
+            "ARM64 builds are experimental and unqualified; set \
+             BLST_ALLOW_UNTESTED_ARM64=1 to attempt one"
+        );
+    }
 
     /*
      * Use pre-built libblst.a if there is one. This is primarily
@@ -125,6 +146,14 @@ fn main() {
     configure.arg(format!("-DBLST_ASM={}", on_off(enable_asm)));
     configure.arg(format!("-DBLST_DEFAULT_ASM={}", on_off(enable_asm)));
     configure.arg(format!("-DBLST_ADX={}", on_off(enable_adx)));
+    configure.arg(format!(
+        "-DBLST_ALLOW_UNTESTED_ARM64={}",
+        on_off(allow_untested_arm64)
+    ));
+    configure.arg(format!(
+        "-DBLST_ALLOW_UNTESTED_CHERI={}",
+        on_off(allow_untested_cheri)
+    ));
     configure.arg(format!("-DBLST_AVX512={}", on_off(enable_avx_native)));
     configure.arg(format!(
         "-DBLST_AVX512_PORTABLE={}",
@@ -179,6 +208,21 @@ fn on_off(value: bool) -> &'static str {
         "ON"
     } else {
         "OFF"
+    }
+}
+
+fn env_flag(name: &str) -> bool {
+    let Ok(value) = env::var(name) else {
+        return false;
+    };
+
+    match value.to_ascii_lowercase().as_str() {
+        "1" | "on" | "true" | "yes" => true,
+        "" | "0" | "off" | "false" | "no" => false,
+        _ => panic!(
+            "{} must be one of: 1, ON, true, yes, 0, OFF, false, no",
+            name
+        ),
     }
 }
 

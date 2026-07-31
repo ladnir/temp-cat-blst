@@ -13,6 +13,8 @@ option(BLST_DEFAULT_AVX  "Prefer AVX implementations by default when available" 
 option(BLST_AVX512_PORTABLE "Enable AVX512 emulation code paths" OFF)
 option(BLST_AVX_VALIDATE_CONSTANTS "Enable GMP-backed validation of baked AVX constants" OFF)
 option(BLST_ALLOW_UNSUPPORTED_AVX_COMPILER "Allow AVX builds with unsupported compilers" OFF)
+option(BLST_ALLOW_UNTESTED_ARM64 "Allow experimental, unqualified ARM64 builds" OFF)
+option(BLST_ALLOW_UNTESTED_CHERI "Allow experimental, unqualified CHERI pure-capability builds" OFF)
 if(DEFINED BLAS_UBSAN AND NOT DEFINED BLST_UBSAN)
     set(BLST_UBSAN "${BLAS_UBSAN}")
 endif()
@@ -25,12 +27,55 @@ option(BLST_PARALLEL_MSM "Enable parallel MSM pipeline sources/tests/benchmarks"
 option(BLST_CRNS_BATCH_VROOM_VENDOR "Build the vendored VROOM comparison backend" OFF)
 
 set(BLST_TARGET_IS_X86_64 OFF)
+set(BLST_TARGET_IS_ARM64 OFF)
 if(APPLE AND DEFINED CMAKE_OSX_ARCHITECTURES AND NOT CMAKE_OSX_ARCHITECTURES STREQUAL "")
     if(CMAKE_OSX_ARCHITECTURES STREQUAL "x86_64")
         set(BLST_TARGET_IS_X86_64 ON)
+    elseif(CMAKE_OSX_ARCHITECTURES MATCHES "(^|;)arm64(;|$)")
+        set(BLST_TARGET_IS_ARM64 ON)
     endif()
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|X86_64|amd64|AMD64|x64|X64)$")
     set(BLST_TARGET_IS_X86_64 ON)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|AARCH64|arm64|ARM64|arm64ec|ARM64EC)$")
+    set(BLST_TARGET_IS_ARM64 ON)
+endif()
+if(CMAKE_GENERATOR_PLATFORM MATCHES "^(ARM64|arm64|ARM64EC|arm64ec)$" OR
+   CMAKE_CXX_COMPILER_ARCHITECTURE_ID MATCHES "^(ARM64|arm64|ARM64EC|arm64ec)$")
+    set(BLST_TARGET_IS_X86_64 OFF)
+    set(BLST_TARGET_IS_ARM64 ON)
+endif()
+
+include(CheckCXXSourceCompiles)
+set(CMAKE_REQUIRED_QUIET ON)
+check_cxx_source_compiles([[
+#ifndef __CHERI_PURE_CAPABILITY__
+# error "not a CHERI pure-capability target"
+#endif
+int main() { return 0; }
+]] BLST_TARGET_IS_CHERI_PURECAP)
+unset(CMAKE_REQUIRED_QUIET)
+
+if(BLST_TARGET_IS_CHERI_PURECAP)
+    set(BLST_TARGET_IS_ARM64 ON)
+    if(NOT (BLST_ALLOW_UNTESTED_ARM64 AND BLST_ALLOW_UNTESTED_CHERI))
+        message(FATAL_ERROR
+            "CHERI pure-capability builds are retained experimental and are not "
+            "release-qualified. To attempt an unsupported build, explicitly set "
+            "both BLST_ALLOW_UNTESTED_ARM64=ON and BLST_ALLOW_UNTESTED_CHERI=ON.")
+    endif()
+    message(WARNING
+        "Building the unqualified CHERI pure-capability target. It may work, but "
+        "it is not fully supported and must not be represented as production-ready.")
+elseif(BLST_TARGET_IS_ARM64)
+    if(NOT BLST_ALLOW_UNTESTED_ARM64)
+        message(FATAL_ERROR
+            "ARM64 builds are retained experimental and are not release-qualified. "
+            "To attempt an unsupported build, explicitly set "
+            "BLST_ALLOW_UNTESTED_ARM64=ON.")
+    endif()
+    message(WARNING
+        "Building the unqualified ARM64 target. It may work, but it is not fully "
+        "supported and must not be represented as production-ready.")
 endif()
 
 if(BLST_ADX AND NOT BLST_TARGET_IS_X86_64)
@@ -203,6 +248,8 @@ message("BLST_DEFAULT_AVX     = ${BLST_DEFAULT_AVX}")  #
 message("BLST_AVX512_PORTABLE = ${BLST_AVX512_PORTABLE}")  #
 message("BLST_AVX_VALIDATE_CONSTANTS = ${BLST_AVX_VALIDATE_CONSTANTS}")  #
 message("BLST_ALLOW_UNSUPPORTED_AVX_COMPILER = ${BLST_ALLOW_UNSUPPORTED_AVX_COMPILER}")  #
+message("BLST_ALLOW_UNTESTED_ARM64 = ${BLST_ALLOW_UNTESTED_ARM64}")
+message("BLST_ALLOW_UNTESTED_CHERI = ${BLST_ALLOW_UNTESTED_CHERI}")
 message("BLST_ASAN            = ${BLST_ASAN}")     # enable address sanitizer
 message("BLST_UBSAN           = ${BLST_UBSAN}")    # enable undefined behavior sanitizer
 message("BLST_CUDA            = ${BLST_CUDA}")     # enable the cude impl (gpu)
