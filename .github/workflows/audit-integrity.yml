@@ -1,0 +1,24 @@
+name: Audit integrity
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  audit-manifests:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate file and upstream manifests
+        shell: powershell
+        run: >
+          powershell.exe -NoProfile -ExecutionPolicy Bypass
+          -File scripts/audit/check_audit_manifest.ps1
