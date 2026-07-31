@@ -37,7 +37,7 @@ No row is closed merely because its language binding is scheduled for removal.
 | ---: | --- | --- | --- | --- | --- | --- | --- |
 | 1 | `e61acc2` | 2025-09-17 | direct | `bindings/blst.hpp`: smooth some edges | not_applicable | closed | The unsupported C-over-ABI wrapper was removed in Phase 6A; see `AUD-006` |
 | 2 | `07b109d` | 2025-09-19 | direct | Rust: use `sync_channel` to optimize allocations | translate | reviewing | Phase 2 replaced the small-work queue with cache-separated result slots and made remaining queues disconnect safely; decide bounded grid/add queue translation during the full Rust performance review |
-| 3 | `b83544b` | 2025-09-19 | direct | Rust: add `sub_aggregate` | port | reviewing | Retained additive Rust API; required p1/p2 cneg FFI already exists |
+| 3 | `b83544b` | 2025-09-19 | direct | Rust: add `sub_aggregate` | port | validated | Ported through both local macro variants in `fed5142`; focused G1/G2 public-key aggregate subtraction, input-preservation, and identity tests pass; see `PHASE_07C.md` |
 | 4 | `1519e46` | 2025-09-19 | direct | Fix `blst_256_t` right-shift operator typos | port | validated | Both operators use modular right shift with portable/assembly dispatch; independent oracle and zero-shift tests pass; see `AUD-007` and `PHASE_01.md` |
 | 5 | `3aa4b71` | 2025-09-19 | removal_candidate | Go README documentation | not_applicable | closed | Go-only documentation removed in Phase 6B |
 | 6 | `e7f90de` | 2025-09-19 | direct | Rust crate version bump | reject | closed | Do not claim upstream release identity; define CatBLST crate/version policy during rename |
@@ -76,7 +76,7 @@ No row is closed merely because its language binding is scheduled for removal.
 | 39 | `f62244e` | 2026-04-01 | conceptual | Resolve workflow warnings | translate | reviewing | Go portion removed in Phase 6B; apply retained action/CodeQL maintenance during CI hardening and drop Node with its binding |
 | 40 | `4eb6250` | 2026-04-16 | removal_candidate | Update Zig build for 0.16 | not_applicable | closed | Zig build only |
 | 41 | `f41f715` | 2026-04-16 | removal_candidate | Widen Zig CI test matrix | not_applicable | closed | Zig matrix only; carry verified-toolchain lesson into general CI hardening |
-| 42 | `dece82e` | 2026-04-17 | direct | Resolve Rust dependabot warning | translate | reviewing | Remove unnecessary direct `rand` dev dependency; use `rand_core` traits and retain MSRV |
+| 42 | `dece82e` | 2026-04-17 | direct | Resolve Rust dependabot warning | translate | validated | `fed5142` replaces the direct `rand` dev dependency/imports with already-resolved `rand_core 0.6.4`; Cargo confirms `rand` is absent and focused tests plus compile-only benchmark checking pass; see `PHASE_07C.md` |
 | 43 | `6271918` | 2026-05-17 | direct | Fix Rust Pippenger divide-by-zero on large systems | translate | validated | Oversubscribed routing and stronger planner width guards pass deterministic 1,024-CPU G1/G2 and large-bit property tests; see `AUD-003` and `PHASE_02.md` |
 | 44 | `db3defd` | 2026-05-17 | conceptual | Fix Go Pippenger divide-by-zero on large systems | not_applicable | closed | Go code removed in Phase 6B; independently corroborates retained Rust `6271918`/`AUD-003` regression |
 | 45 | `6056ba3` | 2026-06-04 | removal_candidate | Add experimental Node-API support | not_applicable | closed | Node-API/SWIG surface removed in Phase 6C |
