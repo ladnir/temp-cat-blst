@@ -1,18 +1,22 @@
-# ARM64 and CHERI Experimental Target Policy
+# Non-Apple ARM64 and CHERI Experimental Target Policy
 
 ## State
 
-ARM64 and Morello/CHERI sources and generated assembly are retained because
-they may work and remain useful for future qualification. They are not fully
-supported, production-ready, or release-qualified CatBLST targets.
+Apple Silicon macOS is a supported scalar target and does not require an
+experimental override. Other ARM64 and Morello/CHERI sources and generated
+assembly are retained because they may work and remain useful for future
+qualification. Those targets are not fully supported, production-ready, or
+release-qualified CatBLST targets.
 
-The production-qualified architecture is currently x86-64, covering the
-primary scalar and AVX-512 profiles. ARM64 and CHERI evidence does not inherit
-from x86-64 testing, deterministic assembly generation, or source review.
+The x86-64 production profiles cover scalar and AVX-512. Apple Silicon covers
+the supported scalar profile and requires its own release evidence. Other
+ARM64 and CHERI evidence does not inherit from x86-64 or Apple testing,
+deterministic assembly generation, or source review.
 
 ## Default build policy
 
-- CMake rejects every detected ARM64 target unless
+- CMake accepts Apple Silicon macOS without an experimental override.
+- CMake rejects every other detected ARM64 target unless
   `BLST_ALLOW_UNTESTED_ARM64=ON` is explicitly provided.
 - A CHERI pure-capability compiler additionally requires
   `BLST_ALLOW_UNTESTED_CHERI=ON`; both acknowledgements are mandatory.
@@ -20,9 +24,10 @@ from x86-64 testing, deterministic assembly generation, or source review.
   is unsupported and unqualified.
 - Generated `config.h` repeats the compile-time guards so the restriction is
   enforced when sources or assembly are compiled.
-- Cargo rejects ARM64 before using either a source build or a prebuilt native
-  archive. Rust callers opt in with the corresponding environment variables
-  set to a true value such as `1` or `ON`.
+- Cargo accepts Apple Silicon macOS normally. It rejects other ARM64 targets
+  before using either a source build or a prebuilt native archive. Rust callers
+  opt in with the corresponding environment variables set to a true value such
+  as `1` or `ON`.
 - The opt-ins acknowledge risk only. They do not grant ABI stability,
   packaging support, security support, or production-readiness claims.
 
@@ -32,7 +37,8 @@ generated files drift.
 
 ## Promotion gate
 
-ARM64 remains experimental until a dedicated phase records, at minimum:
+Non-Apple ARM64 remains experimental until a dedicated phase records, at
+minimum:
 
 1. native AArch64 assembly and portable builds with documented compilers and
    operating systems;
@@ -54,3 +60,8 @@ CHERI additionally requires:
 Removing either default block requires a separately reviewed policy change
 linked to that evidence. Merely obtaining a successful compilation is not
 sufficient.
+
+Apple Silicon remains in supported scope, but release readiness still requires
+a real macOS ARM64 CMake build, the scalar C/native C++ and Rust suites, public
+header/package consumers, and repeatable Apple CI. Its exemption is a support
+decision, not fabricated test evidence.

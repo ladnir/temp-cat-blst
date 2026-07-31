@@ -11,9 +11,10 @@ BLST-derived codebase that is expected to become CatBLST.
    time, with explicit evidence.
 3. Harden and validate the scalar and AVX-512 implementations.
 4. Preserve the FFT and middle-product implementations.
-5. Keep CUDA, ARM64, and CHERI retained and explicitly experimental;
-   unsupported language bindings were removed in Phases 6B and 6C. Keep
-   BTx/BTE frozen pending its required merge.
+5. Keep CUDA, non-Apple ARM64, and CHERI retained and explicitly experimental;
+   keep Apple Silicon macOS in supported scalar scope. Unsupported language
+   bindings were removed in Phases 6B and 6C. Keep BTx/BTE frozen pending its
+   required merge.
 6. Rename the project and introduce a configurable C ABI prefix only after the
    upstream and code audits are under control.
 
@@ -45,7 +46,7 @@ for compatibility.
 | `VALIDATION_POLICY.md` | Risk-proportional checks and subsystem/milestone validation gates |
 | `BTX_FREEZE.md` | No-touch policy and merge prerequisite for frozen BTx/BTE |
 | `CUDA_EXPERIMENTAL.md` | Retention and non-production policy for opt-in CUDA |
-| `ARM64_CHERI_EXPERIMENTAL.md` | Default-deny build policy and qualification gates for retained ARM64 and CHERI targets |
+| `ARM64_CHERI_EXPERIMENTAL.md` | Apple support boundary plus default-deny policy and qualification gates for other ARM64 and CHERI targets |
 | `PHASE_*.md` | Implemented hardening and validation evidence |
 | `scripts/audit/generate_file_manifest.ps1` | Regenerates the inventory without erasing review evidence |
 | `scripts/audit/check_audit_manifest.ps1` | Enforces file/upstream inventory integrity and completion evidence |

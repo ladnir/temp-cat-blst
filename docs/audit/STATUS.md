@@ -4,9 +4,10 @@ Last updated: 2026-07-31
 
 ## Current phase
 
-Phase 10 made ARM64 and CHERI default-deny experimental targets until their
-real toolchain and execution gates are complete. Six upstream rows remain in
-two approved implementation packets. BTx/BTE remains frozen; CUDA, ARM64, and
+Phase 10 keeps Apple Silicon macOS in supported scalar scope while making other
+ARM64 and CHERI targets default-deny experimental until their real toolchain
+and execution gates are complete. Six upstream rows remain in two approved
+implementation packets. BTx/BTE remains frozen; CUDA, non-Apple ARM64, and
 CHERI remain opt-in experimental. Upstream implementation and file-by-file
 review are the controlling workstreams.
 
@@ -20,7 +21,7 @@ review are the controlling workstreams.
 | 4. AVX-512 audit | not started | AVX-512 chain and scalar differential coverage complete |
 | 5. FFT/middle-product audit | not started | Algorithms, limits, and differential tests complete |
 | 6. Supported API/bindings | in progress | C, C++, and Rust surfaces complete |
-| 7. Scope cleanup | complete | Unsupported bindings removed; CUDA experimental; ARM64/CHERI default-deny experimental; BTx/BTE frozen pending merge |
+| 7. Scope cleanup | complete | Unsupported bindings removed; CUDA and non-Apple ARM64/CHERI experimental; Apple Silicon supported; BTx/BTE frozen pending merge |
 | 8. Rename and ABI mode | not started | CatBLST rename and generated two-prefix ABI validated |
 | 9. Release readiness | not started | CI, packaging, security policy, and release evidence complete |
 
@@ -38,7 +39,9 @@ review are the controlling workstreams.
 - SWIG, C#, Emscripten JavaScript, Java, Node.js, and Python bindings were
   removed in Phase 6C.
 - Experimental: opt-in CUDA; see `CUDA_EXPERIMENTAL.md`.
-- Experimental and blocked by default: ARM64 and Morello/CHERI; see
+- Supported scalar platform: Apple Silicon macOS; its native release matrix is
+  still required before release.
+- Experimental and blocked by default: other ARM64 and Morello/CHERI; see
   `ARM64_CHERI_EXPERIMENTAL.md`.
 - Frozen: BTx/BTE pending its required future merge; see `BTX_FREEZE.md`.
 - Future project name: CatBLST.
@@ -151,10 +154,11 @@ Findings: 23 total. Twenty-two are validated. One low finding remains open.
 
 ## Next action
 
-Do not touch BTx/BTE, and do not include experimental CUDA, ARM64, or CHERI in
-the primary production-readiness gate. Implement the two remaining
-bulk-approved packets recorded in `UPSTREAM_BULK_APPROVAL.md`, starting with
-conformance vectors and release language. Apply
+Do not touch BTx/BTE, and do not include experimental CUDA, non-Apple ARM64, or
+CHERI in the primary production-readiness gate. Apple Silicon macOS remains in
+the supported scalar release matrix. Implement the two remaining bulk-approved
+packets recorded in `UPSTREAM_BULK_APPROVAL.md`, starting with conformance
+vectors and release language. Apply
 `VALIDATION_POLICY.md`: run focused checks in the change loop, batch related
 work for subsystem suites, and reserve the full supported matrix for milestone
 gates.

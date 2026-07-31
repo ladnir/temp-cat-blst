@@ -53,5 +53,7 @@ appropriate to that milestone.
 - Frozen BTx/BTE is not built or tested until its required merge is ready.
 - Experimental CUDA is outside the primary scalar/AVX-512 gate unless a change
   directly affects CUDA or an explicit experimental checkpoint is scheduled.
-- Experimental ARM64 and CHERI are blocked by default and remain outside the
-  production matrix until their target-specific promotion gates are complete.
+- Experimental non-Apple ARM64 and CHERI are blocked by default and remain
+  outside the production matrix until their target-specific promotion gates
+  are complete. Apple Silicon macOS is supported scalar scope and requires its
+  own release evidence.
