@@ -49,8 +49,8 @@ Publishing should remain disabled until the rename chooses:
 | Commit | Decision | Evidence and follow-up |
 | --- | --- | --- |
 | `9c35e86` | translate | Generated Rust FFI companion for `cf739f0`; regenerate after native API implementation and tooling repair, never hand-edit or apply standalone. |
-| `6aa1fe7` | not_applicable | Java/SWIG-only guarded byte wrapper and typemap changes. |
-| `d7ab1f0` | not_applicable | Affects the unsupported `bindings/blst.hpp` C-over-ABI wrapper and SWIG; native C++ API design remains separate. |
+| `6aa1fe7` | not_applicable | Java/SWIG-only guarded byte wrapper and typemap changes; removed in Phase 6C. |
+| `d7ab1f0` | not_applicable | The unsupported C-over-ABI wrapper and SWIG were removed in Phases 6A and 6C; native C++ API design remains separate. |
 | `67fc54b` | defer | Reject Zig listing. Defer V6 conformance claim until retained protocol/vector evidence supports it. |
 | `2e1948b` | port | Tracked CHERI generator/artifacts require `scbnds` translation support. |
 | `ed865dc` | port | Bound 256/384-bit inverse scratch capabilities; depends on translator port and deterministic generation. |
@@ -95,11 +95,11 @@ directly, avoiding the Python harness's generic exponentiation in routine tests.
 | Commits | Reason |
 | --- | --- |
 | `3aa4b71`, `374b7cd`, `097818a`, `ce49aad`, `7c17bf5`, `3ede151` | Go documentation, lint, WASM stub, or workflow only; removed in Phase 6B |
-| `b79e2bc`, `2594ed1` | Python/SWIG-only compatibility |
+| `b79e2bc`, `2594ed1` | Python/SWIG-only compatibility; removed in Phase 6C |
 | `d497208`, `0438d74` | Java Android change and its revert |
 | `7f04257`, `68c1d90`, `8065152`, `4eb6250`, `f41f715`, `8aaaef0` | Zig binding/build/generator/CI/version only |
-| `dafa98f` | Emscripten workflow and Zig log text only |
-| `c1bb460`, `6056ba3`, `9a5af53`, `d29fef4` | TypeScript/Node/SWIG Node-API only |
+| `dafa98f` | Emscripten workflow and Zig log text only; local Emscripten JavaScript surface removed in Phase 6C |
+| `c1bb460`, `6056ba3`, `9a5af53`, `d29fef4` | TypeScript/Node/SWIG Node-API only; removed in Phase 6C |
 
 These rows are `not_applicable`, not deleted from the ledger. Their files
 remain in the file manifest until reviewed removal is committed.

@@ -148,7 +148,9 @@ tree tests, and C/Rust wrapper validation.
   public-documentation references (`PHASE_06A.md`).
 - [x] Remove Go bindings, module/lint tooling, CI, CGo shims, and orphaned
   amalgamation (`PHASE_06B.md`).
-- Remove CUDA, BTx/BTE, and unsupported bindings through reviewed changes.
+- [x] Remove SWIG, C#, Emscripten JavaScript, Java, Node.js, and Python
+  bindings (`PHASE_06C.md`).
+- Remove CUDA and BTx/BTE through reviewed changes.
 - Harden CodeQL, sanitizers, warnings, and supported build matrices.
 - Begin CatBLST rename and two-prefix ABI work only after the upstream
   implementation rows are closed.

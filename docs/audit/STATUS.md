@@ -4,12 +4,12 @@ Last updated: 2026-07-31
 
 ## Current phase
 
-Phase 6B removed Go language support, its module/lint/CI infrastructure, CGo
-shims, and an orphaned stale amalgamation while retaining C, native C++, and
-Rust. Scalar C/native C++, AVX-512 build, Rust test, package-content, and
-reference checks pass. Phase 6A legacy-wrapper removal and Phase 5
-uniqueness-tree hardening also remain validated. Upstream manifest translation
-and file-by-file review remain the controlling workstreams.
+Phase 6C removed SWIG, C#, Emscripten JavaScript, Java, Node.js, and Python
+bindings while retaining shared C/Rust inputs and vectors. Scalar C/native C++,
+AVX-512 build, Rust test, package-content, and reference checks pass. Phase 6B
+Go removal, Phase 6A legacy-wrapper removal, and Phase 5 uniqueness-tree
+hardening also remain validated. Upstream manifest translation and file-by-file
+review remain the controlling workstreams.
 
 ## Ordered gates
 
@@ -21,7 +21,7 @@ and file-by-file review remain the controlling workstreams.
 | 4. AVX-512 audit | not started | AVX-512 chain and scalar differential coverage complete |
 | 5. FFT/middle-product audit | not started | Algorithms, limits, and differential tests complete |
 | 6. Supported API/bindings | in progress | C, C++, and Rust surfaces complete |
-| 7. Planned removals | in progress | CUDA, Go, BTx/BTE, and other bindings removed cleanly |
+| 7. Planned removals | in progress | CUDA, BTx/BTE, and unsupported bindings removed cleanly |
 | 8. Rename and ABI mode | not started | CatBLST rename and generated two-prefix ABI validated |
 | 9. Release readiness | not started | CI, packaging, security policy, and release evidence complete |
 
@@ -36,8 +36,9 @@ and file-by-file review remain the controlling workstreams.
 - Retained algorithm areas: FFT and middle product.
 - Benchmarks remain inventoried but are excluded from file-by-file audit.
 - Go support was removed in Phase 6B.
-- Planned removal: CUDA, BTx/BTE, C#, Java, Node.js, Python/SWIG, and
-  Emscripten binding support.
+- SWIG, C#, Emscripten JavaScript, Java, Node.js, and Python bindings were
+  removed in Phase 6C.
+- Planned removal: CUDA and BTx/BTE.
 - Future project name: CatBLST.
 - Future C ABI: build-time selection of exactly one generated prefix,
   `blst_` or `catblst_`; no runtime dispatch.
@@ -71,6 +72,9 @@ security/correctness and provenance candidates:
     wrapper was removed with clean C, native C++, and Rust validation.
 14. Go-only upstream rows and `AUD-019` — Go support and its orphaned stale
     amalgamation were removed with clean retained-language validation.
+15. SWIG/language-binding upstream rows and `AUD-020` — all remaining
+    unsupported language bindings were removed with clean retained-language
+    validation.
 
 ## File-review dependency order
 
@@ -90,12 +94,12 @@ security/correctness and provenance candidates:
 
 Current generated inventory:
 
-- 604 repository files accounted for;
+- 584 repository files accounted for;
 - 155 in-scope production;
 - 113 generated production;
-- 136 in-scope support;
+- 137 in-scope support;
 - 59 benchmark files explicitly excluded;
-- 105 planned-removal files;
+- 84 planned-removal files;
 - 36 documentation/archive files.
 
 Upstream progress:
@@ -108,21 +112,20 @@ Upstream progress:
   validation are completed;
 - 0 remain pending.
 
-Findings: 19 total. Eighteen are validated. One low finding remains open.
+Findings: 20 total. Nineteen are validated. One low finding remains open.
 
 
 ## Next action
 
-Continue Phase 6 by removing the remaining unsupported language bindings and
-SWIG as a separate reviewed change. Keep CUDA and BTx/BTE removal isolated so
-retained FFT and middle-product dependencies are proved before deletion.
-Regenerate the file manifest and run the C, native C++, and Rust matrices after
-each batch.
+Continue Phase 6 with BTx/BTE removal as an isolated reviewed change. Prove
+that retained FFT and middle-product sources, tests, and public APIs remain
+independent before deletion. Keep CUDA removal separate, then regenerate the
+file manifest and run the C, native C++, and Rust matrices after each batch.
 
 No production file should be marked complete before its related implementation
 and validation evidence closes the corresponding upstream rows.
 
 Phase evidence is recorded in `PHASE_01.md`, `PHASE_02.md`, `PHASE_03A.md`,
 `PHASE_03B.md`, `PHASE_03C.md`, `PHASE_04.md`, `PHASE_05.md`,
-`PHASE_06A.md`, and `PHASE_06B.md`; the remaining dependency order and exit
-gates are in `HARDENING_PLAN.md`.
+`PHASE_06A.md`, `PHASE_06B.md`, and `PHASE_06C.md`; the remaining dependency
+order and exit gates are in `HARDENING_PLAN.md`.

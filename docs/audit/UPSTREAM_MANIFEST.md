@@ -47,10 +47,10 @@ No row is closed merely because its language binding is scheduled for removal.
 | 10 | `cf739f0` | 2025-10-27 | direct | Add `blst_fp_from_{l,b}e_bytes` | translate | reviewing | API absent; translate into split C header/C++ export architecture with zero-length hardening |
 | 11 | `dd5e80b` | 2025-10-27 | direct | Foolproof zero-length `blst_fr_from_{l,b}e_bytes` | already_equivalent | closed | Stronger local fix `d6a55c08`; zeroes output and returns false; C/header regressions passed in `x64-Debug` |
 | 12 | `9c35e86` | 2025-10-27 | direct | Refresh generated build outputs | translate | reviewing | Generated companion to `cf739f0`; never apply standalone; regenerate Rust FFI/exports after tooling repair |
-| 13 | `b79e2bc` | 2025-10-27 | removal_candidate | SWIG Python 4.4 compatibility | not_applicable | closed | Python/SWIG fix plus Java whitespace only |
-| 14 | `6aa1fe7` | 2025-10-28 | conceptual | C++/SWIG Java 4.4 compatibility | not_applicable | closed | Diff is Java/SWIG compatibility only; retained C++ API unchanged |
+| 13 | `b79e2bc` | 2025-10-27 | removal_candidate | SWIG Python 4.4 compatibility | not_applicable | closed | Python/SWIG and Java-only surface removed in Phase 6C |
+| 14 | `6aa1fe7` | 2025-10-28 | conceptual | C++/SWIG Java 4.4 compatibility | not_applicable | closed | Java/SWIG surface removed in Phase 6C; retained native C++ API unchanged |
 | 15 | `d497208` | 2025-10-28 | removal_candidate | Harmonize Java Android build | not_applicable | closed | Java Android build only and later reverted |
-| 16 | `d7ab1f0` | 2025-10-30 | conceptual | Rework C++/SWIG `bytes_t` | not_applicable | closed | Affects the unsupported C-over-ABI wrapper and SWIG surfaces; native C++ API design is separate |
+| 16 | `d7ab1f0` | 2025-10-30 | conceptual | Rework C++/SWIG `bytes_t` | not_applicable | closed | Unsupported C-over-ABI wrapper and SWIG surfaces removed in Phases 6A and 6C; native C++ API is separate |
 | 17 | `0438d74` | 2025-10-30 | removal_candidate | Revert Java build modification | not_applicable | closed | Java-only revert; close with `d497208` |
 | 18 | `d4ca0f2` | 2025-11-17 | direct | Correct C++ standard support claim | not_applicable | closed | Applied only to the C-over-ABI wrapper removed in Phase 6A |
 | 19 | `85808fd` | 2025-11-17 | conceptual | Cache Wasmtime in CI | translate | reviewing | Retain Rust WASI testing only if supported; pin and verify Wasmtime rather than curl-to-shell |
@@ -60,28 +60,28 @@ No row is closed merely because its language binding is scheduled for removal.
 | 23 | `67fc54b` | 2025-11-25 | conceptual | Update README | defer | reviewing | Reject Zig listing; accept BLS V6 claim only after retained conformance evidence |
 | 24 | `8065152` | 2025-11-26 | removal_candidate | Rearrange Zig generator | not_applicable | closed | Zig generator only |
 | 25 | `ce49aad` | 2026-02-16 | removal_candidate | Resolve Go lint nit | not_applicable | closed | Go lint-only code removed in Phase 6B |
-| 26 | `2594ed1` | 2026-02-16 | removal_candidate | Resolve Python 3.14 warning | not_applicable | closed | Python/SWIG compatibility only |
+| 26 | `2594ed1` | 2026-02-16 | removal_candidate | Resolve Python 3.14 warning | not_applicable | closed | Python/SWIG surface removed in Phase 6C |
 | 27 | `2e1948b` | 2026-02-16 | direct | Recognize CHERI `scbnds` in ARM translator | port | reviewing | CHERI source/artifacts remain tracked; Phase 3A proves the current translator/output baseline, so this source port can proceed through the verified generator path |
 | 28 | `ed865dc` | 2026-02-16 | direct | Confine ARM inverse temporary storage with `scbnds` | port | reviewing | Bound CHERI inverse scratch capabilities and regenerate through the Phase 3A allowlist; ARM/CHERI execution remains required |
 | 29 | `fe85dc3` | 2026-02-16 | direct | Refresh generated build outputs | translate | reviewing | Generated companion to accepted ARM/API sources; consolidate through the validated Phase 3A generator rather than applying artifacts directly |
 | 30 | `84926f2` | 2026-02-16 | direct | Cap MSM precompute stack utilization | translate | validated | Translated bounded horizontal-row chunking without a heap fallback, retained checked arithmetic and accumulator padding, and validated G1/G2 threshold/layout/infinity behavior with allocation hooks and ASan; see `AUD-005` and `PHASE_04.md` |
 | 31 | `68b58bd` | 2026-02-16 | direct | Resolve CodeQL workflow deprecation | translate | reviewing | Move to current CodeQL and retained C/C+++Rust scope; remove C# and private-repo skip |
-| 32 | `dafa98f` | 2026-02-16 | removal_candidate | Fix Emscripten CI failure | not_applicable | closed | Emscripten workflow and Zig log text only |
+| 32 | `dafa98f` | 2026-02-16 | removal_candidate | Fix Emscripten CI failure | not_applicable | closed | Emscripten JavaScript surface removed in Phase 6C; Zig portion was never retained |
 | 33 | `f262a6e` | 2026-03-16 | direct | Avoid C2x ambiguity in `blst.h` | translate | reviewing | Split `blst_types.h` retains direct `bool -> _Bool` macro for pre-final C2x modes |
 | 34 | `a3c15d6` | 2026-04-01 | direct | Accept zero-length salt in `blst_keygen_v5` | port | validated | Zero-length copy is skipped while NULL+0 rejection is preserved; exact-vector C/Rust tests pass in portable and assembly/ADX configurations; see `AUD-004` and `PHASE_01.md` |
 | 35 | `aee68f7` | 2026-04-01 | conceptual | Accept empty salt in Go `KeyGenV5` | not_applicable | closed | Go wrapper removed in Phase 6B; retained C/Rust regression is linked to `a3c15d6`/`AUD-004` |
 | 36 | `06a5711` | 2026-04-01 | removal_candidate | Resolve Go `gosec` lint warning | translate | validated | Applied the bounded-walk intent to the retained shared C/Rust tree with a stronger capacity-aware API, checked layout arithmetic, explicit results, and 32/64-bit depth analysis; see `AUD-011` and `PHASE_05.md` |
 | 37 | `7c17bf5` | 2026-04-01 | removal_candidate | Pin Go lint version | not_applicable | closed | Go lint workflow removed in Phase 6B |
-| 38 | `c1bb460` | 2026-04-01 | removal_candidate | Resolve TypeScript compiler failure | not_applicable | closed | TypeScript/Node CI only |
+| 38 | `c1bb460` | 2026-04-01 | removal_candidate | Resolve TypeScript compiler failure | not_applicable | closed | TypeScript/Node surface removed in Phase 6C |
 | 39 | `f62244e` | 2026-04-01 | conceptual | Resolve workflow warnings | translate | reviewing | Go portion removed in Phase 6B; apply retained action/CodeQL maintenance during CI hardening and drop Node with its binding |
 | 40 | `4eb6250` | 2026-04-16 | removal_candidate | Update Zig build for 0.16 | not_applicable | closed | Zig build only |
 | 41 | `f41f715` | 2026-04-16 | removal_candidate | Widen Zig CI test matrix | not_applicable | closed | Zig matrix only; carry verified-toolchain lesson into general CI hardening |
 | 42 | `dece82e` | 2026-04-17 | direct | Resolve Rust dependabot warning | translate | reviewing | Remove unnecessary direct `rand` dev dependency; use `rand_core` traits and retain MSRV |
 | 43 | `6271918` | 2026-05-17 | direct | Fix Rust Pippenger divide-by-zero on large systems | translate | validated | Oversubscribed routing and stronger planner width guards pass deterministic 1,024-CPU G1/G2 and large-bit property tests; see `AUD-003` and `PHASE_02.md` |
 | 44 | `db3defd` | 2026-05-17 | conceptual | Fix Go Pippenger divide-by-zero on large systems | not_applicable | closed | Go code removed in Phase 6B; independently corroborates retained Rust `6271918`/`AUD-003` regression |
-| 45 | `6056ba3` | 2026-06-04 | removal_candidate | Add experimental Node-API support | not_applicable | closed | Node-API/SWIG only |
-| 46 | `9a5af53` | 2026-06-04 | removal_candidate | Exercise Node-API in CI | not_applicable | closed | Node-API CI only |
-| 47 | `d29fef4` | 2026-06-04 | removal_candidate | Refine Node addon detection | not_applicable | closed | Node addon detection only |
+| 45 | `6056ba3` | 2026-06-04 | removal_candidate | Add experimental Node-API support | not_applicable | closed | Node-API/SWIG surface removed in Phase 6C |
+| 46 | `9a5af53` | 2026-06-04 | removal_candidate | Exercise Node-API in CI | not_applicable | closed | Node-API surface removed in Phase 6C |
+| 47 | `d29fef4` | 2026-06-04 | removal_candidate | Refine Node addon detection | not_applicable | closed | Node addon surface removed in Phase 6C |
 | 48 | `525a87a` | 2026-07-21 | direct | Omit `sqr_mont_382x` | translate | validated | Removed the unused specialized generator routines, fork declarations/wrapper/test, and exact generated symbols while retaining production `sqr_382x`; see `PHASE_03C.md` |
 | 49 | `4a74ffd` | 2026-07-21 | direct | Refine x86-64 Montgomery carry chains | port | validated | Upstream ADX schedules were preserved exactly in generator source and generated artifacts; scalar direct-ADX, portable-dispatch, and AVX-512 suites passed; see `PHASE_03C.md` |
 | 50 | `e789f8a` | 2026-07-21 | direct | Refresh generated build outputs | translate | validated | Regenerated through the 100-file deterministic allowlist; all 20 changed outputs match upstream `14cd09a` after newline normalization; see `PHASE_03C.md` |
