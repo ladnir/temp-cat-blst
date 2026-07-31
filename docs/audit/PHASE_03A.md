@@ -51,6 +51,9 @@ manual `BLST_PORTABLE` substitutions while their generators emitted
 spelling explicitly. Phase 3B will replace this temporary compatibility rule
 with the final unified MASM macro policy.
 
+Phase 3B subsequently removed this temporary rule and validated the unified
+policy; see `PHASE_03B.md`.
+
 Repository attributes require LF for generator scripts, shell scripts, the
 allowlist, and checked-in assembly. Verification still normalizes an existing
 Windows checkout before comparison so it works before a fresh checkout.
@@ -99,7 +102,7 @@ shared-library packaging, CatBLST naming, and configurable prefix policy.
   assembled or executed on this Windows x86-64 host.
 - Cross-version Perl and non-WSL host reproduction should be added to CI.
 - Rust bindings were not regenerated because bindgen is not installed.
-- `AUD-010` MASM symbol visibility and the final portable macro policy remain
-  Phase 3B work.
+- `AUD-010` MASM symbol visibility and the final portable macro policy were
+  subsequently validated in Phase 3B.
 - Accepted upstream generator and translator changes remain Phase 3C work and
   must be applied only through this verified path.

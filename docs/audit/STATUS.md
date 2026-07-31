@@ -4,10 +4,12 @@ Last updated: 2026-07-30
 
 ## Current phase
 
-Phase 3A deterministic assembly generation is implemented, validated, and
-committed. The existing 100-file assembly tree now has a reproducible,
-allowlisted source-to-output path. Upstream manifest translation and
-file-by-file review remain the controlling workstreams.
+Phase 3B Win64 portable-mode and fallback-symbol policy is implemented,
+validated, and committed. The existing 100-file assembly tree has a
+reproducible, allowlisted source-to-output path, and MSVC now exposes `$1`
+fallback symbols only when `BLST_PORTABLE` requires runtime dispatch.
+Upstream manifest translation and file-by-file review remain the controlling
+workstreams.
 
 ## Ordered gates
 
@@ -51,8 +53,10 @@ security/correctness and provenance candidates:
 5. `a3c15d6` — zero-length-salt assembly-path fix validated.
 6. `84926f2` — local heap workaround still requires bounded translation.
 7. `AUD-009` — deterministic assembly generation is validated.
-8. `525a87a` through `14cd09a` — accepted assembly translations can now
-   proceed through the verified generator path.
+8. `41b511a` and `14cd09a` — Win64 fallback-symbol guards translated and
+   validated through the verified generator path.
+9. The remaining accepted assembly translations can now proceed through that
+   path in Phase 3C.
 
 ## File-review dependency order
 
@@ -72,10 +76,10 @@ security/correctness and provenance candidates:
 
 Current generated inventory:
 
-- 615 repository files accounted for;
+- 617 repository files accounted for;
 - 155 in-scope production;
 - 114 generated production;
-- 128 in-scope support;
+- 130 in-scope support;
 - 59 benchmark files explicitly excluded;
 - 123 planned-removal files;
 - 36 documentation/archive files.
@@ -85,26 +89,26 @@ Upstream progress:
 - 63 of 63 commits have decisions;
 - 32 are closed as already equivalent, deliberate rejection, or verified
   removal-only changes;
-- 6 accepted ports/translations are validated;
-- 25 remain reviewing while accepted translations, policy decisions, or
+- 8 accepted ports/translations are validated;
+- 23 remain reviewing while accepted translations, policy decisions, or
   validation are completed;
 - 0 remain pending.
 
-Findings: 16 total. Eleven are validated (`AUD-001` through `AUD-004`,
-`AUD-007` through `AUD-009`, and `AUD-012` through `AUD-015`). Five remain
-open: 3 medium, 1 low, and 1 informational planned-removal item.
+Findings: 16 total. Twelve are validated (`AUD-001` through `AUD-004`,
+`AUD-007` through `AUD-010`, and `AUD-012` through `AUD-015`). Four remain
+open: 2 medium, 1 low, and 1 informational planned-removal item.
 
 
 ## Next action
 
-Begin Phase 3B with `AUD-010`: choose one explicit MASM portable-mode macro,
-pass it from CMake, conditionally expose fallback `$1` symbols, and prove the
-portable/non-portable symbol allowlists. Then apply the accepted upstream
-generator chain in Phase 3C through the verified output path.
+Begin Phase 3C by applying the remaining accepted upstream x86 generator and
+translator changes through the verified output path. Preserve each accepted
+instruction schedule exactly, regenerate once, explain every output change,
+and rerun scalar plus AVX-512 differential validation.
 
 No production file should be marked complete before its related implementation
 and validation evidence closes the corresponding upstream rows.
 
-Phase evidence is recorded in `PHASE_01.md`, `PHASE_02.md`, and
-`PHASE_03A.md`; the remaining dependency order and exit gates are in
+Phase evidence is recorded in `PHASE_01.md`, `PHASE_02.md`, `PHASE_03A.md`,
+and `PHASE_03B.md`; the remaining dependency order and exit gates are in
 `HARDENING_PLAN.md`.

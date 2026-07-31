@@ -93,8 +93,13 @@ From the repository root:
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/audit/generate_file_manifest.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/audit/check_audit_manifest.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/audit/check_win64_asm_symbols.ps1 -BuildDirectory out/build/<profile> -Mode Portable
 ```
 
 The generator preserves human-entered review fields by matching the `path`
 column. Renames must be reconciled explicitly so that review evidence is not
 silently attributed to a different file.
+
+Use `-Mode NonPortable` for a build configured with `BLST_PORTABLE=OFF`. The
+Win64 symbol checker requires MSVC `dumpbin.exe` on `PATH`, or an explicit
+`-Dumpbin` path.
