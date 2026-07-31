@@ -274,9 +274,18 @@ my $scvalue = sub {
     my ($args,$comment) = split(m|\s*//|,shift);
     $args =~ s/\b(?:x([0-9]+)|(sp))\b/c$1$2/g;
     my @regs = split(m|,\s*|,$args);
-    @regs[2] =~ s/\bc([0-9])\b/x$1/;
+    @regs[2] =~ s/\bc([0-9]+)\b/x$1/;
 
     "\tscvalue\t".join(',',@regs);
+};
+
+my $scbnds = sub {
+    my ($args,$comment) = split(m|\s*//|,shift);
+    $args =~ s/\b(?:x([0-9]+)|(sp))\b/c$1$2/g;
+    my @regs = split(m|,\s*|,$args);
+    @regs[2] =~ s/\bc([0-9]+)\b/x$1/;
+
+    "\tscbnds\t".join(',',@regs);
 };
 
 my $cadd = sub {
@@ -287,7 +296,7 @@ my $cadd = sub {
 	$args =~ s/\bc([0-9]+)\b/x$1/g;
     }
     my @regs = split(m|,\s*|,$args);
-    @regs[2] =~ s/c([0-9])/x$1/;
+    @regs[2] =~ s/\bc([0-9]+)\b/x$1/;
 
     "\tadd\t".join(',',@regs);
 };
@@ -300,7 +309,7 @@ my $csub = sub {
 	$args =~ s/\bc([0-9]+)\b/x$1/g;
     }
     my @regs = split(m|,\s*|,$args);
-    @regs[2] =~ s/c([0-9])/x$1/;
+    @regs[2] =~ s/\bc([0-9]+)\b/x$1/;
 
     "\tsub\t".join(',',@regs);
 };

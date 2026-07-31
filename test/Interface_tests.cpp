@@ -893,21 +893,46 @@ TEST(InterfaceTests, CtxInverseMod384) {
 }
 
 TEST(InterfaceTests, CtInverseMod256) {
-	Fr inp;
-	UFr ret_asm, ret_portable;
-
-	int trials = 10;
-
 	Fr modx;
-	left_align_mod(modx.data, get_BLST_P().data, NLIMBS(256));
-	for (int t = 0; t < trials; t++)
-	{
-		generate_random_Fr(inp);
+	left_align_mod(modx.data, get_BLST_r().data, NLIMBS(256));
 
+	auto check_inverse = [&modx](const Fr& inp) {
+		UFr ret_asm, ret_portable;
 		ct_inverse_mod_256(ret_asm, inp.data, get_BLST_r().data, modx.data); // ASM implementation
 		cc_ct_inverse_mod_256(ret_portable, inp, get_BLST_r(), modx); // Portable implementation
 
 		EXPECT_TRUE(std::memcmp(ret_asm, ret_portable, sizeof(UFr)) == 0) << "Mismatch in ct_inverse_mod_256";
+		if (vec_is_zero(inp.data, sizeof(inp)))
+			return;
+
+		Fr inv_asm, inv_portable, product;
+		Fr::redc(inv_asm, ret_asm);
+		Fr::redc(inv_portable, ret_portable);
+		Fr::to_mont(inv_asm, inv_asm);
+		Fr::to_mont(inv_portable, inv_portable);
+
+		Fr::mul(product, inp, inv_asm);
+		EXPECT_TRUE(Fr_equal(product, Fr::one())) << "ASM inverse is not multiplicative";
+		Fr::mul(product, inp, inv_portable);
+		EXPECT_TRUE(Fr_equal(product, Fr::one())) << "Portable inverse is not multiplicative";
+	};
+
+	Fr zero = {};
+	check_inverse(zero);
+	check_inverse(Fr::one());
+
+	Fr modulus_minus_one = get_BLST_r();
+	modulus_minus_one[0] -= 1;
+	check_inverse(modulus_minus_one);
+
+	std::mt19937_64 rng(0x4354424c5354494eULL);
+	for (int t = 0; t < 10; t++)
+	{
+		Fr inp;
+		for (size_t i = 0; i < NLIMBS(256) - 1; i++)
+			inp[i] = rng();
+		inp[NLIMBS(256) - 1] = rng() % get_BLST_r()[NLIMBS(256) - 1];
+		check_inverse(inp);
 	}
 }
 
