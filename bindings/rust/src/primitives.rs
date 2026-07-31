@@ -399,4 +399,34 @@ mod tests {
             assert_eq!(fp_to_words(&fp_product), fp_to_words(&square));
         }
     }
+
+    #[test]
+    fn variable_length_fp_decoders_accept_empty_and_link() {
+        unsafe {
+            let seven_words = [7u64, 0, 0, 0, 0, 0];
+            let mut empty_le = blst_fp::default();
+            let mut empty_be = blst_fp::default();
+            blst_fp_from_uint64(&mut empty_le, seven_words.as_ptr());
+            blst_fp_from_uint64(&mut empty_be, seven_words.as_ptr());
+            blst_fp_from_le_bytes(&mut empty_le, core::ptr::null(), 0);
+            blst_fp_from_be_bytes(&mut empty_be, core::ptr::null(), 0);
+            assert_eq!(empty_le, blst_fp::default());
+            assert_eq!(empty_be, blst_fp::default());
+
+            let input = core::array::from_fn::<_, 49, _>(|i| {
+                (i.wrapping_mul(131).wrapping_add(0x5b) & 0xff) as u8
+            });
+            let mut reversed = input;
+            reversed.reverse();
+            let mut little = blst_fp::default();
+            let mut big_reversed = blst_fp::default();
+            blst_fp_from_le_bytes(&mut little, input.as_ptr(), input.len());
+            blst_fp_from_be_bytes(
+                &mut big_reversed,
+                reversed.as_ptr(),
+                reversed.len(),
+            );
+            assert_eq!(little, big_reversed);
+        }
+    }
 }

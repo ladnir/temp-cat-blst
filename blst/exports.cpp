@@ -213,6 +213,66 @@ void blst_fp_from_lendian(Fp& ret, const unsigned char a[48])
     Fp::mul(ret, out, get_BLST_RR());
 }
 
+static void fp_add_unreduced(Fp& ret, const Fp& a, const Fp& b)
+{
+#if defined(BLST_DEFAULT_ASM)
+    add_mod_384(&ret, &a, &b, &get_BLST_P());
+#else
+    cc_add_mod_n<NLIMBS(384)>(ret.data, a.data, b.data,
+                              get_BLST_P().data);
+#endif
+}
+
+void blst_fp_from_le_bytes(Fp& out, const unsigned char* bytes, size_t n)
+{
+    constexpr size_t chunk_size = sizeof(Fp);
+    static_assert(chunk_size == 48);
+
+    vec_zero(out.data, sizeof(out));
+    if (n == 0) {
+        return;
+    }
+
+    const size_t rem = (n - 1) % chunk_size + 1;
+    Fp digit;
+
+    n -= rem;
+    limbs_from_le_bytes(out.data, bytes + n, rem);
+    Fp::mul(out, get_BLST_RR(), out);
+
+    while (n != 0) {
+        n -= chunk_size;
+        limbs_from_le_bytes(digit.data, bytes + n, chunk_size);
+        fp_add_unreduced(out, out, digit);
+        Fp::mul(out, get_BLST_RR(), out);
+    }
+}
+
+void blst_fp_from_be_bytes(Fp& out, const unsigned char* bytes, size_t n)
+{
+    constexpr size_t chunk_size = sizeof(Fp);
+    static_assert(chunk_size == 48);
+
+    vec_zero(out.data, sizeof(out));
+    if (n == 0) {
+        return;
+    }
+
+    size_t rem = (n - 1) % chunk_size + 1;
+    Fp digit;
+
+    limbs_from_be_bytes(out.data, bytes, rem);
+    Fp::mul(out, get_BLST_RR(), out);
+
+    while (n -= rem) {
+        bytes += rem;
+        limbs_from_be_bytes(digit.data, bytes, chunk_size);
+        fp_add_unreduced(out, out, digit);
+        Fp::mul(out, get_BLST_RR(), out);
+        rem = chunk_size;
+    }
+}
+
 void blst_lendian_from_fp(unsigned char ret[48], const Fp& a)
 {
     Fp out;

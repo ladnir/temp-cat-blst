@@ -19,6 +19,38 @@ blst_fr test_fr_from_u64(uint64_t value)
     return out;
 }
 
+blst_fp test_fp_from_u64(uint64_t value)
+{
+    const std::array<uint64_t, 6> words = {value, 0, 0, 0, 0, 0};
+    blst_fp out = {};
+    blst_fp_from_uint64(&out, words.data());
+    return out;
+}
+
+blst_fp test_fp_from_bytes_oracle(
+    const std::vector<byte>& input,
+    bool little_endian)
+{
+    const blst_fp radix = test_fp_from_u64(256);
+    blst_fp acc = test_fp_from_u64(0);
+
+    for (size_t i = 0; i < input.size(); ++i) {
+        const size_t index = little_endian ? input.size() - 1 - i : i;
+        const blst_fp digit = test_fp_from_u64(input[index]);
+        blst_fp shifted = {};
+        blst_fp_mul(&shifted, &acc, &radix);
+        blst_fp_add(&acc, &shifted, &digit);
+    }
+    return acc;
+}
+
+std::array<byte, 48> test_fp_to_bendian(const blst_fp& value)
+{
+    std::array<byte, 48> out = {};
+    blst_bendian_from_fp(out.data(), &value);
+    return out;
+}
+
 std::vector<blst_fr> test_full_width_scalars(size_t count)
 {
     const blst_fr multiplier = test_fr_from_u64(6364136223846793005ULL);
@@ -111,6 +143,49 @@ void expect_batch_affine_g1_matches(
 }
 
 } // namespace
+
+TEST(BindingHeader, VariableLengthFpDecodersMatchBytewiseOracle)
+{
+    const blst_fp zero = test_fp_from_u64(0);
+    blst_fp actual_le = test_fp_from_u64(7);
+    blst_fp actual_be = test_fp_from_u64(9);
+    blst_fp_from_le_bytes(&actual_le, nullptr, 0);
+    blst_fp_from_be_bytes(&actual_be, nullptr, 0);
+    EXPECT_EQ(test_fp_to_bendian(actual_le), test_fp_to_bendian(zero));
+    EXPECT_EQ(test_fp_to_bendian(actual_be), test_fp_to_bendian(zero));
+
+    for (const size_t len : {size_t{1}, size_t{2}, size_t{47}, size_t{48},
+                             size_t{49}, size_t{95}, size_t{96}, size_t{97},
+                             size_t{255}, size_t{511}, size_t{4097}}) {
+        SCOPED_TRACE(::testing::Message() << "len=" << len);
+        std::vector<byte> input(len);
+        for (size_t i = 0; i < len; ++i) {
+            input[i] = static_cast<byte>((i * 131 + len * 17 + 0x5b) & 0xff);
+        }
+
+        blst_fp_from_le_bytes(&actual_le, input.data(), input.size());
+        blst_fp_from_be_bytes(&actual_be, input.data(), input.size());
+        const blst_fp expected_le = test_fp_from_bytes_oracle(input, true);
+        const blst_fp expected_be = test_fp_from_bytes_oracle(input, false);
+        EXPECT_EQ(test_fp_to_bendian(actual_le), test_fp_to_bendian(expected_le));
+        EXPECT_EQ(test_fp_to_bendian(actual_be), test_fp_to_bendian(expected_be));
+
+        std::reverse(input.begin(), input.end());
+        blst_fp reversed_be = {};
+        blst_fp_from_be_bytes(&reversed_be, input.data(), input.size());
+        EXPECT_EQ(test_fp_to_bendian(actual_le), test_fp_to_bendian(reversed_be));
+    }
+
+    for (const size_t len : {size_t{48}, size_t{49}, size_t{96}}) {
+        std::vector<byte> input(len, 0xff);
+        blst_fp_from_le_bytes(&actual_le, input.data(), input.size());
+        blst_fp_from_be_bytes(&actual_be, input.data(), input.size());
+        EXPECT_EQ(test_fp_to_bendian(actual_le),
+                  test_fp_to_bendian(test_fp_from_bytes_oracle(input, true)));
+        EXPECT_EQ(test_fp_to_bendian(actual_be),
+                  test_fp_to_bendian(test_fp_from_bytes_oracle(input, false)));
+    }
+}
 
 TEST(BindingHeader, BlstUmbrellaExposesKeygenAndPkApis)
 {

@@ -152,6 +152,18 @@ void blst_fp_from_bendian(blst_fp* ret, const byte a[48]);
 void blst_bendian_from_fp(byte ret[48], const blst_fp* a);
 /** Decodes a 48-byte little-endian field element into Montgomery-form Fp. */
 void blst_fp_from_lendian(blst_fp* ret, const byte a[48]);
+/**
+ * Reduces an arbitrary-length little-endian unsigned integer modulo Fp.
+ * `in` must reference `len` readable bytes when `len` is nonzero.
+ * When `len` is zero, `in` may be null and `ret` is set to field zero.
+ */
+void blst_fp_from_le_bytes(blst_fp* ret, const byte* in, size_t len);
+/**
+ * Reduces an arbitrary-length big-endian unsigned integer modulo Fp.
+ * `in` must reference `len` readable bytes when `len` is nonzero.
+ * When `len` is zero, `in` may be null and `ret` is set to field zero.
+ */
+void blst_fp_from_be_bytes(blst_fp* ret, const byte* in, size_t len);
 /** Encodes a Montgomery-form Fp value into a 48-byte little-endian string. */
 void blst_lendian_from_fp(byte ret[48], const blst_fp* a);
 /** Converts an Fp value into Montgomery form and writes it to `ret`. */

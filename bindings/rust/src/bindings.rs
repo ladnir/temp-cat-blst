@@ -386,6 +386,12 @@ extern "C" {
     pub fn blst_fp_from_lendian(ret: *mut blst_fp, a: *const byte);
 }
 extern "C" {
+    pub fn blst_fp_from_le_bytes(ret: *mut blst_fp, in_: *const byte, len: usize);
+}
+extern "C" {
+    pub fn blst_fp_from_be_bytes(ret: *mut blst_fp, in_: *const byte, len: usize);
+}
+extern "C" {
     pub fn blst_lendian_from_fp(ret: *mut byte, a: *const blst_fp);
 }
 extern "C" {
