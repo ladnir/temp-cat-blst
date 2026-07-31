@@ -483,6 +483,46 @@ mod tests {
             assert_mul_n_result(scalar, nbits, BLST_ERROR::BLST_SUCCESS);
         }
     }
+
+    #[test]
+    fn uniq_helper_distinguishes_messages_and_empty_slices() {
+        assert!(uniq(&[]));
+        assert!(uniq(&[b"one".as_ref()]));
+        assert!(uniq(&[b"one".as_ref(), b"two".as_ref(), b"three".as_ref()]));
+        assert!(!uniq(&[b"one".as_ref(), b"two".as_ref(), b"one".as_ref()]));
+        assert!(!uniq(&[b"".as_ref(), b"empty".as_ref(), b"".as_ref()]));
+    }
+
+    #[test]
+    fn uniq_ffi_reports_capacity_duplicate_and_invalid_input() {
+        let capacity = 2;
+        let size = unsafe { blst_uniq_sizeof(capacity) };
+        let words = (size + mem::size_of::<u64>() - 1) / mem::size_of::<u64>();
+        let mut storage = vec![0u64; words];
+        let ctx = storage.as_mut_ptr() as *mut blst_uniq;
+
+        assert!(unsafe { blst_uniq_init(ctx, capacity) });
+        assert_eq!(
+            unsafe { blst_uniq_insert(ctx, b"one".as_ptr(), 3) },
+            BLST_UNIQ_RESULT::BLST_UNIQ_INSERTED
+        );
+        assert_eq!(
+            unsafe { blst_uniq_insert(ctx, b"two".as_ptr(), 3) },
+            BLST_UNIQ_RESULT::BLST_UNIQ_INSERTED
+        );
+        assert_eq!(
+            unsafe { blst_uniq_insert(ctx, b"one".as_ptr(), 3) },
+            BLST_UNIQ_RESULT::BLST_UNIQ_DUPLICATE
+        );
+        assert_eq!(
+            unsafe { blst_uniq_insert(ctx, b"three".as_ptr(), 5) },
+            BLST_UNIQ_RESULT::BLST_UNIQ_CAPACITY_EXCEEDED
+        );
+        assert_eq!(
+            unsafe { blst_uniq_insert(ctx, ptr::null(), 1) },
+            BLST_UNIQ_RESULT::BLST_UNIQ_INVALID_INPUT
+        );
+    }
 }
 
 /// Returns `true` when all message slices are distinct.
@@ -496,14 +536,29 @@ pub fn uniq(msgs: &[&[u8]]) -> bool {
         return msgs[0] != msgs[1];
     }
 
-    let mut v: Vec<u64> = vec![0; unsafe { blst_uniq_sizeof(n_elems) } / 8];
+    let size = unsafe { blst_uniq_sizeof(n_elems) };
+    let align = unsafe { blst_uniq_alignof() };
+    let word_size = mem::size_of::<u64>();
+    let words = match size.checked_add(word_size - 1) {
+        Some(rounded) if size != 0 && align <= mem::align_of::<u64>() => {
+            rounded / word_size
+        }
+        _ => return false,
+    };
+    let mut v: Vec<u64> = vec![0; words];
     let ctx = v.as_mut_ptr() as *mut blst_uniq;
 
-    unsafe { blst_uniq_init(ctx) };
+    if !unsafe { blst_uniq_init(ctx, n_elems) } {
+        return false;
+    }
 
     for msg in msgs.iter() {
-        if !unsafe { blst_uniq_test(ctx, msg.as_ptr(), msg.len()) } {
-            return false;
+        match unsafe { blst_uniq_insert(ctx, msg.as_ptr(), msg.len()) } {
+            BLST_UNIQ_RESULT::BLST_UNIQ_INSERTED => {}
+            BLST_UNIQ_RESULT::BLST_UNIQ_DUPLICATE
+            | BLST_UNIQ_RESULT::BLST_UNIQ_CAPACITY_EXCEEDED
+            | BLST_UNIQ_RESULT::BLST_UNIQ_DEPTH_EXCEEDED
+            | BLST_UNIQ_RESULT::BLST_UNIQ_INVALID_INPUT => return false,
         }
     }
 

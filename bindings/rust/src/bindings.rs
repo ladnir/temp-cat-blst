@@ -1192,6 +1192,15 @@ extern "C" {
 extern "C" {
     pub fn blst_fp12_finalverify(gt1: *const blst_fp12, gt2: *const blst_fp12) -> bool;
 }
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub enum BLST_UNIQ_RESULT {
+    BLST_UNIQ_INSERTED = 0,
+    BLST_UNIQ_DUPLICATE = 1,
+    BLST_UNIQ_CAPACITY_EXCEEDED = 2,
+    BLST_UNIQ_DEPTH_EXCEEDED = 3,
+    BLST_UNIQ_INVALID_INPUT = 4,
+}
 #[repr(C)]
 #[repr(align(1))]
 #[derive(Debug, Default)]
@@ -1476,13 +1485,20 @@ fn bindgen_test_layout_blst_uniq() {
     );
 }
 extern "C" {
-    pub fn blst_uniq_sizeof(n_nodes: usize) -> usize;
+    pub fn blst_uniq_sizeof(capacity: usize) -> usize;
 }
 extern "C" {
-    pub fn blst_uniq_init(tree: *mut blst_uniq);
+    pub fn blst_uniq_alignof() -> usize;
 }
 extern "C" {
-    pub fn blst_uniq_test(tree: *mut blst_uniq, msg: *const byte, len: usize) -> bool;
+    pub fn blst_uniq_init(tree: *mut blst_uniq, capacity: usize) -> bool;
+}
+extern "C" {
+    pub fn blst_uniq_insert(
+        tree: *mut blst_uniq,
+        msg: *const byte,
+        len: usize,
+    ) -> BLST_UNIQ_RESULT;
 }
 extern "C" {
     pub fn blst_expand_message_xmd(
@@ -1607,5 +1623,6 @@ fn bindgen_test_normal_types() {
     is_normal::<blst_p2>();
     is_normal::<blst_p2_affine>();
     is_normal::<blst_pairing>();
+    is_normal::<BLST_UNIQ_RESULT>();
     is_normal::<blst_uniq>();
 }

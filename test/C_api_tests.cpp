@@ -197,9 +197,17 @@ blst::BLST_ERROR blst_pairing_chk_n_aggr_pk_in_g1(void* ctx, const blst::scalar:
 void blst_pairing_commit(void* ctx);
 bool blst_pairing_finalverify(const void* ctx, const blst::Fp12* gtsig);
 void blst_aggregated_in_g2(blst::Fp12* out, const blst::scalar::G2AffinePoint* signature);
-size_t blst_uniq_sizeof(size_t n_nodes);
-void blst_uniq_init(void* tree);
-bool blst_uniq_test(void* tree, const unsigned char* msg, size_t len);
+enum BLST_UNIQ_RESULT {
+    BLST_UNIQ_INSERTED = 0,
+    BLST_UNIQ_DUPLICATE = 1,
+    BLST_UNIQ_CAPACITY_EXCEEDED = 2,
+    BLST_UNIQ_DEPTH_EXCEEDED = 3,
+    BLST_UNIQ_INVALID_INPUT = 4,
+};
+size_t blst_uniq_sizeof(size_t capacity);
+size_t blst_uniq_alignof(void);
+bool blst_uniq_init(void* tree, size_t capacity);
+BLST_UNIQ_RESULT blst_uniq_insert(void* tree, const unsigned char* msg, size_t len);
 void blst_keygen(blst::pow256 out_SK, const unsigned char* IKM, size_t IKM_len, const unsigned char* info, size_t info_len);
 void blst_keygen_v5(blst::pow256 out_SK, const unsigned char* IKM, size_t IKM_len, const unsigned char* salt, size_t salt_len, const unsigned char* info, size_t info_len);
 void blst_expand_message_xmd(unsigned char* out, size_t out_len, const unsigned char* msg, size_t msg_len, const unsigned char* DST, size_t DST_len);
@@ -2057,7 +2065,7 @@ TEST(CApi, MappingAndUncheckedWrappersMatchScalarBackend)
     EXPECT_TRUE(fp2_equal(normalized_g2.Z, BoundaryG2::generator().Z));
 }
 
-TEST(CApi, ExpandMessageUniqAndSizeWrappersWork)
+TEST(CApi, ExpandMessageAndSizeWrappersWork)
 {
     std::array<unsigned char, 64> out = {};
     std::array<unsigned char, 64> expected = {};
@@ -2073,18 +2081,97 @@ TEST(CApi, ExpandMessageUniqAndSizeWrappersWork)
     blst::scalar::blst_expand_message_xmd(short_expected.data(), short_expected.size(), msg, sizeof(msg), dst, sizeof(dst));
     EXPECT_EQ(short_out, short_expected);
 
-    EXPECT_EQ(blst_uniq_sizeof(0), 0u);
-    std::vector<std::uint64_t> uniq_bytes(blst_uniq_sizeof(4) / sizeof(std::uint64_t));
-    void* uniq = uniq_bytes.data();
-    blst_uniq_init(uniq);
-    EXPECT_TRUE(blst_uniq_test(uniq, msg, sizeof(msg)));
-    EXPECT_FALSE(blst_uniq_test(uniq, msg, sizeof(msg)));
-
     EXPECT_EQ(blst_p1_sizeof(), sizeof(BoundaryG1));
     EXPECT_EQ(blst_p1_affine_sizeof(), sizeof(BoundaryG1Affine));
     EXPECT_EQ(blst_p2_sizeof(), sizeof(BoundaryG2));
     EXPECT_EQ(blst_p2_affine_sizeof(), sizeof(BoundaryG2Affine));
     EXPECT_EQ(blst_fp12_sizeof(), sizeof(BoundaryGt));
+}
+
+TEST(CApi, UniqTreeEnforcesCapacityAndReportsExactResults)
+{
+    constexpr size_t capacity = 2;
+    constexpr unsigned char first[] = {'a'};
+    constexpr unsigned char second[] = {'b'};
+    constexpr unsigned char third[] = {'c'};
+    const size_t bytes = blst_uniq_sizeof(capacity);
+    const size_t words = (bytes + sizeof(std::uint64_t) - 1) / sizeof(std::uint64_t);
+    std::vector<std::uint64_t> storage(words);
+    void* uniq = storage.data();
+
+    ASSERT_NE(bytes, 0u);
+    EXPECT_GE(alignof(std::uint64_t), blst_uniq_alignof());
+    ASSERT_TRUE(blst_uniq_init(uniq, capacity));
+    EXPECT_EQ(blst_uniq_insert(uniq, first, sizeof(first)), BLST_UNIQ_INSERTED);
+    EXPECT_EQ(blst_uniq_insert(uniq, second, sizeof(second)), BLST_UNIQ_INSERTED);
+    EXPECT_EQ(blst_uniq_insert(uniq, first, sizeof(first)), BLST_UNIQ_DUPLICATE);
+    EXPECT_EQ(blst_uniq_insert(uniq, third, sizeof(third)),
+              BLST_UNIQ_CAPACITY_EXCEEDED);
+}
+
+TEST(CApi, UniqTreeRejectsInvalidSizesAndInputs)
+{
+    unsigned char byte = 0;
+    std::vector<std::uint64_t> storage(
+        (blst_uniq_sizeof(1) + sizeof(std::uint64_t) - 1) /
+        sizeof(std::uint64_t));
+    void* uniq = storage.data();
+
+    EXPECT_EQ(blst_uniq_sizeof(0), 0u);
+    EXPECT_EQ(blst_uniq_sizeof(std::numeric_limits<size_t>::max()), 0u);
+    size_t low = 1;
+    size_t high = std::numeric_limits<size_t>::max();
+    while (low < high) {
+        const size_t distance = high - low;
+        const size_t middle = low + distance / 2 + distance % 2;
+        if (blst_uniq_sizeof(middle) != 0)
+            low = middle;
+        else
+            high = middle - 1;
+    }
+    ASSERT_LT(low, std::numeric_limits<size_t>::max());
+    EXPECT_NE(blst_uniq_sizeof(low), 0u);
+    EXPECT_EQ(blst_uniq_sizeof(low + 1), 0u);
+
+    EXPECT_FALSE(blst_uniq_init(nullptr, 1));
+    EXPECT_FALSE(blst_uniq_init(static_cast<unsigned char*>(uniq) + 1, 1));
+    EXPECT_FALSE(blst_uniq_init(uniq, 0));
+    ASSERT_TRUE(blst_uniq_init(uniq, 1));
+    EXPECT_EQ(blst_uniq_insert(nullptr, &byte, 1), BLST_UNIQ_INVALID_INPUT);
+    EXPECT_EQ(blst_uniq_insert(static_cast<unsigned char*>(uniq) + 1, &byte, 1),
+              BLST_UNIQ_INVALID_INPUT);
+    EXPECT_EQ(blst_uniq_insert(uniq, nullptr, 1), BLST_UNIQ_INVALID_INPUT);
+    EXPECT_EQ(blst_uniq_insert(
+                  uniq, &byte, (std::numeric_limits<size_t>::max() >> 1) + 1),
+              BLST_UNIQ_INVALID_INPUT);
+    EXPECT_EQ(blst_uniq_insert(uniq, nullptr, 0), BLST_UNIQ_INSERTED);
+    EXPECT_EQ(blst_uniq_insert(uniq, nullptr, 0), BLST_UNIQ_DUPLICATE);
+}
+
+TEST(CApi, UniqTreeHandlesLargeAdversarialInsertionOrder)
+{
+    constexpr size_t capacity = 32768;
+    std::vector<std::array<unsigned char, 8>> messages(capacity);
+    const size_t bytes = blst_uniq_sizeof(capacity);
+    std::vector<std::uint64_t> storage(
+        (bytes + sizeof(std::uint64_t) - 1) / sizeof(std::uint64_t));
+    void* uniq = storage.data();
+
+    ASSERT_TRUE(blst_uniq_init(uniq, capacity));
+    for (size_t i = 0; i < capacity; i++) {
+        size_t value = i;
+        for (size_t j = 0; j < messages[i].size(); j++) {
+            messages[i][messages[i].size() - 1 - j] =
+                static_cast<unsigned char>(value);
+            value >>= 8;
+        }
+        ASSERT_EQ(blst_uniq_insert(uniq, messages[i].data(), messages[i].size()),
+                  BLST_UNIQ_INSERTED);
+    }
+
+    for (size_t i = 0; i < capacity; i += 257)
+        EXPECT_EQ(blst_uniq_insert(uniq, messages[i].data(), messages[i].size()),
+                  BLST_UNIQ_DUPLICATE);
 }
 
 TEST(CApi, ExpandMessageOversizeOutputClearsBuffer)

@@ -1,5 +1,6 @@
 #include "blst/backend/backend.h"
 #include "blst/common/vect.h"
+#include "blst/common/rb_tree.h"
 #include "blst/curve/GT.h"
 #include "blst/curve/map_to_G.h"
 #include "blst/curve/point.h"
@@ -21,7 +22,6 @@
 #include <vector>
 
 namespace blst {
-struct rb_tree;
 size_t blst_pairing_sizeof(void);
 void blst_pairing_init(PAIRING* ctx, int hash_or_encode, const void* DST, size_t DST_len);
 const void* blst_pairing_get_dst(const PAIRING* ctx);
@@ -50,9 +50,6 @@ void blst_keygen_v4_5(pow256 SK, const void* IKM, size_t IKM_len, const void* sa
 void blst_keygen_v5(pow256 SK, const void* IKM, size_t IKM_len, const void* salt, size_t salt_len, const void* info, size_t info_len);
 void blst_derive_master_eip2333(pow256 SK, const void* seed, size_t seed_len);
 void blst_derive_child_eip2333(pow256 SK, const pow256 parent_SK, unsigned int child_index);
-size_t blst_uniq_sizeof(size_t n_nodes);
-void blst_uniq_init(rb_tree* tree);
-int blst_uniq_test(rb_tree* tree, const void* data, size_t len);
 }
 
 namespace blst::scalar {
@@ -243,11 +240,6 @@ inline BoundaryPairing* as_pairing(void* ctx)
 inline const BoundaryPairing* as_pairing(const void* ctx)
 {
     return reinterpret_cast<const BoundaryPairing*>(ctx);
-}
-
-inline blst::rb_tree* as_uniq(void* tree)
-{
-    return reinterpret_cast<blst::rb_tree*>(tree);
 }
 
 template<typename Group, typename GroupZZ>
@@ -2179,19 +2171,25 @@ void blst_derive_child_eip2333(blst::byte* out_SK, const blst::byte* SK, unsigne
     blst::blst_derive_child_eip2333(out_SK, SK, child_index);
 }
 
-size_t blst_uniq_sizeof(size_t n_nodes)
+size_t blst_uniq_sizeof(size_t capacity)
 {
-    return blst::blst_uniq_sizeof(n_nodes);
+    return blst::blst_uniq_sizeof(capacity);
 }
 
-void blst_uniq_init(void* tree)
+size_t blst_uniq_alignof(void)
 {
-    blst::blst_uniq_init(as_uniq(tree));
+    return blst::blst_uniq_alignof();
 }
 
-bool blst_uniq_test(void* tree, const blst::byte* msg, size_t len)
+bool blst_uniq_init(void* tree, size_t capacity)
 {
-    return blst::blst_uniq_test(as_uniq(tree), msg, len) != 0;
+    return blst::blst_uniq_init(tree, capacity);
+}
+
+blst::BLST_UNIQ_RESULT blst_uniq_insert(void* tree, const blst::byte* msg,
+                                        size_t len)
+{
+    return blst::blst_uniq_insert(tree, msg, len);
 }
 
 void blst_expand_message_xmd(blst::byte* out, size_t out_len, const blst::byte* msg, size_t msg_len, const blst::byte* DST, size_t DST_len)

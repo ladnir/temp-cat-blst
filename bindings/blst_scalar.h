@@ -16,6 +16,15 @@ extern "C" {
 typedef struct blst_opaque blst_pairing;
 typedef struct blst_opaque blst_uniq;
 
+/** Result of inserting a message into a `blst_uniq` tree. */
+typedef enum BLST_UNIQ_RESULT {
+    BLST_UNIQ_INSERTED = 0,
+    BLST_UNIQ_DUPLICATE = 1,
+    BLST_UNIQ_CAPACITY_EXCEEDED = 2,
+    BLST_UNIQ_DEPTH_EXCEEDED = 3,
+    BLST_UNIQ_INVALID_INPUT = 4,
+} BLST_UNIQ_RESULT;
+
 /**
  * Plain scalar/public C API.
  *
@@ -531,7 +540,7 @@ BLST_ERROR blst_core_verify_pk_in_g2(const blst_p2_affine* pk, const blst_p1_aff
  * - `IKM`, `info`, `salt`, `msg`, `DST`, and `aug` are raw byte strings of the
  *   supplied lengths.
  * - `blst_uniq_sizeof()` returns the exact caller allocation size for the
- *   opaque `blst_uniq` object.
+ *   opaque `blst_uniq` object, or zero if the capacity is invalid.
  * - `blst_expand_message_xmd` implements the XMD expand step used by the hash
  *   to curve suite.
  */
@@ -575,12 +584,22 @@ void blst_sign_pk2_in_g1(byte out[192], blst_p2_affine* out_sig, const blst_p2* 
 void blst_sk_to_pk2_in_g2(byte out[192], blst_p2_affine* out_pk, const blst_scalar* SK);
 /** Signs a G1 hash point, writes the affine signature, and optionally serializes it into `out`. */
 void blst_sign_pk2_in_g2(byte out[96], blst_p1_affine* out_sig, const blst_p1* hash, const blst_scalar* SK);
-/** Returns the exact allocation size required for a `blst_uniq` tree with `n_nodes`; returns 0 when `n_nodes == 0`. */
-size_t blst_uniq_sizeof(size_t n_nodes);
-/** Initializes caller-owned `blst_uniq` storage. */
-void blst_uniq_init(blst_uniq* tree);
-/** Tests and records whether `msg[0..len)` is new to the uniqueness tree. */
-bool blst_uniq_test(blst_uniq* tree, const byte* msg, size_t len);
+/** Returns the exact allocation size required for a `blst_uniq` tree with `capacity` nodes; returns 0 for zero capacity or size overflow. */
+size_t blst_uniq_sizeof(size_t capacity);
+/** Returns the required alignment for caller-owned `blst_uniq` storage. */
+size_t blst_uniq_alignof(void);
+/** Initializes suitably aligned caller-owned storage for exactly `capacity` nodes; returns false for null or misaligned storage, or an invalid capacity. */
+bool blst_uniq_init(blst_uniq* tree, size_t capacity);
+/**
+ * Inserts `msg[0..len)` and reports the exact outcome.
+ *
+ * `tree` must have been successfully initialized, and concurrent insertions
+ * into the same tree require external synchronization.
+ * `msg` may be null only when `len == 0`. The message bytes are borrowed, not
+ * copied, and must remain readable and unchanged until the tree is no longer
+ * used. A duplicate is still reported as such when the tree is at capacity.
+ */
+BLST_UNIQ_RESULT blst_uniq_insert(blst_uniq* tree, const byte* msg, size_t len);
 /** Expands `msg` into `out_len` bytes using the XMD construction and `DST`; unsupported lengths or internal allocation failure clear `out` to zero. */
 void blst_expand_message_xmd(byte* out, size_t out_len, const byte* msg, size_t msg_len, const byte* DST, size_t DST_len);
 /** Returns `sizeof(blst_p1)` for ABI consumers that need runtime verification. */
