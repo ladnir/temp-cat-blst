@@ -32,7 +32,10 @@ fn main() {
              BLST_ALLOW_UNTESTED_ARM64=1 and BLST_ALLOW_UNTESTED_CHERI=1 to attempt one"
         );
     }
-    if target_arch.eq("aarch64") && !allow_untested_arm64 {
+    if target_arch.eq("aarch64")
+        && !target_os.eq("macos")
+        && !allow_untested_arm64
+    {
         panic!(
             "ARM64 builds are experimental and unqualified; set \
              BLST_ALLOW_UNTESTED_ARM64=1 to attempt one"

@@ -52,13 +52,14 @@ more stringent environments like Intel SGX or ARM TrustZone straightforward.
 
 ## Platform and Language Compatibility
 
-The production-qualified hardware target is currently x86_64. ARM64 and
-Morello/CHERI sources are retained because they may work, but they have not
-completed the CatBLST release-validation gate and are not fully supported.
-They are disabled by default rather than silently shipping as supported
-targets.
+The supported hardware targets are x86_64 and Apple Silicon macOS.
+Other ARM64 and Morello/CHERI sources are retained because they may work, but
+they have not completed the CatBLST release-validation gate and are not fully
+supported. They are disabled by default rather than silently shipping as
+supported targets.
 
-To attempt an experimental CMake build, set
+Apple Silicon macOS needs no experimental override. To attempt another ARM64
+CMake build, set
 `BLST_ALLOW_UNTESTED_ARM64=ON`. A CHERI pure-capability build additionally
 requires `BLST_ALLOW_UNTESTED_CHERI=ON`. These options acknowledge an
 unsupported build; they do not confer production-readiness or ABI guarantees.

@@ -28,6 +28,7 @@ option(BLST_CRNS_BATCH_VROOM_VENDOR "Build the vendored VROOM comparison backend
 
 set(BLST_TARGET_IS_X86_64 OFF)
 set(BLST_TARGET_IS_ARM64 OFF)
+set(BLST_TARGET_IS_APPLE_ARM64 OFF)
 if(APPLE AND DEFINED CMAKE_OSX_ARCHITECTURES AND NOT CMAKE_OSX_ARCHITECTURES STREQUAL "")
     if(CMAKE_OSX_ARCHITECTURES STREQUAL "x86_64")
         set(BLST_TARGET_IS_X86_64 ON)
@@ -43,6 +44,9 @@ if(CMAKE_GENERATOR_PLATFORM MATCHES "^(ARM64|arm64|ARM64EC|arm64ec)$" OR
    CMAKE_CXX_COMPILER_ARCHITECTURE_ID MATCHES "^(ARM64|arm64|ARM64EC|arm64ec)$")
     set(BLST_TARGET_IS_X86_64 OFF)
     set(BLST_TARGET_IS_ARM64 ON)
+endif()
+if(BLST_TARGET_IS_ARM64 AND APPLE AND CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    set(BLST_TARGET_IS_APPLE_ARM64 ON)
 endif()
 
 include(CheckCXXSourceCompiles)
@@ -66,7 +70,7 @@ if(BLST_TARGET_IS_CHERI_PURECAP)
     message(WARNING
         "Building the unqualified CHERI pure-capability target. It may work, but "
         "it is not fully supported and must not be represented as production-ready.")
-elseif(BLST_TARGET_IS_ARM64)
+elseif(BLST_TARGET_IS_ARM64 AND NOT BLST_TARGET_IS_APPLE_ARM64)
     if(NOT BLST_ALLOW_UNTESTED_ARM64)
         message(FATAL_ERROR
             "ARM64 builds are retained experimental and are not release-qualified. "
@@ -76,6 +80,10 @@ elseif(BLST_TARGET_IS_ARM64)
     message(WARNING
         "Building the unqualified ARM64 target. It may work, but it is not fully "
         "supported and must not be represented as production-ready.")
+endif()
+
+if(BLST_TARGET_IS_APPLE_ARM64)
+    set(BLST_APPLE_ARM64_SUPPORTED ON)
 endif()
 
 if(BLST_ADX AND NOT BLST_TARGET_IS_X86_64)
