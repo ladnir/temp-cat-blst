@@ -11,8 +11,9 @@ BLST-derived codebase that is expected to become CatBLST.
    time, with explicit evidence.
 3. Harden and validate the scalar and AVX-512 implementations.
 4. Preserve the FFT and middle-product implementations.
-5. Remove CUDA through a reviewed change; unsupported language bindings were
-   removed in Phases 6B and 6C. Keep BTx/BTE frozen pending its required merge.
+5. Keep CUDA retained and explicitly experimental; unsupported language
+   bindings were removed in Phases 6B and 6C. Keep BTx/BTE frozen pending its
+   required merge.
 6. Rename the project and introduce a configurable C ABI prefix only after the
    upstream and code audits are under control.
 
@@ -41,6 +42,7 @@ for compatibility.
 | `STATUS.md` | Current phase, gates, metrics, and next review queue |
 | `HARDENING_PLAN.md` | Dependency-aware implementation and validation phases |
 | `BTX_FREEZE.md` | No-touch policy and merge prerequisite for frozen BTx/BTE |
+| `CUDA_EXPERIMENTAL.md` | Retention and non-production policy for opt-in CUDA |
 | `PHASE_*.md` | Implemented hardening and validation evidence |
 | `scripts/audit/generate_file_manifest.ps1` | Regenerates the inventory without erasing review evidence |
 | `scripts/audit/check_audit_manifest.ps1` | Enforces file/upstream inventory integrity and completion evidence |
@@ -54,6 +56,8 @@ for compatibility.
   or determine shipped code. Generated does not mean unaudited.
 - `out_of_scope_frozen`: inventoried code under an explicit no-touch policy
   until a recorded prerequisite is completed.
+- `out_of_scope_experimental`: retained opt-in code outside the primary
+  production-readiness profiles and guarantees.
 - `out_of_scope_planned_removal`: retained temporarily, but intended to be
   removed. The removal itself requires review.
 - `out_of_scope_no_audit`: inventoried non-production material that is
@@ -70,6 +74,8 @@ for compatibility.
   accepted and linked.
 - `frozen`: no modification or audit is allowed until the recorded prerequisite
   is completed and the subsystem is explicitly unfrozen.
+- `experimental`: retained and classified, but outside the primary production
+  readiness claim and file-by-file completion gate.
 - `scope_review_required`: planned-removal classification still needs approval.
 - `excluded`: explicitly outside the file-by-file audit.
 - `catalogued`: inventoried non-shipping documentation or archive.

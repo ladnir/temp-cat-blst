@@ -37,7 +37,7 @@ function Get-Classification
         $lower -eq 'bindings/blst_trx.h' -or
         $lower -like 'test/btx*'
 
-    $cudaRemoval =
+    $experimentalCuda =
         $lower.StartsWith('blst/cuda/') -or
         $lower.StartsWith('blst/backend/cuda/') -or
         $lower -match '(^|/).*cuda[^/]*\.(c|cc|cpp|cuh|h|hpp)$' -or
@@ -54,7 +54,7 @@ function Get-Classification
         }
         elseif ($lower -match 'cuda')
         {
-            $notes = 'Excluded from file-by-file audit; this CUDA benchmark is also removed with CUDA.'
+            $notes = 'Excluded benchmark for the retained experimental CUDA subsystem; do not run without an explicit request.'
         }
         else
         {
@@ -68,13 +68,12 @@ function Get-Classification
         $profiles = 'frozen_pending_merge'
         $notes = 'Frozen pending a required BTx/BTE merge; do not modify, audit, extract, or remove.'
     }
-    elseif ($cudaRemoval)
+    elseif ($experimentalCuda)
     {
-        $disposition = 'out_of_scope_planned_removal'
-        $profiles = 'planned_removal'
-
+        $disposition = 'out_of_scope_experimental'
         $subsystem = 'cuda'
-        $notes = 'Planned removal: CUDA is not a production target.'
+        $profiles = 'cuda_experimental'
+        $notes = 'Retained experimental, opt-in CUDA surface; outside scalar/AVX-512 production readiness.'
     }
     elseif ($lower.StartsWith('build/') -or
             $lower -eq 'bindings/rust/src/bindings.rs' -or
@@ -214,6 +213,7 @@ function Get-Classification
     $status = switch ($disposition)
     {
         'out_of_scope_frozen' { 'frozen' }
+        'out_of_scope_experimental' { 'experimental' }
         'out_of_scope_planned_removal' { 'scope_review_required' }
         'out_of_scope_no_audit' { 'excluded' }
         'documentation_or_archive' { 'catalogued' }

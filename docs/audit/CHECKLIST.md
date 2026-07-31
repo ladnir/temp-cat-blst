@@ -101,7 +101,7 @@ with evidence or marked `N/A` with a reason. “Looks good” is not evidence.
 - [ ] Check supported operating systems, compilers, architectures, and language standards.
 - [ ] Check feature detection versus feature assumptions.
 - [ ] Check warnings at the intended warning levels and warnings-as-errors configurations.
-- [ ] Check configuration combinations cannot silently select CUDA, Go, or removed bindings.
+- [ ] Check configuration combinations cannot silently select experimental CUDA or removed bindings.
 - [ ] Check headers are standalone and C headers compile as C.
 - [ ] Check reproducible generation and clean-tree build behavior.
 

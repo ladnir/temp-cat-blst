@@ -12,6 +12,7 @@ $allowedDispositions = @(
     'in_scope_support',
     'generated_production',
     'out_of_scope_frozen',
+    'out_of_scope_experimental',
     'out_of_scope_planned_removal',
     'out_of_scope_no_audit',
     'documentation_or_archive'
@@ -23,6 +24,7 @@ $allowedStatuses = @(
     'complete',
     'accepted_risk',
     'frozen',
+    'experimental',
     'scope_review_required',
     'excluded',
     'catalogued'
@@ -111,6 +113,7 @@ foreach ($row in $rows)
 
     if ($row.disposition -in @(
             'out_of_scope_frozen',
+            'out_of_scope_experimental',
             'out_of_scope_planned_removal',
             'out_of_scope_no_audit'
         ) -and
@@ -132,6 +135,16 @@ foreach ($row in $rows)
         $row.disposition -ne 'out_of_scope_frozen')
     {
         $errors.Add("Status 'frozen' requires disposition 'out_of_scope_frozen': $path")
+    }
+    if ($row.disposition -eq 'out_of_scope_experimental' -and
+        $row.audit_status -ne 'experimental')
+    {
+        $errors.Add("Experimental row must have status 'experimental': $path")
+    }
+    if ($row.audit_status -eq 'experimental' -and
+        $row.disposition -ne 'out_of_scope_experimental')
+    {
+        $errors.Add("Status 'experimental' requires disposition 'out_of_scope_experimental': $path")
     }
 
     if ($row.audit_status -in @('complete', 'accepted_risk'))

@@ -7,9 +7,11 @@ Last updated: 2026-07-31
 Phase 6C removed SWIG, C#, Emscripten JavaScript, Java, Node.js, and Python
 bindings while retaining shared C/Rust inputs and vectors. BTx/BTE is frozen,
 not a removal candidate: do not modify, audit, extract, or remove it until its
-required future merge is ready. Scalar C/native C++, AVX-512 build, Rust test,
-package-content, and reference checks pass. Upstream manifest translation and
-file-by-file review remain the controlling workstreams.
+required future merge is ready. CUDA is retained as opt-in experimental code,
+outside the scalar/AVX-512 production-readiness claim. Scalar C/native C++,
+AVX-512 build, Rust test, package-content, and reference checks pass. Upstream
+manifest translation and file-by-file review remain the controlling
+workstreams.
 
 ## Ordered gates
 
@@ -21,7 +23,7 @@ file-by-file review remain the controlling workstreams.
 | 4. AVX-512 audit | not started | AVX-512 chain and scalar differential coverage complete |
 | 5. FFT/middle-product audit | not started | Algorithms, limits, and differential tests complete |
 | 6. Supported API/bindings | in progress | C, C++, and Rust surfaces complete |
-| 7. Scope cleanup | in progress | CUDA removed; unsupported bindings removed; BTx/BTE remains frozen pending merge |
+| 7. Scope cleanup | complete | Unsupported bindings removed; CUDA experimental; BTx/BTE frozen pending merge |
 | 8. Rename and ABI mode | not started | CatBLST rename and generated two-prefix ABI validated |
 | 9. Release readiness | not started | CI, packaging, security policy, and release evidence complete |
 
@@ -38,7 +40,7 @@ file-by-file review remain the controlling workstreams.
 - Go support was removed in Phase 6B.
 - SWIG, C#, Emscripten JavaScript, Java, Node.js, and Python bindings were
   removed in Phase 6C.
-- Planned removal: CUDA.
+- Experimental: opt-in CUDA; see `CUDA_EXPERIMENTAL.md`.
 - Frozen: BTx/BTE pending its required future merge; see `BTX_FREEZE.md`.
 - Future project name: CatBLST.
 - Future C ABI: build-time selection of exactly one generated prefix,
@@ -77,6 +79,23 @@ security/correctness and provenance candidates:
     unsupported language bindings were removed with clean retained-language
     validation.
 
+## Remaining upstream queue
+
+Fifteen rows remain `reviewing`, grouped into seven implementation packets:
+
+| Packet | Rows | Required outcome |
+| --- | --- | --- |
+| C byte-decoding API and generated outputs | `cf739f0`, `9c35e86` | Add hardened `blst_fp_from_{l,b}e_bytes` to the split C/C++ export architecture, then regenerate Rust FFI/exports |
+| C2x public-header compatibility | `f262a6e` | Resolve the retained `bool`/`_Bool` ambiguity across supported C modes |
+| Rust API and dependency hygiene | `b83544b`, `dece82e` | Add `sub_aggregate`; remove the unnecessary direct `rand` development dependency without raising MSRV |
+| Rust parallel performance | `07b109d` | Decide and validate bounded grid/add queue translation without regressing the Phase 2 worker-result design |
+| CHERI/ARM generator and artifacts | `2e1948b`, `ed865dc`, `fe85dc3` | Port `scbnds` source changes through the verified generator; obtain ARM/CHERI validation or record the hardware block |
+| Retained CI/WASI/CodeQL | `85808fd`, `33d3f3a`, `68b58bd`, `f62244e` | Decide Rust WASI support, pin/verify tooling, and modernize retained C/C++/Rust CodeQL/actions |
+| Conformance vectors and release claim | `ff66582`, `67fc54b` | Translate authoritative vectors into C++/Rust scalar+AVX tests before accepting the BLS V6 documentation claim |
+
+The first recommended packet is `cf739f0` plus generated companion `9c35e86`;
+it is a direct supported-C API change with a bounded validation surface.
+
 ## File-review dependency order
 
 1. Build/configuration and public ABI selection.
@@ -95,13 +114,14 @@ security/correctness and provenance candidates:
 
 Current generated inventory:
 
-- 585 repository files accounted for;
+- 586 repository files accounted for;
 - 155 in-scope production;
 - 113 generated production;
-- 138 in-scope support;
+- 139 in-scope support;
 - 59 benchmark files explicitly excluded;
 - 32 frozen BTx/BTE files pending the required merge;
-- 52 planned-removal files, all CUDA;
+- 52 retained experimental CUDA files;
+- 0 planned-removal files;
 - 36 documentation/archive files.
 
 Upstream progress:
@@ -119,10 +139,11 @@ Findings: 20 total. Nineteen are validated. One low finding remains open.
 
 ## Next action
 
-Do not touch BTx/BTE. Continue Phase 6 with CUDA removal as an isolated reviewed
-change, or return to the remaining upstream/core audit if CUDA is deferred.
-Regenerate the file manifest and run the C, native C++, and Rust matrices after
-each implementation batch.
+Do not touch BTx/BTE, and do not include experimental CUDA in the primary
+production-readiness gate. Return to the 15 upstream rows still marked
+`reviewing`, starting with retained C/Rust API changes and their generated
+companions. Regenerate the file manifest and run the C, native C++, and Rust
+matrices after each implementation batch.
 
 No production file should be marked complete before its related implementation
 and validation evidence closes the corresponding upstream rows.
