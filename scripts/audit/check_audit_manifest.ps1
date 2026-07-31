@@ -11,6 +11,7 @@ $allowedDispositions = @(
     'in_scope_production',
     'in_scope_support',
     'generated_production',
+    'out_of_scope_frozen',
     'out_of_scope_planned_removal',
     'out_of_scope_no_audit',
     'documentation_or_archive'
@@ -21,6 +22,7 @@ $allowedStatuses = @(
     'blocked',
     'complete',
     'accepted_risk',
+    'frozen',
     'scope_review_required',
     'excluded',
     'catalogued'
@@ -108,6 +110,7 @@ foreach ($row in $rows)
     }
 
     if ($row.disposition -in @(
+            'out_of_scope_frozen',
             'out_of_scope_planned_removal',
             'out_of_scope_no_audit'
         ) -and
@@ -119,6 +122,16 @@ foreach ($row in $rows)
         $row.audit_status -ne 'excluded')
     {
         $errors.Add("No-audit row must have status 'excluded': $path")
+    }
+    if ($row.disposition -eq 'out_of_scope_frozen' -and
+        $row.audit_status -ne 'frozen')
+    {
+        $errors.Add("Frozen row must have status 'frozen': $path")
+    }
+    if ($row.audit_status -eq 'frozen' -and
+        $row.disposition -ne 'out_of_scope_frozen')
+    {
+        $errors.Add("Status 'frozen' requires disposition 'out_of_scope_frozen': $path")
     }
 
     if ($row.audit_status -in @('complete', 'accepted_risk'))

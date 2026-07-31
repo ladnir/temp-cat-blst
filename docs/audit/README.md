@@ -11,8 +11,8 @@ BLST-derived codebase that is expected to become CatBLST.
    time, with explicit evidence.
 3. Harden and validate the scalar and AVX-512 implementations.
 4. Preserve the FFT and middle-product implementations.
-5. Remove CUDA and BTx/BTE through reviewed changes; unsupported language
-   bindings were removed in Phases 6B and 6C.
+5. Remove CUDA through a reviewed change; unsupported language bindings were
+   removed in Phases 6B and 6C. Keep BTx/BTE frozen pending its required merge.
 6. Rename the project and introduce a configurable C ABI prefix only after the
    upstream and code audits are under control.
 
@@ -40,6 +40,7 @@ for compatibility.
 | `FINDINGS.md` | Security, correctness, performance, and maintainability findings |
 | `STATUS.md` | Current phase, gates, metrics, and next review queue |
 | `HARDENING_PLAN.md` | Dependency-aware implementation and validation phases |
+| `BTX_FREEZE.md` | No-touch policy and merge prerequisite for frozen BTx/BTE |
 | `PHASE_*.md` | Implemented hardening and validation evidence |
 | `scripts/audit/generate_file_manifest.ps1` | Regenerates the inventory without erasing review evidence |
 | `scripts/audit/check_audit_manifest.ps1` | Enforces file/upstream inventory integrity and completion evidence |
@@ -51,6 +52,8 @@ for compatibility.
   controls, and documentation needed to ship safely.
 - `generated_production`: generated assembly, constants, or bindings that ship
   or determine shipped code. Generated does not mean unaudited.
+- `out_of_scope_frozen`: inventoried code under an explicit no-touch policy
+  until a recorded prerequisite is completed.
 - `out_of_scope_planned_removal`: retained temporarily, but intended to be
   removed. The removal itself requires review.
 - `out_of_scope_no_audit`: inventoried non-production material that is
@@ -65,6 +68,8 @@ for compatibility.
 - `complete`: all required evidence exists and the integrity checker accepts it.
 - `accepted_risk`: review is complete but residual risk has been explicitly
   accepted and linked.
+- `frozen`: no modification or audit is allowed until the recorded prerequisite
+  is completed and the subsystem is explicitly unfrozen.
 - `scope_review_required`: planned-removal classification still needs approval.
 - `excluded`: explicitly outside the file-by-file audit.
 - `catalogued`: inventoried non-shipping documentation or archive.

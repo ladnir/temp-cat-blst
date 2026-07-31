@@ -31,7 +31,7 @@ function Get-Classification
 
     $isBenchmark = $lower.StartsWith('benchmark/')
 
-    $plannedRemoval =
+    $frozenBtx =
         $lower.StartsWith('bte/') -or
         $lower -eq 'bindings/blst_btx.h' -or
         $lower -eq 'bindings/blst_trx.h' -or
@@ -50,7 +50,7 @@ function Get-Classification
         $profiles = 'non_shipping'
         if ($lower -like 'benchmark/btx*')
         {
-            $notes = 'Excluded from file-by-file audit; this BTx benchmark is also removed when BTx/BTE moves.'
+            $notes = 'Excluded benchmark in the BTx/BTE subsystem, which is frozen pending a required merge; do not run.'
         }
         elseif ($lower -match 'cuda')
         {
@@ -61,27 +61,20 @@ function Get-Classification
             $notes = 'Benchmarks are inventoried but explicitly excluded from file-by-file audit.'
         }
     }
-    elseif ($plannedRemoval -or $cudaRemoval)
+    elseif ($frozenBtx)
+    {
+        $disposition = 'out_of_scope_frozen'
+        $subsystem = 'btx_bte'
+        $profiles = 'frozen_pending_merge'
+        $notes = 'Frozen pending a required BTx/BTE merge; do not modify, audit, extract, or remove.'
+    }
+    elseif ($cudaRemoval)
     {
         $disposition = 'out_of_scope_planned_removal'
         $profiles = 'planned_removal'
 
-        if ($cudaRemoval)
-        {
-            $subsystem = 'cuda'
-            $notes = 'Planned removal: CUDA is not a production target.'
-        }
-        elseif ($lower.StartsWith('bte/') -or $lower -match '(^|/)btx' -or
-                $lower -eq 'bindings/blst_trx.h')
-        {
-            $subsystem = 'btx_bte'
-            $notes = 'Planned removal: BTx/BTE will move to a separate repository.'
-        }
-        else
-        {
-            $subsystem = 'unsupported_binding'
-            $notes = 'Planned removal: only C, C++, and Rust bindings are supported.'
-        }
+        $subsystem = 'cuda'
+        $notes = 'Planned removal: CUDA is not a production target.'
     }
     elseif ($lower.StartsWith('build/') -or
             $lower -eq 'bindings/rust/src/bindings.rs' -or
@@ -220,6 +213,7 @@ function Get-Classification
 
     $status = switch ($disposition)
     {
+        'out_of_scope_frozen' { 'frozen' }
         'out_of_scope_planned_removal' { 'scope_review_required' }
         'out_of_scope_no_audit' { 'excluded' }
         'documentation_or_archive' { 'catalogued' }
