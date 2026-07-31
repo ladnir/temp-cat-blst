@@ -37,6 +37,21 @@ cargo run --example smoke --features full-rust-bindings
 
 To compile for WebAssembly, your clang has to recognize `--target=wasm32`. Alternatively you can build your project with `CC` environment variable set to `emcc`, the [Emscripten compiler](https://emscripten.org), and `AR` set to `emar`, naturally, with both commands available on your `PATH`.
 
+## Threading contract
+
+The Rust crate does not create threads, discover a CPU count, own a thread
+pool, or queue background work. Each operation runs to completion on the
+calling thread. This keeps scheduling, resource limits, and oversubscription
+under application control and gives the Rust API the same runtime-neutral
+contract as the C and C++ APIs.
+
+Applications can parallelize independent work with their own runtime. Pairing
+work can be split across separately owned `Pairing` contexts and combined with
+`Pairing::merge`. Multi-Miller-loop work can be split into paired slices and
+the partial Fp12 products multiplied before final exponentiation. MSM work can
+be split by matching point/scalar ranges and the resulting group elements
+reduced by addition.
+
 While `cargo test`'s dependencies happen to require at least Rust 1.65, the library by itself can be compiled with earlier compiler versions. Though in order to use Rust version prior 1.56 you would need to pin`zeroize` to "=1.3.0" and `zeroize_derive` to "=1.3.3" in **your** project Cargo.toml. Even `cc` might require pinning to "=1.0.79". And if you find yourself with Rust 1.56 through 1.64 as the only option and want to execute `cargo test` you'd need to pin some of `[dev-dependencies]` versions in **this** project's Cargo.toml by uncommenting following lines and commenting `criterion`:
 
 ```

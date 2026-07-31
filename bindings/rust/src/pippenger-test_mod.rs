@@ -56,47 +56,6 @@ macro_rules! pippenger_test_mod {
                 assert_eq!(naive, points.mult(scalars.as_ref(), nbits));
             }
 
-            #[cfg(all(feature = "std", not(feature = "no-threads")))]
-            #[test]
-            fn test_oversubscribed_mult() {
-                // Before 6271918, this combination entered breakdown() with a
-                // three-bit window and divided by a zero-width subdivision.
-                const npoints: usize = 32;
-                const nbits: usize = 64;
-                const nbytes: usize = (nbits + 7) / 8;
-                const reported_ncpus: usize = 1024;
-
-                let mut scalars = [0u8; nbytes * npoints];
-                ChaCha20Rng::from_seed([1u8; 32]).fill_bytes(&mut scalars);
-
-                let mut points = vec![<$point>::default(); npoints];
-                let mut naive = <$point>::default();
-                for i in 0..npoints {
-                    unsafe {
-                        let mut term = <$point>::default();
-                        $mult(
-                            &mut points[i],
-                            $generator(),
-                            scalars.as_ptr().add(i * nbytes),
-                            32,
-                        );
-                        $mult(
-                            &mut term,
-                            &points[i],
-                            scalars.as_ptr().add(i * nbytes),
-                            nbits,
-                        );
-                        $add_or_double(&mut naive, &naive, &term);
-                    }
-                }
-
-                let points = $points::from(&points);
-                let actual = with_pippenger_ncpus(reported_ncpus, || {
-                    points.mult(&scalars, nbits)
-                });
-                assert_eq!(naive, actual);
-            }
-
             #[test]
             fn test_empty_operations() {
                 let points = $points::from(&[]);
@@ -138,6 +97,18 @@ macro_rules! pippenger_test_mod {
 
                 let points = $points::from(&points);
                 assert_eq!(naive, points.add());
+            }
+
+            #[test]
+            fn test_validate_reports_infinity_deterministically() {
+                let valid = $points::from(&[unsafe { *$generator() }]);
+                assert_eq!(valid.as_slice().validate(), Ok(()));
+
+                let infinity = $points::from(&[<$point>::default()]);
+                assert_eq!(
+                    infinity.as_slice().validate(),
+                    Err(BLST_ERROR::BLST_PK_IS_INFINITY)
+                );
             }
         }
     };

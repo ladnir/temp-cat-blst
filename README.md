@@ -42,7 +42,13 @@ The serialization formatting is implemented according to [the ZCash definition](
 ## General notes on implementation
 The goal of the blst library is to provide a foundational component for applications and other libraries that require high performance and formally verified BLS12-381 operations. With that in mind some decisions are made to maximize the public good beyond BLS12-381. For example, the field operations are optimized for general 384-bit usage, as opposed to tuned specifically for the 381-bit BLS12-381 curve parameters. With the formal verification of these foundational components, we believe they can provide a reliable building block for other curves that would like high performance and an extra element of security.
 
-The library deliberately abstains from dealing with memory management and multi-threading, with the rationale that these ultimately belong in language-specific bindings. Another responsibility that is left to application is random number generation. All this in the name of run-time neutrality, which makes integration into more stringent environments like Intel SGX or ARM TrustZone trivial.
+The library deliberately abstains from dealing with memory management and
+multi-threading. The C, native C++, and Rust APIs never create threads or own a
+scheduler; each operation runs on its calling thread. Applications retain
+control of parallel decomposition, resource limits, and oversubscription.
+Another responsibility left to the application is random number generation.
+All this is in the name of run-time neutrality, which makes integration into
+more stringent environments like Intel SGX or ARM TrustZone straightforward.
 
 ## Platform and Language Compatibility
 

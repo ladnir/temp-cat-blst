@@ -48,6 +48,7 @@ for compatibility.
 | `PHASE_*.md` | Implemented hardening and validation evidence |
 | `scripts/audit/generate_file_manifest.ps1` | Regenerates the inventory without erasing review evidence |
 | `scripts/audit/check_audit_manifest.ps1` | Enforces file/upstream inventory integrity and completion evidence |
+| `scripts/audit/check_rust_threading_policy.ps1` | Enforces the caller-threaded Rust runtime contract |
 
 ## Scope dispositions
 
@@ -110,6 +111,7 @@ From the repository root:
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/audit/generate_file_manifest.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/audit/check_audit_manifest.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/audit/check_rust_threading_policy.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/audit/check_win64_asm_symbols.ps1 -BuildDirectory out/build/<profile> -Mode Portable
 ```
 

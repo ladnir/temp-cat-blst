@@ -11,86 +11,21 @@
 
 extern crate alloc;
 
+#[cfg(all(test, feature = "full-rust-bindings"))]
 use alloc::boxed::Box;
-#[cfg(feature = "full-rust-bindings")]
+#[cfg(all(test, feature = "full-rust-bindings"))]
 use alloc::vec;
 #[cfg(feature = "full-rust-bindings")]
 use alloc::vec::Vec;
+#[cfg(feature = "full-rust-bindings")]
 use core::mem::transmute;
 #[cfg(feature = "full-rust-bindings")]
 use core::mem::MaybeUninit;
+#[cfg(feature = "full-rust-bindings")]
 use core::ptr;
 #[cfg(all(feature = "full-rust-bindings", feature = "serde"))]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-#[cfg(all(feature = "full-rust-bindings", feature = "std"))]
-use std::sync::{atomic::*, mpsc::channel, Arc};
 use zeroize::Zeroize;
-
-#[cfg(feature = "std")]
-trait ThreadPoolExt {
-    fn joined_execute<'any, F>(&self, job: F)
-    where
-        F: FnOnce() + Send + 'any;
-}
-
-#[cfg(all(not(feature = "no-threads"), feature = "std"))]
-mod mt {
-    use super::*;
-    use std::sync::{Mutex, Once};
-    use threadpool::ThreadPool;
-
-    pub fn da_pool() -> ThreadPool {
-        static INIT: Once = Once::new();
-        static mut POOL: *const Mutex<ThreadPool> = ptr::null();
-
-        INIT.call_once(|| {
-            let pool = Mutex::new(ThreadPool::default());
-            unsafe { POOL = transmute::<Box<_>, *const _>(Box::new(pool)) };
-        });
-        unsafe { (*POOL).lock().unwrap().clone() }
-    }
-
-    type Thunk<'any> = Box<dyn FnOnce() + Send + 'any>;
-
-    impl ThreadPoolExt for ThreadPool {
-        fn joined_execute<'scope, F>(&self, job: F)
-        where
-            F: FnOnce() + Send + 'scope,
-        {
-            // Bypass 'lifetime limitations by brute force. It works,
-            // because we explicitly join the threads...
-            self.execute(unsafe {
-                transmute::<Thunk<'scope>, Thunk<'static>>(Box::new(job))
-            })
-        }
-    }
-}
-
-#[cfg(all(feature = "no-threads", feature = "std"))]
-mod mt {
-    use super::*;
-
-    pub struct EmptyPool {}
-
-    pub fn da_pool() -> EmptyPool {
-        EmptyPool {}
-    }
-
-    impl EmptyPool {
-        pub fn max_count(&self) -> usize {
-            1
-        }
-    }
-
-    impl ThreadPoolExt for EmptyPool {
-        fn joined_execute<'scope, F>(&self, job: F)
-        where
-            F: FnOnce() + Send + 'scope,
-        {
-            job()
-        }
-    }
-}
 
 include!("bindings.rs");
 mod avx;
@@ -790,7 +725,6 @@ macro_rules! sig_variant_impl {
                 )
             }
 
-            #[cfg(not(feature = "std"))]
             pub fn aggregate_verify(
                 &self,
                 sig_groupcheck: bool,
@@ -841,87 +775,6 @@ macro_rules! sig_variant_impl {
                 }
             }
 
-            #[cfg(feature = "std")]
-            pub fn aggregate_verify(
-                &self,
-                sig_groupcheck: bool,
-                msgs: &[&[u8]],
-                dst: &[u8],
-                pks: &[&PublicKey],
-                pks_validate: bool,
-            ) -> BLST_ERROR {
-                let n_elems = pks.len();
-                if n_elems == 0 || msgs.len() != n_elems {
-                    return BLST_ERROR::BLST_VERIFY_FAIL;
-                }
-
-                // TODO - check msg uniqueness?
-
-                let pool = mt::da_pool();
-                let (tx, rx) = channel();
-                let counter = Arc::new(AtomicUsize::new(0));
-                let valid = Arc::new(AtomicBool::new(true));
-
-                let n_workers = core::cmp::min(pool.max_count(), n_elems);
-                for _ in 0..n_workers {
-                    let tx = tx.clone();
-                    let counter = counter.clone();
-                    let valid = valid.clone();
-
-                    pool.joined_execute(move || {
-                        let mut pairing = Pairing::new($hash_or_encode, dst);
-
-                        while valid.load(Ordering::Relaxed) {
-                            let work = counter.fetch_add(1, Ordering::Relaxed);
-                            if work >= n_elems {
-                                break;
-                            }
-                            if pairing.aggregate(
-                                &pks[work].point,
-                                pks_validate,
-                                &unsafe { ptr::null::<$sig_aff>().as_ref() },
-                                false,
-                                &msgs[work],
-                                &[],
-                            ) != BLST_ERROR::BLST_SUCCESS
-                            {
-                                valid.store(false, Ordering::Relaxed);
-                                break;
-                            }
-                        }
-                        if valid.load(Ordering::Relaxed) {
-                            pairing.commit();
-                        }
-                        tx.send(pairing).expect("disaster");
-                    });
-                }
-
-                if sig_groupcheck && valid.load(Ordering::Relaxed) {
-                    match self.validate(false) {
-                        Err(_err) => valid.store(false, Ordering::Relaxed),
-                        _ => (),
-                    }
-                }
-
-                let mut gtsig = blst_fp12::default();
-                if valid.load(Ordering::Relaxed) {
-                    Pairing::aggregated(&mut gtsig, &self.point);
-                }
-
-                let mut acc = rx.recv().unwrap();
-                for _ in 1..n_workers {
-                    acc.merge(&rx.recv().unwrap());
-                }
-
-                if valid.load(Ordering::Relaxed)
-                    && acc.finalverify(Some(&gtsig))
-                {
-                    BLST_ERROR::BLST_SUCCESS
-                } else {
-                    BLST_ERROR::BLST_VERIFY_FAIL
-                }
-            }
-
             // pks are assumed to be verified for proof of possession,
             // which implies that they are already group-checked
             pub fn fast_aggregate_verify(
@@ -956,86 +809,6 @@ macro_rules! sig_variant_impl {
             }
 
             // https://ethresear.ch/t/fast-verification-of-multiple-bls-signatures/5407
-            #[cfg(feature = "std")]
-            #[allow(clippy::too_many_arguments)]
-            pub fn verify_multiple_aggregate_signatures(
-                msgs: &[&[u8]],
-                dst: &[u8],
-                pks: &[&PublicKey],
-                pks_validate: bool,
-                sigs: &[&Signature],
-                sigs_groupcheck: bool,
-                rands: &[blst_scalar],
-                rand_bits: usize,
-            ) -> BLST_ERROR {
-                let n_elems = pks.len();
-                if n_elems == 0
-                    || msgs.len() != n_elems
-                    || sigs.len() != n_elems
-                    || rands.len() != n_elems
-                {
-                    return BLST_ERROR::BLST_VERIFY_FAIL;
-                }
-
-                // TODO - check msg uniqueness?
-
-                let pool = mt::da_pool();
-                let (tx, rx) = channel();
-                let counter = Arc::new(AtomicUsize::new(0));
-                let valid = Arc::new(AtomicBool::new(true));
-
-                let n_workers = core::cmp::min(pool.max_count(), n_elems);
-                for _ in 0..n_workers {
-                    let tx = tx.clone();
-                    let counter = counter.clone();
-                    let valid = valid.clone();
-
-                    pool.joined_execute(move || {
-                        let mut pairing = Pairing::new($hash_or_encode, dst);
-
-                        // TODO - engage multi-point mul-n-add for larger
-                        // amount of inputs...
-                        while valid.load(Ordering::Relaxed) {
-                            let work = counter.fetch_add(1, Ordering::Relaxed);
-                            if work >= n_elems {
-                                break;
-                            }
-
-                            if pairing.mul_n_aggregate(
-                                &pks[work].point,
-                                pks_validate,
-                                &sigs[work].point,
-                                sigs_groupcheck,
-                                &rands[work].b,
-                                rand_bits,
-                                msgs[work],
-                                &[],
-                            ) != BLST_ERROR::BLST_SUCCESS
-                            {
-                                valid.store(false, Ordering::Relaxed);
-                                break;
-                            }
-                        }
-                        if valid.load(Ordering::Relaxed) {
-                            pairing.commit();
-                        }
-                        tx.send(pairing).expect("disaster");
-                    });
-                }
-
-                let mut acc = rx.recv().unwrap();
-                for _ in 1..n_workers {
-                    acc.merge(&rx.recv().unwrap());
-                }
-
-                if valid.load(Ordering::Relaxed) && acc.finalverify(None) {
-                    BLST_ERROR::BLST_SUCCESS
-                } else {
-                    BLST_ERROR::BLST_VERIFY_FAIL
-                }
-            }
-
-            #[cfg(not(feature = "std"))]
             #[allow(clippy::too_many_arguments)]
             pub fn verify_multiple_aggregate_signatures(
                 msgs: &[&[u8]],
@@ -1994,11 +1767,8 @@ pub trait MultiPoint {
     }
 }
 
-#[cfg(all(feature = "std", feature = "full-rust-bindings"))]
+#[cfg(feature = "full-rust-bindings")]
 include!("pippenger.rs");
-
-#[cfg(all(not(feature = "std"), feature = "full-rust-bindings"))]
-include!("pippenger-no_std.rs");
 
 #[cfg(all(test, feature = "full-rust-bindings"))]
 mod fp12_test {
@@ -2013,7 +1783,7 @@ mod fp12_test {
         const nbytes: usize = (nbits + 7) / 8;
 
         let mut scalars = Box::new([0u8; nbytes * npoints]);
-        ChaCha20Rng::from_entropy().fill_bytes(scalars.as_mut());
+        ChaCha20Rng::from_seed([0x42; 32]).fill_bytes(scalars.as_mut());
 
         let mut p1s: Vec<blst_p1> = Vec::with_capacity(npoints);
         let mut p2s: Vec<blst_p2> = Vec::with_capacity(npoints);

@@ -40,9 +40,6 @@ avx = []
 # Enable ADX even if the host CPU doesn't support it.
 # Binary can be executed on Broadwell+ and Ryzen+ systems.
 force-adx = []
-# Suppress multi-threading.
-# Engaged on wasm32 target architecture automatically.
-no-threads = []
 # Keep the full high-level Rust wrapper surface feature-gated while
 # the smaller middle-product-first surface remains the default.
 full-rust-bindings = []
@@ -52,9 +49,6 @@ serde-secret = ["serde"]
 [dependencies]
 zeroize = { version = "^1.1", features = ["zeroize_derive"] }
 serde = { version = "1.0.152", optional = true }
-
-[target.'cfg(not(any(target_arch="wasm32", target_os="none", target_os="unknown", target_os="uefi")))'.dependencies]
-threadpool = "^1.8.1"
 
 [dev-dependencies]
 rand_core = { version = "0.6", features = ["std"] }
