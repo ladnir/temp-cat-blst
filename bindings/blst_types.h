@@ -22,12 +22,12 @@ typedef __UINT64_TYPE__ uint64_t;
 #endif
 
 #if !defined(__cplusplus) && (!defined(__STDC_VERSION__) || __STDC_VERSION__ < 202311L)
-# if !defined(bool)
-#  if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
-#   define bool _Bool
-#  else
-#   define bool int
-#  endif
+# if defined(__BLST_RUST_BINDGEN__)
+#  define bool _Bool
+# elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+#  include <stdbool.h>
+# elif !defined(bool)
+#  define bool int
 # endif
 #endif
 
