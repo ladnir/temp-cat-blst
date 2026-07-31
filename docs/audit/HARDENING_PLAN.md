@@ -113,6 +113,9 @@ the reference across both sides of the scratch threshold.
 
 ## Phase 5 — uniqueness-tree hardening
 
+State: complete. Implementation and validation evidence are recorded in
+`PHASE_05.md`; `AUD-011` is validated.
+
 ### Accepted API direction
 
 The project has no external users, so make a deliberate breaking C/Rust API

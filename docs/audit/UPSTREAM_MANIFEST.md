@@ -70,7 +70,7 @@ No row is closed merely because its language binding is scheduled for removal.
 | 33 | `f262a6e` | 2026-03-16 | direct | Avoid C2x ambiguity in `blst.h` | translate | reviewing | Split `blst_types.h` retains direct `bool -> _Bool` macro for pre-final C2x modes |
 | 34 | `a3c15d6` | 2026-04-01 | direct | Accept zero-length salt in `blst_keygen_v5` | port | validated | Zero-length copy is skipped while NULL+0 rejection is preserved; exact-vector C/Rust tests pass in portable and assembly/ADX configurations; see `AUD-004` and `PHASE_01.md` |
 | 35 | `aee68f7` | 2026-04-01 | conceptual | Accept empty salt in Go `KeyGenV5` | not_applicable | closed | Go wrapper only; retained C/Rust regression is linked to `a3c15d6`/`AUD-004` |
-| 36 | `06a5711` | 2026-04-01 | removal_candidate | Resolve Go `gosec` lint warning | translate | reviewing | Shared retained uniqueness tree lacks traversal bound and size/failure audit; see `AUD-011` |
+| 36 | `06a5711` | 2026-04-01 | removal_candidate | Resolve Go `gosec` lint warning | translate | validated | Applied the bounded-walk intent to the retained shared C/Rust tree with a stronger capacity-aware API, checked layout arithmetic, explicit results, and 32/64-bit depth analysis; see `AUD-011` and `PHASE_05.md` |
 | 37 | `7c17bf5` | 2026-04-01 | removal_candidate | Pin Go lint version | not_applicable | closed | Go lint workflow only |
 | 38 | `c1bb460` | 2026-04-01 | removal_candidate | Resolve TypeScript compiler failure | not_applicable | closed | TypeScript/Node CI only |
 | 39 | `f62244e` | 2026-04-01 | conceptual | Resolve workflow warnings | translate | reviewing | Apply retained action/CodeQL maintenance during CI hardening; drop Go/Node portions |

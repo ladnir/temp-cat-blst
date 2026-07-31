@@ -4,12 +4,13 @@ Last updated: 2026-07-30
 
 ## Current phase
 
-Phase 4 is implemented, validated, and committed. Scalar fixed-table MSM
-precomputation now uses bounded stack chunking with no heap fallback. Direct
-ADX, portable dispatch, AVX-512, optimized MSVC, and Linux ASan profiles pass.
-The integration review also restored q+x portable assembly inclusion for
-ELF, COFF, and Mach-O wrappers. Upstream manifest translation and file-by-file
-review remain the controlling workstreams.
+Phase 5 is implemented, validated, and committed. The shared uniqueness tree
+now has checked size/alignment, stored capacity, bounded traversal, safe length
+comparison, explicit results, and a migrated Rust helper. Scalar, portable
+dispatch, targeted AVX-512, Linux ASan, Rust, public-header, and 32-bit compile
+validation pass. `blst/common/rb_tree.cpp` and its internal header are the first
+production files to complete the full per-file checklist. Upstream manifest
+translation and file-by-file review remain the controlling workstreams.
 
 ## Ordered gates
 
@@ -63,6 +64,9 @@ security/correctness and provenance candidates:
     validated across direct and portable dispatch.
 11. `AUD-018` — portable ELF/COFF/Mach-O wrappers include both q dispatchers
     and x providers; Linux GCC/ASan validation passed.
+12. `06a5711` / `AUD-011` — the retained C/Rust uniqueness tree now bounds
+    traversal and storage, reports exact outcomes, and passes Phase 5
+    cross-language validation.
 
 ## File-review dependency order
 
@@ -82,10 +86,10 @@ security/correctness and provenance candidates:
 
 Current generated inventory:
 
-- 619 repository files accounted for;
-- 155 in-scope production;
+- 623 repository files accounted for;
+- 156 in-scope production;
 - 114 generated production;
-- 132 in-scope support;
+- 135 in-scope support;
 - 59 benchmark files explicitly excluded;
 - 123 planned-removal files;
 - 36 documentation/archive files.
@@ -95,25 +99,27 @@ Upstream progress:
 - 63 of 63 commits have decisions;
 - 32 are closed as already equivalent, deliberate rejection, or verified
   removal-only changes;
-- 15 accepted ports/translations are validated;
-- 16 remain reviewing while accepted translations, policy decisions, or
+- 16 accepted ports/translations are validated;
+- 15 remain reviewing while accepted translations, policy decisions, or
   validation are completed;
 - 0 remain pending.
 
-Findings: 18 total. Fifteen are validated. Three remain open: 1 medium, 1 low,
-and 1 informational planned-removal item.
+Findings: 18 total. Sixteen are validated. Two remain open: one low and one
+informational planned-removal item.
 
 
 ## Next action
 
-Begin Phase 5 with `AUD-011`: replace the capacity-blind uniqueness-tree API
-with the accepted capacity-aware C and Rust contract. Bound traversal and
-allocation arithmetic before migrating callers and adding large-tree,
-overflow, duplicate, and resource-exhaustion tests.
+Begin Phase 6 with the smallest supported-surface removal batch: delete the
+unsupported C-over-ABI `bindings/blst.hpp` wrapper and all package,
+documentation, and build references (`AUD-006`), then remove Go in a separate
+reviewed change. Keep CUDA and BTx/BTE removal isolated so retained FFT and
+middle-product dependencies are proved before deletion. Regenerate the file
+manifest and run the C, native C++, and Rust matrices after each batch.
 
 No production file should be marked complete before its related implementation
 and validation evidence closes the corresponding upstream rows.
 
 Phase evidence is recorded in `PHASE_01.md`, `PHASE_02.md`, `PHASE_03A.md`,
-`PHASE_03B.md`, `PHASE_03C.md`, and `PHASE_04.md`; the remaining dependency
-order and exit gates are in `HARDENING_PLAN.md`.
+`PHASE_03B.md`, `PHASE_03C.md`, `PHASE_04.md`, and `PHASE_05.md`; the remaining
+dependency order and exit gates are in `HARDENING_PLAN.md`.
