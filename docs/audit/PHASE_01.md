@@ -4,7 +4,8 @@
 
 - Date: 2026-07-30
 - Baseline commit: `67a2dfcadf75f5452d503acc41ab3ebbb4568a5d`
-- State: validated working-tree change set; not yet committed
+- State: validated and committed as `a11e27a`, `c0bff63`, `202ef14`,
+  `4ba720e`, and supporting audit commit `0d79438`
 - Scope: `AUD-004`, `AUD-007`, `AUD-008`, `AUD-012`, and review-discovered
   `AUD-013`
 - Benchmarks: disabled and not run
@@ -87,5 +88,3 @@ The final header/layout adjustment was rebuilt and rerun in both profiles.
   chain and is not closed by the validated Fr change.
 - A full portable Debug CTest run exceeded the interactive validation window;
   all focused portable Phase 1 tests passed.
-- The changes still need separable commits that exclude the pre-existing BTx
-  working-tree edits before the Phase 1 process gate is closed.

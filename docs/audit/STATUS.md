@@ -4,10 +4,9 @@ Last updated: 2026-07-30
 
 ## Current phase
 
-Phase 1 correctness hardening is implemented and validated. Upstream manifest
-translation and file-by-file review remain the controlling workstreams. The
-validated changes are still uncommitted and need attribution-safe commit
-packaging before the Phase 1 process gate is fully closed.
+Phase 2 Rust pairing and Pippenger hardening is implemented, independently
+reviewed, validated, and committed. Upstream manifest translation and
+file-by-file review remain the controlling workstreams.
 
 ## Ordered gates
 
@@ -41,14 +40,15 @@ packaging before the Phase 1 process gate is fully closed.
 
 ## Immediate upstream queue
 
-Wave 01 reviewed the following escalated security/correctness candidates:
+The first two hardening phases resolved the following escalated
+security/correctness candidates:
 
-1. `1172c18` — missing Rust `Pairing` DST lifetime protection.
-2. `96a46e6` — missing Rust scalar-length validation.
-3. `6271918` — missing Rust Pippenger division-by-zero fix.
+1. `1172c18` — Rust `Pairing` DST ownership translated and validated.
+2. `96a46e6` — Rust scalar-length validation translated and validated.
+3. `6271918` — Rust Pippenger large-system routing translated and validated.
 4. `dd5e80b` — stronger local equivalent confirmed and closed.
-5. `a3c15d6` — missing zero-length-salt assembly-path fix.
-6. `84926f2` — local heap workaround requires bounded translation.
+5. `a3c15d6` — zero-length-salt assembly-path fix validated.
+6. `84926f2` — local heap workaround still requires bounded translation.
 7. `525a87a` through `14cd09a` — assembly chain classified; regeneration
    infrastructure and an Fr operand-order defect were identified.
 
@@ -70,10 +70,10 @@ Wave 01 reviewed the following escalated security/correctness candidates:
 
 Current generated inventory:
 
-- 608 repository files accounted for;
+- 609 repository files accounted for;
 - 155 in-scope production;
 - 109 generated production;
-- 126 in-scope support;
+- 127 in-scope support;
 - 59 benchmark files explicitly excluded;
 - 123 planned-removal files;
 - 36 documentation/archive files.
@@ -83,27 +83,25 @@ Upstream progress:
 - 63 of 63 commits have decisions;
 - 32 are closed as already equivalent, deliberate rejection, or verified
   removal-only changes;
-- 3 accepted ports/translations are validated;
-- 28 remain reviewing while accepted translations, policy decisions, or
+- 6 accepted ports/translations are validated;
+- 25 remain reviewing while accepted translations, policy decisions, or
   validation are completed;
 - 0 remain pending.
 
-Findings: 13 total. Five are validated (`AUD-004`, `AUD-007`, `AUD-008`,
-`AUD-012`, and review-discovered `AUD-013`). Eight remain open: 3 high,
-4 medium, and 1 informational planned-removal item.
+Findings: 15 total. Ten are validated (`AUD-001` through `AUD-004`,
+`AUD-007`, `AUD-008`, and `AUD-012` through `AUD-015`). Five remain open:
+1 high, 3 medium, and 1 informational planned-removal item.
 
 
 ## Next action
 
-Begin Phase 2 in two separable lanes:
-
-1. `AUD-001`/`AUD-002`: Rust pairing ownership and scalar-length safety.
-2. `AUD-003`: Rust Pippenger oversubscription and divisor guards.
-3. Independently prepare `AUD-009` generator provenance inputs without
-   modifying generated assembly until Phase 3A.
+Begin Phase 3A with `AUD-009`: establish deterministic, split assembly
+generation before modifying checked-in assembly. Then translate the accepted
+x86 generator chain and `AUD-010` Windows symbol policy from source, regenerate
+with a strict output allowlist, and validate scalar plus AVX-512 builds.
 
 No production file should be marked complete before its related implementation
 and validation evidence closes the corresponding upstream rows.
 
-Phase 1 evidence is recorded in `PHASE_01.md`; the remaining dependency order
-and exit gates are in `HARDENING_PLAN.md`.
+Phase 1 and Phase 2 evidence are recorded in `PHASE_01.md` and `PHASE_02.md`;
+the remaining dependency order and exit gates are in `HARDENING_PLAN.md`.

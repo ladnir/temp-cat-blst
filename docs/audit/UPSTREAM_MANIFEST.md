@@ -36,7 +36,7 @@ No row is closed merely because its language binding is scheduled for removal.
 | # | Commit | Date | Initial relevance | Subject | Decision | Status | Evidence / notes |
 | ---: | --- | --- | --- | --- | --- | --- | --- |
 | 1 | `e61acc2` | 2025-09-17 | direct | `bindings/blst.hpp`: smooth some edges | not_applicable | closed | `bindings/blst.hpp` is an unsupported C-over-ABI wrapper scheduled for removal; see `AUD-006` |
-| 2 | `07b109d` | 2025-09-19 | direct | Rust: use `sync_channel` to optimize allocations | translate | reviewing | Missing after Rust split; bound queues after final worker count and compose with `6271918` |
+| 2 | `07b109d` | 2025-09-19 | direct | Rust: use `sync_channel` to optimize allocations | translate | reviewing | Phase 2 replaced the small-work queue with cache-separated result slots and made remaining queues disconnect safely; decide bounded grid/add queue translation during the full Rust performance review |
 | 3 | `b83544b` | 2025-09-19 | direct | Rust: add `sub_aggregate` | port | reviewing | Retained additive Rust API; required p1/p2 cneg FFI already exists |
 | 4 | `1519e46` | 2025-09-19 | direct | Fix `blst_256_t` right-shift operator typos | port | validated | Both operators use modular right shift with portable/assembly dispatch; independent oracle and zero-shift tests pass; see `AUD-007` and `PHASE_01.md` |
 | 5 | `3aa4b71` | 2025-09-19 | removal_candidate | Go README documentation | not_applicable | closed | Go-only documentation; remove with Go |
@@ -77,7 +77,7 @@ No row is closed merely because its language binding is scheduled for removal.
 | 40 | `4eb6250` | 2026-04-16 | removal_candidate | Update Zig build for 0.16 | not_applicable | closed | Zig build only |
 | 41 | `f41f715` | 2026-04-16 | removal_candidate | Widen Zig CI test matrix | not_applicable | closed | Zig matrix only; carry verified-toolchain lesson into general CI hardening |
 | 42 | `dece82e` | 2026-04-17 | direct | Resolve Rust dependabot warning | translate | reviewing | Remove unnecessary direct `rand` dev dependency; use `rand_core` traits and retain MSRV |
-| 43 | `6271918` | 2026-05-17 | direct | Fix Rust Pippenger divide-by-zero on large systems | translate | reviewing | Missing in split Rust scheduler; port oversubscription routing and planner guards; see `AUD-003` |
+| 43 | `6271918` | 2026-05-17 | direct | Fix Rust Pippenger divide-by-zero on large systems | translate | validated | Oversubscribed routing and stronger planner width guards pass deterministic 1,024-CPU G1/G2 and large-bit property tests; see `AUD-003` and `PHASE_02.md` |
 | 44 | `db3defd` | 2026-05-17 | conceptual | Fix Go Pippenger divide-by-zero on large systems | not_applicable | closed | Go code removed; independently corroborates retained Rust `6271918`/`AUD-003` regression |
 | 45 | `6056ba3` | 2026-06-04 | removal_candidate | Add experimental Node-API support | not_applicable | closed | Node-API/SWIG only |
 | 46 | `9a5af53` | 2026-06-04 | removal_candidate | Exercise Node-API in CI | not_applicable | closed | Node-API CI only |
@@ -85,8 +85,8 @@ No row is closed merely because its language binding is scheduled for removal.
 | 48 | `525a87a` | 2026-07-21 | direct | Omit `sqr_mont_382x` | translate | reviewing | No production caller; remove fork declarations/wrappers/test with generator source |
 | 49 | `4a74ffd` | 2026-07-21 | direct | Refine x86-64 Montgomery carry chains | port | reviewing | Local generators retain old ADX schedules; preserve upstream instruction schedule exactly |
 | 50 | `e789f8a` | 2026-07-21 | direct | Refresh generated build outputs | translate | reviewing | Generated companion only; consolidate with all accepted generator changes after reproducibility repair |
-| 51 | `1172c18` | 2026-07-21 | direct | Bind Rust `Pairing` DST lifetime | translate | reviewing | Missing in split `pairing.rs`; safe API can outlive retained native DST pointer; see `AUD-001` |
-| 52 | `96a46e6` | 2026-07-21 | direct | Harden Rust `Pairing.mul_n_aggregate` | translate | reviewing | Missing scalar byte-length check before FFI; use overflow-safe ceiling; see `AUD-002` |
+| 51 | `1172c18` | 2026-07-21 | direct | Bind Rust `Pairing` DST lifetime | translate | validated | Rust now owns DST in a relocatable trailing allocation, including safe reuse/growth and thread moves; see `AUD-001` and `PHASE_02.md` |
+| 52 | `96a46e6` | 2026-07-21 | direct | Harden Rust `Pairing.mul_n_aggregate` | translate | validated | Overflow-safe scalar sizing rejects undersized buffers before FFI for both group orientations; see `AUD-002` and `PHASE_02.md` |
 | 53 | `23e330f` | 2026-07-21 | conceptual | Remove Zig assumptions about DST lifetime | not_applicable | closed | Zig code removed; owned trailing-DST design informs retained Rust `1172c18`/`AUD-001` |
 | 54 | `23cdd8a` | 2026-07-21 | conceptual | Harden Go weighted aggregation interface | not_applicable | closed | Go code removed; retained Rust fix is `96a46e6`/`AUD-002`; document raw C/C++ contract |
 | 55 | `e3d708b` | 2026-07-23 | direct | Update x86-64 translator from Cryptogams | port | reviewing | Tooling/future compatibility; local translator lacks `{nf}` preservation |
