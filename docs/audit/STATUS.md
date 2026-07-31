@@ -4,11 +4,11 @@ Last updated: 2026-07-31
 
 ## Current phase
 
-Phase 9 confined CHERI inverse scratch capabilities, hardened ARM translator
-operands, and repaired the 256-bit inverse oracle. Six upstream rows remain in
-two approved implementation packets. BTx/BTE remains frozen and CUDA remains
-opt-in experimental. Upstream implementation and file-by-file review are the
-controlling workstreams.
+Phase 10 made ARM64 and CHERI default-deny experimental targets until their
+real toolchain and execution gates are complete. Six upstream rows remain in
+two approved implementation packets. BTx/BTE remains frozen; CUDA, ARM64, and
+CHERI remain opt-in experimental. Upstream implementation and file-by-file
+review are the controlling workstreams.
 
 ## Ordered gates
 
@@ -20,7 +20,7 @@ controlling workstreams.
 | 4. AVX-512 audit | not started | AVX-512 chain and scalar differential coverage complete |
 | 5. FFT/middle-product audit | not started | Algorithms, limits, and differential tests complete |
 | 6. Supported API/bindings | in progress | C, C++, and Rust surfaces complete |
-| 7. Scope cleanup | complete | Unsupported bindings removed; CUDA experimental; BTx/BTE frozen pending merge |
+| 7. Scope cleanup | complete | Unsupported bindings removed; CUDA experimental; ARM64/CHERI default-deny experimental; BTx/BTE frozen pending merge |
 | 8. Rename and ABI mode | not started | CatBLST rename and generated two-prefix ABI validated |
 | 9. Release readiness | not started | CI, packaging, security policy, and release evidence complete |
 
@@ -38,6 +38,8 @@ controlling workstreams.
 - SWIG, C#, Emscripten JavaScript, Java, Node.js, and Python bindings were
   removed in Phase 6C.
 - Experimental: opt-in CUDA; see `CUDA_EXPERIMENTAL.md`.
+- Experimental and blocked by default: ARM64 and Morello/CHERI; see
+  `ARM64_CHERI_EXPERIMENTAL.md`.
 - Frozen: BTx/BTE pending its required future merge; see `BTX_FREEZE.md`.
 - Future project name: CatBLST.
 - Future C ABI: build-time selection of exactly one generated prefix,
@@ -124,10 +126,10 @@ signature vectors.
 
 Current generated inventory:
 
-- 594 repository files accounted for;
+- 596 repository files accounted for;
 - 154 in-scope production;
 - 113 generated production;
-- 148 in-scope support;
+- 150 in-scope support;
 - 59 benchmark files explicitly excluded;
 - 32 frozen BTx/BTE files pending the required merge;
 - 52 retained experimental CUDA files;
@@ -149,10 +151,10 @@ Findings: 23 total. Twenty-two are validated. One low finding remains open.
 
 ## Next action
 
-Do not touch BTx/BTE, and do not include experimental CUDA in the primary
-production-readiness gate. Implement the two remaining bulk-approved packets
-recorded in `UPSTREAM_BULK_APPROVAL.md`, starting with conformance vectors and
-release language. Apply
+Do not touch BTx/BTE, and do not include experimental CUDA, ARM64, or CHERI in
+the primary production-readiness gate. Implement the two remaining
+bulk-approved packets recorded in `UPSTREAM_BULK_APPROVAL.md`, starting with
+conformance vectors and release language. Apply
 `VALIDATION_POLICY.md`: run focused checks in the change loop, batch related
 work for subsystem suites, and reserve the full supported matrix for milestone
 gates.
@@ -163,5 +165,6 @@ and validation evidence closes the corresponding upstream rows.
 Phase evidence is recorded in `PHASE_01.md`, `PHASE_02.md`, `PHASE_03A.md`,
 `PHASE_03B.md`, `PHASE_03C.md`, `PHASE_04.md`, `PHASE_05.md`,
 `PHASE_06A.md`, `PHASE_06B.md`, `PHASE_06C.md`, `PHASE_07A.md`,
-`PHASE_07B.md`, `PHASE_07C.md`, `PHASE_08.md`, and `PHASE_09.md`; the remaining
-dependency order and exit gates are in `HARDENING_PLAN.md`.
+`PHASE_07B.md`, `PHASE_07C.md`, `PHASE_08.md`, `PHASE_09.md`, and
+`PHASE_10.md`; the remaining dependency order and exit gates are in
+`HARDENING_PLAN.md`.

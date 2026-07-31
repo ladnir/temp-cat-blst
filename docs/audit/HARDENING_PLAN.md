@@ -200,3 +200,19 @@ Exit gate: deterministic generation, exact changed-output allowlist,
 byte-identical ordinary ARM projections, translator regression, and focused
 inverse tests. Native AArch64 and Morello/CHERI assembly and execution remain
 release evidence to collect when those toolchains are available.
+
+## Phase 10 — experimental ARM64 and CHERI target gates
+
+State: complete. Implementation and validation evidence are recorded in
+`PHASE_10.md`; durable policy is in `ARM64_CHERI_EXPERIMENTAL.md`.
+
+- Retain ARM64 and CHERI sources without claiming production support.
+- Reject both targets by default in CMake and Cargo.
+- Require separate explicit acknowledgements for ARM64 and CHERI purecap.
+- Repeat the restriction in generated configuration headers.
+- Keep exact promotion evidence as the only route to removing the gates.
+
+Exit gate: normal x86-64 configuration remains unchanged; default ARM64 and
+CHERI configurations fail with actionable messages; explicit experimental
+configurations proceed with prominent warnings; Rust cannot bypass the policy
+through a prebuilt native archive.
