@@ -4,26 +4,26 @@ Last updated: 2026-07-31
 
 ## Current phase
 
-Phase 12 bootstraps automated analysis before the main file-by-file audit:
-CodeQL, Clang Static Analyzer/CodeChecker, clang-tidy, Clippy, ASan/UBSan, and
-initial fuzzing. Two upstream rows remain for retained CodeQL and immutable
-action maintenance; WASI is not a supported platform. BTx/BTE remains frozen;
-CUDA, non-Apple ARM64, and CHERI remain opt-in experimental.
+Phases 12-20 are the main production-audit program defined in
+`PRODUCTION_AUDIT_ROADMAP.md`. Phase 12 establishes the shared analysis
+platform and initial baseline; automation then remains active while Phases
+13-19 perform the subsystem file audits, findings remediation, fuzz/sanitizer
+expansion, and release qualification. Phase 20 performs the CatBLST rename and
+selectable ABI prefix after the audited surfaces are under control.
 
-## Ordered gates
+## Main program phases
 
-| Gate | State | Exit criterion |
+| Phase | State | Exit criterion |
 | --- | --- | --- |
-| 1. Audit infrastructure | complete | Inventory and integrity checks pass |
-| 2. Upstream manifest decisions | complete | Every upstream-only commit has a documented approved, rejected, or not-applicable decision |
-| 3. Automated analysis baseline | not started | Static analysis, sanitizers, and initial fuzzers execute reproducibly with all results triaged |
-| 4. Core scalar audit | in progress | Scalar dependency chain complete with evidence |
-| 5. AVX-512 audit | not started | AVX-512 chain and scalar differential coverage complete |
-| 6. FFT/middle-product audit | not started | Algorithms, limits, and differential tests complete |
-| 7. Supported API/bindings | in progress | C, C++, and Rust surfaces complete |
-| 8. Scope cleanup | complete | Unsupported bindings removed; CUDA and non-Apple ARM64/CHERI experimental; Apple Silicon supported; BTx/BTE frozen pending merge |
-| 9. Rename and ABI mode | not started | CatBLST rename and generated two-prefix ABI validated |
-| 10. Release readiness | not started | CI, packaging, security policy, and release evidence complete |
+| 12. Audit platform and initial baseline | planned | CodeQL, Clang/CodeChecker, clang-tidy, Clippy, ASan/UBSan, initial fuzzers, corpora/artifacts, and triage run reproducibly |
+| 13. Fundamental scalar trust chain | not started | Representations, conversions, portable backend, assembly generators/outputs, and CPU selection complete |
+| 14. Scalar and extension fields | not started | Field arithmetic/representation files complete with property, boundary, sanitizer, and oracle evidence |
+| 15. Curves and protocols | not started | G1/G2, serialization, hash-to-curve, pairing, signatures, MSM, and uniqueness files complete |
+| 16. AVX-512 | not started | AVX files complete with native hardware and scalar differential evidence |
+| 17. FFT and middle product | not started | Scalar/AVX algorithms and APIs complete with reference, sanitizer, and fuzz evidence |
+| 18. C/C++/Rust surfaces | not started | Public ABI, native C++, Rust FFI/wrappers, ownership, errors, features, and package inputs complete |
+| 19. Support and release evidence | not started | Remaining tests/build/CI/docs/package files complete and full supported release matrix passes |
+| 20. CatBLST identity and ABI | not started | Rename plus separate `blst_` and `catblst_` build-time prefix modes validated |
 
 ## Scope decisions
 
@@ -113,39 +113,55 @@ constraints are recorded in `UPSTREAM_BULK_APPROVAL.md`.
 | --- | --- | --- |
 | Retained CI security and provenance | `68b58bd`, `f62244e` | Add CodeQL for retained C/C++/Rust and modernize retained actions with immutable full-SHA pins; no WASI |
 
-The next phase is the automated-analysis bootstrap in
-`AUTOMATED_ANALYSIS_PLAN.md`. Establish and triage the baseline first, then
-begin the dependency-ordered hand audit while expanding sanitizer and fuzz
-evidence with each subsystem. CodeQL and action provenance close the remaining
-upstream rows as part of that bootstrap.
+Phase 12 starts the standing automated-analysis workstream in
+`AUTOMATED_ANALYSIS_PLAN.md`; it does not contain the whole audit. CodeQL and
+action provenance close the remaining upstream rows during that phase. After
+its initial baseline is triaged, Phase 13 begins while automation continues to
+expand through Phase 19.
 
 ## File-review dependency order
 
-1. Build/configuration and public ABI selection.
-2. Fundamental types, constants, and byte conversions.
-3. Portable backend field arithmetic.
-4. Scalar/curve/group operations and serialization.
-5. Hash-to-curve, key generation, signature, pairing, and MSM.
-6. AVX-512 primitives, RNS/reduction, fields, curve, pairing, and dispatch.
-7. FFT and middle product.
-8. Public C and C++ headers/wrappers.
-9. Rust FFI and safe wrappers.
-10. Tests, benchmarks, CI, packaging, and release controls.
-11. Reviewed removal of non-production subsystems.
+1. Audit platform, build capture, and initial automated baseline.
+2. Common types, constants, limbs, bytes/endian, scalar backend, assembly
+   generators/outputs, CPU selection, and boundary conversions.
+3. Scalar and extension fields.
+4. Scalar curve/group operations, serialization, hash-to-curve, pairing,
+   signatures, MSM, and uniqueness tree.
+5. AVX-512 primitives, RNS/reduction, fields, curves, pairing, MSM, and
+   dispatch.
+6. FFT and middle product.
+7. Public C/native C++ surfaces, Rust FFI and safe wrappers, and package inputs.
+8. Tests, vectors, builds, CI, audit controls, documentation, examples,
+   packaging, and release evidence.
+9. CatBLST rename and selectable ABI prefix.
 
 ## Metrics
 
 Current generated inventory:
 
-- 600 repository files accounted for;
+- 601 repository files accounted for;
 - 154 in-scope production;
 - 113 generated production;
-- 154 in-scope support;
+- 155 in-scope support;
 - 59 benchmark files explicitly excluded;
 - 32 frozen BTx/BTE files pending the required merge;
 - 52 retained experimental CUDA files;
 - 0 planned-removal files;
 - 36 documentation/archive files.
+
+Main audit work volume:
+
+| Work group | Phases | Total | Complete | Pending |
+| --- | --- | ---: | ---: | ---: |
+| Scalar foundations, fields, curves, and protocols | 13-15 | 197 | 2 | 195 |
+| AVX-512 | 16 | 43 | 0 | 43 |
+| FFT and middle product | 17 | 7 | 0 | 7 |
+| C/C++/Rust APIs and bindings | 18 | 28 | 0 | 28 |
+| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 147 | 0 | 147 |
+| **Total in-scope production/generated/support** | **12-19** | **422** | **2** | **420** |
+
+The rollup is explained in `PRODUCTION_AUDIT_ROADMAP.md`; the per-file
+`FILE_MANIFEST.csv` remains authoritative.
 
 Upstream progress:
 
@@ -164,12 +180,13 @@ Findings: 23 total. Twenty-two are validated. One low finding remains open.
 
 Do not touch BTx/BTE, and do not include experimental CUDA, non-Apple ARM64, or
 CHERI in the primary production-readiness gate. Apple Silicon macOS remains in
-the supported scalar release matrix. Implement the automated-analysis baseline
-in `AUTOMATED_ANALYSIS_PLAN.md`, including the two retained upstream CI rows.
-After baseline triage, start the hand audit with fundamental types, constants,
-and byte conversions. Apply `VALIDATION_POLICY.md`: run focused checks in the
-change loop, batch related work for subsystem suites, and reserve the full
-supported matrix for milestone gates.
+the supported scalar release matrix. Begin Phase 12's initial platform
+milestone, including the two retained upstream CI rows. Once its baseline is
+triaged, begin Phase 13 without treating automation as finished: expand
+analyzers, sanitizers, fuzzers, and oracles alongside every subsystem. Apply
+`VALIDATION_POLICY.md`: run focused checks in the change loop, batch related
+work for subsystem suites, and reserve the full supported matrix for milestone
+gates.
 
 No production file should be marked complete before its related implementation
 and validation evidence closes the corresponding upstream rows.

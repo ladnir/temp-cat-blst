@@ -7,8 +7,9 @@ BLST-derived codebase that is expected to become CatBLST.
 
 1. Account for every upstream commit after the recorded merge base and decide
    whether to port, translate, reject, defer, or mark it already equivalent.
-2. Establish and triage an automated static-analysis, sanitizer, and fuzzing
-   baseline before advancing the main hand-audit chain.
+2. Establish and triage the initial automated-analysis platform before
+   advancing the first main audit subsystem, then expand that workstream
+   continuously through release qualification.
 3. Deep-review every production and production-support file, one file at a
    time, with explicit manual and applicable automated evidence.
 4. Harden and validate the scalar and AVX-512 implementations.
@@ -45,6 +46,7 @@ for compatibility.
 | `FINDINGS.md` | Security, correctness, performance, and maintainability findings |
 | `STATUS.md` | Current phase, gates, metrics, and next review queue |
 | `HARDENING_PLAN.md` | Dependency-aware implementation and validation phases |
+| `PRODUCTION_AUDIT_ROADMAP.md` | Main Phases 12-20, continuous workstreams, subsystem cycles, work volume, and completion gates |
 | `AUTOMATED_ANALYSIS_PLAN.md` | Static-analysis, sanitizer, fuzzing, triage, cadence, and hand-audit integration policy |
 | `VALIDATION_POLICY.md` | Risk-proportional checks and subsystem/milestone validation gates |
 | `BTX_FREEZE.md` | No-touch policy and merge prerequisite for frozen BTx/BTE |
@@ -92,8 +94,10 @@ for compatibility.
 
 1. Regenerate `FILE_MANIFEST.csv`.
 2. Run the integrity checker before starting a review.
-3. Complete and triage the bootstrap in `AUTOMATED_ANALYSIS_PLAN.md` before
-   advancing the main file-review chain.
+3. Establish and triage the initial platform milestone in
+   `AUTOMATED_ANALYSIS_PLAN.md` before Phase 13, then keep its automated
+   workstream active through the subsystem phases in
+   `PRODUCTION_AUDIT_ROADMAP.md`.
 4. Select the next file in dependency order from `STATUS.md`.
 5. Copy `FILE_REVIEW_TEMPLATE.md` to `reviews/<stable-name>.md`.
 6. Review the file at an exact commit using `CHECKLIST.md`.

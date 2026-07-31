@@ -22,7 +22,7 @@ packets have focused evidence and the manifest can truthfully move to
 | --- | --- | --- | --- |
 | Caller-threaded Rust runtime | `07b109d` | Superseded after architectural review: reject the bounded-channel patch and remove all internal Rust scheduling. Preserve the optimized native arithmetic kernels while every public call executes entirely on its caller thread. | Default/full/portable/no-std Rust evidence; deterministic errors; dependency and source-policy proof that no internal scheduler remains; see `PHASE_08.md`. |
 | CHERI inverse scratch bounds | `2e1948b`, `ed865dc`, `fe85dc3` | Port `scbnds` support and both inverse-generator changes, then regenerate the exact 10 affected ARM artifacts through the verified assembly pipeline. Do not import the incidental `blst.def` delta. | Deterministic regeneration and exact allowlist; ordinary ARM64 assembly/compile and inverse tests; CHERI assembly/execution when available, otherwise a recorded hardware/toolchain block. |
-| Retained CI security and provenance | `68b58bd`, `f62244e` | Implement one current-policy workflow update: CodeQL v4 for C/C++ and Rust, plus current retained actions pinned to full commit SHAs. Drop all Go, Node, SWIG, C#, Zig, and WASI portions. | Workflow syntax; runner compatibility; C/C++ manual CodeQL build; Rust CodeQL coverage without unsupported bindings; action provenance; integration with the broader automated-analysis baseline in `AUTOMATED_ANALYSIS_PLAN.md`. |
+| Retained CI security and provenance | `68b58bd`, `f62244e` | Implement one current-policy workflow update: CodeQL v4 for C/C++ and Rust, plus current retained actions pinned to full commit SHAs. Drop all Go, Node, SWIG, C#, Zig, and WASI portions. | Workflow syntax; runner compatibility; C/C++ manual CodeQL build; Rust CodeQL coverage without unsupported bindings; action provenance; integration with the standing automated-analysis workstream in `AUTOMATED_ANALYSIS_PLAN.md` and `PRODUCTION_AUDIT_ROADMAP.md`. |
 | Conformance vectors and README language | `ff66582`, `67fc54b` | Move the draft-13 BLS12-381 generator coordinates, compressed encodings, and pairing coefficients into retained C++ and Rust tests; exercise scalar and AVX-512 production paths where those paths exist; do not restore Python. Translate the README intent, not its literal patch: do not add Zig, and replace the floating V5 statement only after retained-language signature vectors establish the exact supported revision. | Completed in Phase 11: exact pairing-draft provenance and serialization mapping; explicit cubed production-pairing convention; scalar/AVX coverage; C++ and Rust signature vectors for both group orientations; narrow version-pinned draft-07 language. |
 
 ## Rationale and exclusions
@@ -81,8 +81,8 @@ as a work-in-progress Internet-Draft rather than an IETF standard.
 2. CHERI/ARM generator and exact regenerated artifacts - completed in Phase 9.
 3. Pairing and signature conformance evidence, followed by accurate README
    language - completed in Phase 11.
-4. Automated analysis bootstrap followed by retained CodeQL/action provenance;
-   WASI is excluded.
+4. Initial audit-platform milestone followed by the standing automated-analysis
+   workstream and retained CodeQL/action provenance; WASI is excluded.
 
 The packets are bulk-approved in this order and do not require another design
 approval unless implementation uncovers a material scope or API change.

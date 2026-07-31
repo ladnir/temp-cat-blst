@@ -161,8 +161,8 @@ tree tests, and C/Rust wrapper validation.
 - Keep CUDA opt-in and explicitly experimental; see `CUDA_EXPERIMENTAL.md`.
   Do not modify, audit, extract, or remove frozen BTx/BTE until its required
   merge is complete.
-- Harden CodeQL, sanitizers, warnings, and supported build matrices through
-  the Phase 12 automated-analysis bootstrap.
+- Begin the standing CodeQL, sanitizer, fuzzing, warnings, and supported-build
+  workstream in Phase 12 and expand it through the Phase 19 release gate.
 - Begin CatBLST rename and two-prefix ABI work only after the upstream
   implementation rows are closed.
 
@@ -225,40 +225,114 @@ State: complete. C++/Rust scalar and AVX-portable generator, pairing, and
 basic-signature evidence plus narrow draft language are recorded in
 `PHASE_11.md`.
 
-## Phase 12 - automated audit bootstrap
+## Main production-audit program
 
-State: planned. Detailed scope, cadence, and exit gates are recorded in
-`AUTOMATED_ANALYSIS_PLAN.md`.
+Phases 0-11 were upstream catch-up, urgent hardening, scope control, and audit
+preparation. Phases 12-20 are the main production-readiness program. Their
+durable roadmap and current work volume are in `PRODUCTION_AUDIT_ROADMAP.md`.
+Automated analysis is a standing workstream across every phase, not one phase
+that is completed and left behind.
 
-1. Establish version-pinned CodeQL baselines for retained C/C++ and Rust with
-   real representative builds.
-2. Establish a C/C++ compilation database and run Clang Static Analyzer through
-   CodeChecker plus a curated correctness-focused clang-tidy policy.
-3. Run Clippy over each supported Rust feature family and record intentional
-   exceptions rather than weakening production code to satisfy style-only
-   suggestions.
-4. Establish Linux Clang ASan/UBSan scalar coverage, with portable code as the
-   instrumented memory/UB oracle for assembly and AVX implementations.
-5. Add the first bounded fuzz harnesses at public byte-parsing and conversion
-   boundaries, seeded from retained vectors and adversarial edge cases.
-6. Triage every result into `FINDINGS.md` or a documented false-positive record.
-7. Close upstream `68b58bd` and `f62244e` through the same CI/provenance work;
-   do not add WASI.
+## Phase 12 - audit platform and initial baseline
 
-Exit gate: all configured tools execute reproducibly; versions, rule sets,
-profiles, and blind spots are recorded; every baseline result is triaged; no
-unresolved critical/high finding permits the dependent file-review chain to
-advance; and audit-integrity checks pass.
+Establish the shared analysis platform described in
+`AUTOMATED_ANALYSIS_PLAN.md`: CodeQL, Clang Static Analyzer/CodeChecker,
+clang-tidy, Clippy, ASan/UBSan, fuzz infrastructure, corpus/artifact handling,
+and exact finding triage. Close upstream `68b58bd` and `f62244e` through the
+same CI/provenance work; do not add WASI.
 
-## Phase 13 - dependency-ordered file audit with expanding automation
+Exit gate: the initial tools execute reproducibly, every baseline result is
+triaged, initial byte-boundary fuzzers run under sanitizers, and no unresolved
+critical/high result blocks Phase 13. The tools remain active and expand in all
+later phases.
 
-Begin only after the Phase 12 baseline is triaged. Review files in the order in
-`STATUS.md`. Static-analysis results guide attention but never replace the
-manual checklist. Add sanitizer, fuzz, oracle, and scalar/AVX differential
-coverage when each subsystem's contracts become understood, then rerun the
-complete relevant analyzer/test set once at the subsystem gate.
+## Phase 13 - fundamental representations and scalar backend trust chain
 
-Exit gate: every in-scope production and support file has a review record tied
-to an exact commit, all applicable automated evidence or reasoned `N/A` entries
-are recorded, findings are resolved or accepted explicitly, and the manifest
-integrity gate passes.
+Review common types, limbs, byte/endian helpers, configuration primitives,
+portable scalar backend, assembly generators, generated assembly, CPU feature
+selection, and boundary conversions. Treat every generator and its outputs as
+one trust chain. Add bounded conversion/serialization fuzzing, UB/bounds tests,
+and independent integer oracles.
+
+Exit gate: every phase file has a complete review record; generator/output
+provenance is exact; scalar portable/assembly behavior agrees at boundaries;
+and the phase analyzer, sanitizer, and fuzz gates pass.
+
+## Phase 14 - scalar and extension fields
+
+Review Fr, Fp, Fp2, Fp6/Fp12, reductions, inversion, square roots, hash-to-field
+support, representation transitions, and lazy-reduction bounds. Preserve
+optimization-friendly structure. Expand property tests and fuzzing around
+modulus boundaries, canonical encoding, algebraic identities, and independent
+big-integer/reference oracles.
+
+Exit gate: all field files are complete, arithmetic properties and conversion
+contracts pass across applicable scalar backends, and no phase finding remains
+unresolved without explicit acceptance.
+
+## Phase 15 - curves, pairing, signatures, and scalar MSM
+
+Review G1/G2 point operations, serialization and subgroup checks, map/hash to
+curve, GT/pairing, key generation, signature/aggregation, scalar MSM, and the
+uniqueness tree. Expand malformed-input, group-law, pairing, signature,
+resource-bound, aliasing, and state-machine fuzzing under sanitizers.
+
+Exit gate: every scalar protocol path has manual, oracle/property, sanitizer,
+and applicable fuzz evidence; public failure semantics and resource bounds are
+documented; findings are resolved or accepted explicitly.
+
+## Phase 16 - AVX-512 backend and scalar differential audit
+
+Review AVX-512 primitives, RNS/reduction, field/curve/GT/pairing/MSM code,
+conversion boundaries, instruction gating, generated inputs, and dispatch.
+Differential-test every exposed operation against the reviewed scalar oracle,
+including edge inputs, inactive lanes, alignment, and lazy-reduction limits.
+
+Exit gate: AVX source files are complete; portable AVX evidence is labeled
+accurately; native AVX-512 hardware execution covers the supported production
+path; and scalar/AVX differential campaigns pass.
+
+## Phase 17 - FFT and middle product
+
+Review scalar and AVX FFT/middle-product domains, roots, permutations,
+normalization, aliasing, sizing, scratch contracts, and representation
+transitions. Build bounded simple reference implementations for differential
+tests and fuzz invalid, boundary, and in-place cases.
+
+Exit gate: all retained FFT/middle-product files and APIs are complete with
+identity/oracle, sanitizer, fuzz, and scalar/AVX evidence.
+
+## Phase 18 - public C, native C++, and Rust surfaces
+
+Review public headers, ABI layouts and symbols, native C++ exposure, C API
+contracts, Rust raw FFI and safe wrappers, unsafe invariants, ownership,
+features, errors, no-internal-scheduler behavior, and packaging inputs. Add
+cross-language differential tests and FFI-focused sanitizer/fuzz coverage.
+
+Exit gate: every supported language surface is complete; declarations and
+semantics agree; standalone consumers and feature matrices pass; ABI and
+ownership residuals are explicit.
+
+## Phase 19 - support files and release evidence
+
+Review retained tests, vectors, build/configuration, generators and policy
+scripts, CI, repository controls, documentation, command-line examples, and
+packaging. Close coverage gaps found in Phases 13-18. Run the full supported
+CodeQL/Clang/Clippy, sanitizer, fuzz-regression, scalar, AVX-512, Apple Silicon,
+C/C++/Rust, and packaging matrix. Benchmarks remain excluded unless an explicit
+performance gate is approved, and never run concurrently.
+
+Exit gate: all remaining in-scope support files are complete, the full corpus
+and release matrix pass, native Apple/AVX evidence is recorded, and no
+unresolved release-blocking finding remains.
+
+## Phase 20 - CatBLST rename and selectable C ABI prefix
+
+Rename the project after the audited implementation and support surfaces are
+under control. Implement build-time selection of exactly one public C prefix,
+`blst_` or `catblst_`, through generators and headers with no runtime dispatch
+or duplicate hot-path abstraction.
+
+Exit gate: both prefix modes build and pass the supported matrix separately;
+symbols, packages, documentation, and C/C++/Rust consumers match the selected
+identity; no stale BLST-fork claim remains.

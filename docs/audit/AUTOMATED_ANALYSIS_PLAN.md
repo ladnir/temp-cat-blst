@@ -3,9 +3,11 @@
 ## Purpose
 
 Automated analysis is an evidence source for the file-by-file audit, not a
-substitute for it. The bootstrap runs before the main hand audit so obvious
-defects and high-risk files are identified early. Coverage then expands with
-each subsystem after its contracts and independent oracles are understood.
+substitute for it. It is a standing workstream across Phases 12-19 of
+`PRODUCTION_AUDIT_ROADMAP.md`. Phase 12 establishes the initial platform and
+baseline so obvious defects and high-risk files are identified early. Each
+later subsystem phase expands the tools, corpora, properties, and independent
+oracles needed to close its own files.
 
 ## Scope
 
@@ -34,7 +36,7 @@ query/checker sets, build flags, CPU features, and action revisions must be
 recorded exactly. GitHub Actions are pinned to immutable full commit SHAs with
 the readable release tag in comments.
 
-## Bootstrap sequence
+## Initial platform milestone
 
 1. Capture clean representative C/C++ and Rust builds and generate the C/C++
    compilation database.
@@ -48,8 +50,13 @@ the readable release tag in comments.
    conversions, group operations, and hardened ownership/bounds paths.
 6. Add initial bounded fuzz harnesses for byte conversion, G1/G2
    deserialize/uncompress/validate, and canonical round trips.
-7. Triage every diagnostic and crash before the dependency-ordered hand audit
-   advances beyond its affected file group.
+7. Triage every diagnostic and crash before the dependent file-review queue
+   advances.
+
+Passing this milestone does not complete automated analysis. It makes the
+shared platform trustworthy enough to begin Phase 13; subsystem-specific
+static analysis, sanitizers, fuzzers, and oracles remain required through
+Phase 19.
 
 ## Fuzzing expansion order
 
@@ -123,9 +130,9 @@ subsystem scan may support multiple review records, but each record must map
 the evidence to that file's concrete contracts rather than cite a generic
 green job.
 
-## Bootstrap exit gate
+## Initial platform gate
 
-The bootstrap is complete only when:
+The Phase 12 platform milestone is complete only when:
 
 - all selected tools run reproducibly from documented commands or immutable CI
   definitions;
@@ -138,3 +145,8 @@ The bootstrap is complete only when:
   portable or simulated builds;
 - no unresolved critical/high result blocks the first file-review group; and
 - `scripts/audit/check_audit_manifest.ps1` passes.
+
+The automated-analysis workstream closes only with the Phase 19 release gate,
+after the full configured analyzers, sanitizers, retained fuzz corpus,
+supported platforms, and scalar/AVX differentials pass at the same candidate
+commit.

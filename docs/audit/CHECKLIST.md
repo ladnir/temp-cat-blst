@@ -6,6 +6,8 @@ with evidence or marked `N/A` with a reason. “Looks good” is not evidence.
 ## 1. Identity and purpose
 
 - [ ] Record the exact repository path and reviewed commit.
+- [ ] Record the assigned `PRODUCTION_AUDIT_ROADMAP.md` phase and dependency
+      queue position.
 - [ ] State whether the file is handwritten, generated, vendored, or derived.
 - [ ] Identify the subsystem, supported profiles, owners, and public consumers.
 - [ ] Describe the file's responsibilities and what must never be delegated to it.

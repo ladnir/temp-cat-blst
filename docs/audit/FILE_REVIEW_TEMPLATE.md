@@ -5,6 +5,7 @@
 | Field | Value |
 | --- | --- |
 | Path | `<path>` |
+| Roadmap phase / queue | `<phase and dependency position>` |
 | Reviewed commit | `<full commit>` |
 | Reviewer | `<name>` |
 | Date | `<YYYY-MM-DD>` |

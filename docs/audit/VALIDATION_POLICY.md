@@ -6,10 +6,12 @@ the full matrix is not a per-commit requirement.
 
 ## Automated baseline and hand-audit sequencing
 
-Run the bootstrap in `AUTOMATED_ANALYSIS_PLAN.md` once before advancing the
-main dependency-ordered file audit. Triage its results first so the hand review
-can prioritize concrete suspicious paths. Do not rerun repository-wide CodeQL,
-Clang Static Analyzer, sanitizer, or fuzz sweeps for every individual file.
+Establish the initial platform milestone in `AUTOMATED_ANALYSIS_PLAN.md` before
+advancing Phase 13. Triage its results first so the hand review can prioritize
+concrete suspicious paths. Automated analysis then remains active through the
+subsystem phases in `PRODUCTION_AUDIT_ROADMAP.md`; it is not a one-time prelude.
+Do not rerun repository-wide CodeQL, Clang Static Analyzer, sanitizer, or fuzz
+sweeps for every individual file.
 
 During file review, map baseline results to the file and run only focused
 checks that exercise its contracts. Expand fuzz and sanitizer coverage as each
