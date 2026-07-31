@@ -38,7 +38,6 @@ set(SCALAR_BACKEND_TEST_SOURCES
     "Fr_tests.cpp"
     "Fr_montgomery_tests.cpp"
     "Blst256Shift_tests.cpp"
-    "BindingCpp_tests.cpp"
     "G1_tests.cpp"
     "G2_tests.cpp"
     "GT_tests.cpp"

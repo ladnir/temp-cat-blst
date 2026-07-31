@@ -25,7 +25,6 @@ include = [
     "/blst/bindings/blst_avx.h",
     "/blst/bindings/blst_fft.h",
     "/blst/bindings/blst_middle_product.h",
-    "/blst/bindings/blst.hpp",
 ]
 links = "blst"
 

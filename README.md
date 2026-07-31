@@ -229,7 +229,6 @@ For more details see the Rust binding [readme](bindings/rust/README.md).
     * blst_avx.h - provides the expert AVX C API
     * blst_middle_product.h - provides the middle-product C API
     * blst_aux.h - compatibility umbrella that includes the split C surfaces
-    * blst.hpp - provides foundational class-oriented C++ interface to blst library
     * blst.swg - provides SWIG definitions for creating blst bindings for other languages, such as Java and Python
     * **C#** - folder containing C# bindings and an example of how to use them
     * **Emscripten**  - folder containing an example of how to use Emscripten WebAssembly bindings from Javascript
@@ -240,7 +239,7 @@ For more details see the Rust binding [readme](bindings/rust/README.md).
     * **Rust** - folder containing Rust bindings for blst, including tests, benchmarks, and examples
     * **Vectors**
         * **Hash_to_curve**: folder containing test for hash_to_curve from IETF specification
-* **Src** - folder containing C code for lower level blst functions such as field operations, extension field operations, hash-to-field, and more
+* **blst** - contains the native C++ implementation and supported C++ headers for fields, curves, pairing, hashing, and the C ABI bridge
     * **Asm** - folder containing Perl scripts that are used to generate assembly code for different hardware platforms including x86 with ADX instructions, x86 without ADX instructions, and ARMv8, and [ABI](https://en.wikipedia.org/wiki/Application_binary_interface)[1]
 * **Build** - this folder containing a set of pre-generated assembly files for a variety of operating systems and maintenance scripts.
     * **Cheri** - assembly code for use on [CHERI](https://www.cl.cam.ac.uk/research/security/ctsrd/cheri/) platforms

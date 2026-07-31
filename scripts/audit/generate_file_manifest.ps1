@@ -33,10 +33,8 @@ function Get-Classification
 
     $plannedRemoval =
         $lower.StartsWith('bte/') -or
-        $lower -eq 'bindings/blst.hpp' -or
         $lower -eq 'bindings/blst_btx.h' -or
         $lower -eq 'bindings/blst_trx.h' -or
-        $lower -eq 'test/bindingcpp_tests.cpp' -or
         $lower -like 'test/btx*' -or
         $lower.StartsWith('bindings/go/') -or
         $lower.StartsWith('bindings/c#/') -or
@@ -87,12 +85,6 @@ function Get-Classification
         {
             $subsystem = 'btx_bte'
             $notes = 'Planned removal: BTx/BTE will move to a separate repository.'
-        }
-        elseif ($lower -eq 'bindings/blst.hpp' -or
-                $lower -eq 'test/bindingcpp_tests.cpp')
-        {
-            $subsystem = 'cpp_c_api_wrapper'
-            $notes = 'Planned removal: the C++ wrapper layered over the C API is not supported; native C++ remains supported.'
         }
         elseif ($lower.StartsWith('bindings/go/') -or $lower -eq 'go.mod' -or
                 $lower -eq '.golangci.yml')

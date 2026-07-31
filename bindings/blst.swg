@@ -718,69 +718,6 @@ import java.nio.file.*;
     void blst_sk_to_pk2_in_g2,  void blst_sign_pk2_in_g2
 }
 
-#ifdef __cplusplus
-%apply const std::string& { const std::string* }
-
-#pragma SWIG nowarn=509,516
-
-#if !defined(SWIGPYTHON)
-%ignore P1_Affines;
-%ignore P2_Affines;
-#endif
-
-%ignore nullptr;
-%ignore None;
-%ignore C_bytes;
-%catches(BLST_ERROR) P1(const byte* in, size_t len);
-%catches(BLST_ERROR) P1_Affine(const byte* in, size_t len);
-%catches(BLST_ERROR) aggregate(const P1_Affine& in);
-
-%catches(BLST_ERROR) P2(const byte* in, size_t len);
-%catches(BLST_ERROR) P2_Affine(const byte* in, size_t len);
-%catches(BLST_ERROR) aggregate(const P2_Affine& in);
-
-%catches(BLST_ERROR) blst::Scalar::add;
-%catches(BLST_ERROR) blst::Scalar::sub;
-%catches(BLST_ERROR) blst::Scalar::mul;
-
-// methods returning |this|
-%apply SELF* OUTPUT {
-    blst::P1* sign_with,    blst::P2* sign_with,
-    blst::P1* hash_to,      blst::P2* hash_to,
-    blst::P1* encode_to,    blst::P2* encode_to,
-    blst::P1* mult,         blst::P2* mult,
-    blst::P1* cneg,         blst::P2* cneg,
-    blst::P1* neg,          blst::P2* neg,
-    blst::P1* add,          blst::P2* add,
-    blst::P1* dbl,          blst::P2* dbl,
-    blst::PT* mul,          blst::PT* sqr,
-    blst::PT* final_exp,
-    blst::Scalar* from_bendian,
-    blst::Scalar* from_lendian,
-    blst::Scalar* add,
-    blst::Scalar* sub,
-    blst::Scalar* mul,
-    blst::Scalar* inverse
-}
-
-typedef enum {
-    BLST_SUCCESS = 0,
-    BLST_BAD_ENCODING,
-    BLST_POINT_NOT_ON_CURVE,
-    BLST_POINT_NOT_IN_GROUP,
-    BLST_AGGR_TYPE_MISMATCH,
-    BLST_VERIFY_FAIL,
-    BLST_PK_IS_INFINITY,
-} BLST_ERROR;
-
-%include "blst.hpp"
-
-extern const blst::P1_Affine BLS12_381_G1;
-extern const blst::P1_Affine BLS12_381_NEG_G1;
-extern const blst::P2_Affine BLS12_381_G2;
-extern const blst::P2_Affine BLS12_381_NEG_G2;
-
-#else
 %ignore blst_fr;
 %ignore blst_fp;
 %ignore blst_fp2;
@@ -813,16 +750,9 @@ extern const blst::P2_Affine BLS12_381_NEG_G2;
         free($self);
     }
 }
-#endif
 
 %begin %{
-#ifdef __cplusplus
-# include <memory>
-# include "blst.hpp"
-using namespace blst;
-#else
-# include "blst.h"
-#endif
+#include "blst.h"
 
 const char *const BLST_ERROR_str [] = {
     "BLST_ERROR: success",
