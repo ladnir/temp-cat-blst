@@ -4,13 +4,11 @@ Last updated: 2026-07-31
 
 ## Current phase
 
-The decision gate for all 63 upstream-only commits is complete. The final 10
-rows are bulk-approved as four implementation packets, with the literal README
-change separated from its required conformance evidence. They remain
-`reviewing`, not `validated`, until the approved translations and focused
-checks are complete. BTx/BTE remains frozen and CUDA remains opt-in
-experimental. Upstream implementation and file-by-file review are the
-controlling workstreams.
+Phase 8 removed all implicit Rust scheduling and closed upstream `07b109d`
+under a stronger caller-threaded runtime contract. Nine upstream rows remain
+in three approved implementation packets. BTx/BTE remains frozen and CUDA
+remains opt-in experimental. Upstream implementation and file-by-file review
+are the controlling workstreams.
 
 ## Ordered gates
 
@@ -44,6 +42,8 @@ controlling workstreams.
 - Future project name: CatBLST.
 - Future C ABI: build-time selection of exactly one generated prefix,
   `blst_` or `catblst_`; no runtime dispatch.
+- Runtime scheduling: C, native C++, and Rust execute entirely on the caller's
+  thread; CatBLST creates no threads and owns no scheduler.
 
 ## Immediate upstream queue
 
@@ -84,23 +84,24 @@ security/correctness and provenance candidates:
     type header and validated across available C modes in Phase 7B.
 18. `b83544b` and `dece82e` - Rust aggregate subtraction and direct dependency
     cleanup were translated and validated in Phase 7C.
+19. `07b109d` / `AUD-021` - the upstream bounded-channel optimization was
+    superseded by removal of the global Rust pool, unsafe scoped-job lifetime
+    erasure, and every internal scheduler path in Phase 8.
 
 ## Bulk-approved upstream implementation queue
 
-Ten rows remain `reviewing`, grouped into four approved implementation
+Nine rows remain `reviewing`, grouped into three approved implementation
 packets. The full constraints are recorded in `UPSTREAM_BULK_APPROVAL.md`.
 
 | Packet | Rows | Required outcome |
 | --- | --- | --- |
-| Rust parallel performance | `07b109d` | Bound the five remaining Miller/aggregate/grid/add result queues without regressing the Phase 2 worker-result design |
 | CHERI/ARM generator and artifacts | `2e1948b`, `ed865dc`, `fe85dc3` | Port `scbnds` source changes through the verified generator, regenerate exactly 10 ARM artifacts, and leave `blst.def` for `AUD-016` |
 | Conformance vectors and release language | `ff66582`, `67fc54b` | Translate pairing draft-13 vectors into C++/Rust scalar+AVX tests, then make only the exact signature-draft claim supported by separate signature vectors |
 | Retained CI/WASI/CodeQL | `85808fd`, `33d3f3a`, `68b58bd`, `f62244e` | Add verified Rust WASI coverage and modernize retained C/C++/Rust actions and CodeQL with immutable pins |
 
-The next recommended packet is `07b109d`. Its scope is already approved: keep
-the Phase 2 small-MSM result slots and translate only the five remaining
-allocation-relevant result channels. Validation stays focused on Rust
-planner/worker behavior.
+The next recommended packet is the CHERI/ARM generator chain: port the two
+source changes together, regenerate only the exact 10 expected ARM artifacts,
+and leave `blst.def` for `AUD-016`.
 
 ## File-review dependency order
 
@@ -120,10 +121,10 @@ planner/worker behavior.
 
 Current generated inventory:
 
-- 591 repository files accounted for;
-- 155 in-scope production;
+- 592 repository files accounted for;
+- 154 in-scope production;
 - 113 generated production;
-- 144 in-scope support;
+- 146 in-scope support;
 - 59 benchmark files explicitly excluded;
 - 32 frozen BTx/BTE files pending the required merge;
 - 52 retained experimental CUDA files;
@@ -133,21 +134,22 @@ Current generated inventory:
 Upstream progress:
 
 - 63 of 63 commits have final decisions and the decision gate is complete;
-- 32 are closed as already equivalent, deliberate rejection, or verified
+- 33 are closed as already equivalent, deliberate rejection, or verified
   removal-only changes;
 - 21 accepted ports/translations are validated;
-- 10 are bulk-approved and remain reviewing while their translations and
+- 9 are bulk-approved and remain reviewing while their translations and
   validation are completed;
 - 0 remain pending.
 
-Findings: 20 total. Nineteen are validated. One low finding remains open.
+Findings: 21 total. Twenty are validated. One low finding remains open.
 
 
 ## Next action
 
 Do not touch BTx/BTE, and do not include experimental CUDA in the primary
-production-readiness gate. Implement the four bulk-approved packets recorded
-in `UPSTREAM_BULK_APPROVAL.md`, starting with `07b109d`. Apply
+production-readiness gate. Implement the three remaining bulk-approved packets
+recorded in `UPSTREAM_BULK_APPROVAL.md`, starting with the CHERI/ARM generator
+chain. Apply
 `VALIDATION_POLICY.md`: run focused checks in the change loop, batch related
 work for subsystem suites, and reserve the full supported matrix for milestone
 gates.
@@ -158,5 +160,5 @@ and validation evidence closes the corresponding upstream rows.
 Phase evidence is recorded in `PHASE_01.md`, `PHASE_02.md`, `PHASE_03A.md`,
 `PHASE_03B.md`, `PHASE_03C.md`, `PHASE_04.md`, `PHASE_05.md`,
 `PHASE_06A.md`, `PHASE_06B.md`, `PHASE_06C.md`, `PHASE_07A.md`,
-`PHASE_07B.md`, and `PHASE_07C.md`; the remaining dependency order and exit
-gates are in `HARDENING_PLAN.md`.
+`PHASE_07B.md`, `PHASE_07C.md`, and `PHASE_08.md`; the remaining dependency
+order and exit gates are in `HARDENING_PLAN.md`.

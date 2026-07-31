@@ -43,7 +43,12 @@ Validation:
 Exit gate: each fix has an isolated implementation commit and passing targeted
 validation.
 
-## Phase 2 — Rust ownership and threaded MSM
+## Phase 2 — Rust ownership and threaded MSM (historical)
+
+The Phase 2 scheduler hardening was completed and validated, then superseded
+by Phase 8. Rust no longer owns a scheduler or threaded MSM path; the original
+evidence remains relevant to the history of `AUD-001`, `AUD-002`, `AUD-003`,
+`AUD-014`, and `AUD-015`.
 
 ### 2A. Pairing ownership
 
@@ -159,3 +164,19 @@ tree tests, and C/Rust wrapper validation.
 - Harden CodeQL, sanitizers, warnings, and supported build matrices.
 - Begin CatBLST rename and two-prefix ABI work only after the upstream
   implementation rows are closed.
+
+## Phase 8 — caller-threaded Rust runtime
+
+State: complete. Implementation and validation evidence are recorded in
+`PHASE_08.md`; `AUD-021` is validated and upstream `07b109d` is closed as
+superseded.
+
+- Remove every internal Rust pool, queue, barrier, CPU planner, and scheduler
+  dependency.
+- Reuse one sequential implementation across host and freestanding targets.
+- Preserve optimized native arithmetic kernels and caller-managed composition.
+- Enforce the no-internal-scheduler contract with a repository policy check.
+
+Exit gate: default, full-binding, portable, and forced no-std Rust evidence;
+deterministic validation errors; no production thread creation or scheduler
+dependency.

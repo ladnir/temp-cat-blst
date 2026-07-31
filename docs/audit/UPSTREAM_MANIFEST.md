@@ -36,7 +36,7 @@ No row is closed merely because its language binding is scheduled for removal.
 | # | Commit | Date | Initial relevance | Subject | Decision | Status | Evidence / notes |
 | ---: | --- | --- | --- | --- | --- | --- | --- |
 | 1 | `e61acc2` | 2025-09-17 | direct | `bindings/blst.hpp`: smooth some edges | not_applicable | closed | The unsupported C-over-ABI wrapper was removed in Phase 6A; see `AUD-006` |
-| 2 | `07b109d` | 2025-09-19 | direct | Rust: use `sync_channel` to optimize allocations | translate | reviewing | Bulk-approved partial translation: preserve Phase 2 small-MSM result slots and bound only the five remaining Miller/aggregate/grid/add result queues after final worker counts; see `UPSTREAM_BULK_APPROVAL.md` |
+| 2 | `07b109d` | 2025-09-19 | direct | Rust: use `sync_channel` to optimize allocations | reject | closed | Superseded by the stronger caller-threaded redesign in `0d655ff`: all internal pools, channels, barriers, CPU planning, and unsafe scoped-job lifetime erasure were removed; Rust tests and the structural policy pass; see `AUD-021` and `PHASE_08.md` |
 | 3 | `b83544b` | 2025-09-19 | direct | Rust: add `sub_aggregate` | port | validated | Ported through both local macro variants in `fed5142`; focused G1/G2 public-key aggregate subtraction, input-preservation, and identity tests pass; see `PHASE_07C.md` |
 | 4 | `1519e46` | 2025-09-19 | direct | Fix `blst_256_t` right-shift operator typos | port | validated | Both operators use modular right shift with portable/assembly dispatch; independent oracle and zero-shift tests pass; see `AUD-007` and `PHASE_01.md` |
 | 5 | `3aa4b71` | 2025-09-19 | removal_candidate | Go README documentation | not_applicable | closed | Go-only documentation removed in Phase 6B |
