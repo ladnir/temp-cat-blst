@@ -4,8 +4,9 @@ Last updated: 2026-07-30
 
 ## Current phase
 
-Phase 2 Rust pairing and Pippenger hardening is implemented, independently
-reviewed, validated, and committed. Upstream manifest translation and
+Phase 3A deterministic assembly generation is implemented, validated, and
+committed. The existing 100-file assembly tree now has a reproducible,
+allowlisted source-to-output path. Upstream manifest translation and
 file-by-file review remain the controlling workstreams.
 
 ## Ordered gates
@@ -40,8 +41,8 @@ file-by-file review remain the controlling workstreams.
 
 ## Immediate upstream queue
 
-The first two hardening phases resolved the following escalated
-security/correctness candidates:
+The first three hardening phases resolved the following escalated
+security/correctness and provenance candidates:
 
 1. `1172c18` — Rust `Pairing` DST ownership translated and validated.
 2. `96a46e6` — Rust scalar-length validation translated and validated.
@@ -49,8 +50,9 @@ security/correctness candidates:
 4. `dd5e80b` — stronger local equivalent confirmed and closed.
 5. `a3c15d6` — zero-length-salt assembly-path fix validated.
 6. `84926f2` — local heap workaround still requires bounded translation.
-7. `525a87a` through `14cd09a` — assembly chain classified; regeneration
-   infrastructure and an Fr operand-order defect were identified.
+7. `AUD-009` — deterministic assembly generation is validated.
+8. `525a87a` through `14cd09a` — accepted assembly translations can now
+   proceed through the verified generator path.
 
 ## File-review dependency order
 
@@ -70,10 +72,10 @@ security/correctness candidates:
 
 Current generated inventory:
 
-- 609 repository files accounted for;
+- 615 repository files accounted for;
 - 155 in-scope production;
-- 109 generated production;
-- 127 in-scope support;
+- 114 generated production;
+- 128 in-scope support;
 - 59 benchmark files explicitly excluded;
 - 123 planned-removal files;
 - 36 documentation/archive files.
@@ -88,20 +90,21 @@ Upstream progress:
   validation are completed;
 - 0 remain pending.
 
-Findings: 15 total. Ten are validated (`AUD-001` through `AUD-004`,
-`AUD-007`, `AUD-008`, and `AUD-012` through `AUD-015`). Five remain open:
-1 high, 3 medium, and 1 informational planned-removal item.
+Findings: 16 total. Eleven are validated (`AUD-001` through `AUD-004`,
+`AUD-007` through `AUD-009`, and `AUD-012` through `AUD-015`). Five remain
+open: 3 medium, 1 low, and 1 informational planned-removal item.
 
 
 ## Next action
 
-Begin Phase 3A with `AUD-009`: establish deterministic, split assembly
-generation before modifying checked-in assembly. Then translate the accepted
-x86 generator chain and `AUD-010` Windows symbol policy from source, regenerate
-with a strict output allowlist, and validate scalar plus AVX-512 builds.
+Begin Phase 3B with `AUD-010`: choose one explicit MASM portable-mode macro,
+pass it from CMake, conditionally expose fallback `$1` symbols, and prove the
+portable/non-portable symbol allowlists. Then apply the accepted upstream
+generator chain in Phase 3C through the verified output path.
 
 No production file should be marked complete before its related implementation
 and validation evidence closes the corresponding upstream rows.
 
-Phase 1 and Phase 2 evidence are recorded in `PHASE_01.md` and `PHASE_02.md`;
-the remaining dependency order and exit gates are in `HARDENING_PLAN.md`.
+Phase evidence is recorded in `PHASE_01.md`, `PHASE_02.md`, and
+`PHASE_03A.md`; the remaining dependency order and exit gates are in
+`HARDENING_PLAN.md`.

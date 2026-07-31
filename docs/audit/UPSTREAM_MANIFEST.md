@@ -61,9 +61,9 @@ No row is closed merely because its language binding is scheduled for removal.
 | 24 | `8065152` | 2025-11-26 | removal_candidate | Rearrange Zig generator | not_applicable | closed | Zig generator only |
 | 25 | `ce49aad` | 2026-02-16 | removal_candidate | Resolve Go lint nit | not_applicable | closed | Go lint-only code |
 | 26 | `2594ed1` | 2026-02-16 | removal_candidate | Resolve Python 3.14 warning | not_applicable | closed | Python/SWIG compatibility only |
-| 27 | `2e1948b` | 2026-02-16 | direct | Recognize CHERI `scbnds` in ARM translator | port | reviewing | CHERI source/artifacts remain tracked; translator support is required by `ed865dc` |
-| 28 | `ed865dc` | 2026-02-16 | direct | Confine ARM inverse temporary storage with `scbnds` | port | reviewing | Bound CHERI inverse scratch capabilities; regenerate only after translator/tooling repair |
-| 29 | `fe85dc3` | 2026-02-16 | direct | Refresh generated build outputs | translate | reviewing | Generated companion to accepted ARM/API sources; consolidate after generator repair |
+| 27 | `2e1948b` | 2026-02-16 | direct | Recognize CHERI `scbnds` in ARM translator | port | reviewing | CHERI source/artifacts remain tracked; Phase 3A proves the current translator/output baseline, so this source port can proceed through the verified generator path |
+| 28 | `ed865dc` | 2026-02-16 | direct | Confine ARM inverse temporary storage with `scbnds` | port | reviewing | Bound CHERI inverse scratch capabilities and regenerate through the Phase 3A allowlist; ARM/CHERI execution remains required |
+| 29 | `fe85dc3` | 2026-02-16 | direct | Refresh generated build outputs | translate | reviewing | Generated companion to accepted ARM/API sources; consolidate through the validated Phase 3A generator rather than applying artifacts directly |
 | 30 | `84926f2` | 2026-02-16 | direct | Cap MSM precompute stack utilization | translate | reviewing | Local heap workaround avoids stack growth but adds hidden allocation and silent failure; adapt bounded upstream chunking; see `AUD-005` |
 | 31 | `68b58bd` | 2026-02-16 | direct | Resolve CodeQL workflow deprecation | translate | reviewing | Move to current CodeQL and retained C/C+++Rust scope; remove C# and private-repo skip |
 | 32 | `dafa98f` | 2026-02-16 | removal_candidate | Fix Emscripten CI failure | not_applicable | closed | Emscripten workflow and Zig log text only |
@@ -82,18 +82,18 @@ No row is closed merely because its language binding is scheduled for removal.
 | 45 | `6056ba3` | 2026-06-04 | removal_candidate | Add experimental Node-API support | not_applicable | closed | Node-API/SWIG only |
 | 46 | `9a5af53` | 2026-06-04 | removal_candidate | Exercise Node-API in CI | not_applicable | closed | Node-API CI only |
 | 47 | `d29fef4` | 2026-06-04 | removal_candidate | Refine Node addon detection | not_applicable | closed | Node addon detection only |
-| 48 | `525a87a` | 2026-07-21 | direct | Omit `sqr_mont_382x` | translate | reviewing | No production caller; remove fork declarations/wrappers/test with generator source |
-| 49 | `4a74ffd` | 2026-07-21 | direct | Refine x86-64 Montgomery carry chains | port | reviewing | Local generators retain old ADX schedules; preserve upstream instruction schedule exactly |
-| 50 | `e789f8a` | 2026-07-21 | direct | Refresh generated build outputs | translate | reviewing | Generated companion only; consolidate with all accepted generator changes after reproducibility repair |
+| 48 | `525a87a` | 2026-07-21 | direct | Omit `sqr_mont_382x` | translate | reviewing | No production caller; remove fork declarations/wrappers/test with generator source in Phase 3C and verify the strict output allowlist |
+| 49 | `4a74ffd` | 2026-07-21 | direct | Refine x86-64 Montgomery carry chains | port | reviewing | Local generators retain old ADX schedules; preserve upstream instruction schedule exactly through the validated Phase 3A path |
+| 50 | `e789f8a` | 2026-07-21 | direct | Refresh generated build outputs | translate | reviewing | Generated companion only; consolidate with all accepted generator changes in one Phase 3C regeneration |
 | 51 | `1172c18` | 2026-07-21 | direct | Bind Rust `Pairing` DST lifetime | translate | validated | Rust now owns DST in a relocatable trailing allocation, including safe reuse/growth and thread moves; see `AUD-001` and `PHASE_02.md` |
 | 52 | `96a46e6` | 2026-07-21 | direct | Harden Rust `Pairing.mul_n_aggregate` | translate | validated | Overflow-safe scalar sizing rejects undersized buffers before FFI for both group orientations; see `AUD-002` and `PHASE_02.md` |
 | 53 | `23e330f` | 2026-07-21 | conceptual | Remove Zig assumptions about DST lifetime | not_applicable | closed | Zig code removed; owned trailing-DST design informs retained Rust `1172c18`/`AUD-001` |
 | 54 | `23cdd8a` | 2026-07-21 | conceptual | Harden Go weighted aggregation interface | not_applicable | closed | Go code removed; retained Rust fix is `96a46e6`/`AUD-002`; document raw C/C++ contract |
-| 55 | `e3d708b` | 2026-07-23 | direct | Update x86-64 translator from Cryptogams | port | reviewing | Tooling/future compatibility; local translator lacks `{nf}` preservation |
-| 56 | `33d7f80` | 2026-07-23 | direct | Clarify `mulx_mont_256` limitations | port | reviewing | Current operand-bound comment is misleading; prerequisite to call-site audit |
-| 57 | `bf008ec` | 2026-07-23 | direct | Align exports/reciprocal code with x86 assembly | translate | reviewing | Local `Fr::to_mont` operand contract is fixed and validated under `AUD-008`; remaining assembly/export translation stays gated on deterministic generation under `AUD-009` |
-| 58 | `41b511a` | 2026-07-23 | direct | Minimize x86 assembly symbol pollution on MSVC | translate | reviewing | Missing guards in generators/Win64 outputs; settle MASM macro policy first; see `AUD-010` |
-| 59 | `14cd09a` | 2026-07-23 | direct | Refresh generated Windows build outputs | translate | reviewing | Generated companion only; consolidate after generator/macro repair; see `AUD-009` |
+| 55 | `e3d708b` | 2026-07-23 | direct | Update x86-64 translator from Cryptogams | port | reviewing | Tooling/future compatibility; local translator lacks `{nf}` preservation; apply in Phase 3C against the recorded translator baseline |
+| 56 | `33d7f80` | 2026-07-23 | direct | Clarify `mulx_mont_256` limitations | port | reviewing | Current operand-bound comment is misleading; apply with the Phase 3C call-site audit |
+| 57 | `bf008ec` | 2026-07-23 | direct | Align exports/reciprocal code with x86 assembly | translate | reviewing | Local `Fr::to_mont` operand contract is fixed under `AUD-008`; remaining assembly/export translation may now proceed through the validated Phase 3A generator |
+| 58 | `41b511a` | 2026-07-23 | direct | Minimize x86 assembly symbol pollution on MSVC | translate | reviewing | Phase 3A records the current MASM spelling without changing behavior; Phase 3B must unify the macro and validate portable/non-portable symbol allowlists; see `AUD-010` |
+| 59 | `14cd09a` | 2026-07-23 | direct | Refresh generated Windows build outputs | translate | reviewing | Generated companion only; regenerate after the Phase 3B macro/source change through the Phase 3A allowlist |
 | 60 | `3ede151` | 2026-07-24 | removal_candidate | Fix Go README typos | not_applicable | closed | Go documentation only |
 | 61 | `ff66582` | 2026-07-24 | conceptual | Add pairing-friendly-curves test vectors via Python runner | translate | reviewing | Retain authoritative vectors in C++/Rust scalar+AVX tests; drop Python harness |
 | 62 | `8aaaef0` | 2026-07-24 | removal_candidate | Bump Zig version | not_applicable | closed | Zig package version only |

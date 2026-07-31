@@ -40,7 +40,7 @@ for compatibility.
 | `FINDINGS.md` | Security, correctness, performance, and maintainability findings |
 | `STATUS.md` | Current phase, gates, metrics, and next review queue |
 | `HARDENING_PLAN.md` | Dependency-aware implementation and validation phases |
-| `PHASE_01.md`, `PHASE_02.md` | Implemented hardening and validation evidence |
+| `PHASE_*.md` | Implemented hardening and validation evidence |
 | `scripts/audit/generate_file_manifest.ps1` | Regenerates the inventory without erasing review evidence |
 | `scripts/audit/check_audit_manifest.ps1` | Enforces file/upstream inventory integrity and completion evidence |
 
