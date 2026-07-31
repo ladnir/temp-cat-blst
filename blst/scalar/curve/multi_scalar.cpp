@@ -7,6 +7,13 @@
 #include "blst/scalar/curve/multi_scalar.h"
 
 #include <type_traits>
+#if defined(_MSC_VER)
+# include <malloc.h>
+# define BLST_ALLOCA _alloca
+#else
+# include <alloca.h>
+# define BLST_ALLOCA alloca
+#endif
 
 namespace blst::scalar
 {
@@ -182,16 +189,16 @@ namespace blst::scalar
 
 		/* The intermediate infinity points are encoded as [0, 0, 1]. */
 
-	// For one affine point, builds a row of length 2 ^ (wbits - 1) of 
-	// consecutive multiples used by Booth / gather(e.g., P·1, P·2, P·3, …) 
-	// in Jacobian.
+	// For one affine point, builds a row of n consecutive multiples used by
+	// Booth / gather (e.g., P·1, P·2, P·3, …) in Jacobian. n is even and at
+	// least two for every precompute caller.
 	template<typename Field>
-	BLST_HD BLST_CPP_INLINE void point_precompute_row_wbits(
+	BLST_HD BLST_CPP_INLINE void point_precompute_row(
 		Point<Field> row[],
-		size_t wbits,
+		size_t n,
 		const AffinePoint<Field>& point)
 	{
-		size_t i, j, n = (size_t)1 << (wbits - 1);
+		size_t i, j;
 		bool_t inf = vec_is_zero(&point, sizeof(point));
 		/* row[-1] is implicit infinity */
 		vec_copy(&row[0], &point, sizeof(point));           /* row[0]=p*1     */
@@ -202,6 +209,15 @@ namespace blst::scalar
 			Point<Field>::add(row[i], row[i - 1], point),  /* row[2]=p*(2+1) */
 			Point<Field>::doubling(row[i + 1], row[j]),             /* row[3]=p*(2+2) */
 			vec_select(&row[i + 1].Z, &Field::one(), &row[i + 1].Z, sizeof(row[i + 1].Z), inf);
+	}
+
+	template<typename Field>
+	BLST_HD BLST_CPP_INLINE void point_precompute_row_wbits(
+		Point<Field> row[],
+		size_t wbits,
+		const AffinePoint<Field>& point)
+	{
+		point_precompute_row<Field>(row, (size_t)1 << (wbits - 1), point);
 	}
 	template
 	BLST_HD BLST_CPP_INLINE void point_precompute_row_wbits(
@@ -275,11 +291,16 @@ namespace blst::scalar
 		const AffinePoint<Field>* const points[],
 		size_t npoints)
 	{
-		if (!detail::valid_wbits(wbits) || npoints == 0 || points == nullptr || points[0] == nullptr)
+		if (!detail::valid_wbits(wbits) || npoints == 0 || table == nullptr ||
+			points == nullptr || points[0] == nullptr)
 			return;
 
 		size_t total = 0;
 		if (!detail::checked_shl_size(npoints, wbits - 1, total)) {
+			return;
+		}
+		size_t table_bytes = 0;
+		if (!detail::checked_mul_size(sizeof(AffinePoint<Field>), total, table_bytes)) {
 			return;
 		}
 		size_t nwin = (size_t)1 << (wbits - 1);
@@ -293,14 +314,14 @@ namespace blst::scalar
 		while (npoints >= nmin) {
 			size_t limit = total - npoints;
 
-			if (top + (stride << wbits) > limit) {
+			if (stride > ((limit - top) >> wbits)) {
 				stride = (limit - top) >> wbits;
 				if (stride == 0) break;
 			}
 			rows = row = (Point<Field>*)(&table[top]);
 			for (i = 0; i < stride; i++, row += nwin)
 				point = *points ? *points++ : point + 1,
-				point_precompute_row_wbits<Field>(row, wbits, *point);
+				point_precompute_row<Field>(row, nwin, *point);
 			points_to_affine_row_wbits<Field>(&table[top], rows, wbits, stride);
 			top += stride << (wbits - 1);
 			npoints -= stride;
@@ -309,32 +330,58 @@ namespace blst::scalar
 			return;
 		}
 
+		size_t row_count = 0;
 		size_t rows_bytes = 0;
-		if (!detail::checked_mul_size(2 * sizeof(AffinePoint<Field>), npoints, rows_bytes) ||
-			!detail::checked_mul_size(rows_bytes, nwin, rows_bytes) ||
-			rows_bytes > static_cast<size_t>(-1) - sizeof(Field)) {
-			size_t table_bytes = 0;
-			if (detail::checked_mul_size(sizeof(AffinePoint<Field>), total, table_bytes)) {
-				vec_zero(table, table_bytes);
-			}
-			return;
+		bool whole_rows_fit =
+			detail::checked_mul_size(npoints, nwin, row_count) &&
+			detail::checked_mul_size(2 * sizeof(AffinePoint<Field>), row_count, rows_bytes) &&
+			rows_bytes <= static_cast<size_t>(-1) - sizeof(Field);
+		if (whole_rows_fit) {
+			rows_bytes += sizeof(Field);
+			whole_rows_fit = rows_bytes <= SCRATCH_LIMIT;
 		}
 
-		rows = row = (Point<Field>*)malloc(rows_bytes + sizeof(Field));
-		if (rows == nullptr) {
-			size_t table_bytes = 0;
-			if (detail::checked_mul_size(sizeof(AffinePoint<Field>), total, table_bytes)) {
-				vec_zero(table, table_bytes);
+		if (whole_rows_fit) {
+			rows = row = (Point<Field>*)BLST_ALLOCA(rows_bytes);
+			for (i = 0; i < npoints; i++, row += nwin) {
+				point = *points ? *points++ : point + 1;
+				point_precompute_row<Field>(row, nwin, *point);
 			}
-			return;
+			points_to_affine_row_wbits<Field>(&table[top], rows, wbits, npoints);
+		} else {
+			const Point<Field>* packed_rows[2];
+
+			static_assert(
+				SCRATCH_LIMIT >= 2 * sizeof(Point<Field>),
+				"SCRATCH_LIMIT must hold at least two projective points");
+			stride = SCRATCH_LIMIT / sizeof(Point<Field>);
+			stride -= stride % 2;
+			if (stride > nwin) {
+				stride = nwin;
+			}
+
+			packed_rows[0] = row = (Point<Field>*)BLST_ALLOCA(stride * sizeof(Point<Field>));
+			packed_rows[1] = nullptr;
+			for (i = 0; i < npoints; i++, top += nwin) {
+				size_t j, k, n;
+
+				point = *points ? *points++ : point + 1;
+				point_precompute_row<Field>(row, stride, *point);
+				points_to_affine<Field>(&table[top], packed_rows, stride);
+				for (j = stride; j < nwin; j += stride) {
+					n = (j + stride) <= nwin ? stride : nwin - j;
+					for (k = 0; k < n - 1; k++) {
+						Point<Field>::add(row[k], row[stride - 1], table[top + k]);
+					}
+					if (j == stride) {
+						Point<Field>::doubling(row[k], row[stride - 1]);
+					} else {
+						Point<Field>::add(row[k], row[stride - 1], table[top + k]);
+					}
+					points_to_affine<Field>(&table[top + j], packed_rows, n);
+				}
+			}
 		}
-		for (i = 0; i < npoints; i++, row += nwin)
-		{
-			point = *points ? *points++ : point + 1;
-			point_precompute_row_wbits<Field>(row, wbits, *point);
-		}
-		points_to_affine_row_wbits<Field>(&table[top], rows, wbits, npoints);
-		free(rows);
 	}
 	template 
 		BLST_HD BLST_CPP_INLINE void msm_precompute_wbits(

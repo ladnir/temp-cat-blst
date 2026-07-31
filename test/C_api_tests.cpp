@@ -2,11 +2,15 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstring>
 #include <cstdint>
 #include <limits>
 #include <type_traits>
 #include <vector>
+#if defined(_MSC_VER) && defined(_DEBUG)
+# include <crtdbg.h>
+#endif
 
 #include "blst/curve/GT.h"
 #include "blst/curve/point.h"
@@ -17,6 +21,7 @@
 #include "blst/scalar/fields/hash_to_field.h"
 #include "blst/scalar/curve/GT.h"
 #include "blst/scalar/curve/map_to_G.h"
+#include "blst/scalar/curve/multi_scalar.h"
 #include "blst/scalar/curve/point.h"
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 #include "blst/avx/curve/map_to_G.h"
@@ -167,6 +172,10 @@ bool blst_p2_affine_is_equal(const blst::scalar::G2AffinePoint* a, const blst::s
 const blst::scalar::G2AffinePoint* blst_p2_affine_generator(void);
 void blst_p2s_to_affine(blst::scalar::G2AffinePoint dst[], const blst::scalar::G2Point* const points[], size_t npoints);
 void blst_p2s_add(blst::scalar::G2Point* ret, const blst::scalar::G2AffinePoint* const points[], size_t npoints);
+size_t blst_p2s_mult_wbits_precompute_sizeof(size_t wbits, size_t npoints);
+void blst_p2s_mult_wbits_precompute(blst::scalar::G2AffinePoint table[], size_t wbits, const blst::scalar::G2AffinePoint* const points[], size_t npoints);
+size_t blst_p2s_mult_wbits_scratch_sizeof(size_t npoints);
+void blst_p2s_mult_wbits(blst::scalar::G2Point* ret, const blst::scalar::G2AffinePoint table[], size_t wbits, size_t npoints, const unsigned char* const scalars[], size_t nbits, blst::limb_t* scratch);
 size_t blst_p2s_mult_pippenger_scratch_sizeof(size_t npoints);
 void blst_p2s_mult_pippenger(blst::scalar::G2Point* ret, const blst::scalar::G2AffinePoint* const points[], size_t npoints, const unsigned char* const scalars[], size_t nbits, blst::limb_t* scratch);
 void blst_p2s_tile_pippenger(blst::scalar::G2Point* ret, const blst::scalar::G2AffinePoint* const points[], size_t npoints, const unsigned char* const scalars[], size_t nbits, blst::limb_t* scratch, size_t bit0, size_t window);
@@ -373,6 +382,268 @@ std::vector<unsigned char> scalar_batch(std::initializer_list<std::uint64_t> sca
         out.insert(out.end(), bytes.begin(), bytes.begin() + static_cast<std::ptrdiff_t>(nbytes));
     }
     return out;
+}
+
+#if defined(_MSC_VER) && defined(_DEBUG)
+std::atomic<bool> count_crt_allocations = false;
+std::atomic<size_t> crt_allocation_count = 0;
+_CRT_ALLOC_HOOK previous_crt_allocation_hook = nullptr;
+
+int __cdecl audit_crt_allocation_hook(
+    int allocation_type,
+    void* user_data,
+    size_t size,
+    int block_type,
+    long request_number,
+    const unsigned char* filename,
+    int line_number)
+{
+    if (count_crt_allocations.load(std::memory_order_relaxed) &&
+        (allocation_type == _HOOK_ALLOC || allocation_type == _HOOK_REALLOC)) {
+        crt_allocation_count.fetch_add(1, std::memory_order_relaxed);
+    }
+    if (previous_crt_allocation_hook != nullptr) {
+        return previous_crt_allocation_hook(
+            allocation_type,
+            user_data,
+            size,
+            block_type,
+            request_number,
+            filename,
+            line_number);
+    }
+    return 1;
+}
+
+class CrtAllocationCounter
+{
+public:
+    CrtAllocationCounter()
+    {
+        crt_allocation_count.store(0, std::memory_order_relaxed);
+        previous_crt_allocation_hook = _CrtSetAllocHook(audit_crt_allocation_hook);
+        count_crt_allocations.store(true, std::memory_order_release);
+    }
+
+    CrtAllocationCounter(const CrtAllocationCounter&) = delete;
+    CrtAllocationCounter& operator=(const CrtAllocationCounter&) = delete;
+
+    ~CrtAllocationCounter()
+    {
+        if (active_) {
+            stop();
+        }
+    }
+
+    size_t stop()
+    {
+        count_crt_allocations.store(false, std::memory_order_release);
+        _CrtSetAllocHook(previous_crt_allocation_hook);
+        previous_crt_allocation_hook = nullptr;
+        active_ = false;
+        return crt_allocation_count.load(std::memory_order_relaxed);
+    }
+
+private:
+    bool active_ = true;
+};
+#endif
+
+enum class PrecomputePointLayout
+{
+    packed,
+    pointer_array,
+    aliased_packed,
+};
+
+template<typename Field>
+struct ScalarWbitsApi;
+
+template<>
+struct ScalarWbitsApi<blst::Fp>
+{
+    using Point = BoundaryG1;
+    using Affine = BoundaryG1Affine;
+
+    static size_t precompute_sizeof(size_t wbits, size_t npoints)
+    {
+        return blst_p1s_mult_wbits_precompute_sizeof(wbits, npoints);
+    }
+
+    static void to_affine(Affine dst[], const Point* const points[], size_t npoints)
+    {
+        blst_p1s_to_affine(dst, points, npoints);
+    }
+
+    static void precompute(
+        Affine table[], size_t wbits, const Affine* const points[], size_t npoints)
+    {
+        blst_p1s_mult_wbits_precompute(table, wbits, points, npoints);
+    }
+
+    static size_t scratch_sizeof(size_t npoints)
+    {
+        return blst_p1s_mult_wbits_scratch_sizeof(npoints);
+    }
+
+    static void mult(
+        Point* out,
+        const Affine table[],
+        size_t wbits,
+        size_t npoints,
+        const unsigned char* const scalars[],
+        size_t nbits,
+        blst::limb_t* scratch)
+    {
+        blst_p1s_mult_wbits(
+            out, table, wbits, npoints, scalars, nbits, scratch);
+    }
+};
+
+template<>
+struct ScalarWbitsApi<blst::Fp2>
+{
+    using Point = BoundaryG2;
+    using Affine = BoundaryG2Affine;
+
+    static size_t precompute_sizeof(size_t wbits, size_t npoints)
+    {
+        return blst_p2s_mult_wbits_precompute_sizeof(wbits, npoints);
+    }
+
+    static void to_affine(Affine dst[], const Point* const points[], size_t npoints)
+    {
+        blst_p2s_to_affine(dst, points, npoints);
+    }
+
+    static void precompute(
+        Affine table[], size_t wbits, const Affine* const points[], size_t npoints)
+    {
+        blst_p2s_mult_wbits_precompute(table, wbits, points, npoints);
+    }
+
+    static size_t scratch_sizeof(size_t npoints)
+    {
+        return blst_p2s_mult_wbits_scratch_sizeof(npoints);
+    }
+
+    static void mult(
+        Point* out,
+        const Affine table[],
+        size_t wbits,
+        size_t npoints,
+        const unsigned char* const scalars[],
+        size_t nbits,
+        blst::limb_t* scratch)
+    {
+        blst_p2s_mult_wbits(
+            out, table, wbits, npoints, scalars, nbits, scratch);
+    }
+};
+
+template<typename Field>
+void run_scalar_wbits_precompute_case(size_t wbits, PrecomputePointLayout layout)
+{
+    using Api = ScalarWbitsApi<Field>;
+    using Point = typename Api::Point;
+    using Affine = typename Api::Affine;
+    constexpr size_t npoints = 3;
+
+    std::array<Point, npoints> projective = {};
+    std::array<Affine, npoints> affine = {};
+    const std::array<unsigned char, npoints> point_scalars = {3, 0, 11};
+    for (size_t i = 0; i < npoints; ++i) {
+        if (point_scalars[i] != 0) {
+            Point::mult(
+                projective[i],
+                Point::generator(),
+                &point_scalars[i],
+                8);
+        }
+        Point::to_affine(affine[i], projective[i]);
+    }
+
+    const size_t nwin = (size_t)1 << (wbits - 1);
+    const size_t total = npoints * nwin;
+    ASSERT_EQ(Api::precompute_sizeof(wbits, npoints), total * sizeof(Affine));
+
+    std::vector<Point> reference_rows(total);
+    for (size_t i = 0; i < npoints; ++i) {
+        blst::scalar::point_precompute_row_wbits<Field>(
+            reference_rows.data() + i * nwin, wbits, affine[i]);
+    }
+    std::vector<Affine> expected(total);
+    const Point* reference_ptrs[2] = {reference_rows.data(), nullptr};
+    Api::to_affine(expected.data(), reference_ptrs, total);
+
+    std::vector<Affine> actual(total);
+    std::array<const Affine*, npoints> pointer_array = {
+        &affine[2], &affine[0], &affine[1]};
+    const Affine* packed_ptrs[2] = {affine.data(), nullptr};
+    if (layout == PrecomputePointLayout::aliased_packed) {
+        std::copy(affine.begin(), affine.end(), actual.end() - npoints);
+        packed_ptrs[0] = actual.data() + total - npoints;
+    }
+
+    const Affine* const* inputs =
+        layout == PrecomputePointLayout::pointer_array
+        ? pointer_array.data()
+        : packed_ptrs;
+    if (layout == PrecomputePointLayout::pointer_array) {
+        std::array<Affine, npoints> reordered = {
+            affine[2], affine[0], affine[1]};
+        for (size_t i = 0; i < npoints; ++i) {
+            blst::scalar::point_precompute_row_wbits<Field>(
+                reference_rows.data() + i * nwin, wbits, reordered[i]);
+        }
+        Api::to_affine(expected.data(), reference_ptrs, total);
+    }
+
+#if defined(_MSC_VER) && defined(_DEBUG)
+    CrtAllocationCounter allocation_counter;
+#endif
+    Api::precompute(actual.data(), wbits, inputs, npoints);
+#if defined(_MSC_VER) && defined(_DEBUG)
+    const size_t allocations = allocation_counter.stop();
+    EXPECT_EQ(allocations, 0u);
+#endif
+
+    for (size_t i = 0; i < total; ++i) {
+        SCOPED_TRACE(i);
+        EXPECT_EQ(std::memcmp(&actual[i], &expected[i], sizeof(Affine)), 0);
+    }
+
+    const std::array<unsigned char, npoints> scalar_blob = {2, 5, 7};
+    const unsigned char* scalar_ptrs[2] = {scalar_blob.data(), nullptr};
+    std::vector<blst::limb_t> scratch(
+        Api::scratch_sizeof(npoints) / sizeof(blst::limb_t));
+    Point actual_msm = {};
+    Api::mult(
+        &actual_msm,
+        actual.data(),
+        wbits,
+        npoints,
+        scalar_ptrs,
+        8,
+        scratch.data());
+
+    Point expected_msm = {};
+    bool first = true;
+    for (size_t i = 0; i < npoints; ++i) {
+        const size_t source =
+            layout == PrecomputePointLayout::pointer_array
+            ? (i == 0 ? 2 : i - 1)
+            : i;
+        Point term = {};
+        Point::mult(term, projective[source], &scalar_blob[i], 8);
+        if (first) {
+            expected_msm = term;
+            first = false;
+        } else {
+            Point::dadd(expected_msm, expected_msm, term);
+        }
+    }
+    EXPECT_TRUE(Point::equal(actual_msm, expected_msm));
 }
 
 } // namespace
@@ -1140,6 +1411,26 @@ TEST(CApi, G1MultipointWbitsHighWindowMatchesSinglePointOps)
     EXPECT_TRUE(blst_p1_is_equal(&out, &expected_msm));
 }
 
+TEST(CApi, ScalarG1WbitsPrecomputeCrossesScratchThresholdWithoutAllocation)
+{
+    run_scalar_wbits_precompute_case<blst::Fp>(
+        9, PrecomputePointLayout::packed);
+    run_scalar_wbits_precompute_case<blst::Fp>(
+        14, PrecomputePointLayout::pointer_array);
+    run_scalar_wbits_precompute_case<blst::Fp>(
+        12, PrecomputePointLayout::aliased_packed);
+}
+
+TEST(CApi, ScalarG2WbitsPrecomputeCrossesScratchThresholdWithoutAllocation)
+{
+    run_scalar_wbits_precompute_case<blst::Fp2>(
+        9, PrecomputePointLayout::packed);
+    run_scalar_wbits_precompute_case<blst::Fp2>(
+        14, PrecomputePointLayout::pointer_array);
+    run_scalar_wbits_precompute_case<blst::Fp2>(
+        11, PrecomputePointLayout::aliased_packed);
+}
+
 TEST(CApi, G1MultipointTileMatchesSinglePointOps)
 {
     auto run_case = [](const std::array<BoundaryG1, 3>& points,
@@ -1863,6 +2154,10 @@ TEST(CApi, WbitsApisRejectOutOfRangeValues)
     EXPECT_EQ(blst_p1s_mult_wbits_precompute_sizeof(0, 4), 0u);
     EXPECT_EQ(blst_p1s_mult_wbits_precompute_sizeof(15, 4), 0u);
     EXPECT_EQ(blst_p1s_mult_wbits_precompute_sizeof(14, std::numeric_limits<size_t>::max()), 0u);
+
+    BoundaryG1Affine affine = {};
+    const BoundaryG1Affine* affine_ptrs[1] = {&affine};
+    blst_p1s_mult_wbits_precompute(nullptr, 4, affine_ptrs, 1);
 
     BoundaryG1 out = p1_mul(3);
     const auto scalar = scalar_bytes(7);
