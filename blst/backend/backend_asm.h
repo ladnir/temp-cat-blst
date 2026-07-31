@@ -115,12 +115,12 @@ void sqrx_mont_384(asm_Fp ret, const asm_Fp a, const asm_Fp p, blst::limb_t n0);
 void sqrx_n_mul_mont_383(asm_Fp ret, const asm_Fp a, size_t count,
 	const asm_Fp p, blst::limb_t n0, const asm_Fp b);
 
-#if defined(BLST_ADX) || defined(__MSC_VER)
+#if defined(BLST_ADX) || defined(_MSC_VER)
 /* @brief asm: Performs Montgomery reduction on a 384 bit integer. n0 is the montgomery constant. */
 void redcx_mont_384(asm_Fp ret, const asm_UFp a, const asm_Fp p, blst::limb_t n0);
 #endif
 
-#if !defined(BLST_ADX) || defined(__MSC_VER)
+#if !defined(BLST_ADX) || defined(_MSC_VER)
 /* @brief asm: Performs Montgomery reduction on a 384 bit integer. n0 is the montgomery constant.  */
 void redc_mont_384(asm_Fp ret, const asm_UFp a, const asm_Fp p, blst::limb_t n0);
 #endif
@@ -184,9 +184,6 @@ void mulx_mont_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp2 b,
 /* @brief asm: Squares a 384-bit complex number in Montgomery form . */
 void sqrx_mont_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp p, blst::limb_t n0);
 
-/* @brief asm: Squares a 382-bit complex in Montgomery form. */
-void sqrx_mont_382x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp p, blst::limb_t n0);
-
 /* @brief asm: adds two 384-bit complex integers modulo a given modulus. */
 void add_mod_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp2 b, const asm_Fp p);
 
@@ -202,7 +199,18 @@ void mul_by_3_mod_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp p);
 /* @brief asm: multiply complex by i */
 void mul_by_1_plus_i_mod_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp p);
 
-#if defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC)
+#if defined(BLST_ADX) && !defined(BLST_PORTABLE)
+#define mul_mont_sparse_256 mulx_mont_sparse_256
+#define sqr_mont_sparse_256 sqrx_mont_sparse_256
+#define redc_mont_256 redcx_mont_256
+#define from_mont_256 fromx_mont_256
+#define mul_mont_384 mulx_mont_384
+#define sqr_mont_384 sqrx_mont_384
+#define redc_mont_384 redcx_mont_384
+#define from_mont_384 fromx_mont_384
+#define ct_inverse_mod_384 ctx_inverse_mod_384
+#endif
+
 void mul_mont_sparse_256(asm_Fr ret, const asm_Fr a, const asm_Fr b,
     const asm_Fr p, blst::limb_t n0);
 void sqr_mont_sparse_256(asm_Fr ret, const asm_Fr a, const asm_Fr p, blst::limb_t n0);
@@ -212,6 +220,8 @@ void from_mont_256(asm_Fr ret, const asm_Fr a, const asm_Fr p, blst::limb_t n0);
 void mul_mont_384(asm_Fp ret, const asm_Fp a, const asm_Fp b, const asm_Fp p, blst::limb_t n0);
 void sqr_mont_384(asm_Fp ret, const asm_Fp a, const asm_Fp p, blst::limb_t n0);
 void from_mont_384(asm_Fp ret, const asm_Fp a, const asm_Fp p, blst::limb_t n0);
+
+#if defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC)
 void sqr_n_mul_mont_383(asm_Fp ret, const asm_Fp a, size_t count,
     const asm_Fp p, blst::limb_t n0, const asm_Fp b);
 blst::limb_t sgn0_pty_mont_384(const asm_Fp a, const asm_Fp p, blst::limb_t n0);
@@ -221,7 +231,6 @@ void ct_inverse_mod_384(asm_UFp ret, const asm_Fp inp, const asm_Fp mod, const a
 void mul_mont_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp2 b,
     const asm_Fp p, blst::limb_t n0);
 void sqr_mont_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp p, blst::limb_t n0);
-void sqr_mont_382x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp p, blst::limb_t n0);
 
 #define mulx_mont_sparse_256 mul_mont_sparse_256
 #define sqrx_mont_sparse_256 sqr_mont_sparse_256
@@ -238,7 +247,6 @@ void sqr_mont_382x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp p, blst::limb_t n0
 
 #define mulx_mont_384x mul_mont_384x
 #define sqrx_mont_384x sqr_mont_384x
-#define sqrx_mont_382x sqr_mont_382x
 #endif
 
 /* @brief asm: sha256 block processing */

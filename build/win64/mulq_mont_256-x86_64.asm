@@ -1,5 +1,5 @@
 OPTION	DOTNAME
-ifdef __BLST_PORTABLE__
+ifdef	__BLST_PORTABLE__
 EXTERN	mul_mont_sparse_256$1:NEAR
 EXTERN	sqr_mont_sparse_256$1:NEAR
 EXTERN	from_mont_256$1:NEAR

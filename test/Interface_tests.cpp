@@ -975,26 +975,6 @@ TEST(InterfaceTests, SqrxMont384x) {
 	}
 }
 
-TEST(InterfaceTests, SqrxMont382x) {
-	Fp2 a, ret_asm, ret_portable;
-	Fp p;
-	limb_t n0 = BLST_p0;
-
-	InsecureRng rng;
-	int trials = 10;
-
-	for (int t = 0; t < trials; t++)
-	{
-		generate_random_Fp2(a, rng);
-		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
-
-		sqrx_mont_382x(&ret_asm, &a, p.data, n0); // ASM implementation
-		cc_sqr_mont_382x(ret_portable, a); // Portable implementation
-
-		EXPECT_TRUE(std::memcmp(&ret_asm, &ret_portable, sizeof(Fp2)) == 0) << "Mismatch in sqrx_mont_382x";
-	}
-}
-
 TEST(InterfaceTests, AddMod384x) {
 	Fp2 a, b, ret_asm, ret_portable;
 	Fp p;

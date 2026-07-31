@@ -438,7 +438,7 @@ public:
     }
 
     inline blst_256_t& to()
-    {   mul_mont_sparse_256(val, val, RR, MOD, M0); return *this;   }
+    {   mul_mont_sparse_256(val, RR, val, MOD, M0); return *this;   }
     inline blst_256_t& to(const uint64_t a[2*n])
     {
         mul_mont_sparse_256(val, RR, (const limb_t*)(a + n), MOD, M0);
@@ -669,7 +669,7 @@ public:
 
         ct_inverse_mod_256(temp.x, val, MOD, MODx);
         redc_mont_256(temp.r[0], temp.x, MOD, M0);
-        mul_mont_sparse_256(temp.r[0], temp.r[0], RR, MOD, M0);
+        mul_mont_sparse_256(temp.r[0], RR, temp.r[0], MOD, M0);
 
         return *reinterpret_cast<blst_256_t*>(temp.r[0]);
     }

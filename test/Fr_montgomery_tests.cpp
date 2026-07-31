@@ -5,6 +5,7 @@
 #include <limits>
 
 #include "blst/fields/Fr.h"
+#include "blst/blst_t.hpp"
 
 using blst::Fr;
 using blst::limb_t;
@@ -12,6 +13,18 @@ using blst::limb_t;
 namespace {
 
 using FrLimbs = std::array<limb_t, Fr::num_limbs()>;
+
+extern const blst::vec_256 NATIVE_FR_MODULUS = { BLST_r_LIMBS };
+extern const blst::vec_256 NATIVE_FR_RR = { BLST_rRR_LIMBS };
+extern const blst::vec_256 NATIVE_FR_ONE = {
+    TO_LIMB_T(0x00000001fffffffe),
+    TO_LIMB_T(0x5884b7fa00034802),
+    TO_LIMB_T(0x998c4fefecbc4ff5),
+    TO_LIMB_T(0x1824b159acc5056f),
+};
+
+using NativeFr = blst_256_t<
+    255, NATIVE_FR_MODULUS, BLST_r0, NATIVE_FR_RR, NATIVE_FR_ONE>;
 
 Fr make_fr(const FrLimbs& limbs)
 {
@@ -26,6 +39,13 @@ FrLimbs limbs_of(const Fr& value)
     FrLimbs limbs = {};
     for (size_t i = 0; i < limbs.size(); ++i)
         limbs[i] = value[i];
+    return limbs;
+}
+
+FrLimbs limbs_of(const NativeFr& value)
+{
+    FrLimbs limbs = {};
+    value.store(limbs.data());
     return limbs;
 }
 
@@ -100,9 +120,8 @@ Fr to_mont_reference(const Fr& value)
     const Fr reduced = reduce_reference(value);
     Fr result = {};
 
-    // The sparse assembly contract permits a non-reduced first operand only
-    // when the fully reduced second operand has suitable limb sparsity.
-    // Keeping the fixed, reduced R^2 value first is the general safe order.
+    // The sparse assembly contract accepts a non-reduced value only as the
+    // second input (the third function argument). Keep fixed R^2 first.
     Fr::mul(result, blst::get_BLST_rRR(), reduced);
     return result;
 }
@@ -194,5 +213,44 @@ TEST(FrMontgomery, MatchesSafeOperandOrderForWideInputs)
         Fr::to_mont(actual, input);
 
         EXPECT_EQ(limbs_of(actual), limbs_of(to_mont_reference(input)));
+    }
+}
+
+TEST(FrMontgomery, NativeCppToMontHandlesUnreducedInputs)
+{
+    for (const Fr& input : boundary_inputs()) {
+        SCOPED_TRACE(::testing::PrintToString(limbs_of(input)));
+
+        NativeFr actual{input.data};
+        actual.to();
+
+        Fr expected = {};
+        Fr::to_mont(expected, input);
+        EXPECT_EQ(limbs_of(actual), limbs_of(expected));
+    }
+}
+
+TEST(FrMontgomery, NativeCppReciprocalMatchesScalarField)
+{
+    const Fr& modulus = blst::get_BLST_r();
+    const std::array<Fr, 4> inputs = {
+        add_small_without_overflow(Fr{}, 1),
+        add_small_without_overflow(Fr{}, 2),
+        subtract_small(modulus, 1),
+        subtract_small(modulus, 2),
+    };
+
+    for (const Fr& input : inputs) {
+        SCOPED_TRACE(::testing::PrintToString(limbs_of(input)));
+
+        NativeFr native_input{input.data};
+        native_input.to();
+        const NativeFr actual = native_input.reciprocal();
+
+        Fr montgomery_input = {};
+        Fr expected = {};
+        Fr::to_mont(montgomery_input, input);
+        Fr::reciprocal(expected, montgomery_input);
+        EXPECT_EQ(limbs_of(actual), limbs_of(expected));
     }
 }

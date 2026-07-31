@@ -59,8 +59,7 @@ $groups = @(
             'mul_mont_384$1',
             'sqr_mont_384$1',
             'sqr_n_mul_mont_384$1',
-            'sqr_n_mul_mont_383$1',
-            'sqr_mont_382x$1'
+            'sqr_n_mul_mont_383$1'
         )
     }
 )

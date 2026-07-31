@@ -25,7 +25,6 @@ namespace blst
     using scalar::cc_mul_mont_384x;
     using scalar::cc_sgn0_pty_mod_384x;
     using scalar::cc_sgn0_pty_mont_384x;
-    using scalar::cc_sqr_mont_382x;
     using scalar::cc_sqr_mont_384x;
     using scalar::cc_sub_mod_384x;
 

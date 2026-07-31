@@ -1,5 +1,5 @@
 OPTION	DOTNAME
-ifdef __BLST_PORTABLE__
+ifdef	__BLST_PORTABLE__
 PUBLIC	ct_inverse_mod_384$1
 endif
 .text$	SEGMENT ALIGN(256) 'CODE'
