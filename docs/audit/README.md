@@ -35,6 +35,7 @@ for compatibility.
 | Artifact | Purpose |
 | --- | --- |
 | `UPSTREAM_MANIFEST.md` | One decision row for every upstream-only commit |
+| `UPSTREAM_BULK_APPROVAL.md` | Approved translations and validation conditions for the final upstream implementation packets |
 | `FILE_MANIFEST.csv` | Machine-checkable row for every repository file |
 | `CHECKLIST.md` | Required questions and evidence for each file |
 | `FILE_REVIEW_TEMPLATE.md` | Template for `reviews/*.md` review records |

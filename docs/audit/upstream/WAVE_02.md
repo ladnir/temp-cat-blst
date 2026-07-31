@@ -14,6 +14,10 @@ Go, Zig, Java, Python, Node, Emscripten, and C# changes were closed only after
 checking whether their defect class or test intent applied to retained
 C/C++/Rust code.
 
+The later final review in `../UPSTREAM_BULK_APPROVAL.md` supersedes Wave 02's
+remaining defer/implementation questions and records the approved translation
+boundaries. This file remains the original triage evidence.
+
 ## Rust retained surface
 
 | Commit | Decision | Evidence and follow-up |

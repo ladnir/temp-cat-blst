@@ -4,18 +4,20 @@ Last updated: 2026-07-31
 
 ## Current phase
 
-Phase 7C added allocation-free Rust public-key aggregate subtraction for both
-high-level variants and removed the unnecessary direct `rand` development
-dependency. BTx/BTE is frozen, not a removal candidate, and CUDA remains
-opt-in experimental. Upstream manifest translation and file-by-file review
-remain the controlling workstreams.
+The decision gate for all 63 upstream-only commits is complete. The final 10
+rows are bulk-approved as four implementation packets, with the literal README
+change separated from its required conformance evidence. They remain
+`reviewing`, not `validated`, until the approved translations and focused
+checks are complete. BTx/BTE remains frozen and CUDA remains opt-in
+experimental. Upstream implementation and file-by-file review are the
+controlling workstreams.
 
 ## Ordered gates
 
 | Gate | State | Exit criterion |
 | --- | --- | --- |
 | 1. Audit infrastructure | complete | Inventory and integrity checks pass |
-| 2. Upstream manifest | in progress | Every upstream-only commit has a documented decision |
+| 2. Upstream manifest decisions | complete | Every upstream-only commit has a documented approved, rejected, or not-applicable decision |
 | 3. Core scalar audit | in progress | Scalar dependency chain complete with evidence |
 | 4. AVX-512 audit | not started | AVX-512 chain and scalar differential coverage complete |
 | 5. FFT/middle-product audit | not started | Algorithms, limits, and differential tests complete |
@@ -83,21 +85,22 @@ security/correctness and provenance candidates:
 18. `b83544b` and `dece82e` - Rust aggregate subtraction and direct dependency
     cleanup were translated and validated in Phase 7C.
 
-## Remaining upstream queue
+## Bulk-approved upstream implementation queue
 
-Ten rows remain `reviewing`, grouped into four implementation packets:
+Ten rows remain `reviewing`, grouped into four approved implementation
+packets. The full constraints are recorded in `UPSTREAM_BULK_APPROVAL.md`.
 
 | Packet | Rows | Required outcome |
 | --- | --- | --- |
-| Rust parallel performance | `07b109d` | Decide and validate bounded grid/add queue translation without regressing the Phase 2 worker-result design |
-| CHERI/ARM generator and artifacts | `2e1948b`, `ed865dc`, `fe85dc3` | Port `scbnds` source changes through the verified generator; obtain ARM/CHERI validation or record the hardware block |
-| Retained CI/WASI/CodeQL | `85808fd`, `33d3f3a`, `68b58bd`, `f62244e` | Decide Rust WASI support, pin/verify tooling, and modernize retained C/C++/Rust CodeQL/actions |
-| Conformance vectors and release claim | `ff66582`, `67fc54b` | Translate authoritative vectors into C++/Rust scalar+AVX tests before accepting the BLS V6 documentation claim |
+| Rust parallel performance | `07b109d` | Bound the five remaining Miller/aggregate/grid/add result queues without regressing the Phase 2 worker-result design |
+| CHERI/ARM generator and artifacts | `2e1948b`, `ed865dc`, `fe85dc3` | Port `scbnds` source changes through the verified generator, regenerate exactly 10 ARM artifacts, and leave `blst.def` for `AUD-016` |
+| Conformance vectors and release language | `ff66582`, `67fc54b` | Translate pairing draft-13 vectors into C++/Rust scalar+AVX tests, then make only the exact signature-draft claim supported by separate signature vectors |
+| Retained CI/WASI/CodeQL | `85808fd`, `33d3f3a`, `68b58bd`, `f62244e` | Add verified Rust WASI coverage and modernize retained C/C++/Rust actions and CodeQL with immutable pins |
 
-The next recommended row is `07b109d`. Review the remaining grid/add queues
-against the Phase 2 worker-result design, then either translate only the
-allocation-relevant bounded channels or close it with stronger-equivalent
-evidence. Validation should remain focused on Rust planner/worker behavior.
+The next recommended packet is `07b109d`. Its scope is already approved: keep
+the Phase 2 small-MSM result slots and translate only the five remaining
+allocation-relevant result channels. Validation stays focused on Rust
+planner/worker behavior.
 
 ## File-review dependency order
 
@@ -117,10 +120,10 @@ evidence. Validation should remain focused on Rust planner/worker behavior.
 
 Current generated inventory:
 
-- 590 repository files accounted for;
+- 591 repository files accounted for;
 - 155 in-scope production;
 - 113 generated production;
-- 143 in-scope support;
+- 144 in-scope support;
 - 59 benchmark files explicitly excluded;
 - 32 frozen BTx/BTE files pending the required merge;
 - 52 retained experimental CUDA files;
@@ -129,11 +132,11 @@ Current generated inventory:
 
 Upstream progress:
 
-- 63 of 63 commits have decisions;
+- 63 of 63 commits have final decisions and the decision gate is complete;
 - 32 are closed as already equivalent, deliberate rejection, or verified
   removal-only changes;
 - 21 accepted ports/translations are validated;
-- 10 remain reviewing while accepted translations, policy decisions, or
+- 10 are bulk-approved and remain reviewing while their translations and
   validation are completed;
 - 0 remain pending.
 
@@ -143,8 +146,8 @@ Findings: 20 total. Nineteen are validated. One low finding remains open.
 ## Next action
 
 Do not touch BTx/BTE, and do not include experimental CUDA in the primary
-production-readiness gate. Continue with the 10 upstream rows still marked
-`reviewing`, starting with `07b109d`. Apply
+production-readiness gate. Implement the four bulk-approved packets recorded
+in `UPSTREAM_BULK_APPROVAL.md`, starting with `07b109d`. Apply
 `VALIDATION_POLICY.md`: run focused checks in the change loop, batch related
 work for subsystem suites, and reserve the full supported matrix for milestone
 gates.
