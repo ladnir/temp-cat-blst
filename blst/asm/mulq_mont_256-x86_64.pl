@@ -533,5 +533,9 @@ $code.=<<___;
 ___
 } } }
 
+# The fork's MASM build passes BLST_PORTABLE directly. Keep the checked-in
+# Win64 spelling reproducible until the macro policy is unified in Phase 3B.
+$code =~ s/__BLST_PORTABLE__/BLST_PORTABLE/g if ($flavour =~ /masm/);
+
 print $code;
 close STDOUT;
