@@ -33,9 +33,14 @@ An initial audit of this library was conducted by NCC Group in January 2021 and 
 
 Formal verification of this library by Galois is on-going and can be found [here](https://github.com/GaloisInc/BLST-Verification).
 
-This library is compliant with the following IETF draft specifications:
-- [IETF BLS Signature V5](https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature)
-- [IETF RFC 9380 Hashing to Elliptic Curves](https://www.rfc-editor.org/rfc/rfc9380.html)
+The basic signature ciphersuites use the domains and hash-to-curve behavior
+specified by
+[BLS Signatures, draft-irtf-cfrg-bls-signature-07](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bls-signature-07)
+and
+[RFC 9380, Hashing to Elliptic Curves](https://www.rfc-editor.org/rfc/rfc9380.html).
+Focused C++ and Rust vectors cover both G1-signature and G2-signature
+orientations. The version-pinned BLS document is an active Internet-Draft and
+work in progress, not an IETF standard.
 
 The serialization formatting is implemented according to [the ZCash definition](#serialization-format).
 

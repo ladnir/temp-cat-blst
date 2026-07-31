@@ -57,7 +57,7 @@ No row is closed merely because its language binding is scheduled for removal.
 | 20 | `33d3f3a` | 2025-11-17 | conceptual | Fix CI YAML syntax | translate | reviewing | Bulk-approved as part of the retained Rust WASI workflow translation; validate the resulting workflow rather than importing the superseded YAML detail |
 | 21 | `7f04257` | 2025-11-25 | removal_candidate | Add Zig bindings | not_applicable | closed | Zig binding/build files only |
 | 22 | `68c1d90` | 2025-11-25 | removal_candidate | Exercise Zig tests in CI | not_applicable | closed | Zig CI only |
-| 23 | `67fc54b` | 2025-11-25 | conceptual | Update README | translate | reviewing | Bulk-approved intent only: reject Zig and the floating V6 wording; make an exact versioned Internet-Draft claim only after its C++/Rust signature vectors pass; see `UPSTREAM_BULK_APPROVAL.md` |
+| 23 | `67fc54b` | 2025-11-25 | conceptual | Update README | translate | validated | Replaced the stale floating V5 claim with a narrow draft-07 basic-ciphersuite statement after independent C++/Rust vectors passed for both group orientations; Zig remains absent; see `PHASE_11.md` |
 | 24 | `8065152` | 2025-11-26 | removal_candidate | Rearrange Zig generator | not_applicable | closed | Zig generator only |
 | 25 | `ce49aad` | 2026-02-16 | removal_candidate | Resolve Go lint nit | not_applicable | closed | Go lint-only code removed in Phase 6B |
 | 26 | `2594ed1` | 2026-02-16 | removal_candidate | Resolve Python 3.14 warning | not_applicable | closed | Python/SWIG surface removed in Phase 6C |
@@ -95,7 +95,7 @@ No row is closed merely because its language binding is scheduled for removal.
 | 58 | `41b511a` | 2026-07-23 | direct | Minimize x86 assembly symbol pollution on MSVC | translate | validated | Translated with one `__BLST_PORTABLE__` MASM guard policy; exact portable/non-portable object allowlists and focused scalar tests passed; see `AUD-010` and `PHASE_03B.md` |
 | 59 | `14cd09a` | 2026-07-23 | direct | Refresh generated Windows build outputs | translate | validated | Six Win64 outputs regenerated through the deterministic 100-file allowlist; only the expected guard and unified-spelling changes occurred; see `PHASE_03B.md` |
 | 60 | `3ede151` | 2026-07-24 | removal_candidate | Fix Go README typos | not_applicable | closed | Go documentation removed in Phase 6B |
-| 61 | `ff66582` | 2026-07-24 | conceptual | Add pairing-friendly-curves test vectors via Python runner | translate | reviewing | Bulk-approved C++/Rust translation of draft-13 generator, compression, and pairing vectors with explicit production-cofactor semantics and scalar/AVX evidence; do not restore Python; see `UPSTREAM_BULK_APPROVAL.md` |
+| 61 | `ff66582` | 2026-07-24 | conceptual | Add pairing-friendly-curves test vectors via Python runner | translate | validated | Draft-13 generator, compression, and pairing vectors now pass in C++/Rust scalar and AVX paths; the tests prove BLST's specified cubed production-pairing convention explicitly; Python was not restored; see `PHASE_11.md` |
 | 62 | `8aaaef0` | 2026-07-24 | removal_candidate | Bump Zig version | not_applicable | closed | Zig package version only |
 | 63 | `54e6e55` | 2026-07-24 | direct | Bump Rust crate version | reject | closed | Do not claim upstream release identity; replace with CatBLST crate/version policy |
 

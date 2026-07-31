@@ -5,8 +5,8 @@
 - Date: 2026-07-31
 - Scope: the final 10 upstream rows originally marked `reviewing`
 - Decision state: approved for implementation under the translations below
-- Validation state: `07b109d` is superseded and closed; the three CHERI rows
-  are validated; six rows remain
+- Validation state: the runtime, CHERI, and conformance packets are complete;
+  four retained CI/security rows remain
 - Benchmarks: excluded and not run
 - BTx/BTE: frozen and untouched
 - CUDA: retained experimental and outside these packets
@@ -23,7 +23,7 @@ packets have focused evidence and the manifest can truthfully move to
 | Caller-threaded Rust runtime | `07b109d` | Superseded after architectural review: reject the bounded-channel patch and remove all internal Rust scheduling. Preserve the optimized native arithmetic kernels while every public call executes entirely on its caller thread. | Default/full/portable/no-std Rust evidence; deterministic errors; dependency and source-policy proof that no internal scheduler remains; see `PHASE_08.md`. |
 | CHERI inverse scratch bounds | `2e1948b`, `ed865dc`, `fe85dc3` | Port `scbnds` support and both inverse-generator changes, then regenerate the exact 10 affected ARM artifacts through the verified assembly pipeline. Do not import the incidental `blst.def` delta. | Deterministic regeneration and exact allowlist; ordinary ARM64 assembly/compile and inverse tests; CHERI assembly/execution when available, otherwise a recorded hardware/toolchain block. |
 | Retained CI security and WASI | `85808fd`, `33d3f3a`, `68b58bd`, `f62244e` | Implement one current-policy workflow update: retained Rust `wasm32-wasip1` coverage using a versioned, checksum-verified Wasmtime artifact; CodeQL v4 for C/C++ and Rust; current retained actions pinned to full commit SHAs. Drop all Go, Node, SWIG, C#, and Zig portions. | Workflow syntax; runner compatibility; C/C++ manual CodeQL build; Rust CodeQL coverage without unsupported bindings; WASI build and execution; action/download provenance. |
-| Conformance vectors and README language | `ff66582`, `67fc54b` | Move the draft-13 BLS12-381 generator coordinates, compressed encodings, and pairing coefficients into retained C++ and Rust tests; exercise scalar and AVX-512 production paths where those paths exist; do not restore Python. Translate the README intent, not its literal patch: do not add Zig, and replace the floating V5 statement only after retained-language signature vectors establish the exact supported revision. | Exact pairing-draft provenance and serialization mapping; explicit treatment of BLST's production pairing cofactor convention; scalar/AVX differential coverage; C++ and Rust signature vectors for both group orientations; an exact version-pinned Internet-Draft claim matching the evidence. |
+| Conformance vectors and README language | `ff66582`, `67fc54b` | Move the draft-13 BLS12-381 generator coordinates, compressed encodings, and pairing coefficients into retained C++ and Rust tests; exercise scalar and AVX-512 production paths where those paths exist; do not restore Python. Translate the README intent, not its literal patch: do not add Zig, and replace the floating V5 statement only after retained-language signature vectors establish the exact supported revision. | Completed in Phase 11: exact pairing-draft provenance and serialization mapping; explicit cubed production-pairing convention; scalar/AVX coverage; C++ and Rust signature vectors for both group orientations; narrow version-pinned draft-07 language. |
 
 ## Rationale and exclusions
 
@@ -67,19 +67,20 @@ draft conformance by themselves. The draft also documents that production
 pairing libraries may use a cofactor convention whose raw output differs from
 the literal pseudocode, so the test must state which value it compares.
 
-The literal `67fc54b` patch changed V5 to V6 and added Zig. Zig is absent. As of
-this review, [`draft-irtf-cfrg-bls-signature-06`](https://datatracker.ietf.org/doc/draft-irtf-cfrg-bls-signature/06/)
-is the latest published revision but expired on 2026-05-06. A versioned
-historical compatibility claim may still be useful, but only after its own
-signature vectors pass; the README must not imply that an expired
-Internet-Draft is an IETF standard.
+The literal `67fc54b` patch changed V5 to V6 and added Zig. Zig is absent.
+[`draft-irtf-cfrg-bls-signature-07`](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bls-signature-07)
+superseded draft-06 on 2026-07-06. Because its test-vector appendix remains
+unfinished, Phase 11 cross-checked the two basic-scheme group orientations
+against pinned `@noble/curves` 2.2.0 output. The README now makes only that
+narrow, versioned ciphersuite statement and explicitly identifies the document
+as a work-in-progress Internet-Draft rather than an IETF standard.
 
 ## Execution order
 
 1. Caller-threaded Rust runtime - completed in Phase 8.
 2. CHERI/ARM generator and exact regenerated artifacts - completed in Phase 9.
 3. Pairing and signature conformance evidence, followed by accurate README
-   language.
+   language - completed in Phase 11.
 4. CI/WASI/CodeQL policy update, after the test targets it should invoke are
    stable.
 

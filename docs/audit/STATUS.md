@@ -4,12 +4,11 @@ Last updated: 2026-07-31
 
 ## Current phase
 
-Phase 10 keeps Apple Silicon macOS in supported scalar scope while making other
-ARM64 and CHERI targets default-deny experimental until their real toolchain
-and execution gates are complete. Six upstream rows remain in two approved
-implementation packets. BTx/BTE remains frozen; CUDA, non-Apple ARM64, and
-CHERI remain opt-in experimental. Upstream implementation and file-by-file
-review are the controlling workstreams.
+Phase 11 closes the conformance packet with retained C++/Rust scalar and AVX
+evidence plus narrow, version-pinned release language. Four upstream rows
+remain in the retained CI/WASI/CodeQL packet. BTx/BTE remains frozen; CUDA,
+non-Apple ARM64, and CHERI remain opt-in experimental. Upstream implementation
+and file-by-file review are the controlling workstreams.
 
 ## Ordered gates
 
@@ -95,21 +94,23 @@ security/correctness and provenance candidates:
 20. `2e1948b`, `ed865dc`, and `fe85dc3` - CHERI inverse scratch confinement,
     exact regeneration of 10 ARM artifacts, translator operand hardening, and
     a corrected inverse oracle were validated in Phase 9.
+21. `ff66582` and `67fc54b` - pairing-friendly-curves draft-13 generator and
+    pairing evidence plus draft-07 basic-signature evidence were translated
+    into C++/Rust scalar and AVX tests with accurate release language in Phase
+    11.
 
 ## Bulk-approved upstream implementation queue
 
-Six rows remain `reviewing`, grouped into two approved implementation
-packets. The full constraints are recorded in `UPSTREAM_BULK_APPROVAL.md`.
+Four rows remain `reviewing` in one approved implementation packet. The full
+constraints are recorded in `UPSTREAM_BULK_APPROVAL.md`.
 
 | Packet | Rows | Required outcome |
 | --- | --- | --- |
-| Conformance vectors and release language | `ff66582`, `67fc54b` | Translate pairing draft-13 vectors into C++/Rust scalar+AVX tests, then make only the exact signature-draft claim supported by separate signature vectors |
 | Retained CI/WASI/CodeQL | `85808fd`, `33d3f3a`, `68b58bd`, `f62244e` | Add verified Rust WASI coverage and modernize retained C/C++/Rust actions and CodeQL with immutable pins |
 
-The next recommended packet is conformance evidence: translate the pairing
-draft-13 vectors into retained C++ and Rust tests, exercise scalar and AVX-512
-paths, then make only the exact signature-draft claim established by separate
-signature vectors.
+The next recommended packet is retained CI/WASI/CodeQL: add executable Rust
+`wasm32-wasip1` coverage through a checksum-verified Wasmtime artifact, then
+modernize retained C/C++/Rust actions and CodeQL with immutable pins.
 
 ## File-review dependency order
 
@@ -129,10 +130,10 @@ signature vectors.
 
 Current generated inventory:
 
-- 596 repository files accounted for;
+- 599 repository files accounted for;
 - 154 in-scope production;
 - 113 generated production;
-- 150 in-scope support;
+- 153 in-scope support;
 - 59 benchmark files explicitly excluded;
 - 32 frozen BTx/BTE files pending the required merge;
 - 52 retained experimental CUDA files;
@@ -144,8 +145,8 @@ Upstream progress:
 - 63 of 63 commits have final decisions and the decision gate is complete;
 - 33 are closed as already equivalent, deliberate rejection, or verified
   removal-only changes;
-- 24 accepted ports/translations are validated;
-- 6 are bulk-approved and remain reviewing while their translations and
+- 26 accepted ports/translations are validated;
+- 4 are bulk-approved and remain reviewing while their translations and
   validation are completed;
 - 0 remain pending.
 
@@ -156,9 +157,8 @@ Findings: 23 total. Twenty-two are validated. One low finding remains open.
 
 Do not touch BTx/BTE, and do not include experimental CUDA, non-Apple ARM64, or
 CHERI in the primary production-readiness gate. Apple Silicon macOS remains in
-the supported scalar release matrix. Implement the two remaining bulk-approved
-packets recorded in `UPSTREAM_BULK_APPROVAL.md`, starting with conformance
-vectors and release language. Apply
+the supported scalar release matrix. Implement the remaining retained
+CI/WASI/CodeQL packet recorded in `UPSTREAM_BULK_APPROVAL.md`. Apply
 `VALIDATION_POLICY.md`: run focused checks in the change loop, batch related
 work for subsystem suites, and reserve the full supported matrix for milestone
 gates.
@@ -169,6 +169,6 @@ and validation evidence closes the corresponding upstream rows.
 Phase evidence is recorded in `PHASE_01.md`, `PHASE_02.md`, `PHASE_03A.md`,
 `PHASE_03B.md`, `PHASE_03C.md`, `PHASE_04.md`, `PHASE_05.md`,
 `PHASE_06A.md`, `PHASE_06B.md`, `PHASE_06C.md`, `PHASE_07A.md`,
-`PHASE_07B.md`, `PHASE_07C.md`, `PHASE_08.md`, `PHASE_09.md`, and
-`PHASE_10.md`; the remaining dependency order and exit gates are in
-`HARDENING_PLAN.md`.
+`PHASE_07B.md`, `PHASE_07C.md`, `PHASE_08.md`, `PHASE_09.md`,
+`PHASE_10.md`, and `PHASE_11.md`; the remaining dependency order and exit
+gates are in `HARDENING_PLAN.md`.
