@@ -8,8 +8,8 @@ use blst::*;
 use blst::min_pk::*;
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
+use rand_core::{RngCore, SeedableRng};
 
 struct BenchData {
     sk: SecretKey,

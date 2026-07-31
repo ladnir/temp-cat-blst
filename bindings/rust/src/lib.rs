@@ -187,6 +187,7 @@ macro_rules! sig_variant_impl {
         $sig_ser_size:expr,
         $pk_add_or_dbl:ident,
         $pk_add_or_dbl_aff:ident,
+        $pk_cneg:ident,
         $sig_add_or_dbl:ident,
         $sig_add_or_dbl_aff:ident,
         $pk_is_inf:ident,
@@ -686,6 +687,19 @@ macro_rules! sig_variant_impl {
             pub fn add_aggregate(&mut self, agg_pk: &AggregatePublicKey) {
                 unsafe {
                     $pk_add_or_dbl(&mut self.point, &self.point, &agg_pk.point);
+                }
+            }
+
+            /// Subtracts `agg_pk` from this aggregate without modifying it.
+            pub fn sub_aggregate(&mut self, agg_pk: &AggregatePublicKey) {
+                unsafe {
+                    let mut negated = agg_pk.clone();
+                    $pk_cneg(&mut negated.point, true);
+                    $pk_add_or_dbl(
+                        &mut self.point,
+                        &self.point,
+                        &negated.point,
+                    );
                 }
             }
 
@@ -1396,8 +1410,8 @@ macro_rules! sig_variant_impl {
         #[cfg(test)]
         mod tests {
             use super::*;
-            use rand::{RngCore, SeedableRng};
             use rand_chacha::ChaCha20Rng;
+            use rand_core::{RngCore, SeedableRng};
 
             // Testing only - do not use for production
             pub fn gen_random_key(
@@ -1521,6 +1535,34 @@ macro_rules! sig_variant_impl {
                 result = agg_sig
                     .aggregate_verify(false, &msgs_refs, dst, &pks_rev, false);
                 assert_ne!(result, BLST_ERROR::BLST_SUCCESS);
+            }
+
+            #[test]
+            fn test_sub_aggregate() {
+                let pks = (1u8..=4)
+                    .map(|tag| {
+                        let mut ikm = [tag; 32];
+                        ikm[0] ^= 0xa5;
+                        SecretKey::key_gen(&ikm, &[]).unwrap().sk_to_pk()
+                    })
+                    .collect::<Vec<_>>();
+                let pk_refs = pks.iter().collect::<Vec<_>>();
+
+                let mut aggregate =
+                    AggregatePublicKey::aggregate(&pk_refs, false).unwrap();
+                let removed =
+                    AggregatePublicKey::aggregate(&pk_refs[1..], false)
+                        .unwrap();
+                let removed_before = removed.to_public_key();
+
+                aggregate.sub_aggregate(&removed);
+                assert_eq!(aggregate.to_public_key(), pks[0]);
+                assert_eq!(removed.to_public_key(), removed_before);
+
+                let mut identity = removed;
+                identity.sub_aggregate(&removed);
+                let identity = identity.to_public_key();
+                assert!(unsafe { $pk_is_inf(&identity.point) });
             }
 
             #[test]
@@ -1886,6 +1928,7 @@ pub mod min_pk {
         192,
         blst_p1_add_or_double,
         blst_p1_add_or_double_affine,
+        blst_p1_cneg,
         blst_p2_add_or_double,
         blst_p2_add_or_double_affine,
         blst_p1_affine_is_inf,
@@ -1931,6 +1974,7 @@ pub mod min_sig {
         96,
         blst_p2_add_or_double,
         blst_p2_add_or_double_affine,
+        blst_p2_cneg,
         blst_p1_add_or_double,
         blst_p1_add_or_double_affine,
         blst_p2_affine_is_inf,
@@ -1959,8 +2003,8 @@ include!("pippenger-no_std.rs");
 #[cfg(all(test, feature = "full-rust-bindings"))]
 mod fp12_test {
     use super::*;
-    use rand::{RngCore, SeedableRng};
     use rand_chacha::ChaCha20Rng;
+    use rand_core::{RngCore, SeedableRng};
 
     #[test]
     fn miller_loop_n() {
@@ -2012,8 +2056,8 @@ mod fp12_test {
 #[cfg(all(test, feature = "full-rust-bindings"))]
 mod sk_test {
     use super::*;
-    use rand::{RngCore, SeedableRng};
     use rand_chacha::ChaCha20Rng;
+    use rand_core::{RngCore, SeedableRng};
 
     #[test]
     fn inverse() {
