@@ -56,9 +56,9 @@ unchanged.
 
 - Removed language runtimes and SWIG were not executed because they are outside
   the supported production surface.
-- The Rust README still mentions the Emscripten compiler as one optional C
-  compiler for a Rust WebAssembly target. That retained Rust build guidance is
-  independent of the deleted JavaScript binding.
+- At Phase 6C close, the Rust README still mentioned Emscripten as an optional
+  compiler for a Rust WebAssembly target. The later Phase 12 scope decision
+  removed WASI/WebAssembly from the supported matrix and removed that guidance.
 - No ARM64 or WebAssembly build was run for this removal-only batch.
 - `blst/sign/keygen.cpp` received only a comment clarification and remains
   pending its normal full file review.

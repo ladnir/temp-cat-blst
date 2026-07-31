@@ -430,6 +430,7 @@
 "CMakePresets.json","in_scope_support","build_configuration","pending","scalar|avx512|C|C++|Rust","","","","","","","","",""
 "docs/2026-674.pdf","documentation_or_archive","documentation_archive","catalogued","non_shipping","","","","","","","","","Catalogued non-shipping documentation or archive."
 "docs/audit/ARM64_CHERI_EXPERIMENTAL.md","in_scope_support","audit_process","pending","process","","","","","","","","",""
+"docs/audit/AUTOMATED_ANALYSIS_PLAN.md","in_scope_support","audit_process","pending","process","","","","","","","","",""
 "docs/audit/BTX_FREEZE.md","in_scope_support","audit_process","pending","process","","","","","","","","",""
 "docs/audit/CHECKLIST.md","in_scope_support","audit_process","pending","process","","","","","","","","",""
 "docs/audit/CUDA_EXPERIMENTAL.md","in_scope_support","audit_process","pending","process","","","","","","","","",""

@@ -7,15 +7,17 @@ BLST-derived codebase that is expected to become CatBLST.
 
 1. Account for every upstream commit after the recorded merge base and decide
    whether to port, translate, reject, defer, or mark it already equivalent.
-2. Deep-review every production and production-support file, one file at a
-   time, with explicit evidence.
-3. Harden and validate the scalar and AVX-512 implementations.
-4. Preserve the FFT and middle-product implementations.
-5. Keep CUDA, non-Apple ARM64, and CHERI retained and explicitly experimental;
+2. Establish and triage an automated static-analysis, sanitizer, and fuzzing
+   baseline before advancing the main hand-audit chain.
+3. Deep-review every production and production-support file, one file at a
+   time, with explicit manual and applicable automated evidence.
+4. Harden and validate the scalar and AVX-512 implementations.
+5. Preserve the FFT and middle-product implementations.
+6. Keep CUDA, non-Apple ARM64, and CHERI retained and explicitly experimental;
    keep Apple Silicon macOS in supported scalar scope. Unsupported language
    bindings were removed in Phases 6B and 6C. Keep BTx/BTE frozen pending its
    required merge.
-6. Rename the project and introduce a configurable C ABI prefix only after the
+7. Rename the project and introduce a configurable C ABI prefix only after the
    upstream and code audits are under control.
 
 The current name and ABI remain unchanged during the audit. A rename is not an
@@ -43,6 +45,7 @@ for compatibility.
 | `FINDINGS.md` | Security, correctness, performance, and maintainability findings |
 | `STATUS.md` | Current phase, gates, metrics, and next review queue |
 | `HARDENING_PLAN.md` | Dependency-aware implementation and validation phases |
+| `AUTOMATED_ANALYSIS_PLAN.md` | Static-analysis, sanitizer, fuzzing, triage, cadence, and hand-audit integration policy |
 | `VALIDATION_POLICY.md` | Risk-proportional checks and subsystem/milestone validation gates |
 | `BTX_FREEZE.md` | No-touch policy and merge prerequisite for frozen BTx/BTE |
 | `CUDA_EXPERIMENTAL.md` | Retention and non-production policy for opt-in CUDA |
@@ -89,14 +92,16 @@ for compatibility.
 
 1. Regenerate `FILE_MANIFEST.csv`.
 2. Run the integrity checker before starting a review.
-3. Select the next file in dependency order from `STATUS.md`.
-4. Copy `FILE_REVIEW_TEMPLATE.md` to `reviews/<stable-name>.md`.
-5. Review the file at an exact commit using `CHECKLIST.md`.
-6. Record findings in `FINDINGS.md`; do not hide them in the review narrative.
-7. Add tests or other validation proportional to the risk.
-8. Update the file-manifest row. A file may be marked `complete` only when every
+3. Complete and triage the bootstrap in `AUTOMATED_ANALYSIS_PLAN.md` before
+   advancing the main file-review chain.
+4. Select the next file in dependency order from `STATUS.md`.
+5. Copy `FILE_REVIEW_TEMPLATE.md` to `reviews/<stable-name>.md`.
+6. Review the file at an exact commit using `CHECKLIST.md`.
+7. Record findings in `FINDINGS.md`; do not hide them in the review narrative.
+8. Add tests or other validation proportional to the risk.
+9. Update the file-manifest row. A file may be marked `complete` only when every
    required column is populated.
-9. Run the integrity checker again.
+10. Run the integrity checker again.
 
 Use `VALIDATION_POLICY.md` to select the smallest check set that directly
 exercises each change. Full supported-profile matrices are subsystem,

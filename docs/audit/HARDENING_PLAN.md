@@ -161,7 +161,8 @@ tree tests, and C/Rust wrapper validation.
 - Keep CUDA opt-in and explicitly experimental; see `CUDA_EXPERIMENTAL.md`.
   Do not modify, audit, extract, or remove frozen BTx/BTE until its required
   merge is complete.
-- Harden CodeQL, sanitizers, warnings, and supported build matrices.
+- Harden CodeQL, sanitizers, warnings, and supported build matrices through
+  the Phase 12 automated-analysis bootstrap.
 - Begin CatBLST rename and two-prefix ABI work only after the upstream
   implementation rows are closed.
 
@@ -217,3 +218,47 @@ Exit gate: normal x86-64 and Apple Silicon policy paths remain enabled; default
 non-Apple ARM64 and CHERI configurations fail with actionable messages;
 explicit experimental configurations proceed with prominent warnings; Rust
 cannot bypass the policy through a prebuilt native archive.
+
+## Phase 11 - conformance vectors and release language
+
+State: complete. C++/Rust scalar and AVX-portable generator, pairing, and
+basic-signature evidence plus narrow draft language are recorded in
+`PHASE_11.md`.
+
+## Phase 12 - automated audit bootstrap
+
+State: planned. Detailed scope, cadence, and exit gates are recorded in
+`AUTOMATED_ANALYSIS_PLAN.md`.
+
+1. Establish version-pinned CodeQL baselines for retained C/C++ and Rust with
+   real representative builds.
+2. Establish a C/C++ compilation database and run Clang Static Analyzer through
+   CodeChecker plus a curated correctness-focused clang-tidy policy.
+3. Run Clippy over each supported Rust feature family and record intentional
+   exceptions rather than weakening production code to satisfy style-only
+   suggestions.
+4. Establish Linux Clang ASan/UBSan scalar coverage, with portable code as the
+   instrumented memory/UB oracle for assembly and AVX implementations.
+5. Add the first bounded fuzz harnesses at public byte-parsing and conversion
+   boundaries, seeded from retained vectors and adversarial edge cases.
+6. Triage every result into `FINDINGS.md` or a documented false-positive record.
+7. Close upstream `68b58bd` and `f62244e` through the same CI/provenance work;
+   do not add WASI.
+
+Exit gate: all configured tools execute reproducibly; versions, rule sets,
+profiles, and blind spots are recorded; every baseline result is triaged; no
+unresolved critical/high finding permits the dependent file-review chain to
+advance; and audit-integrity checks pass.
+
+## Phase 13 - dependency-ordered file audit with expanding automation
+
+Begin only after the Phase 12 baseline is triaged. Review files in the order in
+`STATUS.md`. Static-analysis results guide attention but never replace the
+manual checklist. Add sanitizer, fuzz, oracle, and scalar/AVX differential
+coverage when each subsystem's contracts become understood, then rerun the
+complete relevant analyzer/test set once at the subsystem gate.
+
+Exit gate: every in-scope production and support file has a review record tied
+to an exact commit, all applicable automated evidence or reasoned `N/A` entries
+are recorded, findings are resolved or accepted explicitly, and the manifest
+integrity gate passes.

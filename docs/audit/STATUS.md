@@ -4,11 +4,11 @@ Last updated: 2026-07-31
 
 ## Current phase
 
-Phase 11 closes the conformance packet with retained C++/Rust scalar and AVX
-evidence plus narrow, version-pinned release language. Four upstream rows
-remain in the retained CI/WASI/CodeQL packet. BTx/BTE remains frozen; CUDA,
-non-Apple ARM64, and CHERI remain opt-in experimental. Upstream implementation
-and file-by-file review are the controlling workstreams.
+Phase 12 bootstraps automated analysis before the main file-by-file audit:
+CodeQL, Clang Static Analyzer/CodeChecker, clang-tidy, Clippy, ASan/UBSan, and
+initial fuzzing. Two upstream rows remain for retained CodeQL and immutable
+action maintenance; WASI is not a supported platform. BTx/BTE remains frozen;
+CUDA, non-Apple ARM64, and CHERI remain opt-in experimental.
 
 ## Ordered gates
 
@@ -16,13 +16,14 @@ and file-by-file review are the controlling workstreams.
 | --- | --- | --- |
 | 1. Audit infrastructure | complete | Inventory and integrity checks pass |
 | 2. Upstream manifest decisions | complete | Every upstream-only commit has a documented approved, rejected, or not-applicable decision |
-| 3. Core scalar audit | in progress | Scalar dependency chain complete with evidence |
-| 4. AVX-512 audit | not started | AVX-512 chain and scalar differential coverage complete |
-| 5. FFT/middle-product audit | not started | Algorithms, limits, and differential tests complete |
-| 6. Supported API/bindings | in progress | C, C++, and Rust surfaces complete |
-| 7. Scope cleanup | complete | Unsupported bindings removed; CUDA and non-Apple ARM64/CHERI experimental; Apple Silicon supported; BTx/BTE frozen pending merge |
-| 8. Rename and ABI mode | not started | CatBLST rename and generated two-prefix ABI validated |
-| 9. Release readiness | not started | CI, packaging, security policy, and release evidence complete |
+| 3. Automated analysis baseline | not started | Static analysis, sanitizers, and initial fuzzers execute reproducibly with all results triaged |
+| 4. Core scalar audit | in progress | Scalar dependency chain complete with evidence |
+| 5. AVX-512 audit | not started | AVX-512 chain and scalar differential coverage complete |
+| 6. FFT/middle-product audit | not started | Algorithms, limits, and differential tests complete |
+| 7. Supported API/bindings | in progress | C, C++, and Rust surfaces complete |
+| 8. Scope cleanup | complete | Unsupported bindings removed; CUDA and non-Apple ARM64/CHERI experimental; Apple Silicon supported; BTx/BTE frozen pending merge |
+| 9. Rename and ABI mode | not started | CatBLST rename and generated two-prefix ABI validated |
+| 10. Release readiness | not started | CI, packaging, security policy, and release evidence complete |
 
 ## Scope decisions
 
@@ -48,6 +49,7 @@ and file-by-file review are the controlling workstreams.
   `blst_` or `catblst_`; no runtime dispatch.
 - Runtime scheduling: C, native C++, and Rust execute entirely on the caller's
   thread; CatBLST creates no threads and owns no scheduler.
+- WASI/WebAssembly is not a supported production platform or release gate.
 
 ## Immediate upstream queue
 
@@ -98,19 +100,24 @@ security/correctness and provenance candidates:
     pairing evidence plus draft-07 basic-signature evidence were translated
     into C++/Rust scalar and AVX tests with accurate release language in Phase
     11.
+22. `85808fd` and `33d3f3a` - WASI/Wasmtime CI was rejected as outside the
+    supported production matrix; stale Rust WebAssembly build guidance was
+    removed in the Phase 12 planning amendment.
 
-## Bulk-approved upstream implementation queue
+## Remaining upstream implementation queue
 
-Four rows remain `reviewing` in one approved implementation packet. The full
+Two rows remain `reviewing` in one approved implementation packet. The full
 constraints are recorded in `UPSTREAM_BULK_APPROVAL.md`.
 
 | Packet | Rows | Required outcome |
 | --- | --- | --- |
-| Retained CI/WASI/CodeQL | `85808fd`, `33d3f3a`, `68b58bd`, `f62244e` | Add verified Rust WASI coverage and modernize retained C/C++/Rust actions and CodeQL with immutable pins |
+| Retained CI security and provenance | `68b58bd`, `f62244e` | Add CodeQL for retained C/C++/Rust and modernize retained actions with immutable full-SHA pins; no WASI |
 
-The next recommended packet is retained CI/WASI/CodeQL: add executable Rust
-`wasm32-wasip1` coverage through a checksum-verified Wasmtime artifact, then
-modernize retained C/C++/Rust actions and CodeQL with immutable pins.
+The next phase is the automated-analysis bootstrap in
+`AUTOMATED_ANALYSIS_PLAN.md`. Establish and triage the baseline first, then
+begin the dependency-ordered hand audit while expanding sanitizer and fuzz
+evidence with each subsystem. CodeQL and action provenance close the remaining
+upstream rows as part of that bootstrap.
 
 ## File-review dependency order
 
@@ -130,10 +137,10 @@ modernize retained C/C++/Rust actions and CodeQL with immutable pins.
 
 Current generated inventory:
 
-- 599 repository files accounted for;
+- 600 repository files accounted for;
 - 154 in-scope production;
 - 113 generated production;
-- 153 in-scope support;
+- 154 in-scope support;
 - 59 benchmark files explicitly excluded;
 - 32 frozen BTx/BTE files pending the required merge;
 - 52 retained experimental CUDA files;
@@ -143,10 +150,10 @@ Current generated inventory:
 Upstream progress:
 
 - 63 of 63 commits have final decisions and the decision gate is complete;
-- 33 are closed as already equivalent, deliberate rejection, or verified
+- 35 are closed as already equivalent, deliberate rejection, or verified
   removal-only changes;
 - 26 accepted ports/translations are validated;
-- 4 are bulk-approved and remain reviewing while their translations and
+- 2 are bulk-approved and remain reviewing while their translations and
   validation are completed;
 - 0 remain pending.
 
@@ -157,11 +164,12 @@ Findings: 23 total. Twenty-two are validated. One low finding remains open.
 
 Do not touch BTx/BTE, and do not include experimental CUDA, non-Apple ARM64, or
 CHERI in the primary production-readiness gate. Apple Silicon macOS remains in
-the supported scalar release matrix. Implement the remaining retained
-CI/WASI/CodeQL packet recorded in `UPSTREAM_BULK_APPROVAL.md`. Apply
-`VALIDATION_POLICY.md`: run focused checks in the change loop, batch related
-work for subsystem suites, and reserve the full supported matrix for milestone
-gates.
+the supported scalar release matrix. Implement the automated-analysis baseline
+in `AUTOMATED_ANALYSIS_PLAN.md`, including the two retained upstream CI rows.
+After baseline triage, start the hand audit with fundamental types, constants,
+and byte conversions. Apply `VALIDATION_POLICY.md`: run focused checks in the
+change loop, batch related work for subsystem suites, and reserve the full
+supported matrix for milestone gates.
 
 No production file should be marked complete before its related implementation
 and validation evidence closes the corresponding upstream rows.

@@ -121,7 +121,15 @@ with evidence or marked `N/A` with a reason. “Looks good” is not evidence.
 - [ ] Map existing tests to contracts and invariants.
 - [ ] Add deterministic regression tests for every fixed defect.
 - [ ] Add negative, boundary, differential, and round-trip tests as applicable.
-- [ ] Use sanitizers, static analysis, fuzzing, or formal checks where they add coverage.
+- [ ] Map every applicable CodeQL, Clang Static Analyzer/CodeChecker,
+      clang-tidy, or Clippy baseline result to a finding, duplicate, or
+      documented false positive.
+- [ ] Identify the sanitizer tests that execute this file's risky paths, or
+      record `N/A` with a concrete reason.
+- [ ] Identify applicable fuzz targets, corpus seeds, asserted properties, and
+      input/work bounds, or record `N/A` with a concrete reason.
+- [ ] State analyzer and sanitizer blind spots, especially assembly, FFI,
+      platform-only code, constant-time behavior, and mathematical properties.
 - [ ] Record exact commands, toolchain versions, CPU features, and results.
 - [ ] Record untested configurations and residual risk.
 
@@ -165,6 +173,8 @@ with evidence or marked `N/A` with a reason. “Looks good” is not evidence.
 A file is complete only when:
 
 - all applicable checklist items have evidence;
+- applicable automated-baseline results and false positives are dispositioned;
+- sanitizer/fuzz evidence or reasoned `N/A` entries are recorded;
 - all upstream deltas are classified;
 - all findings are resolved or explicitly accepted;
 - tests and validation are recorded;

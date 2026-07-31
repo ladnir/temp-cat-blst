@@ -78,6 +78,21 @@ List finding IDs from `FINDINGS.md`, or `none`.
 
 Record exact commands and results. Link logs or artifacts when useful.
 
+## Automated evidence
+
+| Tool/profile | Version and configuration | Result or finding IDs | Blind spots / N/A reason |
+| --- | --- | --- | --- |
+| CodeQL | `<query suite and build>` | `<clean / AUD-...>` | `<limits>` |
+| Clang Static Analyzer / clang-tidy | `<checker set and compile database>` | `<clean / AUD-...>` | `<limits>` |
+| Clippy | `<features and lint groups>` | `<clean / AUD-...>` | `<limits>` |
+| ASan/UBSan | `<build and focused tests>` | `<result / AUD-...>` | `<limits>` |
+| Fuzzing | `<target, corpus, seed/budget, max input/work>` | `<result / AUD-...>` | `<limits>` |
+
+Map shared subsystem results to this file's exact functions and contracts. A
+generic green workflow is not sufficient. Record documented false-positive
+references and explain how assembly, FFI, constant-time, mathematical, or
+platform-only behavior was covered separately.
+
 ## Residual risk and decision
 
 State remaining risk, untested configurations, and why the final status is

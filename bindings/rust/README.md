@@ -43,8 +43,6 @@ cargo run --example smoke
 cargo run --example smoke --features full-rust-bindings
 ```
 
-To compile for WebAssembly, your clang has to recognize `--target=wasm32`. Alternatively you can build your project with `CC` environment variable set to `emcc`, the [Emscripten compiler](https://emscripten.org), and `AR` set to `emar`, naturally, with both commands available on your `PATH`.
-
 ## Threading contract
 
 The Rust crate does not create threads, discover a CPU count, own a thread

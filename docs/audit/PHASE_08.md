@@ -95,5 +95,7 @@ warranted because the native arithmetic implementation did not change.
 - Caller-managed parallel throughput has not been benchmarked because
   benchmarks are outside this audit packet. If evaluated later, run only one
   benchmark process at a time.
-- WASI execution remains part of the separately approved CI packet; the forced
-  no-std build proves this change does not depend on host threading support.
+- At Phase 8 close, WASI execution remained in a separately approved CI packet.
+  The later Phase 12 scope decision rejected that platform commitment; the
+  forced no-std build remains evidence that this change does not depend on host
+  threading support.
