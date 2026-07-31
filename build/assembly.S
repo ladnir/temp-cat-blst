@@ -16,19 +16,21 @@
 #  endif
 #  include "elf/sha256-x86_64.s"
 #
-#  if defined(BLST_ADX) 
+#  if defined(BLST_ADX) || defined(__BLST_PORTABLE__)
 #   include "elf/ctx_inverse_mod_384-x86_64.s"
-#  else
+#  endif
+#  if !defined(BLST_ADX) || defined(__BLST_PORTABLE__)
 #   include "elf/ctq_inverse_mod_384-x86_64.s"
 #  endif
 #
 #  include "elf/add_mod_384-x86_64.s"
 #  include "elf/add_mod_384x384-x86_64.s"
 #
-#  if defined(BLST_ADX) 
+#  if defined(BLST_ADX) || defined(__BLST_PORTABLE__)
 #   include "elf/mulx_mont_384-x86_64.s"
 #   include "elf/mulx_mont_256-x86_64.s"
-#  else
+#  endif
+#  if !defined(BLST_ADX) || defined(__BLST_PORTABLE__)
 #   include "elf/mulq_mont_384-x86_64.s"
 #   include "elf/mulq_mont_256-x86_64.s"
 #  endif
@@ -54,18 +56,20 @@
 #   define LSEH_info_blst_sha256_block_data_order_epilogue  LSEH_info_blst_sha256_block_ssse3_epilogue
 #  endif
 #  include "coff/sha256-x86_64.s"
-#  if defined(BLST_ADX) 
+#  if defined(BLST_ADX) || defined(__BLST_PORTABLE__)
 #   include "coff/ctx_inverse_mod_384-x86_64.s"
-#  else
+#  endif
+#  if !defined(BLST_ADX) || defined(__BLST_PORTABLE__)
 #   include "coff/ctq_inverse_mod_384-x86_64.s"
 #  endif
 #  include "coff/add_mod_384-x86_64.s"
 #  include "coff/add_mod_384x384-x86_64.s"
 
-#  if defined(BLST_ADX) 
+#  if defined(BLST_ADX) || defined(__BLST_PORTABLE__)
 #   include "coff/mulx_mont_384-x86_64.s"
 #   include "coff/mulx_mont_256-x86_64.s"
-#  else
+#  endif
+#  if !defined(BLST_ADX) || defined(__BLST_PORTABLE__)
 #   include "coff/mulq_mont_384-x86_64.s"
 #   include "coff/mulq_mont_256-x86_64.s"
 #  endif
@@ -75,19 +79,19 @@
 #  include "coff/ct_is_square_mod_384-x86_64.s"
 # elif defined(__APPLE__)
 #  include "mach-o/sha256-x86_64.s"
-#  if defined(BLST_ADX) 
+#  if defined(BLST_ADX) || defined(__BLST_PORTABLE__)
 #   include "mach-o/ctx_inverse_mod_384-x86_64.s"
 #  endif
-#  if !defined(BLST_ADX) 
+#  if !defined(BLST_ADX) || defined(__BLST_PORTABLE__)
 #   include "mach-o/ctq_inverse_mod_384-x86_64.s"
 #  endif
 #  include "mach-o/add_mod_384-x86_64.s"
 #  include "mach-o/add_mod_384x384-x86_64.s"
-#  if defined(BLST_ADX) 
+#  if defined(BLST_ADX) || defined(__BLST_PORTABLE__)
 #   include "mach-o/mulx_mont_384-x86_64.s"
 #   include "mach-o/mulx_mont_256-x86_64.s"
 #  endif
-#  if !defined(BLST_ADX) 
+#  if !defined(BLST_ADX) || defined(__BLST_PORTABLE__)
 #   include "mach-o/mulq_mont_384-x86_64.s"
 #   include "mach-o/mulq_mont_256-x86_64.s"
 #  endif
