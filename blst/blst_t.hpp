@@ -17,10 +17,30 @@
 # pragma GCC diagnostic ignored "-Wunused-function"
 #endif
 
-extern "C" {
-#include "vect.h"
-}
-#include "bytes.h"
+#include "common/vect.h"
+#include "common/bytes.h"
+#include "backend/backend_asm.h"
+#include "backend/backend_portable.h"
+
+// Preserve this header's historical global C++ surface while sourcing the
+// fork's refactored types and portable helpers from namespace blst.
+using blst::be_bytes_from_limbs;
+using blst::byte;
+using blst::hex_from_nibble;
+using blst::le_bytes_from_limbs;
+using blst::limb_t;
+using blst::limbs_from_be_bytes;
+using blst::limbs_from_hexascii;
+using blst::limbs_from_le_bytes;
+using blst::vec_copy;
+using blst::vec_is_equal;
+using blst::vec_is_zero;
+using blst::vec_select;
+using blst::vec_zero;
+using vec256 = blst::vec_256;
+using vec384 = blst::vec_384;
+using vec512 = blst::vec_512;
+using vec768 = blst::vec_768;
 
 
 #ifdef __GNUC__
@@ -61,11 +81,11 @@ private:
     inline limb_t& operator[](size_t i)             { return val[i]; }
     inline const limb_t& operator[](size_t i) const { return val[i]; }
 
-    const size_t n = sizeof(vec384)/sizeof(limb_t);
+    static constexpr size_t n = sizeof(vec384)/sizeof(limb_t);
 public:
-    const size_t nbits = N;
-    constexpr size_t bit_length() { return N; }
-    const unsigned int degree = 1;
+    static constexpr size_t nbits = N;
+    constexpr size_t bit_length() const { return N; }
+    static constexpr unsigned int degree = 1;
     typedef byte pow_t[384/8];
     typedef blst_384_t mem_t;
 
@@ -338,11 +358,11 @@ class blst_256_t {
     inline limb_t& operator[](size_t i)             { return val[i]; }
     inline const limb_t& operator[](size_t i) const { return val[i]; }
 
-    const size_t n = sizeof(vec256)/sizeof(limb_t);
+    static constexpr size_t n = sizeof(vec256)/sizeof(limb_t);
 public:
-    const size_t nbits = N;
-    constexpr size_t bit_length() { return N; }
-    const unsigned int degree = 1;
+    static constexpr size_t nbits = N;
+    constexpr size_t bit_length() const { return N; }
+    static constexpr unsigned int degree = 1;
     typedef byte pow_t[256/8];
     typedef blst_256_t mem_t;
 
@@ -515,11 +535,28 @@ public:
     }
 
     inline blst_256_t& operator>>=(unsigned r)
-    {   lshift_mod_256(val, val, r, MOD);           return *this;   }
+    {
+        if (r == 0)
+            return *this;
+#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        rshift_mod_256(val, val, r, MOD);
+#else
+        blst::cc_rshift_mod_n<blst::NLIMBS(256)>(val, val, r, MOD);
+#endif
+        return *this;
+    }
     friend inline blst_256_t operator>>(const blst_256_t& a, unsigned r)
     {
         blst_256_t ret;
-        lshift_mod_256(ret, a, r, MOD);
+        if (r == 0) {
+            blst::vec_copy(ret, a, sizeof(ret.val));
+            return ret;
+        }
+#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        rshift_mod_256(ret, a, r, MOD);
+#else
+        blst::cc_rshift_mod_n<blst::NLIMBS(256)>(ret, a, r, MOD);
+#endif
         return ret;
     }
 
