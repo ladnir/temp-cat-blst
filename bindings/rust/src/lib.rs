@@ -29,7 +29,7 @@ use zeroize::Zeroize;
 
 include!("bindings.rs");
 mod avx;
-mod fft;
+pub mod fft;
 mod middle_product;
 mod pairing;
 mod primitives;
@@ -69,13 +69,6 @@ pub use avx::{
     blst_avx_p2s_mult_pippenger, blst_avx_p2s_mult_pippenger_scratch_sizeof,
     blst_avx_pairing, blst_fp12_from_avx, blst_p1_affine_from_avx, gt_msm,
     AvxMsmError,
-};
-pub use fft::{
-    fr_fft, fr_fft_domain_init, fr_fft_domain_len, fr_fft_transpose_forward,
-    fr_fft_with_domain, fr_interpolate, fr_interpolate_fft_domain,
-    fr_interpolate_fft_domain_suffix,
-    fr_interpolate_fft_domain_suffix_scratch_len,
-    fr_interpolate_fft_domain_suffix_with_scratch, FftError,
 };
 pub use middle_product::{
     blst_middle_product_precomputed_b, combine, middle_product,

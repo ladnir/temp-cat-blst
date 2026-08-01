@@ -321,10 +321,6 @@ TEST(BindingHeader, FrFftInterpolationRejectsOversubscribedDomain)
     std::array<blst_fr, 1> scratch = {};
 
     EXPECT_EQ(blst_fr_interpolate_fft_domain_suffix_scratch_len(n, fft_len), 0);
-    EXPECT_FALSE(blst_fr_interpolate_fft_domain(
-        out.data(), indices.data(), values.data(), n, fft_len));
-    EXPECT_FALSE(blst_fr_interpolate_fft_domain_suffix(
-        out.data(), indices.data(), values.data(), n, 0, fft_len));
     EXPECT_FALSE(blst_fr_interpolate_fft_domain_suffix_with_scratch(
         out.data(),
         indices.data(),

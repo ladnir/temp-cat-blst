@@ -13,7 +13,8 @@ BLST-derived codebase that is expected to become CatBLST.
 3. Deep-review every production and production-support file, one file at a
    time, with explicit manual and applicable automated evidence.
 4. Harden and validate the scalar and AVX-512 implementations.
-5. Preserve the FFT and middle-product implementations.
+5. Preserve the generic FFT and middle-product implementations; keep retained
+   interpolation isolated behind a minimal explicit surface.
 6. Keep CUDA, non-Apple ARM64, and CHERI retained and explicitly experimental;
    keep Apple Silicon macOS in supported scalar scope. Unsupported language
    bindings were removed in Phases 6B and 6C. Keep BTx/BTE frozen pending its
@@ -50,6 +51,7 @@ for compatibility.
 | `AUTOMATED_ANALYSIS_PLAN.md` | Static-analysis, sanitizer, fuzzing, triage, cadence, and hand-audit integration policy |
 | `CODEQL_LOCAL.md` | Pinned local CodeQL installation, execution, evidence, and license boundary |
 | `CODEQL_BASELINE_TRIAGE.md` | Result-by-result baseline dispositions, confirmed findings, and proposed implementation packets |
+| `PHASE_17.md` | FFT native-core redesign, adapter boundary, packaging, and focused validation evidence |
 | `VALIDATION_POLICY.md` | Risk-proportional checks and subsystem/milestone validation gates |
 | `BTX_FREEZE.md` | No-touch policy and merge prerequisite for frozen BTx/BTE |
 | `CUDA_EXPERIMENTAL.md` | Retention and non-production policy for opt-in CUDA |

@@ -8,27 +8,11 @@ use crate::*;
 
 extern "C" {
     fn blst_fr_fft(values: *mut blst_fr, n: usize, inverse: bool) -> bool;
-    fn blst_fr_fft_transpose_forward(values: *mut blst_fr, n: usize) -> bool;
     fn blst_fr_interpolate(
         out_coefficients: *mut blst_fr,
         points: *const blst_fr,
         values: *const blst_fr,
         n: usize,
-    ) -> bool;
-    fn blst_fr_interpolate_fft_domain(
-        out_coefficients: *mut blst_fr,
-        indices: *const usize,
-        values: *const blst_fr,
-        n: usize,
-        fft_len: usize,
-    ) -> bool;
-    fn blst_fr_interpolate_fft_domain_suffix(
-        out_suffix: *mut blst_fr,
-        indices: *const usize,
-        values: *const blst_fr,
-        n: usize,
-        ell: usize,
-        fft_len: usize,
     ) -> bool;
     fn blst_fr_interpolate_fft_domain_suffix_scratch_len(
         n: usize,
@@ -136,26 +120,6 @@ pub fn fr_fft_with_domain(
     }
 }
 
-/// Runs the transpose-equivalent of the forward BLST Fr FFT in-place.
-///
-/// This is the verifier kernel for BVE-style Vandermonde contractions. It uses
-/// BLST's native full-size FFT implementation rather than materializing the
-/// Vandermonde matrix in Rust.
-pub fn fr_fft_transpose_forward(
-    values: &mut [blst_fr],
-) -> Result<(), FftError> {
-    check_fft_input(values)?;
-
-    let ok = unsafe {
-        blst_fr_fft_transpose_forward(values.as_mut_ptr(), values.len())
-    };
-    if ok {
-        Ok(())
-    } else {
-        Err(FftError::BackendFailure)
-    }
-}
-
 /// Interpolates monomial coefficients from distinct Fr points and values.
 ///
 /// `output.len()` must equal `points.len() == values.len()`. The output buffer
@@ -178,84 +142,6 @@ pub fn fr_interpolate(
             points.as_ptr(),
             values.as_ptr(),
             points.len(),
-        )
-    };
-    if ok {
-        Ok(())
-    } else {
-        Err(FftError::BackendFailure)
-    }
-}
-
-/// Interpolates monomial coefficients from values at FFT-domain indices.
-///
-/// `indices[i]` selects the same root-of-unity point used by `fr_fft` at that
-/// index in a domain of length `fft_len`.
-pub fn fr_interpolate_fft_domain(
-    indices: &[usize],
-    values: &[blst_fr],
-    fft_len: usize,
-    output: &mut [blst_fr],
-) -> Result<(), FftError> {
-    if indices.is_empty() {
-        return Err(FftError::EmptyInput);
-    }
-    if indices.len() != values.len()
-        || indices.len() != output.len()
-        || indices.len() > fft_len
-        || !fft_len.is_power_of_two()
-        || fft_len > i32::MAX as usize
-    {
-        return Err(FftError::InvalidSize);
-    }
-
-    let ok = unsafe {
-        blst_fr_interpolate_fft_domain(
-            output.as_mut_ptr(),
-            indices.as_ptr(),
-            values.as_ptr(),
-            indices.len(),
-            fft_len,
-        )
-    };
-    if ok {
-        Ok(())
-    } else {
-        Err(FftError::BackendFailure)
-    }
-}
-
-/// Interpolates only coefficients `ell..n` from FFT-domain samples.
-///
-/// `output.len()` must equal `indices.len() - ell`.
-pub fn fr_interpolate_fft_domain_suffix(
-    indices: &[usize],
-    values: &[blst_fr],
-    ell: usize,
-    fft_len: usize,
-    output: &mut [blst_fr],
-) -> Result<(), FftError> {
-    if indices.is_empty() {
-        return Err(FftError::EmptyInput);
-    }
-    if indices.len() != values.len()
-        || ell > indices.len()
-        || output.len() != indices.len() - ell
-        || indices.len() > fft_len
-        || !fft_len.is_power_of_two()
-        || fft_len > i32::MAX as usize
-    {
-        return Err(FftError::InvalidSize);
-    }
-
-    let ok = unsafe {
-        blst_fr_interpolate_fft_domain_suffix(
-            output.as_mut_ptr(),
-            indices.as_ptr(),
-            values.as_ptr(),
-            indices.len(),
-            ell,
-            fft_len,
         )
     };
     if ok {
@@ -500,27 +386,6 @@ mod tests {
     }
 
     #[test]
-    fn transpose_forward_matches_forward_full_ntt() {
-        let input = [
-            fr_from_u64(2),
-            fr_from_u64(7),
-            fr_from_u64(1),
-            fr_from_u64(8),
-            fr_from_u64(2),
-            fr_from_u64(8),
-            fr_from_u64(1),
-            fr_from_u64(8),
-        ];
-        let mut forward = input;
-        let mut transposed = input;
-
-        fr_fft(&mut forward, false).unwrap();
-        fr_fft_transpose_forward(&mut transposed).unwrap();
-
-        assert_eq!(transposed, forward);
-    }
-
-    #[test]
     fn interpolate_recovers_monomial_coefficients() {
         let coefficients = [
             fr_from_u64(9),
@@ -552,38 +417,7 @@ mod tests {
     }
 
     #[test]
-    fn interpolate_fft_domain_indices_recovers_monomial_coefficients() {
-        let coefficients = [
-            fr_from_u64(13),
-            fr_from_u64(21),
-            fr_from_u64(34),
-            fr_from_u64(55),
-            fr_from_u64(89),
-        ];
-        let fft_len = 8;
-        let mut domain = [fr_from_u64(0); 8];
-        domain[1] = fr_from_u64(1);
-        fr_fft(&mut domain, false).unwrap();
-        let indices = [0usize, 1, 3, 4, 6];
-        let mut values = [fr_from_u64(0); 5];
-        for (out, index) in values.iter_mut().zip(indices) {
-            let point = &domain[index];
-            let mut acc = fr_from_u64(0);
-            for coefficient in coefficients.iter().rev() {
-                acc = fr_add(&fr_mul(&acc, point), coefficient);
-            }
-            *out = acc;
-        }
-
-        let mut recovered = [fr_from_u64(0); 5];
-        fr_interpolate_fft_domain(&indices, &values, fft_len, &mut recovered)
-            .unwrap();
-
-        assert_eq!(recovered, coefficients);
-    }
-
-    #[test]
-    fn suffix_interpolation_matches_full_interpolation() {
+    fn suffix_interpolation_recovers_requested_coefficients() {
         let coefficients = [
             fr_from_u64(13),
             fr_from_u64(21),
@@ -606,17 +440,6 @@ mod tests {
             }
             *out = acc;
         }
-
-        let mut allocating_suffix = [fr_from_u64(0); 3];
-        fr_interpolate_fft_domain_suffix(
-            &indices,
-            &values,
-            2,
-            fft_len,
-            &mut allocating_suffix,
-        )
-        .unwrap();
-        assert_eq!(allocating_suffix, coefficients[2..]);
 
         let scratch_len = fr_interpolate_fft_domain_suffix_scratch_len(
             indices.len(),
@@ -643,26 +466,19 @@ mod tests {
         let oversized_values = [fr_from_u64(1); 9];
         let mut oversized_output = [fr_from_u64(0); 9];
         assert_eq!(
-            fr_interpolate_fft_domain(
-                &oversized_indices,
-                &oversized_values,
-                8,
-                &mut oversized_output,
-            ),
+            fr_interpolate_fft_domain_suffix_scratch_len(9, 8),
             Err(FftError::InvalidSize)
         );
+        let mut oversized_scratch = [fr_from_u64(0); 1];
         assert_eq!(
-            fr_interpolate_fft_domain_suffix(
+            fr_interpolate_fft_domain_suffix_with_scratch(
                 &oversized_indices,
                 &oversized_values,
                 0,
                 8,
                 &mut oversized_output,
+                &mut oversized_scratch,
             ),
-            Err(FftError::InvalidSize)
-        );
-        assert_eq!(
-            fr_interpolate_fft_domain_suffix_scratch_len(9, 8),
             Err(FftError::InvalidSize)
         );
 

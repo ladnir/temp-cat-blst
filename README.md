@@ -92,6 +92,8 @@ The split headers are:
   - expert AVX C API
 - [bindings/blst_middle_product.h](bindings/blst_middle_product.h)
   - middle-product C API
+- [bindings/blst_fft.h](bindings/blst_fft.h)
+  - Fr FFT, prepared-domain, and isolated interpolation C API
 - [bindings/blst_aux.h](bindings/blst_aux.h)
   - compatibility umbrella that includes the split surfaces
 

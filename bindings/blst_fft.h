@@ -73,17 +73,6 @@ bool blst_fr_fft_with_domain(
     bool inverse);
 
 /**
- * Runs the transpose-equivalent of the forward Fr FFT in-place.
- *
- * This is the verifier-side BVE scalar kernel: callers scatter sparse
- * coefficients into a length-n vector and read the low coefficients after this
- * transform. The current BLST Fr FFT exposes the natural-order DFT matrix,
- * whose forward matrix is symmetric, so the native implementation can share the
- * same butterfly kernel while giving protocol code the correct operation name.
- */
-bool blst_fr_fft_transpose_forward(blst_fr* values, size_t n);
-
-/**
  * Interpolates the unique degree-<n Fr polynomial through n distinct points.
  *
  * Parameter interpretation:
@@ -103,37 +92,8 @@ bool blst_fr_interpolate(
     size_t n);
 
 /**
- * Interpolates using points selected by index from a size-fft_len Fr FFT domain.
- *
- * `indices[i]` selects omega^indices[i], where omega is the primitive
- * fft_len-th root used by `blst_fr_fft`. This avoids materializing the domain
- * points at the Rust/protocol boundary. `n` must not exceed `fft_len`.
- */
-bool blst_fr_interpolate_fft_domain(
-    blst_fr* out_coefficients,
-    const size_t* indices,
-    const blst_fr* values,
-    size_t n,
-    size_t fft_len);
-
-/**
- * Interpolates only the high coefficient suffix used by BVE receivers.
- *
- * Given n values at FFT-domain indices and an offset ell, writes coefficients
- * ell..n-1 of the unique degree-<n interpolant to out_suffix. The out buffer
- * must contain n-ell writable Fr values. `n` must not exceed `fft_len`.
- */
-bool blst_fr_interpolate_fft_domain_suffix(
-    blst_fr* out_suffix,
-    const size_t* indices,
-    const blst_fr* values,
-    size_t n,
-    size_t ell,
-    size_t fft_len);
-
-/**
- * Returns the caller-owned Fr scratch length required by
- * `blst_fr_interpolate_fft_domain_suffix_with_scratch`.
+ * Returns the caller-owned Fr scratch length required by the FFT-domain
+ * coefficient-suffix interpolation operation below.
  *
  * The returned unit is `blst_fr` elements, not bytes. A zero return means the
  * shape is invalid, including when `n` exceeds `fft_len` or the calculation
@@ -142,12 +102,17 @@ bool blst_fr_interpolate_fft_domain_suffix(
 size_t blst_fr_interpolate_fft_domain_suffix_scratch_len(size_t n, size_t fft_len);
 
 /**
- * Scratch-backed variant of `blst_fr_interpolate_fft_domain_suffix`.
+ * Interpolates a high coefficient suffix from FFT-domain samples.
  *
- * `scratch` must point to at least
+ * Given `n` values at FFT-domain indices and an offset `ell`, writes
+ * coefficients `ell..n-1` of the unique degree-<n interpolant to `out_suffix`.
+ * The output must contain `n-ell` writable Fr values. `scratch` must point to at
+ * least
  * `blst_fr_interpolate_fft_domain_suffix_scratch_len(n, fft_len)` writable Fr
  * elements. The scratch buffer is fully caller-owned and may be reused across
- * calls with the same or smaller shape.
+ * calls with the same or smaller shape. Scratch must not overlap the output,
+ * indices, or values ranges. Invalid shapes, indices, duplicate points, and
+ * short scratch are rejected before writing the output.
  */
 bool blst_fr_interpolate_fft_domain_suffix_with_scratch(
     blst_fr* out_suffix,

@@ -11,7 +11,9 @@
 #include "blst/common/timer.h"
 #include "blst/curve/GT.h"
 #include "blst/curve/point.h"
+#include "blst/fft/context.h"
 #include "blst/fft/ctFft.h"
+#include "blst/fft/domain.h"
 #include "blst/fft/primitveRoot.h"
 #include "blst/fields/Fr.h"
 #include "blst/scalar/curve/GT.h"
@@ -85,14 +87,7 @@ namespace blst {
 
     inline std::vector<Fr> make_fft_roots(std::size_t n)
     {
-        Fr prim = primRootOfUnity<Fr>(n);
-        std::vector<Fr> roots(n);
-        Fr cur = Fr::one();
-        for (std::size_t i = 0; i < n; ++i) {
-            roots[i] = cur;
-            Fr::mul(cur, cur, prim);
-        }
-        return roots;
+        return fft_detail::make_roots<Fr, FrCoeffCtx>(n, false);
     }
 
     inline std::vector<Fr> make_ifft_roots(std::span<const Fr> roots)

@@ -10,21 +10,21 @@ readme = "README.md"
 categories = ["cryptography"]
 keywords = ["crypto", "bls", "signature", "asm", "wasm"]
 include = [
-    "**/*.rs",
+    "/build.rs",
+    "/src/**",
+    "/tests/**",
+    "/examples/**",
+    "/benches/**",
     "/Cargo.toml",
     "/README.md",
     "/docs/**",
     "/rustfmt.toml",
-    "/blst/src/*.c",
-    "/blst/src/*.h*",
+    "/blst/LICENSE",
+    "/blst/CMakeLists.txt",
+    "/blst/blst/**",
+    "/blst/BTE/**",
     "/blst/build/**",
-    "/blst/bindings/blst.h",
-    "/blst/bindings/blst_aux.h",
-    "/blst/bindings/blst_types.h",
-    "/blst/bindings/blst_scalar.h",
-    "/blst/bindings/blst_avx.h",
-    "/blst/bindings/blst_fft.h",
-    "/blst/bindings/blst_middle_product.h",
+    "/blst/bindings/*.h",
 ]
 links = "blst"
 

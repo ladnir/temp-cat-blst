@@ -9,6 +9,9 @@ Current structure:
   - crate entry point
   - raw generated bindings import
   - top-level re-exports
+- `src/fft.rs`
+  - explicit module for Fr FFT, prepared domains, general interpolation, and
+    caller-scratch FFT-domain suffix interpolation
 - `src/middle_product.rs`
   - safe `precompute(b)`, `middle_product(a, precomputed_b, out)`,
     `update(a0, precomputed_b, out)`, and `combine(mid, cnst, out)` wrappers
@@ -26,6 +29,8 @@ High-level policy:
   meaning for `blst_p1`, `blst_p2`, or `blst_fp12`.
 - Middle product is intentionally isolated so it can evolve without dragging the
   rest of the crate with it.
+- FFT and interpolation are intentionally module-scoped rather than re-exported
+  from the crate root.
 
 Recommended entry points:
 
@@ -37,6 +42,10 @@ Recommended entry points:
   - `middle_product`
   - `update`
   - `combine`
+- FFT and interpolation:
+  - use the explicit `blst::fft` module
+  - prefer prepared domains for repeated transforms
+  - provide caller-owned scratch for FFT-domain suffix interpolation
 - High-level signature API:
   - enable `full-rust-bindings`
   - use `min_pk` or `min_sig`

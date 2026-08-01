@@ -24,6 +24,7 @@ set(PUBLIC_API_TEST_SOURCES
     "C_api_tests.cpp"
     "CompressedInfinity_tests.cpp"
     "Conformance_tests.cpp"
+    "Fft_api_tests.cpp"
     "MiddleProduct_algorithm_tests.cpp"
     "MiddleProduct_c_api_tests.cpp"
     "Pfe_tests.cpp"

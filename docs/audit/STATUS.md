@@ -20,7 +20,7 @@ selectable ABI prefix after the audited surfaces are under control.
 | 14. Scalar and extension fields | not started | Field arithmetic/representation files complete with property, boundary, sanitizer, and oracle evidence |
 | 15. Curves and protocols | not started | G1/G2, serialization, hash-to-curve, pairing, signatures, MSM, and uniqueness files complete |
 | 16. AVX-512 | not started | AVX files complete with native hardware and scalar differential evidence |
-| 17. FFT and middle product | not started | Scalar/AVX algorithms and APIs complete with reference, sanitizer, and fuzz evidence |
+| 17. FFT and middle product | in progress | Scalar/AVX algorithms and APIs complete with reference, sanitizer, and fuzz evidence |
 | 18. C/C++/Rust surfaces | not started | Public ABI, native C++, Rust FFI/wrappers, ownership, errors, features, and package inputs complete |
 | 19. Support and release evidence | not started | Remaining tests/build/CI/docs/package files complete and full supported release matrix passes |
 | 20. CatBLST identity and ABI | not started | Rename plus separate `blst_` and `catblst_` build-time prefix modes validated |
@@ -139,10 +139,10 @@ expand through Phase 19.
 
 Current generated inventory:
 
-- 607 repository files accounted for;
-- 154 in-scope production;
+- 612 repository files accounted for;
+- 157 in-scope production;
 - 113 generated production;
-- 161 in-scope support;
+- 163 in-scope support;
 - 59 benchmark files explicitly excluded;
 - 32 frozen BTx/BTE files pending the required merge;
 - 52 retained experimental CUDA files;
@@ -155,10 +155,10 @@ Main audit work volume:
 | --- | --- | ---: | ---: | ---: |
 | Scalar foundations, fields, curves, and protocols | 13-15 | 197 | 2 | 195 |
 | AVX-512 | 16 | 43 | 0 | 43 |
-| FFT and middle product | 17 | 7 | 0 | 7 |
+| FFT and middle product | 17 | 10 | 0 | 10 |
 | C/C++/Rust APIs and bindings | 18 | 28 | 0 | 28 |
-| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 153 | 0 | 153 |
-| **Total in-scope production/generated/support** | **12-19** | **428** | **2** | **426** |
+| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 155 | 0 | 155 |
+| **Total in-scope production/generated/support** | **12-19** | **433** | **2** | **431** |
 
 The rollup is explained in `PRODUCTION_AUDIT_ROADMAP.md`; the per-file
 `FILE_MANIFEST.csv` remains authoritative.
@@ -173,7 +173,7 @@ Upstream progress:
   validation are completed;
 - 0 remain pending.
 
-Findings: 32 total. Twenty-six are validated. Six remain open: five low and one
+Findings: 34 total. Twenty-eight are validated. Six remain open: five low and one
 informational coverage gap.
 
 
@@ -181,11 +181,11 @@ informational coverage gap.
 
 Do not touch BTx/BTE, and do not include experimental CUDA, non-Apple ARM64, or
 CHERI in the primary production-readiness gate. Apple Silicon macOS remains in
-the supported scalar release matrix. Continue Phase 12's remaining initial
-platform milestone. Review and sequence the CodeQL findings in
-`CODEQL_BASELINE_TRIAGE.md`, then continue the Clang, sanitizer, and fuzz
-packets. Once the initial baseline is closed, begin Phase 13 without treating
-automation as finished: expand
+the supported scalar release matrix. Continue the deeper Phase 17 generic
+FFT/interpolation/middle-product file audit from the boundary established in
+`PHASE_17.md`, together with the remaining Phase 12 automation packets. Coverage remains a
+late audit/release metric by user decision; sanitizer, fuzz, and static-analysis
+work still accompanies subsystem review. Expand
 analyzers, sanitizers, fuzzers, and oracles alongside every subsystem. Apply
 `VALIDATION_POLICY.md`: run focused checks in the change loop, batch related
 work for subsystem suites, and reserve the full supported matrix for milestone

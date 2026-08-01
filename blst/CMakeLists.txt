@@ -16,6 +16,7 @@ set(BLST_STATIC_SRC
     "sign/aggregate.cpp"
     "c_api.cpp"
     "avx_c_api.cpp"
+    "fft/fr_interpolation.cpp"
     "fft_c_api.cpp"
     "middle_product_c_api.cpp"
     "exports.cpp"
