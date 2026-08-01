@@ -46,6 +46,7 @@ set(SCALAR_BACKEND_TEST_SOURCES
     "Pairing_tests.cpp"
     "Interface_tests.cpp"
     "Fft_tests.cpp"
+    "Scalar_header_include_tests.cpp"
     "scalar/Scalar_backend_tests.cpp"
     "avx512_compat_test.cpp"
 )

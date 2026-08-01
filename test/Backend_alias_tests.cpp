@@ -13,6 +13,23 @@
 
 using namespace blst;
 
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+using AvxScopedRoots = blst::avx::AvxGt52CoeffCtx::ScopedRoots;
+using AvxPreparedRoots = blst::avx::AvxGt52PreparedRoots;
+
+static_assert(std::is_constructible_v<AvxScopedRoots, const AvxPreparedRoots&>);
+static_assert(std::is_nothrow_constructible_v<
+    AvxScopedRoots,
+    const AvxPreparedRoots&>);
+static_assert(std::is_nothrow_destructible_v<AvxScopedRoots>);
+static_assert(!std::is_constructible_v<AvxScopedRoots, AvxPreparedRoots&&>);
+static_assert(!std::is_constructible_v<AvxScopedRoots, const AvxPreparedRoots&&>);
+static_assert(!std::is_copy_constructible_v<AvxScopedRoots>);
+static_assert(!std::is_copy_assignable_v<AvxScopedRoots>);
+static_assert(!std::is_move_constructible_v<AvxScopedRoots>);
+static_assert(!std::is_move_assignable_v<AvxScopedRoots>);
+#endif
+
 static G1Point point_from_scalar_g1(u64 scalar)
 {
     G1Point out = {};
@@ -314,6 +331,50 @@ TEST(BackendAlias, MiddleProductReducedMatchesBasicOnSmallVector)
                 blst::avx::AvxGt52::to_default(via_fallback)))
                 << "Prepared root mismatch at inverse root index " << i;
         }
+
+        const std::array<Fr, 1> outer_scalars = { Fr::from_uint64(2) };
+        const std::array<Fr, 1> replacement_scalars = { Fr::from_uint64(3) };
+        const std::array<Fr, 1> inner_scalars = { Fr::from_uint64(5) };
+        blst::avx::AvxGt52PreparedRoots outer_roots(outer_scalars);
+        const blst::avx::AvxGt52PreparedRoots replacement_roots(
+            replacement_scalars);
+        const blst::avx::AvxGt52PreparedRoots inner_roots(inner_scalars);
+
+        // Deliberately substitute a different compiled exponent so this test
+        // can distinguish prepared-table selection from the scalar fallback.
+        outer_roots.compiled[0] = replacement_roots.compiled[0];
+        Fr outer_scalar_copy = outer_roots.scalars[0];
+        const blst::avx::AvxGt52 fallback =
+            blst::avx::AvxGt52CoeffCtx::mult(sample, outer_scalar_copy);
+
+        blst::avx::AvxGt52 selected = {};
+        blst::avx::AvxGt52 restored_after_exception = {};
+        {
+            blst::avx::AvxGt52CoeffCtx::ScopedRoots outer_scope(outer_roots);
+            selected = blst::avx::AvxGt52CoeffCtx::mult(
+                sample,
+                outer_roots.scalars[0]);
+            try {
+                blst::avx::AvxGt52CoeffCtx::ScopedRoots inner_scope(inner_roots);
+                throw 1;
+            } catch (int) {
+            }
+            restored_after_exception = blst::avx::AvxGt52CoeffCtx::mult(
+                sample,
+                outer_roots.scalars[0]);
+        }
+        const blst::avx::AvxGt52 restored_fallback =
+            blst::avx::AvxGt52CoeffCtx::mult(sample, outer_roots.scalars[0]);
+
+        EXPECT_FALSE(GT::equal(
+            blst::avx::AvxGt52::to_default(selected),
+            blst::avx::AvxGt52::to_default(fallback)));
+        EXPECT_TRUE(GT::equal(
+            blst::avx::AvxGt52::to_default(selected),
+            blst::avx::AvxGt52::to_default(restored_after_exception)));
+        EXPECT_TRUE(GT::equal(
+            blst::avx::AvxGt52::to_default(fallback),
+            blst::avx::AvxGt52::to_default(restored_fallback)));
     }
 
     auto scalar_c_fft_full = scalar_c_fft;

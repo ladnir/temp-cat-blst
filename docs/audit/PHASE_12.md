@@ -108,6 +108,39 @@ Focused validation matched `VALIDATION_POLICY.md`:
 No benchmark, broad AVX, CUDA, BTx/BTE, or full-suite run was performed for
 this focused correctness packet.
 
+## Second CodeQL hardening packet
+
+The second approved packet closes the remaining low-severity actionable
+baseline findings without changing algorithms or ownership:
+
+- scalar MSM and bulk-addition template headers now tolerate direct, repeated,
+  dependency-repeated, and wrapper-plus-direct inclusion;
+- the hot AVX G2 psi helper and three construction-only RNS inputs use const
+  references while destination objects retain the same owned values;
+- the prepared-root scope rejects temporary roots and all guard copies/moves,
+  with explicitly non-throwing scope entry and restoration; and
+- prepared-root lookup no longer orders or subtracts unrelated pointers with
+  built-in operators. It uses total ordering, constant-time address/alignment
+  validation, and exact pointer identity before selecting a compiled exponent.
+
+The prepared-root lookup remains inline, allocation-free, and O(1). It adds no
+scan, dynamic dispatch, callback, or synchronization to the FFT butterfly path.
+The const-reference changes remove potential copies without adding indirection
+beyond the references already required to read each input.
+
+Focused validation:
+
+- dedicated scalar and portable AVX-selected builds passed;
+- the repeated scalar-header translation unit compiled and its focused test
+  passed;
+- compile-time prepared-root construction, noexcept, copy, and move assertions
+  passed;
+- prepared lookup, unrelated same-value fallback, nested exception restoration,
+  full/truncated inverse FFT, and scalar differential checks passed;
+- AVX G2 Pippenger/scalar multiplication matched its naive oracle; and
+- no benchmark or full-suite sweep was run for these signature and guardrail
+  changes.
+
 ## Packet 12A review validation
 
 - `scripts/audit/check_audit_manifest.ps1`: passed with 607 files and 63

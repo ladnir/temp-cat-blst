@@ -1,6 +1,6 @@
 # Audit Status
 
-Last updated: 2026-07-31
+Last updated: 2026-08-01
 
 ## Current phase
 
@@ -139,10 +139,10 @@ expand through Phase 19.
 
 Current generated inventory:
 
-- 612 repository files accounted for;
+- 613 repository files accounted for;
 - 157 in-scope production;
 - 113 generated production;
-- 163 in-scope support;
+- 164 in-scope support;
 - 59 benchmark files explicitly excluded;
 - 32 frozen BTx/BTE files pending the required merge;
 - 52 retained experimental CUDA files;
@@ -157,8 +157,8 @@ Main audit work volume:
 | AVX-512 | 16 | 43 | 0 | 43 |
 | FFT and middle product | 17 | 10 | 0 | 10 |
 | C/C++/Rust APIs and bindings | 18 | 28 | 0 | 28 |
-| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 155 | 0 | 155 |
-| **Total in-scope production/generated/support** | **12-19** | **433** | **2** | **431** |
+| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 156 | 0 | 156 |
+| **Total in-scope production/generated/support** | **12-19** | **434** | **2** | **432** |
 
 The rollup is explained in `PRODUCTION_AUDIT_ROADMAP.md`; the per-file
 `FILE_MANIFEST.csv` remains authoritative.
@@ -173,19 +173,20 @@ Upstream progress:
   validation are completed;
 - 0 remain pending.
 
-Findings: 34 total. Twenty-eight are validated. Six remain open: five low and one
-informational coverage gap.
+Findings: 34 total. Thirty-two are validated. Two remain open: one low and one
+informational analyzer-coverage gap.
 
 
 ## Next action
 
 Do not touch BTx/BTE, and do not include experimental CUDA, non-Apple ARM64, or
 CHERI in the primary production-readiness gate. Apple Silicon macOS remains in
-the supported scalar release matrix. Continue the deeper Phase 17 generic
-FFT/interpolation/middle-product file audit from the boundary established in
-`PHASE_17.md`, together with the remaining Phase 12 automation packets. Coverage remains a
-late audit/release metric by user decision; sanitizer, fuzz, and static-analysis
-work still accompanies subsystem review. Expand
+the supported scalar release matrix. Run the current-tree split scalar/AVX
+CodeQL confirmation and compensating Clang analysis for `AUD-030`, then continue
+the deeper Phase 17 generic FFT/interpolation/middle-product file audit from the
+boundary established in `PHASE_17.md`. Coverage remains a late audit/release
+metric by user decision; sanitizer, fuzz, and static-analysis work still
+accompanies subsystem review. Expand
 analyzers, sanitizers, fuzzers, and oracles alongside every subsystem. Apply
 `VALIDATION_POLICY.md`: run focused checks in the change loop, batch related
 work for subsystem suites, and reserve the full supported matrix for milestone
@@ -198,5 +199,5 @@ Phase evidence is recorded in `PHASE_01.md`, `PHASE_02.md`, `PHASE_03A.md`,
 `PHASE_03B.md`, `PHASE_03C.md`, `PHASE_04.md`, `PHASE_05.md`,
 `PHASE_06A.md`, `PHASE_06B.md`, `PHASE_06C.md`, `PHASE_07A.md`,
 `PHASE_07B.md`, `PHASE_07C.md`, `PHASE_08.md`, `PHASE_09.md`,
-`PHASE_10.md`, and `PHASE_11.md`; the remaining dependency order and exit
+`PHASE_10.md`, `PHASE_11.md`, `PHASE_12.md`, and `PHASE_17.md`; the remaining dependency order and exit
 gates are in `HARDENING_PLAN.md`.

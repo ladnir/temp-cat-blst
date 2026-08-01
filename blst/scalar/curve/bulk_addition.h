@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#pragma once
+
 #include "blst/fields/Fp.h"
 #include "blst/fields/Fp2.h"
 #include "blst/scalar/curve/point.h"

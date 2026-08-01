@@ -89,9 +89,9 @@ authentication and FFT size growth.
 Current translation units include them once, but a supported consumer can
 trigger redefinitions through repeated or mixed direct/wrapper inclusion.
 
-Proposed fix: add `#pragma once` to both files and compile a focused standalone
-translation unit that includes each header twice and through
-`blst/curve/multi_scalar.h`.
+Resolution: both headers now use `#pragma once`. A focused scalar translation
+unit includes each directly more than once and through
+`blst/curve/multi_scalar.h`; the dedicated scalar build and focused test pass.
 
 ### AUD-027 - avoidable AVX object copies
 
@@ -105,10 +105,10 @@ bytes. Const references can avoid an extra copy for lvalue callers while the
 object retains its owned member copy. This is initialization-path cleanup, not
 a runtime-indirection redesign.
 
-Proposed validation: focused AVX G2 psi/scalar-multiplication differential
-tests and baked/runtime constant-construction tests. No benchmark is required
-for the signature-only change; performance-sensitive code generation should
-be inspected if the implementation expands beyond const references.
+Resolution: the hot point and three construction-only inputs are const
+references while all members remain owned values. The portable AVX-selected
+build and G2 Pippenger/scalar-multiplication oracle pass. No benchmark is
+required for this signature-only removal of copies.
 
 ### AUD-028 - scoped prepared-root lifetime guardrail
 
@@ -118,11 +118,12 @@ restores the prior pointer, nesting is preserved, and storage is thread-local.
 Copying or allocating the prepared vectors would add unacceptable FFT setup
 overhead.
 
-The const-reference constructor can nevertheless bind a temporary that dies
-at the end of the construction full-expression. Proposed hardening: delete the
-rvalue constructor and explicitly delete move construction/assignment while
-retaining the non-owning thread-local pointer. Add compile-time constructibility
-checks and focused nested, exception, fallback, and two-caller-thread tests.
+The const-reference constructor could nevertheless bind a temporary that dies
+at the end of the construction full-expression. Resolution: prepared-root
+rvalue construction and guard copying/moving are deleted, while lvalue
+construction and destruction are explicitly `noexcept`. Compile-time ownership
+assertions pass. A focused nested-scope exception test proves restoration of
+the outer prepared table and final fallback behavior.
 
 ### AUD-029 - unrelated pointer ordering in AVX root lookup
 
@@ -131,10 +132,11 @@ the prepared vector's pointers. Ordering unrelated object pointers is not a
 portable membership test and can admit an invalid subtraction under a
 non-address-order implementation.
 
-Proposed fix: use the standard total pointer order provided by
-`std::less<const Fr*>`, and subtract only after membership is established.
-This remains inline and allocation-free. Exercise prepared-root, scale, and
-fallback operands.
+Resolution: lookup uses `std::less<const Fr*>`, constant-time integer
+offset/alignment checks, and exact pointer identity before indexing. It never
+subtracts potentially unrelated pointers and adds no allocation or scan.
+Prepared-table selection, unrelated same-value fallback, nested restoration,
+and scalar differential checks pass.
 
 ## Extraction coverage
 
@@ -168,10 +170,11 @@ that combination.
 1. `AUD-024` and `AUD-025`: correctness and memory-safety fixes with focused
    regression/sanitizer checks.
 2. `AUD-026`, `AUD-028`, and `AUD-029`: header and lifetime/portability
-   hardening.
+   hardening. Completed.
 3. `AUD-027` and no-codegen style cleanups: AVX performance/API cleanup.
+   Completed for the reported large parameters.
 4. `AUD-030`: split analyzer profiles and add compensating Clang evidence.
 
-The user approved and validated the first `AUD-024`/`AUD-025` correctness
-packet. Remaining proposed production changes in this triage record still
-require review before implementation.
+The user approved and validated the `AUD-024`/`AUD-025` correctness packet and
+the `AUD-026` through `AUD-029` focused hardening packet. `AUD-030` remains the
+analyzer-coverage work item.

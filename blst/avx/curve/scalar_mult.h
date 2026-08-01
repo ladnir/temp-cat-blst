@@ -385,7 +385,7 @@ class GLSMult {
         psi_y_i = ring.from_hex("0x06af0e0437ff400b6831e36d6bd17ffe48395dabc2d3435e77f76e17009241c5ee67992f72ec05f4c81084fbede3cc09");
     }
    
-    ProjectivePoint minus_psi(ProjectivePoint P, const FP2RingType &/* fp2ring */, const Ring &ring) const {
+    ProjectivePoint minus_psi(const ProjectivePoint &P, const FP2RingType &/* fp2ring */, const Ring &ring) const {
         // Unroll; skip multiplication by 0
         // Combine negation step
         auto x_r = P.x.y() * psi_x_i;

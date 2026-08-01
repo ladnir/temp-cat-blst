@@ -11,6 +11,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <span>
 #include <vector>
 
@@ -134,19 +135,23 @@ struct AvxGt52CoeffCtx
     class ScopedRoots
     {
     public:
-        explicit ScopedRoots(const AvxGt52PreparedRoots& roots)
+        explicit ScopedRoots(const AvxGt52PreparedRoots& roots) noexcept
             : previous_(prepared_roots_)
         {
             prepared_roots_ = &roots;
         }
 
-        ~ScopedRoots()
+        ScopedRoots(const AvxGt52PreparedRoots&&) = delete;
+
+        ~ScopedRoots() noexcept
         {
             prepared_roots_ = previous_;
         }
 
         ScopedRoots(const ScopedRoots&) = delete;
         ScopedRoots& operator=(const ScopedRoots&) = delete;
+        ScopedRoots(ScopedRoots&&) = delete;
+        ScopedRoots& operator=(ScopedRoots&&) = delete;
 
     private:
         const AvxGt52PreparedRoots* previous_;
@@ -170,13 +175,29 @@ struct AvxGt52CoeffCtx
 
         if (prepared_roots_ != nullptr && !prepared_roots_->scalars.empty()) {
             const Fr* base = prepared_roots_->scalars.data();
-            if (&b >= base && &b < base + prepared_roots_->scalars.size()) {
-                const std::size_t idx = static_cast<std::size_t>(&b - base);
-                return AvxGt52(avx_cyclotomic_exp_glv4(
-                    a.data,
-                    prepared_roots_->compiled[idx],
-                    fp12ring,
-                    ring));
+            const Fr* const end = base + prepared_roots_->scalars.size();
+            const Fr* const candidate = &b;
+            const std::less<const Fr*> less;
+            if (!less(candidate, base) && less(candidate, end)) {
+                const std::uintptr_t base_address =
+                    reinterpret_cast<std::uintptr_t>(base);
+                const std::uintptr_t candidate_address =
+                    reinterpret_cast<std::uintptr_t>(candidate);
+                if (candidate_address >= base_address &&
+                    (candidate_address - base_address) % sizeof(Fr) == 0) {
+                    const std::uintptr_t byte_offset =
+                        candidate_address - base_address;
+                    const std::size_t idx =
+                        static_cast<std::size_t>(byte_offset / sizeof(Fr));
+                    if (idx < prepared_roots_->compiled.size() &&
+                        candidate == &prepared_roots_->scalars[idx]) {
+                        return AvxGt52(avx_cyclotomic_exp_glv4(
+                            a.data,
+                            prepared_roots_->compiled[idx],
+                            fp12ring,
+                            ring));
+                    }
+                }
             }
         }
 

@@ -217,9 +217,9 @@ struct IntRNS2System {
 
 #if BLST_AVX_VALIDATE_CONSTANTS
     inline IntRNS2System(
-        IntRNS2<Reduction, limbs, limbs> intrns2,
-        ConvertToRNS<bits, limbs> convert_to,
-        ConvertFromRNS<bits, limbs> convert_from,
+        const IntRNS2<Reduction, limbs, limbs>& intrns2,
+        const ConvertToRNS<bits, limbs>& convert_to,
+        const ConvertFromRNS<bits, limbs>& convert_from,
         const std::array<uint64_t, limbs> &moduli1,
         const std::array<uint64_t, limbs> &moduli2,
         const BigInt &target,
@@ -234,9 +234,9 @@ struct IntRNS2System {
 #endif
 
     inline IntRNS2System(
-        IntRNS2<Reduction, limbs, limbs> intrns2,
-        ConvertToRNS<bits, limbs> convert_to,
-        ConvertFromRNS<bits, limbs> convert_from,
+        const IntRNS2<Reduction, limbs, limbs>& intrns2,
+        const ConvertToRNS<bits, limbs>& convert_to,
+        const ConvertFromRNS<bits, limbs>& convert_from,
         const std::array<uint64_t, limbs>& moduli1,
         const std::array<uint64_t, limbs>& moduli2
     ) : intrns2(intrns2), convert_to(convert_to), convert_from(convert_from), moduli1(moduli1), moduli2(moduli2) {}
