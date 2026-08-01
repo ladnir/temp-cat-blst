@@ -40,8 +40,9 @@ the readable release tag in comments.
 
 1. Capture clean representative C/C++ and Rust builds and generate the C/C++
    compilation database.
-2. Add CodeQL for C/C++ and Rust with manual builds that compile retained
-   production sources rather than headers or empty targets.
+2. Add CodeQL with manual scalar and portable-AVX C/C++ builds that compile
+   retained production sources rather than headers or empty targets, plus the
+   supported no-build extraction mode for retained Rust sources.
 3. Run Clang Static Analyzer/CodeChecker and the curated clang-tidy rules over
    the portable scalar build.
 4. Run Clippy over supported Rust feature families without compiling removed

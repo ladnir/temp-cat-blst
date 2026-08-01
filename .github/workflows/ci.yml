@@ -57,7 +57,9 @@ jobs:
               -DBLST_DEFAULT_AVX=OFF
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Verify Apple Silicon runner
         if: matrix.os == 'macos-15'
@@ -68,7 +70,7 @@ jobs:
 
       - name: Set up MSVC
         if: runner.os == 'Windows'
-        uses: ilammy/msvc-dev-cmd@v1
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
 
       - name: Configure
         shell: bash
@@ -105,7 +107,9 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-15]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Verify Apple Silicon runner
         if: matrix.os == 'macos-15'
@@ -119,7 +123,7 @@ jobs:
         shell: bash
         run: echo "date=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/cache@v5
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry

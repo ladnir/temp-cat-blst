@@ -15,7 +15,7 @@ selectable ABI prefix after the audited surfaces are under control.
 
 | Phase | State | Exit criterion |
 | --- | --- | --- |
-| 12. Audit platform and initial baseline | planned | CodeQL, Clang/CodeChecker, clang-tidy, Clippy, ASan/UBSan, initial fuzzers, corpora/artifacts, and triage run reproducibly |
+| 12. Audit platform and initial baseline | in progress | CodeQL, Clang/CodeChecker, clang-tidy, Clippy, ASan/UBSan, initial fuzzers, corpora/artifacts, and triage run reproducibly |
 | 13. Fundamental scalar trust chain | not started | Representations, conversions, portable backend, assembly generators/outputs, and CPU selection complete |
 | 14. Scalar and extension fields | not started | Field arithmetic/representation files complete with property, boundary, sanitizer, and oracle evidence |
 | 15. Curves and protocols | not started | G1/G2, serialization, hash-to-curve, pairing, signatures, MSM, and uniqueness files complete |
