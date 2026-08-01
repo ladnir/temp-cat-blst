@@ -202,7 +202,9 @@ pub fn fr_interpolate_fft_domain(
     }
     if indices.len() != values.len()
         || indices.len() != output.len()
+        || indices.len() > fft_len
         || !fft_len.is_power_of_two()
+        || fft_len > i32::MAX as usize
     {
         return Err(FftError::InvalidSize);
     }
@@ -239,7 +241,9 @@ pub fn fr_interpolate_fft_domain_suffix(
     if indices.len() != values.len()
         || ell > indices.len()
         || output.len() != indices.len() - ell
+        || indices.len() > fft_len
         || !fft_len.is_power_of_two()
+        || fft_len > i32::MAX as usize
     {
         return Err(FftError::InvalidSize);
     }
@@ -270,7 +274,8 @@ pub fn fr_interpolate_fft_domain_suffix_scratch_len(
     if n == 0 {
         return Err(FftError::EmptyInput);
     }
-    if !fft_len.is_power_of_two() {
+    if n > fft_len || !fft_len.is_power_of_two() || fft_len > i32::MAX as usize
+    {
         return Err(FftError::InvalidSize);
     }
 
@@ -299,7 +304,9 @@ pub fn fr_interpolate_fft_domain_suffix_with_scratch(
     if indices.len() != values.len()
         || ell > indices.len()
         || output.len() != indices.len() - ell
+        || indices.len() > fft_len
         || !fft_len.is_power_of_two()
+        || fft_len > i32::MAX as usize
     {
         return Err(FftError::InvalidSize);
     }
@@ -347,6 +354,8 @@ fn check_fft_input(values: &[blst_fr]) -> Result<(), FftError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec;
+    use alloc::vec::Vec;
 
     fn fr_from_u64(value: u64) -> blst_fr {
         let words = [value, 0, 0, 0];
@@ -463,7 +472,7 @@ mod tests {
             fr_from_u64(1),
             fr_from_u64(8),
         ];
-        let mut domain = [fr_from_u64(0); N + 1];
+        let mut domain = [fr_from_u64(0); N + 2];
         fr_fft_domain_init(&mut domain, N).unwrap();
 
         let mut expected = [fr_from_u64(0); N];
@@ -571,5 +580,108 @@ mod tests {
             .unwrap();
 
         assert_eq!(recovered, coefficients);
+    }
+
+    #[test]
+    fn suffix_interpolation_matches_full_interpolation() {
+        let coefficients = [
+            fr_from_u64(13),
+            fr_from_u64(21),
+            fr_from_u64(34),
+            fr_from_u64(55),
+            fr_from_u64(89),
+        ];
+        let fft_len = 8;
+        let mut domain = [fr_from_u64(0); 8];
+        domain[1] = fr_from_u64(1);
+        fr_fft(&mut domain, false).unwrap();
+
+        let indices = [0usize, 1, 3, 4, 6];
+        let mut values = [fr_from_u64(0); 5];
+        for (out, index) in values.iter_mut().zip(indices) {
+            let point = &domain[index];
+            let mut acc = fr_from_u64(0);
+            for coefficient in coefficients.iter().rev() {
+                acc = fr_add(&fr_mul(&acc, point), coefficient);
+            }
+            *out = acc;
+        }
+
+        let mut allocating_suffix = [fr_from_u64(0); 3];
+        fr_interpolate_fft_domain_suffix(
+            &indices,
+            &values,
+            2,
+            fft_len,
+            &mut allocating_suffix,
+        )
+        .unwrap();
+        assert_eq!(allocating_suffix, coefficients[2..]);
+
+        let scratch_len = fr_interpolate_fft_domain_suffix_scratch_len(
+            indices.len(),
+            fft_len,
+        )
+        .unwrap();
+        let mut scratch = vec![fr_from_u64(0); scratch_len];
+        let mut scratch_suffix = [fr_from_u64(0); 3];
+        fr_interpolate_fft_domain_suffix_with_scratch(
+            &indices,
+            &values,
+            2,
+            fft_len,
+            &mut scratch_suffix,
+            &mut scratch,
+        )
+        .unwrap();
+        assert_eq!(scratch_suffix, coefficients[2..]);
+    }
+
+    #[test]
+    fn suffix_interpolation_rejects_invalid_shapes() {
+        let oversized_indices = [0usize; 9];
+        let oversized_values = [fr_from_u64(1); 9];
+        let mut oversized_output = [fr_from_u64(0); 9];
+        assert_eq!(
+            fr_interpolate_fft_domain(
+                &oversized_indices,
+                &oversized_values,
+                8,
+                &mut oversized_output,
+            ),
+            Err(FftError::InvalidSize)
+        );
+        assert_eq!(
+            fr_interpolate_fft_domain_suffix(
+                &oversized_indices,
+                &oversized_values,
+                0,
+                8,
+                &mut oversized_output,
+            ),
+            Err(FftError::InvalidSize)
+        );
+        assert_eq!(
+            fr_interpolate_fft_domain_suffix_scratch_len(9, 8),
+            Err(FftError::InvalidSize)
+        );
+
+        let indices = [0usize, 1];
+        let values = [fr_from_u64(1), fr_from_u64(2)];
+        let mut output = [fr_from_u64(0); 2];
+        let required =
+            fr_interpolate_fft_domain_suffix_scratch_len(2, 2).unwrap();
+        let mut short_scratch = vec![fr_from_u64(0); required - 1];
+        assert_eq!(
+            fr_interpolate_fft_domain_suffix_with_scratch(
+                &indices,
+                &values,
+                0,
+                2,
+                &mut output,
+                &mut short_scratch,
+            ),
+            Err(FftError::InvalidSize)
+        );
     }
 }

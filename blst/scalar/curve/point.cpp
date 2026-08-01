@@ -1308,7 +1308,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 		Point::sign(P, hash, SK);
 		if (sig != NULL)
-			vec_copy(sig, &P, sizeof(sig));
+			vec_copy(sig, &P, sizeof(*sig));
 		if (out != NULL) {
 			limb_t sgn0_pty = Point::serialize_BE(out, P);
 			out[0] |= (sgn0_pty & 2) << 4;      /* pre-decorate */

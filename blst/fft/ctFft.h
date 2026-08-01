@@ -49,7 +49,7 @@ void fft_butterflies(std::span<G> a, std::span<const F> roots) {
 	int n = a.size();
 	bit_reverse(a);
 
-	for (int len = 2; len <= n; len <<= 1) {
+	for (int len = 2; len <= n;) {
 		int half = len / 2;
 		for (int i = 0; i < n; i += len) {
 
@@ -76,6 +76,8 @@ void fft_butterflies(std::span<G> a, std::span<const F> roots) {
 				a[i + j + half] = CoeffCtx::minus(u, t);
 			}
 		}
+		if (len == n) break;
+		len <<= 1;
 	}
 }
 

@@ -267,11 +267,14 @@ TEST(BindingHeader, PreparedFrFftUsesCallerOwnedDomain)
     constexpr size_t n = 8;
     EXPECT_EQ(blst_fr_fft_domain_len(0), 0);
     EXPECT_EQ(blst_fr_fft_domain_len(3), 0);
-    EXPECT_EQ(blst_fr_fft_domain_len(n), n + 1);
+    EXPECT_EQ(blst_fr_fft_domain_len(n), n + 2);
 
-    std::array<blst_fr, n + 1> domain = {};
+    std::array<blst_fr, n + 2> domain = {};
+    std::array<blst_fr, n + 3> oversized_domain = {};
     EXPECT_FALSE(blst_fr_fft_domain_init(nullptr, domain.size(), n));
-    EXPECT_FALSE(blst_fr_fft_domain_init(domain.data(), n, n));
+    EXPECT_FALSE(blst_fr_fft_domain_init(domain.data(), domain.size() - 1, n));
+    EXPECT_FALSE(blst_fr_fft_domain_init(
+        oversized_domain.data(), oversized_domain.size(), n));
     ASSERT_TRUE(blst_fr_fft_domain_init(domain.data(), domain.size(), n));
 
     std::array<blst_fr, n> values = {};
@@ -286,13 +289,64 @@ TEST(BindingHeader, PreparedFrFftUsesCallerOwnedDomain)
     EXPECT_FALSE(blst_fr_fft_with_domain(
         values.data(), n, nullptr, domain.size(), false));
     EXPECT_FALSE(blst_fr_fft_with_domain(
-        values.data(), n, domain.data(), n, false));
+        values.data(), n, domain.data(), domain.size() - 1, false));
+    EXPECT_FALSE(blst_fr_fft_with_domain(
+        values.data(), n, oversized_domain.data(), oversized_domain.size(), false));
+
+    std::array<blst_fr, 4 + 2> domain_four = {};
+    ASSERT_TRUE(blst_fr_fft_domain_init(domain_four.data(), domain_four.size(), 4));
+    EXPECT_FALSE(blst_fr_fft_with_domain(
+        values.data(), 4, domain.data(), domain_four.size(), false));
+
+    auto corrupt_tag_domain = domain;
+    corrupt_tag_domain[n + 1] = {};
+    EXPECT_FALSE(blst_fr_fft_with_domain(
+        values.data(), n, corrupt_tag_domain.data(), corrupt_tag_domain.size(), false));
+    EXPECT_EQ(std::memcmp(values.data(), input.data(), sizeof(values)), 0);
 
     ASSERT_TRUE(blst_fr_fft_with_domain(
         values.data(), n, domain.data(), domain.size(), false));
     ASSERT_TRUE(blst_fr_fft_with_domain(
         values.data(), n, domain.data(), domain.size(), true));
     EXPECT_EQ(std::memcmp(values.data(), input.data(), sizeof(values)), 0);
+}
+
+TEST(BindingHeader, FrFftInterpolationRejectsOversubscribedDomain)
+{
+    constexpr size_t fft_len = 8;
+    constexpr size_t n = fft_len + 1;
+    std::array<size_t, n> indices = {};
+    std::array<blst_fr, n> values = {};
+    std::array<blst_fr, n> out = {};
+    std::array<blst_fr, 1> scratch = {};
+
+    EXPECT_EQ(blst_fr_interpolate_fft_domain_suffix_scratch_len(n, fft_len), 0);
+    EXPECT_FALSE(blst_fr_interpolate_fft_domain(
+        out.data(), indices.data(), values.data(), n, fft_len));
+    EXPECT_FALSE(blst_fr_interpolate_fft_domain_suffix(
+        out.data(), indices.data(), values.data(), n, 0, fft_len));
+    EXPECT_FALSE(blst_fr_interpolate_fft_domain_suffix_with_scratch(
+        out.data(),
+        indices.data(),
+        values.data(),
+        n,
+        0,
+        fft_len,
+        scratch.data(),
+        scratch.size()));
+}
+
+TEST(BindingHeader, FrFftSuffixScratchLengthIsChecked)
+{
+    constexpr size_t largest_supported_fft = size_t{1} << 30;
+    const size_t required = blst_fr_interpolate_fft_domain_suffix_scratch_len(
+        largest_supported_fft, largest_supported_fft);
+
+    if constexpr (sizeof(size_t) == sizeof(uint32_t)) {
+        EXPECT_EQ(required, 0);
+    } else {
+        EXPECT_EQ(required, static_cast<size_t>(6ULL * largest_supported_fft + 2));
+    }
 }
 
 TEST(BindingHeader, NativeFrPippengerUsesCallerOwnedScratch)

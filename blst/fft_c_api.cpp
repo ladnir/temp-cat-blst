@@ -5,9 +5,10 @@
 #include "blst/fft/primitveRoot.h"
 
 #include <algorithm>
+#include <bit>
+#include <limits>
 #include <memory>
 #include <span>
-#include <limits>
 #include <stdexcept>
 #include <type_traits>
 #include <vector>
@@ -34,6 +35,41 @@ bool valid_fft_size(const std::size_t n)
         return false;
     }
     return n <= static_cast<std::size_t>(std::numeric_limits<int>::max());
+}
+
+bool checked_add(
+    const std::size_t lhs,
+    const std::size_t rhs,
+    std::size_t& out)
+{
+    if (rhs > std::numeric_limits<std::size_t>::max() - lhs) {
+        return false;
+    }
+    out = lhs + rhs;
+    return true;
+}
+
+bool checked_multiply(
+    const std::size_t lhs,
+    const std::size_t rhs,
+    std::size_t& out)
+{
+    if (lhs != 0 && rhs > std::numeric_limits<std::size_t>::max() / lhs) {
+        return false;
+    }
+    out = lhs * rhs;
+    return true;
+}
+
+std::size_t polynomial_product_size(
+    const std::size_t lhs_size,
+    const std::size_t rhs_size)
+{
+    std::size_t sum = 0;
+    if (!checked_add(lhs_size, rhs_size, sum)) {
+        throw std::length_error("polynomial product size overflow");
+    }
+    return sum - 1;
 }
 
 void fill_roots(std::span<NativeFr> roots, const bool inverse)
@@ -105,11 +141,17 @@ NativeFr fr_inverse(const NativeFr& value)
 
 std::size_t next_power_of_two(const std::size_t value)
 {
-    std::size_t out = 1;
-    while (out < value) {
-        out <<= 1;
+    if (value <= 1) {
+        return 1;
     }
-    return out;
+
+    const unsigned int shift = std::bit_width(value - 1);
+    if (shift >= std::numeric_limits<std::size_t>::digits) {
+        return 0;
+    }
+
+    const std::size_t out = std::size_t{1} << shift;
+    return valid_fft_size(out) ? out : 0;
 }
 
 std::vector<NativeFr> trim_polynomial(std::vector<NativeFr> polynomial)
@@ -177,7 +219,8 @@ std::vector<NativeFr> naive_multiply(
         return {};
     }
 
-    std::vector<NativeFr> out(lhs.size() + rhs.size() - 1, fr_zero());
+    const std::size_t result_size = polynomial_product_size(lhs.size(), rhs.size());
+    std::vector<NativeFr> out(result_size, fr_zero());
     for (std::size_t i = 0; i < lhs.size(); ++i) {
         for (std::size_t j = 0; j < rhs.size(); ++j) {
             out[i + j] = fr_add(out[i + j], fr_mul(lhs[i], rhs[j]));
@@ -199,8 +242,11 @@ std::vector<NativeFr> multiply_polynomials(
         return naive_multiply(lhs, rhs);
     }
 
-    const std::size_t result_size = lhs.size() + rhs.size() - 1;
+    const std::size_t result_size = polynomial_product_size(lhs.size(), rhs.size());
     const std::size_t fft_size = next_power_of_two(result_size);
+    if (fft_size == 0) {
+        throw std::length_error("polynomial product exceeds supported FFT size");
+    }
     std::vector<NativeFr> a(fft_size, fr_zero());
     std::vector<NativeFr> b(fft_size, fr_zero());
     std::vector<NativeFr> c(fft_size, fr_zero());
@@ -252,7 +298,8 @@ std::vector<NativeFr> inverse_series(
     std::vector<NativeFr> inverse(1, fr_inverse(polynomial.front()));
     std::size_t width = 1;
     while (width < size) {
-        const std::size_t next_width = std::min(width << 1, size);
+        const std::size_t remaining = size - width;
+        const std::size_t next_width = width > remaining ? size : width + width;
         const std::vector<NativeFr> truncated = take_prefix(polynomial, next_width);
         std::vector<NativeFr> product = multiply_polynomials(truncated, inverse);
         product.resize(next_width, fr_zero());
@@ -388,7 +435,11 @@ std::vector<NativeFr> evaluate_many_with_tree(
 
 std::vector<NativeFr> batch_invert_nonzero(const std::span<const NativeFr> values)
 {
-    std::vector<NativeFr> prefixes(values.size() + 1, NativeFr::one());
+    std::size_t prefix_count = 0;
+    if (!checked_add(values.size(), 1, prefix_count)) {
+        throw std::length_error("batch inversion size overflow");
+    }
+    std::vector<NativeFr> prefixes(prefix_count, NativeFr::one());
     for (std::size_t i = 0; i < values.size(); ++i) {
         if (fr_is_zero(values[i])) {
             throw std::invalid_argument("interpolation points must be distinct");
@@ -472,11 +523,20 @@ std::size_t interpolate_fft_domain_suffix_scratch_len(
     const std::size_t n,
     const std::size_t fft_len)
 {
-    if (n == 0 || !valid_fft_size(fft_len)) {
+    if (n == 0 || n > fft_len || !valid_fft_size(fft_len)) {
         return 0;
     }
 
-    return 3 * fft_len + 3 * n + 2;
+    std::size_t fft_storage = 0;
+    std::size_t sample_storage = 0;
+    std::size_t required = 0;
+    if (!checked_multiply(fft_len, 3, fft_storage) ||
+        !checked_multiply(n, 3, sample_storage) ||
+        !checked_add(fft_storage, sample_storage, required) ||
+        !checked_add(required, 2, required)) {
+        return 0;
+    }
+    return required;
 }
 
 bool interpolate_fft_domain_suffix_with_scratch(
@@ -490,7 +550,8 @@ bool interpolate_fft_domain_suffix_with_scratch(
     const std::size_t scratch_len)
 {
     if (out_suffix == nullptr || indices == nullptr || values == nullptr ||
-        scratch == nullptr || n == 0 || ell > n || !valid_fft_size(fft_len)) {
+        scratch == nullptr || n == 0 || n > fft_len || ell > n ||
+        !valid_fft_size(fft_len)) {
         return false;
     }
 
@@ -624,13 +685,13 @@ size_t blst_fr_fft_domain_len(size_t n)
     if (!valid_fft_size(n)) {
         return 0;
     }
-    return n + 1;
+    return n + 2;
 }
 
 bool blst_fr_fft_domain_init(blst_fr* domain, size_t domain_len, size_t n)
 {
     const std::size_t required = blst_fr_fft_domain_len(n);
-    if (domain == nullptr || required == 0 || domain_len < required) {
+    if (domain == nullptr || required == 0 || domain_len != required) {
         return false;
     }
 
@@ -640,6 +701,7 @@ bool blst_fr_fft_domain_init(blst_fr* domain, size_t domain_len, size_t n)
 
         const NativeFr size = NativeFr::from_uint64(n);
         NativeFr::reciprocal(native_domain[n], size);
+        native_domain[n + 1] = size;
         return true;
     } catch (...) {
         return false;
@@ -655,13 +717,17 @@ bool blst_fr_fft_with_domain(
 {
     const std::size_t required = blst_fr_fft_domain_len(n);
     if (values == nullptr || domain == nullptr || required == 0 ||
-        domain_len < required) {
+        domain_len != required) {
         return false;
     }
 
     try {
         auto* native_values = reinterpret_cast<NativeFr*>(values);
         const auto* native_domain = reinterpret_cast<const NativeFr*>(domain);
+        const NativeFr expected_size_tag = NativeFr::from_uint64(n);
+        if (!NativeFr::equal(native_domain[n + 1], expected_size_tag)) {
+            return false;
+        }
         fft_with_forward_roots<NativeFr, NativeFr, blst::FrCoeffCtx>(
             std::span<NativeFr>(native_values, n),
             std::span<const NativeFr>(native_domain, n),
@@ -715,7 +781,7 @@ bool blst_fr_interpolate_fft_domain(
     size_t fft_len)
 {
     if (out_coefficients == nullptr || indices == nullptr || values == nullptr ||
-        n == 0 || !valid_fft_size(fft_len)) {
+        n == 0 || n > fft_len || !valid_fft_size(fft_len)) {
         return false;
     }
 

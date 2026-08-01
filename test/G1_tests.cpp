@@ -423,6 +423,37 @@ TEST(G1PointTest, SigningBasicOperation) {
 	EXPECT_TRUE(G1Point::on_curve(sig));
 }
 
+TEST(G1PointTest, Sign2WritesCompleteAffineAndSerializedOutputs) {
+	unsigned char SK[32] = { 3 };
+	G1Point hash = G1Point::generator();
+	G1Point expected_point;
+	G1AffinePoint expected_affine;
+	G1AffinePoint actual_affine;
+	unsigned char expected_bytes[96] = {};
+	unsigned char actual_bytes[96] = {};
+
+	G1Point::doubling(hash, hash);
+	G1Point::sign(expected_point, hash, SK);
+	G1Point::to_affine(expected_affine, expected_point);
+	const limb_t expected_sign =
+		G1Point::serialize_BE(expected_bytes, expected_point);
+	expected_bytes[0] |= (expected_sign & 2) << 4;
+	expected_bytes[0] |= G1Point::is_inf(expected_point) << 6;
+
+	memset(&actual_affine, 0xa5, sizeof(actual_affine));
+	G1Point::sign2(actual_bytes, &actual_affine, hash, SK);
+	EXPECT_TRUE(G1AffinePoint::equal(actual_affine, expected_affine));
+	EXPECT_EQ(memcmp(actual_bytes, expected_bytes, sizeof(actual_bytes)), 0);
+
+	memset(&actual_affine, 0xa5, sizeof(actual_affine));
+	G1Point::sign2(NULL, &actual_affine, hash, SK);
+	EXPECT_TRUE(G1AffinePoint::equal(actual_affine, expected_affine));
+
+	memset(actual_bytes, 0xa5, sizeof(actual_bytes));
+	G1Point::sign2(actual_bytes, NULL, hash, SK);
+	EXPECT_EQ(memcmp(actual_bytes, expected_bytes, sizeof(actual_bytes)), 0);
+}
+
 TEST(G1PointTest, PointCoordinateConversion) {
 	G1Point p1, p2;
 	G1AffinePoint p_affine;
