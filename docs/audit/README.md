@@ -48,6 +48,8 @@ for compatibility.
 | `HARDENING_PLAN.md` | Dependency-aware implementation and validation phases |
 | `PRODUCTION_AUDIT_ROADMAP.md` | Main Phases 12-20, continuous workstreams, subsystem cycles, work volume, and completion gates |
 | `AUTOMATED_ANALYSIS_PLAN.md` | Static-analysis, sanitizer, fuzzing, triage, cadence, and hand-audit integration policy |
+| `CODEQL_LOCAL.md` | Pinned local CodeQL installation, execution, evidence, and license boundary |
+| `CODEQL_BASELINE_TRIAGE.md` | Result-by-result baseline dispositions, confirmed findings, and proposed implementation packets |
 | `VALIDATION_POLICY.md` | Risk-proportional checks and subsystem/milestone validation gates |
 | `BTX_FREEZE.md` | No-touch policy and merge prerequisite for frozen BTx/BTE |
 | `CUDA_EXPERIMENTAL.md` | Retention and non-production policy for opt-in CUDA |

@@ -139,10 +139,10 @@ expand through Phase 19.
 
 Current generated inventory:
 
-- 601 repository files accounted for;
+- 607 repository files accounted for;
 - 154 in-scope production;
 - 113 generated production;
-- 155 in-scope support;
+- 161 in-scope support;
 - 59 benchmark files explicitly excluded;
 - 32 frozen BTx/BTE files pending the required merge;
 - 52 retained experimental CUDA files;
@@ -157,8 +157,8 @@ Main audit work volume:
 | AVX-512 | 16 | 43 | 0 | 43 |
 | FFT and middle product | 17 | 7 | 0 | 7 |
 | C/C++/Rust APIs and bindings | 18 | 28 | 0 | 28 |
-| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 147 | 0 | 147 |
-| **Total in-scope production/generated/support** | **12-19** | **422** | **2** | **420** |
+| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 153 | 0 | 153 |
+| **Total in-scope production/generated/support** | **12-19** | **428** | **2** | **426** |
 
 The rollup is explained in `PRODUCTION_AUDIT_ROADMAP.md`; the per-file
 `FILE_MANIFEST.csv` remains authoritative.
@@ -173,16 +173,19 @@ Upstream progress:
   validation are completed;
 - 0 remain pending.
 
-Findings: 23 total. Twenty-two are validated. One low finding remains open.
+Findings: 32 total. Twenty-six are validated. Six remain open: five low and one
+informational coverage gap.
 
 
 ## Next action
 
 Do not touch BTx/BTE, and do not include experimental CUDA, non-Apple ARM64, or
 CHERI in the primary production-readiness gate. Apple Silicon macOS remains in
-the supported scalar release matrix. Begin Phase 12's initial platform
-milestone, including the two retained upstream CI rows. Once its baseline is
-triaged, begin Phase 13 without treating automation as finished: expand
+the supported scalar release matrix. Continue Phase 12's remaining initial
+platform milestone. Review and sequence the CodeQL findings in
+`CODEQL_BASELINE_TRIAGE.md`, then continue the Clang, sanitizer, and fuzz
+packets. Once the initial baseline is closed, begin Phase 13 without treating
+automation as finished: expand
 analyzers, sanitizers, fuzzers, and oracles alongside every subsystem. Apply
 `VALIDATION_POLICY.md`: run focused checks in the change loop, batch related
 work for subsystem suites, and reserve the full supported matrix for milestone
