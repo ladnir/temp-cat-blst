@@ -48,6 +48,7 @@ set(SCALAR_BACKEND_TEST_SOURCES
     "Fft_tests.cpp"
     "Scalar_header_include_tests.cpp"
     "scalar/Scalar_backend_tests.cpp"
+    "scalar/Scalar_mult_window_tests.cpp"
 )
 
 set(AVX_VALIDATION_TEST_SOURCES)

@@ -162,8 +162,8 @@ recorded separately above.
 
 ## Remaining Phase 12 packets
 
-1. Design the compatibility-preserving `AUD-035` hardening, then complete
-   clang-tidy and Clippy baselines. `AUD-036` and `AUD-037` are validated.
+1. Complete clang-tidy and Clippy baselines. `AUD-035`, `AUD-036`, and
+   `AUD-037` are validated.
 2. Focused portable-scalar ASan/UBSan audit targets.
 3. Initial bounded public byte-boundary libFuzzer targets and seed corpora.
 4. Complete diagnostic triage and Phase 12 exit-gate evidence.
@@ -228,3 +228,23 @@ off, AppleClang 17 built the scalar C/C++ target without the former
 conflicting-attribute warning, all 336 C/C++ tests passed, and the Rust default
 and full-binding matrix passed. `AUD-036` is validated. No benchmark was run
 because native AVX code generation was unchanged.
+
+## AUD-035 scalar window contract
+
+The retained `mult_window_n` allocation mode now has an explicit status result
+that preserves ordinary call sites which ignore a return value. It rejects
+zero sizes, missing first point/scalar
+pointers, byte-count overflow, checked table-row multiplication overflow, and
+allocation failure before changing the output. It no longer prints or relies
+on a debug-only assertion. Caller-populated and precomputed tables plus the
+compact later-null pointer convention remain supported.
+
+The default allocator and deterministic failure allocator are selected at
+compile time; the production path contains no allocator object or runtime
+dispatch. Dedicated G1/G2 tests cover all three table modes, compact pointers,
+every rejection, overflow, and allocation failure. The four new tests plus six
+existing G1 GLV/G2 GLS multiplication and signing tests passed 10/10 under
+MSVC Release, Linux ASan with leak detection, and Linux UBSan. In an optimized
+GCC 13 scalar object, both production `mult_glsv` functions remained present
+while `mult_window_n`, `malloc`, and `free` had no symbol or reference. No
+benchmark was run.

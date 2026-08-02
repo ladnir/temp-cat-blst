@@ -139,10 +139,10 @@ expand through Phase 19.
 
 Current generated inventory:
 
-- 615 repository files accounted for;
+- 616 repository files accounted for;
 - 156 in-scope production;
 - 113 generated production;
-- 167 in-scope support;
+- 168 in-scope support;
 - 59 benchmark files explicitly excluded;
 - 32 frozen BTx/BTE files pending the required merge;
 - 52 retained experimental CUDA files;
@@ -157,8 +157,8 @@ Main audit work volume:
 | AVX-512 | 16 | 42 | 0 | 42 |
 | FFT and middle product | 17 | 10 | 0 | 10 |
 | C/C++/Rust APIs and bindings | 18 | 28 | 0 | 28 |
-| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 159 | 0 | 159 |
-| **Total in-scope production/generated/support** | **12-19** | **436** | **2** | **434** |
+| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 160 | 0 | 160 |
+| **Total in-scope production/generated/support** | **12-19** | **437** | **2** | **435** |
 
 The rollup is explained in `PRODUCTION_AUDIT_ROADMAP.md`; the per-file
 `FILE_MANIFEST.csv` remains authoritative.
@@ -173,8 +173,10 @@ Upstream progress:
   validation are completed;
 - 0 remain pending.
 
-Findings: 37 total. Thirty-four are validated. Three remain unresolved: two
-low and one informational finding are open. `AUD-036` is validated on native
+Findings: 37 total. Thirty-five are validated. Two remain unresolved: one low
+and one informational finding are open. `AUD-035` is validated with preserved
+allocated/caller-table/precomputed modes and 10/10 focused MSVC Release, Linux
+ASan, and Linux UBSan tests. `AUD-036` is validated on native
 Apple Silicon with AppleClang 17 at commit `0b7ec47`; all 336 C/C++ tests and
 the Rust default/full-binding matrix passed. `AUD-037` is validated: pure-C/C++
 `cc`, selected-production `vv`, and native intrinsic domains are separated,
@@ -185,9 +187,8 @@ and the 9-test direct compatibility target passed on Peach's AVX-512 IFMA CPU.
 
 Do not touch BTx/BTE, and do not include experimental CUDA, non-Apple ARM64, or
 CHERI in the primary production-readiness gate. Apple Silicon macOS remains in
-the supported scalar release matrix. Design the compatibility-preserving
-`AUD-035` hardening. Then complete clang-tidy, Clippy, sanitizer, and initial fuzz
-platform work while continuing the deeper Phase 17 generic
+the supported scalar release matrix. Complete clang-tidy, Clippy, sanitizer,
+and initial fuzz platform work while continuing the deeper Phase 17 generic
 FFT/interpolation/middle-product file audit from the boundary established in
 `PHASE_17.md`. Coverage remains a late audit/release
 metric by user decision; sanitizer, fuzz, and static-analysis work still

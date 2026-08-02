@@ -6,8 +6,25 @@
 #ifndef __BLST_SCALAR_EC_MULT_H__
 #define __BLST_SCALAR_EC_MULT_H__
 
+#include <cstdlib>
+
 namespace blst::scalar
 {
+	namespace detail
+	{
+		struct window_table_allocator
+		{
+			BLST_HD static void* allocate(size_t size)
+			{
+				return malloc(size);
+			}
+
+			BLST_HD static void deallocate(void* ptr)
+			{
+				free(ptr);
+			}
+		};
+	}
 
 	/*
 	 * Extract window value of given bit size from bit offset in byte array.
@@ -306,20 +323,30 @@ namespace blst::scalar
 	// 
 	//   ret = sum_{i =0..npoints-1} scalars[i] * points[i]
 	//
-	// Either points or pre-computed table must be provided.
-	// If points is provided, the table will be computed on the stack.
-	// If table is provided, points is ignored.
+	// Either points or a pre-computed table must be provided. If points is
+	// provided, table is populated for the caller or allocated on the heap when
+	// it is NULL. If points is NULL, table must already be populated.
+	//
+	// The first point and scalar pointers must be non-NULL. Later NULL entries
+	// select the next contiguous object, preserving the compact BLST convention.
+	// On invalid input, size overflow, or allocation failure, ret is unchanged
+	// and the function returns zero.
 	// 
 	// this is better than mult_w because the doubling of the 
 	// accumulator is shared between all inputs. This can be a big 
 	// savings.
 	//
-	template<typename ptype, int window_size>
-	BLST_HD BLST_INLINE void mult_window_n(ptype& ret,
+	template<typename ptype, int window_size,
+		typename allocator_type = detail::window_table_allocator>
+	BLST_HD BLST_INLINE bool_t mult_window_n(ptype& ret,
 		const ptype* points[], size_t npoints,
 		const byte* scalars[], size_t bits,
-		ptype table[][1 << (window_size - 1)])
+		ptype table[][size_t{1} << (window_size - 1)])
 	{
+		static_assert(window_size > 0, "window_size must be positive");
+		static_assert(window_size + 1 < 8 * sizeof(limb_t),
+			"window_size is too large for limb_t masks");
+
 		limb_t wmask, wval;
 		size_t i, j, window, nbytes;
 		const byte* scalar, ** scalar_s = scalars;
@@ -327,18 +354,23 @@ namespace blst::scalar
 		bool_t sum_is_inf, row_is_inf, ret_is_inf;
 		bool_t call_free = 0;
 
+		if (npoints == 0 || bits == 0 || bits > (size_t)-1 - 7 ||
+			scalars == NULL || scalars[0] == NULL ||
+			(points == NULL && table == NULL) ||
+			(points != NULL && points[0] == NULL))
+			return 0;
+
 		if (table == NULL)
 		{
+			const size_t table_row_size = sizeof(*table);
+			if (npoints > (size_t)-1 / table_row_size)
+				return 0;
 
-			table = (ptype(*)[1 << (window_size - 1)])malloc((1 << (window_size - 1)) * sizeof(ptype) *
-				npoints);
+			table = (ptype(*)[size_t{1} << (window_size - 1)])allocator_type::allocate(
+				table_row_size * npoints);
 
 			if (table == NULL)
-			{
-				printf("mult_window_n: cannot allocate %zu bytes\n",
-					(1 << (window_size - 1)) * sizeof(ptype) * npoints);
-				assert(0);
-			}
+				return 0;
 			call_free = 1;
 		}
 
@@ -410,7 +442,9 @@ namespace blst::scalar
 
 		vec_czero(&ret.Z, sizeof(ret.Z), ret_is_inf);
 		if (call_free)
-			free(table);
+			allocator_type::deallocate(table);
+
+		return 1;
 	}
 
 }

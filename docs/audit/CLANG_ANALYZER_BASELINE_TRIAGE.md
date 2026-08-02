@@ -30,8 +30,8 @@ instantiations, and multiple retained callers.
 
 | Checker | Raw results | Disposition |
 | --- | ---: | --- |
-| `core.NonNullParamChecker` | 2 | `AUD-035`. The unused `mult_window_n` points mode permits a null first point and then forms a reference through it. Current callers supply a precomputed table and pass `points == nullptr`, so the path is latent rather than currently reachable. |
-| `unix.MallocSizeof` | 4 | False positive adjacent to `AUD-035`. The allocation multiplies the row width by `sizeof(ptype)` and is exactly `npoints * sizeof(*table)`, but the cast to pointer-to-array prevents the checker from recognizing the equivalence. Removing the unused allocation mode is preferable to annotating the cast. |
+| `core.NonNullParamChecker` | 2 | `AUD-035`, validated. The retained points mode now rejects a null first point before pointer formation while preserving later null entries as the compact contiguous convention. |
+| `unix.MallocSizeof` | 4 | `AUD-035`, validated. The retained allocation mode now checks `npoints * sizeof(*table)` for overflow and uses that exact row-sized expression, removing both the ambiguity and the unsafe multiplication without deleting BLST-porting functionality. |
 | `deadcode.DeadStores` | 3 | `AUD-036`. One scalar portable-backend assignment appears in both profiles; one AVX portable-intrinsic assignment appears only in the AVX profile. Both values are overwritten or never consumed. |
 | `core.UndefinedBinaryOperatorResult` | 6 | False positive. Every trace ends at the same byte-select in `vec_select` after `Fp2::mul` writes both `Fp` components through fixed six-limb portable Montgomery operations. The analyzer does not preserve those complete output writes through this templated/inlined call chain and treats byte one of the output as uninitialized. Zero-initializing hot field objects solely to satisfy the analyzer would add unnecessary work. |
 
@@ -52,21 +52,28 @@ two contradictory attributes. Native Apple Silicon CI at commit `0b7ec47`
 subsequently compiled this path with AppleClang 17 without the former
 conflicting-attribute warning; no warning suppression is used.
 
-## Proposed production changes
+## Production dispositions
 
 ### AUD-035 - preserve and harden the scalar window allocation mode
 
-`mult_window_n` currently has two CatBLST callers, both of which precompute
-fixed stack tables. That current call graph does not make the points/allocation
-mode disposable: reasonable source-level BLST porting is a project goal. The
-user explicitly declined its removal.
+`mult_window_n` has two CatBLST production callers, both of which precompute
+fixed stack tables. The points/allocation mode remains available for reasonable
+source-level BLST porting, as the user required. The function now returns
+status and leaves the output unchanged when the point/scalar preconditions,
+nonzero sizes, checked row-count multiplication, or allocation fail. The
+caller-populated and precomputed table modes remain intact, as do later null
+entries that select contiguous points and scalars.
 
-Preserve both caller-supplied-table and points/allocation modes. Before changing
-production code, design a compatible contract that covers `npoints == 0`, a
-null first point, checked row-count multiplication, and allocation failure
-without relying on an assertion that disappears under `NDEBUG`. The compact
-pointer-array convention used for later contiguous points and scalars must be
-retained or migrated explicitly, not accidentally simplified away.
+Allocation injection is a compile-time policy used to test failure
+deterministically; it introduces no function pointer, allocator object, or
+runtime dispatch. Four dedicated G1/G2 tests cover allocated,
+caller-populated, and precomputed tables, compact pointers, every rejection,
+overflow, and allocation failure. Together with the existing G1 GLV and G2 GLS
+multiplication/signing paths, 10/10 focused tests passed under MSVC Release,
+Linux ASan with leak detection, and Linux UBSan. An optimized GCC 13 object
+contained the two production `mult_glsv` symbols but no `mult_window_n`,
+`malloc`, or `free` symbol/reference. No benchmark was run because the
+precomputed hot-path code retained no allocation or out-of-line adapter.
 
 ### AUD-036 - portable-backend warning and code-generation cleanup
 
