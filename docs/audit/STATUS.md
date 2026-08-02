@@ -16,6 +16,11 @@ commented-code findings and one wholly commented-out unused test header. The
 CodeQL rerun leaves exactly 750 generated addition-chain trace comments and no
 commented-code result elsewhere; those traces remain as arithmetic provenance.
 
+The clang-tidy baseline is also complete and triaged: 73 unique diagnostics,
+72 documented non-defects, and one validated low-severity template-contract
+finding (`AUD-039`). The remediation preserves the production width-four hot
+loop and native AVX-512 code generation. No clang-tidy fix-it was applied.
+
 ## Main program phases
 
 | Phase | State | Exit criterion |

@@ -20,8 +20,15 @@
 
 namespace blst::avx {
 
+template<int table_log_size>
+inline constexpr bool valid_precomputed_table_log_size =
+    table_log_size > 0 && table_log_size < 8;
+
 template<class Curve, class Ring, int table_log_size>
 class PrecomputedTable {
+    static_assert(valid_precomputed_table_log_size<table_log_size>,
+                  "PrecomputedTable table_log_size must be between 1 and 7");
+
     public:
     using ProjectivePoint = typename Curve::ProjPoint;
 

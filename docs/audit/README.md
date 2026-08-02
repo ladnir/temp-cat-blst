@@ -52,6 +52,7 @@ for compatibility.
 | `CODEQL_LOCAL.md` | Pinned local CodeQL installation, execution, evidence, and license boundary |
 | `CODEQL_BASELINE_TRIAGE.md` | Result-by-result baseline dispositions, confirmed findings, and proposed implementation packets |
 | `CLANG_ANALYZER_BASELINE_TRIAGE.md` | Split scalar/AVX Clang analyzer evidence, dispositions, and proposed cleanup packet |
+| `CLANG_TIDY_BASELINE_TRIAGE.md` | Curated scalar/portable-AVX Debug clang-tidy evidence, dispositions, and proposed finding |
 | `PHASE_17.md` | FFT native-core redesign, adapter boundary, packaging, and focused validation evidence |
 | `VALIDATION_POLICY.md` | Risk-proportional checks and subsystem/milestone validation gates |
 | `BTX_FREEZE.md` | No-touch policy and merge prerequisite for frozen BTx/BTE |
@@ -129,6 +130,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/audit/generate_f
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/audit/check_audit_manifest.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/audit/check_rust_threading_policy.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/audit/check_win64_asm_symbols.ps1 -BuildDirectory out/build/<profile> -Mode Portable
+wsl.exe bash scripts/audit/run_clang_tidy_local.sh all
 ```
 
 The generator preserves human-entered review fields by matching the `path`

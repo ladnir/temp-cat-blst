@@ -17,6 +17,12 @@ namespace {
 
 using ScalarBytes = std::array<blst::byte, 32>;
 
+static_assert(blst::avx::valid_precomputed_table_log_size<1>);
+static_assert(blst::avx::valid_precomputed_table_log_size<4>);
+static_assert(blst::avx::valid_precomputed_table_log_size<7>);
+static_assert(!blst::avx::valid_precomputed_table_log_size<0>);
+static_assert(!blst::avx::valid_precomputed_table_log_size<8>);
+
 ScalarBytes scalar_bytes(uint64_t seed)
 {
     ScalarBytes out = {};
@@ -131,6 +137,42 @@ blst::scalar::GT scalar_gt_from_public_fp12(const blst_fp12& point)
 }
 
 }  // namespace
+
+TEST(AvxScalarMult, G1DefaultWindowMatchesScalar)
+{
+    for (const uint64_t seed : {1ULL, 42ULL, 777ULL}) {
+        const ScalarBytes scalar = scalar_bytes(seed);
+        blst::avx::G1Point avx = {};
+        blst::scalar::G1Point scalar_point = {};
+        blst::avx::G1Point::mult(avx, blst::avx::G1Point::generator(), scalar.data(), 256);
+        blst::scalar::G1Point::mult(
+            scalar_point, blst::scalar::G1Point::generator(), scalar.data(), 256);
+
+        std::array<unsigned char, 96> avx_bytes = {};
+        std::array<unsigned char, 96> scalar_serialized = {};
+        blst::avx::G1Point::serialize(avx_bytes.data(), avx);
+        blst::scalar::G1Point::serialize(scalar_serialized.data(), scalar_point);
+        EXPECT_EQ(avx_bytes, scalar_serialized);
+    }
+}
+
+TEST(AvxScalarMult, G2DefaultWindowMatchesScalar)
+{
+    for (const uint64_t seed : {1ULL, 42ULL, 777ULL}) {
+        const ScalarBytes scalar = scalar_bytes(seed);
+        blst::avx::G2Point avx = {};
+        blst::scalar::G2Point scalar_point = {};
+        blst::avx::G2Point::mult(avx, blst::avx::G2Point::generator(), scalar.data(), 256);
+        blst::scalar::G2Point::mult(
+            scalar_point, blst::scalar::G2Point::generator(), scalar.data(), 256);
+
+        std::array<unsigned char, 192> avx_bytes = {};
+        std::array<unsigned char, 192> scalar_serialized = {};
+        blst::avx::G2Point::serialize(avx_bytes.data(), avx);
+        blst::scalar::G2Point::serialize(scalar_serialized.data(), scalar_point);
+        EXPECT_EQ(avx_bytes, scalar_serialized);
+    }
+}
 
 TEST(AvxMsm, G1PippengerMatchesNaive)
 {

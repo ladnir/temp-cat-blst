@@ -163,8 +163,8 @@ recorded separately above.
 
 ## Remaining Phase 12 packets
 
-1. Complete clang-tidy and Clippy baselines. `AUD-035`, `AUD-036`, and
-   `AUD-037` are validated.
+1. Complete the Clippy baseline. The clang-tidy baseline is triaged and
+   `AUD-035`, `AUD-036`, `AUD-037`, and `AUD-039` are validated.
 2. Focused portable-scalar ASan/UBSan audit targets.
 3. Initial bounded public byte-boundary libFuzzer targets and seed corpora.
 4. Complete diagnostic triage and Phase 12 exit-gate evidence.
@@ -263,6 +263,24 @@ off, AppleClang 17 built the scalar C/C++ target without the former
 conflicting-attribute warning, all 336 C/C++ tests passed, and the Rust default
 and full-binding matrix passed. `AUD-036` is validated. No benchmark was run
 because native AVX code generation was unchanged.
+
+## clang-tidy baseline
+
+LLVM clang-tidy 18.1.3 ran report-only against separate scalar and
+portable-AVX Debug compilation databases. Portable-AVX Release, benchmarks,
+BTx/BTE, CUDA, tests, and assembly were excluded. After canonical-location
+deduplication, scalar contributed 47 diagnostics and portable AVX added 26,
+for 73 unique locations across nine rules.
+
+Seventy-two are bounded conversions, fixed-use macros, ABI-preserving enum
+sizes, intentional assignments or signed JSF digits, debug output, or the
+required scratch-alignment pointer round-trip. The remaining diagnostic opened
+`AUD-039`: an unconstrained fixed-window template combined an inclusive table
+bound with an 8-bit loop and booth index. The approved narrow compile-time
+contract preserves the hot loop and is validated by boundary assertions,
+portable G1/G2 scalar differential tests, and identical native Release code
+generation. No clang-tidy fix-it was applied. Exact counts and dispositions are
+in `CLANG_TIDY_BASELINE_TRIAGE.md`.
 
 ## AUD-035 scalar window contract
 
