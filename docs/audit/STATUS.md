@@ -1,6 +1,6 @@
 # Audit Status
 
-Last updated: 2026-08-01
+Last updated: 2026-08-02
 
 ## Current phase
 
@@ -173,9 +173,10 @@ Upstream progress:
   validation are completed;
 - 0 remain pending.
 
-Findings: 37 total. Thirty-three are validated. Four remain unresolved: two
-low and one informational finding are open, while low-severity `AUD-036` is in
-progress pending AppleClang validation. `AUD-037` is validated: pure-C/C++
+Findings: 37 total. Thirty-four are validated. Three remain unresolved: two
+low and one informational finding are open. `AUD-036` is validated on native
+Apple Silicon with AppleClang 17 at commit `0b7ec47`; all 336 C/C++ tests and
+the Rust default/full-binding matrix passed. `AUD-037` is validated: pure-C/C++
 `cc`, selected-production `vv`, and native intrinsic domains are separated,
 and the 9-test direct compatibility target passed on Peach's AVX-512 IFMA CPU.
 
@@ -185,10 +186,7 @@ and the 9-test direct compatibility target passed on Peach's AVX-512 IFMA CPU.
 Do not touch BTx/BTE, and do not include experimental CUDA, non-Apple ARM64, or
 CHERI in the primary production-readiness gate. Apple Silicon macOS remains in
 the supported scalar release matrix. Design the compatibility-preserving
-`AUD-035` hardening. Run the `AUD-036` packet's remaining AppleClang 17 CI
-gate; local Clang 18 code-generation evidence supports the
-narrow Clang 8-11 `optnone` workaround, and the direct IFMA oracle passed 9/9
-on Peach. Then complete clang-tidy, Clippy, sanitizer, and initial fuzz
+`AUD-035` hardening. Then complete clang-tidy, Clippy, sanitizer, and initial fuzz
 platform work while continuing the deeper Phase 17 generic
 FFT/interpolation/middle-product file audit from the boundary established in
 `PHASE_17.md`. Coverage remains a late audit/release

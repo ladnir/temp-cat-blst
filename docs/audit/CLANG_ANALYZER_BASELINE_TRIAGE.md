@@ -48,8 +48,9 @@ emitted `cc_lshift_2` as a separate weak, unoptimized, stack-using function in
 the inverse path. Confining `optnone` to Clang 8-11 removes that symbol, retains
 forced inlining on current Clang, and eliminates the warning. The affected old
 compiler range now uses ordinary `inline` plus `optnone`, rather than requesting
-two contradictory attributes. AppleClang 17 remains the supported CI gate
-before this part of `AUD-036` is closed; no warning suppression is used.
+two contradictory attributes. Native Apple Silicon CI at commit `0b7ec47`
+subsequently compiled this path with AppleClang 17 without the former
+conflicting-attribute warning; no warning suppression is used.
 
 ## Proposed production changes
 
@@ -89,8 +90,11 @@ accumulator-wrap, and randomized cases. The Release target then built warning-
 free with supported GCC 15.2 on Peach, and CTest passed all 9 direct comparisons
 on AVX-512 IFMA hardware. Portable AVX field/curve integration passed 28/28. A
 full Release portable-AVX rebuild was deferred after its known excessive
-compilation cost manifested; no benchmark was run. AppleClang 17 CI is the
-remaining validation requirement for this packet.
+compilation cost manifested; no benchmark was run. GitHub Actions run
+`30754724252` supplied the final supported-Apple gate on native ARM64:
+AppleClang 17 configured and built with `BLST_ALLOW_UNTESTED_ARM64=OFF`, all
+336 C/C++ tests passed, and the Rust default and full-binding invocations
+passed. `AUD-036` is validated.
 
 ## CodeQL coverage relationship
 

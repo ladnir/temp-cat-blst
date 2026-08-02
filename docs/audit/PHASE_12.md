@@ -162,9 +162,8 @@ recorded separately above.
 
 ## Remaining Phase 12 packets
 
-1. Design the compatibility-preserving `AUD-035` hardening, complete the
-   `AUD-036` AppleClang CI gate, and then complete clang-tidy and Clippy
-   baselines. `AUD-037` is validated.
+1. Design the compatibility-preserving `AUD-035` hardening, then complete
+   clang-tidy and Clippy baselines. `AUD-036` and `AUD-037` are validated.
 2. Focused portable-scalar ASan/UBSan audit targets.
 3. Initial bounded public byte-boundary libFuzzer targets and seed corpora.
 4. Complete diagnostic triage and Phase 12 exit-gate evidence.
@@ -222,6 +221,10 @@ Peach supplied the missing native execution evidence: its Ryzen 9 7950X
 exposes AVX-512 IFMA, and supported GCC 15.2 built the Release combined target
 without warnings. CTest discovered and passed all 9 direct native-versus-
 emulation tests, including the dedicated IFMA cases. `AUD-037` is validated,
-and this supplies the restored direct IFMA evidence for `AUD-036`; AppleClang
-17 remains that finding's final gate. No benchmark was run because native code
-generation was unchanged.
+and this supplies the restored direct IFMA evidence for `AUD-036`. GitHub
+Actions run `30754724252` supplied that finding's final gate at current commit
+`0b7ec47`: native Apple Silicon configured with the experimental ARM override
+off, AppleClang 17 built the scalar C/C++ target without the former
+conflicting-attribute warning, all 336 C/C++ tests passed, and the Rust default
+and full-binding matrix passed. `AUD-036` is validated. No benchmark was run
+because native AVX code generation was unchanged.

@@ -65,3 +65,10 @@ Apple Silicon remains in supported scope, but release readiness still requires
 a real macOS ARM64 CMake build, the scalar C/native C++ and Rust suites, public
 header/package consumers, and repeatable Apple CI. Its exemption is a support
 decision, not fabricated test evidence.
+
+Current native evidence is GitHub Actions run `30754724252` at commit
+`0b7ec47`: the `macos-15` ARM64 runner used AppleClang 17 with
+`BLST_ALLOW_UNTESTED_ARM64=OFF`, passed all 336 C/C++ tests, and passed the Rust
+default and full-binding test matrix. Public header and package-consumer gates
+remain part of the Phase 19 release qualification rather than a condition for
+the existing Apple Silicon support designation.
