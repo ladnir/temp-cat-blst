@@ -52,7 +52,8 @@ for compatibility.
 | `CODEQL_LOCAL.md` | Pinned local CodeQL installation, execution, evidence, and license boundary |
 | `CODEQL_BASELINE_TRIAGE.md` | Result-by-result baseline dispositions, confirmed findings, and proposed implementation packets |
 | `CLANG_ANALYZER_BASELINE_TRIAGE.md` | Split scalar/AVX Clang analyzer evidence, dispositions, and proposed cleanup packet |
-| `CLANG_TIDY_BASELINE_TRIAGE.md` | Curated scalar/portable-AVX Debug clang-tidy evidence, dispositions, and proposed finding |
+| `CLANG_TIDY_BASELINE_TRIAGE.md` | Curated scalar/portable-AVX Debug clang-tidy evidence and dispositions |
+| `CLIPPY_BASELINE_TRIAGE.md` | Rust feature-family Clippy evidence, dispositions, and proposed scratch-storage finding |
 | `PHASE_17.md` | FFT native-core redesign, adapter boundary, packaging, and focused validation evidence |
 | `VALIDATION_POLICY.md` | Risk-proportional checks and subsystem/milestone validation gates |
 | `BTX_FREEZE.md` | No-touch policy and merge prerequisite for frozen BTx/BTE |

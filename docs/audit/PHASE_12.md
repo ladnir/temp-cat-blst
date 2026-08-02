@@ -282,6 +282,28 @@ portable G1/G2 scalar differential tests, and identical native Release code
 generation. No clang-tidy fix-it was applied. Exact counts and dispositions are
 in `CLANG_TIDY_BASELINE_TRIAGE.md`.
 
+## Clippy baseline
+
+Rust/Cargo/Clippy 1.94.1 ran report-only over the library and build script in
+five Debug feature profiles: default, full bindings, portable scalar, AVX
+(portable AVX on Windows), and full bindings plus secret serialization.
+Benchmarks, tests, examples, frozen BTx/BTE, experimental CUDA, and unsupported
+targets were excluded. Portable AVX Release was not compiled.
+
+The default, portable, and AVX profiles each produced 63 canonical broad-lint
+diagnostics. Full and full-plus-serde each produced 133 after deduplicating the
+two signature-orientation macro expansions. Pedantic/nursery results are
+triaged as documentation/style debt, generated ABI fields, deliberate FFI
+pointer operations, an intentional mutable aliasing boundary, or transparent
+wrapper conversions reserved for the Phase 18 unsafe review.
+
+Three diagnostics belong to `clippy::all`. The exact remainder test is retained
+for compiler compatibility. The other two open proposed `AUD-040`: Rust AVX
+GT MSM uses `set_len` on uninitialized `u8` storage before the C++ write, and
+its add-before-divide scratch sizing can overflow. No fix was applied pending
+review. Exact commands, counts, and dispositions are in
+`CLIPPY_BASELINE_TRIAGE.md`.
+
 ## AUD-035 scalar window contract
 
 The retained `mult_window_n` allocation mode now has an explicit status result
