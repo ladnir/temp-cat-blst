@@ -48,7 +48,6 @@ set(SCALAR_BACKEND_TEST_SOURCES
     "Fft_tests.cpp"
     "Scalar_header_include_tests.cpp"
     "scalar/Scalar_backend_tests.cpp"
-    "avx512_compat_test.cpp"
 )
 
 set(AVX_VALIDATION_TEST_SOURCES)
@@ -139,3 +138,29 @@ gtest_discover_tests(blst_tests
   # TEST_PREFIX "unit."
   # PROPERTIES LABELS "unit"
 )
+
+if(BLST_AVX512 AND BLST_AVX512_PORTABLE)
+    add_executable(blst_avx512_compat_tests
+        "avx512_compat_test.cpp"
+        "${PROJECT_SOURCE_DIR}/blst/backend/avx512/intrin_compat.cpp"
+    )
+    target_include_directories(blst_avx512_compat_tests PRIVATE
+        "${PROJECT_SOURCE_DIR}"
+        "${CMAKE_BINARY_DIR}/blst"
+    )
+    target_link_libraries(blst_avx512_compat_tests PRIVATE gtest_main)
+    target_compile_features(blst_avx512_compat_tests PRIVATE cxx_std_23)
+
+    if(MSVC)
+        target_compile_options(blst_avx512_compat_tests PRIVATE /arch:AVX512)
+    else()
+        target_compile_options(blst_avx512_compat_tests PRIVATE -march=native)
+    endif()
+
+    gtest_discover_tests(blst_avx512_compat_tests
+        DISCOVERY_TIMEOUT 60
+        DISCOVERY_MODE PRE_TEST
+        TEST_PREFIX "avx512_compat."
+        PROPERTIES LABELS "avx512-compat"
+    )
+endif()

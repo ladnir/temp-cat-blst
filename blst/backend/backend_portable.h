@@ -688,15 +688,24 @@ namespace blst
 	}
 
 
-#if defined(__clang_major__) && __clang_major__>7
-	__attribute__((optnone))
+	/*
+	 * Clang 8 through 11 could miscompile this funnel-shift pattern when it
+	 * was inlined into ab_approximation_n (upstream blst commit a061960b).
+	 * Keep the workaround confined to the affected compiler versions so that
+	 * current Clang and AppleClang retain the intended inline hot path.
+	 */
+#if defined(__clang_major__) && __clang_major__ >= 8 && __clang_major__ <= 11
+# define BLST_LSHIFT_2_INLINE inline __attribute__((optnone))
+#else
+# define BLST_LSHIFT_2_INLINE BLST_FORCEINLINE
 #endif
-		BLST_HD BLST_FORCEINLINE limb_t cc_lshift_2(limb_t hi, limb_t lo, size_t l)
+		BLST_HD BLST_LSHIFT_2_INLINE limb_t cc_lshift_2(limb_t hi, limb_t lo, size_t l)
 	{
 		size_t r = BLST_LIMB_SIZE - l;
 		limb_t mask = 0 - (is_zero(l) ^ 1);
 		return (hi << (l & (BLST_LIMB_SIZE - 1))) | ((lo & mask) >> (r & (BLST_LIMB_SIZE - 1)));
 	}
+#undef BLST_LSHIFT_2_INLINE
 
 	/**
 	 * @brief Approximates two large integers for the extended Euclidean algorithm.

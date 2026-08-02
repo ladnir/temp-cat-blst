@@ -66,8 +66,10 @@ CODEQL_EXE=/opt/catblst-codeql/2.26.2/codeql/codeql \
   bash scripts/audit/run_codeql_local.sh all
 ```
 
-The optional mode is `cpp`, `rust`, or `all`. Worker counts default to two and
-can be controlled without editing the scripts:
+The optional mode is `cpp-scalar`, `cpp-avx`, `cpp`, `rust`, or `all`.
+`cpp` and `all` create independent scalar and portable-AVX databases rather
+than combining both compiler profiles. Worker counts default to two and can be
+controlled without editing the scripts:
 
 ```bash
 BLST_CODEQL_THREADS=4 \
@@ -80,7 +82,7 @@ The runner refuses to overwrite prior databases. It writes databases under
 the WSL-native `/var/tmp/catblst-codeql/<run-id>/` by default and writes the
 following ignored evidence under `out/audit/codeql/<run-id>/`:
 
-- `cpp.sarif` and/or `rust.sarif`;
+- `cpp-scalar.sarif`, `cpp-avx-portable.sarif`, and/or `rust.sarif`;
 - the complete run log;
 - the analyzed Git commit and exact query suites; and
 - CodeQL, CMake, compiler, and Rust versions.
@@ -91,10 +93,12 @@ but excludes ignored build products such as `out/` and
 `bindings/rust/target/`. Its file list, archive hash, and working-tree status
 are captured with the evidence so the analyzed input is identifiable.
 
-C/C++ database extraction builds only `blst_static` in Debug mode, once for
-portable scalar and once for portable AVX. Assembly, tests, benchmarks, frozen
-BTx/BTE, experimental CUDA, and removed bindings are not added to the scan.
-Rust uses CodeQL's build-free extraction mode.
+C/C++ database extraction builds only `blst_static` in Debug mode. Portable
+scalar and portable AVX are extracted into separate databases so a partial AVX
+extraction cannot obscure scalar coverage or be mistaken for a complete
+combined result. Assembly, tests, benchmarks, frozen BTx/BTE, experimental
+CUDA, and removed bindings are not added to the scan. Rust uses CodeQL's
+build-free extraction mode.
 
 ## Query suites
 
@@ -118,3 +122,19 @@ After triage, remove only the exact versioned run directory printed by the
 runner. Raw databases and SARIF remain ignored and are not committed. Durable
 findings, tool versions, commands, exclusions, and residual gaps belong in the
 audit records.
+
+## Compensating Clang extraction
+
+CodeQL extractor diagnostics are not treated as successful analysis. Run the
+pinned compiler-native Clang Static Analyzer profiles documented in
+`AUTOMATED_ANALYSIS_PLAN.md` to cover buildable scalar and AVX template
+instantiations that CodeQL does not fully model:
+
+```bash
+bash scripts/audit/run_clang_analyzer_local.sh all
+```
+
+The runner requires Ubuntu Clang 18.1.3 plus `scan-build`, snapshots the same
+tracked and non-ignored source set, and writes ignored SARIF evidence beneath
+`out/audit/clang-analyzer/<run-id>/`. Scalar and portable AVX are separate
+analyzer runs. Tests, benchmarks, assembly, BTx/BTE, and CUDA remain excluded.

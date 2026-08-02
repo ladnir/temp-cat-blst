@@ -1,18 +1,18 @@
 #include "blst/backend/avx512/intrin_compat.h"
 
-#if defined(BLST_AVX512_PORTABLE) && !defined(BLST_AVX512)
+#if defined(BLST_AVX512_PORTABLE)
 
 namespace blst
 {
 #if defined(_MSC_VER)
-# define BLST_AVX_PORTABLE_NOINLINE __declspec(noinline)
+# define BLST_CC_NOINLINE __declspec(noinline)
 #elif defined(__GNUC__) || defined(__clang__)
-# define BLST_AVX_PORTABLE_NOINLINE __attribute__((noinline))
+# define BLST_CC_NOINLINE __attribute__((noinline))
 #else
-# define BLST_AVX_PORTABLE_NOINLINE
+# define BLST_CC_NOINLINE
 #endif
 
-BLST_AVX_PORTABLE_NOINLINE auto setzero_si512_portable() -> cc512i
+BLST_CC_NOINLINE auto _cc512_setzero_si512() -> cc512i
 {
     cc512i out{};
     for (u64 i = 0; i < 8; ++i) {
@@ -21,7 +21,7 @@ BLST_AVX_PORTABLE_NOINLINE auto setzero_si512_portable() -> cc512i
     return out;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto set1_epi64_portable(long long x) -> cc512i
+BLST_CC_NOINLINE auto _cc512_set1_epi64(long long x) -> cc512i
 {
     cc512i out{};
     const u64 v = static_cast<u64>(x);
@@ -31,7 +31,7 @@ BLST_AVX_PORTABLE_NOINLINE auto set1_epi64_portable(long long x) -> cc512i
     return out;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto add_epi64_portable(const cc512i a, const cc512i b) -> cc512i
+BLST_CC_NOINLINE auto _cc512_add_epi64(const cc512i a, const cc512i b) -> cc512i
 {
     cc512i out{};
     for (u64 i = 0; i < 8; ++i) {
@@ -40,7 +40,7 @@ BLST_AVX_PORTABLE_NOINLINE auto add_epi64_portable(const cc512i a, const cc512i 
     return out;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto sub_epi64_portable(const cc512i a, const cc512i b) -> cc512i
+BLST_CC_NOINLINE auto _cc512_sub_epi64(const cc512i a, const cc512i b) -> cc512i
 {
     cc512i out{};
     for (u64 i = 0; i < 8; ++i) {
@@ -49,7 +49,7 @@ BLST_AVX_PORTABLE_NOINLINE auto sub_epi64_portable(const cc512i a, const cc512i 
     return out;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto and_si512_portable(const cc512i a, const cc512i b) -> cc512i
+BLST_CC_NOINLINE auto _cc512_and_si512(const cc512i a, const cc512i b) -> cc512i
 {
     cc512i out{};
     for (u64 i = 0; i < 8; ++i) {
@@ -58,7 +58,7 @@ BLST_AVX_PORTABLE_NOINLINE auto and_si512_portable(const cc512i a, const cc512i 
     return out;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto or_si512_portable(const cc512i a, const cc512i b) -> cc512i
+BLST_CC_NOINLINE auto _cc512_or_si512(const cc512i a, const cc512i b) -> cc512i
 {
     cc512i out{};
     for (u64 i = 0; i < 8; ++i) {
@@ -67,7 +67,7 @@ BLST_AVX_PORTABLE_NOINLINE auto or_si512_portable(const cc512i a, const cc512i b
     return out;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto xor_si512_portable(const cc512i a, const cc512i b) -> cc512i
+BLST_CC_NOINLINE auto _cc512_xor_si512(const cc512i a, const cc512i b) -> cc512i
 {
     cc512i out{};
     for (u64 i = 0; i < 8; ++i) {
@@ -76,7 +76,7 @@ BLST_AVX_PORTABLE_NOINLINE auto xor_si512_portable(const cc512i a, const cc512i 
     return out;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto slli_epi64_portable(const cc512i a, int bits) -> cc512i
+BLST_CC_NOINLINE auto _cc512_slli_epi64(const cc512i a, int bits) -> cc512i
 {
     cc512i out{};
     for (u64 i = 0; i < 8; ++i) {
@@ -85,7 +85,7 @@ BLST_AVX_PORTABLE_NOINLINE auto slli_epi64_portable(const cc512i a, int bits) ->
     return out;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto srli_epi64_portable(const cc512i a, int bits) -> cc512i
+BLST_CC_NOINLINE auto _cc512_srli_epi64(const cc512i a, int bits) -> cc512i
 {
     cc512i out{};
     for (u64 i = 0; i < 8; ++i) {
@@ -94,7 +94,7 @@ BLST_AVX_PORTABLE_NOINLINE auto srli_epi64_portable(const cc512i a, int bits) ->
     return out;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto srai_epi64_portable(const cc512i a, int bits) -> cc512i
+BLST_CC_NOINLINE auto _cc512_srai_epi64(const cc512i a, int bits) -> cc512i
 {
     cc512i out{};
     for (u64 i = 0; i < 8; ++i) {
@@ -104,27 +104,17 @@ BLST_AVX_PORTABLE_NOINLINE auto srai_epi64_portable(const cc512i a, int bits) ->
     return out;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto sllv_epi64_portable(const cc512i a, const cc512i bits) -> cc512i
+BLST_CC_NOINLINE auto _cc512_sllv_epi64(const cc512i a, const cc512i bits) -> cc512i
 {
     cc512i out{};
     for (u64 i = 0; i < 8; ++i) {
-        const u64 sh = bits.lane[i] & 63;
-        out.lane[i] = a.lane[i] << sh;
+        const u64 sh = bits.lane[i];
+        out.lane[i] = sh < 64 ? a.lane[i] << sh : 0;
     }
     return out;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto load_si512_portable(const void* p) -> cc512i
-{
-    cc512i out{};
-    const u64* src = static_cast<const u64*>(p);
-    for (u64 i = 0; i < 8; ++i) {
-        out.lane[i] = src[i];
-    }
-    return out;
-}
-
-BLST_AVX_PORTABLE_NOINLINE auto loadu_si512_portable(const void* p) -> cc512i
+BLST_CC_NOINLINE auto _cc512_load_si512(const void* p) -> cc512i
 {
     cc512i out{};
     const u64* src = static_cast<const u64*>(p);
@@ -134,7 +124,17 @@ BLST_AVX_PORTABLE_NOINLINE auto loadu_si512_portable(const void* p) -> cc512i
     return out;
 }
 
-BLST_AVX_PORTABLE_NOINLINE void store_si512_portable(void* p, const cc512i a)
+BLST_CC_NOINLINE auto _cc512_loadu_si512(const void* p) -> cc512i
+{
+    cc512i out{};
+    const u64* src = static_cast<const u64*>(p);
+    for (u64 i = 0; i < 8; ++i) {
+        out.lane[i] = src[i];
+    }
+    return out;
+}
+
+BLST_CC_NOINLINE void _cc512_store_si512(void* p, const cc512i a)
 {
     u64* dst = static_cast<u64*>(p);
     for (u64 i = 0; i < 8; ++i) {
@@ -142,7 +142,7 @@ BLST_AVX_PORTABLE_NOINLINE void store_si512_portable(void* p, const cc512i a)
     }
 }
 
-BLST_AVX_PORTABLE_NOINLINE void storeu_si512_portable(void* p, const cc512i a)
+BLST_CC_NOINLINE void _cc512_storeu_si512(void* p, const cc512i a)
 {
     u64* dst = static_cast<u64*>(p);
     for (u64 i = 0; i < 8; ++i) {
@@ -150,7 +150,7 @@ BLST_AVX_PORTABLE_NOINLINE void storeu_si512_portable(void* p, const cc512i a)
     }
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto set_epi64_portable(
+BLST_CC_NOINLINE auto _cc512_set_epi64(
     long long x7, long long x6, long long x5, long long x4,
     long long x3, long long x2, long long x1, long long x0) -> cc512i
 {
@@ -166,7 +166,7 @@ BLST_AVX_PORTABLE_NOINLINE auto set_epi64_portable(
     return out;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto permutexvar_epi64_portable(const cc512i idx, const cc512i a) -> cc512i
+BLST_CC_NOINLINE auto _cc512_permutexvar_epi64(const cc512i idx, const cc512i a) -> cc512i
 {
     cc512i out{};
     for (u64 i = 0; i < 8; ++i) {
@@ -176,7 +176,7 @@ BLST_AVX_PORTABLE_NOINLINE auto permutexvar_epi64_portable(const cc512i idx, con
     return out;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto mask_blend_epi64_portable(u64 mask, const cc512i a, const cc512i b) -> cc512i
+BLST_CC_NOINLINE auto _cc512_mask_blend_epi64(u64 mask, const cc512i a, const cc512i b) -> cc512i
 {
     cc512i out{};
     for (u64 i = 0; i < 8; ++i) {
@@ -186,7 +186,7 @@ BLST_AVX_PORTABLE_NOINLINE auto mask_blend_epi64_portable(u64 mask, const cc512i
     return out;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto madd52lo_epu64_portable(const cc512i acc, const cc512i a, const cc512i b) -> cc512i
+BLST_CC_NOINLINE auto _cc512_madd52lo_epu64(const cc512i acc, const cc512i a, const cc512i b) -> cc512i
 {
     cc512i out{};
     constexpr u64 kMask26 = (u64{1} << 26) - 1;
@@ -210,7 +210,7 @@ BLST_AVX_PORTABLE_NOINLINE auto madd52lo_epu64_portable(const cc512i acc, const 
     return out;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto madd52hi_epu64_portable(const cc512i acc, const cc512i a, const cc512i b) -> cc512i
+BLST_CC_NOINLINE auto _cc512_madd52hi_epu64(const cc512i acc, const cc512i a, const cc512i b) -> cc512i
 {
     cc512i out{};
     constexpr u64 kMask26 = (u64{1} << 26) - 1;
@@ -227,9 +227,8 @@ BLST_AVX_PORTABLE_NOINLINE auto madd52hi_epu64_portable(const cc512i acc, const 
         const u64 p1 = a0 * b1 + a1 * b0;
         const u64 p2 = a1 * b1;
 
-        u64 coeff1 = (p0 >> 26) + (p1 & kMask26);
+        const u64 coeff1 = (p0 >> 26) + (p1 & kMask26);
         const u64 carry1 = coeff1 >> 26;
-        coeff1 &= kMask26;
 
         u64 coeff2 = (p1 >> 26) + (p2 & kMask26) + carry1;
         const u64 carry2 = coeff2 >> 26;
@@ -243,7 +242,7 @@ BLST_AVX_PORTABLE_NOINLINE auto madd52hi_epu64_portable(const cc512i acc, const 
     return out;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto mask_add_epi64_portable(const cc512i src, u64 mask, const cc512i a, const cc512i b) -> cc512i
+BLST_CC_NOINLINE auto _cc512_mask_add_epi64(const cc512i src, u64 mask, const cc512i a, const cc512i b) -> cc512i
 {
     cc512i out{};
     for (u64 i = 0; i < 8; ++i) {
@@ -253,7 +252,7 @@ BLST_AVX_PORTABLE_NOINLINE auto mask_add_epi64_portable(const cc512i src, u64 ma
     return out;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto mask_sub_epi64_portable(const cc512i src, u64 mask, const cc512i a, const cc512i b) -> cc512i
+BLST_CC_NOINLINE auto _cc512_mask_sub_epi64(const cc512i src, u64 mask, const cc512i a, const cc512i b) -> cc512i
 {
     cc512i out{};
     for (u64 i = 0; i < 8; ++i) {
@@ -263,7 +262,7 @@ BLST_AVX_PORTABLE_NOINLINE auto mask_sub_epi64_portable(const cc512i src, u64 ma
     return out;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto min_epu64_portable(const cc512i a, const cc512i b) -> cc512i
+BLST_CC_NOINLINE auto _cc512_min_epu64(const cc512i a, const cc512i b) -> cc512i
 {
     cc512i out{};
     for (u64 i = 0; i < 8; ++i) {
@@ -272,7 +271,7 @@ BLST_AVX_PORTABLE_NOINLINE auto min_epu64_portable(const cc512i a, const cc512i 
     return out;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto cmpgt_epi64_mask_portable(const cc512i a, const cc512i b) -> u64
+BLST_CC_NOINLINE auto _cc512_cmpgt_epi64_mask(const cc512i a, const cc512i b) -> u64
 {
     u64 mask = 0;
     for (u64 i = 0; i < 8; ++i) {
@@ -283,7 +282,7 @@ BLST_AVX_PORTABLE_NOINLINE auto cmpgt_epi64_mask_portable(const cc512i a, const 
     return mask;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto cmpge_epi64_mask_portable(const cc512i a, const cc512i b) -> u64
+BLST_CC_NOINLINE auto _cc512_cmpge_epi64_mask(const cc512i a, const cc512i b) -> u64
 {
     u64 mask = 0;
     for (u64 i = 0; i < 8; ++i) {
@@ -294,7 +293,7 @@ BLST_AVX_PORTABLE_NOINLINE auto cmpge_epi64_mask_portable(const cc512i a, const 
     return mask;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto shuffle_epi32_portable_runtime(int imm8, const cc512i a) -> cc512i
+BLST_CC_NOINLINE auto _cc512_shuffle_epi32_runtime(int imm8, const cc512i a) -> cc512i
 {
     cc512i out{};
     u32 in32[16];
@@ -316,10 +315,10 @@ BLST_AVX_PORTABLE_NOINLINE auto shuffle_epi32_portable_runtime(int imm8, const c
     return out;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto maskz_shuffle_epi32_portable_runtime(int imm8, u64 mask, const cc512i a) -> cc512i
+BLST_CC_NOINLINE auto _cc512_maskz_shuffle_epi32_runtime(int imm8, u64 mask, const cc512i a) -> cc512i
 {
     cc512i out{};
-    const cc512i shuf = shuffle_epi32_portable_runtime(imm8, a);
+    const cc512i shuf = _cc512_shuffle_epi32_runtime(imm8, a);
     u32 shuf32[16];
     u32 out32[16];
     for (u64 i = 0; i < 8; ++i) {
@@ -335,7 +334,7 @@ BLST_AVX_PORTABLE_NOINLINE auto maskz_shuffle_epi32_portable_runtime(int imm8, u
     return out;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto permutex_epi64_portable_runtime(int imm8, const cc512i a) -> cc512i
+BLST_CC_NOINLINE auto _cc512_permutex_epi64_runtime(int imm8, const cc512i a) -> cc512i
 {
     cc512i out{};
     for (u64 block = 0; block < 2; ++block) {
@@ -348,17 +347,17 @@ BLST_AVX_PORTABLE_NOINLINE auto permutex_epi64_portable_runtime(int imm8, const 
     return out;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto maskz_permutex_epi64_portable_runtime(int imm8, u64 mask, const cc512i a) -> cc512i
+BLST_CC_NOINLINE auto _cc512_maskz_permutex_epi64_runtime(int imm8, u64 mask, const cc512i a) -> cc512i
 {
     cc512i out{};
-    const cc512i perm = permutex_epi64_portable_runtime(imm8, a);
+    const cc512i perm = _cc512_permutex_epi64_runtime(imm8, a);
     for (u64 i = 0; i < 8; ++i) {
         out.lane[i] = ((mask >> i) & 1u) ? perm.lane[i] : 0u;
     }
     return out;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto extracti64x4_epi64_portable_runtime(int imm8, const cc512i a) -> cc256i
+BLST_CC_NOINLINE auto _cc512_extracti64x4_epi64_runtime(int imm8, const cc512i a) -> cc256i
 {
     cc256i out{};
     const u64 block = static_cast<u64>(imm8) & 1u;
@@ -369,12 +368,12 @@ BLST_AVX_PORTABLE_NOINLINE auto extracti64x4_epi64_portable_runtime(int imm8, co
     return out;
 }
 
-BLST_AVX_PORTABLE_NOINLINE auto extract_epi64_portable_runtime(int imm8, const cc256i a) -> u64
+BLST_CC_NOINLINE auto _cc256_extract_epi64_runtime(int imm8, const cc256i a) -> u64
 {
     return a.lane[static_cast<u64>(imm8) & 3u];
 }
 
-#undef BLST_AVX_PORTABLE_NOINLINE
+#undef BLST_CC_NOINLINE
 } // namespace blst
 
 #endif

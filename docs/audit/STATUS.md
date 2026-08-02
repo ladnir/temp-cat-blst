@@ -139,10 +139,10 @@ expand through Phase 19.
 
 Current generated inventory:
 
-- 613 repository files accounted for;
-- 157 in-scope production;
+- 615 repository files accounted for;
+- 156 in-scope production;
 - 113 generated production;
-- 164 in-scope support;
+- 167 in-scope support;
 - 59 benchmark files explicitly excluded;
 - 32 frozen BTx/BTE files pending the required merge;
 - 52 retained experimental CUDA files;
@@ -154,11 +154,11 @@ Main audit work volume:
 | Work group | Phases | Total | Complete | Pending |
 | --- | --- | ---: | ---: | ---: |
 | Scalar foundations, fields, curves, and protocols | 13-15 | 197 | 2 | 195 |
-| AVX-512 | 16 | 43 | 0 | 43 |
+| AVX-512 | 16 | 42 | 0 | 42 |
 | FFT and middle product | 17 | 10 | 0 | 10 |
 | C/C++/Rust APIs and bindings | 18 | 28 | 0 | 28 |
-| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 156 | 0 | 156 |
-| **Total in-scope production/generated/support** | **12-19** | **434** | **2** | **432** |
+| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 159 | 0 | 159 |
+| **Total in-scope production/generated/support** | **12-19** | **436** | **2** | **434** |
 
 The rollup is explained in `PRODUCTION_AUDIT_ROADMAP.md`; the per-file
 `FILE_MANIFEST.csv` remains authoritative.
@@ -173,18 +173,25 @@ Upstream progress:
   validation are completed;
 - 0 remain pending.
 
-Findings: 34 total. Thirty-two are validated. Two remain open: one low and one
-informational analyzer-coverage gap.
+Findings: 37 total. Thirty-three are validated. Four remain unresolved: two
+low and one informational finding are open, while low-severity `AUD-036` is in
+progress pending AppleClang validation. `AUD-037` is validated: pure-C/C++
+`cc`, selected-production `vv`, and native intrinsic domains are separated,
+and the 9-test direct compatibility target passed on Peach's AVX-512 IFMA CPU.
 
 
 ## Next action
 
 Do not touch BTx/BTE, and do not include experimental CUDA, non-Apple ARM64, or
 CHERI in the primary production-readiness gate. Apple Silicon macOS remains in
-the supported scalar release matrix. Run the current-tree split scalar/AVX
-CodeQL confirmation and compensating Clang analysis for `AUD-030`, then continue
-the deeper Phase 17 generic FFT/interpolation/middle-product file audit from the
-boundary established in `PHASE_17.md`. Coverage remains a late audit/release
+the supported scalar release matrix. Design the compatibility-preserving
+`AUD-035` hardening. Run the `AUD-036` packet's remaining AppleClang 17 CI
+gate; local Clang 18 code-generation evidence supports the
+narrow Clang 8-11 `optnone` workaround, and the direct IFMA oracle passed 9/9
+on Peach. Then complete clang-tidy, Clippy, sanitizer, and initial fuzz
+platform work while continuing the deeper Phase 17 generic
+FFT/interpolation/middle-product file audit from the boundary established in
+`PHASE_17.md`. Coverage remains a late audit/release
 metric by user decision; sanitizer, fuzz, and static-analysis work still
 accompanies subsystem review. Expand
 analyzers, sanitizers, fuzzers, and oracles alongside every subsystem. Apply

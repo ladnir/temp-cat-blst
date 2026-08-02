@@ -9,7 +9,8 @@ readonly rust_query_suite='codeql/rust-queries@0.1.39:codeql-suites/rust-securit
 usage()
 {
     cat <<'EOF'
-Usage: CODEQL_EXE=/path/to/codeql run_codeql_local.sh [cpp|rust|all]
+Usage: CODEQL_EXE=/path/to/codeql run_codeql_local.sh \
+       [cpp-scalar|cpp-avx|cpp|rust|all]
 
 Optional environment variables:
   BLST_CODEQL_THREADS       CodeQL worker count (default: 2)
@@ -21,7 +22,7 @@ EOF
 
 mode=${1:-all}
 case "$mode" in
-    cpp|rust|all)
+    cpp-scalar|cpp-avx|cpp|rust|all)
         ;;
     -h|--help)
         usage
@@ -118,21 +119,24 @@ fi
 
 cd "$source_root"
 
-run_cpp()
+run_cpp_profile()
 {
-    "$CODEQL_EXE" database create "$work_root/cpp-db" \
+    local profile=$1
+    local result_name=$2
+
+    "$CODEQL_EXE" database create "$work_root/$result_name-db" \
         --language=c-cpp \
         --source-root="$source_root" \
         --threads="$threads" \
-        --command="BLST_CODEQL_SOURCE_ROOT='$source_root' bash scripts/audit/codeql_build_cpp.sh"
+        --command="env BLST_CODEQL_SOURCE_ROOT=$source_root BLST_CODEQL_PROFILE=$profile bash scripts/audit/codeql_build_cpp.sh"
 
-    "$CODEQL_EXE" database analyze "$work_root/cpp-db" \
+    "$CODEQL_EXE" database analyze "$work_root/$result_name-db" \
         "$cpp_query_suite" \
         --format=sarifv2.1.0 \
-        --sarif-category=c-cpp \
+        --sarif-category="$result_name" \
         --sarif-add-baseline-file-info \
         --threads="$threads" \
-        --output="$results_root/cpp.sarif"
+        --output="$results_root/$result_name.sarif"
 }
 
 run_rust()
@@ -153,14 +157,22 @@ run_rust()
 }
 
 case "$mode" in
+    cpp-scalar)
+        run_cpp_profile scalar cpp-scalar
+        ;;
+    cpp-avx)
+        run_cpp_profile avx-portable cpp-avx-portable
+        ;;
     cpp)
-        run_cpp
+        run_cpp_profile scalar cpp-scalar
+        run_cpp_profile avx-portable cpp-avx-portable
         ;;
     rust)
         run_rust
         ;;
     all)
-        run_cpp
+        run_cpp_profile scalar cpp-scalar
+        run_cpp_profile avx-portable cpp-avx-portable
         run_rust
         ;;
 esac

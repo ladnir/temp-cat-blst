@@ -13,6 +13,16 @@ if [[ ! -f $repo_root/CMakeLists.txt ]]; then
 fi
 build_root=$(mktemp -d /var/tmp/catblst-codeql-build.XXXXXX)
 build_jobs=${BLST_CODEQL_BUILD_JOBS:-2}
+profile=${BLST_CODEQL_PROFILE:-}
+
+case "$profile" in
+    scalar|avx-portable)
+        ;;
+    *)
+        echo 'BLST_CODEQL_PROFILE must be scalar or avx-portable.' >&2
+        exit 2
+        ;;
+esac
 
 cleanup()
 {
@@ -44,20 +54,26 @@ common_flags=(
     -DBLST_CRNS_BATCH_VROOM_VENDOR=OFF
 )
 
-cmake -S "$repo_root" -B "$build_root/scalar" \
-    "${common_flags[@]}" \
-    -DBLST_AVX512=OFF \
-    -DBLST_AVX512_PORTABLE=OFF \
-    -DBLST_DEFAULT_AVX=OFF
-cmake --build "$build_root/scalar" \
-    --target blst_static \
-    --parallel "$build_jobs"
+case "$profile" in
+    scalar)
+        profile_flags=(
+            -DBLST_AVX512=OFF
+            -DBLST_AVX512_PORTABLE=OFF
+            -DBLST_DEFAULT_AVX=OFF
+        )
+        ;;
+    avx-portable)
+        profile_flags=(
+            -DBLST_AVX512=OFF
+            -DBLST_AVX512_PORTABLE=ON
+            -DBLST_DEFAULT_AVX=ON
+        )
+        ;;
+esac
 
-cmake -S "$repo_root" -B "$build_root/avx-portable" \
+cmake -S "$repo_root" -B "$build_root/$profile" \
     "${common_flags[@]}" \
-    -DBLST_AVX512=OFF \
-    -DBLST_AVX512_PORTABLE=ON \
-    -DBLST_DEFAULT_AVX=ON
-cmake --build "$build_root/avx-portable" \
+    "${profile_flags[@]}"
+cmake --build "$build_root/$profile" \
     --target blst_static \
     --parallel "$build_jobs"

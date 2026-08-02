@@ -162,7 +162,66 @@ recorded separately above.
 
 ## Remaining Phase 12 packets
 
-1. Clang Static Analyzer/CodeChecker, clang-tidy, and Clippy baselines.
+1. Design the compatibility-preserving `AUD-035` hardening, complete the
+   `AUD-036` AppleClang CI gate, and then complete clang-tidy and Clippy
+   baselines. `AUD-037` is validated.
 2. Focused portable-scalar ASan/UBSan audit targets.
 3. Initial bounded public byte-boundary libFuzzer targets and seed corpora.
 4. Complete diagnostic triage and Phase 12 exit-gate evidence.
+
+## Split CodeQL and Clang analyzer confirmation
+
+At commit `6bee5ca43f94`, the local CodeQL runner created independent scalar and
+portable-AVX databases. Scalar extraction was clean; AVX retained the same 68
+known dependent-template diagnostics, now isolated rather than mixed into a
+combined database. No actionable `AUD-026` through `AUD-029` alert remains.
+
+Ubuntu Clang 18.1.3 `scan-build -analyze-headers` then compiled and analyzed
+all 17 retained scalar and all 18 retained portable-AVX source compilations.
+It traversed the AVX group-operation templates CodeQL could not model. Fifteen
+raw results reduce to two proposed low-severity cleanups (`AUD-035` and
+`AUD-036`) plus documented analyzer false positives. Exact commands, raw
+counts, dispositions, and the detached-wrapper logging limitation are in
+`CLANG_ANALYZER_BASELINE_TRIAGE.md`.
+
+No benchmarks, full test sweep, CUDA, BTx/BTE, assembly, or unsupported
+language bindings were included.
+
+## AUD-037 selected-vector separation
+
+The compatibility layer now has three non-overlapping domains:
+
+- `_mm512_*` and native intrinsic types are the hardware implementation;
+- `_cc512_*` and lane-array `cc512i`/`cc256i`, defined only with
+  `BLST_AVX512_PORTABLE`, are the pure C/C++ emulation; and
+- `_vv512_*` plus `vv512i`/`vv256i` are the compile-time-selected production
+  implementation. Native wins when both features are configured.
+
+The former `BLST_AVX_NATIVE` layout switch, ambiguous unprefixed operations,
+and uppercase `V*` adapter layer were removed. AVX algorithms and layout
+helpers now use `vv` exclusively. Native wrappers call intrinsics directly;
+the only representation bridges are explicitly named and used by the direct
+compatibility test. Portable definitions are compiled whenever
+`BLST_AVX512_PORTABLE` is enabled, including combined builds.
+
+Focused evidence:
+
+- neither, native-only, portable-only, and combined configurations compiled;
+- the lightweight combined target compiled only the emulation source and
+  direct intrinsic tests, statically selected native `vv`, retained a 64-byte
+  standard-layout `cc512i`, and discovered 9 tests;
+- portable field/curve integration passed 28/28;
+- optimized GCC probes for `madd52hi` and `madd52lo` plus add emitted exactly
+  the same instructions through `_vv512_*` as direct `_mm512_*` calls, with no
+  calls, conversions, or memory round-trips; and
+- structural checks found no remaining `BLST_AVX_NATIVE`, legacy portable
+  operation names, ambiguous unprefixed operations, uppercase `V*` adapters,
+  production `cc` use, or legacy conversion names.
+
+Peach supplied the missing native execution evidence: its Ryzen 9 7950X
+exposes AVX-512 IFMA, and supported GCC 15.2 built the Release combined target
+without warnings. CTest discovered and passed all 9 direct native-versus-
+emulation tests, including the dedicated IFMA cases. `AUD-037` is validated,
+and this supplies the restored direct IFMA evidence for `AUD-036`; AppleClang
+17 remains that finding's final gate. No benchmark was run because native code
+generation was unchanged.

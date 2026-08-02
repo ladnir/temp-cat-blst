@@ -30,7 +30,7 @@ if(BLST_PARALLEL_MSM)
     )
 endif()
 
-if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
+if(BLST_AVX512_PORTABLE)
     list(APPEND BLST_STATIC_SRC
         "backend/avx512/intrin_compat.cpp"
     )

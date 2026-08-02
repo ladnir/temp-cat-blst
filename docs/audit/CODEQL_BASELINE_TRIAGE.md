@@ -178,3 +178,25 @@ that combination.
 The user approved and validated the `AUD-024`/`AUD-025` correctness packet and
 the `AUD-026` through `AUD-029` focused hardening packet. `AUD-030` remains the
 analyzer-coverage work item.
+
+## Split current-tree confirmation
+
+The current-tree run `6bee5ca43f94-20260801T155008Z` creates independent
+scalar and portable-AVX C/C++ databases:
+
+- scalar emitted 906 results and no extraction warnings;
+- portable AVX emitted 950 results and the same 68 dependent-template
+  extraction warnings as the combined baseline; and
+- the prior large-parameter and missing-header-guard alerts are gone.
+
+The remaining non-comment CodeQL results are the already documented
+compile-time/template false positives and style observations, the intentional
+scoped prepared-root pointer controlled by the hardened `AUD-028` guard, and
+the positive-loop parity expression. Two platform-sensitive FFT overflow
+guards are redundant on the analyzed 64-bit target but remain required for
+supported-width-independent sizing logic.
+
+Compiler-native compensation is recorded in
+`CLANG_ANALYZER_BASELINE_TRIAGE.md`. It successfully traversed the AVX
+instantiations that CodeQL could not extract and opened `AUD-035` and
+`AUD-036` for separate production review.

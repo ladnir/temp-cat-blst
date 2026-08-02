@@ -1371,7 +1371,6 @@ namespace blst
 
 		/* "borrow, Rx = R - D" */
 		cc_sub_borrow_wide_limb_limb(&Rx, r_lo, d_lo, 0);
-		rx = Rx.lo;
 		borrow = Rx.hi & 1;
 
 		cc_sub_borrow_wide_limb_limb(&Rx, r_hi, d_hi + (limb_t)borrow, 0);
