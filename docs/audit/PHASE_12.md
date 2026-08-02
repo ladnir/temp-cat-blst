@@ -16,8 +16,9 @@ The first packet is limited to CI, dependency-update, and audit-record changes:
 - Rust uses CodeQL's supported no-build extraction mode;
 - the C/C++ build target is `blst_static`, so benchmarks, frozen BTx/BTE,
   experimental CUDA, and removed bindings are not part of the audit scan;
-- portable AVX remains in the initial job on a trial basis and may be deferred
-  if its hosted-runner compile cost materially slows the audit cycle;
+- portable-AVX Debug remains in routine CI and automated analysis, while
+  portable-AVX Release is excluded because optimized compilation materially
+  slows the audit cycle;
 - retained GitHub Actions are pinned to immutable full commit SHAs; and
 - Dependabot proposes grouped weekly updates for those pins.
 
@@ -167,6 +168,40 @@ recorded separately above.
 2. Focused portable-scalar ASan/UBSan audit targets.
 3. Initial bounded public byte-boundary libFuzzer targets and seed corpora.
 4. Complete diagnostic triage and Phase 12 exit-gate evidence.
+
+## AUD-038 commented-code cleanup
+
+The CodeQL baseline's 921 commented-code results were split into two classes.
+The 171 results outside generated addition-chain headers represented abandoned
+alternate implementations, stale debug fragments, duplicate wrappers, or
+interface descriptions written as commented source. They were removed or
+rewritten across 30 retained production files without replacing any active
+algorithm. The unused, wholly commented-out `test/BasicFp.h` was also deleted.
+
+The 750 results in `recip-addchain.h` and `sqrt-addchain.h` are retained. They
+record the generated reciprocal and square-root schedules and therefore serve
+as arithmetic provenance; suppressing or deleting them would lose useful
+review evidence while no repository-owned generator is available.
+
+Focused validation kept the cycle proportional to the cleanup:
+
+- the scalar Release library and tests built, and 167 field, curve, pairing,
+  FFT, middle-product, backend, and header regressions passed;
+- the portable-AVX Debug library and tests built successfully;
+- a portable-AVX Release rebuild was stopped after its three-minute focused
+  budget while still compiling, so it is not claimed as evidence; and
+- CodeQL run `01eee6b03950-20260802T223754Z` completed both production
+  profiles and reported exactly the retained 750 comments in each, with zero
+  commented-code results elsewhere.
+
+No benchmark, full-suite sweep, CUDA, or BTx/BTE audit was performed.
+
+Following this packet, portable-AVX Release was removed from routine CI and
+audit validation because optimized compilation exceeded the focused cycle
+budget. Portable-AVX Debug remains available in CI, CodeQL, and Clang analyzer
+entry points. Native AVX-512 remains the supported production-performance gate,
+and the narrow native-versus-emulation compatibility target remains available
+when the emulation layer itself changes.
 
 ## Split CodeQL and Clang analyzer confirmation
 

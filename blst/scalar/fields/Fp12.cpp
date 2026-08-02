@@ -67,43 +67,14 @@ namespace blst::scalar
 
 	BLST_HD BLST_INLINE void mul_fp2x2(UFp2& ret, const Fp2& a, const Fp2& b)
 	{
-#if 1
 		mul_v382x(ret, a, b, get_BLST_P());   /* +~6% in Miller loop */
-#else
-		union { Fp x[2]; UFp& x2; } t;
-
-		add_mod_384(t.x[0], a[0], a[1], get_BLST_P());
-		add_mod_384(t.x[1], b[0], b[1], get_BLST_P());
-		mul_384(ret[1], t.x[0], t.x[1]);
-
-		mul_384(ret[0], a[0], b[0]);
-		mul_384(t.x2, a[1], b[1]);
-
-		sub_mod_384x384(ret[1], ret[1], ret[0], get_BLST_P());
-		sub_mod_384x384(ret[1], ret[1], t.x2, get_BLST_P());
-
-		sub_mod_384x384(ret[0], ret[0], t.x2, get_BLST_P());
-#endif
 	}
 
 	BLST_HD BLST_INLINE void sqr_fp2x2(UFp2& ret, const Fp2& a)
 	{
-#if 1
 		sqr_v382x(ret, a, get_BLST_P());      /* +~5% in final exponentiation */
-#else
-		Fp& t0, t1;
-
-		add_mod_384(t0, a[0], a[1], get_BLST_P());
-		sub_mod_384(t1, a[0], a[1], get_BLST_P());
-
-		mul_384(ret[1], a[0], a[1]);
-		add_mod_384x384(ret[1], ret[1], ret[1], get_BLST_P());
-
-		mul_384(ret[0], t0, t1);
-#endif
 	}
 
-	//typedef UFp2 UFp6&[3];
 	struct UFp6 {
 		UFp2 data[3];
 
@@ -331,19 +302,6 @@ namespace blst::scalar
 		sub_fp6(ret[1], a[1], b[1]);
 	}
 
-
-	//#if 0
-	//#define mul_by_v_fp6 mul_by_v_fp6
-	//    BLST_HD BLST_INLINE void mul_by_v_fp6(Fp6& ret, const Fp6& a)
-	//    {
-	//        Fp2 t;
-	//
-	//        Fp2::mul_by_u_plus_1(t, a[2]);
-	//        vec_copy(ret[2], a[1], sizeof(a[1]));
-	//        vec_copy(ret[1], a[0], sizeof(a[0]));
-	//        vec_copy(ret[0], t, sizeof(t));
-	//    }
-	//#endif
 
 		/*
 		 * Fp12 extension
@@ -728,8 +686,6 @@ namespace blst::scalar
 		neg_fp6(ret[1], ret[1]);
 	}
 
-	//typedef Fp2 Fpfp4[2];
-
 #if defined(__FP2x2__)
 	BLST_HD FP12_CPP_INLINE void sqr_fp4(Fp4& ret, const Fp2& a0, const Fp2& a1)
 	{
@@ -1061,7 +1017,6 @@ namespace blst::scalar
 
 		// Make a copy of the base to prevent issues if a == ret
 		Fp12 base;
-		//memcpy(base, a, sizeof(Fp12));
 		for (size_t i = 0; i < sizeof(Fp12); ++i)
 			((unsigned char*)&base)[i] = ((unsigned char*)&a)[i];
 
@@ -1102,9 +1057,6 @@ namespace blst::scalar
 			limb_t exp_256[4] = { 0 };
 			size_t byte_len = (bits + 7) / 8;
 			memcpy(exp_256, exp, byte_len);
-			//for (size_t i = 0; i < byte_len; i++) {
-			//	exp_256[i / sizeof(limb_t)] |= ((limb_t)exp[i]) << ((i % sizeof(limb_t)) * 8);
-			//}
 			if (bits % 8 != 0) {
 				// Create mask for valid bits in the top byte
 				// e.g., bits % 8 == 1 -> mask 0x01
@@ -1484,97 +1436,6 @@ namespace blst::scalar
 
 		return result;
 	}
-
-	//// Full GLV with JSF recoding
-	//// Phase 2: Lean Execution Loop (Split API)
-	//BLST_HD void Fp12::cyclotomic_exp_glv_jsf(Fp12& out, const Fp12& base, int8_t jsf[132][2], int len)
-	//{
-	//	if (len == 0) {
-	//		vec_copy(&out, &Fp12::one(), sizeof(Fp12));
-	//		return;
-	//	}
-
-	//	// Precompute lookup table
-	//	// 0:unused, 1:P1, 2:P2, 3:P1*P2, 4:P1*conj(P2)
-	//	Fp12 P2, P1_P2, P1_nP2;
-	//	Fp12::frobenius_map(P2, base, 2);
-	//	Fp12::mul(P1_P2, base, P2);
-	//	{
-	//		Fp12 P2_conj = P2;
-	//		Fp12::conjugate(P2_conj);
-	//		Fp12::mul(P1_nP2, base, P2_conj);
-	//	}
-
-	//	const Fp12* LUT[5] = { nullptr, &base, &P2, &P1_P2, &P1_nP2 };
-
-	//	// Initialize with MSB
-	//	len--; // Point to last valid index
-	//	{
-	//		int u = jsf[len][0];
-	//		int v = jsf[len][1];
-	//		int idx = 0;
-	//		bool invert = false;
-
-	//		if (u == 0) {
-	//			idx = 2; // (0, +/-1) -> P2
-	//			if (v < 0) invert = true;
-	//		}
-	//		else if (v == 0) {
-	//			idx = 1; // (+/-1, 0) -> P1
-	//			if (u < 0) invert = true;
-	//		}
-	//		else if (u == v) {
-	//			idx = 3; // (1, 1) or (-1, -1) -> P1*P2
-	//			if (u < 0) invert = true;
-	//		}
-	//		else {
-	//			idx = 4; // (1, -1) or (-1, 1) -> P1*conj(P2)
-	//			if (u < 0) invert = true;
-	//		}
-
-	//		vec_copy(&out, LUT[idx], sizeof(Fp12));
-	//		if (invert) Fp12::conjugate(out);
-	//	}
-
-	//	// Main Loop
-	//	for (len--; len >= 0; --len) {
-	//		Fp12::cyclotomic_sqr(out, out);
-
-	//		int u = jsf[len][0];
-	//		int v = jsf[len][1];
-
-	//		if (u == 0 && v == 0) continue;
-
-	//		int idx = 0;
-	//		bool invert = false;
-
-	//		if (u == 0) {
-	//			idx = 2;
-	//			if (v < 0) invert = true;
-	//		}
-	//		else if (v == 0) {
-	//			idx = 1;
-	//			if (u < 0) invert = true;
-	//		}
-	//		else if (u == v) {
-	//			idx = 3;
-	//			if (u < 0) invert = true;
-	//		}
-	//		else {
-	//			idx = 4;
-	//			if (u < 0) invert = true;
-	//		}
-
-	//		if (invert) {
-	//			Fp12 tmp = *LUT[idx];
-	//			Fp12::conjugate(tmp);
-	//			Fp12::mul(out, out, tmp);
-	//		}
-	//		else {
-	//			Fp12::mul(out, out, *LUT[idx]);
-	//		}
-	//	}
-	//}
 
 	// Optimized for GPU/Stack-heavy environments: 
 	// Recodes on the fly to avoid memory bandwidth of passing JSF array.

@@ -1,7 +1,6 @@
 #include <iostream>
 #include <vector>
 #include <gtest/gtest.h>
-#include "BasicFp.h"
 #include "blst/fields/Fr.h"
 #include "blst/curve/point.h"
 #include "blst/curve/GT.h"
@@ -12,8 +11,6 @@
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 #include "blst/avx/fft/gt_context.h"
 #endif
-//
-//using F65537 = BasicFp<65537, u32, u64>;
 using namespace blst;
 /**
  * Naive polynomial multiplication (discrete convolution)

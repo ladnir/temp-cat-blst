@@ -12,38 +12,12 @@
 
 namespace blst::avx {
 
-/*
-template<class... Args>
-class FP12Element {
-	public:
-	constexpr static int size = sizeof...(Args);
-	std::tuple<Args...> elements;
-
-	INLINE FP12Element(const Args &... args)
-		: elements(args...) {}
-
-	INLINE FP12Element()
-		: elements(Args()...) {}
-
-	template<int index>
-	INLINE auto operator[](std::integral_constant<int, index>) const {
-		return std::get<index>(elements);
-	}
-
-	template<int index>
-	INLINE auto operator[](std::integral_constant<int, index>) {
-		return std::get<index>(elements);
-	}
-};
-*/
-
 // concat is defined in multiplication.hpp
 
 template<class Ring, int VERSION=3>
 class FP12Ring {
 
 	public:
-	// using StandardElement = std::array<typename Ring::StandardElement, 12>;
 	using FP2StandardElement = typename FP2Ring<Ring>::StandardElement;
 
 	// For simplicity we recast up to the maximum and use an array
@@ -118,19 +92,6 @@ class FP12Ring {
 				OffsetElementType(AVXVector<Ring::StandardBoundedElement::LIMBS>(constants.fp12_offset_m2_high)),
 				OffsetElementType(AVXVector<Ring::StandardBoundedElement::LIMBS>(constants.fp12_offset_m2_low))));
 	}
-    /*
-	auto expand(const CommonElement &x, const Ring &ring) const {
-		return ring.template batch_expand<12>(x);
-	}
-
-	// no-op for already expanded elements
-	template<class ElementType, class RNSBounds>
-	auto expand(const std::array<ExpandedElement<ElementType, RNSBounds>, 12> &x, const Ring &ring) const {
-		return x;
-	}
-	*/
-
-	
 	template<int64_t upper_bound, class E1, class E2, class E3, class E4, class E5, class E6, class E7, class E8, class E9, class E10, class E11, class E12>
 	INLINE auto to_common(const Ring &ring, const E1 &e1, const E2 &e2, const E3 &e3, const E4 &e4, const E5 &e5, const E6 &e6, const E7 &e7, const E8 &e8, const E9 &e9, const E10 &e10, const E11 &e11, const E12 &e12) const {
 		using ResultType = typename Ring::template SmallReducedElement<upper_bound>;
@@ -255,38 +216,6 @@ class FP12Ring {
 	Polynomial 11(12) : 1 x0y11 +1 x1y10 +1 x2y9 +1 x3y8 +1 x4y7 +1 x5y6 +1 x6y5 +1 x7y4 +1 x8y3 +1 x9y2 +1 x10y1 +1 x11y0
 	*/
 	
-/*
-	template<bool recast = true, class Y>
-	inline auto fp12_flat_mul(const CommonElement &x, const Y &y, const Ring &ring) const {
-		// expand (acc = offset m1) if needed, do math (m1) on output, elementwise reduce, store
-		auto m1_result = fp12_flat_mul_i<1>(x, y, ring);
-		// reduce (acc = offset m2), do math (m2) on output, elementwise reduce, scalar multiply, store
-		StandardElement m2_result = fp12_flat_mul_i<2>(x, y, ring, m1_result);
-		if constexpr (recast) {
-			return CommonElement(m2_result);
-		} else {
-			return m2_result;
-		}
-	}
-
-	template<int mod_idx, class Y>
-	inline StandardElement fp12_flat_mul_i(const CommonElement &x, const Y &y_in, const Ring &ring, const StandardElement&m1_result=StandardElement{}, const RNSMatrix2 &mat, const MontgomeryReduce2 &reducer) const {
-		WideCommonElement y;
-		if constexpr (mod_idx == 2) || (!expanded) {
-			y = matmul(y_in, ring, mat);
-		} else {
-			y = M1(y_in);
-		}
-		auto minus_y1 = ring.negate(y[1], reducer);
-		auto minus_y3 = ring.negate(y[3], reducer);
-		auto minus_y5 = ring.negate(y[5], reducer);
-		auto minus_y7 = ring.negate(y[7], reducer);
-		auto minus_y9 = ring.negate(y[9], reducer);
-		auto minus_y11 = ring.negate(y[11], reducer);
-
-		// Then remove offset and do +=?
-*/
-
 	template<int64_t N1, int64_t N2>
 	inline auto fp12_flat_mul(const CommonElement<N1> &x, const CommonElement<N2> &y, const Ring &ring) const {
 		auto minus_y1 = ring.negate(y[1]);
@@ -604,42 +533,6 @@ class FP12Ring {
 		return ring.batch_reduce_expand(poly_0_unique,poly_1_unique,poly_2_unique,poly_3_unique,poly_4_unique,poly_5_unique,poly_6_unique,poly_7_unique,poly_8_unique,poly_9_unique,poly_10_unique,poly_11_unique);
 	}
 
-	/*
-	// Incomplete functions - commented out until properly implemented
-	cyclotomic_square(std::array<SmallElement, 12> & a) {
-		// If both expand and reduce mult by 3 after mont before mask then <0, 1> output.
-		// Inline everything??
-		auto expanded = expand(a); // mem -> inline
-		auto m1_res = fp12_flat_cyclotomic_sqr<1>(expanded);
-		auto m1_res_reduced = batch_ele_reduce<1>(m1_res);
-		auto m2_res = fp12_flat_cyclotomic_sqr<2>(a);
-		auto m2_res_rns_reduced = reduce<false>(m2_res, m1_res_reduced);
-		auto result = batch_ele_reduce<2, 3>(m2_res_rns_reduced);
-	}
-
-	cyclotomic_square(std::array<ExpandedElement, 12> & a) {
-		// If both expand and reduce mult by 3 after mont before mask then <0, 1> output.
-		fp12_flat_cyclotomic_sqr<1>(a.m1); // mem -> mem
-		fp12_flat_cyclotomic_sqr<2>(a.m2); // mem -> inline
-		reduce(a); // inline, mem -> mem
-	}
-	*/
-
-	// While this is fine, it pushes the burden onto the cyclo square function
-	// And although it allows two function calls, they will be unique code.
-	/*
-	cyclotomic_square(std::array<SmallElement, 12> & a) {
-		// If both expand and reduce mult by 3 after mont before mask then <0, 1> output.
-		fp12_flat_cyclotomic_sqr<1, true>(a); // mem -> expand inline -> mem
-		fp12_flat_cyclotomic_sqr<2>(a); // mem -> reduce inline -> mem
-	}
-
-
-	cyclotomic_square(std::arrau<ExpandedElement, 12> & a) {
-		fp12_flat_cyclotomic_sqr<1, false>(a);
-	}
-	*/
-	
 	inline StandardElement fp12_flat_frobenius_map1(const StandardElement &x, const Ring &ring) const {
 		auto frob1_2_2 = x[2] * frob1_2;
 		auto frob1_2_3 = x[3] * frob1_2;
@@ -734,10 +627,6 @@ class FP12Ring {
 			x[0], x[1], x[2], x[3], x[4], x[5], ring.standard_negate(x[6]), ring.standard_negate(x[7]), ring.standard_negate(x[8]), ring.standard_negate(x[9]), ring.standard_negate(x[10]), ring.standard_negate(x[11])
 		};
 	}
-
-	// inline StandardElement fp12_flat_conjugate(const StandardElement &x, const Ring &ring) const {
-	// 	return StandardElement{x[0], x[1], x[2], x[3], x[4], x[5], ring.standard_negate(x[6]), ring.standard_negate(x[7]), ring.standard_negate(x[8]), ring.standard_negate(x[9]), ring.standard_negate(x[10]), ring.standard_negate(x[11])};
-	// }
 
 	/* 
 	Polynomial 0(13) : 1 x0x0 -1 x1x1 -1 x8x8 +1 x9x9 +2 x2x4 -2 x2x5 -2 x3x4 -2 x3x5 -2 x6x10 +2 x6x11 +2 x7x10 +2 x7x11 +2 x8x9

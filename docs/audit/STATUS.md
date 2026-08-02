@@ -11,6 +11,11 @@ platform and initial baseline; automation then remains active while Phases
 expansion, and release qualification. Phase 20 performs the CatBLST rename and
 selectable ABI prefix after the audited surfaces are under control.
 
+The latest Phase 12 hygiene packet, `AUD-038`, removed 171 actionable
+commented-code findings and one wholly commented-out unused test header. The
+CodeQL rerun leaves exactly 750 generated addition-chain trace comments and no
+commented-code result elsewhere; those traces remain as arithmetic provenance.
+
 ## Main program phases
 
 | Phase | State | Exit criterion |
@@ -28,6 +33,9 @@ selectable ABI prefix after the audited surfaces are under control.
 ## Scope decisions
 
 - Primary production profiles: scalar and AVX-512.
+- Portable-AVX Debug remains available for routine CI and automated analysis.
+  Portable-AVX Release is excluded because its optimized compile cost is too
+  high for ordinary audit cycles.
 - Supported language surfaces: C, C++, and Rust.
 - C++ support is native; the legacy `bindings/blst.hpp` wrapper over the C ABI
   was removed in Phase 6A.

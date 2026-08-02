@@ -7,7 +7,6 @@
 #define BLST_SCALAR_FP_H
 
 #include "blst/common/vect.h"
- //#include "blst/fields/consts.h"
 #include "blst/config.h"
 #include "blst/common/defines.h"
 #include "blst/backend/backend.h"
@@ -15,11 +14,6 @@
 #include <type_traits>
 
 #include "blst/scalar/fields/sqrt-addchain.h"
-//
-//#ifdef __CUDA_ARCH__
-//#include "blst/backend/cuda/add_mod_cuda.h"
-//#include "blst/backend/cuda/mul_mont_cuda.h"
-//#endif
 
 namespace blst::scalar
 {
@@ -40,8 +34,6 @@ namespace blst::scalar
 	{
 		limb_t data[NLIMBS(384)];
 
-		//BLST_HD operator limb_t* () { return data; }
-		//BLST_HD operator const limb_t* () const { return data; }
 		BLST_HD BLST_FORCEINLINE auto&& operator[](u64 idx) { return data[idx]; }
 		BLST_HD BLST_FORCEINLINE auto&& operator[](u64 idx) const { return data[idx]; }
 
@@ -496,7 +488,6 @@ namespace blst::scalar
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		ctx_inverse_mod_384(&ret, &inp, &mod, &modx);
 #else
-		//cc_ct_inverse_mod_384(ret, inp, mod, modx);
 		cc_ct_inverse_mod_n<NLIMBS(384)>(ret.data, inp.data, mod.data, modx.data);
 #endif
 	}

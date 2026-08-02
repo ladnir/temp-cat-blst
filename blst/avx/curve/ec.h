@@ -65,59 +65,6 @@ INLINE bool PointCoordIsZero(const Element& value);
 template<class RingElement>
 INLINE bool PointIsZero(const AffinePoint<RingElement>& point);
 
-// ~5% faster, but doesn't work with new type system yet because it needs to preserve rns bounds across expansion.
-/*
-template<class Ring, class OffsetElement>
-ProjectivePoint<Ring::StandardElement> PointAdd(const ProjectivePoint<Ring::StandardElement> &P, const ProjectivePoint<Ring::StandardElement> &Q, const Ring &ring, const OffsetElement &offset) {
-    auto t3_4 = P.x + P.y;
-    auto t3_14 = P.x + P.z;
-    auto t4_9 = P.y + P.z;
-    auto t4_5 = Q.x + Q.y;
-    auto x3_10 = Q.y + Q.z;
-    auto y3_15 = Q.x + Q.z;
-
-    auto t0_1 = ring.prep_left(P.x) * Q.x;
-    auto t1_2 = ring.prep_left(P.y) * Q.y;
-    auto t2_3 = ring.prep_left(P.z) * Q.z;
-    auto t3_6 = ring.prep_left(t3_4) * ring.prep(t4_5);
-    auto t5_11 = ring.prep_left(t4_9) * ring.prep(x3_10);
-    auto x3_16 = ring.prep_left(t3_14) * ring.prep(y3_15);
-
-    auto [t0_1_reduced, t1_2_reduced, t2_3_reduced, t3_6_reduced, t5_11_reduced, x3_16_reduced] = ring.batch_reduce(t0_1, t1_2, t2_3, t3_6, t5_11, x3_16);
-    auto t4_7 = t0_1_reduced + t1_2_reduced;
-    auto x3_12 = t1_2_reduced + t2_3_reduced;
-    auto y3_17 = t0_1_reduced + t2_3_reduced;
-    auto y3_18 = x3_16_reduced - y3_17;
-    auto x3_19 = t0_1_reduced + t0_1_reduced;
-    auto t2_21 = ring.mul_3b(t2_3_reduced);
-
-    auto t3_8_s = t3_6_reduced - t4_7;
-    auto t4_13_s = t5_11_reduced - x3_12;
-    auto t0_20_s = t0_1_reduced + x3_19;
-    auto z3_22_s = t1_2_reduced + t2_21;
-    auto t1_23_s = t1_2_reduced - t2_21;
-    auto y3_24_s = ring.mul_3b(y3_18);
-
-    auto [t4_13, t3_8, y3_24, t1_23, t0_20, z3_22] = ring.batch_expand(t4_13_s, t3_8_s, y3_24_s, t1_23_s, t0_20_s, z3_22_s);
-    
-    auto t4_13l = ring.prep_left(t4_13);
-    auto t1_23l = ring.prep_left(t1_23);
-    auto t0_20l = ring.prep_left(t0_20);
-    auto x3_25 = t4_13l * ring.negate(y3_24);
-    auto t2_26 = t1_23l * t3_8;
-    auto y3_28 = t0_20l * y3_24;
-    auto t1_29 = t1_23l * z3_22;
-    auto t0_31 = t0_20l * t3_8;
-    auto z3_32 = t4_13l * z3_22;
-    auto x3_27_wide = offset + t2_26 + x3_25;
-    auto y3_30_wide = offset + t1_29 + y3_28;
-    auto z3_33_wide = offset + z3_32 + t0_31;
-    
-    auto [x3_27, y3_30, z3_33] = ring.batch_reduce_expand(x3_27_wide, y3_30_wide, z3_33_wide);
-    return ProjectivePoint<Ring::StandardElement>(x3_27, y3_30, z3_33);
-}
-*/
-
 // https://eprint.iacr.org/2015/1060.pdf Algorithm 7
 template<class Ring>
 ProjectivePoint<typename Ring::StandardElement> PointAdd(const ProjectivePoint<typename Ring::StandardElement> &P, const ProjectivePoint<typename Ring::StandardElement> &Q, const Ring &ring) {
@@ -183,7 +130,6 @@ ProjectivePoint<typename Ring::StandardElement> PointMixedAdd(const ProjectivePo
 
     auto t0_1_wide = ring.prep_left(P.x) * Q.x;
     auto t1_2_wide = ring.prep_left(P.y) * Q.y;
-    // auto t2_3_wide = ring.prep_left(P.z) * Q.z;
     auto t3_6_wide = ring.prep_left(t3_4) * ring.prep(t4_5);
     auto t5_11_wide = ring.prep_left(t4_9) * ring.prep(x3_10);
     auto x3_16_wide = ring.prep_left(t3_14) * ring.prep(y3_15);

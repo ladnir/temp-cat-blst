@@ -23,28 +23,6 @@ namespace blst
 
 	inline std::vector<Factor> uniqueFactor(u64 x)
 	{
-		//std::vector<Factor> r;
-		////r.push_back(1);
-
-		//auto X = x;
-		//for (u64 i = 2; i <= x / 2; ++i)
-		//{
-		//	if (X % i == 0)
-		//	{
-		//		//r.push_back(i);
-		//		//u64 f = i;
-		//		u64 e = 1;
-		//		X /= i;
-		//		while (X % i == 0)
-		//		{
-		//			X /= i;
-		//			++e;
-		//		}
-		//		r.push_back({ i, e });
-		//	}
-		//}
-		//return r;
-
 		std::vector<Factor> r;
 		u64 X = x;
 		if (X < 2) return r;
@@ -157,21 +135,12 @@ namespace blst
 	template<>
 	inline bool isPrimRootOfUnity<Fr>(std::span<Factor> factors, const Fr& u)
 	{
-		//auto p = Fr::modulus();
 		u64 n = 1;
 		for (auto fe : factors)
 		{
 			for (u64 i = 0; i < fe.mExp; ++i)
 				n *= fe.mFactor;
 		}
-
-		//Fr pMinusOne, N, pMinusOneModN;
-		//Fr::sub(pMinusOne, p, Fr::one());
-		//Fr::from_uint64(N, n);
-		//Fr::mod(pMinusOneModN, pMinusOneMod, N);
-
-		//if (pMinusOne % N)
-		//    return false;
 
 		// make suer u is in Fp*
 		if (u == Fr::zero())
@@ -276,15 +245,6 @@ namespace blst
 			return false;
 		return true;
 	}
-	//
-	//template<typename F>
-	//struct ScalerOf
-	//{
-	//	using type = F;
-	//};
-	//
-	//
-
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 #define XX_RTE_LOC std::runtime_error(__FILE__ ":" STR(__LINE__))
@@ -311,7 +271,6 @@ namespace blst
 			throw XX_RTE_LOC;
 #endif
 
-		//auto logn = log2ceil(n);
 		F root = F(1);
 		for (u64 i = 0; i < n; ++i)
 		{

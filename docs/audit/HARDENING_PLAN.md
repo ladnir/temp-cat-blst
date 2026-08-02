@@ -288,9 +288,11 @@ conversion boundaries, instruction gating, generated inputs, and dispatch.
 Differential-test every exposed operation against the reviewed scalar oracle,
 including edge inputs, inactive lanes, alignment, and lazy-reduction limits.
 
-Exit gate: AVX source files are complete; portable AVX evidence is labeled
-accurately; native AVX-512 hardware execution covers the supported production
-path; and scalar/AVX differential campaigns pass.
+Exit gate: AVX source files are complete; native AVX-512 hardware execution
+covers the supported production path; and scalar/AVX differential campaigns
+pass. Portable-AVX Debug remains available for routine compile and analysis
+coverage, but portable-AVX Release is not an ordinary audit or release gate
+because of its excessive optimized compile cost.
 
 ## Phase 17 - FFT and middle product
 

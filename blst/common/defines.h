@@ -74,11 +74,6 @@ extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
 # define BLST_launder(var)
 #endif
 
-//#if !defined(BLST_ASSERT)
-//#  include <assert.h>
-//#  define BLST_ASSERT(condition) assert(condition)
-//# endif
-
 #if !defined(BLST_ASSERT)
 #  ifdef NDEBUG
      // In release builds, disable assertions
@@ -281,15 +276,6 @@ namespace blst
         BLST_HD const UFp& operator[](size_t idx) const { return data[idx]; }
 
     };
-
-    //using vec_256 = Fr&;
-    //using vec_384 = Fp&;
-    //using vec_384x = Fp2&;
-    //using vec_512 = UFr&;
-    //using vec_768 = UFp&;
-    //using vec_768x = UFpx2&;
-
-
 
 #define TO_BYTES(limb64)    (byte)limb64,(byte)(limb64>>8),\
                             (byte)(limb64>>16),(byte)(limb64>>24),\

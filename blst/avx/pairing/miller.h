@@ -95,11 +95,7 @@ class Miller {
         auto y3_15 = y3_14.mul_accumulate(_8yy, b3_zz);
 
         auto [line_x, line_y, x3, y3, z3] = fp2ring.batch_reduce_expand(xq_term, yq_term, x3_18, y3_15, z3_10);
-        // if constexpr (first_loop) {
-        //     f = FP12RingStandardElement {line_c.x(), line_c.y(), line_x.x(), line_x.y(), ring.zero(), ring.zero(), ring.zero(), ring.zero(), line_y.x(), line_y.y(), ring.zero(), ring.zero()};
-        // } else {
-            fp12ring.flat_mulxy00z0(f, f, line_c, line_x, line_y, ring);
-       // }
+        fp12ring.flat_mulxy00z0(f, f, line_c, line_x, line_y, ring);
         return ProjectivePoint<typename FP2Ring<Ring>::StandardElement>(x3, y3, z3);
     }
 
@@ -171,10 +167,7 @@ class Miller {
             FP2Ring<Ring>::one(ring)
         );
         auto f = fp12ring.one(ring);
-        // Could optimize first iteration like blst
-        // or use goofy goto to avoid code duplication if inlining all
         P = double_step(P, f, ring, fp2ring, fp12ring);
-        // P = double_step<true>(P, f, ring, fp2ring, fp12ring);
         std::array<int, 5> iterations = {2, 3, 9, 32, 16};
 #if defined(__clang__)
         #pragma clang loop unroll(disable)

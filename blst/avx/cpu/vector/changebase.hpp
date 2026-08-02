@@ -2,7 +2,6 @@
 #include "vector_impl.hpp"
 #include "../../common/constexpr_utils.h"
 #include <type_traits>
-#include <iostream>
 
 #if BLST_AVX_VALIDATE_CONSTANTS
 #include "../precompute/precompute.hpp"
@@ -128,7 +127,6 @@ class RNSMatrix {
 
     INLINE uint64_t add_correction(AVXVector<out_limbs * OUT_DIGITS> &out_hi, AVXVector<out_limbs * OUT_DIGITS> &out_lo, uint128_t raw, const AVXVector<out_limbs * OUT_DIGITS> &c_value) const {
         uint64_t k = raw >> precision;
-        /*std::cout << "  [DEBUG C++ add_correction] k_raw=" << (uint64_t)(raw >> 64) << ":" << (uint64_t)raw << ", k=" << k << std::endl;*/
         AVXScalar sk = Scalar(k);
         out_hi = out_hi.mulhi_scalar(c_value, sk);
         out_lo = out_lo.mullo_scalar(c_value, sk);
@@ -298,55 +296,6 @@ class RNSMatrix {
         add_correction_batch<batch>(out_hi, out_lo, k_raw, correction);
     }
     
-    /*
-    template<int batch, int version=1>
-    inline __attribute__((always_inline)) std::pair<std::array<AVXVector<out_limbs * OUT_DIGITS>, batch>, std::array<AVXVector<out_limbs * OUT_DIGITS>, batch>> rns_reduce_raw_batch(
-        const std::array<AVXVector<in_limbs * IN_DIGITS>, batch> &residues1,
-        std::array<AVXVector<out_limbs * OUT_DIGITS>, batch> &out_hi_in,
-        std::array<AVXVector<out_limbs * OUT_DIGITS>, batch> &out_lo_in) const {
-        std::array<std::array<uint64_t, AVXVector<in_limbs * IN_DIGITS>::VEC_LIMBS * AVXVector<in_limbs * IN_DIGITS>::LIMBS_PER_VEC>, batch> scalars;
-        // AVXBatch<in_limbs * IN_DIGITS, batch> scalars;
-        std::array<AVXVector<out_limbs * OUT_DIGITS>, batch> out_hi;
-        std::array<AVXVector<out_limbs * OUT_DIGITS>, batch> out_lo;
-        std::array<uint64_t, batch> k;
-        for (int i = 0; i < batch; i++) {
-            residues1[i].store(scalars[i].data());
-            out_hi[i] = out_hi_in[i];
-            out_lo[i] = out_lo_in[i];
-        }
-        for (int j = 0; j < batch; j++) {
-            uint128_t k_raw = 0;
-            for (int i = 0; i < in_limbs * IN_DIGITS; i++) {
-                uint64_t s = scalars[j][i];
-                k_raw += (uint128_t)(s) * (uint128_t)(shifted_quotient_estimations[i]);
-            }
-            k[j] = k_raw >> precision;
-        }
-        #pragma clang loop unroll (enable)
-        for (int j = 0; j < 12; j++) {
-            AVXScalar sk = Scalar(k[j]);
-            out_hi[j] = out_hi[j].mulhi_scalar(correction, sk);
-            out_lo[j] = out_lo[j].mullo_scalar(correction, sk);
-            sk = scalar_shift(sk, mulbits);
-            out_lo[j] = out_lo[j].mullo_scalar(correction_shift, sk);
-            out_hi[j] = out_hi[j].mulhi_scalar(correction_shift, sk);
-        }
-        for (int i = 0; i < in_limbs * IN_DIGITS; i++) {
-            #pragma clang loop unroll (enable)
-            for (int j = 0; j < batch; j++) {
-                uint64_t s = scalars[j][i];
-                AVXScalar sv = Scalar(s);
-                out_hi[j] = out_hi[j].mulhi_scalar(rns_mat[i], sv);
-                out_lo[j] = out_lo[j].mullo_scalar(rns_mat[i], sv);
-            }
-        }
-        for (int i = 0; i < batch; i++) {
-            out_hi_in[i] = out_hi[i];
-            out_lo_in[i] = out_lo[i];
-        }
-    }
-    */
-
     template<class Reducer>
     inline AVXVector<out_limbs * OUT_DIGITS> rns_reduce_with_acc(const AVXVector<in_limbs * IN_DIGITS> &residues1, const AVXVector<out_limbs * OUT_DIGITS> &acc1, const AVXVector<out_limbs * OUT_DIGITS> &acc2, const Reducer& reducer) const {
         AVXVector<out_limbs * OUT_DIGITS> out_hi = AVXVector<out_limbs * OUT_DIGITS>(0);
@@ -359,42 +308,10 @@ class RNSMatrix {
 
     template<class Reducer>
     inline AVXVector<out_limbs * OUT_DIGITS> rns_reduce(const AVXVector<in_limbs * IN_DIGITS> &residues1, const Reducer& reducer) const {
-        /*// Debug: print scalars after word_reinterpret
-        std::array<uint64_t, in_limbs * IN_DIGITS> scalars;
-        residues1.store(scalars.data());
-        std::cout << "  [DEBUG C++ rns_reduce] scalars=[";
-        for (int i = 0; i < in_limbs * IN_DIGITS; i++) {
-            std::cout << scalars[i];
-            if (i < in_limbs * IN_DIGITS - 1) std::cout << ", ";
-        }
-        std::cout << "]" << std::endl;*/
-        
         AVXVector<out_limbs * OUT_DIGITS> out_hi = AVXVector<out_limbs * OUT_DIGITS>(0);
         AVXVector<out_limbs * OUT_DIGITS> out_lo = AVXVector<out_limbs * OUT_DIGITS>(0);
         rns_reduce_raw(residues1, out_hi, out_lo);
-        /*std::array<uint64_t, out_limbs * OUT_DIGITS> final_hi, final_lo;
-        out_hi.store(final_hi.data());
-        out_lo.store(final_lo.data());
-        std::cout << "  [DEBUG C++ rns_reduce] before reducer.reduce_full: out_hi=[";
-        for (int i = 0; i < out_limbs * OUT_DIGITS; i++) {
-            std::cout << final_hi[i];
-            if (i < out_limbs * OUT_DIGITS - 1) std::cout << ", ";
-        }
-        std::cout << "], out_lo=[";
-        for (int i = 0; i < out_limbs * OUT_DIGITS; i++) {
-            std::cout << final_lo[i];
-            if (i < out_limbs * OUT_DIGITS - 1) std::cout << ", ";
-        }
-        std::cout << "]" << std::endl;*/
         AVXVector<out_limbs * OUT_DIGITS> result = reducer.reduce_full(out_hi, out_lo);
-        /*std::array<uint64_t, out_limbs * OUT_DIGITS> result_arr;
-        result.store(result_arr.data());
-        std::cout << "  [DEBUG C++ rns_reduce] final result=[";
-        for (int i = 0; i < out_limbs * OUT_DIGITS; i++) {
-            std::cout << result_arr[i];
-            if (i < out_limbs * OUT_DIGITS - 1) std::cout << ", ";
-        }
-        std::cout << "]" << std::endl;*/
         return result;
     }
 

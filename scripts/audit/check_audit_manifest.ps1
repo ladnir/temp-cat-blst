@@ -76,6 +76,13 @@ foreach ($path in @(& git -C $repoRoot ls-files --cached --others --exclude-stan
         [void]$expectedPaths.Add($path.Replace('\', '/'))
     }
 }
+foreach ($path in @(& git -C $repoRoot ls-files --deleted))
+{
+    if (-not [string]::IsNullOrWhiteSpace($path))
+    {
+        [void]$expectedPaths.Remove($path.Replace('\', '/'))
+    }
+}
 
 [void]$expectedPaths.Add('docs/audit/FILE_MANIFEST.csv')
 

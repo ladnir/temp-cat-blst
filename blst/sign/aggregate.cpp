@@ -7,7 +7,6 @@
 #include "blst/sign/aggregate.h"
 #include "blst/curve/map_to_G.h"
 #include "blst/curve/GT.h"
-//#include "blst/curve/map_to_G.h"
 
 namespace blst
 {

@@ -6,6 +6,7 @@
 
 #include "blst/scalar/curve/point.h"
 #include "blst/scalar/curve/GT.h"
+#include <algorithm>
 
 #ifndef MILLER_LOOP_N_MAX
 # define MILLER_LOOP_N_MAX 16
@@ -83,11 +84,7 @@ Fp6{                                                                      \
         const G2AffinePoint& Q)
     {
         Fp2 Z1Z1, U2, S2, H, HH, I, J, V;
-#if 1
 # define r line[1]
-#else
-        Fp2 r;
-#endif
 
         /*
          * https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
@@ -201,50 +198,6 @@ Fp6{                                                                      \
         Fp::mul(line[2][0], line[2][0], Px2.Y);   /* "b11" *= 2*P.Y */
         Fp::mul(line[2][1], line[2][1], Px2.Y);
     }
-
-//#if 0
-//    BLST_HD  void add_n_dbl(Fp12* ret, G2Point& T, const G2AffinePoint* Q,
-//        const G1AffinePoint* Px2, Fp6& line, size_t n)
-//    {
-//        line_add(line, T, T, Q);    line_by_Px2(line, Px2);
-//        Fp12::mul_by_xy00z0(ret, ret, line);
-//        while (n--) {
-//            sqr_fp12(ret, ret);
-//            line_dbl(line, T, T);   line_by_Px2(line, Px2);
-//            Fp12::mul_by_xy00z0(ret, ret, line);
-//        }
-//    }
-//
-//    BLST_HD void miller_loop(Fp12* ret, const G2Point& Q, const G1Point* P)
-//    {
-//#define Q ((const G2AffinePoint *)Q)
-//        G2Point T[1];
-//        G1AffinePoint Px2[1];
-//        Fp6& line; /* it's not actual fp6, but 3 packed fp2, "xy00z0"  */
-//
-//        /* Move common expression from line evaluation to line_by_Px2. */
-//        Fp::add(Px2.X, P.X, P.X);
-//        Fp::neg(Px2.X, Px2.X);
-//        Fp::add(Px2.Y, P.Y, P.Y);
-//
-//        vec_copy(T.X, Q.X, 2 * sizeof(T.X));
-//        vec_copy(T.Z, get_BLST_Rx().p2, sizeof(T.Z));
-//
-//        /* first step is ret = 1^2*line, which is replaced with ret = line  */
-//        line_dbl(line, T, T);                       /* 0x2                  */
-//        line_by_Px2(line, Px2);
-//        vec_zero(ret, sizeof(Fp12));
-//        vec_copy(ret[0][0], line[0], 2 * sizeof(Fp2));
-//        vec_copy(ret[1][1], line[2], sizeof(Fp2));
-//        add_n_dbl(ret, T, Q, Px2, line, 2);         /* ..0xc                */
-//        add_n_dbl(ret, T, Q, Px2, line, 3);         /* ..0x68               */
-//        add_n_dbl(ret, T, Q, Px2, line, 9);         /* ..0xd200             */
-//        add_n_dbl(ret, T, Q, Px2, line, 32);        /* ..0xd20100000000     */
-//        add_n_dbl(ret, T, Q, Px2, line, 16);        /* ..0xd201000000010000 */
-//        Fp12::conjugate(ret);                /* account for z being negative */
-//#undef Q
-//    }
-//#endif
 
     BLST_HD void start_dbl_n(
         GT& ret, 
@@ -611,16 +564,5 @@ Fp6{                                                                      \
             }
         }
     }
-
-    //BLST_HD void blst_precompute_lines(Fp6 Qlines[68], const G2AffinePoint& Q)
-    //{
-    //    precompute_lines(Qlines, Q);
-    //}
-
-    //BLST_HD  void blst_miller_loop_lines(GT& ret, const Fp6 Qlines[68],
-    //    const G1AffinePoint& P)
-    //{
-    //    miller_loop_lines(ret, Qlines, P);
-    //}
 
 }

@@ -73,9 +73,9 @@ jobs:
             --target blst_static \
             --parallel 2
 
-          # Debug avoids the expensive optimized portable-AVX compile while
-          # still presenting the AVX source configuration to CodeQL. Defer
-          # this second build if it proves too costly on hosted runners.
+          # Portable AVX is intentionally analyzed in Debug. Release
+          # optimization makes the full product compile too expensive for the
+          # ordinary audit cycle.
           cmake -S . -B out/build/codeql-avx-portable \
             "${common_flags[@]}" \
             -DBLST_AVX512=OFF \

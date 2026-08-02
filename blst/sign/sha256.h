@@ -88,24 +88,6 @@ namespace blst
                             (ptr)[2] = (unsigned char)((val)>>8),  \
                             (ptr)[3] = (unsigned char)(val))
 
-    //#if 1
-    //void sha256_emit(unsigned char md[32], const unsigned int h[8]);
-    //#else
-    //void sha256_emit(unsigned char md[32], const unsigned int h[8])
-    //{
-    //    unsigned int h_i;
-    //
-    //    h_i = h[0]; __TOBE32(md + 0, h_i);
-    //    h_i = h[1]; __TOBE32(md + 4, h_i);
-    //    h_i = h[2]; __TOBE32(md + 8, h_i);
-    //    h_i = h[3]; __TOBE32(md + 12, h_i);
-    //    h_i = h[4]; __TOBE32(md + 16, h_i);
-    //    h_i = h[5]; __TOBE32(md + 20, h_i);
-    //    h_i = h[6]; __TOBE32(md + 24, h_i);
-    //    h_i = h[7]; __TOBE32(md + 28, h_i);
-    //}
-    //#endif
-
     BLST_HD BLST_INLINE void sha256_final(unsigned char md[32], SHA256_CTX* ctx)
     {
         unsigned long long bits = ctx->N * 8;
@@ -127,7 +109,6 @@ namespace blst
     }
 
 #undef __TOBE32
-    //BLST_EXTERN_C_END
 }
 
 #endif

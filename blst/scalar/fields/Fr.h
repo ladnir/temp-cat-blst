@@ -10,9 +10,6 @@
 #include "blst/backend/backend_cuda.h"
 #include <bit>
 #include <cstring>
-//BLST_EXTERN_C_BEGIN
-
-#include <iostream>
 #include <string.h>
 
 namespace blst::scalar
@@ -93,14 +90,10 @@ namespace blst::scalar
 		BLST_HD static void rshift(Fr& ret, const Fr& a, size_t count);
 
 		// out = a / 2 
-		//BLST_HD static void div_by_2(Fr& ret, const Fr& a);
-
 		// out = a * 3
 		BLST_HD static void mul_by_3(Fr& ret, const Fr& a);
 
 		// out = a * 8
-		//BLST_HD static void mul_by_8(Fr& ret, const Fr& a);
-
 		// out = 1 / inp, computed via Lehmer almost-inverse (faster)
 		BLST_HD static void reciprocal(Fr& out, const Fr& inp);
 
@@ -250,7 +243,6 @@ namespace blst::scalar
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		return add_n_check_mod_256(ret, a, b, &p);
 #else
-		//return cc_add_n_check_mod_256(ret, a, b, p);
 		return cc_add_n_check_mod_n<NLIMBS(256)>(ret, a, b, p.data);
 #endif
 	}
@@ -263,7 +255,6 @@ namespace blst::scalar
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		return sub_n_check_mod_256(ret, a, b, &p);
 #else
-		//return cc_sub_n_check_mod_256(ret, a, b, p);
 		return cc_sub_n_check_mod_n<NLIMBS(256)>(ret, a, b, p.data);
 #endif
 	}
@@ -610,11 +601,9 @@ namespace blst::scalar
 	// ret = a mod p
 	BLST_HD BLST_FORCEINLINE  void Fr::redc(Fr& ret, const struct UFr& a)
 	{
-		//redc_mont_v256(ret, a, get_BLST_r(), BLST_r0);
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		redcx_mont_256(&ret, &a, &modulus(), BLST_r0);// linked by asm
 #else
-		//cc_redc_mont_256(ret, a, p, n0);
 		cc_redc_mont_n<NLIMBS(256)>(ret.data, a.data, modulus().data, BLST_r0);
 #endif
 	}
@@ -622,11 +611,9 @@ namespace blst::scalar
 	// ret = flag ? -a : a
 	BLST_HD BLST_FORCEINLINE  void Fr::cneg(Fr& ret, const Fr& a, bool_t flag)
 	{
-		//cneg_mod_v256(ret, a, flag, get_BLST_r());
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		cneg_mod_256(&ret, &a, flag, &modulus());
 #else
-		//cc_cneg_mod_256(ret, a, flag, p);
 		cc_cneg_mod_n<NLIMBS(256)>(ret.data, a.data, flag, modulus().data);
 #endif // BLST_DEFAULT_ASM
 
@@ -641,11 +628,9 @@ namespace blst::scalar
 	// ret = a * 2^count
 	BLST_HD BLST_FORCEINLINE  void Fr::lshift(Fr& ret, const Fr& a, size_t count)
 	{
-		//lshift_mod_v256(ret, a, count, get_BLST_r());
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		lshift_mod_256(&ret, &a, count, &get_BLST_r());
 #else
-		//cc_lshift_mod_256(ret, a, count, p);
 		cc_lshift_mod_n<NLIMBS(256)>(ret.data, a.data, count, get_BLST_r().data);
 #endif
 	}
@@ -653,38 +638,26 @@ namespace blst::scalar
 	// ret = floor(int(a) / 2^count). not mod p.
 	BLST_HD BLST_FORCEINLINE  void Fr::rshift(Fr& ret, const Fr& a, size_t count)
 	{
-		//rshift_mod_v256(ret, a, count, get_BLST_r());
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		rshift_mod_256(&ret, &a, count, &get_BLST_r());
 #else
-		//cc_rshift_mod_256(ret, a, count, p);
 		cc_rshift_mod_n<NLIMBS(256)>(ret.data, a.data, count, get_BLST_r().data);
 #endif
 	}
 
-	// out = a / 2 
-	//BLST_HD BLST_FORCEINLINE  void Fr::div_by_2(Fr& ret, const Fr& a);
-
 	// out = a * 3
 	BLST_HD BLST_FORCEINLINE  void Fr::mul_by_3(Fr& ret, const Fr& a)
 	{
-		//mul_by_3_mod_v256(ret, a, get_BLST_r());
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		mul_by_3_mod_256(&ret, &a, &get_BLST_r());
 #else
-		//cc_mul_by_3_mod_256(ret, a, p);
 		cc_mul_by_3_mod_n<NLIMBS(256)>(ret.data, a.data, get_BLST_r().data);
 #endif
 	}
 
-	// out = a * 8
-	//BLST_HD BLST_FORCEINLINE  void Fr::mul_by_8(Fr& ret, const Fr& a);
-
 	// out = 1 / inp, computed via Lehmer almost-inverse (faster)
 	BLST_HD BLST_FORCEINLINE  void Fr::reciprocal(Fr& out, const Fr& inp)
 	{
-		//reciprocal_fr(out, inp);
-
 		const Fr rx2 = { /* left-aligned value of the modulus */
 			TO_LIMB_T(0xfffffffe00000002), TO_LIMB_T(0xa77b4805fffcb7fd),
 			TO_LIMB_T(0x6673b0101343b00a), TO_LIMB_T(0xe7db4ea6533afa90),
@@ -713,7 +686,6 @@ namespace blst::scalar
 	}
 
 
-	//BLST_EXTERN_C_END
 }
 
 #endif

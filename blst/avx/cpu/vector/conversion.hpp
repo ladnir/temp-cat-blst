@@ -124,8 +124,6 @@ class ConvertFromRNS {
         // Combine hi and lo into a single BigInt
         std::array<uint64_t, outdigits_rounded> digits_lo;
         std::array<uint64_t, outdigits_rounded> digits_hi;
-        // std::cout << "outdigits=" << outdigits << std::endl;
-        // std::cout << "outdigits_rounded=" << outdigits_rounded << std::endl;
         out_lo.store(digits_lo.data());
         out_hi.store(digits_hi.data());
         // Eventually we could rotate vectors and use avx512 addition (creating 53 bit numbers), and then do the extraction.

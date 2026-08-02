@@ -61,24 +61,6 @@ namespace blst::scalar
 			return &Field::one();
 		}
 
-		//template<typename Field>
-		//BLST_HD BLST_CPP_INLINE bool_t is_infinity(const Point<Field>& p)
-		//{
-		//	return vec_is_zero(&p.Z, sizeof(p.Z));
-		//}
-
-		//template<typename Field>
-		//BLST_HD BLST_CPP_INLINE bool_t is_infinity(const AffinePoint<Field>& p)
-		//{
-		//	return vec_is_zero(&p, sizeof(AffinePoint<Field>));
-		//}
-
-
-		//BLST_HD BLST_CPP_INLINE bool_t is_infinity(GT& p)
-		//{
-		//	return vec_is_zero(&p.Z, sizeof(p.Z));
-		//}
-
 		template<typename Group>
 		BLST_HD BLST_CPP_INLINE void set_msm_identity(Group& out)
 		{
@@ -397,49 +379,6 @@ namespace blst::scalar
 			size_t npoints);
 
 
-	//template<typename Field>
-	//BLST_HD BLST_CPP_INLINE size_t points_mult_wbits_precompute_sizeof(size_t wbits, size_t npoints)
-	//{
-	//	return (sizeof(AffinePoint<Field>) * npoints) << (wbits - 1);
-	//}
-	//template
-	//	BLST_HD BLST_CPP_INLINE size_t points_mult_wbits_precompute_sizeof<Fp>(size_t wbits, size_t npoints);
-	//template
-	//	BLST_HD BLST_CPP_INLINE size_t points_mult_wbits_precompute_sizeof<Fp2>(size_t wbits, size_t npoints);
-
-
-
-	//// Given a Booth-encoded digit (with sign bit), selects the appropriate
-	//// affine entry from a row, applies sign, or infinity if zero.
-	//template<typename Field>
-	//BLST_HD BLST_CPP_INLINE void point_gather_booth_wbits(
-	//	Point<Field>& p,
-	//	const AffinePoint<Field> row[],
-	//	size_t wbits, limb_t booth_encoding)
-	//{
-	//	bool_t booth_sign = (booth_encoding >> wbits) & 1;
-	//	bool_t idx_is_zero;
-	//	const AffinePoint<Field> infinity = { 0 };
-
-	//	auto booth_idx = booth_encoding & ((limb_t)1 << wbits) - 1;
-	//	idx_is_zero = is_zero(booth_idx);
-	//	booth_idx -= 1 ^ idx_is_zero;
-	//	vec_select(&p, &infinity, &row[booth_idx], sizeof(row[0]), idx_is_zero);
-	//	Point<Field>::cneg(p, booth_sign);
-	//}
-	//template
-	//	BLST_HD BLST_CPP_INLINE void point_gather_booth_wbits(
-	//	Point<Fp>& p,
-	//	const AffinePoint<Fp> row[],
-	//		size_t wbits, limb_t booth_encoding);
-	//template
-	//	BLST_HD BLST_CPP_INLINE void point_gather_booth_wbits(
-	//	Point<Fp2>& p,
-	//	const AffinePoint<Fp2> row[],
-	//		size_t wbits, limb_t booth_encoding);
-
-
-
 	// Fixed-table MSM : scans scalar windows (top partial then full windows), 
 	// gathers one entry per point(into scratch), periodically accumulates 
 	// into ret, and does wbits doublings between windows. (Uses Booth 
@@ -580,43 +519,6 @@ namespace blst::scalar
 		span<Point<Fp2>> scratch);
 
 
-	//// Scratch size needed for the gather/accumulate staging.
-	//template<typename Field>
-	//size_t points_mult_wbits_scratch_sizeof(size_t npoints)
-	//{
-	//	const size_t scratch_sz = SCRATCH_SZ(Point<Field>);
-	//	return sizeof(Point<Field>) * (npoints < scratch_sz ? npoints : scratch_sz);
-	//}
-
-
-
-
-
-	///*
-	//* Pippenger algorithm implementation, fastest option for larger amount
-	//* of points...
-	//*
-	//* Heuristic: chooses wbits from npoints (smaller for few points, larger up to ~npoints-dependent caps).
-	//*/
-	//BLST_HD BLST_CPP_INLINE size_t pippenger_window_size(size_t npoints)
-	//{
-	//	size_t wbits;
-
-	//	// wbits = log2(npoints)
-	//	for (wbits = 0; npoints >>= 1; wbits++);
-
-	//	// Heuristic: decrement wbits for small npoints, to avoid overhead.
-	//	if (wbits > 12)
-	//		return wbits - 3;
-	//	else if (wbits > 8)
-	//		return wbits - 2;
-	//	else if (wbits > 4)
-	//		return wbits - 1;
-
-	//	return wbits ? 2 : 1;
-	//}
-
-
 	// High->low running sum over buckets(xyzz form) : 
 	// computes Σ d·S_d from pre-summed buckets and writes 
 	// the window’s contribution as Jacobian.
@@ -746,7 +648,6 @@ namespace blst::scalar
 				print_bits(buffer, (void*)scalar, std::min<u64>(256, nbits));
 				printf("  point[%zu]: %p %s -> digit %zu (%llu), sign=%zu\n",
 					i, scalar, buffer, digit, (long long unsigned int)ex, sign);
-				//++i;
 			}
 			auto p = point;
 			scalar = *scalars ? *scalars++ : scalar + nbytes;
@@ -905,59 +806,5 @@ namespace blst::scalar
 			GT buckets[],
 			size_t window_size,
 			bool print);
-
-	//template<typename Group>
-	//BLST_HD BLST_CPP_INLINE size_t msm_mult_pippenger_scratch_sizeof_(size_t npoints)
-	//{
-	//	return sizeof(Group) << (pippenger_window_size(npoints) - 1);
-	//}
-
-	//template<typename Group, typename AffineGroup, typename GroupZZ>
-	//BLST_HD BLST_CPP_INLINE void msm_tile_pippenger(
-	//	Group& ret,
-	//	const AffineGroup* const points[],
-	//	size_t npoints,
-	//	const byte* const scalars[],
-	//	size_t nbits,
-	//	GroupZZ scratch[],
-	//	size_t bit0, size_t window)
-	//{
-	//	size_t wbits, cbits;
-
-	//	if (bit0 + window > nbits)  wbits = nbits - bit0, cbits = wbits + 1;
-	//	else                        wbits = cbits = window;
-	//	msm_tile_pippenger<Group, AffineGroup, GroupZZ>(ret, points, npoints, scalars, nbits, scratch,
-	//		bit0, wbits, cbits);
-	//}
-
-
-	//// dispatches to either fixed-table MSM or Pippenger based on npoints
-	//template<typename Field>
-	//BLST_HD BLST_CPP_INLINE void msm_mult(
-	//	Point<Field>& ret,
-	//	const AffinePoint<Field>* const points[],
-	//	size_t npoints,
-	//	const byte* const scalars[], size_t nbits,
-	//	Pointxyzz<Field> scratch[])
-	//{
-
-	//	if (npoints == 1) {
-	//		Point<Field>::from_affine(ret, *points[0]);
-	//		mult_window<Point<Field>, 5>(ret, ret, scalars[0], nbits);
-	//	}
-	//	else if ((npoints * sizeof(AffinePoint<Field>) * 8 * 3) <= SCRATCH_LIMIT &&
-	//		npoints < 32) {
-	//		AffinePoint<Field>* table = (AffinePoint<Field>*)malloc(npoints * sizeof(AffinePoint<Field>) * 8);
-	//		msm_precompute_wbits<Field>(table, 4, points, npoints);
-	//		msm_mult_table<Field>(ret, table, 4, npoints, scalars, nbits, NULL);
-	//		free(table);
-	//	}
-	//	else
-	//	{
-	//		msm_mult_pippenger<Point<Field>, AffinePoint<Field>, Pointxyzz<Field>>(
-	//			ret, points, npoints, scalars, nbits, scratch, 0);
-	//	}
-	//}
-
 
 }

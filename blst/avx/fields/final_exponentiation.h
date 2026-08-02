@@ -60,7 +60,6 @@ inline auto final_exp_after_inverse(const typename FP12Ring<Ring>::StandardEleme
 
     auto y1_final_conj = fp12ring.fp12_flat_conjugate(y1_final, ring);
     auto y3_mul_y1 = fp12ring.fp12_flat_mul(y2_to_z, y1_final_conj, ring);
-    // auto y1_final_conj2 = fp12ring.fp12_flat_conjugate(y1_final_conj, ring);
 
     auto y1_frob3 = fp12ring.fp12_flat_frobenius_map3(y1_final, ring);
     auto y1_to_z_frob2 = fp12ring.fp12_flat_frobenius_map2(y1_to_z, ring);
@@ -74,12 +73,8 @@ inline auto final_exp_after_inverse(const typename FP12Ring<Ring>::StandardEleme
     return fp12ring.fp12_flat_mul(y1_mul_y2_final, y3_frob1, ring);
 }
 
-// FP12 inversion provider interface
-// Any type that provides an invert method with signature:
-//   std::array<typename Ring::StandardElement, 12> invert(
-//       const std::array<typename Ring::StandardElement, 12>& f,
-//       const Ring& ring
-//   ) const;
+// The inversion provider returns a standard FP12 element and accepts the input,
+// FP12 ring, and base ring by const reference.
 template<class Ring, class FP12Inverter>
 inline auto final_exp(
     const typename FP12Ring<Ring>::StandardElement &f,

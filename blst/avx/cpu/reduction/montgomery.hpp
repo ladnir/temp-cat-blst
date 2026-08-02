@@ -125,12 +125,6 @@ class MontgomeryReduce {
         return reduce_small_batch<batch>(hi_cor, lo_rem);
     }
 
-    // inline AVXVector<limbs> psuedo_reduce_50(const AVXVector<limbs> &v) const {
-    //     auto hi = v.srli(bits);
-    //     auto lo = v.and_scalar(lo_mask);
-    //     return lo.mullo(hi, t);
-    // }
-
     // Test accessors
     inline void get_moduli(std::array<uint64_t, limbs> &out) const {
         moduli.store(out.data());

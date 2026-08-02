@@ -568,7 +568,6 @@
 "test/avx/test_data/test_values_50.hpp","in_scope_support","tests","pending","scalar|avx512","","","","","","","","",""
 "test/avx512_compat_test.cpp","in_scope_support","tests","pending","avx512","","","52cfdf6","AUD-036;AUD-037","Peach GCC 15.2 Release combined target","9/9 direct operation tests passed on AVX-512 IFMA; includes IFMA masked-input, carry, wrap, and random cases","full file review pending","","AUD-037 validated; direct oracle isolated from ordinary product builds; full file review pending"
 "test/Backend_alias_tests.cpp","in_scope_support","tests","pending","scalar|avx512","","","","","","","","",""
-"test/BasicFp.h","in_scope_support","tests","pending","scalar|avx512","","","","","","","","",""
 "test/BindingHeader_tests.cpp","in_scope_support","tests","pending","scalar|avx512","","","","","","","","",""
 "test/blst_t_tests.cpp","in_scope_support","tests","pending","scalar|avx512","","","","","","","","",""
 "test/Blst256Shift_tests.cpp","in_scope_support","tests","pending","scalar|avx512","","","","","","","","",""

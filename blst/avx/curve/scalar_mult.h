@@ -76,33 +76,6 @@ class ScalarForExponent {
 
     ScalarForExponent(const std::array<uint8_t, limbs> &raw_data) : data(raw_data) {}
 
-    /*
-    uint32_t rem;
-    uint32_t rem_bits;
-    uint32_t byte_pos;
-
-    template<int num_bits>
-    uint8_t get_next_bits() const {
-        if (rem_bits >= num_bits) {
-            result = rem & ((1 << num_bits) - 1);
-            rem = rem >> num_bits;
-            rem_bits -= num_bits;
-            return result;
-        } else {
-            uint8_t next_byte;
-            if (byte_pos >= limbs) {
-                next_byte = 0;
-            } else {
-                next_byte = data[byte_pos];
-            }
-            result = rem | (next_byte << rem_bits);
-            rem_bits += 8;
-            byte_pos++;
-            return get_next_bits<num_bits>();
-        }
-    }
-    */
-
     template<int num_bits>
     uint8_t get_bits(int start_bit) const  {
         static_assert(num_bits <= 8, "num_bits must be at most 8");

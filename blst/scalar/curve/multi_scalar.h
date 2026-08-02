@@ -355,24 +355,6 @@ namespace blst::scalar
 		size_t scratch_size,
 		size_t window_size);
 
-	//template<typename Group, typename AffineGroup, typename GroupZZ>
-	//BLST_HD BLST_INLINE void msm_tile_pippenger(
-	//	Group& ret,
-	//	const AffineGroup* const points[],
-	//	size_t npoints,
-	//	const byte* const scalars[],
-	//	size_t nbits,
-	//	GroupZZ scratch[],
-	//	size_t bit0, size_t window)
-	//{
-	//	size_t wbits, cbits;
-
-	//	if (bit0 + window > nbits)  wbits = nbits - bit0, cbits = wbits + 1;
-	//	else                        wbits = cbits = window;
-	//	msm_tile_pippenger<Group, AffineGroup, GroupZZ>(ret, points, npoints, scalars, nbits, scratch,
-	//		bit0, wbits, cbits);
-	//}
-
 	// dispatches to either fixed-table MSM or Pippenger based on npoints
 	template<typename Field>
 	BLST_HD BLST_INLINE void msm_mult(

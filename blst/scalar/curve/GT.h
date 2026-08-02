@@ -86,7 +86,6 @@ namespace blst::scalar {
 		 */
 		static BLST_HD void doubling(GT& out, const GT& a) {
 			Fp12::cyclotomic_sqr(out.data, a.data);
-			//Fp12::sqr(out.data, a.data);
 		}
 
 		/**

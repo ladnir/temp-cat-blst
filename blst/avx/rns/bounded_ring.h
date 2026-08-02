@@ -287,21 +287,6 @@ class BoundedRing {
         return prep<negated.m2.bounds.lower, negated.m2.bounds.upper, Bounds<0, 1>, STANDARD_BOUND>(negated);
     }
 
-    // broken: TODO: debug
-    // template<class BoundedElementType, int64_t rns_lower, int64_t rns_upper>
-    // inline BigInt to_bigint(const ExpandedElement<BoundedElementType, Bounds<rns_lower, rns_upper>> &element) const {
-    //     if constexpr(rns_lower < 0) {
-    //         return to_bigint(convert_neg_offset + element);
-    //     } else {
-    //         static_assert(rns_lower >= 0, "RNS lower bound must be positive");
-    //         static_assert(rns_upper <= RNS_MAX_MULTIPLE, "RNS upper bound must be less than or equal to RNS_MAX_MULTIPLE");
-    //         static_assert((rns_upper * 3) * (2 * ceil_log2(limbs)) <= 1ull << (64 - 52), "Maximum to big int conversion bound exceeded.  Increase precision in convert to class.");
-    //         auto p = prep(element);
-    //         return sys.from_mont_avx(p.m2.data);
-    //     }
-    // }
-
-
     template<class ElementType, int64_t rns_lower, int64_t rns_upper>
     INLINE auto complete(const ExpandedElement<ElementType, Bounds<rns_lower, rns_upper>> &delayed_product) const {
         // automatically add negation offset if needed

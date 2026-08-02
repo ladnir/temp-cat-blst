@@ -321,15 +321,6 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
         Fp::sub(ret[0], aa, cc);
         Fp::sub(ret[1], bb, aa);
         Fp::sub(ret[1], ret[1], cc);
-
-        //cc_add_mod_n<NLIMBS(384)>(aa.data, a[0].data, a[1].data, p.data);
-        //cc_add_mod_n<NLIMBS(384)>(bb.data, b[0].data, b[1].data, p.data);
-        //cc_mul_mont_n<NLIMBS(384)>(bb.data, bb.data, aa.data, p.data, n0);
-        //cc_mul_mont_n<NLIMBS(384)>(aa.data, a[0].data, b[0].data, p.data, n0);
-        //cc_mul_mont_n<NLIMBS(384)>(cc.data, a[1].data, b[1].data, p.data, n0);
-        //cc_sub_mod_n<NLIMBS(384)>(ret[0].data, aa.data, cc.data, p.data);
-        //cc_sub_mod_n<NLIMBS(384)>(ret[1].data, bb.data, aa.data, p.data);
-        //cc_sub_mod_n<NLIMBS(384)>(ret[1].data, ret[1].data, cc.data, p.data);
     }
 
 
@@ -387,23 +378,11 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
 
         Fp::mul(ret[0], t0, t1);
     }
-    //#endif
-
-
-    //BLST_HD BLST_FORCEINLINE void cneg_mod_v384x(Fp2& ret, const Fp2& a, bool_t flag,
-    //    const Fp& p)
-    //{
-    //    //Fp::cneg(ret[0], a[0], flag/*, p*/);
-    //    //Fp::cneg(ret[1], a[1], flag/*, p*/);
-    //}
-
-
     BLST_HD BLST_INLINE void Fp2::exp(Fp2& out, const Fp2& inp, const byte* pow,
         size_t pow_bits)
     {
         Fp2 ret = inp;
 
-        //vec_copy(ret, inp, sizeof(ret));  /* |ret| = |inp|^1 */
         --pow_bits; /* most significant bit is accounted for, skip over */
         while (pow_bits--) {
             Fp2::sqr(ret, ret);
@@ -653,8 +632,6 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
 
     BLST_HD BLST_INLINE void Fp2::mul_by_u_plus_1(Fp2& ret, const Fp2& a)
     {
-        //mul_by_1_plus_i_mod_v384x(ret, a, get_BLST_P());
-
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
         mul_by_1_plus_i_mod_384x(&ret, &a, &get_BLST_P());
 #else
@@ -674,7 +651,6 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
 
     BLST_HD BLST_INLINE void Fp2::add(Fp2& ret, const Fp2& a, const Fp2& b)
     {
-        //add_mod_v384x(ret, a, b, get_BLST_P());
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
         add_mod_384x(&ret, &a, &b, &get_BLST_P());
 #else
@@ -683,7 +659,6 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
     }
     BLST_HD BLST_INLINE void Fp2::sub(Fp2& ret, const Fp2& a, const Fp2& b)
     {
-        //sub_mod_v384x(ret, a, b, get_BLST_P());
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
         sub_mod_384x(&ret, &a, &b, &get_BLST_P());
 #else
@@ -692,7 +667,6 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
     }
     BLST_HD BLST_INLINE void Fp2::mul(Fp2& ret, const Fp2& a, const Fp2& b)
     {
-        //mul_mont_v384x(ret, a, b, get_BLST_P(), BLST_p0);
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
         mulx_mont_384x(&ret, &a, &b, &get_BLST_P(), BLST_p0);
 #else
@@ -702,7 +676,6 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
 
     BLST_HD BLST_INLINE void Fp2::sqr(Fp2& ret, const Fp2& a)
     {
-        //sqr_mont_v384x(ret, a, get_BLST_P(), BLST_p0);
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
         sqrx_mont_384x(&ret, &a, &get_BLST_P(), BLST_p0);
 #else
@@ -754,13 +727,8 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
 
 
 
-    //BLST_HD BLST_INLINE bool_t Fp2::sqrt(Fp2& out, const Fp2& inp)
-    //{
-    //    return sqrt_fp2(out, inp);
-    //}
     BLST_HD BLST_INLINE void Fp2::mul_by_3(Fp2& ret, const Fp2& a)
     {
-        //mul_by_3_mod_v384x(ret, a, get_BLST_P());
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
         mul_by_3_mod_384x(&ret, &a, &get_BLST_P());
 #else
@@ -769,7 +737,6 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
     }
     BLST_HD BLST_INLINE void Fp2::mul_by_8(Fp2& ret, const Fp2& a)
     {
-        //mul_by_8_mod_v384x(ret, a, get_BLST_P());
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
         mul_by_8_mod_384x(&ret, &a, &get_BLST_P());
 #else
@@ -787,8 +754,6 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
         return *(const Fp2*)&get_BLST_Rx().p12[2];
     }
 
-
-    //BLST_EXTERN_C_END
 }
 
 #endif /* BLST_SCALAR_FP2_H */

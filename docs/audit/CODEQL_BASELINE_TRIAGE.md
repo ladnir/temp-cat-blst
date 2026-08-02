@@ -20,7 +20,7 @@ the other 950 are documented non-defects or style observations.
 
 | CodeQL rule | Count | Disposition |
 | --- | ---: | --- |
-| `cpp/commented-out-code` | 921 | Non-defect batch. The query recognizes literal code-like comments but establishes no unsafe behavior. 750 results are reciprocal/square-root addition-chain generation trace; the remainder span 30 other files and stay visible to normal file review rather than being suppressed globally. |
+| `cpp/commented-out-code` | 921 | `AUD-038`. Removed the 171 abandoned implementations, stale debug fragments, and code-shaped interface comments across 30 retained production files. The 750 reciprocal/square-root addition-chain generation traces remain as intentional arithmetic provenance. |
 | `cpp/unused-local-variable` | 20 | False positives. All are compile-time non-type template arguments or type witnesses used through template arguments or `decltype`; they create no dead runtime work. |
 | `cpp/large-parameter` | 4 | `AUD-027`. One hot 768-byte AVX point parameter is actionable. Three large `IntRNS2System` constructor parameters are initialization-only efficiency cleanups. |
 | `cpp/unused-static-function` | 4 | False positives caused by combining scalar and portable-AVX builds in one database. Every function has direct retained call sites; no helper should be removed. |
@@ -200,3 +200,24 @@ Compiler-native compensation is recorded in
 `CLANG_ANALYZER_BASELINE_TRIAGE.md`. It successfully traversed the AVX
 instantiations that CodeQL could not extract and opened `AUD-035` and
 `AUD-036` for separate production review.
+
+## Commented-code cleanup confirmation
+
+`AUD-038` resolves the actionable portion of the CodeQL commented-code batch.
+Disabled alternate implementations, stale debug output, duplicate wrappers,
+and code-shaped interface descriptions were removed or rewritten across 30
+retained production files. The wholly commented-out and unused
+`test/BasicFp.h` was deleted separately; benchmarks, frozen BTx/BTE, and
+experimental CUDA were not included in this pass.
+
+The current-tree run `01eee6b03950-20260802T223754Z` completed both split
+C/C++ profiles. Each profile now reports exactly 750
+`cpp/commented-out-code` results:
+
+- 377 in generated `blst/scalar/fields/recip-addchain.h`; and
+- 373 in generated `blst/scalar/fields/sqrt-addchain.h`.
+
+No result remains in any other file. These comments record the generated
+addition-chain schedule and are retained as arithmetic provenance until a
+repository-owned generator and reproducibility gate can replace that value.
+This is an explicit, narrow disposition rather than a global suppression.

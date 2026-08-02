@@ -56,7 +56,7 @@ namespace blst
 			hi = wide.hi;
 
 			for (i = 1; i < n; i++) {
-				// wide = mx * p + hi + tmp;
+				// Accumulate the product limb, previous high limb, and current temporary limb.
 				cc_mul_add_add_wide_limb_limb(&wide, mx, p[i], hi, tmp[i]);
 				tmp[i - 1] = wide.lo;
 				hi = wide.hi;
@@ -96,7 +96,6 @@ namespace blst
 		for (i = 0; i < n; i++)
 			ret[i] = (ret[i] & ~mask) | (tmp[i] & mask);
 
-		//BLST_VLA_FREE(tmp);
 	}
 
 	template
@@ -113,7 +112,6 @@ namespace blst
 	{
 		BLST_ASSUME(n != 0);
 		limb_t mask, carry, borrow;
-		//BLST_VLA_NEW(limb_t, tmp, n);
 		limb_t tmp[n];
 		size_t i;
 
@@ -259,20 +257,10 @@ namespace blst
 	BLST_HD BLST_CPP_INLINE void cc_lshift_mod_n(limb_t ret[], const limb_t a[], size_t count,
 		const limb_t p[])
 	{
-#if 0
-		auto ptr = a;
-		while (count--)
-		{
-			cc_add_mod_n<NLIMBS(384)>(ret, ptr, ptr, p);
-			ptr = ret;
-		}
-
-#else
 		BLST_ASSERT(count != 0);
 		BLST_ASSUME(count != 0);
 		BLST_ASSUME(n != 0);
 		limb_t mask, carry, borrow;
-		//BLST_VLA_NEW(limb_t, tmp, n);
 		limb_t tmp[n];
 		size_t i;
 
@@ -298,7 +286,6 @@ namespace blst
 
 			a = ret;
 		}
-#endif
 	}
 
 	template
@@ -321,7 +308,6 @@ namespace blst
 	{
 		BLST_ASSUME(n != 0);
 		limb_t borrow, mask;
-		//BLST_VLA_NEW(limb_t, tmp, n);
 		limb_t tmp[n];
 		size_t i;
 
@@ -451,9 +437,6 @@ namespace blst
 	{
 		BLST_ASSUME(n != 0);
 		limb_t zero;
-		//BLST_VLA_NEW(limb_t, ret_, n);
-		//BLST_VLA_NEW(limb_t, a_, n);
-		//BLST_VLA_NEW(limb_t, b_, n);
 		limb_t ret_[n];
 		limb_t a_[n];
 		limb_t b_[n];
@@ -1338,7 +1321,6 @@ namespace blst
 	BLST_HD BLST_CPP_INLINE limb_t cc_div_3_limbs(const limb_t div_top[2], limb_t d_lo, limb_t d_hi)
 	{
 		wide_limb_t Rx;
-		//llimb_t Rx;
 		limb_t r_lo = div_top[0], r_hi = div_top[1];
 		limb_t Q = 0, mask, borrow, rx;
 		size_t i;
@@ -1355,7 +1337,6 @@ namespace blst
 
 			/* "if (R >= D) R -= D" */
 			r_lo = ((r_lo ^ rx) & borrow) ^ rx;
-			//rx = (limb)Rx;
 			rx = Rx.lo;
 			r_hi = ((r_hi ^ rx) & borrow) ^ rx;
 
@@ -1394,7 +1375,6 @@ namespace blst
 	{
 		wide_limb_t wide;
 		limb_t carry, mask, borrow;
-		//BLST_VLA_NEW(limb_t, tmp, n + 1);
 		limb_t tmp[n + 1];
 		size_t i;
 
@@ -1431,192 +1411,5 @@ namespace blst
 	template
 		BLST_HD BLST_CPP_INLINE limb_t cc_quot_rem_n<NLIMBS(64)>(limb_t* div_rem, const limb_t* divisor,
 			limb_t quotient);
-
-	///**
-	// * @brief Computes the quotient and remainder of a large integer division.
-	// *
-	// * Computes `quotient = dividend / divisor` and updates `div_rem` with the remainder.
-	// */
-	//BLST_HD BLST_CPP_INLINE limb_t cc_quot_rem_128(limb_t* div_rem, const limb_t* divisor,
-	//	limb_t quotient)
-	//{
-	//	return cc_quot_rem_n<NLIMBS(128)>(div_rem, divisor, quotient);
-	//}
-
-
-	///**
-	// * @brief Computes the quotient and remainder of a large integer division.
-	// *
-	// * Computes `quotient = dividend / divisor` and updates `div_rem` with the remainder.
-	// */
-	//BLST_HD BLST_CPP_INLINE limb_t cc_quot_rem_64(limb_t* div_rem, const limb_t* divisor,
-	//	limb_t quotient)
-	//{
-	//	return cc_quot_rem_n<NLIMBS(64)>(div_rem, divisor, quotient);
-	//}
-
-
-//	/*
-//	 * Prefetching
-//	 */
-//	BLST_HD BLST_CPP_INLINE void cc_vec_prefetch(const void* ptr, size_t len)
-//	{
-//		// prefetch if we have the intrinsic
-//#if defined(__GNUC__) || defined(__clang__)
-//		__builtin_prefetch(ptr, 0, 3);
-//#elif __CUDA_ARCH__
-//		// todo
-//		(void)ptr; (void)len;
-//#elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
-//		_mm_prefetch((const char*)ptr, _MM_HINT_T0);
-//		(void)ptr; (void)len;
-//#else
-//		(void)ptr; (void)len;
-//#endif
-//	}
-//
-//	/*
-//	 * SHA-256
-//	 */
-//#define ROTR(x,n)	((x)>>n | (x)<<(32-n))
-//#define Sigma0(x)	(ROTR((x),2) ^ ROTR((x),13) ^ ROTR((x),22))
-//#define Sigma1(x)	(ROTR((x),6) ^ ROTR((x),11) ^ ROTR((x),25))
-//#define sigma0(x)	(ROTR((x),7) ^ ROTR((x),18) ^ ((x)>>3))
-//#define sigma1(x)	(ROTR((x),17) ^ ROTR((x),19) ^ ((x)>>10))
-//#define Ch(x,y,z)	(((x) & (y)) ^ ((~(x)) & (z)))
-//#define Maj(x,y,z)	(((x) & (y)) ^ ((x) & (z)) ^ ((y) & (z)))
-//
-//	 /* @brief SHA-256 block compression function.
-//	  *
-//	  * Processes `blocks` number of 64-byte blocks from `inp`, updating the state `v`.
-//	  * The implementation is based on the public domain code from
-//	  *
-//	 */
-//	BLST_HD BLST_INLINE void cc_blst_sha256_block_data_order(unsigned int* v, const void* inp,
-//		size_t blocks)
-//	{
-//		const unsigned int K256[64] = {
-//			0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
-//			0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
-//			0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
-//			0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-//			0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc,
-//			0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-//			0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7,
-//			0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
-//			0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
-//			0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
-//			0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3,
-//			0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-//			0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5,
-//			0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-//			0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
-//			0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
-//		};
-//		unsigned int X[16], l, a, b, c, d, e, f, g, h, s0, s1, T1, T2;
-//		const unsigned char* data = (const unsigned char*)inp;
-//		size_t round;
-//
-//		a = v[0];
-//		b = v[1];
-//		c = v[2];
-//		d = v[3];
-//		e = v[4];
-//		f = v[5];
-//		g = v[6];
-//		h = v[7];
-//
-//		while (blocks--) {
-//			for (round = 0; round < 16; round++) {
-//				l = (unsigned int)data[0] << 24;
-//				l |= (unsigned int)data[1] << 16;
-//				l |= (unsigned int)data[2] << 8;
-//				l |= (unsigned int)data[3];
-//				data += 4;
-//				T1 = X[round] = l;
-//				T1 += h + Sigma1(e) + Ch(e, f, g) + K256[round];
-//				T2 = Sigma0(a) + Maj(a, b, c);
-//				h = g;
-//				g = f;
-//				f = e;
-//				e = d + T1;
-//				d = c;
-//				c = b;
-//				b = a;
-//				a = T1 + T2;
-//			}
-//
-//			for (; round < 64; round++) {
-//				s0 = X[(round + 1) & 0x0f];
-//				s0 = sigma0(s0);
-//				s1 = X[(round + 14) & 0x0f];
-//				s1 = sigma1(s1);
-//
-//				T1 = X[round & 0xf] += s0 + s1 + X[(round + 9) & 0xf];
-//				T1 += h + Sigma1(e) + Ch(e, f, g) + K256[round];
-//				T2 = Sigma0(a) + Maj(a, b, c);
-//				h = g;
-//				g = f;
-//				f = e;
-//				e = d + T1;
-//				d = c;
-//				c = b;
-//				b = a;
-//				a = T1 + T2;
-//			}
-//
-//			a += v[0]; v[0] = a;
-//			b += v[1]; v[1] = b;
-//			c += v[2]; v[2] = c;
-//			d += v[3]; v[3] = d;
-//			e += v[4]; v[4] = e;
-//			f += v[5]; v[5] = f;
-//			g += v[6]; v[6] = g;
-//			h += v[7]; v[7] = h;
-//		}
-//	}
-//#undef ROTR
-//#undef Sigma0
-//#undef Sigma1
-//#undef sigma0
-//#undef sigma1
-//#undef Ch
-//#undef Maj
-//
-//	// copies a 64 byte length array into dst_. i.e memcpy(dst, src, 64)
-//	BLST_HD BLST_INLINE void cc_blst_sha256_hcopy(unsigned int dst[8], const unsigned int src[8])
-//	{
-//		size_t i;
-//
-//		for (i = 0; i < 8; i++)
-//			dst[i] = src[i];
-//	}
-//
-//
-//	// performs the final compression function for sha256
-//	BLST_HD BLST_INLINE void cc_blst_sha256_emit(unsigned char md[32], const unsigned int h[8])
-//	{
-//		size_t i;
-//
-//		for (i = 0; i < 8; i++, md += 4) {
-//			unsigned int h_i = h[i];
-//			md[0] = (unsigned char)(h_i >> 24);
-//			md[1] = (unsigned char)(h_i >> 16);
-//			md[2] = (unsigned char)(h_i >> 8);
-//			md[3] = (unsigned char)h_i;
-//		}
-//	}
-//
-//	// copies a variable length array into dst_. i.e memcpy(dst, src, len)
-//	BLST_HD BLST_INLINE void cc_blst_sha256_bcopy(void* dst_, const void* src_, size_t len)
-//	{
-//		unsigned char* dst = (unsigned char*)dst_;
-//		const unsigned char* src = (const unsigned char*)src_;
-//		size_t i;
-//
-//		for (i = 0; i < len; i++)
-//			dst[i] = src[i];
-//	}
-//
 
 }

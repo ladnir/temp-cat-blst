@@ -67,9 +67,11 @@ CODEQL_EXE=/opt/catblst-codeql/2.26.2/codeql/codeql \
 ```
 
 The optional mode is `cpp-scalar`, `cpp-avx`, `cpp`, `rust`, or `all`.
-`cpp` and `all` create independent scalar and portable-AVX databases rather
-than combining both compiler profiles. Worker counts default to two and can be
-controlled without editing the scripts:
+`cpp` and `all` create independent scalar and portable-AVX Debug databases
+rather than combining both compiler profiles. Portable-AVX Release is
+intentionally absent because its optimized compile cost is too high for the
+ordinary audit cycle. Worker counts default to two and can be controlled
+without editing the scripts:
 
 ```bash
 BLST_CODEQL_THREADS=4 \
@@ -96,9 +98,9 @@ are captured with the evidence so the analyzed input is identifiable.
 C/C++ database extraction builds only `blst_static` in Debug mode. Portable
 scalar and portable AVX are extracted into separate databases so a partial AVX
 extraction cannot obscure scalar coverage or be mistaken for a complete
-combined result. Assembly, tests, benchmarks, frozen BTx/BTE, experimental
-CUDA, and removed bindings are not added to the scan. Rust uses CodeQL's
-build-free extraction mode.
+combined result. Portable-AVX Release, assembly, tests, benchmarks, frozen
+BTx/BTE, experimental CUDA, and removed bindings are not added to the scan.
+Rust uses CodeQL's build-free extraction mode.
 
 ## Query suites
 
@@ -126,9 +128,8 @@ audit records.
 ## Compensating Clang extraction
 
 CodeQL extractor diagnostics are not treated as successful analysis. Run the
-pinned compiler-native Clang Static Analyzer profiles documented in
-`AUTOMATED_ANALYSIS_PLAN.md` to cover buildable scalar and AVX template
-instantiations that CodeQL does not fully model:
+pinned compiler-native Clang Static Analyzer Debug profiles documented in
+`AUTOMATED_ANALYSIS_PLAN.md`:
 
 ```bash
 bash scripts/audit/run_clang_analyzer_local.sh all
@@ -137,4 +138,5 @@ bash scripts/audit/run_clang_analyzer_local.sh all
 The runner requires Ubuntu Clang 18.1.3 plus `scan-build`, snapshots the same
 tracked and non-ignored source set, and writes ignored SARIF evidence beneath
 `out/audit/clang-analyzer/<run-id>/`. Scalar and portable AVX are separate
-analyzer runs. Tests, benchmarks, assembly, BTx/BTE, and CUDA remain excluded.
+Debug analyzer runs. Portable-AVX Release, tests, benchmarks, assembly,
+BTx/BTE, and CUDA remain excluded.

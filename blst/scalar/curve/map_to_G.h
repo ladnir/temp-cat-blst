@@ -441,9 +441,6 @@ namespace blst::scalar
 			TO_LIMB_T(0x1668ddfa462bf6b6), TO_LIMB_T(0x00960e2ed1cf294c)
 		};
 		Fp uu, tv2, x2n, gx1, gxd, y2;
-#if 0
-		Fp xn, x1n, xd, y, y1, Zuu, tv4;
-#else
 # define xn     p.X
 # define y      p.Y
 # define xd     p.Z
@@ -451,7 +448,6 @@ namespace blst::scalar
 # define y1     y
 # define Zuu    x2n
 # define tv4    y1
-#endif
 #define sgn0_fp(a) (Fp::sgn0_pty_mont(a) & 1)
 		bool_t e1, e2;
 
@@ -546,16 +542,12 @@ namespace blst::scalar
 			TO_LIMB_T(0x908a1ebe5708d058), TO_LIMB_T(0x0fc0ba017f2b2466) }
 		};
 		Fp2 uu, tv2, tv4, x2n, gx1, gxd, y2;
-#if 0
-		Fp2 xn, x1n, xd, y, y1, Zuu;
-#else
 # define xn     p.X
 # define y      p.Y
 # define xd     p.Z
 # define x1n    xn
 # define y1     y
 # define Zuu    x2n
-#endif
 #define sgn0_fp2(a) (Fp2::sgn0_pty_mont(a) & 1)
 		bool_t e1, e2;
 
@@ -712,13 +704,6 @@ namespace blst::scalar
 		map_to_curve<G>(p, u[0], NULL);
 	}
 
-	//BLST_HD BLST_INLINE void blst_encode_to_g1(G1Point& p, const unsigned char* msg, size_t msg_len,
-	//	const unsigned char* DST, size_t DST_len,
-	//	const unsigned char* aug, size_t aug_len)
-	//{
-	//	Encode_to_G1(p, msg, msg_len, DST, DST_len, aug, aug_len);
-	//}
-
 	template<typename Group>
 	BLST_HD BLST_INLINE void Hash_to_curve(Group& p, const unsigned char* msg, size_t msg_len,
 		const unsigned char* DST, size_t DST_len,
@@ -730,34 +715,5 @@ namespace blst::scalar
 		hash_to_field<nelem>((Fp*)u, aug, aug_len, msg, msg_len, DST, DST_len);
 		map_to_curve<Group>(p, u[0], &u[1]);
 	}
-
-	//BLST_HD BLST_INLINE void Hash_to_curve<G1Point>(G1Point& p, const unsigned char* msg, size_t msg_len,
-	//	const unsigned char* DST, size_t DST_len,
-	//	const unsigned char* aug, size_t aug_len)
-	//{
-	//	Hash_to_G1(p, msg, msg_len, DST, DST_len, aug, aug_len);
-	//}
-
-	////BLST_HD BLST_INLINE void psi(G2Point& out, const G2Point& in);
-
-	///*
-	// * |u|, |v| are expected to be in Montgomery representation
-	// */
-	//BLST_HD BLST_INLINE void map_to_g2(G2Point& out, const Fp2& u, const Fp2* v)
-	//{
-	//	G2Point p;
-
-	//	map_to_isogenous<G2Point>(p, u);
-
-	//	if (v != NULL) {
-	//		map_to_isogenous<G2Point>(out, *v);    /* borrow |out|                 */
-	//		G2Point::dadd(p, p, out, &get_BLST_Aprime_E2());
-	//	}
-
-	//	isogeny_map_to<G2Point>(p, p);          /* sprinkle isogenous powder    */
-	//	clear_cofactor(out, p);
-	//}
-
-
 
 }

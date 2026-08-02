@@ -7,7 +7,6 @@
 #define BLST_SCALAR_HASH_TO_FIELD_H
 
 #include "blst/sign/sha256.h"
-//BLST_EXTERN_C_BEGIN
 
 namespace blst::scalar
 {
@@ -180,7 +179,6 @@ namespace blst::scalar
 
         if (buf_len != len_in_bytes)
         {
-            //buf_ptr = (unsigned char*)alloca(buf_len);
 			buf_ptr = (unsigned char*)malloc(buf_len);
             if (buf_ptr == nullptr) {
                 zero_bytes(bytes, len_in_bytes);
@@ -200,5 +198,4 @@ namespace blst::scalar
     }
 }
 
-//BLST_EXTERN_C_END
 #endif

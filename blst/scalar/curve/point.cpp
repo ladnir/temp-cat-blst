@@ -1188,7 +1188,6 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	BLST_HD BLST_CPP_INLINE void G1Point::mult_glsv(G1Point& out, const G1Point& in,
 		const pow256 SK)
 	{
-		//union { Fr l; pow256 s; } val;
 		Fr l;
 		pow256 s;
 		/* SK/z^2 [in constant time] */
@@ -1245,7 +1244,6 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			G2Point table[4][1 << (5 - 1)];   /* 18KB */
 			size_t i;
 
-			//G2Point_precompute_w5(table[0], in);
 			precompute_w<G2Point, 5>(table[0], in);
 
 			for (i = 0; i < 1 << (5 - 1); i++) {
@@ -1577,43 +1575,6 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	template<typename Field>
 	BLST_HD BLST_CPP_INLINE void Point<Field>::add(Point& out, const Point& p1, const Point& p2)
 	{
-
-		//#if (defined(DEBUG) || !defined(NDEBUG)) && !defined(__CUDA_ARCH__)
-		//		// Check if we're trying to add a point to itself in debug builds
-		//		if (!vec_is_zero(a.Z, sizeof(a.Z)) && !vec_is_zero(b.Z, sizeof(b.Z))) { // If neither point is infinity
-		//			// Convert both points to affine to check if they're the same
-		//			Fp Z_a, ZZ_a, Z_b, ZZ_b;
-		//
-		//			// Convert a to affine
-		//			Fp::reciprocal(Z_a, a.Z);            // 1/Z_a
-		//			Fp::sqr(ZZ_a, Z_a);                   // 1/Z_a^2
-		//			Fp a_X_affine, a_Y_affine;
-		//			Fp::mul(a_X_affine, a.X, ZZ_a);      // X_a/Z_a^2
-		//
-		//			// Convert b to affine
-		//			Fp::reciprocal(Z_b, b.Z);            // 1/Z_b
-		//			Fp::sqr(ZZ_b, Z_b);                   // 1/Z_b^2
-		//			Fp b_X_affine, b_Y_affine;
-		//			Fp::mul(b_X_affine, b.X, ZZ_b);      // X_b/Z_b^2
-		//
-		//			// Compare X coordinates
-		//			if (vec_is_equal(a_X_affine, b_X_affine, sizeof(Fp))) {
-		//				// Also check Y coordinates
-		//				Fp::mul(ZZ_a, ZZ_a, Z_a);         // 1/Z_a^3
-		//				Fp::mul(a_Y_affine, a.Y, ZZ_a);  // Y_a/Z_a^3
-		//
-		//				Fp::mul(ZZ_b, ZZ_b, Z_b);         // 1/Z_b^3
-		//				Fp::mul(b_Y_affine, b.Y, ZZ_b);  // Y_b/Z_b^3
-		//
-		//				if (vec_is_equal(a_Y_affine, b_Y_affine, sizeof(Fp))) {
-		//					printf("ERROR: blst_p1_add called with the same point. "
-		//						"Use blst_p1_add_or_double instead.\n");
-		//					exit(1);
-		//				}
-		//			}
-		//		}
-		//#endif
-
 		Point p3;
 		Field Z1Z1, Z2Z2, U1, S1, H, I, J;
 		bool_t p1inf, p2inf;
@@ -1680,34 +1641,6 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		const Point<Field>& p1,
 		const AffinePoint<Field>& p2)
 	{
-		//#if (defined(DEBUG) || !defined(NDEBUG)) && !defined(__CUDA_ARCH__)
-		//		// Check if we're trying to add a point to itself in debug builds
-		//		if (!vec_is_zero(a.Z, sizeof(a.Z))) {  // If a is not infinity
-		//			Fp Z, ZZ;
-		//			Fp::reciprocal(Z, a.Z);              // 1/Z
-		//			Fp::sqr(ZZ, Z);                       // 1/Z^2
-		//
-		//			// Compare X coordinates: a.X/Z^2 == b.X?
-		//			Fp a_X_affine;
-		//			Fp::mul(a_X_affine, a.X, ZZ);        // X/Z^2
-		//
-		//			if (vec_is_equal(a_X_affine, b.X, sizeof(Fp))) {
-		//				// Check Y coordinates as well
-		//				Fp a_Y_affine;
-		//				Fp::mul(ZZ, ZZ, Z);               // 1/Z^3
-		//				Fp::mul(a_Y_affine, a.Y, ZZ);    // Y/Z^3
-		//
-		//				if (vec_is_equal(a_Y_affine, b.Y, sizeof(Fp))) {
-		//					printf("ERROR: blst_p1_add called with the same point. "
-		//						"Use blst_p1_add_or_double_affine instead.\n");
-		//					exit(1);
-		//					// We could assert here, but let's just warn and proceed
-		//					// assert(0 && "blst_p1_add called with same point");
-		//				}
-		//			}
-		//		}
-		//#endif
-
 		Point<Field> p3;
 		Field Z1Z1, H, HH, I, J;
 		bool_t p1inf, p2inf;

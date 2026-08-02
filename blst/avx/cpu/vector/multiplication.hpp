@@ -272,13 +272,6 @@ struct IntRNS2System {
         return std::make_pair(a_m1, a_m2);
     }
 
-    // Mainly for debugging, returns the value and the redundance encoded in the RNS representation
-    // inline std::pair<BigInt, BigInt>
-    // from_mont_exact(AVXVector<limbs> &a_m1, AVXVector<limbs> &a_m2, bool wide=false) const {
-    //     // First reconstruct the integer from the RNS representation
-
-    // }
-
     // Convert from Montgomery form in RNS representation back to BigInt
     // Takes a_m2 (representation in moduli2) and returns the BigInt value
     inline BigInt from_mont_avx(const AVXVector<limbs> &a_m2) const {
