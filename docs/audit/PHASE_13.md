@@ -188,3 +188,15 @@ deterministic SHA comparison; no-assembly shift tests passed 5/5. MSVC
 the intended native versus portable SHA symbols. `AUD-051` and `AUD-055` are
 validated, and `blst/backend/backend.h` is reviewed at exact commit
 `dc07be802c39a3c04a17347a5cec64f74d95ecd7`.
+
+The subsequent assembly-interface review reopened `backend.h` and opened
+`AUD-056` and `AUD-057`. Zero-length vector predicates and selected SHA
+operations can reach raw assembly routines whose count contract is strictly
+positive; the generated x86-64 and AArch64 implementations load before proving
+the count and then underflow their loops. Current production callers use
+nonzero fixed sizes or guard the count, but the supported native C++ boundary
+is unsafe. The same review found that persistent provider-renaming macros make
+the apparent q/x symbol surface include-order-dependent, conceal which Apple
+provider is tested, and prevent combined builds from directly validating all
+built providers. Remediation must remain forced-inline and compile-time, with
+code-generation proof that constant nonzero hot calls gain no branch.
