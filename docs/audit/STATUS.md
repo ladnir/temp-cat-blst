@@ -37,12 +37,21 @@ focused tests and references no x/ADX symbols. The no-assembly archive
 references no assembly primitives. All 18 optimized default-ADX production
 objects and the static archive are byte-identical before and after the fix.
 
+Phase 13 hand review has started at common configuration and representation
+boundaries. The opening packet records `AUD-042` through `AUD-047`: a high-
+severity C ABI exception escape in `blst_miller_loop_n`, empty FFT sizing UB,
+unsafe ceiling-division boundaries, an MSVC constant-time evidence gap, global
+warning suppression, and partially exposed 32-bit configuration. Remediation
+is ordered in `PHASE_13.md`; `config.h.in`, `defines.h`, the affected C API, and
+the FFT adapter remain pending until implementation and exact-commit review
+evidence are complete.
+
 ## Main program phases
 
 | Phase | State | Exit criterion |
 | --- | --- | --- |
 | 12. Audit platform and initial baseline | in progress | CodeQL, Clang/CodeChecker, clang-tidy, Clippy, ASan/UBSan, initial fuzzers, corpora/artifacts, and triage run reproducibly |
-| 13. Fundamental scalar trust chain | not started | Representations, conversions, portable backend, assembly generators/outputs, and CPU selection complete |
+| 13. Fundamental scalar trust chain | in progress | Representations, conversions, portable backend, assembly generators/outputs, and CPU selection complete |
 | 14. Scalar and extension fields | not started | Field arithmetic/representation files complete with property, boundary, sanitizer, and oracle evidence |
 | 15. Curves and protocols | not started | G1/G2, serialization, hash-to-curve, pairing, signatures, MSM, and uniqueness files complete |
 | 16. AVX-512 | not started | AVX files complete with native hardware and scalar differential evidence |

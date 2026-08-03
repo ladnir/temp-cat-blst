@@ -55,6 +55,7 @@ for compatibility.
 | `CLANG_TIDY_BASELINE_TRIAGE.md` | Curated scalar/portable-AVX Debug clang-tidy evidence and dispositions |
 | `CLIPPY_BASELINE_TRIAGE.md` | Rust feature-family Clippy evidence, dispositions, and proposed scratch-storage finding |
 | `SANITIZER_BASELINE_TRIAGE.md` | Focused scalar ASan/UBSan configuration, evidence, exclusions, and configuration finding |
+| `PHASE_13.md` | Foundational hand-audit findings, C ABI exception policy, remediation sequence, and focused evidence |
 | `PHASE_17.md` | FFT native-core redesign, adapter boundary, packaging, and focused validation evidence |
 | `VALIDATION_POLICY.md` | Risk-proportional checks and subsystem/milestone validation gates |
 | `BTX_FREEZE.md` | No-touch policy and merge prerequisite for frozen BTx/BTE |
