@@ -140,6 +140,36 @@ gtest_discover_tests(blst_tests
   # PROPERTIES LABELS "unit"
 )
 
+if(BLST_ASAN OR BLST_UBSAN)
+    # Keep the focused sanitizer change loop independent of the broad test
+    # executable and the frozen BTx/BTE subsystem.
+    add_executable(blst_sanitizer_boundary_tests
+        "Backend_alias_tests.cpp"
+        "BindingHeader_tests.cpp"
+        "C_api_tests.cpp"
+        "CompressedInfinity_tests.cpp"
+        "Conformance_tests.cpp"
+        "Fft_api_tests.cpp"
+        "Interface_tests.cpp"
+        "MiddleProduct_c_api_tests.cpp"
+        "scalar/Scalar_mult_window_tests.cpp"
+    )
+    target_include_directories(blst_sanitizer_boundary_tests PRIVATE
+        ${CMAKE_CURRENT_LIST_DIR}
+    )
+    target_link_libraries(blst_sanitizer_boundary_tests PRIVATE
+        gtest_main
+        blst_static
+        blst_avx_headers
+    )
+    gtest_discover_tests(blst_sanitizer_boundary_tests
+        DISCOVERY_TIMEOUT 60
+        DISCOVERY_MODE PRE_TEST
+        TEST_PREFIX "sanitizer."
+        PROPERTIES LABELS "sanitizer;boundary"
+    )
+endif()
+
 if(BLST_AVX512 AND BLST_AVX512_PORTABLE)
     add_executable(blst_avx512_compat_tests
         "avx512_compat_test.cpp"

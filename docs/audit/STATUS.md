@@ -29,6 +29,14 @@ Release compilation. The remaining diagnostics are triaged MSRV,
 generated-ABI, documentation/style, or deliberate unsafe-boundary review items.
 No Clippy fix-it was applied.
 
+The initial focused scalar sanitizer baseline is complete. A dedicated target
+selected 123 public-boundary, serialization, FFT/middle-product, backend, and
+allocation tests; ASan/LSan and UBSan each passed 113 with 10 expected AVX-only
+skips and no sanitizer report. The attempt to remove assembly from this profile
+exposed proposed `AUD-041`: the advertised `BLST_ASM=OFF` configuration does
+not compile, and x86 assembly also rejects `BLST_ADX=OFF`. No production fix
+has been approved or applied.
+
 ## Main program phases
 
 | Phase | State | Exit criterion |
@@ -160,10 +168,10 @@ expand through Phase 19.
 
 Current generated inventory:
 
-- 616 repository files accounted for;
+- 621 repository files accounted for;
 - 156 in-scope production;
 - 113 generated production;
-- 168 in-scope support;
+- 173 in-scope support;
 - 59 benchmark files explicitly excluded;
 - 32 frozen BTx/BTE files pending the required merge;
 - 52 retained experimental CUDA files;
@@ -178,8 +186,8 @@ Main audit work volume:
 | AVX-512 | 16 | 42 | 0 | 42 |
 | FFT and middle product | 17 | 10 | 0 | 10 |
 | C/C++/Rust APIs and bindings | 18 | 28 | 0 | 28 |
-| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 160 | 0 | 160 |
-| **Total in-scope production/generated/support** | **12-19** | **437** | **2** | **435** |
+| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 165 | 0 | 165 |
+| **Total in-scope production/generated/support** | **12-19** | **442** | **2** | **440** |
 
 The rollup is explained in `PRODUCTION_AUDIT_ROADMAP.md`; the per-file
 `FILE_MANIFEST.csv` remains authoritative.
@@ -194,8 +202,9 @@ Upstream progress:
   validation are completed;
 - 0 remain pending.
 
-Findings: 37 total. Thirty-five are validated. Two remain unresolved: one low
-and one informational finding are open. `AUD-035` is validated with preserved
+Findings: 38 total. Thirty-five are validated. Three remain unresolved: one
+low finding is open, one informational finding is open, and low-severity
+`AUD-041` needs a decision. `AUD-035` is validated with preserved
 allocated/caller-table/precomputed modes and 10/10 focused MSVC Release, Linux
 ASan, and Linux UBSan tests. `AUD-036` is validated on native
 Apple Silicon with AppleClang 17 at commit `0b7ec47`; all 336 C/C++ tests and
@@ -208,10 +217,10 @@ and the 9-test direct compatibility target passed on Peach's AVX-512 IFMA CPU.
 
 Do not touch BTx/BTE, and do not include experimental CUDA, non-Apple ARM64, or
 CHERI in the primary production-readiness gate. Apple Silicon macOS remains in
-the supported scalar release matrix. Complete clang-tidy, Clippy, sanitizer,
-and initial fuzz platform work while continuing the deeper Phase 17 generic
-FFT/interpolation/middle-product file audit from the boundary established in
-`PHASE_17.md`. Coverage remains a late audit/release
+the supported scalar release matrix. Review `AUD-041`, then add the initial
+bounded public byte-boundary fuzz platform while continuing the deeper Phase
+17 generic FFT/interpolation/middle-product file audit from the boundary
+established in `PHASE_17.md`. Coverage remains a late audit/release
 metric by user decision; sanitizer, fuzz, and static-analysis work still
 accompanies subsystem review. Expand
 analyzers, sanitizers, fuzzers, and oracles alongside every subsystem. Apply

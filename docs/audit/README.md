@@ -54,6 +54,7 @@ for compatibility.
 | `CLANG_ANALYZER_BASELINE_TRIAGE.md` | Split scalar/AVX Clang analyzer evidence, dispositions, and proposed cleanup packet |
 | `CLANG_TIDY_BASELINE_TRIAGE.md` | Curated scalar/portable-AVX Debug clang-tidy evidence and dispositions |
 | `CLIPPY_BASELINE_TRIAGE.md` | Rust feature-family Clippy evidence, dispositions, and proposed scratch-storage finding |
+| `SANITIZER_BASELINE_TRIAGE.md` | Focused scalar ASan/UBSan configuration, evidence, exclusions, and configuration finding |
 | `PHASE_17.md` | FFT native-core redesign, adapter boundary, packaging, and focused validation evidence |
 | `VALIDATION_POLICY.md` | Risk-proportional checks and subsystem/milestone validation gates |
 | `BTX_FREEZE.md` | No-touch policy and merge prerequisite for frozen BTx/BTE |
@@ -63,6 +64,7 @@ for compatibility.
 | `scripts/audit/generate_file_manifest.ps1` | Regenerates the inventory without erasing review evidence |
 | `scripts/audit/check_audit_manifest.ps1` | Enforces file/upstream inventory integrity and completion evidence |
 | `scripts/audit/check_rust_threading_policy.ps1` | Enforces the caller-threaded Rust runtime contract |
+| `scripts/audit/run_sanitizers_local.sh` | Runs the pinned focused scalar ASan/UBSan boundary baseline on x86-64 Linux |
 
 ## Scope dispositions
 

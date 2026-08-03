@@ -163,11 +163,10 @@ recorded separately above.
 
 ## Remaining Phase 12 packets
 
-1. Complete the Clippy baseline. The clang-tidy baseline is triaged and
-   `AUD-035`, `AUD-036`, `AUD-037`, and `AUD-039` are validated.
-2. Focused portable-scalar ASan/UBSan audit targets.
-3. Initial bounded public byte-boundary libFuzzer targets and seed corpora.
-4. Complete diagnostic triage and Phase 12 exit-gate evidence.
+1. Review and resolve the sanitizer-discovered scalar configuration finding
+   `AUD-041` without changing optimized default code generation.
+2. Add initial bounded public byte-boundary libFuzzer targets and seed corpora.
+3. Complete diagnostic triage and Phase 12 exit-gate evidence.
 
 ## AUD-038 commented-code cleanup
 
@@ -304,6 +303,29 @@ scratch element count uses overflow-free quotient/remainder arithmetic. Focused
 portable-AVX Debug tests passed 4/4; default/full broad Clippy counts fell to
 61/131 and `clippy::all` retains only the declined remainder suggestion. Exact
 commands, counts, and dispositions are in `CLIPPY_BASELINE_TRIAGE.md`.
+
+## Initial ASan/UBSan baseline
+
+The dedicated `blst_sanitizer_boundary_tests` target keeps focused sanitizer
+cycles separate from the full test executable and frozen BTx/BTE. On x86-64
+Ubuntu 24.04 with Clang 18.1.3, the scalar portable-dispatch profile selected
+123 boundary tests: 113 passed and the 10 AVX-only cases skipped as expected.
+ASan plus leak detection completed in 73.970 seconds with no report; UBSan
+completed in 333.152 seconds with no report. Benchmarks, CUDA, AVX-512, and
+portable-AVX Release were not built.
+
+The reusable runner snapshots the source into Linux-native temporary storage,
+pins the compiler version and configuration, retains ignored evidence under
+`out/audit/sanitizers`, and requires a nonzero passing test count. Two expensive
+tests are deferred to subsystem/fuzz gates rather than every focused cycle.
+
+The baseline exposed proposed `AUD-041`: CMake advertises `BLST_ASM=OFF`, but
+native C++ field templates then reference undeclared assembly names; enabling
+assembly while disabling ADX also fails unconditionally on x86-64. The clean
+baseline therefore retained assembly and ADX while selecting portable scalar
+dispatch. Generated assembly remains outside sanitizer instrumentation. Exact
+commands, evidence identifiers, exclusions, and limitations are recorded in
+`SANITIZER_BASELINE_TRIAGE.md`. No production dispatch fix was applied.
 
 ## AUD-035 scalar window contract
 
