@@ -80,6 +80,17 @@ with evidence or marked `N/A` with a reason. “Looks good” is not evidence.
 - [ ] Check C, C++, and Rust declarations agree on layout, calling convention, and semantics.
 - [ ] Check public structures, enums, return codes, symbol visibility, and versioning.
 - [ ] Check nullability, lengths, units, ownership, and thread-safety are documented.
+- [ ] For every `extern "C"` definition, trace transitive callees and prove that
+      no C++ exception or Rust panic can cross the ABI. Classify the boundary as
+      nonthrowing by construction or as catch-and-translate; a source-level
+      absence of `throw` in the wrapper alone is not sufficient.
+- [ ] Check hidden exception sources including allocation, container growth,
+      bounds-checked access, string/stream construction, callbacks, and
+      destructors. Exercise allocation/error injection where the path is
+      fallible.
+- [ ] Require legacy `void` C entry points to be allocation-free and
+      nonthrowing. Fallible APIs must translate failure to status, `bool`, or
+      null and must not partially publish output.
 - [ ] Check behavior for unsupported CPU features.
 - [ ] Record implications for the future `blst_`/`catblst_` build-time ABI mode.
 - [ ] Reject runtime prefix dispatch or other abstraction overhead in hot paths.
@@ -175,6 +186,8 @@ with evidence or marked `N/A` with a reason. “Looks good” is not evidence.
 A file is complete only when:
 
 - all applicable checklist items have evidence;
+- every C/FFI boundary reachable from the file has an explicit transitive
+  exception/panic-safety disposition and output-publication contract;
 - applicable automated-baseline results and false positives are dispositioned;
 - sanitizer/fuzz evidence or reasoned `N/A` entries are recorded;
 - all upstream deltas are classified;

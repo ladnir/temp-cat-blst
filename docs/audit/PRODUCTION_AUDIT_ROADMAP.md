@@ -103,6 +103,9 @@ The production audit is complete only when:
 - scalar and AVX-512 implementations have independent and differential
   evidence, including native AVX-512 hardware;
 - C, native C++, and Rust APIs agree and pass their supported matrices;
+- every retained C ABI entry point is proven nonthrowing across its transitive
+  call graph; legacy `void` entries are allocation-free, and fallible entries
+  translate errors without partially publishing output;
 - Apple Silicon and all other claimed platforms have native release evidence;
 - the full configured static-analysis, sanitizer, and fuzz-regression corpus is
   clean with every diagnostic dispositioned;
