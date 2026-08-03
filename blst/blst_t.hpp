@@ -289,14 +289,14 @@ public:
     friend inline blst_384_t czero(const blst_384_t& a, int set_z)
     {   blst_384_t ret;
         const vec384 zero = { 0 };
-        vec_select(ret, zero, a, sizeof(ret), set_z);
+        vec_select(ret, zero, a, sizeof(ret), bool_t(set_z != 0));
         return ret;
     }
 
     inline blst_384_t csel(const blst_384_t& a, const blst_384_t& b,
                                   int sel_a)
     {   blst_384_t ret;
-        vec_select(ret, a, b, sizeof(ret), sel_a);
+        vec_select(ret, a, b, sizeof(ret), bool_t(sel_a != 0));
         return ret;
     }
 
@@ -642,14 +642,14 @@ public:
     friend inline blst_256_t czero(const blst_256_t& a, int set_z)
     {   blst_256_t ret;
         const vec256 zero = { 0 };
-        vec_select(ret, zero, a, sizeof(ret), set_z);
+        vec_select(ret, zero, a, sizeof(ret), bool_t(set_z != 0));
         return ret;
     }
 
     inline blst_256_t csel(const blst_256_t& a, const blst_256_t& b,
                                   int sel_a)
     {   blst_256_t ret;
-        vec_select(ret, a, b, sizeof(ret), sel_a);
+        vec_select(ret, a, b, sizeof(ret), bool_t(sel_a != 0));
         return ret;
     }
 

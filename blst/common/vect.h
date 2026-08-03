@@ -30,10 +30,13 @@ extern "C"
 
 namespace blst
 {
-	BLST_HD BLST_FORCEINLINE void vec_copy(void* BLST_restrict ret, const void* a, size_t num)
+	BLST_HD BLST_FORCEINLINE void vec_copy(void* ret, const void* a, size_t num)
 	{
-		unsigned char* rp = (unsigned char*)ret;
-		const unsigned char* ap = (const unsigned char*)a;
+		if (ret == a || num == 0)
+			return;
+
+		unsigned char* BLST_restrict rp = (unsigned char*)ret;
+		const unsigned char* BLST_restrict ap = (const unsigned char*)a;
 		size_t i;
 
 		for (i = 0; i < num; i++)
@@ -63,6 +66,7 @@ namespace blst
 	BLST_HD BLST_FORCEINLINE void vec_select(void* ret, const void* a, const void* b,
 		size_t num, bool_t sel_a)
 	{
+		BLST_ASSERT(sel_a <= 1);
 		BLST_launder(sel_a);
 #if defined(BLST_ASM) && !defined(__CUDA_ARCH__)
 		if (num == 32)          vec_select_32(ret, a, b, sel_a);
@@ -147,6 +151,7 @@ namespace blst
 		size_t i;
 		unsigned char mask;
 
+		BLST_ASSERT(cbit <= 1);
 		BLST_launder(cbit);
 		mask = (unsigned char)0 - (unsigned char)(cbit ^ 1);
 
@@ -189,6 +194,7 @@ namespace blst
 		unsigned char xorm, mask;
 		size_t i;
 
+		BLST_ASSERT(cbit <= 1);
 		BLST_launder(cbit);
 		mask = (unsigned char)0 - (unsigned char)cbit;
 

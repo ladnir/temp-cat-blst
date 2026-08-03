@@ -45,6 +45,19 @@ TEST(InterfaceTests, EmptyVectorPredicates) {
 	EXPECT_TRUE(vec_is_equal(nullptr, nullptr, 0));
 }
 
+TEST(InterfaceTests, VectorCopyAcceptsExactSelfAlias) {
+	unsigned char value[17] = {
+		0, 1, 2, 3, 4, 5, 6, 7, 8,
+		9, 10, 11, 12, 13, 14, 15, 16
+	};
+	unsigned char expected[sizeof(value)];
+	std::memcpy(expected, value, sizeof(value));
+
+	vec_copy(value, value, sizeof(value));
+
+	EXPECT_EQ(std::memcmp(value, expected, sizeof(value)), 0);
+}
+
 TEST(InterfaceTests, ZeroLengthSelectedShaOperationsAreNoOps) {
 	unsigned int state[8] = {
 		0x6a09e667U, 0xbb67ae85U, 0x3c6ef372U, 0xa54ff53aU,

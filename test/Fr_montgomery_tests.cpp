@@ -58,6 +58,21 @@ bool greater_than_or_equal(const Fr& lhs, const Fr& rhs)
     return true;
 }
 
+TEST(FrMontgomery, NativeConditionalSelectionNormalizesTruthyIntegers)
+{
+    NativeFr selector{0};
+    const NativeFr a{5};
+    const NativeFr b{7};
+    const NativeFr zero{0};
+
+    EXPECT_EQ(limbs_of(selector.csel(a, b, 0)), limbs_of(b));
+    EXPECT_EQ(limbs_of(selector.csel(a, b, 1)), limbs_of(a));
+    EXPECT_EQ(limbs_of(selector.csel(a, b, 2)), limbs_of(a));
+    EXPECT_EQ(limbs_of(selector.csel(a, b, -1)), limbs_of(a));
+    EXPECT_EQ(limbs_of(czero(a, 0)), limbs_of(a));
+    EXPECT_EQ(limbs_of(czero(a, 2)), limbs_of(zero));
+}
+
 Fr subtract_no_underflow(const Fr& lhs, const Fr& rhs)
 {
     Fr result = {};
