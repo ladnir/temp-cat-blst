@@ -33,6 +33,25 @@ TEST(InterfaceTests, QuotRemPropagatesBorrowPastMaxLimb) {
 	EXPECT_EQ(dividend_and_remainder[2], max - 1);
 }
 
+TEST(InterfaceTests, EmptyVectorPredicates) {
+	EXPECT_TRUE(vec_is_zero(nullptr, 0));
+	EXPECT_TRUE(vec_is_equal(nullptr, nullptr, 0));
+}
+
+TEST(InterfaceTests, ZeroLengthSelectedShaOperationsAreNoOps) {
+	unsigned int state[8] = {
+		0x6a09e667U, 0xbb67ae85U, 0x3c6ef372U, 0xa54ff53aU,
+		0x510e527fU, 0x9b05688cU, 0x1f83d9abU, 0x5be0cd19U
+	};
+	unsigned int expected[8];
+	std::memcpy(expected, state, sizeof(state));
+
+	blst_sha256_block_data_order_v(state, nullptr, 0);
+	blst_sha256_bcopy_v(nullptr, nullptr, 0);
+
+	EXPECT_EQ(std::memcmp(state, expected, sizeof(state)), 0);
+}
+
 namespace
 {
 

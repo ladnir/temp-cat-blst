@@ -32,3 +32,18 @@ extern "C" void audit_sha256_selected(unsigned int* state, const void* input,
 {
     blst::blst_sha256_block_data_order_v(state, input, blocks);
 }
+
+extern "C" void audit_sha256_one_block(unsigned int* state, const void* input)
+{
+    blst::blst_sha256_block_data_order_v(state, input, 1);
+}
+
+extern "C" void audit_sha256_copy_32(void* dst, const void* src)
+{
+    blst::blst_sha256_bcopy_v(dst, src, 32);
+}
+
+extern "C" blst::bool_t audit_vec_is_zero_32(const void* input)
+{
+    return blst::vec_is_zero(input, 32);
+}

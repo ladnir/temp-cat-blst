@@ -102,6 +102,9 @@ namespace blst
 		unsigned char acc;
 		size_t i;
 
+		if (num == 0)
+			return 1;
+
 #if defined(BLST_ASM) && !defined(__CUDA_ARCH__)
 		if ((num & 15) == 0)
 			return vec_is_zero_16x(a, num);
@@ -121,6 +124,9 @@ namespace blst
 		const unsigned char* bp = (const unsigned char*)b;
 		unsigned char acc;
 		size_t i;
+
+		if (num == 0)
+			return 1;
 
 #if defined(BLST_ASM) && !defined(__CUDA_ARCH__)
 		if ((num & 15) == 0)

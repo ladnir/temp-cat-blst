@@ -301,6 +301,9 @@ namespace blst
 	BLST_HD BLST_FORCEINLINE void blst_sha256_block_data_order_v(unsigned int* v, const void* inp,
 		size_t blocks)
 	{
+		if (blocks == 0)
+			return;
+
 #if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		blst_sha256_block_data_order(v, inp, blocks);
 #else
@@ -332,6 +335,9 @@ namespace blst
 	// copies a variable length array into dst_. i.e memcpy(dst, src, len)
 	BLST_HD BLST_FORCEINLINE void blst_sha256_bcopy_v(void* dst_, const void* src_, size_t len)
 	{
+		if (len == 0)
+			return;
+
 #if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		blst_sha256_bcopy(dst_, src_, len);
 #else
