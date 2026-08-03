@@ -62,6 +62,12 @@ The complete Phase 13 file reviews for `backend_portable.h` and
 `5606e84262401225c4e02b3ec786b849c85adfcc`. Broader field, keygen, and public-
 surface reviews remain pending in their scheduled phases.
 
+The `backend.h` hand review reopened `AUD-051` after finding that the initial
+zero-shift remediation missed supported native C++ template operators. It also
+opened `AUD-055`: production host SHA-256 compression is incorrectly pinned to
+the portable backend. Focused selector remediation is in progress; no broad
+build or benchmark is required.
+
 ## Main program phases
 
 | Phase | State | Exit criterion |

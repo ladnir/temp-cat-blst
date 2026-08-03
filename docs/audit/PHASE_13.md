@@ -171,3 +171,11 @@ records now cover both portable-backend files at exact commit
 `5606e84262401225c4e02b3ec786b849c85adfcc`. Field and keygen files remain
 pending for their broader Phase 14/15/18 reviews despite closure of these
 specific findings.
+
+The subsequent `blst/backend/backend.h` review reopened `AUD-051`: its first
+remediation covered the public field and C boundaries but not every supported
+native C++ template operator. The same review opened `AUD-055` because the
+selected SHA-256 compression wrapper has unconditionally used the portable
+implementation since CUDA refactor `4e8775d1`, even in default-assembly host
+builds. Both findings require focused remediation before the selector file can
+be closed.
