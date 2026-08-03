@@ -54,6 +54,14 @@ allocation-free key derivation, defined zero-count public shifts, exact ADX
 output typing, portable division borrow propagation, and MSVC zero-input bit
 scanning.
 
+`AUD-050` through `AUD-054` are now validated. Key derivation is allocation-
+free, zero-count public shifts are identity, portable division and MSVC bit
+scanning are corrected, and ADX outputs have exact intrinsic-compatible types.
+The complete Phase 13 file reviews for `backend_portable.h` and
+`backend_portable.cpp` are recorded at commit
+`5606e84262401225c4e02b3ec786b849c85adfcc`. Broader field, keygen, and public-
+surface reviews remain pending in their scheduled phases.
+
 ## Main program phases
 
 | Phase | State | Exit criterion |

@@ -132,6 +132,10 @@ target was run.
 | Limb configuration | Explicit `64` configuration succeeded; explicit `32` configuration failed with the CatBLST 64-bit-only diagnostic |
 | Constant time | MSVC, Clang, and GCC optimized probes inspected and hashed as above |
 | Audit process | `git diff --check` and `scripts/audit/check_audit_manifest.ps1` passed at closure |
+| Public zero shifts | Fr/Fp/Fp2 C ABI identity passed out-of-place and in-place; affected native C++/C test objects compile; constant-count Release wrappers add no branch |
+| Key derivation | Four published EIP-2333 master/child vectors passed, including the 255-block Lamport expansion; HKDF test mode compiles; no allocation reference remains |
+| Portable arithmetic | Exact lost-borrow regression and zero/one/top-bit scan passed; portable inverse matched assembly for zero, one, and modulus-minus-one |
+| ADX typing | 10,072 portable-versus-ADX cases passed under MSVC, GCC, and Clang; MSVC Release emitted direct arithmetic with no conversion temporary |
 
 ## Closure and residual work
 
@@ -155,3 +159,15 @@ That review also opened `AUD-051` through `AUD-054` for zero-count public
 shifts, ADX intrinsic output aliasing, lost-borrow portable division, and the
 MSVC zero-input bit scan. These are remediation packets, not completed file
 reviews; exact validation evidence will be recorded before closure.
+
+The remediation packets are complete. `AUD-050` through `AUD-054` are
+validated. Public zero shifts are identity before backend selection; keygen and
+EIP-2333 are allocation-free; portable division propagates borrow without limb
+overflow; the MSVC zero bit scan is defined and branchless; and ADX intrinsic
+outputs use an exact matching private word type without changing `limb_t` or a
+public representation. The remaining 32-bit backend branches, broad Clang
+warning suppression, and unused secret printers were removed. Complete review
+records now cover both portable-backend files at exact commit
+`5606e84262401225c4e02b3ec786b849c85adfcc`. Field and keygen files remain
+pending for their broader Phase 14/15/18 reviews despite closure of these
+specific findings.
