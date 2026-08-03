@@ -72,13 +72,15 @@ The exact `backend.h` review is recorded at
 `dc07be802c39a3c04a17347a5cec64f74d95ecd7`; no broad build or benchmark was
 required.
 
-The common-foundation packet is now in remediation. `AUD-058` through
-`AUD-065` cover CPU capability initialization/linkage, vector copy and
-conditional contracts, x86 predicate counts, endian conversion, strict public
-hex parsing, one canonical C error enum, and optional timing overhead/failure.
-Three iterator/mdspan helpers have no supported production consumer and move
-to the experimental CUDA/parallel-MSM scope. Discovery was read-only at exact
-commit `26ef30d699d035d261936b1ec1217195425fef8e`; no benchmark was run.
+The common-foundation remediation is locally complete. `AUD-059`, `AUD-060`,
+`AUD-061`, `AUD-064`, and `AUD-065` are validated; `AUD-058` and `AUD-062` are
+fixed pending Apple CI, and `AUD-063` is fixed pending the next retained Rust
+compile. Exact per-file records now cover `cpuid.cpp`, `vect.h`, `bytes.h`,
+`errors.h`, and `timer.h`; the completed `defines.h` record was refreshed for
+the canonical `uintptr_t` representation. Three iterator/mdspan helpers have
+no supported production consumer and remain in experimental CUDA/parallel-MSM
+scope. Final local evidence used one MSVC worker and no benchmark, CUDA job,
+full suite, sanitizer sweep, or parallel build.
 
 ## Main program phases
 

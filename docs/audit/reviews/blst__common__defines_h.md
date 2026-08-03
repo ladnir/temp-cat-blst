@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/common/defines.h` |
 | Roadmap phase / queue | Phase 13, first configuration/representation packet |
-| Reviewed commit | `7719303ad809dd7a738421c721be8ebe91bf6ce5` |
+| Reviewed commit | `80ae0f9a23da1c30415498241e204297e15157af` |
 | Reviewer | Codex |
 | Date | 2026-08-02 |
 | Disposition | `in_scope_production` |
@@ -33,6 +33,8 @@ or spills.
 ## Contracts and invariants
 
 - `BLST_LIMB_SIZE` is exactly 64 and `limb_t` is exactly `uint64_t`.
+- `uptr_t` is the standard `uintptr_t`, so supported 64-bit hosts have an
+  integer type capable of representing object pointers.
 - `NLIMBS(bits)` is used for widths divisible by 64; fixed vector aliases are
   contiguous limb arrays with no ownership.
 - `BLST_ASSERT` terminates on failure in Debug and is absent in Release.
@@ -99,7 +101,8 @@ addition overflow. No signed arithmetic is used in these size formulas.
 ### 5. Memory and lifetime safety
 
 The header allocates and owns nothing. Vector aliases are caller-owned fixed
-arrays. `uptr_t` is a representation helper only. The assertions print static
+arrays. `uptr_t` is the standard integer pointer representation and is used
+only for comparison/arithmetic preconditions. The assertions print static
 metadata and terminate; they do not retain caller data. Downstream pointer and
 array operations remain subject to their own file reviews.
 

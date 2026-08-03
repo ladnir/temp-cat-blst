@@ -221,3 +221,22 @@ duplicated error enum types, and non-zero-cost/fallible timing diagnostics.
 supported production consumers and are reclassified as experimental CUDA or
 parallel-MSM support rather than scalar release dependencies. The user
 approved the complete remediation packet before implementation.
+
+The packet is now implemented in four source commits: `8e4924f` activates the
+capability initializer and updates the generated assembly trust chain;
+`6d64c52` establishes the copy/select contracts; `80ae0f9` completes strict
+conversion, canonical error, and performance-preserving vector remediation;
+and `1220043` makes optional timing lazy and nonthrowing. `AUD-059`, `AUD-060`,
+`AUD-061`, `AUD-064`, and `AUD-065` are validated. `AUD-058` and `AUD-062`
+remain fixed pending the next Apple CI run, while `AUD-063` remains fixed
+pending a retained Rust compile of the changed Boolean FFI declarations.
+
+Focused MSVC evidence used one build worker. The final Debug target compiled,
+five public/C-ABI/timer tests passed, and two manually isolated scalar tests
+passed without launching another broad configuration. The exact-self-copy
+probe compiles to `ret`; a disjoint 48-byte copy is one equality branch plus
+three vector moves. A null timer also compiles to `ret`, and a standalone
+forced-allocation-failure probe preserves its prior sample and exits normally.
+Assembly regeneration verifies all 100 outputs, including the renamed
+non-reserved capability symbol and 64-bit x86 predicate counts. No benchmark,
+CUDA job, full suite, sanitizer sweep, or parallel build was run.
