@@ -1,9 +1,21 @@
-#ifndef BLST_INTERFACE_H
-#define BLST_INTERFACE_H
+/*
+ * Copyright Supranational LLC
+ * Copyright 2026 Peter Rindal
+ * Licensed under the Apache License, Version 2.0, see LICENSE for details.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * This CatBLST header is locally composed. Its fixed-width arithmetic and
+ * division lineage includes the upstream BLST src/vect.h and src/vect.c.
+ */
+
+#ifndef BLST_BACKEND_H
+#define BLST_BACKEND_H
 
 #include "backend_portable.h"
 #include "backend_asm.h"
+#ifdef BLST_CUDA
 #include "backend_cuda.h"
+#endif
 namespace blst
 {
 
@@ -281,12 +293,12 @@ namespace blst
 		cc_vec_prefetch(ptr, len);
 	}
 #else
-	extern "C" void vec_prefetch(const void* ptr, size_t len); // linked by asm 
+	extern "C" void vec_prefetch(const void* ptr, size_t len); // linked by asm
 #endif
 
 
 
-	BLST_HD BLST_HD BLST_FORCEINLINE void blst_sha256_block_data_order_v(unsigned int* v, const void* inp,
+	BLST_HD BLST_FORCEINLINE void blst_sha256_block_data_order_v(unsigned int* v, const void* inp,
 		size_t blocks)
 	{
 #if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
@@ -297,10 +309,10 @@ namespace blst
 	}
 
 
-	// copies a 64 byte length array into dst_. i.e memcpy(dst, src, 64)
-	BLST_HD BLST_HD BLST_FORCEINLINE void blst_sha256_hcopy_v(unsigned int dst[8], const unsigned int src[8])
+	// Copies the eight-word (32-byte) SHA-256 state.
+	BLST_HD BLST_FORCEINLINE void blst_sha256_hcopy_v(unsigned int dst[8], const unsigned int src[8])
 	{
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		blst_sha256_hcopy(dst, src);
 #else
 		cc_blst_sha256_hcopy(dst, src);
@@ -308,9 +320,9 @@ namespace blst
 	}
 
 	// performs the final compression function for sha256
-	BLST_HD BLST_HD BLST_FORCEINLINE void blst_sha256_emit_v(unsigned char md[32], const unsigned int h[8])
+	BLST_HD BLST_FORCEINLINE void blst_sha256_emit_v(unsigned char md[32], const unsigned int h[8])
 	{
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		blst_sha256_emit(md, h);
 #else
 		cc_blst_sha256_emit(md, h);
@@ -318,9 +330,9 @@ namespace blst
 	}
 
 	// copies a variable length array into dst_. i.e memcpy(dst, src, len)
-	BLST_HD BLST_HD BLST_FORCEINLINE void blst_sha256_bcopy_v(void* dst_, const void* src_, size_t len)
+	BLST_HD BLST_FORCEINLINE void blst_sha256_bcopy_v(void* dst_, const void* src_, size_t len)
 	{
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		blst_sha256_bcopy(dst_, src_, len);
 #else
 		cc_blst_sha256_bcopy(dst_, src_, len);
@@ -330,7 +342,7 @@ namespace blst
 
 	BLST_HD BLST_FORCEINLINE limb_t div_3_limbs_v(const limb_t dividend_top[2], limb_t d_lo, limb_t d_hi)
 	{
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		return div_3_limbs(dividend_top, d_lo, d_hi);
 #else
 		return cc_div_3_limbs(dividend_top, d_lo, d_hi);
@@ -339,7 +351,7 @@ namespace blst
 
 	BLST_HD BLST_FORCEINLINE limb_t quot_rem_128_v(limb_t* quot_rem, const limb_t* divisor, limb_t quotient)
 	{
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		return quot_rem_128(quot_rem, divisor, quotient);
 #else
 		return cc_quot_rem_n<NLIMBS(128)>(quot_rem, divisor, quotient);
@@ -348,7 +360,7 @@ namespace blst
 
 	BLST_HD BLST_FORCEINLINE limb_t quot_rem_64_v(limb_t* quot_rem, const limb_t* divisor, limb_t quotient)
 	{
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		return quot_rem_64(quot_rem, divisor, quotient);
 #else
 		return cc_quot_rem_n<NLIMBS(64)>(quot_rem, divisor, quotient);
@@ -389,7 +401,7 @@ namespace blst
 		size_t loop, z_len = sizeof(z) / sizeof(z[0]);
 		limb_t d_lo, d_hi;
 
-		d_lo = (sizeof(z) == sizeof(limb_t)) ? 0 : z[z_len - 2];
+		d_lo = 0;
 		d_hi = z[z_len - 1];
 
 		for (loop = z_len, z_len--; loop--;) {
@@ -402,4 +414,4 @@ namespace blst
 
 }
 
-#endif // BLST_INTERFACE_H
+#endif // BLST_BACKEND_H
