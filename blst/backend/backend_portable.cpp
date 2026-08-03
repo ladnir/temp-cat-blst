@@ -9,19 +9,6 @@
 
 namespace blst
 {
-
-
-	 
-	void print_vec_n(const char* label, const limb_t* v, int n) {
-		printf("%s: ", label);
-		for (int i = n - 1; i >= 0; --i) {
-			printf("%016llx", (long long unsigned int)v[i]);
-			if (i > 0) printf(" ");
-		}
-		printf("\n");
-	}
-
-
 	/**
 	 * @brief Performs Montgomery multiplication of two large integers.
 	 *
@@ -395,7 +382,7 @@ namespace blst
 	/**
 	 * @brief Adds two large integers modulo a given modulus and checks if the result is zero.
 	 *
-	 * Computes `(a + b) mod p` and stores the result in `ret`. Returns 1 if the result is zero,
+	 * Computes `(a + b) mod p` and stores the result in `ret`. Returns 1 if the result is nonzero,
 	 * otherwise returns 0. Assumes `n > 0`.
 	 */
 	template<size_t n>
@@ -428,7 +415,7 @@ namespace blst
 	/**
 	 * @brief Subtracts two large integers modulo a given modulus and checks if the result is zero.
 	 *
-	 * Computes `(a - b) mod p` and stores the result in `ret`. Returns 1 if the result is zero,
+	 * Computes `(a - b) mod p` and stores the result in `ret`. Returns 1 if the result is nonzero,
 	 * otherwise returns 0. Assumes `n > 0`.
 	 */
 	template<size_t n>
@@ -875,7 +862,7 @@ namespace blst
 	 * @param[in]  neg The flag indicating whether to negate (`1`) or not (`0`).
 	 * @param[in]  n   The number of limbs in `a`.
 	 *
-	 * @return The sign of the result (0 for non-negative, 1 for negative).
+	 * @return An all-zero or all-one limb mask representing the result's sign.
 	 *
 	 * @note Assumes `n > 0`.
 	 */
@@ -1278,13 +1265,14 @@ namespace blst
 	 * @param[in]  n0    The Montgomery constant.
 	 * @param[in]  b     The multiplier in Montgomery form.
 	 *
-	 * @note Assumes `count > 0` and `a`, `b`, and `p` are valid 384-bit integers.
+	 * @note Assumes `count > 0`; `ret` may alias `a` but must not alias `b`.
 	 */
 	BLST_HD BLST_CPP_INLINE void cc_sqr_n_mul_mont_384(
 		limb_t* ret, const limb_t* a, size_t count,
 		const limb_t* p, limb_t n0, const limb_t* b)
 	{
 		BLST_ASSUME(count != 0);
+		BLST_ASSERT(ret != b);
 		auto ptr = a;
 
 		while (count--) {

@@ -9,18 +9,11 @@
 #include "blst/common/bytes.h"
 #include "blst/config.h"
 #include "blst/common/defines.h"
-#include <assert.h>
 #include <stddef.h>   // for size_t
- //printf
-#include <stdio.h>
 
 
 #ifdef BLST_ADX
 #include <immintrin.h>
-#endif
-
-#if defined(__clang__)
-# pragma GCC diagnostic ignored "-Wstatic-in-inline"
 #endif
 
 namespace blst
@@ -155,33 +148,6 @@ namespace blst
 		}
 
 	}
-#endif
-
-#if BLST_LIMB_SIZE == 32 && (defined(_M_X64) || defined(__x86_64__))
-	// 32 bit with 64 bit support
-	namespace limb32on64
-	{
-		BLST_FORCEINLINE void cc_mul_wide_limb_limb(wide_limb_t* ret, const limb_t& a, const limb_t& b) {
-			*(unsigned long long*)(ret) = (unsigned long long)(a) * (unsigned long long)(b);
-		}
-		BLST_FORCEINLINE void cc_add_wide_wide_limb(wide_limb_t* ret, const wide_limb_t& a, const limb_t& b) {
-			*(unsigned long long*)(ret) = *(unsigned long long*) & (a)+(unsigned long long)(b);
-		}
-		BLST_FORCEINLINE void cc_add_wide_limb_limb(wide_limb_t* ret, const limb_t& a, const limb_t& b) {
-			*(unsigned long long*)(ret) = (a)+(unsigned long long)(b);
-		}
-		BLST_FORCEINLINE void cc_add_carry_wide_limb_limb(wide_limb_t* ret, const limb_t& a, const limb_t& b, const limb_t& carry) {
-			BLST_ASSUME(carry <= 1);
-			*(unsigned long long*)(ret) = (a)+(unsigned long long)(b) + carry;
-		}
-		BLST_FORCEINLINE void cc_sub_borrow_wide_limb_limb(wide_limb_t* ret, const limb_t& a, const limb_t& b, const limb_t& borrow)
-		{
-			BLST_ASSUME(borrow <= 1);
-			*(unsigned long long*)(ret) = (a)-(unsigned long long)(b) - borrow;
-		}
-	}
-	static_assert(&((wide_limb_t*)0)->lo < &((wide_limb_t*)0)->hi,
-		"this implementation assumes we can cast to 64 bit");
 #endif
 
 #if defined(__CUDA_ARCH__)
@@ -322,26 +288,6 @@ namespace blst
 			ret->hi = out_hi;
 		}
 
-		//// a - b -> (lo, borrow)
-		//BLST_DEVICE BLST_FORCEINLINE
-		//	void cc_sub_wide_limb_limb(
-		//		wide_limb_t* ret,
-		//		const limb_t& a,
-		//		const limb_t& b
-		//	)
-		//{
-		//	uint64_t out_lo;
-		//	uint64_t out_hi;
-		//	asm volatile(
-		//		"sub.cc.u64 %0, %2, %3;\n\t"
-		//		"addc.u64   %1, 0, 0;\n\t"   // out_hi = borrow (0/1)
-		//		: "=&l"(out_lo), "=&l"(out_hi)
-		//		: "l"(a), "l"(b)
-		//		);
-		//	ret->lo = out_lo;
-		//	ret->hi = out_hi;
-		//}
-
 		// a + b + c -> (lo, carry)
 		BLST_DEVICE BLST_FORCEINLINE
 			void cc_add_carry_wide_limb_limb(
@@ -370,15 +316,6 @@ namespace blst
 			wide_limb_t portable_res;
 			portable::cc_add_carry_wide_limb_limb(&portable_res, a, b, c);
 			
-			if (portable_res.lo != out_lo)
-			{
-				printf("cc_add_carry_wide_limb_limb mismatch lo: portable %llx vs cuda %llx\n a=%llx b=%llx c=%llx\n",
-					(unsigned long long)portable_res.lo,
-					(unsigned long long)out_lo,
-					(unsigned long long)a,
-					(unsigned long long)b,
-					(unsigned long long)c);
-			}
 			BLST_ASSERT(portable_res.lo == out_lo);
 			BLST_ASSERT(portable_res.hi == out_hi);
 #endif
@@ -409,8 +346,6 @@ namespace blst
 	using namespace cuda64;
 #elif BLST_LIMB_SIZE == 64 && defined(BLST_ADX) 
 	using namespace adx64;
-#elif BLST_LIMB_SIZE == 32 && (defined(_M_X64) || defined(__x86_64__))
-	using namespace limb32on64;
 #else
 	using namespace portable;
 #endif
@@ -523,7 +458,7 @@ namespace blst
 	/**
 	 * @brief Adds two large integers modulo a given modulus and checks if the result is zero.
 	 *
-	 * Computes `(a + b) mod p` and stores the result in `ret`. Returns 1 if the result is zero,
+	 * Computes `(a + b) mod p` and stores the result in `ret`. Returns 1 if the result is nonzero,
 	 * otherwise returns 0. Assumes `n > 0`.
 	 */
 	template<size_t n>
@@ -534,7 +469,7 @@ namespace blst
 	/**
 	 * @brief Subtracts two large integers modulo a given modulus and checks if the result is zero.
 	 *
-	 * Computes `(a - b) mod p` and stores the result in `ret`. Returns 1 if the result is zero,
+	 * Computes `(a - b) mod p` and stores the result in `ret`. Returns 1 if the result is nonzero,
 	 * otherwise returns 0. Assumes `n > 0`.
 	 */
 	template<size_t n>
@@ -771,7 +706,7 @@ namespace blst
 	 * @param[in]  neg The flag indicating whether to negate (`1`) or not (`0`).
 	 * @param[in]  n   The number of limbs in `a`.
 	 *
-	 * @return The sign of the result (0 for non-negative, 1 for negative).
+	 * @return An all-zero or all-one limb mask representing the result's sign.
 	 *
 	 * @note Assumes `n > 0`.
 	 */
@@ -887,7 +822,7 @@ namespace blst
 	 * @param[in]  n0    The Montgomery constant.
 	 * @param[in]  b     The multiplier in Montgomery form.
 	 *
-	 * @note Assumes `count > 0` and `a`, `b`, and `p` are valid 384-bit integers.
+	 * @note Assumes `count > 0`; `ret` may alias `a` but must not alias `b`.
 	 */
 	BLST_HD  void cc_sqr_n_mul_mont_384(
 		limb_t* ret, const limb_t* a, size_t count,
@@ -1052,7 +987,7 @@ namespace blst
 #undef Ch
 #undef Maj
 
-	// copies a 64 byte length array into dst_. i.e memcpy(dst, src, 64)
+	// Copies an eight-word SHA-256 state (32 bytes).
 	BLST_HD BLST_FORCEINLINE void cc_blst_sha256_hcopy(unsigned int dst[8], const unsigned int src[8])
 	{
 		size_t i;

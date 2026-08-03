@@ -297,14 +297,6 @@ namespace blst::scalar
 		sub(x1, x0, x2);
 		add(x0, x0, x2);
 	}
-	BLST_HD BLST_INLINE void print(Fr& x0)
-	{
-		for (size_t i = 0; i < Fr::num_limbs(); i++) {
-			printf("%016llx ", (unsigned long long)x0[i]);
-		}
-		printf("\n");
-	}
-
 	BLST_HD BLST_INLINE void Fr::gs_bfly(Fr& x0, Fr& x1, const Fr& twiddle)
 	{
 		Fr x2;
