@@ -179,3 +179,12 @@ selected SHA-256 compression wrapper has unconditionally used the portable
 implementation since CUDA refactor `4e8775d1`, even in default-assembly host
 builds. Both findings require focused remediation before the selector file can
 be closed.
+
+The selector remediation is complete. Zero-count identity now lives once at
+all four `_v256`/`_v384` shift boundaries, and duplicate field checks were
+removed. Native/default-assembly focused tests passed 6/6, including the
+deterministic SHA comparison; no-assembly shift tests passed 5/5. MSVC
+`/O2 /Ob3` probes show direct tail calls for all constant nonzero shifts and
+the intended native versus portable SHA symbols. `AUD-051` and `AUD-055` are
+validated, and `blst/backend/backend.h` is reviewed at exact commit
+`dc07be802c39a3c04a17347a5cec64f74d95ecd7`.

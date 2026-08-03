@@ -65,8 +65,12 @@ surface reviews remain pending in their scheduled phases.
 The `backend.h` hand review reopened `AUD-051` after finding that the initial
 zero-shift remediation missed supported native C++ template operators. It also
 opened `AUD-055`: production host SHA-256 compression is incorrectly pinned to
-the portable backend. Focused selector remediation is in progress; no broad
-build or benchmark is required.
+the portable backend. Both findings are now validated: zero identity is
+centralized at every selected shift boundary, production SHA compression again
+selects assembly, and focused behavior plus code-generation evidence passes.
+The exact `backend.h` review is recorded at
+`dc07be802c39a3c04a17347a5cec64f74d95ecd7`; no broad build or benchmark was
+required.
 
 ## Main program phases
 
