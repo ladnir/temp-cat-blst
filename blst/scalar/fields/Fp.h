@@ -45,8 +45,8 @@ namespace blst::scalar
 		/// @brief The multiplicative identity 1 (Montgomery form of 1, i.e., R mod p).
 		BLST_HD static const Fp& one();
 
-		/// @brief The modulus p as an Fp element (slight abuse; provided for convenience).
-		/// @note Returned in Montgomery form (i.e., p * R mod p == 0).
+		/// @brief The raw conventional modulus p stored in Fp-sized storage.
+		/// @note This is not a reduced field element and is not in Montgomery form.
 		BLST_HD static constexpr const Fp& modulus();
 
 
@@ -111,9 +111,7 @@ namespace blst::scalar
 		 /// @brief ret = a * 2^count  (mod p).
 		BLST_HD static void lshift(Fp& ret, const Fp& a, size_t count);
 
-		/// @brief ret = floor( int(a) / 2^count ) (NOT mod p).
-		/// @warning This is a raw right shift of the canonical representative,
-		///          not a modular multiply by 2^{-count}.
+		/// @brief ret = a / 2^count mod p.
 		BLST_HD static void rshift(Fp& ret, const Fp& a, size_t count);
 
 		/// @brief ret = a / 2  (mod p), i.e., multiply by (p+1)/2.
@@ -141,8 +139,10 @@ namespace blst::scalar
 		/// @return 1 on success, 0 if a is non-square or zero.
 		BLST_HD static bool_t recip_sqrt(Fp& out, const Fp& inp);
 
-		/// @brief out = sqrt(a) if it exists (principal root per sgn0).
-		/// @return 1 on success, 0 if a is non-square.
+		/// @brief Writes a square-root candidate for a.
+		/// @return 1 when the candidate is a root, 0 when a is non-square.
+		/// @note The candidate is written on both success and failure; no sign
+		/// normalization is applied.
 		BLST_HD static bool_t sqrt(Fp& out, const Fp& inp);
 
 		/// @brief Return 1 iff a is a quadratic residue mod p (including 0), else 0.
@@ -151,7 +151,9 @@ namespace blst::scalar
 
 		/** @name Exponentiation helpers */
 		///@{
-		/// @brief out = a^{2^count} * b  (i.e., repeated squaring then multiply).
+		/// @brief out = a^{2^count} * b (repeated squaring then multiply).
+		/// @note Count zero performs one multiplication. Exact `out == b` aliasing
+		/// is supported.
 		BLST_HD static void sqr_n_mul(Fp& out, const Fp& a, size_t count, const Fp& b);
 		///@}
 
@@ -160,7 +162,8 @@ namespace blst::scalar
 		/// @brief Constant-time equality on canonical representatives: from_mont(a) == from_mont(b).
 		BLST_HD static bool_t equal(const Fp& a, const Fp& b);
 
-		/// @brief Returns two bits encoding parity and sign (sgn0) of the canonical representative.
+		/// @brief Returns two bits encoding parity and sign (sgn0) of a conventional,
+		/// non-Montgomery representative.
 		/// @details Layout: bit0 = parity (a mod 2); bit1 = sgn0(a) per RFC 9380 / hash-to-curve.
 		///          The returned value is (parity) | (sgn0 << 1).
 		BLST_HD static limb_t sgn0_pty(const Fp& a);
@@ -419,16 +422,32 @@ namespace blst::scalar
 	BLST_HD BLST_FORCEINLINE void Fp::sqr_n_mul(Fp& ret, const Fp& a, size_t count, const Fp& b)
 	{
 		BLST_ASSERT(Fp::is_redc(a));
+		BLST_ASSERT(Fp::is_redc(b));
+		if (count == 0) {
+			Fp::mul(ret, a, b);
+			return;
+		}
+
+		Fp b_copy;
+		const Fp* multiplier = &b;
+		const bool output_aliases_multiplier = &ret == &b;
+		if (output_aliases_multiplier) {
+			b_copy = b;
+			multiplier = &b_copy;
+		}
 
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 # if defined(BLST_ADX)
-		sqrx_n_mul_mont_383(&ret, &a, count, &get_BLST_P(), BLST_p0, &b);
+		sqrx_n_mul_mont_383(&ret, &a, count, &get_BLST_P(), BLST_p0, multiplier);
 # else
-		sqr_n_mul_mont_383(&ret, &a, count, &get_BLST_P(), BLST_p0, &b);
+		sqr_n_mul_mont_383(&ret, &a, count, &get_BLST_P(), BLST_p0, multiplier);
 # endif
 #else
-		cc_sqr_n_mul_mont_384(ret.data, a.data, count, get_BLST_P().data, BLST_p0, b.data);
+		cc_sqr_n_mul_mont_384(ret.data, a.data, count, get_BLST_P().data, BLST_p0,
+			multiplier->data);
 #endif
+		if (output_aliases_multiplier)
+			vec_zero(&b_copy, sizeof(b_copy));
 	}
 
 
@@ -480,9 +499,13 @@ namespace blst::scalar
 		size_t pow_bits)
 	{
 		Fp ret;
+		if (pow_bits == 0) {
+			vec_copy(out.data, Fp::one().data, sizeof(out));
+			return;
+		}
 
-		// requies MSB of pow is set
-		BLST_ASSERT(pow_bits && ((pow[(pow_bits - 1) >> 3] >> ((pow_bits - 1) & 7)) & 1));
+		// Requires the most significant declared bit to be set.
+		BLST_ASSERT((pow[(pow_bits - 1) >> 3] >> ((pow_bits - 1) & 7)) & 1);
 
 		vec_copy(ret.data, inp.data, sizeof(ret));  /* ret = inp^1 */
 		--pow_bits; /* most significant bit is set, skip over */

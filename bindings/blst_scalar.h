@@ -53,6 +53,22 @@ typedef enum BLST_UNIQ_RESULT {
  * - The checked arithmetic helpers return `false` when the resulting scalar is
  *   zero or otherwise rejected by the scalar validity contract.
  */
+/** Converts eight conventional 32-bit words into a scalar byte representation. */
+void blst_scalar_from_uint32(blst_scalar* out, const uint32_t a[8]);
+/** Converts a scalar byte representation into eight conventional 32-bit words. */
+void blst_uint32_from_scalar(uint32_t out[8], const blst_scalar* a);
+/** Converts four conventional 64-bit words into a scalar byte representation. */
+void blst_scalar_from_uint64(blst_scalar* out, const uint64_t a[4]);
+/** Converts a scalar byte representation into four conventional 64-bit words. */
+void blst_uint64_from_scalar(uint64_t out[4], const blst_scalar* a);
+/** Imports an exact 32-byte big-endian scalar representation. */
+void blst_scalar_from_bendian(blst_scalar* out, const byte a[32]);
+/** Exports an exact 32-byte big-endian scalar representation. */
+void blst_bendian_from_scalar(byte out[32], const blst_scalar* a);
+/** Imports an exact 32-byte little-endian scalar representation. */
+void blst_scalar_from_lendian(blst_scalar* out, const byte a[32]);
+/** Exports an exact 32-byte little-endian scalar representation. */
+void blst_lendian_from_scalar(byte out[32], const blst_scalar* a);
 bool blst_scalar_fr_check(const blst_scalar* a);
 bool blst_sk_check(const blst_scalar* a);
 bool blst_sk_add_n_check(blst_scalar* out, const blst_scalar* a, const blst_scalar* b);
@@ -138,7 +154,8 @@ void blst_fp_cneg(blst_fp* ret, const blst_fp* a, bool flag);
 void blst_fp_eucl_inverse(blst_fp* ret, const blst_fp* a);
 /** Computes the multiplicative inverse of `a` in Fp and writes it to `ret`. */
 void blst_fp_inverse(blst_fp* ret, const blst_fp* a);
-/** Attempts to compute an Fp square root; returns `true` only for quadratic residues. */
+/** Attempts to compute an Fp square root; returns `true` and publishes a root
+ * for quadratic residues, otherwise returns `false` and clears `ret`. */
 bool blst_fp_sqrt(blst_fp* ret, const blst_fp* a);
 /** Converts a 12-word unsigned integer into Montgomery-form Fp. */
 void blst_fp_from_uint32(blst_fp* ret, const uint32_t a[12]);

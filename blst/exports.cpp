@@ -44,7 +44,7 @@ void blst_fr_pow(Fr& ret, const Fr& a, const byte* exponent, size_t nbits)
 void blst_fr_ct_bfly(Fr& x0, Fr& x1, const Fr& twiddle) { Fr::ct_bfly(x0, x1, twiddle); }
 void blst_fr_gs_bfly(Fr& x0, Fr& x1, const Fr& twiddle) { Fr::gs_bfly(x0, x1, twiddle); }
 void blst_fr_sqr(Fr& ret, const Fr& a) { Fr::sqr(ret, a); }
-void blst_fr_cneg(Fr& ret, const Fr& a, int flag) { Fr::cneg(ret, a, flag); }
+void blst_fr_cneg(Fr& ret, const Fr& a, bool flag) { Fr::cneg(ret, a, flag ? 1 : 0); }
 void blst_fr_eucl_inverse(Fr& ret, const Fr& a) { Fr::reciprocal(ret, a); }
 void blst_fr_inverse(Fr& ret, const Fr& a) { Fr::reciprocal(ret, a); }
 void blst_fr_to(Fr& ret, const Fr& a) { Fr::to_mont(ret, a); }
@@ -105,11 +105,17 @@ void blst_fp_eucl_inverse(Fp& ret, const Fp& a)
 void blst_fp_inverse(Fp& ret, const Fp& a)
 {   Fp::flt_reciprocal(ret, a);   }
 
-int blst_fp_sqrt(Fp& ret, const Fp& a)
-{   return (int)Fp::sqrt(ret, a);   }
+bool blst_fp_sqrt(Fp& ret, const Fp& a)
+{
+    Fp candidate;
+    const bool_t is_root = Fp::sqrt(candidate, a);
+    vec_select(ret.data, candidate.data, Fp::zero().data, sizeof(ret), is_root);
+    vec_zero(&candidate, sizeof(candidate));
+    return is_root != 0;
+}
 
-int blst_fp_is_square(const Fp& a)
-{   return (int)Fp::is_sqrt(a);   }
+bool blst_fp_is_square(const Fp& a)
+{   return Fp::is_sqrt(a) != 0;   }
 
 void blst_fp_to(Fp& ret, const Fp& a)
 {   Fp::mul(ret, a, get_BLST_RR());   }

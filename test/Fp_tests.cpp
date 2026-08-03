@@ -309,6 +309,28 @@ TEST(FpOps, Sqr) {
 
 
 TEST(FpOps, SqrNMul) {
+	Fp a;
+	Fp b;
+	Fp expected;
+	Fp result;
+	InsecureRng boundary_rng;
+	rand_Fp(a, boundary_rng);
+	rand_Fp(b, boundary_rng);
+	Fp::mul(expected, a, b);
+	Fp::sqr_n_mul(result, a, 0, b);
+	EXPECT_TRUE(Fp_equal(result, expected));
+	Fp zero_count_alias = b;
+	Fp::sqr_n_mul(zero_count_alias, a, 0, zero_count_alias);
+	EXPECT_TRUE(Fp_equal(zero_count_alias, expected));
+
+	Fp aliased_multiplier = b;
+	expected = a;
+	for (u64 i = 0; i < 3; ++i)
+		Fp::sqr(expected, expected);
+	Fp::mul(expected, expected, b);
+	Fp::sqr_n_mul(aliased_multiplier, a, 3, aliased_multiplier);
+	EXPECT_TRUE(Fp_equal(aliased_multiplier, expected));
+
 	for(u64 i =0; i < 20; ++i)
 	{
 		for (u64 j = 1; j < 10; ++j)
@@ -373,6 +395,12 @@ TEST(FpOps, exp) {
 	InsecureRng rng;
 	std::vector<u8> e(8);
 
+	Fp::exp(r, Fp::one(), nullptr, 0);
+	EXPECT_TRUE(Fp_equal(r, Fp::one()));
+	Fp alias = Fp::zero();
+	Fp::exp(alias, alias, nullptr, 0);
+	EXPECT_TRUE(Fp_equal(alias, Fp::one()));
+
 	auto bit = [&](size_t i) -> bool {
 		return (e[i >> 3] >> (i & 7)) & 1;
 		};
@@ -383,7 +411,7 @@ TEST(FpOps, exp) {
 
 		size_t bits = e.size() * 8;
 		while (bits > 0 && !bit(bits - 1)) --bits;       // trim leading zeros
-		if (bits == 0) { e[0] = 1; bits = 1; }           // avoid zero exponent
+		if (bits == 0) { e[0] = 1; bits = 1; }
 
 		Fp::exp(r, a, e.data(), bits);
 

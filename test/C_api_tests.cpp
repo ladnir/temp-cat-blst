@@ -84,14 +84,14 @@ void blst_fp_mul(blst::Fp* ret, const blst::Fp* a, const blst::Fp* b);
 void blst_fp_sqr(blst::Fp* ret, const blst::Fp* a);
 void blst_fp_eucl_inverse(blst::Fp* ret, const blst::Fp* a);
 void blst_fp_inverse(blst::Fp* ret, const blst::Fp* a);
-int blst_fp_sqrt(blst::Fp* ret, const blst::Fp* a);
+bool blst_fp_sqrt(blst::Fp* ret, const blst::Fp* a);
 void blst_fp_from_uint32(blst::Fp* ret, const unsigned int a[12]);
 void blst_uint32_from_fp(unsigned int ret[12], const blst::Fp* a);
 void blst_fp_from_uint64(blst::Fp* ret, const unsigned long long a[6]);
 void blst_uint64_from_fp(unsigned long long ret[6], const blst::Fp* a);
 void blst_fp_from_bendian(blst::Fp* ret, const unsigned char a[48]);
 void blst_bendian_from_fp(unsigned char ret[48], const blst::Fp* a);
-int blst_fp_is_square(const blst::Fp* a);
+bool blst_fp_is_square(const blst::Fp* a);
 bool blst_fp_from_hexascii(blst::Fp* ret, const unsigned char* hex);
 
 void blst_fp2_mul(blst::Fp2* ret, const blst::Fp2* a, const blst::Fp2* b);
@@ -1185,6 +1185,20 @@ TEST(CApi, FpPrimitivesRoundTripInverseAndSqrt)
     ASSERT_TRUE(blst_fp_sqrt(&sqrt, &square));
     blst_fp_sqr(&product, &sqrt);
     EXPECT_TRUE(BoundaryFp::equal(product, square));
+
+    BoundaryFp nonresidue = {};
+    bool found_nonresidue = false;
+    for (unsigned long long value = 2; value < 32; ++value) {
+        const unsigned long long words[6] = {value, 0, 0, 0, 0, 0};
+        blst_fp_from_uint64(&nonresidue, words);
+        if (!blst_fp_is_square(&nonresidue)) {
+            found_nonresidue = true;
+            break;
+        }
+    }
+    ASSERT_TRUE(found_nonresidue);
+    ASSERT_FALSE(blst_fp_sqrt(&nonresidue, &nonresidue));
+    EXPECT_TRUE(BoundaryFp::equal(nonresidue, BoundaryFp{}));
 }
 
 TEST(CApi, Fp2PrimitivesInverseAndSqrt)

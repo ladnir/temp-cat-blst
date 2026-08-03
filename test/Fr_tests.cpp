@@ -275,6 +275,19 @@ TEST(FrOps, Sqr) {
     EXPECT_TRUE(fr_equal(result, result2)) << "a² should equal a*a";
 }
 
+TEST(FrOps, ExpZeroIsOne) {
+    Fr base;
+    Fr result;
+
+    set_fr(base, 5);
+    Fr::to_mont(base, base);
+    Fr::exp(result, base, nullptr, 0);
+    EXPECT_TRUE(fr_equal(result, Fr::one()));
+
+    Fr::exp(base, base, nullptr, 0);
+    EXPECT_TRUE(fr_equal(base, Fr::one()));
+}
+
 TEST(FrOps, CNeg) {
     Fr a, result, expected;
     

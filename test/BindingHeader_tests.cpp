@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstring>
+#include <limits>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -322,6 +323,40 @@ TEST(BindingHeader, ScalarHelperSurfaceIsExposedAndStable)
     EXPECT_TRUE(blst_sk_sub_n_check(&one, &two, &one));
     EXPECT_TRUE(blst_sk_mul_n_check(&two, &one, &two));
     EXPECT_FALSE(blst_scalar_from_be_bytes(&zero, nullptr, 0));
+
+    const std::array<uint32_t, 8> words32 = {1, 2, 3, 4, 5, 6, 7, 8};
+    std::array<uint32_t, 8> roundtrip32 = {};
+    blst_scalar_from_uint32(&one, words32.data());
+    blst_uint32_from_scalar(roundtrip32.data(), &one);
+    EXPECT_EQ(roundtrip32, words32);
+
+    const std::array<uint64_t, 4> words64 = {1, 2, 3, 4};
+    std::array<uint64_t, 4> roundtrip64 = {};
+    blst_scalar_from_uint64(&one, words64.data());
+    blst_uint64_from_scalar(roundtrip64.data(), &one);
+    EXPECT_EQ(roundtrip64, words64);
+
+    std::array<byte, 32> little = {};
+    std::array<byte, 32> big = {};
+    std::array<byte, 32> encoded = {};
+    little.front() = 7;
+    big.back() = 7;
+    blst_scalar_from_lendian(&one, little.data());
+    blst_lendian_from_scalar(encoded.data(), &one);
+    EXPECT_EQ(encoded, little);
+    blst_scalar_from_bendian(&one, big.data());
+    blst_bendian_from_scalar(encoded.data(), &one);
+    EXPECT_EQ(encoded, big);
+
+    const blst_fr fr_one = test_fr_from_u64(1);
+    const blst_fr fr_zero = {};
+    blst_fr selected = {};
+    blst_fr sum = {};
+    blst_fr_cneg(&selected, &fr_one, false);
+    EXPECT_EQ(std::memcmp(&selected, &fr_one, sizeof(fr_one)), 0);
+    blst_fr_cneg(&selected, &fr_one, true);
+    blst_fr_add(&sum, &selected, &fr_one);
+    EXPECT_EQ(std::memcmp(&sum, &fr_zero, sizeof(sum)), 0);
 }
 
 TEST(BindingHeader, PreparedFrFftUsesCallerOwnedDomain)
@@ -463,6 +498,9 @@ TEST(BindingHeader, NativeFrPippengerUsesCallerOwnedScratch)
     EXPECT_TRUE(blst_scalars_from_fr(nullptr, nullptr, 0));
     EXPECT_FALSE(blst_scalars_from_fr(nullptr, scalars.data(), n));
     EXPECT_FALSE(blst_scalars_from_fr(canonical.data(), nullptr, n));
+    EXPECT_FALSE(blst_scalars_from_fr(
+        canonical.data(), scalars.data(),
+        std::numeric_limits<size_t>::max() / sizeof(blst_scalar) + 1));
     ASSERT_TRUE(blst_scalars_from_fr(canonical.data(), scalars.data(), n));
     const blst_p1_affine* g1_point_descriptors[] = {
         g1_points.data(), nullptr};

@@ -1,4 +1,8 @@
-
+/*
+ * Copyright Supranational LLC
+ * Licensed under the Apache License, Version 2.0, see LICENSE for details.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #ifndef BLST_SCALAR_FR_H
 #define BLST_SCALAR_FR_H
@@ -13,8 +17,7 @@
 namespace blst::scalar
 {
 
-	// -1/r, this is the modular inverse of r modulo 2^256
-	// used in montgomery reduction as the "magic" number
+	// -r^{-1} mod 2^64, used in Montgomery reduction.
 #define BLST_r0 (limb_t)0xfffffffeffffffff  /* -1/r */
 
 	/*
@@ -45,9 +48,7 @@ namespace blst::scalar
 		// the modulus (returned as a Fr which is a slight abuse)
 		BLST_HD static constexpr const Fr& modulus();
 
-		// returns the montomergy constant, -1/r, this is the modular 
-		// inverse of r modulo 2^256 used in montgomery reduction as 
-		// the "magic" number
+		// Returns -r^{-1} mod 2^64, the Montgomery reduction constant.
 		BLST_HD static constexpr limb_t montgomery_constant();
 
 		// ret = a + b
@@ -65,14 +66,14 @@ namespace blst::scalar
 		// ret = a^2
 		BLST_HD static void sqr(Fr& ret, const Fr& a);
 
-		// let a = a' R mod p be the montgomery represtation of a'.
+		// Let a = a' R mod r be the Montgomery representation of a'.
 		// ret = a'
 		BLST_HD static void from_mont(Fr& ret, const Fr& a);
 
-		// ret = a * R, where R is the montgomery constant 2^384
+		// ret = a * R mod r, where R = 2^256.
 		BLST_HD static void to_mont(Fr& ret, const Fr& a);
 
-		// ret = a mod p
+		// ret = a mod r
 		BLST_HD static void redc(Fr& ret, const struct UFr& a);
 
 		// ret = flag ? -a : a
@@ -84,15 +85,13 @@ namespace blst::scalar
 		// ret = a * 2^count
 		BLST_HD static void lshift(Fr& ret, const Fr& a, size_t count);
 
-		// ret = floor(int(a) / 2^count). not mod p.
+		// ret = a / 2^count mod r.
 		BLST_HD static void rshift(Fr& ret, const Fr& a, size_t count);
 
-		// out = a / 2 
-		// out = a * 3
+		// out = a * 3 mod r.
 		BLST_HD static void mul_by_3(Fr& ret, const Fr& a);
 
-		// out = a * 8
-		// out = 1 / inp, computed via Lehmer almost-inverse (faster)
+		// out = 1 / inp, computed via the selected constant-time inverse.
 		BLST_HD static void reciprocal(Fr& out, const Fr& inp);
 
 		// return from_mont(a) == from_mont(b). 
@@ -336,7 +335,8 @@ namespace blst::scalar
 		if ((void*)ret == (void*)a.data && is_endian.little) {
 			Fr r;
 			Fr::from_mont(r, a);
-            memcpy(ret, r.data, sizeof(Fr));
+			memcpy(ret, r.data, sizeof(Fr));
+			vec_zero(&r, sizeof(r));
 		}
 		else {
 			Fr out;
@@ -349,20 +349,6 @@ namespace blst::scalar
 
 	BLST_HD BLST_INLINE void Fr::from_uint64(Fr& ret, const u64 a[256 / 64])
 	{
-		const union {
-			long one;
-			char little;
-		} is_endian = { 1 };
-
-		if (sizeof(limb_t) == 4 && !is_endian.little) {
-			int i;
-			for (i = 0; i < 4; i++) {
-				unsigned long long L = a[i];
-				ret[2 * i] = (limb_t)L;
-				ret[2 * i + 1] = (limb_t)(L >> 32);
-			}
-			a = (u64*)&ret;
-		}
 		Fr A;
 		memcpy(&A, a, sizeof(Fr));
 		Fr::to_mont(ret, A);
@@ -409,7 +395,9 @@ namespace blst::scalar
 	{
 		Fr aa;
 		limbs_from_le_bytes(aa.data, a, sizeof(pow256));
-		return (int)Fr::check_mod(aa);
+		const int ret = (int)Fr::check_mod(aa);
+		vec_zero(&aa, sizeof(aa));
+		return ret;
 	}
 
 	BLST_HD BLST_FORCEINLINE int sk_add_n_check(pow256 ret, const pow256 a, const pow256 b)
@@ -450,6 +438,8 @@ namespace blst::scalar
 
 		is_zero = vec_is_zero(t[0].data, sizeof(Fr));
 		vec_zero(t, sizeof(t));
+		vec_zero(&aa, sizeof(aa));
+		vec_zero(&bb, sizeof(bb));
 
 		return (int)(is_zero ^ 1);
 	}
@@ -536,9 +526,13 @@ namespace blst::scalar
 		size_t pow_bits)
 	{
 		Fr ret;
+		if (pow_bits == 0) {
+			vec_copy(out.data, Fr::one().data, sizeof(out));
+			return;
+		}
 
-		// requies MSB of pow is set
-		BLST_ASSERT(pow_bits && ((pow[(pow_bits - 1) >> 3] >> ((pow_bits - 1) & 7)) & 1));
+		// Requires the most significant declared bit to be set.
+		BLST_ASSERT((pow[(pow_bits - 1) >> 3] >> ((pow_bits - 1) & 7)) & 1);
 
 		vec_copy(ret.data, inp.data, sizeof(ret));  /* ret = inp^1 */
 		--pow_bits; /* most significant bit is set, skip over */
@@ -561,20 +555,20 @@ namespace blst::scalar
 #endif
 	}
 
-	// let a = a' R mod p be the montgomery represtation of a'.
+	// Let a = a' R mod r be the Montgomery representation of a'.
 	// ret = a'
 	BLST_HD BLST_FORCEINLINE  void Fr::from_mont(Fr& ret, const Fr& a)
 	{
 		from_mont_v256(ret.data, a.data, get_BLST_r().data, BLST_r0);
 	}
 
-	// ret = a * R, where R is the montgomery constant 2^384
+	// ret = a * R mod r, where R = 2^256.
 	BLST_HD BLST_FORCEINLINE  void Fr::to_mont(Fr& ret, const Fr& a)
 	{
 		Fr::mul(ret, get_BLST_rRR(), a);
 	}
 
-	// ret = a mod p
+	// ret = a mod r
 	BLST_HD BLST_FORCEINLINE  void Fr::redc(Fr& ret, const struct UFr& a)
 	{
 		redc_mont_v256(ret.data, a.data, modulus().data, BLST_r0);

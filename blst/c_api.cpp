@@ -324,6 +324,9 @@ inline bool c_api_scalars_from_fr(
     if (out == nullptr || scalars == nullptr) {
         return false;
     }
+    if (npoints > std::numeric_limits<size_t>::max() / sizeof(blst::pow256)) {
+        return false;
+    }
     for (size_t i = 0; i < npoints; ++i) {
         blst::Fr::to_scaler(out + i * sizeof(blst::pow256), scalars[i]);
     }
