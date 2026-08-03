@@ -214,6 +214,9 @@ bool blst_uniq_init(void* tree, size_t capacity);
 BLST_UNIQ_RESULT blst_uniq_insert(void* tree, const unsigned char* msg, size_t len);
 void blst_keygen(blst::pow256 out_SK, const unsigned char* IKM, size_t IKM_len, const unsigned char* info, size_t info_len);
 void blst_keygen_v5(blst::pow256 out_SK, const unsigned char* IKM, size_t IKM_len, const unsigned char* salt, size_t salt_len, const unsigned char* info, size_t info_len);
+void blst_derive_master_eip2333(blst::pow256 out_SK, const unsigned char* IKM, size_t IKM_len);
+void blst_derive_child_eip2333(blst::pow256 out_SK, const blst::pow256 parent_SK, unsigned int child_index);
+void blst_bendian_from_scalar(unsigned char out[32], const blst::pow256 scalar);
 void blst_expand_message_xmd(unsigned char* out, size_t out_len, const unsigned char* msg, size_t msg_len, const unsigned char* DST, size_t DST_len);
 size_t blst_p1_sizeof(void);
 size_t blst_p1_affine_sizeof(void);
@@ -2313,6 +2316,78 @@ TEST(CApi, KeygenV5AcceptsNonNullEmptySalt)
     EXPECT_FALSE(scalar_is_zero(first));
     EXPECT_EQ(0, std::memcmp(first, expected, sizeof(expected)));
     EXPECT_EQ(0, std::memcmp(first, second, sizeof(first)));
+}
+
+TEST(CApi, Eip2333PublishedVectors)
+{
+    struct Vector {
+        const char* seed;
+        const char* master;
+        unsigned int child_index;
+        const char* child;
+    };
+    static const Vector vectors[] = {
+        {
+            "c55257c360c07c72029aebc1b53c05ed0362ada38ead3e3e9efa3708e5349553"
+            "1f09a6987599d18264c1e1c92f2cf141630c7a3c4ab7c81b2f001698e7463b04",
+            "0d7359d57963ab8fbbde1852dcf553fedbc31f464d80ee7d40ae683122b45070",
+            0,
+            "2d18bd6c14e6d15bf8b5085c9b74f3daae3b03cc2014770a599d8c1539e50f8e",
+        },
+        {
+            "3141592653589793238462643383279502884197169399375105820974944592",
+            "41c9e07822b092a93fd6797396338c3ada4170cc81829fdfce6b5d34bd5e7ec7",
+            3141592653u,
+            "384843fad5f3d777ea39de3e47a8f999ae91f89e42bffa993d91d9782d152a0f",
+        },
+        {
+            "0099ff991111002299dd7744ee3355bbdd8844115566cc55663355668888cc00",
+            "3cfa341ab3910a7d00d933d8f7c4fe87c91798a0397421d6b19fd5b815132e80",
+            0xffffffffu,
+            "40e86285582f35b28821340f6a53b448588efa575bc4d88c32ef8567b8d9479b",
+        },
+        {
+            "d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3",
+            "2a0e28ffa5fbbe2f8e7aad4ed94f745d6bf755c51182e119bb1694fe61d3afca",
+            42,
+            "455c0dc9fccb3395825d92a60d2672d69416be1c2578a87a7a3d3ced11ebb88d",
+        },
+    };
+
+    const auto decode = [](const char* hex) {
+        const size_t chars = std::strlen(hex);
+        EXPECT_EQ(chars % 2, 0u);
+        std::vector<unsigned char> out(chars / 2);
+        const auto nibble = [](char c) -> unsigned char {
+            if (c >= '0' && c <= '9') return static_cast<unsigned char>(c - '0');
+            if (c >= 'a' && c <= 'f') return static_cast<unsigned char>(c - 'a' + 10);
+            return 0xff;
+        };
+        for (size_t i = 0; i < out.size(); ++i) {
+            const unsigned char hi = nibble(hex[2 * i]);
+            const unsigned char lo = nibble(hex[2 * i + 1]);
+            EXPECT_LT(hi, 16u);
+            EXPECT_LT(lo, 16u);
+            out[i] = static_cast<unsigned char>((hi << 4) | lo);
+        }
+        return out;
+    };
+
+    for (const Vector& vector : vectors) {
+        const std::vector<unsigned char> seed = decode(vector.seed);
+        const std::vector<unsigned char> expected_master = decode(vector.master);
+        const std::vector<unsigned char> expected_child = decode(vector.child);
+        blst::pow256 master = {}, child = {};
+        std::array<unsigned char, 32> encoded = {};
+
+        blst_derive_master_eip2333(master, seed.data(), seed.size());
+        blst_bendian_from_scalar(encoded.data(), master);
+        EXPECT_TRUE(std::equal(encoded.begin(), encoded.end(), expected_master.begin()));
+
+        blst_derive_child_eip2333(child, master, vector.child_index);
+        blst_bendian_from_scalar(encoded.data(), child);
+        EXPECT_TRUE(std::equal(encoded.begin(), encoded.end(), expected_child.begin()));
+    }
 }
 
 TEST(CApi, WbitsApisRejectOutOfRangeValues)

@@ -10,8 +10,6 @@
 #include "blst/fields/Fp.h"
 #include "blst/fields/Fr.h"
 
-#include <limits>
-
 //BLST_EXTERN_C_BEGIN
 
 namespace blst
@@ -109,42 +107,48 @@ namespace blst
 #endif
         HMAC_SHA256_CTX* ctx)
     {
-        if (info_len > std::numeric_limits<size_t>::max() - 3) {
+        static constexpr size_t digest_size = 32;
+        static constexpr size_t max_output_size = 255 * digest_size;
+
+        if (L > max_output_size || (L != 0 && OKM == NULL) ||
+            (info_len != 0 && info == NULL)) {
             return false;
         }
+        if (L == 0)
+            return true;
 
-        unsigned char* info_prime = (unsigned char*)malloc(info_len + 3);
-        if (info_prime == NULL) {
-            return false;
-        }
-
-        HMAC_init(ctx, PRK, 32);
-
-        if (info_len != 0)
-            blst_sha256_bcopy_v(info_prime, info, info_len);
+        unsigned char suffix[3];
+        size_t suffix_len = 0;
 #ifndef __BLST_HKDF_TESTMODE__
         if (info_fixup) {
             /* Section 2.3 KeyGen in BLS-signature draft */
-            info_prime[info_len + 0] = (unsigned char)(L >> 8);
-            info_prime[info_len + 1] = (unsigned char)(L);
-            info_len += 2;
+            suffix[suffix_len++] = (unsigned char)(L >> 8);
+            suffix[suffix_len++] = (unsigned char)(L);
         }
 #endif
-        info_prime[info_len] = 1;   /* counter */
-        HMAC_update(ctx, info_prime, info_len + 1);
-        HMAC_final(ctx->tail.c, ctx);
-        while (L > 32) {
-            blst_sha256_hcopy_v((unsigned int*)OKM, (const unsigned int*)ctx->tail.c);
-            OKM += 32; L -= 32;
-            ++info_prime[info_len]; /* counter */
-            HMAC_init(ctx, NULL, 0);
-            HMAC_update(ctx, ctx->tail.c, 32);
-            HMAC_update(ctx, info_prime, info_len + 1);
-            HMAC_final(ctx->tail.c, ctx);
-        }
-        blst_sha256_bcopy_v(OKM, ctx->tail.c, L);
+        const size_t counter_offset = suffix_len++;
 
-        free(info_prime);
+        for (unsigned int counter = 1; L != 0; ++counter) {
+            if (counter == 1) {
+                HMAC_init(ctx, PRK, digest_size);
+            }
+            else {
+                HMAC_init(ctx, NULL, 0);
+                HMAC_update(ctx, ctx->tail.c, digest_size);
+            }
+
+            if (info_len != 0)
+                HMAC_update(ctx, (const unsigned char*)info, info_len);
+            suffix[counter_offset] = (unsigned char)counter;
+            HMAC_update(ctx, suffix, suffix_len);
+            HMAC_final(ctx->tail.c, ctx);
+
+            const size_t chunk = L < digest_size ? L : digest_size;
+            blst_sha256_bcopy_v(OKM, ctx->tail.c, chunk);
+            OKM += chunk;
+            L -= chunk;
+        }
+
         return true;
     }
 
@@ -263,7 +267,7 @@ namespace blst
         keygen(SK, seed, seed_len, NULL, 0, NULL, 0, 4);
     }
 
-    void parent_SK_to_lamport_PK(pow256 PK, const pow256 parent_SK,
+    bool parent_SK_to_lamport_PK(pow256 PK, const pow256 parent_SK,
         unsigned int index)
     {
         size_t i;
@@ -291,7 +295,7 @@ namespace blst
             scratch.PRK, NULL, 0, 0, &scratch.ctx)) {
             vec_zero(PK, sizeof(pow256));
             vec_zero(&scratch, sizeof(scratch));
-            return;
+            return false;
         }
 
         vec_zero(scratch.ctx.ctx.buf, sizeof(scratch.ctx.ctx.buf));
@@ -321,7 +325,7 @@ namespace blst
             scratch.PRK, NULL, 0, 0, &scratch.ctx)) {
             vec_zero(PK, sizeof(pow256));
             vec_zero(&scratch, sizeof(scratch));
-            return;
+            return false;
         }
 
         vec_zero(scratch.ctx.ctx.buf, sizeof(scratch.ctx.ctx.buf));
@@ -344,16 +348,20 @@ namespace blst
          * a fragment across application boundary...
          */
         vec_zero(&scratch, sizeof(scratch));
+        return true;
     }
 
     void blst_derive_child_eip2333(pow256 SK, const pow256 parent_SK,
         unsigned int child_index)
     {
-        parent_SK_to_lamport_PK(SK, parent_SK, child_index);
+        if (!parent_SK_to_lamport_PK(SK, parent_SK, child_index)) {
+            vec_zero(SK, sizeof(pow256));
+            return;
+        }
         keygen(SK, SK, sizeof(pow256), NULL, 0, NULL, 0, 4);
     }
 
     //BLST_EXTERN_C_END
-}
-
 #endif
+
+}
