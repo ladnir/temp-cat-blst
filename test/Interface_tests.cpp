@@ -12,6 +12,13 @@
 
 using namespace blst;
 
+#if defined(__x86_64__) || defined(__x86_64) || \
+	(defined(_M_X64) && !defined(_M_ARM64EC))
+# define CATBLST_TEST_X86_64 1
+#else
+# define CATBLST_TEST_X86_64 0
+#endif
+
 TEST(InterfaceTests, NumBitsHandlesZeroAndBoundaries) {
 	EXPECT_EQ(cc_num_bits(0), 0u);
 	EXPECT_EQ(cc_num_bits(1), 1u);
@@ -165,6 +172,139 @@ namespace
 // Test suite for BLST_PORTABLE and BLST_ASM implementations
 #if defined(BLST_ASM) && defined(BLST_PORTABLE)
 
+namespace
+{
+	void platform_mul_mont_sparse_256(void* ret, const void* a, const void* b,
+		const void* p, limb_t n0)
+	{
+#if CATBLST_TEST_X86_64
+		mulx_mont_sparse_256(ret, a, b, p, n0);
+#else
+		mul_mont_sparse_256(ret, a, b, p, n0);
+#endif
+	}
+
+	void platform_sqr_mont_sparse_256(void* ret, const void* a,
+		const void* p, limb_t n0)
+	{
+#if CATBLST_TEST_X86_64
+		sqrx_mont_sparse_256(ret, a, p, n0);
+#else
+		sqr_mont_sparse_256(ret, a, p, n0);
+#endif
+	}
+
+	void platform_redc_mont_256(void* ret, const void* a, const void* p,
+		limb_t n0)
+	{
+#if CATBLST_TEST_X86_64
+		redcx_mont_256(ret, a, p, n0);
+#else
+		redc_mont_256(ret, a, p, n0);
+#endif
+	}
+
+	void platform_mul_mont_384(void* ret, const void* a, const void* b,
+		const void* p, limb_t n0)
+	{
+#if CATBLST_TEST_X86_64
+		mulx_mont_384(ret, a, b, p, n0);
+#else
+		mul_mont_384(ret, a, b, p, n0);
+#endif
+	}
+
+	void platform_sqr_mont_384(void* ret, const void* a, const void* p,
+		limb_t n0)
+	{
+#if CATBLST_TEST_X86_64
+		sqrx_mont_384(ret, a, p, n0);
+#else
+		sqr_mont_384(ret, a, p, n0);
+#endif
+	}
+
+	void platform_from_mont_256(void* ret, const void* a, const void* p,
+		limb_t n0)
+	{
+#if CATBLST_TEST_X86_64
+		fromx_mont_256(ret, a, p, n0);
+#else
+		from_mont_256(ret, a, p, n0);
+#endif
+	}
+
+	void platform_from_mont_384(void* ret, const void* a, const void* p,
+		limb_t n0)
+	{
+#if CATBLST_TEST_X86_64
+		fromx_mont_384(ret, a, p, n0);
+#else
+		from_mont_384(ret, a, p, n0);
+#endif
+	}
+
+	void platform_sqr_n_mul_mont_383(void* ret, const void* a, size_t count,
+		const void* p, limb_t n0, const void* b)
+	{
+#if CATBLST_TEST_X86_64
+		sqrx_n_mul_mont_383(ret, a, count, p, n0, b);
+#else
+		sqr_n_mul_mont_383(ret, a, count, p, n0, b);
+#endif
+	}
+
+	void platform_inverse_mod_384(void* ret, const void* inp, const void* mod,
+		const void* modx)
+	{
+#if CATBLST_TEST_X86_64
+		ctx_inverse_mod_384(ret, inp, mod, modx);
+#else
+		ct_inverse_mod_384(ret, inp, mod, modx);
+#endif
+	}
+
+	void platform_mul_mont_384x(void* ret, const void* a, const void* b,
+		const void* p, limb_t n0)
+	{
+#if CATBLST_TEST_X86_64
+		mulx_mont_384x(ret, a, b, p, n0);
+#else
+		mul_mont_384x(ret, a, b, p, n0);
+#endif
+	}
+
+	void platform_sqr_mont_384x(void* ret, const void* a, const void* p,
+		limb_t n0)
+	{
+#if CATBLST_TEST_X86_64
+		sqrx_mont_384x(ret, a, p, n0);
+#else
+		sqr_mont_384x(ret, a, p, n0);
+#endif
+	}
+
+	limb_t platform_sgn0_pty_mont_384(const void* a, const void* p,
+		limb_t n0)
+	{
+#if CATBLST_TEST_X86_64
+		return sgn0x_pty_mont_384(a, p, n0);
+#else
+		return sgn0_pty_mont_384(a, p, n0);
+#endif
+	}
+
+	limb_t platform_sgn0_pty_mont_384x(const void* a, const void* p,
+		limb_t n0)
+	{
+#if CATBLST_TEST_X86_64
+		return sgn0x_pty_mont_384x(a, p, n0);
+#else
+		return sgn0_pty_mont_384x(a, p, n0);
+#endif
+	}
+}
+
 TEST(InterfaceTests, MulMontSparseV256) {
 	Fr a, b, p, ret_asm, ret_portable;
 	limb_t n0 = BLST_r0;
@@ -177,7 +317,7 @@ TEST(InterfaceTests, MulMontSparseV256) {
 		generate_random_Fr(b, p);
 
 		// Compute using both implementations
-		mulx_mont_sparse_256(ret_asm.data, a.data, b.data, p.data, n0); // ASM implementation
+		platform_mul_mont_sparse_256(ret_asm.data, a.data, b.data, p.data, n0);
 		//cc_mul_mont_sparse_256(ret_portable, a, b, p, n0); // Portable implementation
 		cc_mul_mont_n<NLIMBS(256)>(ret_portable.data, a.data, b.data, p.data, n0);
 
@@ -229,7 +369,7 @@ TEST(InterfaceTests, SqrMontSparseV256) {
 		memcpy(p.data, get_BLST_r().data, sizeof(Fr));
 
 		// Compute using both implementations
-		sqrx_mont_sparse_256(ret_asm.data, a.data, p.data, n0); // ASM implementation
+		platform_sqr_mont_sparse_256(ret_asm.data, a.data, p.data, n0);
 		//cc_sqr_mont_sparse_256(ret_portable, a, p, n0); // Portable implementation
 		cc_mul_mont_n<NLIMBS(256)>(ret_portable.data, a.data, a.data, p.data, n0);
 
@@ -253,7 +393,7 @@ TEST(InterfaceTests, RedcMontV256) {
 
 		memcpy(p.data, get_BLST_r().data, sizeof(Fr));
 		// Compute using both implementations
-		redcx_mont_256(ret_asm.data, a, p.data, n0); // ASM implementation
+		platform_redc_mont_256(ret_asm.data, a, p.data, n0);
 		//cc_redc_mont_256(ret_portable, a, p, n0); // Portable implementation
 		cc_redc_mont_n<NLIMBS(256)>(ret_portable.data, a.data, p.data, n0);
 
@@ -273,7 +413,7 @@ TEST(InterfaceTests, MulMontV384) {
 		generate_random_Fp(b, rng);
 		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 		// Compute using both implementations
-		mulx_mont_384(ret_asm.data, a.data, b.data, p.data, n0); // ASM implementation
+		platform_mul_mont_384(ret_asm.data, a.data, b.data, p.data, n0);
 		//cc_mul_mont_384(ret_portable, a, b, p, n0); // Portable implementation
 		cc_mul_mont_n<NLIMBS(384)>(ret_portable.data, a.data, b.data, get_BLST_P().data, BLST_p0);
 
@@ -293,7 +433,7 @@ TEST(InterfaceTests, SqrMontV384) {
 		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
 		// Compute using both implementations
-		sqrx_mont_384(ret_asm.data, a.data, p.data, n0); // ASM implementation
+		platform_sqr_mont_384(ret_asm.data, a.data, p.data, n0);
 		//cc_sqr_mont_384(ret_portable, a, p, n0); // Portable implementation
 		cc_mul_mont_n<NLIMBS(384)>(ret_portable.data, a.data, a.data, get_BLST_P().data, BLST_p0);
 
@@ -524,7 +664,7 @@ TEST(InterfaceTests, FromMontV256) {
 		memcpy(p.data, get_BLST_r().data, sizeof(Fr));
 
 		// Compute using both implementations
-		fromx_mont_256(ret_asm.data, a.data, p.data, n0); // ASM implementation
+		platform_from_mont_256(ret_asm.data, a.data, p.data, n0);
 		//cc_from_mont_256(ret_portable, a, p, n0); // Portable implementation
 		cc_from_mont_n<NLIMBS(256)>(ret_portable.data, a.data, p.data, n0);
 
@@ -547,7 +687,7 @@ TEST(InterfaceTests, FromMontV384) {
 		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
 		// Compute using both implementations
-		fromx_mont_384(ret_asm.data, a.data, p.data, n0); // ASM implementation
+		platform_from_mont_384(ret_asm.data, a.data, p.data, n0);
 		//cc_from_mont_384(ret_portable, a, p, n0); // Portable implementation
 		cc_from_mont_n<NLIMBS(384)>(ret_portable.data, a.data, get_BLST_P().data, BLST_p0);
 
@@ -641,7 +781,8 @@ TEST(InterfaceTests, SqrNMulMontV383) {
 
 
 		// Compute using both implementations
-		sqrx_n_mul_mont_383(ret_asm.data, a.data, count, p.data, n0, b.data); // ASM implementation
+		platform_sqr_n_mul_mont_383(ret_asm.data, a.data, count, p.data, n0,
+			b.data);
 		cc_sqr_n_mul_mont_384(ret_portable.data, a.data, count, p.data, n0, b.data); // Portable implementation
 
 		// ---- back from Montgomery for comparison
@@ -754,7 +895,7 @@ TEST(InterfaceTests, RShiftMod384) {
 }
 
 // Test for redcx_mont_384
-#if defined(BLST_ADX) && (defined(__x86_64__) || defined(__x86_64) || defined(_M_X64))
+#if CATBLST_TEST_X86_64
 TEST(InterfaceTests, RedcxMont384) {
 	UFp a;
 	Fp p, ret_asm, ret_portable;
@@ -783,7 +924,6 @@ TEST(InterfaceTests, RedcxMont384) {
 
 // Test for redc_mont_384
 TEST(InterfaceTests, RedcMont384) {
-#if !defined(BLST_ADX) || defined(__MSC_VER)
 	UFp a;
 	Fp p, ret_asm, ret_portable;
 	limb_t n0 = BLST_p0;
@@ -804,7 +944,6 @@ TEST(InterfaceTests, RedcMont384) {
 
 		EXPECT_TRUE(Fp_equal(ret_asm, ret_portable)) << "Mismatch in redc_mont_384";
 	}
-#endif
 }
 
 
@@ -887,7 +1026,8 @@ TEST(InterfaceTests, CtxInverseMod384) {
 	{
 		generate_random_Fp(inp, rng);
 
-		ctx_inverse_mod_384(ret_asm, inp.data, get_BLST_P().data, modx.data); // ASM implementation
+		platform_inverse_mod_384(ret_asm, inp.data, get_BLST_P().data,
+			modx.data);
 		//cc_ct_inverse_mod_384(ret_portable, inp, get_BLST_P(), modx); // Portable implementation
 		cc_ct_inverse_mod_n<NLIMBS(384)>(ret_portable.data, inp.data, get_BLST_P().data, modx.data);
 
@@ -1013,7 +1153,7 @@ TEST(InterfaceTests, MulxMont384x) {
 		generate_random_Fp2(b, rng);
 		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
-		mulx_mont_384x(ret_asm.data, a.data, b.data, p.data, n0); // ASM implementation
+		platform_mul_mont_384x(ret_asm.data, a.data, b.data, p.data, n0);
 		cc_mul_mont_384x(ret_portable, a, b); // Portable implementation
 
 		EXPECT_TRUE(std::memcmp(&ret_asm, &ret_portable, sizeof(Fp2)) == 0) << "Mismatch in mulx_mont_384x";
@@ -1033,10 +1173,45 @@ TEST(InterfaceTests, SqrxMont384x) {
 		generate_random_Fp2(a, rng);
 		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
-		sqrx_mont_384x(ret_asm.data, a.data, p.data, n0); // ASM implementation
+		platform_sqr_mont_384x(ret_asm.data, a.data, p.data, n0);
 		cc_sqr_mont_384x(ret_portable, a); // Portable implementation
 
 		EXPECT_TRUE(std::memcmp(&ret_asm, &ret_portable, sizeof(Fp2)) == 0) << "Mismatch in sqrx_mont_384x";
+	}
+}
+
+TEST(InterfaceTests, Wide382ProvidersMatchPortableFieldArithmetic) {
+	InsecureRng rng;
+
+	for (int t = 0; t < 10; ++t) {
+		Fp2 a, b, expected_mul, expected_sqr;
+		UFp2 wide_mul, wide_sqr;
+		generate_random_Fp2(a, rng);
+		generate_random_Fp2(b, rng);
+
+#if CATBLST_TEST_X86_64
+		UFp2 wide_mul_q, wide_sqr_q;
+		mulx_382x(&wide_mul, &a, &b, &get_BLST_P());
+		sqrx_382x(&wide_sqr, &a, &get_BLST_P());
+		mul_382x(&wide_mul_q, &a, &b, &get_BLST_P());
+		sqr_382x(&wide_sqr_q, &a, &get_BLST_P());
+		EXPECT_EQ(std::memcmp(&wide_mul, &wide_mul_q, sizeof(wide_mul)), 0);
+		EXPECT_EQ(std::memcmp(&wide_sqr, &wide_sqr_q, sizeof(wide_sqr)), 0);
+#else
+		mul_382x(&wide_mul, &a, &b, &get_BLST_P());
+		sqr_382x(&wide_sqr, &a, &get_BLST_P());
+#endif
+
+		Fp2 reduced_mul, reduced_sqr;
+		Fp::redc(reduced_mul[0], wide_mul[0]);
+		Fp::redc(reduced_mul[1], wide_mul[1]);
+		Fp::redc(reduced_sqr[0], wide_sqr[0]);
+		Fp::redc(reduced_sqr[1], wide_sqr[1]);
+		cc_mul_mont_384x(expected_mul, a, b);
+		cc_sqr_mont_384x(expected_sqr, a);
+
+		EXPECT_EQ(std::memcmp(&reduced_mul, &expected_mul, sizeof(Fp2)), 0);
+		EXPECT_EQ(std::memcmp(&reduced_sqr, &expected_sqr, sizeof(Fp2)), 0);
 	}
 }
 
@@ -1166,7 +1341,7 @@ TEST(InterfaceTests, Sgn0PtyMont384) {
 		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
 		// Compute using both implementations
-		limb_t result_asm = sgn0x_pty_mont_384(a.data, p.data, n0); // ASM implementation
+		limb_t result_asm = platform_sgn0_pty_mont_384(a.data, p.data, n0);
 		//limb_t result_portable = cc_sgn0_pty_mont_384(a, p, n0); // Portable implementation
 
 		limb_t result_portable;
@@ -1195,7 +1370,7 @@ TEST(InterfaceTests, Sgn0PtyMont384x) {
 		memcpy(p.data, get_BLST_P().data, sizeof(Fp));
 
 		// Compute using both implementations
-		limb_t result_asm = sgn0x_pty_mont_384x(&a, p.data, n0); // ASM implementation
+		limb_t result_asm = platform_sgn0_pty_mont_384x(&a, p.data, n0);
 		limb_t result_portable = cc_sgn0_pty_mont_384x(a); // Portable implementation
 
 		EXPECT_EQ(result_asm, result_portable) << "Mismatch in sgn0x_pty_mont_384x";
@@ -1294,43 +1469,38 @@ TEST(InterfaceTests, SHA256Functions) {
 	EXPECT_TRUE(std::memcmp(dst_copy_asm, dst_copy_portable, sizeof(dst_copy_asm)) == 0) << "Mismatch in blst_sha256_bcopy";
 }
 
-//// Test for division functions
-//TEST(InterfaceTests, DivisionFunctions) {
-//	// Test div_3_limb_ts
-//	limb_t dividend_top[2] = { 0xABCDEF0123456789, 0x0123456789ABCDEF };
-//	limb_t d_lo = 0x1111111111111111;
-//	limb_t d_hi = 0x2222222222222222;
-//
-//	limb_t result_asm = div_3_limb_ts(dividend_top, d_lo, d_hi); // ASM implementation
-//	limb_t result_portable = cc_div_3_limb_ts(dividend_top, d_lo, d_hi); // Portable implementation
-//
-//	EXPECT_EQ(result_asm, result_portable) << "Mismatch in div_3_limb_ts";
-//
-//	// Test quot_rem_128
-//	limb_t quot_rem_asm[4] = { 0xFEDCBA9876543210, 0x0123456789ABCDEF };
-//	limb_t quot_rem_portable[4] = { 0xFEDCBA9876543210, 0x0123456789ABCDEF };
-//	limb_t divisor[2] = { 0x1111111111111111, 0x2222222222222222 };
-//	limb_t quotient = 0x3333333333333333;
-//
-//	limb_t rem_asm = quot_rem_128(quot_rem_asm, divisor, quotient); // ASM implementation
-//	limb_t rem_portable = cc_quot_rem_128(quot_rem_portable, divisor, quotient); // Portable implementation
-//
-//	EXPECT_EQ(rem_asm, rem_portable) << "Mismatch in quot_rem_128 remainder";
-//	EXPECT_TRUE(std::memcmp(quot_rem_asm, quot_rem_portable, sizeof(quot_rem_asm)) == 0) << "Mismatch in quot_rem_128 quotient";
-//
-//	// Test quot_rem_64
-//	limb_t quot_rem_64_asm[2] = { 0xFEDCBA9876543210 };
-//	limb_t quot_rem_64_portable[2] = { 0xFEDCBA9876543210 };
-//	limb_t divisor_64[1] = { 0x1111111111111111 };
-//	limb_t quotient_64 = 0x2222222222222222;
-//
-//	limb_t rem_64_asm = quot_rem_64(quot_rem_64_asm, divisor_64, quotient_64); // ASM implementation
-//	limb_t rem_64_portable = cc_quot_rem_64(quot_rem_64_portable, divisor_64, quotient_64); // Portable implementation
-//
-//	EXPECT_EQ(rem_64_asm, rem_64_portable) << "Mismatch in quot_rem_64 remainder";
-//	EXPECT_TRUE(std::memcmp(quot_rem_64_asm, quot_rem_64_portable, sizeof(quot_rem_64_asm)) == 0) << "Mismatch in quot_rem_64 quotient";
-//}
-//
+TEST(InterfaceTests, QuotRemAssemblyMatchesPortable) {
+	const limb_t divisor_128[2] = { 5, 1 };
+	const limb_t dividends_128[][3] = {
+		{ 38, 7, 0 }, // exact estimate: 7 * divisor + 3
+		{ 33, 6, 0 }  // estimate 7 is one too high
+	};
+	const limb_t estimates_128[] = { 7, 7 };
+
+	for (size_t i = 0; i < 2; ++i) {
+		limb_t asm_result[3], portable_result[3];
+		std::memcpy(asm_result, dividends_128[i], sizeof(asm_result));
+		std::memcpy(portable_result, dividends_128[i], sizeof(portable_result));
+		const limb_t asm_q = quot_rem_128(asm_result, divisor_128,
+			estimates_128[i]);
+		const limb_t portable_q = cc_quot_rem_n<NLIMBS(128)>(portable_result,
+			divisor_128, estimates_128[i]);
+
+		EXPECT_EQ(asm_q, portable_q);
+		EXPECT_EQ(std::memcmp(asm_result, portable_result, sizeof(asm_result)), 0);
+	}
+
+	const limb_t divisor_64[1] = { 5 };
+	limb_t asm_result_64[2] = { 38, 0 };
+	limb_t portable_result_64[2] = { 38, 0 };
+	const limb_t asm_q_64 = quot_rem_64(asm_result_64, divisor_64, 7);
+	const limb_t portable_q_64 = cc_quot_rem_n<NLIMBS(64)>(portable_result_64,
+		divisor_64, 7);
+
+	EXPECT_EQ(asm_q_64, portable_q_64);
+	EXPECT_EQ(std::memcmp(asm_result_64, portable_result_64,
+		sizeof(asm_result_64)), 0);
+}
 
 // ---- Helpers ----
 
@@ -1417,3 +1587,5 @@ TEST(InterfaceTests, Div3LimbsRandomFuzz) {
 
 
 #endif // defined(BLST_ASM) && defined(BLST_PORTABLE)
+
+#undef CATBLST_TEST_X86_64
