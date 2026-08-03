@@ -16,6 +16,8 @@ namespace blst
     using scalar::Fp12;
     using scalar::GLV4_Exp;
     using scalar::GLV_JSF_Exp;
+    using scalar::BLST_Rx_HOST;
+    using scalar::get_BLST_Rx;
 }
 
 #endif /* BLST_FIELDS_FP12_H */

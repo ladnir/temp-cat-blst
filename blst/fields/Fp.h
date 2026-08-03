@@ -16,14 +16,12 @@ namespace blst
 	using scalar::BLST_P_HOST;
 	using scalar::BLST_RR_HOST;
 	using scalar::BLST_RRRR_HOST;
-	using scalar::BLST_Rx_HOST;
 
 	using scalar::ct_inverse_mod_v384;
 	using scalar::get_BLST_negP;
 	using scalar::get_BLST_P;
 	using scalar::get_BLST_RR;
 	using scalar::get_BLST_RRRR;
-	using scalar::get_BLST_Rx;
 }
 
 #endif /* BLST_FP_H */

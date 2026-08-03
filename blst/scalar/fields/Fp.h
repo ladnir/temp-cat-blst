@@ -7,7 +7,6 @@
 #define BLST_SCALAR_FP_H
 
 #include "blst/common/vect.h"
-#include "bindings/blst_types.h"
 #include "blst/config.h"
 #include "blst/common/defines.h"
 #include "blst/backend/backend.h"
@@ -18,19 +17,131 @@
 
 namespace blst::scalar
 {
-	// The finite field Fp for BLS12-381 base field elements.
-	// All values stored in memory are in Montgomery representation unless noted.
-	//
-	// Notation:
-	//   - R = 2^384 mod p (Montgomery radix).
-	//   - from_mont(x) returns the conventional integer representative in [0, p).
-	//   - Unless specified, all operations are computed modulo p and return a
-	//     reduced result in [0, p).
-	//
-	// Constant-time notes:
-	//   - Unless stated otherwise, routines are intended to be constant-time w.r.t.
-	//     secret data. The Lehmer almost-inverse (reciprocal) is typically variable-time;
-	//     use flt_reciprocal() when strict constant-time is required.
+	/**
+	 * @brief BLS12-381 base field Fp.
+	 *
+	 * Values are stored in Montgomery form unless explicitly documented otherwise.
+	 * Here `R = 2^384 mod p`; `from_mont` returns the conventional representative
+	 * in `[0, p)`. Unless stated otherwise, operations are modulo p, return reduced
+	 * Montgomery values, and are intended to be constant-time with respect to
+	 * secret data. `reciprocal` uses the Lehmer almost-inverse and can be
+	 * variable-time; use `flt_reciprocal` where strict constant time is required.
+	 */
+	struct Fp
+	{
+		limb_t l[NLIMBS(384)];
+
+		/// Access limb @p idx in little-endian limb order.
+		BLST_HD limb_t& operator[](size_t idx) { return l[idx]; }
+		BLST_HD const limb_t& operator[](size_t idx) const { return l[idx]; }
+
+		/** @name Canonical constants */
+		///@{
+		/// @brief Additive identity in Montgomery form.
+		BLST_HD static const Fp& zero();
+		/// @brief Multiplicative identity in Montgomery form (`R mod p`).
+		BLST_HD static const Fp& one();
+		/// @brief Raw conventional modulus p stored in Fp-sized storage.
+		/// @note This value is not a reduced field element and is not Montgomery encoded.
+		BLST_HD static constexpr const Fp& modulus();
+		/// @brief `-p mod 2^384`, stored in Fp-sized storage.
+		BLST_HD static constexpr const Fp& neg_modulus();
+		///@}
+
+		/// @brief Return `-p^{-1} mod 2^64`, the Montgomery reduction constant.
+		BLST_HD static constexpr limb_t montgomery_constant();
+
+		/** @name Basic arithmetic */
+		///@{
+		/// @brief `ret = a + b mod p`.
+		BLST_HD static void add(Fp& ret, const Fp& a, const Fp& b);
+		/// @brief `ret = a - b mod p`.
+		BLST_HD static void sub(Fp& ret, const Fp& a, const Fp& b);
+		/// @brief `ret = a * b mod p`, preserving Montgomery form.
+		BLST_HD static void mul(Fp& ret, const Fp& a, const Fp& b);
+		/// @brief `ret = a^x mod p`.
+		/// @param x Little-endian exponent bytes.
+		/// @param x_bits Number of meaningful bits in @p x; zero returns one.
+		BLST_HD static void exp(Fp& ret, const Fp& a, const byte* x, size_t x_bits);
+		/// @brief `ret = a^2 mod p`.
+		BLST_HD static void sqr(Fp& ret, const Fp& a);
+		///@}
+
+		/** @name Montgomery transforms */
+		///@{
+		/// @brief Convert from Montgomery form to the canonical representative.
+		BLST_HD static void from_mont(Fp& ret, const Fp& a);
+		/// @brief Convert a canonical representative to Montgomery form.
+		/// @note If @p a is already Montgomery encoded, this multiplies it by R again.
+		BLST_HD static void to_mont(Fp& ret, const Fp& a);
+		/// @brief Montgomery-reduce the double-width value @p a modulo p.
+		BLST_HD static void redc(Fp& ret, const ::blst::UFp& a);
+		///@}
+
+		/** @name Negation and conditional operations */
+		///@{
+		/// @brief Constant-time conditional negation: `ret = flag ? -a : a`.
+		BLST_HD static void cneg(Fp& ret, const Fp& a, limb_t flag);
+		/// @brief `ret = -a mod p`.
+		BLST_HD static void neg(Fp& ret, const Fp& a);
+		///@}
+
+		/** @name Shifts and small multipliers */
+		///@{
+		/// @brief `ret = a * 2^count mod p`.
+		BLST_HD static void lshift(Fp& ret, const Fp& a, size_t count);
+		/// @brief `ret = a / 2^count mod p`.
+		BLST_HD static void rshift(Fp& ret, const Fp& a, size_t count);
+		/// @brief `ret = a / 2 mod p`.
+		BLST_HD static void div_by_2(Fp& ret, const Fp& a);
+		/// @brief `ret = 3 * a mod p`.
+		BLST_HD static void mul_by_3(Fp& ret, const Fp& a);
+		/// @brief `ret = 8 * a mod p`.
+		BLST_HD static void mul_by_8(Fp& ret, const Fp& a);
+		///@}
+
+		/** @name Inversion and square roots */
+		///@{
+		/// @brief Compute `out = inp^{-1}` with the Lehmer almost-inverse.
+		/// @note This operation is generally variable-time.
+		BLST_HD static void reciprocal(Fp& out, const Fp& inp);
+		/// @brief Compute `out = inp^{-1}` using the fixed Fermat addition chain.
+		BLST_HD static void flt_reciprocal(Fp& out, const Fp& inp);
+		/// @brief Compute `t0 = inp^((p-3)/4)` for square-root helpers.
+		BLST_HD static void recip_sqrt_3mod4(Fp& t0, const Fp& inp);
+		/// @brief Compute `out = inp^{-1/2}` when it exists.
+		/// @return One on success; zero for zero or a nonsquare.
+		BLST_HD static limb_t recip_sqrt(Fp& out, const Fp& inp);
+		/// @brief Write a square-root candidate for @p inp.
+		/// @return One when the candidate is a root; zero for a nonsquare.
+		/// @note A candidate is written on success and failure; no sign normalization is applied.
+		BLST_HD static limb_t sqrt(Fp& out, const Fp& inp);
+		/// @brief Return one iff @p inp is a quadratic residue, including zero.
+		BLST_HD static limb_t is_sqrt(const Fp& inp);
+		///@}
+
+		/** @name Exponentiation helpers */
+		///@{
+		/// @brief `out = a^(2^count) * b`.
+		/// @note Count zero performs one multiplication; exact `out == b` aliasing is supported.
+		BLST_HD static void sqr_n_mul(Fp& out, const Fp& a, size_t count, const Fp& b);
+		///@}
+
+		/** @name Comparisons and predicates */
+		///@{
+		/// @brief Constant-time equality of the represented field elements.
+		BLST_HD static limb_t equal(const Fp& a, const Fp& b);
+		/// @brief Return `(parity) | (sgn0 << 1)` for a conventional representative.
+		BLST_HD static limb_t sgn0_pty(const Fp& a);
+		/// @brief Return `(parity) | (sgn0 << 1)` directly from Montgomery form.
+		BLST_HD static limb_t sgn0_pty_mont(const Fp& a);
+		/// @brief Return one iff @p a is strictly less than p.
+		BLST_HD static limb_t is_redc(const Fp& a);
+		///@}
+
+		/// @brief Number of 64-bit limbs in the representation.
+		BLST_HD static constexpr size_t num_limb() { return NLIMBS(384); }
+	};
 
 	static_assert(std::is_default_constructible_v<Fp>);
 
@@ -70,20 +181,8 @@ namespace blst::scalar
     TO_LIMB_T(0x2512d43565724728), TO_LIMB_T(0x0aa6346091755d4d)
 
 
-	// Multiplicative identity of Fp12. Its first nested Fp is R mod P and
-	// every other coefficient is zero, so its actual subobjects also provide
-	// correctly typed Fp and Fp2 identities and zero values.
-#define BLST_RX_FP12_INITIALIZER                                         \
-	Fp12{                                                                 \
-		Fp6{                                                              \
-			Fp2{ Fp{ ONE_MONT_P_LIMBS }, Fp{} },                         \
-			Fp2{},                                                        \
-			Fp2{}                                                         \
-		},                                                                 \
-		Fp6{}                                                              \
-	}
-
-	constexpr Fp12 BLST_Rx_HOST = BLST_RX_FP12_INITIALIZER;
+	constexpr Fp BLST_FP_ZERO_HOST = {};
+	constexpr Fp BLST_FP_ONE_HOST = { ONE_MONT_P_LIMBS };
 
 #if defined(BLST_CUDA) && defined(__CUDACC__)
 
@@ -91,23 +190,29 @@ namespace blst::scalar
 	static __constant__ Fp BLST_NEG_P_DEV = { BLST_NEG_P_LIMBS };
 	static __constant__ Fp BLST_RR_DEV = { BLST_RR_LIMBS };
 	static __constant__ Fp BLST_RRRR_DEV = { BLST_RRRR_LIMBS };
-	static __constant__ Fp12 BLST_Rx_DEV = BLST_RX_FP12_INITIALIZER;
+	static __constant__ Fp BLST_FP_ZERO_DEV = {};
+	static __constant__ Fp BLST_FP_ONE_DEV = { ONE_MONT_P_LIMBS };
 
 
 #endif // __CUDA_ARCH__
 
-	// returns R, the one-in-Montgomery form. 
-	// Will return host or device memory depending on compilation target.
-	BLST_HD BLST_FORCEINLINE const Fp12& get_BLST_Rx(void)
+	BLST_HD BLST_FORCEINLINE const Fp& get_BLST_FP_zero(void)
 	{
 #if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
-		return BLST_Rx_DEV;
+		return BLST_FP_ZERO_DEV;
 #else
-		return BLST_Rx_HOST;
+		return BLST_FP_ZERO_HOST;
 #endif
 	}
 
-#undef BLST_RX_FP12_INITIALIZER
+	BLST_HD BLST_FORCEINLINE const Fp& get_BLST_FP_one(void)
+	{
+#if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
+		return BLST_FP_ONE_DEV;
+#else
+		return BLST_FP_ONE_HOST;
+#endif
+	}
 
 	constexpr Fp BLST_P_HOST = { BLST_P_LIMBS };
 	constexpr Fp BLST_NEG_P_HOST = { BLST_NEG_P_LIMBS };
@@ -502,11 +607,11 @@ namespace blst::scalar
 
 	BLST_HD BLST_FORCEINLINE const Fp& Fp::zero()
 	{
-		return get_BLST_Rx().fp6[0].fp2[0].fp[1];
+		return get_BLST_FP_zero();
 	}
 	BLST_HD BLST_FORCEINLINE const Fp& Fp::one()
 	{
-		return get_BLST_Rx().fp6[0].fp2[0].fp[0];
+		return get_BLST_FP_one();
 	}
 	BLST_HD BLST_FORCEINLINE constexpr const Fp& Fp::modulus()
 	{

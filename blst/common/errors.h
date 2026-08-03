@@ -10,7 +10,7 @@
 #ifdef BLST_CUDA
 #include <cuda_runtime.h>
 #endif
-#include "bindings/blst_types.h"
+#include "blst/common/error_codes.h"
 #include "blst/common/defines.h"
 
 

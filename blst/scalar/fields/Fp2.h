@@ -16,29 +16,118 @@
 namespace blst::scalar
 {
     /**
-     * @brief Quadratic extension field Fp2 used by the BLS12-381 twist (G2).
+     * @brief Quadratic extension field Fp2 used by the BLS12-381 twist.
      *
-     * Representation:
-     *   Elements are stored as (a0, a1) ≡ a0 + u·a1 where u^2 = -1 (the usual
-     *   BLS12-381 non-residue). Each component a0,a1 is an Fp element.
+     * Elements are `a0 + u*a1`, stored as `(a0, a1)`, with `u^2 = -1`.
+     * Components are Montgomery-encoded Fp values. Unless stated otherwise,
+     * operations accept and return Montgomery values and are intended to be
+     * constant-time. `reciprocal` uses the generally variable-time Lehmer
+     * almost-inverse; use `flt_reciprocal` where strict constant time is required.
      *
-     * Montgomery form:
-     *   Components are stored in Montgomery representation. All arithmetic
-     *   takes/returns Montgomery values unless stated otherwise. from_mont()/to_mont()
-     *   convert component-wise.
-     *
-     * Constant-time notes:
-     *   - Most routines are constant-time w.r.t. secret data.
-     *   - reciprocal() (Lehmer almost-inverse) is typically variable-time; use
-     *     flt_reciprocal() when strict constant-time is required.
-     *
-     * Sign / parity (sgn0):
-     *   Follows RFC 9380 / hash-to-curve for extension fields:
-     *     sgn0(a0 + u·a1) := sgn0(a1) if a1 != 0 else sgn0(a0),
-     *   with bit0 = parity and bit1 = sign folded as (parity) | (sign<<1).
+     * The extension-field sign follows RFC 9380: use `sgn0(a1)` when `a1 != 0`,
+     * otherwise `sgn0(a0)`.
      */
+    struct Fp2
+    {
+        Fp fp[2];
 
+        /// Access component @p idx: zero is real and one is imaginary.
+        BLST_HD Fp& operator[](size_t idx) { return fp[idx]; }
+        BLST_HD const Fp& operator[](size_t idx) const { return fp[idx]; }
 
+        /** @name Basic arithmetic */
+        ///@{
+        /// @brief `ret = a + b` in Fp2.
+        BLST_HD static void add(Fp2& ret, const Fp2& a, const Fp2& b);
+        /// @brief `ret = a - b` in Fp2.
+        BLST_HD static void sub(Fp2& ret, const Fp2& a, const Fp2& b);
+        /// @brief `ret = a * b` in Fp2 with `u^2 = -1`.
+        BLST_HD static void mul(Fp2& ret, const Fp2& a, const Fp2& b);
+        /// @brief `ret = a^2` in Fp2.
+        BLST_HD static void sqr(Fp2& ret, const Fp2& a);
+        /// @brief `out = inp^pow` using a little-endian exponent.
+        /// @param pow_bits Number of meaningful bits in @p pow.
+        BLST_HD static void exp(Fp2& out, const Fp2& inp, const byte* pow, size_t pow_bits);
+        ///@}
+
+        /** @name Negation and conditional operations */
+        ///@{
+        /// @brief Constant-time conditional negation: `ret = flag ? -a : a`.
+        BLST_HD static void cneg(Fp2& ret, const Fp2& a, limb_t flag);
+        /// @brief `ret = -a` in Fp2.
+        BLST_HD static void neg(Fp2& ret, const Fp2& a);
+        ///@}
+
+        /** @name Montgomery transforms */
+        ///@{
+        /// @brief Convert both components from Montgomery form.
+        BLST_HD static void from_mont(Fp2& ret, const Fp2& a);
+        /// @brief Convert both components to Montgomery form.
+        BLST_HD static void to_mont(Fp2& ret, const Fp2& a);
+        ///@}
+
+        /** @name Inversion and square roots */
+        ///@{
+        /// @brief Compute `out = inp^{-1}` using the Lehmer almost-inverse.
+        /// @note This operation is generally variable-time.
+        BLST_HD static void reciprocal(Fp2& out, const Fp2& inp);
+        /// @brief Compute `out = inp^{-1}` using a fixed Fermat addition chain.
+        BLST_HD static void flt_reciprocal(Fp2& out, const Fp2& inp);
+        /// @brief Compute the canonically aligned square root when it exists.
+        /// @return One on success and zero for a nonsquare.
+        BLST_HD static limb_t sqrt(Fp2& out, const Fp2& inp);
+        ///@}
+
+        /** @name Small multipliers and shifts */
+        ///@{
+        /// @brief `ret = 3 * a` in Fp2.
+        BLST_HD static void mul_by_3(Fp2& ret, const Fp2& a);
+        /// @brief `ret = 8 * a` in Fp2.
+        BLST_HD static void mul_by_8(Fp2& ret, const Fp2& a);
+        /// @brief `ret = a * 2^count` in Fp2.
+        BLST_HD static void lshift(Fp2& ret, const Fp2& a, size_t count);
+        ///@}
+
+        /** @name Conjugation and special multipliers */
+        ///@{
+        /// @brief `ret = conjugate(a) = (a0, -a1)`.
+        BLST_HD static void conjugate(Fp2& ret, const Fp2& a);
+        /// @brief `ret = (u + 1) * a`, using `u^2 = -1`.
+        BLST_HD static void mul_by_u_plus_1(Fp2& ret, const Fp2& a);
+        ///@}
+
+        /** @name Quadratic-residue helpers */
+        ///@{
+        /// @brief Return one iff @p inp is a quadratic residue, including zero.
+        BLST_HD static int is_square(const Fp2& inp);
+        /// @brief Compute `out = inp^{-1/2}` when it exists.
+        /// @return One on success and zero otherwise.
+        BLST_HD static limb_t recip_sqrt(Fp2& out, const Fp2& inp);
+        /**
+         * @brief Align a square-root candidate to the RFC 9380 sign convention.
+         *
+         * Selects between @p sqrt and its negation relative to @p inp. The @p ret
+         * parameter carries an implementation-specific candidate/intermediate.
+         *
+         * @return One on success and zero when alignment is not applicable.
+         */
+        BLST_HD static limb_t sqrt_align(Fp2& out, const Fp2& ret,
+            const Fp2& sqrt, const Fp2& inp);
+        ///@}
+
+        /** @name Sign and parity */
+        ///@{
+        /// @brief Return RFC 9380 `(parity) | (sgn0 << 1)` for Montgomery input.
+        BLST_HD static limb_t sgn0_pty_mont(const Fp2& a);
+        /// @brief Return RFC 9380 `(parity) | (sgn0 << 1)` for conventional input.
+        BLST_HD static limb_t sgn0_pty(const Fp2& a);
+        ///@}
+
+        /// @brief Additive identity.
+        BLST_HD static const Fp2& zero();
+        /// @brief Multiplicative identity `(1, 0)` in Montgomery form.
+        BLST_HD static const Fp2& one();
+    };
 
 #define BLST_SQRT_SQRT_MINUS_1_LIMBS                                \
 Fp{ TO_LIMB_T(0x3e2f585da55c9ad1), TO_LIMB_T(0x4294213d86c18183),     \
@@ -60,6 +149,8 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
 
 #if defined(BLST_CUDA) && defined(__CUDACC__)
 
+    static __constant__ Fp2 BLST_FP2_ZERO_DEV = {};
+    static __constant__ Fp2 BLST_FP2_ONE_DEV = { Fp{ ONE_MONT_P_LIMBS }, Fp{} };
     static __constant__ Fp2 BLST_sqrt_minus_1_DEV = Fp2({ Fp{ { 0 } }, Fp{ ONE_MONT_P_LIMBS } });
     /*
         * "magic" number is ±2^((p-3)/4)%p, which is "1/sqrt(2)",
@@ -72,6 +163,8 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
 #endif // __CUDA_ARCH__
 
 
+    constexpr Fp2 BLST_FP2_ZERO_HOST = {};
+    constexpr Fp2 BLST_FP2_ONE_HOST = { Fp{ ONE_MONT_P_LIMBS }, Fp{} };
     constexpr Fp2 BLST_sqrt_minus_1_HOST = Fp2({ Fp{ { 0 } }, Fp{ ONE_MONT_P_LIMBS } });
 
     /*
@@ -637,12 +730,20 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
 
     BLST_HD BLST_INLINE const Fp2& Fp2::one()
     {
-		return get_BLST_Rx().fp6[0].fp2[0];
+#if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
+        return BLST_FP2_ONE_DEV;
+#else
+        return BLST_FP2_ONE_HOST;
+#endif
     }
 
     BLST_HD BLST_INLINE const Fp2& Fp2::zero()
     {
-        return get_BLST_Rx().fp6[0].fp2[1];
+#if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
+        return BLST_FP2_ZERO_DEV;
+#else
+        return BLST_FP2_ZERO_HOST;
+#endif
     }
 
 }

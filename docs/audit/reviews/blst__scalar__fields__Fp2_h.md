@@ -38,9 +38,11 @@ through ordinary arithmetic may be secret. No operation allocates or throws.
 ## Dependency and call-path map
 
 Fp2 calls fixed-width Fp operations and selected scalar assembly primitives.
-Fp12 and scalar G2 consume it directly. `blst/exports.cpp` exposes retained C
-and Rust operations over the exact shared `blst_fp2` representation. There is
-no allocation, callback, global mutation, runtime dispatch, or exception path.
+Fp12 and scalar G2 consume it directly. This header owns the native C++ type;
+the C++ binding name `blst_fp2` is an exact alias, while C sees the matching
+POD layout. `blst/exports.cpp` exposes retained C and Rust operations without
+a representation copy. There is no allocation, callback, global mutation,
+runtime dispatch, or exception path.
 
 ## Upstream/specification comparison
 

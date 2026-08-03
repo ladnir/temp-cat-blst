@@ -112,8 +112,12 @@ int main()
             sizeof(scalar_from_aliased_fr)) != 0)
         return 16;
 
-    if (&blst::Fp::one() != &blst::Fp12::one()[0][0][0] ||
-        &blst::Fp2::one() != &blst::Fp12::one()[0][0])
+    const blst::Fp2& fp2_one = blst::Fp2::one();
+    const blst::Fp12& fp12_one = blst::Fp12::one();
+    if (!blst::Fp::equal(blst::Fp::one(), fp2_one[0]) ||
+        !blst::Fp::equal(blst::Fp::zero(), fp2_one[1]) ||
+        !blst::Fp::equal(blst::Fp::one(), fp12_one[0][0][0]) ||
+        !blst::Fp::equal(blst::Fp::zero(), fp12_one[0][0][1]))
         return 17;
 
     blst::Fp fp_inverse;

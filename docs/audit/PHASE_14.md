@@ -56,14 +56,13 @@ push, or Apple run was performed.
 
 ## AUD-069 representation remediation
 
-The approved representation is a single conditional public definition rather
-than a copied boundary object. C sees the existing data-only `blst_fr`,
-`blst_fp`, extension-field, and point structures. C++ sees standard-layout,
-trivially-copyable classes with the same public storage names and the existing
-member functions; `blst::scalar::Fr`, `Fp`, `Fp2`, `Fp6`, and `Fp12` are exact
-aliases of the corresponding `blst_*` classes. The generic scalar point types
-are likewise the exact specializations named by `blst_p1`, `blst_p2`, and their
-affine forms. The public C layout is unchanged.
+The approved representation uses one core C++ object type and no copied
+boundary object. The native field and point headers own the standard-layout,
+trivially-copyable `Fr`, `Fp`, `Fp2`, `Fp6`, `Fp12`, `Point`, and
+`AffinePoint` definitions. In C++ mode `bindings/blst_types.h` includes those
+owners and makes every `blst_*` name an exact alias. In C mode it exposes the
+corresponding data-only structures. The public C layout is unchanged, and the
+core no longer depends on a binding header for its mathematical types.
 
 The same public-header cleanup establishes C99 as the minimum supported C
 language mode. Standard headers now own `size_t`, the fixed-width integer
@@ -82,14 +81,14 @@ matrix. Canonical `blst_scalar` remains a 32-byte little-endian value distinct
 from Montgomery-form `blst_fr`, and their fixed-width conversions document an
 exact-or-disjoint overlap contract with no partial overlap.
 
-The inherited `radix384` union is replaced by one real typed `Fp12` identity.
-Fp and Fp2 identities and zero values are references to its live nested
-subobjects. Reciprocal retains one 96-byte `UFp` scratch object and addresses
-its two halves only as limbs, preserving the native inverse, reduction, and
-Montgomery-multiply call structure without changing stack size. Focused MSVC,
-GCC, and Clang compilation, the scalar library build, exact-alias and identity
-boundary checks, reciprocal correctness, and optimized MSVC code inspection
-pass at `61c8cd4`.
+The inherited `radix384` union was first replaced by typed storage. The later
+core-ownership cleanup gives Fp, Fp2, and Fp12 independent correctly typed
+zero/one constants, removing the dependency that made the base-field header
+require a complete Fp12 type. Reciprocal retains one 96-byte `UFp` scratch
+object and addresses its two halves only as limbs, preserving the native
+inverse, reduction, and Montgomery-multiply call structure without changing
+stack size. Focused compilation and value-based identity checks preserve the
+same mathematical constants without relying on coincident subobject addresses.
 
 The follow-up review found that `blst_t.hpp` was an isolated generic-modulus
 shim rather than the supported fixed BLS12-381 native C++ core. It duplicated
@@ -123,11 +122,12 @@ spelled as an enum identifier. The fixed expert-ABI sizes and 64-byte alignment
 are now prefixed preprocessing constants, leaving their values and layouts
 unchanged.
 
-The field and point API documentation moved with those declarations. The
-canonical public header retains the Montgomery representation, constant-time,
-failure-output, aliasing, subgroup, encoding, GLV, and scalar contracts;
-implementation-only commentary remains in the implementation headers. The
-real packed AVX API remains separate in `blst::avx` and `blst_avx.h`; four
+The field and point API documentation lives with the core declarations in
+their owning field and curve headers. The C binding header retains the C ABI
+storage and aliasing contract, while the core headers retain the Montgomery
+representation, constant-time, failure-output, aliasing, subgroup, encoding,
+GLV, and scalar contracts. The real packed AVX API remains separate in
+`blst::avx` and `blst_avx.h`; four
 scalar `Fp12::*_avx` placeholders that asserted and fell back to scalar code
 were removed during final review rather than being presented as working AVX.
 

@@ -10,40 +10,45 @@
 | Reviewer | Codex audit team |
 | Date | 2026-08-03 |
 | Disposition | in-scope production |
-| Subsystem | scalar Fp12 internal support types |
+| Subsystem | scalar Fp6/Fp12 types and internal Fp4 support |
 | Profiles | scalar C++ |
-| Generation/provenance | Hand-maintained local wrapper around the public scalar types |
+| Generation/provenance | Hand-maintained native C++ type declarations with upstream tower lineage |
 | Upstream references | `54e6e556:src/fp12_tower.c` for the internal Fp4 scratch shape |
 | Related files | `bindings/blst_types.h`, `blst/scalar/fields/Fp2.h`, `blst/scalar/fields/Fp12.cpp`, `blst/fields/Fp12.h` |
 
 ## Purpose and trust boundary
 
-The header supplies the two-Fp2 `Fp4` scratch aggregate used only by scalar
-cyclotomic squaring. Public Fp6/Fp12 representations and methods live in
-`bindings/blst_types.h`. It performs no arithmetic, allocation, I/O, or state
-management.
+The header owns the native C++ Fp6 and Fp12 representations, GLV schedule
+types, method contracts, typed Fp12 identity, and the two-Fp2 `Fp4` scratch
+aggregate used by scalar cyclotomic squaring. The C++ branch of
+`bindings/blst_types.h` aliases these exact types; it does not redefine them.
+The header performs no dynamic allocation or mutable global initialization.
 
 ## Contracts and invariants
 
-`Fp4` is fixed typed storage for exactly two Fp2 values. Indexing is unchecked
-and only internal constant indices zero and one are valid.
+Fp4, Fp6, and Fp12 are fixed typed aggregates. Indexing is unchecked and valid
+indices are a caller precondition. GLV schedules have fixed storage, while
+their currently mutable length contracts remain covered by `AUD-083`.
 
 ## Dependency and call-path map
 
-`Fp12.cpp` is the sole supported production consumer. `blst/fields/Fp12.h`
-re-exports the name, although no supported non-Fp12 production caller uses it.
+`Fp12.cpp`, pairing/GT, FFT, and the C boundary consume these declarations.
+`blst/fields/Fp12.h` re-exports the native names, and `bindings/blst_types.h`
+maps the C++ `blst_fp6`/`blst_fp12` names directly to them.
 
 ## Upstream/specification comparison
 
-The storage mirrors upstream `typedef vec384x vec384fp4[2]`. The local header
-lacks the normal license/provenance header and contains orphaned schedule
-comments; both are tracked by `AUD-087`.
+The Fp4 storage mirrors upstream `typedef vec384x vec384fp4[2]`; Fp6/Fp12
+retain the tower layout used by the C ABI. Remaining provenance and schedule
+hygiene work is tracked by `AUD-087`.
 
 ## Checklist evidence
 
 ### 1. Identity and purpose
 
-All 40 lines and every active reference were inspected.
+The original header and the declarations formerly housed in
+`bindings/blst_types.h` were inspected at the recorded review commit. Their
+ownership move is mechanical; the open Fp12 API findings remain attached here.
 
 ### 2. Contracts and invariants
 
@@ -55,12 +60,15 @@ The Fp4 scratch layout matches pinned upstream; provenance text is missing.
 
 ### 4. Correctness
 
-The aggregate and accessors are structurally correct. Orphaned comments do not
-describe any declaration.
+The aggregate layouts and accessors are structurally correct and compile
+against every out-of-line definition. Mathematical-domain and missing-symbol
+issues remain open as `AUD-081` and `AUD-086`.
 
 ### 5. Memory and lifetime safety
 
-Typed automatic storage only; no union, allocation, or retained reference.
+Typed aggregate storage only; no union, allocation, or retained reference.
+Executors that trust caller-mutable schedule lengths remain covered by
+`AUD-083`.
 
 ### 6. Undefined and implementation-defined behavior
 
@@ -69,7 +77,9 @@ array and is only called with compile-time-valid indices.
 
 ### 7. Side channels and cryptographic hygiene
 
-N/A: storage/accessors only, with constant indices.
+The declarations distinguish general, cyclotomic, and GLV operations, but the
+current implementation does not satisfy all stated domain/timing contracts;
+see `AUD-081` and `AUD-082`.
 
 ### 8. Randomness and secret lifecycle
 
@@ -86,7 +96,8 @@ N/A: no state.
 
 ### 11. Resource exhaustion and denial of service
 
-N/A: fixed 192-byte automatic aggregate.
+All represented objects and schedules have fixed storage. Untrusted schedule
+length validation remains required by `AUD-083`.
 
 ### 12. Portability and build behavior
 
@@ -95,7 +106,8 @@ attributes.
 
 ### 13. Performance-sensitive structure
 
-The fixed two-element layout is appropriate for hot cyclotomic squaring.
+The fixed tower layouts are appropriate for hot pairing arithmetic. The move
+adds no wrapper, virtual dispatch, allocation, or representation conversion.
 
 ### 14. Tests and evidence
 
@@ -107,7 +119,7 @@ N/A.
 
 ## Findings
 
-`AUD-087`.
+`AUD-081`, `AUD-082`, `AUD-083`, `AUD-086`, and `AUD-087`.
 
 ## Validation
 
@@ -125,5 +137,6 @@ Repository-wide reference search and strict host parsing through `Fp12.cpp`.
 
 ## Residual risk and decision
 
-The file remains in review pending provenance/hygiene cleanup and a decision
-whether the scratch type should remain re-exported by the selected field header.
+The file remains in review pending the GT domain/timing decision, schedule
+validation, missing-API resolution, provenance/hygiene cleanup, and a decision
+whether the Fp4 scratch type should remain re-exported by the selected header.

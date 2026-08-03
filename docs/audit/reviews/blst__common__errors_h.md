@@ -10,21 +10,22 @@
 | Reviewer | Codex audit team |
 | Date | 2026-08-03 |
 | Disposition | `in_scope_production` |
-| Subsystem | Canonical public error type and internal namespace exposure |
+| Subsystem | Internal namespace exposure for the canonical error type |
 | Profiles | C, C++, Rust; scalar and AVX public adapters |
 | Generation/provenance | Hand-maintained compatibility header derived from upstream BLST error codes |
 | Upstream references | Upstream head `54e6e55674722fc2797ebb4bbb71b26d881eb4b8`, public `blst.h` error codes |
-| Related files | `bindings/blst_types.h`, public C headers, `blst/c_api.cpp`, `blst/avx_c_api.cpp`, Rust bindings |
+| Related files | `blst/common/error_codes.h`, `bindings/blst_types.h`, public C headers, `blst/c_api.cpp`, `blst/avx_c_api.cpp`, Rust bindings |
 
 ## Purpose and trust boundary
 
-This header makes the public `BLST_ERROR` enum the single error type used by
-internal C++ code. Error values cross C and Rust FFI and must never drift by
-language or backend.
+This header imports the C-compatible `BLST_ERROR` definition from
+`blst/common/error_codes.h` and exposes that exact type and its enumerators in
+the internal C++ namespace. Error values cross C and Rust FFI and must never
+drift by language or backend.
 
 ## Contracts and invariants
 
-- The canonical public values are explicit integers zero through seven.
+- The neutral `error_codes.h` owner defines explicit values zero through seven.
 - `blst::BLST_ERROR` is the exact global `::BLST_ERROR` type, not a duplicate.
 - Internal enumerator names alias the public enumerators.
 - CUDA-specific batch errors remain a separate experimental enum.

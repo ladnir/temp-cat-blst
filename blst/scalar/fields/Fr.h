@@ -8,7 +8,6 @@
 #define BLST_SCALAR_FR_H
 
 #include "blst/common/vect.h"
-#include "bindings/blst_types.h"
 
 #include "blst/backend/backend.h"
 #include <bit>
@@ -17,23 +16,96 @@
 
 namespace blst::scalar
 {
+	/**
+	 * @brief Scalar field Fr = Z_r, where r is the BLS12-381 group order.
+	 *
+	 * Values are stored in Montgomery form unless explicitly documented otherwise.
+	 * If `a'` is the canonical integer in `[0, r)`, the stored value is
+	 * `a = a' * R mod r`, where `R = 2^256`. Unless stated otherwise, operations
+	 * are modulo r, return reduced results, preserve Montgomery form, and are
+	 * intended to be constant-time with respect to secret data.
+	 */
+	struct Fr
+	{
+		limb_t l[NLIMBS(256)];
+
+		/// Access limb @p idx in little-endian limb order.
+		BLST_HD limb_t& operator[](size_t idx) { return l[idx]; }
+		BLST_HD const limb_t& operator[](size_t idx) const { return l[idx]; }
+
+		/// @brief Additive identity in Montgomery form.
+		BLST_HD static const Fr& zero();
+		/// @brief Multiplicative identity in Montgomery form (`R mod r`).
+		BLST_HD static const Fr& one();
+		/// @brief Raw conventional modulus r stored in Fr-sized storage.
+		/// @note This value is not a reduced field element and is not Montgomery encoded.
+		BLST_HD static constexpr const Fr& modulus();
+		/// @brief Return `-r^{-1} mod 2^64`, the Montgomery reduction constant.
+		BLST_HD static constexpr limb_t montgomery_constant();
+		/// @brief `ret = a + b mod r`.
+		BLST_HD static void add(Fr& ret, const Fr& a, const Fr& b);
+		/// @brief `ret = a - b mod r`.
+		BLST_HD static void sub(Fr& ret, const Fr& a, const Fr& b);
+		/// @brief `ret = a * b mod r` with Montgomery inputs and output.
+		BLST_HD static void mul(Fr& ret, const Fr& a, const Fr& b);
+		/// @brief `ret = a^x mod r`.
+		/// @param x Little-endian exponent bytes.
+		/// @param x_bits Number of meaningful bits in @p x; zero returns one.
+		BLST_HD static void exp(Fr& ret, const Fr& a, const byte* x, size_t x_bits);
+		/// @brief `ret = a^2 mod r`.
+		BLST_HD static void sqr(Fr& ret, const Fr& a);
+		/// @brief Convert from Montgomery form to the canonical representative.
+		BLST_HD static void from_mont(Fr& ret, const Fr& a);
+		/// @brief Convert a canonical representative to Montgomery form.
+		BLST_HD static void to_mont(Fr& ret, const Fr& a);
+		/// @brief Montgomery-reduce the double-width value @p a modulo r.
+		BLST_HD static void redc(Fr& ret, const ::blst::UFr& a);
+		/// @brief Constant-time conditional negation: `ret = flag ? -a : a`.
+		BLST_HD static void cneg(Fr& ret, const Fr& a, limb_t flag);
+		/// @brief `ret = -a mod r`.
+		BLST_HD static void neg(Fr& ret, const Fr& a);
+		/// @brief `ret = a * 2^count mod r`.
+		BLST_HD static void lshift(Fr& ret, const Fr& a, size_t count);
+		/// @brief `ret = a / 2^count mod r`.
+		BLST_HD static void rshift(Fr& ret, const Fr& a, size_t count);
+		/// @brief `ret = 3 * a mod r`.
+		BLST_HD static void mul_by_3(Fr& ret, const Fr& a);
+		/// @brief Compute `out = 1 / inp` with the selected constant-time inverse.
+		BLST_HD static void reciprocal(Fr& out, const Fr& inp);
+		/// @brief Constant-time equality of the represented field elements.
+		BLST_HD static limb_t equal(const Fr& a, const Fr& b);
+		/// @brief Constant-time Cooley-Tukey butterfly.
+		BLST_HD static void ct_bfly(Fr& x0, Fr& x1, const Fr& twiddle);
+		/// @brief Constant-time Gentleman-Sande butterfly.
+		BLST_HD static void gs_bfly(Fr& x0, Fr& x1, const Fr& twiddle);
+		/// @brief Return one iff @p a is strictly less than r.
+		BLST_HD static limb_t is_redc(const Fr& a);
+		/// @brief Return one iff @p a is reduced modulo r and nonzero.
+		BLST_HD static limb_t check_mod(const Fr& a);
+		/// @brief Decode a 32-byte little-endian scalar and convert it to Montgomery form.
+		BLST_HD static void from_scalar(Fr& ret, const byte a[32]);
+		/// @brief Convert from Montgomery form to a 32-byte little-endian scalar.
+		BLST_HD static void to_scaler(byte ret[32], const Fr& a);
+		/// @brief Convert four little-endian 64-bit words to Montgomery form.
+		BLST_HD static void from_uint64(Fr& ret, const uint64_t a[4]);
+		/// @brief Convert a single unsigned integer to Montgomery form.
+		BLST_HD static void from_uint64(Fr& ret, uint64_t a);
+		/// @brief Return a Montgomery field element constructed from @p a.
+		BLST_HD static Fr from_uint64(uint64_t a);
+		/// @brief Parse a complete hexadecimal field value without modifying @p ret on failure.
+		[[nodiscard]] BLST_HD static bool from_hexascii(Fr& ret, const char* hex);
+		/// @brief Write a null-terminated hexadecimal value; @p out must hold at least 65 bytes.
+		BLST_HD static void to_hexascii(char* out, const Fr& value);
+		/// @brief Number of 64-bit limbs in the representation.
+		BLST_HD static constexpr size_t num_limbs() { return NLIMBS(256); }
+
+		BLST_HD bool operator==(const Fr& other) const { return equal(*this, other) != 0; }
+		BLST_HD bool operator!=(const Fr& other) const { return !(*this == other); }
+	};
 
 	// -r^{-1} mod 2^64, used in Montgomery reduction.
 #define BLST_r0 (limb_t)0xfffffffeffffffff  /* -1/r */
 
-	/*
-	 * Scalar field Fr = Z_r (r is the BLS12-381 group order).
-	 *
-	 * Representation:
-	 *   - Values are stored in Montgomery form unless noted.
-	 *     If a' is the canonical integer in [0, r), we store a = a' * R mod r,
-	 *     where R = 2^256.
-	 *
-	 * Conventions:
-	 *   - Unless stated, all ops are modulo r and return reduced results in [0, r)
-	 *     and stay in Montgomery form.
-	 *   - Arithmetic is intended to be constant-time w.r.t. secrets.
-	 */
 #define BLST_r_LIMBS \
     TO_LIMB_T(0xffffffff00000001), TO_LIMB_T(0x53bda402fffe5bfe),\
     TO_LIMB_T(0x3339d80809a1d805), TO_LIMB_T(0x73eda753299d7d48)
