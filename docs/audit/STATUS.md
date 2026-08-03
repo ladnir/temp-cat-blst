@@ -1,6 +1,6 @@
 # Audit Status
 
-Last updated: 2026-08-02
+Last updated: 2026-08-03
 
 ## Current phase
 
@@ -71,6 +71,14 @@ selects assembly, and focused behavior plus code-generation evidence passes.
 The exact `backend.h` review is recorded at
 `dc07be802c39a3c04a17347a5cec64f74d95ecd7`; no broad build or benchmark was
 required.
+
+The common-foundation packet is now in remediation. `AUD-058` through
+`AUD-065` cover CPU capability initialization/linkage, vector copy and
+conditional contracts, x86 predicate counts, endian conversion, strict public
+hex parsing, one canonical C error enum, and optional timing overhead/failure.
+Three iterator/mdspan helpers have no supported production consumer and move
+to the experimental CUDA/parallel-MSM scope. Discovery was read-only at exact
+commit `26ef30d699d035d261936b1ec1217195425fef8e`; no benchmark was run.
 
 ## Main program phases
 

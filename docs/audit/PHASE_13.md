@@ -210,3 +210,14 @@ portable/non-portable fallback-symbol allowlists pass. `backend.h` is closed at
 `e1fb36f21ddcafd96a415099df09a820cce69804`. `backend_asm.h` remains in review
 at `5a9457a8e01522c48510487de60f7a60a59a93df` until native Apple Silicon CI
 validates the generic-provider path after alias removal.
+
+The next dependency-coherent common-foundation packet reviewed eight files in
+parallel at `26ef30d699d035d261936b1ec1217195425fef8e`. It opened `AUD-058`
+through `AUD-065` for inactive CPU capability initialization, reachable
+restricted self-copy, inconsistent conditional truth values, truncated x86
+predicate counts, C++ endian union punning, permissive public hex parsing,
+duplicated error enum types, and non-zero-cost/fallible timing diagnostics.
+`counting_iterator.h`, `transform_iterator.h`, and `mdspan_compat.h` have no
+supported production consumers and are reclassified as experimental CUDA or
+parallel-MSM support rather than scalar release dependencies. The user
+approved the complete remediation packet before implementation.
