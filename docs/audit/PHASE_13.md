@@ -147,3 +147,11 @@ two dormant 32-bit branches, map each constant-time primitive to the barrier
 probe evidence, and preserve current inlining and fixed-width arithmetic.
 `AUD-050` should be handled as a separate keygen packet before the public C ABI
 phase can close.
+
+The subsequent portable-backend review upgraded `AUD-050` to high severity:
+Lamport expansion failure is not merely silent zeroization because child
+derivation continues into key generation and can publish an incorrect key.
+That review also opened `AUD-051` through `AUD-054` for zero-count public
+shifts, ADX intrinsic output aliasing, lost-borrow portable division, and the
+MSVC zero-input bit scan. These are remediation packets, not completed file
+reviews; exact validation evidence will be recorded before closure.

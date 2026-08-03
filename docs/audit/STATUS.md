@@ -48,6 +48,12 @@ own full reviews. The retained-C-ABI inventory opened `AUD-050` because legacy
 `void` keygen still allocates an HKDF information buffer; it does not throw but
 must become allocation-free in a dedicated keygen packet.
 
+The portable-backend review subsequently upgraded `AUD-050` to high severity
+and opened `AUD-051` through `AUD-054`. Remediation is in progress for
+allocation-free key derivation, defined zero-count public shifts, exact ADX
+output typing, portable division borrow propagation, and MSVC zero-input bit
+scanning.
+
 ## Main program phases
 
 | Phase | State | Exit criterion |
