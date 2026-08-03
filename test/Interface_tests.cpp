@@ -1074,8 +1074,8 @@ TEST(InterfaceTests, CtxInverseMod384) {
 		if (!vec_is_zero(inp.l, sizeof(Fp))) {
 			Fp::mul(oneA, inv_asm, inp);
 			Fp::mul(oneP, inv_por, inp);
-			EXPECT_TRUE(vec_is_equal(oneA.l, get_BLST_Rx().p.l, sizeof(Fp))) << "ASM inverse incorrect";
-			EXPECT_TRUE(vec_is_equal(oneP.l, get_BLST_Rx().p.l, sizeof(Fp))) << "Portable inverse incorrect";
+			EXPECT_TRUE(vec_is_equal(oneA.l, Fp::one().l, sizeof(Fp))) << "ASM inverse incorrect";
+			EXPECT_TRUE(vec_is_equal(oneP.l, Fp::one().l, sizeof(Fp))) << "Portable inverse incorrect";
 		}
 
 		// Assert stage-by-stage (these help pinpoint the break)

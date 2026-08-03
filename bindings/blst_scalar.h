@@ -47,19 +47,27 @@ typedef enum BLST_UNIQ_RESULT {
  * Scalar byte helpers.
  *
  * Invariants:
+ * - `blst_scalar` is the canonical 32-byte little-endian representation;
+ *   `blst_fr` is the corresponding Montgomery-form arithmetic type.
+ * - The fixed-width word and scalar/Fr conversions below permit disjoint or
+ *   exactly equal input/output storage. Partial overlap is not supported.
  * - `blst_scalar_from_{le,be}_bytes` accept variable-length inputs.
  * - Zero-length input decodes to the zero scalar, clears `out`, and returns
  *   `false`.
  * - The checked arithmetic helpers return `false` when the resulting scalar is
  *   zero or otherwise rejected by the scalar validity contract.
  */
-/** Converts eight conventional 32-bit words into a scalar byte representation. */
+/** Converts eight conventional 32-bit words into canonical scalar bytes.
+ * Exact aliasing is allowed. */
 void blst_scalar_from_uint32(blst_scalar* out, const uint32_t a[8]);
-/** Converts a scalar byte representation into eight conventional 32-bit words. */
+/** Converts canonical scalar bytes into eight conventional 32-bit words.
+ * Exact aliasing is allowed. */
 void blst_uint32_from_scalar(uint32_t out[8], const blst_scalar* a);
-/** Converts four conventional 64-bit words into a scalar byte representation. */
+/** Converts four conventional 64-bit words into canonical scalar bytes.
+ * Exact aliasing is allowed. */
 void blst_scalar_from_uint64(blst_scalar* out, const uint64_t a[4]);
-/** Converts a scalar byte representation into four conventional 64-bit words. */
+/** Converts canonical scalar bytes into four conventional 64-bit words.
+ * Exact aliasing is allowed. */
 void blst_uint64_from_scalar(uint64_t out[4], const blst_scalar* a);
 /** Imports an exact 32-byte big-endian scalar representation. */
 void blst_scalar_from_bendian(blst_scalar* out, const blst_byte a[32]);
@@ -112,9 +120,11 @@ void blst_fr_inverse(blst_fr* ret, const blst_fr* a);
 void blst_fr_from_uint64(blst_fr* ret, const uint64_t a[4]);
 /** Converts a Montgomery-form Fr value into four unsigned 64-bit limbs. */
 void blst_uint64_from_fr(uint64_t ret[4], const blst_fr* a);
-/** Converts a scalar byte representation into Montgomery-form Fr. */
+/** Converts canonical scalar bytes into Montgomery-form Fr.
+ * Exact aliasing is allowed. */
 void blst_fr_from_scalar(blst_fr* ret, const blst_scalar* a);
-/** Converts a Montgomery-form Fr value into the scalar byte representation. */
+/** Converts Montgomery-form Fr into canonical scalar bytes.
+ * Exact aliasing is allowed. */
 void blst_scalar_from_fr(blst_scalar* ret, const blst_fr* a);
 /** Bulk-converts contiguous Montgomery-form field elements into canonical little-endian scalars. Empty input succeeds without storage; nonempty input requires both arrays. */
 bool blst_scalars_from_fr(blst_scalar out[], const blst_fr scalars[], size_t npoints);

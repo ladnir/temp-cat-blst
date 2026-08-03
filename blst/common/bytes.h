@@ -74,16 +74,7 @@ namespace blst
 		limb_t limb;
 		size_t i, j, r;
 
-#if defined(_WIN32) || \
-	(defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
-		constexpr bool host_is_little_endian = true;
-#elif defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-		constexpr bool host_is_little_endian = false;
-#else
-# error "Unable to determine the supported target byte order"
-#endif
-
-		if ((uptr_t)out == (uptr_t)in && host_is_little_endian)
+		if (static_cast<const void*>(out) == static_cast<const void*>(in))
 			return;
 
 		r = n % sizeof(limb);

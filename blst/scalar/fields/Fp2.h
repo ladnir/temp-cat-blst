@@ -359,7 +359,7 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
             Fp2 t1;
             Fp2::sub(t1, t0, inp);
             is_sqrt = vec_is_zero(&t1, sizeof(t1));
-            vec_copy(&coeff, &get_BLST_Rx().p2, sizeof(coeff));
+            vec_copy(&coeff, &Fp2::one(), sizeof(coeff));
 
             /* -(a^2-b^2) - 2ab*i == |inp| ? "rotate |ret| by 90°" */
             Fp2::add(t1, t0, inp);
@@ -637,12 +637,12 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
 
     BLST_HD BLST_INLINE const Fp2& Fp2::one()
     {
-		return *(const Fp2*)get_BLST_Rx().p2;
+		return get_BLST_Rx().fp6[0].fp2[0];
     }
 
     BLST_HD BLST_INLINE const Fp2& Fp2::zero()
     {
-        return *(const Fp2*)&get_BLST_Rx().p12[2];
+        return get_BLST_Rx().fp6[0].fp2[1];
     }
 
 }

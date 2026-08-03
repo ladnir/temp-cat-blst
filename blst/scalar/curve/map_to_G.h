@@ -460,7 +460,7 @@ namespace blst::scalar
 		Fp::mul(Zuu, Z, uu);                 /* Zuu = Z * uu                 */
 		Fp::sqr(tv2, Zuu);                   /* tv2 = Zuu^2                  */
 		Fp::add(tv2, tv2, Zuu);              /* tv2 = tv2 + Zuu              */
-		Fp::add(x1n, tv2, get_BLST_Rx().p);   /* x1n = tv2 + 1                */
+		Fp::add(x1n, tv2, Fp::one());        /* x1n = tv2 + 1                */
 		Fp::mul(x1n, x1n, get_BLST_Bprime_E1());        /* x1n = x1n * B                */
 		Fp::mul(x2n, Zuu, x1n);              /* x2n = Zuu * x1n              */
 
@@ -560,7 +560,7 @@ namespace blst::scalar
 		Fp2::mul(Zuu, Z, uu);                      /* Zuu = Z * uu                 */
 		Fp2::sqr(tv2, Zuu);                        /* tv2 = Zuu^2                  */
 		Fp2::add(tv2, tv2, Zuu);                   /* tv2 = tv2 + Zuu              */
-		Fp2::add(x1n, tv2, *(Fp2*)get_BLST_Rx().p2);     /* x1n = tv2 + 1                */
+		Fp2::add(x1n, tv2, Fp2::one());          /* x1n = tv2 + 1                */
 		Fp2::mul(x1n, x1n, get_BLST_Bprime_E2()); /* x1n = x1n * B                */
 		Fp2::mul(x2n, Zuu, x1n);                   /* x2n = Zuu * x1n              */
 

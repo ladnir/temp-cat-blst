@@ -29,7 +29,7 @@ TEST(Fp2Test, ZeroAndOne) {
     // Initialize zero and one
     vec_zero(&zero, sizeof(zero));
     vec_zero(&one, sizeof(one));
-    vec_copy(one[0].l, get_BLST_Rx().p.l, sizeof(Fp));  // Re(1) = 1
+    vec_copy(one[0].l, Fp::one().l, sizeof(Fp));  // Re(1) = 1
 
     // Check zero properties
     Fp2 result;
@@ -60,7 +60,7 @@ TEST(Fp2Test, OneMultiplication) {
 
     // Initialize `one` to Fp2::one()
     //vec_zero(&one, sizeof(one));
-    //vec_copy(one[0], get_BLST_Rx().p, sizeof(Fp));  // Re(1) = 1
+    //vec_copy(one[0], Fp::one(), sizeof(Fp));  // Re(1) = 1
     //vec_zero(one[1], sizeof(Fp));                  // Im(1) = 0
 
     // Compute result = one * one
@@ -77,23 +77,23 @@ TEST(Fp2Test, Addition) {
     // Initialize with some values
     // a = 2 + 3i (in Montgomery representation)
     vec_zero(&a, sizeof(a));
-    Fp::lshift(a[0], get_BLST_Rx().p, 1);     // Re(a) = 2
-    Fp::mul_by_3(a[1], get_BLST_Rx().p);      // Im(a) = 3
+    Fp::lshift(a[0], Fp::one(), 1);     // Re(a) = 2
+    Fp::mul_by_3(a[1], Fp::one());      // Im(a) = 3
 
     // b = 4 + 5i (in Montgomery representation)
     vec_zero(&b, sizeof(b));
-    Fp::lshift(b[0], get_BLST_Rx().p, 2);     // Re(b) = 4
-    Fp::add(b[1], get_BLST_Rx().p, b[0]);     // Im(b) = 1 + 4 = 5
+    Fp::lshift(b[0], Fp::one(), 2);     // Re(b) = 4
+    Fp::add(b[1], Fp::one(), b[0]);     // Im(b) = 1 + 4 = 5
 
     // c = a + b should be 6 + 8i
     Fp2::add(c, a, b);
 
     vec_zero(&expected, sizeof(expected));
     // Calculate Re(expected) = 6
-    Fp::mul_by_3(expected[0], get_BLST_Rx().p);       // Re(expected) = 3
+    Fp::mul_by_3(expected[0], Fp::one());       // Re(expected) = 3
     Fp::lshift(expected[0], expected[0], 1);         // Re(expected) = 6
     // Calculate Im(expected) = 8
-    Fp::lshift(expected[1], get_BLST_Rx().p, 3);      // Im(expected) = 8
+    Fp::lshift(expected[1], Fp::one(), 3);      // Im(expected) = 8
 
     EXPECT_TRUE(vec_is_equal(&c, &expected, sizeof(Fp2)))
         << "(2+3i) + (4+5i) = (6+8i)";
@@ -110,27 +110,27 @@ TEST(Fp2Test, Subtraction) {
     // Initialize with some values
     // a = 7 + 4i (in Montgomery representation)
     vec_zero(&a, sizeof(a));
-    Fp::mul_by_3(a[0], get_BLST_Rx().p);      // Re(a) = 3
-    Fp::add(a[0], a[0], get_BLST_Rx().p);     // Re(a) = 3+1 = 4
-    Fp::add(a[0], a[0], get_BLST_Rx().p);     // Re(a) = 4+1 = 5
-    Fp::add(a[0], a[0], get_BLST_Rx().p);     // Re(a) = 5+1 = 6
-    Fp::add(a[0], a[0], get_BLST_Rx().p);     // Re(a) = 6+1 = 7
-    Fp::lshift(a[1], get_BLST_Rx().p, 2);     // Im(a) = 4
+    Fp::mul_by_3(a[0], Fp::one());      // Re(a) = 3
+    Fp::add(a[0], a[0], Fp::one());     // Re(a) = 3+1 = 4
+    Fp::add(a[0], a[0], Fp::one());     // Re(a) = 4+1 = 5
+    Fp::add(a[0], a[0], Fp::one());     // Re(a) = 5+1 = 6
+    Fp::add(a[0], a[0], Fp::one());     // Re(a) = 6+1 = 7
+    Fp::lshift(a[1], Fp::one(), 2);     // Im(a) = 4
 
     // b = 2 + 3i (in Montgomery representation)
     vec_zero(&b, sizeof(b));
-    Fp::lshift(b[0], get_BLST_Rx().p, 1);     // Re(b) = 2
-    Fp::mul_by_3(b[1], get_BLST_Rx().p);      // Im(b) = 3
+    Fp::lshift(b[0], Fp::one(), 1);     // Re(b) = 2
+    Fp::mul_by_3(b[1], Fp::one());      // Im(b) = 3
 
     // c = a - b should be 5 + 1i
     Fp2::sub(c, a, b);
 
     vec_zero(&expected, sizeof(expected));
-    Fp::add(expected[0], get_BLST_Rx().p, get_BLST_Rx().p);  // Re(expected) = 2
-    Fp::add(expected[0], expected[0], get_BLST_Rx().p);     // Re(expected) = 2+1 = 3
-    Fp::add(expected[0], expected[0], get_BLST_Rx().p);     // Re(expected) = 3+1 = 4
-    Fp::add(expected[0], expected[0], get_BLST_Rx().p);     // Re(expected) = 4+1 = 5
-    vec_copy(expected[1].l, get_BLST_Rx().p.l, sizeof(Fp));  // Im(expected) = 1
+    Fp::add(expected[0], Fp::one(), Fp::one());  // Re(expected) = 2
+    Fp::add(expected[0], expected[0], Fp::one());     // Re(expected) = 2+1 = 3
+    Fp::add(expected[0], expected[0], Fp::one());     // Re(expected) = 3+1 = 4
+    Fp::add(expected[0], expected[0], Fp::one());     // Re(expected) = 4+1 = 5
+    vec_copy(expected[1].l, Fp::one().l, sizeof(Fp));  // Im(expected) = 1
 
     EXPECT_TRUE(vec_is_equal(&c, &expected, sizeof(Fp2)))
         << "(7+4i) - (2+3i) = (5+1i)";
@@ -150,28 +150,28 @@ TEST(Fp2Test, Multiplication) {
 
     // a = 2 + 3i
     vec_zero(&a, sizeof(a));
-    Fp::lshift(a[0], get_BLST_Rx().p, 1);     // Re(a) = 2
-    Fp::mul_by_3(a[1], get_BLST_Rx().p);      // Im(a) = 3
+    Fp::lshift(a[0], Fp::one(), 1);     // Re(a) = 2
+    Fp::mul_by_3(a[1], Fp::one());      // Im(a) = 3
 
     // b = 4 + 5i
     vec_zero(&b, sizeof(b));
-    Fp::lshift(b[0], get_BLST_Rx().p, 2);     // Re(b) = 4
-    Fp::add(b[1], get_BLST_Rx().p, b[0]);     // Im(b) = 1 + 4 = 5
+    Fp::lshift(b[0], Fp::one(), 2);     // Re(b) = 4
+    Fp::add(b[1], Fp::one(), b[0]);     // Im(b) = 1 + 4 = 5
 
     // c = a * b should be (2*4 - 3*5) + (2*5 + 3*4)i = (8 - 15) + (10 + 12)i = -7 + 22i
     Fp2::mul(c, a, b);
 
     vec_zero(&expected, sizeof(expected));
     // Re(expected) = -7
-    Fp::mul_by_3(expected[0], get_BLST_Rx().p);      // 3
+    Fp::mul_by_3(expected[0], Fp::one());      // 3
     Fp::lshift(expected[0], expected[0], 1);        // 6
-    Fp::add(expected[0], expected[0], get_BLST_Rx().p); // 7
+    Fp::add(expected[0], expected[0], Fp::one()); // 7
     Fp::cneg(expected[0], expected[0], 1);           // -7
 
     // Im(expected) = 22
     Fp temp;
-    Fp::lshift(temp, get_BLST_Rx().p, 1);             // 2
-    Fp::mul_by_3(expected[1], get_BLST_Rx().p);       // 3
+    Fp::lshift(temp, Fp::one(), 1);             // 2
+    Fp::mul_by_3(expected[1], Fp::one());       // 3
     Fp::lshift(expected[1], expected[1], 3);         // 24
     Fp::sub(expected[1], expected[1], temp);         // 22
 
@@ -189,8 +189,8 @@ TEST(Fp2Test, SquareAndMultiply) {
 
     // a = 2 + 3i
     vec_zero(&a, sizeof(a));
-    Fp::lshift(a[0], get_BLST_Rx().p, 1);     // Re(a) = 2
-    Fp::mul_by_3(a[1], get_BLST_Rx().p);      // Im(a) = 3
+    Fp::lshift(a[0], Fp::one(), 1);     // Re(a) = 2
+    Fp::mul_by_3(a[1], Fp::one());      // Im(a) = 3
 
     // Compute a² using multiplication
     Fp2::mul(a_squared1, a, a);
@@ -208,8 +208,8 @@ TEST(Fp2Test, Inversion) {
 
     // a = 2 + 3i
     vec_zero(&a, sizeof(a));
-    Fp::lshift(a[0], get_BLST_Rx().p, 1);     // Re(a) = 2
-    Fp::mul_by_3(a[1], get_BLST_Rx().p);      // Im(a) = 3
+    Fp::lshift(a[0], Fp::one(), 1);     // Re(a) = 2
+    Fp::mul_by_3(a[1], Fp::one());      // Im(a) = 3
 
     // Compute 1/a
     Fp2::reciprocal(a_inv, a);
@@ -220,7 +220,7 @@ TEST(Fp2Test, Inversion) {
     // Should equal 1 (real part 1, imaginary part 0)
     Fp2 one;
     vec_zero(&one, sizeof(one));
-    vec_copy(one[0].l, get_BLST_Rx().p.l, sizeof(Fp));
+    vec_copy(one[0].l, Fp::one().l, sizeof(Fp));
 
     EXPECT_TRUE(vec_is_equal(&result, &one, sizeof(Fp2)))
         << "a * (1/a) should equal 1";
@@ -231,8 +231,8 @@ TEST(Fp2Test, Frobenius) {
 
     // a = 2 + 3i
     vec_zero(&a, sizeof(a));
-    Fp::lshift(a[0], get_BLST_Rx().p, 1);     // Re(a) = 2
-    Fp::mul_by_3(a[1], get_BLST_Rx().p);      // Im(a) = 3
+    Fp::lshift(a[0], Fp::one(), 1);     // Re(a) = 2
+    Fp::mul_by_3(a[1], Fp::one());      // Im(a) = 3
 
     // Frobenius map in Fp2 is complex conjugation: (a+bi) -> (a-bi)
     // expected = 2 - 3i
@@ -252,8 +252,8 @@ TEST(Fp2Test, SquareRoot) {
     // Let's try with a perfect square: a = (2+3i)²
     Fp2 temp;
     vec_zero(&temp, sizeof(temp));
-    Fp::lshift(temp[0], get_BLST_Rx().p, 1);    // Re(temp) = 2
-    Fp::mul_by_3(temp[1], get_BLST_Rx().p);     // Im(temp) = 3
+    Fp::lshift(temp[0], Fp::one(), 1);    // Re(temp) = 2
+    Fp::mul_by_3(temp[1], Fp::one());     // Im(temp) = 3
 
     Fp2::sqr(a, temp);  // a = (2+3i)²
 
@@ -282,8 +282,8 @@ TEST(Fp2Test, Serialization) {
 
     // a = 2 + 3i
     vec_zero(&a, sizeof(a));
-    Fp::lshift(a[0], get_BLST_Rx().p, 1);     // Re(a) = 2
-    Fp::mul_by_3(a[1], get_BLST_Rx().p);      // Im(a) = 3
+    Fp::lshift(a[0], Fp::one(), 1);     // Re(a) = 2
+    Fp::mul_by_3(a[1], Fp::one());      // Im(a) = 3
 
     // Serialize to bytes: convert from Montgomery to standard form
     Fp temp_re, temp_im;

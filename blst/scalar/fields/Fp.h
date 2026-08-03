@@ -70,15 +70,20 @@ namespace blst::scalar
     TO_LIMB_T(0x2512d43565724728), TO_LIMB_T(0x0aa6346091755d4d)
 
 
-	// one-in-Montgomery, (1<<384) % P
-	// this is a union because each one is a prefix of the next
-	// everything except the least significant Fp is zero
-	typedef union { Fp p12[12]; Fp p2[2]; Fp p; } radix384;
+	// Multiplicative identity of Fp12. Its first nested Fp is R mod P and
+	// every other coefficient is zero, so its actual subobjects also provide
+	// correctly typed Fp and Fp2 identities and zero values.
+#define BLST_RX_FP12_INITIALIZER                                         \
+	Fp12{                                                                 \
+		Fp6{                                                              \
+			Fp2{ Fp{ ONE_MONT_P_LIMBS }, Fp{} },                         \
+			Fp2{},                                                        \
+			Fp2{}                                                         \
+		},                                                                 \
+		Fp6{}                                                              \
+	}
 
-	constexpr radix384 BLST_Rx_HOST = { /* (1<<384)%P, "radix", one-in-Montgomery */
-	  { { ONE_MONT_P_LIMBS },
-		{ 0 } }
-	};
+	constexpr Fp12 BLST_Rx_HOST = BLST_RX_FP12_INITIALIZER;
 
 #if defined(BLST_CUDA) && defined(__CUDACC__)
 
@@ -86,17 +91,14 @@ namespace blst::scalar
 	static __constant__ Fp BLST_NEG_P_DEV = { BLST_NEG_P_LIMBS };
 	static __constant__ Fp BLST_RR_DEV = { BLST_RR_LIMBS };
 	static __constant__ Fp BLST_RRRR_DEV = { BLST_RRRR_LIMBS };
-	static __constant__ radix384 BLST_Rx_DEV = { {
-		{ ONE_MONT_P_LIMBS },
-		{ 0 }
-	} };
+	static __constant__ Fp12 BLST_Rx_DEV = BLST_RX_FP12_INITIALIZER;
 
 
 #endif // __CUDA_ARCH__
 
 	// returns R, the one-in-Montgomery form. 
 	// Will return host or device memory depending on compilation target.
-	BLST_HD BLST_FORCEINLINE const radix384& get_BLST_Rx(void)
+	BLST_HD BLST_FORCEINLINE const Fp12& get_BLST_Rx(void)
 	{
 #if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
 		return BLST_Rx_DEV;
@@ -104,6 +106,8 @@ namespace blst::scalar
 		return BLST_Rx_HOST;
 #endif
 	}
+
+#undef BLST_RX_FP12_INITIALIZER
 
 	constexpr Fp BLST_P_HOST = { BLST_P_LIMBS };
 	constexpr Fp BLST_NEG_P_HOST = { BLST_NEG_P_LIMBS };
@@ -454,29 +458,39 @@ namespace blst::scalar
 			TO_LIMB_T(0x39869507b587b120), TO_LIMB_T(0x23ba5c279c2895fb),
 			TO_LIMB_T(0x58dd3db21a5d66bb), TO_LIMB_T(0xd0088f51cbff34d2)
 		};
-		union { UFp x; Fp r[2]; } temp;
+		UFp temp;
 
-		// returns temp.x * inp = 1 (mod mod). not return a Montgomery value; 
+		// Returns temp * inp = 1 (mod mod), not a Montgomery value.
 		// that's why we then do redc + multiply by RR to move into Mont.
-		ct_inverse_mod_v384(temp.x, inp, get_BLST_P(), Px8);
+		ct_inverse_mod_v384(temp, inp, get_BLST_P(), Px8);
 
 		// map back to montgomery
-		Fp::redc(temp.r[0], temp.x);
-		Fp::mul(temp.r[0], temp.r[0], get_BLST_RR());
+		redc_mont_v384(temp.data, temp.data, get_BLST_P().l, BLST_p0);
+#if defined(__CUDA_ARCH__)
+		ptx_mul_mont_u64<Fp>(temp.data, temp.data, get_BLST_RR().l);
+#else
+		mul_mont_v384(temp.data, temp.data, get_BLST_RR().l,
+			get_BLST_P().l, BLST_p0);
+#endif
 
 #ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
 		/* sign goes straight to flt_reciprocal */
-		Fp::mul(temp.r[1], temp.r[0], inp);
-		if (vec_is_equal(&temp.r[1], &get_BLST_Rx().p, sizeof(Fp)) |
-			vec_is_zero(&temp.r[1], sizeof(Fp)))
-			vec_copy(&out, &temp.r[0], sizeof(Fp));
+#if defined(__CUDA_ARCH__)
+		ptx_mul_mont_u64<Fp>(temp.data + NLIMBS(384), temp.data, inp.l);
+#else
+		mul_mont_v384(temp.data + NLIMBS(384), temp.data, inp.l,
+			get_BLST_P().l, BLST_p0);
+#endif
+		if (vec_is_equal(temp.data + NLIMBS(384), Fp::one().l, sizeof(Fp)) |
+			vec_is_zero(temp.data + NLIMBS(384), sizeof(Fp)))
+			vec_copy(&out, temp.data, sizeof(Fp));
 		else
 		{
 			// fallback, should be rare
 			Fp::flt_reciprocal(out, inp);
 		}
 #else
-		vec_copy(&out, &temp.r[0], sizeof(Fp));
+		vec_copy(&out, temp.data, sizeof(Fp));
 #endif
 	}
 
@@ -488,11 +502,11 @@ namespace blst::scalar
 
 	BLST_HD BLST_FORCEINLINE const Fp& Fp::zero()
 	{
-		return get_BLST_Rx().p2[1];
+		return get_BLST_Rx().fp6[0].fp2[0].fp[1];
 	}
 	BLST_HD BLST_FORCEINLINE const Fp& Fp::one()
 	{
-		return get_BLST_Rx().p;
+		return get_BLST_Rx().fp6[0].fp2[0].fp[0];
 	}
 	BLST_HD BLST_FORCEINLINE constexpr const Fp& Fp::modulus()
 	{

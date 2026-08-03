@@ -208,41 +208,23 @@ namespace blst::scalar
 
 	BLST_HD BLST_INLINE void Fr::from_scalar(Fr& ret, const u8 a[256 / 8])
 	{
-		const union {
-			long one;
-			char little;
-		} is_endian = { 1 };
-
-		if ((void*)ret.l == (void*)a && is_endian.little) {
-			Fr::to_mont(*(Fr*)&ret, *(const Fr*)a);
+		if (static_cast<const void*>(ret.l) == static_cast<const void*>(a)) {
+			Fr::to_mont(ret, ret);
 		}
 		else {
 			Fr out;
-			limbs_from_le_bytes(out.l, a, 32);
+			memcpy(&out, a, sizeof(out));
 			Fr::to_mont(ret, out);
-			vec_zero(out.l, sizeof(out));
+			vec_zero(&out, sizeof(out));
 		}
 	}
 
 	BLST_HD BLST_INLINE void Fr::to_scaler(u8 ret[256 / 8], const Fr& a)
 	{
-		const union {
-			long one;
-			char little;
-		} is_endian = { 1 };
-
-		if ((void*)ret == (void*)a.l && is_endian.little) {
-			Fr r;
-			Fr::from_mont(r, a);
-			memcpy(ret, r.l, sizeof(Fr));
-			vec_zero(&r, sizeof(r));
-		}
-		else {
-			Fr out;
-			Fr::from_mont(out, a);
-			le_bytes_from_limbs(ret, out.l, 32);
-			vec_zero(&out, sizeof(out));
-		}
+		Fr out;
+		Fr::from_mont(out, a);
+		memcpy(ret, &out, sizeof(out));
+		vec_zero(&out, sizeof(out));
 	}
 
 
@@ -311,68 +293,38 @@ namespace blst::scalar
 
 	BLST_HD BLST_INLINE int sk_mul_n_check(pow256 ret, const pow256 a, const pow256 b)
 	{
-		Fr t[2];
-		const union {
-			long one;
-			char little;
-		} is_endian = { 1 };
-		bool_t is_zero;
-
-		if (((size_t)a | (size_t)b) % sizeof(limb_t) != 0 || !is_endian.little) {
-			limbs_from_le_bytes(t[0].l, a, sizeof(pow256));
-			limbs_from_le_bytes(t[1].l, b, sizeof(pow256));
-			a = (const byte*)&t[0];
-			b = (const byte*)&t[1];
-		}
-
 		Fr aa;
 		Fr bb;
+		Fr product;
 
 		memcpy(&aa, a, sizeof(aa));
 		memcpy(&bb, b, sizeof(bb));
 
-		Fr::to_mont(t[0], aa);
-		Fr::mul(t[0], t[0], bb);
-		le_bytes_from_limbs(ret, t[0].l, sizeof(pow256));
+		Fr::to_mont(product, aa);
+		Fr::mul(product, product, bb);
+		memcpy(ret, &product, sizeof(product));
 
-		is_zero = vec_is_zero(t[0].l, sizeof(Fr));
-		vec_zero(t, sizeof(t));
+		const bool_t is_zero = vec_is_zero(product.l, sizeof(product));
 		vec_zero(&aa, sizeof(aa));
 		vec_zero(&bb, sizeof(bb));
+		vec_zero(&product, sizeof(product));
 
 		return (int)(is_zero ^ 1);
 	}
 
 	BLST_HD BLST_INLINE void sk_inverse(pow256 ret, const pow256 a)
 	{
-		const union {
-			long one;
-			char little;
-		} is_endian = { 1 };
+		Fr in;
+		Fr out;
 
-		if (((size_t)a | (size_t)ret) % sizeof(limb_t) == 0 && is_endian.little) {
-			Fr out;
-			Fr in;
+		memcpy(&in, a, sizeof(in));
+		Fr::to_mont(out, in);
+		Fr::reciprocal(out, out);
+		Fr::from_mont(out, out);
+		memcpy(ret, &out, sizeof(out));
 
-			memcpy(&in, a, sizeof(in));
-			Fr::to_mont(out, in);
-			Fr::reciprocal(out, out);
-			Fr::from_mont(out, out);
-
-			memcpy(ret, &out, sizeof(out));
-			vec_zero(&in, sizeof(in));
-			vec_zero(&out, sizeof(out));
-		}
-		else {
-			Fr out;
-
-			limbs_from_le_bytes(out.l, a, 32);
-			Fr::to_mont(out, out);
-			Fr::reciprocal(out, out);
-			Fr::from_mont(out, out);
-			le_bytes_from_limbs(ret, out.l, 32);
-			vec_zero(out.l, sizeof(out));
-		}
+		vec_zero(&in, sizeof(in));
+		vec_zero(&out, sizeof(out));
 	}
 
 

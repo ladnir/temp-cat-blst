@@ -57,7 +57,8 @@ more stringent environments like Intel SGX or ARM TrustZone straightforward.
 
 ## Platform and Language Compatibility
 
-The supported hardware targets are x86_64 and Apple Silicon macOS.
+The supported hardware targets are x86_64 and Apple Silicon macOS. CatBLST
+requires a little-endian target and rejects other byte orders at compile time.
 Other ARM64 and Morello/CHERI sources are retained because they may work, but
 they have not completed the CatBLST release-validation gate and are not fully
 supported. They are disabled by default rather than silently shipping as

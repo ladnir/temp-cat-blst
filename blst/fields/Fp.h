@@ -11,7 +11,6 @@
 namespace blst
 {
 	using scalar::Fp;
-	using scalar::radix384;
 
 	using scalar::BLST_NEG_P_HOST;
 	using scalar::BLST_P_HOST;

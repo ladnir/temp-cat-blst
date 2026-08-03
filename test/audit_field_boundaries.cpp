@@ -6,6 +6,8 @@
 
 #include "bindings/blst_scalar.h"
 #include "blst/fields/Fp.h"
+#include "blst/fields/Fp2.h"
+#include "blst/fields/Fp12.h"
 #include "blst/fields/Fr.h"
 
 #include <array>
@@ -73,6 +75,53 @@ int main()
     blst_uint64_from_scalar(roundtrip64.data(), &scalar);
     if (roundtrip64 != words64)
         return 7;
+
+    alignas(uint64_t) blst_scalar aliased_scalar = {};
+    std::memcpy(&aliased_scalar, words64.data(), sizeof(aliased_scalar));
+    blst_scalar_from_uint64(
+        &aliased_scalar,
+        reinterpret_cast<const uint64_t*>(&aliased_scalar));
+    if (std::memcmp(&aliased_scalar, words64.data(), sizeof(aliased_scalar)) != 0)
+        return 13;
+
+    std::array<uint64_t, 4> aliased_words = words64;
+    blst_uint64_from_scalar(
+        aliased_words.data(),
+        reinterpret_cast<const blst_scalar*>(aliased_words.data()));
+    if (aliased_words != words64)
+        return 14;
+
+    blst_fr expected_fr;
+    blst_fr_from_scalar(&expected_fr, &aliased_scalar);
+    blst_fr aliased_fr;
+    std::memcpy(&aliased_fr, &aliased_scalar, sizeof(aliased_fr));
+    blst_fr_from_scalar(
+        &aliased_fr,
+        reinterpret_cast<const blst_scalar*>(&aliased_fr));
+    if (std::memcmp(&aliased_fr, &expected_fr, sizeof(aliased_fr)) != 0)
+        return 15;
+
+    blst_scalar expected_scalar;
+    blst_scalar_from_fr(&expected_scalar, &expected_fr);
+    blst_scalar scalar_from_aliased_fr;
+    std::memcpy(&scalar_from_aliased_fr, &expected_fr, sizeof(scalar_from_aliased_fr));
+    blst_scalar_from_fr(
+        &scalar_from_aliased_fr,
+        reinterpret_cast<const blst_fr*>(&scalar_from_aliased_fr));
+    if (std::memcmp(&scalar_from_aliased_fr, &expected_scalar,
+            sizeof(scalar_from_aliased_fr)) != 0)
+        return 16;
+
+    if (&blst::Fp::one() != &blst::Fp12::one()[0][0][0] ||
+        &blst::Fp2::one() != &blst::Fp12::one()[0][0])
+        return 17;
+
+    blst::Fp fp_inverse;
+    blst::Fp fp_inverse_check;
+    blst::Fp::reciprocal(fp_inverse, fp_a);
+    blst::Fp::mul(fp_inverse_check, fp_inverse, fp_a);
+    if (!blst::Fp::equal(fp_inverse_check, blst::Fp::one()))
+        return 18;
 
     std::array<blst_byte, 32> little = {};
     std::array<blst_byte, 32> big = {};

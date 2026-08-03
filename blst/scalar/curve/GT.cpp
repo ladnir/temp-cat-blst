@@ -249,7 +249,7 @@ Fp6{                                                                      \
         const G1AffinePoint P[], 
         size_t n)
     {
-        vec_copy(&ret, get_BLST_Rx().p12, sizeof(Fp12));
+        vec_copy(&ret, &get_BLST_Rx(), sizeof(Fp12));
         if (n == 0) {
             return;
         }
@@ -284,7 +284,7 @@ Fp6{                                                                      \
 
                 vec_copy(&Qbatch[batch].x, &Q[offset].x, 2 * sizeof(Qbatch[batch].x));
                 vec_copy(&T[batch].x, &Q[offset].x, 2 * sizeof(T[batch].x));
-                vec_copy(&T[batch].z, &get_BLST_Rx().p2, sizeof(T[batch].z));
+                vec_copy(&T[batch].z, &Fp2::one(), sizeof(T[batch].z));
                 ++batch;
                 ++offset;
             }
@@ -320,7 +320,7 @@ Fp6{                                                                      \
         G2Point T;
 
         vec_copy(&T.x, &Q.x, 2 * sizeof(T.x));
-        vec_copy(&T.z, &get_BLST_Rx().p2, sizeof(T.z));
+        vec_copy(&T.z, &Fp2::one(), sizeof(T.z));
 
         line_dbl(Qlines[0], T, T);                  /* 0x2                  */
         pre_add_n_dbl(&Qlines[1], T, Q, 2);        /* ..0xc                */
@@ -432,7 +432,7 @@ Fp6{                                                                      \
         const G1AffinePoint* const Ps[],
         size_t n)
     {
-        vec_copy(&out, get_BLST_Rx().p12, sizeof(Fp12));
+        vec_copy(&out, &get_BLST_Rx(), sizeof(Fp12));
         if (n == 0 || Qlines == NULL || Ps == NULL || Qlines[0] == NULL || Ps[0] == NULL) {
             return;
         }
@@ -484,7 +484,7 @@ Fp6{                                                                      \
         const G1AffinePoint Px2[],
         size_t n)
     {
-        vec_copy(&out, get_BLST_Rx().p12, sizeof(Fp12));
+        vec_copy(&out, &get_BLST_Rx(), sizeof(Fp12));
         if (n == 0 || Qlines == NULL || Px2 == NULL || Qlines[0] == NULL) {
             return;
         }
@@ -526,7 +526,7 @@ Fp6{                                                                      \
         const G1AffinePoint* const Ps[],
         size_t n)
     {   /* ~10KB of stack storage */
-        vec_copy(&out, get_BLST_Rx().p12, sizeof(Fp12));
+        vec_copy(&out, &get_BLST_Rx(), sizeof(Fp12));
         if (n == 0) {
             return;
         }
@@ -553,7 +553,7 @@ Fp6{                                                                      \
 
                 vec_copy(&Q[i].x, &Qptr->x, 2 * sizeof(Q[i].x));
                 vec_copy(&T[i].x, &Qptr->x, 2 * sizeof(T[i].x));
-                vec_copy(&T[i].z, &get_BLST_Rx().p2, sizeof(T[i].z));
+                vec_copy(&T[i].z, &Fp2::one(), sizeof(T[i].z));
                 ++i;
             }
 

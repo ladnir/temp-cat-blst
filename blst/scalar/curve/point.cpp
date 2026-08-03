@@ -1159,7 +1159,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		Point<Field> P;
 
 		vec_copy(&P.x, &p.x, 2 * sizeof(P.x));
-		vec_select(&P.z, &p.x, get_BLST_Rx().p.l, sizeof(P.z),
+		vec_select(&P.z, &p.x, Fp::one().l, sizeof(P.z),
 			vec_is_zero(&p, sizeof(p)));
 
 		return (int)Point<Field>::in_subgroup(P);

@@ -900,24 +900,20 @@ namespace blst::scalar
 		return
 			(int)(vec_is_equal(
 				&a[0][0],
-				&get_BLST_Rx().p2, sizeof(a[0][0])) &
+				&Fp2::one(), sizeof(a[0][0])) &
 				vec_is_zero(&a[0][1], sizeof(Fp12) - sizeof(a[0][0])));
 	}
 
 
 	BLST_HD FP12_CPP_INLINE const Fp12& Fp12::one()
 	{
-		return *(Fp12*)get_BLST_Rx().p12;
+		return get_BLST_Rx();
 	}
 
 
 	BLST_HD FP12_CPP_INLINE void blst_fp12_one_copy(Fp12& ret)
 	{
-		char* src = (char*)get_BLST_Rx().p12;
-		char* dst = (char*)&ret;
-		int size = sizeof(Fp12);
-		for (int i = 0; i < size; ++i)
-			dst[i] = src[i];
+		vec_copy(&ret, &get_BLST_Rx(), sizeof(ret));
 	}
 
 	BLST_HD FP12_CPP_INLINE void Fp12::from_bendian(Fp12& ret, const unsigned char serialized[12 * 48]) {

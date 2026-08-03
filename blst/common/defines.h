@@ -200,6 +200,9 @@ namespace blst {
 namespace blst
 {
 
+    static_assert(std::endian::native == std::endian::little,
+        "CatBLST supports only little-endian targets");
+
     using limb_t = uint64_t;
     using byte = uint8_t;
 

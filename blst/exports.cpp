@@ -20,7 +20,6 @@
 #include "blst/fields/Fp2.h"
 #include "blst/common/bytes.h"
 #include "bindings/blst_scalar.h"
-#include <bit>
 BLST_EXTERN_C_BEGIN_
 
 using namespace blst;
@@ -54,8 +53,26 @@ void blst_fr_from_uint64(blst_fr* ret, const uint64_t a[4])
 {
     Fr::from_uint64(*ret, a);
 }
-void blst_fr_from_scalar(blst_fr* ret, const blst_scalar* a) { Fr::from_scalar(*ret, a->b); }
-void blst_scalar_from_fr(blst_scalar* ret, const blst_fr* a) { Fr::to_scaler(ret->b, *a); }
+void blst_fr_from_scalar(blst_fr* ret, const blst_scalar* a)
+{
+    if (static_cast<const void*>(ret) == static_cast<const void*>(a)) {
+        Fr::to_mont(*ret, *ret);
+        return;
+    }
+    Fr::from_scalar(*ret, a->b);
+}
+
+void blst_scalar_from_fr(blst_scalar* ret, const blst_fr* a)
+{
+    if (static_cast<const void*>(ret) == static_cast<const void*>(a)) {
+        Fr in;
+        memcpy(&in, ret, sizeof(in));
+        Fr::to_scaler(ret->b, in);
+        vec_zero(&in, sizeof(in));
+        return;
+    }
+    Fr::to_scaler(ret->b, *a);
+}
 bool blst_scalar_fr_check(const blst_scalar* a) {
     Fr aa;
     limbs_from_le_bytes(aa.l, a->b, sizeof(a->b));
@@ -298,94 +315,30 @@ bool blst_fp2_is_square(const blst_fp2* a)
  */
 void blst_scalar_from_uint32(blst_scalar* ret, const uint32_t a[8])
 {
-    const union {
-        long one;
-        char little;
-    } is_endian = { 1 };
-    size_t i;
-
-    byte* out = ret->b;
-    if ((uptr_t)out==(uptr_t)a && is_endian.little)
+    if (static_cast<const void*>(ret) == static_cast<const void*>(a))
         return;
-
-    for(i = 0; i < 8; i++) {
-        uint32_t w = a[i];
-        *out++ = (byte)w;
-        *out++ = (byte)(w >> 8);
-        *out++ = (byte)(w >> 16);
-        *out++ = (byte)(w >> 24);
-    }
+    memcpy(ret, a, sizeof(*ret));
 }
 
 void blst_uint32_from_scalar(uint32_t ret[8], const blst_scalar* a)
 {
-    const union {
-        long one;
-        char little;
-    } is_endian = { 1 };
-    size_t i;
-
-    const byte* in = a->b;
-    if ((uptr_t)ret==(uptr_t)in && is_endian.little)
+    if (static_cast<const void*>(ret) == static_cast<const void*>(a))
         return;
-
-    for(i = 0; i < 8; i++) {
-        uint32_t w = (uint32_t)(*in++);
-        w |= (uint32_t)(*in++) << 8;
-        w |= (uint32_t)(*in++) << 16;
-        w |= (uint32_t)(*in++) << 24;
-        ret[i] = w;
-    }
+    memcpy(ret, a, sizeof(*a));
 }
 
 void blst_scalar_from_uint64(blst_scalar* ret, const uint64_t a[4])
 {
-    const union {
-        long one;
-        char little;
-    } is_endian = { 1 };
-    size_t i;
-
-    byte* out = ret->b;
-    if ((uptr_t)out==(uptr_t)a && is_endian.little)
+    if (static_cast<const void*>(ret) == static_cast<const void*>(a))
         return;
-
-    for(i = 0; i < 4; i++) {
-        uint64_t w = a[i];
-        *out++ = (byte)w;
-        *out++ = (byte)(w >> 8);
-        *out++ = (byte)(w >> 16);
-        *out++ = (byte)(w >> 24);
-        *out++ = (byte)(w >> 32);
-        *out++ = (byte)(w >> 40);
-        *out++ = (byte)(w >> 48);
-        *out++ = (byte)(w >> 56);
-    }
+    memcpy(ret, a, sizeof(*ret));
 }
 
 void blst_uint64_from_scalar(uint64_t ret[4], const blst_scalar* a)
 {
-    const union {
-        long one;
-        char little;
-    } is_endian = { 1 };
-    size_t i;
-
-    const byte* in = a->b;
-    if ((uptr_t)ret==(uptr_t)in && is_endian.little)
+    if (static_cast<const void*>(ret) == static_cast<const void*>(a))
         return;
-
-    for(i = 0; i < 4; i++) {
-        uint64_t w = (uint64_t)(*in++);
-        w |= (uint64_t)(*in++) << 8;
-        w |= (uint64_t)(*in++) << 16;
-        w |= (uint64_t)(*in++) << 24;
-        w |= (uint64_t)(*in++) << 32;
-        w |= (uint64_t)(*in++) << 40;
-        w |= (uint64_t)(*in++) << 48;
-        w |= (uint64_t)(*in++) << 56;
-        ret[i] = w;
-    }
+    memcpy(ret, a, sizeof(*a));
 }
 
 void blst_scalar_from_bendian(blst_scalar* ret, const byte a[32])
@@ -406,24 +359,16 @@ void blst_bendian_from_scalar(byte ret[32], const blst_scalar* a)
 
 void blst_scalar_from_lendian(blst_scalar* ret, const byte a[32])
 {
-    size_t i;
-
-    if ((uptr_t)ret->b==(uptr_t)a)
+    if (static_cast<const void*>(ret) == static_cast<const void*>(a))
         return;
-
-    for (i = 0; i < 32; i++)
-        ret->b[i] = a[i];
+    memcpy(ret, a, sizeof(*ret));
 }
 
 void blst_lendian_from_scalar(byte ret[32], const blst_scalar* a)
 {
-    size_t i;
-
-    if ((uptr_t)ret==(uptr_t)a->b)
+    if (static_cast<const void*>(ret) == static_cast<const void*>(a))
         return;
-
-    for (i = 0; i < 32; i++)
-        ret[i] = a->b[i];
+    memcpy(ret, a, sizeof(*a));
 }
 
 

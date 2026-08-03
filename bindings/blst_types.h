@@ -81,11 +81,19 @@ using limb_t = ::blst_limb_t;
 #endif
 
 /**
- * Scalar value encoded as 32 opaque bytes.
+ * Canonical scalar encoded as a 32-byte little-endian integer.
+ *
+ * This is the serialized, non-Montgomery representation used for secret keys
+ * and scalar byte APIs. It represents the same mathematical field as
+ * `blst_fr`, but it is not directly usable by Fr arithmetic. Convert with
+ * `blst_fr_from_scalar` before arithmetic and with `blst_scalar_from_fr` when
+ * returning to canonical storage.
  *
  * Invariants:
- * - The byte layout is ABI-stable.
+ * - The byte layout is ABI-stable and matches upstream BLST.
  * - Callers may store and move this value as plain POD bytes.
+ * - A `blst_scalar` must never be passed to an API expecting Montgomery-form
+ *   `blst_fr`, even though both representations occupy 32 bytes.
  */
 typedef struct { blst_byte b[256 / 8]; } blst_scalar;
 
@@ -95,6 +103,8 @@ typedef struct { blst_byte b[256 / 8]; } blst_scalar;
  * Invariants:
  * - The layout is ABI-stable.
  * - All arithmetic functions interpret values in Montgomery form.
+ * - This type is representation-distinct from canonical `blst_scalar` bytes;
+ *   use the explicit scalar/Fr conversion APIs at that boundary.
  */
 #ifdef __cplusplus
 namespace blst {
