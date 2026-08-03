@@ -200,3 +200,13 @@ the apparent q/x symbol surface include-order-dependent, conceal which Apple
 provider is tested, and prevent combined builds from directly validating all
 built providers. Remediation must remain forced-inline and compile-time, with
 code-generation proof that constant nonzero hot calls gain no branch.
+
+The local assembly-interface remediation is complete. `AUD-056` is validated:
+empty vector predicates return true, zero SHA operations are no-ops, and fixed
+nonzero MSVC probes remain direct assembly tail calls. `AUD-057` is fixed: the
+76-declaration header now has an explicit architecture/provider matrix with no
+token-rewrite aliases; combined Win64 focused arithmetic passed 8/8 and both
+portable/non-portable fallback-symbol allowlists pass. `backend.h` is closed at
+`e1fb36f21ddcafd96a415099df09a820cce69804`. `backend_asm.h` remains in review
+at `5a9457a8e01522c48510487de60f7a60a59a93df` until native Apple Silicon CI
+validates the generic-provider path after alias removal.

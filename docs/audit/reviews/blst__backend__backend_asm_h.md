@@ -1,0 +1,154 @@
+# File Review: `blst/backend/backend_asm.h`
+
+## Record
+
+| Field | Value |
+| --- | --- |
+| Path | `blst/backend/backend_asm.h` |
+| Roadmap phase / queue | Phase 13, scalar assembly interface |
+| Reviewed commit | `5a9457a8e01522c48510487de60f7a60a59a93df` |
+| Reviewer | Codex audit team |
+| Date | 2026-08-02 |
+| Disposition | `in_scope_production` |
+| Subsystem | Raw scalar assembly declarations and provider availability |
+| Profiles | x86-64 ADX, x86-64 q, combined portable x86-64, Apple/AArch64 scalar |
+| Generation/provenance | Locally composed declaration header with upstream BLST `src/vect.h` lineage |
+| Upstream references | Upstream snapshot `54e6e55674722fc2797ebb4bbb71b26d881eb4b8`; local provider repair `33914f2`; generated assembly tree |
+| Related files | `backend.h`, `common/vect.h`, `build/assembly.S`, generated x86-64/AArch64 outputs, `test/Interface_tests.cpp` |
+
+## Purpose and trust boundary
+
+This internal header is the C-linkage contract between C++ scalar code and
+handwritten/generated assembly. It declares fixed-width modular arithmetic,
+wide Fp2 operations, inverse and division kernels, vector predicates, and
+SHA-256 helpers. The declarations do not select a production backend; selection
+belongs to the forced-inline wrappers in `backend.h` and the scalar field layer.
+
+Operands can contain secret scalars, field elements, and key-derivation state.
+The interface therefore requires exact ABI widths, correct const direction,
+no allocation or exception behavior, and an architecture/provider surface that
+matches what the build actually links.
+
+## Contracts and invariants
+
+- CatBLST uses 64-bit limbs exclusively.
+- The raw `asm_*` annotations describe byte/limb shapes while intentionally
+  decaying to pointers at the assembly ABI. They create no C++ typed access and
+  therefore no strict-aliasing mismatch.
+- Raw vector predicates require a positive byte count divisible by 16.
+- Raw SHA compression and byte-copy functions require positive counts.
+  Forced-inline C++ boundaries define zero-count behavior before assembly.
+- x86-64 portable assembly builds provide both x and q public providers.
+- Non-portable GNU/Clang x86-64 builds provide the configured x or q provider.
+- Win64 x86-64 builds compile both public MASM providers.
+- AArch64 builds provide only generic provider names.
+- Provider names are declarations, never preprocessor dispatch aliases.
+- The header owns no state and performs no runtime CPU dispatch.
+
+## Provider matrix
+
+| Target/configuration | x declarations | q declarations |
+| --- | --- | --- |
+| x86-64, `BLST_PORTABLE=ON` | yes | yes |
+| x86-64 GNU/Clang, ADX non-portable | yes | no |
+| x86-64 GNU/Clang, q non-portable | no | yes |
+| MSVC x64 | yes | yes |
+| Apple/AArch64 | no | yes |
+
+The 16 x-provider and 16 q-provider declarations cover 256-bit Montgomery
+operations, 384-bit/Fp2 Montgomery operations, inverse, sign/parity, repeated
+squaring, and 382-bit wide multiplication/squaring. Forty-three common
+declarations cover fixed modular operations, vector helpers, SHA, division,
+and wide add/subtract. The optional SHA-extension declaration brings the exact
+inventory to 76.
+
+## Checklist evidence
+
+### Identity, history, and provenance
+
+The file, its complete history, all 76 declarations, generated providers,
+direct production/test callers, and upstream declaration shapes were inspected.
+The header now carries Apache-2.0/SPDX and explicit local/upstream provenance.
+
+### Correctness and ABI
+
+Every declaration was matched to a generated symbol and its documented operand
+shape. In particular, 256- and 384-bit constant-time inverse outputs are the
+expected double-width 512/768-bit values, and 382-bit Fp2 outputs are two
+768-bit values. Input constness and scalar return widths match the generated
+contracts. The C symbol names and calling conventions are unchanged.
+
+### Memory safety and undefined behavior
+
+The header performs no accesses itself. `AUD-056` records and fixes the former
+failure to enforce positive raw counts at selected vector/SHA boundaries. The
+`void*` raw ABI annotations do not dereference through an incompatible C++
+type. Fixed shape enforcement remains the responsibility of audited callers and
+their concrete field representations.
+
+### Side channels and performance
+
+No data-dependent selection was introduced. Provider availability is resolved
+by preprocessing; production wrappers call raw symbols directly. MSVC `/O2
+/Ob3` fixed-count probes tail-call `vec_is_zero_16x`,
+`blst_sha256_bcopy`, and `blst_sha256_block_data_order` with no zero branch,
+copy, conversion, or intermediate call.
+
+### Portability and build behavior
+
+`AUD-057` removes the persistent generic-to-ADX and AArch64 x-to-generic macro
+aliases. Header order can no longer rename subsequent code. The matrix mirrors
+`build/assembly.S` and the Win64 CMake object selection. Local MSVC combined
+and non-portable configurations compile and retain their exact fallback symbol
+allowlists. Supported Apple/AArch64 CI remains required before final file
+closure.
+
+### API, exceptions, concurrency, and resources
+
+This is an internal native C++/assembly boundary, not a public C ABI. It
+allocates nothing, throws nothing, stores no pointers, owns no mutable global or
+thread-local state, and creates no worker or synchronization behavior.
+
+## Findings
+
+- `AUD-041` — validated: scalar provider selection/build configurations.
+- `AUD-056` — validated: zero-length selected boundaries no longer enter raw
+  positive-count assembly loops.
+- `AUD-057` — fixed: provider aliases removed and direct differential evidence
+  repaired; Apple/AArch64 CI validation remains pending.
+
+## Focused validation
+
+- Combined Win64 portable configuration compiled the exact changed
+  `Interface_tests.cpp` object only.
+- A hand-linked focused executable passed 8/8 selected tests: empty vector/SHA
+  boundaries, x and q reduction, platform Fp2 multiplication/squaring, x/q
+  382-bit operations reduced against portable C++, and 64/128-bit
+  quotient/remainder.
+- Win64 portable assembly objects passed their exact 38-entry fallback-symbol
+  allowlist; non-portable objects exposed zero fallback `$1` entries.
+- The declaration inventory is exactly 76.
+- Structural checks find no provider-renaming macros, `_MSC_VER` typo, stale
+  commented declarations, or temporary ABI annotation leak.
+- Native and portable MSVC `/W4 /WX` selector probes compile. Fixed native
+  vector/SHA calls are direct tail calls.
+- No full suite, sanitizer sweep, portable-AVX build, CUDA build, BTx/BTE test,
+  or benchmark was run for this packet.
+
+## Automated evidence
+
+| Tool/profile | Result | Blind spots |
+| --- | --- | --- |
+| MSVC 19.50 compile/codegen | Strict native and portable selector probes pass; fixed native counts tail-call raw assembly | Does not validate Apple object format or AArch64 assembler linkage |
+| Win64 symbol allowlist | Portable 38/38 exact entries; non-portable zero fallback entries | Public symbols outside the `$1` fallback relationship are covered by focused linking |
+| Focused GoogleTest object/executable | 8/8 selected assembly-interface tests passed | q public dispatch can select x internally on ADX-capable hardware |
+| CodeQL baseline | No declaration-header result beyond linked findings | Does not reason about handwritten assembly loop preconditions or timing |
+
+## Residual risk and decision
+
+The local x86-64 remediation is complete at
+`5a9457a8e01522c48510487de60f7a60a59a93df`. The review remains `in_review`
+until native Apple Silicon CI compiles and runs the generic-provider tests after
+the alias removal. Non-Apple ARM64 and CHERI remain experimental, and CUDA is
+outside this review. Generated assembly algorithms retain separate per-file
+reviews even though their symbol and boundary contracts were checked here.

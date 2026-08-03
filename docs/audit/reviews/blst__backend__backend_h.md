@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/backend/backend.h` |
 | Roadmap phase / queue | Phase 13, scalar selector after portable backend |
-| Reviewed commit | `dc07be802c39a3c04a17347a5cec64f74d95ecd7` |
+| Reviewed commit | `e1fb36f21ddcafd96a415099df09a820cce69804` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-02 |
 | Disposition | `in_scope_production` |
@@ -37,7 +37,8 @@ operation, compile-time-only dispatch, and no exception or allocation boundary.
   partial overlap is not a contract.
 - Nonzero shifts retain the underlying backend precondition and fixed modulus.
 - SHA compression updates caller-owned state and receives complete 64-byte
-  blocks. Supported callers pass a positive block count.
+  blocks. A zero block count and zero-byte copy are defined no-ops before
+  backend selection.
 - Division helpers operate on their documented fixed-width arrays and baked
   BLS12-381 constants.
 - No function allocates, throws, retains a pointer, performs I/O, or owns
@@ -137,8 +138,9 @@ state. All operations use caller-owned values.
 ### 11. Resource exhaustion and denial of service
 
 `AUD-051` closes the zero-count assembly-loop denial-of-service path for every
-selected shift caller. Loop bounds elsewhere are fixed widths, positive SHA
-block counts supplied by checked callers, or public input lengths.
+selected shift caller. `AUD-056` applies the same boundary rule to selected SHA
+compression and copy helpers, so direct native C++ callers cannot underflow raw
+assembly loops with zero work.
 
 ### 12. Portability and build behavior
 
@@ -175,6 +177,8 @@ code generation cover the dispatch regression separately.
 - `AUD-041` - validated: scalar assembly/portable configuration selection.
 - `AUD-051` - validated: zero-count shifts at every selected boundary.
 - `AUD-055` - validated: production SHA compression selection restored.
+- `AUD-056` - validated: zero SHA blocks and byte copies are no-ops before raw
+  positive-count assembly routines.
 
 ## Validation
 
@@ -186,6 +190,9 @@ code generation cover the dispatch regression separately.
   `rshift_mod_256`, `lshift_mod_384`, and `rshift_mod_384` directly.
 - Native SHA probe tail-calls `blst_sha256_block_data_order`; portable SHA
   probe tail-calls `cc_blst_sha256_block_data_order`.
+- Fixed one-block SHA compression and 32-byte SHA copy probes tail-call their
+  assembly symbols with no zero branch; empty selected SHA tests leave state
+  untouched and accept null pointers.
 - Strict probe object SHA-256 hashes:
   - native: `937454395CCEE25F9551FDA154D27FD00960CE7D65450D2107425DE2478539C4`
   - portable: `6C09655A5BC0C3DE7964F5B3B8B035E41F9B85CA5B45EBC8FE926BA38C053710`
@@ -207,7 +214,7 @@ code generation cover the dispatch regression separately.
 ## Residual risk and decision
 
 Complete for supported host scalar contracts at reviewed commit
-`dc07be802c39a3c04a17347a5cec64f74d95ecd7`. Assembly implementations and
+`e1fb36f21ddcafd96a415099df09a820cce69804`. Assembly implementations and
 CPU capability initialization retain their own pending/generated-file reviews.
 Apple/AArch64 must continue to pass CI before release. Experimental CUDA is
 outside this decision and was not used as evidence. Broader field, protocol,
