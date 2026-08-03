@@ -1,9 +1,5 @@
 #include "config.h"
 
-#if (defined(__x86_64) || defined(__x86_64__)) && !defined(BLST_ADX)
-#error "BLST_ADX not defined"
-#endif
-
 #ifdef BLST_PORTABLE
 #define __BLST_PORTABLE__
 #endif

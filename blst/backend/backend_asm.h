@@ -220,18 +220,16 @@ void from_mont_256(asm_Fr ret, const asm_Fr a, const asm_Fr p, blst::limb_t n0);
 void mul_mont_384(asm_Fp ret, const asm_Fp a, const asm_Fp b, const asm_Fp p, blst::limb_t n0);
 void sqr_mont_384(asm_Fp ret, const asm_Fp a, const asm_Fp p, blst::limb_t n0);
 void from_mont_384(asm_Fp ret, const asm_Fp a, const asm_Fp p, blst::limb_t n0);
-
-#if defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC)
 void sqr_n_mul_mont_383(asm_Fp ret, const asm_Fp a, size_t count,
     const asm_Fp p, blst::limb_t n0, const asm_Fp b);
 blst::limb_t sgn0_pty_mont_384(const asm_Fp a, const asm_Fp p, blst::limb_t n0);
 blst::limb_t sgn0_pty_mont_384x(const asm_Fp2 a, const asm_Fp p, blst::limb_t n0);
 void ct_inverse_mod_384(asm_UFp ret, const asm_Fp inp, const asm_Fp mod, const asm_Fp modx);
-
 void mul_mont_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp2 b,
     const asm_Fp p, blst::limb_t n0);
 void sqr_mont_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp p, blst::limb_t n0);
 
+#if defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC)
 #define mulx_mont_sparse_256 mul_mont_sparse_256
 #define sqrx_mont_sparse_256 sqr_mont_sparse_256
 #define redcx_mont_256 redc_mont_256

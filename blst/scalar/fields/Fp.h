@@ -314,10 +314,8 @@ namespace blst::scalar
 		BLST_ASSERT(Fp::is_redc(b));
 #ifdef __CUDA_ARCH__
 		ptx_add_mod_u64<Fp>(ret.data, a.data, b.data);
-#elif defined(BLST_DEFAULT_ASM) 
-		add_mod_384(&ret, &a, &b, &get_BLST_P());
 #else
-		cc_add_mod_n<NLIMBS(384)>(ret.data, a.data, b.data, get_BLST_P().data);
+		add_mod_v384(ret.data, a.data, b.data, get_BLST_P().data);
 #endif
 	}
 
@@ -327,10 +325,8 @@ namespace blst::scalar
 		BLST_ASSERT(Fp::is_redc(b));
 #if defined(__CUDA_ARCH__)
 		ptx_sub_mod_u64<Fp>(ret.data, a.data, b.data);
-#elif defined(BLST_DEFAULT_ASM) 
-		sub_mod_384(&ret, &a, &b, &get_BLST_P());
 #else
-		cc_sub_mod_n<NLIMBS(384)>(ret.data, a.data, b.data, get_BLST_P().data);
+		sub_mod_v384(ret.data, a.data, b.data, get_BLST_P().data);
 #endif
 	}
 
@@ -338,10 +334,8 @@ namespace blst::scalar
 	{
 #ifdef __CUDA_ARCH__
 		ptx_mul_mont_u64<Fp>(ret.data, a.data, b.data);
-#elif defined(BLST_DEFAULT_ASM) 
-		mulx_mont_384(&ret, &a, &b, &get_BLST_P(), BLST_p0);
 #else
-		cc_mul_mont_n<NLIMBS(384)>(ret.data, a.data, b.data, get_BLST_P().data, BLST_p0);
+		mul_mont_v384(ret.data, a.data, b.data, get_BLST_P().data, BLST_p0);
 #endif
 	}
 
@@ -351,20 +345,14 @@ namespace blst::scalar
 
 #if defined(__CUDA_ARCH__)
 		ptx_sqr_mont_u64<Fp>(ret.data, a.data);
-#elif defined(BLST_DEFAULT_ASM) 
-		sqrx_mont_384(&ret, &a, &get_BLST_P(), BLST_p0);
 #else
-		cc_mul_mont_n<NLIMBS(384)>(ret.data, a.data, a.data, get_BLST_P().data, BLST_p0);
+		sqr_mont_v384(ret.data, a.data, get_BLST_P().data, BLST_p0);
 #endif
 	}
 
 	BLST_HD BLST_FORCEINLINE void Fp::from_mont(Fp& ret, const Fp& a)
 	{
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-		fromx_mont_384(&ret, &a, &get_BLST_P(), BLST_p0);
-#else
-		cc_from_mont_n<NLIMBS(384)>(ret.data, a.data, get_BLST_P().data, BLST_p0);
-#endif
+		from_mont_v384(ret.data, a.data, get_BLST_P().data, BLST_p0);
 	}
 
 	BLST_HD BLST_FORCEINLINE void Fp::to_mont(Fp& ret, const Fp& a)
@@ -374,24 +362,12 @@ namespace blst::scalar
 
 	BLST_HD BLST_FORCEINLINE void Fp::redc(Fp& ret, const struct UFp& a)
 	{
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-#ifdef BLST_ADX
-		redcx_mont_384(&ret, &a, &get_BLST_P(), BLST_p0);
-#else
-		redc_mont_384(&ret, &a, &get_BLST_P(), BLST_p0);
-#endif
-#else
-		cc_redc_mont_n<NLIMBS(384)>(ret.data, a.data, get_BLST_P().data, BLST_p0);
-#endif
+		redc_mont_v384(ret.data, a.data, get_BLST_P().data, BLST_p0);
 	}
 
 	BLST_HD BLST_FORCEINLINE void Fp::cneg(Fp& ret, const Fp& a, bool_t flag)
 	{
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-		cneg_mod_384(&ret, &a, flag, &get_BLST_P());
-#else
-		cc_cneg_mod_n<NLIMBS(384)>(ret.data, a.data, flag, get_BLST_P().data);
-#endif
+		cneg_mod_v384(ret.data, a.data, flag, get_BLST_P().data);
 	}
 
 	BLST_HD BLST_FORCEINLINE void Fp::neg(Fp& ret, const Fp& a)
@@ -402,20 +378,12 @@ namespace blst::scalar
 	BLST_HD BLST_FORCEINLINE void Fp::lshift(Fp& ret, const Fp& a, size_t count)
 	{
 		assert(count);
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-		lshift_mod_384(ret.data, a.data, count, get_BLST_P().data);
-#else
-		cc_lshift_mod_n<NLIMBS(384)>(ret.data, a.data, count, get_BLST_P().data);
-#endif
+		lshift_mod_v384(ret.data, a.data, count, get_BLST_P().data);
 	}
 
 	BLST_HD BLST_FORCEINLINE void Fp::rshift(Fp& ret, const Fp& a, size_t count)
 	{
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-		rshift_mod_384(&ret, &a, count, &get_BLST_P());
-#else
-		cc_rshift_mod_n<NLIMBS(384)>(ret.data, a.data, count, get_BLST_P().data);
-#endif
+		rshift_mod_v384(ret.data, a.data, count, get_BLST_P().data);
 	}
 
 	BLST_HD BLST_FORCEINLINE void Fp::div_by_2(Fp& ret, const Fp& a)
@@ -454,7 +422,11 @@ namespace blst::scalar
 		BLST_ASSERT(Fp::is_redc(a));
 
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+# if defined(BLST_ADX)
 		sqrx_n_mul_mont_383(&ret, &a, count, &get_BLST_P(), BLST_p0, &b);
+# else
+		sqr_n_mul_mont_383(&ret, &a, count, &get_BLST_P(), BLST_p0, &b);
+# endif
 #else
 		cc_sqr_n_mul_mont_384(ret.data, a.data, count, get_BLST_P().data, BLST_p0, b.data);
 #endif
@@ -464,7 +436,11 @@ namespace blst::scalar
 	BLST_HD BLST_FORCEINLINE limb_t Fp::sgn0_pty_mont(const Fp& a)
 	{
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+# if defined(BLST_ADX)
 		return sgn0x_pty_mont_384(&a, &modulus(), BLST_p0);
+# else
+		return sgn0_pty_mont_384(&a, &modulus(), BLST_p0);
+# endif
 #else
 		Fp tmp;
 		cc_from_mont_n<NLIMBS(384)>(tmp.data, a.data, modulus().data, BLST_p0);
@@ -485,11 +461,7 @@ namespace blst::scalar
 	BLST_HD BLST_FORCEINLINE void ct_inverse_mod_v384(UFp& ret, const Fp& inp, const Fp& mod,
 		const Fp& modx)
 	{
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-		ctx_inverse_mod_384(&ret, &inp, &mod, &modx);
-#else
-		cc_ct_inverse_mod_n<NLIMBS(384)>(ret.data, inp.data, mod.data, modx.data);
-#endif
+		blst::ct_inverse_mod_v384(ret.data, inp.data, mod.data, modx.data);
 	}
 
 

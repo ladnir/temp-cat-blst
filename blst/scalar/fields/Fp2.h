@@ -403,7 +403,11 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
     BLST_HD BLST_FORCEINLINE limb_t Fp2::sgn0_pty_mont(const Fp2& a)
     {
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+# if defined(BLST_ADX)
         return sgn0x_pty_mont_384x(&a, &Fp::modulus(), BLST_p0);
+# else
+        return sgn0_pty_mont_384x(&a, &Fp::modulus(), BLST_p0);
+# endif
 #else
         return cc_sgn0_pty_mont_384x(a);
 #endif
@@ -668,7 +672,11 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
     BLST_HD BLST_INLINE void Fp2::mul(Fp2& ret, const Fp2& a, const Fp2& b)
     {
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+# if defined(BLST_ADX)
         mulx_mont_384x(&ret, &a, &b, &get_BLST_P(), BLST_p0);
+# else
+        mul_mont_384x(&ret, &a, &b, &get_BLST_P(), BLST_p0);
+# endif
 #else
         cc_mul_mont_384x(ret, a, b);
 #endif
@@ -677,7 +685,11 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
     BLST_HD BLST_INLINE void Fp2::sqr(Fp2& ret, const Fp2& a)
     {
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+# if defined(BLST_ADX)
         sqrx_mont_384x(&ret, &a, &get_BLST_P(), BLST_p0);
+# else
+        sqr_mont_384x(&ret, &a, &get_BLST_P(), BLST_p0);
+# endif
 #else
         cc_sqr_mont_384x(ret, a);
 #endif

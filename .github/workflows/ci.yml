@@ -39,6 +39,19 @@ jobs:
               -DBLST_AVX512=OFF
               -DBLST_AVX512_PORTABLE=OFF
               -DBLST_DEFAULT_AVX=OFF
+          - os: ubuntu-latest
+            mode: scalar-generic-asm
+            build_dir: out/build/ci-scalar-generic-asm
+            build_type: Release
+            compiler_flags: ""
+            cmake_flags: >-
+              -DBLST_PORTABLE=ON
+              -DBLST_ASM=ON
+              -DBLST_ADX=OFF
+              -DBLST_DEFAULT_ASM=ON
+              -DBLST_AVX512=OFF
+              -DBLST_AVX512_PORTABLE=OFF
+              -DBLST_DEFAULT_AVX=OFF
           - os: windows-latest
             mode: scalar
             build_dir: out/build/ci-scalar

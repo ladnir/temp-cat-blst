@@ -163,10 +163,8 @@ recorded separately above.
 
 ## Remaining Phase 12 packets
 
-1. Review and resolve the sanitizer-discovered scalar configuration finding
-   `AUD-041` without changing optimized default code generation.
-2. Add initial bounded public byte-boundary libFuzzer targets and seed corpora.
-3. Complete diagnostic triage and Phase 12 exit-gate evidence.
+1. Add initial bounded public byte-boundary libFuzzer targets and seed corpora.
+2. Complete diagnostic triage and Phase 12 exit-gate evidence.
 
 ## AUD-038 commented-code cleanup
 
@@ -304,28 +302,36 @@ portable-AVX Debug tests passed 4/4; default/full broad Clippy counts fell to
 61/131 and `clippy::all` retains only the declined remainder suggestion. Exact
 commands, counts, and dispositions are in `CLIPPY_BASELINE_TRIAGE.md`.
 
-## Initial ASan/UBSan baseline
+## Initial ASan/UBSan baseline and AUD-041 remediation
 
 The dedicated `blst_sanitizer_boundary_tests` target keeps focused sanitizer
-cycles separate from the full test executable and frozen BTx/BTE. On x86-64
-Ubuntu 24.04 with Clang 18.1.3, the scalar portable-dispatch profile selected
-123 boundary tests: 113 passed and the 10 AVX-only cases skipped as expected.
-ASan plus leak detection completed in 73.970 seconds with no report; UBSan
-completed in 333.152 seconds with no report. Benchmarks, CUDA, AVX-512, and
-portable-AVX Release were not built.
+cycles separate from the full test executable and frozen BTx/BTE. The initial
+x86-64 Ubuntu 24.04 baseline with Clang 18.1.3 selected 123 boundary tests:
+113 passed and the 10 AVX-only cases skipped as expected. ASan plus leak
+detection completed in 73.970 seconds with no report; UBSan completed in
+333.152 seconds with no report. Benchmarks, CUDA, AVX-512, and portable-AVX
+Release were not built.
 
 The reusable runner snapshots the source into Linux-native temporary storage,
 pins the compiler version and configuration, retains ignored evidence under
-`out/audit/sanitizers`, and requires a nonzero passing test count. Two expensive
-tests are deferred to subsystem/fuzz gates rather than every focused cycle.
+`out/audit/sanitizers`, and requires a nonzero passing test count. Seven
+expensive stress cases are deferred to subsystem, fuzz, or milestone gates
+rather than every focused cycle.
 
-The baseline exposed proposed `AUD-041`: CMake advertises `BLST_ASM=OFF`, but
-native C++ field templates then reference undeclared assembly names; enabling
-assembly while disabling ADX also fails unconditionally on x86-64. The clean
-baseline therefore retained assembly and ADX while selecting portable scalar
-dispatch. Generated assembly remains outside sanitizer instrumentation. Exact
-commands, evidence identifiers, exclusions, and limitations are recorded in
-`SANITIZER_BASELINE_TRIAGE.md`. No production dispatch fix was applied.
+The baseline exposed `AUD-041`: CMake advertised `BLST_ASM=OFF`, but native
+C++ field templates referenced undeclared assembly names; enabling assembly
+while disabling ADX also failed unconditionally on x86-64. Forced-inline
+`_v256`/`_v384` selectors now make the choice explicit without runtime
+dispatch: default ADX builds select x providers, non-ADX assembly builds
+select q providers, and no-assembly builds select `cc_*`.
+
+The remediated pure-C profile passed ASan/LSan and UBSan with 75 tests and 10
+expected AVX-only skips in each run. A non-ADX q-assembly ASan profile passed
+55/55 focused tests and referenced no x symbols; the no-assembly archive
+referenced no assembly primitives. In Release, all 18 ADX production objects
+and the static archive were byte-identical before and after, so no benchmark
+was warranted. Exact commands, evidence identifiers, exclusions, and
+limitations are recorded in `SANITIZER_BASELINE_TRIAGE.md`.
 
 ## AUD-035 scalar window contract
 

@@ -215,12 +215,7 @@ void blst_fp_from_lendian(Fp& ret, const unsigned char a[48])
 
 static void fp_add_unreduced(Fp& ret, const Fp& a, const Fp& b)
 {
-#if defined(BLST_DEFAULT_ASM)
-    add_mod_384(&ret, &a, &b, &get_BLST_P());
-#else
-    cc_add_mod_n<NLIMBS(384)>(ret.data, a.data, b.data,
-                              get_BLST_P().data);
-#endif
+    add_mod_v384(ret.data, a.data, b.data, get_BLST_P().data);
 }
 
 void blst_fp_from_le_bytes(Fp& out, const unsigned char* bytes, size_t n)

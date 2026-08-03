@@ -5,9 +5,7 @@
 
 #include "blst/common/vect.h"
 
-#include "blst/backend/backend_asm.h"
-#include "blst/backend/backend_portable.h"
-#include "blst/backend/backend_cuda.h"
+#include "blst/backend/backend.h"
 #include <bit>
 #include <cstring>
 #include <string.h>
@@ -265,16 +263,10 @@ namespace blst::scalar
 		cc_ct_inverse_mod_n<NLIMBS(256)>(ret.data, inp.data, mod.data, modx.data);
 	}
 
-
-
 	BLST_HD BLST_FORCEINLINE void ct_inverse_mod_v256(UFr& ret, const Fr& inp, const Fr& mod,
 		const Fr& modx)
 	{
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-		ct_inverse_mod_256(&ret, &inp, &mod, &modx);
-#else	
-		cc_ct_inverse_mod_256(ret, inp, mod, modx);
-#endif
+		blst::ct_inverse_mod_v256(ret.data, inp.data, mod.data, modx.data);
 	}
 
 	BLST_HD BLST_INLINE const Fr& Fr::zero()
@@ -516,10 +508,8 @@ namespace blst::scalar
 	{
 #if defined(__CUDA_ARCH__)
 		ptx_add_mod_u64<Fr>(ret.data, a.data, b.data);
-#elif defined(BLST_DEFAULT_ASM)
-		add_mod_256(&ret, &a, &b, &modulus());// linked by asm, 
 #else
-		cc_add_mod_n<NLIMBS(256)>(ret.data, a.data, b.data, modulus().data);
+		add_mod_v256(ret.data, a.data, b.data, modulus().data);
 #endif
 	}
 
@@ -528,10 +518,8 @@ namespace blst::scalar
 	{
 #if defined(__CUDA_ARCH__)
 		ptx_sub_mod_u64<Fr>(ret.data, a.data, b.data);
-#elif defined(BLST_DEFAULT_ASM)
-		sub_mod_256(&ret, &a, &b, &modulus());// linked by asm
 #else
-		cc_sub_mod_n<NLIMBS(256)>(ret.data, a.data, b.data, modulus().data);
+		sub_mod_v256(ret.data, a.data, b.data, modulus().data);
 #endif
 	}
 
@@ -540,10 +528,8 @@ namespace blst::scalar
 	{
 #if defined(__CUDA_ARCH__)
 		ptx_mul_mont_u64<Fr>(ret.data, a.data, b.data);
-#elif defined(BLST_DEFAULT_ASM) 
-		mulx_mont_sparse_256(&ret, &a, &b, &modulus(), BLST_r0);// linked by asm
 #else
-		cc_mul_mont_n<NLIMBS(256)>(ret.data, a.data, b.data, modulus().data, BLST_r0);
+		mul_mont_sparse_v256(ret.data, a.data, b.data, modulus().data, BLST_r0);
 #endif
 	}
 
@@ -574,10 +560,8 @@ namespace blst::scalar
 	{
 #if defined(__CUDA_ARCH__)
 		ptx_sqr_mont_u64<Fr>(ret.data, a.data);
-#elif defined(BLST_DEFAULT_ASM)
-		sqrx_mont_sparse_256(&ret, &a, &get_BLST_r(), BLST_r0);// linked by asm
 #else
-		cc_mul_mont_n<NLIMBS(256)>(ret.data, a.data, a.data, get_BLST_r().data, BLST_r0);
+		sqr_mont_sparse_v256(ret.data, a.data, get_BLST_r().data, BLST_r0);
 #endif
 	}
 
@@ -585,11 +569,7 @@ namespace blst::scalar
 	// ret = a'
 	BLST_HD BLST_FORCEINLINE  void Fr::from_mont(Fr& ret, const Fr& a)
 	{
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-		fromx_mont_256(&ret, &a, &get_BLST_r(), BLST_r0);// linked by asm
-#else
-		cc_from_mont_n<NLIMBS(256)>(ret.data, a.data, get_BLST_r().data, BLST_r0);
-#endif
+		from_mont_v256(ret.data, a.data, get_BLST_r().data, BLST_r0);
 	}
 
 	// ret = a * R, where R is the montgomery constant 2^384
@@ -601,22 +581,13 @@ namespace blst::scalar
 	// ret = a mod p
 	BLST_HD BLST_FORCEINLINE  void Fr::redc(Fr& ret, const struct UFr& a)
 	{
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-		redcx_mont_256(&ret, &a, &modulus(), BLST_r0);// linked by asm
-#else
-		cc_redc_mont_n<NLIMBS(256)>(ret.data, a.data, modulus().data, BLST_r0);
-#endif
+		redc_mont_v256(ret.data, a.data, modulus().data, BLST_r0);
 	}
 
 	// ret = flag ? -a : a
 	BLST_HD BLST_FORCEINLINE  void Fr::cneg(Fr& ret, const Fr& a, bool_t flag)
 	{
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-		cneg_mod_256(&ret, &a, flag, &modulus());
-#else
-		cc_cneg_mod_n<NLIMBS(256)>(ret.data, a.data, flag, modulus().data);
-#endif // BLST_DEFAULT_ASM
-
+		cneg_mod_v256(ret.data, a.data, flag, modulus().data);
 	}
 
 	// ret = -a
@@ -628,21 +599,13 @@ namespace blst::scalar
 	// ret = a * 2^count
 	BLST_HD BLST_FORCEINLINE  void Fr::lshift(Fr& ret, const Fr& a, size_t count)
 	{
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-		lshift_mod_256(&ret, &a, count, &get_BLST_r());
-#else
-		cc_lshift_mod_n<NLIMBS(256)>(ret.data, a.data, count, get_BLST_r().data);
-#endif
+		lshift_mod_v256(ret.data, a.data, count, get_BLST_r().data);
 	}
 
 	// ret = floor(int(a) / 2^count). not mod p.
 	BLST_HD BLST_FORCEINLINE  void Fr::rshift(Fr& ret, const Fr& a, size_t count)
 	{
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-		rshift_mod_256(&ret, &a, count, &get_BLST_r());
-#else
-		cc_rshift_mod_n<NLIMBS(256)>(ret.data, a.data, count, get_BLST_r().data);
-#endif
+		rshift_mod_v256(ret.data, a.data, count, get_BLST_r().data);
 	}
 
 	// out = a * 3

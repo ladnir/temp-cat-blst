@@ -19,8 +19,7 @@
 
 #include "common/vect.h"
 #include "common/bytes.h"
-#include "backend/backend_asm.h"
-#include "backend/backend_portable.h"
+#include "backend/backend.h"
 
 // Preserve this header's historical global C++ surface while sourcing the
 // fork's refactored types and portable helpers from namespace blst.
@@ -143,10 +142,10 @@ public:
         } is_endian = { 1 };
 
         if ((size_t)scalar%sizeof(limb_t) == 0 && is_endian.little) {
-            from_mont_384((limb_t *)scalar, val, MOD, M0);
+            blst::from_mont_v384((limb_t *)scalar, val, MOD, M0);
         } else {
             vec384 out;
-            from_mont_384(out, val, MOD, M0);
+            blst::from_mont_v384(out, val, MOD, M0);
             le_bytes_from_limbs(scalar, out, sizeof(pow_t));
             vec_zero(out, sizeof(out));
         }
@@ -165,75 +164,75 @@ public:
     }
 
     inline blst_384_t& to()
-    {   mul_mont_384(val, RR, val, MOD, M0);        return *this;   }
+    {   blst::mul_mont_v384(val, RR, val, MOD, M0); return *this;   }
     inline blst_384_t& from()
-    {   from_mont_384(val, val, MOD, M0);           return *this;   }
+    {   blst::from_mont_v384(val, val, MOD, M0);    return *this;   }
 
     inline void store(limb_t *p) const
     {   vec_copy(p, val, sizeof(val));   }
 
     inline blst_384_t& operator+=(const blst_384_t& b)
-    {   add_mod_384(val, val, b, MOD);              return *this;   }
+    {   blst::add_mod_v384(val, val, b, MOD);       return *this;   }
     friend inline blst_384_t operator+(const blst_384_t& a, const blst_384_t& b)
     {
         blst_384_t ret;
-        add_mod_384(ret, a, b, MOD);
+        blst::add_mod_v384(ret, a, b, MOD);
         return ret;
     }
 
     inline blst_384_t& operator<<=(unsigned l)
-    {   lshift_mod_384(val, val, l, MOD);           return *this;   }
+    {   blst::lshift_mod_v384(val, val, l, MOD);    return *this;   }
     friend inline blst_384_t operator<<(const blst_384_t& a, unsigned l)
     {
         blst_384_t ret;
-        lshift_mod_384(ret, a, l, MOD);
+        blst::lshift_mod_v384(ret, a, l, MOD);
         return ret;
     }
 
     inline blst_384_t& operator>>=(unsigned r)
-    {   rshift_mod_384(val, val, r, MOD);           return *this;   }
+    {   blst::rshift_mod_v384(val, val, r, MOD);    return *this;   }
     friend inline blst_384_t operator>>(const blst_384_t& a, unsigned r)
     {
         blst_384_t ret;
-        rshift_mod_384(ret, a, r, MOD);
+        blst::rshift_mod_v384(ret, a, r, MOD);
         return ret;
     }
 
     inline blst_384_t& operator-=(const blst_384_t& b)
-    {   sub_mod_384(val, val, b, MOD);              return *this;   }
+    {   blst::sub_mod_v384(val, val, b, MOD);       return *this;   }
     friend inline blst_384_t operator-(const blst_384_t& a, const blst_384_t& b)
     {
         blst_384_t ret;
-        sub_mod_384(ret, a, b, MOD);
+        blst::sub_mod_v384(ret, a, b, MOD);
         return ret;
     }
 
     inline blst_384_t& cneg(bool flag)
-    {   cneg_mod_384(val, val, flag, MOD);          return *this;   }
+    {   blst::cneg_mod_v384(val, val, flag, MOD);   return *this;   }
     friend inline blst_384_t cneg(const blst_384_t& a, bool flag)
     {
         blst_384_t ret;
-        cneg_mod_384(ret, a, flag, MOD);
+        blst::cneg_mod_v384(ret, a, flag, MOD);
         return ret;
     }
     friend inline blst_384_t operator-(const blst_384_t& a)
     {
         blst_384_t ret;
-        cneg_mod_384(ret, a, true, MOD);
+        blst::cneg_mod_v384(ret, a, true, MOD);
         return ret;
     }
 
     inline blst_384_t& operator*=(const blst_384_t& a)
     {
-        if (this == &a) sqr_mont_384(val, val, MOD, M0);
-        else            mul_mont_384(val, val, a, MOD, M0);
+        if (this == &a) blst::sqr_mont_v384(val, val, MOD, M0);
+        else            blst::mul_mont_v384(val, val, a, MOD, M0);
         return *this;
     }
     friend inline blst_384_t operator*(const blst_384_t& a, const blst_384_t& b)
     {
         blst_384_t ret;
-        if (&a == &b)   sqr_mont_384(ret, a, MOD, M0);
-        else            mul_mont_384(ret, a, b, MOD, M0);
+        if (&a == &b)   blst::sqr_mont_v384(ret, a, MOD, M0);
+        else            blst::mul_mont_v384(ret, a, b, MOD, M0);
         return ret;
     }
 
@@ -244,21 +243,21 @@ public:
             abort();
         } else if (p == 2) {
             blst_384_t ret;
-            sqr_mont_384(ret, a, MOD, M0);
+            blst::sqr_mont_v384(ret, a, MOD, M0);
             return ret;
         } else {
             blst_384_t ret = a, sqr = a;
             if ((p&1) == 0) {
                 do {
-                    sqr_mont_384(sqr, sqr, MOD, M0);
+                    blst::sqr_mont_v384(sqr, sqr, MOD, M0);
                     p >>= 1;
                 } while ((p&1) == 0);
                 ret = sqr;
             }
             for (p >>= 1; p; p >>= 1) {
-                sqr_mont_384(sqr, sqr, MOD, M0);
+                blst::sqr_mont_v384(sqr, sqr, MOD, M0);
                 if (p&1)
-                    mul_mont_384(ret, ret, sqr, MOD, M0);
+                    blst::mul_mont_v384(ret, ret, sqr, MOD, M0);
             }
             return ret;
         }
@@ -268,7 +267,7 @@ public:
         if (p < 2) {
             abort();
         } else if (p == 2) {
-            sqr_mont_384(val, val, MOD, M0);
+            blst::sqr_mont_v384(val, val, MOD, M0);
             return *this;
         }
         return *this = *this^p;
@@ -306,9 +305,9 @@ public:
         const blst_384_t MODx{MOD, true};
         union { vec768 x; vec384 r[2]; } temp;
 
-        ct_inverse_mod_384(temp.x, val, MOD, MODx);
-        redc_mont_384(temp.r[0], temp.x, MOD, M0);
-        mul_mont_384(temp.r[0], temp.r[0], RR, MOD, M0);
+        blst::ct_inverse_mod_v384(temp.x, val, MOD, MODx);
+        blst::redc_mont_v384(temp.r[0], temp.x, MOD, M0);
+        blst::mul_mont_v384(temp.r[0], temp.r[0], RR, MOD, M0);
 
         return *reinterpret_cast<blst_384_t*>(temp.r[0]);
     }
@@ -416,10 +415,10 @@ public:
         } is_endian = { 1 };
 
         if ((size_t)scalar%sizeof(limb_t) == 0 && is_endian.little) {
-            from_mont_256((limb_t *)scalar, val, MOD, M0);
+            blst::from_mont_v256((limb_t *)scalar, val, MOD, M0);
         } else {
             vec256 out;
-            from_mont_256(out, val, MOD, M0);
+            blst::from_mont_v256(out, val, MOD, M0);
             le_bytes_from_limbs(scalar, out, sizeof(pow_t));
             vec_zero(out, sizeof(out));
         }
@@ -438,12 +437,12 @@ public:
     }
 
     inline blst_256_t& to()
-    {   mul_mont_sparse_256(val, RR, val, MOD, M0); return *this;   }
+    {   blst::mul_mont_sparse_v256(val, RR, val, MOD, M0); return *this; }
     inline blst_256_t& to(const uint64_t a[2*n])
     {
-        mul_mont_sparse_256(val, RR, (const limb_t*)(a + n), MOD, M0);
-        add_mod_256(val, val, (const limb_t*)a, MOD);
-        mul_mont_sparse_256(val, RR, val, MOD, M0);
+        blst::mul_mont_sparse_v256(val, RR, (const limb_t*)(a + n), MOD, M0);
+        blst::add_mod_v256(val, val, (const limb_t*)a, MOD);
+        blst::mul_mont_sparse_v256(val, RR, val, MOD, M0);
 
         return *this;
     }
@@ -460,21 +459,21 @@ public:
 
         if (le) {
             limbs_from_le_bytes(val, bytes += n, rem);
-            mul_mont_sparse_256(val, RR, val, MOD, M0);
+            blst::mul_mont_sparse_v256(val, RR, val, MOD, M0);
             while (n) {
                 limbs_from_le_bytes(digit, bytes -= 32, 32);
-                add_mod_256(val, val, digit, MOD);
-                mul_mont_sparse_256(val, RR, val, MOD, M0);
+                blst::add_mod_v256(val, val, digit, MOD);
+                blst::mul_mont_sparse_v256(val, RR, val, MOD, M0);
                 n -= 32;
             }
         } else {
             limbs_from_be_bytes(val, bytes, rem);
-            mul_mont_sparse_256(val, RR, val, MOD, M0);
+            blst::mul_mont_sparse_v256(val, RR, val, MOD, M0);
             bytes += rem;
             while (n) {
                 limbs_from_be_bytes(digit, bytes, 32);
-                add_mod_256(val, val, digit, MOD);
-                mul_mont_sparse_256(val, RR, val, MOD, M0);
+                blst::add_mod_v256(val, val, digit, MOD);
+                blst::mul_mont_sparse_v256(val, RR, val, MOD, M0);
                 bytes += 32;
                 n -= 32;
             }
@@ -484,11 +483,11 @@ public:
     }
 
     inline blst_256_t& from()
-    {   from_mont_256(val, val, MOD, M0); return *this;   }
+    {   blst::from_mont_v256(val, val, MOD, M0); return *this; }
     inline blst_256_t& from(const uint64_t a[2*n])
     {
-        redc_mont_256(val, (const limb_t*)a, MOD, M0);
-        mul_mont_sparse_256(val, RR, val, MOD, M0);
+        blst::redc_mont_v256(val, (const limb_t*)a, MOD, M0);
+        blst::mul_mont_sparse_v256(val, RR, val, MOD, M0);
 
         return *this;
     }
@@ -501,13 +500,13 @@ public:
             vec512 temp{0};
             if (le) limbs_from_le_bytes(temp, bytes, n);
             else    limbs_from_be_bytes(temp, bytes, n);
-            redc_mont_256(val, temp, MOD, M0);
-            mul_mont_sparse_256(val, RR, val, MOD, M0);
+            blst::redc_mont_v256(val, temp, MOD, M0);
+            blst::mul_mont_sparse_v256(val, RR, val, MOD, M0);
         } else {
             vec_zero(val, sizeof(val));
             if (le) limbs_from_le_bytes(val, bytes, n);
             else    limbs_from_be_bytes(val, bytes, n);
-            mul_mont_sparse_256(val, ONE, val, MOD, M0);
+            blst::mul_mont_sparse_v256(val, ONE, val, MOD, M0);
         }
 
         return *this;
@@ -517,20 +516,20 @@ public:
     {   vec_copy(p, val, sizeof(val));   }
 
     inline blst_256_t& operator+=(const blst_256_t& b)
-    {   add_mod_256(val, val, b, MOD);              return *this;   }
+    {   blst::add_mod_v256(val, val, b, MOD);       return *this;   }
     friend inline blst_256_t operator+(const blst_256_t& a, const blst_256_t& b)
     {
         blst_256_t ret;
-        add_mod_256(ret, a, b, MOD);
+        blst::add_mod_v256(ret, a, b, MOD);
         return ret;
     }
 
     inline blst_256_t& operator<<=(unsigned l)
-    {   lshift_mod_256(val, val, l, MOD);           return *this;   }
+    {   blst::lshift_mod_v256(val, val, l, MOD);    return *this;   }
     friend inline blst_256_t operator<<(const blst_256_t& a, unsigned l)
     {
         blst_256_t ret;
-        lshift_mod_256(ret, a, l, MOD);
+        blst::lshift_mod_v256(ret, a, l, MOD);
         return ret;
     }
 
@@ -538,11 +537,7 @@ public:
     {
         if (r == 0)
             return *this;
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-        rshift_mod_256(val, val, r, MOD);
-#else
-        blst::cc_rshift_mod_n<blst::NLIMBS(256)>(val, val, r, MOD);
-#endif
+        blst::rshift_mod_v256(val, val, r, MOD);
         return *this;
     }
     friend inline blst_256_t operator>>(const blst_256_t& a, unsigned r)
@@ -552,49 +547,45 @@ public:
             blst::vec_copy(ret, a, sizeof(ret.val));
             return ret;
         }
-#if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-        rshift_mod_256(ret, a, r, MOD);
-#else
-        blst::cc_rshift_mod_n<blst::NLIMBS(256)>(ret, a, r, MOD);
-#endif
+        blst::rshift_mod_v256(ret, a, r, MOD);
         return ret;
     }
 
     inline blst_256_t& operator-=(const blst_256_t& b)
-    {   sub_mod_256(val, val, b, MOD);              return *this;   }
+    {   blst::sub_mod_v256(val, val, b, MOD);       return *this;   }
     friend inline blst_256_t operator-(const blst_256_t& a, const blst_256_t& b)
     {
         blst_256_t ret;
-        sub_mod_256(ret, a, b, MOD);
+        blst::sub_mod_v256(ret, a, b, MOD);
         return ret;
     }
 
     inline blst_256_t& cneg(bool flag)
-    {   cneg_mod_256(val, val, flag, MOD);          return *this;   }
+    {   blst::cneg_mod_v256(val, val, flag, MOD);   return *this;   }
     friend inline blst_256_t cneg(const blst_256_t& a, bool flag)
     {
         blst_256_t ret;
-        cneg_mod_256(ret, a, flag, MOD);
+        blst::cneg_mod_v256(ret, a, flag, MOD);
         return ret;
     }
     friend inline blst_256_t operator-(const blst_256_t& a)
     {
         blst_256_t ret;
-        cneg_mod_256(ret, a, true, MOD);
+        blst::cneg_mod_v256(ret, a, true, MOD);
         return ret;
     }
 
     inline blst_256_t& operator*=(const blst_256_t& a)
     {
-        if (this == &a) sqr_mont_sparse_256(val, val, MOD, M0);
-        else            mul_mont_sparse_256(val, val, a, MOD, M0);
+        if (this == &a) blst::sqr_mont_sparse_v256(val, val, MOD, M0);
+        else            blst::mul_mont_sparse_v256(val, val, a, MOD, M0);
         return *this;
     }
     friend inline blst_256_t operator*(const blst_256_t& a, const blst_256_t& b)
     {
         blst_256_t ret;
-        if (&a == &b)   sqr_mont_sparse_256(ret, a, MOD, M0);
-        else            mul_mont_sparse_256(ret, a, b, MOD, M0);
+        if (&a == &b)   blst::sqr_mont_sparse_v256(ret, a, MOD, M0);
+        else            blst::mul_mont_sparse_v256(ret, a, b, MOD, M0);
         return ret;
     }
 
@@ -605,21 +596,21 @@ public:
             abort();
         } else if (p == 2) {
             blst_256_t ret;
-            sqr_mont_sparse_256(ret, a, MOD, M0);
+            blst::sqr_mont_sparse_v256(ret, a, MOD, M0);
             return ret;
         } else {
             blst_256_t ret = a, sqr = a;
             if ((p&1) == 0) {
                 do {
-                    sqr_mont_sparse_256(sqr, sqr, MOD, M0);
+                    blst::sqr_mont_sparse_v256(sqr, sqr, MOD, M0);
                     p >>= 1;
                 } while ((p&1) == 0);
                 ret = sqr;
             }
             for (p >>= 1; p; p >>= 1) {
-                sqr_mont_sparse_256(sqr, sqr, MOD, M0);
+                blst::sqr_mont_sparse_v256(sqr, sqr, MOD, M0);
                 if (p&1)
-                    mul_mont_sparse_256(ret, ret, sqr, MOD, M0);
+                    blst::mul_mont_sparse_v256(ret, ret, sqr, MOD, M0);
             }
             return ret;
         }
@@ -629,7 +620,7 @@ public:
         if (p < 2) {
             abort();
         } else if (p == 2) {
-            sqr_mont_sparse_256(val, val, MOD, M0);
+            blst::sqr_mont_sparse_v256(val, val, MOD, M0);
             return *this;
         }
         return *this = *this^p;
@@ -667,9 +658,9 @@ public:
         const blst_256_t MODx{MOD, true};
         union { vec512 x; vec256 r[2]; } temp;
 
-        ct_inverse_mod_256(temp.x, val, MOD, MODx);
-        redc_mont_256(temp.r[0], temp.x, MOD, M0);
-        mul_mont_sparse_256(temp.r[0], RR, temp.r[0], MOD, M0);
+        blst::ct_inverse_mod_v256(temp.x, val, MOD, MODx);
+        blst::redc_mont_v256(temp.r[0], temp.x, MOD, M0);
+        blst::mul_mont_sparse_v256(temp.r[0], RR, temp.r[0], MOD, M0);
 
         return *reinterpret_cast<blst_256_t*>(temp.r[0]);
     }

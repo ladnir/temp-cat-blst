@@ -7,6 +7,249 @@
 namespace blst
 {
 
+    /*
+     * Compile-time-selected scalar operations. The cc_* domain remains the
+     * pure C/C++ implementation. These wrappers add no runtime dispatch:
+     * optimized host builds call the selected assembly symbol directly,
+     * while no-assembly, non-default-assembly, and device builds call cc_*.
+     */
+
+    BLST_HD BLST_FORCEINLINE void add_mod_v256(limb_t* ret, const limb_t* a,
+        const limb_t* b, const limb_t* p)
+    {
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        ::add_mod_256(ret, a, b, p);
+#else
+        cc_add_mod_n<NLIMBS(256)>(ret, a, b, p);
+#endif
+    }
+
+    BLST_HD BLST_FORCEINLINE void sub_mod_v256(limb_t* ret, const limb_t* a,
+        const limb_t* b, const limb_t* p)
+    {
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        ::sub_mod_256(ret, a, b, p);
+#else
+        cc_sub_mod_n<NLIMBS(256)>(ret, a, b, p);
+#endif
+    }
+
+    BLST_HD BLST_FORCEINLINE void mul_mont_sparse_v256(limb_t* ret,
+        const limb_t* a, const limb_t* b, const limb_t* p, limb_t n0)
+    {
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+# if defined(BLST_ADX)
+        ::mulx_mont_sparse_256(ret, a, b, p, n0);
+# else
+        ::mul_mont_sparse_256(ret, a, b, p, n0);
+# endif
+#else
+        cc_mul_mont_n<NLIMBS(256)>(ret, a, b, p, n0);
+#endif
+    }
+
+    BLST_HD BLST_FORCEINLINE void sqr_mont_sparse_v256(limb_t* ret,
+        const limb_t* a, const limb_t* p, limb_t n0)
+    {
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+# if defined(BLST_ADX)
+        ::sqrx_mont_sparse_256(ret, a, p, n0);
+# else
+        ::sqr_mont_sparse_256(ret, a, p, n0);
+# endif
+#else
+        cc_mul_mont_n<NLIMBS(256)>(ret, a, a, p, n0);
+#endif
+    }
+
+    BLST_HD BLST_FORCEINLINE void redc_mont_v256(limb_t* ret,
+        const limb_t* a, const limb_t* p, limb_t n0)
+    {
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+# if defined(BLST_ADX)
+        ::redcx_mont_256(ret, a, p, n0);
+# else
+        ::redc_mont_256(ret, a, p, n0);
+# endif
+#else
+        cc_redc_mont_n<NLIMBS(256)>(ret, a, p, n0);
+#endif
+    }
+
+    BLST_HD BLST_FORCEINLINE void from_mont_v256(limb_t* ret,
+        const limb_t* a, const limb_t* p, limb_t n0)
+    {
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+# if defined(BLST_ADX)
+        ::fromx_mont_256(ret, a, p, n0);
+# else
+        ::from_mont_256(ret, a, p, n0);
+# endif
+#else
+        cc_from_mont_n<NLIMBS(256)>(ret, a, p, n0);
+#endif
+    }
+
+    BLST_HD BLST_FORCEINLINE void cneg_mod_v256(limb_t* ret, const limb_t* a,
+        bool_t flag, const limb_t* p)
+    {
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        ::cneg_mod_256(ret, a, flag, p);
+#else
+        cc_cneg_mod_n<NLIMBS(256)>(ret, a, flag, p);
+#endif
+    }
+
+    BLST_HD BLST_FORCEINLINE void lshift_mod_v256(limb_t* ret,
+        const limb_t* a, size_t count, const limb_t* p)
+    {
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        ::lshift_mod_256(ret, a, count, p);
+#else
+        cc_lshift_mod_n<NLIMBS(256)>(ret, a, count, p);
+#endif
+    }
+
+    BLST_HD BLST_FORCEINLINE void rshift_mod_v256(limb_t* ret,
+        const limb_t* a, size_t count, const limb_t* p)
+    {
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        ::rshift_mod_256(ret, a, count, p);
+#else
+        cc_rshift_mod_n<NLIMBS(256)>(ret, a, count, p);
+#endif
+    }
+
+    BLST_HD BLST_FORCEINLINE void ct_inverse_mod_v256(limb_t* ret,
+        const limb_t* inp, const limb_t* mod, const limb_t* modx)
+    {
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        ::ct_inverse_mod_256(ret, inp, mod, modx);
+#else
+        cc_ct_inverse_mod_n<NLIMBS(256)>(ret, inp, mod, modx);
+#endif
+    }
+
+    BLST_HD BLST_FORCEINLINE void add_mod_v384(limb_t* ret, const limb_t* a,
+        const limb_t* b, const limb_t* p)
+    {
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        ::add_mod_384(ret, a, b, p);
+#else
+        cc_add_mod_n<NLIMBS(384)>(ret, a, b, p);
+#endif
+    }
+
+    BLST_HD BLST_FORCEINLINE void sub_mod_v384(limb_t* ret, const limb_t* a,
+        const limb_t* b, const limb_t* p)
+    {
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        ::sub_mod_384(ret, a, b, p);
+#else
+        cc_sub_mod_n<NLIMBS(384)>(ret, a, b, p);
+#endif
+    }
+
+    BLST_HD BLST_FORCEINLINE void mul_mont_v384(limb_t* ret, const limb_t* a,
+        const limb_t* b, const limb_t* p, limb_t n0)
+    {
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+# if defined(BLST_ADX)
+        ::mulx_mont_384(ret, a, b, p, n0);
+# else
+        ::mul_mont_384(ret, a, b, p, n0);
+# endif
+#else
+        cc_mul_mont_n<NLIMBS(384)>(ret, a, b, p, n0);
+#endif
+    }
+
+    BLST_HD BLST_FORCEINLINE void sqr_mont_v384(limb_t* ret, const limb_t* a,
+        const limb_t* p, limb_t n0)
+    {
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+# if defined(BLST_ADX)
+        ::sqrx_mont_384(ret, a, p, n0);
+# else
+        ::sqr_mont_384(ret, a, p, n0);
+# endif
+#else
+        cc_mul_mont_n<NLIMBS(384)>(ret, a, a, p, n0);
+#endif
+    }
+
+    BLST_HD BLST_FORCEINLINE void redc_mont_v384(limb_t* ret,
+        const limb_t* a, const limb_t* p, limb_t n0)
+    {
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+# if defined(BLST_ADX)
+        ::redcx_mont_384(ret, a, p, n0);
+# else
+        ::redc_mont_384(ret, a, p, n0);
+# endif
+#else
+        cc_redc_mont_n<NLIMBS(384)>(ret, a, p, n0);
+#endif
+    }
+
+    BLST_HD BLST_FORCEINLINE void from_mont_v384(limb_t* ret,
+        const limb_t* a, const limb_t* p, limb_t n0)
+    {
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+# if defined(BLST_ADX)
+        ::fromx_mont_384(ret, a, p, n0);
+# else
+        ::from_mont_384(ret, a, p, n0);
+# endif
+#else
+        cc_from_mont_n<NLIMBS(384)>(ret, a, p, n0);
+#endif
+    }
+
+    BLST_HD BLST_FORCEINLINE void cneg_mod_v384(limb_t* ret, const limb_t* a,
+        bool_t flag, const limb_t* p)
+    {
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        ::cneg_mod_384(ret, a, flag, p);
+#else
+        cc_cneg_mod_n<NLIMBS(384)>(ret, a, flag, p);
+#endif
+    }
+
+    BLST_HD BLST_FORCEINLINE void lshift_mod_v384(limb_t* ret,
+        const limb_t* a, size_t count, const limb_t* p)
+    {
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        ::lshift_mod_384(ret, a, count, p);
+#else
+        cc_lshift_mod_n<NLIMBS(384)>(ret, a, count, p);
+#endif
+    }
+
+    BLST_HD BLST_FORCEINLINE void rshift_mod_v384(limb_t* ret,
+        const limb_t* a, size_t count, const limb_t* p)
+    {
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+        ::rshift_mod_384(ret, a, count, p);
+#else
+        cc_rshift_mod_n<NLIMBS(384)>(ret, a, count, p);
+#endif
+    }
+
+    BLST_HD BLST_FORCEINLINE void ct_inverse_mod_v384(limb_t* ret,
+        const limb_t* inp, const limb_t* mod, const limb_t* modx)
+    {
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+# if defined(BLST_ADX)
+        ::ctx_inverse_mod_384(ret, inp, mod, modx);
+# else
+        ::ct_inverse_mod_384(ret, inp, mod, modx);
+# endif
+#else
+        cc_ct_inverse_mod_n<NLIMBS(384)>(ret, inp, mod, modx);
+#endif
+    }
+
 
 
 

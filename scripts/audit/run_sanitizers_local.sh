@@ -3,7 +3,7 @@
 set -euo pipefail
 
 readonly expected_clang_version=18.1.3
-readonly test_filter='BackendAlias.*:BindingHeader.*:CApi.*:CompressedInfinity.*:Conformance.*:FftApi.*:MiddleProductCApi.*:InterfaceTests.*:ScalarMultWindow.*-BindingHeader.NativeFrBatchAffineG1DifferentialDistributions:InterfaceTests.Div3LimbsRandomFuzz'
+readonly test_filter='BackendAlias.*:BindingHeader.*:Blst256Shift.*:BlstTemplateDispatch.*:CApi.*:CompressedInfinity.*:Conformance.*:FftApi.*:FrMontgomery.*:MiddleProductCApi.*:InterfaceTests.*:ScalarMultWindow.*-BindingHeader.NativeFrBatchAffineG1DifferentialDistributions:BindingHeader.NativeFrBatchAffineG2MatchesPippenger:BindingHeader.SelectedNativeFrG1MsmHandlesCapacityAndIdentity:BindingHeader.SelectedNativeFrG2MsmHandlesBatchRange:CApi.ScalarG1WbitsPrecomputeCrossesScratchThresholdWithoutAllocation:CApi.ScalarG2WbitsPrecomputeCrossesScratchThresholdWithoutAllocation:InterfaceTests.Div3LimbsRandomFuzz'
 
 usage()
 {
@@ -133,8 +133,8 @@ run_profile()
         -DCMAKE_CXX_COMPILER=clang++ \
         -DBLST_BUILD_SHARED=OFF \
         -DBLST_PORTABLE=ON \
-        -DBLST_ASM=ON \
-        -DBLST_ADX=ON \
+        -DBLST_ASM=OFF \
+        -DBLST_ADX=OFF \
         -DBLST_DEFAULT_ASM=OFF \
         -DBLST_AVX512=OFF \
         -DBLST_AVX512_PORTABLE=OFF \
