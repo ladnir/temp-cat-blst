@@ -1229,28 +1229,26 @@ TEST(InterfaceTests, SHA256Functions) {
 	// Test blst_sha256_block_data_order
 	const size_t blocks = 2;
 	const size_t block_size = 64; // SHA256 block size in bytes
-	unsigned int v_asm[8], v_portable[8]; // SHA256 state
+	unsigned int v_asm[8], v_portable[8], v_selected[8]; // SHA256 state
 	unsigned char input[blocks * block_size];
 
 	// Initialize state and input data
 	for (size_t i = 0; i < 8; ++i) {
-		v_asm[i] = v_portable[i] = 0x12345678 + (unsigned int)i;
+		v_asm[i] = v_portable[i] = v_selected[i] =
+			0x12345678 + static_cast<unsigned int>(i);
 	}
 
-	// Fill input with random data
-	std::random_device rd;
-	std::mt19937 gen(rd());
-	std::uniform_int_distribution<> dis(0, 255);
-	for (size_t i = 0; i < blocks * block_size; ++i) {
-		input[i] = static_cast<unsigned char>(dis(gen));
-	}
+	for (size_t i = 0; i < blocks * block_size; ++i)
+		input[i] = static_cast<unsigned char>((i * 29 + 17) & 0xff);
 
-	// Process blocks with both implementations
+	// Process blocks with both implementations and the selected wrapper.
 	blst_sha256_block_data_order(v_asm, input, blocks); // ASM implementation
 	cc_blst_sha256_block_data_order(v_portable, input, blocks); // Portable implementation
+	blst_sha256_block_data_order_v(v_selected, input, blocks);
 
 	// Compare results
 	EXPECT_TRUE(std::memcmp(v_asm, v_portable, sizeof(v_asm)) == 0) << "Mismatch in blst_sha256_block_data_order";
+	EXPECT_TRUE(std::memcmp(v_selected, v_portable, sizeof(v_selected)) == 0) << "Mismatch in selected blst_sha256_block_data_order";
 
 	// Test blst_sha256_hcopy
 	unsigned int dst_asm[8], dst_portable[8];

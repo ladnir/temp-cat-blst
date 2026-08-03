@@ -289,7 +289,11 @@ namespace blst
 	BLST_HD BLST_HD BLST_FORCEINLINE void blst_sha256_block_data_order_v(unsigned int* v, const void* inp,
 		size_t blocks)
 	{
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+		blst_sha256_block_data_order(v, inp, blocks);
+#else
 		cc_blst_sha256_block_data_order(v, inp, blocks);
+#endif
 	}
 
 

@@ -26,3 +26,9 @@ extern "C" void audit_rshift_v384_by_3(blst::limb_t* ret,
 {
     blst::rshift_mod_v384(ret, a, 3, p);
 }
+
+extern "C" void audit_sha256_selected(unsigned int* state, const void* input,
+    size_t blocks)
+{
+    blst::blst_sha256_block_data_order_v(state, input, blocks);
+}
