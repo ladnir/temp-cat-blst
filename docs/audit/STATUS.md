@@ -82,6 +82,16 @@ no supported production consumer and remain in experimental CUDA/parallel-MSM
 scope. Final local evidence used one MSVC worker and no benchmark, CUDA job,
 full suite, sanitizer sweep, or parallel build.
 
+The existing Apple workflow run `30826190888` was inspected without rerunning
+or pushing. Its arm64 architecture check and configuration passed, but both
+the native C/C++ and Rust Release jobs failed because
+`blst/scalar/curve/point.h` used `printf` through a Debug-only transitive
+include. `AUD-066` records the regression. Commit `79010a1` adds the owning
+header's direct dependency, and focused strict Release-style `GT.cpp` object
+compiles pass with MSVC 19.50, Clang 18.1.3, and GCC 13.3. The finding remains
+fixed rather than validated until a later, intentionally scheduled Apple run;
+the old run does not validate the newer CPU-capability or endian fixes.
+
 ## Main program phases
 
 | Phase | State | Exit criterion |

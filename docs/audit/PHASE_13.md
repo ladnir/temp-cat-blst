@@ -240,3 +240,13 @@ forced-allocation-failure probe preserves its prior sample and exits normally.
 Assembly regeneration verifies all 100 outputs, including the renamed
 non-reserved capability symbol and 64-bit x86 predicate counts. No benchmark,
 CUDA job, full suite, sanitizer sweep, or parallel build was run.
+
+The already-existing GitHub Actions run `30826190888` was then inspected
+without pushing or starting a replacement. Its Apple arm64 architecture check
+and CMake configuration passed, but the C/C++ and Rust Release jobs failed at
+the first scalar curve object: `point.h` called `printf` while relying on a
+`<cstdio>` include present only in Debug through `defines.h`. This is tracked
+as `AUD-066`. Commit `79010a1` includes the dependency directly; strict
+Release-style compilation of `GT.cpp` passes locally with MSVC 19.50, Clang
+18.1.3, and GCC 13.3. Native Apple validation is intentionally deferred, so
+this evidence does not close `AUD-058`, `AUD-062`, or `AUD-066`.
