@@ -1486,7 +1486,7 @@ vec_prefetch:
 	ret
 .size	vec_prefetch,.-vec_prefetch
 ___
-my $len = $win64 ? "%edx" : "%esi";
+my $len = $win64 ? "%rdx" : "%rsi";
 
 $code.=<<___;
 .globl	vec_is_zero_16x
@@ -1515,15 +1515,15 @@ vec_is_zero_16x:
 	movq		%xmm0, %rax
 	inc		$len			# now it's 1
 	test		%rax, %rax
-	cmovnz		$len, %eax
+	cmovnz		$len, %rax
 	xor		\$1, %eax
 	ret
 .size	vec_is_zero_16x,.-vec_is_zero_16x
 ___
 }
 {
-my ($inp1, $inp2, $len) = $win64 ? ("%rcx", "%rdx", "%r8d")
-                                 : ("%rdi", "%rsi", "%edx");
+my ($inp1, $inp2, $len) = $win64 ? ("%rcx", "%rdx", "%r8")
+                                 : ("%rdi", "%rsi", "%rdx");
 $code.=<<___;
 .globl	vec_is_equal_16x
 .hidden	vec_is_equal_16x
@@ -1556,7 +1556,7 @@ vec_is_equal_16x:
 	movq		%xmm0, %rax
 	inc		$len			# now it's 1
 	test		%rax, %rax
-	cmovnz		$len, %eax
+	cmovnz		$len, %rax
 	xor		\$1, %eax
 	ret
 .size	vec_is_equal_16x,.-vec_is_equal_16x

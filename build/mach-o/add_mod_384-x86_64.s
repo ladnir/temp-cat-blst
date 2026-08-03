@@ -2121,7 +2121,7 @@ _vec_is_zero_16x:
 .cfi_startproc
 	.byte	0xf3,0x0f,0x1e,0xfa
 
-	shrl	$4,%esi
+	shrq	$4,%rsi
 #ifdef	__SGX_LVI_HARDENING__
 	lfence
 #endif
@@ -2129,7 +2129,7 @@ _vec_is_zero_16x:
 	leaq	16(%rdi),%rdi
 
 L$oop_is_zero:
-	decl	%esi
+	decq	%rsi
 	jz	L$oop_is_zero_done
 	movdqu	(%rdi),%xmm1
 	leaq	16(%rdi),%rdi
@@ -2140,9 +2140,9 @@ L$oop_is_zero_done:
 	pshufd	$0x4e,%xmm0,%xmm1
 	por	%xmm1,%xmm0
 .byte	102,72,15,126,192
-	incl	%esi
+	incq	%rsi
 	testq	%rax,%rax
-	cmovnzl	%esi,%eax
+	cmovnzq	%rsi,%rax
 	xorl	$1,%eax
 	
 #ifdef	__SGX_LVI_HARDENING__
@@ -2163,7 +2163,7 @@ _vec_is_equal_16x:
 .cfi_startproc
 	.byte	0xf3,0x0f,0x1e,0xfa
 
-	shrl	$4,%edx
+	shrq	$4,%rdx
 #ifdef	__SGX_LVI_HARDENING__
 	lfence
 #endif
@@ -2174,7 +2174,7 @@ _vec_is_equal_16x:
 	pxor	%xmm1,%xmm0
 
 L$oop_is_equal:
-	decl	%edx
+	decq	%rdx
 	jz	L$oop_is_equal_done
 	movdqu	(%rdi),%xmm1
 	movdqu	(%rdi,%rsi,1),%xmm2
@@ -2187,9 +2187,9 @@ L$oop_is_equal_done:
 	pshufd	$0x4e,%xmm0,%xmm1
 	por	%xmm1,%xmm0
 .byte	102,72,15,126,192
-	incl	%edx
+	incq	%rdx
 	testq	%rax,%rax
-	cmovnzl	%edx,%eax
+	cmovnzq	%rdx,%rax
 	xorl	$1,%eax
 	
 #ifdef	__SGX_LVI_HARDENING__

@@ -17,7 +17,7 @@ __SIZEOF_POINTER__ SETA 64/8
 
 
 
-	COMMON	|__blst_platform_cap|,4
+	COMMON	|blst_platform_cap|,4
 	AREA	|.text|,CODE,ALIGN=8,ARM64
 
 	ALIGN	64
@@ -191,8 +191,8 @@ __SIZEOF_POINTER__ SETA 64/8
 	ALIGN	16
 |blst_sha256_block_data_order| PROC
 	hint	#34
-	adrp	x16,__blst_platform_cap
-	ldr	w16,[x16,__blst_platform_cap]
+	adrp	x16,blst_platform_cap
+	ldr	w16,[x16,blst_platform_cap]
 	tst	w16,#1
 	bne	|$Lv8_entry|
 

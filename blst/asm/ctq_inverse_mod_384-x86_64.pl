@@ -97,7 +97,7 @@ my $cnt = "%edi";
 $frame = 8*11+2*512;
 
 $code.=<<___;
-.comm	__blst_platform_cap,4
+.comm	blst_platform_cap,4
 .text
 
 .globl	ct_inverse_mod_384
@@ -107,7 +107,7 @@ $code.=<<___;
 ct_inverse_mod_384:
 .cfi_startproc
 #ifdef __BLST_PORTABLE__
-	testl	\$1, __blst_platform_cap(%rip)
+	testl	\$1, blst_platform_cap(%rip)
 	jnz	ct_inverse_mod_384\$1
 #endif
 	push	%rbp

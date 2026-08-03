@@ -2189,7 +2189,7 @@ ALIGN	32
 vec_is_zero_16x	PROC PUBLIC
 	DB	243,15,30,250
 
-	shr	edx,4
+	shr	rdx,4
 ifdef	__SGX_LVI_HARDENING__
 	lfence
 endif
@@ -2197,7 +2197,7 @@ endif
 	lea	rcx,QWORD PTR[16+rcx]
 
 $L$oop_is_zero::
-	dec	edx
+	dec	rdx
 	jz	$L$oop_is_zero_done
 	movdqu	xmm1,XMMWORD PTR[rcx]
 	lea	rcx,QWORD PTR[16+rcx]
@@ -2208,9 +2208,9 @@ $L$oop_is_zero_done::
 	pshufd	xmm1,xmm0,04eh
 	por	xmm0,xmm1
 DB	102,72,15,126,192
-	inc	edx
+	inc	rdx
 	test	rax,rax
-	cmovnz	eax,edx
+	cmovnz	rax,rdx
 	xor	eax,1
 	
 ifdef	__SGX_LVI_HARDENING__
@@ -2229,7 +2229,7 @@ ALIGN	32
 vec_is_equal_16x	PROC PUBLIC
 	DB	243,15,30,250
 
-	shr	r8d,4
+	shr	r8,4
 ifdef	__SGX_LVI_HARDENING__
 	lfence
 endif
@@ -2240,7 +2240,7 @@ endif
 	pxor	xmm0,xmm1
 
 $L$oop_is_equal::
-	dec	r8d
+	dec	r8
 	jz	$L$oop_is_equal_done
 	movdqu	xmm1,XMMWORD PTR[rcx]
 	movdqu	xmm2,XMMWORD PTR[rdx*1+rcx]
@@ -2253,9 +2253,9 @@ $L$oop_is_equal_done::
 	pshufd	xmm1,xmm0,04eh
 	por	xmm0,xmm1
 DB	102,72,15,126,192
-	inc	r8d
+	inc	r8
 	test	rax,rax
-	cmovnz	eax,r8d
+	cmovnz	rax,r8
 	xor	eax,1
 	
 ifdef	__SGX_LVI_HARDENING__

@@ -61,7 +61,7 @@ $_end="16*$SZ+2*8(%rsp)";
 $framesz="16*$SZ+3*8";
 
 $code=<<___;
-.comm	__blst_platform_cap,4
+.comm	blst_platform_cap,4
 
 .section	.rodata
 .align	64
@@ -349,7 +349,7 @@ ${func}:
 	mov	%rsp,%rbp
 .cfi_def_cfa_register	%rbp
 #ifndef	__SGX_LVI_HARDENING__
-	testl	\$2,__blst_platform_cap(%rip)
+	testl	\$2,blst_platform_cap(%rip)
 	jnz	.L${func}\$2
 #endif
 	push	%rbx

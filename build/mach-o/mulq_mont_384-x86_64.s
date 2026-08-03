@@ -1,4 +1,4 @@
-.comm	___blst_platform_cap,4
+.comm	_blst_platform_cap,4
 .text	
 
 
@@ -213,7 +213,7 @@ _mul_mont_384x:
 
 
 #ifdef __BLST_PORTABLE__
-	testl	$1,___blst_platform_cap(%rip)
+	testl	$1,_blst_platform_cap(%rip)
 	jnz	L$mul_mont_384x$1
 #endif
 	pushq	%rbp
@@ -341,7 +341,7 @@ _sqr_mont_384x:
 
 
 #ifdef __BLST_PORTABLE__
-	testl	$1,___blst_platform_cap(%rip)
+	testl	$1,_blst_platform_cap(%rip)
 	jnz	L$sqr_mont_384x$1
 #endif
 	pushq	%rbp
@@ -477,7 +477,7 @@ _mul_382x:
 
 
 #ifdef __BLST_PORTABLE__
-	testl	$1,___blst_platform_cap(%rip)
+	testl	$1,_blst_platform_cap(%rip)
 	jnz	L$mul_382x$1
 #endif
 	pushq	%rbp
@@ -624,7 +624,7 @@ _sqr_382x:
 
 
 #ifdef __BLST_PORTABLE__
-	testl	$1,___blst_platform_cap(%rip)
+	testl	$1,_blst_platform_cap(%rip)
 	jnz	L$sqr_382x$1
 #endif
 	pushq	%rbp
@@ -769,7 +769,7 @@ _mul_384:
 
 
 #ifdef __BLST_PORTABLE__
-	testl	$1,___blst_platform_cap(%rip)
+	testl	$1,_blst_platform_cap(%rip)
 	jnz	L$mul_384$1
 #endif
 	pushq	%rbp
@@ -1113,7 +1113,7 @@ _sqr_384:
 
 
 #ifdef __BLST_PORTABLE__
-	testl	$1,___blst_platform_cap(%rip)
+	testl	$1,_blst_platform_cap(%rip)
 	jnz	L$sqr_384$1
 #endif
 	pushq	%rbp
@@ -1379,7 +1379,7 @@ _sqr_mont_384:
 
 
 #ifdef __BLST_PORTABLE__
-	testl	$1,___blst_platform_cap(%rip)
+	testl	$1,_blst_platform_cap(%rip)
 	jnz	L$sqr_mont_384$1
 #endif
 	pushq	%rbp
@@ -1458,7 +1458,7 @@ _redc_mont_384:
 
 
 #ifdef __BLST_PORTABLE__
-	testl	$1,___blst_platform_cap(%rip)
+	testl	$1,_blst_platform_cap(%rip)
 	jnz	L$redc_mont_384$1
 #endif
 	pushq	%rbp
@@ -1527,7 +1527,7 @@ _from_mont_384:
 
 
 #ifdef __BLST_PORTABLE__
-	testl	$1,___blst_platform_cap(%rip)
+	testl	$1,_blst_platform_cap(%rip)
 	jnz	L$from_mont_384$1
 #endif
 	pushq	%rbp
@@ -1986,7 +1986,7 @@ _sgn0_pty_mont_384:
 
 
 #ifdef __BLST_PORTABLE__
-	testl	$1,___blst_platform_cap(%rip)
+	testl	$1,_blst_platform_cap(%rip)
 	jnz	L$sgn0_pty_mont_384$1
 #endif
 	pushq	%rbp
@@ -2076,7 +2076,7 @@ _sgn0_pty_mont_384x:
 
 
 #ifdef __BLST_PORTABLE__
-	testl	$1,___blst_platform_cap(%rip)
+	testl	$1,_blst_platform_cap(%rip)
 	jnz	L$sgn0_pty_mont_384x$1
 #endif
 	pushq	%rbp
@@ -2215,7 +2215,7 @@ _mul_mont_384:
 
 
 #ifdef __BLST_PORTABLE__
-	testl	$1,___blst_platform_cap(%rip)
+	testl	$1,_blst_platform_cap(%rip)
 	jnz	L$mul_mont_384$1
 #endif
 	pushq	%rbp
@@ -2899,7 +2899,7 @@ _sqr_n_mul_mont_384:
 
 
 #ifdef __BLST_PORTABLE__
-	testl	$1,___blst_platform_cap(%rip)
+	testl	$1,_blst_platform_cap(%rip)
 	jnz	L$sqr_n_mul_mont_384$1
 #endif
 	pushq	%rbp
@@ -2999,7 +2999,7 @@ _sqr_n_mul_mont_383:
 
 
 #ifdef __BLST_PORTABLE__
-	testl	$1,___blst_platform_cap(%rip)
+	testl	$1,_blst_platform_cap(%rip)
 	jnz	L$sqr_n_mul_mont_383$1
 #endif
 	pushq	%rbp

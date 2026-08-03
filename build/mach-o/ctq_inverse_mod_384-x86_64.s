@@ -1,4 +1,4 @@
-.comm	___blst_platform_cap,4
+.comm	_blst_platform_cap,4
 .text	
 
 .globl	_ct_inverse_mod_384
@@ -11,7 +11,7 @@ _ct_inverse_mod_384:
 
 
 #ifdef __BLST_PORTABLE__
-	testl	$1,___blst_platform_cap(%rip)
+	testl	$1,_blst_platform_cap(%rip)
 	jnz	L$ct_inverse_mod_384$1
 #endif
 	pushq	%rbp

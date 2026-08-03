@@ -6,7 +6,7 @@ EXTERN	from_mont_256$1:NEAR
 EXTERN	redc_mont_256$1:NEAR
 endif
 _DATA	SEGMENT
-COMM	__blst_platform_cap:DWORD:1
+COMM	blst_platform_cap:DWORD:1
 _DATA	ENDS
 .text$	SEGMENT ALIGN(256) 'CODE'
 
@@ -28,7 +28,7 @@ $L$SEH_begin_mul_mont_sparse_256::
 	mov	rcx,r9
 	mov	r8,QWORD PTR[40+rsp]
 ifdef __BLST_PORTABLE__
-	test	DWORD PTR[__blst_platform_cap],1
+	test	DWORD PTR[blst_platform_cap],1
 	jnz	mul_mont_sparse_256$1
 endif
 	push	rbp
@@ -110,7 +110,7 @@ $L$SEH_begin_sqr_mont_sparse_256::
 	mov	rdx,r8
 	mov	rcx,r9
 ifdef __BLST_PORTABLE__
-	test	DWORD PTR[__blst_platform_cap],1
+	test	DWORD PTR[blst_platform_cap],1
 	jnz	sqr_mont_sparse_256$1
 endif
 	push	rbp
@@ -481,7 +481,7 @@ $L$SEH_begin_from_mont_256::
 	mov	rdx,r8
 	mov	rcx,r9
 ifdef __BLST_PORTABLE__
-	test	DWORD PTR[__blst_platform_cap],1
+	test	DWORD PTR[blst_platform_cap],1
 	jnz	from_mont_256$1
 endif
 	push	rbp
@@ -574,7 +574,7 @@ $L$SEH_begin_redc_mont_256::
 	mov	rdx,r8
 	mov	rcx,r9
 ifdef __BLST_PORTABLE__
-	test	DWORD PTR[__blst_platform_cap],1
+	test	DWORD PTR[blst_platform_cap],1
 	jnz	redc_mont_256$1
 endif
 	push	rbp

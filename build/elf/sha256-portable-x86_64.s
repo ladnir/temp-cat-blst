@@ -1,4 +1,4 @@
-.comm	__blst_platform_cap,4
+.comm	blst_platform_cap,4
 .text	
 
 .globl	blst_sha256_block_data_order
@@ -15,7 +15,7 @@ blst_sha256_block_data_order:
 	movq	%rsp,%rbp
 .cfi_def_cfa_register	%rbp
 #ifdef __BLST_PORTABLE__
-	testl	$2,__blst_platform_cap(%rip)
+	testl	$2,blst_platform_cap(%rip)
 	jnz	.Lblst_sha256_block_data_order$2
 #endif
 	pushq	%rbx

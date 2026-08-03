@@ -2173,7 +2173,7 @@ vec_prefetch:
 vec_is_zero_16x:
 	.byte	0xf3,0x0f,0x1e,0xfa
 
-	shrl	$4,%edx
+	shrq	$4,%rdx
 #ifdef	__SGX_LVI_HARDENING__
 	lfence
 #endif
@@ -2181,7 +2181,7 @@ vec_is_zero_16x:
 	leaq	16(%rcx),%rcx
 
 .Loop_is_zero:
-	decl	%edx
+	decq	%rdx
 	jz	.Loop_is_zero_done
 	movdqu	(%rcx),%xmm1
 	leaq	16(%rcx),%rcx
@@ -2192,9 +2192,9 @@ vec_is_zero_16x:
 	pshufd	$0x4e,%xmm0,%xmm1
 	por	%xmm1,%xmm0
 .byte	102,72,15,126,192
-	incl	%edx
+	incq	%rdx
 	testq	%rax,%rax
-	cmovnzl	%edx,%eax
+	cmovnzq	%rdx,%rax
 	xorl	$1,%eax
 	
 #ifdef	__SGX_LVI_HARDENING__
@@ -2213,7 +2213,7 @@ vec_is_zero_16x:
 vec_is_equal_16x:
 	.byte	0xf3,0x0f,0x1e,0xfa
 
-	shrl	$4,%r8d
+	shrq	$4,%r8
 #ifdef	__SGX_LVI_HARDENING__
 	lfence
 #endif
@@ -2224,7 +2224,7 @@ vec_is_equal_16x:
 	pxor	%xmm1,%xmm0
 
 .Loop_is_equal:
-	decl	%r8d
+	decq	%r8
 	jz	.Loop_is_equal_done
 	movdqu	(%rcx),%xmm1
 	movdqu	(%rcx,%rdx,1),%xmm2
@@ -2237,9 +2237,9 @@ vec_is_equal_16x:
 	pshufd	$0x4e,%xmm0,%xmm1
 	por	%xmm1,%xmm0
 .byte	102,72,15,126,192
-	incl	%r8d
+	incq	%r8
 	testq	%rax,%rax
-	cmovnzl	%r8d,%eax
+	cmovnzq	%r8,%rax
 	xorl	$1,%eax
 	
 #ifdef	__SGX_LVI_HARDENING__

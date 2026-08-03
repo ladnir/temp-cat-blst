@@ -1,4 +1,4 @@
-.comm	___blst_platform_cap,4
+.comm	_blst_platform_cap,4
 
 .section	__TEXT,__const
 .p2align	6
@@ -277,7 +277,7 @@ _blst_sha256_block_data_order:
 	movq	%rsp,%rbp
 .cfi_def_cfa_register	%rbp
 #ifndef	__SGX_LVI_HARDENING__
-	testl	$2,___blst_platform_cap(%rip)
+	testl	$2,_blst_platform_cap(%rip)
 	jnz	L$blst_sha256_block_data_order$2
 #endif
 	pushq	%rbx

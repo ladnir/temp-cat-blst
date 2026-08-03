@@ -15,7 +15,7 @@
 //
 // See original module at CRYPTOGAMS for further details.
 
-.comm	__blst_platform_cap,4
+.comm	blst_platform_cap,4
 .text
 
 .p2align	6
@@ -193,8 +193,8 @@ blst_sha256_block_armv8:
 .p2align	4
 blst_sha256_block_data_order:
 	hint	#34
-	adrp	x16,__blst_platform_cap
-	ldr	w16,[x16,#:lo12:__blst_platform_cap]
+	adrp	x16,blst_platform_cap
+	ldr	w16,[x16,#:lo12:blst_platform_cap]
 	tst	w16,#1
 	b.ne	.Lv8_entry
 

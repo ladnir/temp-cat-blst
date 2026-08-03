@@ -1,4 +1,4 @@
-.comm	__blst_platform_cap,4
+.comm	blst_platform_cap,4
 
 .section	.rdata
 .p2align	6
@@ -304,7 +304,7 @@ blst_sha256_block_data_order:
 	movq	%rdx,%rsi
 	movq	%r8,%rdx
 #ifndef	__SGX_LVI_HARDENING__
-	testl	$2,__blst_platform_cap(%rip)
+	testl	$2,blst_platform_cap(%rip)
 	jnz	.Lblst_sha256_block_data_order$2
 #endif
 	pushq	%rbx

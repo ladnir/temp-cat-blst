@@ -71,6 +71,7 @@ endif()
 
 
 if(BLST_ASM)
+    list(APPEND BLST_STATIC_SRC "common/cpuid.cpp")
     file(GLOB ASM_SRC ${ASM_PATTERN})
     #list(APPEND BLST_STATIC_SRC ${ASM_SRC})
     message(STATUS "Assembly optimizations enabled, searching for ${ASM_PATTERN}")

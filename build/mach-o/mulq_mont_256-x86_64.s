@@ -1,4 +1,4 @@
-.comm	___blst_platform_cap,4
+.comm	_blst_platform_cap,4
 .text	
 
 .globl	_mul_mont_sparse_256
@@ -11,7 +11,7 @@ _mul_mont_sparse_256:
 
 
 #ifdef __BLST_PORTABLE__
-	testl	$1,___blst_platform_cap(%rip)
+	testl	$1,_blst_platform_cap(%rip)
 	jnz	L$mul_mont_sparse_256$1
 #endif
 	pushq	%rbp
@@ -87,7 +87,7 @@ _sqr_mont_sparse_256:
 
 
 #ifdef __BLST_PORTABLE__
-	testl	$1,___blst_platform_cap(%rip)
+	testl	$1,_blst_platform_cap(%rip)
 	jnz	L$sqr_mont_sparse_256$1
 #endif
 	pushq	%rbp
@@ -453,7 +453,7 @@ _from_mont_256:
 
 
 #ifdef __BLST_PORTABLE__
-	testl	$1,___blst_platform_cap(%rip)
+	testl	$1,_blst_platform_cap(%rip)
 	jnz	L$from_mont_256$1
 #endif
 	pushq	%rbp
@@ -540,7 +540,7 @@ _redc_mont_256:
 
 
 #ifdef __BLST_PORTABLE__
-	testl	$1,___blst_platform_cap(%rip)
+	testl	$1,_blst_platform_cap(%rip)
 	jnz	L$redc_mont_256$1
 #endif
 	pushq	%rbp

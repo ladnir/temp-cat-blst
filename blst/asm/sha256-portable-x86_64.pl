@@ -132,7 +132,7 @@ ___
 }
 
 $code=<<___;
-.comm	__blst_platform_cap,4
+.comm	blst_platform_cap,4
 .text
 
 .globl	$func
@@ -145,7 +145,7 @@ $func:
 	mov	%rsp,%rbp
 .cfi_def_cfa_register	%rbp
 #ifdef __BLST_PORTABLE__
-	testl	\$2,__blst_platform_cap(%rip)
+	testl	\$2,blst_platform_cap(%rip)
 	jnz	.L${func}\$2
 #endif
 	push	%rbx

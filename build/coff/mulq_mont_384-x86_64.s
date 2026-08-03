@@ -1,4 +1,4 @@
-.comm	__blst_platform_cap,4
+.comm	blst_platform_cap,4
 .text	
 
 
@@ -215,7 +215,7 @@ mul_mont_384x:
 	movq	%r9,%rcx
 	movq	40(%rsp),%r8
 #ifdef __BLST_PORTABLE__
-	testl	$1,__blst_platform_cap(%rip)
+	testl	$1,blst_platform_cap(%rip)
 	jnz	mul_mont_384x$1
 #endif
 	pushq	%rbp
@@ -348,7 +348,7 @@ sqr_mont_384x:
 	movq	%r8,%rdx
 	movq	%r9,%rcx
 #ifdef __BLST_PORTABLE__
-	testl	$1,__blst_platform_cap(%rip)
+	testl	$1,blst_platform_cap(%rip)
 	jnz	sqr_mont_384x$1
 #endif
 	pushq	%rbp
@@ -489,7 +489,7 @@ mul_382x:
 	movq	%r8,%rdx
 	movq	%r9,%rcx
 #ifdef __BLST_PORTABLE__
-	testl	$1,__blst_platform_cap(%rip)
+	testl	$1,blst_platform_cap(%rip)
 	jnz	mul_382x$1
 #endif
 	pushq	%rbp
@@ -640,7 +640,7 @@ sqr_382x:
 	movq	%rdx,%rsi
 	movq	%r8,%rdx
 #ifdef __BLST_PORTABLE__
-	testl	$1,__blst_platform_cap(%rip)
+	testl	$1,blst_platform_cap(%rip)
 	jnz	sqr_382x$1
 #endif
 	pushq	%rbp
@@ -789,7 +789,7 @@ mul_384:
 	movq	%rdx,%rsi
 	movq	%r8,%rdx
 #ifdef __BLST_PORTABLE__
-	testl	$1,__blst_platform_cap(%rip)
+	testl	$1,blst_platform_cap(%rip)
 	jnz	mul_384$1
 #endif
 	pushq	%rbp
@@ -1137,7 +1137,7 @@ sqr_384:
 	movq	%rcx,%rdi
 	movq	%rdx,%rsi
 #ifdef __BLST_PORTABLE__
-	testl	$1,__blst_platform_cap(%rip)
+	testl	$1,blst_platform_cap(%rip)
 	jnz	sqr_384$1
 #endif
 	pushq	%rbp
@@ -1406,7 +1406,7 @@ sqr_mont_384:
 	movq	%r8,%rdx
 	movq	%r9,%rcx
 #ifdef __BLST_PORTABLE__
-	testl	$1,__blst_platform_cap(%rip)
+	testl	$1,blst_platform_cap(%rip)
 	jnz	sqr_mont_384$1
 #endif
 	pushq	%rbp
@@ -1490,7 +1490,7 @@ redc_mont_384:
 	movq	%r8,%rdx
 	movq	%r9,%rcx
 #ifdef __BLST_PORTABLE__
-	testl	$1,__blst_platform_cap(%rip)
+	testl	$1,blst_platform_cap(%rip)
 	jnz	redc_mont_384$1
 #endif
 	pushq	%rbp
@@ -1564,7 +1564,7 @@ from_mont_384:
 	movq	%r8,%rdx
 	movq	%r9,%rcx
 #ifdef __BLST_PORTABLE__
-	testl	$1,__blst_platform_cap(%rip)
+	testl	$1,blst_platform_cap(%rip)
 	jnz	from_mont_384$1
 #endif
 	pushq	%rbp
@@ -2023,7 +2023,7 @@ sgn0_pty_mont_384:
 	movq	%rdx,%rsi
 	movq	%r8,%rdx
 #ifdef __BLST_PORTABLE__
-	testl	$1,__blst_platform_cap(%rip)
+	testl	$1,blst_platform_cap(%rip)
 	jnz	sgn0_pty_mont_384$1
 #endif
 	pushq	%rbp
@@ -2117,7 +2117,7 @@ sgn0_pty_mont_384x:
 	movq	%rdx,%rsi
 	movq	%r8,%rdx
 #ifdef __BLST_PORTABLE__
-	testl	$1,__blst_platform_cap(%rip)
+	testl	$1,blst_platform_cap(%rip)
 	jnz	sgn0_pty_mont_384x$1
 #endif
 	pushq	%rbp
@@ -2262,7 +2262,7 @@ mul_mont_384:
 	movq	%r9,%rcx
 	movq	40(%rsp),%r8
 #ifdef __BLST_PORTABLE__
-	testl	$1,__blst_platform_cap(%rip)
+	testl	$1,blst_platform_cap(%rip)
 	jnz	mul_mont_384$1
 #endif
 	pushq	%rbp
@@ -2951,7 +2951,7 @@ sqr_n_mul_mont_384:
 	movq	40(%rsp),%r8
 	movq	48(%rsp),%r9
 #ifdef __BLST_PORTABLE__
-	testl	$1,__blst_platform_cap(%rip)
+	testl	$1,blst_platform_cap(%rip)
 	jnz	sqr_n_mul_mont_384$1
 #endif
 	pushq	%rbp
@@ -3058,7 +3058,7 @@ sqr_n_mul_mont_383:
 	movq	40(%rsp),%r8
 	movq	48(%rsp),%r9
 #ifdef __BLST_PORTABLE__
-	testl	$1,__blst_platform_cap(%rip)
+	testl	$1,blst_platform_cap(%rip)
 	jnz	sqr_n_mul_mont_383$1
 #endif
 	pushq	%rbp

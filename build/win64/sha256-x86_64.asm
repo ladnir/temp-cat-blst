@@ -1,6 +1,6 @@
 OPTION	DOTNAME
 _DATA	SEGMENT
-COMM	__blst_platform_cap:DWORD:1
+COMM	blst_platform_cap:DWORD:1
 
 _DATA	ENDS
 .rdata	SEGMENT READONLY ALIGN(256)
@@ -312,7 +312,7 @@ $L$SEH_begin_blst_sha256_block_data_order::
 	mov	rsi,rdx
 	mov	rdx,r8
 ifndef	__SGX_LVI_HARDENING__
-	test	DWORD PTR[__blst_platform_cap],2
+	test	DWORD PTR[blst_platform_cap],2
 	jnz	$L$blst_sha256_block_data_order$2
 endif
 	push	rbx

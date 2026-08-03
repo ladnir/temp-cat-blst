@@ -41,7 +41,7 @@ my @acc=map("%r$_",(9..15));
 my ($hi, $a0) = ("%rbp", $r_ptr);
 
 $code.=<<___;
-.comm	__blst_platform_cap,4
+.comm	blst_platform_cap,4
 .text
 
 .globl	mul_mont_sparse_256
@@ -51,7 +51,7 @@ $code.=<<___;
 mul_mont_sparse_256:
 .cfi_startproc
 #ifdef __BLST_PORTABLE__
-	testl	\$1, __blst_platform_cap(%rip)
+	testl	\$1, blst_platform_cap(%rip)
 	jnz	mul_mont_sparse_256\$1
 #endif
 	push	%rbp
@@ -110,7 +110,7 @@ mul_mont_sparse_256:
 sqr_mont_sparse_256:
 .cfi_startproc
 #ifdef __BLST_PORTABLE__
-	testl	\$1, __blst_platform_cap(%rip)
+	testl	\$1, blst_platform_cap(%rip)
 	jnz	sqr_mont_sparse_256\$1
 #endif
 	push	%rbp
@@ -333,7 +333,7 @@ $code.=<<___;
 from_mont_256:
 .cfi_startproc
 #ifdef __BLST_PORTABLE__
-	testl	\$1, __blst_platform_cap(%rip)
+	testl	\$1, blst_platform_cap(%rip)
 	jnz	from_mont_256\$1
 #endif
 	push	%rbp
@@ -403,7 +403,7 @@ from_mont_256:
 redc_mont_256:
 .cfi_startproc
 #ifdef __BLST_PORTABLE__
-	testl	\$1, __blst_platform_cap(%rip)
+	testl	\$1, blst_platform_cap(%rip)
 	jnz	redc_mont_256\$1
 #endif
 	push	%rbp

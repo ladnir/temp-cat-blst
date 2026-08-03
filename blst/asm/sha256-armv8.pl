@@ -43,7 +43,7 @@ $pre="blst_";
 ($ctx,$inp,$num,$Ktbl)=map("x$_",(0..2,30));
 
 $code.=<<___;
-.comm	__blst_platform_cap,4
+.comm	blst_platform_cap,4
 .text
 
 .align	6
@@ -348,8 +348,8 @@ $code.=<<___;
 .align	4
 ${pre}sha256_block_data_order:
 	hint	#34
-	adrp	c16,__blst_platform_cap
-	ldr	w16,[c16,#:lo12:__blst_platform_cap]
+	adrp	c16,blst_platform_cap
+	ldr	w16,[c16,#:lo12:blst_platform_cap]
 	tst	w16,#1
 	b.ne	.Lv8_entry
 
