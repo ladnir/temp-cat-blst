@@ -265,6 +265,7 @@ TEST(BindingHeader, ScalarHelperSurfaceIsExposedAndStable)
 TEST(BindingHeader, PreparedFrFftUsesCallerOwnedDomain)
 {
     constexpr size_t n = 8;
+    EXPECT_FALSE(blst_fr_fft(nullptr, 0, false));
     EXPECT_EQ(blst_fr_fft_domain_len(0), 0);
     EXPECT_EQ(blst_fr_fft_domain_len(3), 0);
     EXPECT_EQ(blst_fr_fft_domain_len(n), n + 2);

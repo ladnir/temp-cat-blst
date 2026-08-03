@@ -112,7 +112,7 @@ namespace blst
 			return false;
 
 		// check that u is a primitive root of unity.
-		for (u64 i = 1; i < factors.size() - 1; ++i)
+		for (u64 i = 0; i < factors.size(); ++i)
 		{
 			if (u.pow(n / factors[i].mFactor) == 1)
 			{
@@ -153,7 +153,7 @@ namespace blst
 			return false;
 
 		// check that u is a primitive root of unity.
-		for (u64 i = 1; i < factors.size() - 1; ++i)
+		for (u64 i = 0; i < factors.size(); ++i)
 		{
 			auto ni = n / factors[i].mFactor;
 			Fr uPowNi;
@@ -255,6 +255,8 @@ namespace blst
 	void precomputeRootsOfUnity(const F& psi, std::span<F> roots)
 	{
 		auto n = roots.size();
+		if (n == 0)
+			throw XX_RTE_LOC;
 		auto ln = log2ceil(n);
 		auto qq = F::order() - 1;
 		auto q = static_cast<std::conditional_t<(sizeof(decltype(qq)) < sizeof(u64)), u64, decltype(qq)>>(qq);

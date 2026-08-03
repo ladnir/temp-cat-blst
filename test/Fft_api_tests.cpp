@@ -6,13 +6,53 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cstdint>
+#include <limits>
 #include <span>
+#include <stdexcept>
 #include <vector>
 
 namespace
 {
     using blst::Fr;
     using InterpolationStatus = blst::fr_interpolation::Status;
+
+    struct RootTestField
+    {
+        std::uint64_t value = 0;
+
+        constexpr RootTestField() = default;
+        constexpr RootTestField(const std::uint64_t input) : value(input % order()) {}
+
+        static constexpr std::uint64_t order() { return 17; }
+        constexpr std::uint64_t integer() const { return value; }
+
+        constexpr RootTestField pow(std::uint64_t exponent) const
+        {
+            RootTestField result(1);
+            RootTestField base = *this;
+            while (exponent != 0) {
+                if ((exponent & 1) != 0) {
+                    result *= base;
+                }
+                base *= base;
+                exponent >>= 1;
+            }
+            return result;
+        }
+
+        constexpr RootTestField& operator*=(const RootTestField rhs)
+        {
+            value = value * rhs.value % order();
+            return *this;
+        }
+
+        friend constexpr bool operator==(const RootTestField, const RootTestField) = default;
+        friend constexpr bool operator==(const RootTestField lhs, const std::uint64_t rhs)
+        {
+            return lhs.value == rhs % order();
+        }
+    };
 
     static_assert(blst::fft_detail::valid_size(1));
     static_assert(blst::fft_detail::valid_size(8));
@@ -21,6 +61,18 @@ namespace
     static_assert(blst::fft_detail::domain_storage_len(8) == 10);
     static_assert(
         blst::fr_interpolation::domain_suffix_scratch_len(5, 8) == 41);
+    static_assert(blst::log2ceil(1) == 0);
+    static_assert(blst::log2ceil(2) == 1);
+    static_assert(blst::log2ceil(3) == 2);
+    static_assert(blst::log2ceil(std::numeric_limits<std::uint64_t>::max()) == 64);
+    static_assert(blst::ceil_div(0, 1) == 0);
+    static_assert(blst::ceil_div(1, 1) == 1);
+    static_assert(blst::ceil_div(std::numeric_limits<std::size_t>::max(), 2) ==
+        std::numeric_limits<std::size_t>::max() / 2 + 1);
+#ifdef NDEBUG
+    static_assert(blst::log2ceil(0) == 0);
+    static_assert(blst::ceil_div(1, 0) == 0);
+#endif
 
     Fr from_u64(const std::uint64_t value)
     {
@@ -53,6 +105,31 @@ namespace
         }
         return true;
     }
+}
+
+TEST(FftApi, RootPreparationRejectsEmptyDomain)
+{
+    const RootTestField one(1);
+    EXPECT_THROW(
+        (blst::precomputeRootsOfUnity<RootTestField>(
+            one,
+            std::span<RootTestField>{})),
+        std::runtime_error);
+
+    std::array<RootTestField, 1> roots = {};
+    EXPECT_NO_THROW(blst::precomputeRootsOfUnity<RootTestField>(one, roots));
+    EXPECT_EQ(roots[0], one);
+}
+
+TEST(CommonDefines, InvalidSizingIsFailClosed)
+{
+#ifdef NDEBUG
+    EXPECT_EQ(blst::log2ceil(0), 0);
+    EXPECT_EQ(blst::ceil_div(1, 0), 0);
+#else
+    EXPECT_DEATH((void)blst::log2ceil(0), "");
+    EXPECT_DEATH((void)blst::ceil_div(1, 0), "");
+#endif
 }
 
 TEST(FftApi, GenericPreparedDomainMatchesGenericTransform)

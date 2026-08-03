@@ -244,6 +244,10 @@ namespace blst
 
     inline constexpr u64 log2ceil(u64 x)
     {
+        BLST_ASSERT(x != 0);
+        if (x == 0) {
+            return 0;
+        }
         return std::bit_width(x - 1);
     }
 
@@ -291,7 +295,12 @@ namespace blst
 #endif
 
 
-    inline size_t ceil_div(size_t x, size_t y) { return (x + y - 1) / y; }
+    // Zero is the fail-closed Release result for an invalid zero divisor.
+    inline constexpr size_t ceil_div(size_t x, size_t y)
+    {
+        BLST_ASSERT(y != 0);
+        return y == 0 ? 0 : x / y + (x % y != 0);
+    }
 
 
 #if defined(__INTELLISENSE__) && defined(BLST_CUDA)
