@@ -6,7 +6,6 @@
 
 #include "blst/scalar/curve/point.h"
 #include "blst/scalar/curve/GT.h"
-#include <algorithm>
 
 #ifndef MILLER_LOOP_N_MAX
 # define MILLER_LOOP_N_MAX 16
@@ -266,32 +265,43 @@ Fp6{                                                                      \
 
         size_t offset = 0;
         while (offset < n) {
-            const size_t batch = std::min(n - offset, static_cast<size_t>(MILLER_LOOP_N_MAX));
             G2Point T[MILLER_LOOP_N_MAX];
+            G2AffinePoint Qbatch[MILLER_LOOP_N_MAX];
             G1AffinePoint Px2[MILLER_LOOP_N_MAX];
             GT chunk = {};
+            size_t batch = 0;
 
-            for (size_t i = 0; i < batch; i++) {
+            while (offset < n && batch < MILLER_LOOP_N_MAX) {
+                if (G2AffinePoint::is_inf(Q[offset]) || G1AffinePoint::is_inf(P[offset])) {
+                    ++offset;
+                    continue;
+                }
+
                 /* Move common expression from line evaluation to line_by_Px2.  */
-                Fp::add(Px2[i].X, P[offset + i].X, P[offset + i].X);
-                Fp::neg(Px2[i].X, Px2[i].X);
-                Fp::add(Px2[i].Y, P[offset + i].Y, P[offset + i].Y);
+                Fp::add(Px2[batch].X, P[offset].X, P[offset].X);
+                Fp::neg(Px2[batch].X, Px2[batch].X);
+                Fp::add(Px2[batch].Y, P[offset].Y, P[offset].Y);
 
-                vec_copy(&T[i].X, &Q[offset + i].X, 2 * sizeof(T[i].X));
-                vec_copy(&T[i].Z, &get_BLST_Rx().p2, sizeof(T[i].Z));
+                vec_copy(&Qbatch[batch].X, &Q[offset].X, 2 * sizeof(Qbatch[batch].X));
+                vec_copy(&T[batch].X, &Q[offset].X, 2 * sizeof(T[batch].X));
+                vec_copy(&T[batch].Z, &get_BLST_Rx().p2, sizeof(T[batch].Z));
+                ++batch;
+                ++offset;
+            }
+
+            if (batch == 0) {
+                continue;
             }
 
             /* first step is ret = 1^2*line, which is replaced with ret = line  */
             start_dbl_n(chunk, T, Px2, batch);                /* 0x2                  */
-            add_n_dbl_n(chunk, T, &Q[offset], Px2, batch, 2); /* ..0xc                */
-            add_n_dbl_n(chunk, T, &Q[offset], Px2, batch, 3); /* ..0x68               */
-            add_n_dbl_n(chunk, T, &Q[offset], Px2, batch, 9); /* ..0xd200             */
-            add_n_dbl_n(chunk, T, &Q[offset], Px2, batch, 32);/* ..0xd20100000000     */
-            add_n_dbl_n(chunk, T, &Q[offset], Px2, batch, 16);/* ..0xd201000000010000 */
+            add_n_dbl_n(chunk, T, Qbatch, Px2, batch, 2);     /* ..0xc                */
+            add_n_dbl_n(chunk, T, Qbatch, Px2, batch, 3);     /* ..0x68               */
+            add_n_dbl_n(chunk, T, Qbatch, Px2, batch, 9);     /* ..0xd200             */
+            add_n_dbl_n(chunk, T, Qbatch, Px2, batch, 32);    /* ..0xd20100000000     */
+            add_n_dbl_n(chunk, T, Qbatch, Px2, batch, 16);    /* ..0xd201000000010000 */
             Fp12::conjugate(chunk.data);                      /* account for z being negative */
             Fp12::mul(ret.data, ret.data, chunk.data);
-
-            offset += batch;
         }
     }
 
@@ -535,16 +545,19 @@ Fp6{                                                                      \
             Qptr = *Qs ? *Qs++ : Qptr + 1;
             Pptr = *Ps ? *Ps++ : Pptr + 1;
 
-            /* Move common expression from line evaluation to line_by_Px2.  */
-            Fp::add(Px2[i].X, Pptr->X, Pptr->X);
-            Fp::neg(Px2[i].X, Px2[i].X);
-            Fp::add(Px2[i].Y, Pptr->Y, Pptr->Y);
+            if (!G2AffinePoint::is_inf(*Qptr) && !G1AffinePoint::is_inf(*Pptr)) {
+                /* Move common expression from line evaluation to line_by_Px2.  */
+                Fp::add(Px2[i].X, Pptr->X, Pptr->X);
+                Fp::neg(Px2[i].X, Px2[i].X);
+                Fp::add(Px2[i].Y, Pptr->Y, Pptr->Y);
 
-            vec_copy(&Q[i].X, &Qptr->X, 2 * sizeof(Q[i].X));
-            vec_copy(&T[i].X, &Qptr->X, 2 * sizeof(T[i].X));
-            vec_copy(&T[i].Z, &get_BLST_Rx().p2, sizeof(T[i].Z));
+                vec_copy(&Q[i].X, &Qptr->X, 2 * sizeof(Q[i].X));
+                vec_copy(&T[i].X, &Qptr->X, 2 * sizeof(T[i].X));
+                vec_copy(&T[i].Z, &get_BLST_Rx().p2, sizeof(T[i].Z));
+                ++i;
+            }
 
-            if (++i == MILLER_LOOP_N_MAX || j == n - 1) {
+            if (i == MILLER_LOOP_N_MAX || (j == n - 1 && i != 0)) {
                 GT tmp;
                 GT& ret = j < MILLER_LOOP_N_MAX ? out : tmp;
 

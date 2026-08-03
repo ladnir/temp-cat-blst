@@ -1837,17 +1837,21 @@ TEST(CApi, MillerLoopNMatchesNaiveProduct)
     EXPECT_TRUE(blst_fp12_is_equal(&combined, &naive));
 }
 
-TEST(CApi, MillerLoopNMatchesNaiveProductBeyondScalarBatchLimit)
+TEST(CApi, MillerLoopNMatchesNaiveProductAtBatchBoundaries)
 {
-    constexpr size_t npoints = 17;
+    constexpr size_t npoints = 32;
     std::array<BoundaryG1, npoints> ps = {};
     std::array<BoundaryG2, npoints> qs = {};
     std::array<BoundaryG1Affine, npoints> ps_affine = {};
     std::array<BoundaryG2Affine, npoints> qs_affine = {};
+    std::array<const BoundaryG1Affine*, npoints> ps_explicit = {};
+    std::array<const BoundaryG2Affine*, npoints> qs_explicit = {};
 
     for (size_t i = 0; i < npoints; ++i) {
         ps[i] = p1_mul(3 + i);
         qs[i] = p2_mul(11 + i);
+        ps_explicit[i] = &ps_affine[i];
+        qs_explicit[i] = &qs_affine[i];
     }
 
     const BoundaryG1* p_ptrs[2] = {ps.data(), nullptr};
@@ -1858,8 +1862,51 @@ TEST(CApi, MillerLoopNMatchesNaiveProductBeyondScalarBatchLimit)
     blst_p1s_to_affine(ps_affine.data(), p_ptrs, ps.size());
     blst_p2s_to_affine(qs_affine.data(), q_ptrs, qs.size());
 
+    BoundaryGt naive = *blst_fp12_one();
+    for (size_t i = 0; i < npoints; ++i) {
+        BoundaryGt term = {};
+        blst_miller_loop(&term, &qs_affine[i], &ps_affine[i]);
+        blst_fp12_mul(&naive, &naive, &term);
+
+        const size_t count = i + 1;
+        if (count == 1 || count == 15 || count == 16 || count == 17 || count == 32) {
+            BoundaryGt compact = {};
+            BoundaryGt explicit_pointers = {};
+            blst_miller_loop_n(&compact, qs_affine_ptrs, ps_affine_ptrs, count);
+            blst_miller_loop_n(
+                &explicit_pointers,
+                qs_explicit.data(),
+                ps_explicit.data(),
+                count);
+            EXPECT_TRUE(blst_fp12_is_equal(&compact, &naive)) << count;
+            EXPECT_TRUE(blst_fp12_is_equal(&explicit_pointers, &naive)) << count;
+        }
+    }
+}
+
+TEST(CApi, MillerLoopNSkipsInfinityPairs)
+{
+    constexpr size_t npoints = 17;
+    std::array<BoundaryG1, npoints> ps = {};
+    std::array<BoundaryG2, npoints> qs = {};
+    std::array<BoundaryG1Affine, npoints> ps_affine = {};
+    std::array<BoundaryG2Affine, npoints> qs_affine = {};
+    for (size_t i = 0; i < npoints; ++i) {
+        ps[i] = p1_mul(3 + i);
+        qs[i] = p2_mul(11 + i);
+    }
+
+    const BoundaryG1* p_ptrs[2] = {ps.data(), nullptr};
+    const BoundaryG2* q_ptrs[2] = {qs.data(), nullptr};
+    const BoundaryG1Affine* ps_affine_ptrs[2] = {ps_affine.data(), nullptr};
+    const BoundaryG2Affine* qs_affine_ptrs[2] = {qs_affine.data(), nullptr};
+    blst_p1s_to_affine(ps_affine.data(), p_ptrs, ps.size());
+    blst_p2s_to_affine(qs_affine.data(), q_ptrs, qs.size());
+    ps_affine[7] = {};
+    ASSERT_TRUE(blst_p1_affine_is_inf(&ps_affine[7]));
+
     BoundaryGt combined = {};
-    blst_miller_loop_n(&combined, qs_affine_ptrs, ps_affine_ptrs, ps.size());
+    blst_miller_loop_n(&combined, qs_affine_ptrs, ps_affine_ptrs, npoints);
 
     BoundaryGt naive = *blst_fp12_one();
     for (size_t i = 0; i < npoints; ++i) {
@@ -1867,7 +1914,6 @@ TEST(CApi, MillerLoopNMatchesNaiveProductBeyondScalarBatchLimit)
         blst_miller_loop(&term, &qs_affine[i], &ps_affine[i]);
         blst_fp12_mul(&naive, &naive, &term);
     }
-
     EXPECT_TRUE(blst_fp12_is_equal(&combined, &naive));
 }
 

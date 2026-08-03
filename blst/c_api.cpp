@@ -19,7 +19,6 @@
 #include <cstdint>
 #include <limits>
 #include <type_traits>
-#include <vector>
 
 namespace blst {
 size_t blst_pairing_sizeof(void);
@@ -1752,22 +1751,37 @@ void blst_miller_loop_n(
         return;
     }
 
-    std::vector<PublicG2Affine> q_values(n);
-    std::vector<PublicG1Affine> p_values(n);
+#if BLST_DEFAULT_AVX
+    constexpr size_t batch_capacity = blst::avx::avx_gt_detail::kMillerLoopNMax;
+    PublicG2Affine q_values[batch_capacity] = {};
+    PublicG1Affine p_values[batch_capacity] = {};
+    PublicGt out = PublicGt::identity();
     const BoundaryG2Affine* current_q = nullptr;
     const BoundaryG1Affine* current_p = nullptr;
     const BoundaryG2Affine* const* q_iter = Qs;
     const BoundaryG1Affine* const* p_iter = Ps;
+    size_t batch_size = 0;
 
     for (size_t i = 0; i < n; ++i) {
         current_q = *q_iter != nullptr ? *q_iter++ : current_q + 1;
         current_p = *p_iter != nullptr ? *p_iter++ : current_p + 1;
-        q_values[i] = boundary_to_public_g2_affine(*current_q);
-        p_values[i] = boundary_to_public_g1_affine(*current_p);
-    }
+        q_values[batch_size] = boundary_to_public_g2_affine(*current_q);
+        p_values[batch_size] = boundary_to_public_g1_affine(*current_p);
+        ++batch_size;
 
+        if (batch_size == batch_capacity || i + 1 == n) {
+            PublicGt batch = {};
+            PublicGt::miller_loop_n(batch, q_values, p_values, batch_size);
+            PublicGt::add(out, out, batch);
+            batch_size = 0;
+        }
+    }
+#else
+    static_assert(std::is_same_v<PublicG2Affine, BoundaryG2Affine>);
+    static_assert(std::is_same_v<PublicG1Affine, BoundaryG1Affine>);
     PublicGt out = {};
-    PublicGt::miller_loop_n(out, q_values.data(), p_values.data(), n);
+    PublicGt::miller_loop_n(out, Qs, Ps, n);
+#endif
     *ret = public_to_boundary_gt(out);
 }
 
