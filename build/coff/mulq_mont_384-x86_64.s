@@ -2979,7 +2979,7 @@ sqr_n_mul_mont_384:
 	movq	(%r9),%xmm2
 
 .Loop_sqr_384:
-	movd	%edx,%xmm1
+.byte	102,72,15,110,202
 
 	call	__sqrq_384
 
@@ -2989,9 +2989,9 @@ sqr_n_mul_mont_384:
 	call	__mulq_by_1_mont_384
 	call	__redq_tail_mont_384
 
-	movd	%xmm1,%edx
+.byte	102,72,15,126,202
 	leaq	0(%rdi),%rsi
-	decl	%edx
+	decq	%rdx
 	jnz	.Loop_sqr_384
 
 .byte	102,72,15,126,208
@@ -3086,7 +3086,7 @@ sqr_n_mul_mont_383:
 	movq	(%r9),%xmm2
 
 .Loop_sqr_383:
-	movd	%edx,%xmm1
+.byte	102,72,15,110,202
 
 	call	__sqrq_384
 
@@ -3095,7 +3095,7 @@ sqr_n_mul_mont_383:
 	movq	16(%rsp),%rbx
 	call	__mulq_by_1_mont_384
 
-	movd	%xmm1,%edx
+.byte	102,72,15,126,202
 	addq	48(%rsi),%r14
 	adcq	56(%rsi),%r15
 	adcq	64(%rsi),%r8
@@ -3111,7 +3111,7 @@ sqr_n_mul_mont_383:
 	movq	%r10,32(%rdi)
 	movq	%r11,40(%rdi)
 
-	decl	%edx
+	decq	%rdx
 	jnz	.Loop_sqr_383
 
 .byte	102,72,15,126,208

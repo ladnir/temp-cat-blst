@@ -2507,15 +2507,15 @@ sqr_n_mul_mont_384$1:
 	movq	0(%r9),%xmm2
 
 .Loop_sqrx_384:
-	movd	%r10d,%xmm1
+.byte	102,73,15,110,202
 	leaq	-128(%rbx),%rsi
 	leaq	-128(%rcx),%rcx
 
 	mulxq	%rdx,%r8,%r9
 	call	__mulx_mont_384
 
-	movd	%xmm1,%r10d
-	decl	%r10d
+.byte	102,73,15,126,202
+	decq	%r10
 	jnz	.Loop_sqrx_384
 
 	movq	%rdx,%r14
@@ -2605,14 +2605,14 @@ sqr_n_mul_mont_383$1:
 	leaq	-128(%rcx),%rcx
 
 .Loop_sqrx_383:
-	movd	%r10d,%xmm1
+.byte	102,73,15,110,202
 	leaq	-128(%rbx),%rsi
 
 	mulxq	%rdx,%r8,%r9
 	call	__mulx_mont_383_nonred
 
-	movd	%xmm1,%r10d
-	decl	%r10d
+.byte	102,73,15,126,202
+	decq	%r10
 	jnz	.Loop_sqrx_383
 
 	movq	%rdx,%r14

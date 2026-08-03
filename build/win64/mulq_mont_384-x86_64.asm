@@ -3010,7 +3010,7 @@ $L$SEH_body_sqr_n_mul_mont_384::
 	movq	xmm2,QWORD PTR[r9]
 
 $L$oop_sqr_384::
-	movd	xmm1,edx
+DB	102,72,15,110,202
 
 	call	__sqrq_384
 
@@ -3020,9 +3020,9 @@ $L$oop_sqr_384::
 	call	__mulq_by_1_mont_384
 	call	__redq_tail_mont_384
 
-	movd	edx,xmm1
+DB	102,72,15,126,202
 	lea	rsi,QWORD PTR[rdi]
-	dec	edx
+	dec	rdx
 	jnz	$L$oop_sqr_384
 
 DB	102,72,15,126,208
@@ -3118,7 +3118,7 @@ $L$SEH_body_sqr_n_mul_mont_383::
 	movq	xmm2,QWORD PTR[r9]
 
 $L$oop_sqr_383::
-	movd	xmm1,edx
+DB	102,72,15,110,202
 
 	call	__sqrq_384
 
@@ -3127,7 +3127,7 @@ $L$oop_sqr_383::
 	mov	rbx,QWORD PTR[16+rsp]
 	call	__mulq_by_1_mont_384
 
-	movd	edx,xmm1
+DB	102,72,15,126,202
 	add	r14,QWORD PTR[48+rsi]
 	adc	r15,QWORD PTR[56+rsi]
 	adc	r8,QWORD PTR[64+rsi]
@@ -3143,7 +3143,7 @@ $L$oop_sqr_383::
 	mov	QWORD PTR[32+rdi],r10
 	mov	QWORD PTR[40+rdi],r11
 
-	dec	edx
+	dec	rdx
 	jnz	$L$oop_sqr_383
 
 DB	102,72,15,126,208

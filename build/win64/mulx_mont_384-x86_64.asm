@@ -2581,15 +2581,15 @@ endif
 	movq	xmm2,QWORD PTR[r9]
 
 $L$oop_sqrx_384::
-	movd	xmm1,r10d
+DB	102,73,15,110,202
 	lea	rsi,QWORD PTR[((-128))+rbx]
 	lea	rcx,QWORD PTR[((-128))+rcx]
 
 	mulx	r9,r8,rdx
 	call	__mulx_mont_384
 
-	movd	r10d,xmm1
-	dec	r10d
+DB	102,73,15,126,202
+	dec	r10
 	jnz	$L$oop_sqrx_384
 
 	mov	r14,rdx
@@ -2687,14 +2687,14 @@ endif
 	lea	rcx,QWORD PTR[((-128))+rcx]
 
 $L$oop_sqrx_383::
-	movd	xmm1,r10d
+DB	102,73,15,110,202
 	lea	rsi,QWORD PTR[((-128))+rbx]
 
 	mulx	r9,r8,rdx
 	call	__mulx_mont_383_nonred
 
-	movd	r10d,xmm1
-	dec	r10d
+DB	102,73,15,126,202
+	dec	r10
 	jnz	$L$oop_sqrx_383
 
 	mov	r14,rdx

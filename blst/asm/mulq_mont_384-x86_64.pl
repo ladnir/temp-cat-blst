@@ -2251,7 +2251,7 @@ sqr_n_mul_mont_384:
 	movq	(%r9), %xmm2		# prefetch b[0]
 
 .Loop_sqr_384:
-	movd	%edx, %xmm1		# loop counter
+	movq	%rdx, %xmm1		# loop counter
 
 	call	__sqrq_384
 
@@ -2261,9 +2261,9 @@ sqr_n_mul_mont_384:
 	call	__mulq_by_1_mont_384
 	call	__redq_tail_mont_384
 
-	movd	%xmm1, %edx
+	movq	%xmm1, %rdx
 	lea	0($r_ptr), $a_ptr
-	dec	%edx
+	dec	%rdx
 	jnz	.Loop_sqr_384
 
 	movq	%xmm2, %rax		# b[0]
@@ -2334,7 +2334,7 @@ sqr_n_mul_mont_383:
 	movq	(%r9), %xmm2		# prefetch b[0]
 
 .Loop_sqr_383:
-	movd	%edx, %xmm1		# loop counter
+	movq	%rdx, %xmm1		# loop counter
 
 	call	__sqrq_384
 
@@ -2343,7 +2343,7 @@ sqr_n_mul_mont_383:
 	mov	8*2(%rsp), $b_ptr	# n_ptr for mul_by_1
 	call	__mulq_by_1_mont_384
 
-	movd	%xmm1, %edx		# loop counter
+	movq	%xmm1, %rdx		# loop counter
         add     8*6($a_ptr), @acc[6]	# just accumulate upper half
         adc     8*7($a_ptr), @acc[7]
         adc     8*8($a_ptr), @acc[0]
@@ -2359,7 +2359,7 @@ sqr_n_mul_mont_383:
 	mov	@acc[2], 8*4($r_ptr)
 	mov	@acc[3], 8*5($r_ptr)
 
-	dec	%edx
+	dec	%rdx
 	jnz	.Loop_sqr_383
 
 	movq	%xmm2, %rax		# b[0]

@@ -2016,15 +2016,15 @@ sqr_n_mul_mont_384\$1:
 	movq	8*0(%r9), %xmm2		# prefetch b[0]
 
 .Loop_sqrx_384:
-	movd	@acc[2]d, %xmm1
+	movq	@acc[2], %xmm1
 	lea	-128($b_ptr), $a_ptr	# control u-op density
 	lea	-128($n_ptr), $n_ptr	# control u-op density
 
 	mulx	%rdx, @acc[0], @acc[1]	# a[0]*a[0]
 	call	__mulx_mont_384
 
-	movd	%xmm1, @acc[2]d
-	dec	@acc[2]d
+	movq	%xmm1, @acc[2]
+	dec	@acc[2]
 	jnz	.Loop_sqrx_384
 
 	mov	%rdx, @acc[6]
@@ -2097,14 +2097,14 @@ sqr_n_mul_mont_383\$1:
 	lea	-128($n_ptr), $n_ptr	# control u-op density
 
 .Loop_sqrx_383:
-	movd	@acc[2]d, %xmm1
+	movq	@acc[2], %xmm1
 	lea	-128($b_ptr), $a_ptr	# control u-op density
 
 	mulx	%rdx, @acc[0], @acc[1]	# a[0]*a[0]
 	call	__mulx_mont_383_nonred	# omitting full reduction gives ~15%
 					# in addition-chains
-	movd	%xmm1, @acc[2]d
-	dec	@acc[2]d
+	movq	%xmm1, @acc[2]
+	dec	@acc[2]
 	jnz	.Loop_sqrx_383
 
 	mov	%rdx, @acc[6]
