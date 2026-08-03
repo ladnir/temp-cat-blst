@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright Supranational LLC
  * Copyright Category Labs
  * Licensed under the Apache License, Version 2.0, see LICENSE for details.
@@ -476,20 +476,20 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	{
 		Field Z1Z1, Z2Z2;
 		AffinePoint<Field> a1, a2;
-		bool_t is_inf1 = vec_is_zero(&p1.Z, sizeof(p1.Z));
-		bool_t is_inf2 = vec_is_zero(&p2.Z, sizeof(p2.Z));
+		bool_t is_inf1 = vec_is_zero(&p1.z, sizeof(p1.z));
+		bool_t is_inf2 = vec_is_zero(&p2.z, sizeof(p2.z));
 
-		Field::sqr(Z1Z1, p1.Z);           /* Z1Z1 = Z1^2 */
-		Field::sqr(Z2Z2, p2.Z);           /* Z2Z2 = Z2^2 */
+		Field::sqr(Z1Z1, p1.z);           /* Z1Z1 = Z1^2 */
+		Field::sqr(Z2Z2, p2.z);           /* Z2Z2 = Z2^2 */
 
-		Field::mul(a1.X, p1.X, Z2Z2);     /* U1 = X1*Z2Z2 */
-		Field::mul(a2.X, p2.X, Z1Z1);     /* U2 = X2*Z1Z1 */
+		Field::mul(a1.x, p1.x, Z2Z2);     /* U1 = X1*Z2Z2 */
+		Field::mul(a2.x, p2.x, Z1Z1);     /* U2 = X2*Z1Z1 */
 
-		Field::mul(a1.Y, p1.Y, p2.Z);    /* Y1*Z2 */
-		Field::mul(a2.Y, p2.Y, p1.Z);    /* Y2*Z1 */
+		Field::mul(a1.y, p1.y, p2.z);    /* Y1*Z2 */
+		Field::mul(a2.y, p2.y, p1.z);    /* Y2*Z1 */
 
-		Field::mul(a1.Y, a1.Y, Z2Z2);      /* S1 = Y1*Z2*Z2Z2 */
-		Field::mul(a2.Y, a2.Y, Z1Z1);      /* S2 = Y2*Z1*Z1Z1 */
+		Field::mul(a1.y, a1.y, Z2Z2);      /* S1 = Y1*Z2*Z2Z2 */
+		Field::mul(a2.y, a2.y, Z1Z1);      /* S2 = Y2*Z1*Z1Z1 */
 
 		return vec_is_equal(&a1, &a2, sizeof(a1)) & (is_inf1 ^ is_inf2 ^ 1);
 	}
@@ -564,7 +564,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	template<typename Field>
 	BLST_HD BLST_CPP_INLINE void Point<Field>::cneg(Point& p, bool_t cbit)
 	{
-		Field::cneg(p.Y, p.Y, cbit);
+		Field::cneg(p.y, p.y, cbit);
 	}
 	template BLST_HD BLST_CPP_INLINE void Point<Fp>::cneg(Point& p, bool_t cbit);
 	template BLST_HD BLST_CPP_INLINE void Point<Fp2>::cneg(Point& p, bool_t cbit);
@@ -572,9 +572,9 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	template<typename Field>
 	BLST_HD BLST_CPP_INLINE void Point<Field>::neg(Point& out, const Point& p)
 	{
-		out.X = p.X;
-		Field::neg(out.Y, p.Y);
-		out.Z = p.Z;
+		out.x = p.x;
+		Field::neg(out.y, p.y);
+		out.z = p.z;
 	}
 	template BLST_HD BLST_CPP_INLINE void Point<Fp>::neg(Point& out, const Point& p);
 	template BLST_HD BLST_CPP_INLINE void Point<Fp2>::neg(Point& out, const Point& p);
@@ -583,18 +583,18 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	BLST_HD BLST_CPP_INLINE void Point<Field>::from_jacobian(Point<Field>& out, const Point<Field>& in)
 	{
 		Field Z, ZZ;
-		limb_t inf = vec_is_zero(in.Z.data, sizeof(in.Z));
+		limb_t inf = vec_is_zero(&in.z, sizeof(in.z));
 
-		Field::reciprocal(Z, in.Z);                           /* 1/Z */
+		Field::reciprocal(Z, in.z);                           /* 1/Z */
 
 		Field::sqr(ZZ, Z);
-		Field::mul(out.X, in.X, ZZ);                         /* X = X/Z^2 */
+		Field::mul(out.x, in.x, ZZ);                         /* X = X/Z^2 */
 
 		Field::mul(ZZ, ZZ, Z);
-		Field::mul(out.Y, in.Y, ZZ);                         /* Y = Y/Z^3 */
+		Field::mul(out.y, in.y, ZZ);                         /* Y = Y/Z^3 */
 
-		vec_select(&out.Z, &in.Z, &Point::generator().Z,
-			sizeof(Point::generator().Z), inf);    /* Z = inf ? 0 : 1 */
+		vec_select(&out.z, &in.z, &Point::generator().z,
+			sizeof(Point::generator().z), inf);    /* Z = inf ? 0 : 1 */
 	}
 	template BLST_HD BLST_CPP_INLINE void Point<Fp>::from_jacobian(Point<Fp>& out, const Point<Fp>& in);
 	template BLST_HD BLST_CPP_INLINE void Point<Fp2>::from_jacobian(Point<Fp2>& out, const Point<Fp2>& in);
@@ -604,7 +604,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	{
 		Point p;
 		auto ptr = &in;
-		if (!vec_is_equal(ptr->Z.data, &Field::one(), sizeof(in.Z))) {
+		if (!vec_is_equal(&ptr->z, &Field::one(), sizeof(in.z))) {
 			Point::from_jacobian(p, *ptr);
 			ptr = &p;
 		}
@@ -620,7 +620,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	BLST_HD BLST_CPP_INLINE void Point<Field>::from_affine(Point& out, const AffinePoint<Field>& a)
 	{
 		vec_copy(&out, &a, sizeof(a));
-		vec_select(&out.Z, &a.X, &Field::one(), sizeof(out.Z),
+		vec_select(&out.z, &a.x, &Field::one(), sizeof(out.z),
 			vec_is_zero(&a, sizeof(a)));
 	}
 	template BLST_HD BLST_CPP_INLINE void Point<Fp>::from_affine(Point<Fp>& out, const AffinePoint<Fp>& a);
@@ -634,7 +634,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	template<typename Field>
 	BLST_HD BLST_CPP_INLINE int Point<Field>::is_inf(const Point& p)
 	{
-		return (int)vec_is_zero(&p.Z, sizeof(p.Z));
+		return (int)vec_is_zero(&p.z, sizeof(p.z));
 	}
 	template BLST_HD BLST_CPP_INLINE int Point<Fp>::is_inf(const Point<Fp>& p);
 	template BLST_HD BLST_CPP_INLINE int Point<Fp2>::is_inf(const Point<Fp2>& p);
@@ -653,18 +653,18 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	BLST_HD BLST_CPP_INLINE bool_t Point<Field>::on_curve(const Point& p)
 	{
 		Field XXX, YY, BZ6;
-		limb_t inf = vec_is_zero(&p.Z, sizeof(p.Z));
+		limb_t inf = vec_is_zero(&p.z, sizeof(p.z));
 
-		Field::sqr(BZ6, p.Z);
-		Field::mul(BZ6, BZ6, p.Z);
+		Field::sqr(BZ6, p.z);
+		Field::mul(BZ6, BZ6, p.z);
 		Field::sqr(XXX, BZ6);                                 /* Z^6 */
 		Point::mul_by_b(BZ6, XXX);                      /* B*Z^6 */
 
-		Field::sqr(XXX, p.X);
-		Field::mul(XXX, XXX, p.X);                            /* X^3 */
+		Field::sqr(XXX, p.x);
+		Field::mul(XXX, XXX, p.x);                            /* X^3 */
 		Field::add(XXX, XXX, BZ6);                            /* X^3 + B*Z^6 */
 
-		Field::sqr(YY, p.Y);                                  /* Y^2 */
+		Field::sqr(YY, p.y);                                  /* Y^2 */
 
 		return vec_is_equal(&XXX, &YY, sizeof(XXX)) | inf;
 	}
@@ -678,26 +678,26 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		if constexpr (std::is_same_v<Field, Fp>) {
 			Fp temp;
 
-			Fp::from_mont(temp, in.X);
-			be_bytes_from_limbs(out, temp.data, sizeof(temp));
+			Fp::from_mont(temp, in.x);
+			be_bytes_from_limbs(out, temp.l, sizeof(temp));
 
-			Fp::from_mont(temp, in.Y);
-			be_bytes_from_limbs(out + 48, temp.data, sizeof(temp));
+			Fp::from_mont(temp, in.y);
+			be_bytes_from_limbs(out + 48, temp.l, sizeof(temp));
 
 			return Fp::sgn0_pty(temp);
 		}
 		else {
 			Fp2 temp;
 
-			Fp::from_mont(temp[1], in.X[1]);
-			be_bytes_from_limbs(out, temp[1].data, sizeof(temp[1]));
-			Fp::from_mont(temp[0], in.X[0]);
-			be_bytes_from_limbs(out + 48, temp[0].data, sizeof(temp[0]));
+			Fp::from_mont(temp[1], in.x[1]);
+			be_bytes_from_limbs(out, temp[1].l, sizeof(temp[1]));
+			Fp::from_mont(temp[0], in.x[0]);
+			be_bytes_from_limbs(out + 48, temp[0].l, sizeof(temp[0]));
 
-			Fp::from_mont(temp[1], in.Y[1]);
-			be_bytes_from_limbs(out + 96, temp[1].data, sizeof(temp[1]));
-			Fp::from_mont(temp[0], in.Y[0]);
-			be_bytes_from_limbs(out + 144, temp[0].data, sizeof(temp[0]));
+			Fp::from_mont(temp[1], in.y[1]);
+			be_bytes_from_limbs(out + 96, temp[1].l, sizeof(temp[1]));
+			Fp::from_mont(temp[0], in.y[0]);
+			be_bytes_from_limbs(out + 144, temp[0].l, sizeof(temp[0]));
 
 			return Fp2::sgn0_pty(temp);
 		}
@@ -710,7 +710,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	BLST_HD BLST_CPP_INLINE void AffinePoint<Field>::serialize(unsigned char* out,
 		const AffinePoint& in)
 	{
-		if (vec_is_zero(&in.X, sizeof(in))) {
+		if (vec_is_zero(&in.x, sizeof(in))) {
 			bytes_zero(out, sizeof(in));
 			out[0] = 0x40;    /* infinity bit */
 		}
@@ -730,7 +730,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	{
 		Point p;
 		auto ptr = &in;
-		if (!vec_is_equal(&ptr->Z, &Field::one(), sizeof(ptr->Z))) {
+		if (!vec_is_equal(&ptr->z, &Field::one(), sizeof(ptr->z))) {
 			Point::from_jacobian(p, *ptr);
 			ptr = &p;
 		}
@@ -744,7 +744,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	template<typename Field>
 	BLST_HD BLST_CPP_INLINE void Point<Field>::serialize(unsigned char* out, const Point& in)
 	{
-		if (vec_is_zero(&in.Z, sizeof(in.Z))) {
+		if (vec_is_zero(&in.z, sizeof(in.z))) {
 			bytes_zero(out, sizeof(Field) * 2);
 			out[0] = 0x40;    /* infinity bit */
 		}
@@ -764,22 +764,22 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		if constexpr (std::is_same_v<Field, Fp2>) {
 			Fp temp;
 
-			Fp::from_mont(temp, in.X[1]);
-			be_bytes_from_limbs(out, temp.data, sizeof(temp));
-			Fp::from_mont(temp, in.X[0]);
-			be_bytes_from_limbs(out + 48, temp.data, sizeof(temp));
+			Fp::from_mont(temp, in.x[1]);
+			be_bytes_from_limbs(out, temp.l, sizeof(temp));
+			Fp::from_mont(temp, in.x[0]);
+			be_bytes_from_limbs(out + 48, temp.l, sizeof(temp));
 
-			return Fp2::sgn0_pty_mont(in.Y);
+			return Fp2::sgn0_pty_mont(in.y);
 
 		}
 		else
 		{
 			Fp temp;
 
-			Fp::from_mont(temp, in.X);
-			be_bytes_from_limbs(out, temp.data, sizeof(temp));
+			Fp::from_mont(temp, in.x);
+			be_bytes_from_limbs(out, temp.l, sizeof(temp));
 
-			return Fp::sgn0_pty_mont(in.Y);
+			return Fp::sgn0_pty_mont(in.y);
 		}
 	}
 	template BLST_HD BLST_CPP_INLINE limb_t AffinePoint<Fp>::compress_BE(unsigned char* out, const AffinePoint<Fp>& in);
@@ -811,7 +811,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		Point p;
 		auto ptr = &in;
 
-		if (!vec_is_equal(&ptr->Z, &Field::one(), sizeof(in.Z))) {
+		if (!vec_is_equal(&ptr->z, &Field::one(), sizeof(in.z))) {
 			Point::from_jacobian(p, *ptr);
 			ptr = &p;
 		}
@@ -825,7 +825,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	template<typename Field>
 	BLST_HD BLST_CPP_INLINE void Point<Field>::compress(unsigned char* out, const Point& in)
 	{
-		if (vec_is_zero(&in.Z, sizeof(in.Z))) {
+		if (vec_is_zero(&in.z, sizeof(in.z))) {
 			bytes_zero(out, sizeof(Field));
 			out[0] = 0xc0;    /* compressed and infinity bits */
 		}
@@ -848,53 +848,53 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			G2AffinePoint ret;
 			Fp temp;
 
-			limbs_from_be_bytes(ret.X[1].data, in, sizeof(ret.X[1]));
-			limbs_from_be_bytes(ret.X[0].data, in + 48, sizeof(ret.X[0]));
+			limbs_from_be_bytes(ret.x[1].l, in, sizeof(ret.x[1]));
+			limbs_from_be_bytes(ret.x[0].l, in + 48, sizeof(ret.x[0]));
 
 			/* clear top 3 bits in case caller was conveying some information there */
-			ret.X[1][sizeof(ret.X[1]) / sizeof(limb_t) - 1] &= ((limb_t)0 - 1) >> 3;
-			Fp::add(temp, ret.X[1], Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp.data, ret.X[1].data, sizeof(temp)))
+			ret.x[1][sizeof(ret.x[1]) / sizeof(limb_t) - 1] &= ((limb_t)0 - 1) >> 3;
+			Fp::add(temp, ret.x[1], Fp::zero());  /* less than modulus? */
+			if (!vec_is_equal(temp.l, ret.x[1].l, sizeof(temp)))
 				return (limb_t)0 - BLST_BAD_ENCODING;
 
-			Fp::add(temp, ret.X[0], Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp.data, ret.X[0].data, sizeof(temp)))
+			Fp::add(temp, ret.x[0], Fp::zero());  /* less than modulus? */
+			if (!vec_is_equal(temp.l, ret.x[0].l, sizeof(temp)))
 				return (limb_t)0 - BLST_BAD_ENCODING;
 
-			Fp::mul(ret.X[0], ret.X[0], get_BLST_RR());
-			Fp::mul(ret.X[1], ret.X[1], get_BLST_RR());
+			Fp::mul(ret.x[0], ret.x[0], get_BLST_RR());
+			Fp::mul(ret.x[1], ret.x[1], get_BLST_RR());
 
-			Fp2::sqr(ret.Y, ret.X);
-			Fp2::mul(ret.Y, ret.Y, ret.X);
-			Fp2::add(ret.Y, ret.Y, get_BLST_B_E2());                        /* X^3 + B */
-			if (!Fp2::sqrt(ret.Y, ret.Y))
+			Fp2::sqr(ret.y, ret.x);
+			Fp2::mul(ret.y, ret.y, ret.x);
+			Fp2::add(ret.y, ret.y, get_BLST_B_E2());                        /* X^3 + B */
+			if (!Fp2::sqrt(ret.y, ret.y))
 				return (limb_t)0 - BLST_POINT_NOT_ON_CURVE;
 
 			vec_copy(&out, &ret, sizeof(ret));
 
-			return Fp2::sgn0_pty_mont(out.Y);
+			return Fp2::sgn0_pty_mont(out.y);
 		}
 		else {
 			AffinePoint ret;
 			Fp temp;
 
-			limbs_from_be_bytes(ret.X.data, in, sizeof(ret.X));
+			limbs_from_be_bytes(ret.x.l, in, sizeof(ret.x));
 			/* clear top 3 bits in case caller was conveying some information there */
-			ret.X[sizeof(ret.X) / sizeof(limb_t) - 1] &= ((limb_t)0 - 1) >> 3;
-			Fp::add(temp, ret.X, Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp.data, ret.X.data, sizeof(temp)))
+			ret.x[sizeof(ret.x) / sizeof(limb_t) - 1] &= ((limb_t)0 - 1) >> 3;
+			Fp::add(temp, ret.x, Fp::zero());  /* less than modulus? */
+			if (!vec_is_equal(temp.l, ret.x.l, sizeof(temp)))
 				return (limb_t)0 - BLST_BAD_ENCODING;
-			Fp::mul(ret.X, ret.X, get_BLST_RR());
+			Fp::mul(ret.x, ret.x, get_BLST_RR());
 
-			Fp::sqr(ret.Y, ret.X);
-			Fp::mul(ret.Y, ret.Y, ret.X);
-			Fp::add(ret.Y, ret.Y, get_BLST_B_E1());                         /* X^3 + B */
-			if (!Fp::sqrt(ret.Y, ret.Y))
+			Fp::sqr(ret.y, ret.x);
+			Fp::mul(ret.y, ret.y, ret.x);
+			Fp::add(ret.y, ret.y, get_BLST_B_E1());                         /* X^3 + B */
+			if (!Fp::sqrt(ret.y, ret.y))
 				return (limb_t)0 - BLST_POINT_NOT_ON_CURVE;
 
 			vec_copy(&out, &ret, sizeof(ret));
 
-			return Fp::sgn0_pty_mont(out.Y);
+			return Fp::sgn0_pty_mont(out.y);
 		}
 	}
 	template BLST_HD BLST_CPP_INLINE limb_t AffinePoint<Fp>::uncompress_BE(AffinePoint<Fp>& out, const unsigned char* in);
@@ -928,10 +928,10 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 		sgn0_pty >>= 1; /* skip over parity bit */
 		sgn0_pty ^= (in0 & 0x20) >> 5;
-		Field::cneg(out.Y, out.Y, sgn0_pty);
+		Field::cneg(out.y, out.y, sgn0_pty);
 
 		/* (0,±2) is not in group, but application might want to ignore? */
-		return vec_is_zero(&out.X, sizeof(out.X)) ? BLST_POINT_NOT_IN_GROUP
+		return vec_is_zero(&out.x, sizeof(out.x)) ? BLST_POINT_NOT_IN_GROUP
 			: BLST_SUCCESS;
 	}
 	template BLST_HD BLST_CPP_INLINE BLST_ERROR AffinePoint<Fp>::uncompress(AffinePoint<Fp>& out, const unsigned char* in);
@@ -948,33 +948,33 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			G2AffinePoint ret;
 			Fp temp;
 
-			limbs_from_be_bytes(ret.X[1].data, in, sizeof(ret.X[1]));
-			limbs_from_be_bytes(ret.X[0].data, in + 48, sizeof(ret.X[0]));
-			limbs_from_be_bytes(ret.Y[1].data, in + 96, sizeof(ret.Y[1]));
-			limbs_from_be_bytes(ret.Y[0].data, in + 144, sizeof(ret.Y[0]));
+			limbs_from_be_bytes(ret.x[1].l, in, sizeof(ret.x[1]));
+			limbs_from_be_bytes(ret.x[0].l, in + 48, sizeof(ret.x[0]));
+			limbs_from_be_bytes(ret.y[1].l, in + 96, sizeof(ret.y[1]));
+			limbs_from_be_bytes(ret.y[0].l, in + 144, sizeof(ret.y[0]));
 
 			/* clear top 3 bits in case caller was conveying some information there */
-			ret.X[1][sizeof(ret.X[1]) / sizeof(limb_t) - 1] &= ((limb_t)0 - 1) >> 3;
-			Fp::add(temp, ret.X[1], Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp.data, ret.X[1].data, sizeof(temp)))
+			ret.x[1][sizeof(ret.x[1]) / sizeof(limb_t) - 1] &= ((limb_t)0 - 1) >> 3;
+			Fp::add(temp, ret.x[1], Fp::zero());  /* less than modulus? */
+			if (!vec_is_equal(temp.l, ret.x[1].l, sizeof(temp)))
 				return BLST_BAD_ENCODING;
 
-			Fp::add(temp, ret.X[0], Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp.data, ret.X[0].data, sizeof(temp)))
+			Fp::add(temp, ret.x[0], Fp::zero());  /* less than modulus? */
+			if (!vec_is_equal(temp.l, ret.x[0].l, sizeof(temp)))
 				return BLST_BAD_ENCODING;
 
-			Fp::add(temp, ret.Y[1], Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp.data, ret.Y[1].data, sizeof(temp)))
+			Fp::add(temp, ret.y[1], Fp::zero());  /* less than modulus? */
+			if (!vec_is_equal(temp.l, ret.y[1].l, sizeof(temp)))
 				return BLST_BAD_ENCODING;
 
-			Fp::add(temp, ret.Y[0], Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp.data, ret.Y[0].data, sizeof(temp)))
+			Fp::add(temp, ret.y[0], Fp::zero());  /* less than modulus? */
+			if (!vec_is_equal(temp.l, ret.y[0].l, sizeof(temp)))
 				return BLST_BAD_ENCODING;
 
-			Fp::mul(ret.X[0], ret.X[0], get_BLST_RR());
-			Fp::mul(ret.X[1], ret.X[1], get_BLST_RR());
-			Fp::mul(ret.Y[0], ret.Y[0], get_BLST_RR());
-			Fp::mul(ret.Y[1], ret.Y[1], get_BLST_RR());
+			Fp::mul(ret.x[0], ret.x[0], get_BLST_RR());
+			Fp::mul(ret.x[1], ret.x[1], get_BLST_RR());
+			Fp::mul(ret.y[0], ret.y[0], get_BLST_RR());
+			Fp::mul(ret.y[1], ret.y[1], get_BLST_RR());
 
 			if (!G2AffinePoint::on_curve(ret))
 				return BLST_POINT_NOT_ON_CURVE;
@@ -989,21 +989,21 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			G1AffinePoint ret;
 			Fp temp;
 
-			limbs_from_be_bytes(ret.X.data, in, sizeof(ret.X));
-			limbs_from_be_bytes(ret.Y.data, in + 48, sizeof(ret.Y));
+			limbs_from_be_bytes(ret.x.l, in, sizeof(ret.x));
+			limbs_from_be_bytes(ret.y.l, in + 48, sizeof(ret.y));
 
 			/* clear top 3 bits in case caller was conveying some information there */
-			ret.X[sizeof(ret.X) / sizeof(limb_t) - 1] &= ((limb_t)0 - 1) >> 3;
-			Fp::add(temp, ret.X, Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp.data, ret.X.data, sizeof(temp)))
+			ret.x[sizeof(ret.x) / sizeof(limb_t) - 1] &= ((limb_t)0 - 1) >> 3;
+			Fp::add(temp, ret.x, Fp::zero());  /* less than modulus? */
+			if (!vec_is_equal(temp.l, ret.x.l, sizeof(temp)))
 				return BLST_BAD_ENCODING;
 
-			Fp::add(temp, ret.Y, Fp::zero());  /* less than modulus? */
-			if (!vec_is_equal(temp.data, ret.Y.data, sizeof(temp)))
+			Fp::add(temp, ret.y, Fp::zero());  /* less than modulus? */
+			if (!vec_is_equal(temp.l, ret.y.l, sizeof(temp)))
 				return BLST_BAD_ENCODING;
 
-			Fp::mul(ret.X, ret.X, get_BLST_RR());
-			Fp::mul(ret.Y, ret.Y, get_BLST_RR());
+			Fp::mul(ret.x, ret.x, get_BLST_RR());
+			Fp::mul(ret.y, ret.y, get_BLST_RR());
 
 			if (!G1AffinePoint::on_curve(ret))
 				return BLST_POINT_NOT_ON_CURVE;
@@ -1011,7 +1011,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			vec_copy(&out, &ret, sizeof(ret));
 
 			/* (0,±2) is not in group, but application might want to ignore? */
-			return vec_is_zero(out.X.data, sizeof(out.X)) ? BLST_POINT_NOT_IN_GROUP
+			return vec_is_zero(out.x.l, sizeof(out.x)) ? BLST_POINT_NOT_IN_GROUP
 				: BLST_SUCCESS;
 		}
 	}
@@ -1069,9 +1069,9 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		};
 
 		vec_copy(&out, &in, sizeof(out));
-		Fp::cneg(out.X[1], out.X[1], 1);   Fp2::mul(out.X, out.X, frobenius_x);
-		Fp::cneg(out.Y[1], out.Y[1], 1);   Fp2::mul(out.Y, out.Y, frobenius_y);
-		Fp::cneg(out.Z[1], out.Z[1], 1);
+		Fp::cneg(out.x[1], out.x[1], 1);   Fp2::mul(out.x, out.x, frobenius_x);
+		Fp::cneg(out.y[1], out.y[1], 1);   Fp2::mul(out.y, out.y, frobenius_y);
+		Fp::cneg(out.z[1], out.z[1], 1);
 	}
 
 
@@ -1082,11 +1082,11 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	{
 		Field XXX, YY;
 
-		Field::sqr(XXX, p.X);
-		Field::mul(XXX, XXX, p.X);                             /* X^3 */
+		Field::sqr(XXX, p.x);
+		Field::mul(XXX, XXX, p.x);                             /* X^3 */
 		Field::add(XXX, XXX, Point<Field>::get_B());                             /* X^3 + B */
 
-		Field::sqr(YY, p.Y);                                   /* Y^2 */
+		Field::sqr(YY, p.y);                                   /* Y^2 */
 
 		return vec_is_equal(&XXX, &YY, sizeof(XXX)) | is_inf(p);
 	}
@@ -1111,8 +1111,8 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 	BLST_HD BLST_CPP_INLINE void sigma(G1Point& out, const G1Point& in)
 	{
-		vec_copy(out.X.data, in.X.data, 2 * sizeof(out.X));
-		Fp::mul(out.Z, in.Z, get_BLST_beta());
+		vec_copy(out.x.l, in.x.l, 2 * sizeof(out.x));
+		Fp::mul(out.z, in.z, get_BLST_beta());
 	}
 
 	template<typename Field>
@@ -1158,8 +1158,8 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 		Point<Field> P;
 
-		vec_copy(&P.X, &p.X, 2 * sizeof(P.X));
-		vec_select(&P.Z, &p.X, get_BLST_Rx().p.data, sizeof(P.Z),
+		vec_copy(&P.x, &p.x, 2 * sizeof(P.x));
+		vec_select(&P.z, &p.x, get_BLST_Rx().p.l, sizeof(P.z),
 			vec_is_zero(&p, sizeof(p)));
 
 		return (int)Point<Field>::in_subgroup(P);
@@ -1173,7 +1173,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	template<typename Field>
 	BLST_HD BLST_CPP_INLINE void AffinePoint<Field>::cneg(AffinePoint<Field>& p, bool_t c)
 	{
-		Field::cneg(p.Y, p.Y, c);
+		Field::cneg(p.y, p.y, c);
 	}
 	template BLST_HD BLST_CPP_INLINE void AffinePoint<Fp>::cneg(AffinePoint<Fp>& p, bool_t c);
 	template BLST_HD BLST_CPP_INLINE void AffinePoint<Fp2>::cneg(AffinePoint<Fp2>& p, bool_t c);
@@ -1192,9 +1192,9 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		pow256 s;
 		/* SK/z^2 [in constant time] */
 
-		limbs_from_le_bytes(l.data, SK, 32);
-		div_by_zz(l.data);
-		le_bytes_from_limbs(s, l.data, 32);
+		limbs_from_le_bytes(l.l, SK, 32);
+		div_by_zz(l.l);
+		le_bytes_from_limbs(s, l.l, 32);
 
 		{
 			const byte* scalars[2] = { s + 16, s };
@@ -1203,18 +1203,18 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 			precompute_w<G1Point, 5>(table[0], in);
 			for (i = 0; i < 1 << (5 - 1); i++) {
-				Fp::mul(table[1][i].X, table[0][i].X, get_BLST_beta());
-				Fp::cneg(table[1][i].Y, table[0][i].Y, 1);
-				vec_copy(table[1][i].Z.data, table[0][i].Z.data, sizeof(table[1][i].Z));
+				Fp::mul(table[1][i].x, table[0][i].x, get_BLST_beta());
+				Fp::cneg(table[1][i].y, table[0][i].y, 1);
+				vec_copy(table[1][i].z.l, table[0][i].z.l, sizeof(table[1][i].z));
 			}
 
 			mult_window_n<G1Point, 5>(out, NULL, 2, scalars, 128, table);
 			G1Point::cneg(out, 1);
-			Fp::mul(out.Z, out.Z, get_BLST_beta());
-			Fp::mul(out.Z, out.Z, get_BLST_beta());
+			Fp::mul(out.z, out.z, get_BLST_beta());
+			Fp::mul(out.z, out.z, get_BLST_beta());
 		}
 
-		vec_zero(l.data, sizeof(l));   /* scrub the copy of SK */
+		vec_zero(l.l, sizeof(l));   /* scrub the copy of SK */
 		vec_zero(s, sizeof(s));   /* scrub the copy of SK */
 	}
 
@@ -1231,13 +1231,13 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		pow256 s;
 
 		/* break down SK to "digits" with |z| as radix [in constant time] */
-		limbs_from_le_bytes(l.data, SK, 32);
-		div_by_zz(l.data);
-		div_by_z(l.data);
-		div_by_z(l.data + NLIMBS(256) / 2);
+		limbs_from_le_bytes(l.l, SK, 32);
+		div_by_zz(l.l);
+		div_by_z(l.l);
+		div_by_z(l.l + NLIMBS(256) / 2);
 
 
-		le_bytes_from_limbs(s, l.data, 32);
+		le_bytes_from_limbs(s, l.l, 32);
 
 		{
 			const byte* scalars[2] = { s, NULL };
@@ -1262,7 +1262,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			l[i] = s[i];
 		}
 
-		vec_zero(l.data, sizeof(l));   /* scrub the copy of SK */
+		vec_zero(l.l, sizeof(l));   /* scrub the copy of SK */
 	}
 
 	template<typename Field>
@@ -1273,21 +1273,21 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 		mult_glsv(out, in, SK);
 
-		/* convert to affine to remove possible bias in out.Z */
-		inf = vec_is_zero(&out.Z, sizeof(out.Z));
+		/* convert to affine to remove possible bias in out.z */
+		inf = vec_is_zero(&out.z, sizeof(out.z));
 #ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
-		Field::flt_reciprocal(Z, out.Z);                       /* 1/Z   */
+		Field::flt_reciprocal(Z, out.z);                       /* 1/Z   */
 #else
-		Field::reciprocal(Z, out.Z);                           /* 1/Z   */
+		Field::reciprocal(Z, out.z);                           /* 1/Z   */
 #endif
 
 		Field::sqr(ZZ, Z);
-		Field::mul(out.X, out.X, ZZ);                         /* X = X/Z^2 */
+		Field::mul(out.x, out.x, ZZ);                         /* X = X/Z^2 */
 
 		Field::mul(ZZ, ZZ, Z);
-		Field::mul(out.Y, out.Y, ZZ);                         /* Y = Y/Z^3 */
+		Field::mul(out.y, out.y, ZZ);                         /* Y = Y/Z^3 */
 
-		vec_select(&out.Z, &out.Z, &Point<Field>::generator().Z, sizeof(Point<Field>::generator().Z),
+		vec_select(&out.z, &out.z, &Point<Field>::generator().z, sizeof(Point<Field>::generator().z),
 			inf);                            /* Z = inf ? 0 : 1 */
 	}
 	template BLST_HD BLST_CPP_INLINE void Point<Fp>::sign(Point<Fp>& out, const Point<Fp>& in, const pow256 SK);
@@ -1310,7 +1310,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		if (out != NULL) {
 			limb_t sgn0_pty = Point::serialize_BE(out, P);
 			out[0] |= (sgn0_pty & 2) << 4;      /* pre-decorate */
-			out[0] |= vec_is_zero(&P.Z, sizeof(P.Z)) << 6;
+			out[0] |= vec_is_zero(&P.z, sizeof(P.z)) << 6;
 		}
 	}
 	template BLST_HD void Point<Fp>::sign2(unsigned char* out, AffinePoint<Fp>* sig, const Point<Fp>& hash, const pow256 SK);
@@ -1340,7 +1340,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		if (out != NULL) {
 			limb_t sgn0_pty = Point::serialize_BE(out, P);
 			out[0] |= (sgn0_pty & 2) << 4;      /* pre-decorate */
-			out[0] |= vec_is_zero(&P.Z, sizeof(P.Z)) << 6;
+			out[0] |= vec_is_zero(&P.z, sizeof(P.z)) << 6;
 		}
 	}
 	template BLST_HD BLST_CPP_INLINE void Point<Fp>::to_pk2(unsigned char* out, AffinePoint<Fp>* PK, const pow256 SK);
@@ -1377,7 +1377,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			else    /* should never be the case, added for formal completeness */
 				mult_window<Point, 5>(out, a, scalar, nbits);
 
-			vec_zero(val.l.data, sizeof(val));
+			vec_zero(val.l.l, sizeof(val));
 		}
 		else {    /* should never be the case, added for formal completeness */
 			mult_window<Point, 5>(out, a, scalar, nbits);
@@ -1428,34 +1428,34 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		struct { Field H, R, sx; } add, dbl;
 		bool_t p1inf, p2inf, is_dbl;
 
-		Field::add(dbl.sx, p1.X, p1.X);  /* sx = X1+X1 */
-		Field::sqr(dbl.R, p1.X);          /* X1^2 */
+		Field::add(dbl.sx, p1.x, p1.x);  /* sx = X1+X1 */
+		Field::sqr(dbl.R, p1.x);          /* X1^2 */
 		Field::mul_by_3(dbl.R, dbl.R);     /* R = 3*X1^2 */
-		Field::add(dbl.H, p1.Y, p1.Y);   /* H = 2*Y1 */
+		Field::add(dbl.H, p1.y, p1.y);   /* H = 2*Y1 */
 
-		p2inf = vec_is_zero(&p2.Z, sizeof(p2.Z));
-		Field::sqr(p3.X, p2.Z);           /* Z2^2 */
-		Field::mul(p3.Z, p1.Z, p2.Z);    /* Z1*Z2 */
-		p1inf = vec_is_zero(&p1.Z, sizeof(p1.Z));
-		Field::sqr(add.H, p1.Z);          /* Z1^2 */
+		p2inf = vec_is_zero(&p2.z, sizeof(p2.z));
+		Field::sqr(p3.x, p2.z);           /* Z2^2 */
+		Field::mul(p3.z, p1.z, p2.z);    /* Z1*Z2 */
+		p1inf = vec_is_zero(&p1.z, sizeof(p1.z));
+		Field::sqr(add.H, p1.z);          /* Z1^2 */
 
 		if (a4 != NULL) {
-			Field::sqr(p3.Y, add.H);       /* Z1^4, [borrow p3.Y] */
-			Field::mul(p3.Y, p3.Y, *a4);
-			Field::add(dbl.R, dbl.R, p3.Y);/* R = 3*X1^2+a*Z1^4 */
+			Field::sqr(p3.y, add.H);       /* Z1^4, [borrow p3.y] */
+			Field::mul(p3.y, p3.y, *a4);
+			Field::add(dbl.R, dbl.R, p3.y);/* R = 3*X1^2+a*Z1^4 */
 		}
 
-		Field::mul(p3.Y, p1.Y, p2.Z);
-		Field::mul(p3.Y, p3.Y, p3.X);      /* S1 = Y1*Z2^3 */
-		Field::mul(add.R, p2.Y, p1.Z);
+		Field::mul(p3.y, p1.y, p2.z);
+		Field::mul(p3.y, p3.y, p3.x);      /* S1 = Y1*Z2^3 */
+		Field::mul(add.R, p2.y, p1.z);
 		Field::mul(add.R, add.R, add.H);   /* S2 = Y2*Z1^3 */
-		Field::sub(add.R, add.R, p3.Y);    /* R = S2-S1 */
+		Field::sub(add.R, add.R, p3.y);    /* R = S2-S1 */
 
-		Field::mul(p3.X, p3.X, p1.X);     /* U1 = X1*Z2^2 */
-		Field::mul(add.H, add.H, p2.X);   /* U2 = X2*Z1^2 */
+		Field::mul(p3.x, p3.x, p1.x);     /* U1 = X1*Z2^2 */
+		Field::mul(add.H, add.H, p2.x);   /* U2 = X2*Z1^2 */
 
-		Field::add(add.sx, add.H, p3.X);   /* sx = U1+U2 */
-		Field::sub(add.H, add.H, p3.X);    /* H = U2-U1 */
+		Field::add(add.sx, add.H, p3.x);   /* sx = U1+U2 */
+		Field::sub(add.H, add.H, p3.x);    /* H = U2-U1 */
 
 		/* make the choice between addition and doubling */
 		is_dbl = vec_is_zero(&add.H, 2 * sizeof(add.H));
@@ -1463,20 +1463,20 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		vec_select(&add, &dbl, &add, sizeof(add), is_dbl);
 		/* |p3| and |add| hold all inputs now, |p3| will hold output */
 
-		Field::mul(p3.Z, p3.Z, add.H);     /* Z3 = H*Z1*Z2 */
+		Field::mul(p3.z, p3.z, add.H);     /* Z3 = H*Z1*Z2 */
 
 		Field::sqr(dbl.H, add.H);          /* H^2 */
 		Field::mul(dbl.R, dbl.H, add.H);   /* H^3 */
-		Field::mul(dbl.R, dbl.R, p3.Y);    /* H^3*S1 */
-		Field::mul(p3.Y, dbl.H, p3.X);     /* H^2*U1 */
+		Field::mul(dbl.R, dbl.R, p3.y);    /* H^3*S1 */
+		Field::mul(p3.y, dbl.H, p3.x);     /* H^2*U1 */
 
 		Field::mul(dbl.H, dbl.H, add.sx);  /* H^2*sx */
-		Field::sqr(p3.X, add.R);           /* R^2 */
-		Field::sub(p3.X, p3.X, dbl.H);     /* X3 = R^2-H^2*sx */
+		Field::sqr(p3.x, add.R);           /* R^2 */
+		Field::sub(p3.x, p3.x, dbl.H);     /* X3 = R^2-H^2*sx */
 
-		Field::sub(p3.Y, p3.Y, p3.X);      /* H^2*U1-X3 */
-		Field::mul(p3.Y, p3.Y, add.R);     /* R*(H^2*U1-X3) */
-		Field::sub(p3.Y, p3.Y, dbl.R);     /* Y3 = R*(H^2*U1-X3)-H^3*S1 */
+		Field::sub(p3.y, p3.y, p3.x);      /* H^2*U1-X3 */
+		Field::mul(p3.y, p3.y, add.R);     /* R*(H^2*U1-X3) */
+		Field::sub(p3.y, p3.y, dbl.R);     /* Y3 = R*(H^2*U1-X3)-H^3*S1 */
 
 		vec_select(&p3, &p1, &p3, sizeof(Point), p2inf);
 		vec_select(&out, &p2, &p3, sizeof(Point), p1inf);
@@ -1521,47 +1521,47 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		struct { Field H, R, sx; } add, dbl;
 		bool_t p1inf, p2inf, is_dbl;
 
-		p2inf = vec_is_zero(&p2.X, 2 * sizeof(p2.X));
-		Field::add(dbl.sx, p2.X, p2.X);  /* sx = X2+X2 */
-		Field::sqr(dbl.R, p2.X);          /* X2^2 */
+		p2inf = vec_is_zero(&p2.x, 2 * sizeof(p2.x));
+		Field::add(dbl.sx, p2.x, p2.x);  /* sx = X2+X2 */
+		Field::sqr(dbl.R, p2.x);          /* X2^2 */
 		Field::mul_by_3(dbl.R, dbl.R);     /* R = 3*X2^2 */
-		Field::add(dbl.H, p2.Y, p2.Y);   /* H = 2*Y2 */
+		Field::add(dbl.H, p2.y, p2.y);   /* H = 2*Y2 */
 
-		p1inf = vec_is_zero(&p1.Z, sizeof(p1.Z));
-		Field::sqr(add.H, p1.Z);          /* Z1^2 */
-		Field::mul(add.R, add.H, p1.Z);   /* Z1^3 */
-		Field::mul(add.R, add.R, p2.Y);   /* S2 = Y2*Z1^3 */
-		Field::sub(add.R, add.R, p1.Y);   /* R = S2-Y1 */
+		p1inf = vec_is_zero(&p1.z, sizeof(p1.z));
+		Field::sqr(add.H, p1.z);          /* Z1^2 */
+		Field::mul(add.R, add.H, p1.z);   /* Z1^3 */
+		Field::mul(add.R, add.R, p2.y);   /* S2 = Y2*Z1^3 */
+		Field::sub(add.R, add.R, p1.y);   /* R = S2-Y1 */
 
-		Field::mul(add.H, add.H, p2.X);   /* U2 = X2*Z1^2 */
+		Field::mul(add.H, add.H, p2.x);   /* U2 = X2*Z1^2 */
 
-		Field::add(add.sx, add.H, p1.X);  /* sx = X1+U2 */
-		Field::sub(add.H, add.H, p1.X);   /* H = U2-X1 */
+		Field::add(add.sx, add.H, p1.x);  /* sx = X1+U2 */
+		Field::sub(add.H, add.H, p1.x);   /* H = U2-X1 */
 
-		Field::mul(p3.Z, add.H, p1.Z);    /* Z3 = H*Z1 */
+		Field::mul(p3.z, add.H, p1.z);    /* Z3 = H*Z1 */
 
 		/* make the choice between addition and doubling */
 		is_dbl = vec_is_zero(&add.H, 2 * sizeof(add.H));
-		vec_select(&p3.X, &p2, &p1, 2 * sizeof(p3.X), is_dbl);
-		vec_select(&p3.Z, &dbl.H, &p3.Z, sizeof(p3.Z), is_dbl);
+		vec_select(&p3.x, &p2, &p1, 2 * sizeof(p3.x), is_dbl);
+		vec_select(&p3.z, &dbl.H, &p3.z, sizeof(p3.z), is_dbl);
 		vec_select(&add, &dbl, &add, sizeof(add), is_dbl);
 		/* |p3| and |add| hold all inputs now, |p3| will hold output */
 
 		Field::sqr(dbl.H, add.H);          /* H^2 */
 		Field::mul(dbl.R, dbl.H, add.H);   /* H^3 */
-		Field::mul(dbl.R, dbl.R, p3.Y);    /* H^3*S1 */
-		Field::mul(p3.Y, dbl.H, p3.X);     /* H^2*U1 */
+		Field::mul(dbl.R, dbl.R, p3.y);    /* H^3*S1 */
+		Field::mul(p3.y, dbl.H, p3.x);     /* H^2*U1 */
 
 		Field::mul(dbl.H, dbl.H, add.sx);  /* H^2*sx */
-		Field::sqr(p3.X, add.R);           /* R^2 */
-		Field::sub(p3.X, p3.X, dbl.H);     /* X3 = R^2-H^2*sx */
+		Field::sqr(p3.x, add.R);           /* R^2 */
+		Field::sub(p3.x, p3.x, dbl.H);     /* X3 = R^2-H^2*sx */
 
-		Field::sub(p3.Y, p3.Y, p3.X);      /* H^2*U1-X3 */
-		Field::mul(p3.Y, p3.Y, add.R);     /* R*(H^2*U1-X3) */
-		Field::sub(p3.Y, p3.Y, dbl.R);     /* Y3 = R*(H^2*U1-X3)-H^3*S1 */
+		Field::sub(p3.y, p3.y, p3.x);      /* H^2*U1-X3 */
+		Field::mul(p3.y, p3.y, add.R);     /* R*(H^2*U1-X3) */
+		Field::sub(p3.y, p3.y, dbl.R);     /* Y3 = R*(H^2*U1-X3)-H^3*S1 */
 
-		vec_select(&p3.X, &p2, &p3.X, 2 * sizeof(p3.X), p1inf);
-		vec_select(&p3.Z, &Field::one(), &p3.Z, sizeof(p3.Z), p1inf);
+		vec_select(&p3.x, &p2, &p3.x, 2 * sizeof(p3.x), p1inf);
+		vec_select(&p3.z, &Field::one(), &p3.z, sizeof(p3.z), p1inf);
 		vec_select(&out, &p1, &p3, sizeof(p3), p2inf);
 	}
 	template BLST_HD BLST_CPP_INLINE void Point<Fp>::dadd(Point<Fp>& out, const Point<Fp>& p1, const AffinePoint<Fp>& p2);
@@ -1579,23 +1579,23 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		Field Z1Z1, Z2Z2, U1, S1, H, I, J;
 		bool_t p1inf, p2inf;
 
-		p1inf = vec_is_zero(&p1.Z, sizeof(p1.Z));
-		Field::sqr(Z1Z1, p1.Z);           /* Z1Z1 = Z1^2 */
+		p1inf = vec_is_zero(&p1.z, sizeof(p1.z));
+		Field::sqr(Z1Z1, p1.z);           /* Z1Z1 = Z1^2 */
 
-		Field::mul(p3.Z, Z1Z1, p1.Z);     /* Z1*Z1Z1 */
-		Field::mul(p3.Z, p3.Z, p2.Y);     /* S2 = Y2*Z1*Z1Z1 */
+		Field::mul(p3.z, Z1Z1, p1.z);     /* Z1*Z1Z1 */
+		Field::mul(p3.z, p3.z, p2.y);     /* S2 = Y2*Z1*Z1Z1 */
 
-		p2inf = vec_is_zero(&p2.Z, sizeof(p2.Z));
-		Field::sqr(Z2Z2, p2.Z);           /* Z2Z2 = Z2^2 */
+		p2inf = vec_is_zero(&p2.z, sizeof(p2.z));
+		Field::sqr(Z2Z2, p2.z);           /* Z2Z2 = Z2^2 */
 
-		Field::mul(S1, Z2Z2, p2.Z);       /* Z2*Z2Z2 */
-		Field::mul(S1, S1, p1.Y);         /* S1 = Y1*Z2*Z2Z2 */
+		Field::mul(S1, Z2Z2, p2.z);       /* Z2*Z2Z2 */
+		Field::mul(S1, S1, p1.y);         /* S1 = Y1*Z2*Z2Z2 */
 
-		Field::sub(p3.Z, p3.Z, S1);        /* S2-S1 */
-		Field::add(p3.Z, p3.Z, p3.Z);      /* r = 2*(S2-S1) */
+		Field::sub(p3.z, p3.z, S1);        /* S2-S1 */
+		Field::add(p3.z, p3.z, p3.z);      /* r = 2*(S2-S1) */
 
-		Field::mul(U1, p1.X, Z2Z2);       /* U1 = X1*Z2Z2 */
-		Field::mul(H, p2.X, Z1Z1);       /* U2 = X2*Z1Z1 */
+		Field::mul(U1, p1.x, Z2Z2);       /* U1 = X1*Z2Z2 */
+		Field::mul(H, p2.x, Z1Z1);       /* U2 = X2*Z1Z1 */
 
 		Field::sub(H, H, U1);              /* H = U2-U1 */
 
@@ -1605,23 +1605,23 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		Field::mul(J, H, I);               /* J = H*I */
 		Field::mul(S1, S1, J);             /* S1*J */
 
-		Field::mul(p3.Y, U1, I);           /* V = U1*I */
+		Field::mul(p3.y, U1, I);           /* V = U1*I */
 
-		Field::sqr(p3.X, p3.Z);            /* r^2 */
-		Field::sub(p3.X, p3.X, J);         /* r^2-J */
-		Field::sub(p3.X, p3.X, p3.Y);
-		Field::sub(p3.X, p3.X, p3.Y);      /* X3 = r^2-J-2*V */
+		Field::sqr(p3.x, p3.z);            /* r^2 */
+		Field::sub(p3.x, p3.x, J);         /* r^2-J */
+		Field::sub(p3.x, p3.x, p3.y);
+		Field::sub(p3.x, p3.x, p3.y);      /* X3 = r^2-J-2*V */
 
-		Field::sub(p3.Y, p3.Y, p3.X);      /* V-X3 */
-		Field::mul(p3.Y, p3.Y, p3.Z);      /* r*(V-X3) */
-		Field::sub(p3.Y, p3.Y, S1);
-		Field::sub(p3.Y, p3.Y, S1);        /* Y3 = r*(V-X3)-2*S1*J */
+		Field::sub(p3.y, p3.y, p3.x);      /* V-X3 */
+		Field::mul(p3.y, p3.y, p3.z);      /* r*(V-X3) */
+		Field::sub(p3.y, p3.y, S1);
+		Field::sub(p3.y, p3.y, S1);        /* Y3 = r*(V-X3)-2*S1*J */
 
-		Field::add(p3.Z, p1.Z, p2.Z);    /* Z1+Z2 */
-		Field::sqr(p3.Z, p3.Z);            /* (Z1+Z2)^2 */
-		Field::sub(p3.Z, p3.Z, Z1Z1);      /* (Z1+Z2)^2-Z1Z1 */
-		Field::sub(p3.Z, p3.Z, Z2Z2);      /* (Z1+Z2)^2-Z1Z1-Z2Z2 */
-		Field::mul(p3.Z, p3.Z, H);         /* Z3 = ((Z1+Z2)^2-Z1Z1-Z2Z2)*H */
+		Field::add(p3.z, p1.z, p2.z);    /* Z1+Z2 */
+		Field::sqr(p3.z, p3.z);            /* (Z1+Z2)^2 */
+		Field::sub(p3.z, p3.z, Z1Z1);      /* (Z1+Z2)^2-Z1Z1 */
+		Field::sub(p3.z, p3.z, Z2Z2);      /* (Z1+Z2)^2-Z1Z1-Z2Z2 */
+		Field::mul(p3.z, p3.z, H);         /* Z3 = ((Z1+Z2)^2-Z1Z1-Z2Z2)*H */
 
 		vec_select(&p3, &p1, &p3, sizeof(Point), p2inf);
 		vec_select(&out, &p2, &p3, sizeof(Point), p1inf);
@@ -1645,47 +1645,47 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		Field Z1Z1, H, HH, I, J;
 		bool_t p1inf, p2inf;
 
-		p1inf = vec_is_zero(&p1.Z, sizeof(p1.Z));
+		p1inf = vec_is_zero(&p1.z, sizeof(p1.z));
 
-		Field::sqr(Z1Z1, p1.Z);           /* Z1Z1 = Z1^2 */
+		Field::sqr(Z1Z1, p1.z);           /* Z1Z1 = Z1^2 */
 
 
-		Field::mul(p3.Z, Z1Z1, p1.Z);     /* Z1*Z1Z1 */
-		Field::mul(p3.Z, p3.Z, p2.Y);     /* S2 = Y2*Z1*Z1Z1 */
+		Field::mul(p3.z, Z1Z1, p1.z);     /* Z1*Z1Z1 */
+		Field::mul(p3.z, p3.z, p2.y);     /* S2 = Y2*Z1*Z1Z1 */
 
-		p2inf = vec_is_zero(&p2.X, 2 * sizeof(p2.X));
+		p2inf = vec_is_zero(&p2.x, 2 * sizeof(p2.x));
 
-		Field::mul(H, p2.X, Z1Z1);        /* U2 = X2*Z1Z1 */
-		Field::sub(H, H, p1.X);           /* H = U2-X1 */
+		Field::mul(H, p2.x, Z1Z1);        /* U2 = X2*Z1Z1 */
+		Field::sub(H, H, p1.x);           /* H = U2-X1 */
 
 		Field::sqr(HH, H);                 /* HH = H^2 */
 		Field::add(I, HH, HH);
 		Field::add(I, I, I);               /* I = 4*HH */
 
-		Field::mul(p3.Y, p1.X, I);        /* V = X1*I */
+		Field::mul(p3.y, p1.x, I);        /* V = X1*I */
 		Field::mul(J, H, I);               /* J = H*I */
-		Field::mul(I, J, p1.Y);           /* Y1*J */
+		Field::mul(I, J, p1.y);           /* Y1*J */
 
-		Field::sub(p3.Z, p3.Z, p1.Y);     /* S2-Y1 */
-		Field::add(p3.Z, p3.Z, p3.Z);      /* r = 2*(S2-Y1) */
+		Field::sub(p3.z, p3.z, p1.y);     /* S2-Y1 */
+		Field::add(p3.z, p3.z, p3.z);      /* r = 2*(S2-Y1) */
 
-		Field::sqr(p3.X, p3.Z);            /* r^2 */
-		Field::sub(p3.X, p3.X, J);         /* r^2-J */
-		Field::sub(p3.X, p3.X, p3.Y);
-		Field::sub(p3.X, p3.X, p3.Y);      /* X3 = r^2-J-2*V */
+		Field::sqr(p3.x, p3.z);            /* r^2 */
+		Field::sub(p3.x, p3.x, J);         /* r^2-J */
+		Field::sub(p3.x, p3.x, p3.y);
+		Field::sub(p3.x, p3.x, p3.y);      /* X3 = r^2-J-2*V */
 
-		Field::sub(p3.Y, p3.Y, p3.X);      /* V-X3 */
-		Field::mul(p3.Y, p3.Y, p3.Z);      /* r*(V-X3) */
-		Field::sub(p3.Y, p3.Y, I);
-		Field::sub(p3.Y, p3.Y, I);         /* Y3 = r*(V-X3)-2*Y1*J */
+		Field::sub(p3.y, p3.y, p3.x);      /* V-X3 */
+		Field::mul(p3.y, p3.y, p3.z);      /* r*(V-X3) */
+		Field::sub(p3.y, p3.y, I);
+		Field::sub(p3.y, p3.y, I);         /* Y3 = r*(V-X3)-2*Y1*J */
 
-		Field::add(p3.Z, p1.Z, H);        /* Z1+H */
-		Field::sqr(p3.Z, p3.Z);            /* (Z1+H)^2 */
-		Field::sub(p3.Z, p3.Z, Z1Z1);      /* (Z1+H)^2-Z1Z1 */
-		Field::sub(p3.Z, p3.Z, HH);        /* Z3 = (Z1+H)^2-Z1Z1-HH */
+		Field::add(p3.z, p1.z, H);        /* Z1+H */
+		Field::sqr(p3.z, p3.z);            /* (Z1+H)^2 */
+		Field::sub(p3.z, p3.z, Z1Z1);      /* (Z1+H)^2-Z1Z1 */
+		Field::sub(p3.z, p3.z, HH);        /* Z3 = (Z1+H)^2-Z1Z1-HH */
 
-		vec_select(&p3.Z, &Fp::one(), &p3.Z, sizeof(p3.Z), p1inf);
-		vec_select(&p3.X, &p2, &p3.X, 2 * sizeof(p3.X), p1inf);
+		vec_select(&p3.z, &Fp::one(), &p3.z, sizeof(p3.z), p1inf);
+		vec_select(&p3.x, &p2, &p3.x, 2 * sizeof(p3.x), p1inf);
 		vec_select(&out, &p1, &p3, sizeof(Point), p2inf);
 	}
 	template BLST_HD BLST_CPP_INLINE void Point<Fp>::add(Point<Fp>& out, const Point<Fp>& p1, const AffinePoint<Fp>& p2);
@@ -1701,11 +1701,11 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	{
 		Field A, B, C;
 
-		Field::sqr(A, p1.X);              /* A = X1^2 */
-		Field::sqr(B, p1.Y);              /* B = Y1^2 */
+		Field::sqr(A, p1.x);              /* A = X1^2 */
+		Field::sqr(B, p1.y);              /* B = Y1^2 */
 		Field::sqr(C, B);                  /* C = B^2 */
 
-		Field::add(B, B, p1.X);           /* X1+B */
+		Field::add(B, B, p1.x);           /* X1+B */
 		Field::sqr(B, B);                  /* (X1+B)^2 */
 		Field::sub(B, B, A);               /* (X1+B)^2-A */
 		Field::sub(B, B, C);               /* (X1+B)^2-A-C */
@@ -1713,17 +1713,17 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 		Field::mul_by_3(A, A);             /* E = 3*A */
 
-		Field::sqr(p3.X, A);              /* F = E^2 */
-		Field::sub(p3.X, p3.X, B);
-		Field::sub(p3.X, p3.X, B);       /* X3 = F-2*D */
+		Field::sqr(p3.x, A);              /* F = E^2 */
+		Field::sub(p3.x, p3.x, B);
+		Field::sub(p3.x, p3.x, B);       /* X3 = F-2*D */
 
-		Field::add(p3.Z, p1.Z, p1.Z);   /* 2*Z1 */
-		Field::mul(p3.Z, p3.Z, p1.Y);   /* Z3 = 2*Z1*Y1 */
+		Field::add(p3.z, p1.z, p1.z);   /* 2*Z1 */
+		Field::mul(p3.z, p3.z, p1.y);   /* Z3 = 2*Z1*Y1 */
 
 		Field::mul_by_8(C, C);             /* 8*C */
-		Field::sub(p3.Y, B, p3.X);       /* D-X3 */
-		Field::mul(p3.Y, p3.Y, A);       /* E*(D-X3) */
-		Field::sub(p3.Y, p3.Y, C);       /* Y3 = E*(D-X3)-8*C */
+		Field::sub(p3.y, B, p3.x);       /* D-X3 */
+		Field::mul(p3.y, p3.y, A);       /* E*(D-X3) */
+		Field::sub(p3.y, p3.y, C);       /* Y3 = E*(D-X3)-8*C */
 	}
 	template BLST_HD BLST_CPP_INLINE void Point<Fp>::doubling(Point<Fp>& p3, const Point<Fp>& p1);
 	template BLST_HD BLST_CPP_INLINE void Point<Fp2>::doubling(Point<Fp2>& p3, const Point<Fp2>& p1);
@@ -1743,19 +1743,19 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	{
 		Field U, S, P, R;
 
-		if (vec_is_zero(&p2.ZZZ, 2 * sizeof(p2.ZZZ))) {
+		if (vec_is_zero(&p2.zzz, 2 * sizeof(p2.zzz))) {
 			vec_copy(&p3, &p1, sizeof(p3));
 			return;
 		}
-		else if (vec_is_zero(&p1.ZZZ, 2 * sizeof(p1.ZZZ))) {
+		else if (vec_is_zero(&p1.zzz, 2 * sizeof(p1.zzz))) {
 			vec_copy(&p3, &p2, sizeof(p3));
 			return;
 		}
 
-		Field::mul(U, p1.X, p2.ZZ);              /* U1 = X1*ZZ2 */
-		Field::mul(S, p1.Y, p2.ZZZ);             /* S1 = Y1*ZZZ2 */
-		Field::mul(P, p2.X, p1.ZZ);              /* U2 = X2*ZZ1 */
-		Field::mul(R, p2.Y, p1.ZZZ);             /* S2 = Y2*ZZZ1 */
+		Field::mul(U, p1.x, p2.zz);              /* U1 = X1*ZZ2 */
+		Field::mul(S, p1.y, p2.zzz);             /* S1 = Y1*ZZZ2 */
+		Field::mul(P, p2.x, p1.zz);              /* U2 = X2*ZZ1 */
+		Field::mul(R, p2.y, p1.zzz);             /* S2 = Y2*ZZZ1 */
 		Field::sub(P, P, U);                       /* P = U2-U1 */
 		Field::sub(R, R, S);                       /* R = S2-S1 */
 
@@ -1765,40 +1765,40 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			Field::sqr(PP, P);                     /* PP = P^2 */
 			Field::mul(PPP, PP, P);                /* PPP = P*PP */
 			Field::mul(Q, U, PP);                  /* Q = U1*PP */
-			Field::sqr(p3.X, R);                  /* R^2 */
+			Field::sqr(p3.x, R);                  /* R^2 */
 			Field::add(P, Q, Q);
-			Field::sub(p3.X, p3.X, PPP);         /* R^2-PPP */
-			Field::sub(p3.X, p3.X, P);           /* X3 = R^2-PPP-2*Q */
-			Field::sub(Q, Q, p3.X);
+			Field::sub(p3.x, p3.x, PPP);         /* R^2-PPP */
+			Field::sub(p3.x, p3.x, P);           /* X3 = R^2-PPP-2*Q */
+			Field::sub(Q, Q, p3.x);
 			Field::mul(Q, Q, R);                   /* R*(Q-X3) */
-			Field::mul(p3.Y, S, PPP);             /* S1*PPP */
-			Field::sub(p3.Y, Q, p3.Y);           /* Y3 = R*(Q-X3)-S1*PPP */
-			Field::mul(p3.ZZ, p1.ZZ, p2.ZZ);    /* ZZ1*ZZ2 */
-			Field::mul(p3.ZZZ, p1.ZZZ, p2.ZZZ); /* ZZZ1*ZZZ2 */
-			Field::mul(p3.ZZ, p3.ZZ, PP);        /* ZZ3 = ZZ1*ZZ2*PP */
-			Field::mul(p3.ZZZ, p3.ZZZ, PPP);     /* ZZZ3 = ZZZ1*ZZZ2*PPP */
+			Field::mul(p3.y, S, PPP);             /* S1*PPP */
+			Field::sub(p3.y, Q, p3.y);           /* Y3 = R*(Q-X3)-S1*PPP */
+			Field::mul(p3.zz, p1.zz, p2.zz);    /* ZZ1*ZZ2 */
+			Field::mul(p3.zzz, p1.zzz, p2.zzz); /* ZZZ1*ZZZ2 */
+			Field::mul(p3.zz, p3.zz, PP);        /* ZZ3 = ZZ1*ZZ2*PP */
+			Field::mul(p3.zzz, p3.zzz, PPP);     /* ZZZ3 = ZZZ1*ZZZ2*PPP */
 		}
 		else if (vec_is_zero(&R, sizeof(R))) {     /* X1==X2 && Y1==Y2 */
 			Field V, W, M;                      /* double |p1| */
 
-			Field::add(U, p1.Y, p1.Y);           /* U = 2*Y1 */
+			Field::add(U, p1.y, p1.y);           /* U = 2*Y1 */
 			Field::sqr(V, U);                      /* V = U^2 */
 			Field::mul(W, V, U);                   /* W = U*V */
-			Field::mul(S, p1.X, V);               /* S = X1*V */
-			Field::sqr(M, p1.X);
+			Field::mul(S, p1.x, V);               /* S = X1*V */
+			Field::sqr(M, p1.x);
 			Field::mul_by_3(M, M);                 /* M = 3*X1^2[+a*ZZ1^2] */
-			Field::sqr(p3.X, M);
+			Field::sqr(p3.x, M);
 			Field::add(U, S, S);                   /* 2*S */
-			Field::sub(p3.X, p3.X, U);           /* X3 = M^2-2*S */
-			Field::mul(p3.Y, W, p1.Y);           /* W*Y1 */
-			Field::sub(S, S, p3.X);
+			Field::sub(p3.x, p3.x, U);           /* X3 = M^2-2*S */
+			Field::mul(p3.y, W, p1.y);           /* W*Y1 */
+			Field::sub(S, S, p3.x);
 			Field::mul(S, S, M);                   /* M*(S-X3) */
-			Field::sub(p3.Y, S, p3.Y);           /* Y3 = M*(S-X3)-W*Y1 */
-			Field::mul(p3.ZZ, p1.ZZ, V);         /* ZZ3 = V*ZZ1 */
-			Field::mul(p3.ZZZ, p1.ZZZ, W);       /* ZZ3 = W*ZZZ1 */
+			Field::sub(p3.y, S, p3.y);           /* Y3 = M*(S-X3)-W*Y1 */
+			Field::mul(p3.zz, p1.zz, V);         /* ZZ3 = V*ZZ1 */
+			Field::mul(p3.zzz, p1.zzz, W);       /* ZZ3 = W*ZZZ1 */
 		}
 		else {                                    /* X1==X2 && Y1==-Y2 */
-			vec_zero(&p3.ZZZ, 2 * sizeof(p3.ZZZ));   /* set |p3| to infinity */
+			vec_zero(&p3.zzz, 2 * sizeof(p3.zzz));   /* set |p3| to infinity */
 		}
 	}
 	template BLST_HD BLST_CPP_INLINE void Pointxyzz<Fp>::dadd(Pointxyzz<Fp>& p3, const Pointxyzz<Fp>& p1, const Pointxyzz<Fp>& p2);
@@ -1809,9 +1809,9 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	template<typename Field>
 	BLST_HD BLST_CPP_INLINE  BLST_HD void  Pointxyzz<Field>::from_affine(Pointxyzz<Field>& out, const AffinePoint<Field>& in)
 	{
-		vec_copy(&out.X, &in.X, 2 * sizeof(out.X));
-		vec_copy(&out.ZZ, &Field::one(), sizeof(out.ZZ));
-		vec_copy(&out.ZZZ, &Field::one(), sizeof(out.ZZZ));
+		vec_copy(&out.x, &in.x, 2 * sizeof(out.x));
+		vec_copy(&out.zz, &Field::one(), sizeof(out.zz));
+		vec_copy(&out.zzz, &Field::one(), sizeof(out.zzz));
 	}
 	template BLST_HD BLST_CPP_INLINE void Pointxyzz<Fp>::from_affine(Pointxyzz<Fp>& out, const AffinePoint<Fp>& in);
 	template BLST_HD BLST_CPP_INLINE void Pointxyzz<Fp2>::from_affine(Pointxyzz<Fp2>& out, const AffinePoint<Fp2>& in);
@@ -1837,56 +1837,56 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			vec_copy(&p3, &p1, sizeof(p3));
 			return;
 		}
-		else if (vec_is_zero(&p1.ZZZ, 2 * sizeof(p1.ZZZ))) {
-			vec_copy(&p3.X, &p2.X, 2 * sizeof(p3.X));
-			Field::cneg(p3.ZZZ, Field::one(), subtract);
-			vec_copy(&p3.ZZ, &Field::one(), sizeof(p3.ZZ));
+		else if (vec_is_zero(&p1.zzz, 2 * sizeof(p1.zzz))) {
+			vec_copy(&p3.x, &p2.x, 2 * sizeof(p3.x));
+			Field::cneg(p3.zzz, Field::one(), subtract);
+			vec_copy(&p3.zz, &Field::one(), sizeof(p3.zz));
 			return;
 		}
 
-		Field::mul(P, p2.X, p1.ZZ);              /* U2 = X2*ZZ1 */
-		Field::mul(R, p2.Y, p1.ZZZ);             /* S2 = Y2*ZZZ1 */
+		Field::mul(P, p2.x, p1.zz);              /* U2 = X2*ZZ1 */
+		Field::mul(R, p2.y, p1.zzz);             /* S2 = Y2*ZZZ1 */
 		Field::cneg(R, R, subtract);
-		Field::sub(P, P, p1.X);                   /* P = U2-X1 */
-		Field::sub(R, R, p1.Y);                   /* R = S2-Y1 */
+		Field::sub(P, P, p1.x);                   /* P = U2-X1 */
+		Field::sub(R, R, p1.y);                   /* R = S2-Y1 */
 
 		if (!vec_is_zero(&P, sizeof(P))) {           /* X1!=X2 */
 			Field PP, PPP, Q;                   /* add |p2| to |p1| */
 
 			Field::sqr(PP, P);                     /* PP = P^2 */
 			Field::mul(PPP, PP, P);                /* PPP = P*PP */
-			Field::mul(Q, p1.X, PP);              /* Q = X1*PP */
-			Field::sqr(p3.X, R);                  /* R^2 */
+			Field::mul(Q, p1.x, PP);              /* Q = X1*PP */
+			Field::sqr(p3.x, R);                  /* R^2 */
 			Field::add(P, Q, Q);
-			Field::sub(p3.X, p3.X, PPP);         /* R^2-PPP */
-			Field::sub(p3.X, p3.X, P);           /* X3 = R^2-PPP-2*Q */
-			Field::sub(Q, Q, p3.X);
+			Field::sub(p3.x, p3.x, PPP);         /* R^2-PPP */
+			Field::sub(p3.x, p3.x, P);           /* X3 = R^2-PPP-2*Q */
+			Field::sub(Q, Q, p3.x);
 			Field::mul(Q, Q, R);                   /* R*(Q-X3) */
-			Field::mul(p3.Y, p1.Y, PPP);         /* Y1*PPP */
-			Field::sub(p3.Y, Q, p3.Y);           /* Y3 = R*(Q-X3)-Y1*PPP */
-			Field::mul(p3.ZZ, p1.ZZ, PP);        /* ZZ3 = ZZ1*PP */
-			Field::mul(p3.ZZZ, p1.ZZZ, PPP);     /* ZZZ3 = ZZZ1*PPP */
+			Field::mul(p3.y, p1.y, PPP);         /* Y1*PPP */
+			Field::sub(p3.y, Q, p3.y);           /* Y3 = R*(Q-X3)-Y1*PPP */
+			Field::mul(p3.zz, p1.zz, PP);        /* ZZ3 = ZZ1*PP */
+			Field::mul(p3.zzz, p1.zzz, PPP);     /* ZZZ3 = ZZZ1*PPP */
 		}
 		else if (vec_is_zero(&R, sizeof(R))) {     /* X1==X2 && Y1==Y2 */
 			Field U, S, M;                      /* double |p2| */
 
-			Field::add(U, p2.Y, p2.Y);           /* U = 2*Y1 */
-			Field::sqr(p3.ZZ, U);                 /* [ZZ3 =] V = U^2 */
-			Field::mul(p3.ZZZ, p3.ZZ, U);        /* [ZZZ3 =] W = U*V */
-			Field::mul(S, p2.X, p3.ZZ);          /* S = X1*V */
-			Field::sqr(M, p2.X);
+			Field::add(U, p2.y, p2.y);           /* U = 2*Y1 */
+			Field::sqr(p3.zz, U);                 /* [ZZ3 =] V = U^2 */
+			Field::mul(p3.zzz, p3.zz, U);        /* [ZZZ3 =] W = U*V */
+			Field::mul(S, p2.x, p3.zz);          /* S = X1*V */
+			Field::sqr(M, p2.x);
 			Field::mul_by_3(M, M);                 /* M = 3*X1^2[+a] */
-			Field::sqr(p3.X, M);
+			Field::sqr(p3.x, M);
 			Field::add(U, S, S);                   /* 2*S */
-			Field::sub(p3.X, p3.X, U);           /* X3 = M^2-2*S */
-			Field::mul(p3.Y, p3.ZZZ, p2.Y);     /* W*Y1 */
-			Field::sub(S, S, p3.X);
+			Field::sub(p3.x, p3.x, U);           /* X3 = M^2-2*S */
+			Field::mul(p3.y, p3.zzz, p2.y);     /* W*Y1 */
+			Field::sub(S, S, p3.x);
 			Field::mul(S, S, M);                   /* M*(S-X3) */
-			Field::sub(p3.Y, S, p3.Y);           /* Y3 = M*(S-X3)-W*Y1 */
-			Field::cneg(p3.ZZZ, p3.ZZZ, subtract);
+			Field::sub(p3.y, S, p3.y);           /* Y3 = M*(S-X3)-W*Y1 */
+			Field::cneg(p3.zzz, p3.zzz, subtract);
 		}
 		else {                                    /* X1==X2 && Y1==-Y2 */
-			vec_zero(&p3.ZZZ, 2 * sizeof(p3.ZZZ));   /* set |p3| to infinity */
+			vec_zero(&p3.zzz, 2 * sizeof(p3.zzz));   /* set |p3| to infinity */
 		}
 	}
 	template BLST_HD BLST_CPP_INLINE void Pointxyzz<Fp>::dadd(Pointxyzz<Fp>& p3, const Pointxyzz<Fp>& p1, const AffinePoint<Fp>& p2, bool_t subtract);
@@ -1908,9 +1908,9 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	template<typename Field>
 	BLST_HD BLST_CPP_INLINE void Pointxyzz<Field>::to_Jacobian(Point<Field>& out, const Pointxyzz<Field>& in)
 	{
-		Field::mul(out.X, in.X, in.ZZ);
-		Field::mul(out.Y, in.Y, in.ZZZ);
-		vec_copy(&out.Z, &in.ZZ, sizeof(out.Z));
+		Field::mul(out.x, in.x, in.zz);
+		Field::mul(out.y, in.y, in.zzz);
+		vec_copy(&out.z, &in.zz, sizeof(out.z));
 	}
 	template BLST_HD BLST_CPP_INLINE void Pointxyzz<Fp>::to_Jacobian(Point<Fp>& out, const Pointxyzz<Fp>& in);
 	template BLST_HD BLST_CPP_INLINE void Pointxyzz<Fp2>::to_Jacobian(Point<Fp2>& out, const Pointxyzz<Fp2>& in);
@@ -1919,9 +1919,9 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	template<typename Field>
 	BLST_HD BLST_CPP_INLINE void Point<Field>::to_xyzz(Pointxyzz<Field>& out, const Point<Field>& in)
 	{
-		vec_copy(&out.X, &in.X, 2 * sizeof(out.X));
-		Field::sqr(out.ZZ, in.Z);
-		Field::mul(out.ZZZ, out.ZZ, in.Z);
+		vec_copy(&out.x, &in.x, 2 * sizeof(out.x));
+		Field::sqr(out.zz, in.z);
+		Field::mul(out.zzz, out.zz, in.z);
 	}
 	template BLST_HD BLST_CPP_INLINE void Point<Fp>::to_xyzz(Pointxyzz<Fp>& out, const Point<Fp>& in);
 	template BLST_HD BLST_CPP_INLINE void Point<Fp2>::to_xyzz(Pointxyzz<Fp2>& out, const Point<Fp2>& in);

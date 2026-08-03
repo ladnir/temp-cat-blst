@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef __BLST_MIDDLE_PRODUCT_H__
-#define __BLST_MIDDLE_PRODUCT_H__
+#ifndef BLST_MIDDLE_PRODUCT_H
+#define BLST_MIDDLE_PRODUCT_H
 
 #include "blst_types.h"
 

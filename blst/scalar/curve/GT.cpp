@@ -89,13 +89,13 @@ Fp6{                                                                      \
          * https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
          * with XYZ3 being |T|, XYZ1 - |R|, XY2 - |Q|, i.e. Q is affine
          */
-        Fp2::sqr(Z1Z1, R.Z);                /* Z1Z1 = Z1^2 */
-        Fp2::mul(U2, Q.X, Z1Z1);            /* U2 = X2*Z1Z1 */
+        Fp2::sqr(Z1Z1, R.z);                /* Z1Z1 = Z1^2 */
+        Fp2::mul(U2, Q.x, Z1Z1);            /* U2 = X2*Z1Z1 */
 
-        Fp2::mul(S2, Q.Y, R.Z);
+        Fp2::mul(S2, Q.y, R.z);
         Fp2::mul(S2, S2, Z1Z1);              /* S2 = Y2*Z1*Z1Z1 */
 
-        Fp2::sub(H, U2, R.X);               /* H = U2-X1 */
+        Fp2::sub(H, U2, R.x);               /* H = U2-X1 */
 
         Fp2::sqr(HH, H);                     /* HH = H^2 */
         Fp2::add(I, HH, HH);
@@ -103,32 +103,32 @@ Fp6{                                                                      \
 
         Fp2::mul(J, H, I);                   /* J = H*I */
 
-        Fp2::sub(r, S2, R.Y);
+        Fp2::sub(r, S2, R.y);
         Fp2::add(r, r, r);                   /* r = 2*(S2-Y1) */
 
-        Fp2::mul(V, R.X, I);                /* V = X1*I */
+        Fp2::mul(V, R.x, I);                /* V = X1*I */
 
-        Fp2::sqr(T.X, r);
-        Fp2::sub(T.X, T.X, J);
-        Fp2::sub(T.X, T.X, V);
-        Fp2::sub(T.X, T.X, V);             /* X3 = r^2-J-2*V */
+        Fp2::sqr(T.x, r);
+        Fp2::sub(T.x, T.x, J);
+        Fp2::sub(T.x, T.x, V);
+        Fp2::sub(T.x, T.x, V);             /* X3 = r^2-J-2*V */
 
-        Fp2::mul(J, J, R.Y);
-        Fp2::sub(T.Y, V, T.X);
-        Fp2::mul(T.Y, T.Y, r);
-        Fp2::sub(T.Y, T.Y, J);
-        Fp2::sub(T.Y, T.Y, J);             /* Y3 = r*(V-X3)-2*Y1*J */
+        Fp2::mul(J, J, R.y);
+        Fp2::sub(T.y, V, T.x);
+        Fp2::mul(T.y, T.y, r);
+        Fp2::sub(T.y, T.y, J);
+        Fp2::sub(T.y, T.y, J);             /* Y3 = r*(V-X3)-2*Y1*J */
 
-        Fp2::add(T.Z, R.Z, H);
-        Fp2::sqr(T.Z, T.Z);
-        Fp2::sub(T.Z, T.Z, Z1Z1);
-        Fp2::sub(T.Z, T.Z, HH);            /* Z3 = (Z1+H)^2-Z1Z1-HH */
+        Fp2::add(T.z, R.z, H);
+        Fp2::sqr(T.z, T.z);
+        Fp2::sub(T.z, T.z, Z1Z1);
+        Fp2::sub(T.z, T.z, HH);            /* Z3 = (Z1+H)^2-Z1Z1-HH */
 
         /*
          * line evaluation
          */
-        Fp2::mul(I, r, Q.X);
-        Fp2::mul(J, Q.Y, T.Z);
+        Fp2::mul(I, r, Q.x);
+        Fp2::mul(J, Q.y, T.z);
         Fp2::sub(I, I, J);
         Fp2::add(line[0], I, I);          /* 2*(r*X2 - Y2*Z3) */
 #ifdef r
@@ -136,7 +136,7 @@ Fp6{                                                                      \
 #else
         vec_copy(&line[1], &r, sizeof(r));
 #endif
-        vec_copy(&line[2], &T.Z, sizeof(T.Z));
+        vec_copy(&line[2], &T.z, sizeof(T.z));
     }
 
     BLST_HD void line_dbl(Fp6& line, G2Point& T, const G2Point& Q)
@@ -146,12 +146,12 @@ Fp6{                                                                      \
         /*
          * https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-alnr
          */
-        Fp2::sqr(A, Q.X);                   /* A = X1^2 */
-        Fp2::sqr(B, Q.Y);                   /* B = Y1^2 */
-        Fp2::sqr(ZZ, Q.Z);                  /* ZZ = Z1^2 */
+        Fp2::sqr(A, Q.x);                   /* A = X1^2 */
+        Fp2::sqr(B, Q.y);                   /* B = Y1^2 */
+        Fp2::sqr(ZZ, Q.z);                  /* ZZ = Z1^2 */
         Fp2::sqr(C, B);                      /* C = B^2 */
 
-        Fp2::add(D, Q.X, B);                /* X1+B */
+        Fp2::add(D, Q.x, B);                /* X1+B */
         Fp2::sqr(D, D);                      /* (X1+B)^2 */
         Fp2::sub(D, D, A);                   /* (X1+B)^2-A */
         Fp2::sub(D, D, C);                   /* (X1+B)^2-A-C */
@@ -160,20 +160,20 @@ Fp6{                                                                      \
         Fp2::mul_by_3(E, A);                 /* E = 3*A */
         Fp2::sqr(F, E);                      /* F = E^2 */
 
-        Fp2::add(line[0], E, Q.X);          /* 3*A+X1 for line evaluation */
+        Fp2::add(line[0], E, Q.x);          /* 3*A+X1 for line evaluation */
 
-        Fp2::sub(T.X, F, D);
-        Fp2::sub(T.X, T.X, D);             /* X3 = F-2*D */
+        Fp2::sub(T.x, F, D);
+        Fp2::sub(T.x, T.x, D);             /* X3 = F-2*D */
 
-        Fp2::add(T.Z, Q.Y, Q.Z);
-        Fp2::sqr(T.Z, T.Z);
-        Fp2::sub(T.Z, T.Z, B);
-        Fp2::sub(T.Z, T.Z, ZZ);            /* Z3 = (Y1+Z1)^2-B-ZZ */
+        Fp2::add(T.z, Q.y, Q.z);
+        Fp2::sqr(T.z, T.z);
+        Fp2::sub(T.z, T.z, B);
+        Fp2::sub(T.z, T.z, ZZ);            /* Z3 = (Y1+Z1)^2-B-ZZ */
 
         Fp2::mul_by_8(C, C);                 /* 8*C */
-        Fp2::sub(T.Y, D, T.X);             /* D-X3 */
-        Fp2::mul(T.Y, T.Y, E);             /* E*(D-X3) */
-        Fp2::sub(T.Y, T.Y, C);             /* Y3 = E*(D-X3)-8*C */
+        Fp2::sub(T.y, D, T.x);             /* D-X3 */
+        Fp2::mul(T.y, T.y, E);             /* E*(D-X3) */
+        Fp2::sub(T.y, T.y, C);             /* Y3 = E*(D-X3)-8*C */
 
         /*
          * line evaluation
@@ -186,16 +186,16 @@ Fp6{                                                                      \
 
         Fp2::mul(line[1], E, ZZ);            /* 3*X1^2 * Z1^2 */
 
-        Fp2::mul(line[2], T.Z, ZZ);         /* Z3 * Z1^2 */
+        Fp2::mul(line[2], T.z, ZZ);         /* Z3 * Z1^2 */
     }
 
     BLST_HD void line_by_Px2(Fp6& line, const G1AffinePoint& Px2)
     {
-        Fp::mul(line[1][0], line[1][0], Px2.X);   /* "b01" *= -2*P.X */
-        Fp::mul(line[1][1], line[1][1], Px2.X);
+        Fp::mul(line[1][0], line[1][0], Px2.x);   /* "b01" *= -2*P.x */
+        Fp::mul(line[1][1], line[1][1], Px2.x);
 
-        Fp::mul(line[2][0], line[2][0], Px2.Y);   /* "b11" *= 2*P.Y */
-        Fp::mul(line[2][1], line[2][1], Px2.Y);
+        Fp::mul(line[2][0], line[2][0], Px2.y);   /* "b11" *= 2*P.y */
+        Fp::mul(line[2][1], line[2][1], Px2.y);
     }
 
     BLST_HD void start_dbl_n(
@@ -278,13 +278,13 @@ Fp6{                                                                      \
                 }
 
                 /* Move common expression from line evaluation to line_by_Px2.  */
-                Fp::add(Px2[batch].X, P[offset].X, P[offset].X);
-                Fp::neg(Px2[batch].X, Px2[batch].X);
-                Fp::add(Px2[batch].Y, P[offset].Y, P[offset].Y);
+                Fp::add(Px2[batch].x, P[offset].x, P[offset].x);
+                Fp::neg(Px2[batch].x, Px2[batch].x);
+                Fp::add(Px2[batch].y, P[offset].y, P[offset].y);
 
-                vec_copy(&Qbatch[batch].X, &Q[offset].X, 2 * sizeof(Qbatch[batch].X));
-                vec_copy(&T[batch].X, &Q[offset].X, 2 * sizeof(T[batch].X));
-                vec_copy(&T[batch].Z, &get_BLST_Rx().p2, sizeof(T[batch].Z));
+                vec_copy(&Qbatch[batch].x, &Q[offset].x, 2 * sizeof(Qbatch[batch].x));
+                vec_copy(&T[batch].x, &Q[offset].x, 2 * sizeof(T[batch].x));
+                vec_copy(&T[batch].z, &get_BLST_Rx().p2, sizeof(T[batch].z));
                 ++batch;
                 ++offset;
             }
@@ -319,8 +319,8 @@ Fp6{                                                                      \
     {
         G2Point T;
 
-        vec_copy(&T.X, &Q.X, 2 * sizeof(T.X));
-        vec_copy(&T.Z, &get_BLST_Rx().p2, sizeof(T.Z));
+        vec_copy(&T.x, &Q.x, 2 * sizeof(T.x));
+        vec_copy(&T.z, &get_BLST_Rx().p2, sizeof(T.z));
 
         line_dbl(Qlines[0], T, T);                  /* 0x2                  */
         pre_add_n_dbl(&Qlines[1], T, Q, 2);        /* ..0xc                */
@@ -335,11 +335,11 @@ Fp6{                                                                      \
     {
         vec_copy(&out[0], &in[0], sizeof(out[0]));
 
-        Fp::mul(out[1][0], in[1][0], Px2.X);        /* "b01" *= -2*P.X */
-        Fp::mul(out[1][1], in[1][1], Px2.X);
+        Fp::mul(out[1][0], in[1][0], Px2.x);        /* "b01" *= -2*P.x */
+        Fp::mul(out[1][1], in[1][1], Px2.x);
 
-        Fp::mul(out[2][0], in[2][0], Px2.Y);        /* "b11" *= 2*P.Y */
-        Fp::mul(out[2][1], in[2][1], Px2.Y);
+        Fp::mul(out[2][0], in[2][0], Px2.y);        /* "b11" *= 2*P.y */
+        Fp::mul(out[2][1], in[2][1], Px2.y);
     }
 
     BLST_HD void post_add_n_dbl(GT& ret, const Fp6 lines[],
@@ -409,9 +409,9 @@ Fp6{                                                                      \
         Fp6 line; /* it's not actual fp6, but 3 packed fp2, "xy00z0"  */
 
         /* Move common expression from line evaluation to line_by_Px2. */
-        Fp::add(Px2.X, P.X, P.X);
-        Fp::neg(Px2.X, Px2.X);
-        Fp::add(Px2.Y, P.Y, P.Y);
+        Fp::add(Px2.x, P.x, P.x);
+        Fp::neg(Px2.x, Px2.x);
+        Fp::add(Px2.y, P.y, P.y);
 
         /* first step is ret = 1^2*line, which is replaced with ret = line  */
         post_line_by_Px2(line, Qlines[0], Px2);     /* 0x2                  */
@@ -456,9 +456,9 @@ Fp6{                                                                      \
             }
 
             line_batch[batch] = lines_ptr;
-            Fp::add(Px2[batch].X, pptr->X, pptr->X);
-            Fp::neg(Px2[batch].X, Px2[batch].X);
-            Fp::add(Px2[batch].Y, pptr->Y, pptr->Y);
+            Fp::add(Px2[batch].x, pptr->x, pptr->x);
+            Fp::neg(Px2[batch].x, Px2[batch].x);
+            Fp::add(Px2[batch].y, pptr->y, pptr->y);
             ++batch;
 
             if (batch == MILLER_LOOP_N_MAX) {
@@ -547,13 +547,13 @@ Fp6{                                                                      \
 
             if (!G2AffinePoint::is_inf(*Qptr) && !G1AffinePoint::is_inf(*Pptr)) {
                 /* Move common expression from line evaluation to line_by_Px2.  */
-                Fp::add(Px2[i].X, Pptr->X, Pptr->X);
-                Fp::neg(Px2[i].X, Px2[i].X);
-                Fp::add(Px2[i].Y, Pptr->Y, Pptr->Y);
+                Fp::add(Px2[i].x, Pptr->x, Pptr->x);
+                Fp::neg(Px2[i].x, Px2[i].x);
+                Fp::add(Px2[i].y, Pptr->y, Pptr->y);
 
-                vec_copy(&Q[i].X, &Qptr->X, 2 * sizeof(Q[i].X));
-                vec_copy(&T[i].X, &Qptr->X, 2 * sizeof(T[i].X));
-                vec_copy(&T[i].Z, &get_BLST_Rx().p2, sizeof(T[i].Z));
+                vec_copy(&Q[i].x, &Qptr->x, 2 * sizeof(Q[i].x));
+                vec_copy(&T[i].x, &Qptr->x, 2 * sizeof(T[i].x));
+                vec_copy(&T[i].z, &get_BLST_Rx().p2, sizeof(T[i].z));
                 ++i;
             }
 

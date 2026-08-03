@@ -236,7 +236,7 @@ TEST(FrMontgomery, NativeCppToMontHandlesUnreducedInputs)
     for (const Fr& input : boundary_inputs()) {
         SCOPED_TRACE(::testing::PrintToString(limbs_of(input)));
 
-        NativeFr actual{input.data};
+        NativeFr actual{input.l};
         actual.to();
 
         Fr expected = {};
@@ -258,7 +258,7 @@ TEST(FrMontgomery, NativeCppReciprocalMatchesScalarField)
     for (const Fr& input : inputs) {
         SCOPED_TRACE(::testing::PrintToString(limbs_of(input)));
 
-        NativeFr native_input{input.data};
+        NativeFr native_input{input.l};
         native_input.to();
         const NativeFr actual = native_input.reciprocal();
 

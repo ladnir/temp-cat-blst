@@ -72,24 +72,24 @@ namespace blst::scalar
                      vec_is_zero(&B, sizeof(AffinePoint<Field>));
         const Field zero = Field::zero();
     
-        Field::sub(B.Z, B.X, A.X);		/* X2-X1  */ 
-        Field::add(B.X, B.X, A.X);		/* X2+X1  */ 
-        Field::add(A.Z, B.Y, A.Y);		/* Y2+Y1  */ 
-        Field::sub(B.Y, B.Y, A.Y);		/* Y2-Y1  */ 
-        if (vec_is_zero(&B.Z, sizeof(B.Z))) {	/* X2==X1 */ 
-            inf = vec_is_zero(&A.Z, sizeof(A.Z));	
-            vec_select(&B.X, &A.Z, &B.X, sizeof(B.X), inf); 
-            Field::sqr(B.Y, A.X);		
-            Field::mul_by_3(B.Y, B.Y);		/* 3*X1^2 */ 
-            vec_copy(&B.Z, &A.Z, sizeof(B.Z));	/* 2*Y1   */ 
-        }						/* B.Y is numenator    */ 
-						    /* B.Z is denominator  */ 
-        vec_select(&A.X, &B.X, &A.X, sizeof(A.X), inf); 
-        vec_select(&A.Y, &A.Z, &A.Y, sizeof(A.Y), inf); 
-        vec_select(&A.Z, &Field::one(), &B.Z, sizeof(A.Z), inf);
-        vec_select(&B.Z, &zero,& B.Z, sizeof(B.Z), inf); 
+        Field::sub(B.z, B.x, A.x);		/* X2-X1  */
+        Field::add(B.x, B.x, A.x);		/* X2+X1  */
+        Field::add(A.z, B.y, A.y);		/* Y2+Y1  */
+        Field::sub(B.y, B.y, A.y);		/* Y2-Y1  */
+        if (vec_is_zero(&B.z, sizeof(B.z))) {	/* X2==X1 */
+			inf = vec_is_zero(&A.z, sizeof(A.z));
+            vec_select(&B.x, &A.z, &B.x, sizeof(B.x), inf);
+			Field::sqr(B.y, A.x);
+            Field::mul_by_3(B.y, B.y);		/* 3*X1^2 */
+            vec_copy(&B.z, &A.z, sizeof(B.z));	/* 2*Y1   */
+		}						/* B.y is numenator    */
+						    /* B.z is denominator  */
+        vec_select(&A.x, &B.x, &A.x, sizeof(A.x), inf);
+        vec_select(&A.y, &A.z, &A.y, sizeof(A.y), inf);
+        vec_select(&A.z, &Field::one(), &B.z, sizeof(A.z), inf);
+        vec_select(&B.z, &zero,& B.z, sizeof(B.z), inf);
         if (mul_acc != NULL) 
-            Field::mul(A.Z, A.Z, *mul_acc);	/* chain multiplication */
+            Field::mul(A.z, A.z, *mul_acc);	/* chain multiplication */
     }
 
     /*
@@ -106,19 +106,19 @@ namespace blst::scalar
         Point<Field>& A = AB[0];
         Point<Field>& B = AB[1];
         Field llambda; 
-        limb_t inf = vec_is_zero(&B.Z, sizeof(B.Z)); 
+        limb_t inf = vec_is_zero(&B.z, sizeof(B.z));
     
-        Field::mul(lambda, lambda, B.Y);		/* λ = (Y2-Y1)/(X2-X1)  */ 
+        Field::mul(lambda, lambda, B.y);		/* λ = (Y2-Y1)/(X2-X1)  */
 						    /* alt. 3*X1^2/2*Y1     */ 
         Field::sqr(llambda, lambda); 
-        Field::sub(D.X, llambda, B.X);		/* X3 = λ^2-X1-X2       */ 
+        Field::sub(D.x, llambda, B.x);		/* X3 = λ^2-X1-X2       */
     
-        Field::sub(D.Y, A.X, D.X);   
-        Field::mul(D.Y, D.Y, lambda); 
-        Field::sub(D.Y, D.Y, A.Y);		/* Y3 = λ*(X1-X3)-Y1    */ 
+        Field::sub(D.y, A.x, D.x);
+        Field::mul(D.y, D.y, lambda);
+        Field::sub(D.y, D.y, A.y);		/* Y3 = λ*(X1-X3)-Y1    */
     
-        vec_select(&D.X, &A.X, &D.X, 2*sizeof(D.X), inf); 
-        vec_select(&B.Z, &Field::one(), &B.Z, sizeof(B.Z), inf);
+        vec_select(&D.x, &A.x, &D.x, 2*sizeof(D.x), inf);
+        vec_select(&B.z, &Field::one(), &B.z, sizeof(B.z), inf);
     }
 
 	/* sum = sum + Σ points[i] for i in 0..n-1.
@@ -142,19 +142,19 @@ namespace blst::scalar
             if (n & 1) 
                 Point<Field>::dadd(sum, sum, *(const AffinePoint<Field> *)points++);
             n /= 2; 
-            for (mul_acc = NULL, i = n; i--; mul_acc = &points->Z, points += 2) 
+            for (mul_acc = NULL, i = n; i--; mul_acc = &points->z, points += 2)
                 point_head<Field>(points, (const Field*)mul_acc);
     
-            Field::reciprocal(points[-2].Z, points[-2].Z); /* 1/∏ Zi */
+            Field::reciprocal(points[-2].z, points[-2].z); /* 1/∏ Zi */
     
             for (dst = points, i = n; --i;) { 
                 dst--; points -= 2; 
-                Field::mul(points[-2].Z, points[0].Z, points[-2].Z); 
-                point_tail<Field>(*dst, points, points[-2].Z);
-                Field::mul(points[-2].Z, points[0].Z, points[1].Z); 
+                Field::mul(points[-2].z, points[0].z, points[-2].z);
+                point_tail<Field>(*dst, points, points[-2].z);
+                Field::mul(points[-2].z, points[0].z, points[1].z);
             } 
             dst--; points -= 2; 
-            point_tail<Field>(*dst, points, points[0].Z);
+            point_tail<Field>(*dst, points, points[0].z);
             points = dst; 
         } 
         while (n--) 

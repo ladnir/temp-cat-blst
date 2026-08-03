@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright Supranational LLC
  * Licensed under the Apache License, Version 2.0, see LICENSE for details.
  * SPDX-License-Identifier: Apache-2.0
@@ -7,6 +7,7 @@
 #define BLST_SCALAR_FP_H
 
 #include "blst/common/vect.h"
+#include "bindings/blst_types.h"
 #include "blst/config.h"
 #include "blst/common/defines.h"
 #include "blst/backend/backend.h"
@@ -30,157 +31,6 @@ namespace blst::scalar
 	//   - Unless stated otherwise, routines are intended to be constant-time w.r.t.
 	//     secret data. The Lehmer almost-inverse (reciprocal) is typically variable-time;
 	//     use flt_reciprocal() when strict constant-time is required.
-	struct Fp
-	{
-		limb_t data[NLIMBS(384)];
-
-		BLST_HD BLST_FORCEINLINE auto&& operator[](u64 idx) { return data[idx]; }
-		BLST_HD BLST_FORCEINLINE auto&& operator[](u64 idx) const { return data[idx]; }
-
-		/** @name Canonical constants */
-		///@{
-		/// @brief The additive identity 0 (Montgomery form of 0).
-		BLST_HD static const Fp& zero();
-
-		/// @brief The multiplicative identity 1 (Montgomery form of 1, i.e., R mod p).
-		BLST_HD static const Fp& one();
-
-		/// @brief The raw conventional modulus p stored in Fp-sized storage.
-		/// @note This is not a reduced field element and is not in Montgomery form.
-		BLST_HD static constexpr const Fp& modulus();
-
-
-		/// @brief The negative modulus p as an Fp element. i.e. -p mod 2^(384).
-		BLST_HD static constexpr const Fp& neg_modulus();
-		///@}
-
-
-
-		BLST_HD static constexpr limb_t montgomery_constant();
-
-		/** @name Basic arithmetic (mod p, Montgomery inputs/outputs) */
-		///@{
-		/// @brief ret = a + b mod p.
-		BLST_HD static void add(Fp& ret, const Fp& a, const Fp& b);
-
-		/// @brief ret = a - b mod p.
-		BLST_HD static void sub(Fp& ret, const Fp& a, const Fp& b);
-
-		/// @brief ret = a * b mod p.
-		/// @note Inputs are Montgomery; product is reduced and remains Montgomery.
-		BLST_HD static void mul(Fp& ret, const Fp& a, const Fp& b);
-
-		/// @brief ret = a^x mod p.
-		/// @param x Little-endian exponent bytes.
-		/// @param x_bits Number of meaningful bits in @p x.
-		/// @note Input/output are Montgomery.
-		BLST_HD static void exp(Fp& ret, const Fp& a, const byte* x, size_t x_bits);
-
-		/// @brief ret = a^2 mod p (Montgomery).
-		BLST_HD static void sqr(Fp& ret, const Fp& a);
-		///@}
-
-		/** @name Montgomery transforms */
-		///@{
-		/// @brief Convert from Montgomery: ret = from_mont(a) in [0, p).
-		/// @details If a = a' * R (mod p), returns a'.
-		BLST_HD static void from_mont(Fp& ret, const Fp& a);
-
-		/// @brief Convert to Montgomery: ret = a * R (mod p).
-		/// @details If input a is already Montgomery, this multiplies by R again.
-		BLST_HD static void to_mont(Fp& ret, const Fp& a);
-
-		/// @brief Montgomery reduction: ret = a (mod p), where a is a double-precision UFp.
-		BLST_HD static void redc(Fp& ret, const struct UFp& a);
-		///@}
-
-		/** @name Negation and conditional operations */
-		///@{
-		/// @brief Conditional negate: ret = flag ? (-a) : a  (constant-time).
-		BLST_HD static void cneg(Fp& ret, const Fp& a, bool_t flag);
-
-		/// @brief ret = -a mod p.
-		BLST_HD static void neg(Fp& ret, const Fp& a);
-		///@}
-
-		/** @name Bit shifts and small multipliers
-		 *  @note lshift/rshift view the canonical integer in [0,p) conceptually.
-		 *  Implementations keep results reduced mod p unless documented.
-		 */
-		 ///@{
-		 /// @brief ret = a * 2^count  (mod p).
-		BLST_HD static void lshift(Fp& ret, const Fp& a, size_t count);
-
-		/// @brief ret = a / 2^count mod p.
-		BLST_HD static void rshift(Fp& ret, const Fp& a, size_t count);
-
-		/// @brief ret = a / 2  (mod p), i.e., multiply by (p+1)/2.
-		BLST_HD static void div_by_2(Fp& ret, const Fp& a);
-
-		/// @brief ret = a * 3  (mod p).
-		BLST_HD static void mul_by_3(Fp& ret, const Fp& a);
-
-		/// @brief ret = a * 8  (mod p).
-		BLST_HD static void mul_by_8(Fp& ret, const Fp& a);
-		///@}
-
-		/** @name Inversion & square roots */
-		///@{
-		/// @brief out = a^{-1} mod p via Lehmer almost-inverse.
-		BLST_HD static void reciprocal(Fp& out, const Fp& inp);
-
-		/// @brief out = a^{-1} mod p via Fermat/addition chain .
-		BLST_HD static void flt_reciprocal(Fp& out, const Fp& inp);
-
-		/// @brief t0 = a^{(p-3)/4} (helper for sqrt/recip_sqrt when p ≡ 3 (mod 4)).
-		BLST_HD static void recip_sqrt_3mod4(Fp& t0, const Fp& inp);
-
-		/// @brief out = a^{-1/2} = sqrt(1/a) if it exists.
-		/// @return 1 on success, 0 if a is non-square or zero.
-		BLST_HD static bool_t recip_sqrt(Fp& out, const Fp& inp);
-
-		/// @brief Writes a square-root candidate for a.
-		/// @return 1 when the candidate is a root, 0 when a is non-square.
-		/// @note The candidate is written on both success and failure; no sign
-		/// normalization is applied.
-		BLST_HD static bool_t sqrt(Fp& out, const Fp& inp);
-
-		/// @brief Return 1 iff a is a quadratic residue mod p (including 0), else 0.
-		BLST_HD static bool_t is_sqrt(const Fp& inp);
-		///@}
-
-		/** @name Exponentiation helpers */
-		///@{
-		/// @brief out = a^{2^count} * b (repeated squaring then multiply).
-		/// @note Count zero performs one multiplication. Exact `out == b` aliasing
-		/// is supported.
-		BLST_HD static void sqr_n_mul(Fp& out, const Fp& a, size_t count, const Fp& b);
-		///@}
-
-		/** @name Comparisons & predicates */
-		///@{
-		/// @brief Constant-time equality on canonical representatives: from_mont(a) == from_mont(b).
-		BLST_HD static bool_t equal(const Fp& a, const Fp& b);
-
-		/// @brief Returns two bits encoding parity and sign (sgn0) of a conventional,
-		/// non-Montgomery representative.
-		/// @details Layout: bit0 = parity (a mod 2); bit1 = sgn0(a) per RFC 9380 / hash-to-curve.
-		///          The returned value is (parity) | (sgn0 << 1).
-		BLST_HD static limb_t sgn0_pty(const Fp& a);
-
-		/// @brief Same as sgn0_pty(from_mont(a)) but operates on the Montgomery value directly.
-		/// @details Returns (parity) | (sgn0 << 1) for the canonical integer represented by a.
-		BLST_HD static limb_t sgn0_pty_mont(const Fp& a);
-
-		/// @brief Return 1 iff a is strictly less than p (i.e., reduced), else 0.
-		/// @note For Montgomery inputs, valid field elements still lie in [0, p),
-		///       so this checks canonical range, not representation.
-		BLST_HD static limb_t is_redc(const Fp& a);
-		///@}
-
-		/// @brief Number of machine limbs used to store an element (384 bits).
-		BLST_HD static constexpr size_t num_limb() { return NLIMBS(384); }
-	};
 
 	static_assert(std::is_default_constructible_v<Fp>);
 
@@ -316,9 +166,9 @@ namespace blst::scalar
 		BLST_ASSERT(Fp::is_redc(a));
 		BLST_ASSERT(Fp::is_redc(b));
 #ifdef __CUDA_ARCH__
-		ptx_add_mod_u64<Fp>(ret.data, a.data, b.data);
+		ptx_add_mod_u64<Fp>(ret.l, a.l, b.l);
 #else
-		add_mod_v384(ret.data, a.data, b.data, get_BLST_P().data);
+		add_mod_v384(ret.l, a.l, b.l, get_BLST_P().l);
 #endif
 	}
 
@@ -327,18 +177,18 @@ namespace blst::scalar
 		BLST_ASSERT(Fp::is_redc(a));
 		BLST_ASSERT(Fp::is_redc(b));
 #if defined(__CUDA_ARCH__)
-		ptx_sub_mod_u64<Fp>(ret.data, a.data, b.data);
+		ptx_sub_mod_u64<Fp>(ret.l, a.l, b.l);
 #else
-		sub_mod_v384(ret.data, a.data, b.data, get_BLST_P().data);
+		sub_mod_v384(ret.l, a.l, b.l, get_BLST_P().l);
 #endif
 	}
 
 	BLST_HD BLST_FORCEINLINE void Fp::mul(Fp& ret, const Fp& a, const Fp& b)
 	{
 #ifdef __CUDA_ARCH__
-		ptx_mul_mont_u64<Fp>(ret.data, a.data, b.data);
+		ptx_mul_mont_u64<Fp>(ret.l, a.l, b.l);
 #else
-		mul_mont_v384(ret.data, a.data, b.data, get_BLST_P().data, BLST_p0);
+		mul_mont_v384(ret.l, a.l, b.l, get_BLST_P().l, BLST_p0);
 #endif
 	}
 
@@ -347,15 +197,15 @@ namespace blst::scalar
 		BLST_ASSERT(Fp::is_redc(a));
 
 #if defined(__CUDA_ARCH__)
-		ptx_sqr_mont_u64<Fp>(ret.data, a.data);
+		ptx_sqr_mont_u64<Fp>(ret.l, a.l);
 #else
-		sqr_mont_v384(ret.data, a.data, get_BLST_P().data, BLST_p0);
+		sqr_mont_v384(ret.l, a.l, get_BLST_P().l, BLST_p0);
 #endif
 	}
 
 	BLST_HD BLST_FORCEINLINE void Fp::from_mont(Fp& ret, const Fp& a)
 	{
-		from_mont_v384(ret.data, a.data, get_BLST_P().data, BLST_p0);
+		from_mont_v384(ret.l, a.l, get_BLST_P().l, BLST_p0);
 	}
 
 	BLST_HD BLST_FORCEINLINE void Fp::to_mont(Fp& ret, const Fp& a)
@@ -365,12 +215,12 @@ namespace blst::scalar
 
 	BLST_HD BLST_FORCEINLINE void Fp::redc(Fp& ret, const struct UFp& a)
 	{
-		redc_mont_v384(ret.data, a.data, get_BLST_P().data, BLST_p0);
+		redc_mont_v384(ret.l, a.data, get_BLST_P().l, BLST_p0);
 	}
 
 	BLST_HD BLST_FORCEINLINE void Fp::cneg(Fp& ret, const Fp& a, bool_t flag)
 	{
-		cneg_mod_v384(ret.data, a.data, flag, get_BLST_P().data);
+		cneg_mod_v384(ret.l, a.l, flag, get_BLST_P().l);
 	}
 
 	BLST_HD BLST_FORCEINLINE void Fp::neg(Fp& ret, const Fp& a)
@@ -380,12 +230,12 @@ namespace blst::scalar
 
 	BLST_HD BLST_FORCEINLINE void Fp::lshift(Fp& ret, const Fp& a, size_t count)
 	{
-		lshift_mod_v384(ret.data, a.data, count, get_BLST_P().data);
+		lshift_mod_v384(ret.l, a.l, count, get_BLST_P().l);
 	}
 
 	BLST_HD BLST_FORCEINLINE void Fp::rshift(Fp& ret, const Fp& a, size_t count)
 	{
-		rshift_mod_v384(ret.data, a.data, count, get_BLST_P().data);
+		rshift_mod_v384(ret.l, a.l, count, get_BLST_P().l);
 	}
 
 	BLST_HD BLST_FORCEINLINE void Fp::div_by_2(Fp& ret, const Fp& a)
@@ -393,7 +243,7 @@ namespace blst::scalar
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		div_by_2_mod_384(&ret, &a, &get_BLST_P());
 #else
-		cc_rshift_mod_n<NLIMBS(384)>(ret.data, a.data, 1, get_BLST_P().data);
+		cc_rshift_mod_n<NLIMBS(384)>(ret.l, a.l, 1, get_BLST_P().l);
 #endif
 	}
 
@@ -404,7 +254,7 @@ namespace blst::scalar
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		mul_by_3_mod_384(&ret, &a, &get_BLST_P());
 #else
-		cc_mul_by_3_mod_n<NLIMBS(384)>(ret.data, a.data, get_BLST_P().data);
+		cc_mul_by_3_mod_n<NLIMBS(384)>(ret.l, a.l, get_BLST_P().l);
 #endif
 	}
 
@@ -415,7 +265,7 @@ namespace blst::scalar
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		mul_by_8_mod_384(&ret, &a, &get_BLST_P());
 #else
-		cc_lshift_mod_n<NLIMBS(384)>(ret.data, a.data, 3, get_BLST_P().data);
+		cc_lshift_mod_n<NLIMBS(384)>(ret.l, a.l, 3, get_BLST_P().l);
 #endif
 	}
 
@@ -443,8 +293,8 @@ namespace blst::scalar
 		sqr_n_mul_mont_383(&ret, &a, count, &get_BLST_P(), BLST_p0, multiplier);
 # endif
 #else
-		cc_sqr_n_mul_mont_384(ret.data, a.data, count, get_BLST_P().data, BLST_p0,
-			multiplier->data);
+		cc_sqr_n_mul_mont_384(ret.l, a.l, count, get_BLST_P().l, BLST_p0,
+			multiplier->l);
 #endif
 		if (output_aliases_multiplier)
 			vec_zero(&b_copy, sizeof(b_copy));
@@ -461,17 +311,17 @@ namespace blst::scalar
 # endif
 #else
 		Fp tmp;
-		cc_from_mont_n<NLIMBS(384)>(tmp.data, a.data, modulus().data, BLST_p0);
-		return cc_sgn0_pty_mod_n<NLIMBS(384)>(tmp.data, modulus().data);
+		cc_from_mont_n<NLIMBS(384)>(tmp.l, a.l, modulus().l, BLST_p0);
+		return cc_sgn0_pty_mod_n<NLIMBS(384)>(tmp.l, modulus().l);
 #endif
 	}
 
 	BLST_HD BLST_FORCEINLINE limb_t Fp::sgn0_pty(const Fp& a)
 	{
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
-		return sgn0_pty_mod_384(a.data, modulus().data);
+		return sgn0_pty_mod_384(a.l, modulus().l);
 #else
-		return cc_sgn0_pty_mod_n<NLIMBS(384)>(a.data, modulus().data);
+		return cc_sgn0_pty_mod_n<NLIMBS(384)>(a.l, modulus().l);
 #endif
 	}
 
@@ -479,7 +329,7 @@ namespace blst::scalar
 	BLST_HD BLST_FORCEINLINE void ct_inverse_mod_v384(UFp& ret, const Fp& inp, const Fp& mod,
 		const Fp& modx)
 	{
-		blst::ct_inverse_mod_v384(ret.data, inp.data, mod.data, modx.data);
+		blst::ct_inverse_mod_v384(ret.data, inp.l, mod.l, modx.l);
 	}
 
 
@@ -488,7 +338,7 @@ namespace blst::scalar
 #if defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		return ct_is_square_mod_384(&inp, &modulus());
 #else
-		return cc_ct_is_sqr_mod_n<NLIMBS(384)>(inp.data, modulus().data);
+		return cc_ct_is_sqr_mod_n<NLIMBS(384)>(inp.l, modulus().l);
 #endif
 	}
 
@@ -500,21 +350,21 @@ namespace blst::scalar
 	{
 		Fp ret;
 		if (pow_bits == 0) {
-			vec_copy(out.data, Fp::one().data, sizeof(out));
+			vec_copy(out.l, Fp::one().l, sizeof(out));
 			return;
 		}
 
 		// Requires the most significant declared bit to be set.
 		BLST_ASSERT((pow[(pow_bits - 1) >> 3] >> ((pow_bits - 1) & 7)) & 1);
 
-		vec_copy(ret.data, inp.data, sizeof(ret));  /* ret = inp^1 */
+		vec_copy(ret.l, inp.l, sizeof(ret));  /* ret = inp^1 */
 		--pow_bits; /* most significant bit is set, skip over */
 		while (pow_bits--) {
 			Fp::sqr(ret, ret);
 			if (is_bit_set(pow, pow_bits))
 				Fp::mul(ret, ret, inp);
 		}
-		vec_copy(out.data, ret.data, sizeof(ret));  /* out = ret */
+		vec_copy(out.l, ret.l, sizeof(ret));  /* out = ret */
 	}
 
 
@@ -541,8 +391,8 @@ namespace blst::scalar
 
 		Fp::mul(t1, t0, inp);
 		Fp::sqr(t1, t1);
-		ret = vec_is_equal(t1.data, inp.data, sizeof(t1));
-		vec_copy(out.data, t0.data, sizeof(t0));
+		ret = vec_is_equal(t1.l, inp.l, sizeof(t1));
+		vec_copy(out.l, t0.l, sizeof(t0));
 
 		return ret;
 	}
@@ -556,8 +406,8 @@ namespace blst::scalar
 
 		Fp::mul(t0, t0, inp);
 		Fp::sqr(t1, t0);
-		ret = vec_is_equal(t1.data, inp.data, sizeof(t1));
-		vec_copy(out.data, t0.data, sizeof(t0));
+		ret = vec_is_equal(t1.l, inp.l, sizeof(t1));
+		vec_copy(out.l, t0.l, sizeof(t0));
 
 		return ret;
 	}
@@ -568,7 +418,7 @@ namespace blst::scalar
 		Fp aa, bb;
 		from_mont(aa, a);
 		from_mont(bb, b);
-		return vec_is_equal(aa.data, bb.data, sizeof(Fp));
+		return vec_is_equal(aa.l, bb.l, sizeof(Fp));
 	}
 
 
@@ -607,7 +457,7 @@ namespace blst::scalar
 		union { UFp x; Fp r[2]; } temp;
 
 		// returns temp.x * inp = 1 (mod mod). not return a Montgomery value; 
-		// that’s why we then does redc + multiply by RR to move into Mont.
+		// that's why we then do redc + multiply by RR to move into Mont.
 		ct_inverse_mod_v384(temp.x, inp, get_BLST_P(), Px8);
 
 		// map back to montgomery
@@ -632,7 +482,7 @@ namespace blst::scalar
 
 	BLST_HD BLST_FORCEINLINE limb_t Fp::is_redc(const Fp& a)
 	{
-		return cc_is_redc_mod_n<NLIMBS(384)>((const byte*)a.data, modulus().data);
+		return cc_is_redc_mod_n<NLIMBS(384)>((const byte*)a.l, modulus().l);
 	}
 
 

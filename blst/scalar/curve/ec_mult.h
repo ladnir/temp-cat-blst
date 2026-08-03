@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright Supranational LLC
  * Licensed under the Apache License, Version 2.0, see LICENSE for details.
  * SPDX-License-Identifier: Apache-2.0
@@ -309,14 +309,14 @@ namespace blst::scalar
 			row_is_inf = gather_booth_w<ptype, window_size>(row, table, booth_encoding);
 			ptype::dadd(sum, ret, row);
 			ptype::ccopy(ret, sum, (ret_is_inf | row_is_inf) ^ 1);
-			sum_is_inf = vec_is_zero(&ret.Z, sizeof(ret.Z));
+			sum_is_inf = vec_is_zero(&ret.z, sizeof(ret.z));
 			ret_is_inf |= sum_is_inf;
 			row_is_inf |= sum_is_inf;
 			ptype::ccopy(ret, row, ret_is_inf);
 			ret_is_inf &= row_is_inf;
 		}
 
-		vec_czero(&ret.Z, sizeof(ret.Z), ret_is_inf);
+		vec_czero(&ret.z, sizeof(ret.z), ret_is_inf);
 	}
 
 	// same as mult_w but its an MSM for a small number of points
@@ -408,7 +408,7 @@ namespace blst::scalar
 				row_is_inf = gather_booth_w<ptype, window_size>(row, table[i], wval);
 				ptype::dadd(sum, ret, row);
 				ptype::ccopy(ret, sum, (ret_is_inf | row_is_inf) ^ 1);
-				sum_is_inf = vec_is_zero(&ret.Z, sizeof(ret.Z));
+				sum_is_inf = vec_is_zero(&ret.z, sizeof(ret.z));
 				ret_is_inf |= sum_is_inf;
 				row_is_inf |= sum_is_inf;
 				ptype::ccopy(ret, row, ret_is_inf);
@@ -433,14 +433,14 @@ namespace blst::scalar
 			row_is_inf = gather_booth_w<ptype, window_size>(row, table[i], wval);
 			ptype::dadd(sum, ret, row);
 			ptype::ccopy(ret, sum, (ret_is_inf | row_is_inf) ^ 1);
-			sum_is_inf = vec_is_zero(&ret.Z, sizeof(ret.Z));
+			sum_is_inf = vec_is_zero(&ret.z, sizeof(ret.z));
 			ret_is_inf |= sum_is_inf;
 			row_is_inf |= sum_is_inf;
 			ptype::ccopy(ret, row, ret_is_inf);
 			ret_is_inf &= row_is_inf;
 		}
 
-		vec_czero(&ret.Z, sizeof(ret.Z), ret_is_inf);
+		vec_czero(&ret.z, sizeof(ret.z), ret_is_inf);
 		if (call_free)
 			allocator_type::deallocate(table);
 

@@ -100,34 +100,34 @@ inline CurveFp2Ring::StandardElement scalar_fp2_to_ring(const blst::Fp2& value)
 inline blst::scalar::G1AffinePoint curve_g1_affine_to_scalar(const CurveG1Affine& point)
 {
     blst::scalar::G1AffinePoint out = {};
-    out.X = ring_fp_to_scalar(point.x);
-    out.Y = ring_fp_to_scalar(point.y);
+    out.x = ring_fp_to_scalar(point.x);
+    out.y = ring_fp_to_scalar(point.y);
     return out;
 }
 
 inline blst::scalar::G1Point curve_g1_to_scalar(const CurveG1Projective& point)
 {
     blst::scalar::G1Point out = {};
-    out.X = ring_fp_to_scalar(point.x);
-    out.Y = ring_fp_to_scalar(point.y);
-    out.Z = ring_fp_to_scalar(point.z);
+    out.x = ring_fp_to_scalar(point.x);
+    out.y = ring_fp_to_scalar(point.y);
+    out.z = ring_fp_to_scalar(point.z);
     return out;
 }
 
 inline blst::scalar::G2AffinePoint curve_g2_affine_to_scalar(const CurveG2Affine& point)
 {
     blst::scalar::G2AffinePoint out = {};
-    out.X = ring_fp2_to_scalar(point.x);
-    out.Y = ring_fp2_to_scalar(point.y);
+    out.x = ring_fp2_to_scalar(point.x);
+    out.y = ring_fp2_to_scalar(point.y);
     return out;
 }
 
 inline blst::scalar::G2Point curve_g2_to_scalar(const CurveG2Projective& point)
 {
     blst::scalar::G2Point out = {};
-    out.X = ring_fp2_to_scalar(point.x);
-    out.Y = ring_fp2_to_scalar(point.y);
-    out.Z = ring_fp2_to_scalar(point.z);
+    out.x = ring_fp2_to_scalar(point.x);
+    out.y = ring_fp2_to_scalar(point.y);
+    out.z = ring_fp2_to_scalar(point.z);
     return out;
 }
 
@@ -429,8 +429,8 @@ inline const G1AffinePoint& G1AffinePoint::generator()
     static const G1AffinePoint g = [] {
         const blst::scalar::G1AffinePoint& scalar_g = blst::scalar::G1AffinePoint::generator();
         return G1AffinePoint(
-            avx_curve_detail::scalar_fp_to_ring(scalar_g.X),
-            avx_curve_detail::scalar_fp_to_ring(scalar_g.Y));
+            avx_curve_detail::scalar_fp_to_ring(scalar_g.x),
+            avx_curve_detail::scalar_fp_to_ring(scalar_g.y));
     }();
     return g;
 }
@@ -481,8 +481,8 @@ inline BLST_ERROR G1AffinePoint::deserialize_BE(G1AffinePoint& out, const unsign
     const BLST_ERROR err = blst::scalar::G1AffinePoint::deserialize_BE(scalar, in);
     if (err == BLST_SUCCESS) {
         out = G1AffinePoint(
-            avx_curve_detail::scalar_fp_to_ring(scalar.X),
-            avx_curve_detail::scalar_fp_to_ring(scalar.Y));
+            avx_curve_detail::scalar_fp_to_ring(scalar.x),
+            avx_curve_detail::scalar_fp_to_ring(scalar.y));
     }
     return err;
 }
@@ -493,8 +493,8 @@ inline BLST_ERROR G1AffinePoint::deserialize(G1AffinePoint& out, const unsigned 
     const BLST_ERROR err = blst::scalar::G1AffinePoint::deserialize(scalar, in);
     if (err == BLST_SUCCESS) {
         out = G1AffinePoint(
-            avx_curve_detail::scalar_fp_to_ring(scalar.X),
-            avx_curve_detail::scalar_fp_to_ring(scalar.Y));
+            avx_curve_detail::scalar_fp_to_ring(scalar.x),
+            avx_curve_detail::scalar_fp_to_ring(scalar.y));
     }
     return err;
 }
@@ -514,8 +514,8 @@ inline limb_t G1AffinePoint::uncompress_BE(G1AffinePoint& out, const unsigned ch
     blst::scalar::G1AffinePoint scalar = {};
     const limb_t parity = blst::scalar::G1AffinePoint::uncompress_BE(scalar, in);
     out = G1AffinePoint(
-        avx_curve_detail::scalar_fp_to_ring(scalar.X),
-        avx_curve_detail::scalar_fp_to_ring(scalar.Y));
+        avx_curve_detail::scalar_fp_to_ring(scalar.x),
+        avx_curve_detail::scalar_fp_to_ring(scalar.y));
     return parity;
 }
 
@@ -525,8 +525,8 @@ inline BLST_ERROR G1AffinePoint::uncompress(G1AffinePoint& out, const unsigned c
     const BLST_ERROR err = blst::scalar::G1AffinePoint::uncompress(scalar, in);
     if (err == BLST_SUCCESS) {
         out = G1AffinePoint(
-            avx_curve_detail::scalar_fp_to_ring(scalar.X),
-            avx_curve_detail::scalar_fp_to_ring(scalar.Y));
+            avx_curve_detail::scalar_fp_to_ring(scalar.x),
+            avx_curve_detail::scalar_fp_to_ring(scalar.y));
     }
     return err;
 }
@@ -571,8 +571,8 @@ inline void G1Point::sign(G1Point& out, const G1Point& in, const pow256 SK)
     to_affine(affine, in);
 
     blst::scalar::G1AffinePoint scalar_affine = {};
-    scalar_affine.X = avx_curve_detail::ring_fp_to_scalar(affine.X);
-    scalar_affine.Y = avx_curve_detail::ring_fp_to_scalar(affine.Y);
+    scalar_affine.x = avx_curve_detail::ring_fp_to_scalar(affine.X);
+    scalar_affine.y = avx_curve_detail::ring_fp_to_scalar(affine.Y);
 
     blst::scalar::G1Point scalar_in = {};
     blst::scalar::G1Point::from_affine(scalar_in, scalar_affine);
@@ -581,8 +581,8 @@ inline void G1Point::sign(G1Point& out, const G1Point& in, const pow256 SK)
     blst::scalar::G1AffinePoint scalar_out_affine = {};
     blst::scalar::G1Point::to_affine(scalar_out_affine, scalar_out);
     G1AffinePoint out_affine = {
-        avx_curve_detail::scalar_fp_to_ring(scalar_out_affine.X),
-        avx_curve_detail::scalar_fp_to_ring(scalar_out_affine.Y),
+        avx_curve_detail::scalar_fp_to_ring(scalar_out_affine.x),
+        avx_curve_detail::scalar_fp_to_ring(scalar_out_affine.y),
     };
     from_affine(out, out_affine);
 }
@@ -599,8 +599,8 @@ inline void G1Point::to_pk2(unsigned char* out, G1AffinePoint* PK, const pow256 
     blst::scalar::G1Point::to_pk2(out, scalar_pk_ptr, SK);
     if (PK != nullptr) {
         *PK = {
-            avx_curve_detail::scalar_fp_to_ring(scalar_pk.X),
-            avx_curve_detail::scalar_fp_to_ring(scalar_pk.Y),
+            avx_curve_detail::scalar_fp_to_ring(scalar_pk.x),
+            avx_curve_detail::scalar_fp_to_ring(scalar_pk.y),
         };
     }
 }
@@ -726,8 +726,8 @@ inline const G2AffinePoint& G2AffinePoint::generator()
     static const G2AffinePoint g = [] {
         const blst::scalar::G2AffinePoint& scalar_g = blst::scalar::G2AffinePoint::generator();
         return G2AffinePoint(
-            avx_curve_detail::scalar_fp2_to_ring(scalar_g.X),
-            avx_curve_detail::scalar_fp2_to_ring(scalar_g.Y));
+            avx_curve_detail::scalar_fp2_to_ring(scalar_g.x),
+            avx_curve_detail::scalar_fp2_to_ring(scalar_g.y));
     }();
     return g;
 }
@@ -778,8 +778,8 @@ inline BLST_ERROR G2AffinePoint::deserialize_BE(G2AffinePoint& out, const unsign
     const BLST_ERROR err = blst::scalar::G2AffinePoint::deserialize_BE(scalar, in);
     if (err == BLST_SUCCESS) {
         out = G2AffinePoint(
-            avx_curve_detail::scalar_fp2_to_ring(scalar.X),
-            avx_curve_detail::scalar_fp2_to_ring(scalar.Y));
+            avx_curve_detail::scalar_fp2_to_ring(scalar.x),
+            avx_curve_detail::scalar_fp2_to_ring(scalar.y));
     }
     return err;
 }
@@ -790,8 +790,8 @@ inline BLST_ERROR G2AffinePoint::deserialize(G2AffinePoint& out, const unsigned 
     const BLST_ERROR err = blst::scalar::G2AffinePoint::deserialize(scalar, in);
     if (err == BLST_SUCCESS) {
         out = G2AffinePoint(
-            avx_curve_detail::scalar_fp2_to_ring(scalar.X),
-            avx_curve_detail::scalar_fp2_to_ring(scalar.Y));
+            avx_curve_detail::scalar_fp2_to_ring(scalar.x),
+            avx_curve_detail::scalar_fp2_to_ring(scalar.y));
     }
     return err;
 }
@@ -811,8 +811,8 @@ inline limb_t G2AffinePoint::uncompress_BE(G2AffinePoint& out, const unsigned ch
     blst::scalar::G2AffinePoint scalar = {};
     const limb_t parity = blst::scalar::G2AffinePoint::uncompress_BE(scalar, in);
     out = G2AffinePoint(
-        avx_curve_detail::scalar_fp2_to_ring(scalar.X),
-        avx_curve_detail::scalar_fp2_to_ring(scalar.Y));
+        avx_curve_detail::scalar_fp2_to_ring(scalar.x),
+        avx_curve_detail::scalar_fp2_to_ring(scalar.y));
     return parity;
 }
 
@@ -822,8 +822,8 @@ inline BLST_ERROR G2AffinePoint::uncompress(G2AffinePoint& out, const unsigned c
     const BLST_ERROR err = blst::scalar::G2AffinePoint::uncompress(scalar, in);
     if (err == BLST_SUCCESS) {
         out = G2AffinePoint(
-            avx_curve_detail::scalar_fp2_to_ring(scalar.X),
-            avx_curve_detail::scalar_fp2_to_ring(scalar.Y));
+            avx_curve_detail::scalar_fp2_to_ring(scalar.x),
+            avx_curve_detail::scalar_fp2_to_ring(scalar.y));
     }
     return err;
 }
@@ -873,8 +873,8 @@ inline void G2Point::sign(G2Point& out, const G2Point& in, const pow256 SK)
     to_affine(affine, in);
 
     blst::scalar::G2AffinePoint scalar_affine = {};
-    scalar_affine.X = avx_curve_detail::ring_fp2_to_scalar(affine.X);
-    scalar_affine.Y = avx_curve_detail::ring_fp2_to_scalar(affine.Y);
+    scalar_affine.x = avx_curve_detail::ring_fp2_to_scalar(affine.X);
+    scalar_affine.y = avx_curve_detail::ring_fp2_to_scalar(affine.Y);
 
     blst::scalar::G2Point scalar_in = {};
     blst::scalar::G2Point::from_affine(scalar_in, scalar_affine);
@@ -883,8 +883,8 @@ inline void G2Point::sign(G2Point& out, const G2Point& in, const pow256 SK)
     blst::scalar::G2AffinePoint scalar_out_affine = {};
     blst::scalar::G2Point::to_affine(scalar_out_affine, scalar_out);
     G2AffinePoint out_affine = {
-        avx_curve_detail::scalar_fp2_to_ring(scalar_out_affine.X),
-        avx_curve_detail::scalar_fp2_to_ring(scalar_out_affine.Y),
+        avx_curve_detail::scalar_fp2_to_ring(scalar_out_affine.x),
+        avx_curve_detail::scalar_fp2_to_ring(scalar_out_affine.y),
     };
     from_affine(out, out_affine);
 }
@@ -901,8 +901,8 @@ inline void G2Point::to_pk2(unsigned char* out, G2AffinePoint* PK, const pow256 
     blst::scalar::G2Point::to_pk2(out, scalar_pk_ptr, SK);
     if (PK != nullptr) {
         *PK = {
-            avx_curve_detail::scalar_fp2_to_ring(scalar_pk.X),
-            avx_curve_detail::scalar_fp2_to_ring(scalar_pk.Y),
+            avx_curve_detail::scalar_fp2_to_ring(scalar_pk.x),
+            avx_curve_detail::scalar_fp2_to_ring(scalar_pk.y),
         };
     }
 }

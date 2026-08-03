@@ -44,7 +44,7 @@ FpLimbs limbs_of(const NativeFp& value)
 
 NativeFp native_montgomery(const Fp& raw)
 {
-    NativeFp ret{raw.data};
+    NativeFp ret{raw.l};
     ret.to();
     return ret;
 }

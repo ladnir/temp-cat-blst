@@ -12,13 +12,13 @@ pub enum BLST_ERROR {
     BLST_PK_IS_INFINITY = 6,
     BLST_BAD_SCALAR = 7,
 }
-pub type byte = u8;
-pub type limb_t = u64;
+pub type blst_byte = u8;
+pub type blst_limb_t = u64;
 #[repr(C)]
 #[derive(Debug, Default, Clone, PartialEq, Eq, Zeroize)]
 #[zeroize(drop)]
 pub struct blst_scalar {
-    pub b: [byte; 32usize],
+    pub b: [blst_byte; 32usize],
 }
 #[test]
 fn bindgen_test_layout_blst_scalar() {
@@ -48,7 +48,7 @@ fn bindgen_test_layout_blst_scalar() {
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
 pub struct blst_fr {
-    pub l: [limb_t; 4usize],
+    pub l: [blst_limb_t; 4usize],
 }
 #[test]
 fn bindgen_test_layout_blst_fr() {
@@ -78,7 +78,7 @@ fn bindgen_test_layout_blst_fr() {
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
 pub struct blst_fp {
-    pub l: [limb_t; 6usize],
+    pub l: [blst_limb_t; 6usize],
 }
 #[test]
 fn bindgen_test_layout_blst_fp() {
@@ -208,16 +208,16 @@ extern "C" {
     pub fn blst_uint64_from_scalar(out: *mut u64, a: *const blst_scalar);
 }
 extern "C" {
-    pub fn blst_scalar_from_bendian(out: *mut blst_scalar, a: *const byte);
+    pub fn blst_scalar_from_bendian(out: *mut blst_scalar, a: *const blst_byte);
 }
 extern "C" {
-    pub fn blst_bendian_from_scalar(out: *mut byte, a: *const blst_scalar);
+    pub fn blst_bendian_from_scalar(out: *mut blst_byte, a: *const blst_scalar);
 }
 extern "C" {
-    pub fn blst_scalar_from_lendian(out: *mut blst_scalar, a: *const byte);
+    pub fn blst_scalar_from_lendian(out: *mut blst_scalar, a: *const blst_byte);
 }
 extern "C" {
-    pub fn blst_lendian_from_scalar(out: *mut byte, a: *const blst_scalar);
+    pub fn blst_lendian_from_scalar(out: *mut blst_byte, a: *const blst_scalar);
 }
 extern "C" {
     pub fn blst_scalar_fr_check(a: *const blst_scalar) -> bool;
@@ -250,10 +250,10 @@ extern "C" {
     pub fn blst_sk_inverse(out: *mut blst_scalar, a: *const blst_scalar);
 }
 extern "C" {
-    pub fn blst_scalar_from_le_bytes(out: *mut blst_scalar, in_: *const byte, len: usize) -> bool;
+    pub fn blst_scalar_from_le_bytes(out: *mut blst_scalar, in_: *const blst_byte, len: usize) -> bool;
 }
 extern "C" {
-    pub fn blst_scalar_from_be_bytes(out: *mut blst_scalar, in_: *const byte, len: usize) -> bool;
+    pub fn blst_scalar_from_be_bytes(out: *mut blst_scalar, in_: *const blst_byte, len: usize) -> bool;
 }
 extern "C" {
     pub fn blst_fr_add(ret: *mut blst_fr, a: *const blst_fr, b: *const blst_fr);
@@ -277,7 +277,7 @@ extern "C" {
     pub fn blst_fr_pow(
         ret: *mut blst_fr,
         a: *const blst_fr,
-        exponent: *const byte,
+        exponent: *const blst_byte,
         nbits: usize,
     );
 }
@@ -377,22 +377,22 @@ extern "C" {
     pub fn blst_uint64_from_fp(ret: *mut u64, a: *const blst_fp);
 }
 extern "C" {
-    pub fn blst_fp_from_bendian(ret: *mut blst_fp, a: *const byte);
+    pub fn blst_fp_from_bendian(ret: *mut blst_fp, a: *const blst_byte);
 }
 extern "C" {
-    pub fn blst_bendian_from_fp(ret: *mut byte, a: *const blst_fp);
+    pub fn blst_bendian_from_fp(ret: *mut blst_byte, a: *const blst_fp);
 }
 extern "C" {
-    pub fn blst_fp_from_lendian(ret: *mut blst_fp, a: *const byte);
+    pub fn blst_fp_from_lendian(ret: *mut blst_fp, a: *const blst_byte);
 }
 extern "C" {
-    pub fn blst_fp_from_le_bytes(ret: *mut blst_fp, in_: *const byte, len: usize);
+    pub fn blst_fp_from_le_bytes(ret: *mut blst_fp, in_: *const blst_byte, len: usize);
 }
 extern "C" {
-    pub fn blst_fp_from_be_bytes(ret: *mut blst_fp, in_: *const byte, len: usize);
+    pub fn blst_fp_from_be_bytes(ret: *mut blst_fp, in_: *const blst_byte, len: usize);
 }
 extern "C" {
-    pub fn blst_lendian_from_fp(ret: *mut byte, a: *const blst_fp);
+    pub fn blst_lendian_from_fp(ret: *mut blst_byte, a: *const blst_fp);
 }
 extern "C" {
     pub fn blst_fp2_add(ret: *mut blst_fp2, a: *const blst_fp2, b: *const blst_fp2);
@@ -583,7 +583,7 @@ extern "C" {
     pub fn blst_p1_double(out: *mut blst_p1, a: *const blst_p1);
 }
 extern "C" {
-    pub fn blst_p1_mult(out: *mut blst_p1, p: *const blst_p1, scalar: *const byte, nbits: usize);
+    pub fn blst_p1_mult(out: *mut blst_p1, p: *const blst_p1, scalar: *const blst_byte, nbits: usize);
 }
 extern "C" {
     pub fn blst_p1_cneg(p: *mut blst_p1, cbit: bool);
@@ -746,7 +746,7 @@ extern "C" {
     pub fn blst_p2_double(out: *mut blst_p2, a: *const blst_p2);
 }
 extern "C" {
-    pub fn blst_p2_mult(out: *mut blst_p2, p: *const blst_p2, scalar: *const byte, nbits: usize);
+    pub fn blst_p2_mult(out: *mut blst_p2, p: *const blst_p2, scalar: *const blst_byte, nbits: usize);
 }
 extern "C" {
     pub fn blst_p2_cneg(p: *mut blst_p2, cbit: bool);
@@ -820,9 +820,9 @@ extern "C" {
         table: *const blst_p1_affine,
         wbits: usize,
         npoints: usize,
-        scalars: *const *const byte,
+        scalars: *const *const blst_byte,
         nbits: usize,
-        scratch: *mut limb_t,
+        scratch: *mut blst_limb_t,
     );
 }
 extern "C" {
@@ -836,9 +836,9 @@ extern "C" {
         ret: *mut blst_p1,
         points: *const *const blst_p1_affine,
         npoints: usize,
-        scalars: *const *const byte,
+        scalars: *const *const blst_byte,
         nbits: usize,
-        scratch: *mut limb_t,
+        scratch: *mut blst_limb_t,
     );
 }
 extern "C" {
@@ -850,7 +850,7 @@ extern "C" {
         points: *const blst_p1_affine,
         scalars: *const blst_fr,
         npoints: usize,
-        scratch: *mut limb_t,
+        scratch: *mut blst_limb_t,
         scratch_size: usize,
     ) -> bool;
 }
@@ -863,7 +863,7 @@ extern "C" {
         points: *const blst_p1_affine,
         scalars: *const blst_fr,
         npoints: usize,
-        scratch: *mut limb_t,
+        scratch: *mut blst_limb_t,
         scratch_size: usize,
     ) -> bool;
 }
@@ -880,7 +880,7 @@ extern "C" {
         points: *const blst_p1_affine,
         scalars: *const blst_fr,
         npoints: usize,
-        scratch: *mut limb_t,
+        scratch: *mut blst_limb_t,
         scratch_size: usize,
         window: usize,
         batch_size: usize,
@@ -891,9 +891,9 @@ extern "C" {
         ret: *mut blst_p1,
         points: *const *const blst_p1_affine,
         npoints: usize,
-        scalars: *const *const byte,
+        scalars: *const *const blst_byte,
         nbits: usize,
-        scratch: *mut limb_t,
+        scratch: *mut blst_limb_t,
         window: usize,
     );
 }
@@ -902,9 +902,9 @@ extern "C" {
         ret: *mut blst_p1,
         points: *const *const blst_p1_affine,
         npoints: usize,
-        scalars: *const *const byte,
+        scalars: *const *const blst_byte,
         nbits: usize,
-        scratch: *mut limb_t,
+        scratch: *mut blst_limb_t,
         bit0: usize,
         window: usize,
     );
@@ -939,9 +939,9 @@ extern "C" {
         table: *const blst_p2_affine,
         wbits: usize,
         npoints: usize,
-        scalars: *const *const byte,
+        scalars: *const *const blst_byte,
         nbits: usize,
-        scratch: *mut limb_t,
+        scratch: *mut blst_limb_t,
     );
 }
 extern "C" {
@@ -955,9 +955,9 @@ extern "C" {
         ret: *mut blst_p2,
         points: *const *const blst_p2_affine,
         npoints: usize,
-        scalars: *const *const byte,
+        scalars: *const *const blst_byte,
         nbits: usize,
-        scratch: *mut limb_t,
+        scratch: *mut blst_limb_t,
     );
 }
 extern "C" {
@@ -965,9 +965,9 @@ extern "C" {
         ret: *mut blst_p2,
         points: *const *const blst_p2_affine,
         npoints: usize,
-        scalars: *const *const byte,
+        scalars: *const *const blst_byte,
         nbits: usize,
-        scratch: *mut limb_t,
+        scratch: *mut blst_limb_t,
         window: usize,
     );
 }
@@ -980,7 +980,7 @@ extern "C" {
         points: *const blst_p2_affine,
         scalars: *const blst_fr,
         npoints: usize,
-        scratch: *mut limb_t,
+        scratch: *mut blst_limb_t,
         scratch_size: usize,
     ) -> bool;
 }
@@ -993,7 +993,7 @@ extern "C" {
         points: *const blst_p2_affine,
         scalars: *const blst_fr,
         npoints: usize,
-        scratch: *mut limb_t,
+        scratch: *mut blst_limb_t,
         scratch_size: usize,
     ) -> bool;
 }
@@ -1010,7 +1010,7 @@ extern "C" {
         points: *const blst_p2_affine,
         scalars: *const blst_fr,
         npoints: usize,
-        scratch: *mut limb_t,
+        scratch: *mut blst_limb_t,
         scratch_size: usize,
         window: usize,
         batch_size: usize,
@@ -1021,9 +1021,9 @@ extern "C" {
         ret: *mut blst_p2,
         points: *const *const blst_p2_affine,
         npoints: usize,
-        scalars: *const *const byte,
+        scalars: *const *const blst_byte,
         nbits: usize,
-        scratch: *mut limb_t,
+        scratch: *mut blst_limb_t,
         bit0: usize,
         window: usize,
     );
@@ -1037,89 +1037,89 @@ extern "C" {
 extern "C" {
     pub fn blst_encode_to_g1(
         out: *mut blst_p1,
-        msg: *const byte,
+        msg: *const blst_byte,
         msg_len: usize,
-        DST: *const byte,
+        DST: *const blst_byte,
         DST_len: usize,
-        aug: *const byte,
+        aug: *const blst_byte,
         aug_len: usize,
     );
 }
 extern "C" {
     pub fn blst_hash_to_g1(
         out: *mut blst_p1,
-        msg: *const byte,
+        msg: *const blst_byte,
         msg_len: usize,
-        DST: *const byte,
+        DST: *const blst_byte,
         DST_len: usize,
-        aug: *const byte,
+        aug: *const blst_byte,
         aug_len: usize,
     );
 }
 extern "C" {
     pub fn blst_encode_to_g2(
         out: *mut blst_p2,
-        msg: *const byte,
+        msg: *const blst_byte,
         msg_len: usize,
-        DST: *const byte,
+        DST: *const blst_byte,
         DST_len: usize,
-        aug: *const byte,
+        aug: *const blst_byte,
         aug_len: usize,
     );
 }
 extern "C" {
     pub fn blst_hash_to_g2(
         out: *mut blst_p2,
-        msg: *const byte,
+        msg: *const blst_byte,
         msg_len: usize,
-        DST: *const byte,
+        DST: *const blst_byte,
         DST_len: usize,
-        aug: *const byte,
+        aug: *const blst_byte,
         aug_len: usize,
     );
 }
 extern "C" {
-    pub fn blst_p1_serialize(out: *mut byte, in_: *const blst_p1);
+    pub fn blst_p1_serialize(out: *mut blst_byte, in_: *const blst_p1);
 }
 extern "C" {
-    pub fn blst_p1_compress(out: *mut byte, in_: *const blst_p1);
+    pub fn blst_p1_compress(out: *mut blst_byte, in_: *const blst_p1);
 }
 extern "C" {
-    pub fn blst_p1_affine_serialize(out: *mut byte, in_: *const blst_p1_affine);
+    pub fn blst_p1_affine_serialize(out: *mut blst_byte, in_: *const blst_p1_affine);
 }
 extern "C" {
-    pub fn blst_p1_affine_compress(out: *mut byte, in_: *const blst_p1_affine);
+    pub fn blst_p1_affine_compress(out: *mut blst_byte, in_: *const blst_p1_affine);
 }
 extern "C" {
-    pub fn blst_p1_uncompress(out: *mut blst_p1_affine, in_: *const byte) -> BLST_ERROR;
+    pub fn blst_p1_uncompress(out: *mut blst_p1_affine, in_: *const blst_byte) -> BLST_ERROR;
 }
 extern "C" {
-    pub fn blst_p1_deserialize(out: *mut blst_p1_affine, in_: *const byte) -> BLST_ERROR;
+    pub fn blst_p1_deserialize(out: *mut blst_p1_affine, in_: *const blst_byte) -> BLST_ERROR;
 }
 extern "C" {
-    pub fn blst_p2_serialize(out: *mut byte, in_: *const blst_p2);
+    pub fn blst_p2_serialize(out: *mut blst_byte, in_: *const blst_p2);
 }
 extern "C" {
-    pub fn blst_p2_compress(out: *mut byte, in_: *const blst_p2);
+    pub fn blst_p2_compress(out: *mut blst_byte, in_: *const blst_p2);
 }
 extern "C" {
-    pub fn blst_p2_affine_serialize(out: *mut byte, in_: *const blst_p2_affine);
+    pub fn blst_p2_affine_serialize(out: *mut blst_byte, in_: *const blst_p2_affine);
 }
 extern "C" {
-    pub fn blst_p2_affine_compress(out: *mut byte, in_: *const blst_p2_affine);
+    pub fn blst_p2_affine_compress(out: *mut blst_byte, in_: *const blst_p2_affine);
 }
 extern "C" {
-    pub fn blst_p2_uncompress(out: *mut blst_p2_affine, in_: *const byte) -> BLST_ERROR;
+    pub fn blst_p2_uncompress(out: *mut blst_p2_affine, in_: *const blst_byte) -> BLST_ERROR;
 }
 extern "C" {
-    pub fn blst_p2_deserialize(out: *mut blst_p2_affine, in_: *const byte) -> BLST_ERROR;
+    pub fn blst_p2_deserialize(out: *mut blst_p2_affine, in_: *const blst_byte) -> BLST_ERROR;
 }
 extern "C" {
     pub fn blst_keygen(
         out_SK: *mut blst_scalar,
-        IKM: *const byte,
+        IKM: *const blst_byte,
         IKM_len: usize,
-        info: *const byte,
+        info: *const blst_byte,
         info_len: usize,
     );
 }
@@ -1181,7 +1181,7 @@ extern "C" {
     pub fn blst_gt_mult(
         out: *mut blst_fp12,
         p: *const blst_fp12,
-        scalar: *const byte,
+        scalar: *const blst_byte,
         nbits: usize,
     );
 }
@@ -1233,12 +1233,12 @@ extern "C" {
     pub fn blst_pairing_init(
         new_ctx: *mut blst_pairing,
         hash_or_encode: bool,
-        DST: *const byte,
+        DST: *const blst_byte,
         DST_len: usize,
     );
 }
 extern "C" {
-    pub fn blst_pairing_get_dst(ctx: *const blst_pairing) -> *const byte;
+    pub fn blst_pairing_get_dst(ctx: *const blst_pairing) -> *const blst_byte;
 }
 extern "C" {
     pub fn blst_pairing_commit(ctx: *mut blst_pairing);
@@ -1248,9 +1248,9 @@ extern "C" {
         ctx: *mut blst_pairing,
         PK: *const blst_p2_affine,
         signature: *const blst_p1_affine,
-        msg: *const byte,
+        msg: *const blst_byte,
         msg_len: usize,
-        aug: *const byte,
+        aug: *const blst_byte,
         aug_len: usize,
     ) -> BLST_ERROR;
 }
@@ -1261,9 +1261,9 @@ extern "C" {
         pk_grpchk: bool,
         signature: *const blst_p1_affine,
         sig_grpchk: bool,
-        msg: *const byte,
+        msg: *const blst_byte,
         msg_len: usize,
-        aug: *const byte,
+        aug: *const blst_byte,
         aug_len: usize,
     ) -> BLST_ERROR;
 }
@@ -1272,11 +1272,11 @@ extern "C" {
         ctx: *mut blst_pairing,
         PK: *const blst_p2_affine,
         sig: *const blst_p1_affine,
-        scalar: *const byte,
+        scalar: *const blst_byte,
         nbits: usize,
-        msg: *const byte,
+        msg: *const blst_byte,
         msg_len: usize,
-        aug: *const byte,
+        aug: *const blst_byte,
         aug_len: usize,
     ) -> BLST_ERROR;
 }
@@ -1287,11 +1287,11 @@ extern "C" {
         pk_grpchk: bool,
         sig: *const blst_p1_affine,
         sig_grpchk: bool,
-        scalar: *const byte,
+        scalar: *const blst_byte,
         nbits: usize,
-        msg: *const byte,
+        msg: *const blst_byte,
         msg_len: usize,
-        aug: *const byte,
+        aug: *const blst_byte,
         aug_len: usize,
     ) -> BLST_ERROR;
 }
@@ -1300,9 +1300,9 @@ extern "C" {
         ctx: *mut blst_pairing,
         PK: *const blst_p1_affine,
         signature: *const blst_p2_affine,
-        msg: *const byte,
+        msg: *const blst_byte,
         msg_len: usize,
-        aug: *const byte,
+        aug: *const blst_byte,
         aug_len: usize,
     ) -> BLST_ERROR;
 }
@@ -1313,9 +1313,9 @@ extern "C" {
         pk_grpchk: bool,
         signature: *const blst_p2_affine,
         sig_grpchk: bool,
-        msg: *const byte,
+        msg: *const blst_byte,
         msg_len: usize,
-        aug: *const byte,
+        aug: *const blst_byte,
         aug_len: usize,
     ) -> BLST_ERROR;
 }
@@ -1324,11 +1324,11 @@ extern "C" {
         ctx: *mut blst_pairing,
         PK: *const blst_p1_affine,
         sig: *const blst_p2_affine,
-        scalar: *const byte,
+        scalar: *const blst_byte,
         nbits: usize,
-        msg: *const byte,
+        msg: *const blst_byte,
         msg_len: usize,
-        aug: *const byte,
+        aug: *const blst_byte,
         aug_len: usize,
     ) -> BLST_ERROR;
 }
@@ -1339,11 +1339,11 @@ extern "C" {
         pk_grpchk: bool,
         sig: *const blst_p2_affine,
         sig_grpchk: bool,
-        scalar: *const byte,
+        scalar: *const blst_byte,
         nbits: usize,
-        msg: *const byte,
+        msg: *const blst_byte,
         msg_len: usize,
-        aug: *const byte,
+        aug: *const blst_byte,
         aug_len: usize,
     ) -> BLST_ERROR;
 }
@@ -1357,14 +1357,14 @@ extern "C" {
     pub fn blst_aggregate_in_g1(
         out: *mut blst_p1,
         in_: *const blst_p1,
-        zwire: *const byte,
+        zwire: *const blst_byte,
     ) -> BLST_ERROR;
 }
 extern "C" {
     pub fn blst_aggregate_in_g2(
         out: *mut blst_p2,
         in_: *const blst_p2,
-        zwire: *const byte,
+        zwire: *const blst_byte,
     ) -> BLST_ERROR;
 }
 extern "C" {
@@ -1378,11 +1378,11 @@ extern "C" {
         pk: *const blst_p1_affine,
         signature: *const blst_p2_affine,
         hash_or_encode: bool,
-        msg: *const byte,
+        msg: *const blst_byte,
         msg_len: usize,
-        DST: *const byte,
+        DST: *const blst_byte,
         DST_len: usize,
-        aug: *const byte,
+        aug: *const blst_byte,
         aug_len: usize,
     ) -> BLST_ERROR;
 }
@@ -1391,11 +1391,11 @@ extern "C" {
         pk: *const blst_p2_affine,
         signature: *const blst_p1_affine,
         hash_or_encode: bool,
-        msg: *const byte,
+        msg: *const blst_byte,
         msg_len: usize,
-        DST: *const byte,
+        DST: *const blst_byte,
         DST_len: usize,
-        aug: *const byte,
+        aug: *const blst_byte,
         aug_len: usize,
     ) -> BLST_ERROR;
 }
@@ -1443,14 +1443,14 @@ extern "C" {
 }
 extern "C" {
     pub fn blst_sk_to_pk2_in_g1(
-        out: *mut byte,
+        out: *mut blst_byte,
         out_pk: *mut blst_p1_affine,
         SK: *const blst_scalar,
     );
 }
 extern "C" {
     pub fn blst_sign_pk2_in_g1(
-        out: *mut byte,
+        out: *mut blst_byte,
         out_sig: *mut blst_p2_affine,
         hash: *const blst_p2,
         SK: *const blst_scalar,
@@ -1458,14 +1458,14 @@ extern "C" {
 }
 extern "C" {
     pub fn blst_sk_to_pk2_in_g2(
-        out: *mut byte,
+        out: *mut blst_byte,
         out_pk: *mut blst_p2_affine,
         SK: *const blst_scalar,
     );
 }
 extern "C" {
     pub fn blst_sign_pk2_in_g2(
-        out: *mut byte,
+        out: *mut blst_byte,
         out_sig: *mut blst_p1_affine,
         hash: *const blst_p1,
         SK: *const blst_scalar,
@@ -1502,17 +1502,17 @@ extern "C" {
 extern "C" {
     pub fn blst_uniq_insert(
         tree: *mut blst_uniq,
-        msg: *const byte,
+        msg: *const blst_byte,
         len: usize,
     ) -> BLST_UNIQ_RESULT;
 }
 extern "C" {
     pub fn blst_expand_message_xmd(
-        out: *mut byte,
+        out: *mut blst_byte,
         out_len: usize,
-        msg: *const byte,
+        msg: *const blst_byte,
         msg_len: usize,
-        DST: *const byte,
+        DST: *const blst_byte,
         DST_len: usize,
     );
 }
@@ -1520,7 +1520,7 @@ extern "C" {
     pub fn blst_p1_unchecked_mult(
         out: *mut blst_p1,
         p: *const blst_p1,
-        scalar: *const byte,
+        scalar: *const blst_byte,
         nbits: usize,
     );
 }
@@ -1528,7 +1528,7 @@ extern "C" {
     pub fn blst_p2_unchecked_mult(
         out: *mut blst_p2,
         p: *const blst_p2,
-        scalar: *const byte,
+        scalar: *const blst_byte,
         nbits: usize,
     );
 }
@@ -1543,41 +1543,41 @@ extern "C" {
     pub fn blst_pairing_as_fp12(ctx: *mut blst_pairing) -> blst_fp12;
 }
 extern "C" {
-    pub fn blst_bendian_from_fp12(out: *mut byte, a: *const blst_fp12);
+    pub fn blst_bendian_from_fp12(out: *mut blst_byte, a: *const blst_fp12);
 }
 extern "C" {
     pub fn blst_keygen_v3(
         out_SK: *mut blst_scalar,
-        IKM: *const byte,
+        IKM: *const blst_byte,
         IKM_len: usize,
-        info: *const byte,
+        info: *const blst_byte,
         info_len: usize,
     );
 }
 extern "C" {
     pub fn blst_keygen_v4_5(
         out_SK: *mut blst_scalar,
-        IKM: *const byte,
+        IKM: *const blst_byte,
         IKM_len: usize,
-        salt: *const byte,
+        salt: *const blst_byte,
         salt_len: usize,
-        info: *const byte,
+        info: *const blst_byte,
         info_len: usize,
     );
 }
 extern "C" {
     pub fn blst_keygen_v5(
         out_SK: *mut blst_scalar,
-        IKM: *const byte,
+        IKM: *const blst_byte,
         IKM_len: usize,
-        salt: *const byte,
+        salt: *const blst_byte,
         salt_len: usize,
-        info: *const byte,
+        info: *const blst_byte,
         info_len: usize,
     );
 }
 extern "C" {
-    pub fn blst_derive_master_eip2333(out_SK: *mut blst_scalar, IKM: *const byte, IKM_len: usize);
+    pub fn blst_derive_master_eip2333(out_SK: *mut blst_scalar, IKM: *const blst_byte, IKM_len: usize);
 }
 extern "C" {
     pub fn blst_derive_child_eip2333(
@@ -1587,13 +1587,13 @@ extern "C" {
     );
 }
 extern "C" {
-    pub fn blst_scalar_from_hexascii(out: *mut blst_scalar, hex: *const byte) -> bool;
+    pub fn blst_scalar_from_hexascii(out: *mut blst_scalar, hex: *const blst_byte) -> bool;
 }
 extern "C" {
-    pub fn blst_fr_from_hexascii(ret: *mut blst_fr, hex: *const byte) -> bool;
+    pub fn blst_fr_from_hexascii(ret: *mut blst_fr, hex: *const blst_byte) -> bool;
 }
 extern "C" {
-    pub fn blst_fp_from_hexascii(ret: *mut blst_fp, hex: *const byte) -> bool;
+    pub fn blst_fp_from_hexascii(ret: *mut blst_fp, hex: *const blst_byte) -> bool;
 }
 extern "C" {
     pub fn blst_p1_sizeof() -> usize;
@@ -1611,7 +1611,7 @@ extern "C" {
     pub fn blst_fp12_sizeof() -> usize;
 }
 extern "C" {
-    pub fn blst_sha256(out: *mut byte, msg: *const byte, msg_len: usize);
+    pub fn blst_sha256(out: *mut blst_byte, msg: *const blst_byte, msg_len: usize);
 }
 #[test]
 fn bindgen_test_normal_types() {

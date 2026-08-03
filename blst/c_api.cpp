@@ -10,6 +10,7 @@
 #include "blst/scalar/curve/GT.h"
 #include "blst/scalar/curve/multi_scalar.h"
 #include "blst/scalar/curve/point.h"
+#include "bindings/blst_scalar.h"
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 #include "blst/avx/curve/map_to_G.h"
 #endif
@@ -19,6 +20,9 @@
 #include <cstdint>
 #include <limits>
 #include <type_traits>
+
+using blst::byte;
+using blst::limb_t;
 
 namespace blst {
 size_t blst_pairing_sizeof(void);
@@ -58,12 +62,12 @@ void points_to_affine(AffinePoint<Field> dst[], const Point<Field>* const points
 
 namespace {
 
-using BoundaryG1 = blst::scalar::G1Point;
-using BoundaryG1Affine = blst::scalar::G1AffinePoint;
-using BoundaryG2 = blst::scalar::G2Point;
-using BoundaryG2Affine = blst::scalar::G2AffinePoint;
-using BoundaryFp12 = blst::Fp12;
-using BoundaryFp6 = blst::Fp6;
+using BoundaryG1 = blst_p1;
+using BoundaryG1Affine = blst_p1_affine;
+using BoundaryG2 = blst_p2;
+using BoundaryG2Affine = blst_p2_affine;
+using BoundaryFp12 = blst_fp12;
+using BoundaryFp6 = blst_fp6;
 
 using PublicG1 = blst::G1Point;
 using PublicG1Affine = blst::G1AffinePoint;
@@ -72,47 +76,11 @@ using PublicG2Affine = blst::G2AffinePoint;
 using PublicGt = blst::GT;
 using BoundaryPairing = blst::PAIRING;
 
-struct BlstP1Layout
-{
-    blst::Fp x;
-    blst::Fp y;
-    blst::Fp z;
-};
-
-struct BlstP1AffineLayout
-{
-    blst::Fp x;
-    blst::Fp y;
-};
-
-struct BlstP2Layout
-{
-    blst::Fp2 x;
-    blst::Fp2 y;
-    blst::Fp2 z;
-};
-
-struct BlstP2AffineLayout
-{
-    blst::Fp2 x;
-    blst::Fp2 y;
-};
-
-struct BlstFp12Layout
-{
-    blst::Fp6 fp6[2];
-};
-
-static_assert(sizeof(BlstP1Layout) == sizeof(BoundaryG1));
-static_assert(alignof(BlstP1Layout) == alignof(BoundaryG1));
-static_assert(sizeof(BlstP1AffineLayout) == sizeof(BoundaryG1Affine));
-static_assert(alignof(BlstP1AffineLayout) == alignof(BoundaryG1Affine));
-static_assert(sizeof(BlstP2Layout) == sizeof(BoundaryG2));
-static_assert(alignof(BlstP2Layout) == alignof(BoundaryG2));
-static_assert(sizeof(BlstP2AffineLayout) == sizeof(BoundaryG2Affine));
-static_assert(alignof(BlstP2AffineLayout) == alignof(BoundaryG2Affine));
-static_assert(sizeof(BlstFp12Layout) == sizeof(BoundaryFp12));
-static_assert(alignof(BlstFp12Layout) == alignof(BoundaryFp12));
+static_assert(std::is_same_v<BoundaryG1, blst::scalar::G1Point>);
+static_assert(std::is_same_v<BoundaryG1Affine, blst::scalar::G1AffinePoint>);
+static_assert(std::is_same_v<BoundaryG2, blst::scalar::G2Point>);
+static_assert(std::is_same_v<BoundaryG2Affine, blst::scalar::G2AffinePoint>);
+static_assert(std::is_same_v<BoundaryFp12, blst::scalar::Fp12>);
 static_assert(std::is_standard_layout_v<BoundaryG1>);
 static_assert(std::is_standard_layout_v<BoundaryG1Affine>);
 static_assert(std::is_standard_layout_v<BoundaryG2>);
@@ -189,8 +157,8 @@ inline PublicG1Affine boundary_to_public_g1_affine(const BoundaryG1Affine& point
 {
 #if BLST_DEFAULT_AVX
     return PublicG1Affine(
-        blst::avx::avx_curve_detail::scalar_fp_to_ring(point.X),
-        blst::avx::avx_curve_detail::scalar_fp_to_ring(point.Y));
+        blst::avx::avx_curve_detail::scalar_fp_to_ring(point.x),
+        blst::avx::avx_curve_detail::scalar_fp_to_ring(point.y));
 #else
     return point;
 #endif
@@ -212,8 +180,8 @@ inline PublicG2Affine boundary_to_public_g2_affine(const BoundaryG2Affine& point
 {
 #if BLST_DEFAULT_AVX
     return PublicG2Affine(
-        blst::avx::avx_curve_detail::scalar_fp2_to_ring(point.X),
-        blst::avx::avx_curve_detail::scalar_fp2_to_ring(point.Y));
+        blst::avx::avx_curve_detail::scalar_fp2_to_ring(point.x),
+        blst::avx::avx_curve_detail::scalar_fp2_to_ring(point.y));
 #else
     return point;
 #endif
@@ -231,12 +199,12 @@ inline BoundaryG2Affine public_to_boundary_g2_affine(const PublicG2Affine& point
 #endif
 }
 
-inline BoundaryPairing* as_pairing(void* ctx)
+inline BoundaryPairing* as_pairing(blst_pairing* ctx)
 {
     return reinterpret_cast<BoundaryPairing*>(ctx);
 }
 
-inline const BoundaryPairing* as_pairing(const void* ctx)
+inline const BoundaryPairing* as_pairing(const blst_pairing* ctx)
 {
     return reinterpret_cast<const BoundaryPairing*>(ctx);
 }
@@ -739,8 +707,8 @@ inline void c_api_points_add(Group& out, const AffineGroup* const points[], size
 BLST_EXTERN_C_BEGIN_
 
 bool blst_scalars_from_fr(
-    blst::pow256 out[],
-    const blst::Fr scalars[],
+    blst_scalar out[],
+    const blst_fr scalars[],
     size_t npoints)
 {
     return c_api_scalars_from_fr(
@@ -1812,23 +1780,23 @@ size_t blst_pairing_alignof(void)
     return alignof(BoundaryPairing);
 }
 
-void blst_pairing_init(void* new_ctx, bool hash_or_encode, const unsigned char* DST, size_t DST_len)
+void blst_pairing_init(blst_pairing* new_ctx, bool hash_or_encode, const byte* DST, size_t DST_len)
 {
     blst::blst_pairing_init(as_pairing(new_ctx), hash_or_encode ? 1 : 0, DST, DST_len);
 }
 
-const unsigned char* blst_pairing_get_dst(const void* ctx)
+const byte* blst_pairing_get_dst(const blst_pairing* ctx)
 {
     return reinterpret_cast<const unsigned char*>(blst::blst_pairing_get_dst(as_pairing(ctx)));
 }
 
-void blst_pairing_commit(void* ctx)
+void blst_pairing_commit(blst_pairing* ctx)
 {
     blst::blst_pairing_commit(as_pairing(ctx));
 }
 
 blst::BLST_ERROR blst_pairing_aggregate_pk_in_g2(
-    void* ctx,
+    blst_pairing* ctx,
     const BoundaryG2Affine* PK,
     const BoundaryG1Affine* signature,
     const unsigned char* msg,
@@ -1844,7 +1812,7 @@ blst::BLST_ERROR blst_pairing_aggregate_pk_in_g2(
 }
 
 blst::BLST_ERROR blst_pairing_chk_n_aggr_pk_in_g2(
-    void* ctx,
+    blst_pairing* ctx,
     const BoundaryG2Affine* PK,
     bool pk_grpchk,
     const BoundaryG1Affine* signature,
@@ -1871,7 +1839,7 @@ blst::BLST_ERROR blst_pairing_chk_n_aggr_pk_in_g2(
 }
 
 blst::BLST_ERROR blst_pairing_mul_n_aggregate_pk_in_g2(
-    void* ctx,
+    blst_pairing* ctx,
     const BoundaryG2Affine* PK,
     const BoundaryG1Affine* sig,
     const unsigned char* scalar,
@@ -1898,7 +1866,7 @@ blst::BLST_ERROR blst_pairing_mul_n_aggregate_pk_in_g2(
 }
 
 blst::BLST_ERROR blst_pairing_chk_n_mul_n_aggr_pk_in_g2(
-    void* ctx,
+    blst_pairing* ctx,
     const BoundaryG2Affine* PK,
     bool pk_grpchk,
     const BoundaryG1Affine* sig,
@@ -1929,7 +1897,7 @@ blst::BLST_ERROR blst_pairing_chk_n_mul_n_aggr_pk_in_g2(
 }
 
 blst::BLST_ERROR blst_pairing_aggregate_pk_in_g1(
-    void* ctx,
+    blst_pairing* ctx,
     const BoundaryG1Affine* PK,
     const BoundaryG2Affine* signature,
     const unsigned char* msg,
@@ -1945,7 +1913,7 @@ blst::BLST_ERROR blst_pairing_aggregate_pk_in_g1(
 }
 
 blst::BLST_ERROR blst_pairing_chk_n_aggr_pk_in_g1(
-    void* ctx,
+    blst_pairing* ctx,
     const BoundaryG1Affine* PK,
     bool pk_grpchk,
     const BoundaryG2Affine* signature,
@@ -1972,7 +1940,7 @@ blst::BLST_ERROR blst_pairing_chk_n_aggr_pk_in_g1(
 }
 
 blst::BLST_ERROR blst_pairing_mul_n_aggregate_pk_in_g1(
-    void* ctx,
+    blst_pairing* ctx,
     const BoundaryG1Affine* PK,
     const BoundaryG2Affine* sig,
     const unsigned char* scalar,
@@ -1999,7 +1967,7 @@ blst::BLST_ERROR blst_pairing_mul_n_aggregate_pk_in_g1(
 }
 
 blst::BLST_ERROR blst_pairing_chk_n_mul_n_aggr_pk_in_g1(
-    void* ctx,
+    blst_pairing* ctx,
     const BoundaryG1Affine* PK,
     bool pk_grpchk,
     const BoundaryG2Affine* sig,
@@ -2029,12 +1997,12 @@ blst::BLST_ERROR blst_pairing_chk_n_mul_n_aggr_pk_in_g1(
         aug_len);
 }
 
-blst::BLST_ERROR blst_pairing_merge(void* ctx, const void* ctx1)
+blst::BLST_ERROR blst_pairing_merge(blst_pairing* ctx, const blst_pairing* ctx1)
 {
     return blst::blst_pairing_merge(as_pairing(ctx), as_pairing(ctx1));
 }
 
-bool blst_pairing_finalverify(const void* ctx, const BoundaryFp12* gtsig)
+bool blst_pairing_finalverify(const blst_pairing* ctx, const BoundaryFp12* gtsig)
 {
     return blst::blst_pairing_finalverify(as_pairing(ctx), gtsig) != 0;
 }
@@ -2127,65 +2095,65 @@ blst::BLST_ERROR blst_core_verify_pk_in_g2(
         aug_len);
 }
 
-void blst_pairing_raw_aggregate(void* ctx, const BoundaryG2Affine* q, const BoundaryG1Affine* p)
+void blst_pairing_raw_aggregate(blst_pairing* ctx, const BoundaryG2Affine* q, const BoundaryG1Affine* p)
 {
     const PublicG2Affine public_q = boundary_to_public_g2_affine(*q);
     const PublicG1Affine public_p = boundary_to_public_g1_affine(*p);
     blst::blst_pairing_raw_aggregate(as_pairing(ctx), &public_q, &public_p);
 }
 
-BoundaryFp12 blst_pairing_as_fp12(void* ctx)
+BoundaryFp12 blst_pairing_as_fp12(blst_pairing* ctx)
 {
     return blst::blst_pairing_as_fp12(as_pairing(ctx));
 }
 
-void blst_pairing_as_fp12_to(BoundaryFp12* out, void* ctx)
+void blst_pairing_as_fp12_to(BoundaryFp12* out, blst_pairing* ctx)
 {
     blst::blst_pairing_as_fp12_to(out, as_pairing(ctx));
 }
 
-void blst_keygen(blst::byte* out_SK, const blst::byte* IKM, size_t IKM_len, const blst::byte* info, size_t info_len)
+void blst_keygen(blst_scalar* out_SK, const byte* IKM, size_t IKM_len, const byte* info, size_t info_len)
 {
-    blst::blst_keygen(out_SK, IKM, IKM_len, info, info_len);
+    blst::blst_keygen(out_SK->b, IKM, IKM_len, info, info_len);
 }
 
-void blst_keygen_v3(blst::byte* out_SK, const blst::byte* IKM, size_t IKM_len, const blst::byte* info, size_t info_len)
+void blst_keygen_v3(blst_scalar* out_SK, const byte* IKM, size_t IKM_len, const byte* info, size_t info_len)
 {
-    blst::blst_keygen_v3(out_SK, IKM, IKM_len, info, info_len);
+    blst::blst_keygen_v3(out_SK->b, IKM, IKM_len, info, info_len);
 }
 
 void blst_keygen_v4_5(
-    blst::byte* out_SK,
-    const blst::byte* IKM,
+    blst_scalar* out_SK,
+    const byte* IKM,
     size_t IKM_len,
-    const blst::byte* salt,
+    const byte* salt,
     size_t salt_len,
-    const blst::byte* info,
+    const byte* info,
     size_t info_len)
 {
-    blst::blst_keygen_v4_5(out_SK, IKM, IKM_len, salt, salt_len, info, info_len);
+    blst::blst_keygen_v4_5(out_SK->b, IKM, IKM_len, salt, salt_len, info, info_len);
 }
 
 void blst_keygen_v5(
-    blst::byte* out_SK,
-    const blst::byte* IKM,
+    blst_scalar* out_SK,
+    const byte* IKM,
     size_t IKM_len,
-    const blst::byte* salt,
+    const byte* salt,
     size_t salt_len,
-    const blst::byte* info,
+    const byte* info,
     size_t info_len)
 {
-    blst::blst_keygen_v5(out_SK, IKM, IKM_len, salt, salt_len, info, info_len);
+    blst::blst_keygen_v5(out_SK->b, IKM, IKM_len, salt, salt_len, info, info_len);
 }
 
-void blst_derive_master_eip2333(blst::byte* out_SK, const blst::byte* IKM, size_t IKM_len)
+void blst_derive_master_eip2333(blst_scalar* out_SK, const byte* IKM, size_t IKM_len)
 {
-    blst::blst_derive_master_eip2333(out_SK, IKM, IKM_len);
+    blst::blst_derive_master_eip2333(out_SK->b, IKM, IKM_len);
 }
 
-void blst_derive_child_eip2333(blst::byte* out_SK, const blst::byte* SK, unsigned int child_index)
+void blst_derive_child_eip2333(blst_scalar* out_SK, const blst_scalar* SK, uint32_t child_index)
 {
-    blst::blst_derive_child_eip2333(out_SK, SK, child_index);
+    blst::blst_derive_child_eip2333(out_SK->b, SK->b, child_index);
 }
 
 size_t blst_uniq_sizeof(size_t capacity)
@@ -2198,15 +2166,14 @@ size_t blst_uniq_alignof(void)
     return blst::blst_uniq_alignof();
 }
 
-bool blst_uniq_init(void* tree, size_t capacity)
+bool blst_uniq_init(blst_uniq* tree, size_t capacity)
 {
     return blst::blst_uniq_init(tree, capacity);
 }
 
-blst::BLST_UNIQ_RESULT blst_uniq_insert(void* tree, const blst::byte* msg,
-                                        size_t len)
+BLST_UNIQ_RESULT blst_uniq_insert(blst_uniq* tree, const byte* msg, size_t len)
 {
-    return blst::blst_uniq_insert(tree, msg, len);
+    return static_cast<BLST_UNIQ_RESULT>(blst::blst_uniq_insert(tree, msg, len));
 }
 
 void blst_expand_message_xmd(blst::byte* out, size_t out_len, const blst::byte* msg, size_t msg_len, const blst::byte* DST, size_t DST_len)
@@ -2305,48 +2272,48 @@ void blst_map_to_g2(BoundaryG2* out, const blst::Fp2* u, const blst::Fp2* v)
     blst::scalar::map_to_curve(*out, *u, v);
 }
 
-void blst_sk_to_pk_in_g1(BoundaryG1* out_pk, const blst::byte* SK)
+void blst_sk_to_pk_in_g1(BoundaryG1* out_pk, const blst_scalar* SK)
 {
     PublicG1 public_out = {};
-    PublicG1::to_pk(public_out, SK);
+    PublicG1::to_pk(public_out, SK->b);
     *out_pk = public_to_boundary_g1(public_out);
 }
 
-void blst_sign_pk_in_g1(BoundaryG2* out_sig, const BoundaryG2* hash, const blst::byte* SK)
+void blst_sign_pk_in_g1(BoundaryG2* out_sig, const BoundaryG2* hash, const blst_scalar* SK)
 {
     PublicG2 public_out = {};
-    PublicG2::sign(public_out, boundary_to_public_g2(*hash), SK);
+    PublicG2::sign(public_out, boundary_to_public_g2(*hash), SK->b);
     *out_sig = public_to_boundary_g2(public_out);
 }
 
-void blst_sk_to_pk_in_g2(BoundaryG2* out_pk, const blst::byte* SK)
+void blst_sk_to_pk_in_g2(BoundaryG2* out_pk, const blst_scalar* SK)
 {
     PublicG2 public_out = {};
-    PublicG2::to_pk(public_out, SK);
+    PublicG2::to_pk(public_out, SK->b);
     *out_pk = public_to_boundary_g2(public_out);
 }
 
-void blst_sign_pk_in_g2(BoundaryG1* out_sig, const BoundaryG1* hash, const blst::byte* SK)
+void blst_sign_pk_in_g2(BoundaryG1* out_sig, const BoundaryG1* hash, const blst_scalar* SK)
 {
     PublicG1 public_out = {};
-    PublicG1::sign(public_out, boundary_to_public_g1(*hash), SK);
+    PublicG1::sign(public_out, boundary_to_public_g1(*hash), SK->b);
     *out_sig = public_to_boundary_g1(public_out);
 }
 
-void blst_sk_to_pk2_in_g1(unsigned char out[96], BoundaryG1Affine* out_pk, const blst::byte* SK)
+void blst_sk_to_pk2_in_g1(byte out[96], BoundaryG1Affine* out_pk, const blst_scalar* SK)
 {
     PublicG1Affine public_pk = {};
     PublicG1Affine* public_pk_ptr = out_pk == nullptr ? nullptr : &public_pk;
-    PublicG1::to_pk2(out, public_pk_ptr, SK);
+    PublicG1::to_pk2(out, public_pk_ptr, SK->b);
     if (out_pk != nullptr) {
         *out_pk = public_to_boundary_g1_affine(public_pk);
     }
 }
 
-void blst_sign_pk2_in_g1(unsigned char out[192], BoundaryG2Affine* out_sig, const BoundaryG2* hash, const blst::byte* SK)
+void blst_sign_pk2_in_g1(byte out[192], BoundaryG2Affine* out_sig, const BoundaryG2* hash, const blst_scalar* SK)
 {
     PublicG2 public_point = {};
-    PublicG2::sign(public_point, boundary_to_public_g2(*hash), SK);
+    PublicG2::sign(public_point, boundary_to_public_g2(*hash), SK->b);
     if (out_sig != nullptr) {
         PublicG2Affine public_sig = {};
         PublicG2::to_affine(public_sig, public_point);
@@ -2361,20 +2328,20 @@ void blst_sign_pk2_in_g1(unsigned char out[192], BoundaryG2Affine* out_sig, cons
     }
 }
 
-void blst_sk_to_pk2_in_g2(unsigned char out[192], BoundaryG2Affine* out_pk, const blst::byte* SK)
+void blst_sk_to_pk2_in_g2(byte out[192], BoundaryG2Affine* out_pk, const blst_scalar* SK)
 {
     PublicG2Affine public_pk = {};
     PublicG2Affine* public_pk_ptr = out_pk == nullptr ? nullptr : &public_pk;
-    PublicG2::to_pk2(out, public_pk_ptr, SK);
+    PublicG2::to_pk2(out, public_pk_ptr, SK->b);
     if (out_pk != nullptr) {
         *out_pk = public_to_boundary_g2_affine(public_pk);
     }
 }
 
-void blst_sign_pk2_in_g2(unsigned char out[96], BoundaryG1Affine* out_sig, const BoundaryG1* hash, const blst::byte* SK)
+void blst_sign_pk2_in_g2(byte out[96], BoundaryG1Affine* out_sig, const BoundaryG1* hash, const blst_scalar* SK)
 {
     PublicG1 public_point = {};
-    PublicG1::sign(public_point, boundary_to_public_g1(*hash), SK);
+    PublicG1::sign(public_point, boundary_to_public_g1(*hash), SK->b);
     if (out_sig != nullptr) {
         PublicG1Affine public_sig = {};
         PublicG1::to_affine(public_sig, public_point);

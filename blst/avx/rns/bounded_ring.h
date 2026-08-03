@@ -96,7 +96,7 @@ class BoundedRing {
         blst::Fp canonical = {};
         blst::Fp::from_mont(canonical, value);
 
-        const uint64_t* limbs_64 = canonical.data;
+        const uint64_t* limbs_64 = canonical.l;
         std::array<uint64_t, 8> digits = {};
         digits[0] = limbs_64[0] & ((1ULL << 52) - 1);
         digits[1] = ((limbs_64[0] >> 52) | (limbs_64[1] << 12)) & ((1ULL << 52) - 1);
@@ -187,7 +187,7 @@ class BoundedRing {
             hex = lit + 2;
         }
         const bool parsed =
-            blst::limbs_from_hexascii(canonical.data, sizeof(canonical), hex);
+            blst::limbs_from_hexascii(canonical.l, sizeof(canonical), hex);
         BLST_ASSERT(parsed);
         (void)parsed;
         blst::Fp mont = {};

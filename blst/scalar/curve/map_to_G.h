@@ -1,4 +1,4 @@
-﻿
+
 #pragma once
 
 #include "blst/scalar/curve/point.h"
@@ -131,39 +131,39 @@ namespace blst::scalar
 		Fp2 Zz_powers[3], map[3], xn, xd, yn, yd;
 
 		/* lay down Z^2 powers in descending order                          */
-		Fp2::sqr(Zz_powers[2], p.Z);                       /* ZZ^1          */
+		Fp2::sqr(Zz_powers[2], p.z);                       /* ZZ^1          */
 		Fp2::sqr(Zz_powers[1], Zz_powers[2]);               /* ZZ^2  1+1     */
 		Fp2::mul(Zz_powers[0], Zz_powers[2], Zz_powers[1]); /* ZZ^3  2+1     */
 
 		map_field_times_Zz<Fp2>(map, isogeny_map_x_num, Zz_powers, 3);
-		Fp2::mul(xn, p.X, isogeny_map_x_num[3]);
+		Fp2::mul(xn, p.x, isogeny_map_x_num[3]);
 		Fp2::add(xn, xn, map[2]);
-		map_field<Fp2>(xn, p.X, map, 2);
+		map_field<Fp2>(xn, p.x, map, 2);
 
 		map_field_times_Zz<Fp2>(map, isogeny_map_x_den, Zz_powers + 1, 2);
-		Fp2::add(xd, p.X, map[1]);
-		map_field<Fp2>(xd, p.X, map, 1);
+		Fp2::add(xd, p.x, map[1]);
+		map_field<Fp2>(xd, p.x, map, 1);
 		Fp2::mul(xd, xd, Zz_powers[2]);      /* xd *= Z^2                    */
 
 		map_field_times_Zz<Fp2>(map, isogeny_map_y_num, Zz_powers, 3);
-		Fp2::mul(yn, p.X, isogeny_map_y_num[3]);
+		Fp2::mul(yn, p.x, isogeny_map_y_num[3]);
 		Fp2::add(yn, yn, map[2]);
-		map_field<Fp2>(yn, p.X, map, 2);
-		Fp2::mul(yn, yn, p.Y);              /* yn *= Y                      */
+		map_field<Fp2>(yn, p.x, map, 2);
+		Fp2::mul(yn, yn, p.y);              /* yn *= Y                      */
 
 		map_field_times_Zz<Fp2>(map, isogeny_map_y_den, Zz_powers, 3);
-		Fp2::add(yd, p.X, map[2]);
-		map_field<Fp2>(yd, p.X, map, 2);
-		Fp2::mul(Zz_powers[2], Zz_powers[2], p.Z);
+		Fp2::add(yd, p.x, map[2]);
+		map_field<Fp2>(yd, p.x, map, 2);
+		Fp2::mul(Zz_powers[2], Zz_powers[2], p.z);
 		Fp2::mul(yd, yd, Zz_powers[2]);      /* yd *= Z^3                    */
 
 		/* convert (xn, xd, yn, yd) to Jacobian coordinates                 */
-		Fp2::mul(out.Z, xd, yd);            /* Z = xd * yd                  */
-		Fp2::mul(out.X, xn, yd);
-		Fp2::mul(out.X, out.X, out.Z);    /* X = xn * xd * yd^2           */
-		Fp2::sqr(out.Y, out.Z);
-		Fp2::mul(out.Y, out.Y, xd);
-		Fp2::mul(out.Y, out.Y, yn);        /* Y = yn * xd^3 * yd^2         */
+		Fp2::mul(out.z, xd, yd);            /* Z = xd * yd                  */
+		Fp2::mul(out.x, xn, yd);
+		Fp2::mul(out.x, out.x, out.z);    /* X = xn * xd * yd^2           */
+		Fp2::sqr(out.y, out.z);
+		Fp2::mul(out.y, out.y, xd);
+		Fp2::mul(out.y, out.y, yn);        /* Y = yn * xd^3 * yd^2         */
 	}
 
 
@@ -360,7 +360,7 @@ namespace blst::scalar
 		Fp Zz_powers[15], map[15], xn, xd, yn, yd;
 
 		/* lay down Z^2 powers in descending order                          */
-		Fp::sqr(Zz_powers[14], p.Z);                        /* ZZ^1         */
+		Fp::sqr(Zz_powers[14], p.z);                        /* ZZ^1         */
 #ifdef __OPTIMIZE_SIZE__
 		for (size_t i = 14; i > 0; i--)
 			Fp::mul(Zz_powers[i - 1], Zz_powers[i], Zz_powers[14]);
@@ -382,34 +382,34 @@ namespace blst::scalar
 #endif
 
 		map_field_times_Zz<Fp>(map, isogeny_map_x_num, Zz_powers + 4, 11);
-		Fp::mul(xn, p.X, isogeny_map_x_num[11]);
+		Fp::mul(xn, p.x, isogeny_map_x_num[11]);
 		Fp::add(xn, xn, map[10]);
-		map_field<Fp>(xn, p.X, map, 10);
+		map_field<Fp>(xn, p.x, map, 10);
 
 		map_field_times_Zz<Fp>(map, isogeny_map_x_den, Zz_powers + 5, 10);
-		Fp::add(xd, p.X, map[9]);
-		map_field<Fp>(xd, p.X, map, 9);
+		Fp::add(xd, p.x, map[9]);
+		map_field<Fp>(xd, p.x, map, 9);
 		Fp::mul(xd, xd, Zz_powers[14]);      /* xd *= Z^2                    */
 
 		map_field_times_Zz<Fp>(map, isogeny_map_y_num, Zz_powers, 15);
-		Fp::mul(yn, p.X, isogeny_map_y_num[15]);
+		Fp::mul(yn, p.x, isogeny_map_y_num[15]);
 		Fp::add(yn, yn, map[14]);
-		map_field<Fp>(yn, p.X, map, 14);
-		Fp::mul(yn, yn, p.Y);               /* yn *= Y                      */
+		map_field<Fp>(yn, p.x, map, 14);
+		Fp::mul(yn, yn, p.y);               /* yn *= Y                      */
 
 		map_field_times_Zz<Fp>(map, isogeny_map_y_den, Zz_powers, 15);
-		Fp::add(yd, p.X, map[14]);
-		map_field<Fp>(yd, p.X, map, 14);
-		Fp::mul(Zz_powers[14], Zz_powers[14], p.Z);
+		Fp::add(yd, p.x, map[14]);
+		map_field<Fp>(yd, p.x, map, 14);
+		Fp::mul(Zz_powers[14], Zz_powers[14], p.z);
 		Fp::mul(yd, yd, Zz_powers[14]);      /* yd *= Z^3                    */
 
 		/* convert (xn, xd, yn, yd) to Jacobian coordinates                 */
-		Fp::mul(out.Z, xd, yd);             /* Z = xd * yd                  */
-		Fp::mul(out.X, xn, yd);
-		Fp::mul(out.X, out.X, out.Z);     /* X = xn * xd * yd^2           */
-		Fp::sqr(out.Y, out.Z);
-		Fp::mul(out.Y, out.Y, xd);
-		Fp::mul(out.Y, out.Y, yn);         /* Y = yn * xd^3 * yd^2         */
+		Fp::mul(out.z, xd, yd);             /* Z = xd * yd                  */
+		Fp::mul(out.x, xn, yd);
+		Fp::mul(out.x, out.x, out.z);     /* X = xn * xd * yd^2           */
+		Fp::sqr(out.y, out.z);
+		Fp::mul(out.y, out.y, xd);
+		Fp::mul(out.y, out.y, yn);         /* Y = yn * xd^3 * yd^2         */
 	}
 
 
@@ -441,9 +441,9 @@ namespace blst::scalar
 			TO_LIMB_T(0x1668ddfa462bf6b6), TO_LIMB_T(0x00960e2ed1cf294c)
 		};
 		Fp uu, tv2, x2n, gx1, gxd, y2;
-# define xn     p.X
-# define y      p.Y
-# define xd     p.Z
+# define xn     p.x
+		auto& y = p.y;
+# define xd     p.z
 # define x1n    xn
 # define y1     y
 # define Zuu    x2n
@@ -466,8 +466,8 @@ namespace blst::scalar
 
 		/* x denumenator                                                    */
 		Fp::mul(xd, minus_A, tv2);           /* xd = -A * tv2                */
-		e1 = vec_is_zero(xd.data, sizeof(xd));   /* e1 = xd == 0                 */
-		vec_select(xd.data, ZxA.data, xd.data, sizeof(xd), e1);    /*              # If xd == 0, set xd = Z*A */
+		e1 = vec_is_zero(xd.l, sizeof(xd));   /* e1 = xd == 0                 */
+		vec_select(xd.l, ZxA.l, xd.l, sizeof(xd), e1);    /*              # If xd == 0, set xd = Z*A */
 
 		/* y numerators variants                                            */
 		Fp::sqr(tv2, xd);                    /* tv2 = xd^2                   */
@@ -488,8 +488,8 @@ namespace blst::scalar
 		Fp::mul(y2, y2, u);                  /* y2 = y2 * u                  */
 
 		/* choose numerators                                                */
-		vec_select(xn.data, x1n.data, x2n.data, sizeof(xn), e2);   /* xn = e2 ? x1n : x2n  */
-		vec_select(y.data, y1.data, y2.data, sizeof(y), e2);       /* y  = e2 ? y1 : y2    */
+		vec_select(xn.l, x1n.l, x2n.l, sizeof(xn), e2);   /* xn = e2 ? x1n : x2n  */
+		vec_select(y.l, y1.l, y2.l, sizeof(y), e2);       /* y  = e2 ? y1 : y2    */
 
 		e1 = sgn0_fp(u);
 		e2 = sgn0_fp(y);
@@ -497,13 +497,12 @@ namespace blst::scalar
 		/* return (xn, xd, y, 1)        */
 
 	/* convert (xn, xd, y, 1) to Jacobian projective coordinates        */
-		Fp::mul(p.X, xn, xd);               /* X = xn * xd                  */
-		Fp::mul(p.Y, y, gxd);               /* Y = y * xd^3                 */
+		Fp::mul(p.x, xn, xd);               /* X = xn * xd                  */
+		Fp::mul(p.y, y, gxd);               /* Y = y * xd^3                 */
 #ifndef xd
-		vec_copy(p.Z, xd, sizeof(xd));     /* Z = xd                       */
+		vec_copy(p.z, xd, sizeof(xd));     /* Z = xd                       */
 #else
 # undef xn
-# undef y
 # undef xd
 # undef x1n
 # undef y1
@@ -542,9 +541,9 @@ namespace blst::scalar
 			TO_LIMB_T(0x908a1ebe5708d058), TO_LIMB_T(0x0fc0ba017f2b2466) }
 		};
 		Fp2 uu, tv2, tv4, x2n, gx1, gxd, y2;
-# define xn     p.X
-# define y      p.Y
-# define xd     p.Z
+# define xn     p.x
+		auto& y = p.y;
+# define xd     p.z
 # define x1n    xn
 # define y1     y
 # define Zuu    x2n
@@ -597,13 +596,12 @@ namespace blst::scalar
 		/* return (xn, xd, y, 1)        */
 
 	/* convert (xn, xd, y, 1) to Jacobian projective coordinates        */
-		Fp2::mul(p.X, xn, xd);              /* X = xn * xd                  */
-		Fp2::mul(p.Y, y, gxd);              /* Y = y * xd^3                 */
+		Fp2::mul(p.x, xn, xd);              /* X = xn * xd                  */
+		Fp2::mul(p.y, y, gxd);              /* Y = y * xd^3                 */
 #ifndef xd
-		vec_copy(p.Z, xd, sizeof(xd));     /* Z = xd                       */
+		vec_copy(p.z, xd, sizeof(xd));     /* Z = xd                       */
 #else
 # undef xn
-# undef y
 # undef xd
 # undef x1n
 # undef y1

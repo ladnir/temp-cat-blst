@@ -19,6 +19,7 @@
 #include "blst/fields/Fp.h"
 #include "blst/fields/Fp2.h"
 #include "blst/common/bytes.h"
+#include "bindings/blst_scalar.h"
 #include <bit>
 BLST_EXTERN_C_BEGIN_
 
@@ -27,47 +28,44 @@ using namespace blst;
 /*
  * BLS12-381-specific Fr shortcuts to assembly.
  */
-void blst_fr_add(Fr& ret, const Fr& a, const Fr& b) { Fr::add(ret, a, b); }
-void blst_fr_sub(Fr& ret, const Fr& a, const Fr& b) { Fr::sub(ret, a, b); }
-void blst_fr_mul_by_3(Fr& ret, const Fr& a) { Fr::mul_by_3(ret, a); }
-void blst_fr_lshift(Fr& ret, const Fr& a, size_t count) { Fr::lshift(ret, a, count); }
-void blst_fr_rshift(Fr& ret, const Fr& a, size_t count) { Fr::rshift(ret, a, count); }
-void blst_fr_mul(Fr& ret, const Fr& a, const Fr& b) { Fr::mul(ret, a, b); }
-void blst_fr_pow(Fr& ret, const Fr& a, const byte* exponent, size_t nbits)
+void blst_fr_add(blst_fr* ret, const blst_fr* a, const blst_fr* b) { Fr::add(*ret, *a, *b); }
+void blst_fr_sub(blst_fr* ret, const blst_fr* a, const blst_fr* b) { Fr::sub(*ret, *a, *b); }
+void blst_fr_mul_by_3(blst_fr* ret, const blst_fr* a) { Fr::mul_by_3(*ret, *a); }
+void blst_fr_lshift(blst_fr* ret, const blst_fr* a, size_t count) { Fr::lshift(*ret, *a, count); }
+void blst_fr_rshift(blst_fr* ret, const blst_fr* a, size_t count) { Fr::rshift(*ret, *a, count); }
+void blst_fr_mul(blst_fr* ret, const blst_fr* a, const blst_fr* b) { Fr::mul(*ret, *a, *b); }
+void blst_fr_pow(blst_fr* ret, const blst_fr* a, const byte* exponent, size_t nbits)
 {
     if (nbits == 0) {
-        ret = Fr::one();
+        *ret = Fr::one();
         return;
     }
-    Fr::exp(ret, a, exponent, nbits);
+    Fr::exp(*ret, *a, exponent, nbits);
 }
-void blst_fr_ct_bfly(Fr& x0, Fr& x1, const Fr& twiddle) { Fr::ct_bfly(x0, x1, twiddle); }
-void blst_fr_gs_bfly(Fr& x0, Fr& x1, const Fr& twiddle) { Fr::gs_bfly(x0, x1, twiddle); }
-void blst_fr_sqr(Fr& ret, const Fr& a) { Fr::sqr(ret, a); }
-void blst_fr_cneg(Fr& ret, const Fr& a, bool flag) { Fr::cneg(ret, a, flag ? 1 : 0); }
-void blst_fr_eucl_inverse(Fr& ret, const Fr& a) { Fr::reciprocal(ret, a); }
-void blst_fr_inverse(Fr& ret, const Fr& a) { Fr::reciprocal(ret, a); }
-void blst_fr_to(Fr& ret, const Fr& a) { Fr::to_mont(ret, a); }
-void blst_fr_from(Fr& ret, const Fr& a) { Fr::from_mont(ret, a); }
-void blst_fr_from_uint64(Fr& ret, const unsigned long long a[4])
+void blst_fr_ct_bfly(blst_fr* x0, blst_fr* x1, const blst_fr* twiddle) { Fr::ct_bfly(*x0, *x1, *twiddle); }
+void blst_fr_gs_bfly(blst_fr* x0, blst_fr* x1, const blst_fr* twiddle) { Fr::gs_bfly(*x0, *x1, *twiddle); }
+void blst_fr_sqr(blst_fr* ret, const blst_fr* a) { Fr::sqr(*ret, *a); }
+void blst_fr_cneg(blst_fr* ret, const blst_fr* a, bool flag) { Fr::cneg(*ret, *a, flag ? 1 : 0); }
+void blst_fr_eucl_inverse(blst_fr* ret, const blst_fr* a) { Fr::reciprocal(*ret, *a); }
+void blst_fr_inverse(blst_fr* ret, const blst_fr* a) { Fr::reciprocal(*ret, *a); }
+void blst_fr_to(blst_fr* ret, const blst_fr* a) { Fr::to_mont(*ret, *a); }
+void blst_fr_from(blst_fr* ret, const blst_fr* a) { Fr::from_mont(*ret, *a); }
+void blst_fr_from_uint64(blst_fr* ret, const uint64_t a[4])
 {
-    u64 words[4];
-    for (int i = 0; i < 4; ++i) {
-        words[i] = static_cast<u64>(a[i]);
-    }
-    Fr::from_uint64(ret, words);
+    Fr::from_uint64(*ret, a);
 }
-void blst_fr_from_scalar(Fr& ret, const pow256 a) { Fr::from_scalar(ret, a); }
-void blst_scalar_from_fr(pow256 ret, const Fr& a) { Fr::to_scaler(ret, a); }
-int blst_scalar_fr_check(const pow256 a) { 
+void blst_fr_from_scalar(blst_fr* ret, const blst_scalar* a) { Fr::from_scalar(*ret, a->b); }
+void blst_scalar_from_fr(blst_scalar* ret, const blst_fr* a) { Fr::to_scaler(ret->b, *a); }
+bool blst_scalar_fr_check(const blst_scalar* a) {
     Fr aa;
-    limbs_from_le_bytes(aa.data, a, sizeof(pow256));
-    return Fr::is_redc(aa); }
-int blst_sk_check(const pow256 a) { return sk_check(a); }
-int blst_sk_add_n_check(pow256 ret, const pow256 a, const pow256 b) { return sk_add_n_check(ret, a, b); }
-int blst_sk_sub_n_check(pow256 ret, const pow256 a, const pow256 b) { return sk_sub_n_check(ret, a, b); }
-int blst_sk_mul_n_check(pow256 ret, const pow256 a, const pow256 b) { return sk_mul_n_check(ret, a, b); }
-void blst_sk_inverse(pow256 ret, const pow256 a) { sk_inverse(ret, a); }
+    limbs_from_le_bytes(aa.l, a->b, sizeof(a->b));
+    return Fr::is_redc(aa) != 0;
+}
+bool blst_sk_check(const blst_scalar* a) { return sk_check(a->b) != 0; }
+bool blst_sk_add_n_check(blst_scalar* ret, const blst_scalar* a, const blst_scalar* b) { return sk_add_n_check(ret->b, a->b, b->b) != 0; }
+bool blst_sk_sub_n_check(blst_scalar* ret, const blst_scalar* a, const blst_scalar* b) { return sk_sub_n_check(ret->b, a->b, b->b) != 0; }
+bool blst_sk_mul_n_check(blst_scalar* ret, const blst_scalar* a, const blst_scalar* b) { return sk_mul_n_check(ret->b, a->b, b->b) != 0; }
+void blst_sk_inverse(blst_scalar* ret, const blst_scalar* a) { sk_inverse(ret->b, a->b); }
 
 
 
@@ -75,161 +73,135 @@ void blst_sk_inverse(pow256 ret, const pow256 a) { sk_inverse(ret, a); }
 /*
  * BLS12-381-specific Fp shortcuts to assembly.
  */
-void blst_fp_add(Fp& ret, const Fp& a, const Fp& b)
-{   Fp::add(ret, a, b);   }
+void blst_fp_add(blst_fp* ret, const blst_fp* a, const blst_fp* b)
+{   Fp::add(*ret, *a, *b);   }
 
-void blst_fp_sub(Fp& ret, const Fp& a, const Fp& b)
-{   Fp::sub(ret, a, b);   }
+void blst_fp_sub(blst_fp* ret, const blst_fp* a, const blst_fp* b)
+{   Fp::sub(*ret, *a, *b);   }
 
-void blst_fp_mul_by_3(Fp& ret, const Fp& a)
-{ Fp::mul_by_3(ret, a);   }
+void blst_fp_mul_by_3(blst_fp* ret, const blst_fp* a)
+{ Fp::mul_by_3(*ret, *a);   }
 
-void blst_fp_mul_by_8(Fp& ret, const Fp& a)
-{  Fp::mul_by_8(ret, a);   }
+void blst_fp_mul_by_8(blst_fp* ret, const blst_fp* a)
+{  Fp::mul_by_8(*ret, *a);   }
 
-void blst_fp_lshift(Fp& ret, const Fp& a, size_t count)
-{   Fp::lshift(ret, a, count);   }
+void blst_fp_lshift(blst_fp* ret, const blst_fp* a, size_t count)
+{   Fp::lshift(*ret, *a, count);   }
 
-void blst_fp_mul(Fp& ret, const Fp& a, const Fp& b)
-{   Fp::mul(ret, a, b);   }
+void blst_fp_mul(blst_fp* ret, const blst_fp* a, const blst_fp* b)
+{   Fp::mul(*ret, *a, *b);   }
 
-void blst_fp_sqr(Fp& ret, const Fp& a)
-{   Fp::sqr(ret, a);   }
+void blst_fp_sqr(blst_fp* ret, const blst_fp* a)
+{   Fp::sqr(*ret, *a);   }
 
-void blst_fp_cneg(Fp& ret, const Fp& a, int flag)
-{   Fp::cneg(ret, a, is_zero(flag) ^ 1);   }
+void blst_fp_cneg(blst_fp* ret, const blst_fp* a, bool flag)
+{   Fp::cneg(*ret, *a, flag ? 1 : 0);   }
 
-void blst_fp_eucl_inverse(Fp& ret, const Fp& a)
-{   Fp::reciprocal(ret, a);   }
+void blst_fp_eucl_inverse(blst_fp* ret, const blst_fp* a)
+{   Fp::reciprocal(*ret, *a);   }
 
-void blst_fp_inverse(Fp& ret, const Fp& a)
-{   Fp::flt_reciprocal(ret, a);   }
+void blst_fp_inverse(blst_fp* ret, const blst_fp* a)
+{   Fp::flt_reciprocal(*ret, *a);   }
 
-bool blst_fp_sqrt(Fp& ret, const Fp& a)
+bool blst_fp_sqrt(blst_fp* ret, const blst_fp* a)
 {
     Fp candidate;
-    const bool_t is_root = Fp::sqrt(candidate, a);
-    vec_select(ret.data, candidate.data, Fp::zero().data, sizeof(ret), is_root);
+    const bool_t is_root = Fp::sqrt(candidate, *a);
+    vec_select(ret->l, candidate.l, Fp::zero().l, sizeof(*ret), is_root);
     vec_zero(&candidate, sizeof(candidate));
     return is_root != 0;
 }
 
-bool blst_fp_is_square(const Fp& a)
-{   return Fp::is_sqrt(a) != 0;   }
+bool blst_fp_is_square(const blst_fp* a)
+{   return Fp::is_sqrt(*a) != 0;   }
 
-void blst_fp_to(Fp& ret, const Fp& a)
-{   Fp::mul(ret, a, get_BLST_RR());   }
+void blst_fp_to(blst_fp* ret, const blst_fp* a)
+{   Fp::mul(*ret, *a, get_BLST_RR());   }
 
-void blst_fp_from(Fp& ret, const Fp& a)
-{   Fp::from_mont(ret, a);   }
+void blst_fp_from(blst_fp* ret, const blst_fp* a)
+{   Fp::from_mont(*ret, *a);   }
 
 /*
  * Fp serialization/deserialization.
  */
-void blst_fp_from_uint32(Fp& ret, const unsigned int a[12])
+void blst_fp_from_uint32(blst_fp* ret, const uint32_t a[12])
 {
     Fp in = {};
 
-    if (sizeof(limb_t) == 8) {
-        for (int i = 0; i < 6; i++) {
-            in[i] = static_cast<limb_t>(a[2 * i]) |
-                    (static_cast<limb_t>(a[2 * i + 1]) << 32);
-        }
-    } else {
-        for (int i = 0; i < 12; ++i) {
-            in[i] = static_cast<limb_t>(a[i]);
-        }
+    for (int i = 0; i < 6; i++) {
+        in[i] = static_cast<limb_t>(a[2 * i]) |
+                (static_cast<limb_t>(a[2 * i + 1]) << 32);
     }
-    Fp::mul(ret, in, get_BLST_RR());
+    Fp::mul(*ret, in, get_BLST_RR());
 }
 
-void blst_uint32_from_fp(unsigned int ret[12], const Fp& a)
+void blst_uint32_from_fp(uint32_t ret[12], const blst_fp* a)
 {
     Fp out = {};
 
-    Fp::from_mont(out, a);
-    if (sizeof(limb_t) == 4) {
-        for (int i = 0; i < 12; ++i) {
-            ret[i] = static_cast<unsigned int>(out[i]);
-        }
-    } else {
-        for (int i = 0; i < 6; i++) {
-            limb_t limb = out[i];
-            ret[2 * i] = static_cast<unsigned int>(limb);
-            ret[2 * i + 1] = static_cast<unsigned int>(limb >> 32);
-        }
+    Fp::from_mont(out, *a);
+    for (int i = 0; i < 6; i++) {
+        limb_t limb = out[i];
+        ret[2 * i] = static_cast<uint32_t>(limb);
+        ret[2 * i + 1] = static_cast<uint32_t>(limb >> 32);
     }
 }
 
-void blst_fp_from_uint64(Fp& ret, const unsigned long long a[6])
+void blst_fp_from_uint64(blst_fp* ret, const uint64_t a[6])
 {
     Fp in = {};
 
-    if (sizeof(limb_t) == 8) {
-        for (int i = 0; i < 6; ++i) {
-            in[i] = static_cast<limb_t>(a[i]);
-        }
-    } else {
-        for (int i = 0; i < 6; i++) {
-            unsigned long long ll = a[i];
-            in[2 * i] = static_cast<limb_t>(ll);
-            in[2 * i + 1] = static_cast<limb_t>(ll >> 32);
-        }
+    for (int i = 0; i < 6; ++i) {
+        in[i] = static_cast<limb_t>(a[i]);
     }
-    Fp::mul(ret, in, get_BLST_RR());
+    Fp::mul(*ret, in, get_BLST_RR());
 }
 
-void blst_uint64_from_fp(unsigned long long ret[6], const Fp& a)
+void blst_uint64_from_fp(uint64_t ret[6], const blst_fp* a)
 {
     Fp out = {};
 
-    Fp::from_mont(out, a);
-    if (sizeof(limb_t) == 8) {
-        for (int i = 0; i < 6; ++i) {
-            ret[i] = static_cast<unsigned long long>(out[i]);
-        }
-    } else {
-        for (int i = 0; i < 6; i++)
-            ret[i] = static_cast<unsigned long long>(out[2 * i]) |
-                     (static_cast<unsigned long long>(out[2 * i + 1]) << 32);
+    Fp::from_mont(out, *a);
+    for (int i = 0; i < 6; ++i) {
+        ret[i] = static_cast<uint64_t>(out[i]);
     }
 }
 
-void blst_fp_from_bendian(Fp& ret, const unsigned char a[48])
+void blst_fp_from_bendian(blst_fp* ret, const byte a[48])
 {
     Fp out;
 
-    limbs_from_be_bytes(out.data, a, sizeof(Fp));
-    Fp::mul(ret, out, get_BLST_RR());
+    limbs_from_be_bytes(out.l, a, sizeof(Fp));
+    Fp::mul(*ret, out, get_BLST_RR());
 }
 
-void blst_bendian_from_fp(unsigned char ret[48], const Fp& a)
+void blst_bendian_from_fp(byte ret[48], const blst_fp* a)
 {
     Fp out;
 
-    Fp::from_mont(out, a);
-    be_bytes_from_limbs(ret, out.data, sizeof(Fp));
+    Fp::from_mont(out, *a);
+    be_bytes_from_limbs(ret, out.l, sizeof(Fp));
 }
 
-void blst_fp_from_lendian(Fp& ret, const unsigned char a[48])
+void blst_fp_from_lendian(blst_fp* ret, const byte a[48])
 {
     Fp out;
 
-    limbs_from_le_bytes(out.data, a, sizeof(Fp));
-    Fp::mul(ret, out, get_BLST_RR());
+    limbs_from_le_bytes(out.l, a, sizeof(Fp));
+    Fp::mul(*ret, out, get_BLST_RR());
 }
 
 static void fp_add_unreduced(Fp& ret, const Fp& a, const Fp& b)
 {
-    add_mod_v384(ret.data, a.data, b.data, get_BLST_P().data);
+    add_mod_v384(ret.l, a.l, b.l, get_BLST_P().l);
 }
 
-void blst_fp_from_le_bytes(Fp& out, const unsigned char* bytes, size_t n)
+void blst_fp_from_le_bytes(blst_fp* out, const byte* bytes, size_t n)
 {
     constexpr size_t chunk_size = sizeof(Fp);
     static_assert(chunk_size == 48);
 
-    vec_zero(out.data, sizeof(out));
+    vec_zero(out->l, sizeof(*out));
     if (n == 0) {
         return;
     }
@@ -238,23 +210,23 @@ void blst_fp_from_le_bytes(Fp& out, const unsigned char* bytes, size_t n)
     Fp digit;
 
     n -= rem;
-    limbs_from_le_bytes(out.data, bytes + n, rem);
-    Fp::mul(out, get_BLST_RR(), out);
+    limbs_from_le_bytes(out->l, bytes + n, rem);
+    Fp::mul(*out, get_BLST_RR(), *out);
 
     while (n != 0) {
         n -= chunk_size;
-        limbs_from_le_bytes(digit.data, bytes + n, chunk_size);
-        fp_add_unreduced(out, out, digit);
-        Fp::mul(out, get_BLST_RR(), out);
+        limbs_from_le_bytes(digit.l, bytes + n, chunk_size);
+        fp_add_unreduced(*out, *out, digit);
+        Fp::mul(*out, get_BLST_RR(), *out);
     }
 }
 
-void blst_fp_from_be_bytes(Fp& out, const unsigned char* bytes, size_t n)
+void blst_fp_from_be_bytes(blst_fp* out, const byte* bytes, size_t n)
 {
     constexpr size_t chunk_size = sizeof(Fp);
     static_assert(chunk_size == 48);
 
-    vec_zero(out.data, sizeof(out));
+    vec_zero(out->l, sizeof(*out));
     if (n == 0) {
         return;
     }
@@ -262,69 +234,69 @@ void blst_fp_from_be_bytes(Fp& out, const unsigned char* bytes, size_t n)
     size_t rem = (n - 1) % chunk_size + 1;
     Fp digit;
 
-    limbs_from_be_bytes(out.data, bytes, rem);
-    Fp::mul(out, get_BLST_RR(), out);
+    limbs_from_be_bytes(out->l, bytes, rem);
+    Fp::mul(*out, get_BLST_RR(), *out);
 
     while (n -= rem) {
         bytes += rem;
-        limbs_from_be_bytes(digit.data, bytes, chunk_size);
-        fp_add_unreduced(out, out, digit);
-        Fp::mul(out, get_BLST_RR(), out);
+        limbs_from_be_bytes(digit.l, bytes, chunk_size);
+        fp_add_unreduced(*out, *out, digit);
+        Fp::mul(*out, get_BLST_RR(), *out);
         rem = chunk_size;
     }
 }
 
-void blst_lendian_from_fp(unsigned char ret[48], const Fp& a)
+void blst_lendian_from_fp(byte ret[48], const blst_fp* a)
 {
     Fp out;
 
-    Fp::from_mont(out, a);
-    le_bytes_from_limbs(ret, out.data, sizeof(Fp));
+    Fp::from_mont(out, *a);
+    le_bytes_from_limbs(ret, out.l, sizeof(Fp));
 }
 
 /*
  * BLS12-381-specific Fp2 shortcuts to assembly.
  */
-void blst_fp2_add(Fp2& ret, const Fp2& a, const Fp2& b)
-{   Fp2::add(ret, a, b);   }
+void blst_fp2_add(blst_fp2* ret, const blst_fp2* a, const blst_fp2* b)
+{   Fp2::add(*ret, *a, *b);   }
 
-void blst_fp2_sub(Fp2& ret, const Fp2& a, const Fp2& b)
-{   Fp2::sub(ret, a, b);   }
+void blst_fp2_sub(blst_fp2* ret, const blst_fp2* a, const blst_fp2* b)
+{   Fp2::sub(*ret, *a, *b);   }
 
-void blst_fp2_mul_by_3(Fp2& ret, const Fp2& a)
-{   Fp2::mul_by_3(ret, a);   }
+void blst_fp2_mul_by_3(blst_fp2* ret, const blst_fp2* a)
+{   Fp2::mul_by_3(*ret, *a);   }
 
-void blst_fp2_mul_by_8(Fp2& ret, const Fp2& a)
-{   Fp2::mul_by_8(ret, a);   }
+void blst_fp2_mul_by_8(blst_fp2* ret, const blst_fp2* a)
+{   Fp2::mul_by_8(*ret, *a);   }
 
-void blst_fp2_lshift(Fp2& ret, const Fp2& a, size_t count)
-{   Fp2::lshift(ret, a, count);    }
+void blst_fp2_lshift(blst_fp2* ret, const blst_fp2* a, size_t count)
+{   Fp2::lshift(*ret, *a, count);    }
 
-void blst_fp2_mul(Fp2& ret, const Fp2& a, const Fp2& b)
-{   Fp2::mul(ret, a, b);   }
+void blst_fp2_mul(blst_fp2* ret, const blst_fp2* a, const blst_fp2* b)
+{   Fp2::mul(*ret, *a, *b);   }
 
-void blst_fp2_sqr(Fp2& ret, const Fp2& a)
-{   Fp2::sqr(ret, a);   }
+void blst_fp2_sqr(blst_fp2* ret, const blst_fp2* a)
+{   Fp2::sqr(*ret, *a);   }
 
-void blst_fp2_cneg(Fp2& ret, const Fp2& a, int flag)
-{   Fp2::cneg(ret, a, is_zero(flag) ^ 1);   }
+void blst_fp2_cneg(blst_fp2* ret, const blst_fp2* a, bool flag)
+{   Fp2::cneg(*ret, *a, flag ? 1 : 0);   }
 
-void blst_fp2_eucl_inverse(Fp2& ret, const Fp2& a)
-{   Fp2::reciprocal(ret, a);   }
+void blst_fp2_eucl_inverse(blst_fp2* ret, const blst_fp2* a)
+{   Fp2::reciprocal(*ret, *a);   }
 
-void blst_fp2_inverse(Fp2& ret, const Fp2& a)
-{   Fp2::flt_reciprocal(ret, a);   }
+void blst_fp2_inverse(blst_fp2* ret, const blst_fp2* a)
+{   Fp2::flt_reciprocal(*ret, *a);   }
 
-int blst_fp2_sqrt(Fp2& ret, const Fp2& a)
-{   return (int)Fp2::sqrt(ret, a);   }
+bool blst_fp2_sqrt(blst_fp2* ret, const blst_fp2* a)
+{   return Fp2::sqrt(*ret, *a) != 0;   }
 
-int blst_fp2_is_square(const Fp2& a)
-{   return Fp2::is_square(a);   }
+bool blst_fp2_is_square(const blst_fp2* a)
+{   return Fp2::is_square(*a) != 0;   }
 
 /*
  * Scalar serialization/deserialization.
  */
-void blst_scalar_from_uint32(pow256 ret, const unsigned int a[8])
+void blst_scalar_from_uint32(blst_scalar* ret, const uint32_t a[8])
 {
     const union {
         long one;
@@ -332,19 +304,20 @@ void blst_scalar_from_uint32(pow256 ret, const unsigned int a[8])
     } is_endian = { 1 };
     size_t i;
 
-    if ((uptr_t)ret==(uptr_t)a && is_endian.little)
+    byte* out = ret->b;
+    if ((uptr_t)out==(uptr_t)a && is_endian.little)
         return;
 
     for(i = 0; i < 8; i++) {
-        unsigned int w = a[i];
-        *ret++ = (byte)w;
-        *ret++ = (byte)(w >> 8);
-        *ret++ = (byte)(w >> 16);
-        *ret++ = (byte)(w >> 24);
+        uint32_t w = a[i];
+        *out++ = (byte)w;
+        *out++ = (byte)(w >> 8);
+        *out++ = (byte)(w >> 16);
+        *out++ = (byte)(w >> 24);
     }
 }
 
-void blst_uint32_from_scalar(unsigned int ret[8], const pow256 a)
+void blst_uint32_from_scalar(uint32_t ret[8], const blst_scalar* a)
 {
     const union {
         long one;
@@ -352,19 +325,20 @@ void blst_uint32_from_scalar(unsigned int ret[8], const pow256 a)
     } is_endian = { 1 };
     size_t i;
 
-    if ((uptr_t)ret==(uptr_t)a && is_endian.little)
+    const byte* in = a->b;
+    if ((uptr_t)ret==(uptr_t)in && is_endian.little)
         return;
 
     for(i = 0; i < 8; i++) {
-        unsigned int w = (unsigned int)(*a++);
-        w |= (unsigned int)(*a++) << 8;
-        w |= (unsigned int)(*a++) << 16;
-        w |= (unsigned int)(*a++) << 24;
+        uint32_t w = (uint32_t)(*in++);
+        w |= (uint32_t)(*in++) << 8;
+        w |= (uint32_t)(*in++) << 16;
+        w |= (uint32_t)(*in++) << 24;
         ret[i] = w;
     }
 }
 
-void blst_scalar_from_uint64(pow256 ret, const unsigned long long a[4])
+void blst_scalar_from_uint64(blst_scalar* ret, const uint64_t a[4])
 {
     const union {
         long one;
@@ -372,23 +346,24 @@ void blst_scalar_from_uint64(pow256 ret, const unsigned long long a[4])
     } is_endian = { 1 };
     size_t i;
 
-    if ((uptr_t)ret==(uptr_t)a && is_endian.little)
+    byte* out = ret->b;
+    if ((uptr_t)out==(uptr_t)a && is_endian.little)
         return;
 
     for(i = 0; i < 4; i++) {
-        unsigned long long w = a[i];
-        *ret++ = (byte)w;
-        *ret++ = (byte)(w >> 8);
-        *ret++ = (byte)(w >> 16);
-        *ret++ = (byte)(w >> 24);
-        *ret++ = (byte)(w >> 32);
-        *ret++ = (byte)(w >> 40);
-        *ret++ = (byte)(w >> 48);
-        *ret++ = (byte)(w >> 56);
+        uint64_t w = a[i];
+        *out++ = (byte)w;
+        *out++ = (byte)(w >> 8);
+        *out++ = (byte)(w >> 16);
+        *out++ = (byte)(w >> 24);
+        *out++ = (byte)(w >> 32);
+        *out++ = (byte)(w >> 40);
+        *out++ = (byte)(w >> 48);
+        *out++ = (byte)(w >> 56);
     }
 }
 
-void blst_uint64_from_scalar(unsigned long long ret[4], const pow256 a)
+void blst_uint64_from_scalar(uint64_t ret[4], const blst_scalar* a)
 {
     const union {
         long one;
@@ -396,97 +371,92 @@ void blst_uint64_from_scalar(unsigned long long ret[4], const pow256 a)
     } is_endian = { 1 };
     size_t i;
 
-    if ((uptr_t)ret==(uptr_t)a && is_endian.little)
+    const byte* in = a->b;
+    if ((uptr_t)ret==(uptr_t)in && is_endian.little)
         return;
 
     for(i = 0; i < 4; i++) {
-        unsigned long long w = (unsigned long long)(*a++);
-        w |= (unsigned long long)(*a++) << 8;
-        w |= (unsigned long long)(*a++) << 16;
-        w |= (unsigned long long)(*a++) << 24;
-        w |= (unsigned long long)(*a++) << 32;
-        w |= (unsigned long long)(*a++) << 40;
-        w |= (unsigned long long)(*a++) << 48;
-        w |= (unsigned long long)(*a++) << 56;
+        uint64_t w = (uint64_t)(*in++);
+        w |= (uint64_t)(*in++) << 8;
+        w |= (uint64_t)(*in++) << 16;
+        w |= (uint64_t)(*in++) << 24;
+        w |= (uint64_t)(*in++) << 32;
+        w |= (uint64_t)(*in++) << 40;
+        w |= (uint64_t)(*in++) << 48;
+        w |= (uint64_t)(*in++) << 56;
         ret[i] = w;
     }
 }
 
-void blst_scalar_from_bendian(pow256 ret, const unsigned char a[32])
+void blst_scalar_from_bendian(blst_scalar* ret, const byte a[32])
 {
     Fr out;
-    limbs_from_be_bytes(out.data, a, sizeof(out));
-    le_bytes_from_limbs(ret, out.data, sizeof(out));
-    vec_zero(out.data, sizeof(out));
+    limbs_from_be_bytes(out.l, a, sizeof(out));
+    le_bytes_from_limbs(ret->b, out.l, sizeof(out));
+    vec_zero(out.l, sizeof(out));
 }
 
-void blst_bendian_from_scalar(unsigned char ret[32], const pow256 a)
+void blst_bendian_from_scalar(byte ret[32], const blst_scalar* a)
 {
     Fr out;
-    limbs_from_le_bytes(out.data, a, sizeof(out));
-    be_bytes_from_limbs(ret, out.data, sizeof(out));
-    vec_zero(out.data, sizeof(out));
+    limbs_from_le_bytes(out.l, a->b, sizeof(out));
+    be_bytes_from_limbs(ret, out.l, sizeof(out));
+    vec_zero(out.l, sizeof(out));
 }
 
-void blst_scalar_from_lendian(pow256 ret, const unsigned char a[32])
+void blst_scalar_from_lendian(blst_scalar* ret, const byte a[32])
 {
     size_t i;
 
-    if ((uptr_t)ret==(uptr_t)a)
+    if ((uptr_t)ret->b==(uptr_t)a)
         return;
 
     for (i = 0; i < 32; i++)
-        ret[i] = a[i];
+        ret->b[i] = a[i];
 }
 
-void blst_lendian_from_scalar(unsigned char ret[32], const pow256 a)
+void blst_lendian_from_scalar(byte ret[32], const blst_scalar* a)
 {
     size_t i;
 
-    if ((uptr_t)ret==(uptr_t)a)
+    if ((uptr_t)ret==(uptr_t)a->b)
         return;
 
     for (i = 0; i < 32; i++)
-        ret[i] = a[i];
+        ret[i] = a->b[i];
 }
 
 
-void blst_uint64_from_fr(unsigned long long ret[4], const Fr& a)
+void blst_uint64_from_fr(uint64_t ret[4], const blst_fr* a)
 {
     Fr out = {};
 
-    Fr::from_mont(out, a);
-    if (sizeof(limb_t) == 8) {
-        for (int i = 0; i < 4; ++i) {
-            ret[i] = static_cast<unsigned long long>(out[i]);
-        }
-    } else {
-        for (int i = 0; i < 4; i++)
-            ret[i] = static_cast<unsigned long long>(out[2 * i]) |
-                     (static_cast<unsigned long long>(out[2 * i + 1]) << 32);
+    Fr::from_mont(out, *a);
+    for (int i = 0; i < 4; ++i) {
+        ret[i] = static_cast<uint64_t>(out[i]);
     }
-    vec_zero(out.data, sizeof(out));
+    vec_zero(out.l, sizeof(out));
 }
 
-int blst_scalar_from_le_bytes(pow256 out, const unsigned char *bytes, size_t n)
+bool blst_scalar_from_le_bytes(blst_scalar* out, const byte* bytes, size_t n)
 {
     if (n == 0) {
-        vec_zero(out, sizeof(pow256));
-        return 0;
+        vec_zero(out->b, sizeof(out->b));
+        return false;
     }
 
     size_t rem = (n - 1) % 32 + 1;
     struct { Fr out, digit; } t;
     limb_t ret;
 
-    vec_zero(t.out.data, sizeof(t.out));
+    vec_zero(t.out.l, sizeof(t.out));
 
     n -= rem;
-    limbs_from_le_bytes(t.out.data, bytes += n, rem);
+    limbs_from_le_bytes(t.out.l, bytes += n, rem);
     Fr::mul(t.out, get_BLST_rRR(), t.out);
 
     while (n) {
-        limbs_from_le_bytes(t.digit.data, bytes -= 32, 32);
+        limbs_from_le_bytes(t.digit.l, bytes -= 32, 32);
         Fr::add(t.out, t.out, t.digit);
         Fr::mul(t.out, get_BLST_rRR(), t.out);
         n -= 32;
@@ -494,31 +464,31 @@ int blst_scalar_from_le_bytes(pow256 out, const unsigned char *bytes, size_t n)
 
     Fr::from_mont(t.out, t.out);
 
-    ret = vec_is_zero(t.out.data, sizeof(t.out));
-    le_bytes_from_limbs(out, t.out.data, 32);
+    ret = vec_is_zero(t.out.l, sizeof(t.out));
+    le_bytes_from_limbs(out->b, t.out.l, 32);
     vec_zero(&t, sizeof(t));
 
-    return (int)(ret^1);
+    return (ret ^ 1) != 0;
 }
 
-int blst_scalar_from_be_bytes(pow256 out, const unsigned char *bytes, size_t n)
+bool blst_scalar_from_be_bytes(blst_scalar* out, const byte* bytes, size_t n)
 {
     if (n == 0) {
-        vec_zero(out, sizeof(pow256));
-        return 0;
+        vec_zero(out->b, sizeof(out->b));
+        return false;
     }
 
     size_t rem = (n - 1) % 32 + 1;
     struct { Fr out, digit; } t;
     limb_t ret;
 
-    vec_zero(t.out.data, sizeof(t.out));
+    vec_zero(t.out.l, sizeof(t.out));
 
-    limbs_from_be_bytes(t.out.data, bytes, rem);
+    limbs_from_be_bytes(t.out.l, bytes, rem);
     Fr::mul(t.out, get_BLST_rRR(), t.out);
 
     while (n -= rem) {
-        limbs_from_be_bytes(t.digit.data, bytes += rem, 32);
+        limbs_from_be_bytes(t.digit.l, bytes += rem, 32);
         Fr::add(t.out, t.out, t.digit);
         Fr::mul(t.out, get_BLST_rRR(), t.out);
         rem = 32;
@@ -526,11 +496,11 @@ int blst_scalar_from_be_bytes(pow256 out, const unsigned char *bytes, size_t n)
 
     Fr::from_mont(t.out, t.out);
 
-    ret = vec_is_zero(t.out.data, sizeof(t.out));
-    le_bytes_from_limbs(out, t.out.data, 32);
+    ret = vec_is_zero(t.out.l, sizeof(t.out));
+    le_bytes_from_limbs(out->b, t.out.l, 32);
     vec_zero(&t, sizeof(t));
 
-    return (int)(ret^1);
+    return (ret ^ 1) != 0;
 }
 
 /*
@@ -550,26 +520,26 @@ void blst_sha256(unsigned char md[32], const void *msg, size_t len)
 /*
  * Test facilitator.
  */
-bool blst_scalar_from_hexascii(pow256 ret, const unsigned char *hex)
+bool blst_scalar_from_hexascii(blst_scalar* ret, const byte* hex)
 {
-    return bytes_from_hexascii(ret, sizeof(pow256),
+    return bytes_from_hexascii(ret->b, sizeof(ret->b),
                                reinterpret_cast<const char *>(hex));
 }
 
-bool blst_fr_from_hexascii(Fr *ret, const unsigned char *hex)
+bool blst_fr_from_hexascii(blst_fr* ret, const byte* hex)
 {
     if (ret == nullptr)
         return false;
     return Fr::from_hexascii(*ret, reinterpret_cast<const char *>(hex));
 }
 
-bool blst_fp_from_hexascii(Fp *ret, const unsigned char *hex)
+bool blst_fp_from_hexascii(blst_fp* ret, const byte* hex)
 {
     if (ret == nullptr)
         return false;
 
     Fp parsed = {};
-    if (!limbs_from_hexascii(parsed.data, sizeof(Fp),
+    if (!limbs_from_hexascii(parsed.l, sizeof(Fp),
                              reinterpret_cast<const char *>(hex)))
         return false;
     Fp::mul(parsed, parsed, get_BLST_RR());

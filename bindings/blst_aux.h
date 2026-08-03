@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef __BLST_AUX_H__
-#define __BLST_AUX_H__
+#ifndef BLST_AUX_H
+#define BLST_AUX_H
 
 /*
  * Compatibility umbrella header.

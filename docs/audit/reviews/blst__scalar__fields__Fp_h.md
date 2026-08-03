@@ -27,6 +27,7 @@ generation, and optimized native code-generation evidence pass.
 ## Residual risk
 
 The file remains in review for `AUD-070` typed constant/reciprocal lifetime
-design and the wider `AUD-069` C storage boundary. Retained Rust execution for
-the changed square-root failure output, Apple execution, independent big-
-integer constants, and full sanitizer/oracle evidence remain follow-ups.
+design. `AUD-069` now has a fixed zero-copy public/internal type model, with
+focused runtime, Rust, and Apple validation still pending. Retained Rust
+execution for the changed square-root failure output, independent big-integer
+constants, and full sanitizer/oracle evidence remain follow-ups.

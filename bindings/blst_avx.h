@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef __BLST_AVX_H__
-#define __BLST_AVX_H__
+#ifndef BLST_AVX_H
+#define BLST_AVX_H
 
 #include "blst_types.h"
 
@@ -15,14 +15,12 @@
 #include "blst/avx/curve/point.h"
 #endif
 
-enum {
-    BLST_AVX_ALIGNMENT = 64,
-    BLST_AVX_P1_SIZE = 384,
-    BLST_AVX_P1_AFFINE_SIZE = 256,
-    BLST_AVX_P2_SIZE = 768,
-    BLST_AVX_P2_AFFINE_SIZE = 512,
-    BLST_AVX_FP12_SIZE = 1536,
-};
+#define BLST_AVX_ALIGNMENT 64
+#define BLST_AVX_P1_SIZE 384
+#define BLST_AVX_P1_AFFINE_SIZE 256
+#define BLST_AVX_P2_SIZE 768
+#define BLST_AVX_P2_AFFINE_SIZE 512
+#define BLST_AVX_FP12_SIZE 1536
 
 /**
  * AVX-native POD shells.
@@ -47,11 +45,11 @@ typedef blst::avx::G2Point blst_avx_p2;
 typedef blst::avx::G2AffinePoint blst_avx_p2_affine;
 typedef blst::avx::GT blst_avx_fp12;
 #else
-typedef struct BLST_AUX_ALIGNAS(BLST_AVX_ALIGNMENT) { byte b[BLST_AVX_P1_SIZE]; } blst_avx_p1;
-typedef struct BLST_AUX_ALIGNAS(BLST_AVX_ALIGNMENT) { byte b[BLST_AVX_P1_AFFINE_SIZE]; } blst_avx_p1_affine;
-typedef struct BLST_AUX_ALIGNAS(BLST_AVX_ALIGNMENT) { byte b[BLST_AVX_P2_SIZE]; } blst_avx_p2;
-typedef struct BLST_AUX_ALIGNAS(BLST_AVX_ALIGNMENT) { byte b[BLST_AVX_P2_AFFINE_SIZE]; } blst_avx_p2_affine;
-typedef struct BLST_AUX_ALIGNAS(BLST_AVX_ALIGNMENT) { byte b[BLST_AVX_FP12_SIZE]; } blst_avx_fp12;
+typedef struct BLST_AUX_ALIGNAS(BLST_AVX_ALIGNMENT) { blst_byte b[BLST_AVX_P1_SIZE]; } blst_avx_p1;
+typedef struct BLST_AUX_ALIGNAS(BLST_AVX_ALIGNMENT) { blst_byte b[BLST_AVX_P1_AFFINE_SIZE]; } blst_avx_p1_affine;
+typedef struct BLST_AUX_ALIGNAS(BLST_AVX_ALIGNMENT) { blst_byte b[BLST_AVX_P2_SIZE]; } blst_avx_p2;
+typedef struct BLST_AUX_ALIGNAS(BLST_AVX_ALIGNMENT) { blst_byte b[BLST_AVX_P2_AFFINE_SIZE]; } blst_avx_p2_affine;
+typedef struct BLST_AUX_ALIGNAS(BLST_AVX_ALIGNMENT) { blst_byte b[BLST_AVX_FP12_SIZE]; } blst_avx_fp12;
 #endif
 
 #ifdef __cplusplus
@@ -130,7 +128,7 @@ bool blst_avx_p1_add(blst_avx_p1* out, const blst_avx_p1* a, const blst_avx_p1* 
  * - `scalar` points to the scalar bytes.
  * - `nbits` is the number of meaningful low bits in `scalar`.
  */
-bool blst_avx_p1_mult(blst_avx_p1* out, const blst_avx_p1* p, const byte* scalar, size_t nbits);
+bool blst_avx_p1_mult(blst_avx_p1* out, const blst_avx_p1* p, const blst_byte* scalar, size_t nbits);
 
 /** Returns bucket scratch bytes required by `blst_avx_p1_mult_pippenger`. */
 size_t blst_avx_p1_mult_pippenger_scratch_sizeof(size_t npoints);
@@ -151,12 +149,12 @@ size_t blst_avx_p1_mult_pippenger_glv_scalars_scratch_sizeof(size_t npoints);
 bool blst_avx_p1_mult_pippenger(
     blst_avx_p1* out,
     const blst_avx_p1_affine* points,
-    const byte* scalars,
+    const blst_byte* scalars,
     size_t npoints,
     size_t nbits,
     void* scratch,
     size_t scratch_bytes,
-    byte* bucket_used,
+    blst_byte* bucket_used,
     size_t bucket_used_bytes);
 
 /**
@@ -170,15 +168,15 @@ bool blst_avx_p1_mult_pippenger(
 bool blst_avx_p1_mult_pippenger_glv_with_scratch(
     blst_avx_p1* out,
     const blst_avx_p1_affine* points,
-    const byte* scalars,
+    const blst_byte* scalars,
     size_t npoints,
     void* scratch,
     size_t scratch_bytes,
-    byte* bucket_used,
+    blst_byte* bucket_used,
     size_t bucket_used_bytes,
     blst_avx_p1_affine* split_points,
     size_t split_points_bytes,
-    byte* split_scalars,
+    blst_byte* split_scalars,
     size_t split_scalars_bytes);
 
 /** Returns bucket scratch bytes needed by explicit-window AVX G1 GLV MSM. */
@@ -194,16 +192,16 @@ size_t blst_avx_p1_mult_pippenger_glv_window_bucket_used_scratch_sizeof(size_t n
 bool blst_avx_p1_mult_pippenger_glv_window_with_scratch(
     blst_avx_p1* out,
     const blst_avx_p1_affine* points,
-    const byte* scalars,
+    const blst_byte* scalars,
     size_t npoints,
     size_t window,
     void* scratch,
     size_t scratch_bytes,
-    byte* bucket_used,
+    blst_byte* bucket_used,
     size_t bucket_used_bytes,
     blst_avx_p1_affine* split_points,
     size_t split_points_bytes,
-    byte* split_scalars,
+    blst_byte* split_scalars,
     size_t split_scalars_bytes);
 
 /** Converts an AVX G1 projective point to AVX affine form. */
@@ -230,17 +228,17 @@ bool blst_avx_p1_cneg(blst_avx_p1* p, bool cbit);
 bool blst_avx_p1_batch_subgroup_check(
     const blst_avx_p1* const* points,
     size_t count,
-    const byte* coefficients,
+    const blst_byte* coefficients,
     size_t width,
     const blst_avx_p1* shift);
 /** Compresses an AVX G1 projective point to the standard 48-byte encoding. */
-bool blst_avx_p1_compress(byte out[48], const blst_avx_p1* in);
+bool blst_avx_p1_compress(blst_byte out[48], const blst_avx_p1* in);
 /** Serializes an AVX G1 projective point to the standard 96-byte affine encoding. */
-bool blst_avx_p1_serialize(byte out[96], const blst_avx_p1* in);
+bool blst_avx_p1_serialize(blst_byte out[96], const blst_avx_p1* in);
 /** Parses a standard 96-byte uncompressed G1 encoding into AVX projective form. */
-BLST_ERROR blst_avx_p1_deserialize(blst_avx_p1* out, const byte in[96]);
+BLST_ERROR blst_avx_p1_deserialize(blst_avx_p1* out, const blst_byte in[96]);
 /** Parses a standard 48-byte compressed G1 encoding into AVX projective form. */
-BLST_ERROR blst_avx_p1_uncompress(blst_avx_p1* out, const byte in[48]);
+BLST_ERROR blst_avx_p1_uncompress(blst_avx_p1* out, const blst_byte in[48]);
 /** Returns caller-owned scratch bytes needed by AVX G1 Pippenger MSM. */
 size_t blst_avx_p1s_mult_pippenger_scratch_sizeof(size_t npoints);
 /** Computes a projective AVX G1 MSM with Pippenger and caller-owned scratch. */
@@ -248,9 +246,9 @@ bool blst_avx_p1s_mult_pippenger(
     blst_avx_p1* out,
     const blst_avx_p1* points,
     size_t npoints,
-    const byte* scalars,
+    const blst_byte* scalars,
     size_t nbits,
-    limb_t* scratch);
+    blst_limb_t* scratch);
 
 /**
  * Returns the AVX G1 generator.
@@ -282,7 +280,7 @@ bool blst_avx_p2_cneg(blst_avx_p2* p, bool cbit);
 bool blst_avx_p2_batch_subgroup_check(
     const blst_avx_p2* const* points,
     size_t count,
-    const byte* coefficients,
+    const blst_byte* coefficients,
     size_t width,
     const blst_avx_p2* shift);
 
@@ -291,7 +289,7 @@ bool blst_avx_p2_batch_subgroup_check(
  *
  * Parameters mirror `blst_avx_p1_mult`.
  */
-bool blst_avx_p2_mult(blst_avx_p2* out, const blst_avx_p2* p, const byte* scalar, size_t nbits);
+bool blst_avx_p2_mult(blst_avx_p2* out, const blst_avx_p2* p, const blst_byte* scalar, size_t nbits);
 
 /** Returns bucket scratch bytes required by `blst_avx_p2_mult_pippenger`. */
 size_t blst_avx_p2_mult_pippenger_scratch_sizeof(size_t npoints);
@@ -308,12 +306,12 @@ size_t blst_avx_p2_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints);
 bool blst_avx_p2_mult_pippenger(
     blst_avx_p2* out,
     const blst_avx_p2_affine* points,
-    const byte* scalars,
+    const blst_byte* scalars,
     size_t npoints,
     size_t nbits,
     void* scratch,
     size_t scratch_bytes,
-    byte* bucket_used,
+    blst_byte* bucket_used,
     size_t bucket_used_bytes);
 
 /** Converts an AVX G2 projective point to AVX affine form. */
@@ -327,13 +325,13 @@ bool blst_avx_p2_is_inf(const blst_avx_p2* p);
 /** Returns `true` when the two AVX G2 points represent the same point. */
 bool blst_avx_p2_is_equal(const blst_avx_p2* a, const blst_avx_p2* b);
 /** Compresses an AVX G2 projective point to the standard 96-byte encoding. */
-bool blst_avx_p2_compress(byte out[96], const blst_avx_p2* in);
+bool blst_avx_p2_compress(blst_byte out[96], const blst_avx_p2* in);
 /** Serializes an AVX G2 projective point to the standard 192-byte affine encoding. */
-bool blst_avx_p2_serialize(byte out[192], const blst_avx_p2* in);
+bool blst_avx_p2_serialize(blst_byte out[192], const blst_avx_p2* in);
 /** Parses a standard 96-byte compressed G2 encoding into AVX projective form. */
-BLST_ERROR blst_avx_p2_uncompress(blst_avx_p2* out, const byte in[96]);
+BLST_ERROR blst_avx_p2_uncompress(blst_avx_p2* out, const blst_byte in[96]);
 /** Parses a standard 192-byte uncompressed G2 encoding into AVX projective form. */
-BLST_ERROR blst_avx_p2_deserialize(blst_avx_p2* out, const byte in[192]);
+BLST_ERROR blst_avx_p2_deserialize(blst_avx_p2* out, const blst_byte in[192]);
 /** Returns caller-owned scratch bytes needed by AVX G2 Pippenger MSM. */
 size_t blst_avx_p2s_mult_pippenger_scratch_sizeof(size_t npoints);
 /** Computes a projective AVX G2 MSM with Pippenger and caller-owned scratch. */
@@ -341,9 +339,9 @@ bool blst_avx_p2s_mult_pippenger(
     blst_avx_p2* out,
     const blst_avx_p2* points,
     size_t npoints,
-    const byte* scalars,
+    const blst_byte* scalars,
     size_t nbits,
-    limb_t* scratch);
+    blst_limb_t* scratch);
 
 /**
  * Returns the AVX G2 generator.
@@ -380,11 +378,11 @@ size_t blst_avx_fp12_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints);
 bool blst_avx_fp12_mult_pippenger(
     blst_avx_fp12* out,
     const blst_avx_fp12* points,
-    const byte* scalars,
+    const blst_byte* scalars,
     size_t npoints,
     void* scratch,
     size_t scratch_bytes,
-    byte* bucket_used,
+    blst_byte* bucket_used,
     size_t bucket_used_bytes);
 
 /**

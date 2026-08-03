@@ -56,7 +56,7 @@ trap cleanup EXIT HUP INT TERM
         --with-derive-default \
         --with-derive-eq \
         --rustified-enum 'BLST.*' \
-        blst.h -- -D__BLST_RUST_BINDGEN__
+        blst.h -- -std=c99
 ) >"$RAW"
 
 "$PERL" "$HERE/bindings_trim.pl" "$RAW" >"$GENERATED"

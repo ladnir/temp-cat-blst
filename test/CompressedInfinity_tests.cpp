@@ -9,9 +9,9 @@
 namespace
 {
 template <std::size_t N>
-std::array<byte, N> compressed_infinity()
+std::array<blst_byte, N> compressed_infinity()
 {
-    std::array<byte, N> encoded{};
+    std::array<blst_byte, N> encoded{};
     encoded[0] = 0xc0; // compressed + infinity, with sign clear
     return encoded;
 }

@@ -28,6 +28,7 @@ generation pass.
 ## Residual risk
 
 The file remains in review because `AUD-070` covers inherited inactive-union
-and in-place object-lifetime patterns, and `AUD-069` covers the wider public C
-storage boundary. Butterfly nonalias contracts, big-endian exclusion, inverse
-of zero, and full sanitizer/oracle evidence remain Phase 14 follow-ups.
+and in-place object-lifetime patterns. `AUD-069` now has a fixed zero-copy
+public/internal type model, with focused runtime, Rust, and Apple validation
+still pending. Butterfly nonalias contracts, big-endian exclusion, inverse of
+zero, and full sanitizer/oracle evidence remain Phase 14 follow-ups.

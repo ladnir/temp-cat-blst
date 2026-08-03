@@ -201,7 +201,7 @@ namespace blst
 {
 
     using limb_t = uint64_t;
-    typedef unsigned char byte;
+    using byte = uint8_t;
 
 
 	using u8 = uint8_t;

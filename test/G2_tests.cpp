@@ -148,7 +148,7 @@ TEST(E2PointTest, PointOnCurve) {
 
 #if !BLST_DEFAULT_AVX
     // Modify point to be off curve
-    p1.X[0][0] ^= 1;  // Flip a bit
+    p1.x[0][0] ^= 1;  // Flip a bit
 
     // Modified point should not be on curve
     EXPECT_FALSE(G2Point::on_curve(p1));
@@ -583,8 +583,8 @@ TEST(E2PointTest, MixedAdditionCornerCases) {
 //
 //    // Create sample Fp2 elements from point coordinates
 //    Fp2 sample_fp2;
-//    vec_copy(sample_fp2[0], p.X[0], sizeof(Fp));  // Real part
-//    vec_copy(sample_fp2[1], p.X[1], sizeof(Fp));  // Imaginary part
+//    vec_copy(sample_fp2[0], p.x[0], sizeof(Fp));  // Real part
+//    vec_copy(sample_fp2[1], p.x[1], sizeof(Fp));  // Imaginary part
 //
 //    // Verify basic property of Frobenius in Fp2: π(a+bi) = a-bi
 //    Fp2 result1;
@@ -636,9 +636,9 @@ TEST(E2PointTest, Fp2ArithmeticWithPoints) {
     vec_copy(&p2, &p1, sizeof(G2Point));
     
     // Negate the imaginary parts of all coordinates using proper function
-    Fp::cneg(p2.X[1], p2.X[1], 1);  // Negate X.Im
-    Fp::cneg(p2.Y[1], p2.Y[1], 1);  // Negate Y.Im
-    Fp::cneg(p2.Z[1], p2.Z[1], 1);  // Negate Z.Im
+    Fp::cneg(p2.x[1], p2.x[1], 1);  // Negate X.Im
+    Fp::cneg(p2.y[1], p2.y[1], 1);  // Negate Y.Im
+    Fp::cneg(p2.z[1], p2.z[1], 1);  // Negate Z.Im
 
     // The resulting point should have conjugated Fp2 coordinates
     // It's likely not on the curve anymore, but we can check
@@ -653,9 +653,9 @@ TEST(E2PointTest, Fp2ArithmeticWithPoints) {
     vec_copy(&p3, &p1, sizeof(G2Point));
     
     // Zero out all imaginary parts
-    vec_zero(p3.X[1].data, sizeof(Fp));
-    vec_zero(p3.Y[1].data, sizeof(Fp));
-    vec_zero(p3.Z[1].data, sizeof(Fp));
+    vec_zero(p3.x[1].l, sizeof(Fp));
+    vec_zero(p3.y[1].l, sizeof(Fp));
+    vec_zero(p3.z[1].l, sizeof(Fp));
     
     // This should definitely not be on the curve or equal to original
     EXPECT_FALSE(G2Point::equal(p1, p3)) 

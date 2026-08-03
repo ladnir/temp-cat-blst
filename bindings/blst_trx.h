@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef __BLST_TRX_H__
-#define __BLST_TRX_H__
+#ifndef BLST_TRX_H
+#define BLST_TRX_H
 
 #include "blst.h"
 
@@ -15,7 +15,7 @@ extern "C" {
 
 #ifndef BLST_FILL_RANDOM_FN_DEFINED
 #define BLST_FILL_RANDOM_FN_DEFINED
-typedef bool (*blst_fill_random_fn)(void* user_data, byte* out, size_t out_len);
+typedef bool (*blst_fill_random_fn)(void* user_data, blst_byte* out, size_t out_len);
 #endif
 
 typedef struct blst_trx_crs blst_trx_crs;
@@ -83,7 +83,7 @@ void blst_trx_encryption_key_free(
 blst_trx_encrypted_ciphertext* blst_trx_encrypt(
     const blst_trx_params* params,
     const blst_trx_encryption_key* encryption_key,
-    const byte* associated_data,
+    const blst_byte* associated_data,
     size_t associated_data_len,
     blst_fill_random_fn fill_random,
     void* user_data);
@@ -93,7 +93,7 @@ size_t blst_trx_encrypted_ciphertext_session_key_size(
 
 bool blst_trx_encrypted_ciphertext_copy_session_key(
     const blst_trx_encrypted_ciphertext* encrypted_ciphertext,
-    byte* out_session_key,
+    blst_byte* out_session_key,
     size_t out_session_key_len);
 
 void blst_trx_encrypted_ciphertext_free(
@@ -157,7 +157,7 @@ bool blst_trx_decapsulate_one(
     const blst_p1* sigma,
     const blst_trx_crs* crs,
     const blst_trx_public_key_material* public_key_material,
-    byte* out_session_key,
+    blst_byte* out_session_key,
     size_t out_session_key_len);
 
 void blst_trx_batch_digest_free(blst_trx_batch_digest* batch_digest);

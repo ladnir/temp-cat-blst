@@ -808,52 +808,20 @@ namespace blst::scalar
 		mul_scalar(ret, a, b);
 	}
 
-#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-	FP12_CPP_INLINE void Fp12::mul_avx(Fp12& ret, const Fp12& a, const Fp12& b)
-	{
-		BLST_ASSERT(false && "TODO: Fp12 packed AVX backend is intentionally disabled during the VROOM reset");
-		mul_scalar(ret, a, b);
-	}
-#endif
-
 	BLST_HD FP12_CPP_INLINE void Fp12::sqr(Fp12& ret, const Fp12& a)
 	{
 		sqr_scalar(ret, a);
 	}
-
-#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-	FP12_CPP_INLINE void Fp12::sqr_avx(Fp12& ret, const Fp12& a)
-	{
-		BLST_ASSERT(false && "TODO: Fp12 packed AVX backend is intentionally disabled during the VROOM reset");
-		sqr_scalar(ret, a);
-	}
-#endif
 
 	BLST_HD FP12_CPP_INLINE void Fp12::mul_by_xy00z0(Fp12& ret, const Fp12& a, const Fp6& xy00z0)
 	{
 		mul_by_xy00z0_scalar(ret, a, xy00z0);
 	}
 
-#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-	FP12_CPP_INLINE void Fp12::mul_by_xy00z0_avx(Fp12& ret, const Fp12& a, const Fp6& xy00z0)
-	{
-		BLST_ASSERT(false && "TODO: Fp12 packed AVX backend is intentionally disabled during the VROOM reset");
-		mul_by_xy00z0_scalar(ret, a, xy00z0);
-	}
-#endif
-
 	BLST_HD FP12_CPP_INLINE void Fp12::cyclotomic_sqr(Fp12& ret, const Fp12& a)
 	{
 		cyclotomic_sqr_scalar(ret, a);
 	}
-
-#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-	FP12_CPP_INLINE void Fp12::cyclotomic_sqr_avx(Fp12& ret, const Fp12& a)
-	{
-		BLST_ASSERT(false && "TODO: Fp12 packed AVX backend is intentionally disabled during the VROOM reset");
-		cyclotomic_sqr_scalar(ret, a);
-	}
-#endif
 
 	BLST_HD BLST_INLINE void frobenius_map_fp6(Fp6& ret, const Fp6& a, size_t n)
 	{
@@ -968,7 +936,7 @@ namespace blst::scalar
 				for (size_t fp2_comp = 0; fp2_comp < 2; fp2_comp++) {  // Fp2 components
 					Fp r;
 					// Convert from big-endian bytes to Fp (limbs)
-					limbs_from_be_bytes(r.data, &serialized[byte_offset], 48);
+					limbs_from_be_bytes(r.l, &serialized[byte_offset], 48);
 					Fp::to_mont(ret[fp12_comp][fp6_comp][fp2_comp], r);
 					byte_offset += 48;
 				}
@@ -986,7 +954,7 @@ namespace blst::scalar
 				for (int k = 0; k < 2; ++k)
 				{
 					Fp::from_mont(out, a[j][i][k]);
-					be_bytes_from_limbs(ret, out.data, sizeof(Fp));
+					be_bytes_from_limbs(ret, out.l, sizeof(Fp));
 					ret += 48;
 				}
 			}
@@ -1717,7 +1685,7 @@ namespace blst::scalar
 		// Debug assertion: Scalar must be strictly less than group order r.
 		// GLV decomposition optimized for curve operations assumes valid Fr scalars.
 		{
-			const limb_t* r = get_BLST_r().data;
+			const limb_t* r = get_BLST_r().l;
 			int cmp = 0;
 			for (int i = 3; i >= 0; i--) {
 				if (scalar[i] > r[i]) { cmp = 1; break; }

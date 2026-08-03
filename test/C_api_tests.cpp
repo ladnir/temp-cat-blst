@@ -12,6 +12,7 @@
 # include <crtdbg.h>
 #endif
 
+#include "bindings/blst.h"
 #include "blst/curve/GT.h"
 #include "blst/curve/point.h"
 #include "blst/fields/Fp12.h"
@@ -31,38 +32,22 @@ static_assert(std::is_same_v<blst::BLST_ERROR, ::BLST_ERROR>);
 static_assert(static_cast<int>(BLST_SUCCESS) == 0);
 static_assert(static_cast<int>(BLST_BAD_SCALAR) == 7);
 
-struct alignas(64) BlstAvxP1
-{
-    unsigned char b[384];
-};
+using BlstAvxP1 = blst_avx_p1;
+using BlstAvxP1Affine = blst_avx_p1_affine;
+using BlstAvxP2 = blst_avx_p2;
+using BlstAvxP2Affine = blst_avx_p2_affine;
+using BlstAvxFp12 = blst_avx_fp12;
 
-struct alignas(64) BlstAvxP1Affine
-{
-    unsigned char b[256];
-};
-
-struct alignas(64) BlstAvxP2
-{
-    unsigned char b[768];
-};
-
-struct alignas(64) BlstAvxP2Affine
-{
-    unsigned char b[512];
-};
-
-struct alignas(64) BlstAvxFp12
-{
-    unsigned char b[1536];
-};
-
+// Intentionally restate the C surface with internal aliases. Because the
+// public umbrella header is included above, the compiler rejects any function
+// type that is not exactly compatible with the supported public declaration.
 extern "C" {
-bool blst_scalar_from_le_bytes(blst::pow256 out, const unsigned char* in, size_t len);
-bool blst_scalar_from_be_bytes(blst::pow256 out, const unsigned char* in, size_t len);
-bool blst_sk_add_n_check(blst::pow256 out, const blst::pow256 a, const blst::pow256 b);
-bool blst_sk_sub_n_check(blst::pow256 out, const blst::pow256 a, const blst::pow256 b);
-bool blst_sk_mul_n_check(blst::pow256 out, const blst::pow256 a, const blst::pow256 b);
-void blst_sk_inverse(blst::pow256 out, const blst::pow256 a);
+bool blst_scalar_from_le_bytes(blst_scalar* out, const blst_byte* in, size_t len);
+bool blst_scalar_from_be_bytes(blst_scalar* out, const blst_byte* in, size_t len);
+bool blst_sk_add_n_check(blst_scalar* out, const blst_scalar* a, const blst_scalar* b);
+bool blst_sk_sub_n_check(blst_scalar* out, const blst_scalar* a, const blst_scalar* b);
+bool blst_sk_mul_n_check(blst_scalar* out, const blst_scalar* a, const blst_scalar* b);
+void blst_sk_inverse(blst_scalar* out, const blst_scalar* a);
 
 void blst_fr_add(blst::Fr* ret, const blst::Fr* a, const blst::Fr* b);
 void blst_fr_lshift(blst::Fr* ret, const blst::Fr* a, size_t count);
@@ -72,10 +57,10 @@ void blst_fr_pow(blst::Fr* ret, const blst::Fr* a, const unsigned char* exponent
 void blst_fr_sqr(blst::Fr* ret, const blst::Fr* a);
 void blst_fr_eucl_inverse(blst::Fr* ret, const blst::Fr* a);
 void blst_fr_inverse(blst::Fr* ret, const blst::Fr* a);
-void blst_fr_from_uint64(blst::Fr* ret, const unsigned long long a[4]);
-void blst_uint64_from_fr(unsigned long long ret[4], const blst::Fr* a);
-void blst_fr_from_scalar(blst::Fr* ret, const blst::pow256 a);
-void blst_scalar_from_fr(blst::pow256 ret, const blst::Fr* a);
+void blst_fr_from_uint64(blst::Fr* ret, const uint64_t a[4]);
+void blst_uint64_from_fr(uint64_t ret[4], const blst::Fr* a);
+void blst_fr_from_scalar(blst::Fr* ret, const blst_scalar* a);
+void blst_scalar_from_fr(blst_scalar* ret, const blst::Fr* a);
 bool blst_fr_from_hexascii(blst::Fr* ret, const unsigned char* hex);
 
 void blst_fp_add(blst::Fp* ret, const blst::Fp* a, const blst::Fp* b);
@@ -85,10 +70,10 @@ void blst_fp_sqr(blst::Fp* ret, const blst::Fp* a);
 void blst_fp_eucl_inverse(blst::Fp* ret, const blst::Fp* a);
 void blst_fp_inverse(blst::Fp* ret, const blst::Fp* a);
 bool blst_fp_sqrt(blst::Fp* ret, const blst::Fp* a);
-void blst_fp_from_uint32(blst::Fp* ret, const unsigned int a[12]);
-void blst_uint32_from_fp(unsigned int ret[12], const blst::Fp* a);
-void blst_fp_from_uint64(blst::Fp* ret, const unsigned long long a[6]);
-void blst_uint64_from_fp(unsigned long long ret[6], const blst::Fp* a);
+void blst_fp_from_uint32(blst::Fp* ret, const uint32_t a[12]);
+void blst_uint32_from_fp(uint32_t ret[12], const blst::Fp* a);
+void blst_fp_from_uint64(blst::Fp* ret, const uint64_t a[6]);
+void blst_uint64_from_fp(uint64_t ret[6], const blst::Fp* a);
 void blst_fp_from_bendian(blst::Fp* ret, const unsigned char a[48]);
 void blst_bendian_from_fp(unsigned char ret[48], const blst::Fp* a);
 bool blst_fp_is_square(const blst::Fp* a);
@@ -99,8 +84,8 @@ void blst_fp2_lshift(blst::Fp2* ret, const blst::Fp2* a, size_t count);
 void blst_fp2_sqr(blst::Fp2* ret, const blst::Fp2* a);
 void blst_fp2_eucl_inverse(blst::Fp2* ret, const blst::Fp2* a);
 void blst_fp2_inverse(blst::Fp2* ret, const blst::Fp2* a);
-int blst_fp2_sqrt(blst::Fp2* ret, const blst::Fp2* a);
-int blst_fp2_is_square(const blst::Fp2* a);
+bool blst_fp2_sqrt(blst::Fp2* ret, const blst::Fp2* a);
+bool blst_fp2_is_square(const blst::Fp2* a);
 
 void blst_fp12_mul(blst::Fp12* ret, const blst::Fp12* a, const blst::Fp12* b);
 void blst_fp12_sqr(blst::Fp12* ret, const blst::Fp12* a);
@@ -200,27 +185,20 @@ void blst_hash_to_g2(blst::scalar::G2Point* out, const unsigned char* msg, size_
 void blst_map_to_g1(blst::scalar::G1Point* out, const blst::Fp* u, const blst::Fp* v);
 void blst_map_to_g2(blst::scalar::G2Point* out, const blst::Fp2* u, const blst::Fp2* v);
 size_t blst_pairing_sizeof(void);
-void blst_pairing_init(void* new_ctx, bool hash_or_encode, const unsigned char* DST, size_t DST_len);
-blst::BLST_ERROR blst_pairing_chk_n_aggr_pk_in_g1(void* ctx, const blst::scalar::G1AffinePoint* PK, bool pk_grpchk, const blst::scalar::G2AffinePoint* signature, bool sig_grpchk, const unsigned char* msg, size_t msg_len, const unsigned char* aug, size_t aug_len);
-void blst_pairing_commit(void* ctx);
-bool blst_pairing_finalverify(const void* ctx, const blst::Fp12* gtsig);
+void blst_pairing_init(blst_pairing* new_ctx, bool hash_or_encode, const blst_byte* DST, size_t DST_len);
+blst::BLST_ERROR blst_pairing_chk_n_aggr_pk_in_g1(blst_pairing* ctx, const blst::scalar::G1AffinePoint* PK, bool pk_grpchk, const blst::scalar::G2AffinePoint* signature, bool sig_grpchk, const blst_byte* msg, size_t msg_len, const blst_byte* aug, size_t aug_len);
+void blst_pairing_commit(blst_pairing* ctx);
+bool blst_pairing_finalverify(const blst_pairing* ctx, const blst::Fp12* gtsig);
 void blst_aggregated_in_g2(blst::Fp12* out, const blst::scalar::G2AffinePoint* signature);
-enum BLST_UNIQ_RESULT {
-    BLST_UNIQ_INSERTED = 0,
-    BLST_UNIQ_DUPLICATE = 1,
-    BLST_UNIQ_CAPACITY_EXCEEDED = 2,
-    BLST_UNIQ_DEPTH_EXCEEDED = 3,
-    BLST_UNIQ_INVALID_INPUT = 4,
-};
 size_t blst_uniq_sizeof(size_t capacity);
 size_t blst_uniq_alignof(void);
-bool blst_uniq_init(void* tree, size_t capacity);
-BLST_UNIQ_RESULT blst_uniq_insert(void* tree, const unsigned char* msg, size_t len);
-void blst_keygen(blst::pow256 out_SK, const unsigned char* IKM, size_t IKM_len, const unsigned char* info, size_t info_len);
-void blst_keygen_v5(blst::pow256 out_SK, const unsigned char* IKM, size_t IKM_len, const unsigned char* salt, size_t salt_len, const unsigned char* info, size_t info_len);
-void blst_derive_master_eip2333(blst::pow256 out_SK, const unsigned char* IKM, size_t IKM_len);
-void blst_derive_child_eip2333(blst::pow256 out_SK, const blst::pow256 parent_SK, unsigned int child_index);
-void blst_bendian_from_scalar(unsigned char out[32], const blst::pow256 scalar);
+bool blst_uniq_init(blst_uniq* tree, size_t capacity);
+BLST_UNIQ_RESULT blst_uniq_insert(blst_uniq* tree, const blst_byte* msg, size_t len);
+void blst_keygen(blst_scalar* out_SK, const blst_byte* IKM, size_t IKM_len, const blst_byte* info, size_t info_len);
+void blst_keygen_v5(blst_scalar* out_SK, const blst_byte* IKM, size_t IKM_len, const blst_byte* salt, size_t salt_len, const blst_byte* info, size_t info_len);
+void blst_derive_master_eip2333(blst_scalar* out_SK, const blst_byte* IKM, size_t IKM_len);
+void blst_derive_child_eip2333(blst_scalar* out_SK, const blst_scalar* parent_SK, uint32_t child_index);
+void blst_bendian_from_scalar(blst_byte out[32], const blst_scalar* scalar);
 void blst_expand_message_xmd(unsigned char* out, size_t out_len, const unsigned char* msg, size_t msg_len, const unsigned char* DST, size_t DST_len);
 size_t blst_p1_sizeof(void);
 size_t blst_p1_affine_sizeof(void);
@@ -314,9 +292,9 @@ std::array<unsigned char, 32> scalar_bytes(std::uint64_t value)
     return out;
 }
 
-bool scalar_is_zero(const blst::pow256& value)
+bool scalar_is_zero(const blst_scalar& value)
 {
-    for (unsigned char byte : value) {
+    for (blst_byte byte : value.b) {
         if (byte != 0) {
             return false;
         }
@@ -669,12 +647,12 @@ void run_scalar_wbits_precompute_case(size_t wbits, PrecomputePointLayout layout
 
 TEST(CApi, FrPrimitivesRoundTripAndInverse)
 {
-    const unsigned long long five_words[4] = {5, 0, 0, 0};
-    const unsigned long long one_words[4] = {1, 0, 0, 0};
+    const uint64_t five_words[4] = {5, 0, 0, 0};
+    const uint64_t one_words[4] = {1, 0, 0, 0};
     BoundaryFr five = {};
     BoundaryFr one = {};
     BoundaryFr five_from_hex = {};
-    blst::pow256 scalar = {};
+    blst_scalar scalar = {};
     BoundaryFr from_scalar = {};
 
     blst_fr_from_uint64(&five, five_words);
@@ -686,11 +664,11 @@ TEST(CApi, FrPrimitivesRoundTripAndInverse)
 
     EXPECT_TRUE(BoundaryFr::equal(five, five_from_hex));
 
-    blst_scalar_from_fr(scalar, &five);
-    blst_fr_from_scalar(&from_scalar, scalar);
+    blst_scalar_from_fr(&scalar, &five);
+    blst_fr_from_scalar(&from_scalar, &scalar);
     EXPECT_TRUE(BoundaryFr::equal(five, from_scalar));
 
-    unsigned long long roundtrip[4] = {};
+    uint64_t roundtrip[4] = {};
     blst_uint64_from_fr(roundtrip, &five);
     EXPECT_EQ(roundtrip[0], 5ULL);
     EXPECT_EQ(roundtrip[1], 0ULL);
@@ -714,8 +692,8 @@ TEST(CApi, FrPrimitivesRoundTripAndInverse)
 
 TEST(CApi, ZeroBitScalarShiftsAreIdentity)
 {
-    const unsigned long long fr_words[4] = {0x123456789abcdef0ULL, 0, 0, 0};
-    const unsigned long long fp_words[6] = {0x0fedcba987654321ULL, 0, 0, 0, 0, 0};
+    const uint64_t fr_words[4] = {0x123456789abcdef0ULL, 0, 0, 0};
+    const uint64_t fp_words[6] = {0x0fedcba987654321ULL, 0, 0, 0, 0, 0};
     BoundaryFr fr = {}, shifted_fr = {};
     BoundaryFp fp = {}, shifted_fp = {};
     BoundaryFp2 fp2 = {}, shifted_fp2 = {};
@@ -763,7 +741,7 @@ TEST(CApi, FpUint32RoundTripAcceptsOnlyUint32Alignment)
 
     BoundaryFp from_uint32 = {};
     BoundaryFp from_uint64 = {};
-    const unsigned long long three_words[6] = {3, 0, 0, 0, 0, 0};
+    const uint64_t three_words[6] = {3, 0, 0, 0, 0, 0};
     blst_fp_from_uint32(&from_uint32, input_words);
     blst_fp_from_uint64(&from_uint64, three_words);
     EXPECT_TRUE(BoundaryFp::equal(from_uint32, from_uint64));
@@ -1144,8 +1122,8 @@ TEST(CApi, AvxExpertFp12RoundTripAndOps)
 
 TEST(CApi, FpPrimitivesRoundTripInverseAndSqrt)
 {
-    const unsigned long long three_words[6] = {3, 0, 0, 0, 0, 0};
-    const unsigned long long one_words[6] = {1, 0, 0, 0, 0, 0};
+    const uint64_t three_words[6] = {3, 0, 0, 0, 0, 0};
+    const uint64_t one_words[6] = {1, 0, 0, 0, 0, 0};
     BoundaryFp three = {};
     BoundaryFp one = {};
     BoundaryFp from_hex = {};
@@ -1163,7 +1141,7 @@ TEST(CApi, FpPrimitivesRoundTripInverseAndSqrt)
     blst_fp_from_bendian(&roundtrip, bendian);
     EXPECT_TRUE(BoundaryFp::equal(three, roundtrip));
 
-    unsigned long long roundtrip_words[6] = {};
+    uint64_t roundtrip_words[6] = {};
     blst_uint64_from_fp(roundtrip_words, &three);
     EXPECT_EQ(roundtrip_words[0], 3ULL);
     EXPECT_EQ(roundtrip_words[1], 0ULL);
@@ -1188,8 +1166,8 @@ TEST(CApi, FpPrimitivesRoundTripInverseAndSqrt)
 
     BoundaryFp nonresidue = {};
     bool found_nonresidue = false;
-    for (unsigned long long value = 2; value < 32; ++value) {
-        const unsigned long long words[6] = {value, 0, 0, 0, 0, 0};
+    for (uint64_t value = 2; value < 32; ++value) {
+        const uint64_t words[6] = {value, 0, 0, 0, 0, 0};
         blst_fp_from_uint64(&nonresidue, words);
         if (!blst_fp_is_square(&nonresidue)) {
             found_nonresidue = true;
@@ -1203,8 +1181,8 @@ TEST(CApi, FpPrimitivesRoundTripInverseAndSqrt)
 
 TEST(CApi, Fp2PrimitivesInverseAndSqrt)
 {
-    const unsigned long long two_words[6] = {2, 0, 0, 0, 0, 0};
-    const unsigned long long one_words[6] = {1, 0, 0, 0, 0, 0};
+    const uint64_t two_words[6] = {2, 0, 0, 0, 0, 0};
+    const uint64_t one_words[6] = {1, 0, 0, 0, 0, 0};
     BoundaryFp two = {};
     BoundaryFp one = {};
     blst_fp_from_uint64(&two, two_words);
@@ -2030,8 +2008,8 @@ TEST(CApi, PairingAggregateAllowsNullSignatureAfterFirstElement)
     blst_p1_to_affine(&pk1_affine, &pk1);
     blst_p2_to_affine(&sig_affine, &agg_sig);
 
-    std::vector<unsigned long long> raw(blst_pairing_sizeof() / sizeof(unsigned long long));
-    void* ctx = raw.data();
+    std::vector<uint64_t> raw(blst_pairing_sizeof() / sizeof(uint64_t));
+    auto* ctx = reinterpret_cast<blst_pairing*>(raw.data());
     blst_pairing_init(ctx, true, reinterpret_cast<const unsigned char*>(dst.data()), dst.size() - 1);
     ASSERT_EQ(
         blst_pairing_chk_n_aggr_pk_in_g1(
@@ -2087,9 +2065,9 @@ TEST(CApi, Fp12UtilityWrappersMatchScalarBackend)
     BoundaryGt xy_mul = {};
     BoundaryGt expected_xy_mul = {};
 
-    const unsigned long long five_words[6] = {5, 0, 0, 0, 0, 0};
-    const unsigned long long seven_words[6] = {7, 0, 0, 0, 0, 0};
-    const unsigned long long eleven_words[6] = {11, 0, 0, 0, 0, 0};
+    const uint64_t five_words[6] = {5, 0, 0, 0, 0, 0};
+    const uint64_t seven_words[6] = {7, 0, 0, 0, 0, 0};
+    const uint64_t eleven_words[6] = {11, 0, 0, 0, 0, 0};
     BoundaryFp five = {};
     BoundaryFp seven = {};
     BoundaryFp eleven = {};
@@ -2132,12 +2110,12 @@ TEST(CApi, MappingAndUncheckedWrappersMatchScalarBackend)
     BoundaryG2 unchecked_g2 = {};
     BoundaryG1 normalized_g1 = {};
     BoundaryG2 normalized_g2 = {};
-    const unsigned long long three_words[6] = {3, 0, 0, 0, 0, 0};
-    const unsigned long long five_words[6] = {5, 0, 0, 0, 0, 0};
-    const unsigned long long seven_words[6] = {7, 0, 0, 0, 0, 0};
-    const unsigned long long eleven_words[6] = {11, 0, 0, 0, 0, 0};
-    const unsigned long long thirteen_words[6] = {13, 0, 0, 0, 0, 0};
-    const unsigned long long seventeen_words[6] = {17, 0, 0, 0, 0, 0};
+    const uint64_t three_words[6] = {3, 0, 0, 0, 0, 0};
+    const uint64_t five_words[6] = {5, 0, 0, 0, 0, 0};
+    const uint64_t seven_words[6] = {7, 0, 0, 0, 0, 0};
+    const uint64_t eleven_words[6] = {11, 0, 0, 0, 0, 0};
+    const uint64_t thirteen_words[6] = {13, 0, 0, 0, 0, 0};
+    const uint64_t seventeen_words[6] = {17, 0, 0, 0, 0, 0};
 
     blst_fp_from_uint64(&u, three_words);
     blst_fp_from_uint64(&v, five_words);
@@ -2167,8 +2145,8 @@ TEST(CApi, MappingAndUncheckedWrappersMatchScalarBackend)
     EXPECT_TRUE(BoundaryG2::equal(checked_g2, unchecked_g2));
     EXPECT_TRUE(BoundaryG1::equal(normalized_g1, point_g1));
     EXPECT_TRUE(BoundaryG2::equal(normalized_g2, point_g2));
-    EXPECT_TRUE(BoundaryFp::equal(normalized_g1.Z, BoundaryG1::generator().Z));
-    EXPECT_TRUE(fp2_equal(normalized_g2.Z, BoundaryG2::generator().Z));
+    EXPECT_TRUE(BoundaryFp::equal(normalized_g1.z, BoundaryG1::generator().z));
+    EXPECT_TRUE(fp2_equal(normalized_g2.z, BoundaryG2::generator().z));
 }
 
 TEST(CApi, ExpandMessageAndSizeWrappersWork)
@@ -2203,7 +2181,7 @@ TEST(CApi, UniqTreeEnforcesCapacityAndReportsExactResults)
     const size_t bytes = blst_uniq_sizeof(capacity);
     const size_t words = (bytes + sizeof(std::uint64_t) - 1) / sizeof(std::uint64_t);
     std::vector<std::uint64_t> storage(words);
-    void* uniq = storage.data();
+    auto* uniq = reinterpret_cast<blst_uniq*>(storage.data());
 
     ASSERT_NE(bytes, 0u);
     EXPECT_GE(alignof(std::uint64_t), blst_uniq_alignof());
@@ -2221,7 +2199,7 @@ TEST(CApi, UniqTreeRejectsInvalidSizesAndInputs)
     std::vector<std::uint64_t> storage(
         (blst_uniq_sizeof(1) + sizeof(std::uint64_t) - 1) /
         sizeof(std::uint64_t));
-    void* uniq = storage.data();
+    auto* uniq = reinterpret_cast<blst_uniq*>(storage.data());
 
     EXPECT_EQ(blst_uniq_sizeof(0), 0u);
     EXPECT_EQ(blst_uniq_sizeof(std::numeric_limits<size_t>::max()), 0u);
@@ -2240,11 +2218,13 @@ TEST(CApi, UniqTreeRejectsInvalidSizesAndInputs)
     EXPECT_EQ(blst_uniq_sizeof(low + 1), 0u);
 
     EXPECT_FALSE(blst_uniq_init(nullptr, 1));
-    EXPECT_FALSE(blst_uniq_init(static_cast<unsigned char*>(uniq) + 1, 1));
+    EXPECT_FALSE(blst_uniq_init(reinterpret_cast<blst_uniq*>(
+        reinterpret_cast<unsigned char*>(uniq) + 1), 1));
     EXPECT_FALSE(blst_uniq_init(uniq, 0));
     ASSERT_TRUE(blst_uniq_init(uniq, 1));
     EXPECT_EQ(blst_uniq_insert(nullptr, &byte, 1), BLST_UNIQ_INVALID_INPUT);
-    EXPECT_EQ(blst_uniq_insert(static_cast<unsigned char*>(uniq) + 1, &byte, 1),
+    EXPECT_EQ(blst_uniq_insert(reinterpret_cast<blst_uniq*>(
+                  reinterpret_cast<unsigned char*>(uniq) + 1), &byte, 1),
               BLST_UNIQ_INVALID_INPUT);
     EXPECT_EQ(blst_uniq_insert(uniq, nullptr, 1), BLST_UNIQ_INVALID_INPUT);
     EXPECT_EQ(blst_uniq_insert(
@@ -2261,7 +2241,7 @@ TEST(CApi, UniqTreeHandlesLargeAdversarialInsertionOrder)
     const size_t bytes = blst_uniq_sizeof(capacity);
     std::vector<std::uint64_t> storage(
         (bytes + sizeof(std::uint64_t) - 1) / sizeof(std::uint64_t));
-    void* uniq = storage.data();
+    auto* uniq = reinterpret_cast<blst_uniq*>(storage.data());
 
     ASSERT_TRUE(blst_uniq_init(uniq, capacity));
     for (size_t i = 0; i < capacity; i++) {
@@ -2292,28 +2272,28 @@ TEST(CApi, ExpandMessageOversizeOutputClearsBuffer)
 
 TEST(CApi, ScalarByteDecodersRejectEmptyInputAndClearOutput)
 {
-    blst::pow256 out = {};
-    std::fill_n(out, sizeof(out), static_cast<unsigned char>(0xA5));
-    EXPECT_FALSE(blst_scalar_from_le_bytes(out, nullptr, 0));
+    blst_scalar out = {};
+    std::fill_n(out.b, sizeof(out.b), static_cast<blst_byte>(0xA5));
+    EXPECT_FALSE(blst_scalar_from_le_bytes(&out, nullptr, 0));
     EXPECT_TRUE(scalar_is_zero(out));
 
-    std::fill_n(out, sizeof(out), static_cast<unsigned char>(0x5A));
-    EXPECT_FALSE(blst_scalar_from_be_bytes(out, nullptr, 0));
+    std::fill_n(out.b, sizeof(out.b), static_cast<blst_byte>(0x5A));
+    EXPECT_FALSE(blst_scalar_from_be_bytes(&out, nullptr, 0));
     EXPECT_TRUE(scalar_is_zero(out));
 }
 
 TEST(CApi, KeygenInvalidInputsZeroizeOutput)
 {
-    blst::pow256 out = {};
-    std::fill_n(out, sizeof(out), static_cast<unsigned char>(0xA5));
+    blst_scalar out = {};
+    std::fill_n(out.b, sizeof(out.b), static_cast<blst_byte>(0xA5));
 
     const std::array<unsigned char, 31> short_ikm = {};
-    blst_keygen(out, short_ikm.data(), short_ikm.size(), nullptr, 0);
+    blst_keygen(&out, short_ikm.data(), short_ikm.size(), nullptr, 0);
     EXPECT_TRUE(scalar_is_zero(out));
 
-    std::fill_n(out, sizeof(out), static_cast<unsigned char>(0x5A));
+    std::fill_n(out.b, sizeof(out.b), static_cast<blst_byte>(0x5A));
     const auto valid_ikm = scalar_bytes(9);
-    blst_keygen_v5(out, valid_ikm.data(), valid_ikm.size(), nullptr, 0, nullptr, 0);
+    blst_keygen_v5(&out, valid_ikm.data(), valid_ikm.size(), nullptr, 0, nullptr, 0);
     EXPECT_TRUE(scalar_is_zero(out));
 }
 
@@ -2327,19 +2307,19 @@ TEST(CApi, KeygenV5AcceptsNonNullEmptySalt)
     };
     const auto valid_ikm = scalar_bytes(9);
     const unsigned char non_null_empty_salt = 0;
-    blst::pow256 first = {};
-    blst::pow256 second = {};
+    blst_scalar first = {};
+    blst_scalar second = {};
 
     blst_keygen_v5(
-        first, valid_ikm.data(), valid_ikm.size(),
+        &first, valid_ikm.data(), valid_ikm.size(),
         &non_null_empty_salt, 0, nullptr, 0);
     blst_keygen_v5(
-        second, valid_ikm.data(), valid_ikm.size(),
+        &second, valid_ikm.data(), valid_ikm.size(),
         &non_null_empty_salt, 0, nullptr, 0);
 
     EXPECT_FALSE(scalar_is_zero(first));
-    EXPECT_EQ(0, std::memcmp(first, expected, sizeof(expected)));
-    EXPECT_EQ(0, std::memcmp(first, second, sizeof(first)));
+    EXPECT_EQ(0, std::memcmp(first.b, expected, sizeof(expected)));
+    EXPECT_EQ(0, std::memcmp(first.b, second.b, sizeof(first.b)));
 }
 
 TEST(CApi, Eip2333PublishedVectors)
@@ -2401,15 +2381,15 @@ TEST(CApi, Eip2333PublishedVectors)
         const std::vector<unsigned char> seed = decode(vector.seed);
         const std::vector<unsigned char> expected_master = decode(vector.master);
         const std::vector<unsigned char> expected_child = decode(vector.child);
-        blst::pow256 master = {}, child = {};
+        blst_scalar master = {}, child = {};
         std::array<unsigned char, 32> encoded = {};
 
-        blst_derive_master_eip2333(master, seed.data(), seed.size());
-        blst_bendian_from_scalar(encoded.data(), master);
+        blst_derive_master_eip2333(&master, seed.data(), seed.size());
+        blst_bendian_from_scalar(encoded.data(), &master);
         EXPECT_TRUE(std::equal(encoded.begin(), encoded.end(), expected_master.begin()));
 
-        blst_derive_child_eip2333(child, master, vector.child_index);
-        blst_bendian_from_scalar(encoded.data(), child);
+        blst_derive_child_eip2333(&child, &master, vector.child_index);
+        blst_bendian_from_scalar(encoded.data(), &child);
         EXPECT_TRUE(std::equal(encoded.begin(), encoded.end(), expected_child.begin()));
     }
 }

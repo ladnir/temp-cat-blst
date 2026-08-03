@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef __BLST_FFT_H__
-#define __BLST_FFT_H__
+#ifndef BLST_FFT_H
+#define BLST_FFT_H
 
 #include "blst_types.h"
 

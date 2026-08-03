@@ -105,7 +105,7 @@ namespace
     bool copy_keys(
         const std::vector<bte::btx::Bytes>& keys,
         const std::size_t key_size,
-        byte* out_keys,
+        blst_byte* out_keys,
         const std::size_t out_keys_len)
     {
         if (out_keys == nullptr || out_keys_len != (keys.size() * key_size)) {
@@ -234,7 +234,7 @@ bool blst_btx_encrypt(
     blst_fill_random_fn fill_random,
     void* user_data,
     blst_p1* out_c1,
-    byte* out_key,
+    blst_byte* out_key,
     const size_t out_key_len)
 {
     if (params == nullptr || public_parameters == nullptr || public_parameters->value == nullptr ||
@@ -357,7 +357,7 @@ bool blst_btx_finalize_batch_decryption(
     const blst_btx_prepared_public_parameters* prepared_public_parameters,
     const blst_btx_batch_precomputation* batch_precomputation,
     const blst_p1* aggregate_predecryption_key,
-    byte* out_keys,
+    blst_byte* out_keys,
     const size_t out_keys_len)
 {
     if (params == nullptr || prepared_public_parameters == nullptr ||
@@ -384,7 +384,7 @@ bool blst_btx_recover_batch_keys(
     const size_t n,
     const blst_p1* aggregate_predecryption_key,
     const blst_btx_cross_term_algorithm algorithm,
-    byte* out_keys,
+    blst_byte* out_keys,
     const size_t out_keys_len)
 {
     if (params == nullptr || prepared_public_parameters == nullptr ||

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright Supranational LLC
  * Licensed under the Apache License, Version 2.0, see LICENSE for details.
  * SPDX-License-Identifier: Apache-2.0
@@ -102,13 +102,13 @@ namespace blst::scalar
 
 			point = *point_iter ? *point_iter++ : point + 1;
 			bool_t is_inf = PointT::is_identity(*point);
-			vec_select(acc, detail::mont_one<Field>(), &point->Z, sizeof(Field), is_inf);
+			vec_select(acc, detail::mont_one<Field>(), &point->z, sizeof(Field), is_inf);
 			++acc;
 
 			for (size_t i = 1; i < delta; ++i, ++acc) {
 				point = *point_iter ? *point_iter++ : point + 1;
 				bool_t next_inf = PointT::is_identity(*point);
-				vec_select(acc, detail::mont_one<Field>(), &point->Z, sizeof(Field), next_inf);
+				vec_select(acc, detail::mont_one<Field>(), &point->z, sizeof(Field), next_inf);
 				Field::mul(acc[0], acc[0], acc[-1]);
 			}
 
@@ -125,18 +125,18 @@ namespace blst::scalar
 				Field::mul(acc[-1], acc[-1], acc[0]);
 				Field::sqr(ZZ, acc[-1]);
 				Field::mul(ZZZ, ZZ, acc[-1]);
-				vec_select(&acc[-1], detail::mont_one<Field>(), &p->Z, sizeof(Field), current_inf);
+				vec_select(&acc[-1], detail::mont_one<Field>(), &p->z, sizeof(Field), current_inf);
 				Field::mul(acc[-1], acc[-1], acc[0]);
-				Field::mul(dst_iter->X, p->X, ZZ);
-				Field::mul(dst_iter->Y, p->Y, ZZZ);
+				Field::mul(dst_iter->x, p->x, ZZ);
+				Field::mul(dst_iter->y, p->y, ZZZ);
 				vec_czero(dst_iter, sizeof(*dst_iter), current_inf);
 				p = (p == *walkback) ? *--walkback : p - 1;
 			}
 
 			Field::sqr(ZZ, acc[0]);
 			Field::mul(ZZZ, ZZ, acc[0]);
-			Field::mul(dst_iter->X, p->X, ZZ);
-			Field::mul(dst_iter->Y, p->Y, ZZZ);
+			Field::mul(dst_iter->x, p->x, ZZ);
+			Field::mul(dst_iter->y, p->y, ZZZ);
 			vec_czero(dst_iter, sizeof(*dst_iter), PointT::is_identity(*p));
 
 			out = block_dst + delta;
@@ -184,13 +184,13 @@ namespace blst::scalar
 		bool_t inf = vec_is_zero(&point, sizeof(point));
 		/* row[-1] is implicit infinity */
 		vec_copy(&row[0], &point, sizeof(point));           /* row[0]=p*1     */
-		vec_copy(&row[0].Z, &Field::one(), sizeof(row[0].Z));
+		vec_copy(&row[0].z, &Field::one(), sizeof(row[0].z));
 		Point<Field>::doubling(row[1], row[0]);                  /* row[1]=p*(1+1) */
-		vec_select(&row[1].Z, &Field::one(), &row[1].Z, sizeof(row[1].Z), inf);
+		vec_select(&row[1].z, &Field::one(), &row[1].z, sizeof(row[1].z), inf);
 		for (i = 2, j = 1; i < n; i += 2, j++)
 			Point<Field>::add(row[i], row[i - 1], point),  /* row[2]=p*(2+1) */
 			Point<Field>::doubling(row[i + 1], row[j]),             /* row[3]=p*(2+2) */
-			vec_select(&row[i + 1].Z, &Field::one(), &row[i + 1].Z, sizeof(row[i + 1].Z), inf);
+			vec_select(&row[i + 1].z, &Field::one(), &row[i + 1].z, sizeof(row[i + 1].z), inf);
 	}
 
 	template<typename Field>
@@ -235,7 +235,7 @@ namespace blst::scalar
 		vec_copy(acc++, &Field::one(), sizeof(Field));
 		for (i = 0; i < npoints; i++)
 			for (j = nwin; --src, --j; acc++)
-				Field::mul(acc[0], acc[-1], src->Z);
+				Field::mul(acc[0], acc[-1], src->z);
 
 		--acc; Field::reciprocal(acc[0], acc[0]);
 
@@ -245,9 +245,9 @@ namespace blst::scalar
 				Field::mul(acc[-1], acc[-1], acc[0]);  /* 1/Z        */
 				Field::sqr(ZZ, acc[-1]);               /* 1/Z^2      */
 				Field::mul(ZZZ, ZZ, acc[-1]);          /* 1/Z^3      */
-				Field::mul(acc[-1], src->Z, acc[0]);
-				Field::mul(dst->X, src->X, ZZ);        /* X = X'/Z^2 */
-				Field::mul(dst->Y, src->Y, ZZZ);       /* Y = Y'/Z^3 */
+				Field::mul(acc[-1], src->z, acc[0]);
+				Field::mul(dst->x, src->x, ZZ);        /* X = X'/Z^2 */
+				Field::mul(dst->y, src->y, ZZZ);       /* Y = Y'/Z^3 */
 			}
 		}
 	}

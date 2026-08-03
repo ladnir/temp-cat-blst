@@ -31,7 +31,7 @@ blst_fp test_fp_from_u64(uint64_t value)
 }
 
 blst_fp test_fp_from_bytes_oracle(
-    const std::vector<byte>& input,
+    const std::vector<blst_byte>& input,
     bool little_endian)
 {
     const blst_fp radix = test_fp_from_u64(256);
@@ -47,9 +47,9 @@ blst_fp test_fp_from_bytes_oracle(
     return acc;
 }
 
-std::array<byte, 48> test_fp_to_bendian(const blst_fp& value)
+std::array<blst_byte, 48> test_fp_to_bendian(const blst_fp& value)
 {
-    std::array<byte, 48> out = {};
+    std::array<blst_byte, 48> out = {};
     blst_bendian_from_fp(out.data(), &value);
     return out;
 }
@@ -115,8 +115,8 @@ void expect_batch_affine_g1_matches(
     ASSERT_EQ(points.size(), scalars.size());
     const size_t pippenger_bytes =
         blst_p1s_mult_pippenger_fr_scratch_sizeof(points.size());
-    std::vector<limb_t> pippenger_scratch(
-        pippenger_bytes / sizeof(limb_t));
+    std::vector<blst_limb_t> pippenger_scratch(
+        pippenger_bytes / sizeof(blst_limb_t));
     blst_p1 expected = {};
     ASSERT_TRUE(blst_p1s_mult_pippenger_fr(
         &expected, points.data(), scalars.data(), points.size(),
@@ -129,8 +129,8 @@ void expect_batch_affine_g1_matches(
                 blst_p1s_mult_batch_affine_fr_scratch_sizeof(
                     points.size(), window, batch_size);
             ASSERT_NE(scratch_bytes, 0);
-            std::vector<limb_t> scratch(
-                scratch_bytes / sizeof(limb_t), ~limb_t{0});
+            std::vector<blst_limb_t> scratch(
+                scratch_bytes / sizeof(blst_limb_t), ~blst_limb_t{0});
             for (size_t reuse = 0; reuse < 2; ++reuse) {
                 blst_p1 actual = {};
                 ASSERT_TRUE(blst_p1s_mult_batch_affine_fr(
@@ -157,7 +157,7 @@ static_assert(std::is_same_v<
 TEST(BindingHeader, HexParsersRequireACompleteRepresentableValue)
 {
     const auto ascii = [](const char* text) {
-        return reinterpret_cast<const byte*>(text);
+        return reinterpret_cast<const blst_byte*>(text);
     };
 
     blst_scalar scalar = {};
@@ -221,9 +221,9 @@ TEST(BindingHeader, VariableLengthFpDecodersMatchBytewiseOracle)
                              size_t{49}, size_t{95}, size_t{96}, size_t{97},
                              size_t{255}, size_t{511}, size_t{4097}}) {
         SCOPED_TRACE(::testing::Message() << "len=" << len);
-        std::vector<byte> input(len);
+        std::vector<blst_byte> input(len);
         for (size_t i = 0; i < len; ++i) {
-            input[i] = static_cast<byte>((i * 131 + len * 17 + 0x5b) & 0xff);
+            input[i] = static_cast<blst_byte>((i * 131 + len * 17 + 0x5b) & 0xff);
         }
 
         blst_fp_from_le_bytes(&actual_le, input.data(), input.size());
@@ -240,7 +240,7 @@ TEST(BindingHeader, VariableLengthFpDecodersMatchBytewiseOracle)
     }
 
     for (const size_t len : {size_t{48}, size_t{49}, size_t{96}}) {
-        std::vector<byte> input(len, 0xff);
+        std::vector<blst_byte> input(len, 0xff);
         blst_fp_from_le_bytes(&actual_le, input.data(), input.size());
         blst_fp_from_be_bytes(&actual_be, input.data(), input.size());
         EXPECT_EQ(test_fp_to_bendian(actual_le),
@@ -252,9 +252,9 @@ TEST(BindingHeader, VariableLengthFpDecodersMatchBytewiseOracle)
 
 TEST(BindingHeader, BlstUmbrellaExposesKeygenAndPkApis)
 {
-    std::array<byte, 32> ikm = {};
+    std::array<blst_byte, 32> ikm = {};
     for (size_t i = 0; i < ikm.size(); ++i) {
-        ikm[i] = static_cast<byte>(i + 1);
+        ikm[i] = static_cast<blst_byte>(i + 1);
     }
 
     blst_scalar sk = {};
@@ -273,9 +273,9 @@ TEST(BindingHeader, BlstUmbrellaExposesKeygenAndPkApis)
 
 TEST(BindingHeader, KeygenIsDeterministicForSameInputs)
 {
-    std::array<byte, 64> ikm = {};
+    std::array<blst_byte, 64> ikm = {};
     for (size_t i = 0; i < ikm.size(); ++i) {
-        ikm[i] = static_cast<byte>(0x7f ^ i);
+        ikm[i] = static_cast<blst_byte>(0x7f ^ i);
     }
 
     blst_scalar sk1 = {};
@@ -295,9 +295,9 @@ TEST(BindingHeader, KeygenIsDeterministicForSameInputs)
 
 TEST(BindingHeader, DeriveMasterIsDeterministicForSameInputs)
 {
-    std::array<byte, 64> ikm = {};
+    std::array<blst_byte, 64> ikm = {};
     for (size_t i = 0; i < ikm.size(); ++i) {
-        ikm[i] = static_cast<byte>(0xa5 + i);
+        ikm[i] = static_cast<blst_byte>(0xa5 + i);
     }
 
     blst_scalar sk1 = {};
@@ -313,7 +313,7 @@ TEST(BindingHeader, ScalarHelperSurfaceIsExposedAndStable)
 {
     EXPECT_EQ(static_cast<int>(BLST_BAD_SCALAR), 7);
 
-    std::array<byte, 1> one_be = {1};
+    std::array<blst_byte, 1> one_be = {1};
     blst_scalar one = {};
     blst_scalar two = {};
     blst_scalar zero = {};
@@ -336,9 +336,9 @@ TEST(BindingHeader, ScalarHelperSurfaceIsExposedAndStable)
     blst_uint64_from_scalar(roundtrip64.data(), &one);
     EXPECT_EQ(roundtrip64, words64);
 
-    std::array<byte, 32> little = {};
-    std::array<byte, 32> big = {};
-    std::array<byte, 32> encoded = {};
+    std::array<blst_byte, 32> little = {};
+    std::array<blst_byte, 32> big = {};
+    std::array<blst_byte, 32> encoded = {};
     little.front() = 7;
     big.back() = 7;
     blst_scalar_from_lendian(&one, little.data());
@@ -451,7 +451,7 @@ TEST(BindingHeader, NativeFrPippengerUsesCallerOwnedScratch)
         const std::array<uint64_t, 4> words = {i + 1, 0, 0, 0};
         blst_fr_from_uint64(&scalars[i], words.data());
     }
-    const std::array<byte, 32> ten = {10};
+    const std::array<blst_byte, 32> ten = {10};
 
     EXPECT_EQ(blst_p1s_mult_pippenger_fr_scratch_sizeof(0), 0);
     EXPECT_EQ(blst_p1s_mult_pippenger_fr_scratch_sizeof(1), 32);
@@ -478,10 +478,10 @@ TEST(BindingHeader, NativeFrPippengerUsesCallerOwnedScratch)
         blst_p2s_mult_pippenger_fr_scratch_sizeof(n);
     ASSERT_NE(g1_scratch_size, 0);
     ASSERT_NE(g2_scratch_size, 0);
-    ASSERT_EQ(g1_scratch_size % sizeof(limb_t), 0);
-    ASSERT_EQ(g2_scratch_size % sizeof(limb_t), 0);
-    std::vector<limb_t> g1_scratch(g1_scratch_size / sizeof(limb_t));
-    std::vector<limb_t> g2_scratch(g2_scratch_size / sizeof(limb_t));
+    ASSERT_EQ(g1_scratch_size % sizeof(blst_limb_t), 0);
+    ASSERT_EQ(g2_scratch_size % sizeof(blst_limb_t), 0);
+    std::vector<blst_limb_t> g1_scratch(g1_scratch_size / sizeof(blst_limb_t));
+    std::vector<blst_limb_t> g2_scratch(g2_scratch_size / sizeof(blst_limb_t));
 
     blst_p1 actual_g1 = {};
     blst_p1 expected_g1 = {};
@@ -504,12 +504,12 @@ TEST(BindingHeader, NativeFrPippengerUsesCallerOwnedScratch)
     ASSERT_TRUE(blst_scalars_from_fr(canonical.data(), scalars.data(), n));
     const blst_p1_affine* g1_point_descriptors[] = {
         g1_points.data(), nullptr};
-    const byte* scalar_descriptors[] = {
-        reinterpret_cast<const byte*>(canonical.data()), nullptr};
+    const blst_byte* scalar_descriptors[] = {
+        reinterpret_cast<const blst_byte*>(canonical.data()), nullptr};
     const size_t canonical_g1_scratch_size =
         blst_p1s_mult_pippenger_scratch_sizeof(n);
-    std::vector<limb_t> canonical_g1_scratch(
-        canonical_g1_scratch_size / sizeof(limb_t));
+    std::vector<blst_limb_t> canonical_g1_scratch(
+        canonical_g1_scratch_size / sizeof(blst_limb_t));
     blst_p1 canonical_g1 = {};
     blst_p1s_mult_pippenger(
         &canonical_g1, g1_point_descriptors, n, scalar_descriptors, 255,
@@ -531,8 +531,8 @@ TEST(BindingHeader, NativeFrPippengerUsesCallerOwnedScratch)
         g2_points.data(), nullptr};
     const size_t canonical_g2_scratch_size =
         blst_p2s_mult_pippenger_scratch_sizeof(n);
-    std::vector<limb_t> canonical_g2_scratch(
-        canonical_g2_scratch_size / sizeof(limb_t));
+    std::vector<blst_limb_t> canonical_g2_scratch(
+        canonical_g2_scratch_size / sizeof(blst_limb_t));
     blst_p2 canonical_g2 = {};
     blst_p2s_mult_pippenger(
         &canonical_g2, g2_point_descriptors, n, scalar_descriptors, 255,
@@ -571,13 +571,13 @@ TEST(BindingHeader, NativeFrBatchAffineG1MatchesPippenger)
         canonical.data(), scalars.data(), scalars.size()));
     const blst_p1_affine* point_descriptors[] = {
         points.data(), nullptr};
-    const byte* scalar_descriptors[] = {
-        reinterpret_cast<const byte*>(canonical.data()), nullptr};
+    const blst_byte* scalar_descriptors[] = {
+        reinterpret_cast<const blst_byte*>(canonical.data()), nullptr};
     const size_t pippenger_scratch_size =
         blst_p1s_mult_pippenger_scratch_sizeof(n);
     ASSERT_NE(pippenger_scratch_size, 0);
-    std::vector<limb_t> pippenger_scratch(
-        pippenger_scratch_size / sizeof(limb_t));
+    std::vector<blst_limb_t> pippenger_scratch(
+        pippenger_scratch_size / sizeof(blst_limb_t));
     blst_p1 expected = {};
     blst_p1s_mult_pippenger(
         &expected, point_descriptors, n, scalar_descriptors, 255,
@@ -593,8 +593,8 @@ TEST(BindingHeader, NativeFrBatchAffineG1MatchesPippenger)
             blst_p1s_mult_batch_affine_fr_scratch_sizeof(
                 n, window, batch_size);
         ASSERT_NE(scratch_size, 0);
-        ASSERT_EQ(scratch_size % sizeof(limb_t), 0);
-        std::vector<limb_t> scratch(scratch_size / sizeof(limb_t));
+        ASSERT_EQ(scratch_size % sizeof(blst_limb_t), 0);
+        std::vector<blst_limb_t> scratch(scratch_size / sizeof(blst_limb_t));
 
         blst_p1 actual = {};
         EXPECT_FALSE(blst_p1s_mult_batch_affine_fr(
@@ -616,8 +616,8 @@ TEST(BindingHeader, NativeFrBatchAffineG1MatchesPippenger)
     const size_t single_scratch_size =
         blst_p1s_mult_batch_affine_fr_scratch_sizeof(1, window, 128);
     EXPECT_EQ(single_scratch_size, sizeof(blst_scalar));
-    std::vector<limb_t> single_scratch(
-        single_scratch_size / sizeof(limb_t));
+    std::vector<blst_limb_t> single_scratch(
+        single_scratch_size / sizeof(blst_limb_t));
     blst_p1 single = {};
     ASSERT_TRUE(blst_p1s_mult_batch_affine_fr(
         &single, points.data(), scalars.data(), 1,
@@ -662,8 +662,8 @@ TEST(BindingHeader, NativeFrBatchAffineG2MatchesPippenger)
 
     const size_t pippenger_bytes =
         blst_p2s_mult_pippenger_fr_scratch_sizeof(n);
-    std::vector<limb_t> pippenger_scratch(
-        pippenger_bytes / sizeof(limb_t));
+    std::vector<blst_limb_t> pippenger_scratch(
+        pippenger_bytes / sizeof(blst_limb_t));
     blst_p2 expected = {};
     ASSERT_TRUE(blst_p2s_mult_pippenger_fr(
         &expected, points.data(), scalars.data(), n,
@@ -675,8 +675,8 @@ TEST(BindingHeader, NativeFrBatchAffineG2MatchesPippenger)
                 blst_p2s_mult_batch_affine_fr_scratch_sizeof(
                     n, window, batch_size);
             ASSERT_NE(scratch_bytes, 0);
-            std::vector<limb_t> scratch(
-                scratch_bytes / sizeof(limb_t), ~limb_t{0});
+            std::vector<blst_limb_t> scratch(
+                scratch_bytes / sizeof(blst_limb_t), ~blst_limb_t{0});
             blst_p2 actual = {};
             ASSERT_TRUE(blst_p2s_mult_batch_affine_fr(
                 &actual, points.data(), scalars.data(), n,
@@ -713,12 +713,12 @@ TEST(BindingHeader, SelectedNativeFrG1MsmHandlesCapacityAndIdentity)
 
     const size_t selected_bytes =
         blst_p1s_mult_fr_scratch_sizeof(capacity);
-    std::vector<limb_t> selected_scratch(
-        selected_bytes / sizeof(limb_t), ~limb_t{0});
+    std::vector<blst_limb_t> selected_scratch(
+        selected_bytes / sizeof(blst_limb_t), ~blst_limb_t{0});
     const size_t pippenger_bytes =
         blst_p1s_mult_pippenger_fr_scratch_sizeof(n);
-    std::vector<limb_t> pippenger_scratch(
-        pippenger_bytes / sizeof(limb_t));
+    std::vector<blst_limb_t> pippenger_scratch(
+        pippenger_bytes / sizeof(blst_limb_t));
 
     blst_p1 expected = {};
     blst_p1 actual = {};
@@ -750,12 +750,12 @@ TEST(BindingHeader, SelectedNativeFrG2MsmHandlesBatchRange)
     const auto scalars = test_full_width_scalars(n);
     const size_t selected_bytes =
         blst_p2s_mult_fr_scratch_sizeof(n);
-    std::vector<limb_t> selected_scratch(
-        selected_bytes / sizeof(limb_t), ~limb_t{0});
+    std::vector<blst_limb_t> selected_scratch(
+        selected_bytes / sizeof(blst_limb_t), ~blst_limb_t{0});
     const size_t pippenger_bytes =
         blst_p2s_mult_pippenger_fr_scratch_sizeof(n);
-    std::vector<limb_t> pippenger_scratch(
-        pippenger_bytes / sizeof(limb_t));
+    std::vector<blst_limb_t> pippenger_scratch(
+        pippenger_bytes / sizeof(blst_limb_t));
 
     blst_p2 expected = {};
     blst_p2 actual = {};

@@ -11,7 +11,7 @@ namespace
     {
         InsecureRng rng{0x13579bdf2468ace0ULL};
 
-        static bool fill_random(void* user_data, byte* out, const size_t out_len)
+        static bool fill_random(void* user_data, blst_byte* out, const size_t out_len)
         {
             auto* self = static_cast<BtxCApiFixture*>(user_data);
             std::uint64_t word = 0;
@@ -21,7 +21,7 @@ namespace
                     word = self->rng.next_u64();
                     remaining = sizeof(word);
                 }
-                out[i] = static_cast<byte>(word & 0xffU);
+                out[i] = static_cast<blst_byte>(word & 0xffU);
                 word >>= 8;
                 --remaining;
             }
@@ -55,7 +55,7 @@ TEST(BtxCApi, PreparedFlowRecoversEncryptedKeys)
     ASSERT_NE(prepared, nullptr);
 
     std::vector<blst_p1> ciphertexts(4);
-    std::vector<byte> expected_keys(4 * params.key_size);
+    std::vector<blst_byte> expected_keys(4 * params.key_size);
     for (std::size_t i = 0; i < ciphertexts.size(); ++i) {
         ASSERT_TRUE(blst_btx_encrypt(
             &params,
@@ -95,7 +95,7 @@ TEST(BtxCApi, PreparedFlowRecoversEncryptedKeys)
     ASSERT_NE(precomputation, nullptr);
     ASSERT_EQ(blst_btx_batch_precomputation_batch_size(precomputation), ciphertexts.size());
 
-    std::vector<byte> finalized_keys(ciphertexts.size() * params.key_size);
+    std::vector<blst_byte> finalized_keys(ciphertexts.size() * params.key_size);
     ASSERT_TRUE(blst_btx_finalize_batch_decryption(
         &params,
         prepared,
@@ -105,7 +105,7 @@ TEST(BtxCApi, PreparedFlowRecoversEncryptedKeys)
         finalized_keys.size()));
     EXPECT_EQ(finalized_keys, expected_keys);
 
-    std::vector<byte> recovered_keys(ciphertexts.size() * params.key_size);
+    std::vector<blst_byte> recovered_keys(ciphertexts.size() * params.key_size);
     ASSERT_TRUE(blst_btx_recover_batch_keys(
         &params,
         prepared,

@@ -23,7 +23,7 @@ inline blst::Fp bigint_to_scalar_fp(const BigInt& value)
 {
     blst::Fp standard = {};
     size_t written = 0;
-    mpz_export(standard.data, &written, -1, sizeof(standard.data[0]), 0, 0, value.get_mpz().get_mpz_t());
+    mpz_export(standard.l, &written, -1, sizeof(standard.l[0]), 0, 0, value.get_mpz().get_mpz_t());
 
     blst::Fp mont = {};
     blst::Fp::to_mont(mont, standard);
@@ -36,7 +36,7 @@ inline BigInt scalar_fp_to_bigint(const blst::Fp& value)
     blst::Fp::from_mont(standard, value);
 
     mpz_class out;
-    mpz_import(out.get_mpz_t(), blst::Fp::num_limb(), -1, sizeof(standard.data[0]), 0, 0, standard.data);
+    mpz_import(out.get_mpz_t(), blst::Fp::num_limb(), -1, sizeof(standard.l[0]), 0, 0, standard.l);
     return BigInt(out);
 }
 
@@ -202,7 +202,7 @@ auto convert_to_rns(const Ring& ring, const blst::Fp& value)
         canonical = value;
     }
 
-    const unsigned char* canonical_bytes = reinterpret_cast<const unsigned char*>(canonical.data);
+    const unsigned char* canonical_bytes = reinterpret_cast<const unsigned char*>(canonical.l);
     AVXVector<8> l = to_vec<8>(canonical_bytes);
     return ring.template convert_to_rns_batch<1>(std::array<AVXVector<8>, 1>{l})[0];
 }

@@ -56,7 +56,7 @@ namespace
     {
         InsecureRng rng{0x2468ace013579bdfULL};
 
-        static bool fill_random(void* user_data, byte* out, const size_t out_len)
+        static bool fill_random(void* user_data, blst_byte* out, const size_t out_len)
         {
             auto* self = static_cast<TrxCApiFixture*>(user_data);
             std::uint64_t word = 0;
@@ -66,7 +66,7 @@ namespace
                     word = self->rng.next_u64();
                     remaining = sizeof(word);
                 }
-                out[i] = static_cast<byte>(word & 0xffU);
+                out[i] = static_cast<blst_byte>(word & 0xffU);
                 word >>= 8;
                 --remaining;
             }
@@ -113,15 +113,15 @@ TEST(TrxCApi, EndToEndRoundTrip)
         blst_trx_to_encryption_key(public_key_material);
     ASSERT_NE(encryption_key, nullptr);
 
-    const std::array<std::array<byte, 4>, 3> associated_data = {{
-        { byte('a'), byte('d'), byte('-'), byte('0') },
-        { byte('a'), byte('d'), byte('-'), byte('1') },
-        { byte('a'), byte('d'), byte('-'), byte('2') },
+    const std::array<std::array<blst_byte, 4>, 3> associated_data = {{
+        { blst_byte('a'), blst_byte('d'), blst_byte('-'), blst_byte('0') },
+        { blst_byte('a'), blst_byte('d'), blst_byte('-'), blst_byte('1') },
+        { blst_byte('a'), blst_byte('d'), blst_byte('-'), blst_byte('2') },
     }};
 
     std::array<blst_trx_encrypted_ciphertext*, 3> encrypted = { nullptr, nullptr, nullptr };
     std::array<blst_trx_verified_ciphertext*, 3> verified = { nullptr, nullptr, nullptr };
-    std::array<std::vector<byte>, 3> expected_session_keys;
+    std::array<std::vector<blst_byte>, 3> expected_session_keys;
 
     for (std::size_t i = 0; i < encrypted.size(); ++i) {
         encrypted[i] = blst_trx_encrypt(
@@ -182,7 +182,7 @@ TEST(TrxCApi, EndToEndRoundTrip)
         &sigma));
 
     for (std::size_t i = 0; i < proofs.size(); ++i) {
-        std::vector<byte> recovered(expected_session_keys[i].size());
+        std::vector<blst_byte> recovered(expected_session_keys[i].size());
         ASSERT_TRUE(blst_trx_decapsulate_one(
             &params,
             digest,

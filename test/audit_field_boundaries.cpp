@@ -74,9 +74,9 @@ int main()
     if (roundtrip64 != words64)
         return 7;
 
-    std::array<byte, 32> little = {};
-    std::array<byte, 32> big = {};
-    std::array<byte, 32> encoded = {};
+    std::array<blst_byte, 32> little = {};
+    std::array<blst_byte, 32> big = {};
+    std::array<blst_byte, 32> encoded = {};
     little.front() = 7;
     big.back() = 7;
     blst_scalar_from_lendian(&scalar, little.data());

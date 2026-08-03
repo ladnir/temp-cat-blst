@@ -11,31 +11,31 @@ use core::mem::{size_of, MaybeUninit};
 #[repr(C, align(64))]
 #[derive(Copy, Clone)]
 pub struct blst_avx_p1 {
-    pub b: [byte; 384],
+    pub b: [blst_byte; 384],
 }
 
 #[repr(C, align(64))]
 #[derive(Copy, Clone)]
 pub struct blst_avx_p1_affine {
-    pub b: [byte; 256],
+    pub b: [blst_byte; 256],
 }
 
 #[repr(C, align(64))]
 #[derive(Copy, Clone)]
 pub struct blst_avx_p2 {
-    pub b: [byte; 768],
+    pub b: [blst_byte; 768],
 }
 
 #[repr(C, align(64))]
 #[derive(Copy, Clone)]
 pub struct blst_avx_p2_affine {
-    pub b: [byte; 512],
+    pub b: [blst_byte; 512],
 }
 
 #[repr(C, align(64))]
 #[derive(Copy, Clone)]
 pub struct blst_avx_fp12 {
-    pub b: [byte; 1536],
+    pub b: [blst_byte; 1536],
 }
 
 impl Default for blst_avx_p1 {
@@ -159,7 +159,7 @@ extern "C" {
     pub fn blst_avx_p1_mult(
         out: *mut blst_avx_p1,
         p: *const blst_avx_p1,
-        scalar: *const byte,
+        scalar: *const blst_byte,
         nbits: usize,
     ) -> bool;
     pub fn blst_avx_p1_to_affine(
@@ -185,20 +185,20 @@ extern "C" {
         b: *const blst_avx_p1,
     ) -> bool;
     pub fn blst_avx_p1_compress(
-        out: *mut byte,
+        out: *mut blst_byte,
         input: *const blst_avx_p1,
     ) -> bool;
     pub fn blst_avx_p1_serialize(
-        out: *mut byte,
+        out: *mut blst_byte,
         input: *const blst_avx_p1,
     ) -> bool;
     pub fn blst_avx_p1_deserialize(
         out: *mut blst_avx_p1,
-        input: *const byte,
+        input: *const blst_byte,
     ) -> BLST_ERROR;
     pub fn blst_avx_p1_uncompress(
         out: *mut blst_avx_p1,
-        input: *const byte,
+        input: *const blst_byte,
     ) -> BLST_ERROR;
     pub fn blst_avx_p1_mult_pippenger_scratch_sizeof(npoints: usize) -> usize;
     pub fn blst_avx_p1_mult_pippenger_bucket_used_scratch_sizeof(
@@ -213,26 +213,26 @@ extern "C" {
     pub fn blst_avx_p1_mult_pippenger(
         out: *mut blst_avx_p1,
         points: *const blst_avx_p1_affine,
-        scalars: *const byte,
+        scalars: *const blst_byte,
         npoints: usize,
         nbits: usize,
         scratch: *mut core::ffi::c_void,
         scratch_bytes: usize,
-        bucket_used: *mut byte,
+        bucket_used: *mut blst_byte,
         bucket_used_bytes: usize,
     ) -> bool;
     pub fn blst_avx_p1_mult_pippenger_glv_with_scratch(
         out: *mut blst_avx_p1,
         points: *const blst_avx_p1_affine,
-        scalars: *const byte,
+        scalars: *const blst_byte,
         npoints: usize,
         scratch: *mut core::ffi::c_void,
         scratch_bytes: usize,
-        bucket_used: *mut byte,
+        bucket_used: *mut blst_byte,
         bucket_used_bytes: usize,
         split_points: *mut blst_avx_p1_affine,
         split_points_bytes: usize,
-        split_scalars: *mut byte,
+        split_scalars: *mut blst_byte,
         split_scalars_bytes: usize,
     ) -> bool;
     pub fn blst_avx_p1_mult_pippenger_glv_window_scratch_sizeof(
@@ -246,16 +246,16 @@ extern "C" {
     pub fn blst_avx_p1_mult_pippenger_glv_window_with_scratch(
         out: *mut blst_avx_p1,
         points: *const blst_avx_p1_affine,
-        scalars: *const byte,
+        scalars: *const blst_byte,
         npoints: usize,
         window: usize,
         scratch: *mut core::ffi::c_void,
         scratch_bytes: usize,
-        bucket_used: *mut byte,
+        bucket_used: *mut blst_byte,
         bucket_used_bytes: usize,
         split_points: *mut blst_avx_p1_affine,
         split_points_bytes: usize,
-        split_scalars: *mut byte,
+        split_scalars: *mut blst_byte,
         split_scalars_bytes: usize,
     ) -> bool;
     pub fn blst_avx_p1s_mult_pippenger_scratch_sizeof(npoints: usize) -> usize;
@@ -263,15 +263,15 @@ extern "C" {
         out: *mut blst_avx_p1,
         points: *const blst_avx_p1,
         npoints: usize,
-        scalars: *const byte,
+        scalars: *const blst_byte,
         nbits: usize,
-        scratch: *mut limb_t,
+        scratch: *mut blst_limb_t,
     ) -> bool;
     pub fn blst_avx_p1_cneg(p: *mut blst_avx_p1, cbit: bool) -> bool;
     pub fn blst_avx_p1_batch_subgroup_check(
         points: *const *const blst_avx_p1,
         count: usize,
-        coefficients: *const byte,
+        coefficients: *const blst_byte,
         width: usize,
         shift: *const blst_avx_p1,
     ) -> bool;
@@ -286,14 +286,14 @@ extern "C" {
     pub fn blst_avx_p2_batch_subgroup_check(
         points: *const *const blst_avx_p2,
         count: usize,
-        coefficients: *const byte,
+        coefficients: *const blst_byte,
         width: usize,
         shift: *const blst_avx_p2,
     ) -> bool;
     pub fn blst_avx_p2_mult(
         out: *mut blst_avx_p2,
         p: *const blst_avx_p2,
-        scalar: *const byte,
+        scalar: *const blst_byte,
         nbits: usize,
     ) -> bool;
     pub fn blst_avx_p2_mult_pippenger_scratch_sizeof(npoints: usize) -> usize;
@@ -303,12 +303,12 @@ extern "C" {
     pub fn blst_avx_p2_mult_pippenger(
         out: *mut blst_avx_p2,
         points: *const blst_avx_p2_affine,
-        scalars: *const byte,
+        scalars: *const blst_byte,
         npoints: usize,
         nbits: usize,
         scratch: *mut core::ffi::c_void,
         scratch_bytes: usize,
-        bucket_used: *mut byte,
+        bucket_used: *mut blst_byte,
         bucket_used_bytes: usize,
     ) -> bool;
     pub fn blst_avx_p2_to_affine(
@@ -322,29 +322,29 @@ extern "C" {
         b: *const blst_avx_p2,
     ) -> bool;
     pub fn blst_avx_p2_compress(
-        out: *mut byte,
+        out: *mut blst_byte,
         input: *const blst_avx_p2,
     ) -> bool;
     pub fn blst_avx_p2_serialize(
-        out: *mut byte,
+        out: *mut blst_byte,
         input: *const blst_avx_p2,
     ) -> bool;
     pub fn blst_avx_p2_uncompress(
         out: *mut blst_avx_p2,
-        input: *const byte,
+        input: *const blst_byte,
     ) -> BLST_ERROR;
     pub fn blst_avx_p2_deserialize(
         out: *mut blst_avx_p2,
-        input: *const byte,
+        input: *const blst_byte,
     ) -> BLST_ERROR;
     pub fn blst_avx_p2s_mult_pippenger_scratch_sizeof(npoints: usize) -> usize;
     pub fn blst_avx_p2s_mult_pippenger(
         out: *mut blst_avx_p2,
         points: *const blst_avx_p2,
         npoints: usize,
-        scalars: *const byte,
+        scalars: *const blst_byte,
         nbits: usize,
-        scratch: *mut limb_t,
+        scratch: *mut blst_limb_t,
     ) -> bool;
     pub fn blst_avx_p2_generator() -> *const blst_avx_p2;
 
@@ -368,11 +368,11 @@ extern "C" {
     pub fn blst_avx_fp12_mult_pippenger(
         out: *mut blst_avx_fp12,
         points: *const blst_avx_fp12,
-        scalars: *const byte,
+        scalars: *const blst_byte,
         npoints: usize,
         scratch: *mut core::ffi::c_void,
         scratch_bytes: usize,
-        bucket_used: *mut byte,
+        bucket_used: *mut blst_byte,
         bucket_used_bytes: usize,
     ) -> bool;
     pub fn blst_avx_pairing(

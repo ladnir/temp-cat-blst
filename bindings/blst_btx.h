@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef __BLST_BTX_H__
-#define __BLST_BTX_H__
+#ifndef BLST_BTX_H
+#define BLST_BTX_H
 
 #include "blst.h"
 
@@ -15,7 +15,7 @@ extern "C" {
 
 #ifndef BLST_FILL_RANDOM_FN_DEFINED
 #define BLST_FILL_RANDOM_FN_DEFINED
-typedef bool (*blst_fill_random_fn)(void* user_data, byte* out, size_t out_len);
+typedef bool (*blst_fill_random_fn)(void* user_data, blst_byte* out, size_t out_len);
 #endif
 
 typedef struct blst_btx_setup_result blst_btx_setup_result;
@@ -74,7 +74,7 @@ bool blst_btx_encrypt(
     blst_fill_random_fn fill_random,
     void* user_data,
     blst_p1* out_c1,
-    byte* out_key,
+    blst_byte* out_key,
     size_t out_key_len);
 
 bool blst_btx_create_partial_decryption_share(
@@ -106,7 +106,7 @@ bool blst_btx_finalize_batch_decryption(
     const blst_btx_prepared_public_parameters* prepared_public_parameters,
     const blst_btx_batch_precomputation* batch_precomputation,
     const blst_p1* aggregate_predecryption_key,
-    byte* out_keys,
+    blst_byte* out_keys,
     size_t out_keys_len);
 
 bool blst_btx_recover_batch_keys(
@@ -116,7 +116,7 @@ bool blst_btx_recover_batch_keys(
     size_t n,
     const blst_p1* aggregate_predecryption_key,
     blst_btx_cross_term_algorithm algorithm,
-    byte* out_keys,
+    blst_byte* out_keys,
     size_t out_keys_len);
 
 #ifdef __cplusplus

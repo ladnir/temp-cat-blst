@@ -29,7 +29,7 @@ TEST(Fp2Test, ZeroAndOne) {
     // Initialize zero and one
     vec_zero(&zero, sizeof(zero));
     vec_zero(&one, sizeof(one));
-    vec_copy(one[0].data, get_BLST_Rx().p.data, sizeof(Fp));  // Re(1) = 1
+    vec_copy(one[0].l, get_BLST_Rx().p.l, sizeof(Fp));  // Re(1) = 1
 
     // Check zero properties
     Fp2 result;
@@ -130,7 +130,7 @@ TEST(Fp2Test, Subtraction) {
     Fp::add(expected[0], expected[0], get_BLST_Rx().p);     // Re(expected) = 2+1 = 3
     Fp::add(expected[0], expected[0], get_BLST_Rx().p);     // Re(expected) = 3+1 = 4
     Fp::add(expected[0], expected[0], get_BLST_Rx().p);     // Re(expected) = 4+1 = 5
-    vec_copy(expected[1].data, get_BLST_Rx().p.data, sizeof(Fp));  // Im(expected) = 1
+    vec_copy(expected[1].l, get_BLST_Rx().p.l, sizeof(Fp));  // Im(expected) = 1
 
     EXPECT_TRUE(vec_is_equal(&c, &expected, sizeof(Fp2)))
         << "(7+4i) - (2+3i) = (5+1i)";
@@ -220,7 +220,7 @@ TEST(Fp2Test, Inversion) {
     // Should equal 1 (real part 1, imaginary part 0)
     Fp2 one;
     vec_zero(&one, sizeof(one));
-    vec_copy(one[0].data, get_BLST_Rx().p.data, sizeof(Fp));
+    vec_copy(one[0].l, get_BLST_Rx().p.l, sizeof(Fp));
 
     EXPECT_TRUE(vec_is_equal(&result, &one, sizeof(Fp2)))
         << "a * (1/a) should equal 1";
@@ -291,13 +291,13 @@ TEST(Fp2Test, Serialization) {
     Fp::from_mont(temp_im, a[1]);  // Convert imaginary part from Montgomery
 
     // Copy to serialized buffer
-    memcpy(serialized, temp_re.data, 48);
-    memcpy(serialized + 48, temp_im.data, 48);
+    memcpy(serialized, temp_re.l, 48);
+    memcpy(serialized + 48, temp_im.l, 48);
 
     // Deserialize back: copy from buffer then convert to Montgomery form
     Fp raw_re, raw_im;
-    memcpy(raw_re.data, serialized, 48);
-    memcpy(raw_im.data, serialized + 48, 48);
+    memcpy(raw_re.l, serialized, 48);
+    memcpy(raw_im.l, serialized + 48, 48);
 
     // Convert to Montgomery form by multiplying by R^2
     Fp::mul(b[0], raw_re, get_BLST_RR());

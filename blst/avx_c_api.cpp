@@ -22,6 +22,9 @@
 #include <cstdint>
 #include <type_traits>
 
+using blst::byte;
+using blst::limb_t;
+
 namespace {
 
 using ScalarG1 = blst::scalar::G1Point;
@@ -346,52 +349,52 @@ inline bool g2_pippenger(
 
 inline const ScalarG1* as_scalar(const blst_p1* point)
 {
-    return reinterpret_cast<const ScalarG1*>(point);
+    return point;
 }
 
 inline ScalarG1* as_scalar(blst_p1* point)
 {
-    return reinterpret_cast<ScalarG1*>(point);
+    return point;
 }
 
 inline const ScalarG1Affine* as_scalar(const blst_p1_affine* point)
 {
-    return reinterpret_cast<const ScalarG1Affine*>(point);
+    return point;
 }
 
 inline ScalarG1Affine* as_scalar(blst_p1_affine* point)
 {
-    return reinterpret_cast<ScalarG1Affine*>(point);
+    return point;
 }
 
 inline const ScalarG2* as_scalar(const blst_p2* point)
 {
-    return reinterpret_cast<const ScalarG2*>(point);
+    return point;
 }
 
 inline ScalarG2* as_scalar(blst_p2* point)
 {
-    return reinterpret_cast<ScalarG2*>(point);
+    return point;
 }
 
 inline const ScalarG2Affine* as_scalar(const blst_p2_affine* point)
 {
-    return reinterpret_cast<const ScalarG2Affine*>(point);
+    return point;
 }
 
 inline ScalarG2Affine* as_scalar(blst_p2_affine* point)
 {
-    return reinterpret_cast<ScalarG2Affine*>(point);
+    return point;
 }
 
 inline const ScalarFp12* as_scalar(const blst_fp12* value)
 {
-    return reinterpret_cast<const ScalarFp12*>(value);
+    return value;
 }
 
 inline ScalarFp12* as_scalar(blst_fp12* value)
 {
-    return reinterpret_cast<ScalarFp12*>(value);
+    return value;
 }
 
 inline bool is_aligned(const void* ptr, size_t alignment)
@@ -528,8 +531,8 @@ bool blst_avx_p1_affine_from_scalar(blst_avx_p1_affine* out, const blst_p1_affin
         return false;
     }
     *as_avx(out) = AvxG1Affine(
-        blst::avx::avx_curve_detail::scalar_fp_to_ring(as_scalar(in)->X),
-        blst::avx::avx_curve_detail::scalar_fp_to_ring(as_scalar(in)->Y));
+        blst::avx::avx_curve_detail::scalar_fp_to_ring(as_scalar(in)->x),
+        blst::avx::avx_curve_detail::scalar_fp_to_ring(as_scalar(in)->y));
     return true;
 #else
     (void)out;
@@ -544,8 +547,8 @@ bool blst_p1_affine_from_avx(blst_p1_affine* out, const blst_avx_p1_affine* in)
     if (out == nullptr || in == nullptr) {
         return false;
     }
-    as_scalar(out)->X = blst::avx::avx_curve_detail::ring_fp_to_scalar(as_avx(in)->X);
-    as_scalar(out)->Y = blst::avx::avx_curve_detail::ring_fp_to_scalar(as_avx(in)->Y);
+    as_scalar(out)->x = blst::avx::avx_curve_detail::ring_fp_to_scalar(as_avx(in)->X);
+    as_scalar(out)->y = blst::avx::avx_curve_detail::ring_fp_to_scalar(as_avx(in)->Y);
     return true;
 #else
     (void)out;
@@ -1116,8 +1119,8 @@ bool blst_avx_p2_affine_from_scalar(blst_avx_p2_affine* out, const blst_p2_affin
         return false;
     }
     *as_avx(out) = AvxG2Affine(
-        blst::avx::avx_curve_detail::scalar_fp2_to_ring(as_scalar(in)->X),
-        blst::avx::avx_curve_detail::scalar_fp2_to_ring(as_scalar(in)->Y));
+        blst::avx::avx_curve_detail::scalar_fp2_to_ring(as_scalar(in)->x),
+        blst::avx::avx_curve_detail::scalar_fp2_to_ring(as_scalar(in)->y));
     return true;
 #else
     (void)out;
@@ -1132,8 +1135,8 @@ bool blst_p2_affine_from_avx(blst_p2_affine* out, const blst_avx_p2_affine* in)
     if (out == nullptr || in == nullptr) {
         return false;
     }
-    as_scalar(out)->X = blst::avx::avx_curve_detail::ring_fp2_to_scalar(as_avx(in)->X);
-    as_scalar(out)->Y = blst::avx::avx_curve_detail::ring_fp2_to_scalar(as_avx(in)->Y);
+    as_scalar(out)->x = blst::avx::avx_curve_detail::ring_fp2_to_scalar(as_avx(in)->X);
+    as_scalar(out)->y = blst::avx::avx_curve_detail::ring_fp2_to_scalar(as_avx(in)->Y);
     return true;
 #else
     (void)out;

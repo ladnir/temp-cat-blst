@@ -835,9 +835,9 @@ namespace blst {
         out_px2.reserve(input.size());
         for (const scalar::G1AffinePoint& point : input) {
             scalar::G1AffinePoint px2 = {};
-            scalar::Fp::add(px2.X, point.X, point.X);
-            scalar::Fp::neg(px2.X, px2.X);
-            scalar::Fp::add(px2.Y, point.Y, point.Y);
+            scalar::Fp::add(px2.x, point.x, point.x);
+            scalar::Fp::neg(px2.x, px2.x);
+            scalar::Fp::add(px2.y, point.y, point.y);
             out_px2.push_back(px2);
         }
     }

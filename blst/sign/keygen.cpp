@@ -213,7 +213,7 @@ namespace blst
              */
             Fr::mul(scratch.key, scratch.key, get_BLST_rRR());
 
-            if (version < 4 || !vec_is_zero(scratch.key.data, sizeof(Fr)))
+            if (version < 4 || !vec_is_zero(scratch.key.l, sizeof(Fr)))
                 break;
 
             /* salt = H(salt) */
@@ -224,7 +224,7 @@ namespace blst
             salt_len = sizeof(salt_prime);
         }
 
-        le_bytes_from_limbs(SK, scratch.key.data, sizeof(pow256));
+        le_bytes_from_limbs(SK, scratch.key.l, sizeof(pow256));
 
         /*
          * scrub the stack just in case next callee inadvertently flashes

@@ -81,10 +81,10 @@ inline std::array<uint64_t, 4> fr_to_limbs_le(const Fr& value)
     Fr canonical = {};
     Fr::from_mont(canonical, value);
     return {
-        canonical.data[0],
-        canonical.data[1],
-        canonical.data[2],
-        canonical.data[3],
+        canonical.l[0],
+        canonical.l[1],
+        canonical.l[2],
+        canonical.l[3],
     };
 }
 

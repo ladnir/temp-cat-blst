@@ -730,8 +730,8 @@ struct GT
     static void precompute_lines(blst::scalar::Fp6 Qlines[68], const G2AffinePoint& Q)
     {
         blst::scalar::G2AffinePoint scalar_q = {};
-        scalar_q.X = avx_curve_detail::ring_fp2_to_scalar(Q.X);
-        scalar_q.Y = avx_curve_detail::ring_fp2_to_scalar(Q.Y);
+        scalar_q.x = avx_curve_detail::ring_fp2_to_scalar(Q.X);
+        scalar_q.y = avx_curve_detail::ring_fp2_to_scalar(Q.Y);
         blst::scalar::GT::precompute_lines(Qlines, scalar_q);
     }
 
@@ -799,8 +799,8 @@ struct GT
         const G1AffinePoint& P)
     {
         blst::scalar::G1AffinePoint scalar_p = {};
-        scalar_p.X = avx_curve_detail::ring_fp_to_scalar(P.X);
-        scalar_p.Y = avx_curve_detail::ring_fp_to_scalar(P.Y);
+        scalar_p.x = avx_curve_detail::ring_fp_to_scalar(P.X);
+        scalar_p.y = avx_curve_detail::ring_fp_to_scalar(P.Y);
 
         blst::scalar::GT scalar_ret = {};
         blst::scalar::GT::miller_loop_lines(scalar_ret, Qlines, scalar_p);

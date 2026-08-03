@@ -2,63 +2,10 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
-#include <type_traits>
 
 #include "blst/fields/Fp12.h"
 #include "blst/fields/Fr.h"
 using namespace blst;
-
-template<class T, class = void>
-struct has_mul_avx : std::false_type
-{
-};
-
-template<class T>
-struct has_mul_avx<T, std::void_t<decltype(&T::mul_avx)>> : std::true_type
-{
-};
-
-template<class T, class = void>
-struct has_sqr_avx : std::false_type
-{
-};
-
-template<class T>
-struct has_sqr_avx<T, std::void_t<decltype(&T::sqr_avx)>> : std::true_type
-{
-};
-
-template<class T, class = void>
-struct has_mul_by_xy00z0_avx : std::false_type
-{
-};
-
-template<class T>
-struct has_mul_by_xy00z0_avx<T, std::void_t<decltype(&T::mul_by_xy00z0_avx)>> : std::true_type
-{
-};
-
-template<class T, class = void>
-struct has_cyclotomic_sqr_avx : std::false_type
-{
-};
-
-template<class T>
-struct has_cyclotomic_sqr_avx<T, std::void_t<decltype(&T::cyclotomic_sqr_avx)>> : std::true_type
-{
-};
-
-#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-static_assert(has_mul_avx<Fp12>::value, "Fp12::mul_avx should be present when AVX is enabled");
-static_assert(has_sqr_avx<Fp12>::value, "Fp12::sqr_avx should be present when AVX is enabled");
-static_assert(has_mul_by_xy00z0_avx<Fp12>::value, "Fp12::mul_by_xy00z0_avx should be present when AVX is enabled");
-static_assert(has_cyclotomic_sqr_avx<Fp12>::value, "Fp12::cyclotomic_sqr_avx should be present when AVX is enabled");
-#else
-static_assert(!has_mul_avx<Fp12>::value, "Fp12::mul_avx should be hidden when AVX is disabled");
-static_assert(!has_sqr_avx<Fp12>::value, "Fp12::sqr_avx should be hidden when AVX is disabled");
-static_assert(!has_mul_by_xy00z0_avx<Fp12>::value, "Fp12::mul_by_xy00z0_avx should be hidden when AVX is disabled");
-static_assert(!has_cyclotomic_sqr_avx<Fp12>::value, "Fp12::cyclotomic_sqr_avx should be hidden when AVX is disabled");
-#endif
 
 // Helper: Print Fp12 element for debugging
 void print_fp12(const Fp12& a, const char* name) {
@@ -425,8 +372,8 @@ static void gt_lambda_from_p_mod_r(limb_t lambda_out[4])
 {
 	static_assert(sizeof(limb_t) == 8, "This helper currently assumes 64-bit limb_t");
 
-	const limb_t* const p = get_BLST_P().data;   // 6 limbs
-	const limb_t* const r = get_BLST_r().data;   // 4 limbs
+	const limb_t* const p = get_BLST_P().l;   // 6 limbs
+	const limb_t* const r = get_BLST_r().l;   // 4 limbs
 
 	limb_t acc[4] = { 0, 0, 0, 0 };
 
@@ -546,10 +493,10 @@ static void gt_lambda2_from_lambda_mod_r(limb_t lambda2_out[4])
 	Fr lam2;
 	Fr::from_mont(lam2, lam2_m);
 
-	lambda2_out[0] = lam2.data[0];
-	lambda2_out[1] = lam2.data[1];
-	lambda2_out[2] = lam2.data[2];
-	lambda2_out[3] = lam2.data[3];
+	lambda2_out[0] = lam2.l[0];
+	lambda2_out[1] = lam2.l[1];
+	lambda2_out[2] = lam2.l[2];
+	lambda2_out[3] = lam2.l[3];
 }
 
 static int ge_u512_u256(const limb_t a512[8], const limb_t b256[4])
@@ -664,10 +611,10 @@ TEST(Fp12Test, GtLambda2MatchesFrobeniusSquared)
 	// compare with get_BLST_gt_lambda2()
 	Fr lambda2_fr = get_BLST_gt_lambda2();
 	limb_t lambda2_fr_limbs[4];
-	lambda2_fr_limbs[0] = lambda2_fr.data[0];
-	lambda2_fr_limbs[1] = lambda2_fr.data[1];
-	lambda2_fr_limbs[2] = lambda2_fr.data[2];
-	lambda2_fr_limbs[3] = lambda2_fr.data[3];
+	lambda2_fr_limbs[0] = lambda2_fr.l[0];
+	lambda2_fr_limbs[1] = lambda2_fr.l[1];
+	lambda2_fr_limbs[2] = lambda2_fr.l[2];
+	lambda2_fr_limbs[3] = lambda2_fr.l[3];
 	EXPECT_TRUE(vec_is_equal(lambda2, lambda2_fr_limbs, sizeof(limb_t) * 4))
 		<< "Expected computed lambda2 matches get_BLST_gt_lambda2()";
 
@@ -682,7 +629,7 @@ TEST(Fp12Test, CyclotomicExpGLV)
 	le_bytes_from_limbs_256(lambda2_le, lambda2);
 
 	// Get r for reduction
-	const limb_t* r_ptr = get_BLST_r().data;
+	const limb_t* r_ptr = get_BLST_r().l;
 	limb_t r[4];
 	vec_copy(r, r_ptr, sizeof(r));
 
@@ -794,10 +741,10 @@ TEST(Fp12Test, CyclotomicExpGLV)
 //{
 //	const Fr lambda2_fr = get_BLST_gt_lambda2();
 //	const limb_t d[4] = {
-//		lambda2_fr.data[0],
-//		lambda2_fr.data[1],
-//		lambda2_fr.data[2],
-//		lambda2_fr.data[3],
+//		lambda2_fr.l[0],
+//		lambda2_fr.l[1],
+//		lambda2_fr.l[2],
+//		lambda2_fr.l[3],
 //	};
 //
 //	// Numerator N = 2^256 represented as 512-bit little-endian limbs.
@@ -836,10 +783,10 @@ TEST(Fp12Test, GtPhi2BarrettSplitMatchesSlowDivRem)
 
 	const Fr lambda2_fr = get_BLST_gt_lambda2();
 	const limb_t lambda2[4] = {
-		lambda2_fr.data[0],
-		lambda2_fr.data[1],
-		lambda2_fr.data[2],
-		lambda2_fr.data[3],
+		lambda2_fr.l[0],
+		lambda2_fr.l[1],
+		lambda2_fr.l[2],
+		lambda2_fr.l[3],
 	};
 
 	// Deterministic pseudo-random-ish scalars + edge cases.
@@ -918,7 +865,7 @@ TEST(Fp12Test, CyclotomicExpGLV2)
 	};
 
 	// Get r for reduction
-	const limb_t* r_ptr = get_BLST_r().data;
+	const limb_t* r_ptr = get_BLST_r().l;
 	limb_t r[4];
 	vec_copy(r, r_ptr, sizeof(r));
 
@@ -958,7 +905,7 @@ TEST(Fp12Test, CyclotomicExpGLV2_jsf) {
 
 		// Reduce mod r
 		limb_t k[4], q_ignore[4];
-		const limb_t* r_ptr = get_BLST_r().data;
+		const limb_t* r_ptr = get_BLST_r().l;
 		limb_t r[4];
 		vec_copy(r, r_ptr, sizeof(r));
 		u256_divrem_u256(k_raw, r, q_ignore, k);
@@ -1023,7 +970,7 @@ TEST(Fp12Test, CyclotomicExpGLV_4D_Consistency) {
 
 		// Reduce mod r
 		limb_t k[4], q_ignore[4];
-		const limb_t* r_ptr = get_BLST_r().data;
+		const limb_t* r_ptr = get_BLST_r().l;
 		limb_t r[4];
 		vec_copy(r, r_ptr, sizeof(r));
 		u256_divrem_u256(k_raw, r, q_ignore, k);
@@ -1065,7 +1012,7 @@ TEST(Fp12Test, CyclotomicExpGLV4_Constant_Consistency) {
 
 		// Reduce mod r
 		limb_t k[4], q_ignore[4];
-		const limb_t* r_ptr = get_BLST_r().data;
+		const limb_t* r_ptr = get_BLST_r().l;
 		limb_t r[4];
 		vec_copy(r, r_ptr, sizeof(r));
 		u256_divrem_u256(k_raw, r, q_ignore, k);
@@ -1105,7 +1052,7 @@ TEST(Fp12Test, CyclotomicExpGLV4_Constant_Consistency) {
 // We will stick to the functional test: g^k (ref) == result.
 
 TEST(Fp12Test, CyclotomicExpGLV4_EdgeCases) {
-	const limb_t* r_ptr = get_BLST_r().data;
+	const limb_t* r_ptr = get_BLST_r().l;
 	limb_t r[4];
 	vec_copy(r, r_ptr, sizeof(r));
 
@@ -1183,7 +1130,7 @@ TEST(Fp12Test, CyclotomicExpGLV4_Stress) {
 	seed[0][0][1][0] = 0x123;
 	Fp12::final_exp(base, seed);
 
-	const limb_t* r_ptr = get_BLST_r().data;
+	const limb_t* r_ptr = get_BLST_r().l;
 	limb_t r[4];
 	vec_copy(r, r_ptr, sizeof(r));
 

@@ -211,15 +211,15 @@ namespace blst::scalar
 				const AffinePoint<Field>& point = points[item.point_index];
 
 				Field signed_y;
-				Field::cneg(signed_y, point.Y, item.subtract != 0);
-				if (reduced_equal(bucket.x, point.X)) {
+				Field::cneg(signed_y, point.y, item.subtract != 0);
+				if (reduced_equal(bucket.x, point.x)) {
 					if (!reduced_equal(bucket.y, signed_y)) {
 						bucket.generation = 0;
 						continue;
 					}
 
 					Field x_squared;
-					Field::sqr(x_squared, point.X);
+					Field::sqr(x_squared, point.x);
 					Field::mul_by_3(x_squared, x_squared);
 					Field::add(
 						workspace.denominators[i], bucket.y, bucket.y);
@@ -236,7 +236,7 @@ namespace blst::scalar
 				}
 
 				Field numerator;
-				Field::sub(workspace.denominators[i], bucket.x, point.X);
+				Field::sub(workspace.denominators[i], bucket.x, point.x);
 				Field::sub(numerator, bucket.y, signed_y);
 				Field::mul(
 					workspace.numerators[i], accumulator, numerator);
@@ -262,14 +262,14 @@ namespace blst::scalar
 				Field x;
 				Field::sqr(x, lambda);
 				Field x_sum;
-				Field::add(x_sum, bucket.x, point.X);
+				Field::add(x_sum, bucket.x, point.x);
 				Field::sub(x, x, x_sum);
 
 				Field y;
-				Field::sub(y, point.X, x);
+				Field::sub(y, point.x, x);
 				Field::mul(y, lambda, y);
 				Field signed_y;
-				Field::cneg(signed_y, point.Y, item.subtract != 0);
+				Field::cneg(signed_y, point.y, item.subtract != 0);
 				Field::sub(y, y, signed_y);
 
 				bucket.x = x;
@@ -322,8 +322,8 @@ namespace blst::scalar
 			BatchAffineBucket<Field>& bucket =
 				workspace.affine_buckets[bucket_index];
 			if (bucket.generation != workspace.window_generation) {
-				bucket.x = points[point_index].X;
-				Field::cneg(bucket.y, points[point_index].Y, subtract);
+				bucket.x = points[point_index].x;
+				Field::cneg(bucket.y, points[point_index].y, subtract);
 				bucket.generation = workspace.window_generation;
 				return;
 			}
@@ -364,12 +364,12 @@ namespace blst::scalar
 				const bool has_collision =
 					collision.generation == workspace.window_generation;
 				if (has_collision) {
-					bucket_sum.X = collision.point.X;
-					bucket_sum.Y = collision.point.Y;
-					Field::sqr(bucket_sum.ZZ, collision.point.Z);
+					bucket_sum.x = collision.point.x;
+					bucket_sum.y = collision.point.y;
+					Field::sqr(bucket_sum.zz, collision.point.z);
 					Field::mul(
-						bucket_sum.ZZZ, bucket_sum.ZZ,
-						collision.point.Z);
+						bucket_sum.zzz, bucket_sum.zz,
+						collision.point.z);
 				}
 				if (has_affine) {
 					const AffinePoint<Field> point{affine.x, affine.y};

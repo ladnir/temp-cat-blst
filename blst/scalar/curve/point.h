@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright Supranational LLC
  * Copyright Category Labs
  * Licensed under the Apache License, Version 2.0, see LICENSE for details.
@@ -74,295 +74,6 @@ namespace blst::scalar
 	template<typename Field>
 	struct Pointxyzz;
 
-
-
-	/**
-	 * @tparam Field  Either @c Fp (G1) or @c Fp2 (G2).
-	 * @brief Jacobian point (X:Y:Z) over @p Field.
-	 *
-	 * ## Semantics
-	 * - Infinity is represented by @c Z == 0.
-	 * - Methods that accept affine inputs treat the all-zero affine value as infinity.
-	 *
-	 * ## Arithmetic
-	 * - @c add / @c add: standard addition (handles infinity).
-	 * - @c doubling: point doubling.
-	 * - @c dadd / @c dadd: unified add-or-double (handles P==Q and P==±Q) in constant time.
-	 * - @c mult / @c mult_glsv: scalar multiplication; @c mult chooses a windowed scheme
-	 *   or GLS/GLV decomposition depending on scalar size and group.
-	 *
-	 * ## Encoding
-	 * See file-level notes on serialize/deserialize/compress/uncompress.
-	 *
-	 * ## Security
-	 * Functions are intended to be constant-time unless marked otherwise.
-	 * @c cswap/@c ccopy/@c cneg are constant-time conditionals.
-	 */
-	template<typename Field>
-	struct Point
-	{
-		using Field_type = Field;
-
-		constexpr Point() = default;
-		constexpr Point(const Point&) = default;
-		constexpr Point& operator=(const Point&) = default;
-
-		/// Construct from Jacobian coordinates. @note Inputs are assumed in Montgomery form.
-		constexpr Point(const Field& x, const Field& y, const Field& z) : X(x), Y(y), Z(z) {}
-
-		Field X, Y, Z;
-
-
-		/**
-		 * @brief Unified add-or-double: ` out = p1 (+|=) p2 `.
-		 * @param[out] out  Result in Jacobian coords.
-		 * @param[in]  p1   Left input in Jacobian coords.
-		 * @param[in]  p2   Right input in Jacobian coords.
-		 * @param[in]  a4   Optional curve `a` term (for `y^2=x^3+a x + b`). For BLS12-381 `a=0`, pass nullptr.
-		 * @note Handles P==Q and P==±Q and points at infinity in constant time.
-		 */
-		static BLST_HD void dadd(Point& out, const Point& p1, const Point& p2, const Field* a4 = nullptr);
-
-
-		/**
-		 * @brief Unified add-or-double with affine addend.
-		 * @details Treats @p p2==0 (all-zero affine) as infinity.
-		 * @note Handles P==Q and P==±Q and points at infinity in constant time.
-		 */
-		static BLST_HD void dadd(Point<Field>& out, const Point<Field>& p1,
-			const AffinePoint<Field>& p2);
-
-		/**
-		 * @brief Add @p p1 and @p p2 (handles infinity).
-		 * @note Uses EFD add-2007-bl (Jacobian).
-		 * @note Requires @p p1 and @p p2 to be distinct and non-opposite for
-		 */
-		static BLST_HD void add(Point& out, const Point& p1, const Point& p2);
-
-
-		/**
-		 * @brief Mixed add (Jacobian + affine) (handles infinity).
-		 * @note Uses EFD madd-2007-bl.
-		 * @note Requires @p p1 and @p p2 to be distinct and non-opposite for
-		 */
-		static BLST_HD void add(Point& out, const Point& p1,
-			const AffinePoint<Field>& p2);
-
-		/**
-		 * @brief Doubling ` out = 2 * p1 `.
-		 * @note Uses EFD dbl-2009-l.
-		 */
-		static BLST_HD void doubling(Point& out, const Point& p1);
-
-
-		/** @brief Repeated doubling: ` out = 2^n * p `.
-		 */
-		BLST_HD static void add_n_dbl(Point& out, const Point& p, size_t n);
-
-
-		/**
-		 * @brief Variable-time scalar multiplication with auto-selection.
-		 * @param[out] out     Result.
-		 * @param[in]  a       Base point (Jacobian).
-		 * @param[in]  scalar  Little-endian scalar bytes.
-		 * @param[in]  nbits   Number of meaningful bits in @p scalar.
-		 * @details
-		 *  - For short scalars, uses windowed w=4.
-		 *  - For up to 256 bits and valid Fr range, uses GLS/GLV acceleration (@c mult_glsv).
-		 *  - Otherwise falls back to windowed w=5.
-		 */
-		BLST_HD static void mult(
-			Point& out,
-			const Point& a,
-			const byte* scalar,
-			size_t nbits);
-
-		/// Windowed mul (w=5). Primarily used internally or for very large scalars.
-		static BLST_HD void mult_w5(Point& out, const Point& point,
-			const byte* scalar, size_t nbits);
-
-		/// Conditional negate Y in constant time if @p cbit is 1.
-		static BLST_HD void cneg(Point& p, limb_t cbit);
-
-		/// negate Y in constant time.
-		static BLST_HD void neg(Point& out, const Point& p);
-
-		/// Convert Jacobian -> affine. Infinity maps to the all-zero affine encoding.
-		static BLST_HD void to_affine(AffinePoint<Field>& out, const Point& in);
-
-		/// Convert affine -> Jacobian. Infinity maps to Z=0; otherwise Z=1.
-		static BLST_HD void from_affine(Point& out, const AffinePoint<Field>& a);
-
-		/// Normalize Jacobian to affine in @p out (computes X/Z^2, Y/Z^3). Infinity preserved.
-		static BLST_HD void from_jacobian(Point& out, const Point& in);
-
-		/// Constant-time conditional swap: if @p cbit==1, swap a and b.
-		static BLST_HD void cswap(Point& BLST_restrict a,
-			Point& BLST_restrict b, bool_t cbit);
-
-		/// Constant-time conditional copy: if @p cbit==1, a <- b.
-		static BLST_HD void ccopy(Point& BLST_restrict a,
-			const Point& BLST_restrict b, bool_t cbit);
-
-		/// Constant-time Jacobian equality check (compares affine representatives).
-		static BLST_HD limb_t equal(const Point& p1, const Point& p2);
-
-		/// Convert Jacobian -> XYZZ (non-normalized Z-variants) for fast mixed adds.
-		static BLST_HD BLST_INLINE void to_xyzz(Pointxyzz<Field>& out, const Point<Field>& in);
-
-		/// Group generator in Jacobian coordinates (Montgomery field limbs).
-		static BLST_HD const Point& generator();
-
-		/// returns the point at infinity (Z == 0).
-		static BLST_HD Point infinity();
-
-		// returns the identity point (same as infinity).
-		static BLST_HD Point identity() { return infinity(); }
-
-		static BLST_HD bool_t is_identity(const Point& p) { return is_inf(p); }
-
-		static BLST_HD const Field& get_B();
-
-		/// Multiply by curve B for G1/G2 (specialized). For BLS12-381, B = 4 (G1) or (4+4i) (G2).
-		BLST_HD static void mul_by_b(Field& out, const Field& in);
-
-		/// Multiply by 4B (used in doubling paths).
-		BLST_HD static void mul_by_4b(Field& out, const Field& in);
-
-		/// @return 1 if @p p is infinity (Z == 0), else 0.
-		BLST_HD static int is_inf(const Point& p);
-
-		/// @return 1 if on the curve (including infinity), else 0.
-		BLST_HD static bool_t on_curve(const Point& p);
-
-		/// @return 1 if in the subgroup, else 0.
-		BLST_HD static bool_t in_subgroup(const Point& p);
-
-
-		/** @name Serialization (big-endian) */
-		///@{
-		/// Uncompressed big-endian of affine representative. Returns sgn0 parity (see compress()).
-		BLST_HD static limb_t serialize_BE(unsigned char* out, const Point& in);
-		/// Uncompressed with infinity bit support. If infinity, sets 0x40 and zeroes.
-		BLST_HD static void serialize(unsigned char* out, const Point& in);
-		/// Compressed big-endian X and returns sgn0 parity (no flags set in @p out).
-		BLST_HD static limb_t compress_BE(unsigned char* out, const Point& in);
-		/// IETF-style compressed: sets 0x80; encodes y-parity; if infinity sets 0xC0 and zeroes.
-		BLST_HD static void compress(unsigned char* out, const Point& in);
-		///@}
-
-		/**
-		 * @brief Endomorphism-accelerated multiplication (GLV/GLS).
-		 * @details
-		 * - G1 uses the cube root of unity ` \beta ` (get_BLST_beta()) to split scalars.
-		 * - G2 uses the Frobenius-like map ` \psi `.
-		 * @note Intended for scalars within Fr (checked by @c Fr::check_mod).
-		 *
-		 * @note Galbraith-Lin-Scott, ~67% faster than G2Point_mul_w5
-		 * @note Gallant-Lambert-Vanstone, ~45% faster than mult_w<G1Point,5> 
-		 */
-		BLST_HD static void mult_glsv(Point& out, const Point& in, const pow256 SK);
-
-		/**
-		 * @brief BLS-style signature mapping: ` out = SK * in ` in Jacobian form.
-		 * @note Internally calls @c mult_glsv and normalizes to affine to avoid bias in Z.
-		 */
-		BLST_HD static void sign(Point& out, const Point& in, const pow256 SK);
-
-		/**
-		 * @brief Convenience signature API.
-		 * @param[out] out Optional compressed bytes; first byte pre-decorated with sgn0 & infinity bits.
-		 * @param[out] sig Optional affine signature.
-		 * @param[in]  hash Point to sign (typically hash-to-curve result).
-		 * @param[in]  SK   Little-endian 32-byte secret scalar.
-		 */
-		BLST_HD static void sign2(
-			unsigned char* out /*optional output*/,
-			AffinePoint<Field>* sig /*optional output*/,
-			const Point& hash,
-			const pow256 SK);
-
-		/// Derive public key ` PK = SK * G ` into @p out.
-		BLST_HD static void to_pk(Point& out, const pow256 SK);
-
-		/// Variant that can also emit compressed bytes and/or affine PK (both optional).
-		BLST_HD static void to_pk2(unsigned char* out, AffinePoint<Field>* PK, const pow256 SK);
-
-
-	};
-	static_assert(std::is_trivially_constructible_v<Point<Fp>>, "Point<Fp> must be an aggregate type");
-
-
-	/**
-	 * @tparam Field  Either @c Fp (G1) or @c Fp2 (G2).
-	 * @brief Affine point (X,Y) over @p Field.
-	 *
-	 * - Infinity is encoded as all zero limbs for both X and Y.
-	 * - Used for I/O and mixed additions. Most arithmetic is on @c Point (Jacobian).
-	 *
-	 * ## Encoding sizes (big-endian)
-	 * - G1: 96 bytes uncompressed, 48 bytes compressed
-	 * - G2: 192 bytes uncompressed, 96 bytes compressed
-	 */
-	template<typename Field>
-	struct AffinePoint
-	{
-		Field X, Y;
-
-
-
-		/** @name Uncompressed (big-endian) */
-		///@{
-		/// Writes X||Y in big-endian Montgomery form; returns sgn0 parity.
-		BLST_HD static limb_t serialize_BE(
-			unsigned char* out,
-			const AffinePoint& in);
-		/// Like serialize_BE but writes infinity as 0x40 || zeros (IETF style).
-		BLST_HD static void serialize(unsigned char* out,
-			const AffinePoint& in);
-		/// Parses big-endian X||Y. Validates < p and on-curve. Outputs Montgomery.
-		BLST_HD static BLST_ERROR deserialize_BE(AffinePoint& out,
-			const unsigned char* in);
-		/// Auto-detects compressed/uncompressed/infinity prefixes and dispatches parse.
-		BLST_HD static BLST_ERROR deserialize(AffinePoint& out,
-			const unsigned char* in);
-		///@}
-
-
-		/** @name Compressed (IETF style) */
-		///@{
-		/// Writes big-endian X and returns sgn0 parity (no header bits set).
-		BLST_HD static limb_t compress_BE(unsigned char* out, const AffinePoint& in);
-		/// Writes IETF compressed: sets 0x80; writes parity; or 0xC0 for infinity.
-		BLST_HD static void compress(unsigned char* out, const AffinePoint& in);
-		/// Parses big-endian X, reconstructs Y via curve equation; returns sgn0 parity.
-		BLST_HD static limb_t uncompress_BE(AffinePoint& out,
-			const unsigned char* in);
-		/// Parses IETF compressed form with header bits; validates on-curve.
-		BLST_HD static BLST_ERROR uncompress(AffinePoint& out,
-			const unsigned char* in);
-		///@}
-
-		/// Group generator (affine). Backed by host/device constants.
-		BLST_HD static const AffinePoint& generator();
-
-		/// Constant-time equality test on raw limbs.
-		BLST_HD static int equal(const AffinePoint& p1,
-			const AffinePoint& p2);
-
-		/// True if affine point satisfies curve equation (or is infinity).
-		BLST_HD static bool_t on_curve(const AffinePoint& p);
-
-		/// True if (X,Y) are all-zero limbs (infinity).
-		BLST_HD static bool_t is_inf(const AffinePoint& p);
-
-		BLST_HD static bool_t in_subgroup(const AffinePoint<Field>& p);
-
-		BLST_HD static void cneg(AffinePoint& inOut, bool_t c);
-
-	};
-
-
 	/**
 	 * @tparam Field  Either @c Fp (G1) or @c Fp2 (G2).
 	 * @brief XYZZ representation for **variable-time** mixed additions.
@@ -373,13 +84,13 @@ namespace blst::scalar
 	 */
 	template<typename Field>
 	struct Pointxyzz {
-		Field X, Y, ZZZ, ZZ;
+		Field x, y, zzz, zz;
 
 		/// Unified add-or-double (variable time). Handles infinities.
 		static BLST_HD void dadd(Pointxyzz<Field>& p3, const Pointxyzz<Field>& p1,
 			const Pointxyzz<Field>& p2);
 
-		/// Mixed add/sub with affine (variable time). @p subtract flips the sign of @p p2.Y.
+		/// Mixed add/sub with affine (variable time). @p subtract flips the sign of @p p2.y.
 		static BLST_HD void dadd(Pointxyzz<Field>& p3, const Pointxyzz<Field>& p1,
 			const AffinePoint<Field>& p2,
 			bool_t subtract);
@@ -398,12 +109,12 @@ namespace blst::scalar
 	};
 
 	/// Aliases for convenience: G1 over Fp, G2 over Fp2.
-	using G1Point = Point<Fp>;
-	using G1AffinePoint = AffinePoint<Fp>;
+	using G1Point = ::blst_p1;
+	using G1AffinePoint = ::blst_p1_affine;
 	using G1PointZZ = Pointxyzz<Fp>;
 
-	using G2Point = Point<Fp2>;
-	using G2AffinePoint = AffinePoint<Fp2>;
+	using G2Point = ::blst_p2;
+	using G2AffinePoint = ::blst_p2_affine;
 	using G2PointZZ = Pointxyzz<Fp2>;
 
 
@@ -413,27 +124,27 @@ namespace blst::scalar
 		printf("%s:\n", name);
 		printf("  X.Re: ");
 		for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-			printf("%016llx ", (unsigned long long)p.X[0][i]);
+			printf("%016llx ", (unsigned long long)p.x[0][i]);
 		}
 		printf("\n  X.Im: ");
 		for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-			printf("%016llx ", (unsigned long long)p.X[1][i]);
+			printf("%016llx ", (unsigned long long)p.x[1][i]);
 		}
 		printf("\n  Y.Re: ");
 		for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-			printf("%016llx ", (unsigned long long)p.Y[0][i]);
+			printf("%016llx ", (unsigned long long)p.y[0][i]);
 		}
 		printf("\n  Y.Im: ");
 		for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-			printf("%016llx ", (unsigned long long)p.Y[1][i]);
+			printf("%016llx ", (unsigned long long)p.y[1][i]);
 		}
 		printf("\n  Z.Re: ");
 		for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-			printf("%016llx ", (unsigned long long)p.Z[0][i]);
+			printf("%016llx ", (unsigned long long)p.z[0][i]);
 		}
 		printf("\n  Z.Im: ");
 		for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-			printf("%016llx ", (unsigned long long)p.Z[1][i]);
+			printf("%016llx ", (unsigned long long)p.z[1][i]);
 		}
 		printf("\n");
 	}
@@ -444,15 +155,15 @@ namespace blst::scalar
 		printf("%s:\n", name);
 		printf("  X: ");
 		for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-			printf("%016llx ", (unsigned long long)p.X[i]);
+			printf("%016llx ", (unsigned long long)p.x[i]);
 		}
 		printf("\n  Y: ");
 		for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-			printf("%016llx ", (unsigned long long)p.Y[i]);
+			printf("%016llx ", (unsigned long long)p.y[i]);
 		}
 		printf("\n  Z: ");
 		for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-			printf("%016llx ", (unsigned long long)p.Z[i]);
+			printf("%016llx ", (unsigned long long)p.z[i]);
 		}
 		printf("\n");
 	}
@@ -463,19 +174,19 @@ namespace blst::scalar
 		printf("%s:\n", name);
 		printf("  X.Re: ");
 		for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-			printf("%016llx ", (unsigned long long)p.X[0][i]);
+			printf("%016llx ", (unsigned long long)p.x[0][i]);
 		}
 		printf("\n  X.Im: ");
 		for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-			printf("%016llx ", (unsigned long long)p.X[1][i]);
+			printf("%016llx ", (unsigned long long)p.x[1][i]);
 		}
 		printf("\n  Y.Re: ");
 		for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-			printf("%016llx ", (unsigned long long)p.Y[0][i]);
+			printf("%016llx ", (unsigned long long)p.y[0][i]);
 		}
 		printf("\n  Y.Im: ");
 		for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-			printf("%016llx ", (unsigned long long)p.Y[1][i]);
+			printf("%016llx ", (unsigned long long)p.y[1][i]);
 		}
 		printf("\n");
 	}
@@ -486,11 +197,11 @@ namespace blst::scalar
 		printf("%s:\n", name);
 		printf("  X: ");
 		for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-			printf("%016llx ", (unsigned long long)p.X[i]);
+			printf("%016llx ", (unsigned long long)p.x[i]);
 		}
 		printf("\n  Y: ");
 		for (int i = NLIMBS(384) - 1; i >= 0; i--) {
-			printf("%016llx ", (unsigned long long)p.Y[i]);
+			printf("%016llx ", (unsigned long long)p.y[i]);
 		}
 		printf("\n");
 	}

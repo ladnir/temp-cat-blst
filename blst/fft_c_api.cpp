@@ -14,15 +14,7 @@ namespace
     using NativeFr = blst::Fr;
     using InterpolationStatus = blst::fr_interpolation::Status;
 
-    struct BlstFrLayout
-    {
-        blst::limb_t l[4];
-    };
-
-    static_assert(sizeof(BlstFrLayout) == sizeof(NativeFr));
-    static_assert(alignof(BlstFrLayout) == alignof(NativeFr));
-    static_assert(sizeof(blst_fr) == sizeof(NativeFr));
-    static_assert(alignof(blst_fr) == alignof(NativeFr));
+    static_assert(std::is_same_v<blst_fr, NativeFr>);
     static_assert(std::is_standard_layout_v<NativeFr>);
     static_assert(std::is_trivially_copyable_v<NativeFr>);
 
@@ -35,14 +27,14 @@ namespace
         blst_fr* const values,
         const std::size_t size) noexcept
     {
-        return { reinterpret_cast<NativeFr*>(values), size };
+        return { values, size };
     }
 
     std::span<const NativeFr> native_span(
         const blst_fr* const values,
         const std::size_t size) noexcept
     {
-        return { reinterpret_cast<const NativeFr*>(values), size };
+        return { values, size };
     }
 }
 

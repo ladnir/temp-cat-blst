@@ -16,7 +16,7 @@ using blst::scalar::GT;
 TEST(ScalarBackend, G1IsogenyPathNeedsCofactorClear)
 {
     G1Point isogenous = {};
-    blst::scalar::map_to_isogenous<G1Point>(isogenous, G1AffinePoint::generator().X);
+    blst::scalar::map_to_isogenous<G1Point>(isogenous, G1AffinePoint::generator().x);
 
     G1Point mapped = {};
     blst::scalar::isogeny_map_to<G1Point>(mapped, isogenous);

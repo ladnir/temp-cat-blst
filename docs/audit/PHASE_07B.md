@@ -26,6 +26,14 @@ This removes the fork's unconditional `_Bool` macro substitution in draft-C2x
 mode, which was the ambiguity fixed upstream, without restoring the removed Go
 or Zig branches.
 
+## Superseding public-header policy
+
+Phase 14 later established C99 as the minimum supported C language mode. The
+public headers now include `<stdbool.h>` in C99 through pre-final C23 modes,
+define no private `bool` compatibility macro, and invoke Rust bindgen in C99
+mode. The historical C89 and `__BLST_RUST_BINDGEN__` evidence below records the
+earlier implementation but is no longer a supported contract.
+
 ## Validation
 
 Following `VALIDATION_POLICY.md`, validation was limited to the public-header
