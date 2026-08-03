@@ -591,20 +591,12 @@ namespace blst::scalar
 	// ret = a * 2^count
 	BLST_HD BLST_FORCEINLINE  void Fr::lshift(Fr& ret, const Fr& a, size_t count)
 	{
-		if (count == 0) {
-			ret = a;
-			return;
-		}
 		lshift_mod_v256(ret.data, a.data, count, get_BLST_r().data);
 	}
 
 	// ret = a / 2^count mod r
 	BLST_HD BLST_FORCEINLINE  void Fr::rshift(Fr& ret, const Fr& a, size_t count)
 	{
-		if (count == 0) {
-			ret = a;
-			return;
-		}
 		rshift_mod_v256(ret.data, a.data, count, get_BLST_r().data);
 	}
 

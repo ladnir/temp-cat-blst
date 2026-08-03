@@ -103,6 +103,11 @@ namespace blst
     BLST_HD BLST_FORCEINLINE void lshift_mod_v256(limb_t* ret,
         const limb_t* a, size_t count, const limb_t* p)
     {
+        if (count == 0) {
+            for (size_t i = 0; i < NLIMBS(256); ++i)
+                ret[i] = a[i];
+            return;
+        }
 #if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
         ::lshift_mod_256(ret, a, count, p);
 #else
@@ -113,6 +118,11 @@ namespace blst
     BLST_HD BLST_FORCEINLINE void rshift_mod_v256(limb_t* ret,
         const limb_t* a, size_t count, const limb_t* p)
     {
+        if (count == 0) {
+            for (size_t i = 0; i < NLIMBS(256); ++i)
+                ret[i] = a[i];
+            return;
+        }
 #if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
         ::rshift_mod_256(ret, a, count, p);
 #else
@@ -219,6 +229,11 @@ namespace blst
     BLST_HD BLST_FORCEINLINE void lshift_mod_v384(limb_t* ret,
         const limb_t* a, size_t count, const limb_t* p)
     {
+        if (count == 0) {
+            for (size_t i = 0; i < NLIMBS(384); ++i)
+                ret[i] = a[i];
+            return;
+        }
 #if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
         ::lshift_mod_384(ret, a, count, p);
 #else
@@ -229,6 +244,11 @@ namespace blst
     BLST_HD BLST_FORCEINLINE void rshift_mod_v384(limb_t* ret,
         const limb_t* a, size_t count, const limb_t* p)
     {
+        if (count == 0) {
+            for (size_t i = 0; i < NLIMBS(384); ++i)
+                ret[i] = a[i];
+            return;
+        }
 #if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
         ::rshift_mod_384(ret, a, count, p);
 #else
