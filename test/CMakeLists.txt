@@ -57,6 +57,7 @@ set(AVX_TEST_SOURCES)
 
 set(TEST_SOURCES
     ${PUBLIC_API_TEST_SOURCES}
+    "Timer_tests.cpp"
 )
 
 if(NOT BLST_DEFAULT_AVX)
