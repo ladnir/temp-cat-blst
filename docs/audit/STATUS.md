@@ -23,10 +23,11 @@ loop and native AVX-512 code generation. No clang-tidy fix-it was applied.
 
 The report-only Clippy baseline is complete across default, full-binding,
 portable-scalar, Windows portable-AVX Debug, and full-plus-secret-serialization
-feature families. Broad linting found one proposed medium-severity unsafe
-scratch-storage finding (`AUD-040`); the remaining diagnostics are triaged
-MSRV, generated-ABI, documentation/style, or deliberate unsafe-boundary review
-items. No Clippy fix-it was applied.
+feature families. Broad linting found one medium-severity unsafe scratch-storage
+finding (`AUD-040`), now validated without buffer initialization or portable
+Release compilation. The remaining diagnostics are triaged MSRV,
+generated-ABI, documentation/style, or deliberate unsafe-boundary review items.
+No Clippy fix-it was applied.
 
 ## Main program phases
 

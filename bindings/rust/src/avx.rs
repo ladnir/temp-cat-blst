@@ -391,6 +391,12 @@ pub enum AvxMsmError {
     BackendFailure,
 }
 
+fn avx_fp12_storage_len(bytes: usize) -> usize {
+    let element_size = size_of::<blst_avx_fp12>();
+    let whole_elements = bytes / element_size;
+    whole_elements + usize::from(whole_elements * element_size != bytes)
+}
+
 /// Computes a variable-time AVX GLV4 Pippenger MSM over GT/Fp12 elements.
 ///
 /// `scalars` must contain exactly one 256-bit little-endian scalar per point.
@@ -434,13 +440,13 @@ pub fn gt_msm(
         return Err(AvxMsmError::ScratchSizeOverflow);
     }
 
-    let scratch_len = (scratch_bytes + size_of::<blst_avx_fp12>() - 1)
-        / size_of::<blst_avx_fp12>();
+    let scratch_len = avx_fp12_storage_len(scratch_bytes);
+    // The foreign call owns these temporary writes. Keep the Rust lengths at
+    // zero so no uninitialized element is ever claimed as an initialized value.
     let mut scratch =
         Vec::<MaybeUninit<blst_avx_fp12>>::with_capacity(scratch_len);
-    unsafe { scratch.set_len(scratch_len) };
-    let mut bucket_used = Vec::<u8>::with_capacity(bucket_used_bytes);
-    unsafe { bucket_used.set_len(bucket_used_bytes) };
+    let mut bucket_used =
+        Vec::<MaybeUninit<u8>>::with_capacity(bucket_used_bytes);
 
     let mut avx_out = MaybeUninit::<blst_avx_fp12>::uninit();
     let ok = unsafe {
@@ -450,9 +456,9 @@ pub fn gt_msm(
             scalars.as_ptr(),
             points.len(),
             scratch.as_mut_ptr().cast(),
-            scratch.len() * size_of::<blst_avx_fp12>(),
-            bucket_used.as_mut_ptr(),
-            bucket_used.len(),
+            scratch_bytes,
+            bucket_used.as_mut_ptr().cast(),
+            bucket_used_bytes,
         )
     };
     if !ok {
@@ -472,6 +478,21 @@ pub fn gt_msm(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn avx_fp12_storage_len_handles_boundaries_without_overflow() {
+        let element_size = size_of::<blst_avx_fp12>();
+        assert!(element_size > 1);
+        assert_eq!(avx_fp12_storage_len(0), 0);
+        assert_eq!(avx_fp12_storage_len(1), 1);
+        assert_eq!(avx_fp12_storage_len(element_size), 1);
+        assert_eq!(avx_fp12_storage_len(element_size + 1), 2);
+
+        let maximum = usize::MAX;
+        let expected =
+            maximum / element_size + usize::from(maximum % element_size != 0);
+        assert_eq!(avx_fp12_storage_len(maximum), expected);
+    }
 
     #[test]
     fn rust_layout_matches_avx_abi() {

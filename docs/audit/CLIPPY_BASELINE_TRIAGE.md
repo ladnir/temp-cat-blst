@@ -39,8 +39,8 @@ Only three canonical diagnostics belong to `clippy::all`:
 
 | Lint | Disposition |
 | --- | --- |
-| `clippy::uninit_vec` | Proposed `AUD-040`. `gt_msm` marks uninitialized `u8` capacity as initialized before passing it to C++, violating `Vec::set_len`'s safety contract even though the C++ implementation zeroes the whole flag buffer before reading it. |
-| `clippy::manual_div_ceil` | Included in `AUD-040`. The current add-before-divide expression can overflow. Do not adopt `usize::div_ceil` until the crate has a declared compatible MSRV; use an overflow-free quotient/remainder calculation instead. |
+| `clippy::uninit_vec` | Resolved by `AUD-040`. `gt_msm` marked uninitialized `u8` capacity as initialized before passing it to C++, violating `Vec::set_len`'s safety contract even though the C++ implementation zeroes the whole flag buffer before reading it. |
+| `clippy::manual_div_ceil` | Resolved by `AUD-040`. The add-before-divide expression could overflow. The replacement uses quotient/remainder sizing without adopting a newer-compiler integer method. |
 | `clippy::manual_is_multiple_of` | Declined. The remainder check is exact and obvious, while `is_multiple_of` would raise the crate's compiler requirement substantially without changing behavior. |
 
 The remaining 60 default-surface and 130 full-surface diagnostics come from
@@ -63,7 +63,7 @@ No automatic fix was applied. Documentation/style cleanup can be batched with
 the owning file reviews so public documentation and MSRV decisions are made
 coherently.
 
-## Proposed finding
+## Resolved finding
 
 ### AUD-040 - Rust AVX MSM scratch storage violates `Vec` initialization contract
 
@@ -74,7 +74,7 @@ precondition at the earlier `set_len` call. The adjacent scratch vector uses
 `MaybeUninit` safely, although its `set_len` is unnecessary. Its manual ceiling
 division can also overflow before allocation.
 
-Proposed remediation, pending approval:
+The approved remediation:
 
 - keep both work buffers allocation-only and represent foreign-written bytes
   as `MaybeUninit` storage;
@@ -87,6 +87,22 @@ Proposed remediation, pending approval:
   error/identity tests under the `avx` feature; and
 - inspect optimized Rust assembly if the storage rewrite does not trivially
   disappear, rejecting redundant initialization or additional hot-path work.
+
+Both work vectors now retain length zero and expose only `MaybeUninit`
+capacity to the foreign call. The call receives the exact C++-reported byte
+requirements, so Rust performs no buffer initialization and claims no foreign
+written object as an initialized Rust element. The ceiling calculation uses a
+floor quotient plus an exact-product comparison; the multiplication cannot
+overflow because the quotient was obtained by dividing the same byte count.
+
+The source contains no element-construction, initialization loop, or `set_len`
+operation after the rewrite, so the conditional assembly check was not needed.
+Focused portable-AVX Debug tests covered `usize::MAX` sizing, ABI layout, scalar
+length rejection, and a live identity MSM call and passed 4/4. Report-only
+default and full-binding Clippy reruns produced 61 and 131 canonical broad
+diagnostics respectively, two fewer in each profile; `clippy::all` now reports
+only the previously declined middle-product remainder check. `AUD-040` is
+validated.
 
 ## Residual limits
 

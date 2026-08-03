@@ -297,12 +297,13 @@ triaged as documentation/style debt, generated ABI fields, deliberate FFI
 pointer operations, an intentional mutable aliasing boundary, or transparent
 wrapper conversions reserved for the Phase 18 unsafe review.
 
-Three diagnostics belong to `clippy::all`. The exact remainder test is retained
-for compiler compatibility. The other two open proposed `AUD-040`: Rust AVX
-GT MSM uses `set_len` on uninitialized `u8` storage before the C++ write, and
-its add-before-divide scratch sizing can overflow. No fix was applied pending
-review. Exact commands, counts, and dispositions are in
-`CLIPPY_BASELINE_TRIAGE.md`.
+Three diagnostics belonged to `clippy::all`. The exact remainder test is
+retained for compiler compatibility. `AUD-040` resolved the other two: Rust AVX
+GT MSM now exposes only zero-length `MaybeUninit` capacity to C++, and its
+scratch element count uses overflow-free quotient/remainder arithmetic. Focused
+portable-AVX Debug tests passed 4/4; default/full broad Clippy counts fell to
+61/131 and `clippy::all` retains only the declined remainder suggestion. Exact
+commands, counts, and dispositions are in `CLIPPY_BASELINE_TRIAGE.md`.
 
 ## AUD-035 scalar window contract
 
