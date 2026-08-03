@@ -98,7 +98,7 @@ the old run does not validate the newer CPU-capability or endian fixes.
 | --- | --- | --- |
 | 12. Audit platform and initial baseline | in progress | CodeQL, Clang/CodeChecker, clang-tidy, Clippy, ASan/UBSan, initial fuzzers, corpora/artifacts, and triage run reproducibly |
 | 13. Fundamental scalar trust chain | in progress | Representations, conversions, portable backend, assembly generators/outputs, and CPU selection complete |
-| 14. Scalar and extension fields | not started | Field arithmetic/representation files complete with property, boundary, sanitizer, and oracle evidence |
+| 14. Scalar and extension fields | in progress | Field arithmetic/representation files complete with property, boundary, sanitizer, and oracle evidence |
 | 15. Curves and protocols | not started | G1/G2, serialization, hash-to-curve, pairing, signatures, MSM, and uniqueness files complete |
 | 16. AVX-512 | not started | AVX files complete with native hardware and scalar differential evidence |
 | 17. FFT and middle product | in progress | Scalar/AVX algorithms and APIs complete with reference, sanitizer, and fuzz evidence |
