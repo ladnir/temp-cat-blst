@@ -646,9 +646,9 @@ namespace blst
 		// Use MSVC intrinsics for counting leading zeros
 		unsigned long index;
 #if BLST_LIMB_SIZE == 64
-		_BitScanReverse64(&index, l);
+		_BitScanReverse64(&index, l | 1);
 #else
-		_BitScanReverse(&index, l);
+		_BitScanReverse(&index, l | 1);
 #endif
 		return (l != 0) * (index + 1);
 

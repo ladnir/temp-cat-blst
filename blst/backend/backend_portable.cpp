@@ -1331,7 +1331,7 @@ namespace blst
 			rx = Rx.lo;
 			borrow = Rx.hi & 1;
 
-			cc_sub_borrow_wide_limb_limb(&Rx, r_hi, d_hi + (limb_t)borrow, 0);
+			cc_sub_borrow_wide_limb_limb(&Rx, r_hi, d_hi, borrow);
 			borrow = Rx.hi;// not & 1. want 0000 or 1111
 
 
@@ -1354,7 +1354,7 @@ namespace blst
 		cc_sub_borrow_wide_limb_limb(&Rx, r_lo, d_lo, 0);
 		borrow = Rx.hi & 1;
 
-		cc_sub_borrow_wide_limb_limb(&Rx, r_hi, d_hi + (limb_t)borrow, 0);
+		cc_sub_borrow_wide_limb_limb(&Rx, r_hi, d_hi, borrow);
 		borrow = Rx.hi & 1;
 
 		Q <<= 1;
@@ -1388,7 +1388,7 @@ namespace blst
 
 		/* remainder = dividend - divisor*quotient */
 		for (borrow = 0, i = 0; i <= n; i++) {
-			cc_sub_borrow_wide_limb_limb(&wide, div_rem[i], tmp[i] + borrow, 0);
+			cc_sub_borrow_wide_limb_limb(&wide, div_rem[i], tmp[i], borrow);
 			tmp[i] = wide.lo;
 			borrow = wide.hi & 1;
 		}

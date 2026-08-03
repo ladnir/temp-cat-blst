@@ -12,6 +12,27 @@
 
 using namespace blst;
 
+TEST(InterfaceTests, NumBitsHandlesZeroAndBoundaries) {
+	EXPECT_EQ(cc_num_bits(0), 0u);
+	EXPECT_EQ(cc_num_bits(1), 1u);
+	EXPECT_EQ(cc_num_bits(limb_t(1) << 63), 64u);
+	EXPECT_EQ(cc_num_bits((limb_t(1) << 63) - 1), 63u);
+}
+
+TEST(InterfaceTests, QuotRemPropagatesBorrowPastMaxLimb) {
+	const limb_t max = ~limb_t(0);
+	const limb_t divisor[2] = { 1, 1 };
+	limb_t dividend_and_remainder[3] = { 0, max, 0 };
+
+	const limb_t corrected =
+		cc_quot_rem_n<2>(dividend_and_remainder, divisor, max);
+
+	EXPECT_EQ(corrected, max - 1);
+	EXPECT_EQ(dividend_and_remainder[0], 2u);
+	EXPECT_EQ(dividend_and_remainder[1], 0u);
+	EXPECT_EQ(dividend_and_remainder[2], max - 1);
+}
+
 namespace
 {
 
