@@ -30,3 +30,25 @@ standalone C/Rust declaration checks, assembly regeneration when a generator
 changes, and small optimized code-generation probes. Full suites, sanitizer
 sweeps, portable-AVX Release, benchmarks, CUDA, and CI pushes remain separate
 permission-gated evidence.
+
+## Straightforward remediation result
+
+Commit `7c0e399` changes the x86 q/x repeated-square generators and all eight
+affected ELF, COFF, Mach-O, and Win64 products to preserve full `size_t`
+counters. Commit `b6a51bb` implements the remaining approved straightforward
+field packet. `AUD-067`, `AUD-068`, `AUD-072`, `AUD-073`, and `AUD-074` are
+validated. `AUD-071` is fixed with focused C evidence and remains pending a
+retained Rust execution check. `AUD-069` and `AUD-070` remain open.
+
+Validation remained focused. One existing Debug target was rebuilt with one
+Ninja worker after the field headers invalidated dependent objects; only three
+public C/header tests were executed and passed. A standalone scalar field probe
+passed zero-exponent, zero-count, exact-alias, scalar conversion, square-root
+failure, and oversized-count cases. The scalar conversion header compiled as
+strict C11 under MSVC `/W4 /WX`; GCC 13 and Clang 18 strict syntax checks passed
+for the probes and modified C++ boundaries. Assembly regeneration verified all
+100 products. MSVC 19.50 Release code generation shows constant-count
+`sqr_n_mul` remains one direct native call without the alias slow path, while
+constant-zero exponent calls reduce to the required identity copy. No full
+test sweep, sanitizer run, benchmark, CUDA job, portable-AVX Release build, CI
+push, or Apple run was performed.

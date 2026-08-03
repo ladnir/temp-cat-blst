@@ -92,6 +92,18 @@ compiles pass with MSVC 19.50, Clang 18.1.3, and GCC 13.3. The finding remains
 fixed rather than validated until a later, intentionally scheduled Apple run;
 the old run does not validate the newer CPU-capability or endian fixes.
 
+The first Phase 14 Fr/Fp wave is implemented. `AUD-067`, `AUD-068`,
+`AUD-072`, `AUD-073`, and `AUD-074` are validated; `AUD-071` is fixed pending
+retained Rust execution. Full-width x86 repeated-square generation is committed
+at `7c0e399`, and the remaining straightforward field boundary packet is at
+`b6a51bb`. Complete host reviews now cover `Fr.h`, `Fp.h`, `Fr.cpp`, and
+`Fp.cpp`; the headers remain in review because the zero-copy C representation
+and inherited C++ lifetime findings `AUD-069` and `AUD-070` are deliberately
+open for design discussion. Focused evidence used one build worker, three
+selected public tests, standalone C/C++ probes, strict GCC/Clang syntax checks,
+100-output assembly verification, and MSVC optimized code inspection. No full
+test sweep, benchmark, sanitizer, CUDA, CI push, or Apple run was performed.
+
 ## Main program phases
 
 | Phase | State | Exit criterion |
