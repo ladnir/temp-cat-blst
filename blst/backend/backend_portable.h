@@ -96,7 +96,7 @@ namespace blst
 			limb_t _bb = (limb_t)(b);
 			(ret)->lo = (limb_t)(_aa - _bb);
 			limb_t _borrow = (limb_t)(_aa < _bb);
-			(ret)->hi = (limb_t)(-(limb_t)_borrow); /* 0 or 0xFFFFFFFF */
+			(ret)->hi = limb_t(0) - _borrow; /* 0 or all bits set */
 		}
 
 		// ret = a + b + c
@@ -610,11 +610,14 @@ namespace blst
 		const limb_t p[], limb_t n0);
 
 
+	static BLST_HD BLST_FORCEINLINE limb_t cc_msb(const limb_t value)
+	{
+		limb_t ret = value >> (BLST_LIMB_SIZE - 1);
 #if defined(__GNUC__) || defined(__clang__)
-# define BLST_MSB(x) ({ limb_t ret = (x) >> (BLST_LIMB_SIZE-1); BLST_launder(ret); ret; })
-#else
-# define BLST_MSB(x) ((x) >> (BLST_LIMB_SIZE-1))
+		BLST_launder(ret);
 #endif
+		return ret;
+	}
 
 	/**
 	 * @brief Computes the number of significant bits in a limb.
@@ -656,28 +659,28 @@ namespace blst
 
 		if (sizeof(limb_t) == 8) {
 			x = l >> (32 & (8 * sizeof(limb_t) - 1));
-			mask = 0 - BLST_MSB(0 - x);
+			mask = 0 - cc_msb(0 - x);
 			bits += 32 & mask;
 			l ^= (x ^ l) & mask;
 		}
 
 		x = l >> 16;
-		mask = 0 - BLST_MSB(0 - x);
+		mask = 0 - cc_msb(0 - x);
 		bits += 16 & mask;
 		l ^= (x ^ l) & mask;
 
 		x = l >> 8;
-		mask = 0 - BLST_MSB(0 - x);
+		mask = 0 - cc_msb(0 - x);
 		bits += 8 & mask;
 		l ^= (x ^ l) & mask;
 
 		x = l >> 4;
-		mask = 0 - BLST_MSB(0 - x);
+		mask = 0 - cc_msb(0 - x);
 		bits += 4 & mask;
 		l ^= (x ^ l) & mask;
 
 		x = l >> 2;
-		mask = 0 - BLST_MSB(0 - x);
+		mask = 0 - cc_msb(0 - x);
 		bits += 2 & mask;
 		l ^= (x ^ l) & mask;
 

@@ -94,8 +94,12 @@ if(BLST_ADX AND NOT BLST_TARGET_IS_X86_64)
     set(BLST_ADX OFF)
 endif()
 
-if( NOT DEFINED BLST_LIMB_SIZE)
-	set(BLST_LIMB_SIZE 64)
+set(BLST_LIMB_SIZE "64" CACHE STRING "CatBLST limb size (64-bit only)")
+set_property(CACHE BLST_LIMB_SIZE PROPERTY STRINGS "64")
+if(NOT BLST_LIMB_SIZE STREQUAL "64")
+    message(FATAL_ERROR
+        "CatBLST supports only BLST_LIMB_SIZE=64; received "
+        "'${BLST_LIMB_SIZE}'.")
 endif()
 
 if (BLST_ASM)
@@ -265,7 +269,7 @@ message("BLST_CUDA_MSM        = ${BLST_CUDA_MSM}")     # enable the cude impl (g
 message("BLST_PARALLEL_MSM    = ${BLST_PARALLEL_MSM}") # enable parallel MSM pipeline
 message("BLST_CRNS_BATCH_VROOM_VENDOR = ${BLST_CRNS_BATCH_VROOM_VENDOR}") # build vendored VROOM comparison backend
 message("BLST_FAST_BUILD      = ${BLST_FAST_BUILD}") # make the cude build faster but slower runtime.
-message("BLST_LIMB_SIZE       = ${BLST_LIMB_SIZE}") # 32 or 64.
+message("BLST_LIMB_SIZE       = ${BLST_LIMB_SIZE}")
 message("BLST_TEST            = ${BLST_TEST}")      # build tests
 message("BLST_BENCHMARK       = ${BLST_BENCHMARK}") # build benchmarks
 

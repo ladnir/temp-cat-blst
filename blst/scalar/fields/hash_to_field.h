@@ -12,9 +12,7 @@ namespace blst::scalar
 {
     BLST_HD BLST_INLINE void zero_bytes(unsigned char* bytes, size_t len)
     {
-        while (len--) {
-            *bytes++ = 0;
-        }
+        vec_zero(bytes, len);
     }
 
 #ifdef expand_message_xmd

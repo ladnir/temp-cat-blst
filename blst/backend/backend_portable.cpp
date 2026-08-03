@@ -894,7 +894,7 @@ namespace blst
 			carry = wide.hi;
 		}
 
-		return 0 - BLST_MSB(wide.lo);
+		return 0 - cc_msb(wide.lo);
 	}
 	template
 	BLST_HD BLST_CPP_INLINE limb_t cc_cneg_n<NLIMBS(256)>(limb_t ret[], const limb_t a[], limb_t neg);
@@ -1007,7 +1007,7 @@ namespace blst
 
 		/* |a|*|f_| */
 		f = *f_;
-		neg = 0 - BLST_MSB(f);
+		neg = 0 - cc_msb(f);
 		f = (f ^ neg) - neg;            /* ensure |f| is positive */
 		(void)cc_cneg_n<n>(a_, a, neg);
 		hi = cc_umul_n<n>(a_, a_, f);
@@ -1015,7 +1015,7 @@ namespace blst
 
 		/* |b|*|g_| */
 		g = *g_;
-		neg = 0 - BLST_MSB(g);
+		neg = 0 - cc_msb(g);
 		g = (g ^ neg) - neg;            /* ensure |g| is positive */
 		(void)cc_cneg_n<n>(b_, b, neg);
 		hi = cc_umul_n<n>(b_, b_, g);
@@ -1032,7 +1032,7 @@ namespace blst
 		}
 
 		/* ensure result is non-negative, fix up |f_| and |g_| accordingly */
-		neg = 0 - BLST_MSB(carry);
+		neg = 0 - cc_msb(carry);
 		*f_ = (*f_ ^ neg) - neg;
 		*g_ = (*g_ ^ neg) - neg;
 		(void)cc_cneg_n<n>(ret, ret, neg);
@@ -1061,13 +1061,13 @@ namespace blst
 		limb_t v_[n];
 
 		/* |u|*|f_| */
-		neg = 0 - BLST_MSB(f);
+		neg = 0 - cc_msb(f);
 		f = (f ^ neg) - neg;            /* ensure |f| is positive */
 		neg = cc_cneg_n<n>(u_, u, neg);
 		hi = cc_umul_n<n>(u_, u_, f) - (f & neg);
 
 		/* |v|*|g_| */
-		neg = 0 - BLST_MSB(g);
+		neg = 0 - cc_msb(g);
 		g = (g ^ neg) - neg;            /* ensure |g| is positive */
 		neg = cc_cneg_n<n>(v_, v, neg);
 		hi += cc_umul_n<n>(v_, v_, g) - (g & neg);
@@ -1128,7 +1128,7 @@ namespace blst
 		cc_inner_loop_n<(2 * n * BLST_LIMB_SIZE) % (BLST_LIMB_SIZE - 2)>(&fg, a, b);
 		top = cc_smul_2n<2 * n>(ret, u, fg.f1, v, fg.g1);
 
-		sign = 0 - BLST_MSB(top);    /* top is 1, 0 or -1 */
+		sign = 0 - cc_msb(top);    /* top is 1, 0 or -1 */
 		for (carry = 0, i = 0; i < n; i++) {
 			cc_add_carry_wide_limb_limb(&wide, ret[n + i], modx[i] & sign, carry);
 			ret[n + i] = wide.lo;
@@ -1139,7 +1139,7 @@ namespace blst
 		top |= sign;
 		for (i = 0; i < n; i++)
 			a[i] = modx[i] & top;
-		(void)cc_cneg_n<n>(a, a, 0 - BLST_MSB(sign));
+		(void)cc_cneg_n<n>(a, a, 0 - cc_msb(sign));
 		cc_add_n<n>(ret + n, ret + n, a);
 	}
 	template
@@ -1348,7 +1348,7 @@ namespace blst
 			d_hi >>= 1;
 		}
 
-		mask = 0 - BLST_MSB(Q);  /* does it overflow? */
+		mask = 0 - cc_msb(Q);  /* does it overflow? */
 
 		/* "borrow, Rx = R - D" */
 		cc_sub_borrow_wide_limb_limb(&Rx, r_lo, d_lo, 0);

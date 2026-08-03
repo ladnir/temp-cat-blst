@@ -1,15 +1,20 @@
 ﻿
 #pragma once
 #include <algorithm>
-#include <vector>
+#include <limits>
 #include <span>
+#include <stdexcept>
+#include <vector>
 #include "blst/common/defines.h"
 #include "blst/common/timer.h"
 
 // Standard Bit-Reversal for in-place FFT
 template<typename F>
 void bit_reverse(std::span<F> a) {
-	int n = a.size();
+	if (a.size() > static_cast<std::size_t>(std::numeric_limits<int>::max())) {
+		throw std::invalid_argument("FFT size exceeds the supported index range");
+	}
+	const int n = static_cast<int>(a.size());
 	for (int i = 1, j = 0; i < n; i++) {
 		int bit = n >> 1;
 		for (; j & bit; bit >>= 1) j ^= bit;
@@ -45,8 +50,8 @@ struct DefaultCoeffCtx
 
 template <bool InverseFromForwardRoots, typename G, typename F, typename CoeffCtx>
 void fft_butterflies(std::span<G> a, std::span<const F> roots) {
-	int n = a.size();
 	bit_reverse(a);
+	const int n = static_cast<int>(a.size());
 
 	for (int len = 2; len <= n;) {
 		int half = len / 2;
@@ -829,8 +834,7 @@ void derive_ntt_of_reversed(
 	std::span<G> A_rev_hat,
 	std::size_t n,
 	std::size_t m,
-	const F& omega,
-	const G& identity_g)
+	const F& omega)
 {
 	BLST_ASSERT(A_hat.size() >= m);
 	BLST_ASSERT(A_rev_hat.size() >= m);
@@ -885,7 +889,7 @@ void derive_ntt_of_reversed_inplace(
 	derive_ntt_of_reversed<G, F, CoeffCtx>(
 		const_span<G>(A_hat.data(), m),
 		std::span<G>(temp),
-		n, m, omega, A_hat[0] /* just need type, not used */);
+		n, m, omega);
 
 	for (std::size_t i = 0; i < m; ++i) {
 		A_hat[i] = temp[i];

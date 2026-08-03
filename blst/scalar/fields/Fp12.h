@@ -54,7 +54,7 @@ namespace blst::scalar
 			auto enc = ((d1 + 1) | ((d2 + 1) << 2));
 			enc <<= ((idx % 2) * 4);
 			enc |= schedule[idx / 2] & (~(0xF << ((idx % 2) * 4)));
-			schedule[idx / 2] = enc;
+			schedule[idx / 2] = static_cast<uint8_t>(enc);
 		}
 
 		struct Pair {

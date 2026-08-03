@@ -1,3 +1,12 @@
+/*
+ * Copyright Supranational LLC
+ * Licensed under the Apache License, Version 2.0, see LICENSE for details.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * This CatBLST header is locally composed. Its representation and compiler
+ * support lineage includes the upstream BLST src/vect.h implementation.
+ */
+
 #ifndef __BLS12_381_DEFINES_H__
 #define __BLS12_381_DEFINES_H__
 
@@ -164,32 +173,14 @@ namespace blst {
 # endif
 
 
-/*
- * Some compilers get arguably overzealous(*) when passing pointer to
- * multi-dimensional array [such as Fp2] as 'const' argument.
- * General direction seems to be to legitimize such constification,
- * so it's argued that suppressing the warning is appropriate.
- *
- * (*)  http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1923.htm
- */
-#if defined(__INTEL_COMPILER)
-# pragma warning(disable:167)
-# pragma warning(disable:556)
-#elif defined(__GNUC__) && !defined(__clang__) && (__STDC_VERSION__-0) < 202311
-# pragma GCC diagnostic ignored "-Wpedantic"
-#elif defined(_MSC_VER)
-# pragma warning(disable: 4127 4189)
-#endif
-
 #if !defined(__wasm__) && __STDC_HOSTED__-0 != 0
 # include <stdlib.h>
 #endif
 
-#if BLST_LIMB_SIZE == 64
-# define TO_LIMB_T(limb64)     (limb_t)limb64
-#else
-# define TO_LIMB_T(limb64)     (limb_t)limb64,(limb_t)(limb64>>32)
+#if BLST_LIMB_SIZE != 64
+# error "CatBLST supports only 64-bit limbs"
 #endif
+#define TO_LIMB_T(limb64)     (limb_t)limb64
 
 
 #if defined(__CUDACC__)
@@ -209,14 +200,7 @@ namespace blst {
 namespace blst
 {
 
-#if BLST_LIMB_SIZE == 64
     using limb_t = uint64_t;
-#elif BLST_LIMB_SIZE == 32
-# error "Unsupported BLST_LIMB_SIZE"
-    using limb_t = uint32_t;
-#else
-# error "Unsupported BLST_LIMB_SIZE"
-#endif
     typedef unsigned char byte;
 
 
