@@ -22,8 +22,11 @@ The upstream `e61acc2` and `d4ca0f2` changes apply only to that wrapper. They
 remain `not_applicable`: importing polish or correcting its language-standard
 claim would not address the wrapper's underlying design and safety issues.
 
-Native C++ support remains in `blst/`, including the standalone
-`blst/blst_t.hpp` surface exercised by the retained C++ test suite.
+Native C++ support remains in the canonical field, curve, and protocol types
+under `blst/`. The generic-modulus `blst/blst_t.hpp` shim was initially retained
+here, then retired by `AUD-078` at `a720184` after the field lifetime audit
+confirmed that it duplicated low-level arithmetic, retained separate lifetime
+violations, and had no production consumer.
 
 ## Removal review
 

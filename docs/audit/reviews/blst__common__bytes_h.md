@@ -76,8 +76,10 @@ validates the complete string, then writes output, providing failure atomicity.
 
 ### 6. Undefined and implementation-defined behavior
 
-The inactive-union-member read is gone. Byte order is selected from Windows or
-compiler-defined byte-order macros. Size doubling is guarded against overflow.
+The inactive-union-member read is gone. `defines.h` requires
+`std::endian::little`, matching every supported target, so the exact in-place
+path needs no runtime or preprocessor byte-order probe. Size doubling is
+guarded against overflow.
 
 ### 7. Side channels and cryptographic hygiene
 
@@ -107,8 +109,9 @@ input-controlled allocation occurs.
 
 ### 12. Portability and build behavior
 
-MSVC compilation and execution pass. Apple Clang byte-order compilation is
-pending the next CI run. Unsupported byte-order toolchains fail clearly.
+MSVC compilation and execution pass. GCC and Clang strict translation-unit
+checks pass. Native Apple execution remains pending the next CI run.
+Unsupported byte-order toolchains fail at the shared `std::endian` assertion.
 
 ### 13. Performance-sensitive structure
 

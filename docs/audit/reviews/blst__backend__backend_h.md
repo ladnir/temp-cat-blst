@@ -14,7 +14,7 @@
 | Profiles | Scalar C++, C/Rust consumers, host assembly and pure portable scalar |
 | Generation/provenance | Locally composed header with upstream BLST `src/vect.h` and `src/vect.c` arithmetic lineage |
 | Upstream references | Current upstream snapshot `54e6e55674722fc2797ebb4bbb71b26d881eb4b8`; local CUDA namespace refactor `4e8775d1`; scalar selector repair `33914f2` |
-| Related files | `backend_portable.h/.cpp`, `backend_asm.h`, `blst_t.hpp`, scalar fields, SHA/keygen/hash-to-field callers, generated scalar assembly |
+| Related files | `backend_portable.h/.cpp`, `backend_asm.h`, scalar fields, SHA/keygen/hash-to-field callers, generated scalar assembly |
 
 ## Purpose and trust boundary
 
@@ -46,7 +46,8 @@ operation, compile-time-only dispatch, and no exception or allocation boundary.
 
 ## Dependency and call-path map
 
-- Scalar fields and `blst_t.hpp` call the `_v256` and `_v384` selectors.
+- Scalar fields call the `_v256` and `_v384` selectors. The former generic
+  `blst_t.hpp` consumer was retired by `AUD-078`.
 - C and Rust consumers reach the same selectors through retained field, curve,
   signature, and pairing boundaries.
 - SHA-256 update/finalization, key generation, and hash-to-field call the

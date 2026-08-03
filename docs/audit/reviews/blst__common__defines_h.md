@@ -33,6 +33,9 @@ or spills.
 ## Contracts and invariants
 
 - `BLST_LIMB_SIZE` is exactly 64 and `limb_t` is exactly `uint64_t`.
+- `std::endian::native` is little-endian; every supported x86-64 and Apple
+  Silicon target satisfies this requirement, and other byte orders fail at
+  compile time.
 - `uptr_t` is the standard `uintptr_t`, so supported 64-bit hosts have an
   integer type capable of representing object pointers.
 - `NLIMBS(bits)` is used for widths divisible by 64; fixed vector aliases are
@@ -66,7 +69,7 @@ byte expansion, restrict compatibility, and GNU/Clang value laundering. This
 header is not a wholesale copy: it is the local C++ representation boundary,
 adds CMake feature consumption, host/device attributes, assertions,
 fixed-width aliases, and sizing helpers. CatBLST intentionally rejects
-upstream's dormant 32-bit/no-assembly limb representation. The Apache-2.0/SPDX
+upstream's dormant 32-bit and big-endian representations. The Apache-2.0/SPDX
 header and the local/upstream-lineage note now make that provenance explicit.
 
 ## Checklist evidence
@@ -108,7 +111,8 @@ array operations remain subject to their own file reviews.
 
 ### 6. Undefined and implementation-defined behavior
 
-The non-64-bit preprocessor path is rejected. The former 64-bit shift after
+The non-64-bit preprocessor path and non-little-endian targets are rejected.
+The former 64-bit shift after
 `log2ceil(0)` is prevented by both the helper result and FFT boundary check.
 Zero division is prevented before quotient/remainder evaluation. Compiler
 attributes and inline assembly are selected explicitly per toolchain. Optimized

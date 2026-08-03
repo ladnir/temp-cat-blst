@@ -6,7 +6,7 @@
 | Profiles | scalar, C, C++, Rust |
 | Review state | in review |
 | Exact review baseline | `c3096482cdab88edc4f05e0c6583c7896fd75bab` |
-| Remediation commit | `b6a51bb62fa4e52e8349e9d7a17d51617c212e24` |
+| Remediation commits | `b6a51bb62fa4e52e8349e9d7a17d51617c212e24`, `61c8cd4` |
 | Upstream lineage | `54e6e556:src/consts.c`, `src/exports.c`, `src/recip.c`, and `src/vect.c`; no one-to-one file |
 | Findings | `AUD-067`, `AUD-069`, `AUD-070`, `AUD-072` |
 
@@ -25,10 +25,14 @@ code is removed, and representation documentation/provenance is corrected.
 Focused behavior, strict compilation, and optimized wipe/identity code
 generation pass.
 
+Canonical scalar conversion now uses the documented little-endian platform
+policy, exact typed in-place Montgomery conversion, and fixed-size copies into
+live Fr temporaries. Inactive union reads, whole-object casts, and redundant
+alignment branches are removed.
+
 ## Residual risk
 
-The file remains in review because `AUD-070` covers inherited inactive-union
-and in-place object-lifetime patterns. `AUD-069` now has a fixed zero-copy
+`AUD-070` is validated. `AUD-069` now has a fixed zero-copy
 public/internal type model, with focused runtime, Rust, and Apple validation
-still pending. Butterfly nonalias contracts, big-endian exclusion, inverse of
+still pending. Butterfly nonalias contracts, inverse of
 zero, and full sanitizer/oracle evidence remain Phase 14 follow-ups.

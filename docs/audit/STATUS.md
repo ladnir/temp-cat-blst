@@ -96,10 +96,15 @@ The first Phase 14 Fr/Fp wave is implemented. `AUD-067`, `AUD-068`,
 `AUD-072`, `AUD-073`, and `AUD-074` are validated; `AUD-071` is fixed pending
 retained Rust execution. Full-width x86 repeated-square generation is committed
 at `7c0e399`, and the remaining straightforward field boundary packet is at
-`b6a51bb`. Complete host reviews now cover `Fr.h`, `Fp.h`, `Fr.cpp`, and
-`Fp.cpp`; the headers remain in review because the zero-copy C representation
-and inherited C++ lifetime findings `AUD-069` and `AUD-070` are deliberately
-open for design discussion. Focused evidence used one build worker, three
+`b6a51bb`. Commit `61c8cd4` validates the `AUD-070` object-lifetime packet with
+an explicit little-endian platform requirement, typed Fp12 identity storage,
+raw-limb reciprocal scratch, and documented scalar/Fr representation and alias
+contracts. Commit `a720184` retires the isolated generic `blst_t.hpp` shim and
+its three dedicated tests as `AUD-078`; supported native C++ remains on the
+canonical field, curve, and protocol types. Complete host reviews now cover
+`Fr.h`, `Fp.h`, `Fr.cpp`, and `Fp.cpp`; the headers remain in review for their
+listed cross-platform, sanitizer, and independent-oracle evidence. Focused
+evidence used one build worker, three
 selected public tests, standalone C/C++ probes, strict GCC/Clang syntax checks,
 100-output assembly verification, and MSVC optimized code inspection. No full
 test sweep, benchmark, sanitizer, CUDA, CI push, or Apple run was performed.
@@ -179,24 +184,29 @@ security/correctness and provenance candidates:
 15. SWIG/language-binding upstream rows and `AUD-020` — all remaining
     unsupported language bindings were removed with clean retained-language
     validation.
+16. `AUD-070` — inactive-union and whole-object field punning was replaced by
+    typed identity storage, raw-limb reciprocal scratch, and an explicit
+    little-endian platform contract.
+17. `AUD-078` — the isolated generic-modulus C++ shim and its dedicated tests
+    were retired; the canonical native C++ implementation remains supported.
 
-16. `cf739f0` and `9c35e86` - allocation-free variable-length Fp decoders and
+18. `cf739f0` and `9c35e86` - allocation-free variable-length Fp decoders and
     their Rust FFI companion were translated and validated in Phase 7A.
-17. `f262a6e` - the C2x `bool` ambiguity was translated into the split public
+19. `f262a6e` - the C2x `bool` ambiguity was translated into the split public
     type header and validated across available C modes in Phase 7B.
-18. `b83544b` and `dece82e` - Rust aggregate subtraction and direct dependency
+20. `b83544b` and `dece82e` - Rust aggregate subtraction and direct dependency
     cleanup were translated and validated in Phase 7C.
-19. `07b109d` / `AUD-021` - the upstream bounded-channel optimization was
+21. `07b109d` / `AUD-021` - the upstream bounded-channel optimization was
     superseded by removal of the global Rust pool, unsafe scoped-job lifetime
     erasure, and every internal scheduler path in Phase 8.
-20. `2e1948b`, `ed865dc`, and `fe85dc3` - CHERI inverse scratch confinement,
+22. `2e1948b`, `ed865dc`, and `fe85dc3` - CHERI inverse scratch confinement,
     exact regeneration of 10 ARM artifacts, translator operand hardening, and
     a corrected inverse oracle were validated in Phase 9.
-21. `ff66582` and `67fc54b` - pairing-friendly-curves draft-13 generator and
+23. `ff66582` and `67fc54b` - pairing-friendly-curves draft-13 generator and
     pairing evidence plus draft-07 basic-signature evidence were translated
     into C++/Rust scalar and AVX tests with accurate release language in Phase
     11.
-22. `85808fd` and `33d3f3a` - WASI/Wasmtime CI was rejected as outside the
+24. `85808fd` and `33d3f3a` - WASI/Wasmtime CI was rejected as outside the
     supported production matrix; stale Rust WebAssembly build guidance was
     removed in the Phase 12 planning amendment.
 

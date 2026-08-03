@@ -14,7 +14,7 @@
 | Profiles | scalar C++, scalar assembly, C/Rust compiled consumers |
 | Generation/provenance | Hand-maintained C++ header with upstream BLST `src/vect.h` lineage |
 | Upstream references | Upstream head `54e6e55674722fc2797ebb4bbb71b26d881eb4b8`, `src/vect.h` and `src/vect.c` |
-| Related files | `blst/common/defines.h`, `blst/blst_t.hpp`, `blst/asm/add_mod_384-x86_64.pl`, generated vector assembly, `test/Interface_tests.cpp` |
+| Related files | `blst/common/defines.h`, `blst/asm/add_mod_384-x86_64.pl`, generated vector assembly, `test/Interface_tests.cpp` |
 
 ## Purpose and trust boundary
 

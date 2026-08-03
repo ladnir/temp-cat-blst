@@ -39,7 +39,7 @@ counters. Commit `b6a51bb` implements the remaining approved straightforward
 field packet. `AUD-067`, `AUD-068`, `AUD-072`, `AUD-073`, and `AUD-074` are
 validated. `AUD-071` is fixed with focused C evidence and remains pending a
 retained Rust execution check. `AUD-069` is fixed pending focused runtime,
-Rust, and Apple evidence; `AUD-070` remains open.
+Rust, and Apple evidence; `AUD-070` is validated at `61c8cd4`.
 
 Validation remained focused. One existing Debug target was rebuilt with one
 Ninja worker after the field headers invalidated dependent objects; only three
@@ -73,6 +73,29 @@ types, and `bool`; CatBLST no longer redeclares those names or maps legacy C
 only the namespaced conveniences `blst::byte` and `blst::limb_t`. Public
 binding-header guards use the conventional non-reserved `BLST_*_H` spelling,
 and Rust bindgen is invoked explicitly in C99 mode.
+
+## AUD-070 lifetime remediation
+
+CatBLST now rejects non-little-endian targets at compile time with
+`std::endian`; this matches the supported x86-64 and Apple Silicon platform
+matrix. Canonical `blst_scalar` remains a 32-byte little-endian value distinct
+from Montgomery-form `blst_fr`, and their fixed-width conversions document an
+exact-or-disjoint overlap contract with no partial overlap.
+
+The inherited `radix384` union is replaced by one real typed `Fp12` identity.
+Fp and Fp2 identities and zero values are references to its live nested
+subobjects. Reciprocal retains one 96-byte `UFp` scratch object and addresses
+its two halves only as limbs, preserving the native inverse, reduction, and
+Montgomery-multiply call structure without changing stack size. Focused MSVC,
+GCC, and Clang compilation, the scalar library build, exact-alias and identity
+boundary checks, reciprocal correctness, and optimized MSVC code inspection
+pass at `61c8cd4`.
+
+The follow-up review found that `blst_t.hpp` was an isolated generic-modulus
+shim rather than the supported fixed BLS12-381 native C++ core. It duplicated
+low-level arithmetic and retained separate lifetime violations, while only
+three dedicated tests consumed it. Commit `a720184` removes that header and
+those tests; canonical native C++ field, curve, and protocol types remain.
 
 That strict all-header check also opened and fixed `AUD-075`: MSVC C rejected
 the AVX opaque-shell alignment when its `__declspec(align(...))` argument was
