@@ -377,12 +377,19 @@ namespace blst::scalar
 
 	BLST_HD BLST_FORCEINLINE void Fp::lshift(Fp& ret, const Fp& a, size_t count)
 	{
-		assert(count);
+		if (count == 0) {
+			ret = a;
+			return;
+		}
 		lshift_mod_v384(ret.data, a.data, count, get_BLST_P().data);
 	}
 
 	BLST_HD BLST_FORCEINLINE void Fp::rshift(Fp& ret, const Fp& a, size_t count)
 	{
+		if (count == 0) {
+			ret = a;
+			return;
+		}
 		rshift_mod_v384(ret.data, a.data, count, get_BLST_P().data);
 	}
 

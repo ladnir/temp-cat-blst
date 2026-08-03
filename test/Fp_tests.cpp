@@ -200,6 +200,10 @@ TEST(FpOps, LShift) {
 	Fp a, r, expected;
 	InsecureRng rng;
 	rand_Fp(a, rng);
+	Fp::lshift(r, a, 0);
+	EXPECT_TRUE(Fp_equal(r, a));
+	Fp::lshift(a, a, 0);
+	EXPECT_TRUE(Fp_equal(r, a));
 	expected = a;
 	for (u64 i = 1; i < 100; ++i)
 	{
@@ -213,6 +217,11 @@ TEST(FpOps, LShift) {
 
 TEST(FpOps, RShift) {
 	Fp a, r, expected, la;
+	set_Fp(a, 0x123456789abcdef0ULL);
+	Fp::rshift(r, a, 0);
+	EXPECT_TRUE(Fp_equal(r, a));
+	Fp::rshift(a, a, 0);
+	EXPECT_TRUE(Fp_equal(r, a));
 	set_Fp(a, 8);
 	Fp::rshift(r, a, 2);
 	set_Fp(expected, 2);

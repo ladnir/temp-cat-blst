@@ -307,3 +307,14 @@ TEST(Fp2Test, Serialization) {
     EXPECT_TRUE(vec_is_equal(&a, &b, sizeof(Fp2)))
         << "Deserialized value should equal original";
 }
+
+TEST(Fp2Test, ZeroBitLShiftIsIdentity) {
+    Fp2 value = Fp2::one(), result;
+    Fp::mul_by_3(value[1], value[0]);
+
+    Fp2::lshift(result, value, 0);
+    EXPECT_TRUE(vec_is_equal(&result, &value, sizeof(value)));
+
+    Fp2::lshift(value, value, 0);
+    EXPECT_TRUE(vec_is_equal(&result, &value, sizeof(value)));
+}

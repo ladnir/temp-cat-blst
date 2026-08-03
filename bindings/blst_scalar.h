@@ -68,9 +68,9 @@ void blst_fr_add(blst_fr* ret, const blst_fr* a, const blst_fr* b);
 void blst_fr_sub(blst_fr* ret, const blst_fr* a, const blst_fr* b);
 /** Multiplies an Fr value by the integer constant 3. */
 void blst_fr_mul_by_3(blst_fr* ret, const blst_fr* a);
-/** Shifts an Fr value left by `count` bits inside its limb representation. */
+/** Multiplies an Fr value by `2^count` modulo r; a zero count copies `a`. */
 void blst_fr_lshift(blst_fr* ret, const blst_fr* a, size_t count);
-/** Shifts an Fr value right by `count` bits inside its limb representation. */
+/** Divides an Fr value by `2^count` modulo r; a zero count copies `a`. */
 void blst_fr_rshift(blst_fr* ret, const blst_fr* a, size_t count);
 /** Multiplies two Montgomery-form Fr values and writes the product to `ret`. */
 void blst_fr_mul(blst_fr* ret, const blst_fr* a, const blst_fr* b);
@@ -124,7 +124,7 @@ void blst_fp_sub(blst_fp* ret, const blst_fp* a, const blst_fp* b);
 void blst_fp_mul_by_3(blst_fp* ret, const blst_fp* a);
 /** Multiplies an Fp value by the integer constant 8. */
 void blst_fp_mul_by_8(blst_fp* ret, const blst_fp* a);
-/** Shifts an Fp value left by `count` bits inside its limb representation. */
+/** Multiplies an Fp value by `2^count` modulo p; a zero count copies `a`. */
 void blst_fp_lshift(blst_fp* ret, const blst_fp* a, size_t count);
 /** Multiplies two Montgomery-form Fp values and writes the product to `ret`. */
 void blst_fp_mul(blst_fp* ret, const blst_fp* a, const blst_fp* b);
@@ -183,7 +183,7 @@ void blst_fp2_sub(blst_fp2* ret, const blst_fp2* a, const blst_fp2* b);
 void blst_fp2_mul_by_3(blst_fp2* ret, const blst_fp2* a);
 /** Multiplies an Fp2 value by the integer constant 8. */
 void blst_fp2_mul_by_8(blst_fp2* ret, const blst_fp2* a);
-/** Shifts an Fp2 value left by `count` bits inside its limb representation. */
+/** Multiplies an Fp2 value by `2^count` modulo p; a zero count copies `a`. */
 void blst_fp2_lshift(blst_fp2* ret, const blst_fp2* a, size_t count);
 /** Multiplies two Montgomery-form Fp2 values and writes the product to `ret`. */
 void blst_fp2_mul(blst_fp2* ret, const blst_fp2* a, const blst_fp2* b);

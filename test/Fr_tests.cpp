@@ -146,6 +146,12 @@ TEST(FrOps, MulBy3) {
 
 TEST(FrOps, LShift) {
     Fr a, result, expected;
+
+    set_fr(a, 0x123456789ABCDEF0ULL);
+    Fr::lshift(result, a, 0);
+    EXPECT_TRUE(fr_equal(result, a)) << "zero-bit left shift should be identity";
+    Fr::lshift(a, a, 0);
+    EXPECT_TRUE(fr_equal(result, a)) << "in-place zero-bit left shift should be identity";
     
     // 1 << 2 = 4
     set_fr(a, 1);
@@ -168,6 +174,12 @@ TEST(FrOps, LShift) {
 
 TEST(FrOps, RShift) {
     Fr a, result, expected;
+
+    set_fr(a, 0x123456789ABCDEF0ULL);
+    Fr::rshift(result, a, 0);
+    EXPECT_TRUE(fr_equal(result, a)) << "zero-bit right shift should be identity";
+    Fr::rshift(a, a, 0);
+    EXPECT_TRUE(fr_equal(result, a)) << "in-place zero-bit right shift should be identity";
     
     // 8 >> 2 = 2
     set_fr(a, 8);

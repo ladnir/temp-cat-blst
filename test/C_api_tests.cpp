@@ -61,6 +61,8 @@ bool blst_sk_mul_n_check(blst::pow256 out, const blst::pow256 a, const blst::pow
 void blst_sk_inverse(blst::pow256 out, const blst::pow256 a);
 
 void blst_fr_add(blst::Fr* ret, const blst::Fr* a, const blst::Fr* b);
+void blst_fr_lshift(blst::Fr* ret, const blst::Fr* a, size_t count);
+void blst_fr_rshift(blst::Fr* ret, const blst::Fr* a, size_t count);
 void blst_fr_mul(blst::Fr* ret, const blst::Fr* a, const blst::Fr* b);
 void blst_fr_pow(blst::Fr* ret, const blst::Fr* a, const unsigned char* exponent, size_t nbits);
 void blst_fr_sqr(blst::Fr* ret, const blst::Fr* a);
@@ -73,6 +75,7 @@ void blst_scalar_from_fr(blst::pow256 ret, const blst::Fr* a);
 void blst_fr_from_hexascii(blst::Fr* ret, const char* hex);
 
 void blst_fp_add(blst::Fp* ret, const blst::Fp* a, const blst::Fp* b);
+void blst_fp_lshift(blst::Fp* ret, const blst::Fp* a, size_t count);
 void blst_fp_mul(blst::Fp* ret, const blst::Fp* a, const blst::Fp* b);
 void blst_fp_sqr(blst::Fp* ret, const blst::Fp* a);
 void blst_fp_eucl_inverse(blst::Fp* ret, const blst::Fp* a);
@@ -88,6 +91,7 @@ int blst_fp_is_square(const blst::Fp* a);
 void blst_fp_from_hexascii(blst::Fp* ret, const char* hex);
 
 void blst_fp2_mul(blst::Fp2* ret, const blst::Fp2* a, const blst::Fp2* b);
+void blst_fp2_lshift(blst::Fp2* ret, const blst::Fp2* a, size_t count);
 void blst_fp2_sqr(blst::Fp2* ret, const blst::Fp2* a);
 void blst_fp2_eucl_inverse(blst::Fp2* ret, const blst::Fp2* a);
 void blst_fp2_inverse(blst::Fp2* ret, const blst::Fp2* a);
@@ -696,6 +700,35 @@ TEST(CApi, FrPrimitivesRoundTripAndInverse)
     EXPECT_TRUE(BoundaryFr::equal(inverse_eucl, inverse));
     EXPECT_TRUE(BoundaryFr::equal(power, BoundaryFr::from_uint64(125)));
     EXPECT_TRUE(BoundaryFr::equal(power_zero, one));
+}
+
+TEST(CApi, ZeroBitScalarShiftsAreIdentity)
+{
+    const unsigned long long fr_words[4] = {0x123456789abcdef0ULL, 0, 0, 0};
+    const unsigned long long fp_words[6] = {0x0fedcba987654321ULL, 0, 0, 0, 0, 0};
+    BoundaryFr fr = {}, shifted_fr = {};
+    BoundaryFp fp = {}, shifted_fp = {};
+    BoundaryFp2 fp2 = {}, shifted_fp2 = {};
+
+    blst_fr_from_uint64(&fr, fr_words);
+    blst_fp_from_uint64(&fp, fp_words);
+    fp2[0] = fp;
+    fp2[1] = BoundaryFp::one();
+
+    blst_fr_lshift(&shifted_fr, &fr, 0);
+    EXPECT_TRUE(BoundaryFr::equal(shifted_fr, fr));
+    blst_fr_rshift(&shifted_fr, &shifted_fr, 0);
+    EXPECT_TRUE(BoundaryFr::equal(shifted_fr, fr));
+
+    blst_fp_lshift(&shifted_fp, &fp, 0);
+    EXPECT_TRUE(BoundaryFp::equal(shifted_fp, fp));
+    blst_fp_lshift(&shifted_fp, &shifted_fp, 0);
+    EXPECT_TRUE(BoundaryFp::equal(shifted_fp, fp));
+
+    blst_fp2_lshift(&shifted_fp2, &fp2, 0);
+    EXPECT_TRUE(blst::vec_is_equal(&shifted_fp2, &fp2, sizeof(fp2)));
+    blst_fp2_lshift(&shifted_fp2, &shifted_fp2, 0);
+    EXPECT_TRUE(blst::vec_is_equal(&shifted_fp2, &fp2, sizeof(fp2)));
 }
 
 TEST(CApi, FpUint32RoundTripAcceptsOnlyUint32Alignment)
