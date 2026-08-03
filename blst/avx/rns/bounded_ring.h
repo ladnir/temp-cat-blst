@@ -186,7 +186,10 @@ class BoundedRing {
         if (bytes >= 3 && lit[0] == '0' && (lit[1] == 'x' || lit[1] == 'X')) {
             hex = lit + 2;
         }
-        blst::limbs_from_hexascii(canonical.data, sizeof(canonical), hex);
+        const bool parsed =
+            blst::limbs_from_hexascii(canonical.data, sizeof(canonical), hex);
+        BLST_ASSERT(parsed);
+        (void)parsed;
         blst::Fp mont = {};
         blst::Fp::to_mont(mont, canonical);
         return convert_to_rns_batch<1>(std::array<AVXVector<limbs>, 1>{scalar_fp_to_digits(mont)})[0];

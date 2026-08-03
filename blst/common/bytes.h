@@ -71,14 +71,19 @@ namespace blst
 	BLST_HD BLST_INLINE void le_bytes_from_limbs(unsigned char* out, const limb_t* in,
 		size_t n)
 	{
-		const union {
-			long one;
-			char little;
-		} is_endian = { 1 };
 		limb_t limb;
 		size_t i, j, r;
 
-		if ((uptr_t)out == (uptr_t)in && is_endian.little)
+#if defined(_WIN32) || \
+	(defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+		constexpr bool host_is_little_endian = true;
+#elif defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+		constexpr bool host_is_little_endian = false;
+#else
+# error "Unable to determine the supported target byte order"
+#endif
+
+		if ((uptr_t)out == (uptr_t)in && host_is_little_endian)
 			return;
 
 		r = n % sizeof(limb);
@@ -116,44 +121,73 @@ namespace blst
 		return (unsigned char)ret;
 	}
 
-	BLST_HD BLST_INLINE void bytes_from_hexascii(unsigned char* ret, size_t sz, const char* hex)
+	[[nodiscard]] BLST_HD BLST_INLINE bool hexascii_digit_count(
+		const char* hex, size_t max_digits, const char** digits, size_t* len)
 	{
-		size_t len;
-		unsigned char b = 0;
+		if (hex == nullptr || digits == nullptr || len == nullptr)
+			return false;
 
 		if (hex[0] == '0' && (hex[1] == 'x' || hex[1] == 'X'))
 			hex += 2;
 
-		for (len = 0; len < 2 * sz && nibble_from_hex(hex[len]) < 16; len++);
+		size_t count = 0;
+		while (count < max_digits && nibble_from_hex(hex[count]) < 16)
+			count++;
 
+		if (count == 0 || hex[count] != '\0')
+			return false;
+
+		*digits = hex;
+		*len = count;
+		return true;
+	}
+
+	[[nodiscard]] BLST_HD BLST_INLINE bool bytes_from_hexascii(
+		unsigned char* ret, size_t sz, const char* hex)
+	{
+		if (ret == nullptr || sz > size_t(-1) / 2)
+			return false;
+
+		const char* digits;
+		size_t len;
+		if (!hexascii_digit_count(hex, 2 * sz, &digits, &len))
+			return false;
+
+		unsigned char b = 0;
 		bytes_zero(ret, sz);
 
 		while (len--) {
 			b <<= 4;
-			b |= nibble_from_hex(*hex++);
+			b |= nibble_from_hex(*digits++);
 			if (len % 2 == 0)
 				ret[len / 2] = b;
 		}
+
+		return true;
 	}
 
-	BLST_HD BLST_INLINE void limbs_from_hexascii(limb_t* ret, size_t sz, const char* hex)
+	[[nodiscard]] BLST_HD BLST_INLINE bool limbs_from_hexascii(
+		limb_t* ret, size_t sz, const char* hex)
 	{
+		if (ret == nullptr || sz > size_t(-1) / 2)
+			return false;
+
+		const char* digits;
 		size_t len;
+		if (!hexascii_digit_count(hex, 2 * sz, &digits, &len))
+			return false;
+
 		limb_t limb = 0;
-
-		if (hex[0] == '0' && (hex[1] == 'x' || hex[1] == 'X'))
-			hex += 2;
-
-		for (len = 0; len < 2 * sz && nibble_from_hex(hex[len]) < 16; len++);
-
 		vec_zero(ret, sz);
 
 		while (len--) {
 			limb <<= 4;
-			limb |= nibble_from_hex(*hex++);
+			limb |= nibble_from_hex(*digits++);
 			if (len % (2 * sizeof(limb)) == 0)
 				ret[len / (2 * sizeof(limb))] = limb;
 		}
+
+		return true;
 	}
 
 	BLST_HD BLST_INLINE void limbs_to_hexascii(char* out, size_t sz, const limb_t* in)

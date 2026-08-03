@@ -8,6 +8,7 @@
 
 #include "blst/config.h"
 #include <stddef.h>
+#include <string.h>
 #include "blst/common/defines.h"
 
 //BLST_EXTERN_C_BEGIN
@@ -30,17 +31,28 @@ extern "C"
 
 namespace blst
 {
+	BLST_HD BLST_FORCEINLINE void vec_copy_distinct(
+		void* BLST_restrict ret, const void* BLST_restrict a, size_t num)
+	{
+#if defined(__CUDA_ARCH__)
+		unsigned char* const rp = (unsigned char*)ret;
+		const unsigned char* const ap = (const unsigned char*)a;
+		for (size_t i = 0; i < num; i++)
+			rp[i] = ap[i];
+#else
+		memcpy(ret, a, num);
+#endif
+	}
+
 	BLST_HD BLST_FORCEINLINE void vec_copy(void* ret, const void* a, size_t num)
 	{
 		if (ret == a || num == 0)
 			return;
 
-		unsigned char* BLST_restrict rp = (unsigned char*)ret;
-		const unsigned char* BLST_restrict ap = (const unsigned char*)a;
-		size_t i;
-
-		for (i = 0; i < num; i++)
-			rp[i] = ap[i];
+		BLST_ASSUME((uptr_t)ret < (uptr_t)a
+			? num <= (uptr_t)a - (uptr_t)ret
+			: num <= (uptr_t)ret - (uptr_t)a);
+		vec_copy_distinct(ret, a, num);
 	}
 
 

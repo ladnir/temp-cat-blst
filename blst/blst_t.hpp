@@ -289,14 +289,14 @@ public:
     friend inline blst_384_t czero(const blst_384_t& a, int set_z)
     {   blst_384_t ret;
         const vec384 zero = { 0 };
-        vec_select(ret, zero, a, sizeof(ret), bool_t(set_z != 0));
+        vec_select(ret, zero, a, sizeof(ret), blst::bool_t(set_z != 0));
         return ret;
     }
 
     inline blst_384_t csel(const blst_384_t& a, const blst_384_t& b,
                                   int sel_a)
     {   blst_384_t ret;
-        vec_select(ret, a, b, sizeof(ret), bool_t(sel_a != 0));
+        vec_select(ret, a, b, sizeof(ret), blst::bool_t(sel_a != 0));
         return ret;
     }
 
@@ -323,7 +323,13 @@ public:
     {   return *this *= a.reciprocal();   }
 
     inline blst_384_t(const char *hexascii)
-    {   limbs_from_hexascii(val, sizeof(val), hexascii); to();   }
+    {
+        vec_zero(val, sizeof(val));
+        const bool parsed = limbs_from_hexascii(val, sizeof(val), hexascii);
+        BLST_ASSERT(parsed);
+        if (parsed)
+            to();
+    }
 
     friend inline bool operator==(const blst_384_t& a, const blst_384_t& b)
     {   return vec_is_equal(a, b, sizeof(vec384));   }
@@ -642,14 +648,14 @@ public:
     friend inline blst_256_t czero(const blst_256_t& a, int set_z)
     {   blst_256_t ret;
         const vec256 zero = { 0 };
-        vec_select(ret, zero, a, sizeof(ret), bool_t(set_z != 0));
+        vec_select(ret, zero, a, sizeof(ret), blst::bool_t(set_z != 0));
         return ret;
     }
 
     inline blst_256_t csel(const blst_256_t& a, const blst_256_t& b,
                                   int sel_a)
     {   blst_256_t ret;
-        vec_select(ret, a, b, sizeof(ret), bool_t(sel_a != 0));
+        vec_select(ret, a, b, sizeof(ret), blst::bool_t(sel_a != 0));
         return ret;
     }
 
@@ -676,7 +682,13 @@ public:
     {   return *this *= a.reciprocal();   }
 
     inline blst_256_t(const char *hexascii)
-    {   limbs_from_hexascii(val, sizeof(val), hexascii); to();   }
+    {
+        vec_zero(val, sizeof(val));
+        const bool parsed = limbs_from_hexascii(val, sizeof(val), hexascii);
+        BLST_ASSERT(parsed);
+        if (parsed)
+            to();
+    }
 
     friend inline bool operator==(const blst_256_t& a, const blst_256_t& b)
     {   return vec_is_equal(a, b, sizeof(vec256));   }

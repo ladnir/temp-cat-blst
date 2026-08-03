@@ -31,6 +31,23 @@ typedef __UINT64_TYPE__ uint64_t;
 # endif
 #endif
 
+#if defined(__cplusplus) && defined(__has_cpp_attribute)
+# if __has_cpp_attribute(nodiscard)
+#  define BLST_NODISCARD [[nodiscard]]
+# endif
+#elif !defined(__cplusplus) && defined(__has_c_attribute)
+# if __has_c_attribute(nodiscard)
+#  define BLST_NODISCARD [[nodiscard]]
+# endif
+#endif
+#if !defined(BLST_NODISCARD)
+# if defined(__GNUC__) || defined(__clang__)
+#  define BLST_NODISCARD __attribute__((warn_unused_result))
+# else
+#  define BLST_NODISCARD
+# endif
+#endif
+
 /**
  * Stable error codes returned by the plain C API.
  *
@@ -40,13 +57,13 @@ typedef __UINT64_TYPE__ uint64_t;
  */
 typedef enum {
     BLST_SUCCESS = 0,
-    BLST_BAD_ENCODING,
-    BLST_POINT_NOT_ON_CURVE,
-    BLST_POINT_NOT_IN_GROUP,
-    BLST_AGGR_TYPE_MISMATCH,
-    BLST_VERIFY_FAIL,
-    BLST_PK_IS_INFINITY,
-    BLST_BAD_SCALAR,
+    BLST_BAD_ENCODING = 1,
+    BLST_POINT_NOT_ON_CURVE = 2,
+    BLST_POINT_NOT_IN_GROUP = 3,
+    BLST_AGGR_TYPE_MISMATCH = 4,
+    BLST_VERIFY_FAIL = 5,
+    BLST_PK_IS_INFINITY = 6,
+    BLST_BAD_SCALAR = 7,
 } BLST_ERROR;
 
 typedef uint8_t byte;

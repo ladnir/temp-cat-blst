@@ -2,6 +2,8 @@
 
 #include <array>
 #include <cstring>
+#include <string>
+#include <type_traits>
 #include <vector>
 
 #include "bindings/blst.h"
@@ -143,6 +145,66 @@ void expect_batch_affine_g1_matches(
 }
 
 } // namespace
+
+static_assert(std::is_same_v<
+    decltype(blst_scalar_from_hexascii(nullptr, nullptr)), bool>);
+static_assert(std::is_same_v<
+    decltype(blst_fr_from_hexascii(nullptr, nullptr)), bool>);
+static_assert(std::is_same_v<
+    decltype(blst_fp_from_hexascii(nullptr, nullptr)), bool>);
+
+TEST(BindingHeader, HexParsersRequireACompleteRepresentableValue)
+{
+    const auto ascii = [](const char* text) {
+        return reinterpret_cast<const byte*>(text);
+    };
+
+    blst_scalar scalar = {};
+    ASSERT_TRUE(blst_scalar_from_hexascii(&scalar, ascii("0x2a")));
+    blst_scalar expected_scalar = {};
+    expected_scalar.b[0] = 0x2a;
+    EXPECT_EQ(std::memcmp(&scalar, &expected_scalar, sizeof(scalar)), 0);
+
+    blst_fr fr = {};
+    ASSERT_TRUE(blst_fr_from_hexascii(&fr, ascii("2A")));
+    const blst_fr expected_fr = test_fr_from_u64(42);
+    EXPECT_EQ(std::memcmp(&fr, &expected_fr, sizeof(fr)), 0);
+
+    blst_fp fp = {};
+    ASSERT_TRUE(blst_fp_from_hexascii(&fp, ascii("0x2a")));
+    const blst_fp expected_fp = test_fp_from_u64(42);
+    EXPECT_EQ(std::memcmp(&fp, &expected_fp, sizeof(fp)), 0);
+
+    for (const char* invalid : {"", "0x", "12xyz", "-1", " 2a"}) {
+        SCOPED_TRACE(invalid);
+        std::memset(&scalar, 0xa5, sizeof(scalar));
+        std::memset(&fr, 0xa5, sizeof(fr));
+        std::memset(&fp, 0xa5, sizeof(fp));
+        const blst_scalar scalar_before = scalar;
+        const blst_fr fr_before = fr;
+        const blst_fp fp_before = fp;
+
+        EXPECT_FALSE(blst_scalar_from_hexascii(&scalar, ascii(invalid)));
+        EXPECT_FALSE(blst_fr_from_hexascii(&fr, ascii(invalid)));
+        EXPECT_FALSE(blst_fp_from_hexascii(&fp, ascii(invalid)));
+        EXPECT_EQ(std::memcmp(&scalar, &scalar_before, sizeof(scalar)), 0);
+        EXPECT_EQ(std::memcmp(&fr, &fr_before, sizeof(fr)), 0);
+        EXPECT_EQ(std::memcmp(&fp, &fp_before, sizeof(fp)), 0);
+    }
+
+    const std::string scalar_too_wide(65, '1');
+    const std::string fp_too_wide(97, '1');
+    EXPECT_FALSE(blst_scalar_from_hexascii(&scalar, ascii(scalar_too_wide.c_str())));
+    EXPECT_FALSE(blst_fr_from_hexascii(&fr, ascii(scalar_too_wide.c_str())));
+    EXPECT_FALSE(blst_fp_from_hexascii(&fp, ascii(fp_too_wide.c_str())));
+
+    EXPECT_FALSE(blst_scalar_from_hexascii(nullptr, ascii("1")));
+    EXPECT_FALSE(blst_fr_from_hexascii(nullptr, ascii("1")));
+    EXPECT_FALSE(blst_fp_from_hexascii(nullptr, ascii("1")));
+    EXPECT_FALSE(blst_scalar_from_hexascii(&scalar, nullptr));
+    EXPECT_FALSE(blst_fr_from_hexascii(&fr, nullptr));
+    EXPECT_FALSE(blst_fp_from_hexascii(&fp, nullptr));
+}
 
 TEST(BindingHeader, VariableLengthFpDecodersMatchBytewiseOracle)
 {

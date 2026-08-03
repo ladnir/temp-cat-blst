@@ -10,21 +10,22 @@
 #ifdef BLST_CUDA
 #include <cuda_runtime.h>
 #endif
-#include "blst/config.h"
+#include "bindings/blst_types.h"
+#include "blst/common/defines.h"
 
 
 namespace blst
 {
 
-	typedef enum {
-		BLST_SUCCESS = 0,
-		BLST_BAD_ENCODING,
-		BLST_POINT_NOT_ON_CURVE,
-		BLST_POINT_NOT_IN_GROUP,
-		BLST_AGGR_TYPE_MISMATCH,
-		BLST_VERIFY_FAIL,
-		BLST_PK_IS_INFINITY,
-	} BLST_ERROR;
+	using ::BLST_ERROR;
+	using ::BLST_SUCCESS;
+	using ::BLST_BAD_ENCODING;
+	using ::BLST_POINT_NOT_ON_CURVE;
+	using ::BLST_POINT_NOT_IN_GROUP;
+	using ::BLST_AGGR_TYPE_MISMATCH;
+	using ::BLST_VERIFY_FAIL;
+	using ::BLST_PK_IS_INFINITY;
+	using ::BLST_BAD_SCALAR;
 
 	// Error codes for CUDA field operations - focused on most common errors
 	typedef enum {

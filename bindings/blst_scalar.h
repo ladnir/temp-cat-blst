@@ -61,6 +61,8 @@ bool blst_sk_mul_n_check(blst_scalar* out, const blst_scalar* a, const blst_scal
 void blst_sk_inverse(blst_scalar* out, const blst_scalar* a);
 bool blst_scalar_from_le_bytes(blst_scalar* out, const byte* in, size_t len);
 bool blst_scalar_from_be_bytes(blst_scalar* out, const byte* in, size_t len);
+/** Strictly parses a complete hexadecimal string into a scalar. */
+BLST_NODISCARD bool blst_scalar_from_hexascii(blst_scalar* out, const byte* hex);
 
 /** Adds two Montgomery-form Fr values and writes the sum to `ret`. */
 void blst_fr_add(blst_fr* ret, const blst_fr* a, const blst_fr* b);
@@ -108,8 +110,8 @@ void blst_fr_gs_bfly(blst_fr* x0, blst_fr* x1, const blst_fr* twiddle);
 void blst_fr_to(blst_fr* ret, const blst_fr* a);
 /** Converts an Fr value out of Montgomery form and writes it to `ret`. */
 void blst_fr_from(blst_fr* ret, const blst_fr* a);
-/** Parses a hexadecimal ASCII string into Montgomery-form Fr. */
-void blst_fr_from_hexascii(blst_fr* ret, const byte* hex);
+/** Strictly parses a complete hexadecimal string into Montgomery-form Fr. */
+BLST_NODISCARD bool blst_fr_from_hexascii(blst_fr* ret, const byte* hex);
 
 /**
  * Arithmetic over Fp. Integer conversions use the exact array widths shown in
@@ -172,8 +174,8 @@ void blst_fp_to(blst_fp* ret, const blst_fp* a);
 void blst_fp_from(blst_fp* ret, const blst_fp* a);
 /** Returns `true` when `a` is a quadratic residue in Fp. */
 bool blst_fp_is_square(const blst_fp* a);
-/** Parses a hexadecimal ASCII string into Montgomery-form Fp. */
-void blst_fp_from_hexascii(blst_fp* ret, const byte* hex);
+/** Strictly parses a complete hexadecimal string into Montgomery-form Fp. */
+BLST_NODISCARD bool blst_fp_from_hexascii(blst_fp* ret, const byte* hex);
 
 /** Adds two Montgomery-form Fp2 values and writes the sum to `ret`. */
 void blst_fp2_add(blst_fp2* ret, const blst_fp2* a, const blst_fp2* b);

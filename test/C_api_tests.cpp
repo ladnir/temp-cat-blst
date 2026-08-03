@@ -27,6 +27,10 @@
 #include "blst/avx/curve/map_to_G.h"
 #endif
 
+static_assert(std::is_same_v<blst::BLST_ERROR, ::BLST_ERROR>);
+static_assert(static_cast<int>(BLST_SUCCESS) == 0);
+static_assert(static_cast<int>(BLST_BAD_SCALAR) == 7);
+
 struct alignas(64) BlstAvxP1
 {
     unsigned char b[384];
@@ -72,7 +76,7 @@ void blst_fr_from_uint64(blst::Fr* ret, const unsigned long long a[4]);
 void blst_uint64_from_fr(unsigned long long ret[4], const blst::Fr* a);
 void blst_fr_from_scalar(blst::Fr* ret, const blst::pow256 a);
 void blst_scalar_from_fr(blst::pow256 ret, const blst::Fr* a);
-void blst_fr_from_hexascii(blst::Fr* ret, const char* hex);
+bool blst_fr_from_hexascii(blst::Fr* ret, const unsigned char* hex);
 
 void blst_fp_add(blst::Fp* ret, const blst::Fp* a, const blst::Fp* b);
 void blst_fp_lshift(blst::Fp* ret, const blst::Fp* a, size_t count);
@@ -88,7 +92,7 @@ void blst_uint64_from_fp(unsigned long long ret[6], const blst::Fp* a);
 void blst_fp_from_bendian(blst::Fp* ret, const unsigned char a[48]);
 void blst_bendian_from_fp(unsigned char ret[48], const blst::Fp* a);
 int blst_fp_is_square(const blst::Fp* a);
-void blst_fp_from_hexascii(blst::Fp* ret, const char* hex);
+bool blst_fp_from_hexascii(blst::Fp* ret, const unsigned char* hex);
 
 void blst_fp2_mul(blst::Fp2* ret, const blst::Fp2* a, const blst::Fp2* b);
 void blst_fp2_lshift(blst::Fp2* ret, const blst::Fp2* a, size_t count);
@@ -675,7 +679,10 @@ TEST(CApi, FrPrimitivesRoundTripAndInverse)
 
     blst_fr_from_uint64(&five, five_words);
     blst_fr_from_uint64(&one, one_words);
-    blst_fr_from_hexascii(&five_from_hex, "0000000000000000000000000000000000000000000000000000000000000005");
+    ASSERT_TRUE(blst_fr_from_hexascii(
+        &five_from_hex,
+        reinterpret_cast<const unsigned char *>(
+            "0000000000000000000000000000000000000000000000000000000000000005")));
 
     EXPECT_TRUE(BoundaryFr::equal(five, five_from_hex));
 
@@ -1144,7 +1151,10 @@ TEST(CApi, FpPrimitivesRoundTripInverseAndSqrt)
     BoundaryFp from_hex = {};
     blst_fp_from_uint64(&three, three_words);
     blst_fp_from_uint64(&one, one_words);
-    blst_fp_from_hexascii(&from_hex, "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003");
+    ASSERT_TRUE(blst_fp_from_hexascii(
+        &from_hex,
+        reinterpret_cast<const unsigned char *>(
+            "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003")));
     EXPECT_TRUE(BoundaryFp::equal(three, from_hex));
 
     unsigned char bendian[48] = {};

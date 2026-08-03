@@ -272,11 +272,7 @@ namespace blst
     typedef byte pow256[256 / 8];
 
 
-#ifdef __UINTPTR_TYPE__
-    typedef __UINTPTR_TYPE__ uptr_t;
-#else
-    typedef const void* uptr_t;
-#endif
+    typedef uintptr_t uptr_t;
 
 
     // Zero is the fail-closed Release result for an invalid zero divisor.

@@ -123,7 +123,7 @@ namespace blst::scalar
 
 		BLST_HD static Fr from_uint64(const u64 a);
 
-		BLST_HD static void from_hexascii(Fr& ret, const char* hex);
+		[[nodiscard]] BLST_HD static bool from_hexascii(Fr& ret, const char* hex);
 
 		// write v to out in hex. out must at least be 65 bytes. will be 0 terminated.
 		BLST_HD static void to_hexascii(char* out, const Fr& v);
@@ -386,10 +386,14 @@ namespace blst::scalar
 		return ret;
 	}
 
-	BLST_HD BLST_INLINE void Fr::from_hexascii(Fr& ret, const char* hex)
+	[[nodiscard]] BLST_HD BLST_INLINE bool Fr::from_hexascii(Fr& ret, const char* hex)
 	{
-		limbs_from_hexascii(ret.data, sizeof(Fr), hex);
-		Fr::to_mont(ret, ret);
+		Fr parsed = {};
+		if (!limbs_from_hexascii(parsed.data, sizeof(Fr), hex))
+			return false;
+		Fr::to_mont(parsed, parsed);
+		ret = parsed;
+		return true;
 	}
 
 

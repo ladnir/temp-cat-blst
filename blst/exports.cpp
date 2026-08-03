@@ -544,17 +544,30 @@ void blst_sha256(unsigned char md[32], const void *msg, size_t len)
 /*
  * Test facilitator.
  */
-void blst_scalar_from_hexascii(pow256 ret, const char *hex)
-{   bytes_from_hexascii(ret, sizeof(pow256), hex);   }
-
-void blst_fr_from_hexascii(Fr& ret, const char *hex)
+bool blst_scalar_from_hexascii(pow256 ret, const unsigned char *hex)
 {
-    Fr::from_hexascii(ret, hex);
+    return bytes_from_hexascii(ret, sizeof(pow256),
+                               reinterpret_cast<const char *>(hex));
 }
 
-void blst_fp_from_hexascii(Fp& ret, const char *hex)
+bool blst_fr_from_hexascii(Fr *ret, const unsigned char *hex)
 {
-    limbs_from_hexascii(ret.data, sizeof(Fp), hex);
-    Fp::mul(ret, ret, get_BLST_RR());
+    if (ret == nullptr)
+        return false;
+    return Fr::from_hexascii(*ret, reinterpret_cast<const char *>(hex));
+}
+
+bool blst_fp_from_hexascii(Fp *ret, const unsigned char *hex)
+{
+    if (ret == nullptr)
+        return false;
+
+    Fp parsed = {};
+    if (!limbs_from_hexascii(parsed.data, sizeof(Fp),
+                             reinterpret_cast<const char *>(hex)))
+        return false;
+    Fp::mul(parsed, parsed, get_BLST_RR());
+    *ret = parsed;
+    return true;
 }
 BLST_EXTERN_C_END_

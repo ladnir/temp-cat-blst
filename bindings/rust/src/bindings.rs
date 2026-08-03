@@ -1587,13 +1587,13 @@ extern "C" {
     );
 }
 extern "C" {
-    pub fn blst_scalar_from_hexascii(out: *mut blst_scalar, hex: *const byte);
+    pub fn blst_scalar_from_hexascii(out: *mut blst_scalar, hex: *const byte) -> bool;
 }
 extern "C" {
-    pub fn blst_fr_from_hexascii(ret: *mut blst_fr, hex: *const byte);
+    pub fn blst_fr_from_hexascii(ret: *mut blst_fr, hex: *const byte) -> bool;
 }
 extern "C" {
-    pub fn blst_fp_from_hexascii(ret: *mut blst_fp, hex: *const byte);
+    pub fn blst_fp_from_hexascii(ret: *mut blst_fp, hex: *const byte) -> bool;
 }
 extern "C" {
     pub fn blst_p1_sizeof() -> usize;

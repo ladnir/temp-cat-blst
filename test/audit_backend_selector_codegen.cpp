@@ -47,3 +47,13 @@ extern "C" blst::bool_t audit_vec_is_zero_32(const void* input)
 {
     return blst::vec_is_zero(input, 32);
 }
+
+extern "C" void audit_vec_copy_48(void* output, const void* input)
+{
+    blst::vec_copy(output, input, 48);
+}
+
+extern "C" void audit_vec_copy_self_48(void* value)
+{
+    blst::vec_copy(value, value, 48);
+}
