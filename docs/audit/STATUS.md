@@ -37,14 +37,16 @@ focused tests and references no x/ADX symbols. The no-assembly archive
 references no assembly primitives. All 18 optimized default-ADX production
 objects and the static archive are byte-identical before and after the fix.
 
-Phase 13 hand review has started at common configuration and representation
-boundaries. The opening packet records `AUD-042` through `AUD-047`: a high-
-severity C ABI exception escape in `blst_miller_loop_n`, empty FFT sizing UB,
-unsafe ceiling-division boundaries, an MSVC constant-time evidence gap, global
-warning suppression, and partially exposed 32-bit configuration. Remediation
-is ordered in `PHASE_13.md`; `config.h.in`, `defines.h`, the affected C API, and
-the FFT adapter remain pending until implementation and exact-commit review
-evidence are complete.
+The first Phase 13 hand-review packet is complete. `config.h.in` and
+`defines.h` are reviewed at exact commit `7719303ad809dd7a738421c721be8ebe91bf6ce5`.
+`AUD-042` through `AUD-049` are validated: the C multi-Miller boundary is
+allocation-free, scalar infinity handling is corrected, sizing and FFT-root
+edge cases are hardened, the MSVC/Clang/GCC value barriers have optimized
+code-generation evidence, broad warning suppression is gone, and configuration
+is explicitly 64-bit-only. The larger C API and FFT files remain pending their
+own full reviews. The retained-C-ABI inventory opened `AUD-050` because legacy
+`void` keygen still allocates an HKDF information buffer; it does not throw but
+must become allocation-free in a dedicated keygen packet.
 
 ## Main program phases
 

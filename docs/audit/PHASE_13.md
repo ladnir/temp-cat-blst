@@ -1,49 +1,113 @@
 # Phase 13 - Foundational Scalar Trust Chain
 
-## Scope and opening state
+## Scope and reviewed state
 
-Phase 13 begins the file-by-file hand audit with configuration and common
-representation policy. The first review packet covers `blst/config.h.in` and
-`blst/common/defines.h`. It also records dependent defects in the C ABI and FFT
-boundary without claiming complete reviews of those larger files.
+Phase 13 begins the file-by-file hand audit at the configuration and common
+representation boundary. This packet completes `blst/config.h.in` and
+`blst/common/defines.h` at exact reviewed commit
+`7719303ad809dd7a738421c721be8ebe91bf6ce5`. It remediates dependent defects in
+the C ABI and FFT boundary without claiming complete reviews of those larger
+files.
 
-The review baseline is commit
-`33914f23da23fced86ca51ce9917cf52b59bd96e`. The candidate review of
-`defines.h` reconstructed its type, compiler, constant-time, sizing, ABI, and
-performance contracts. `config.h.in` was inspected as the configuration input
-that fixes those contracts.
+The opening review baseline was
+`33914f23da23fced86ca51ce9917cf52b59bd96e`. Six planned findings were recorded
+as `AUD-042` through `AUD-047`. Required boundary tests exposed two additional
+correctness defects, `AUD-048` and `AUD-049`; both were fixed in the same
+responsible subsystem packet. The retained-C-ABI inventory also found the
+separate allocation-policy gap `AUD-050`, which remains open for a dedicated
+keygen review.
 
-## Opening findings
+## Remediation results
 
-- `AUD-042` (high): `blst_miller_loop_n` can throw across C/Rust FFI because
-  it allocates two vectors inside the C function.
-- `AUD-043` (medium): empty FFT root preparation can shift a 64-bit value by
-  64 after `log2ceil(0)`.
-- `AUD-044` (low): `ceil_div` can overflow and divide by zero.
-- `AUD-045` (medium evidence gap): the MSVC value barrier lacks optimized
-  object-code evidence.
-- `AUD-046` (low): compiler warning suppression leaks across translation
-  units.
-- `AUD-047` (low): unsupported 32-bit limb configuration remains partially
-  exposed.
+### C ABI exception safety
 
-The missing license/provenance header in `defines.h` is tracked as review
-remediation rather than as a separate finding.
+`blst_miller_loop_n` no longer constructs `std::vector` at the C boundary.
+Scalar-default builds statically require identical public and scalar affine
+representations and call the existing compact-pointer implementation directly.
+AVX-default builds convert at most 16 pairs at a time into fixed stack arrays,
+run the existing contiguous AVX implementation, and accumulate each batch in
+`PublicGt`. Output is published only after all batches complete.
 
-## Remediation order
+The required infinity regression found `AUD-048`: both scalar multi-pair
+implementations accumulated infinity terms for `n > 1`. They now skip those
+pairs while preserving the fixed batch structure. Explicit and compact arrays
+at sizes 1, 15, 16, 17, and 32, malformed heads, and infinity cases passed four
+focused C API tests. The exact Rust `miller_loop_n` wrapper test also passed.
+Function-level scalar and AVX wrapper disassembly contains no allocation call,
+conversion heap, runtime dispatch, or threading.
 
-1. Inventory the retained C ABI for every possible exception escape without
-   editing or building.
-2. Remove allocation from `blst_miller_loop_n` while preserving its public
-   signature and compact-pointer convention.
-3. Harden `log2ceil`, empty FFT root preparation, and `ceil_div` with explicit
-   Release results and Debug assertions.
-4. Inspect optimized MSVC, Clang, and GCC code for a focused value-barrier
-   probe. No barrier change is authorized without evidence and a separate
-   review if the current output is unsafe.
-5. Remove global warning suppression, restore provenance, and enforce the
-   64-bit-only configuration at CMake configure time.
-6. Reconcile the final exact-commit review records and manifest rows.
+A read-only inventory covered retained `extern "C"` definitions in `c_api.cpp`,
+`avx_c_api.cpp`, `fft_c_api.cpp`, `middle_product_c_api.cpp`, `exports.cpp`, and
+`aggregate.cpp`, plus their retained C/Rust consumers. BTx/BTE, CUDA,
+benchmarks, and unsupported bindings were excluded. No second C++ exception
+escape was found: FFT catches and translates invalid-domain/allocation failure
+to `false`, interpolation and middle-product boundaries return explicit status,
+and the remaining retained wrappers expose no source-level throwing allocation,
+`.at`, string construction, or callback.
+
+The inventory did identify `AUD-050`: legacy `void` keygen/EIP-2333 APIs still
+allocate an HKDF `info` buffer and clear the output key if allocation fails.
+That path does not throw and therefore is not part of `AUD-042`, but it violates
+the allocation-free legacy-void policy. It is intentionally left open for a
+keygen-specific change and vector packet.
+
+### Common helpers and FFT boundaries
+
+`log2ceil(0)` now asserts in Debug and returns zero in Release. Empty native
+root preparation throws its existing invalid-domain exception before sizing;
+the public C FFT boundary continues translating it to `false`. `ceil_div` now
+uses quotient/remainder arithmetic, asserts for a zero divisor in Debug, and
+returns the documented fail-closed zero result in Release. Supported callers
+were inventoried and either provide nonzero divisors or explicitly handle
+failure.
+
+The size-one root regression exposed `AUD-049`: generic and Fr-specialized
+primitive-root checks skipped their first unique prime factor and underflowed
+the loop bound for a factor list of size one. Both checks now traverse the full
+factor list with an ordinary zero-based bound. Focused Release and Debug helper
+and root tests passed; the Debug build exercises the two assertion contracts,
+and the C prepared-domain API rejects an empty domain.
+
+### Constant-time value-barrier evidence
+
+`test/audit_launder_codegen.cpp` provides noinline probes for conditional
+select, swap, conditional zero, secure zero, and a representative portable
+arithmetic mask. Optimized output was inspected for secret-dependent branches,
+addresses, calls, and variable spills. Secret operations were branchless and
+used fixed addresses on all three compilers. The only branch is the public
+length loop in secure zero; GCC's portable-mask alias checks depend only on
+public pointer relationships.
+
+| Toolchain and options | Evidence SHA-256 |
+| --- | --- |
+| MSVC 19.50.35728, `/O2 /Ob3 /DNDEBUG`, object | `71C049CF92E85E394F665A6C1E573791861799D1EA6ED5BE48BB3369D3003292` |
+| MSVC 19.50.35728, `/O2 /Ob3 /DNDEBUG`, assembly | `1BB80AB1865DDC7F7E7633A1FCE50F1C5FEC8B9A892C214D78C615738A22AB19` |
+| Clang 18.1.3, optimized assembly | `A998A1B52BE63722C5C40E747CE84F0FE884F23E093E5C39458CD7995B578D10` |
+| GCC 13.3, optimized assembly | `BB50BACD6F29AD1311F2F6F435329BB0A3C0C1ADFFF618F7892B0FC72127B5AE` |
+
+Artifacts remain local under ignored `out/audit/barrier/`. `BLST_launder` was
+not changed, so no benchmark was required.
+
+### Warning, provenance, and 64-bit configuration
+
+`defines.h` now carries the repository's Apache-2.0/SPDX header and explicitly
+states that it is locally composed with lineage from upstream BLST `src/vect.h`.
+Translation-unit-wide Intel, GCC `-Wpedantic`, and MSVC 4127/4189 suppressions
+were removed. The exposed diagnostics were fixed at their source: unsigned
+mask construction, a GNU statement-expression most-significant-bit helper, an
+Fp12 narrowing conversion, compiler-resistant byte clearing, FFT index-range
+validation, and an unused FFT parameter. No replacement suppression was added.
+
+The most-significant-bit helper remains forced-inline and the optimized strict
+objects contain no helper call. FFT retains `int` loop indices after one cold
+entry range check, so no hot-loop widening was introduced.
+
+`BLST_LIMB_SIZE` is now a CMake cache string whose only supported value is
+`64`; every other value fails configuration. `defines.h` independently rejects
+non-64-bit generated configuration and defines `limb_t` unconditionally as
+`uint64_t`. Two dormant 32-bit branches remain in `backend_portable.h` at the
+reviewed commit and are deferred to that file's Phase 13 review rather than
+mechanically deleting unaudited backend code.
 
 ## C ABI exception policy
 
@@ -54,18 +118,32 @@ status, `bool`, or null result and must not partially update caller output.
 Adding `noexcept` is not a substitute for proving this contract because an
 escaping exception would terminate the process.
 
-## Validation and resource policy
+## Focused validation
 
-Use the smallest directly affected build or test target for each remediation.
-Portable-AVX Release, broad sanitizer or fuzz sweeps, full C/C++/Rust suites,
-benchmarks, CUDA, and frozen BTx/BTE are excluded from this packet unless the
-user explicitly approves them. Compiler probes are compile-only and are run
-sequentially. Performance-sensitive changes require structural or generated-
-code evidence; no heap allocation, runtime dispatch, or threading may be added.
+All compiler work was run sequentially with one build job. No full suite,
+sanitizer sweep, portable-AVX Release build, benchmark, CUDA build, or BTx/BTE
+target was run.
 
-## Current status
+| Area | Focused result |
+| --- | --- |
+| C ABI Miller | Scalar `CApi.MillerLoopN*` 4/4; exact Rust wrapper 1/1; native-AVX Debug C API object compiled; scalar/native wrappers have no allocation calls |
+| Helpers and FFT | Release and portable-AVX Debug focused helper/root tests 2/2 each; empty prepared-domain C test 1/1 |
+| Warning policy | Standalone header and exact backend/C API/FFT C API objects passed MSVC `/W4 /WX`, Clang and GCC `-Wall -Wextra -Wpedantic -Werror` |
+| Limb configuration | Explicit `64` configuration succeeded; explicit `32` configuration failed with the CatBLST 64-bit-only diagnostic |
+| Constant time | MSVC, Clang, and GCC optimized probes inspected and hashed as above |
+| Audit process | `git diff --check` and `scripts/audit/check_audit_manifest.ps1` passed at closure |
 
-The findings and sequence are recorded. Implementation and final validation
-remain pending. Neither `config.h.in` nor `defines.h` is complete until its
-review record names the final exact commit and the manifest passes integrity
-checks.
+## Closure and residual work
+
+`AUD-042` through `AUD-049` are validated. `blst/config.h.in` and
+`blst/common/defines.h` have complete per-file review records at the same exact
+commit. The larger C API, scalar GT, FFT, and primitive-root files remain
+pending for their complete Phase 15, 17, or 18 reviews even though their linked
+findings are resolved.
+
+The next Phase 13 dependency is `blst/backend/backend_portable.h` followed by
+`backend_portable.cpp`. That review should remove or deliberately retain its
+two dormant 32-bit branches, map each constant-time primitive to the barrier
+probe evidence, and preserve current inlining and fixed-width arithmetic.
+`AUD-050` should be handled as a separate keygen packet before the public C ABI
+phase can close.
