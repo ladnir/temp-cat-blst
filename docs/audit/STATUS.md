@@ -109,6 +109,17 @@ selected public tests, standalone C/C++ probes, strict GCC/Clang syntax checks,
 100-output assembly verification, and MSVC optimized code inspection. No full
 test sweep, benchmark, sanitizer, CUDA, CI push, or Apple run was performed.
 
+The next Phase 14 wave completed full hand review of `Fp2.h`, `Fp12.h`, and
+`Fp12.cpp` at `f0a9d9e`. `AUD-079` through `AUD-087` are open. Five are high
+severity: extension-exponent boundary/alias defects, unchecked public Fp12
+Frobenius degrees, incorrect use of an order-r GLV identity for the full
+cyclotomic subgroup, an undeclared variable-time GT scalar API, and unchecked
+precomputed-schedule lengths. Fp2 C failure publication, GT decoding, an
+undefined native GLV declaration, and implementation/test hygiene form the
+remaining packet. No remediation has started pending review of the GT timing
+policy. Evidence is source/upstream/caller/test inspection plus strict
+compile-only MSVC and Clang diagnostics; no product build or broad run occurred.
+
 ## Main program phases
 
 | Phase | State | Exit criterion |

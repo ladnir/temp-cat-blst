@@ -97,6 +97,26 @@ low-level arithmetic and retained separate lifetime violations, while only
 three dedicated tests consumed it. Commit `a720184` removes that header and
 those tests; canonical native C++ field, curve, and protocol types remain.
 
+## Fp2/Fp12 hand-audit wave
+
+The complete scalar Fp2 and Fp12 source review at `f0a9d9e` opened
+`AUD-079` through `AUD-087`. The inherited tower arithmetic and selected
+widened multiplication structure remain suitable, but the supported surface
+is not ready to close. High-severity defects cover zero/alias exponent
+boundaries, unchecked public Frobenius degrees, conflation of the cyclotomic
+and order-r GT domains, undeclared variable-time GT scalar processing, and
+untrusted precomputed-schedule lengths. Medium findings cover Fp2 C square-root
+failure publication, noncanonical unchecked GT decoding, and an advertised
+but undefined native GLV operation. The cleanup finding covers reserved/dead
+implementation artifacts, warnings, provenance, and missing negative tests.
+
+No behavior was changed in this review packet. The GT timing policy requires
+an explicit design decision before remediation: safe constant-time default
+with a named public-scalar fast path, or an explicitly variable-time-only API
+plus a separate constant-time operation. Focused compiler probes only were
+run; no product build, broad test, sanitizer, benchmark, CUDA, CI, or Apple job
+was started.
+
 That strict all-header check also opened and fixed `AUD-075`: MSVC C rejected
 the AVX opaque-shell alignment when its `__declspec(align(...))` argument was
 spelled as an enum identifier. The fixed expert-ABI sizes and 64-byte alignment
