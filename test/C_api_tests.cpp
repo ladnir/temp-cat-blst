@@ -93,7 +93,7 @@ void blst_fp12_cyclotomic_sqr(blst::Fp12* ret, const blst::Fp12* a);
 void blst_fp12_mul_by_xy00z0(blst::Fp12* ret, const blst::Fp12* a, const blst::Fp6* xy00z0);
 void blst_fp12_conjugate(blst::Fp12* a);
 void blst_fp12_inverse(blst::Fp12* ret, const blst::Fp12* a);
-void blst_fp12_frobenius_map(blst::Fp12* ret, const blst::Fp12* a, size_t n);
+bool blst_fp12_frobenius_map(blst::Fp12* ret, const blst::Fp12* a, size_t n);
 bool blst_fp12_is_equal(const blst::Fp12* a, const blst::Fp12* b);
 bool blst_fp12_is_one(const blst::Fp12* a);
 bool blst_fp12_in_group(const blst::Fp12* a);
@@ -315,8 +315,8 @@ PublicG1Affine to_public(const BoundaryG1Affine& point)
 {
 #if BLST_DEFAULT_AVX
     return PublicG1Affine(
-        blst::avx::avx_curve_detail::scalar_fp_to_ring(point.X),
-        blst::avx::avx_curve_detail::scalar_fp_to_ring(point.Y));
+        blst::avx::avx_curve_detail::scalar_fp_to_ring(point.x),
+        blst::avx::avx_curve_detail::scalar_fp_to_ring(point.y));
 #else
     return point;
 #endif
@@ -326,8 +326,8 @@ PublicG2Affine to_public(const BoundaryG2Affine& point)
 {
 #if BLST_DEFAULT_AVX
     return PublicG2Affine(
-        blst::avx::avx_curve_detail::scalar_fp2_to_ring(point.X),
-        blst::avx::avx_curve_detail::scalar_fp2_to_ring(point.Y));
+        blst::avx::avx_curve_detail::scalar_fp2_to_ring(point.x),
+        blst::avx::avx_curve_detail::scalar_fp2_to_ring(point.y));
 #else
     return point;
 #endif
@@ -1848,6 +1848,44 @@ TEST(CApi, TargetGroupScalarMultiplicationMatchesPairingBilinearity)
     EXPECT_TRUE(blst_fp12_is_equal(&deterministic_product, &deterministic_expected));
 }
 
+TEST(CApi, GroupConstantTimeAndVariableTimeMultiplicationAgree)
+{
+    const std::array<size_t, 6> bit_lengths = {0, 1, 3, 128, 255, 256};
+    for (const size_t nbits : bit_lengths) {
+        std::array<unsigned char, 32> scalar = {};
+        for (size_t i = 0; i < scalar.size(); ++i) {
+            scalar[i] = static_cast<unsigned char>(0xa5U ^ static_cast<unsigned>(i * 29U));
+        }
+        if (nbits == 0) {
+            scalar.fill(0);
+        } else {
+            const size_t nbytes = (nbits + 7) / 8;
+            std::fill(scalar.begin() + static_cast<std::ptrdiff_t>(nbytes), scalar.end(), 0);
+            if ((nbits & 7U) != 0) {
+                scalar[nbytes - 1] &= static_cast<unsigned char>((1U << (nbits & 7U)) - 1U);
+            }
+        }
+
+        BoundaryG1 g1_ct = {};
+        BoundaryG1 g1_vartime = {};
+        blst_p1_mult(&g1_ct, blst_p1_generator(), scalar.data(), nbits);
+        blst_p1_mult_vartime(&g1_vartime, blst_p1_generator(), scalar.data(), nbits);
+        EXPECT_TRUE(blst_p1_is_equal(&g1_ct, &g1_vartime)) << "G1 nbits=" << nbits;
+
+        BoundaryG2 g2_ct = {};
+        BoundaryG2 g2_vartime = {};
+        blst_p2_mult(&g2_ct, blst_p2_generator(), scalar.data(), nbits);
+        blst_p2_mult_vartime(&g2_vartime, blst_p2_generator(), scalar.data(), nbits);
+        EXPECT_TRUE(blst_p2_is_equal(&g2_ct, &g2_vartime)) << "G2 nbits=" << nbits;
+
+        BoundaryGt gt_ct = {};
+        BoundaryGt gt_vartime = {};
+        blst_gt_mult(&gt_ct, blst_gt_generator(), scalar.data(), nbits);
+        blst_gt_mult_vartime(&gt_vartime, blst_gt_generator(), scalar.data(), nbits);
+        EXPECT_TRUE(blst_gt_is_equal(&gt_ct, &gt_vartime)) << "GT nbits=" << nbits;
+    }
+}
+
 TEST(CApi, MillerLoopNMatchesNaiveProduct)
 {
     std::array<BoundaryG1, 3> ps = {p1_mul(3), p1_mul(5), p1_mul(7)};
@@ -2054,7 +2092,7 @@ TEST(CApi, Fp12UtilityWrappersMatchScalarBackend)
     blst_fp12_sqr(&sqr, &a);
     blst_fp12_cyclotomic_sqr(&cyclo, &a);
     blst_fp12_inverse(&inverse, &a);
-    blst_fp12_frobenius_map(&frob, &a, 2);
+    EXPECT_TRUE(blst_fp12_frobenius_map(&frob, &a, 2));
     blst_fp12_conjugate(&conjugated);
 
     BoundaryGt expected_mul = {};
@@ -2092,6 +2130,12 @@ TEST(CApi, Fp12UtilityWrappersMatchScalarBackend)
     EXPECT_TRUE(BoundaryGt::equal(frob, expected_frob));
     EXPECT_TRUE(BoundaryGt::equal(conjugated, expected_conjugated));
     EXPECT_TRUE(BoundaryGt::equal(xy_mul, expected_xy_mul));
+
+    BoundaryGt rejected = expected_mul;
+    EXPECT_FALSE(blst_fp12_frobenius_map(&rejected, &a, 0));
+    EXPECT_TRUE(BoundaryGt::equal(rejected, expected_mul));
+    EXPECT_FALSE(blst_fp12_frobenius_map(&rejected, &a, 4));
+    EXPECT_TRUE(BoundaryGt::equal(rejected, expected_mul));
 }
 
 TEST(CApi, MappingAndUncheckedWrappersMatchScalarBackend)

@@ -139,6 +139,21 @@ gtest_discover_tests(blst_tests
   # PROPERTIES LABELS "unit"
 )
 
+add_executable(blst_group_scalar_mult_tests
+    "Group_scalar_mult_tests.cpp"
+)
+target_link_libraries(blst_group_scalar_mult_tests PRIVATE
+    gtest_main
+    blst_static
+    blst_avx_headers
+)
+gtest_discover_tests(blst_group_scalar_mult_tests
+    DISCOVERY_TIMEOUT 60
+    DISCOVERY_MODE PRE_TEST
+    TEST_PREFIX "group-scalar-mult."
+    PROPERTIES LABELS "group-scalar-mult"
+)
+
 if(BLST_ASAN OR BLST_UBSAN)
     # Keep the focused sanitizer change loop independent of the broad test
     # executable and the frozen BTx/BTE subsystem.

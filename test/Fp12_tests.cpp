@@ -225,48 +225,6 @@ TEST(Fp12Test, Inversion) {
 		<< "1/1 should equal 1";
 }
 
-//TEST(Fp12Test, FrobeniusMap) {
-//    Fp12 a, frob1, frob2;
-//
-//    // Initialize with a non-trivial value
-//    const Fp12* one_ptr = Fp12::one();
-//    vec_copy(a, one_ptr, sizeof(a));
-//    a[0][0][1][0] = 2;
-//    a[0][1][0][0] = 3;
-//    a[1][2][1][0] = 4;
-//
-//    // Apply Frobenius once
-//    vec_copy(frob1, a, sizeof(Fp12));
-//    blst_fp12_frobenius_map(frob1, a, 1);
-//
-//    // Apply Frobenius twice
-//    vec_copy(frob2, a, sizeof(Fp12));
-//    blst_fp12_frobenius_map(frob2, a, 2);
-//
-//    // Verify basic property: Frobenius^12 is the identity on Fp12
-//    Fp12 frob12;
-//    vec_copy(frob12, a, sizeof(Fp12));
-//
-//    // Apply Frobenius 12 times (or use the direct power-12 operation if available)
-//    blst_fp12_frobenius_map(frob12, frob12, 6);
-//    blst_fp12_frobenius_map(frob12, frob12, 6);
-//
-//    // Result should equal original a
-//    EXPECT_TRUE(vec_is_equal(frob12, a, sizeof(Fp12)))
-//        << "Frobenius^12 should be identity on Fp12";
-//
-//    // Verify Frobenius^6 is the conjugation
-//    Fp12 frob6, conj;
-//    vec_copy(frob6, a, sizeof(Fp12));
-//    blst_fp12_frobenius_map(frob6, a, 6);
-//
-//    vec_copy(conj, a, sizeof(Fp12));
-//    Fp12::conjugate(conj);
-//
-//    EXPECT_TRUE(vec_is_equal(frob6, conj, sizeof(Fp12)))
-//        << "Frobenius^6 should equal conjugation";
-//}
-
 TEST(Fp12Test, Equality) {
 	Fp12 a, b;
 
@@ -304,25 +262,30 @@ TEST(Fp12Test, Serialization) {
 	// Serialize to bytes
 	Fp12::to_bendian(serialized, a);
 
-	// Create a different value for b
-	vec_copy(&b, &one_ptr, sizeof(b));
-	b[0][0][0][0] = 42; // Make it different from a
+	Fp12::from_bendian(b, serialized);
+	EXPECT_TRUE(Fp12::equal(a, b));
+}
 
-	// Deserialize back to b
-	// Note: There's no direct deserialize function in the provided context
-	// In a real implementation, you would use the library's deserialization function
-	// Here we'll assume serialization/deserialization works and just test the setup
+TEST(Fp12Test, CyclotomicExpBasicZeroAndExactAlias) {
+	Fp12 seed = Fp12::one();
+	seed[0][0][1][0] = 2;
+	seed[0][1][0][0] = 3;
+	seed[1][2][1][0] = 4;
 
-	// Instead, let's verify properties of the serialized data
-	bool has_nonzero = false;
-	for (size_t i = 0; i < sizeof(serialized); i++) {
-		if (serialized[i] != 0) {
-			has_nonzero = true;
-			break;
-		}
-	}
-	EXPECT_TRUE(has_nonzero) << "Serialized data should have non-zero bytes";
+	Fp12 base;
+	Fp12::final_exp(base, seed);
 
+	Fp12 zero_result = {};
+	Fp12::cyclotomic_exp_basic(zero_result, base, nullptr, 0);
+	EXPECT_TRUE(Fp12::is_one(zero_result));
+
+	const byte exponent[] = { 3 };
+	Fp12 expected;
+	Fp12::cyclotomic_exp_basic(expected, base, exponent, 2);
+
+	Fp12 in_place = base;
+	Fp12::cyclotomic_exp_basic(in_place, in_place, exponent, 2);
+	EXPECT_TRUE(Fp12::equal(expected, in_place));
 }
 
 
@@ -832,8 +795,6 @@ TEST(Fp12Test, GtPhi2BarrettSplitMatchesSlowDivRem)
 
 
 
-// ... existing tests ...
-
 TEST(Fp12Test, CyclotomicExpGLV2)
 {
 	// 1. Setup a valid cyclotomic element 'g'
@@ -931,7 +892,6 @@ TEST(Fp12Test, CyclotomicExpGLV2_jsf) {
 
 		// Step B: Exponentiate
 		Fp12 res_opt;
-		// Assuming cyclotomic_exp_glv_opt is exposed similarly
 		Fp12::cyclotomic_exp_glv_jsf(res_opt, base, jsf);
 
 		// 3. Execute Reference Implementation
@@ -1117,6 +1077,52 @@ TEST(Fp12Test, CyclotomicExpGLV4_EdgeCases) {
 
 		EXPECT_TRUE(vec_is_equal(&res_ref, &res_glv, sizeof(Fp12)))
 			<< "GLV4 Edge Case Failed: " << sc.name;
+	}
+}
+
+TEST(Fp12Test, CyclotomicExpGLV4AcceptsFullWidthScalars) {
+	const limb_t* order = get_BLST_r().l;
+	limb_t twice_order[4];
+	limb_t carry = 0;
+	for (size_t i = 0; i < 4; ++i) {
+		const limb_t next = order[i] + order[i] + carry;
+		carry = (next < order[i]) || (carry != 0 && next == order[i]);
+		twice_order[i] = next;
+	}
+	ASSERT_EQ(carry, 0U);
+
+	limb_t order_plus_one[4];
+	limb_t twice_order_minus_one[4];
+	vec_copy(order_plus_one, order, sizeof(order_plus_one));
+	vec_copy(twice_order_minus_one, twice_order, sizeof(twice_order_minus_one));
+	++order_plus_one[0];
+	--twice_order_minus_one[0];
+
+	const limb_t scalars[][4] = {
+		{ order[0], order[1], order[2], order[3] },
+		{ order_plus_one[0], order_plus_one[1], order_plus_one[2], order_plus_one[3] },
+		{ twice_order_minus_one[0], twice_order_minus_one[1],
+			twice_order_minus_one[2], twice_order_minus_one[3] },
+		{ twice_order[0], twice_order[1], twice_order[2], twice_order[3] },
+		{ UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX },
+	};
+	const char* names[] = { "r", "r + 1", "2r - 1", "2r", "2^256 - 1" };
+
+	Fp12 seed = Fp12::one();
+	seed[0][0][1][0] = 5;
+	Fp12 base;
+	Fp12::final_exp(base, seed);
+
+	for (size_t i = 0; i < sizeof(scalars) / sizeof(scalars[0]); ++i) {
+		byte scalar_bytes[32];
+		le_bytes_from_limbs_256(scalar_bytes, scalars[i]);
+
+		Fp12 expected;
+		Fp12::cyclotomic_exp_basic(expected, base, scalar_bytes, 256);
+
+		Fp12 actual;
+		Fp12::cyclotomic_exp_glv4(actual, base, scalars[i]);
+		EXPECT_TRUE(Fp12::equal(expected, actual)) << names[i];
 	}
 }
 

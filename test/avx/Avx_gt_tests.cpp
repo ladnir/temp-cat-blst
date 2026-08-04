@@ -4,6 +4,7 @@
 #include "blst/scalar/curve/point.h"
 #include "blst/avx/curve/GT.h"
 
+#include <array>
 #include <cstring>
 
 namespace {
@@ -135,4 +136,53 @@ TEST(AvxGt, MultByZDivBy2MatchesScalar)
     blst::avx::GT::mult_by_z_div_by_2(avx_out, avx_base);
 
     expect_same_after_bound_sensitive_ops(scalar_out, avx_out);
+}
+
+TEST(AvxGt, FullWidthScalarsMatchScalarBasicExponentiation)
+{
+    const uint64_t* order = blst::get_BLST_r().l;
+    std::array<uint64_t, 4> twice_order = {};
+    uint64_t carry = 0;
+    for (size_t i = 0; i < twice_order.size(); ++i) {
+        const uint64_t doubled = order[i] + order[i];
+        const uint64_t next = doubled + carry;
+        carry = (doubled < order[i]) | (next < doubled);
+        twice_order[i] = next;
+    }
+    ASSERT_EQ(carry, 0U);
+
+    const std::array<uint64_t, 4> order_value = {
+        order[0], order[1], order[2], order[3]
+    };
+    std::array<uint64_t, 4> order_plus_one = order_value;
+    std::array<uint64_t, 4> twice_order_minus_one = twice_order;
+    ++order_plus_one[0];
+    --twice_order_minus_one[0];
+
+    const std::array<std::array<uint64_t, 4>, 5> scalars = {{
+        order_value,
+        order_plus_one,
+        twice_order_minus_one,
+        twice_order,
+        {UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX},
+    }};
+    const std::array<const char*, 5> names = {
+        "r", "r + 1", "2r - 1", "2r", "2^256 - 1"
+    };
+
+    const blst::scalar::GT scalar_base = scalar_gt_base();
+    const blst::avx::GT avx_base = avx_from_scalar(scalar_base);
+    for (size_t i = 0; i < scalars.size(); ++i) {
+        SCOPED_TRACE(names[i]);
+        unsigned char scalar_bytes[32] = {};
+        std::memcpy(scalar_bytes, scalars[i].data(), sizeof(scalar_bytes));
+
+        blst::scalar::GT expected = {};
+        blst::scalar::Fp12::cyclotomic_exp_basic(
+            expected.data, scalar_base.data, scalar_bytes, 256);
+
+        blst::avx::GT actual = {};
+        blst::avx::GT::mult(actual, avx_base, scalar_bytes, 256);
+        expect_same(expected, actual);
+    }
 }

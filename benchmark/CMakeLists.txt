@@ -121,6 +121,19 @@ target_include_directories(blst_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_include_directories(blst_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
 target_link_libraries(blst_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers bte)
 
+add_executable(group_scalar_mult_benchmarks
+    "main.cpp"
+    "Group_scalar_mult_bench.cpp"
+)
+target_include_directories(group_scalar_mult_benchmarks PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/..
+)
+target_link_libraries(group_scalar_mult_benchmarks PRIVATE
+    benchmark::benchmark
+    blst_static
+    blst_avx_headers
+)
+
 if(BLST_HAVE_AVX_VALIDATION_GMP)
     add_executable(avx_group_ops_benchmarks
         "main.cpp"

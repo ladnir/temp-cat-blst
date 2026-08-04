@@ -308,6 +308,16 @@ TEST(Fp2Test, Serialization) {
         << "Deserialized value should equal original";
 }
 
+TEST(Fp2Test, ZeroBitExponentIsOne) {
+    Fp2 input = Fp2::one();
+    Fp::mul_by_3(input[1], input[0]);
+
+    Fp2 output = {};
+    Fp2::exp(output, input, nullptr, 0);
+
+    EXPECT_TRUE(vec_is_equal(&output, &Fp2::one(), sizeof(output)));
+}
+
 TEST(Fp2Test, ZeroBitLShiftIsIdentity) {
     Fp2 value = Fp2::one(), result;
     Fp::mul_by_3(value[1], value[0]);
