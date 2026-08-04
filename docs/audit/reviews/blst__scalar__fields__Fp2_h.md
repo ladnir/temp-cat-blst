@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/scalar/fields/Fp2.h` |
 | Roadmap phase / queue | Phase 14 scalar extension fields, after Fp representation/lifetime remediation |
-| Reviewed commit | `f0a9d9e0c5e04c5e17e549554469baae94bf67ad` |
+| Reviewed commit | `0ee24de0da80b256979832ea872272f635599853` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-03 |
 | Disposition | in-scope production |
@@ -157,6 +157,14 @@ their generator reviews; experimental CUDA is not a release gate.
 
 ## Residual risk and decision
 
-The file remains in review. Complete status requires the exponent and C
-failure-publication fixes, focused negative tests, independent arithmetic
-oracle coverage, sanitizers, and retained Rust/Apple evidence.
+### Post-review remediation
+
+`AUD-079` is fixed: zero exponent bits return one without reading the exponent,
+nonzero inputs retain the declared-top-bit Debug assertion, and reverse
+iteration is width-safe. `AUD-084` is accepted with an explicit C contract:
+failed square-root output is unspecified, must be ignored, and exact aliasing
+may overwrite the input. The unused generic macro from `AUD-087` was removed.
+The focused zero-bit regression and strict MSVC test-unit compilation pass.
+
+The file remains in review for independent arithmetic-oracle coverage,
+sanitizers, and retained Rust/Apple evidence.

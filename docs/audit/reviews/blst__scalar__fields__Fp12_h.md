@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/scalar/fields/Fp12.h` |
 | Roadmap phase / queue | Phase 14 scalar extension fields |
-| Reviewed commit | `f0a9d9e0c5e04c5e17e549554469baae94bf67ad` |
+| Reviewed commit | `0ee24de0da80b256979832ea872272f635599853` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-03 |
 | Disposition | in-scope production |
@@ -56,13 +56,14 @@ Only fixed internal indices are used. No external length or pointer enters.
 
 ### 3. Upstream and specification lineage
 
-The Fp4 scratch layout matches pinned upstream; provenance text is missing.
+The Fp4 scratch layout matches pinned upstream. Apache/SPDX provenance is now
+present.
 
 ### 4. Correctness
 
 The aggregate layouts and accessors are structurally correct and compile
-against every out-of-line definition. Mathematical-domain and missing-symbol
-issues remain open as `AUD-081` and `AUD-086`.
+against every out-of-line definition. The GT scalar domain is now explicit and
+the obsolete missing GLV declaration has been removed.
 
 ### 5. Memory and lifetime safety
 
@@ -77,9 +78,9 @@ array and is only called with compile-time-valid indices.
 
 ### 7. Side channels and cryptographic hygiene
 
-The declarations distinguish general, cyclotomic, and GLV operations, but the
-current implementation does not satisfy all stated domain/timing contracts;
-see `AUD-081` and `AUD-082`.
+The declarations distinguish general, GT-specific, constant-time, and
+explicitly variable-time GLV operations. `AUD-082` is resolved by the safe
+unsuffixed default and named public-scalar fast path.
 
 ### 8. Randomness and secret lifecycle
 
@@ -96,8 +97,9 @@ N/A: no state.
 
 ### 11. Resource exhaustion and denial of service
 
-All represented objects and schedules have fixed storage. Untrusted schedule
-length validation remains required by `AUD-083`.
+All represented objects and schedules have fixed storage. Schedule executors
+have an accepted low-level precondition that their input is unmodified compiler
+output (`AUD-083`).
 
 ### 12. Portability and build behavior
 
@@ -119,7 +121,7 @@ N/A.
 
 ## Findings
 
-`AUD-081`, `AUD-082`, `AUD-083`, `AUD-086`, and `AUD-087`.
+`AUD-081`, `AUD-082`, `AUD-083`, `AUD-086`, `AUD-087`, and `AUD-088`.
 
 ## Validation
 
@@ -137,6 +139,15 @@ Repository-wide reference search and strict host parsing through `Fp12.cpp`.
 
 ## Residual risk and decision
 
-The file remains in review pending the GT domain/timing decision, schedule
-validation, missing-API resolution, provenance/hygiene cleanup, and a decision
-whether the Fp4 scratch type should remain re-exported by the selected header.
+### Post-review remediation
+
+The header now identifies `cyclotomic_exp` and all GLV operations as GT-only,
+describes schedules as variable-time trusted bytecode, restores Apache/SPDX
+provenance, and removes the obsolete undefined `glv_split_4` duplicate. These
+changes resolve the header portions of `AUD-083`, `AUD-086`, and `AUD-087`.
+
+Full-width GT scalar behavior is now explicit and covered by focused comparison
+against basic exponentiation. The GT timing decision is implemented, selected,
+and benchmarked under `AUD-082`/`AUD-088`. The file remains in review pending a
+decision whether the Fp4 scratch type should remain re-exported by the selected
+header.

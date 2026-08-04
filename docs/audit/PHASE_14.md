@@ -116,6 +116,97 @@ plus a separate constant-time operation. Focused compiler probes only were
 run; no product build, broad test, sanitizer, benchmark, CUDA, CI, or Apple job
 was started.
 
+The first remediation packet subsequently fixed `AUD-079`, accepted and
+documented the trusted-schedule and failed-Fp2-sqrt-output contracts in
+`AUD-083`/`AUD-084`, removed the obsolete `glv_split_4` declaration for
+`AUD-086`, and completed the `AUD-087` cleanup. Caller inventory narrowed the
+historical `cyclotomic_exp` contract to GT. Follow-up work fixed `AUD-080` by
+making the existing C/Rust Frobenius boundary reject powers outside 1-3 without
+touching output; the direct internal primitive remains limited to the only
+powers actually used. `AUD-081` is fixed: focused comparison at r, r+1, 2r-1,
+2r, and 2^256-1 proves the GLV decomposition accepts the full 256-bit scalar
+domain modulo the GT order, so the false Debug-only reduced-scalar assertion
+was removed. The exact final quotient bound is two and is now asserted in both
+scalar and native AVX splitters; the same five cases pass on Peach under native
+AVX-512/IFMA. `AUD-085` now explicitly requires both checked `deserialize` and
+`deserialize_unchecked` for protocols that defer one group check across an
+aggregate. The next section records the subsequent `AUD-082`/`AUD-088`
+constant-time remediation and performance experiment. Validation of the
+earlier field packet was limited to directly affected objects and focused
+tests, strict MSVC syntax, and optimized code inspection; no benchmark,
+sanitizer, CUDA, portable-AVX Release, or broad suite ran in that packet.
+
+## Primary 256-bit group multiplication
+
+Commits `0ee24de` and `5bebdc0` validate `AUD-088` and `AUD-089`. The public
+contracts are now distinct across C, native C++, and Rust:
+
+- `mult` is constant-time with respect to scalar contents for a fixed public
+  `nbits` and requires an already validated on-curve subgroup point;
+- `mult_vartime` has the same point precondition and is restricted to public
+  scalars;
+- `unchecked_mult` is a generic constant-time operation for any on-curve point
+  and never invokes subgroup endomorphisms.
+
+Release builds deliberately do not validate those point preconditions. Debug
+builds assert the bit-count, scalar-pointer, curve, subgroup, and GT-membership
+invariants. Pippenger's one-point fallback uses `unchecked_mult`, while FFT,
+middle product, signing, and validated aggregation use the subgroup operations.
+Checked scalars are masked to at most 256 little-endian bits and reduced modulo
+r by exactly two branchless conditional subtractions; the complete input range
+is below 3r. Secret-derived scalar copies are explicitly wiped.
+
+Scalar checked multiplication restores the established constant-time GLV
+crossover at 176 bits for G1 and GLS crossover at 144 bits for G2. Smaller
+inputs, including the secondary 128-bit path, retain generic fixed-window
+multiplication. AVX checked multiplication canonicalizes before its inherited
+fixed-schedule decomposition. Unchecked multiplication always uses the generic
+fixed-window path.
+
+Sequential Peach candidate measurements used several deterministic dense
+canonical 256-bit scalars and one benchmark process at a time. Scalar G1 and
+G2 selected odd-table wNAF-5 over Booth width five by 6.62% and 12.20%
+geometric-mean improvements. Native AVX G1 selected wNAF-5 by 6.08%; native
+AVX G2 selected the simpler wNAF-4 path because it improved over Booth width
+five by 11.71%, while wNAF-5 beat wNAF-4 by only 2.78% and did not satisfy the
+3% complexity threshold. Constant-time scalar and AVX G1/G2 retained their
+established width-five kernels because no candidate met the 3%/2% selection
+rule. All losing forced candidates were removed.
+
+GT constant-time multiplication retains four joint components, a final
+16-entry owning table, 64 cyclotomic squarings, and a full constant-time table
+scan. Its splitter now performs fixed-time reduction modulo r followed by one
+`div_by_zz` and two `div_by_z` operations. The four unsigned radix-z digits use
+conjugated odd Frobenius bases because the GT eigenvalue is -z. Debug builds
+assert the canonical bound, r < z^4, each digit below z, and exact
+recomposition. The unsigned splitter improved scalar variable-time GT by only
+about 1.1%, so scalar retains the simpler balanced splitter; native AVX gained
+about 7% and uses the unsigned splitter for its variable-time path.
+
+Final sequential 256-bit production means, in microseconds, were:
+
+| Backend | G1 CT / VT | G2 CT / VT | GT CT / VT |
+| --- | ---: | ---: | ---: |
+| scalar | 68.01 / 60.17 | 133.79 / 111.81 | 387.71 / 156.79 |
+| native AVX-512/IFMA | 32.22 / 29.53 | 63.91 / 50.60 | 71.39 / 55.41 |
+
+The final seven-test target passes under local scalar Release, local
+portable-AVX Debug, and Peach native AVX-512/IFMA Release. It covers 0, 1,
+r-1, r, r+1, 2r-1, 2r, and 2^256-1; exact output aliasing; infinity and GT
+identity; ignored bits above non-byte-aligned lengths; scalar/AVX agreement;
+and on-curve non-subgroup fixtures generated without cofactor clearing.
+Checked Debug calls reject the latter while unchecked multiplication matches
+an independent bitwise reference. The focused Rust CT/VT method test passes.
+
+GCC 15.2 optimized native inspection finds no AVX gathers, allocation
+references, or out-of-line `_vv256`/`_vv512` wrappers in `blst_gt_mult`.
+The two stack-probe pages plus final 0x700-byte subtraction record a 0x2700
+(9,984-byte) native GT frame, well below the previous 54,144-byte acceptance
+cap. Source and optimized inspection show fixed decomposition, table-scan, and
+executor loop bounds; statistical leakage testing remains a future evidence
+upgrade. No full suite, sanitizer, CUDA, BTx/BTE, Apple CI, or portable-AVX
+Release job ran for this packet.
+
 That strict all-header check also opened and fixed `AUD-075`: MSVC C rejected
 the AVX opaque-shell alignment when its `__declspec(align(...))` argument was
 spelled as an enum identifier. The fixed expert-ABI sizes and 64-byte alignment

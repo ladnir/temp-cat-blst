@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/scalar/fields/Fp12.cpp` |
 | Roadmap phase / queue | Phase 14 scalar extension fields and GT boundary |
-| Reviewed commit | `f0a9d9e0c5e04c5e17e549554469baae94bf67ad` |
+| Reviewed commit | `0ee24de0da80b256979832ea872272f635599853` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-03 |
 | Disposition | in-scope production |
@@ -62,7 +62,7 @@ CatBLST design decisions.
 
 ### 1. Identity and purpose
 
-All 1,911 lines, declarations, direct supported callers, tests, and local
+All 1,990 lines, declarations, direct supported callers, tests, and local
 history were inspected at the recorded commit.
 
 ### 2. Contracts and invariants
@@ -100,22 +100,24 @@ are listed in `AUD-087`; exact signed-component bounds need regression evidence.
 
 ### 7. Side channels and cryptographic hygiene
 
-Tower arithmetic has fixed structure. Euclidean inversion and every current
-general/GLV exponent path are variable-time in their exponent/scalar. Public
-GT documentation neither classifies the scalar as public nor names the
-operation variable-time, while schedule comments claim constant time.
+Tower arithmetic has fixed structure. Euclidean inversion remains
+variable-time. GT exponentiation now has a fixed-schedule safe default and an
+explicitly named variable-time GLV schedule for public scalars. Optimized
+code-generation inspection and focused differential tests are recorded under
+`AUD-082`/`AUD-088`.
 
 ### 8. Randomness and secret lifecycle
 
-N/A: no entropy. Scalar-derived schedules and stack digits are not wiped because
-the current implementation treats them as public; that decision depends on
-resolving `AUD-082`.
+N/A: no entropy. The variable-time path requires public scalars. The
+constant-time path wipes its scalar decomposition and magnitude temporaries
+after use.
 
 ### 9. API and ABI
 
 C wrappers use exact public representations and have no allocation/exception
-path. `blst_fp12_frobenius_map` exposes the unsafe degree directly. Native C++
-adds schedule and deserialize APIs with incomplete safety contracts. Future
+path. `blst_fp12_frobenius_map` checks its deliberately narrow 1-3 degree
+domain before calling the native primitive. Native C++ adds schedule and
+deserialize APIs with incomplete safety contracts. Future
 symbol-prefix configuration does not affect the internal hot-path design.
 
 ### 10. Concurrency
@@ -145,10 +147,10 @@ GLV selection where approved.
 
 ### 14. Tests and evidence
 
-Current tests cover inherited arithmetic and many reduced-scalar GT/GLV cases.
-They do not cover arbitrary cyclotomic non-GT bases, malformed schedules,
-unreduced Debug GT scalars, Frobenius boundary degrees, genuine serialization
-round trips, noncanonical input, or non-256-bit native in-place GT exponentiation.
+Current tests cover inherited arithmetic, Frobenius boundary degrees, and both
+reduced and full-width GT/GLV scalars. They do not cover arbitrary cyclotomic
+non-GT bases, malformed schedules, noncanonical input, or non-256-bit native
+in-place GT exponentiation.
 
 ### Specialized additions
 
@@ -159,7 +161,7 @@ a release gate.
 ## Findings
 
 `AUD-079`, `AUD-080`, `AUD-081`, `AUD-082`, `AUD-083`, `AUD-085`, `AUD-086`,
-`AUD-087`.
+`AUD-087`, `AUD-088`.
 
 ## Validation
 
@@ -184,7 +186,43 @@ a release gate.
 
 ## Residual risk and decision
 
+### Post-review remediation
+
+The following decisions supersede the open-state descriptions above:
+
+- `AUD-079` is fixed. Zero-bit exponentiation returns one, reverse iteration is
+  `size_t`-safe, and exact Fp12 aliasing uses a non-inlined preservation helper.
+  Optimized MSVC leaves the normal path with a 40-byte frame and no base copy.
+- `AUD-080` is fixed with a checked C/Rust boundary that returns `false` and
+  preserves output outside powers 1-3. The internal primitive keeps its direct
+  fixed-table structure and explicit precondition.
+- `AUD-081` documents the historically named `cyclotomic_exp` operation as
+  GT-specific. The GLV implementation accepts the complete 256-bit unsigned
+  scalar domain modulo the GT order; direct basic-exponent comparisons pass at
+  r, r+1, 2r-1, 2r, and 2^256-1 in scalar and native AVX-512/IFMA execution.
+  Both splitters assert the exact final quotient bound of two in Debug.
+- `AUD-082`/`AUD-088` make unsuffixed GT multiplication fixed-schedule and
+  retain an explicit optimized `mult_vartime`. CT uses four unsigned radix-z
+  digits, conjugated odd Frobenius bases, a final 16-entry owning table, and a
+  fixed 64-round full-scan executor. Scalar, portable-AVX, native AVX, and Rust
+  differential checks pass. GCC 15.2 optimized inspection finds no gathers,
+  allocation references, or out-of-line selected-vector wrappers; the native
+  GT frame is 9,984 bytes. Sequential Peach measurements and the scalar/AVX
+  variable-time splitter decisions are recorded in `PHASE_14.md`.
+- `AUD-083` is accepted as a low-level precondition: schedules are mutable,
+  variable-time trusted bytecode, and only unmodified compiler output is valid.
+- `AUD-085` remains a required two-mode design: checked `deserialize` plus
+  explicit `deserialize_unchecked` for deferred aggregate group checking.
+- `AUD-086` is fixed by removing the obsolete undefined duplicate declaration.
+- `AUD-087` is fixed: provenance, macro names/leakage, inactive branches,
+  commented code, placeholder tests/comments, and local warnings were cleaned.
+
+Focused MSVC validation passes zero-bit Fp2/Fp12 exponentiation, exact Fp12
+aliasing, and raw Fp12 serialization round trip. `cl /W4 /WX /Zs` passes this
+implementation and both affected test units. The later timing packet ran only
+its dedicated group test and benchmark targets; no broad suite ran.
+
 The file remains in review and is not production-ready as a complete supported
-surface. The arithmetic core can be retained, but the GT timing policy must be
-decided and all open correctness, bounds, serialization, API, test, warning,
-and provenance findings must be remediated before completion.
+surface. The timing decision is resolved by constant-time default and named
+variable-time GT multiplication (`AUD-082`/`AUD-088`). Checked versus deferred
+deserialization (`AUD-085`) remains the material unresolved design item.

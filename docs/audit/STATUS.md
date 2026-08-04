@@ -110,15 +110,30 @@ selected public tests, standalone C/C++ probes, strict GCC/Clang syntax checks,
 test sweep, benchmark, sanitizer, CUDA, CI push, or Apple run was performed.
 
 The next Phase 14 wave completed full hand review of `Fp2.h`, `Fp12.h`, and
-`Fp12.cpp` at `f0a9d9e`. `AUD-079` through `AUD-087` are open. Five are high
-severity: extension-exponent boundary/alias defects, unchecked public Fp12
-Frobenius degrees, incorrect use of an order-r GLV identity for the full
-cyclotomic subgroup, an undeclared variable-time GT scalar API, and unchecked
-precomputed-schedule lengths. Fp2 C failure publication, GT decoding, an
-undefined native GLV declaration, and implementation/test hygiene form the
-remaining packet. No remediation has started pending review of the GT timing
-policy. Evidence is source/upstream/caller/test inspection plus strict
-compile-only MSVC and Clang diagnostics; no product build or broad run occurred.
+`Fp12.cpp` at `f0a9d9e`. Commit `0ee24de` fixes `AUD-079` through `AUD-082`,
+`AUD-086`, `AUD-087`, and the cross-cutting `AUD-088`/`AUD-089`; it accepts and
+documents the trusted-schedule and Fp2 failed-output contracts in
+`AUD-083`/`AUD-084`. `AUD-085` remains a deliberate design backlog item for
+checked versus explicitly unchecked GT deserialization.
+
+The primary 256-bit group packet restores distinct checked and unchecked point
+contracts, canonicalizes checked scalars without allocation, makes unsuffixed
+G1/G2/GT multiplication constant-time for fixed public bit length, and adds
+genuinely variable-time fast paths across C, native C++, and Rust. Scalar G1
+and G2 select wNAF-5; native AVX selects wNAF-5 for G1 and wNAF-4 for G2. GT
+uses the fixed unsigned radix-z splitter for CT, retains the balanced scalar VT
+splitter, and selects the faster unsigned native-AVX VT splitter. FFT and middle
+product explicitly use public-scalar operations, while Pippenger's one-point
+fallback preserves generic on-curve behavior through `unchecked_mult`.
+
+The seven-test focused target passes in scalar Release, portable-AVX Debug, and
+native AVX-512/IFMA Release, including Debug invariants and non-subgroup
+fixtures; the focused Rust method test also passes. Sequential Peach benchmarks
+used one process at a time. GCC 15.2 inspection finds no gathers, allocation
+references, or out-of-line selected-vector wrappers and records a 9,984-byte
+native GT frame. `AUD-088` and `AUD-089` are validated. No full suite,
+sanitizer, CUDA, BTx/BTE, portable-AVX Release, CI push, or Apple run was
+performed for this packet.
 
 ## Main program phases
 
@@ -290,8 +305,8 @@ Upstream progress:
   validation are completed;
 - 0 remain pending.
 
-Findings: 38 total. Thirty-six are validated. Two remain unresolved: one low
-finding and one informational finding are open. `AUD-035` is validated with preserved
+Findings: 89 total: 69 validated, 15 fixed pending final evidence, two accepted
+risks, one needs a design decision, and two remain open. `AUD-035` is validated with preserved
 allocated/caller-table/precomputed modes and 10/10 focused MSVC Release, Linux
 ASan, and Linux UBSan tests. `AUD-036` is validated on native
 Apple Silicon with AppleClang 17 at commit `0b7ec47`; all 336 C/C++ tests and
@@ -304,13 +319,14 @@ and the 9-test direct compatibility target passed on Peach's AVX-512 IFMA CPU.
 
 Do not touch BTx/BTE, and do not include experimental CUDA, non-Apple ARM64, or
 CHERI in the primary production-readiness gate. Apple Silicon macOS remains in
-the supported scalar release matrix. Add the initial bounded public
-byte-boundary fuzz platform while continuing the deeper Phase
-17 generic FFT/interpolation/middle-product file audit from the boundary
-established in `PHASE_17.md`. Coverage remains a late audit/release
-metric by user decision; sanitizer, fuzz, and static-analysis work still
-accompanies subsystem review. Expand
-analyzers, sanitizers, fuzzers, and oracles alongside every subsystem. Apply
+the supported scalar release matrix. Resume the Phase 15 file-by-file scalar
+curve review with `point.h`/`point.cpp`, carrying the now-explicit checked,
+unchecked, constant-time, and variable-time contracts into serialization,
+hash-to-curve, pairing, signing, and MSM callers. Keep `AUD-085` as the next
+explicit design decision when the GT decoder surface is reviewed. Coverage
+remains a late audit/release metric by user decision; sanitizer, fuzz, and
+static-analysis work still accompanies subsystem review. Expand analyzers,
+sanitizers, fuzzers, and oracles alongside every subsystem. Apply
 `VALIDATION_POLICY.md`: run focused checks in the change loop, batch related
 work for subsystem suites, and reserve the full supported matrix for milestone
 gates.
@@ -322,5 +338,6 @@ Phase evidence is recorded in `PHASE_01.md`, `PHASE_02.md`, `PHASE_03A.md`,
 `PHASE_03B.md`, `PHASE_03C.md`, `PHASE_04.md`, `PHASE_05.md`,
 `PHASE_06A.md`, `PHASE_06B.md`, `PHASE_06C.md`, `PHASE_07A.md`,
 `PHASE_07B.md`, `PHASE_07C.md`, `PHASE_08.md`, `PHASE_09.md`,
-`PHASE_10.md`, `PHASE_11.md`, `PHASE_12.md`, and `PHASE_17.md`; the remaining dependency order and exit
+`PHASE_10.md`, `PHASE_11.md`, `PHASE_12.md`, `PHASE_14.md`, and
+`PHASE_17.md`; the remaining dependency order and exit
 gates are in `HARDENING_PLAN.md`.
