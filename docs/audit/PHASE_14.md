@@ -154,7 +154,12 @@ invariants. Pippenger's one-point fallback uses `unchecked_mult`, while FFT,
 middle product, signing, and validated aggregation use the subgroup operations.
 Checked scalars are masked to at most 256 little-endian bits and reduced modulo
 r by exactly two branchless conditional subtractions; the complete input range
-is below 3r. Secret-derived scalar copies are explicitly wiped.
+is below 3r. Secret-derived scalar copies are explicitly wiped. The
+post-correctness `AUD-090` pass extended that rule through the native AVX G1/G2
+decomposition and executor: division scratch is erased after extraction,
+superseded split objects are erased after their final copy, and the fixed Booth
+schedule plus executor scalars are erased after the final group operation.
+Public-scalar variable-time and MSM paths receive no additional wipe overhead.
 
 Scalar checked multiplication restores the established constant-time GLV
 crossover at 176 bits for G1 and GLS crossover at 144 bits for G2. Smaller
@@ -206,6 +211,17 @@ cap. Source and optimized inspection show fixed decomposition, table-scan, and
 executor loop bounds; statistical leakage testing remains a future evidence
 upgrade. No full suite, sanitizer, CUDA, BTx/BTE, Apple CI, or portable-AVX
 Release job ran for this packet.
+
+The `AUD-090` follow-up reused the `vec_zero` primitive already validated by
+`AUD-045`; plain `memset` is not used for secret erasure. Portable-AVX Debug and
+Peach native AVX-512/IFMA Release focused group tests pass. GCC 15.2 optimized
+inspection retains the exact expected fixed-size volatile erase regions: G1
+32/32/104/32 bytes for division scratch, split output, Booth schedule, and
+executor scalars; G2 retains 32/16/16/32/16/16/104/32 bytes for its three
+division scratches, three split objects, schedule, and executor scalars. The
+erase-loop branches depend only on compile-time sizes. This evidence covers
+explicit object storage; neither C++ nor the platform ABI promises erasure of
+all transient compiler-created register copies.
 
 That strict all-header check also opened and fixed `AUD-075`: MSVC C rejected
 the AVX opaque-shell alignment when its `__declspec(align(...))` argument was

@@ -184,6 +184,7 @@ typename Curve::ProjPoint table_msm(const std::array<ScalarForExponent<scalar_bi
             }
         }
     }
+    blst::vec_zero(booth_indexes.data(), sizeof(booth_indexes));
     return result;
 }
 
@@ -285,7 +286,11 @@ typename Curve::ProjPoint scalar_mult_table(const BigInt &scalar, const typename
 
 // Wrapper functions for blst division operations
 // Returns {remainder, quotient} to match BigInt version ordering: {sk_zz_r, sk_zz}
-inline std::pair<std::array<uint8_t, 16>, std::array<uint8_t, 16>> div_by_zz(const std::array<uint8_t, 32> &a) {
+using div_by_zz_result =
+    std::pair<std::array<uint8_t, 16>, std::array<uint8_t, 16>>;
+
+template<bool clear_scalar = false>
+inline void div_by_zz_into(div_by_zz_result& out, const std::array<uint8_t, 32>& a) {
 #if __has_include("../blst/vect.h")
     union { vec256 l; pow256 s; } val;
     limbs_from_le_bytes(val.l, a.data(), 32);
@@ -297,20 +302,28 @@ inline std::pair<std::array<uint8_t, 16>, std::array<uint8_t, 16>> div_by_zz(con
     blst::div_by_zz(val.l);
     blst::le_bytes_from_limbs(val.s, val.l, 32);
 #endif
-    
-    std::array<uint8_t, 16> remainder;
-    std::array<uint8_t, 16> quotient;
-    
-    // blst_div_by_zz stores: val.s is remainder, val.s+16 is quotient
-    // But we return {remainder, quotient} to match BigInt version: {sk_zz_r, sk_zz}
-    std::memcpy(remainder.data(), val.s, 16);
-    std::memcpy(quotient.data(), val.s + 16, 16);
-    
-    return std::make_pair(remainder, quotient);
+
+    // blst_div_by_zz stores: val.s is remainder, val.s+16 is quotient.
+    // Preserve the BigInt result ordering: {sk_zz_r, sk_zz}.
+    std::memcpy(out.first.data(), val.s, 16);
+    std::memcpy(out.second.data(), val.s + 16, 16);
+
+    if constexpr (clear_scalar)
+        blst::vec_zero(&val, sizeof(val));
+}
+
+inline div_by_zz_result div_by_zz(const std::array<uint8_t, 32>& a) {
+    div_by_zz_result out;
+    div_by_zz_into(out, a);
+    return out;
 }
 
 // Returns {remainder, quotient} to match BigInt version ordering
-inline std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>> div_by_z(const std::array<uint8_t, 16> &a) {
+using div_by_z_result =
+    std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>>;
+
+template<bool clear_scalar = false>
+inline void div_by_z_into(div_by_z_result& out, const std::array<uint8_t, 16>& a) {
 #if __has_include("../blst/vect.h")
     // Define types for 128-bit operations (similar to pow256/vec256)
     typedef byte pow128[16];
@@ -329,16 +342,20 @@ inline std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>> div_by_z(const 
     blst::div_by_z(val.l);
     blst::le_bytes_from_limbs(val.s, val.l, 16);
 #endif
-    
-    std::array<uint8_t, 8> remainder;
-    std::array<uint8_t, 8> quotient;
-    
-    // blst_div_by_z stores: val.s is remainder, val.s+8 is quotient
-    // But we return {remainder, quotient} to match BigInt version
-    std::memcpy(remainder.data(), val.s, 8);
-    std::memcpy(quotient.data(), val.s + 8, 8);
-    
-    return std::make_pair(remainder, quotient);
+
+    // blst_div_by_z stores: val.s is remainder, val.s+8 is quotient.
+    // Preserve the BigInt result ordering.
+    std::memcpy(out.first.data(), val.s, 8);
+    std::memcpy(out.second.data(), val.s + 8, 8);
+
+    if constexpr (clear_scalar)
+        blst::vec_zero(&val, sizeof(val));
+}
+
+inline div_by_z_result div_by_z(const std::array<uint8_t, 16>& a) {
+    div_by_z_result out;
+    div_by_z_into(out, a);
+    return out;
 }
 
 template<class Ring>
@@ -373,17 +390,22 @@ class GLVMult {
     template<int table_log_size=4>
     ProjectivePoint multiply(const ProjectivePoint &P, const std::array<uint8_t, 32> &SK, const Ring &ring) const {
         constexpr int table_size = 1 << table_log_size;
-        auto [sk_zz_r, sk_zz] = div_by_zz(SK);
-        ScalarForExponent<128> scalar_zz_r(sk_zz_r);
-        ScalarForExponent<128> scalar_zz(sk_zz);
-        std::array<ScalarForExponent<128>, 2> scalars = {scalar_zz_r, scalar_zz};
+        div_by_zz_result split;
+        div_by_zz_into<true>(split, SK);
+        std::array<ScalarForExponent<128>, 2> scalars = {
+            split.first,
+            split.second,
+        };
+        blst::vec_zero(&split, sizeof(split));
         PrecomputedTable<G1Curve, Ring, table_log_size> tableP(P, curve, ring);
         // TODO: If z is unchanged by endomorphism, it doesn't really need to be stored twice (helps cache efficiency).  Negation of y could also be more cache space-time trade-off.
         auto table_phi_data = batch_endomorphism<table_size>(tableP.data, ring);
         PrecomputedTable<G1Curve, Ring, table_log_size> tablePhi(table_phi_data);
 
         std::array<PrecomputedTable<G1Curve, Ring, table_log_size>, 2> tables = {tableP, tablePhi};
-        return table_msm<G1Curve, Ring, 128, table_log_size, 2>(scalars, tables, curve, ring);
+        ProjectivePoint result = table_msm<G1Curve, Ring, 128, table_log_size, 2>(scalars, tables, curve, ring);
+        blst::vec_zero(&scalars, sizeof(scalars));
+        return result;
     }
 
     template<int table_log_size=4>
@@ -501,14 +523,21 @@ class GLSMult {
     template<int table_log_size=4>
     ProjectivePoint multiply(const ProjectivePoint &P, const std::array<uint8_t, 32> &SK, const FP2RingType &fp2ring, const G2Curve &curve, const Ring &ring) const {
         constexpr int table_size = 1 << table_log_size;
-        auto [sk_zz_r, sk_zz] = div_by_zz(SK);
-        auto [sk_z_r_r, sk_z_r_q] = div_by_z(sk_zz_r);
-        auto [sk_z_q_r, sk_z_q_q] = div_by_z(sk_zz);
-        ScalarForExponent<64> scalar_z_r_r(sk_z_r_r);
-        ScalarForExponent<64> scalar_z_r_q(sk_z_r_q);
-        ScalarForExponent<64> scalar_z_q_r(sk_z_q_r);
-        ScalarForExponent<64> scalar_z_q_q(sk_z_q_q);
-        std::array<ScalarForExponent<64>, 4> scalars = {scalar_z_r_r, scalar_z_r_q, scalar_z_q_r, scalar_z_q_q};
+        div_by_zz_result split_zz;
+        div_by_z_result split_low;
+        div_by_z_result split_high;
+        div_by_zz_into<true>(split_zz, SK);
+        div_by_z_into<true>(split_low, split_zz.first);
+        div_by_z_into<true>(split_high, split_zz.second);
+        std::array<ScalarForExponent<64>, 4> scalars = {
+            split_low.first,
+            split_low.second,
+            split_high.first,
+            split_high.second,
+        };
+        blst::vec_zero(&split_zz, sizeof(split_zz));
+        blst::vec_zero(&split_low, sizeof(split_low));
+        blst::vec_zero(&split_high, sizeof(split_high));
         PrecomputedTable<G2Curve, FP2RingType, table_log_size> tableP(P, curve, fp2ring);
         std::array<ProjectivePoint, table_size> table_psi_data;
         std::array<ProjectivePoint, table_size> table_psi2_data;
@@ -522,7 +551,9 @@ class GLSMult {
         PrecomputedTable<G2Curve, FP2RingType, table_log_size> tablePsi2(table_psi2_data);
         PrecomputedTable<G2Curve, FP2RingType, table_log_size> tablePsi3(table_psi3_data);
         std::array<PrecomputedTable<G2Curve, FP2RingType, table_log_size>, 4> tables = {tableP, tablePsi, tablePsi2, tablePsi3};
-        return table_msm<G2Curve, FP2RingType, 64, table_log_size, 4>(scalars, tables, curve, fp2ring);
+        ProjectivePoint result = table_msm<G2Curve, FP2RingType, 64, table_log_size, 4>(scalars, tables, curve, fp2ring);
+        blst::vec_zero(&scalars, sizeof(scalars));
+        return result;
     }
 
     template<int table_log_size=4>

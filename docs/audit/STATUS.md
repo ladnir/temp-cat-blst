@@ -135,6 +135,14 @@ native GT frame. `AUD-088` and `AUD-089` are validated. No full suite,
 sanitizer, CUDA, BTx/BTE, portable-AVX Release, CI push, or Apple run was
 performed for this packet.
 
+The focused `AUD-090` correctness follow-up now erases the AVX G1/G2 CT
+division scratch, split components, Booth schedules, and executor scalars while
+leaving public-scalar VT/MSM paths unchanged. Portable-AVX Debug and Peach
+native Release group tests pass. GCC 15.2 retains every expected fixed-size
+volatile erase region in the optimized call sites; the cross-compiler erase
+primitive itself was already validated by `AUD-045`. No benchmark or broad
+build was started for this narrow hardening change.
+
 ## Main program phases
 
 | Phase | State | Exit criterion |
