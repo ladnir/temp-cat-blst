@@ -538,10 +538,12 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 	template<> BLST_HD BLST_CPP_INLINE void Point<Fp2>::mul_by_b(Fp2& out, const Fp2& in)
 	{
-		Fp::sub(out[0], in[0], in[1]);
-		Fp::add(out[1], in[0], in[1]);
-		Fp::lshift(out[0], out[0], 2);
-		Fp::lshift(out[1], out[1], 2);
+		// Keep this entirely in the Fp2 reduction domain. Some optimized Fp2
+		// squarings intentionally produce values accepted by the paired Fp2
+		// operations but not by the stricter standalone Fp Debug contract.
+		Fp2::mul_by_u_plus_1(out, in);
+		Fp2::add(out, out, out);
+		Fp2::add(out, out, out);
 	}
 
 	template<>
@@ -1183,87 +1185,173 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 
 
-	/* Gallant-Lambert-Vanstone, ~45% faster than mult_w<G1Point,5> */
-	template<>
-	BLST_HD BLST_CPP_INLINE void G1Point::mult_glsv(G1Point& out, const G1Point& in,
-		const pow256 SK)
+	template<typename Field>
+	template<int Window>
+	BLST_HD BLST_CPP_INLINE void Point<Field>::mult_glsv_window(
+		Point& out, const Point& in, const pow256 SK)
 	{
-		Fr l;
-		pow256 s;
-		/* SK/z^2 [in constant time] */
+		static_assert(Window >= 4 && Window <= 6);
+		Fr divided;
+		pow256 digits;
+		limbs_from_le_bytes(divided.l, SK, 32);
+		div_by_zz(divided.l);
 
-		limbs_from_le_bytes(l.l, SK, 32);
-		div_by_zz(l.l);
-		le_bytes_from_limbs(s, l.l, 32);
-
-		{
-			const byte* scalars[2] = { s + 16, s };
-			G1Point table[2][1 << (5 - 1)];   /* 4.5KB */
-			size_t i;
-
-			precompute_w<G1Point, 5>(table[0], in);
-			for (i = 0; i < 1 << (5 - 1); i++) {
+		if constexpr (std::is_same_v<Field, Fp>) {
+			le_bytes_from_limbs(digits, divided.l, 32);
+			const byte* scalars[2] = { digits + 16, digits };
+			Point table[2][1 << (Window - 1)];
+			precompute_w<Point, Window>(table[0], in);
+			for (size_t i = 0; i < 1 << (Window - 1); ++i) {
 				Fp::mul(table[1][i].x, table[0][i].x, get_BLST_beta());
 				Fp::cneg(table[1][i].y, table[0][i].y, 1);
 				vec_copy(table[1][i].z.l, table[0][i].z.l, sizeof(table[1][i].z));
 			}
-
-			mult_window_n<G1Point, 5>(out, NULL, 2, scalars, 128, table);
-			G1Point::cneg(out, 1);
+			mult_window_n<Point, Window>(out, NULL, 2, scalars, 128, table);
+			Point::cneg(out, 1);
 			Fp::mul(out.z, out.z, get_BLST_beta());
 			Fp::mul(out.z, out.z, get_BLST_beta());
 		}
-
-		vec_zero(l.l, sizeof(l));   /* scrub the copy of SK */
-		vec_zero(s, sizeof(s));   /* scrub the copy of SK */
-	}
-
-
-
-
-
-	/* Galbraith-Lin-Scott, ~67% faster than G2Point_mul_w5 */
-	template<>
-	BLST_HD BLST_CPP_INLINE void G2Point::mult_glsv(G2Point& out, const G2Point& in,
-		const pow256 SK)
-	{
-		Fr l;
-		pow256 s;
-
-		/* break down SK to "digits" with |z| as radix [in constant time] */
-		limbs_from_le_bytes(l.l, SK, 32);
-		div_by_zz(l.l);
-		div_by_z(l.l);
-		div_by_z(l.l + NLIMBS(256) / 2);
-
-
-		le_bytes_from_limbs(s, l.l, 32);
-
-		{
-			const byte* scalars[2] = { s, NULL };
-			G2Point table[4][1 << (5 - 1)];   /* 18KB */
-			size_t i;
-
-			precompute_w<G2Point, 5>(table[0], in);
-
-			for (i = 0; i < 1 << (5 - 1); i++) {
+		else {
+			div_by_z(divided.l);
+			div_by_z(divided.l + NLIMBS(256) / 2);
+			le_bytes_from_limbs(digits, divided.l, 32);
+			const byte* scalars[2] = { digits, NULL };
+			Point table[4][1 << (Window - 1)];
+			precompute_w<Point, Window>(table[0], in);
+			for (size_t i = 0; i < 1 << (Window - 1); ++i) {
 				psi(table[1][i], table[0][i]);
 				psi(table[2][i], table[1][i]);
 				psi(table[3][i], table[2][i]);
-				G2Point::cneg(table[1][i], 1); /* account for z being negative */
-				G2Point::cneg(table[3][i], 1);
+				Point::cneg(table[1][i], 1);
+				Point::cneg(table[3][i], 1);
 			}
-
-			mult_window_n<G2Point, 5>(out, NULL, 4, scalars, 64, table);
+			mult_window_n<Point, Window>(out, NULL, 4, scalars, 64, table);
 		}
 
-		// copy back the scalar to scrub the stack
-		for (u64 i = 0; i < NLIMBS(256); i++) {
-			l[i] = s[i];
-		}
-
-		vec_zero(l.l, sizeof(l));   /* scrub the copy of SK */
+		vec_zero(&divided, sizeof(divided));
+		vec_zero(digits, sizeof(digits));
 	}
+
+	template<typename Field>
+	template<int Width>
+	BLST_HD BLST_CPP_INLINE void Point<Field>::mult_glsv_wnaf(
+		Point& out, const Point& in, const pow256 SK)
+	{
+		static_assert(Width >= 4 && Width <= 6);
+		constexpr size_t table_size = size_t{1} << (Width - 2);
+		constexpr size_t components = std::is_same_v<Field, Fp> ? 2 : 4;
+		constexpr size_t component_bits = std::is_same_v<Field, Fp> ? 128 : 64;
+		Fr divided;
+		pow256 scalar_digits;
+		int8_t wnaf[components][component_bits + 1] = {};
+		Point table[components][table_size];
+
+		limbs_from_le_bytes(divided.l, SK, 32);
+		div_by_zz(divided.l);
+		if constexpr (std::is_same_v<Field, Fp2>) {
+			div_by_z(divided.l);
+			div_by_z(divided.l + NLIMBS(256) / 2);
+		}
+		le_bytes_from_limbs(scalar_digits, divided.l, 32);
+
+		Point twice;
+		Point::doubling(twice, in);
+		table[0][0] = in;
+		for (size_t i = 1; i < table_size; ++i)
+			Point::add(table[0][i], table[0][i - 1], twice);
+
+		if constexpr (std::is_same_v<Field, Fp>) {
+			for (size_t i = 0; i < table_size; ++i) {
+				Fp::mul(table[1][i].x, table[0][i].x, get_BLST_beta());
+				Fp::cneg(table[1][i].y, table[0][i].y, 1);
+				vec_copy(table[1][i].z.l, table[0][i].z.l, sizeof(table[1][i].z));
+			}
+		}
+		else {
+			for (size_t i = 0; i < table_size; ++i) {
+				psi(table[1][i], table[0][i]);
+				psi(table[2][i], table[1][i]);
+				psi(table[3][i], table[2][i]);
+				Point::cneg(table[1][i], 1);
+				Point::cneg(table[3][i], 1);
+			}
+		}
+
+		size_t used = 0;
+		for (size_t i = 0; i < components; ++i) {
+			const size_t digit_index = std::is_same_v<Field, Fp>
+				? 1 - i
+				: i;
+			const size_t count = recode_wnaf_vartime<component_bits, Width>(
+				wnaf[i], scalar_digits + digit_index * (component_bits / 8));
+			if (count > used)
+				used = count;
+		}
+
+		out = Point::infinity();
+		bool started = false;
+		for (size_t position = used; position != 0;) {
+			--position;
+			if (started)
+				Point::doubling(out, out);
+			for (size_t component = 0; component < components; ++component) {
+				const int digit = wnaf[component][position];
+				if (digit == 0)
+					continue;
+				const unsigned magnitude = digit < 0
+					? static_cast<unsigned>(-digit)
+					: static_cast<unsigned>(digit);
+				Point row = table[component][magnitude >> 1];
+				if (digit < 0)
+					Point::neg(row, row);
+				if (!started) {
+					out = row;
+					started = true;
+				}
+				else {
+					Point sum;
+					Point::dadd(sum, out, row);
+					out = sum;
+				}
+			}
+		}
+
+		if constexpr (std::is_same_v<Field, Fp>) {
+			Point::cneg(out, 1);
+			Fp::mul(out.z, out.z, get_BLST_beta());
+			Fp::mul(out.z, out.z, get_BLST_beta());
+		}
+
+		vec_zero(&divided, sizeof(divided));
+		vec_zero(scalar_digits, sizeof(scalar_digits));
+		vec_zero(wnaf, sizeof(wnaf));
+	}
+
+	template<> BLST_HD BLST_CPP_INLINE void G1Point::mult_glsv(
+		G1Point& out, const G1Point& in, const pow256 SK)
+	{
+		mult_glsv_window<5>(out, in, SK);
+	}
+	template<> BLST_HD BLST_CPP_INLINE void G2Point::mult_glsv(
+		G2Point& out, const G2Point& in, const pow256 SK)
+	{
+		mult_glsv_window<5>(out, in, SK);
+	}
+	template<> BLST_HD BLST_CPP_INLINE void G1Point::mult_glsv_vartime(
+		G1Point& out, const G1Point& in, const pow256 SK)
+	{
+		mult_glsv_wnaf<5>(out, in, SK);
+	}
+	template<> BLST_HD BLST_CPP_INLINE void G2Point::mult_glsv_vartime(
+		G2Point& out, const G2Point& in, const pow256 SK)
+	{
+		mult_glsv_wnaf<5>(out, in, SK);
+	}
+
+	template BLST_HD BLST_CPP_INLINE void G1Point::mult_glsv_window<5>(G1Point&, const G1Point&, const pow256);
+	template BLST_HD BLST_CPP_INLINE void G2Point::mult_glsv_window<5>(G2Point&, const G2Point&, const pow256);
+	template BLST_HD BLST_CPP_INLINE void G1Point::mult_glsv_wnaf<5>(G1Point&, const G1Point&, const pow256);
+	template BLST_HD BLST_CPP_INLINE void G2Point::mult_glsv_wnaf<5>(G2Point&, const G2Point&, const pow256);
 
 	template<typename Field>
 	BLST_HD BLST_CPP_INLINE void Point<Field>::sign(Point& out, const Point& in, const pow256 SK)
@@ -1355,36 +1443,66 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		const byte* scalar,
 		size_t nbits)
 	{
-		if (nbits < 176) {
-			if (nbits)
-				mult_window<Point, 4>(out, a, scalar, nbits);
-			else
-				vec_zero(&out, sizeof(out));
-		}
-		else if (nbits <= 256) {
-			union { Fr l; pow256 s; } val;
-			size_t i, j, top, mask = (size_t)0 - 1;
+		BLST_ASSERT(nbits <= 256);
+		BLST_ASSERT(nbits == 0 || scalar != nullptr);
+		BLST_ASSERT(Point::on_curve(a));
+		BLST_ASSERT(Point::in_subgroup(a));
 
-			/* this is not about constant-time-ness, but branch optimization */
-			for (top = (nbits + 7) / 8, i = 0, j = 0; i < sizeof(val.s);) {
-				val.s[i++] = scalar[j] & mask;
-				mask = 0 - ((i - top) >> (8 * sizeof(top) - 1));
-				j += 1 & mask;
-			}
-
-			if (Fr::check_mod(val.l))  /* z^4 is the formal limit */
-				Point::mult_glsv(out, a, val.s);
-			else    /* should never be the case, added for formal completeness */
-				mult_window<Point, 5>(out, a, scalar, nbits);
-
-			vec_zero(val.l.l, sizeof(val));
-		}
-		else {    /* should never be the case, added for formal completeness */
-			mult_window<Point, 5>(out, a, scalar, nbits);
-		}
+		pow256 canonical = {};
+		canonical_scalar_256(canonical, scalar, nbits);
+		if (nbits == 0)
+			vec_zero(&out, sizeof(out));
+		else if (nbits < (std::is_same<Field, Fp2>::value ? 144u : 176u))
+			mult_window<Point, 4>(out, a, canonical, nbits);
+		else
+			Point::mult_glsv(out, a, canonical);
+		vec_zero(canonical, sizeof(canonical));
 	}
 	template BLST_HD BLST_CPP_INLINE void Point<Fp>::mult(Point<Fp>& out, const Point<Fp>& a, const byte* scalar, size_t nbits);
 	template BLST_HD BLST_CPP_INLINE void Point<Fp2>::mult(Point<Fp2>& out, const Point<Fp2>& a, const byte* scalar, size_t nbits);
+
+	template<typename Field>
+	BLST_HD BLST_CPP_INLINE void Point<Field>::mult_vartime(
+		Point& out,
+		const Point& a,
+		const byte* scalar,
+		size_t nbits)
+	{
+		BLST_ASSERT(nbits <= 256);
+		BLST_ASSERT(nbits == 0 || scalar != nullptr);
+		BLST_ASSERT(Point::on_curve(a));
+		BLST_ASSERT(Point::in_subgroup(a));
+
+		pow256 canonical = {};
+		canonical_scalar_256(canonical, scalar, nbits);
+		if (nbits == 0)
+			vec_zero(&out, sizeof(out));
+		else if (nbits < (std::is_same<Field, Fp2>::value ? 144u : 176u))
+			mult_window<Point, 4>(out, a, canonical, nbits);
+		else
+			Point::mult_glsv_vartime(out, a, canonical);
+		vec_zero(canonical, sizeof(canonical));
+	}
+	template BLST_HD BLST_CPP_INLINE void Point<Fp>::mult_vartime(Point<Fp>& out, const Point<Fp>& a, const byte* scalar, size_t nbits);
+	template BLST_HD BLST_CPP_INLINE void Point<Fp2>::mult_vartime(Point<Fp2>& out, const Point<Fp2>& a, const byte* scalar, size_t nbits);
+
+	template<typename Field>
+	BLST_HD BLST_CPP_INLINE void Point<Field>::unchecked_mult(
+		Point& out, const Point& a, const byte* scalar, size_t nbits)
+	{
+		BLST_ASSERT(nbits <= 256);
+		BLST_ASSERT(nbits == 0 || scalar != nullptr);
+		BLST_ASSERT(Point::on_curve(a));
+
+		if (nbits == 0)
+			vec_zero(&out, sizeof(out));
+		else if (nbits < 176)
+			mult_window<Point, 4>(out, a, scalar, nbits);
+		else
+			mult_window<Point, 5>(out, a, scalar, nbits);
+	}
+	template BLST_HD BLST_CPP_INLINE void Point<Fp>::unchecked_mult(Point<Fp>& out, const Point<Fp>& a, const byte* scalar, size_t nbits);
+	template BLST_HD BLST_CPP_INLINE void Point<Fp2>::unchecked_mult(Point<Fp2>& out, const Point<Fp2>& a, const byte* scalar, size_t nbits);
 
 
 

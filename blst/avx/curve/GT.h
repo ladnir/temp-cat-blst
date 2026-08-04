@@ -53,6 +53,10 @@ inline std::array<uint64_t, 4> scalar_to_u64_le(const byte* scalar, size_t nbits
     for (size_t i = 0; i < nbytes; ++i) {
         out[i / 8] |= static_cast<uint64_t>(scalar[i]) << ((i % 8) * 8);
     }
+    const size_t top_limb_bits = nbits & 63U;
+    if (top_limb_bits != 0) {
+        out[nbits / 64] &= (uint64_t{1} << top_limb_bits) - 1U;
+    }
     return out;
 }
 
@@ -437,15 +441,33 @@ struct GT
         }
     }
 
+    /// Constant-time GT scalar multiplication for fixed public nbits.
     static void mult(GT& out, const GT& a, const byte* scalar, size_t nbits)
     {
-        const auto words = avx_gt_detail::scalar_to_u64_le(scalar, nbits);
-        if (nbits == 256) {
-            const auto props = avx_glv4_compile(words.data());
-            out.data = avx_cyclotomic_exp_glv4(a.data, props, avx_gt_detail::fp12ring(), avx_gt_detail::ring());
+        BLST_ASSERT(nbits <= 256);
+        BLST_ASSERT(nbits == 0 || scalar != nullptr);
+        BLST_ASSERT(in_group(a));
+        auto words = avx_gt_detail::scalar_to_u64_le(scalar, nbits);
+        out.data = avx_cyclotomic_exp_ct(
+            a.data, words.data(), nbits, avx_gt_detail::fp12ring(), avx_gt_detail::ring());
+        blst::vec_zero(words.data(), sizeof(words));
+    }
+
+    /// Optimized variable-time GT multiplication for public scalars only.
+    static void mult_vartime(GT& out, const GT& a, const byte* scalar, size_t nbits)
+    {
+        BLST_ASSERT(nbits <= 256);
+        BLST_ASSERT(nbits == 0 || scalar != nullptr);
+        BLST_ASSERT(in_group(a));
+        auto words = avx_gt_detail::scalar_to_u64_le(scalar, nbits);
+        if (nbits > 128 && nbits <= 256) {
+            out.data = avx_cyclotomic_exp_glv4_unsigned_vartime(
+                a.data, words.data(), avx_gt_detail::fp12ring(), avx_gt_detail::ring());
+            blst::vec_zero(words.data(), sizeof(words));
             return;
         }
         out.data = avx_cyclotomic_exp_basic(a.data, words.data(), avx_gt_detail::fp12ring(), avx_gt_detail::ring());
+        blst::vec_zero(words.data(), sizeof(words));
     }
 
     static void cneg(GT& p, limb_t cbit)

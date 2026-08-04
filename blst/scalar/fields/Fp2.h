@@ -353,16 +353,23 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
     BLST_HD BLST_INLINE void Fp2::exp(Fp2& out, const Fp2& inp, const byte* pow,
         size_t pow_bits)
     {
+        if (pow_bits == 0) {
+            out = Fp2::one();
+            return;
+        }
+
+        BLST_ASSERT(is_bit_set(pow, pow_bits - 1) &&
+            "Fp2::exp requires the declared top exponent bit to be set");
+
         Fp2 ret = inp;
 
-        --pow_bits; /* most significant bit is accounted for, skip over */
-        while (pow_bits--) {
+        /* The most significant bit is accounted for by ret = inp. */
+        for (size_t bit = pow_bits - 1; bit-- > 0;) {
             Fp2::sqr(ret, ret);
-            if (is_bit_set(pow, pow_bits))
+            if (is_bit_set(pow, bit))
                 Fp2::mul(ret, ret, inp/*, p, n0*/);
         }
         out = ret;
-        //vec_copy(out, ret, sizeof(ret));  /* |out| = |ret| */
     }
 
     BLST_HD BLST_INLINE void cc_mul_by_3_mod_384x(Fp2& ret, const Fp2& a)
@@ -420,9 +427,6 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
         Fp::lshift(ret[0], a[0], count);
 		Fp::lshift(ret[1], a[1], count);
     }
-
-#define vec_load_global vec_copy
-
 
     BLST_HD BLST_FORCEINLINE void Fp2::conjugate(Fp2& ret, const Fp2& a)
     {

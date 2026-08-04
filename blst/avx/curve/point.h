@@ -107,9 +107,15 @@ inline blst::scalar::G1AffinePoint curve_g1_affine_to_scalar(const CurveG1Affine
 
 inline blst::scalar::G1Point curve_g1_to_scalar(const CurveG1Projective& point)
 {
+    // The AVX curve uses homogeneous coordinates (X/Z, Y/Z), while the
+    // scalar curve uses Jacobian coordinates (X/Z^2, Y/Z^3). Convert without
+    // an inversion: (Xh*Zh, Yh*Zh^2, Zh) represents the same affine point.
+    const auto z_squared = curve_ring().modmul(point.z, point.z);
+    const auto jacobian_x = curve_ring().modmul(point.x, point.z);
+    const auto jacobian_y = curve_ring().modmul(point.y, z_squared);
     blst::scalar::G1Point out = {};
-    out.x = ring_fp_to_scalar(point.x);
-    out.y = ring_fp_to_scalar(point.y);
+    out.x = ring_fp_to_scalar(jacobian_x);
+    out.y = ring_fp_to_scalar(jacobian_y);
     out.z = ring_fp_to_scalar(point.z);
     return out;
 }
@@ -124,24 +130,23 @@ inline blst::scalar::G2AffinePoint curve_g2_affine_to_scalar(const CurveG2Affine
 
 inline blst::scalar::G2Point curve_g2_to_scalar(const CurveG2Projective& point)
 {
+    const auto z_squared = curve_fp2_ring().mul(point.z, point.z)[0];
+    const auto jacobian_x = curve_fp2_ring().mul(point.x, point.z)[0];
+    const auto jacobian_y = curve_fp2_ring().mul(point.y, z_squared)[0];
     blst::scalar::G2Point out = {};
-    out.x = ring_fp2_to_scalar(point.x);
-    out.y = ring_fp2_to_scalar(point.y);
+    out.x = ring_fp2_to_scalar(jacobian_x);
+    out.y = ring_fp2_to_scalar(jacobian_y);
     out.z = ring_fp2_to_scalar(point.z);
     return out;
 }
 
 inline std::array<uint8_t, 32> scalar_to_fixed_le_bytes(const byte* scalar, size_t nbits)
 {
-    BLST_ASSERT(nbits <= 256);
     std::array<uint8_t, 32> out = {};
-    const size_t nbytes = (nbits + 7) / 8;
-    if (nbytes != 0) {
-        std::memcpy(out.data(), scalar, nbytes);
-        if ((nbits & 7u) != 0u) {
-            out[nbytes - 1] &= static_cast<uint8_t>((1u << (nbits & 7u)) - 1u);
-        }
-    }
+    pow256 canonical = {};
+    blst::scalar::canonical_scalar_256(canonical, scalar, nbits);
+    std::memcpy(out.data(), canonical, sizeof(canonical));
+    vec_zero(canonical, sizeof(canonical));
     return out;
 }
 
@@ -297,7 +302,10 @@ struct G1Point
     static void add(G1Point& out, const G1Point& a, const G1Point& b);
     static void add(G1Point& out, const G1Point& a, const G1AffinePoint& b);
     static void doubling(G1Point& out, const G1Point& a);
+    /// Constant-time scalar multiplication of a validated subgroup point.
     static void mult(G1Point& out, const G1Point& a, const byte* scalar, size_t nbits);
+    /// Optimized variable-time multiplication of a validated subgroup point.
+    static void mult_vartime(G1Point& out, const G1Point& a, const byte* scalar, size_t nbits);
     static void sign(G1Point& out, const G1Point& in, const pow256 SK);
     static void to_pk(G1Point& out, const pow256 SK);
     static void to_pk2(unsigned char* out, G1AffinePoint* PK, const pow256 SK);
@@ -365,7 +373,10 @@ struct G2Point
     static void add(G2Point& out, const G2Point& a, const G2Point& b);
     static void add(G2Point& out, const G2Point& a, const G2AffinePoint& b);
     static void doubling(G2Point& out, const G2Point& a);
+    /// Constant-time scalar multiplication of a validated subgroup point.
     static void mult(G2Point& out, const G2Point& a, const byte* scalar, size_t nbits);
+    /// Optimized variable-time multiplication of a validated subgroup point.
+    static void mult_vartime(G2Point& out, const G2Point& a, const byte* scalar, size_t nbits);
     static void sign(G2Point& out, const G2Point& in, const pow256 SK);
     static void to_pk(G2Point& out, const pow256 SK);
     static void to_pk2(unsigned char* out, G2AffinePoint* PK, const pow256 SK);
@@ -560,9 +571,26 @@ inline void G1Point::doubling(G1Point& out, const G1Point& a)
 inline void G1Point::mult(G1Point& out, const G1Point& a, const byte* scalar, size_t nbits)
 {
     BLST_ASSERT(nbits <= 256);
-    const auto scalar_bytes = avx_curve_detail::scalar_to_fixed_le_bytes(scalar, nbits);
+    BLST_ASSERT(nbits == 0 || scalar != nullptr);
+    BLST_ASSERT(on_curve(a));
+    BLST_ASSERT(in_subgroup(a));
+    auto scalar_bytes = avx_curve_detail::scalar_to_fixed_le_bytes(scalar, nbits);
     const auto raw = avx_curve_detail::curve_g1_glv().multiply({a.X, a.Y, a.Z}, scalar_bytes, avx_curve_detail::curve_ring());
     out = {raw.x, raw.y, raw.z};
+    vec_zero(scalar_bytes.data(), scalar_bytes.size());
+}
+
+inline void G1Point::mult_vartime(G1Point& out, const G1Point& a, const byte* scalar, size_t nbits)
+{
+    BLST_ASSERT(nbits <= 256);
+    BLST_ASSERT(nbits == 0 || scalar != nullptr);
+    BLST_ASSERT(on_curve(a));
+    BLST_ASSERT(in_subgroup(a));
+    auto scalar_bytes = avx_curve_detail::scalar_to_fixed_le_bytes(scalar, nbits);
+    const auto raw = avx_curve_detail::curve_g1_glv().multiply_vartime(
+        {a.X, a.Y, a.Z}, scalar_bytes, avx_curve_detail::curve_ring());
+    out = {raw.x, raw.y, raw.z};
+    vec_zero(scalar_bytes.data(), scalar_bytes.size());
 }
 
 inline void G1Point::sign(G1Point& out, const G1Point& in, const pow256 SK)
@@ -681,16 +709,14 @@ inline bool_t G1Point::is_inf(const G1Point& p) { return is_identity(p); }
 
 inline bool_t G1Point::on_curve(const G1Point& p)
 {
-    G1AffinePoint affine = {};
-    to_affine(affine, p);
-    return G1AffinePoint::on_curve(affine);
+    return blst::scalar::G1Point::on_curve(
+        avx_curve_detail::curve_g1_to_scalar({p.X, p.Y, p.Z}));
 }
 
 inline bool_t G1Point::in_subgroup(const G1Point& p)
 {
-    G1AffinePoint affine = {};
-    to_affine(affine, p);
-    return G1AffinePoint::in_subgroup(affine);
+    return blst::scalar::G1Point::in_subgroup(
+        avx_curve_detail::curve_g1_to_scalar({p.X, p.Y, p.Z}));
 }
 
 inline limb_t G1Point::serialize_BE(unsigned char* out, const G1Point& in)
@@ -857,7 +883,10 @@ inline void G2Point::doubling(G2Point& out, const G2Point& a)
 inline void G2Point::mult(G2Point& out, const G2Point& a, const byte* scalar, size_t nbits)
 {
     BLST_ASSERT(nbits <= 256);
-    const auto scalar_bytes = avx_curve_detail::scalar_to_fixed_le_bytes(scalar, nbits);
+    BLST_ASSERT(nbits == 0 || scalar != nullptr);
+    BLST_ASSERT(on_curve(a));
+    BLST_ASSERT(in_subgroup(a));
+    auto scalar_bytes = avx_curve_detail::scalar_to_fixed_le_bytes(scalar, nbits);
     const auto raw = avx_curve_detail::curve_g2_gls().multiply(
         {a.X, a.Y, a.Z},
         scalar_bytes,
@@ -865,6 +894,24 @@ inline void G2Point::mult(G2Point& out, const G2Point& a, const byte* scalar, si
         avx_curve_detail::curve_g2(),
         avx_curve_detail::curve_ring());
     out = {raw.x, raw.y, raw.z};
+    vec_zero(scalar_bytes.data(), scalar_bytes.size());
+}
+
+inline void G2Point::mult_vartime(G2Point& out, const G2Point& a, const byte* scalar, size_t nbits)
+{
+    BLST_ASSERT(nbits <= 256);
+    BLST_ASSERT(nbits == 0 || scalar != nullptr);
+    BLST_ASSERT(on_curve(a));
+    BLST_ASSERT(in_subgroup(a));
+    auto scalar_bytes = avx_curve_detail::scalar_to_fixed_le_bytes(scalar, nbits);
+    const auto raw = avx_curve_detail::curve_g2_gls().multiply_vartime(
+        {a.X, a.Y, a.Z},
+        scalar_bytes,
+        avx_curve_detail::curve_fp2_ring(),
+        avx_curve_detail::curve_g2(),
+        avx_curve_detail::curve_ring());
+    out = {raw.x, raw.y, raw.z};
+    vec_zero(scalar_bytes.data(), scalar_bytes.size());
 }
 
 inline void G2Point::sign(G2Point& out, const G2Point& in, const pow256 SK)
@@ -983,16 +1030,14 @@ inline bool_t G2Point::is_inf(const G2Point& p) { return is_identity(p); }
 
 inline bool_t G2Point::on_curve(const G2Point& p)
 {
-    G2AffinePoint affine = {};
-    to_affine(affine, p);
-    return G2AffinePoint::on_curve(affine);
+    return blst::scalar::G2Point::on_curve(
+        avx_curve_detail::curve_g2_to_scalar({p.X, p.Y, p.Z}));
 }
 
 inline bool_t G2Point::in_subgroup(const G2Point& p)
 {
-    G2AffinePoint affine = {};
-    to_affine(affine, p);
-    return G2AffinePoint::in_subgroup(affine);
+    return blst::scalar::G2Point::in_subgroup(
+        avx_curve_detail::curve_g2_to_scalar({p.X, p.Y, p.Z}));
 }
 
 inline limb_t G2Point::serialize_BE(unsigned char* out, const G2Point& in)

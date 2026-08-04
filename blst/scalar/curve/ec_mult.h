@@ -447,6 +447,61 @@ namespace blst::scalar
 		return 1;
 	}
 
+	template<size_t ScalarBits, int Width>
+	BLST_HD BLST_INLINE size_t recode_wnaf_vartime(
+		int8_t digits[ScalarBits + 1], const byte* scalar)
+	{
+		static_assert(Width >= 2 && Width <= 7);
+		constexpr size_t scalar_limbs = (ScalarBits + BLST_LIMB_SIZE - 1) /
+			BLST_LIMB_SIZE;
+		// A negative top digit can carry one bit beyond ScalarBits. Retaining
+		// that carry is required for the final positive wNAF digit.
+		constexpr size_t limbs_count = scalar_limbs + 1;
+		limb_t value[limbs_count] = {};
+		limbs_from_le_bytes(value, scalar, (ScalarBits + 7) / 8);
+		for (size_t i = 0; i <= ScalarBits; ++i)
+			digits[i] = 0;
+
+		size_t used = 0;
+		while (used <= ScalarBits) {
+			limb_t nonzero = 0;
+			for (size_t i = 0; i < limbs_count; ++i)
+				nonzero |= value[i];
+			if (nonzero == 0)
+				break;
+
+			if (value[0] & 1) {
+				const unsigned raw = static_cast<unsigned>(
+					value[0] & (((limb_t)1 << Width) - 1));
+				const int digit = raw >= (1U << (Width - 1))
+					? static_cast<int>(raw) - (1 << Width)
+					: static_cast<int>(raw);
+				digits[used] = static_cast<int8_t>(digit);
+				if (digit > 0) {
+					value[0] -= static_cast<limb_t>(digit);
+				}
+				else {
+					limb_t add = static_cast<limb_t>(-digit);
+					for (size_t i = 0; i < limbs_count; ++i) {
+						wide_limb_t sum;
+						cc_add_wide_limb_limb(&sum, value[i], add);
+						value[i] = (limb_t)sum.lo;
+						add = (limb_t)sum.hi;
+					}
+				}
+			}
+
+			for (size_t i = 0; i + 1 < limbs_count; ++i)
+				value[i] = (value[i] >> 1) |
+					(value[i + 1] << (BLST_LIMB_SIZE - 1));
+			value[limbs_count - 1] >>= 1;
+			++used;
+		}
+
+		vec_zero(value, sizeof(value));
+		return used;
+	}
+
 }
 
 #endif

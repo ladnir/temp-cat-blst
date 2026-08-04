@@ -1753,6 +1753,7 @@ pub mod min_sig {
 pub trait MultiPoint {
     type Output;
 
+    /// Variable-time multi-scalar multiplication for public scalars only.
     fn mult(&self, scalars: &[u8], nbits: usize) -> Self::Output;
     fn add(&self) -> Self::Output;
     fn validate(&self) -> Result<(), BLST_ERROR> {

@@ -224,7 +224,11 @@ void blst_fp2_cneg(blst_fp2* ret, const blst_fp2* a, bool flag);
 void blst_fp2_eucl_inverse(blst_fp2* ret, const blst_fp2* a);
 /** Computes the multiplicative inverse of `a` in Fp2 and writes it to `ret`. */
 void blst_fp2_inverse(blst_fp2* ret, const blst_fp2* a);
-/** Attempts to compute an Fp2 square root; returns `true` only for quadratic residues. */
+/**
+ * Attempts to compute an Fp2 square root and returns `true` only for quadratic
+ * residues. On failure, `ret` contains an unspecified intermediate and must be
+ * ignored. If `ret == a`, failure may overwrite the input.
+ */
 bool blst_fp2_sqrt(blst_fp2* ret, const blst_fp2* a);
 /** Returns `true` when `a` is a quadratic residue in Fp2. */
 bool blst_fp2_is_square(const blst_fp2* a);
@@ -249,8 +253,12 @@ void blst_fp12_mul_by_xy00z0(blst_fp12* ret, const blst_fp12* a, const blst_fp6*
 void blst_fp12_conjugate(blst_fp12* a);
 /** Computes the multiplicative inverse of `a` in Fp12 and writes it to `ret`. */
 void blst_fp12_inverse(blst_fp12* ret, const blst_fp12* a);
-/** Applies the `n`th Frobenius map to `a` and writes the result to `ret`. */
-void blst_fp12_frobenius_map(blst_fp12* ret, const blst_fp12* a, size_t n);
+/**
+ * Applies the `n`th Frobenius map to `a` and writes the result to `ret`.
+ * Only the powers 1, 2, and 3 used by CatBLST are supported. Returns `false`
+ * and leaves `ret` unchanged for every other value of `n`.
+ */
+bool blst_fp12_frobenius_map(blst_fp12* ret, const blst_fp12* a, size_t n);
 /** Returns `true` when the two Fp12 values are equal. */
 bool blst_fp12_is_equal(const blst_fp12* a, const blst_fp12* b);
 /** Returns `true` when `a` is the multiplicative identity. */
@@ -280,10 +288,16 @@ void blst_gt_double(blst_fp12* out, const blst_fp12* p);
 /**
  * Multiplies target-group element `p` by a little-endian scalar.
  *
- * `p` must already lie in GT and `nbits` must not exceed 256. The operation
- * is cyclotomic exponentiation; it does not validate subgroup membership.
+ * `p` must already lie in GT and `nbits` must not exceed 256. The scalar need
+ * not be reduced modulo the group order. The operation is cyclotomic
+ * exponentiation; it does not validate subgroup membership.
+ *
+ * Runtime and memory access are independent of scalar contents for a fixed
+ * public `nbits`.
  */
 void blst_gt_mult(blst_fp12* out, const blst_fp12* p, const blst_byte* scalar, size_t nbits);
+/** Optimized variable-time GT multiplication for public scalar data only. */
+void blst_gt_mult_vartime(blst_fp12* out, const blst_fp12* p, const blst_byte* scalar, size_t nbits);
 /** Returns `true` when `gt1` and `gt2` pass the final GT verification check. */
 bool blst_fp12_finalverify(const blst_fp12* gt1, const blst_fp12* gt2);
 /** Encodes an Fp12 value into a 576-byte big-endian string. */
@@ -295,6 +309,9 @@ void blst_bendian_from_fp12(blst_byte out[48 * 12], const blst_fp12* a);
  * Parameter interpretation:
  * - Scalar multiplication reads `scalar` as an unsigned little-endian bitstring
  *   with exactly `nbits` meaningful bits.
+ * - The unsuffixed single-point multiply is constant-time for fixed public
+ *   `nbits`; `_vartime` and all multi-scalar/Pippenger operations require
+ *   public scalars.
  * - Serialization writes 96-byte uncompressed or 48-byte compressed encodings.
  * - Generator accessors return immutable static storage.
  */
@@ -312,8 +329,10 @@ void blst_p1_sub_affine(blst_p1* out, const blst_p1* a, const blst_p1_affine* b)
 void blst_p1_add_or_double_affine(blst_p1* out, const blst_p1* a, const blst_p1_affine* b);
 /** Doubles the G1 projective point `a` and writes the result to `out`. */
 void blst_p1_double(blst_p1* out, const blst_p1* a);
-/** Multiplies G1 point `p` by a little-endian scalar with `nbits` meaningful bits. */
+/** Constant-time G1 multiplication for a fixed public `nbits`. `p` must already be an on-curve prime-order subgroup point; Release builds do not validate this precondition. */
 void blst_p1_mult(blst_p1* out, const blst_p1* p, const blst_byte* scalar, size_t nbits);
+/** Optimized variable-time G1 multiplication for public scalar data only. `p` must already be an on-curve prime-order subgroup point; Release builds do not validate this precondition. */
+void blst_p1_mult_vartime(blst_p1* out, const blst_p1* p, const blst_byte* scalar, size_t nbits);
 /** Negates `p` in place when `cbit` is true; otherwise leaves it unchanged. */
 void blst_p1_cneg(blst_p1* p, bool cbit);
 /** Conditionally negates affine G1 point `p` in place. */
@@ -334,7 +353,7 @@ bool blst_p1_is_equal(const blst_p1* a, const blst_p1* b);
 bool blst_p1_is_inf(const blst_p1* a);
 /** Returns a pointer to immutable static storage holding the G1 generator. */
 const blst_p1* blst_p1_generator(void);
-/** Multiplies `p` by `scalar` without subgroup safety checks. */
+/** Multiplies an on-curve `p` by `scalar` in constant time without subgroup endomorphisms; `p` need not be in the prime-order subgroup, and Release builds do not validate curve membership. */
 void blst_p1_unchecked_mult(blst_p1* out, const blst_p1* p, const blst_byte* scalar, size_t nbits);
 /** Returns `true` when affine G1 point `p` lies on the curve. */
 bool blst_p1_affine_on_curve(const blst_p1_affine* p);
@@ -397,7 +416,9 @@ BLST_ERROR blst_p1_deserialize(blst_p1_affine* out, const blst_byte in[96]);
  * G2 projective and affine helpers.
  *
  * Parameter interpretation matches the G1 section, with 192-byte uncompressed
- * and 96-byte compressed encodings.
+ * and 96-byte compressed encodings. The unsuffixed single-point multiply is
+ * constant-time for fixed public `nbits`; `_vartime` and all
+ * multi-scalar/Pippenger operations require public scalars.
  */
 /** Adds two G2 projective points and writes the sum to `out`. */
 void blst_p2_add(blst_p2* out, const blst_p2* a, const blst_p2* b);
@@ -413,8 +434,10 @@ void blst_p2_sub_affine(blst_p2* out, const blst_p2* a, const blst_p2_affine* b)
 void blst_p2_add_or_double_affine(blst_p2* out, const blst_p2* a, const blst_p2_affine* b);
 /** Doubles the G2 projective point `a` and writes the result to `out`. */
 void blst_p2_double(blst_p2* out, const blst_p2* a);
-/** Multiplies G2 point `p` by a little-endian scalar with `nbits` meaningful bits. */
+/** Constant-time G2 multiplication for a fixed public `nbits`. `p` must already be an on-curve prime-order subgroup point; Release builds do not validate this precondition. */
 void blst_p2_mult(blst_p2* out, const blst_p2* p, const blst_byte* scalar, size_t nbits);
+/** Optimized variable-time G2 multiplication for public scalar data only. `p` must already be an on-curve prime-order subgroup point; Release builds do not validate this precondition. */
+void blst_p2_mult_vartime(blst_p2* out, const blst_p2* p, const blst_byte* scalar, size_t nbits);
 /** Negates `p` in place when `cbit` is true; otherwise leaves it unchanged. */
 void blst_p2_cneg(blst_p2* p, bool cbit);
 /** Conditionally negates affine G2 point `p` in place. */
@@ -435,7 +458,7 @@ bool blst_p2_is_equal(const blst_p2* a, const blst_p2* b);
 bool blst_p2_is_inf(const blst_p2* a);
 /** Returns a pointer to immutable static storage holding the G2 generator. */
 const blst_p2* blst_p2_generator(void);
-/** Multiplies `p` by `scalar` without subgroup safety checks. */
+/** Multiplies an on-curve `p` by `scalar` in constant time without subgroup endomorphisms; `p` need not be in the prime-order subgroup, and Release builds do not validate curve membership. */
 void blst_p2_unchecked_mult(blst_p2* out, const blst_p2* p, const blst_byte* scalar, size_t nbits);
 /** Returns `true` when affine G2 point `p` lies on the curve. */
 bool blst_p2_affine_on_curve(const blst_p2_affine* p);

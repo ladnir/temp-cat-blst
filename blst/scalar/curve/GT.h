@@ -55,18 +55,6 @@ namespace blst::scalar {
 			add(out, a, b);
 		}
 
-		///**
-		// * @brief Group subtraction: out = a - b (maps to Fp12 division)
-		// * @param[out] out  Result
-		// * @param[in]  a    Left operand
-		// * @param[in]  b    Right operand
-		// */
-		//static BLST_HD void sub(GT& out, const GT& a, const GT& b) {
-		//	Fp12 b_inv;
-		//	Fp12::inverse(b_inv, b.data);
-		//	Fp12::mul(out.data, a.data, b_inv);
-		//}
-
 		/**
 		 * @brief Group subtraction: out = a - b (maps to Fp12 division)
 		 * @param[out] out  Result
@@ -108,22 +96,26 @@ namespace blst::scalar {
 		 * @param[in]  a       Base element
 		 * @param[in]  scalar  Little-endian scalar bytes
 		 * @param[in]  nbits   Number of meaningful bits in scalar
+		 * @details Runtime and memory access are independent of scalar contents for
+		 * a fixed public @p nbits.
 		 */
 		static BLST_HD void mult(GT& out, const GT& a, const byte* scalar, size_t nbits) {
-			if (nbits  == 256) {
-				// For 256-bit scalars, we can use the optimized GLV-4 path.
-				// This is a common case for BLS signatures where scalars are 256 bits.
-				// The public byte-string API does not promise limb alignment.
-				alignas(limb_t) byte aligned_scalar[32];
-				vec_copy(aligned_scalar, scalar, sizeof(aligned_scalar));
-				Fp12::cyclotomic_exp_glv4(
-					out.data,
-					a.data,
-					reinterpret_cast<const limb_t*>(aligned_scalar));
-			} else {
-				// For non-256-bit scalars, fall back to the basic cyclotomic exponentiation.
-				Fp12::cyclotomic_exp(out.data, a.data, scalar, nbits);
-			}
+			BLST_ASSERT(nbits <= 256);
+			BLST_ASSERT(nbits == 0 || scalar != nullptr);
+			BLST_ASSERT(in_group(a));
+			Fp12::cyclotomic_exp(out.data, a.data, scalar, nbits);
+		}
+
+		/**
+		 * @brief Optimized variable-time scalar multiplication.
+		 * @warning Scalar bits affect the GLV schedule, branches, and table indices;
+		 * use only with public scalar data.
+		 */
+		static BLST_HD void mult_vartime(GT& out, const GT& a, const byte* scalar, size_t nbits) {
+			BLST_ASSERT(nbits <= 256);
+			BLST_ASSERT(nbits == 0 || scalar != nullptr);
+			BLST_ASSERT(in_group(a));
+			Fp12::cyclotomic_exp_vartime(out.data, a.data, scalar, nbits);
 		}
 
 		/**
@@ -148,8 +140,6 @@ namespace blst::scalar {
 		 * @brief Constant-time conditional swap: if cbit==1, swap a and b
 		 */
 		static BLST_HD void cswap(GT& BLST_restrict a, GT& BLST_restrict b, bool_t cbit) {
-			// Implement constant-time swap for Fp12 data
-			// This would need to be implemented at the Fp12 level
 			vec_cswap(&a, &b, sizeof(GT), cbit);
 		}
 
@@ -212,7 +202,10 @@ namespace blst::scalar {
 		}
 
 		/**
-		 * @brief Deserialize from big-endian bytes
+		 * @brief Decode raw big-endian Fp12 coefficients into a GT-shaped object.
+		 * @warning This legacy operation reduces noncanonical coefficients and does
+		 * not check target-group membership. It is not safe for untrusted input
+		 * unless the caller performs a deferred aggregate membership check.
 		 */
 		static BLST_HD void deserialize(GT& out, const unsigned char serialized[12 * 48]) {
 			Fp12::from_bendian(out.data, serialized);

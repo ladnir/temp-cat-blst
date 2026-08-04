@@ -745,9 +745,12 @@ void blst_fp12_inverse(BoundaryFp12* ret, const BoundaryFp12* a)
     BoundaryFp12::inverse(*ret, *a);
 }
 
-void blst_fp12_frobenius_map(BoundaryFp12* ret, const BoundaryFp12* a, size_t n)
+bool blst_fp12_frobenius_map(BoundaryFp12* ret, const BoundaryFp12* a, size_t n)
 {
+    if (n < 1 || n > 3)
+        return false;
     BoundaryFp12::frobenius_map(*ret, *a, n);
+    return true;
 }
 
 bool blst_fp12_is_equal(const BoundaryFp12* a, const BoundaryFp12* b)
@@ -845,6 +848,13 @@ void blst_gt_mult(BoundaryFp12* out, const BoundaryFp12* p, const blst::byte* sc
     *out = public_to_boundary_gt(result);
 }
 
+void blst_gt_mult_vartime(BoundaryFp12* out, const BoundaryFp12* p, const blst::byte* scalar, size_t nbits)
+{
+    PublicGt result = {};
+    PublicGt::mult_vartime(result, boundary_to_public_gt(*p), scalar, nbits);
+    *out = public_to_boundary_gt(result);
+}
+
 void blst_bendian_from_fp12(unsigned char out[48 * 12], const BoundaryFp12* a)
 {
     BoundaryFp12::to_bendian(out, *a);
@@ -920,6 +930,13 @@ void blst_p1_mult(BoundaryG1* out, const BoundaryG1* p, const blst::byte* scalar
     *out = public_to_boundary_g1(result);
 }
 
+void blst_p1_mult_vartime(BoundaryG1* out, const BoundaryG1* p, const blst::byte* scalar, size_t nbits)
+{
+    PublicG1 result = {};
+    PublicG1::mult_vartime(result, boundary_to_public_g1(*p), scalar, nbits);
+    *out = public_to_boundary_g1(result);
+}
+
 void blst_p1_cneg(BoundaryG1* p, bool cbit)
 {
     BoundaryG1::cneg(*p, cbit ? 1 : 0);
@@ -976,7 +993,9 @@ const BoundaryG1* blst_p1_generator(void)
 
 void blst_p1_unchecked_mult(BoundaryG1* out, const BoundaryG1* p, const blst::byte* scalar, size_t nbits)
 {
-    blst_p1_mult(out, p, scalar, nbits);
+	BoundaryG1 result = {};
+	BoundaryG1::unchecked_mult(result, *p, scalar, nbits);
+	*out = result;
 }
 
 bool blst_p1_affine_on_curve(const BoundaryG1Affine* p)
@@ -1103,7 +1122,7 @@ void blst_p1s_mult_pippenger(
     if (npoints == 1) {
         BoundaryG1 point = {};
         BoundaryG1::from_affine(point, *points[0]);
-        BoundaryG1::mult(*ret, point, scalars[0], nbits);
+        BoundaryG1::unchecked_mult(*ret, point, scalars[0], nbits);
         return;
     }
     if (scratch == nullptr) {
@@ -1198,7 +1217,7 @@ void blst_p1s_mult_pippenger_window(
     if (npoints == 1) {
         BoundaryG1 point = {};
         BoundaryG1::from_affine(point, *points[0]);
-        BoundaryG1::mult(*ret, point, scalars[0], nbits);
+        BoundaryG1::unchecked_mult(*ret, point, scalars[0], nbits);
         return;
     }
     if (scratch == nullptr) {
@@ -1342,6 +1361,13 @@ void blst_p2_mult(BoundaryG2* out, const BoundaryG2* p, const blst::byte* scalar
     *out = public_to_boundary_g2(result);
 }
 
+void blst_p2_mult_vartime(BoundaryG2* out, const BoundaryG2* p, const blst::byte* scalar, size_t nbits)
+{
+    PublicG2 result = {};
+    PublicG2::mult_vartime(result, boundary_to_public_g2(*p), scalar, nbits);
+    *out = public_to_boundary_g2(result);
+}
+
 void blst_p2_cneg(BoundaryG2* p, bool cbit)
 {
     BoundaryG2::cneg(*p, cbit ? 1 : 0);
@@ -1398,7 +1424,9 @@ const BoundaryG2* blst_p2_generator(void)
 
 void blst_p2_unchecked_mult(BoundaryG2* out, const BoundaryG2* p, const blst::byte* scalar, size_t nbits)
 {
-    blst_p2_mult(out, p, scalar, nbits);
+	BoundaryG2 result = {};
+	BoundaryG2::unchecked_mult(result, *p, scalar, nbits);
+	*out = result;
 }
 
 bool blst_p2_affine_on_curve(const BoundaryG2Affine* p)
@@ -1525,7 +1553,7 @@ void blst_p2s_mult_pippenger(
     if (npoints == 1) {
         BoundaryG2 point = {};
         BoundaryG2::from_affine(point, *points[0]);
-        BoundaryG2::mult(*ret, point, scalars[0], nbits);
+        BoundaryG2::unchecked_mult(*ret, point, scalars[0], nbits);
         return;
     }
     if (scratch == nullptr) {
@@ -1559,7 +1587,7 @@ void blst_p2s_mult_pippenger_window(
     if (npoints == 1) {
         BoundaryG2 point = {};
         BoundaryG2::from_affine(point, *points[0]);
-        BoundaryG2::mult(*ret, point, scalars[0], nbits);
+        BoundaryG2::unchecked_mult(*ret, point, scalars[0], nbits);
         return;
     }
     if (scratch == nullptr) {

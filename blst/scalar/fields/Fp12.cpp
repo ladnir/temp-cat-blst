@@ -3,6 +3,11 @@
 
 
 
+/*
+ * Copyright Supranational LLC
+ * Licensed under the Apache License, Version 2.0, see LICENSE for details.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #include "blst/common/defines.h"
 #include "blst/backend/backend.h"
 #include "blst/scalar/fields/Fp12.h"
@@ -31,7 +36,7 @@ namespace blst::scalar
 
 
 #if defined(BLST_ASM) && !defined(__CUDA_ARCH__)
-#define __FP2x2__
+#define BLST_FP2X2
 	/*
 	 * Fp2x2 is a "widened" version of Fp2, which allows to consolidate
 	 * reductions from several multiplications. In other words instead of
@@ -186,7 +191,7 @@ namespace blst::scalar
 
 
 
-#else // __FP2x2__
+#else // BLST_FP2X2
 
 
 
@@ -265,7 +270,7 @@ namespace blst::scalar
 		Fp2::mul_by_u_plus_1(ret[1], s2);
 		Fp2::add(ret[1], ret[1], m01);
 	}
-#endif // __FP2x2__
+#endif // BLST_FP2X2
 
 	BLST_HD BLST_INLINE void add_fp6(Fp6& ret, const Fp6& a, const Fp6& b)
 	{
@@ -306,7 +311,7 @@ namespace blst::scalar
 		/*
 		 * Fp12 extension
 		 */
-#if defined(__FP2x2__)
+#if defined(BLST_FP2X2)
 	BLST_HD FP12_CPP_INLINE void Fp12::mul_scalar(Fp12& ret, const Fp12& a, const Fp12& b)
 	{
 		UFp6 t0, t1, rx;
@@ -396,7 +401,7 @@ namespace blst::scalar
 		add_fp2x2(rr[2], t0[2], t1[1]);
 		redc_fp6x2(ret[0], rr);
 	}
-#else // __FP2x2__
+#else // BLST_FP2X2
 	BLST_HD FP12_CPP_INLINE void Fp12::mul_scalar(Fp12& ret, const Fp12& a, const Fp12& b)
 	{
 		Fp6 t0, t1, t2;
@@ -413,15 +418,10 @@ namespace blst::scalar
 		sub_fp6(ret[1], ret[1], t1);
 
 		/* ret[0] = a0*b0 + a1*b1*v */
-#ifdef mul_by_v_fp6
-		mul_by_v_fp6(t1, t1);
-		add_fp6(ret[0], t0, t1);
-#else
 		Fp2::mul_by_u_plus_1(t1[2], t1[2]);
 		Fp2::add(ret[0][0], t0[0], t1[2]);
 		Fp2::add(ret[0][1], t0[1], t1[0]);
 		Fp2::add(ret[0][2], t0[2], t1[1]);
-#endif
 	}
 
 	BLST_HD FP12_CPP_INLINE void mul_by_0y0_fp6(Fp6& ret, const Fp6& a,
@@ -482,20 +482,15 @@ namespace blst::scalar
 		sub_fp6(ret[1], ret[1], t1);
 
 		/* ret[0] = a0*b0 + a1*b1*v */
-#ifdef mul_by_v_fp6
-		mul_by_v_fp6(t1, t1);
-		add_fp6(ret[0], t0, t1);
-#else
 		Fp2::mul_by_u_plus_1(t1[2], t1[2]);
 		Fp2::add(ret[0][0], t0[0], t1[2]);
 		Fp2::add(ret[0][1], t0[1], t1[0]);
 		Fp2::add(ret[0][2], t0[2], t1[1]);
-#endif
 	}
-#endif // __FP2x2__
+#endif // BLST_FP2X2
 
 
-#if defined(__FP2x2__)
+#if defined(BLST_FP2X2)
 	
 	// Helper for the FP2x2 optimization path
 	BLST_HD BLST_INLINE void add_fp6x2(UFp6& ret, const UFp6& a, const UFp6& b)
@@ -506,7 +501,7 @@ namespace blst::scalar
 	}
 
 	// Optimized mul with integrated conjugation
-	// Handles both __FP2x2__ (CPU/ASM) and Standard (CUDA/Portable) paths
+	// The widened CPU/assembly path folds conjugation into the multiplication.
 	BLST_HD FP12_CPP_INLINE void Fp12::mul(Fp12& ret, const Fp12& a, const Fp12& b, bool conj_b)
 	{
 		UFp6 t0, t1, rx;
@@ -568,11 +563,6 @@ namespace blst::scalar
 		else        sub_fp6(ret[1], ret[1], t1);
 
 		/* ret[0] calculation */
-#ifdef mul_by_v_fp6
-		mul_by_v_fp6(t1, t1);
-		if (conj_b) sub_fp6(ret[0], t0, t1);
-		else        add_fp6(ret[0], t0, t1);
-#else
 		Fp2::mul_by_u_plus_1(t1[2], t1[2]);
 		if (conj_b) {
 			Fp2::sub(ret[0][0], t0[0], t1[2]);
@@ -584,7 +574,6 @@ namespace blst::scalar
 			Fp2::add(ret[0][1], t0[1], t1[0]);
 			Fp2::add(ret[0][2], t0[2], t1[1]);
 		}
-#endif
 	}
 #endif
 
@@ -593,15 +582,10 @@ namespace blst::scalar
 		Fp6 t0, t1;
 
 		add_fp6(t0, a[0], a[1]);
-#ifdef mul_by_v_fp6
-		mul_by_v_fp6(t1, a[1]);
-		add_fp6(t1, a[0], t1);
-#else
 		Fp2::mul_by_u_plus_1(t1[2], a[1][2]);
 		Fp2::add(t1[0], a[0][0], t1[2]);
 		Fp2::add(t1[1], a[0][1], a[1][0]);
 		Fp2::add(t1[2], a[0][2], a[1][1]);
-#endif
 		mul_fp6(t0, t0, t1);
 		mul_fp6(t1, a[0], a[1]);
 
@@ -611,15 +595,10 @@ namespace blst::scalar
 		/* ret[0] = (a0 + a1)*(a0 + a1*v) - a0*a1 - a0*a1*v
 				  = a0^2 + a1^2*v */
 		sub_fp6(ret[0], t0, t1);
-#ifdef mul_by_v_fp6
-		mul_by_v_fp6(t1, t1);
-		sub_fp6(ret[0], ret[0], t1);
-#else
 		Fp2::mul_by_u_plus_1(t1[2], t1[2]);
 		Fp2::sub(ret[0][0], ret[0][0], t1[2]);
 		Fp2::sub(ret[0][1], ret[0][1], t1[0]);
 		Fp2::sub(ret[0][2], ret[0][2], t1[1]);
-#endif
 	}
 
 	BLST_HD FP12_CPP_INLINE void Fp12::conjugate(Fp12& a)
@@ -669,15 +648,10 @@ namespace blst::scalar
 
 		sqr_fp6(t0, a[0]);
 		sqr_fp6(t1, a[1]);
-#ifdef mul_by_v_fp6
-		mul_by_v_fp6(t1, t1);
-		sub_fp6(t0, t0, t1);
-#else
 		Fp2::mul_by_u_plus_1(t1[2], t1[2]);
 		Fp2::sub(t0[0], t0[0], t1[2]);
 		Fp2::sub(t0[1], t0[1], t1[0]);
 		Fp2::sub(t0[2], t0[2], t1[1]);
-#endif
 
 		inverse_fp6(t1, t0);
 
@@ -686,7 +660,7 @@ namespace blst::scalar
 		neg_fp6(ret[1], ret[1]);
 	}
 
-#if defined(__FP2x2__)
+#if defined(BLST_FP2X2)
 	BLST_HD FP12_CPP_INLINE void sqr_fp4(Fp4& ret, const Fp2& a0, const Fp2& a1)
 	{
 		UFp2 t0, t1, t2;
@@ -704,7 +678,7 @@ namespace blst::scalar
 		sub_fp2x2(t2, t2, t1);
 		redc_fp2x2(ret[1], t2);
 	}
-#else //__FP2x2__
+#else // BLST_FP2X2
 	BLST_HD FP12_CPP_INLINE void sqr_fp4(Fp4& ret, const Fp2& a0, const Fp2& a1)
 	{
 		Fp2 t0, t1;
@@ -720,87 +694,46 @@ namespace blst::scalar
 		Fp2::sub(ret[1], ret[1], t0);
 		Fp2::sub(ret[1], ret[1], t1);
 	}
-#endif // __FP2x2__
+#endif // BLST_FP2X2
 
 	BLST_HD FP12_CPP_INLINE void Fp12::cyclotomic_sqr_scalar(Fp12& ret, const Fp12& a)
 	{
-		if (0)
 		{
-
-			Fp4 t0, t1, t2;
-
+			Fp4 t0;
 			sqr_fp4(t0, a[0][0], a[1][1]);
-			sqr_fp4(t1, a[1][0], a[0][2]);
-			sqr_fp4(t2, a[0][1], a[1][2]);
-
 			Fp2::sub(ret[0][0], t0[0], a[0][0]);
 			Fp2::add(ret[0][0], ret[0][0], ret[0][0]);
 			Fp2::add(ret[0][0], ret[0][0], t0[0]);
 
-			Fp2::sub(ret[0][1], t1[0], a[0][1]);
-			Fp2::add(ret[0][1], ret[0][1], ret[0][1]);
-			Fp2::add(ret[0][1], ret[0][1], t1[0]);
-
-			Fp2::sub(ret[0][2], t2[0], a[0][2]);
-			Fp2::add(ret[0][2], ret[0][2], ret[0][2]);
-			Fp2::add(ret[0][2], ret[0][2], t2[0]);
-
-			Fp2::mul_by_u_plus_1(t2[1], t2[1]);
-			Fp2::add(ret[1][0], t2[1], a[1][0]);
-			Fp2::add(ret[1][0], ret[1][0], ret[1][0]);
-			Fp2::add(ret[1][0], ret[1][0], t2[1]);
-
 			Fp2::add(ret[1][1], t0[1], a[1][1]);
 			Fp2::add(ret[1][1], ret[1][1], ret[1][1]);
 			Fp2::add(ret[1][1], ret[1][1], t0[1]);
+		}
+
+		// Must compute this one early in case &a == &ret.
+		Fp4 t2;
+		sqr_fp4(t2, a[0][1], a[1][2]);
+
+		{
+			Fp4 t1;
+			sqr_fp4(t1, a[1][0], a[0][2]);
+			Fp2::sub(ret[0][1], t1[0], a[0][1]);
+			Fp2::add(ret[0][1], ret[0][1], ret[0][1]);
+			Fp2::add(ret[0][1], ret[0][1], t1[0]);
 
 			Fp2::add(ret[1][2], t1[1], a[1][2]);
 			Fp2::add(ret[1][2], ret[1][2], ret[1][2]);
 			Fp2::add(ret[1][2], ret[1][2], t1[1]);
 		}
 
-		if (1)
-		{
-			{
+		Fp2::sub(ret[0][2], t2[0], a[0][2]);
+		Fp2::add(ret[0][2], ret[0][2], ret[0][2]);
+		Fp2::add(ret[0][2], ret[0][2], t2[0]);
 
-				Fp4 t0;
-				sqr_fp4(t0, a[0][0], a[1][1]);
-				Fp2::sub(ret[0][0], t0[0], a[0][0]);
-				Fp2::add(ret[0][0], ret[0][0], ret[0][0]);
-				Fp2::add(ret[0][0], ret[0][0], t0[0]);
-
-				Fp2::add(ret[1][1], t0[1], a[1][1]);
-				Fp2::add(ret[1][1], ret[1][1], ret[1][1]);
-				Fp2::add(ret[1][1], ret[1][1], t0[1]);
-
-			}
-
-			// must compute this one early in case &a==&ret.
-			Fp4 t2;
-			sqr_fp4(t2, a[0][1], a[1][2]);
-
-			{
-				Fp4 t1;
-				sqr_fp4(t1, a[1][0], a[0][2]);
-				Fp2::sub(ret[0][1], t1[0], a[0][1]);
-				Fp2::add(ret[0][1], ret[0][1], ret[0][1]);
-				Fp2::add(ret[0][1], ret[0][1], t1[0]);
-
-				Fp2::add(ret[1][2], t1[1], a[1][2]);
-				Fp2::add(ret[1][2], ret[1][2], ret[1][2]);
-				Fp2::add(ret[1][2], ret[1][2], t1[1]);
-			}
-
-			Fp2::sub(ret[0][2], t2[0], a[0][2]);
-			Fp2::add(ret[0][2], ret[0][2], ret[0][2]);
-			Fp2::add(ret[0][2], ret[0][2], t2[0]);
-
-			Fp2::mul_by_u_plus_1(t2[1], t2[1]);
-			Fp2::add(ret[1][0], t2[1], a[1][0]);
-			Fp2::add(ret[1][0], ret[1][0], ret[1][0]);
-			Fp2::add(ret[1][0], ret[1][0], t2[1]);
-
-		}
+		Fp2::mul_by_u_plus_1(t2[1], t2[1]);
+		Fp2::add(ret[1][0], t2[1], a[1][0]);
+		Fp2::add(ret[1][0], ret[1][0], ret[1][0]);
+		Fp2::add(ret[1][0], ret[1][0], t2[1]);
 	}
 
 	BLST_HD FP12_CPP_INLINE void Fp12::mul(Fp12& ret, const Fp12& a, const Fp12& b)
@@ -859,6 +792,10 @@ namespace blst::scalar
 
 	BLST_HD FP12_CPP_INLINE void Fp12::frobenius_map(Fp12& ret, const Fp12& a, size_t n)
 	{
+		// The scalar implementation intentionally carries only the powers used by
+		// final exponentiation and the four-dimensional GT basis.
+		BLST_ASSUME(n >= 1 && n <= 3);
+
 		const Fp2 coeffs[] = {  /* (u + 1)^((P^n - 1) / 6) */
 		  Fp2{
 			Fp{ TO_LIMB_T(0x07089552b319d465), TO_LIMB_T(0xc6695f92b50a8313),
@@ -910,11 +847,6 @@ namespace blst::scalar
 		return get_BLST_Rx();
 	}
 
-
-	BLST_HD FP12_CPP_INLINE void blst_fp12_one_copy(Fp12& ret)
-	{
-		vec_copy(&ret, &get_BLST_Rx(), sizeof(ret));
-	}
 
 	BLST_HD FP12_CPP_INLINE void Fp12::from_bendian(Fp12& ret, const unsigned char serialized[12 * 48]) {
 		// Clear the output first
@@ -1009,65 +941,104 @@ namespace blst::scalar
 
 	BLST_HD FP12_CPP_INLINE void Fp12::cyclotomic_exp(Fp12& ret, const Fp12& a, const byte* exp, size_t bits)
 	{
-		// Optimization: Dispatch to GLV method for 256-bit scalars.
-		// GLV decomposition provides ~2x speedup by splitting the scalar 
-		// and using the Frobenius endomorphism.
-		// We restrict this to cases where bits <= 256 to ensure the scalar 
-		// fits within the implementation's splitting bounds.
 		if (bits > 128 && bits <= 256) {
-			// GLV implementation handles variable bit lengths up to 256 internally 
-			// if passed as a 256-bit container, but explicit dispatch usually 
-			// implies a full-width scalar or one that fits in 256-bit words.
+			limb_t scalar[4] = {};
+			const size_t byte_len = (bits + 7) / 8;
+			memcpy(scalar, exp, byte_len);
+			if ((bits & 7U) != 0) {
+				reinterpret_cast<byte*>(scalar)[byte_len - 1] &=
+					static_cast<byte>((1U << (bits & 7U)) - 1U);
+			}
+			Fp12::cyclotomic_exp_glv4_ct(ret, a, scalar);
+			vec_zero(scalar, sizeof(scalar));
+			return;
+		}
+
+		Fp12 accumulator = Fp12::one();
+		Fp12 squared;
+		Fp12 product;
+
+		for (size_t bit = bits; bit != 0;) {
+			--bit;
+			Fp12::cyclotomic_sqr(squared, accumulator);
+			Fp12::mul(product, squared, a);
+			const bool_t bit_set = (exp[bit / 8] >> (bit % 8)) & 1U;
+			vec_select(&accumulator, &product, &squared, sizeof(accumulator), bit_set);
+		}
+
+		ret = accumulator;
+	}
+
+	BLST_HD FP12_CPP_INLINE void Fp12::cyclotomic_exp_vartime(Fp12& ret, const Fp12& a, const byte* exp, size_t bits)
+	{
+		// GLV decomposition is profitable for larger exponents and is valid
+		// here because the documented base contract is GT, not merely cyclotomic.
+		if (bits > 128 && bits <= 256) {
 			limb_t exp_256[4] = { 0 };
-			size_t byte_len = (bits + 7) / 8;
+			const size_t byte_len = (bits + 7) / 8;
 			memcpy(exp_256, exp, byte_len);
-			if (bits % 8 != 0) {
-				// Create mask for valid bits in the top byte
-				// e.g., bits % 8 == 1 -> mask 0x01
-				uint8_t mask = (1 << (bits % 8)) - 1;
-				// Apply mask to the specific byte in the limb array
-				((uint8_t*)exp_256)[byte_len - 1] &= mask;
+			if ((bits & 7U) != 0) {
+				const byte mask = static_cast<byte>((1U << (bits & 7U)) - 1U);
+				reinterpret_cast<byte*>(exp_256)[byte_len - 1] &= mask;
 			}
 
 			cyclotomic_exp_glv4(ret, a, exp_256);
+			vec_zero(exp_256, sizeof(exp_256));
 		}
-		else
-		{
-			// Fallback to basic square-and-multiply for other sizes
+		else {
 			cyclotomic_exp_basic(ret, a, exp, bits);
 		}
 	}
 
-	BLST_HD FP12_CPP_INLINE void Fp12::cyclotomic_exp_basic(Fp12& ret, const Fp12& a, const byte* exp, size_t bits)
+	BLST_HD static BLST_FORCEINLINE void cyclotomic_exp_basic_noalias(
+		Fp12& ret, const Fp12& base, const byte* exp, size_t bits)
 	{
-		// 1. Find the first set bit (scanning MSB to LSB)
-		int i = (int)bits - 1;
-		while (i >= 0 && !((exp[i / 8] >> (i % 8)) & 1)) {
-			i--;
+		size_t bit = bits;
+		while (bit != 0) {
+			--bit;
+			if (((exp[bit / 8] >> (bit % 8)) & 1U) != 0)
+				break;
 		}
 
-		// Handle the case where the exponent is 0
-		if (i < 0) {
+		if (bit == 0 &&
+			(bits == 0 || (exp[0] & 1U) == 0)) {
 			ret = Fp12::one();
 			return;
 		}
 
-		// 2. Initialize ret with a (the first bit)
-		// This saves one mul() and prevents needing an identity '1' in registers
-		ret = a;
-		i--;
-
-		// 3. Main Loop
-		for (; i >= 0; i--) {
-			// We use cyclotomic squaring because we are in GT
+		ret = base;
+		while (bit != 0) {
+			--bit;
 			Fp12::cyclotomic_sqr(ret, ret);
+			if (((exp[bit / 8] >> (bit % 8)) & 1U) != 0)
+				Fp12::mul(ret, ret, base);
+		}
+	}
 
-			if ((exp[i / 8] >> (i % 8)) & 1) {
-				// By using 'a' directly here, the compiler can potentially 
-				// load it from constant memory/L1 cache instead of 
-				// keeping it in registers for the whole function.
-				Fp12::mul(ret, ret, a);
-			}
+#if defined(_MSC_VER)
+# define BLST_FP12_NOINLINE __declspec(noinline)
+#elif defined(__GNUC__) || defined(__clang__)
+# define BLST_FP12_NOINLINE __attribute__((noinline))
+#else
+# define BLST_FP12_NOINLINE
+#endif
+
+	BLST_HD static BLST_FP12_NOINLINE void cyclotomic_exp_basic_alias(
+		Fp12& inout, const byte* exp, size_t bits)
+	{
+		const Fp12 base = inout;
+		cyclotomic_exp_basic_noalias(inout, base, exp, bits);
+	}
+
+#undef BLST_FP12_NOINLINE
+
+	BLST_HD FP12_CPP_INLINE void Fp12::cyclotomic_exp_basic(
+		Fp12& ret, const Fp12& a, const byte* exp, size_t bits)
+	{
+		if (&ret == &a) {
+			cyclotomic_exp_basic_alias(ret, exp, bits);
+		} else {
+			cyclotomic_exp_basic_noalias(ret, a, exp, bits);
 		}
 	}
 
@@ -1377,7 +1348,8 @@ namespace blst::scalar
 
 			// Bounds check for safety before writing
 			if (result.sched_len < 132) {
-				result.set(result.sched_len, j1, j2);
+				result.set(result.sched_len, static_cast<int8_t>(j1),
+					static_cast<int8_t>(j2));
 				result.sched_len++;
 			}
 
@@ -1604,13 +1576,14 @@ namespace blst::scalar
 		}
 		r = rem;
 	}
+
 	// BLS12-381 Parameter z (absolute value)
 	static const uint64_t BLS_Z = 0xd201000000010000ULL;
 	// Split 256-bit scalar k into 4 64-bit signed scalars k0..k3
 	// such that k = k0 + k1*x + k2*x^2 + k3*x^3 mod r
 	// where x is the BLS parameter (negative).
 	BLST_HD FP12_CPP_INLINE
-		void Fp12::gt_split_scalar_4d(int64_t k_out[4], const limb_t k_in[4])
+	void Fp12::gt_split_scalar_4d(int64_t k_out[4], const limb_t k_in[4])
 	{
 		limb_t temp_k[4];
 		vec_copy(temp_k, k_in, sizeof(limb_t) * 4);
@@ -1661,7 +1634,11 @@ namespace blst::scalar
 		// k = k0 - k1*z + k2*z^2 - k3*z^3 + k4*z^4
 		// Coeff of z^2 (u^2) is increased by k4.
 		// Coeff of z^0 (1) is decreased by k4.
-		// temp_k is the remaining quotient, used as k4.
+		// For every 256-bit input, floor(k / z^4) <= 2. Therefore the
+		// remaining quotient is entirely in temp_k[0] and fits the signed
+		// digit corrections below.
+		BLST_ASSERT((temp_k[1] | temp_k[2] | temp_k[3]) == 0);
+		BLST_ASSERT(temp_k[0] <= 2);
 		if (temp_k[0] != 0) {
 			k_out[2] += (int64_t)temp_k[0];
 			k_out[0] -= (int64_t)temp_k[0];
@@ -1673,25 +1650,129 @@ namespace blst::scalar
 	}
 
 	BLST_HD FP12_CPP_INLINE
-	void Fp12::cyclotomic_exp_glv4(Fp12& out, const Fp12& base, const limb_t* scalar)
+	void Fp12::gt_split_scalar_4d_ct(uint64_t k_out[4], const limb_t k_in[4])
 	{
+		pow256 canonical = {};
+		limb_t radix_digits[4] = {};
+		canonical_scalar_256(
+			canonical, reinterpret_cast<const byte*>(k_in), 256);
+		limbs_from_le_bytes(radix_digits, canonical, sizeof(canonical));
 
+		// [low remainder | high quotient] after z^2, then split each half by z.
+		div_by_zz(radix_digits);
+		div_by_z(radix_digits);
+		div_by_z(radix_digits + 2);
+		for (size_t i = 0; i < 4; ++i) {
+			k_out[i] = radix_digits[i];
+			BLST_ASSERT(k_out[i] < BLS_Z);
+		}
 
 #ifndef NDEBUG
-		// Debug assertion: Scalar must be strictly less than group order r.
-		// GLV decomposition optimized for curve operations assumes valid Fr scalars.
-		{
-			const limb_t* r = get_BLST_r().l;
-			int cmp = 0;
-			for (int i = 3; i >= 0; i--) {
-				if (scalar[i] > r[i]) { cmp = 1; break; }
-				if (scalar[i] < r[i]) { cmp = -1; break; }
-			}
-			// If equal (0) or greater (1), assert fails
-			BLST_ASSERT(cmp < 0 && "Scalar must be reduced ( < r ) for GLV optimization");
+		constexpr limb_t z_fourth[4] = {
+			0x0000000000000000ULL,
+			0x0003480400000001ULL,
+			0x3339d80809a1d806ULL,
+			0x73eda753299d7d48ULL,
+		};
+		int order_vs_z_fourth = 0;
+		for (size_t i = 4; i != 0 && order_vs_z_fourth == 0;) {
+			--i;
+			order_vs_z_fourth = get_BLST_r()[i] < z_fourth[i] ? -1 :
+				(get_BLST_r()[i] > z_fourth[i] ? 1 : 0);
 		}
-#endif
+		BLST_ASSERT(order_vs_z_fourth < 0);
 
+		limb_t reduced[4] = {};
+		limbs_from_le_bytes(reduced, canonical, sizeof(canonical));
+		limb_t recomposed[4] = {};
+		for (size_t i = 4; i != 0;) {
+			--i;
+			wide_limb_t carry = {};
+			for (size_t j = 0; j < 4; ++j) {
+				wide_limb_t product;
+				cc_mul_wide_limb_limb(&product, recomposed[j], BLS_Z);
+				cc_add_wide_wide_limb(&product, product, (limb_t)carry.lo);
+				recomposed[j] = (limb_t)product.lo;
+				carry.lo = product.hi;
+			}
+			wide_limb_t sum;
+			cc_add_wide_limb_limb(&sum, recomposed[0], k_out[i]);
+			recomposed[0] = (limb_t)sum.lo;
+			limb_t add = (limb_t)sum.hi;
+			for (size_t j = 1; j < 4; ++j) {
+				cc_add_wide_limb_limb(&sum, recomposed[j], add);
+				recomposed[j] = (limb_t)sum.lo;
+				add = (limb_t)sum.hi;
+			}
+		}
+		BLST_ASSERT(vec_is_equal(recomposed, reduced, sizeof(reduced)));
+		vec_zero(reduced, sizeof(reduced));
+		vec_zero(recomposed, sizeof(recomposed));
+#endif
+		vec_zero(canonical, sizeof(canonical));
+		vec_zero(radix_digits, sizeof(radix_digits));
+	}
+
+	BLST_HD FP12_CPP_INLINE
+	void Fp12::cyclotomic_exp_glv4_ct(Fp12& out, const Fp12& base, const limb_t* scalar)
+	{
+		uint64_t digits[4];
+		uint64_t magnitudes[4];
+		Fp12 table[16];
+
+		gt_split_scalar_4d_ct(digits, scalar);
+		table[0] = Fp12::one();
+		table[1] = base;
+		Fp12::frobenius_map(table[2], base, 1);
+		Fp12::frobenius_map(table[4], base, 2);
+		Fp12::frobenius_map(table[8], base, 3);
+
+		for (size_t i = 0; i < 4; ++i)
+			magnitudes[i] = digits[i];
+		// Frobenius acts as -z in GT. Unsigned radix-z digits therefore use
+		// the inverse of the odd Frobenius bases.
+		Fp12::conjugate(table[2]);
+		Fp12::conjugate(table[8]);
+
+		Fp12::mul(table[3], table[1], table[2]);
+		Fp12::mul(table[5], table[1], table[4]);
+		Fp12::mul(table[6], table[2], table[4]);
+		Fp12::mul(table[7], table[3], table[4]);
+		Fp12::mul(table[9], table[1], table[8]);
+		Fp12::mul(table[10], table[2], table[8]);
+		Fp12::mul(table[11], table[3], table[8]);
+		Fp12::mul(table[12], table[4], table[8]);
+		Fp12::mul(table[13], table[5], table[8]);
+		Fp12::mul(table[14], table[6], table[8]);
+		Fp12::mul(table[15], table[7], table[8]);
+
+		out = Fp12::one();
+		for (size_t bit = 64; bit != 0;) {
+			--bit;
+			Fp12::cyclotomic_sqr(out, out);
+			const unsigned index =
+				static_cast<unsigned>((magnitudes[0] >> bit) & 1U) |
+				(static_cast<unsigned>((magnitudes[1] >> bit) & 1U) << 1) |
+				(static_cast<unsigned>((magnitudes[2] >> bit) & 1U) << 2) |
+				(static_cast<unsigned>((magnitudes[3] >> bit) & 1U) << 3);
+
+			Fp12 selected = table[0];
+			for (unsigned candidate = 1; candidate < 16; ++candidate) {
+				const bool_t match = byte_is_zero(
+					static_cast<byte>(candidate ^ index));
+				vec_select(&selected, &table[candidate], &selected,
+					sizeof(Fp12), match);
+			}
+			Fp12::mul(out, out, selected);
+		}
+
+		vec_zero(digits, sizeof(digits));
+		vec_zero(magnitudes, sizeof(magnitudes));
+	}
+
+	BLST_HD FP12_CPP_INLINE
+	void Fp12::cyclotomic_exp_glv4(Fp12& out, const Fp12& base, const limb_t* scalar)
+	{
 		// 1. Decompose Scalar
 		int64_t k[4];
 		gt_split_scalar_4d(k, scalar);
@@ -1709,7 +1790,7 @@ namespace blst::scalar
 		for (int i = 0; i < 4; ++i) {
 			if (k[i] < 0) {
 				abs_k[i] = (uint64_t)(-k[i]);
-				Fp12::conjugate(T[1 << i]);
+				Fp12::conjugate(T[size_t{ 1 } << static_cast<unsigned>(i)]);
 			}
 			else {
 				abs_k[i] = (uint64_t)k[i];
@@ -1774,7 +1855,6 @@ namespace blst::scalar
 		props.sign_mask = 0;
 		props.sched_len = 0;
 
-		// ... (splitting & sign logic same as before) ...
 		int64_t k[4];
 		gt_split_scalar_4d(k, k_in);
 
@@ -1835,7 +1915,7 @@ namespace blst::scalar
 		sqr_run--;
 		while (sqr_run > 0) {
 			int chunk = (sqr_run > 15) ? 15 : sqr_run;
-			push((chunk << 4) | 0);
+			push(static_cast<uint8_t>(chunk << 4));
 			sqr_run -= chunk;
 		}
 
@@ -1845,7 +1925,6 @@ namespace blst::scalar
 	BLST_HD FP12_CPP_INLINE
 	void Fp12::cyclotomic_exp_glv4(Fp12& out, const Fp12& base, const GLV4_Exp& props)
 	{
-		// ... (Setup: Signs, Basis, Table same as before) ...
 		Fp12 basis[4];
 		basis[0] = base;
 		Fp12 phi;

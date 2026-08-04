@@ -16,6 +16,7 @@
 #include <array>
 #include <cstring>
 #include <cstdint>
+#include "blst/scalar/curve/ec_mult.h"
 // Modified from blst
 
 namespace blst::avx {
@@ -49,9 +50,11 @@ class PrecomputedTable {
     }
 
     std::pair<uint8_t, bool> booth_encode(uint64_t idx) const {
-        bool booth_sign = (idx >> table_log_size);
-        uint8_t booth_index = booth_sign ? (1 << (table_log_size+1)) - idx : idx;
-        return std::make_pair(booth_index, booth_sign);
+        const uint64_t booth_sign = static_cast<uint64_t>((idx >> table_log_size) != 0);
+        const uint64_t sign_mask = uint64_t{0} - booth_sign;
+        const uint64_t negated = (uint64_t{1} << (table_log_size + 1)) - idx;
+        const uint64_t booth_index = (idx & ~sign_mask) | (negated & sign_mask);
+        return std::make_pair(static_cast<uint8_t>(booth_index), booth_sign != 0);
     }
 
     ProjectivePoint gather_booth(uint8_t booth_index, bool booth_sign, const Curve &curve, const Ring &ring) const {
@@ -63,6 +66,17 @@ class PrecomputedTable {
         }
         // Replace y with negated y if booth_sign is true (matches Python: n = -val if sign else val)
         result.y = result.y.ctime_replace_if(booth_sign, ring.standard_negate(result.y));
+        return result;
+    }
+
+    ProjectivePoint gather_booth_vartime(uint8_t booth_index, bool booth_sign, const Curve &curve, const Ring &ring) const {
+        if (booth_index == 0) {
+            return curve.zero(ring);
+        }
+        ProjectivePoint result = data[booth_index - 1];
+        if (booth_sign) {
+            result.y = ring.standard_negate(result.y);
+        }
         return result;
     }
 };
@@ -166,6 +180,50 @@ typename Curve::ProjPoint table_msm(const std::array<ScalarForExponent<scalar_bi
         }
         if (j != 0) {
             for (int k = 0; k < wbits+1; k++) {
+                result = curve.double_point(result, ring);
+            }
+        }
+    }
+    return result;
+}
+
+template<class Curve, class Ring, int scalar_bits, int table_log_size, int num_tables>
+typename Curve::ProjPoint table_msm_vartime(const std::array<ScalarForExponent<scalar_bits>, num_tables> &scalars, const std::array<PrecomputedTable<Curve, Ring, table_log_size>, num_tables> &tables, const Curve &curve, const Ring &ring) {
+    constexpr int wbits = table_log_size;
+    constexpr int num_windows = (scalar_bits + wbits) / (wbits + 1);
+    constexpr int carry_possible = scalar_bits % (wbits + 1) == 0;
+    std::array<std::array<std::pair<uint8_t, bool>, num_windows>, num_tables> booth_indexes;
+    typename Curve::ProjPoint result = curve.zero(ring);
+
+    for (int i = 0; i < num_tables; ++i) {
+        bool carry = false;
+        for (int j = 0; j < num_windows; ++j) {
+            uint64_t window_val = scalars[i].template get_bits<wbits + 1>(j * (wbits + 1));
+            window_val += static_cast<uint64_t>(carry);
+            booth_indexes[i][j] = tables[i].booth_encode(window_val);
+            carry = booth_indexes[i][j].second;
+        }
+        if constexpr (carry_possible) {
+            if (carry) {
+                result = curve.add_point(result, tables[i].data[(1 << wbits) - 1], ring);
+            }
+        }
+    }
+    if constexpr (carry_possible) {
+        result = curve.double_point(result, ring);
+    }
+    for (int j = num_windows - 1; j >= 0; --j) {
+        for (int i = 0; i < num_tables; ++i) {
+            const auto [index, sign] = booth_indexes[i][j];
+            if (index != 0) {
+                result = curve.add_point(
+                    result,
+                    tables[i].gather_booth_vartime(index, sign, curve, ring),
+                    ring);
+            }
+        }
+        if (j != 0) {
+            for (int k = 0; k < wbits + 1; ++k) {
                 result = curve.double_point(result, ring);
             }
         }
@@ -328,6 +386,67 @@ class GLVMult {
         return table_msm<G1Curve, Ring, 128, table_log_size, 2>(scalars, tables, curve, ring);
     }
 
+    template<int table_log_size=4>
+    ProjectivePoint multiply_vartime(const ProjectivePoint &P, const std::array<uint8_t, 32> &SK, const Ring &ring) const {
+        static_assert(table_log_size == 4,
+            "the selected AVX G1 variable-time kernel uses wNAF-5");
+        return multiply_wnaf_vartime<5>(P, SK, ring);
+    }
+
+    template<int width>
+    ProjectivePoint multiply_wnaf_vartime(
+        const ProjectivePoint& P, const std::array<uint8_t, 32>& SK,
+        const Ring& ring) const
+    {
+        static_assert(width >= 4 && width <= 6);
+        constexpr size_t table_size = size_t{1} << (width - 2);
+        auto [low, high] = div_by_zz(SK);
+        int8_t digits[2][129] = {};
+        const size_t used0 = blst::scalar::recode_wnaf_vartime<128, width>(
+            digits[0], low.data());
+        const size_t used1 = blst::scalar::recode_wnaf_vartime<128, width>(
+            digits[1], high.data());
+        const size_t used = used0 > used1 ? used0 : used1;
+
+        std::array<ProjectivePoint, table_size> table_p = {};
+        std::array<ProjectivePoint, table_size> table_phi = {};
+        const ProjectivePoint twice = curve.double_point(P, ring);
+        table_p[0] = P;
+        for (size_t i = 1; i < table_size; ++i)
+            table_p[i] = curve.add_point(table_p[i - 1], twice, ring);
+        table_phi = batch_endomorphism<table_size>(table_p, ring);
+
+        ProjectivePoint result = curve.zero(ring);
+        bool started = false;
+        for (size_t position = used; position != 0;) {
+            --position;
+            if (started)
+                result = curve.double_point(result, ring);
+            for (size_t component = 0; component < 2; ++component) {
+                const int digit = digits[component][position];
+                if (digit == 0)
+                    continue;
+                const unsigned magnitude = digit < 0
+                    ? static_cast<unsigned>(-digit)
+                    : static_cast<unsigned>(digit);
+                ProjectivePoint row = component == 0
+                    ? table_p[magnitude >> 1]
+                    : table_phi[magnitude >> 1];
+                if (digit < 0)
+                    row.y = ring.standard_negate(row.y);
+                if (!started) {
+                    result = row;
+                    started = true;
+                }
+                else {
+                    result = curve.add_point(result, row, ring);
+                }
+            }
+        }
+        blst::vec_zero(digits, sizeof(digits));
+        return result;
+    }
+
 #if BLST_AVX_VALIDATE_CONSTANTS
     template<int table_log_size=4>
     ProjectivePoint multiply(const ProjectivePoint &P, const BigInt &SK, const Ring &ring) const {
@@ -404,6 +523,75 @@ class GLSMult {
         PrecomputedTable<G2Curve, FP2RingType, table_log_size> tablePsi3(table_psi3_data);
         std::array<PrecomputedTable<G2Curve, FP2RingType, table_log_size>, 4> tables = {tableP, tablePsi, tablePsi2, tablePsi3};
         return table_msm<G2Curve, FP2RingType, 64, table_log_size, 4>(scalars, tables, curve, fp2ring);
+    }
+
+    template<int table_log_size=4>
+    ProjectivePoint multiply_vartime(const ProjectivePoint &P, const std::array<uint8_t, 32> &SK, const FP2RingType &fp2ring, const G2Curve &curve, const Ring &ring) const {
+        static_assert(table_log_size == 4,
+            "the selected AVX G2 variable-time entry uses wNAF-4");
+        return multiply_wnaf_vartime<4>(P, SK, fp2ring, curve, ring);
+    }
+
+    template<int width>
+    ProjectivePoint multiply_wnaf_vartime(
+        const ProjectivePoint& P, const std::array<uint8_t, 32>& SK,
+        const FP2RingType& fp2ring, const G2Curve& curve,
+        const Ring& ring) const
+    {
+        static_assert(width >= 4 && width <= 6);
+        constexpr size_t table_size = size_t{1} << (width - 2);
+        auto [low128, high128] = div_by_zz(SK);
+        auto [d0, d1] = div_by_z(low128);
+        auto [d2, d3] = div_by_z(high128);
+        const std::array<const uint8_t*, 4> scalar_digits = {
+            d0.data(), d1.data(), d2.data(), d3.data()};
+        int8_t digits[4][65] = {};
+        size_t used = 0;
+        for (size_t i = 0; i < 4; ++i) {
+            const size_t count = blst::scalar::recode_wnaf_vartime<64, width>(
+                digits[i], scalar_digits[i]);
+            if (count > used)
+                used = count;
+        }
+
+        std::array<std::array<ProjectivePoint, table_size>, 4> table = {};
+        const ProjectivePoint twice = curve.double_point(P, fp2ring);
+        table[0][0] = P;
+        for (size_t i = 1; i < table_size; ++i)
+            table[0][i] = curve.add_point(table[0][i - 1], twice, fp2ring);
+        for (size_t i = 0; i < table_size; ++i) {
+            table[1][i] = minus_psi(table[0][i], fp2ring, ring);
+            table[2][i] = minus_psi(table[1][i], fp2ring, ring);
+            table[3][i] = minus_psi(table[2][i], fp2ring, ring);
+        }
+
+        ProjectivePoint result = curve.zero(fp2ring);
+        bool started = false;
+        for (size_t position = used; position != 0;) {
+            --position;
+            if (started)
+                result = curve.double_point(result, fp2ring);
+            for (size_t component = 0; component < 4; ++component) {
+                const int digit = digits[component][position];
+                if (digit == 0)
+                    continue;
+                const unsigned magnitude = digit < 0
+                    ? static_cast<unsigned>(-digit)
+                    : static_cast<unsigned>(digit);
+                ProjectivePoint row = table[component][magnitude >> 1];
+                if (digit < 0)
+                    row.y = fp2ring.standard_negate(row.y);
+                if (!started) {
+                    result = row;
+                    started = true;
+                }
+                else {
+                    result = curve.add_point(result, row, fp2ring);
+                }
+            }
+        }
+        blst::vec_zero(digits, sizeof(digits));
+        return result;
     }
 
 #if BLST_AVX_VALIDATE_CONSTANTS

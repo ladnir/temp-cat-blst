@@ -81,7 +81,7 @@ namespace blst
 				G r;
 				F b_non_mont;
 				F::from_mont(b_non_mont, b);
-				G::mult(r, a, reinterpret_cast<const byte*>(&b_non_mont), 256);
+				G::mult_vartime(r, a, reinterpret_cast<const byte*>(&b_non_mont), 256);
 				return r;
 			}
 		}

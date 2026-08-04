@@ -450,7 +450,11 @@ extern "C" {
     pub fn blst_fp12_inverse(ret: *mut blst_fp12, a: *const blst_fp12);
 }
 extern "C" {
-    pub fn blst_fp12_frobenius_map(ret: *mut blst_fp12, a: *const blst_fp12, n: usize);
+    pub fn blst_fp12_frobenius_map(
+        ret: *mut blst_fp12,
+        a: *const blst_fp12,
+        n: usize,
+    ) -> bool;
 }
 extern "C" {
     pub fn blst_fp12_is_equal(a: *const blst_fp12, b: *const blst_fp12) -> bool;
@@ -584,6 +588,9 @@ extern "C" {
 }
 extern "C" {
     pub fn blst_p1_mult(out: *mut blst_p1, p: *const blst_p1, scalar: *const blst_byte, nbits: usize);
+}
+extern "C" {
+    pub fn blst_p1_mult_vartime(out: *mut blst_p1, p: *const blst_p1, scalar: *const blst_byte, nbits: usize);
 }
 extern "C" {
     pub fn blst_p1_cneg(p: *mut blst_p1, cbit: bool);
@@ -747,6 +754,9 @@ extern "C" {
 }
 extern "C" {
     pub fn blst_p2_mult(out: *mut blst_p2, p: *const blst_p2, scalar: *const blst_byte, nbits: usize);
+}
+extern "C" {
+    pub fn blst_p2_mult_vartime(out: *mut blst_p2, p: *const blst_p2, scalar: *const blst_byte, nbits: usize);
 }
 extern "C" {
     pub fn blst_p2_cneg(p: *mut blst_p2, cbit: bool);
@@ -1179,6 +1189,14 @@ extern "C" {
 }
 extern "C" {
     pub fn blst_gt_mult(
+        out: *mut blst_fp12,
+        p: *const blst_fp12,
+        scalar: *const blst_byte,
+        nbits: usize,
+    );
+}
+extern "C" {
+    pub fn blst_gt_mult_vartime(
         out: *mut blst_fp12,
         p: *const blst_fp12,
         scalar: *const blst_byte,

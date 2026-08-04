@@ -131,7 +131,7 @@ namespace blst {
                     G r;
                     F b_non_mont = {};
                     F::from_mont(b_non_mont, b);
-                    G::mult(r, a, reinterpret_cast<const byte*>(&b_non_mont), 256);
+					G::mult_vartime(r, a, reinterpret_cast<const byte*>(&b_non_mont), 256);
                     return r;
                 }
             }
@@ -188,7 +188,7 @@ namespace blst {
                 Group r;
                 Fr b_non_mont = {};
                 Fr::from_mont(b_non_mont, b);
-                Group::mult(r, a, reinterpret_cast<const byte*>(&b_non_mont), 256);
+				Group::mult_vartime(r, a, reinterpret_cast<const byte*>(&b_non_mont), 256);
                 return r;
             }
 

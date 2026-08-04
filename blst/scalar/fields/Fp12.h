@@ -1,3 +1,8 @@
+/*
+ * Copyright Supranational LLC
+ * Licensed under the Apache License, Version 2.0, see LICENSE for details.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #ifndef BLST_SCALAR_FP12_H
 #define BLST_SCALAR_FP12_H
 
@@ -36,7 +41,12 @@ namespace blst::scalar
 		BLST_HD const Fp2& operator[](size_t idx) const { return fp2[idx]; }
 	};
 
-	/// @brief Precomputed constant-time GLV-4 exponentiation schedule.
+	/**
+	 * @brief Precomputed variable-time GLV-4 exponentiation schedule.
+	 *
+	 * This is trusted bytecode produced by `Fp12::glv4_compile`. Passing a
+	 * schedule after modifying its fields violates the executor precondition.
+	 */
 	struct GLV4_Exp
 	{
 		uint8_t sign_mask;     ///< Basis elements that require conjugation.
@@ -45,9 +55,11 @@ namespace blst::scalar
 	};
 
 	/**
-	 * @brief Precomputed constant-time GLV-2 joint-sparse-form schedule.
+	 * @brief Precomputed variable-time GLV-2 joint-sparse-form schedule.
 	 *
 	 * Each index stores two signed digits; two digit pairs are packed per byte.
+	 * This is trusted bytecode produced by `Fp12::glv_recode_jsf`. Passing a
+	 * schedule after modifying its fields violates the executor precondition.
 	 */
 	struct GLV_JSF_Exp
 	{
@@ -57,9 +69,11 @@ namespace blst::scalar
 		/// Set the @p idx digit pair to (`d1`, `d2`).
 		BLST_HD void set(size_t idx, int8_t d1, int8_t d2)
 		{
-			auto enc = ((d1 + 1) | ((d2 + 1) << 2));
-			enc <<= ((idx % 2) * 4);
-			enc |= schedule[idx / 2] & (~(0xF << ((idx % 2) * 4)));
+			unsigned enc = static_cast<unsigned>(d1 + 1) |
+				(static_cast<unsigned>(d2 + 1) << 2);
+			const unsigned shift = static_cast<unsigned>((idx % 2) * 4);
+			enc <<= shift;
+			enc |= schedule[idx / 2] & ~(0xFU << shift);
 			schedule[idx / 2] = static_cast<uint8_t>(enc);
 		}
 
@@ -119,47 +133,60 @@ namespace blst::scalar
 		/// @brief Cyclotomic squaring using scalar code generation explicitly.
 		/// @pre @p a lies in the cyclotomic subgroup.
 		BLST_HD static void cyclotomic_sqr_scalar(Fp12& ret, const Fp12& a);
-		/// @brief Exponentiate with cyclotomic squaring.
-		/// @pre @p a lies in the cyclotomic subgroup.
+		/// @brief Constant-time exponentiation of a G_T element.
+		/// @pre @p a lies in the order-r target group G_T.
+		/// @details Runtime and memory access are independent of exponent contents
+		/// for a fixed public @p bits.
 		BLST_HD static void cyclotomic_exp(Fp12& ret, const Fp12& a, const byte* exp, size_t bits);
-		/// @brief Basic cyclotomic exponentiation implementation.
-		/// @pre @p a lies in the cyclotomic subgroup.
+		/// @brief Optimized variable-time exponentiation of a G_T element.
+		/// @pre @p a lies in the order-r target group G_T.
+		/// @warning Use only with public exponent data.
+		BLST_HD static void cyclotomic_exp_vartime(Fp12& ret, const Fp12& a, const byte* exp, size_t bits);
+		/// @brief Basic variable-time exponentiation of a G_T element using cyclotomic squaring.
+		/// @pre @p a lies in the order-r target group G_T.
+		/// @warning Use only with public exponent data.
 		BLST_HD static void cyclotomic_exp_basic(Fp12& ret, const Fp12& a, const byte* exp, size_t bits);
 		/// @brief Split a 256-bit scalar into two approximately 128-bit GLV components.
 		/// @details The decomposition satisfies `k = k1 + k2*lambda` modulo r.
 		BLST_HD static void glv_split_2(limb_t k1_out[4], limb_t k2_out[4], const limb_t k[4]);
 		/// @brief Recode two GLV components into joint sparse form.
 		BLST_HD static GLV_JSF_Exp glv_recode_jsf(const limb_t* k1, const limb_t* k2);
-		/// @brief GLV-2 cyclotomic exponentiation from a 32-byte scalar.
-		/// @pre @p base lies in the cyclotomic subgroup.
+		/// @brief GLV-2 G_T exponentiation from a 32-byte scalar.
+		/// @pre @p base lies in the order-r target group G_T.
 		BLST_HD static void cyclotomic_exp_glv(Fp12& out, const Fp12& base, const byte* scalar_bytes);
-		/// @brief GLV-2 cyclotomic exponentiation with pre-split scalars.
-		/// @pre @p base lies in the cyclotomic subgroup.
+		/// @brief GLV-2 G_T exponentiation with pre-split scalars.
+		/// @pre @p base lies in the order-r target group G_T.
 		BLST_HD static void cyclotomic_exp_glv(Fp12& out, const Fp12& base, const limb_t* k1, const limb_t* k2);
-		/// @brief GLV-2 cyclotomic exponentiation with on-the-fly JSF recoding.
-		/// @pre @p base lies in the cyclotomic subgroup.
+		/// @brief GLV-2 G_T exponentiation with on-the-fly JSF recoding.
+		/// @pre @p base lies in the order-r target group G_T.
 		BLST_HD static void cyclotomic_exp_glv_jsf(Fp12& out, const Fp12& base, const limb_t* k1, const limb_t* k2);
-		/// @brief GLV-2 cyclotomic exponentiation with a precomputed JSF schedule.
-		/// @pre @p base lies in the cyclotomic subgroup.
+		/// @brief GLV-2 G_T exponentiation with a trusted precomputed JSF schedule.
+		/// @pre @p base lies in G_T and @p sched is an unmodified result of `glv_recode_jsf`.
 		BLST_HD static void cyclotomic_exp_glv_jsf(Fp12& out, const Fp12& base, const GLV_JSF_Exp& sched);
 		/// @brief Four-dimensional G_T scalar decomposition.
 		/// @details `k = k0 + k1*lambda1 + k2*lambda2 + k3*lambda3` modulo r.
 		BLST_HD static void gt_split_scalar_4d(int64_t k_out[4], const limb_t k_in[4]);
-		/// @brief Split a scalar into four signed GLV components.
-		BLST_HD static void glv_split_4(int64_t k_out[4], const limb_t k_in[4]);
-		/// @brief Compile a scalar into a constant-time GLV-4 execution schedule.
+		/// @brief Constant-time four-dimensional G_T scalar decomposition.
+		BLST_HD static void gt_split_scalar_4d_ct(uint64_t k_out[4], const limb_t k_in[4]);
+		/// @brief Compile a scalar into a variable-time GLV-4 execution schedule.
 		BLST_HD static GLV4_Exp glv4_compile(const limb_t* k_in);
-		/// @brief GLV-4 cyclotomic exponentiation with a precompiled schedule.
-		/// @pre @p base lies in the cyclotomic subgroup.
+		/// @brief GLV-4 G_T exponentiation with a trusted precompiled schedule.
+		/// @pre @p base lies in G_T and @p props is an unmodified result of `glv4_compile`.
 		BLST_HD static void cyclotomic_exp_glv4(Fp12& out, const Fp12& base, const GLV4_Exp& props);
-		/// @brief GLV-4 cyclotomic exponentiation with a runtime scalar split.
-		/// @pre @p base lies in the cyclotomic subgroup.
+		/// @brief GLV-4 G_T exponentiation with a runtime scalar split.
+		/// @details The full 256-bit unsigned scalar is accepted; decomposition
+		/// preserves its value modulo the order of G_T.
+		/// @pre @p base lies in the order-r target group G_T.
 		BLST_HD static void cyclotomic_exp_glv4(Fp12& out, const Fp12& base, const limb_t* scalar);
+		/// @brief Constant-time GLV-4 G_T exponentiation over a fixed 64-round schedule.
+		/// @pre @p base lies in the order-r target group G_T.
+		BLST_HD static void cyclotomic_exp_glv4_ct(Fp12& out, const Fp12& base, const limb_t* scalar);
 		/// @brief Conjugate @p a in place by negating its w coefficient.
 		BLST_HD static void conjugate(Fp12& a);
 		/// @brief `ret = a^{-1}` in Fp12.
 		BLST_HD static void inverse(Fp12& ret, const Fp12& a);
 		/// @brief Apply the Frobenius map: `ret = a^(p^n)`.
+		/// @pre `1 <= n && n <= 3`.
 		BLST_HD static void frobenius_map(Fp12& ret, const Fp12& a, size_t n);
 		/// @brief Multiply by a sparse `xy00z0` element using the scalar implementation.
 		BLST_HD static void mul_by_xy00z0(Fp12& ret, const Fp12& a, const Fp6& xy00z0);

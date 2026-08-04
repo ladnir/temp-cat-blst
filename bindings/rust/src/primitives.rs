@@ -15,6 +15,90 @@ use crate::*;
 use core::mem::MaybeUninit;
 use core::ptr;
 
+fn checked_scalar_bits(scalar: &[u8], nbits: usize) {
+    assert!(nbits <= 256, "scalar bit length exceeds 256");
+    assert!(
+        scalar.len() >= (nbits + 7) / 8,
+        "scalar byte slice is too short"
+    );
+}
+
+impl blst_p1 {
+    /// Constant-time multiplication of a previously validated subgroup point.
+    pub fn mult(&self, scalar: &[u8], nbits: usize) -> Self {
+        checked_scalar_bits(scalar, nbits);
+        let mut out = MaybeUninit::<Self>::uninit();
+        unsafe {
+            blst_p1_mult(out.as_mut_ptr(), self, scalar.as_ptr(), nbits);
+            out.assume_init()
+        }
+    }
+
+    /// Optimized variable-time scalar multiplication for public scalars only.
+    pub fn mult_vartime(&self, scalar: &[u8], nbits: usize) -> Self {
+        checked_scalar_bits(scalar, nbits);
+        let mut out = MaybeUninit::<Self>::uninit();
+        unsafe {
+            blst_p1_mult_vartime(
+                out.as_mut_ptr(),
+                self,
+                scalar.as_ptr(),
+                nbits,
+            );
+            out.assume_init()
+        }
+    }
+
+    /// Constant-time generic multiplication of an on-curve point that need not
+    /// belong to the prime-order subgroup.
+    pub fn unchecked_mult(&self, scalar: &[u8], nbits: usize) -> Self {
+        checked_scalar_bits(scalar, nbits);
+        let mut out = MaybeUninit::<Self>::uninit();
+        unsafe {
+            blst_p1_unchecked_mult(out.as_mut_ptr(), self, scalar.as_ptr(), nbits);
+            out.assume_init()
+        }
+    }
+}
+
+impl blst_p2 {
+    /// Constant-time multiplication of a previously validated subgroup point.
+    pub fn mult(&self, scalar: &[u8], nbits: usize) -> Self {
+        checked_scalar_bits(scalar, nbits);
+        let mut out = MaybeUninit::<Self>::uninit();
+        unsafe {
+            blst_p2_mult(out.as_mut_ptr(), self, scalar.as_ptr(), nbits);
+            out.assume_init()
+        }
+    }
+
+    /// Optimized variable-time scalar multiplication for public scalars only.
+    pub fn mult_vartime(&self, scalar: &[u8], nbits: usize) -> Self {
+        checked_scalar_bits(scalar, nbits);
+        let mut out = MaybeUninit::<Self>::uninit();
+        unsafe {
+            blst_p2_mult_vartime(
+                out.as_mut_ptr(),
+                self,
+                scalar.as_ptr(),
+                nbits,
+            );
+            out.assume_init()
+        }
+    }
+
+    /// Constant-time generic multiplication of an on-curve point that need not
+    /// belong to the prime-order subgroup.
+    pub fn unchecked_mult(&self, scalar: &[u8], nbits: usize) -> Self {
+        checked_scalar_bits(scalar, nbits);
+        let mut out = MaybeUninit::<Self>::uninit();
+        unsafe {
+            blst_p2_unchecked_mult(out.as_mut_ptr(), self, scalar.as_ptr(), nbits);
+            out.assume_init()
+        }
+    }
+}
+
 impl PartialEq for blst_p1 {
     fn eq(&self, other: &Self) -> bool {
         unsafe { blst_p1_is_equal(self, other) }
@@ -70,6 +154,35 @@ impl core::ops::MulAssign for blst_fp12 {
 }
 
 impl blst_fp12 {
+    /// Constant-time GT scalar multiplication for a fixed public `nbits`.
+    ///
+    /// `self` must already lie in GT. This method does not validate membership.
+    pub fn gt_mult(&self, scalar: &[u8], nbits: usize) -> Self {
+        checked_scalar_bits(scalar, nbits);
+        let mut out = MaybeUninit::<Self>::uninit();
+        unsafe {
+            blst_gt_mult(out.as_mut_ptr(), self, scalar.as_ptr(), nbits);
+            out.assume_init()
+        }
+    }
+
+    /// Optimized variable-time GT multiplication for public scalars only.
+    ///
+    /// `self` must already lie in GT. This method does not validate membership.
+    pub fn gt_mult_vartime(&self, scalar: &[u8], nbits: usize) -> Self {
+        checked_scalar_bits(scalar, nbits);
+        let mut out = MaybeUninit::<Self>::uninit();
+        unsafe {
+            blst_gt_mult_vartime(
+                out.as_mut_ptr(),
+                self,
+                scalar.as_ptr(),
+                nbits,
+            );
+            out.assume_init()
+        }
+    }
+
     /// Computes one Miller loop from affine inputs.
     pub fn miller_loop(q: &blst_p2_affine, p: &blst_p1_affine) -> Self {
         let mut out = MaybeUninit::<blst_fp12>::uninit();
@@ -204,6 +317,24 @@ mod tests {
             assert!(gt.in_group());
             assert_eq!(gt * blst_fp12::default(), gt);
             assert!(blst_fp12::finalverify(&gt, &gt));
+        }
+    }
+
+    #[test]
+    fn constant_time_and_variable_time_group_multiplication_agree() {
+        let scalar = scalar_bytes(0x0123_4567_89ab_cdef);
+        unsafe {
+            let g1 = *blst_p1_generator();
+            assert_eq!(g1.mult(&scalar, 256), g1.mult_vartime(&scalar, 256));
+
+            let g2 = *blst_p2_generator();
+            assert_eq!(g2.mult(&scalar, 256), g2.mult_vartime(&scalar, 256));
+
+            let gt = *blst_gt_generator();
+            assert_eq!(
+                gt.gt_mult(&scalar, 256),
+                gt.gt_mult_vartime(&scalar, 256)
+            );
         }
     }
 

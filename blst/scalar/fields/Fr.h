@@ -227,6 +227,61 @@ namespace blst::scalar
 #endif
 	}
 
+	/**
+	 * @brief Mask a little-endian scalar to @p nbits and reduce it modulo r.
+	 *
+	 * The complete 256-bit input domain is below 3r, so exactly two
+	 * branchless conditional subtractions produce the canonical result. The
+	 * caller owns @p out and must clear it when the scalar is secret.
+	 */
+	BLST_HD BLST_FORCEINLINE void canonical_scalar_256(
+		pow256 out, const byte* scalar, size_t nbits)
+	{
+		BLST_ASSERT(nbits <= 256);
+		BLST_ASSERT(nbits == 0 || scalar != nullptr);
+
+		byte masked[32] = {};
+		limb_t value[NLIMBS(256)] = {};
+		limb_t difference[NLIMBS(256)] = {};
+		const size_t nbytes = (nbits + 7) / 8;
+
+		if (nbytes != 0) {
+			memcpy(masked, scalar, nbytes);
+			if ((nbits & 7) != 0)
+				masked[nbytes - 1] &= (byte)(((limb_t)1 << (nbits & 7)) - 1);
+		}
+		limbs_from_le_bytes(value, masked, sizeof(masked));
+
+		for (size_t pass = 0; pass < 2; pass++) {
+			limb_t borrow = 0;
+			for (size_t i = 0; i < NLIMBS(256); i++) {
+				wide_limb_t wide;
+				cc_sub_borrow_wide_limb_limb(
+					&wide, value[i], get_BLST_r()[i], borrow);
+				difference[i] = (limb_t)wide.lo;
+				borrow = (limb_t)wide.hi & 1;
+			}
+
+			limb_t keep_value_mask = (limb_t)0 - borrow;
+			BLST_launder(keep_value_mask);
+			for (size_t i = 0; i < NLIMBS(256); i++)
+				value[i] = (value[i] & keep_value_mask) |
+					(difference[i] & ~keep_value_mask);
+		}
+
+		le_bytes_from_limbs(out, value, sizeof(value));
+#ifndef NDEBUG
+		Fr canonical = {};
+		for (size_t i = 0; i < NLIMBS(256); i++)
+			canonical[i] = value[i];
+		BLST_ASSERT(Fr::is_redc(canonical));
+		vec_zero(&canonical, sizeof(canonical));
+#endif
+		vec_zero(masked, sizeof(masked));
+		vec_zero(value, sizeof(value));
+		vec_zero(difference, sizeof(difference));
+	}
+
 	BLST_HD BLST_INLINE void cc_ct_inverse_mod_256(UFr& ret, const Fr& inp,
 		const Fr& mod, const Fr& modx)
 	{

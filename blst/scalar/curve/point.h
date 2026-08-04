@@ -117,14 +117,28 @@ namespace blst::scalar
 		/// @brief Repeated doubling: `out = 2^n * p`.
 		BLST_HD static void add_n_dbl(Point& out, const Point& p, size_t n);
 		/**
-		 * @brief Variable-time scalar multiplication with algorithm selection.
+		 * @brief Constant-time scalar multiplication.
 		 * @param scalar Little-endian scalar bytes.
-		 * @param nbits Number of meaningful scalar bits.
+		 * @param nbits Public number of meaningful scalar bits.
 		 *
-		 * Short scalars use a width-four window. Valid scalars up to 256 bits use
-		 * GLS/GLV acceleration; other inputs use the width-five implementation.
+		 * Runtime and memory access are independent of scalar contents for a fixed
+		 * @p nbits. The input must already be an on-curve prime-order subgroup
+		 * point; Release builds do not validate that precondition.
 		 */
 		BLST_HD static void mult(Point& out, const Point& a, const byte* scalar, size_t nbits);
+		/**
+		 * @brief Optimized variable-time scalar multiplication.
+		 * @warning Scalar range and window values may affect control flow and memory
+		 * access. Use only with public scalar data. The input must already be an
+		 * on-curve prime-order subgroup point; Release builds do not validate it.
+		 */
+		BLST_HD static void mult_vartime(Point& out, const Point& a, const byte* scalar, size_t nbits);
+		/**
+		 * @brief Constant-time generic multiplication without subgroup endomorphisms.
+		 * @warning The input must be on curve, but need not be in the prime-order
+		 * subgroup. Release builds do not validate that precondition.
+		 */
+		BLST_HD static void unchecked_mult(Point& out, const Point& a, const byte* scalar, size_t nbits);
 		/// @brief Width-five windowed multiplication for internal or large-scalar use.
 		BLST_HD static void mult_w5(Point& out, const Point& point, const byte* scalar, size_t nbits);
 		/// @brief Constant-time conditional y-coordinate negation when @p cbit is one.
@@ -183,6 +197,14 @@ namespace blst::scalar
 		 * GLS/GLV path used by signing and public-key derivation.
 		 */
 		BLST_HD static void mult_glsv(Point& out, const Point& in, const byte SK[32]);
+		/// @brief Variable-time GLV/GLS multiplication for public canonical scalars.
+		BLST_HD static void mult_glsv_vartime(Point& out, const Point& in, const byte SK[32]);
+		/// @brief Selected fixed-window GLV/GLS constant-time implementation.
+		template<int Window>
+		BLST_HD static void mult_glsv_window(Point& out, const Point& in, const byte SK[32]);
+		/// @brief Selected odd-table wNAF GLV/GLS implementation for public scalars.
+		template<int Width>
+		BLST_HD static void mult_glsv_wnaf(Point& out, const Point& in, const byte SK[32]);
 		/// @brief Compute a BLS signature point `out = SK * in` and normalize it.
 		BLST_HD static void sign(Point& out, const Point& in, const byte SK[32]);
 		/**
