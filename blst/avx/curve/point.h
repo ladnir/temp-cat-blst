@@ -150,6 +150,14 @@ inline std::array<uint8_t, 32> scalar_to_fixed_le_bytes(const byte* scalar, size
     return out;
 }
 
+inline std::array<uint8_t, 32> scalar_to_fixed_le_bytes_vartime(
+    const byte* scalar, size_t nbits)
+{
+    std::array<uint8_t, 32> out = {};
+    blst::scalar::canonical_scalar_256_vartime(out.data(), scalar, nbits);
+    return out;
+}
+
 inline CurveG1Affine g1_affine_infinity()
 {
     return {curve_ring().zero(), curve_ring().zero()};
@@ -302,9 +310,11 @@ struct G1Point
     static void add(G1Point& out, const G1Point& a, const G1Point& b);
     static void add(G1Point& out, const G1Point& a, const G1AffinePoint& b);
     static void doubling(G1Point& out, const G1Point& a);
-    /// Constant-time scalar multiplication of a validated subgroup point.
+    /// Constant-time scalar multiplication of a validated subgroup point;
+    /// nbits must not exceed 256 and scalar may be null only for zero bits.
     static void mult(G1Point& out, const G1Point& a, const byte* scalar, size_t nbits);
-    /// Optimized variable-time multiplication of a validated subgroup point.
+    /// Optimized variable-time multiplication of a validated subgroup point;
+    /// nbits must not exceed 256 and scalar may be null only for zero bits.
     static void mult_vartime(G1Point& out, const G1Point& a, const byte* scalar, size_t nbits);
     static void sign(G1Point& out, const G1Point& in, const pow256 SK);
     static void to_pk(G1Point& out, const pow256 SK);
@@ -373,9 +383,11 @@ struct G2Point
     static void add(G2Point& out, const G2Point& a, const G2Point& b);
     static void add(G2Point& out, const G2Point& a, const G2AffinePoint& b);
     static void doubling(G2Point& out, const G2Point& a);
-    /// Constant-time scalar multiplication of a validated subgroup point.
+    /// Constant-time scalar multiplication of a validated subgroup point;
+    /// nbits must not exceed 256 and scalar may be null only for zero bits.
     static void mult(G2Point& out, const G2Point& a, const byte* scalar, size_t nbits);
-    /// Optimized variable-time multiplication of a validated subgroup point.
+    /// Optimized variable-time multiplication of a validated subgroup point;
+    /// nbits must not exceed 256 and scalar may be null only for zero bits.
     static void mult_vartime(G2Point& out, const G2Point& a, const byte* scalar, size_t nbits);
     static void sign(G2Point& out, const G2Point& in, const pow256 SK);
     static void to_pk(G2Point& out, const pow256 SK);
@@ -586,11 +598,10 @@ inline void G1Point::mult_vartime(G1Point& out, const G1Point& a, const byte* sc
     BLST_ASSERT(nbits == 0 || scalar != nullptr);
     BLST_ASSERT(on_curve(a));
     BLST_ASSERT(in_subgroup(a));
-    auto scalar_bytes = avx_curve_detail::scalar_to_fixed_le_bytes(scalar, nbits);
+    auto scalar_bytes = avx_curve_detail::scalar_to_fixed_le_bytes_vartime(scalar, nbits);
     const auto raw = avx_curve_detail::curve_g1_glv().multiply_vartime(
         {a.X, a.Y, a.Z}, scalar_bytes, avx_curve_detail::curve_ring());
     out = {raw.x, raw.y, raw.z};
-    vec_zero(scalar_bytes.data(), scalar_bytes.size());
 }
 
 inline void G1Point::sign(G1Point& out, const G1Point& in, const pow256 SK)
@@ -903,7 +914,7 @@ inline void G2Point::mult_vartime(G2Point& out, const G2Point& a, const byte* sc
     BLST_ASSERT(nbits == 0 || scalar != nullptr);
     BLST_ASSERT(on_curve(a));
     BLST_ASSERT(in_subgroup(a));
-    auto scalar_bytes = avx_curve_detail::scalar_to_fixed_le_bytes(scalar, nbits);
+    auto scalar_bytes = avx_curve_detail::scalar_to_fixed_le_bytes_vartime(scalar, nbits);
     const auto raw = avx_curve_detail::curve_g2_gls().multiply_vartime(
         {a.X, a.Y, a.Z},
         scalar_bytes,
@@ -911,7 +922,6 @@ inline void G2Point::mult_vartime(G2Point& out, const G2Point& a, const byte* sc
         avx_curve_detail::curve_g2(),
         avx_curve_detail::curve_ring());
     out = {raw.x, raw.y, raw.z};
-    vec_zero(scalar_bytes.data(), scalar_bytes.size());
 }
 
 inline void G2Point::sign(G2Point& out, const G2Point& in, const pow256 SK)

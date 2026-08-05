@@ -132,6 +132,9 @@ namespace blst
         const void* msg, size_t msg_len,
         const void* aug, size_t aug_len)
     {
+		if (nbits > 256 || (nbits != 0 && scalar == NULL))
+			return BLST_BAD_SCALAR;
+
         if (ctx->ctrl & AGGR_MIN_PK)
             return BLST_AGGR_TYPE_MISMATCH;
 
@@ -154,7 +157,7 @@ namespace blst
 
             if (ctx->ctrl & AGGR_SIGN_SET) {
                 if (nbits != 0 && scalar != NULL) {
-                    G1Point::mult(P, P, scalar, nbits);
+                    G1Point::mult_vartime(P, P, scalar, nbits);
                     G1Point::dadd(S, S, P);
                 }
                 else {
@@ -164,7 +167,7 @@ namespace blst
             else {
                 ctx->ctrl |= AGGR_SIGN_SET;
                 if (nbits != 0 && scalar != NULL)
-                    G1Point::mult(S, P, scalar, nbits);
+                    G1Point::mult_vartime(S, P, scalar, nbits);
                 else
                     S = P;
             }
@@ -201,7 +204,7 @@ namespace blst
                     (const unsigned char*)aug, aug_len);
 
             if (nbits != 0 && scalar != NULL)
-                G1Point::mult(H, H, scalar, nbits);
+                G1Point::mult_vartime(H, H, scalar, nbits);
 
             n = ctx->nelems;
             ctx->Q[n] = *PK;
@@ -286,6 +289,9 @@ namespace blst
         const void* msg, size_t msg_len,
         const void* aug, size_t aug_len)
     {
+		if (nbits > 256 || (nbits != 0 && scalar == NULL))
+			return BLST_BAD_SCALAR;
+
         if (ctx->ctrl & AGGR_MIN_SIG)
             return BLST_AGGR_TYPE_MISMATCH;
 
@@ -308,7 +314,7 @@ namespace blst
 
             if (ctx->ctrl & AGGR_SIGN_SET) {
                 if (nbits != 0 && scalar != NULL) {
-                    G2Point::mult(P, P, scalar, nbits);
+                    G2Point::mult_vartime(P, P, scalar, nbits);
                     G2Point::dadd(S, S, P);
                 }
                 else {
@@ -318,7 +324,7 @@ namespace blst
             else {
                 ctx->ctrl |= AGGR_SIGN_SET;
                 if (nbits != 0 && scalar != NULL)
-                    G2Point::mult(S, P, scalar, nbits);
+                    G2Point::mult_vartime(S, P, scalar, nbits);
                 else
                     S = P;
             }
@@ -358,7 +364,7 @@ namespace blst
             G1AffinePoint scaled_pk = {};
             if (nbits != 0 && scalar != NULL) {
                 point_from_affine(pk, *PK);
-                G1Point::mult(pk, pk, scalar, nbits);
+                G1Point::mult_vartime(pk, pk, scalar, nbits);
                 scaled_pk = point_to_affine<G1AffinePoint>(pk);
                 PK = &scaled_pk;
             }

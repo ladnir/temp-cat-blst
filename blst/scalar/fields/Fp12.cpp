@@ -974,16 +974,11 @@ namespace blst::scalar
 		// GLV decomposition is profitable for larger exponents and is valid
 		// here because the documented base contract is GT, not merely cyclotomic.
 		if (bits > 128 && bits <= 256) {
-			limb_t exp_256[4] = { 0 };
-			const size_t byte_len = (bits + 7) / 8;
-			memcpy(exp_256, exp, byte_len);
-			if ((bits & 7U) != 0) {
-				const byte mask = static_cast<byte>((1U << (bits & 7U)) - 1U);
-				reinterpret_cast<byte*>(exp_256)[byte_len - 1] &= mask;
-			}
+			limb_t canonical[4] = {};
+			canonical_scalar_256_vartime(
+				reinterpret_cast<byte*>(canonical), exp, bits);
 
-			cyclotomic_exp_glv4(ret, a, exp_256);
-			vec_zero(exp_256, sizeof(exp_256));
+			cyclotomic_exp_glv4(ret, a, canonical);
 		}
 		else {
 			cyclotomic_exp_basic(ret, a, exp, bits);

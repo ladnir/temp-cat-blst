@@ -95,9 +95,11 @@ namespace blst::scalar {
 		 * @param[out] out     Result
 		 * @param[in]  a       Base element
 		 * @param[in]  scalar  Little-endian scalar bytes
-		 * @param[in]  nbits   Number of meaningful bits in scalar
-		 * @details Runtime and memory access are independent of scalar contents for
-		 * a fixed public @p nbits.
+		 * @param[in]  nbits   Number of meaningful bits in scalar, at most 256
+		 * @details Canonical scalar inputs have scalar-independent runtime and memory
+		 * access for fixed public @p nbits. Noncanonical inputs are accepted modulo
+		 * r, but timing may reveal that reduction was required. @p scalar may be
+		 * null only when @p nbits is zero.
 		 */
 		static BLST_HD void mult(GT& out, const GT& a, const byte* scalar, size_t nbits) {
 			BLST_ASSERT(nbits <= 256);
@@ -109,7 +111,8 @@ namespace blst::scalar {
 		/**
 		 * @brief Optimized variable-time scalar multiplication.
 		 * @warning Scalar bits affect the GLV schedule, branches, and table indices;
-		 * use only with public scalar data.
+		 * use only with public scalar data. @p nbits must not exceed 256, and
+		 * @p scalar may be null only when @p nbits is zero.
 		 */
 		static BLST_HD void mult_vartime(GT& out, const GT& a, const byte* scalar, size_t nbits) {
 			BLST_ASSERT(nbits <= 256);

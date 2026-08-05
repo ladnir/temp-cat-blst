@@ -1,23 +1,26 @@
+/*
+ * Copyright Supranational LLC and CatBLST contributors
+ * Licensed under the Apache License, Version 2.0, see LICENSE for details.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Imported with the VROOM AVX backend and adapted to CatBLST's scalar,
+ * constant-time, and selected-vector contracts.
+ */
 #pragma once
 #include "ec.h"
 #include "../common/constexpr_utils.h"
-#if __has_include("../blst/vect.h")
-#include "../blst/vect.h"
-#include "../blst/bytes.h"
-#include "../blst/ec_mult.h"
-#else
-#include "../../common/vect.h"
-#include "../../common/bytes.h"
-#include "../../backend/backend.h"
-#endif
+#include "blst/backend/backend.h"
+#include "blst/common/bytes.h"
+#include "blst/common/vect.h"
+#include "blst/scalar/curve/ec_mult.h"
 #if BLST_AVX_VALIDATE_CONSTANTS
 #include "../common/gmp_wrapper.h"
 #endif
 #include <array>
-#include <cstring>
+#include <cstddef>
 #include <cstdint>
-#include "blst/scalar/curve/ec_mult.h"
-// Modified from blst
+#include <cstring>
+#include <utility>
 
 namespace blst::avx {
 
@@ -39,7 +42,8 @@ class PrecomputedTable {
 
     PrecomputedTable(const ProjectivePoint &P, const Curve &curve, const Ring &ring) {
         data[0] = P;
-        // TODO: more efficient way
+        // Build [P, 2P, ..., 2^table_log_size P] with one group operation
+        // per new entry: double the half-indexed value or add P.
         for (int i = 1; i < (1 << table_log_size); i++) {
             if (i % 2 == 1) {
                 data[i] = curve.double_point(data[i / 2], ring);
@@ -50,6 +54,7 @@ class PrecomputedTable {
     }
 
     std::pair<uint8_t, bool> booth_encode(uint64_t idx) const {
+        BLST_ASSERT(idx <= (uint64_t{1} << (table_log_size + 1)));
         const uint64_t booth_sign = static_cast<uint64_t>((idx >> table_log_size) != 0);
         const uint64_t sign_mask = uint64_t{0} - booth_sign;
         const uint64_t negated = (uint64_t{1} << (table_log_size + 1)) - idx;
@@ -58,18 +63,20 @@ class PrecomputedTable {
     }
 
     ProjectivePoint gather_booth(uint8_t booth_index, bool booth_sign, const Curve &curve, const Ring &ring) const {
+        BLST_ASSERT(booth_index <= (1U << table_log_size));
         ProjectivePoint result = curve.zero(ring);
         for (uint8_t i = 1; i <= (1 << table_log_size); i++) {
             bool match = (i == booth_index);
             // Replace result with data[i-1] if we match
             result = result.ctime_replace_if(match, data[i - 1]);
         }
-        // Replace y with negated y if booth_sign is true (matches Python: n = -val if sign else val)
+        // Negate the selected row for a negative Booth digit.
         result.y = result.y.ctime_replace_if(booth_sign, ring.standard_negate(result.y));
         return result;
     }
 
     ProjectivePoint gather_booth_vartime(uint8_t booth_index, bool booth_sign, const Curve &curve, const Ring &ring) const {
+        BLST_ASSERT(booth_index <= (1U << table_log_size));
         if (booth_index == 0) {
             return curve.zero(ring);
         }
@@ -84,6 +91,7 @@ class PrecomputedTable {
 template<int scalar_bits>
 class ScalarForExponent {
     public:
+    static_assert(scalar_bits > 0, "ScalarForExponent requires a positive bit width");
     static constexpr int limbs = ceil_div(scalar_bits, 8);
     std::array<uint8_t, limbs> data;
 
@@ -148,6 +156,8 @@ class ScalarForExponent {
 
 template<class Curve, class Ring, int scalar_bits, int table_log_size, int num_tables>
 typename Curve::ProjPoint table_msm(const std::array<ScalarForExponent<scalar_bits>, num_tables> &scalars, const std::array<PrecomputedTable<Curve, Ring, table_log_size>, num_tables> &tables, const Curve &curve, const Ring &ring) {
+    static_assert(scalar_bits > 0);
+    static_assert(num_tables > 0);
     constexpr int wbits = table_log_size;
     constexpr int num_windows = (scalar_bits + wbits) / (wbits + 1);
     constexpr int carry_possible = scalar_bits % (wbits + 1) == 0;
@@ -162,15 +172,16 @@ typename Curve::ProjPoint table_msm(const std::array<ScalarForExponent<scalar_bi
             booth_indexes[i][j] = tables[i].booth_encode(window_val);
             carry = booth_indexes[i][j].second;
         }
-        // Match Python logic: if not carry_possible, assert carry==0 and r=0 (skip carry handling)
-        // If carry_possible, handle carry and double
+        // A full final window may emit one additional carry digit.
         if constexpr (carry_possible) {
             typename Curve::ProjPoint carry_point = curve.zero(ring).ctime_replace_if(carry, tables[i].data[(1 << wbits) - 1]);
             result = curve.add_point(result, carry_point, ring);
         }
-        // When carry_possible is False, carry should be 0 (asserted in Python), so we skip carry handling
+        else {
+            BLST_ASSERT(!carry);
+        }
     }
-    // Double after carry handling only when carry_possible (Python: r = r * 2 only in carry_possible branch)
+    // Align the extra carry digit with the fixed-width windows.
     if constexpr (carry_possible) {
         result = curve.double_point(result, ring);
     }
@@ -190,6 +201,8 @@ typename Curve::ProjPoint table_msm(const std::array<ScalarForExponent<scalar_bi
 
 template<class Curve, class Ring, int scalar_bits, int table_log_size, int num_tables>
 typename Curve::ProjPoint table_msm_vartime(const std::array<ScalarForExponent<scalar_bits>, num_tables> &scalars, const std::array<PrecomputedTable<Curve, Ring, table_log_size>, num_tables> &tables, const Curve &curve, const Ring &ring) {
+    static_assert(scalar_bits > 0);
+    static_assert(num_tables > 0);
     constexpr int wbits = table_log_size;
     constexpr int num_windows = (scalar_bits + wbits) / (wbits + 1);
     constexpr int carry_possible = scalar_bits % (wbits + 1) == 0;
@@ -208,6 +221,9 @@ typename Curve::ProjPoint table_msm_vartime(const std::array<ScalarForExponent<s
             if (carry) {
                 result = curve.add_point(result, tables[i].data[(1 << wbits) - 1], ring);
             }
+        }
+        else {
+            BLST_ASSERT(!carry);
         }
     }
     if constexpr (carry_possible) {
@@ -235,6 +251,8 @@ typename Curve::ProjPoint table_msm_vartime(const std::array<ScalarForExponent<s
 #if BLST_AVX_VALIDATE_CONSTANTS
 template<class Curve, class Ring, int scalar_bits, int table_log_size, int num_tables>
 typename Curve::ProjPoint table_msm(const std::array<BigInt, num_tables> &scalars, const std::array<PrecomputedTable<Curve, Ring, table_log_size>, num_tables> &tables, const Curve &curve, const Ring &ring) {
+    static_assert(scalar_bits > 0);
+    static_assert(num_tables > 0);
     constexpr int wbits = table_log_size;
     constexpr int num_windows = (scalar_bits + wbits) / (wbits + 1);
     constexpr int carry_possible = scalar_bits % (wbits + 1) == 0;
@@ -249,15 +267,16 @@ typename Curve::ProjPoint table_msm(const std::array<BigInt, num_tables> &scalar
             booth_indexes[i][j] = tables[i].booth_encode(window_val);
             carry = booth_indexes[i][j].second;
         }
-        // Match Python logic: if not carry_possible, assert carry==0 and r=0 (skip carry handling)
-        // If carry_possible, handle carry and double
+        // A full final window may emit one additional carry digit.
         if constexpr (carry_possible) {
             typename Curve::ProjPoint carry_point = curve.zero(ring).ctime_replace_if(carry, tables[i].data[(1 << wbits) - 1]);
             result = curve.add_point(result, carry_point, ring);
         }
-        // When carry_possible is False, carry should be 0 (asserted in Python), so we skip carry handling
+        else {
+            BLST_ASSERT(!carry);
+        }
     }
-    // Double after carry handling only when carry_possible (Python: r = r * 2 only in carry_possible branch)
+    // Align the extra carry digit with the fixed-width windows.
     if constexpr (carry_possible) {
         result = curve.double_point(result, ring);
     }
@@ -291,17 +310,10 @@ using div_by_zz_result =
 
 template<bool clear_scalar = false>
 inline void div_by_zz_into(div_by_zz_result& out, const std::array<uint8_t, 32>& a) {
-#if __has_include("../blst/vect.h")
-    union { vec256 l; pow256 s; } val;
-    limbs_from_le_bytes(val.l, a.data(), 32);
-    blst_div_by_zz(val.l);
-    le_bytes_from_limbs(val.s, val.l, 32);
-#else
     union { blst::vec_256 l; blst::pow256 s; } val;
     blst::limbs_from_le_bytes(val.l, a.data(), 32);
     blst::div_by_zz(val.l);
     blst::le_bytes_from_limbs(val.s, val.l, 32);
-#endif
 
     // blst_div_by_zz stores: val.s is remainder, val.s+16 is quotient.
     // Preserve the BigInt result ordering: {sk_zz_r, sk_zz}.
@@ -324,16 +336,6 @@ using div_by_z_result =
 
 template<bool clear_scalar = false>
 inline void div_by_z_into(div_by_z_result& out, const std::array<uint8_t, 16>& a) {
-#if __has_include("../blst/vect.h")
-    // Define types for 128-bit operations (similar to pow256/vec256)
-    typedef byte pow128[16];
-    typedef limb_t vec128[NLIMBS(128)];
-    
-    union { vec128 l; pow128 s; } val;
-    limbs_from_le_bytes(val.l, a.data(), 16);
-    blst_div_by_z(val.l);
-    le_bytes_from_limbs(val.s, val.l, 16);
-#else
     typedef blst::byte pow128[16];
     typedef blst::limb_t vec128[blst::NLIMBS(128)];
 
@@ -341,7 +343,6 @@ inline void div_by_z_into(div_by_z_result& out, const std::array<uint8_t, 16>& a
     blst::limbs_from_le_bytes(val.l, a.data(), 16);
     blst::div_by_z(val.l);
     blst::le_bytes_from_limbs(val.s, val.l, 16);
-#endif
 
     // blst_div_by_z stores: val.s is remainder, val.s+8 is quotient.
     // Preserve the BigInt result ordering.
@@ -363,10 +364,8 @@ class GLVMult {
     public:
     using G1Curve = G1<Ring>;
     using ProjectivePoint = typename G1Curve::ProjPoint;
-    using AffinePoint = typename G1Curve::AffPoint;
 
     typename Ring::StandardElement beta;
-    typename Ring::StandardElement beta_inv;
     G1Curve curve;
 
     GLVMult(const G1Curve &curve, const Ring &ring) : curve(curve) {
@@ -375,10 +374,8 @@ class GLVMult {
 
     template<int batch_size>
     std::array<ProjectivePoint, batch_size> batch_endomorphism(const std::array<ProjectivePoint, batch_size> &P, const Ring &ring) const {
+        static_assert(batch_size > 0);
         std::array<ProjectivePoint, batch_size> result;
-        constexpr int chunk_size = std::min(batch_size, 8);
-        static_assert(batch_size % chunk_size == 0, "batch_size must be divisible by chunk_size");
-        // TODO: batch reduce
         for (int i = 0; i < batch_size; i++) {
             result[i].x = ring.modmul(P[i].x, beta);
             result[i].y = ring.standard_negate(P[i].y);
@@ -398,7 +395,8 @@ class GLVMult {
         };
         blst::vec_zero(&split, sizeof(split));
         PrecomputedTable<G1Curve, Ring, table_log_size> tableP(P, curve, ring);
-        // TODO: If z is unchanged by endomorphism, it doesn't really need to be stored twice (helps cache efficiency).  Negation of y could also be more cache space-time trade-off.
+        // Keep independently owned projective tables. A shared-z representation
+        // requires separate code-generation and benchmark evidence.
         auto table_phi_data = batch_endomorphism<table_size>(tableP.data, ring);
         PrecomputedTable<G1Curve, Ring, table_log_size> tablePhi(table_phi_data);
 
@@ -429,6 +427,7 @@ class GLVMult {
         const size_t used1 = blst::scalar::recode_wnaf_vartime<128, width>(
             digits[1], high.data());
         const size_t used = used0 > used1 ? used0 : used1;
+        BLST_ASSERT(used <= 129);
 
         std::array<ProjectivePoint, table_size> table_p = {};
         std::array<ProjectivePoint, table_size> table_phi = {};
@@ -451,6 +450,8 @@ class GLVMult {
                 const unsigned magnitude = digit < 0
                     ? static_cast<unsigned>(-digit)
                     : static_cast<unsigned>(digit);
+                BLST_ASSERT((magnitude & 1U) != 0);
+                BLST_ASSERT((magnitude >> 1) < table_size);
                 ProjectivePoint row = component == 0
                     ? table_p[magnitude >> 1]
                     : table_phi[magnitude >> 1];
@@ -478,7 +479,7 @@ class GLVMult {
         BigInt sk_zz_r = SK % zz;
         std::array<BigInt, 2> scalars = {sk_zz_r, sk_zz};
         PrecomputedTable<G1Curve, Ring, table_log_size> tableP(P, curve, ring);
-        // TODO: If z is unchanged by endomorphism, it doesn't really need to be stored twice (helps cache efficiency).  Negation of y could also be more cache space-time trade-off.
+        // Keep independently owned projective tables; see the production path.
         auto table_phi_data = batch_endomorphism<table_size>(tableP.data, ring);
         PrecomputedTable<G1Curve, Ring, table_log_size> tablePhi(table_phi_data);
 
@@ -494,7 +495,6 @@ class GLSMult {
     using G2Curve = G2<Ring>;
     using FP2RingType = FP2Ring<Ring>;
     using ProjectivePoint = typename G2Curve::ProjPoint;
-    using FP2StandardElement = typename FP2RingType::StandardElement;
 
     typename Ring::StandardElement psi_x_i;
     typename Ring::StandardElement psi_y_r;
@@ -506,9 +506,9 @@ class GLSMult {
         psi_y_i = ring.from_hex("0x06af0e0437ff400b6831e36d6bd17ffe48395dabc2d3435e77f76e17009241c5ee67992f72ec05f4c81084fbede3cc09");
     }
    
-    ProjectivePoint minus_psi(const ProjectivePoint &P, const FP2RingType &/* fp2ring */, const Ring &ring) const {
-        // Unroll; skip multiplication by 0
-        // Combine negation step
+    ProjectivePoint minus_psi(const ProjectivePoint &P, const Ring &ring) const {
+        // Unroll the Fp2 products, skip multiplication by zero, and combine the
+        // final negation. For this coefficient, psi_y_i == -psi_y_r (mod p).
         auto x_r = P.x.y() * psi_x_i;
         auto x_i = P.x.x() * psi_x_i;
         auto common = P.y.y() * psi_y_r;
@@ -543,9 +543,9 @@ class GLSMult {
         std::array<ProjectivePoint, table_size> table_psi2_data;
         std::array<ProjectivePoint, table_size> table_psi3_data;
         for (int i = 0; i < table_size; i++) {
-            table_psi_data[i] = minus_psi(tableP.data[i], fp2ring, ring);
-            table_psi2_data[i] = minus_psi(table_psi_data[i], fp2ring, ring);
-            table_psi3_data[i] = minus_psi(table_psi2_data[i], fp2ring, ring);
+            table_psi_data[i] = minus_psi(tableP.data[i], ring);
+            table_psi2_data[i] = minus_psi(table_psi_data[i], ring);
+            table_psi3_data[i] = minus_psi(table_psi2_data[i], ring);
         }
         PrecomputedTable<G2Curve, FP2RingType, table_log_size> tablePsi(table_psi_data);
         PrecomputedTable<G2Curve, FP2RingType, table_log_size> tablePsi2(table_psi2_data);
@@ -581,6 +581,7 @@ class GLSMult {
         for (size_t i = 0; i < 4; ++i) {
             const size_t count = blst::scalar::recode_wnaf_vartime<64, width>(
                 digits[i], scalar_digits[i]);
+            BLST_ASSERT(count <= 65);
             if (count > used)
                 used = count;
         }
@@ -591,9 +592,9 @@ class GLSMult {
         for (size_t i = 1; i < table_size; ++i)
             table[0][i] = curve.add_point(table[0][i - 1], twice, fp2ring);
         for (size_t i = 0; i < table_size; ++i) {
-            table[1][i] = minus_psi(table[0][i], fp2ring, ring);
-            table[2][i] = minus_psi(table[1][i], fp2ring, ring);
-            table[3][i] = minus_psi(table[2][i], fp2ring, ring);
+            table[1][i] = minus_psi(table[0][i], ring);
+            table[2][i] = minus_psi(table[1][i], ring);
+            table[3][i] = minus_psi(table[2][i], ring);
         }
 
         ProjectivePoint result = curve.zero(fp2ring);
@@ -609,6 +610,8 @@ class GLSMult {
                 const unsigned magnitude = digit < 0
                     ? static_cast<unsigned>(-digit)
                     : static_cast<unsigned>(digit);
+                BLST_ASSERT((magnitude & 1U) != 0);
+                BLST_ASSERT((magnitude >> 1) < table_size);
                 ProjectivePoint row = table[component][magnitude >> 1];
                 if (digit < 0)
                     row.y = fp2ring.standard_negate(row.y);
@@ -643,9 +646,9 @@ class GLSMult {
         std::array<ProjectivePoint, table_size> table_psi2_data;
         std::array<ProjectivePoint, table_size> table_psi3_data;
         for (int i = 0; i < table_size; i++) {
-            table_psi_data[i] = minus_psi(tableP.data[i], fp2ring, ring);
-            table_psi2_data[i] = minus_psi(table_psi_data[i], fp2ring, ring);
-            table_psi3_data[i] = minus_psi(table_psi2_data[i], fp2ring, ring);
+            table_psi_data[i] = minus_psi(tableP.data[i], ring);
+            table_psi2_data[i] = minus_psi(table_psi_data[i], ring);
+            table_psi3_data[i] = minus_psi(table_psi2_data[i], ring);
         }
         PrecomputedTable<G2Curve, FP2RingType, table_log_size> tablePsi(table_psi_data);
         PrecomputedTable<G2Curve, FP2RingType, table_log_size> tablePsi2(table_psi2_data);

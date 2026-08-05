@@ -228,17 +228,26 @@ namespace blst::scalar
 	}
 
 	/**
-	 * @brief Mask a little-endian scalar to @p nbits and reduce it modulo r.
+	 * @brief Prepare a potentially secret little-endian scalar modulo r.
 	 *
-	 * The complete 256-bit input domain is below 3r, so exactly two
-	 * branchless conditional subtractions produce the canonical result. The
-	 * caller owns @p out and must clear it when the scalar is secret.
+	 * Scalars of at most 254 bits are necessarily canonical. Wider scalars use
+	 * one branchless subtraction to classify the input. Canonical values take
+	 * the fast path; noncanonical values reuse that difference and need at most
+	 * one further branchless conditional subtraction because 2^256 < 3r.
+	 *
+	 * The canonical/noncanonical branch may reveal whether reduction was
+	 * required. For fixed @p nbits, all canonical inputs take the same path.
+	 * The caller owns @p out and must clear it when the scalar is secret.
 	 */
 	BLST_HD BLST_FORCEINLINE void canonical_scalar_256(
 		pow256 out, const byte* scalar, size_t nbits)
 	{
-		BLST_ASSERT(nbits <= 256);
-		BLST_ASSERT(nbits == 0 || scalar != nullptr);
+		const bool valid = nbits <= 256 && (nbits == 0 || scalar != nullptr);
+		BLST_ASSERT(valid);
+		if (!valid) {
+			vec_zero(out, sizeof(pow256));
+			return;
+		}
 
 		byte masked[32] = {};
 		limb_t value[NLIMBS(256)] = {};
@@ -252,7 +261,7 @@ namespace blst::scalar
 		}
 		limbs_from_le_bytes(value, masked, sizeof(masked));
 
-		for (size_t pass = 0; pass < 2; pass++) {
+		if (nbits > 254) {
 			limb_t borrow = 0;
 			for (size_t i = 0; i < NLIMBS(256); i++) {
 				wide_limb_t wide;
@@ -262,11 +271,24 @@ namespace blst::scalar
 				borrow = (limb_t)wide.hi & 1;
 			}
 
-			limb_t keep_value_mask = (limb_t)0 - borrow;
-			BLST_launder(keep_value_mask);
-			for (size_t i = 0; i < NLIMBS(256); i++)
-				value[i] = (value[i] & keep_value_mask) |
-					(difference[i] & ~keep_value_mask);
+			if (borrow == 0) {
+				limb_t second_difference[NLIMBS(256)] = {};
+				borrow = 0;
+				for (size_t i = 0; i < NLIMBS(256); i++) {
+					wide_limb_t wide;
+					cc_sub_borrow_wide_limb_limb(
+						&wide, difference[i], get_BLST_r()[i], borrow);
+					second_difference[i] = (limb_t)wide.lo;
+					borrow = (limb_t)wide.hi & 1;
+				}
+
+				limb_t keep_first_mask = (limb_t)0 - borrow;
+				BLST_launder(keep_first_mask);
+				for (size_t i = 0; i < NLIMBS(256); i++)
+					value[i] = (difference[i] & keep_first_mask) |
+						(second_difference[i] & ~keep_first_mask);
+				vec_zero(second_difference, sizeof(second_difference));
+			}
 		}
 
 		le_bytes_from_limbs(out, value, sizeof(value));
@@ -280,6 +302,62 @@ namespace blst::scalar
 		vec_zero(masked, sizeof(masked));
 		vec_zero(value, sizeof(value));
 		vec_zero(difference, sizeof(difference));
+	}
+
+	/** Prepare a public little-endian scalar modulo r without secure wiping. */
+	BLST_HD BLST_FORCEINLINE void canonical_scalar_256_vartime(
+		pow256 out, const byte* scalar, size_t nbits)
+	{
+		const bool valid = nbits <= 256 && (nbits == 0 || scalar != nullptr);
+		BLST_ASSERT(valid);
+		if (!valid) {
+			vec_zero(out, sizeof(pow256));
+			return;
+		}
+
+		byte masked[32] = {};
+		limb_t value[NLIMBS(256)] = {};
+		limb_t difference[NLIMBS(256)] = {};
+		const size_t nbytes = (nbits + 7) / 8;
+
+		if (nbytes != 0) {
+			memcpy(masked, scalar, nbytes);
+			if ((nbits & 7) != 0)
+				masked[nbytes - 1] &= (byte)(((limb_t)1 << (nbits & 7)) - 1);
+		}
+		limbs_from_le_bytes(value, masked, sizeof(masked));
+
+		if (nbits > 254) {
+			limb_t borrow = 0;
+			for (size_t i = 0; i < NLIMBS(256); i++) {
+				wide_limb_t wide;
+				cc_sub_borrow_wide_limb_limb(
+					&wide, value[i], get_BLST_r()[i], borrow);
+				difference[i] = (limb_t)wide.lo;
+				borrow = (limb_t)wide.hi & 1;
+			}
+
+			if (borrow == 0) {
+				for (size_t i = 0; i < NLIMBS(256); i++) {
+					wide_limb_t wide;
+					cc_sub_borrow_wide_limb_limb(
+						&wide, difference[i], get_BLST_r()[i], borrow);
+					value[i] = (limb_t)wide.lo;
+					borrow = (limb_t)wide.hi & 1;
+				}
+				if (borrow != 0)
+					for (size_t i = 0; i < NLIMBS(256); i++)
+						value[i] = difference[i];
+			}
+		}
+
+		le_bytes_from_limbs(out, value, sizeof(value));
+#ifndef NDEBUG
+		Fr canonical = {};
+		for (size_t i = 0; i < NLIMBS(256); i++)
+			canonical[i] = value[i];
+		BLST_ASSERT(Fr::is_redc(canonical));
+#endif
 	}
 
 	BLST_HD BLST_INLINE void cc_ct_inverse_mod_256(UFr& ret, const Fr& inp,

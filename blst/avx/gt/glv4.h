@@ -159,6 +159,22 @@ inline void gt_split_scalar_4d_ct(uint64_t k_out[4], const uint64_t k_in[4])
     blst::vec_zero(digits, sizeof(digits));
 }
 
+inline void gt_split_scalar_4d_vartime(uint64_t k_out[4], const uint64_t k_in[4])
+{
+    pow256 canonical = {};
+    uint64_t digits[4] = {};
+    blst::scalar::canonical_scalar_256_vartime(
+        canonical, reinterpret_cast<const byte*>(k_in), 256);
+    limbs_from_le_bytes(digits, canonical, sizeof(canonical));
+    blst::div_by_zz(digits);
+    blst::div_by_z(digits);
+    blst::div_by_z(digits + 2);
+    for (size_t i = 0; i < 4; ++i) {
+        k_out[i] = digits[i];
+        BLST_ASSERT(k_out[i] < kBlsZ);
+    }
+}
+
 }  // namespace avx_gt_glv4_detail
 
 inline AvxGLV4Exp avx_glv4_compile(const uint64_t* scalar)
@@ -336,7 +352,7 @@ inline typename FP12Ring<Ring>::StandardElement avx_cyclotomic_exp_glv4_unsigned
     using StandardElement = typename FP12Ring<Ring>::StandardElement;
 
     uint64_t digits[4];
-    avx_gt_glv4_detail::gt_split_scalar_4d_ct(digits, scalar);
+    avx_gt_glv4_detail::gt_split_scalar_4d_vartime(digits, scalar);
     std::array<StandardElement, 16> table = {};
     table[0] = fp12ring.one(ring);
     table[1] = base;
@@ -382,7 +398,6 @@ inline typename FP12Ring<Ring>::StandardElement avx_cyclotomic_exp_glv4_unsigned
         }
     }
 
-    blst::vec_zero(digits, sizeof(digits));
     return fp12ring.fp12_flat_mul(fp12ring.one(ring), out, ring);
 }
 

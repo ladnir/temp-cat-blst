@@ -178,7 +178,8 @@ impl Pairing {
     /// Aggregates one weighted verification item into the pairing context.
     ///
     /// Returns [`BLST_ERROR::BLST_BAD_SCALAR`] without entering native code
-    /// when `scalar` does not contain all `nbits` requested by the caller.
+    /// when `nbits` exceeds 256 or `scalar` does not contain all requested
+    /// bits.
     pub fn mul_n_aggregate(
         &mut self,
         pk: &dyn Any,
@@ -190,6 +191,9 @@ impl Pairing {
         msg: &[u8],
         aug: &[u8],
     ) -> BLST_ERROR {
+        if nbits > 256 {
+            return BLST_ERROR::BLST_BAD_SCALAR;
+        }
         let scalar_bytes = nbits / 8 + usize::from(nbits % 8 != 0);
         if scalar.len() < scalar_bytes {
             return BLST_ERROR::BLST_BAD_SCALAR;
@@ -472,13 +476,22 @@ mod tests {
     }
 
     #[test]
+    fn mul_n_aggregate_rejects_scalars_wider_than_256_bits() {
+        let scalar = [0u8; 33];
+        assert_mul_n_result(&scalar, 257, BLST_ERROR::BLST_BAD_SCALAR);
+        assert_mul_n_result(&scalar, usize::MAX, BLST_ERROR::BLST_BAD_SCALAR);
+    }
+
+    #[test]
     fn mul_n_aggregate_accepts_zero_and_exact_scalar_lengths() {
+        let full_width = [1u8; 32];
         for (scalar, nbits) in [
             (&[][..], 0),
             (&[1u8][..], 1),
             (&[1u8][..], 7),
             (&[1u8][..], 8),
             (&[1u8, 0u8][..], 9),
+            (&full_width[..], 256),
         ] {
             assert_mul_n_result(scalar, nbits, BLST_ERROR::BLST_SUCCESS);
         }
