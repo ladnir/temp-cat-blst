@@ -767,8 +767,7 @@ void msm_booth_batched_pipeline(
 			scalars_for_msm.data(),
 			nbits,
 			scratch,
-			wbits,
-			m == 1 && print
+			wbits
 		);
 
 		//     auto w = wbits;

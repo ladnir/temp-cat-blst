@@ -7,7 +7,9 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $manifestPath = Join-Path $repoRoot 'docs\audit\FILE_MANIFEST.csv'
 $preservedColumns = @(
+    'subsystem',
     'audit_status',
+    'profiles',
     'reviewer',
     'review_record',
     'upstream_reference',
@@ -41,7 +43,12 @@ function Get-Classification
         $lower.StartsWith('blst/cuda/') -or
         $lower.StartsWith('blst/backend/cuda/') -or
         $lower -match '(^|/).*cuda[^/]*\.(c|cc|cpp|cuh|h|hpp)$' -or
-        $lower -like 'test/*cuda*'
+        $lower -like 'test/*cuda*' -or
+        $lower -in @(
+            'blst/common/counting_iterator.h',
+            'blst/common/mdspan_compat.h',
+            'blst/common/transform_iterator.h'
+        )
 
     if ($isBenchmark)
     {

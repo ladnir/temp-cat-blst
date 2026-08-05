@@ -111,14 +111,61 @@ No benchmark was run: the layout/copy/code-generation structure is preserved,
 and benchmark execution remains permission-gated. No broad suite, sanitizer,
 CUDA, BTx/BTE, Apple CI, or portable-AVX Release build ran.
 
+## Scalar multi-scalar review
+
+The third complete packet reviews `blst/scalar/curve/multi_scalar.h` and
+`multi_scalar.cpp`, the selected native facade, and the safe Rust multipoint
+wrapper. Final commit hashes remain to be inserted after the reviewable packet
+is committed.
+
+### Findings and decisions
+
+- `AUD-113` replaces the 144 KiB input-dependent `alloca` with fast output-
+  table reuse, one optional nonthrowing allocation capped at 144 KiB, and a
+  fixed 8 KiB stack fallback. The fallback is a cold non-inlined helper, so
+  primary precompute entry points no longer carry its stack probe.
+- `AUD-114` stops compact point/scalar descriptor traversal at exactly
+  `npoints`; exact n-entry arrays no longer require an undocumented sentinel.
+- `AUD-115` defines the extractor-derived Pippenger window range as `[1,24]`
+  and makes explicit scratch shifts overflow-safe.
+- `AUD-116` defines zero-point/zero-bit identity behavior before input access
+  and consistently rejects more than 256 scalar bits.
+- `AUD-117` makes tiled Pippenger honor the exact public `bit0` rather than
+  rounding it down to a window multiple.
+- `AUD-118` removes the remaining Point/Affine/Field prefix-object violations.
+  General conversion uses real affine x subobjects; precompute uses aligned
+  byte storage with explicit trivial Point/Field lifetime start.
+- `AUD-119` removes the unused native dispatcher and its unchecked allocation.
+- `AUD-120` removes production scalar/pointer/bucket printing and limits the
+  retained hash helper to experimental CUDA builds.
+- C, selected native C++, and safe Rust contracts now agree on subgroup/public
+  data, scalar layout/width, windows, scratch, compact arrays, empty results,
+  overlap, allocation, and failure behavior.
+
+### Validation
+
+- MSVC 19.50 scalar Debug focused packets pass 15/15, including maximum-window
+  G1/G2 tables, packed/pointer/aliased layouts, exact descriptor arrays,
+  nonaligned tile offsets, a heap-sized case, and cap-forced fallback cases.
+- MSVC 19.50 scalar Release focused packets pass 15/15.
+- Full-Rust-binding layout and G1/G2 multipoint tests pass 3/3.
+- Optimized MSVC has no `alloca` or production debug symbols. The only
+  `__chkstk` calls are the two 8,344-byte cold fallback instantiations; primary
+  Fp/Fp2 precompute functions have no stack probe.
+
+No benchmark was run because arithmetic kernels and the fast in-table schedule
+are unchanged, and object inspection confirms the cold frame is isolated. No
+broad suite, sanitizer, CUDA, BTx/BTE, Apple CI, or portable-AVX Release build
+ran.
+
 ## Status and next action
 
-`point.h`, `point.cpp`, and scalar/selected bulk-addition headers are complete
-at their recorded commits. `GT.cpp` and the public C/Rust containing files
-remain pending except for their linked focused families.
+`point.h`, `point.cpp`, scalar/selected bulk addition, scalar/selected MSM, and
+the safe Rust multipoint wrapper are complete, with the current MSM records
+awaiting their final remediation commit hash. `GT.cpp` and the larger public C
+containing file remain pending except for linked focused families.
 
-Next, review `multi_scalar.h`/`.cpp`. Start with `AUD-113`, the native
-fixed-table dispatch's allocation/error paths, sizing overflow, raw scratch
-contracts, and every exposed helper before changing the established kernels.
-Keep builds single-job and use focused point/MSM targets; obtain approval before
-benchmarks or broad validation.
+Next, review `multi_scalar_batch_affine.cpp`. Preserve its fixed-size hot
+kernels, trace every scratch/layout contract into C and Rust, and batch its
+findings before proposing repairs. Keep builds single-job and focused; obtain
+approval before benchmarks or broad validation.

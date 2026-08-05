@@ -443,23 +443,23 @@ bool blst_p1_affine_is_equal(const blst_p1_affine* a, const blst_p1_affine* b);
 bool blst_p1_affine_is_inf(const blst_p1_affine* a);
 /** Returns a pointer to immutable static storage holding the affine G1 generator. */
 const blst_p1_affine* blst_p1_affine_generator(void);
-/** Batch-converts `npoints` projective G1 inputs into affine outputs; when `npoints > 0`, `points[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. */
+/** Batch-converts `npoints` projective G1 inputs into affine outputs. When `npoints > 0`, `dst` and `points[0]` must be non-null; later null descriptor entries mean contiguous continuation from the preceding point. Input and output storage must not overlap. Empty input performs no access. */
 void blst_p1s_to_affine(blst_p1_affine dst[], const blst_p1* const points[], size_t npoints);
 /** Variable-time addition of public affine G1 subgroup points. Writes the complete sum to `ret`; empty or invalid-head input writes infinity. When `npoints > 0`, `points[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. Exact output/input overlap is unsupported. A bounded internal allocation accelerates batches of at least 16 points; allocation failure transparently uses complete serial addition. */
 void blst_p1s_add(blst_p1* ret, const blst_p1_affine* const points[], size_t npoints);
 /** Returns the table size needed for G1 wbits precomputation, or 0 when `wbits` is outside the supported range `[2, 14]` or the size computation would overflow. */
 size_t blst_p1s_mult_wbits_precompute_sizeof(size_t wbits, size_t npoints);
-/** Precomputes a G1 wbits multiplication table for `npoints` affine inputs; `wbits` must lie in `[2, 14]` and `points[0]` must be non-null when `npoints > 0`. */
+/** Precomputes a reusable G1 table of `npoints * 2^(wbits-1)` affine entries. `wbits` must lie in `[2, 14]`; for nonempty input, `table` and `points[0]` must be non-null. Later null descriptor entries mean contiguous continuation. A packed input array may occupy the final `npoints` entries of `table`; other overlap is unsupported. The routine first reuses free table storage, then may make one nonthrowing allocation capped at 144 KiB, and falls back to a fixed 8 KiB stack workspace if allocation is unavailable. */
 void blst_p1s_mult_wbits_precompute(blst_p1_affine table[], size_t wbits, const blst_p1_affine* const points[], size_t npoints);
-/** Returns the scratch size needed by the G1 wbits MSM routine. */
+/** Returns the caller-owned scratch size needed by G1 fixed-table MSM. The result is zero for empty input and is capped at the implementation's batch capacity. */
 size_t blst_p1s_mult_wbits_scratch_sizeof(size_t npoints);
-/** Evaluates a G1 MSM from a wbits precompute table and caller-owned scratch; `wbits` must lie in `[2, 14]` and `scalars[0]` must be non-null when `npoints > 0`. */
+/** Evaluates variable-time subgroup G1 MSM from a matching wbits table. `wbits` must lie in `[2, 14]`, `nbits` in `[1, 256]`, and nonempty input requires non-null table, scalar head, and queried scratch. Scalars use `ceil(nbits/8)` little-endian bytes; later null descriptors mean contiguous continuation. Empty input or zero bits writes infinity. Invalid parameters also fail closed to infinity. */
 void blst_p1s_mult_wbits(blst_p1* ret, const blst_p1_affine table[], size_t wbits, size_t npoints, const blst_byte* const scalars[], size_t nbits, blst_limb_t* scratch);
-/** Returns the scratch size needed by the G1 Pippenger MSM routine. */
+/** Returns scratch bytes for the automatically selected G1 Pippenger window. */
 size_t blst_p1s_mult_pippenger_scratch_sizeof(size_t npoints);
-/** Returns the scratch size needed by the G1 Pippenger MSM routine for an explicit window, or 0 when `window` is invalid. */
+/** Returns G1 Pippenger scratch bytes for an explicit window in `[1, 24]`, or 0 when the window or size is invalid. */
 size_t blst_p1s_mult_pippenger_window_scratch_sizeof(size_t window);
-/** Evaluates variable-time subgroup G1 MSM with Pippenger. Points must already be on-curve G1 elements; scalars are interpreted modulo r. The one-point fallback uses `mult_vartime`; for multiple points scratch and compact-array heads must be valid. Release does not validate membership. */
+/** Evaluates variable-time subgroup G1 MSM with Pippenger. Points must already be on-curve G1 elements; scalars are interpreted modulo r and contain at most 256 meaningful little-endian bits. Descriptor arrays may contain exactly `npoints` entries: later null entries mean contiguous continuation and no sentinel is read. The one-point fallback uses `mult_vartime` and needs no scratch; multiple points require queried scratch. Empty input or zero bits writes infinity. Release does not validate membership. */
 void blst_p1s_mult_pippenger(blst_p1* ret, const blst_p1_affine* const points[], size_t npoints, const blst_byte* const scalars[], size_t nbits, blst_limb_t* scratch);
 /** Returns total scratch bytes for a contiguous G1 MSM from native Montgomery-form `blst_fr` scalars, including canonical scalar preparation and Pippenger buckets. Zero is valid for an empty MSM and otherwise reports an unrepresentable size. */
 size_t blst_p1s_mult_pippenger_fr_scratch_sizeof(size_t npoints);
@@ -473,9 +473,9 @@ bool blst_p1s_mult_fr(blst_p1* ret, const blst_p1_affine points[], const blst_fr
 size_t blst_p1s_mult_batch_affine_fr_scratch_sizeof(size_t npoints, size_t window, size_t batch_size);
 /** Evaluates a contiguous G1 MSM with the explicit batch-affine algorithm. Inputs are public, prevalidated, non-identity subgroup points and native Montgomery-form scalars. Scratch must be limb-aligned and contain at least the queried byte count. This routine performs no allocation and no input validation. */
 bool blst_p1s_mult_batch_affine_fr(blst_p1* ret, const blst_p1_affine points[], const blst_fr scalars[], size_t npoints, blst_limb_t* scratch, size_t scratch_size, size_t window, size_t batch_size);
-/** Evaluates a G1 MSM with Pippenger using an explicit window size. */
+/** Same contract as `blst_p1s_mult_pippenger`, using an explicit window in `[1, 24]`; scratch must match `blst_p1s_mult_pippenger_window_scratch_sizeof(window)`. */
 void blst_p1s_mult_pippenger_window(blst_p1* ret, const blst_p1_affine* const points[], size_t npoints, const blst_byte* const scalars[], size_t nbits, blst_limb_t* scratch, size_t window);
-/** Evaluates one tiled window of a G1 Pippenger MSM; when `npoints > 0`, `scratch`, `points[0]`, and `scalars[0]` must be non-null, `window` must be non-zero, and `bit0` must be less than `nbits`. Later null entries mean contiguous continuation from the previous non-null element. */
+/** Evaluates the signed Pippenger digit beginning at the exact scalar bit offset `bit0`. Inputs are public subgroup data; `nbits` is in `[1, 256]`, `window` in `[1, 24]`, and `bit0 < nbits`. Nonempty input requires queried scratch and valid descriptor heads. Later null entries mean contiguous continuation, and exact descriptor arrays need no sentinel. Invalid input writes infinity. */
 void blst_p1s_tile_pippenger(blst_p1* ret, const blst_p1_affine* const points[], size_t npoints, const blst_byte* const scalars[], size_t nbits, blst_limb_t* scratch, size_t bit0, size_t window);
 /** Serializes a G1 projective point into a 96-byte uncompressed encoding. */
 void blst_p1_serialize(blst_byte out[96], const blst_p1* in);
@@ -554,25 +554,25 @@ bool blst_p2_affine_is_equal(const blst_p2_affine* a, const blst_p2_affine* b);
 bool blst_p2_affine_is_inf(const blst_p2_affine* a);
 /** Returns a pointer to immutable static storage holding the affine G2 generator. */
 const blst_p2_affine* blst_p2_affine_generator(void);
-/** Batch-converts `npoints` projective G2 inputs into affine outputs; when `npoints > 0`, `points[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. */
+/** Batch-converts `npoints` projective G2 inputs into affine outputs. When `npoints > 0`, `dst` and `points[0]` must be non-null; later null descriptor entries mean contiguous continuation from the preceding point. Input and output storage must not overlap. Empty input performs no access. */
 void blst_p2s_to_affine(blst_p2_affine dst[], const blst_p2* const points[], size_t npoints);
 /** Variable-time addition of public affine G2 subgroup points. Writes the complete sum to `ret`; empty or invalid-head input writes infinity. When `npoints > 0`, `points[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. Exact output/input overlap is unsupported. A bounded internal allocation accelerates batches of at least 16 points; allocation failure transparently uses complete serial addition. */
 void blst_p2s_add(blst_p2* ret, const blst_p2_affine* const points[], size_t npoints);
 /** Returns the table size needed for G2 wbits precomputation, or 0 when `wbits` is outside the supported range `[2, 14]` or the size computation would overflow. */
 size_t blst_p2s_mult_wbits_precompute_sizeof(size_t wbits, size_t npoints);
-/** Precomputes a G2 wbits multiplication table for `npoints` affine inputs; `wbits` must lie in `[2, 14]` and `points[0]` must be non-null when `npoints > 0`. */
+/** Precomputes a reusable G2 table of `npoints * 2^(wbits-1)` affine entries. `wbits` must lie in `[2, 14]`; for nonempty input, `table` and `points[0]` must be non-null. Later null descriptor entries mean contiguous continuation. A packed input array may occupy the final `npoints` entries of `table`; other overlap is unsupported. The routine first reuses free table storage, then may make one nonthrowing allocation capped at 144 KiB, and falls back to a fixed 8 KiB stack workspace if allocation is unavailable. */
 void blst_p2s_mult_wbits_precompute(blst_p2_affine table[], size_t wbits, const blst_p2_affine* const points[], size_t npoints);
-/** Returns the scratch size needed by the G2 wbits MSM routine. */
+/** Returns the caller-owned scratch size needed by G2 fixed-table MSM. The result is zero for empty input and is capped at the implementation's batch capacity. */
 size_t blst_p2s_mult_wbits_scratch_sizeof(size_t npoints);
-/** Evaluates a G2 MSM from a wbits precompute table and caller-owned scratch; `wbits` must lie in `[2, 14]` and `scalars[0]` must be non-null when `npoints > 0`. */
+/** Evaluates variable-time subgroup G2 MSM from a matching wbits table. `wbits` must lie in `[2, 14]`, `nbits` in `[1, 256]`, and nonempty input requires non-null table, scalar head, and queried scratch. Scalars use `ceil(nbits/8)` little-endian bytes; later null descriptors mean contiguous continuation. Empty input or zero bits writes infinity. Invalid parameters also fail closed to infinity. */
 void blst_p2s_mult_wbits(blst_p2* ret, const blst_p2_affine table[], size_t wbits, size_t npoints, const blst_byte* const scalars[], size_t nbits, blst_limb_t* scratch);
-/** Returns the scratch size needed by the G2 Pippenger MSM routine. */
+/** Returns scratch bytes for the automatically selected G2 Pippenger window. */
 size_t blst_p2s_mult_pippenger_scratch_sizeof(size_t npoints);
-/** Returns the scratch size needed by the G2 Pippenger MSM routine for an explicit window, or 0 when `window` is invalid. */
+/** Returns G2 Pippenger scratch bytes for an explicit window in `[1, 24]`, or 0 when the window or size is invalid. */
 size_t blst_p2s_mult_pippenger_window_scratch_sizeof(size_t window);
-/** Evaluates variable-time subgroup G2 MSM with Pippenger. Points must already be on-curve G2 elements; scalars are interpreted modulo r. The one-point fallback uses `mult_vartime`; for multiple points scratch and compact-array heads must be valid. Release does not validate membership. */
+/** Evaluates variable-time subgroup G2 MSM with Pippenger. Points must already be on-curve G2 elements; scalars are interpreted modulo r and contain at most 256 meaningful little-endian bits. Descriptor arrays may contain exactly `npoints` entries: later null entries mean contiguous continuation and no sentinel is read. The one-point fallback uses `mult_vartime` and needs no scratch; multiple points require queried scratch. Empty input or zero bits writes infinity. Release does not validate membership. */
 void blst_p2s_mult_pippenger(blst_p2* ret, const blst_p2_affine* const points[], size_t npoints, const blst_byte* const scalars[], size_t nbits, blst_limb_t* scratch);
-/** Evaluates a G2 MSM with Pippenger using an explicit window size. */
+/** Same contract as `blst_p2s_mult_pippenger`, using an explicit window in `[1, 24]`; scratch must match `blst_p2s_mult_pippenger_window_scratch_sizeof(window)`. */
 void blst_p2s_mult_pippenger_window(blst_p2* ret, const blst_p2_affine* const points[], size_t npoints, const blst_byte* const scalars[], size_t nbits, blst_limb_t* scratch, size_t window);
 /** Returns total scratch bytes for a contiguous G2 MSM from native Montgomery-form `blst_fr` scalars, including canonical scalar preparation and Pippenger buckets. Zero is valid for an empty MSM and otherwise reports an unrepresentable size. */
 size_t blst_p2s_mult_pippenger_fr_scratch_sizeof(size_t npoints);
@@ -586,7 +586,7 @@ bool blst_p2s_mult_fr(blst_p2* ret, const blst_p2_affine points[], const blst_fr
 size_t blst_p2s_mult_batch_affine_fr_scratch_sizeof(size_t npoints, size_t window, size_t batch_size);
 /** Evaluates a contiguous G2 MSM with the explicit batch-affine algorithm. Inputs are public, prevalidated, non-identity subgroup points and native Montgomery-form scalars. Scratch must be limb-aligned and contain at least the queried byte count. This routine performs no allocation and no input validation. */
 bool blst_p2s_mult_batch_affine_fr(blst_p2* ret, const blst_p2_affine points[], const blst_fr scalars[], size_t npoints, blst_limb_t* scratch, size_t scratch_size, size_t window, size_t batch_size);
-/** Evaluates one tiled window of a G2 Pippenger MSM; when `npoints > 0`, `scratch`, `points[0]`, and `scalars[0]` must be non-null, `window` must be non-zero, and `bit0` must be less than `nbits`. Later null entries mean contiguous continuation from the previous non-null element. */
+/** Evaluates the signed Pippenger digit beginning at the exact scalar bit offset `bit0`. Inputs are public subgroup data; `nbits` is in `[1, 256]`, `window` in `[1, 24]`, and `bit0 < nbits`. Nonempty input requires queried scratch and valid descriptor heads. Later null entries mean contiguous continuation, and exact descriptor arrays need no sentinel. Invalid input writes infinity. */
 void blst_p2s_tile_pippenger(blst_p2* ret, const blst_p2_affine* const points[], size_t npoints, const blst_byte* const scalars[], size_t nbits, blst_limb_t* scratch, size_t bit0, size_t window);
 /** Serializes a G2 projective point into a 192-byte uncompressed encoding. */
 void blst_p2_serialize(blst_byte out[192], const blst_p2* in);

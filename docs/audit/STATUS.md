@@ -328,10 +328,10 @@ expand through Phase 19.
 
 Current generated inventory:
 
-- 661 repository files accounted for;
+- 667 repository files accounted for;
 - 153 in-scope production;
 - 113 generated production;
-- 212 in-scope support;
+- 218 in-scope support;
 - 60 benchmark files explicitly excluded;
 - 32 frozen BTx/BTE files pending the required merge;
 - 55 retained experimental files, including CUDA;
@@ -362,8 +362,8 @@ Upstream progress:
   validation are completed;
 - 0 remain pending.
 
-Findings: 113 total: 85 validated, 16 fixed pending final evidence, three accepted
-risks, five need a design decision, and four remain open. `AUD-035` is validated with preserved
+Findings: 120 total: 93 validated, 16 fixed pending final evidence, three accepted
+risks, five need a design decision, and three remain open. `AUD-035` is validated with preserved
 allocated/caller-table/precomputed modes and 10/10 focused MSVC Release, Linux
 ASan, and Linux UBSan tests. `AUD-036` is validated on native
 Apple Silicon with AppleClang 17 at commit `0b7ec47`; all 336 C/C++ tests and
@@ -380,9 +380,10 @@ the supported scalar release matrix. `point.h` and `point.cpp` are complete at
 `07d79a48`; `AUD-096` accepts the inherited narrow unsuffixed-add contract with
 the complete `add_or_double`/`dadd` alternative documented. Scalar and selected
 bulk-addition headers are complete at `bd45afa`; `AUD-109` through `AUD-112`
-are validated. Continue Phase 15 with `multi_scalar.h`/`.cpp`, beginning with
-the recorded 144 KiB dynamic-stack budget in `AUD-113` and the native
-fixed-table allocation/sizing/error paths. Keep `AUD-085` as the next
+are validated. Scalar/selected MSM and the safe Rust multipoint wrapper are
+complete pending the final remediation hash; `AUD-113` through `AUD-120` are
+validated. Continue Phase 15 with `multi_scalar_batch_affine.cpp`. Keep
+`AUD-085` as the next
 explicit design decision when the GT decoder surface is reviewed. Coverage
 remains a late audit/release metric by user decision; sanitizer, fuzz, and
 static-analysis work still accompanies subsystem review. Expand analyzers,

@@ -12,6 +12,9 @@
 #include "blst/scalar/curve/GT.h"
 #include "blst/scalar/curve/bulk_addition.h"
 
+#include <algorithm>
+#include <type_traits>
+
 #ifdef __CUDACC__
 #include <cuda/std/span>
 #else
@@ -37,6 +40,8 @@ namespace blst::scalar
 
 	namespace detail
 	{
+		inline constexpr size_t kPippengerMaxWindow = 24;
+
 		BLST_HD BLST_INLINE constexpr bool valid_wbits(size_t wbits)
 		{
 			return wbits >= 2 && wbits <= 14;
@@ -56,6 +61,12 @@ namespace blst::scalar
 				return false;
 			out = value << shift;
 			return true;
+		}
+
+		BLST_HD BLST_INLINE constexpr bool valid_pippenger_window(size_t window)
+		{
+			/* get_wval_limb supports at most 25 extracted bits. */
+			return window >= 1 && window <= kPippengerMaxWindow;
 		}
 	}
 
@@ -99,24 +110,7 @@ namespace blst::scalar
 
 
 
-	BLST_HD inline void print_bits(char* buffer, const void* data, int bits)
-	{
-		int bytes = (bits + 7) / 8;
-		unsigned char* p = (unsigned char*)data;
-		for (int i = bytes - 1; i >= 0; i--)
-		{
-			for (int j = 7; j >= 0; j--)
-			{
-				int bit_idx = i * 8 + j;
-				if (bit_idx < bits)
-				{
-					*buffer++ = ((p[i] >> j) & 1) ? '1' : '0';
-				}
-			}
-		}
-		*buffer = 0;
-	}
-
+#ifdef BLST_CUDA
 	template<typename Group>
 	BLST_HD BLST_INLINE u64 hash_point(const Group& p)
 	{
@@ -129,21 +123,22 @@ namespace blst::scalar
 		}
 		return hash;
 	}
+#endif
 
 	/*
-	* This is two-step multi-scalar multiplication procedure. First, given
-	* a set of points you pre-compute a table for chosen windowing factor
-	* [expressed in bits with value between 2 and 14], and then you pass
-	* this table to the actual multiplication procedure along with scalars.
-	* Idea is that the pre-computed table will be reused multiple times. In
-	* which case multiplication runs faster than below Pippenger algorithm
-	* implementation for up to ~16K points for wbits=8, naturally at the
-	* expense of multi-megabyte table. One can trade even more memory for
-	* performance, but each wbits increment doubles the memory requirement,
-	* so at some point it gets prohibively large... For reference, without
-	* reusing the table it's faster than Pippenger algorithm for up ~32
-	* points [with wbits=5]...
-	*/
+	 * Reusable fixed-table MSM. Ordinary operands are prevalidated subgroup
+	 * points and scalar bits are public. A row contains 2^(wbits-1)
+	 * consecutive affine multiples for wbits in [2, 14]. Compact pointer
+	 * descriptors require a non-null first entry; each later null entry means
+	 * contiguous continuation. Exact n-entry arrays need no sentinel.
+	 *
+	 * Precomputation may overlap a packed input array only when that input is
+	 * stored in the final npoints table entries. It reuses free output storage
+	 * first, then attempts one bounded nonthrowing allocation, and otherwise
+	 * uses a fixed small stack workspace. Multiplication requires matching
+	 * caller-owned scratch and accepts nbits in [1, 256]; zero points or bits
+	 * produce the identity without reading input storage.
+	 */
 	template<typename Field>
 	BLST_HD BLST_INLINE constexpr size_t fixed_table_scratch_capacity()
 	{
@@ -162,10 +157,8 @@ namespace blst::scalar
 		size_t wbits,
 		const AffinePoint<Field>& point);
 
-	// Orchestrates precompute for all input points in chunks (to bound memory), 
-	// calling the two routines above and producing a flat affine table of size 
-	// npoints << (wbits-1).
-	// flat |points[n]| can be placed at the end of |table[n<<(wbits-1)]| 
+	// Produces a flat affine table with npoints * 2^(wbits-1) entries.
+	// A packed points array may occupy the final npoints entries of table.
 	template<typename Field>
 	BLST_HD BLST_CPP_INLINE void msm_precompute_wbits(
 		AffinePoint<Field> table[],
@@ -224,7 +217,7 @@ namespace blst::scalar
 	// @npoints number of points (and scalars)
 	// @scalars array of npoints pointers to scalars, each scalar is
 	//   represented in byte array of length (nbits+7)/8.
-	// @nbits number of bits in each scalar
+	// @nbits number of meaningful bits in each scalar, at most 256
 	// @scratch scratch space for staging gathers before accumulation;
 	//   suggested size is min(npoints, fixed_table_scratch_capacity<Field>()).
 	template<typename Field>
@@ -251,11 +244,13 @@ namespace blst::scalar
 
 
 	/*
-	* Pippenger algorithm implementation, fastest option for larger amount
-	* of points...
-	*
-	* Heuristic: chooses wbits from npoints (smaller for few points, larger up to ~npoints-dependent caps).
-	*/
+	 * Variable-time Pippenger for public scalar data and prevalidated subgroup
+	 * points. Scalars contain at most 256 meaningful little-endian bits.
+	 * Explicit windows are in [1, 24]; the default heuristic is capped to that
+	 * range. Scratch contains 2^(window-1) buckets. Compact point and scalar
+	 * descriptors follow the same exact-array/contiguous-null convention as
+	 * fixed-table MSM.
+	 */
 	BLST_HD BLST_INLINE size_t pippenger_window_size(size_t npoints)
 	{
 		size_t wbits;
@@ -265,36 +260,61 @@ namespace blst::scalar
 
 		// Heuristic: decrement wbits for small npoints, to avoid overhead.
 		if (wbits > 12)
-			return wbits - 3;
+			wbits -= 3;
 		else if (wbits > 8)
-			return wbits - 2;
+			wbits -= 2;
 		else if (wbits > 4)
-			return wbits - 1;
+			wbits -= 1;
+		else
+			return wbits ? 2 : 1;
 
-		return wbits ? 2 : 1;
+		return wbits < detail::kPippengerMaxWindow
+			? wbits : detail::kPippengerMaxWindow;
 	}
 
 	struct WindowExtract
 	{
-		size_t window_begin;
-		size_t missing_overlap;
-		size_t extract_begin;
-		size_t window_end;
-		size_t extract_size;
-		limb_t extracted_mask;
-		size_t encode_size;
+		size_t window_begin = 0;
+		size_t missing_overlap = 0;
+		size_t extract_begin = 0;
+		size_t window_end = 0;
+		size_t extract_size = 0;
+		limb_t extracted_mask = 0;
+		size_t encode_size = 0;
 
 		WindowExtract() = default;
 		BLST_HD BLST_INLINE WindowExtract(size_t window_idx, size_t window_size, size_t nbits)
 		{
-			window_begin = window_idx * window_size;
+			BLST_ASSERT(detail::valid_pippenger_window(window_size));
+			BLST_ASSERT(nbits != 0 && nbits <= 256);
+			BLST_ASSERT(window_idx <= nbits / window_size);
+			initialize(window_idx * window_size, window_size, nbits);
+		}
+
+		BLST_HD BLST_INLINE static WindowExtract from_bit_offset(
+			size_t bit0, size_t window_size, size_t nbits)
+		{
+			BLST_ASSERT(detail::valid_pippenger_window(window_size));
+			BLST_ASSERT(nbits != 0 && nbits <= 256);
+			BLST_ASSERT(bit0 < nbits);
+			WindowExtract out;
+			out.initialize(bit0, window_size, nbits);
+			return out;
+		}
+
+	private:
+		BLST_HD BLST_INLINE void initialize(size_t bit0, size_t window_size, size_t nbits)
+		{
+			window_begin = bit0;
 			missing_overlap = window_begin == 0 ? 1 : 0;
 			extract_begin = window_begin > 0 ? window_begin - 1 : 0;
-			window_end = std::min<u64>(window_begin + window_size, nbits);
+			window_end = std::min(window_begin + window_size, nbits);
 			extract_size = window_end - extract_begin;
 			extracted_mask = ((limb_t)1 << extract_size) - 1;
-			encode_size = std::min<u64>(nbits - window_begin + 1, window_size);
+			encode_size = std::min(nbits - window_begin + 1, window_size);
 		}
+
+	public:
 
 		BLST_HD BLST_INLINE limb_t get_wval(const byte* scalar) const
 		{
@@ -340,13 +360,25 @@ namespace blst::scalar
 		const byte* const scalars[],
 		size_t nbits,
 		GroupZZ buckets[],
-		size_t window_size,
-		bool print = false);
+		size_t window_size);
 
 	template<typename Group>
 	BLST_HD BLST_INLINE size_t msm_mult_pippenger_scratch_sizeof_(size_t npoints)
 	{
-		return sizeof(Group) << (pippenger_window_size(npoints) - 1);
+		size_t bytes = 0;
+		const size_t window = pippenger_window_size(npoints);
+		return detail::checked_shl_size(sizeof(Group), window - 1, bytes)
+			? bytes : 0;
+	}
+
+	template<typename Group>
+	BLST_HD BLST_INLINE size_t msm_mult_pippenger_window_scratch_sizeof_(size_t window)
+	{
+		if (!detail::valid_pippenger_window(window))
+			return 0;
+		size_t bytes = 0;
+		return detail::checked_shl_size(sizeof(Group), window - 1, bytes)
+			? bytes : 0;
 	}
 
 	/*
@@ -372,34 +404,5 @@ namespace blst::scalar
 		limb_t scratch[],
 		size_t scratch_size,
 		size_t window_size);
-
-	// dispatches to either fixed-table MSM or Pippenger based on npoints
-	template<typename Field>
-	BLST_HD BLST_INLINE void msm_mult(
-		Point<Field>& ret,
-		const AffinePoint<Field>* const points[],
-		size_t npoints,
-		const byte* const scalars[], size_t nbits,
-		Pointxyzz<Field> scratch[])
-	{
-
-		if (npoints == 1) {
-			Point<Field>::from_affine(ret, *points[0]);
-			mult_window<Point<Field>, 5>(ret, ret, scalars[0], nbits);
-		}
-		else if ((npoints * sizeof(AffinePoint<Field>) * 8 * 3) <= BLST_SCALAR_MSM_SCRATCH_LIMIT &&
-			npoints < 32) {
-			AffinePoint<Field>* table = (AffinePoint<Field>*)malloc(npoints * sizeof(AffinePoint<Field>) * 8);
-			msm_precompute_wbits<Field>(table, 4, points, npoints);
-			msm_mult_table<Field>(ret, table, 4, npoints, scalars, nbits, {});
-			free(table);
-		}
-		else
-		{
-			msm_mult_pippenger<Point<Field>, AffinePoint<Field>, Pointxyzz<Field>>(
-				ret, points, npoints, scalars, nbits, scratch, 0);
-		}
-	}
-
 
 }

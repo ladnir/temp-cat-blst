@@ -235,7 +235,7 @@ inline bool c_api_valid_wbits(size_t wbits)
 
 inline bool c_api_valid_pippenger_window(size_t window)
 {
-    return window > 0 && window < (sizeof(blst::limb_t) * 8);
+    return blst::scalar::detail::valid_pippenger_window(window);
 }
 
 template<typename T>
@@ -657,8 +657,8 @@ inline void c_api_points_tile_pippenger(
         return;
     }
 
-    const size_t window_idx = bit0 / window;
-    const blst::scalar::WindowExtract we(window_idx, window, nbits);
+    const blst::scalar::WindowExtract we =
+        blst::scalar::WindowExtract::from_bit_offset(bit0, window, nbits);
     blst::vec_zero(buckets, sizeof(buckets[0]) << (we.encode_size - 1));
     size_t i = 0;
     const blst::byte* scalar = *scalars++;
@@ -667,10 +667,11 @@ inline void c_api_points_tile_pippenger(
 
     auto extract_window = [&]() -> std::pair<const AffineGroup*, blst::limb_t> {
         const blst::limb_t encoding = we.extract(scalar);
-        const AffineGroup* current = point;
+        return {point, encoding};
+    };
+    auto advance_input = [&]() {
         scalar = *scalars ? *scalars++ : scalar + nbytes;
         point = *points ? *points++ : point + 1;
-        return {current, encoding};
     };
 
     auto next = extract_window();
@@ -678,6 +679,7 @@ inline void c_api_points_tile_pippenger(
 
     for (; i < npoints; ++i) {
         auto current = next;
+        advance_input();
         next = extract_window();
         c_api_point_prefetch(buckets, next.second, we.encode_size);
         c_api_point_bucket(buckets, current.second, we.encode_size, *current.first);
@@ -1045,7 +1047,9 @@ void blst_p1s_mult_wbits_precompute(
     const BoundaryG1Affine* const points[],
     size_t npoints)
 {
-    if (!c_api_valid_wbits(wbits) || !c_api_has_valid_array_head(points, npoints)) {
+    if (!c_api_valid_wbits(wbits) ||
+        (npoints != 0 && table == nullptr) ||
+        !c_api_has_valid_array_head(points, npoints)) {
         return;
     }
     blst::scalar::msm_precompute_wbits<blst::Fp>(table, wbits, points, npoints);
@@ -1065,14 +1069,25 @@ void blst_p1s_mult_wbits(
     size_t nbits,
     blst::limb_t* scratch)
 {
-    if (npoints == 0 || !c_api_valid_wbits(wbits) || scalars == nullptr || scalars[0] == nullptr) {
+    if (npoints == 0 || nbits == 0) {
+        *ret = {};
+        return;
+    }
+    if (nbits > 256 || !c_api_valid_wbits(wbits) || table == nullptr ||
+        scalars == nullptr || scalars[0] == nullptr || scratch == nullptr) {
+        *ret = {};
+        return;
+    }
+
+    size_t table_len = 0;
+    if (!blst::scalar::detail::checked_shl_size(npoints, wbits - 1, table_len)) {
         *ret = {};
         return;
     }
 
     using ScratchNode = blst::scalar::detail::BatchAffineNode<blst::Fp>;
     const size_t scratch_len = blst::scalar::points_mult_wbits_scratch_sizeof<blst::Fp>(npoints) / sizeof(ScratchNode);
-    const blst::scalar::span<const BoundaryG1Affine> table_span(table, npoints << (wbits - 1));
+    const blst::scalar::span<const BoundaryG1Affine> table_span(table, table_len);
     blst::scalar::detail::BatchAffineWorkspace<blst::Fp> scratch_workspace(
         scratch, scratch == nullptr ? 0 : scratch_len);
     blst::scalar::msm_mult_table<blst::Fp>(
@@ -1081,15 +1096,13 @@ void blst_p1s_mult_wbits(
 
 size_t blst_p1s_mult_pippenger_scratch_sizeof(size_t npoints)
 {
-    return sizeof(blst::scalar::G1PointZZ) << (blst::scalar::pippenger_window_size(npoints) - 1);
+    return blst::scalar::msm_mult_pippenger_scratch_sizeof_<blst::scalar::G1PointZZ>(npoints);
 }
 
 size_t blst_p1s_mult_pippenger_window_scratch_sizeof(size_t window)
 {
-    if (!c_api_valid_pippenger_window(window)) {
-        return 0;
-    }
-    return sizeof(blst::scalar::G1PointZZ) << (window - 1);
+    return blst::scalar::msm_mult_pippenger_window_scratch_sizeof_<
+        blst::scalar::G1PointZZ>(window);
 }
 
 void blst_p1s_mult_pippenger(
@@ -1100,7 +1113,11 @@ void blst_p1s_mult_pippenger(
     size_t nbits,
     blst::limb_t* scratch)
 {
-    if (npoints == 0 || nbits > 256 ||
+    if (npoints == 0 || nbits == 0) {
+        *ret = {};
+        return;
+    }
+    if (nbits > 256 ||
         !c_api_has_valid_pair_heads(points, scalars, npoints)) {
         *ret = {};
         return;
@@ -1195,7 +1212,11 @@ void blst_p1s_mult_pippenger_window(
     blst::limb_t* scratch,
     size_t window)
 {
-    if (npoints == 0 || nbits > 256 || !c_api_valid_pippenger_window(window) ||
+    if (npoints == 0 || nbits == 0) {
+        *ret = {};
+        return;
+    }
+    if (nbits > 256 || !c_api_valid_pippenger_window(window) ||
         !c_api_has_valid_pair_heads(points, scalars, npoints)) {
         *ret = {};
         return;
@@ -1232,7 +1253,7 @@ void blst_p1s_tile_pippenger(
 {
     if (npoints == 0 || !c_api_has_valid_pair_heads(points, scalars, npoints) ||
         scratch == nullptr || !c_api_valid_pippenger_window(window) ||
-        nbits == 0 || bit0 >= nbits) {
+        nbits == 0 || nbits > 256 || bit0 >= nbits) {
         *ret = {};
         return;
     }
@@ -1477,7 +1498,9 @@ void blst_p2s_mult_wbits_precompute(
     const BoundaryG2Affine* const points[],
     size_t npoints)
 {
-    if (!c_api_valid_wbits(wbits) || !c_api_has_valid_array_head(points, npoints)) {
+    if (!c_api_valid_wbits(wbits) ||
+        (npoints != 0 && table == nullptr) ||
+        !c_api_has_valid_array_head(points, npoints)) {
         return;
     }
     blst::scalar::msm_precompute_wbits<blst::Fp2>(table, wbits, points, npoints);
@@ -1497,14 +1520,25 @@ void blst_p2s_mult_wbits(
     size_t nbits,
     blst::limb_t* scratch)
 {
-    if (npoints == 0 || !c_api_valid_wbits(wbits) || scalars == nullptr || scalars[0] == nullptr) {
+    if (npoints == 0 || nbits == 0) {
+        *ret = {};
+        return;
+    }
+    if (nbits > 256 || !c_api_valid_wbits(wbits) || table == nullptr ||
+        scalars == nullptr || scalars[0] == nullptr || scratch == nullptr) {
+        *ret = {};
+        return;
+    }
+
+    size_t table_len = 0;
+    if (!blst::scalar::detail::checked_shl_size(npoints, wbits - 1, table_len)) {
         *ret = {};
         return;
     }
 
     using ScratchNode = blst::scalar::detail::BatchAffineNode<blst::Fp2>;
     const size_t scratch_len = blst::scalar::points_mult_wbits_scratch_sizeof<blst::Fp2>(npoints) / sizeof(ScratchNode);
-    const blst::scalar::span<const BoundaryG2Affine> table_span(table, npoints << (wbits - 1));
+    const blst::scalar::span<const BoundaryG2Affine> table_span(table, table_len);
     blst::scalar::detail::BatchAffineWorkspace<blst::Fp2> scratch_workspace(
         scratch, scratch == nullptr ? 0 : scratch_len);
     blst::scalar::msm_mult_table<blst::Fp2>(
@@ -1513,15 +1547,13 @@ void blst_p2s_mult_wbits(
 
 size_t blst_p2s_mult_pippenger_scratch_sizeof(size_t npoints)
 {
-    return sizeof(blst::scalar::G2PointZZ) << (blst::scalar::pippenger_window_size(npoints) - 1);
+    return blst::scalar::msm_mult_pippenger_scratch_sizeof_<blst::scalar::G2PointZZ>(npoints);
 }
 
 size_t blst_p2s_mult_pippenger_window_scratch_sizeof(size_t window)
 {
-    if (!c_api_valid_pippenger_window(window)) {
-        return 0;
-    }
-    return sizeof(blst::scalar::G2PointZZ) << (window - 1);
+    return blst::scalar::msm_mult_pippenger_window_scratch_sizeof_<
+        blst::scalar::G2PointZZ>(window);
 }
 
 void blst_p2s_mult_pippenger(
@@ -1532,7 +1564,11 @@ void blst_p2s_mult_pippenger(
     size_t nbits,
     blst::limb_t* scratch)
 {
-    if (npoints == 0 || nbits > 256 ||
+    if (npoints == 0 || nbits == 0) {
+        *ret = {};
+        return;
+    }
+    if (nbits > 256 ||
         !c_api_has_valid_pair_heads(points, scalars, npoints)) {
         *ret = {};
         return;
@@ -1566,7 +1602,11 @@ void blst_p2s_mult_pippenger_window(
     blst::limb_t* scratch,
     size_t window)
 {
-    if (npoints == 0 || nbits > 256 || !c_api_valid_pippenger_window(window) ||
+    if (npoints == 0 || nbits == 0) {
+        *ret = {};
+        return;
+    }
+    if (nbits > 256 || !c_api_valid_pippenger_window(window) ||
         !c_api_has_valid_pair_heads(points, scalars, npoints)) {
         *ret = {};
         return;
@@ -1662,7 +1702,7 @@ void blst_p2s_tile_pippenger(
 {
     if (npoints == 0 || !c_api_has_valid_pair_heads(points, scalars, npoints) ||
         scratch == nullptr || !c_api_valid_pippenger_window(window) ||
-        nbits == 0 || bit0 >= nbits) {
+        nbits == 0 || nbits > 256 || bit0 >= nbits) {
         *ret = {};
         return;
     }

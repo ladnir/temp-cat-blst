@@ -6,14 +6,9 @@
 
 #include "blst/scalar/curve/multi_scalar.h"
 
+#include <cstdlib>
+#include <new>
 #include <type_traits>
-#if defined(_MSC_VER)
-# include <malloc.h>
-# define BLST_ALLOCA _alloca
-#else
-# include <alloca.h>
-# define BLST_ALLOCA alloca
-#endif
 
 namespace blst::scalar
 {
@@ -27,6 +22,8 @@ namespace blst::scalar
 
 	namespace detail
 	{
+		inline constexpr size_t kPrecomputeFallbackBytes = 8 * 1024;
+
 		//Returns per - block batch size used in batched affine conversion(1536 for Fp, 768 for Fp2).
 		template<typename Field>
 		constexpr size_t block_stride()
@@ -67,6 +64,93 @@ namespace blst::scalar
 		{
 			set_msm_identity(out);
 		}
+
+		template<typename Field>
+		class PrecomputeWorkspace
+		{
+			using PointT = Point<Field>;
+
+			byte* storage_;
+
+			BLST_HD BLST_FORCEINLINE byte* point_address(size_t index) const
+			{
+				return storage_ + index * sizeof(PointT);
+			}
+
+			BLST_HD BLST_FORCEINLINE byte* prefix_address(
+				size_t point_count, size_t index) const
+			{
+				return storage_ + point_count * sizeof(PointT) + index * sizeof(Field);
+			}
+
+		public:
+			explicit PrecomputeWorkspace(void* storage)
+				: storage_(static_cast<byte*>(storage))
+			{
+				static_assert(std::is_trivially_default_constructible_v<PointT>);
+				static_assert(std::is_trivially_default_constructible_v<Field>);
+				static_assert(std::is_trivially_destructible_v<PointT>);
+				static_assert(std::is_trivially_destructible_v<Field>);
+				static_assert(alignof(AffinePoint<Field>) >= alignof(PointT));
+				static_assert(alignof(PointT) >= alignof(Field));
+				static_assert(sizeof(PointT) % alignof(Field) == 0);
+			}
+
+			BLST_HD BLST_FORCEINLINE PointT& start_point(size_t index) const
+			{
+				return *::new (point_address(index)) PointT;
+			}
+
+			BLST_HD BLST_FORCEINLINE PointT& point(size_t index) const
+			{
+				return *std::launder(reinterpret_cast<PointT*>(point_address(index)));
+			}
+
+			BLST_HD BLST_FORCEINLINE Field& start_prefix(
+				size_t point_count, size_t index) const
+			{
+				return *::new (prefix_address(point_count, index)) Field;
+			}
+
+			BLST_HD BLST_FORCEINLINE Field& prefix(
+				size_t point_count, size_t index) const
+			{
+				return *std::launder(
+					reinterpret_cast<Field*>(prefix_address(point_count, index)));
+			}
+		};
+
+		template<typename Field>
+		BLST_HD BLST_INLINE bool precompute_workspace_size(
+			size_t point_count, size_t& bytes)
+		{
+			size_t point_bytes = 0;
+			size_t prefix_count = 0;
+			size_t prefix_bytes = 0;
+			if (!checked_mul_size(point_count, sizeof(Point<Field>), point_bytes) ||
+				point_count == static_cast<size_t>(-1)) {
+				return false;
+			}
+			prefix_count = point_count + 1;
+			if (!checked_mul_size(prefix_count, sizeof(Field), prefix_bytes) ||
+				point_bytes > static_cast<size_t>(-1) - prefix_bytes) {
+				return false;
+			}
+			bytes = point_bytes + prefix_bytes;
+			return true;
+		}
+
+		template<typename Field>
+		BLST_HD BLST_FORCEINLINE AffinePoint<Field>& start_affine(
+			byte* storage, size_t index)
+		{
+			static_assert(
+				std::is_trivially_default_constructible_v<AffinePoint<Field>>);
+			static_assert(std::is_trivially_destructible_v<AffinePoint<Field>>);
+			return *::new (storage + index * sizeof(AffinePoint<Field>))
+				AffinePoint<Field>;
+		}
+
 	} // namespace detail
 
 	// Converts an array of (possibly sparse) Jacobian points 
@@ -89,43 +173,45 @@ namespace blst::scalar
 		while (npoints) {
 			size_t delta = stride < npoints ? stride : npoints;
 			AffinePoint<Field>* block_dst = out;
-			Field* acc = reinterpret_cast<Field*>(block_dst);
 
 			point = *point_iter ? *point_iter++ : point + 1;
 			bool_t is_inf = PointT::is_identity(*point);
-			vec_select(acc, detail::mont_one<Field>(), &point->z, sizeof(Field), is_inf);
-			++acc;
+			vec_select(&block_dst[0].x, detail::mont_one<Field>(),
+				&point->z, sizeof(Field), is_inf);
 
-			for (size_t i = 1; i < delta; ++i, ++acc) {
+			for (size_t i = 1; i < delta; ++i) {
 				point = *point_iter ? *point_iter++ : point + 1;
 				bool_t next_inf = PointT::is_identity(*point);
-				vec_select(acc, detail::mont_one<Field>(), &point->z, sizeof(Field), next_inf);
-				Field::mul(acc[0], acc[0], acc[-1]);
+				vec_select(&block_dst[i].x, detail::mont_one<Field>(),
+					&point->z, sizeof(Field), next_inf);
+				Field::mul(block_dst[i].x, block_dst[i].x, block_dst[i - 1].x);
 			}
 
-			--acc;
-			Field::reciprocal(acc[0], acc[0]);
+			Field::reciprocal(block_dst[delta - 1].x, block_dst[delta - 1].x);
 
 			const PointT* p = point;
 			const PointT* const* walkback = point_iter - 1;
 			size_t remaining = delta ? delta - 1 : 0;
 			AffinePoint<Field>* dst_iter = block_dst + remaining;
 
-			for (size_t i = 0; i < remaining; ++i, --acc, --dst_iter) {
+			for (size_t i = remaining; i != 0; --i, --dst_iter) {
 				bool_t current_inf = PointT::is_identity(*p);
-				Field::mul(acc[-1], acc[-1], acc[0]);
-				Field::sqr(ZZ, acc[-1]);
-				Field::mul(ZZZ, ZZ, acc[-1]);
-				vec_select(&acc[-1], detail::mont_one<Field>(), &p->z, sizeof(Field), current_inf);
-				Field::mul(acc[-1], acc[-1], acc[0]);
+				Field& current_acc = block_dst[i].x;
+				Field& previous_acc = block_dst[i - 1].x;
+				Field::mul(previous_acc, previous_acc, current_acc);
+				Field::sqr(ZZ, previous_acc);
+				Field::mul(ZZZ, ZZ, previous_acc);
+				vec_select(&previous_acc, detail::mont_one<Field>(),
+					&p->z, sizeof(Field), current_inf);
+				Field::mul(previous_acc, previous_acc, current_acc);
 				Field::mul(dst_iter->x, p->x, ZZ);
 				Field::mul(dst_iter->y, p->y, ZZZ);
 				vec_czero(dst_iter, sizeof(*dst_iter), current_inf);
 				p = (p == *walkback) ? *--walkback : p - 1;
 			}
 
-			Field::sqr(ZZ, acc[0]);
-			Field::mul(ZZZ, ZZ, acc[0]);
+			Field::sqr(ZZ, block_dst[0].x);
+			Field::mul(ZZZ, ZZ, block_dst[0].x);
 			Field::mul(dst_iter->x, p->x, ZZ);
 			Field::mul(dst_iter->y, p->y, ZZZ);
 			vec_czero(dst_iter, sizeof(*dst_iter), PointT::is_identity(*p));
@@ -192,6 +278,32 @@ namespace blst::scalar
 	{
 		point_precompute_row<Field>(row, (size_t)1 << (wbits - 1), point);
 	}
+
+	template<typename Field>
+	BLST_HD BLST_CPP_INLINE void point_precompute_row_workspace(
+		const detail::PrecomputeWorkspace<Field>& workspace,
+		size_t row_begin,
+		size_t n,
+		const AffinePoint<Field>& point)
+	{
+		size_t i, j;
+		bool_t inf = vec_is_zero(&point, sizeof(point));
+		auto& row0 = workspace.start_point(row_begin);
+		vec_copy(&row0, &point, sizeof(point));
+		vec_copy(&row0.z, &Field::one(), sizeof(row0.z));
+
+		auto& row1 = workspace.start_point(row_begin + 1);
+		Point<Field>::doubling(row1, row0);
+		vec_select(&row1.z, &Field::one(), &row1.z, sizeof(row1.z), inf);
+		for (i = 2, j = 1; i < n; i += 2, ++j) {
+			auto& even = workspace.start_point(row_begin + i);
+			Point<Field>::add(
+				even, workspace.point(row_begin + i - 1), point);
+			auto& odd = workspace.start_point(row_begin + i + 1);
+			Point<Field>::doubling(odd, workspace.point(row_begin + j));
+			vec_select(&odd.z, &Field::one(), &odd.z, sizeof(odd.z), inf);
+		}
+	}
 	template
 	BLST_HD BLST_CPP_INLINE void point_precompute_row_wbits(
 		Point<Fp> row[],
@@ -207,56 +319,141 @@ namespace blst::scalar
 	// Converts a block of those rows from Jacobian to affine with one batched 
 	// inversion chain; writes dst table laid out as rows.
 	template<typename Field>
-	BLST_HD BLST_CPP_INLINE void points_to_affine_row_wbits(
-		AffinePoint<Field> dst[],
-		Point<Field> src[],
-		size_t wbits, size_t npoints)
+	BLST_HD BLST_CPP_INLINE void points_to_affine_row_workspace(
+		byte* dst_storage,
+		const detail::PrecomputeWorkspace<Field>& workspace,
+		size_t nwin,
+		size_t npoints)
 	{
 		if (npoints == 0) {
 			return;
 		}
 
-		size_t total = npoints << (wbits - 1);
-		size_t nwin = (size_t)1 << (wbits - 1);
-		size_t i, j;
-		Field* acc, ZZ, ZZZ;
+		const size_t total = npoints * nwin;
+		size_t src_index = 0;
+		size_t acc_index = 0;
+		Field ZZ, ZZZ;
 
-		src += total;
-		acc = (Field*)src;
-		vec_copy(acc++, &Field::one(), sizeof(Field));
-		for (i = 0; i < npoints; i++)
-			for (j = nwin; --src, --j; acc++)
-				Field::mul(acc[0], acc[-1], src->z);
+		vec_copy(&workspace.start_prefix(total, acc_index++),
+			&Field::one(), sizeof(Field));
+		for (size_t row = npoints; row != 0; --row) {
+			for (size_t j = nwin; j > 1; --j) {
+				const size_t index = (row - 1) * nwin + (j - 1);
+				const auto& src = workspace.point(index);
+				auto& acc = workspace.start_prefix(total, acc_index);
+				Field::mul(acc, workspace.prefix(total, acc_index - 1), src.z);
+				++acc_index;
+			}
+		}
 
-		--acc; Field::reciprocal(acc[0], acc[0]);
+		BLST_ASSERT(acc_index == npoints * (nwin - 1) + 1);
+		--acc_index;
+		Field::reciprocal(
+			workspace.prefix(total, acc_index),
+			workspace.prefix(total, acc_index));
 
-		for (i = 0; i < npoints; i++) {
-			vec_copy(dst++, src++, sizeof(AffinePoint<Field>));
-			for (j = 1; j < nwin; j++, acc--, src++, dst++) {
-				Field::mul(acc[-1], acc[-1], acc[0]);  /* 1/Z        */
-				Field::sqr(ZZ, acc[-1]);               /* 1/Z^2      */
-				Field::mul(ZZZ, ZZ, acc[-1]);          /* 1/Z^3      */
-				Field::mul(acc[-1], src->z, acc[0]);
-				Field::mul(dst->x, src->x, ZZ);        /* X = X'/Z^2 */
-				Field::mul(dst->y, src->y, ZZZ);       /* Y = Y'/Z^3 */
+		src_index = 0;
+		for (size_t i = 0; i < npoints; ++i) {
+			const auto& first = workspace.point(src_index);
+			if (src_index < 2) {
+				const Field x = first.x;
+				const Field y = first.y;
+				auto& dst = detail::start_affine<Field>(dst_storage, src_index);
+				dst.x = x;
+				dst.y = y;
+			} else {
+				auto& dst = detail::start_affine<Field>(dst_storage, src_index);
+				vec_copy(&dst, &first, sizeof(dst));
+			}
+			++src_index;
+
+			for (size_t j = 1; j < nwin; ++j, ++src_index, --acc_index) {
+				const auto& src = workspace.point(src_index);
+				auto& previous = workspace.prefix(total, acc_index - 1);
+				auto& current = workspace.prefix(total, acc_index);
+				Field::mul(previous, previous, current); /* 1/Z */
+				Field::sqr(ZZ, previous);
+				Field::mul(ZZZ, ZZ, previous);
+				Field::mul(previous, src.z, current);
+
+				if (src_index < 2) {
+					Field x, y;
+					Field::mul(x, src.x, ZZ);
+					Field::mul(y, src.y, ZZZ);
+					auto& dst = detail::start_affine<Field>(dst_storage, src_index);
+					dst.x = x;
+					dst.y = y;
+				} else {
+					auto& dst = detail::start_affine<Field>(dst_storage, src_index);
+					Field::mul(dst.x, src.x, ZZ);
+					Field::mul(dst.y, src.y, ZZZ);
+				}
 			}
 		}
 	}
-	template
-		BLST_HD BLST_CPP_INLINE void points_to_affine_row_wbits(
-		AffinePoint<Fp> dst[],
-		Point<Fp> src[],
-		size_t wbits, size_t npoints);
-	template
-		BLST_HD BLST_CPP_INLINE void points_to_affine_row_wbits(
-		AffinePoint<Fp2> dst[],
-		Point<Fp2> src[],
-		size_t wbits, size_t npoints);
 
-	// Orchestrates precompute for all input points in chunks (to bound memory), 
-	// calling the two routines above and producing a flat affine table of size 
-	// npoints << (wbits-1).
-	// flat |points[n]| can be placed at the end of |table[n<<(wbits-1)]| 
+#if defined(_MSC_VER)
+# define BLST_MSM_NOINLINE __declspec(noinline)
+#elif defined(__GNUC__) || defined(__clang__)
+# define BLST_MSM_NOINLINE __attribute__((noinline))
+#else
+# define BLST_MSM_NOINLINE
+#endif
+
+	template<typename Field>
+	BLST_HD static BLST_MSM_NOINLINE void msm_precompute_wbits_fallback(
+		AffinePoint<Field> table[],
+		size_t top,
+		size_t nwin,
+		const AffinePoint<Field>* point,
+		const AffinePoint<Field>* const points[],
+		size_t npoints)
+	{
+		alignas(Point<Field>)
+		byte fallback_storage[detail::kPrecomputeFallbackBytes];
+		detail::PrecomputeWorkspace<Field> workspace(fallback_storage);
+		static_assert(
+			detail::kPrecomputeFallbackBytes >=
+				2 * (sizeof(Point<Field>) + sizeof(Field)) + sizeof(Field),
+			"precompute fallback must hold at least two projective points");
+		size_t stride = (detail::kPrecomputeFallbackBytes - sizeof(Field)) /
+			(sizeof(Point<Field>) + sizeof(Field));
+		stride -= stride % 2;
+		if (stride > nwin)
+			stride = nwin;
+
+		for (size_t i = 0; i < npoints; ++i, top += nwin) {
+			point = *points ? *points++ : point + 1;
+			point_precompute_row_workspace<Field>(workspace, 0, stride, *point);
+			const Point<Field>* packed_rows[2] = {
+				&workspace.point(0), nullptr
+			};
+			points_to_affine<Field>(&table[top], packed_rows, stride);
+
+			for (size_t j = stride; j < nwin; j += stride) {
+				const size_t n = (j + stride) <= nwin ? stride : nwin - j;
+				const Point<Field>& previous = workspace.point(stride - 1);
+				size_t k = 0;
+				for (; k + 1 < n; ++k) {
+					auto& out = workspace.start_point(k);
+					Point<Field>::add(out, previous, table[top + k]);
+				}
+				auto& last = k == stride - 1
+					? workspace.point(k) : workspace.start_point(k);
+				if (j == stride) {
+					Point<Field>::doubling(last, previous);
+				} else {
+					Point<Field>::add(last, previous, table[top + k]);
+				}
+				points_to_affine<Field>(&table[top + j], packed_rows, n);
+			}
+		}
+	}
+
+#undef BLST_MSM_NOINLINE
+
+	// Orchestrates bounded table reuse, optional heap workspace, and the cold
+	// fixed-stack fallback. A packed input array may occupy the table tail.
 	template<typename Field>
 	BLST_HD BLST_CPP_INLINE void msm_precompute_wbits(
 		AffinePoint<Field> table[],
@@ -272,31 +469,42 @@ namespace blst::scalar
 		if (!detail::checked_shl_size(npoints, wbits - 1, total)) {
 			return;
 		}
-		size_t table_bytes = 0;
-		if (!detail::checked_mul_size(sizeof(AffinePoint<Field>), total, table_bytes)) {
+		if (total > static_cast<size_t>(-1) / sizeof(AffinePoint<Field>)) {
 			return;
 		}
 		size_t nwin = (size_t)1 << (wbits - 1);
 		size_t nmin = wbits > 9 ? (size_t)1 : (size_t)1 << (9 - wbits);
-		size_t i, top = 0;
-		Point<Field>* rows, * row;
-		const AffinePoint<Field>* point = NULL;
+		size_t top = 0;
+		const AffinePoint<Field>* point = nullptr;
+		byte* const table_storage = reinterpret_cast<byte*>(table);
 		size_t stride = ((512 * 1024) / sizeof(AffinePoint<Field>)) >> wbits;
 		if (stride == 0) stride = 1;
 
 		while (npoints >= nmin) {
 			size_t limit = total - npoints;
-
-			if (stride > ((limit - top) >> wbits)) {
-				stride = (limit - top) >> wbits;
-				if (stride == 0) break;
+			const size_t available_bytes =
+				(limit - top) * sizeof(AffinePoint<Field>);
+			const size_t per_row_bytes =
+				nwin * (sizeof(Point<Field>) + sizeof(Field));
+			const size_t max_stride = available_bytes > sizeof(Field)
+				? (available_bytes - sizeof(Field)) / per_row_bytes : 0;
+			if (stride > max_stride) {
+				stride = max_stride;
+				if (stride == 0)
+					break;
 			}
-			rows = row = (Point<Field>*)(&table[top]);
-			for (i = 0; i < stride; i++, row += nwin)
-				point = *points ? *points++ : point + 1,
-				point_precompute_row<Field>(row, nwin, *point);
-			points_to_affine_row_wbits<Field>(&table[top], rows, wbits, stride);
-			top += stride << (wbits - 1);
+
+			detail::PrecomputeWorkspace<Field> workspace(
+				table_storage + top * sizeof(AffinePoint<Field>));
+			for (size_t i = 0; i < stride; ++i) {
+				point = *points ? *points++ : point + 1;
+				point_precompute_row_workspace<Field>(
+					workspace, i * nwin, nwin, *point);
+			}
+			points_to_affine_row_workspace<Field>(
+				table_storage + top * sizeof(AffinePoint<Field>),
+				workspace, nwin, stride);
+			top += stride * nwin;
 			npoints -= stride;
 		}
 		if (npoints == 0) {
@@ -304,57 +512,33 @@ namespace blst::scalar
 		}
 
 		size_t row_count = 0;
-		size_t rows_bytes = 0;
-		bool whole_rows_fit =
+		size_t workspace_bytes = 0;
+		const bool whole_rows_fit =
 			detail::checked_mul_size(npoints, nwin, row_count) &&
-			detail::checked_mul_size(2 * sizeof(AffinePoint<Field>), row_count, rows_bytes) &&
-			rows_bytes <= static_cast<size_t>(-1) - sizeof(Field);
-		if (whole_rows_fit) {
-			rows_bytes += sizeof(Field);
-			whole_rows_fit = rows_bytes <= BLST_SCALAR_MSM_SCRATCH_LIMIT;
-		}
+			detail::precompute_workspace_size<Field>(row_count, workspace_bytes) &&
+			workspace_bytes <= BLST_SCALAR_MSM_SCRATCH_LIMIT;
 
 		if (whole_rows_fit) {
-			rows = row = (Point<Field>*)BLST_ALLOCA(rows_bytes);
-			for (i = 0; i < npoints; i++, row += nwin) {
-				point = *points ? *points++ : point + 1;
-				point_precompute_row<Field>(row, nwin, *point);
-			}
-			points_to_affine_row_wbits<Field>(&table[top], rows, wbits, npoints);
-		} else {
-			const Point<Field>* packed_rows[2];
-
-			static_assert(
-				BLST_SCALAR_MSM_SCRATCH_LIMIT >= 2 * sizeof(Point<Field>),
-				"BLST_SCALAR_MSM_SCRATCH_LIMIT must hold at least two projective points");
-			stride = BLST_SCALAR_MSM_SCRATCH_LIMIT / sizeof(Point<Field>);
-			stride -= stride % 2;
-			if (stride > nwin) {
-				stride = nwin;
-			}
-
-			packed_rows[0] = row = (Point<Field>*)BLST_ALLOCA(stride * sizeof(Point<Field>));
-			packed_rows[1] = nullptr;
-			for (i = 0; i < npoints; i++, top += nwin) {
-				size_t j, k, n;
-
-				point = *points ? *points++ : point + 1;
-				point_precompute_row<Field>(row, stride, *point);
-				points_to_affine<Field>(&table[top], packed_rows, stride);
-				for (j = stride; j < nwin; j += stride) {
-					n = (j + stride) <= nwin ? stride : nwin - j;
-					for (k = 0; k < n - 1; k++) {
-						Point<Field>::add(row[k], row[stride - 1], table[top + k]);
-					}
-					if (j == stride) {
-						Point<Field>::doubling(row[k], row[stride - 1]);
-					} else {
-						Point<Field>::add(row[k], row[stride - 1], table[top + k]);
-					}
-					points_to_affine<Field>(&table[top + j], packed_rows, n);
+#ifndef __CUDA_ARCH__
+			void* allocation = std::malloc(workspace_bytes);
+			if (allocation != nullptr) {
+				detail::PrecomputeWorkspace<Field> workspace(allocation);
+				for (size_t i = 0; i < npoints; ++i) {
+					point = *points ? *points++ : point + 1;
+					point_precompute_row_workspace<Field>(
+						workspace, i * nwin, nwin, *point);
 				}
+				points_to_affine_row_workspace<Field>(
+					table_storage + top * sizeof(AffinePoint<Field>),
+					workspace, nwin, npoints);
+				std::free(allocation);
+				return;
 			}
+#endif
 		}
+
+		msm_precompute_wbits_fallback<Field>(
+			table, top, nwin, point, points, npoints);
 	}
 	template 
 		BLST_HD BLST_CPP_INLINE void msm_precompute_wbits(
@@ -399,7 +583,11 @@ namespace blst::scalar
 		const size_t nbits,
 		detail::BatchAffineWorkspace<Field> scratch)
 	{
-		if (!detail::valid_wbits(wbits) || npoints == 0 || scalars == nullptr ||
+		if (npoints == 0 || nbits == 0) {
+			ret = Point<Field>::infinity();
+			return;
+		}
+		if (nbits > 256 || !detail::valid_wbits(wbits) || scalars == nullptr ||
 			scalars[0] == nullptr || scratch.empty()) {
 			ret = Point<Field>::infinity();
 			return;
@@ -412,7 +600,9 @@ namespace blst::scalar
 
 
 		auto table_size = (size_t)1 << (wbits - 1);
-		if (table.size() != npoints * table_size)
+		size_t expected_table_size = 0;
+		if (!detail::checked_mul_size(npoints, table_size, expected_table_size) ||
+			table.size() != expected_table_size)
 		{
 			ret = Point<Field>::infinity();
 			return; // or error
@@ -544,7 +734,7 @@ namespace blst::scalar
 	{
 		bool_t booth_sign = (booth_idx >> wbits) & 1;
 
-		booth_idx &= (1 << wbits) - 1;
+		booth_idx &= (static_cast<limb_t>(1) << wbits) - 1;
 		if (booth_idx--)
 		{
 			msm_add_or_sub(buckets[booth_idx], buckets[booth_idx],
@@ -556,7 +746,7 @@ namespace blst::scalar
 	BLST_HD BLST_CPP_INLINE void point_prefetch(const GroupZZ buckets[], limb_t booth_idx,
 		size_t wbits)
 	{
-		booth_idx &= (1 << wbits) - 1;
+		booth_idx &= (static_cast<limb_t>(1) << wbits) - 1;
 		if (booth_idx--)
 		{
 #ifndef __CUDA_ARCH__
@@ -564,16 +754,6 @@ namespace blst::scalar
 #endif
 		}
 	}
-
-	BLST_HD inline void print_digit(size_t point_idx, limb_t encoding, int wbits)
-	{
-		size_t digit = encoding & (((limb_t)1 << wbits) - 1);
-		size_t sign = (encoding >> wbits) & 1;
-
-		printf("  point[%zu]: digit %zu (%llu), idx=%zu, sign=%zu\n",
-			point_idx, digit, (long long unsigned int)encoding, point_idx, sign);
-	}
-
 
 	// Processes one window_size across all points: extracts Booth digits for that 
 	// bit range, fills buckets, then integrates buckets to produce the window_size
@@ -606,8 +786,7 @@ namespace blst::scalar
 		size_t nbits,
 		GroupZZ buckets[],
 		size_t window_idx,
-		size_t window_size,
-		bool print)
+		size_t window_size)
 	{
 		BLST_ASSERT(npoints > 1);
 
@@ -625,25 +804,15 @@ namespace blst::scalar
 		auto nbytes = (nbits + 7) / 8; /* convert |nbits| to bytes */
 
 
-		// fetch the next window_size value and advance the pointers.
-		auto extract_window = [&]() -> std::pair< const AffineGroup*, limb_t> {
+		// Fetch the current digit. Advance only when another input remains so
+		// an exact n-entry descriptor array never requires a sentinel slot.
+		auto extract_window = [&]() -> std::pair<const AffineGroup*, limb_t> {
 			auto encoding = we.extract(scalar);
-
-			if (print)
-			{
-				auto ex = we.get_wval(scalar);
-				size_t digit = encoding & (((limb_t)1 << we.encode_size) - 1);
-				size_t sign = (encoding >> we.encode_size) & 1;
-
-				char buffer[257];
-				print_bits(buffer, (void*)scalar, std::min<u64>(256, nbits));
-				printf("  point[%zu]: %p %s -> digit %zu (%llu), sign=%zu\n",
-					i, scalar, buffer, digit, (long long unsigned int)ex, sign);
-			}
-			auto p = point;
+			return { point, encoding };
+			};
+		auto advance_input = [&]() {
 			scalar = *scalars ? *scalars++ : scalar + nbytes;
 			point = *points ? *points++ : point + 1;
-			return { p, encoding };
 			};
 
 		// current window_size value
@@ -655,6 +824,7 @@ namespace blst::scalar
 			auto cur_wval = nxt_wval;
 
 			// prefetch next window_size value
+			advance_input();
 			nxt_wval = extract_window();
 			point_prefetch(buckets, nxt_wval.second, we.encode_size);
 
@@ -664,19 +834,6 @@ namespace blst::scalar
 
 		// buckets[nxt_wval] += *point
 		point_bucket(buckets, nxt_wval.second, we.encode_size, *nxt_wval.first);
-
-		if (print)
-		{
-
-			printf("Pippenger window %llu buckets:\n", (long long unsigned int)window_idx);
-			for (size_t b = 0; b < ((size_t)1 << (we.encode_size - 1)); b++)
-			{
-				Group p;
-				msm_to_jacobian(p, buckets[b]);
-				u64 hash = hash_point(p);
-				printf("  bucket %zu: %llu\n", b, (long long unsigned int)hash);
-			}
-		}
 
 		point_integrate_buckets(ret, buckets, we.encode_size - 1);
 
@@ -714,30 +871,17 @@ namespace blst::scalar
 		const byte* const scalars[],
 		size_t nbits,
 		GroupZZ buckets[],
-		size_t window_size,
-		bool print)
+		size_t window_size)
 	{
 		Group tile;
 
 		window_size = window_size ? window_size : pippenger_window_size(npoints);
+		BLST_ASSERT(detail::valid_pippenger_window(window_size));
+		BLST_ASSERT(npoints > 1 && nbits != 0 && nbits <= 256);
 		for (size_t i = 0, n = (size_t)1 << (window_size - 1); i < n; ++i) {
 			detail::clear_msm_bucket(buckets[i]);
 		}
 		detail::set_msm_identity(ret);
-
-		if (print)
-		{
-			auto scalars_ = scalars;
-			const byte* scalar = *scalars_++;
-			auto nbytes = (nbits + 7) / 8; /* convert |nbits| to bytes */
-			for (u64 i = 0; i < npoints; ++i)
-			{
-				char buffer[257];
-				print_bits(buffer, (void*)scalar, std::min<u64>(256, nbits));
-				printf("Scalar[%llu]:%p %s\n", (long long unsigned int)i, scalar, buffer);
-				scalar = *scalars_ ? *scalars_++ : scalar + nbytes;
-			}
-		}
 
 		// we process divCeil(nbits+1, window_size) windows.
 		// The plus one is for the overlap bit from the booth encoding.
@@ -746,26 +890,13 @@ namespace blst::scalar
 		{
 			// tile = points_tile_pippenger(...)
 			points_tile_pippenger(tile, points, npoints, scalars, nbits,
-				buckets, window_index, window_size, print);
-
-			if (print)
-			{
-				u64 hash = hash_point(tile);
-				printf("Window %llu result: %llu\n", 
-					(long long unsigned int)window_index, 
-					(long long unsigned int)hash);
-			}
+				buckets, window_index, window_size);
 			// ret = (ret + tile) << (window_index ? window_size : 0)
 			Group::dadd(ret, ret, tile);
 			for (u64 i = 0; i < (window_index ? window_size : 0); i++)
 				Group::doubling(ret, ret);
 		}
 
-		if (print)
-		{
-			u64 hash = hash_point(ret);
-			printf("Pippenger final result:  %llu\n", (long long unsigned int)hash);
-		}
 	}
 	template
 		BLST_HD BLST_CPP_INLINE void msm_mult_pippenger(
@@ -775,8 +906,7 @@ namespace blst::scalar
 			const byte* const scalars[],
 			size_t nbits,
 			Pointxyzz<Fp> buckets[],
-			size_t window_size,
-			bool print);
+			size_t window_size);
 	template
 		BLST_HD BLST_CPP_INLINE void msm_mult_pippenger(
 			Point<Fp2>& ret,
@@ -785,8 +915,7 @@ namespace blst::scalar
 			const byte* const scalars[],
 			size_t nbits,
 			Pointxyzz<Fp2> buckets[],
-			size_t window_size,
-			bool print);
+			size_t window_size);
 	template
 		BLST_HD BLST_CPP_INLINE void msm_mult_pippenger(
 			GT& ret,
@@ -795,7 +924,6 @@ namespace blst::scalar
 			const byte* const scalars[],
 			size_t nbits,
 			GT buckets[],
-			size_t window_size,
-			bool print);
+			size_t window_size);
 
 }

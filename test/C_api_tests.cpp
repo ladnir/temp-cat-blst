@@ -2,15 +2,11 @@
 
 #include <algorithm>
 #include <array>
-#include <atomic>
 #include <cstring>
 #include <cstdint>
 #include <limits>
 #include <type_traits>
 #include <vector>
-#if defined(_MSC_VER) && defined(_DEBUG)
-# include <crtdbg.h>
-#endif
 
 #include "bindings/blst.h"
 #include "blst/curve/GT.h"
@@ -381,71 +377,6 @@ std::vector<unsigned char> scalar_batch(std::initializer_list<std::uint64_t> sca
     return out;
 }
 
-#if defined(_MSC_VER) && defined(_DEBUG)
-std::atomic<bool> count_crt_allocations = false;
-std::atomic<size_t> crt_allocation_count = 0;
-_CRT_ALLOC_HOOK previous_crt_allocation_hook = nullptr;
-
-int __cdecl audit_crt_allocation_hook(
-    int allocation_type,
-    void* user_data,
-    size_t size,
-    int block_type,
-    long request_number,
-    const unsigned char* filename,
-    int line_number)
-{
-    if (count_crt_allocations.load(std::memory_order_relaxed) &&
-        (allocation_type == _HOOK_ALLOC || allocation_type == _HOOK_REALLOC)) {
-        crt_allocation_count.fetch_add(1, std::memory_order_relaxed);
-    }
-    if (previous_crt_allocation_hook != nullptr) {
-        return previous_crt_allocation_hook(
-            allocation_type,
-            user_data,
-            size,
-            block_type,
-            request_number,
-            filename,
-            line_number);
-    }
-    return 1;
-}
-
-class CrtAllocationCounter
-{
-public:
-    CrtAllocationCounter()
-    {
-        crt_allocation_count.store(0, std::memory_order_relaxed);
-        previous_crt_allocation_hook = _CrtSetAllocHook(audit_crt_allocation_hook);
-        count_crt_allocations.store(true, std::memory_order_release);
-    }
-
-    CrtAllocationCounter(const CrtAllocationCounter&) = delete;
-    CrtAllocationCounter& operator=(const CrtAllocationCounter&) = delete;
-
-    ~CrtAllocationCounter()
-    {
-        if (active_) {
-            stop();
-        }
-    }
-
-    size_t stop()
-    {
-        count_crt_allocations.store(false, std::memory_order_release);
-        _CrtSetAllocHook(previous_crt_allocation_hook);
-        previous_crt_allocation_hook = nullptr;
-        active_ = false;
-        return crt_allocation_count.load(std::memory_order_relaxed);
-    }
-
-private:
-    bool active_ = true;
-};
-#endif
-
 enum class PrecomputePointLayout
 {
     packed,
@@ -539,7 +470,9 @@ struct ScalarWbitsApi<blst::Fp2>
 };
 
 template<typename Field>
-void run_scalar_wbits_precompute_case(size_t wbits, PrecomputePointLayout layout)
+void run_scalar_wbits_precompute_case(
+    size_t wbits,
+    PrecomputePointLayout layout)
 {
     using Api = ScalarWbitsApi<Field>;
     using Point = typename Api::Point;
@@ -596,14 +529,7 @@ void run_scalar_wbits_precompute_case(size_t wbits, PrecomputePointLayout layout
         Api::to_affine(expected.data(), reference_ptrs, total);
     }
 
-#if defined(_MSC_VER) && defined(_DEBUG)
-    CrtAllocationCounter allocation_counter;
-#endif
     Api::precompute(actual.data(), wbits, inputs, npoints);
-#if defined(_MSC_VER) && defined(_DEBUG)
-    const size_t allocations = allocation_counter.stop();
-    EXPECT_EQ(allocations, 0u);
-#endif
 
     for (size_t i = 0; i < total; ++i) {
         SCOPED_TRACE(i);
@@ -1360,6 +1286,68 @@ TEST(CApi, G1MultipointPippengerMatchesSinglePointOps)
     EXPECT_TRUE(blst_p1_is_equal(&pippenger, &expected_msm));
 }
 
+TEST(CApi, G1PippengerAcceptsExactDescriptorArrays)
+{
+    std::array<BoundaryG1, 3> points = {p1_mul(3), p1_mul(5), p1_mul(7)};
+    std::array<BoundaryG1Affine, 3> affines = {};
+    for (size_t i = 0; i < points.size(); ++i) {
+        blst_p1_to_affine(&affines[i], &points[i]);
+    }
+    const BoundaryG1Affine* point_ptrs[3] = {
+        &affines[0], &affines[1], &affines[2]
+    };
+    const auto s0 = scalar_bytes(2);
+    const auto s1 = scalar_bytes(3);
+    const auto s2 = scalar_bytes(5);
+    const unsigned char* scalar_ptrs[3] = {s0.data(), s1.data(), s2.data()};
+    std::vector<blst::limb_t> scratch(
+        blst_p1s_mult_pippenger_scratch_sizeof(points.size()) / sizeof(blst::limb_t));
+
+    BoundaryG1 out = {};
+    blst_p1s_mult_pippenger(
+        &out, point_ptrs, points.size(), scalar_ptrs, 8, scratch.data());
+
+    BoundaryG1 expected = {};
+    BoundaryG1 term = {};
+    blst_p1_mult(&expected, &points[0], s0.data(), 8);
+    blst_p1_mult(&term, &points[1], s1.data(), 8);
+    blst_p1_add_or_double(&expected, &expected, &term);
+    blst_p1_mult(&term, &points[2], s2.data(), 8);
+    blst_p1_add_or_double(&expected, &expected, &term);
+    EXPECT_TRUE(blst_p1_is_equal(&out, &expected));
+}
+
+TEST(CApi, G2PippengerAcceptsExactDescriptorArrays)
+{
+    std::array<BoundaryG2, 3> points = {p2_mul(3), p2_mul(5), p2_mul(7)};
+    std::array<BoundaryG2Affine, 3> affines = {};
+    for (size_t i = 0; i < points.size(); ++i) {
+        blst_p2_to_affine(&affines[i], &points[i]);
+    }
+    const BoundaryG2Affine* point_ptrs[3] = {
+        &affines[0], &affines[1], &affines[2]
+    };
+    const auto s0 = scalar_bytes(2);
+    const auto s1 = scalar_bytes(3);
+    const auto s2 = scalar_bytes(5);
+    const unsigned char* scalar_ptrs[3] = {s0.data(), s1.data(), s2.data()};
+    std::vector<blst::limb_t> scratch(
+        blst_p2s_mult_pippenger_scratch_sizeof(points.size()) / sizeof(blst::limb_t));
+
+    BoundaryG2 out = {};
+    blst_p2s_mult_pippenger(
+        &out, point_ptrs, points.size(), scalar_ptrs, 8, scratch.data());
+
+    BoundaryG2 expected = {};
+    BoundaryG2 term = {};
+    blst_p2_mult(&expected, &points[0], s0.data(), 8);
+    blst_p2_mult(&term, &points[1], s1.data(), 8);
+    blst_p2_add_or_double(&expected, &expected, &term);
+    blst_p2_mult(&term, &points[2], s2.data(), 8);
+    blst_p2_add_or_double(&expected, &expected, &term);
+    EXPECT_TRUE(blst_p2_is_equal(&out, &expected));
+}
+
 TEST(CApi, G1PippengerWrappersHandleSinglePointAndInvalidScratch)
 {
     const BoundaryG1 point = p1_mul(9);
@@ -1470,7 +1458,7 @@ TEST(CApi, G1MultipointWbitsHighWindowMatchesSinglePointOps)
     EXPECT_TRUE(blst_p1_is_equal(&out, &expected_msm));
 }
 
-TEST(CApi, ScalarG1WbitsPrecomputeCrossesScratchThresholdWithoutAllocation)
+TEST(CApi, ScalarG1WbitsPrecomputeUsesBoundedWorkspace)
 {
     run_scalar_wbits_precompute_case<blst::Fp>(
         9, PrecomputePointLayout::packed);
@@ -1480,7 +1468,7 @@ TEST(CApi, ScalarG1WbitsPrecomputeCrossesScratchThresholdWithoutAllocation)
         12, PrecomputePointLayout::aliased_packed);
 }
 
-TEST(CApi, ScalarG2WbitsPrecomputeCrossesScratchThresholdWithoutAllocation)
+TEST(CApi, ScalarG2WbitsPrecomputeUsesBoundedWorkspace)
 {
     run_scalar_wbits_precompute_case<blst::Fp2>(
         9, PrecomputePointLayout::packed);
@@ -1897,6 +1885,31 @@ TEST(CApi, GroupConstantTimeAndVariableTimeMultiplicationAgree)
         blst_gt_mult_vartime(&gt_vartime, blst_gt_generator(), scalar.data(), nbits);
         EXPECT_TRUE(blst_gt_is_equal(&gt_ct, &gt_vartime)) << "GT nbits=" << nbits;
     }
+}
+
+TEST(CApi, G1TileUsesTheExactBitOffset)
+{
+    std::array<BoundaryG1, 2> points = {p1_mul(3), p1_mul(5)};
+    std::array<BoundaryG1Affine, 2> affines = {};
+    blst_p1_to_affine(&affines[0], &points[0]);
+    blst_p1_to_affine(&affines[1], &points[1]);
+    const BoundaryG1Affine* point_ptrs[2] = {&affines[0], &affines[1]};
+    const std::array<unsigned char, 2> scalar_values = {64, 0};
+    const unsigned char* scalar_ptrs[2] = {&scalar_values[0], &scalar_values[1]};
+    const size_t window = 4;
+    std::vector<blst::limb_t> scratch(
+        blst_p1s_mult_pippenger_window_scratch_sizeof(window) / sizeof(blst::limb_t));
+
+    BoundaryG1 out = {};
+    blst_p1s_tile_pippenger(
+        &out, point_ptrs, points.size(), scalar_ptrs, 8,
+        scratch.data(), 3, window);
+
+    const auto eight = scalar_bytes(8);
+    BoundaryG1 expected = {};
+    blst_p1_mult(&expected, &points[0], eight.data(), 8);
+    blst_p1_cneg(&expected, true);
+    EXPECT_TRUE(blst_p1_is_equal(&out, &expected));
 }
 
 TEST(CApi, MillerLoopNMatchesNaiveProduct)
@@ -2521,6 +2534,31 @@ TEST(CApi, WbitsApisRejectOutOfRangeValues)
     const unsigned char* scalar_ptrs[2] = {scalar.data(), nullptr};
     blst_p1s_mult_wbits(&out, nullptr, 0, 1, scalar_ptrs, 256, nullptr);
     EXPECT_TRUE(blst_p1_is_inf(&out));
+}
+
+TEST(CApi, MsmBoundariesRejectInvalidWidthsAndHandleZeroBits)
+{
+    EXPECT_NE(blst_p1s_mult_pippenger_window_scratch_sizeof(24), 0u);
+    EXPECT_NE(blst_p2s_mult_pippenger_window_scratch_sizeof(24), 0u);
+    EXPECT_EQ(blst_p1s_mult_pippenger_window_scratch_sizeof(0), 0u);
+    EXPECT_EQ(blst_p1s_mult_pippenger_window_scratch_sizeof(25), 0u);
+    EXPECT_EQ(blst_p2s_mult_pippenger_window_scratch_sizeof(25), 0u);
+    EXPECT_EQ(
+        blst_p1s_mult_pippenger_window_scratch_sizeof(
+            std::numeric_limits<size_t>::max()),
+        0u);
+
+    BoundaryG1 g1 = p1_mul(3);
+    blst_p1s_mult_pippenger(&g1, nullptr, 2, nullptr, 0, nullptr);
+    EXPECT_TRUE(blst_p1_is_inf(&g1));
+
+    BoundaryG2 g2 = p2_mul(3);
+    blst_p2s_mult_pippenger(&g2, nullptr, 2, nullptr, 0, nullptr);
+    EXPECT_TRUE(blst_p2_is_inf(&g2));
+
+    g1 = p1_mul(3);
+    blst_p1s_mult_wbits(&g1, nullptr, 4, 2, nullptr, 0, nullptr);
+    EXPECT_TRUE(blst_p1_is_inf(&g1));
 }
 
 TEST(CApi, LeadingNullPointArraysAreRejectedWithoutPointerArithmetic)

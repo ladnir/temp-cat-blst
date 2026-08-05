@@ -33,7 +33,6 @@ macro_rules! pippenger_mult_impl {
         $to_affines:ident,
         $scratch_sizeof:ident,
         $multi_scalar_mult:ident,
-        $tile_mult:ident,
         $add_or_double:ident,
         $double:ident,
         $test_mod:ident,
@@ -89,6 +88,11 @@ macro_rules! pippenger_mult_impl {
                 }
             }
 
+            /// Computes a variable-time MSM of these prevalidated subgroup
+            /// points and public little-endian scalars. Each scalar occupies
+            /// `ceil(nbits / 8)` consecutive bytes; `nbits` must not exceed
+            /// 256. Empty points or zero bits return the identity. Panics when
+            /// the scalar buffer is too short or its required size overflows.
             #[inline]
             pub fn mult(&self, scalars: &[u8], nbits: usize) -> $point {
                 self.as_slice().mult(scalars, nbits)
@@ -106,8 +110,19 @@ macro_rules! pippenger_mult_impl {
         impl MultiPoint for [$point_affine] {
             type Output = $point;
 
+            /// Computes a variable-time MSM over public scalar data.
+            ///
+            /// Every point must already be on-curve and in the prime-order
+            /// subgroup. Scalars are packed contiguously in little-endian
+            /// order, with `ceil(nbits / 8)` bytes per point. Bits above
+            /// `nbits` are ignored and `nbits` must not exceed 256. Empty
+            /// input or zero bits returns the identity. This method panics if
+            /// the scalar buffer is too short or its required size overflows.
             fn mult(&self, scalars: &[u8], nbits: usize) -> $point {
                 let npoints = self.len();
+                if nbits > 256 {
+                    panic!("scalar bit length exceeds 256 bits");
+                }
                 let (_, scalar_bytes) = scalar_layout(npoints, nbits)
                     .unwrap_or_else(|| panic!("scalars length mismatch"));
 
@@ -190,7 +205,6 @@ pippenger_mult_impl!(
     blst_p1s_to_affine,
     blst_p1s_mult_pippenger_scratch_sizeof,
     blst_p1s_mult_pippenger,
-    blst_p1s_tile_pippenger,
     blst_p1_add_or_double,
     blst_p1_double,
     p1_multi_point,
@@ -208,7 +222,6 @@ pippenger_mult_impl!(
     blst_p2s_to_affine,
     blst_p2s_mult_pippenger_scratch_sizeof,
     blst_p2s_mult_pippenger,
-    blst_p2s_tile_pippenger,
     blst_p2_add_or_double,
     blst_p2_double,
     p2_multi_point,
