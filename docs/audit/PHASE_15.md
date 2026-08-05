@@ -326,6 +326,29 @@ own complete file reviews.
 No benchmark, full suite, sanitizer sweep, CUDA build, BTx/BTE work, Apple CI,
 or portable-AVX Release build ran.
 
+## SHA-256 review findings
+
+The eighth packet begins the complete review of `blst/sign/sha256.h`. The
+fixed SHA-256 compression and padding schedule matches the pinned BLST lineage,
+and all message-content-dependent work remains branchless. Five remediation
+items are recorded before implementation:
+
+- `AUD-141` restores the supported C/C++ declaration for the retained
+  `blst_sha256` export.
+- `AUD-142` adds independent end-to-end one-shot and streaming known-answer
+  evidence, including padding boundaries.
+- `AUD-143` separates fast functional buffer zeroing from secure lifecycle
+  erasure.
+- `AUD-144` securely clears the public one-shot wrapper's locally owned
+  context after digest publication.
+- `AUD-145` makes context state, invariants, lifecycle, and integer-width
+  assumptions explicit while preserving the `SHA256_CTX` alias required by
+  frozen BTx/BTE.
+
+These findings remain open until focused scalar Debug/Release correctness,
+strict header compilation, and optimized code-generation evidence are
+recorded. No BTx/BTE source change is permitted by this packet.
+
 ## Status and next action
 
 Scalar point, bulk addition, MSM, fixed-window multiplication, GT/Miller, and

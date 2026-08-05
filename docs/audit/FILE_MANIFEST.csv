@@ -288,7 +288,7 @@
 "blst/sign/aggregate.cpp","in_scope_production","core","pending","scalar","","","","","","","","",""
 "blst/sign/aggregate.h","in_scope_production","core","pending","scalar","","","","","","","","",""
 "blst/sign/keygen.cpp","in_scope_production","core","pending","scalar","Codex audit team","","","AUD-050","four published EIP-2333 master/child vectors; HKDF test-mode compile; allocation symbol scan","255-block Lamport expansion passes and production object has no allocation reference","complete cryptographic/specification file review remains pending","2810f0076cc1debf0ff4fcc1e7846e0563bb193e","allocation-policy finding validated; Phase 15/18 review still pending"
-"blst/sign/sha256.h","in_scope_production","core","pending","scalar","","","","","","","","",""
+"blst/sign/sha256.h","in_scope_production","core","in_review","scalar","Codex audit team","","54e6e55674722fc2797ebb4bbb71b26d881eb4b8:src/sha256.h","AUD-141|AUD-142|AUD-143|AUD-144|AUD-145","pending focused SHA-256 KATs and optimized inspection","fixed SHA-256 schedule retained; interface and lifecycle hardening pending","full sanitizer/fuzz and platform matrices remain release evidence","","Phase 15 SHA-256 review opened."
 "blst_logo_small.png","documentation_or_archive","documentation_archive","catalogued","non_shipping","","","","","","","","","Catalogued non-shipping documentation or archive."
 "blst_logo_small_.png","documentation_or_archive","documentation_archive","catalogued","non_shipping","","","","","","","","","Catalogued non-shipping documentation or archive."
 "BTE/btx/c_api.cpp","out_of_scope_frozen","btx_bte","frozen","frozen_pending_merge","","","","","","","","","Frozen pending a required BTx/BTE merge; do not modify, audit, extract, or remove."
