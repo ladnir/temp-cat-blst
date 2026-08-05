@@ -326,12 +326,12 @@ own complete file reviews.
 No benchmark, full suite, sanitizer sweep, CUDA build, BTx/BTE work, Apple CI,
 or portable-AVX Release build ran.
 
-## SHA-256 review findings
+## SHA-256 review
 
-The eighth packet begins the complete review of `blst/sign/sha256.h`. The
-fixed SHA-256 compression and padding schedule matches the pinned BLST lineage,
-and all message-content-dependent work remains branchless. Five remediation
-items are recorded before implementation:
+The eighth packet completes `blst/sign/sha256.h` at implementation commit
+`5c69ad63c76d9e63e9cf75a708ac84ede45b5eb6`. The fixed SHA-256 compression and
+padding schedule matches the pinned BLST lineage, and all
+message-content-dependent work remains branchless. Five findings are validated:
 
 - `AUD-141` restores the supported C/C++ declaration for the retained
   `blst_sha256` export.
@@ -345,15 +345,29 @@ items are recorded before implementation:
   assumptions explicit while preserving the `SHA256_CTX` alias required by
   frozen BTx/BTE.
 
-These findings remain open until focused scalar Debug/Release correctness,
-strict header compilation, and optimized code-generation evidence are
-recorded. No BTx/BTE source change is permitted by this packet.
+### Focused validation
+
+- Scalar Debug passes 5/5 SHA audit tests, including context-invariant death
+  tests; scalar Release passes the four applicable functional tests.
+- Standard empty, `abc`, multi-block, and million-`a` vectors pass. Independent
+  deterministic vectors cover both sides of the 56-byte padding boundary and
+  the 64-byte block boundary over one-shot and several streaming schedules.
+- The preexisting keygen, EIP-2333, selected hash-to-group, and exact RFC XMD
+  packet passes 13/13 after the context migration.
+- The public header compiles as strict MSVC C11 with `/W4 /WX`; the public API
+  documentation and repository manifest checkers pass.
+- MSVC 19.50 Release emits eight 64-bit stores for functional buffer zeroing,
+  and the one-shot wrapper emits a fixed 112-byte volatile erase after digest
+  publication. Its object has exactly one bare C SHA symbol, `blst_sha256`.
+
+No benchmark, full suite, sanitizer sweep, CUDA build, Apple CI, or
+portable-AVX Release build ran. Frozen BTx/BTE compiled through the retained
+internal type alias but received no source edit or audit.
 
 ## Status and next action
 
 Scalar point, bulk addition, MSM, fixed-window multiplication, GT/Miller, and
-map-to-group headers are complete at their recorded commits. Continue Phase 15
-with `blst/sign/sha256.h`, the lowest remaining signing dependency, before
-reviewing key generation and aggregation. Preserve the fixed SHA-256 schedules
-and audit the XMD call contract shared with hash-to-field. `AUD-085` remains the
-explicit GT deserialization decision.
+map-to-group and SHA-256 headers are complete at their recorded commits.
+Continue Phase 15 with `blst/sign/keygen.cpp`, then aggregation. Preserve the
+validated SHA streaming/lifecycle contract while reviewing HMAC, HKDF, and
+secret cleanup. `AUD-085` remains the explicit GT deserialization decision.

@@ -328,10 +328,10 @@ expand through Phase 19.
 
 Current generated inventory:
 
-- 670 repository files accounted for;
+- 675 repository files accounted for;
 - 153 in-scope production;
 - 113 generated production;
-- 221 in-scope support;
+- 226 in-scope support;
 - 60 benchmark files explicitly excluded;
 - 32 frozen BTx/BTE files pending the required merge;
 - 55 retained experimental files, including CUDA;
@@ -342,12 +342,12 @@ Main audit work volume:
 
 | Work group | Phases | Total | Complete | Pending |
 | --- | --- | ---: | ---: | ---: |
-| Scalar foundations, fields, curves, and protocols | 13-15 | 197 | 12 | 185 |
+| Scalar foundations, fields, curves, and protocols | 13-15 | 197 | 13 | 184 |
 | AVX-512 | 16 | 42 | 0 | 42 |
 | FFT and middle product | 17 | 10 | 0 | 10 |
 | C/C++/Rust APIs and bindings | 18 | 28 | 1 | 27 |
-| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 170 | 3 | 167 |
-| **Total in-scope production/generated/support** | **12-19** | **447** | **16** | **431** |
+| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 175 | 5 | 170 |
+| **Total in-scope production/generated/support** | **12-19** | **452** | **19** | **433** |
 
 The rollup is explained in `PRODUCTION_AUDIT_ROADMAP.md`; the per-file
 `FILE_MANIFEST.csv` remains authoritative.
@@ -362,7 +362,7 @@ Upstream progress:
   validation are completed;
 - 0 remain pending.
 
-Findings: 134 total: 107 validated, 16 fixed pending final evidence, four accepted
+Findings: 145 total: 118 validated, 16 fixed pending final evidence, four accepted
 risks, four need a design decision, and three remain open. `AUD-035` is validated with preserved
 allocated/caller-table/precomputed modes and 10/10 focused MSVC Release, Linux
 ASan, and Linux UBSan tests. `AUD-036` is validated on native
@@ -390,8 +390,11 @@ exponentiation is named and typed explicitly, prepared-line factors have their
 own type, and the scalar/AVX generator is canonical static data. Scalar and
 selected map-to-group headers are complete at `a1ef4b3`: typed hash-to-field
 outputs, static host constants, inversion-free AVX bridges, exact RFC vectors,
-and public contracts are validated. Continue Phase 15 with
-`blst/sign/sha256.h`, then key generation and aggregation. Keep
+and public contracts are validated. SHA-256 is complete at `5c69ad6`: the C,
+native C++, and raw Rust contracts are accounted for, independent one-shot and
+streaming KATs pass, functional zeroing is wide-store optimized, and the public
+wrapper securely erases its local context. Continue Phase 15 with
+`blst/sign/keygen.cpp`, then aggregation. Keep
 `AUD-085` as the next
 explicit design decision when the GT decoder surface is reviewed. Coverage
 remains a late audit/release metric by user decision; sanitizer, fuzz, and
