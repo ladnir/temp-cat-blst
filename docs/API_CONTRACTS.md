@@ -87,9 +87,10 @@ on-curve non-subgroup points and apply exact scalars without endomorphisms.
 | cyclotomic operation | An operation whose shortcut is valid only for cyclotomic inputs; it must not be documented as general Fp12 arithmetic. |
 | GT operation | An operation whose algebra, scalar reduction, Frobenius identities, or conjugation-as-inversion requires a GT input. |
 
-The current C storage representation may use `blst_fp12` for both general Fp12
-and GT values. Storage compatibility does not widen a GT-only operation's
-mathematical domain.
+The current C and raw-Rust storage representation uses `blst_fp12` for general
+Fp12, Miller-loop, and GT values. Storage compatibility does not widen an
+operation's mathematical domain. Native C++ uses distinct `MillerResult` and
+`GT` types; only `GT::final_exp` maps the former into the latter.
 
 ## Scalar domains
 

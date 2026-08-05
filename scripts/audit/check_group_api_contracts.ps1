@@ -135,8 +135,8 @@ if (-not $scalarCneg.Success) {
 }
 $scalarCnegBody = $scalarCneg.Groups['body'].Value
 if ($scalarCnegBody -match '\bif\s*\(' -or
-    $scalarCnegBody -notmatch '\bccopy\s*\(') {
-    throw "Scalar GT::cneg must use branchless ccopy and contain no condition branch"
+    ([regex]::Matches($scalarCnegBody, 'Fp2::cneg\s*\(').Count -ne 3)) {
+    throw "Scalar GT::cneg must branchlessly condition only the three conjugated Fp2 coefficients"
 }
 
 $scalarMsmText = Get-Content -Raw -LiteralPath (

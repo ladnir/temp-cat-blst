@@ -328,10 +328,10 @@ expand through Phase 19.
 
 Current generated inventory:
 
-- 668 repository files accounted for;
+- 670 repository files accounted for;
 - 153 in-scope production;
 - 113 generated production;
-- 219 in-scope support;
+- 221 in-scope support;
 - 60 benchmark files explicitly excluded;
 - 32 frozen BTx/BTE files pending the required merge;
 - 55 retained experimental files, including CUDA;
@@ -342,12 +342,12 @@ Main audit work volume:
 
 | Work group | Phases | Total | Complete | Pending |
 | --- | --- | ---: | ---: | ---: |
-| Scalar foundations, fields, curves, and protocols | 13-15 | 197 | 9 | 188 |
+| Scalar foundations, fields, curves, and protocols | 13-15 | 197 | 12 | 185 |
 | AVX-512 | 16 | 42 | 0 | 42 |
 | FFT and middle product | 17 | 10 | 0 | 10 |
 | C/C++/Rust APIs and bindings | 18 | 28 | 1 | 27 |
-| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 168 | 2 | 166 |
-| **Total in-scope production/generated/support** | **12-19** | **445** | **12** | **433** |
+| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 170 | 3 | 167 |
+| **Total in-scope production/generated/support** | **12-19** | **447** | **16** | **431** |
 
 The rollup is explained in `PRODUCTION_AUDIT_ROADMAP.md`; the per-file
 `FILE_MANIFEST.csv` remains authoritative.
@@ -362,8 +362,8 @@ Upstream progress:
   validation are completed;
 - 0 remain pending.
 
-Findings: 130 total: 103 validated, 16 fixed pending final evidence, three accepted
-risks, five need a design decision, and three remain open. `AUD-035` is validated with preserved
+Findings: 134 total: 107 validated, 16 fixed pending final evidence, four accepted
+risks, four need a design decision, and three remain open. `AUD-035` is validated with preserved
 allocated/caller-table/precomputed modes and 10/10 focused MSVC Release, Linux
 ASan, and Linux UBSan tests. `AUD-036` is validated on native
 Apple Silicon with AppleClang 17 at commit `0b7ec47`; all 336 C/C++ tests and
@@ -384,8 +384,11 @@ are validated. Scalar/selected MSM and the safe Rust multipoint wrapper are
 complete at `af09f66`; `AUD-113` through `AUD-120` are validated. The
 batch-affine MSM review is complete at `913c52f`; `AUD-121` through `AUD-125`
 are validated. The `ec_mult.h` hand review and `AUD-126` through `AUD-130`
-are complete at `b985529`. Continue Phase 15 with
-`blst/scalar/curve/GT.h` after closing that packet. Keep
+are complete at `b985529`. Scalar `GT.h`/`GT.cpp` and the selected facade are
+complete at `3f72403`: native Miller results are distinct from GT, final
+exponentiation is named and typed explicitly, prepared-line factors have their
+own type, and the scalar/AVX generator is canonical static data. Continue Phase
+15 with `blst/scalar/curve/map_to_G.h`. Keep
 `AUD-085` as the next
 explicit design decision when the GT decoder surface is reviewed. Coverage
 remains a late audit/release metric by user decision; sanitizer, fuzz, and

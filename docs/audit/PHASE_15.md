@@ -242,3 +242,56 @@ low-order correction in upstream commit `7c535f1`.
 
 No benchmark, broad suite, sanitizer, CUDA, BTx/BTE, Apple CI, or portable-AVX
 Release build is included.
+
+## Scalar GT and Miller-loop review
+
+The sixth packet completes `blst/scalar/curve/GT.h`,
+`blst/scalar/curve/GT.cpp`, and the selected target-group facade. It also
+applies the required semantic migrations to retained host consumers without
+auditing frozen BTx/BTE or benchmark implementations.
+
+### Findings and decisions
+
+- `AUD-099` is accepted with a narrower residual risk: native C++ now has a
+  distinct `MillerResult`, raw-field GT construction is explicit, and C/Rust
+  representation-only `blst_fp12` storage is documented. Repeated Release
+  membership checks remain intentionally absent; decoder policy stays in
+  `AUD-085`.
+- `AUD-131` makes the AVX generator the compile-time native representation of
+  the canonical generator pairing and removes runtime initialization.
+- `AUD-132` preserves constant-time conditional negation while selecting only
+  the Fp12 half changed by conjugation.
+- `AUD-133` replaces the misleading native `final_mult` name with
+  `final_exp` and requires a `MillerResult` input. No compatibility overload
+  weakens the domain boundary.
+- `AUD-134` replaces faux affine-point storage for `(-2x, 2y)` with
+  `PreparedG1LineScale` throughout scalar prepared-line evaluation and middle
+  product workspaces.
+- Scalar/AVX GT boundary conversion uses direct field conversion rather than a
+  576-byte serialization round trip. Empty Miller products return identity;
+  malformed nonempty C pointer heads fail closed to the zero sentinel.
+
+### Focused validation
+
+- MSVC scalar Debug production and linked test targets compile serially.
+- The focused scalar GT, pairing, C boundary, prepared-line, and middle-product
+  packet passes 24/24.
+- Portable-AVX Debug production plus five directly affected test translation
+  units compile serially.
+- Native AVX-512/IFMA production compiles serially.
+- Prior generator evidence at `f710040` proves scalar/AVX equality and no
+  dynamic-initializer section.
+
+No benchmark was run. Benchmark sources received only mechanical native API
+migration and were not audited. Frozen BTx/BTE received only the mechanical
+type/name migration required to keep compiling. No full suite, sanitizer,
+CUDA, Apple CI, or portable-AVX Release build ran. Experimental CUDA still uses
+the old native C++ spelling/domain and remains outside this production gate.
+
+## Status and next action
+
+Scalar point, bulk addition, MSM, fixed-window multiplication, and GT/Miller
+files are complete at their recorded commits. Continue Phase 15 with
+`blst/scalar/curve/map_to_G.h`, preserving its fixed hash-to-curve formulas and
+adding adversarial input/domain evidence before proposing repairs. `AUD-085`
+remains the explicit GT deserialization decision.
