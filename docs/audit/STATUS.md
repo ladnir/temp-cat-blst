@@ -328,10 +328,10 @@ expand through Phase 19.
 
 Current generated inventory:
 
-- 657 repository files accounted for;
+- 661 repository files accounted for;
 - 153 in-scope production;
 - 113 generated production;
-- 208 in-scope support;
+- 212 in-scope support;
 - 60 benchmark files explicitly excluded;
 - 32 frozen BTx/BTE files pending the required merge;
 - 55 retained experimental files, including CUDA;
@@ -342,12 +342,12 @@ Main audit work volume:
 
 | Work group | Phases | Total | Complete | Pending |
 | --- | --- | ---: | ---: | ---: |
-| Scalar foundations, fields, curves, and protocols | 13-15 | 197 | 2 | 195 |
+| Scalar foundations, fields, curves, and protocols | 13-15 | 197 | 4 | 193 |
 | AVX-512 | 16 | 42 | 0 | 42 |
 | FFT and middle product | 17 | 10 | 0 | 10 |
 | C/C++/Rust APIs and bindings | 18 | 28 | 0 | 28 |
 | Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 166 | 0 | 166 |
-| **Total in-scope production/generated/support** | **12-19** | **443** | **2** | **441** |
+| **Total in-scope production/generated/support** | **12-19** | **443** | **4** | **439** |
 
 The rollup is explained in `PRODUCTION_AUDIT_ROADMAP.md`; the per-file
 `FILE_MANIFEST.csv` remains authoritative.
@@ -362,7 +362,7 @@ Upstream progress:
   validation are completed;
 - 0 remain pending.
 
-Findings: 103 total: 76 validated, 16 fixed pending final evidence, two accepted
+Findings: 109 total: 81 validated, 16 fixed pending final evidence, three accepted
 risks, five need a design decision, and four remain open. `AUD-035` is validated with preserved
 allocated/caller-table/precomputed modes and 10/10 focused MSVC Release, Linux
 ASan, and Linux UBSan tests. `AUD-036` is validated on native
@@ -376,10 +376,11 @@ and the 9-test direct compatibility target passed on Peach's AVX-512 IFMA CPU.
 
 Do not touch BTx/BTE, and do not include experimental CUDA, non-Apple ARM64, or
 CHERI in the primary production-readiness gate. Apple Silicon macOS remains in
-the supported scalar release matrix. Resume the Phase 15 file-by-file scalar
-curve review with `point.h`/`point.cpp`, carrying the now-explicit checked,
-unchecked, constant-time, and variable-time contracts into serialization,
-hash-to-curve, pairing, signing, and MSM callers. Keep `AUD-085` as the next
+the supported scalar release matrix. `point.h` and `point.cpp` are complete at
+`07d79a48`; `AUD-096` accepts the inherited narrow unsuffixed-add contract with
+the complete `add_or_double`/`dadd` alternative documented. Continue Phase 15
+with `bulk_addition.h`, first resolving the zero-copy object-lifetime design in
+`AUD-109`, and then review `multi_scalar.h`/`.cpp`. Keep `AUD-085` as the next
 explicit design decision when the GT decoder surface is reviewed. Coverage
 remains a late audit/release metric by user decision; sanitizer, fuzz, and
 static-analysis work still accompanies subsystem review. Expand analyzers,

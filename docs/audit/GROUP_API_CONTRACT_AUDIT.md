@@ -93,14 +93,16 @@ those containing files receive their complete review.
 ### Point arithmetic and multiplication
 
 The scalar `Point::add` overloads use incomplete addition formulas requiring
-distinct, nonopposite finite inputs (with infinity handled). The C functions
+distinct, nonopposite finite inputs (with infinity handled). Opposite finite
+points have the same affine x coordinate and negated affine y coordinates, so
+their mathematical sum is infinity. The C functions
 `blst_p1_add`, `blst_p2_add`, and their affine-add variants select those
 formulas. The C and native comments now state the current incomplete-formula
 preconditions and direct callers to `add_or_double` when equality is possible.
-`AUD-096` remains open only for the API-design decision whether the unsuffixed
-operation should instead select the complete formula.
-`add_or_double`, subtraction, and their corresponding complete paths handle
-equality/opposites.
+`AUD-096` is accepted: CatBLST retains the inherited names and fast narrow
+formula, while `add_or_double`, subtraction, and their corresponding complete
+paths handle equality/opposites. Safe high-level Rust already selects the
+complete operation; generated raw Rust inherits the C declaration contract.
 
 Single-point `mult` and `mult_vartime` now use subgroup endomorphisms for their
 primary widths. They require previously validated on-curve subgroup points and
@@ -269,7 +271,7 @@ and is not merely a mathematical precondition.
 | `AUD-093` | Public subgroup predicates were relation-only and did not establish on-curve. | validated |
 | `AUD-094` | Point decoders and Rust deserializers establish on-curve, not subgroup; contracts are not explicit. | needs decision |
 | `AUD-095` | AVX projective MSM changed point domain at one point and lacked an nbits bound. | validated |
-| `AUD-096` | Current incomplete-formula preconditions are documented; whether unsuffixed add should instead be complete remains open. | open |
+| `AUD-096` | Inherited unsuffixed add remains the fast incomplete operation under explicit finite distinct/nonopposite preconditions; complete add-or-double remains available. | accepted |
 | `AUD-097` | Pairing validation is intentionally asymmetric but insufficiently documented; AVX pairing is raw despite its name. | needs decision |
 | `AUD-098` | Signing, weighted pairing, and AVX multiplication omit important subgroup/SK preconditions in public contracts. | needs decision |
 | `AUD-099` | GT is represented by unvalidated Fp12 storage while GT-only operations rely on hidden invariants. | needs decision |
