@@ -1,6 +1,6 @@
 # Audit Status
 
-Last updated: 2026-08-03
+Last updated: 2026-08-04
 
 ## Current phase
 
@@ -116,22 +116,48 @@ documents the trusted-schedule and Fp2 failed-output contracts in
 `AUD-083`/`AUD-084`. `AUD-085` remains a deliberate design backlog item for
 checked versus explicitly unchecked GT deserialization.
 
-The primary 256-bit group packet restores distinct checked and unchecked point
-contracts, canonicalizes checked scalars without allocation, makes unsuffixed
-G1/G2/GT multiplication constant-time for fixed public bit length, and adds
-genuinely variable-time fast paths across C, native C++, and Rust. Scalar G1
+The primary 256-bit group packet restores ordinary subgroup multiplication and
+the two inherited generic `unchecked_mult` exceptions, prepares scalars without
+allocation, and adds genuinely variable-time fast paths across C, native C++,
+and Rust. Canonical G1/G2/GT scalars retain the fixed-public-bit-length
+constant-time contract; noncanonical inputs are accepted modulo r with a
+documented reduction-required timing distinction. Scalar G1
 and G2 select wNAF-5; native AVX selects wNAF-5 for G1 and wNAF-4 for G2. GT
 uses the fixed unsigned radix-z splitter for CT, retains the balanced scalar VT
 splitter, and selects the faster unsigned native-AVX VT splitter. FFT and middle
-product explicitly use public-scalar operations, while Pippenger's one-point
-fallback preserves generic on-curve behavior through `unchecked_mult`.
+product and weighted pairing explicitly use public-scalar operations, while
+ordinary Pippenger and its one-point fallback use the subgroup contract.
 
-The seven-test focused target passes in scalar Release, portable-AVX Debug, and
-native AVX-512/IFMA Release, including Debug invariants and non-subgroup
-fixtures; the focused Rust method test also passes. Sequential Peach benchmarks
-used one process at a time. GCC 15.2 inspection finds no gathers, allocation
-references, or out-of-line selected-vector wrappers and records a 9,984-byte
-native GT frame. `AUD-088` and `AUD-089` are validated. No full suite,
+The subsequent API-wide group-domain inventory defines the shared contract
+vocabulary and classifies 242 public C symbols into 51 disjoint families.
+The recalibration validates `AUD-091`, `AUD-092`, `AUD-093`, and `AUD-095`:
+ordinary scalar/AVX MSM has one subgroup/modulo-r contract independent of
+scalar width and point count; the experimental unchecked MSM surface is gone;
+the GT-only GLV4 MSM has only GT-named C/Rust entries; and public membership
+predicates compose the curve equation with the subgroup relation. The
+allocation-free full-width AVX path uses caller-owned split scratch. A focused
+no-BTx portable-AVX Debug target passes 5/5 locally, including the Fp2 affine
+membership regression discovered during this packet. The remaining contract
+queue covers decode-versus-validate policy, incomplete addition, pairing
+validation, signing/SK preconditions, GT construction, and cyclotomic wording.
+
+The supported GCC 15.2 native build also opened low-severity `AUD-102`: GCC
+repeats `-Wignored-attributes` for `__m512i` aliases used as `std::array`
+template arguments in the selected AVX vector/change-base path. The build and
+focused execution pass, but the exact alignment and code generation must be
+recorded before choosing a narrow suppression or any type/layout remedy.
+
+The focused group target now passes 10/10 in scalar MSVC Debug/Release and
+Peach native AVX-default Release; the dedicated AVX contract target passes 5/5
+under portable-AVX Debug and Peach native AVX-512/IFMA Release. The focused
+Rust method test and full-Rust-binding AVX type-check also pass. Sequential
+CPU-pinned Peach benchmarks used one process at a time and compare the exact
+`2744efc` baseline with the final candidate. The largest primary regression is
+`+1.193%` (one-point GT MSM), every other primary regression is at most
+`+0.458%`, one-point G1/G2 MSM improves by 39%/53%, and GT CT multiplication
+improves by about 2.9%. GCC 15.2 inspection finds the approved one-branch
+canonical fast path, retained secret erasure, and no out-of-line
+selected-vector wrappers. `AUD-088` and `AUD-089` are validated. No full suite,
 sanitizer, CUDA, BTx/BTE, portable-AVX Release, CI push, or Apple run was
 performed for this packet.
 
@@ -143,6 +169,29 @@ volatile erase region in the optimized call sites; the cross-compiler erase
 primitive itself was already validated by `AUD-045`. No benchmark or broad
 build was started for this narrow hardening change.
 
+The line-by-line `blst/avx/curve/scalar_mult.h` review is complete with a
+permanent independent oracle. The focused eight-test target passes under scalar
+Release, portable-AVX Debug, and Peach native AVX-512/IFMA Release; native CT
+symbol sizes are unchanged. The file remains `in_review` because caller tracing
+opened high-severity `AUD-091`: automatic 256-bit AVX Pippenger had applied a
+canonical-scalar, subgroup-only GLV/GLS split under a general MSM contract.
+The subgroup-only API recalibration resolves that caller defect.
+
+The cross-language group-domain contract audit now accounts for all 242
+relevant public C symbols in 51 disjoint machine-checked families and traces the
+native C++ and safe/raw Rust surfaces. It records actual Release validation
+separately from Debug assertions and mathematical preconditions. `AUD-092`
+through `AUD-100` capture GT/Fp12 naming, complete subgroup predicates,
+on-curve-only decoding, the resolved AVX MSM discontinuity, incomplete point-add
+preconditions, pairing validation policy, and optimized signing/GT contracts.
+`AUD-101` is validated: weighted C and safe Rust pairing reject malformed or
+oversized scalar shapes before mutation/native entry, AVX scalar boundaries
+reject more than 256 bits, and the shared canonicalizer fails closed in Release
+instead of overflowing fixed storage. Focused scalar Release C/C++ and Rust
+tests pass. The stale uppercase-coordinate test references were repaired, and
+the current native AVX boundary target executes 5/5 on Peach. No sanitizer
+sweep, portable-AVX Release build, or full suite ran.
+
 ## Main program phases
 
 | Phase | State | Exit criterion |
@@ -150,10 +199,10 @@ build was started for this narrow hardening change.
 | 12. Audit platform and initial baseline | in progress | CodeQL, Clang/CodeChecker, clang-tidy, Clippy, ASan/UBSan, initial fuzzers, corpora/artifacts, and triage run reproducibly |
 | 13. Fundamental scalar trust chain | in progress | Representations, conversions, portable backend, assembly generators/outputs, and CPU selection complete |
 | 14. Scalar and extension fields | in progress | Field arithmetic/representation files complete with property, boundary, sanitizer, and oracle evidence |
-| 15. Curves and protocols | not started | G1/G2, serialization, hash-to-curve, pairing, signatures, MSM, and uniqueness files complete |
+| 15. Curves and protocols | in progress | G1/G2, serialization, hash-to-curve, pairing, signatures, MSM, and uniqueness files complete |
 | 16. AVX-512 | not started | AVX files complete with native hardware and scalar differential evidence |
 | 17. FFT and middle product | in progress | Scalar/AVX algorithms and APIs complete with reference, sanitizer, and fuzz evidence |
-| 18. C/C++/Rust surfaces | not started | Public ABI, native C++, Rust FFI/wrappers, ownership, errors, features, and package inputs complete |
+| 18. C/C++/Rust surfaces | in progress | Public ABI, native C++, Rust FFI/wrappers, ownership, errors, features, and package inputs complete |
 | 19. Support and release evidence | not started | Remaining tests/build/CI/docs/package files complete and full supported release matrix passes |
 | 20. CatBLST identity and ABI | not started | Rename plus separate `blst_` and `catblst_` build-time prefix modes validated |
 

@@ -83,6 +83,12 @@ The main scalar C API is defined in [bindings/blst.h](bindings/blst.h) together 
 - Intermediate (hash to curve, pairing, serdes)
 - BLS12-381 signature (sign, verify, aggregate)
 
+Public preconditions, postconditions, mathematical domains, validation, and
+timing guarantees use the common terminology in
+[API Contract Vocabulary](docs/API_CONTRACTS.md). CatBLST permits fast expert
+operations with narrow contracts; callers must establish documented
+preconditions that the operation does not explicitly validate.
+
 The split headers are:
 
 - [bindings/blst_types.h](bindings/blst_types.h)

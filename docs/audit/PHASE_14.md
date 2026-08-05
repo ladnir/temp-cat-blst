@@ -141,8 +141,9 @@ sanitizer, CUDA, portable-AVX Release, or broad suite ran in that packet.
 Commits `0ee24de` and `5bebdc0` validate `AUD-088` and `AUD-089`. The public
 contracts are now distinct across C, native C++, and Rust:
 
-- `mult` is constant-time with respect to scalar contents for a fixed public
-  `nbits` and requires an already validated on-curve subgroup point;
+- `mult` is subgroup-optimized and constant-time for canonical scalars at a
+  fixed public `nbits`; noncanonical inputs are accepted modulo r, while timing
+  may reveal that reduction was required;
 - `mult_vartime` has the same point precondition and is restricted to public
   scalars;
 - `unchecked_mult` is a generic constant-time operation for any on-curve point
@@ -150,11 +151,16 @@ contracts are now distinct across C, native C++, and Rust:
 
 Release builds deliberately do not validate those point preconditions. Debug
 builds assert the bit-count, scalar-pointer, curve, subgroup, and GT-membership
-invariants. Pippenger's one-point fallback uses `unchecked_mult`, while FFT,
-middle product, signing, and validated aggregation use the subgroup operations.
-Checked scalars are masked to at most 256 little-endian bits and reduced modulo
-r by exactly two branchless conditional subtractions; the complete input range
-is below 3r. Secret-derived scalar copies are explicitly wiped. The
+invariants. Ordinary Pippenger is subgroup-only and its one-point fallback uses
+`mult_vartime`; FFT, middle product, signing, and validated aggregation likewise
+use the appropriate subgroup operations. Secret scalar preparation masks at
+most 256 little-endian bits, skips classification through 254 bits, and
+otherwise uses one branchless subtraction followed by a single
+canonical/noncanonical branch. The noncanonical path reuses that difference
+and performs one additional branchless conditional subtraction because the
+complete input range is below 3r. Secret-derived scalar copies are explicitly
+wiped. Public scalar preparation uses the same cheap canonical fast path
+without secure wiping. The
 post-correctness `AUD-090` pass extended that rule through the native AVX G1/G2
 decomposition and executor: division scratch is erased after extraction,
 superseded split objects are erased after their final copy, and the fixed Booth
@@ -222,6 +228,61 @@ division scratches, three split objects, schedule, and executor scalars. The
 erase-loop branches depend only on compile-time sizes. This evidence covers
 explicit object storage; neither C++ nor the platform ABI promises erasure of
 all transient compiler-created register copies.
+
+The subsequent full `blst/avx/curve/scalar_mult.h` review made the independent
+correctness oracle permanent. Twenty boundary, crossover, and deterministic
+full-width scalar cases now compare G1/G2 CT, VT, and unchecked multiplication
+against simple double-and-add, and compare GT CT/VT against basic cyclotomic
+square/multiply exponentiation. The focused target passes 8/8 in scalar Release,
+portable-AVX Debug, and Peach native AVX-512/IFMA Release. Native G1/G2 CT symbol
+sizes remain exactly `0x13e9` and `0x3033`; no benchmark was needed.
+
+Caller inventory opened `AUD-091`: the general AVX Pippenger entry silently
+selects GLV/GLS for every 256-bit input even though its public contract does not
+require subgroup points or canonical scalars. The BLST split accepts a 255-bit
+value and has only a 128-bit quotient; `2^256-1` produces a 129-bit quotient.
+Existing MSM tests use subgroup points and mask the top scalar nibble to `0x0f`,
+so they miss both violations. This requires a dedicated MSM contract/design
+packet; canonical reduction alone cannot repair the non-subgroup case.
+
+The final group-domain recalibration validates `AUD-091`, `AUD-092`,
+`AUD-093`, and `AUD-095`. Unsuffixed scalar and AVX MSM is consistently the
+subgroup operation for every bit width and point count. Full-width GLV/GLS
+preparation reduces public scalars before division and consumes caller-owned
+split scratch; plain Pippenger does not preprocess scalars because exact and
+reduced multiplication agree on subgroup points. Projective one-point MSM calls
+`mult_vartime` and retains its no-scratch path. The experimental unchecked MSM
+family was removed; only upstream's two legacy single-point `unchecked_mult`
+exceptions remain.
+
+The GT-only GLV4 operation is hard-named `blst_avx_gt_mult_pippenger` with a
+semantic `blst_avx_gt` storage alias. The CatBLST-only Fp12-named spellings were
+removed rather than retained as misleading compatibility forwards. Rust
+`gt_msm` calls the GT-named entry under an explicit previously-validated-GT
+precondition. The dedicated target excludes frozen BTx/BTE and covers
+one/two-point subgroup modulo-r consistency, 257-bit rejection, complete
+membership predicates, and GT-only naming. Local MSVC portable-AVX Debug passes
+5/5. That run exposed a generic affine G2 membership defect: an Fp2 projective
+`z` was initialized from G1-sized `Fp::one()` storage; the implementation now
+uses `Field::one()`. The structural contract check covers 242 public symbols in
+51 disjoint families and rejects every removed unchecked-MSM and Fp12-MSM
+spelling. Native AVX/Rust/codegen/benchmark evidence for the recalibrated fast
+path is complete. Peach GCC 15.2 Release passes the 10-test scalar packet and
+the 5-test native AVX-512/IFMA contract packet. Focused Rust multiplication
+passes and the full-Rust-binding AVX library type-check succeeds. Optimized
+scalar and native AVX G1 code has the approved branchless classification, one
+canonical/reduction branch, branchless slow-path selection, and retained
+zeroization; selected-vector conversion wrappers are absent.
+
+Sequential CPU-pinned benchmarks compare the exact pre-packet commit
+`2744efc` with commits `b72f33c`, `036313a`, and `a383828` under identical
+flags. Canonical G1/G2/GT multiplication and MSM sizes 1/8/64/256 meet the 2%
+gate. The largest regression is GT MSM at one point (`+1.193%`); every other
+primary regression is at most `+0.458%`. G1/G2 one-point MSM improves by
+39%/53%, and GT CT multiplication improves by about 2.9%. An initial redundant
+GT reduction caused a 2.1-3.8% regression and was rejected; the balanced GLV4
+splitter's existing complete-256-bit modulo-r preparation is now used directly.
+No CUDA, portable-AVX Release, broad suite, sanitizer, Apple job, or push ran.
 
 That strict all-header check also opened and fixed `AUD-075`: MSVC C rejected
 the AVX opaque-shell alignment when its `__declspec(align(...))` argument was

@@ -55,6 +55,9 @@ for compatibility.
 | `CLANG_TIDY_BASELINE_TRIAGE.md` | Curated scalar/portable-AVX Debug clang-tidy evidence and dispositions |
 | `CLIPPY_BASELINE_TRIAGE.md` | Rust feature-family Clippy evidence, dispositions, and proposed scratch-storage finding |
 | `SANITIZER_BASELINE_TRIAGE.md` | Focused scalar ASan/UBSan configuration, evidence, exclusions, and configuration finding |
+| `GROUP_API_CONTRACT_AUDIT.md` | Cross-language point/Fp12/GT/pairing domain, validation, timing, and trust-boundary audit |
+| `GROUP_API_CONTRACTS.csv` | Machine-checked contract-family inventory for every group-domain public C symbol |
+| `../API_CONTRACTS.md` | Public vocabulary for precise preconditions, postconditions, validation, domains, timing, and failure behavior |
 | `PHASE_13.md` | Foundational hand-audit findings, C ABI exception policy, remediation sequence, and focused evidence |
 | `PHASE_17.md` | FFT native-core redesign, adapter boundary, packaging, and focused validation evidence |
 | `VALIDATION_POLICY.md` | Risk-proportional checks and subsystem/milestone validation gates |
@@ -64,6 +67,7 @@ for compatibility.
 | `PHASE_*.md` | Implemented hardening and validation evidence |
 | `scripts/audit/generate_file_manifest.ps1` | Regenerates the inventory without erasing review evidence |
 | `scripts/audit/check_audit_manifest.ps1` | Enforces file/upstream inventory integrity and completion evidence |
+| `scripts/audit/check_group_api_contracts.ps1` | Enforces complete and unambiguous public group-domain contract coverage |
 | `scripts/audit/check_rust_threading_policy.ps1` | Enforces the caller-threaded Rust runtime contract |
 | `scripts/audit/run_sanitizers_local.sh` | Runs the pinned focused scalar ASan/UBSan boundary baseline on x86-64 Linux |
 
@@ -132,6 +136,7 @@ From the repository root:
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/audit/generate_file_manifest.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/audit/check_audit_manifest.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/audit/check_group_api_contracts.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/audit/check_rust_threading_policy.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/audit/check_win64_asm_symbols.ps1 -BuildDirectory out/build/<profile> -Mode Portable
 wsl.exe bash scripts/audit/run_clang_tidy_local.sh all
