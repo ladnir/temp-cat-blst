@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/scalar/curve/point.cpp` |
 | Roadmap phase / queue | Phase 15 scalar curves and protocols, first packet |
-| Reviewed commit | `07d79a48cc7d82560f5194f76a137e4ee2527d06`; pending localized fixed-window follow-up |
+| Reviewed commit | `07d79a48cc7d82560f5194f76a137e4ee2527d06`; localized fixed-window follow-up `b9855299349fa083c455d45d8cbbb30f2a617e03` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-04 |
 | Disposition | in-scope production |
@@ -172,7 +172,7 @@ finding `AUD-109`.
 
 ## Residual risk and decision
 
-The original full review is complete. The localized fixed-window follow-up is
-pending its exact remediation hash. Decoder subgroup policy (`AUD-094`) and GT
-unchecked decoding (`AUD-085`) remain separate API decisions in their
-containing-file reviews.
+The original full review and localized fixed-window follow-up are complete at
+their recorded commits. Decoder subgroup policy (`AUD-094`) and GT unchecked
+decoding (`AUD-085`) remain separate API decisions in their containing-file
+reviews.

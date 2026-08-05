@@ -342,12 +342,12 @@ Main audit work volume:
 
 | Work group | Phases | Total | Complete | Pending |
 | --- | --- | ---: | ---: | ---: |
-| Scalar foundations, fields, curves, and protocols | 13-15 | 197 | 7 | 190 |
+| Scalar foundations, fields, curves, and protocols | 13-15 | 197 | 9 | 188 |
 | AVX-512 | 16 | 42 | 0 | 42 |
 | FFT and middle product | 17 | 10 | 0 | 10 |
 | C/C++/Rust APIs and bindings | 18 | 28 | 1 | 27 |
-| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 168 | 1 | 167 |
-| **Total in-scope production/generated/support** | **12-19** | **445** | **9** | **436** |
+| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 168 | 2 | 166 |
+| **Total in-scope production/generated/support** | **12-19** | **445** | **12** | **433** |
 
 The rollup is explained in `PRODUCTION_AUDIT_ROADMAP.md`; the per-file
 `FILE_MANIFEST.csv` remains authoritative.
@@ -384,7 +384,7 @@ are validated. Scalar/selected MSM and the safe Rust multipoint wrapper are
 complete at `af09f66`; `AUD-113` through `AUD-120` are validated. The
 batch-affine MSM review is complete at `913c52f`; `AUD-121` through `AUD-125`
 are validated. The `ec_mult.h` hand review and `AUD-126` through `AUD-130`
-focused remediation await their exact commit hash. Continue Phase 15 with
+are complete at `b985529`. Continue Phase 15 with
 `blst/scalar/curve/GT.h` after closing that packet. Keep
 `AUD-085` as the next
 explicit design decision when the GT decoder surface is reviewed. Coverage

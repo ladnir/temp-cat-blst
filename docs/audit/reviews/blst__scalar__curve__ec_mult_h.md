@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/scalar/curve/ec_mult.h` |
 | Roadmap phase / queue | Phase 15 scalar curves and protocols, fifth packet |
-| Reviewed commit | pending remediation commit |
+| Reviewed commit | `b9855299349fa083c455d45d8cbbb30f2a617e03` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-05 |
 | Disposition | in-scope production |
@@ -166,6 +166,6 @@ points, and upstream order-11/order-13 low-order fixtures.
 
 ## Residual risk and decision
 
-The implementation and focused validation are complete pending the exact
-remediation commit hash. Broader sanitizer, fuzz, Apple, and supported-matrix
-work remains at milestone gates.
+The implementation and focused validation are complete at the recorded
+commit. Broader sanitizer, fuzz, Apple, and supported-matrix work remains at
+milestone gates.
