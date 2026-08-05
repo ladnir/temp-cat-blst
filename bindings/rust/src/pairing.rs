@@ -16,8 +16,6 @@ use alloc::vec::Vec;
 #[cfg(feature = "full-rust-bindings")]
 use core::alloc::Layout;
 #[cfg(feature = "full-rust-bindings")]
-use core::any::Any;
-#[cfg(feature = "full-rust-bindings")]
 use core::mem;
 #[cfg(feature = "full-rust-bindings")]
 use core::ptr::{self, NonNull};
@@ -38,13 +36,205 @@ fn pairing_layout(
     })
 }
 
-/// Owned pairing context with correct native size and alignment.
+/// Owned pairing context with correct native size, alignment, and DST lifetime.
+///
+/// Each typed aggregate call selects G1-public-key/G2-signature or
+/// G2-public-key/G1-signature orientation at compile time. The native context
+/// records the first selected orientation and rejects later calls in the other
+/// orientation. Aggregate zero or more items, call [`Pairing::commit`], then call
+/// [`Pairing::finalverify`] or merge committed worker contexts. Aggregation may
+/// resume after a commit. [`Pairing::raw_aggregate`] and
+/// [`Pairing::miller_result`] are expert operations over trusted affine inputs
+/// and pre-final-exponentiation values.
 #[cfg(feature = "full-rust-bindings")]
 #[derive(Debug)]
 pub struct Pairing {
     storage: NonNull<u8>,
     layout: Layout,
     context_size: usize,
+}
+
+#[cfg(feature = "full-rust-bindings")]
+mod sealed {
+    pub trait Sealed {}
+}
+
+/// An affine signature representation supported by the pairing context.
+///
+/// This trait is sealed and implemented only for [`blst_p1_affine`] and
+/// [`blst_p2_affine`]. It provides compile-time pairing orientation without
+/// runtime type inspection.
+#[cfg(feature = "full-rust-bindings")]
+pub trait PairingSignature: sealed::Sealed + Sized {
+    #[doc(hidden)]
+    unsafe fn write_miller_result(out: *mut blst_fp12, signature: *const Self);
+}
+
+/// An affine public-key representation supported by the pairing context.
+///
+/// The associated signature type fixes the pairing orientation at compile
+/// time: G1 public keys use G2 signatures and G2 public keys use G1
+/// signatures. The trait is sealed and cannot be implemented externally.
+#[cfg(feature = "full-rust-bindings")]
+pub trait PairingPublicKey: sealed::Sealed + Sized {
+    type Signature: PairingSignature;
+
+    #[doc(hidden)]
+    unsafe fn aggregate_into(
+        ctx: *mut blst_pairing,
+        pk: *const Self,
+        pk_validate: bool,
+        signature: *const Self::Signature,
+        sig_groupcheck: bool,
+        msg: &[u8],
+        aug: &[u8],
+    ) -> BLST_ERROR;
+
+    #[doc(hidden)]
+    unsafe fn mul_n_aggregate_into(
+        ctx: *mut blst_pairing,
+        pk: *const Self,
+        pk_validate: bool,
+        signature: *const Self::Signature,
+        sig_groupcheck: bool,
+        scalar: &[u8],
+        nbits: usize,
+        msg: &[u8],
+        aug: &[u8],
+    ) -> BLST_ERROR;
+}
+
+#[cfg(feature = "full-rust-bindings")]
+impl sealed::Sealed for blst_p1_affine {}
+#[cfg(feature = "full-rust-bindings")]
+impl sealed::Sealed for blst_p2_affine {}
+
+#[cfg(feature = "full-rust-bindings")]
+impl PairingSignature for blst_p1_affine {
+    unsafe fn write_miller_result(out: *mut blst_fp12, signature: *const Self) {
+        unsafe { blst_aggregated_in_g1(out, signature) }
+    }
+}
+
+#[cfg(feature = "full-rust-bindings")]
+impl PairingSignature for blst_p2_affine {
+    unsafe fn write_miller_result(out: *mut blst_fp12, signature: *const Self) {
+        unsafe { blst_aggregated_in_g2(out, signature) }
+    }
+}
+
+#[cfg(feature = "full-rust-bindings")]
+impl PairingPublicKey for blst_p1_affine {
+    type Signature = blst_p2_affine;
+
+    unsafe fn aggregate_into(
+        ctx: *mut blst_pairing,
+        pk: *const Self,
+        pk_validate: bool,
+        signature: *const Self::Signature,
+        sig_groupcheck: bool,
+        msg: &[u8],
+        aug: &[u8],
+    ) -> BLST_ERROR {
+        unsafe {
+            blst_pairing_chk_n_aggr_pk_in_g1(
+                ctx,
+                pk,
+                pk_validate,
+                signature,
+                sig_groupcheck,
+                msg.as_ptr(),
+                msg.len(),
+                aug.as_ptr(),
+                aug.len(),
+            )
+        }
+    }
+
+    unsafe fn mul_n_aggregate_into(
+        ctx: *mut blst_pairing,
+        pk: *const Self,
+        pk_validate: bool,
+        signature: *const Self::Signature,
+        sig_groupcheck: bool,
+        scalar: &[u8],
+        nbits: usize,
+        msg: &[u8],
+        aug: &[u8],
+    ) -> BLST_ERROR {
+        unsafe {
+            blst_pairing_chk_n_mul_n_aggr_pk_in_g1(
+                ctx,
+                pk,
+                pk_validate,
+                signature,
+                sig_groupcheck,
+                scalar.as_ptr(),
+                nbits,
+                msg.as_ptr(),
+                msg.len(),
+                aug.as_ptr(),
+                aug.len(),
+            )
+        }
+    }
+}
+
+#[cfg(feature = "full-rust-bindings")]
+impl PairingPublicKey for blst_p2_affine {
+    type Signature = blst_p1_affine;
+
+    unsafe fn aggregate_into(
+        ctx: *mut blst_pairing,
+        pk: *const Self,
+        pk_validate: bool,
+        signature: *const Self::Signature,
+        sig_groupcheck: bool,
+        msg: &[u8],
+        aug: &[u8],
+    ) -> BLST_ERROR {
+        unsafe {
+            blst_pairing_chk_n_aggr_pk_in_g2(
+                ctx,
+                pk,
+                pk_validate,
+                signature,
+                sig_groupcheck,
+                msg.as_ptr(),
+                msg.len(),
+                aug.as_ptr(),
+                aug.len(),
+            )
+        }
+    }
+
+    unsafe fn mul_n_aggregate_into(
+        ctx: *mut blst_pairing,
+        pk: *const Self,
+        pk_validate: bool,
+        signature: *const Self::Signature,
+        sig_groupcheck: bool,
+        scalar: &[u8],
+        nbits: usize,
+        msg: &[u8],
+        aug: &[u8],
+    ) -> BLST_ERROR {
+        unsafe {
+            blst_pairing_chk_n_mul_n_aggr_pk_in_g2(
+                ctx,
+                pk,
+                pk_validate,
+                signature,
+                sig_groupcheck,
+                scalar.as_ptr(),
+                nbits,
+                msg.as_ptr(),
+                msg.len(),
+                aug.as_ptr(),
+                aug.len(),
+            )
+        }
+    }
 }
 
 #[cfg(feature = "full-rust-bindings")]
@@ -80,7 +270,8 @@ impl Pairing {
         obj
     }
 
-    /// Reinitializes the pairing context with an owned copy of `dst`.
+    /// Reinitializes the pairing context with an owned copy of `dst`,
+    /// discarding all prior aggregate state.
     ///
     /// Existing storage is reused when its trailing capacity is sufficient.
     /// Growth initializes a replacement allocation before releasing the old
@@ -121,57 +312,32 @@ impl Pairing {
     }
 
     /// Aggregates one verification item into the pairing context.
-    pub fn aggregate(
+    ///
+    /// `P` selects the pairing orientation at compile time. `sig` is supplied
+    /// once for an internally aggregated signature and is `None` for later
+    /// public-key/message contributions. The signature is fully subgroup
+    /// checked when `sig_groupcheck` is true. The public key is subgroup
+    /// checked only when `pk_validate` is true and must otherwise have been
+    /// validated by the caller.
+    pub fn aggregate<P: PairingPublicKey>(
         &mut self,
-        pk: &dyn Any,
+        pk: &P,
         pk_validate: bool,
-        sig: &dyn Any,
+        sig: Option<&P::Signature>,
         sig_groupcheck: bool,
         msg: &[u8],
         aug: &[u8],
     ) -> BLST_ERROR {
-        if pk.is::<blst_p1_affine>() {
-            unsafe {
-                blst_pairing_chk_n_aggr_pk_in_g1(
-                    self.ctx(),
-                    match pk.downcast_ref::<blst_p1_affine>() {
-                        Some(pk) => pk,
-                        None => ptr::null(),
-                    },
-                    pk_validate,
-                    match sig.downcast_ref::<blst_p2_affine>() {
-                        Some(sig) => sig,
-                        None => ptr::null(),
-                    },
-                    sig_groupcheck,
-                    msg.as_ptr(),
-                    msg.len(),
-                    aug.as_ptr(),
-                    aug.len(),
-                )
-            }
-        } else if pk.is::<blst_p2_affine>() {
-            unsafe {
-                blst_pairing_chk_n_aggr_pk_in_g2(
-                    self.ctx(),
-                    match pk.downcast_ref::<blst_p2_affine>() {
-                        Some(pk) => pk,
-                        None => ptr::null(),
-                    },
-                    pk_validate,
-                    match sig.downcast_ref::<blst_p1_affine>() {
-                        Some(sig) => sig,
-                        None => ptr::null(),
-                    },
-                    sig_groupcheck,
-                    msg.as_ptr(),
-                    msg.len(),
-                    aug.as_ptr(),
-                    aug.len(),
-                )
-            }
-        } else {
-            panic!("whaaaa?")
+        unsafe {
+            P::aggregate_into(
+                self.ctx(),
+                pk,
+                pk_validate,
+                sig.map_or(ptr::null(), |signature| signature),
+                sig_groupcheck,
+                msg,
+                aug,
+            )
         }
     }
 
@@ -180,11 +346,11 @@ impl Pairing {
     /// Returns [`BLST_ERROR::BLST_BAD_SCALAR`] without entering native code
     /// when `nbits` exceeds 256 or `scalar` does not contain all requested
     /// bits.
-    pub fn mul_n_aggregate(
+    pub fn mul_n_aggregate<P: PairingPublicKey>(
         &mut self,
-        pk: &dyn Any,
+        pk: &P,
         pk_validate: bool,
-        sig: &dyn Any,
+        sig: Option<&P::Signature>,
         sig_groupcheck: bool,
         scalar: &[u8],
         nbits: usize,
@@ -199,71 +365,49 @@ impl Pairing {
             return BLST_ERROR::BLST_BAD_SCALAR;
         }
 
-        if pk.is::<blst_p1_affine>() {
-            unsafe {
-                blst_pairing_chk_n_mul_n_aggr_pk_in_g1(
-                    self.ctx(),
-                    match pk.downcast_ref::<blst_p1_affine>() {
-                        Some(pk) => pk,
-                        None => ptr::null(),
-                    },
-                    pk_validate,
-                    match sig.downcast_ref::<blst_p2_affine>() {
-                        Some(sig) => sig,
-                        None => ptr::null(),
-                    },
-                    sig_groupcheck,
-                    scalar.as_ptr(),
-                    nbits,
-                    msg.as_ptr(),
-                    msg.len(),
-                    aug.as_ptr(),
-                    aug.len(),
-                )
-            }
-        } else if pk.is::<blst_p2_affine>() {
-            unsafe {
-                blst_pairing_chk_n_mul_n_aggr_pk_in_g2(
-                    self.ctx(),
-                    match pk.downcast_ref::<blst_p2_affine>() {
-                        Some(pk) => pk,
-                        None => ptr::null(),
-                    },
-                    pk_validate,
-                    match sig.downcast_ref::<blst_p1_affine>() {
-                        Some(sig) => sig,
-                        None => ptr::null(),
-                    },
-                    sig_groupcheck,
-                    scalar.as_ptr(),
-                    nbits,
-                    msg.as_ptr(),
-                    msg.len(),
-                    aug.as_ptr(),
-                    aug.len(),
-                )
-            }
-        } else {
-            panic!("whaaaa?")
+        unsafe {
+            P::mul_n_aggregate_into(
+                self.ctx(),
+                pk,
+                pk_validate,
+                sig.map_or(ptr::null(), |signature| signature),
+                sig_groupcheck,
+                scalar,
+                nbits,
+                msg,
+                aug,
+            )
         }
     }
 
-    /// Commits pending work in the pairing context.
+    /// Flushes pending pairing terms into the Miller product.
+    ///
+    /// This is idempotent when no terms are pending and is required before
+    /// `merge` or `finalverify`.
     pub fn commit(&mut self) {
         unsafe { blst_pairing_commit(self.ctx()) }
     }
 
-    /// Merges another compatible pairing context into this one.
+    /// Merges another committed, same-orientation pairing context into this one.
+    ///
+    /// Both contexts must have no pending terms. The source is unchanged, and
+    /// an error leaves this context unchanged.
     pub fn merge(&mut self, ctx1: &Self) -> BLST_ERROR {
         unsafe { blst_pairing_merge(self.ctx(), ctx1.const_ctx()) }
     }
 
-    /// Aggregates one raw affine `(q, p)` pair into the context.
+    /// Aggregates one raw affine `(G2 q, G1 p)` pair into the context.
+    ///
+    /// No curve or subgroup validation is performed; inputs must be trusted
+    /// on-curve affine points. Either infinity contributes the Miller identity.
     pub fn raw_aggregate(&mut self, q: &blst_p2_affine, p: &blst_p1_affine) {
         unsafe { blst_pairing_raw_aggregate(self.ctx(), q, p) }
     }
 
-    /// Runs the final verification step.
+    /// Runs final verification on a committed context.
+    ///
+    /// `sig` is an optional trusted external Miller contribution, not a GT
+    /// element. When absent, the internally accumulated signature is used.
     pub fn finalverify(&self, sig: Option<&blst_fp12>) -> bool {
         unsafe {
             blst_pairing_finalverify(
@@ -273,32 +417,18 @@ impl Pairing {
         }
     }
 
-    /// Computes the aggregate GT value for one signature.
-    pub fn aggregated(gtsig: &mut blst_fp12, sig: &dyn Any) {
-        unsafe {
-            if sig.is::<blst_p1_affine>() {
-                blst_aggregated_in_g1(
-                    gtsig,
-                    match sig.downcast_ref::<blst_p1_affine>() {
-                        Some(sig) => sig,
-                        None => ptr::null(),
-                    },
-                )
-            } else {
-                blst_aggregated_in_g2(
-                    gtsig,
-                    match sig.downcast_ref::<blst_p2_affine>() {
-                        Some(sig) => sig,
-                        None => ptr::null(),
-                    },
-                )
-            }
-        }
+    /// Computes the pre-final-exponentiation Miller contribution for a fully
+    /// validated affine G1 or G2 signature.
+    pub fn aggregated<S: PairingSignature>(gtsig: &mut blst_fp12, sig: &S) {
+        unsafe { S::write_miller_result(gtsig, sig) }
     }
 
-    /// Returns the current pairing accumulator as Fp12.
-    pub fn as_fp12(&mut self) -> blst_fp12 {
-        unsafe { blst_pairing_as_fp12(self.ctx()) }
+    /// Commits pending pairs and returns their Miller product. This value has
+    /// not undergone final exponentiation and therefore is not a GT element.
+    pub fn miller_result(&mut self) -> blst_fp12 {
+        let mut out = blst_fp12::default();
+        unsafe { blst_pairing_get_miller_result(&mut out, self.ctx()) };
+        out
     }
 }
 
@@ -339,7 +469,14 @@ mod tests {
         msg: &[u8],
     ) -> BLST_ERROR {
         let (g1, g2) = generators();
-        pairing.aggregate(&g1, true, &g2, true, msg, &[])
+        pairing.aggregate(&g1, true, Some(&g2), true, msg, &[])
+    }
+
+    fn assert_pairing_orientation<P, S>()
+    where
+        P: PairingPublicKey<Signature = S>,
+        S: PairingSignature,
+    {
     }
 
     fn assert_mul_n_result(scalar: &[u8], nbits: usize, expected: BLST_ERROR) {
@@ -350,7 +487,7 @@ mod tests {
             g1_pairing.mul_n_aggregate(
                 &g1,
                 false,
-                &g2,
+                Some(&g2),
                 false,
                 scalar,
                 nbits,
@@ -365,7 +502,7 @@ mod tests {
             g2_pairing.mul_n_aggregate(
                 &g2,
                 false,
-                &g1,
+                Some(&g1),
                 false,
                 scalar,
                 nbits,
@@ -429,6 +566,29 @@ mod tests {
         );
         pairing.commit();
         assert!(!pairing.finalverify(None));
+    }
+
+    #[test]
+    fn pairing_orientation_is_fixed_by_the_public_key_type() {
+        assert_pairing_orientation::<blst_p1_affine, blst_p2_affine>();
+        assert_pairing_orientation::<blst_p2_affine, blst_p1_affine>();
+    }
+
+    #[test]
+    fn empty_pairing_exports_the_miller_identity() {
+        let mut pairing = Pairing::new(true, b"miller identity DST");
+        let result = pairing.miller_result();
+        assert!(unsafe { blst_fp12_is_equal(&result, blst_fp12_one()) });
+    }
+
+    #[test]
+    fn explicit_none_omits_the_signature_contribution() {
+        let (g1, _) = generators();
+        let mut pairing = Pairing::new(true, b"optional signature DST");
+        assert_eq!(
+            pairing.aggregate(&g1, true, None, false, b"message", &[],),
+            BLST_ERROR::BLST_SUCCESS
+        );
     }
 
     #[test]

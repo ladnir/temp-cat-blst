@@ -56,9 +56,8 @@ pub use avx::{
     blst_avx_p1_mult_pippenger_scratch_sizeof, blst_avx_p1_serialize,
     blst_avx_p1_sizeof, blst_avx_p1_to_affine, blst_avx_p1_uncompress,
     blst_avx_p1s_mult_pippenger, blst_avx_p1s_mult_pippenger_scratch_sizeof,
-    blst_avx_p2,
-    blst_avx_p2_add, blst_avx_p2_affine, blst_avx_p2_affine_alignof,
-    blst_avx_p2_affine_sizeof, blst_avx_p2_alignof,
+    blst_avx_p2, blst_avx_p2_add, blst_avx_p2_affine,
+    blst_avx_p2_affine_alignof, blst_avx_p2_affine_sizeof, blst_avx_p2_alignof,
     blst_avx_p2_batch_subgroup_check, blst_avx_p2_cneg, blst_avx_p2_compress,
     blst_avx_p2_deserialize, blst_avx_p2_generator, blst_avx_p2_in_g2,
     blst_avx_p2_is_equal, blst_avx_p2_is_inf, blst_avx_p2_mult,
@@ -67,8 +66,8 @@ pub use avx::{
     blst_avx_p2_mult_pippenger_scratch_sizeof, blst_avx_p2_serialize,
     blst_avx_p2_sizeof, blst_avx_p2_to_affine, blst_avx_p2_uncompress,
     blst_avx_p2s_mult_pippenger, blst_avx_p2s_mult_pippenger_scratch_sizeof,
-    blst_avx_pairing,
-    blst_fp12_from_avx, blst_p1_affine_from_avx, gt_msm, AvxMsmError,
+    blst_avx_pairing, blst_fp12_from_avx, blst_p1_affine_from_avx, gt_msm,
+    AvxMsmError,
 };
 pub use middle_product::{
     blst_middle_product_precomputed_b, combine, middle_product,
@@ -78,7 +77,7 @@ pub use middle_product::{
 #[cfg(feature = "std")]
 pub use pairing::print_bytes;
 #[cfg(feature = "full-rust-bindings")]
-pub use pairing::{uniq, Pairing};
+pub use pairing::{uniq, Pairing, PairingPublicKey, PairingSignature};
 
 #[cfg(feature = "full-rust-bindings")]
 macro_rules! sig_variant_impl {
@@ -782,7 +781,7 @@ macro_rules! sig_variant_impl {
                 let err = pairing.aggregate(
                     &pks[0].point,
                     pks_validate,
-                    &self.point,
+                    Some(&self.point),
                     sig_groupcheck,
                     &msgs[0],
                     &[],
@@ -795,7 +794,7 @@ macro_rules! sig_variant_impl {
                     let err = pairing.aggregate(
                         &pks[i].point,
                         pks_validate,
-                        &unsafe { ptr::null::<$sig_aff>().as_ref() },
+                        None,
                         false,
                         &msgs[i],
                         &[],
@@ -876,7 +875,7 @@ macro_rules! sig_variant_impl {
                     let err = pairing.mul_n_aggregate(
                         &pks[i].point,
                         pks_validate,
-                        &sigs[i].point,
+                        Some(&sigs[i].point),
                         sigs_groupcheck,
                         &rands[i].b,
                         rand_bits,

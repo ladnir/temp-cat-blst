@@ -401,11 +401,59 @@ salt behavior, and child exact-alias behavior remain unchanged.
 No benchmark, full suite, sanitizer sweep, CUDA build, Apple CI, or portable-
 AVX Release build ran. Frozen BTx/BTE was neither edited nor audited.
 
+## Pairing-context and aggregate review
+
+The tenth packet reviews `blst/sign/aggregate.cpp`, `aggregate.h`, their C
+bridge, and the complete safe-Rust pairing context. It compares the state
+machine and retained C symbols with pinned upstream BLST commit
+`54e6e55674722fc2797ebb4bbb71b26d881eb4b8` while allowing one explicit break
+for the low-level accumulator accessor.
+
+### Findings and decisions
+
+- `AUD-152` replaces the ambiguous `blst_pairing_as_fp12` by-value export and
+  `_to` duplicate with `blst_pairing_get_miller_result(out, ctx)`. It performs
+  no allocation, commits pending pairs, converts selected AVX storage only at
+  export, and avoids context cache growth. This is an intentional break from
+  upstream's borrowed-pointer auxiliary API.
+- `AUD-153` defines empty Miller export as the multiplicative identity instead
+  of reading inactive accumulator storage.
+- `AUD-154` explicitly copies the existing signature accumulator when a
+  decoded contribution is infinity. This preserves both exact-alias and
+  distinct-output C calls across the selected C++ bridge.
+- `AUD-155` removes every `dyn Any` pairing dispatch. Sealed
+  `PairingPublicKey` and `PairingSignature` traits fix G1/G2 orientation at
+  compile time; absent signature contributions are explicit `Option` values.
+- `AUD-156` validates the complete fallible item before publishing orientation
+  or signature state, making aggregate errors context-failure-atomic.
+- `AUD-157` replaces the invented pointer value 42 with a control bit and null
+  stored pointer for relocatable trailing DST storage.
+- `AUD-158` replaces externally configurable `N_MAX` with the typed internal
+  batch capacity eight without changing the batching schedule.
+- `AUD-159` documents normal, separately aggregated signature, parallel merge,
+  and expert raw flows along with validation, timing, ownership, allocation,
+  exception, alias, and Miller/GT contracts.
+
+### Focused validation
+
+- Scalar MSVC Debug and Release each build and pass all six dedicated aggregate
+  regressions. Selected portable-AVX Debug also builds and passes 6/6.
+- Full-Rust bindings pass all thirteen focused pairing-context tests, including
+  compile-time orientation, explicit absent signature, owned trailing DST,
+  merge, scalar shape, and empty Miller identity.
+- Optimized MSVC symbol inspection finds the new C/native Miller-result getter
+  and no old accessor. Public-documentation, group-contract, and audit-manifest
+  integrity checks pass. Only the exact reviewed-commit records remain pending
+  before the findings are marked validated.
+
+No benchmark, broad suite, sanitizer sweep, CUDA build, BTx/BTE work, Apple CI,
+or portable-AVX Release build is part of this packet.
+
 ## Status and next action
 
-Scalar point, bulk addition, MSM, fixed-window multiplication, GT/Miller, and
+Scalar point, bulk addition, MSM, fixed-window multiplication, GT/Miller,
 map-to-group, SHA-256, and key generation are complete at their recorded
-commits. Continue Phase 15 with `blst/sign/aggregate.cpp` and `aggregate.h`.
-Preserve the now-documented keygen and group-domain contracts while tracing
-signature aggregation and verification. `AUD-085` remains the explicit GT
-deserialization decision.
+commits. The aggregate implementation and header have passed their focused
+validation gate. Record exact review hashes, then continue Phase 15 with the
+next signing/protocol file. Keep
+the separately deferred checked GT deserialization design in `AUD-085`.

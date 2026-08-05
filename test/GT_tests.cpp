@@ -13,7 +13,7 @@ BLST_HD void blst_pairing_init(PAIRING* ctx, int hash_or_encode, const void* DST
 BLST_HD void blst_pairing_commit(PAIRING* ctx);
 BLST_HD int blst_pairing_finalverify(const PAIRING* ctx, const Fp12* GTsig);
 BLST_HD void blst_pairing_raw_aggregate(PAIRING* ctx, const G2AffinePoint* q, const G1AffinePoint* p);
-BLST_HD Fp12 blst_pairing_as_fp12(PAIRING* ctx);
+BLST_HD void blst_pairing_get_miller_result(Fp12* out, PAIRING* ctx);
 BLST_HD BLST_ERROR blst_aggregate_in_g1(G1Point& out, const G1Point* in, const unsigned char* zwire);
 BLST_HD BLST_ERROR blst_aggregate_in_g2(G2Point& out, const G2Point* in, const unsigned char* zwire);
 }
@@ -555,7 +555,8 @@ TEST_F(GTTest, PairingAggregationRoundTripMatchesDirectMiller) {
     MillerResult direct = {};
     GT::miller_loop(direct, &g2_affine, &g1_affine);
 
-    const Fp12 aggregated_fp12 = blst_pairing_as_fp12(&ctx);
+    Fp12 aggregated_fp12 = {};
+    blst_pairing_get_miller_result(&aggregated_fp12, &ctx);
     unsigned char aggregated_bytes[12 * 48] = {};
     scalar::GT::serialize(aggregated_bytes, scalar::GT(aggregated_fp12));
 

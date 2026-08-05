@@ -2163,14 +2163,9 @@ void blst_pairing_raw_aggregate(blst_pairing* ctx, const BoundaryG2Affine* q, co
     blst::blst_pairing_raw_aggregate(as_pairing(ctx), &public_q, &public_p);
 }
 
-BoundaryFp12 blst_pairing_as_fp12(blst_pairing* ctx)
+void blst_pairing_get_miller_result(BoundaryFp12* out, blst_pairing* ctx)
 {
-    return blst::blst_pairing_as_fp12(as_pairing(ctx));
-}
-
-void blst_pairing_as_fp12_to(BoundaryFp12* out, blst_pairing* ctx)
-{
-    blst::blst_pairing_as_fp12_to(out, as_pairing(ctx));
+    blst::blst_pairing_get_miller_result(out, as_pairing(ctx));
 }
 
 void blst_keygen(blst_scalar* out_SK, const byte* IKM, size_t IKM_len, const byte* info, size_t info_len)

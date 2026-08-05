@@ -48,35 +48,35 @@ namespace blst
 
 
     /*
-     * Usage pattern on single-processor system is
+     * PAIRING is a batched Miller-product state machine.
      *
-     * blst_pairing_init(ctx, hash_or_encode, DST);
-     * blst_pairing_aggregate_pk_in_g1(ctx, PK[0], aggregated_signature, msg[0]);
-     * blst_pairing_aggregate_pk_in_g1(ctx, PK[1], NULL, msg[1]);
-     * ...
-     * blst_pairing_commit(ctx);
-     * blst_pairing_finalverify(ctx, NULL);
+     * Normal verification:
+     *   1. Initialize with the hash/encode mode and borrowed DST.
+     *   2. Add each public-key/message pair. The aggregate signature may be
+     *      supplied once; later calls use a null signature.
+     *   3. Commit to flush the final partial batch.
+     *   4. Final-verify with a null external signature contribution.
      *
-     ***********************************************************************
-     * Usage pattern on multi-processor system is
+     * External signature aggregation:
+     *   Aggregate encoded signatures with blst_aggregate_in_g1/g2, turn the
+     *   final affine signature into a Miller contribution with
+     *   blst_aggregated_in_g1/g2, aggregate all PK/message pairs with null
+     *   signatures, commit, and pass the external contribution to finalverify.
      *
-     *   blst_pairing_init(pk[0], hash_or_encode, DST);
-     *   blst_pairing_init(pk[1], hash_or_encode, DST);
-     *   ...
-     * start threads each processing an N/nthreads slice of PKs and messages:
-     *     blst_pairing_aggregate_pk_in_g1(pk[i], PK[i*n+0], NULL, msg[i*n+0]);
-     *     blst_pairing_aggregate_pk_in_g1(pk[i], PK[i*n+1], NULL, msg[i*n+1]);
-     *     ...
-     *     blst_pairing_commit(pkx);
-     *   ...
-     * meanwhile in main thread
-     *   blst_fp12 gtsig;
-     *   blst_aggregated_in_g2(&gtsig, aggregated_signature);
-     * join threads and merge their contexts:
-     *   blst_pairing_merge(pk[0], pk[1]);
-     *   blst_pairing_merge(pk[0], pk[2]);
-     *   ...
-     *   blst_pairing_finalverify(pk[0], gtsig);
+     * Parallel verification:
+     *   Each worker owns a context, aggregates a slice, and commits it. Only
+     *   committed contexts of the same PK/signature orientation may be merged.
+     *   The merged context can then be final-verified normally.
+     *
+     * Expert raw pairing:
+     *   raw_aggregate queues trusted on-curve affine (G2,G1) pairs without
+     *   validation. get_miller_result commits and exports the accumulated
+     *   pre-final-exponentiation value; final_exp is a separate operation.
+     *
+     * The default aggregate entry points validate the signature subgroup and
+     * reject an infinite PK, but assume the PK was already subgroup-validated.
+     * The chk_n variants make both subgroup checks explicit. All routines are
+     * allocation-free and no exception may cross their C boundary.
      */
 
 
@@ -86,11 +86,13 @@ namespace blst
         AGGR_MIN_PK = 2,
         AGGR_SIGN_SET = 0x10,
         AGGR_GT_SET = 0x20,
-        AGGR_HASH_OR_ENCODE = 0x40
+        AGGR_HASH_OR_ENCODE = 0x40,
+        AGGR_DST_AFTER_CTX = 0x80
     };
-#define MIN_SIG_OR_PK (AGGR_MIN_SIG | AGGR_MIN_PK)
+    constexpr unsigned int kMinSigOrPk = AGGR_MIN_SIG | AGGR_MIN_PK;
 
-    const size_t sizeof_pairing = (sizeof(PAIRING) + 7) & ~(size_t)7;
+    constexpr size_t sizeof_pairing = (sizeof(PAIRING) + 7) & ~(size_t)7;
+    static_assert(sizeof_pairing == sizeof(PAIRING));
 
     size_t blst_pairing_sizeof(void)
     {
@@ -100,16 +102,19 @@ namespace blst
     void blst_pairing_init(PAIRING* ctx, int hash_or_encode,
         const void* DST, size_t DST_len)
     {
-        ctx->ctrl = AGGR_UNDEFINED | (hash_or_encode ? AGGR_HASH_OR_ENCODE : 0);
+        const void* trailing_dst = reinterpret_cast<const byte*>(ctx) + sizeof_pairing;
+        const bool dst_after_ctx = DST == trailing_dst;
+        ctx->ctrl = AGGR_UNDEFINED | (hash_or_encode ? AGGR_HASH_OR_ENCODE : 0)
+            | (dst_after_ctx ? AGGR_DST_AFTER_CTX : 0);
         ctx->nelems = 0;
-        ctx->DST = (uptr_t)DST == (uptr_t)((byte*)ctx + sizeof_pairing) ? (void*)42
-            : DST;
+        ctx->DST = dst_after_ctx ? nullptr : DST;
         ctx->DST_len = DST_len;
     }
 
     BLST_HD const void* pairing_get_dst(const PAIRING* ctx)
     {
-        return (uptr_t)ctx->DST == (uptr_t)42 ? (const byte*)ctx + sizeof_pairing
+        return (ctx->ctrl & AGGR_DST_AFTER_CTX) != 0
+            ? reinterpret_cast<const byte*>(ctx) + sizeof_pairing
             : ctx->DST;
     }
 
@@ -140,6 +145,22 @@ namespace blst
         if (ctx->ctrl & AGGR_MIN_PK)
             return BLST_AGGR_TYPE_MISMATCH;
 
+        const bool aggregate_signature = sig != NULL && !G1AffinePoint::is_inf(*sig);
+        G1Point signature_point;
+        if (aggregate_signature) {
+            point_from_affine(signature_point, *sig);
+            if (sig_groupcheck && !G1Point::in_subgroup(signature_point))
+                return BLST_POINT_NOT_IN_GROUP;
+        }
+
+        if (PK != NULL) {
+            if (G2AffinePoint::is_inf(*PK))
+                return BLST_PK_IS_INFINITY;
+            if (pk_groupcheck && !G2AffinePoint::in_subgroup(*PK))
+                return BLST_POINT_NOT_IN_GROUP;
+        }
+
+        /* All fallible validation is complete before context publication. */
         ctx->ctrl |= AGGR_MIN_SIG;
 
         /*
@@ -148,19 +169,13 @@ namespace blst
          * count on the corresponding infinite public key to be rejected,
          * in case the signature is non-aggregated that is.
          */
-        if (sig != NULL && !G1AffinePoint::is_inf(*sig)) {
+        if (aggregate_signature) {
             G1Point& S = ctx->AggrSign.e1;
-            G1Point P;
-
-            point_from_affine(P, *sig);
-
-            if (sig_groupcheck && !G1Point::in_subgroup(P))
-                return BLST_POINT_NOT_IN_GROUP;
 
             if (ctx->ctrl & AGGR_SIGN_SET) {
                 if (nbits != 0 && scalar != NULL) {
-                    G1Point::mult_vartime(P, P, scalar, nbits);
-                    G1Point::dadd(S, S, P);
+                    G1Point::mult_vartime(signature_point, signature_point, scalar, nbits);
+                    G1Point::dadd(S, S, signature_point);
                 }
                 else {
                     G1Point::dadd(S, S, *sig);
@@ -169,9 +184,9 @@ namespace blst
             else {
                 ctx->ctrl |= AGGR_SIGN_SET;
                 if (nbits != 0 && scalar != NULL)
-                    G1Point::mult_vartime(S, P, scalar, nbits);
+                    G1Point::mult_vartime(S, signature_point, scalar, nbits);
                 else
-                    S = P;
+                    S = signature_point;
             }
         }
 
@@ -179,20 +194,6 @@ namespace blst
             unsigned int n;
             G1Point H;
             const void* DST = pairing_get_dst(ctx);
-
-            /*
-             * Reject infinite public keys.
-             */
-            if (G2AffinePoint::is_inf(*PK))
-                return BLST_PK_IS_INFINITY;
-
-            if (pk_groupcheck) {
-                G2Point P;
-
-                point_from_affine(P, *PK);
-                if (!G2Point::in_subgroup(P))
-                    return BLST_POINT_NOT_IN_GROUP;
-            }
 
             if (ctx->ctrl & AGGR_HASH_OR_ENCODE)
                 Hash_to_curve(H,
@@ -211,7 +212,7 @@ namespace blst
             n = ctx->nelems;
             ctx->Q[n] = *PK;
             ctx->P[n] = point_to_affine<G1AffinePoint>(H);
-            if (++n == N_MAX) {
+            if (++n == kPairingBatchCapacity) {
                 if (ctx->ctrl & AGGR_GT_SET) {
                     MillerResult gt;
                     GT::miller_loop_n(gt, ctx->Q, ctx->P, n);
@@ -297,6 +298,22 @@ namespace blst
         if (ctx->ctrl & AGGR_MIN_SIG)
             return BLST_AGGR_TYPE_MISMATCH;
 
+        const bool aggregate_signature = sig != NULL && !G2AffinePoint::is_inf(*sig);
+        G2Point signature_point;
+        if (aggregate_signature) {
+            point_from_affine(signature_point, *sig);
+            if (sig_groupcheck && !G2Point::in_subgroup(signature_point))
+                return BLST_POINT_NOT_IN_GROUP;
+        }
+
+        if (PK != NULL) {
+            if (G1AffinePoint::is_inf(*PK))
+                return BLST_PK_IS_INFINITY;
+            if (pk_groupcheck && !G1AffinePoint::in_subgroup(*PK))
+                return BLST_POINT_NOT_IN_GROUP;
+        }
+
+        /* All fallible validation is complete before context publication. */
         ctx->ctrl |= AGGR_MIN_PK;
 
         /*
@@ -305,19 +322,13 @@ namespace blst
          * count on the corresponding infinite public key to be rejected,
          * in case the signature is non-aggregated that is.
          */
-        if (sig != NULL && !G2AffinePoint::is_inf(*sig)) {
+        if (aggregate_signature) {
             G2Point& S = ctx->AggrSign.e2;
-            G2Point P;
-
-            point_from_affine(P, *sig);
-
-            if (sig_groupcheck && !G2Point::in_subgroup(P))
-                return BLST_POINT_NOT_IN_GROUP;
 
             if (ctx->ctrl & AGGR_SIGN_SET) {
                 if (nbits != 0 && scalar != NULL) {
-                    G2Point::mult_vartime(P, P, scalar, nbits);
-                    G2Point::dadd(S, S, P);
+                    G2Point::mult_vartime(signature_point, signature_point, scalar, nbits);
+                    G2Point::dadd(S, S, signature_point);
                 }
                 else {
                     G2Point::dadd(S, S, *sig);
@@ -326,9 +337,9 @@ namespace blst
             else {
                 ctx->ctrl |= AGGR_SIGN_SET;
                 if (nbits != 0 && scalar != NULL)
-                    G2Point::mult_vartime(S, P, scalar, nbits);
+                    G2Point::mult_vartime(S, signature_point, scalar, nbits);
                 else
-                    S = P;
+                    S = signature_point;
             }
         }
 
@@ -337,20 +348,6 @@ namespace blst
             G2Point H;
             G1Point pk;
             const void* DST = pairing_get_dst(ctx);
-
-            /*
-             * Reject infinite public keys.
-             */
-            if (G1AffinePoint::is_inf(*PK))
-                return BLST_PK_IS_INFINITY;
-
-            if (pk_groupcheck) {
-                G1Point P;
-
-                point_from_affine(P, *PK);
-                if (!G1Point::in_subgroup(P))
-                    return BLST_POINT_NOT_IN_GROUP;
-            }
 
             if (ctx->ctrl & AGGR_HASH_OR_ENCODE)
                 Hash_to_curve(H,
@@ -374,7 +371,7 @@ namespace blst
             n = ctx->nelems;
             ctx->Q[n] = point_to_affine<G2AffinePoint>(H);
             ctx->P[n] = *PK;
-            if (++n == N_MAX) {
+            if (++n == kPairingBatchCapacity) {
                 if (ctx->ctrl & AGGR_GT_SET) {
                     MillerResult gt;
                     GT::miller_loop_n(gt, ctx->Q, ctx->P, n);
@@ -470,18 +467,18 @@ namespace blst
 
     BLST_HD BLST_ERROR blst_pairing_merge(PAIRING* ctx, const PAIRING* ctx1)
     {
-        if ((ctx->ctrl & MIN_SIG_OR_PK) != AGGR_UNDEFINED
-            && (ctx1->ctrl & MIN_SIG_OR_PK) != AGGR_UNDEFINED
-            && (ctx->ctrl & ctx1->ctrl & MIN_SIG_OR_PK) == 0)
+        if ((ctx->ctrl & kMinSigOrPk) != AGGR_UNDEFINED
+            && (ctx1->ctrl & kMinSigOrPk) != AGGR_UNDEFINED
+            && (ctx->ctrl & ctx1->ctrl & kMinSigOrPk) == 0)
             return BLST_AGGR_TYPE_MISMATCH;
 
         /* context producers are expected to have called blst_pairing_commit */
         if (ctx->nelems || ctx1->nelems)
             return BLST_AGGR_TYPE_MISMATCH;
 
-        ctx->ctrl |= ctx1->ctrl & MIN_SIG_OR_PK;
+        ctx->ctrl |= ctx1->ctrl & kMinSigOrPk;
 
-        switch (ctx->ctrl & MIN_SIG_OR_PK) {
+        switch (ctx->ctrl & kMinSigOrPk) {
         case AGGR_MIN_SIG:
             if (ctx->ctrl & ctx1->ctrl & AGGR_SIGN_SET) {
                 G1Point::dadd(ctx->AggrSign.e1, ctx->AggrSign.e1,
@@ -530,7 +527,7 @@ namespace blst
             miller_from_fp12_boundary(gt, *GTsig);
         }
         else if (ctx->ctrl & AGGR_SIGN_SET) {
-            switch (ctx->ctrl & MIN_SIG_OR_PK) {
+            switch (ctx->ctrl & kMinSigOrPk) {
             case AGGR_MIN_SIG:
             {
                 const G2AffinePoint& g2 = G2AffinePoint::generator();
@@ -592,7 +589,7 @@ namespace blst
         n = ctx->nelems;
         ctx->Q[n] = *q;
         ctx->P[n] = *p;
-        if (++n == N_MAX) {
+        if (++n == kPairingBatchCapacity) {
             if (ctx->ctrl & AGGR_GT_SET) {
                 MillerResult gt;
                 GT::miller_loop_n(gt, ctx->Q, ctx->P, n);
@@ -607,17 +604,13 @@ namespace blst
         ctx->nelems = n;
     }
 
-    BLST_HD Fp12 blst_pairing_as_fp12(PAIRING* ctx)
+    BLST_HD void blst_pairing_get_miller_result(Fp12* out, PAIRING* ctx)
     {
         PAIRING_Commit(ctx);
-        Fp12 out = {};
-        fp12_from_miller_boundary(out, ctx->gt);
-        return out;
-    }
-
-    BLST_HD void blst_pairing_as_fp12_to(Fp12* out, PAIRING* ctx)
-    {
-        *out = blst_pairing_as_fp12(ctx);
+        if (ctx->ctrl & AGGR_GT_SET)
+            fp12_from_miller_boundary(*out, ctx->gt);
+        else
+            *out = Fp12::one();
     }
 
     /*
@@ -641,8 +634,7 @@ namespace blst
             return ret;
 
         if (G1AffinePoint::is_inf(affine)) {
-            if (in == NULL)
-                out = G1Point::identity();
+            out = in == NULL ? G1Point::identity() : *in;
             return BLST_SUCCESS;
         }
 
@@ -672,8 +664,7 @@ namespace blst
             return ret;
 
         if (G2AffinePoint::is_inf(affine)) {
-            if (in == NULL)
-                out = G2Point::identity();
+            out = in == NULL ? G2Point::identity() : *in;
             return BLST_SUCCESS;
         }
 

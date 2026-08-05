@@ -219,7 +219,7 @@ EXPORTS
 	blst_p1_unchecked_mult
 	blst_p2_unchecked_mult
 	blst_pairing_raw_aggregate
-	blst_pairing_as_fp12
+	blst_pairing_get_miller_result
 	blst_bendian_from_fp12
 	blst_keygen_v3
 	blst_keygen_v4_5

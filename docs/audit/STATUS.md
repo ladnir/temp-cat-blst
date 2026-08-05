@@ -397,8 +397,12 @@ wrapper securely erases its local context. Key generation is complete at
 `f36e35b`: HMAC storage has a valid C++ lifetime, RFC HMAC/HKDF and all retained
 version contracts have direct evidence, internal helpers no longer leak, and
 complete secret scratch erasure remains in optimized output. Continue Phase 15
-with `blst/sign/aggregate.cpp` and `aggregate.h`. Keep
-`AUD-085` as the next
+with the aggregate packet now under final validation: the state machine is
+documented, empty export and infinity accumulation are defined, rejected items
+are failure-atomic, relocatable DST state has no invented pointer, and safe
+Rust uses sealed compile-time G1/G2 orientation instead of `dyn Any`. The
+low-level accumulator export is intentionally renamed to the allocation-free
+out-parameter `blst_pairing_get_miller_result`. Keep `AUD-085` as the next
 explicit design decision when the GT decoder surface is reviewed. Coverage
 remains a late audit/release metric by user decision; sanitizer, fuzz, and
 static-analysis work still accompanies subsystem review. Expand analyzers,

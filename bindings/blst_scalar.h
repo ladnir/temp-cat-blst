@@ -634,7 +634,40 @@ BLST_ERROR blst_p2_deserialize(blst_p2_affine* out, const blst_byte in[192]);
  *   layout, the caller owns one allocation containing `[ctx | DST]`.
  * - `blst_pairing_get_dst()` returns the active borrowed DST pointer; its
  *   lifetime is governed by the preceding ownership rule.
- * - `msg` and `aug` are byte strings of the supplied lengths.
+ * - A context has one orientation: PK-in-G1 with signatures in G2, or PK-in-G2
+ *   with signatures in G1. Mixing orientations returns
+ *   `BLST_AGGR_TYPE_MISMATCH` without changing the context.
+ * - The ordinary aggregate entry points fully check a non-infinite signature,
+ *   reject an infinite PK, and assume the PK was previously subgroup-checked.
+ *   The `chk_n` variants let callers independently request both subgroup
+ *   checks; a false flag transfers that precondition to the caller.
+ * - `PK` and `signature` are independently nullable. A null PK contributes
+ *   only the signature; a null signature contributes only the PK/message
+ *   pairing. Supplying neither selects the orientation but adds no value.
+ * - `msg`, `aug`, and `DST` may be null exactly when their supplied length is
+ *   zero. The context borrows rather than copies these byte strings.
+ * - Call `blst_pairing_commit()` before final verification or merging. More
+ *   items may be aggregated after a commit and committed again. Both inputs
+ *   to `blst_pairing_merge()` must already have no pending pairs.
+ * - Every `BLST_ERROR` aggregate operation is failure-atomic: a non-success
+ *   result leaves the context unchanged.
+ * - Pairing contexts are not internally synchronized. Parallel callers use
+ *   one context per worker, commit each, and merge them afterward.
+ * - These operations allocate no memory and do not throw across the C ABI.
+ *
+ * Normal flow for PKs in G1 and signatures in G2:
+ *
+ *     init(ctx, mode, DST)
+ *       -> aggregate_pk_in_g1(ctx, pk[0], aggregate_sig, msg[0], ...)
+ *       -> aggregate_pk_in_g1(ctx, pk[1], NULL,          msg[1], ...)
+ *       -> commit(ctx)
+ *       -> finalverify(ctx, NULL)
+ *
+ * To aggregate signatures separately, pass null signatures while accumulating
+ * PK/message pairs, obtain a signature Miller contribution with the matching
+ * G1/G2 helper, then pass it to final verification.
+ * Raw pair aggregation and the Miller-result getter form the expert path for
+ * constructing and exporting custom Miller products.
  */
 /**
  * Computes a Miller loop from affine `(Q, P)` inputs and writes a Miller-loop
@@ -663,49 +696,72 @@ void blst_miller_loop_lines(blst_fp12* ret, const blst_fp6 Qlines[68], const bls
 size_t blst_pairing_sizeof(void);
 /** Returns the required alignment for `blst_pairing` storage. */
 size_t blst_pairing_alignof(void);
-/** Initializes caller-owned `blst_pairing` storage with the given DST and hash/encode mode. */
+/**
+ * Initializes caller-owned, correctly sized and aligned pairing storage.
+ * `hash_or_encode == true` selects hash-to-curve; false selects encode-to-curve.
+ * Reinitialization discards all prior logical state.
+ */
 void blst_pairing_init(blst_pairing* new_ctx, bool hash_or_encode, const blst_byte* DST, size_t DST_len);
 /** Returns the borrowed DST pointer currently stored in `ctx`. */
 const blst_byte* blst_pairing_get_dst(const blst_pairing* ctx);
-/** Finalizes pending work in `ctx` before merge or verification. */
+/** Flushes the pending batch into the context's Miller product; idempotent when no pairs are pending. */
 void blst_pairing_commit(blst_pairing* ctx);
-/** Returns the current pairing accumulator as a Miller-loop value in `blst_fp12` storage. */
-blst_fp12 blst_pairing_as_fp12(blst_pairing* ctx);
-/** Writes the current Miller-loop accumulator into caller-owned `blst_fp12` storage. */
-void blst_pairing_as_fp12_to(blst_fp12* out, blst_pairing* ctx);
-/** Aggregates one raw affine `(q, p)` pair into the pairing context. */
+/**
+ * Commits pending pairs and writes the accumulated Miller-loop product to
+ * caller-owned `blst_fp12` storage. This is not a GT element. An empty context
+ * produces the Fp12 multiplicative identity. `out` must not overlap `ctx`.
+ */
+void blst_pairing_get_miller_result(blst_fp12* out, blst_pairing* ctx);
+/**
+ * Queues one trusted affine `(G2 q, G1 p)` pair without curve or subgroup
+ * validation. Either infinity contributes the Miller identity. This does not
+ * establish a PK/signature orientation.
+ */
 void blst_pairing_raw_aggregate(blst_pairing* ctx, const blst_p2_affine* q, const blst_p1_affine* p);
-/** Aggregates one PK-in-G2 signature verification item into `ctx`. */
+/**
+ * Adds a PK-in-G2 verification item. A nonnull signature is fully subgroup
+ * checked; a nonnull PK must already be a subgroup point and cannot be
+ * infinity. Failure leaves `ctx` unchanged.
+ */
 BLST_ERROR blst_pairing_aggregate_pk_in_g2(blst_pairing* ctx, const blst_p2_affine* PK, const blst_p1_affine* signature, const blst_byte* msg, size_t msg_len, const blst_byte* aug, size_t aug_len);
-/** Aggregates one PK-in-G2 verification item with optional subgroup checks. */
+/** Adds a PK-in-G2 item with independently selected PK and signature subgroup checks; false flags require caller-established subgroup membership. */
 BLST_ERROR blst_pairing_chk_n_aggr_pk_in_g2(blst_pairing* ctx, const blst_p2_affine* PK, bool pk_grpchk, const blst_p1_affine* signature, bool sig_grpchk, const blst_byte* msg, size_t msg_len, const blst_byte* aug, size_t aug_len);
-/** Aggregates one PK-in-G2 item weighted by at most 256 scalar bits; malformed scalar arguments return `BLST_BAD_SCALAR`. */
+/** Aggregates one PK-in-G2 item with a public, variable-time weight of at most 256 little-endian bits; malformed scalar arguments return `BLST_BAD_SCALAR` without mutation. */
 BLST_ERROR blst_pairing_mul_n_aggregate_pk_in_g2(blst_pairing* ctx, const blst_p2_affine* PK, const blst_p1_affine* sig, const blst_byte* scalar, size_t nbits, const blst_byte* msg, size_t msg_len, const blst_byte* aug, size_t aug_len);
-/** Aggregates one weighted PK-in-G2 item with optional subgroup checks; malformed scalar arguments return `BLST_BAD_SCALAR`. */
+/** Adds a weighted PK-in-G2 item with explicit subgroup-check policy; the public scalar is reduced modulo r and malformed shape leaves `ctx` unchanged. */
 BLST_ERROR blst_pairing_chk_n_mul_n_aggr_pk_in_g2(blst_pairing* ctx, const blst_p2_affine* PK, bool pk_grpchk, const blst_p1_affine* sig, bool sig_grpchk, const blst_byte* scalar, size_t nbits, const blst_byte* msg, size_t msg_len, const blst_byte* aug, size_t aug_len);
-/** Aggregates one PK-in-G1 signature verification item into `ctx`. */
+/**
+ * Adds a PK-in-G1 verification item. A nonnull signature is fully subgroup
+ * checked; a nonnull PK must already be a subgroup point and cannot be
+ * infinity. Failure leaves `ctx` unchanged.
+ */
 BLST_ERROR blst_pairing_aggregate_pk_in_g1(blst_pairing* ctx, const blst_p1_affine* PK, const blst_p2_affine* signature, const blst_byte* msg, size_t msg_len, const blst_byte* aug, size_t aug_len);
-/** Aggregates one PK-in-G1 verification item with optional subgroup checks. */
+/** Adds a PK-in-G1 item with independently selected PK and signature subgroup checks; false flags require caller-established subgroup membership. */
 BLST_ERROR blst_pairing_chk_n_aggr_pk_in_g1(blst_pairing* ctx, const blst_p1_affine* PK, bool pk_grpchk, const blst_p2_affine* signature, bool sig_grpchk, const blst_byte* msg, size_t msg_len, const blst_byte* aug, size_t aug_len);
-/** Aggregates one PK-in-G1 item weighted by at most 256 scalar bits; malformed scalar arguments return `BLST_BAD_SCALAR`. */
+/** Aggregates one PK-in-G1 item with a public, variable-time weight of at most 256 little-endian bits; malformed scalar arguments return `BLST_BAD_SCALAR` without mutation. */
 BLST_ERROR blst_pairing_mul_n_aggregate_pk_in_g1(blst_pairing* ctx, const blst_p1_affine* PK, const blst_p2_affine* sig, const blst_byte* scalar, size_t nbits, const blst_byte* msg, size_t msg_len, const blst_byte* aug, size_t aug_len);
-/** Aggregates one weighted PK-in-G1 item with optional subgroup checks; malformed scalar arguments return `BLST_BAD_SCALAR`. */
+/** Adds a weighted PK-in-G1 item with explicit subgroup-check policy; the public scalar is reduced modulo r and malformed shape leaves `ctx` unchanged. */
 BLST_ERROR blst_pairing_chk_n_mul_n_aggr_pk_in_g1(blst_pairing* ctx, const blst_p1_affine* PK, bool pk_grpchk, const blst_p2_affine* sig, bool sig_grpchk, const blst_byte* scalar, size_t nbits, const blst_byte* msg, size_t msg_len, const blst_byte* aug, size_t aug_len);
-/** Merges `ctx1` into `ctx`; both contexts must be compatible. */
+/** Merges committed `ctx1` into committed `ctx`; orientations must match when both are defined, `ctx1` is unchanged, and failure leaves `ctx` unchanged. */
 BLST_ERROR blst_pairing_merge(blst_pairing* ctx, const blst_pairing* ctx1);
-/** Returns `true` when `ctx` verifies against `gtsig`, or against the identity when `gtsig` is null. */
+/**
+ * Verifies a committed context. A nonnull `gtsig` is a trusted external Miller
+ * contribution in `blst_fp12` storage. When it is null, the internally
+ * aggregated signature is used, or the Miller identity if every supplied
+ * signature was infinity. An empty PK/message product returns false.
+ */
 bool blst_pairing_finalverify(const blst_pairing* ctx, const blst_fp12* gtsig);
-/** Aggregates one encoded or explicit G1 signature contribution into `out`. */
+/** Decodes and subgroup-checks one wire-format G1 contribution, adding it to optional `in`; exact `out == in` aliasing is supported, infinity preserves `in`, and failure leaves `out` unchanged. */
 BLST_ERROR blst_aggregate_in_g1(blst_p1* out, const blst_p1* in, const blst_byte* zwire);
-/** Aggregates one encoded or explicit G2 signature contribution into `out`. */
+/** Decodes and subgroup-checks one wire-format G2 contribution, adding it to optional `in`; exact `out == in` aliasing is supported, infinity preserves `in`, and failure leaves `out` unchanged. */
 BLST_ERROR blst_aggregate_in_g2(blst_p2* out, const blst_p2* in, const blst_byte* zwire);
-/** Computes the pairing-side aggregate value for a G1 affine signature. */
+/** Computes the pre-final Miller contribution for a previously validated affine G1 subgroup signature. */
 void blst_aggregated_in_g1(blst_fp12* out, const blst_p1_affine* signature);
-/** Computes the pairing-side aggregate value for a G2 affine signature. */
+/** Computes the pre-final Miller contribution for a previously validated affine G2 subgroup signature. */
 void blst_aggregated_in_g2(blst_fp12* out, const blst_p2_affine* signature);
-/** Verifies one PK-in-G1 signature against `msg`, `DST`, and optional `aug`. */
+/** One-shot PK-in-G1 verification that rejects an infinite PK, fully checks both subgroup operands, and returns `BLST_VERIFY_FAIL` only when the final pairing equation fails. */
 BLST_ERROR blst_core_verify_pk_in_g1(const blst_p1_affine* pk, const blst_p2_affine* signature, bool hash_or_encode, const blst_byte* msg, size_t msg_len, const blst_byte* DST, size_t DST_len, const blst_byte* aug, size_t aug_len);
-/** Verifies one PK-in-G2 signature against `msg`, `DST`, and optional `aug`. */
+/** One-shot PK-in-G2 verification that rejects an infinite PK, fully checks both subgroup operands, and returns `BLST_VERIFY_FAIL` only when the final pairing equation fails. */
 BLST_ERROR blst_core_verify_pk_in_g2(const blst_p2_affine* pk, const blst_p1_affine* signature, bool hash_or_encode, const blst_byte* msg, size_t msg_len, const blst_byte* DST, size_t DST_len, const blst_byte* aug, size_t aug_len);
 
 /**
