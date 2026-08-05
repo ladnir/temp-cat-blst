@@ -362,7 +362,7 @@ Upstream progress:
   validation are completed;
 - 0 remain pending.
 
-Findings: 109 total: 81 validated, 16 fixed pending final evidence, three accepted
+Findings: 113 total: 85 validated, 16 fixed pending final evidence, three accepted
 risks, five need a design decision, and four remain open. `AUD-035` is validated with preserved
 allocated/caller-table/precomputed modes and 10/10 focused MSVC Release, Linux
 ASan, and Linux UBSan tests. `AUD-036` is validated on native
@@ -378,9 +378,11 @@ Do not touch BTx/BTE, and do not include experimental CUDA, non-Apple ARM64, or
 CHERI in the primary production-readiness gate. Apple Silicon macOS remains in
 the supported scalar release matrix. `point.h` and `point.cpp` are complete at
 `07d79a48`; `AUD-096` accepts the inherited narrow unsuffixed-add contract with
-the complete `add_or_double`/`dadd` alternative documented. Continue Phase 15
-with `bulk_addition.h`, first resolving the zero-copy object-lifetime design in
-`AUD-109`, and then review `multi_scalar.h`/`.cpp`. Keep `AUD-085` as the next
+the complete `add_or_double`/`dadd` alternative documented. Scalar and selected
+bulk-addition headers are complete at `bd45afa`; `AUD-109` through `AUD-112`
+are validated. Continue Phase 15 with `multi_scalar.h`/`.cpp`, beginning with
+the recorded 144 KiB dynamic-stack budget in `AUD-113` and the native
+fixed-table allocation/sizing/error paths. Keep `AUD-085` as the next
 explicit design decision when the GT decoder surface is reviewed. Coverage
 remains a late audit/release metric by user decision; sanitizer, fuzz, and
 static-analysis work still accompanies subsystem review. Expand analyzers,

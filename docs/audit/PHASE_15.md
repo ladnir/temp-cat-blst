@@ -38,9 +38,9 @@ lineage.
 - `AUD-096` is accepted under the inherited API: unsuffixed `add` is the fast
   incomplete formula for finite distinct, nonopposite points, while
   `add_or_double`/`dadd` is the complete operation for equality or opposites.
-- `AUD-109` remains open in the pending `bulk_addition.h` review. Its scratch
-  accumulator casts live projective scratch objects to affine references and
-  needs a zero-copy, code-generation-reviewed redesign.
+- `AUD-109` was opened for the then-pending `bulk_addition.h` review. Its
+  zero-copy, code-generation-reviewed resolution is recorded in the next
+  packet below.
 
 ### Validation
 
@@ -61,13 +61,64 @@ constant address and the serialization rewrite preserves the prior call/frame
 shape. No full suite, CUDA, BTx/BTE, Apple CI, or portable-AVX Release build was
 run.
 
+## Scalar bulk-addition review
+
+The second complete file packet reviewed
+`blst/scalar/curve/bulk_addition.h` and its selected wrapper at commit
+`bd45afa58630e7d235d4bbe048e8fc88bc5d5a09`. Supported fixed-table MSM and
+C/Rust callers were traced far enough to repair their scratch and routing
+boundaries without declaring the larger MSM files reviewed.
+
+### Findings and decisions
+
+- `AUD-109` replaces projective-prefix casts with `BatchAffineNode<Field>`, a
+  real affine subobject followed by field workspace. Static assertions pin its
+  size, alignment, offsets, trivial lifetime, and limb-storage compatibility.
+- Raw C fixed-table scratch is treated as storage: each node lifetime begins at
+  its byte offset before gather, and the index-based accumulator never assumes
+  that separately constructed objects form a C++ array.
+- `AUD-110` restores public C and safe Rust batch-add routing. The scalar batch
+  path starts at 16 public points; smaller inputs remain complete serial adds.
+- `AUD-111` replaces unchecked allocation with one nonthrowing allocation
+  capped at 144 KiB. Failure uses complete serial addition, so the legacy void
+  C boundary cannot throw, publish a partial result, or silently return the
+  identity.
+- `AUD-112` confines internal tree helpers to `scalar::detail`, prefixes the
+  two scratch-limit macros, and replaces the generic scratch-size macro with a
+  typed constexpr helper.
+- `AUD-113` records—but does not change—the separate fixed-table precompute
+  `alloca` in `multi_scalar.cpp`. Its 144 KiB normal bound (45 KiB in the
+  retained WebAssembly branch) requires an explicit stack-budget decision in
+  that file's review.
+
+### Validation
+
+- MSVC 19.50 scalar Debug and Release focused executions pass 11/11.
+- G1/G2 coverage includes 0/1/15/16/17 points, exact batch and 144 KiB chunk
+  boundaries, equality, opposites, infinity, explicit and compact pointers,
+  invalid heads, and injected allocation failure against complete serial
+  oracles.
+- A raw `blst_limb_t` fixed-table C regression proves that typed lifetimes are
+  established in caller-owned scratch and matches individual multiplication.
+- Optimized MSVC inspection shows no construction stores, affine conversion,
+  or extra x/y copy. The accumulator uses direct 144-byte G1 and 288-byte G2
+  addressing; the public wrapper performs one checked allocation and branches
+  directly to the serial helper on failure.
+- Structural checks find no projective-to-affine scratch cast, unprefixed
+  scratch macro, or public re-export of the tree helpers.
+
+No benchmark was run: the layout/copy/code-generation structure is preserved,
+and benchmark execution remains permission-gated. No broad suite, sanitizer,
+CUDA, BTx/BTE, Apple CI, or portable-AVX Release build ran.
+
 ## Status and next action
 
-`point.h` and `point.cpp` are complete at the recorded commit. `GT.cpp` and the
-public C/Rust containing files remain pending except for their linked focused
-families.
+`point.h`, `point.cpp`, and scalar/selected bulk-addition headers are complete
+at their recorded commits. `GT.cpp` and the public C/Rust containing files
+remain pending except for their linked focused families.
 
-Next, review the performance-sensitive scalar accumulation/MSM files beginning
-with `bulk_addition.h`, resolving `AUD-109` before proceeding through
-`multi_scalar.h`/`.cpp`. Keep builds single-job and use the focused point/MSM
-targets; obtain approval before benchmarks or broad validation.
+Next, review `multi_scalar.h`/`.cpp`. Start with `AUD-113`, the native
+fixed-table dispatch's allocation/error paths, sizing overflow, raw scratch
+contracts, and every exposed helper before changing the established kernels.
+Keep builds single-job and use focused point/MSM targets; obtain approval before
+benchmarks or broad validation.
