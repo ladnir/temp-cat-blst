@@ -27,15 +27,6 @@ namespace blst::scalar
 
 	namespace detail
 	{
-
-#ifndef SCRATCH_LIMIT
-# ifdef __wasm__
-#  define SCRATCH_LIMIT (45 * 1024)
-# else
-		/* Performance with 144K scratch is within 1-2-3% from optimal */
-#  define SCRATCH_LIMIT (144 * 1024)
-# endif
-#endif
 		//Returns per - block batch size used in batched affine conversion(1536 for Fp, 768 for Fp2).
 		template<typename Field>
 		constexpr size_t block_stride()
@@ -320,7 +311,7 @@ namespace blst::scalar
 			rows_bytes <= static_cast<size_t>(-1) - sizeof(Field);
 		if (whole_rows_fit) {
 			rows_bytes += sizeof(Field);
-			whole_rows_fit = rows_bytes <= SCRATCH_LIMIT;
+			whole_rows_fit = rows_bytes <= BLST_SCALAR_MSM_SCRATCH_LIMIT;
 		}
 
 		if (whole_rows_fit) {
@@ -334,9 +325,9 @@ namespace blst::scalar
 			const Point<Field>* packed_rows[2];
 
 			static_assert(
-				SCRATCH_LIMIT >= 2 * sizeof(Point<Field>),
-				"SCRATCH_LIMIT must hold at least two projective points");
-			stride = SCRATCH_LIMIT / sizeof(Point<Field>);
+				BLST_SCALAR_MSM_SCRATCH_LIMIT >= 2 * sizeof(Point<Field>),
+				"BLST_SCALAR_MSM_SCRATCH_LIMIT must hold at least two projective points");
+			stride = BLST_SCALAR_MSM_SCRATCH_LIMIT / sizeof(Point<Field>);
 			stride -= stride % 2;
 			if (stride > nwin) {
 				stride = nwin;
@@ -397,7 +388,7 @@ namespace blst::scalar
 	//   represented in byte array of length (nbits+7)/8.
 	// @nbits number of bits in each scalar
 	// @scratch scratch space for staging gathers before accumulation;
-	//   suggested size is min(npoints, SCRATCH_SZ(Point<Field>)).
+	//   suggested size is min(npoints, fixed_table_scratch_capacity<Field>()).
 	template<typename Field>
 	BLST_HD BLST_CPP_INLINE void msm_mult_table(
 		Point<Field>& ret,
@@ -406,7 +397,7 @@ namespace blst::scalar
 		size_t npoints,
 		const byte* const scalars[],
 		const size_t nbits,
-		span<Point<Field>> scratch)
+		detail::BatchAffineWorkspace<Field> scratch)
 	{
 		if (!detail::valid_wbits(wbits) || npoints == 0 || scalars == nullptr ||
 			scalars[0] == nullptr || scratch.empty()) {
@@ -454,7 +445,7 @@ namespace blst::scalar
 
 		const AffinePoint<Field>* cur_table = table.data();
 		// scratch[0] = sign(wval) * table[0][index(wval)]
-		point_gather_booth_wbits<Field>(scratch[0], cur_table, wbits, wval);
+		point_gather_booth_wbits<Field>(scratch.start(0), cur_table, wbits, wval);
 		auto scratch_idx = 1ull;
 		cur_table += table_size;
 
@@ -464,15 +455,15 @@ namespace blst::scalar
 			for (; point_idx < npoints; point_idx++, scratch_idx++, cur_table += table_size) {
 				if (scratch_idx == scratch_cap)
 				{
-					points_accumulate<Field>(ret, scratch.data(), scratch_idx);
+					detail::points_accumulate<Field>(ret, scratch, scratch_idx);
 					scratch_idx = 0;
 				}
 				scalar = *scalar_s ? *scalar_s++ : scalar + nbytes;
 				wval = get_wval_limb(scalar, rem_bits - 1, cur_wbit + 1) & window_mask;
 				wval = booth_encode(wval, wbits);
-				point_gather_booth_wbits<Field>(scratch[scratch_idx], cur_table, wbits, wval);
+				point_gather_booth_wbits<Field>(scratch.start(scratch_idx), cur_table, wbits, wval);
 			}
-			points_accumulate<Field>(ret, scratch.data(), scratch_idx);
+			detail::points_accumulate<Field>(ret, scratch, scratch_idx);
 
 			for (size_t j = 0; j < wbits; j++)
 				Point<Field>::doubling(ret, ret);
@@ -491,15 +482,15 @@ namespace blst::scalar
 		for (; point_idx < npoints; point_idx++, scratch_idx++, cur_table += table_size) {
 			if (scratch_idx == scratch_cap)
 			{
-				points_accumulate<Field>(ret, scratch.data(), scratch_idx);
+				detail::points_accumulate<Field>(ret, scratch, scratch_idx);
 				scratch_idx = 0;
 			}
 			scalar = *scalar_s ? *scalar_s++ : scalar + nbytes;
 			wval = (get_wval_limb(scalar, 0, cur_wbit) << 1) & window_mask;
 			wval = booth_encode(wval, wbits);
-			point_gather_booth_wbits<Field>(scratch[scratch_idx], cur_table, wbits, wval);
+			point_gather_booth_wbits<Field>(scratch.start(scratch_idx), cur_table, wbits, wval);
 		}
-		points_accumulate<Field>(ret, scratch.data(), scratch_idx);
+		detail::points_accumulate<Field>(ret, scratch, scratch_idx);
 	}
 	template 		BLST_HD BLST_CPP_INLINE void msm_mult_table(
 		Point<Fp>& ret,
@@ -508,7 +499,7 @@ namespace blst::scalar
 		size_t npoints,
 		const byte* const scalars[],
 		const size_t nbits,
-		span<Point<Fp>> scratch);
+		detail::BatchAffineWorkspace<Fp> scratch);
 	template 		BLST_HD BLST_CPP_INLINE void msm_mult_table(
 		Point<Fp2>& ret,
 		span<const AffinePoint<Fp2>> table,
@@ -516,7 +507,7 @@ namespace blst::scalar
 		size_t npoints,
 		const byte* const scalars[],
 		const size_t nbits,
-		span<Point<Fp2>> scratch);
+		detail::BatchAffineWorkspace<Fp2> scratch);
 
 
 	// High->low running sum over buckets(xyzz form) : 

@@ -687,21 +687,6 @@ inline void c_api_points_tile_pippenger(
     c_api_point_integrate_buckets(ret, buckets, we.encode_size - 1);
 }
 
-template<typename Group, typename AffineGroup>
-inline void c_api_points_add(Group& out, const AffineGroup* const points[], size_t npoints)
-{
-    out = {};
-    if (npoints == 0 || !c_api_has_valid_array_head(points, npoints)) {
-        return;
-    }
-
-    const AffineGroup* point = nullptr;
-    for (size_t i = 0; i < npoints; ++i) {
-        point = *points ? *points++ : point + 1;
-        Group::dadd(out, out, *point);
-    }
-}
-
 } // namespace
 
 BLST_EXTERN_C_BEGIN_
@@ -1043,7 +1028,7 @@ void blst_p1s_add(BoundaryG1* ret, const BoundaryG1Affine* const points[], size_
         *ret = {};
         return;
     }
-    c_api_points_add(*ret, points, npoints);
+    blst::scalar::points_add<blst::Fp>(*ret, points, npoints);
 }
 
 size_t blst_p1s_mult_wbits_precompute_sizeof(size_t wbits, size_t npoints)
@@ -1085,13 +1070,13 @@ void blst_p1s_mult_wbits(
         return;
     }
 
-    using ScratchPoint = blst::scalar::Point<blst::Fp>;
-    const size_t scratch_len = blst::scalar::points_mult_wbits_scratch_sizeof<blst::Fp>(npoints) / sizeof(ScratchPoint);
+    using ScratchNode = blst::scalar::detail::BatchAffineNode<blst::Fp>;
+    const size_t scratch_len = blst::scalar::points_mult_wbits_scratch_sizeof<blst::Fp>(npoints) / sizeof(ScratchNode);
     const blst::scalar::span<const BoundaryG1Affine> table_span(table, npoints << (wbits - 1));
-    blst::scalar::span<ScratchPoint> scratch_span(
-        reinterpret_cast<ScratchPoint*>(scratch),
-        scratch == nullptr ? 0 : scratch_len);
-    blst::scalar::msm_mult_table<blst::Fp>(*ret, table_span, wbits, npoints, scalars, nbits, scratch_span);
+    blst::scalar::detail::BatchAffineWorkspace<blst::Fp> scratch_workspace(
+        scratch, scratch == nullptr ? 0 : scratch_len);
+    blst::scalar::msm_mult_table<blst::Fp>(
+        *ret, table_span, wbits, npoints, scalars, nbits, scratch_workspace);
 }
 
 size_t blst_p1s_mult_pippenger_scratch_sizeof(size_t npoints)
@@ -1475,7 +1460,7 @@ void blst_p2s_add(BoundaryG2* ret, const BoundaryG2Affine* const points[], size_
         *ret = {};
         return;
     }
-    c_api_points_add(*ret, points, npoints);
+    blst::scalar::points_add<blst::Fp2>(*ret, points, npoints);
 }
 
 size_t blst_p2s_mult_wbits_precompute_sizeof(size_t wbits, size_t npoints)
@@ -1517,13 +1502,13 @@ void blst_p2s_mult_wbits(
         return;
     }
 
-    using ScratchPoint = blst::scalar::Point<blst::Fp2>;
-    const size_t scratch_len = blst::scalar::points_mult_wbits_scratch_sizeof<blst::Fp2>(npoints) / sizeof(ScratchPoint);
+    using ScratchNode = blst::scalar::detail::BatchAffineNode<blst::Fp2>;
+    const size_t scratch_len = blst::scalar::points_mult_wbits_scratch_sizeof<blst::Fp2>(npoints) / sizeof(ScratchNode);
     const blst::scalar::span<const BoundaryG2Affine> table_span(table, npoints << (wbits - 1));
-    blst::scalar::span<ScratchPoint> scratch_span(
-        reinterpret_cast<ScratchPoint*>(scratch),
-        scratch == nullptr ? 0 : scratch_len);
-    blst::scalar::msm_mult_table<blst::Fp2>(*ret, table_span, wbits, npoints, scalars, nbits, scratch_span);
+    blst::scalar::detail::BatchAffineWorkspace<blst::Fp2> scratch_workspace(
+        scratch, scratch == nullptr ? 0 : scratch_len);
+    blst::scalar::msm_mult_table<blst::Fp2>(
+        *ret, table_span, wbits, npoints, scalars, nbits, scratch_workspace);
 }
 
 size_t blst_p2s_mult_pippenger_scratch_sizeof(size_t npoints)

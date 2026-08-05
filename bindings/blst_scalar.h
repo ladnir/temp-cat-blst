@@ -445,7 +445,7 @@ bool blst_p1_affine_is_inf(const blst_p1_affine* a);
 const blst_p1_affine* blst_p1_affine_generator(void);
 /** Batch-converts `npoints` projective G1 inputs into affine outputs; when `npoints > 0`, `points[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. */
 void blst_p1s_to_affine(blst_p1_affine dst[], const blst_p1* const points[], size_t npoints);
-/** Adds `npoints` affine G1 inputs and writes the total into `ret`; when `npoints > 0`, `points[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. */
+/** Variable-time addition of public affine G1 subgroup points. Writes the complete sum to `ret`; empty or invalid-head input writes infinity. When `npoints > 0`, `points[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. Exact output/input overlap is unsupported. A bounded internal allocation accelerates batches of at least 16 points; allocation failure transparently uses complete serial addition. */
 void blst_p1s_add(blst_p1* ret, const blst_p1_affine* const points[], size_t npoints);
 /** Returns the table size needed for G1 wbits precomputation, or 0 when `wbits` is outside the supported range `[2, 14]` or the size computation would overflow. */
 size_t blst_p1s_mult_wbits_precompute_sizeof(size_t wbits, size_t npoints);
@@ -556,7 +556,7 @@ bool blst_p2_affine_is_inf(const blst_p2_affine* a);
 const blst_p2_affine* blst_p2_affine_generator(void);
 /** Batch-converts `npoints` projective G2 inputs into affine outputs; when `npoints > 0`, `points[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. */
 void blst_p2s_to_affine(blst_p2_affine dst[], const blst_p2* const points[], size_t npoints);
-/** Adds `npoints` affine G2 inputs and writes the total into `ret`; when `npoints > 0`, `points[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. */
+/** Variable-time addition of public affine G2 subgroup points. Writes the complete sum to `ret`; empty or invalid-head input writes infinity. When `npoints > 0`, `points[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. Exact output/input overlap is unsupported. A bounded internal allocation accelerates batches of at least 16 points; allocation failure transparently uses complete serial addition. */
 void blst_p2s_add(blst_p2* ret, const blst_p2_affine* const points[], size_t npoints);
 /** Returns the table size needed for G2 wbits precomputation, or 0 when `wbits` is outside the supported range `[2, 14]` or the size computation would overflow. */
 size_t blst_p2s_mult_wbits_precompute_sizeof(size_t wbits, size_t npoints);

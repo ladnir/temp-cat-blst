@@ -9,8 +9,5 @@
 
 namespace blst
 {
-    using scalar::point_head;
-    using scalar::point_tail;
-    using scalar::points_accumulate;
     using scalar::points_add;
 }

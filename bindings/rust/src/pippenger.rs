@@ -95,6 +95,9 @@ macro_rules! pippenger_mult_impl {
             }
 
             #[inline]
+            /// Adds these public subgroup points with a variable-time batch
+            /// algorithm. Allocation failure inside the C boundary falls back
+            /// to complete serial addition and does not change the result.
             pub fn add(&self) -> $point {
                 self.as_slice().add()
             }
@@ -136,6 +139,8 @@ macro_rules! pippenger_mult_impl {
                 ret
             }
 
+            /// Adds these public subgroup points with variable-time work that
+            /// may depend on point values. Empty input returns the identity.
             fn add(&self) -> $point {
                 let npoints = self.len();
 

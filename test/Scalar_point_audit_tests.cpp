@@ -6,10 +6,13 @@
 
 #include <array>
 #include <cstring>
+#include <vector>
 
 #include <gtest/gtest.h>
 
 #include "blst/scalar/curve/point.h"
+#include "blst/scalar/curve/bulk_addition.h"
+#include "bindings/blst_scalar.h"
 
 namespace
 {
@@ -20,6 +23,94 @@ using blst::scalar::G1AffinePoint;
 using blst::scalar::G1Point;
 using blst::scalar::G2AffinePoint;
 using blst::scalar::G2Point;
+
+struct FailingBulkAllocator
+{
+    static void* allocate(size_t) noexcept { return nullptr; }
+    static void deallocate(void*) noexcept {}
+};
+
+template<typename Point>
+using AffineFor = blst::scalar::AffinePoint<typename Point::Field_type>;
+
+template<typename Point>
+std::vector<AffineFor<Point>> repeated_generator(size_t count)
+{
+    std::vector<AffineFor<Point>> points(count);
+    for (auto& point : points)
+        Point::to_affine(point, Point::generator());
+    return points;
+}
+
+template<typename Point>
+Point serial_sum(const std::vector<AffineFor<Point>>& points)
+{
+    Point sum = Point::infinity();
+    for (const auto& point : points)
+        Point::dadd(sum, sum, point);
+    return sum;
+}
+
+template<typename Point>
+void expect_compact_batch_sum(size_t count)
+{
+    using Field = typename Point::Field_type;
+    auto affine = repeated_generator<Point>(count);
+    const AffineFor<Point>* compact[] = {affine.data(), nullptr};
+    Point actual = {};
+    blst::scalar::points_add<Field>(actual, compact, affine.size());
+    EXPECT_TRUE(Point::equal(actual, serial_sum<Point>(affine)));
+}
+
+template<typename Point>
+void expect_bulk_boundaries()
+{
+    using Field = typename Point::Field_type;
+    using Node = blst::scalar::detail::BatchAffineNode<Field>;
+    constexpr size_t capacity = BLST_SCALAR_BULK_SCRATCH_LIMIT / sizeof(Node);
+
+    expect_compact_batch_sum<Point>(0);
+    expect_compact_batch_sum<Point>(1);
+    expect_compact_batch_sum<Point>(15);
+    expect_compact_batch_sum<Point>(16);
+    expect_compact_batch_sum<Point>(17);
+    expect_compact_batch_sum<Point>(capacity + 1);
+}
+
+template<typename Point>
+void expect_special_and_allocation_failure()
+{
+    using Field = typename Point::Field_type;
+    using Affine = AffineFor<Point>;
+
+    Affine generator;
+    Point::to_affine(generator, Point::generator());
+    Affine opposite = generator;
+    Affine::cneg(opposite, 1);
+    const Affine infinity = {};
+
+    std::vector<Affine> affine(17, generator);
+    affine[1] = generator; // equal-point case
+    affine[2] = opposite;  // opposite-point case
+    affine[3] = infinity;
+
+    std::vector<const Affine*> explicit_points;
+    explicit_points.reserve(affine.size());
+    for (const auto& point : affine)
+        explicit_points.push_back(&point);
+
+    const Point expected = serial_sum<Point>(affine);
+    Point batched = {};
+    blst::scalar::points_add<Field>(
+        batched, explicit_points.data(), explicit_points.size());
+    EXPECT_TRUE(Point::equal(batched, expected));
+
+    const Affine* compact[] = {affine.data(), nullptr};
+    Point fallback = {};
+    blst::scalar::points_add<Field, FailingBulkAllocator>(
+        fallback, compact, affine.size());
+    EXPECT_TRUE(Point::equal(fallback, expected));
+}
 
 bool fp2_equal(const blst::scalar::Fp2& a, const blst::scalar::Fp2& b)
 {
@@ -107,6 +198,86 @@ TEST(ScalarPointAudit, G2CompleteAdditionHandlesEqualAndOppositePoints)
     G2Point::cneg(opposite, 1);
     G2Point::dadd(complete, G2Point::generator(), opposite);
     EXPECT_TRUE(G2Point::is_inf(complete));
+}
+
+TEST(ScalarPointAudit, BatchAffineScratchPreservesTheProjectiveFootprint)
+{
+    using G1Node = blst::scalar::detail::BatchAffineNode<blst::scalar::Fp>;
+    using G2Node = blst::scalar::detail::BatchAffineNode<blst::scalar::Fp2>;
+    static_assert(sizeof(G1Node) == sizeof(G1Point));
+    static_assert(alignof(G1Node) == alignof(G1Point));
+    static_assert(sizeof(G2Node) == sizeof(G2Point));
+    static_assert(alignof(G2Node) == alignof(G2Point));
+    SUCCEED();
+}
+
+TEST(ScalarPointAudit, G1BulkAdditionCoversBatchAndChunkBoundaries)
+{
+    expect_bulk_boundaries<G1Point>();
+    expect_special_and_allocation_failure<G1Point>();
+}
+
+TEST(ScalarPointAudit, G2BulkAdditionCoversBatchAndChunkBoundaries)
+{
+    expect_bulk_boundaries<G2Point>();
+    expect_special_and_allocation_failure<G2Point>();
+}
+
+TEST(ScalarPointAudit, CBatchAdditionUsesCompactFormAndRejectsNullHead)
+{
+    auto g1 = repeated_generator<G1Point>(17);
+    const blst_p1_affine* g1_compact[] = {g1.data(), nullptr};
+    blst_p1 g1_sum = {};
+    blst_p1s_add(&g1_sum, g1_compact, g1.size());
+    EXPECT_TRUE(G1Point::equal(g1_sum, serial_sum<G1Point>(g1)));
+
+    const blst_p1_affine* invalid[] = {nullptr};
+    blst_p1s_add(&g1_sum, invalid, 1);
+    EXPECT_TRUE(G1Point::is_inf(g1_sum));
+
+    auto g2 = repeated_generator<G2Point>(17);
+    const blst_p2_affine* g2_compact[] = {g2.data(), nullptr};
+    blst_p2 g2_sum = {};
+    blst_p2s_add(&g2_sum, g2_compact, g2.size());
+    EXPECT_TRUE(G2Point::equal(g2_sum, serial_sum<G2Point>(g2)));
+
+    const blst_p2_affine* invalid_g2[] = {nullptr};
+    blst_p2s_add(&g2_sum, invalid_g2, 1);
+    EXPECT_TRUE(G2Point::is_inf(g2_sum));
+}
+
+TEST(ScalarPointAudit, CFixedTableMsmConstructsTypedScratchInRawStorage)
+{
+    constexpr size_t count = 17;
+    constexpr size_t wbits = 4;
+    auto affine = repeated_generator<G1Point>(count);
+    const blst_p1_affine* compact_points[] = {affine.data(), nullptr};
+
+    std::vector<blst_p1_affine> table(
+        blst_p1s_mult_wbits_precompute_sizeof(wbits, count) /
+        sizeof(blst_p1_affine));
+    blst_p1s_mult_wbits_precompute(
+        table.data(), wbits, compact_points, count);
+
+    std::array<byte, count> scalar_bytes = {};
+    G1Point expected = G1Point::infinity();
+    for (size_t i = 0; i < count; ++i) {
+        scalar_bytes[i] = static_cast<byte>(i + 1);
+        G1Point product = {};
+        G1Point::mult(product, G1Point::generator(), &scalar_bytes[i], 7);
+        G1Point::dadd(expected, expected, product);
+    }
+    const byte* compact_scalars[] = {scalar_bytes.data(), nullptr};
+
+    const size_t scratch_bytes = blst_p1s_mult_wbits_scratch_sizeof(count);
+    ASSERT_EQ(0u, scratch_bytes % sizeof(blst_limb_t));
+    std::vector<blst_limb_t> raw_scratch(
+        scratch_bytes / sizeof(blst_limb_t), ~blst_limb_t{0});
+    blst_p1 actual = {};
+    blst_p1s_mult_wbits(
+        &actual, table.data(), wbits, count, compact_scalars, 7,
+        raw_scratch.data());
+    EXPECT_TRUE(G1Point::equal(actual, expected));
 }
 
 TEST(ScalarPointAudit, FailedNativeG1DecodingLeavesOutputUnchanged)

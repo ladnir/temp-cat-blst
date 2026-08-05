@@ -790,7 +790,9 @@ TEST(G1PointTest, MsmTable) {
 	G1Point result;
 	size_t window_size = 5;
 	std::vector<AffinePoint<Fp>> table(n << (window_size - 1));
-	std::vector<Point<Fp>> scratch(std::min<u64>(n, SCRATCH_SZ(Point<Fp>)));
+	using ScratchNode = detail::BatchAffineNode<Fp>;
+	std::vector<ScratchNode> scratch(
+		std::min<u64>(n, fixed_table_scratch_capacity<Fp>()));
 
 	G1AffinePoint* pointParam[2] = { points, nullptr };
 	const byte* scalarParam[2] = { (u8*)scalars, nullptr };
@@ -799,7 +801,8 @@ TEST(G1PointTest, MsmTable) {
 
 	msm_precompute_wbits<Fp>(table.data(), window_size, pointParam, n);
 	msm_mult_table<Fp>(
-		result, table, window_size, n, scalarParam, 32 * 8, scratch);
+		result, table, window_size, n, scalarParam, 32 * 8,
+		detail::BatchAffineWorkspace<Fp>(scratch.data(), scratch.size()));
 
 	auto eq = G1Point::equal(result, expected);
 	if (!eq)

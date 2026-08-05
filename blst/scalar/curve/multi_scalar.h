@@ -19,6 +19,14 @@
 #endif
 namespace blst::scalar
 {
+#ifndef BLST_SCALAR_MSM_SCRATCH_LIMIT
+# ifdef __wasm__
+#  define BLST_SCALAR_MSM_SCRATCH_LIMIT (45 * 1024)
+# else
+#  define BLST_SCALAR_MSM_SCRATCH_LIMIT (144 * 1024)
+# endif
+#endif
+
 #ifdef __CUDACC__
 	template<typename T>
 	using span = cuda::std::span<T>;
@@ -136,8 +144,12 @@ namespace blst::scalar
 	* reusing the table it's faster than Pippenger algorithm for up ~32
 	* points [with wbits=5]...
 	*/
-
-#define SCRATCH_SZ(ptype) (sizeof(ptype)==sizeof(G1Point) ? 8192 : 4096)
+	template<typename Field>
+	BLST_HD BLST_INLINE constexpr size_t fixed_table_scratch_capacity()
+	{
+		static_assert(std::is_same_v<Field, Fp> || std::is_same_v<Field, Fp2>);
+		return std::is_same_v<Field, Fp> ? 8192 : 4096;
+	}
 
 		/* The intermediate infinity points are encoded as [0, 0, 1]. */
 
@@ -180,7 +192,7 @@ namespace blst::scalar
 	// affine entry from a row, applies sign, or infinity if zero.
 	template<typename Field>
 	BLST_HD BLST_INLINE void point_gather_booth_wbits(
-		Point<Field>& p,
+		detail::BatchAffineNode<Field>& node,
 		const AffinePoint<Field> row[],
 		size_t wbits, limb_t booth_encoding)
 	{
@@ -191,8 +203,8 @@ namespace blst::scalar
 		auto booth_idx = booth_encoding & (((limb_t)1 << wbits) - 1);
 		idx_is_zero = is_zero(booth_idx);
 		booth_idx -= 1 ^ idx_is_zero;
-		vec_select(&p, &infinity, &row[booth_idx], sizeof(row[0]), idx_is_zero);
-		Point<Field>::cneg(p, booth_sign);
+		vec_select(&node.point, &infinity, &row[booth_idx], sizeof(row[0]), idx_is_zero);
+		AffinePoint<Field>::cneg(node.point, booth_sign);
 	}
 
 
@@ -214,7 +226,7 @@ namespace blst::scalar
 	//   represented in byte array of length (nbits+7)/8.
 	// @nbits number of bits in each scalar
 	// @scratch scratch space for staging gathers before accumulation;
-	//   suggested size is min(npoints, SCRATCH_SZ(Point<Field>)).
+	//   suggested size is min(npoints, fixed_table_scratch_capacity<Field>()).
 	template<typename Field>
 	BLST_HD BLST_CPP_INLINE void msm_mult_table(
 		Point<Field>& ret,
@@ -223,14 +235,15 @@ namespace blst::scalar
 		size_t npoints,
 		const byte* const scalars[],
 		const size_t nbits,
-		span<Point<Field>> scratch);
+		detail::BatchAffineWorkspace<Field> scratch);
 
 	// Scratch size needed for the gather/accumulate staging.
 	template<typename Field>
 	BLST_HD BLST_INLINE size_t points_mult_wbits_scratch_sizeof(size_t npoints)
 	{
-		const size_t scratch_sz = SCRATCH_SZ(Point<Field>);
-		return sizeof(Point<Field>) * (npoints < scratch_sz ? npoints : scratch_sz);
+		using Node = detail::BatchAffineNode<Field>;
+		const size_t scratch_nodes = fixed_table_scratch_capacity<Field>();
+		return sizeof(Node) * (npoints < scratch_nodes ? npoints : scratch_nodes);
 	}
 
 
@@ -374,11 +387,11 @@ namespace blst::scalar
 			Point<Field>::from_affine(ret, *points[0]);
 			mult_window<Point<Field>, 5>(ret, ret, scalars[0], nbits);
 		}
-		else if ((npoints * sizeof(AffinePoint<Field>) * 8 * 3) <= SCRATCH_LIMIT &&
+		else if ((npoints * sizeof(AffinePoint<Field>) * 8 * 3) <= BLST_SCALAR_MSM_SCRATCH_LIMIT &&
 			npoints < 32) {
 			AffinePoint<Field>* table = (AffinePoint<Field>*)malloc(npoints * sizeof(AffinePoint<Field>) * 8);
 			msm_precompute_wbits<Field>(table, 4, points, npoints);
-			msm_mult_table<Field>(ret, table, 4, npoints, scalars, nbits, NULL);
+			msm_mult_table<Field>(ret, table, 4, npoints, scalars, nbits, {});
 			free(table);
 		}
 		else
