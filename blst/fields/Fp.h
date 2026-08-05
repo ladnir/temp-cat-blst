@@ -10,6 +10,12 @@
 
 namespace blst
 {
+	/**
+	 * @brief Main native C++ BLS12-381 base-field type.
+	 *
+	 * This is an exact alias of `scalar::Fp`; its representation, preconditions,
+	 * aliasing, and timing contracts are documented on that implementation type.
+	 */
 	using scalar::Fp;
 
 	using scalar::BLST_NEG_P_HOST;

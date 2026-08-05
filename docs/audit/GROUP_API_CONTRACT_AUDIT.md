@@ -86,14 +86,19 @@ The normal safe sequence for adversarial point bytes is:
 2. call the relevant complete `in_g*` predicate, or a higher-level validator;
 3. use subgroup-only arithmetic.
 
-This sequence is not consistently stated across C, C++, and Rust.
+This sequence is now stated for the focused low-level membership family. The
+high-level Rust decoding policy remains `AUD-094` and will be documented when
+those containing files receive their complete review.
 
 ### Point arithmetic and multiplication
 
 The scalar `Point::add` overloads use incomplete addition formulas requiring
 distinct, nonopposite finite inputs (with infinity handled). The C functions
 `blst_p1_add`, `blst_p2_add`, and their affine-add variants select those
-formulas, while the current C comments describe unrestricted addition.
+formulas. The C and native comments now state the current incomplete-formula
+preconditions and direct callers to `add_or_double` when equality is possible.
+`AUD-096` remains open only for the API-design decision whether the unsuffixed
+operation should instead select the complete formula.
 `add_or_double`, subtraction, and their corresponding complete paths handle
 equality/opposites.
 
@@ -137,8 +142,9 @@ can contain arbitrary Fp12 data.
 
 - General `fp12_mul`, `fp12_sqr`, equality, conversion, and Frobenius operations
   are valid for general Fp12.
-- `fp12_cyclotomic_sqr` requires a cyclotomic input but the C declaration does
-  not state that precondition.
+- `fp12_cyclotomic_sqr` requires a cyclotomic input. The C and native C++
+  declarations now state that precondition, state that Release does not
+  validate it, and direct general Fp12 callers to `fp12_sqr`.
 - GT subtraction/negation rely on conjugation as inversion, doubling may use a
   cyclotomic shortcut, and optimized exponentiation relies on order-r
   identities. These are GT-only operations with no Release membership check.
@@ -219,6 +225,12 @@ capability types. That can remain a valid design, but every operation must say
 whether it accepts the representation, on-curve, cyclotomic, or subgroup
 domain.
 
+Selected scalar and AVX `GT::cneg` implementations are constant-time for a
+zero-or-one condition bit (`AUD-103`). Scalar `cneg` constructs the conjugate
+unconditionally and uses the audited `ccopy`/`vec_select` primitive. The scalar
+variable-time MSM helper keeps its public signed-digit branch locally, avoiding
+a full conditional copy in that hot path without weakening the selected API.
+
 ## Rust surface
 
 The generated/raw Rust FFI mirrors C and is `unsafe`; its mathematical
@@ -257,12 +269,27 @@ and is not merely a mathematical precondition.
 | `AUD-093` | Public subgroup predicates were relation-only and did not establish on-curve. | validated |
 | `AUD-094` | Point decoders and Rust deserializers establish on-curve, not subgroup; contracts are not explicit. | needs decision |
 | `AUD-095` | AVX projective MSM changed point domain at one point and lacked an nbits bound. | validated |
-| `AUD-096` | C `add`/`add_affine` documentation omits incomplete-formula preconditions. | open |
+| `AUD-096` | Current incomplete-formula preconditions are documented; whether unsuffixed add should instead be complete remains open. | open |
 | `AUD-097` | Pairing validation is intentionally asymmetric but insufficiently documented; AVX pairing is raw despite its name. | needs decision |
 | `AUD-098` | Signing, weighted pairing, and AVX multiplication omit important subgroup/SK preconditions in public contracts. | needs decision |
 | `AUD-099` | GT is represented by unvalidated Fp12 storage while GT-only operations rely on hidden invariants. | needs decision |
-| `AUD-100` | C cyclotomic squaring does not state or validate its cyclotomic precondition. | open |
+| `AUD-100` | C cyclotomic squaring now states its cyclotomic precondition and lack of Release validation. | fixed |
 | `AUD-101` | Weighted pairing permitted oversized nbits into a fixed 32-byte scalar buffer; safe Rust could reach it. | validated |
+| `AUD-103` | Selected scalar/AVX GT conditional negation is constant-time across both backends. | validated |
+
+## Incremental public documentation control
+
+`PUBLIC_API_DOCUMENTATION.csv` tracks the declaration coverage of API families
+whose implementations have already received a complete or focused hand audit.
+It currently accounts for 14 field, scalar, group, and expert-AVX families
+across C, selected native C++, safe Rust, and generated raw Rust FFI.
+
+`scripts/audit/check_public_api_documentation.ps1` verifies every ledger source,
+anchor, scope, and disposition. Generated raw Rust declarations explicitly
+inherit the C contract; complete Rust generator/comment propagation remains a
+Phase 18 review item. Deferred entries do not claim that their containing file
+is audited. The per-file checklist now makes cross-language declaration
+documentation an audit completion gate.
 
 ## Remaining decision queue
 
@@ -278,7 +305,6 @@ The remaining questions require separate review:
    variants be named explicitly?
 3. Should signing/public-key C entry points remain precondition-only void APIs,
    or gain fallible validated variants?
-
 `AUD-101` was independent of those semantic choices and is remediated. Legacy
 void arithmetic APIs retain documented 256-bit preconditions, while the shared
 canonicalizer now prevents a violated precondition from becoming memory

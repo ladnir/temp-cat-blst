@@ -324,3 +324,24 @@ changed or audited. `C_api_tests.cpp` now includes the public umbrella header;
 its retained declarations are checked against that header by the compiler, and
 the keygen, EIP-2333, pairing, uniqueness-tree, and fixed-width call sites use
 the exact public types.
+
+## Incremental API documentation pass
+
+The audited field and focused group families now carry declaration-level
+contracts on the C, selected native C++, and safe Rust surfaces. The pass adds
+language-specific and audit-closure rules to `docs/API_CONTRACTS.md`, tracks 14
+families in `PUBLIC_API_DOCUMENTATION.csv`, and adds a build-free structural
+checker. Generated raw Rust FFI inherits the corresponding C contract and stays
+deferred to the Phase 18 generator review rather than receiving
+hand-maintained comments.
+
+The pass fixes the documentation portion of `AUD-100`, states the current
+incomplete-addition preconditions without closing the `AUD-096` design choice,
+and records `AUD-103`. Scalar GT conditional negation now matches the AVX
+backend's constant-time contract by selecting an unconditionally computed
+conjugate through the audited conditional-copy primitive. The scalar
+variable-time MSM helper retains its public signed-digit branch locally, so the
+API correction does not add a conditional-copy cost to that hot path.
+
+No ABI, generated binding, benchmark, CUDA, BTx, or runtime dispatch changed in
+this packet.

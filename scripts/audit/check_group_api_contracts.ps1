@@ -121,4 +121,33 @@ foreach ($pattern in $forbiddenApiPatterns) {
     }
 }
 
+# AUD-103: the selected scalar GT API promises secret-bit-safe conditional
+# negation. Keep the implementation tied to the audited branchless selection
+# primitive. The variable-time MSM path may retain its public-digit branch, but
+# it must do so locally rather than weakening GT::cneg's contract.
+$scalarGtText = Get-Content -Raw -LiteralPath (
+    Join-Path $RepositoryRoot "blst/scalar/curve/GT.h")
+$scalarCneg = [regex]::Match(
+    $scalarGtText,
+    '(?s)static\s+BLST_HD\s+void\s+cneg\s*\([^)]*\)\s*\{(?<body>.*?)\n\s*\}')
+if (-not $scalarCneg.Success) {
+    throw "Could not locate scalar GT::cneg for AUD-103 structural validation"
+}
+$scalarCnegBody = $scalarCneg.Groups['body'].Value
+if ($scalarCnegBody -match '\bif\s*\(' -or
+    $scalarCnegBody -notmatch '\bccopy\s*\(') {
+    throw "Scalar GT::cneg must use branchless ccopy and contain no condition branch"
+}
+
+$scalarMsmText = Get-Content -Raw -LiteralPath (
+    Join-Path $RepositoryRoot "blst/scalar/curve/multi_scalar.h")
+$scalarGtMsmHelper = [regex]::Match(
+    $scalarMsmText,
+    '(?s)msm_add_or_sub\s*\(GT&\s+out,.*?\n\s*\}')
+if (-not $scalarGtMsmHelper.Success -or
+    $scalarGtMsmHelper.Value -notmatch '\bif\s*\(subtract\)' -or
+    $scalarGtMsmHelper.Value -match 'GT::cneg') {
+    throw "Scalar variable-time GT MSM must retain its local public-digit branch"
+}
+
 Write-Output "Group API contract validation passed: $coveredCount public C symbols covered by $($rows.Count) disjoint contract families."

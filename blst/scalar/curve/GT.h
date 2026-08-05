@@ -12,6 +12,12 @@ namespace blst::scalar {
 	 * - Identity is Fp12::one()
 	 * - Doubling maps to cyclotomic squaring
 	 * - Scalar multiplication maps to exponentiation
+	 *
+	 * The representation does not enforce membership. Every operation other than
+	 * a documented constructor or predicate assumes its operands already lie in
+	 * the prime-order target group. Release builds do not validate that invariant.
+	 * Exact output aliasing is supported by ordinary group operations; partial
+	 * overlap is not.
 	 */
 	struct GT
 	{
@@ -21,7 +27,8 @@ namespace blst::scalar {
 		constexpr GT(const GT&) = default;
 		constexpr GT& operator=(const GT&) = default;
 
-		/// Construct from Fp12 element
+		/// Construct from Fp12 storage that the caller has already established is in GT.
+		/// @warning This constructor performs no membership validation.
 		constexpr GT(const Fp12& f) : data(f) {}
 
 		Fp12 data;
@@ -99,7 +106,8 @@ namespace blst::scalar {
 		 * @details Canonical scalar inputs have scalar-independent runtime and memory
 		 * access for fixed public @p nbits. Noncanonical inputs are accepted modulo
 		 * r, but timing may reveal that reduction was required. @p scalar may be
-		 * null only when @p nbits is zero.
+		 * null only when @p nbits is zero. Exact @p out / @p a aliasing is
+		 * supported; partial overlap is not.
 		 */
 		static BLST_HD void mult(GT& out, const GT& a, const byte* scalar, size_t nbits) {
 			BLST_ASSERT(nbits <= 256);
@@ -112,7 +120,9 @@ namespace blst::scalar {
 		 * @brief Optimized variable-time scalar multiplication.
 		 * @warning Scalar bits affect the GLV schedule, branches, and table indices;
 		 * use only with public scalar data. @p nbits must not exceed 256, and
-		 * @p scalar may be null only when @p nbits is zero.
+		 * @p scalar may be null only when @p nbits is zero. @p a must already lie
+		 * in GT; Release does not validate it. Exact @p out / @p a aliasing is
+		 * supported; partial overlap is not.
 		 */
 		static BLST_HD void mult_vartime(GT& out, const GT& a, const byte* scalar, size_t nbits) {
 			BLST_ASSERT(nbits <= 256);
@@ -122,13 +132,15 @@ namespace blst::scalar {
 		}
 
 		/**
-		 * @brief Conditional negate in constant time if cbit is 1
-		 * @details In GT, negation maps to inversion in Fp12
+		 * @brief Constant-time conditional negation: p = cbit ? -p : p.
+		 * @pre @p cbit is zero or one.
+		 * @details In GT, negation maps to inversion in Fp12. Control flow and
+		 * memory access are independent of @p cbit.
 		 */
 		static BLST_HD void cneg(GT& p, limb_t cbit) {
-			if (cbit) {
-				Fp12::conjugate(p.data);
-			}
+			GT neg = p;
+			Fp12::conjugate(neg.data);
+			ccopy(p, neg, cbit);
 		}
 
 		/**

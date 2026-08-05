@@ -94,6 +94,10 @@ namespace blst::scalar
 	 * Elements are represented as two Fp6 coefficients in Montgomery form.
 	 * General arithmetic is valid for all Fp12 values; methods explicitly named
 	 * `cyclotomic_*` require their input to lie in the cyclotomic subgroup.
+	 * Ordinary arithmetic supports exact output aliasing with an input; partial
+	 * overlap is not supported. Inputs must contain reduced Montgomery
+	 * coefficients. Debug assertions do not constitute Release validation. Host
+	 * operations allocate nothing and are nonthrowing for valid inputs.
 	 */
 	struct Fp12
 	{
@@ -123,7 +127,7 @@ namespace blst::scalar
 		BLST_HD static void mul(Fp12& ret, const Fp12& a, const Fp12& b, bool conj_b);
 		/// @brief Standard exponentiation `ret = a^exp`.
 		/// @param exp Little-endian exponent bytes.
-		/// @param bits Number of meaningful exponent bits.
+		/// @param bits Number of meaningful exponent bits; zero produces one and permits a null exponent.
 		BLST_HD static void exp(Fp12& ret, const Fp12& a, const byte* exp, size_t bits);
 		/// @brief Multiplicative identity of Fp12.
 		BLST_HD static const Fp12& one();
@@ -184,6 +188,7 @@ namespace blst::scalar
 		/// @brief Conjugate @p a in place by negating its w coefficient.
 		BLST_HD static void conjugate(Fp12& a);
 		/// @brief `ret = a^{-1}` in Fp12.
+		/// @pre @p a is nonzero; zero has no defined field inverse.
 		BLST_HD static void inverse(Fp12& ret, const Fp12& a);
 		/// @brief Apply the Frobenius map: `ret = a^(p^n)`.
 		/// @pre `1 <= n && n <= 3`.
@@ -211,6 +216,8 @@ namespace blst::scalar
 		/// @brief Final-exponentiation helper: `a = b^z`.
 		BLST_HD static void raise_to_z(Fp12& a, const Fp12& b);
 		/// @brief Perform pairing final exponentiation into G_T.
+		/// @pre @p f is a nonzero general Fp12 or Miller-loop value.
+		/// @post @p ret lies in G_T.
 		BLST_HD static void final_exp(Fp12& ret, const Fp12& f);
 	};
 

@@ -26,6 +26,10 @@ namespace blst::scalar
 	 * Montgomery values, and are intended to be constant-time with respect to
 	 * secret data. `reciprocal` uses the Lehmer almost-inverse and can be
 	 * variable-time; use `flt_reciprocal` where strict constant time is required.
+	 * Ordinary arithmetic supports exact output aliasing with an input; partial
+	 * overlap is not supported. Inputs must already satisfy the stated reduced
+	 * representation. Debug assertions do not constitute Release validation.
+	 * Host operations allocate nothing and are nonthrowing for valid inputs.
 	 */
 	struct Fp
 	{
@@ -103,9 +107,11 @@ namespace blst::scalar
 		/** @name Inversion and square roots */
 		///@{
 		/// @brief Compute `out = inp^{-1}` with the Lehmer almost-inverse.
-		/// @note This operation is generally variable-time.
+		/// @pre @p inp is nonzero.
+		/// @note This operation is generally variable-time; zero has no defined field inverse.
 		BLST_HD static void reciprocal(Fp& out, const Fp& inp);
 		/// @brief Compute `out = inp^{-1}` using the fixed Fermat addition chain.
+		/// @pre @p inp is nonzero.
 		BLST_HD static void flt_reciprocal(Fp& out, const Fp& inp);
 		/// @brief Compute `t0 = inp^((p-3)/4)` for square-root helpers.
 		BLST_HD static void recip_sqrt_3mod4(Fp& t0, const Fp& inp);

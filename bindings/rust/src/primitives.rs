@@ -24,9 +24,17 @@ fn checked_scalar_bits(scalar: &[u8], nbits: usize) {
 }
 
 impl blst_p1 {
-    /// Multiplies a previously validated subgroup point modulo r. Canonical
-    /// scalars are handled in constant time for fixed `nbits`; noncanonical
-    /// timing may reveal that reduction was required.
+    /// Multiplies this previously validated G1 element by `scalar mod r`.
+    ///
+    /// This method does not validate that `self` is on-curve and in the
+    /// prime-order subgroup. Canonical scalars are handled in constant time for
+    /// fixed public `nbits`; noncanonical inputs are accepted, but timing may
+    /// reveal that reduction was required.
+    ///
+    /// # Panics
+    ///
+    /// Panics when `nbits > 256` or `scalar` is shorter than
+    /// `ceil(nbits / 8)` bytes.
     pub fn mult(&self, scalar: &[u8], nbits: usize) -> Self {
         checked_scalar_bits(scalar, nbits);
         let mut out = MaybeUninit::<Self>::uninit();
@@ -36,7 +44,14 @@ impl blst_p1 {
         }
     }
 
-    /// Optimized variable-time scalar multiplication for public scalars only.
+    /// Optimized variable-time subgroup multiplication for public scalars.
+    ///
+    /// `self` must already be an on-curve G1 element. This method does not
+    /// validate membership and must not be used with a secret scalar.
+    ///
+    /// # Panics
+    ///
+    /// Panics when `nbits > 256` or `scalar` is too short.
     pub fn mult_vartime(&self, scalar: &[u8], nbits: usize) -> Self {
         checked_scalar_bits(scalar, nbits);
         let mut out = MaybeUninit::<Self>::uninit();
@@ -52,21 +67,41 @@ impl blst_p1 {
     }
 
     /// Legacy upstream `unchecked_mult`: constant-time exact multiplication of
-    /// an on-curve point that need not belong to the prime-order subgroup.
+    /// an on-curve point that need not belong to G1.
+    ///
+    /// This method performs no curve validation and applies the exact unsigned
+    /// scalar rather than reducing it as part of a subgroup contract.
+    ///
+    /// # Panics
+    ///
+    /// Panics when `nbits > 256` or `scalar` is too short.
     pub fn unchecked_mult(&self, scalar: &[u8], nbits: usize) -> Self {
         checked_scalar_bits(scalar, nbits);
         let mut out = MaybeUninit::<Self>::uninit();
         unsafe {
-            blst_p1_unchecked_mult(out.as_mut_ptr(), self, scalar.as_ptr(), nbits);
+            blst_p1_unchecked_mult(
+                out.as_mut_ptr(),
+                self,
+                scalar.as_ptr(),
+                nbits,
+            );
             out.assume_init()
         }
     }
 }
 
 impl blst_p2 {
-    /// Multiplies a previously validated subgroup point modulo r. Canonical
-    /// scalars are handled in constant time for fixed `nbits`; noncanonical
-    /// timing may reveal that reduction was required.
+    /// Multiplies this previously validated G2 element by `scalar mod r`.
+    ///
+    /// This method does not validate that `self` is on-curve and in the
+    /// prime-order subgroup. Canonical scalars are handled in constant time for
+    /// fixed public `nbits`; noncanonical inputs are accepted, but timing may
+    /// reveal that reduction was required.
+    ///
+    /// # Panics
+    ///
+    /// Panics when `nbits > 256` or `scalar` is shorter than
+    /// `ceil(nbits / 8)` bytes.
     pub fn mult(&self, scalar: &[u8], nbits: usize) -> Self {
         checked_scalar_bits(scalar, nbits);
         let mut out = MaybeUninit::<Self>::uninit();
@@ -76,7 +111,14 @@ impl blst_p2 {
         }
     }
 
-    /// Optimized variable-time scalar multiplication for public scalars only.
+    /// Optimized variable-time subgroup multiplication for public scalars.
+    ///
+    /// `self` must already be an on-curve G2 element. This method does not
+    /// validate membership and must not be used with a secret scalar.
+    ///
+    /// # Panics
+    ///
+    /// Panics when `nbits > 256` or `scalar` is too short.
     pub fn mult_vartime(&self, scalar: &[u8], nbits: usize) -> Self {
         checked_scalar_bits(scalar, nbits);
         let mut out = MaybeUninit::<Self>::uninit();
@@ -92,12 +134,24 @@ impl blst_p2 {
     }
 
     /// Legacy upstream `unchecked_mult`: constant-time exact multiplication of
-    /// an on-curve point that need not belong to the prime-order subgroup.
+    /// an on-curve point that need not belong to G2.
+    ///
+    /// This method performs no curve validation and applies the exact unsigned
+    /// scalar rather than reducing it as part of a subgroup contract.
+    ///
+    /// # Panics
+    ///
+    /// Panics when `nbits > 256` or `scalar` is too short.
     pub fn unchecked_mult(&self, scalar: &[u8], nbits: usize) -> Self {
         checked_scalar_bits(scalar, nbits);
         let mut out = MaybeUninit::<Self>::uninit();
         unsafe {
-            blst_p2_unchecked_mult(out.as_mut_ptr(), self, scalar.as_ptr(), nbits);
+            blst_p2_unchecked_mult(
+                out.as_mut_ptr(),
+                self,
+                scalar.as_ptr(),
+                nbits,
+            );
             out.assume_init()
         }
     }
@@ -158,9 +212,16 @@ impl core::ops::MulAssign for blst_fp12 {
 }
 
 impl blst_fp12 {
-    /// Constant-time GT scalar multiplication for a fixed public `nbits`.
+    /// Multiplies this GT element by `scalar mod r`.
     ///
-    /// `self` must already lie in GT. This method does not validate membership.
+    /// `self` must already lie in GT; storage and this method do not validate
+    /// membership. Canonical scalars are handled in constant time for fixed
+    /// public `nbits`. Noncanonical inputs are accepted, but timing may reveal
+    /// that reduction was required.
+    ///
+    /// # Panics
+    ///
+    /// Panics when `nbits > 256` or `scalar` is too short.
     pub fn gt_mult(&self, scalar: &[u8], nbits: usize) -> Self {
         checked_scalar_bits(scalar, nbits);
         let mut out = MaybeUninit::<Self>::uninit();
@@ -172,7 +233,12 @@ impl blst_fp12 {
 
     /// Optimized variable-time GT multiplication for public scalars only.
     ///
-    /// `self` must already lie in GT. This method does not validate membership.
+    /// `self` must already lie in GT. This method does not validate membership
+    /// and must not be used with a secret scalar.
+    ///
+    /// # Panics
+    ///
+    /// Panics when `nbits > 256` or `scalar` is too short.
     pub fn gt_mult_vartime(&self, scalar: &[u8], nbits: usize) -> Self {
         checked_scalar_bits(scalar, nbits);
         let mut out = MaybeUninit::<Self>::uninit();
@@ -187,7 +253,11 @@ impl blst_fp12 {
         }
     }
 
-    /// Computes one Miller loop from affine inputs.
+    /// Computes one Miller loop from valid on-curve affine inputs.
+    ///
+    /// The inputs need not be subgroup elements for the formula itself, but
+    /// this method performs no curve or subgroup validation. The result is a
+    /// general non-final-exponentiated Fp12 value, not yet a GT element.
     pub fn miller_loop(q: &blst_p2_affine, p: &blst_p1_affine) -> Self {
         let mut out = MaybeUninit::<blst_fp12>::uninit();
         unsafe {
@@ -197,6 +267,13 @@ impl blst_fp12 {
     }
 
     /// Computes the product of Miller loops over paired affine slices.
+    ///
+    /// Every input must be a valid on-curve affine point. No curve or subgroup
+    /// validation is performed. Empty slices return the Fp12 identity.
+    ///
+    /// # Panics
+    ///
+    /// Panics when `q.len() != p.len()`.
     pub fn miller_loop_n(q: &[blst_p2_affine], p: &[blst_p1_affine]) -> Self {
         let n_elems = q.len();
         if n_elems != p.len() {
@@ -214,7 +291,10 @@ impl blst_fp12 {
         }
     }
 
-    /// Applies the final exponentiation to this Fp12 value.
+    /// Applies final exponentiation to a nonzero general Fp12/Miller-loop value.
+    ///
+    /// The result lies in GT. Zero is outside the supported domain and is not
+    /// reported through a `Result`.
     pub fn final_exp(&self) -> Self {
         let mut out = MaybeUninit::<blst_fp12>::uninit();
         unsafe {
@@ -223,12 +303,14 @@ impl blst_fp12 {
         }
     }
 
-    /// Returns `true` when this value lies in the pairing target subgroup.
+    /// Returns `true` when this general Fp12 value lies in GT.
     pub fn in_group(&self) -> bool {
         unsafe { blst_fp12_in_group(self) }
     }
 
-    /// Returns `true` when `a` and `b` pass the final verification check.
+    /// Returns `true` when the two trusted Fp12/GT contributions pass the final
+    /// verification relation. This method performs no independent input-domain
+    /// validation.
     pub fn finalverify(a: &Self, b: &Self) -> bool {
         unsafe { blst_fp12_finalverify(a, b) }
     }

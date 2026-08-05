@@ -13,6 +13,12 @@ namespace blst
 {
     using scalar::Fp4;
     using scalar::Fp6;
+    /**
+     * @brief Main native C++ BLS12-381 degree-12 extension-field type.
+     *
+     * This is an exact alias of `scalar::Fp12`. General Fp12, cyclotomic, and
+     * GT-only method domains remain distinct as documented on that type.
+     */
     using scalar::Fp12;
     using scalar::GLV4_Exp;
     using scalar::GLV_JSF_Exp;

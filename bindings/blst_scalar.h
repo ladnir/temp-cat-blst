@@ -56,6 +56,9 @@ typedef enum BLST_UNIQ_RESULT {
  *   `false`.
  * - The checked arithmetic helpers return `false` when the resulting scalar is
  *   zero or otherwise rejected by the scalar validity contract.
+ * - All pointers named by a call must be valid for the complete object or byte
+ *   range described by its signature. These entry points allocate nothing and
+ *   do not allow C++ exceptions to cross the C ABI.
  */
 /** Converts eight conventional 32-bit words into canonical scalar bytes.
  * Exact aliasing is allowed. */
@@ -77,17 +80,48 @@ void blst_bendian_from_scalar(blst_byte out[32], const blst_scalar* a);
 void blst_scalar_from_lendian(blst_scalar* out, const blst_byte a[32]);
 /** Exports an exact 32-byte little-endian scalar representation. */
 void blst_lendian_from_scalar(blst_byte out[32], const blst_scalar* a);
+/** Returns `true` iff `a` encodes an integer in `[0,r)`. Zero is accepted. */
 bool blst_scalar_fr_check(const blst_scalar* a);
+/** Returns `true` iff `a` is a canonical secret key in `[1,r)`. */
 bool blst_sk_check(const blst_scalar* a);
+/** Computes `(a+b) mod r` for canonical secret-key inputs; returns `true` iff
+ * the result is nonzero. `out` receives the modular result even when it is
+ * zero. Inputs outside `[1,r)` are outside the supported contract. */
 bool blst_sk_add_n_check(blst_scalar* out, const blst_scalar* a, const blst_scalar* b);
+/** Computes `(a-b) mod r` for canonical secret-key inputs; returns `true` iff
+ * the result is nonzero. `out` receives the modular result even when it is
+ * zero. Inputs outside `[1,r)` are outside the supported contract. */
 bool blst_sk_sub_n_check(blst_scalar* out, const blst_scalar* a, const blst_scalar* b);
+/** Computes `(a*b) mod r` for canonical secret-key inputs; returns `true` iff
+ * the result is nonzero. `out` receives the modular result even when it is
+ * zero. Inputs outside `[1,r)` are outside the supported contract. */
 bool blst_sk_mul_n_check(blst_scalar* out, const blst_scalar* a, const blst_scalar* b);
+/** Computes the modular inverse of a canonical nonzero secret key.
+ * `a` must lie in `[1,r)`; the function does not report invalid input. */
 void blst_sk_inverse(blst_scalar* out, const blst_scalar* a);
+/** Reduces a variable-length little-endian integer modulo r. Returns `true`
+ * iff the result is a valid nonzero secret key. Empty input writes zero and
+ * returns `false`; otherwise `in` must reference `len` readable bytes. */
 bool blst_scalar_from_le_bytes(blst_scalar* out, const blst_byte* in, size_t len);
+/** Reduces a variable-length big-endian integer modulo r. Returns `true` iff
+ * the result is a valid nonzero secret key. Empty input writes zero and returns
+ * `false`; otherwise `in` must reference `len` readable bytes. */
 bool blst_scalar_from_be_bytes(blst_scalar* out, const blst_byte* in, size_t len);
 /** Strictly parses a complete hexadecimal string into a scalar. */
 BLST_NODISCARD bool blst_scalar_from_hexascii(blst_scalar* out, const blst_byte* hex);
 
+/**
+ * Arithmetic over Fr, the scalar field modulo r.
+ *
+ * Inputs are reduced Montgomery-form values unless a conversion explicitly
+ * says otherwise. Ordinary arithmetic produces a reduced Montgomery-form
+ * value, permits exact output aliasing with an input, and forbids partial
+ * overlap. The functions allocate nothing and are nonthrowing. Euclidean
+ * naming is retained for compatibility, but both Fr inverse entry points use
+ * the selected constant-time inverse. Other operations in this family are
+ * intended to be constant-time with respect to field values unless documented
+ * otherwise.
+ */
 /** Adds two Montgomery-form Fr values and writes the sum to `ret`. */
 void blst_fr_add(blst_fr* ret, const blst_fr* a, const blst_fr* b);
 /** Subtracts `b` from `a` in Fr and writes the difference to `ret`. */
@@ -112,9 +146,11 @@ void blst_fr_pow(blst_fr* ret, const blst_fr* a, const blst_byte* exponent, size
 void blst_fr_sqr(blst_fr* ret, const blst_fr* a);
 /** Negates `a` in Fr when `flag` is true; otherwise copies `a` into `ret`. */
 void blst_fr_cneg(blst_fr* ret, const blst_fr* a, bool flag);
-/** Computes the Euclidean inverse of `a` in Fr and writes it to `ret`. */
+/** Compatibility spelling for the selected constant-time inverse of nonzero
+ * `a` in Fr. Zero is outside the supported domain and has no error result. */
 void blst_fr_eucl_inverse(blst_fr* ret, const blst_fr* a);
-/** Computes the multiplicative inverse of `a` in Fr and writes it to `ret`. */
+/** Computes the constant-time multiplicative inverse of nonzero `a` in Fr.
+ * Zero is outside the supported domain and has no error result. */
 void blst_fr_inverse(blst_fr* ret, const blst_fr* a);
 /** Converts a four-limb unsigned integer into Montgomery-form Fr. */
 void blst_fr_from_uint64(blst_fr* ret, const uint64_t a[4]);
@@ -142,7 +178,12 @@ BLST_NODISCARD bool blst_fr_from_hexascii(blst_fr* ret, const blst_byte* hex);
 /**
  * Arithmetic over Fp. Integer conversions use the exact array widths shown in
  * the signatures. Big-endian and little-endian byte helpers always operate on
- * 48-byte field encodings.
+ * 48-byte field encodings. Inputs are reduced Montgomery-form values unless a
+ * conversion explicitly says otherwise. Ordinary arithmetic produces a
+ * reduced Montgomery-form value, permits exact output aliasing, forbids
+ * partial overlap, allocates nothing, and is nonthrowing. Euclidean inversion
+ * is variable-time; fixed-chain inversion and ordinary arithmetic are intended
+ * to be constant-time with respect to field values.
  */
 /** Adds two Montgomery-form Fp values and writes the sum to `ret`. */
 void blst_fp_add(blst_fp* ret, const blst_fp* a, const blst_fp* b);
@@ -160,9 +201,11 @@ void blst_fp_mul(blst_fp* ret, const blst_fp* a, const blst_fp* b);
 void blst_fp_sqr(blst_fp* ret, const blst_fp* a);
 /** Negates `a` in Fp when `flag` is true; otherwise copies `a` into `ret`. */
 void blst_fp_cneg(blst_fp* ret, const blst_fp* a, bool flag);
-/** Computes the Euclidean inverse of `a` in Fp and writes it to `ret`. */
+/** Computes the variable-time Euclidean inverse of nonzero `a` in Fp.
+ * Zero is outside the supported domain and has no error result. */
 void blst_fp_eucl_inverse(blst_fp* ret, const blst_fp* a);
-/** Computes the multiplicative inverse of `a` in Fp and writes it to `ret`. */
+/** Computes the fixed-chain constant-time inverse of nonzero `a` in Fp.
+ * Zero is outside the supported domain and has no error result. */
 void blst_fp_inverse(blst_fp* ret, const blst_fp* a);
 /** Attempts to compute an Fp square root; returns `true` and publishes a root
  * for quadratic residues, otherwise returns `false` and clears `ret`. */
@@ -175,11 +218,13 @@ void blst_uint32_from_fp(uint32_t ret[12], const blst_fp* a);
 void blst_fp_from_uint64(blst_fp* ret, const uint64_t a[6]);
 /** Converts a Montgomery-form Fp value into six unsigned 64-bit limbs. */
 void blst_uint64_from_fp(uint64_t ret[6], const blst_fp* a);
-/** Decodes a 48-byte big-endian field element into Montgomery-form Fp. */
+/** Imports a 48-byte big-endian integer, reduces it modulo p, and writes
+ * Montgomery-form Fp. This is not a canonical-decoding validator. */
 void blst_fp_from_bendian(blst_fp* ret, const blst_byte a[48]);
 /** Encodes a Montgomery-form Fp value into a 48-byte big-endian string. */
 void blst_bendian_from_fp(blst_byte ret[48], const blst_fp* a);
-/** Decodes a 48-byte little-endian field element into Montgomery-form Fp. */
+/** Imports a 48-byte little-endian integer, reduces it modulo p, and writes
+ * Montgomery-form Fp. This is not a canonical-decoding validator. */
 void blst_fp_from_lendian(blst_fp* ret, const blst_byte a[48]);
 /**
  * Reduces an arbitrary-length little-endian unsigned integer modulo Fp.
@@ -204,6 +249,14 @@ bool blst_fp_is_square(const blst_fp* a);
 /** Strictly parses a complete hexadecimal string into Montgomery-form Fp. */
 BLST_NODISCARD bool blst_fp_from_hexascii(blst_fp* ret, const blst_byte* hex);
 
+/**
+ * Arithmetic over Fp2. Components are reduced Montgomery-form Fp values.
+ * Ordinary arithmetic produces reduced Montgomery-form components, permits
+ * exact output aliasing, forbids partial overlap, allocates nothing, and is
+ * nonthrowing. Euclidean inversion is variable-time; fixed-chain inversion and
+ * ordinary arithmetic are intended to be constant-time with respect to field
+ * values.
+ */
 /** Adds two Montgomery-form Fp2 values and writes the sum to `ret`. */
 void blst_fp2_add(blst_fp2* ret, const blst_fp2* a, const blst_fp2* b);
 /** Subtracts `b` from `a` in Fp2 and writes the difference to `ret`. */
@@ -220,9 +273,11 @@ void blst_fp2_mul(blst_fp2* ret, const blst_fp2* a, const blst_fp2* b);
 void blst_fp2_sqr(blst_fp2* ret, const blst_fp2* a);
 /** Negates `a` in Fp2 when `flag` is true; otherwise copies `a` into `ret`. */
 void blst_fp2_cneg(blst_fp2* ret, const blst_fp2* a, bool flag);
-/** Computes the Euclidean inverse of `a` in Fp2 and writes it to `ret`. */
+/** Computes the variable-time Euclidean inverse of nonzero `a` in Fp2.
+ * Zero is outside the supported domain and has no error result. */
 void blst_fp2_eucl_inverse(blst_fp2* ret, const blst_fp2* a);
-/** Computes the multiplicative inverse of `a` in Fp2 and writes it to `ret`. */
+/** Computes the fixed-chain constant-time inverse of nonzero `a` in Fp2.
+ * Zero is outside the supported domain and has no error result. */
 void blst_fp2_inverse(blst_fp2* ret, const blst_fp2* a);
 /**
  * Attempts to compute an Fp2 square root and returns `true` only for quadratic
@@ -240,18 +295,24 @@ bool blst_fp2_is_square(const blst_fp2* a);
  * - `blst_fp12_one()` returns a pointer to immutable static storage.
  * - `blst_final_exp` and `blst_fp12_finalverify` interpret inputs as Miller
  *   loop outputs or GT elements, respectively.
+ * - General Fp12 arithmetic accepts reduced Montgomery-form coefficients and
+ *   permits exact output aliasing. Partial overlap is forbidden.
+ * - Functions in this family allocate nothing and are nonthrowing.
  */
 /** Multiplies two Fp12 values and writes the product to `ret`. */
 void blst_fp12_mul(blst_fp12* ret, const blst_fp12* a, const blst_fp12* b);
 /** Squares an Fp12 value and writes the result to `ret`. */
 void blst_fp12_sqr(blst_fp12* ret, const blst_fp12* a);
-/** Applies the cyclotomic squaring shortcut to `a` and writes the result to `ret`. */
+/** Applies the cyclotomic squaring shortcut. `a` must lie in the cyclotomic
+ * subgroup; Release does not validate this precondition. Use `blst_fp12_sqr`
+ * for a general Fp12 value. */
 void blst_fp12_cyclotomic_sqr(blst_fp12* ret, const blst_fp12* a);
 /** Multiplies `a` by a sparse `xy00z0` Fp6 value and writes the result to `ret`. */
 void blst_fp12_mul_by_xy00z0(blst_fp12* ret, const blst_fp12* a, const blst_fp6* xy00z0);
 /** Replaces `a` with its Fp12 conjugate in place. */
 void blst_fp12_conjugate(blst_fp12* a);
-/** Computes the multiplicative inverse of `a` in Fp12 and writes it to `ret`. */
+/** Computes the multiplicative inverse of nonzero `a` in Fp12. Zero is outside
+ * the supported domain and has no error result. */
 void blst_fp12_inverse(blst_fp12* ret, const blst_fp12* a);
 /**
  * Applies the `n`th Frobenius map to `a` and writes the result to `ret`.
@@ -267,7 +328,9 @@ bool blst_fp12_is_one(const blst_fp12* a);
 bool blst_fp12_in_group(const blst_fp12* a);
 /** Returns a pointer to immutable static storage holding the Fp12 identity. */
 const blst_fp12* blst_fp12_one(void);
-/** Applies the pairing final exponentiation to `f` and writes the result to `ret`. */
+/** Applies pairing final exponentiation to a nonzero general Fp12/Miller-loop
+ * value and produces a GT element. Zero is outside the supported domain and is
+ * not reported through a status result. */
 void blst_final_exp(blst_fp12* ret, const blst_fp12* f);
 /** Returns immutable static storage holding the additive GT identity. */
 const blst_fp12* blst_gt_identity(void);
@@ -277,13 +340,17 @@ const blst_fp12* blst_gt_generator(void);
 bool blst_gt_is_equal(const blst_fp12* a, const blst_fp12* b);
 /** Returns `true` when target-group element `p` is the additive identity. */
 bool blst_gt_is_identity(const blst_fp12* p);
-/** Adds target-group elements `a` and `b`. Inputs and output may alias. */
+/** Adds target-group elements `a` and `b`. Both inputs must already lie in GT;
+ * Release does not validate them. Inputs and output may exactly alias. */
 void blst_gt_add(blst_fp12* out, const blst_fp12* a, const blst_fp12* b);
-/** Subtracts target-group element `b` from `a`. Inputs and output may alias. */
+/** Subtracts target-group element `b` from `a`. Both inputs must already lie in
+ * GT; Release does not validate them. Inputs and output may exactly alias. */
 void blst_gt_sub(blst_fp12* out, const blst_fp12* a, const blst_fp12* b);
-/** Negates target-group element `p`. Input and output may alias. */
+/** Negates target-group element `p`. The input must already lie in GT; Release
+ * does not validate it. Input and output may exactly alias. */
 void blst_gt_neg(blst_fp12* out, const blst_fp12* p);
-/** Doubles target-group element `p`. Input and output may alias. */
+/** Doubles target-group element `p`. The input must already lie in GT; Release
+ * does not validate it. Input and output may exactly alias. */
 void blst_gt_double(blst_fp12* out, const blst_fp12* p);
 /**
  * Multiplies target-group element `p` by a little-endian scalar.
@@ -295,10 +362,12 @@ void blst_gt_double(blst_fp12* out, const blst_fp12* p);
  * For canonical scalars in `[0,r)`, runtime and memory access are independent
  * of scalar contents for a fixed public `nbits`. A noncanonical scalar is
  * accepted and reduced modulo r, but timing may reveal that reduction was
- * required.
+ * required. Exact `out == p` aliasing is supported; partial overlap is not.
  */
 void blst_gt_mult(blst_fp12* out, const blst_fp12* p, const blst_byte* scalar, size_t nbits);
-/** Optimized variable-time GT multiplication for public scalar data only. */
+/** Optimized variable-time GT multiplication for public scalar data only.
+ * Domain, scalar reduction, bounds, and aliasing match `blst_gt_mult`; Release
+ * does not validate GT membership. */
 void blst_gt_mult_vartime(blst_fp12* out, const blst_fp12* p, const blst_byte* scalar, size_t nbits);
 /** Returns `true` when `gt1` and `gt2` pass the final GT verification check. */
 bool blst_fp12_finalverify(const blst_fp12* gt1, const blst_fp12* gt2);
@@ -318,13 +387,16 @@ void blst_bendian_from_fp12(blst_byte out[48 * 12], const blst_fp12* a);
  * - Serialization writes 96-byte uncompressed or 48-byte compressed encodings.
  * - Generator accessors return immutable static storage.
  */
-/** Adds two G1 projective points and writes the sum to `out`. */
+/** Adds distinct, nonopposite G1 projective points, with infinity supported.
+ * Equal or opposite finite inputs are outside this incomplete formula's
+ * contract; use `blst_p1_add_or_double` when those cases are possible. */
 void blst_p1_add(blst_p1* out, const blst_p1* a, const blst_p1* b);
 /** Subtracts G1 projective point `b` from `a` and writes the result to `out`. */
 void blst_p1_sub(blst_p1* out, const blst_p1* a, const blst_p1* b);
 /** Adds `a` and `b`, doubling when they represent the same G1 point. */
 void blst_p1_add_or_double(blst_p1* out, const blst_p1* a, const blst_p1* b);
-/** Adds a projective G1 point and an affine G1 point and writes the sum to `out`. */
+/** Adds distinct, nonopposite projective and affine G1 points, with infinity
+ * supported. Use `blst_p1_add_or_double_affine` when equality is possible. */
 void blst_p1_add_affine(blst_p1* out, const blst_p1* a, const blst_p1_affine* b);
 /** Subtracts affine G1 point `b` from projective `a` and writes the result to `out`. */
 void blst_p1_sub_affine(blst_p1* out, const blst_p1* a, const blst_p1_affine* b);
@@ -332,7 +404,7 @@ void blst_p1_sub_affine(blst_p1* out, const blst_p1* a, const blst_p1_affine* b)
 void blst_p1_add_or_double_affine(blst_p1* out, const blst_p1* a, const blst_p1_affine* b);
 /** Doubles the G1 projective point `a` and writes the result to `out`. */
 void blst_p1_double(blst_p1* out, const blst_p1* a);
-/** Multiplies subgroup point `p` by `scalar mod r`. For canonical scalars and fixed public `nbits`, the operation is constant-time. Noncanonical scalars are accepted, but timing may reveal that reduction was required. Release does not validate `p`. */
+/** Multiplies subgroup point `p` by `scalar mod r`. For canonical scalars and fixed public `nbits`, the operation is constant-time. Noncanonical scalars are accepted, but timing may reveal that reduction was required. Release does not validate `p`. Exact `out == p` aliasing is supported; partial overlap is not. */
 void blst_p1_mult(blst_p1* out, const blst_p1* p, const blst_byte* scalar, size_t nbits);
 /** Optimized variable-time G1 multiplication for public scalar data only. `p` must already be an on-curve prime-order subgroup point; scalars are interpreted modulo r and Release does not validate `p`. */
 void blst_p1_mult_vartime(blst_p1* out, const blst_p1* p, const blst_byte* scalar, size_t nbits);
@@ -423,13 +495,16 @@ BLST_ERROR blst_p1_deserialize(blst_p1_affine* out, const blst_byte in[96]);
  * constant-time for fixed public `nbits`; `_vartime` and all
  * multi-scalar/Pippenger operations require public scalars.
  */
-/** Adds two G2 projective points and writes the sum to `out`. */
+/** Adds distinct, nonopposite G2 projective points, with infinity supported.
+ * Equal or opposite finite inputs are outside this incomplete formula's
+ * contract; use `blst_p2_add_or_double` when those cases are possible. */
 void blst_p2_add(blst_p2* out, const blst_p2* a, const blst_p2* b);
 /** Subtracts G2 projective point `b` from `a` and writes the result to `out`. */
 void blst_p2_sub(blst_p2* out, const blst_p2* a, const blst_p2* b);
 /** Adds `a` and `b`, doubling when they represent the same G2 point. */
 void blst_p2_add_or_double(blst_p2* out, const blst_p2* a, const blst_p2* b);
-/** Adds a projective G2 point and an affine G2 point and writes the sum to `out`. */
+/** Adds distinct, nonopposite projective and affine G2 points, with infinity
+ * supported. Use `blst_p2_add_or_double_affine` when equality is possible. */
 void blst_p2_add_affine(blst_p2* out, const blst_p2* a, const blst_p2_affine* b);
 /** Subtracts affine G2 point `b` from projective `a` and writes the result to `out`. */
 void blst_p2_sub_affine(blst_p2* out, const blst_p2* a, const blst_p2_affine* b);
@@ -437,7 +512,7 @@ void blst_p2_sub_affine(blst_p2* out, const blst_p2* a, const blst_p2_affine* b)
 void blst_p2_add_or_double_affine(blst_p2* out, const blst_p2* a, const blst_p2_affine* b);
 /** Doubles the G2 projective point `a` and writes the result to `out`. */
 void blst_p2_double(blst_p2* out, const blst_p2* a);
-/** Multiplies subgroup point `p` by `scalar mod r`. For canonical scalars and fixed public `nbits`, the operation is constant-time. Noncanonical scalars are accepted, but timing may reveal that reduction was required. Release does not validate `p`. */
+/** Multiplies subgroup point `p` by `scalar mod r`. For canonical scalars and fixed public `nbits`, the operation is constant-time. Noncanonical scalars are accepted, but timing may reveal that reduction was required. Release does not validate `p`. Exact `out == p` aliasing is supported; partial overlap is not. */
 void blst_p2_mult(blst_p2* out, const blst_p2* p, const blst_byte* scalar, size_t nbits);
 /** Optimized variable-time G2 multiplication for public scalar data only. `p` must already be an on-curve prime-order subgroup point; scalars are interpreted modulo r and Release does not validate `p`. */
 void blst_p2_mult_vartime(blst_p2* out, const blst_p2* p, const blst_byte* scalar, size_t nbits);

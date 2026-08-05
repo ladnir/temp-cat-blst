@@ -397,6 +397,14 @@ inline void add_n_dbl_n(
 using PreparedLine = avx_gt_detail::PreparedLine;
 using PreparedLineTable = avx_gt_detail::PreparedLineTable;
 
+/**
+ * @brief Native AVX target-group representation.
+ *
+ * Storage does not enforce membership. Group operations assume their operands
+ * already lie in the prime-order target group; Release validation occurs only
+ * in explicitly named predicates. Ordinary operations support exact output
+ * aliasing and forbid partial overlap.
+ */
 struct GT
 {
     using Field_type = avx_gt_detail::FP12::StandardElement;
@@ -441,7 +449,10 @@ struct GT
         }
     }
 
-    /// Constant-time GT scalar multiplication for fixed public nbits.
+    /// Constant-time GT scalar multiplication for canonical scalars at fixed
+    /// public nbits. Noncanonical inputs are accepted modulo r, but timing may
+    /// reveal that reduction was required. The input must already lie in GT;
+    /// Release does not validate it. Exact out/a aliasing is supported.
     static void mult(GT& out, const GT& a, const byte* scalar, size_t nbits)
     {
         BLST_ASSERT(nbits <= 256);
@@ -453,7 +464,9 @@ struct GT
         blst::vec_zero(words.data(), sizeof(words));
     }
 
-    /// Optimized variable-time GT multiplication for public scalars only.
+    /// Optimized variable-time GT multiplication for public scalars only. The
+    /// input must already lie in GT; Release does not validate it. Exact out/a
+    /// aliasing is supported.
     static void mult_vartime(GT& out, const GT& a, const byte* scalar, size_t nbits)
     {
         BLST_ASSERT(nbits <= 256);
@@ -470,8 +483,10 @@ struct GT
         blst::vec_zero(words.data(), sizeof(words));
     }
 
+    /** Constant-time conditional negation. cbit must be zero or one. */
     static void cneg(GT& p, limb_t cbit)
     {
+        BLST_ASSERT(cbit <= 1);
         GT neg = {};
         neg.data = avx_gt_detail::fp12ring().fp12_flat_conjugate(p.data, avx_gt_detail::ring());
         p.data = avx_gt_detail::ctime_select_value(cbit, neg.data, p.data);

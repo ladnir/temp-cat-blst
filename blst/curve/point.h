@@ -20,17 +20,25 @@ namespace blst
     using Pointxyzz = scalar::Pointxyzz<Field>;
 
 #if BLST_DEFAULT_AVX
+    /** @brief Selected native C++ G1 affine type (`avx::G1AffinePoint`). */
     using avx::G1AffinePoint;
+    /** @brief Selected native C++ G1 projective type (`avx::G1Point`). */
     using avx::G1Point;
     using scalar::G1PointZZ;
+    /** @brief Selected native C++ G2 affine type (`avx::G2AffinePoint`). */
     using avx::G2AffinePoint;
+    /** @brief Selected native C++ G2 projective type (`avx::G2Point`). */
     using avx::G2Point;
     using scalar::G2PointZZ;
 #else
+    /** @brief Selected native C++ G1 affine type (`scalar::G1AffinePoint`). */
     using scalar::G1AffinePoint;
+    /** @brief Selected native C++ G1 projective type (`scalar::G1Point`). */
     using scalar::G1Point;
     using scalar::G1PointZZ;
+    /** @brief Selected native C++ G2 affine type (`scalar::G2AffinePoint`). */
     using scalar::G2AffinePoint;
+    /** @brief Selected native C++ G2 projective type (`scalar::G2Point`). */
     using scalar::G2Point;
     using scalar::G2PointZZ;
 #endif

@@ -180,3 +180,63 @@ Example:
 The contract should say **assumes subgroup membership**, not merely "does no
 group check," because the former states the mathematical domain required for a
 correct result.
+
+## Language surfaces
+
+The declaration on each supported language surface is the user-facing source
+of truth. Audit tables track coverage and cross-language agreement; they do not
+replace declaration documentation.
+
+### C
+
+Public C declarations use Doxygen comments. A family-level contract may state
+shared representation, aliasing, timing, and nullability rules, but a function
+must restate every exception to those rules. In particular:
+
+- a `void` result does not imply that arbitrary inputs are accepted;
+- validation performed only by a Debug assertion must be described as a
+  precondition, not validation;
+- a fallible function must say whether output is unchanged, defined, or
+  unspecified on failure; and
+- every supported call is allocation-free and nonthrowing unless its contract
+  explicitly documents a translated failure result.
+
+### Native C++
+
+The selected `blst::` names are the main native C++ API. When a selected name
+is an alias of a scalar or AVX implementation type, the implementation type's
+Doxygen contract is authoritative and the selected header must identify that
+relationship. Public methods use `@pre`, `@post`, `@return`, `@warning`, and
+aliasing notes where applicable. A method is not documented as `noexcept`
+unless its complete call chain has been reviewed as nonthrowing.
+
+### Rust
+
+Safe Rust methods document their mathematical domain even when violating that
+domain cannot violate Rust memory safety. Use ordinary Rustdoc sections such as
+`# Panics`, `# Errors`, and `# Timing`; reserve `# Safety` for obligations of an
+`unsafe` API. Safe slice checks do not establish field, curve, subgroup, or
+protocol validity.
+
+The checked-in raw FFI declarations are generated artifacts. Their semantic
+contract is the matching C declaration plus Rust's pointer/alignment rules.
+They must not accumulate hand-maintained per-function promises that can diverge
+from the C header; generation and inherited Rustdoc are reviewed together in
+the Rust binding phase.
+
+## Audit closure rule
+
+For an externally reachable family, a file review cannot complete until:
+
+- every supported surface implemented by the reviewed files has declaration
+  documentation covering all applicable items in the standard form;
+- equivalent C, C++, and Rust operations agree on their mathematical domain,
+  validation, scalar interpretation, timing, and failure publication;
+- intentionally absent or generated-only surfaces are recorded explicitly;
+  and
+- unresolved behavior is linked to a finding instead of being documented as a
+  stable promise.
+
+Documentation may be completed for an audited family without marking its much
+larger containing public header complete. The audit manifest must distinguish
+focused contract coverage from a complete file review.

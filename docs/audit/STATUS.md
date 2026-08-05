@@ -328,13 +328,13 @@ expand through Phase 19.
 
 Current generated inventory:
 
-- 622 repository files accounted for;
-- 156 in-scope production;
+- 657 repository files accounted for;
+- 153 in-scope production;
 - 113 generated production;
-- 174 in-scope support;
-- 59 benchmark files explicitly excluded;
+- 208 in-scope support;
+- 60 benchmark files explicitly excluded;
 - 32 frozen BTx/BTE files pending the required merge;
-- 52 retained experimental CUDA files;
+- 55 retained experimental files, including CUDA;
 - 0 planned-removal files;
 - 36 documentation/archive files.
 
@@ -362,8 +362,8 @@ Upstream progress:
   validation are completed;
 - 0 remain pending.
 
-Findings: 89 total: 69 validated, 15 fixed pending final evidence, two accepted
-risks, one needs a design decision, and two remain open. `AUD-035` is validated with preserved
+Findings: 103 total: 76 validated, 16 fixed pending final evidence, two accepted
+risks, five need a design decision, and four remain open. `AUD-035` is validated with preserved
 allocated/caller-table/precomputed modes and 10/10 focused MSVC Release, Linux
 ASan, and Linux UBSan tests. `AUD-036` is validated on native
 Apple Silicon with AppleClang 17 at commit `0b7ec47`; all 336 C/C++ tests and
@@ -387,6 +387,13 @@ sanitizers, fuzzers, and oracles alongside every subsystem. Apply
 `VALIDATION_POLICY.md`: run focused checks in the change loop, batch related
 work for subsystem suites, and reserve the full supported matrix for milestone
 gates.
+
+For every newly reviewed externally reachable family, update declaration-level
+C, selected native C++, and safe Rust contracts in the same packet and add it
+to `PUBLIC_API_DOCUMENTATION.csv`. Generated raw Rust FFI continues to inherit
+the C contract until its Phase 18 generator review. `AUD-103` is validated:
+selected scalar and AVX GT conditional negation are constant-time, while the
+scalar variable-time MSM helper retains its public signed-digit branch locally.
 
 No production file should be marked complete before its related implementation
 and validation evidence closes the corresponding upstream rows.

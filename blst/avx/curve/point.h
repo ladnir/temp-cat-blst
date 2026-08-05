@@ -310,11 +310,17 @@ struct G1Point
     static void add(G1Point& out, const G1Point& a, const G1Point& b);
     static void add(G1Point& out, const G1Point& a, const G1AffinePoint& b);
     static void doubling(G1Point& out, const G1Point& a);
-    /// Constant-time scalar multiplication of a validated subgroup point;
+    /// Constant-time scalar multiplication of a previously validated subgroup
+    /// point. Release does not validate membership. For canonical scalars,
+    /// timing is independent of contents at fixed public nbits; noncanonical
+    /// inputs are reduced modulo r and may reveal that reduction was required.
     /// nbits must not exceed 256 and scalar may be null only for zero bits.
+    /// Exact out/a aliasing is supported; partial overlap is not.
     static void mult(G1Point& out, const G1Point& a, const byte* scalar, size_t nbits);
-    /// Optimized variable-time multiplication of a validated subgroup point;
-    /// nbits must not exceed 256 and scalar may be null only for zero bits.
+    /// Optimized variable-time multiplication of a previously validated
+    /// subgroup point using public scalar data. Release does not validate
+    /// membership. nbits must not exceed 256 and scalar may be null only for
+    /// zero bits. Exact out/a aliasing is supported; partial overlap is not.
     static void mult_vartime(G1Point& out, const G1Point& a, const byte* scalar, size_t nbits);
     static void sign(G1Point& out, const G1Point& in, const pow256 SK);
     static void to_pk(G1Point& out, const pow256 SK);
@@ -383,11 +389,17 @@ struct G2Point
     static void add(G2Point& out, const G2Point& a, const G2Point& b);
     static void add(G2Point& out, const G2Point& a, const G2AffinePoint& b);
     static void doubling(G2Point& out, const G2Point& a);
-    /// Constant-time scalar multiplication of a validated subgroup point;
+    /// Constant-time scalar multiplication of a previously validated subgroup
+    /// point. Release does not validate membership. For canonical scalars,
+    /// timing is independent of contents at fixed public nbits; noncanonical
+    /// inputs are reduced modulo r and may reveal that reduction was required.
     /// nbits must not exceed 256 and scalar may be null only for zero bits.
+    /// Exact out/a aliasing is supported; partial overlap is not.
     static void mult(G2Point& out, const G2Point& a, const byte* scalar, size_t nbits);
-    /// Optimized variable-time multiplication of a validated subgroup point;
-    /// nbits must not exceed 256 and scalar may be null only for zero bits.
+    /// Optimized variable-time multiplication of a previously validated
+    /// subgroup point using public scalar data. Release does not validate
+    /// membership. nbits must not exceed 256 and scalar may be null only for
+    /// zero bits. Exact out/a aliasing is supported; partial overlap is not.
     static void mult_vartime(G2Point& out, const G2Point& a, const byte* scalar, size_t nbits);
     static void sign(G2Point& out, const G2Point& in, const pow256 SK);
     static void to_pk(G2Point& out, const pow256 SK);

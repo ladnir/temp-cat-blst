@@ -78,6 +78,14 @@ with evidence or marked `N/A` with a reason. “Looks good” is not evidence.
 ## 9. API and ABI
 
 - [ ] Check C, C++, and Rust declarations agree on layout, calling convention, and semantics.
+- [ ] For every externally reachable family implemented by this file, document
+      the operation, preconditions, Release validation, postconditions, timing,
+      aliasing, and failure publication on each supported declaration surface.
+- [ ] Verify selected native `blst::` aliases identify the implementation type
+      that owns their contract, and safe Rust wrappers document additional
+      slice checks, panics, and errors without weakening the C contract.
+- [ ] Treat generated raw Rust FFI as inheriting the matching C declaration;
+      review its generator and comment propagation rather than hand-editing it.
 - [ ] Check public structures, enums, return codes, symbol visibility, and versioning.
 - [ ] Check nullability, lengths, units, ownership, and thread-safety are documented.
 - [ ] For every `extern "C"` definition, trace transitive callees and prove that
@@ -188,6 +196,11 @@ A file is complete only when:
 - all applicable checklist items have evidence;
 - every C/FFI boundary reachable from the file has an explicit transitive
   exception/panic-safety disposition and output-publication contract;
+- every externally reachable audited family has declaration-level contract
+  documentation on all supported C, selected native C++, and safe Rust
+  surfaces, or an explicit generated/not-applicable disposition;
+- equivalent cross-language contracts agree, with unresolved semantics linked
+  to a finding rather than silently promised;
 - applicable automated-baseline results and false positives are dispositioned;
 - sanitizer/fuzz evidence or reasoned `N/A` entries are recorded;
 - all upstream deltas are classified;

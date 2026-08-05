@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "bindings/blst.h"
+#include "blst/scalar/curve/GT.h"
 #include "blst/scalar/curve/map_to_G.h"
 #include "blst/scalar/curve/point.h"
 #include "blst/scalar/fields/Fp12.h"
@@ -53,6 +54,23 @@ constexpr std::array<uint64_t, 4> kScalarOrder = {
     0x3339d80809a1d805ULL,
     0x73eda753299d7d48ULL,
 };
+
+TEST(GroupScalarMult, ScalarGtConditionalNegation)
+{
+    using ScalarGT = blst::scalar::GT;
+
+    const ScalarGT original = ScalarGT::generator();
+    ScalarGT expected_negation = {};
+    ScalarGT::neg(expected_negation, original);
+
+    ScalarGT unchanged = original;
+    ScalarGT::cneg(unchanged, 0);
+    EXPECT_TRUE(ScalarGT::equal(unchanged, original));
+
+    ScalarGT negated = original;
+    ScalarGT::cneg(negated, 1);
+    EXPECT_TRUE(ScalarGT::equal(negated, expected_negation));
+}
 
 template<class Group>
 Group reference_multiply(

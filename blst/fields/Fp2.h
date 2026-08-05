@@ -11,6 +11,12 @@
 
 namespace blst
 {
+    /**
+     * @brief Main native C++ BLS12-381 quadratic-extension type.
+     *
+     * This is an exact alias of `scalar::Fp2`; its representation,
+     * preconditions, aliasing, and timing contracts are documented there.
+     */
     using scalar::Fp2;
 
     using scalar::BLST_sqrt_minus_1_HOST;

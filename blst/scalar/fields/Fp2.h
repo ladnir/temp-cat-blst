@@ -26,6 +26,11 @@ namespace blst::scalar
      *
      * The extension-field sign follows RFC 9380: use `sgn0(a1)` when `a1 != 0`,
      * otherwise `sgn0(a0)`.
+     *
+     * Ordinary arithmetic supports exact output aliasing with an input; partial
+     * overlap is not supported. Inputs must contain reduced Montgomery Fp
+     * components. Debug assertions do not constitute Release validation. Host
+     * operations allocate nothing and are nonthrowing for valid inputs.
      */
     struct Fp2
     {
@@ -69,9 +74,11 @@ namespace blst::scalar
         /** @name Inversion and square roots */
         ///@{
         /// @brief Compute `out = inp^{-1}` using the Lehmer almost-inverse.
-        /// @note This operation is generally variable-time.
+        /// @pre @p inp is nonzero.
+        /// @note This operation is generally variable-time; zero has no defined field inverse.
         BLST_HD static void reciprocal(Fp2& out, const Fp2& inp);
         /// @brief Compute `out = inp^{-1}` using a fixed Fermat addition chain.
+        /// @pre @p inp is nonzero.
         BLST_HD static void flt_reciprocal(Fp2& out, const Fp2& inp);
         /// @brief Compute the canonically aligned square root when it exists.
         /// @return One on success and zero for a nonsquare.

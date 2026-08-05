@@ -126,6 +126,7 @@ namespace blst::scalar
 		 * modulo r, but timing may reveal that reduction was required. The input
 		 * must already be an on-curve prime-order subgroup point; Release builds do
 		 * not validate that precondition. @p scalar may be null only for zero bits.
+		 * Exact @p out / @p a aliasing is supported; partial overlap is not.
 		 */
 		BLST_HD static void mult(Point& out, const Point& a, const byte* scalar, size_t nbits);
 		/**
@@ -134,6 +135,7 @@ namespace blst::scalar
 		 * access. Use only with public scalar data. The input must already be an
 		 * on-curve prime-order subgroup point; Release builds do not validate it.
 		 * @p nbits must not exceed 256, and @p scalar may be null only for zero bits.
+		 * Exact @p out / @p a aliasing is supported; partial overlap is not.
 		 */
 		BLST_HD static void mult_vartime(Point& out, const Point& a, const byte* scalar, size_t nbits);
 		/**
@@ -141,6 +143,8 @@ namespace blst::scalar
 		 * @warning The input must be on curve, but need not be in the prime-order
 		 * subgroup. Release builds do not validate that precondition. @p nbits must
 		 * not exceed 256, and @p scalar may be null only for zero bits.
+		 * The exact unsigned scalar is applied. Exact @p out / @p a aliasing is
+		 * supported; partial overlap is not.
 		 */
 		BLST_HD static void unchecked_mult(Point& out, const Point& a, const byte* scalar, size_t nbits);
 		/// @brief Width-five windowed multiplication for internal or large-scalar use.

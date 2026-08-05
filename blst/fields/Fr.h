@@ -5,6 +5,12 @@
 
 namespace blst
 {
+    /**
+     * @brief Main native C++ BLS12-381 scalar-field type.
+     *
+     * This is an exact alias of `scalar::Fr`; its representation, preconditions,
+     * aliasing, and timing contracts are documented on that implementation type.
+     */
     using scalar::Fr;
 
     using scalar::BLST_GT_LAMBDA2_HOST;

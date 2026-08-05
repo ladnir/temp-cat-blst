@@ -80,7 +80,12 @@ namespace blst::scalar
 		bool_t subtract)
 	{
 		GT neg = p2;
-		GT::cneg(neg, subtract);
+		// The signed-window digit is public in this explicitly variable-time path.
+		// Keep the branch here rather than charging the constant-time GT API's
+		// full conditional-copy cost to every MSM addition.
+		if (subtract) {
+			Fp12::conjugate(neg.data);
+		}
 		GT::add(out, p1, neg);
 	}
 

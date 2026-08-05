@@ -32,6 +32,26 @@ High-level policy:
 - FFT and interpolation are intentionally module-scoped rather than re-exported
   from the crate root.
 
+Contract policy:
+
+- Safe Rust methods document Rust-specific panics/errors and retain the same
+  mathematical preconditions as the C operation they wrap. Memory-safe to call
+  does not mean curve, subgroup, GT, or protocol validity was checked.
+- Raw functions from `src/bindings.rs` are generated unsafe FFI declarations.
+  Their semantic contract is the matching declaration in
+  `bindings/blst_scalar.h`, together with Rust's pointer, alignment, and
+  initialization requirements.
+- The generated file is not edited to add independent promises. Its generation
+  and inherited documentation will be reviewed during the Rust binding phase.
+- Shared terminology such as canonical scalar, G1/G2 element, GT element,
+  validation, and variable-time is defined in `docs/API_CONTRACTS.md` at the
+  repository root.
+
+Documentation is currently incremental with the hand audit. Field arithmetic
+and the reviewed G1/G2/GT multiplication and membership families are covered;
+unaudited signature, pairing-state, decoding, FFT, and middle-product families
+retain their existing documentation until their files are reviewed.
+
 Recommended entry points:
 
 - Low-level/raw use:

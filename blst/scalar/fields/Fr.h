@@ -23,7 +23,11 @@ namespace blst::scalar
 	 * If `a'` is the canonical integer in `[0, r)`, the stored value is
 	 * `a = a' * R mod r`, where `R = 2^256`. Unless stated otherwise, operations
 	 * are modulo r, return reduced results, preserve Montgomery form, and are
-	 * intended to be constant-time with respect to secret data.
+	 * intended to be constant-time with respect to secret data. Ordinary
+	 * arithmetic supports exact output aliasing with an input; partial overlap is
+	 * not supported. Inputs must already satisfy the stated reduced
+	 * representation. Debug assertions do not constitute Release validation.
+	 * Host operations allocate nothing and are nonthrowing for valid inputs.
 	 */
 	struct Fr
 	{
@@ -71,12 +75,15 @@ namespace blst::scalar
 		/// @brief `ret = 3 * a mod r`.
 		BLST_HD static void mul_by_3(Fr& ret, const Fr& a);
 		/// @brief Compute `out = 1 / inp` with the selected constant-time inverse.
+		/// @pre @p inp is nonzero; zero has no defined field inverse.
 		BLST_HD static void reciprocal(Fr& out, const Fr& inp);
 		/// @brief Constant-time equality of the represented field elements.
 		BLST_HD static limb_t equal(const Fr& a, const Fr& b);
 		/// @brief Constant-time Cooley-Tukey butterfly.
+		/// @pre @p x0 and @p x1 are distinct objects; @p twiddle is a reduced Montgomery value.
 		BLST_HD static void ct_bfly(Fr& x0, Fr& x1, const Fr& twiddle);
 		/// @brief Constant-time Gentleman-Sande butterfly.
+		/// @pre @p x0 and @p x1 are distinct objects; @p twiddle is a reduced Montgomery value.
 		BLST_HD static void gs_bfly(Fr& x0, Fr& x1, const Fr& twiddle);
 		/// @brief Return one iff @p a is strictly less than r.
 		BLST_HD static limb_t is_redc(const Fr& a);

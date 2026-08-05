@@ -26,6 +26,12 @@ secret, and which guarantees its callers depend on.
 List preconditions, postconditions, valid representations, ranges, alignment,
 aliasing, lifetime, ownership, and error behavior.
 
+For every externally reachable family, list the authoritative C, selected
+native C++, and safe Rust declarations. Record whether each surface is
+documented, generated from the C contract, not applicable, or deferred to an
+open finding. Do not mark the file complete while a supported declaration
+surface implemented by the file lacks its contract.
+
 ## Dependency and call-path map
 
 List direct callers and callees. Explain the scalar/AVX-512 relationship and any
