@@ -387,8 +387,11 @@ are validated. The `ec_mult.h` hand review and `AUD-126` through `AUD-130`
 are complete at `b985529`. Scalar `GT.h`/`GT.cpp` and the selected facade are
 complete at `3f72403`: native Miller results are distinct from GT, final
 exponentiation is named and typed explicitly, prepared-line factors have their
-own type, and the scalar/AVX generator is canonical static data. Continue Phase
-15 with `blst/scalar/curve/map_to_G.h`. Keep
+own type, and the scalar/AVX generator is canonical static data. Scalar and
+selected map-to-group headers are complete at `a1ef4b3`: typed hash-to-field
+outputs, static host constants, inversion-free AVX bridges, exact RFC vectors,
+and public contracts are validated. Continue Phase 15 with
+`blst/sign/sha256.h`, then key generation and aggregation. Keep
 `AUD-085` as the next
 explicit design decision when the GT decoder surface is reviewed. Coverage
 remains a late audit/release metric by user decision; sanitizer, fuzz, and

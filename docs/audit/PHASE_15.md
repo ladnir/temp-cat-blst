@@ -288,10 +288,49 @@ type/name migration required to keep compiling. No full suite, sanitizer,
 CUDA, Apple CI, or portable-AVX Release build ran. Experimental CUDA still uses
 the old native C++ spelling/domain and remains outside this production gate.
 
+## Scalar map-to-group review
+
+The seventh packet completes `blst/scalar/curve/map_to_G.h`, its selected
+facade, and the temporary AVX compatibility wrapper at implementation commit
+`a1ef4b38e406a78a95acc5550745c73305760ce5`. The hash-to-field writer, C
+boundary, and public header received focused repairs but remain pending their
+own complete file reviews.
+
+### Findings and decisions
+
+- `AUD-135` replaces the G2 `Fp2[]`-to-`Fp*` flattening cast with typed field
+  subobject access and a compile-time destination-extent proof.
+- `AUD-136` restores immutable host static coefficient storage. Experimental
+  CUDA retains automatic device constants and remains outside this gate.
+- `AUD-137` removes affine inversions from the AVX projective bridge and routes
+  scalar-storage C encode/hash directly to the scalar implementation.
+- `AUD-138` makes the retained four RFC 9380 G1/G2 NU/RO outputs exact tests,
+  with exceptional-zero and alias regressions beside them.
+- `AUD-139` records precise C, selected native C++, and generated Rust
+  contracts and removes raw map helpers from the selected namespace.
+- `AUD-140` constrains internal templates to G1/G2, documents alias behavior,
+  and asserts the nonaliasing cofactor-clear precondition in Debug.
+
+### Focused validation
+
+- MSVC scalar Debug and Release map targets pass 6/6 each.
+- Portable-AVX Debug passes 7/7 map tests and 5/5 focused AVX C API contracts.
+- Native AVX-512/IFMA Debug compiles serially; the unsupported local MSVC
+  native binary was not executed.
+- Optimized G1/G2 isogeny stack frames fall from 4,240/2,272 to 1,696/1,040
+  bytes; SSWU frames fall from 640/1,024 to 448/736 bytes. G1 no longer emits
+  `__chkstk`, and per-call coefficient initialization is absent.
+- Structural checks find no field-flattening cast, affine AVX bridge, selected
+  raw-helper export, or redundant C encode/hash AVX round trip.
+
+No benchmark, full suite, sanitizer sweep, CUDA build, BTx/BTE work, Apple CI,
+or portable-AVX Release build ran.
+
 ## Status and next action
 
-Scalar point, bulk addition, MSM, fixed-window multiplication, and GT/Miller
-files are complete at their recorded commits. Continue Phase 15 with
-`blst/scalar/curve/map_to_G.h`, preserving its fixed hash-to-curve formulas and
-adding adversarial input/domain evidence before proposing repairs. `AUD-085`
-remains the explicit GT deserialization decision.
+Scalar point, bulk addition, MSM, fixed-window multiplication, GT/Miller, and
+map-to-group headers are complete at their recorded commits. Continue Phase 15
+with `blst/sign/sha256.h`, the lowest remaining signing dependency, before
+reviewing key generation and aggregation. Preserve the fixed SHA-256 schedules
+and audit the XMD call contract shared with hash-to-field. `AUD-085` remains the
+explicit GT deserialization decision.
