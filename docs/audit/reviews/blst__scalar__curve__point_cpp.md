@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/scalar/curve/point.cpp` |
 | Roadmap phase / queue | Phase 15 scalar curves and protocols, first packet |
-| Reviewed commit | `07d79a48cc7d82560f5194f76a137e4ee2527d06` |
+| Reviewed commit | `07d79a48cc7d82560f5194f76a137e4ee2527d06`; pending localized fixed-window follow-up |
 | Reviewer | Codex audit team |
 | Date | 2026-08-04 |
 | Disposition | in-scope production |
@@ -145,7 +145,8 @@ the supported Apple CI gate; this packet did not trigger a new CI run.
 ## Findings
 
 `AUD-024`, `AUD-035`, `AUD-070`, `AUD-088`, `AUD-089`, `AUD-093`, `AUD-096`,
-`AUD-104`, `AUD-105`, `AUD-107`, `AUD-108`; caller finding `AUD-109`.
+`AUD-104`, `AUD-105`, `AUD-107`, `AUD-108`, `AUD-127`, `AUD-130`; caller
+finding `AUD-109`.
 
 ## Validation
 
@@ -155,6 +156,9 @@ the supported Apple CI gate; this packet did not trigger a new CI run.
 - Optimized MSVC disassembly: one Point normalization frame; coordinate helper
   receives direct x/y addresses; no affine copy/second point buffer.
 - Structural and documentation/group-contract checks: passed.
+- The localized `ec_mult.h` follow-up consumes the precomputed status and
+  removes wipes only from the public variable-time wNAF path; focused Release
+  execution and optimized inspection are recorded with that packet.
 
 ## Automated evidence
 
@@ -168,7 +172,7 @@ the supported Apple CI gate; this packet did not trigger a new CI run.
 
 ## Residual risk and decision
 
-The file is complete at the recorded commit. `AUD-109` must be resolved in the
-next `bulk_addition.h` review without imposing hot-loop copies. Decoder
-subgroup policy (`AUD-094`) and GT unchecked decoding (`AUD-085`) remain
-separate API decisions in their containing-file reviews.
+The original full review is complete. The localized fixed-window follow-up is
+pending its exact remediation hash. Decoder subgroup policy (`AUD-094`) and GT
+unchecked decoding (`AUD-085`) remain separate API decisions in their
+containing-file reviews.

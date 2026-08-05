@@ -55,6 +55,27 @@ constexpr std::array<uint64_t, 4> kScalarOrder = {
     0x73eda753299d7d48ULL,
 };
 
+constexpr unsigned hex_nibble(char value)
+{
+    return value >= '0' && value <= '9' ? static_cast<unsigned>(value - '0')
+        : value >= 'a' && value <= 'f'
+            ? static_cast<unsigned>(value - 'a' + 10)
+            : static_cast<unsigned>(value - 'A' + 10);
+}
+
+template<size_t Chars>
+constexpr auto decode_hex(const char (&encoded)[Chars])
+{
+    static_assert((Chars - 1) % 2 == 0);
+    std::array<blst_byte, (Chars - 1) / 2> decoded = {};
+    for (size_t i = 0; i < decoded.size(); ++i) {
+        decoded[i] = static_cast<blst_byte>(
+            (hex_nibble(encoded[2 * i]) << 4) |
+            hex_nibble(encoded[2 * i + 1]));
+    }
+    return decoded;
+}
+
 TEST(GroupScalarMult, ScalarGtConditionalNegation)
 {
     using ScalarGT = blst::scalar::GT;
@@ -449,6 +470,56 @@ TEST(GroupScalarMult, UncheckedMultiplicationSupportsOnCurveNonSubgroupPoints)
 		blst_p2_mult(&rejected, &g2, scalar.data(), 256);
 	}, "BLST_ASSERT");
 #endif
+}
+
+TEST(GroupScalarMult, UncheckedMultiplicationSupportsLowOrderPoints)
+{
+    constexpr auto g1_order_11_encoded = decode_hex(
+        "80803f0d09fec09a95f2ee7495323c15c162270c7cceaffa"
+        "8566e941c66bcf206e72955d58b3b32e564de3209d672ca5");
+    constexpr auto g2_order_13_encoded = decode_hex(
+        "808514e6f6c41ddb685cd8e351d7cb2ee891d54d5850d42c"
+        "440365b15dd8ab06b53da9ebb22bc31cea2234d30499b09f"
+        "01b290cae398ecc1fda3d4beb248af58bd351c3d99a5b6c7"
+        "70fdb54bf46b123261b55cf0762aeef2341e35e90608fc31");
+
+    blst_p1_affine g1_affine = {};
+    ASSERT_EQ(
+        blst_p1_uncompress(&g1_affine, g1_order_11_encoded.data()),
+        BLST_SUCCESS);
+    ASSERT_TRUE(blst_p1_affine_on_curve(&g1_affine));
+    ASSERT_FALSE(blst_p1_affine_in_g1(&g1_affine));
+    blst_p1 g1 = {};
+    blst_p1_from_affine(&g1, &g1_affine);
+
+    std::array<blst_byte, 32> scalar = {};
+    scalar[0] = 11;
+    blst_p1 g1_order = {};
+    blst_p1_unchecked_mult(&g1_order, &g1, scalar.data(), 256);
+    EXPECT_TRUE(blst_p1_is_inf(&g1_order));
+    scalar[0] = 12;
+    blst_p1 g1_order_plus_one = {};
+    blst_p1_unchecked_mult(&g1_order_plus_one, &g1, scalar.data(), 256);
+    EXPECT_TRUE(blst_p1_is_equal(&g1_order_plus_one, &g1));
+
+    blst_p2_affine g2_affine = {};
+    ASSERT_EQ(
+        blst_p2_uncompress(&g2_affine, g2_order_13_encoded.data()),
+        BLST_SUCCESS);
+    ASSERT_TRUE(blst_p2_affine_on_curve(&g2_affine));
+    ASSERT_FALSE(blst_p2_affine_in_g2(&g2_affine));
+    blst_p2 g2 = {};
+    blst_p2_from_affine(&g2, &g2_affine);
+
+    scalar.fill(0);
+    scalar[0] = 13;
+    blst_p2 g2_order = {};
+    blst_p2_unchecked_mult(&g2_order, &g2, scalar.data(), 256);
+    EXPECT_TRUE(blst_p2_is_inf(&g2_order));
+    scalar[0] = 14;
+    blst_p2 g2_order_plus_one = {};
+    blst_p2_unchecked_mult(&g2_order_plus_one, &g2, scalar.data(), 256);
+    EXPECT_TRUE(blst_p2_is_equal(&g2_order_plus_one, &g2));
 }
 
 TEST(GroupScalarMult, PublicMembershipPredicatesRequireCurveAndSubgroup)

@@ -1286,7 +1286,10 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 				Fp::cneg(table[1][i].y, table[0][i].y, 1);
 				vec_copy(table[1][i].z.l, table[0][i].z.l, sizeof(table[1][i].z));
 			}
-			mult_window_n<Point, Window>(out, NULL, 2, scalars, 128, table);
+			const bool_t success =
+				mult_window_n<Point, Window>(out, NULL, 2, scalars, 128, table);
+			BLST_ASSERT(success);
+			(void)success;
 			Point::cneg(out, 1);
 			Fp::mul(out.z, out.z, get_BLST_beta());
 			Fp::mul(out.z, out.z, get_BLST_beta());
@@ -1305,7 +1308,10 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 				Point::cneg(table[1][i], 1);
 				Point::cneg(table[3][i], 1);
 			}
-			mult_window_n<Point, Window>(out, NULL, 4, scalars, 64, table);
+			const bool_t success =
+				mult_window_n<Point, Window>(out, NULL, 4, scalars, 64, table);
+			BLST_ASSERT(success);
+			(void)success;
 		}
 
 		vec_zero(&divided, sizeof(divided));
@@ -1402,9 +1408,6 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			Fp::mul(out.z, out.z, get_BLST_beta());
 		}
 
-		vec_zero(&divided, sizeof(divided));
-		vec_zero(scalar_digits, sizeof(scalar_digits));
-		vec_zero(wnaf, sizeof(wnaf));
 	}
 
 	template<> BLST_HD BLST_CPP_INLINE void G1Point::mult_glsv(

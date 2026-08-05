@@ -205,3 +205,40 @@ batch-affine implementation file.
 No benchmark ran because optimized inspection found no changed hot-loop work.
 No broad suite, sanitizer, CUDA,
 portable-AVX Release, Apple CI, or BTx/BTE audit is included.
+
+## Scalar fixed-window multiplication review
+
+The fifth packet reviews `blst/scalar/curve/ec_mult.h` and its direct scalar
+point callers. It compares the C++ templates with pinned upstream
+`54e6e55674722fc2797ebb4bbb71b26d881eb4b8:src/ec_mult.h`, including the
+low-order correction in upstream commit `7c535f1`.
+
+### Findings and decisions
+
+- `AUD-126` constrains the fixed-window templates to their actual `[2,8]`
+  domain. Production remains width four/five, so the hot layout is unchanged.
+- `AUD-127` makes the allocation-hardened status non-discardable and records
+  the precomputed GLV/GLS success invariant without a Release branch.
+- `AUD-128` restores direct order-11 G1 and order-13 G2 evidence for the two
+  inherited exact-scalar `unchecked_mult` exceptions.
+- `AUD-129` masks unused source bits for future non-byte-aligned wNAF
+  instantiations. Current 64/128-bit production forms compile unchanged.
+- `AUD-130` removes volatile erasure only from explicitly public variable-time
+  decomposition. Secret-capable constant-time and signing paths retain it.
+- The internal contracts now state extraction masking, fixed-window bounds,
+  table ownership, compact descriptors, aliasing, and timing. The reserved
+  double-underscore scalar and forwarding-header guards are replaced.
+
+### Focused validation
+
+- MSVC scalar Release window/allocation tests pass 6/6.
+- The retained non-subgroup oracle and the new low-order G1/G2 packet pass 2/2.
+- Selected CT/VT agreement, exact-alias, full-width boundary, and independent
+  crossover-oracle tests pass 4/4, for a focused Release total of 12/12.
+- MSVC `/W4 /WX /O2` compilation of the owning point translation unit passes.
+- Optimized 64/128-bit wNAF recoders return without erasure loops. Both
+  precomputed GLV/GLS functions inline `mult_window_n` and contain no
+  out-of-line helper call or allocation reference.
+
+No benchmark, broad suite, sanitizer, CUDA, BTx/BTE, Apple CI, or portable-AVX
+Release build is included.

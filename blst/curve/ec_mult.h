@@ -3,8 +3,8 @@
  * Licensed under the Apache License, Version 2.0, see LICENSE for details.
  * SPDX-License-Identifier: Apache-2.0
  */
-#ifndef __BLS12_381_ASM_EC_MULT_H__
-#define __BLS12_381_ASM_EC_MULT_H__
+#ifndef BLST_CURVE_EC_MULT_H
+#define BLST_CURVE_EC_MULT_H
 
 #include "blst/scalar/curve/ec_mult.h"
 

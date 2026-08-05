@@ -342,12 +342,12 @@ Main audit work volume:
 
 | Work group | Phases | Total | Complete | Pending |
 | --- | --- | ---: | ---: | ---: |
-| Scalar foundations, fields, curves, and protocols | 13-15 | 197 | 8 | 189 |
+| Scalar foundations, fields, curves, and protocols | 13-15 | 197 | 7 | 190 |
 | AVX-512 | 16 | 42 | 0 | 42 |
 | FFT and middle product | 17 | 10 | 0 | 10 |
 | C/C++/Rust APIs and bindings | 18 | 28 | 1 | 27 |
-| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 167 | 1 | 166 |
-| **Total in-scope production/generated/support** | **12-19** | **444** | **10** | **434** |
+| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 168 | 1 | 167 |
+| **Total in-scope production/generated/support** | **12-19** | **445** | **9** | **436** |
 
 The rollup is explained in `PRODUCTION_AUDIT_ROADMAP.md`; the per-file
 `FILE_MANIFEST.csv` remains authoritative.
@@ -362,7 +362,7 @@ Upstream progress:
   validation are completed;
 - 0 remain pending.
 
-Findings: 125 total: 98 validated, 16 fixed pending final evidence, three accepted
+Findings: 130 total: 103 validated, 16 fixed pending final evidence, three accepted
 risks, five need a design decision, and three remain open. `AUD-035` is validated with preserved
 allocated/caller-table/precomputed modes and 10/10 focused MSVC Release, Linux
 ASan, and Linux UBSan tests. `AUD-036` is validated on native
@@ -383,8 +383,9 @@ bulk-addition headers are complete at `bd45afa`; `AUD-109` through `AUD-112`
 are validated. Scalar/selected MSM and the safe Rust multipoint wrapper are
 complete at `af09f66`; `AUD-113` through `AUD-120` are validated. The
 batch-affine MSM review is complete at `913c52f`; `AUD-121` through `AUD-125`
-are validated. Continue Phase 15 by reviewing
-`blst/scalar/curve/ec_mult.h`. Keep
+are validated. The `ec_mult.h` hand review and `AUD-126` through `AUD-130`
+focused remediation await their exact commit hash. Continue Phase 15 with
+`blst/scalar/curve/GT.h` after closing that packet. Keep
 `AUD-085` as the next
 explicit design decision when the GT decoder surface is reviewed. Coverage
 remains a late audit/release metric by user decision; sanitizer, fuzz, and

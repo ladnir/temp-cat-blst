@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 
 #include "blst/scalar/curve/point.h"
 
@@ -97,6 +98,49 @@ TEST(ScalarMultWindow, G1SupportsAllocatedAndCallerTables)
 TEST(ScalarMultWindow, G2SupportsAllocatedAndCallerTables)
 {
     expect_all_mult_window_modes<G2Point>();
+}
+
+TEST(ScalarMultWindow, G1SupportsAuditedFixedWindowBounds)
+{
+    const byte scalar = 0xa5;
+    G1Point expected = {};
+    G1Point width_two = {};
+    G1Point width_eight = {};
+
+    G1Point::mult(expected, G1Point::generator(), &scalar, 8);
+    blst::scalar::mult_window<G1Point, 2>(
+        width_two, G1Point::generator(), &scalar, 8);
+    blst::scalar::mult_window<G1Point, 8>(
+        width_eight, G1Point::generator(), &scalar, 8);
+
+    EXPECT_TRUE(G1Point::equal(expected, width_two));
+    EXPECT_TRUE(G1Point::equal(expected, width_eight));
+}
+
+TEST(ScalarMultWindow, WnafMasksBitsAboveNonByteAlignedDomain)
+{
+    constexpr size_t scalar_bits = 5;
+    constexpr int width = 3;
+    const byte canonical = 0x1f;
+    const byte noisy = 0xff;
+    std::array<int8_t, scalar_bits + 1> canonical_digits = {};
+    std::array<int8_t, scalar_bits + 1> noisy_digits = {};
+
+    const size_t canonical_count =
+        blst::scalar::recode_wnaf_vartime<scalar_bits, width>(
+            canonical_digits.data(), &canonical);
+    const size_t noisy_count =
+        blst::scalar::recode_wnaf_vartime<scalar_bits, width>(
+            noisy_digits.data(), &noisy);
+
+    EXPECT_EQ(noisy_count, canonical_count);
+    EXPECT_EQ(noisy_digits, canonical_digits);
+
+    int reconstructed = 0;
+    for (size_t bit = 0; bit < noisy_count; ++bit)
+        reconstructed += static_cast<int>(noisy_digits[bit]) *
+            static_cast<int>(uint32_t{1} << bit);
+    EXPECT_EQ(reconstructed, 31);
 }
 
 TEST(ScalarMultWindow, RejectsInvalidInputsWithoutChangingOutput)

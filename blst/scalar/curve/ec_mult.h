@@ -3,15 +3,26 @@
  * Licensed under the Apache License, Version 2.0, see LICENSE for details.
  * SPDX-License-Identifier: Apache-2.0
  */
-#ifndef __BLST_SCALAR_EC_MULT_H__
-#define __BLST_SCALAR_EC_MULT_H__
+#ifndef BLST_SCALAR_CURVE_EC_MULT_H
+#define BLST_SCALAR_CURVE_EC_MULT_H
 
 #include <cstdlib>
+#include <limits>
+#include <type_traits>
 
 namespace blst::scalar
 {
 	namespace detail
 	{
+		template<int WindowSize>
+		struct fixed_window_traits
+		{
+			static_assert(WindowSize >= 2 && WindowSize <= 8,
+				"fixed-window width must lie in [2, 8]");
+			static constexpr size_t table_size =
+				size_t{1} << (WindowSize - 1);
+		};
+
 		struct window_table_allocator
 		{
 			BLST_HD static void* allocate(size_t size)
@@ -30,13 +41,16 @@ namespace blst::scalar
 	 * Extract window value of given bit size from bit offset in byte array.
 	 * The bits are numbered from 0 (least significant) to n-1 (most significant).
 	 * The window value is returned in the least significant bits of limb_t.
-	 * The caller must ensure that 'bits' is not greater than what the
-	 * subroutine can handle, see below.
+	 * The caller must mask off any loaded bits above the requested window and
+	 * ensure that the source contains every addressed byte.
 	 *
 	 * Works up to 9 bits 
 	 */
 	BLST_HD BLST_FORCEINLINE limb_t get_wval(const byte* d, size_t off, size_t bits)
 	{
+		BLST_ASSERT(d != nullptr);
+		BLST_ASSERT(bits >= 1 && bits <= 9);
+		BLST_ASSERT(off <= std::numeric_limits<size_t>::max() - (bits - 1));
 		size_t top = off + bits - 1;
 		limb_t ret;
 
@@ -45,9 +59,12 @@ namespace blst::scalar
 		return ret >> (off % 8);
 	}
 
-	/* Works up to 25 bits. */
+	/* Works up to 25 bits and, like get_wval, leaves final masking to the caller. */
 	BLST_HD BLST_INLINE limb_t get_wval_limb(const byte* d, size_t off, size_t bits)
 	{
+		BLST_ASSERT(d != nullptr);
+		BLST_ASSERT(bits >= 1 && bits <= 25);
+		BLST_ASSERT(off <= std::numeric_limits<size_t>::max() - (bits - 1));
 		size_t i, top = (off + bits - 1) / 8;
 		limb_t ret, mask = (limb_t)0 - 1;
 
@@ -107,7 +124,8 @@ namespace blst::scalar
 	 */
 	BLST_HD BLST_FORCEINLINE limb_t booth_encode(limb_t wval, size_t w)
 	{
-		BLST_ASSERT(wval < (1 << (w + 1)));
+		BLST_ASSERT(w > 0 && w < BLST_LIMB_SIZE - 1);
+		BLST_ASSERT(wval < (limb_t{1} << (w + 1)));
 
 		auto sign = wval >> w;
 		limb_t mask = 0 - sign;  // "sign", 0 if wval < 2^w, else ~0
@@ -135,22 +153,26 @@ namespace blst::scalar
 		*/
 	template<typename ptype, int window_size>
 	BLST_HD BLST_INLINE bool_t gather_booth_w(ptype& BLST_restrict p,
-		const ptype table[1 << (window_size - 1)],
+		const ptype table[detail::fixed_window_traits<window_size>::table_size],
 		limb_t booth_encoding)
 	{
+		constexpr size_t table_size =
+			detail::fixed_window_traits<window_size>::table_size;
+		static_assert(std::is_trivially_default_constructible_v<ptype>);
+		static_assert(std::is_trivially_destructible_v<ptype>);
 
 		size_t i;
 		bool_t booth_sign = (booth_encoding >> window_size) & 1;
 
 		// this index takes into account the possible `borrow` from the 
 		// next window and index the value that we need to add or subtract
-		auto booth_idx = booth_encoding & ((1 << window_size) - 1);
+		auto booth_idx = booth_encoding & ((limb_t{1} << window_size) - 1);
 
 		// we will default p to the first element.
 		// we then select the active row from the rest.
 		vec_copy(&p, table, sizeof(ptype));
 		/* ~6% with -Os, ~2% with -O3 ... */
-		for (i = 2; i <= 1 << (window_size - 1); i++)
+		for (i = 2; i <= table_size; i++)
 			ptype::ccopy(p, table[i - 1], byte_is_zero((byte)(i ^ booth_idx)));
 
 		ptype::cneg(p, booth_sign);
@@ -159,7 +181,9 @@ namespace blst::scalar
 	}
 
 
-	// computes pre-computation table of multiplies of `point`
+	// Computes the fixed-window table of multiples of `point`.
+	// `row` contains fixed_window_traits<window_size>::table_size live objects.
+	// Exact `row[0]`/`point` aliasing is supported; partial overlap is not.
 	// 
 	// row[0] = point * 1
 	// row[1] = point * 2
@@ -169,12 +193,14 @@ namespace blst::scalar
 	template<typename ptype, int window_size>
 	BLST_HD BLST_INLINE void precompute_w(ptype row[], const ptype& point)
 	{
+		constexpr size_t table_size =
+			detail::fixed_window_traits<window_size>::table_size;
 		size_t i, j;
 		/* row[-1] is implicit infinity */
 		vec_copy(&row[0], &point, sizeof(ptype));        /* row[0]=p*1     */
 		ptype::doubling(row[1], point);                  /* row[1]=p*(1+1) */
 
-		for (i = 2, j = 1; i < 1 << (window_size - 1); i += 2, j++)
+		for (i = 2, j = 1; i < table_size; i += 2, j++)
 		{
 			ptype::add(row[i], row[j], row[j - 1]);      /* row[2]=p*(2+1) */
 			ptype::doubling(row[i + 1], row[j]);         /* row[3]=p*(2+2) */
@@ -182,6 +208,11 @@ namespace blst::scalar
 	}                                                    /* row[4] ...     */
 
 	// ret = scalar * point, (scalar is `bits` bits long)
+	//
+	// The operation is constant-time with respect to scalar contents for fixed
+	// public `bits` and `window_size`. `bits` is nonzero and `scalar` addresses
+	// ceil(bits/8) readable bytes. `ret` may exactly alias `point`; the scalar
+	// storage is disjoint from both objects.
 	//
 	// we will compute this using windowing. The basic idea is 
 	// to preprocess multiples of `point`:
@@ -271,6 +302,10 @@ namespace blst::scalar
 	BLST_HD BLST_INLINE void mult_window(ptype& ret, const ptype& point,
 		const byte* scalar, const size_t bits)
 	{
+		constexpr size_t table_size =
+			detail::fixed_window_traits<window_size>::table_size;
+		BLST_ASSERT(bits != 0);
+		BLST_ASSERT(scalar != nullptr);
 		limb_t wmask, wval;
 		size_t j, window;
 		ptype sum, row;
@@ -278,7 +313,7 @@ namespace blst::scalar
 
 		// pre-compute table of multiples
 		// point, 2*point, 3*point, ..., (2^(w-1))*point
-		ptype table[1 << (window_size - 1)];
+		ptype table[table_size];
 		precompute_w<ptype, window_size>(table, point);
 
 		/* top excess bits modulo target window size */
@@ -330,7 +365,11 @@ namespace blst::scalar
 	// The first point and scalar pointers must be non-NULL. Later NULL entries
 	// select the next contiguous object, preserving the compact BLST convention.
 	// On invalid input, size overflow, or allocation failure, ret is unchanged
-	// and the function returns zero.
+	// and the function returns zero. `ret` is disjoint from the table and scalar
+	// storage. Point/scalar descriptor arrays either contain one explicit head
+	// per item or a null entry after a head to select contiguous continuation.
+	// For fixed public sizes, table selection and group accumulation are
+	// constant-time with respect to scalar contents.
 	// 
 	// this is better than mult_w because the doubling of the 
 	// accumulator is shared between all inputs. This can be a big 
@@ -338,14 +377,15 @@ namespace blst::scalar
 	//
 	template<typename ptype, int window_size,
 		typename allocator_type = detail::window_table_allocator>
-	BLST_HD BLST_INLINE bool_t mult_window_n(ptype& ret,
+	[[nodiscard]] BLST_HD BLST_FORCEINLINE bool_t mult_window_n(ptype& ret,
 		const ptype* points[], size_t npoints,
 		const byte* scalars[], size_t bits,
-		ptype table[][size_t{1} << (window_size - 1)])
+		ptype table[][detail::fixed_window_traits<window_size>::table_size])
 	{
-		static_assert(window_size > 0, "window_size must be positive");
-		static_assert(window_size + 1 < 8 * sizeof(limb_t),
-			"window_size is too large for limb_t masks");
+		constexpr size_t table_size =
+			detail::fixed_window_traits<window_size>::table_size;
+		static_assert(std::is_trivially_default_constructible_v<ptype>);
+		static_assert(std::is_trivially_destructible_v<ptype>);
 
 		limb_t wmask, wval;
 		size_t i, j, window, nbytes;
@@ -366,8 +406,8 @@ namespace blst::scalar
 			if (npoints > (size_t)-1 / table_row_size)
 				return 0;
 
-			table = (ptype(*)[size_t{1} << (window_size - 1)])allocator_type::allocate(
-				table_row_size * npoints);
+			table = static_cast<ptype(*)[table_size]>(
+				allocator_type::allocate(table_row_size * npoints));
 
 			if (table == NULL)
 				return 0;
@@ -447,10 +487,14 @@ namespace blst::scalar
 		return 1;
 	}
 
+	/* Variable-time wNAF recoding for public little-endian scalar data. Bits in
+	 * the final source byte above ScalarBits are ignored. The output contains
+	 * ScalarBits+1 entries to retain a possible final positive carry. */
 	template<size_t ScalarBits, int Width>
 	BLST_HD BLST_INLINE size_t recode_wnaf_vartime(
 		int8_t digits[ScalarBits + 1], const byte* scalar)
 	{
+		static_assert(ScalarBits > 0);
 		static_assert(Width >= 2 && Width <= 7);
 		constexpr size_t scalar_limbs = (ScalarBits + BLST_LIMB_SIZE - 1) /
 			BLST_LIMB_SIZE;
@@ -459,6 +503,10 @@ namespace blst::scalar
 		constexpr size_t limbs_count = scalar_limbs + 1;
 		limb_t value[limbs_count] = {};
 		limbs_from_le_bytes(value, scalar, (ScalarBits + 7) / 8);
+		if constexpr ((ScalarBits % 8) != 0) {
+			constexpr size_t top_bits = ScalarBits % BLST_LIMB_SIZE;
+			value[scalar_limbs - 1] &= (limb_t{1} << top_bits) - 1;
+		}
 		for (size_t i = 0; i <= ScalarBits; ++i)
 			digits[i] = 0;
 
@@ -498,7 +546,6 @@ namespace blst::scalar
 			++used;
 		}
 
-		vec_zero(value, sizeof(value));
 		return used;
 	}
 
