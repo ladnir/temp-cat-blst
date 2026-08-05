@@ -387,20 +387,23 @@ void blst_bendian_from_fp12(blst_byte out[48 * 12], const blst_fp12* a);
  * - Serialization writes 96-byte uncompressed or 48-byte compressed encodings.
  * - Generator accessors return immutable static storage.
  */
-/** Adds distinct, nonopposite G1 projective points, with infinity supported.
- * Equal or opposite finite inputs are outside this incomplete formula's
+/** Adds G1 projective points using a fast incomplete formula, with infinity
+ * supported. For finite inputs, "opposite" means the same affine x coordinate
+ * and negated affine y coordinate, so their mathematical sum is infinity.
+ * Equal or opposite finite inputs are outside this function's
  * contract; use `blst_p1_add_or_double` when those cases are possible. */
 void blst_p1_add(blst_p1* out, const blst_p1* a, const blst_p1* b);
 /** Subtracts G1 projective point `b` from `a` and writes the result to `out`. */
 void blst_p1_sub(blst_p1* out, const blst_p1* a, const blst_p1* b);
-/** Adds `a` and `b`, doubling when they represent the same G1 point. */
+/** Complete G1 addition: doubles equal inputs and returns infinity for opposites. */
 void blst_p1_add_or_double(blst_p1* out, const blst_p1* a, const blst_p1* b);
-/** Adds distinct, nonopposite projective and affine G1 points, with infinity
- * supported. Use `blst_p1_add_or_double_affine` when equality is possible. */
+/** Adds projective and affine G1 points using a fast incomplete formula, with
+ * infinity supported. Finite inputs must be distinct and not opposites; use
+ * `blst_p1_add_or_double_affine` when either case is possible. */
 void blst_p1_add_affine(blst_p1* out, const blst_p1* a, const blst_p1_affine* b);
 /** Subtracts affine G1 point `b` from projective `a` and writes the result to `out`. */
 void blst_p1_sub_affine(blst_p1* out, const blst_p1* a, const blst_p1_affine* b);
-/** Adds or doubles using a projective `a` and affine `b` G1 input. */
+/** Complete mixed G1 addition, including equal and opposite finite inputs. */
 void blst_p1_add_or_double_affine(blst_p1* out, const blst_p1* a, const blst_p1_affine* b);
 /** Doubles the G1 projective point `a` and writes the result to `out`. */
 void blst_p1_double(blst_p1* out, const blst_p1* a);
@@ -482,9 +485,9 @@ void blst_p1_compress(blst_byte out[48], const blst_p1* in);
 void blst_p1_affine_serialize(blst_byte out[96], const blst_p1_affine* in);
 /** Compresses an affine G1 point into a 48-byte encoding. */
 void blst_p1_affine_compress(blst_byte out[48], const blst_p1_affine* in);
-/** Decodes a 48-byte compressed G1 encoding into `out`. */
+/** Decodes a 48-byte compressed G1 encoding into `out`; on failure `out` is unchanged. */
 BLST_ERROR blst_p1_uncompress(blst_p1_affine* out, const blst_byte in[48]);
-/** Decodes a 96-byte uncompressed G1 encoding into `out`. */
+/** Decodes a 96-byte uncompressed G1 encoding into `out`; on failure `out` is unchanged. */
 BLST_ERROR blst_p1_deserialize(blst_p1_affine* out, const blst_byte in[96]);
 
 /**
@@ -495,20 +498,23 @@ BLST_ERROR blst_p1_deserialize(blst_p1_affine* out, const blst_byte in[96]);
  * constant-time for fixed public `nbits`; `_vartime` and all
  * multi-scalar/Pippenger operations require public scalars.
  */
-/** Adds distinct, nonopposite G2 projective points, with infinity supported.
- * Equal or opposite finite inputs are outside this incomplete formula's
+/** Adds G2 projective points using a fast incomplete formula, with infinity
+ * supported. For finite inputs, "opposite" means the same affine x coordinate
+ * and negated affine y coordinate, so their mathematical sum is infinity.
+ * Equal or opposite finite inputs are outside this function's
  * contract; use `blst_p2_add_or_double` when those cases are possible. */
 void blst_p2_add(blst_p2* out, const blst_p2* a, const blst_p2* b);
 /** Subtracts G2 projective point `b` from `a` and writes the result to `out`. */
 void blst_p2_sub(blst_p2* out, const blst_p2* a, const blst_p2* b);
-/** Adds `a` and `b`, doubling when they represent the same G2 point. */
+/** Complete G2 addition: doubles equal inputs and returns infinity for opposites. */
 void blst_p2_add_or_double(blst_p2* out, const blst_p2* a, const blst_p2* b);
-/** Adds distinct, nonopposite projective and affine G2 points, with infinity
- * supported. Use `blst_p2_add_or_double_affine` when equality is possible. */
+/** Adds projective and affine G2 points using a fast incomplete formula, with
+ * infinity supported. Finite inputs must be distinct and not opposites; use
+ * `blst_p2_add_or_double_affine` when either case is possible. */
 void blst_p2_add_affine(blst_p2* out, const blst_p2* a, const blst_p2_affine* b);
 /** Subtracts affine G2 point `b` from projective `a` and writes the result to `out`. */
 void blst_p2_sub_affine(blst_p2* out, const blst_p2* a, const blst_p2_affine* b);
-/** Adds or doubles using a projective `a` and affine `b` G2 input. */
+/** Complete mixed G2 addition, including equal and opposite finite inputs. */
 void blst_p2_add_or_double_affine(blst_p2* out, const blst_p2* a, const blst_p2_affine* b);
 /** Doubles the G2 projective point `a` and writes the result to `out`. */
 void blst_p2_double(blst_p2* out, const blst_p2* a);
@@ -590,9 +596,9 @@ void blst_p2_compress(blst_byte out[96], const blst_p2* in);
 void blst_p2_affine_serialize(blst_byte out[192], const blst_p2_affine* in);
 /** Compresses an affine G2 point into a 96-byte encoding. */
 void blst_p2_affine_compress(blst_byte out[96], const blst_p2_affine* in);
-/** Decodes a 96-byte compressed G2 encoding into `out`. */
+/** Decodes a 96-byte compressed G2 encoding into `out`; on failure `out` is unchanged. */
 BLST_ERROR blst_p2_uncompress(blst_p2_affine* out, const blst_byte in[96]);
-/** Decodes a 192-byte uncompressed G2 encoding into `out`. */
+/** Decodes a 192-byte uncompressed G2 encoding into `out`; on failure `out` is unchanged. */
 BLST_ERROR blst_p2_deserialize(blst_p2_affine* out, const blst_byte in[192]);
 
 /**

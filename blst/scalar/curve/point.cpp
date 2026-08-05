@@ -42,9 +42,10 @@
   *   - The y-sign/parity bit is encoded using sgn0; see code for bit layout.
   *
   * # Constant-time notes
-  * Unless explicitly stated, operations are written to be branchless/constant-time
-  * w.r.t. secret data. The @c Pointxyzz helpers are explicitly marked
-  * **NOT CONSTANT TIME**; use only where timing does not leak secrets (e.g., fixed-base MSMs).
+  * Arithmetic explicitly documented as constant-time avoids secret-dependent
+  * control flow and memory access under its stated preconditions. Conversion,
+  * serialization, decoding, membership predicates, and @c Pointxyzz helpers may
+  * be variable-time and must operate only on public points or encodings.
   *
   * # CUDA / host constants
   * get_BLST_* accessors return host or device constants depending on compilation target.
@@ -222,6 +223,10 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 						TO_LIMB_T(0x0e1c8c3fad0059c0), TO_LIMB_T(0x0bbc3efc5008a26a) }},
 		Fp{{ ONE_MONT_P_LIMBS }}
 	};
+	constexpr G1AffinePoint BLST_G1_AFFINE_HOST{
+		BLST_G1_HOST.x,
+		BLST_G1_HOST.y
+	};
 
 
 
@@ -234,7 +239,11 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	 * y^2 = x^3 + B, 4 + 4*i
 	 */
 	const Fp2 BLST_B_E2_HOST = { { BLST_B_E2_LIMBS } };
-	const G2Point BLST_G2_HOST{ BLST_G2_LIMBS };
+	constexpr G2Point BLST_G2_HOST{ BLST_G2_LIMBS };
+	constexpr G2AffinePoint BLST_G2_AFFINE_HOST{
+		BLST_G2_HOST.x,
+		BLST_G2_HOST.y
+	};
 	const G2Point BLST_NEG_G2_HOST = { BLST_NEG_G2_LIMBS };
 
 	/*
@@ -263,9 +272,35 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 						TO_LIMB_T(0x0e1c8c3fad0059c0), TO_LIMB_T(0x0bbc3efc5008a26a) }},
 		{{ ONE_MONT_P_LIMBS }}
 	};
+	static __constant__ G1AffinePoint BLST_G1_AFFINE_DEV{
+		{ {TO_LIMB_T(0x5cb38790fd530c16), TO_LIMB_T(0x7817fc679976fff5),
+						TO_LIMB_T(0x154f95c7143ba1c1), TO_LIMB_T(0xf0ae6acdf3d0e747),
+						TO_LIMB_T(0xedce6ecc21dbf440), TO_LIMB_T(0x120177419e0bfb75) }},
+		{ { TO_LIMB_T(0xbaac93d50ce72271), TO_LIMB_T(0x8c22631a7918fd8e),
+						TO_LIMB_T(0xdd595f13570725ce), TO_LIMB_T(0x51ac582950405194),
+						TO_LIMB_T(0x0e1c8c3fad0059c0), TO_LIMB_T(0x0bbc3efc5008a26a) }}
+	};
 	static __constant__ G1Point BLST_NEG_G1_DEV = { BLST_NEG_G1_LIMBS };
 	static __constant__ Fp2 BLST_B_E2_DEV = { { BLST_B_E2_LIMBS } };
 	static __constant__ G2Point BLST_G2_DEV = { BLST_G2_LIMBS };
+	static __constant__ G2AffinePoint BLST_G2_AFFINE_DEV = {
+		Fp2{
+			Fp{ TO_LIMB_T(0xf5f28fa202940a10), TO_LIMB_T(0xb3f5fb2687b4961a),
+				TO_LIMB_T(0xa1a893b53e2ae580), TO_LIMB_T(0x9894999d1a3caee9),
+				TO_LIMB_T(0x6f67b7631863366b), TO_LIMB_T(0x058191924350bcd7) },
+			Fp{ TO_LIMB_T(0xa5a9c0759e23f606), TO_LIMB_T(0xaaa0c59dbccd60c3),
+				TO_LIMB_T(0x3bb17e18e2867806), TO_LIMB_T(0x1b1ab6cc8541b367),
+				TO_LIMB_T(0xc2b6ed0ef2158547), TO_LIMB_T(0x11922a097360edf3) }
+		},
+		Fp2{
+			Fp{ TO_LIMB_T(0x4c730af860494c4a), TO_LIMB_T(0x597cfa1f5e369c5a),
+				TO_LIMB_T(0xe7e6856caa0a635a), TO_LIMB_T(0xbbefb5e96e0d495f),
+				TO_LIMB_T(0x07d3a975f0ef25a2), TO_LIMB_T(0x0083fd8e7e80dae5) },
+			Fp{ TO_LIMB_T(0xadc0fc92df64b05d), TO_LIMB_T(0x18aa270a2b1461dc),
+				TO_LIMB_T(0x86adac6a3be4eba0), TO_LIMB_T(0x79495c4ec93da33a),
+				TO_LIMB_T(0xe7175850a43ccaed), TO_LIMB_T(0x0b2bc2a163de1bf2) }
+		}
+	};
 	static __constant__ G2Point BLST_NEG_G2_DEV = { BLST_NEG_G2_LIMBS };
 	static __constant__ Fp BLST_beta_DEV = { BLST_beta_LIMBS };
 
@@ -338,7 +373,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 #endif
 	}
 
-	// return the generator point of G1 in affine coordinates, in montgomery form.
+	// Return the generator point of G1 in Jacobian coordinates, in Montgomery form.
 	// Will return host or device memory depending on compilation target.
 	BLST_HD BLST_CPP_INLINE const Point<Fp>& get_BLST_G1(void)
 	{
@@ -349,7 +384,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 #endif
 	}
 
-	// return the negative of the generator point of G1 in affine coordinates, in montgomery form.
+	// Return the negative G1 generator in Jacobian coordinates, in Montgomery form.
 	// Will return host or device memory depending on compilation target.
 	BLST_HD BLST_CPP_INLINE const G1Point& get_BLST_NEG_G1(void)
 	{
@@ -385,7 +420,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	}
 
 
-	// return the generator point of G2 in affine coordinates, in montgomery form.
+	// Return the generator point of G2 in Jacobian coordinates, in Montgomery form.
 	// Will return host or device memory depending on compilation target.
 	BLST_HD BLST_CPP_INLINE const G2Point& get_BLST_G2(void)
 	{
@@ -396,7 +431,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 #endif
 	}
 
-	// return the negative of the generator point of G2 in affine coordinates, in montgomery form.
+	// Return the negative G2 generator in Jacobian coordinates, in Montgomery form.
 	BLST_HD BLST_CPP_INLINE const G2Point& get_BLST_NEG_G2(void)
 	{
 #if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
@@ -447,13 +482,21 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	template<>
 	BLST_HD BLST_CPP_INLINE const AffinePoint<Fp>& AffinePoint<Fp>::generator()
 	{
-		return (const AffinePoint<Fp>&)get_BLST_G1();
+#if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
+		return BLST_G1_AFFINE_DEV;
+#else
+		return BLST_G1_AFFINE_HOST;
+#endif
 	}
 
 	template<>
 	BLST_HD BLST_CPP_INLINE const AffinePoint<Fp2>& AffinePoint<Fp2>::generator()
 	{
-		return (const AffinePoint<Fp2>&)get_BLST_G2();
+#if defined(BLST_CUDA) && defined(__CUDA_ARCH__)
+		return BLST_G2_AFFINE_DEV;
+#else
+		return BLST_G2_AFFINE_HOST;
+#endif
 	}
 
 
@@ -674,16 +717,18 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	template BLST_HD BLST_CPP_INLINE bool_t Point<Fp2>::on_curve(const Point<Fp2>& p);
 
 	template<typename Field>
-	BLST_HD BLST_CPP_INLINE limb_t AffinePoint<Field>::serialize_BE(unsigned char* out,
-		const AffinePoint& in)
+	BLST_HD BLST_CPP_INLINE limb_t serialize_affine_coordinates_BE(
+		unsigned char* out,
+		const Field& x,
+		const Field& y)
 	{
 		if constexpr (std::is_same_v<Field, Fp>) {
 			Fp temp;
 
-			Fp::from_mont(temp, in.x);
+			Fp::from_mont(temp, x);
 			be_bytes_from_limbs(out, temp.l, sizeof(temp));
 
-			Fp::from_mont(temp, in.y);
+			Fp::from_mont(temp, y);
 			be_bytes_from_limbs(out + 48, temp.l, sizeof(temp));
 
 			return Fp::sgn0_pty(temp);
@@ -691,18 +736,26 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		else {
 			Fp2 temp;
 
-			Fp::from_mont(temp[1], in.x[1]);
+			Fp::from_mont(temp[1], x[1]);
 			be_bytes_from_limbs(out, temp[1].l, sizeof(temp[1]));
-			Fp::from_mont(temp[0], in.x[0]);
+			Fp::from_mont(temp[0], x[0]);
 			be_bytes_from_limbs(out + 48, temp[0].l, sizeof(temp[0]));
 
-			Fp::from_mont(temp[1], in.y[1]);
+			Fp::from_mont(temp[1], y[1]);
 			be_bytes_from_limbs(out + 96, temp[1].l, sizeof(temp[1]));
-			Fp::from_mont(temp[0], in.y[0]);
+			Fp::from_mont(temp[0], y[0]);
 			be_bytes_from_limbs(out + 144, temp[0].l, sizeof(temp[0]));
 
 			return Fp2::sgn0_pty(temp);
 		}
+	}
+
+	template<typename Field>
+	BLST_HD BLST_CPP_INLINE limb_t AffinePoint<Field>::serialize_BE(
+		unsigned char* out,
+		const AffinePoint& in)
+	{
+		return serialize_affine_coordinates_BE(out, in.x, in.y);
 	}
 	template BLST_HD BLST_CPP_INLINE limb_t AffinePoint<Fp>::serialize_BE(unsigned char* out, const AffinePoint<Fp>& in);
 	template BLST_HD BLST_CPP_INLINE limb_t AffinePoint<Fp2>::serialize_BE(unsigned char* out, const AffinePoint<Fp2>& in);
@@ -737,7 +790,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			ptr = &p;
 		}
 
-		return AffinePoint<Field>::serialize_BE(out, (const AffinePoint<Field>&) * ptr);
+		return serialize_affine_coordinates_BE(out, ptr->x, ptr->y);
 	}
 	template BLST_HD BLST_CPP_INLINE limb_t Point<Fp>::serialize_BE(unsigned char* out, const Point<Fp>& in);
 	template BLST_HD BLST_CPP_INLINE limb_t Point<Fp2>::serialize_BE(unsigned char* out, const Point<Fp2>& in);
@@ -761,28 +814,39 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 
 	template<typename Field>
-	BLST_HD BLST_CPP_INLINE limb_t AffinePoint<Field>::compress_BE(unsigned char* out, const AffinePoint& in)
+	BLST_HD BLST_CPP_INLINE limb_t compress_affine_coordinates_BE(
+		unsigned char* out,
+		const Field& x,
+		const Field& y)
 	{
 		if constexpr (std::is_same_v<Field, Fp2>) {
 			Fp temp;
 
-			Fp::from_mont(temp, in.x[1]);
+			Fp::from_mont(temp, x[1]);
 			be_bytes_from_limbs(out, temp.l, sizeof(temp));
-			Fp::from_mont(temp, in.x[0]);
+			Fp::from_mont(temp, x[0]);
 			be_bytes_from_limbs(out + 48, temp.l, sizeof(temp));
 
-			return Fp2::sgn0_pty_mont(in.y);
+			return Fp2::sgn0_pty_mont(y);
 
 		}
 		else
 		{
 			Fp temp;
 
-			Fp::from_mont(temp, in.x);
+			Fp::from_mont(temp, x);
 			be_bytes_from_limbs(out, temp.l, sizeof(temp));
 
-			return Fp::sgn0_pty_mont(in.y);
+			return Fp::sgn0_pty_mont(y);
 		}
+	}
+
+	template<typename Field>
+	BLST_HD BLST_CPP_INLINE limb_t AffinePoint<Field>::compress_BE(
+		unsigned char* out,
+		const AffinePoint& in)
+	{
+		return compress_affine_coordinates_BE(out, in.x, in.y);
 	}
 	template BLST_HD BLST_CPP_INLINE limb_t AffinePoint<Fp>::compress_BE(unsigned char* out, const AffinePoint<Fp>& in);
 	template BLST_HD BLST_CPP_INLINE limb_t AffinePoint<Fp2>::compress_BE(unsigned char* out, const AffinePoint<Fp2>& in);
@@ -818,7 +882,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			ptr = &p;
 		}
 
-		return AffinePoint<Field>::compress_BE(out, (const AffinePoint<Field>&) * ptr);
+		return compress_affine_coordinates_BE(out, ptr->x, ptr->y);
 	}
 	template BLST_HD BLST_CPP_INLINE limb_t Point<Fp>::compress_BE(unsigned char* out, const Point<Fp>& in);
 	template BLST_HD BLST_CPP_INLINE limb_t Point<Fp2>::compress_BE(unsigned char* out, const Point<Fp2>& in);
@@ -909,6 +973,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	{
 		unsigned char in0 = in[0];
 		limb_t sgn0_pty;
+		AffinePoint decoded;
 
 		if ((in0 & 0x80) == 0)      /* compressed bit */
 			return BLST_BAD_ENCODING;
@@ -923,18 +988,21 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			}
 		}
 
-		sgn0_pty = AffinePoint::uncompress_BE(out, in);
+		sgn0_pty = AffinePoint::uncompress_BE(decoded, in);
 
 		if (sgn0_pty > 3)
 			return (BLST_ERROR)(0 - sgn0_pty); /* POINT_NOT_ON_CURVE */
 
 		sgn0_pty >>= 1; /* skip over parity bit */
 		sgn0_pty ^= (in0 & 0x20) >> 5;
-		Field::cneg(out.y, out.y, sgn0_pty);
+		Field::cneg(decoded.y, decoded.y, sgn0_pty);
 
-		/* (0,±2) is not in group, but application might want to ignore? */
-		return vec_is_zero(&out.x, sizeof(out.x)) ? BLST_POINT_NOT_IN_GROUP
-			: BLST_SUCCESS;
+		/* (0, +/-2) is on curve but outside the prime-order group. */
+		if (vec_is_zero(&decoded.x, sizeof(decoded.x)))
+			return BLST_POINT_NOT_IN_GROUP;
+
+		vec_copy(&out, &decoded, sizeof(out));
+		return BLST_SUCCESS;
 	}
 	template BLST_HD BLST_CPP_INLINE BLST_ERROR AffinePoint<Fp>::uncompress(AffinePoint<Fp>& out, const unsigned char* in);
 	template BLST_HD BLST_CPP_INLINE BLST_ERROR AffinePoint<Fp2>::uncompress(AffinePoint<Fp2>& out, const unsigned char* in);
@@ -1010,11 +1078,12 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			if (!G1AffinePoint::on_curve(ret))
 				return BLST_POINT_NOT_ON_CURVE;
 
-			vec_copy(&out, &ret, sizeof(ret));
+			/* (0, +/-2) is on curve but outside the prime-order group. */
+			if (vec_is_zero(ret.x.l, sizeof(ret.x)))
+				return BLST_POINT_NOT_IN_GROUP;
 
-			/* (0,±2) is not in group, but application might want to ignore? */
-			return vec_is_zero(out.x.l, sizeof(out.x)) ? BLST_POINT_NOT_IN_GROUP
-				: BLST_SUCCESS;
+			vec_copy(&out, &ret, sizeof(ret));
+			return BLST_SUCCESS;
 		}
 	}
 	template BLST_HD BLST_CPP_INLINE BLST_ERROR AffinePoint<Fp>::deserialize_BE(AffinePoint<Fp>& out, const unsigned char* in);
@@ -1131,10 +1200,10 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			/* Scott, M., https://eprint.iacr.org/2021/1130 */
 			times_minus_z<Point>(t0, P);
 			times_minus_z<Point>(t1, t0);
-			Point::cneg(t1, 1);             /* [-z²]P   */
+			Point::cneg(t1, 1);             /* [-z^2]P  */
 
-			sigma(t0, P);                      /* σ(P)     */
-			sigma(t0, t0);                    /* σ²(P)    */
+			sigma(t0, P);                    /* sigma(P)   */
+			sigma(t0, t0);                  /* sigma^2(P) */
 
 			return Point::equal(t0, t1);
 		}
@@ -1143,7 +1212,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			Point t0, t1;
 
 			/* Scott, M., https://eprint.iacr.org/2021/1130 */
-			psi(t0, P);                            /* Ψ(P) */
+			psi(t0, P);                         /* psi(P) */
 
 			times_minus_z<Point>(t1, P);
 			Point::cneg(t1, 1);                 /* [z]P */
@@ -1522,9 +1591,9 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	 * which are encoded as Z==0] in constant time. It naturally comes at
 	 * cost, but this subroutine should be called only when independent
 	 * points are processed, which is considered reasonable compromise.
-	 * For example, ptype##s_mult_w5 calls it, but since *major* gain is
-	 * result of pure doublings being effectively divided by amount of
-	 * points, slightly slower addition can be tolerated. But what is the
+	 * Batched fixed-window multiplication calls it, but since the major gain
+	 * comes from sharing pure doublings across many points, slightly slower
+	 * addition can be tolerated. But what is the
 	 * additional cost more specifically? Best addition result is 11M+5S,
 	 * while this routine takes 13M+5S (+1M+1S if a4!=0), as per
 	 *
@@ -1812,7 +1881,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		Field::sub(p3.z, p3.z, Z1Z1);      /* (Z1+H)^2-Z1Z1 */
 		Field::sub(p3.z, p3.z, HH);        /* Z3 = (Z1+H)^2-Z1Z1-HH */
 
-		vec_select(&p3.z, &Fp::one(), &p3.z, sizeof(p3.z), p1inf);
+		vec_select(&p3.z, &Field::one(), &p3.z, sizeof(p3.z), p1inf);
 		vec_select(&p3.x, &p2, &p3.x, 2 * sizeof(p3.x), p1inf);
 		vec_select(&out, &p1, &p3, sizeof(Point), p2inf);
 	}
@@ -1935,7 +2004,9 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 
 	template<typename Field>
-	BLST_HD BLST_CPP_INLINE  BLST_HD void  Pointxyzz<Field>::from_affine(Pointxyzz<Field>& out, const AffinePoint<Field>& in)
+	BLST_HD BLST_CPP_INLINE void Pointxyzz<Field>::from_affine(
+		Pointxyzz<Field>& out,
+		const AffinePoint<Field>& in)
 	{
 		vec_copy(&out.x, &in.x, 2 * sizeof(out.x));
 		vec_copy(&out.zz, &Field::one(), sizeof(out.zz));

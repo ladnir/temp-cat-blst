@@ -79,7 +79,7 @@ TEST(E2PointTest, PointNegation) {
     G2Point::cneg(neg_p1, 1);
 
     // P + (-P) should be the identity
-    G2Point::add(result, p1, neg_p1);
+    G2Point::dadd(result, p1, neg_p1);
 
     // Result should be point at infinity
     EXPECT_TRUE(G2Point::is_inf(result));

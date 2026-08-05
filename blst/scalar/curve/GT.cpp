@@ -513,9 +513,9 @@ Fp6{                                                                      \
     BLST_HD void GT::miller_loop(GT& ret, const G2AffinePoint* Q,
         const G1AffinePoint* P)
     {
-        miller_loop_n(ret, 
-            Q ? Q : (const G2AffinePoint*)&get_BLST_G2(),
-            P ? P : (const G1AffinePoint*)&get_BLST_G1(), 
+        miller_loop_n(ret,
+            Q ? Q : &G2AffinePoint::generator(),
+            P ? P : &G1AffinePoint::generator(),
             1);
     }
 

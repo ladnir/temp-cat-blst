@@ -78,7 +78,7 @@ TEST(G1PointTest, PointNegation) {
 	G1Point::cneg(neg_p1, 1);
 
 	// P + (-P) should be the identity
-	G1Point::add(result, p1, neg_p1);
+	G1Point::dadd(result, p1, neg_p1);
 
 	// Result should be point at infinity
 	EXPECT_TRUE(G1Point::is_inf(result));

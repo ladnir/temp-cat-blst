@@ -4,8 +4,8 @@
  * Licensed under the Apache License, Version 2.0, see LICENSE for details.
  * SPDX-License-Identifier: Apache-2.0
  */
-#ifndef __BLST_SCALAR_POINT_H__
-#define __BLST_SCALAR_POINT_H__
+#ifndef BLST_SCALAR_CURVE_POINT_H
+#define BLST_SCALAR_CURVE_POINT_H
 
 
  /**
@@ -44,9 +44,10 @@
   *   - The y-sign/parity bit is encoded using sgn0; see code for bit layout.
   *
   * # Constant-time notes
-  * Unless explicitly stated, operations are written to be branchless/constant-time
-  * w.r.t. secret data. The @c Pointxyzz helpers are explicitly marked
-  * **NOT CONSTANT TIME**; use only where timing does not leak secrets (e.g., fixed-base MSMs).
+  * Arithmetic explicitly documented as constant-time avoids secret-dependent
+  * control flow and memory access under its stated preconditions. Conversion,
+  * serialization, decoding, membership predicates, and @c Pointxyzz helpers may
+  * be variable-time and must operate only on public points or encodings.
   *
   * # CUDA / host constants
   * get_BLST_* accessors return host or device constants depending on compilation target.
@@ -78,9 +79,9 @@ namespace blst::scalar
 	 * @brief Jacobian point `(X:Y:Z)` over @p Field.
 	 *
 	 * Infinity is represented by `Z == 0`. Affine inputs use the all-zero encoding
-	 * for infinity. Field coordinates are stored in Montgomery form. Unless a
-	 * method is explicitly documented otherwise, point operations are intended to
-	 * be constant-time with respect to secret data.
+	 * for infinity. Field coordinates are stored in Montgomery form. Timing
+	 * properties are stated per operation; no blanket constant-time guarantee
+	 * applies to conversion, encoding, or validation methods.
 	 */
 	template<typename Field>
 	struct Point
@@ -106,15 +107,21 @@ namespace blst::scalar
 		/// @brief Unified constant-time add-or-double with an affine addend.
 		/// @note Treats the all-zero affine value as infinity.
 		BLST_HD static void dadd(Point& out, const Point& p1, const AffinePoint<Field>& p2);
-		/// @brief Add two distinct, nonopposite Jacobian points, handling infinity.
-		/// @note Uses the EFD add-2007-bl formula.
+		/// @brief Add two Jacobian points using the fast incomplete formula.
+		/// @pre If both inputs are finite, they are distinct and `p2 != -p1`.
+		/// @note Infinity is handled. Equal points require @c dadd for doubling;
+		/// opposite points (same affine x, negated affine y) require @c dadd to
+		/// produce infinity. Uses the EFD add-2007-bl formula.
 		BLST_HD static void add(Point& out, const Point& p1, const Point& p2);
-		/// @brief Mixed Jacobian-plus-affine addition, handling infinity.
-		/// @note Uses the EFD madd-2007-bl formula and requires distinct, nonopposite inputs.
+		/// @brief Mixed Jacobian-plus-affine addition using the fast incomplete formula.
+		/// @pre If both inputs are finite, they are distinct and `p2 != -p1`.
+		/// @note Infinity is handled. Use @c dadd when the finite inputs may be
+		/// equal or opposite. Uses the EFD madd-2007-bl formula.
 		BLST_HD static void add(Point& out, const Point& p1, const AffinePoint<Field>& p2);
 		/// @brief Point doubling using the EFD dbl-2009-l formula.
 		BLST_HD static void doubling(Point& out, const Point& p1);
-		/// @brief Repeated doubling: `out = 2^n * p`.
+		/// @brief Accumulate @p p into @p out, then double the result @p n times:
+		/// `out = 2^n * (out + p)`.
 		BLST_HD static void add_n_dbl(Point& out, const Point& p, size_t n);
 		/**
 		 * @brief Constant-time scalar multiplication.
@@ -147,21 +154,23 @@ namespace blst::scalar
 		 * supported; partial overlap is not.
 		 */
 		BLST_HD static void unchecked_mult(Point& out, const Point& a, const byte* scalar, size_t nbits);
-		/// @brief Width-five windowed multiplication for internal or large-scalar use.
-		BLST_HD static void mult_w5(Point& out, const Point& point, const byte* scalar, size_t nbits);
 		/// @brief Constant-time conditional y-coordinate negation when @p cbit is one.
 		BLST_HD static void cneg(Point& p, limb_t cbit);
 		/// @brief Negate the y coordinate.
 		BLST_HD static void neg(Point& out, const Point& p);
 		/// @brief Convert Jacobian to affine; infinity maps to the all-zero encoding.
+		/// @note Variable-time with respect to the point representation.
 		BLST_HD static void to_affine(AffinePoint<Field>& out, const Point& in);
 		/// @brief Convert affine to Jacobian; finite points receive `Z = 1`.
 		BLST_HD static void from_affine(Point& out, const AffinePoint<Field>& a);
 		/// @brief Normalize a Jacobian point while preserving infinity.
+		/// @note Variable-time with respect to the point representation.
 		BLST_HD static void from_jacobian(Point& out, const Point& in);
 		/// @brief Constant-time conditional swap when @p cbit is one.
+		/// @pre @p a and @p b are distinct objects and @p cbit is zero or one.
 		BLST_HD static void cswap(Point& a, Point& b, limb_t cbit);
 		/// @brief Constant-time conditional copy `a = b` when @p cbit is one.
+		/// @pre @p a and @p b are distinct objects and @p cbit is zero or one.
 		BLST_HD static void ccopy(Point& a, const Point& b, limb_t cbit);
 		/// @brief Constant-time equality of affine representatives.
 		BLST_HD static limb_t equal(const Point& p1, const Point& p2);
@@ -190,10 +199,12 @@ namespace blst::scalar
 		/** @name Serialization */
 		///@{
 		/// @brief Write uncompressed big-endian affine coordinates and return sgn0 parity.
+		/// @note Variable-time and intended for public output points.
 		BLST_HD static limb_t serialize_BE(byte* out, const Point& in);
 		/// @brief Write uncompressed IETF form, using `0x40 || zeros` for infinity.
 		BLST_HD static void serialize(byte* out, const Point& in);
 		/// @brief Write compressed big-endian x without header flags and return y parity.
+		/// @note Variable-time and intended for public output points.
 		BLST_HD static limb_t compress_BE(byte* out, const Point& in);
 		/// @brief Write IETF compressed form with compression, sign, and infinity flags.
 		BLST_HD static void compress(byte* out, const Point& in);
@@ -250,8 +261,10 @@ namespace blst::scalar
 		/// @brief Write uncompressed IETF form, including the infinity encoding.
 		BLST_HD static void serialize(byte* out, const AffinePoint& in);
 		/// @brief Parse raw big-endian `X || Y`, validating range and curve membership.
+		/// @note The top three x bits are ignored. On failure @p out is unchanged.
 		BLST_HD static BLST_ERROR deserialize_BE(AffinePoint& out, const byte* in);
 		/// @brief Parse compressed, uncompressed, or infinity-prefixed IETF input.
+		/// @note On failure @p out is unchanged.
 		BLST_HD static BLST_ERROR deserialize(AffinePoint& out, const byte* in);
 		///@}
 		/** @name Compressed serialization */
@@ -261,8 +274,11 @@ namespace blst::scalar
 		/// @brief Write IETF compressed form with compression, sign, and infinity flags.
 		BLST_HD static void compress(byte* out, const AffinePoint& in);
 		/// @brief Parse raw big-endian x, reconstruct y, and return sgn0 parity.
+		/// @note The top three x bits are ignored. On failure @p out is unchanged;
+		/// errors are returned as the negated @c BLST_ERROR value in @c limb_t.
 		BLST_HD static limb_t uncompress_BE(AffinePoint& out, const byte* in);
 		/// @brief Parse and validate IETF compressed form.
+		/// @note On failure @p out is unchanged.
 		BLST_HD static BLST_ERROR uncompress(AffinePoint& out, const byte* in);
 		///@}
 		/// @brief Group generator in affine coordinates.
@@ -284,7 +300,7 @@ namespace blst::scalar
 	 * @brief XYZZ representation for **variable-time** mixed additions.
 	 *
 	 * Layout: (X, Y, ZZ, ZZZ) where ZZ=Z^2 and ZZZ=Z^3. This allows quick reuse of
-	 * Z-powers when chaining many additions. **Not constant-time**—use only in contexts
+	 * Z-powers when chaining many additions. **Not constant-time**; use only in contexts
 	 * where timing does not leak secrets (e.g., fixed-base MSM, precomputation).
 	 */
 	template<typename Field>
@@ -303,8 +319,11 @@ namespace blst::scalar
 		/// Convert XYZZ -> Jacobian (rebuild Z from ZZ).
 		static BLST_HD void to_Jacobian(Point<Field>& out, const Pointxyzz<Field>& in);
 
+		/// Convert a finite affine point to XYZZ with `ZZ = ZZZ = 1`.
+		/// @pre @p in is not the all-zero affine infinity encoding.
 		static BLST_HD void from_affine(Pointxyzz<Field>& out, const AffinePoint<Field>& in);
 
+		/// Compare the raw XYZZ representation; this is not mathematical point equality.
 		static BLST_HD bool equal(const Pointxyzz<Field>& p1,
 			const Pointxyzz<Field>& p2)
 		{
@@ -429,11 +448,11 @@ namespace blst::scalar
 	// Will return host or device memory depending on compilation target.
 	BLST_HD const Fp& get_BLST_B_E1(void);
 
-	// return the generator point of G1 in affine coordinates, in montgomery form.
+	// Return the generator point of G1 in Jacobian coordinates, in Montgomery form.
 	// Will return host or device memory depending on compilation target.
 	BLST_HD const Point<Fp>& get_BLST_G1(void);
 
-	// return the negative of the generator point of G1 in affine coordinates, in montgomery form.
+	// Return the negative G1 generator in Jacobian coordinates, in Montgomery form.
 	// Will return host or device memory depending on compilation target.
 	BLST_HD const G1Point& get_BLST_NEG_G1(void);
 
@@ -446,11 +465,11 @@ namespace blst::scalar
 	template<typename Field>
 	BLST_HD const Field& get_B();
 
-	// return the generator point of G2 in affine coordinates, in montgomery form.
+	// Return the generator point of G2 in Jacobian coordinates, in Montgomery form.
 	// Will return host or device memory depending on compilation target.
 	BLST_HD const G2Point& get_BLST_G2(void);
 
-	// return the negative of the generator point of G2 in affine coordinates, in montgomery form.
+	// Return the negative G2 generator in Jacobian coordinates, in Montgomery form.
 	BLST_HD const G2Point& get_BLST_NEG_G2(void);
 
 
