@@ -44,6 +44,18 @@ typedef enum BLST_UNIQ_RESULT {
  */
 
 /**
+ * Computes SHA-256 over `msg[0..msg_len)` and writes exactly 32 digest bytes.
+ *
+ * `out` must point to 32 writable bytes. `msg` must cover `msg_len` readable
+ * bytes and may be null only when `msg_len == 0`. The message must contain
+ * fewer than 2^64 bits. Output may overlap the input because all message bytes
+ * are consumed before the digest is published. This operation is
+ * allocation-free and nonthrowing, and erases its locally owned context before
+ * returning. Its control flow depends on public message length, not contents.
+ */
+void blst_sha256(blst_byte out[32], const void* msg, size_t msg_len);
+
+/**
  * Scalar byte helpers.
  *
  * Invariants:

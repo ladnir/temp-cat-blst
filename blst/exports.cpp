@@ -19,6 +19,7 @@
 #include "blst/fields/Fp.h"
 #include "blst/fields/Fp2.h"
 #include "blst/common/bytes.h"
+#include "blst/sign/sha256.h"
 #include "bindings/blst_scalar.h"
 BLST_EXTERN_C_BEGIN_
 
@@ -451,15 +452,17 @@ bool blst_scalar_from_be_bytes(blst_scalar* out, const byte* bytes, size_t n)
 /*
  * Single-short SHA-256 hash function.
  */
-#include "blst/sign/sha256.h"
-
 void blst_sha256(unsigned char md[32], const void *msg, size_t len)
 {
-    SHA256_CTX ctx;
+    BLST_ASSERT(md != nullptr);
+    BLST_ASSERT(msg != nullptr || len == 0);
+
+    Sha256Context ctx;
 
     sha256_init(&ctx);
     sha256_update(&ctx, msg, len);
     sha256_final(md, &ctx);
+    sha256_clear(&ctx);
 }
 
 /*

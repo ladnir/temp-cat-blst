@@ -16,7 +16,7 @@ namespace blst
 {
 
     typedef struct {
-        SHA256_CTX ctx;
+        Sha256Context ctx;
         unsigned int h_ipad[8];
         unsigned int h_opad[8];
         union { limb_t l[64 / sizeof(limb_t)]; unsigned char c[64]; } tail;
@@ -28,9 +28,9 @@ namespace blst
 
         if (K == NULL) {            /* reuse h_ipad and h_opad */
             blst_sha256_hcopy_v(ctx->ctx.h, ctx->h_ipad);
-            ctx->ctx.N = 64;
-            vec_zero(ctx->ctx.buf, sizeof(ctx->ctx.buf));
-            ctx->ctx.off = 0;
+            ctx->ctx.total_bytes = 64;
+            sha256_zero_buffer(ctx->ctx.buffer);
+            ctx->ctx.buffered_bytes = 0;
 
             return;
         }
@@ -273,7 +273,7 @@ namespace blst
         size_t i;
         struct {
             HMAC_SHA256_CTX ctx;
-            SHA256_CTX ret;
+            Sha256Context ret;
             unsigned char PRK[32], IKM[32];
             unsigned char lamport[255][32];
         } scratch;
@@ -298,15 +298,15 @@ namespace blst
             return false;
         }
 
-        vec_zero(scratch.ctx.ctx.buf, sizeof(scratch.ctx.ctx.buf));
-        scratch.ctx.ctx.buf[32] = 0x80;
-        scratch.ctx.ctx.buf[62] = 1;    /* 32*8 in big endian */
-        scratch.ctx.ctx.buf[63] = 0;
+        sha256_zero_buffer(scratch.ctx.ctx.buffer);
+        scratch.ctx.ctx.buffer[32] = 0x80;
+        scratch.ctx.ctx.buffer[62] = 1;    /* 32*8 in big endian */
+        scratch.ctx.ctx.buffer[63] = 0;
         for (i = 0; i < 255; i++) {
             /* lamport_PK = lamport_PK | SHA256(lamport_0[i]) */
             sha256_init_h(scratch.ctx.ctx.h);
-            blst_sha256_bcopy_v(scratch.ctx.ctx.buf, scratch.lamport[i], 32);
-            blst_sha256_block_data_order_v(scratch.ctx.ctx.h, scratch.ctx.ctx.buf, 1);
+            blst_sha256_bcopy_v(scratch.ctx.ctx.buffer, scratch.lamport[i], 32);
+            blst_sha256_block_data_order_v(scratch.ctx.ctx.h, scratch.ctx.ctx.buffer, 1);
             blst_sha256_emit_v(scratch.lamport[i], scratch.ctx.ctx.h);
         }
 
@@ -328,14 +328,14 @@ namespace blst
             return false;
         }
 
-        vec_zero(scratch.ctx.ctx.buf, sizeof(scratch.ctx.ctx.buf));
-        scratch.ctx.ctx.buf[32] = 0x80;
-        scratch.ctx.ctx.buf[62] = 1;
+        sha256_zero_buffer(scratch.ctx.ctx.buffer);
+        scratch.ctx.ctx.buffer[32] = 0x80;
+        scratch.ctx.ctx.buffer[62] = 1;
         for (i = 0; i < 255; i++) {
             /* lamport_PK = lamport_PK | SHA256(lamport_1[i]) */
             sha256_init_h(scratch.ctx.ctx.h);
-            blst_sha256_bcopy_v(scratch.ctx.ctx.buf, scratch.lamport[i], 32);
-            blst_sha256_block_data_order_v(scratch.ctx.ctx.h, scratch.ctx.ctx.buf, 1);
+            blst_sha256_bcopy_v(scratch.ctx.ctx.buffer, scratch.lamport[i], 32);
+            blst_sha256_block_data_order_v(scratch.ctx.ctx.h, scratch.ctx.ctx.buffer, 1);
             blst_sha256_emit_v(scratch.lamport[i], scratch.ctx.ctx.h);
         }
 

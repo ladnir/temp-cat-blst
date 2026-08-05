@@ -22,7 +22,7 @@ namespace blst::scalar
         const unsigned char* msg, size_t msg_len,
         const unsigned char* DST, size_t DST_len);
 #else
-    BLST_HD BLST_INLINE void sha256_init_Zpad(SHA256_CTX* ctx)
+    BLST_HD BLST_INLINE void sha256_init_Zpad(Sha256Context* ctx)
     {
         ctx->h[0] = 0xda5698beU;
         ctx->h[1] = 0x17b9b469U;
@@ -32,9 +32,9 @@ namespace blst::scalar
         ctx->h[5] = 0xc0d26243U;
         ctx->h[6] = 0xbafef9eaU;
         ctx->h[7] = 0x1837a9d8U;
-        ctx->N = 64;
-        vec_zero(ctx->buf, sizeof(ctx->buf));
-        ctx->off = 0;
+        ctx->total_bytes = 64;
+        sha256_zero_buffer(ctx->buffer);
+        ctx->buffered_bytes = 0;
     }
 
     BLST_HD BLST_INLINE void vec_xor(void* BLST_restrict ret, const void* BLST_restrict a,
@@ -60,7 +60,7 @@ namespace blst::scalar
         union { limb_t align; unsigned char c[33 + 256 + 31]; } b_i;
         unsigned char* p;
         size_t i, b_i_bits, b_i_blocks;
-        SHA256_CTX ctx;
+        Sha256Context ctx;
 
         /*
          * compose template for 'strxor(b_0, b_(i-1)) || I2OSP(i, 1) || DST_prime'
