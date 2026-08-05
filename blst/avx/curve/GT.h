@@ -70,6 +70,40 @@ inline typename FP12::StandardElement from_scalar(const blst::Fp12& value)
     return avx_blst_direct_bridge::scalar_fp12_to_ring(ring(), value);
 }
 
+constexpr AVXVector<8> literal_vector(const std::array<uint64_t, 8>& lanes)
+{
+    return AVXVector<8>(_vv512_const_u64(
+        lanes[0], lanes[1], lanes[2], lanes[3],
+        lanes[4], lanes[5], lanes[6], lanes[7]));
+}
+
+constexpr Ring::StandardElement literal_standard_element(
+    const std::array<std::array<uint64_t, 8>, 2>& value)
+{
+    return Ring::StandardElement(
+        Ring::StandardBoundedElement(literal_vector(value[0])),
+        Ring::StandardBoundedElement(literal_vector(value[1])));
+}
+
+constexpr FP12::StandardElement gt_generator_value()
+{
+    const auto& value = generated::fp52::gt_generator;
+    return FP12::StandardElement{{
+        literal_standard_element(value[0]),
+        literal_standard_element(value[1]),
+        literal_standard_element(value[2]),
+        literal_standard_element(value[3]),
+        literal_standard_element(value[4]),
+        literal_standard_element(value[5]),
+        literal_standard_element(value[6]),
+        literal_standard_element(value[7]),
+        literal_standard_element(value[8]),
+        literal_standard_element(value[9]),
+        literal_standard_element(value[10]),
+        literal_standard_element(value[11]),
+    }};
+}
+
 template<class Element>
 inline typename FP12::StandardElement to_standard(const Element& value)
 {
@@ -487,9 +521,10 @@ struct GT
     static void cneg(GT& p, limb_t cbit)
     {
         BLST_ASSERT(cbit <= 1);
-        GT neg = {};
-        neg.data = avx_gt_detail::fp12ring().fp12_flat_conjugate(p.data, avx_gt_detail::ring());
-        p.data = avx_gt_detail::ctime_select_value(cbit, neg.data, p.data);
+        for (size_t i = 6; i < p.data.size(); ++i) {
+            const auto neg = avx_gt_detail::ring().standard_negate(p.data[i]);
+            p.data[i] = avx_gt_detail::ctime_select_value(cbit, neg, p.data[i]);
+        }
     }
 
     static void neg(GT& out, const GT& p)
@@ -517,11 +552,7 @@ struct GT
             blst::scalar::GT(avx_gt_detail::to_scalar(b.data)));
     }
 
-    static const GT& generator()
-    {
-        static const GT g(identity());
-        return g;
-    }
+    static const GT& generator();
 
     static GT identity()
     {
@@ -558,7 +589,8 @@ struct GT
     static void final_mult(GT& out, const GT& f)
     {
         FP12RNS_BLSTInverter<avx_gt_detail::Ring> inverter;
-        out.data = final_exp(f.data, inverter, avx_gt_detail::fp12ring(), avx_gt_detail::ring());
+        out.data = blst::avx::final_exp(
+            f.data, inverter, avx_gt_detail::fp12ring(), avx_gt_detail::ring());
     }
 
     static void final_mult_n(GT out[], const GT in[], size_t n)
@@ -695,6 +727,7 @@ struct GT
             return;
         }
         if (Qs == nullptr || Ps == nullptr || Qs[0] == nullptr || Ps[0] == nullptr) {
+            out = {};
             return;
         }
 
@@ -878,5 +911,12 @@ struct GT
         a.data = avx_gt_detail::fp12ring().fp12_flat_conjugate(a.data, avx_gt_detail::ring());
     }
 };
+
+inline constexpr GT kGtGenerator(avx_gt_detail::gt_generator_value());
+
+inline const GT& GT::generator()
+{
+    return kGtGenerator;
+}
 
 }  // namespace blst::avx

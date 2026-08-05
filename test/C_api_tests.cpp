@@ -2019,7 +2019,7 @@ TEST(CApi, MillerLoopNSkipsInfinityPairs)
     EXPECT_TRUE(blst_fp12_is_equal(&combined, &naive));
 }
 
-TEST(CApi, MillerLoopNEmptyAndMalformedLeadingPointersReturnIdentity)
+TEST(CApi, MillerLoopNEmptyReturnsIdentityAndMalformedInputFailsClosed)
 {
     BoundaryGt out = {};
     blst_miller_loop_n(&out, nullptr, nullptr, 0);
@@ -2028,7 +2028,9 @@ TEST(CApi, MillerLoopNEmptyAndMalformedLeadingPointersReturnIdentity)
     const BoundaryG1Affine* ps[1] = {nullptr};
     const BoundaryG2Affine* qs[1] = {nullptr};
     blst_miller_loop_n(&out, qs, ps, 1);
-    EXPECT_TRUE(blst_fp12_is_one(&out));
+    const BoundaryGt zero = {};
+    EXPECT_TRUE(blst_fp12_is_equal(&out, &zero));
+    EXPECT_FALSE(blst_fp12_is_one(&out));
 }
 
 TEST(CApi, LinePrecomputeHelpersUseGeneratorsForNullInputs)

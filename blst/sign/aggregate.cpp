@@ -28,18 +28,20 @@ namespace blst
 
     BLST_HD void gt_from_fp12_boundary(GT& out, const Fp12& in)
     {
-        unsigned char serialized[12 * 48] = {};
-        scalar::GT::serialize(serialized, scalar::GT(in));
-        GT::deserialize(out, serialized);
+#if BLST_DEFAULT_AVX
+        out.data = avx::avx_gt_detail::from_scalar(in);
+#else
+        out.data = in;
+#endif
     }
 
     BLST_HD void fp12_from_gt_boundary(Fp12& out, const GT& in)
     {
-        unsigned char serialized[12 * 48] = {};
-        GT::serialize(serialized, in);
-        scalar::GT scalar_gt = {};
-        scalar::GT::deserialize(scalar_gt, serialized);
-        out = scalar_gt.data;
+#if BLST_DEFAULT_AVX
+        out = avx::avx_gt_detail::to_scalar(in.data);
+#else
+        out = in.data;
+#endif
     }
 
     }  // namespace

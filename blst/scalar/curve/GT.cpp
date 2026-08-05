@@ -531,6 +531,7 @@ Fp6{                                                                      \
             return;
         }
         if (Qs == NULL || Ps == NULL || Qs[0] == NULL || Ps[0] == NULL) {
+            vec_zero(&out, sizeof(out));
             return;
         }
 

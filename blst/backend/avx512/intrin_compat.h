@@ -289,6 +289,34 @@ namespace blst
     template <int imm8>
     BLST_FORCEINLINE auto _vv256_extract_epi64(const vv256i a) -> u64 { return _cc256_extract_epi64<imm8>(a); }
 #endif
+
+    // Source-literal vector construction for generated immutable constants.
+    // Keep this separate from the intrinsic-shaped runtime operation surface.
+    constexpr auto _vv512_const_u64(
+        u64 x0, u64 x1, u64 x2, u64 x3,
+        u64 x4, u64 x5, u64 x6, u64 x7) -> vv512i
+    {
+#if defined(BLST_AVX512) && defined(_MSC_VER)
+        vv512i out = {};
+        out.m512i_u64[0] = x0;
+        out.m512i_u64[1] = x1;
+        out.m512i_u64[2] = x2;
+        out.m512i_u64[3] = x3;
+        out.m512i_u64[4] = x4;
+        out.m512i_u64[5] = x5;
+        out.m512i_u64[6] = x6;
+        out.m512i_u64[7] = x7;
+        return out;
+#elif defined(BLST_AVX512)
+        return vv512i{
+            static_cast<long long>(x0), static_cast<long long>(x1),
+            static_cast<long long>(x2), static_cast<long long>(x3),
+            static_cast<long long>(x4), static_cast<long long>(x5),
+            static_cast<long long>(x6), static_cast<long long>(x7)};
+#else
+        return vv512i{{x0, x1, x2, x3, x4, x5, x6, x7}};
+#endif
+    }
 } // namespace blst
 
 #endif

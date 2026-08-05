@@ -46,6 +46,10 @@ public:
 
     AVXVector() = default;
 
+    constexpr explicit AVXVector(vv512i v) : data{v} {
+        static_assert(VEC_LIMBS == 1, "A literal vector constructor requires exactly one AVX register");
+    }
+
     inline AVXVector(uint64_t v) {
         for (int i = 0; i < VEC_LIMBS; i++) {
             data[i] = Scalar(v);

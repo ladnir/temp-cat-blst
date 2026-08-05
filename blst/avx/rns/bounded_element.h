@@ -31,7 +31,7 @@ class BoundedElement {
 
     // Constructor
     INLINE BoundedElement() = default;
-    INLINE explicit BoundedElement(const AVXVector<limbs> &d) : data(d) {}
+    constexpr INLINE explicit BoundedElement(const AVXVector<limbs> &d) : data(d) {}
 
     template<class OtherBounds>
     INLINE auto operator+(const BoundedElement<OtherBounds, limbs, element_bits> &other) const {

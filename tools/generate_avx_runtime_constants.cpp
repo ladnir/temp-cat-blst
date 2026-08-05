@@ -1,5 +1,7 @@
 #include "blst/avx/fields/fp12.h"
+#include "blst/avx/fields/conversion_inversion.h"
 #include "blst/avx/rns/bounded_ring.h"
+#include "blst/scalar/curve/GT.h"
 
 #include <array>
 #include <iostream>
@@ -45,6 +47,28 @@ void print_standard_element(const Element& value, std::string_view name)
 {
     print_array(value.m1.to_unsigned_array(), std::string(name) + "_m1");
     print_array(value.m2.to_unsigned_array(), std::string(name) + "_m2");
+}
+
+template <class Element>
+void print_fp12_constant(const Element& value, std::string_view name)
+{
+    std::cout << "inline constexpr Fp12Constant " << name << " = {{\n";
+    for (const auto& coefficient : value) {
+        const auto m1 = coefficient.m1.to_unsigned_array();
+        const auto m2 = coefficient.m2.to_unsigned_array();
+        std::cout << "    {{{";
+        for (std::size_t i = 0; i < m1.size(); ++i) {
+            std::cout << (i == 0 ? "" : ", ")
+                      << static_cast<unsigned long long>(m1[i]) << "ULL";
+        }
+        std::cout << "}, {";
+        for (std::size_t i = 0; i < m2.size(); ++i) {
+            std::cout << (i == 0 ? "" : ", ")
+                      << static_cast<unsigned long long>(m2[i]) << "ULL";
+        }
+        std::cout << "}}},\n";
+    }
+    std::cout << "}};\n";
 }
 
 template <class Ring, class WideElement>
@@ -119,6 +143,13 @@ void print_config(std::string_view ns_name)
 
     print_wide_element<Ring>(fp12.offset_value(), "fp12_offset");
 
+    if constexpr (Ring::StandardBoundedElement::ELEMENT_BITS == 52) {
+        print_fp12_constant(
+            blst::avx::avx_blst_direct_bridge::scalar_fp12_to_ring(
+                ring, blst::scalar::GT::generator().data),
+            "gt_generator");
+    }
+
     std::cout << "}  // namespace " << ns_name << "\n\n";
 }
 
@@ -130,6 +161,7 @@ int main()
     std::cout << "#include <array>\n";
     std::cout << "#include <cstdint>\n\n";
     std::cout << "namespace blst::avx::generated {\n\n";
+    std::cout << "using Fp12Constant = std::array<std::array<std::array<uint64_t, 8>, 2>, 12>;\n\n";
     print_config<blst::avx::BoundedRing<381, 8, 52>>("fp52");
     print_config<blst::avx::BoundedRing<381, 8, 50>>("fp50");
     std::cout << "}  // namespace blst::avx::generated\n";

@@ -94,11 +94,7 @@ static_assert(std::is_trivially_copyable_v<BoundaryFp12>);
 inline PublicGt boundary_to_public_gt(const BoundaryFp12& value)
 {
 #if BLST_DEFAULT_AVX
-    unsigned char serialized[12 * 48] = {};
-    blst::scalar::GT::serialize(serialized, blst::scalar::GT(value));
-    PublicGt out = {};
-    PublicGt::deserialize(out, serialized);
-    return out;
+    return PublicGt(blst::avx::avx_gt_detail::from_scalar(value));
 #else
     return PublicGt(value);
 #endif
@@ -107,11 +103,7 @@ inline PublicGt boundary_to_public_gt(const BoundaryFp12& value)
 inline BoundaryFp12 public_to_boundary_gt(const PublicGt& value)
 {
 #if BLST_DEFAULT_AVX
-    unsigned char serialized[12 * 48] = {};
-    PublicGt::serialize(serialized, value);
-    blst::scalar::GT scalar_gt = {};
-    blst::scalar::GT::deserialize(scalar_gt, serialized);
-    return scalar_gt.data;
+    return blst::avx::avx_gt_detail::to_scalar(value.data);
 #else
     return value.data;
 #endif
@@ -777,20 +769,7 @@ const BoundaryFp12* blst_gt_identity(void)
 
 const BoundaryFp12* blst_gt_generator(void)
 {
-#if BLST_DEFAULT_AVX
-    static const BoundaryFp12 generator = [] {
-        PublicGt miller = {};
-        PublicGt target = {};
-        const PublicG2Affine& g2 = PublicG2Affine::generator();
-        const PublicG1Affine& g1 = PublicG1Affine::generator();
-        PublicGt::miller_loop(miller, &g2, &g1);
-        PublicGt::final_mult(target, miller);
-        return public_to_boundary_gt(target);
-    }();
-    return &generator;
-#else
-    return &PublicGt::generator().data;
-#endif
+    return &blst::scalar::GT::generator().data;
 }
 
 bool blst_gt_is_equal(const BoundaryFp12* a, const BoundaryFp12* b)
@@ -1775,8 +1754,12 @@ void blst_miller_loop_n(
     const BoundaryG1Affine* const Ps[],
     size_t n)
 {
-    if (n == 0 || !c_api_has_valid_pair_heads(Qs, Ps, n)) {
+    if (n == 0) {
         *ret = public_to_boundary_gt(PublicGt::identity());
+        return;
+    }
+    if (!c_api_has_valid_pair_heads(Qs, Ps, n)) {
+        *ret = {};
         return;
     }
 

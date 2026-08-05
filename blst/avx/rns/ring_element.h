@@ -74,7 +74,7 @@ class ExpandedElement {
     static constexpr RNSBounds rns_bounds = RNSBounds{};
 
     INLINE ExpandedElement() = default;
-    INLINE explicit ExpandedElement(const Element &m1, const Element &m2) : m1(m1), m2(m2) {}
+    constexpr INLINE explicit ExpandedElement(const Element &m1, const Element &m2) : m1(m1), m2(m2) {}
 
     INLINE explicit ExpandedElement(const Element &m1, const SmallElement<Element, RNSBounds> &m2) : m1(m1), m2(m2.element) {}
 

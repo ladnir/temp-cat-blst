@@ -169,7 +169,7 @@ TEST(BackendAlias, TopLevelPairingSurfaceMatchesBilinearDoubling)
     EXPECT_TRUE(GT::equal(lhs, doubled));
 }
 
-TEST(BackendAlias, ScalarMillerLoopNEmptyAndMalformedLeadingPointersReturnIdentity)
+TEST(BackendAlias, ScalarMillerLoopNEmptyReturnsIdentityAndMalformedInputFailsClosed)
 {
     blst::scalar::GT scalar_multi = {};
     const blst::scalar::G2AffinePoint* const* scalar_empty_qs = nullptr;
@@ -184,11 +184,12 @@ TEST(BackendAlias, ScalarMillerLoopNEmptyAndMalformedLeadingPointersReturnIdenti
         scalar_qs.data(),
         scalar_ps.data(),
         scalar_ps.size());
-    EXPECT_TRUE(blst::scalar::GT::is_identity(scalar_multi));
+    EXPECT_TRUE(blst::scalar::GT::equal(scalar_multi, {}));
+    EXPECT_FALSE(blst::scalar::GT::is_identity(scalar_multi));
 }
 
 #if BLST_DEFAULT_AVX
-TEST(BackendAlias, AvxMillerLoopNEmptyAndMalformedLeadingPointersReturnIdentity)
+TEST(BackendAlias, AvxMillerLoopNEmptyReturnsIdentityAndMalformedInputFailsClosed)
 {
     blst::avx::GT avx_multi = {};
     const blst::avx::G2AffinePoint* const* avx_empty_qs = nullptr;
@@ -203,7 +204,8 @@ TEST(BackendAlias, AvxMillerLoopNEmptyAndMalformedLeadingPointersReturnIdentity)
         avx_qs.data(),
         avx_ps.data(),
         avx_ps.size());
-    EXPECT_TRUE(blst::avx::GT::is_identity(avx_multi));
+    EXPECT_TRUE(blst::avx::GT::equal(avx_multi, {}));
+    EXPECT_FALSE(blst::avx::GT::is_identity(avx_multi));
 }
 #endif
 

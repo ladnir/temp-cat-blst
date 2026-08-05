@@ -69,9 +69,7 @@ namespace blst::scalar {
 		 * @param[in]  b    Right operand
 		 */
 		static BLST_HD void sub(GT& out, const GT& a, const GT& b) {
-			Fp12 b_inv = b.data;
-			Fp12::conjugate(b_inv); // since in GT, inversion = conjugation
-			Fp12::mul(out.data, a.data, b_inv);
+			Fp12::mul(out.data, a.data, b.data, true);
 		}
 
 		/**
@@ -138,9 +136,10 @@ namespace blst::scalar {
 		 * memory access are independent of @p cbit.
 		 */
 		static BLST_HD void cneg(GT& p, limb_t cbit) {
-			GT neg = p;
-			Fp12::conjugate(neg.data);
-			ccopy(p, neg, cbit);
+			BLST_ASSERT(cbit <= 1);
+			Fp2::cneg(p.data[1][0], p.data[1][0], cbit);
+			Fp2::cneg(p.data[1][1], p.data[1][1], cbit);
+			Fp2::cneg(p.data[1][2], p.data[1][2], cbit);
 		}
 
 		/**
@@ -298,12 +297,6 @@ namespace blst::scalar {
 			const G1AffinePoint Px2[],
 			size_t n);
 
-		//     /**
-			  //* @brief add n doublings: out = 2^n * (a + out)
-		//      */
-		//     static BLST_HD void add_n_dbl(GT& out, const GT& a, size_t n) {
-			//         Fp12::mul_n_sqr(out.data, a.data, n);
-			//     }
 		};
 
 	} // namespace blst
