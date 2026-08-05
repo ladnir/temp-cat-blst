@@ -131,7 +131,16 @@ macro_rules! sig_variant_impl {
         }
 
         impl SecretKey {
-            /// Deterministically generate a secret key from key material
+            /// Deterministically derives a canonical nonzero secret key with
+            /// the upstream-compatible default-v4 keygen scheme.
+            ///
+            /// `key_info` may be empty. The native operation is allocation-free
+            /// and the resulting secret key is erased when dropped.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`BLST_ERROR::BLST_BAD_ENCODING`] when `ikm` contains
+            /// fewer than 32 bytes.
             pub fn key_gen(
                 ikm: &[u8],
                 key_info: &[u8],
@@ -152,6 +161,16 @@ macro_rules! sig_variant_impl {
                 Ok(sk)
             }
 
+            /// Retains upstream BLST's legacy v3 derivation.
+            ///
+            /// Unlike v4 and later, v3 does not retry the negligible event in
+            /// which reduction produces zero. This method is retained for
+            /// compatibility; new protocols should use [`Self::key_gen`].
+            ///
+            /// # Errors
+            ///
+            /// Returns [`BLST_ERROR::BLST_BAD_ENCODING`] when `ikm` contains
+            /// fewer than 32 bytes.
             pub fn key_gen_v3(
                 ikm: &[u8],
                 key_info: &[u8],
@@ -172,6 +191,15 @@ macro_rules! sig_variant_impl {
                 Ok(sk)
             }
 
+            /// Derives a canonical nonzero secret key with the v4.5 interface.
+            ///
+            /// `salt` and `info` may be empty. Rust slices always select the
+            /// explicit-salt form; use [`Self::key_gen`] for the default salt.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`BLST_ERROR::BLST_BAD_ENCODING`] when `ikm` contains
+            /// fewer than 32 bytes.
             pub fn key_gen_v4_5(
                 ikm: &[u8],
                 salt: &[u8],
@@ -195,6 +223,15 @@ macro_rules! sig_variant_impl {
                 Ok(sk)
             }
 
+            /// Derives a canonical nonzero secret key with the v5 interface.
+            ///
+            /// Empty `salt` and `info` slices are valid. The safe wrapper always
+            /// supplies the non-null salt pointer required by the C operation.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`BLST_ERROR::BLST_BAD_ENCODING`] when `ikm` contains
+            /// fewer than 32 bytes.
             pub fn key_gen_v5(
                 ikm: &[u8],
                 salt: &[u8],
@@ -218,6 +255,12 @@ macro_rules! sig_variant_impl {
                 Ok(sk)
             }
 
+            /// Derives a canonical nonzero EIP-2333 master secret key.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`BLST_ERROR::BLST_BAD_ENCODING`] when `ikm` contains
+            /// fewer than 32 bytes.
             pub fn derive_master_eip2333(
                 ikm: &[u8],
             ) -> Result<Self, BLST_ERROR> {
@@ -235,6 +278,9 @@ macro_rules! sig_variant_impl {
                 Ok(sk)
             }
 
+            /// Derives the canonical nonzero EIP-2333 child key at
+            /// `child_index`. `self` is the validated parent secret key.
+            #[must_use]
             pub fn derive_child_eip2333(&self, child_index: u32) -> Self {
                 let mut sk = SecretKey::default();
                 unsafe {

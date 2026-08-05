@@ -712,24 +712,56 @@ BLST_ERROR blst_core_verify_pk_in_g2(const blst_p2_affine* pk, const blst_p1_aff
  * Key derivation, hashing, mapping, and utility helpers.
  *
  * Invariants:
- * - `IKM`, `info`, `salt`, `msg`, `DST`, and `aug` are raw byte strings of the
- *   supplied lengths.
+ * - For key generation, `out_SK` names writable scalar storage. `IKM` names
+ *   `IKM_len` readable bytes when `IKM_len >= 32`; a shorter IKM is rejected
+ *   by clearing `out_SK` and need not be readable. A null `info` retains
+ *   upstream compatibility by ignoring `info_len`; otherwise it names exactly
+ *   `info_len` readable bytes.
+ * - Key generation is deterministic, allocation-free, and nonthrowing across
+ *   the C ABI. It performs no Release validation beyond its documented
+ *   length/salt cases. The v4-family rejection step repeats only if the
+ *   derived scalar is zero.
  * - `blst_uniq_sizeof()` returns the exact caller allocation size for the
  *   opaque `blst_uniq` object, or zero if the capacity is invalid.
  * - `blst_expand_message_xmd` implements the XMD expand step used by the hash
  *   to curve suite.
  */
-/** Derives a secret key from `IKM` and optional `info` using the default keygen scheme; `IKM_len` must be at least 32 bytes or `out_SK` is cleared to zero. */
+/**
+ * Derives a canonical nonzero secret scalar using upstream BLST's default v4
+ * scheme and default salt. The common key-generation contract above applies.
+ */
 void blst_keygen(blst_scalar* out_SK, const blst_byte* IKM, size_t IKM_len, const blst_byte* info, size_t info_len);
-/** Derives a secret key using the v3 keygen scheme; `IKM_len` must be at least 32 bytes or `out_SK` is cleared to zero. */
+/**
+ * Retains upstream BLST's legacy v3 derivation. A successful result is reduced
+ * modulo r but, unlike v4 and later, the legacy algorithm does not retry the
+ * negligible zero result. The common key-generation contract applies.
+ */
 void blst_keygen_v3(blst_scalar* out_SK, const blst_byte* IKM, size_t IKM_len, const blst_byte* info, size_t info_len);
-/** Derives a secret key using the v4.5 keygen scheme with explicit salt; `IKM_len` must be at least 32 bytes or `out_SK` is cleared to zero. */
+/**
+ * Derives a canonical nonzero secret scalar using the v4.5 interface. A
+ * non-null `salt` names `salt_len` readable bytes, including a valid empty
+ * salt. For upstream compatibility, null `salt` selects the default salt and
+ * ignores `salt_len`. The common key-generation contract applies.
+ */
 void blst_keygen_v4_5(blst_scalar* out_SK, const blst_byte* IKM, size_t IKM_len, const blst_byte* salt, size_t salt_len, const blst_byte* info, size_t info_len);
-/** Derives a secret key using the v5 keygen scheme with explicit salt; `IKM_len` must be at least 32 bytes, `salt` must be non-null, and invalid input clears `out_SK` to zero. */
+/**
+ * Derives a canonical nonzero secret scalar using the v5 interface. `salt`
+ * must be non-null and name `salt_len` readable bytes; a non-null empty salt
+ * is valid. A null salt clears `out_SK`. The common key-generation contract
+ * applies.
+ */
 void blst_keygen_v5(blst_scalar* out_SK, const blst_byte* IKM, size_t IKM_len, const blst_byte* salt, size_t salt_len, const blst_byte* info, size_t info_len);
-/** Derives the EIP-2333 master secret key from `IKM`; `IKM_len` must be at least 32 bytes or `out_SK` is cleared to zero. */
+/**
+ * Derives a canonical nonzero EIP-2333 master secret key using the default-v4
+ * keygen operation with empty key info. The common IKM and output contracts
+ * apply.
+ */
 void blst_derive_master_eip2333(blst_scalar* out_SK, const blst_byte* IKM, size_t IKM_len);
-/** Derives the EIP-2333 child secret key for `child_index` from `SK`. */
+/**
+ * Derives a canonical nonzero EIP-2333 child key. `SK` must name a canonical
+ * nonzero parent secret scalar; no Release validation is performed. `out_SK`
+ * and `SK` may be exactly the same object.
+ */
 void blst_derive_child_eip2333(blst_scalar* out_SK, const blst_scalar* SK, uint32_t child_index);
 /**
  * Encodes `msg` to a deterministic G1 subgroup point with the RFC 9380

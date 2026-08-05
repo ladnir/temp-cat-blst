@@ -47,12 +47,12 @@ BLST_ERROR blst_core_verify_pk_in_g1(const G1AffinePoint* pk, const G2AffinePoin
 BLST_ERROR blst_core_verify_pk_in_g2(const G2AffinePoint* pk, const G1AffinePoint* signature, int hash_or_encode, const void* msg, size_t msg_len, const void* DST, size_t DST_len, const void* aug, size_t aug_len);
 void blst_pairing_raw_aggregate(PAIRING* ctx, const G2AffinePoint* q, const G1AffinePoint* p);
 
-void blst_keygen(pow256 SK, const void* IKM, size_t IKM_len, const void* info, size_t info_len);
-void blst_keygen_v3(pow256 SK, const void* IKM, size_t IKM_len, const void* info, size_t info_len);
-void blst_keygen_v4_5(pow256 SK, const void* IKM, size_t IKM_len, const void* salt, size_t salt_len, const void* info, size_t info_len);
-void blst_keygen_v5(pow256 SK, const void* IKM, size_t IKM_len, const void* salt, size_t salt_len, const void* info, size_t info_len);
-void blst_derive_master_eip2333(pow256 SK, const void* seed, size_t seed_len);
-void blst_derive_child_eip2333(pow256 SK, const pow256 parent_SK, unsigned int child_index);
+void blst_keygen(pow256 SK, const void* IKM, size_t IKM_len, const void* info, size_t info_len) noexcept;
+void blst_keygen_v3(pow256 SK, const void* IKM, size_t IKM_len, const void* info, size_t info_len) noexcept;
+void blst_keygen_v4_5(pow256 SK, const void* IKM, size_t IKM_len, const void* salt, size_t salt_len, const void* info, size_t info_len) noexcept;
+void blst_keygen_v5(pow256 SK, const void* IKM, size_t IKM_len, const void* salt, size_t salt_len, const void* info, size_t info_len) noexcept;
+void blst_derive_master_eip2333(pow256 SK, const void* seed, size_t seed_len) noexcept;
+void blst_derive_child_eip2333(pow256 SK, const pow256 parent_SK, unsigned int child_index) noexcept;
 }
 
 namespace blst::scalar {
@@ -2175,11 +2175,15 @@ void blst_pairing_as_fp12_to(BoundaryFp12* out, blst_pairing* ctx)
 
 void blst_keygen(blst_scalar* out_SK, const byte* IKM, size_t IKM_len, const byte* info, size_t info_len)
 {
+    BLST_ASSERT(out_SK != nullptr);
+    BLST_ASSERT(IKM != nullptr || IKM_len < 32);
     blst::blst_keygen(out_SK->b, IKM, IKM_len, info, info_len);
 }
 
 void blst_keygen_v3(blst_scalar* out_SK, const byte* IKM, size_t IKM_len, const byte* info, size_t info_len)
 {
+    BLST_ASSERT(out_SK != nullptr);
+    BLST_ASSERT(IKM != nullptr || IKM_len < 32);
     blst::blst_keygen_v3(out_SK->b, IKM, IKM_len, info, info_len);
 }
 
@@ -2192,6 +2196,8 @@ void blst_keygen_v4_5(
     const byte* info,
     size_t info_len)
 {
+    BLST_ASSERT(out_SK != nullptr);
+    BLST_ASSERT(IKM != nullptr || IKM_len < 32);
     blst::blst_keygen_v4_5(out_SK->b, IKM, IKM_len, salt, salt_len, info, info_len);
 }
 
@@ -2204,16 +2210,22 @@ void blst_keygen_v5(
     const byte* info,
     size_t info_len)
 {
+    BLST_ASSERT(out_SK != nullptr);
+    BLST_ASSERT(IKM != nullptr || IKM_len < 32);
     blst::blst_keygen_v5(out_SK->b, IKM, IKM_len, salt, salt_len, info, info_len);
 }
 
 void blst_derive_master_eip2333(blst_scalar* out_SK, const byte* IKM, size_t IKM_len)
 {
+    BLST_ASSERT(out_SK != nullptr);
+    BLST_ASSERT(IKM != nullptr || IKM_len < 32);
     blst::blst_derive_master_eip2333(out_SK->b, IKM, IKM_len);
 }
 
 void blst_derive_child_eip2333(blst_scalar* out_SK, const blst_scalar* SK, uint32_t child_index)
 {
+    BLST_ASSERT(out_SK != nullptr);
+    BLST_ASSERT(SK != nullptr);
     blst::blst_derive_child_eip2333(out_SK->b, SK->b, child_index);
 }
 

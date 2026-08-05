@@ -14,17 +14,37 @@
 
 namespace blst
 {
-
-    typedef struct {
+    namespace
+    {
+    struct HmacSha256Context
+    {
         Sha256Context ctx;
         unsigned int h_ipad[8];
         unsigned int h_opad[8];
-        union { limb_t l[64 / sizeof(limb_t)]; unsigned char c[64]; } tail;
-    } HMAC_SHA256_CTX;
+        /* Active limbs; unsigned-byte access names their object representation. */
+        limb_t tail[64 / sizeof(limb_t)];
+    };
 
-    void HMAC_init(HMAC_SHA256_CTX* ctx, const void* K, size_t K_len)
+    static_assert(64 % sizeof(limb_t) == 0);
+
+    BLST_FORCEINLINE unsigned char* hmac_tail_bytes(
+        HmacSha256Context* ctx) noexcept
     {
-        size_t i;
+        return reinterpret_cast<unsigned char*>(ctx->tail);
+    }
+
+    BLST_FORCEINLINE void hmac_zero_tail(HmacSha256Context* ctx) noexcept
+    {
+        /* Functional initialization; the owning keygen scratch is erased later. */
+        for (size_t i = 0; i < sizeof(ctx->tail) / sizeof(ctx->tail[0]); ++i)
+            ctx->tail[i] = 0;
+    }
+
+    void hmac_init(HmacSha256Context* ctx, const void* K,
+        size_t K_len) noexcept
+    {
+        BLST_ASSERT(ctx != nullptr);
+        BLST_ASSERT(K != nullptr || K_len == 0);
 
         if (K == NULL) {            /* reuse h_ipad and h_opad */
             blst_sha256_hcopy_v(ctx->ctx.h, ctx->h_ipad);
@@ -35,80 +55,96 @@ namespace blst
             return;
         }
 
-        vec_zero(ctx->tail.c, sizeof(ctx->tail));
+        unsigned char* tail = hmac_tail_bytes(ctx);
+        hmac_zero_tail(ctx);
         if (K_len > 64) {
             sha256_init(&ctx->ctx);
             sha256_update(&ctx->ctx, K, K_len);
-            sha256_final(ctx->tail.c, &ctx->ctx);
+            sha256_final(tail, &ctx->ctx);
         }
         else if (K_len != 0) {
-            blst_sha256_bcopy_v(ctx->tail.c, K, K_len);
+            blst_sha256_bcopy_v(tail, K, K_len);
         }
 
-        for (i = 0; i < 64 / sizeof(limb_t); i++)
-            ctx->tail.l[i] ^= (limb_t)0x3636363636363636;
+        for (size_t i = 0; i < sizeof(ctx->tail) / sizeof(ctx->tail[0]); ++i)
+            ctx->tail[i] ^= (limb_t)0x3636363636363636;
 
         sha256_init(&ctx->ctx);
-        sha256_update(&ctx->ctx, ctx->tail.c, 64);
+        sha256_update(&ctx->ctx, tail, 64);
         blst_sha256_hcopy_v(ctx->h_ipad, ctx->ctx.h);
 
-        for (i = 0; i < 64 / sizeof(limb_t); i++)
-            ctx->tail.l[i] ^= (limb_t)(0x3636363636363636 ^ 0x5c5c5c5c5c5c5c5c);
+        for (size_t i = 0; i < sizeof(ctx->tail) / sizeof(ctx->tail[0]); ++i)
+            ctx->tail[i] ^=
+                (limb_t)(0x3636363636363636 ^ 0x5c5c5c5c5c5c5c5c);
 
         sha256_init_h(ctx->h_opad);
-        blst_sha256_block_data_order_v(ctx->h_opad, ctx->tail.c, 1);
+        blst_sha256_block_data_order_v(ctx->h_opad, tail, 1);
 
-        vec_zero(ctx->tail.c, sizeof(ctx->tail));
-        ctx->tail.c[32] = 0x80;
-        ctx->tail.c[62] = 3;        /* (64+32)*8 in big endian */
-        ctx->tail.c[63] = 0;
+        hmac_zero_tail(ctx);
+        tail[32] = 0x80;
+        tail[62] = 3;        /* (64+32)*8 in big endian */
+        tail[63] = 0;
     }
 
-    void HMAC_update(HMAC_SHA256_CTX* ctx, const unsigned char* inp,
-        size_t len)
+    void hmac_update(HmacSha256Context* ctx, const unsigned char* inp,
+        size_t len) noexcept
     {
+        BLST_ASSERT(ctx != nullptr);
+        BLST_ASSERT(inp != nullptr || len == 0);
         sha256_update(&ctx->ctx, inp, len);
     }
 
-    void HMAC_final(unsigned char md[32], HMAC_SHA256_CTX* ctx)
+    void hmac_final(unsigned char md[32], HmacSha256Context* ctx) noexcept
     {
-        sha256_final(ctx->tail.c, &ctx->ctx);
+        BLST_ASSERT(md != nullptr);
+        BLST_ASSERT(ctx != nullptr);
+
+        unsigned char* tail = hmac_tail_bytes(ctx);
+        sha256_final(tail, &ctx->ctx);
         blst_sha256_hcopy_v(ctx->ctx.h, ctx->h_opad);
-        blst_sha256_block_data_order_v(ctx->ctx.h, ctx->tail.c, 1);
+        blst_sha256_block_data_order_v(ctx->ctx.h, tail, 1);
         blst_sha256_emit_v(md, ctx->ctx.h);
     }
 
-    void HKDF_Extract(unsigned char PRK[32],
+    void hkdf_extract(unsigned char PRK[32],
         const void* salt, size_t salt_len,
         const void* IKM, size_t IKM_len,
-#ifndef __BLST_HKDF_TESTMODE__
+#ifndef BLST_HKDF_TESTMODE
         int IKM_fixup,
 #endif
-        HMAC_SHA256_CTX* ctx)
+        HmacSha256Context* ctx) noexcept
     {
+        BLST_ASSERT(PRK != nullptr);
+        BLST_ASSERT(ctx != nullptr);
+        BLST_ASSERT(salt != nullptr || salt_len == 0);
+        BLST_ASSERT(IKM != nullptr || IKM_len == 0);
+
         unsigned char zero[1] = { 0 };
 
-        HMAC_init(ctx, salt != NULL ? salt : zero, salt_len);
-        HMAC_update(ctx, (const unsigned char*)IKM, IKM_len);
-#ifndef __BLST_HKDF_TESTMODE__
+        hmac_init(ctx, salt != NULL ? salt : zero, salt_len);
+        hmac_update(ctx, (const unsigned char*)IKM, IKM_len);
+#ifndef BLST_HKDF_TESTMODE
         if (IKM_fixup) {
             /* Section 2.3 KeyGen in BLS-signature draft */
-            HMAC_update(ctx, zero, 1);
+            hmac_update(ctx, zero, 1);
         }
 #endif
-        HMAC_final(PRK, ctx);
+        hmac_final(PRK, ctx);
     }
 
-    bool HKDF_Expand(unsigned char* OKM, size_t L,
+    bool hkdf_expand(unsigned char* OKM, size_t L,
         const unsigned char PRK[32],
         const void* info, size_t info_len,
-#ifndef __BLST_HKDF_TESTMODE__
+#ifndef BLST_HKDF_TESTMODE
         int info_fixup,
 #endif
-        HMAC_SHA256_CTX* ctx)
+        HmacSha256Context* ctx) noexcept
     {
         static constexpr size_t digest_size = 32;
         static constexpr size_t max_output_size = 255 * digest_size;
+
+        BLST_ASSERT(PRK != nullptr || L == 0);
+        BLST_ASSERT(ctx != nullptr);
 
         if (L > max_output_size || (L != 0 && OKM == NULL) ||
             (info_len != 0 && info == NULL)) {
@@ -119,7 +155,7 @@ namespace blst
 
         unsigned char suffix[3];
         size_t suffix_len = 0;
-#ifndef __BLST_HKDF_TESTMODE__
+#ifndef BLST_HKDF_TESTMODE
         if (info_fixup) {
             /* Section 2.3 KeyGen in BLS-signature draft */
             suffix[suffix_len++] = (unsigned char)(L >> 8);
@@ -130,21 +166,21 @@ namespace blst
 
         for (unsigned int counter = 1; L != 0; ++counter) {
             if (counter == 1) {
-                HMAC_init(ctx, PRK, digest_size);
+                hmac_init(ctx, PRK, digest_size);
             }
             else {
-                HMAC_init(ctx, NULL, 0);
-                HMAC_update(ctx, ctx->tail.c, digest_size);
+                hmac_init(ctx, NULL, 0);
+                hmac_update(ctx, hmac_tail_bytes(ctx), digest_size);
             }
 
             if (info_len != 0)
-                HMAC_update(ctx, (const unsigned char*)info, info_len);
+                hmac_update(ctx, (const unsigned char*)info, info_len);
             suffix[counter_offset] = (unsigned char)counter;
-            HMAC_update(ctx, suffix, suffix_len);
-            HMAC_final(ctx->tail.c, ctx);
+            hmac_update(ctx, suffix, suffix_len);
+            hmac_final(hmac_tail_bytes(ctx), ctx);
 
             const size_t chunk = L < digest_size ? L : digest_size;
-            blst_sha256_bcopy_v(OKM, ctx->tail.c, chunk);
+            blst_sha256_bcopy_v(OKM, hmac_tail_bytes(ctx), chunk);
             OKM += chunk;
             L -= chunk;
         }
@@ -152,14 +188,22 @@ namespace blst
         return true;
     }
 
-#ifndef __BLST_HKDF_TESTMODE__
-    void keygen(pow256 SK, const void* IKM, size_t IKM_len,
+    } // namespace
+
+#ifndef BLST_HKDF_TESTMODE
+    namespace
+    {
+    void derive_key(pow256 SK, const void* IKM, size_t IKM_len,
         const void* salt, size_t salt_len,
         const void* info, size_t info_len,
-        int version)
+        int version) noexcept
     {
+        BLST_ASSERT(SK != nullptr);
+        BLST_ASSERT(IKM != nullptr || IKM_len < 32);
+        BLST_ASSERT(version == 3 || version == 4 || version == 5);
+
         struct {
-            HMAC_SHA256_CTX ctx;
+            HmacSha256Context ctx;
             unsigned char PRK[32], OKM[48];
             UFr ufr;
             Fr key;
@@ -190,11 +234,11 @@ namespace blst
 
         while (1) {
             /* PRK = HKDF-Extract(salt, IKM || I2OSP(0, 1)) */
-            HKDF_Extract(scratch.PRK, salt, salt_len,
+            hkdf_extract(scratch.PRK, salt, salt_len,
                 IKM, IKM_len, 1, &scratch.ctx);
 
             /* OKM = HKDF-Expand(PRK, key_info || I2OSP(L, 2), L) */
-            if (!HKDF_Expand(scratch.OKM, sizeof(scratch.OKM), scratch.PRK,
+            if (!hkdf_expand(scratch.OKM, sizeof(scratch.OKM), scratch.PRK,
                 info, info_len, 1, &scratch.ctx)) {
                 vec_zero(SK, sizeof(pow256));
                 vec_zero(&scratch, sizeof(scratch));
@@ -202,7 +246,9 @@ namespace blst
             }
 
             /* SK = OS2IP(OKM) mod r */
-            vec_zero(scratch.ufr, sizeof(scratch.ufr));
+            static_assert(sizeof(scratch.ufr.data) / sizeof(scratch.ufr.data[0]) == 8);
+            scratch.ufr.data[6] = 0;
+            scratch.ufr.data[7] = 0;
             limbs_from_be_bytes(scratch.ufr, scratch.OKM, sizeof(scratch.OKM));
             Fr::redc(scratch.key, scratch.ufr);
             /*
@@ -233,46 +279,57 @@ namespace blst
         vec_zero(&scratch, sizeof(scratch));
     }
 
+    bool parent_sk_to_lamport_pk(pow256 PK, const pow256 parent_SK,
+        unsigned int index) noexcept;
+
+    } // namespace
+
     void blst_keygen(pow256 SK, const void* IKM, size_t IKM_len,
-        const void* info, size_t info_len)
+        const void* info, size_t info_len) noexcept
     {
-        keygen(SK, IKM, IKM_len, NULL, 0, info, info_len, 4);
+        derive_key(SK, IKM, IKM_len, NULL, 0, info, info_len, 4);
     }
 
     void blst_keygen_v3(pow256 SK, const void* IKM, size_t IKM_len,
-        const void* info, size_t info_len)
+        const void* info, size_t info_len) noexcept
     {
-        keygen(SK, IKM, IKM_len, NULL, 0, info, info_len, 3);
+        derive_key(SK, IKM, IKM_len, NULL, 0, info, info_len, 3);
     }
 
     void blst_keygen_v4_5(pow256 SK, const void* IKM, size_t IKM_len,
         const void* salt, size_t salt_len,
-        const void* info, size_t info_len)
+        const void* info, size_t info_len) noexcept
     {
-        keygen(SK, IKM, IKM_len, salt, salt_len, info, info_len, 4);
+        derive_key(SK, IKM, IKM_len, salt, salt_len, info, info_len, 4);
     }
 
     void blst_keygen_v5(pow256 SK, const void* IKM, size_t IKM_len,
         const void* salt, size_t salt_len,
-        const void* info, size_t info_len)
+        const void* info, size_t info_len) noexcept
     {
-        keygen(SK, IKM, IKM_len, salt, salt_len, info, info_len, 5);
+        derive_key(SK, IKM, IKM_len, salt, salt_len, info, info_len, 5);
     }
 
     /*
      * https://eips.ethereum.org/EIPS/eip-2333
      */
-    void blst_derive_master_eip2333(pow256 SK, const void* seed, size_t seed_len)
+    void blst_derive_master_eip2333(pow256 SK, const void* seed,
+        size_t seed_len) noexcept
     {
-        keygen(SK, seed, seed_len, NULL, 0, NULL, 0, 4);
+        derive_key(SK, seed, seed_len, NULL, 0, NULL, 0, 4);
     }
 
-    bool parent_SK_to_lamport_PK(pow256 PK, const pow256 parent_SK,
-        unsigned int index)
+    namespace
     {
+    bool parent_sk_to_lamport_pk(pow256 PK, const pow256 parent_SK,
+        unsigned int index) noexcept
+    {
+        BLST_ASSERT(PK != nullptr);
+        BLST_ASSERT(parent_SK != nullptr);
+
         size_t i;
         struct {
-            HMAC_SHA256_CTX ctx;
+            HmacSha256Context ctx;
             Sha256Context ret;
             unsigned char PRK[32], IKM[32];
             unsigned char lamport[255][32];
@@ -289,9 +346,9 @@ namespace blst
             scratch.IKM[i] = parent_SK[31 - i];
 
         /* lamport_0 = IKM_to_lamport_SK(IKM, salt) */
-        HKDF_Extract(scratch.PRK, salt, sizeof(salt), scratch.IKM, 32, 0,
+        hkdf_extract(scratch.PRK, salt, sizeof(salt), scratch.IKM, 32, 0,
             &scratch.ctx);
-        if (!HKDF_Expand(scratch.lamport[0], sizeof(scratch.lamport),
+        if (!hkdf_expand(scratch.lamport[0], sizeof(scratch.lamport),
             scratch.PRK, NULL, 0, 0, &scratch.ctx)) {
             vec_zero(PK, sizeof(pow256));
             vec_zero(&scratch, sizeof(scratch));
@@ -319,9 +376,9 @@ namespace blst
             scratch.IKM[i] = ~scratch.IKM[i];
 
         /* lamport_1 = IKM_to_lamport_SK(not_IKM, salt) */
-        HKDF_Extract(scratch.PRK, salt, sizeof(salt), scratch.IKM, 32, 0,
+        hkdf_extract(scratch.PRK, salt, sizeof(salt), scratch.IKM, 32, 0,
             &scratch.ctx);
-        if (!HKDF_Expand(scratch.lamport[0], sizeof(scratch.lamport),
+        if (!hkdf_expand(scratch.lamport[0], sizeof(scratch.lamport),
             scratch.PRK, NULL, 0, 0, &scratch.ctx)) {
             vec_zero(PK, sizeof(pow256));
             vec_zero(&scratch, sizeof(scratch));
@@ -351,14 +408,16 @@ namespace blst
         return true;
     }
 
+    } // namespace
+
     void blst_derive_child_eip2333(pow256 SK, const pow256 parent_SK,
-        unsigned int child_index)
+        unsigned int child_index) noexcept
     {
-        if (!parent_SK_to_lamport_PK(SK, parent_SK, child_index)) {
+        if (!parent_sk_to_lamport_pk(SK, parent_SK, child_index)) {
             vec_zero(SK, sizeof(pow256));
             return;
         }
-        keygen(SK, SK, sizeof(pow256), NULL, 0, NULL, 0, 4);
+        derive_key(SK, SK, sizeof(pow256), NULL, 0, NULL, 0, 4);
     }
 
     //BLST_EXTERN_C_END

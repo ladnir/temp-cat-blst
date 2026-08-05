@@ -206,6 +206,24 @@ gtest_discover_tests(blst_sha256_audit_tests
     PROPERTIES LABELS "sha256;audit"
 )
 
+add_executable(blst_keygen_audit_tests
+    "Keygen_audit_tests.cpp"
+)
+target_include_directories(blst_keygen_audit_tests PRIVATE
+    "${PROJECT_SOURCE_DIR}"
+)
+target_link_libraries(blst_keygen_audit_tests PRIVATE
+    gtest_main
+    blst_static
+    blst_avx_headers
+)
+gtest_discover_tests(blst_keygen_audit_tests
+    DISCOVERY_TIMEOUT 60
+    DISCOVERY_MODE PRE_TEST
+    TEST_PREFIX "keygen."
+    PROPERTIES LABELS "keygen;audit"
+)
+
 # Keep scalar point correctness and object-lifetime regressions independent of
 # the broad test executable and the frozen BTx/BTE subsystem.
 add_executable(blst_scalar_point_audit_tests
