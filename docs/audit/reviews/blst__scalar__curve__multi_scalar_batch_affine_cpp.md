@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/scalar/curve/multi_scalar_batch_affine.cpp` |
 | Roadmap phase / queue | Phase 15 scalar curves and protocols, fourth packet |
-| Reviewed commit | pending remediation commit |
+| Reviewed commit | `913c52f6c226db69ee02f705c7d722f663850b27` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-05 |
 | Disposition | in-scope production |
@@ -151,6 +151,6 @@ empty input, and oversized internal scalar widths.
 
 ## Residual risk and decision
 
-The implementation is complete pending the exact remediation commit hash.
-Sanitizer, fuzz, Apple, and full supported-
-matrix evidence remain milestone work.
+The implementation review and focused remediation are complete at
+`913c52f6c226db69ee02f705c7d722f663850b27`. Sanitizer, fuzz, Apple, and full
+supported-matrix evidence remain milestone work.
