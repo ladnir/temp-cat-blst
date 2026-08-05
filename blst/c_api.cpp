@@ -41,8 +41,8 @@ BLST_ERROR blst_pairing_merge(PAIRING* ctx, const PAIRING* ctx1);
 int blst_pairing_finalverify(const PAIRING* ctx, const Fp12* GTsig);
 BLST_ERROR blst_aggregate_in_g1(G1Point& out, const G1Point* in, const unsigned char* zwire);
 BLST_ERROR blst_aggregate_in_g2(G2Point& out, const G2Point* in, const unsigned char* zwire);
-void blst_aggregated_in_g1(GT& ret, const G1AffinePoint& sig);
-void blst_aggregated_in_g2(GT& ret, const G2AffinePoint& sig);
+void blst_aggregated_in_g1(MillerResult& ret, const G1AffinePoint& sig);
+void blst_aggregated_in_g2(MillerResult& ret, const G2AffinePoint& sig);
 BLST_ERROR blst_core_verify_pk_in_g1(const G1AffinePoint* pk, const G2AffinePoint* signature, int hash_or_encode, const void* msg, size_t msg_len, const void* DST, size_t DST_len, const void* aug, size_t aug_len);
 BLST_ERROR blst_core_verify_pk_in_g2(const G2AffinePoint* pk, const G1AffinePoint* signature, int hash_or_encode, const void* msg, size_t msg_len, const void* DST, size_t DST_len, const void* aug, size_t aug_len);
 void blst_pairing_raw_aggregate(PAIRING* ctx, const G2AffinePoint* q, const G1AffinePoint* p);
@@ -74,6 +74,7 @@ using PublicG1Affine = blst::G1AffinePoint;
 using PublicG2 = blst::G2Point;
 using PublicG2Affine = blst::G2AffinePoint;
 using PublicGt = blst::GT;
+using PublicMillerResult = blst::MillerResult;
 using BoundaryPairing = blst::PAIRING;
 
 static_assert(std::is_same_v<BoundaryG1, blst::scalar::G1Point>);
@@ -228,6 +229,24 @@ inline bool c_api_valid_wbits(size_t wbits)
 inline bool c_api_valid_pippenger_window(size_t window)
 {
     return blst::scalar::detail::valid_pippenger_window(window);
+}
+
+inline PublicMillerResult boundary_to_public_miller(const BoundaryFp12& value)
+{
+#if BLST_DEFAULT_AVX
+    return PublicMillerResult(blst::avx::avx_gt_detail::from_scalar(value));
+#else
+    return PublicMillerResult(value);
+#endif
+}
+
+inline BoundaryFp12 public_miller_to_boundary(const PublicMillerResult& value)
+{
+#if BLST_DEFAULT_AVX
+    return blst::avx::avx_gt_detail::to_scalar(value.data);
+#else
+    return value.data;
+#endif
 }
 
 template<typename T>
@@ -758,7 +777,7 @@ const BoundaryFp12* blst_fp12_one(void)
 void blst_final_exp(BoundaryFp12* ret, const BoundaryFp12* f)
 {
     PublicGt out = {};
-    PublicGt::final_mult(out, boundary_to_public_gt(*f));
+    PublicGt::final_exp(out, boundary_to_public_miller(*f));
     *ret = public_to_boundary_gt(out);
 }
 
@@ -831,12 +850,13 @@ void blst_bendian_from_fp12(unsigned char out[48 * 12], const BoundaryFp12* a)
 
 bool blst_fp12_finalverify(const BoundaryFp12* gt1, const BoundaryFp12* gt2)
 {
-    PublicGt lhs = boundary_to_public_gt(*gt1);
-    const PublicGt rhs = boundary_to_public_gt(*gt2);
-    PublicGt::conjugate(lhs);
-    PublicGt::add(lhs, lhs, rhs);
-    PublicGt::final_mult(lhs, lhs);
-    return PublicGt::is_identity(lhs) != 0;
+    PublicMillerResult lhs = boundary_to_public_miller(*gt1);
+    const PublicMillerResult rhs = boundary_to_public_miller(*gt2);
+    PublicMillerResult::conjugate(lhs);
+    PublicMillerResult::mul(lhs, lhs, rhs);
+    PublicGt result = {};
+    PublicGt::final_exp(result, lhs);
+    return PublicGt::is_identity(result) != 0;
 }
 
 void blst_p1_add(BoundaryG1* out, const BoundaryG1* a, const BoundaryG1* b)
@@ -1741,11 +1761,11 @@ blst::BLST_ERROR blst_p2_deserialize(BoundaryG2Affine* out, const unsigned char 
 
 void blst_miller_loop(BoundaryFp12* ret, const BoundaryG2Affine* Q, const BoundaryG1Affine* P)
 {
-    PublicGt out = {};
+    PublicMillerResult out = {};
     const PublicG2Affine q = Q == nullptr ? PublicG2Affine::generator() : boundary_to_public_g2_affine(*Q);
     const PublicG1Affine p = P == nullptr ? PublicG1Affine::generator() : boundary_to_public_g1_affine(*P);
     PublicGt::miller_loop(out, &q, &p);
-    *ret = public_to_boundary_gt(out);
+    *ret = public_miller_to_boundary(out);
 }
 
 void blst_miller_loop_n(
@@ -1755,7 +1775,7 @@ void blst_miller_loop_n(
     size_t n)
 {
     if (n == 0) {
-        *ret = public_to_boundary_gt(PublicGt::identity());
+        *ret = public_miller_to_boundary(PublicMillerResult::identity());
         return;
     }
     if (!c_api_has_valid_pair_heads(Qs, Ps, n)) {
@@ -1767,7 +1787,7 @@ void blst_miller_loop_n(
     constexpr size_t batch_capacity = blst::avx::avx_gt_detail::kMillerLoopNMax;
     PublicG2Affine q_values[batch_capacity] = {};
     PublicG1Affine p_values[batch_capacity] = {};
-    PublicGt out = PublicGt::identity();
+    PublicMillerResult out = PublicMillerResult::identity();
     const BoundaryG2Affine* current_q = nullptr;
     const BoundaryG1Affine* current_p = nullptr;
     const BoundaryG2Affine* const* q_iter = Qs;
@@ -1782,19 +1802,19 @@ void blst_miller_loop_n(
         ++batch_size;
 
         if (batch_size == batch_capacity || i + 1 == n) {
-            PublicGt batch = {};
+            PublicMillerResult batch = {};
             PublicGt::miller_loop_n(batch, q_values, p_values, batch_size);
-            PublicGt::add(out, out, batch);
+            PublicMillerResult::mul(out, out, batch);
             batch_size = 0;
         }
     }
 #else
     static_assert(std::is_same_v<PublicG2Affine, BoundaryG2Affine>);
     static_assert(std::is_same_v<PublicG1Affine, BoundaryG1Affine>);
-    PublicGt out = {};
+    PublicMillerResult out = {};
     PublicGt::miller_loop_n(out, Qs, Ps, n);
 #endif
-    *ret = public_to_boundary_gt(out);
+    *ret = public_miller_to_boundary(out);
 }
 
 void blst_precompute_lines(BoundaryFp6 Qlines[68], const BoundaryG2Affine* Q)
@@ -1805,10 +1825,10 @@ void blst_precompute_lines(BoundaryFp6 Qlines[68], const BoundaryG2Affine* Q)
 
 void blst_miller_loop_lines(BoundaryFp12* ret, const BoundaryFp6 Qlines[68], const BoundaryG1Affine* P)
 {
-    PublicGt out = {};
+    PublicMillerResult out = {};
     const PublicG1Affine p = P == nullptr ? PublicG1Affine::generator() : boundary_to_public_g1_affine(*P);
     PublicGt::miller_loop_lines(out, Qlines, p);
-    *ret = public_to_boundary_gt(out);
+    *ret = public_miller_to_boundary(out);
 }
 
 size_t blst_pairing_sizeof(void)
@@ -2072,18 +2092,18 @@ blst::BLST_ERROR blst_aggregate_in_g2(BoundaryG2* out, const BoundaryG2* in, con
 
 void blst_aggregated_in_g1(BoundaryFp12* out, const BoundaryG1Affine* signature)
 {
-    PublicGt gt = {};
+    PublicMillerResult gt = {};
     const PublicG1Affine sig = boundary_to_public_g1_affine(*signature);
     blst::blst_aggregated_in_g1(gt, sig);
-    *out = public_to_boundary_gt(gt);
+    *out = public_miller_to_boundary(gt);
 }
 
 void blst_aggregated_in_g2(BoundaryFp12* out, const BoundaryG2Affine* signature)
 {
-    PublicGt gt = {};
+    PublicMillerResult gt = {};
     const PublicG2Affine sig = boundary_to_public_g2_affine(*signature);
     blst::blst_aggregated_in_g2(gt, sig);
-    *out = public_to_boundary_gt(gt);
+    *out = public_miller_to_boundary(gt);
 }
 
 blst::BLST_ERROR blst_core_verify_pk_in_g1(

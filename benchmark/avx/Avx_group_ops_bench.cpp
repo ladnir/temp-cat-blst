@@ -53,9 +53,10 @@ GT make_gt(uint64_t g1_seed)
     G1AffinePoint g1_affine = {};
     G1Point::to_affine(g1_affine, g1);
 
+    MillerResult miller = {};
     GT out = {};
-    GT::miller_loop(out, &G2AffinePoint::generator(), &g1_affine);
-    GT::final_mult(out, out);
+    GT::miller_loop(miller, &G2AffinePoint::generator(), &g1_affine);
+    GT::final_exp(out, miller);
     return out;
 }
 
@@ -76,9 +77,10 @@ blst::scalar::G2AffinePoint make_scalar_g2_affine(uint64_t seed)
 blst::scalar::GT make_scalar_gt(uint64_t g1_seed)
 {
     const blst::scalar::G1AffinePoint p = make_scalar_g1_affine(g1_seed);
+    blst::scalar::MillerResult miller = {};
     blst::scalar::GT out = {};
-    blst::scalar::GT::miller_loop(out, &blst::scalar::G2AffinePoint::generator(), &p);
-    blst::scalar::GT::final_mult(out, out);
+    blst::scalar::GT::miller_loop(miller, &blst::scalar::G2AffinePoint::generator(), &p);
+    blst::scalar::GT::final_exp(out, miller);
     return out;
 }
 
@@ -1554,7 +1556,7 @@ static void BM_AvxPairing_MillerLoop(benchmark::State& state)
     benchmark::DoNotOptimize(q);
 
     for (auto _ : state) {
-        GT out = {};
+        MillerResult out = {};
         GT::miller_loop(out, &q, &p);
         benchmark::DoNotOptimize(out);
     }
@@ -1568,13 +1570,13 @@ static void BM_AvxPairing_FinalExp(benchmark::State& state)
     G1AffinePoint p = {};
     G1Point::to_affine(p, g1);
     const G2AffinePoint& q = G2AffinePoint::generator();
-    GT miller = {};
+    MillerResult miller = {};
     GT::miller_loop(miller, &q, &p);
     benchmark::DoNotOptimize(miller);
 
     for (auto _ : state) {
         GT out = {};
-        GT::final_mult(out, miller);
+        GT::final_exp(out, miller);
         benchmark::DoNotOptimize(out);
     }
 
@@ -1591,9 +1593,10 @@ static void BM_AvxPairing_Full(benchmark::State& state)
     benchmark::DoNotOptimize(q);
 
     for (auto _ : state) {
+        MillerResult miller = {};
         GT out = {};
-        GT::miller_loop(out, &q, &p);
-        GT::final_mult(out, out);
+        GT::miller_loop(miller, &q, &p);
+        GT::final_exp(out, miller);
         benchmark::DoNotOptimize(out);
     }
 

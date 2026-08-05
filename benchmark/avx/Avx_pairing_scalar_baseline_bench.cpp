@@ -12,9 +12,10 @@ static void BM_BlstScalarPairingFinalExp(benchmark::State& state)
     const blst::scalar::G2AffinePoint g2 = blst_avx_test::make_scalar_g2_generator_affine();
 
     for (auto _ : state) {
+        blst::scalar::MillerResult miller = {};
         blst::scalar::GT result = {};
-        blst::scalar::GT::miller_loop(result, &g2, &g1);
-        blst::scalar::GT::final_mult(result, result);
+        blst::scalar::GT::miller_loop(miller, &g2, &g1);
+        blst::scalar::GT::final_exp(result, miller);
         benchmark::DoNotOptimize(result);
     }
 

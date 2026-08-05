@@ -89,13 +89,15 @@ TEST(AvxPairing, PrecomputedLinesMatchDirectPairing)
         PreparedLineTable prepared = {};
         GT::precompute_lines(prepared.lines, avx_g2);
 
+        MillerResult via_lines_miller = {};
         GT via_lines = {};
-        GT::miller_loop_lines(via_lines, prepared.lines, avx_g1);
-        GT::final_mult(via_lines, via_lines);
+        GT::miller_loop_lines(via_lines_miller, prepared.lines, avx_g1);
+        GT::final_exp(via_lines, via_lines_miller);
 
+        MillerResult direct_miller = {};
         GT direct = {};
-        GT::miller_loop(direct, &avx_g2, &avx_g1);
-        GT::final_mult(direct, direct);
+        GT::miller_loop(direct_miller, &avx_g2, &avx_g1);
+        GT::final_exp(direct, direct_miller);
 
         const auto actual = blst_avx_test::avx_fp12_to_bigints(ring, via_lines.data);
         const auto expected = blst_avx_test::avx_fp12_to_bigints(ring, direct.data);

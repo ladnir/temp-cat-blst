@@ -490,11 +490,11 @@ inline blst::Fp12 make_scalar_miller_first_step(
     return out;
 }
 
-inline blst::scalar::GT make_scalar_miller_loop(
+inline blst::scalar::MillerResult make_scalar_miller_loop(
     const blst::scalar::G1AffinePoint& p,
     const blst::scalar::G2AffinePoint& q)
 {
-    blst::scalar::GT result = {};
+    blst::scalar::MillerResult result = {};
     blst::scalar::GT::miller_loop(result, &q, &p);
     return result;
 }
@@ -503,8 +503,9 @@ inline blst::scalar::GT make_scalar_final_pairing(
     const blst::scalar::G1AffinePoint& p,
     const blst::scalar::G2AffinePoint& q)
 {
-    blst::scalar::GT result = make_scalar_miller_loop(p, q);
-    blst::scalar::GT::final_mult(result, result);
+    const blst::scalar::MillerResult miller = make_scalar_miller_loop(p, q);
+    blst::scalar::GT result = {};
+    blst::scalar::GT::final_exp(result, miller);
     return result;
 }
 

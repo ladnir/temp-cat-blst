@@ -221,10 +221,10 @@ namespace bte::btx
             blst::G1Point::to_affine(p_aff, p);
             blst::G2Point::to_affine(q_aff, q);
 
-            blst::GT miller{};
+            blst::MillerResult miller{};
             blst::GT::miller_loop(miller, &q_aff, &p_aff);
             blst::GT out{};
-            blst::GT::final_mult(out, miller);
+            blst::GT::final_exp(out, miller);
             return out;
         }
 
@@ -684,14 +684,14 @@ namespace bte::btx
         workspace.g1_ptrs[batch_size] = &workspace.g1_affine[batch_size];
         workspace.g2_ptrs[batch_size] = &workspace.g2_affine[batch_size];
 
-        blst::GT miller{};
+        blst::MillerResult miller{};
         blst::GT::miller_loop_n(
             miller,
             workspace.g2_ptrs.data(),
             workspace.g1_ptrs.data(),
             workspace.g1_ptrs.size());
         blst::GT out{};
-        blst::GT::final_mult(out, miller);
+        blst::GT::final_exp(out, miller);
         return blst::GT::equal(out, blst::GT::identity()) != 0;
     }
 

@@ -150,17 +150,20 @@ TEST(BackendAlias, TopLevelPairingSurfaceMatchesBilinearDoubling)
     G2Point::to_affine(g2_affine, g2);
     G2Point::to_affine(g2_double_affine, g2_double);
 
+    MillerResult base_miller = {};
     GT base = {};
-    GT::miller_loop(base, &g2_affine, &g1_affine);
-    GT::final_mult(base, base);
+    GT::miller_loop(base_miller, &g2_affine, &g1_affine);
+    GT::final_exp(base, base_miller);
 
+    MillerResult lhs_miller = {};
     GT lhs = {};
-    GT::miller_loop(lhs, &g2_affine, &g1_double_affine);
-    GT::final_mult(lhs, lhs);
+    GT::miller_loop(lhs_miller, &g2_affine, &g1_double_affine);
+    GT::final_exp(lhs, lhs_miller);
 
+    MillerResult rhs_miller = {};
     GT rhs = {};
-    GT::miller_loop(rhs, &g2_double_affine, &g1_affine);
-    GT::final_mult(rhs, rhs);
+    GT::miller_loop(rhs_miller, &g2_double_affine, &g1_affine);
+    GT::final_exp(rhs, rhs_miller);
 
     GT doubled = {};
     GT::doubling(doubled, base);
@@ -171,11 +174,13 @@ TEST(BackendAlias, TopLevelPairingSurfaceMatchesBilinearDoubling)
 
 TEST(BackendAlias, ScalarMillerLoopNEmptyReturnsIdentityAndMalformedInputFailsClosed)
 {
-    blst::scalar::GT scalar_multi = {};
+    blst::scalar::MillerResult scalar_multi = {};
     const blst::scalar::G2AffinePoint* const* scalar_empty_qs = nullptr;
     const blst::scalar::G1AffinePoint* const* scalar_empty_ps = nullptr;
     blst::scalar::GT::miller_loop_n(scalar_multi, scalar_empty_qs, scalar_empty_ps, 0);
-    EXPECT_TRUE(blst::scalar::GT::is_identity(scalar_multi));
+    blst::scalar::GT scalar_final = {};
+    blst::scalar::GT::final_exp(scalar_final, scalar_multi);
+    EXPECT_TRUE(blst::scalar::GT::is_identity(scalar_final));
 
     const std::array<const blst::scalar::G1AffinePoint*, 1> scalar_ps = {nullptr};
     const std::array<const blst::scalar::G2AffinePoint*, 1> scalar_qs = {nullptr};
@@ -184,18 +189,21 @@ TEST(BackendAlias, ScalarMillerLoopNEmptyReturnsIdentityAndMalformedInputFailsCl
         scalar_qs.data(),
         scalar_ps.data(),
         scalar_ps.size());
-    EXPECT_TRUE(blst::scalar::GT::equal(scalar_multi, {}));
-    EXPECT_FALSE(blst::scalar::GT::is_identity(scalar_multi));
+    blst::scalar::GT::final_exp(scalar_final, scalar_multi);
+    EXPECT_TRUE(blst::scalar::GT::equal(scalar_final, {}));
+    EXPECT_FALSE(blst::scalar::GT::is_identity(scalar_final));
 }
 
 #if BLST_DEFAULT_AVX
 TEST(BackendAlias, AvxMillerLoopNEmptyReturnsIdentityAndMalformedInputFailsClosed)
 {
-    blst::avx::GT avx_multi = {};
+    blst::avx::MillerResult avx_multi = {};
     const blst::avx::G2AffinePoint* const* avx_empty_qs = nullptr;
     const blst::avx::G1AffinePoint* const* avx_empty_ps = nullptr;
     blst::avx::GT::miller_loop_n(avx_multi, avx_empty_qs, avx_empty_ps, 0);
-    EXPECT_TRUE(blst::avx::GT::is_identity(avx_multi));
+    blst::avx::GT avx_final = {};
+    blst::avx::GT::final_exp(avx_final, avx_multi);
+    EXPECT_TRUE(blst::avx::GT::is_identity(avx_final));
 
     const std::array<const blst::avx::G1AffinePoint*, 1> avx_ps = {nullptr};
     const std::array<const blst::avx::G2AffinePoint*, 1> avx_qs = {nullptr};
@@ -204,8 +212,9 @@ TEST(BackendAlias, AvxMillerLoopNEmptyReturnsIdentityAndMalformedInputFailsClose
         avx_qs.data(),
         avx_ps.data(),
         avx_ps.size());
-    EXPECT_TRUE(blst::avx::GT::equal(avx_multi, {}));
-    EXPECT_FALSE(blst::avx::GT::is_identity(avx_multi));
+    blst::avx::GT::final_exp(avx_final, avx_multi);
+    EXPECT_TRUE(blst::avx::GT::equal(avx_final, {}));
+    EXPECT_FALSE(blst::avx::GT::is_identity(avx_final));
 }
 #endif
 

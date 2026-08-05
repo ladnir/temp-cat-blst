@@ -12,6 +12,7 @@ using blst::scalar::G1Point;
 using blst::scalar::G2AffinePoint;
 using blst::scalar::G2Point;
 using blst::scalar::GT;
+using blst::scalar::MillerResult;
 
 TEST(ScalarBackend, G1IsogenyPathNeedsCofactorClear)
 {
@@ -38,16 +39,16 @@ TEST(ScalarBackend, G2PrecomputedLinesMatchDirectMiller)
     const G1AffinePoint p = G1AffinePoint::generator();
     const G2AffinePoint q = G2AffinePoint::generator();
 
-    GT direct = {};
+    MillerResult direct = {};
     GT::miller_loop(direct, &q, &p);
 
     blst::Fp6 lines[68] = {};
     GT::precompute_lines(lines, q);
 
-    GT via_lines = {};
+    MillerResult via_lines = {};
     GT::miller_loop_lines(via_lines, lines, p);
 
-    EXPECT_TRUE(GT::equal(direct, via_lines));
+    EXPECT_TRUE(blst::Fp12::equal(direct.data, via_lines.data));
 }
 
 }  // namespace

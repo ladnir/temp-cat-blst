@@ -18,9 +18,10 @@ blst::scalar::GT scalar_gt_base()
     blst::scalar::G1Point::to_affine(g1_affine, g1);
     blst::scalar::G2Point::to_affine(g2_affine, g2);
 
+    blst::scalar::MillerResult miller = {};
     blst::scalar::GT out = {};
-    blst::scalar::GT::miller_loop(out, &g2_affine, &g1_affine);
-    blst::scalar::GT::final_mult(out, out);
+    blst::scalar::GT::miller_loop(miller, &g2_affine, &g1_affine);
+    blst::scalar::GT::final_exp(out, miller);
     return out;
 }
 

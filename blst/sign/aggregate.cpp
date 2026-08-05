@@ -26,7 +26,7 @@ namespace blst
         return out;
     }
 
-    BLST_HD void gt_from_fp12_boundary(GT& out, const Fp12& in)
+    BLST_HD void miller_from_fp12_boundary(MillerResult& out, const Fp12& in)
     {
 #if BLST_DEFAULT_AVX
         out.data = avx::avx_gt_detail::from_scalar(in);
@@ -35,7 +35,7 @@ namespace blst
 #endif
     }
 
-    BLST_HD void fp12_from_gt_boundary(Fp12& out, const GT& in)
+    BLST_HD void fp12_from_miller_boundary(Fp12& out, const MillerResult& in)
     {
 #if BLST_DEFAULT_AVX
         out = avx::avx_gt_detail::to_scalar(in.data);
@@ -213,9 +213,9 @@ namespace blst
             ctx->P[n] = point_to_affine<G1AffinePoint>(H);
             if (++n == N_MAX) {
                 if (ctx->ctrl & AGGR_GT_SET) {
-                    GT gt;
+                    MillerResult gt;
                     GT::miller_loop_n(gt, ctx->Q, ctx->P, n);
-                    GT::add(ctx->gt, ctx->gt, gt);
+                    MillerResult::mul(ctx->gt, ctx->gt, gt);
                 }
                 else {
                     GT::miller_loop_n(ctx->gt, ctx->Q, ctx->P, n);
@@ -376,9 +376,9 @@ namespace blst
             ctx->P[n] = *PK;
             if (++n == N_MAX) {
                 if (ctx->ctrl & AGGR_GT_SET) {
-                    GT gt;
+                    MillerResult gt;
                     GT::miller_loop_n(gt, ctx->Q, ctx->P, n);
-                    GT::add(ctx->gt, ctx->gt, gt);
+                    MillerResult::mul(ctx->gt, ctx->gt, gt);
                 }
                 else {
                     GT::miller_loop_n(ctx->gt, ctx->Q, ctx->P, n);
@@ -451,9 +451,9 @@ namespace blst
 
         if ((n = ctx->nelems) != 0) {
             if (ctx->ctrl & AGGR_GT_SET) {
-                GT gt;
+                MillerResult gt;
                 GT::miller_loop_n(gt, ctx->Q, ctx->P, n);
-                GT::add(ctx->gt, ctx->gt, gt);
+                MillerResult::mul(ctx->gt, ctx->gt, gt);
             }
             else {
                 GT::miller_loop_n(ctx->gt, ctx->Q, ctx->P, n);
@@ -509,7 +509,7 @@ namespace blst
         }
 
         if (ctx->ctrl & ctx1->ctrl & AGGR_GT_SET) {
-            GT::add(ctx->gt, ctx->gt, ctx1->gt);
+            MillerResult::mul(ctx->gt, ctx->gt, ctx1->gt);
         }
         else if (ctx1->ctrl & AGGR_GT_SET) {
             ctx->ctrl |= AGGR_GT_SET;
@@ -521,13 +521,13 @@ namespace blst
 
     BLST_HD bool_t PAIRING_FinalVerify(const PAIRING* ctx, const Fp12* GTsig)
     {
-        GT gt;
+        MillerResult gt;
 
         if (!(ctx->ctrl & AGGR_GT_SET))
             return 0;
 
         if (GTsig != NULL) {
-            gt_from_fp12_boundary(gt, *GTsig);
+            miller_from_fp12_boundary(gt, *GTsig);
         }
         else if (ctx->ctrl & AGGR_SIGN_SET) {
             switch (ctx->ctrl & MIN_SIG_OR_PK) {
@@ -554,14 +554,15 @@ namespace blst
              * The aggregated signature was infinite, relation between the
              * hashes and the public keys has to be VERY special...
              */
-            gt = GT::identity();
+            gt = MillerResult::identity();
         }
 
-		GT::conjugate(gt);
-        GT::add(gt, gt, ctx->gt);
-        GT::final_mult(gt, gt);
+		MillerResult::conjugate(gt);
+        MillerResult::mul(gt, gt, ctx->gt);
+        GT result = {};
+        GT::final_exp(result, gt);
 
-        return GT::is_identity(gt);
+        return GT::is_identity(result);
     }
 
     BLST_HD int blst_pairing_finalverify(const PAIRING* ctx, const Fp12* GTsig)
@@ -569,14 +570,15 @@ namespace blst
         return (int)PAIRING_FinalVerify(ctx, GTsig);
     }
 
-    BLST_HD int blst_fp12_finalverify(const GT& GT1, const GT& GT2)
+    BLST_HD int blst_fp12_finalverify(const MillerResult& GT1, const MillerResult& GT2)
     {
-        GT gt = GT1;
-        GT::conjugate(gt);
-        GT::add(gt, gt, GT2);
-        GT::final_mult(gt, gt);
+        MillerResult value = GT1;
+        MillerResult::conjugate(value);
+        MillerResult::mul(value, value, GT2);
+        GT result = {};
+        GT::final_exp(result, value);
 
-        return (int)GT::is_identity(gt);
+        return (int)GT::is_identity(result);
     }
 
     BLST_HD void blst_pairing_raw_aggregate(PAIRING* ctx, const G2AffinePoint* q,
@@ -592,9 +594,9 @@ namespace blst
         ctx->P[n] = *p;
         if (++n == N_MAX) {
             if (ctx->ctrl & AGGR_GT_SET) {
-                GT gt;
+                MillerResult gt;
                 GT::miller_loop_n(gt, ctx->Q, ctx->P, n);
-                GT::add(ctx->gt, ctx->gt, gt);
+                MillerResult::mul(ctx->gt, ctx->gt, gt);
             }
             else {
                 GT::miller_loop_n(ctx->gt, ctx->Q, ctx->P, n);
@@ -609,7 +611,7 @@ namespace blst
     {
         PAIRING_Commit(ctx);
         Fp12 out = {};
-        fp12_from_gt_boundary(out, ctx->gt);
+        fp12_from_miller_boundary(out, ctx->gt);
         return out;
     }
 
@@ -689,13 +691,13 @@ namespace blst
         return BLST_SUCCESS;
     }
 
-    BLST_HD void blst_aggregated_in_g1(GT& ret, const G1AffinePoint& sig)
+    BLST_HD void blst_aggregated_in_g1(MillerResult& ret, const G1AffinePoint& sig)
     {
         const G2AffinePoint& g2 = G2AffinePoint::generator();
         GT::miller_loop_n(ret, &g2, &sig, 1);
     }
 
-    BLST_HD void blst_aggregated_in_g2(GT& ret, const G2AffinePoint& sig)
+    BLST_HD void blst_aggregated_in_g2(MillerResult& ret, const G2AffinePoint& sig)
     {
         const G1AffinePoint& g1 = G1AffinePoint::generator();
         GT::miller_loop_n(ret, &sig, &g1, 1);

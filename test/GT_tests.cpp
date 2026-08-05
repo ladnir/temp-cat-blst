@@ -30,8 +30,9 @@ protected:
         G2Point::to_affine(g2_affine, g2_point);
 
         // Calculate pairing
-        GT::miller_loop(gt_element, &g2_affine, &g1_affine);
-        GT::final_mult(gt_element, gt_element);
+        MillerResult miller;
+        GT::miller_loop(miller, &g2_affine, &g1_affine);
+        GT::final_exp(gt_element, miller);
     }
 
     G1Point g1_point;
@@ -71,8 +72,9 @@ TEST_F(GTTest, Addition) {
     G1AffinePoint g1_double_affine;
     G1Point::to_affine(g1_double_affine, g1_double);
 
-    GT::miller_loop(another_gt, &g2_affine, &g1_double_affine);
-    GT::final_mult(another_gt, another_gt);
+    MillerResult another_miller;
+    GT::miller_loop(another_miller, &g2_affine, &g1_double_affine);
+    GT::final_exp(another_gt, another_miller);
 
     // Test addition
     GT sum;
@@ -99,8 +101,9 @@ TEST_F(GTTest, Addition) {
     G1AffinePoint g1_triple_affine;
     G1Point::to_affine(g1_triple_affine, g1_triple);
 
-    GT::miller_loop(third_gt, &g2_affine, &g1_triple_affine);
-    GT::final_mult(third_gt, third_gt);
+    MillerResult third_miller;
+    GT::miller_loop(third_miller, &g2_affine, &g1_triple_affine);
+    GT::final_exp(third_gt, third_miller);
 
     GT temp1, temp2;
     // (a + b) + c
@@ -190,7 +193,7 @@ TEST_F(GTTest, ScalarMultiplication) {
 // More detailed diagnostic
 TEST_F(GTTest, DiagnosticFinalExp) {
     // Manually trace through final_exp
-    GT miller_result;
+    MillerResult miller_result;
     GT::miller_loop(miller_result, &g2_affine, &g1_affine);
 
     Fp12 f = miller_result.data;
@@ -237,7 +240,7 @@ TEST_F(GTTest, DiagnosticFinalExp) {
 // Add this diagnostic test to understand the issue
 TEST_F(GTTest, DiagnosticCyclotomic) {
     // Check if the pairing result is cyclotomic after final_exp
-    GT miller_result;
+    MillerResult miller_result;
     GT::miller_loop(miller_result, &g2_affine, &g1_affine);
 
     // Before final_exp - should NOT be cyclotomic
@@ -246,7 +249,7 @@ TEST_F(GTTest, DiagnosticCyclotomic) {
 
     // After final_exp - SHOULD be cyclotomic
     GT final_result;
-    GT::final_mult(final_result, miller_result);
+    GT::final_exp(final_result, miller_result);
     bool after_cyclotomic = Fp12::is_cyclotomic(final_result.data);
     std::cout << "After final_exp - is_cyclotomic: " << after_cyclotomic << std::endl;
 
@@ -303,14 +306,16 @@ TEST_F(GTTest, BilinearityProperty) {
     G2Point::to_affine(g2_double_affine, g2_double);
 
     // e(2P, Q)
+    MillerResult miller_2P_Q;
     GT e_2P_Q;
-    GT::miller_loop(e_2P_Q, &g2_affine, &g1_double_affine);
-    GT::final_mult(e_2P_Q, e_2P_Q);
+    GT::miller_loop(miller_2P_Q, &g2_affine, &g1_double_affine);
+    GT::final_exp(e_2P_Q, miller_2P_Q);
 
     // e(P, 2Q)
+    MillerResult miller_P_2Q;
     GT e_P_2Q;
-    GT::miller_loop(e_P_2Q, &g2_double_affine, &g1_affine);
-    GT::final_mult(e_P_2Q, e_P_2Q);
+    GT::miller_loop(miller_P_2Q, &g2_double_affine, &g1_affine);
+    GT::final_exp(e_P_2Q, miller_P_2Q);
 
     // 2 * e(P,Q)
     GT doubled_e_PQ;
@@ -336,12 +341,6 @@ TEST_F(GTTest, GroupMembership) {
     GT identity = GT::identity();
     EXPECT_TRUE(GT::in_group(identity))
         << "Identity element should be in the GT group";
-
-    // Test that a non-GT element (before final_exp) is not in the group
-    GT not_finalized;
-    GT::miller_loop(not_finalized, &g2_affine, &g1_affine);
-    EXPECT_FALSE(GT::in_group(not_finalized))
-        << "Miller loop result without final_exp should not be in GT group";
 
     // Doubling, addition, negation should preserve group membership
     GT doubled;
@@ -373,17 +372,18 @@ TEST_F(GTTest, MultiPairing) {
     const G2AffinePoint* g2_ptrs[3] = { &g2_points[0], &g2_points[1], nullptr };
 
     // Calculate e(P1,Q1) and e(P2,Q2) individually
-    GT e1, e2, sum, multi;
+    MillerResult e1, e2, product, multi_miller;
+    GT sum, multi;
     GT::miller_loop(e1, &g2_points[0], &g1_points[0]);
     GT::miller_loop(e2, &g2_points[1], &g1_points[1]);
 
     // Calculate their sum
-    GT::add(sum, e1, e2);
-    GT::final_mult(sum, sum);
+    MillerResult::mul(product, e1, e2);
+    GT::final_exp(sum, product);
 
     // Calculate using multi-pairing
-    GT::miller_loop_n(multi, g2_ptrs, g1_ptrs, 2);
-    GT::final_mult(multi, multi);
+    GT::miller_loop_n(multi_miller, g2_ptrs, g1_ptrs, 2);
+    GT::final_exp(multi, multi_miller);
 
     // They should match
     EXPECT_TRUE(GT::equal(sum, multi))
@@ -408,24 +408,20 @@ TEST_F(GTTest, FinalVerify) {
     G2Point::to_affine(g2_half_affine, g2_another);
 
     // Calculate two different pairings
-    GT pair1, pair2;
+    MillerResult pair1, pair2;
     GT::miller_loop(pair1, &g2_affine, &g1_double_affine);
     GT::miller_loop(pair2, &g2_half_affine, &g1_affine);
 
-    // They should not be equal before final_exp
-    EXPECT_FALSE(GT::equal(pair1, pair2))
-        << "Different pairings should not be equal before final_exp";
-
     // Apply final exponentiation
     GT final1, final2;
-    GT::final_mult(final1, pair1);
-    GT::final_mult(final2, pair2);
+    GT::final_exp(final1, pair1);
+    GT::final_exp(final2, pair2);
 
     // Direct equality check
     bool direct_equal = GT::equal(final1, final2);
 
     // Using finalverify
-    bool finalverify_equal = blst_fp12_finalverify(final1, final2);
+    bool finalverify_equal = blst_fp12_finalverify(pair1, pair2);
 
     // Verify that finalverify gives same result as equality check
     // (in general they might differ due to optimizations, but for our simple test they should match)
@@ -442,9 +438,10 @@ TEST_F(GTTest, PairingWithPrecomputation) {
     GT::precompute_lines(lines, g2_affine);
 
     // Compute pairing using precomputed lines
+    MillerResult pre_miller;
     GT pre_result;
-    GT::miller_loop_lines(pre_result, lines, g1_affine);
-    GT::final_mult(pre_result, pre_result);
+    GT::miller_loop_lines(pre_miller, lines, g1_affine);
+    GT::final_exp(pre_result, pre_miller);
 
     // Verify against standard pairing computation
     EXPECT_TRUE(GT::equal(gt_element, pre_result))
@@ -457,13 +454,15 @@ TEST_F(GTTest, PairingWithPrecomputation) {
     G1AffinePoint g1_double_affine;
     G1Point::to_affine(g1_double_affine, g1_double);
 
+    MillerResult direct_double_miller;
     GT direct_double_result;
-    GT::miller_loop(direct_double_result, &g2_affine, &g1_double_affine);
-    GT::final_mult(direct_double_result, direct_double_result);
+    GT::miller_loop(direct_double_miller, &g2_affine, &g1_double_affine);
+    GT::final_exp(direct_double_result, direct_double_miller);
 
+    MillerResult pre_double_miller;
     GT pre_double_result;
-    GT::miller_loop_lines(pre_double_result, lines, g1_double_affine);
-    GT::final_mult(pre_double_result, pre_double_result);
+    GT::miller_loop_lines(pre_double_miller, lines, g1_double_affine);
+    GT::final_exp(pre_double_result, pre_double_miller);
 
     EXPECT_TRUE(GT::equal(direct_double_result, pre_double_result))
         << "Precomputed pairing should work with different G1 points";
@@ -472,23 +471,17 @@ TEST_F(GTTest, PairingWithPrecomputation) {
 
 TEST_F(GTTest, MillerLoopOnly) {
     // Test Miller loop without final exponentiation
-    GT miller_result1, miller_result2;
+    MillerResult miller_result1, miller_result2;
 
     // Compute Miller loop for same pairing twice
     GT::miller_loop(miller_result1, &g2_affine, &g1_affine);
     GT::miller_loop(miller_result2, &g2_affine, &g1_affine);
 
-    // Should be equal
-    EXPECT_TRUE(GT::equal(miller_result1, miller_result2))
-        << "Miller loop should be deterministic";
-
-    // Should not be in GT group before final exp
-    EXPECT_FALSE(GT::in_group(miller_result1))
-        << "Miller loop result should not be in GT before final exponentiation";
-
-    // Apply final exp and verify it's now in GT
-    GT final_result;
-    GT::final_mult(final_result, miller_result1);
+    // Final exponentiation of identical Miller results must be deterministic.
+    GT final_result, final_result2;
+    GT::final_exp(final_result, miller_result1);
+    GT::final_exp(final_result2, miller_result2);
+    EXPECT_TRUE(GT::equal(final_result, final_result2));
     EXPECT_TRUE(GT::in_group(final_result))
         << "Result should be in GT after final exponentiation";
 }
@@ -506,9 +499,10 @@ TEST_F(GTTest, PairingIdentityProperties) {
     G1Point::to_affine(g1_identity_affine, g1_identity);
 
     // Pairing with identity should give identity in GT
+    MillerResult identity_miller;
     GT pairing_with_identity;
-    GT::miller_loop(pairing_with_identity, &g2_affine, &g1_identity_affine);
-    GT::final_mult(pairing_with_identity, pairing_with_identity);
+    GT::miller_loop(identity_miller, &g2_affine, &g1_identity_affine);
+    GT::final_exp(pairing_with_identity, identity_miller);
 
     EXPECT_TRUE(GT::is_identity(pairing_with_identity))
         << "Pairing with identity point should give identity in GT";
@@ -558,20 +552,24 @@ TEST_F(GTTest, PairingAggregationRoundTripMatchesDirectMiller) {
     blst_pairing_raw_aggregate(&ctx, &g2_affine, &g1_affine);
     blst_pairing_commit(&ctx);
 
-    GT direct = {};
+    MillerResult direct = {};
     GT::miller_loop(direct, &g2_affine, &g1_affine);
 
     const Fp12 aggregated_fp12 = blst_pairing_as_fp12(&ctx);
     unsigned char aggregated_bytes[12 * 48] = {};
     scalar::GT::serialize(aggregated_bytes, scalar::GT(aggregated_fp12));
 
-    GT aggregated_gt = {};
-    GT::deserialize(aggregated_gt, aggregated_bytes);
-    EXPECT_TRUE(GT::equal(aggregated_gt, direct));
+    EXPECT_TRUE(blst_pairing_finalverify(&ctx, &aggregated_fp12));
 
-    unsigned char direct_bytes[12 * 48] = {};
-    GT::serialize(direct_bytes, direct);
-    scalar::GT direct_scalar = {};
-    scalar::GT::deserialize(direct_scalar, direct_bytes);
-    EXPECT_TRUE(blst_pairing_finalverify(&ctx, &direct_scalar.data));
+    GT direct_final = {};
+    GT::final_exp(direct_final, direct);
+    GT aggregated_final = {};
+    MillerResult aggregated_miller = {};
+#if BLST_DEFAULT_AVX
+    aggregated_miller.data = blst::avx::avx_gt_detail::from_scalar(aggregated_fp12);
+#else
+    aggregated_miller.data = aggregated_fp12;
+#endif
+    GT::final_exp(aggregated_final, aggregated_miller);
+    EXPECT_TRUE(GT::equal(aggregated_final, direct_final));
 }

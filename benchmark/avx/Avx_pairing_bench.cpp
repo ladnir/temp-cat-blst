@@ -81,7 +81,7 @@ static void BM_MillerLoop_Direct(benchmark::State& state)
 
     size_t point_idx = 0;
     for (auto _ : state) {
-        GT result = {};
+        MillerResult result = {};
         GT::miller_loop(result, &g2, &g1_points[point_idx]);
         benchmark::DoNotOptimize(result);
 
@@ -106,7 +106,7 @@ static void BM_MillerLoop_PrecomputedLines(benchmark::State& state)
 
     size_t point_idx = 0;
     for (auto _ : state) {
-        GT result = {};
+        MillerResult result = {};
         GT::miller_loop_lines(result, lines.lines, g1_points[point_idx]);
         benchmark::DoNotOptimize(result);
 
@@ -145,9 +145,10 @@ static void BM_MillerLoop_PrecomputedLines_FinalExp(benchmark::State& state)
 
     size_t point_idx = 0;
     for (auto _ : state) {
+        MillerResult miller = {};
         GT result = {};
-        GT::miller_loop_lines(result, lines.lines, g1_points[point_idx]);
-        GT::final_mult(result, result);
+        GT::miller_loop_lines(miller, lines.lines, g1_points[point_idx]);
+        GT::final_exp(result, miller);
         benchmark::DoNotOptimize(result);
 
         point_idx += 1;

@@ -308,9 +308,12 @@ impl blst_fp12 {
         unsafe { blst_fp12_in_group(self) }
     }
 
-    /// Returns `true` when the two trusted Fp12/GT contributions pass the final
-    /// verification relation. This method performs no independent input-domain
-    /// validation.
+    /// Returns `true` when two trusted Miller-loop contributions have equal
+    /// images after final exponentiation.
+    ///
+    /// The raw `blst_fp12` storage does not encode that domain, and this method
+    /// performs no independent input validation. Callers should normally pass
+    /// values returned by [`Self::miller_loop`] or [`Self::miller_loop_n`].
     pub fn finalverify(a: &Self, b: &Self) -> bool {
         unsafe { blst_fp12_finalverify(a, b) }
     }

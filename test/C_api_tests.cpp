@@ -278,6 +278,7 @@ using BoundaryFr = blst::Fr;
 using PublicG1Affine = blst::G1AffinePoint;
 using PublicG2Affine = blst::G2AffinePoint;
 using PublicGt = blst::GT;
+using PublicMillerResult = blst::MillerResult;
 
 std::array<unsigned char, 32> scalar_bytes(std::uint64_t value)
 {
@@ -1669,11 +1670,12 @@ TEST(CApi, PairingPrimitivesMatchBackend)
     EXPECT_TRUE(blst_fp12_in_group(&final_exp));
     EXPECT_TRUE(blst_fp12_finalverify(&final_exp, &final_exp));
 
+    PublicMillerResult expected_miller = {};
     PublicGt expected_public = {};
     const PublicG2Affine public_q = to_public(q_affine);
     const PublicG1Affine public_p = to_public(p_affine);
-    PublicGt::miller_loop(expected_public, &public_q, &public_p);
-    PublicGt::final_mult(expected_public, expected_public);
+    PublicGt::miller_loop(expected_miller, &public_q, &public_p);
+    PublicGt::final_exp(expected_public, expected_miller);
     const BoundaryGt expected = gt_to_boundary(expected_public);
 
     EXPECT_TRUE(blst::Fp12::equal(final_exp, expected));

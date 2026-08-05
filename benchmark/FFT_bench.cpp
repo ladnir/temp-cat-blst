@@ -32,9 +32,10 @@ namespace
 		G2AffinePoint q_aff;
 		G2Point::to_affine(q_aff, q);
 
+		MillerResult miller;
 		GT result;
-		GT::miller_loop(result, &q_aff, &p_aff);
-		GT::final_mult(result, result);
+		GT::miller_loop(miller, &q_aff, &p_aff);
+		GT::final_exp(result, miller);
 		return result;
 	}
 
@@ -101,9 +102,10 @@ namespace
 		G1Point::to_affine(p_aff, G1Point::generator());
 		G2Point::to_affine(q_aff, G2Point::generator());
 
+		MillerResult miller;
 		GT r;
-		GT::miller_loop(r, &q_aff, &p_aff);
-		GT::final_mult(r, r);
+		GT::miller_loop(miller, &q_aff, &p_aff);
+		GT::final_exp(r, miller);
 		return r;
 	}
 

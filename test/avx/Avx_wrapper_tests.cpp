@@ -282,18 +282,18 @@ TEST(AvxWrapper, GTMillerLoopMatchesScalar)
     for (size_t i = 0; i < scalar_ps.size(); ++i) {
         SCOPED_TRACE(i);
 
-        blst::GT scalar_miller = {};
+        blst::MillerResult scalar_miller = {};
         blst::GT::miller_loop(scalar_miller, &scalar_qs[i], &scalar_ps[i]);
-        blst::GT scalar_final = scalar_miller;
-        blst::GT::final_mult(scalar_final, scalar_final);
+        blst::GT scalar_final = {};
+        blst::GT::final_exp(scalar_final, scalar_miller);
 
-        blst::avx::GT avx_miller = {};
+        blst::avx::MillerResult avx_miller = {};
         const blst::avx::G1AffinePoint avx_p = scalar_to_avx(scalar_ps[i]);
         const blst::avx::G2AffinePoint avx_q = scalar_to_avx(scalar_qs[i]);
         blst::avx::GT::miller_loop(avx_miller, &avx_q, &avx_p);
 
         blst::avx::GT avx_final = {};
-        blst::avx::GT::final_mult(avx_final, avx_miller);
+        blst::avx::GT::final_exp(avx_final, avx_miller);
 
         unsigned char scalar_bytes[12 * 48] = {};
         unsigned char avx_bytes[12 * 48] = {};
@@ -315,9 +315,10 @@ TEST(AvxWrapper, GTMillerLoopNMatchesScalar)
         make_scalar_g2_doubled_affine(),
     };
 
+    blst::MillerResult scalar_miller = {};
     blst::GT scalar_multi = {};
-    blst::GT::miller_loop_n(scalar_multi, scalar_qs.data(), scalar_ps.data(), scalar_ps.size());
-    blst::GT::final_mult(scalar_multi, scalar_multi);
+    blst::GT::miller_loop_n(scalar_miller, scalar_qs.data(), scalar_ps.data(), scalar_ps.size());
+    blst::GT::final_exp(scalar_multi, scalar_miller);
 
     const std::array<blst::avx::G1AffinePoint, 2> avx_ps = {
         scalar_to_avx(scalar_ps[0]),
@@ -328,9 +329,10 @@ TEST(AvxWrapper, GTMillerLoopNMatchesScalar)
         scalar_to_avx(scalar_qs[1]),
     };
 
+    blst::avx::MillerResult avx_miller = {};
     blst::avx::GT avx_multi = {};
-    blst::avx::GT::miller_loop_n(avx_multi, avx_qs.data(), avx_ps.data(), avx_ps.size());
-    blst::avx::GT::final_mult(avx_multi, avx_multi);
+    blst::avx::GT::miller_loop_n(avx_miller, avx_qs.data(), avx_ps.data(), avx_ps.size());
+    blst::avx::GT::final_exp(avx_multi, avx_miller);
 
     unsigned char scalar_bytes[12 * 48] = {};
     unsigned char avx_bytes[12 * 48] = {};
@@ -353,9 +355,10 @@ TEST(AvxWrapper, GTMillerLoopNPointerMatchesScalar)
     const std::array<const blst::G1AffinePoint*, 2> scalar_ps_ptrs = {&scalar_ps[0], nullptr};
     const std::array<const blst::G2AffinePoint*, 2> scalar_qs_ptrs = {&scalar_qs[0], nullptr};
 
+    blst::MillerResult scalar_miller = {};
     blst::GT scalar_multi = {};
-    blst::GT::miller_loop_n(scalar_multi, scalar_qs_ptrs.data(), scalar_ps_ptrs.data(), scalar_ps_ptrs.size());
-    blst::GT::final_mult(scalar_multi, scalar_multi);
+    blst::GT::miller_loop_n(scalar_miller, scalar_qs_ptrs.data(), scalar_ps_ptrs.data(), scalar_ps_ptrs.size());
+    blst::GT::final_exp(scalar_multi, scalar_miller);
 
     const std::array<blst::avx::G1AffinePoint, 2> avx_ps = {
         scalar_to_avx(scalar_ps[0]),
@@ -368,9 +371,10 @@ TEST(AvxWrapper, GTMillerLoopNPointerMatchesScalar)
     const std::array<const blst::avx::G1AffinePoint*, 2> avx_ps_ptrs = {&avx_ps[0], nullptr};
     const std::array<const blst::avx::G2AffinePoint*, 2> avx_qs_ptrs = {&avx_qs[0], nullptr};
 
+    blst::avx::MillerResult avx_miller = {};
     blst::avx::GT avx_multi = {};
-    blst::avx::GT::miller_loop_n(avx_multi, avx_qs_ptrs.data(), avx_ps_ptrs.data(), avx_ps_ptrs.size());
-    blst::avx::GT::final_mult(avx_multi, avx_multi);
+    blst::avx::GT::miller_loop_n(avx_miller, avx_qs_ptrs.data(), avx_ps_ptrs.data(), avx_ps_ptrs.size());
+    blst::avx::GT::final_exp(avx_multi, avx_miller);
 
     unsigned char scalar_bytes[12 * 48] = {};
     unsigned char avx_bytes[12 * 48] = {};
@@ -382,28 +386,36 @@ TEST(AvxWrapper, GTMillerLoopNPointerMatchesScalar)
 
 TEST(AvxWrapper, GTMillerLoopNEmptyInputReturnsIdentityForScalarAndAvx)
 {
+    blst::MillerResult scalar_miller = {};
     blst::GT scalar_multi = {};
-    blst::GT::miller_loop_n(scalar_multi, nullptr, nullptr, 0);
+    blst::GT::miller_loop_n(scalar_miller, nullptr, nullptr, 0);
+    blst::GT::final_exp(scalar_multi, scalar_miller);
     EXPECT_TRUE(blst::GT::is_identity(scalar_multi));
 
+    blst::avx::MillerResult avx_miller = {};
     blst::avx::GT avx_multi = {};
-    blst::avx::GT::miller_loop_n(avx_multi, nullptr, nullptr, 0);
+    blst::avx::GT::miller_loop_n(avx_miller, nullptr, nullptr, 0);
+    blst::avx::GT::final_exp(avx_multi, avx_miller);
     EXPECT_TRUE(blst::avx::GT::is_identity(avx_multi));
 }
 
-TEST(AvxWrapper, GTMillerLoopNLeadingNullPointerReturnsIdentityForScalarAndAvx)
+TEST(AvxWrapper, GTMillerLoopNLeadingNullPointerFailsClosedForScalarAndAvx)
 {
     const std::array<const blst::G1AffinePoint*, 1> scalar_ps_ptrs = {nullptr};
     const std::array<const blst::G2AffinePoint*, 1> scalar_qs_ptrs = {nullptr};
+    blst::MillerResult scalar_miller = {};
     blst::GT scalar_multi = {};
-    blst::GT::miller_loop_n(scalar_multi, scalar_qs_ptrs.data(), scalar_ps_ptrs.data(), scalar_ps_ptrs.size());
-    EXPECT_TRUE(blst::GT::is_identity(scalar_multi));
+    blst::GT::miller_loop_n(scalar_miller, scalar_qs_ptrs.data(), scalar_ps_ptrs.data(), scalar_ps_ptrs.size());
+    blst::GT::final_exp(scalar_multi, scalar_miller);
+    EXPECT_FALSE(blst::GT::is_identity(scalar_multi));
 
     const std::array<const blst::avx::G1AffinePoint*, 1> avx_ps_ptrs = {nullptr};
     const std::array<const blst::avx::G2AffinePoint*, 1> avx_qs_ptrs = {nullptr};
+    blst::avx::MillerResult avx_miller = {};
     blst::avx::GT avx_multi = {};
-    blst::avx::GT::miller_loop_n(avx_multi, avx_qs_ptrs.data(), avx_ps_ptrs.data(), avx_ps_ptrs.size());
-    EXPECT_TRUE(blst::avx::GT::is_identity(avx_multi));
+    blst::avx::GT::miller_loop_n(avx_miller, avx_qs_ptrs.data(), avx_ps_ptrs.data(), avx_ps_ptrs.size());
+    blst::avx::GT::final_exp(avx_multi, avx_miller);
+    EXPECT_FALSE(blst::avx::GT::is_identity(avx_multi));
 }
 
 TEST(AvxWrapper, AprimeConstantsMatchScalar)

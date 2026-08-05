@@ -19,9 +19,10 @@ TEST(PairingTest, BasicPairing) {
     G2Point::to_affine(g2_affine, g2_point);
 
     // Compute pairing e(G1, G2)
+    MillerResult miller_result;
     GT pairing_result;
-    GT::miller_loop(pairing_result, &g2_affine, &g1_affine);
-    GT::final_mult(pairing_result, pairing_result);
+    GT::miller_loop(miller_result, &g2_affine, &g1_affine);
+    GT::final_exp(pairing_result, miller_result);
 
     // The pairing should not be equal to 1 (non-degeneracy)
     EXPECT_FALSE(GT::is_identity(pairing_result))
@@ -42,13 +43,13 @@ TEST(PairingTest, BasicPairing) {
 
     // Compute e(2*G1, G2)
     GT pairing_2g1_g2;
-    GT::miller_loop(pairing_2g1_g2, &g2_affine, &g1_double_affine);
-    GT::final_mult(pairing_2g1_g2, pairing_2g1_g2);
+    GT::miller_loop(miller_result, &g2_affine, &g1_double_affine);
+    GT::final_exp(pairing_2g1_g2, miller_result);
 
     // Compute e(G1, 2*G2)
     GT pairing_g1_2g2;
-    GT::miller_loop(pairing_g1_2g2, &g2_double_affine, &g1_affine);
-    GT::final_mult(pairing_g1_2g2, pairing_g1_2g2);
+    GT::miller_loop(miller_result, &g2_double_affine, &g1_affine);
+    GT::final_exp(pairing_g1_2g2, miller_result);
 
     // Compute e(G1, G2)^2
     GT pairing_squared;
@@ -74,15 +75,15 @@ TEST(PairingTest, BasicPairing) {
 
     // e(G1, O) should equal 1
     GT pairing_with_identity;
-    GT::miller_loop(pairing_with_identity, &identity_e2_affine, &g1_affine);
-    GT::final_mult(pairing_with_identity, pairing_with_identity);
+    GT::miller_loop(miller_result, &identity_e2_affine, &g1_affine);
+    GT::final_exp(pairing_with_identity, miller_result);
 
     EXPECT_TRUE(GT::is_identity(pairing_with_identity))
         << "e(G1, O) should equal 1";
 
     // e(O, G2) should equal 1
-    GT::miller_loop(pairing_with_identity,& g2_affine, &identity_e1_affine);
-    GT::final_mult(pairing_with_identity, pairing_with_identity);
+    GT::miller_loop(miller_result, &g2_affine, &identity_e1_affine);
+    GT::final_exp(pairing_with_identity, miller_result);
 
     EXPECT_TRUE(GT::is_identity(pairing_with_identity))
         << "e(O, G2) should equal 1";
@@ -111,14 +112,15 @@ TEST(PairingTest, MultiPairing) {
     // Test that e(P1,Q1)·e(P2,Q2) = e(P1+P2,Q1+Q2)·e(P1,Q2)⁻¹·e(P2,Q1)⁻¹
 
     // Compute e(G1, G2)
+    MillerResult miller_result;
     GT e_g1_g2;
-    GT::miller_loop(e_g1_g2, &g2_affine, &g1_affine);
-    GT::final_mult(e_g1_g2, e_g1_g2);
+    GT::miller_loop(miller_result, &g2_affine, &g1_affine);
+    GT::final_exp(e_g1_g2, miller_result);
 
     // Compute e(2*G1, 2*G2)
     GT e_2g1_2g2;
-    GT::miller_loop(e_2g1_2g2, &g2_double_affine,&g1_double_affine);
-    GT::final_mult(e_2g1_2g2, e_2g1_2g2);
+    GT::miller_loop(miller_result, &g2_double_affine,&g1_double_affine);
+    GT::final_exp(e_2g1_2g2, miller_result);
 
     // Compute e(G1, G2) * e(2*G1, 2*G2) using Fp12_mul
     GT product;
@@ -137,8 +139,8 @@ TEST(PairingTest, MultiPairing) {
     G2AffinePoint* g2_points[2] = { &g2_affine, &g2_double_affine };
 
     GT multi_result;
-    GT::miller_loop_n(multi_result, g2_points, g1_points, 2);
-    GT::final_mult(multi_result, multi_result);
+    GT::miller_loop_n(miller_result, g2_points, g1_points, 2);
+    GT::final_exp(multi_result, miller_result);
 
     // The results should be equal
     EXPECT_TRUE(GT::equal(product, multi_result))

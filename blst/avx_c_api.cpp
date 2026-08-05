@@ -39,6 +39,7 @@ using AvxG1Affine = blst::avx::G1AffinePoint;
 using AvxG2 = blst::avx::G2Point;
 using AvxG2Affine = blst::avx::G2AffinePoint;
 using AvxGt = blst::avx::GT;
+using AvxMillerResult = blst::avx::MillerResult;
 
 static_assert(BLST_AVX_P1_SIZE == sizeof(AvxG1));
 static_assert(BLST_AVX_ALIGNMENT >= alignof(AvxG1));
@@ -49,17 +50,21 @@ static_assert(BLST_AVX_ALIGNMENT >= alignof(AvxG2));
 static_assert(BLST_AVX_P2_AFFINE_SIZE == sizeof(AvxG2Affine));
 static_assert(BLST_AVX_ALIGNMENT >= alignof(AvxG2Affine));
 static_assert(BLST_AVX_FP12_SIZE == sizeof(AvxGt));
+static_assert(sizeof(AvxMillerResult) == sizeof(AvxGt));
+static_assert(alignof(AvxMillerResult) == alignof(AvxGt));
 static_assert(BLST_AVX_ALIGNMENT >= alignof(AvxGt));
 static_assert(std::is_standard_layout_v<AvxG1>);
 static_assert(std::is_standard_layout_v<AvxG1Affine>);
 static_assert(std::is_standard_layout_v<AvxG2>);
 static_assert(std::is_standard_layout_v<AvxG2Affine>);
 static_assert(std::is_standard_layout_v<AvxGt>);
+static_assert(std::is_standard_layout_v<AvxMillerResult>);
 static_assert(std::is_trivially_copyable_v<AvxG1>);
 static_assert(std::is_trivially_copyable_v<AvxG1Affine>);
 static_assert(std::is_trivially_copyable_v<AvxG2>);
 static_assert(std::is_trivially_copyable_v<AvxG2Affine>);
 static_assert(std::is_trivially_copyable_v<AvxGt>);
+static_assert(std::is_trivially_copyable_v<AvxMillerResult>);
 static_assert(std::is_same_v<blst_avx_p1, AvxG1>);
 static_assert(std::is_same_v<blst_avx_p1_affine, AvxG1Affine>);
 static_assert(std::is_same_v<blst_avx_p2, AvxG2>);
@@ -122,6 +127,16 @@ inline AvxGt* as_avx(blst_avx_fp12* value)
 inline const AvxGt* as_avx(const blst_avx_fp12* value)
 {
     return reinterpret_cast<const AvxGt*>(value);
+}
+
+inline AvxMillerResult* as_miller(blst_avx_fp12* value)
+{
+    return reinterpret_cast<AvxMillerResult*>(value);
+}
+
+inline const AvxMillerResult* as_miller(const blst_avx_fp12* value)
+{
+    return reinterpret_cast<const AvxMillerResult*>(value);
 }
 
 template<typename Point>
@@ -511,20 +526,12 @@ inline bool g2_subgroup_msm_scratch_layout(
 
 inline AvxGt scalar_fp12_to_avx(const ScalarFp12& value)
 {
-    unsigned char serialized[12 * 48] = {};
-    blst::scalar::GT::serialize(serialized, blst::scalar::GT(value));
-    AvxGt out = {};
-    AvxGt::deserialize(out, serialized);
-    return out;
+    return AvxGt(blst::avx::avx_gt_detail::from_scalar(value));
 }
 
 inline ScalarFp12 avx_fp12_to_scalar(const AvxGt& value)
 {
-    unsigned char serialized[12 * 48] = {};
-    AvxGt::serialize(serialized, value);
-    blst::scalar::GT scalar_gt = {};
-    blst::scalar::GT::deserialize(scalar_gt, serialized);
-    return scalar_gt.data;
+    return blst::avx::avx_gt_detail::to_scalar(value.data);
 }
 #endif
 
@@ -1782,7 +1789,7 @@ bool blst_avx_fp12_final_exp(blst_avx_fp12* ret, const blst_avx_fp12* a)
     if (ret == nullptr || a == nullptr) {
         return false;
     }
-    AvxGt::final_mult(*as_avx(ret), *as_avx(a));
+    AvxGt::final_exp(*as_avx(ret), *as_miller(a));
     return true;
 #else
     (void)ret;
@@ -1833,9 +1840,9 @@ bool blst_avx_pairing(blst_avx_fp12* out, const blst_avx_p1* g1, const blst_avx_
     AvxG1::to_affine(g1_affine, *as_avx(g1));
     AvxG2::to_affine(g2_affine, *as_avx(g2));
 
-    AvxGt miller = {};
+    AvxMillerResult miller = {};
     AvxGt::miller_loop(miller, &g2_affine, &g1_affine);
-    AvxGt::final_mult(*as_avx(out), miller);
+    AvxGt::final_exp(*as_avx(out), miller);
     return true;
 #else
     (void)out;

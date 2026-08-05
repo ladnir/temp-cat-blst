@@ -65,9 +65,9 @@ std::vector<blst::avx::GT> make_avx_gt_batch(size_t count)
     for (size_t i = 0; i < count; ++i) {
         const blst::avx::G1AffinePoint g1 = make_g1_affine(42 + i);
         const blst::avx::G2AffinePoint g2 = make_g2_affine(4242 + i);
-        blst::avx::GT miller = {};
+        blst::avx::MillerResult miller = {};
         blst::avx::GT::miller_loop(miller, &g2, &g1);
-        blst::avx::GT::final_mult(out[i], miller);
+        blst::avx::GT::final_exp(out[i], miller);
     }
     return out;
 }

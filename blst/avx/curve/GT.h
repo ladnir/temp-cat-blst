@@ -432,6 +432,40 @@ using PreparedLine = avx_gt_detail::PreparedLine;
 using PreparedLineTable = avx_gt_detail::PreparedLineTable;
 
 /**
+ * Native AVX pairing accumulator before final exponentiation.
+ *
+ * This is not a GT element. Only multiplication, conjugation, and the
+ * multiplicative identity are exposed because those are the operations used
+ * to combine pairing equations before `GT::final_exp`.
+ */
+struct MillerResult
+{
+    using Field_type = avx_gt_detail::FP12::StandardElement;
+
+    Field_type data = {};
+
+    constexpr MillerResult() = default;
+    constexpr explicit MillerResult(const Field_type& value) : data(value) {}
+
+    static MillerResult identity()
+    {
+        return MillerResult(avx_gt_detail::fp12ring().one(avx_gt_detail::ring()));
+    }
+
+    static void mul(MillerResult& out, const MillerResult& a, const MillerResult& b)
+    {
+        out.data = avx_gt_detail::fp12ring().fp12_flat_mul(
+            a.data, b.data, avx_gt_detail::ring());
+    }
+
+    static void conjugate(MillerResult& value)
+    {
+        value.data = avx_gt_detail::fp12ring().fp12_flat_conjugate(
+            value.data, avx_gt_detail::ring());
+    }
+};
+
+/**
  * @brief Native AVX target-group representation.
  *
  * Storage does not enforce membership. Group operations assume their operands
@@ -446,7 +480,7 @@ struct GT
     Field_type data = {};
 
     constexpr GT() = default;
-    constexpr GT(const Field_type& value) : data(value) {}
+    explicit constexpr GT(const Field_type& value) : data(value) {}
 
     auto operator[](size_t idx) -> decltype(data[idx]) { return data[idx]; }
     auto operator[](size_t idx) const -> decltype(data[idx]) { return data[idx]; }
@@ -586,14 +620,15 @@ struct GT
         out.data = avx_gt_detail::from_scalar(scalar.data);
     }
 
-    static void final_mult(GT& out, const GT& f)
+    /** Map a valid nonzero Miller result into GT. */
+    static void final_exp(GT& out, const MillerResult& f)
     {
         FP12RNS_BLSTInverter<avx_gt_detail::Ring> inverter;
         out.data = blst::avx::final_exp(
             f.data, inverter, avx_gt_detail::fp12ring(), avx_gt_detail::ring());
     }
 
-    static void final_mult_n(GT out[], const GT in[], size_t n)
+    static void final_exp_n(GT out[], const MillerResult in[], size_t n)
     {
         if (n == 0 || out == nullptr || in == nullptr) {
             return;
@@ -646,13 +681,19 @@ struct GT
         }
     }
 
-    static void miller_loop(GT& ret, const G2AffinePoint* Q, const G1AffinePoint* P)
+    /**
+     * Pairing construction APIs. Inputs must be valid on-curve affine points;
+     * no curve or subgroup validation is performed. Outputs are MillerResult,
+     * never GT, until passed through `final_exp`. The pointer-array overload
+     * uses the compact continuation convention documented by the C API.
+     */
+    static void miller_loop(MillerResult& ret, const G2AffinePoint* Q, const G1AffinePoint* P)
     {
         const G2AffinePoint& q = Q ? *Q : G2AffinePoint::generator();
         const G1AffinePoint& p = P ? *P : G1AffinePoint::generator();
 
         if (G2AffinePoint::is_inf(q) || G1AffinePoint::is_inf(p)) {
-            ret = identity();
+            ret = MillerResult::identity();
             return;
         }
 
@@ -668,12 +709,12 @@ struct GT
     }
 
     static void miller_loop_n(
-        GT& out,
+        MillerResult& out,
         const G2AffinePoint Q[],
         const G1AffinePoint P[],
         size_t n)
     {
-        out = identity();
+        out = MillerResult::identity();
         if (n == 0) {
             return;
         }
@@ -717,12 +758,12 @@ struct GT
     }
 
     static void miller_loop_n(
-        GT& out,
+        MillerResult& out,
         const G2AffinePoint* const Qs[],
         const G1AffinePoint* const Ps[],
         size_t n)
     {
-        out = identity();
+        out = MillerResult::identity();
         if (n == 0) {
             return;
         }
@@ -806,7 +847,7 @@ struct GT
     }
 
     static void miller_loop_lines(
-        GT& ret,
+        MillerResult& ret,
         const PreparedLine Qlines[68],
         const G1AffinePoint& P)
     {
@@ -821,12 +862,12 @@ struct GT
     }
 
     static void miller_loop_lines_n(
-        GT& out,
+        MillerResult& out,
         const PreparedLine* const Qlines[],
         const G1AffinePoint* const Ps[],
         size_t n)
     {
-        out = identity();
+        out = MillerResult::identity();
         if (n == 0 || Qlines == nullptr || Ps == nullptr || Qlines[0] == nullptr || Ps[0] == nullptr) {
             return;
         }
@@ -844,12 +885,12 @@ struct GT
     }
 
     static void miller_loop_lines_n_preprocessed(
-        GT& out,
+        MillerResult& out,
         const PreparedLine* const Qlines[],
         const G1AffinePoint P[],
         size_t n)
     {
-        out = identity();
+        out = MillerResult::identity();
         if (n == 0 || Qlines == nullptr || P == nullptr || Qlines[0] == nullptr) {
             return;
         }
@@ -864,7 +905,7 @@ struct GT
     }
 
     static void miller_loop_lines(
-        GT& ret,
+        MillerResult& ret,
         const blst::scalar::Fp6 Qlines[68],
         const G1AffinePoint& P)
     {
@@ -872,7 +913,7 @@ struct GT
         scalar_p.x = avx_curve_detail::ring_fp_to_scalar(P.X);
         scalar_p.y = avx_curve_detail::ring_fp_to_scalar(P.Y);
 
-        blst::scalar::GT scalar_ret = {};
+        blst::scalar::MillerResult scalar_ret = {};
         blst::scalar::GT::miller_loop_lines(scalar_ret, Qlines, scalar_p);
         ret.data = avx_gt_detail::from_scalar(scalar_ret.data);
     }

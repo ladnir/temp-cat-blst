@@ -92,9 +92,10 @@ namespace blst
 			G2AffinePoint q_aff;
 			G2Point::to_affine(q_aff, b);
 
+			MillerResult miller;
+			GT::miller_loop(miller, &q_aff, &p_aff);
 			GT result;
-			GT::miller_loop(result, &q_aff, &p_aff);
-			GT::final_mult(result, result);
+			GT::final_exp(result, miller);
 			return result;
 		}
 

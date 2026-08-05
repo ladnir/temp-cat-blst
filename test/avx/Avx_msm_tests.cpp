@@ -89,9 +89,9 @@ std::vector<blst::avx::GT> gt_points(size_t count)
     const std::vector<blst::avx::G2AffinePoint> g2 = g2_points(count);
     std::vector<blst::avx::GT> out(count);
     for (size_t i = 0; i < count; ++i) {
-        blst::avx::GT miller = {};
+        blst::avx::MillerResult miller = {};
         blst::avx::GT::miller_loop(miller, &g2[i], &g1[i]);
-        blst::avx::GT::final_mult(out[i], miller);
+        blst::avx::GT::final_exp(out[i], miller);
     }
     return out;
 }

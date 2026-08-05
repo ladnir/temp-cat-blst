@@ -20,6 +20,8 @@ namespace blst
      * on the selected implementation type.
      */
     using avx::GT;
+    /** Selected-backend Miller-loop value. This is not a GT element. */
+    using avx::MillerResult;
 #else
     /**
      * @brief Selected native C++ target-group type (`scalar::GT`).
@@ -29,5 +31,7 @@ namespace blst
      * on the selected implementation type.
      */
     using scalar::GT;
+    /** Selected-backend Miller-loop value. This is not a GT element. */
+    using scalar::MillerResult;
 #endif
 }

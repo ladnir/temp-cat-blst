@@ -20,13 +20,13 @@ namespace blst
         unsigned int nelems;
         const void* DST;
         size_t DST_len;
-        GT gt;
+        MillerResult gt;
         AggregatedSignature AggrSign;
         G2AffinePoint Q[N_MAX];
         G1AffinePoint P[N_MAX];
     } PAIRING;
 
-    BLST_HD int blst_fp12_finalverify(const GT& GT1, const GT& GT2);
+    BLST_HD int blst_fp12_finalverify(const MillerResult& GT1, const MillerResult& GT2);
     BLST_HD Fp12 blst_pairing_as_fp12(PAIRING* ctx);
     BLST_HD void blst_pairing_as_fp12_to(Fp12* out, PAIRING* ctx);
 

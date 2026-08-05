@@ -67,8 +67,8 @@ Fp6{                                                                      \
     }                                                                     \
 }
 
-    constexpr GT BLST_GT_GENERATOR_HOST =
-        Fp12{ BLST_GT_GENERATOR_LIMBS };
+    constexpr GT BLST_GT_GENERATOR_HOST(
+        Fp12{ BLST_GT_GENERATOR_LIMBS });
 
     const GT& GT::generator()
     {
@@ -77,7 +77,7 @@ Fp6{                                                                      \
 
     /*
     * Line evaluations from  https://eprint.iacr.org/2010/354.pdf
-    * with a twist moving common expression to line_by_Px2.
+    * with a twist moving common expressions into PreparedG1LineScale.
     */
     BLST_HD void line_add(Fp6& line, G2Point& T, const G2Point& R,
         const G2AffinePoint& Q)
@@ -189,41 +189,41 @@ Fp6{                                                                      \
         Fp2::mul(line[2], T.z, ZZ);         /* Z3 * Z1^2 */
     }
 
-    BLST_HD void line_by_Px2(Fp6& line, const G1AffinePoint& Px2)
+    BLST_HD void line_by_scale(Fp6& line, const PreparedG1LineScale& scale)
     {
-        Fp::mul(line[1][0], line[1][0], Px2.x);   /* "b01" *= -2*P.x */
-        Fp::mul(line[1][1], line[1][1], Px2.x);
+        Fp::mul(line[1][0], line[1][0], scale.neg_x2); /* "b01" *= -2*P.x */
+        Fp::mul(line[1][1], line[1][1], scale.neg_x2);
 
-        Fp::mul(line[2][0], line[2][0], Px2.y);   /* "b11" *= 2*P.y */
-        Fp::mul(line[2][1], line[2][1], Px2.y);
+        Fp::mul(line[2][0], line[2][0], scale.y2);     /* "b11" *= 2*P.y */
+        Fp::mul(line[2][1], line[2][1], scale.y2);
     }
 
     BLST_HD void start_dbl_n(
-        GT& ret, 
+        MillerResult& ret,
         G2Point T[],
-        const G1AffinePoint Px2[], size_t n)
+        const PreparedG1LineScale scales[], size_t n)
     {
         size_t i;
         Fp6 line; /* it's not actual fp6, but 3 packed fp2, "xy00z0"  */
 
         /* first step is ret = 1^2*line, which is replaced with ret = line  */
         line_dbl(line, T[0], T[0]);           
-        line_by_Px2(line, Px2[0]);
-        vec_zero(&ret, sizeof(GT));
+        line_by_scale(line, scales[0]);
+        vec_zero(&ret.data, sizeof(ret.data));
         vec_copy(&ret.data[0][0], &line[0], 2 * sizeof(Fp2));
         vec_copy(&ret.data[1][1], &line[2], sizeof(Fp2));
 
         for (i = 1; i < n; i++) {
             line_dbl(line, T[i], T[i]);       
-            line_by_Px2(line, Px2[i]);
+            line_by_scale(line, scales[i]);
             Fp12::mul_by_xy00z0(ret.data, ret.data, line);
         }
     }
 
-    BLST_HD  void add_n_dbl_n(GT& ret, 
+    BLST_HD  void add_n_dbl_n(MillerResult& ret,
         G2Point T[],
         const G2AffinePoint Q[],
-        const G1AffinePoint Px2[],
+        const PreparedG1LineScale scales[],
         size_t n, 
         size_t k)
     {
@@ -231,25 +231,25 @@ Fp6{                                                                      \
         Fp6 line; /* it's not actual fp6, but 3 packed fp2, "xy00z0"  */
 
         for (i = 0; i < n; i++) {
-            line_add(line, T[i], T[i], Q[i]);  line_by_Px2(line, Px2[i]);
+            line_add(line, T[i], T[i], Q[i]);  line_by_scale(line, scales[i]);
             Fp12::mul_by_xy00z0(ret.data, ret.data, line);
         }
         while (k--) {
             Fp12::sqr(ret.data, ret.data);
             for (i = 0; i < n; i++) {
-                line_dbl(line, T[i], T[i]);   line_by_Px2(line, Px2[i]);
+                line_dbl(line, T[i], T[i]);   line_by_scale(line, scales[i]);
                 Fp12::mul_by_xy00z0(ret.data, ret.data, line);
             }
         }
     }
 
     BLST_HD void GT::miller_loop_n(
-        GT& ret, 
+        MillerResult& ret,
         const G2AffinePoint Q[],
         const G1AffinePoint P[], 
         size_t n)
     {
-        vec_copy(&ret, &get_BLST_Rx(), sizeof(Fp12));
+        vec_copy(&ret.data, &get_BLST_Rx(), sizeof(ret.data));
         if (n == 0) {
             return;
         }
@@ -267,8 +267,8 @@ Fp6{                                                                      \
         while (offset < n) {
             G2Point T[MILLER_LOOP_N_MAX];
             G2AffinePoint Qbatch[MILLER_LOOP_N_MAX];
-            G1AffinePoint Px2[MILLER_LOOP_N_MAX];
-            GT chunk = {};
+            PreparedG1LineScale scales[MILLER_LOOP_N_MAX];
+            MillerResult chunk = {};
             size_t batch = 0;
 
             while (offset < n && batch < MILLER_LOOP_N_MAX) {
@@ -277,10 +277,10 @@ Fp6{                                                                      \
                     continue;
                 }
 
-                /* Move common expression from line evaluation to line_by_Px2.  */
-                Fp::add(Px2[batch].x, P[offset].x, P[offset].x);
-                Fp::neg(Px2[batch].x, Px2[batch].x);
-                Fp::add(Px2[batch].y, P[offset].y, P[offset].y);
+                /* Precompute the G1 factors shared by every line evaluation. */
+                Fp::add(scales[batch].neg_x2, P[offset].x, P[offset].x);
+                Fp::neg(scales[batch].neg_x2, scales[batch].neg_x2);
+                Fp::add(scales[batch].y2, P[offset].y, P[offset].y);
 
                 vec_copy(&Qbatch[batch].x, &Q[offset].x, 2 * sizeof(Qbatch[batch].x));
                 vec_copy(&T[batch].x, &Q[offset].x, 2 * sizeof(T[batch].x));
@@ -294,12 +294,12 @@ Fp6{                                                                      \
             }
 
             /* first step is ret = 1^2*line, which is replaced with ret = line  */
-            start_dbl_n(chunk, T, Px2, batch);                /* 0x2                  */
-            add_n_dbl_n(chunk, T, Qbatch, Px2, batch, 2);     /* ..0xc                */
-            add_n_dbl_n(chunk, T, Qbatch, Px2, batch, 3);     /* ..0x68               */
-            add_n_dbl_n(chunk, T, Qbatch, Px2, batch, 9);     /* ..0xd200             */
-            add_n_dbl_n(chunk, T, Qbatch, Px2, batch, 32);    /* ..0xd20100000000     */
-            add_n_dbl_n(chunk, T, Qbatch, Px2, batch, 16);    /* ..0xd201000000010000 */
+            start_dbl_n(chunk, T, scales, batch);                /* 0x2                  */
+            add_n_dbl_n(chunk, T, Qbatch, scales, batch, 2);     /* ..0xc                */
+            add_n_dbl_n(chunk, T, Qbatch, scales, batch, 3);     /* ..0x68               */
+            add_n_dbl_n(chunk, T, Qbatch, scales, batch, 9);     /* ..0xd200             */
+            add_n_dbl_n(chunk, T, Qbatch, scales, batch, 32);    /* ..0xd20100000000     */
+            add_n_dbl_n(chunk, T, Qbatch, scales, batch, 16);    /* ..0xd201000000010000 */
             Fp12::conjugate(chunk.data);                      /* account for z being negative */
             Fp12::mul(ret.data, ret.data, chunk.data);
         }
@@ -330,56 +330,56 @@ Fp6{                                                                      \
         pre_add_n_dbl(&Qlines[51], T, Q, 16);       /* ..0xd201000000010000 */
     }
 
-    BLST_HD void post_line_by_Px2(Fp6& out, const Fp6& in,
-        const G1AffinePoint& Px2)
+    BLST_HD void post_line_by_scale(Fp6& out, const Fp6& in,
+        const PreparedG1LineScale& scale)
     {
         vec_copy(&out[0], &in[0], sizeof(out[0]));
 
-        Fp::mul(out[1][0], in[1][0], Px2.x);        /* "b01" *= -2*P.x */
-        Fp::mul(out[1][1], in[1][1], Px2.x);
+        Fp::mul(out[1][0], in[1][0], scale.neg_x2); /* "b01" *= -2*P.x */
+        Fp::mul(out[1][1], in[1][1], scale.neg_x2);
 
-        Fp::mul(out[2][0], in[2][0], Px2.y);        /* "b11" *= 2*P.y */
-        Fp::mul(out[2][1], in[2][1], Px2.y);
+        Fp::mul(out[2][0], in[2][0], scale.y2);     /* "b11" *= 2*P.y */
+        Fp::mul(out[2][1], in[2][1], scale.y2);
     }
 
-    BLST_HD void post_add_n_dbl(GT& ret, const Fp6 lines[],
-        const G1AffinePoint& Px2, size_t n)
+    BLST_HD void post_add_n_dbl(MillerResult& ret, const Fp6 lines[],
+        const PreparedG1LineScale& scale, size_t n)
     {
         Fp6 line;
 
-        post_line_by_Px2(line, lines++[0], Px2);
+        post_line_by_scale(line, lines++[0], scale);
         Fp12::mul_by_xy00z0(ret.data, ret.data, line);
         while (n--) {
             Fp12::sqr(ret.data, ret.data);
-            post_line_by_Px2(line, lines++[0], Px2);
+            post_line_by_scale(line, lines++[0], scale);
             Fp12::mul_by_xy00z0(ret.data, ret.data, line);
         }
     }
 
     BLST_HD void start_lines_n(
-        GT& ret,
+        MillerResult& ret,
         const Fp6* const Qlines[],
-        const G1AffinePoint Px2[],
+        const PreparedG1LineScale scales[],
         size_t n)
     {
         BLST_ASSERT(n != 0);
 
         Fp6 line;
-        post_line_by_Px2(line, Qlines[0][0], Px2[0]);
-        vec_zero(&ret, sizeof(GT));
+        post_line_by_scale(line, Qlines[0][0], scales[0]);
+        vec_zero(&ret.data, sizeof(ret.data));
         vec_copy(&ret.data[0][0], &line[0], 2 * sizeof(Fp2));
         vec_copy(&ret.data[1][1], &line[2], sizeof(Fp2));
 
         for (size_t i = 1; i < n; ++i) {
-            post_line_by_Px2(line, Qlines[i][0], Px2[i]);
+            post_line_by_scale(line, Qlines[i][0], scales[i]);
             Fp12::mul_by_xy00z0(ret.data, ret.data, line);
         }
     }
 
     BLST_HD void post_add_n_dbl_n(
-        GT& ret,
+        MillerResult& ret,
         const Fp6* const Qlines[],
-        const G1AffinePoint Px2[],
+        const PreparedG1LineScale scales[],
         size_t n,
         size_t start,
         size_t k)
@@ -388,7 +388,7 @@ Fp6{                                                                      \
         size_t line_idx = start;
 
         for (size_t i = 0; i < n; ++i) {
-            post_line_by_Px2(line, Qlines[i][line_idx], Px2[i]);
+            post_line_by_scale(line, Qlines[i][line_idx], scales[i]);
             Fp12::mul_by_xy00z0(ret.data, ret.data, line);
         }
 
@@ -396,48 +396,48 @@ Fp6{                                                                      \
             ++line_idx;
             Fp12::sqr(ret.data, ret.data);
             for (size_t i = 0; i < n; ++i) {
-                post_line_by_Px2(line, Qlines[i][line_idx], Px2[i]);
+                post_line_by_scale(line, Qlines[i][line_idx], scales[i]);
                 Fp12::mul_by_xy00z0(ret.data, ret.data, line);
             }
         }
     }
 
-    BLST_HD void GT::miller_loop_lines(GT& ret, const Fp6 Qlines[68],
+    BLST_HD void GT::miller_loop_lines(MillerResult& ret, const Fp6 Qlines[68],
         const G1AffinePoint& P)
     {
-        G1AffinePoint Px2;
+        PreparedG1LineScale scale;
         Fp6 line; /* it's not actual fp6, but 3 packed fp2, "xy00z0"  */
 
-        /* Move common expression from line evaluation to line_by_Px2. */
-        Fp::add(Px2.x, P.x, P.x);
-        Fp::neg(Px2.x, Px2.x);
-        Fp::add(Px2.y, P.y, P.y);
+        /* Precompute the G1 factors shared by every line evaluation. */
+        Fp::add(scale.neg_x2, P.x, P.x);
+        Fp::neg(scale.neg_x2, scale.neg_x2);
+        Fp::add(scale.y2, P.y, P.y);
 
         /* first step is ret = 1^2*line, which is replaced with ret = line  */
-        post_line_by_Px2(line, Qlines[0], Px2);     /* 0x2                  */
-        vec_zero(&ret, sizeof(GT));
+        post_line_by_scale(line, Qlines[0], scale); /* 0x2                  */
+        vec_zero(&ret.data, sizeof(ret.data));
         vec_copy(&ret.data[0][0], &line[0], 2 * sizeof(Fp2));
         vec_copy(&ret.data[1][1], &line[2], sizeof(Fp2));
-        post_add_n_dbl(ret, &Qlines[1], Px2, 2);   /* ..0xc                */
-        post_add_n_dbl(ret, &Qlines[4], Px2, 3);   /* ..0x68               */
-        post_add_n_dbl(ret, &Qlines[8], Px2, 9);   /* ..0xd200             */
-        post_add_n_dbl(ret, &Qlines[18], Px2, 32);  /* ..0xd20100000000     */
-        post_add_n_dbl(ret, &Qlines[51], Px2, 16);  /* ..0xd201000000010000 */
+        post_add_n_dbl(ret, &Qlines[1], scale, 2);   /* ..0xc                */
+        post_add_n_dbl(ret, &Qlines[4], scale, 3);   /* ..0x68               */
+        post_add_n_dbl(ret, &Qlines[8], scale, 9);   /* ..0xd200             */
+        post_add_n_dbl(ret, &Qlines[18], scale, 32); /* ..0xd20100000000     */
+        post_add_n_dbl(ret, &Qlines[51], scale, 16); /* ..0xd201000000010000 */
         Fp12::conjugate(ret.data);                /* account for z being negative */
     }
 
     BLST_HD void GT::miller_loop_lines_n(
-        GT& out,
+        MillerResult& out,
         const Fp6* const Qlines[],
         const G1AffinePoint* const Ps[],
         size_t n)
     {
-        vec_copy(&out, &get_BLST_Rx(), sizeof(Fp12));
+        vec_copy(&out.data, &get_BLST_Rx(), sizeof(out.data));
         if (n == 0 || Qlines == NULL || Ps == NULL || Qlines[0] == NULL || Ps[0] == NULL) {
             return;
         }
 
-        G1AffinePoint Px2[MILLER_LOOP_N_MAX];
+        PreparedG1LineScale scales[MILLER_LOOP_N_MAX];
         const Fp6* line_batch[MILLER_LOOP_N_MAX];
         size_t batch = 0;
         const Fp6* lines_ptr = NULL;
@@ -456,14 +456,14 @@ Fp6{                                                                      \
             }
 
             line_batch[batch] = lines_ptr;
-            Fp::add(Px2[batch].x, pptr->x, pptr->x);
-            Fp::neg(Px2[batch].x, Px2[batch].x);
-            Fp::add(Px2[batch].y, pptr->y, pptr->y);
+            Fp::add(scales[batch].neg_x2, pptr->x, pptr->x);
+            Fp::neg(scales[batch].neg_x2, scales[batch].neg_x2);
+            Fp::add(scales[batch].y2, pptr->y, pptr->y);
             ++batch;
 
             if (batch == MILLER_LOOP_N_MAX) {
-                GT chunk = {};
-                GT::miller_loop_lines_n_preprocessed(chunk, line_batch, Px2, batch);
+                MillerResult chunk = {};
+                GT::miller_loop_lines_n_preprocessed(chunk, line_batch, scales, batch);
                 Fp12::mul(out.data, out.data, chunk.data);
                 batch = 0;
             }
@@ -473,44 +473,32 @@ Fp6{                                                                      \
             return;
         }
 
-        GT tail = {};
-        GT::miller_loop_lines_n_preprocessed(tail, line_batch, Px2, batch);
+        MillerResult tail = {};
+        GT::miller_loop_lines_n_preprocessed(tail, line_batch, scales, batch);
         Fp12::mul(out.data, out.data, tail.data);
     }
 
     BLST_HD void GT::miller_loop_lines_n_preprocessed(
-        GT& out,
+        MillerResult& out,
         const Fp6* const Qlines[],
-        const G1AffinePoint Px2[],
+        const PreparedG1LineScale scales[],
         size_t n)
     {
-        vec_copy(&out, &get_BLST_Rx(), sizeof(Fp12));
-        if (n == 0 || Qlines == NULL || Px2 == NULL || Qlines[0] == NULL) {
+        vec_copy(&out.data, &get_BLST_Rx(), sizeof(out.data));
+        if (n == 0 || Qlines == NULL || scales == NULL || Qlines[0] == NULL) {
             return;
         }
 
-        start_lines_n(out, Qlines, Px2, n);             /* 0x2                  */
-        post_add_n_dbl_n(out, Qlines, Px2, n, 1, 2);    /* ..0xc                */
-        post_add_n_dbl_n(out, Qlines, Px2, n, 4, 3);    /* ..0x68               */
-        post_add_n_dbl_n(out, Qlines, Px2, n, 8, 9);    /* ..0xd200             */
-        post_add_n_dbl_n(out, Qlines, Px2, n, 18, 32);  /* ..0xd20100000000     */
-        post_add_n_dbl_n(out, Qlines, Px2, n, 51, 16);  /* ..0xd201000000010000 */
+        start_lines_n(out, Qlines, scales, n);             /* 0x2                  */
+        post_add_n_dbl_n(out, Qlines, scales, n, 1, 2);    /* ..0xc                */
+        post_add_n_dbl_n(out, Qlines, scales, n, 4, 3);    /* ..0x68               */
+        post_add_n_dbl_n(out, Qlines, scales, n, 8, 9);    /* ..0xd200             */
+        post_add_n_dbl_n(out, Qlines, scales, n, 18, 32);  /* ..0xd20100000000     */
+        post_add_n_dbl_n(out, Qlines, scales, n, 51, 16);  /* ..0xd201000000010000 */
         Fp12::conjugate(out.data);
     }
 
-#ifdef INTERNAL_TESTMODE
-    void miller_loop_alt(GT* ret, const G2AffinePoint* Q,
-        const G1AffinePoint* P)
-    {
-        Fp6& lines[68];
-
-        precompute_lines(lines, Q);
-        miller_loop_lines(ret, lines, P);
-    }
-#endif
-
-
-    BLST_HD void GT::miller_loop(GT& ret, const G2AffinePoint* Q,
+    BLST_HD void GT::miller_loop(MillerResult& ret, const G2AffinePoint* Q,
         const G1AffinePoint* P)
     {
         miller_loop_n(ret,
@@ -521,23 +509,23 @@ Fp6{                                                                      \
 
 
     BLST_HD void GT::miller_loop_n(
-        GT& out,
+        MillerResult& out,
         const G2AffinePoint* const Qs[],
         const G1AffinePoint* const Ps[],
         size_t n)
     {   /* ~10KB of stack storage */
-        vec_copy(&out, &get_BLST_Rx(), sizeof(Fp12));
+        vec_copy(&out.data, &get_BLST_Rx(), sizeof(out.data));
         if (n == 0) {
             return;
         }
         if (Qs == NULL || Ps == NULL || Qs[0] == NULL || Ps[0] == NULL) {
-            vec_zero(&out, sizeof(out));
+            vec_zero(&out.data, sizeof(out.data));
             return;
         }
 
         G2Point T[MILLER_LOOP_N_MAX];
         G2AffinePoint Q[MILLER_LOOP_N_MAX];
-        G1AffinePoint Px2[MILLER_LOOP_N_MAX];
+        PreparedG1LineScale scales[MILLER_LOOP_N_MAX];
         const G2AffinePoint* Qptr = NULL;
         const G1AffinePoint* Pptr = NULL;
         size_t i, j;
@@ -547,10 +535,10 @@ Fp6{                                                                      \
             Pptr = *Ps ? *Ps++ : Pptr + 1;
 
             if (!G2AffinePoint::is_inf(*Qptr) && !G1AffinePoint::is_inf(*Pptr)) {
-                /* Move common expression from line evaluation to line_by_Px2.  */
-                Fp::add(Px2[i].x, Pptr->x, Pptr->x);
-                Fp::neg(Px2[i].x, Px2[i].x);
-                Fp::add(Px2[i].y, Pptr->y, Pptr->y);
+                /* Precompute the G1 factors shared by every line evaluation. */
+                Fp::add(scales[i].neg_x2, Pptr->x, Pptr->x);
+                Fp::neg(scales[i].neg_x2, scales[i].neg_x2);
+                Fp::add(scales[i].y2, Pptr->y, Pptr->y);
 
                 vec_copy(&Q[i].x, &Qptr->x, 2 * sizeof(Q[i].x));
                 vec_copy(&T[i].x, &Qptr->x, 2 * sizeof(T[i].x));
@@ -559,16 +547,16 @@ Fp6{                                                                      \
             }
 
             if (i == MILLER_LOOP_N_MAX || (j == n - 1 && i != 0)) {
-                GT tmp;
-                GT& ret = j < MILLER_LOOP_N_MAX ? out : tmp;
+                MillerResult tmp;
+                MillerResult& ret = j < MILLER_LOOP_N_MAX ? out : tmp;
 
                 /* first step is ret = 1^2*line, which is just ret = line       */
-                start_dbl_n(ret, T, Px2, i);            /* 0x2                  */
-                add_n_dbl_n(ret, T, Q, Px2, i, 2);      /* ..0xc                */
-                add_n_dbl_n(ret, T, Q, Px2, i, 3);      /* ..0x68               */
-                add_n_dbl_n(ret, T, Q, Px2, i, 9);      /* ..0xd200             */
-                add_n_dbl_n(ret, T, Q, Px2, i, 32);     /* ..0xd20100000000     */
-                add_n_dbl_n(ret, T, Q, Px2, i, 16);     /* ..0xd201000000010000 */
+                start_dbl_n(ret, T, scales, i);            /* 0x2                  */
+                add_n_dbl_n(ret, T, Q, scales, i, 2);      /* ..0xc                */
+                add_n_dbl_n(ret, T, Q, scales, i, 3);      /* ..0x68               */
+                add_n_dbl_n(ret, T, Q, scales, i, 9);      /* ..0xd200             */
+                add_n_dbl_n(ret, T, Q, scales, i, 32);     /* ..0xd20100000000     */
+                add_n_dbl_n(ret, T, Q, scales, i, 16);     /* ..0xd201000000010000 */
                 Fp12::conjugate(ret.data);            /* account for z being negative */
 
                 if (j >= MILLER_LOOP_N_MAX)

@@ -5,6 +5,38 @@
 
 namespace blst::scalar {
 
+	/** Pre-scaled G1 coordinates used only by scalar prepared-line evaluation. */
+	struct PreparedG1LineScale {
+		Fp neg_x2;
+		Fp y2;
+	};
+
+	/**
+	 * @brief Fp12 value produced by a Miller loop before final exponentiation.
+	 *
+	 * This type deliberately exposes only pairing-accumulator operations. It is
+	 * not a GT element and must be passed through GT::final_exp before use as GT.
+	 */
+	struct MillerResult {
+		Fp12 data;
+
+		constexpr MillerResult() = default;
+		constexpr explicit MillerResult(const Fp12& value) : data(value) {}
+
+		static BLST_HD MillerResult identity() {
+			return MillerResult(Fp12::one());
+		}
+
+		static BLST_HD void mul(MillerResult& out, const MillerResult& a,
+			const MillerResult& b) {
+			Fp12::mul(out.data, a.data, b.data);
+		}
+
+		static BLST_HD void conjugate(MillerResult& value) {
+			Fp12::conjugate(value.data);
+		}
+	};
+
 	/**
 	 * @brief GT group wrapper around Fp12 multiplicative group
 	 * @details GT is the target group in pairing-based cryptography where:
@@ -29,7 +61,7 @@ namespace blst::scalar {
 
 		/// Construct from Fp12 storage that the caller has already established is in GT.
 		/// @warning This constructor performs no membership validation.
-		constexpr GT(const Fp12& f) : data(f) {}
+		explicit constexpr GT(const Fp12& f) : data(f) {}
 
 		Fp12 data;
 
@@ -227,9 +259,11 @@ namespace blst::scalar {
 		///@}
 
 		/**
-		 * @brief Apply final multiplication aka exponentiation for pairing results.
+		 * @brief Map a nonzero Miller-loop result into GT by final exponentiation.
+		 * @pre `f` is a valid nonzero Miller-loop/general-Fp12 value.
+		 * @post `out` lies in GT. Exact aliasing is impossible by construction.
 		 */
-		static BLST_HD void final_mult(GT& out, const GT& f) {
+		static BLST_HD void final_exp(GT& out, const MillerResult& f) {
 			Fp12::final_exp(out.data, f.data);
 		}
 
@@ -260,41 +294,46 @@ namespace blst::scalar {
 		/**
 		 * @brief Conjugate (Frobenius with n=6)
 		 */
-			static BLST_HD void conjugate(GT& a) {
+		static BLST_HD void conjugate(GT& a) {
 				Fp12::conjugate(a.data);
 			}
 
-
-			static BLST_HD void miller_loop(GT& ret, const G2AffinePoint* Q,
+		/**
+		 * Pairing construction APIs. Inputs must be valid on-curve affine points;
+		 * no curve or subgroup validation is performed. Outputs are MillerResult,
+		 * never GT, until passed through `final_exp`. The pointer-array overload
+		 * uses the compact continuation convention documented by the C API.
+		 */
+			static BLST_HD void miller_loop(MillerResult& ret, const G2AffinePoint* Q,
 				const G1AffinePoint* P);
 
 		static BLST_HD void miller_loop_n(
-			GT& ret,
+			MillerResult& ret,
 			const G2AffinePoint Q[],
 			const G1AffinePoint P[],
 			size_t n);
 
 		static BLST_HD void miller_loop_n(
-			GT& out,
+			MillerResult& out,
 			const G2AffinePoint* const Qs[],
 			const G1AffinePoint* const Ps[],
 			size_t n);
 
 		static BLST_HD void precompute_lines(Fp6 Qlines[68], const G2AffinePoint& Q);
 
-		static BLST_HD void miller_loop_lines(GT& ret, const Fp6 Qlines[68],
+		static BLST_HD void miller_loop_lines(MillerResult& ret, const Fp6 Qlines[68],
 			const G1AffinePoint& P);
 
 		static BLST_HD void miller_loop_lines_n(
-			GT& out,
+			MillerResult& out,
 			const Fp6* const Qlines[],
 			const G1AffinePoint* const Ps[],
 			size_t n);
 
 		static BLST_HD void miller_loop_lines_n_preprocessed(
-			GT& out,
+			MillerResult& out,
 			const Fp6* const Qlines[],
-			const G1AffinePoint Px2[],
+			const PreparedG1LineScale scales[],
 			size_t n);
 
 		};

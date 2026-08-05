@@ -143,9 +143,10 @@ namespace blst {
                 G2AffinePoint q_aff = {};
                 G2Point::to_affine(q_aff, b);
 
-                GT pair = GT::identity();
-                GT::miller_loop(pair, &q_aff, &p_aff);
-                GT::final_mult(pair, pair);
+                MillerResult miller = {};
+                GT::miller_loop(miller, &q_aff, &p_aff);
+                GT pair = {};
+                GT::final_exp(pair, miller);
                 return pair;
             }
 
@@ -281,9 +282,10 @@ namespace blst {
                 G2AffinePoint q_aff = {};
                 G2Point::to_affine(q_aff, right);
 
-                GtFftElement pair = GtFftElement::identity();
-                GtFftElement::miller_loop(pair, &q_aff, &p_aff);
-                GtFftElement::final_mult(pair, pair);
+                scalar::MillerResult miller = {};
+                scalar::GT::miller_loop(miller, &q_aff, &p_aff);
+                GtFftElement pair = {};
+                scalar::GT::final_exp(pair, miller);
                 return pair;
             }
 
@@ -389,9 +391,10 @@ namespace blst {
                 G2AffinePoint q_aff = {};
                 G2Point::to_affine(q_aff, right);
 
-                avx::GT pair = avx::GT::identity();
-                avx::GT::miller_loop(pair, &q_aff, &p_aff);
-                avx::GT::final_mult(pair, pair);
+                avx::MillerResult miller = {};
+                avx::GT::miller_loop(miller, &q_aff, &p_aff);
+                avx::GT pair = {};
+                avx::GT::final_exp(pair, miller);
                 return GtFftElement(pair.data);
             }
 
@@ -735,9 +738,9 @@ namespace blst {
     struct MiddleProductWorkspaceMultipairImpl<MiddleProductScalarContext> {
         std::vector<MiddleProductScalarContext::G1AffinePoint> affine_a_nonzero;
         std::vector<std::size_t> a_indices_nonzero;
-        std::vector<scalar::G1AffinePoint> a_line_points;
+        std::vector<scalar::PreparedG1LineScale> a_line_scales;
         std::vector<const Fp6*> line_batch_scalar;
-        std::vector<scalar::G1AffinePoint> px2_batch_scalar;
+        std::vector<scalar::PreparedG1LineScale> line_scale_batch_scalar;
     };
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
@@ -747,7 +750,7 @@ namespace blst {
         std::vector<std::size_t> a_indices_nonzero;
         std::vector<const MiddleProductAvxContext::G1AffinePoint*> p_batch;
         std::vector<const avx::PreparedLine*> line_batch_avx;
-        std::vector<avx::GT> miller_batch;
+        std::vector<avx::MillerResult> miller_batch;
         std::vector<avx::GT> final_batch;
     };
 #endif
@@ -828,17 +831,17 @@ namespace blst {
     }
 
     inline void middle_product_prepare_scalar_line_eval_points(
-        std::vector<scalar::G1AffinePoint>& out_px2,
+        std::vector<scalar::PreparedG1LineScale>& out_scales,
         std::span<const scalar::G1AffinePoint> input)
     {
-        out_px2.clear();
-        out_px2.reserve(input.size());
+        out_scales.clear();
+        out_scales.reserve(input.size());
         for (const scalar::G1AffinePoint& point : input) {
-            scalar::G1AffinePoint px2 = {};
-            scalar::Fp::add(px2.x, point.x, point.x);
-            scalar::Fp::neg(px2.x, px2.x);
-            scalar::Fp::add(px2.y, point.y, point.y);
-            out_px2.push_back(px2);
+            scalar::PreparedG1LineScale scale = {};
+            scalar::Fp::add(scale.neg_x2, point.x, point.x);
+            scalar::Fp::neg(scale.neg_x2, scale.neg_x2);
+            scalar::Fp::add(scale.y2, point.y, point.y);
+            out_scales.push_back(scale);
         }
     }
 
@@ -872,7 +875,7 @@ namespace blst {
     }
 
     inline GT middle_product_multipair_scalar_window_dense(
-        std::span<const scalar::G1AffinePoint> a_line_points,
+        std::span<const scalar::PreparedG1LineScale> a_line_scales,
         const MiddleProductPrecomputedBMultipairScalar& precomputed_b,
         std::size_t output_index,
         std::vector<const Fp6*>& line_batch)
@@ -883,36 +886,36 @@ namespace blst {
             line_batch[i] = precomputed_b.prepared_lines[n + output_index - i].lines;
         }
 
-        scalar::GT miller = scalar::GT::identity();
+        scalar::MillerResult miller = scalar::MillerResult::identity();
         scalar::GT::miller_loop_lines_n_preprocessed(
             miller,
             line_batch.data(),
-            a_line_points.data(),
+            a_line_scales.data(),
             line_batch.size());
 
         scalar::GT final_pair = scalar::GT::identity();
-        scalar::GT::final_mult(final_pair, miller);
+        scalar::GT::final_exp(final_pair, miller);
         return MiddleProductScalarContext::to_public_gt(final_pair);
     }
 
     inline GT middle_product_multipair_scalar_window_sparse(
-        std::span<const scalar::G1AffinePoint> a_line_points,
+        std::span<const scalar::PreparedG1LineScale> a_line_scales,
         std::span<const std::size_t> a_indices_nonzero,
         const MiddleProductPrecomputedBMultipairScalar& precomputed_b,
         std::size_t output_index,
         std::vector<const Fp6*>& line_batch,
-        std::vector<scalar::G1AffinePoint>& px2_batch)
+        std::vector<scalar::PreparedG1LineScale>& scale_batch)
     {
         line_batch.clear();
-        px2_batch.clear();
+        scale_batch.clear();
 
-        for (std::size_t nz = 0; nz < a_line_points.size(); ++nz) {
+        for (std::size_t nz = 0; nz < a_line_scales.size(); ++nz) {
             const std::size_t i = a_indices_nonzero[nz];
             const std::size_t j = precomputed_b.n + output_index - i;
             if (precomputed_b.b_is_zero[j] != 0) {
                 continue;
             }
-            px2_batch.push_back(a_line_points[nz]);
+            scale_batch.push_back(a_line_scales[nz]);
             line_batch.push_back(precomputed_b.prepared_lines[j].lines);
         }
 
@@ -920,20 +923,20 @@ namespace blst {
             return GT::identity();
         }
 
-        scalar::GT miller = scalar::GT::identity();
+        scalar::MillerResult miller = scalar::MillerResult::identity();
         scalar::GT::miller_loop_lines_n_preprocessed(
             miller,
             line_batch.data(),
-            px2_batch.data(),
+            scale_batch.data(),
             line_batch.size());
 
         scalar::GT final_pair = scalar::GT::identity();
-        scalar::GT::final_mult(final_pair, miller);
+        scalar::GT::final_exp(final_pair, miller);
         return MiddleProductScalarContext::to_public_gt(final_pair);
     }
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-    inline avx::GT middle_product_multipair_avx_window_dense(
+    inline avx::MillerResult middle_product_multipair_avx_window_dense(
         std::span<const avx::G1AffinePoint> a_affine_nonzero,
         const MiddleProductPrecomputedBMultipairAvx& precomputed_b,
         std::size_t output_index,
@@ -945,7 +948,7 @@ namespace blst {
             line_batch[i] = precomputed_b.prepared_lines[n + output_index - i].lines;
         }
 
-        avx::GT miller = avx::GT::identity();
+        avx::MillerResult miller = avx::MillerResult::identity();
         avx::GT::miller_loop_lines_n_preprocessed(
             miller,
             line_batch.data(),
@@ -954,7 +957,7 @@ namespace blst {
         return miller;
     }
 
-    inline avx::GT middle_product_multipair_avx_window_sparse(
+    inline avx::MillerResult middle_product_multipair_avx_window_sparse(
         std::span<const avx::G1AffinePoint> a_affine_nonzero,
         std::span<const std::size_t> a_indices_nonzero,
         const MiddleProductPrecomputedBMultipairAvx& precomputed_b,
@@ -976,10 +979,10 @@ namespace blst {
         }
 
         if (line_batch.empty()) {
-            return avx::GT::identity();
+            return avx::MillerResult::identity();
         }
 
-        avx::GT miller = avx::GT::identity();
+        avx::MillerResult miller = avx::MillerResult::identity();
         avx::GT::miller_loop_lines_n(
             miller,
             line_batch.data(),
@@ -990,12 +993,12 @@ namespace blst {
 
     inline void middle_product_finalize_avx_millers(
         std::span<GT> out,
-        std::span<const avx::GT> millers,
+        std::span<const avx::MillerResult> millers,
         std::vector<avx::GT>& final_pairs)
     {
         BLST_ASSERT(out.size() >= millers.size());
         final_pairs.resize(millers.size());
-        avx::GT::final_mult_n(final_pairs.data(), millers.data(), millers.size());
+        avx::GT::final_exp_n(final_pairs.data(), millers.data(), millers.size());
         for (std::size_t i = 0; i < millers.size(); ++i) {
             out[i] = MiddleProductAvxContext::to_public_gt(avx::AvxGt52(final_pairs[i].data));
         }
@@ -1027,7 +1030,7 @@ namespace blst {
             ScopedTimer timer(timings, "middle_product_multipair.pointwise_ns");
             if constexpr (std::is_same_v<Context, MiddleProductScalarContext>) {
                 middle_product_prepare_scalar_line_eval_points(
-                    workspace.a_line_points,
+                    workspace.a_line_scales,
                     std::span<const scalar::G1AffinePoint>(workspace.affine_a_nonzero));
 
                 const bool dense_a = (workspace.a_indices_nonzero.size() == n);
@@ -1036,7 +1039,7 @@ namespace blst {
                 if (dense_a && dense_b) {
                     for (std::size_t k = 0; k < n; ++k) {
                         out[k] = middle_product_multipair_scalar_window_dense(
-                            std::span<const scalar::G1AffinePoint>(workspace.a_line_points),
+                            std::span<const scalar::PreparedG1LineScale>(workspace.a_line_scales),
                             precomputed_b,
                             k,
                             workspace.line_batch_scalar);
@@ -1044,12 +1047,12 @@ namespace blst {
                 } else {
                     for (std::size_t k = 0; k < n; ++k) {
                         out[k] = middle_product_multipair_scalar_window_sparse(
-                            std::span<const scalar::G1AffinePoint>(workspace.a_line_points),
+                            std::span<const scalar::PreparedG1LineScale>(workspace.a_line_scales),
                             std::span<const std::size_t>(workspace.a_indices_nonzero),
                             precomputed_b,
                             k,
                             workspace.line_batch_scalar,
-                            workspace.px2_batch_scalar);
+                            workspace.line_scale_batch_scalar);
                     }
                 }
             } else {
@@ -1081,7 +1084,7 @@ namespace blst {
                 }
                 middle_product_finalize_avx_millers(
                     out.first(n),
-                    std::span<const avx::GT>(workspace.miller_batch),
+                    std::span<const avx::MillerResult>(workspace.miller_batch),
                     workspace.final_batch);
 #endif
             }
@@ -1136,18 +1139,19 @@ namespace blst {
                         out[k] = GT::identity();
                         continue;
                     }
-                    scalar::GT miller = scalar::GT::identity();
+                    scalar::MillerResult miller = scalar::MillerResult::identity();
                     scalar::GT::miller_loop_lines(
                         miller,
                         precomputed_b.prepared_lines[n + k].lines,
                         affine_a0);
                     scalar::GT final_pair = scalar::GT::identity();
-                    scalar::GT::final_mult(final_pair, miller);
+                    scalar::GT::final_exp(final_pair, miller);
                     out[k] = MiddleProductScalarContext::to_public_gt(final_pair);
                 }
             } else {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-                std::vector<avx::GT> millers(n, avx::GT::identity());
+                std::vector<avx::MillerResult> millers(
+                    n, avx::MillerResult::identity());
                 std::vector<avx::GT> finals;
                 for (std::size_t k = 0; k < n; ++k) {
                     if (precomputed_b.b_is_zero[n + k] != 0) {
@@ -1160,7 +1164,7 @@ namespace blst {
                 }
                 middle_product_finalize_avx_millers(
                     out.first(n),
-                    std::span<const avx::GT>(millers),
+                    std::span<const avx::MillerResult>(millers),
                     finals);
 #endif
             }

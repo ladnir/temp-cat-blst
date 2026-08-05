@@ -55,10 +55,10 @@ namespace bte::building_blocks
             blst::G1Point::to_affine(p_aff, p);
             blst::G2Point::to_affine(q_aff, q);
 
-            blst::GT miller{};
+            blst::MillerResult miller{};
             blst::GT::miller_loop(miller, &q_aff, &p_aff);
             blst::GT out{};
-            blst::GT::final_mult(out, miller);
+            blst::GT::final_exp(out, miller);
             return out;
         }
 

@@ -293,8 +293,10 @@ bool blst_fp2_is_square(const blst_fp2* a);
  *
  * Invariants:
  * - `blst_fp12_one()` returns a pointer to immutable static storage.
- * - `blst_final_exp` and `blst_fp12_finalverify` interpret inputs as Miller
- *   loop outputs or GT elements, respectively.
+ * - `blst_final_exp` consumes one nonzero Miller-loop/general-Fp12 value and
+ *   produces a GT element.
+ * - `blst_fp12_finalverify` consumes two trusted Miller-loop contributions and
+ *   tests whether their final-exponentiation images are equal.
  * - General Fp12 arithmetic accepts reduced Montgomery-form coefficients and
  *   permits exact output aliasing. Partial overlap is forbidden.
  * - Functions in this family allocate nothing and are nonthrowing.
@@ -329,8 +331,9 @@ bool blst_fp12_in_group(const blst_fp12* a);
 /** Returns a pointer to immutable static storage holding the Fp12 identity. */
 const blst_fp12* blst_fp12_one(void);
 /** Applies pairing final exponentiation to a nonzero general Fp12/Miller-loop
- * value and produces a GT element. Zero is outside the supported domain and is
- * not reported through a status result. */
+ * value and produces a GT element. `ret` and `f` must be non-null; exact
+ * aliasing is supported. Zero is outside the supported domain and is not
+ * reported through a status result. */
 void blst_final_exp(blst_fp12* ret, const blst_fp12* f);
 /** Returns immutable static storage holding the additive GT identity. */
 const blst_fp12* blst_gt_identity(void);
@@ -369,7 +372,12 @@ void blst_gt_mult(blst_fp12* out, const blst_fp12* p, const blst_byte* scalar, s
  * Domain, scalar reduction, bounds, and aliasing match `blst_gt_mult`; Release
  * does not validate GT membership. */
 void blst_gt_mult_vartime(blst_fp12* out, const blst_fp12* p, const blst_byte* scalar, size_t nbits);
-/** Returns `true` when `gt1` and `gt2` pass the final GT verification check. */
+/**
+ * Returns `true` when trusted Miller-loop contributions `gt1` and `gt2` have
+ * equal images after final exponentiation. The historical parameter names and
+ * `blst_fp12` storage do not make the inputs validated GT elements; no input
+ * validation is performed. Both pointers must be non-null.
+ */
 bool blst_fp12_finalverify(const blst_fp12* gt1, const blst_fp12* gt2);
 /** Encodes an Fp12 value into a 576-byte big-endian string. */
 void blst_bendian_from_fp12(blst_byte out[48 * 12], const blst_fp12* a);
@@ -616,7 +624,12 @@ BLST_ERROR blst_p2_deserialize(blst_p2_affine* out, const blst_byte in[192]);
  *   lifetime is governed by the preceding ownership rule.
  * - `msg` and `aug` are byte strings of the supplied lengths.
  */
-/** Computes a Miller loop from affine `(Q, P)` inputs and writes it to `ret`. */
+/**
+ * Computes a Miller loop from affine `(Q, P)` inputs and writes a Miller-loop
+ * value, not a GT element, into `ret`. Inputs must be valid on-curve affine
+ * points; no curve or subgroup validation is performed. A null input selects
+ * the corresponding canonical generator. `ret` must be non-null.
+ */
 void blst_miller_loop(blst_fp12* ret, const blst_p2_affine* Q, const blst_p1_affine* P);
 /**
  * Multiplies `n` Miller loops together from paired affine input arrays.
@@ -626,11 +639,13 @@ void blst_miller_loop(blst_fp12* ret, const blst_p2_affine* Q, const blst_p1_aff
  * - when `n > 0`, `Qs[0]` and `Ps[0]` must be non-null
  * - a later null entry means "continue from the next contiguous element after
  *   the previous non-null entry"
+ * - malformed nonempty array heads fail closed by writing the all-zero Fp12
+ *   sentinel; no curve or subgroup validation is performed
  */
 void blst_miller_loop_n(blst_fp12* ret, const blst_p2_affine* const Qs[], const blst_p1_affine* const Ps[], size_t n);
 /** Precomputes the 68 line-function coefficients needed for repeated Miller loops with `Q`; when `Q` is null, the G2 generator is used. */
 void blst_precompute_lines(blst_fp6 Qlines[68], const blst_p2_affine* Q);
-/** Runs a Miller loop using a precomputed `Qlines` table and affine `P`; when `P` is null, the G1 generator is used. */
+/** Runs a Miller loop using a valid precomputed `Qlines` table and affine `P`, producing a Miller-loop value rather than GT; when `P` is null, the G1 generator is used. */
 void blst_miller_loop_lines(blst_fp12* ret, const blst_fp6 Qlines[68], const blst_p1_affine* P);
 /** Returns the exact storage size, in bytes, required for one `blst_pairing` object. */
 size_t blst_pairing_sizeof(void);
@@ -642,9 +657,9 @@ void blst_pairing_init(blst_pairing* new_ctx, bool hash_or_encode, const blst_by
 const blst_byte* blst_pairing_get_dst(const blst_pairing* ctx);
 /** Finalizes pending work in `ctx` before merge or verification. */
 void blst_pairing_commit(blst_pairing* ctx);
-/** Returns the current pairing accumulator as an Fp12 value by value. */
+/** Returns the current pairing accumulator as a Miller-loop value in `blst_fp12` storage. */
 blst_fp12 blst_pairing_as_fp12(blst_pairing* ctx);
-/** Writes the current pairing accumulator into caller-owned `out`. */
+/** Writes the current Miller-loop accumulator into caller-owned `blst_fp12` storage. */
 void blst_pairing_as_fp12_to(blst_fp12* out, blst_pairing* ctx);
 /** Aggregates one raw affine `(q, p)` pair into the pairing context. */
 void blst_pairing_raw_aggregate(blst_pairing* ctx, const blst_p2_affine* q, const blst_p1_affine* p);

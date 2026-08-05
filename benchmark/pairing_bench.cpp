@@ -49,7 +49,7 @@ static void BM_BlstScalarMillerLoop(benchmark::State& state) {
     G1Point::to_affine(g1_affine, g1);
     G2Point::to_affine(g2_affine, g2);
 
-    GT result;
+    MillerResult result;
     for (auto _ : state) {
         GT::miller_loop(result, &g2_affine, &g1_affine);
         benchmark::DoNotOptimize(result);
@@ -70,11 +70,12 @@ static void BM_FinalExp(benchmark::State& state) {
     G1Point::to_affine(g1_affine, g1);
     G2Point::to_affine(g2_affine, g2);
 
-    GT result;
-    GT::miller_loop(result, &g2_affine, &g1_affine);
+    MillerResult miller;
+    GT::miller_loop(miller, &g2_affine, &g1_affine);
 
     for (auto _ : state) {
-        GT::final_mult(result, result);
+        GT result;
+        GT::final_exp(result, miller);
         benchmark::DoNotOptimize(result);
     }
     state.SetItemsProcessed(state.iterations());
@@ -101,7 +102,7 @@ static void BM_MultiPairing2(benchmark::State& state) {
     const G1AffinePoint* g1_ptrs[2] = { &g1_affine[0], &g1_affine[1] };
     const G2AffinePoint* g2_ptrs[2] = { &g2_affine[0], &g2_affine[1] };
 
-    GT result;
+    MillerResult result;
     for (auto _ : state) {
         GT::miller_loop_n(result, g2_ptrs, g1_ptrs, 2);
         benchmark::DoNotOptimize(result);
@@ -130,7 +131,7 @@ static void BM_MultiPairing4(benchmark::State& state) {
     const G1AffinePoint* g1_ptrs[4] = { &g1_affine[0], &g1_affine[1], &g1_affine[2], &g1_affine[3] };
     const G2AffinePoint* g2_ptrs[4] = { &g2_affine[0], &g2_affine[1], &g2_affine[2], &g2_affine[3] };
 
-    GT result;
+    MillerResult result;
     for (auto _ : state) {
         GT::miller_loop_n(result, g2_ptrs, g1_ptrs, 4);
         benchmark::DoNotOptimize(result);
@@ -151,10 +152,11 @@ static void BM_PairingWithIdentity(benchmark::State& state) {
     G1Point::to_affine(identity_e1_affine, identity_e1);
     G2Point::to_affine(identity_e2_affine, identity_e2);
 
-    GT result;
+    MillerResult miller;
     for (auto _ : state) {
-        GT::miller_loop(result, &identity_e2_affine, &identity_e1_affine);
-        GT::final_mult(result, result);
+        GT::miller_loop(miller, &identity_e2_affine, &identity_e1_affine);
+        GT result;
+        GT::final_exp(result, miller);
         benchmark::DoNotOptimize(result);
     }
     state.SetItemsProcessed(state.iterations());
@@ -167,7 +169,7 @@ static void BM_CPU_MillerFinal(benchmark::State& state) {
     const size_t num_pairs = static_cast<size_t>(state.range(0));
     auto g1_points = new G1AffinePoint[num_pairs];
     auto g2_points = new G2AffinePoint[num_pairs];
-    auto miller_results = new GT[num_pairs];
+    auto miller_results = new MillerResult[num_pairs];
     auto final_results = new GT[num_pairs];
 
     // Generate random G1/G2 pairs
@@ -190,7 +192,7 @@ static void BM_CPU_MillerFinal(benchmark::State& state) {
         }
         // Final exponentiation (batched, CPU)
         for (size_t i = 0; i < num_pairs; ++i) {
-            GT::final_mult(final_results[i], miller_results[i]);
+            GT::final_exp(final_results[i], miller_results[i]);
         }
         benchmark::DoNotOptimize(final_results);
     }

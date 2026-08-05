@@ -466,9 +466,10 @@ GT pair(const G1Point& p, const G2Point& q) {
     G2AffinePoint q_aff;
     G2Point::to_affine(q_aff, q);
 
+    MillerResult miller;
     GT result;
-    GT::miller_loop(result, &q_aff, &p_aff);
-    GT::final_mult(result, result);
+    GT::miller_loop(miller, &q_aff, &p_aff);
+    GT::final_exp(result, miller);
     return result;
 }
 
@@ -519,15 +520,16 @@ TEST(Fft, PairingBilinearity) {
     G2Point::to_affine(Q_aff, Q);
 
     // Compute e(2P, 3Q)
+    MillerResult miller;
     GT left;
-    GT::miller_loop(left, &Q3_aff, &P2_aff);
-    GT::final_mult(left, left);
+    GT::miller_loop(miller, &Q3_aff, &P2_aff);
+    GT::final_exp(left, miller);
 
     // Compute e(P, Q)^6 by repeated doubling/multiplication
     // e(P,Q)^6 = e(P,Q)^4 * e(P,Q)^2 = ((e(P,Q)^2)^2) * (e(P,Q)^2)
     GT base;
-    GT::miller_loop(base, &Q_aff, &P_aff);
-    GT::final_mult(base, base);
+    GT::miller_loop(miller, &Q_aff, &P_aff);
+    GT::final_exp(base, miller);
 
     // e(P,Q)^2
     GT base2;
@@ -555,9 +557,10 @@ TEST(Fft, GTFftRoundTrip) {
     G2Point::to_affine(Q_aff, G2Point::generator());
 
     // Base pairing
+    MillerResult miller;
     GT base;
-    GT::miller_loop(base, &Q_aff, &P_aff);
-    GT::final_mult(base, base);
+    GT::miller_loop(miller, &Q_aff, &P_aff);
+    GT::final_exp(base, miller);
 
     std::vector<GT> original(N);
     original[0] = GT::identity();
@@ -614,9 +617,10 @@ TEST(Fft, GTAvx52InverseFftMatchesScalar) {
     G1Point::to_affine(p_aff, G1Point::generator());
     G2Point::to_affine(q_aff, G2Point::generator());
 
+    MillerResult miller = {};
     GT base = {};
-    GT::miller_loop(base, &q_aff, &p_aff);
-    GT::final_mult(base, base);
+    GT::miller_loop(miller, &q_aff, &p_aff);
+    GT::final_exp(base, miller);
 
     std::vector<GT> time_domain(N);
     time_domain[0] = GT::identity();
