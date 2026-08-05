@@ -364,10 +364,48 @@ No benchmark, full suite, sanitizer sweep, CUDA build, Apple CI, or
 portable-AVX Release build ran. Frozen BTx/BTE compiled through the retained
 internal type alias but received no source edit or audit.
 
+## Key-generation review
+
+The ninth packet completes `blst/sign/keygen.cpp` at implementation commit
+`f36e35b3831ec7b527e767e8221c00b53ff739a7`. The six retained upstream C
+symbols, signatures, version selection, valid-input outputs, null-info/default-
+salt behavior, and child exact-alias behavior remain unchanged.
+
+### Findings and decisions
+
+- `AUD-146` replaces inactive-union-member HMAC access with active limb storage
+  and a permitted unsigned-byte object-representation view.
+- `AUD-147` adds direct RFC HMAC/HKDF, output-limit, version-compatibility, and
+  EIP-2333 evidence.
+- `AUD-148` restores internal linkage to implementation-only helpers while
+  retaining all six required cross-translation-unit and bare C symbols.
+- `AUD-149` documents precise C/C++/safe-Rust contracts, generated Rust
+  inheritance, Debug invariants, and nonthrowing C++ boundaries.
+- `AUD-150` separates functional initialization from final secure erasure and
+  initializes only the two scalar limbs not overwritten by the 48-byte import.
+- `AUD-151` removes the reserved double-underscore HKDF test-mode spelling.
+
+### Focused validation
+
+- Scalar MSVC Debug passes 7/7 keygen tests; Release passes 6/6.
+- RFC 4231 HMAC, RFC 5869 HKDF, the 255-block limit, all versioned keygen
+  outputs, upstream null behavior, child exact aliasing, and four published
+  EIP-2333 master/child vectors pass.
+- Both safe-Rust signature variants pass the focused empty-v5-salt regression.
+- MSVC 19.50 Release uses eight ordinary 64-bit HMAC zero stores, two high-limb
+  scalar initialization stores, and fixed volatile final erasures over the
+  complete 416-byte and 8,576-byte secret scratch objects.
+- Internal helper symbols are Static, the C boundary emits exactly the six
+  upstream names, and the keygen object has no heap-allocation reference.
+
+No benchmark, full suite, sanitizer sweep, CUDA build, Apple CI, or portable-
+AVX Release build ran. Frozen BTx/BTE was neither edited nor audited.
+
 ## Status and next action
 
 Scalar point, bulk addition, MSM, fixed-window multiplication, GT/Miller, and
-map-to-group and SHA-256 headers are complete at their recorded commits.
-Continue Phase 15 with `blst/sign/keygen.cpp`, then aggregation. Preserve the
-validated SHA streaming/lifecycle contract while reviewing HMAC, HKDF, and
-secret cleanup. `AUD-085` remains the explicit GT deserialization decision.
+map-to-group, SHA-256, and key generation are complete at their recorded
+commits. Continue Phase 15 with `blst/sign/aggregate.cpp` and `aggregate.h`.
+Preserve the now-documented keygen and group-domain contracts while tracing
+signature aggregation and verification. `AUD-085` remains the explicit GT
+deserialization decision.

@@ -393,8 +393,11 @@ outputs, static host constants, inversion-free AVX bridges, exact RFC vectors,
 and public contracts are validated. SHA-256 is complete at `5c69ad6`: the C,
 native C++, and raw Rust contracts are accounted for, independent one-shot and
 streaming KATs pass, functional zeroing is wide-store optimized, and the public
-wrapper securely erases its local context. Continue Phase 15 with
-`blst/sign/keygen.cpp`, then aggregation. Keep
+wrapper securely erases its local context. Key generation is complete at
+`f36e35b`: HMAC storage has a valid C++ lifetime, RFC HMAC/HKDF and all retained
+version contracts have direct evidence, internal helpers no longer leak, and
+complete secret scratch erasure remains in optimized output. Continue Phase 15
+with `blst/sign/aggregate.cpp` and `aggregate.h`. Keep
 `AUD-085` as the next
 explicit design decision when the GT decoder surface is reviewed. Coverage
 remains a late audit/release metric by user decision; sanitizer, fuzz, and
