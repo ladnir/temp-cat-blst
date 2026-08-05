@@ -381,7 +381,7 @@ namespace blst::scalar
 			? bytes : 0;
 	}
 
-	/*
+	/**
 	 * Batch-affine Pippenger accumulation for short-Weierstrass groups over
 	 * Fp or Fp2. The implementation batches distinct affine bucket updates
 	 * behind one variable-time field reciprocal and retains projective
@@ -390,6 +390,11 @@ namespace blst::scalar
 	 * BatchSize is deliberately a compile-time parameter. The production
 	 * planner can select among explicitly instantiated kernels without
 	 * introducing variable-sized inner loops or heap allocation.
+	 * Windows are in [1, 24], matching WindowExtract's 25-bit maximum including
+	 * overlap. Inputs are contiguous, nonidentity subgroup points and public
+	 * little-endian scalars with nbits in [1, 256]. Scratch is disjoint,
+	 * limb-aligned raw storage of at least the queried byte count. On failure,
+	 * the output is unchanged; empty input succeeds and writes infinity.
 	 */
 	template<typename Field, size_t BatchSize>
 	size_t msm_mult_batch_affine_scratch_sizeof(size_t window_size);

@@ -328,10 +328,10 @@ expand through Phase 19.
 
 Current generated inventory:
 
-- 667 repository files accounted for;
+- 668 repository files accounted for;
 - 153 in-scope production;
 - 113 generated production;
-- 218 in-scope support;
+- 219 in-scope support;
 - 60 benchmark files explicitly excluded;
 - 32 frozen BTx/BTE files pending the required merge;
 - 55 retained experimental files, including CUDA;
@@ -346,8 +346,8 @@ Main audit work volume:
 | AVX-512 | 16 | 42 | 0 | 42 |
 | FFT and middle product | 17 | 10 | 0 | 10 |
 | C/C++/Rust APIs and bindings | 18 | 28 | 1 | 27 |
-| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 166 | 0 | 166 |
-| **Total in-scope production/generated/support** | **12-19** | **443** | **8** | **435** |
+| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 167 | 0 | 167 |
+| **Total in-scope production/generated/support** | **12-19** | **444** | **8** | **436** |
 
 The rollup is explained in `PRODUCTION_AUDIT_ROADMAP.md`; the per-file
 `FILE_MANIFEST.csv` remains authoritative.
@@ -362,7 +362,7 @@ Upstream progress:
   validation are completed;
 - 0 remain pending.
 
-Findings: 120 total: 93 validated, 16 fixed pending final evidence, three accepted
+Findings: 125 total: 98 validated, 16 fixed pending final evidence, three accepted
 risks, five need a design decision, and three remain open. `AUD-035` is validated with preserved
 allocated/caller-table/precomputed modes and 10/10 focused MSVC Release, Linux
 ASan, and Linux UBSan tests. `AUD-036` is validated on native
@@ -382,7 +382,9 @@ the complete `add_or_double`/`dadd` alternative documented. Scalar and selected
 bulk-addition headers are complete at `bd45afa`; `AUD-109` through `AUD-112`
 are validated. Scalar/selected MSM and the safe Rust multipoint wrapper are
 complete at `af09f66`; `AUD-113` through `AUD-120` are validated. Continue
-Phase 15 with `multi_scalar_batch_affine.cpp`. Keep
+Phase 15 by committing the completed batch-affine review and recording its
+exact hash; `AUD-121` through `AUD-125` are validated. Then review
+`blst/scalar/curve/ec_mult.h`. Keep
 `AUD-085` as the next
 explicit design decision when the GT decoder surface is reviewed. Coverage
 remains a late audit/release metric by user decision; sanitizer, fuzz, and

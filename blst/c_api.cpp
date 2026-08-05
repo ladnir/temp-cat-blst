@@ -368,6 +368,9 @@ inline size_t c_api_batch_affine_fr_scratch_sizeof(
     if (npoints == 0) {
         return 0;
     }
+    if (npoints > std::numeric_limits<std::uint32_t>::max()) {
+        return 0;
+    }
 
     size_t algorithm_bytes = 0;
     switch (batch_size) {

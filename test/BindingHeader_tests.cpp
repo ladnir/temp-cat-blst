@@ -586,7 +586,18 @@ TEST(BindingHeader, NativeFrBatchAffineG1MatchesPippenger)
     EXPECT_EQ(
         blst_p1s_mult_batch_affine_fr_scratch_sizeof(n, 0, 128), 0);
     EXPECT_EQ(
+        blst_p1s_mult_batch_affine_fr_scratch_sizeof(n, 25, 128), 0);
+    EXPECT_EQ(
+        blst_p1s_mult_batch_affine_fr_scratch_sizeof(n, 32, 128), 0);
+    EXPECT_EQ(
         blst_p1s_mult_batch_affine_fr_scratch_sizeof(n, window, 64), 0);
+    if constexpr (sizeof(size_t) > sizeof(uint32_t)) {
+        EXPECT_EQ(
+            blst_p1s_mult_batch_affine_fr_scratch_sizeof(
+                static_cast<size_t>(std::numeric_limits<uint32_t>::max()) + 1,
+                window, 128),
+            0);
+    }
 
     for (const size_t batch_size : {size_t{128}, size_t{384}}) {
         const size_t scratch_size =
@@ -596,10 +607,12 @@ TEST(BindingHeader, NativeFrBatchAffineG1MatchesPippenger)
         ASSERT_EQ(scratch_size % sizeof(blst_limb_t), 0);
         std::vector<blst_limb_t> scratch(scratch_size / sizeof(blst_limb_t));
 
-        blst_p1 actual = {};
+        blst_p1 actual = *blst_p1_generator();
+        const blst_p1 unchanged = actual;
         EXPECT_FALSE(blst_p1s_mult_batch_affine_fr(
             &actual, points.data(), scalars.data(), n,
             scratch.data(), scratch_size - 1, window, batch_size));
+        EXPECT_TRUE(blst_p1_is_equal(&actual, &unchanged));
         ASSERT_TRUE(blst_p1s_mult_batch_affine_fr(
             &actual, points.data(), scalars.data(), n,
             scratch.data(), scratch_size, window, batch_size));
@@ -686,6 +699,74 @@ TEST(BindingHeader, NativeFrBatchAffineG2MatchesPippenger)
                 << " batch_size=" << batch_size;
         }
     }
+}
+
+TEST(BindingHeader, NativeFrBatchAffineHandlesExceptionalBuckets)
+{
+    const blst_fr one = test_fr_from_u64(1);
+
+    std::array<blst_p1_affine, 3> g1_points = {
+        *blst_p1_affine_generator(),
+        *blst_p1_affine_generator(),
+        *blst_p1_affine_generator(),
+    };
+    const std::array<blst_fr, 3> scalars = {one, one, one};
+    const size_t g1_bytes =
+        blst_p1s_mult_batch_affine_fr_scratch_sizeof(3, 1, 128);
+    ASSERT_NE(g1_bytes, 0);
+    std::vector<blst_limb_t> g1_scratch(g1_bytes / sizeof(blst_limb_t));
+
+    blst_p1 actual_g1 = {};
+    ASSERT_TRUE(blst_p1s_mult_batch_affine_fr(
+        &actual_g1, g1_points.data(), scalars.data(), g1_points.size(),
+        g1_scratch.data(), g1_bytes, 1, 128));
+    blst_p1 twice_g1 = {};
+    blst_p1 expected_g1 = {};
+    blst_p1_double(&twice_g1, blst_p1_generator());
+    blst_p1_add_or_double(&expected_g1, &twice_g1, blst_p1_generator());
+    EXPECT_TRUE(blst_p1_is_equal(&actual_g1, &expected_g1));
+
+    g1_points[1] = g1_points[0];
+    blst_p1_affine_cneg(&g1_points[1], true);
+    const size_t g1_cancel_bytes =
+        blst_p1s_mult_batch_affine_fr_scratch_sizeof(2, 1, 128);
+    std::vector<blst_limb_t> g1_cancel_scratch(
+        g1_cancel_bytes / sizeof(blst_limb_t));
+    ASSERT_TRUE(blst_p1s_mult_batch_affine_fr(
+        &actual_g1, g1_points.data(), scalars.data(), 2,
+        g1_cancel_scratch.data(), g1_cancel_bytes, 1, 128));
+    EXPECT_TRUE(blst_p1_is_inf(&actual_g1));
+
+    std::array<blst_p2_affine, 3> g2_points = {
+        *blst_p2_affine_generator(),
+        *blst_p2_affine_generator(),
+        *blst_p2_affine_generator(),
+    };
+    const size_t g2_bytes =
+        blst_p2s_mult_batch_affine_fr_scratch_sizeof(3, 1, 128);
+    ASSERT_NE(g2_bytes, 0);
+    std::vector<blst_limb_t> g2_scratch(g2_bytes / sizeof(blst_limb_t));
+
+    blst_p2 actual_g2 = {};
+    ASSERT_TRUE(blst_p2s_mult_batch_affine_fr(
+        &actual_g2, g2_points.data(), scalars.data(), g2_points.size(),
+        g2_scratch.data(), g2_bytes, 1, 128));
+    blst_p2 twice_g2 = {};
+    blst_p2 expected_g2 = {};
+    blst_p2_double(&twice_g2, blst_p2_generator());
+    blst_p2_add_or_double(&expected_g2, &twice_g2, blst_p2_generator());
+    EXPECT_TRUE(blst_p2_is_equal(&actual_g2, &expected_g2));
+
+    g2_points[1] = g2_points[0];
+    blst_p2_affine_cneg(&g2_points[1], true);
+    const size_t g2_cancel_bytes =
+        blst_p2s_mult_batch_affine_fr_scratch_sizeof(2, 1, 128);
+    std::vector<blst_limb_t> g2_cancel_scratch(
+        g2_cancel_bytes / sizeof(blst_limb_t));
+    ASSERT_TRUE(blst_p2s_mult_batch_affine_fr(
+        &actual_g2, g2_points.data(), scalars.data(), 2,
+        g2_cancel_scratch.data(), g2_cancel_bytes, 1, 128));
+    EXPECT_TRUE(blst_p2_is_inf(&actual_g2));
 }
 
 TEST(BindingHeader, SelectedNativeFrMsmScratchIsCapacityMonotone)

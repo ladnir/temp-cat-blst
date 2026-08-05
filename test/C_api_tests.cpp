@@ -2561,6 +2561,38 @@ TEST(CApi, MsmBoundariesRejectInvalidWidthsAndHandleZeroBits)
     EXPECT_TRUE(blst_p1_is_inf(&g1));
 }
 
+TEST(CApi, BatchAffineInternalRejectsOversizedScalarWidths)
+{
+    constexpr size_t window = 1;
+    const size_t scratch_bytes =
+        blst::scalar::msm_mult_batch_affine_scratch_sizeof<blst::Fp, 128>(
+            window);
+    ASSERT_NE(scratch_bytes, 0);
+    ASSERT_EQ(scratch_bytes % sizeof(blst::limb_t), 0);
+    std::vector<blst::limb_t> scratch(
+        scratch_bytes / sizeof(blst::limb_t));
+    const blst::scalar::G1AffinePoint point =
+        *blst_p1_affine_generator();
+    std::array<blst::byte, 33> scalar = {};
+    scalar[0] = 1;
+
+    blst::scalar::G1Point actual = *blst_p1_generator();
+    const blst::scalar::G1Point unchanged = actual;
+    EXPECT_FALSE((blst::scalar::msm_mult_batch_affine<blst::Fp, 128>(
+        actual, &point, scalar.data(), 1, 257,
+        scratch.data(), scratch_bytes, window)));
+    EXPECT_TRUE(blst_p1_is_equal(&actual, &unchanged));
+
+    EXPECT_FALSE((blst::scalar::msm_mult_batch_affine<blst::Fp, 128>(
+        actual, &point, scalar.data(), 1, 0,
+        scratch.data(), scratch_bytes, window)));
+    EXPECT_TRUE(blst_p1_is_equal(&actual, &unchanged));
+    EXPECT_EQ(
+        (blst::scalar::msm_mult_batch_affine_scratch_sizeof<blst::Fp, 128>(
+            25)),
+        0);
+}
+
 TEST(CApi, LeadingNullPointArraysAreRejectedWithoutPointerArithmetic)
 {
     BoundaryG1 sum = p1_mul(3);

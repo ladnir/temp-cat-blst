@@ -168,3 +168,40 @@ Next, review `multi_scalar_batch_affine.cpp`. Preserve its fixed-size hot
 kernels, trace every scratch/layout contract into C and Rust, and batch its
 findings before proposing repairs. Keep builds single-job and focused; obtain
 approval before benchmarks or broad validation.
+
+## Scalar batch-affine MSM review
+
+The fourth packet reviews `blst/scalar/curve/multi_scalar_batch_affine.cpp`
+and its explicit C/native/raw-Rust boundaries. The implementation is a local
+Hypercat/CatBLST extension derived from upstream Pippenger extraction and
+complete point formulas; the pinned upstream BLST tree has no matching
+batch-affine implementation file.
+
+### Findings and decisions
+
+- `AUD-121` narrows the explicit window contract from the incorrect `[1,32]`
+  claim to the shared extractor's real `[1,24]` domain. Production selection
+  remains 10 through 15.
+- `AUD-122` replaces typed array casts over limb scratch with aligned,
+  byte-indexed lifetime-aware views. The compile-time batch sizes, array
+  layout, and direct address arithmetic remain unchanged.
+- `AUD-123` rejects more than 256 scalar bits and more than `UINT32_MAX`
+  scheduled points before input conversion or extraction.
+- `AUD-124` adds deliberate equal-point, opposite-point, and projective-
+  collision differential cases for both G1 and G2.
+- `AUD-125` makes the expert C/native contract precise about public data,
+  subgroup/nonidentity inputs, windows, scratch, overlap, empty output, and
+  failure atomicity; generated raw Rust inherits the C contract.
+
+### Validation
+
+- MSVC scalar Debug and Release focused execution each pass 7/7.
+- Strict MSVC `/W4 /WX /O2` compilation passes.
+- Optimized MSVC contains no lifetime-start calls or construction stores; the
+  placement operations are abstract-machine-only. It also contains no
+  scratch-wrapper or allocation calls.
+- Public documentation, group-contract, manifest, and structural checks pass.
+
+No benchmark ran because optimized inspection found no changed hot-loop work.
+No broad suite, sanitizer, CUDA,
+portable-AVX Release, Apple CI, or BTx/BTE audit is included.

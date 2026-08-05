@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <limits>
+#include <new>
 #include <type_traits>
 
 namespace blst::scalar
@@ -37,18 +38,81 @@ namespace blst::scalar
 			std::uint32_t subtract;
 		};
 
+		template<typename T>
+		class ScratchArray
+		{
+			byte* storage_;
+		#ifndef NDEBUG
+			size_t size_;
+		#endif
+
+			BLST_INLINE byte* address(size_t index) const
+			{
+		#ifndef NDEBUG
+				BLST_ASSERT(index < size_);
+		#endif
+				return storage_ + index * sizeof(T);
+			}
+
+		public:
+			ScratchArray() : storage_(nullptr)
+		#ifndef NDEBUG
+				, size_(0)
+		#endif
+			{}
+			ScratchArray(byte* storage, size_t size)
+				: storage_(storage)
+		#ifndef NDEBUG
+				, size_(size)
+		#endif
+			{
+				static_assert(std::is_trivially_default_constructible_v<T>);
+				static_assert(std::is_trivially_destructible_v<T>);
+				(void)size;
+				BLST_ASSERT(
+					reinterpret_cast<uintptr_t>(storage_) % alignof(T) == 0);
+			}
+
+			void start_all(size_t count) const
+			{
+				BLST_ASSERT(count == size_);
+				for (size_t i = 0; i < count; ++i)
+					::new (static_cast<void*>(storage_ + i * sizeof(T))) T;
+			}
+
+			BLST_INLINE T& operator[](size_t index)
+			{
+				return *std::launder(reinterpret_cast<T*>(address(index)));
+			}
+
+			BLST_INLINE const T& operator[](size_t index) const
+			{
+				return *std::launder(reinterpret_cast<const T*>(address(index)));
+			}
+		};
+
 		template<typename Field, size_t BatchSize>
 		struct BatchAffineWorkspace
 		{
-			BatchAffineBucket<Field>* affine_buckets;
-			BatchProjectiveBucket<Field>* collision_buckets;
-			BatchSchedulePoint* schedule;
-			Field* numerators;
-			Field* denominators;
+
+			ScratchArray<BatchAffineBucket<Field>> affine_buckets;
+			ScratchArray<BatchProjectiveBucket<Field>> collision_buckets;
+			ScratchArray<BatchSchedulePoint> schedule;
+			ScratchArray<Field> numerators;
+			ScratchArray<Field> denominators;
 			size_t bucket_count;
 			size_t schedule_size;
 			std::uint32_t window_generation;
 			std::uint32_t queue_epoch;
+
+			void start_lifetimes() const
+			{
+				affine_buckets.start_all(bucket_count);
+				collision_buckets.start_all(bucket_count);
+				schedule.start_all(BatchSize);
+				numerators.start_all(BatchSize);
+				denominators.start_all(BatchSize);
+			}
 		};
 
 		constexpr bool checked_add(size_t left, size_t right, size_t& out)
@@ -90,9 +154,7 @@ namespace blst::scalar
 			static_assert(alignof(BatchSchedulePoint) <= alignof(limb_t));
 			static_assert(alignof(Field) <= alignof(limb_t));
 
-			if (window_size == 0 ||
-				window_size > std::numeric_limits<std::uint32_t>::digits ||
-				window_size - 1 >= std::numeric_limits<size_t>::digits)
+			if (!detail::valid_pippenger_window(window_size))
 				return 0;
 
 			const size_t bucket_count = size_t{1} << (window_size - 1);
@@ -113,15 +175,19 @@ namespace blst::scalar
 			size_t offset;
 
 			template<typename T>
-			T* take(size_t count)
+			auto take(size_t count)
 			{
-				size_t aligned;
-				if (!checked_align(offset, alignof(T), aligned)) {
-					BLST_ASSERT(false);
-					return nullptr;
-				}
+				static_assert((alignof(T) & (alignof(T) - 1)) == 0);
+				BLST_ASSERT(
+					offset <= std::numeric_limits<size_t>::max() - (alignof(T) - 1));
+				const size_t aligned =
+					(offset + alignof(T) - 1) & ~(alignof(T) - 1);
+				BLST_ASSERT(
+					count <= (std::numeric_limits<size_t>::max() - aligned) /
+						sizeof(T));
 				offset = aligned + count * sizeof(T);
-				return reinterpret_cast<T*>(base + aligned);
+				return ScratchArray<T>{
+					base + aligned, count};
 			}
 		};
 
@@ -145,6 +211,7 @@ namespace blst::scalar
 				0,
 				0,
 			};
+			workspace.start_lifetimes();
 			return workspace;
 		}
 
@@ -420,7 +487,7 @@ namespace blst::scalar
 		}
 		if (points == nullptr || scalars == nullptr || scratch == nullptr ||
 			npoints > std::numeric_limits<std::uint32_t>::max() ||
-			nbits == 0)
+			nbits == 0 || nbits > 256)
 			return false;
 
 		const size_t required =
@@ -432,6 +499,11 @@ namespace blst::scalar
 		vec_zero(scratch, required);
 		auto workspace =
 			make_workspace<Field, BatchSize>(scratch, bucket_count);
+		BLST_ASSERT(workspace.bucket_count == bucket_count);
+		for (size_t i = 0; i < npoints; ++i) {
+			BLST_ASSERT(!AffinePoint<Field>::is_inf(points[i]));
+			BLST_ASSERT(AffinePoint<Field>::in_subgroup(points[i]));
+		}
 		const size_t scalar_bytes = (nbits + 7) / 8;
 		const size_t window_count = 1 + nbits / window_size;
 		ret = {};
