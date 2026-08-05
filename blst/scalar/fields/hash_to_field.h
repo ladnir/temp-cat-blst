@@ -7,6 +7,7 @@
 #define BLST_SCALAR_HASH_TO_FIELD_H
 
 #include "blst/sign/sha256.h"
+#include "blst/scalar/fields/Fp2.h"
 
 namespace blst::scalar
 {
@@ -116,15 +117,34 @@ namespace blst::scalar
     }
 #endif
 
+    template<typename OutputField, size_t count>
+    BLST_HD BLST_FORCEINLINE Fp& hash_to_field_component(
+        OutputField (&elems)[count], size_t index)
+    {
+        static_assert(std::is_same_v<OutputField, Fp> ||
+            std::is_same_v<OutputField, Fp2>);
+
+        if constexpr (std::is_same_v<OutputField, Fp>)
+            return elems[index];
+        else
+            return elems[index / 2][index % 2];
+    }
+
     /*
-     * |nelems| is 'count * m' from spec
+     * |nelems| is 'count * m' from spec. OutputField is Fp for m=1 and Fp2
+     * for m=2; each write names its actual field subobject rather than
+     * flattening adjacent Fp2 objects through pointer arithmetic.
      */
-	template<size_t nelems>
-    BLST_HD BLST_INLINE void hash_to_field(Fp elems[], 
+	template<size_t nelems, typename OutputField, size_t count>
+    BLST_HD BLST_INLINE void hash_to_field(OutputField (&elems)[count],
         const unsigned char* aug, size_t aug_len,
         const unsigned char* msg, size_t msg_len,
         const unsigned char* DST, size_t DST_len)
     {
+        constexpr size_t extension_degree =
+            std::is_same_v<OutputField, Fp2> ? 2 : 1;
+        static_assert(nelems == count * extension_degree);
+
         constexpr size_t L = sizeof(Fp) + 128 / 8;  /* ceil((ceil(log2(p)) + k) / 8) */
         constexpr size_t len_in_bytes = L * nelems;   /* divisible by 64, hurray!      */
         static_assert(len_in_bytes % sizeof(limb_t) == 0);
@@ -141,6 +161,7 @@ namespace blst::scalar
 
         vec_zero(elem, sizeof(elem));
         bytes = (unsigned char*)pseudo_random;
+        size_t output_index = 0;
 		size_t nn = nelems;
         while (nn--) {
             limbs_from_be_bytes(elem, bytes, L);
@@ -148,9 +169,9 @@ namespace blst::scalar
             /*
              * L-bytes block % P, output is in Montgomery domain...
              */
-            Fp::redc(elems[0], elem);
-            Fp::mul(elems[0], elems[0], get_BLST_RRRR());
-            elems++;
+            Fp& output = hash_to_field_component(elems, output_index++);
+            Fp::redc(output, elem);
+            Fp::mul(output, output, get_BLST_RRRR());
         }
     }
 

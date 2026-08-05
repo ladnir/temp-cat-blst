@@ -719,17 +719,47 @@ void blst_keygen_v5(blst_scalar* out_SK, const blst_byte* IKM, size_t IKM_len, c
 void blst_derive_master_eip2333(blst_scalar* out_SK, const blst_byte* IKM, size_t IKM_len);
 /** Derives the EIP-2333 child secret key for `child_index` from `SK`. */
 void blst_derive_child_eip2333(blst_scalar* out_SK, const blst_scalar* SK, uint32_t child_index);
-/** Encodes `msg` to a deterministic G1 point using `DST` and optional `aug`. */
+/**
+ * Encodes `msg` to a deterministic G1 subgroup point with the RFC 9380
+ * XMD:SHA-256 SSWU nonuniform map. `out` must be non-null. Each byte pointer
+ * must reference its stated readable length; a pointer may be null when its
+ * length is zero. `aug` is prepended to `msg`. The caller selects the protocol
+ * ciphersuite through `DST`. No Release input validation is performed.
+ * Allocation-free, nonthrowing, and safe across the C ABI for valid inputs.
+ */
 void blst_encode_to_g1(blst_p1* out, const blst_byte* msg, size_t msg_len, const blst_byte* DST, size_t DST_len, const blst_byte* aug, size_t aug_len);
-/** Hashes `msg` to a random-oracle G1 point using `DST` and optional `aug`. */
+/**
+ * Hashes `msg` to a G1 subgroup point with the RFC 9380 XMD:SHA-256 SSWU
+ * random-oracle map. Pointer, validation, allocation, and exception contracts
+ * are the same as `blst_encode_to_g1`.
+ */
 void blst_hash_to_g1(blst_p1* out, const blst_byte* msg, size_t msg_len, const blst_byte* DST, size_t DST_len, const blst_byte* aug, size_t aug_len);
-/** Encodes `msg` to a deterministic G2 point using `DST` and optional `aug`. */
+/**
+ * Encodes `msg` to a deterministic G2 subgroup point with the RFC 9380
+ * XMD:SHA-256 SSWU nonuniform map. Pointer, validation, allocation, and
+ * exception contracts are the same as `blst_encode_to_g1`.
+ */
 void blst_encode_to_g2(blst_p2* out, const blst_byte* msg, size_t msg_len, const blst_byte* DST, size_t DST_len, const blst_byte* aug, size_t aug_len);
-/** Hashes `msg` to a random-oracle G2 point using `DST` and optional `aug`. */
+/**
+ * Hashes `msg` to a G2 subgroup point with the RFC 9380 XMD:SHA-256 SSWU
+ * random-oracle map. Pointer, validation, allocation, and exception contracts
+ * are the same as `blst_encode_to_g1`.
+ */
 void blst_hash_to_g2(blst_p2* out, const blst_byte* msg, size_t msg_len, const blst_byte* DST, size_t DST_len, const blst_byte* aug, size_t aug_len);
-/** Maps field elements `(u, v)` into a G1 point without hashing. */
+/**
+ * Maps reduced Montgomery-form field elements into a G1 subgroup point without
+ * hashing. `out` and `u` must be non-null and disjoint. When `v` is null, maps
+ * only `u` (the nonuniform encode form); otherwise `v` must name a second
+ * reduced Montgomery element disjoint from `out`, and both mapped points are
+ * added before cofactor clearing. No Release field validation is performed.
+ * Allocation-free and nonthrowing for valid inputs.
+ */
 void blst_map_to_g1(blst_p1* out, const blst_fp* u, const blst_fp* v);
-/** Maps field elements `(u, v)` into a G2 point without hashing. */
+/**
+ * Maps reduced Montgomery-form Fp2 elements into a G2 subgroup point without
+ * hashing. Nullability, disjoint-storage, validation, allocation, and exception
+ * contracts are the same as `blst_map_to_g1`.
+ */
 void blst_map_to_g2(blst_p2* out, const blst_fp2* u, const blst_fp2* v);
 /** Derives the projective G1 public key corresponding to `SK`. */
 void blst_sk_to_pk_in_g1(blst_p1* out_pk, const blst_scalar* SK);

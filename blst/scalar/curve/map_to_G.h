@@ -1,4 +1,8 @@
-
+/*
+ * Copyright Supranational LLC
+ * Licensed under the Apache License, Version 2.0, see LICENSE for details.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #pragma once
 
 #include "blst/scalar/curve/point.h"
@@ -8,10 +12,17 @@
 namespace blst::scalar
 {
 
+#if defined(__CUDA_ARCH__)
+# define BLST_MAP_CONSTANT const
+#else
+# define BLST_MAP_CONSTANT static constexpr
+#endif
 
 
 
 
+
+	/// Evaluate fixed isogeny coefficients multiplied by projective Z powers.
 	template<typename Field>
 	BLST_HD BLST_INLINE void map_field_times_Zz(Field map[], const Field isogeny_map[],
 		const Field Zz_powers[], size_t n)
@@ -21,6 +32,7 @@ namespace blst::scalar
 	}
 
 
+	/// Evaluate a polynomial in descending order with Horner's method.
 	template<typename Field>
 	BLST_HD BLST_INLINE void map_field(Field& acc, const Field& x, const Field map[], size_t n)
 	{
@@ -31,6 +43,7 @@ namespace blst::scalar
 	}
 
 
+	/// Map an isogenous-curve point to BLS12-381; exact aliasing is supported.
 	template<typename Group>
 	BLST_HD BLST_INLINE void isogeny_map_to(Group& out, const Group& p);
 
@@ -43,7 +56,7 @@ namespace blst::scalar
 		 * x_num = k_(1,3) * x'^3 + k_(1,2) * x'^2 + k_(1,1) * x' + k_(1,0)
 		 * ...
 		 */
-		const Fp2 isogeny_map_x_num[] = {    /* (k_(1,*)<<384) % P   */
+		BLST_MAP_CONSTANT Fp2 isogeny_map_x_num[] = { /* (k_(1,*)<<384) % P */
 		 {Fp{ TO_LIMB_T(0x47f671c71ce05e62), TO_LIMB_T(0x06dd57071206393e),
 			TO_LIMB_T(0x7c80cd2af3fd71a2), TO_LIMB_T(0x048103ea9e6cd062),
 			TO_LIMB_T(0xc54516acc8d037f6), TO_LIMB_T(0x13808f550920ea41) },
@@ -68,7 +81,7 @@ namespace blst::scalar
 		/* ...
 		 * x_den = x'^2 + k_(2,1) * x' + k_(2,0)
 		 */
-		const Fp2 isogeny_map_x_den[] = {    /* (k_(2,*)<<384) % P   */
+		BLST_MAP_CONSTANT Fp2 isogeny_map_x_den[] = { /* (k_(2,*)<<384) % P */
 		 {Fp{ 0 },
 		  Fp{ TO_LIMB_T(0x1f3affffff13ab97), TO_LIMB_T(0xf25bfc611da3ff3e),
 			TO_LIMB_T(0xca3757cb3819b208), TO_LIMB_T(0x3e6427366f8cec18),
@@ -85,7 +98,7 @@ namespace blst::scalar
 		 * y_num = k_(3,3) * x'^3 + k_(3,2) * x'^2 + k_(3,1) * x' + k_(3,0)
 		 * ...
 		 */
-		const Fp2 isogeny_map_y_num[] = {    /* (k_(3,*)<<384) % P   */
+		BLST_MAP_CONSTANT Fp2 isogeny_map_y_num[] = { /* (k_(3,*)<<384) % P */
 		 {Fp{ TO_LIMB_T(0x96d8f684bdfc77be), TO_LIMB_T(0xb530e4f43b66d0e2),
 			TO_LIMB_T(0x184a88ff379652fd), TO_LIMB_T(0x57cb23ecfae804e1),
 			TO_LIMB_T(0x0fd2e39eada3eba9), TO_LIMB_T(0x08c8055e31c5d5c3) },
@@ -110,7 +123,7 @@ namespace blst::scalar
 		/* ...
 		 * y_den = x'^3 + k_(4,2) * x'^2 + k_(4,1) * x' + k_(4,0)
 		 */
-		const Fp2 isogeny_map_y_den[] = {    /* (k_(4,*)<<384) % P   */
+		BLST_MAP_CONSTANT Fp2 isogeny_map_y_den[] = { /* (k_(4,*)<<384) % P */
 		 {Fp{ TO_LIMB_T(0x0162fffffa765adf), TO_LIMB_T(0x8f7bea480083fb75),
 			TO_LIMB_T(0x561b3c2259e93611), TO_LIMB_T(0x11e19fc1a9c875d5),
 			TO_LIMB_T(0xca713efc00367660), TO_LIMB_T(0x03c6a03d41da1151) },
@@ -178,7 +191,7 @@ namespace blst::scalar
 		 *         ... + k_(1,0)
 		 * ...
 		 */
-		const Fp isogeny_map_x_num[] = { /*  (k_(1,*)<<384) % P  */
+		BLST_MAP_CONSTANT Fp isogeny_map_x_num[] = { /* (k_(1,*)<<384) % P */
 		  { TO_LIMB_T(0x4d18b6f3af00131c), TO_LIMB_T(0x19fa219793fee28c),
 			TO_LIMB_T(0x3f2885f1467f19ae), TO_LIMB_T(0x23dcea34f2ffb304),
 			TO_LIMB_T(0xd15b58d2ffc00054), TO_LIMB_T(0x0913be200a20bef4)  },
@@ -219,7 +232,7 @@ namespace blst::scalar
 		/* ...
 		 * x_den = x'^10 + k_(2,9) * x'^9 + k_(2,8) * x'^8 + ... + k_(2,0)
 		 */
-		const Fp isogeny_map_x_den[] = { /*  (k_(2,*)<<384) % P  */
+		BLST_MAP_CONSTANT Fp isogeny_map_x_den[] = { /* (k_(2,*)<<384) % P */
 		  { TO_LIMB_T(0xb962a077fdb0f945), TO_LIMB_T(0xa6a9740fefda13a0),
 			TO_LIMB_T(0xc14d568c3ed6c544), TO_LIMB_T(0xb43fc37b908b133e),
 			TO_LIMB_T(0x9c0b3ac929599016), TO_LIMB_T(0x0165aa6c93ad115f)  },
@@ -257,7 +270,7 @@ namespace blst::scalar
 		 *         ... + k_(3,0)
 		 * ...
 		 */
-		const Fp isogeny_map_y_num[] = { /*  (k_(3,*)<<384) % P  */
+		BLST_MAP_CONSTANT Fp isogeny_map_y_num[] = { /* (k_(3,*)<<384) % P */
 		  { TO_LIMB_T(0x2b567ff3e2837267), TO_LIMB_T(0x1d4d9e57b958a767),
 			TO_LIMB_T(0xce028fea04bd7373), TO_LIMB_T(0xcc31a30a0b6cd3df),
 			TO_LIMB_T(0x7d7b18a682692693), TO_LIMB_T(0x0d300744d42a0310)  },
@@ -310,7 +323,7 @@ namespace blst::scalar
 		/* ...
 		 * y_den = x'^15 + k_(4,14) * x'^14 + k_(4,13) * x'^13 + ... + k_(4,0)
 		 */
-		const Fp isogeny_map_y_den[] = { /*  (k_(4,*)<<384) % P  */
+		BLST_MAP_CONSTANT Fp isogeny_map_y_den[] = { /* (k_(4,*)<<384) % P */
 		  { TO_LIMB_T(0xeb6c359d47e52b1c), TO_LIMB_T(0x18ef5f8a10634d60),
 			TO_LIMB_T(0xddfa71a0889d5b7e), TO_LIMB_T(0x723e71dcc5fc1323),
 			TO_LIMB_T(0x52f45700b70d5c69), TO_LIMB_T(0x0a8b981ee47691f1)  },
@@ -414,41 +427,41 @@ namespace blst::scalar
 
 
 
+	/// Apply simplified SWU to a reduced Montgomery field element.
 	template<typename Group>
 	BLST_HD BLST_INLINE void map_to_isogenous(Group& p, const typename Group::Field_type& u);
 
 	template<>
 	BLST_HD BLST_INLINE void map_to_isogenous<G1Point>(G1Point& p, const Fp& u)
 	{
-		const Fp minus_A = { /* P - A */
+		BLST_MAP_CONSTANT Fp minus_A = { /* P - A */
 			TO_LIMB_T(0x8a9955f1650a005a), TO_LIMB_T(0x9865b3d192cfe93c),
 			TO_LIMB_T(0xaed3ed0f3ef3c441), TO_LIMB_T(0x3c962ef33d92c442),
 			TO_LIMB_T(0x22e438dbd74f94a2), TO_LIMB_T(0x04acbc265478c915)
 		};
-		const Fp Z = {       /* (11<<384) % P */
+		BLST_MAP_CONSTANT Fp Z = {       /* (11<<384) % P */
 			TO_LIMB_T(0x886c00000023ffdc), TO_LIMB_T(0x0f70008d3090001d),
 			TO_LIMB_T(0x77672417ed5828c3), TO_LIMB_T(0x9dac23e943dc1740),
 			TO_LIMB_T(0x50553f1b9c131521), TO_LIMB_T(0x078c712fbe0ab6e8)
 		};
-		const Fp sqrt_minus_ZZZ = {
+		BLST_MAP_CONSTANT Fp sqrt_minus_ZZZ = {
 			TO_LIMB_T(0x43b571cad3215f1f), TO_LIMB_T(0xccb460ef1c702dc2),
 			TO_LIMB_T(0x742d884f4f97100b), TO_LIMB_T(0xdb2c3e3238a3382b),
 			TO_LIMB_T(0xe40f3fa13fce8f88), TO_LIMB_T(0x0073a2af9892a2ff)
 		};
-		const Fp ZxA = {
+		BLST_MAP_CONSTANT Fp ZxA = {
 			TO_LIMB_T(0x7f674ea0a8915178), TO_LIMB_T(0xb0f945fc13b8fa65),
 			TO_LIMB_T(0x4b46759a38e87d76), TO_LIMB_T(0x2e7a929641bbb6a1),
 			TO_LIMB_T(0x1668ddfa462bf6b6), TO_LIMB_T(0x00960e2ed1cf294c)
 		};
 		Fp uu, tv2, x2n, gx1, gxd, y2;
-# define xn     p.x
+		auto& xn = p.x;
 		auto& y = p.y;
-# define xd     p.z
-# define x1n    xn
-# define y1     y
-# define Zuu    x2n
-# define tv4    y1
-#define sgn0_fp(a) (Fp::sgn0_pty_mont(a) & 1)
+		auto& xd = p.z;
+		auto& x1n = xn;
+		auto& y1 = y;
+		auto& Zuu = x2n;
+		auto& tv4 = y1;
 		bool_t e1, e2;
 
 		/*
@@ -491,25 +504,15 @@ namespace blst::scalar
 		vec_select(xn.l, x1n.l, x2n.l, sizeof(xn), e2);   /* xn = e2 ? x1n : x2n  */
 		vec_select(y.l, y1.l, y2.l, sizeof(y), e2);       /* y  = e2 ? y1 : y2    */
 
-		e1 = sgn0_fp(u);
-		e2 = sgn0_fp(y);
+		e1 = Fp::sgn0_pty_mont(u) & 1;
+		e2 = Fp::sgn0_pty_mont(y) & 1;
 		Fp::cneg(y, y, e1 ^ e2);               /* fix sign of y                */
 		/* return (xn, xd, y, 1)        */
 
 	/* convert (xn, xd, y, 1) to Jacobian projective coordinates        */
 		Fp::mul(p.x, xn, xd);               /* X = xn * xd                  */
 		Fp::mul(p.y, y, gxd);               /* Y = y * xd^3                 */
-#ifndef xd
-		vec_copy(p.z, xd, sizeof(xd));     /* Z = xd                       */
-#else
-# undef xn
-# undef xd
-# undef x1n
-# undef y1
-# undef Zuu
-# undef tv4
-#endif
-#undef sgn0_fp
+		/* p.z already holds xd. */
 	}
 
 
@@ -518,13 +521,13 @@ namespace blst::scalar
 	template<>
 	BLST_HD BLST_INLINE void map_to_isogenous<G2Point>(G2Point& p, const Fp2& u)
 	{
-		const Fp2 minus_A = {
+		BLST_MAP_CONSTANT Fp2 minus_A = {
 		  Fp{ 0 },
 		  Fp{ TO_LIMB_T(0xd4c4fffffcec5869), TO_LIMB_T(0x1da3f3eed25bfd79),
 			TO_LIMB_T(0x7fa833c5136fff67), TO_LIMB_T(0x59261433cd540cbd),
 			TO_LIMB_T(0x48450f5f2b84682c), TO_LIMB_T(0x07e05d00bf959233) }
 		};
-		const Fp2 Z = {              /* -2 - i */
+		BLST_MAP_CONSTANT Fp2 Z = {              /* -2 - i */
 		  Fp{ TO_LIMB_T(0x87ebfffffff9555c), TO_LIMB_T(0x656fffe5da8ffffa),
 			TO_LIMB_T(0x0fd0749345d33ad2), TO_LIMB_T(0xd951e663066576f4),
 			TO_LIMB_T(0xde291a3d41e980d3), TO_LIMB_T(0x0815664c7dfe040d) },
@@ -532,7 +535,7 @@ namespace blst::scalar
 			TO_LIMB_T(0x07e83a49a2e99d69), TO_LIMB_T(0xeca8f3318332bb7a),
 			TO_LIMB_T(0xef148d1ea0f4c069), TO_LIMB_T(0x040ab3263eff0206) }
 		};
-		const Fp2 ZxA = {            /* 240 - 480*i */
+		BLST_MAP_CONSTANT Fp2 ZxA = {            /* 240 - 480*i */
 		  Fp{ TO_LIMB_T(0xe53a000003135242), TO_LIMB_T(0x01080c0fdef80285),
 			TO_LIMB_T(0xe7889edbe340f6bd), TO_LIMB_T(0x0b51375126310601),
 			TO_LIMB_T(0x02d6985717c744ab), TO_LIMB_T(0x1220b4e979ea5467) },
@@ -541,13 +544,12 @@ namespace blst::scalar
 			TO_LIMB_T(0x908a1ebe5708d058), TO_LIMB_T(0x0fc0ba017f2b2466) }
 		};
 		Fp2 uu, tv2, tv4, x2n, gx1, gxd, y2;
-# define xn     p.x
+		auto& xn = p.x;
 		auto& y = p.y;
-# define xd     p.z
-# define x1n    xn
-# define y1     y
-# define Zuu    x2n
-#define sgn0_fp2(a) (Fp2::sgn0_pty_mont(a) & 1)
+		auto& xd = p.z;
+		auto& x1n = xn;
+		auto& y1 = y;
+		auto& Zuu = x2n;
 		bool_t e1, e2;
 
 		/*
@@ -590,35 +592,36 @@ namespace blst::scalar
 		vec_select(&(xn), &(x1n), &x2n, sizeof(xn), e2);   /* xn = e2 ? x1n : x2n  */
 		vec_select(&y, &y1, &y2, sizeof(y), e2);       /* y  = e2 ? y1 : y2    */
 
-		e1 = sgn0_fp2(u);
-		e2 = sgn0_fp2(y);
+		e1 = Fp2::sgn0_pty_mont(u) & 1;
+		e2 = Fp2::sgn0_pty_mont(y) & 1;
 		Fp2::cneg(y, y, e1 ^ e2);              /* fix sign of y                */
 		/* return (xn, xd, y, 1)        */
 
 	/* convert (xn, xd, y, 1) to Jacobian projective coordinates        */
 		Fp2::mul(p.x, xn, xd);              /* X = xn * xd                  */
 		Fp2::mul(p.y, y, gxd);              /* Y = y * xd^3                 */
-#ifndef xd
-		vec_copy(p.z, xd, sizeof(xd));     /* Z = xd                       */
-#else
-# undef xn
-# undef xd
-# undef x1n
-# undef y1
-# undef Zuu
-# undef tv4
-#endif
-#undef sgn0_fp2
+		/* p.z already holds xd. */
 	}
 
+#undef BLST_MAP_CONSTANT
 
+
+	/**
+	 * Clear the BLS12-381 cofactor of an on-curve point.
+	 * @pre Group is G1Point or G2Point and `out` is distinct from `p`.
+	 * @post `out` belongs to the corresponding prime-order subgroup.
+	 */
 	template<typename Group>
 	BLST_HD BLST_INLINE void clear_cofactor(Group& out, const Group& p)
 	{
+		static_assert(std::is_same_v<Group, G1Point> ||
+			std::is_same_v<Group, G2Point>);
+		BLST_ASSERT(&out != &p);
+
 		if constexpr (std::is_same_v<Group, G1Point>) {
 			/* clear the cofactor by multiplying |p| by 1-z, 0xd201000000010001 */
 			times_minus_z<Group>(out, p);
-			Group::dadd(out, out, p, NULL);
+			Group::dadd(out, out, p, nullptr);
 		}
 		else
 		{
@@ -630,7 +633,7 @@ namespace blst::scalar
 			psi(out, out);                      /* out = Ψ(2P)                  */
 			psi(out, out);                      /* out = Ψ²(2P)                 */
 
-			vec_copy(&t0, &p, sizeof(t0));
+			t0 = p;
 			G2Point::cneg(t0, 1);             /* t0 = -P                      */
 			psi(t1, t0);                      /* t1 = -Ψ(P)                   */
 			G2Point::dadd(out, out, t0, NULL);/* out = Ψ²(2P) - P             */
@@ -650,6 +653,8 @@ namespace blst::scalar
 	template<typename Group>
 	BLST_HD BLST_INLINE auto& get_Aprime()
 	{
+		static_assert(std::is_same_v<Group, G1Point> ||
+			std::is_same_v<Group, G2Point>);
 		if constexpr (std::is_same_v<Group, G1Point>) {
 			return get_BLST_Aprime_E1();
 		}
@@ -659,14 +664,13 @@ namespace blst::scalar
 	}
 
 
-	/*
-	*  map_to_curve maps one or two field elements to a point on the
-	*  curve in the specified group.  If two elements are provided,
-	*  and these are the output of a hash function, then the
-	*  group element is expected to be indistinguishable from a
-	*  random element of the group.
-	*
-	 * |u|, |v| are expected to be in Montgomery representation
+	/**
+	 * Map one or two reduced Montgomery field elements into G1 or G2.
+	 *
+	 * A null `v` performs the nonuniform encode map. A non-null `v` maps
+	 * both elements, adds them on the isogenous curve, applies the isogeny,
+	 * and clears the cofactor. The result is an on-curve prime-order subgroup
+	 * point. This operation allocates nothing and is nonthrowing.
 	 */
 	template<typename Group>
 	BLST_HD BLST_INLINE void map_to_curve(
@@ -674,11 +678,13 @@ namespace blst::scalar
 		const typename Group::Field_type& u,
 		const typename Group::Field_type* v)
 	{
+		static_assert(std::is_same_v<Group, G1Point> ||
+			std::is_same_v<Group, G2Point>);
 		Group p;
 
 		map_to_isogenous<Group>(p, u);
 
-		if (v != NULL) {
+		if (v != nullptr) {
 			map_to_isogenous<Group>(out, *v);    /* borrow |out|                 */
 			Group::dadd(p, p, out, &get_Aprime<Group>());
 		}
@@ -689,29 +695,40 @@ namespace blst::scalar
 	}
 
 
+	/** Encode a message with RFC 9380 XMD:SHA-256 SSWU nonuniform mapping. */
 	template<typename Group>
 	BLST_HD BLST_INLINE void Encode_to_curve(Group& p, const unsigned char* msg, size_t msg_len,
 		const unsigned char* DST, size_t DST_len,
 		const unsigned char* aug, size_t aug_len)
 	{
 		using G = std::remove_cvref_t<Group>;
+		static_assert(std::is_same_v<G, G1Point> || std::is_same_v<G, G2Point>);
+		BLST_ASSERT(msg != nullptr || msg_len == 0);
+		BLST_ASSERT(DST != nullptr || DST_len == 0);
+		BLST_ASSERT(aug != nullptr || aug_len == 0);
 		typename G::Field_type u[1];
 		constexpr int nelem = 1 + 1 * std::is_same_v<G, G2Point>;
 
-		hash_to_field<nelem>((Fp*)u, aug, aug_len, msg, msg_len, DST, DST_len);
-		map_to_curve<G>(p, u[0], NULL);
+		hash_to_field<nelem>(u, aug, aug_len, msg, msg_len, DST, DST_len);
+		map_to_curve<G>(p, u[0], nullptr);
 	}
 
+	/** Hash a message with RFC 9380 XMD:SHA-256 SSWU random-oracle mapping. */
 	template<typename Group>
 	BLST_HD BLST_INLINE void Hash_to_curve(Group& p, const unsigned char* msg, size_t msg_len,
 		const unsigned char* DST, size_t DST_len,
 		const unsigned char* aug, size_t aug_len)
 	{
-		typename Group::Field_type u[2];
+		using G = std::remove_cvref_t<Group>;
+		static_assert(std::is_same_v<G, G1Point> || std::is_same_v<G, G2Point>);
+		BLST_ASSERT(msg != nullptr || msg_len == 0);
+		BLST_ASSERT(DST != nullptr || DST_len == 0);
+		BLST_ASSERT(aug != nullptr || aug_len == 0);
+		typename G::Field_type u[2];
 
-		constexpr int nelem = 2 + 2 * std::is_same_v<Group, G2Point>;
-		hash_to_field<nelem>((Fp*)u, aug, aug_len, msg, msg_len, DST, DST_len);
-		map_to_curve<Group>(p, u[0], &u[1]);
+		constexpr int nelem = 2 + 2 * std::is_same_v<G, G2Point>;
+		hash_to_field<nelem>(u, aug, aug_len, msg, msg_len, DST, DST_len);
+		map_to_curve<G>(p, u[0], &u[1]);
 	}
 
 }

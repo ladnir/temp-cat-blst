@@ -8,7 +8,8 @@ namespace blst::avx {
 /*
  * TODO(big, backend-defaulting): These functions are explicit temporary
  * compatibility wrappers. They convert AVX inputs to scalar, call the scalar
- * map-to-group implementation, and convert the result back to AVX.
+ * map-to-group implementation, and convert the result back to AVX with
+ * inversion-free homogeneous/Jacobian transformations.
  *
  * They are intentionally not native AVX implementations.
  *
@@ -34,60 +35,41 @@ namespace avx_map_to_G_detail {
 
 inline scalar::G1Point to_scalar(const G1Point& point)
 {
-    G1AffinePoint affine = {};
-    G1Point::to_affine(affine, point);
-
-    scalar::G1AffinePoint scalar_affine = {};
-    scalar_affine.x = avx_curve_detail::ring_fp_to_scalar(affine.X);
-    scalar_affine.y = avx_curve_detail::ring_fp_to_scalar(affine.Y);
-
-    scalar::G1Point out = {};
-    scalar::G1Point::from_affine(out, scalar_affine);
-    return out;
+    return avx_curve_detail::curve_g1_to_scalar({point.X, point.Y, point.Z});
 }
 
 inline scalar::G2Point to_scalar(const G2Point& point)
 {
-    G2AffinePoint affine = {};
-    G2Point::to_affine(affine, point);
-
-    scalar::G2AffinePoint scalar_affine = {};
-    scalar_affine.x = avx_curve_detail::ring_fp2_to_scalar(affine.X);
-    scalar_affine.y = avx_curve_detail::ring_fp2_to_scalar(affine.Y);
-
-    scalar::G2Point out = {};
-    scalar::G2Point::from_affine(out, scalar_affine);
-    return out;
+    return avx_curve_detail::curve_g2_to_scalar({point.X, point.Y, point.Z});
 }
 
 inline G1Point from_scalar(const scalar::G1Point& point)
 {
-    scalar::G1AffinePoint scalar_affine = {};
-    scalar::G1Point::to_affine(scalar_affine, point);
+    const auto x = avx_curve_detail::scalar_fp_to_ring(point.x);
+    const auto y = avx_curve_detail::scalar_fp_to_ring(point.y);
+    const auto z = avx_curve_detail::scalar_fp_to_ring(point.z);
+    const auto z_squared = avx_curve_detail::curve_ring().modmul(z, z);
 
-    G1AffinePoint affine = {
-        avx_curve_detail::scalar_fp_to_ring(scalar_affine.x),
-        avx_curve_detail::scalar_fp_to_ring(scalar_affine.y),
+    // Jacobian (X/Z^2, Y/Z^3) to homogeneous (X/Z, Y/Z), without inversion.
+    return {
+        avx_curve_detail::curve_ring().modmul(x, z),
+        y,
+        avx_curve_detail::curve_ring().modmul(z_squared, z),
     };
-
-    G1Point out = {};
-    G1Point::from_affine(out, affine);
-    return out;
 }
 
 inline G2Point from_scalar(const scalar::G2Point& point)
 {
-    scalar::G2AffinePoint scalar_affine = {};
-    scalar::G2Point::to_affine(scalar_affine, point);
+    const auto x = avx_curve_detail::scalar_fp2_to_ring(point.x);
+    const auto y = avx_curve_detail::scalar_fp2_to_ring(point.y);
+    const auto z = avx_curve_detail::scalar_fp2_to_ring(point.z);
+    const auto z_squared = avx_curve_detail::curve_fp2_ring().mul(z, z)[0];
 
-    G2AffinePoint affine = {
-        avx_curve_detail::scalar_fp2_to_ring(scalar_affine.x),
-        avx_curve_detail::scalar_fp2_to_ring(scalar_affine.y),
+    return {
+        avx_curve_detail::curve_fp2_ring().mul(x, z)[0],
+        y,
+        avx_curve_detail::curve_fp2_ring().mul(z_squared, z)[0],
     };
-
-    G2Point out = {};
-    G2Point::from_affine(out, affine);
-    return out;
 }
 
 inline scalar::Fp to_scalar(const G1Point::Field_type& value)
@@ -203,6 +185,12 @@ BLST_INLINE void map_to_curve<G2Point>(G2Point& p, const G2Point::Field_type& u,
     p = avx_map_to_G_detail::from_scalar(scalar_p);
 }
 
+/**
+ * Encode a message to the selected G1/G2 subgroup with the RFC 9380
+ * XMD:SHA-256 SSWU nonuniform map. Byte pointers must cover their stated
+ * lengths and may be null only for zero length. Allocation-free and
+ * nonthrowing for valid inputs; no Release input validation is performed.
+ */
 template<typename Group>
 BLST_INLINE void Encode_to_curve(
     Group& p,
@@ -234,6 +222,11 @@ BLST_INLINE void Encode_to_curve<G2Point>(
     p = avx_map_to_G_detail::from_scalar(scalar_p);
 }
 
+/**
+ * Hash a message to the selected G1/G2 subgroup with the RFC 9380
+ * XMD:SHA-256 SSWU random-oracle map. Pointer and validation contracts match
+ * Encode_to_curve.
+ */
 template<typename Group>
 BLST_INLINE void Hash_to_curve(
     Group& p,

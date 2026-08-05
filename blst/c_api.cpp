@@ -2276,9 +2276,9 @@ void blst_encode_to_g1(
     const blst::byte* aug,
     size_t aug_len)
 {
-    PublicG1 public_out = {};
-    blst::Encode_to_curve(public_out, msg, msg_len, DST, DST_len, aug, aug_len);
-    *out = public_to_boundary_g1(public_out);
+    BoundaryG1 scalar_out = {};
+    blst::scalar::Encode_to_curve(scalar_out, msg, msg_len, DST, DST_len, aug, aug_len);
+    *out = scalar_out;
 }
 
 void blst_hash_to_g1(
@@ -2290,9 +2290,9 @@ void blst_hash_to_g1(
     const blst::byte* aug,
     size_t aug_len)
 {
-    PublicG1 public_out = {};
-    blst::Hash_to_curve(public_out, msg, msg_len, DST, DST_len, aug, aug_len);
-    *out = public_to_boundary_g1(public_out);
+    BoundaryG1 scalar_out = {};
+    blst::scalar::Hash_to_curve(scalar_out, msg, msg_len, DST, DST_len, aug, aug_len);
+    *out = scalar_out;
 }
 
 void blst_encode_to_g2(
@@ -2304,9 +2304,9 @@ void blst_encode_to_g2(
     const blst::byte* aug,
     size_t aug_len)
 {
-    PublicG2 public_out = {};
-    blst::Encode_to_curve(public_out, msg, msg_len, DST, DST_len, aug, aug_len);
-    *out = public_to_boundary_g2(public_out);
+    BoundaryG2 scalar_out = {};
+    blst::scalar::Encode_to_curve(scalar_out, msg, msg_len, DST, DST_len, aug, aug_len);
+    *out = scalar_out;
 }
 
 void blst_hash_to_g2(
@@ -2318,9 +2318,9 @@ void blst_hash_to_g2(
     const blst::byte* aug,
     size_t aug_len)
 {
-    PublicG2 public_out = {};
-    blst::Hash_to_curve(public_out, msg, msg_len, DST, DST_len, aug, aug_len);
-    *out = public_to_boundary_g2(public_out);
+    BoundaryG2 scalar_out = {};
+    blst::scalar::Hash_to_curve(scalar_out, msg, msg_len, DST, DST_len, aug, aug_len);
+    *out = scalar_out;
 }
 
 void blst_map_to_g1(BoundaryG1* out, const blst::Fp* u, const blst::Fp* v)
