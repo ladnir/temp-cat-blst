@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/curve/multi_scalar.h` |
 | Roadmap phase / queue | Phase 15 selected scalar MSM facade |
-| Reviewed commit | pending remediation commit |
+| Reviewed commit | `af09f66ee9097fe35617af33fbcbc7dfd4229237` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-04 |
 | Disposition | in-scope production |
@@ -127,5 +127,5 @@ no dead dispatcher or hash alias.
 
 ## Residual risk and decision
 
-Complete pending the final remediation commit hash. CUDA compatibility aliases
-remain explicitly experimental.
+Complete at the recorded commit. CUDA compatibility aliases remain explicitly
+experimental.

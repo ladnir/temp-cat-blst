@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/scalar/curve/multi_scalar.h` |
 | Roadmap phase / queue | Phase 15 scalar curves and protocols, third packet |
-| Reviewed commit | pending remediation commit |
+| Reviewed commit | `af09f66ee9097fe35617af33fbcbc7dfd4229237` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-04 |
 | Disposition | in-scope production |
@@ -156,6 +156,6 @@ kernel did not change and benchmark execution requires separate approval.
 
 ## Residual risk and decision
 
-The file is complete pending insertion of the final remediation commit hash.
-Portable-AVX, sanitizer, fuzz, and full supported-matrix evidence remain
+The file is complete at the recorded commit. Portable-AVX, sanitizer, fuzz,
+and full supported-matrix evidence remain
 milestone gates rather than blockers for this scalar file review.

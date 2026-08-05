@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/scalar/curve/multi_scalar.cpp` |
 | Roadmap phase / queue | Phase 15 scalar curves and protocols, third packet |
-| Reviewed commit | pending remediation commit |
+| Reviewed commit | `af09f66ee9097fe35617af33fbcbc7dfd4229237` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-04 |
 | Disposition | in-scope production |
@@ -153,5 +153,5 @@ object inspection confirmed the fast path avoids the cold frame.
 
 ## Residual risk and decision
 
-The file is complete pending insertion of the final remediation commit hash.
-Sanitizer/fuzz and non-MSVC release-matrix evidence remain milestone work.
+The file is complete at the recorded commit. Sanitizer/fuzz and non-MSVC
+release-matrix evidence remain milestone work.

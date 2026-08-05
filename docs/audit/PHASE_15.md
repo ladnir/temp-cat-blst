@@ -115,8 +115,7 @@ CUDA, BTx/BTE, Apple CI, or portable-AVX Release build ran.
 
 The third complete packet reviews `blst/scalar/curve/multi_scalar.h` and
 `multi_scalar.cpp`, the selected native facade, and the safe Rust multipoint
-wrapper. Final commit hashes remain to be inserted after the reviewable packet
-is committed.
+wrapper at commit `af09f66ee9097fe35617af33fbcbc7dfd4229237`.
 
 ### Findings and decisions
 
@@ -161,8 +160,8 @@ ran.
 ## Status and next action
 
 `point.h`, `point.cpp`, scalar/selected bulk addition, scalar/selected MSM, and
-the safe Rust multipoint wrapper are complete, with the current MSM records
-awaiting their final remediation commit hash. `GT.cpp` and the larger public C
+the safe Rust multipoint wrapper are complete at their recorded commits.
+`GT.cpp` and the larger public C
 containing file remain pending except for linked focused families.
 
 Next, review `multi_scalar_batch_affine.cpp`. Preserve its fixed-size hot

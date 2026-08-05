@@ -1,6 +1,6 @@
 # Audit Status
 
-Last updated: 2026-08-04
+Last updated: 2026-08-05
 
 ## Current phase
 
@@ -342,12 +342,12 @@ Main audit work volume:
 
 | Work group | Phases | Total | Complete | Pending |
 | --- | --- | ---: | ---: | ---: |
-| Scalar foundations, fields, curves, and protocols | 13-15 | 197 | 4 | 193 |
+| Scalar foundations, fields, curves, and protocols | 13-15 | 197 | 7 | 190 |
 | AVX-512 | 16 | 42 | 0 | 42 |
 | FFT and middle product | 17 | 10 | 0 | 10 |
-| C/C++/Rust APIs and bindings | 18 | 28 | 0 | 28 |
+| C/C++/Rust APIs and bindings | 18 | 28 | 1 | 27 |
 | Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 166 | 0 | 166 |
-| **Total in-scope production/generated/support** | **12-19** | **443** | **4** | **439** |
+| **Total in-scope production/generated/support** | **12-19** | **443** | **8** | **435** |
 
 The rollup is explained in `PRODUCTION_AUDIT_ROADMAP.md`; the per-file
 `FILE_MANIFEST.csv` remains authoritative.
@@ -381,8 +381,8 @@ the supported scalar release matrix. `point.h` and `point.cpp` are complete at
 the complete `add_or_double`/`dadd` alternative documented. Scalar and selected
 bulk-addition headers are complete at `bd45afa`; `AUD-109` through `AUD-112`
 are validated. Scalar/selected MSM and the safe Rust multipoint wrapper are
-complete pending the final remediation hash; `AUD-113` through `AUD-120` are
-validated. Continue Phase 15 with `multi_scalar_batch_affine.cpp`. Keep
+complete at `af09f66`; `AUD-113` through `AUD-120` are validated. Continue
+Phase 15 with `multi_scalar_batch_affine.cpp`. Keep
 `AUD-085` as the next
 explicit design decision when the GT decoder surface is reviewed. Coverage
 remains a late audit/release metric by user decision; sanitizer, fuzz, and

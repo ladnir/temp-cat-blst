@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `bindings/rust/src/pippenger.rs` |
 | Roadmap phase / queue | Phase 15 scalar MSM supported caller review |
-| Reviewed commit | pending remediation commit |
+| Reviewed commit | `af09f66ee9097fe35617af33fbcbc7dfd4229237` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-04 |
 | Disposition | in-scope production |
@@ -141,6 +141,6 @@ No benchmark or CUDA/AVX expert Rust surface is part of this file review.
 
 ## Residual risk and decision
 
-The file is complete pending insertion of the final remediation commit hash.
-Generated raw bindings remain a Phase 18 generator review; broader Rust and
-Apple validation remains a milestone gate.
+The file is complete at the recorded commit. Generated raw bindings remain a
+Phase 18 generator review; broader Rust and Apple validation remains a
+milestone gate.
