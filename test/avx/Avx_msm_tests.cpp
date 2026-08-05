@@ -544,15 +544,15 @@ TEST(AvxMsm, GTCApiPippengerMatchesCppGLV4)
         ASSERT_TRUE(blst_avx_fp12_from_scalar(&c_points[i], &public_point));
     }
 
-    const size_t scratch_bytes = blst_avx_fp12_mult_pippenger_scratch_sizeof(kCount);
-    const size_t bucket_used_bytes = blst_avx_fp12_mult_pippenger_bucket_used_scratch_sizeof(kCount);
+    const size_t scratch_bytes = blst_avx_gt_mult_pippenger_scratch_sizeof(kCount);
+    const size_t bucket_used_bytes = blst_avx_gt_mult_pippenger_bucket_used_scratch_sizeof(kCount);
     ASSERT_GT(scratch_bytes, 0u);
     ASSERT_GT(bucket_used_bytes, 0u);
     std::vector<blst_avx_fp12> scratch((scratch_bytes + sizeof(blst_avx_fp12) - 1) / sizeof(blst_avx_fp12));
     std::vector<blst::byte> bucket_used(bucket_used_bytes);
 
     blst_avx_fp12 c_msm = {};
-    ASSERT_TRUE(blst_avx_fp12_mult_pippenger(
+    ASSERT_TRUE(blst_avx_gt_mult_pippenger(
         &c_msm,
         c_points.data(),
         scalars.data(),

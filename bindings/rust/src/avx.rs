@@ -38,6 +38,9 @@ pub struct blst_avx_fp12 {
     pub b: [blst_byte; 1536],
 }
 
+/// Semantic alias for AVX Fp12 storage known to contain a GT element.
+pub type blst_avx_gt = blst_avx_fp12;
+
 impl Default for blst_avx_p1 {
     fn default() -> Self {
         Self { b: [0; 384] }
@@ -360,14 +363,13 @@ extern "C" {
         out: *mut blst_fp12,
         input: *const blst_avx_fp12,
     ) -> bool;
-    pub fn blst_avx_fp12_mult_pippenger_scratch_sizeof(npoints: usize)
-        -> usize;
-    pub fn blst_avx_fp12_mult_pippenger_bucket_used_scratch_sizeof(
+    pub fn blst_avx_gt_mult_pippenger_scratch_sizeof(npoints: usize) -> usize;
+    pub fn blst_avx_gt_mult_pippenger_bucket_used_scratch_sizeof(
         npoints: usize,
     ) -> usize;
-    pub fn blst_avx_fp12_mult_pippenger(
-        out: *mut blst_avx_fp12,
-        points: *const blst_avx_fp12,
+    pub fn blst_avx_gt_mult_pippenger(
+        out: *mut blst_avx_gt,
+        points: *const blst_avx_gt,
         scalars: *const blst_byte,
         npoints: usize,
         scratch: *mut core::ffi::c_void,
@@ -397,9 +399,11 @@ fn avx_fp12_storage_len(bytes: usize) -> usize {
     whole_elements + usize::from(whole_elements * element_size != bytes)
 }
 
-/// Computes a variable-time AVX GLV4 Pippenger MSM over GT/Fp12 elements.
+/// Computes a variable-time AVX GLV4 Pippenger MSM over validated GT elements.
 ///
-/// `scalars` must contain exactly one 256-bit little-endian scalar per point.
+/// Every point must already be a GT element; this function does not validate
+/// membership. `scalars` must contain exactly one 256-bit little-endian scalar
+/// per point. Scalar contents are public and are interpreted modulo r.
 pub fn gt_msm(
     points: &[blst_fp12],
     scalars: &[u8],
@@ -432,9 +436,9 @@ pub fn gt_msm(
     }
 
     let scratch_bytes =
-        unsafe { blst_avx_fp12_mult_pippenger_scratch_sizeof(points.len()) };
+        unsafe { blst_avx_gt_mult_pippenger_scratch_sizeof(points.len()) };
     let bucket_used_bytes = unsafe {
-        blst_avx_fp12_mult_pippenger_bucket_used_scratch_sizeof(points.len())
+        blst_avx_gt_mult_pippenger_bucket_used_scratch_sizeof(points.len())
     };
     if scratch_bytes == 0 || bucket_used_bytes == 0 {
         return Err(AvxMsmError::ScratchSizeOverflow);
@@ -450,7 +454,7 @@ pub fn gt_msm(
 
     let mut avx_out = MaybeUninit::<blst_avx_fp12>::uninit();
     let ok = unsafe {
-        blst_avx_fp12_mult_pippenger(
+        blst_avx_gt_mult_pippenger(
             avx_out.as_mut_ptr(),
             avx_points.as_ptr(),
             scalars.as_ptr(),
@@ -538,11 +542,12 @@ mod tests {
             return;
         }
 
-        let points = [blst_fp12::default(), blst_fp12::default()];
+        let identity = unsafe { *blst_gt_identity() };
+        let points = [identity, identity];
         let mut scalars = [0u8; 64];
         scalars[0] = 3;
         scalars[32] = 5;
 
-        assert_eq!(gt_msm(&points, &scalars).unwrap(), blst_fp12::default());
+        assert_eq!(gt_msm(&points, &scalars).unwrap(), identity);
     }
 }

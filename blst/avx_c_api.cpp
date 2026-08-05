@@ -156,7 +156,7 @@ inline AvxG2 g2_add_complete(const AvxG2& a, const AvxG2& b)
     return out;
 }
 
-template<typename Point, typename AddComplete, typename InSubgroup>
+template<typename Point, typename AddComplete, typename OnCurve, typename InSubgroup>
 inline bool batch_subgroup_check_projective(
     const Point* const* points,
     const size_t count,
@@ -164,13 +164,22 @@ inline bool batch_subgroup_check_projective(
     const size_t width,
     const Point& shift,
     AddComplete add_complete,
+    OnCurve on_curve,
     InSubgroup in_subgroup)
 {
+    if (!on_curve(shift)) {
+        return false;
+    }
     if (width == 0 || count == 0) {
         return true;
     }
     if (points == nullptr || coefficients == nullptr) {
         return false;
+    }
+    for (size_t i = 0; i < count; ++i) {
+        if (points[i] == nullptr || !on_curve(*points[i])) {
+            return false;
+        }
     }
     for (size_t round = 0; round < width; ++round) {
         Point sum = shift;
@@ -178,9 +187,6 @@ inline bool batch_subgroup_check_projective(
         bool has_negative = false;
         const byte* row = coefficients + round * count;
         for (size_t i = 0; i < count; ++i) {
-            if (points[i] == nullptr) {
-                return false;
-            }
             switch (row[i]) {
             case 0:
                 break;
@@ -262,7 +268,7 @@ inline bool g1_pippenger(
         return true;
     }
     if (npoints == 1) {
-        AvxG1::mult(out, points[0], scalars, nbits);
+        AvxG1::mult_vartime(out, points[0], scalars, nbits);
         return true;
     }
     if (scratch == nullptr) {
@@ -311,7 +317,7 @@ inline bool g2_pippenger(
         return true;
     }
     if (npoints == 1) {
-        AvxG2::mult(out, points[0], scalars, nbits);
+        AvxG2::mult_vartime(out, points[0], scalars, nbits);
         return true;
     }
     if (scratch == nullptr) {
@@ -446,6 +452,58 @@ inline bool gt_msm_scratch_layout(
         return false;
     }
     if (!checked_add_size(split_scalars_offset, split_scalar_bytes, total_bytes)) {
+        return false;
+    }
+    return true;
+}
+
+inline bool g1_subgroup_msm_scratch_layout(
+    size_t npoints,
+    size_t& bucket_bytes,
+    size_t& split_points_offset,
+    size_t& split_scalars_offset,
+    size_t& total_bytes)
+{
+    bucket_bytes = blst::avx::avx_g1_mult_pippenger_scratch_sizeof(npoints);
+    const size_t split_point_bytes =
+        blst::avx::avx_g1_mult_pippenger_glv_points_scratch_sizeof(npoints);
+    const size_t split_scalar_bytes =
+        blst::avx::avx_g1_mult_pippenger_glv_scalars_scratch_sizeof(npoints);
+    if (bucket_bytes == 0 || split_point_bytes == 0 || split_scalar_bytes == 0) {
+        split_points_offset = 0;
+        split_scalars_offset = 0;
+        total_bytes = 0;
+        return false;
+    }
+    if (!align_up_size(bucket_bytes, alignof(AvxG1Affine), split_points_offset) ||
+        !checked_add_size(split_points_offset, split_point_bytes, split_scalars_offset) ||
+        !checked_add_size(split_scalars_offset, split_scalar_bytes, total_bytes)) {
+        return false;
+    }
+    return true;
+}
+
+inline bool g2_subgroup_msm_scratch_layout(
+    size_t npoints,
+    size_t& bucket_bytes,
+    size_t& split_points_offset,
+    size_t& split_scalars_offset,
+    size_t& total_bytes)
+{
+    bucket_bytes = blst::avx::avx_g2_mult_pippenger_scratch_sizeof(npoints);
+    const size_t split_point_bytes =
+        blst::avx::avx_g2_mult_pippenger_gls_points_scratch_sizeof(npoints);
+    const size_t split_scalar_bytes =
+        blst::avx::avx_g2_mult_pippenger_gls_scalars_scratch_sizeof(npoints);
+    if (bucket_bytes == 0 || split_point_bytes == 0 || split_scalar_bytes == 0) {
+        split_points_offset = 0;
+        split_scalars_offset = 0;
+        total_bytes = 0;
+        return false;
+    }
+    if (!align_up_size(bucket_bytes, alignof(AvxG2Affine), split_points_offset) ||
+        !checked_add_size(split_points_offset, split_point_bytes, split_scalars_offset) ||
+        !checked_add_size(split_scalars_offset, split_scalar_bytes, total_bytes)) {
         return false;
     }
     return true;
@@ -606,6 +664,7 @@ bool blst_avx_p1_batch_subgroup_check(
         width,
         *as_avx(shift),
         g1_add_complete,
+        [](const AvxG1& point) { return AvxG1::on_curve(point); },
         [](const AvxG1& point) { return AvxG1::in_subgroup(point); });
 #else
     (void)points;
@@ -620,7 +679,8 @@ bool blst_avx_p1_batch_subgroup_check(
 bool blst_avx_p1_mult(blst_avx_p1* out, const blst_avx_p1* p, const byte* scalar, size_t nbits)
 {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-    if (out == nullptr || p == nullptr || (scalar == nullptr && nbits != 0)) {
+    if (out == nullptr || p == nullptr || nbits > 256 ||
+        (scalar == nullptr && nbits != 0)) {
         return false;
     }
     AvxG1::mult(*as_avx(out), *as_avx(p), scalar, nbits);
@@ -637,7 +697,16 @@ bool blst_avx_p1_mult(blst_avx_p1* out, const blst_avx_p1* p, const byte* scalar
 size_t blst_avx_p1_mult_pippenger_scratch_sizeof(size_t npoints)
 {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-    return blst::avx::avx_g1_mult_pippenger_scratch_sizeof(npoints);
+    size_t bucket_bytes = 0;
+    size_t split_points_offset = 0;
+    size_t split_scalars_offset = 0;
+    size_t total_bytes = 0;
+    if (!g1_subgroup_msm_scratch_layout(
+            npoints, bucket_bytes, split_points_offset,
+            split_scalars_offset, total_bytes)) {
+        return 0;
+    }
+    return total_bytes;
 #else
     (void)npoints;
     return 0;
@@ -693,9 +762,20 @@ bool blst_avx_p1_mult_pippenger(
         *as_avx(out) = AvxG1::infinity();
         return true;
     }
-    const size_t required_scratch = nbits == 256
-        ? blst::avx::avx_g1_mult_pippenger_scratch_sizeof(npoints)
-        : blst::avx::avx_g1_mult_pippenger_plain_scratch_sizeof(npoints);
+    size_t bucket_bytes = 0;
+    size_t split_points_offset = 0;
+    size_t split_scalars_offset = 0;
+    size_t required_scratch = 0;
+    if (nbits == 256) {
+        if (!g1_subgroup_msm_scratch_layout(
+                npoints, bucket_bytes, split_points_offset,
+                split_scalars_offset, required_scratch)) {
+            return false;
+        }
+    } else {
+        bucket_bytes = blst::avx::avx_g1_mult_pippenger_plain_scratch_sizeof(npoints);
+        required_scratch = bucket_bytes;
+    }
     const size_t required_bucket_used = nbits == 256
         ? blst::avx::avx_g1_mult_pippenger_bucket_used_scratch_sizeof(npoints)
         : blst::avx::avx_g1_mult_pippenger_plain_bucket_used_scratch_sizeof(npoints);
@@ -705,15 +785,29 @@ bool blst_avx_p1_mult_pippenger(
         !is_aligned(scratch, alignof(blst::avx::AvxG1PippengerBucket))) {
         return false;
     }
-    blst::avx::avx_g1_mult_pippenger(
-        *as_avx(out),
-        as_avx(points),
-        scalars,
-        npoints,
-        nbits,
-        reinterpret_cast<blst::avx::AvxG1PippengerBucket*>(scratch),
-        0,
-        bucket_used);
+#ifndef NDEBUG
+    for (size_t i = 0; i < npoints; ++i) {
+        BLST_ASSERT(AvxG1Affine::on_curve(as_avx(points)[i]));
+        BLST_ASSERT(AvxG1Affine::in_subgroup(as_avx(points)[i]));
+    }
+#endif
+    if (nbits == 256) {
+        auto* scratch_bytes_base = reinterpret_cast<byte*>(scratch);
+        auto* split_points = reinterpret_cast<AvxG1Affine*>(
+            scratch_bytes_base + split_points_offset);
+        byte* split_scalars = scratch_bytes_base + split_scalars_offset;
+        blst::avx::avx_g1_mult_pippenger_glv_prepare(
+            split_points, split_scalars, as_avx(points), scalars, npoints);
+        blst::avx::avx_g1_mult_pippenger_glv_prepared(
+            *as_avx(out), split_points, split_scalars, npoints,
+            reinterpret_cast<blst::avx::AvxG1PippengerBucket*>(scratch),
+            0, bucket_used);
+    } else {
+        blst::avx::avx_g1_mult_pippenger(
+            *as_avx(out), as_avx(points), scalars, npoints, nbits,
+            reinterpret_cast<blst::avx::AvxG1PippengerBucket*>(scratch),
+            0, bucket_used);
+    }
     return true;
 #else
     (void)out;
@@ -1057,10 +1151,22 @@ bool blst_avx_p1s_mult_pippenger(
     limb_t* scratch)
 {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-    if (out == nullptr || (npoints != 0 && (points == nullptr || scalars == nullptr))) {
+    if (out == nullptr || nbits > 256 ||
+        (npoints != 0 && nbits != 0 && (points == nullptr || scalars == nullptr))) {
         return false;
     }
-    return g1_pippenger(*as_avx(out), as_avx(points), npoints, scalars, nbits, scratch);
+    if (npoints == 0 || nbits == 0) {
+        *as_avx(out) = AvxG1::identity();
+        return true;
+    }
+#ifndef NDEBUG
+    for (size_t i = 0; i < npoints; ++i) {
+        BLST_ASSERT(AvxG1::on_curve(as_avx(points)[i]));
+        BLST_ASSERT(AvxG1::in_subgroup(as_avx(points)[i]));
+    }
+#endif
+    return g1_pippenger(
+        *as_avx(out), as_avx(points), npoints, scalars, nbits, scratch);
 #else
     (void)out;
     (void)points;
@@ -1194,6 +1300,7 @@ bool blst_avx_p2_batch_subgroup_check(
         width,
         *as_avx(shift),
         g2_add_complete,
+        [](const AvxG2& point) { return AvxG2::on_curve(point); },
         [](const AvxG2& point) { return AvxG2::in_subgroup(point); });
 #else
     (void)points;
@@ -1208,7 +1315,8 @@ bool blst_avx_p2_batch_subgroup_check(
 bool blst_avx_p2_mult(blst_avx_p2* out, const blst_avx_p2* p, const byte* scalar, size_t nbits)
 {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-    if (out == nullptr || p == nullptr || (scalar == nullptr && nbits != 0)) {
+    if (out == nullptr || p == nullptr || nbits > 256 ||
+        (scalar == nullptr && nbits != 0)) {
         return false;
     }
     AvxG2::mult(*as_avx(out), *as_avx(p), scalar, nbits);
@@ -1225,7 +1333,16 @@ bool blst_avx_p2_mult(blst_avx_p2* out, const blst_avx_p2* p, const byte* scalar
 size_t blst_avx_p2_mult_pippenger_scratch_sizeof(size_t npoints)
 {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-    return blst::avx::avx_g2_mult_pippenger_scratch_sizeof(npoints);
+    size_t bucket_bytes = 0;
+    size_t split_points_offset = 0;
+    size_t split_scalars_offset = 0;
+    size_t total_bytes = 0;
+    if (!g2_subgroup_msm_scratch_layout(
+            npoints, bucket_bytes, split_points_offset,
+            split_scalars_offset, total_bytes)) {
+        return 0;
+    }
+    return total_bytes;
 #else
     (void)npoints;
     return 0;
@@ -1261,10 +1378,23 @@ bool blst_avx_p2_mult_pippenger(
         *as_avx(out) = AvxG2::infinity();
         return true;
     }
-    const size_t required_scratch = nbits == 256
-        ? blst::avx::avx_g2_mult_pippenger_scratch_sizeof(npoints)
-        : blst::avx::avx_g2_mult_pippenger_plain_scratch_sizeof(npoints);
-    const size_t required_bucket_used = nbits == 256
+    const bool use_gls = nbits == 256 &&
+        npoints <= blst::avx::avx_msm_detail::kG2GlsDispatchMaxNpoints;
+    size_t bucket_bytes = 0;
+    size_t split_points_offset = 0;
+    size_t split_scalars_offset = 0;
+    size_t required_scratch = 0;
+    if (use_gls) {
+        if (!g2_subgroup_msm_scratch_layout(
+                npoints, bucket_bytes, split_points_offset,
+                split_scalars_offset, required_scratch)) {
+            return false;
+        }
+    } else {
+        bucket_bytes = blst::avx::avx_g2_mult_pippenger_plain_scratch_sizeof(npoints);
+        required_scratch = bucket_bytes;
+    }
+    const size_t required_bucket_used = use_gls
         ? blst::avx::avx_g2_mult_pippenger_bucket_used_scratch_sizeof(npoints)
         : blst::avx::avx_g2_mult_pippenger_plain_bucket_used_scratch_sizeof(npoints);
     if (required_scratch == 0 || required_bucket_used == 0 ||
@@ -1273,15 +1403,29 @@ bool blst_avx_p2_mult_pippenger(
         !is_aligned(scratch, alignof(blst::avx::AvxG2PippengerBucket))) {
         return false;
     }
-    blst::avx::avx_g2_mult_pippenger(
-        *as_avx(out),
-        as_avx(points),
-        scalars,
-        npoints,
-        nbits,
-        reinterpret_cast<blst::avx::AvxG2PippengerBucket*>(scratch),
-        0,
-        bucket_used);
+#ifndef NDEBUG
+    for (size_t i = 0; i < npoints; ++i) {
+        BLST_ASSERT(AvxG2Affine::on_curve(as_avx(points)[i]));
+        BLST_ASSERT(AvxG2Affine::in_subgroup(as_avx(points)[i]));
+    }
+#endif
+    if (use_gls) {
+        auto* scratch_bytes_base = reinterpret_cast<byte*>(scratch);
+        auto* split_points = reinterpret_cast<AvxG2Affine*>(
+            scratch_bytes_base + split_points_offset);
+        byte* split_scalars = scratch_bytes_base + split_scalars_offset;
+        blst::avx::avx_g2_mult_pippenger_gls_prepare(
+            split_points, split_scalars, as_avx(points), scalars, npoints);
+        blst::avx::avx_g2_mult_pippenger_gls_prepared(
+            *as_avx(out), split_points, split_scalars, npoints,
+            reinterpret_cast<blst::avx::AvxG2PippengerBucket*>(scratch),
+            0, bucket_used);
+    } else {
+        blst::avx::avx_g2_mult_pippenger(
+            *as_avx(out), as_avx(points), scalars, npoints, nbits,
+            reinterpret_cast<blst::avx::AvxG2PippengerBucket*>(scratch),
+            0, bucket_used);
+    }
     return true;
 #else
     (void)out;
@@ -1445,10 +1589,22 @@ bool blst_avx_p2s_mult_pippenger(
     limb_t* scratch)
 {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-    if (out == nullptr || (npoints != 0 && (points == nullptr || scalars == nullptr))) {
+    if (out == nullptr || nbits > 256 ||
+        (npoints != 0 && nbits != 0 && (points == nullptr || scalars == nullptr))) {
         return false;
     }
-    return g2_pippenger(*as_avx(out), as_avx(points), npoints, scalars, nbits, scratch);
+    if (npoints == 0 || nbits == 0) {
+        *as_avx(out) = AvxG2::identity();
+        return true;
+    }
+#ifndef NDEBUG
+    for (size_t i = 0; i < npoints; ++i) {
+        BLST_ASSERT(AvxG2::on_curve(as_avx(points)[i]));
+        BLST_ASSERT(AvxG2::in_subgroup(as_avx(points)[i]));
+    }
+#endif
+    return g2_pippenger(
+        *as_avx(out), as_avx(points), npoints, scalars, nbits, scratch);
 #else
     (void)out;
     (void)points;
@@ -1531,7 +1687,7 @@ bool blst_avx_fp12_sqr(blst_avx_fp12* ret, const blst_avx_fp12* a)
 #endif
 }
 
-size_t blst_avx_fp12_mult_pippenger_scratch_sizeof(size_t npoints)
+size_t blst_avx_gt_mult_pippenger_scratch_sizeof(size_t npoints)
 {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
     size_t bucket_bytes = 0;
@@ -1548,7 +1704,7 @@ size_t blst_avx_fp12_mult_pippenger_scratch_sizeof(size_t npoints)
 #endif
 }
 
-size_t blst_avx_fp12_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints)
+size_t blst_avx_gt_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints)
 {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
     return blst::avx::avx_gt_mult_pippenger_glv4_bucket_used_scratch_sizeof(npoints);
@@ -1558,9 +1714,9 @@ size_t blst_avx_fp12_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints)
 #endif
 }
 
-bool blst_avx_fp12_mult_pippenger(
-    blst_avx_fp12* out,
-    const blst_avx_fp12* points,
+bool blst_avx_gt_mult_pippenger(
+    blst_avx_gt* out,
+    const blst_avx_gt* points,
     const byte* scalars,
     size_t npoints,
     void* scratch,
@@ -1590,6 +1746,10 @@ bool blst_avx_fp12_mult_pippenger(
         !is_aligned(scratch, alignof(AvxGt))) {
         return false;
     }
+#ifndef NDEBUG
+    for (size_t i = 0; i < npoints; ++i)
+        BLST_ASSERT(AvxGt::in_group(as_avx(points)[i]));
+#endif
 
     auto* scratch_bytes_base = reinterpret_cast<byte*>(scratch);
     blst::avx::avx_gt_mult_pippenger_glv4(

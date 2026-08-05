@@ -1115,14 +1115,15 @@ void blst_p1s_mult_pippenger(
     size_t nbits,
     blst::limb_t* scratch)
 {
-    if (npoints == 0 || !c_api_has_valid_pair_heads(points, scalars, npoints)) {
+    if (npoints == 0 || nbits > 256 ||
+        !c_api_has_valid_pair_heads(points, scalars, npoints)) {
         *ret = {};
         return;
     }
     if (npoints == 1) {
         BoundaryG1 point = {};
         BoundaryG1::from_affine(point, *points[0]);
-        BoundaryG1::unchecked_mult(*ret, point, scalars[0], nbits);
+        BoundaryG1::mult_vartime(*ret, point, scalars[0], nbits);
         return;
     }
     if (scratch == nullptr) {
@@ -1209,7 +1210,7 @@ void blst_p1s_mult_pippenger_window(
     blst::limb_t* scratch,
     size_t window)
 {
-    if (npoints == 0 || !c_api_valid_pippenger_window(window) ||
+    if (npoints == 0 || nbits > 256 || !c_api_valid_pippenger_window(window) ||
         !c_api_has_valid_pair_heads(points, scalars, npoints)) {
         *ret = {};
         return;
@@ -1217,7 +1218,7 @@ void blst_p1s_mult_pippenger_window(
     if (npoints == 1) {
         BoundaryG1 point = {};
         BoundaryG1::from_affine(point, *points[0]);
-        BoundaryG1::unchecked_mult(*ret, point, scalars[0], nbits);
+        BoundaryG1::mult_vartime(*ret, point, scalars[0], nbits);
         return;
     }
     if (scratch == nullptr) {
@@ -1546,14 +1547,15 @@ void blst_p2s_mult_pippenger(
     size_t nbits,
     blst::limb_t* scratch)
 {
-    if (npoints == 0 || !c_api_has_valid_pair_heads(points, scalars, npoints)) {
+    if (npoints == 0 || nbits > 256 ||
+        !c_api_has_valid_pair_heads(points, scalars, npoints)) {
         *ret = {};
         return;
     }
     if (npoints == 1) {
         BoundaryG2 point = {};
         BoundaryG2::from_affine(point, *points[0]);
-        BoundaryG2::unchecked_mult(*ret, point, scalars[0], nbits);
+        BoundaryG2::mult_vartime(*ret, point, scalars[0], nbits);
         return;
     }
     if (scratch == nullptr) {
@@ -1579,7 +1581,7 @@ void blst_p2s_mult_pippenger_window(
     blst::limb_t* scratch,
     size_t window)
 {
-    if (npoints == 0 || !c_api_valid_pippenger_window(window) ||
+    if (npoints == 0 || nbits > 256 || !c_api_valid_pippenger_window(window) ||
         !c_api_has_valid_pair_heads(points, scalars, npoints)) {
         *ret = {};
         return;
@@ -1587,7 +1589,7 @@ void blst_p2s_mult_pippenger_window(
     if (npoints == 1) {
         BoundaryG2 point = {};
         BoundaryG2::from_affine(point, *points[0]);
-        BoundaryG2::unchecked_mult(*ret, point, scalars[0], nbits);
+        BoundaryG2::mult_vartime(*ret, point, scalars[0], nbits);
         return;
     }
     if (scratch == nullptr) {

@@ -52,6 +52,9 @@ typedef struct BLST_AUX_ALIGNAS(BLST_AVX_ALIGNMENT) { blst_byte b[BLST_AVX_P2_AF
 typedef struct BLST_AUX_ALIGNAS(BLST_AVX_ALIGNMENT) { blst_byte b[BLST_AVX_FP12_SIZE]; } blst_avx_fp12;
 #endif
 
+/** Semantic alias for AVX Fp12 storage known to contain a GT element. */
+typedef blst_avx_fp12 blst_avx_gt;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -120,17 +123,24 @@ bool blst_p1_affine_from_avx(blst_p1_affine* out, const blst_avx_p1_affine* in);
 bool blst_avx_p1_add(blst_avx_p1* out, const blst_avx_p1* a, const blst_avx_p1* b);
 
 /**
- * Multiplies an AVX G1 projective point by an unsigned little-endian scalar.
+ * Multiplies an AVX G1 projective subgroup point by an unsigned
+ * little-endian scalar.
+ *
+ * `p` must already be on-curve and in G1; Release does not validate this
+ * precondition. The scalar is interpreted modulo r. For canonical scalars,
+ * runtime and memory access are independent of scalar contents for fixed
+ * public `nbits`; noncanonical timing may reveal that reduction was required.
  *
  * Parameters:
  * - `out` receives the product.
  * - `p` is the input point.
  * - `scalar` points to the scalar bytes.
- * - `nbits` is the number of meaningful low bits in `scalar`.
+ * - `nbits` is the number of meaningful low bits in `scalar` and must not
+ *   exceed 256. `scalar` may be null only when `nbits` is zero.
  */
 bool blst_avx_p1_mult(blst_avx_p1* out, const blst_avx_p1* p, const blst_byte* scalar, size_t nbits);
 
-/** Returns bucket scratch bytes required by `blst_avx_p1_mult_pippenger`. */
+/** Returns aggregate scratch bytes required by subgroup `blst_avx_p1_mult_pippenger`. */
 size_t blst_avx_p1_mult_pippenger_scratch_sizeof(size_t npoints);
 /** Returns byte-flag scratch bytes required by `blst_avx_p1_mult_pippenger`. */
 size_t blst_avx_p1_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints);
@@ -140,7 +150,11 @@ size_t blst_avx_p1_mult_pippenger_glv_points_scratch_sizeof(size_t npoints);
 size_t blst_avx_p1_mult_pippenger_glv_scalars_scratch_sizeof(size_t npoints);
 
 /**
- * Variable-time Pippenger MSM over AVX G1 affine points.
+ * Variable-time subgroup-optimized Pippenger MSM over AVX G1 affine points.
+ *
+ * Every point must already be on-curve and in G1; Release does not validate
+ * this precondition. Scalars contain at most 256 meaningful little-endian bits
+ * each and are interpreted modulo r. The selected algorithm may use GLV.
  *
  * `scalars` is a contiguous array of `npoints` little-endian scalars, each
  * `(nbits+7)/8` bytes. `scratch` and `bucket_used` must point to caller-owned
@@ -160,6 +174,10 @@ bool blst_avx_p1_mult_pippenger(
 /**
  * Variable-time GLV Pippenger MSM over AVX G1 affine points with all scratch
  * supplied by the caller.
+ *
+ * Every point must already be on-curve and in G1; Release does not validate
+ * this precondition. Each complete 256-bit scalar is reduced modulo r before
+ * decomposition.
  *
  * `scalars` is a contiguous array of `npoints` 32-byte little-endian scalars.
  * `scratch`, `bucket_used`, `split_points`, and `split_scalars` must point to
@@ -186,6 +204,10 @@ size_t blst_avx_p1_mult_pippenger_glv_window_bucket_used_scratch_sizeof(size_t n
 /**
  * Variable-time GLV Pippenger MSM over AVX G1 affine points using an explicit
  * window and caller-owned scratch. Intended for benchmarking/tuning small MSMs.
+ * Every point must already be on-curve and in G1; each 256-bit scalar is
+ * reduced modulo r before GLV decomposition. Release does not validate point
+ * membership.
+ *
  * Current BTX-DKG measurements did not justify using this from production; the
  * auto-window GLV API remains the production path.
  */
@@ -208,7 +230,7 @@ bool blst_avx_p1_mult_pippenger_glv_window_with_scratch(
 bool blst_avx_p1_to_affine(blst_avx_p1_affine* out, const blst_avx_p1* in);
 /** Converts an AVX G1 affine point to AVX projective form. */
 bool blst_avx_p1_from_affine(blst_avx_p1* out, const blst_avx_p1_affine* in);
-/** Returns `true` when the AVX G1 point is in the correct subgroup. */
+/** Returns `true` when the AVX G1 point is on-curve and in the correct subgroup. */
 bool blst_avx_p1_in_g1(const blst_avx_p1* p);
 /** Returns `true` when the AVX G1 point is the point at infinity. */
 bool blst_avx_p1_is_inf(const blst_avx_p1* p);
@@ -239,9 +261,16 @@ bool blst_avx_p1_serialize(blst_byte out[96], const blst_avx_p1* in);
 BLST_ERROR blst_avx_p1_deserialize(blst_avx_p1* out, const blst_byte in[96]);
 /** Parses a standard 48-byte compressed G1 encoding into AVX projective form. */
 BLST_ERROR blst_avx_p1_uncompress(blst_avx_p1* out, const blst_byte in[48]);
-/** Returns caller-owned scratch bytes needed by AVX G1 Pippenger MSM. */
+/** Returns caller-owned scratch bytes needed by subgroup AVX G1 Pippenger MSM. */
 size_t blst_avx_p1s_mult_pippenger_scratch_sizeof(size_t npoints);
-/** Computes a projective AVX G1 MSM with Pippenger and caller-owned scratch. */
+/**
+ * Computes variable-time subgroup G1 MSM.
+ *
+ * Inputs must already be on-curve G1 elements. Scalars contain at most 256
+ * meaningful little-endian bits and are interpreted modulo r. Release checks
+ * pointer/bit-count shape but does not validate point membership. The checked
+ * one-point path requires no scratch.
+ */
 bool blst_avx_p1s_mult_pippenger(
     blst_avx_p1* out,
     const blst_avx_p1* points,
@@ -249,7 +278,6 @@ bool blst_avx_p1s_mult_pippenger(
     const blst_byte* scalars,
     size_t nbits,
     blst_limb_t* scratch);
-
 /**
  * Returns the AVX G1 generator.
  *
@@ -285,19 +313,25 @@ bool blst_avx_p2_batch_subgroup_check(
     const blst_avx_p2* shift);
 
 /**
- * Multiplies an AVX G2 projective point by an unsigned little-endian scalar.
+ * Multiplies an AVX G2 projective subgroup point by an unsigned
+ * little-endian scalar.
  *
- * Parameters mirror `blst_avx_p1_mult`.
+ * Preconditions, modulo-r scalar semantics, fixed-`nbits` timing, and
+ * parameters mirror `blst_avx_p1_mult`.
  */
 bool blst_avx_p2_mult(blst_avx_p2* out, const blst_avx_p2* p, const blst_byte* scalar, size_t nbits);
 
-/** Returns bucket scratch bytes required by `blst_avx_p2_mult_pippenger`. */
+/** Returns aggregate scratch bytes required by subgroup `blst_avx_p2_mult_pippenger`. */
 size_t blst_avx_p2_mult_pippenger_scratch_sizeof(size_t npoints);
 /** Returns byte-flag scratch bytes required by `blst_avx_p2_mult_pippenger`. */
 size_t blst_avx_p2_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints);
 
 /**
- * Variable-time Pippenger MSM over AVX G2 affine points.
+ * Variable-time subgroup-optimized Pippenger MSM over AVX G2 affine points.
+ *
+ * Every point must already be on-curve and in G2; Release does not validate
+ * this precondition. Scalars contain at most 256 meaningful little-endian bits
+ * each and are interpreted modulo r. The selected algorithm may use GLS.
  *
  * `scalars` is a contiguous array of `npoints` little-endian scalars, each
  * `(nbits+7)/8` bytes. `scratch` and `bucket_used` must point to caller-owned
@@ -318,7 +352,7 @@ bool blst_avx_p2_mult_pippenger(
 bool blst_avx_p2_to_affine(blst_avx_p2_affine* out, const blst_avx_p2* in);
 /** Converts an AVX G2 affine point to AVX projective form. */
 bool blst_avx_p2_from_affine(blst_avx_p2* out, const blst_avx_p2_affine* in);
-/** Returns `true` when the AVX G2 point is in the correct subgroup. */
+/** Returns `true` when the AVX G2 point is on-curve and in the correct subgroup. */
 bool blst_avx_p2_in_g2(const blst_avx_p2* p);
 /** Returns `true` when the AVX G2 point is the point at infinity. */
 bool blst_avx_p2_is_inf(const blst_avx_p2* p);
@@ -332,9 +366,16 @@ bool blst_avx_p2_serialize(blst_byte out[192], const blst_avx_p2* in);
 BLST_ERROR blst_avx_p2_uncompress(blst_avx_p2* out, const blst_byte in[96]);
 /** Parses a standard 192-byte uncompressed G2 encoding into AVX projective form. */
 BLST_ERROR blst_avx_p2_deserialize(blst_avx_p2* out, const blst_byte in[192]);
-/** Returns caller-owned scratch bytes needed by AVX G2 Pippenger MSM. */
+/** Returns caller-owned scratch bytes needed by subgroup AVX G2 Pippenger MSM. */
 size_t blst_avx_p2s_mult_pippenger_scratch_sizeof(size_t npoints);
-/** Computes a projective AVX G2 MSM with Pippenger and caller-owned scratch. */
+/**
+ * Computes variable-time subgroup G2 MSM.
+ *
+ * Inputs must already be on-curve G2 elements. Scalars contain at most 256
+ * meaningful little-endian bits and are interpreted modulo r. Release checks
+ * pointer/bit-count shape but does not validate point membership. The checked
+ * one-point path requires no scratch.
+ */
 bool blst_avx_p2s_mult_pippenger(
     blst_avx_p2* out,
     const blst_avx_p2* points,
@@ -342,7 +383,6 @@ bool blst_avx_p2s_mult_pippenger(
     const blst_byte* scalars,
     size_t nbits,
     blst_limb_t* scratch);
-
 /**
  * Returns the AVX G2 generator.
  *
@@ -361,23 +401,21 @@ bool blst_avx_fp12_mul(blst_avx_fp12* ret, const blst_avx_fp12* a, const blst_av
 /** Squares an AVX GT/Fp12 value and writes the result to `ret`. */
 bool blst_avx_fp12_sqr(blst_avx_fp12* ret, const blst_avx_fp12* a);
 
-/** Returns aggregate scratch bytes required by `blst_avx_fp12_mult_pippenger`. */
-size_t blst_avx_fp12_mult_pippenger_scratch_sizeof(size_t npoints);
-/** Returns byte-flag scratch bytes required by `blst_avx_fp12_mult_pippenger`. */
-size_t blst_avx_fp12_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints);
+/** Returns aggregate scratch bytes required by `blst_avx_gt_mult_pippenger`. */
+size_t blst_avx_gt_mult_pippenger_scratch_sizeof(size_t npoints);
+/** Returns byte-flag scratch bytes required by `blst_avx_gt_mult_pippenger`. */
+size_t blst_avx_gt_mult_pippenger_bucket_used_scratch_sizeof(size_t npoints);
 
 /**
- * Variable-time GLV4 Pippenger MSM over AVX GT/Fp12 values.
+ * Variable-time GLV4 Pippenger MSM over previously validated GT elements.
  *
- * `scalars` is a contiguous array of `npoints` 256-bit little-endian scalars.
- * `scratch` must be aligned to `BLST_AVX_ALIGNMENT` and at least
- * `blst_avx_fp12_mult_pippenger_scratch_sizeof(npoints)` bytes. `bucket_used`
- * must have at least
- * `blst_avx_fp12_mult_pippenger_bucket_used_scratch_sizeof(npoints)` bytes.
+ * Each scalar is a 256-bit little-endian integer interpreted modulo r.
+ * Release does not validate GT membership. Scratch sizes come from the two
+ * matching helpers above.
  */
-bool blst_avx_fp12_mult_pippenger(
-    blst_avx_fp12* out,
-    const blst_avx_fp12* points,
+bool blst_avx_gt_mult_pippenger(
+    blst_avx_gt* out,
+    const blst_avx_gt* points,
     const blst_byte* scalars,
     size_t npoints,
     void* scratch,

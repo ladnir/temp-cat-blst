@@ -904,6 +904,10 @@ inline void avx_g1_mult_pippenger_glv(
     size_t window_size,
     uint8_t* bucket_used);
 
+/**
+ * Variable-time G1 subgroup MSM. Every point must be on-curve and in G1;
+ * scalars are interpreted modulo r. The selected kernel may use GLV.
+ */
 inline void avx_g1_mult_pippenger(
     G1Point& ret,
     const G1AffinePoint* points,
@@ -974,7 +978,8 @@ inline void avx_g1_mult_pippenger_glv_prepare(
             xs[j] = point.X;
 
             std::array<uint8_t, 32> scalar = {};
-            std::memcpy(scalar.data(), scalars + 32 * (i + j), 32);
+            blst::scalar::canonical_scalar_256_vartime(
+                scalar.data(), scalars + 32 * (i + j), 256);
             auto parts = div_by_zz(scalar);
             std::memcpy(split_scalars + (2 * (i + j)) * 16, parts.first.data(), 16);
             std::memcpy(split_scalars + (2 * (i + j) + 1) * 16, parts.second.data(), 16);
@@ -995,7 +1000,8 @@ inline void avx_g1_mult_pippenger_glv_prepare(
         split_points[2 * i + 1] = phi;
 
         std::array<uint8_t, 32> scalar = {};
-        std::memcpy(scalar.data(), scalars + 32 * i, 32);
+        blst::scalar::canonical_scalar_256_vartime(
+            scalar.data(), scalars + 32 * i, 256);
         auto parts = div_by_zz(scalar);
         std::memcpy(split_scalars + (2 * i) * 16, parts.first.data(), 16);
         std::memcpy(split_scalars + (2 * i + 1) * 16, parts.second.data(), 16);
@@ -1172,7 +1178,8 @@ inline void avx_g2_mult_pippenger_gls_prepare(
             split_points[4 * idx + 3] = psi3[j];
 
             std::array<uint8_t, 32> scalar = {};
-            std::memcpy(scalar.data(), scalars + 32 * idx, 32);
+            blst::scalar::canonical_scalar_256_vartime(
+                scalar.data(), scalars + 32 * idx, 256);
             auto parts_zz = div_by_zz(scalar);
             auto parts_low = div_by_z(parts_zz.first);
             auto parts_high = div_by_z(parts_zz.second);
@@ -1190,7 +1197,8 @@ inline void avx_g2_mult_pippenger_gls_prepare(
         split_points[4 * i + 3] = avx_g2_minus_psi_affine(split_points[4 * i + 2]);
 
         std::array<uint8_t, 32> scalar = {};
-        std::memcpy(scalar.data(), scalars + 32 * i, 32);
+        blst::scalar::canonical_scalar_256_vartime(
+            scalar.data(), scalars + 32 * i, 256);
         auto parts_zz = div_by_zz(scalar);
         auto parts_low = div_by_z(parts_zz.first);
         auto parts_high = div_by_z(parts_zz.second);
@@ -1264,6 +1272,10 @@ inline void avx_g2_mult_pippenger_gls(
         ret, split_points.data(), split_scalars.data(), npoints, buckets, window_size, bucket_used);
 }
 
+/**
+ * Variable-time G2 subgroup MSM. Every point must be on-curve and in G2;
+ * scalars are interpreted modulo r. The selected kernel may use GLS.
+ */
 inline void avx_g2_mult_pippenger(
     G2Point& ret,
     const G2AffinePoint* points,
@@ -1322,6 +1334,9 @@ inline void avx_gt_mult_pippenger_glv4_prepare(
     for (size_t i = 0; i < npoints; ++i) {
         const GT& point = points[i];
         std::array<uint64_t, 4> scalar = {};
+        // The balanced GLV4 splitter consumes the complete 256-bit domain and
+        // folds its z^4 quotient back modulo r. Avoid a redundant standalone
+        // reduction in this hot decomposed-MSM preparation loop.
         std::memcpy(scalar.data(), scalars + 32 * i, 32);
 
         int64_t parts[4] = {};

@@ -76,6 +76,17 @@ if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
         "avx/Avx_msm_tests.cpp"
     )
     list(APPEND TEST_SOURCES ${AVX_TEST_SOURCES})
+
+    # Keep the group-domain contract change loop independent of the broad test
+    # executable and the frozen BTx/BTE subsystem.
+    add_executable(blst_avx_contract_tests
+        "avx/Avx_c_api_contract_tests.cpp"
+    )
+    target_link_libraries(blst_avx_contract_tests PRIVATE
+        gtest_main
+        blst_static
+        blst_avx_headers
+    )
 endif()
 
 if(BLST_PARALLEL_MSM)
@@ -129,6 +140,14 @@ if(BLST_CUDA)
 endif()
 
 include(GoogleTest)        # 4) glue between GTest and CTest
+if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
+    gtest_discover_tests(blst_avx_contract_tests
+        DISCOVERY_TIMEOUT 60
+        DISCOVERY_MODE PRE_TEST
+        TEST_PREFIX "avx-contract."
+        PROPERTIES LABELS "avx;group-contract"
+    )
+endif()
 # 5) Auto-discover TEST() cases inside blst_tests and register them with CTest
 gtest_discover_tests(blst_tests
   DISCOVERY_TIMEOUT 60
