@@ -443,8 +443,9 @@ for the low-level accumulator accessor.
   merge, scalar shape, and empty Miller identity.
 - Optimized MSVC symbol inspection finds the new C/native Miller-result getter
   and no old accessor. Public-documentation, group-contract, and audit-manifest
-  integrity checks pass. Only the exact reviewed-commit records remain pending
-  before the findings are marked validated.
+  integrity checks pass. Exact review records bind the implementation/header
+  and safe Rust wrapper to `091dfb2cae096ee8ed801036e98827b3253b2e84`;
+  `AUD-152` through `AUD-159` are validated.
 
 No benchmark, broad suite, sanitizer sweep, CUDA build, BTx/BTE work, Apple CI,
 or portable-AVX Release build is part of this packet.
@@ -453,7 +454,7 @@ or portable-AVX Release build is part of this packet.
 
 Scalar point, bulk addition, MSM, fixed-window multiplication, GT/Miller,
 map-to-group, SHA-256, and key generation are complete at their recorded
-commits. The aggregate implementation and header have passed their focused
-validation gate. Record exact review hashes, then continue Phase 15 with the
-next signing/protocol file. Keep
+commits. The aggregate implementation/header and safe Rust pairing wrapper are
+complete at `091dfb2cae096ee8ed801036e98827b3253b2e84`. Continue Phase 15 with
+the next signing/protocol file. Keep
 the separately deferred checked GT deserialization design in `AUD-085`.
