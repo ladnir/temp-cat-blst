@@ -1,8 +1,11 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <string>
+#include <vector>
 
 #include "bindings/blst.h"
 #include "blst/scalar/curve/map_to_G.h"
@@ -52,11 +55,12 @@ constexpr std::array<uint64_t, 4> kScalarOrder = {
 };
 
 template<class Group>
-Group reference_multiply(const Group& point, const blst_byte scalar[32])
+Group reference_multiply(
+    const Group& point, const blst_byte scalar[32], size_t nbits)
 {
 	Group accumulator = Group::infinity();
 	Group power = point;
-	for (size_t bit = 0; bit < 256; ++bit) {
+	for (size_t bit = 0; bit < nbits; ++bit) {
 		if ((scalar[bit / 8] >> (bit % 8)) & 1U) {
 			Group sum = {};
 			Group::dadd(sum, accumulator, power);
@@ -69,7 +73,70 @@ Group reference_multiply(const Group& point, const blst_byte scalar[32])
 	return accumulator;
 }
 
-std::array<std::array<uint64_t, 4>, 8> gt_boundary_scalars()
+blst_fp12 reference_gt_multiply(
+    const blst_fp12& point, const blst_byte scalar[32], size_t nbits)
+{
+    blst_fp12 accumulator = *blst_fp12_one();
+    blst_fp12 power = point;
+    for (size_t bit = 0; bit < nbits; ++bit) {
+        if ((scalar[bit / 8] >> (bit % 8)) & 1U) {
+            blst_fp12 sum = {};
+            blst_fp12_mul(&sum, &accumulator, &power);
+            accumulator = sum;
+        }
+        blst_fp12 doubled = {};
+        blst_fp12_cyclotomic_sqr(&doubled, &power);
+        power = doubled;
+    }
+    return accumulator;
+}
+
+void expect_single_group_multiplication_matches_oracle(
+    const std::array<blst_byte, 32>& scalar, size_t nbits,
+    const char* case_name)
+{
+    ASSERT_LE(nbits, 256U);
+
+    const blst_p1 g1_expected = reference_multiply(
+        *blst_p1_generator(), scalar.data(), nbits);
+    blst_p1 g1_ct = {};
+    blst_p1 g1_vartime = {};
+    blst_p1 g1_unchecked = {};
+    blst_p1_mult(&g1_ct, blst_p1_generator(), scalar.data(), nbits);
+    blst_p1_mult_vartime(
+        &g1_vartime, blst_p1_generator(), scalar.data(), nbits);
+    blst_p1_unchecked_mult(
+        &g1_unchecked, blst_p1_generator(), scalar.data(), nbits);
+    EXPECT_TRUE(blst_p1_is_equal(&g1_ct, &g1_expected)) << case_name;
+    EXPECT_TRUE(blst_p1_is_equal(&g1_vartime, &g1_expected)) << case_name;
+    EXPECT_TRUE(blst_p1_is_equal(&g1_unchecked, &g1_expected)) << case_name;
+
+    const blst_p2 g2_expected = reference_multiply(
+        *blst_p2_generator(), scalar.data(), nbits);
+    blst_p2 g2_ct = {};
+    blst_p2 g2_vartime = {};
+    blst_p2 g2_unchecked = {};
+    blst_p2_mult(&g2_ct, blst_p2_generator(), scalar.data(), nbits);
+    blst_p2_mult_vartime(
+        &g2_vartime, blst_p2_generator(), scalar.data(), nbits);
+    blst_p2_unchecked_mult(
+        &g2_unchecked, blst_p2_generator(), scalar.data(), nbits);
+    EXPECT_TRUE(blst_p2_is_equal(&g2_ct, &g2_expected)) << case_name;
+    EXPECT_TRUE(blst_p2_is_equal(&g2_vartime, &g2_expected)) << case_name;
+    EXPECT_TRUE(blst_p2_is_equal(&g2_unchecked, &g2_expected)) << case_name;
+
+    const blst_fp12 gt_expected = reference_gt_multiply(
+        *blst_gt_generator(), scalar.data(), nbits);
+    blst_fp12 gt_ct = {};
+    blst_fp12 gt_vartime = {};
+    blst_gt_mult(&gt_ct, blst_gt_generator(), scalar.data(), nbits);
+    blst_gt_mult_vartime(
+        &gt_vartime, blst_gt_generator(), scalar.data(), nbits);
+    EXPECT_TRUE(blst_gt_is_equal(&gt_ct, &gt_expected)) << case_name;
+    EXPECT_TRUE(blst_gt_is_equal(&gt_vartime, &gt_expected)) << case_name;
+}
+
+std::array<std::array<uint64_t, 4>, 8> full_width_boundary_scalars()
 {
     auto order_minus_one = kScalarOrder;
     --order_minus_one[0];
@@ -251,7 +318,7 @@ TEST(GroupScalarMult, BitsAboveNbitsAreIgnored)
 
 TEST(GroupScalarMult, FullWidthBoundaryScalarsAgree)
 {
-    for (const auto& limbs : gt_boundary_scalars()) {
+    for (const auto& limbs : full_width_boundary_scalars()) {
         const auto scalar = scalar_bytes(limbs);
 		blst_p1 g1_ct = {};
 		blst_p1 g1_vartime = {};
@@ -281,7 +348,7 @@ TEST(GroupScalarMult, FullWidthBoundaryScalarsAgree)
 
 TEST(GroupScalarMult, FixedScheduleGtSplitProducesUnsignedRadixDigits)
 {
-    auto cases = gt_boundary_scalars();
+    auto cases = full_width_boundary_scalars();
     uint64_t state = 0x6a09e667f3bcc909ULL;
     for (size_t iteration = 0; iteration < 32; ++iteration) {
         std::array<uint64_t, 4> scalar = {};
@@ -344,12 +411,12 @@ TEST(GroupScalarMult, UncheckedMultiplicationSupportsOnCurveNonSubgroupPoints)
 	ASSERT_FALSE(G2Point::in_subgroup(g2));
 
 	const auto scalar = scalar_bytes({{19, 0, 0, 0}});
-	G1Point g1_expected = reference_multiply(g1, scalar.data());
+	G1Point g1_expected = reference_multiply(g1, scalar.data(), 256);
 	G1Point g1_actual = {};
 	blst_p1_unchecked_mult(&g1_actual, &g1, scalar.data(), 256);
 	EXPECT_TRUE(G1Point::equal(g1_expected, g1_actual));
 
-	G2Point g2_expected = reference_multiply(g2, scalar.data());
+	G2Point g2_expected = reference_multiply(g2, scalar.data(), 256);
 	G2Point g2_actual = {};
 	blst_p2_unchecked_mult(&g2_actual, &g2, scalar.data(), 256);
 	EXPECT_TRUE(G2Point::equal(g2_expected, g2_actual));
@@ -364,6 +431,140 @@ TEST(GroupScalarMult, UncheckedMultiplicationSupportsOnCurveNonSubgroupPoints)
 		blst_p2_mult(&rejected, &g2, scalar.data(), 256);
 	}, "BLST_ASSERT");
 #endif
+}
+
+TEST(GroupScalarMult, PublicMembershipPredicatesRequireCurveAndSubgroup)
+{
+    using blst::scalar::G1AffinePoint;
+    using blst::scalar::G1Point;
+    using blst::scalar::G2AffinePoint;
+    using blst::scalar::G2Point;
+
+    EXPECT_TRUE(blst_p1_in_g1(blst_p1_generator()));
+    EXPECT_TRUE(blst_p2_in_g2(blst_p2_generator()));
+
+    G1Point g1_isogenous = {};
+    G1Point g1_non_subgroup = {};
+    blst::scalar::map_to_isogenous<G1Point>(
+        g1_isogenous, G1AffinePoint::generator().x);
+    blst::scalar::isogeny_map_to<G1Point>(g1_non_subgroup, g1_isogenous);
+    ASSERT_TRUE(blst_p1_on_curve(&g1_non_subgroup));
+    EXPECT_FALSE(blst_p1_in_g1(&g1_non_subgroup));
+
+    G2Point g2_isogenous = {};
+    G2Point g2_non_subgroup = {};
+    blst::scalar::map_to_isogenous<G2Point>(
+        g2_isogenous, G2AffinePoint::generator().x);
+    blst::scalar::isogeny_map_to<G2Point>(g2_non_subgroup, g2_isogenous);
+    ASSERT_TRUE(blst_p2_on_curve(&g2_non_subgroup));
+    EXPECT_FALSE(blst_p2_in_g2(&g2_non_subgroup));
+
+    G1Point g1_off_curve = *blst_p1_generator();
+    g1_off_curve.x[0] ^= 1;
+    EXPECT_FALSE(blst_p1_on_curve(&g1_off_curve));
+    EXPECT_FALSE(blst_p1_in_g1(&g1_off_curve));
+
+    G2Point g2_off_curve = *blst_p2_generator();
+    g2_off_curve.x[0][0] ^= 1;
+    EXPECT_FALSE(blst_p2_on_curve(&g2_off_curve));
+    EXPECT_FALSE(blst_p2_in_g2(&g2_off_curve));
+
+    G1AffinePoint g1_affine = {};
+    G2AffinePoint g2_affine = {};
+    G1Point::to_affine(g1_affine, g1_off_curve);
+    G2Point::to_affine(g2_affine, g2_off_curve);
+    EXPECT_FALSE(blst_p1_affine_in_g1(&g1_affine));
+    EXPECT_FALSE(blst_p2_affine_in_g2(&g2_affine));
+
+    const G1Point g1_infinity = G1Point::infinity();
+    const G2Point g2_infinity = G2Point::infinity();
+    EXPECT_TRUE(blst_p1_in_g1(&g1_infinity));
+    EXPECT_TRUE(blst_p2_in_g2(&g2_infinity));
+}
+
+TEST(GroupScalarMult, ScalarPippengerUsesSubgroupModuloOrderContract)
+{
+    const auto scalar = scalar_bytes(
+        {{UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX}});
+    std::array<blst_byte, 64> scalars = {};
+    std::copy(scalar.begin(), scalar.end(), scalars.begin());
+    std::copy(scalar.begin(), scalar.end(), scalars.begin() + 32);
+    const blst_byte* scalar_heads[] = {scalars.data(), nullptr};
+
+    blst_p1 one_g1 = {};
+    blst_p1_mult_vartime(
+        &one_g1, blst_p1_generator(), scalar.data(), 256);
+    blst_p1 expected_g1 = {};
+    blst_p1_double(&expected_g1, &one_g1);
+    std::array<blst_p1_affine, 2> g1_affines = {};
+    blst_p1_to_affine(&g1_affines[0], blst_p1_generator());
+    g1_affines[1] = g1_affines[0];
+    const blst_p1_affine* g1_heads[] = {g1_affines.data(), nullptr};
+    const size_t g1_scratch_bytes =
+        blst_p1s_mult_pippenger_scratch_sizeof(g1_affines.size());
+    std::vector<blst_limb_t> g1_scratch(
+        (g1_scratch_bytes + sizeof(blst_limb_t) - 1) /
+        sizeof(blst_limb_t));
+    blst_p1 actual_g1 = {};
+    blst_p1s_mult_pippenger(
+        &actual_g1, g1_heads, g1_affines.size(), scalar_heads, 256,
+        g1_scratch.data());
+    EXPECT_TRUE(blst_p1_is_equal(&actual_g1, &expected_g1));
+
+    blst_p2 one_g2 = {};
+    blst_p2_mult_vartime(
+        &one_g2, blst_p2_generator(), scalar.data(), 256);
+    blst_p2 expected_g2 = {};
+    blst_p2_double(&expected_g2, &one_g2);
+    std::array<blst_p2_affine, 2> g2_affines = {};
+    blst_p2_to_affine(&g2_affines[0], blst_p2_generator());
+    g2_affines[1] = g2_affines[0];
+    const blst_p2_affine* g2_heads[] = {g2_affines.data(), nullptr};
+    const size_t g2_scratch_bytes =
+        blst_p2s_mult_pippenger_scratch_sizeof(g2_affines.size());
+    std::vector<blst_limb_t> g2_scratch(
+        (g2_scratch_bytes + sizeof(blst_limb_t) - 1) /
+        sizeof(blst_limb_t));
+    blst_p2 actual_g2 = {};
+    blst_p2s_mult_pippenger(
+        &actual_g2, g2_heads, g2_affines.size(), scalar_heads, 256,
+        g2_scratch.data());
+    EXPECT_TRUE(blst_p2_is_equal(&actual_g2, &expected_g2));
+}
+
+TEST(GroupScalarMult, IndependentReferenceCoversBoundariesAndCrossovers)
+{
+    const auto boundaries = full_width_boundary_scalars();
+    for (size_t i = 0; i < boundaries.size(); ++i) {
+        const auto scalar = scalar_bytes(boundaries[i]);
+        const std::string case_name = "boundary=" + std::to_string(i);
+        expect_single_group_multiplication_matches_oracle(
+            scalar, 256, case_name.c_str());
+    }
+
+    for (const size_t nbits : std::array<size_t, 8>{
+             1, 127, 128, 143, 144, 175, 176, 255}) {
+        const auto scalar = test_scalar(nbits);
+        const std::string case_name = "nbits=" + std::to_string(nbits);
+        expect_single_group_multiplication_matches_oracle(
+            scalar, nbits, case_name.c_str());
+    }
+
+    uint64_t state = 0x243f6a8885a308d3ULL;
+    for (size_t iteration = 0; iteration < 4; ++iteration) {
+        std::array<uint64_t, 4> limbs = {};
+        for (uint64_t& limb : limbs) {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            limb = state;
+        }
+        const auto scalar = scalar_bytes(limbs);
+        const std::string case_name =
+            "random=" + std::to_string(iteration);
+        expect_single_group_multiplication_matches_oracle(
+            scalar, 256, case_name.c_str());
+    }
 }
 
 }  // namespace

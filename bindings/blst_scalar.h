@@ -292,8 +292,10 @@ void blst_gt_double(blst_fp12* out, const blst_fp12* p);
  * not be reduced modulo the group order. The operation is cyclotomic
  * exponentiation; it does not validate subgroup membership.
  *
- * Runtime and memory access are independent of scalar contents for a fixed
- * public `nbits`.
+ * For canonical scalars in `[0,r)`, runtime and memory access are independent
+ * of scalar contents for a fixed public `nbits`. A noncanonical scalar is
+ * accepted and reduced modulo r, but timing may reveal that reduction was
+ * required.
  */
 void blst_gt_mult(blst_fp12* out, const blst_fp12* p, const blst_byte* scalar, size_t nbits);
 /** Optimized variable-time GT multiplication for public scalar data only. */
@@ -308,7 +310,8 @@ void blst_bendian_from_fp12(blst_byte out[48 * 12], const blst_fp12* a);
  *
  * Parameter interpretation:
  * - Scalar multiplication reads `scalar` as an unsigned little-endian bitstring
- *   with exactly `nbits` meaningful bits.
+ *   with exactly `nbits` meaningful bits. `nbits` must not exceed 256, and
+ *   `scalar` may be null only when `nbits` is zero.
  * - The unsuffixed single-point multiply is constant-time for fixed public
  *   `nbits`; `_vartime` and all multi-scalar/Pippenger operations require
  *   public scalars.
@@ -329,9 +332,9 @@ void blst_p1_sub_affine(blst_p1* out, const blst_p1* a, const blst_p1_affine* b)
 void blst_p1_add_or_double_affine(blst_p1* out, const blst_p1* a, const blst_p1_affine* b);
 /** Doubles the G1 projective point `a` and writes the result to `out`. */
 void blst_p1_double(blst_p1* out, const blst_p1* a);
-/** Constant-time G1 multiplication for a fixed public `nbits`. `p` must already be an on-curve prime-order subgroup point; Release builds do not validate this precondition. */
+/** Multiplies subgroup point `p` by `scalar mod r`. For canonical scalars and fixed public `nbits`, the operation is constant-time. Noncanonical scalars are accepted, but timing may reveal that reduction was required. Release does not validate `p`. */
 void blst_p1_mult(blst_p1* out, const blst_p1* p, const blst_byte* scalar, size_t nbits);
-/** Optimized variable-time G1 multiplication for public scalar data only. `p` must already be an on-curve prime-order subgroup point; Release builds do not validate this precondition. */
+/** Optimized variable-time G1 multiplication for public scalar data only. `p` must already be an on-curve prime-order subgroup point; scalars are interpreted modulo r and Release does not validate `p`. */
 void blst_p1_mult_vartime(blst_p1* out, const blst_p1* p, const blst_byte* scalar, size_t nbits);
 /** Negates `p` in place when `cbit` is true; otherwise leaves it unchanged. */
 void blst_p1_cneg(blst_p1* p, bool cbit);
@@ -345,7 +348,7 @@ void blst_p1_from_affine(blst_p1* out, const blst_p1_affine* in);
 void blst_p1_from_jacobian(blst_p1* out, const blst_p1* in);
 /** Returns `true` when `p` lies on the G1 curve equation. */
 bool blst_p1_on_curve(const blst_p1* p);
-/** Returns `true` when `p` lies in the prime-order G1 subgroup. */
+/** Returns `true` when `p` is on-curve and lies in the prime-order G1 subgroup. */
 bool blst_p1_in_g1(const blst_p1* p);
 /** Returns `true` when the two projective G1 points represent the same point. */
 bool blst_p1_is_equal(const blst_p1* a, const blst_p1* b);
@@ -353,11 +356,11 @@ bool blst_p1_is_equal(const blst_p1* a, const blst_p1* b);
 bool blst_p1_is_inf(const blst_p1* a);
 /** Returns a pointer to immutable static storage holding the G1 generator. */
 const blst_p1* blst_p1_generator(void);
-/** Multiplies an on-curve `p` by `scalar` in constant time without subgroup endomorphisms; `p` need not be in the prime-order subgroup, and Release builds do not validate curve membership. */
+/** Legacy upstream `unchecked_mult`: multiplies an on-curve `p` by the exact scalar in constant time without subgroup endomorphisms. `p` need not be in G1; Release does not validate curve membership. */
 void blst_p1_unchecked_mult(blst_p1* out, const blst_p1* p, const blst_byte* scalar, size_t nbits);
 /** Returns `true` when affine G1 point `p` lies on the curve. */
 bool blst_p1_affine_on_curve(const blst_p1_affine* p);
-/** Returns `true` when affine G1 point `p` lies in the prime-order subgroup. */
+/** Returns `true` when affine `p` is on-curve and lies in the prime-order G1 subgroup. */
 bool blst_p1_affine_in_g1(const blst_p1_affine* p);
 /** Returns `true` when the two affine G1 points represent the same point. */
 bool blst_p1_affine_is_equal(const blst_p1_affine* a, const blst_p1_affine* b);
@@ -381,7 +384,7 @@ void blst_p1s_mult_wbits(blst_p1* ret, const blst_p1_affine table[], size_t wbit
 size_t blst_p1s_mult_pippenger_scratch_sizeof(size_t npoints);
 /** Returns the scratch size needed by the G1 Pippenger MSM routine for an explicit window, or 0 when `window` is invalid. */
 size_t blst_p1s_mult_pippenger_window_scratch_sizeof(size_t window);
-/** Evaluates a G1 MSM with Pippenger using caller-owned scratch memory; when `npoints == 1`, the wrapper falls back to single-point multiplication, and when `npoints > 1`, `scratch`, `points[0]`, and `scalars[0]` must be non-null. Later null entries mean contiguous continuation from the previous non-null element. */
+/** Evaluates variable-time subgroup G1 MSM with Pippenger. Points must already be on-curve G1 elements; scalars are interpreted modulo r. The one-point fallback uses `mult_vartime`; for multiple points scratch and compact-array heads must be valid. Release does not validate membership. */
 void blst_p1s_mult_pippenger(blst_p1* ret, const blst_p1_affine* const points[], size_t npoints, const blst_byte* const scalars[], size_t nbits, blst_limb_t* scratch);
 /** Returns total scratch bytes for a contiguous G1 MSM from native Montgomery-form `blst_fr` scalars, including canonical scalar preparation and Pippenger buckets. Zero is valid for an empty MSM and otherwise reports an unrepresentable size. */
 size_t blst_p1s_mult_pippenger_fr_scratch_sizeof(size_t npoints);
@@ -434,9 +437,9 @@ void blst_p2_sub_affine(blst_p2* out, const blst_p2* a, const blst_p2_affine* b)
 void blst_p2_add_or_double_affine(blst_p2* out, const blst_p2* a, const blst_p2_affine* b);
 /** Doubles the G2 projective point `a` and writes the result to `out`. */
 void blst_p2_double(blst_p2* out, const blst_p2* a);
-/** Constant-time G2 multiplication for a fixed public `nbits`. `p` must already be an on-curve prime-order subgroup point; Release builds do not validate this precondition. */
+/** Multiplies subgroup point `p` by `scalar mod r`. For canonical scalars and fixed public `nbits`, the operation is constant-time. Noncanonical scalars are accepted, but timing may reveal that reduction was required. Release does not validate `p`. */
 void blst_p2_mult(blst_p2* out, const blst_p2* p, const blst_byte* scalar, size_t nbits);
-/** Optimized variable-time G2 multiplication for public scalar data only. `p` must already be an on-curve prime-order subgroup point; Release builds do not validate this precondition. */
+/** Optimized variable-time G2 multiplication for public scalar data only. `p` must already be an on-curve prime-order subgroup point; scalars are interpreted modulo r and Release does not validate `p`. */
 void blst_p2_mult_vartime(blst_p2* out, const blst_p2* p, const blst_byte* scalar, size_t nbits);
 /** Negates `p` in place when `cbit` is true; otherwise leaves it unchanged. */
 void blst_p2_cneg(blst_p2* p, bool cbit);
@@ -450,7 +453,7 @@ void blst_p2_from_affine(blst_p2* out, const blst_p2_affine* in);
 void blst_p2_from_jacobian(blst_p2* out, const blst_p2* in);
 /** Returns `true` when `p` lies on the G2 curve equation. */
 bool blst_p2_on_curve(const blst_p2* p);
-/** Returns `true` when `p` lies in the prime-order G2 subgroup. */
+/** Returns `true` when `p` is on-curve and lies in the prime-order G2 subgroup. */
 bool blst_p2_in_g2(const blst_p2* p);
 /** Returns `true` when the two projective G2 points represent the same point. */
 bool blst_p2_is_equal(const blst_p2* a, const blst_p2* b);
@@ -458,11 +461,11 @@ bool blst_p2_is_equal(const blst_p2* a, const blst_p2* b);
 bool blst_p2_is_inf(const blst_p2* a);
 /** Returns a pointer to immutable static storage holding the G2 generator. */
 const blst_p2* blst_p2_generator(void);
-/** Multiplies an on-curve `p` by `scalar` in constant time without subgroup endomorphisms; `p` need not be in the prime-order subgroup, and Release builds do not validate curve membership. */
+/** Legacy upstream `unchecked_mult`: multiplies an on-curve `p` by the exact scalar in constant time without subgroup endomorphisms. `p` need not be in G2; Release does not validate curve membership. */
 void blst_p2_unchecked_mult(blst_p2* out, const blst_p2* p, const blst_byte* scalar, size_t nbits);
 /** Returns `true` when affine G2 point `p` lies on the curve. */
 bool blst_p2_affine_on_curve(const blst_p2_affine* p);
-/** Returns `true` when affine G2 point `p` lies in the prime-order subgroup. */
+/** Returns `true` when affine `p` is on-curve and lies in the prime-order G2 subgroup. */
 bool blst_p2_affine_in_g2(const blst_p2_affine* p);
 /** Returns `true` when the two affine G2 points represent the same point. */
 bool blst_p2_affine_is_equal(const blst_p2_affine* a, const blst_p2_affine* b);
@@ -486,7 +489,7 @@ void blst_p2s_mult_wbits(blst_p2* ret, const blst_p2_affine table[], size_t wbit
 size_t blst_p2s_mult_pippenger_scratch_sizeof(size_t npoints);
 /** Returns the scratch size needed by the G2 Pippenger MSM routine for an explicit window, or 0 when `window` is invalid. */
 size_t blst_p2s_mult_pippenger_window_scratch_sizeof(size_t window);
-/** Evaluates a G2 MSM with Pippenger using caller-owned scratch memory; when `npoints == 1`, the wrapper falls back to single-point multiplication, and when `npoints > 1`, `scratch`, `points[0]`, and `scalars[0]` must be non-null. Later null entries mean contiguous continuation from the previous non-null element. */
+/** Evaluates variable-time subgroup G2 MSM with Pippenger. Points must already be on-curve G2 elements; scalars are interpreted modulo r. The one-point fallback uses `mult_vartime`; for multiple points scratch and compact-array heads must be valid. Release does not validate membership. */
 void blst_p2s_mult_pippenger(blst_p2* ret, const blst_p2_affine* const points[], size_t npoints, const blst_byte* const scalars[], size_t nbits, blst_limb_t* scratch);
 /** Evaluates a G2 MSM with Pippenger using an explicit window size. */
 void blst_p2s_mult_pippenger_window(blst_p2* ret, const blst_p2_affine* const points[], size_t npoints, const blst_byte* const scalars[], size_t nbits, blst_limb_t* scratch, size_t window);
@@ -568,17 +571,17 @@ void blst_pairing_raw_aggregate(blst_pairing* ctx, const blst_p2_affine* q, cons
 BLST_ERROR blst_pairing_aggregate_pk_in_g2(blst_pairing* ctx, const blst_p2_affine* PK, const blst_p1_affine* signature, const blst_byte* msg, size_t msg_len, const blst_byte* aug, size_t aug_len);
 /** Aggregates one PK-in-G2 verification item with optional subgroup checks. */
 BLST_ERROR blst_pairing_chk_n_aggr_pk_in_g2(blst_pairing* ctx, const blst_p2_affine* PK, bool pk_grpchk, const blst_p1_affine* signature, bool sig_grpchk, const blst_byte* msg, size_t msg_len, const blst_byte* aug, size_t aug_len);
-/** Aggregates one PK-in-G2 verification item weighted by `scalar`. */
+/** Aggregates one PK-in-G2 item weighted by at most 256 scalar bits; malformed scalar arguments return `BLST_BAD_SCALAR`. */
 BLST_ERROR blst_pairing_mul_n_aggregate_pk_in_g2(blst_pairing* ctx, const blst_p2_affine* PK, const blst_p1_affine* sig, const blst_byte* scalar, size_t nbits, const blst_byte* msg, size_t msg_len, const blst_byte* aug, size_t aug_len);
-/** Aggregates one weighted PK-in-G2 verification item with optional subgroup checks. */
+/** Aggregates one weighted PK-in-G2 item with optional subgroup checks; malformed scalar arguments return `BLST_BAD_SCALAR`. */
 BLST_ERROR blst_pairing_chk_n_mul_n_aggr_pk_in_g2(blst_pairing* ctx, const blst_p2_affine* PK, bool pk_grpchk, const blst_p1_affine* sig, bool sig_grpchk, const blst_byte* scalar, size_t nbits, const blst_byte* msg, size_t msg_len, const blst_byte* aug, size_t aug_len);
 /** Aggregates one PK-in-G1 signature verification item into `ctx`. */
 BLST_ERROR blst_pairing_aggregate_pk_in_g1(blst_pairing* ctx, const blst_p1_affine* PK, const blst_p2_affine* signature, const blst_byte* msg, size_t msg_len, const blst_byte* aug, size_t aug_len);
 /** Aggregates one PK-in-G1 verification item with optional subgroup checks. */
 BLST_ERROR blst_pairing_chk_n_aggr_pk_in_g1(blst_pairing* ctx, const blst_p1_affine* PK, bool pk_grpchk, const blst_p2_affine* signature, bool sig_grpchk, const blst_byte* msg, size_t msg_len, const blst_byte* aug, size_t aug_len);
-/** Aggregates one PK-in-G1 verification item weighted by `scalar`. */
+/** Aggregates one PK-in-G1 item weighted by at most 256 scalar bits; malformed scalar arguments return `BLST_BAD_SCALAR`. */
 BLST_ERROR blst_pairing_mul_n_aggregate_pk_in_g1(blst_pairing* ctx, const blst_p1_affine* PK, const blst_p2_affine* sig, const blst_byte* scalar, size_t nbits, const blst_byte* msg, size_t msg_len, const blst_byte* aug, size_t aug_len);
-/** Aggregates one weighted PK-in-G1 verification item with optional subgroup checks. */
+/** Aggregates one weighted PK-in-G1 item with optional subgroup checks; malformed scalar arguments return `BLST_BAD_SCALAR`. */
 BLST_ERROR blst_pairing_chk_n_mul_n_aggr_pk_in_g1(blst_pairing* ctx, const blst_p1_affine* PK, bool pk_grpchk, const blst_p2_affine* sig, bool sig_grpchk, const blst_byte* scalar, size_t nbits, const blst_byte* msg, size_t msg_len, const blst_byte* aug, size_t aug_len);
 /** Merges `ctx1` into `ctx`; both contexts must be compatible. */
 BLST_ERROR blst_pairing_merge(blst_pairing* ctx, const blst_pairing* ctx1);

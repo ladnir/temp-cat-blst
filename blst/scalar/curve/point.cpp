@@ -1118,8 +1118,11 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	}
 
 	template<typename Field>
-	BLST_HD BLST_CPP_INLINE bool_t Point<Field>::in_subgroup(const Point<Field>& P)
+	BLST_HD static BLST_CPP_INLINE bool_t point_in_subgroup_relation(
+		const Point<Field>& P)
 	{
+		using Point = blst::scalar::Point<Field>;
+
 		if constexpr (std::is_same_v<Field, Fp>)
 		{
 
@@ -1148,6 +1151,12 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 			return Point::equal(t0, t1);
 		}
 	}
+
+	template<typename Field>
+	BLST_HD BLST_CPP_INLINE bool_t Point<Field>::in_subgroup(const Point<Field>& P)
+	{
+		return Point::on_curve(P) && point_in_subgroup_relation(P);
+	}
 	template BLST_HD BLST_CPP_INLINE bool_t Point<Fp>::in_subgroup(const Point<Fp>& P);
 	template BLST_HD BLST_CPP_INLINE bool_t Point<Fp2>::in_subgroup(const Point<Fp2>& P);
 
@@ -1157,14 +1166,16 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	template<typename Field>
 	BLST_HD BLST_CPP_INLINE bool_t AffinePoint<Field>::in_subgroup(const AffinePoint<Field>& p)
 	{
+		if (!AffinePoint::on_curve(p))
+			return 0;
 
 		Point<Field> P;
 
 		vec_copy(&P.x, &p.x, 2 * sizeof(P.x));
-		vec_select(&P.z, &p.x, Fp::one().l, sizeof(P.z),
+		vec_select(&P.z, &p.x, &Field::one(), sizeof(P.z),
 			vec_is_zero(&p, sizeof(p)));
 
-		return (int)Point<Field>::in_subgroup(P);
+		return (int)point_in_subgroup_relation(P);
 	}
 	template BLST_HD BLST_CPP_INLINE bool_t AffinePoint<Fp>::in_subgroup(const AffinePoint<Fp>& p);
 	template BLST_HD BLST_CPP_INLINE bool_t AffinePoint<Fp2>::in_subgroup(const AffinePoint<Fp2>& p);
@@ -1474,14 +1485,13 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		BLST_ASSERT(Point::in_subgroup(a));
 
 		pow256 canonical = {};
-		canonical_scalar_256(canonical, scalar, nbits);
+		canonical_scalar_256_vartime(canonical, scalar, nbits);
 		if (nbits == 0)
 			vec_zero(&out, sizeof(out));
 		else if (nbits < (std::is_same<Field, Fp2>::value ? 144u : 176u))
 			mult_window<Point, 4>(out, a, canonical, nbits);
 		else
 			Point::mult_glsv_vartime(out, a, canonical);
-		vec_zero(canonical, sizeof(canonical));
 	}
 	template BLST_HD BLST_CPP_INLINE void Point<Fp>::mult_vartime(Point<Fp>& out, const Point<Fp>& a, const byte* scalar, size_t nbits);
 	template BLST_HD BLST_CPP_INLINE void Point<Fp2>::mult_vartime(Point<Fp2>& out, const Point<Fp2>& a, const byte* scalar, size_t nbits);

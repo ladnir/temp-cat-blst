@@ -24,7 +24,9 @@ fn checked_scalar_bits(scalar: &[u8], nbits: usize) {
 }
 
 impl blst_p1 {
-    /// Constant-time multiplication of a previously validated subgroup point.
+    /// Multiplies a previously validated subgroup point modulo r. Canonical
+    /// scalars are handled in constant time for fixed `nbits`; noncanonical
+    /// timing may reveal that reduction was required.
     pub fn mult(&self, scalar: &[u8], nbits: usize) -> Self {
         checked_scalar_bits(scalar, nbits);
         let mut out = MaybeUninit::<Self>::uninit();
@@ -49,8 +51,8 @@ impl blst_p1 {
         }
     }
 
-    /// Constant-time generic multiplication of an on-curve point that need not
-    /// belong to the prime-order subgroup.
+    /// Legacy upstream `unchecked_mult`: constant-time exact multiplication of
+    /// an on-curve point that need not belong to the prime-order subgroup.
     pub fn unchecked_mult(&self, scalar: &[u8], nbits: usize) -> Self {
         checked_scalar_bits(scalar, nbits);
         let mut out = MaybeUninit::<Self>::uninit();
@@ -62,7 +64,9 @@ impl blst_p1 {
 }
 
 impl blst_p2 {
-    /// Constant-time multiplication of a previously validated subgroup point.
+    /// Multiplies a previously validated subgroup point modulo r. Canonical
+    /// scalars are handled in constant time for fixed `nbits`; noncanonical
+    /// timing may reveal that reduction was required.
     pub fn mult(&self, scalar: &[u8], nbits: usize) -> Self {
         checked_scalar_bits(scalar, nbits);
         let mut out = MaybeUninit::<Self>::uninit();
@@ -87,8 +91,8 @@ impl blst_p2 {
         }
     }
 
-    /// Constant-time generic multiplication of an on-curve point that need not
-    /// belong to the prime-order subgroup.
+    /// Legacy upstream `unchecked_mult`: constant-time exact multiplication of
+    /// an on-curve point that need not belong to the prime-order subgroup.
     pub fn unchecked_mult(&self, scalar: &[u8], nbits: usize) -> Self {
         checked_scalar_bits(scalar, nbits);
         let mut out = MaybeUninit::<Self>::uninit();

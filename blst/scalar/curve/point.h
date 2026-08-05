@@ -119,11 +119,13 @@ namespace blst::scalar
 		/**
 		 * @brief Constant-time scalar multiplication.
 		 * @param scalar Little-endian scalar bytes.
-		 * @param nbits Public number of meaningful scalar bits.
+		 * @param nbits Public number of meaningful scalar bits, at most 256.
 		 *
-		 * Runtime and memory access are independent of scalar contents for a fixed
-		 * @p nbits. The input must already be an on-curve prime-order subgroup
-		 * point; Release builds do not validate that precondition.
+		 * For canonical scalars in `[0,r)`, runtime and memory access are independent
+		 * of scalar contents for a fixed @p nbits. Noncanonical values are accepted
+		 * modulo r, but timing may reveal that reduction was required. The input
+		 * must already be an on-curve prime-order subgroup point; Release builds do
+		 * not validate that precondition. @p scalar may be null only for zero bits.
 		 */
 		BLST_HD static void mult(Point& out, const Point& a, const byte* scalar, size_t nbits);
 		/**
@@ -131,12 +133,14 @@ namespace blst::scalar
 		 * @warning Scalar range and window values may affect control flow and memory
 		 * access. Use only with public scalar data. The input must already be an
 		 * on-curve prime-order subgroup point; Release builds do not validate it.
+		 * @p nbits must not exceed 256, and @p scalar may be null only for zero bits.
 		 */
 		BLST_HD static void mult_vartime(Point& out, const Point& a, const byte* scalar, size_t nbits);
 		/**
 		 * @brief Constant-time generic multiplication without subgroup endomorphisms.
 		 * @warning The input must be on curve, but need not be in the prime-order
-		 * subgroup. Release builds do not validate that precondition.
+		 * subgroup. Release builds do not validate that precondition. @p nbits must
+		 * not exceed 256, and @p scalar may be null only for zero bits.
 		 */
 		BLST_HD static void unchecked_mult(Point& out, const Point& a, const byte* scalar, size_t nbits);
 		/// @brief Width-five windowed multiplication for internal or large-scalar use.
@@ -177,7 +181,7 @@ namespace blst::scalar
 		BLST_HD static int is_inf(const Point& p);
 		/// @brief Return one iff @p p is on the curve; infinity is accepted.
 		BLST_HD static limb_t on_curve(const Point& p);
-		/// @brief Return one iff @p p lies in the prime-order subgroup.
+		/// @brief Return one iff @p p is on-curve and lies in the prime-order subgroup.
 		BLST_HD static limb_t in_subgroup(const Point& p);
 		/** @name Serialization */
 		///@{
@@ -265,7 +269,7 @@ namespace blst::scalar
 		BLST_HD static limb_t on_curve(const AffinePoint& p);
 		/// @brief Return one iff both coordinates are all zero.
 		BLST_HD static limb_t is_inf(const AffinePoint& p);
-		/// @brief Return one iff @p p lies in the prime-order subgroup.
+		/// @brief Return one iff @p p is on-curve and lies in the prime-order subgroup.
 		BLST_HD static limb_t in_subgroup(const AffinePoint& p);
 		/// @brief Constant-time conditional y-coordinate negation.
 		BLST_HD static void cneg(AffinePoint& point, limb_t c);

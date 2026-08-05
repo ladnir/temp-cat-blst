@@ -850,8 +850,9 @@ TEST(CApi, AvxExpertP1PippengerMatchesScalar)
     constexpr size_t kCount = 4;
     const std::array<std::uint64_t, kCount> point_scalars = {3, 5, 7, 11};
     const std::array<std::uint64_t, kCount> msm_scalars = {13, 17, 19, 23};
-    const std::vector<unsigned char> scalars =
+    std::vector<unsigned char> scalars =
         scalar_batch({msm_scalars[0], msm_scalars[1], msm_scalars[2], msm_scalars[3]});
+    std::fill(scalars.end() - 32, scalars.end(), 0xff);
     std::array<BlstAvxP1Affine, kCount> avx_points = {};
     BoundaryG1 expected = {};
 
@@ -898,8 +899,9 @@ TEST(CApi, AvxExpertP2PippengerMatchesScalar)
     constexpr size_t kCount = 4;
     const std::array<std::uint64_t, kCount> point_scalars = {3, 5, 7, 11};
     const std::array<std::uint64_t, kCount> msm_scalars = {13, 17, 19, 23};
-    const std::vector<unsigned char> scalars =
+    std::vector<unsigned char> scalars =
         scalar_batch({msm_scalars[0], msm_scalars[1], msm_scalars[2], msm_scalars[3]});
+    std::fill(scalars.end() - 32, scalars.end(), 0xff);
     std::array<BlstAvxP2Affine, kCount> avx_points = {};
     BoundaryG2 expected = {};
 
@@ -1078,6 +1080,17 @@ TEST(CApi, AvxExpertPippengerRejectsOverflowSizedInputs)
         sizeof(p2_scratch),
         bucket_used.data(),
         bucket_used.size()));
+
+    const BlstAvxP1* p1_generator = blst_avx_p1_generator();
+    const BlstAvxP2* p2_generator = blst_avx_p2_generator();
+    ASSERT_NE(p1_generator, nullptr);
+    ASSERT_NE(p2_generator, nullptr);
+    EXPECT_FALSE(blst_avx_p1_mult(&p1_out, p1_generator, scalar.data(), 257));
+    EXPECT_FALSE(blst_avx_p2_mult(&p2_out, p2_generator, scalar.data(), 257));
+    EXPECT_FALSE(blst_avx_p1s_mult_pippenger(
+        &p1_out, p1_generator, 1, scalar.data(), 257, nullptr));
+    EXPECT_FALSE(blst_avx_p2s_mult_pippenger(
+        &p2_out, p2_generator, 1, scalar.data(), 257, nullptr));
 }
 
 TEST(CApi, AvxExpertFp12RoundTripAndOps)
@@ -2019,6 +2032,61 @@ TEST(CApi, LinePrecomputeHelpersUseGeneratorsForNullInputs)
     blst_miller_loop_lines(&explicit_loop, lines_from_generator, blst_p1_affine_generator());
     EXPECT_TRUE(blst_fp12_is_equal(&null_loop, &explicit_loop));
 }
+
+TEST(CApi, PairingWeightedAggregateRejectsMalformedScalarWithoutMutation)
+{
+    const std::array<unsigned char, 1> dst = {'D'};
+    const std::array<unsigned char, 33> oversized_scalar = {};
+    std::vector<uint64_t> raw((blst_pairing_sizeof() + sizeof(uint64_t) - 1) /
+        sizeof(uint64_t));
+    auto* ctx = reinterpret_cast<blst_pairing*>(raw.data());
+
+    const auto expect_rejected_without_mutation = [&](const auto& aggregate) {
+        blst_pairing_init(ctx, true, dst.data(), dst.size());
+        const std::vector<uint64_t> initialized = raw;
+        EXPECT_EQ(aggregate(), BLST_BAD_SCALAR);
+        EXPECT_EQ(raw, initialized);
+    };
+
+    expect_rejected_without_mutation([&] {
+        return blst_pairing_mul_n_aggregate_pk_in_g1(
+            ctx, nullptr, nullptr, oversized_scalar.data(), 257,
+            nullptr, 0, nullptr, 0);
+    });
+    expect_rejected_without_mutation([&] {
+        return blst_pairing_chk_n_mul_n_aggr_pk_in_g1(
+            ctx, nullptr, false, nullptr, false, nullptr, 1,
+            nullptr, 0, nullptr, 0);
+    });
+    expect_rejected_without_mutation([&] {
+        return blst_pairing_mul_n_aggregate_pk_in_g2(
+            ctx, nullptr, nullptr, oversized_scalar.data(), 257,
+            nullptr, 0, nullptr, 0);
+    });
+    expect_rejected_without_mutation([&] {
+        return blst_pairing_chk_n_mul_n_aggr_pk_in_g2(
+            ctx, nullptr, false, nullptr, false, nullptr, 1,
+            nullptr, 0, nullptr, 0);
+    });
+}
+
+#ifdef NDEBUG
+TEST(CApi, FixedScalarCanonicalizerFailsClosedInRelease)
+{
+    blst::pow256 out = {};
+    const std::array<unsigned char, 33> oversized_scalar = {};
+
+    std::memset(out, 0xff, sizeof(out));
+    blst::scalar::canonical_scalar_256(out, oversized_scalar.data(), 257);
+    EXPECT_TRUE(std::all_of(std::begin(out), std::end(out),
+        [](unsigned char value) { return value == 0; }));
+
+    std::memset(out, 0xff, sizeof(out));
+    blst::scalar::canonical_scalar_256(out, nullptr, 1);
+    EXPECT_TRUE(std::all_of(std::begin(out), std::end(out),
+        [](unsigned char value) { return value == 0; }));
+}
+#endif
 
 TEST(CApi, PairingAggregateAllowsNullSignatureAfterFirstElement)
 {

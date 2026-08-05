@@ -50,8 +50,8 @@ blst::avx::G1Point avx_from_scalar(const blst::scalar::G1Point& point)
     blst::scalar::G1AffinePoint affine = {};
     blst::scalar::G1Point::to_affine(affine, point);
     const blst::avx::G1AffinePoint avx_affine = {
-        blst::avx::avx_curve_detail::scalar_fp_to_ring(affine.X),
-        blst::avx::avx_curve_detail::scalar_fp_to_ring(affine.Y),
+        blst::avx::avx_curve_detail::scalar_fp_to_ring(affine.x),
+        blst::avx::avx_curve_detail::scalar_fp_to_ring(affine.y),
     };
     blst::avx::G1Point out = {};
     blst::avx::G1Point::from_affine(out, avx_affine);
@@ -63,8 +63,8 @@ blst::avx::G2Point avx_from_scalar(const blst::scalar::G2Point& point)
     blst::scalar::G2AffinePoint affine = {};
     blst::scalar::G2Point::to_affine(affine, point);
     const blst::avx::G2AffinePoint avx_affine = {
-        blst::avx::avx_curve_detail::scalar_fp2_to_ring(affine.X),
-        blst::avx::avx_curve_detail::scalar_fp2_to_ring(affine.Y),
+        blst::avx::avx_curve_detail::scalar_fp2_to_ring(affine.x),
+        blst::avx::avx_curve_detail::scalar_fp2_to_ring(affine.y),
     };
     blst::avx::G2Point out = {};
     blst::avx::G2Point::from_affine(out, avx_affine);
