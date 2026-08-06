@@ -304,8 +304,10 @@ commands, counts, and dispositions are in `CLIPPY_BASELINE_TRIAGE.md`.
 
 ## Initial ASan/UBSan baseline and AUD-041 remediation
 
-The dedicated `blst_sanitizer_boundary_tests` target keeps focused sanitizer
-cycles separate from the full test executable and frozen BTx/BTE. The initial
+The initial dedicated `blst_sanitizer_boundary_tests` target kept focused
+sanitizer cycles separate from the full test executable and frozen BTx/BTE. It
+has since been consolidated into a conditionally narrowed `blst_tests` target;
+the sanitizer source set and BTx/BTE exclusion remain unchanged. The initial
 x86-64 Ubuntu 24.04 baseline with Clang 18.1.3 selected 123 boundary tests:
 113 passed and the 10 AVX-only cases skipped as expected. ASan plus leak
 detection completed in 73.970 seconds with no report; UBSan completed in

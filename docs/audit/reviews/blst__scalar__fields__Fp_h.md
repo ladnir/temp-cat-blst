@@ -36,3 +36,19 @@ type model, with
 focused runtime, Rust, and Apple validation still pending. Retained Rust
 execution for the changed square-root failure output, independent big-integer
 constants, and full sanitizer/oracle evidence remain follow-ups.
+
+## Generated-addition-chain follow-up
+
+The `AUD-181` through `AUD-184` packet machine-checks the complete p-2 and
+(p-3)/4 schedules, moves them into an Fp-only detail namespace, replaces their
+initial byte copy with typed assignment, and pins their original BLST commits.
+The native fixed-chain contract now states the zero-to-zero behavior required
+by branchless infinity normalization; `recip_sqrt(0)` succeeds with output
+zero. The public C fixed inverse retains its narrower nonzero precondition.
+
+Scalar MSVC Debug and Release focused tests pass 3/3. Optimized reciprocal and
+reciprocal-square-root frames and arithmetic call counts are unchanged; the
+typed assignment removes one fixed pointer-identity branch from each entry.
+The follow-up implementation is recorded at
+`529a79377b6ef848ec90fce35e7580a9f451fc4f`. Generic scratch erasure was
+explicitly declined and is not part of the constant-time contract.

@@ -345,3 +345,23 @@ API correction does not add a conditional-copy cost to that hot path.
 
 No ABI, generated binding, benchmark, CUDA, BTx, or runtime dispatch changed in
 this packet.
+
+## Generated Fp addition chains
+
+The complete p-2 reciprocal and (p-3)/4 reciprocal-square-root schedules now
+have retained symbolic verification under `AUD-181`. Every scratch read,
+hexadecimal exponent trace, final exponent, and operation count is checked.
+Focused scalar Debug/Release tests compare both schedules with independent
+generic exponentiation and cover exact aliasing and the actual zero semantics.
+
+`AUD-182` documents that native fixed inversion maps zero to zero because
+branchless infinity signing relies on it, while the public C inverse retains a
+nonzero precondition. `AUD-183` moves the Fp-specific helpers from the global
+generic namespace into `blst::scalar::detail`; `AUD-184` replaces byte copying
+with typed assignment and pins original BLST commits. The arithmetic schedules,
+880/832-byte MSVC frames, and 86/85 arithmetic call counts are unchanged; the
+typed copy removes one useless entry pointer comparison from each function.
+
+Proposed broad scratch erasure (`AUD-180`) was explicitly declined. Generic
+constant-time arithmetic does not promise comprehensive transient erasure, and
+no generic hot-path zeroing was added. No benchmark or broad test ran.

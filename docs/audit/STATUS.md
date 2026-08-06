@@ -459,6 +459,22 @@ safe Rust tests pass, and optimized MSVC emits vector XOR with fixed stack
 storage and no allocator call. The two headers are complete at
 `ab212fe80784dc516ca995b6823db6227141c52c`.
 
+The generated scalar Fp addition-chain packet is complete at
+`529a79377b6ef848ec90fce35e7580a9f451fc4f`. `AUD-181` through `AUD-184` add exact retained symbolic proof, correct
+native zero contracts, restrict the schedules to internal scalar Fp, use typed
+assignment, and pin upstream provenance without changing either arithmetic
+schedule. Scalar MSVC Debug/Release focused tests pass 3/3. Proposed `AUD-180`
+generic scratch erasure was declined; constant-time arithmetic does not claim
+comprehensive transient erasure.
+
+Normal GoogleTest audit regressions are now consolidated into `blst_tests`
+instead of accumulating one executable per reviewed subsystem. Scalar, AVX,
+and sanitizer configurations select their source sets at configure time; the
+sanitizer runner uses the same target with its existing narrow BTx/BTE-free
+boundary set. Only the special both-enabled native/emulated AVX-512 compatibility
+probe remains a separate test executable because it has distinct sources and
+compiler flags.
+
 No production file should be marked complete before its related implementation
 and validation evidence closes the corresponding upstream rows.
 

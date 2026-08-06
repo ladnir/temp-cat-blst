@@ -168,3 +168,13 @@ The focused zero-bit regression and strict MSVC test-unit compilation pass.
 
 The file remains in review for independent arithmetic-oracle coverage,
 sanitizers, and retained Rust/Apple evidence.
+
+## Generated-addition-chain follow-up
+
+`AUD-182` records that fixed Fp2 inversion deliberately maps zero to zero via
+the fixed Fp p-2 chain, which branchless G2 infinity normalization relies on.
+The declaration now states this postcondition, the redundant direct chain
+include is removed, and focused scalar Debug/Release tests cover the Fp2 zero
+case. The implementation is recorded at
+`529a79377b6ef848ec90fce35e7580a9f451fc4f`; the file's broader residual
+evidence remains pending. No generic arithmetic scratch erasure was added.

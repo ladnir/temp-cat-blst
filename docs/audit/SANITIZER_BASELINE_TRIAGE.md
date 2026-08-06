@@ -19,12 +19,15 @@ scalar implementation:
 - experimental CUDA, parallel MSM, and the optional VROOM vendor disabled;
 - ASan and UBSan executed as separate profiles.
 
-`blst_sanitizer_boundary_tests` is a small sanitizer-only executable. It does
-not compile the ordinary all-tests executable and therefore does not compile
-or execute frozen BTx/BTE tests. Its source list covers public C and native C++
+Sanitizer configurations build the ordinary `blst_tests` target with a
+conditionally narrowed source list and without the BTx/BTE link dependency.
+They therefore do not compile or execute frozen BTx/BTE tests. The sanitizer
+source list covers public C and native C++
 boundaries, serialization/conformance, FFT and middle product adapters,
 backend selection, inverse/division arithmetic, and scalar window allocation.
-This is an initial reusable baseline, not subsystem-completion evidence.
+This is an initial reusable baseline, not subsystem-completion evidence. The
+initial evidence used the former dedicated sanitizer executable; consolidation
+changes only target composition and future reproduction commands.
 
 ## Reproduction
 
