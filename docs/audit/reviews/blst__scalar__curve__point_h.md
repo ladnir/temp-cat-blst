@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/scalar/curve/point.h` |
 | Roadmap phase / queue | Phase 15 scalar curves and protocols, first packet |
-| Reviewed commit | `07d79a48cc7d82560f5194f76a137e4ee2527d06` |
+| Reviewed commit | `07d79a48cc7d82560f5194f76a137e4ee2527d06`; signing/helper contract follow-up `5e4ab8dec6acbbfc117713f62a0f789676c9fd4c` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-04 |
 | Disposition | in-scope production |
@@ -144,8 +144,8 @@ cleanup.
 
 ## Findings
 
-`AUD-096`, `AUD-104`, `AUD-105`, `AUD-106`, `AUD-107`, `AUD-108`, and related
-cross-file `AUD-109`.
+`AUD-096`, `AUD-098`, `AUD-104`, `AUD-105`, `AUD-106`, `AUD-107`, `AUD-108`,
+`AUD-171`, `AUD-172`, and related cross-file `AUD-109`.
 
 ## Validation
 

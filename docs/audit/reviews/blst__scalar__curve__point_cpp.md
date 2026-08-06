@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/scalar/curve/point.cpp` |
 | Roadmap phase / queue | Phase 15 scalar curves and protocols, first packet |
-| Reviewed commit | `07d79a48cc7d82560f5194f76a137e4ee2527d06`; localized fixed-window follow-up `b9855299349fa083c455d45d8cbbb30f2a617e03` |
+| Reviewed commit | `07d79a48cc7d82560f5194f76a137e4ee2527d06`; localized fixed-window follow-up `b9855299349fa083c455d45d8cbbb30f2a617e03`; signing/helper contract follow-up `5e4ab8dec6acbbfc117713f62a0f789676c9fd4c` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-04 |
 | Disposition | in-scope production |
@@ -145,8 +145,8 @@ the supported Apple CI gate; this packet did not trigger a new CI run.
 ## Findings
 
 `AUD-024`, `AUD-035`, `AUD-070`, `AUD-088`, `AUD-089`, `AUD-093`, `AUD-096`,
-`AUD-104`, `AUD-105`, `AUD-107`, `AUD-108`, `AUD-127`, `AUD-130`; caller
-finding `AUD-109`.
+`AUD-098`, `AUD-104`, `AUD-105`, `AUD-107`, `AUD-108`, `AUD-127`, `AUD-130`,
+`AUD-172`; caller finding `AUD-109`.
 
 ## Validation
 
@@ -177,6 +177,8 @@ their recorded commits. The later `AUD-094`/`AUD-160` declaration pass defines
 successful point decode as on-curve only and reserves optimized/advanced
 operations for subgroup inputs. Focused low-order scalar, portable-AVX, and
 safe Rust tests validate the primitive and decoder flows; no arithmetic changed
-here. GT decoding policy (`AUD-085`) was
+there. The `5e4ab8d` follow-up adds Debug-only signing and helper invariants
+plus exact pre-decorated-output documentation; focused scalar/AVX differential
+tests pass. GT decoding policy (`AUD-085`) was
 later resolved by the GT/Fp12 review: the default decoder validates membership,
 while the explicitly unchecked decoder defers only that check.

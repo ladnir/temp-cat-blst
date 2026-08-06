@@ -437,8 +437,11 @@ contracts, `AUD-167` records intentional generic/helper visibility, and
 `AUD-169` covers scalar-backed AVX signing, `AUD-170` covers conversion-heavy
 point observation, `AUD-171` restores the inherited pre-decorated `to_pk2`
 contract, and `AUD-172` records the distinct-object `times_minus_z` invariant.
-Native AVX codegen/runtime, sanitizer, fuzz, Apple, and full matrices remain
-gates.
+Commit `5e4ab8d` fixes all four and restores selected `sign2` under `AUD-173`;
+both scalar-default and AVX-default portable-AVX Debug contract targets pass
+12/12. `AUD-170` through `AUD-173` are validated. `AUD-169` remains fixed
+pending native AVX codegen/runtime; sanitizer, fuzz, Apple, and full matrices
+remain gates.
 
 For every newly reviewed externally reachable family, update declaration-level
 C, selected native C++, and safe Rust contracts in the same packet and add it

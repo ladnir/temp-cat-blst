@@ -51,3 +51,26 @@ aliasing where promised, and rejected aliasing where prohibited.
 Native AVX-512/IFMA runtime and optimized code-generation inspection remain
 required before `AUD-169` and the file review are validated. No benchmark runs
 without explicit approval.
+
+## Focused remediation evidence
+
+Implementation commit `5e4ab8dec6acbbfc117713f62a0f789676c9fd4c`
+keeps GLV/GLS multiplication and homogeneous point arithmetic in AVX storage.
+Only the final secret-derived Z coordinate crosses to the audited scalar
+base-field inversion, which uses the fixed addition-chain `flt_reciprocal`;
+the scalar input and inverse are wiped before return. `sign2` reuses that one
+normalized product for affine and byte outputs, and the selected C boundary now
+delegates to it.
+
+Both `audit-phase1-avxportable` (scalar default) and
+`audit-phase3a-avxportable` (AVX default) built the focused contract target
+serially and passed 12/12 tests. The cases cover scalar/AVX G1 and G2 signing,
+identity, exact input/output aliasing, public-key derivation, optional outputs,
+the selected C route, pre-decorated output finalization, equality across scaled
+homogeneous representations and both infinity forms, and distinct-object
+`times_minus_z`. Rust formatting, public documentation, group-contract,
+manifest, and `git diff --check` checks pass.
+
+`AUD-170` through `AUD-173` are validated by this focused evidence.
+`AUD-169` is fixed but remains open for validation until native AVX-512/IFMA
+optimized code generation and runtime are inspected. No benchmark was run.
