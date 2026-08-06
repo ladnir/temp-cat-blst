@@ -472,7 +472,8 @@ p in every coefficient position, canonical non-GT input, unchanged output on
 failure, unchecked candidate decoding, and deferred inverse-pair aggregation.
 No benchmark ran: ordinary checked decoding intentionally pays validation, while
 the production backend-conversion path structurally selects the unchecked form.
-Exact reviewed-commit records remain before `AUD-085` is marked validated.
+The scalar GT and Fp12 review records bind the implementation to
+`09722691117bfbae36baa27da0c6f6481fcd58ad`; `AUD-085` is validated.
 
 ## Status and next action
 
@@ -480,5 +481,5 @@ Scalar point, bulk addition, MSM, fixed-window multiplication, GT/Miller,
 map-to-group, SHA-256, and key generation are complete at their recorded
 commits. The aggregate implementation/header and safe Rust pairing wrapper are
 complete at `091dfb2cae096ee8ed801036e98827b3253b2e84`. Continue Phase 15 with
-the next signing/protocol file. Keep
-the separately deferred checked GT deserialization design in `AUD-085`.
+the next signing/protocol file. The separately deferred GT deserialization
+design is resolved and validated as `AUD-085`.

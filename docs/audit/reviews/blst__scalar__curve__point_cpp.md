@@ -173,6 +173,7 @@ finding `AUD-109`.
 ## Residual risk and decision
 
 The original full review and localized fixed-window follow-up are complete at
-their recorded commits. Decoder subgroup policy (`AUD-094`) and GT unchecked
-decoding (`AUD-085`) remain separate API decisions in their containing-file
-reviews.
+their recorded commits. Decoder subgroup policy (`AUD-094`) remains a separate
+API decision in its containing-file review. GT decoding policy (`AUD-085`) was
+later resolved by the GT/Fp12 review: the default decoder validates membership,
+while the explicitly unchecked decoder defers only that check.

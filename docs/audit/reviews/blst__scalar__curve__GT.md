@@ -6,7 +6,7 @@
 | --- | --- |
 | Paths | `blst/scalar/curve/GT.h`; `blst/scalar/curve/GT.cpp` |
 | Roadmap phase / queue | Phase 15 scalar curves and protocols, sixth packet |
-| Reviewed commit | `3f724037bfcfafba05d12b9a828d218030628165` |
+| Reviewed commit | `09722691117bfbae36baa27da0c6f6481fcd58ad` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-05 |
 | Disposition | in-scope production |
@@ -40,6 +40,10 @@ exponentiation.
   `PreparedG1LineScale`; it does not manufacture an invalid affine point.
 - GT conditional negation is constant-time for a public zero-or-one condition
   bit and selects only the Fp12 half changed by conjugation.
+- Checked GT decoding rejects noncanonical coefficients and non-GT values
+  without modifying output. `deserialize_unchecked` still requires canonical
+  coefficients and defers only membership; its candidate is not an ordinary GT
+  operand until a later aggregate membership check succeeds.
 - The scalar and AVX generator is exactly final-exp(pairing(G1 generator,
   G2 generator)) and uses static compile-time storage.
 
@@ -49,8 +53,9 @@ Pairing aggregation, the C API, FFT/middle product, BTE compatibility
 consumers, tests, and optional benchmark sources call the selected scalar/AVX
 surface. The C and generated Rust ABI continue to transport Miller and GT
 values in `blst_fp12` storage, with the semantic role documented at each
-operation. Scalar/AVX boundary conversion is direct field conversion rather
-than a 576-byte serialization round trip.
+operation. Ordinary C boundaries use direct field conversion. The middle-
+product selected-backend bridge retains a serialize/decode conversion and uses
+the canonical unchecked form because the source was already established as GT.
 
 ## Checklist evidence
 
@@ -78,6 +83,9 @@ than a 576-byte serialization round trip.
 13. Hot pairing schedules, line formulas, and batch widths are unchanged;
    boundary serialization copies and unnecessary cneg work were removed.
 14. Focused evidence is recorded below; broad milestone gates remain deferred.
+15. Canonical decoding checks all twelve coefficients before publication;
+    checked decoding performs one GT membership test, while trusted backend
+    conversion structurally calls only `deserialize_unchecked`.
 
 ## Findings
 
@@ -85,7 +93,8 @@ than a 576-byte serialization round trip.
 
 ## Validation
 
-- MSVC scalar Debug library and linked test target compile serially.
+- MSVC scalar Debug and Release pass the dedicated GT decoder target 5/5.
+- Selected portable-AVX Debug passes the same decoder target 5/5.
 - Focused scalar pairing/GT/C API/precomputed-line/middle-product packet passes
   24/24.
 - MSVC portable-AVX Debug production library and five directly affected test
@@ -101,7 +110,7 @@ than a 576-byte serialization round trip.
 The scalar files are completely reviewed at the recorded commit. C/Rust must
 retain representation-only `blst_fp12` storage for compatibility, and explicit
 native raw-field construction remains an intentional expert escape hatch.
-`AUD-085` remains open for the eventual checked versus unchecked GT
-deserialization design. Experimental CUDA was deliberately not migrated to the
-new native C++ Miller type or `final_exp` spelling and remains outside the
-scalar/AVX production-readiness gate.
+`AUD-085` is validated by canonical-boundary, membership, failure-atomic, and
+deferred-aggregate tests. Experimental CUDA was deliberately not migrated to
+the new native C++ decoder/Miller contracts and remains outside the scalar/AVX
+production-readiness gate.

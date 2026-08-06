@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/scalar/fields/Fp12.cpp` |
 | Roadmap phase / queue | Phase 14 scalar extension fields and GT boundary |
-| Reviewed commit | `0ee24de0da80b256979832ea872272f635599853` |
+| Reviewed commit | `09722691117bfbae36baa27da0c6f6481fcd58ad` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-03 |
 | Disposition | in-scope production |
@@ -21,10 +21,10 @@
 This file implements the Fp6/Fp12 tower, sparse Miller multiplication,
 cyclotomic squaring, inverse, Frobenius, final exponentiation, serialization,
 and two- and four-dimensional GT exponentiation. Arithmetic values can cross
-the public C/C++/Rust boundary. Exponents are currently processed as public
-data even though the GT APIs do not say so. All storage is fixed stack/static;
-the file has no heap allocation, ordinary exception source, callback, or
-mutable global state.
+the public C/C++/Rust boundary. GT APIs distinguish fixed-schedule secret-
+capable multiplication from explicitly variable-time public-scalar operations.
+All storage is fixed stack/static; the file has no heap allocation, ordinary
+exception source, callback, or mutable global state.
 
 ## Contracts and invariants
 
@@ -211,18 +211,22 @@ The following decisions supersede the open-state descriptions above:
   variable-time splitter decisions are recorded in `PHASE_14.md`.
 - `AUD-083` is accepted as a low-level precondition: schedules are mutable,
   variable-time trusted bytecode, and only unmodified compiler output is valid.
-- `AUD-085` remains a required two-mode design: checked `deserialize` plus
-  explicit `deserialize_unchecked` for deferred aggregate group checking.
+- `AUD-085` is fixed. `Fp12::from_bendian` rejects every coefficient at least
+  p and publishes only a complete canonical Montgomery value. Native checked
+  GT decoding adds membership validation; `deserialize_unchecked` deliberately
+  defers only membership for aggregate validation.
 - `AUD-086` is fixed by removing the obsolete undefined duplicate declaration.
 - `AUD-087` is fixed: provenance, macro names/leakage, inactive branches,
   commented code, placeholder tests/comments, and local warnings were cleaned.
 
 Focused MSVC validation passes zero-bit Fp2/Fp12 exponentiation, exact Fp12
-aliasing, and raw Fp12 serialization round trip. `cl /W4 /WX /Zs` passes this
-implementation and both affected test units. The later timing packet ran only
-its dedicated group test and benchmark targets; no broad suite ran.
+aliasing, and canonical Fp12 serialization. Scalar Debug/Release and selected
+portable-AVX Debug pass 5/5 GT decoder cases covering p-1, p in every
+coefficient position, canonical non-GT input, failure atomicity, and deferred
+aggregate checking. `cl /W4 /WX /Zs` passed the earlier implementation packet.
+No broad suite or decoder benchmark ran.
 
-The file remains in review and is not production-ready as a complete supported
-surface. The timing decision is resolved by constant-time default and named
-variable-time GT multiplication (`AUD-082`/`AUD-088`). Checked versus deferred
-deserialization (`AUD-085`) remains the material unresolved design item.
+The file remains in review for broader sanitizer, oracle, and supported-platform
+evidence. The timing decision is resolved by constant-time default and named
+variable-time GT multiplication (`AUD-082`/`AUD-088`), and the checked versus
+deferred deserialization contract (`AUD-085`) is resolved.

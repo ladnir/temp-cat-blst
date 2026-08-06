@@ -113,8 +113,9 @@ The next Phase 14 wave completed full hand review of `Fp2.h`, `Fp12.h`, and
 `Fp12.cpp` at `f0a9d9e`. Commit `0ee24de` fixes `AUD-079` through `AUD-082`,
 `AUD-086`, `AUD-087`, and the cross-cutting `AUD-088`/`AUD-089`; it accepts and
 documents the trusted-schedule and Fp2 failed-output contracts in
-`AUD-083`/`AUD-084`. `AUD-085` remains a deliberate design backlog item for
-checked versus explicitly unchecked GT deserialization.
+`AUD-083`/`AUD-084`. The later Phase 15 follow-up closes `AUD-085` with a
+canonical, membership-checking default GT decoder and a canonical
+`deserialize_unchecked` path that defers only membership.
 
 The primary 256-bit group packet restores ordinary subgroup multiplication and
 the two inherited generic `unchecked_mult` exceptions, prepares scalars without
@@ -406,7 +407,7 @@ out-parameter `blst_pairing_get_miller_result`; `AUD-152` through `AUD-159` are
 validated. `AUD-085` now has a checked, canonical, failure-atomic default GT
 decoder plus a canonical `deserialize_unchecked` path that defers only group
 membership; focused scalar Debug/Release and selected portable-AVX Debug tests
-pass, with exact reviewed hashes pending. Coverage
+pass at `0972269`, and `AUD-085` is validated. Coverage
 remains a late audit/release metric by user decision; sanitizer, fuzz, and
 static-analysis work still accompanies subsystem review. Expand analyzers,
 sanitizers, fuzzers, and oracles alongside every subsystem. Apply

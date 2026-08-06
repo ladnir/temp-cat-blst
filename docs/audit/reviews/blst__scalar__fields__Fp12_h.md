@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/scalar/fields/Fp12.h` |
 | Roadmap phase / queue | Phase 14 scalar extension fields |
-| Reviewed commit | `0ee24de0da80b256979832ea872272f635599853` |
+| Reviewed commit | `09722691117bfbae36baa27da0c6f6481fcd58ad` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-03 |
 | Disposition | in-scope production |
@@ -29,6 +29,9 @@ The header performs no dynamic allocation or mutable global initialization.
 Fp4, Fp6, and Fp12 are fixed typed aggregates. Indexing is unchecked and valid
 indices are a caller precondition. GLV schedules have fixed storage, while
 their currently mutable length contracts remain covered by `AUD-083`.
+`Fp12::from_bendian` is `[[nodiscard]]`, requires 576 readable bytes, rejects
+noncanonical coefficients, permits input/output overlap through temporary
+decoding, and leaves output unchanged on failure.
 
 ## Dependency and call-path map
 
@@ -121,7 +124,8 @@ N/A.
 
 ## Findings
 
-`AUD-081`, `AUD-082`, `AUD-083`, `AUD-086`, `AUD-087`, and `AUD-088`.
+`AUD-081`, `AUD-082`, `AUD-083`, `AUD-085`, `AUD-086`, `AUD-087`, and
+`AUD-088`.
 
 ## Validation
 
@@ -148,6 +152,7 @@ changes resolve the header portions of `AUD-083`, `AUD-086`, and `AUD-087`.
 
 Full-width GT scalar behavior is now explicit and covered by focused comparison
 against basic exponentiation. The GT timing decision is implemented, selected,
-and benchmarked under `AUD-082`/`AUD-088`. The file remains in review pending a
-decision whether the Fp4 scratch type should remain re-exported by the selected
-header.
+and benchmarked under `AUD-082`/`AUD-088`. Canonical, failure-atomic Fp12
+decoding resolves this header's part of `AUD-085`. The file remains in review
+pending a decision whether the Fp4 scratch type should remain re-exported by the
+selected header.
