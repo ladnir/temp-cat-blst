@@ -292,7 +292,9 @@ macro_rules! sig_variant_impl {
                 sk
             }
 
-            // sk_to_pk
+            /// Derives the prime-order public key corresponding to this
+            /// canonical nonzero secret key.
+            #[must_use]
             pub fn sk_to_pk(&self) -> PublicKey {
                 // TODO - would the user like the serialized/compressed pk as well?
                 let mut pk_aff = PublicKey::default();
@@ -309,7 +311,13 @@ macro_rules! sig_variant_impl {
                 pk_aff
             }
 
-            // Sign
+            /// Hashes `msg` to the signature subgroup with `dst` and `aug`,
+            /// then returns its constant-time scalar product by this canonical
+            /// nonzero secret key.
+            ///
+            /// The hash-to-curve step establishes the subgroup precondition
+            /// required by the native signing operation.
+            #[must_use]
             pub fn sign(
                 &self,
                 msg: &[u8],

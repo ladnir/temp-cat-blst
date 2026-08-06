@@ -943,21 +943,38 @@ void blst_map_to_g1(blst_p1* out, const blst_fp* u, const blst_fp* v);
  * contracts are the same as `blst_map_to_g1`.
  */
 void blst_map_to_g2(blst_p2* out, const blst_fp2* u, const blst_fp2* v);
-/** Derives the projective G1 public key corresponding to `SK`. */
+/** Derives the projective G1 public key for a canonical nonzero `SK` produced
+ * by keygen or accepted by `blst_sk_check`. No Release validation occurs;
+ * runtime is independent of a valid secret key's contents. */
 void blst_sk_to_pk_in_g1(blst_p1* out_pk, const blst_scalar* SK);
-/** Signs a G2 hash point with `SK` and writes the projective signature to `out_sig`. */
+/** Signs a previously validated G2 subgroup hash point with a canonical
+ * nonzero `SK`. No Release point/key validation occurs; runtime is independent
+ * of a valid secret key's contents. */
 void blst_sign_pk_in_g1(blst_p2* out_sig, const blst_p2* hash, const blst_scalar* SK);
-/** Derives the projective G2 public key corresponding to `SK`. */
+/** G2 counterpart of `blst_sk_to_pk_in_g1`. */
 void blst_sk_to_pk_in_g2(blst_p2* out_pk, const blst_scalar* SK);
-/** Signs a G1 hash point with `SK` and writes the projective signature to `out_sig`. */
+/** G1 counterpart of `blst_sign_pk_in_g1`. */
 void blst_sign_pk_in_g2(blst_p1* out_sig, const blst_p1* hash, const blst_scalar* SK);
-/** Derives the affine G1 public key from `SK` and optionally serializes it into `out`. */
+/**
+ * Derives the affine G1 public key from `SK` and optionally writes a 96-byte
+ * pre-decorated `X || Y` buffer. The buffer is not directly a conforming
+ * encoding: set bit 7 and retain the first 48 bytes for compressed form, or
+ * clear bit 5 for uncompressed form. Either output may be null. `SK` must be
+ * canonical and nonzero; no Release validation occurs.
+ */
 void blst_sk_to_pk2_in_g1(blst_byte out[96], blst_p1_affine* out_pk, const blst_scalar* SK);
-/** Signs a G2 hash point, writes the affine signature, and optionally serializes it into `out`. */
+/**
+ * Signs a G2 hash point and optionally writes the affine result and a 192-byte
+ * pre-decorated `X || Y` buffer. Set bit 7 and retain the first 96 bytes for
+ * compressed form, or clear bit 5 for uncompressed form. Either output may be
+ * null; `hash` must already be in G2 and `SK` canonical and nonzero.
+ */
 void blst_sign_pk2_in_g1(blst_byte out[192], blst_p2_affine* out_sig, const blst_p2* hash, const blst_scalar* SK);
-/** Derives the affine G2 public key from `SK` and optionally serializes it into `out`. */
+/** G2 counterpart of `blst_sk_to_pk2_in_g1`; `out` is 192 bytes and its
+ * compressed x half is 96 bytes. */
 void blst_sk_to_pk2_in_g2(blst_byte out[192], blst_p2_affine* out_pk, const blst_scalar* SK);
-/** Signs a G1 hash point, writes the affine signature, and optionally serializes it into `out`. */
+/** G1 counterpart of `blst_sign_pk2_in_g1`; `out` is 96 bytes and its
+ * compressed x half is 48 bytes. */
 void blst_sign_pk2_in_g2(blst_byte out[96], blst_p1_affine* out_sig, const blst_p1* hash, const blst_scalar* SK);
 /** Returns the exact allocation size required for a `blst_uniq` tree with `capacity` nodes; returns 0 for zero capacity or size overflow. */
 size_t blst_uniq_sizeof(size_t capacity);

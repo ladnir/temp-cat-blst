@@ -1,3 +1,11 @@
+/*
+ * Copyright Supranational LLC and CatBLST contributors
+ * Licensed under the Apache License, Version 2.0, see LICENSE for details.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Imported with the VROOM AVX backend and adapted to CatBLST's homogeneous
+ * point representation, selected-backend API, and point-domain contracts.
+ */
 #pragma once
 
 #include "ec.h"
@@ -9,6 +17,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 
 namespace blst::avx {
@@ -62,14 +71,12 @@ inline const GLSMult<CurveRing>& curve_g2_gls()
 
 inline bool is_zero(const CurveRing::StandardElement& value)
 {
-    const blst::Fp scalar = avx_blst_direct_bridge::ring_to_scalar_fp(curve_ring(), value);
-    const blst::Fp zero = {};
-    return blst::Fp::equal(scalar, zero);
+    return value.is_zero() != 0;
 }
 
 inline bool is_zero(const CurveFp2Ring::StandardElement& value)
 {
-    return is_zero(value.x()) && is_zero(value.y());
+    return value.is_zero() != 0;
 }
 
 inline blst::Fp ring_fp_to_scalar(const CurveRing::StandardElement& value)
@@ -182,6 +189,53 @@ inline CurveFp2Ring::StandardElement curve_fp2_inverse(const CurveFp2Ring::Stand
     return scalar_fp2_to_ring(inverse);
 }
 
+inline CurveRing::StandardElement curve_secret_inverse(
+    const CurveRing::StandardElement& value)
+{
+    blst::Fp scalar = ring_fp_to_scalar(value);
+    blst::Fp inverse = {};
+    blst::Fp::flt_reciprocal(inverse, scalar);
+    const auto out = scalar_fp_to_ring(inverse);
+    vec_zero(&scalar, sizeof(scalar));
+    vec_zero(&inverse, sizeof(inverse));
+    return out;
+}
+
+inline CurveFp2Ring::StandardElement curve_secret_inverse(
+    const CurveFp2Ring::StandardElement& value)
+{
+    blst::Fp2 scalar = ring_fp2_to_scalar(value);
+    blst::Fp2 inverse = {};
+    blst::Fp2::flt_reciprocal(inverse, scalar);
+    const auto out = scalar_fp2_to_ring(inverse);
+    vec_zero(&scalar, sizeof(scalar));
+    vec_zero(&inverse, sizeof(inverse));
+    return out;
+}
+
+inline CurveG1Projective normalize_secret_projective(const CurveG1Projective& point)
+{
+    const bool is_infinity = is_zero(point.z);
+    const auto z_inverse = curve_secret_inverse(point.z);
+    auto [x, y] = curve_ring().batch_reduce_expand(
+        curve_ring().prep_left(point.x) * z_inverse,
+        curve_ring().prep_left(point.y) * z_inverse);
+    const auto z = curve_ring().one().ctime_select(
+        !is_infinity, curve_ring().zero());
+    return {x, y, z};
+}
+
+inline CurveG2Projective normalize_secret_projective(const CurveG2Projective& point)
+{
+    const bool is_infinity = is_zero(point.z);
+    const auto z_inverse = curve_secret_inverse(point.z);
+    const auto x = curve_fp2_ring().mul(point.x, z_inverse)[0];
+    const auto y = curve_fp2_ring().mul(point.y, z_inverse)[0];
+    const auto z = curve_fp2_ring().one().ctime_select(
+        !is_infinity, curve_fp2_ring().zero());
+    return {x, y, z};
+}
+
 inline CurveG1Affine projective_to_affine(const CurveG1Projective& point)
 {
     if (is_zero(point.z)) {
@@ -282,7 +336,7 @@ struct G1AffinePoint
 
     /// Prime-order G1 subgroup generator.
     static const G1AffinePoint& generator();
-    /// Compare on-curve public values; this is not a validator.
+    /// Constant-time comparison of on-curve values; this is not a validator.
     static int equal(const G1AffinePoint& a, const G1AffinePoint& b);
     /// Test an on-curve value for infinity; this is not a validator.
     static bool_t is_inf(const G1AffinePoint& p);
@@ -358,11 +412,19 @@ struct G1Point
     /// nonzero secret key accepted by keygen/sk_check. Timing is independent
     /// of SK; exact out/in aliasing is supported.
     static void sign(G1Point& out, const G1Point& in, const pow256 SK);
+    /// Sign and optionally emit a 96-byte pre-decorated X || Y buffer and/or
+    /// affine subgroup point. Finalize the byte buffer as described for to_pk2.
+    /// Either output pointer may be null. Timing is independent of SK.
+    static void sign2(unsigned char* out, G1AffinePoint* sig,
+        const G1Point& hash, const pow256 SK);
     /// Derive the subgroup public key for a canonical, nonzero secret key.
     /// Timing is independent of SK.
     static void to_pk(G1Point& out, const pow256 SK);
-    /// Optionally emit a 48-byte compressed public key and/or affine subgroup
-    /// point. Either output pointer may be null. Timing is independent of SK.
+    /// Optionally emit a 96-byte pre-decorated X || Y public-key buffer and/or
+    /// affine subgroup point. The byte buffer is not yet a conforming encoding:
+    /// set bit 7 and retain its first 48 bytes for compressed form, or clear bit
+    /// 5 for uncompressed form. Either output pointer may be null. Timing is
+    /// independent of SK.
     static void to_pk2(unsigned char* out, G1AffinePoint* PK, const pow256 SK);
     /// Constant-time conditional negation of an on-curve point.
     /// cbit must be zero or one; no subgroup validation occurs.
@@ -382,7 +444,7 @@ struct G1Point
     static void cswap(G1Point& a, G1Point& b, bool_t cbit);
     /// Constant-time conditional copy. Objects must be distinct and cbit 0/1.
     static void ccopy(G1Point& a, const G1Point& b, bool_t cbit);
-    /// Compare on-curve public values; this is not a validator.
+    /// Constant-time comparison of on-curve values; this is not a validator.
     static limb_t equal(const G1Point& a, const G1Point& b);
     /// Prime-order G1 subgroup generator.
     static const G1Point& generator();
@@ -419,7 +481,7 @@ struct G2AffinePoint
 
     /// Prime-order G2 subgroup generator.
     static const G2AffinePoint& generator();
-    /// Compare on-curve public values; this is not a validator.
+    /// Constant-time comparison of on-curve values; this is not a validator.
     static int equal(const G2AffinePoint& a, const G2AffinePoint& b);
     /// Test an on-curve value for infinity; this is not a validator.
     static bool_t is_inf(const G2AffinePoint& p);
@@ -495,11 +557,19 @@ struct G2Point
     /// nonzero secret key accepted by keygen/sk_check. Timing is independent
     /// of SK; exact out/in aliasing is supported.
     static void sign(G2Point& out, const G2Point& in, const pow256 SK);
+    /// Sign and optionally emit a 192-byte pre-decorated X || Y buffer and/or
+    /// affine subgroup point. Finalize the byte buffer as described for to_pk2.
+    /// Either output pointer may be null. Timing is independent of SK.
+    static void sign2(unsigned char* out, G2AffinePoint* sig,
+        const G2Point& hash, const pow256 SK);
     /// Derive the subgroup public key for a canonical, nonzero secret key.
     /// Timing is independent of SK.
     static void to_pk(G2Point& out, const pow256 SK);
-    /// Optionally emit a 96-byte compressed public key and/or affine subgroup
-    /// point. Either output pointer may be null. Timing is independent of SK.
+    /// Optionally emit a 192-byte pre-decorated X || Y public-key buffer and/or
+    /// affine subgroup point. The byte buffer is not yet a conforming encoding:
+    /// set bit 7 and retain its first 96 bytes for compressed form, or clear bit
+    /// 5 for uncompressed form. Either output pointer may be null. Timing is
+    /// independent of SK.
     static void to_pk2(unsigned char* out, G2AffinePoint* PK, const pow256 SK);
     /// Constant-time conditional negation of an on-curve point.
     /// cbit must be zero or one; no subgroup validation occurs.
@@ -519,7 +589,7 @@ struct G2Point
     static void cswap(G2Point& a, G2Point& b, bool_t cbit);
     /// Constant-time conditional copy. Objects must be distinct and cbit 0/1.
     static void ccopy(G2Point& a, const G2Point& b, bool_t cbit);
-    /// Compare on-curve public values; this is not a validator.
+    /// Constant-time comparison of on-curve values; this is not a validator.
     static limb_t equal(const G2Point& a, const G2Point& b);
     /// Prime-order G2 subgroup generator.
     static const G2Point& generator();
@@ -660,9 +730,7 @@ inline const G1AffinePoint& G1AffinePoint::generator()
 
 inline int G1AffinePoint::equal(const G1AffinePoint& a, const G1AffinePoint& b)
 {
-    const blst::scalar::G1AffinePoint sa = avx_curve_detail::curve_g1_affine_to_scalar({a.X, a.Y});
-    const blst::scalar::G1AffinePoint sb = avx_curve_detail::curve_g1_affine_to_scalar({b.X, b.Y});
-    return blst::scalar::G1AffinePoint::equal(sa, sb);
+    return static_cast<int>(a.X.equal(b.X) & a.Y.equal(b.Y));
 }
 
 inline bool_t G1AffinePoint::is_inf(const G1AffinePoint& p)
@@ -814,24 +882,31 @@ inline void G1Point::unchecked_mult(G1Point& out, const G1Point& a, const byte* 
 
 inline void G1Point::sign(G1Point& out, const G1Point& in, const pow256 SK)
 {
-    G1AffinePoint affine = {};
-    to_affine(affine, in);
+    BLST_ASSERT(in_subgroup(in));
+    BLST_ASSERT(blst::scalar::sk_check(SK));
+    std::array<uint8_t, 32> scalar_bytes = {};
+    std::memcpy(scalar_bytes.data(), SK, scalar_bytes.size());
+    const auto product = avx_curve_detail::curve_g1_glv().multiply(
+        {in.X, in.Y, in.Z}, scalar_bytes, avx_curve_detail::curve_ring());
+    vec_zero(scalar_bytes.data(), scalar_bytes.size());
+    const auto normalized = avx_curve_detail::normalize_secret_projective(product);
+    out = {normalized.x, normalized.y, normalized.z};
+}
 
-    blst::scalar::G1AffinePoint scalar_affine = {};
-    scalar_affine.x = avx_curve_detail::ring_fp_to_scalar(affine.X);
-    scalar_affine.y = avx_curve_detail::ring_fp_to_scalar(affine.Y);
-
-    blst::scalar::G1Point scalar_in = {};
-    blst::scalar::G1Point::from_affine(scalar_in, scalar_affine);
-    blst::scalar::G1Point scalar_out = {};
-    blst::scalar::G1Point::sign(scalar_out, scalar_in, SK);
-    blst::scalar::G1AffinePoint scalar_out_affine = {};
-    blst::scalar::G1Point::to_affine(scalar_out_affine, scalar_out);
-    G1AffinePoint out_affine = {
-        avx_curve_detail::scalar_fp_to_ring(scalar_out_affine.x),
-        avx_curve_detail::scalar_fp_to_ring(scalar_out_affine.y),
-    };
-    from_affine(out, out_affine);
+inline void G1Point::sign2(
+    unsigned char* out, G1AffinePoint* sig,
+    const G1Point& hash, const pow256 SK)
+{
+    G1Point point = {};
+    sign(point, hash, SK);
+    const G1AffinePoint affine = {point.X, point.Y};
+    if (sig != nullptr)
+        *sig = affine;
+    if (out != nullptr) {
+        const limb_t parity = G1AffinePoint::serialize_BE(out, affine);
+        out[0] |= (parity & 2) << 4;
+        out[0] |= is_identity(point) << 6;
+    }
 }
 
 inline void G1Point::to_pk(G1Point& out, const pow256 SK)
@@ -841,15 +916,7 @@ inline void G1Point::to_pk(G1Point& out, const pow256 SK)
 
 inline void G1Point::to_pk2(unsigned char* out, G1AffinePoint* PK, const pow256 SK)
 {
-    blst::scalar::G1AffinePoint scalar_pk = {};
-    blst::scalar::G1AffinePoint* scalar_pk_ptr = PK != nullptr ? &scalar_pk : nullptr;
-    blst::scalar::G1Point::to_pk2(out, scalar_pk_ptr, SK);
-    if (PK != nullptr) {
-        *PK = {
-            avx_curve_detail::scalar_fp_to_ring(scalar_pk.x),
-            avx_curve_detail::scalar_fp_to_ring(scalar_pk.y),
-        };
-    }
+    sign2(out, PK, generator(), SK);
 }
 
 inline void G1Point::cneg(G1Point& p, limb_t cbit)
@@ -904,11 +971,10 @@ inline void G1Point::ccopy(G1Point& a, const G1Point& b, bool_t cbit)
 
 inline limb_t G1Point::equal(const G1Point& a, const G1Point& b)
 {
-    G1AffinePoint aa = {};
-    G1AffinePoint bb = {};
-    to_affine(aa, a);
-    to_affine(bb, b);
-    return G1AffinePoint::equal(aa, bb);
+    return ProjectiveEqual(
+        avx_curve_detail::CurveG1Projective{a.X, a.Y, a.Z},
+        avx_curve_detail::CurveG1Projective{b.X, b.Y, b.Z},
+        avx_curve_detail::curve_ring());
 }
 
 inline const G1Point& G1Point::generator()
@@ -984,9 +1050,7 @@ inline const G2AffinePoint& G2AffinePoint::generator()
 
 inline int G2AffinePoint::equal(const G2AffinePoint& a, const G2AffinePoint& b)
 {
-    const blst::scalar::G2AffinePoint sa = avx_curve_detail::curve_g2_affine_to_scalar({a.X, a.Y});
-    const blst::scalar::G2AffinePoint sb = avx_curve_detail::curve_g2_affine_to_scalar({b.X, b.Y});
-    return blst::scalar::G2AffinePoint::equal(sa, sb);
+    return static_cast<int>(a.X.equal(b.X) & a.Y.equal(b.Y));
 }
 
 inline bool_t G2AffinePoint::is_inf(const G2AffinePoint& p)
@@ -1147,24 +1211,33 @@ inline void G2Point::unchecked_mult(G2Point& out, const G2Point& a, const byte* 
 
 inline void G2Point::sign(G2Point& out, const G2Point& in, const pow256 SK)
 {
-    G2AffinePoint affine = {};
-    to_affine(affine, in);
+    BLST_ASSERT(in_subgroup(in));
+    BLST_ASSERT(blst::scalar::sk_check(SK));
+    std::array<uint8_t, 32> scalar_bytes = {};
+    std::memcpy(scalar_bytes.data(), SK, scalar_bytes.size());
+    const auto product = avx_curve_detail::curve_g2_gls().multiply(
+        {in.X, in.Y, in.Z}, scalar_bytes,
+        avx_curve_detail::curve_fp2_ring(), avx_curve_detail::curve_g2(),
+        avx_curve_detail::curve_ring());
+    vec_zero(scalar_bytes.data(), scalar_bytes.size());
+    const auto normalized = avx_curve_detail::normalize_secret_projective(product);
+    out = {normalized.x, normalized.y, normalized.z};
+}
 
-    blst::scalar::G2AffinePoint scalar_affine = {};
-    scalar_affine.x = avx_curve_detail::ring_fp2_to_scalar(affine.X);
-    scalar_affine.y = avx_curve_detail::ring_fp2_to_scalar(affine.Y);
-
-    blst::scalar::G2Point scalar_in = {};
-    blst::scalar::G2Point::from_affine(scalar_in, scalar_affine);
-    blst::scalar::G2Point scalar_out = {};
-    blst::scalar::G2Point::sign(scalar_out, scalar_in, SK);
-    blst::scalar::G2AffinePoint scalar_out_affine = {};
-    blst::scalar::G2Point::to_affine(scalar_out_affine, scalar_out);
-    G2AffinePoint out_affine = {
-        avx_curve_detail::scalar_fp2_to_ring(scalar_out_affine.x),
-        avx_curve_detail::scalar_fp2_to_ring(scalar_out_affine.y),
-    };
-    from_affine(out, out_affine);
+inline void G2Point::sign2(
+    unsigned char* out, G2AffinePoint* sig,
+    const G2Point& hash, const pow256 SK)
+{
+    G2Point point = {};
+    sign(point, hash, SK);
+    const G2AffinePoint affine = {point.X, point.Y};
+    if (sig != nullptr)
+        *sig = affine;
+    if (out != nullptr) {
+        const limb_t parity = G2AffinePoint::serialize_BE(out, affine);
+        out[0] |= (parity & 2) << 4;
+        out[0] |= is_identity(point) << 6;
+    }
 }
 
 inline void G2Point::to_pk(G2Point& out, const pow256 SK)
@@ -1174,15 +1247,7 @@ inline void G2Point::to_pk(G2Point& out, const pow256 SK)
 
 inline void G2Point::to_pk2(unsigned char* out, G2AffinePoint* PK, const pow256 SK)
 {
-    blst::scalar::G2AffinePoint scalar_pk = {};
-    blst::scalar::G2AffinePoint* scalar_pk_ptr = PK != nullptr ? &scalar_pk : nullptr;
-    blst::scalar::G2Point::to_pk2(out, scalar_pk_ptr, SK);
-    if (PK != nullptr) {
-        *PK = {
-            avx_curve_detail::scalar_fp2_to_ring(scalar_pk.x),
-            avx_curve_detail::scalar_fp2_to_ring(scalar_pk.y),
-        };
-    }
+    sign2(out, PK, generator(), SK);
 }
 
 inline void G2Point::cneg(G2Point& p, limb_t cbit)
@@ -1237,11 +1302,10 @@ inline void G2Point::ccopy(G2Point& a, const G2Point& b, bool_t cbit)
 
 inline limb_t G2Point::equal(const G2Point& a, const G2Point& b)
 {
-    G2AffinePoint aa = {};
-    G2AffinePoint bb = {};
-    to_affine(aa, a);
-    to_affine(bb, b);
-    return G2AffinePoint::equal(aa, bb);
+    return ProjectiveEqual(
+        avx_curve_detail::CurveG2Projective{a.X, a.Y, a.Z},
+        avx_curve_detail::CurveG2Projective{b.X, b.Y, b.Z},
+        avx_curve_detail::curve_fp2_ring());
 }
 
 inline const G2Point& G2Point::generator()
@@ -1384,6 +1448,8 @@ inline void print(const char* name, const G2AffinePoint& p)
 }
 
 template<typename Group>
+/// Multiply an on-curve point by `-z` using the fixed BLS12-381 chain.
+/// `out` and `in` must be distinct; subgroup membership is not required.
 inline void times_minus_z(Group& out, const Group& in);
 
 template<typename Group>
@@ -1398,6 +1464,7 @@ inline void add_n_dbl(Group& out, const Group& p, size_t n)
 template<>
 inline void times_minus_z<G1Point>(G1Point& out, const G1Point& in)
 {
+    BLST_ASSERT(&out != &in);
     G1Point::doubling(out, in);
     add_n_dbl(out, in, 2);
     add_n_dbl(out, in, 3);
@@ -1409,6 +1476,7 @@ inline void times_minus_z<G1Point>(G1Point& out, const G1Point& in)
 template<>
 inline void times_minus_z<G2Point>(G2Point& out, const G2Point& in)
 {
+    BLST_ASSERT(&out != &in);
     G2Point::doubling(out, in);
     add_n_dbl(out, in, 2);
     add_n_dbl(out, in, 3);

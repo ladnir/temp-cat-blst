@@ -277,14 +277,17 @@ INLINE bool ProjectiveEqual(
     const ProjectivePoint<typename Ring::StandardElement>& Q,
     const Ring& ring)
 {
+    const bool p_is_infinity = PointCoordIsZero(P.z);
+    const bool q_is_infinity = PointCoordIsZero(Q.z);
     auto [u1, u2, s1, s2] = ring.batch_reduce_expand(
         ring.prep_left(P.x) * Q.z,
         ring.prep_left(Q.x) * P.z,
         ring.prep_left(P.y) * Q.z,
         ring.prep_left(Q.y) * P.z);
-    const auto h = u2 - u1;
-    const auto r = s2 - s1;
-    return PointCoordIsZero(h) && PointCoordIsZero(r);
+    const auto h = NormalizePointCoord(u2 - u1, ring);
+    const auto r = NormalizePointCoord(s2 - s1, ring);
+    return PointCoordIsZero(h) & PointCoordIsZero(r) &
+        (p_is_infinity ^ q_is_infinity ^ true);
 }
 
 template<class Ring>

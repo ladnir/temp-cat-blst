@@ -2380,20 +2380,11 @@ void blst_sk_to_pk2_in_g1(byte out[96], BoundaryG1Affine* out_pk, const blst_sca
 
 void blst_sign_pk2_in_g1(byte out[192], BoundaryG2Affine* out_sig, const BoundaryG2* hash, const blst_scalar* SK)
 {
-    PublicG2 public_point = {};
-    PublicG2::sign(public_point, boundary_to_public_g2(*hash), SK->b);
-    if (out_sig != nullptr) {
-        PublicG2Affine public_sig = {};
-        PublicG2::to_affine(public_sig, public_point);
+    PublicG2Affine public_sig = {};
+    PublicG2Affine* public_sig_ptr = out_sig == nullptr ? nullptr : &public_sig;
+    PublicG2::sign2(out, public_sig_ptr, boundary_to_public_g2(*hash), SK->b);
+    if (out_sig != nullptr)
         *out_sig = public_to_boundary_g2_affine(public_sig);
-    }
-    if (out != nullptr) {
-        PublicG2::serialize(out, public_point);
-        PublicG2Affine affine = {};
-        PublicG2::to_affine(affine, public_point);
-        out[0] |= (BoundaryG2Affine::compress_BE(out, public_to_boundary_g2_affine(affine)) & 2) << 4;
-        out[0] |= PublicG2::is_inf(public_point) << 6;
-    }
 }
 
 void blst_sk_to_pk2_in_g2(byte out[192], BoundaryG2Affine* out_pk, const blst_scalar* SK)
@@ -2408,20 +2399,11 @@ void blst_sk_to_pk2_in_g2(byte out[192], BoundaryG2Affine* out_pk, const blst_sc
 
 void blst_sign_pk2_in_g2(byte out[96], BoundaryG1Affine* out_sig, const BoundaryG1* hash, const blst_scalar* SK)
 {
-    PublicG1 public_point = {};
-    PublicG1::sign(public_point, boundary_to_public_g1(*hash), SK->b);
-    if (out_sig != nullptr) {
-        PublicG1Affine public_sig = {};
-        PublicG1::to_affine(public_sig, public_point);
+    PublicG1Affine public_sig = {};
+    PublicG1Affine* public_sig_ptr = out_sig == nullptr ? nullptr : &public_sig;
+    PublicG1::sign2(out, public_sig_ptr, boundary_to_public_g1(*hash), SK->b);
+    if (out_sig != nullptr)
         *out_sig = public_to_boundary_g1_affine(public_sig);
-    }
-    if (out != nullptr) {
-        PublicG1::serialize(out, public_point);
-        PublicG1Affine affine = {};
-        PublicG1::to_affine(affine, public_point);
-        out[0] |= (BoundaryG1Affine::compress_BE(out, public_to_boundary_g1_affine(affine)) & 2) << 4;
-        out[0] |= PublicG1::is_inf(public_point) << 6;
-    }
 }
 
 BLST_EXTERN_C_END_

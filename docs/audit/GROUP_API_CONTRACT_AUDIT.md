@@ -225,11 +225,12 @@ prime-order subgroup points. The C comments do not currently state this useful
 postcondition.
 
 The low-level signing and public-key functions consume a 32-byte scalar through
-the GLV/GLS splitter without locally calling `blst_sk_check`. Public-key
-derivation is safe when the key came from keygen or passed `blst_sk_check`.
-Signing additionally assumes the supplied hash point is an on-curve subgroup
-point. Those preconditions are implicit in the names but not explicit in the C
-contract.
+the GLV/GLS splitter without Release validation. Public declarations now
+require a canonical nonzero key produced by keygen or accepted by
+`blst_sk_check`; signing additionally requires an already validated subgroup
+hash point. Native scalar and AVX implementations encode those invariants with
+Debug assertions only. The inherited `*2` byte outputs are explicitly
+documented as full-width pre-decorated buffers, not directly usable encodings.
 
 ## Native C++ surface
 
@@ -299,7 +300,7 @@ and is not merely a mathematical precondition.
 | `AUD-095` | AVX projective MSM changed point domain at one point and lacked an nbits bound. | validated |
 | `AUD-096` | Inherited unsuffixed add remains the fast incomplete operation under explicit finite distinct/nonopposite preconditions; complete add-or-double remains available. | accepted |
 | `AUD-097` | Pairing validation is intentionally asymmetric but insufficiently documented; AVX pairing is raw despite its name. | needs decision |
-| `AUD-098` | Signing, weighted pairing, and AVX multiplication omit important subgroup/SK preconditions in public contracts. | needs decision |
+| `AUD-098` | Signing, weighted pairing, and AVX multiplication rely on explicit narrow subgroup/SK preconditions without Release validation. | validated |
 | `AUD-099` | GT is represented by unvalidated Fp12 storage while GT-only operations rely on hidden invariants. | needs decision |
 | `AUD-100` | C cyclotomic squaring now states its cyclotomic precondition and lack of Release validation. | fixed |
 | `AUD-101` | Weighted pairing permitted oversized nbits into a fixed 32-byte scalar buffer; safe Rust could reach it. | validated |
@@ -311,7 +312,7 @@ and is not merely a mathematical precondition.
 
 `PUBLIC_API_DOCUMENTATION.csv` tracks the declaration coverage of API families
 whose implementations have already received a complete or focused hand audit.
-It currently accounts for 22 field, scalar, group, and expert-AVX families
+It currently accounts for 23 field, scalar, group, and expert-AVX families
 across C, selected native C++, safe Rust, and generated raw Rust FFI.
 
 `scripts/audit/check_public_api_documentation.ps1` verifies every ledger source,

@@ -1169,6 +1169,7 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	template<typename Group>
 	BLST_HD BLST_CPP_INLINE void times_minus_z(Group& out, const Group& in)
 	{
+		BLST_ASSERT(&out != &in);
 		Group::doubling(out, in);          /*      1: 0x2                  */
 		Group::add_n_dbl(out, in, 2);    /*   2..4: 0x3..0xc             */
 		Group::add_n_dbl(out, in, 3);    /*   5..8: 0xd..0x68            */
@@ -1441,6 +1442,8 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 	{
 		Field Z, ZZ;
 		limb_t inf;
+		BLST_ASSERT(Point::in_subgroup(in));
+		BLST_ASSERT(sk_check(SK));
 
 		mult_glsv(out, in, SK);
 

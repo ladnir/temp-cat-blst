@@ -433,8 +433,12 @@ is complete at `5d18e42`: `AUD-164` adds true AVX exact-scalar G1/G2 methods,
 `AUD-165` makes raw AVX decode failure-atomic, `AUD-166` completes native point
 contracts, `AUD-167` records intentional generic/helper visibility, and
 `AUD-168` replaces the reserved guard. Portable-AVX Debug contract tests pass
-8/8. Next, begin the owning `blst/avx/curve/point.h` Phase 16 review; native
-AVX codegen/runtime, sanitizer, fuzz, Apple, and full matrices remain gates.
+8/8. The owning `blst/avx/curve/point.h` Phase 16 review is now active:
+`AUD-169` covers scalar-backed AVX signing, `AUD-170` covers conversion-heavy
+point observation, `AUD-171` restores the inherited pre-decorated `to_pk2`
+contract, and `AUD-172` records the distinct-object `times_minus_z` invariant.
+Native AVX codegen/runtime, sanitizer, fuzz, Apple, and full matrices remain
+gates.
 
 For every newly reviewed externally reachable family, update declaration-level
 C, selected native C++, and safe Rust contracts in the same packet and add it
@@ -450,6 +454,6 @@ Phase evidence is recorded in `PHASE_01.md`, `PHASE_02.md`, `PHASE_03A.md`,
 `PHASE_03B.md`, `PHASE_03C.md`, `PHASE_04.md`, `PHASE_05.md`,
 `PHASE_06A.md`, `PHASE_06B.md`, `PHASE_06C.md`, `PHASE_07A.md`,
 `PHASE_07B.md`, `PHASE_07C.md`, `PHASE_08.md`, `PHASE_09.md`,
-`PHASE_10.md`, `PHASE_11.md`, `PHASE_12.md`, `PHASE_14.md`, and
+`PHASE_10.md`, `PHASE_11.md`, `PHASE_12.md`, `PHASE_14.md`, `PHASE_16.md`, and
 `PHASE_17.md`; the remaining dependency order and exit
 gates are in `HARDENING_PLAN.md`.

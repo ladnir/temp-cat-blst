@@ -242,10 +242,13 @@ namespace blst::scalar
 		template<int Width>
 		BLST_HD static void mult_glsv_wnaf(Point& out, const Point& in, const byte SK[32]);
 		/// @brief Compute a BLS signature point `out = SK * in` and normalize it.
+		/// @pre @p in is in G1/G2 and @p SK is a canonical nonzero secret key.
 		BLST_HD static void sign(Point& out, const Point& in, const byte SK[32]);
 		/**
 		 * @brief Signature convenience API.
-		 * @param out Optional compressed output bytes.
+		 * @param out Optional full-width pre-decorated `X || Y` output. This is
+		 * not directly a conforming encoding: set bit 7 and retain the x half for
+		 * compressed form, or clear bit 5 for uncompressed form.
 		 * @param sig Optional affine output.
 		 * @param hash Hash-to-curve point to sign.
 		 * @param SK Little-endian 32-byte secret scalar.
@@ -254,7 +257,8 @@ namespace blst::scalar
 			const Point& hash, const byte SK[32]);
 		/// @brief Derive public key `out = SK * generator()`.
 		BLST_HD static void to_pk(Point& out, const byte SK[32]);
-		/// @brief Optionally emit compressed and affine public-key outputs.
+		/// @brief Optionally emit pre-decorated full-width and affine public-key outputs.
+		/// @note Finalize the byte output as described for @c sign2.
 		BLST_HD static void to_pk2(byte* out, AffinePoint<Field>* pk, const byte SK[32]);
 	};
 
@@ -508,6 +512,8 @@ namespace blst::scalar
 
 
 	template<typename Group>
+	/// @brief Multiply an on-curve point by `-z` using the fixed BLS12-381 chain.
+	/// @pre @p out and @p in are distinct objects; subgroup membership is not required.
 	BLST_HD void times_minus_z(Group& out, const Group& in);
 
 }
