@@ -262,7 +262,7 @@ TEST(Fp12Test, Serialization) {
 	// Serialize to bytes
 	Fp12::to_bendian(serialized, a);
 
-	Fp12::from_bendian(b, serialized);
+	ASSERT_TRUE(Fp12::from_bendian(b, serialized));
 	EXPECT_TRUE(Fp12::equal(a, b));
 }
 

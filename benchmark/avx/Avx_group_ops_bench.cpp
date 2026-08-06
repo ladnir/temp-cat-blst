@@ -936,7 +936,7 @@ static void BM_AvxGT_Deserialize(benchmark::State& state)
 
     for (auto _ : state) {
         GT out = {};
-        GT::deserialize(out, serialized);
+        benchmark::DoNotOptimize(GT::deserialize(out, serialized));
         benchmark::DoNotOptimize(out);
     }
 
@@ -1483,7 +1483,8 @@ static void BM_AvxGT_Breakdown_BytesToScalar(benchmark::State& state)
 
     for (auto _ : state) {
         blst::scalar::GT out = {};
-        blst::scalar::GT::deserialize(out, serialized);
+        benchmark::DoNotOptimize(
+            blst::scalar::GT::deserialize(out, serialized));
         benchmark::DoNotOptimize(out);
     }
 

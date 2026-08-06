@@ -201,8 +201,18 @@ namespace blst::scalar
 		BLST_HD static int equal(const Fp12& a, const Fp12& b);
 		/// @brief Constant-time predicate for the multiplicative identity.
 		BLST_HD static int is_one(const Fp12& a);
-		/// @brief Decode 576 big-endian bytes and convert coefficients to Montgomery form.
-		BLST_HD static void from_bendian(Fp12& ret, const byte serialized[12 * 48]);
+		/**
+		 * @brief Decode 576 big-endian bytes with canonical Fp coefficients.
+		 * @return `true` on success; `false` if any 48-byte coefficient is at
+		 * least p.
+		 * @pre @p serialized points to 576 readable bytes.
+		 * @post Success writes the decoded Montgomery-form Fp12 value. Failure
+		 * leaves @p ret unchanged. No Fp12 or target-group membership check is
+		 * performed. Input bytes may overlap @p ret because decoding completes
+		 * into temporary storage before publication.
+		 */
+		[[nodiscard]] BLST_HD static bool from_bendian(
+			Fp12& ret, const byte serialized[12 * 48]);
 		/// @brief Convert from Montgomery form and encode 576 big-endian bytes.
 		BLST_HD static void to_bendian(byte serialized[12 * 48], const Fp12& a);
 		/// @brief Return one iff @p f is in the cyclotomic subgroup G_phi_12.

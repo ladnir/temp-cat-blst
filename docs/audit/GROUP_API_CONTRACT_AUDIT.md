@@ -220,7 +220,8 @@ contract.
 | `Fp12::cyclotomic_*` | Cyclotomic or GT preconditions vary by operation and are documented in the native header. |
 | `GT` construction | `GT(Fp12)` accepts arbitrary Fp12 and establishes no invariant. |
 | `GT` arithmetic | Assumes GT where conjugation, cyclotomic squaring, or scalar decomposition is used. |
-| `GT::deserialize` | Legacy unchecked/reducing Fp12 decoder; does not establish GT (`AUD-085`). |
+| `GT::deserialize` | Canonical, failure-atomic decoder that establishes GT membership; returns `false` for any coefficient at least p or a canonical non-GT value. |
+| `GT::deserialize_unchecked` | Canonical, failure-atomic Fp12 decoder that intentionally defers only GT membership; candidates must be combined as general Fp12 values and validated before ordinary GT operations. |
 
 The native types are high-performance semantic wrappers, not validated
 capability types. That can remain a valid design, but every operation must say

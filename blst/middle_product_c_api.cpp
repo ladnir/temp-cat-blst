@@ -32,7 +32,9 @@ inline BoundaryFp12 gt_to_boundary(const PublicGt& value)
         unsigned char serialized[12 * 48] = {};
         PublicGt::serialize(serialized, value);
         blst::scalar::GT scalar_gt = {};
-        blst::scalar::GT::deserialize(scalar_gt, serialized);
+        [[maybe_unused]] const bool decoded =
+            blst::scalar::GT::deserialize_unchecked(scalar_gt, serialized);
+        BLST_ASSERT(decoded);
         return scalar_gt.data;
     }
 #else
@@ -42,7 +44,9 @@ inline BoundaryFp12 gt_to_boundary(const PublicGt& value)
         unsigned char serialized[12 * 48] = {};
         PublicGt::serialize(serialized, value);
         blst::scalar::GT scalar_gt = {};
-        blst::scalar::GT::deserialize(scalar_gt, serialized);
+        [[maybe_unused]] const bool decoded =
+            blst::scalar::GT::deserialize_unchecked(scalar_gt, serialized);
+        BLST_ASSERT(decoded);
         return scalar_gt.data;
     }
 #endif

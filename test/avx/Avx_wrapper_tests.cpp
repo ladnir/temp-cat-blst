@@ -189,7 +189,7 @@ TEST(AvxWrapper, GTRoundTripSerializationMatchesScalar)
     blst::GT::serialize(scalar_bytes, scalar_gt);
 
     blst::avx::GT avx_gt = {};
-    blst::avx::GT::deserialize(avx_gt, scalar_bytes);
+    ASSERT_TRUE(blst::avx::GT::deserialize(avx_gt, scalar_bytes));
 
     unsigned char avx_bytes[12 * 48] = {};
     blst::avx::GT::serialize(avx_bytes, avx_gt);
@@ -213,8 +213,8 @@ TEST(AvxWrapper, GTOperationsMatchScalar)
 
     blst::avx::GT avx_a = {};
     blst::avx::GT avx_b = {};
-    blst::avx::GT::deserialize(avx_a, scalar_a_bytes);
-    blst::avx::GT::deserialize(avx_b, scalar_b_bytes);
+    ASSERT_TRUE(blst::avx::GT::deserialize(avx_a, scalar_a_bytes));
+    ASSERT_TRUE(blst::avx::GT::deserialize(avx_b, scalar_b_bytes));
 
     blst::GT scalar_mul = {};
     blst::GT::add(scalar_mul, scalar_a, scalar_b);
@@ -250,7 +250,7 @@ TEST(AvxWrapper, GTScalarMultMatchesScalar)
     blst::GT::serialize(scalar_a_bytes, scalar_a);
 
     blst::avx::GT avx_a = {};
-    blst::avx::GT::deserialize(avx_a, scalar_a_bytes);
+    ASSERT_TRUE(blst::avx::GT::deserialize(avx_a, scalar_a_bytes));
 
     blst::GT scalar_out = {};
     blst::GT::mult(scalar_out, scalar_a, scalar.data(), 256);

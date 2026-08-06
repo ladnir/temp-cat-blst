@@ -848,12 +848,12 @@ namespace blst::scalar
 	}
 
 
-	BLST_HD FP12_CPP_INLINE void Fp12::from_bendian(Fp12& ret, const unsigned char serialized[12 * 48]) {
-		// Clear the output first
-		for (size_t i = 0; i < sizeof(Fp12); ++i)
-			((unsigned char*)&ret)[i] = 0;
+	BLST_HD FP12_CPP_INLINE bool Fp12::from_bendian(
+		Fp12& ret, const unsigned char serialized[12 * 48])
+	{
+		Fp12 decoded = {};
 
-		// Fp12& is structured as ret[2][3][2] representing:
+		// Fp12 is structured as decoded[2][3][2] representing:
 		// - 2 components of Fp6 (for Fp12 = Fp6[w])
 		// - 3 components of Fp2 each (for Fp6 = Fp2[v])  
 		// - 2 components of Fp each (for Fp2 = Fp[u])
@@ -862,14 +862,21 @@ namespace blst::scalar
 		for (size_t fp6_comp = 0; fp6_comp < 3; fp6_comp++) {      // Fp6 components  
 			for (size_t fp12_comp = 0; fp12_comp < 2; fp12_comp++) {       // Fp12 components
 				for (size_t fp2_comp = 0; fp2_comp < 2; fp2_comp++) {  // Fp2 components
-					Fp r;
+					Fp coefficient;
 					// Convert from big-endian bytes to Fp (limbs)
-					limbs_from_be_bytes(r.l, &serialized[byte_offset], 48);
-					Fp::to_mont(ret[fp12_comp][fp6_comp][fp2_comp], r);
+					limbs_from_be_bytes(
+						coefficient.l, &serialized[byte_offset], sizeof(Fp));
+					if (!Fp::is_redc(coefficient))
+						return false;
+					Fp::to_mont(
+						decoded[fp12_comp][fp6_comp][fp2_comp], coefficient);
 					byte_offset += 48;
 				}
 			}
 		}
+
+		ret = decoded;
+		return true;
 	}
 
 	BLST_HD FP12_CPP_INLINE void Fp12::to_bendian(unsigned char ret[48 * 12], const Fp12& a)

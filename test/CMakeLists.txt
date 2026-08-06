@@ -242,6 +242,24 @@ gtest_discover_tests(blst_aggregate_audit_tests
     PROPERTIES LABELS "aggregate;audit"
 )
 
+add_executable(blst_gt_deserialize_audit_tests
+    "Gt_deserialize_audit_tests.cpp"
+)
+target_include_directories(blst_gt_deserialize_audit_tests PRIVATE
+    "${PROJECT_SOURCE_DIR}"
+)
+target_link_libraries(blst_gt_deserialize_audit_tests PRIVATE
+    gtest_main
+    blst_static
+    blst_avx_headers
+)
+gtest_discover_tests(blst_gt_deserialize_audit_tests
+    DISCOVERY_TIMEOUT 60
+    DISCOVERY_MODE PRE_TEST
+    TEST_PREFIX "gt-deserialize."
+    PROPERTIES LABELS "gt-deserialize;audit"
+)
+
 # Keep scalar point correctness and object-lifetime regressions independent of
 # the broad test executable and the frozen BTx/BTE subsystem.
 add_executable(blst_scalar_point_audit_tests

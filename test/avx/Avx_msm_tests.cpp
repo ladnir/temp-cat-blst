@@ -116,7 +116,7 @@ blst::scalar::GT scalar_from_avx(const blst::avx::GT& point)
     unsigned char bytes[12 * 48] = {};
     blst::avx::GT::serialize(bytes, point);
     blst::scalar::GT out = {};
-    blst::scalar::GT::deserialize(out, bytes);
+    EXPECT_TRUE(blst::scalar::GT::deserialize_unchecked(out, bytes));
     return out;
 }
 

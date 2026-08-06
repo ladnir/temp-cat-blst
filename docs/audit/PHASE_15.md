@@ -450,6 +450,30 @@ for the low-level accumulator accessor.
 No benchmark, broad suite, sanitizer sweep, CUDA build, BTx/BTE work, Apple CI,
 or portable-AVX Release build is part of this packet.
 
+## Checked GT deserialization follow-up
+
+The deferred `AUD-085` design is now implemented for the native scalar and
+selected AVX GT interfaces:
+
+- `GT::deserialize` is a `[[nodiscard]] bool`, rejects every noncanonical Fp
+  coefficient, checks GT membership, and publishes output only on success.
+- `GT::deserialize_unchecked` retains the protocol use case that amortizes one
+  group check across an aggregate. “Unchecked” skips only GT membership; it
+  still rejects noncanonical coefficients and is failure-atomic.
+- Deferred candidates are not valid operands for ordinary GT operations. They
+  are combined using general Fp12 multiplication, checked once with the GT
+  membership predicate, and only then treated as GT.
+- Trusted internal serialize/deserialize backend conversions use the unchecked
+  decoder with a Debug assertion, avoiding a redundant expensive group check.
+
+Scalar MSVC Debug and Release and selected portable-AVX Debug each pass 5/5
+focused tests. Coverage includes GT generator and identity round trips, p-1,
+p in every coefficient position, canonical non-GT input, unchanged output on
+failure, unchecked candidate decoding, and deferred inverse-pair aggregation.
+No benchmark ran: ordinary checked decoding intentionally pays validation, while
+the production backend-conversion path structurally selects the unchecked form.
+Exact reviewed-commit records remain before `AUD-085` is marked validated.
+
 ## Status and next action
 
 Scalar point, bulk addition, MSM, fixed-window multiplication, GT/Miller,

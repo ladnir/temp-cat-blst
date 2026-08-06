@@ -613,11 +613,24 @@ struct GT
         blst::scalar::GT::serialize(serialized, blst::scalar::GT(avx_gt_detail::to_scalar(p.data)));
     }
 
-    static void deserialize(GT& out, const unsigned char serialized[12 * 48])
+    [[nodiscard]] static bool deserialize(
+        GT& out, const unsigned char serialized[12 * 48])
     {
         blst::scalar::GT scalar = {};
-        blst::scalar::GT::deserialize(scalar, serialized);
+        if (!blst::scalar::GT::deserialize(scalar, serialized))
+            return false;
         out.data = avx_gt_detail::from_scalar(scalar.data);
+        return true;
+    }
+
+    [[nodiscard]] static bool deserialize_unchecked(
+        GT& out, const unsigned char serialized[12 * 48])
+    {
+        blst::scalar::GT scalar = {};
+        if (!blst::scalar::GT::deserialize_unchecked(scalar, serialized))
+            return false;
+        out.data = avx_gt_detail::from_scalar(scalar.data);
+        return true;
     }
 
     /** Map a valid nonzero Miller result into GT. */

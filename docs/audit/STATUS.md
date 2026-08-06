@@ -403,8 +403,10 @@ are failure-atomic, relocatable DST state has no invented pointer, and safe
 Rust uses sealed compile-time G1/G2 orientation instead of `dyn Any`. The
 low-level accumulator export is intentionally renamed to the allocation-free
 out-parameter `blst_pairing_get_miller_result`; `AUD-152` through `AUD-159` are
-validated. Keep `AUD-085` as the next
-explicit design decision when the GT decoder surface is reviewed. Coverage
+validated. `AUD-085` now has a checked, canonical, failure-atomic default GT
+decoder plus a canonical `deserialize_unchecked` path that defers only group
+membership; focused scalar Debug/Release and selected portable-AVX Debug tests
+pass, with exact reviewed hashes pending. Coverage
 remains a late audit/release metric by user decision; sanitizer, fuzz, and
 static-analysis work still accompanies subsystem review. Expand analyzers,
 sanitizers, fuzzers, and oracles alongside every subsystem. Apply

@@ -31,7 +31,7 @@ blst::avx::GT avx_from_scalar(const blst::scalar::GT& value)
     blst::scalar::GT::serialize(bytes, value);
 
     blst::avx::GT out = {};
-    blst::avx::GT::deserialize(out, bytes);
+    EXPECT_TRUE(blst::avx::GT::deserialize(out, bytes));
     return out;
 }
 

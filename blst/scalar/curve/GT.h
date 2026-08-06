@@ -248,13 +248,39 @@ namespace blst::scalar {
 		}
 
 		/**
-		 * @brief Decode raw big-endian Fp12 coefficients into a GT-shaped object.
-		 * @warning This legacy operation reduces noncanonical coefficients and does
-		 * not check target-group membership. It is not safe for untrusted input
-		 * unless the caller performs a deferred aggregate membership check.
+		 * @brief Decode a canonical big-endian target-group element.
+		 * @return `true` only when every coefficient is below p and the decoded
+		 * value lies in GT.
+		 * @pre @p serialized points to 576 readable bytes.
+		 * @post Success writes @p out. Failure leaves @p out unchanged.
+		 * Input bytes may overlap @p out.
+		 * @note Membership validation is intentionally variable-time with public
+		 * serialized input.
 		 */
-		static BLST_HD void deserialize(GT& out, const unsigned char serialized[12 * 48]) {
-			Fp12::from_bendian(out.data, serialized);
+		[[nodiscard]] static BLST_HD bool deserialize(
+			GT& out, const unsigned char serialized[12 * 48])
+		{
+			GT decoded;
+			if (!deserialize_unchecked(decoded, serialized) || !in_group(decoded))
+				return false;
+			out = decoded;
+			return true;
+		}
+
+		/**
+		 * @brief Decode canonical Fp12 coefficients without checking GT membership.
+		 * @return `false` if any coefficient is at least p; otherwise `true`.
+		 * @pre @p serialized points to 576 readable bytes.
+		 * @post Success writes a GT-shaped candidate to @p out. Failure leaves
+		 * @p out unchanged. Input bytes may overlap @p out.
+		 * @warning The result does not satisfy the GT operand contract until the
+		 * caller establishes membership, possibly after aggregating candidates as
+		 * general Fp12 values. This operation never accepts noncanonical encodings.
+		 */
+		[[nodiscard]] static BLST_HD bool deserialize_unchecked(
+			GT& out, const unsigned char serialized[12 * 48])
+		{
+			return Fp12::from_bendian(out.data, serialized);
 		}
 		///@}
 

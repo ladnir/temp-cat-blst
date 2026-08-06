@@ -304,7 +304,7 @@ BoundaryGt gt_to_boundary(const PublicGt& value)
     unsigned char serialized[12 * 48] = {};
     PublicGt::serialize(serialized, value);
     blst::scalar::GT scalar_gt = {};
-    blst::scalar::GT::deserialize(scalar_gt, serialized);
+    EXPECT_TRUE(blst::scalar::GT::deserialize_unchecked(scalar_gt, serialized));
     return scalar_gt.data;
 }
 
