@@ -992,7 +992,17 @@ bool blst_uniq_init(blst_uniq* tree, size_t capacity);
  * used. A duplicate is still reported as such when the tree is at capacity.
  */
 BLST_UNIQ_RESULT blst_uniq_insert(blst_uniq* tree, const blst_byte* msg, size_t len);
-/** Expands `msg` into `out_len` bytes using the XMD construction and `DST`; unsupported lengths or internal allocation failure clear `out` to zero. */
+/**
+ * Expands `msg` using RFC 9380 XMD:SHA-256 and writes exactly `out_len`
+ * bytes. `out_len` must not exceed 8160 (`255 * 32`); an excessive length
+ * clears all `out_len` bytes. `out` must reference `out_len` writable bytes
+ * when the length is nonzero and may be null when it is zero. `msg` and `DST`
+ * must reference their stated readable lengths and may be null only when the
+ * corresponding length is zero; an invalid nonzero pointer/length pair clears
+ * a valid output buffer. DSTs longer than 255 bytes are shortened as required
+ * by RFC 9380. Input and output regions must not overlap. The operation is
+ * allocation-free and nonthrowing; zero output length is a no-op.
+ */
 void blst_expand_message_xmd(blst_byte* out, size_t out_len, const blst_byte* msg, size_t msg_len, const blst_byte* DST, size_t DST_len);
 /** Returns `sizeof(blst_p1)` for ABI consumers that need runtime verification. */
 size_t blst_p1_sizeof(void);

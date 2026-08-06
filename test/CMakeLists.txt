@@ -188,6 +188,24 @@ gtest_discover_tests(blst_map_to_group_audit_tests
     PROPERTIES LABELS "map-to-group;audit"
 )
 
+add_executable(blst_hash_to_field_audit_tests
+    "Hash_to_field_audit_tests.cpp"
+)
+target_include_directories(blst_hash_to_field_audit_tests PRIVATE
+    "${PROJECT_SOURCE_DIR}"
+)
+target_link_libraries(blst_hash_to_field_audit_tests PRIVATE
+    gtest_main
+    blst_static
+    blst_avx_headers
+)
+gtest_discover_tests(blst_hash_to_field_audit_tests
+    DISCOVERY_TIMEOUT 60
+    DISCOVERY_MODE PRE_TEST
+    TEST_PREFIX "hash-to-field."
+    PROPERTIES LABELS "hash-to-field;audit"
+)
+
 add_executable(blst_sha256_audit_tests
     "Sha256_audit_tests.cpp"
 )

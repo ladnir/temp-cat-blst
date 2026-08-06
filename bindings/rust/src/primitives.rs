@@ -14,6 +14,7 @@
 use crate::*;
 use core::mem::MaybeUninit;
 use core::ptr;
+use zeroize::Zeroize;
 
 fn checked_scalar_bits(scalar: &[u8], nbits: usize) {
     assert!(nbits <= 256, "scalar bit length exceeds 256");
@@ -333,7 +334,12 @@ impl blst_fp12 {
 }
 
 impl blst_scalar {
-    /// Hashes arbitrary bytes into a scalar when the expanded output is valid.
+    /// Expands `msg` with RFC 9380 XMD:SHA-256 using `dst`, reduces the
+    /// resulting 48-byte integer modulo the scalar-field order, and returns a
+    /// canonical nonzero scalar.
+    ///
+    /// Returns `None` only when the reduced scalar is zero. The temporary XMD
+    /// output is erased before return. This function allocates no storage.
     pub fn hash_to(msg: &[u8], dst: &[u8]) -> Option<Self> {
         unsafe {
             let mut out = <Self>::default();
@@ -346,7 +352,10 @@ impl blst_scalar {
                 dst.as_ptr(),
                 dst.len(),
             );
-            if blst_scalar_from_be_bytes(&mut out, elem.as_ptr(), elem.len()) {
+            let is_nonzero =
+                blst_scalar_from_be_bytes(&mut out, elem.as_ptr(), elem.len());
+            elem.zeroize();
+            if is_nonzero {
                 Some(out)
             } else {
                 None
@@ -369,6 +378,20 @@ mod tests {
             out[i] = *byte;
         }
         out
+    }
+
+    #[test]
+    fn scalar_hash_to_matches_independent_xmd_reduction() {
+        let scalar = blst_scalar::hash_to(b"abc", b"BLS-XMD").unwrap();
+        assert_eq!(
+            scalar.b,
+            [
+                0xc2, 0x8d, 0x6d, 0xa7, 0xf9, 0x3a, 0xd6, 0x95, 0x92, 0x6f,
+                0x0d, 0x46, 0x6a, 0xdd, 0x5e, 0x55, 0x9d, 0x3d, 0x96, 0x86,
+                0xbc, 0xb2, 0x2e, 0xc5, 0xe9, 0x45, 0x50, 0x81, 0xc4, 0x8b,
+                0xc0, 0x07,
+            ]
+        );
     }
 
     fn fr_to_words(value: &blst_fr) -> [u64; 4] {

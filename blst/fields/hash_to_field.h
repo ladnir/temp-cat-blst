@@ -10,11 +10,12 @@
 
 namespace blst
 {
+    /**
+     * Selected native C++ access to allocation-free RFC 9380 XMD:SHA-256.
+     * See the owning scalar declaration for the exact pointer, length,
+     * nonoverlap, maximum-output, and fail-closed contracts.
+     */
     using scalar::blst_expand_message_xmd;
-    using scalar::expand_message_xmd;
-    using scalar::hash_to_field;
-    using scalar::sha256_init_Zpad;
-    using scalar::vec_xor;
 }
 
 #endif
