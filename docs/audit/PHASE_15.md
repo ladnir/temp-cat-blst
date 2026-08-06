@@ -517,14 +517,40 @@ packet passes 25/25. Structural searches find no remaining pairing-facade
 include or fixed-window-facade consumer. No benchmark, CUDA build, broad suite,
 sanitizer run, Apple CI, or portable-AVX Release build ran.
 
+## Selected point facade
+
+The complete `blst/curve/point.h` review distinguishes the four named selected
+G1/G2 types from intentionally scalar generic aliases and retained helpers.
+Visibility is retained under `AUD-167`, including generic scalar aliases used
+by frozen BTx/BTE, which was not changed or audited. `AUD-168` replaces the
+reserved legacy include guard.
+
+The review exposed a selected-API mismatch: AVX-default `G1Point` and
+`G2Point` lacked the two inherited exact-scalar `unchecked_mult` methods.
+`AUD-164` implements them directly over AVX homogeneous projective arithmetic
+using 4/5-bit fixed windows, complete table construction and accumulation, and
+full constant-time table scans. There is no scalar-point conversion, GLV/GLS,
+allocation, or runtime dispatch. The 176-bit crossover matches the scalar
+implementation. `AUD-165` also makes AVX raw G1/G2 uncompression
+failure-atomic, and `AUD-166` records the homogeneous representation plus
+point, scalar, key, timing, alias, byte-size, and decode-publication contracts.
+
+The portable-AVX Debug contract target passes 8/8. Exact multiplication agrees
+with the scalar oracle at 1, 128, 175, 176, and 256 bits, including order-11 G1
+and order-13 G2 fixtures, zero bits, and exact output aliasing. Canonical
+non-residue decode failures preserve G1/G2 sentinel outputs. Native AVX-512
+runtime/code-generation evidence remains part of the owning file's Phase 16
+review; no benchmark or broad test ran.
+
 ## Status and next action
 
 Scalar point, bulk addition, MSM, fixed-window multiplication, GT/Miller,
 map-to-group, SHA-256, and key generation are complete at their recorded
 commits. The aggregate implementation/header and safe Rust pairing wrapper are
 complete at `091dfb2cae096ee8ed801036e98827b3253b2e84`. The obsolete pairing and
-fixed-window facades are removed under `AUD-162`/`AUD-163`. With the expert AVX
-batch design explicitly deferred, the next packet reviews the selected
-`blst/curve/point.h` facade.
+fixed-window facades are removed under `AUD-162`/`AUD-163`, and the selected
+point facade is complete at `5d18e42ad96dbba5d2ce6fbda8af0ce160520e85`.
+With the expert AVX batch design explicitly deferred, the next packet begins
+the owning AVX point-file review.
 The point-domain declarations and focused evidence now validate `AUD-094` and
 `AUD-160`; GT deserialization is resolved and validated as `AUD-085`.

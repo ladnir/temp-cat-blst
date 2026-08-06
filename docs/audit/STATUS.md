@@ -425,12 +425,16 @@ C++, and safe Rust declarations now match the exact cross-language matrix in
 focused scalar C/native, portable-AVX Debug, and both safe Rust variant flows,
 including compressed/uncompressed decoding, Serde, complete validators, and
 the approved basic primitive set; `AUD-094` and `AUD-160` are validated.
-`AUD-161` separately records that the existing expert
-AVX batch predicate has caller-controlled soundness and is not yet a safe
-general batch-validation interface. `AUD-162` and `AUD-163` remove the empty
-pairing facade and the unused scalar fixed-window re-export facade; focused
-scalar Release GT, pairing, and fixed-window tests pass 25/25. With batch
-validation deferred, review `blst/curve/point.h` next.
+`AUD-161` separately records that the existing expert AVX batch predicate has
+caller-controlled soundness and is not yet a safe general batch-validation
+interface. `AUD-162` and `AUD-163` remove the empty pairing facade and unused
+scalar fixed-window re-export facade. The selected `blst/curve/point.h` review
+is complete at `5d18e42`: `AUD-164` adds true AVX exact-scalar G1/G2 methods,
+`AUD-165` makes raw AVX decode failure-atomic, `AUD-166` completes native point
+contracts, `AUD-167` records intentional generic/helper visibility, and
+`AUD-168` replaces the reserved guard. Portable-AVX Debug contract tests pass
+8/8. Next, begin the owning `blst/avx/curve/point.h` Phase 16 review; native
+AVX codegen/runtime, sanitizer, fuzz, Apple, and full matrices remain gates.
 
 For every newly reviewed externally reachable family, update declaration-level
 C, selected native C++, and safe Rust contracts in the same packet and add it
