@@ -3,12 +3,15 @@
  * Licensed under the Apache License, Version 2.0, see LICENSE for details.
  * SPDX-License-Identifier: Apache-2.0
  */
- /*
+/*
   * The "magic" number is BLS12_381_P-2. Exponentiation to which yields
-  * reciprocal to input base.
+  * the reciprocal of a nonzero input base. Zero maps to zero, as required by
+  * branchless projective-infinity normalization.
   *
   * Generated with 'addchain 4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559785'
   * https://github.com/kwantam/addchain
+  * Imported from upstream BLST commit
+  * 79400f963d1464c53995d388ef1dcc38edbb8ebf and translated to typed C++.
   *
   * # Bos-Coster (win=4)           :  461 (16) <<<
   * # Bos-Coster (win=3)           :  464 ( 9)
@@ -24,12 +27,23 @@
   */
 #pragma once
 
-  //#define RECIPROCAL_MOD_BLS12_381_P(out, inp, ptype) do 
-template<typename Field>
-inline void RECIPROCAL_MOD_BLS12_381_P(Field& out, const Field& inp)
+#include <type_traits>
+
+namespace blst::scalar
 {
+struct Fp;
+
+namespace detail
+{
+
+/** Fixed addition chain for exponentiation by BLS12-381 p - 2. */
+template<typename Field>
+inline void add_chain_reciprocal(Field& out, const Field& inp)
+{
+	static_assert(std::is_same_v<Field, Fp>,
+		"the p - 2 addition chain is specific to scalar BLS12-381 Fp");
 	Field t[16];
-	blst::vec_copy(&t[1], &inp, sizeof(Field)); /*    0: 1 */
+	t[1] = inp;                                 /*    0: 1 */
 	Field::sqr(t[0], t[1]);                    /*    1: 2 */
 	Field::mul(t[9], t[0], t[1]);              /*    2: 3 */
 	Field::sqr(t[5], t[0]);                    /*    3: 4 */
@@ -491,3 +505,6 @@ inline void RECIPROCAL_MOD_BLS12_381_P(Field& out, const Field& inp)
 	/* sqr(t[0], t[0]); */              /*  459: 1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaa8 */
 	Field::sqr_n_mul(out, t[0], 3, t[1]);      /*  460: 1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaa9 */
 }
+
+} // namespace detail
+} // namespace blst::scalar

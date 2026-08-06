@@ -110,13 +110,14 @@ namespace blst::scalar
 		/// @pre @p inp is nonzero.
 		/// @note This operation is generally variable-time; zero has no defined field inverse.
 		BLST_HD static void reciprocal(Fp& out, const Fp& inp);
-		/// @brief Compute `out = inp^{-1}` using the fixed Fermat addition chain.
-		/// @pre @p inp is nonzero.
+		/// @brief Compute `out = inp^(p-2)` using the fixed Fermat addition chain.
+		/// @post Nonzero input is inverted; zero maps to zero for branchless infinity handling.
 		BLST_HD static void flt_reciprocal(Fp& out, const Fp& inp);
 		/// @brief Compute `t0 = inp^((p-3)/4)` for square-root helpers.
 		BLST_HD static void recip_sqrt_3mod4(Fp& t0, const Fp& inp);
 		/// @brief Compute `out = inp^{-1/2}` when it exists.
-		/// @return One on success; zero for zero or a nonsquare.
+		/// @return One for zero or a nonzero square; zero for a nonsquare.
+		/// @post On zero, writes zero. On nonzero success, `out^2 * inp == 1`.
 		BLST_HD static limb_t recip_sqrt(Fp& out, const Fp& inp);
 		/// @brief Write a square-root candidate for @p inp.
 		/// @return One when the candidate is a root; zero for a nonsquare.
@@ -493,7 +494,7 @@ namespace blst::scalar
 		};
 		Fp::exp(out, inp, BLS_12_381_P_minus_3_div_4, 379);
 #else
-		add_chain_recip_sqrt<Fp>(out, inp);
+		detail::add_chain_recip_sqrt<Fp>(out, inp);
 #endif
 	}
 
@@ -557,7 +558,7 @@ namespace blst::scalar
 		Fp::exp(out, inp, BLS12_381_P_minus_2, 381);
 #else
 		// use a unrolled addition chain
-		RECIPROCAL_MOD_BLS12_381_P<Fp>(out, inp);
+		detail::add_chain_reciprocal<Fp>(out, inp);
 #endif
 	}
 

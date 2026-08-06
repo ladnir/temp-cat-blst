@@ -149,11 +149,11 @@ run_profile()
         -DBLST_UBSAN="$ubsan" \
         2>&1 | tee "$profile_results/configure.log"
 
-    cmake --build "$build_root" --target blst_sanitizer_boundary_tests \
+    cmake --build "$build_root" --target blst_tests \
         --parallel "$jobs" \
         2>&1 | tee "$profile_results/build.log"
 
-    local test_executable="$build_root/test/blst_sanitizer_boundary_tests"
+    local test_executable="$build_root/test/blst_tests"
     if [[ ! -x $test_executable ]]; then
         echo "Sanitizer test executable not found: $test_executable" >&2
         exit 1

@@ -9,7 +9,6 @@
 #include "blst/common/vect.h"
 #include "blst/config.h"
 #include "blst/common/defines.h" 
-#include "blst/scalar/fields/recip-addchain.h"
 #include "blst/scalar/fields/Fp.h"
 
 
@@ -77,8 +76,8 @@ namespace blst::scalar
         /// @pre @p inp is nonzero.
         /// @note This operation is generally variable-time; zero has no defined field inverse.
         BLST_HD static void reciprocal(Fp2& out, const Fp2& inp);
-        /// @brief Compute `out = inp^{-1}` using a fixed Fermat addition chain.
-        /// @pre @p inp is nonzero.
+        /// @brief Compute the fixed-chain inverse of nonzero @p inp.
+        /// @post Zero maps to zero for branchless projective-infinity handling.
         BLST_HD static void flt_reciprocal(Fp2& out, const Fp2& inp);
         /// @brief Compute the canonically aligned square root when it exists.
         /// @return One on success and zero for a nonsquare.

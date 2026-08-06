@@ -49,11 +49,26 @@ set(SCALAR_BACKEND_TEST_SOURCES
     "scalar/Scalar_mult_window_tests.cpp"
 )
 
+# Audit regressions are ordinary unit tests. Keep them in the main test binary
+# so each configuration has one discoverable runtime suite.
+set(AUDIT_TEST_SOURCES
+    "Addchain_audit_tests.cpp"
+    "Aggregate_audit_tests.cpp"
+    "Group_scalar_mult_tests.cpp"
+    "Gt_deserialize_audit_tests.cpp"
+    "Hash_to_field_audit_tests.cpp"
+    "Keygen_audit_tests.cpp"
+    "Map_to_group_audit_tests.cpp"
+    "Scalar_point_audit_tests.cpp"
+    "Sha256_audit_tests.cpp"
+)
+
 set(AVX_VALIDATION_TEST_SOURCES)
 set(AVX_TEST_SOURCES)
 
 set(TEST_SOURCES
     ${PUBLIC_API_TEST_SOURCES}
+    ${AUDIT_TEST_SOURCES}
     "Timer_tests.cpp"
 )
 
@@ -77,15 +92,8 @@ if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
     )
     list(APPEND TEST_SOURCES ${AVX_TEST_SOURCES})
 
-    # Keep the group-domain contract change loop independent of the broad test
-    # executable and the frozen BTx/BTE subsystem.
-    add_executable(blst_avx_contract_tests
+    list(APPEND TEST_SOURCES
         "avx/Avx_c_api_contract_tests.cpp"
-    )
-    target_link_libraries(blst_avx_contract_tests PRIVATE
-        gtest_main
-        blst_static
-        blst_avx_headers
     )
 endif()
 
@@ -116,11 +124,31 @@ if(BLST_CUDA)
 
 endif()
 
-# Create single test executable with both CPU and CUDA tests
+# Sanitizer presets use the same test executable with a deliberately narrow
+# source set. This avoids compiling frozen BTx/BTE and unrelated broad suites
+# in the sanitizer change loop without creating a second runtime test binary.
+if(BLST_ASAN OR BLST_UBSAN)
+    set(TEST_SOURCES
+        "Backend_alias_tests.cpp"
+        "BindingHeader_tests.cpp"
+        "C_api_tests.cpp"
+        "CompressedInfinity_tests.cpp"
+        "Conformance_tests.cpp"
+        "Fft_api_tests.cpp"
+        "Interface_tests.cpp"
+        "MiddleProduct_c_api_tests.cpp"
+        "scalar/Scalar_mult_window_tests.cpp"
+    )
+endif()
+
+# Create the single ordinary runtime test executable.
 add_executable(blst_tests ${TEST_SOURCES})
 
 target_include_directories(blst_tests PRIVATE ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(blst_tests PRIVATE gtest_main blst_static blst_avx_headers bte)
+target_link_libraries(blst_tests PRIVATE gtest_main blst_static blst_avx_headers)
+if(NOT BLST_ASAN AND NOT BLST_UBSAN)
+    target_link_libraries(blst_tests PRIVATE bte)
+endif()
 
 if(BLST_HAVE_AVX_VALIDATION_GMP AND MSVC)
     add_custom_command(TARGET blst_tests POST_BUILD
@@ -140,14 +168,6 @@ if(BLST_CUDA)
 endif()
 
 include(GoogleTest)        # 4) glue between GTest and CTest
-if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
-    gtest_discover_tests(blst_avx_contract_tests
-        DISCOVERY_TIMEOUT 60
-        DISCOVERY_MODE PRE_TEST
-        TEST_PREFIX "avx-contract."
-        PROPERTIES LABELS "avx;group-contract"
-    )
-endif()
 # 5) Auto-discover TEST() cases inside blst_tests and register them with CTest
 gtest_discover_tests(blst_tests
   DISCOVERY_TIMEOUT 60
@@ -157,173 +177,6 @@ gtest_discover_tests(blst_tests
   # TEST_PREFIX "unit."
   # PROPERTIES LABELS "unit"
 )
-
-add_executable(blst_group_scalar_mult_tests
-    "Group_scalar_mult_tests.cpp"
-)
-target_link_libraries(blst_group_scalar_mult_tests PRIVATE
-    gtest_main
-    blst_static
-    blst_avx_headers
-)
-gtest_discover_tests(blst_group_scalar_mult_tests
-    DISCOVERY_TIMEOUT 60
-    DISCOVERY_MODE PRE_TEST
-    TEST_PREFIX "group-scalar-mult."
-    PROPERTIES LABELS "group-scalar-mult"
-)
-
-add_executable(blst_map_to_group_audit_tests
-    "Map_to_group_audit_tests.cpp"
-)
-target_link_libraries(blst_map_to_group_audit_tests PRIVATE
-    gtest_main
-    blst_static
-    blst_avx_headers
-)
-gtest_discover_tests(blst_map_to_group_audit_tests
-    DISCOVERY_TIMEOUT 60
-    DISCOVERY_MODE PRE_TEST
-    TEST_PREFIX "map-to-group."
-    PROPERTIES LABELS "map-to-group;audit"
-)
-
-add_executable(blst_hash_to_field_audit_tests
-    "Hash_to_field_audit_tests.cpp"
-)
-target_include_directories(blst_hash_to_field_audit_tests PRIVATE
-    "${PROJECT_SOURCE_DIR}"
-)
-target_link_libraries(blst_hash_to_field_audit_tests PRIVATE
-    gtest_main
-    blst_static
-    blst_avx_headers
-)
-gtest_discover_tests(blst_hash_to_field_audit_tests
-    DISCOVERY_TIMEOUT 60
-    DISCOVERY_MODE PRE_TEST
-    TEST_PREFIX "hash-to-field."
-    PROPERTIES LABELS "hash-to-field;audit"
-)
-
-add_executable(blst_sha256_audit_tests
-    "Sha256_audit_tests.cpp"
-)
-target_include_directories(blst_sha256_audit_tests PRIVATE
-    "${PROJECT_SOURCE_DIR}"
-)
-target_link_libraries(blst_sha256_audit_tests PRIVATE
-    gtest_main
-    blst_static
-    blst_avx_headers
-)
-gtest_discover_tests(blst_sha256_audit_tests
-    DISCOVERY_TIMEOUT 60
-    DISCOVERY_MODE PRE_TEST
-    TEST_PREFIX "sha256."
-    PROPERTIES LABELS "sha256;audit"
-)
-
-add_executable(blst_keygen_audit_tests
-    "Keygen_audit_tests.cpp"
-)
-target_include_directories(blst_keygen_audit_tests PRIVATE
-    "${PROJECT_SOURCE_DIR}"
-)
-target_link_libraries(blst_keygen_audit_tests PRIVATE
-    gtest_main
-    blst_static
-    blst_avx_headers
-)
-gtest_discover_tests(blst_keygen_audit_tests
-    DISCOVERY_TIMEOUT 60
-    DISCOVERY_MODE PRE_TEST
-    TEST_PREFIX "keygen."
-    PROPERTIES LABELS "keygen;audit"
-)
-
-add_executable(blst_aggregate_audit_tests
-    "Aggregate_audit_tests.cpp"
-)
-target_include_directories(blst_aggregate_audit_tests PRIVATE
-    "${PROJECT_SOURCE_DIR}"
-)
-target_link_libraries(blst_aggregate_audit_tests PRIVATE
-    gtest_main
-    blst_static
-    blst_avx_headers
-)
-gtest_discover_tests(blst_aggregate_audit_tests
-    DISCOVERY_TIMEOUT 60
-    DISCOVERY_MODE PRE_TEST
-    TEST_PREFIX "aggregate."
-    PROPERTIES LABELS "aggregate;audit"
-)
-
-add_executable(blst_gt_deserialize_audit_tests
-    "Gt_deserialize_audit_tests.cpp"
-)
-target_include_directories(blst_gt_deserialize_audit_tests PRIVATE
-    "${PROJECT_SOURCE_DIR}"
-)
-target_link_libraries(blst_gt_deserialize_audit_tests PRIVATE
-    gtest_main
-    blst_static
-    blst_avx_headers
-)
-gtest_discover_tests(blst_gt_deserialize_audit_tests
-    DISCOVERY_TIMEOUT 60
-    DISCOVERY_MODE PRE_TEST
-    TEST_PREFIX "gt-deserialize."
-    PROPERTIES LABELS "gt-deserialize;audit"
-)
-
-# Keep scalar point correctness and object-lifetime regressions independent of
-# the broad test executable and the frozen BTx/BTE subsystem.
-add_executable(blst_scalar_point_audit_tests
-    "Scalar_point_audit_tests.cpp"
-)
-target_link_libraries(blst_scalar_point_audit_tests PRIVATE
-    gtest_main
-    blst_static
-    blst_avx_headers
-)
-gtest_discover_tests(blst_scalar_point_audit_tests
-    DISCOVERY_TIMEOUT 60
-    DISCOVERY_MODE PRE_TEST
-    TEST_PREFIX "scalar-point-audit."
-    PROPERTIES LABELS "scalar-point-audit"
-)
-
-if(BLST_ASAN OR BLST_UBSAN)
-    # Keep the focused sanitizer change loop independent of the broad test
-    # executable and the frozen BTx/BTE subsystem.
-    add_executable(blst_sanitizer_boundary_tests
-        "Backend_alias_tests.cpp"
-        "BindingHeader_tests.cpp"
-        "C_api_tests.cpp"
-        "CompressedInfinity_tests.cpp"
-        "Conformance_tests.cpp"
-        "Fft_api_tests.cpp"
-        "Interface_tests.cpp"
-        "MiddleProduct_c_api_tests.cpp"
-        "scalar/Scalar_mult_window_tests.cpp"
-    )
-    target_include_directories(blst_sanitizer_boundary_tests PRIVATE
-        ${CMAKE_CURRENT_LIST_DIR}
-    )
-    target_link_libraries(blst_sanitizer_boundary_tests PRIVATE
-        gtest_main
-        blst_static
-        blst_avx_headers
-    )
-    gtest_discover_tests(blst_sanitizer_boundary_tests
-        DISCOVERY_TIMEOUT 60
-        DISCOVERY_MODE PRE_TEST
-        TEST_PREFIX "sanitizer."
-        PROPERTIES LABELS "sanitizer;boundary"
-    )
-endif()
 
 if(BLST_AVX512 AND BLST_AVX512_PORTABLE)
     add_executable(blst_avx512_compat_tests

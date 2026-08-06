@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0, see LICENSE for details.
  * SPDX-License-Identifier: Apache-2.0
  */
- /*
+/*
   * The "magic" number is (BLS12_381_P-3)/4. Exponentiation to which
   * yields reciprocal of sqrt(x), which is used in simplified Shallue-
   * van de Woestijne-Ulas map-to-curve method, but it's trivial to adapt
@@ -12,6 +12,8 @@
   *
   * Generated with 'addchain 1000602388805416848354447456433976039139220704984751971333014534031007912622709466110671907282253916009473568139946'
   * https://github.com/kwantam/addchain
+  * Imported from the initial upstream BLST commit
+  * d02b0d86e25d700ce4f4cb0eccac1f743aea6986 and translated to typed C++.
   *
   * # Bos-Coster (win=4)           :  458 (16) <<<
   * # Bos-Coster (win=5)           :  460 (28)
@@ -26,10 +28,25 @@
   * # Bergeron-Berstel-Brlek-Duboc :  489 ( 5)
   */
 
+#pragma once
+
+#include <type_traits>
+
+namespace blst::scalar
+{
+struct Fp;
+
+namespace detail
+{
+
+/** Fixed addition chain for exponentiation by (BLS12-381 p - 3) / 4. */
 template<typename Field>
-void add_chain_recip_sqrt(Field& out, const Field& inp) {
+inline void add_chain_recip_sqrt(Field& out, const Field& inp)
+{
+	static_assert(std::is_same_v<Field, Fp>,
+		"the (p - 3) / 4 addition chain is specific to scalar BLS12-381 Fp");
 	Field t[16];
-	blst::vec_copy(&t[13], &inp, sizeof(Field));/*    0: 1 */
+	t[13] = inp;                                /*    0: 1 */
 	Field::sqr(t[0], t[13]);                   /*    1: 2 */
 	Field::mul(t[8], t[0], t[13]);             /*    2: 3 */
 	Field::sqr(t[4], t[0]);                    /*    3: 4 */
@@ -489,5 +506,7 @@ void add_chain_recip_sqrt(Field& out, const Field& inp) {
 	Field::sqr(out, t[0]);                     /*  457: 680447a8e5ff9a692c6e9ed90d2eb35d91dd2e13ce144afd9cc34a83dac3d8907aaffffac54ffffee7fbfffffffeaaa */
 }
 
+} // namespace detail
+} // namespace blst::scalar
 
 
