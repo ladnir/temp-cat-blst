@@ -19,7 +19,7 @@
 
 These files implement scalar GT arithmetic, target-group scalar
 multiplication, final exponentiation, direct and prepared Miller loops, and the
-canonical pairing generator. Pairing inputs are trusted on-curve affine points;
+canonical pairing generator. Pairing inputs are trusted subgroup affine points;
 these hot operations do not validate curves or subgroups. A Miller result is a
 general Fp12 pairing accumulator and is not a GT element until final
 exponentiation.
@@ -32,7 +32,7 @@ exponentiation.
   multiplication, and conjugation before `GT::final_exp`.
 - `final_exp` requires a valid nonzero Miller/general-Fp12 value and produces
   GT. Zero remains outside the legacy void API's supported domain.
-- Direct Miller inputs must be valid on-curve affine points. Infinity contributes
+- Direct Miller inputs must be subgroup affine points. Infinity contributes
   the multiplicative identity. No curve or subgroup validation is performed.
 - The pointer-array overload retains BLST's compact continuation convention;
   malformed nonempty heads fail closed at the public boundary.

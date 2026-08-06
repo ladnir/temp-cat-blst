@@ -130,7 +130,7 @@ product and weighted pairing explicitly use public-scalar operations, while
 ordinary Pippenger and its one-point fallback use the subgroup contract.
 
 The subsequent API-wide group-domain inventory defines the shared contract
-vocabulary and classifies 242 public C symbols into 51 disjoint families.
+vocabulary and classifies 241 public C symbols into 52 disjoint families.
 The recalibration validates `AUD-091`, `AUD-092`, `AUD-093`, and `AUD-095`:
 ordinary scalar/AVX MSM has one subgroup/modulo-r contract independent of
 scalar width and point count; the experimental unchecked MSM surface is gone;
@@ -178,8 +178,8 @@ opened high-severity `AUD-091`: automatic 256-bit AVX Pippenger had applied a
 canonical-scalar, subgroup-only GLV/GLS split under a general MSM contract.
 The subgroup-only API recalibration resolves that caller defect.
 
-The cross-language group-domain contract audit now accounts for all 242
-relevant public C symbols in 51 disjoint machine-checked families and traces the
+The cross-language group-domain contract audit now accounts for all 241
+relevant public C symbols in 52 disjoint machine-checked families and traces the
 native C++ and safe/raw Rust surfaces. It records actual Release validation
 separately from Debug assertions and mathematical preconditions. `AUD-092`
 through `AUD-100` capture GT/Fp12 naming, complete subgroup predicates,
@@ -414,6 +414,16 @@ sanitizers, fuzzers, and oracles alongside every subsystem. Apply
 `VALIDATION_POLICY.md`: run focused checks in the change loop, batch related
 work for subsystem suites, and reserve the full supported matrix for milestone
 gates.
+
+The `AUD-094`/`AUD-160` point-domain policy now uses only on-curve and subgroup
+preconditions without new validation-state types. Decode and the approved basic
+single-point primitive set opt into on-curve use; batch helpers, MSM, raw
+Miller/pairing, and protocol algorithms remain subgroup-only regardless of
+incidental wider implementation behavior. The exact cross-language migration
+matrix is `docs/audit/POINT_DOMAIN_MATRIX.md`; declaration and focused-test
+alignment remain open. `AUD-161` separately records that the existing expert
+AVX batch predicate has caller-controlled soundness and is not yet a safe
+general batch-validation interface.
 
 For every newly reviewed externally reachable family, update declaration-level
 C, selected native C++, and safe Rust contracts in the same packet and add it

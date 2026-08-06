@@ -58,7 +58,6 @@ Normative words have their usual meanings:
 | G1 / G2 element | A point in the corresponding prime-order subgroup, including its identity, unless a narrower protocol contract excludes infinity. |
 | subgroup relation | The fast endomorphism relation used to test subgroup membership after on-curve status is known. A relation-only test does not independently establish on-curve. |
 | complete group validation | Establishes every property named by the contract, normally valid representation, on-curve, subgroup membership, and any required infinity policy. |
-| generic curve operation | Mathematically correct for every on-curve input in its stated curve domain, including non-subgroup points unless explicitly excluded. |
 | subgroup-optimized operation | May use endomorphisms or reduction modulo `r` and therefore requires prime-order subgroup inputs. |
 | incomplete addition | An addition formula with documented exceptional input pairs, such as equal or opposite finite points. |
 | complete addition | Handles every pair of valid on-curve inputs covered by its infinity policy. |
@@ -66,13 +65,21 @@ Normative words have their usual meanings:
 Protocol validity is separate from mathematical group validity. For example, a
 valid G1 element can still be forbidden as a public key because it is infinity.
 
-Ordinary G1 and G2 arithmetic uses the subgroup domain by default. A function
-need not repeat `subgroup` in its name to require a G1/G2 element, and Release
-arithmetic normally assumes rather than validates that precondition. CatBLST
-does not create parallel `unchecked` families for MSM, addition, or other
-ordinary operations. The two inherited `blst_p1_unchecked_mult` and
-`blst_p2_unchecked_mult` symbols are legacy upstream exceptions: they accept
-on-curve non-subgroup points and apply exact scalars without endomorphisms.
+Point-taking APIs use only two mathematical preconditions: **on-curve** or
+**prime-order subgroup**. Subgroup implies on-curve. Validators have no prior
+point-domain precondition because their purpose is to establish one of these
+properties. Infinity belongs to both mathematical domains; protocol APIs may
+separately reject it where required.
+
+The wider on-curve contract is opt-in and is reserved for the approved basic
+primitive layer: decoding output, basic addition/subtraction/doubling,
+negation, single-point representation conversion, observation, encoding, and
+the two inherited exact-scalar `unchecked_mult` functions. Advanced batch,
+MSM, pairing, signing, aggregation, and verification operations require
+subgroup inputs unless they explicitly validate them. CatBLST does not promise
+incidental full-curve behavior from an advanced implementation and does not
+create parallel unchecked families for it. The exact cross-language policy is
+recorded in `audit/POINT_DOMAIN_MATRIX.md`.
 
 ## Fp12, cyclotomic, and GT domains
 

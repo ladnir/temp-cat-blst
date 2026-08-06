@@ -22,7 +22,9 @@ terms, accumulates optional signatures, merges committed worker contexts, and
 performs final verification. Messages, augmentations, DSTs, encoded signatures,
 public keys, and raw expert points cross trust boundaries here. Public aggregate
 operations must report malformed inputs without partially publishing context
-state; raw aggregation deliberately accepts only trusted on-curve affine inputs.
+state; raw aggregation deliberately requires trusted subgroup affine inputs.
+The underlying formulas may evaluate on a wider curve domain, but CatBLST does
+not promise that advanced behavior under `AUD-160`.
 
 ## Contracts and lifecycle
 

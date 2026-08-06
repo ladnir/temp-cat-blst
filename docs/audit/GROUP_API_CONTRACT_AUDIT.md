@@ -11,12 +11,13 @@ Excluded: CUDA, BTx/BTE, benchmark file review, and removed/unsupported bindings
 ## Purpose
 
 This audit began by recording the behavior of the API and implementation before
-semantic changes. The approved recalibration keeps ordinary G1/G2 arithmetic
-subgroup-only, preserves only upstream's two legacy `unchecked_mult`
-exceptions, removes the experimental unchecked-MSM family, and hard-names the
-GT-only AVX MSM without Fp12 compatibility forwards. It also makes public
-membership predicates complete curve-plus-subgroup checks. The independent
-memory-safety defect `AUD-101` remains remediated.
+semantic changes. The approved recalibration gives a deliberately small basic
+primitive layer an explicit on-curve contract and keeps advanced G1/G2
+algorithms subgroup-only. It preserves upstream's two legacy
+`unchecked_mult` exceptions, removes the experimental unchecked-MSM family,
+and hard-names the GT-only AVX MSM without Fp12 compatibility forwards. It also
+makes public membership predicates complete curve-plus-subgroup checks. The
+independent memory-safety defect `AUD-101` remains remediated.
 
 The repeated source of ambiguity is that these three statements are different:
 
@@ -30,8 +31,8 @@ decoder.
 
 ## Inventory control
 
-`GROUP_API_CONTRACTS.csv` classifies 242 public C symbols from
-`bindings/blst_scalar.h` and `bindings/blst_avx.h` into 51 disjoint contract
+`GROUP_API_CONTRACTS.csv` classifies the public C symbols from
+`bindings/blst_scalar.h` and `bindings/blst_avx.h` into 52 disjoint contract
 families. Each row records:
 
 - mathematical input and output domains;
@@ -64,6 +65,12 @@ override the public vocabulary.
 | validating operation | Rejects invalid input in Release and reports status. |
 | assumed-valid operation | Performs arithmetic under a documented precondition; it may assert only in Debug. |
 
+Public point-domain preconditions use only **on-curve** and **subgroup**.
+Subgroup implies on-curve. Validators need no prior point-domain precondition.
+Infinity belongs to both domains; protocol-specific nonidentity rules remain
+separate. `POINT_DOMAIN_MATRIX.md` records the exact approved C/C++/Rust
+families.
+
 ## Cross-surface results
 
 ### Point decoding and membership
@@ -75,10 +82,16 @@ prime-order subgroup check. The scalar decoder additionally rejects the known
 
 `blst_p1_in_g1`, `blst_p2_in_g2`, their affine forms, and the AVX equivalents
 now evaluate the curve equation before the fast subgroup endomorphism relation.
-The AVX randomized batch predicates likewise validate every point and shift as
-on-curve before evaluating the caller-specified subgroup relations. They are
-therefore complete for the mathematical properties named by the API, while
-protocol-specific infinity policy remains separate.
+Those individual predicates are complete for the mathematical property named
+by the API, while protocol-specific infinity policy remains separate.
+
+The AVX batch predicates validate every point and shift as on-curve before
+evaluating caller-specified randomized relations. They are sound only when the
+shift is in the subgroup and the coefficient rows satisfy the required
+challenge model. The current public entry does not establish either condition;
+zero rounds inspect no candidates, and all-zero rows check only the shift.
+`AUD-161` therefore treats it as an expert primitive pending a safe batching
+design, not a complete validation boundary.
 
 The normal safe sequence for adversarial point bytes is:
 
@@ -104,6 +117,15 @@ formula, while `add_or_double`, subtraction, and their corresponding complete
 paths handle equality/opposites. Safe high-level Rust already selects the
 complete operation; generated raw Rust inherits the C declaration contract.
 
+The approved wider contract is intentionally limited to basic single-point
+primitives: add/subtract/double, negation, representation conversion,
+observation, encoding, and the two inherited exact-scalar multiplications.
+Advanced batch conversion/addition, fixed-table multiplication, MSM, pairing,
+and protocol algorithms remain subgroup-only even if their current formulas
+happen to evaluate correctly on some wider inputs. This keeps the supported
+surface small and lets users construct specialized wider algorithms from the
+basic primitives when needed.
+
 Single-point `mult` and `mult_vartime` now use subgroup endomorphisms for their
 primary widths. They require previously validated on-curve subgroup points and
 reduce the complete 256-bit scalar domain modulo r. `unchecked_mult` is
@@ -112,7 +134,8 @@ correct outside the prime-order subgroup and applies the exact unsigned scalar.
 The name "unchecked" therefore currently describes a wider algebraic domain,
 not merely omitted validation.
 
-Scalar Pippenger/wbits and native-Fr MSM are subgroup operations. Some current
+Scalar batch conversion/addition, Pippenger/wbits, and native-Fr MSM are
+subgroup operations. Some current
 low-level kernels happen to use formulas that also work on wider curve inputs,
 but CatBLST does not promise or test that incidental domain. The one-point
 Pippenger fallback calls subgroup `mult_vartime`.
@@ -164,9 +187,11 @@ final exponentiation.
 
 ### Pairing and verification
 
-Raw Miller-loop and raw pairing aggregation routines assume valid on-curve
-points and perform no subgroup validation. Their output is a general Fp12
-Miller product, not GT until final exponentiation.
+Raw Miller-loop and raw pairing aggregation routines assume subgroup points and
+perform no subgroup validation. Their output is a general Fp12 Miller product,
+not GT until final exponentiation. The underlying formulas may evaluate on a
+wider curve domain, but CatBLST deliberately does not promise that advanced
+contract.
 
 The default aggregate-verification functions are intentionally asymmetric:
 
@@ -210,8 +235,8 @@ contract.
 
 | Family | Current behavior |
 | --- | --- |
-| `Point::add` | Incomplete distinct/nonopposite addition; valid on-curve inputs assumed. |
-| `Point::dadd` | Complete add-or-double path; valid on-curve inputs assumed. |
+| `Point::add` | Basic on-curve primitive: incomplete distinct/nonopposite addition. |
+| `Point::dadd` | Basic on-curve primitive: complete add-or-double path. |
 | `Point::mult` / `mult_vartime` | Subgroup-only, scalar reduced modulo r, Debug membership assertions, no Release validation. |
 | `Point::unchecked_mult` | Generic on-curve constant-time multiplication; no Release validation. |
 | `Point::in_subgroup` / affine equivalent | Complete curve-equation plus subgroup-relation predicate. |
@@ -270,7 +295,7 @@ and is not merely a mathematical precondition.
 | `AUD-091` | Automatic 256-bit AVX affine MSM silently changed point/scalar domain. | validated |
 | `AUD-092` | AVX/Rust Fp12 MSM was actually GT-only. | validated |
 | `AUD-093` | Public subgroup predicates were relation-only and did not establish on-curve. | validated |
-| `AUD-094` | Point decoders and Rust deserializers establish on-curve, not subgroup; contracts are not explicit. | needs decision |
+| `AUD-094` | Point decoders and Rust deserializers establish on-curve, not subgroup; contracts are not explicit. | policy selected; declaration migration open |
 | `AUD-095` | AVX projective MSM changed point domain at one point and lacked an nbits bound. | validated |
 | `AUD-096` | Inherited unsuffixed add remains the fast incomplete operation under explicit finite distinct/nonopposite preconditions; complete add-or-double remains available. | accepted |
 | `AUD-097` | Pairing validation is intentionally asymmetric but insufficiently documented; AVX pairing is raw despite its name. | needs decision |
@@ -279,6 +304,8 @@ and is not merely a mathematical precondition.
 | `AUD-100` | C cyclotomic squaring now states its cyclotomic precondition and lack of Release validation. | fixed |
 | `AUD-101` | Weighted pairing permitted oversized nbits into a fixed 32-byte scalar buffer; safe Rust could reach it. | validated |
 | `AUD-103` | Selected scalar/AVX GT conditional negation is constant-time across both backends. | validated |
+| `AUD-160` | Basic on-curve primitives and subgroup-only advanced operations lacked one bounded cross-language policy. | policy selected; declaration migration open |
+| `AUD-161` | AVX batch subgroup soundness is caller-controlled; zero rounds and all-zero coefficient rows can ignore every candidate. | open |
 
 ## Incremental public documentation control
 
@@ -296,18 +323,19 @@ documentation an audit completion gate.
 
 ## Remaining decision queue
 
-The selected policy is: ordinary arithmetic and MSM use the G1/G2/GT subgroup
-domain; only upstream's two legacy `unchecked_mult` functions expose generic
-on-curve multiplication; and GT-only MSM is hard-named without an Fp12 forward.
+The selected point policy is recorded in `POINT_DOMAIN_MATRIX.md`: deserialize
+and uncompress establish on-curve only; the basic single-point primitive layer
+explicitly accepts on-curve inputs; advanced algorithms require subgroup
+inputs; and no new validation-state types or generic-MSM families are added.
 The remaining questions require separate review:
 
-1. Should point decode remain on-curve-only with explicit `*_validate` APIs, or
-   should the default high-level Rust decode establish subgroup membership?
-2. Should the default pairing aggregate names preserve the upstream
+1. Should the default pairing aggregate names preserve the upstream
    "signature checked, PK prevalidated" policy, or should validated and raw
    variants be named explicitly?
-3. Should signing/public-key C entry points remain precondition-only void APIs,
+2. Should signing/public-key C entry points remain precondition-only void APIs,
    or gain fallible validated variants?
+3. What reviewed batching proof and challenge-generation interface should
+   replace or wrap the caller-controlled expert AVX subgroup primitive?
 `AUD-101` was independent of those semantic choices and is remediated. Legacy
 void arithmetic APIs retain documented 256-bit preconditions, while the shared
 canonicalizer now prevents a violated precondition from becoming memory
@@ -318,7 +346,7 @@ corruption in Release.
 - Complete static trace from both public C headers through `c_api.cpp`,
   `avx_c_api.cpp`, scalar/AVX point and GT implementations, pairing aggregation,
   native headers, and Rust safe/raw wrappers.
-- The contract inventory validator passes with 242 public C symbols in 51
+- The contract inventory validator passes with 241 public C symbols in 52
   nonempty disjoint families. Structural checks find no unchecked MSM symbol
   and no legacy AVX Fp12-MSM symbol in retained source.
 - Focused scalar group multiplication passes 10/10 under local MSVC Debug and

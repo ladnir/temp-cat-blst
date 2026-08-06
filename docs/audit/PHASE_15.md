@@ -475,11 +475,34 @@ the production backend-conversion path structurally selects the unchecked form.
 The scalar GT and Fp12 review records bind the implementation to
 `09722691117bfbae36baa27da0c6f6481fcd58ad`; `AUD-085` is validated.
 
+## Point-domain contract recalibration
+
+The approved `AUD-094`/`AUD-160` policy deliberately avoids new validation-
+state types and uses only two point-domain preconditions: on-curve and
+subgroup. Decode establishes on-curve only. The wider contract is opt-in for a
+small basic single-point primitive layer: addition/subtraction/doubling,
+negation, representation conversion, observation, encoding, and the two
+inherited exact-scalar `unchecked_mult` functions. Individual and batch
+subgroup predicates necessarily accept on-curve candidates as validation
+boundaries.
+
+Batch conversion/addition, fixed-table multiplication, MSM, raw Miller/pairing,
+and protocol operations remain subgroup-only even when a current implementation
+happens to evaluate on some non-subgroup inputs. No generic advanced family is
+promised. `POINT_DOMAIN_MATRIX.md` records the exact C, native C++, safe Rust,
+and raw-Rust family mapping. This packet changes audit policy only; public
+declaration migration, non-subgroup primitive evidence, and the existing AVX
+batch-check challenge-generation review remain implementation work. `AUD-161`
+records that the current expert AVX entry accepts caller-controlled coefficient
+rows: zero rounds inspect no candidates, and an all-zero matrix checks only the
+supplied shift. It is not the approved future safe batch-validation interface.
+
 ## Status and next action
 
 Scalar point, bulk addition, MSM, fixed-window multiplication, GT/Miller,
 map-to-group, SHA-256, and key generation are complete at their recorded
 commits. The aggregate implementation/header and safe Rust pairing wrapper are
-complete at `091dfb2cae096ee8ed801036e98827b3253b2e84`. Continue Phase 15 with
-the next signing/protocol file. The separately deferred GT deserialization
-design is resolved and validated as `AUD-085`.
+complete at `091dfb2cae096ee8ed801036e98827b3253b2e84`. The next packet should
+align the already reviewed point declarations and focused tests with
+`POINT_DOMAIN_MATRIX.md`, then continue the next signing/protocol file. The GT
+deserialization design is resolved and validated as `AUD-085`.
