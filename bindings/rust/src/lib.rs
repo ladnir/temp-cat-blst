@@ -1631,6 +1631,114 @@ macro_rules! sig_variant_impl {
                 assert_ne!(pk_deser2.unwrap(), pk);
             }
 
+            #[test]
+            fn test_point_decode_requires_separate_subgroup_validation() {
+                fn decode_hex<const N: usize>(encoded: &str) -> [u8; N] {
+                    assert_eq!(encoded.len(), 2 * N);
+                    let mut out = [0u8; N];
+                    for (index, value) in out.iter_mut().enumerate() {
+                        *value = u8::from_str_radix(
+                            &encoded[2 * index..2 * index + 2],
+                            16,
+                        )
+                        .unwrap();
+                    }
+                    out
+                }
+
+                let g1_order_11 = decode_hex::<48>(
+                    "80803f0d09fec09a95f2ee7495323c15c162270c7cceaffa\
+                     8566e941c66bcf206e72955d58b3b32e564de3209d672ca5",
+                );
+                let g2_order_13 = decode_hex::<96>(
+                    "808514e6f6c41ddb685cd8e351d7cb2ee891d54d5850d42c\
+                     440365b15dd8ab06b53da9ebb22bc31cea2234d30499b09f\
+                     01b290cae398ecc1fda3d4beb248af58bd351c3d99a5b6c7\
+                     70fdb54bf46b123261b55cf0762aeef2341e35e90608fc31",
+                );
+
+                let pk_bytes: &[u8] = if $pk_comp_size == g1_order_11.len() {
+                    &g1_order_11
+                } else {
+                    &g2_order_13
+                };
+                let pk = PublicKey::uncompress(pk_bytes)
+                    .expect("on-curve non-subgroup public-key decode");
+                assert_eq!(
+                    pk.validate(),
+                    Err(BLST_ERROR::BLST_POINT_NOT_IN_GROUP)
+                );
+                assert_eq!(
+                    PublicKey::key_validate(pk_bytes).unwrap_err(),
+                    BLST_ERROR::BLST_POINT_NOT_IN_GROUP
+                );
+                let pk_serialized = pk.serialize();
+                let pk_deserialized = PublicKey::deserialize(&pk_serialized)
+                    .expect("uncompressed on-curve public-key decode");
+                assert_eq!(
+                    pk_deserialized.validate(),
+                    Err(BLST_ERROR::BLST_POINT_NOT_IN_GROUP)
+                );
+                let pk_from_bytes = PublicKey::from_bytes(pk_bytes)
+                    .expect("from_bytes preserves the decoder contract");
+                assert_eq!(
+                    pk_from_bytes.validate(),
+                    Err(BLST_ERROR::BLST_POINT_NOT_IN_GROUP)
+                );
+
+                let sig_bytes: &[u8] = if $sig_comp_size == g1_order_11.len() {
+                    &g1_order_11
+                } else {
+                    &g2_order_13
+                };
+                let sig = Signature::uncompress(sig_bytes)
+                    .expect("on-curve non-subgroup signature decode");
+                assert_eq!(
+                    sig.validate(false),
+                    Err(BLST_ERROR::BLST_POINT_NOT_IN_GROUP)
+                );
+                assert_eq!(
+                    Signature::sig_validate(sig_bytes, false).unwrap_err(),
+                    BLST_ERROR::BLST_POINT_NOT_IN_GROUP
+                );
+                let sig_serialized = sig.serialize();
+                let sig_deserialized = Signature::deserialize(&sig_serialized)
+                    .expect("uncompressed on-curve signature decode");
+                assert_eq!(
+                    sig_deserialized.validate(false),
+                    Err(BLST_ERROR::BLST_POINT_NOT_IN_GROUP)
+                );
+                let sig_from_bytes = Signature::from_bytes(sig_bytes)
+                    .expect("from_bytes preserves the decoder contract");
+                assert_eq!(
+                    sig_from_bytes.validate(false),
+                    Err(BLST_ERROR::BLST_POINT_NOT_IN_GROUP)
+                );
+
+                #[cfg(feature = "serde")]
+                {
+                    let pk_wire = rmp_serde::encode::to_vec_named(&pk)
+                        .expect("serialize non-subgroup public key");
+                    let pk_serde: PublicKey =
+                        rmp_serde::decode::from_slice(&pk_wire)
+                            .expect("serde performs on-curve decode");
+                    assert_eq!(
+                        pk_serde.validate(),
+                        Err(BLST_ERROR::BLST_POINT_NOT_IN_GROUP)
+                    );
+
+                    let sig_wire = rmp_serde::encode::to_vec_named(&sig)
+                        .expect("serialize non-subgroup signature");
+                    let sig_serde: Signature =
+                        rmp_serde::decode::from_slice(&sig_wire)
+                            .expect("serde performs on-curve decode");
+                    assert_eq!(
+                        sig_serde.validate(false),
+                        Err(BLST_ERROR::BLST_POINT_NOT_IN_GROUP)
+                    );
+                }
+            }
+
             #[cfg(feature = "serde")]
             #[test]
             fn test_serde() {

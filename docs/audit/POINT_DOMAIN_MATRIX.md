@@ -2,7 +2,7 @@
 
 Date: 2026-08-05
 
-State: policy applied to the reviewed declarations; focused validation pending
+State: policy applied and focused cross-language validation passing; `AUD-161` open
 
 Scope: supported scalar and AVX C APIs, selected native C++, safe Rust helpers,
 and generated raw Rust FFI. CUDA and frozen BTx/BTE are excluded.

@@ -76,6 +76,15 @@ constexpr auto decode_hex(const char (&encoded)[Chars])
     return decoded;
 }
 
+constexpr auto kG1Order11Encoded = decode_hex(
+    "80803f0d09fec09a95f2ee7495323c15c162270c7cceaffa"
+    "8566e941c66bcf206e72955d58b3b32e564de3209d672ca5");
+constexpr auto kG2Order13Encoded = decode_hex(
+    "808514e6f6c41ddb685cd8e351d7cb2ee891d54d5850d42c"
+    "440365b15dd8ab06b53da9ebb22bc31cea2234d30499b09f"
+    "01b290cae398ecc1fda3d4beb248af58bd351c3d99a5b6c7"
+    "70fdb54bf46b123261b55cf0762aeef2341e35e90608fc31");
+
 TEST(GroupScalarMult, ScalarGtConditionalNegation)
 {
     using ScalarGT = blst::scalar::GT;
@@ -474,18 +483,9 @@ TEST(GroupScalarMult, UncheckedMultiplicationSupportsOnCurveNonSubgroupPoints)
 
 TEST(GroupScalarMult, UncheckedMultiplicationSupportsLowOrderPoints)
 {
-    constexpr auto g1_order_11_encoded = decode_hex(
-        "80803f0d09fec09a95f2ee7495323c15c162270c7cceaffa"
-        "8566e941c66bcf206e72955d58b3b32e564de3209d672ca5");
-    constexpr auto g2_order_13_encoded = decode_hex(
-        "808514e6f6c41ddb685cd8e351d7cb2ee891d54d5850d42c"
-        "440365b15dd8ab06b53da9ebb22bc31cea2234d30499b09f"
-        "01b290cae398ecc1fda3d4beb248af58bd351c3d99a5b6c7"
-        "70fdb54bf46b123261b55cf0762aeef2341e35e90608fc31");
-
     blst_p1_affine g1_affine = {};
     ASSERT_EQ(
-        blst_p1_uncompress(&g1_affine, g1_order_11_encoded.data()),
+        blst_p1_uncompress(&g1_affine, kG1Order11Encoded.data()),
         BLST_SUCCESS);
     ASSERT_TRUE(blst_p1_affine_on_curve(&g1_affine));
     ASSERT_FALSE(blst_p1_affine_in_g1(&g1_affine));
@@ -504,7 +504,7 @@ TEST(GroupScalarMult, UncheckedMultiplicationSupportsLowOrderPoints)
 
     blst_p2_affine g2_affine = {};
     ASSERT_EQ(
-        blst_p2_uncompress(&g2_affine, g2_order_13_encoded.data()),
+        blst_p2_uncompress(&g2_affine, kG2Order13Encoded.data()),
         BLST_SUCCESS);
     ASSERT_TRUE(blst_p2_affine_on_curve(&g2_affine));
     ASSERT_FALSE(blst_p2_affine_in_g2(&g2_affine));
@@ -520,6 +520,190 @@ TEST(GroupScalarMult, UncheckedMultiplicationSupportsLowOrderPoints)
     blst_p2 g2_order_plus_one = {};
     blst_p2_unchecked_mult(&g2_order_plus_one, &g2, scalar.data(), 256);
     EXPECT_TRUE(blst_p2_is_equal(&g2_order_plus_one, &g2));
+}
+
+TEST(GroupScalarMult, BasicCPrimitivesSupportOnCurveNonSubgroupPoints)
+{
+    std::array<blst_byte, 32> scalar = {};
+
+    blst_p1_affine g1_affine = {};
+    ASSERT_EQ(BLST_SUCCESS,
+        blst_p1_uncompress(&g1_affine, kG1Order11Encoded.data()));
+    ASSERT_TRUE(blst_p1_affine_on_curve(&g1_affine));
+    ASSERT_FALSE(blst_p1_affine_in_g1(&g1_affine));
+    EXPECT_FALSE(blst_p1_affine_is_inf(&g1_affine));
+
+    blst_p1 g1 = {};
+    blst_p1_from_affine(&g1, &g1_affine);
+    ASSERT_TRUE(blst_p1_on_curve(&g1));
+    ASSERT_FALSE(blst_p1_in_g1(&g1));
+    EXPECT_FALSE(blst_p1_is_inf(&g1));
+
+    scalar[0] = 2;
+    blst_p1 g1_twice_expected = {};
+    blst_p1_unchecked_mult(
+        &g1_twice_expected, &g1, scalar.data(), scalar.size() * 8);
+    blst_p1 g1_twice = {};
+    blst_p1_double(&g1_twice, &g1);
+    EXPECT_TRUE(blst_p1_is_equal(&g1_twice, &g1_twice_expected));
+    blst_p1 g1_complete = {};
+    blst_p1_add_or_double(&g1_complete, &g1, &g1);
+    EXPECT_TRUE(blst_p1_is_equal(&g1_complete, &g1_twice_expected));
+    blst_p1_add_or_double_affine(&g1_complete, &g1, &g1_affine);
+    EXPECT_TRUE(blst_p1_is_equal(&g1_complete, &g1_twice_expected));
+
+    scalar[0] = 3;
+    blst_p1 g1_three_expected = {};
+    blst_p1_unchecked_mult(
+        &g1_three_expected, &g1, scalar.data(), scalar.size() * 8);
+    blst_p1 g1_three = {};
+    blst_p1_add(&g1_three, &g1, &g1_twice);
+    EXPECT_TRUE(blst_p1_is_equal(&g1_three, &g1_three_expected));
+    blst_p1_affine g1_twice_affine = {};
+    blst_p1_to_affine(&g1_twice_affine, &g1_twice);
+    blst_p1_add_affine(&g1_three, &g1, &g1_twice_affine);
+    EXPECT_TRUE(blst_p1_is_equal(&g1_three, &g1_three_expected));
+
+    blst_p1 g1_difference = {};
+    blst_p1_sub(&g1_difference, &g1_twice, &g1);
+    EXPECT_TRUE(blst_p1_is_equal(&g1_difference, &g1));
+    blst_p1_sub_affine(&g1_difference, &g1_twice, &g1_affine);
+    EXPECT_TRUE(blst_p1_is_equal(&g1_difference, &g1));
+    blst_p1_sub(&g1_difference, &g1, &g1);
+    EXPECT_TRUE(blst_p1_is_inf(&g1_difference));
+    blst_p1_sub_affine(&g1_difference, &g1, &g1_affine);
+    EXPECT_TRUE(blst_p1_is_inf(&g1_difference));
+
+    blst_p1 g1_negated = g1;
+    blst_p1_cneg(&g1_negated, true);
+    EXPECT_TRUE(blst_p1_on_curve(&g1_negated));
+    EXPECT_FALSE(blst_p1_in_g1(&g1_negated));
+    blst_p1_cneg(&g1_negated, true);
+    EXPECT_TRUE(blst_p1_is_equal(&g1_negated, &g1));
+    blst_p1_affine g1_affine_negated = g1_affine;
+    blst_p1_affine_cneg(&g1_affine_negated, true);
+    blst_p1_affine_cneg(&g1_affine_negated, true);
+    EXPECT_TRUE(blst_p1_affine_is_equal(&g1_affine_negated, &g1_affine));
+
+    blst_p1 g1_normalized = {};
+    blst_p1_from_jacobian(&g1_normalized, &g1_twice);
+    EXPECT_TRUE(blst_p1_is_equal(&g1_normalized, &g1_twice));
+    blst_p1_affine g1_roundtrip_affine = {};
+    blst_p1_to_affine(&g1_roundtrip_affine, &g1_normalized);
+    EXPECT_TRUE(blst_p1_affine_is_equal(
+        &g1_roundtrip_affine, &g1_twice_affine));
+
+    std::array<blst_byte, 96> g1_serialized = {};
+    std::array<blst_byte, 96> g1_affine_serialized = {};
+    blst_p1_serialize(g1_serialized.data(), &g1);
+    blst_p1_affine_serialize(g1_affine_serialized.data(), &g1_affine);
+    EXPECT_EQ(g1_serialized, g1_affine_serialized);
+    blst_p1_affine g1_deserialized = {};
+    ASSERT_EQ(BLST_SUCCESS,
+        blst_p1_deserialize(&g1_deserialized, g1_serialized.data()));
+    EXPECT_TRUE(blst_p1_affine_is_equal(&g1_deserialized, &g1_affine));
+    EXPECT_FALSE(blst_p1_affine_in_g1(&g1_deserialized));
+
+    std::array<blst_byte, 48> g1_compressed = {};
+    std::array<blst_byte, 48> g1_affine_compressed = {};
+    blst_p1_compress(g1_compressed.data(), &g1);
+    blst_p1_affine_compress(g1_affine_compressed.data(), &g1_affine);
+    EXPECT_EQ(g1_compressed, g1_affine_compressed);
+    blst_p1_affine g1_uncompressed = {};
+    ASSERT_EQ(BLST_SUCCESS,
+        blst_p1_uncompress(&g1_uncompressed, g1_compressed.data()));
+    EXPECT_TRUE(blst_p1_affine_is_equal(&g1_uncompressed, &g1_affine));
+    EXPECT_FALSE(blst_p1_affine_in_g1(&g1_uncompressed));
+
+    scalar.fill(0);
+    blst_p2_affine g2_affine = {};
+    ASSERT_EQ(BLST_SUCCESS,
+        blst_p2_uncompress(&g2_affine, kG2Order13Encoded.data()));
+    ASSERT_TRUE(blst_p2_affine_on_curve(&g2_affine));
+    ASSERT_FALSE(blst_p2_affine_in_g2(&g2_affine));
+    EXPECT_FALSE(blst_p2_affine_is_inf(&g2_affine));
+
+    blst_p2 g2 = {};
+    blst_p2_from_affine(&g2, &g2_affine);
+    ASSERT_TRUE(blst_p2_on_curve(&g2));
+    ASSERT_FALSE(blst_p2_in_g2(&g2));
+    EXPECT_FALSE(blst_p2_is_inf(&g2));
+
+    scalar[0] = 2;
+    blst_p2 g2_twice_expected = {};
+    blst_p2_unchecked_mult(
+        &g2_twice_expected, &g2, scalar.data(), scalar.size() * 8);
+    blst_p2 g2_twice = {};
+    blst_p2_double(&g2_twice, &g2);
+    EXPECT_TRUE(blst_p2_is_equal(&g2_twice, &g2_twice_expected));
+    blst_p2 g2_complete = {};
+    blst_p2_add_or_double(&g2_complete, &g2, &g2);
+    EXPECT_TRUE(blst_p2_is_equal(&g2_complete, &g2_twice_expected));
+    blst_p2_add_or_double_affine(&g2_complete, &g2, &g2_affine);
+    EXPECT_TRUE(blst_p2_is_equal(&g2_complete, &g2_twice_expected));
+
+    scalar[0] = 3;
+    blst_p2 g2_three_expected = {};
+    blst_p2_unchecked_mult(
+        &g2_three_expected, &g2, scalar.data(), scalar.size() * 8);
+    blst_p2 g2_three = {};
+    blst_p2_add(&g2_three, &g2, &g2_twice);
+    EXPECT_TRUE(blst_p2_is_equal(&g2_three, &g2_three_expected));
+    blst_p2_affine g2_twice_affine = {};
+    blst_p2_to_affine(&g2_twice_affine, &g2_twice);
+    blst_p2_add_affine(&g2_three, &g2, &g2_twice_affine);
+    EXPECT_TRUE(blst_p2_is_equal(&g2_three, &g2_three_expected));
+
+    blst_p2 g2_difference = {};
+    blst_p2_sub(&g2_difference, &g2_twice, &g2);
+    EXPECT_TRUE(blst_p2_is_equal(&g2_difference, &g2));
+    blst_p2_sub_affine(&g2_difference, &g2_twice, &g2_affine);
+    EXPECT_TRUE(blst_p2_is_equal(&g2_difference, &g2));
+    blst_p2_sub(&g2_difference, &g2, &g2);
+    EXPECT_TRUE(blst_p2_is_inf(&g2_difference));
+    blst_p2_sub_affine(&g2_difference, &g2, &g2_affine);
+    EXPECT_TRUE(blst_p2_is_inf(&g2_difference));
+
+    blst_p2 g2_negated = g2;
+    blst_p2_cneg(&g2_negated, true);
+    EXPECT_TRUE(blst_p2_on_curve(&g2_negated));
+    EXPECT_FALSE(blst_p2_in_g2(&g2_negated));
+    blst_p2_cneg(&g2_negated, true);
+    EXPECT_TRUE(blst_p2_is_equal(&g2_negated, &g2));
+    blst_p2_affine g2_affine_negated = g2_affine;
+    blst_p2_affine_cneg(&g2_affine_negated, true);
+    blst_p2_affine_cneg(&g2_affine_negated, true);
+    EXPECT_TRUE(blst_p2_affine_is_equal(&g2_affine_negated, &g2_affine));
+
+    blst_p2 g2_normalized = {};
+    blst_p2_from_jacobian(&g2_normalized, &g2_twice);
+    EXPECT_TRUE(blst_p2_is_equal(&g2_normalized, &g2_twice));
+    blst_p2_affine g2_roundtrip_affine = {};
+    blst_p2_to_affine(&g2_roundtrip_affine, &g2_normalized);
+    EXPECT_TRUE(blst_p2_affine_is_equal(
+        &g2_roundtrip_affine, &g2_twice_affine));
+
+    std::array<blst_byte, 192> g2_serialized = {};
+    std::array<blst_byte, 192> g2_affine_serialized = {};
+    blst_p2_serialize(g2_serialized.data(), &g2);
+    blst_p2_affine_serialize(g2_affine_serialized.data(), &g2_affine);
+    EXPECT_EQ(g2_serialized, g2_affine_serialized);
+    blst_p2_affine g2_deserialized = {};
+    ASSERT_EQ(BLST_SUCCESS,
+        blst_p2_deserialize(&g2_deserialized, g2_serialized.data()));
+    EXPECT_TRUE(blst_p2_affine_is_equal(&g2_deserialized, &g2_affine));
+    EXPECT_FALSE(blst_p2_affine_in_g2(&g2_deserialized));
+
+    std::array<blst_byte, 96> g2_compressed = {};
+    std::array<blst_byte, 96> g2_affine_compressed = {};
+    blst_p2_compress(g2_compressed.data(), &g2);
+    blst_p2_affine_compress(g2_affine_compressed.data(), &g2_affine);
+    EXPECT_EQ(g2_compressed, g2_affine_compressed);
+    blst_p2_affine g2_uncompressed = {};
+    ASSERT_EQ(BLST_SUCCESS,
+        blst_p2_uncompress(&g2_uncompressed, g2_compressed.data()));
+    EXPECT_TRUE(blst_p2_affine_is_equal(&g2_uncompressed, &g2_affine));
+    EXPECT_FALSE(blst_p2_affine_in_g2(&g2_uncompressed));
 }
 
 TEST(GroupScalarMult, PublicMembershipPredicatesRequireCurveAndSubgroup)

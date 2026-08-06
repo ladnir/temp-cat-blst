@@ -421,8 +421,11 @@ single-point primitive set opt into on-curve use; batch helpers, MSM, raw
 Miller/pairing, and protocol algorithms remain subgroup-only regardless of
 incidental wider implementation behavior. The scalar/AVX C, selected native
 C++, and safe Rust declarations now match the exact cross-language matrix in
-`docs/audit/POINT_DOMAIN_MATRIX.md`; focused non-subgroup and decoder-flow tests
-remain before the findings are validated. `AUD-161` separately records that the existing expert
+`docs/audit/POINT_DOMAIN_MATRIX.md`. Order-11 G1 and order-13 G2 fixtures pass
+focused scalar C/native, portable-AVX Debug, and both safe Rust variant flows,
+including compressed/uncompressed decoding, Serde, complete validators, and
+the approved basic primitive set; `AUD-094` and `AUD-160` are validated.
+`AUD-161` separately records that the existing expert
 AVX batch predicate has caller-controlled soundness and is not yet a safe
 general batch-validation interface.
 

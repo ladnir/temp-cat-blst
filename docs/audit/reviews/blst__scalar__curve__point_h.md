@@ -173,5 +173,6 @@ bulk-addition file review and does not change this header's declared contract.
 A later cross-cutting `AUD-094`/`AUD-160` declaration pass now states that
 decoding establishes on-curve status only, basic single-point primitives accept
 on-curve inputs, and optimized/advanced operations require subgroup inputs.
-Focused non-subgroup and decoder-flow evidence remains before those two
-findings are validated; the original implementation review hash remains above.
+Order-11 G1 and order-13 G2 scalar, portable-AVX, and safe Rust tests validate
+the non-subgroup primitive and decoder flows; the original implementation
+review hash remains above.

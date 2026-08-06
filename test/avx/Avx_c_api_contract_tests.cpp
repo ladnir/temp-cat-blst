@@ -26,6 +26,36 @@ std::array<blst_byte, 32> maximal_scalar()
     return scalar;
 }
 
+constexpr unsigned hex_nibble(char value)
+{
+    return value >= '0' && value <= '9' ? static_cast<unsigned>(value - '0')
+        : value >= 'a' && value <= 'f'
+            ? static_cast<unsigned>(value - 'a' + 10)
+            : static_cast<unsigned>(value - 'A' + 10);
+}
+
+template<size_t Chars>
+constexpr auto decode_hex(const char (&encoded)[Chars])
+{
+    static_assert((Chars - 1) % 2 == 0);
+    std::array<blst_byte, (Chars - 1) / 2> decoded = {};
+    for (size_t i = 0; i < decoded.size(); ++i) {
+        decoded[i] = static_cast<blst_byte>(
+            (hex_nibble(encoded[2 * i]) << 4) |
+            hex_nibble(encoded[2 * i + 1]));
+    }
+    return decoded;
+}
+
+constexpr auto kG1Order11Encoded = decode_hex(
+    "80803f0d09fec09a95f2ee7495323c15c162270c7cceaffa"
+    "8566e941c66bcf206e72955d58b3b32e564de3209d672ca5");
+constexpr auto kG2Order13Encoded = decode_hex(
+    "808514e6f6c41ddb685cd8e351d7cb2ee891d54d5850d42c"
+    "440365b15dd8ab06b53da9ebb22bc31cea2234d30499b09f"
+    "01b290cae398ecc1fda3d4beb248af58bd351c3d99a5b6c7"
+    "70fdb54bf46b123261b55cf0762aeef2341e35e90608fc31");
+
 TEST(AvxCApiContract, G1SubgroupMsmHasOneContractAcrossPointCounts)
 {
     ASSERT_TRUE(blst_avx_enabled());
@@ -179,6 +209,126 @@ TEST(AvxCApiContract, MembershipAndBatchChecksRejectOffCurveInputs)
         nullptr, 0, nullptr, 0, &avx_off_curve_g1));
     EXPECT_FALSE(blst_avx_p2_batch_subgroup_check(
         nullptr, 0, nullptr, 0, &avx_off_curve_g2));
+}
+
+TEST(AvxCApiContract, BasicOperationsSupportOnCurveNonSubgroupPoints)
+{
+    ASSERT_TRUE(blst_avx_enabled());
+
+    G1Affine g1_affine = {};
+    ASSERT_EQ(BLST_SUCCESS,
+        blst_p1_uncompress(&g1_affine, kG1Order11Encoded.data()));
+    ASSERT_TRUE(G1Affine::on_curve(g1_affine));
+    ASSERT_FALSE(G1Affine::in_subgroup(g1_affine));
+    G1 g1 = {};
+    G1::from_affine(g1, g1_affine);
+
+    blst_avx_p1 avx_g1 = {};
+    ASSERT_TRUE(blst_avx_p1_from_scalar(&avx_g1, &g1));
+    EXPECT_FALSE(blst_avx_p1_in_g1(&avx_g1));
+    blst_avx_p1 avx_g1_twice = {};
+    ASSERT_TRUE(blst_avx_p1_add(&avx_g1_twice, &avx_g1, &avx_g1));
+    G1 g1_twice = {};
+    ASSERT_TRUE(blst_p1_from_avx(&g1_twice, &avx_g1_twice));
+    G1 g1_expected = {};
+    G1::doubling(g1_expected, g1);
+    EXPECT_TRUE(G1::equal(g1_twice, g1_expected));
+    EXPECT_TRUE(G1::on_curve(g1_twice));
+    EXPECT_FALSE(G1::in_subgroup(g1_twice));
+
+    ASSERT_TRUE(blst_avx_p1_cneg(&avx_g1, true));
+    ASSERT_TRUE(blst_avx_p1_cneg(&avx_g1, true));
+    G1 g1_after_negation = {};
+    ASSERT_TRUE(blst_p1_from_avx(&g1_after_negation, &avx_g1));
+    EXPECT_TRUE(G1::equal(g1_after_negation, g1));
+
+    blst_avx_p1_affine avx_g1_affine = {};
+    ASSERT_TRUE(blst_avx_p1_to_affine(&avx_g1_affine, &avx_g1));
+    blst_avx_p1 avx_g1_from_affine = {};
+    ASSERT_TRUE(blst_avx_p1_from_affine(
+        &avx_g1_from_affine, &avx_g1_affine));
+    EXPECT_TRUE(blst_avx_p1_is_equal(&avx_g1_from_affine, &avx_g1));
+    EXPECT_FALSE(blst_avx_p1_is_inf(&avx_g1_from_affine));
+
+    std::array<blst_byte, 96> g1_serialized = {};
+    ASSERT_TRUE(blst_avx_p1_serialize(g1_serialized.data(), &avx_g1));
+    blst_avx_p1 avx_g1_deserialized = {};
+    ASSERT_EQ(BLST_SUCCESS,
+        blst_avx_p1_deserialize(
+            &avx_g1_deserialized, g1_serialized.data()));
+    EXPECT_TRUE(blst_avx_p1_is_equal(&avx_g1_deserialized, &avx_g1));
+    EXPECT_FALSE(blst_avx_p1_in_g1(&avx_g1_deserialized));
+
+    std::array<blst_byte, 48> g1_compressed = {};
+    ASSERT_TRUE(blst_avx_p1_compress(g1_compressed.data(), &avx_g1));
+    blst_avx_p1 avx_g1_uncompressed = {};
+    ASSERT_EQ(BLST_SUCCESS,
+        blst_avx_p1_uncompress(
+            &avx_g1_uncompressed, g1_compressed.data()));
+    EXPECT_TRUE(blst_avx_p1_is_equal(&avx_g1_uncompressed, &avx_g1));
+    EXPECT_FALSE(blst_avx_p1_in_g1(&avx_g1_uncompressed));
+
+    const blst_byte coefficient = 1;
+    const blst_avx_p1* g1_points[] = {&avx_g1};
+    EXPECT_FALSE(blst_avx_p1_batch_subgroup_check(
+        g1_points, 1, &coefficient, 1, blst_avx_p1_generator()));
+
+    G2Affine g2_affine = {};
+    ASSERT_EQ(BLST_SUCCESS,
+        blst_p2_uncompress(&g2_affine, kG2Order13Encoded.data()));
+    ASSERT_TRUE(G2Affine::on_curve(g2_affine));
+    ASSERT_FALSE(G2Affine::in_subgroup(g2_affine));
+    G2 g2 = {};
+    G2::from_affine(g2, g2_affine);
+
+    blst_avx_p2 avx_g2 = {};
+    ASSERT_TRUE(blst_avx_p2_from_scalar(&avx_g2, &g2));
+    EXPECT_FALSE(blst_avx_p2_in_g2(&avx_g2));
+    blst_avx_p2 avx_g2_twice = {};
+    ASSERT_TRUE(blst_avx_p2_add(&avx_g2_twice, &avx_g2, &avx_g2));
+    G2 g2_twice = {};
+    ASSERT_TRUE(blst_p2_from_avx(&g2_twice, &avx_g2_twice));
+    G2 g2_expected = {};
+    G2::doubling(g2_expected, g2);
+    EXPECT_TRUE(G2::equal(g2_twice, g2_expected));
+    EXPECT_TRUE(G2::on_curve(g2_twice));
+    EXPECT_FALSE(G2::in_subgroup(g2_twice));
+
+    ASSERT_TRUE(blst_avx_p2_cneg(&avx_g2, true));
+    ASSERT_TRUE(blst_avx_p2_cneg(&avx_g2, true));
+    G2 g2_after_negation = {};
+    ASSERT_TRUE(blst_p2_from_avx(&g2_after_negation, &avx_g2));
+    EXPECT_TRUE(G2::equal(g2_after_negation, g2));
+
+    blst_avx_p2_affine avx_g2_affine = {};
+    ASSERT_TRUE(blst_avx_p2_to_affine(&avx_g2_affine, &avx_g2));
+    blst_avx_p2 avx_g2_from_affine = {};
+    ASSERT_TRUE(blst_avx_p2_from_affine(
+        &avx_g2_from_affine, &avx_g2_affine));
+    EXPECT_TRUE(blst_avx_p2_is_equal(&avx_g2_from_affine, &avx_g2));
+    EXPECT_FALSE(blst_avx_p2_is_inf(&avx_g2_from_affine));
+
+    std::array<blst_byte, 192> g2_serialized = {};
+    ASSERT_TRUE(blst_avx_p2_serialize(g2_serialized.data(), &avx_g2));
+    blst_avx_p2 avx_g2_deserialized = {};
+    ASSERT_EQ(BLST_SUCCESS,
+        blst_avx_p2_deserialize(
+            &avx_g2_deserialized, g2_serialized.data()));
+    EXPECT_TRUE(blst_avx_p2_is_equal(&avx_g2_deserialized, &avx_g2));
+    EXPECT_FALSE(blst_avx_p2_in_g2(&avx_g2_deserialized));
+
+    std::array<blst_byte, 96> g2_compressed = {};
+    ASSERT_TRUE(blst_avx_p2_compress(g2_compressed.data(), &avx_g2));
+    blst_avx_p2 avx_g2_uncompressed = {};
+    ASSERT_EQ(BLST_SUCCESS,
+        blst_avx_p2_uncompress(
+            &avx_g2_uncompressed, g2_compressed.data()));
+    EXPECT_TRUE(blst_avx_p2_is_equal(&avx_g2_uncompressed, &avx_g2));
+    EXPECT_FALSE(blst_avx_p2_in_g2(&avx_g2_uncompressed));
+
+    const blst_avx_p2* g2_points[] = {&avx_g2};
+    EXPECT_FALSE(blst_avx_p2_batch_subgroup_check(
+        g2_points, 1, &coefficient, 1, blst_avx_p2_generator()));
 }
 
 TEST(AvxCApiContract, GTNameMatchesScalarBackend)

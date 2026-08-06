@@ -175,7 +175,8 @@ finding `AUD-109`.
 The original full review and localized fixed-window follow-up are complete at
 their recorded commits. The later `AUD-094`/`AUD-160` declaration pass defines
 successful point decode as on-curve only and reserves optimized/advanced
-operations for subgroup inputs. Focused non-subgroup and decoder-flow evidence
-remains; no arithmetic changed here. GT decoding policy (`AUD-085`) was
+operations for subgroup inputs. Focused low-order scalar, portable-AVX, and
+safe Rust tests validate the primitive and decoder flows; no arithmetic changed
+here. GT decoding policy (`AUD-085`) was
 later resolved by the GT/Fp12 review: the default decoder validates membership,
 while the explicitly unchecked decoder defers only that check.
