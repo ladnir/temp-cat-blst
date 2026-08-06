@@ -1,5 +1,5 @@
-#ifndef __BLS12_381_ASM_POINT_H__
-#define __BLS12_381_ASM_POINT_H__
+#ifndef BLST_CURVE_POINT_H
+#define BLST_CURVE_POINT_H
 
 #include "blst/common/defines.h"
 #if BLST_DEFAULT_AVX
@@ -13,7 +13,9 @@ namespace blst
     /**
      * Native point-domain contract:
      *
-     * These aliases select storage and implementation, not validation state.
+     * The named G1/G2 aliases select storage and implementation, not
+     * validation state. The generic AffinePoint, Point, Pointxyzz, and PointZZ
+     * aliases intentionally expose legacy scalar implementation types.
      * A successfully decoded point is canonical and on-curve but is not known
      * to be in G1 or G2 until `in_subgroup` succeeds (or an approved batch
      * validator establishes membership). Basic single-point arithmetic,

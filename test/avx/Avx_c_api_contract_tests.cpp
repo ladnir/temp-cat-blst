@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "bindings/blst.h"
+#include "blst/avx/curve/point.h"
 #include "blst/scalar/curve/map_to_G.h"
 
 namespace {
@@ -18,6 +19,40 @@ using G1 = blst::scalar::G1Point;
 using G1Affine = blst::scalar::G1AffinePoint;
 using G2 = blst::scalar::G2Point;
 using G2Affine = blst::scalar::G2AffinePoint;
+using AvxG1 = blst::avx::G1Point;
+using AvxG1Affine = blst::avx::G1AffinePoint;
+using AvxG2 = blst::avx::G2Point;
+using AvxG2Affine = blst::avx::G2AffinePoint;
+
+AvxG1 avx_from_scalar(const G1Affine& point)
+{
+    AvxG1 out = {};
+    AvxG1::from_affine(out, AvxG1Affine(
+        blst::avx::avx_curve_detail::scalar_fp_to_ring(point.x),
+        blst::avx::avx_curve_detail::scalar_fp_to_ring(point.y)));
+    return out;
+}
+
+AvxG2 avx_from_scalar(const G2Affine& point)
+{
+    AvxG2 out = {};
+    AvxG2::from_affine(out, AvxG2Affine(
+        blst::avx::avx_curve_detail::scalar_fp2_to_ring(point.x),
+        blst::avx::avx_curve_detail::scalar_fp2_to_ring(point.y)));
+    return out;
+}
+
+G1 scalar_from_avx(const AvxG1& point)
+{
+    return blst::avx::avx_curve_detail::curve_g1_to_scalar(
+        {point.X, point.Y, point.Z});
+}
+
+G2 scalar_from_avx(const AvxG2& point)
+{
+    return blst::avx::avx_curve_detail::curve_g2_to_scalar(
+        {point.X, point.Y, point.Z});
+}
 
 std::array<blst_byte, 32> maximal_scalar()
 {
@@ -329,6 +364,111 @@ TEST(AvxCApiContract, BasicOperationsSupportOnCurveNonSubgroupPoints)
     const blst_avx_p2* g2_points[] = {&avx_g2};
     EXPECT_FALSE(blst_avx_p2_batch_subgroup_check(
         g2_points, 1, &coefficient, 1, blst_avx_p2_generator()));
+}
+
+TEST(AvxNativePointContract, UncheckedMultiplicationIsExactAndSupportsLowOrderPoints)
+{
+    ASSERT_TRUE(blst_avx_enabled());
+
+    G1Affine g1_affine = {};
+    ASSERT_EQ(BLST_SUCCESS,
+        blst_p1_uncompress(&g1_affine, kG1Order11Encoded.data()));
+    G1 g1 = {};
+    G1::from_affine(g1, g1_affine);
+    const AvxG1 avx_g1 = avx_from_scalar(g1_affine);
+
+    std::array<blst_byte, 32> scalar = {};
+    scalar[0] = 11;
+    AvxG1 avx_g1_result = {};
+    AvxG1::unchecked_mult(
+        avx_g1_result, avx_g1, scalar.data(), 256);
+    EXPECT_TRUE(AvxG1::is_inf(avx_g1_result));
+
+    scalar[0] = 12;
+    AvxG1::unchecked_mult(
+        avx_g1_result, avx_g1, scalar.data(), 256);
+    EXPECT_TRUE(AvxG1::equal(avx_g1_result, avx_g1));
+
+    G2Affine g2_affine = {};
+    ASSERT_EQ(BLST_SUCCESS,
+        blst_p2_uncompress(&g2_affine, kG2Order13Encoded.data()));
+    G2 g2 = {};
+    G2::from_affine(g2, g2_affine);
+    const AvxG2 avx_g2 = avx_from_scalar(g2_affine);
+
+    scalar.fill(0);
+    scalar[0] = 13;
+    AvxG2 avx_g2_result = {};
+    AvxG2::unchecked_mult(
+        avx_g2_result, avx_g2, scalar.data(), 256);
+    EXPECT_TRUE(AvxG2::is_inf(avx_g2_result));
+
+    scalar[0] = 14;
+    AvxG2::unchecked_mult(
+        avx_g2_result, avx_g2, scalar.data(), 256);
+    EXPECT_TRUE(AvxG2::equal(avx_g2_result, avx_g2));
+
+    scalar.fill(0xff);
+    G1 scalar_g1_result = {};
+    G1::unchecked_mult(scalar_g1_result, g1, scalar.data(), 256);
+    AvxG1 avx_g1_alias = avx_g1;
+    AvxG1::unchecked_mult(
+        avx_g1_alias, avx_g1_alias, scalar.data(), 256);
+    const G1 converted_g1_result = scalar_from_avx(avx_g1_alias);
+    EXPECT_TRUE(G1::equal(converted_g1_result, scalar_g1_result));
+
+    G2 scalar_g2_result = {};
+    G2::unchecked_mult(scalar_g2_result, g2, scalar.data(), 256);
+    AvxG2 avx_g2_alias = avx_g2;
+    AvxG2::unchecked_mult(
+        avx_g2_alias, avx_g2_alias, scalar.data(), 256);
+    const G2 converted_g2_result = scalar_from_avx(avx_g2_alias);
+    EXPECT_TRUE(G2::equal(converted_g2_result, scalar_g2_result));
+
+    for (const size_t bits : {size_t{1}, size_t{128}, size_t{175}, size_t{176}}) {
+        for (size_t i = 0; i < scalar.size(); ++i)
+            scalar[i] = static_cast<blst_byte>(0xa5u ^ (17u * i));
+
+        G1 expected_g1 = {};
+        G1::unchecked_mult(expected_g1, g1, scalar.data(), bits);
+        AvxG1 actual_g1 = {};
+        AvxG1::unchecked_mult(actual_g1, avx_g1, scalar.data(), bits);
+        EXPECT_TRUE(G1::equal(scalar_from_avx(actual_g1), expected_g1))
+            << "G1 nbits=" << bits;
+
+        G2 expected_g2 = {};
+        G2::unchecked_mult(expected_g2, g2, scalar.data(), bits);
+        AvxG2 actual_g2 = {};
+        AvxG2::unchecked_mult(actual_g2, avx_g2, scalar.data(), bits);
+        EXPECT_TRUE(G2::equal(scalar_from_avx(actual_g2), expected_g2))
+            << "G2 nbits=" << bits;
+    }
+
+    AvxG1 zero_g1 = avx_g1;
+    AvxG1::unchecked_mult(zero_g1, zero_g1, nullptr, 0);
+    EXPECT_TRUE(AvxG1::is_inf(zero_g1));
+    AvxG2 zero_g2 = avx_g2;
+    AvxG2::unchecked_mult(zero_g2, zero_g2, nullptr, 0);
+    EXPECT_TRUE(AvxG2::is_inf(zero_g2));
+}
+
+TEST(AvxNativePointContract, RawUncompressFailureDoesNotPublishOutput)
+{
+    std::array<blst_byte, 48> invalid_g1 = {};
+    invalid_g1.back() = 1;
+    AvxG1Affine g1 = AvxG1Affine::generator();
+    const AvxG1Affine expected_g1 = g1;
+    EXPECT_GT(AvxG1Affine::uncompress_BE(
+        g1, invalid_g1.data()), 1u);
+    EXPECT_TRUE(AvxG1Affine::equal(g1, expected_g1));
+
+    std::array<blst_byte, 96> invalid_g2 = {};
+    invalid_g2.back() = 1;
+    AvxG2Affine g2 = AvxG2Affine::generator();
+    const AvxG2Affine expected_g2 = g2;
+    EXPECT_GT(AvxG2Affine::uncompress_BE(
+        g2, invalid_g2.data()), 1u);
+    EXPECT_TRUE(AvxG2Affine::equal(g2, expected_g2));
 }
 
 TEST(AvxCApiContract, GTNameMatchesScalarBackend)

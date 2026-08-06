@@ -282,7 +282,7 @@ struct G1AffinePoint
 
     /// Prime-order G1 subgroup generator.
     static const G1AffinePoint& generator();
-    /// Compare on-curve values; this is not a validator.
+    /// Compare on-curve public values; this is not a validator.
     static int equal(const G1AffinePoint& a, const G1AffinePoint& b);
     /// Test an on-curve value for infinity; this is not a validator.
     static bool_t is_inf(const G1AffinePoint& p);
@@ -290,25 +290,31 @@ struct G1AffinePoint
     static bool_t on_curve(const G1AffinePoint& p);
     /// Validate both the curve equation and prime-order G1 membership.
     static bool_t in_subgroup(const G1AffinePoint& p);
-    /// Conditionally negate an on-curve value; no subgroup validation occurs.
+    /// Constant-time conditional negation of an on-curve value.
+    /// c must be zero or one; no subgroup validation occurs.
     static void cneg(G1AffinePoint& inOut, bool_t c);
-    /// Encode an on-curve value; subgroup membership is not required.
+    /// Write 96-byte raw big-endian X || Y for an on-curve public value.
     static limb_t serialize_BE(unsigned char* out, const G1AffinePoint& in);
     static void serialize(unsigned char* out, const G1AffinePoint& in);
-    /// Decode a range-valid on-curve value; success does not establish G1 membership.
+    /// Parse 96-byte raw big-endian X || Y and validate range and curve.
+    /// Success establishes on-curve status only; on failure out is unchanged.
     static BLST_ERROR deserialize_BE(G1AffinePoint& out, const unsigned char* in);
-    /// Decode canonical IETF input; success establishes only on-curve status.
+    /// Parse 96-byte IETF input. Success establishes canonical encoding and
+    /// on-curve status only; on failure out is unchanged.
     static BLST_ERROR deserialize(G1AffinePoint& out, const unsigned char* in);
-    /// Encode an on-curve value; subgroup membership is not required.
+    /// Write 48-byte raw big-endian X and return y parity.
     static limb_t compress_BE(unsigned char* out, const G1AffinePoint& in);
     static void compress(unsigned char* out, const G1AffinePoint& in);
-    /// Decode an on-curve value; success does not establish G1 membership.
+    /// Parse 48-byte raw big-endian X and reconstruct an on-curve value.
+    /// Returns parity 0/1 on success or a negated BLST_ERROR in limb_t;
+    /// success does not establish G1 membership and failure leaves out unchanged.
     static limb_t uncompress_BE(G1AffinePoint& out, const unsigned char* in);
-    /// Decode canonical compressed input; success establishes only on-curve status.
+    /// Parse 48-byte IETF compressed input. Success establishes canonical
+    /// encoding and on-curve status only; on failure out is unchanged.
     static BLST_ERROR uncompress(G1AffinePoint& out, const unsigned char* in);
 };
 
-/** AVX G1 Jacobian storage. The type does not encode subgroup-validation state.
+/** AVX G1 homogeneous projective storage `(X/Z,Y/Z)`. The type does not encode subgroup-validation state.
  * Unless stated otherwise, basic single-point methods accept on-curve points
  * and preserve, but do not establish, subgroup membership. */
 struct G1Point
@@ -343,22 +349,44 @@ struct G1Point
     /// membership. nbits must not exceed 256 and scalar may be null only for
     /// zero bits. Exact out/a aliasing is supported; partial overlap is not.
     static void mult_vartime(G1Point& out, const G1Point& a, const byte* scalar, size_t nbits);
+    /// Constant-time exact unsigned-scalar multiplication of an on-curve point.
+    /// Subgroup membership is not required and no GLV reduction is performed.
+    /// nbits must not exceed 256 and scalar may be null only for zero bits.
+    /// Exact out/a aliasing is supported; partial overlap is not.
+    static void unchecked_mult(G1Point& out, const G1Point& a, const byte* scalar, size_t nbits);
+    /// Sign a previously validated subgroup hash point with a canonical,
+    /// nonzero secret key accepted by keygen/sk_check. Timing is independent
+    /// of SK; exact out/in aliasing is supported.
     static void sign(G1Point& out, const G1Point& in, const pow256 SK);
+    /// Derive the subgroup public key for a canonical, nonzero secret key.
+    /// Timing is independent of SK.
     static void to_pk(G1Point& out, const pow256 SK);
+    /// Optionally emit a 48-byte compressed public key and/or affine subgroup
+    /// point. Either output pointer may be null. Timing is independent of SK.
     static void to_pk2(unsigned char* out, G1AffinePoint* PK, const pow256 SK);
-    /// Conditionally negate an on-curve point; no subgroup validation occurs.
+    /// Constant-time conditional negation of an on-curve point.
+    /// cbit must be zero or one; no subgroup validation occurs.
     static void cneg(G1Point& p, limb_t cbit);
+    /// Negate an on-curve point; exact out/p aliasing is supported.
     static void neg(G1Point& out, const G1Point& p);
-    /// Convert an on-curve point; subgroup membership is preserved, not established.
+    /// Convert an on-curve public point to affine. This is variable-time;
+    /// infinity maps to the all-zero affine value and subgroup state is preserved.
     static void to_affine(G1AffinePoint& out, const G1Point& in);
+    /// Convert an on-curve affine value to homogeneous projective storage;
+    /// subgroup state is preserved and exact out/a overlap is not permitted.
     static void from_affine(G1Point& out, const G1AffinePoint& a);
+    /// Legacy name for variable-time normalization of homogeneous projective
+    /// storage. Subgroup state is preserved; exact out/in aliasing is supported.
     static void from_jacobian(G1Point& out, const G1Point& in);
+    /// Constant-time conditional swap. Objects must be distinct and cbit 0/1.
     static void cswap(G1Point& a, G1Point& b, bool_t cbit);
+    /// Constant-time conditional copy. Objects must be distinct and cbit 0/1.
     static void ccopy(G1Point& a, const G1Point& b, bool_t cbit);
-    /// Compare on-curve values; this is not a validator.
+    /// Compare on-curve public values; this is not a validator.
     static limb_t equal(const G1Point& a, const G1Point& b);
     /// Prime-order G1 subgroup generator.
     static const G1Point& generator();
+    /// Return the homogeneous projective infinity representation.
     static G1Point infinity();
     static G1Point identity();
     static bool_t is_identity(const G1Point& p);
@@ -368,9 +396,10 @@ struct G1Point
     static bool_t on_curve(const G1Point& p);
     /// Validate both the curve equation and prime-order G1 membership.
     static bool_t in_subgroup(const G1Point& p);
-    /// Encode an on-curve point; subgroup membership is not required.
+    /// Write 96-byte raw big-endian affine coordinates for an on-curve public point.
     static limb_t serialize_BE(unsigned char* out, const G1Point& in);
     static void serialize(unsigned char* out, const G1Point& in);
+    /// Write 48-byte raw big-endian X and return y parity.
     static limb_t compress_BE(unsigned char* out, const G1Point& in);
     static void compress(unsigned char* out, const G1Point& in);
 };
@@ -390,7 +419,7 @@ struct G2AffinePoint
 
     /// Prime-order G2 subgroup generator.
     static const G2AffinePoint& generator();
-    /// Compare on-curve values; this is not a validator.
+    /// Compare on-curve public values; this is not a validator.
     static int equal(const G2AffinePoint& a, const G2AffinePoint& b);
     /// Test an on-curve value for infinity; this is not a validator.
     static bool_t is_inf(const G2AffinePoint& p);
@@ -398,25 +427,31 @@ struct G2AffinePoint
     static bool_t on_curve(const G2AffinePoint& p);
     /// Validate both the curve equation and prime-order G2 membership.
     static bool_t in_subgroup(const G2AffinePoint& p);
-    /// Conditionally negate an on-curve value; no subgroup validation occurs.
+    /// Constant-time conditional negation of an on-curve value.
+    /// c must be zero or one; no subgroup validation occurs.
     static void cneg(G2AffinePoint& inOut, bool_t c);
-    /// Encode an on-curve value; subgroup membership is not required.
+    /// Write 192-byte raw big-endian coordinates for an on-curve public value.
     static limb_t serialize_BE(unsigned char* out, const G2AffinePoint& in);
     static void serialize(unsigned char* out, const G2AffinePoint& in);
-    /// Decode a range-valid on-curve value; success does not establish G2 membership.
+    /// Parse 192-byte raw big-endian coordinates and validate range and curve.
+    /// Success establishes on-curve status only; on failure out is unchanged.
     static BLST_ERROR deserialize_BE(G2AffinePoint& out, const unsigned char* in);
-    /// Decode canonical IETF input; success establishes only on-curve status.
+    /// Parse 192-byte IETF input. Success establishes canonical encoding and
+    /// on-curve status only; on failure out is unchanged.
     static BLST_ERROR deserialize(G2AffinePoint& out, const unsigned char* in);
-    /// Encode an on-curve value; subgroup membership is not required.
+    /// Write 96-byte raw big-endian X and return y parity.
     static limb_t compress_BE(unsigned char* out, const G2AffinePoint& in);
     static void compress(unsigned char* out, const G2AffinePoint& in);
-    /// Decode an on-curve value; success does not establish G2 membership.
+    /// Parse 96-byte raw big-endian X and reconstruct an on-curve value.
+    /// Returns parity 0/1 on success or a negated BLST_ERROR in limb_t;
+    /// success does not establish G2 membership and failure leaves out unchanged.
     static limb_t uncompress_BE(G2AffinePoint& out, const unsigned char* in);
-    /// Decode canonical compressed input; success establishes only on-curve status.
+    /// Parse 96-byte IETF compressed input. Success establishes canonical
+    /// encoding and on-curve status only; on failure out is unchanged.
     static BLST_ERROR uncompress(G2AffinePoint& out, const unsigned char* in);
 };
 
-/** AVX G2 Jacobian storage. The type does not encode subgroup-validation state.
+/** AVX G2 homogeneous projective storage `(X/Z,Y/Z)`. The type does not encode subgroup-validation state.
  * Unless stated otherwise, basic single-point methods accept on-curve points
  * and preserve, but do not establish, subgroup membership. */
 struct G2Point
@@ -451,22 +486,44 @@ struct G2Point
     /// membership. nbits must not exceed 256 and scalar may be null only for
     /// zero bits. Exact out/a aliasing is supported; partial overlap is not.
     static void mult_vartime(G2Point& out, const G2Point& a, const byte* scalar, size_t nbits);
+    /// Constant-time exact unsigned-scalar multiplication of an on-curve point.
+    /// Subgroup membership is not required and no GLS reduction is performed.
+    /// nbits must not exceed 256 and scalar may be null only for zero bits.
+    /// Exact out/a aliasing is supported; partial overlap is not.
+    static void unchecked_mult(G2Point& out, const G2Point& a, const byte* scalar, size_t nbits);
+    /// Sign a previously validated subgroup hash point with a canonical,
+    /// nonzero secret key accepted by keygen/sk_check. Timing is independent
+    /// of SK; exact out/in aliasing is supported.
     static void sign(G2Point& out, const G2Point& in, const pow256 SK);
+    /// Derive the subgroup public key for a canonical, nonzero secret key.
+    /// Timing is independent of SK.
     static void to_pk(G2Point& out, const pow256 SK);
+    /// Optionally emit a 96-byte compressed public key and/or affine subgroup
+    /// point. Either output pointer may be null. Timing is independent of SK.
     static void to_pk2(unsigned char* out, G2AffinePoint* PK, const pow256 SK);
-    /// Conditionally negate an on-curve point; no subgroup validation occurs.
+    /// Constant-time conditional negation of an on-curve point.
+    /// cbit must be zero or one; no subgroup validation occurs.
     static void cneg(G2Point& p, limb_t cbit);
+    /// Negate an on-curve point; exact out/p aliasing is supported.
     static void neg(G2Point& out, const G2Point& p);
-    /// Convert an on-curve point; subgroup membership is preserved, not established.
+    /// Convert an on-curve public point to affine. This is variable-time;
+    /// infinity maps to the all-zero affine value and subgroup state is preserved.
     static void to_affine(G2AffinePoint& out, const G2Point& in);
+    /// Convert an on-curve affine value to homogeneous projective storage;
+    /// subgroup state is preserved and exact out/a overlap is not permitted.
     static void from_affine(G2Point& out, const G2AffinePoint& a);
+    /// Legacy name for variable-time normalization of homogeneous projective
+    /// storage. Subgroup state is preserved; exact out/in aliasing is supported.
     static void from_jacobian(G2Point& out, const G2Point& in);
+    /// Constant-time conditional swap. Objects must be distinct and cbit 0/1.
     static void cswap(G2Point& a, G2Point& b, bool_t cbit);
+    /// Constant-time conditional copy. Objects must be distinct and cbit 0/1.
     static void ccopy(G2Point& a, const G2Point& b, bool_t cbit);
-    /// Compare on-curve values; this is not a validator.
+    /// Compare on-curve public values; this is not a validator.
     static limb_t equal(const G2Point& a, const G2Point& b);
     /// Prime-order G2 subgroup generator.
     static const G2Point& generator();
+    /// Return the homogeneous projective infinity representation.
     static G2Point infinity();
     static G2Point identity();
     static bool_t is_identity(const G2Point& p);
@@ -476,9 +533,10 @@ struct G2Point
     static bool_t on_curve(const G2Point& p);
     /// Validate both the curve equation and prime-order G2 membership.
     static bool_t in_subgroup(const G2Point& p);
-    /// Encode an on-curve point; subgroup membership is not required.
+    /// Write 192-byte raw big-endian affine coordinates for an on-curve public point.
     static limb_t serialize_BE(unsigned char* out, const G2Point& in);
     static void serialize(unsigned char* out, const G2Point& in);
+    /// Write 96-byte raw big-endian X and return y parity.
     static limb_t compress_BE(unsigned char* out, const G2Point& in);
     static void compress(unsigned char* out, const G2Point& in);
 };
@@ -517,6 +575,78 @@ inline G2Point ctime_select_g2(bool_t selection, const G2Point& when_true, const
     };
 }
 
+namespace avx_curve_detail
+{
+
+template<typename Group, size_t Window>
+BLST_INLINE void unchecked_mult_window(
+    Group& out, const Group& point, const byte* scalar, size_t bits)
+{
+    static_assert(Window == 4 || Window == 5);
+    constexpr size_t table_size = size_t{1} << (Window - 1);
+    Group table[table_size];
+    table[0] = point;
+    Group::doubling(table[1], point);
+    for (size_t i = 2, j = 1; i < table_size; i += 2, ++j) {
+        // Complete addition is required here: unchecked inputs can have low
+        // order, so table entries may coincide or be opposites.
+        Group::dadd(table[i], table[j], table[j - 1]);
+        Group::doubling(table[i + 1], table[j]);
+    }
+
+    const auto gather = [&table](limb_t encoding) {
+        const bool_t sign = (encoding >> Window) & 1;
+        const limb_t index = encoding & ((limb_t{1} << Window) - 1);
+        Group selected = Group::infinity();
+        for (size_t i = 1; i <= table_size; ++i) {
+            Group::ccopy(
+                selected, table[i - 1],
+                byte_is_zero(static_cast<byte>(i ^ index)));
+        }
+        Group::cneg(selected, sign);
+        return selected;
+    };
+
+    size_t window = bits % Window;
+    limb_t mask = (limb_t{1} << (window + 1)) - 1;
+    size_t bit_index = bits - window;
+    limb_t value = bit_index
+        ? blst::scalar::get_wval(scalar, bit_index - 1, window + 1)
+        : static_cast<limb_t>(scalar[0]) << 1;
+    out = gather(blst::scalar::booth_encode(value & mask, Window));
+
+    while (bit_index != 0) {
+        for (size_t i = 0; i < Window; ++i)
+            Group::doubling(out, out);
+
+        bit_index -= Window;
+        value = bit_index
+            ? blst::scalar::get_wval(scalar, bit_index - 1, Window + 1)
+            : static_cast<limb_t>(scalar[0]) << 1;
+        Group row = gather(blst::scalar::booth_encode(
+            value & ((limb_t{1} << (Window + 1)) - 1), Window));
+        Group::dadd(out, out, row);
+    }
+}
+
+template<typename Group>
+BLST_INLINE void unchecked_mult(
+    Group& out, const Group& point, const byte* scalar, size_t bits)
+{
+    BLST_ASSERT(bits <= 256);
+    BLST_ASSERT(bits == 0 || scalar != nullptr);
+    BLST_ASSERT(Group::on_curve(point));
+    if (bits == 0) {
+        out = Group::infinity();
+    } else if (bits < 176) {
+        unchecked_mult_window<Group, 4>(out, point, scalar, bits);
+    } else {
+        unchecked_mult_window<Group, 5>(out, point, scalar, bits);
+    }
+}
+
+}  // namespace avx_curve_detail
+
 inline const G1AffinePoint& G1AffinePoint::generator()
 {
     static const G1AffinePoint g = [] {
@@ -552,6 +682,7 @@ inline bool_t G1AffinePoint::in_subgroup(const G1AffinePoint& p)
 
 inline void G1AffinePoint::cneg(G1AffinePoint& inOut, bool_t c)
 {
+    BLST_ASSERT(c <= 1);
     G1AffinePoint neg = inOut;
     neg.Y = avx_curve_detail::curve_ring().standard_negate(neg.Y);
     neg = ctime_select_g1_affine(is_inf(inOut), inOut, neg);
@@ -606,9 +737,11 @@ inline limb_t G1AffinePoint::uncompress_BE(G1AffinePoint& out, const unsigned ch
 {
     blst::scalar::G1AffinePoint scalar = {};
     const limb_t parity = blst::scalar::G1AffinePoint::uncompress_BE(scalar, in);
-    out = G1AffinePoint(
-        avx_curve_detail::scalar_fp_to_ring(scalar.x),
-        avx_curve_detail::scalar_fp_to_ring(scalar.y));
+    if (parity <= 1) {
+        out = G1AffinePoint(
+            avx_curve_detail::scalar_fp_to_ring(scalar.x),
+            avx_curve_detail::scalar_fp_to_ring(scalar.y));
+    }
     return parity;
 }
 
@@ -674,6 +807,11 @@ inline void G1Point::mult_vartime(G1Point& out, const G1Point& a, const byte* sc
     out = {raw.x, raw.y, raw.z};
 }
 
+inline void G1Point::unchecked_mult(G1Point& out, const G1Point& a, const byte* scalar, size_t nbits)
+{
+    avx_curve_detail::unchecked_mult(out, a, scalar, nbits);
+}
+
 inline void G1Point::sign(G1Point& out, const G1Point& in, const pow256 SK)
 {
     G1AffinePoint affine = {};
@@ -716,6 +854,7 @@ inline void G1Point::to_pk2(unsigned char* out, G1AffinePoint* PK, const pow256 
 
 inline void G1Point::cneg(G1Point& p, limb_t cbit)
 {
+    BLST_ASSERT(cbit <= 1);
     G1Point neg = p;
     neg.Y = avx_curve_detail::curve_ring().standard_negate(neg.Y);
     p = ctime_select_g1(cbit, neg, p);
@@ -748,6 +887,8 @@ inline void G1Point::from_jacobian(G1Point& out, const G1Point& in)
 
 inline void G1Point::cswap(G1Point& a, G1Point& b, bool_t cbit)
 {
+    BLST_ASSERT(&a != &b);
+    BLST_ASSERT(cbit <= 1);
     const G1Point aa = a;
     const G1Point bb = b;
     a = ctime_select_g1(cbit, bb, aa);
@@ -756,6 +897,8 @@ inline void G1Point::cswap(G1Point& a, G1Point& b, bool_t cbit)
 
 inline void G1Point::ccopy(G1Point& a, const G1Point& b, bool_t cbit)
 {
+    BLST_ASSERT(&a != &b);
+    BLST_ASSERT(cbit <= 1);
     a = ctime_select_g1(cbit, b, a);
 }
 
@@ -863,6 +1006,7 @@ inline bool_t G2AffinePoint::in_subgroup(const G2AffinePoint& p)
 
 inline void G2AffinePoint::cneg(G2AffinePoint& inOut, bool_t c)
 {
+    BLST_ASSERT(c <= 1);
     G2AffinePoint neg = inOut;
     neg.Y = avx_curve_detail::curve_fp2_ring().standard_negate(neg.Y);
     neg = ctime_select_g2_affine(is_inf(inOut), inOut, neg);
@@ -917,9 +1061,11 @@ inline limb_t G2AffinePoint::uncompress_BE(G2AffinePoint& out, const unsigned ch
 {
     blst::scalar::G2AffinePoint scalar = {};
     const limb_t parity = blst::scalar::G2AffinePoint::uncompress_BE(scalar, in);
-    out = G2AffinePoint(
-        avx_curve_detail::scalar_fp2_to_ring(scalar.x),
-        avx_curve_detail::scalar_fp2_to_ring(scalar.y));
+    if (parity <= 1) {
+        out = G2AffinePoint(
+            avx_curve_detail::scalar_fp2_to_ring(scalar.x),
+            avx_curve_detail::scalar_fp2_to_ring(scalar.y));
+    }
     return parity;
 }
 
@@ -994,6 +1140,11 @@ inline void G2Point::mult_vartime(G2Point& out, const G2Point& a, const byte* sc
     out = {raw.x, raw.y, raw.z};
 }
 
+inline void G2Point::unchecked_mult(G2Point& out, const G2Point& a, const byte* scalar, size_t nbits)
+{
+    avx_curve_detail::unchecked_mult(out, a, scalar, nbits);
+}
+
 inline void G2Point::sign(G2Point& out, const G2Point& in, const pow256 SK)
 {
     G2AffinePoint affine = {};
@@ -1036,6 +1187,7 @@ inline void G2Point::to_pk2(unsigned char* out, G2AffinePoint* PK, const pow256 
 
 inline void G2Point::cneg(G2Point& p, limb_t cbit)
 {
+    BLST_ASSERT(cbit <= 1);
     G2Point neg = p;
     neg.Y = avx_curve_detail::curve_fp2_ring().standard_negate(neg.Y);
     p = ctime_select_g2(cbit, neg, p);
@@ -1068,6 +1220,8 @@ inline void G2Point::from_jacobian(G2Point& out, const G2Point& in)
 
 inline void G2Point::cswap(G2Point& a, G2Point& b, bool_t cbit)
 {
+    BLST_ASSERT(&a != &b);
+    BLST_ASSERT(cbit <= 1);
     const G2Point aa = a;
     const G2Point bb = b;
     a = ctime_select_g2(cbit, bb, aa);
@@ -1076,6 +1230,8 @@ inline void G2Point::cswap(G2Point& a, G2Point& b, bool_t cbit)
 
 inline void G2Point::ccopy(G2Point& a, const G2Point& b, bool_t cbit)
 {
+    BLST_ASSERT(&a != &b);
+    BLST_ASSERT(cbit <= 1);
     a = ctime_select_g2(cbit, b, a);
 }
 
