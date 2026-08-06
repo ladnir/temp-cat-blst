@@ -554,3 +554,23 @@ With the expert AVX batch design explicitly deferred, the next packet begins
 the owning AVX point-file review.
 The point-domain declarations and focused evidence now validate `AUD-094` and
 `AUD-160`; GT deserialization is resolved and validated as `AUD-085`.
+
+## Hash-to-field completion packet
+
+The complete scalar and selected hash-to-field header review records
+`AUD-174` through `AUD-179`. XMD chaining now operates on bytes without limb
+aliasing or alignment assumptions, emits an exact final partial digest through
+one fixed 32-byte buffer, allocates no storage, and rejects requests beyond the
+RFC 9380 SHA-256 limit of 8160 bytes. The selected facade exposes only the
+hardened XMD wrapper; raw scalar reduction details remain implementation-owned.
+
+Official RFC XMD 32/128-byte and oversize-DST vectors and BLS12-381 G1/G2 field
+intermediates pass. Scalar MSVC Debug passes 6/6 and Release passes 7/7 focused
+tests. Full-binding Rust scalar hashing matches an independent result and now
+erases its 48-byte expanded intermediate. Optimized MSVC emits an inlined
+unaligned `vpxor` path, a fixed 624-byte XMD frame, and no allocator call.
+
+The headers and review are complete at
+`ab212fe80784dc516ca995b6823db6227141c52c`. No benchmark, broad suite,
+sanitizer sweep, CUDA, BTx/BTE, Apple CI, or portable-AVX Release run was
+performed.

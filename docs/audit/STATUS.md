@@ -1,6 +1,6 @@
 # Audit Status
 
-Last updated: 2026-08-05
+Last updated: 2026-08-06
 
 ## Current phase
 
@@ -449,6 +449,15 @@ to `PUBLIC_API_DOCUMENTATION.csv`. Generated raw Rust FFI continues to inherit
 the C contract until its Phase 18 generator review. `AUD-103` is validated:
 selected scalar and AVX GT conditional negation are constant-time, while the
 scalar variable-time MSM helper retains its public signed-digit branch locally.
+
+The Phase 15 hash-to-field packet is reviewed in the current worktree.
+`AUD-174` through `AUD-179` replace limb-punned and partially heap-backed XMD
+with byte-safe exact allocation-free expansion, enforce the RFC 9380 8160-byte
+limit, erase the safe Rust scalar intermediate, add official XMD and BLS12-381
+field vectors, and narrow the selected facade. Focused scalar Debug/Release and
+safe Rust tests pass, and optimized MSVC emits vector XOR with fixed stack
+storage and no allocator call. The two headers are complete at
+`ab212fe80784dc516ca995b6823db6227141c52c`.
 
 No production file should be marked complete before its related implementation
 and validation evidence closes the corresponding upstream rows.
