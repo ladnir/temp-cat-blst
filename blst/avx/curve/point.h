@@ -267,6 +267,9 @@ inline const std::array<byte, 32>& minus_z_bytes()
 
 }  // namespace avx_curve_detail
 
+/** AVX G1 affine storage. The type does not encode subgroup-validation state.
+ * Basic single-point operations require on-curve inputs; optimized
+ * multiplication and advanced algorithms require prior G1 validation. */
 struct G1AffinePoint
 {
     using Field_type = avx_curve_detail::CurveRing::StandardElement;
@@ -277,22 +280,37 @@ struct G1AffinePoint
     constexpr G1AffinePoint() = default;
     constexpr G1AffinePoint(const Field_type& x, const Field_type& y) : X(x), Y(y) {}
 
+    /// Prime-order G1 subgroup generator.
     static const G1AffinePoint& generator();
+    /// Compare on-curve values; this is not a validator.
     static int equal(const G1AffinePoint& a, const G1AffinePoint& b);
+    /// Test an on-curve value for infinity; this is not a validator.
     static bool_t is_inf(const G1AffinePoint& p);
+    /// Validate the curve equation, accepting infinity.
     static bool_t on_curve(const G1AffinePoint& p);
+    /// Validate both the curve equation and prime-order G1 membership.
     static bool_t in_subgroup(const G1AffinePoint& p);
+    /// Conditionally negate an on-curve value; no subgroup validation occurs.
     static void cneg(G1AffinePoint& inOut, bool_t c);
+    /// Encode an on-curve value; subgroup membership is not required.
     static limb_t serialize_BE(unsigned char* out, const G1AffinePoint& in);
     static void serialize(unsigned char* out, const G1AffinePoint& in);
+    /// Decode a range-valid on-curve value; success does not establish G1 membership.
     static BLST_ERROR deserialize_BE(G1AffinePoint& out, const unsigned char* in);
+    /// Decode canonical IETF input; success establishes only on-curve status.
     static BLST_ERROR deserialize(G1AffinePoint& out, const unsigned char* in);
+    /// Encode an on-curve value; subgroup membership is not required.
     static limb_t compress_BE(unsigned char* out, const G1AffinePoint& in);
     static void compress(unsigned char* out, const G1AffinePoint& in);
+    /// Decode an on-curve value; success does not establish G1 membership.
     static limb_t uncompress_BE(G1AffinePoint& out, const unsigned char* in);
+    /// Decode canonical compressed input; success establishes only on-curve status.
     static BLST_ERROR uncompress(G1AffinePoint& out, const unsigned char* in);
 };
 
+/** AVX G1 Jacobian storage. The type does not encode subgroup-validation state.
+ * Unless stated otherwise, basic single-point methods accept on-curve points
+ * and preserve, but do not establish, subgroup membership. */
 struct G1Point
 {
     using Field_type = avx_curve_detail::CurveRing::StandardElement;
@@ -304,11 +322,14 @@ struct G1Point
     constexpr G1Point() = default;
     constexpr G1Point(const Field_type& x, const Field_type& y, const Field_type& z) : X(x), Y(y), Z(z) {}
 
+    /// Complete add-or-double of on-curve points; subgroup membership is not required.
     static void dadd(G1Point& out, const G1Point& a, const G1Point& b);
     static void dadd(G1Point& out, const G1Point& a, const G1Point& b, const Field_type* a4);
     static void dadd(G1Point& out, const G1Point& a, const G1AffinePoint& b);
+    /// Fast incomplete addition of on-curve distinct, non-opposite finite inputs.
     static void add(G1Point& out, const G1Point& a, const G1Point& b);
     static void add(G1Point& out, const G1Point& a, const G1AffinePoint& b);
+    /// Double an on-curve point; subgroup membership is not required.
     static void doubling(G1Point& out, const G1Point& a);
     /// Constant-time scalar multiplication of a previously validated subgroup
     /// point. Release does not validate membership. For canonical scalars,
@@ -325,27 +346,38 @@ struct G1Point
     static void sign(G1Point& out, const G1Point& in, const pow256 SK);
     static void to_pk(G1Point& out, const pow256 SK);
     static void to_pk2(unsigned char* out, G1AffinePoint* PK, const pow256 SK);
+    /// Conditionally negate an on-curve point; no subgroup validation occurs.
     static void cneg(G1Point& p, limb_t cbit);
     static void neg(G1Point& out, const G1Point& p);
+    /// Convert an on-curve point; subgroup membership is preserved, not established.
     static void to_affine(G1AffinePoint& out, const G1Point& in);
     static void from_affine(G1Point& out, const G1AffinePoint& a);
     static void from_jacobian(G1Point& out, const G1Point& in);
     static void cswap(G1Point& a, G1Point& b, bool_t cbit);
     static void ccopy(G1Point& a, const G1Point& b, bool_t cbit);
+    /// Compare on-curve values; this is not a validator.
     static limb_t equal(const G1Point& a, const G1Point& b);
+    /// Prime-order G1 subgroup generator.
     static const G1Point& generator();
     static G1Point infinity();
     static G1Point identity();
     static bool_t is_identity(const G1Point& p);
+    /// Test an on-curve value for infinity; this is not a validator.
     static bool_t is_inf(const G1Point& p);
+    /// Validate the curve equation, accepting infinity.
     static bool_t on_curve(const G1Point& p);
+    /// Validate both the curve equation and prime-order G1 membership.
     static bool_t in_subgroup(const G1Point& p);
+    /// Encode an on-curve point; subgroup membership is not required.
     static limb_t serialize_BE(unsigned char* out, const G1Point& in);
     static void serialize(unsigned char* out, const G1Point& in);
     static limb_t compress_BE(unsigned char* out, const G1Point& in);
     static void compress(unsigned char* out, const G1Point& in);
 };
 
+/** AVX G2 affine storage. The type does not encode subgroup-validation state.
+ * Basic single-point operations require on-curve inputs; optimized
+ * multiplication and advanced algorithms require prior G2 validation. */
 struct G2AffinePoint
 {
     using Field_type = avx_curve_detail::CurveFp2Ring::StandardElement;
@@ -356,22 +388,37 @@ struct G2AffinePoint
     G2AffinePoint() = default;
     G2AffinePoint(const Field_type& x, const Field_type& y) : X(x), Y(y) {}
 
+    /// Prime-order G2 subgroup generator.
     static const G2AffinePoint& generator();
+    /// Compare on-curve values; this is not a validator.
     static int equal(const G2AffinePoint& a, const G2AffinePoint& b);
+    /// Test an on-curve value for infinity; this is not a validator.
     static bool_t is_inf(const G2AffinePoint& p);
+    /// Validate the curve equation, accepting infinity.
     static bool_t on_curve(const G2AffinePoint& p);
+    /// Validate both the curve equation and prime-order G2 membership.
     static bool_t in_subgroup(const G2AffinePoint& p);
+    /// Conditionally negate an on-curve value; no subgroup validation occurs.
     static void cneg(G2AffinePoint& inOut, bool_t c);
+    /// Encode an on-curve value; subgroup membership is not required.
     static limb_t serialize_BE(unsigned char* out, const G2AffinePoint& in);
     static void serialize(unsigned char* out, const G2AffinePoint& in);
+    /// Decode a range-valid on-curve value; success does not establish G2 membership.
     static BLST_ERROR deserialize_BE(G2AffinePoint& out, const unsigned char* in);
+    /// Decode canonical IETF input; success establishes only on-curve status.
     static BLST_ERROR deserialize(G2AffinePoint& out, const unsigned char* in);
+    /// Encode an on-curve value; subgroup membership is not required.
     static limb_t compress_BE(unsigned char* out, const G2AffinePoint& in);
     static void compress(unsigned char* out, const G2AffinePoint& in);
+    /// Decode an on-curve value; success does not establish G2 membership.
     static limb_t uncompress_BE(G2AffinePoint& out, const unsigned char* in);
+    /// Decode canonical compressed input; success establishes only on-curve status.
     static BLST_ERROR uncompress(G2AffinePoint& out, const unsigned char* in);
 };
 
+/** AVX G2 Jacobian storage. The type does not encode subgroup-validation state.
+ * Unless stated otherwise, basic single-point methods accept on-curve points
+ * and preserve, but do not establish, subgroup membership. */
 struct G2Point
 {
     using Field_type = avx_curve_detail::CurveFp2Ring::StandardElement;
@@ -383,11 +430,14 @@ struct G2Point
     G2Point() = default;
     G2Point(const Field_type& x, const Field_type& y, const Field_type& z) : X(x), Y(y), Z(z) {}
 
+    /// Complete add-or-double of on-curve points; subgroup membership is not required.
     static void dadd(G2Point& out, const G2Point& a, const G2Point& b);
     static void dadd(G2Point& out, const G2Point& a, const G2Point& b, const Field_type* a4);
     static void dadd(G2Point& out, const G2Point& a, const G2AffinePoint& b);
+    /// Fast incomplete addition of on-curve distinct, non-opposite finite inputs.
     static void add(G2Point& out, const G2Point& a, const G2Point& b);
     static void add(G2Point& out, const G2Point& a, const G2AffinePoint& b);
+    /// Double an on-curve point; subgroup membership is not required.
     static void doubling(G2Point& out, const G2Point& a);
     /// Constant-time scalar multiplication of a previously validated subgroup
     /// point. Release does not validate membership. For canonical scalars,
@@ -404,21 +454,29 @@ struct G2Point
     static void sign(G2Point& out, const G2Point& in, const pow256 SK);
     static void to_pk(G2Point& out, const pow256 SK);
     static void to_pk2(unsigned char* out, G2AffinePoint* PK, const pow256 SK);
+    /// Conditionally negate an on-curve point; no subgroup validation occurs.
     static void cneg(G2Point& p, limb_t cbit);
     static void neg(G2Point& out, const G2Point& p);
+    /// Convert an on-curve point; subgroup membership is preserved, not established.
     static void to_affine(G2AffinePoint& out, const G2Point& in);
     static void from_affine(G2Point& out, const G2AffinePoint& a);
     static void from_jacobian(G2Point& out, const G2Point& in);
     static void cswap(G2Point& a, G2Point& b, bool_t cbit);
     static void ccopy(G2Point& a, const G2Point& b, bool_t cbit);
+    /// Compare on-curve values; this is not a validator.
     static limb_t equal(const G2Point& a, const G2Point& b);
+    /// Prime-order G2 subgroup generator.
     static const G2Point& generator();
     static G2Point infinity();
     static G2Point identity();
     static bool_t is_identity(const G2Point& p);
+    /// Test an on-curve value for infinity; this is not a validator.
     static bool_t is_inf(const G2Point& p);
+    /// Validate the curve equation, accepting infinity.
     static bool_t on_curve(const G2Point& p);
+    /// Validate both the curve equation and prime-order G2 membership.
     static bool_t in_subgroup(const G2Point& p);
+    /// Encode an on-curve point; subgroup membership is not required.
     static limb_t serialize_BE(unsigned char* out, const G2Point& in);
     static void serialize(unsigned char* out, const G2Point& in);
     static limb_t compress_BE(unsigned char* out, const G2Point& in);

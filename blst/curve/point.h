@@ -10,6 +10,18 @@
 
 namespace blst
 {
+    /**
+     * Native point-domain contract:
+     *
+     * These aliases select storage and implementation, not validation state.
+     * A successfully decoded point is canonical and on-curve but is not known
+     * to be in G1 or G2 until `in_subgroup` succeeds (or an approved batch
+     * validator establishes membership). Basic single-point arithmetic,
+     * conversion, observation, and encoding accept on-curve points. Optimized
+     * multiplication, MSM, pairing, and protocol operations require previously
+     * validated prime-order subgroup points. The selected scalar or AVX class
+     * declaration states each operation's exact preconditions.
+     */
     template<typename Field>
     using AffinePoint = scalar::AffinePoint<Field>;
 

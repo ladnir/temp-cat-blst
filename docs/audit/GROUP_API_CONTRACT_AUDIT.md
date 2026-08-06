@@ -295,7 +295,7 @@ and is not merely a mathematical precondition.
 | `AUD-091` | Automatic 256-bit AVX affine MSM silently changed point/scalar domain. | validated |
 | `AUD-092` | AVX/Rust Fp12 MSM was actually GT-only. | validated |
 | `AUD-093` | Public subgroup predicates were relation-only and did not establish on-curve. | validated |
-| `AUD-094` | Point decoders and Rust deserializers establish on-curve, not subgroup; contracts are not explicit. | policy selected; declaration migration open |
+| `AUD-094` | Point decoders and Rust deserializers establish on-curve, not subgroup; contracts are not explicit. | fixed in reviewed declarations; focused validation pending |
 | `AUD-095` | AVX projective MSM changed point domain at one point and lacked an nbits bound. | validated |
 | `AUD-096` | Inherited unsuffixed add remains the fast incomplete operation under explicit finite distinct/nonopposite preconditions; complete add-or-double remains available. | accepted |
 | `AUD-097` | Pairing validation is intentionally asymmetric but insufficiently documented; AVX pairing is raw despite its name. | needs decision |
@@ -304,14 +304,14 @@ and is not merely a mathematical precondition.
 | `AUD-100` | C cyclotomic squaring now states its cyclotomic precondition and lack of Release validation. | fixed |
 | `AUD-101` | Weighted pairing permitted oversized nbits into a fixed 32-byte scalar buffer; safe Rust could reach it. | validated |
 | `AUD-103` | Selected scalar/AVX GT conditional negation is constant-time across both backends. | validated |
-| `AUD-160` | Basic on-curve primitives and subgroup-only advanced operations lacked one bounded cross-language policy. | policy selected; declaration migration open |
+| `AUD-160` | Basic on-curve primitives and subgroup-only advanced operations lacked one bounded cross-language policy. | fixed in reviewed declarations; focused validation pending |
 | `AUD-161` | AVX batch subgroup soundness is caller-controlled; zero rounds and all-zero coefficient rows can ignore every candidate. | open |
 
 ## Incremental public documentation control
 
 `PUBLIC_API_DOCUMENTATION.csv` tracks the declaration coverage of API families
 whose implementations have already received a complete or focused hand audit.
-It currently accounts for 14 field, scalar, group, and expert-AVX families
+It currently accounts for 22 field, scalar, group, and expert-AVX families
 across C, selected native C++, safe Rust, and generated raw Rust FFI.
 
 `scripts/audit/check_public_api_documentation.ps1` verifies every ledger source,

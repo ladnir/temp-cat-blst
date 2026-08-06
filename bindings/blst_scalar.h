@@ -406,48 +406,66 @@ void blst_bendian_from_fp12(blst_byte out[48 * 12], const blst_fp12* a);
  *   public scalars.
  * - Serialization writes 96-byte uncompressed or 48-byte compressed encodings.
  * - Generator accessors return immutable static storage.
+ * - Basic single-point arithmetic, conversion, observation, and encoding accept
+ *   on-curve points; subgroup membership is not required unless stated.
+ * - Batch helpers, optimized multiplication, MSM, pairing, and protocol
+ *   operations require previously validated subgroup points.
  */
-/** Adds G1 projective points using a fast incomplete formula, with infinity
+/** Adds on-curve G1 projective points using a fast incomplete formula, with infinity
  * supported. For finite inputs, "opposite" means the same affine x coordinate
  * and negated affine y coordinate, so their mathematical sum is infinity.
  * Equal or opposite finite inputs are outside this function's
- * contract; use `blst_p1_add_or_double` when those cases are possible. */
+ * contract; use `blst_p1_add_or_double` when those cases are possible.
+ * Subgroup membership is not required or validated. */
 void blst_p1_add(blst_p1* out, const blst_p1* a, const blst_p1* b);
-/** Subtracts G1 projective point `b` from `a` and writes the result to `out`. */
+/** Subtracts on-curve G1 projective point `b` from `a`. Subgroup membership is
+ * not required or validated; `out` remains on-curve. */
 void blst_p1_sub(blst_p1* out, const blst_p1* a, const blst_p1* b);
-/** Complete G1 addition: doubles equal inputs and returns infinity for opposites. */
+/** Complete addition of on-curve G1 points: doubles equal inputs and returns
+ * infinity for opposites. Subgroup membership is not required or validated. */
 void blst_p1_add_or_double(blst_p1* out, const blst_p1* a, const blst_p1* b);
-/** Adds projective and affine G1 points using a fast incomplete formula, with
+/** Adds on-curve projective and affine G1 points using a fast incomplete formula, with
  * infinity supported. Finite inputs must be distinct and not opposites; use
- * `blst_p1_add_or_double_affine` when either case is possible. */
+ * `blst_p1_add_or_double_affine` when either case is possible. Subgroup
+ * membership is not required or validated. */
 void blst_p1_add_affine(blst_p1* out, const blst_p1* a, const blst_p1_affine* b);
-/** Subtracts affine G1 point `b` from projective `a` and writes the result to `out`. */
+/** Subtracts on-curve affine G1 point `b` from on-curve projective `a`.
+ * Subgroup membership is not required or validated. */
 void blst_p1_sub_affine(blst_p1* out, const blst_p1* a, const blst_p1_affine* b);
-/** Complete mixed G1 addition, including equal and opposite finite inputs. */
+/** Complete mixed addition of on-curve G1 points, including equal and opposite
+ * finite inputs. Subgroup membership is not required or validated. */
 void blst_p1_add_or_double_affine(blst_p1* out, const blst_p1* a, const blst_p1_affine* b);
-/** Doubles the G1 projective point `a` and writes the result to `out`. */
+/** Doubles on-curve G1 projective point `a`. Subgroup membership is not
+ * required or validated; `out` remains on-curve. */
 void blst_p1_double(blst_p1* out, const blst_p1* a);
 /** Multiplies subgroup point `p` by `scalar mod r`. For canonical scalars and fixed public `nbits`, the operation is constant-time. Noncanonical scalars are accepted, but timing may reveal that reduction was required. Release does not validate `p`. Exact `out == p` aliasing is supported; partial overlap is not. */
 void blst_p1_mult(blst_p1* out, const blst_p1* p, const blst_byte* scalar, size_t nbits);
 /** Optimized variable-time G1 multiplication for public scalar data only. `p` must already be an on-curve prime-order subgroup point; scalars are interpreted modulo r and Release does not validate `p`. */
 void blst_p1_mult_vartime(blst_p1* out, const blst_p1* p, const blst_byte* scalar, size_t nbits);
-/** Negates `p` in place when `cbit` is true; otherwise leaves it unchanged. */
+/** Conditionally negates an on-curve point. Subgroup membership is not required
+ * or validated. */
 void blst_p1_cneg(blst_p1* p, bool cbit);
-/** Conditionally negates affine G1 point `p` in place. */
+/** Conditionally negates an on-curve affine point. Subgroup membership is not
+ * required or validated. */
 void blst_p1_affine_cneg(blst_p1_affine* p, bool cbit);
-/** Converts a G1 projective point into affine form. */
+/** Converts an on-curve projective point into affine form. Subgroup membership
+ * is preserved but neither required nor established. */
 void blst_p1_to_affine(blst_p1_affine* out, const blst_p1* in);
-/** Converts a G1 affine point into projective form. */
+/** Converts an on-curve affine point into projective form. Subgroup membership
+ * is preserved but neither required nor established. */
 void blst_p1_from_affine(blst_p1* out, const blst_p1_affine* in);
-/** Normalizes a G1 Jacobian point into the canonical projective form. */
+/** Normalizes an on-curve Jacobian point. Subgroup membership is preserved but
+ * neither required nor established. */
 void blst_p1_from_jacobian(blst_p1* out, const blst_p1* in);
 /** Returns `true` when `p` lies on the G1 curve equation. */
 bool blst_p1_on_curve(const blst_p1* p);
 /** Returns `true` when `p` is on-curve and lies in the prime-order G1 subgroup. */
 bool blst_p1_in_g1(const blst_p1* p);
-/** Returns `true` when the two projective G1 points represent the same point. */
+/** Compares two on-curve projective points. Subgroup membership is not required;
+ * this is not a validator. */
 bool blst_p1_is_equal(const blst_p1* a, const blst_p1* b);
-/** Returns `true` when `a` is the G1 point at infinity. */
+/** Tests whether an on-curve point is infinity. Subgroup membership is not
+ * required; this is not a validator. */
 bool blst_p1_is_inf(const blst_p1* a);
 /** Returns a pointer to immutable static storage holding the G1 generator. */
 const blst_p1* blst_p1_generator(void);
@@ -457,13 +475,19 @@ void blst_p1_unchecked_mult(blst_p1* out, const blst_p1* p, const blst_byte* sca
 bool blst_p1_affine_on_curve(const blst_p1_affine* p);
 /** Returns `true` when affine `p` is on-curve and lies in the prime-order G1 subgroup. */
 bool blst_p1_affine_in_g1(const blst_p1_affine* p);
-/** Returns `true` when the two affine G1 points represent the same point. */
+/** Compares two on-curve affine points. Subgroup membership is not required;
+ * this is not a validator. */
 bool blst_p1_affine_is_equal(const blst_p1_affine* a, const blst_p1_affine* b);
-/** Returns `true` when affine G1 point `a` is the point at infinity. */
+/** Tests whether an on-curve affine point is infinity. Subgroup membership is
+ * not required; this is not a validator. */
 bool blst_p1_affine_is_inf(const blst_p1_affine* a);
 /** Returns a pointer to immutable static storage holding the affine G1 generator. */
 const blst_p1_affine* blst_p1_affine_generator(void);
-/** Batch-converts `npoints` projective G1 inputs into affine outputs. When `npoints > 0`, `dst` and `points[0]` must be non-null; later null descriptor entries mean contiguous continuation from the preceding point. Input and output storage must not overlap. Empty input performs no access. */
+/** Batch-converts `npoints` subgroup G1 projective inputs into affine outputs.
+ * This advanced helper does not promise non-subgroup behavior. When `npoints >
+ * 0`, `dst` and `points[0]` must be non-null; later null descriptor entries
+ * mean contiguous continuation from the preceding point. Input and output
+ * storage must not overlap. Empty input performs no access. */
 void blst_p1s_to_affine(blst_p1_affine dst[], const blst_p1* const points[], size_t npoints);
 /** Variable-time addition of public affine G1 subgroup points. Writes the complete sum to `ret`; empty or invalid-head input writes infinity. When `npoints > 0`, `points[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. Exact output/input overlap is unsupported. A bounded internal allocation accelerates batches of at least 16 points; allocation failure transparently uses complete serial addition. */
 void blst_p1s_add(blst_p1* ret, const blst_p1_affine* const points[], size_t npoints);
@@ -479,7 +503,7 @@ void blst_p1s_mult_wbits(blst_p1* ret, const blst_p1_affine table[], size_t wbit
 size_t blst_p1s_mult_pippenger_scratch_sizeof(size_t npoints);
 /** Returns G1 Pippenger scratch bytes for an explicit window in `[1, 24]`, or 0 when the window or size is invalid. */
 size_t blst_p1s_mult_pippenger_window_scratch_sizeof(size_t window);
-/** Evaluates variable-time subgroup G1 MSM with Pippenger. Points must already be on-curve G1 elements; scalars are interpreted modulo r and contain at most 256 meaningful little-endian bits. Descriptor arrays may contain exactly `npoints` entries: later null entries mean contiguous continuation and no sentinel is read. The one-point fallback uses `mult_vartime` and needs no scratch; multiple points require queried scratch. Empty input or zero bits writes infinity. Release does not validate membership. */
+/** Evaluates variable-time subgroup G1 MSM with Pippenger. Points must already be prime-order G1 subgroup elements; scalars are interpreted modulo r and contain at most 256 meaningful little-endian bits. Descriptor arrays may contain exactly `npoints` entries: later null entries mean contiguous continuation and no sentinel is read. The one-point fallback uses `mult_vartime` and needs no scratch; multiple points require queried scratch. Empty input or zero bits writes infinity. Release does not validate membership. */
 void blst_p1s_mult_pippenger(blst_p1* ret, const blst_p1_affine* const points[], size_t npoints, const blst_byte* const scalars[], size_t nbits, blst_limb_t* scratch);
 /** Returns total scratch bytes for a contiguous G1 MSM from native Montgomery-form `blst_fr` scalars, including canonical scalar preparation and Pippenger buckets. Zero is valid for an empty MSM and otherwise reports an unrepresentable size. */
 size_t blst_p1s_mult_pippenger_fr_scratch_sizeof(size_t npoints);
@@ -497,17 +521,31 @@ bool blst_p1s_mult_batch_affine_fr(blst_p1* ret, const blst_p1_affine points[], 
 void blst_p1s_mult_pippenger_window(blst_p1* ret, const blst_p1_affine* const points[], size_t npoints, const blst_byte* const scalars[], size_t nbits, blst_limb_t* scratch, size_t window);
 /** Evaluates the signed Pippenger digit beginning at the exact scalar bit offset `bit0`. Inputs are public subgroup data; `nbits` is in `[1, 256]`, `window` in `[1, 24]`, and `bit0 < nbits`. Nonempty input requires queried scratch and valid descriptor heads. Later null entries mean contiguous continuation, and exact descriptor arrays need no sentinel. Invalid input writes infinity. */
 void blst_p1s_tile_pippenger(blst_p1* ret, const blst_p1_affine* const points[], size_t npoints, const blst_byte* const scalars[], size_t nbits, blst_limb_t* scratch, size_t bit0, size_t window);
-/** Serializes a G1 projective point into a 96-byte uncompressed encoding. */
+/** Serializes an on-curve G1 projective point into 96 bytes. Subgroup membership
+ * is not required or validated. */
 void blst_p1_serialize(blst_byte out[96], const blst_p1* in);
-/** Compresses a G1 projective point into a 48-byte encoding. */
+/** Compresses an on-curve G1 projective point into 48 bytes. Subgroup membership
+ * is not required or validated. */
 void blst_p1_compress(blst_byte out[48], const blst_p1* in);
-/** Serializes an affine G1 point into a 96-byte uncompressed encoding. */
+/** Serializes an on-curve affine G1 point into 96 bytes. Subgroup membership is
+ * not required or validated. */
 void blst_p1_affine_serialize(blst_byte out[96], const blst_p1_affine* in);
-/** Compresses an affine G1 point into a 48-byte encoding. */
+/** Compresses an on-curve affine G1 point into 48 bytes. Subgroup membership is
+ * not required or validated. */
 void blst_p1_affine_compress(blst_byte out[48], const blst_p1_affine* in);
-/** Decodes a 48-byte compressed G1 encoding into `out`; on failure `out` is unchanged. */
+/** Decodes a 48-byte compressed G1 encoding. Success establishes canonical
+ * encoding and on-curve status, but not subgroup membership; infinity is
+ * accepted. Some known non-subgroup encodings may be rejected, but callers
+ * must still use `blst_p1_affine_in_g1` or an approved batch validator before
+ * subgroup-only operations. On failure `out` is unchanged. */
 BLST_ERROR blst_p1_uncompress(blst_p1_affine* out, const blst_byte in[48]);
-/** Decodes a 96-byte uncompressed G1 encoding into `out`; on failure `out` is unchanged. */
+/** Decodes either a 48-byte compressed or 96-byte uncompressed G1 encoding,
+ * selected by the encoding flags. The caller must provide the corresponding
+ * readable size. Success establishes canonical encoding and on-curve status,
+ * but not subgroup membership; infinity is accepted. Some known non-subgroup
+ * encodings may be rejected, but callers must still use
+ * `blst_p1_affine_in_g1` or an approved batch validator before subgroup-only
+ * operations. On failure `out` is unchanged. */
 BLST_ERROR blst_p1_deserialize(blst_p1_affine* out, const blst_byte in[96]);
 
 /**
@@ -517,48 +555,65 @@ BLST_ERROR blst_p1_deserialize(blst_p1_affine* out, const blst_byte in[96]);
  * and 96-byte compressed encodings. The unsuffixed single-point multiply is
  * constant-time for fixed public `nbits`; `_vartime` and all
  * multi-scalar/Pippenger operations require public scalars.
+ * Basic single-point arithmetic, conversion, observation, and encoding accept
+ * on-curve points; subgroup membership is not required unless stated. Batch
+ * and other advanced operations require previously validated subgroup points.
  */
-/** Adds G2 projective points using a fast incomplete formula, with infinity
+/** Adds on-curve G2 projective points using a fast incomplete formula, with infinity
  * supported. For finite inputs, "opposite" means the same affine x coordinate
  * and negated affine y coordinate, so their mathematical sum is infinity.
  * Equal or opposite finite inputs are outside this function's
- * contract; use `blst_p2_add_or_double` when those cases are possible. */
+ * contract; use `blst_p2_add_or_double` when those cases are possible.
+ * Subgroup membership is not required or validated. */
 void blst_p2_add(blst_p2* out, const blst_p2* a, const blst_p2* b);
-/** Subtracts G2 projective point `b` from `a` and writes the result to `out`. */
+/** Subtracts on-curve G2 projective point `b` from `a`. Subgroup membership is
+ * not required or validated; `out` remains on-curve. */
 void blst_p2_sub(blst_p2* out, const blst_p2* a, const blst_p2* b);
-/** Complete G2 addition: doubles equal inputs and returns infinity for opposites. */
+/** Complete addition of on-curve G2 points: doubles equal inputs and returns
+ * infinity for opposites. Subgroup membership is not required or validated. */
 void blst_p2_add_or_double(blst_p2* out, const blst_p2* a, const blst_p2* b);
-/** Adds projective and affine G2 points using a fast incomplete formula, with
+/** Adds on-curve projective and affine G2 points using a fast incomplete formula, with
  * infinity supported. Finite inputs must be distinct and not opposites; use
- * `blst_p2_add_or_double_affine` when either case is possible. */
+ * `blst_p2_add_or_double_affine` when either case is possible. Subgroup
+ * membership is not required or validated. */
 void blst_p2_add_affine(blst_p2* out, const blst_p2* a, const blst_p2_affine* b);
-/** Subtracts affine G2 point `b` from projective `a` and writes the result to `out`. */
+/** Subtracts on-curve affine G2 point `b` from on-curve projective `a`.
+ * Subgroup membership is not required or validated. */
 void blst_p2_sub_affine(blst_p2* out, const blst_p2* a, const blst_p2_affine* b);
-/** Complete mixed G2 addition, including equal and opposite finite inputs. */
+/** Complete mixed addition of on-curve G2 points, including equal and opposite
+ * finite inputs. Subgroup membership is not required or validated. */
 void blst_p2_add_or_double_affine(blst_p2* out, const blst_p2* a, const blst_p2_affine* b);
-/** Doubles the G2 projective point `a` and writes the result to `out`. */
+/** Doubles on-curve G2 projective point `a`. Subgroup membership is not
+ * required or validated; `out` remains on-curve. */
 void blst_p2_double(blst_p2* out, const blst_p2* a);
 /** Multiplies subgroup point `p` by `scalar mod r`. For canonical scalars and fixed public `nbits`, the operation is constant-time. Noncanonical scalars are accepted, but timing may reveal that reduction was required. Release does not validate `p`. Exact `out == p` aliasing is supported; partial overlap is not. */
 void blst_p2_mult(blst_p2* out, const blst_p2* p, const blst_byte* scalar, size_t nbits);
 /** Optimized variable-time G2 multiplication for public scalar data only. `p` must already be an on-curve prime-order subgroup point; scalars are interpreted modulo r and Release does not validate `p`. */
 void blst_p2_mult_vartime(blst_p2* out, const blst_p2* p, const blst_byte* scalar, size_t nbits);
-/** Negates `p` in place when `cbit` is true; otherwise leaves it unchanged. */
+/** Conditionally negates an on-curve point. Subgroup membership is not required
+ * or validated. */
 void blst_p2_cneg(blst_p2* p, bool cbit);
-/** Conditionally negates affine G2 point `p` in place. */
+/** Conditionally negates an on-curve affine point. Subgroup membership is not
+ * required or validated. */
 void blst_p2_affine_cneg(blst_p2_affine* p, bool cbit);
-/** Converts a G2 projective point into affine form. */
+/** Converts an on-curve projective point into affine form. Subgroup membership
+ * is preserved but neither required nor established. */
 void blst_p2_to_affine(blst_p2_affine* out, const blst_p2* in);
-/** Converts a G2 affine point into projective form. */
+/** Converts an on-curve affine point into projective form. Subgroup membership
+ * is preserved but neither required nor established. */
 void blst_p2_from_affine(blst_p2* out, const blst_p2_affine* in);
-/** Normalizes a G2 Jacobian point into the canonical projective form. */
+/** Normalizes an on-curve Jacobian point. Subgroup membership is preserved but
+ * neither required nor established. */
 void blst_p2_from_jacobian(blst_p2* out, const blst_p2* in);
 /** Returns `true` when `p` lies on the G2 curve equation. */
 bool blst_p2_on_curve(const blst_p2* p);
 /** Returns `true` when `p` is on-curve and lies in the prime-order G2 subgroup. */
 bool blst_p2_in_g2(const blst_p2* p);
-/** Returns `true` when the two projective G2 points represent the same point. */
+/** Compares two on-curve projective points. Subgroup membership is not required;
+ * this is not a validator. */
 bool blst_p2_is_equal(const blst_p2* a, const blst_p2* b);
-/** Returns `true` when `a` is the G2 point at infinity. */
+/** Tests whether an on-curve point is infinity. Subgroup membership is not
+ * required; this is not a validator. */
 bool blst_p2_is_inf(const blst_p2* a);
 /** Returns a pointer to immutable static storage holding the G2 generator. */
 const blst_p2* blst_p2_generator(void);
@@ -568,13 +623,19 @@ void blst_p2_unchecked_mult(blst_p2* out, const blst_p2* p, const blst_byte* sca
 bool blst_p2_affine_on_curve(const blst_p2_affine* p);
 /** Returns `true` when affine `p` is on-curve and lies in the prime-order G2 subgroup. */
 bool blst_p2_affine_in_g2(const blst_p2_affine* p);
-/** Returns `true` when the two affine G2 points represent the same point. */
+/** Compares two on-curve affine points. Subgroup membership is not required;
+ * this is not a validator. */
 bool blst_p2_affine_is_equal(const blst_p2_affine* a, const blst_p2_affine* b);
-/** Returns `true` when affine G2 point `a` is the point at infinity. */
+/** Tests whether an on-curve affine point is infinity. Subgroup membership is
+ * not required; this is not a validator. */
 bool blst_p2_affine_is_inf(const blst_p2_affine* a);
 /** Returns a pointer to immutable static storage holding the affine G2 generator. */
 const blst_p2_affine* blst_p2_affine_generator(void);
-/** Batch-converts `npoints` projective G2 inputs into affine outputs. When `npoints > 0`, `dst` and `points[0]` must be non-null; later null descriptor entries mean contiguous continuation from the preceding point. Input and output storage must not overlap. Empty input performs no access. */
+/** Batch-converts `npoints` subgroup G2 projective inputs into affine outputs.
+ * This advanced helper does not promise non-subgroup behavior. When `npoints >
+ * 0`, `dst` and `points[0]` must be non-null; later null descriptor entries
+ * mean contiguous continuation from the preceding point. Input and output
+ * storage must not overlap. Empty input performs no access. */
 void blst_p2s_to_affine(blst_p2_affine dst[], const blst_p2* const points[], size_t npoints);
 /** Variable-time addition of public affine G2 subgroup points. Writes the complete sum to `ret`; empty or invalid-head input writes infinity. When `npoints > 0`, `points[0]` must be non-null and later null entries mean contiguous continuation from the previous non-null element. Exact output/input overlap is unsupported. A bounded internal allocation accelerates batches of at least 16 points; allocation failure transparently uses complete serial addition. */
 void blst_p2s_add(blst_p2* ret, const blst_p2_affine* const points[], size_t npoints);
@@ -590,7 +651,7 @@ void blst_p2s_mult_wbits(blst_p2* ret, const blst_p2_affine table[], size_t wbit
 size_t blst_p2s_mult_pippenger_scratch_sizeof(size_t npoints);
 /** Returns G2 Pippenger scratch bytes for an explicit window in `[1, 24]`, or 0 when the window or size is invalid. */
 size_t blst_p2s_mult_pippenger_window_scratch_sizeof(size_t window);
-/** Evaluates variable-time subgroup G2 MSM with Pippenger. Points must already be on-curve G2 elements; scalars are interpreted modulo r and contain at most 256 meaningful little-endian bits. Descriptor arrays may contain exactly `npoints` entries: later null entries mean contiguous continuation and no sentinel is read. The one-point fallback uses `mult_vartime` and needs no scratch; multiple points require queried scratch. Empty input or zero bits writes infinity. Release does not validate membership. */
+/** Evaluates variable-time subgroup G2 MSM with Pippenger. Points must already be prime-order G2 subgroup elements; scalars are interpreted modulo r and contain at most 256 meaningful little-endian bits. Descriptor arrays may contain exactly `npoints` entries: later null entries mean contiguous continuation and no sentinel is read. The one-point fallback uses `mult_vartime` and needs no scratch; multiple points require queried scratch. Empty input or zero bits writes infinity. Release does not validate membership. */
 void blst_p2s_mult_pippenger(blst_p2* ret, const blst_p2_affine* const points[], size_t npoints, const blst_byte* const scalars[], size_t nbits, blst_limb_t* scratch);
 /** Same contract as `blst_p2s_mult_pippenger`, using an explicit window in `[1, 24]`; scratch must match `blst_p2s_mult_pippenger_window_scratch_sizeof(window)`. */
 void blst_p2s_mult_pippenger_window(blst_p2* ret, const blst_p2_affine* const points[], size_t npoints, const blst_byte* const scalars[], size_t nbits, blst_limb_t* scratch, size_t window);
@@ -608,17 +669,31 @@ size_t blst_p2s_mult_batch_affine_fr_scratch_sizeof(size_t npoints, size_t windo
 bool blst_p2s_mult_batch_affine_fr(blst_p2* ret, const blst_p2_affine points[], const blst_fr scalars[], size_t npoints, blst_limb_t* scratch, size_t scratch_size, size_t window, size_t batch_size);
 /** Evaluates the signed Pippenger digit beginning at the exact scalar bit offset `bit0`. Inputs are public subgroup data; `nbits` is in `[1, 256]`, `window` in `[1, 24]`, and `bit0 < nbits`. Nonempty input requires queried scratch and valid descriptor heads. Later null entries mean contiguous continuation, and exact descriptor arrays need no sentinel. Invalid input writes infinity. */
 void blst_p2s_tile_pippenger(blst_p2* ret, const blst_p2_affine* const points[], size_t npoints, const blst_byte* const scalars[], size_t nbits, blst_limb_t* scratch, size_t bit0, size_t window);
-/** Serializes a G2 projective point into a 192-byte uncompressed encoding. */
+/** Serializes an on-curve G2 projective point into 192 bytes. Subgroup
+ * membership is not required or validated. */
 void blst_p2_serialize(blst_byte out[192], const blst_p2* in);
-/** Compresses a G2 projective point into a 96-byte encoding. */
+/** Compresses an on-curve G2 projective point into 96 bytes. Subgroup
+ * membership is not required or validated. */
 void blst_p2_compress(blst_byte out[96], const blst_p2* in);
-/** Serializes an affine G2 point into a 192-byte uncompressed encoding. */
+/** Serializes an on-curve affine G2 point into 192 bytes. Subgroup membership
+ * is not required or validated. */
 void blst_p2_affine_serialize(blst_byte out[192], const blst_p2_affine* in);
-/** Compresses an affine G2 point into a 96-byte encoding. */
+/** Compresses an on-curve affine G2 point into 96 bytes. Subgroup membership is
+ * not required or validated. */
 void blst_p2_affine_compress(blst_byte out[96], const blst_p2_affine* in);
-/** Decodes a 96-byte compressed G2 encoding into `out`; on failure `out` is unchanged. */
+/** Decodes a 96-byte compressed G2 encoding. Success establishes canonical
+ * encoding and on-curve status, but not subgroup membership; infinity is
+ * accepted. Some known non-subgroup encodings may be rejected, but callers
+ * must still use `blst_p2_affine_in_g2` or an approved batch validator before
+ * subgroup-only operations. On failure `out` is unchanged. */
 BLST_ERROR blst_p2_uncompress(blst_p2_affine* out, const blst_byte in[96]);
-/** Decodes a 192-byte uncompressed G2 encoding into `out`; on failure `out` is unchanged. */
+/** Decodes either a 96-byte compressed or 192-byte uncompressed G2 encoding,
+ * selected by the encoding flags. The caller must provide the corresponding
+ * readable size. Success establishes canonical encoding and on-curve status,
+ * but not subgroup membership; infinity is accepted. Some known non-subgroup
+ * encodings may be rejected, but callers must still use
+ * `blst_p2_affine_in_g2` or an approved batch validator before subgroup-only
+ * operations. On failure `out` is unchanged. */
 BLST_ERROR blst_p2_deserialize(blst_p2_affine* out, const blst_byte in[192]);
 
 /**
@@ -671,9 +746,10 @@ BLST_ERROR blst_p2_deserialize(blst_p2_affine* out, const blst_byte in[192]);
  */
 /**
  * Computes a Miller loop from affine `(Q, P)` inputs and writes a Miller-loop
- * value, not a GT element, into `ret`. Inputs must be valid on-curve affine
- * points; no curve or subgroup validation is performed. A null input selects
- * the corresponding canonical generator. `ret` must be non-null.
+ * value, not a GT element, into `ret`. Non-null inputs must already be valid
+ * prime-order subgroup points; no curve or subgroup validation is performed.
+ * A null input selects the corresponding canonical generator. `ret` must be
+ * non-null. Behavior for non-subgroup inputs is not promised.
  */
 void blst_miller_loop(blst_fp12* ret, const blst_p2_affine* Q, const blst_p1_affine* P);
 /**
@@ -685,12 +761,17 @@ void blst_miller_loop(blst_fp12* ret, const blst_p2_affine* Q, const blst_p1_aff
  * - a later null entry means "continue from the next contiguous element after
  *   the previous non-null entry"
  * - malformed nonempty array heads fail closed by writing the all-zero Fp12
- *   sentinel; no curve or subgroup validation is performed
+ *   sentinel; every non-null point must be a previously validated subgroup
+ *   point and no curve or subgroup validation is performed
  */
 void blst_miller_loop_n(blst_fp12* ret, const blst_p2_affine* const Qs[], const blst_p1_affine* const Ps[], size_t n);
-/** Precomputes the 68 line-function coefficients needed for repeated Miller loops with `Q`; when `Q` is null, the G2 generator is used. */
+/** Precomputes the 68 line-function coefficients needed for repeated Miller
+ * loops with previously validated subgroup point `Q`; when `Q` is null, the G2
+ * generator is used. No point validation is performed. */
 void blst_precompute_lines(blst_fp6 Qlines[68], const blst_p2_affine* Q);
-/** Runs a Miller loop using a valid precomputed `Qlines` table and affine `P`, producing a Miller-loop value rather than GT; when `P` is null, the G1 generator is used. */
+/** Runs a Miller loop using a valid precomputed `Qlines` table and previously
+ * validated subgroup point `P`, producing a Miller-loop value rather than GT;
+ * when `P` is null, the G1 generator is used. No point validation is performed. */
 void blst_miller_loop_lines(blst_fp12* ret, const blst_fp6 Qlines[68], const blst_p1_affine* P);
 /** Returns the exact storage size, in bytes, required for one `blst_pairing` object. */
 size_t blst_pairing_sizeof(void);
@@ -714,8 +795,9 @@ void blst_pairing_commit(blst_pairing* ctx);
 void blst_pairing_get_miller_result(blst_fp12* out, blst_pairing* ctx);
 /**
  * Queues one trusted affine `(G2 q, G1 p)` pair without curve or subgroup
- * validation. Either infinity contributes the Miller identity. This does not
- * establish a PK/signature orientation.
+ * validation. Both inputs must already be subgroup points; non-subgroup
+ * behavior is not promised. Either infinity contributes the Miller identity.
+ * This does not establish a PK/signature orientation.
  */
 void blst_pairing_raw_aggregate(blst_pairing* ctx, const blst_p2_affine* q, const blst_p1_affine* p);
 /**

@@ -490,9 +490,11 @@ Batch conversion/addition, fixed-table multiplication, MSM, raw Miller/pairing,
 and protocol operations remain subgroup-only even when a current implementation
 happens to evaluate on some non-subgroup inputs. No generic advanced family is
 promised. `POINT_DOMAIN_MATRIX.md` records the exact C, native C++, safe Rust,
-and raw-Rust family mapping. This packet changes audit policy only; public
-declaration migration, non-subgroup primitive evidence, and the existing AVX
-batch-check challenge-generation review remain implementation work. `AUD-161`
+and raw-Rust family mapping. The reviewed scalar/AVX C, selected native C++,
+and safe Rust declarations now implement that mapping; raw Rust inherits the C
+declarations. Focused non-subgroup primitive and decoder-flow evidence remains
+before `AUD-094` and `AUD-160` can be validated. The existing AVX batch-check
+challenge-generation review remains separate implementation work. `AUD-161`
 records that the current expert AVX entry accepts caller-controlled coefficient
 rows: zero rounds inspect no candidates, and an all-zero matrix checks only the
 supplied shift. It is not the approved future safe batch-validation interface.
@@ -503,6 +505,7 @@ Scalar point, bulk addition, MSM, fixed-window multiplication, GT/Miller,
 map-to-group, SHA-256, and key generation are complete at their recorded
 commits. The aggregate implementation/header and safe Rust pairing wrapper are
 complete at `091dfb2cae096ee8ed801036e98827b3253b2e84`. The next packet should
-align the already reviewed point declarations and focused tests with
-`POINT_DOMAIN_MATRIX.md`, then continue the next signing/protocol file. The GT
-deserialization design is resolved and validated as `AUD-085`.
+add the focused non-subgroup primitive and decoder-flow tests required to
+validate the now-aligned declarations, then resolve the expert AVX batch design
+or continue the next signing/protocol file. The GT deserialization design is
+resolved and validated as `AUD-085`.

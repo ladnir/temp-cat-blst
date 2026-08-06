@@ -420,6 +420,12 @@ macro_rules! sig_variant_impl {
 
         #[repr(transparent)]
         #[derive(Default, Debug, Clone, Copy)]
+        /// An affine public-key representation.
+        ///
+        /// This type does not encode validation state. Decoding establishes a
+        /// canonical on-curve point only; call [`PublicKey::validate`] (or use
+        /// [`PublicKey::key_validate`]) before passing a value to operations
+        /// whose contract requires a prime-order subgroup public key.
         pub struct PublicKey {
             point: $pk_aff,
         }
@@ -427,7 +433,10 @@ macro_rules! sig_variant_impl {
         impl PublicKey {
             // Core operations
 
-            // key_validate
+            /// Validates prime-order subgroup membership and rejects infinity.
+            ///
+            /// Success establishes the public-key precondition required by
+            /// signing-scheme verification and aggregation operations.
             pub fn validate(&self) -> Result<(), BLST_ERROR> {
                 unsafe {
                     if $pk_is_inf(&self.point) {
@@ -440,6 +449,7 @@ macro_rules! sig_variant_impl {
                 Ok(())
             }
 
+            /// Decodes and fully validates a non-infinity subgroup public key.
             pub fn key_validate(key: &[u8]) -> Result<Self, BLST_ERROR> {
                 let pk = PublicKey::from_bytes(key)?;
                 pk.validate()?;
@@ -456,6 +466,7 @@ macro_rules! sig_variant_impl {
 
             // Serdes
 
+            /// Compresses an on-curve point. This does not validate subgroup membership.
             pub fn compress(&self) -> [u8; $pk_comp_size] {
                 let mut pk_comp = [0u8; $pk_comp_size];
                 unsafe {
@@ -464,6 +475,7 @@ macro_rules! sig_variant_impl {
                 pk_comp
             }
 
+            /// Serializes an on-curve point. This does not validate subgroup membership.
             pub fn serialize(&self) -> [u8; $pk_ser_size] {
                 let mut pk_out = [0u8; $pk_ser_size];
                 unsafe {
@@ -472,6 +484,12 @@ macro_rules! sig_variant_impl {
                 pk_out
             }
 
+            /// Decodes a canonical compressed public-key-sized point.
+            ///
+            /// Success establishes on-curve status only, accepts infinity, and
+            /// does not establish subgroup membership. Call [`Self::validate`]
+            /// before subgroup-only operations unless membership is established
+            /// by an approved batch-validation protocol.
             pub fn uncompress(pk_comp: &[u8]) -> Result<Self, BLST_ERROR> {
                 if pk_comp.len() == $pk_comp_size && (pk_comp[0] & 0x80) != 0 {
                     let mut pk = <$pk_aff>::default();
@@ -485,6 +503,12 @@ macro_rules! sig_variant_impl {
                 }
             }
 
+            /// Decodes canonical compressed or uncompressed point input.
+            ///
+            /// Success establishes on-curve status only, accepts infinity, and
+            /// does not establish subgroup membership. The returned Rust type
+            /// does not record validation state; call [`Self::validate`] before
+            /// subgroup-only operations unless an approved batch validator is used.
             pub fn deserialize(pk_in: &[u8]) -> Result<Self, BLST_ERROR> {
                 if (pk_in.len() == $pk_ser_size && (pk_in[0] & 0x80) == 0)
                     || (pk_in.len() == $pk_comp_size && (pk_in[0] & 0x80) != 0)
@@ -500,6 +524,7 @@ macro_rules! sig_variant_impl {
                 }
             }
 
+            /// Alias for [`Self::deserialize`]; it does not perform subgroup validation.
             pub fn from_bytes(pk_in: &[u8]) -> Result<Self, BLST_ERROR> {
                 PublicKey::deserialize(pk_in)
             }
@@ -532,6 +557,8 @@ macro_rules! sig_variant_impl {
         }
 
         #[cfg(feature = "serde")]
+        /// Serde decoding has the same on-curve-only postcondition as
+        /// [`PublicKey::deserialize`]; it does not establish subgroup membership.
         impl<'de> Deserialize<'de> for PublicKey {
             fn deserialize<D: Deserializer<'de>>(
                 deser: D,
@@ -711,6 +738,11 @@ macro_rules! sig_variant_impl {
 
         #[repr(transparent)]
         #[derive(Debug, Clone, Copy)]
+        /// An affine signature representation.
+        ///
+        /// This type does not encode validation state. Decoding establishes a
+        /// canonical on-curve point only; call [`Signature::validate`] (or use
+        /// [`Signature::sig_validate`]) before subgroup-only operations.
         pub struct Signature {
             point: $sig_aff,
         }
@@ -720,6 +752,9 @@ macro_rules! sig_variant_impl {
             // into resource-consuming verification. Passing 'false' is
             // always cryptographically safe, but application might want
             // to guard against obviously bogus individual[!] signatures.
+            /// Validates prime-order subgroup membership and, when requested,
+            /// rejects infinity. Success establishes the signature precondition
+            /// required by signing-scheme verification and aggregation.
             pub fn validate(
                 &self,
                 sig_infcheck: bool,
@@ -735,6 +770,7 @@ macro_rules! sig_variant_impl {
                 Ok(())
             }
 
+            /// Decodes and validates a subgroup signature, optionally rejecting infinity.
             pub fn sig_validate(
                 sig: &[u8],
                 sig_infcheck: bool,
@@ -904,6 +940,7 @@ macro_rules! sig_variant_impl {
                 Self { point: sig_aff }
             }
 
+            /// Compresses an on-curve point. This does not validate subgroup membership.
             pub fn compress(&self) -> [u8; $sig_comp_size] {
                 let mut sig_comp = [0; $sig_comp_size];
                 unsafe {
@@ -912,6 +949,7 @@ macro_rules! sig_variant_impl {
                 sig_comp
             }
 
+            /// Serializes an on-curve point. This does not validate subgroup membership.
             pub fn serialize(&self) -> [u8; $sig_ser_size] {
                 let mut sig_out = [0; $sig_ser_size];
                 unsafe {
@@ -920,6 +958,12 @@ macro_rules! sig_variant_impl {
                 sig_out
             }
 
+            /// Decodes a canonical compressed signature-sized point.
+            ///
+            /// Success establishes on-curve status only, accepts infinity, and
+            /// does not establish subgroup membership. Call [`Self::validate`]
+            /// before subgroup-only operations unless membership is established
+            /// by an approved batch-validation protocol.
             pub fn uncompress(sig_comp: &[u8]) -> Result<Self, BLST_ERROR> {
                 if sig_comp.len() == $sig_comp_size && (sig_comp[0] & 0x80) != 0
                 {
@@ -935,6 +979,12 @@ macro_rules! sig_variant_impl {
                 }
             }
 
+            /// Decodes canonical compressed or uncompressed point input.
+            ///
+            /// Success establishes on-curve status only, accepts infinity, and
+            /// does not establish subgroup membership. The returned Rust type
+            /// does not record validation state; call [`Self::validate`] before
+            /// subgroup-only operations unless an approved batch validator is used.
             pub fn deserialize(sig_in: &[u8]) -> Result<Self, BLST_ERROR> {
                 if (sig_in.len() == $sig_ser_size && (sig_in[0] & 0x80) == 0)
                     || (sig_in.len() == $sig_comp_size
@@ -951,6 +1001,7 @@ macro_rules! sig_variant_impl {
                 }
             }
 
+            /// Alias for [`Self::deserialize`]; it does not perform subgroup validation.
             pub fn from_bytes(sig_in: &[u8]) -> Result<Self, BLST_ERROR> {
                 Signature::deserialize(sig_in)
             }
@@ -959,6 +1010,7 @@ macro_rules! sig_variant_impl {
                 self.compress()
             }
 
+            /// Returns whether this candidate is on-curve and in the signature subgroup.
             pub fn subgroup_check(&self) -> bool {
                 unsafe { $sig_in_group(&self.point) }
             }
@@ -987,6 +1039,8 @@ macro_rules! sig_variant_impl {
         }
 
         #[cfg(feature = "serde")]
+        /// Serde decoding has the same on-curve-only postcondition as
+        /// [`Signature::deserialize`]; it does not establish subgroup membership.
         impl<'de> Deserialize<'de> for Signature {
             fn deserialize<D: Deserializer<'de>>(
                 deser: D,

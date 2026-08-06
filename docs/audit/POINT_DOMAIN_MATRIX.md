@@ -2,7 +2,7 @@
 
 Date: 2026-08-05
 
-State: policy approved; declaration migration pending
+State: policy applied to the reviewed declarations; focused validation pending
 
 Scope: supported scalar and AVX C APIs, selected native C++, safe Rust helpers,
 and generated raw Rust FFI. CUDA and frozen BTx/BTE are excluded.
@@ -70,9 +70,10 @@ arithmetic only preserves a condition already supplied by the caller.
 
 ## Migration rule
 
-This matrix records the approved contract, not completed declaration migration.
-Each affected C, native C++, and safe Rust declaration must be checked against
-its implementation during its containing-file review. A wider promise requires
+The reviewed scalar/AVX C declarations, selected native C++ point declarations,
+and safe Rust point/protocol declarations now state this contract. Generated raw
+Rust inherits the C declaration. Future containing-file reviews must apply the
+same vocabulary to any additional point-taking surface. A wider promise requires
 focused non-subgroup evidence. A narrower subgroup promise needs no artificial
 runtime check and remains valid even if the current implementation is
 incidentally full-curve-correct.

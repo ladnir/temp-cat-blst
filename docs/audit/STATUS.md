@@ -419,9 +419,10 @@ The `AUD-094`/`AUD-160` point-domain policy now uses only on-curve and subgroup
 preconditions without new validation-state types. Decode and the approved basic
 single-point primitive set opt into on-curve use; batch helpers, MSM, raw
 Miller/pairing, and protocol algorithms remain subgroup-only regardless of
-incidental wider implementation behavior. The exact cross-language migration
-matrix is `docs/audit/POINT_DOMAIN_MATRIX.md`; declaration and focused-test
-alignment remain open. `AUD-161` separately records that the existing expert
+incidental wider implementation behavior. The scalar/AVX C, selected native
+C++, and safe Rust declarations now match the exact cross-language matrix in
+`docs/audit/POINT_DOMAIN_MATRIX.md`; focused non-subgroup and decoder-flow tests
+remain before the findings are validated. `AUD-161` separately records that the existing expert
 AVX batch predicate has caller-controlled soundness and is not yet a safe
 general batch-validation interface.
 

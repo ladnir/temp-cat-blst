@@ -170,4 +170,8 @@ cross-file `AUD-109`.
 The header is complete at the recorded commit. The inherited narrow `add`
 naming is accepted with explicit documentation. `AUD-109` belongs to the next
 bulk-addition file review and does not change this header's declared contract.
-Decoder subgroup-policy design remains separately tracked by `AUD-094`.
+A later cross-cutting `AUD-094`/`AUD-160` declaration pass now states that
+decoding establishes on-curve status only, basic single-point primitives accept
+on-curve inputs, and optimized/advanced operations require subgroup inputs.
+Focused non-subgroup and decoder-flow evidence remains before those two
+findings are validated; the original implementation review hash remains above.

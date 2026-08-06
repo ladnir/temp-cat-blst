@@ -81,7 +81,11 @@ namespace blst::scalar
 	 * Infinity is represented by `Z == 0`. Affine inputs use the all-zero encoding
 	 * for infinity. Field coordinates are stored in Montgomery form. Timing
 	 * properties are stated per operation; no blanket constant-time guarantee
-	 * applies to conversion, encoding, or validation methods.
+	 * applies to conversion, encoding, or validation methods. The type stores a
+	 * point representation; construction or decoding does not establish subgroup
+	 * membership. Unless a method states a subgroup precondition, basic
+	 * single-point arithmetic, conversion, observation, and encoding require only
+	 * an on-curve input and preserve (but do not establish) subgroup membership.
 	 */
 	template<typename Field>
 	struct Point
@@ -99,26 +103,31 @@ namespace blst::scalar
 
 		/**
 		 * @brief Unified constant-time add-or-double of two Jacobian points.
+		 * @pre Both inputs are on-curve; subgroup membership is not required.
 		 * @param a4 Optional curve-a term; BLS12-381 uses `a = 0`, so pass null.
 		 * @note Handles equality, opposites, and infinity.
 		 */
 		BLST_HD static void dadd(Point& out, const Point& p1, const Point& p2,
 			const Field* a4 = nullptr);
 		/// @brief Unified constant-time add-or-double with an affine addend.
+		/// @pre Both inputs are on-curve; subgroup membership is not required.
 		/// @note Treats the all-zero affine value as infinity.
 		BLST_HD static void dadd(Point& out, const Point& p1, const AffinePoint<Field>& p2);
 		/// @brief Add two Jacobian points using the fast incomplete formula.
+		/// @pre Both inputs are on-curve; subgroup membership is not required.
 		/// @pre If both inputs are finite, they are distinct and `p2 != -p1`.
 		/// @note Infinity is handled. Equal points require @c dadd for doubling;
 		/// opposite points (same affine x, negated affine y) require @c dadd to
 		/// produce infinity. Uses the EFD add-2007-bl formula.
 		BLST_HD static void add(Point& out, const Point& p1, const Point& p2);
 		/// @brief Mixed Jacobian-plus-affine addition using the fast incomplete formula.
+		/// @pre Both inputs are on-curve; subgroup membership is not required.
 		/// @pre If both inputs are finite, they are distinct and `p2 != -p1`.
 		/// @note Infinity is handled. Use @c dadd when the finite inputs may be
 		/// equal or opposite. Uses the EFD madd-2007-bl formula.
 		BLST_HD static void add(Point& out, const Point& p1, const AffinePoint<Field>& p2);
-		/// @brief Point doubling using the EFD dbl-2009-l formula.
+		/// @brief Double an on-curve point using the EFD dbl-2009-l formula.
+		/// @note Subgroup membership is not required or validated.
 		BLST_HD static void doubling(Point& out, const Point& p1);
 		/// @brief Accumulate @p p into @p out, then double the result @p n times:
 		/// `out = 2^n * (out + p)`.
@@ -155,15 +164,20 @@ namespace blst::scalar
 		 */
 		BLST_HD static void unchecked_mult(Point& out, const Point& a, const byte* scalar, size_t nbits);
 		/// @brief Constant-time conditional y-coordinate negation when @p cbit is one.
+		/// @pre @p p is on-curve; subgroup membership is not required.
 		BLST_HD static void cneg(Point& p, limb_t cbit);
-		/// @brief Negate the y coordinate.
+		/// @brief Negate the y coordinate of an on-curve point.
+		/// @note Subgroup membership is not required or validated.
 		BLST_HD static void neg(Point& out, const Point& p);
-		/// @brief Convert Jacobian to affine; infinity maps to the all-zero encoding.
+		/// @brief Convert an on-curve Jacobian point to affine; infinity maps to zero.
+		/// @note Subgroup membership is preserved but neither required nor established.
 		/// @note Variable-time with respect to the point representation.
 		BLST_HD static void to_affine(AffinePoint<Field>& out, const Point& in);
-		/// @brief Convert affine to Jacobian; finite points receive `Z = 1`.
+		/// @brief Convert an on-curve affine point to Jacobian; finite points get `Z = 1`.
+		/// @note Subgroup membership is preserved but neither required nor established.
 		BLST_HD static void from_affine(Point& out, const AffinePoint<Field>& a);
-		/// @brief Normalize a Jacobian point while preserving infinity.
+		/// @brief Normalize an on-curve Jacobian point while preserving infinity.
+		/// @note Subgroup membership is preserved but neither required nor established.
 		/// @note Variable-time with respect to the point representation.
 		BLST_HD static void from_jacobian(Point& out, const Point& in);
 		/// @brief Constant-time conditional swap when @p cbit is one.
@@ -172,11 +186,12 @@ namespace blst::scalar
 		/// @brief Constant-time conditional copy `a = b` when @p cbit is one.
 		/// @pre @p a and @p b are distinct objects and @p cbit is zero or one.
 		BLST_HD static void ccopy(Point& a, const Point& b, limb_t cbit);
-		/// @brief Constant-time equality of affine representatives.
+		/// @brief Constant-time equality of two on-curve point representatives.
+		/// @note This is not a curve or subgroup validator.
 		BLST_HD static limb_t equal(const Point& p1, const Point& p2);
 		/// @brief Convert Jacobian to the variable-time XYZZ representation.
 		BLST_HD static void to_xyzz(Pointxyzz<Field>& out, const Point& in);
-		/// @brief Group generator in Jacobian coordinates.
+		/// @brief Prime-order subgroup generator in Jacobian coordinates.
 		BLST_HD static const Point& generator();
 		/// @brief Return the point at infinity (`Z == 0`).
 		BLST_HD static Point infinity();
@@ -190,7 +205,7 @@ namespace blst::scalar
 		BLST_HD static void mul_by_b(Field& out, const Field& in);
 		/// @brief Multiply @p in by `4B`, used by doubling formulas.
 		BLST_HD static void mul_by_4b(Field& out, const Field& in);
-		/// @brief Return one iff @p p is infinity.
+		/// @brief Return one iff on-curve @p p is infinity; not a validator.
 		BLST_HD static int is_inf(const Point& p);
 		/// @brief Return one iff @p p is on the curve; infinity is accepted.
 		BLST_HD static limb_t on_curve(const Point& p);
@@ -198,15 +213,17 @@ namespace blst::scalar
 		BLST_HD static limb_t in_subgroup(const Point& p);
 		/** @name Serialization */
 		///@{
-		/// @brief Write uncompressed big-endian affine coordinates and return sgn0 parity.
-		/// @note Variable-time and intended for public output points.
+		/// @brief Write an on-curve point as uncompressed big-endian affine coordinates.
+		/// @note Variable-time; subgroup membership is not required or validated.
 		BLST_HD static limb_t serialize_BE(byte* out, const Point& in);
-		/// @brief Write uncompressed IETF form, using `0x40 || zeros` for infinity.
+		/// @brief Write an on-curve point in uncompressed IETF form.
+		/// @note Subgroup membership is not required or validated.
 		BLST_HD static void serialize(byte* out, const Point& in);
-		/// @brief Write compressed big-endian x without header flags and return y parity.
-		/// @note Variable-time and intended for public output points.
+		/// @brief Write an on-curve point as compressed big-endian x and return y parity.
+		/// @note Variable-time; subgroup membership is not required or validated.
 		BLST_HD static limb_t compress_BE(byte* out, const Point& in);
-		/// @brief Write IETF compressed form with compression, sign, and infinity flags.
+		/// @brief Write an on-curve point in compressed IETF form.
+		/// @note Subgroup membership is not required or validated.
 		BLST_HD static void compress(byte* out, const Point& in);
 		///@}
 		/**
@@ -247,7 +264,8 @@ namespace blst::scalar
 	 *
 	 * Infinity is encoded as all-zero x and y coordinates. Field coordinates are
 	 * in Montgomery form. G1 encodings are 96 bytes uncompressed and 48 bytes
-	 * compressed; G2 encodings are 192 and 96 bytes respectively.
+	 * compressed; G2 encodings are 192 and 96 bytes respectively. This storage
+	 * type does not encode subgroup-validation state.
 	 */
 	template<typename Field>
 	struct AffinePoint
@@ -256,42 +274,49 @@ namespace blst::scalar
 
 		/** @name Uncompressed serialization */
 		///@{
-		/// @brief Write `X || Y` in big-endian form and return sgn0 parity.
+		/// @brief Write an on-curve point as `X || Y`; subgroup membership is not required.
 		BLST_HD static limb_t serialize_BE(byte* out, const AffinePoint& in);
-		/// @brief Write uncompressed IETF form, including the infinity encoding.
+		/// @brief Write an on-curve point in uncompressed IETF form.
 		BLST_HD static void serialize(byte* out, const AffinePoint& in);
 		/// @brief Parse raw big-endian `X || Y`, validating range and curve membership.
+		/// @post Success establishes on-curve status only, not subgroup membership.
 		/// @note The top three x bits are ignored. On failure @p out is unchanged.
 		BLST_HD static BLST_ERROR deserialize_BE(AffinePoint& out, const byte* in);
 		/// @brief Parse compressed, uncompressed, or infinity-prefixed IETF input.
-		/// @note On failure @p out is unchanged.
+		/// @post Success establishes canonical encoding and on-curve status only;
+		/// subgroup membership must be checked separately before subgroup operations.
+		/// @note Infinity is accepted. On failure @p out is unchanged.
 		BLST_HD static BLST_ERROR deserialize(AffinePoint& out, const byte* in);
 		///@}
 		/** @name Compressed serialization */
 		///@{
-		/// @brief Write big-endian x without header flags and return y parity.
+		/// @brief Write on-curve x in big-endian form; subgroup membership is not required.
 		BLST_HD static limb_t compress_BE(byte* out, const AffinePoint& in);
-		/// @brief Write IETF compressed form with compression, sign, and infinity flags.
+		/// @brief Write an on-curve point in compressed IETF form.
 		BLST_HD static void compress(byte* out, const AffinePoint& in);
-		/// @brief Parse raw big-endian x, reconstruct y, and return sgn0 parity.
+		/// @brief Parse raw big-endian x and reconstruct an on-curve point.
+		/// @post Success does not establish subgroup membership.
 		/// @note The top three x bits are ignored. On failure @p out is unchanged;
 		/// errors are returned as the negated @c BLST_ERROR value in @c limb_t.
 		BLST_HD static limb_t uncompress_BE(AffinePoint& out, const byte* in);
 		/// @brief Parse and validate IETF compressed form.
-		/// @note On failure @p out is unchanged.
+		/// @post Success establishes canonical encoding and on-curve status only;
+		/// subgroup membership must be checked separately before subgroup operations.
+		/// @note Infinity is accepted. On failure @p out is unchanged.
 		BLST_HD static BLST_ERROR uncompress(AffinePoint& out, const byte* in);
 		///@}
-		/// @brief Group generator in affine coordinates.
+		/// @brief Prime-order subgroup generator in affine coordinates.
 		BLST_HD static const AffinePoint& generator();
-		/// @brief Constant-time equality on raw limbs.
+		/// @brief Constant-time equality of on-curve values; not a validator.
 		BLST_HD static int equal(const AffinePoint& p1, const AffinePoint& p2);
 		/// @brief Return one iff @p p satisfies the curve equation or is infinity.
 		BLST_HD static limb_t on_curve(const AffinePoint& p);
-		/// @brief Return one iff both coordinates are all zero.
+		/// @brief Return one iff an on-curve value is infinity; not a validator.
 		BLST_HD static limb_t is_inf(const AffinePoint& p);
 		/// @brief Return one iff @p p is on-curve and lies in the prime-order subgroup.
 		BLST_HD static limb_t in_subgroup(const AffinePoint& p);
-		/// @brief Constant-time conditional y-coordinate negation.
+		/// @brief Constant-time conditional negation of an on-curve point.
+		/// @note Subgroup membership is not required or validated.
 		BLST_HD static void cneg(AffinePoint& point, limb_t c);
 	};
 

@@ -46,8 +46,8 @@ impl blst_p1 {
 
     /// Optimized variable-time subgroup multiplication for public scalars.
     ///
-    /// `self` must already be an on-curve G1 element. This method does not
-    /// validate membership and must not be used with a secret scalar.
+    /// `self` must already be a validated prime-order G1 element. This method
+    /// does not validate membership and must not be used with a secret scalar.
     ///
     /// # Panics
     ///
@@ -113,8 +113,8 @@ impl blst_p2 {
 
     /// Optimized variable-time subgroup multiplication for public scalars.
     ///
-    /// `self` must already be an on-curve G2 element. This method does not
-    /// validate membership and must not be used with a secret scalar.
+    /// `self` must already be a validated prime-order G2 element. This method
+    /// does not validate membership and must not be used with a secret scalar.
     ///
     /// # Panics
     ///
@@ -157,24 +157,28 @@ impl blst_p2 {
     }
 }
 
+/// Equality of on-curve values. This implementation does not validate either operand.
 impl PartialEq for blst_p1 {
     fn eq(&self, other: &Self) -> bool {
         unsafe { blst_p1_is_equal(self, other) }
     }
 }
 
+/// Equality of on-curve values. This implementation does not validate either operand.
 impl PartialEq for blst_p1_affine {
     fn eq(&self, other: &Self) -> bool {
         unsafe { blst_p1_affine_is_equal(self, other) }
     }
 }
 
+/// Equality of on-curve values. This implementation does not validate either operand.
 impl PartialEq for blst_p2 {
     fn eq(&self, other: &Self) -> bool {
         unsafe { blst_p2_is_equal(self, other) }
     }
 }
 
+/// Equality of on-curve values. This implementation does not validate either operand.
 impl PartialEq for blst_p2_affine {
     fn eq(&self, other: &Self) -> bool {
         unsafe { blst_p2_affine_is_equal(self, other) }
