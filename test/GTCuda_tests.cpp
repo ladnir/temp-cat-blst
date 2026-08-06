@@ -11,7 +11,6 @@
 #include "blst/curve/GT_cuda.h"
 #include "blst/sign/aggregate.h"
 #include "blst/curve/point.h"
-#include "blst/curve/pairing.h"
 #include "InsecureRng.h"
 
 using namespace blst;

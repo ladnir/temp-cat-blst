@@ -329,10 +329,10 @@ expand through Phase 19.
 
 Current generated inventory:
 
-- 675 repository files accounted for;
-- 153 in-scope production;
+- 681 repository files accounted for;
+- 151 in-scope production;
 - 113 generated production;
-- 226 in-scope support;
+- 234 in-scope support;
 - 60 benchmark files explicitly excluded;
 - 32 frozen BTx/BTE files pending the required merge;
 - 55 retained experimental files, including CUDA;
@@ -341,14 +341,14 @@ Current generated inventory:
 
 Main audit work volume:
 
-| Work group | Phases | Total | Complete | Pending |
+| Work group | Phases | Total | Complete | Not complete |
 | --- | --- | ---: | ---: | ---: |
-| Scalar foundations, fields, curves, and protocols | 13-15 | 197 | 13 | 184 |
-| AVX-512 | 16 | 42 | 0 | 42 |
+| Scalar foundations, fields, curves, and protocols | 13-15 | 192 | 30 | 162 |
+| AVX-512 | 16 | 42 | 1 | 41 |
 | FFT and middle product | 17 | 10 | 0 | 10 |
-| C/C++/Rust APIs and bindings | 18 | 28 | 1 | 27 |
-| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 175 | 5 | 170 |
-| **Total in-scope production/generated/support** | **12-19** | **452** | **19** | **433** |
+| C/C++/Rust APIs and bindings | 18 | 28 | 2 | 26 |
+| Support, tests, builds, CI, audit process, and release controls | 12 and 19 | 226 | 17 | 209 |
+| **Total in-scope production/generated/support** | **12-19** | **498** | **50** | **448** |
 
 The rollup is explained in `PRODUCTION_AUDIT_ROADMAP.md`; the per-file
 `FILE_MANIFEST.csv` remains authoritative.
@@ -363,7 +363,7 @@ Upstream progress:
   validation are completed;
 - 0 remain pending.
 
-Findings: 145 total: 118 validated, 16 fixed pending final evidence, four accepted
+Findings: 147 total: 120 validated, 16 fixed pending final evidence, four accepted
 risks, four need a design decision, and three remain open. `AUD-035` is validated with preserved
 allocated/caller-table/precomputed modes and 10/10 focused MSVC Release, Linux
 ASan, and Linux UBSan tests. `AUD-036` is validated on native
@@ -427,7 +427,10 @@ including compressed/uncompressed decoding, Serde, complete validators, and
 the approved basic primitive set; `AUD-094` and `AUD-160` are validated.
 `AUD-161` separately records that the existing expert
 AVX batch predicate has caller-controlled soundness and is not yet a safe
-general batch-validation interface.
+general batch-validation interface. `AUD-162` and `AUD-163` remove the empty
+pairing facade and the unused scalar fixed-window re-export facade; focused
+scalar Release GT, pairing, and fixed-window tests pass 25/25. With batch
+validation deferred, review `blst/curve/point.h` next.
 
 For every newly reviewed externally reachable family, update declaration-level
 C, selected native C++, and safe Rust contracts in the same packet and add it

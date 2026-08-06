@@ -1,9 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "blst/curve/point.h"
-#include "blst/curve/point.h"
-
-#include "blst/curve/pairing.h"
+#include "blst/curve/GT.h"
 using namespace blst;
 
 

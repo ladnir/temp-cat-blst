@@ -2,7 +2,7 @@
 
 #include "blst/curve/point.h"
 
-#include "blst/curve/pairing.h"
+#include "blst/curve/GT.h"
 #include "blst/fields/Fp12.h"
 #include "blst/sign/aggregate.h"
 

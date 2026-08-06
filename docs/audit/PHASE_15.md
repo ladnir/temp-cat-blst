@@ -501,12 +501,30 @@ records that the current expert AVX entry accepts caller-controlled coefficient
 rows: zero rounds inspect no candidates, and an all-zero matrix checks only the
 supplied shift. It is not the approved future safe batch-validation interface.
 
+## Selected-facade cleanup
+
+The selected native C++ include pass removed two fork-local headers that no
+longer owned an API. `blst/curve/pairing.h` had become an empty namespace plus
+transitive includes after pairing moved to `GT.h`; `blst/curve/ec_mult.h` had
+no consumers and exposed scalar fixed-window internals in the selected `blst`
+namespace even for AVX-default builds. `AUD-162` and `AUD-163` delete both
+facades. Retained pairing tests now include `GT.h` directly; excluded benchmark
+and experimental CUDA consumers received the same mechanical include change
+without entering either audit scope.
+
+The scalar Release `GTTest.*`, `PairingTest.*`, and `ScalarMultWindow.*`
+packet passes 25/25. Structural searches find no remaining pairing-facade
+include or fixed-window-facade consumer. No benchmark, CUDA build, broad suite,
+sanitizer run, Apple CI, or portable-AVX Release build ran.
+
 ## Status and next action
 
 Scalar point, bulk addition, MSM, fixed-window multiplication, GT/Miller,
 map-to-group, SHA-256, and key generation are complete at their recorded
 commits. The aggregate implementation/header and safe Rust pairing wrapper are
-complete at `091dfb2cae096ee8ed801036e98827b3253b2e84`. The next packet should
-resolve the expert AVX batch design or continue the next signing/protocol file.
+complete at `091dfb2cae096ee8ed801036e98827b3253b2e84`. The obsolete pairing and
+fixed-window facades are removed under `AUD-162`/`AUD-163`. With the expert AVX
+batch design explicitly deferred, the next packet reviews the selected
+`blst/curve/point.h` facade.
 The point-domain declarations and focused evidence now validate `AUD-094` and
 `AUD-160`; GT deserialization is resolved and validated as `AUD-085`.
