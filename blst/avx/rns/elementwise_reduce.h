@@ -22,6 +22,22 @@ class MontgomeryReduce2 {
     AVXVector<limbs> neg_moduli;
     AVXVector<limbs> mont_convert_factor;
 
+    // Conditionally subtract every descending power of two no larger than the
+    // bound gap. Their sum covers the entire gap, so an input below
+    // upper_bound*p finishes below stop*p without data-dependent control flow.
+    template<int64_t upper_bound, int64_t stop, int index>
+    INLINE void min_sub_peel(AVXVector<limbs>& data) const {
+        if constexpr (index >= 0) {
+            constexpr int64_t multiple = int64_t{1} << index;
+            if constexpr ((upper_bound - stop) >= multiple) {
+                data = data.min(data.sub(moduli_multiples[index]));
+            }
+            if constexpr (index > 0) {
+                min_sub_peel<upper_bound, stop, index - 1>(data);
+            }
+        }
+    }
+
     public:
     INLINE MontgomeryReduce2(const std::array<uint64_t, limbs> &moduli) 
         : hi_mask(get_scalar_mask(hi_bit_shift))
@@ -63,20 +79,13 @@ class MontgomeryReduce2 {
     template<int64_t upper_bound, int stop = 1>
     INLINE auto min_sub_reduce(const BoundedElement<Bounds<0, upper_bound>, limbs, element_bits> &a) const {
         static_assert(stop >= 1, "Stop must be at least 1");
-        static_assert(upper_bound <= (1 << (log_multiples+1)), "Upper bound cannot exceed log multiples");
+        static_assert(upper_bound >= stop, "Upper bound must be at least stop");
+        static_assert(log_multiples > 0 && log_multiples < 63, "Invalid modulus-multiple table size");
+        static_assert(
+            (upper_bound - stop) < (int64_t{1} << log_multiples),
+            "Bound gap exceeds the conditional-subtraction table");
         auto data = a.data;
-        if constexpr ((upper_bound > 8) && (stop < 16)) {
-            data = data.min(data.sub(moduli_multiples[3])); // -= 8p
-        }
-        if constexpr ((upper_bound > 4) && (stop < 8)) {
-            data = data.min(data.sub(moduli_multiples[2])); // -= 4p
-        }
-        if constexpr ((upper_bound > 2) && (stop < 4)) {
-            data = data.min(data.sub(moduli_multiples[1])); // -= 2p
-        }
-        if constexpr ((upper_bound > 1) && (stop < 2)) {
-            data = data.min(data.sub(moduli_multiples[0])); // -= p
-        }
+        min_sub_peel<upper_bound, stop, log_multiples - 1>(data);
         return BoundedElement<Bounds<0, stop>, limbs, element_bits>(data);
     }
 

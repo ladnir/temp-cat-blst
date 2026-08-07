@@ -373,6 +373,38 @@ BLST_CC_NOINLINE auto _cc256_extract_epi64_runtime(int imm8, const cc256i a) -> 
     return a.lane[static_cast<u64>(imm8) & 3u];
 }
 
+BLST_CC_NOINLINE auto _cc512_castsi512_si128(const cc512i a) -> cc128i
+{
+    return cc128i{{a.lane[0], a.lane[1]}};
+}
+
+BLST_CC_NOINLINE auto _cc128_add_epi64(const cc128i a, const cc128i b) -> cc128i
+{
+    return cc128i{{a.lane[0] + b.lane[0], a.lane[1] + b.lane[1]}};
+}
+
+BLST_CC_NOINLINE auto _cc128_srli_epi64(const cc128i a, int bits) -> cc128i
+{
+    if (bits >= 64) {
+        return cc128i{};
+    }
+    return cc128i{{a.lane[0] >> bits, a.lane[1] >> bits}};
+}
+
+BLST_CC_NOINLINE auto _cc512_broadcastq_epi64(const cc128i a) -> cc512i
+{
+    cc512i out{};
+    for (u64 i = 0; i < 8; ++i) {
+        out.lane[i] = a.lane[0];
+    }
+    return out;
+}
+
+BLST_CC_NOINLINE auto _cc128_extract_epi64_runtime(int imm8, const cc128i a) -> u64
+{
+    return a.lane[static_cast<u64>(imm8) & 1u];
+}
+
 #undef BLST_CC_NOINLINE
 } // namespace blst
 

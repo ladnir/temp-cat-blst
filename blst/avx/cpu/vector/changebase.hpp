@@ -1,6 +1,7 @@
 #pragma once
 #include "vector_impl.hpp"
 #include "../../common/constexpr_utils.h"
+#include "../../common/preprocess.h"
 #include <type_traits>
 
 #if BLST_AVX_VALIDATE_CONSTANTS

@@ -26,6 +26,7 @@ namespace blst::test
 #endif
     static_assert(sizeof(cc512i) == 64);
     static_assert(sizeof(cc256i) == 32);
+    static_assert(sizeof(cc128i) == 16);
     static_assert(std::is_standard_layout_v<cc512i>);
     static_assert(std::is_trivially_copyable_v<cc512i>);
 
@@ -62,6 +63,13 @@ namespace blst::test
         static auto mm(const cc512i value) -> ::__m512i
         {
             return _mm512_from_cc512(value);
+        }
+
+        static void expect_equal(const ::__m128i expected, const cc128i actual)
+        {
+            const cc128i expected_cc = _cc128_from_mm128(expected);
+            EXPECT_EQ(actual.lane[0], expected_cc.lane[0]);
+            EXPECT_EQ(actual.lane[1], expected_cc.lane[1]);
         }
 
         template <int bits>
@@ -252,6 +260,39 @@ namespace blst::test
         EXPECT_EQ(_cc256_extract_epi64<1>(low), static_cast<u64>(_mm256_extract_epi64(mm_low_from_cc, 1)));
         EXPECT_EQ(_cc256_extract_epi64<2>(high), static_cast<u64>(_mm256_extract_epi64(mm_high_from_cc, 2)));
         EXPECT_EQ(_cc256_extract_epi64<3>(high), static_cast<u64>(_mm256_extract_epi64(mm_high_from_cc, 3)));
+
+        const cc128i lowest = _cc512_castsi512_si128(a);
+        const ::__m128i mm_lowest = _mm512_castsi512_si128(mm(a));
+        expect_equal(mm_lowest, lowest);
+        EXPECT_EQ(_cc128_extract_epi64<0>(lowest), static_cast<u64>(_mm_cvtsi128_si64(mm_lowest)));
+        EXPECT_EQ(_cc128_extract_epi64<1>(lowest), static_cast<u64>(_mm_extract_epi64(mm_lowest, 1)));
+    }
+
+    TEST_F(Avx512CompatTest, Low128HorizontalAndBroadcast)
+    {
+        constexpr std::array<int, 7> shifts = {0, 1, 26, 51, 52, 63, 64};
+        for (int iteration = 0; iteration < 64; ++iteration) {
+            const cc512i a = random_cc512();
+            const cc512i b = random_cc512();
+            const cc128i a128 = _cc512_castsi512_si128(a);
+            const cc128i b128 = _cc512_castsi512_si128(b);
+            const ::__m128i mm_a128 = _mm512_castsi512_si128(mm(a));
+            const ::__m128i mm_b128 = _mm512_castsi512_si128(mm(b));
+
+            expect_equal(_mm_add_epi64(mm_a128, mm_b128), _cc128_add_epi64(a128, b128));
+            for (const int bits : shifts) {
+                switch (bits) {
+                case 0: expect_equal(_mm_srli_epi64(mm_a128, 0), _cc128_srli_epi64(a128, bits)); break;
+                case 1: expect_equal(_mm_srli_epi64(mm_a128, 1), _cc128_srli_epi64(a128, bits)); break;
+                case 26: expect_equal(_mm_srli_epi64(mm_a128, 26), _cc128_srli_epi64(a128, bits)); break;
+                case 51: expect_equal(_mm_srli_epi64(mm_a128, 51), _cc128_srli_epi64(a128, bits)); break;
+                case 52: expect_equal(_mm_srli_epi64(mm_a128, 52), _cc128_srli_epi64(a128, bits)); break;
+                case 63: expect_equal(_mm_srli_epi64(mm_a128, 63), _cc128_srli_epi64(a128, bits)); break;
+                case 64: expect_equal(_mm_srli_epi64(mm_a128, 64), _cc128_srli_epi64(a128, bits)); break;
+                }
+            }
+            expect_equal(_mm512_broadcastq_epi64(mm_a128), _cc512_broadcastq_epi64(a128));
+        }
     }
 
     TEST_F(Avx512CompatTest, Madd52BoundaryAndMaskedInputs)

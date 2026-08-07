@@ -258,9 +258,7 @@ public:
     }
 
     inline uint64_t extract0() const {
-        std::array<uint64_t, LIMBS_PER_VEC> lanes{};
-        _vv512_storeu_si512(lanes.data(), data[0]);
-        return lanes[0];
+        return _vv128_extract_epi64<0>(_vv512_castsi512_si128(data[0]));
     }
 
     inline void store(uint64_t* dst) const {
@@ -291,6 +289,37 @@ public:
         std::array<uint64_t, limbs> result{};
         std::copy(values.data(), values.data() + limbs, result.data());
         return result;
+    }
+};
+
+class ShortVector {
+    vv128i data;
+
+public:
+    ShortVector() = default;
+    constexpr explicit ShortVector(vv128i value) : data(value) {}
+
+    template <int limbs>
+    static inline ShortVector from_avx_lo(const AVXVector<limbs>& value) {
+        return ShortVector(_vv512_castsi512_si128(value[0]));
+    }
+
+    inline ShortVector add(const ShortVector& other) const {
+        return ShortVector(_vv128_add_epi64(data, other.data));
+    }
+
+    inline ShortVector srli(int bits) const {
+        return ShortVector(_vv128_srli_epi64(data, bits));
+    }
+
+    template <int limbs>
+    inline AVXVector<limbs> broadcast_to_avx() const {
+        AVXVector<limbs> out;
+        const vv512i broadcast = _vv512_broadcastq_epi64(data);
+        for (int i = 0; i < AVXVector<limbs>::VEC_LIMBS; ++i) {
+            out[i] = broadcast;
+        }
+        return out;
     }
 };
 

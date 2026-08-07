@@ -1,3 +1,5 @@
+#pragma once
+
 #if defined(_MSC_VER) && !defined(__clang__)
 #define INLINE __forceinline
 #define NOINLINE __declspec(noinline)

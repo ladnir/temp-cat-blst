@@ -25,12 +25,12 @@ inline void word_reinterpret(const BigInt &integer, std::array<uint64_t, limbs> 
 
 // The convenience constructor in RNSMatrix now uses IN_DIGITS and OUT_DIGITS from class template
 
-template<int bits, int limbs_out>
+template<int bits, int limbs_out, int in_word_bits = 52>
 class ConvertToRNS {
     public:
     constexpr static int limbs_in = 1;  // Single modulus (target)
-    constexpr static int indigits = ceil_div(bits, 52);  // Number of digits needed to represent target
-    const RNSMatrix<limbs_in, limbs_out, indigits, 1> conversion_matrix;  // OUT_DIGITS=1 (not bit width!)
+    constexpr static int indigits = ceil_div(bits, in_word_bits);  // Number of digits needed to represent target
+    const RNSMatrix<limbs_in, limbs_out, indigits, 1, in_word_bits> conversion_matrix;  // OUT_DIGITS=1 (not bit width!)
 
 
 #if BLST_AVX_VALIDATE_CONSTANTS
@@ -51,7 +51,7 @@ class ConvertToRNS {
     template<template <int> class Reduction>
     inline AVXVector<limbs_out> convert_to_rns(const BigInt &integer, const Reduction<limbs_out> &reducer) const {
         std::array<uint64_t, indigits> digits;
-        word_reinterpret<indigits, 52>(integer, digits);
+        word_reinterpret<indigits, in_word_bits>(integer, digits);
         AVXVector<indigits> input;
         input.load(digits.data());
         return conversion_matrix.rns_reduce(input, reducer);
@@ -63,7 +63,7 @@ class ConvertToRNS {
         for (int i = 0; i < batch; i++) {
             // Definitely could be optimized...
             std::array<uint64_t, indigits> digits;
-            word_reinterpret<indigits, 52>(integers[i], digits);
+            word_reinterpret<indigits, in_word_bits>(integers[i], digits);
             inputs[i].load(digits.data());
         }
         std::array<AVXVector<limbs_out>, batch> out_hi{};
@@ -74,7 +74,7 @@ class ConvertToRNS {
 #endif
 
     // Test accessor
-    const RNSMatrix<limbs_in, limbs_out, indigits, 1>& get_conversion_matrix() const {
+    const RNSMatrix<limbs_in, limbs_out, indigits, 1, in_word_bits>& get_conversion_matrix() const {
         return conversion_matrix;
     }
 };

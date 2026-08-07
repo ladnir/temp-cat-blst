@@ -88,6 +88,7 @@ if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
     list(APPEND AVX_TEST_SOURCES
         "avx/Avx_add_corner_cases_tests.cpp"
         "avx/Avx_gt_tests.cpp"
+        "avx/Avx_matrixnok_primitive_tests.cpp"
         "avx/Avx_msm_tests.cpp"
     )
     list(APPEND TEST_SOURCES ${AVX_TEST_SOURCES})
@@ -181,6 +182,7 @@ gtest_discover_tests(blst_tests
 if(BLST_AVX512 AND BLST_AVX512_PORTABLE)
     add_executable(blst_avx512_compat_tests
         "avx512_compat_test.cpp"
+        "avx/Avx_matrixnok_primitive_tests.cpp"
         "${PROJECT_SOURCE_DIR}/blst/backend/avx512/intrin_compat.cpp"
     )
     target_include_directories(blst_avx512_compat_tests PRIVATE

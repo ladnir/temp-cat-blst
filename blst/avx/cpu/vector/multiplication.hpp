@@ -198,10 +198,10 @@ BigInt rns_reconstruct_full(const std::array<int64_t, num_moduli> &residues, con
 }
 #endif
 
-template<int bits, int limbs, template <int> class Reduction=MontgomeryReduce>
+template<int bits, int limbs, template <int> class Reduction=MontgomeryReduce, int convert_to_word_bits=52>
 struct IntRNS2System {
     IntRNS2<Reduction, limbs, limbs> intrns2;
-    ConvertToRNS<bits, limbs> convert_to;
+    ConvertToRNS<bits, limbs, convert_to_word_bits> convert_to;
     ConvertFromRNS<bits, limbs> convert_from;
     std::array<uint64_t, limbs> moduli1;
     std::array<uint64_t, limbs> moduli2;
@@ -218,7 +218,7 @@ struct IntRNS2System {
 #if BLST_AVX_VALIDATE_CONSTANTS
     inline IntRNS2System(
         const IntRNS2<Reduction, limbs, limbs>& intrns2,
-        const ConvertToRNS<bits, limbs>& convert_to,
+        const ConvertToRNS<bits, limbs, convert_to_word_bits>& convert_to,
         const ConvertFromRNS<bits, limbs>& convert_from,
         const std::array<uint64_t, limbs> &moduli1,
         const std::array<uint64_t, limbs> &moduli2,
@@ -235,7 +235,7 @@ struct IntRNS2System {
 
     inline IntRNS2System(
         const IntRNS2<Reduction, limbs, limbs>& intrns2,
-        const ConvertToRNS<bits, limbs>& convert_to,
+        const ConvertToRNS<bits, limbs, convert_to_word_bits>& convert_to,
         const ConvertFromRNS<bits, limbs>& convert_from,
         const std::array<uint64_t, limbs>& moduli1,
         const std::array<uint64_t, limbs>& moduli2
@@ -332,8 +332,8 @@ struct IntRNS2System {
 
 // Factory producing IntRNS2 plus compatible converters following python_reduction.IntRNS2
 #if BLST_AVX_VALIDATE_CONSTANTS
-template<int bits, int limbs, template <int> class Reduction=MontgomeryReduce>
-inline IntRNS2System<bits, limbs> make_IntRNS2SystemMontgomery(
+template<int bits, int limbs, template <int> class Reduction=MontgomeryReduce, int convert_to_word_bits=52>
+inline IntRNS2System<bits, limbs, Reduction, convert_to_word_bits> make_IntRNS2SystemMontgomery(
     const BigInt &target,
     const int modbits = 52,
     const int max_bound = 9
@@ -377,9 +377,9 @@ inline IntRNS2System<bits, limbs> make_IntRNS2SystemMontgomery(
     BigInt total_rotation = (r * rotation_factor) % M1M2;
     BigInt total_inv_rotation = total_rotation.mod_inverse(M1M2);
     BigInt inv_factor_target = m1.mod_inverse(target);
-    IntRNS2System<bits, limbs, Reduction> sys(
+    IntRNS2System<bits, limbs, Reduction, convert_to_word_bits> sys(
         IntRNS2<Reduction, limbs, limbs>(moduli1, moduli2, target, premult1, postmult1, premult2, postmult2),
-        ConvertToRNS<bits, limbs>(m1, (inv_factor % m2) * (r % m2) % m2 * (r % m2) % m2, target, moduli2),
+        ConvertToRNS<bits, limbs, convert_to_word_bits>(m1, (inv_factor % m2) * (r % m2) % m2 * (r % m2) % m2, target, moduli2),
         ConvertFromRNS<bits, limbs>((m1 % m2) * r_inv_m2 % m2, m1_inv_target, target, moduli2),
         moduli1,
         moduli2,
@@ -395,14 +395,14 @@ inline IntRNS2System<bits, limbs> make_IntRNS2SystemMontgomery(
 }
 #endif
 
-template<int bits, int limbs>
-inline IntRNS2System<bits, limbs> make_IntRNS2SystemBaked(const RuntimeConstantsView& constants)
+template<int bits, int limbs, int convert_to_word_bits=52>
+inline IntRNS2System<bits, limbs, MontgomeryReduce, convert_to_word_bits> make_IntRNS2SystemBaked(const RuntimeConstantsView& constants)
 {
     static_assert(bits == 381, "The baked AVX constants currently cover only the BLS12-381 field.");
     static_assert(limbs == 8, "The baked AVX constants currently cover only the 8-limb AVX configurations.");
 
     std::array<uint64_t, 1> moduli_out = {1};
-    IntRNS2System<bits, limbs> sys(
+    IntRNS2System<bits, limbs, MontgomeryReduce, convert_to_word_bits> sys(
         IntRNS2<MontgomeryReduce, limbs, limbs>(
             constants.moduli1,
             constants.moduli2,
@@ -412,7 +412,7 @@ inline IntRNS2System<bits, limbs> make_IntRNS2SystemBaked(const RuntimeConstants
             constants.r2_rns_mat,
             constants.r2_correction,
             constants.r2_shifted_quotient_estimations),
-        ConvertToRNS<bits, limbs>(
+        ConvertToRNS<bits, limbs, convert_to_word_bits>(
             constants.convert_to_rns_mat,
             constants.convert_to_correction,
             constants.convert_to_shifted_quotient_estimations,

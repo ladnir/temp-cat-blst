@@ -21,8 +21,13 @@ namespace blst
         u64 lane[4];
     };
 
+    struct cc128i {
+        u64 lane[2];
+    };
+
     static_assert(sizeof(cc512i) == 64);
     static_assert(sizeof(cc256i) == 32);
+    static_assert(sizeof(cc128i) == 16);
 
     auto _cc512_setzero_si512() -> cc512i;
     auto _cc512_set1_epi64(long long x) -> cc512i;
@@ -58,6 +63,11 @@ namespace blst
     auto _cc512_maskz_permutex_epi64_runtime(int imm8, u64 mask, const cc512i a) -> cc512i;
     auto _cc512_extracti64x4_epi64_runtime(int imm8, const cc512i a) -> cc256i;
     auto _cc256_extract_epi64_runtime(int imm8, const cc256i a) -> u64;
+    auto _cc512_castsi512_si128(const cc512i a) -> cc128i;
+    auto _cc128_add_epi64(const cc128i a, const cc128i b) -> cc128i;
+    auto _cc128_srli_epi64(const cc128i a, int bits) -> cc128i;
+    auto _cc512_broadcastq_epi64(const cc128i a) -> cc512i;
+    auto _cc128_extract_epi64_runtime(int imm8, const cc128i a) -> u64;
 
     template <int imm8>
     BLST_FORCEINLINE auto _cc512_shuffle_epi32(const cc512i a) -> cc512i
@@ -100,6 +110,13 @@ namespace blst
         static_assert(imm8 >= 0 && imm8 < 4, "imm8 must be in [0,3]");
         return _cc256_extract_epi64_runtime(imm8, a);
     }
+
+    template <int imm8>
+    BLST_FORCEINLINE auto _cc128_extract_epi64(const cc128i a) -> u64
+    {
+        static_assert(imm8 == 0 || imm8 == 1, "imm8 must be 0 or 1");
+        return _cc128_extract_epi64_runtime(imm8, a);
+    }
 #endif
 
 #if defined(BLST_AVX512)
@@ -128,11 +145,24 @@ namespace blst
     {
         return _mm256_loadu_si256(reinterpret_cast<const ::__m256i*>(in.lane));
     }
+
+    BLST_FORCEINLINE auto _cc128_from_mm128(const ::__m128i in) -> cc128i
+    {
+        cc128i out{};
+        _mm_storeu_si128(reinterpret_cast<::__m128i*>(out.lane), in);
+        return out;
+    }
+
+    BLST_FORCEINLINE auto _mm128_from_cc128(const cc128i in) -> ::__m128i
+    {
+        return _mm_loadu_si128(reinterpret_cast<const ::__m128i*>(in.lane));
+    }
 #endif
 
     // Production-facing selected vector API. Native wins in combined builds.
     using vv512i = ::__m512i;
     using vv256i = ::__m256i;
+    using vv128i = ::__m128i;
 
     BLST_FORCEINLINE auto _vv512_setzero_si512() -> vv512i { return _mm512_setzero_si512(); }
     BLST_FORCEINLINE auto _vv512_set1_epi64(long long x) -> vv512i { return _mm512_set1_epi64(x); }
@@ -199,6 +229,11 @@ namespace blst
         return static_cast<u64>(_mm512_cmpge_epi64_mask(a, b));
     }
 
+    BLST_FORCEINLINE auto _vv512_castsi512_si128(const vv512i a) -> vv128i { return _mm512_castsi512_si128(a); }
+    BLST_FORCEINLINE auto _vv128_add_epi64(const vv128i a, const vv128i b) -> vv128i { return _mm_add_epi64(a, b); }
+    BLST_FORCEINLINE auto _vv128_srli_epi64(const vv128i a, int bits) -> vv128i { return _mm_srli_epi64(a, bits); }
+    BLST_FORCEINLINE auto _vv512_broadcastq_epi64(const vv128i a) -> vv512i { return _mm512_broadcastq_epi64(a); }
+
     template <int imm8>
     BLST_FORCEINLINE auto _vv512_shuffle_epi32(const vv512i a) -> vv512i
     {
@@ -240,10 +275,22 @@ namespace blst
         static_assert(imm8 >= 0 && imm8 < 4, "imm8 must be in [0,3]");
         return static_cast<u64>(_mm256_extract_epi64(a, imm8));
     }
+
+    template <int imm8>
+    BLST_FORCEINLINE auto _vv128_extract_epi64(const vv128i a) -> u64
+    {
+        static_assert(imm8 == 0 || imm8 == 1, "imm8 must be 0 or 1");
+        if constexpr (imm8 == 0) {
+            return static_cast<u64>(_mm_cvtsi128_si64(a));
+        } else {
+            return static_cast<u64>(_mm_extract_epi64(a, 1));
+        }
+    }
 #elif defined(BLST_AVX512_PORTABLE)
     // Production-facing selected vector API when native AVX-512 is unavailable.
     using vv512i = cc512i;
     using vv256i = cc256i;
+    using vv128i = cc128i;
 
     BLST_FORCEINLINE auto _vv512_setzero_si512() -> vv512i { return _cc512_setzero_si512(); }
     BLST_FORCEINLINE auto _vv512_set1_epi64(long long x) -> vv512i { return _cc512_set1_epi64(x); }
@@ -275,6 +322,10 @@ namespace blst
     BLST_FORCEINLINE auto _vv512_min_epu64(const vv512i a, const vv512i b) -> vv512i { return _cc512_min_epu64(a, b); }
     BLST_FORCEINLINE auto _vv512_cmpgt_epi64_mask(const vv512i a, const vv512i b) -> u64 { return _cc512_cmpgt_epi64_mask(a, b); }
     BLST_FORCEINLINE auto _vv512_cmpge_epi64_mask(const vv512i a, const vv512i b) -> u64 { return _cc512_cmpge_epi64_mask(a, b); }
+    BLST_FORCEINLINE auto _vv512_castsi512_si128(const vv512i a) -> vv128i { return _cc512_castsi512_si128(a); }
+    BLST_FORCEINLINE auto _vv128_add_epi64(const vv128i a, const vv128i b) -> vv128i { return _cc128_add_epi64(a, b); }
+    BLST_FORCEINLINE auto _vv128_srli_epi64(const vv128i a, int bits) -> vv128i { return _cc128_srli_epi64(a, bits); }
+    BLST_FORCEINLINE auto _vv512_broadcastq_epi64(const vv128i a) -> vv512i { return _cc512_broadcastq_epi64(a); }
 
     template <int imm8>
     BLST_FORCEINLINE auto _vv512_shuffle_epi32(const vv512i a) -> vv512i { return _cc512_shuffle_epi32<imm8>(a); }
@@ -288,6 +339,8 @@ namespace blst
     BLST_FORCEINLINE auto _vv512_extracti64x4_epi64(const vv512i a) -> vv256i { return _cc512_extracti64x4_epi64<imm8>(a); }
     template <int imm8>
     BLST_FORCEINLINE auto _vv256_extract_epi64(const vv256i a) -> u64 { return _cc256_extract_epi64<imm8>(a); }
+    template <int imm8>
+    BLST_FORCEINLINE auto _vv128_extract_epi64(const vv128i a) -> u64 { return _cc128_extract_epi64<imm8>(a); }
 #endif
 
     // Source-literal vector construction for generated immutable constants.
