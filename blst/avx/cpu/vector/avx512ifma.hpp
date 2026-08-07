@@ -57,11 +57,15 @@ public:
     }
 
     inline AVXVector(const std::array<uint64_t, limbs> &array) {
-        std::array<uint64_t, VEC_LIMBS * LIMBS_PER_VEC> values{};
-        for (int i = 0; i < limbs; i++) {
-            values[i] = array[i];
+        if constexpr (limbs % LIMBS_PER_VEC == 0) {
+            load(array.data());
+        } else {
+            std::array<uint64_t, VEC_LIMBS * LIMBS_PER_VEC> values{};
+            for (int i = 0; i < limbs; i++) {
+                values[i] = array[i];
+            }
+            load(values.data());
         }
-        load(values.data());
     }
 
     inline AVXVector(const std::array<vv512i, VEC_LIMBS> &array) {
