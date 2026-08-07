@@ -59,7 +59,7 @@ a semantic BLS12-381 translation, not a merge.
 | RNS core | `src/{bounded_element,bounded_ring,bounds,change_base,elementwise_reduce,matrix_nok_batch,ring_element,rns_reduce_perm}.hpp` | Translate required algorithms and bound types into `blst/avx/rns` |
 | Conversion/inversion | `src/conversion_inversion.hpp` | Translate required conversion path; retain CatBLST inverse contracts |
 | Tower | `src/{fp2,fp12}.hpp` | Port only deltas required by selected ring; preserve CatBLST field APIs |
-| Curve | `src/ec.hpp` | Review mixed-add and generic changes separately; preserve CatBLST point contracts |
+| Curve | `src/ec.hpp` | Translate the BLS12-381 complete G1 formulas and GLV integration through CatBLST's typed candidate; preserve CatBLST point contracts and reject research-only API expansion |
 | BN254 | `src/bn254_*` and BN254 branches in generic files | reject |
 | Bench/tests/artifact | benchmark, test, scripts, results, examples, GPU, vendored BLST | reject as product code; use selected vectors/results only as external evidence |
 

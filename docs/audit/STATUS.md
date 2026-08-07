@@ -504,3 +504,10 @@ Phase evidence is recorded in `PHASE_01.md`, `PHASE_02.md`, `PHASE_03A.md`,
 `PHASE_10.md`, `PHASE_11.md`, `PHASE_12.md`, `PHASE_14.md`, `PHASE_16.md`, and
 `PHASE_17.md`; the remaining dependency order and exit
 gates are in `HARDENING_PLAN.md`.
+
+Phase 16 now includes the isolated MatrixNoK G1 candidate at `7e731d9`.
+Native Clang 21 correctness passes 11/11 focused tests, including independent
+scalar complete-operation, CT/VT GLV, and FFT round-trip oracles. The candidate
+G1 FFT is 9.4% to 9.9% faster than the incumbent and within 1.7% of pinned
+VROOM across 256 through 16,384 elements. Production dispatch is unchanged;
+formal proof and the remaining G2/Fp12/pairing slices remain open.

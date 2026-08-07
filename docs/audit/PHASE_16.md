@@ -146,3 +146,31 @@ incumbent across 256 through 16,384 elements. The G1 packet should now adapt
 MatrixNoK arithmetic to CatBLST's audited point owners, retain independent
 scalar or mathematical oracles, and use this result as its performance target.
 Exact evidence is in `docs/avx/FFT_PREVIEW_EVIDENCE.md`.
+
+## MatrixNoK G1 candidate
+
+Implementation commit `7e731d9` replaces the benchmark-only G1 preview with an
+isolated production-shaped candidate. It reuses the audited complete
+homogeneous formulas and GLV executors through a typed curve policy; public
+symbols and production dispatch remain unchanged.
+
+The initial delayed-expansion translation exposed `AUD-215`: a negative
+small-m2 cross term must be lifted by a sufficient multiple of the field
+modulus before base expansion or the RNS multiple is lost. The fixed helper
+derives the minimum power-of-two offset from the static lower bound. Generated
+offset constants are independently regenerated and validated.
+
+On Peach, all 11 focused native AVX-512IFMA primitive tests pass. The G1 oracle
+covers complete add/double and exceptional operands, deterministic chains,
+both CT and VT GLV on two bases with boundary and dense canonical scalars, and
+a forward/inverse FFT round trip against scalar CatBLST. MSVC also compiles the
+native code-generation probe, and Clang's selected add contains no call or
+vector conversion wrapper.
+
+One serial five-repetition process measured the candidate G1 FFT 9.4% to 9.9%
+faster than the incumbent. It ranges from 1.6% faster to 1.7% slower than the
+pinned VROOM implementation, satisfying the 2% primary-case tolerance. Direct
+add/double remain 12.6% and 11.3% slower than VROOM and are recorded as future
+optimization targets, not concealed by the end-to-end result. Exact evidence,
+source hashes, rejected alternatives, and residual proof gates are in
+`docs/avx/G1_EVIDENCE.md`.

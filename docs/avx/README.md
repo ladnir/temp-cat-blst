@@ -71,6 +71,9 @@ comparison, and stateless fixed-context resolution are recorded in
 `FP2_EVIDENCE.md`.
 The end-to-end G1 and GT FFT previews, including the corrected G1 input gate,
 are recorded in `FFT_PREVIEW_EVIDENCE.md`.
+The production-shaped MatrixNoK G1 candidate, independent scalar oracle,
+native code generation, and same-process incumbent/VROOM comparison are
+recorded in `G1_EVIDENCE.md`.
 
 ## Work packets
 
