@@ -57,7 +57,7 @@ namespace blst::avx::matrixnok
                 generated::moduli2);
         }
 
-        StandardResidue expand_m2(const StandardResidue& m2) const
+        INLINE StandardResidue expand_m2(const StandardResidue& m2) const
         {
             std::array<AVXVector<limbs>, 1> input = {m2.data};
             std::array<AVXVector<limbs>, 1> high = {AVXVector<limbs>(0)};
@@ -80,7 +80,7 @@ namespace blst::avx::matrixnok
         {
         }
 
-        Element from_canonical_50bit_digits(const std::array<uint64_t, limbs>& digits) const
+        INLINE Element from_canonical_50bit_digits(const std::array<uint64_t, limbs>& digits) const
         {
             std::array<AVXVector<limbs>, 1> input = {AVXVector<limbs>(digits)};
             std::array<AVXVector<limbs>, 1> high = {AVXVector<limbs>(0)};
@@ -97,7 +97,7 @@ namespace blst::avx::matrixnok
             return {expand_m2(m2), m2};
         }
 
-        Element multiply(const Element& left, const Element& right) const
+        INLINE Element multiply(const Element& left, const Element& right) const
         {
             const AVXVector<limbs> zero(0);
             const AVXVector<limbs> m1_high = zero.mulhi(left.m1.data, right.m1.data);
@@ -130,7 +130,7 @@ namespace blst::avx::matrixnok
             return {expand_m2(m2), m2};
         }
 
-        void convert_from_raw(
+        INLINE void convert_from_raw(
             const Element& value,
             AVXVector<8>& out_high,
             AVXVector<8>& out_low) const
@@ -141,12 +141,12 @@ namespace blst::avx::matrixnok
                 value.m2.data, out_high, out_low);
         }
 
-        const std::array<uint64_t, limbs>& moduli1() const
+        INLINE const std::array<uint64_t, limbs>& moduli1() const
         {
             return system_.moduli1;
         }
 
-        const std::array<uint64_t, limbs>& moduli2() const
+        INLINE const std::array<uint64_t, limbs>& moduli2() const
         {
             return system_.moduli2;
         }
