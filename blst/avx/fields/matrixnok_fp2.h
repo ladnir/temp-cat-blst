@@ -14,7 +14,7 @@ namespace blst::avx::matrixnok
      * Isolated BLS12-381 Fp2 candidate over the MatrixNoK base field.
      *
      * Elements represent `c0 + u*c1` with `u^2 = -1`. Inputs and outputs use
-     * the owning base ring's standard two-basis representation. Operations are
+     * the fixed base ring's standard two-basis representation. Operations are
      * allocation-free, nonthrowing, and constant-schedule with respect to field
      * values. Exact output aliasing with either input is supported by the
      * output-reference wrappers; partial overlap is not.
@@ -30,15 +30,12 @@ namespace blst::avx::matrixnok
             Fp::Element c1;
         };
 
-        constexpr explicit Fp2RingCandidate(const Fp& ring) noexcept
-            : ring_(&ring)
-        {
-        }
+        constexpr Fp2RingCandidate() noexcept = default;
 
         INLINE Element multiply(const Element& left, const Element& right) const
         {
             // (a + bu)(c + du) = (ac - bd) + (ad + bc)u.
-            const Fp::Element minus_b = ring_->negate_for_product(left.c1);
+            const Fp::Element minus_b = Fp::negate_for_product(left.c1);
             const AVXVector<Fp::limbs> zero(0);
             std::array<AVXVector<Fp::limbs>, 2> m1_high;
             std::array<AVXVector<Fp::limbs>, 2> m1_low;
@@ -65,7 +62,7 @@ namespace blst::avx::matrixnok
 
             constexpr int product_bound = 2 * Fp::standard_bound * Fp::standard_bound;
             static_assert(product_bound == 8);
-            const auto result = ring_->template finish_wide_products<product_bound>(
+            const auto result = Fp::template finish_wide_products<product_bound>(
                 m1_high, m1_low, m2_high, m2_low);
             return {result[0], result[1]};
         }
@@ -79,7 +76,7 @@ namespace blst::avx::matrixnok
         {
             // (a + bu)^2 = (a^2 - b^2) + 2ab*u. The imaginary
             // accumulator doubles one product rather than issuing it twice.
-            const Fp::Element minus_b = ring_->negate_for_product(value.c1);
+            const Fp::Element minus_b = Fp::negate_for_product(value.c1);
             const AVXVector<Fp::limbs> zero(0);
             std::array<AVXVector<Fp::limbs>, 2> m1_high;
             std::array<AVXVector<Fp::limbs>, 2> m1_low;
@@ -110,7 +107,7 @@ namespace blst::avx::matrixnok
 
             constexpr int product_bound = 2 * Fp::standard_bound * Fp::standard_bound;
             static_assert(product_bound == 8);
-            const auto result = ring_->template finish_wide_products<product_bound>(
+            const auto result = Fp::template finish_wide_products<product_bound>(
                 m1_high, m1_low, m2_high, m2_low);
             return {result[0], result[1]};
         }
@@ -120,11 +117,10 @@ namespace blst::avx::matrixnok
             out = square(value);
         }
 
-    private:
-        const Fp* ring_;
     };
 
-    static_assert(sizeof(Fp2RingCandidate) == sizeof(const FpRingCandidate*));
+    static_assert(std::is_empty_v<Fp2RingCandidate>);
+    static_assert(std::is_trivially_default_constructible_v<Fp2RingCandidate>);
     static_assert(std::is_trivially_copyable_v<Fp2RingCandidate>);
     static_assert(std::is_trivially_destructible_v<Fp2RingCandidate>);
 }

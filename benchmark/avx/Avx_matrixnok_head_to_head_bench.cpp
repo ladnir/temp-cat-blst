@@ -120,7 +120,7 @@ namespace
     void BM_CatBLST_MatrixNoK_FP2_Mul(benchmark::State& state)
     {
         const MatrixNoKRing ring;
-        const MatrixNoKFp2Ring fp2(ring);
+        const MatrixNoKFp2Ring fp2;
         auto left = MatrixNoKFp2Ring::Element{
             ring.from_canonical_50bit_digits({
                 0x123456789abcdULL, 0x2bcdef0123456ULL,
@@ -161,7 +161,7 @@ namespace
     void BM_CatBLST_MatrixNoK_FP2_Square(benchmark::State& state)
     {
         const MatrixNoKRing ring;
-        const MatrixNoKFp2Ring fp2(ring);
+        const MatrixNoKFp2Ring fp2;
         auto value = MatrixNoKFp2Ring::Element{
             ring.from_canonical_50bit_digits({
                 0x123456789abcdULL, 0x2bcdef0123456ULL,

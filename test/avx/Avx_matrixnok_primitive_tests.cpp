@@ -26,12 +26,135 @@ namespace blst::avx::test
     static_assert(matrixnok_constants::moduli1.size() == 8);
     static_assert(matrixnok_constants::moduli2.size() == 8);
     static_assert(matrixnok_constants::r1_perm_mat_fixed.size() == 8);
+    static_assert(std::is_empty_v<matrixnok::FpRingCandidate>);
+    static_assert(std::is_empty_v<matrixnok::Fp2RingCandidate>);
 
     TEST(AvxMatrixNoKPrimitives, PermutationRowsAreCacheLineAligned)
     {
-        const auto address = reinterpret_cast<std::uintptr_t>(
-            matrixnok_constants::r1_perm_mat_fixed.data());
-        EXPECT_EQ(address % 64, 0U);
+        const auto expect_aligned = [](const auto& values) {
+            const auto address = reinterpret_cast<std::uintptr_t>(values.data());
+            EXPECT_EQ(address % 64, 0U);
+        };
+        expect_aligned(matrixnok_constants::moduli1);
+        expect_aligned(matrixnok_constants::moduli2);
+        expect_aligned(matrixnok_constants::r1_perm_mat_fixed);
+        expect_aligned(matrixnok_constants::r2_rns_mat);
+        expect_aligned(matrixnok_constants::r2_correction);
+        expect_aligned(matrixnok_constants::convert_to_rns_mat);
+        expect_aligned(matrixnok_constants::convert_to_correction);
+        expect_aligned(matrixnok_constants::convert_from_rns_mat);
+        expect_aligned(matrixnok_constants::convert_from_correction);
+        expect_aligned(matrixnok::detail::reducer_m1_constants.modulus_multiples);
+        expect_aligned(matrixnok::detail::reducer_m1_constants.t);
+        expect_aligned(matrixnok::detail::reducer_m1_constants.negative_moduli);
+        expect_aligned(matrixnok::detail::reducer_m1_constants.montgomery_factor);
+        expect_aligned(matrixnok::detail::reducer_m2_constants.modulus_multiples);
+        expect_aligned(matrixnok::detail::reducer_m2_constants.t);
+        expect_aligned(matrixnok::detail::reducer_m2_constants.negative_moduli);
+        expect_aligned(matrixnok::detail::reducer_m2_constants.montgomery_factor);
+    }
+
+    TEST(AvxMatrixNoKPrimitives, StatelessFixedContextMatchesGenericHelpers)
+    {
+        EXPECT_EQ(sizeof(matrixnok::FpRingCandidate), 1U);
+        EXPECT_EQ(sizeof(matrixnok::Fp2RingCandidate), 1U);
+
+        const RNSMatrix<8, 8> generic_r2(
+            matrixnok_constants::r2_rns_mat,
+            matrixnok_constants::r2_correction,
+            matrixnok_constants::r2_shifted_quotient_estimations,
+            matrixnok_constants::moduli1);
+        const RNSMatrix<1, 8, 8, 1, 50> generic_convert_to(
+            matrixnok_constants::convert_to_rns_mat,
+            matrixnok_constants::convert_to_correction,
+            matrixnok_constants::convert_to_shifted_quotient_estimations,
+            matrixnok_constants::moduli2);
+        const RNSMatrix<8, 1, 1, 8> generic_convert_from(
+            matrixnok_constants::convert_from_rns_mat,
+            matrixnok_constants::convert_from_correction,
+            matrixnok_constants::convert_from_shifted_quotient_estimations,
+            std::array<uint64_t, 1>{1});
+
+        std::array<uint64_t, 8> r2_input = {};
+        std::array<uint64_t, 8> digit_input = {};
+        std::array<uint64_t, 8> initial_high = {};
+        std::array<uint64_t, 8> initial_low = {};
+        for (std::size_t lane = 0; lane < 8; ++lane) {
+            r2_input[lane] = matrixnok_constants::moduli2[lane] - lane - 1;
+            digit_input[lane] = (0x123456789abULL * (lane + 1)) &
+                ((uint64_t{1} << 50) - 1);
+            initial_high[lane] = 17 * lane + 3;
+            initial_low[lane] = 29 * lane + 5;
+        }
+
+        const auto compare_shifted = [&](const auto& generic, auto fixed_reduce, const auto& input) {
+            AVXVector<8> generic_high(initial_high);
+            AVXVector<8> generic_low(initial_low);
+            AVXVector<8> fixed_high(initial_high);
+            AVXVector<8> fixed_low(initial_low);
+            generic.rns_reduce_raw_shifted(
+                AVXVector<8>(input), generic_high, generic_low);
+            fixed_reduce(AVXVector<8>(input), fixed_high, fixed_low);
+            EXPECT_EQ(fixed_high.to_array(), generic_high.to_array());
+            EXPECT_EQ(fixed_low.to_array(), generic_low.to_array());
+        };
+        compare_shifted(
+            generic_r2,
+            matrixnok::detail::R2Matrix::reduce_raw_shifted,
+            r2_input);
+        compare_shifted(
+            generic_convert_to,
+            matrixnok::detail::ConvertToMatrix::reduce_raw_shifted,
+            digit_input);
+
+        AVXVector<8> generic_from_high(initial_high);
+        AVXVector<8> generic_from_low(initial_low);
+        AVXVector<8> fixed_from_high(initial_high);
+        AVXVector<8> fixed_from_low(initial_low);
+        generic_convert_from.rns_reduce_raw(
+            AVXVector<8>(r2_input), generic_from_high, generic_from_low);
+        matrixnok::detail::ConvertFromMatrix::reduce_raw(
+            AVXVector<8>(r2_input), fixed_from_high, fixed_from_low);
+        EXPECT_EQ(fixed_from_high.to_array(), generic_from_high.to_array());
+        EXPECT_EQ(fixed_from_low.to_array(), generic_from_low.to_array());
+
+        std::array<AVXVector<8>, 2> batch_input = {
+            AVXVector<8>(r2_input), AVXVector<8>(digit_input)};
+        std::array<AVXVector<8>, 2> generic_batch_high = {
+            AVXVector<8>(initial_high), AVXVector<8>(initial_low)};
+        std::array<AVXVector<8>, 2> generic_batch_low = {
+            AVXVector<8>(initial_low), AVXVector<8>(initial_high)};
+        auto fixed_batch_high = generic_batch_high;
+        auto fixed_batch_low = generic_batch_low;
+        generic_r2.rns_reduce_raw_batch_shifted<2>(
+            &batch_input, generic_batch_high, generic_batch_low);
+        matrixnok::detail::R2Matrix::reduce_raw_batch_shifted<2>(
+            batch_input, fixed_batch_high, fixed_batch_low);
+        for (std::size_t item = 0; item < 2; ++item) {
+            EXPECT_EQ(fixed_batch_high[item].to_array(), generic_batch_high[item].to_array());
+            EXPECT_EQ(fixed_batch_low[item].to_array(), generic_batch_low[item].to_array());
+        }
+
+        using WideBound = Bounds<0, 24>;
+        using WideResidue = BoundedElement<WideBound, 8, 50>;
+        std::array<uint64_t, 8> wide_high = {};
+        std::array<uint64_t, 8> wide_low = {};
+        for (std::size_t lane = 0; lane < 8; ++lane) {
+            wide_high[lane] = 7 * matrixnok_constants::moduli1[lane] + lane;
+            wide_low[lane] = ((uint64_t{1} << 52) - 1) - lane;
+        }
+        const WideElement<WideBound, 8, 50> wide{
+            WideResidue(AVXVector<8>(wide_high)),
+            WideResidue(AVXVector<8>(wide_low))};
+        const MontgomeryReduce2<8, 50, 6> generic_reducer(matrixnok_constants::moduli1);
+        const auto generic_reduced = generic_reducer.template reduce_auto<2>(
+            generic_reducer.reduce_wide(wide));
+        const auto fixed_reduced = matrixnok::detail::ReducerM1::template reduce_auto<2>(
+            matrixnok::detail::ReducerM1::reduce_wide(wide));
+        EXPECT_EQ(fixed_reduced.data.to_array(), generic_reduced.data.to_array());
+        EXPECT_EQ(
+            matrixnok::detail::ReducerM1::template moduli<1>().data.to_array(),
+            generic_reducer.template moduli<1>().data.to_array());
     }
 
     TEST(AvxMatrixNoKPrimitives, LowLaneExtractionAndBroadcast)
@@ -476,7 +599,7 @@ namespace blst::avx::test
     TEST(AvxMatrixNoKPrimitives, Fp2MultiplyAndSquareMatchScalar)
     {
         const matrixnok::FpRingCandidate ring;
-        const matrixnok::Fp2RingCandidate fp2ring(ring);
+        const matrixnok::Fp2RingCandidate fp2ring;
         testing::Test::RecordProperty("fp_ring_candidate_bytes", sizeof(ring));
         testing::Test::RecordProperty("fp2_ring_candidate_bytes", sizeof(fp2ring));
 

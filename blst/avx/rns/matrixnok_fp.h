@@ -2,13 +2,13 @@
 // Copyright 2026 Category Labs
 #pragma once
 
-#include "../cpu/vector/multiplication.hpp"
 #include "../generated_matrixnok_constants.hpp"
-#include "elementwise_reduce.h"
 #include "matrixnok_change_base.h"
+#include "matrixnok_fixed.h"
 #include "ring_element.h"
 
 #include <array>
+#include <type_traits>
 
 namespace blst::avx::matrixnok
 {
@@ -31,51 +31,23 @@ namespace blst::avx::matrixnok
         };
 
     private:
-        using System = IntRNS2System<381, limbs, MontgomeryReduce, 50>;
-
-        static System make_system()
-        {
-            return System(
-                IntRNS2<MontgomeryReduce, limbs, limbs>(
-                    generated::moduli1,
-                    generated::moduli2,
-                    generated::r1_rns_mat,
-                    generated::r1_correction,
-                    generated::r1_shifted_quotient_estimations,
-                    generated::r2_rns_mat,
-                    generated::r2_correction,
-                    generated::r2_shifted_quotient_estimations),
-                ConvertToRNS<381, limbs, 50>(
-                    generated::convert_to_rns_mat,
-                    generated::convert_to_correction,
-                    generated::convert_to_shifted_quotient_estimations,
-                    generated::moduli2),
-                ConvertFromRNS<381, limbs>(
-                    generated::convert_from_rns_mat,
-                    generated::convert_from_correction,
-                    generated::convert_from_shifted_quotient_estimations,
-                    std::array<uint64_t, 1>{1}),
-                generated::moduli1,
-                generated::moduli2);
-        }
-
-        INLINE StandardResidue expand_m2(const StandardResidue& m2) const
+        static INLINE StandardResidue expand_m2(const StandardResidue& m2)
         {
             AVXVector<limbs> high(0);
             AVXVector<limbs> low(0);
-            system_.intrns2.r2.rns_reduce_raw_shifted(m2.data, high, low);
+            detail::R2Matrix::reduce_raw_shifted(m2.data, high, low);
 
             using WideBound = Bounds<0, 2 * limbs * standard_bound>;
             using Bounded = BoundedElement<WideBound, limbs, element_bits>;
             const WideElement<WideBound, limbs, element_bits> wide{
                 Bounded(high), Bounded(low)};
-            return reducer_m1_.template reduce_auto<standard_bound>(
-                reducer_m1_.reduce_wide(wide));
+            return detail::ReducerM1::template reduce_auto<standard_bound>(
+                detail::ReducerM1::reduce_wide(wide));
         }
 
         template<std::size_t batch>
-        INLINE std::array<StandardResidue, batch> expand_m2_batch(
-            const std::array<StandardResidue, batch>& m2) const
+        static INLINE std::array<StandardResidue, batch> expand_m2_batch(
+            const std::array<StandardResidue, batch>& m2)
         {
             std::array<AVXVector<limbs>, batch> residues;
             std::array<AVXVector<limbs>, batch> high{};
@@ -84,8 +56,8 @@ namespace blst::avx::matrixnok
             for (std::size_t index = 0; index < batch; ++index) {
                 residues[index] = m2[index].data;
             }
-            system_.intrns2.r2.template rns_reduce_raw_batch_shifted<batch>(
-                &residues, high, low);
+            detail::R2Matrix::template reduce_raw_batch_shifted<batch>(
+                residues, high, low);
 
             using WideBound = Bounds<0, 2 * limbs * standard_bound>;
             using Bounded = BoundedElement<WideBound, limbs, element_bits>;
@@ -94,8 +66,8 @@ namespace blst::avx::matrixnok
             for (std::size_t index = 0; index < batch; ++index) {
                 const WideElement<WideBound, limbs, element_bits> wide{
                     Bounded(high[index]), Bounded(low[index])};
-                result[index] = reducer_m1_.template reduce_auto<standard_bound>(
-                    reducer_m1_.reduce_wide(wide));
+                result[index] = detail::ReducerM1::template reduce_auto<standard_bound>(
+                    detail::ReducerM1::reduce_wide(wide));
             }
             return result;
         }
@@ -105,11 +77,11 @@ namespace blst::avx::matrixnok
         // narrow bridge used by extension-field formulas to combine terms
         // before paying for reduction and expansion.
         template<int product_bound, std::size_t batch>
-        INLINE std::array<Element, batch> finish_wide_products(
+        static INLINE std::array<Element, batch> finish_wide_products(
             std::array<AVXVector<limbs>, batch>& m1_high,
             std::array<AVXVector<limbs>, batch>& m1_low,
             std::array<AVXVector<limbs>, batch>& m2_high,
-            std::array<AVXVector<limbs>, batch>& m2_low) const
+            std::array<AVXVector<limbs>, batch>& m2_low)
         {
             static_assert(product_bound > 0);
             static_assert(batch > 0);
@@ -121,8 +93,8 @@ namespace blst::avx::matrixnok
             for (std::size_t index = 0; index < batch; ++index) {
                 const WideElement<ProductBound, limbs, element_bits> product{
                     ProductElement(m1_high[index]), ProductElement(m1_low[index])};
-                residues[index] = reducer_m1_.template reduce_auto<standard_bound>(
-                    reducer_m1_.reduce_wide(product)).data;
+                residues[index] = detail::ReducerM1::template reduce_auto<standard_bound>(
+                    detail::ReducerM1::reduce_wide(product)).data;
             }
 
             r1_change_base_raw_batch(residues, m2_high, m2_low);
@@ -137,8 +109,8 @@ namespace blst::avx::matrixnok
             for (std::size_t index = 0; index < batch; ++index) {
                 const WideElement<CombinedBound, limbs, element_bits> combined{
                     CombinedElement(m2_high[index]), CombinedElement(m2_low[index])};
-                m2[index] = reducer_m2_.template reduce_auto<standard_bound>(
-                    reducer_m2_.reduce_wide(combined));
+                m2[index] = detail::ReducerM2::template reduce_auto<standard_bound>(
+                    detail::ReducerM2::reduce_wide(combined));
             }
 
             const auto m1 = expand_m2_batch(m2);
@@ -150,38 +122,36 @@ namespace blst::avx::matrixnok
             return result;
         }
 
-        INLINE Element negate_for_product(const Element& value) const
+        static INLINE Element negate_for_product(const Element& value)
         {
             return {
-                StandardResidue(reducer_m1_.template moduli<1>().data.sub(value.m1.data)),
-                StandardResidue(reducer_m2_.template moduli<1>().data.sub(value.m2.data))};
+                StandardResidue(
+                    detail::ReducerM1::template moduli<1>().data.sub(value.m1.data)),
+                StandardResidue(
+                    detail::ReducerM2::template moduli<1>().data.sub(value.m2.data))};
         }
 
     public:
-        FpRingCandidate()
-            : system_(make_system())
-            , reducer_m1_(system_.moduli1)
-            , reducer_m2_(system_.moduli2)
-        {
-        }
+        constexpr FpRingCandidate() noexcept = default;
 
-        INLINE Element from_canonical_50bit_digits(const std::array<uint64_t, limbs>& digits) const
+        static INLINE Element from_canonical_50bit_digits(
+            const std::array<uint64_t, limbs>& digits)
         {
             AVXVector<limbs> high(0);
             AVXVector<limbs> low(0);
-            system_.convert_to.conversion_matrix.rns_reduce_raw_shifted(
+            detail::ConvertToMatrix::reduce_raw_shifted(
                 AVXVector<limbs>(digits), high, low);
 
             using ConvertBound = Bounds<0, 800>;
             using ConvertElement = BoundedElement<ConvertBound, limbs, element_bits>;
             const WideElement<ConvertBound, limbs, element_bits> converted{
                 ConvertElement(high), ConvertElement(low)};
-            const StandardResidue m2 = reducer_m2_.template reduce_auto<standard_bound>(
-                reducer_m2_.reduce_wide(converted));
+            const StandardResidue m2 = detail::ReducerM2::template reduce_auto<standard_bound>(
+                detail::ReducerM2::reduce_wide(converted));
             return {expand_m2(m2), m2};
         }
 
-        INLINE Element multiply(const Element& left, const Element& right) const
+        static INLINE Element multiply(const Element& left, const Element& right)
         {
             const AVXVector<limbs> zero(0);
             const AVXVector<limbs> m1_high = zero.mulhi(left.m1.data, right.m1.data);
@@ -193,8 +163,9 @@ namespace blst::avx::matrixnok
             using ProductElement = BoundedElement<ProductBound, limbs, element_bits>;
             const WideElement<ProductBound, limbs, element_bits> m1_product{
                 ProductElement(m1_high), ProductElement(m1_low)};
-            const StandardResidue m1_reduced = reducer_m1_.template reduce_auto<standard_bound>(
-                reducer_m1_.reduce_wide(m1_product));
+            const StandardResidue m1_reduced =
+                detail::ReducerM1::template reduce_auto<standard_bound>(
+                    detail::ReducerM1::reduce_wide(m1_product));
 
             AVXVector<limbs> residues = m1_reduced.data;
             AVXVector<limbs> high = m2_high;
@@ -209,23 +180,24 @@ namespace blst::avx::matrixnok
             using CombinedElement = BoundedElement<CombinedBound, limbs, element_bits>;
             const WideElement<CombinedBound, limbs, element_bits> combined{
                 CombinedElement(high), CombinedElement(low)};
-            const StandardResidue m2 = reducer_m2_.template reduce_auto<standard_bound>(
-                reducer_m2_.reduce_wide(combined));
+            const StandardResidue m2 = detail::ReducerM2::template reduce_auto<standard_bound>(
+                detail::ReducerM2::reduce_wide(combined));
             const StandardResidue m1 = expand_m2(m2);
             return {m1, m2};
         }
 
         // Multiply modulo p. Exact output aliasing with either input is
         // supported; partial overlap is not.
-        INLINE void multiply(Element& out, const Element& left, const Element& right) const
+        static INLINE void multiply(
+            Element& out, const Element& left, const Element& right)
         {
             out = multiply(left, right);
         }
 
         template<std::size_t batch>
-        INLINE std::array<Element, batch> multiply_batch(
+        static INLINE std::array<Element, batch> multiply_batch(
             const std::array<Element, batch>& left,
-            const std::array<Element, batch>& right) const
+            const std::array<Element, batch>& right)
         {
             static_assert(batch > 0, "MatrixNoK field multiplication requires a nonempty fixed batch");
             const AVXVector<limbs> zero(0);
@@ -244,8 +216,8 @@ namespace blst::avx::matrixnok
                 using ProductElement = BoundedElement<ProductBound, limbs, element_bits>;
                 const WideElement<ProductBound, limbs, element_bits> m1_product{
                     ProductElement(m1_high), ProductElement(m1_low)};
-                residues[index] = reducer_m1_.template reduce_auto<standard_bound>(
-                    reducer_m1_.reduce_wide(m1_product)).data;
+                residues[index] = detail::ReducerM1::template reduce_auto<standard_bound>(
+                    detail::ReducerM1::reduce_wide(m1_product)).data;
             }
 
             r1_change_base_raw_batch(residues, high, low);
@@ -261,8 +233,8 @@ namespace blst::avx::matrixnok
             for (std::size_t index = 0; index < batch; ++index) {
                 const WideElement<CombinedBound, limbs, element_bits> combined{
                     CombinedElement(high[index]), CombinedElement(low[index])};
-                m2[index] = reducer_m2_.template reduce_auto<standard_bound>(
-                    reducer_m2_.reduce_wide(combined));
+                m2[index] = detail::ReducerM2::template reduce_auto<standard_bound>(
+                    detail::ReducerM2::reduce_wide(combined));
             }
 
             const auto m1 = expand_m2_batch(m2);
@@ -274,32 +246,32 @@ namespace blst::avx::matrixnok
             return result;
         }
 
-        INLINE void convert_from_raw(
+        static INLINE void convert_from_raw(
             const Element& value,
             AVXVector<8>& out_high,
-            AVXVector<8>& out_low) const
+            AVXVector<8>& out_low)
         {
             out_high = AVXVector<8>(0);
             out_low = AVXVector<8>(0);
-            system_.convert_from.conversion_matrix.rns_reduce_raw(
-                value.m2.data, out_high, out_low);
+            detail::ConvertFromMatrix::reduce_raw(value.m2.data, out_high, out_low);
         }
 
-        INLINE const std::array<uint64_t, limbs>& moduli1() const
+        static constexpr const std::array<uint64_t, limbs>& moduli1() noexcept
         {
-            return system_.moduli1;
+            return generated::moduli1;
         }
 
-        INLINE const std::array<uint64_t, limbs>& moduli2() const
+        static constexpr const std::array<uint64_t, limbs>& moduli2() noexcept
         {
-            return system_.moduli2;
+            return generated::moduli2;
         }
 
     private:
         friend class Fp2RingCandidate;
 
-        const System system_;
-        const MontgomeryReduce2<limbs, element_bits, 6> reducer_m1_;
-        const MontgomeryReduce2<limbs, element_bits, 6> reducer_m2_;
     };
+
+    static_assert(std::is_empty_v<FpRingCandidate>);
+    static_assert(std::is_trivially_default_constructible_v<FpRingCandidate>);
+    static_assert(std::is_trivially_copyable_v<FpRingCandidate>);
 } // namespace blst::avx::matrixnok
