@@ -69,6 +69,8 @@ portable/native/code-generation evidence are recorded in
 The isolated Fp2 multiplication and squaring candidate, same-process VROOM
 comparison, and stateless fixed-context resolution are recorded in
 `FP2_EVIDENCE.md`.
+The end-to-end GT FFT preview and the pinned-VROOM G1 correctness blocker are
+recorded in `FFT_PREVIEW_EVIDENCE.md`.
 
 ## Work packets
 

@@ -124,3 +124,18 @@ multiplication is 19.4 ns, about 1.6% behind the former context-backed
 candidate but 14.9% faster than the incumbent. `AUD-214` is validated. Exact
 evidence and residual proof obligations are recorded in
 `docs/avx/FP2_EVIDENCE.md`.
+
+## MatrixNoK FFT preview
+
+A benchmark-only same-process adapter now exercises the pinned VROOM Fp12
+stack under CatBLST's FFT roots and GLV4 schedules. Its 256-element GT
+forward/inverse round trip passes. On Peach with Clang 21, inverse GT FFT is
+1.19x to 1.20x faster than the incumbent across 256 through 16,384 elements.
+This is sufficient to prioritize the Fp12/GT port but does not select the
+candidate for production. The adapter is fixed at `71bfbfd`.
+
+G1 remains blocked before performance measurement: the pinned VROOM
+MatrixNoK curve layer fails the two-element FFT subtraction identity. The
+next G1 packet must instead adapt CatBLST's audited point formulas and bound
+handling, pass scalar differential and FFT correctness gates, and only then
+benchmark. Exact evidence is in `docs/avx/FFT_PREVIEW_EVIDENCE.md`.

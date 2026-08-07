@@ -150,3 +150,17 @@ compile-time-derived immutable fixed operations, with no hidden initialization
 or allocation. Direct generic-helper differential tests, native code
 generation, and serial remeasurement validate the redesign. Formal proof and
 the remaining field-tower work still gate production selection.
+
+## FFT preview packet
+
+A benchmark-only adapter compiles the complete pinned VROOM Fp12 stack in the
+existing focused benchmark executable while preserving CatBLST's roots and
+GLV4 schedule. A 256-element GT forward/inverse round trip passes. Native
+Clang 21 inverse GT FFT latency is 15.8% to 16.9% below the incumbent from 256
+through 16,384 elements, justifying the Fp12/GT port. Exact construction and
+measurements are in `FFT_PREVIEW_EVIDENCE.md`.
+
+The same preview rejects G1 before timing. VROOM's MatrixNoK curve layer fails
+the two-element FFT subtraction base case even after setup uses its dedicated
+doubling primitive. This confirms the existing port-map decision: retain and
+adapt CatBLST's audited curve owners instead of importing `ec.hpp` wholesale.
