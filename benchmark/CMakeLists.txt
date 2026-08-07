@@ -137,8 +137,7 @@ target_link_libraries(group_scalar_mult_benchmarks PRIVATE
 if(BLST_HAVE_AVX_VALIDATION_GMP)
     if(BLST_AVX_FIELD_PERF_ONLY)
         add_executable(avx_group_ops_benchmarks
-            "avx/Avx_basefield_bench.cpp"
-            "avx/Avx_basefield_50bit_bench.cpp"
+            "avx/Avx_matrixnok_head_to_head_bench.cpp"
         )
         target_link_libraries(avx_group_ops_benchmarks PRIVATE
             benchmark::benchmark_main
@@ -163,6 +162,7 @@ if(BLST_HAVE_AVX_VALIDATION_GMP)
         "${CMAKE_BINARY_DIR}"
         "${CMAKE_BINARY_DIR}/blst"
     )
+    target_compile_features(avx_group_ops_benchmarks PRIVATE cxx_std_23)
     if(BLST_AVX_FIELD_PERF_ONLY AND BLST_AVX512)
         if(MSVC)
             target_compile_options(avx_group_ops_benchmarks PRIVATE /arch:AVX512)
