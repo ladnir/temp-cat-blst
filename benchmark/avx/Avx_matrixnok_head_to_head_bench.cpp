@@ -23,13 +23,13 @@ namespace
     void incumbent_modmul(benchmark::State& state)
     {
         const Ring ring;
-        const auto left = ring.from_bigint(BigInt(left_decimal, 10));
-        const auto right = ring.from_bigint(BigInt(right_decimal, 10));
+        auto left = ring.from_bigint(BigInt(left_decimal, 10));
+        auto right = ring.from_bigint(BigInt(right_decimal, 10));
 
         benchmark::DoNotOptimize(left);
         benchmark::DoNotOptimize(right);
         for (auto _ : state) {
-            const auto result = ring.modmul(left, right);
+            auto result = ring.modmul(left, right);
             benchmark::DoNotOptimize(result);
         }
     }
@@ -47,7 +47,7 @@ namespace
     void BM_CatBLST_MatrixNoK_ModMul(benchmark::State& state)
     {
         const MatrixNoKRing ring;
-        const auto left = ring.from_canonical_50bit_digits({
+        auto left = ring.from_canonical_50bit_digits({
             0x123456789abcdULL,
             0x2bcdef0123456ULL,
             0x3456789abcdefULL,
@@ -57,7 +57,7 @@ namespace
             0x156789abcdef0ULL,
             0x0000000001234ULL,
         });
-        const auto right = ring.from_canonical_50bit_digits({
+        auto right = ring.from_canonical_50bit_digits({
             0x3edcba9876543ULL,
             0x176543210fedcULL,
             0x2ba9876543210ULL,
