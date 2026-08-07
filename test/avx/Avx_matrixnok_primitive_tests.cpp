@@ -340,7 +340,8 @@ namespace blst::avx::test
             for (const blst::Fp& right : values) {
                 const auto candidate_left = ring.from_canonical_50bit_digits(canonical_50bit_digits(left));
                 const auto candidate_right = ring.from_canonical_50bit_digits(canonical_50bit_digits(right));
-                const auto candidate_product = ring.multiply(candidate_left, candidate_right);
+                matrixnok::FpRingCandidate::Element candidate_product;
+                ring.multiply(candidate_product, candidate_left, candidate_right);
                 expect_standard_residue_bounds(ring, candidate_product);
                 expect_same_scalar_fp(
                     matrixnok_to_scalar(ring, candidate_product),
@@ -370,7 +371,8 @@ namespace blst::avx::test
             const blst::Fp right = canonical_to_montgomery(right_limbs);
             const auto candidate_left = ring.from_canonical_50bit_digits(canonical_50bit_digits(left));
             const auto candidate_right = ring.from_canonical_50bit_digits(canonical_50bit_digits(right));
-            const auto candidate_product = ring.multiply(candidate_left, candidate_right);
+            matrixnok::FpRingCandidate::Element candidate_product;
+            ring.multiply(candidate_product, candidate_left, candidate_right);
             expect_standard_residue_bounds(ring, candidate_product);
             expect_same_scalar_fp(
                 matrixnok_to_scalar(ring, candidate_product),
@@ -380,12 +382,21 @@ namespace blst::avx::test
         auto candidate_accumulator = ring.from_canonical_50bit_digits(canonical_50bit_digits(values[4]));
         blst::Fp scalar_accumulator = values[4];
         for (int iteration = 0; iteration < 64; ++iteration) {
-            candidate_accumulator = ring.multiply(
+            ring.multiply(
+                candidate_accumulator,
                 candidate_accumulator,
                 ring.from_canonical_50bit_digits(canonical_50bit_digits(values[6])));
             scalar_accumulator = scalar_product(scalar_accumulator, values[6]);
             expect_standard_residue_bounds(ring, candidate_accumulator);
             expect_same_scalar_fp(matrixnok_to_scalar(ring, candidate_accumulator), scalar_accumulator);
         }
+
+        auto right_alias = ring.from_canonical_50bit_digits(canonical_50bit_digits(values[5]));
+        const auto left_for_alias = ring.from_canonical_50bit_digits(canonical_50bit_digits(values[7]));
+        ring.multiply(right_alias, left_for_alias, right_alias);
+        expect_standard_residue_bounds(ring, right_alias);
+        expect_same_scalar_fp(
+            matrixnok_to_scalar(ring, right_alias),
+            scalar_product(values[7], values[5]));
     }
 } // namespace blst::avx::test

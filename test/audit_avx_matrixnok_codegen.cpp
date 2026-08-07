@@ -55,12 +55,10 @@ extern "C" NOINLINE void audit_avx_matrixnok_r1_change_base(
 }
 
 extern "C" NOINLINE void audit_avx_matrixnok_fp_multiply(
-    uint64_t out_m1[8], uint64_t out_m2[8],
+    blst::avx::matrixnok::FpRingCandidate::Element* out,
     const blst::avx::matrixnok::FpRingCandidate* ring,
     const blst::avx::matrixnok::FpRingCandidate::Element* left,
     const blst::avx::matrixnok::FpRingCandidate::Element* right)
 {
-    const auto product = ring->multiply(*left, *right);
-    product.m1.data.store(out_m1);
-    product.m2.data.store(out_m2);
+    ring->multiply(*out, *left, *right);
 }

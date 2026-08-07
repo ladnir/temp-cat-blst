@@ -95,7 +95,9 @@ namespace blst::avx::matrixnok
             return {expand_m2(m2), m2};
         }
 
-        INLINE Element multiply(const Element& left, const Element& right) const
+        // Multiply modulo p. Exact output aliasing with either input is
+        // supported; partial overlap is not.
+        INLINE void multiply(Element& out, const Element& left, const Element& right) const
         {
             const AVXVector<limbs> zero(0);
             const AVXVector<limbs> m1_high = zero.mulhi(left.m1.data, right.m1.data);
@@ -125,7 +127,8 @@ namespace blst::avx::matrixnok
                 CombinedElement(high), CombinedElement(low)};
             const StandardResidue m2 = reducer_m2_.template reduce_auto<standard_bound>(
                 reducer_m2_.reduce_wide(combined));
-            return {expand_m2(m2), m2};
+            const StandardResidue m1 = expand_m2(m2);
+            out = {m1, m2};
         }
 
         INLINE void convert_from_raw(
