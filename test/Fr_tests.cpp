@@ -275,6 +275,28 @@ TEST(FrOps, Sqr) {
     EXPECT_TRUE(fr_equal(result, result2)) << "a² should equal a*a";
 }
 
+#ifndef NDEBUG
+TEST(FrOps, RedcEnforcesInputBound) {
+    UFr input{};
+    Fr expected = Fr::modulus();
+    --expected[0];
+
+    // (r - 1) * R is the largest multiple of R below r * R.
+    for (size_t i = 0; i < Fr::num_limbs(); ++i)
+        input.data[Fr::num_limbs() + i] = expected[i];
+
+    Fr result;
+    Fr::redc(result, input);
+    EXPECT_TRUE(Fr::equal(result, expected));
+
+    // An upper half equal to r makes the full input at least r * R.
+    for (size_t i = 0; i < Fr::num_limbs(); ++i)
+        input.data[Fr::num_limbs() + i] = Fr::modulus()[i];
+
+    EXPECT_DEATH({ Fr::redc(result, input); }, "");
+}
+#endif
+
 TEST(FrOps, ExpZeroIsOne) {
     Fr base;
     Fr result;

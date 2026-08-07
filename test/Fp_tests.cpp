@@ -196,6 +196,28 @@ TEST(FpOps, MulBy8) {
 	}
 }
 
+#ifndef NDEBUG
+TEST(FpOps, RedcEnforcesInputBound) {
+	UFp input{};
+	Fp expected = Fp::modulus();
+	--expected[0];
+
+	// (p - 1) * R is the largest multiple of R below p * R.
+	for (size_t i = 0; i < Fp::num_limb(); ++i)
+		input.data[Fp::num_limb() + i] = expected[i];
+
+	Fp result;
+	Fp::redc(result, input);
+	EXPECT_TRUE(Fp::equal(result, expected));
+
+	// An upper half equal to p makes the full input at least p * R.
+	for (size_t i = 0; i < Fp::num_limb(); ++i)
+		input.data[Fp::num_limb() + i] = Fp::modulus()[i];
+
+	EXPECT_DEATH({ Fp::redc(result, input); }, "");
+}
+#endif
+
 TEST(FpOps, LShift) {
 	Fp a, r, expected;
 	InsecureRng rng;

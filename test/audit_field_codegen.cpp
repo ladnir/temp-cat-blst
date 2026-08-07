@@ -5,6 +5,7 @@
  */
 
 #include "blst/fields/Fp.h"
+#include "blst/fields/Fp2.h"
 #include "blst/fields/Fr.h"
 
 #if defined(_MSC_VER)
@@ -56,4 +57,39 @@ extern "C" AUDIT_NOINLINE void audit_fr_lshift_public(
     size_t count)
 {
     blst::Fr::lshift(*out, *in, count);
+}
+
+extern "C" AUDIT_NOINLINE void audit_fr_inverse(
+    blst::Fr* out,
+    const blst::Fr* in)
+{
+    blst::Fr::reciprocal(*out, *in);
+}
+
+extern "C" AUDIT_NOINLINE void audit_fp_eucl_inverse(
+    blst::Fp* out,
+    const blst::Fp* in)
+{
+    blst::Fp::reciprocal(*out, *in);
+}
+
+extern "C" AUDIT_NOINLINE void audit_fp_fixed_inverse(
+    blst::Fp* out,
+    const blst::Fp* in)
+{
+    blst::Fp::flt_reciprocal(*out, *in);
+}
+
+extern "C" AUDIT_NOINLINE void audit_fp2_eucl_inverse(
+    blst::Fp2* out,
+    const blst::Fp2* in)
+{
+    blst::Fp2::reciprocal(*out, *in);
+}
+
+extern "C" AUDIT_NOINLINE void audit_fp2_fixed_inverse(
+    blst::Fp2* out,
+    const blst::Fp2* in)
+{
+    blst::Fp2::flt_reciprocal(*out, *in);
 }

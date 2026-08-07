@@ -625,7 +625,11 @@ namespace blst::scalar
 #endif
 
 #ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
-		/* sign goes straight to flt_reciprocal */
+		/*
+		 * The fixed iteration budget can miss rare almost-inverse corner cases.
+		 * Verify the candidate before publishing it; the fallback is intentional
+		 * and makes reciprocal variable-time.
+		 */
 #if defined(__CUDA_ARCH__)
 		ptx_mul_mont_u64<Fp>(temp.data + NLIMBS(384), temp.data, inp.l);
 #else
@@ -637,7 +641,6 @@ namespace blst::scalar
 			vec_copy(&out, temp.data, sizeof(Fp));
 		else
 		{
-			// fallback, should be rare
 			Fp::flt_reciprocal(out, inp);
 		}
 #else
