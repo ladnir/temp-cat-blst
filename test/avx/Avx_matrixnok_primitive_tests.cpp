@@ -1,6 +1,7 @@
 #include "blst/avx/generated_matrixnok_constants.hpp"
 #include "blst/avx/cpu/vector/conversion.hpp"
 #include "blst/avx/rns/elementwise_reduce.h"
+#include "blst/avx/rns/matrixnok_change_base.h"
 
 #include <gtest/gtest.h>
 
@@ -83,5 +84,85 @@ namespace blst::avx::test
         check_min_sub_schedule<4, 1, 2>();
         check_min_sub_schedule<40, 1, 6>();
         check_min_sub_schedule<100, 95, 3>();
+    }
+
+    struct Product52
+    {
+        uint64_t low;
+        uint64_t high;
+    };
+
+    constexpr Product52 split_product_52(uint64_t left, uint64_t right)
+    {
+        constexpr uint64_t half_mask = (uint64_t{1} << 26) - 1;
+        constexpr uint64_t limb_mask = (uint64_t{1} << 52) - 1;
+        const uint64_t left_low = left & half_mask;
+        const uint64_t left_high = left >> 26;
+        const uint64_t right_low = right & half_mask;
+        const uint64_t right_high = right >> 26;
+        const uint64_t low_product = left_low * right_low;
+        const uint64_t cross = left_low * right_high + left_high * right_low;
+        const uint64_t lower = low_product + ((cross & half_mask) << 26);
+        return {lower & limb_mask, left_high * right_high + (cross >> 26) + (lower >> 52)};
+    }
+
+    template<std::size_t batch>
+    void check_matrixnok_change_base(
+        const std::array<std::array<uint64_t, 8>, batch>& input,
+        const std::array<std::array<uint64_t, 8>, batch>& initial_hi,
+        const std::array<std::array<uint64_t, 8>, batch>& initial_lo)
+    {
+        std::array<AVXVector<8>, batch> residues;
+        std::array<AVXVector<8>, batch> actual_hi;
+        std::array<AVXVector<8>, batch> actual_lo;
+        for (std::size_t item = 0; item < batch; ++item) {
+            residues[item] = AVXVector<8>(input[item]);
+            actual_hi[item] = AVXVector<8>(initial_hi[item]);
+            actual_lo[item] = AVXVector<8>(initial_lo[item]);
+        }
+
+        matrixnok::r1_change_base_raw_batch(residues, actual_hi, actual_lo);
+        for (std::size_t item = 0; item < batch; ++item) {
+            auto expected_hi = initial_hi[item];
+            auto expected_lo = initial_lo[item];
+            for (std::size_t input_lane = 0; input_lane < 8; ++input_lane) {
+                for (std::size_t output_lane = 0; output_lane < 8; ++output_lane) {
+                    const Product52 product = split_product_52(
+                        input[item][input_lane],
+                        matrixnok_constants::r1_rns_mat[input_lane][output_lane]);
+                    expected_hi[output_lane] += product.high;
+                    expected_lo[output_lane] += product.low;
+                }
+            }
+            EXPECT_EQ(actual_hi[item].to_array(), expected_hi);
+            EXPECT_EQ(actual_lo[item].to_array(), expected_lo);
+        }
+    }
+
+    TEST(AvxMatrixNoKPrimitives, FixedR1PermutationMatchesScalarMatrix)
+    {
+        constexpr std::size_t batch = 3;
+        std::array<std::array<uint64_t, 8>, batch> input{};
+        std::array<std::array<uint64_t, 8>, batch> initial_hi{};
+        std::array<std::array<uint64_t, 8>, batch> initial_lo{};
+
+        for (std::size_t lane = 0; lane < 8; ++lane) {
+            input[0][lane] = matrixnok_constants::moduli1[lane] - 1;
+            input[1][lane] = lane;
+            initial_hi[1][lane] = UINT64_MAX - lane;
+            initial_lo[1][lane] = UINT64_MAX - 2 * lane;
+        }
+
+        uint64_t state = 0x9e3779b97f4a7c15ULL;
+        for (std::size_t lane = 0; lane < 8; ++lane) {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            input[2][lane] = state % matrixnok_constants::moduli1[lane];
+            initial_hi[2][lane] = state ^ 0xa5a5a5a5a5a5a5a5ULL;
+            initial_lo[2][lane] = state ^ 0x5a5a5a5a5a5a5a5aULL;
+        }
+
+        check_matrixnok_change_base(input, initial_hi, initial_lo);
     }
 } // namespace blst::avx::test

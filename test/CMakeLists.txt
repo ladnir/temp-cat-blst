@@ -194,12 +194,16 @@ gtest_discover_tests(blst_tests
   # PROPERTIES LABELS "unit"
 )
 
-if(BLST_AVX512 AND BLST_AVX512_PORTABLE)
-    add_executable(blst_avx512_compat_tests
-        "avx512_compat_test.cpp"
+if(BLST_AVX512_PORTABLE)
+    set(AVX512_COMPAT_TEST_SOURCES
         "avx/Avx_matrixnok_primitive_tests.cpp"
         "${PROJECT_SOURCE_DIR}/blst/backend/avx512/intrin_compat.cpp"
     )
+    if(BLST_AVX512)
+        list(APPEND AVX512_COMPAT_TEST_SOURCES "avx512_compat_test.cpp")
+    endif()
+
+    add_executable(blst_avx512_compat_tests ${AVX512_COMPAT_TEST_SOURCES})
     target_include_directories(blst_avx512_compat_tests PRIVATE
         "${PROJECT_SOURCE_DIR}"
         "${CMAKE_BINARY_DIR}/blst"
@@ -207,10 +211,12 @@ if(BLST_AVX512 AND BLST_AVX512_PORTABLE)
     target_link_libraries(blst_avx512_compat_tests PRIVATE gtest_main)
     target_compile_features(blst_avx512_compat_tests PRIVATE cxx_std_23)
 
-    if(MSVC)
-        target_compile_options(blst_avx512_compat_tests PRIVATE /arch:AVX512)
-    else()
-        target_compile_options(blst_avx512_compat_tests PRIVATE -march=native)
+    if(BLST_AVX512)
+        if(MSVC)
+            target_compile_options(blst_avx512_compat_tests PRIVATE /arch:AVX512)
+        else()
+            target_compile_options(blst_avx512_compat_tests PRIVATE -march=native)
+        endif()
     endif()
 
     gtest_discover_tests(blst_avx512_compat_tests

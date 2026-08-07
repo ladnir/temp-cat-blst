@@ -168,6 +168,7 @@
 "blst/avx/rns/change_base.h","in_scope_production","avx512","pending","avx512","","","","","","","","",""
 "blst/avx/rns/elementwise_reduce.h","in_scope_production","avx512","pending","avx512","","","","","","","","",""
 "blst/avx/rns/inversion.h","in_scope_production","avx512","pending","avx512","","","","","","","","",""
+"blst/avx/rns/matrixnok_change_base.h","in_scope_production","avx512","pending","avx512","","","","","","","","",""
 "blst/avx/rns/ring_element.h","in_scope_production","avx512","pending","avx512","","","","","","","","",""
 "blst/avx/runtime_constants.h","in_scope_production","avx512","pending","avx512","","","","","","","","",""
 "blst/avx_c_api.cpp","in_scope_production","avx512","pending","avx512","Codex audit team","docs/audit/GROUP_API_CONTRACT_AUDIT.md","not_applicable: CatBLST AVX C boundary","AUD-091|AUD-092|AUD-093|AUD-094|AUD-095|AUD-101|AUD-160|AUD-161","portable/native AVX contract target; structural symbol check; low-order primitive/decode and boundary rejection tests; batch challenge trace","single subgroup Pippenger path; GT hard rename; low-order basic/decode contracts and individual membership pass; batch checker trusts caller challenges","complete Phase 16 review and safe batch-validation design remain pending","036313a74842156664637aaee5a5439a125f5c81","Focused group-boundary remediation; AUD-094/AUD-160 validated and AUD-161 remains open."

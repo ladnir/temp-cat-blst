@@ -1,6 +1,7 @@
 #include "blst/avx/common/preprocess.h"
 #include "blst/avx/cpu/vector/vector_impl.hpp"
 #include "blst/avx/rns/elementwise_reduce.h"
+#include "blst/avx/rns/matrixnok_change_base.h"
 
 #include <cstdint>
 
@@ -35,4 +36,19 @@ extern "C" NOINLINE void audit_avx_reduce_bound40(
     value.load(in);
     const auto reduced = reducer->min_sub_reduce<40, 1>(Input(value));
     reduced.data.store(out);
+}
+
+extern "C" NOINLINE void audit_avx_matrixnok_r1_change_base(
+    uint64_t out_hi[8], uint64_t out_lo[8], const uint64_t residues_in[8],
+    const uint64_t initial_hi[8], const uint64_t initial_lo[8])
+{
+    std::array<AVXVector<8>, 1> residues;
+    std::array<AVXVector<8>, 1> high;
+    std::array<AVXVector<8>, 1> low;
+    residues[0].load(residues_in);
+    high[0].load(initial_hi);
+    low[0].load(initial_lo);
+    blst::avx::matrixnok::r1_change_base_raw_batch(residues, high, low);
+    high[0].store(out_hi);
+    low[0].store(out_lo);
 }
