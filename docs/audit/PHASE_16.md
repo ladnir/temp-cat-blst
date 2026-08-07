@@ -174,3 +174,27 @@ add/double remain 12.6% and 11.3% slower than VROOM and are recorded as future
 optimization targets, not concealed by the end-to-end result. Exact evidence,
 source hashes, rejected alternatives, and residual proof gates are in
 `docs/avx/G1_EVIDENCE.md`.
+
+## MatrixNoK Fp12 and GT candidate
+
+Implementation commit `1011916baf69a4ecb4b0e012c30a74051c8ec850`
+adds an isolated production-shaped Fp12/GT candidate. The generic Fp12 owner
+now receives a parameter-specific constants policy, while its default policy
+preserves the incumbent source surface and production behavior.
+
+The first translation exposed `AUD-216`: fixed wide-arithmetic constants were
+selected by the shared 50-bit limb width even though the incumbent and
+MatrixNoK rings have different RNS moduli. Explicit parameter binding and an
+independent constant validator close that silent cross-basis correctness bug.
+Code-generation review also closed `AUD-217` by retaining a fixed outer loop
+instead of forcibly cloning all eight R2 rows, restoring VROOM-equivalent IFMA
+counts and code size.
+
+All 13 focused native AVX-512IFMA tests pass, including general Fp12,
+Frobenius, cyclotomic, and CT/VT GT exponent cases against scalar CatBLST. One
+serial Clang 21 process measured Fp12 multiplication at 303 ns, versus 362 ns
+for the incumbent and 304 ns for pinned VROOM. The 256-element inverse GT FFT
+is 13.9% faster than the incumbent and 1.0% slower than VROOM; the
+1,024-element case is 13.6% faster than the incumbent and 3.1% slower than
+VROOM. The latter and the 4.5% cyclotomic-square gap remain explicit residual
+optimization work. Exact evidence is in `docs/avx/FP12_EVIDENCE.md`.

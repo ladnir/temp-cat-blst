@@ -151,6 +151,27 @@ or allocation. Direct generic-helper differential tests, native code
 generation, and serial remeasurement validate the redesign. Formal proof and
 the remaining field-tower work still gate production selection.
 
+## Fp12 and GT candidate packet
+
+`matrixnok_fp12.h` supplies a stateless constants policy to the existing Fp12
+arithmetic template. Fixed offsets and Frobenius values are bound to the exact
+MatrixNoK parameter set rather than selected by limb width. This prevents the
+incumbent and candidate 50-bit rings from silently sharing incompatible RNS
+constants (`AUD-216`). The generic template keeps its existing default policy,
+so production dispatch and source compatibility are unchanged.
+
+Focused native tests compare multiplication, squaring, Frobenius maps,
+conjugation, cyclotomic squaring, and CT/VT GT exponentiation with scalar
+CatBLST. The core multiplication matches pinned VROOM's IFMA counts and code
+size after removing harmful forced unrolling from the fixed outer R2 loop
+(`AUD-217`). Same-process measurements put candidate Fp12 multiplication at
+303 ns versus 362 ns for the incumbent and 304 ns for VROOM. Exact evidence,
+rejected alternatives, residual cyclotomic/FFT gaps, and source hashes are in
+`FP12_EVIDENCE.md`.
+
+The candidate remains isolated. Sparse Fp12, G2, Miller, final exponentiation,
+pairing integration, formal proof, and release evidence still gate selection.
+
 ## FFT preview packet
 
 A benchmark-only adapter compiles the complete pinned VROOM Fp12 stack in the
