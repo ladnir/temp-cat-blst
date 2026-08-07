@@ -359,10 +359,10 @@ inline div_by_z_result div_by_z(const std::array<uint8_t, 16>& a) {
     return out;
 }
 
-template<class Ring>
+template<class Ring, class Curve = G1<Ring>>
 class GLVMult {
     public:
-    using G1Curve = G1<Ring>;
+    using G1Curve = Curve;
     using ProjectivePoint = typename G1Curve::ProjPoint;
 
     typename Ring::StandardElement beta;

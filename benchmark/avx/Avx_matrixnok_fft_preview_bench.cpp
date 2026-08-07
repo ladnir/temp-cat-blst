@@ -6,6 +6,7 @@
 #include <benchmark/benchmark.h>
 
 #include "blst/backend/backend.h"
+#include "blst/avx/curve/matrixnok_g1.h"
 #include "blst/avx/curve/point.h"
 #include "blst/avx/fft/gt_context.h"
 #include "blst/common/bytes.h"
@@ -26,6 +27,7 @@ namespace
 {
     using AvxG1 = blst::avx::G1Point;
     using AvxGt = blst::avx::AvxGt52;
+    namespace matrixnok = blst::avx::matrixnok;
 
     std::vector<blst::Fr> make_roots(const std::size_t n, const bool inverse)
     {
@@ -89,6 +91,47 @@ namespace
         }
     };
 
+    struct MatrixNoKG1FftCtx
+    {
+        inline static const matrixnok::FpRingCandidate ring = {};
+        inline static const matrixnok::G1CurveCandidate curve = {};
+        inline static const matrixnok::G1GLVCandidate glv = {curve, ring};
+
+        static matrixnok::G1ProjectiveCandidate plus(
+            const matrixnok::G1ProjectiveCandidate& left,
+            const matrixnok::G1ProjectiveCandidate& right)
+        {
+            return curve.add_point(left, right, ring);
+        }
+
+        static matrixnok::G1ProjectiveCandidate minus(
+            const matrixnok::G1ProjectiveCandidate& left,
+            const matrixnok::G1ProjectiveCandidate& right)
+        {
+            return plus(left, curve.negate(right, ring));
+        }
+
+        static matrixnok::G1ProjectiveCandidate mult(
+            const matrixnok::G1ProjectiveCandidate& point,
+            const blst::Fr& scalar)
+        {
+            return glv.multiply_vartime(point, scalar_bytes(scalar), ring);
+        }
+
+        static blst::Fr inverse(const blst::Fr& value)
+        {
+            blst::Fr out;
+            blst::Fr::reciprocal(out, value);
+            return out;
+        }
+
+        template<class>
+        static blst::Fr from_u64(const uint64_t value)
+        {
+            return blst::Fr::from_uint64(value);
+        }
+    };
+
     std::vector<AvxG1> make_g1_data(const std::size_t n)
     {
         std::vector<AvxG1> out(n);
@@ -99,6 +142,49 @@ namespace
             current = AvxG1FftCtx::plus(current, generator);
         }
         return out;
+    }
+
+    matrixnok::G1ProjectiveCandidate make_matrixnok_g1_generator()
+    {
+        const auto affine = blst::scalar::G1AffinePoint::generator();
+        return matrixnok::G1ProjectiveCandidate(
+            MatrixNoKG1FftCtx::ring.from_scalar(affine.x),
+            MatrixNoKG1FftCtx::ring.from_scalar(affine.y),
+            MatrixNoKG1FftCtx::ring.one());
+    }
+
+    std::vector<matrixnok::G1ProjectiveCandidate> make_matrixnok_g1_data(
+        const std::size_t n)
+    {
+        std::vector<matrixnok::G1ProjectiveCandidate> out(n);
+        const auto generator = make_matrixnok_g1_generator();
+        auto current = generator;
+        for (std::size_t i = 0; i < n; ++i) {
+            out[i] = current;
+            current = MatrixNoKG1FftCtx::plus(current, generator);
+        }
+        return out;
+    }
+
+    void BM_CatBLST_MatrixNoKCandidate_G1Add(benchmark::State& state)
+    {
+        const auto generator = make_matrixnok_g1_generator();
+        auto current = generator;
+        for (auto _ : state) {
+            current = MatrixNoKG1FftCtx::curve.add_point(
+                current, generator, MatrixNoKG1FftCtx::ring);
+            benchmark::DoNotOptimize(current);
+        }
+    }
+
+    void BM_CatBLST_MatrixNoKCandidate_G1Double(benchmark::State& state)
+    {
+        auto current = make_matrixnok_g1_generator();
+        for (auto _ : state) {
+            current = MatrixNoKG1FftCtx::curve.double_point(
+                current, MatrixNoKG1FftCtx::ring);
+            benchmark::DoNotOptimize(current);
+        }
     }
 
     std::vector<AvxGt> make_gt_data(const std::size_t n)
@@ -128,6 +214,26 @@ namespace
             state.ResumeTiming();
             const auto start = std::chrono::steady_clock::now();
             fft<AvxG1, blst::Fr, AvxG1FftCtx>(data, roots, false);
+            const auto finish = std::chrono::steady_clock::now();
+            state.SetIterationTime(std::chrono::duration<double>(finish - start).count());
+            benchmark::DoNotOptimize(data.data());
+        }
+    }
+
+    void BM_CatBLST_MatrixNoKCandidate_G1Forward(benchmark::State& state)
+    {
+        const std::size_t n = static_cast<std::size_t>(state.range(0));
+        const auto roots = make_roots(n, false);
+        const auto original = make_matrixnok_g1_data(n);
+        std::vector<matrixnok::G1ProjectiveCandidate> data(n);
+
+        for (auto _ : state) {
+            state.PauseTiming();
+            data = original;
+            state.ResumeTiming();
+            const auto start = std::chrono::steady_clock::now();
+            fft<matrixnok::G1ProjectiveCandidate, blst::Fr, MatrixNoKG1FftCtx>(
+                data, roots, false);
             const auto finish = std::chrono::steady_clock::now();
             state.SetIterationTime(std::chrono::duration<double>(finish - start).count());
             benchmark::DoNotOptimize(data.data());
@@ -166,6 +272,11 @@ namespace
     BENCHMARK(BM_CatBLST_Incumbent_G1Forward)
         ->Arg(256)->Arg(1024)->Arg(4096)->Arg(16384)
         ->UseManualTime()->Unit(benchmark::kMillisecond);
+    BENCHMARK(BM_CatBLST_MatrixNoKCandidate_G1Forward)
+        ->Arg(256)->Arg(1024)->Arg(4096)->Arg(16384)
+        ->UseManualTime()->Unit(benchmark::kMillisecond);
+    BENCHMARK(BM_CatBLST_MatrixNoKCandidate_G1Add);
+    BENCHMARK(BM_CatBLST_MatrixNoKCandidate_G1Double);
     BENCHMARK(BM_CatBLST_Incumbent_GTInverse)
         ->Arg(256)->Arg(1024)->Arg(4096)->Arg(16384)
         ->UseManualTime()->Unit(benchmark::kMillisecond);

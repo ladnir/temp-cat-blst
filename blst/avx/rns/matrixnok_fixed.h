@@ -21,7 +21,10 @@ namespace blst::avx::matrixnok::detail
     // allocation, guard variable, or mutable process state.
     inline constexpr int limbs = 8;
     inline constexpr int element_bits = 50;
-    inline constexpr int log_modulus_multiples = 6;
+    // G1's complete formulas transiently create signed bounds well beyond the
+    // base-field-only reduction gap. Match VROOM's EC-depth table while
+    // retaining the same fixed, compile-time reducer representation.
+    inline constexpr int log_modulus_multiples = 12;
     inline constexpr int multiply_bits = 52;
     inline constexpr int quotient_precision = 64;
 

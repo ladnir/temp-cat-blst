@@ -22,6 +22,14 @@ ARRAY_NAMES = (
     "moduli2",
     "moduli1_padded",
     "moduli2_padded",
+    "one_m1",
+    "one_m2",
+    "modulus_in_rns_m1",
+    "modulus_in_rns_m2",
+    "six_modulus_in_rns_m1",
+    "six_modulus_in_rns_m2",
+    "max_neg_offset_m1",
+    "max_neg_offset_m2",
     "r1_perm_mat_fixed",
     "r1_rns_mat",
     "r1_correction",
@@ -79,6 +87,14 @@ def parse_header(path: Path) -> tuple[dict[str, int], dict[str, list[int]]]:
     for name in (
         "moduli1",
         "moduli2",
+        "one_m1",
+        "one_m2",
+        "modulus_in_rns_m1",
+        "modulus_in_rns_m2",
+        "six_modulus_in_rns_m1",
+        "six_modulus_in_rns_m2",
+        "max_neg_offset_m1",
+        "max_neg_offset_m2",
         "r1_perm_mat_fixed",
         "r2_rns_mat",
         "r2_correction",
@@ -210,6 +226,31 @@ def validate_constants(s: dict[str, int], a: dict[str, list[int]]) -> None:
     require(m1 > 6 * p and m2 > 6 * p, "RNS dynamic range is below the imported design bound")
     require(s["total_rotation"] * s["total_inv_rotation"] % combined == 1, "rotation inverse is invalid")
     require(s["inv_factor_target"] == pow(m1, -1, p), "target inverse factor is invalid")
+
+    def exact_montgomery(value: int, *, wide: bool = False) -> tuple[list[int], list[int]]:
+        redundance = value // p
+        encoded = value * m1 % p
+        if wide:
+            encoded = encoded * m1 % p
+        encoded += redundance * p
+        encoded = encoded * s["total_rotation"] % combined
+        if wide:
+            encoded = encoded * s["total_rotation"] % combined
+        return (
+            [encoded % modulus for modulus in m1_moduli],
+            [encoded % modulus for modulus in m2_moduli],
+        )
+
+    fixed_values = (
+        ("one", 1, False),
+        ("modulus_in_rns", 40 * p, False),
+        ("six_modulus_in_rns", 6 * 40 * p, False),
+        ("max_neg_offset", 1932 * 40 * 40 * p * p, True),
+    )
+    for name, value, wide in fixed_values:
+        expected_m1, expected_m2 = exact_montgomery(value, wide=wide)
+        require(a[f"{name}_m1"] == expected_m1, f"{name} M1 encoding is invalid")
+        require(a[f"{name}_m2"] == expected_m2, f"{name} M2 encoding is invalid")
 
     radix = 1 << 52
     inverse_factor = pow(m1, -1, m2)

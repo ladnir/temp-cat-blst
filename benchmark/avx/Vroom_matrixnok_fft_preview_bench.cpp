@@ -420,6 +420,29 @@ namespace
         return out;
     }
 
+    void BM_VROOM_MatrixNoK_G1Add(benchmark::State& state)
+    {
+        const G1Ring ring(BigInt(field_modulus_decimal, 10));
+        const Curve curve;
+        const Point generator = g1_generator(ring);
+        Point current = generator;
+        for (auto _ : state) {
+            current = curve.add_point(current, generator, ring);
+            benchmark::DoNotOptimize(current);
+        }
+    }
+
+    void BM_VROOM_MatrixNoK_G1Double(benchmark::State& state)
+    {
+        const G1Ring ring(BigInt(field_modulus_decimal, 10));
+        const Curve curve;
+        Point current = g1_generator(ring);
+        for (auto _ : state) {
+            current = curve.double_point(current, ring);
+            benchmark::DoNotOptimize(current);
+        }
+    }
+
     Gt gt_generator(const Ring& ring)
     {
         std::array<unsigned char, 12 * 48> bytes = {};
@@ -680,6 +703,8 @@ namespace
     BENCHMARK(BM_VROOM_MatrixNoK_G1Forward)
         ->Arg(256)->Arg(1024)->Arg(4096)->Arg(16384)
         ->UseManualTime()->Unit(benchmark::kMillisecond);
+    BENCHMARK(BM_VROOM_MatrixNoK_G1Add);
+    BENCHMARK(BM_VROOM_MatrixNoK_G1Double);
     BENCHMARK(BM_VROOM_MatrixNoK_GTInverse)
         ->Arg(256)->Arg(1024)->Arg(4096)->Arg(16384)
         ->UseManualTime()->Unit(benchmark::kMillisecond);

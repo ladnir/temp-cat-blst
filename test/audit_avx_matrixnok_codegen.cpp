@@ -4,6 +4,7 @@
 #include "blst/avx/rns/matrixnok_change_base.h"
 #include "blst/avx/rns/matrixnok_fp.h"
 #include "blst/avx/fields/matrixnok_fp2.h"
+#include "blst/avx/curve/matrixnok_g1.h"
 
 #include <cstdint>
 
@@ -78,4 +79,23 @@ extern "C" NOINLINE void audit_avx_matrixnok_fp2_square(
 {
     const blst::avx::matrixnok::Fp2RingCandidate fp2ring;
     fp2ring.square(*out, *value);
+}
+
+extern "C" NOINLINE void audit_avx_matrixnok_g1_add(
+    blst::avx::matrixnok::G1ProjectiveCandidate* out,
+    const blst::avx::matrixnok::G1ProjectiveCandidate* left,
+    const blst::avx::matrixnok::G1ProjectiveCandidate* right)
+{
+    const blst::avx::matrixnok::FpRingCandidate ring;
+    const blst::avx::matrixnok::G1CurveCandidate curve;
+    *out = curve.add_point(*left, *right, ring);
+}
+
+extern "C" NOINLINE void audit_avx_matrixnok_g1_double(
+    blst::avx::matrixnok::G1ProjectiveCandidate* out,
+    const blst::avx::matrixnok::G1ProjectiveCandidate* value)
+{
+    const blst::avx::matrixnok::FpRingCandidate ring;
+    const blst::avx::matrixnok::G1CurveCandidate curve;
+    *out = curve.double_point(*value, ring);
 }
