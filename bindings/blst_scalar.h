@@ -149,9 +149,9 @@ void blst_fr_add(blst_fr* ret, const blst_fr* a, const blst_fr* b);
 void blst_fr_sub(blst_fr* ret, const blst_fr* a, const blst_fr* b);
 /** Multiplies an Fr value by the integer constant 3. */
 void blst_fr_mul_by_3(blst_fr* ret, const blst_fr* a);
-/** Multiplies an Fr value by `2^count` modulo r; a zero count copies `a`. */
+/** Multiplies an Fr value by `2^count` modulo r; `count` is public and zero copies `a`. */
 void blst_fr_lshift(blst_fr* ret, const blst_fr* a, size_t count);
-/** Divides an Fr value by `2^count` modulo r; a zero count copies `a`. */
+/** Divides an Fr value by `2^count` modulo r; `count` is public and zero copies `a`. */
 void blst_fr_rshift(blst_fr* ret, const blst_fr* a, size_t count);
 /** Multiplies two Montgomery-form Fr values and writes the product to `ret`. */
 void blst_fr_mul(blst_fr* ret, const blst_fr* a, const blst_fr* b);
@@ -218,7 +218,7 @@ void blst_fp_sub(blst_fp* ret, const blst_fp* a, const blst_fp* b);
 void blst_fp_mul_by_3(blst_fp* ret, const blst_fp* a);
 /** Multiplies an Fp value by the integer constant 8. */
 void blst_fp_mul_by_8(blst_fp* ret, const blst_fp* a);
-/** Multiplies an Fp value by `2^count` modulo p; a zero count copies `a`. */
+/** Multiplies an Fp value by `2^count` modulo p; `count` is public and zero copies `a`. */
 void blst_fp_lshift(blst_fp* ret, const blst_fp* a, size_t count);
 /** Multiplies two Montgomery-form Fp values and writes the product to `ret`. */
 void blst_fp_mul(blst_fp* ret, const blst_fp* a, const blst_fp* b);
@@ -291,7 +291,7 @@ void blst_fp2_sub(blst_fp2* ret, const blst_fp2* a, const blst_fp2* b);
 void blst_fp2_mul_by_3(blst_fp2* ret, const blst_fp2* a);
 /** Multiplies an Fp2 value by the integer constant 8. */
 void blst_fp2_mul_by_8(blst_fp2* ret, const blst_fp2* a);
-/** Multiplies an Fp2 value by `2^count` modulo p; a zero count copies `a`. */
+/** Multiplies an Fp2 value by `2^count` modulo p; `count` is public and zero copies `a`. */
 void blst_fp2_lshift(blst_fp2* ret, const blst_fp2* a, size_t count);
 /** Multiplies two Montgomery-form Fp2 values and writes the product to `ret`. */
 void blst_fp2_mul(blst_fp2* ret, const blst_fp2* a, const blst_fp2* b);
@@ -336,7 +336,11 @@ void blst_fp12_sqr(blst_fp12* ret, const blst_fp12* a);
  * subgroup; Release does not validate this precondition. Use `blst_fp12_sqr`
  * for a general Fp12 value. */
 void blst_fp12_cyclotomic_sqr(blst_fp12* ret, const blst_fp12* a);
-/** Multiplies `a` by a sparse `xy00z0` Fp6 value and writes the result to `ret`. */
+/**
+ * Multiply by packed `{x,y,z}` representing the sparse Fp12 element
+ * `((x,y,0),(0,z,0))`. `xy00z0` is not an ordinary Fp6 multiplier.
+ * Exact `ret == a` aliasing is supported; partial overlap is not.
+ */
 void blst_fp12_mul_by_xy00z0(blst_fp12* ret, const blst_fp12* a, const blst_fp6* xy00z0);
 /** Replaces `a` with its Fp12 conjugate in place. */
 void blst_fp12_conjugate(blst_fp12* a);

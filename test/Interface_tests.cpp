@@ -512,19 +512,26 @@ TEST(InterfaceTests, MulBy3ModV256) {
 
 TEST(InterfaceTests, CNegModV256) {
 	Fr a, p, ret_asm, ret_portable;
-	bool_t flag = true;
+	const bool_t flags[] = { 0, 1, 2, ~(bool_t)0 };
 	int trials = 10;
 
 	for (int t = 0; t < trials; t++)
 	{
 		memcpy(p.l, get_BLST_r().l, sizeof(Fr));
 		generate_random_Fr(a, p);
-		// Compute using both implementations
-		cneg_mod_256(ret_asm.l, a.l, flag, p.l); // ASM implementation
-		//cc_cneg_mod_256(ret_portable, a, flag, p); // Portable implementation
-		cc_cneg_mod_n<NLIMBS(256)>(ret_portable.l, a.l, flag, p.l);
+		for (bool_t flag : flags) {
+			cneg_mod_256(ret_asm.l, a.l, flag, p.l);
+			cc_cneg_mod_n<NLIMBS(256)>(ret_portable.l, a.l, flag, p.l);
+			EXPECT_TRUE(Fr_equal(ret_asm, ret_portable))
+				<< "Mismatch in cneg_mod_v256 for flag " << flag;
+		}
+	}
 
-		EXPECT_TRUE(Fr_equal(ret_asm, ret_portable)) << "Mismatch in cneg_mod_v256";
+	memset(a.l, 0, sizeof(a));
+	for (bool_t flag : flags) {
+		cneg_mod_256(ret_asm.l, a.l, flag, p.l);
+		cc_cneg_mod_n<NLIMBS(256)>(ret_portable.l, a.l, flag, p.l);
+		EXPECT_TRUE(Fr_equal(ret_asm, ret_portable));
 	}
 }
 
@@ -866,7 +873,7 @@ TEST(InterfaceTests, MulBy3ModV384) {
 
 TEST(InterfaceTests, CNegModV384) {
 	Fp a, p, ret_asm, ret_portable;
-	bool_t flag = true;
+	const bool_t flags[] = { 0, 1, 2, ~(bool_t)0 };
 
 	int trials = 10;
 	InsecureRng rng;
@@ -876,12 +883,19 @@ TEST(InterfaceTests, CNegModV384) {
 		memcpy(p.l, get_BLST_P().l, sizeof(Fp));
 		generate_random_Fp(a, rng);
 
+		for (bool_t flag : flags) {
+			cneg_mod_384(ret_asm.l, a.l, flag, p.l);
+			cc_cneg_mod_n<NLIMBS(384)>(ret_portable.l, a.l, flag, p.l);
+			EXPECT_TRUE(Fp_equal(ret_asm, ret_portable))
+				<< "Mismatch in cneg_mod_v384 for flag " << flag;
+		}
+	}
+
+	memset(a.l, 0, sizeof(a));
+	for (bool_t flag : flags) {
 		cneg_mod_384(ret_asm.l, a.l, flag, p.l);
-		//cc_cneg_mod_384(ret_portable, a, flag, p);
 		cc_cneg_mod_n<NLIMBS(384)>(ret_portable.l, a.l, flag, p.l);
-
-
-		EXPECT_TRUE(Fp_equal(ret_asm, ret_portable)) << "Mismatch in cneg_mod_v384";
+		EXPECT_TRUE(Fp_equal(ret_asm, ret_portable));
 	}
 }
 

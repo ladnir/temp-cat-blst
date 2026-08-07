@@ -328,3 +328,22 @@ TEST(Fp2Test, ZeroBitLShiftIsIdentity) {
     Fp2::lshift(value, value, 0);
     EXPECT_TRUE(vec_is_equal(&result, &value, sizeof(value)));
 }
+
+TEST(Fp2Test, MontgomeryTransformsSupportExactAliasing) {
+    Fp2 conventional{};
+    conventional[0][0] = 7;
+    conventional[1][0] = 11;
+
+    Fp2 encoded;
+    Fp2::to_mont(encoded, conventional);
+
+    Fp2 decoded;
+    Fp2::from_mont(decoded, encoded);
+    EXPECT_TRUE(vec_is_equal(&decoded, &conventional, sizeof(decoded)));
+
+    Fp2 alias = conventional;
+    Fp2::to_mont(alias, alias);
+    EXPECT_TRUE(vec_is_equal(&alias, &encoded, sizeof(alias)));
+    Fp2::from_mont(alias, alias);
+    EXPECT_TRUE(vec_is_equal(&alias, &conventional, sizeof(alias)));
+}

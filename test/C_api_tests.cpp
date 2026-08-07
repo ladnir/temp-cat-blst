@@ -646,6 +646,66 @@ TEST(CApi, ZeroBitScalarShiftsAreIdentity)
     EXPECT_TRUE(blst::vec_is_equal(&shifted_fp2, &fp2, sizeof(fp2)));
 }
 
+TEST(CApi, PublicFieldShiftsBoundExtremeCounts)
+{
+    const uint64_t fr_words[4] = {0x123456789abcdef0ULL, 0, 0, 0};
+    const uint64_t fp_words[6] = {0x0fedcba987654321ULL, 0, 0, 0, 0, 0};
+    BoundaryFr fr = {};
+    BoundaryFp fp = {};
+    blst_fr_from_uint64(&fr, fr_words);
+    blst_fp_from_uint64(&fp, fp_words);
+
+    const size_t counts[] = {257, std::numeric_limits<size_t>::max()};
+    for (size_t count : counts) {
+        std::array<unsigned char, sizeof(size_t)> exponent = {};
+        size_t value = count;
+        size_t bits = 0;
+        for (size_t i = 0; i < exponent.size(); ++i) {
+            exponent[i] = static_cast<unsigned char>(value);
+            value >>= 8;
+        }
+        for (value = count; value != 0; value >>= 1)
+            ++bits;
+
+        BoundaryFr fr_two;
+        BoundaryFr::add(fr_two, BoundaryFr::one(), BoundaryFr::one());
+        BoundaryFr fr_factor;
+        BoundaryFr::exp(fr_factor, fr_two, exponent.data(), bits);
+        BoundaryFr fr_expected;
+        BoundaryFr::mul(fr_expected, fr, fr_factor);
+        BoundaryFr fr_actual;
+        blst_fr_lshift(&fr_actual, &fr, count);
+        EXPECT_TRUE(BoundaryFr::equal(fr_actual, fr_expected));
+
+        BoundaryFr fr_half;
+        BoundaryFr::rshift(fr_half, BoundaryFr::one(), 1);
+        BoundaryFr::exp(fr_factor, fr_half, exponent.data(), bits);
+        BoundaryFr::mul(fr_expected, fr, fr_factor);
+        blst_fr_rshift(&fr_actual, &fr, count);
+        EXPECT_TRUE(BoundaryFr::equal(fr_actual, fr_expected));
+
+        BoundaryFp fp_two;
+        BoundaryFp::add(fp_two, BoundaryFp::one(), BoundaryFp::one());
+        BoundaryFp fp_factor;
+        BoundaryFp::exp(fp_factor, fp_two, exponent.data(), bits);
+        BoundaryFp fp_expected;
+        BoundaryFp::mul(fp_expected, fp, fp_factor);
+        BoundaryFp fp_actual;
+        blst_fp_lshift(&fp_actual, &fp, count);
+        EXPECT_TRUE(BoundaryFp::equal(fp_actual, fp_expected));
+
+        BoundaryFp2 fp2 = {};
+        fp2[0] = fp;
+        fp2[1] = BoundaryFp::one();
+        BoundaryFp2 fp2_actual;
+        blst_fp2_lshift(&fp2_actual, &fp2, count);
+        BoundaryFp fp2_expected_1;
+        BoundaryFp::mul(fp2_expected_1, fp2[1], fp_factor);
+        EXPECT_TRUE(BoundaryFp::equal(fp2_actual[0], fp_expected));
+        EXPECT_TRUE(BoundaryFp::equal(fp2_actual[1], fp2_expected_1));
+    }
+}
+
 TEST(CApi, FpUint32RoundTripAcceptsOnlyUint32Alignment)
 {
     alignas(8) std::array<unsigned char, sizeof(unsigned int) * 12 + 4> input_storage = {};

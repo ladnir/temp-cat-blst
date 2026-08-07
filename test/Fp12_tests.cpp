@@ -114,12 +114,12 @@ TEST(Fp12Test, Squaring) {
 	EXPECT_TRUE(vec_is_equal(&a_squared1, &a_squared2, sizeof(Fp12)))
 		<< "a² computed by multiplication and squaring should be equal";
 
-	// Test cyclotomic squaring if a is in the cyclotomic subgroup
-	// This is just a basic test, not a comprehensive one
-	Fp12 cyc_squared;
-	Fp12::cyclotomic_sqr(cyc_squared, a);
-	// We don't expect cyclotomic_sqr to equal regular squaring for arbitrary elements
-	// So we just test that the function runs without errors
+	Fp12 cyclotomic, cyc_squared, general_squared;
+	Fp12::final_exp(cyclotomic, a);
+	ASSERT_TRUE(Fp12::is_cyclotomic(cyclotomic));
+	Fp12::cyclotomic_sqr(cyc_squared, cyclotomic);
+	Fp12::sqr(general_squared, cyclotomic);
+	EXPECT_TRUE(Fp12::equal(cyc_squared, general_squared));
 }
 
 TEST(Fp12Test, ExplicitScalarApisMatchDefaultApis) {

@@ -23,9 +23,10 @@ namespace blst::scalar
 	 * If `a'` is the canonical integer in `[0, r)`, the stored value is
 	 * `a = a' * R mod r`, where `R = 2^256`. Unless stated otherwise, operations
 	 * are modulo r, return reduced results, preserve Montgomery form, and are
-	 * intended to be constant-time with respect to secret data. Ordinary
-	 * arithmetic supports exact output aliasing with an input; partial overlap is
-	 * not supported. Inputs must already satisfy the stated reduced
+	 * constant-time with respect to field values unless documented otherwise.
+	 * Public control inputs such as exponent bits and shift counts may affect
+	 * work. Ordinary arithmetic supports exact output aliasing with an input;
+	 * partial overlap is not supported. Inputs must already satisfy the stated reduced
 	 * representation. Debug assertions do not constitute Release validation.
 	 * Host operations allocate nothing and are nonthrowing for valid inputs.
 	 */
@@ -52,9 +53,11 @@ namespace blst::scalar
 		BLST_HD static void sub(Fr& ret, const Fr& a, const Fr& b);
 		/// @brief `ret = a * b mod r` with Montgomery inputs and output.
 		BLST_HD static void mul(Fr& ret, const Fr& a, const Fr& b);
-		/// @brief `ret = a^x mod r`.
+		/// @brief Variable-time `ret = a^x mod r` for a public exponent.
 		/// @param x Little-endian exponent bytes.
-		/// @param x_bits Number of meaningful bits in @p x; zero returns one.
+		/// @param x_bits Number of meaningful bits in @p x; zero returns one and permits null @p x.
+		/// @pre For nonzero @p x_bits, @p x points to `(x_bits + 7) / 8` readable
+		/// bytes and the most-significant declared bit is set.
 		BLST_HD static void exp(Fr& ret, const Fr& a, const byte* x, size_t x_bits);
 		/// @brief `ret = a^2 mod r`.
 		BLST_HD static void sqr(Fr& ret, const Fr& a);
@@ -63,14 +66,15 @@ namespace blst::scalar
 		/// @brief Convert a canonical representative to Montgomery form.
 		BLST_HD static void to_mont(Fr& ret, const Fr& a);
 		/// @brief Montgomery-reduce the double-width value @p a modulo r.
+		/// @pre Interpreted as an unsigned integer, `a < r * 2^256`.
 		BLST_HD static void redc(Fr& ret, const ::blst::UFr& a);
-		/// @brief Constant-time conditional negation: `ret = flag ? -a : a`.
+		/// @brief Constant-time conditional negation: zero copies @p a; any nonzero @p flag negates it.
 		BLST_HD static void cneg(Fr& ret, const Fr& a, limb_t flag);
 		/// @brief `ret = -a mod r`.
 		BLST_HD static void neg(Fr& ret, const Fr& a);
-		/// @brief `ret = a * 2^count mod r`.
+		/// @brief `ret = a * 2^count mod r`; @p count is public.
 		BLST_HD static void lshift(Fr& ret, const Fr& a, size_t count);
-		/// @brief `ret = a / 2^count mod r`.
+		/// @brief `ret = a / 2^count mod r`; @p count is public.
 		BLST_HD static void rshift(Fr& ret, const Fr& a, size_t count);
 		/// @brief `ret = 3 * a mod r`.
 		BLST_HD static void mul_by_3(Fr& ret, const Fr& a);
@@ -634,6 +638,12 @@ namespace blst::scalar
 	// ret = a mod r
 	BLST_HD BLST_FORCEINLINE  void Fr::redc(Fr& ret, const struct UFr& a)
 	{
+#ifndef NDEBUG
+		Fr upper;
+		for (size_t i = 0; i < num_limbs(); ++i)
+			upper[i] = a.data[num_limbs() + i];
+		BLST_ASSERT(Fr::is_redc(upper));
+#endif
 		redc_mont_v256(ret.l, a.data, modulus().l, BLST_r0);
 	}
 
@@ -652,13 +662,41 @@ namespace blst::scalar
 	// ret = a * 2^count
 	BLST_HD BLST_FORCEINLINE  void Fr::lshift(Fr& ret, const Fr& a, size_t count)
 	{
-		lshift_mod_v256(ret.l, a.l, count, get_BLST_r().l);
+		if (count <= 256) {
+			lshift_mod_v256(ret.l, a.l, count, get_BLST_r().l);
+			return;
+		}
+
+		Fr factor = Fr::one();
+		Fr power;
+		Fr::add(power, Fr::one(), Fr::one());
+		for (size_t exponent = count; exponent != 0; exponent >>= 1) {
+			if (exponent & 1)
+				Fr::mul(factor, factor, power);
+			if (exponent > 1)
+				Fr::sqr(power, power);
+		}
+		Fr::mul(ret, a, factor);
 	}
 
 	// ret = a / 2^count mod r
 	BLST_HD BLST_FORCEINLINE  void Fr::rshift(Fr& ret, const Fr& a, size_t count)
 	{
-		rshift_mod_v256(ret.l, a.l, count, get_BLST_r().l);
+		if (count <= 256) {
+			rshift_mod_v256(ret.l, a.l, count, get_BLST_r().l);
+			return;
+		}
+
+		Fr factor = Fr::one();
+		Fr power;
+		rshift_mod_v256(power.l, Fr::one().l, 1, get_BLST_r().l);
+		for (size_t exponent = count; exponent != 0; exponent >>= 1) {
+			if (exponent & 1)
+				Fr::mul(factor, factor, power);
+			if (exponent > 1)
+				Fr::sqr(power, power);
+		}
+		Fr::mul(ret, a, factor);
 	}
 
 	// out = a * 3

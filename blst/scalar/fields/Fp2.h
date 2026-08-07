@@ -19,8 +19,10 @@ namespace blst::scalar
      *
      * Elements are `a0 + u*a1`, stored as `(a0, a1)`, with `u^2 = -1`.
      * Components are Montgomery-encoded Fp values. Unless stated otherwise,
-     * operations accept and return Montgomery values and are intended to be
-     * constant-time. `reciprocal` uses the generally variable-time Lehmer
+     * operations accept and return Montgomery values and are constant-time
+     * with respect to field values unless documented otherwise. Public control
+     * inputs such as exponent bits and shift counts may affect work.
+     * `reciprocal` uses the generally variable-time Lehmer
      * almost-inverse; use `flt_reciprocal` where strict constant time is required.
      *
      * The extension-field sign follows RFC 9380: use `sgn0(a1)` when `a1 != 0`,
@@ -49,14 +51,16 @@ namespace blst::scalar
         BLST_HD static void mul(Fp2& ret, const Fp2& a, const Fp2& b);
         /// @brief `ret = a^2` in Fp2.
         BLST_HD static void sqr(Fp2& ret, const Fp2& a);
-        /// @brief `out = inp^pow` using a little-endian exponent.
-        /// @param pow_bits Number of meaningful bits in @p pow.
+        /// @brief Variable-time `out = inp^pow` using a public little-endian exponent.
+        /// @param pow_bits Number of meaningful bits in @p pow; zero returns one and permits null @p pow.
+        /// @pre For nonzero @p pow_bits, @p pow points to `(pow_bits + 7) / 8`
+        /// readable bytes and the most-significant declared bit is set.
         BLST_HD static void exp(Fp2& out, const Fp2& inp, const byte* pow, size_t pow_bits);
         ///@}
 
         /** @name Negation and conditional operations */
         ///@{
-        /// @brief Constant-time conditional negation: `ret = flag ? -a : a`.
+        /// @brief Constant-time conditional negation: zero copies @p a; any nonzero @p flag negates it.
         BLST_HD static void cneg(Fp2& ret, const Fp2& a, limb_t flag);
         /// @brief `ret = -a` in Fp2.
         BLST_HD static void neg(Fp2& ret, const Fp2& a);
@@ -79,8 +83,9 @@ namespace blst::scalar
         /// @brief Compute the fixed-chain inverse of nonzero @p inp.
         /// @post Zero maps to zero for branchless projective-infinity handling.
         BLST_HD static void flt_reciprocal(Fp2& out, const Fp2& inp);
-        /// @brief Compute the canonically aligned square root when it exists.
+        /// @brief Compute a square root when one exists; no RFC sign normalization is applied.
         /// @return One on success and zero for a nonsquare.
+        /// @note A candidate is written on success and failure; exact aliasing may overwrite @p inp.
         BLST_HD static limb_t sqrt(Fp2& out, const Fp2& inp);
         ///@}
 
@@ -90,7 +95,7 @@ namespace blst::scalar
         BLST_HD static void mul_by_3(Fp2& ret, const Fp2& a);
         /// @brief `ret = 8 * a` in Fp2.
         BLST_HD static void mul_by_8(Fp2& ret, const Fp2& a);
-        /// @brief `ret = a * 2^count` in Fp2.
+        /// @brief `ret = a * 2^count` in Fp2; @p count is public.
         BLST_HD static void lshift(Fp2& ret, const Fp2& a, size_t count);
         ///@}
 
@@ -107,13 +112,14 @@ namespace blst::scalar
         /// @brief Return one iff @p inp is a quadratic residue, including zero.
         BLST_HD static int is_square(const Fp2& inp);
         /// @brief Compute `out = inp^{-1/2}` when it exists.
-        /// @return One on success and zero otherwise.
+        /// @return One for zero or a nonzero square; zero otherwise.
+        /// @post Zero writes zero. A candidate is written on failure and must be ignored.
         BLST_HD static limb_t recip_sqrt(Fp2& out, const Fp2& inp);
         /**
-         * @brief Align a square-root candidate to the RFC 9380 sign convention.
+         * @brief Rotate an implementation square-root candidate to satisfy @p inp.
          *
-         * Selects between @p sqrt and its negation relative to @p inp. The @p ret
-         * parameter carries an implementation-specific candidate/intermediate.
+         * Selects among fixed algebraic rotations of @p ret after comparing
+         * `sqrt^2` with rotations of @p inp. This is not RFC sign normalization.
          *
          * @return One on success and zero when alignment is not applicable.
          */
@@ -376,6 +382,18 @@ Fp{ TO_LIMB_T(0x7bcfa7a25aa30fda), TO_LIMB_T(0xdc17dec12a927e7c),     \
                 Fp2::mul(ret, ret, inp/*, p, n0*/);
         }
         out = ret;
+    }
+
+    BLST_HD BLST_FORCEINLINE void Fp2::from_mont(Fp2& ret, const Fp2& a)
+    {
+        Fp::from_mont(ret[0], a[0]);
+        Fp::from_mont(ret[1], a[1]);
+    }
+
+    BLST_HD BLST_FORCEINLINE void Fp2::to_mont(Fp2& ret, const Fp2& a)
+    {
+        Fp::to_mont(ret[0], a[0]);
+        Fp::to_mont(ret[1], a[1]);
     }
 
     BLST_HD BLST_INLINE void cc_mul_by_3_mod_384x(Fp2& ret, const Fp2& a)

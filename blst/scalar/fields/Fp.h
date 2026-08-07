@@ -23,9 +23,11 @@ namespace blst::scalar
 	 * Values are stored in Montgomery form unless explicitly documented otherwise.
 	 * Here `R = 2^384 mod p`; `from_mont` returns the conventional representative
 	 * in `[0, p)`. Unless stated otherwise, operations are modulo p, return reduced
-	 * Montgomery values, and are intended to be constant-time with respect to
-	 * secret data. `reciprocal` uses the Lehmer almost-inverse and can be
-	 * variable-time; use `flt_reciprocal` where strict constant time is required.
+	 * Montgomery values, and are constant-time with respect to field values
+	 * unless documented otherwise. Public control inputs such as exponent bits
+	 * and shift counts may affect work. `reciprocal` uses the Lehmer
+	 * almost-inverse and can be variable-time; use `flt_reciprocal` where strict
+	 * constant time is required.
 	 * Ordinary arithmetic supports exact output aliasing with an input; partial
 	 * overlap is not supported. Inputs must already satisfy the stated reduced
 	 * representation. Debug assertions do not constitute Release validation.
@@ -63,9 +65,11 @@ namespace blst::scalar
 		BLST_HD static void sub(Fp& ret, const Fp& a, const Fp& b);
 		/// @brief `ret = a * b mod p`, preserving Montgomery form.
 		BLST_HD static void mul(Fp& ret, const Fp& a, const Fp& b);
-		/// @brief `ret = a^x mod p`.
+		/// @brief Variable-time `ret = a^x mod p` for a public exponent.
 		/// @param x Little-endian exponent bytes.
-		/// @param x_bits Number of meaningful bits in @p x; zero returns one.
+		/// @param x_bits Number of meaningful bits in @p x; zero returns one and permits null @p x.
+		/// @pre For nonzero @p x_bits, @p x points to `(x_bits + 7) / 8` readable
+		/// bytes and the most-significant declared bit is set.
 		BLST_HD static void exp(Fp& ret, const Fp& a, const byte* x, size_t x_bits);
 		/// @brief `ret = a^2 mod p`.
 		BLST_HD static void sqr(Fp& ret, const Fp& a);
@@ -79,12 +83,13 @@ namespace blst::scalar
 		/// @note If @p a is already Montgomery encoded, this multiplies it by R again.
 		BLST_HD static void to_mont(Fp& ret, const Fp& a);
 		/// @brief Montgomery-reduce the double-width value @p a modulo p.
+		/// @pre Interpreted as an unsigned integer, `a < p * 2^384`.
 		BLST_HD static void redc(Fp& ret, const ::blst::UFp& a);
 		///@}
 
 		/** @name Negation and conditional operations */
 		///@{
-		/// @brief Constant-time conditional negation: `ret = flag ? -a : a`.
+		/// @brief Constant-time conditional negation: zero copies @p a; any nonzero @p flag negates it.
 		BLST_HD static void cneg(Fp& ret, const Fp& a, limb_t flag);
 		/// @brief `ret = -a mod p`.
 		BLST_HD static void neg(Fp& ret, const Fp& a);
@@ -92,9 +97,9 @@ namespace blst::scalar
 
 		/** @name Shifts and small multipliers */
 		///@{
-		/// @brief `ret = a * 2^count mod p`.
+		/// @brief `ret = a * 2^count mod p`; @p count is public.
 		BLST_HD static void lshift(Fp& ret, const Fp& a, size_t count);
-		/// @brief `ret = a / 2^count mod p`.
+		/// @brief `ret = a / 2^count mod p`; @p count is public.
 		BLST_HD static void rshift(Fp& ret, const Fp& a, size_t count);
 		/// @brief `ret = a / 2 mod p`.
 		BLST_HD static void div_by_2(Fp& ret, const Fp& a);
@@ -129,7 +134,7 @@ namespace blst::scalar
 
 		/** @name Exponentiation helpers */
 		///@{
-		/// @brief `out = a^(2^count) * b`.
+		/// @brief `out = a^(2^count) * b`; @p count is public.
 		/// @note Count zero performs one multiplication; exact `out == b` aliasing is supported.
 		BLST_HD static void sqr_n_mul(Fp& out, const Fp& a, size_t count, const Fp& b);
 		///@}
@@ -331,6 +336,12 @@ namespace blst::scalar
 
 	BLST_HD BLST_FORCEINLINE void Fp::redc(Fp& ret, const struct UFp& a)
 	{
+#ifndef NDEBUG
+		Fp upper;
+		for (size_t i = 0; i < num_limb(); ++i)
+			upper[i] = a.data[num_limb() + i];
+		BLST_ASSERT(Fp::is_redc(upper));
+#endif
 		redc_mont_v384(ret.l, a.data, get_BLST_P().l, BLST_p0);
 	}
 
@@ -346,12 +357,40 @@ namespace blst::scalar
 
 	BLST_HD BLST_FORCEINLINE void Fp::lshift(Fp& ret, const Fp& a, size_t count)
 	{
-		lshift_mod_v384(ret.l, a.l, count, get_BLST_P().l);
+		if (count <= 256) {
+			lshift_mod_v384(ret.l, a.l, count, get_BLST_P().l);
+			return;
+		}
+
+		Fp factor = Fp::one();
+		Fp power;
+		Fp::add(power, Fp::one(), Fp::one());
+		for (size_t exponent = count; exponent != 0; exponent >>= 1) {
+			if (exponent & 1)
+				Fp::mul(factor, factor, power);
+			if (exponent > 1)
+				Fp::sqr(power, power);
+		}
+		Fp::mul(ret, a, factor);
 	}
 
 	BLST_HD BLST_FORCEINLINE void Fp::rshift(Fp& ret, const Fp& a, size_t count)
 	{
-		rshift_mod_v384(ret.l, a.l, count, get_BLST_P().l);
+		if (count <= 256) {
+			rshift_mod_v384(ret.l, a.l, count, get_BLST_P().l);
+			return;
+		}
+
+		Fp factor = Fp::one();
+		Fp power;
+		rshift_mod_v384(power.l, Fp::one().l, 1, get_BLST_P().l);
+		for (size_t exponent = count; exponent != 0; exponent >>= 1) {
+			if (exponent & 1)
+				Fp::mul(factor, factor, power);
+			if (exponent > 1)
+				Fp::sqr(power, power);
+		}
+		Fp::mul(ret, a, factor);
 	}
 
 	BLST_HD BLST_FORCEINLINE void Fp::div_by_2(Fp& ret, const Fp& a)

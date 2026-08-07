@@ -286,7 +286,7 @@ namespace blst
 	/**
 	 * @brief Conditionally negates a large integer modulo a given modulus.
 	 *
-	 * If `flag` is true, computes `(-a) mod p`; otherwise, returns `a mod p`.
+	 * If `flag` is nonzero, computes `(-a) mod p`; otherwise, returns `a mod p`.
 	 * The result is stored in `ret`. Assumes `n > 0`.
 	 */
 	template<size_t n>
@@ -305,6 +305,8 @@ namespace blst
 			borrow = wide.hi & 1;
 		}
 
+		/* Match the assembly contract: zero is false and every nonzero value is true. */
+		flag = (flag | ((limb_t)0 - flag)) >> (BLST_LIMB_SIZE - 1);
 		flag &= vec_is_zero(a, n * sizeof(limb_t)) ^ 1;
 		mask = (limb_t)0 - flag;
 

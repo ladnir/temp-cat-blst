@@ -35,3 +35,25 @@ extern "C" AUDIT_NOINLINE void audit_fp_exp_zero(
 {
     blst::Fp::exp(*out, *in, nullptr, 0);
 }
+
+extern "C" AUDIT_NOINLINE void audit_fr_lshift_3(
+    blst::Fr* out,
+    const blst::Fr* in)
+{
+    blst::Fr::lshift(*out, *in, 3);
+}
+
+extern "C" AUDIT_NOINLINE void audit_fp_lshift_3(
+    blst::Fp* out,
+    const blst::Fp* in)
+{
+    blst::Fp::lshift(*out, *in, 3);
+}
+
+extern "C" AUDIT_NOINLINE void audit_fr_lshift_public(
+    blst::Fr* out,
+    const blst::Fr* in,
+    size_t count)
+{
+    blst::Fr::lshift(*out, *in, count);
+}
