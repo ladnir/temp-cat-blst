@@ -2,7 +2,8 @@
 
 ## Packet boundary
 
-- Candidate implementation: `7e731d999780be0723c2335a4fc44ee54afd18aa`
+- Current candidate implementation: `2fc0ae98f962f5ab2259ed2d368f6328713b7310`
+- Original G1 selection implementation: `7e731d999780be0723c2335a4fc44ee54afd18aa`
 - Upstream algorithm commit: `d6ecd534c54a41702ea80ae75b52250b6d51b372`
 - Compared VROOM head: `26bd9aee2168f167583cf096add355547a7b56d4`
 - C++ curve owner: `blst/avx/curve/matrixnok_g1.h`
@@ -46,9 +47,13 @@ field value and preserves the exact integer needed for base extension.
 ## Native code generation
 
 Clang 21.1.8 compiled the G1 probes with `-O3 -DNDEBUG -march=native`.
-The selected complete-add probe contains no call, selected-vector wrapper,
-conversion object, or lane-memory round trip. Its body contains 447 IFMA
+The original selected complete-add probe contained no call, selected-vector
+wrapper, conversion object, or lane-memory round trip. It contained 447 IFMA
 instructions and a 600-byte logical stack adjustment with compiler spills.
+After the G2 packet centralized the signed-expansion-safe schedule, the same
+G1 probe remains fully inlined with no call; its current body is `0x188a`
+bytes and contains 363 IFMA instructions. This later source state retains the
+native scalar differential pass but will be remeasured with the G2 gate.
 
 The generic MatrixNoK point-double body contains 347 IFMA instructions, no
 internal calls, and no stack adjustment. Its explicit audit wrapper calls that
@@ -94,16 +99,18 @@ No losing benchmark-only arithmetic variant remains in the source.
 
 ## Exact correspondence inputs
 
+- `matrixnok_curve.h` SHA-256:
+  `9fec0e6abbdf727011a7b4f859f0ae551235ea9aee9d9f58c49ff61e12d13556`
 - `matrixnok_g1.h` SHA-256:
-  `5f8b316dcdd4b52d843c1436ad4943931fdc7ffa9138b8a64ef0105758de0436`
+  `cb0651d44a8390a624d846f78e51fc24f94afa98b349b6a6599f54bc18c5dfe6`
 - `matrixnok_fp.h` SHA-256:
-  `f1abef1cba77b5ec36e48e933088f976932e5c3da1c6438d05aa13aed89bb171`
+  `36143f479eee5460595bf632b5a9e803388a6549c505d9939000e7c853bfeadf`
 - `matrixnok_fixed.h` SHA-256:
-  `56ee0274712c4d1bb5487b9e0b4beed7bf6cdd373882b8821d9742fcbad39a45`
+  `73ba31d8a347208ac84173790a61929a34f443a0d47783cffa21559661ac026f`
 - `generated_matrixnok_constants.hpp` SHA-256:
-  `6bad0795032fe9a86567ada342d7766f0f4c3eff5e022699c2d18c1217044c93`
+  `d1bd0045e8d7f223cb332842bd4c9023daefc715079c0649fbce953cabdfea43`
 - `scalar_mult.h` SHA-256:
-  `3cb10e5cc953fcd927383828f3af5dc38f74b4b7d80ef25385ac11c090b164dd`
+  `b1a3a30196a5e1a24bcaddf9963791aba9115fdfe5ecc1abcef1b4c9d8004396`
 
 ## Residual gates
 

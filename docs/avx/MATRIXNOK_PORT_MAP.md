@@ -176,8 +176,26 @@ scalar CatBLST on three independent inputs. The production default policy
 still compiles unchanged. A MatrixNoK inversion boundary is deliberately not
 invented in this packet: the test imports an independently computed inverse.
 
-The candidate remains isolated. G2, MatrixNoK inversion, Miller and pairing
-integration, formal proof, and release evidence still gate selection.
+The candidate remains isolated. MatrixNoK inversion, G2 performance, Miller
+and pairing integration, formal proof, and release evidence still gate
+selection.
+
+## G2 candidate packet
+
+`matrixnok_g2.h` applies the existing GLS executor to a production-shaped,
+non-dispatched MatrixNoK G2 curve policy. G1 and G2 share the exact complete
+homogeneous add schedule in `matrixnok_curve.h`; Fp2 delegates signed
+small-basis expansion component-wise to the base ring. This centralization
+prevents the `AUD-215` repair from silently diverging across curve groups.
+
+Portable Debug compilation and Peach native AVX-512IFMA execution pass the
+focused complete-operation and CT/VT GLS scalar differentials. The complete
+add is fully inlined with no call or vector conversion boundary. Exact
+correctness and code-generation evidence is in `G2_EVIDENCE.md`.
+
+The packet does not select the candidate. A serial same-process incumbent,
+candidate, and pinned-VROOM performance gate remains required before further
+optimization or production integration.
 
 ## FFT preview packet
 

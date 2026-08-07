@@ -206,3 +206,22 @@ multiplication, exact aliasing, and three complete final-exponentiation chains;
 all 14 focused cases pass. The incumbent AVX GT translation unit recompiles
 unchanged. MatrixNoK inversion, G2, Miller, and pairing integration remain the
 next correctness gates.
+
+## MatrixNoK G2 candidate
+
+Implementation commit `2fc0ae9` adds an isolated production-shaped G2 curve
+policy and specializes the existing GLS executor through a compile-time curve
+parameter. Public symbols and production dispatch are unchanged.
+
+The initial G2 add exposed that `AUD-215` also applied through Fp2: negative
+m2-only cross terms were expanded without preserving their signed integer
+representative. G1 and G2 now share one complete-add schedule and Fp2 delegates
+the bound-aware lift to its base ring component-wise.
+
+All 16 focused native MatrixNoK tests pass on Peach under Clang 21, including
+G2 complete exceptional cases and CT/VT GLS against scalar CatBLST on two
+bases, boundary values, and deterministic dense scalars. The focused portable
+Debug translation unit compiles locally. Optimized G2 add is fully inlined
+with no calls; double and GLS retain the incumbent out-of-line template-body
+structure. No benchmark was run. Exact source hashes, code-generation facts,
+and residual gates are in `docs/avx/G2_EVIDENCE.md`.

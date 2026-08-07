@@ -74,6 +74,9 @@ are recorded in `FFT_PREVIEW_EVIDENCE.md`.
 The production-shaped MatrixNoK G1 candidate, independent scalar oracle,
 native code generation, and same-process incumbent/VROOM comparison are
 recorded in `G1_EVIDENCE.md`.
+The isolated MatrixNoK G2 candidate, scalar differential coverage, shared
+signed-expansion repair, and preliminary native code generation are recorded
+in `G2_EVIDENCE.md`; its performance gate remains open.
 The production-shaped Fp12/GT candidate, parameter-bound constant repair,
 native code generation, and same-process incumbent/VROOM comparison are
 recorded in `FP12_EVIDENCE.md`.
