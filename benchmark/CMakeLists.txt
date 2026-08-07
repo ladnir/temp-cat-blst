@@ -138,6 +138,7 @@ if(BLST_HAVE_AVX_VALIDATION_GMP)
     add_executable(avx_group_ops_benchmarks
         "main.cpp"
         "avx/Avx_group_ops_bench.cpp"
+        "avx/Avx_basefield_50bit_bench.cpp"
     )
     target_include_directories(avx_group_ops_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
     target_include_directories(avx_group_ops_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
