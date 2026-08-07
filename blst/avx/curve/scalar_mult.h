@@ -38,9 +38,15 @@ class PrecomputedTable {
 
     std::array<ProjectivePoint, (1 << table_log_size)> data;
 
+    PrecomputedTable() = default;
+
     PrecomputedTable(const std::array<ProjectivePoint, 1 << table_log_size> &data) : data(data) {}
 
     PrecomputedTable(const ProjectivePoint &P, const Curve &curve, const Ring &ring) {
+        build(P, curve, ring);
+    }
+
+    void build(const ProjectivePoint &P, const Curve &curve, const Ring &ring) {
         data[0] = P;
         // Build [P, 2P, ..., 2^table_log_size P] with one group operation
         // per new entry: double the half-indexed value or add P.
@@ -523,6 +529,7 @@ class GLSMult {
     template<int table_log_size=4>
     ProjectivePoint multiply(const ProjectivePoint &P, const std::array<uint8_t, 32> &SK, const FP2RingType &fp2ring, const G2Curve &curve, const Ring &ring) const {
         constexpr int table_size = 1 << table_log_size;
+        using Table = PrecomputedTable<G2Curve, FP2RingType, table_log_size>;
         div_by_zz_result split_zz;
         div_by_z_result split_low;
         div_by_z_result split_high;
@@ -538,19 +545,13 @@ class GLSMult {
         blst::vec_zero(&split_zz, sizeof(split_zz));
         blst::vec_zero(&split_low, sizeof(split_low));
         blst::vec_zero(&split_high, sizeof(split_high));
-        PrecomputedTable<G2Curve, FP2RingType, table_log_size> tableP(P, curve, fp2ring);
-        std::array<ProjectivePoint, table_size> table_psi_data;
-        std::array<ProjectivePoint, table_size> table_psi2_data;
-        std::array<ProjectivePoint, table_size> table_psi3_data;
+        std::array<Table, 4> tables;
+        tables[0].build(P, curve, fp2ring);
         for (int i = 0; i < table_size; i++) {
-            table_psi_data[i] = minus_psi(tableP.data[i], ring);
-            table_psi2_data[i] = minus_psi(table_psi_data[i], ring);
-            table_psi3_data[i] = minus_psi(table_psi2_data[i], ring);
+            tables[1].data[i] = minus_psi(tables[0].data[i], ring);
+            tables[2].data[i] = minus_psi(tables[1].data[i], ring);
+            tables[3].data[i] = minus_psi(tables[2].data[i], ring);
         }
-        PrecomputedTable<G2Curve, FP2RingType, table_log_size> tablePsi(table_psi_data);
-        PrecomputedTable<G2Curve, FP2RingType, table_log_size> tablePsi2(table_psi2_data);
-        PrecomputedTable<G2Curve, FP2RingType, table_log_size> tablePsi3(table_psi3_data);
-        std::array<PrecomputedTable<G2Curve, FP2RingType, table_log_size>, 4> tables = {tableP, tablePsi, tablePsi2, tablePsi3};
         ProjectivePoint result = table_msm<G2Curve, FP2RingType, 64, table_log_size, 4>(scalars, tables, curve, fp2ring);
         blst::vec_zero(&scalars, sizeof(scalars));
         return result;
@@ -632,6 +633,7 @@ class GLSMult {
     template<int table_log_size=4>
     ProjectivePoint multiply(const ProjectivePoint &P, const BigInt &SK, const FP2RingType &fp2ring, const G2Curve &curve, const Ring &ring) const {
         constexpr int table_size = 1 << table_log_size;
+        using Table = PrecomputedTable<G2Curve, FP2RingType, table_log_size>;
         const BigInt z("d201000000010000", 16);
         const BigInt zz("ac45a4010001a4020000000100000000", 16);
         BigInt sk_zz_high = SK / zz;
@@ -641,19 +643,13 @@ class GLSMult {
         BigInt sk_z_high_low = sk_zz_high % z;
         BigInt sk_z_high_high = sk_zz_high / z;
         std::array<BigInt, 4> scalars = {sk_z_low_low, sk_z_low_high, sk_z_high_low, sk_z_high_high};
-        PrecomputedTable<G2Curve, FP2RingType, table_log_size> tableP(P, curve, fp2ring);
-        std::array<ProjectivePoint, table_size> table_psi_data;
-        std::array<ProjectivePoint, table_size> table_psi2_data;
-        std::array<ProjectivePoint, table_size> table_psi3_data;
+        std::array<Table, 4> tables;
+        tables[0].build(P, curve, fp2ring);
         for (int i = 0; i < table_size; i++) {
-            table_psi_data[i] = minus_psi(tableP.data[i], ring);
-            table_psi2_data[i] = minus_psi(table_psi_data[i], ring);
-            table_psi3_data[i] = minus_psi(table_psi2_data[i], ring);
+            tables[1].data[i] = minus_psi(tables[0].data[i], ring);
+            tables[2].data[i] = minus_psi(tables[1].data[i], ring);
+            tables[3].data[i] = minus_psi(tables[2].data[i], ring);
         }
-        PrecomputedTable<G2Curve, FP2RingType, table_log_size> tablePsi(table_psi_data);
-        PrecomputedTable<G2Curve, FP2RingType, table_log_size> tablePsi2(table_psi2_data);
-        PrecomputedTable<G2Curve, FP2RingType, table_log_size> tablePsi3(table_psi3_data);
-        std::array<PrecomputedTable<G2Curve, FP2RingType, table_log_size>, 4> tables = {tableP, tablePsi, tablePsi2, tablePsi3};
         return table_msm<G2Curve, FP2RingType, 64, table_log_size, 4>(scalars, tables, curve, fp2ring);
     }
 #endif
