@@ -1,3 +1,4 @@
+#include "blst/avx/generated_matrixnok_constants.hpp"
 #include "blst/avx/cpu/vector/conversion.hpp"
 #include "blst/avx/rns/elementwise_reduce.h"
 
@@ -8,10 +9,17 @@
 
 namespace blst::avx::test
 {
+    namespace matrixnok_constants = matrixnok::generated;
+
     static_assert(ConvertToRNS<381, 8>::indigits == 8);
     static_assert(ConvertToRNS<381, 8, 50>::indigits == 8);
     static_assert(ConvertToRNS<401, 8>::indigits == 8);
     static_assert(ConvertToRNS<401, 8, 50>::indigits == 9);
+    static_assert(matrixnok_constants::BLS12_381_RNS_DIM == 8);
+    static_assert(matrixnok_constants::BLS12_381_CONVERT_TO_RADIX_BITS == 50);
+    static_assert(matrixnok_constants::moduli1.size() == 8);
+    static_assert(matrixnok_constants::moduli2.size() == 8);
+    static_assert(matrixnok_constants::r1_perm_mat_fixed.size() == 8);
 
     TEST(AvxMatrixNoKPrimitives, LowLaneExtractionAndBroadcast)
     {

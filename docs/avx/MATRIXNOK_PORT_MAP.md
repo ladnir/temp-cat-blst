@@ -69,6 +69,23 @@ This packet does not select MatrixNoK, change field representation, import
 constants, or alter a public API. It establishes the small, testable primitive
 base needed by the candidate.
 
+## Fixed-parameter packet
+
+The BLS12-381 tables from pinned VROOM commit `d6ecd534` are imported into
+`generated_matrixnok_constants.hpp` in a separate namespace. No production
+owner references them yet, so this packet cannot change field representation
+or dispatch.
+
+`validate_matrixnok_constants.py` parses the C++ header and independently
+regenerates every base-change matrix, correction vector, and fixed-point
+quotient estimate. It also checks the CRT products, pairwise coprimality,
+Montgomery inverses, QR premultiplication, and combined-ring rotation. Its
+hostile self-test confirms representative one-bit corruptions are rejected.
+
+The 16 RNS moduli are deliberately not required to be prime. The actual
+algorithmic requirements are that they are distinct, pairwise coprime, odd,
+and below the 50-bit bound.
+
 ## Gates before candidate arithmetic
 
 - Combined native-plus-portable tests agree for every new operation.

@@ -59,6 +59,8 @@ allocation, GMP computation, or mutable global setup.
 
 Focused evidence for the prerequisite vector and bounded-reduction packet is
 recorded in `PRIMITIVE_EVIDENCE.md`.
+The first fixed-parameter import and its independent regeneration evidence are
+recorded in `CONSTANT_EVIDENCE.md`.
 
 ## Work packets
 

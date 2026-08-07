@@ -169,6 +169,21 @@ if(BLST_CUDA)
 endif()
 
 include(GoogleTest)        # 4) glue between GTest and CTest
+
+# Fixed AVX parameters are security-sensitive generated inputs. Validate them
+# independently without creating another test executable.
+find_package(Python3 COMPONENTS Interpreter QUIET)
+if(Python3_Interpreter_FOUND)
+    add_test(NAME audit.matrixnok_constants
+        COMMAND ${Python3_EXECUTABLE}
+            "${PROJECT_SOURCE_DIR}/scripts/audit/validate_matrixnok_constants.py"
+            --self-test
+    )
+    set_tests_properties(audit.matrixnok_constants PROPERTIES LABELS "audit;avx512")
+else()
+    message(WARNING "Python 3 not found; MatrixNoK generated constants will not be validated by CTest")
+endif()
+
 # 5) Auto-discover TEST() cases inside blst_tests and register them with CTest
 gtest_discover_tests(blst_tests
   DISCOVERY_TIMEOUT 60
