@@ -67,17 +67,74 @@ namespace
             0x0f0123456789aULL,
             0x0000000000abcULL,
         });
-        MatrixNoKRing::Element result;
-
         benchmark::DoNotOptimize(left);
         benchmark::DoNotOptimize(right);
         for (auto _ : state) {
-            ring.multiply(result, left, right);
+            auto result = ring.multiply(left, right);
             benchmark::DoNotOptimize(result);
         }
     }
 
+    template<std::size_t batch>
+    void BM_CatBLST_50_BatchModMul(benchmark::State& state)
+    {
+        const Incumbent50Ring ring;
+        std::array<Incumbent50Ring::StandardElement, batch> left;
+        std::array<Incumbent50Ring::StandardElement, batch> right;
+        for (std::size_t index = 0; index < batch; ++index) {
+            left[index] = ring.from_bigint(BigInt(left_decimal, 10));
+            right[index] = ring.from_bigint(BigInt(right_decimal, 10));
+        }
+
+        benchmark::DoNotOptimize(left);
+        benchmark::DoNotOptimize(right);
+        for (auto _ : state) {
+            auto result = ring.template batch_modmul<batch>(left, right);
+            benchmark::DoNotOptimize(result);
+        }
+    }
+
+    template<std::size_t batch>
+    void BM_CatBLST_MatrixNoK_BatchModMul(benchmark::State& state)
+    {
+        const MatrixNoKRing ring;
+        const auto left_value = ring.from_canonical_50bit_digits({
+            0x123456789abcdULL, 0x2bcdef0123456ULL,
+            0x3456789abcdefULL, 0x0fedcba987654ULL,
+            0x23456789abcdeULL, 0x3abcdef012345ULL,
+            0x156789abcdef0ULL, 0x0000000001234ULL,
+        });
+        const auto right_value = ring.from_canonical_50bit_digits({
+            0x3edcba9876543ULL, 0x176543210fedcULL,
+            0x2ba9876543210ULL, 0x3456789abcdefULL,
+            0x1cdef01234567ULL, 0x289abcdef0123ULL,
+            0x0f0123456789aULL, 0x0000000000abcULL,
+        });
+        std::array<MatrixNoKRing::Element, batch> left;
+        std::array<MatrixNoKRing::Element, batch> right;
+        left.fill(left_value);
+        right.fill(right_value);
+
+        benchmark::DoNotOptimize(left);
+        benchmark::DoNotOptimize(right);
+        for (auto _ : state) {
+            auto result = ring.template multiply_batch<batch>(left, right);
+            benchmark::DoNotOptimize(result);
+        }
+    }
+
+#define BLST_MATRIXNOK_BATCH_BENCH(BATCH)                                              \
+    BENCHMARK_TEMPLATE(BM_CatBLST_50_BatchModMul, BATCH);                             \
+    BENCHMARK_TEMPLATE(BM_CatBLST_MatrixNoK_BatchModMul, BATCH)
+
     BENCHMARK(BM_CatBLST_52_ModMul);
     BENCHMARK(BM_CatBLST_50_ModMul);
     BENCHMARK(BM_CatBLST_MatrixNoK_ModMul);
+    BLST_MATRIXNOK_BATCH_BENCH(1);
+    BLST_MATRIXNOK_BATCH_BENCH(2);
+    BLST_MATRIXNOK_BATCH_BENCH(4);
+    BLST_MATRIXNOK_BATCH_BENCH(8);
+    BLST_MATRIXNOK_BATCH_BENCH(12);
+
+#undef BLST_MATRIXNOK_BATCH_BENCH
 }

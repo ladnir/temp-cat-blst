@@ -310,6 +310,29 @@ namespace blst::avx::test
         return product;
     }
 
+    template<std::size_t batch>
+    void expect_batch_products(
+        const matrixnok::FpRingCandidate& ring,
+        const std::array<blst::Fp, 8>& values)
+    {
+        std::array<matrixnok::FpRingCandidate::Element, batch> left;
+        std::array<matrixnok::FpRingCandidate::Element, batch> right;
+        std::array<blst::Fp, batch> expected;
+        for (std::size_t index = 0; index < batch; ++index) {
+            const blst::Fp& left_value = values[index % values.size()];
+            const blst::Fp& right_value = values[(3 * index + 5) % values.size()];
+            left[index] = ring.from_canonical_50bit_digits(canonical_50bit_digits(left_value));
+            right[index] = ring.from_canonical_50bit_digits(canonical_50bit_digits(right_value));
+            expected[index] = scalar_product(left_value, right_value);
+        }
+
+        const auto products = ring.multiply_batch(left, right);
+        for (std::size_t index = 0; index < batch; ++index) {
+            expect_standard_residue_bounds(ring, products[index]);
+            expect_same_scalar_fp(matrixnok_to_scalar(ring, products[index]), expected[index]);
+        }
+    }
+
     TEST(AvxMatrixNoKPrimitives, BaseFieldMultiplyMatchesScalar)
     {
         const matrixnok::FpRingCandidate ring;
@@ -348,6 +371,12 @@ namespace blst::avx::test
                     scalar_product(left, right));
             }
         }
+
+        expect_batch_products<1>(ring, values);
+        expect_batch_products<2>(ring, values);
+        expect_batch_products<4>(ring, values);
+        expect_batch_products<8>(ring, values);
+        expect_batch_products<12>(ring, values);
 
         uint64_t state = 0xd1b54a32d192ed03ULL;
         auto next_random = [&state]() {

@@ -74,7 +74,7 @@ public:
         }
     }
 
-    inline AVXVector permute(const AVXVector &perm) const {
+    inline AVXVector permute(AVXVector perm) const {
         AVXVector out;
         for (int i = 0; i < VEC_LIMBS; i++) {
             out[i] = _vv512_permutexvar_epi64(perm[i], data[i]);

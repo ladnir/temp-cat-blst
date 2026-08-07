@@ -71,6 +71,33 @@ namespace blst::avx::matrixnok
                 reducer_m1_.reduce_wide(wide));
         }
 
+        template<std::size_t batch>
+        INLINE std::array<StandardResidue, batch> expand_m2_batch(
+            const std::array<StandardResidue, batch>& m2) const
+        {
+            std::array<AVXVector<limbs>, batch> residues;
+            std::array<AVXVector<limbs>, batch> high{};
+            std::array<AVXVector<limbs>, batch> low{};
+            BLST_UNROLL
+            for (std::size_t index = 0; index < batch; ++index) {
+                residues[index] = m2[index].data;
+            }
+            system_.intrns2.r2.template rns_reduce_raw_batch_shifted<batch>(
+                &residues, high, low);
+
+            using WideBound = Bounds<0, 2 * limbs * standard_bound>;
+            using Bounded = BoundedElement<WideBound, limbs, element_bits>;
+            std::array<StandardResidue, batch> result;
+            BLST_UNROLL
+            for (std::size_t index = 0; index < batch; ++index) {
+                const WideElement<WideBound, limbs, element_bits> wide{
+                    Bounded(high[index]), Bounded(low[index])};
+                result[index] = reducer_m1_.template reduce_auto<standard_bound>(
+                    reducer_m1_.reduce_wide(wide));
+            }
+            return result;
+        }
+
     public:
         FpRingCandidate()
             : system_(make_system())
@@ -95,9 +122,7 @@ namespace blst::avx::matrixnok
             return {expand_m2(m2), m2};
         }
 
-        // Multiply modulo p. Exact output aliasing with either input is
-        // supported; partial overlap is not.
-        INLINE void multiply(Element& out, const Element& left, const Element& right) const
+        INLINE Element multiply(const Element& left, const Element& right) const
         {
             const AVXVector<limbs> zero(0);
             const AVXVector<limbs> m1_high = zero.mulhi(left.m1.data, right.m1.data);
@@ -128,7 +153,66 @@ namespace blst::avx::matrixnok
             const StandardResidue m2 = reducer_m2_.template reduce_auto<standard_bound>(
                 reducer_m2_.reduce_wide(combined));
             const StandardResidue m1 = expand_m2(m2);
-            out = {m1, m2};
+            return {m1, m2};
+        }
+
+        // Multiply modulo p. Exact output aliasing with either input is
+        // supported; partial overlap is not.
+        INLINE void multiply(Element& out, const Element& left, const Element& right) const
+        {
+            out = multiply(left, right);
+        }
+
+        template<std::size_t batch>
+        INLINE std::array<Element, batch> multiply_batch(
+            const std::array<Element, batch>& left,
+            const std::array<Element, batch>& right) const
+        {
+            static_assert(batch > 0, "MatrixNoK field multiplication requires a nonempty fixed batch");
+            const AVXVector<limbs> zero(0);
+            std::array<AVXVector<limbs>, batch> residues;
+            std::array<AVXVector<limbs>, batch> high;
+            std::array<AVXVector<limbs>, batch> low;
+
+            BLST_UNROLL
+            for (std::size_t index = 0; index < batch; ++index) {
+                const AVXVector<limbs> m1_high = zero.mulhi(left[index].m1.data, right[index].m1.data);
+                const AVXVector<limbs> m1_low = zero.mullo(left[index].m1.data, right[index].m1.data);
+                high[index] = zero.mulhi(left[index].m2.data, right[index].m2.data);
+                low[index] = zero.mullo(left[index].m2.data, right[index].m2.data);
+
+                using ProductBound = Bounds<0, standard_bound * standard_bound>;
+                using ProductElement = BoundedElement<ProductBound, limbs, element_bits>;
+                const WideElement<ProductBound, limbs, element_bits> m1_product{
+                    ProductElement(m1_high), ProductElement(m1_low)};
+                residues[index] = reducer_m1_.template reduce_auto<standard_bound>(
+                    reducer_m1_.reduce_wide(m1_product)).data;
+            }
+
+            r1_change_base_raw_batch(residues, high, low);
+
+            constexpr int change_base_bound = limbs * standard_bound;
+            constexpr int combined_bound = standard_bound * standard_bound + change_base_bound;
+            static_assert(combined_bound == 20);
+            static_assert(combined_bound < 40);
+            using CombinedBound = Bounds<0, combined_bound>;
+            using CombinedElement = BoundedElement<CombinedBound, limbs, element_bits>;
+            std::array<StandardResidue, batch> m2;
+            BLST_UNROLL
+            for (std::size_t index = 0; index < batch; ++index) {
+                const WideElement<CombinedBound, limbs, element_bits> combined{
+                    CombinedElement(high[index]), CombinedElement(low[index])};
+                m2[index] = reducer_m2_.template reduce_auto<standard_bound>(
+                    reducer_m2_.reduce_wide(combined));
+            }
+
+            const auto m1 = expand_m2_batch(m2);
+            std::array<Element, batch> result;
+            BLST_UNROLL
+            for (std::size_t index = 0; index < batch; ++index) {
+                result[index] = {m1[index], m2[index]};
+            }
+            return result;
         }
 
         INLINE void convert_from_raw(
