@@ -134,8 +134,15 @@ forward/inverse round trip passes. On Peach with Clang 21, inverse GT FFT is
 This is sufficient to prioritize the Fp12/GT port but does not select the
 candidate for production. The adapter is fixed at `71bfbfd`.
 
-G1 remains blocked before performance measurement: the pinned VROOM
-MatrixNoK curve layer fails the two-element FFT subtraction identity. The
-next G1 packet must instead adapt CatBLST's audited point formulas and bound
-handling, pass scalar differential and FFT correctness gates, and only then
-benchmark. Exact evidence is in `docs/avx/FFT_PREVIEW_EVIDENCE.md`.
+The apparent G1 blocker was a benchmark-adapter defect: a mistyped decimal
+generator coordinate created an off-curve input, while a same-implementation
+reference check consumed the same bad value and masked the cause. Commit
+`edaf5462` removes the copied coordinate, imports CatBLST's canonical
+generator, and adds an independent homogeneous curve-equation gate. The
+two-element butterfly and 256-element forward/inverse round trip now pass.
+
+On Peach with Clang 21, forward G1 FFT is 1.10x to 1.12x faster than the
+incumbent across 256 through 16,384 elements. The G1 packet should now adapt
+MatrixNoK arithmetic to CatBLST's audited point owners, retain independent
+scalar or mathematical oracles, and use this result as its performance target.
+Exact evidence is in `docs/avx/FFT_PREVIEW_EVIDENCE.md`.

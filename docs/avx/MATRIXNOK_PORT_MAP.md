@@ -160,7 +160,11 @@ Clang 21 inverse GT FFT latency is 15.8% to 16.9% below the incumbent from 256
 through 16,384 elements, justifying the Fp12/GT port. Exact construction and
 measurements are in `FFT_PREVIEW_EVIDENCE.md`.
 
-The same preview rejects G1 before timing. VROOM's MatrixNoK curve layer fails
-the two-element FFT subtraction base case even after setup uses its dedicated
-doubling primitive. This confirms the existing port-map decision: retain and
-adapt CatBLST's audited curve owners instead of importing `ec.hpp` wholesale.
+The corrected G1 preview imports CatBLST's canonical generator rather than a
+copied literal and independently verifies the homogeneous curve equation. It
+passes the two-element butterfly and a 256-element forward/inverse round trip.
+Native Clang 21 forward G1 FFT latency is 9.3% to 11.0% below the incumbent
+from 256 through 16,384 elements. VROOM therefore establishes a useful G1
+performance target, while the port-map decision remains unchanged: adapt the
+MatrixNoK arithmetic to CatBLST's audited curve owners and contracts rather
+than import `ec.hpp` wholesale.

@@ -2,14 +2,11 @@
 
 ## Decision
 
-The pinned MatrixNoK field tower is worth porting through GT. In a
-same-process native AVX-512IFMA preview, its inverse GT FFT has 15.8% to 16.9%
+The pinned MatrixNoK field tower is worth porting through G1 and GT. In a
+same-process native AVX-512IFMA preview, its forward G1 FFT has 9.3% to 11.0%
 lower latency than CatBLST's incumbent 50-bit AVX path, equivalent to a
-1.19x to 1.20x speedup over the measured sizes.
-
-No G1 performance claim is accepted. The pinned VROOM curve layer fails a
-two-point G1 FFT base case under MatrixNoK, so CatBLST must first place its
-audited curve formulas and bound handling over the candidate ring.
+1.10x to 1.12x speedup. Its inverse GT FFT has 15.8% to 16.9% lower latency,
+equivalent to a 1.19x to 1.20x speedup.
 
 Neither result changes production dispatch.
 
@@ -19,6 +16,8 @@ Neither result changes production dispatch.
   `e260936f85f07ac82fa363433a754519f0e7a6d1`.
 - Benchmark-only preview adapter:
   `71bfbfdefffbdd630bbf83bc774a8f73938cb8c1`.
+- Corrected G1 adapter and non-circular validity gate:
+  `edaf5462fd95e40bb6653f138b0562f9f85130a8`.
 - VROOM source: exact commit
   `26bd9aee2168f167583cf096add355547a7b56d4`.
 - Host: AMD Ryzen 9 7950X, native AVX-512IFMA, one process pinned to CPU 2.
@@ -29,8 +28,9 @@ Neither result changes production dispatch.
 CatBLST and VROOM are compiled in separate translation units of the existing
 `avx_group_ops_benchmarks` executable. This is required because VROOM's
 headers define process-global parameter objects. A benchmark-only bridge
-supplies canonical Fr roots, compiled CatBLST GLV4 schedules, the scalar GT
-generator coefficients, and VROOM's inherited `blst_div_by_zz` spelling.
+supplies canonical Fr roots, compiled CatBLST GLV4 schedules, canonical G1
+generator coordinates, scalar GT generator coefficients, and VROOM's
+inherited `blst_div_by_zz` spelling.
 
 Both paths execute the same radix-2 butterfly schedule. Root preparation,
 input construction, forward preparation for the inverse case, and per-run
@@ -43,22 +43,43 @@ coefficients. Before timing, it performs a complete 256-element forward and
 inverse FFT round trip with the pinned VROOM Fp12 implementation and the same
 public-root GLV4 schedules used by CatBLST. The gate passes.
 
-The G1 adapter is deliberately fail-closed. Its public GLV executor agrees
-with VROOM's independent BigInt overload for zero, one, two, representative
-roots, and the inverse-of-two scale. The curve layer does not pass the
-two-element FFT base case:
+The G1 adapter is deliberately fail-closed. The original preview copied the
+G1 generator as a decimal literal and mistyped one digit in `x`, producing an
+off-curve input. Its VROOM-versus-VROOM multiplier check did not detect the
+error because both sides consumed the same invalid point. The resulting
+addition failures were adapter failures, not VROOM curve failures.
 
-- An initial setup pass incorrectly used narrow `add_point` for `P + P`; the
-  adapter was corrected to use VROOM's dedicated `double_point` operation.
-- With that contract error removed, both `add_point` and `add_point_small`
-  still fail the valid distinct-point subtraction identity
-  `P - [2]P = -P`.
+The corrected adapter imports CatBLST's canonical generator coordinates and
+checks the homogeneous curve equation independently with `BigInt` before any
+VROOM curve operation is accepted. It uses VROOM's EC-qualified MatrixNoK
+ring and production `add_point` kernel. Before timing, it passes:
 
-Consequently the G1 benchmark reports a setup error and produces no timing.
-This is an upstream research implementation issue or an unresolved
-MatrixNoK-bound integration issue, not evidence against the base-field
-candidate. It is also why CatBLST's audited curve layer must be retained
-rather than importing VROOM's curve file wholesale.
+- generator and doubled-generator curve-equation checks;
+- the two-element identities `P + [2]P = [3]P` and
+  `P - [2]P = -P`;
+- public GLV agreement for zero, one, two, representative roots, and the
+  inverse-of-two scale; and
+- a complete 256-element forward/inverse G1 FFT round trip.
+
+This incident demonstrates that same-implementation differential checks are
+not sufficient input validation. Candidate curve tests must retain an
+independent scalar or mathematical oracle.
+
+## Native G1 results
+
+The first three sizes use three same-process repetitions and report the mean.
+The 16,384 case uses one repetition. Google Benchmark warned that CPU scaling
+was enabled, so these are port-selection results rather than final release
+claims.
+
+| Elements | CatBLST incumbent | MatrixNoK preview | Latency reduction | Speedup |
+| ---: | ---: | ---: | ---: | ---: |
+| 256 | 20.5 ms | 18.6 ms | 9.3% | 1.102x |
+| 1,024 | 111 ms | 100 ms | 9.9% | 1.110x |
+| 4,096 | 564 ms | 504 ms | 10.6% | 1.119x |
+| 16,384 | 2,735 ms | 2,433 ms | 11.0% | 1.124x |
+
+The repeated G1 cases reported coefficient of variation at or below 0.02%.
 
 ## Native GT results
 
@@ -84,9 +105,8 @@ and public-root exponentiation. The consistent end-to-end gain is stronger
 evidence than the earlier isolated Fp/Fp2 timings and justifies completing the
 Fp12/GT candidate port.
 
-The next packet should port the audited CatBLST Fp12 and GT operations onto
-MatrixNoK, add scalar differential tests for every retained operation, and
-repeat this benchmark against production-shaped code. G1 should follow as a
-separate packet: first port CatBLST's reviewed point formulas and explicit
-`add` versus `add_or_double` contracts, then pass focused curve differentials
-and the two-point/256-point FFT gates before any performance run.
+The next packets should port the audited CatBLST curve and Fp12/GT operations
+onto MatrixNoK, add independent scalar differential tests for every retained
+operation, and repeat these benchmarks against production-shaped code.
+VROOM's result establishes the performance target; CatBLST should preserve
+its reviewed point contracts rather than import the research API wholesale.
