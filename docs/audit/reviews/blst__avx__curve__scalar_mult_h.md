@@ -6,10 +6,10 @@
 | --- | --- |
 | Path | `blst/avx/curve/scalar_mult.h` |
 | Roadmap phase / queue | Phase 16 AVX-512, reviewed early with the Phase 14 group-multiplication trust chain |
-| Reviewed commit | `2744efc5ba9718e0c79c790764ca7f8fdce22d9d` plus the review remediation described below |
+| Reviewed commit | `b6d832c421b8c569955db12941204df0e71d7972` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-04 |
-| Disposition | in-scope production; review complete; cross-file `AUD-091` caller remediated |
+| Disposition | in-scope production; review complete; cross-file `AUD-091` caller and `AUD-218` stack ownership remediated |
 | Subsystem | AVX G1/G2 fixed-window and variable-time GLV/GLS multiplication |
 | Profiles | portable AVX Debug and native AVX-512/IFMA Release |
 | Generation/provenance | Hand-maintained C++ imported with the VROOM backend at `8b73c682`; subsequently adapted to CatBLST contracts |
@@ -50,8 +50,9 @@ mutable cache.
 The scalar backend provides the division and wNAF helpers. `multi_scalar.h`
 also calls the split helpers for GLV/GLS Pippenger preparation. That caller
 originally exposed `AUD-091`; it now canonicalizes full-width scalars and is
-reachable only through the documented subgroup MSM, while explicit unchecked
-MSM bypasses the endomorphism split.
+reachable only through the documented subgroup MSM. CatBLST exposes no
+unchecked MSM family; only upstream's two inherited single-point
+`unchecked_mult` exceptions retain the generic fixed-window path.
 
 ## Upstream/specification comparison
 
@@ -89,8 +90,9 @@ cyclotomic square/multiply exponentiation for GT. It covers all order boundary
 values, both G1/G2 dispatch crossovers, non-byte-aligned lengths, and four
 deterministic full-width random scalars. Single-point CT, VT, and unchecked
 results pass under all selected backends. The subsequent caller remediation
-adds independent subgroup/reduced and generic/exact-scalar MSM entries and
-permanent full-width non-subgroup regressions.
+adds independent subgroup/reduced MSM entries. Permanent full-width
+non-subgroup regressions are retained only for the two inherited single-point
+`unchecked_mult` functions.
 
 ### 5. Memory and lifetime safety
 
@@ -134,6 +136,10 @@ owners outside this header's call state. There is no global pool or mutation.
 Work and stack use are bounded by compile-time widths. Native G1/G2 functions
 retain their prior object-code sizes. The allocation-free C MSM boundary uses
 caller-owned bucket and split scratch under the remediated `AUD-091` contract.
+The inherited CT G2 GLS construction duplicated base and endomorphism tables
+across source arrays, wrappers, and the final owner. `AUD-218` now builds all
+four tables directly in final storage, reducing measured peak local stack from
+about 102 KiB to about 55 KiB without heap allocation or variable-size storage.
 
 ### 12. Portability and build behavior
 
@@ -163,7 +169,7 @@ involved.
 
 ## Findings
 
-`AUD-027`, `AUD-039`, `AUD-088`, `AUD-089`, `AUD-090`, `AUD-091`.
+`AUD-027`, `AUD-039`, `AUD-088`, `AUD-089`, `AUD-090`, `AUD-091`, `AUD-218`.
 
 ## Validation
 
@@ -175,9 +181,14 @@ involved.
   8/8, 34 ms.
 - Peach `nm -S` records unchanged CT multiply symbol sizes: G1 `0x13e9`, G2
   `0x3033`.
+- Peach Clang 21 MatrixNoK G2 evidence at `b6d832c`: 16/16 focused tests pass;
+  the CT owner frame is `0xc400`, the unchanged executor frame is `0x1700`,
+  and one serial run measures CT GLS at 39.911 us versus 40.969 us before the
+  ownership repair.
 - Structural searches find no TODO/FIXME, dead `__has_include`, unused beta
   inverse/type aliases, ambiguous lineage marker, or unbounded table template.
-- No benchmark, broad suite, sanitizer, CUDA, BTx/BTE, or CI run was started.
+- No broad suite, sanitizer, CUDA, BTx/BTE, or CI run was started; only the
+  documented serial focused G2 benchmark process ran for `AUD-218`.
 
 ## Automated evidence
 
@@ -193,7 +204,7 @@ involved.
 
 The single-point code is reviewed and has independent scalar, portable-AVX,
 and native AVX evidence. The high-severity `AUD-091` caller defect is validated:
-subgroup and generic MSM contracts are explicit and full-width decomposition
-canonicalizes before using this file's splitters. The file remains `in_review`
+ordinary MSM is subgroup-only and full-width decomposition canonicalizes
+before using this file's splitters. The file remains `in_review`
 only for the scheduled statistical-leakage, sanitizer, and fuzz evidence
 upgrades, not for a known scalar/domain correctness defect.

@@ -196,9 +196,9 @@ selection retains fixed control flow and a full table scan.
 One serial same-process gate places candidate add, double, CT GLS, and VT GLS
 28.9%, 15.1%, 21.6%, and 23.9% ahead of the incumbent. The candidate is faster
 than pinned VROOM except for a 0.9% double delta. Performance selection passes.
-`AUD-218` records the inherited greater-than-102-KiB peak CT GLS stack use for
-a separate direct-table-construction redesign. Exact evidence is in
-`G2_EVIDENCE.md`.
+Direct final-table construction subsequently reduces peak CT GLS local stack
+from about 102 KiB to about 55 KiB and improves CT GLS from 40.969 to 39.911 us,
+validating `AUD-218`. Exact evidence is in `G2_EVIDENCE.md`.
 
 ## FFT preview packet
 

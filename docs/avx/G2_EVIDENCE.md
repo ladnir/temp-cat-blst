@@ -4,6 +4,7 @@
 
 - Candidate implementation: `2fc0ae98f962f5ab2259ed2d368f6328713b7310`
 - Focused benchmark source: `b83f967328834c727ed381bd8b868b270083f0bf`
+- Direct-table stack compression: `b6d832c421b8c569955db12941204df0e71d7972`
 - Upstream algorithm commit: `d6ecd534c54a41702ea80ae75b52250b6d51b372`
 - Compared VROOM head: `26bd9aee2168f167583cf096add355547a7b56d4`
 - C++ curve owner: `blst/avx/curve/matrixnok_g2.h`
@@ -60,11 +61,22 @@ conditional moves. The multiply owner has one fixed 16-entry table-building
 loop and fixed calls to the constant-time split, endomorphism, executor, copy,
 and wipe helpers. No scalar-dependent branch or address was found.
 
-The candidate CT multiply owner has a `0x18100` (98,560-byte) frame and calls
-an executor with a `0x1700` (5,888-byte) frame, giving peak local stack use
-above 102 KiB. The incumbent has the same owner frame and pinned VROOM uses
-`0x183c0` (99,264 bytes), so this is not a candidate regression. It is recorded
-as `AUD-218` because such a large inherited frame remains a production risk.
+The inherited CT multiply first built a base table, three raw endomorphism
+arrays, three wrapper copies, and then a final four-table owner. Clang assigned
+that owner a `0x18100` (98,560-byte) frame. `b6d832c` instead initializes the
+base and three endomorphism tables directly in their final owning array. The
+owner frame is now `0xc400` (50,176 bytes). Its unchanged executor has a
+`0x1700` (5,888-byte) frame, so peak local stack falls from about 102 KiB to
+about 55 KiB. No heap allocation, variable-size storage, table-shape change,
+or control-flow change was introduced. The executor remains exactly `0x40b2`
+bytes, confirming that the fixed Booth scan itself did not change.
+
+The owner no longer copies whole source tables into wrapper or final-table
+storage. Three fixed 768-byte result copies remain per endomorphism-table row
+because the existing `minus_psi` returns a projective value; these are bounded
+arithmetic-result transfers, not duplicate table owners. They can be evaluated
+separately only if profiling justifies changing that internal interface.
+
 The candidate executor is also large (`0x40b2` bytes versus VROOM's `0x071e`)
 because the complete MatrixNoK add schedule is expanded into the fixed table
 scan. Native timing is favorable, but mixed-workload instruction-cache effects
@@ -104,6 +116,16 @@ partial archive for unchanged scalar/assembly support. Candidate, incumbent,
 and VROOM G2 kernels all reside in the newly compiled benchmark objects; no
 stale G2 kernel object contributed to these measurements.
 
+After direct-table construction, one further serial seven-repetition run used
+the same executable composition and benchmark parameters. Candidate CT GLS was
+39.911 us versus 52.251 us for the incumbent and 42.643 us for pinned VROOM:
+23.6% faster than the incumbent, 6.4% faster than VROOM, and 2.6% faster than
+the candidate's 40.969-us pre-compression measurement. Its coefficient of
+variation was 0.01%. Candidate add, double, and VT GLS remained healthy at
+281 ns, 219 ns, and 31.640 us; those kernels were not changed by the stack
+packet. CPU scaling remained enabled, so this is a regression/selection gate,
+not a release performance claim.
+
 ## Exact correspondence inputs
 
 - `matrixnok_curve.h` SHA-256:
@@ -113,7 +135,7 @@ stale G2 kernel object contributed to these measurements.
 - `matrixnok_g2.h` SHA-256:
   `f9f42440acbb729f80cd5fc690e9dd20de54c624617aaf3dad211fe9af4b3b75`
 - `scalar_mult.h` SHA-256:
-  `b1a3a30196a5e1a24bcaddf9963791aba9115fdfe5ecc1abcef1b4c9d8004396`
+  `3daa06593ee961219c6e1c4cddb53f87e1a69de3dafca41a353681234cf24f59`
 - `fp2.h` SHA-256:
   `a474cbbbb3bb3231698e7f33c653e73e9966adecceea0bd94eae44d70c834128`
 - `matrixnok_fp.h` SHA-256:
@@ -121,9 +143,8 @@ stale G2 kernel object contributed to these measurements.
 
 ## Residual gates
 
-- `AUD-218` tracks the inherited greater-than-102-KiB peak CT GLS stack use;
-  direct final-table construction should be evaluated separately and retained
-  only with correctness and serial performance evidence.
+- `AUD-218` is validated: direct final-table construction reduced peak local
+  CT GLS stack to about 55 KiB and improved the serial CT measurement by 2.6%.
 - The GLS owner still parses a small fixed constant set during construction;
   production selection should decide whether generated compile-time constants
   are worthwhile based on measured construction and integration behavior.

@@ -76,8 +76,9 @@ native code generation, and same-process incumbent/VROOM comparison are
 recorded in `G1_EVIDENCE.md`.
 The isolated MatrixNoK G2 candidate, scalar differential coverage, shared
 signed-expansion repair, and preliminary native code generation are recorded
-in `G2_EVIDENCE.md`. Its correctness and performance gates pass; inherited
-CT GLS stack use remains open as `AUD-218`.
+in `G2_EVIDENCE.md`. Its correctness and performance gates pass; direct final
+table construction closes `AUD-218` by reducing peak CT GLS stack from about
+102 KiB to about 55 KiB without a performance regression.
 The production-shaped Fp12/GT candidate, parameter-bound constant repair,
 native code generation, and same-process incumbent/VROOM comparison are
 recorded in `FP12_EVIDENCE.md`.

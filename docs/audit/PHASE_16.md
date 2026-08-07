@@ -231,9 +231,11 @@ add and CT GLS are 5.8% and 3.3% faster than pinned VROOM; double is 0.9%
 slower. Optimized inspection finds fixed control flow and full-scan table
 selection with no gather or scalar-indexed address.
 
-The inspection also records `AUD-218`: CT GLS peaks above 102 KiB of local
-stack due to inherited source/final table duplication. The incumbent has the
-same 98,560-byte owner frame and VROOM is slightly larger, so this is not a
-candidate regression, but it should be redesigned and remeasured before final
-release selection. Exact source hashes, timing, code-generation facts, and
-residual gates are in `docs/avx/G2_EVIDENCE.md`.
+The inspection also recorded `AUD-218`: CT GLS initially peaked above 102 KiB
+of local stack due to inherited source/final table duplication. Direct
+construction in the final four-table owner reduces the multiply frame from
+98,560 to 50,176 bytes and peak local stack to about 55 KiB. All 16 focused
+native tests pass, the fixed executor is unchanged, and one serial run improves
+CT GLS from 40.969 to 39.911 us. `AUD-218` is validated. Exact source hashes,
+timing, code-generation facts, and residual gates are in
+`docs/avx/G2_EVIDENCE.md`.
