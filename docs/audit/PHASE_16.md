@@ -101,3 +101,22 @@ cross-compiler, and table-layout defects. Mathematical correctness and bound
 safety remain open until the selected field-tower design reaches the first
 Lean milestone in `docs/avx/PROOF_PLAN.md`. Exact evidence and correspondence
 hashes are in `docs/avx/BASE_FIELD_EVIDENCE.md`. No broad build was run.
+
+## MatrixNoK Fp2 candidate
+
+Implementation commit `1ca9af2` adds an isolated Fp2 candidate without
+changing production dispatch. The four-product multiply and three-product
+square combine terms into two wide outputs before reduction and base change.
+Local portable Debug and Peach native AVX-512IFMA pass scalar differential,
+boundary, exact-alias, output-bound, and dependent-chain tests.
+
+Clang 21 emits fully inlined fixed-schedule bodies with no calls or conditional
+branches and a 32-byte frame. In the same randomly interleaved benchmark
+process, multiplication is 34.2 ns and squaring is 33.5 ns: 17.8% and 18.7%
+faster than CatBLST's prior 50-bit path, and 1.4% and 2.0% faster than pinned
+VROOM.
+
+The arithmetic design is retained as the field-tower baseline. Production
+selection remains blocked by `AUD-214`: the current base candidate owns a
+5120-byte derived fixed-parameter context. Exact evidence and residual proof
+obligations are recorded in `docs/avx/FP2_EVIDENCE.md`.

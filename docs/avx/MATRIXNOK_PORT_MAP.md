@@ -130,3 +130,20 @@ The optional focused performance target can compile the actual pinned VROOM
 headers into a separate translation unit of the same benchmark executable.
 It rejects every VROOM commit except the reviewed head, adds no production
 dependency, and permits randomly interleaved same-process Clang comparisons.
+
+## Fp2 candidate packet
+
+`matrixnok_fp2.h` owns a side-by-side, non-dispatched Fp2 candidate. It uses
+the ordinary four-product multiplication formula and a three-product square,
+but reduces and changes base once per output rather than once per base-field
+product. This preserves a small, explicit operation surface instead of making
+the candidate imitate the incumbent delayed-expression template API.
+
+Portable Debug and Peach native AVX-512IFMA compare every retained result with
+scalar Fp2, including boundary values, exact aliases, and dependent chains.
+Same-process Clang 21 measurements beat both the prior CatBLST 50-bit Fp2 and
+pinned VROOM. Exact evidence is in `FP2_EVIDENCE.md`.
+
+The candidate remains unreachable from production. `AUD-214` blocks selection
+until the 5120-byte base-ring fixed-parameter owner is redesigned and
+remeasured without hidden initialization or allocation.

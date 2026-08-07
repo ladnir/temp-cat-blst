@@ -66,6 +66,9 @@ The isolated 8x8 MatrixNoK change-of-base kernel is recorded in
 The first complete side-by-side base-field multiplication candidate and its
 portable/native/code-generation evidence are recorded in
 `BASE_FIELD_EVIDENCE.md`.
+The isolated Fp2 multiplication and squaring candidate, same-process VROOM
+comparison, and fixed-context integration blocker are recorded in
+`FP2_EVIDENCE.md`.
 
 ## Work packets
 

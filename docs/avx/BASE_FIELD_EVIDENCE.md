@@ -2,7 +2,7 @@
 
 ## Packet boundary
 
-- Candidate implementation through: `cd282561dd6bccf69cf52bf35faed456fc6b6374`
+- Candidate implementation through: `1ca9af2`
 - Upstream algorithm commit: `d6ecd534c54a41702ea80ae75b52250b6d51b372`
 - Compared VROOM head: `26bd9aee2168f167583cf096add355547a7b56d4`
 - C++ owner: `blst/avx/rns/matrixnok_fp.h`
@@ -123,7 +123,7 @@ runs were discarded and are not part of this selection evidence.
 ## Exact correspondence inputs
 
 - `matrixnok_fp.h` SHA-256:
-  `22c66d509d314f338e1373e586b0ad536029eb447f126090b59507adbbaebd0e`
+  `556e108b6b726c407d7e2b68b0517e5b1f422c114c123bf995c761915f456423`
 - `matrixnok_change_base.h` SHA-256:
   `74eec0fc27747cb7c27ee4d062ce66c6f601d2283d267659e4a586162de0a032`
 - `changebase.hpp` SHA-256:
@@ -146,8 +146,11 @@ code-generation and proof correspondence.
 - Prove the `< 2m_i` result bounds and absence of unintended 64-bit IFMA
   accumulator wrap.
 - Bind the proved declarations to the source and constant hashes above.
-- Integrate the candidate into isolated Fp2/Fp12 candidates and compare
-  operation-level and pairing-level performance before production selection.
+- The isolated Fp2 candidate now passes its operation-level gate; extend the
+  candidate through Fp12 and pairing-level workloads before production
+  selection.
+- Resolve `AUD-214` by removing or explicitly owning the current 5120-byte
+  derived fixed-parameter context, then recheck code generation and timing.
 - Revisit the batch-8 microcase only if field-tower profiles show it on a
   primary hot path.
 
