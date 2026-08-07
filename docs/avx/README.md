@@ -18,7 +18,8 @@ correctness oracle and is not refactored to accommodate the candidate.
 - Reviewed VROOM head: `26bd9aee2168f167583cf096add355547a7b56d4`
 - Upstream repository: <https://github.com/SimonLangowski/VROOM>
 
-The 31-commit delta is classified in `VROOM_UPSTREAM_MANIFEST.md`. Only
+The 31-commit delta is classified in `VROOM_UPSTREAM_MANIFEST.md`, and the
+selected dependency graph is recorded in `MATRIXNOK_PORT_MAP.md`. Only
 `d6ecd534` changes executable CPU arithmetic. CatBLST will translate the
 BLS12-381 subset; it will not merge VROOM wholesale.
 
