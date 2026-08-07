@@ -86,6 +86,20 @@ The 16 RNS moduli are deliberately not required to be prime. The actual
 algorithmic requirements are that they are distinct, pairwise coprime, odd,
 and below the 50-bit bound.
 
+## Change-of-base packet
+
+`matrixnok_change_base.h` owns one BLS12-381-only 8x8 r1 permutation kernel.
+Its diagonal and fixed-batch expansion is expressed through template recursion
+and index sequences, leaving no runtime loop or generic dimension policy in
+the hot path. It intentionally omits the conventional quotient correction;
+the candidate ring may call it only after its redundant-range preconditions
+are proved and tested.
+
+Portable Debug tests compare both IFMA accumulators lane by lane against an
+independent scalar 52-bit product split. Native Peach execution and optimized
+code-generation evidence are recorded in `CHANGE_BASE_EVIDENCE.md`. The
+kernel remains unreachable from production arithmetic in this packet.
+
 ## Gates before candidate arithmetic
 
 - Combined native-plus-portable tests agree for every new operation.
