@@ -5,8 +5,8 @@
 | Disposition | in-scope production |
 | Profiles | scalar, C, C++, Rust |
 | Review state | in review |
-| Exact review baseline | `314c186149b9cc95d85a0c54e2dd651f137e4236` |
-| Remediation commits | `7c0e399`, `b6a51bb62fa4e52e8349e9d7a17d51617c212e24`, `61c8cd4`, `314c186` |
+| Exact review baseline | `535c4c6cdea0f6c31fafe01c305d7bb74015f610` |
+| Remediation commits | `7c0e399`, `b6a51bb62fa4e52e8349e9d7a17d51617c212e24`, `61c8cd4`, `314c186`, `535c4c6` |
 | Upstream lineage | `54e6e556:src/consts.c`, `src/consts.h`, `src/recip.c`, and addition-chain headers; no one-to-one file |
 | Findings | `AUD-067`, `AUD-068`, `AUD-069`, `AUD-070`, `AUD-071`, `AUD-198`, `AUD-199`, `AUD-201`, `AUD-203` |
 
@@ -55,10 +55,13 @@ explicitly declined and is not part of the constant-time contract.
 
 ## Wave 2 exact-contract follow-up
 
-The complete file was reread at `314c186`. Public-exponent and public-count
+The complete file was reread at `535c4c6`. Public-exponent and public-count
 control flow is now explicit, REDC states and Debug-checks its `a < p*R` bound,
 and extreme public shifts use logarithmic work without changing the selected
 kernel through count 256. An optimized count-three probe remains a direct
-`lshift_mod_384` call. The result-verification/fallback branch in `reciprocal`
-prevents this review from promoting the operation to a strict constant-time
-contract; `AUD-201` remains open for backend code-generation evidence.
+`lshift_mod_384` call. Retained Debug tests exercise both sides of REDC's upper
+bound. The result-verification/fallback branch in `reciprocal` is intentional:
+upstream added it for reported almost-inverse corner cases. Optimized
+MSVC/Clang/GCC probes retain that branch, while `flt_reciprocal` calls only the
+fixed chain. `AUD-201` is validated with the Euclidean operation documented as
+variable-time rather than promoted to a stronger contract.

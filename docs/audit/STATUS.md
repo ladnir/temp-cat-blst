@@ -3,13 +3,14 @@
 Last updated: 2026-08-06
 
 Waves 1 and 2 of the parallel file audit are integrated through implementation
-commit `314c186`. Wave 1 closes the scalar C-boundary lifetime and public
+commit `535c4c6`. Wave 1 closes the scalar C-boundary lifetime and public
 type/contract packets. Wave 2 records `AUD-198` through `AUD-207`, repairs the
 approved scalar/extension-field findings, and extends `AUD-060` so portable
 conditional negation matches assembly for every nonzero flag. Focused scalar
-Release evidence passes 7/7 and optimized small-shift/cneg inspection passes;
-`AUD-201` remains open for inverse timing evidence. No benchmark, CUDA, BTx,
-sanitizer, Apple job, or broad runtime sweep ran.
+Release evidence passes 7/7 and optimized small-shift/cneg inspection passes.
+The carryover pass validates `AUD-199` with retained Debug REDC bound tests and
+validates `AUD-201` with MSVC/Clang/GCC inverse code-generation evidence. No
+benchmark, CUDA, BTx, sanitizer, Apple job, or broad runtime sweep ran.
 
 ## Current phase
 

@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/scalar/fields/Fp2.h` |
 | Roadmap phase / queue | Phase 14 scalar extension fields, after Fp representation/lifetime remediation |
-| Reviewed commit | `314c186149b9cc95d85a0c54e2dd651f137e4236` |
+| Reviewed commit | `535c4c6cdea0f6c31fafe01c305d7bb74015f610` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-03 |
 | Disposition | in-scope production |
@@ -188,5 +188,7 @@ and exact-alias round trips. Exponent and shift inputs are explicitly public.
 Square-root documentation now describes algebraic candidate rotation, failure
 publication, zero reciprocal-root behavior, and the absence of RFC sign
 normalization. Large shifts inherit Fp's bounded logarithmic path; ordinary
-counts retain the original component calls. Fp2 inverse timing remains
-conservatively variable-time under open `AUD-201`.
+counts retain the original component calls. Fp2 Euclidean inversion inherits
+Fp's intentional candidate-check/fallback branch and is documented
+variable-time. Its fixed inverse uses the fixed Fp addition chain. Optimized
+MSVC/Clang/GCC probes preserve that split, validating `AUD-201`.

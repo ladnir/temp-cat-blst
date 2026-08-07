@@ -400,9 +400,21 @@ extreme counts, Fp2 transforms/sqrt, and valid-domain cyclotomic squaring.
 Scalar Debug and Release libraries compile serially. No benchmark, CUDA, BTx,
 portable-AVX Release, sanitizer, Apple job, or broad runtime sweep ran.
 
-`AUD-201` remains open: Fp/Fp2 reciprocal includes a result-verification branch
-and rare fixed-chain fallback, so the conservative variable-time contract is
-retained until selected-platform code generation is reviewed. `AUD-199` remains
-fixed rather than validated until its Debug assertion has a retained death
-regression. Broader independent field oracles, fuzzing, sanitizers, Rust, and
-supported-platform evidence remain Phase 14/19 work.
+The carryover pass at `535c4c6` validates `AUD-199` and `AUD-201`. Retained
+Debug regressions accept `(modulus-1)*R` and reject an upper half equal to the
+modulus for both REDC widths. Optimized MSVC 19.50, Clang 18.1.3, and GCC 13.3
+probes make the inverse split explicit: Fr uses the fixed-schedule selected
+inverse, Fp/Fp2 Euclidean inversion contains the intentional candidate-check
+and fallback branch, and Fp/Fp2 fixed inversion calls only the fixed addition
+chain. The generated x86 inverse kernels use fixed-count loops; their only
+outer dispatch branch selects a public platform capability. Portable inverse
+source likewise has fixed iteration counts. This evidence validates the
+documented timing contracts rather than promoting the Euclidean path to
+constant-time.
+
+The upstream history explains the otherwise cryptic fallback: commit
+`3533291` reserved two top bits after reported corner cases and `239629c` added
+candidate verification plus the fixed-chain fallback. The local source now
+states that purpose directly. Broader independent field oracles, fuzzing,
+sanitizers, Rust, and supported-platform runtime evidence remain Phase 14/19
+work.

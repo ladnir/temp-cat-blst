@@ -5,8 +5,8 @@
 | Disposition | in-scope production |
 | Profiles | scalar, C, C++, Rust |
 | Review state | in review |
-| Exact review baseline | `314c186149b9cc95d85a0c54e2dd651f137e4236` |
-| Remediation commits | `b6a51bb62fa4e52e8349e9d7a17d51617c212e24`, `61c8cd4`, `314c186` |
+| Exact review baseline | `535c4c6cdea0f6c31fafe01c305d7bb74015f610` |
+| Remediation commits | `b6a51bb62fa4e52e8349e9d7a17d51617c212e24`, `61c8cd4`, `314c186`, `535c4c6` |
 | Upstream lineage | `54e6e556:src/consts.c`, `src/exports.c`, `src/recip.c`, and `src/vect.c`; no one-to-one file |
 | Findings | `AUD-067`, `AUD-069`, `AUD-070`, `AUD-072`, `AUD-198`, `AUD-199`, `AUD-201`, `AUD-203` |
 
@@ -39,9 +39,13 @@ zero, and full sanitizer/oracle evidence remain Phase 14 follow-ups.
 
 ## Wave 2 exact-contract follow-up
 
-The complete file was reread at `314c186`. Exponent pointer/top-bit and public
+The complete file was reread at `535c4c6`. Exponent pointer/top-bit and public
 timing requirements are explicit. REDC now states `a < r*R` and checks the
 upper-half bound only in Debug. Counts through 256 retain the original shift
 backend; larger public counts use logarithmic modular exponentiation, including
 `SIZE_MAX`. Constant-count optimized probes remain direct calls to the original
-backend. Cross-platform and independent-oracle evidence remains phase work.
+backend. Retained Debug tests cover the exact REDC upper bound. The selected Fr
+inverse reaches fixed-count generated assembly on x86 and fixed-iteration
+portable source; optimized MSVC/Clang/GCC wrappers add no value-dependent
+control flow. Independent-oracle and broader runtime evidence remains phase
+work.
