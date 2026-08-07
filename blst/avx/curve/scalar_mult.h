@@ -489,10 +489,10 @@ class GLVMult {
 #endif
 };
 
-template<class Ring>
+template<class Ring, class Curve = G2<Ring>>
 class GLSMult {
     public:
-    using G2Curve = G2<Ring>;
+    using G2Curve = Curve;
     using FP2RingType = FP2Ring<Ring>;
     using ProjectivePoint = typename G2Curve::ProjPoint;
 

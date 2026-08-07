@@ -282,6 +282,17 @@ namespace blst::avx::matrixnok
             return elementwise_moduli<upper>() - value;
         }
 
+        template<int64_t lower, int64_t upper, class RNSBoundsType>
+        static INLINE auto negate(const SmallElement<
+            BoundedElement<Bounds<lower, upper>, limbs, element_bits>,
+            RNSBoundsType>& value)
+        {
+            const auto moduli = elementwise_moduli<upper>();
+            const SmallElement<decltype(moduli.m2), Bounds<0, 0>> offset(
+                moduli.m2);
+            return offset - value;
+        }
+
         template<int64_t lower, int64_t upper>
         static INLINE StandardElement standard_negate(const ExpandedElement<
             BoundedElement<Bounds<lower, upper>, limbs, element_bits>,

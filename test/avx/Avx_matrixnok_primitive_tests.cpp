@@ -8,6 +8,7 @@
 #include "blst/avx/fields/final_exponentiation.h"
 #include "blst/avx/gt/glv4.h"
 #include "blst/avx/curve/matrixnok_g1.h"
+#include "blst/avx/curve/matrixnok_g2.h"
 #include "blst/common/bytes.h"
 #include "blst/fft/ctFft.h"
 #include "blst/fft/primitveRoot.h"
@@ -42,6 +43,7 @@ namespace blst::avx::test
     static_assert(std::is_empty_v<matrixnok::Fp2RingCandidate>);
     static_assert(std::is_empty_v<matrixnok::Fp12RingCandidate>);
     static_assert(std::is_empty_v<matrixnok::G1CurveCandidate>);
+    static_assert(std::is_empty_v<matrixnok::G2CurveCandidate>);
 
     using MatrixNoKFp12 = matrixnok::Fp12RingCandidate;
     static_assert(std::is_default_constructible_v<
@@ -876,6 +878,215 @@ namespace blst::avx::test
         }
     }
 
+    FP2Ring<matrixnok::FpRingCandidate>::StandardElement
+    matrixnok_generic_fp2_from_scalar(
+        const matrixnok::FpRingCandidate& ring,
+        const blst::Fp2& value)
+    {
+        return {ring.from_scalar(value[0]), ring.from_scalar(value[1])};
+    }
+
+    matrixnok::G2ProjectiveCandidate matrixnok_g2_from_scalar(
+        const matrixnok::FpRingCandidate& ring,
+        const matrixnok::G2Fp2RingCandidate& fp2ring,
+        const blst::scalar::G2Point& point)
+    {
+        const matrixnok::G2CurveCandidate curve;
+        if (blst::scalar::G2Point::is_inf(point))
+            return curve.zero(fp2ring);
+        blst::scalar::G2AffinePoint affine = {};
+        blst::scalar::G2Point::to_affine(affine, point);
+        return matrixnok::G2ProjectiveCandidate(
+            matrixnok_generic_fp2_from_scalar(ring, affine.x),
+            matrixnok_generic_fp2_from_scalar(ring, affine.y),
+            fp2ring.one());
+    }
+
+    blst::scalar::G2Point matrixnok_g2_to_scalar(
+        const matrixnok::FpRingCandidate& ring,
+        const matrixnok::G2ProjectiveCandidate& point)
+    {
+        const auto decode = [&](const auto& value) {
+            return blst::Fp2{{
+                matrixnok_to_scalar(ring, value.x()),
+                matrixnok_to_scalar(ring, value.y())}};
+        };
+        const auto multiply = [](const blst::Fp2& left, const blst::Fp2& right) {
+            blst::Fp2 result = {};
+            blst::Fp2::mul(result, left, right);
+            return result;
+        };
+        const blst::Fp2 x = decode(point.x);
+        const blst::Fp2 y = decode(point.y);
+        const blst::Fp2 z = decode(point.z);
+        const blst::Fp2 z_squared = multiply(z, z);
+        blst::scalar::G2Point result = {};
+        result.x = multiply(x, z);
+        result.y = multiply(y, z_squared);
+        result.z = z;
+        return result;
+    }
+
+    void expect_same_scalar_g2(
+        const matrixnok::FpRingCandidate& ring,
+        const matrixnok::G2ProjectiveCandidate& actual,
+        const blst::scalar::G2Point& expected)
+    {
+        const auto decoded = matrixnok_g2_to_scalar(ring, actual);
+        EXPECT_TRUE(blst::scalar::G2Point::on_curve(decoded));
+        EXPECT_TRUE(blst::scalar::G2Point::equal(decoded, expected));
+    }
+
+    TEST(AvxMatrixNoKPrimitives, G2CompleteOperationsMatchScalar)
+    {
+        const matrixnok::FpRingCandidate ring;
+        const matrixnok::G2Fp2RingCandidate fp2ring(ring);
+        const matrixnok::G2CurveCandidate curve;
+        const auto generator = blst::scalar::G2Point::generator();
+        const auto candidate_generator =
+            matrixnok_g2_from_scalar(ring, fp2ring, generator);
+        const auto candidate_infinity = curve.zero(fp2ring);
+        ASSERT_TRUE(blst::scalar::G2Point::on_curve(generator));
+        {
+            SCOPED_TRACE("generator conversion");
+            expect_same_scalar_g2(ring, candidate_generator, generator);
+        }
+        {
+            SCOPED_TRACE("infinity conversion");
+            expect_same_scalar_g2(
+                ring, candidate_infinity, blst::scalar::G2Point::infinity());
+        }
+
+        blst::scalar::G2Point twice = {};
+        blst::scalar::G2Point::doubling(twice, generator);
+        const auto candidate_doubled =
+            curve.double_point(candidate_generator, fp2ring);
+        {
+            SCOPED_TRACE("double");
+            expect_same_scalar_g2(ring, candidate_doubled, twice);
+        }
+        {
+            SCOPED_TRACE("self add");
+            expect_same_scalar_g2(
+                ring,
+                curve.add_point(candidate_generator, candidate_generator, fp2ring),
+                twice);
+        }
+
+        blst::scalar::G2Point thrice = {};
+        blst::scalar::G2Point::dadd(thrice, twice, generator);
+        {
+            SCOPED_TRACE("distinct add");
+            expect_same_scalar_g2(
+                ring,
+                curve.add_point(candidate_doubled, candidate_generator, fp2ring),
+                thrice);
+        }
+
+        blst::scalar::G2Point negative = generator;
+        blst::scalar::G2Point::cneg(negative, 1);
+        const auto candidate_negative =
+            matrixnok_g2_from_scalar(ring, fp2ring, negative);
+        {
+            SCOPED_TRACE("opposites");
+            expect_same_scalar_g2(
+                ring,
+                curve.add_point(candidate_generator, candidate_negative, fp2ring),
+                blst::scalar::G2Point::infinity());
+        }
+        expect_same_scalar_g2(
+            ring,
+            curve.add_point(candidate_infinity, candidate_generator, fp2ring),
+            generator);
+        expect_same_scalar_g2(
+            ring,
+            curve.add_point(candidate_generator, candidate_infinity, fp2ring),
+            generator);
+
+        auto candidate_running = candidate_generator;
+        blst::scalar::G2Point running = generator;
+        for (unsigned step = 1; step <= 16; ++step) {
+            blst::scalar::G2Point expected = {};
+            blst::scalar::G2Point::dadd(expected, running, generator);
+            candidate_running = curve.add_point(
+                candidate_running, candidate_generator, fp2ring);
+            SCOPED_TRACE(step);
+            expect_same_scalar_g2(ring, candidate_running, expected);
+            running = expected;
+        }
+    }
+
+    TEST(AvxMatrixNoKPrimitives, G2GlsMultiplicationMatchesScalar)
+    {
+        const matrixnok::FpRingCandidate ring;
+        const matrixnok::G2Fp2RingCandidate fp2ring(ring);
+        const matrixnok::G2CurveCandidate curve;
+        const matrixnok::G2GLSCandidate gls(ring);
+        const auto generator = blst::scalar::G2Point::generator();
+        blst::scalar::G2Point doubled = {};
+        blst::scalar::G2Point::doubling(doubled, generator);
+        const std::array<blst::scalar::G2Point, 2> bases = {
+            generator, doubled};
+        std::vector<std::array<uint8_t, 32>> scalars = {{
+            {0},
+            {1},
+            {2},
+            {0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88,
+             0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x01},
+            {0xa5, 0x5a, 0xc3, 0x3c, 0x96, 0x69, 0xf0, 0x0f,
+             0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0,
+             0x0f, 0xed, 0xcb, 0xa9, 0x87, 0x65, 0x43, 0x21,
+             0x10, 0x32, 0x54, 0x76, 0x08, 0x00, 0x00, 0x00},
+        }};
+        constexpr std::array<uint64_t, 4> scalar_order_minus_one = {
+            0xffffffff00000000ULL,
+            0x53bda402fffe5bfeULL,
+            0x3339d80809a1d805ULL,
+            0x73eda753299d7d48ULL,
+        };
+        std::array<uint8_t, 32> boundary = {};
+        for (std::size_t limb = 0; limb < scalar_order_minus_one.size(); ++limb) {
+            for (std::size_t byte = 0; byte < sizeof(uint64_t); ++byte) {
+                boundary[limb * sizeof(uint64_t) + byte] =
+                    static_cast<uint8_t>(
+                        scalar_order_minus_one[limb] >> (byte * 8));
+            }
+        }
+        scalars.push_back(boundary);
+
+        uint64_t state = 0x13198a2e03707344ULL;
+        for (int trial = 0; trial < 16; ++trial) {
+            std::array<uint8_t, 32> scalar = {};
+            for (uint8_t& byte : scalar) {
+                state ^= state << 13;
+                state ^= state >> 7;
+                state ^= state << 17;
+                byte = static_cast<uint8_t>(state);
+            }
+            scalar.back() &= 0x3f;
+            scalars.push_back(scalar);
+        }
+
+        for (const auto& base : bases) {
+            const auto candidate_base =
+                matrixnok_g2_from_scalar(ring, fp2ring, base);
+            for (const auto& scalar : scalars) {
+                blst::scalar::G2Point expected = {};
+                blst::scalar::G2Point::mult_vartime(
+                    expected, base, scalar.data(), 256);
+                expect_same_scalar_g2(
+                    ring,
+                    gls.multiply_vartime(
+                        candidate_base, scalar, fp2ring, curve, ring),
+                    expected);
+                expect_same_scalar_g2(
+                    ring,
+                    gls.multiply(candidate_base, scalar, fp2ring, curve, ring),
+                    expected);
+            }
+        }
+    }
+
     struct MatrixNoKG1FftCtx
     {
         inline static const matrixnok::FpRingCandidate ring = {};
@@ -1106,14 +1317,6 @@ namespace blst::avx::test
                 actual[coefficient / 6][(coefficient % 6) / 2][coefficient % 2],
                 expected[coefficient / 6][(coefficient % 6) / 2][coefficient % 2]);
         }
-    }
-
-    FP2Ring<matrixnok::FpRingCandidate>::StandardElement
-    matrixnok_generic_fp2_from_scalar(
-        const matrixnok::FpRingCandidate& ring,
-        const blst::Fp2& value)
-    {
-        return {ring.from_scalar(value[0]), ring.from_scalar(value[1])};
     }
 
     TEST(AvxMatrixNoKPrimitives, Fp12MultiplyAndSquareMatchScalar)

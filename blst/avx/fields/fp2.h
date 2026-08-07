@@ -335,6 +335,13 @@ class FP2Ring {
     }
 
     template<class X, class Y>
+    INLINE auto prep_expand(const FP2<X, Y>& fp2) const {
+        auto x = ring.prep_expand(fp2.x());
+        auto y = ring.prep_expand(fp2.y());
+        return FP2<decltype(x), decltype(y)>(x, y);
+    }
+
+    template<class X, class Y>
     INLINE auto prep_left(const FP2<X, Y> &fp2) const {
         return fp2.prep_left(ring);
     }
