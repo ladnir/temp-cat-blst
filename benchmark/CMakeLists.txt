@@ -159,6 +159,17 @@ if(BLST_HAVE_AVX_VALIDATION_GMP)
     endif()
     target_include_directories(avx_group_ops_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
     target_include_directories(avx_group_ops_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
+    target_include_directories(avx_group_ops_benchmarks PRIVATE
+        "${CMAKE_BINARY_DIR}"
+        "${CMAKE_BINARY_DIR}/blst"
+    )
+    if(BLST_AVX_FIELD_PERF_ONLY AND BLST_AVX512)
+        if(MSVC)
+            target_compile_options(avx_group_ops_benchmarks PRIVATE /arch:AVX512)
+        else()
+            target_compile_options(avx_group_ops_benchmarks PRIVATE -march=native)
+        endif()
+    endif()
 endif()
 
 if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
