@@ -197,6 +197,7 @@ gtest_discover_tests(blst_tests
 if(BLST_AVX512_PORTABLE)
     set(AVX512_COMPAT_TEST_SOURCES
         "avx/Avx_matrixnok_primitive_tests.cpp"
+        "${PROJECT_SOURCE_DIR}/blst/backend/backend_portable.cpp"
         "${PROJECT_SOURCE_DIR}/blst/backend/avx512/intrin_compat.cpp"
     )
     if(BLST_AVX512)
@@ -206,6 +207,7 @@ if(BLST_AVX512_PORTABLE)
     add_executable(blst_avx512_compat_tests ${AVX512_COMPAT_TEST_SOURCES})
     target_include_directories(blst_avx512_compat_tests PRIVATE
         "${PROJECT_SOURCE_DIR}"
+        "${CMAKE_BINARY_DIR}"
         "${CMAKE_BINARY_DIR}/blst"
     )
     target_link_libraries(blst_avx512_compat_tests PRIVATE gtest_main)

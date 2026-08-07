@@ -2,11 +2,14 @@
 #include "blst/avx/cpu/vector/conversion.hpp"
 #include "blst/avx/rns/elementwise_reduce.h"
 #include "blst/avx/rns/matrixnok_change_base.h"
+#include "blst/avx/rns/matrixnok_fp.h"
+#include "blst/fields/Fp.h"
 
 #include <gtest/gtest.h>
 
 #include <array>
 #include <cstdint>
+#include <cstring>
 
 namespace blst::avx::test
 {
@@ -164,5 +167,217 @@ namespace blst::avx::test
         }
 
         check_matrixnok_change_base(input, initial_hi, initial_lo);
+    }
+
+    std::array<uint64_t, 8> canonical_50bit_digits(const blst::Fp& montgomery)
+    {
+        blst::Fp canonical = {};
+        blst::cc_from_mont_n<blst::Fp::num_limb()>(
+            canonical.l, montgomery.l, blst::get_BLST_P().l, blst::Fp::montgomery_constant());
+        constexpr uint64_t mask = (uint64_t{1} << 50) - 1;
+        std::array<uint64_t, 8> digits{};
+        for (std::size_t digit = 0; digit < digits.size(); ++digit) {
+            const std::size_t bit = digit * 50;
+            const std::size_t limb = bit / 64;
+            const unsigned shift = static_cast<unsigned>(bit % 64);
+            uint64_t value = canonical.l[limb] >> shift;
+            if (shift != 0 && limb + 1 < blst::Fp::num_limb()) {
+                value |= canonical.l[limb + 1] << (64 - shift);
+            }
+            digits[digit] = value & mask;
+        }
+        return digits;
+    }
+
+    blst::Fp canonical_to_montgomery(std::array<uint64_t, blst::Fp::num_limb()> limbs)
+    {
+        blst::Fp canonical = {};
+        for (std::size_t index = 0; index < limbs.size(); ++index) {
+            canonical.l[index] = limbs[index];
+        }
+        blst::Fp montgomery = {};
+        blst::cc_mul_mont_n<blst::Fp::num_limb()>(
+            montgomery.l,
+            canonical.l,
+            blst::get_BLST_RR().l,
+            blst::get_BLST_P().l,
+            blst::Fp::montgomery_constant());
+        return montgomery;
+    }
+
+    blst::Fp matrixnok_to_scalar(
+        const matrixnok::FpRingCandidate& ring,
+        const matrixnok::FpRingCandidate::Element& value)
+    {
+        AVXVector<8> high;
+        AVXVector<8> low;
+        ring.convert_from_raw(value, high, low);
+
+        const auto low_digits = low.to_array();
+        const auto high_digits = high.to_array();
+        std::array<uint64_t, 9> digits = {};
+        digits[0] = low_digits[0];
+        for (std::size_t index = 1; index < 8; ++index) {
+            digits[index] = high_digits[index - 1] + low_digits[index];
+        }
+        digits[8] = high_digits[7];
+
+        // Independently decode the base-2^52 accumulator with the portable
+        // scalar backend. Keeping this oracle out of the configured backend
+        // dispatch lets the same small test run in portable-only and
+        // native-plus-portable configurations without linking the ASM product.
+        blst::UFp even = {};
+        blst::UFp odd = {};
+        auto* even_bytes = reinterpret_cast<unsigned char*>(even.data);
+        auto* odd_bytes = reinterpret_cast<unsigned char*>(odd.data);
+        for (std::size_t index = 0; index < digits.size(); index += 2) {
+            std::memcpy(even_bytes + (index / 2) * 13, &digits[index], sizeof(uint64_t));
+        }
+        for (std::size_t index = 1; index < 8; index += 2) {
+            const uint64_t shifted = digits[index] << 4;
+            std::memcpy(odd_bytes + (index / 2) * 13 + 6, &shifted, sizeof(uint64_t));
+        }
+
+        blst::UFp wide = {};
+        uint64_t carry = 0;
+        for (std::size_t index = 0; index < std::size(wide.data); ++index) {
+            const uint64_t left = even.data[index];
+            const uint64_t right = odd.data[index];
+            const uint64_t sum = left + right + carry;
+            wide.data[index] = sum;
+            carry = (sum < left) || (carry != 0 && sum == left);
+        }
+
+        blst::Fp reduced = {};
+        blst::cc_redc_mont_n<blst::Fp::num_limb()>(
+            reduced.l,
+            wide.data,
+            blst::get_BLST_P().l,
+            blst::Fp::montgomery_constant());
+        blst::Fp canonical = {};
+        blst::cc_mul_mont_n<blst::Fp::num_limb()>(
+            canonical.l,
+            reduced.l,
+            blst::get_BLST_RR().l,
+            blst::get_BLST_P().l,
+            blst::Fp::montgomery_constant());
+        blst::Fp montgomery = {};
+        blst::cc_mul_mont_n<blst::Fp::num_limb()>(
+            montgomery.l,
+            canonical.l,
+            blst::get_BLST_RR().l,
+            blst::get_BLST_P().l,
+            blst::Fp::montgomery_constant());
+        return montgomery;
+    }
+
+    void expect_same_scalar_fp(const blst::Fp& actual, const blst::Fp& expected)
+    {
+        for (std::size_t limb = 0; limb < blst::Fp::num_limb(); ++limb) {
+            EXPECT_EQ(actual.l[limb], expected.l[limb]) << "limb " << limb;
+        }
+    }
+
+    void expect_standard_residue_bounds(
+        const matrixnok::FpRingCandidate& ring,
+        const matrixnok::FpRingCandidate::Element& value)
+    {
+        const auto m1 = value.m1.data.to_array();
+        const auto m2 = value.m2.data.to_array();
+        for (std::size_t lane = 0; lane < m1.size(); ++lane) {
+            EXPECT_LT(m1[lane], matrixnok::FpRingCandidate::standard_bound * ring.moduli1()[lane]);
+            EXPECT_LT(m2[lane], matrixnok::FpRingCandidate::standard_bound * ring.moduli2()[lane]);
+        }
+    }
+
+    blst::Fp scalar_product(const blst::Fp& left, const blst::Fp& right)
+    {
+        blst::Fp product = {};
+        blst::cc_mul_mont_n<blst::Fp::num_limb()>(
+            product.l,
+            left.l,
+            right.l,
+            blst::get_BLST_P().l,
+            blst::Fp::montgomery_constant());
+        return product;
+    }
+
+    TEST(AvxMatrixNoKPrimitives, BaseFieldMultiplyMatchesScalar)
+    {
+        const matrixnok::FpRingCandidate ring;
+        auto p_minus_one = std::to_array<uint64_t>({
+            blst::get_BLST_P().l[0], blst::get_BLST_P().l[1], blst::get_BLST_P().l[2],
+            blst::get_BLST_P().l[3], blst::get_BLST_P().l[4], blst::get_BLST_P().l[5]});
+        --p_minus_one[0];
+        const std::array<blst::Fp, 8> values = {
+            canonical_to_montgomery({0, 0, 0, 0, 0, 0}),
+            canonical_to_montgomery({1, 0, 0, 0, 0, 0}),
+            canonical_to_montgomery({2, 0, 0, 0, 0, 0}),
+            canonical_to_montgomery(p_minus_one),
+            canonical_to_montgomery({0x0123456789abcdefULL, 0xfedcba9876543210ULL, 0, 0, 0, 0}),
+            canonical_to_montgomery({UINT64_MAX, UINT64_MAX, UINT64_MAX, 0, 0, 0}),
+            canonical_to_montgomery({0xaaaaaaaaaaaaaaaaULL, 0x5555555555555555ULL,
+                0x3333333333333333ULL, 0x1111111111111111ULL, 0, 0}),
+            canonical_to_montgomery({UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX,
+                UINT64_MAX, 0x1000000000000000ULL}),
+        };
+
+        for (const blst::Fp& value : values) {
+            const auto encoded = ring.from_canonical_50bit_digits(canonical_50bit_digits(value));
+            expect_standard_residue_bounds(ring, encoded);
+            expect_same_scalar_fp(matrixnok_to_scalar(ring, encoded), value);
+        }
+
+        for (const blst::Fp& left : values) {
+            for (const blst::Fp& right : values) {
+                const auto candidate_left = ring.from_canonical_50bit_digits(canonical_50bit_digits(left));
+                const auto candidate_right = ring.from_canonical_50bit_digits(canonical_50bit_digits(right));
+                const auto candidate_product = ring.multiply(candidate_left, candidate_right);
+                expect_standard_residue_bounds(ring, candidate_product);
+                expect_same_scalar_fp(
+                    matrixnok_to_scalar(ring, candidate_product),
+                    scalar_product(left, right));
+            }
+        }
+
+        uint64_t state = 0xd1b54a32d192ed03ULL;
+        auto next_random = [&state]() {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            return state;
+        };
+        for (int trial = 0; trial < 64; ++trial) {
+            std::array<uint64_t, blst::Fp::num_limb()> left_limbs = {};
+            std::array<uint64_t, blst::Fp::num_limb()> right_limbs = {};
+            for (std::size_t limb = 0; limb + 1 < blst::Fp::num_limb(); ++limb) {
+                left_limbs[limb] = next_random();
+                right_limbs[limb] = next_random();
+            }
+            // A top limb below p's top limb makes these dense values canonical
+            // without sharing a reduction implementation with the oracle.
+            left_limbs.back() = next_random() & 0x0fffffffffffffffULL;
+            right_limbs.back() = next_random() & 0x0fffffffffffffffULL;
+            const blst::Fp left = canonical_to_montgomery(left_limbs);
+            const blst::Fp right = canonical_to_montgomery(right_limbs);
+            const auto candidate_left = ring.from_canonical_50bit_digits(canonical_50bit_digits(left));
+            const auto candidate_right = ring.from_canonical_50bit_digits(canonical_50bit_digits(right));
+            const auto candidate_product = ring.multiply(candidate_left, candidate_right);
+            expect_standard_residue_bounds(ring, candidate_product);
+            expect_same_scalar_fp(
+                matrixnok_to_scalar(ring, candidate_product),
+                scalar_product(left, right));
+        }
+
+        auto candidate_accumulator = ring.from_canonical_50bit_digits(canonical_50bit_digits(values[4]));
+        blst::Fp scalar_accumulator = values[4];
+        for (int iteration = 0; iteration < 64; ++iteration) {
+            candidate_accumulator = ring.multiply(
+                candidate_accumulator,
+                ring.from_canonical_50bit_digits(canonical_50bit_digits(values[6])));
+            scalar_accumulator = scalar_product(scalar_accumulator, values[6]);
+            expect_standard_residue_bounds(ring, candidate_accumulator);
+            expect_same_scalar_fp(matrixnok_to_scalar(ring, candidate_accumulator), scalar_accumulator);
+        }
     }
 } // namespace blst::avx::test
