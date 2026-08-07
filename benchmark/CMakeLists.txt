@@ -139,6 +139,31 @@ if(BLST_HAVE_AVX_VALIDATION_GMP)
         add_executable(avx_group_ops_benchmarks
             "avx/Avx_matrixnok_head_to_head_bench.cpp"
         )
+        if(BLST_VROOM_SOURCE_DIR)
+            if(NOT EXISTS "${BLST_VROOM_SOURCE_DIR}/src/bls12_381_ring_params.hpp")
+                message(FATAL_ERROR
+                    "BLST_VROOM_SOURCE_DIR must name a VROOM source tree containing src/bls12_381_ring_params.hpp")
+            endif()
+            set(BLST_VROOM_REFERENCE_COMMIT "26bd9aee2168f167583cf096add355547a7b56d4")
+            execute_process(
+                COMMAND git -C "${BLST_VROOM_SOURCE_DIR}" rev-parse HEAD
+                RESULT_VARIABLE BLST_VROOM_GIT_RESULT
+                OUTPUT_VARIABLE BLST_VROOM_ACTUAL_COMMIT
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+            )
+            if(NOT BLST_VROOM_GIT_RESULT EQUAL 0 OR
+                NOT BLST_VROOM_ACTUAL_COMMIT STREQUAL BLST_VROOM_REFERENCE_COMMIT)
+                message(FATAL_ERROR
+                    "Focused AVX comparison requires VROOM commit ${BLST_VROOM_REFERENCE_COMMIT}; "
+                    "found '${BLST_VROOM_ACTUAL_COMMIT}'")
+            endif()
+            target_sources(avx_group_ops_benchmarks PRIVATE
+                "avx/Vroom_matrixnok_reference_bench.cpp"
+            )
+            target_include_directories(avx_group_ops_benchmarks PRIVATE
+                "${BLST_VROOM_SOURCE_DIR}/src"
+            )
+        endif()
         target_link_libraries(avx_group_ops_benchmarks PRIVATE
             benchmark::benchmark_main
             blst_avx_headers
