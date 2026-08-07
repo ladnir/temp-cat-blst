@@ -57,6 +57,9 @@ Precomputed constants are checked in as fixed compile-time data with provenance
 and reproducible validation. Production initialization performs no search,
 allocation, GMP computation, or mutable global setup.
 
+Focused evidence for the prerequisite vector and bounded-reduction packet is
+recorded in `PRIMITIVE_EVIDENCE.md`.
+
 ## Work packets
 
 1. **Manifest and mapping** — classify every upstream commit and map each
