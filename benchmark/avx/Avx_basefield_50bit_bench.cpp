@@ -1,5 +1,6 @@
 #include <benchmark/benchmark.h>
 
+#include "blst/avx/rns/matrixnok_fp.h"
 #include "test/avx/avx_test_utils.h"
 
 #include <array>
@@ -50,6 +51,42 @@ static void BM_ModMul_50bit(benchmark::State& state)
     }
 
     state.SetLabel("ModMul_50bit");
+}
+
+static void BM_ModMul_MatrixNoK_Port(benchmark::State& state)
+{
+    const matrixnok::FpRingCandidate ring;
+    const auto left = ring.from_canonical_50bit_digits({
+        0x123456789abcdULL,
+        0x2bcdef0123456ULL,
+        0x3456789abcdefULL,
+        0x0fedcba987654ULL,
+        0x23456789abcdeULL,
+        0x3abcdef012345ULL,
+        0x156789abcdef0ULL,
+        0x0000000001234ULL,
+    });
+    const auto right = ring.from_canonical_50bit_digits({
+        0x3edcba9876543ULL,
+        0x176543210fedcULL,
+        0x2ba9876543210ULL,
+        0x3456789abcdefULL,
+        0x1cdef01234567ULL,
+        0x289abcdef0123ULL,
+        0x0f0123456789aULL,
+        0x0000000000abcULL,
+    });
+    matrixnok::FpRingCandidate::Element result;
+
+    benchmark::DoNotOptimize(left);
+    benchmark::DoNotOptimize(right);
+
+    for (auto _ : state) {
+        ring.multiply(result, left, right);
+        benchmark::DoNotOptimize(result);
+    }
+
+    state.SetLabel("ModMul_MatrixNoK_Port");
 }
 
 #define BLST_AVX_DEFINE_BATCH_MODMUL_BENCH_50(BATCH)                                \
@@ -130,6 +167,7 @@ static void BM_FP2_Sqr_50bit(benchmark::State& state)
 }
 
 BENCHMARK(BM_ModMul_50bit);
+BENCHMARK(BM_ModMul_MatrixNoK_Port);
 BENCHMARK(BM_FP2_Mul_50bit);
 BENCHMARK(BM_FP2_Sqr_50bit);
 
