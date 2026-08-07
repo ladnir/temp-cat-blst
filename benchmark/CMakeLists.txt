@@ -158,7 +158,8 @@ if(BLST_HAVE_AVX_VALIDATION_GMP)
                     "found '${BLST_VROOM_ACTUAL_COMMIT}'")
             endif()
             target_sources(avx_group_ops_benchmarks PRIVATE
-                "avx/Vroom_matrixnok_reference_bench.cpp"
+                "avx/Avx_matrixnok_fft_preview_bench.cpp"
+                "avx/Vroom_matrixnok_fft_preview_bench.cpp"
             )
             target_include_directories(avx_group_ops_benchmarks PRIVATE
                 "${BLST_VROOM_SOURCE_DIR}/src"
@@ -167,6 +168,7 @@ if(BLST_HAVE_AVX_VALIDATION_GMP)
         target_link_libraries(avx_group_ops_benchmarks PRIVATE
             benchmark::benchmark_main
             blst_avx_headers
+            blst_static
         )
     else()
         add_executable(avx_group_ops_benchmarks
