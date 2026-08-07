@@ -6,13 +6,13 @@
 | --- | --- |
 | Path | `blst/scalar/fields/Fp2.h` |
 | Roadmap phase / queue | Phase 14 scalar extension fields, after Fp representation/lifetime remediation |
-| Reviewed commit | `0ee24de0da80b256979832ea872272f635599853` |
+| Reviewed commit | `314c186149b9cc95d85a0c54e2dd651f137e4236` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-03 |
 | Disposition | in-scope production |
 | Subsystem | scalar quadratic extension field |
 | Profiles | scalar, C, C++, Rust; experimental CUDA definitions are not release evidence |
-| Generation/provenance | Hand-maintained C++ refactor with upstream BLST `src/fp12_tower.c` and `src/exp.c` lineage |
+| Generation/provenance | Hand-maintained C++ refactor with upstream BLST `src/fp12_tower.c`, `src/exp.c`, and `src/sqrt.c` lineage |
 | Upstream references | Pinned upstream head `54e6e55674722fc2797ebb4bbb71b26d881eb4b8` |
 | Related files | `bindings/blst_types.h`, `blst/scalar/fields/Fp.h`, `blst/scalar/fields/Fp12.cpp`, `blst/exports.cpp`, `test/Fp2_tests.cpp`, `test/C_api_tests.cpp` |
 
@@ -135,7 +135,8 @@ their generator reviews; experimental CUDA is not a release gate.
 
 ## Findings
 
-`AUD-079`, `AUD-084`, `AUD-087`.
+`AUD-079`, `AUD-084`, `AUD-087`, `AUD-198`, `AUD-200`, `AUD-201`,
+`AUD-202`, and `AUD-203`.
 
 ## Validation
 
@@ -178,3 +179,14 @@ include is removed, and focused scalar Debug/Release tests cover the Fp2 zero
 case. The implementation is recorded at
 `529a79377b6ef848ec90fce35e7580a9f451fc4f`; the file's broader residual
 evidence remains pending. No generic arithmetic scratch erasure was added.
+
+## Wave 2 exact-contract follow-up
+
+The complete header and current callers were reread at `314c186`. Previously
+undefined component-wise Montgomery transforms now link and pass out-of-place
+and exact-alias round trips. Exponent and shift inputs are explicitly public.
+Square-root documentation now describes algebraic candidate rotation, failure
+publication, zero reciprocal-root behavior, and the absence of RFC sign
+normalization. Large shifts inherit Fp's bounded logarithmic path; ordinary
+counts retain the original component calls. Fp2 inverse timing remains
+conservatively variable-time under open `AUD-201`.

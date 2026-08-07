@@ -5,7 +5,7 @@
 | Disposition | in-scope production |
 | Profiles | scalar |
 | Review state | complete |
-| Reviewed commit | `b6a51bb62fa4e52e8349e9d7a17d51617c212e24` |
+| Reviewed commit | `314c186149b9cc95d85a0c54e2dd651f137e4236` |
 | Upstream lineage | no one-to-one file; explicit CUDA instantiation unit |
 
 With CUDA disabled, this translation unit includes `Fr.h` and emits no separate

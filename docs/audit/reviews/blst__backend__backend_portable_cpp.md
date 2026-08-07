@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/backend/backend_portable.cpp` |
 | Roadmap phase / queue | Phase 13, portable-backend trust chain |
-| Reviewed commit | `5606e84262401225c4e02b3ec786b849c85adfcc` |
+| Reviewed commit | `314c186149b9cc95d85a0c54e2dd651f137e4236` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-02 |
 | Disposition | `in_scope_production` |
@@ -112,3 +112,11 @@ Complete for this file at the reviewed commit. Exhaustive arithmetic proof is
 not claimed: larger property, sanitizer, UB, and fuzz campaigns remain Phase
 12/14 release evidence. The native assembly implementations and field-level
 composition retain their own file reviews and differential gates.
+
+## Phase 14 conditional-negation follow-up
+
+The file was reread at `314c186` for `AUD-060`. Portable modular conditional
+negation now branchlessly maps zero to false and every nonzero limb value to
+true, matching x86-64 and AArch64 assembly. Direct 256/384-bit differential
+tests pass for flags zero, one, two, and all-ones, including zero operands.
+Optimized MSVC emits `neg/or/shr` normalization and no flag-dependent branch.

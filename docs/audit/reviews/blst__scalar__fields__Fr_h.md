@@ -5,10 +5,10 @@
 | Disposition | in-scope production |
 | Profiles | scalar, C, C++, Rust |
 | Review state | in review |
-| Exact review baseline | `c3096482cdab88edc4f05e0c6583c7896fd75bab` |
-| Remediation commits | `b6a51bb62fa4e52e8349e9d7a17d51617c212e24`, `61c8cd4` |
+| Exact review baseline | `314c186149b9cc95d85a0c54e2dd651f137e4236` |
+| Remediation commits | `b6a51bb62fa4e52e8349e9d7a17d51617c212e24`, `61c8cd4`, `314c186` |
 | Upstream lineage | `54e6e556:src/consts.c`, `src/exports.c`, `src/recip.c`, and `src/vect.c`; no one-to-one file |
-| Findings | `AUD-067`, `AUD-069`, `AUD-070`, `AUD-072` |
+| Findings | `AUD-067`, `AUD-069`, `AUD-070`, `AUD-072`, `AUD-198`, `AUD-199`, `AUD-201`, `AUD-203` |
 
 ## Review result
 
@@ -36,3 +36,12 @@ alignment branches are removed.
 public/internal type model, with focused runtime, Rust, and Apple validation
 still pending. Butterfly nonalias contracts, inverse of
 zero, and full sanitizer/oracle evidence remain Phase 14 follow-ups.
+
+## Wave 2 exact-contract follow-up
+
+The complete file was reread at `314c186`. Exponent pointer/top-bit and public
+timing requirements are explicit. REDC now states `a < r*R` and checks the
+upper-half bound only in Debug. Counts through 256 retain the original shift
+backend; larger public counts use logarithmic modular exponentiation, including
+`SIZE_MAX`. Constant-count optimized probes remain direct calls to the original
+backend. Cross-platform and independent-oracle evidence remains phase work.

@@ -380,3 +380,29 @@ follow-up is implemented at `02f5e5ff078b251ca3b5f86f4f83ea64af664bc7`.
 Strict C++20 parsing and the standalone Release field-boundary executable pass.
 The owning scalar field implementations retain responsibility for arithmetic,
 constant-time, sanitizer, and cross-platform evidence.
+
+## Wave 2 scalar and extension-field audit
+
+Wave 2 completed the line-by-line rereview of scalar `Fr`, `Fp`, `Fp2`, and
+`Fp12` at implementation commit `314c186`. Findings `AUD-198` through
+`AUD-207` record exponent/timing contracts, REDC bounds, missing Fp2 transforms,
+inverse timing evidence, square-root publication, extreme shift work, Fp12
+domain wording, a bad cyclotomic test, and sparse packed-operand semantics.
+`AUD-060` was extended because portable modular conditional negation disagreed
+with assembly for non-bit flags.
+
+The approved repairs preserve hot structure. Portable `cneg` uses branchless
+truth normalization. Shift counts through 256 use the original selected
+backend; only larger public counts use O(log count) exponentiation. Optimized
+MSVC shows constant count three still calls the original 256/384-bit backend
+directly. Focused scalar Release tests pass 7/7 across portable/assembly cneg,
+extreme counts, Fp2 transforms/sqrt, and valid-domain cyclotomic squaring.
+Scalar Debug and Release libraries compile serially. No benchmark, CUDA, BTx,
+portable-AVX Release, sanitizer, Apple job, or broad runtime sweep ran.
+
+`AUD-201` remains open: Fp/Fp2 reciprocal includes a result-verification branch
+and rare fixed-chain fallback, so the conservative variable-time contract is
+retained until selected-platform code generation is reviewed. `AUD-199` remains
+fixed rather than validated until its Debug assertion has a retained death
+regression. Broader independent field oracles, fuzzing, sanitizers, Rust, and
+supported-platform evidence remain Phase 14/19 work.

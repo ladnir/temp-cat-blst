@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/scalar/fields/Fp12.cpp` |
 | Roadmap phase / queue | Phase 14 scalar extension fields and GT boundary |
-| Reviewed commit | `09722691117bfbae36baa27da0c6f6481fcd58ad` |
+| Reviewed commit | `314c186149b9cc95d85a0c54e2dd651f137e4236` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-03 |
 | Disposition | in-scope production |
@@ -161,7 +161,8 @@ a release gate.
 ## Findings
 
 `AUD-079`, `AUD-080`, `AUD-081`, `AUD-082`, `AUD-083`, `AUD-085`, `AUD-086`,
-`AUD-087`, `AUD-088`.
+`AUD-087`, `AUD-088`, `AUD-198`, `AUD-204`, `AUD-205`, `AUD-206`, and
+`AUD-207`.
 
 ## Validation
 
@@ -230,3 +231,12 @@ The file remains in review for broader sanitizer, oracle, and supported-platform
 evidence. The timing decision is resolved by constant-time default and named
 variable-time GT multiplication (`AUD-082`/`AUD-088`), and the checked versus
 deferred deserialization contract (`AUD-085`) is resolved.
+
+## Wave 2 exact-contract follow-up
+
+The implementation and all direct supported callers were reread at `314c186`.
+No arithmetic change was required. The invalid-domain cyclotomic-square test
+now final-exponentiates its seed and compares the specialized result with
+general squaring. Predicate, exponent, schedule, and sparse-operand declaration
+contracts now match the implementation. Broader sanitizer and independent
+oracle evidence remains.

@@ -6,12 +6,12 @@
 | --- | --- |
 | Path | `blst/scalar/fields/Fp12.h` |
 | Roadmap phase / queue | Phase 14 scalar extension fields |
-| Reviewed commit | `09722691117bfbae36baa27da0c6f6481fcd58ad` |
+| Reviewed commit | `314c186149b9cc95d85a0c54e2dd651f137e4236` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-03 |
 | Disposition | in-scope production |
 | Subsystem | scalar Fp6/Fp12 types and internal Fp4 support |
-| Profiles | scalar C++ |
+| Profiles | scalar C, C++, and Rust shared representation |
 | Generation/provenance | Hand-maintained native C++ type declarations with upstream tower lineage |
 | Upstream references | `54e6e556:src/fp12_tower.c` for the internal Fp4 scratch shape |
 | Related files | `bindings/blst_types.h`, `blst/scalar/fields/Fp2.h`, `blst/scalar/fields/Fp12.cpp`, `blst/fields/Fp12.h` |
@@ -91,8 +91,9 @@ N/A: no randomness or ownership.
 
 ### 9. API and ABI
 
-This should remain an internal implementation type; it is not part of the C or
-Rust ABI.
+The C++ `blst_fp6`/`blst_fp12` names are exact aliases of these native types.
+C and Rust expose the matching POD/`repr(C)` storage, so layout is ABI-relevant
+even though member functions are visible only in C++.
 
 ### 10. Concurrency
 
@@ -125,7 +126,7 @@ N/A.
 ## Findings
 
 `AUD-081`, `AUD-082`, `AUD-083`, `AUD-085`, `AUD-086`, `AUD-087`, and
-`AUD-088`.
+`AUD-088`, `AUD-198`, `AUD-204`, `AUD-205`, and `AUD-207`.
 
 ## Validation
 
@@ -137,7 +138,7 @@ Repository-wide reference search and strict host parsing through `Fp12.cpp`.
 | --- | --- | --- | --- |
 | CodeQL | Existing C/C++ baseline | No alert | Header hygiene is review-driven |
 | Clang Static Analyzer / clang-tidy | Not rerun | N/A | No executable logic |
-| Clippy | N/A | N/A | No Rust implementation |
+| Clippy | Retained raw binding baseline | No header-specific diagnostic | Rust shares the C storage layout but not this C++ implementation |
 | ASan/UBSan | Transitively covered | No header-specific failure | Does not assess provenance |
 | Fuzzing | N/A | N/A | Storage-only header |
 
@@ -156,3 +157,13 @@ and benchmarked under `AUD-082`/`AUD-088`. Canonical, failure-atomic Fp12
 decoding resolves this header's part of `AUD-085`. The file remains in review
 pending a decision whether the Fp4 scratch type should remain re-exported by the
 selected header.
+
+## Wave 2 exact-contract follow-up
+
+The complete declaration surface was reread at `314c186`. General Fp12
+exponentiation and raw GLV schedule helpers now say when exponent data is
+public and variable-time; CT GT helpers state the canonical-input guarantee and
+the permitted reduction-required timing distinction. `in_group` is documented
+as nonzero prime-order GT membership, while `is_cyclotomic` is the weaker
+relation that also accepts zero. Sparse `{x,y,z}` storage is defined as Fp12
+`((x,y,0),(0,z,0))`, not an ordinary Fp6 operand.

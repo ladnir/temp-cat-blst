@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `bindings/blst_scalar.h` |
 | Roadmap phase / queue | Phase 18 public C/C++/Rust surface; Wave 1 Set B |
-| Reviewed commit | `aa4c7ed187f5a63496f0e94f9284108cbd46c7f1` |
+| Reviewed commit | `314c186149b9cc95d85a0c54e2dd651f137e4236` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-06 |
 | Disposition | in-scope production |
@@ -345,3 +345,11 @@ fuzz expansion, Apple and other supported toolchains, native AVX-512 codegen,
 and full milestone matrices. The open pairing-policy decision `AUD-097` remains
 an explicit semantic policy item, not a missing declaration contract. These
 gaps do not prevent this header's exact file review from being complete.
+
+## Phase 14 field-contract follow-up
+
+The exact header was reconciled again at `314c186` for the reviewed field
+families. Fr/Fp/Fp2 shift counts are explicitly public, and the sparse Fp12
+operand is documented as packed `{x,y,z}` for `((x,y,0),(0,z,0))` rather than
+an ordinary Fp6 multiplier. No signature, ABI layout, symbol, or runtime path
+changed.

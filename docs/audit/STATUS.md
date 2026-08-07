@@ -2,14 +2,14 @@
 
 Last updated: 2026-08-06
 
-Wave 1 of the parallel file audit is integrated. Commits `02f5e5f` and
-`aa4c7ed` close the scalar C-boundary lifetime packet and public type/contract
-packet. `AUD-186` through `AUD-197` are recorded; all implementation findings
-are validated or fixed with explicit residual evidence. The performance-
-sensitive Pippenger repair preserves the `0x108` core frame and exact G1/G2
-tile-wrapper sizes, while eliminating the C++ lifetime violation. Focused
-scalar, header, pairing, uniqueness, field-boundary, and Rust evidence passes;
-no benchmark or broad run was used.
+Waves 1 and 2 of the parallel file audit are integrated through implementation
+commit `314c186`. Wave 1 closes the scalar C-boundary lifetime and public
+type/contract packets. Wave 2 records `AUD-198` through `AUD-207`, repairs the
+approved scalar/extension-field findings, and extends `AUD-060` so portable
+conditional negation matches assembly for every nonzero flag. Focused scalar
+Release evidence passes 7/7 and optimized small-shift/cneg inspection passes;
+`AUD-201` remains open for inverse timing evidence. No benchmark, CUDA, BTx,
+sanitizer, Apple job, or broad runtime sweep ran.
 
 ## Current phase
 
