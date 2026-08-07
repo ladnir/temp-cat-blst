@@ -2,7 +2,7 @@
 
 ## Packet boundary
 
-- Candidate implementation: `1ca9af2`
+- Candidate implementation through: `19f37a1`
 - Upstream algorithm commit: `d6ecd534c54a41702ea80ae75b52250b6d51b372`
 - Compared VROOM head: `26bd9aee2168f167583cf096add355547a7b56d4`
 - C++ owner: `blst/avx/fields/matrixnok_fp2.h`
@@ -25,8 +25,9 @@ Squaring issues three products and doubles the `a*b` accumulator:
 
 Both operations are allocation-free, have fixed schedules, and support exact
 output aliasing through wrappers that compute the complete result before the
-assignment. The extension-ring object contains only an eight-byte pointer to
-its owning base ring.
+assignment. The fixed BLS12-381 base and extension-ring owners are stateless,
+empty C++ types. Each has the language-mandated minimum object size of one
+byte and owns no parameter data or pointer.
 
 ## Correctness evidence
 
@@ -52,13 +53,14 @@ Clang 21.1.8 compiled the isolated probes with C++23, `-O3`, `-DNDEBUG`, and
 
 | Operation | Instructions | Frame | Calls | Conditional branches | IFMA low/high | Immediate rotations |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| multiply | 373 | 32 bytes | 0 | 0 | 54 / 50 | 14 |
-| square | 369 | 32 bytes | 0 | 0 | 52 / 48 | 14 |
+| multiply | 352 | 0 bytes | 0 | 0 | 54 / 50 | 14 |
+| square | 348 | 0 bytes | 0 | 0 | 52 / 48 | 14 |
 
 No `_vv` wrapper or candidate operation remains out of line. The formula,
 reductions, and fixed MatrixNoK permutations are visible in one optimized
-body. The small frame is accepted for this isolated candidate; later Fp12 and
-pairing probes must recheck aggregate stack pressure.
+body. The stateless refactor removes the former 32-byte frame and 21
+instructions from each Fp2 probe. Later Fp12 and pairing probes must still
+recheck aggregate stack pressure.
 
 ## Clang 21 performance comparison
 
@@ -72,48 +74,48 @@ Mean CPU time was:
 
 | Operation | CatBLST prior 50-bit | CatBLST MatrixNoK | VROOM MatrixNoK | Candidate vs prior | Candidate vs VROOM |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| multiply | 41.6 ns | 34.2 ns | 34.7 ns | -17.8% | -1.4% |
-| square | 41.2 ns | 33.5 ns | 34.2 ns | -18.7% | -2.0% |
+| multiply | 41.4 ns | 33.6 ns | 34.7 ns | -18.8% | -3.2% |
+| square | 41.1 ns | 33.6 ns | 34.1 ns | -18.2% | -1.5% |
 
-The candidate coefficients of variation were 0.11% for multiplication and
-0.08% for squaring. This clears the performance gate for retaining the simple
+The candidate coefficients of variation were 0.05% for multiplication and
+0.07% for squaring. This clears the performance gate for retaining the simple
 four-product design as the field-tower baseline. A three-product Karatsuba
 variant is not selected without separate correctness and timing evidence: its
 wider sums and modular corrections may consume the saved IFMA work.
 
-## Context-size finding
+## Stateless-context resolution
 
-The focused test records `sizeof(FpRingCandidate) == 5120`, while
-`sizeof(Fp2RingCandidate) == 8`. The base object currently owns copies of
-fixed RNS matrices and two reducer contexts assembled by its constructor.
-Construction was correctly outside the arithmetic benchmark, but a naive
-production integration could introduce excessive object/stack size and
-repeated fixed-parameter setup.
+Commit `19f37a1` replaces the 5120-byte runtime-composed base context with
+empty fixed-parameter operation types. Reducer constants, shifted correction
+vectors, and matrices are compile-time-derived, immutable, cache-line-aligned
+data. There is no heap allocation, mutable global state, function-local
+initialization guard, or runtime constructor.
 
-`AUD-214` therefore blocks production selection. The retained arithmetic can
-continue to inform field-tower design, but the base owner must become
-stateless or refer to one explicitly owned immutable fixed-parameter context.
-The repair must not add hidden allocation, mutable global state, function-local
-initialization guards, or per-operation construction.
+Focused compile-time checks require both ring types to be empty and trivially
+constructible/copyable. Runtime tests compare the fixed helpers directly with
+the former generic matrix and reducer helpers, including single and batch
+conversion and a bound-24 reduction. Native symbol inspection finds no
+`__cxx_global_var_init`, `_GLOBAL__sub_I`, or `__cxa_guard` symbol. `AUD-214`
+is therefore validated.
 
 ## Exact correspondence inputs
 
 - `matrixnok_fp.h` SHA-256:
-  `556e108b6b726c407d7e2b68b0517e5b1f422c114c123bf995c761915f456423`
+  `3070239f8369e2e397026cdb5731b7af33a0b4d01a2dfccfd719cea0ca32e4bc`
+- `matrixnok_fixed.h` SHA-256:
+  `5938d841014795e97715107ab8a1345e036be2323755890c7377e03b63309a2d`
 - `matrixnok_fp2.h` SHA-256:
-  `cc0c058afea7230de2a3e9546c6a3c37db595b02f87c1c15cb4758361e7c544f`
+  `ec900342d50040d0268660bcfa4efea3251a25a725d012990f1373aa787f0e31`
 - `matrixnok_change_base.h` SHA-256:
   `74eec0fc27747cb7c27ee4d062ce66c6f601d2283d267659e4a586162de0a032`
 - `generated_matrixnok_constants.hpp` SHA-256:
-  `f8b2047be64327830ecd596c87d5fe69e6af2591df3fad311cddbd9ff92f67be`
+  `3b4349e9e9afd763b1297d533e84dcb2ad9c04a92d04bfa557a48a67a3b34302`
 
 Any change to these sources reopens the code-generation, performance, and
 proof correspondence.
 
 ## Residual gates
 
-- Repair and remeasure the 5120-byte fixed-parameter owner before production
-  integration.
 - Prove both Fp2 formulas over the proved base-field representation.
 - Prove the bound-8 wide accumulators, bound-24 combined second-base values,
   and absence of unintended 64-bit IFMA accumulator wrap.

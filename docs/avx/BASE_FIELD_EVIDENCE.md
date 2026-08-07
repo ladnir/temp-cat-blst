@@ -2,7 +2,7 @@
 
 ## Packet boundary
 
-- Candidate implementation through: `1ca9af2`
+- Candidate implementation through: `19f37a1`
 - Upstream algorithm commit: `d6ecd534c54a41702ea80ae75b52250b6d51b372`
 - Compared VROOM head: `26bd9aee2168f167583cf096add355547a7b56d4`
 - C++ owner: `blst/avx/rns/matrixnok_fp.h`
@@ -120,10 +120,19 @@ candidate at 19.1 ns versus 22.8 ns for one multiplication, with wins at every
 measured batch size. The older 52-bit path measured 24.5 ns. GCC diagnostic
 runs were discarded and are not part of this selection evidence.
 
+The final stateless-context run measured 19.4 ns for CatBLST MatrixNoK, 19.1
+ns for pinned VROOM, and 22.8 ns for the prior CatBLST 50-bit path. Removing
+the runtime-owned context therefore costs about 1.6% against the earlier
+context-backed candidate, within the 2% primary-case gate, while retaining a
+14.9% improvement over the incumbent. The simpler ownership and initialization
+model is accepted on that evidence.
+
 ## Exact correspondence inputs
 
 - `matrixnok_fp.h` SHA-256:
-  `556e108b6b726c407d7e2b68b0517e5b1f422c114c123bf995c761915f456423`
+  `3070239f8369e2e397026cdb5731b7af33a0b4d01a2dfccfd719cea0ca32e4bc`
+- `matrixnok_fixed.h` SHA-256:
+  `5938d841014795e97715107ab8a1345e036be2323755890c7377e03b63309a2d`
 - `matrixnok_change_base.h` SHA-256:
   `74eec0fc27747cb7c27ee4d062ce66c6f601d2283d267659e4a586162de0a032`
 - `changebase.hpp` SHA-256:
@@ -131,7 +140,7 @@ runs were discarded and are not part of this selection evidence.
 - `avx512ifma.hpp` SHA-256:
   `9da2bd1b3fc11be3a33cdf4b336206233e9580225cc7f92425bd8737b87c64b1`
 - `generated_matrixnok_constants.hpp` SHA-256:
-  `f8b2047be64327830ecd596c87d5fe69e6af2591df3fad311cddbd9ff92f67be`
+  `3b4349e9e9afd763b1297d533e84dcb2ad9c04a92d04bfa557a48a67a3b34302`
 
 The fixed-constant hash and regeneration record remain in
 `CONSTANT_EVIDENCE.md`. Any change to these sources or constants reopens the
@@ -149,8 +158,6 @@ code-generation and proof correspondence.
 - The isolated Fp2 candidate now passes its operation-level gate; extend the
   candidate through Fp12 and pairing-level workloads before production
   selection.
-- Resolve `AUD-214` by removing or explicitly owning the current 5120-byte
-  derived fixed-parameter context, then recheck code generation and timing.
 - Revisit the batch-8 microcase only if field-tower profiles show it on a
   primary hot path.
 

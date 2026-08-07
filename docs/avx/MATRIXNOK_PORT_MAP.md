@@ -144,6 +144,9 @@ scalar Fp2, including boundary values, exact aliases, and dependent chains.
 Same-process Clang 21 measurements beat both the prior CatBLST 50-bit Fp2 and
 pinned VROOM. Exact evidence is in `FP2_EVIDENCE.md`.
 
-The candidate remains unreachable from production. `AUD-214` blocks selection
-until the 5120-byte base-ring fixed-parameter owner is redesigned and
-remeasured without hidden initialization or allocation.
+The candidate remains unreachable from production. The `AUD-214` selection
+blocker was resolved at `19f37a1`: both ring owners are empty types using
+compile-time-derived immutable fixed operations, with no hidden initialization
+or allocation. Direct generic-helper differential tests, native code
+generation, and serial remeasurement validate the redesign. Formal proof and
+the remaining field-tower work still gate production selection.

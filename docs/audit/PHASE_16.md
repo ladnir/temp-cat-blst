@@ -104,19 +104,23 @@ hashes are in `docs/avx/BASE_FIELD_EVIDENCE.md`. No broad build was run.
 
 ## MatrixNoK Fp2 candidate
 
-Implementation commit `1ca9af2` adds an isolated Fp2 candidate without
+Implementation through commit `19f37a1` adds an isolated Fp2 candidate without
 changing production dispatch. The four-product multiply and three-product
 square combine terms into two wide outputs before reduction and base change.
 Local portable Debug and Peach native AVX-512IFMA pass scalar differential,
 boundary, exact-alias, output-bound, and dependent-chain tests.
 
-Clang 21 emits fully inlined fixed-schedule bodies with no calls or conditional
-branches and a 32-byte frame. In the same randomly interleaved benchmark
-process, multiplication is 34.2 ns and squaring is 33.5 ns: 17.8% and 18.7%
-faster than CatBLST's prior 50-bit path, and 1.4% and 2.0% faster than pinned
-VROOM.
+The base and Fp2 owners are now empty, one-byte C++ objects backed by
+compile-time-derived immutable fixed operations. Direct tests establish
+correspondence with the former generic matrices and reducers. Native symbol
+inspection finds no runtime constructor or guard, and Clang 21 emits fully
+inlined fixed-schedule Fp2 bodies with no calls, conditional branches, or
+stack frame.
 
-The arithmetic design is retained as the field-tower baseline. Production
-selection remains blocked by `AUD-214`: the current base candidate owns a
-5120-byte derived fixed-parameter context. Exact evidence and residual proof
-obligations are recorded in `docs/avx/FP2_EVIDENCE.md`.
+In the final same-process randomized run, multiplication and squaring are both
+33.6 ns: 18.8% and 18.2% faster than CatBLST's prior 50-bit path. Multiplication
+is 3.2% faster and squaring 1.5% faster than pinned VROOM. Stateless base-field
+multiplication is 19.4 ns, about 1.6% behind the former context-backed
+candidate but 14.9% faster than the incumbent. `AUD-214` is validated. Exact
+evidence and residual proof obligations are recorded in
+`docs/avx/FP2_EVIDENCE.md`.

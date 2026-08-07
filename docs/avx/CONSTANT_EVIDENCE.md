@@ -10,12 +10,13 @@ tables are not connected to production arithmetic or dispatch in this packet.
 - Upstream Git blob: `d0e0437007f4dec6f193d528ce618f8b516e4fbe`
 - CatBLST path: `blst/avx/generated_matrixnok_constants.hpp`
 - Imported-header SHA-256:
-  `b9b59ac2bfaace9bae2966fc746fae4f73a6276dbff01183c04d768f77ffa78a`
+  `3b4349e9e9afd763b1297d533e84dcb2ad9c04a92d04bfa557a48a67a3b34302`
 - Namespace: `blst::avx::matrixnok::generated`
 
 The data retains VROOM's MIT license and Simon Langowski attribution. The C++
 translation uses immutable inline constants and requires no runtime GMP,
-initialization, search, allocation, or mutable global state.
+initialization, search, allocation, or mutable global state. Cache-line
+alignment annotations added by CatBLST change no numeric data.
 
 ## Independent validation
 
@@ -31,7 +32,9 @@ VROOM generator. It verifies:
 - all 16 Montgomery inverse factors modulo `2^52`;
 - independent regeneration of every r1, r2, convert-to, and convert-from
   matrix, correction vector, and 64-bit fixed-point quotient estimate; and
-- exact equivalence of the cyclic r1 permutation table to the base matrix.
+- exact equivalence of the cyclic r1 permutation table to the base matrix; and
+- 64-byte alignment declarations for every generated hot matrix, correction,
+  and modulus array.
 
 Primality is intentionally not claimed or required. These are RNS moduli; the
 used algorithms require pairwise coprimality and oddness, not fields in each
@@ -52,3 +55,9 @@ six corruptions must be rejected.
 Native execution is not required for constant regeneration. The candidate
 arithmetic that consumes these tables will require portable differential tests
 and native Peach evidence before selection.
+
+`matrixnok_fixed.h` derives the remaining reducer multiples, Montgomery
+factors, and shifted corrections at compile time from these checked constants.
+Focused tests compare its stateless operations directly with the former generic
+runtime-composed matrices and reducers. The derived-header SHA-256 is
+`5938d841014795e97715107ab8a1345e036be2323755890c7377e03b63309a2d`.
