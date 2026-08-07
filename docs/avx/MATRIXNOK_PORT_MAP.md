@@ -190,12 +190,15 @@ prevents the `AUD-215` repair from silently diverging across curve groups.
 
 Portable Debug compilation and Peach native AVX-512IFMA execution pass the
 focused complete-operation and CT/VT GLS scalar differentials. The complete
-add is fully inlined with no call or vector conversion boundary. Exact
-correctness and code-generation evidence is in `G2_EVIDENCE.md`.
+add is fully inlined with no call or vector conversion boundary. Optimized CT
+selection retains fixed control flow and a full table scan.
 
-The packet does not select the candidate. A serial same-process incumbent,
-candidate, and pinned-VROOM performance gate remains required before further
-optimization or production integration.
+One serial same-process gate places candidate add, double, CT GLS, and VT GLS
+28.9%, 15.1%, 21.6%, and 23.9% ahead of the incumbent. The candidate is faster
+than pinned VROOM except for a 0.9% double delta. Performance selection passes.
+`AUD-218` records the inherited greater-than-102-KiB peak CT GLS stack use for
+a separate direct-table-construction redesign. Exact evidence is in
+`G2_EVIDENCE.md`.
 
 ## FFT preview packet
 

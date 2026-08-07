@@ -223,5 +223,17 @@ G2 complete exceptional cases and CT/VT GLS against scalar CatBLST on two
 bases, boundary values, and deterministic dense scalars. The focused portable
 Debug translation unit compiles locally. Optimized G2 add is fully inlined
 with no calls; double and GLS retain the incumbent out-of-line template-body
-structure. No benchmark was run. Exact source hashes, code-generation facts,
-and residual gates are in `docs/avx/G2_EVIDENCE.md`.
+structure.
+
+One serial seven-repetition process measured candidate G2 add, double, CT GLS,
+and VT GLS 28.9%, 15.1%, 21.6%, and 23.9% faster than the incumbent. Candidate
+add and CT GLS are 5.8% and 3.3% faster than pinned VROOM; double is 0.9%
+slower. Optimized inspection finds fixed control flow and full-scan table
+selection with no gather or scalar-indexed address.
+
+The inspection also records `AUD-218`: CT GLS peaks above 102 KiB of local
+stack due to inherited source/final table duplication. The incumbent has the
+same 98,560-byte owner frame and VROOM is slightly larger, so this is not a
+candidate regression, but it should be redesigned and remeasured before final
+release selection. Exact source hashes, timing, code-generation facts, and
+residual gates are in `docs/avx/G2_EVIDENCE.md`.
