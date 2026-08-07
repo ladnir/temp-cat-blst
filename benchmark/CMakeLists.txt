@@ -135,14 +135,30 @@ target_link_libraries(group_scalar_mult_benchmarks PRIVATE
 )
 
 if(BLST_HAVE_AVX_VALIDATION_GMP)
-    add_executable(avx_group_ops_benchmarks
-        "main.cpp"
-        "avx/Avx_group_ops_bench.cpp"
-        "avx/Avx_basefield_50bit_bench.cpp"
-    )
+    if(BLST_AVX_FIELD_PERF_ONLY)
+        add_executable(avx_group_ops_benchmarks
+            "avx/Avx_basefield_bench.cpp"
+            "avx/Avx_basefield_50bit_bench.cpp"
+        )
+        target_link_libraries(avx_group_ops_benchmarks PRIVATE
+            benchmark::benchmark_main
+            blst_avx_headers
+        )
+    else()
+        add_executable(avx_group_ops_benchmarks
+            "main.cpp"
+            "avx/Avx_group_ops_bench.cpp"
+            "avx/Avx_basefield_50bit_bench.cpp"
+        )
+        target_link_libraries(avx_group_ops_benchmarks PRIVATE
+            benchmark::benchmark
+            blst_static
+            blst_avx_headers
+            bte
+        )
+    endif()
     target_include_directories(avx_group_ops_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR})
     target_include_directories(avx_group_ops_benchmarks PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
-    target_link_libraries(avx_group_ops_benchmarks PRIVATE benchmark::benchmark blst_static blst_avx_headers bte)
 endif()
 
 if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
