@@ -63,6 +63,9 @@ The first fixed-parameter import and its independent regeneration evidence are
 recorded in `CONSTANT_EVIDENCE.md`.
 The isolated 8x8 MatrixNoK change-of-base kernel is recorded in
 `CHANGE_BASE_EVIDENCE.md`.
+The first complete side-by-side base-field multiplication candidate and its
+portable/native/code-generation evidence are recorded in
+`BASE_FIELD_EVIDENCE.md`.
 
 ## Work packets
 

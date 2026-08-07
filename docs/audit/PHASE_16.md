@@ -74,3 +74,24 @@ manifest, and `git diff --check` checks pass.
 `AUD-170` through `AUD-173` are validated by this focused evidence.
 `AUD-169` is fixed but remains open for validation until native AVX-512/IFMA
 optimized code generation and runtime are inspected. No benchmark was run.
+
+## MatrixNoK base-field candidate
+
+The Phase 16 modernization project now has a complete, isolated base-field
+multiplication slice at implementation commit
+`f18c547bc972442ac30e987e06b47c79bf28fe88`. It is not selected by production
+dispatch. Local portable Debug and Peach native AVX-512IFMA differential tests
+pass against explicit portable scalar Montgomery primitives, including field
+boundaries, dense deterministic inputs, dependent chains, and exact aliasing.
+
+Code-generation review caught an out-of-line wrapper, batch-of-one stack
+adapters, and a by-value aggregate return before acceptance. The resulting
+arithmetic body is fully inlined and has no data spills, data-dependent branch,
+or `_vv` call. GCC's normal stack protector retains a canary-only 192-byte
+logical frame; it remains enabled pending the later serial benchmark gate.
+
+`AUD-211` and `AUD-212` record the repaired code-generation and cross-compiler
+portability defects. Mathematical correctness and bound safety remain open
+until the first Lean milestone in `docs/avx/PROOF_PLAN.md` is machine checked.
+Exact evidence and correspondence hashes are in
+`docs/avx/BASE_FIELD_EVIDENCE.md`. No benchmark or broad build was run.

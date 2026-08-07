@@ -110,3 +110,16 @@ kernel remains unreachable from production arithmetic in this packet.
 - The 52-bit incumbent produces unchanged focused results.
 - Exact MatrixNoK constants and bound claims have independent executable
   validation before any candidate multiplication is enabled.
+
+## Base-field candidate packet
+
+`matrixnok_fp.h` now owns a side-by-side, non-dispatched BLS12-381
+multiplication candidate. It uses register-only single-item conversion and
+permutation paths while preserving the existing fixed-batch interfaces for
+real batching. The candidate's output-by-reference interface avoids a hidden
+aggregate return, supports exact aliasing, and remains unreachable from
+production field, curve, and pairing operations.
+
+Portable Debug and Peach native AVX-512IFMA compare decoded results with the
+portable scalar field implementation. Native code-generation and remaining
+proof obligations are recorded in `BASE_FIELD_EVIDENCE.md`.
