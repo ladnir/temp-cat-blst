@@ -38,6 +38,27 @@ namespace blst::avx::matrixnok
                     residues, out_hi, out_lo, std::index_sequence<index...>{});
             }
         }
+
+
+        template<std::size_t diagonal>
+        INLINE void r1_change_base_step_single(
+            AVXVector<8>& residues,
+            AVXVector<8>& out_hi,
+            AVXVector<8>& out_lo)
+        {
+            static_assert(diagonal < 8);
+            const AVXVector<8> row(generated::r1_perm_mat_fixed[diagonal]);
+            if constexpr (diagonal != 0) {
+                const AVXVector<8> shift(r1_cyclic_shift_indices);
+                residues = residues.permute(shift);
+            }
+            out_hi = out_hi.mulhi(row, residues);
+            out_lo = out_lo.mullo(row, residues);
+
+            if constexpr (diagonal + 1 < 8) {
+                r1_change_base_step_single<diagonal + 1>(residues, out_hi, out_lo);
+            }
+        }
     } // namespace detail
 
     // Accumulate the fixed r1 base-change matrix into independent IFMA high
@@ -53,5 +74,15 @@ namespace blst::avx::matrixnok
         static_assert(batch > 0, "MatrixNoK change of base requires a nonempty fixed batch");
         detail::r1_change_base_step<0>(
             residues, out_hi, out_lo, std::make_index_sequence<batch>{});
+    }
+
+
+    // Register-only latency path. The input is permuted in place.
+    INLINE void r1_change_base_raw(
+        AVXVector<8>& residues,
+        AVXVector<8>& out_hi,
+        AVXVector<8>& out_lo)
+    {
+        detail::r1_change_base_step_single<0>(residues, out_hi, out_lo);
     }
 } // namespace blst::avx::matrixnok

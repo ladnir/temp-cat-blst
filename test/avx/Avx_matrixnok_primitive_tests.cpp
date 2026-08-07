@@ -39,7 +39,15 @@ namespace blst::avx::test
         for (const uint64_t lane : broadcast) {
             EXPECT_EQ(lane, 10);
         }
-        EXPECT_EQ(AVXVector<8>(low).extract0(), low[0]);
+        const AVXVector<8> vector(low);
+        EXPECT_EQ(vector.extract<0>(), low[0]);
+        EXPECT_EQ(vector.extract<1>(), low[1]);
+        EXPECT_EQ(vector.extract<2>(), low[2]);
+        EXPECT_EQ(vector.extract<3>(), low[3]);
+        EXPECT_EQ(vector.extract<4>(), low[4]);
+        EXPECT_EQ(vector.extract<5>(), low[5]);
+        EXPECT_EQ(vector.extract<6>(), low[6]);
+        EXPECT_EQ(vector.extract<7>(), low[7]);
     }
 
     template<int64_t upper_bound, int64_t stop, int log_multiples>

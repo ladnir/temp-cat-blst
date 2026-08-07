@@ -26,6 +26,25 @@ class RNSMatrix {
         static constexpr int precision = 64;
         static constexpr int mulbits = 52;
 
+        template<int index>
+        INLINE void accumulate_loop_registers(
+            AVXVector<out_limbs * OUT_DIGITS>& out_hi,
+            AVXVector<out_limbs * OUT_DIGITS>& out_lo,
+            const AVXVector<in_limbs * IN_DIGITS>& residues,
+            uint128_t& k_raw) const
+        {
+            static_assert(index >= 0 && index < in_limbs * IN_DIGITS);
+            const uint64_t scalar = residues.template extract<index>();
+            const AVXScalar broadcast = Scalar(scalar);
+            out_hi = out_hi.mulhi_scalar(rns_mat[index], broadcast);
+            out_lo = out_lo.mullo_scalar(rns_mat[index], broadcast);
+            k_raw += static_cast<uint128_t>(scalar) *
+                static_cast<uint128_t>(shifted_quotient_estimations[index]);
+            if constexpr (index + 1 < in_limbs * IN_DIGITS) {
+                accumulate_loop_registers<index + 1>(out_hi, out_lo, residues, k_raw);
+            }
+        }
+
         template<int batch_count>
         using InBatchArray = std::array<AVXVector<in_limbs * IN_DIGITS>, batch_count>;
 
@@ -198,6 +217,24 @@ class RNSMatrix {
         uint128_t k_raw = 0;
         accumulate_loop(out_hi, out_lo, residues1, k_raw);
         (void)add_correction(out_hi, out_lo, k_raw, correction);
+    }
+
+    // Single-item shifted conversion used by latency-sensitive field
+    // operations. Compile-time lane extraction avoids the stack arrays needed
+    // by the general batch interface.
+    INLINE void rns_reduce_raw_shifted(
+        const AVXVector<in_limbs * IN_DIGITS>& residues,
+        AVXVector<out_limbs * OUT_DIGITS>& out_hi,
+        AVXVector<out_limbs * OUT_DIGITS>& out_lo) const
+    {
+        uint128_t k_raw = 0;
+        accumulate_loop_registers<0>(out_hi, out_lo, residues, k_raw);
+        AVXScalar quotient = Scalar(static_cast<uint64_t>(k_raw >> precision));
+        out_hi = out_hi.mulhi_scalar(correction, quotient);
+        out_lo = out_lo.mullo_scalar(correction, quotient);
+        quotient = scalar_shift(quotient, mulbits);
+        out_lo = out_lo.mullo_scalar(correction_shift, quotient);
+        out_hi = out_hi.mulhi_scalar(correction_shift, quotient);
     }
 
     inline void get_rns_values(std::array<std::array<uint64_t, out_limbs * OUT_DIGITS>, in_limbs * IN_DIGITS>& out) const {

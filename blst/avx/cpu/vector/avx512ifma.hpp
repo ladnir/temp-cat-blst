@@ -257,8 +257,22 @@ public:
         return out;
     }
 
+    template<int index>
+    inline uint64_t extract() const {
+        static_assert(index >= 0 && index < limbs, "AVX lane index is out of range");
+        constexpr int vector_index = index / LIMBS_PER_VEC;
+        constexpr int lane_index = index % LIMBS_PER_VEC;
+        if constexpr (lane_index < 2) {
+            return _vv128_extract_epi64<lane_index>(
+                _vv512_castsi512_si128(data[vector_index]));
+        } else {
+            return _vv256_extract_epi64<lane_index % 4>(
+                _vv512_extracti64x4_epi64<lane_index / 4>(data[vector_index]));
+        }
+    }
+
     inline uint64_t extract0() const {
-        return _vv128_extract_epi64<0>(_vv512_castsi512_si128(data[0]));
+        return extract<0>();
     }
 
     inline void store(uint64_t* dst) const {

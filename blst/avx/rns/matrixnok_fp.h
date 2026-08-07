@@ -59,15 +59,14 @@ namespace blst::avx::matrixnok
 
         INLINE StandardResidue expand_m2(const StandardResidue& m2) const
         {
-            std::array<AVXVector<limbs>, 1> input = {m2.data};
-            std::array<AVXVector<limbs>, 1> high = {AVXVector<limbs>(0)};
-            std::array<AVXVector<limbs>, 1> low = {AVXVector<limbs>(0)};
-            system_.intrns2.r2.template rns_reduce_raw_batch_shifted<1>(&input, high, low);
+            AVXVector<limbs> high(0);
+            AVXVector<limbs> low(0);
+            system_.intrns2.r2.rns_reduce_raw_shifted(m2.data, high, low);
 
             using WideBound = Bounds<0, 2 * limbs * standard_bound>;
             using Bounded = BoundedElement<WideBound, limbs, element_bits>;
             const WideElement<WideBound, limbs, element_bits> wide{
-                Bounded(high[0]), Bounded(low[0])};
+                Bounded(high), Bounded(low)};
             return reducer_m1_.template reduce_auto<standard_bound>(
                 reducer_m1_.reduce_wide(wide));
         }
@@ -82,16 +81,15 @@ namespace blst::avx::matrixnok
 
         INLINE Element from_canonical_50bit_digits(const std::array<uint64_t, limbs>& digits) const
         {
-            std::array<AVXVector<limbs>, 1> input = {AVXVector<limbs>(digits)};
-            std::array<AVXVector<limbs>, 1> high = {AVXVector<limbs>(0)};
-            std::array<AVXVector<limbs>, 1> low = {AVXVector<limbs>(0)};
-            system_.convert_to.conversion_matrix.template rns_reduce_raw_batch_shifted<1>(
-                &input, high, low);
+            AVXVector<limbs> high(0);
+            AVXVector<limbs> low(0);
+            system_.convert_to.conversion_matrix.rns_reduce_raw_shifted(
+                AVXVector<limbs>(digits), high, low);
 
             using ConvertBound = Bounds<0, 800>;
             using ConvertElement = BoundedElement<ConvertBound, limbs, element_bits>;
             const WideElement<ConvertBound, limbs, element_bits> converted{
-                ConvertElement(high[0]), ConvertElement(low[0])};
+                ConvertElement(high), ConvertElement(low)};
             const StandardResidue m2 = reducer_m2_.template reduce_auto<standard_bound>(
                 reducer_m2_.reduce_wide(converted));
             return {expand_m2(m2), m2};
@@ -112,10 +110,10 @@ namespace blst::avx::matrixnok
             const StandardResidue m1_reduced = reducer_m1_.template reduce_auto<standard_bound>(
                 reducer_m1_.reduce_wide(m1_product));
 
-            std::array<AVXVector<limbs>, 1> residues = {m1_reduced.data};
-            std::array<AVXVector<limbs>, 1> high = {m2_high};
-            std::array<AVXVector<limbs>, 1> low = {m2_low};
-            r1_change_base_raw_batch(residues, high, low);
+            AVXVector<limbs> residues = m1_reduced.data;
+            AVXVector<limbs> high = m2_high;
+            AVXVector<limbs> low = m2_low;
+            r1_change_base_raw(residues, high, low);
 
             constexpr int change_base_bound = limbs * standard_bound;
             constexpr int combined_bound = standard_bound * standard_bound + change_base_bound;
@@ -124,7 +122,7 @@ namespace blst::avx::matrixnok
             using CombinedBound = Bounds<0, combined_bound>;
             using CombinedElement = BoundedElement<CombinedBound, limbs, element_bits>;
             const WideElement<CombinedBound, limbs, element_bits> combined{
-                CombinedElement(high[0]), CombinedElement(low[0])};
+                CombinedElement(high), CombinedElement(low)};
             const StandardResidue m2 = reducer_m2_.template reduce_auto<standard_bound>(
                 reducer_m2_.reduce_wide(combined));
             return {expand_m2(m2), m2};
