@@ -169,8 +169,15 @@ size after removing harmful forced unrolling from the fixed outer R2 loop
 rejected alternatives, residual cyclotomic/FFT gaps, and source hashes are in
 `FP12_EVIDENCE.md`.
 
-The candidate remains isolated. Sparse Fp12, G2, Miller, final exponentiation,
-pairing integration, formal proof, and release evidence still gate selection.
+Follow-up commit `3e1f99a` validates the existing sparse line-multiplication
+kernel, including exact aliasing, over MatrixNoK. It also generalizes the hard
+final-exponentiation helpers over the compile-time Fp12 policy and matches
+scalar CatBLST on three independent inputs. The production default policy
+still compiles unchanged. A MatrixNoK inversion boundary is deliberately not
+invented in this packet: the test imports an independently computed inverse.
+
+The candidate remains isolated. G2, MatrixNoK inversion, Miller and pairing
+integration, formal proof, and release evidence still gate selection.
 
 ## FFT preview packet
 

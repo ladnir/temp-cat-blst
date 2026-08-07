@@ -3,6 +3,7 @@
 ## Packet boundary
 
 - Candidate implementation: `1011916baf69a4ecb4b0e012c30a74051c8ec850`
+- Sparse/final-exponent follow-up: `3e1f99a`
 - Upstream algorithm commit: `d6ecd534c54a41702ea80ae75b52250b6d51b372`
 - Compared VROOM head: `26bd9aee2168f167583cf096add355547a7b56d4`
 - Generic field owner: `blst/avx/fields/fp12.h`
@@ -21,7 +22,11 @@ The focused native suite compares decoded candidate results with scalar
 CatBLST. It covers general Fp12 multiplication and squaring, multiplication by
 one, Frobenius powers one through three, conjugation, cyclotomic squaring on a
 valid GT element, and constant- and variable-time 256-bit GT exponentiation.
-Together with the previously retained Fp/Fp2/G1 cases, all 13 focused
+The follow-up also covers the Miller sparse operand layout, exact in-place
+aliasing, and the complete hard final-exponentiation chain on three independent
+inputs. The inverse is computed by scalar CatBLST and imported separately, so
+the arithmetic chain is tested independently of a future MatrixNoK inversion
+boundary. Together with the previously retained Fp/Fp2/G1 cases, all 14 focused
 `AvxMatrixNoKPrimitives.*` tests pass under Clang 21.1.8 on native
 AVX-512IFMA.
 
@@ -104,8 +109,9 @@ compile-time constant uses.
 
 ## Residual gates
 
-- Production dispatch remains unchanged until the retained G2, sparse Fp12,
-  Miller-loop, final-exponentiation, and pairing slices pass their gates.
+- Production dispatch remains unchanged until the retained G2, MatrixNoK
+  inversion boundary, Miller-loop, and pairing slices pass their gates. Sparse
+  Fp12 and the hard final-exponentiation arithmetic are now validated.
 - The cyclotomic and 1,024-element FFT deltas remain explicit optimization
   targets; no benchmark claim is made under stable release conditions yet.
 - Fp12/RNS arithmetic and every bound transition remain formal proof

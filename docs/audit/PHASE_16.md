@@ -198,3 +198,11 @@ is 13.9% faster than the incumbent and 1.0% slower than VROOM; the
 1,024-element case is 13.6% faster than the incumbent and 3.1% slower than
 VROOM. The latter and the 4.5% cyclotomic-square gap remain explicit residual
 optimization work. Exact evidence is in `docs/avx/FP12_EVIDENCE.md`.
+
+Follow-up commit `3e1f99a` keeps the existing sparse Fp12 kernel and hard
+final-exponentiation schedule, but makes their compile-time field policy
+explicit. Native differential coverage now includes sparse line
+multiplication, exact aliasing, and three complete final-exponentiation chains;
+all 14 focused cases pass. The incumbent AVX GT translation unit recompiles
+unchanged. MatrixNoK inversion, G2, Miller, and pairing integration remain the
+next correctness gates.
