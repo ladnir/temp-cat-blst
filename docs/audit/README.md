@@ -48,6 +48,9 @@ for compatibility.
 | `STATUS.md` | Current phase, gates, metrics, and next review queue |
 | `HARDENING_PLAN.md` | Dependency-aware implementation and validation phases |
 | `PRODUCTION_AUDIT_ROADMAP.md` | Main Phases 12-20, continuous workstreams, subsystem cycles, work volume, and completion gates |
+| `../avx/README.md` | Phase 16 AVX-512 modernization, MatrixNoK import boundary, validation profiles, and completion gates |
+| `../avx/VROOM_UPSTREAM_MANIFEST.md` | Decision for every VROOM commit after the imported baseline and the selected BLS12-381 translation groups |
+| `../avx/PROOF_PLAN.md` | Lean proof layers, C++ correspondence boundary, constant-time evidence, and first theorem milestone |
 | `AUTOMATED_ANALYSIS_PLAN.md` | Static-analysis, sanitizer, fuzzing, triage, cadence, and hand-audit integration policy |
 | `CODEQL_LOCAL.md` | Pinned local CodeQL installation, execution, evidence, and license boundary |
 | `CODEQL_BASELINE_TRIAGE.md` | Result-by-result baseline dispositions, confirmed findings, and proposed implementation packets |
