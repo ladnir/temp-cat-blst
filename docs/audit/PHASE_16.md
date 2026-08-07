@@ -78,20 +78,26 @@ optimized code generation and runtime are inspected. No benchmark was run.
 ## MatrixNoK base-field candidate
 
 The Phase 16 modernization project now has a complete, isolated base-field
-multiplication slice at implementation commit
-`f18c547bc972442ac30e987e06b47c79bf28fe88`. It is not selected by production
+multiplication slice through implementation commit
+`cd282561dd6bccf69cf52bf35faed456fc6b6374`. It is not selected by production
 dispatch. Local portable Debug and Peach native AVX-512IFMA differential tests
 pass against explicit portable scalar Montgomery primitives, including field
 boundaries, dense deterministic inputs, dependent chains, and exact aliasing.
 
 Code-generation review caught an out-of-line wrapper, batch-of-one stack
-adapters, and a by-value aggregate return before acceptance. The resulting
-arithmetic body is fully inlined and has no data spills, data-dependent branch,
-or `_vv` call. GCC's normal stack protector retains a canary-only 192-byte
-logical frame; it remains enabled pending the later serial benchmark gate.
+adapters, variable-index rotations, and a cache-line-crossing generated
+permutation table. The resulting Clang 21 arithmetic is fully inlined, uses
+VROOM's immediate rotation schedule, and loads 64-byte-aligned table rows.
 
-`AUD-211` and `AUD-212` record the repaired code-generation and cross-compiler
-portability defects. Mathematical correctness and bound safety remain open
-until the first Lean milestone in `docs/avx/PROOF_PLAN.md` is machine checked.
-Exact evidence and correspondence hashes are in
-`docs/avx/BASE_FIELD_EVIDENCE.md`. No benchmark or broad build was run.
+The same Clang 21 executable compiles both CatBLST and actual VROOM commit
+`26bd9aee`. Same-process randomized measurements favor CatBLST by 0.816% over
+six base-field cases and by 6.595% at batch 12. Batch 8 is borderline: the
+final full run is +2.254%, while the longer focused confirmation is +1.799%.
+The prior CatBLST 50-bit and 52-bit single-multiply paths measure 22.8 ns and
+24.5 ns versus 19.1 ns for MatrixNoK.
+
+`AUD-211` through `AUD-213` record the repaired code-generation,
+cross-compiler, and table-layout defects. Mathematical correctness and bound
+safety remain open until the selected field-tower design reaches the first
+Lean milestone in `docs/avx/PROOF_PLAN.md`. Exact evidence and correspondence
+hashes are in `docs/avx/BASE_FIELD_EVIDENCE.md`. No broad build was run.

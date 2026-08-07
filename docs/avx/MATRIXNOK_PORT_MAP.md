@@ -89,11 +89,12 @@ and below the 50-bit bound.
 ## Change-of-base packet
 
 `matrixnok_change_base.h` owns one BLS12-381-only 8x8 r1 permutation kernel.
-Its diagonal and fixed-batch expansion is expressed through template recursion
-and index sequences, leaving no runtime loop or generic dimension policy in
-the hot path. It intentionally omits the conventional quotient correction;
-the candidate ring may call it only after its redundant-range preconditions
-are proved and tested.
+Its fixed eight-diagonal and fixed-batch loops are forced inline and unrolled,
+using literal selected-vector rotations so Clang lowers them to immediate
+`valignq`/`vshufi64x2` operations. It intentionally omits the conventional
+quotient correction; the candidate ring may call it only after its
+redundant-range preconditions are proved and tested. The generated row table
+is explicitly 64-byte aligned and that layout is validator- and test-enforced.
 
 Portable Debug tests compare both IFMA accumulators lane by lane against an
 independent scalar 52-bit product split. Native Peach execution and optimized
@@ -116,10 +117,16 @@ kernel remains unreachable from production arithmetic in this packet.
 `matrixnok_fp.h` now owns a side-by-side, non-dispatched BLS12-381
 multiplication candidate. It uses register-only single-item conversion and
 permutation paths while preserving the existing fixed-batch interfaces for
-real batching. The candidate's output-by-reference interface avoids a hidden
-aggregate return, supports exact aliasing, and remains unreachable from
-production field, curve, and pairing operations.
+real batching. Its returning operation is fully inlined, while the
+output-reference wrapper supports exact aliasing and delegates without a
+second implementation. The candidate remains unreachable from production
+field, curve, and pairing operations.
 
 Portable Debug and Peach native AVX-512IFMA compare decoded results with the
 portable scalar field implementation. Native code-generation and remaining
 proof obligations are recorded in `BASE_FIELD_EVIDENCE.md`.
+
+The optional focused performance target can compile the actual pinned VROOM
+headers into a separate translation unit of the same benchmark executable.
+It rejects every VROOM commit except the reviewed head, adds no production
+dependency, and permits randomly interleaved same-process Clang comparisons.

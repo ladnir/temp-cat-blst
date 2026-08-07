@@ -2,8 +2,9 @@
 
 ## Packet boundary
 
-- Candidate implementation commit: `f18c547bc972442ac30e987e06b47c79bf28fe88`
+- Candidate implementation through: `cd282561dd6bccf69cf52bf35faed456fc6b6374`
 - Upstream algorithm commit: `d6ecd534c54a41702ea80ae75b52250b6d51b372`
+- Compared VROOM head: `26bd9aee2168f167583cf096add355547a7b56d4`
 - C++ owner: `blst/avx/rns/matrixnok_fp.h`
 - Fixed parameters: `blst/avx/generated_matrixnok_constants.hpp`
 
@@ -55,51 +56,82 @@ constant validator passed. No portable-AVX Release build was run.
 
 ## Peach native AVX-512IFMA
 
-Exact commit `f18c547bc972442ac30e987e06b47c79bf28fe88` was transferred as a Git
-bundle and built on the AMD Ryzen 9 7950X Peach host with GCC 15.2.0, Release,
-`-march=native`, native and portable AVX enabled, and assembly, CUDA, and
-benchmarks disabled. The target was built with one job.
+The AMD Ryzen 9 7950X Peach host built the focused native target serially with
+Clang 21.1.8, Release, and `-march=native`. CUDA, assembly, broad tests, and
+unrelated benchmarks were disabled. The combined native-plus-portable
+compatibility target passes the MatrixNoK scalar differential tests at batch
+sizes 1, 2, 4, 8, and 12. The final alignment packet additionally passes the
+cache-line-alignment and complete base-field multiplication tests 2/2.
 
-All 14 native-plus-portable compatibility tests passed: four MatrixNoK tests
-and ten direct `_cc` versus `_mm512` intrinsic tests. The existing `AUD-102`
-GCC ignored-vector-attribute warnings remain visible.
-
-GCC also rejected two batch calls whose `int` template argument had been left
-to deduction from a `size_t` `std::array` extent. Explicit fixed batch counts
-repair that cross-compiler defect with no generated-code cost.
+Earlier GCC 15.2.0 execution remains useful cross-compiler correctness
+evidence, including its rejection of the previously invalid `int`/`size_t`
+batch-template deduction. GCC measurements are not used for performance
+selection.
 
 ## Optimized code generation
 
-`audit_avx_matrixnok_fp_multiply` was compiled with GCC 15.2.0 using
-`-O3 -DNDEBUG -march=native`. Its arithmetic body contains:
+The selected Clang 21 code uses VROOM's fixed unrolled rotation schedule. Each
+r1 permutation has four `valignq` and three `vshufi64x2` immediate rotations,
+not variable-index `vpermq`; `_vv` wrappers are fully inlined and no conversion
+objects or lane round trips survive. The batch-8 body has the same 144
+`vpmadd52luq`, 128 `vpmadd52huq`, 32 `valignq`, and 24 `vshufi64x2`
+instruction counts as the pinned VROOM reference.
 
-- 23 `vpmadd52huq` and 25 `vpmadd52luq` instructions;
-- seven fixed `vpermq` instructions;
-- no candidate or `_vv` calls;
-- no scalar-dependent branch or address;
-- no vector conversion or lane-memory round trip; and
-- no stack data load or store.
+The first comparison exposed that CatBLST's generated 8x8 permutation table
+landed at address 48 modulo 64, making every 64-byte row load cross a cache
+line. Commit `cd28256` gives the table explicit 64-byte alignment and makes
+both the independent constant validator and native test enforce that layout.
+The linked table now lands at zero modulo 64 and Clang emits aligned row loads.
 
-The normal hardened compiler configuration reserves a 192-byte logical frame
-and emits a canary check because inlined `AVXVector` temporaries are
-`std::array`-backed. Inspection-only compilation with
-`-fno-stack-protector` emits no call, branch, or stack memory access. CatBLST
-does not disable stack protection in this packet. Whether the canary overhead
-matters is deferred to the approved serial benchmark gate.
+Earlier probes also caught and repaired an out-of-line candidate
+multiplication, batch-of-one stack adapters, and ambiguous aggregate handling.
+The retained returning operation is fully inlined; the output-reference
+wrapper delegates to it and preserves exact aliasing with either input.
 
-Earlier probes caught and repaired an out-of-line candidate multiplication,
-batch-of-one stack adapters, and a by-value aggregate return. The accepted hot
-interface writes directly to caller-owned storage, supports exact output
-aliasing with either input, and keeps batch APIs for actual batching.
+## Clang 21 performance comparison
+
+Commit `47124e0` adds an optional benchmark-only reference translation unit to
+the existing `avx_group_ops_benchmarks` executable. Configuration rejects any
+VROOM source tree except commit `26bd9aee2168f167583cf096add355547a7b56d4`.
+CatBLST and the actual VROOM headers therefore run in the same Clang 21.1.8
+binary, process, Google Benchmark harness, core, and randomly interleaved run.
+Both use the same fixed field operands. One benchmark process ran at a time.
+
+The final nine-repetition, 0.2-second run reports mean CPU time:
+
+| Operation | CatBLST | VROOM | CatBLST delta |
+| --- | ---: | ---: | ---: |
+| multiply | 19.098 ns | 19.073 ns | +0.133% |
+| batch 1 | 19.106 ns | 19.059 ns | +0.251% |
+| batch 2 | 31.315 ns | 31.479 ns | -0.522% |
+| batch 4 | 52.984 ns | 53.082 ns | -0.184% |
+| batch 8 | 104.812 ns | 102.501 ns | +2.254% |
+| batch 12 | 175.312 ns | 187.689 ns | -6.595% |
+
+The six-case geometric mean favors CatBLST by 0.816%. A separate 15-repetition,
+0.3-second batch-8 confirmation measured 104.393 ns versus 102.548 ns
+(+1.799%). Batch 8 is therefore recorded as a borderline compiler-layout
+microcase rather than hidden by averaging. It does not justify further source
+complexity before field-tower measurements show whether that arity is a
+production bottleneck.
+
+Against CatBLST's prior 50-bit field path, the same Clang profile measured the
+candidate at 19.1 ns versus 22.8 ns for one multiplication, with wins at every
+measured batch size. The older 52-bit path measured 24.5 ns. GCC diagnostic
+runs were discarded and are not part of this selection evidence.
 
 ## Exact correspondence inputs
 
 - `matrixnok_fp.h` SHA-256:
-  `857546fbfd27eeb4f72850398e7b61812a7b93156ca5f4687c0e63ab08bce822`
+  `22c66d509d314f338e1373e586b0ad536029eb447f126090b59507adbbaebd0e`
+- `matrixnok_change_base.h` SHA-256:
+  `74eec0fc27747cb7c27ee4d062ce66c6f601d2283d267659e4a586162de0a032`
 - `changebase.hpp` SHA-256:
   `75fcd7be6cb157e6e1ca676d8cecf702f3ae07fd899c4ba23d83568f071748af`
 - `avx512ifma.hpp` SHA-256:
-  `a2a23a7d7e7f921c0e243af192dce540928c07ffc64c166f7c1a6bc048b6aa82`
+  `9da2bd1b3fc11be3a33cdf4b336206233e9580225cc7f92425bd8737b87c64b1`
+- `generated_matrixnok_constants.hpp` SHA-256:
+  `f8b2047be64327830ecd596c87d5fe69e6af2591df3fad311cddbd9ff92f67be`
 
 The fixed-constant hash and regeneration record remain in
 `CONSTANT_EVIDENCE.md`. Any change to these sources or constants reopens the
@@ -114,9 +146,11 @@ code-generation and proof correspondence.
 - Prove the `< 2m_i` result bounds and absence of unintended 64-bit IFMA
   accumulator wrap.
 - Bind the proved declarations to the source and constant hashes above.
-- Integrate the candidate into Fp2/Fp12 only after the base-field theorem is
-  accepted.
-- Run one approved serial performance comparison before production selection.
+- Integrate the candidate into isolated Fp2/Fp12 candidates and compare
+  operation-level and pairing-level performance before production selection.
+- Revisit the batch-8 microcase only if field-tower profiles show it on a
+  primary hot path.
 
-No benchmark, broad suite, sanitizer run, CUDA work, or production dispatch
-change occurred in this packet.
+No broad suite, sanitizer run, CUDA work, or production dispatch change
+occurred in this packet. Formal proof remains deferred until the field-tower
+candidate is selected on correctness and performance evidence.

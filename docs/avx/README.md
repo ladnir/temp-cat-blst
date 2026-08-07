@@ -91,8 +91,8 @@ portable/native/code-generation evidence are recorded in
 
 - Local portable-AVX Debug: fast deterministic differential and invariant
   testing; never a performance claim.
-- Peach native AVX-512IFMA: GCC 15 native correctness, code-generation, stack,
-  and approved serial performance evidence.
+- Peach native AVX-512IFMA: Clang 21 is the authoritative code-generation and
+  serial performance compiler; GCC remains cross-compiler correctness evidence.
 - Scalar CatBLST: independent semantic oracle at the same public contracts.
 - Formal model: exact integer/RNS theorems, independent of compiler behavior.
 
