@@ -193,7 +193,7 @@ namespace blst {
 #else
 
  /* GCC/Clang: use _Pragma (and keep it generic). */
-#define BLST_UNROLL        _Pragma(unroll)
+#define BLST_UNROLL        _Pragma("unroll")
 #endif
 
 
