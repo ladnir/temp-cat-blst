@@ -8,6 +8,9 @@
 #include "blst/curve/map_to_G.h"
 #include "blst/curve/GT.h"
 
+#include <new>
+#include <type_traits>
+
 namespace blst
 {
     namespace {
@@ -102,6 +105,9 @@ namespace blst
     void blst_pairing_init(PAIRING* ctx, int hash_or_encode,
         const void* DST, size_t DST_len)
     {
+        static_assert(std::is_trivially_default_constructible_v<PAIRING>);
+        static_assert(std::is_trivially_destructible_v<PAIRING>);
+        ctx = ::new (static_cast<void*>(ctx)) PAIRING;
         const void* trailing_dst = reinterpret_cast<const byte*>(ctx) + sizeof_pairing;
         const bool dst_after_ctx = DST == trailing_dst;
         ctx->ctrl = AGGR_UNDEFINED | (hash_or_encode ? AGGR_HASH_OR_ENCODE : 0)

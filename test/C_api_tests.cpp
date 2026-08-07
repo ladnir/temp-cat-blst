@@ -1492,8 +1492,10 @@ TEST(CApi, G1MultipointTileMatchesSinglePointOps)
         const unsigned char* scalar_ptrs[2] = {scalar_blob.data(), nullptr};
 
         const size_t window = 4;
-        const size_t bucket_words = blst_p1s_mult_pippenger_scratch_sizeof(0) / sizeof(blst::limb_t);
-        std::vector<blst::limb_t> scratch(bucket_words << (window - 1));
+        const size_t bucket_words =
+            blst_p1s_mult_pippenger_window_scratch_sizeof(window) /
+            sizeof(blst::limb_t);
+        std::vector<blst::limb_t> scratch(bucket_words);
 
         BoundaryG1 tiled = {};
         bool first = true;
@@ -2542,6 +2544,8 @@ TEST(CApi, WbitsApisRejectOutOfRangeValues)
 
 TEST(CApi, MsmBoundariesRejectInvalidWidthsAndHandleZeroBits)
 {
+    EXPECT_EQ(blst_p1s_mult_pippenger_scratch_sizeof(0), 0u);
+    EXPECT_EQ(blst_p2s_mult_pippenger_scratch_sizeof(0), 0u);
     EXPECT_NE(blst_p1s_mult_pippenger_window_scratch_sizeof(24), 0u);
     EXPECT_NE(blst_p2s_mult_pippenger_window_scratch_sizeof(24), 0u);
     EXPECT_EQ(blst_p1s_mult_pippenger_window_scratch_sizeof(0), 0u);

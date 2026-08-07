@@ -21,6 +21,9 @@
 #include "blst/common/bytes.h"
 #include "blst/sign/sha256.h"
 #include "bindings/blst_scalar.h"
+
+#include <new>
+#include <type_traits>
 BLST_EXTERN_C_BEGIN_
 
 using namespace blst;
@@ -57,7 +60,13 @@ void blst_fr_from_uint64(blst_fr* ret, const uint64_t a[4])
 void blst_fr_from_scalar(blst_fr* ret, const blst_scalar* a)
 {
     if (static_cast<const void*>(ret) == static_cast<const void*>(a)) {
-        Fr::to_mont(*ret, *ret);
+        static_assert(std::is_trivially_default_constructible_v<Fr>);
+        static_assert(std::is_trivially_destructible_v<Fr>);
+        blst_scalar input;
+        memcpy(&input, a, sizeof(input));
+        Fr* output = ::new (static_cast<void*>(ret)) Fr;
+        Fr::from_scalar(*output, input.b);
+        vec_zero(&input, sizeof(input));
         return;
     }
     Fr::from_scalar(*ret, a->b);
@@ -66,9 +75,12 @@ void blst_fr_from_scalar(blst_fr* ret, const blst_scalar* a)
 void blst_scalar_from_fr(blst_scalar* ret, const blst_fr* a)
 {
     if (static_cast<const void*>(ret) == static_cast<const void*>(a)) {
+        static_assert(std::is_trivially_default_constructible_v<blst_scalar>);
+        static_assert(std::is_trivially_destructible_v<blst_scalar>);
         Fr in;
         memcpy(&in, ret, sizeof(in));
-        Fr::to_scaler(ret->b, in);
+        blst_scalar* output = ::new (static_cast<void*>(ret)) blst_scalar;
+        Fr::to_scaler(output->b, in);
         vec_zero(&in, sizeof(in));
         return;
     }

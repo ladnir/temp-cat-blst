@@ -5,6 +5,8 @@
  */
 
 #include <stddef.h>
+#include <new>
+#include <type_traits>
 #include "blst/common/rb_tree.h"
 /*
  * Red-black tree tailored for uniqueness test. Amount of messages to be
@@ -26,8 +28,12 @@ struct rb_tree {
     struct node *root;
     size_t n_nodes;
     size_t capacity;
-    struct node nodes[1];
 };
+
+static_assert(std::is_trivially_default_constructible_v<struct rb_tree>);
+static_assert(std::is_trivially_destructible_v<struct rb_tree>);
+static_assert(std::is_trivially_default_constructible_v<struct node>);
+static_assert(std::is_trivially_destructible_v<struct node>);
 
 static int bytes_compare(const unsigned char *ptr0, size_t len0,
                          const unsigned char *ptr1, size_t len1)
@@ -83,7 +89,10 @@ static BLST_UNIQ_RESULT rb_tree_insert(struct rb_tree *tree,
     /* allocate new node */
     if (tree->n_nodes >= tree->capacity)
         return BLST_UNIQ_CAPACITY_EXCEEDED;
-    z = &tree->nodes[tree->n_nodes++];
+    unsigned char *node_address = reinterpret_cast<unsigned char*>(tree)
+                                + sizeof(struct rb_tree)
+                                + tree->n_nodes++ * sizeof(struct node);
+    z = ::new (static_cast<void*>(node_address)) struct node;
     z->leafs[0] = z->leafs[1] = NULL;
     z->data = data;
     z->len_n_colour = len<<1;
@@ -156,7 +165,7 @@ static BLST_UNIQ_RESULT rb_tree_insert(struct rb_tree *tree,
 
 size_t blst_uniq_sizeof(size_t capacity)
 {
-    const size_t header = offsetof(struct rb_tree, nodes);
+    const size_t header = sizeof(struct rb_tree);
 
     if (capacity == 0 ||
         capacity > ((size_t)-1 - header) / sizeof(struct node))
@@ -176,7 +185,7 @@ bool blst_uniq_init(void *storage, size_t capacity)
         blst_uniq_sizeof(capacity) == 0)
         return false;
 
-    struct rb_tree *tree = static_cast<struct rb_tree*>(storage);
+    struct rb_tree *tree = ::new (storage) struct rb_tree;
     tree->root = NULL;
     tree->n_nodes = 0;
     tree->capacity = capacity;

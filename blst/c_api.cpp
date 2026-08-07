@@ -203,7 +203,10 @@ inline const BoundaryPairing* as_pairing(const blst_pairing* ctx)
 }
 
 template<typename Group, typename GroupZZ>
-inline void c_api_point_integrate_buckets(Group& out, GroupZZ buckets[], size_t wbits)
+inline void c_api_point_integrate_buckets(
+    Group& out,
+    blst::scalar::detail::PippengerBucketWorkspace<GroupZZ> buckets,
+    size_t wbits)
 {
     GroupZZ ret = {};
     GroupZZ acc = {};
@@ -292,6 +295,19 @@ inline size_t c_api_pippenger_fr_scratch_sizeof(size_t npoints)
     return scalar_bytes + bucket_count * sizeof(GroupZZ);
 }
 
+template<typename GroupZZ>
+inline auto c_api_start_pippenger_buckets(
+    void* storage, size_t npoints, size_t requested_window)
+{
+    static_assert(alignof(GroupZZ) <= alignof(blst::limb_t));
+    static_assert(sizeof(GroupZZ) % sizeof(blst::limb_t) == 0);
+    const size_t window = requested_window
+        ? requested_window : blst::scalar::pippenger_window_size(npoints);
+    const size_t bucket_count = static_cast<size_t>(1) << (window - 1);
+    return blst::scalar::detail::PippengerBucketWorkspace<
+        GroupZZ>::from_uninitialized(storage, bucket_count);
+}
+
 inline bool c_api_scalars_from_fr(
     blst::byte* out,
     const blst::Fr scalars[],
@@ -350,8 +366,11 @@ inline bool c_api_pippenger_fr(
 
     const AffineGroup* point_descriptors[] = {points, nullptr};
     const blst::byte* scalar_descriptors[] = {canonical, nullptr};
-    auto* buckets = reinterpret_cast<GroupZZ*>(
-        canonical + npoints * sizeof(blst::pow256));
+    const size_t window = blst::scalar::pippenger_window_size(npoints);
+    const size_t bucket_count = static_cast<size_t>(1) << (window - 1);
+    auto buckets =
+        blst::scalar::detail::PippengerBucketWorkspace<GroupZZ>::from_uninitialized(
+            canonical + npoints * sizeof(blst::pow256), bucket_count);
     blst::scalar::msm_mult_pippenger<Group, AffineGroup, GroupZZ>(
         *ret,
         point_descriptors,
@@ -359,7 +378,7 @@ inline bool c_api_pippenger_fr(
         scalar_descriptors,
         255,
         buckets,
-        0);
+        window);
     return true;
 }
 
@@ -632,7 +651,11 @@ inline bool c_api_msm_fr(
 }
 
 template<typename AffineGroup, typename GroupZZ>
-inline void c_api_point_bucket(GroupZZ buckets[], blst::limb_t booth_idx, size_t wbits, const AffineGroup& point)
+inline void c_api_point_bucket(
+    blst::scalar::detail::PippengerBucketWorkspace<GroupZZ> buckets,
+    blst::limb_t booth_idx,
+    size_t wbits,
+    const AffineGroup& point)
 {
     const bool booth_sign = ((booth_idx >> wbits) & 1) != 0;
 
@@ -643,7 +666,10 @@ inline void c_api_point_bucket(GroupZZ buckets[], blst::limb_t booth_idx, size_t
 }
 
 template<typename GroupZZ>
-inline void c_api_point_prefetch(const GroupZZ buckets[], blst::limb_t booth_idx, size_t wbits)
+inline void c_api_point_prefetch(
+    blst::scalar::detail::PippengerBucketWorkspace<GroupZZ> buckets,
+    blst::limb_t booth_idx,
+    size_t wbits)
 {
     booth_idx &= (static_cast<blst::limb_t>(1) << wbits) - 1;
     if (booth_idx--) {
@@ -660,20 +686,26 @@ inline void c_api_points_tile_pippenger(
     size_t npoints,
     const blst::byte* const scalars[],
     size_t nbits,
-    GroupZZ buckets[],
+    void* bucket_storage,
     size_t bit0,
     size_t window)
 {
     ret = {};
     if (npoints == 0 || !c_api_has_valid_pair_heads(points, scalars, npoints) ||
-        buckets == nullptr || !c_api_valid_pippenger_window(window) ||
+        bucket_storage == nullptr || !c_api_valid_pippenger_window(window) ||
         nbits == 0 || bit0 >= nbits) {
         return;
     }
 
     const blst::scalar::WindowExtract we =
         blst::scalar::WindowExtract::from_bit_offset(bit0, window, nbits);
-    blst::vec_zero(buckets, sizeof(buckets[0]) << (we.encode_size - 1));
+    static_assert(alignof(GroupZZ) <= alignof(blst::limb_t));
+    static_assert(sizeof(GroupZZ) % sizeof(blst::limb_t) == 0);
+    const size_t bucket_count = static_cast<size_t>(1) << (we.encode_size - 1);
+    blst::vec_zero(bucket_storage, sizeof(GroupZZ) * bucket_count);
+    auto buckets =
+        blst::scalar::detail::PippengerBucketWorkspace<GroupZZ>::from_uninitialized(
+            bucket_storage, bucket_count);
     size_t i = 0;
     const blst::byte* scalar = *scalars++;
     const AffineGroup* point = *points++;
@@ -1140,7 +1172,8 @@ void blst_p1s_mult_pippenger(
         npoints,
         scalars,
         nbits,
-        reinterpret_cast<blst::scalar::Pointxyzz<blst::Fp>*>(scratch),
+        c_api_start_pippenger_buckets<blst::scalar::Pointxyzz<blst::Fp>>(
+            scratch, npoints, 0),
         0);
 }
 
@@ -1239,7 +1272,8 @@ void blst_p1s_mult_pippenger_window(
         npoints,
         scalars,
         nbits,
-        reinterpret_cast<blst::scalar::Pointxyzz<blst::Fp>*>(scratch),
+        c_api_start_pippenger_buckets<blst::scalar::Pointxyzz<blst::Fp>>(
+            scratch, npoints, window),
         window);
 }
 
@@ -1259,13 +1293,14 @@ void blst_p1s_tile_pippenger(
         *ret = {};
         return;
     }
-    c_api_points_tile_pippenger(
+    c_api_points_tile_pippenger<
+        BoundaryG1, BoundaryG1Affine, blst::scalar::Pointxyzz<blst::Fp>>(
         *ret,
         points,
         npoints,
         scalars,
         nbits,
-        reinterpret_cast<blst::scalar::Pointxyzz<blst::Fp>*>(scratch),
+        scratch,
         bit0,
         window);
 }
@@ -1591,7 +1626,8 @@ void blst_p2s_mult_pippenger(
         npoints,
         scalars,
         nbits,
-        reinterpret_cast<blst::scalar::Pointxyzz<blst::Fp2>*>(scratch),
+        c_api_start_pippenger_buckets<blst::scalar::Pointxyzz<blst::Fp2>>(
+            scratch, npoints, 0),
         0);
 }
 
@@ -1627,7 +1663,8 @@ void blst_p2s_mult_pippenger_window(
         BoundaryG2, BoundaryG2Affine,
         blst::scalar::Pointxyzz<blst::Fp2>>(
         *ret, points, npoints, scalars, nbits,
-        reinterpret_cast<blst::scalar::Pointxyzz<blst::Fp2>*>(scratch),
+        c_api_start_pippenger_buckets<blst::scalar::Pointxyzz<blst::Fp2>>(
+            scratch, npoints, window),
         window);
 }
 
@@ -1708,13 +1745,14 @@ void blst_p2s_tile_pippenger(
         *ret = {};
         return;
     }
-    c_api_points_tile_pippenger(
+    c_api_points_tile_pippenger<
+        BoundaryG2, BoundaryG2Affine, blst::scalar::Pointxyzz<blst::Fp2>>(
         *ret,
         points,
         npoints,
         scalars,
         nbits,
-        reinterpret_cast<blst::scalar::Pointxyzz<blst::Fp2>*>(scratch),
+        scratch,
         bit0,
         window);
 }

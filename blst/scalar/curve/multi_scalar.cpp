@@ -706,7 +706,7 @@ namespace blst::scalar
 	template<typename Group, typename GroupZZ>
 	BLST_HD BLST_CPP_INLINE void point_integrate_buckets(
 		Group& out,
-		GroupZZ buckets[],
+		detail::PippengerBucketWorkspace<GroupZZ> buckets,
 		size_t wbits)
 	{
 		GroupZZ ret, acc;
@@ -729,7 +729,8 @@ namespace blst::scalar
 
 	// Adds an affine point into the bucket addressed by Booth-encoded digit (handles sign).
 	template<typename AffineGroup, typename GroupZZ>
-	BLST_HD BLST_CPP_INLINE void point_bucket(GroupZZ buckets[], limb_t booth_idx,
+	BLST_HD BLST_CPP_INLINE void point_bucket(
+		detail::PippengerBucketWorkspace<GroupZZ> buckets, limb_t booth_idx,
 		size_t wbits, const AffineGroup& p)
 	{
 		bool_t booth_sign = (booth_idx >> wbits) & 1;
@@ -743,7 +744,8 @@ namespace blst::scalar
 	}
 
 	template<typename GroupZZ>
-	BLST_HD BLST_CPP_INLINE void point_prefetch(const GroupZZ buckets[], limb_t booth_idx,
+	BLST_HD BLST_CPP_INLINE void point_prefetch(
+		detail::PippengerBucketWorkspace<GroupZZ> buckets, limb_t booth_idx,
 		size_t wbits)
 	{
 		booth_idx &= (static_cast<limb_t>(1) << wbits) - 1;
@@ -784,7 +786,7 @@ namespace blst::scalar
 		size_t npoints,
 		const byte* const scalars[],
 		size_t nbits,
-		GroupZZ buckets[],
+		detail::PippengerBucketWorkspace<GroupZZ> buckets,
 		size_t window_idx,
 		size_t window_size)
 	{
@@ -870,7 +872,7 @@ namespace blst::scalar
 		size_t npoints,
 		const byte* const scalars[],
 		size_t nbits,
-		GroupZZ buckets[],
+		detail::PippengerBucketWorkspace<GroupZZ> buckets,
 		size_t window_size)
 	{
 		Group tile;
@@ -905,7 +907,7 @@ namespace blst::scalar
 			size_t npoints,
 			const byte* const scalars[],
 			size_t nbits,
-			Pointxyzz<Fp> buckets[],
+			detail::PippengerBucketWorkspace<Pointxyzz<Fp>> buckets,
 			size_t window_size);
 	template
 		BLST_HD BLST_CPP_INLINE void msm_mult_pippenger(
@@ -914,7 +916,7 @@ namespace blst::scalar
 			size_t npoints,
 			const byte* const scalars[],
 			size_t nbits,
-			Pointxyzz<Fp2> buckets[],
+			detail::PippengerBucketWorkspace<Pointxyzz<Fp2>> buckets,
 			size_t window_size);
 	template
 		BLST_HD BLST_CPP_INLINE void msm_mult_pippenger(
@@ -923,7 +925,7 @@ namespace blst::scalar
 			size_t npoints,
 			const byte* const scalars[],
 			size_t nbits,
-			GT buckets[],
+			detail::PippengerBucketWorkspace<GT> buckets,
 			size_t window_size);
 
 }

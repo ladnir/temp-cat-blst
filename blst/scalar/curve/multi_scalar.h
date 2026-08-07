@@ -13,6 +13,7 @@
 #include "blst/scalar/curve/bulk_addition.h"
 
 #include <algorithm>
+#include <new>
 #include <type_traits>
 
 #ifdef __CUDACC__
@@ -41,6 +42,74 @@ namespace blst::scalar
 	namespace detail
 	{
 		inline constexpr size_t kPippengerMaxWindow = 24;
+
+		/*
+		 * Pippenger's C boundary receives caller-owned limb storage rather than
+		 * a live C++ array. This pointer-only view indexes each bucket by byte
+		 * offset, so separately started objects never rely on array pointer
+		 * arithmetic. For native C++ callers, from_objects() views an existing
+		 * array without restarting its elements. The no-initializer placement
+		 * new in from_uninitialized() starts trivial object lifetimes without
+		 * writing the scratch buffer.
+		 */
+		template<typename T>
+		class PippengerBucketWorkspace
+		{
+		public:
+			BLST_HD constexpr PippengerBucketWorkspace() : storage_(nullptr)
+		#ifndef NDEBUG
+				, size_(0)
+		#endif
+			{}
+
+			BLST_HD static PippengerBucketWorkspace from_objects(
+				T* storage, size_t size)
+			{
+				return PippengerBucketWorkspace(storage, size);
+			}
+
+			BLST_HD static PippengerBucketWorkspace from_uninitialized(
+				void* storage, size_t size)
+			{
+				static_assert(std::is_trivially_default_constructible_v<T>);
+				static_assert(std::is_trivially_destructible_v<T>);
+				PippengerBucketWorkspace out(storage, size);
+				for (size_t i = 0; i < size; ++i)
+					::new (out.address(i)) T;
+				return out;
+			}
+
+			BLST_HD BLST_INLINE T& operator[](size_t index) const
+			{
+				return *std::launder(reinterpret_cast<T*>(address(index)));
+			}
+
+		private:
+			BLST_HD PippengerBucketWorkspace(void* storage, size_t size)
+				: storage_(static_cast<byte*>(storage))
+		#ifndef NDEBUG
+				, size_(size)
+		#endif
+			{
+				(void)size;
+				BLST_ASSERT(storage_ != nullptr);
+				BLST_ASSERT(
+					reinterpret_cast<uintptr_t>(storage_) % alignof(T) == 0);
+			}
+
+			BLST_HD BLST_INLINE void* address(size_t index) const
+			{
+		#ifndef NDEBUG
+				BLST_ASSERT(index < size_);
+		#endif
+				return storage_ + index * sizeof(T);
+			}
+
+			byte* storage_;
+		#ifndef NDEBUG
+			size_t size_;
+		#endif
+		};
 
 		BLST_HD BLST_INLINE constexpr bool valid_wbits(size_t wbits)
 		{
@@ -359,12 +428,33 @@ namespace blst::scalar
 		size_t npoints,
 		const byte* const scalars[],
 		size_t nbits,
-		GroupZZ buckets[],
+		detail::PippengerBucketWorkspace<GroupZZ> buckets,
 		size_t window_size);
+
+	/* Native C++ convenience overload for an already-live bucket array. */
+	template<typename Group, typename AffineGroup, typename GroupZZ>
+	BLST_HD BLST_INLINE void msm_mult_pippenger(
+		Group& ret,
+		const AffineGroup* const points[],
+		size_t npoints,
+		const byte* const scalars[],
+		size_t nbits,
+		GroupZZ buckets[],
+		size_t window_size)
+	{
+		const size_t window = window_size
+			? window_size : pippenger_window_size(npoints);
+		auto workspace = detail::PippengerBucketWorkspace<GroupZZ>::from_objects(
+			buckets, static_cast<size_t>(1) << (window - 1));
+		msm_mult_pippenger<Group, AffineGroup, GroupZZ>(
+			ret, points, npoints, scalars, nbits, workspace, window_size);
+	}
 
 	template<typename Group>
 	BLST_HD BLST_INLINE size_t msm_mult_pippenger_scratch_sizeof_(size_t npoints)
 	{
+		if (npoints == 0)
+			return 0;
 		size_t bytes = 0;
 		const size_t window = pippenger_window_size(npoints);
 		return detail::checked_shl_size(sizeof(Group), window - 1, bytes)
