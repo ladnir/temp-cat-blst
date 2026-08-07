@@ -3,6 +3,7 @@
 #include "blst/avx/rns/elementwise_reduce.h"
 #include "blst/avx/rns/matrixnok_change_base.h"
 #include "blst/avx/rns/matrixnok_fp.h"
+#include "blst/avx/fields/matrixnok_fp2.h"
 
 #include <cstdint>
 
@@ -61,4 +62,23 @@ extern "C" NOINLINE void audit_avx_matrixnok_fp_multiply(
     const blst::avx::matrixnok::FpRingCandidate::Element* right)
 {
     ring->multiply(*out, *left, *right);
+}
+
+extern "C" NOINLINE void audit_avx_matrixnok_fp2_multiply(
+    blst::avx::matrixnok::Fp2RingCandidate::Element* out,
+    const blst::avx::matrixnok::FpRingCandidate* ring,
+    const blst::avx::matrixnok::Fp2RingCandidate::Element* left,
+    const blst::avx::matrixnok::Fp2RingCandidate::Element* right)
+{
+    const blst::avx::matrixnok::Fp2RingCandidate fp2ring(*ring);
+    fp2ring.multiply(*out, *left, *right);
+}
+
+extern "C" NOINLINE void audit_avx_matrixnok_fp2_square(
+    blst::avx::matrixnok::Fp2RingCandidate::Element* out,
+    const blst::avx::matrixnok::FpRingCandidate* ring,
+    const blst::avx::matrixnok::Fp2RingCandidate::Element* value)
+{
+    const blst::avx::matrixnok::Fp2RingCandidate fp2ring(*ring);
+    fp2ring.square(*out, *value);
 }
