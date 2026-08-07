@@ -76,6 +76,11 @@ def parse_header(path: Path) -> tuple[dict[str, int], dict[str, list[int]]]:
     scalars: dict[str, int] = {}
     arrays: dict[str, list[int]] = {}
 
+    require(
+        re.search(r"alignas\s*\(\s*64\s*\).*?\br1_perm_mat_fixed\s*=", text) is not None,
+        "r1_perm_mat_fixed must retain 64-byte AVX row alignment",
+    )
+
     for name in INTEGER_NAMES:
         match = re.search(rf"\b{name}\s*=\s*(\d+)\s*;", text)
         require(match is not None, f"missing integer {name}")

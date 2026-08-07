@@ -25,6 +25,13 @@ namespace blst::avx::test
     static_assert(matrixnok_constants::moduli2.size() == 8);
     static_assert(matrixnok_constants::r1_perm_mat_fixed.size() == 8);
 
+    TEST(AvxMatrixNoKPrimitives, PermutationRowsAreCacheLineAligned)
+    {
+        const auto address = reinterpret_cast<std::uintptr_t>(
+            matrixnok_constants::r1_perm_mat_fixed.data());
+        EXPECT_EQ(address % 64, 0U);
+    }
+
     TEST(AvxMatrixNoKPrimitives, LowLaneExtractionAndBroadcast)
     {
         const std::array<uint64_t, 8> low = {
