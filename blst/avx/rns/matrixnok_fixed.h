@@ -335,13 +335,12 @@ namespace blst::avx::matrixnok::detail
             std::array<AVXVector<limbs>, batch>& out_low)
         {
             static_assert(batch > 0);
-            std::array<std::array<uint64_t, limbs>, batch> scalars;
+            alignas(64) std::array<std::array<uint64_t, limbs>, batch> scalars;
             BLST_UNROLL
             for (std::size_t item = 0; item < batch; ++item) {
                 residues[item].store(scalars[item].data());
             }
             std::array<uint128_t, batch> raw_quotients = {};
-            BLST_UNROLL
             for (std::size_t index = 0; index < limbs; ++index) {
                 const AVXVector<limbs> row(Parameters::matrix()[index]);
                 BLST_UNROLL

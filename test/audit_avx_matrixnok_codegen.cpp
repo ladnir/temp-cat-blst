@@ -4,7 +4,9 @@
 #include "blst/avx/rns/matrixnok_change_base.h"
 #include "blst/avx/rns/matrixnok_fp.h"
 #include "blst/avx/fields/matrixnok_fp2.h"
+#include "blst/avx/fields/matrixnok_fp12.h"
 #include "blst/avx/curve/matrixnok_g1.h"
+#include "blst/avx/gt/glv4.h"
 
 #include <cstdint>
 
@@ -79,6 +81,37 @@ extern "C" NOINLINE void audit_avx_matrixnok_fp2_square(
 {
     const blst::avx::matrixnok::Fp2RingCandidate fp2ring;
     fp2ring.square(*out, *value);
+}
+
+extern "C" NOINLINE void audit_avx_matrixnok_fp12_multiply(
+    blst::avx::matrixnok::Fp12RingCandidate::StandardElement* out,
+    const blst::avx::matrixnok::Fp12RingCandidate::StandardElement* left,
+    const blst::avx::matrixnok::Fp12RingCandidate::StandardElement* right)
+{
+    const blst::avx::matrixnok::FpRingCandidate ring;
+    const blst::avx::matrixnok::Fp12RingCandidate fp12ring(ring);
+    *out = fp12ring.fp12_flat_mul(*left, *right, ring);
+}
+
+extern "C" NOINLINE void audit_avx_matrixnok_fp12_cyclotomic_square(
+    blst::avx::matrixnok::Fp12RingCandidate::StandardElement* out,
+    const blst::avx::matrixnok::Fp12RingCandidate::StandardElement* value)
+{
+    const blst::avx::matrixnok::FpRingCandidate ring;
+    const blst::avx::matrixnok::Fp12RingCandidate fp12ring(ring);
+    *out = fp12ring.narrow_to_standard(
+        fp12ring.fp12_flat_cyclotomic_sqr(*value, ring), ring);
+}
+
+extern "C" NOINLINE void audit_avx_matrixnok_gt_exp_ct(
+    blst::avx::matrixnok::Fp12RingCandidate::StandardElement* out,
+    const blst::avx::matrixnok::Fp12RingCandidate::StandardElement* value,
+    const uint64_t scalar[4])
+{
+    const blst::avx::matrixnok::FpRingCandidate ring;
+    const blst::avx::matrixnok::Fp12RingCandidate fp12ring(ring);
+    *out = blst::avx::avx_cyclotomic_exp_glv4_ct(
+        *value, scalar, fp12ring, ring);
 }
 
 extern "C" NOINLINE void audit_avx_matrixnok_g1_add(

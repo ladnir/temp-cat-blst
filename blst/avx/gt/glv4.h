@@ -249,15 +249,15 @@ inline AvxGLV4Exp avx_glv4_compile(const uint64_t* scalar)
     return props;
 }
 
-template<class Ring>
-inline typename FP12Ring<Ring>::StandardElement avx_cyclotomic_exp_binary_ct(
-    const typename FP12Ring<Ring>::StandardElement& base,
+template<class Fp12RingType, class Ring>
+inline typename Fp12RingType::StandardElement avx_cyclotomic_exp_binary_ct(
+    const typename Fp12RingType::StandardElement& base,
     const uint64_t* scalar,
     size_t bits,
-    const FP12Ring<Ring>& fp12ring,
+    const Fp12RingType& fp12ring,
     const Ring& ring)
 {
-    using Accumulator = typename FP12Ring<Ring>::template CommonElement<6>;
+    using Accumulator = typename Fp12RingType::template CommonElement<6>;
 
     Accumulator out = fp12ring.recast_common(fp12ring.one(ring));
     for (size_t bit = bits; bit != 0;) {
@@ -276,15 +276,15 @@ inline typename FP12Ring<Ring>::StandardElement avx_cyclotomic_exp_binary_ct(
     return fp12ring.fp12_flat_mul(fp12ring.one(ring), out, ring);
 }
 
-template<class Ring>
-inline typename FP12Ring<Ring>::StandardElement avx_cyclotomic_exp_glv4_ct(
-    const typename FP12Ring<Ring>::StandardElement& base,
+template<class Fp12RingType, class Ring>
+inline typename Fp12RingType::StandardElement avx_cyclotomic_exp_glv4_ct(
+    const typename Fp12RingType::StandardElement& base,
     const uint64_t* scalar,
-    const FP12Ring<Ring>& fp12ring,
+    const Fp12RingType& fp12ring,
     const Ring& ring)
 {
-    using Accumulator = typename FP12Ring<Ring>::template CommonElement<6>;
-    using StandardElement = typename FP12Ring<Ring>::StandardElement;
+    using Accumulator = typename Fp12RingType::template CommonElement<6>;
+    using StandardElement = typename Fp12RingType::StandardElement;
 
     uint64_t digits[4];
     uint64_t magnitudes[4];
@@ -341,15 +341,15 @@ inline typename FP12Ring<Ring>::StandardElement avx_cyclotomic_exp_glv4_ct(
     return fp12ring.fp12_flat_mul(fp12ring.one(ring), out, ring);
 }
 
-template<class Ring>
-inline typename FP12Ring<Ring>::StandardElement avx_cyclotomic_exp_glv4_unsigned_vartime(
-    const typename FP12Ring<Ring>::StandardElement& base,
+template<class Fp12RingType, class Ring>
+inline typename Fp12RingType::StandardElement avx_cyclotomic_exp_glv4_unsigned_vartime(
+    const typename Fp12RingType::StandardElement& base,
     const uint64_t* scalar,
-    const FP12Ring<Ring>& fp12ring,
+    const Fp12RingType& fp12ring,
     const Ring& ring)
 {
-    using Accumulator = typename FP12Ring<Ring>::template CommonElement<6>;
-    using StandardElement = typename FP12Ring<Ring>::StandardElement;
+    using Accumulator = typename Fp12RingType::template CommonElement<6>;
+    using StandardElement = typename Fp12RingType::StandardElement;
 
     uint64_t digits[4];
     avx_gt_glv4_detail::gt_split_scalar_4d_vartime(digits, scalar);
@@ -401,12 +401,12 @@ inline typename FP12Ring<Ring>::StandardElement avx_cyclotomic_exp_glv4_unsigned
     return fp12ring.fp12_flat_mul(fp12ring.one(ring), out, ring);
 }
 
-template<class Ring>
-inline typename FP12Ring<Ring>::StandardElement avx_cyclotomic_exp_ct(
-    const typename FP12Ring<Ring>::StandardElement& base,
+template<class Fp12RingType, class Ring>
+inline typename Fp12RingType::StandardElement avx_cyclotomic_exp_ct(
+    const typename Fp12RingType::StandardElement& base,
     const uint64_t* scalar,
     size_t bits,
-    const FP12Ring<Ring>& fp12ring,
+    const Fp12RingType& fp12ring,
     const Ring& ring)
 {
     if (bits > 128 && bits <= 256) {
@@ -415,14 +415,14 @@ inline typename FP12Ring<Ring>::StandardElement avx_cyclotomic_exp_ct(
     return avx_cyclotomic_exp_binary_ct(base, scalar, bits, fp12ring, ring);
 }
 
-template<class Ring>
-inline typename FP12Ring<Ring>::StandardElement avx_cyclotomic_exp_basic(
-    const typename FP12Ring<Ring>::StandardElement& base,
+template<class Fp12RingType, class Ring>
+inline typename Fp12RingType::StandardElement avx_cyclotomic_exp_basic(
+    const typename Fp12RingType::StandardElement& base,
     const uint64_t* scalar,
-    const FP12Ring<Ring>& fp12ring,
+    const Fp12RingType& fp12ring,
     const Ring& ring)
 {
-    using Accumulator = typename FP12Ring<Ring>::template CommonElement<6>;
+    using Accumulator = typename Fp12RingType::template CommonElement<6>;
 
     Accumulator out = fp12ring.recast_common(fp12ring.one(ring));
     bool started = false;
@@ -447,15 +447,15 @@ inline typename FP12Ring<Ring>::StandardElement avx_cyclotomic_exp_basic(
     return fp12ring.fp12_flat_mul(fp12ring.one(ring), out, ring);
 }
 
-template<class Ring>
-inline typename FP12Ring<Ring>::StandardElement avx_cyclotomic_exp_glv4(
-    const typename FP12Ring<Ring>::StandardElement& base,
+template<class Fp12RingType, class Ring>
+inline typename Fp12RingType::StandardElement avx_cyclotomic_exp_glv4(
+    const typename Fp12RingType::StandardElement& base,
     const AvxGLV4Exp& props,
-    const FP12Ring<Ring>& fp12ring,
+    const Fp12RingType& fp12ring,
     const Ring& ring)
 {
-    using Accumulator = typename FP12Ring<Ring>::template CommonElement<6>;
-    using StandardElement = typename FP12Ring<Ring>::StandardElement;
+    using Accumulator = typename Fp12RingType::template CommonElement<6>;
+    using StandardElement = typename Fp12RingType::StandardElement;
 
     if (props.sched_len == 0) {
         return fp12ring.one(ring);
@@ -509,11 +509,11 @@ inline typename FP12Ring<Ring>::StandardElement avx_cyclotomic_exp_glv4(
     return fp12ring.fp12_flat_mul(fp12ring.one(ring), out, ring);
 }
 
-template<class Ring>
-inline typename FP12Ring<Ring>::StandardElement avx_cyclotomic_exp_glv4(
-    const typename FP12Ring<Ring>::StandardElement& base,
+template<class Fp12RingType, class Ring>
+inline typename Fp12RingType::StandardElement avx_cyclotomic_exp_glv4(
+    const typename Fp12RingType::StandardElement& base,
     const uint64_t* scalar,
-    const FP12Ring<Ring>& fp12ring,
+    const Fp12RingType& fp12ring,
     const Ring& ring)
 {
     return avx_cyclotomic_exp_glv4(base, avx_glv4_compile(scalar), fp12ring, ring);

@@ -700,11 +700,35 @@ namespace
         }
     }
 
+    void BM_VROOM_MatrixNoK_FP12Mul(benchmark::State& state)
+    {
+        const Ring ring(BigInt(field_modulus_decimal, 10));
+        const Fp12 fp12(ring);
+        const auto values = make_gt_data(3, fp12, ring);
+        for (auto _ : state) {
+            auto result = fp12.fp12_flat_mul(values[1], values[2], ring);
+            benchmark::DoNotOptimize(result);
+        }
+    }
+
+    void BM_VROOM_MatrixNoK_CyclotomicSquare(benchmark::State& state)
+    {
+        const Ring ring(BigInt(field_modulus_decimal, 10));
+        const Fp12 fp12(ring);
+        const auto value = make_gt_data(2, fp12, ring)[1];
+        for (auto _ : state) {
+            auto result = fp12.fp12_flat_cyclotomic_sqr(value, ring);
+            benchmark::DoNotOptimize(result);
+        }
+    }
+
     BENCHMARK(BM_VROOM_MatrixNoK_G1Forward)
         ->Arg(256)->Arg(1024)->Arg(4096)->Arg(16384)
         ->UseManualTime()->Unit(benchmark::kMillisecond);
     BENCHMARK(BM_VROOM_MatrixNoK_G1Add);
     BENCHMARK(BM_VROOM_MatrixNoK_G1Double);
+    BENCHMARK(BM_VROOM_MatrixNoK_FP12Mul);
+    BENCHMARK(BM_VROOM_MatrixNoK_CyclotomicSquare);
     BENCHMARK(BM_VROOM_MatrixNoK_GTInverse)
         ->Arg(256)->Arg(1024)->Arg(4096)->Arg(16384)
         ->UseManualTime()->Unit(benchmark::kMillisecond);

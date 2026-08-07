@@ -9,6 +9,7 @@
 #include "blst/avx/curve/matrixnok_g1.h"
 #include "blst/avx/curve/point.h"
 #include "blst/avx/fft/gt_context.h"
+#include "blst/avx/fields/matrixnok_fp12.h"
 #include "blst/common/bytes.h"
 #include "blst/fft/context.h"
 #include "blst/fft/ctFft.h"
@@ -20,6 +21,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <span>
 #include <vector>
 
@@ -201,6 +203,187 @@ namespace
         return out;
     }
 
+    struct MatrixNoKGt
+    {
+        using Element = matrixnok::Fp12RingCandidate::StandardElement;
+        Element data = {};
+
+        MatrixNoKGt() = default;
+        explicit MatrixNoKGt(const Element& value) : data(value) {}
+    };
+
+    struct MatrixNoKGtFftCtx
+    {
+        inline static constexpr matrixnok::FpRingCandidate ring = {};
+        inline static constexpr matrixnok::Fp12RingCandidate fp12ring = {};
+
+        class ScopedRoots
+        {
+        public:
+            explicit ScopedRoots(
+                const blst::avx::AvxGt52PreparedRoots& roots) noexcept
+                : previous_(prepared_roots_)
+            {
+                prepared_roots_ = &roots;
+            }
+
+            ~ScopedRoots() noexcept { prepared_roots_ = previous_; }
+            ScopedRoots(const ScopedRoots&) = delete;
+            ScopedRoots& operator=(const ScopedRoots&) = delete;
+
+        private:
+            const blst::avx::AvxGt52PreparedRoots* previous_;
+        };
+
+        static MatrixNoKGt plus(const MatrixNoKGt& left, const MatrixNoKGt& right)
+        {
+            return MatrixNoKGt(
+                fp12ring.fp12_flat_mul(left.data, right.data, ring));
+        }
+
+        static MatrixNoKGt minus(const MatrixNoKGt& left, const MatrixNoKGt& right)
+        {
+            return plus(left, MatrixNoKGt(
+                fp12ring.fp12_flat_conjugate(right.data, ring)));
+        }
+
+        static MatrixNoKGt mult(const MatrixNoKGt& value, const blst::Fr& scalar)
+        {
+            if (const blst::avx::AvxGLV4Exp* compiled =
+                    find_compiled(scalar)) {
+                return MatrixNoKGt(blst::avx::avx_cyclotomic_exp_glv4(
+                    value.data, *compiled, fp12ring, ring));
+            }
+            const auto limbs = blst::avx::fr_to_limbs_le(scalar);
+            return MatrixNoKGt(blst::avx::avx_cyclotomic_exp_glv4(
+                value.data, limbs.data(), fp12ring, ring));
+        }
+
+        static blst::Fr inverse(const blst::Fr& value)
+        {
+            blst::Fr out;
+            blst::Fr::reciprocal(out, value);
+            return out;
+        }
+
+        template<class>
+        static blst::Fr from_u64(const uint64_t value)
+        {
+            return blst::Fr::from_uint64(value);
+        }
+
+    private:
+        static const blst::avx::AvxGLV4Exp* find_compiled(
+            const blst::Fr& scalar)
+        {
+            if (prepared_roots_ == nullptr) {
+                return nullptr;
+            }
+            if (prepared_roots_->has_scale &&
+                blst::Fr::equal(scalar, prepared_roots_->scale_scalar)) {
+                return &prepared_roots_->scale_compiled;
+            }
+            if (prepared_roots_->scalars.empty()) {
+                return nullptr;
+            }
+
+            const blst::Fr* const base = prepared_roots_->scalars.data();
+            const blst::Fr* const end = base + prepared_roots_->scalars.size();
+            const blst::Fr* const candidate = &scalar;
+            const std::less<const blst::Fr*> less;
+            if (less(candidate, base) || !less(candidate, end)) {
+                return nullptr;
+            }
+            const std::uintptr_t byte_offset =
+                reinterpret_cast<std::uintptr_t>(candidate) -
+                reinterpret_cast<std::uintptr_t>(base);
+            if (byte_offset % sizeof(blst::Fr) != 0) {
+                return nullptr;
+            }
+            const std::size_t index = byte_offset / sizeof(blst::Fr);
+            if (index >= prepared_roots_->compiled.size() ||
+                candidate != &prepared_roots_->scalars[index]) {
+                return nullptr;
+            }
+            return &prepared_roots_->compiled[index];
+        }
+
+        inline static thread_local const blst::avx::AvxGt52PreparedRoots*
+            prepared_roots_ = nullptr;
+    };
+
+    MatrixNoKGt make_matrixnok_gt(
+        const blst::scalar::GT& value)
+    {
+        MatrixNoKGt::Element out = {};
+        for (std::size_t coefficient = 0; coefficient < out.size(); ++coefficient) {
+            out[coefficient] = MatrixNoKGtFftCtx::ring.from_scalar(
+                value.data[coefficient / 6]
+                    [(coefficient % 6) / 2][coefficient % 2]);
+        }
+        return MatrixNoKGt(out);
+    }
+
+    std::vector<MatrixNoKGt> make_matrixnok_gt_data(const std::size_t n)
+    {
+        std::vector<MatrixNoKGt> out(n);
+        const MatrixNoKGt identity(
+            MatrixNoKGtFftCtx::fp12ring.one(MatrixNoKGtFftCtx::ring));
+        const MatrixNoKGt generator =
+            make_matrixnok_gt(blst::scalar::GT::generator());
+        out[0] = identity;
+        MatrixNoKGt current = generator;
+        for (std::size_t i = 1; i < n; ++i) {
+            out[i] = current;
+            current = MatrixNoKGtFftCtx::plus(current, generator);
+        }
+        return out;
+    }
+
+    void BM_CatBLST_Incumbent_FP12Mul(benchmark::State& state)
+    {
+        const AvxGt left = AvxGt::from_scalar(blst::scalar::GT::generator());
+        const AvxGt right = blst::avx::AvxGt52CoeffCtx::plus(left, left);
+        for (auto _ : state) {
+            auto result = AvxGt::fp12ring().fp12_flat_mul(
+                left.data, right.data, AvxGt::ring());
+            benchmark::DoNotOptimize(result);
+        }
+    }
+
+    void BM_CatBLST_MatrixNoKCandidate_FP12Mul(benchmark::State& state)
+    {
+        const MatrixNoKGt left = make_matrixnok_gt(blst::scalar::GT::generator());
+        const MatrixNoKGt right = MatrixNoKGtFftCtx::plus(left, left);
+        for (auto _ : state) {
+            auto result = MatrixNoKGtFftCtx::fp12ring.fp12_flat_mul(
+                left.data, right.data, MatrixNoKGtFftCtx::ring);
+            benchmark::DoNotOptimize(result);
+        }
+    }
+
+    void BM_CatBLST_Incumbent_CyclotomicSquare(benchmark::State& state)
+    {
+        const AvxGt value = AvxGt::from_scalar(blst::scalar::GT::generator());
+        for (auto _ : state) {
+            auto result = AvxGt::fp12ring().fp12_flat_cyclotomic_sqr(
+                value.data, AvxGt::ring());
+            benchmark::DoNotOptimize(result);
+        }
+    }
+
+    void BM_CatBLST_MatrixNoKCandidate_CyclotomicSquare(
+        benchmark::State& state)
+    {
+        const MatrixNoKGt value = make_matrixnok_gt(blst::scalar::GT::generator());
+        for (auto _ : state) {
+            auto result =
+                MatrixNoKGtFftCtx::fp12ring.fp12_flat_cyclotomic_sqr(
+                    value.data, MatrixNoKGtFftCtx::ring);
+            benchmark::DoNotOptimize(result);
+        }
+    }
+
     void BM_CatBLST_Incumbent_G1Forward(benchmark::State& state)
     {
         const std::size_t n = static_cast<std::size_t>(state.range(0));
@@ -269,6 +452,37 @@ namespace
         }
     }
 
+    void BM_CatBLST_MatrixNoKCandidate_GTInverse(benchmark::State& state)
+    {
+        const std::size_t n = static_cast<std::size_t>(state.range(0));
+        const auto roots = make_roots(n, false);
+        const auto inverse_roots = make_roots(n, true);
+        auto frequency = make_matrixnok_gt_data(n);
+        {
+            blst::avx::AvxGt52PreparedRoots prepared(roots);
+            MatrixNoKGtFftCtx::ScopedRoots scope(prepared);
+            fft<MatrixNoKGt, blst::Fr, MatrixNoKGtFftCtx>(
+                frequency, prepared.scalar_span(), false);
+        }
+        blst::avx::AvxGt52PreparedRoots prepared_inverse(inverse_roots);
+        prepared_inverse.set_scale_from_size(n);
+        MatrixNoKGtFftCtx::ScopedRoots scope(prepared_inverse);
+        std::vector<MatrixNoKGt> data(n);
+
+        for (auto _ : state) {
+            state.PauseTiming();
+            data = frequency;
+            state.ResumeTiming();
+            const auto start = std::chrono::steady_clock::now();
+            fft<MatrixNoKGt, blst::Fr, MatrixNoKGtFftCtx>(
+                data, prepared_inverse.scalar_span(), true);
+            const auto finish = std::chrono::steady_clock::now();
+            state.SetIterationTime(
+                std::chrono::duration<double>(finish - start).count());
+            benchmark::DoNotOptimize(data.data());
+        }
+    }
+
     BENCHMARK(BM_CatBLST_Incumbent_G1Forward)
         ->Arg(256)->Arg(1024)->Arg(4096)->Arg(16384)
         ->UseManualTime()->Unit(benchmark::kMillisecond);
@@ -277,7 +491,14 @@ namespace
         ->UseManualTime()->Unit(benchmark::kMillisecond);
     BENCHMARK(BM_CatBLST_MatrixNoKCandidate_G1Add);
     BENCHMARK(BM_CatBLST_MatrixNoKCandidate_G1Double);
+    BENCHMARK(BM_CatBLST_Incumbent_FP12Mul);
+    BENCHMARK(BM_CatBLST_MatrixNoKCandidate_FP12Mul);
+    BENCHMARK(BM_CatBLST_Incumbent_CyclotomicSquare);
+    BENCHMARK(BM_CatBLST_MatrixNoKCandidate_CyclotomicSquare);
     BENCHMARK(BM_CatBLST_Incumbent_GTInverse)
+        ->Arg(256)->Arg(1024)->Arg(4096)->Arg(16384)
+        ->UseManualTime()->Unit(benchmark::kMillisecond);
+    BENCHMARK(BM_CatBLST_MatrixNoKCandidate_GTInverse)
         ->Arg(256)->Arg(1024)->Arg(4096)->Arg(16384)
         ->UseManualTime()->Unit(benchmark::kMillisecond);
 }

@@ -37,9 +37,20 @@ namespace blst::avx::matrixnok
         using StandardResidue = BoundedElement<Bounds<0, standard_bound>, limbs, element_bits>;
         using FullyReducedResidue = BoundedElement<Bounds<0, 1>, limbs, element_bits>;
         using MultOkResidue = BoundedElement<Bounds<0, MULT_OK_BOUND>, limbs, element_bits>;
+        using StandardBoundedElement = StandardResidue;
         using StandardElement = ExpandedElement<StandardResidue, Bounds<0, 1>>;
         using Element = StandardElement;
         using SmallStandardElement = SmallElement<StandardResidue, Bounds<0, 1>>;
+        template<int64_t element_bound, int64_t rns_bound>
+        using WideOffsetElement = ExpandedElement<
+            WideElement<Bounds<element_bound, element_bound + 1>, limbs, element_bits>,
+            Bounds<rns_bound, rns_bound>>;
+        template<int64_t upper_bound>
+        using ReducedElement = ExpandedElement<
+            StandardBoundedElement, Bounds<0, upper_bound>>;
+        template<int64_t upper_bound>
+        using SmallReducedElement = SmallElement<
+            StandardBoundedElement, Bounds<0, upper_bound>>;
         template<int64_t A>
         using ReadyElement = ReadyToReduce<
             WideElement<Bounds<0, A>, limbs, element_bits>, StandardResidue>;
@@ -282,6 +293,19 @@ namespace blst::avx::matrixnok
             const auto negated = negate(value) + offset;
             return prep<decltype(negated.m1)::bounds.lower,
                 decltype(negated.m1)::bounds.upper, Bounds<0, 1>, STANDARD_BOUND>(negated);
+        }
+
+        template<int64_t lower, int64_t upper>
+        static INLINE auto standard_negate(const ExpandedElement<
+            BoundedElement<Bounds<lower, upper>, limbs, element_bits>,
+            Bounds<0, 6>>& value)
+        {
+            const auto offset = OffsetElement<6>(
+                FullyReducedResidue(AVXVector<limbs>(generated::six_modulus_in_rns_m1)),
+                FullyReducedResidue(AVXVector<limbs>(generated::six_modulus_in_rns_m2)));
+            const auto negated = negate(value) + offset;
+            return prep<decltype(negated.m1)::bounds.lower,
+                decltype(negated.m1)::bounds.upper, Bounds<0, 6>, STANDARD_BOUND>(negated);
         }
 
         template<class ElementType, int64_t rns_lower, int64_t rns_upper>
@@ -656,6 +680,30 @@ namespace blst::avx::matrixnok
         static constexpr const std::array<uint64_t, limbs>& moduli2() noexcept
         {
             return generated::moduli2;
+        }
+
+        static constexpr const std::array<uint64_t, limbs>&
+        fp12_offset_m1_high() noexcept
+        {
+            return generated::fp12_offset_m1_high;
+        }
+
+        static constexpr const std::array<uint64_t, limbs>&
+        fp12_offset_m1_low() noexcept
+        {
+            return generated::fp12_offset_m1_low;
+        }
+
+        static constexpr const std::array<uint64_t, limbs>&
+        fp12_offset_m2_high() noexcept
+        {
+            return generated::fp12_offset_m2_high;
+        }
+
+        static constexpr const std::array<uint64_t, limbs>&
+        fp12_offset_m2_low() noexcept
+        {
+            return generated::fp12_offset_m2_low;
         }
 
     private:

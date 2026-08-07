@@ -4,12 +4,15 @@
 #include "blst/avx/rns/matrixnok_change_base.h"
 #include "blst/avx/rns/matrixnok_fp.h"
 #include "blst/avx/fields/matrixnok_fp2.h"
+#include "blst/avx/fields/matrixnok_fp12.h"
+#include "blst/avx/gt/glv4.h"
 #include "blst/avx/curve/matrixnok_g1.h"
 #include "blst/common/bytes.h"
 #include "blst/fft/ctFft.h"
 #include "blst/fft/primitveRoot.h"
 #include "blst/fields/Fp.h"
 #include "blst/fields/Fp2.h"
+#include "blst/fields/Fp12.h"
 #include "blst/fields/Fr.h"
 #include "blst/scalar/curve/point.h"
 
@@ -18,6 +21,7 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <string>
 #include <vector>
 
 namespace blst::avx::test
@@ -35,7 +39,12 @@ namespace blst::avx::test
     static_assert(matrixnok_constants::r1_perm_mat_fixed.size() == 8);
     static_assert(std::is_empty_v<matrixnok::FpRingCandidate>);
     static_assert(std::is_empty_v<matrixnok::Fp2RingCandidate>);
+    static_assert(std::is_empty_v<matrixnok::Fp12RingCandidate>);
     static_assert(std::is_empty_v<matrixnok::G1CurveCandidate>);
+
+    using MatrixNoKFp12Scaffold = matrixnok::Fp12RingCandidate;
+    static_assert(std::is_default_constructible_v<
+        typename MatrixNoKFp12Scaffold::StandardElement>);
 
     TEST(AvxMatrixNoKPrimitives, PermutationRowsAreCacheLineAligned)
     {
@@ -1062,5 +1071,161 @@ namespace blst::avx::test
             expect_same_scalar_fp2(
                 matrixnok_fp2_to_scalar(ring, candidate_square_chain), scalar_square_chain);
         }
+    }
+
+    MatrixNoKFp12Scaffold::StandardElement matrixnok_fp12_from_scalar(
+        const matrixnok::FpRingCandidate& ring, const blst::Fp12& value)
+    {
+        MatrixNoKFp12Scaffold::StandardElement out = {};
+        for (std::size_t coefficient = 0; coefficient < out.size(); ++coefficient) {
+            out[coefficient] = ring.from_scalar(
+                value[coefficient / 6][(coefficient % 6) / 2][coefficient % 2]);
+        }
+        return out;
+    }
+
+    blst::Fp12 matrixnok_fp12_to_scalar(
+        const matrixnok::FpRingCandidate& ring,
+        const MatrixNoKFp12Scaffold::StandardElement& value)
+    {
+        blst::Fp12 out = {};
+        for (std::size_t coefficient = 0; coefficient < value.size(); ++coefficient) {
+            out[coefficient / 6][(coefficient % 6) / 2][coefficient % 2] =
+                matrixnok_to_scalar(ring, value[coefficient]);
+        }
+        return out;
+    }
+
+    void expect_same_scalar_fp12(
+        const blst::Fp12& actual, const blst::Fp12& expected)
+    {
+        for (std::size_t coefficient = 0; coefficient < 12; ++coefficient) {
+            SCOPED_TRACE(coefficient);
+            expect_same_scalar_fp(
+                actual[coefficient / 6][(coefficient % 6) / 2][coefficient % 2],
+                expected[coefficient / 6][(coefficient % 6) / 2][coefficient % 2]);
+        }
+    }
+
+    TEST(AvxMatrixNoKPrimitives, Fp12ScaffoldMultiplyAndSquareMatchScalar)
+    {
+        const matrixnok::FpRingCandidate ring;
+        const MatrixNoKFp12Scaffold fp12ring(ring);
+        const auto values = matrixnok_scalar_values();
+        blst::Fp12 left = {};
+        blst::Fp12 right = {};
+        for (std::size_t coefficient = 0; coefficient < 12; ++coefficient) {
+            left[coefficient / 6][(coefficient % 6) / 2][coefficient % 2] =
+                values[coefficient % values.size()];
+            right[coefficient / 6][(coefficient % 6) / 2][coefficient % 2] =
+                values[(3 * coefficient + 1) % values.size()];
+        }
+
+        const auto candidate_left = matrixnok_fp12_from_scalar(ring, left);
+        const auto candidate_right = matrixnok_fp12_from_scalar(ring, right);
+
+        {
+            SCOPED_TRACE("left times one");
+            expect_same_scalar_fp12(
+                matrixnok_fp12_to_scalar(
+                    ring,
+                    fp12ring.fp12_flat_mul(
+                        candidate_left, fp12ring.one(ring), ring)),
+                left);
+        }
+
+        blst::Fp12 expected_product = {};
+        blst::Fp12::mul(expected_product, left, right);
+        {
+            SCOPED_TRACE("general product");
+            expect_same_scalar_fp12(
+                matrixnok_fp12_to_scalar(
+                    ring, fp12ring.fp12_flat_mul(
+                        candidate_left, candidate_right, ring)),
+                expected_product);
+        }
+
+        blst::Fp12 expected_square = {};
+        blst::Fp12::sqr(expected_square, left);
+        {
+            SCOPED_TRACE("square");
+            expect_same_scalar_fp12(
+                matrixnok_fp12_to_scalar(
+                    ring, fp12ring.fp12_flat_sqr(candidate_left, ring)),
+                expected_square);
+        }
+
+        {
+            SCOPED_TRACE("one");
+            expect_same_scalar_fp12(
+                matrixnok_fp12_to_scalar(ring, fp12ring.one(ring)),
+                blst::Fp12::one());
+        }
+    }
+
+    TEST(AvxMatrixNoKPrimitives, Fp12MapsAndGtExponentiationMatchScalar)
+    {
+        const matrixnok::FpRingCandidate ring;
+        const MatrixNoKFp12Scaffold fp12ring(ring);
+        const auto values = matrixnok_scalar_values();
+        blst::Fp12 general = {};
+        for (std::size_t coefficient = 0; coefficient < 12; ++coefficient) {
+            general[coefficient / 6][(coefficient % 6) / 2][coefficient % 2] =
+                values[(5 * coefficient + 2) % values.size()];
+        }
+        const auto candidate_general = matrixnok_fp12_from_scalar(ring, general);
+
+        for (std::size_t power = 1; power <= 3; ++power) {
+            blst::Fp12 expected = {};
+            blst::Fp12::frobenius_map(expected, general, power);
+            MatrixNoKFp12Scaffold::StandardElement actual = {};
+            if (power == 1) {
+                actual = fp12ring.fp12_flat_frobenius_map1(candidate_general, ring);
+            } else if (power == 2) {
+                actual = fp12ring.narrow_to_standard(
+                    fp12ring.fp12_flat_frobenius_map2(candidate_general, ring), ring);
+            } else {
+                actual = fp12ring.fp12_flat_frobenius_map3(candidate_general, ring);
+            }
+            SCOPED_TRACE("Frobenius power " + std::to_string(power));
+            expect_same_scalar_fp12(matrixnok_fp12_to_scalar(ring, actual), expected);
+        }
+
+        blst::Fp12 expected_conjugate = general;
+        blst::Fp12::conjugate(expected_conjugate);
+        expect_same_scalar_fp12(
+            matrixnok_fp12_to_scalar(
+                ring, fp12ring.fp12_flat_conjugate(candidate_general, ring)),
+            expected_conjugate);
+
+        blst::Fp12 gt = {};
+        blst::Fp12::final_exp(gt, general);
+        const auto candidate_gt = matrixnok_fp12_from_scalar(ring, gt);
+
+        blst::Fp12 expected_square = {};
+        blst::Fp12::cyclotomic_sqr(expected_square, gt);
+        const auto candidate_square = fp12ring.narrow_to_standard(
+            fp12ring.fp12_flat_cyclotomic_sqr(candidate_gt, ring), ring);
+        expect_same_scalar_fp12(
+            matrixnok_fp12_to_scalar(ring, candidate_square), expected_square);
+
+        const std::array<uint64_t, 4> scalar = {
+            0xfedcba9876543210ULL,
+            0x0123456789abcdefULL,
+            0x1020304050607080ULL,
+            0x42eda753299d7d48ULL,
+        };
+        blst::Fp12 expected_ct = {};
+        blst::Fp12 expected_vt = {};
+        blst::Fp12::cyclotomic_exp_glv4_ct(expected_ct, gt, scalar.data());
+        blst::Fp12::cyclotomic_exp_glv4(expected_vt, gt, scalar.data());
+        const auto candidate_ct = avx_cyclotomic_exp_glv4_ct(
+            candidate_gt, scalar.data(), fp12ring, ring);
+        const auto candidate_vt = avx_cyclotomic_exp_glv4_unsigned_vartime(
+            candidate_gt, scalar.data(), fp12ring, ring);
+        expect_same_scalar_fp12(
+            matrixnok_fp12_to_scalar(ring, candidate_ct), expected_ct);
+        expect_same_scalar_fp12(
+            matrixnok_fp12_to_scalar(ring, candidate_vt), expected_vt);
     }
 } // namespace blst::avx::test

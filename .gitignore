@@ -36,6 +36,8 @@ out/
 *.i*86
 *.x86_64
 *.hex
+__pycache__/
+*.pyc
 
 # Debug files
 *.dSYM/

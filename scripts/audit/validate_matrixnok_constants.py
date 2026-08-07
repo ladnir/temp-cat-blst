@@ -17,6 +17,27 @@ from pathlib import Path
 from typing import Sequence
 
 
+FP12_STANDARD_VALUES = {
+    "one_third": int("11560bf17baa99bc32126fced787c88f984f87adf7ae0c7f9a208c6b4f20a4181472aaa9cb8d555526a9ffffffffc71d", 16),
+    "neg_two_thirds": int("11560bf17baa99bc32126fced787c88f984f87adf7ae0c7f9a208c6b4f20a4181472aaa9cb8d555526a9ffffffffc71c", 16),
+    "frob1_2": int("1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaac", 16),
+    "frob1_3": int("1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaad", 16),
+    "frob1_4": int("5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffefffe", 16),
+    "frob1_5": int("1904d3bf02bb0667c231beb4202c0d1f0fd603fd3cbd5f4f7b2443d784bab9c4f67ea53d63e7813d8d0775ed92235fb8", 16),
+    "frob1_6": int("fc3e2b36c4e03288e9e902231f9fb854a14787b6c7b36fec0c8ec971f63c5f282d5ac14d6c7ec22cf78a126ddc4af3", 16),
+    "frob1_7": int("6af0e0437ff400b6831e36d6bd17ffe48395dabc2d3435e77f76e17009241c5ee67992f72ec05f4c81084fbede3cc09", 16),
+    "frob1_8": int("135203e60180a68ee2e9c448d77a2cd91c3dedd930b1cf60ef396489f61eb45e304466cf3e67fa0af1ee7b04121bdea2", 16),
+    "frob1_9": int("5b2cfd9013a5fd8df47fa6b48b1e045f39816240c0b8fee8beadf4d8e9c0566c63a3e6e257f87329b18fae980078116", 16),
+    "frob1_10": int("144e4211384586c16bd3ad4afa99cc9170df3560e77982d0db45f3536814f0bd5871c1908bd478cd1ee605167ff82995", 16),
+    "frob2_3": int("5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffeffff", 16),
+}
+FP12_STANDARD_ARRAY_NAMES = tuple(
+    f"fp12_{name}_{basis}"
+    for name in FP12_STANDARD_VALUES
+    for basis in ("m1", "m2")
+)
+
+
 ARRAY_NAMES = (
     "moduli1",
     "moduli2",
@@ -30,6 +51,10 @@ ARRAY_NAMES = (
     "six_modulus_in_rns_m2",
     "max_neg_offset_m1",
     "max_neg_offset_m2",
+    "fp12_offset_m1_high",
+    "fp12_offset_m1_low",
+    "fp12_offset_m2_high",
+    "fp12_offset_m2_low",
     "r1_perm_mat_fixed",
     "r1_rns_mat",
     "r1_correction",
@@ -45,7 +70,7 @@ ARRAY_NAMES = (
     "convert_from_shifted_quotient_estimations",
     "reducer1_mont_factor",
     "reducer2_mont_factor",
-)
+) + FP12_STANDARD_ARRAY_NAMES
 
 INTEGER_NAMES = (
     "BLS12_381_RNS_DIM",
@@ -95,6 +120,10 @@ def parse_header(path: Path) -> tuple[dict[str, int], dict[str, list[int]]]:
         "six_modulus_in_rns_m2",
         "max_neg_offset_m1",
         "max_neg_offset_m2",
+        "fp12_offset_m1_high",
+        "fp12_offset_m1_low",
+        "fp12_offset_m2_high",
+        "fp12_offset_m2_low",
         "r1_perm_mat_fixed",
         "r2_rns_mat",
         "r2_correction",
@@ -102,7 +131,7 @@ def parse_header(path: Path) -> tuple[dict[str, int], dict[str, list[int]]]:
         "convert_to_correction",
         "convert_from_rns_mat",
         "convert_from_correction",
-    ):
+    ) + FP12_STANDARD_ARRAY_NAMES:
         require(
             re.search(rf"alignas\s*\(\s*64\s*\).*?\b{name}\s*=", text) is not None,
             f"{name} must retain 64-byte AVX row alignment",
@@ -251,6 +280,48 @@ def validate_constants(s: dict[str, int], a: dict[str, list[int]]) -> None:
         expected_m1, expected_m2 = exact_montgomery(value, wide=wide)
         require(a[f"{name}_m1"] == expected_m1, f"{name} M1 encoding is invalid")
         require(a[f"{name}_m2"] == expected_m2, f"{name} M2 encoding is invalid")
+
+    for name, value in FP12_STANDARD_VALUES.items():
+        expected_m1, expected_m2 = exact_montgomery(value)
+        require(
+            a[f"fp12_{name}_m1"] == expected_m1,
+            f"Fp12 {name} M1 encoding is invalid",
+        )
+        require(
+            a[f"fp12_{name}_m2"] == expected_m2,
+            f"Fp12 {name} M2 encoding is invalid",
+        )
+
+    fp12_element_bound = 80
+    fp12_rns_bound = 1440
+    desired_m1, desired_m2 = exact_montgomery(
+        9 * fp12_rns_bound * p * p, wide=True)
+    fp12_minimum_low = (1 << 52) * fp12_element_bound
+    fp12_mask = (1 << 52) - 1
+
+    for base_name, moduli, desired in (
+        ("m1", m1_moduli, desired_m1),
+        ("m2", m2_moduli, desired_m2),
+    ):
+        expected_high: list[int] = []
+        expected_low: list[int] = []
+        for modulus, desired_residue in zip(moduli, desired):
+            wide_product = fp12_element_bound * modulus * modulus
+            high = wide_product >> 52
+            low = (wide_product & fp12_mask) + desired_residue
+            low += modulus * fp12_element_bound
+            while low < fp12_minimum_low:
+                low += modulus
+            expected_high.append(high)
+            expected_low.append(low)
+        require(
+            a[f"fp12_offset_{base_name}_high"] == expected_high,
+            f"Fp12 {base_name.upper()} high offset is invalid",
+        )
+        require(
+            a[f"fp12_offset_{base_name}_low"] == expected_low,
+            f"Fp12 {base_name.upper()} low offset is invalid",
+        )
 
     radix = 1 << 52
     inverse_factor = pow(m1, -1, m2)

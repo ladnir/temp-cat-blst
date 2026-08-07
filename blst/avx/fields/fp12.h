@@ -4,6 +4,7 @@
 #include <type_traits>
 #include <iostream>
 #include "../runtime_constants.h"
+#include "../cpu/vector/multiplication.hpp"
 #include "blst/avx/fields/fp2.h"
 
 #if BLST_AVX_VALIDATE_CONSTANTS
@@ -12,10 +13,100 @@
 
 namespace blst::avx {
 
-// concat is defined in multiplication.hpp
+template<class Ring, int VERSION>
+class FP12RuntimeConstants {
+	using StandardElement = typename Ring::StandardElement;
+	static constexpr int offset_rns_bound =
+		10 * Ring::STANDARD_BOUND * Ring::STANDARD_BOUND *
+		(VERSION == 1 ? 1 : 6 * 6);
+	static constexpr int offset_ele_bound =
+		10 * Ring::STANDARD_BOUND *
+		std::max(Ring::STANDARD_BOUND, Ring::MULT_OK_BOUND);
+	using Offset = typename Ring::template WideOffsetElement<
+		offset_ele_bound, offset_rns_bound>;
 
-template<class Ring, int VERSION=3>
-class FP12Ring {
+	StandardElement one_third_;
+	StandardElement neg_two_thirds_;
+	StandardElement frob1_2_;
+	StandardElement frob1_3_;
+	StandardElement frob1_4_;
+	StandardElement frob1_5_;
+	StandardElement frob1_6_;
+	StandardElement frob1_7_;
+	StandardElement frob1_8_;
+	StandardElement frob1_9_;
+	StandardElement frob1_10_;
+	StandardElement frob2_1_;
+	StandardElement frob2_2_;
+	StandardElement frob2_3_;
+	StandardElement frob2_5_;
+	StandardElement frob3_2_;
+	StandardElement frob3_3_;
+	Offset offset_;
+
+public:
+	explicit FP12RuntimeConstants(const Ring& ring)
+	{
+		one_third_ = ring.from_hex("0x11560bf17baa99bc32126fced787c88f984f87adf7ae0c7f9a208c6b4f20a4181472aaa9cb8d555526a9ffffffffc71d");
+		neg_two_thirds_ = ring.from_hex("0x11560bf17baa99bc32126fced787c88f984f87adf7ae0c7f9a208c6b4f20a4181472aaa9cb8d555526a9ffffffffc71c");
+		frob1_2_ = ring.from_hex("0x1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaac");
+		frob1_3_ = ring.from_hex("0x1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaad");
+		frob1_4_ = ring.from_hex("0x5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffefffe");
+		frob1_5_ = ring.from_hex("0x1904d3bf02bb0667c231beb4202c0d1f0fd603fd3cbd5f4f7b2443d784bab9c4f67ea53d63e7813d8d0775ed92235fb8");
+		frob1_6_ = ring.from_hex("0xfc3e2b36c4e03288e9e902231f9fb854a14787b6c7b36fec0c8ec971f63c5f282d5ac14d6c7ec22cf78a126ddc4af3");
+		frob1_7_ = ring.from_hex("0x6af0e0437ff400b6831e36d6bd17ffe48395dabc2d3435e77f76e17009241c5ee67992f72ec05f4c81084fbede3cc09");
+		frob1_8_ = ring.from_hex("0x135203e60180a68ee2e9c448d77a2cd91c3dedd930b1cf60ef396489f61eb45e304466cf3e67fa0af1ee7b04121bdea2");
+		frob1_9_ = ring.from_hex("0x5b2cfd9013a5fd8df47fa6b48b1e045f39816240c0b8fee8beadf4d8e9c0566c63a3e6e257f87329b18fae980078116");
+		frob1_10_ = ring.from_hex("0x144e4211384586c16bd3ad4afa99cc9170df3560e77982d0db45f3536814f0bd5871c1908bd478cd1ee605167ff82995");
+		frob2_1_ = frob1_4_;
+		frob2_2_ = frob1_2_;
+		frob2_3_ = ring.from_hex("0x5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffeffff");
+		frob2_5_ = frob1_3_;
+		frob3_2_ = frob1_8_;
+		frob3_3_ = frob1_7_;
+
+		using OffsetElementType = BoundedElement<
+			Bounds<offset_ele_bound, offset_ele_bound + 1>,
+			Ring::StandardBoundedElement::LIMBS,
+			Ring::StandardBoundedElement::ELEMENT_BITS>;
+		using OffsetWideType = WideElement<
+			Bounds<offset_ele_bound, offset_ele_bound + 1>,
+			Ring::StandardBoundedElement::LIMBS,
+			Ring::StandardBoundedElement::ELEMENT_BITS>;
+		const auto& values =
+			runtime_constants<Ring::StandardBoundedElement::ELEMENT_BITS>();
+		offset_ = Offset(
+			OffsetWideType(
+				OffsetElementType(AVXVector<Ring::StandardBoundedElement::LIMBS>(values.fp12_offset_m1_high)),
+				OffsetElementType(AVXVector<Ring::StandardBoundedElement::LIMBS>(values.fp12_offset_m1_low))),
+			OffsetWideType(
+				OffsetElementType(AVXVector<Ring::StandardBoundedElement::LIMBS>(values.fp12_offset_m2_high)),
+				OffsetElementType(AVXVector<Ring::StandardBoundedElement::LIMBS>(values.fp12_offset_m2_low))));
+	}
+
+	INLINE const StandardElement& one_third() const { return one_third_; }
+	INLINE const StandardElement& neg_two_thirds() const { return neg_two_thirds_; }
+	INLINE const StandardElement& frob1_2() const { return frob1_2_; }
+	INLINE const StandardElement& frob1_3() const { return frob1_3_; }
+	INLINE const StandardElement& frob1_4() const { return frob1_4_; }
+	INLINE const StandardElement& frob1_5() const { return frob1_5_; }
+	INLINE const StandardElement& frob1_6() const { return frob1_6_; }
+	INLINE const StandardElement& frob1_7() const { return frob1_7_; }
+	INLINE const StandardElement& frob1_8() const { return frob1_8_; }
+	INLINE const StandardElement& frob1_9() const { return frob1_9_; }
+	INLINE const StandardElement& frob1_10() const { return frob1_10_; }
+	INLINE const StandardElement& frob2_1() const { return frob2_1_; }
+	INLINE const StandardElement& frob2_2() const { return frob2_2_; }
+	INLINE const StandardElement& frob2_3() const { return frob2_3_; }
+	INLINE const StandardElement& frob2_5() const { return frob2_5_; }
+	INLINE const StandardElement& frob3_2() const { return frob3_2_; }
+	INLINE const StandardElement& frob3_3() const { return frob3_3_; }
+	INLINE const Offset& offset() const { return offset_; }
+};
+
+template<class Ring, int VERSION=3,
+	class Constants=FP12RuntimeConstants<Ring, VERSION>>
+class FP12Ring : private Constants {
 
 	public:
 	using FP2StandardElement = typename FP2Ring<Ring>::StandardElement;
@@ -33,65 +124,12 @@ class FP12Ring {
 	static constexpr auto _6 = std::integral_constant<int, 6>{};
 
 	private:
-	typename Ring::StandardElement one_third;
-	typename Ring::StandardElement neg_one_third;
-	typename Ring::StandardElement two_thirds;
-	typename Ring::StandardElement neg_two_thirds;
-	typename Ring::StandardElement frob1_2;
-	typename Ring::StandardElement frob1_3;
-	typename Ring::StandardElement frob1_4;
-	typename Ring::StandardElement frob1_5;
-	typename Ring::StandardElement frob1_6;
-	typename Ring::StandardElement frob1_7;
-	typename Ring::StandardElement frob1_8;
-	typename Ring::StandardElement frob1_9;
-	typename Ring::StandardElement frob1_10;
-	typename Ring::StandardElement frob2_1;
-	typename Ring::StandardElement frob2_2;
-	typename Ring::StandardElement frob2_3;
-	typename Ring::StandardElement frob2_5;
-	typename Ring::StandardElement frob3_2;
-	typename Ring::StandardElement frob3_3;
-	typename Ring::StandardElement frob3_4;
-
 	// We do ten subtractions, so this is 10*RNS_modulus + 10*modulus to ensure everything remains positive.
 	constexpr static int offset_rns_bound = 10 * Ring::STANDARD_BOUND * Ring::STANDARD_BOUND * (VERSION == 1 ? 1 : 6 * 6);
 	constexpr static int offset_ele_bound = 10 * Ring::STANDARD_BOUND * std::max(Ring::STANDARD_BOUND, Ring::MULT_OK_BOUND);
-	typename Ring::template WideOffsetElement<offset_ele_bound, offset_rns_bound> offset;
-
 	public:
-	FP12Ring(const Ring &ring) {
-		// Initialize all of the constants needed for the flattened code
-		one_third = ring.from_hex("0x11560bf17baa99bc32126fced787c88f984f87adf7ae0c7f9a208c6b4f20a4181472aaa9cb8d555526a9ffffffffc71d");
-		neg_one_third = ring.from_hex("0x8ab05f8bdd54cde190937e76bc3e447cc27c3d6fbd7063fcd104635a790520c0a395554e5c6aaaa9354ffffffffe38e");
-		two_thirds = ring.from_hex("0x8ab05f8bdd54cde190937e76bc3e447cc27c3d6fbd7063fcd104635a790520c0a395554e5c6aaaa9354ffffffffe38f");
-		neg_two_thirds = ring.from_hex("0x11560bf17baa99bc32126fced787c88f984f87adf7ae0c7f9a208c6b4f20a4181472aaa9cb8d555526a9ffffffffc71c");
-		frob1_2 = ring.from_hex("0x1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaac");
-		frob1_3 = ring.from_hex("0x1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaad");
-		frob1_4 = ring.from_hex("0x5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffefffe");
-		frob1_5 = ring.from_hex("0x1904d3bf02bb0667c231beb4202c0d1f0fd603fd3cbd5f4f7b2443d784bab9c4f67ea53d63e7813d8d0775ed92235fb8");
-		frob1_6 = ring.from_hex("0xfc3e2b36c4e03288e9e902231f9fb854a14787b6c7b36fec0c8ec971f63c5f282d5ac14d6c7ec22cf78a126ddc4af3");
-		frob1_7 = ring.from_hex("0x6af0e0437ff400b6831e36d6bd17ffe48395dabc2d3435e77f76e17009241c5ee67992f72ec05f4c81084fbede3cc09");
-		frob1_8 = ring.from_hex("0x135203e60180a68ee2e9c448d77a2cd91c3dedd930b1cf60ef396489f61eb45e304466cf3e67fa0af1ee7b04121bdea2");
-		frob1_9 = ring.from_hex("0x5b2cfd9013a5fd8df47fa6b48b1e045f39816240c0b8fee8beadf4d8e9c0566c63a3e6e257f87329b18fae980078116");
-		frob1_10 = ring.from_hex("0x144e4211384586c16bd3ad4afa99cc9170df3560e77982d0db45f3536814f0bd5871c1908bd478cd1ee605167ff82995");
-		frob2_1 = ring.from_hex("0x5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffefffe");
-		frob2_2 = frob1_2;
-		frob2_3 = ring.from_hex("0x5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffeffff");
-		frob2_5 = ring.from_hex("0x1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaad");
-		frob3_2 = ring.from_hex("0x135203e60180a68ee2e9c448d77a2cd91c3dedd930b1cf60ef396489f61eb45e304466cf3e67fa0af1ee7b04121bdea2");
-		frob3_3 = ring.from_hex("0x6af0e0437ff400b6831e36d6bd17ffe48395dabc2d3435e77f76e17009241c5ee67992f72ec05f4c81084fbede3cc09");
-		const auto& constants = runtime_constants<Ring::StandardBoundedElement::ELEMENT_BITS>();
-		using OffsetElementType = BoundedElement<Bounds<offset_ele_bound, offset_ele_bound + 1>, Ring::StandardBoundedElement::LIMBS, Ring::StandardBoundedElement::ELEMENT_BITS>;
-		using OffsetWideType = WideElement<Bounds<offset_ele_bound, offset_ele_bound + 1>, Ring::StandardBoundedElement::LIMBS, Ring::StandardBoundedElement::ELEMENT_BITS>;
-		offset = typename Ring::template WideOffsetElement<offset_ele_bound, offset_rns_bound>(
-			OffsetWideType(
-				OffsetElementType(AVXVector<Ring::StandardBoundedElement::LIMBS>(constants.fp12_offset_m1_high)),
-				OffsetElementType(AVXVector<Ring::StandardBoundedElement::LIMBS>(constants.fp12_offset_m1_low))),
-			OffsetWideType(
-				OffsetElementType(AVXVector<Ring::StandardBoundedElement::LIMBS>(constants.fp12_offset_m2_high)),
-				OffsetElementType(AVXVector<Ring::StandardBoundedElement::LIMBS>(constants.fp12_offset_m2_low))));
-	}
+	FP12Ring() requires std::is_default_constructible_v<Constants> = default;
+	explicit FP12Ring(const Ring& ring) : Constants(ring) {}
 	template<int64_t upper_bound, class E1, class E2, class E3, class E4, class E5, class E6, class E7, class E8, class E9, class E10, class E11, class E12>
 	INLINE auto to_common(const Ring &ring, const E1 &e1, const E2 &e2, const E3 &e3, const E4 &e4, const E5 &e5, const E6 &e6, const E7 &e7, const E8 &e8, const E9 &e9, const E10 &e10, const E11 &e11, const E12 &e12) const {
 		using ResultType = typename Ring::template SmallReducedElement<upper_bound>;
@@ -174,19 +212,19 @@ class FP12Ring {
 
 #if BLST_AVX_VALIDATE_CONSTANTS
 	bool check_bounds(const Ring & ring) const {
-		auto r = ring.check_bounds(offset, "fp12 offset");
+		auto r = ring.check_bounds(Constants::offset(), "fp12 offset");
 		if (r.first != BigInt(0)) {
 			std::cout << "Value was " << r.first.to_string(16) << " but expected 0" << std::endl;
 		}
 		return r.second;
 	}
 
-	const auto& offset_value() const {
-		return offset;
+	decltype(auto) offset_value() const {
+		return Constants::offset();
 	}
 #else
-	const auto& offset_value() const {
-		return offset;
+	decltype(auto) offset_value() const {
+		return Constants::offset();
 	}
 #endif
 
@@ -218,6 +256,7 @@ class FP12Ring {
 	
 	template<int64_t N1, int64_t N2>
 	inline auto fp12_flat_mul(const CommonElement<N1> &x, const CommonElement<N2> &y, const Ring &ring) const {
+		const auto offset = Constants::offset();
 		auto minus_y1 = ring.negate(y[1]);
 		auto minus_y3 = ring.negate(y[3]);
 		auto minus_y5 = ring.negate(y[5]);
@@ -292,12 +331,12 @@ class FP12Ring {
 		auto minus_y3 = ring.negate(y3);
 		auto minus_y9 = ring.negate(y9);
 		// 0 1
-		auto poly_0_pos_shared = offset + x[4] * y2 + x[5] * minus_y3 + x[8] * y8 + x[9] * minus_y9;
+		auto poly_0_pos_shared = Constants::offset() + x[4] * y2 + x[5] * minus_y3 + x[8] * y8 + x[9] * minus_y9;
 		auto poly_0_neg_shared = x[4] * y3 + x[5] * y2 + x[8] * y9 + x[9] * y8;
 		auto poly_0_unique = poly_0_pos_shared - poly_0_neg_shared + x[0] * y0 + x[1] * minus_y1;
 		auto poly_1_unique = poly_0_pos_shared + poly_0_neg_shared + x[0] * y1 + x[1] * y0;
 		// 2 3
-		auto poly_2_pos_shared = offset + x[10] * y8 + x[11] * minus_y9;
+		auto poly_2_pos_shared = Constants::offset() + x[10] * y8 + x[11] * minus_y9;
 		auto poly_2_neg_shared = x[10] * y9 + x[11] * y8;
 		auto poly_2_unique = poly_2_pos_shared - poly_2_neg_shared + x[0] * y2 + x[1] * minus_y3 + x[2] * y0 + x[3] * minus_y1;
 		auto poly_3_unique = poly_2_pos_shared + poly_2_neg_shared + x[0] * y3 + x[1] * y2 + x[2] * y1 + x[3] * y0;
@@ -305,7 +344,7 @@ class FP12Ring {
 		auto poly_4_unique = x[2] * y2 + x[3] * minus_y3 + x[4] * y0 + x[5] * minus_y1 + x[6] * y8 + x[7] * minus_y9;
 		auto poly_5_unique = x[2] * y3 + x[3] * y2 + x[4] * y1 + x[5] * y0 + x[6] * y9 + x[7] * y8;
 		// 6 7
-		auto poly_6_pos_shared = offset + x[4] * y8 + x[5] * minus_y9 + x[10] * y2 + x[11] * minus_y3;
+		auto poly_6_pos_shared = Constants::offset() + x[4] * y8 + x[5] * minus_y9 + x[10] * y2 + x[11] * minus_y3;
 		auto poly_6_neg_shared = x[4] * y9 + x[5] * y8 + x[10] * y3 + x[11] * y2;
 		auto poly_6_unique = poly_6_pos_shared - poly_6_neg_shared + x[6] * y0 + x[7] * minus_y1;
 		auto poly_7_unique = poly_6_pos_shared + poly_6_neg_shared + x[6] * y1 + x[7] * y0;
@@ -350,12 +389,12 @@ class FP12Ring {
 		auto minus_x9 = ring.negate(x[9]);
 		auto minus_x11 = ring.negate(x[11]);
 		// 0 1
-		auto poly_0_pos_shared = offset + ((x[2] * x[4] + x[3] * minus_x5 + x[6] * x[10] + x[7] * minus_x11) * _2) + x[8] * x[8] + x[9] * minus_x9;
+		auto poly_0_pos_shared = Constants::offset() + ((x[2] * x[4] + x[3] * minus_x5 + x[6] * x[10] + x[7] * minus_x11) * _2) + x[8] * x[8] + x[9] * minus_x9;
 		auto poly_0_neg_shared = (x[2] * x[5] + x[3] * x[4] + x[6] * x[11] + x[7] * x[10] + x[8] * x[9]) * _2;
 		auto poly_0_unique = poly_0_pos_shared - poly_0_neg_shared + x[0] * x[0] + x[1] * minus_x1;
 		auto poly_1_unique = poly_0_pos_shared + poly_0_neg_shared + (x[0] * x[1]) * _2;
 		// 2 3
-		auto poly_2_pos_shared = offset + ((x[8] * x[10] + x[9] * minus_x11) * _2) + x[4] * x[4] + x[5] * minus_x5;
+		auto poly_2_pos_shared = Constants::offset() + ((x[8] * x[10] + x[9] * minus_x11) * _2) + x[4] * x[4] + x[5] * minus_x5;
 		auto poly_2_neg_shared = (x[4] * x[5] + x[8] * x[11] + x[9] * x[10]) * _2;
 		auto poly_2_unique = poly_2_pos_shared - poly_2_neg_shared + ((x[0] * x[2] + x[1] * minus_x3) * _2) + x[6] * x[6] + x[7] * minus_x7;
 		auto poly_3_unique = poly_2_pos_shared + poly_2_neg_shared + (x[0] * x[3] + x[1] * x[2] + x[6] * x[7]) * _2;
@@ -364,12 +403,12 @@ class FP12Ring {
 		auto poly_4_unique = poly_4_pos_shared + ((x[0] * x[4] + x[1] * minus_x5 + x[6] * x[8] + x[7] * minus_x9 + x[10] * minus_x11) * _2) + x[2] * x[2] + x[3] * minus_x3;
 		auto poly_5_unique = poly_4_pos_shared + (x[0] * x[5] + x[1] * x[4] + x[2] * x[3] + x[6] * x[9] + x[7] * x[8] + x[10] * x[11]) * _2;
 		// 6 7
-		auto poly_6_pos_shared = offset + x[2] * x[10] + x[3] * minus_x11 + x[4] * x[8] + x[5] * minus_x9;
+		auto poly_6_pos_shared = Constants::offset() + x[2] * x[10] + x[3] * minus_x11 + x[4] * x[8] + x[5] * minus_x9;
 		auto poly_6_neg_shared = x[2] * x[11] + x[3] * x[10] + x[4] * x[9] + x[5] * x[8];
 		auto poly_6_unique = (poly_6_pos_shared - poly_6_neg_shared + x[0] * x[6] + x[1] * minus_x7) * _2;
 		auto poly_7_unique = (poly_6_pos_shared + poly_6_neg_shared + x[0] * x[7] + x[1] * x[6]) * _2;
 		// 8 9
-		auto poly_8_pos_shared = offset + x[4] * x[10] + x[5] * minus_x11;
+		auto poly_8_pos_shared = Constants::offset() + x[4] * x[10] + x[5] * minus_x11;
 		auto poly_8_neg_shared = x[4] * x[11] + x[5] * x[10];
 		auto poly_8_unique = (poly_8_pos_shared - poly_8_neg_shared + x[0] * x[8] + x[1] * minus_x9 + x[2] * x[6] + x[3] * minus_x7) * _2;
 		auto poly_9_unique = (poly_8_pos_shared + poly_8_neg_shared + x[0] * x[9] + x[1] * x[8] + x[2] * x[7] + x[3] * x[6]) * _2;
@@ -430,31 +469,31 @@ class FP12Ring {
 		
 		// 0 1
 		auto poly_0_pos_shared = x[8] * x[8] + x[9] * minus_x9;
-		auto poly_0_unique = (poly_0_pos_shared + ((x[8] * minus_x9) * _2) + x[0] * x[0] + x[0] * neg_two_thirds + x[1] * minus_x1);
-		auto poly_1_unique = (poly_0_pos_shared + ((x[0] * x[1] + x[8] * x[9]) * _2) + x[1] * neg_two_thirds);
+		auto poly_0_unique = (poly_0_pos_shared + ((x[8] * minus_x9) * _2) + x[0] * x[0] + x[0] * Constants::neg_two_thirds() + x[1] * minus_x1);
+		auto poly_1_unique = (poly_0_pos_shared + ((x[0] * x[1] + x[8] * x[9]) * _2) + x[1] * Constants::neg_two_thirds());
 		// 2 3
 		auto poly_2_pos_shared = x[4] * x[4] + x[5] * minus_x5;
-		auto poly_2_unique = (poly_2_pos_shared + ((x[4] * minus_x5) * _2) + x[2] * neg_two_thirds + x[6] * x[6] + x[7] * minus_x7);
-		auto poly_3_unique = (poly_2_pos_shared + ((x[6] * x[7] + x[4] * x[5]) * _2) + x[3] * neg_two_thirds);
+		auto poly_2_unique = (poly_2_pos_shared + ((x[4] * minus_x5) * _2) + x[2] * Constants::neg_two_thirds() + x[6] * x[6] + x[7] * minus_x7);
+		auto poly_3_unique = (poly_2_pos_shared + ((x[6] * x[7] + x[4] * x[5]) * _2) + x[3] * Constants::neg_two_thirds());
 		// 4 5
 		auto poly_4_pos_shared = x[10] * x[10] + x[11] * minus_x11;
-		auto poly_4_unique = (poly_4_pos_shared + ((x[10] * minus_x11) * _2) + x[2] * x[2] + x[3] * minus_x3 + x[4] * neg_two_thirds);
-		auto poly_5_unique = (poly_4_pos_shared + ((x[2] * x[3] + x[10] * x[11]) * _2) + x[5] * neg_two_thirds);
+		auto poly_4_unique = (poly_4_pos_shared + ((x[10] * minus_x11) * _2) + x[2] * x[2] + x[3] * minus_x3 + x[4] * Constants::neg_two_thirds());
+		auto poly_5_unique = (poly_4_pos_shared + ((x[2] * x[3] + x[10] * x[11]) * _2) + x[5] * Constants::neg_two_thirds());
 
 		auto reduced_first_half = batch_reduce(ring, poly_0_unique,poly_1_unique,poly_2_unique,poly_3_unique,poly_4_unique,poly_5_unique);
 		auto reduced_mult_3_cast_6 = to_common<6>(ring, reduced_first_half[0] * _3, reduced_first_half[1] * _3, reduced_first_half[2] * _3, reduced_first_half[3] * _3, reduced_first_half[4] * _3, reduced_first_half[5] * _3);
 		auto expanded_first_half = ring.template batch_expand<6>(reduced_mult_3_cast_6);
 		// 6 7
-		auto poly_6_pos_shared = (offset + x[2] * x[10] + x[3] * minus_x11);
+		auto poly_6_pos_shared = (Constants::offset() + x[2] * x[10] + x[3] * minus_x11);
 		auto poly_6_neg_shared = (x[2] * x[11] + x[3] * x[10]);
-		auto poly_6_unique = (poly_6_pos_shared - poly_6_neg_shared + x[6] * one_third);
-		auto poly_7_unique = (poly_6_pos_shared + poly_6_neg_shared + x[7] * one_third);
+		auto poly_6_unique = (poly_6_pos_shared - poly_6_neg_shared + x[6] * Constants::one_third());
+		auto poly_7_unique = (poly_6_pos_shared + poly_6_neg_shared + x[7] * Constants::one_third());
 		// 8 9
-		auto poly_8_unique = (((x[0] * x[8] + x[1] * minus_x9)) + x[8] * one_third);
-		auto poly_9_unique = (((x[0] * x[9] + x[1] * x[8])) + x[9] * one_third);
+		auto poly_8_unique = (((x[0] * x[8] + x[1] * minus_x9)) + x[8] * Constants::one_third());
+		auto poly_9_unique = (((x[0] * x[9] + x[1] * x[8])) + x[9] * Constants::one_third());
 		// 10 11
-		auto poly_10_unique = (((x[4] * x[6] + x[5] * minus_x7)) + x[10] * one_third);
-		auto poly_11_unique = (((x[4] * x[7] + x[5] * x[6])) + x[11] * one_third);
+		auto poly_10_unique = (((x[4] * x[6] + x[5] * minus_x7)) + x[10] * Constants::one_third());
+		auto poly_11_unique = (((x[4] * x[7] + x[5] * x[6])) + x[11] * Constants::one_third());
 		auto reduced_second_half = batch_reduce(ring, poly_6_unique,poly_7_unique,poly_8_unique,poly_9_unique,poly_10_unique,poly_11_unique);
 		auto reduced_mult_6_cast_3 = to_common<6>(ring, reduced_second_half[0] * _6, reduced_second_half[1] * _6, reduced_second_half[2] * _6, reduced_second_half[3] * _6, reduced_second_half[4] * _6, reduced_second_half[5] * _6);
 		auto expanded_second_half = ring.template batch_expand<6>(reduced_mult_6_cast_3);
@@ -472,27 +511,27 @@ class FP12Ring {
 		
 		// 0 1
 		auto poly_0_pos_shared = x[8] * x[8] + x[9] * minus_x9;
-		auto poly_0_unique = (poly_0_pos_shared + ((x[8] * minus_x9) * _2) + x[0] * x[0] + x[0] * neg_two_thirds + x[1] * minus_x1);
-		auto poly_1_unique = (poly_0_pos_shared + ((x[0] * x[1] + x[8] * x[9]) * _2) + x[1] * neg_two_thirds);
+		auto poly_0_unique = (poly_0_pos_shared + ((x[8] * minus_x9) * _2) + x[0] * x[0] + x[0] * Constants::neg_two_thirds() + x[1] * minus_x1);
+		auto poly_1_unique = (poly_0_pos_shared + ((x[0] * x[1] + x[8] * x[9]) * _2) + x[1] * Constants::neg_two_thirds());
 		// 2 3
 		auto poly_2_pos_shared = x[4] * x[4] + x[5] * minus_x5;
-		auto poly_2_unique = (poly_2_pos_shared + ((x[4] * minus_x5) * _2) + x[2] * neg_two_thirds + x[6] * x[6] + x[7] * minus_x7);
-		auto poly_3_unique = (poly_2_pos_shared + ((x[6] * x[7] + x[4] * x[5]) * _2) + x[3] * neg_two_thirds);
+		auto poly_2_unique = (poly_2_pos_shared + ((x[4] * minus_x5) * _2) + x[2] * Constants::neg_two_thirds() + x[6] * x[6] + x[7] * minus_x7);
+		auto poly_3_unique = (poly_2_pos_shared + ((x[6] * x[7] + x[4] * x[5]) * _2) + x[3] * Constants::neg_two_thirds());
 		// 4 5
 		auto poly_4_pos_shared = x[10] * x[10] + x[11] * minus_x11;
-		auto poly_4_unique = (poly_4_pos_shared + ((x[10] * minus_x11) * _2) + x[2] * x[2] + x[3] * minus_x3 + x[4] * neg_two_thirds);
-		auto poly_5_unique = (poly_4_pos_shared + ((x[2] * x[3] + x[10] * x[11]) * _2) + x[5] * neg_two_thirds);
+		auto poly_4_unique = (poly_4_pos_shared + ((x[10] * minus_x11) * _2) + x[2] * x[2] + x[3] * minus_x3 + x[4] * Constants::neg_two_thirds());
+		auto poly_5_unique = (poly_4_pos_shared + ((x[2] * x[3] + x[10] * x[11]) * _2) + x[5] * Constants::neg_two_thirds());
 		// 6 7
-		auto poly_6_pos_shared = (offset + x[2] * x[10] + x[3] * minus_x11);
+		auto poly_6_pos_shared = (Constants::offset() + x[2] * x[10] + x[3] * minus_x11);
 		auto poly_6_neg_shared = (x[2] * x[11] + x[3] * x[10]);
-		auto poly_6_unique = (poly_6_pos_shared - poly_6_neg_shared + x[6] * one_third);
-		auto poly_7_unique = (poly_6_pos_shared + poly_6_neg_shared + x[7] * one_third);
+		auto poly_6_unique = (poly_6_pos_shared - poly_6_neg_shared + x[6] * Constants::one_third());
+		auto poly_7_unique = (poly_6_pos_shared + poly_6_neg_shared + x[7] * Constants::one_third());
 		// 8 9
-		auto poly_8_unique = (((x[0] * x[8] + x[1] * minus_x9)) + x[8] * one_third);
-		auto poly_9_unique = (((x[0] * x[9] + x[1] * x[8])) + x[9] * one_third);
+		auto poly_8_unique = (((x[0] * x[8] + x[1] * minus_x9)) + x[8] * Constants::one_third());
+		auto poly_9_unique = (((x[0] * x[9] + x[1] * x[8])) + x[9] * Constants::one_third());
 		// 10 11
-		auto poly_10_unique = (((x[4] * x[6] + x[5] * minus_x7)) + x[10] * one_third);
-		auto poly_11_unique = (((x[4] * x[7] + x[5] * x[6])) + x[11] * one_third);
+		auto poly_10_unique = (((x[4] * x[6] + x[5] * minus_x7)) + x[10] * Constants::one_third());
+		auto poly_11_unique = (((x[4] * x[7] + x[5] * x[6])) + x[11] * Constants::one_third());
 		auto reduced = batch_reduce(ring, poly_0_unique,poly_1_unique,poly_2_unique,poly_3_unique,poly_4_unique,poly_5_unique,poly_6_unique,poly_7_unique,poly_8_unique,poly_9_unique,poly_10_unique,poly_11_unique);
 		auto reduced_mult_3 = to_common<6>(ring, reduced[0] * _3, reduced[1] * _3, reduced[2] * _3, reduced[3] * _3, reduced[4] * _3, reduced[5] * _3, reduced[6] * _6, reduced[7] * _6, reduced[8] * _6, reduced[9] * _6, reduced[10] * _6, reduced[11] * _6);
 		return ring.template batch_expand<12>(reduced_mult_3);
@@ -509,52 +548,52 @@ class FP12Ring {
 		
 		// 0 1
 		auto poly_0_pos_shared = x[8] * x[8] + x[9] * minus_x9;
-		auto poly_0_unique = (poly_0_pos_shared + ((x[8] * minus_x9) * _2) + x[0] * x[0] + x[0] * neg_two_thirds + x[1] * minus_x1) * _3;
-		auto poly_1_unique = (poly_0_pos_shared + ((x[0] * x[1] + x[8] * x[9]) * _2) + x[1] * neg_two_thirds) * _3;
+		auto poly_0_unique = (poly_0_pos_shared + ((x[8] * minus_x9) * _2) + x[0] * x[0] + x[0] * Constants::neg_two_thirds() + x[1] * minus_x1) * _3;
+		auto poly_1_unique = (poly_0_pos_shared + ((x[0] * x[1] + x[8] * x[9]) * _2) + x[1] * Constants::neg_two_thirds()) * _3;
 		// 2 3
 		auto poly_2_pos_shared = x[4] * x[4] + x[5] * minus_x5;
-		auto poly_2_unique = (poly_2_pos_shared + ((x[4] * minus_x5) * _2) + x[2] * neg_two_thirds + x[6] * x[6] + x[7] * minus_x7) * _3;
-		auto poly_3_unique = (poly_2_pos_shared + ((x[6] * x[7] + x[4] * x[5]) * _2) + x[3] * neg_two_thirds) * _3;
+		auto poly_2_unique = (poly_2_pos_shared + ((x[4] * minus_x5) * _2) + x[2] * Constants::neg_two_thirds() + x[6] * x[6] + x[7] * minus_x7) * _3;
+		auto poly_3_unique = (poly_2_pos_shared + ((x[6] * x[7] + x[4] * x[5]) * _2) + x[3] * Constants::neg_two_thirds()) * _3;
 		// 4 5
 		auto poly_4_pos_shared = x[10] * x[10] + x[11] * minus_x11;
-		auto poly_4_unique = (poly_4_pos_shared + ((x[10] * minus_x11) * _2) + x[2] * x[2] + x[3] * minus_x3 + x[4] * neg_two_thirds) * _3;
-		auto poly_5_unique = (poly_4_pos_shared + ((x[2] * x[3] + x[10] * x[11]) * _2) + x[5] * neg_two_thirds) * _3;
+		auto poly_4_unique = (poly_4_pos_shared + ((x[10] * minus_x11) * _2) + x[2] * x[2] + x[3] * minus_x3 + x[4] * Constants::neg_two_thirds()) * _3;
+		auto poly_5_unique = (poly_4_pos_shared + ((x[2] * x[3] + x[10] * x[11]) * _2) + x[5] * Constants::neg_two_thirds()) * _3;
 		// 6 7
-		auto poly_6_pos_shared = (offset + x[2] * x[10] + x[3] * minus_x11);
+		auto poly_6_pos_shared = (Constants::offset() + x[2] * x[10] + x[3] * minus_x11);
 		auto poly_6_neg_shared = (x[2] * x[11] + x[3] * x[10]);
-		auto poly_6_unique = (poly_6_pos_shared - poly_6_neg_shared + x[6] * one_third) * _6;
-		auto poly_7_unique = (poly_6_pos_shared + poly_6_neg_shared + x[7] * one_third) * _6;
+		auto poly_6_unique = (poly_6_pos_shared - poly_6_neg_shared + x[6] * Constants::one_third()) * _6;
+		auto poly_7_unique = (poly_6_pos_shared + poly_6_neg_shared + x[7] * Constants::one_third()) * _6;
 		// 8 9
-		auto poly_8_unique = (((x[0] * x[8] + x[1] * minus_x9)) + x[8] * one_third) * _6;
-		auto poly_9_unique = (((x[0] * x[9] + x[1] * x[8])) + x[9] * one_third) * _6;
+		auto poly_8_unique = (((x[0] * x[8] + x[1] * minus_x9)) + x[8] * Constants::one_third()) * _6;
+		auto poly_9_unique = (((x[0] * x[9] + x[1] * x[8])) + x[9] * Constants::one_third()) * _6;
 		// 10 11
-		auto poly_10_unique = (((x[4] * x[6] + x[5] * minus_x7)) + x[10] * one_third) * _6;
-		auto poly_11_unique = (((x[4] * x[7] + x[5] * x[6])) + x[11] * one_third) * _6;
+		auto poly_10_unique = (((x[4] * x[6] + x[5] * minus_x7)) + x[10] * Constants::one_third()) * _6;
+		auto poly_11_unique = (((x[4] * x[7] + x[5] * x[6])) + x[11] * Constants::one_third()) * _6;
 		return ring.batch_reduce_expand(poly_0_unique,poly_1_unique,poly_2_unique,poly_3_unique,poly_4_unique,poly_5_unique,poly_6_unique,poly_7_unique,poly_8_unique,poly_9_unique,poly_10_unique,poly_11_unique);
 	}
 
 	inline StandardElement fp12_flat_frobenius_map1(const StandardElement &x, const Ring &ring) const {
-		auto frob1_2_2 = x[2] * frob1_2;
-		auto frob1_2_3 = x[3] * frob1_2;
+		auto frob1_2_2 = x[2] * Constants::frob1_2();
+		auto frob1_2_3 = x[3] * Constants::frob1_2();
 		
-		auto frob1_3_4 = x[4] * frob1_3;
+		auto frob1_3_4 = x[4] * Constants::frob1_3();
 		
-		auto frob1_4_5 = x[5] * frob1_4;
+		auto frob1_4_5 = x[5] * Constants::frob1_4();
 		
-		auto frob1_5_6 = x[6] * frob1_5;
+		auto frob1_5_6 = x[6] * Constants::frob1_5();
 		
-		auto frob1_6_6 = x[6] * frob1_6;
-		auto frob1_6_7 = x[7] * frob1_6;
+		auto frob1_6_6 = x[6] * Constants::frob1_6();
+		auto frob1_6_7 = x[7] * Constants::frob1_6();
 		
-		auto frob1_7_8 = x[8] * frob1_7;
-		auto frob1_7_9 = x[9] * frob1_7;
+		auto frob1_7_8 = x[8] * Constants::frob1_7();
+		auto frob1_7_9 = x[9] * Constants::frob1_7();
 		
-		auto frob1_8_9 = x[9] * frob1_8;
+		auto frob1_8_9 = x[9] * Constants::frob1_8();
 		
-		auto frob1_9_10 = x[10] * frob1_9;
+		auto frob1_9_10 = x[10] * Constants::frob1_9();
 		
-		auto frob1_10_10 = x[10] * frob1_10;
-		auto frob1_10_11 = x[11] * frob1_10;
+		auto frob1_10_10 = x[10] * Constants::frob1_10();
+		auto frob1_10_11 = x[11] * Constants::frob1_10();
 		auto poly2_unique = frob1_2_3;
 		auto poly3_unique = frob1_2_2;
 		auto poly4_unique = frob1_3_4;
@@ -574,17 +613,17 @@ class FP12Ring {
 	
 	template<int64_t N>
 	inline auto fp12_flat_frobenius_map2(const CommonElement<N> &x, const Ring &ring) const {
-		auto frob2_1_2 = x[2] * frob2_1;
-		auto frob2_1_3 = x[3] * frob2_1;
+		auto frob2_1_2 = x[2] * Constants::frob2_1();
+		auto frob2_1_3 = x[3] * Constants::frob2_1();
 		
-		auto frob2_2_4 = x[4] * frob2_2;
-		auto frob2_2_5 = x[5] * frob2_2;
+		auto frob2_2_4 = x[4] * Constants::frob2_2();
+		auto frob2_2_5 = x[5] * Constants::frob2_2();
 		
-		auto frob2_3_6 = x[6] * frob2_3;
-		auto frob2_3_7 = x[7] * frob2_3;
+		auto frob2_3_6 = x[6] * Constants::frob2_3();
+		auto frob2_3_7 = x[7] * Constants::frob2_3();
 		
-		auto frob2_5_10 = x[10] * frob2_5;
-		auto frob2_5_11 = x[11] * frob2_5;
+		auto frob2_5_10 = x[10] * Constants::frob2_5();
+		auto frob2_5_11 = x[11] * Constants::frob2_5();
 		auto poly2_unique = frob2_1_2;
 		auto poly3_unique = frob2_1_3;
 		auto poly4_unique = frob2_2_4;
@@ -598,16 +637,16 @@ class FP12Ring {
 	}
 	
 	inline StandardElement fp12_flat_frobenius_map3(const StandardElement &x, const Ring &ring) const {
-		auto frob3_2_6 = x[6] * frob3_2;
-		auto frob3_2_8 = x[8] * frob3_2;
-		auto frob3_2_9 = x[9] * frob3_2;
-		auto frob3_2_10 = x[10] * frob3_2;
-		auto frob3_2_11 = x[11] * frob3_2;
+		auto frob3_2_6 = x[6] * Constants::frob3_2();
+		auto frob3_2_8 = x[8] * Constants::frob3_2();
+		auto frob3_2_9 = x[9] * Constants::frob3_2();
+		auto frob3_2_10 = x[10] * Constants::frob3_2();
+		auto frob3_2_11 = x[11] * Constants::frob3_2();
 		
-		auto frob3_3_9 = x[9] * frob3_3;
-		auto frob3_3_10 = x[10] * frob3_3;
-		auto frob3_3_6 = x[6] * frob3_3;
-		auto frob3_3_7 = x[7] * frob3_3;
+		auto frob3_3_9 = x[9] * Constants::frob3_3();
+		auto frob3_3_10 = x[10] * Constants::frob3_3();
+		auto frob3_3_6 = x[6] * Constants::frob3_3();
+		auto frob3_3_7 = x[7] * Constants::frob3_3();
 		auto shared_frob3_3_7 = frob3_3_7;
 		auto shared_frob3_2_8 = frob3_2_8;
 		auto shared_frob3_2_11 = frob3_2_11;
@@ -652,17 +691,17 @@ class FP12Ring {
 		auto minus_x10 = ring.negate(x[10]);
 		auto minus_x11 = ring.negate(x[11]);
 	// 0 1
-	auto poly_0_pos_shared = offset + ((x[2] * x[4] + x[3] * minus_x5 + x[6] * minus_x10 + x[7] * x[11]) * _2) + x[8] * minus_x8 + x[9] * x[9];
+	auto poly_0_pos_shared = Constants::offset() + ((x[2] * x[4] + x[3] * minus_x5 + x[6] * minus_x10 + x[7] * x[11]) * _2) + x[8] * minus_x8 + x[9] * x[9];
 	auto poly_0_neg_shared = (x[2] * x[5] + x[3] * x[4] + x[6] * minus_x11 + x[7] * minus_x10 + x[8] * minus_x9) * _2;
 	auto poly_0_unique = poly_0_pos_shared - poly_0_neg_shared + x[0] * x[0] + x[1] * minus_x1;
 	auto poly_1_unique = poly_0_pos_shared + poly_0_neg_shared + (x[0] * x[1]) * _2;
 	// 2 3
-	auto poly_2_pos_shared = offset + ((x[8] * minus_x10 + x[9] * x[11]) * _2) + x[4] * x[4] + x[5] * minus_x5;
+	auto poly_2_pos_shared = Constants::offset() + ((x[8] * minus_x10 + x[9] * x[11]) * _2) + x[4] * x[4] + x[5] * minus_x5;
 	auto poly_2_neg_shared = (x[4] * x[5] + x[8] * minus_x11 + x[9] * minus_x10) * _2;
 	auto poly_2_unique = poly_2_pos_shared - poly_2_neg_shared + ((x[0] * x[2] + x[1] * minus_x3) * _2) + x[6] * minus_x6 + x[7] * x[7];
 	auto poly_3_unique = poly_2_pos_shared + poly_2_neg_shared + (x[0] * x[3] + x[1] * x[2] + x[6] * minus_x7) * _2;
 	// 4 5
-	auto poly_4_pos_shared = offset + x[10] * minus_x10 + x[11] * x[11];
+	auto poly_4_pos_shared = Constants::offset() + x[10] * minus_x10 + x[11] * x[11];
 	auto poly_4_unique = poly_4_pos_shared + ((x[0] * x[4] + x[1] * minus_x5 + x[6] * minus_x8 + x[7] * x[9] + x[10] * x[11]) * _2) + x[2] * x[2] + x[3] * minus_x3;
 	auto poly_5_unique = poly_4_pos_shared + (x[0] * x[5] + x[1] * x[4] + x[2] * x[3] + x[6] * minus_x9 + x[7] * minus_x8 + x[10] * minus_x11) * _2;
 		return ring.batch_reduce_expand(poly_0_unique,poly_1_unique,poly_2_unique,poly_3_unique,poly_4_unique,poly_5_unique);
@@ -700,12 +739,12 @@ class FP12Ring {
 		auto minus_y4 = ring.negate(y[4]);
 		auto minus_y5 = ring.negate(y[5]);
 		// 0 1
-		auto poly_0_pos_shared = offset + x[2] * y[4] + x[3] * minus_y5 + x[4] * y[2] + x[5] * minus_y3;
+		auto poly_0_pos_shared = Constants::offset() + x[2] * y[4] + x[3] * minus_y5 + x[4] * y[2] + x[5] * minus_y3;
 		auto poly_0_neg_shared = x[2] * y[5] + x[3] * y[4] + x[4] * y[3] + x[5] * y[2];
 		auto poly_0_unique = poly_0_pos_shared - poly_0_neg_shared + x[0] * y[0] + x[1] * minus_y1;
 		auto poly_1_unique = poly_0_pos_shared + poly_0_neg_shared + x[0] * y[1] + x[1] * y[0];
 		// 2 3
-		auto poly_2_pos_shared = offset + x[4] * y[4] + x[5] * minus_y5;
+		auto poly_2_pos_shared = Constants::offset() + x[4] * y[4] + x[5] * minus_y5;
 		auto poly_2_neg_shared = x[4] * y[5] + x[5] * y[4];
 		auto poly_2_unique = poly_2_pos_shared - poly_2_neg_shared + x[0] * y[2] + x[1] * minus_y3 + x[2] * y[0] + x[3] * minus_y1;
 		auto poly_3_unique = poly_2_pos_shared + poly_2_neg_shared + x[0] * y[3] + x[1] * y[2] + x[2] * y[1] + x[3] * y[0];
@@ -713,12 +752,12 @@ class FP12Ring {
 		auto poly_4_unique = x[0] * y[4] + x[1] * minus_y5 + x[2] * y[2] + x[3] * minus_y3 + x[4] * y[0] + x[5] * minus_y1;
 		auto poly_5_unique = x[0] * y[5] + x[1] * y[4] + x[2] * y[3] + x[3] * y[2] + x[4] * y[1] + x[5] * y[0];
 		// 6 7
-		auto poly_6_pos_shared = offset + x[8] * minus_y4 + x[9] * y[5] + x[10] * minus_y2 + x[11] * y[3];
+		auto poly_6_pos_shared = Constants::offset() + x[8] * minus_y4 + x[9] * y[5] + x[10] * minus_y2 + x[11] * y[3];
 		auto poly_6_neg_shared = x[8] * minus_y5 + x[9] * minus_y4 + x[10] * minus_y3 + x[11] * minus_y2;
 		auto poly_6_unique = poly_6_pos_shared - poly_6_neg_shared + x[6] * minus_y0 + x[7] * y[1];
 		auto poly_7_unique = poly_6_pos_shared + poly_6_neg_shared + x[6] * minus_y1 + x[7] * minus_y0;
 		// 8 9
-		auto poly_8_pos_shared = offset + x[10] * minus_y4 + x[11] * y[5];
+		auto poly_8_pos_shared = Constants::offset() + x[10] * minus_y4 + x[11] * y[5];
 		auto poly_8_neg_shared = x[10] * minus_y5 + x[11] * minus_y4;
 		auto poly_8_unique = poly_8_pos_shared - poly_8_neg_shared + x[6] * minus_y2 + x[7] * y[3] + x[8] * minus_y0 + x[9] * y[1];
 		auto poly_9_unique = poly_8_pos_shared + poly_8_neg_shared + x[6] * minus_y3 + x[7] * minus_y2 + x[8] * minus_y1 + x[9] * minus_y0;
@@ -747,12 +786,12 @@ class FP12Ring {
 		auto minus_x4 = ring.negate(x[4]);
 		auto minus_x5 = ring.negate(x[5]);
 		// 0 1
-		auto poly_0_pos_shared = offset + x[2] * minus_x4 + x[3] * x[5];
+		auto poly_0_pos_shared = Constants::offset() + x[2] * minus_x4 + x[3] * x[5];
 		auto poly_0_neg_shared = x[2] * minus_x5 + x[3] * minus_x4;
 		auto poly_0_unique = poly_0_pos_shared - poly_0_neg_shared + x[0] * x[0] + x[1] * minus_x1;
 		auto poly_1_unique = poly_0_pos_shared + poly_0_neg_shared + (x[0] * x[1]) * _2;
 		// 2 3
-		auto poly_2_pos_shared = offset + x[4] * x[4] + x[5] * minus_x5;
+		auto poly_2_pos_shared = Constants::offset() + x[4] * x[4] + x[5] * minus_x5;
 		auto poly_2_unique = poly_2_pos_shared + ((x[4] * minus_x5) * _2) + x[0] * minus_x2 + x[1] * x[3];
 		auto poly_3_unique = poly_2_pos_shared + ((x[4] * x[5]) * _2) + x[0] * minus_x3 + x[1] * minus_x2;
 		// 4 5
@@ -770,7 +809,7 @@ class FP12Ring {
 		auto minus_y3 = ring.negate(y[3]);
 		auto minus_y5 = ring.negate(y[5]);
 		// 0 1
-		auto poly_0_pos_shared = offset + x[2] * y[4] + x[3] * minus_y5 + x[4] * y[2] + x[5] * minus_y3;
+		auto poly_0_pos_shared = Constants::offset() + x[2] * y[4] + x[3] * minus_y5 + x[4] * y[2] + x[5] * minus_y3;
 		auto poly_0_neg_shared = x[2] * y[5] + x[3] * y[4] + x[4] * y[3] + x[5] * y[2];
 		auto poly_0_unique = poly_0_pos_shared - poly_0_neg_shared + x[0] * y[0] + x[1] * minus_y1;
 		auto poly_1_unique = poly_0_pos_shared + poly_0_neg_shared + x[0] * y[1] + x[1] * y[0];
