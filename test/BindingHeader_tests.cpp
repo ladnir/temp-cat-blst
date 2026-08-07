@@ -9,8 +9,11 @@
 
 #include "bindings/blst.h"
 #include "bindings/blst_btx.h"
-#include "bindings/blst_fft.h"
 #include "bindings/blst_trx.h"
+
+#ifndef BLST_FFT_H
+#error "bindings/blst.h must expose the supported FFT C API"
+#endif
 
 namespace {
 

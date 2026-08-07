@@ -14,10 +14,12 @@
  * - blst_scalar.h
  * - blst_avx.h
  * - blst_middle_product.h
+ * - blst_fft.h
  */
 
 #include "blst_scalar.h"
 #include "blst_avx.h"
 #include "blst_middle_product.h"
+#include "blst_fft.h"
 
 #endif

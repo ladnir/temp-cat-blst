@@ -14,6 +14,7 @@
  * - blst_scalar.h
  * - blst_avx.h
  * - blst_middle_product.h
+ * - blst_fft.h
  */
 
 #include "blst_aux.h"
