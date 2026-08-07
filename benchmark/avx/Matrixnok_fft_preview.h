@@ -21,5 +21,8 @@ extern "C" bool catblst_matrixnok_fft_roots(
     unsigned char scale_le[32],
     MatrixNoKFftGlv4Schedule* scale_schedule);
 
+extern "C" void catblst_matrixnok_g1_generator_coordinates(
+    unsigned char coordinates_be[2 * 48]);
+
 extern "C" void catblst_matrixnok_gt_generator_coefficients(
     unsigned char coefficients_be[12 * 48]);

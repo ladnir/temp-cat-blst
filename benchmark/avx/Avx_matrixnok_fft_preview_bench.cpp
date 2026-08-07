@@ -228,6 +228,13 @@ extern "C" void catblst_matrixnok_gt_generator_coefficients(
     }
 }
 
+extern "C" void catblst_matrixnok_g1_generator_coordinates(
+    unsigned char coordinates_be[2 * 48])
+{
+    blst::scalar::G1AffinePoint::serialize_BE(
+        coordinates_be, blst::scalar::G1AffinePoint::generator());
+}
+
 // Pinned VROOM still names the inherited BLST division helper as a C symbol.
 // Keep that compatibility shim confined to this benchmark executable.
 extern "C" void blst_div_by_zz(std::uint64_t val[])

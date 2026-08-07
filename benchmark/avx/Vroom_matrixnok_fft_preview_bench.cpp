@@ -26,8 +26,9 @@
 namespace
 {
     using Ring = bls12_381_params::BlsRingMatrixNoK;
+    using G1Ring = bls12_381_params::BlsRingMatrixNoKEC;
     using Fp2 = FP2Ring<Ring>;
-    using Curve = G1<Ring>;
+    using Curve = G1<G1Ring>;
     using Point = Curve::ProjPoint;
     using Fp12 = FP12Ring<Ring>;
     using Gt = Fp12::StandardElement;
@@ -37,10 +38,6 @@ namespace
         "4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787";
     constexpr const char* scalar_modulus_decimal =
         "52435875175126190479447740508185965837690552500527637822603658699938581184513";
-    constexpr const char* g1_generator_x =
-        "3685416753713387016781088315183077757961620795782546409894578378680607592378376318836054947676345821548104185464507";
-    constexpr const char* g1_generator_y =
-        "1339506544944476473020471379941921221584933875938349620426543736416511423956333506472724655353366534992391756441569";
     constexpr const char* left_decimal =
         "10688470598384192112760140533683975028842723510450044479374037626765189060660250327871479868795648192029502413";
     constexpr const char* right_decimal =
@@ -158,12 +155,12 @@ namespace
     class PublicG1Multiplier
     {
     public:
-        PublicG1Multiplier(const Curve& curve, const Ring& ring)
+        PublicG1Multiplier(const Curve& curve, const G1Ring& ring)
             : curve_(curve), beta_(ring.from_hex(
                 "0x5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffefffe"))
         {}
 
-        Point multiply(const Point& point, const Scalar& scalar, const Ring& ring) const
+        Point multiply(const Point& point, const Scalar& scalar, const G1Ring& ring) const
         {
             constexpr int table_log_size = 4;
             constexpr int table_size = 1 << table_log_size;
@@ -177,7 +174,7 @@ namespace
                 ScalarForExponent<scalar_bits>(high_bytes),
             };
 
-            const PrecomputedTable<Curve, Ring, table_log_size> point_table(
+            const PrecomputedTable<Curve, G1Ring, table_log_size> point_table(
                 point, curve_, ring);
             std::array<Point, table_size> phi_data;
             for (int i = 0; i < table_size; ++i) {
@@ -185,8 +182,8 @@ namespace
                 phi_data[i].x = ring.modmul(phi_data[i].x, beta_);
                 phi_data[i].y = ring.standard_negate(phi_data[i].y);
             }
-            const PrecomputedTable<Curve, Ring, table_log_size> phi_table(phi_data);
-            const std::array<const PrecomputedTable<Curve, Ring, table_log_size>*, 2> tables = {
+            const PrecomputedTable<Curve, G1Ring, table_log_size> phi_table(phi_data);
+            const std::array<const PrecomputedTable<Curve, G1Ring, table_log_size>*, 2> tables = {
                 &point_table, &phi_table,
             };
 
@@ -228,18 +225,15 @@ namespace
 
     private:
         Curve curve_;
-        Ring::StandardElement beta_;
+        G1Ring::StandardElement beta_;
     };
 
-    Point g1_add(const Point& left, const Point& right, const Curve& curve, const Ring& ring)
+    Point g1_add(const Point& left, const Point& right, const Curve& curve, const G1Ring& ring)
     {
-        // This is the only pinned-VROOM addition variant whose bounds accept
-        // MatrixNoK directly. The base-case gate below still rejects its
-        // subtraction result, so no G1 timing is accepted from this adapter.
-        return curve.add_point_small(left, right, ring);
+        return curve.add_point(left, right, ring);
     }
 
-    Point g1_sub(const Point& left, Point right, const Curve& curve, const Ring& ring)
+    Point g1_sub(const Point& left, Point right, const Curve& curve, const G1Ring& ring)
     {
         right.y = ring.standard_negate(right.y);
         return curve.add_point(left, right, ring);
@@ -250,7 +244,7 @@ namespace
         const RootData& roots,
         const PublicG1Multiplier& multiplier,
         const Curve& curve,
-        const Ring& ring,
+        const G1Ring& ring,
         const bool inverse)
     {
         bit_reverse_preview(values);
@@ -388,28 +382,6 @@ namespace
         }
     }
 
-    Point g1_generator(const Ring& ring)
-    {
-        return Point(
-            ring.from_bigint(BigInt(g1_generator_x, 10)),
-            ring.from_bigint(BigInt(g1_generator_y, 10)),
-            ring.one());
-    }
-
-    std::vector<Point> make_g1_data(
-        const std::size_t n, const Curve& curve, const Ring& ring)
-    {
-        std::vector<Point> out(n);
-        const Point generator = g1_generator(ring);
-        out[0] = generator;
-        Point current = curve.double_point(generator, ring);
-        for (std::size_t i = 1; i < n; ++i) {
-            out[i] = current;
-            current = curve.add_point(current, generator, ring);
-        }
-        return out;
-    }
-
     std::string coefficient_hex(const unsigned char* bytes)
     {
         constexpr char digits[] = "0123456789abcdef";
@@ -418,6 +390,32 @@ namespace
         for (std::size_t i = 0; i < 48; ++i) {
             out.push_back(digits[bytes[i] >> 4]);
             out.push_back(digits[bytes[i] & 0x0f]);
+        }
+        return out;
+    }
+
+    Point g1_generator(const G1Ring& ring)
+    {
+        std::array<unsigned char, 2 * 48> coordinates = {};
+        catblst_matrixnok_g1_generator_coordinates(coordinates.data());
+        const std::string x = coefficient_hex(coordinates.data());
+        const std::string y = coefficient_hex(coordinates.data() + 48);
+        return Point(
+            ring.from_bigint_exact(BigInt(x.c_str(), 16)),
+            ring.from_bigint_exact(BigInt(y.c_str(), 16)),
+            ring.one());
+    }
+
+    std::vector<Point> make_g1_data(
+        const std::size_t n, const Curve& curve, const G1Ring& ring)
+    {
+        std::vector<Point> out(n);
+        const Point generator = g1_generator(ring);
+        out[0] = generator;
+        Point current = curve.double_point(generator, ring);
+        for (std::size_t i = 1; i < n; ++i) {
+            out[i] = current;
+            current = curve.add_point(current, generator, ring);
         }
         return out;
     }
@@ -447,7 +445,7 @@ namespace
         return out;
     }
 
-    bool equal_g1(const Point& left, const Point& right, const Ring& ring)
+    bool equal_g1(const Point& left, const Point& right, const G1Ring& ring)
     {
         const auto left_x = ring.modmul(left.x, right.z);
         const auto right_x = ring.modmul(right.x, left.z);
@@ -455,6 +453,19 @@ namespace
         const auto right_y = ring.modmul(right.y, left.z);
         return ring.to_bigint_exact(left_x) == ring.to_bigint_exact(right_x) &&
             ring.to_bigint_exact(left_y) == ring.to_bigint_exact(right_y);
+    }
+
+    bool is_on_curve_g1(const Point& point, const G1Ring& ring)
+    {
+        const BigInt modulus(field_modulus_decimal, 10);
+        const BigInt x = ring.to_bigint_exact(point.x);
+        const BigInt y = ring.to_bigint_exact(point.y);
+        const BigInt z = ring.to_bigint_exact(point.z);
+        BigInt residual = (y * y * z - x * x * x - BigInt(4) * z * z * z) % modulus;
+        if (residual < 0) {
+            residual += modulus;
+        }
+        return residual == 0;
     }
 
     bool equal_gt(const Gt& left, const Gt& right, const Ring& ring)
@@ -477,7 +488,7 @@ namespace
     }
 
     bool validate_g1_round_trip(
-        const Curve& curve, const PublicG1Multiplier& multiplier, const Ring& ring)
+        const Curve& curve, const PublicG1Multiplier& multiplier, const G1Ring& ring)
     {
         constexpr std::size_t n = 256;
         const RootData forward_roots = make_roots(n, false);
@@ -495,40 +506,43 @@ namespace
     }
 
     int validate_g1_basecase(
-        const Curve& curve, const PublicG1Multiplier& multiplier, const Ring& ring)
+        const Curve& curve, const PublicG1Multiplier& multiplier, const G1Ring& ring)
     {
         constexpr std::size_t n = 2;
         const RootData forward_roots = make_roots(n, false);
         const RootData inverse_roots = make_roots(n, true);
         const auto original = make_g1_data(n, curve, ring);
-        const GLVMult<Ring> reference(curve, ring);
+        const GLVMult<G1Ring> reference(curve, ring);
+        if (!is_on_curve_g1(original[0], ring) || !is_on_curve_g1(original[1], ring)) {
+            return 1;
+        }
         if (!equal_g1(original[1],
                 reference.multiply(original[0], BigInt(2), ring), ring)) {
-            return 1;
+            return 2;
         }
         std::vector<Point> actual = original;
         g1_fft(actual, forward_roots, multiplier, curve, ring, false);
         if (!equal_g1(actual[0], reference.multiply(original[0], BigInt(3), ring), ring)) {
-            return 2;
+            return 3;
         }
         if (!equal_g1(actual[1], curve.negate(original[0], ring), ring)) {
-            return 3;
+            return 4;
         }
         g1_fft(actual, inverse_roots, multiplier, curve, ring, true);
         if (!equal_g1(actual[0], original[0], ring)) {
-            return 4;
+            return 5;
         }
         if (!equal_g1(actual[1], original[1], ring)) {
-            return 5;
+            return 6;
         }
         return 0;
     }
 
     bool validate_g1_multiplier(
-        const Curve& curve, const PublicG1Multiplier& multiplier, const Ring& ring)
+        const Curve& curve, const PublicG1Multiplier& multiplier, const G1Ring& ring)
     {
         const Point generator = g1_generator(ring);
-        const GLVMult<Ring> reference(curve, ring);
+        const GLVMult<G1Ring> reference(curve, ring);
         RootData roots = make_roots(256, false);
         roots.scalars[0][0] = 0;
         roots.scalars[1].fill(0);
@@ -575,7 +589,7 @@ namespace
     void BM_VROOM_MatrixNoK_G1Forward(benchmark::State& state)
     {
         static const int basecase_failure = [] {
-            const Ring validation_ring(BigInt(field_modulus_decimal, 10));
+            const G1Ring validation_ring(BigInt(field_modulus_decimal, 10));
             const Curve validation_curve;
             const PublicG1Multiplier validation_multiplier(validation_curve, validation_ring);
             return validate_g1_basecase(
@@ -588,7 +602,7 @@ namespace
             return;
         }
         static const bool multiplier_valid = [] {
-            const Ring validation_ring(BigInt(field_modulus_decimal, 10));
+            const G1Ring validation_ring(BigInt(field_modulus_decimal, 10));
             const Curve validation_curve;
             const PublicG1Multiplier validation_multiplier(validation_curve, validation_ring);
             return validate_g1_multiplier(
@@ -599,7 +613,7 @@ namespace
             return;
         }
         static const bool round_trip_valid = [] {
-            const Ring validation_ring(BigInt(field_modulus_decimal, 10));
+            const G1Ring validation_ring(BigInt(field_modulus_decimal, 10));
             const Curve validation_curve;
             const PublicG1Multiplier validation_multiplier(validation_curve, validation_ring);
             return validate_g1_round_trip(
@@ -610,7 +624,7 @@ namespace
             return;
         }
 
-        const Ring ring(BigInt(field_modulus_decimal, 10));
+        const G1Ring ring(BigInt(field_modulus_decimal, 10));
         const Curve curve;
         const PublicG1Multiplier multiplier(curve, ring);
         const std::size_t n = static_cast<std::size_t>(state.range(0));
