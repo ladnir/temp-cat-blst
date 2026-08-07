@@ -3,8 +3,8 @@
  * Licensed under the Apache License, Version 2.0, see LICENSE for details.
  * SPDX-License-Identifier: Apache-2.0
  */
-#ifndef __BLS12_381_ASM_FIELDS_H__
-#define __BLS12_381_ASM_FIELDS_H__
+#ifndef BLST_FIELDS_FP2_H
+#define BLST_FIELDS_FP2_H
 
 #include "blst/fields/Fp.h"
 #include "blst/scalar/fields/Fp2.h"
@@ -44,4 +44,4 @@ namespace blst
 #endif
 }
 
-#endif /* __BLS12_381_ASM_FIELDS_H__ */
+#endif /* BLST_FIELDS_FP2_H */

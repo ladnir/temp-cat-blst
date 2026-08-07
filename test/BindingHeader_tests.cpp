@@ -156,6 +156,19 @@ static_assert(std::is_same_v<
     decltype(blst_fr_from_hexascii(nullptr, nullptr)), bool>);
 static_assert(std::is_same_v<
     decltype(blst_fp_from_hexascii(nullptr, nullptr)), bool>);
+static_assert(!std::is_same_v<blst_pairing, blst_uniq>);
+static_assert(sizeof(BLST_ERROR) == 4);
+static_assert(sizeof(BLST_UNIQ_RESULT) == 4);
+static_assert(std::is_same_v<
+    decltype(blst_pairing_init(nullptr, false)), void>);
+static_assert(std::is_same_v<
+    decltype(blst_pairing_finalverify(nullptr)), bool>);
+static_assert(std::is_same_v<
+    decltype(blst_keygen(nullptr, nullptr, 0)), void>);
+static_assert(std::is_same_v<
+    decltype(blst_hash_to_g1(nullptr, nullptr, 0)), void>);
+static_assert(std::is_same_v<
+    decltype(blst_map_to_g1(nullptr, nullptr)), void>);
 
 TEST(BindingHeader, HexParsersRequireACompleteRepresentableValue)
 {

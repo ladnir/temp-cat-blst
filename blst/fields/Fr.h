@@ -1,3 +1,10 @@
+/*
+ * Copyright Supranational LLC
+ * Copyright Category Labs
+ * Licensed under the Apache License, Version 2.0, see LICENSE for details.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #ifndef BLST_FR_H
 #define BLST_FR_H
 

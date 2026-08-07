@@ -50,13 +50,15 @@ typedef uint64_t blst_limb_t;
 #endif
 
 /**
- * Canonical scalar encoded as a 32-byte little-endian integer.
+ * Scalar storage encoded as a 32-byte little-endian integer.
  *
- * This is the serialized, non-Montgomery representation used for secret keys
- * and scalar byte APIs. It represents the same mathematical field as
- * `blst_fr`, but it is not directly usable by Fr arithmetic. Convert with
- * `blst_fr_from_scalar` before arithmetic and with `blst_scalar_from_fr` when
- * returning to canonical storage.
+ * The type can hold any 256-bit bit pattern; the type alone does not establish
+ * reduction modulo r or nonzero secret-key validity. Use
+ * `blst_scalar_fr_check` for `[0,r)` and `blst_sk_check` for `[1,r)`. This is
+ * the non-Montgomery representation used by secret-key and scalar byte APIs.
+ * It represents the same mathematical field as `blst_fr`, but is not directly
+ * usable by Fr arithmetic. Convert with `blst_fr_from_scalar` before
+ * arithmetic and with `blst_scalar_from_fr` when returning to scalar storage.
  *
  * Invariants:
  * - The byte layout is ABI-stable and matches upstream BLST.

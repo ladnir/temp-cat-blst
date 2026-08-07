@@ -11,10 +11,13 @@
 
 #ifdef __cplusplus
 extern "C" {
+# define BLST_CXX_DEFAULT = 0
+#else
+# define BLST_CXX_DEFAULT
 #endif
 
-typedef struct blst_opaque blst_pairing;
-typedef struct blst_opaque blst_uniq;
+typedef struct blst_pairing_context blst_pairing;
+typedef struct blst_uniq_context blst_uniq;
 
 /** Result of inserting a message into a `blst_uniq` tree. */
 typedef enum BLST_UNIQ_RESULT {
@@ -24,6 +27,8 @@ typedef enum BLST_UNIQ_RESULT {
     BLST_UNIQ_DEPTH_EXCEEDED = 3,
     BLST_UNIQ_INVALID_INPUT = 4,
 } BLST_UNIQ_RESULT;
+typedef char blst_uniq_result_must_be_4_bytes[
+    sizeof(BLST_UNIQ_RESULT) == 4 ? 1 : -1];
 
 /**
  * Plain scalar/public C API.
@@ -59,7 +64,9 @@ void blst_sha256(blst_byte out[32], const void* msg, size_t msg_len);
  * Scalar byte helpers.
  *
  * Invariants:
- * - `blst_scalar` is the canonical 32-byte little-endian representation;
+ * - `blst_scalar` is 32-byte little-endian storage and may contain any
+ *   256-bit integer. `blst_scalar_fr_check` establishes `[0,r)` and
+ *   `blst_sk_check` establishes the nonzero secret-key range `[1,r)`.
  *   `blst_fr` is the corresponding Montgomery-form arithmetic type.
  * - The fixed-width word and scalar/Fr conversions below permit disjoint or
  *   exactly equal input/output storage. Partial overlap is not supported.
@@ -72,16 +79,18 @@ void blst_sha256(blst_byte out[32], const void* msg, size_t msg_len);
  *   range described by its signature. These entry points allocate nothing and
  *   do not allow C++ exceptions to cross the C ABI.
  */
-/** Converts eight conventional 32-bit words into canonical scalar bytes.
+/** Converts eight conventional 32-bit words into scalar storage without
+ * reduction.
  * Exact aliasing is allowed. */
 void blst_scalar_from_uint32(blst_scalar* out, const uint32_t a[8]);
-/** Converts canonical scalar bytes into eight conventional 32-bit words.
+/** Converts scalar storage into eight conventional 32-bit words.
  * Exact aliasing is allowed. */
 void blst_uint32_from_scalar(uint32_t out[8], const blst_scalar* a);
-/** Converts four conventional 64-bit words into canonical scalar bytes.
+/** Converts four conventional 64-bit words into scalar storage without
+ * reduction.
  * Exact aliasing is allowed. */
 void blst_scalar_from_uint64(blst_scalar* out, const uint64_t a[4]);
-/** Converts canonical scalar bytes into four conventional 64-bit words.
+/** Converts scalar storage into four conventional 64-bit words.
  * Exact aliasing is allowed. */
 void blst_uint64_from_scalar(uint64_t out[4], const blst_scalar* a);
 /** Imports an exact 32-byte big-endian scalar representation. */
@@ -156,7 +165,8 @@ void blst_fr_mul(blst_fr* ret, const blst_fr* a, const blst_fr* b);
 void blst_fr_pow(blst_fr* ret, const blst_fr* a, const blst_byte* exponent, size_t nbits);
 /** Squares a Montgomery-form Fr value and writes the result to `ret`. */
 void blst_fr_sqr(blst_fr* ret, const blst_fr* a);
-/** Negates `a` in Fr when `flag` is true; otherwise copies `a` into `ret`. */
+/** Constant-time conditional negation: negates `a` when `flag` is true and
+ * otherwise copies it into `ret`. */
 void blst_fr_cneg(blst_fr* ret, const blst_fr* a, bool flag);
 /** Compatibility spelling for the selected constant-time inverse of nonzero
  * `a` in Fr. Zero is outside the supported domain and has no error result. */
@@ -168,17 +178,20 @@ void blst_fr_inverse(blst_fr* ret, const blst_fr* a);
 void blst_fr_from_uint64(blst_fr* ret, const uint64_t a[4]);
 /** Converts a Montgomery-form Fr value into four unsigned 64-bit limbs. */
 void blst_uint64_from_fr(uint64_t ret[4], const blst_fr* a);
-/** Converts canonical scalar bytes into Montgomery-form Fr.
- * Exact aliasing is allowed. */
+/** Converts scalar storage in `[0,r)` into Montgomery-form Fr. Callers must
+ * establish the range with `blst_scalar_fr_check`; no Release validation or
+ * reduction is performed. Exact aliasing is allowed. */
 void blst_fr_from_scalar(blst_fr* ret, const blst_scalar* a);
-/** Converts Montgomery-form Fr into canonical scalar bytes.
+/** Converts reduced Montgomery-form Fr into canonical scalar bytes in `[0,r)`.
  * Exact aliasing is allowed. */
 void blst_scalar_from_fr(blst_scalar* ret, const blst_fr* a);
 /** Bulk-converts contiguous Montgomery-form field elements into canonical little-endian scalars. Empty input succeeds without storage; nonempty input requires both arrays. */
 bool blst_scalars_from_fr(blst_scalar out[], const blst_fr scalars[], size_t npoints);
-/** Applies the constant-time butterfly step used by the Fr FFT routines. */
+/** Applies the constant-time butterfly step used by the Fr FFT routines.
+ * `x0` and `x1` must be distinct objects; `twiddle` may alias either. */
 void blst_fr_ct_bfly(blst_fr* x0, blst_fr* x1, const blst_fr* twiddle);
-/** Applies the Gentleman-Sande butterfly step used by the Fr FFT routines. */
+/** Applies the constant-time Gentleman-Sande butterfly step. `x0` and `x1`
+ * must be distinct objects; `twiddle` may alias either. */
 void blst_fr_gs_bfly(blst_fr* x0, blst_fr* x1, const blst_fr* twiddle);
 /** Converts an Fr value into Montgomery form and writes it to `ret`. */
 void blst_fr_to(blst_fr* ret, const blst_fr* a);
@@ -211,7 +224,8 @@ void blst_fp_lshift(blst_fp* ret, const blst_fp* a, size_t count);
 void blst_fp_mul(blst_fp* ret, const blst_fp* a, const blst_fp* b);
 /** Squares a Montgomery-form Fp value and writes the result to `ret`. */
 void blst_fp_sqr(blst_fp* ret, const blst_fp* a);
-/** Negates `a` in Fp when `flag` is true; otherwise copies `a` into `ret`. */
+/** Constant-time conditional negation: negates `a` when `flag` is true and
+ * otherwise copies it into `ret`. */
 void blst_fp_cneg(blst_fp* ret, const blst_fp* a, bool flag);
 /** Computes the variable-time Euclidean inverse of nonzero `a` in Fp.
  * Zero is outside the supported domain and has no error result. */
@@ -283,7 +297,8 @@ void blst_fp2_lshift(blst_fp2* ret, const blst_fp2* a, size_t count);
 void blst_fp2_mul(blst_fp2* ret, const blst_fp2* a, const blst_fp2* b);
 /** Squares a Montgomery-form Fp2 value and writes the result to `ret`. */
 void blst_fp2_sqr(blst_fp2* ret, const blst_fp2* a);
-/** Negates `a` in Fp2 when `flag` is true; otherwise copies `a` into `ret`. */
+/** Constant-time conditional negation: negates `a` when `flag` is true and
+ * otherwise copies it into `ret`. */
 void blst_fp2_cneg(blst_fp2* ret, const blst_fp2* a, bool flag);
 /** Computes the variable-time Euclidean inverse of nonzero `a` in Fp2.
  * Zero is outside the supported domain and has no error result. */
@@ -333,7 +348,7 @@ void blst_fp12_inverse(blst_fp12* ret, const blst_fp12* a);
  * Only the powers 1, 2, and 3 used by CatBLST are supported. Returns `false`
  * and leaves `ret` unchanged for every other value of `n`.
  */
-bool blst_fp12_frobenius_map(blst_fp12* ret, const blst_fp12* a, size_t n);
+BLST_NODISCARD bool blst_fp12_frobenius_map(blst_fp12* ret, const blst_fp12* a, size_t n);
 /** Returns `true` when the two Fp12 values are equal. */
 bool blst_fp12_is_equal(const blst_fp12* a, const blst_fp12* b);
 /** Returns `true` when `a` is the multiplicative identity. */
@@ -442,11 +457,11 @@ void blst_p1_double(blst_p1* out, const blst_p1* a);
 void blst_p1_mult(blst_p1* out, const blst_p1* p, const blst_byte* scalar, size_t nbits);
 /** Optimized variable-time G1 multiplication for public scalar data only. `p` must already be an on-curve prime-order subgroup point; scalars are interpreted modulo r and Release does not validate `p`. */
 void blst_p1_mult_vartime(blst_p1* out, const blst_p1* p, const blst_byte* scalar, size_t nbits);
-/** Conditionally negates an on-curve point. Subgroup membership is not required
- * or validated. */
+/** Conditionally negates an on-curve point in constant time. Subgroup
+ * membership is not required or validated. */
 void blst_p1_cneg(blst_p1* p, bool cbit);
-/** Conditionally negates an on-curve affine point. Subgroup membership is not
- * required or validated. */
+/** Conditionally negates an on-curve affine point in constant time. Subgroup
+ * membership is not required or validated. */
 void blst_p1_affine_cneg(blst_p1_affine* p, bool cbit);
 /** Converts an on-curve projective point into affine form. Subgroup membership
  * is preserved but neither required nor established. */
@@ -507,11 +522,20 @@ size_t blst_p1s_mult_pippenger_window_scratch_sizeof(size_t window);
 void blst_p1s_mult_pippenger(blst_p1* ret, const blst_p1_affine* const points[], size_t npoints, const blst_byte* const scalars[], size_t nbits, blst_limb_t* scratch);
 /** Returns total scratch bytes for a contiguous G1 MSM from native Montgomery-form `blst_fr` scalars, including canonical scalar preparation and Pippenger buckets. Zero is valid for an empty MSM and otherwise reports an unrepresentable size. */
 size_t blst_p1s_mult_pippenger_fr_scratch_sizeof(size_t npoints);
-/** Evaluates a contiguous G1 MSM from native Montgomery-form `blst_fr` scalars. Scratch must be limb-aligned and contain at least the queried byte count. Empty input writes the identity and requires no input or scratch storage. */
+/** Evaluates a variable-time contiguous G1 MSM from public, reduced
+ * Montgomery-form `blst_fr` scalars and prevalidated subgroup points. For
+ * nonempty input, `ret`, both input arrays, and limb-aligned scratch must be
+ * mutually disjoint; scratch must contain at least the queried byte count.
+ * Empty input writes infinity without reading input or scratch. Any other
+ * `false` result leaves `ret` unchanged. No Release membership/range check or
+ * allocation is performed. */
 bool blst_p1s_mult_pippenger_fr(blst_p1* ret, const blst_p1_affine points[], const blst_fr scalars[], size_t npoints, blst_limb_t* scratch, size_t scratch_size);
 /** Returns caller-owned scratch bytes for the selected contiguous G1 MSM implementation. This is a capacity query: storage for `max_points` supports every input length through that capacity. */
 size_t blst_p1s_mult_fr_scratch_sizeof(size_t max_points);
-/** Evaluates a contiguous G1 MSM from native Montgomery-form `blst_fr` scalars using the measured scalar-backend policy. Inputs must be prevalidated subgroup points; identity points are accepted and use the Pippenger fallback. */
+/** Evaluates the same public-scalar G1 MSM using the selected scalar-backend
+ * policy. The disjointness, alignment, failure-atomicity, and empty-input
+ * contract is the same as `blst_p1s_mult_pippenger_fr`. Identity points are
+ * accepted and select the Pippenger fallback. */
 bool blst_p1s_mult_fr(blst_p1* ret, const blst_p1_affine points[], const blst_fr scalars[], size_t npoints, blst_limb_t* scratch, size_t scratch_size);
 /** Returns total scratch bytes for the explicit G1 batch-affine MSM, including canonical scalar preparation. Supported batch sizes are 128 and 384; `window` must lie in `[1, 24]`, and `npoints` must fit `uint32_t`. Zero denotes either empty input or invalid/unrepresentable parameters. */
 size_t blst_p1s_mult_batch_affine_fr_scratch_sizeof(size_t npoints, size_t window, size_t batch_size);
@@ -590,11 +614,11 @@ void blst_p2_double(blst_p2* out, const blst_p2* a);
 void blst_p2_mult(blst_p2* out, const blst_p2* p, const blst_byte* scalar, size_t nbits);
 /** Optimized variable-time G2 multiplication for public scalar data only. `p` must already be an on-curve prime-order subgroup point; scalars are interpreted modulo r and Release does not validate `p`. */
 void blst_p2_mult_vartime(blst_p2* out, const blst_p2* p, const blst_byte* scalar, size_t nbits);
-/** Conditionally negates an on-curve point. Subgroup membership is not required
- * or validated. */
+/** Conditionally negates an on-curve point in constant time. Subgroup
+ * membership is not required or validated. */
 void blst_p2_cneg(blst_p2* p, bool cbit);
-/** Conditionally negates an on-curve affine point. Subgroup membership is not
- * required or validated. */
+/** Conditionally negates an on-curve affine point in constant time. Subgroup
+ * membership is not required or validated. */
 void blst_p2_affine_cneg(blst_p2_affine* p, bool cbit);
 /** Converts an on-curve projective point into affine form. Subgroup membership
  * is preserved but neither required nor established. */
@@ -657,11 +681,20 @@ void blst_p2s_mult_pippenger(blst_p2* ret, const blst_p2_affine* const points[],
 void blst_p2s_mult_pippenger_window(blst_p2* ret, const blst_p2_affine* const points[], size_t npoints, const blst_byte* const scalars[], size_t nbits, blst_limb_t* scratch, size_t window);
 /** Returns total scratch bytes for a contiguous G2 MSM from native Montgomery-form `blst_fr` scalars, including canonical scalar preparation and Pippenger buckets. Zero is valid for an empty MSM and otherwise reports an unrepresentable size. */
 size_t blst_p2s_mult_pippenger_fr_scratch_sizeof(size_t npoints);
-/** Evaluates a contiguous G2 MSM from native Montgomery-form `blst_fr` scalars. Scratch must be limb-aligned and contain at least the queried byte count. Empty input writes the identity and requires no input or scratch storage. */
+/** Evaluates a variable-time contiguous G2 MSM from public, reduced
+ * Montgomery-form `blst_fr` scalars and prevalidated subgroup points. For
+ * nonempty input, `ret`, both input arrays, and limb-aligned scratch must be
+ * mutually disjoint; scratch must contain at least the queried byte count.
+ * Empty input writes infinity without reading input or scratch. Any other
+ * `false` result leaves `ret` unchanged. No Release membership/range check or
+ * allocation is performed. */
 bool blst_p2s_mult_pippenger_fr(blst_p2* ret, const blst_p2_affine points[], const blst_fr scalars[], size_t npoints, blst_limb_t* scratch, size_t scratch_size);
 /** Returns caller-owned scratch bytes for the selected contiguous G2 MSM implementation. This is a capacity query: storage for `max_points` supports every input length through that capacity. */
 size_t blst_p2s_mult_fr_scratch_sizeof(size_t max_points);
-/** Evaluates a contiguous G2 MSM from native Montgomery-form `blst_fr` scalars using the measured scalar-backend policy. Inputs must be prevalidated subgroup points; identity points are accepted and use the Pippenger fallback. */
+/** Evaluates the same public-scalar G2 MSM using the selected scalar-backend
+ * policy. The disjointness, alignment, failure-atomicity, and empty-input
+ * contract is the same as `blst_p2s_mult_pippenger_fr`. Identity points are
+ * accepted and select the Pippenger fallback. */
 bool blst_p2s_mult_fr(blst_p2* ret, const blst_p2_affine points[], const blst_fr scalars[], size_t npoints, blst_limb_t* scratch, size_t scratch_size);
 /** Returns total scratch bytes for the explicit G2 batch-affine MSM, including canonical scalar preparation. Supported batch sizes are 128 and 384; `window` must lie in `[1, 24]`, and `npoints` must fit `uint32_t`. Zero denotes either empty input or invalid/unrepresentable parameters. */
 size_t blst_p2s_mult_batch_affine_fr_scratch_sizeof(size_t npoints, size_t window, size_t batch_size);
@@ -720,7 +753,8 @@ BLST_ERROR blst_p2_deserialize(blst_p2_affine* out, const blst_byte in[192]);
  *   only the signature; a null signature contributes only the PK/message
  *   pairing. Supplying neither selects the orientation but adds no value.
  * - `msg`, `aug`, and `DST` may be null exactly when their supplied length is
- *   zero. The context borrows rather than copies these byte strings.
+ *   zero. Aggregate calls consume `msg` and `aug` before returning; the
+ *   context retains only the borrowed `DST` described above.
  * - Call `blst_pairing_commit()` before final verification or merging. More
  *   items may be aggregated after a commit and committed again. Both inputs
  *   to `blst_pairing_merge()` must already have no pending pairs.
@@ -782,7 +816,7 @@ size_t blst_pairing_alignof(void);
  * `hash_or_encode == true` selects hash-to-curve; false selects encode-to-curve.
  * Reinitialization discards all prior logical state.
  */
-void blst_pairing_init(blst_pairing* new_ctx, bool hash_or_encode, const blst_byte* DST, size_t DST_len);
+void blst_pairing_init(blst_pairing* new_ctx, bool hash_or_encode, const blst_byte* DST BLST_CXX_DEFAULT, size_t DST_len BLST_CXX_DEFAULT);
 /** Returns the borrowed DST pointer currently stored in `ctx`. */
 const blst_byte* blst_pairing_get_dst(const blst_pairing* ctx);
 /** Flushes the pending batch into the context's Miller product; idempotent when no pairs are pending. */
@@ -805,25 +839,25 @@ void blst_pairing_raw_aggregate(blst_pairing* ctx, const blst_p2_affine* q, cons
  * checked; a nonnull PK must already be a subgroup point and cannot be
  * infinity. Failure leaves `ctx` unchanged.
  */
-BLST_ERROR blst_pairing_aggregate_pk_in_g2(blst_pairing* ctx, const blst_p2_affine* PK, const blst_p1_affine* signature, const blst_byte* msg, size_t msg_len, const blst_byte* aug, size_t aug_len);
+BLST_ERROR blst_pairing_aggregate_pk_in_g2(blst_pairing* ctx, const blst_p2_affine* PK, const blst_p1_affine* signature, const blst_byte* msg, size_t msg_len, const blst_byte* aug BLST_CXX_DEFAULT, size_t aug_len BLST_CXX_DEFAULT);
 /** Adds a PK-in-G2 item with independently selected PK and signature subgroup checks; false flags require caller-established subgroup membership. */
-BLST_ERROR blst_pairing_chk_n_aggr_pk_in_g2(blst_pairing* ctx, const blst_p2_affine* PK, bool pk_grpchk, const blst_p1_affine* signature, bool sig_grpchk, const blst_byte* msg, size_t msg_len, const blst_byte* aug, size_t aug_len);
+BLST_ERROR blst_pairing_chk_n_aggr_pk_in_g2(blst_pairing* ctx, const blst_p2_affine* PK, bool pk_grpchk, const blst_p1_affine* signature, bool sig_grpchk, const blst_byte* msg, size_t msg_len, const blst_byte* aug BLST_CXX_DEFAULT, size_t aug_len BLST_CXX_DEFAULT);
 /** Aggregates one PK-in-G2 item with a public, variable-time weight of at most 256 little-endian bits; malformed scalar arguments return `BLST_BAD_SCALAR` without mutation. */
-BLST_ERROR blst_pairing_mul_n_aggregate_pk_in_g2(blst_pairing* ctx, const blst_p2_affine* PK, const blst_p1_affine* sig, const blst_byte* scalar, size_t nbits, const blst_byte* msg, size_t msg_len, const blst_byte* aug, size_t aug_len);
+BLST_ERROR blst_pairing_mul_n_aggregate_pk_in_g2(blst_pairing* ctx, const blst_p2_affine* PK, const blst_p1_affine* sig, const blst_byte* scalar, size_t nbits, const blst_byte* msg, size_t msg_len, const blst_byte* aug BLST_CXX_DEFAULT, size_t aug_len BLST_CXX_DEFAULT);
 /** Adds a weighted PK-in-G2 item with explicit subgroup-check policy; the public scalar is reduced modulo r and malformed shape leaves `ctx` unchanged. */
-BLST_ERROR blst_pairing_chk_n_mul_n_aggr_pk_in_g2(blst_pairing* ctx, const blst_p2_affine* PK, bool pk_grpchk, const blst_p1_affine* sig, bool sig_grpchk, const blst_byte* scalar, size_t nbits, const blst_byte* msg, size_t msg_len, const blst_byte* aug, size_t aug_len);
+BLST_ERROR blst_pairing_chk_n_mul_n_aggr_pk_in_g2(blst_pairing* ctx, const blst_p2_affine* PK, bool pk_grpchk, const blst_p1_affine* sig, bool sig_grpchk, const blst_byte* scalar, size_t nbits, const blst_byte* msg, size_t msg_len, const blst_byte* aug BLST_CXX_DEFAULT, size_t aug_len BLST_CXX_DEFAULT);
 /**
  * Adds a PK-in-G1 verification item. A nonnull signature is fully subgroup
  * checked; a nonnull PK must already be a subgroup point and cannot be
  * infinity. Failure leaves `ctx` unchanged.
  */
-BLST_ERROR blst_pairing_aggregate_pk_in_g1(blst_pairing* ctx, const blst_p1_affine* PK, const blst_p2_affine* signature, const blst_byte* msg, size_t msg_len, const blst_byte* aug, size_t aug_len);
+BLST_ERROR blst_pairing_aggregate_pk_in_g1(blst_pairing* ctx, const blst_p1_affine* PK, const blst_p2_affine* signature, const blst_byte* msg, size_t msg_len, const blst_byte* aug BLST_CXX_DEFAULT, size_t aug_len BLST_CXX_DEFAULT);
 /** Adds a PK-in-G1 item with independently selected PK and signature subgroup checks; false flags require caller-established subgroup membership. */
-BLST_ERROR blst_pairing_chk_n_aggr_pk_in_g1(blst_pairing* ctx, const blst_p1_affine* PK, bool pk_grpchk, const blst_p2_affine* signature, bool sig_grpchk, const blst_byte* msg, size_t msg_len, const blst_byte* aug, size_t aug_len);
+BLST_ERROR blst_pairing_chk_n_aggr_pk_in_g1(blst_pairing* ctx, const blst_p1_affine* PK, bool pk_grpchk, const blst_p2_affine* signature, bool sig_grpchk, const blst_byte* msg, size_t msg_len, const blst_byte* aug BLST_CXX_DEFAULT, size_t aug_len BLST_CXX_DEFAULT);
 /** Aggregates one PK-in-G1 item with a public, variable-time weight of at most 256 little-endian bits; malformed scalar arguments return `BLST_BAD_SCALAR` without mutation. */
-BLST_ERROR blst_pairing_mul_n_aggregate_pk_in_g1(blst_pairing* ctx, const blst_p1_affine* PK, const blst_p2_affine* sig, const blst_byte* scalar, size_t nbits, const blst_byte* msg, size_t msg_len, const blst_byte* aug, size_t aug_len);
+BLST_ERROR blst_pairing_mul_n_aggregate_pk_in_g1(blst_pairing* ctx, const blst_p1_affine* PK, const blst_p2_affine* sig, const blst_byte* scalar, size_t nbits, const blst_byte* msg, size_t msg_len, const blst_byte* aug BLST_CXX_DEFAULT, size_t aug_len BLST_CXX_DEFAULT);
 /** Adds a weighted PK-in-G1 item with explicit subgroup-check policy; the public scalar is reduced modulo r and malformed shape leaves `ctx` unchanged. */
-BLST_ERROR blst_pairing_chk_n_mul_n_aggr_pk_in_g1(blst_pairing* ctx, const blst_p1_affine* PK, bool pk_grpchk, const blst_p2_affine* sig, bool sig_grpchk, const blst_byte* scalar, size_t nbits, const blst_byte* msg, size_t msg_len, const blst_byte* aug, size_t aug_len);
+BLST_ERROR blst_pairing_chk_n_mul_n_aggr_pk_in_g1(blst_pairing* ctx, const blst_p1_affine* PK, bool pk_grpchk, const blst_p2_affine* sig, bool sig_grpchk, const blst_byte* scalar, size_t nbits, const blst_byte* msg, size_t msg_len, const blst_byte* aug BLST_CXX_DEFAULT, size_t aug_len BLST_CXX_DEFAULT);
 /** Merges committed `ctx1` into committed `ctx`; orientations must match when both are defined, `ctx1` is unchanged, and failure leaves `ctx` unchanged. */
 BLST_ERROR blst_pairing_merge(blst_pairing* ctx, const blst_pairing* ctx1);
 /**
@@ -832,19 +866,27 @@ BLST_ERROR blst_pairing_merge(blst_pairing* ctx, const blst_pairing* ctx1);
  * aggregated signature is used, or the Miller identity if every supplied
  * signature was infinity. An empty PK/message product returns false.
  */
-bool blst_pairing_finalverify(const blst_pairing* ctx, const blst_fp12* gtsig);
-/** Decodes and subgroup-checks one wire-format G1 contribution, adding it to optional `in`; exact `out == in` aliasing is supported, infinity preserves `in`, and failure leaves `out` unchanged. */
+bool blst_pairing_finalverify(const blst_pairing* ctx, const blst_fp12* gtsig BLST_CXX_DEFAULT);
+/** Decodes and subgroup-checks one wire-format G1 contribution, adding it to
+ * optional `in`; exact `out == in` aliasing is supported, infinity preserves
+ * `in`, and failure leaves `out` unchanged. `zwire` must be non-null and make
+ * 48 bytes readable when its first byte has bit 7 set, otherwise 96 bytes.
+ * Callers with uncertain flags should provide a 96-byte readable buffer. */
 BLST_ERROR blst_aggregate_in_g1(blst_p1* out, const blst_p1* in, const blst_byte* zwire);
-/** Decodes and subgroup-checks one wire-format G2 contribution, adding it to optional `in`; exact `out == in` aliasing is supported, infinity preserves `in`, and failure leaves `out` unchanged. */
+/** Decodes and subgroup-checks one wire-format G2 contribution, adding it to
+ * optional `in`; exact `out == in` aliasing is supported, infinity preserves
+ * `in`, and failure leaves `out` unchanged. `zwire` must be non-null and make
+ * 96 bytes readable when its first byte has bit 7 set, otherwise 192 bytes.
+ * Callers with uncertain flags should provide a 192-byte readable buffer. */
 BLST_ERROR blst_aggregate_in_g2(blst_p2* out, const blst_p2* in, const blst_byte* zwire);
 /** Computes the pre-final Miller contribution for a previously validated affine G1 subgroup signature. */
 void blst_aggregated_in_g1(blst_fp12* out, const blst_p1_affine* signature);
 /** Computes the pre-final Miller contribution for a previously validated affine G2 subgroup signature. */
 void blst_aggregated_in_g2(blst_fp12* out, const blst_p2_affine* signature);
 /** One-shot PK-in-G1 verification that rejects an infinite PK, fully checks both subgroup operands, and returns `BLST_VERIFY_FAIL` only when the final pairing equation fails. */
-BLST_ERROR blst_core_verify_pk_in_g1(const blst_p1_affine* pk, const blst_p2_affine* signature, bool hash_or_encode, const blst_byte* msg, size_t msg_len, const blst_byte* DST, size_t DST_len, const blst_byte* aug, size_t aug_len);
+BLST_ERROR blst_core_verify_pk_in_g1(const blst_p1_affine* pk, const blst_p2_affine* signature, bool hash_or_encode, const blst_byte* msg, size_t msg_len, const blst_byte* DST BLST_CXX_DEFAULT, size_t DST_len BLST_CXX_DEFAULT, const blst_byte* aug BLST_CXX_DEFAULT, size_t aug_len BLST_CXX_DEFAULT);
 /** One-shot PK-in-G2 verification that rejects an infinite PK, fully checks both subgroup operands, and returns `BLST_VERIFY_FAIL` only when the final pairing equation fails. */
-BLST_ERROR blst_core_verify_pk_in_g2(const blst_p2_affine* pk, const blst_p1_affine* signature, bool hash_or_encode, const blst_byte* msg, size_t msg_len, const blst_byte* DST, size_t DST_len, const blst_byte* aug, size_t aug_len);
+BLST_ERROR blst_core_verify_pk_in_g2(const blst_p2_affine* pk, const blst_p1_affine* signature, bool hash_or_encode, const blst_byte* msg, size_t msg_len, const blst_byte* DST BLST_CXX_DEFAULT, size_t DST_len BLST_CXX_DEFAULT, const blst_byte* aug BLST_CXX_DEFAULT, size_t aug_len BLST_CXX_DEFAULT);
 
 /**
  * Key derivation, hashing, mapping, and utility helpers.
@@ -868,27 +910,27 @@ BLST_ERROR blst_core_verify_pk_in_g2(const blst_p2_affine* pk, const blst_p1_aff
  * Derives a canonical nonzero secret scalar using upstream BLST's default v4
  * scheme and default salt. The common key-generation contract above applies.
  */
-void blst_keygen(blst_scalar* out_SK, const blst_byte* IKM, size_t IKM_len, const blst_byte* info, size_t info_len);
+void blst_keygen(blst_scalar* out_SK, const blst_byte* IKM, size_t IKM_len, const blst_byte* info BLST_CXX_DEFAULT, size_t info_len BLST_CXX_DEFAULT);
 /**
  * Retains upstream BLST's legacy v3 derivation. A successful result is reduced
  * modulo r but, unlike v4 and later, the legacy algorithm does not retry the
  * negligible zero result. The common key-generation contract applies.
  */
-void blst_keygen_v3(blst_scalar* out_SK, const blst_byte* IKM, size_t IKM_len, const blst_byte* info, size_t info_len);
+void blst_keygen_v3(blst_scalar* out_SK, const blst_byte* IKM, size_t IKM_len, const blst_byte* info BLST_CXX_DEFAULT, size_t info_len BLST_CXX_DEFAULT);
 /**
  * Derives a canonical nonzero secret scalar using the v4.5 interface. A
  * non-null `salt` names `salt_len` readable bytes, including a valid empty
  * salt. For upstream compatibility, null `salt` selects the default salt and
  * ignores `salt_len`. The common key-generation contract applies.
  */
-void blst_keygen_v4_5(blst_scalar* out_SK, const blst_byte* IKM, size_t IKM_len, const blst_byte* salt, size_t salt_len, const blst_byte* info, size_t info_len);
+void blst_keygen_v4_5(blst_scalar* out_SK, const blst_byte* IKM, size_t IKM_len, const blst_byte* salt, size_t salt_len, const blst_byte* info BLST_CXX_DEFAULT, size_t info_len BLST_CXX_DEFAULT);
 /**
  * Derives a canonical nonzero secret scalar using the v5 interface. `salt`
  * must be non-null and name `salt_len` readable bytes; a non-null empty salt
  * is valid. A null salt clears `out_SK`. The common key-generation contract
  * applies.
  */
-void blst_keygen_v5(blst_scalar* out_SK, const blst_byte* IKM, size_t IKM_len, const blst_byte* salt, size_t salt_len, const blst_byte* info, size_t info_len);
+void blst_keygen_v5(blst_scalar* out_SK, const blst_byte* IKM, size_t IKM_len, const blst_byte* salt, size_t salt_len, const blst_byte* info BLST_CXX_DEFAULT, size_t info_len BLST_CXX_DEFAULT);
 /**
  * Derives a canonical nonzero EIP-2333 master secret key using the default-v4
  * keygen operation with empty key info. The common IKM and output contracts
@@ -909,25 +951,25 @@ void blst_derive_child_eip2333(blst_scalar* out_SK, const blst_scalar* SK, uint3
  * ciphersuite through `DST`. No Release input validation is performed.
  * Allocation-free, nonthrowing, and safe across the C ABI for valid inputs.
  */
-void blst_encode_to_g1(blst_p1* out, const blst_byte* msg, size_t msg_len, const blst_byte* DST, size_t DST_len, const blst_byte* aug, size_t aug_len);
+void blst_encode_to_g1(blst_p1* out, const blst_byte* msg, size_t msg_len, const blst_byte* DST BLST_CXX_DEFAULT, size_t DST_len BLST_CXX_DEFAULT, const blst_byte* aug BLST_CXX_DEFAULT, size_t aug_len BLST_CXX_DEFAULT);
 /**
  * Hashes `msg` to a G1 subgroup point with the RFC 9380 XMD:SHA-256 SSWU
  * random-oracle map. Pointer, validation, allocation, and exception contracts
  * are the same as `blst_encode_to_g1`.
  */
-void blst_hash_to_g1(blst_p1* out, const blst_byte* msg, size_t msg_len, const blst_byte* DST, size_t DST_len, const blst_byte* aug, size_t aug_len);
+void blst_hash_to_g1(blst_p1* out, const blst_byte* msg, size_t msg_len, const blst_byte* DST BLST_CXX_DEFAULT, size_t DST_len BLST_CXX_DEFAULT, const blst_byte* aug BLST_CXX_DEFAULT, size_t aug_len BLST_CXX_DEFAULT);
 /**
  * Encodes `msg` to a deterministic G2 subgroup point with the RFC 9380
  * XMD:SHA-256 SSWU nonuniform map. Pointer, validation, allocation, and
  * exception contracts are the same as `blst_encode_to_g1`.
  */
-void blst_encode_to_g2(blst_p2* out, const blst_byte* msg, size_t msg_len, const blst_byte* DST, size_t DST_len, const blst_byte* aug, size_t aug_len);
+void blst_encode_to_g2(blst_p2* out, const blst_byte* msg, size_t msg_len, const blst_byte* DST BLST_CXX_DEFAULT, size_t DST_len BLST_CXX_DEFAULT, const blst_byte* aug BLST_CXX_DEFAULT, size_t aug_len BLST_CXX_DEFAULT);
 /**
  * Hashes `msg` to a G2 subgroup point with the RFC 9380 XMD:SHA-256 SSWU
  * random-oracle map. Pointer, validation, allocation, and exception contracts
  * are the same as `blst_encode_to_g1`.
  */
-void blst_hash_to_g2(blst_p2* out, const blst_byte* msg, size_t msg_len, const blst_byte* DST, size_t DST_len, const blst_byte* aug, size_t aug_len);
+void blst_hash_to_g2(blst_p2* out, const blst_byte* msg, size_t msg_len, const blst_byte* DST BLST_CXX_DEFAULT, size_t DST_len BLST_CXX_DEFAULT, const blst_byte* aug BLST_CXX_DEFAULT, size_t aug_len BLST_CXX_DEFAULT);
 /**
  * Maps reduced Montgomery-form field elements into a G1 subgroup point without
  * hashing. `out` and `u` must be non-null and disjoint. When `v` is null, maps
@@ -936,13 +978,13 @@ void blst_hash_to_g2(blst_p2* out, const blst_byte* msg, size_t msg_len, const b
  * added before cofactor clearing. No Release field validation is performed.
  * Allocation-free and nonthrowing for valid inputs.
  */
-void blst_map_to_g1(blst_p1* out, const blst_fp* u, const blst_fp* v);
+void blst_map_to_g1(blst_p1* out, const blst_fp* u, const blst_fp* v BLST_CXX_DEFAULT);
 /**
  * Maps reduced Montgomery-form Fp2 elements into a G2 subgroup point without
  * hashing. Nullability, disjoint-storage, validation, allocation, and exception
  * contracts are the same as `blst_map_to_g1`.
  */
-void blst_map_to_g2(blst_p2* out, const blst_fp2* u, const blst_fp2* v);
+void blst_map_to_g2(blst_p2* out, const blst_fp2* u, const blst_fp2* v BLST_CXX_DEFAULT);
 /** Derives the projective G1 public key for a canonical nonzero `SK` produced
  * by keygen or accepted by `blst_sk_check`. No Release validation occurs;
  * runtime is independent of a valid secret key's contents. */
@@ -1014,6 +1056,8 @@ size_t blst_p2_sizeof(void);
 size_t blst_p2_affine_sizeof(void);
 /** Returns `sizeof(blst_fp12)` for ABI consumers that need runtime verification. */
 size_t blst_fp12_sizeof(void);
+
+#undef BLST_CXX_DEFAULT
 
 #ifdef __cplusplus
 }

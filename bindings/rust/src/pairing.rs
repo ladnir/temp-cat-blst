@@ -732,6 +732,7 @@ pub fn uniq(msgs: &[&[u8]]) -> bool {
             | BLST_UNIQ_RESULT::BLST_UNIQ_CAPACITY_EXCEEDED
             | BLST_UNIQ_RESULT::BLST_UNIQ_DEPTH_EXCEEDED
             | BLST_UNIQ_RESULT::BLST_UNIQ_INVALID_INPUT => return false,
+            _ => return false,
         }
     }
 
