@@ -200,6 +200,29 @@ Direct final-table construction subsequently reduces peak CT GLS local stack
 from about 102 KiB to about 55 KiB and improves CT GLS from 40.969 to 39.911 us,
 validating `AUD-218`. Exact evidence is in `G2_EVIDENCE.md`.
 
+## Miller and pairing preview packet
+
+`matrixnok_pairing.h` binds the fixed MatrixNoK field tower to the existing
+Miller-loop, pairing, and RNS inversion templates without changing their
+incumbent defaults. The candidate is production-shaped but remains isolated
+from public symbols and production dispatch.
+
+Portable Debug compilation and Peach native AVX-512IFMA execution pass all 17
+focused MatrixNoK tests. Four independent G1/G2 combinations compare both the
+candidate Miller result after scalar final exponentiation and the complete
+candidate pairing with scalar CatBLST.
+
+One serial Clang 21 process measured candidate Miller 20.7% faster than the
+incumbent and 5.3% faster than pinned VROOM. Complete pairing is 14.8% faster
+than the incumbent and 1.5% slower than VROOM, inside the 2% selection
+tolerance. The remaining delta lies after Miller and directs the next review
+to inversion/final exponentiation. Exact construction, code-generation,
+benchmark-link isolation, measurements, and hashes are in
+`PAIRING_PREVIEW_EVIDENCE.md`.
+
+The candidate remains non-dispatched. Inversion/final-exponent review, formal
+proof, production selection, and release evidence remain pending.
+
 ## FFT preview packet
 
 A benchmark-only adapter compiles the complete pinned VROOM Fp12 stack in the

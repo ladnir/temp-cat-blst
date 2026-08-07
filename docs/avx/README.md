@@ -82,6 +82,11 @@ table construction closes `AUD-218` by reducing peak CT GLS stack from about
 The production-shaped Fp12/GT candidate, parameter-bound constant repair,
 native code generation, and same-process incumbent/VROOM comparison are
 recorded in `FP12_EVIDENCE.md`.
+The isolated MatrixNoK Miller-loop and full-pairing preview, scalar
+differentials, native code generation, and serial incumbent/VROOM comparison
+are recorded in `PAIRING_PREVIEW_EVIDENCE.md`. Miller is 20.7% faster than the
+incumbent and 5.3% faster than VROOM; full pairing is 14.8% faster than the
+incumbent and 1.5% slower than VROOM, within the selection tolerance.
 
 ## Work packets
 

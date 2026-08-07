@@ -239,3 +239,27 @@ native tests pass, the fixed executor is unchanged, and one serial run improves
 CT GLS from 40.969 to 39.911 us. `AUD-218` is validated. Exact source hashes,
 timing, code-generation facts, and residual gates are in
 `docs/avx/G2_EVIDENCE.md`.
+
+## MatrixNoK Miller and pairing preview
+
+Implementation commit `eaa7822431954980694341dc77cdcd8b12cce7eb`
+parameterizes the existing Miller, pairing, and inversion templates over the
+Fp12 policy while preserving their incumbent defaults. The new MatrixNoK
+aliases are isolated and do not alter public symbols or production dispatch.
+
+Local portable-AVX Debug compilation and Peach Clang 21 native execution pass
+all 17 focused MatrixNoK tests. The new pairing test compares four independent
+G1/G2 combinations with scalar CatBLST at both the post-Miller/final-exponent
+boundary and the complete pairing result.
+
+One serial same-process benchmark measured MatrixNoK Miller at 55.066 us,
+20.7% faster than the incumbent and 5.3% faster than pinned VROOM. Complete
+pairing measured 141.775 us, 14.8% faster than the incumbent and 1.5% slower
+than VROOM. The preview passes the agreed 2% selection tolerance. Optimized
+inspection finds bounded peak stack of about 8 KiB and no allocation,
+exception-runtime, gather/scatter, or selected-vector conversion in the
+candidate Miller body.
+
+Exact evidence is in `docs/avx/PAIRING_PREVIEW_EVIDENCE.md`. MatrixNoK remains
+non-dispatched; inversion/final-exponent optimization review, formal proof,
+production selection, and release evidence remain pending.
