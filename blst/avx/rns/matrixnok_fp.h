@@ -62,7 +62,7 @@ namespace blst::avx::matrixnok
             std::array<AVXVector<limbs>, 1> input = {m2.data};
             std::array<AVXVector<limbs>, 1> high = {AVXVector<limbs>(0)};
             std::array<AVXVector<limbs>, 1> low = {AVXVector<limbs>(0)};
-            system_.intrns2.r2.rns_reduce_raw_batch_shifted(&input, high, low);
+            system_.intrns2.r2.template rns_reduce_raw_batch_shifted<1>(&input, high, low);
 
             using WideBound = Bounds<0, 2 * limbs * standard_bound>;
             using Bounded = BoundedElement<WideBound, limbs, element_bits>;
@@ -85,7 +85,7 @@ namespace blst::avx::matrixnok
             std::array<AVXVector<limbs>, 1> input = {AVXVector<limbs>(digits)};
             std::array<AVXVector<limbs>, 1> high = {AVXVector<limbs>(0)};
             std::array<AVXVector<limbs>, 1> low = {AVXVector<limbs>(0)};
-            system_.convert_to.conversion_matrix.rns_reduce_raw_batch_shifted(
+            system_.convert_to.conversion_matrix.template rns_reduce_raw_batch_shifted<1>(
                 &input, high, low);
 
             using ConvertBound = Bounds<0, 800>;
