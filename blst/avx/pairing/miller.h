@@ -6,13 +6,13 @@
 
 namespace blst::avx {
 
-template<class Ring>
+template<class Ring, class FP12RingType = FP12Ring<Ring>>
 class Miller {
     public:
     // Reduce the amount of typename nonsense
     using FPStandardElement = typename Ring::StandardElement;
     using FP2RingStandardElement = typename FP2Ring<Ring>::StandardElement;
-    using FP12RingStandardElement = typename FP12Ring<Ring>::StandardElement;
+    using FP12RingStandardElement = typename FP12RingType::StandardElement;
 
     // An element that is 52 bits, but the RNS bound is not [0, 1]
     template<int lower_bound, int upper_bound>
@@ -57,7 +57,7 @@ class Miller {
     }
 
     // returns point, mutates f
-    INLINE ProjectivePoint<FP2RingStandardElement> double_step(const ProjectivePoint<FP2RingStandardElement> &P, FP12RingStandardElement &f, const Ring &ring, const FP2Ring<Ring> &fp2ring, const FP12Ring<Ring> &fp12ring) const {
+    INLINE ProjectivePoint<FP2RingStandardElement> double_step(const ProjectivePoint<FP2RingStandardElement> &P, FP12RingStandardElement &f, const Ring &ring, const FP2Ring<Ring> &fp2ring, const FP12RingType &fp12ring) const {
         // https://eprint.iacr.org/2015/1060.pdf Algorithm 9
         // Merged with line computation and update:
         // line_x = x^2 * (3Qx)
@@ -100,7 +100,7 @@ class Miller {
     }
 
     // Returns point, mutates f.
-    INLINE ProjectivePoint<FP2RingStandardElement> add_step(const ProjectivePoint<FP2RingStandardElement> &P, FP12RingStandardElement &f, const Ring &ring, const FP2Ring<Ring> &fp2ring, const FP12Ring<Ring> &fp12ring) const {
+    INLINE ProjectivePoint<FP2RingStandardElement> add_step(const ProjectivePoint<FP2RingStandardElement> &P, FP12RingStandardElement &f, const Ring &ring, const FP2Ring<Ring> &fp2ring, const FP12RingType &fp12ring) const {
         // https://eprint.iacr.org/2015/1060.pdf Algorithm 8
         // Merged with line computation and update:
         // Line:
@@ -148,7 +148,7 @@ class Miller {
     }
 
     // Returns point, mutates f.
-    INLINE ProjectivePoint<FP2RingStandardElement> add_dbl(const ProjectivePoint<FP2RingStandardElement> &P, FP12RingStandardElement &f, const Ring &ring, const FP2Ring<Ring> &fp2ring, const FP12Ring<Ring> &fp12ring, int iterations) const {
+    INLINE ProjectivePoint<FP2RingStandardElement> add_dbl(const ProjectivePoint<FP2RingStandardElement> &P, FP12RingStandardElement &f, const Ring &ring, const FP2Ring<Ring> &fp2ring, const FP12RingType &fp12ring, int iterations) const {
         auto result = add_step(P, f, ring, fp2ring, fp12ring);
 #if defined(__clang__)
         #pragma clang loop unroll(disable)
@@ -160,7 +160,7 @@ class Miller {
         return result;
     }
     
-    inline FP12RingStandardElement miller_loop(const Ring &ring, const FP2Ring<Ring> &fp2ring, const FP12Ring<Ring> &fp12ring) const {
+    inline FP12RingStandardElement miller_loop(const Ring &ring, const FP2Ring<Ring> &fp2ring, const FP12RingType &fp12ring) const {
         ProjectivePoint<FP2RingStandardElement> P(
             E2X.to_fp2(), 
             E2Y.to_fp2(), 

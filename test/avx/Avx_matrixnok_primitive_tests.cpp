@@ -9,6 +9,7 @@
 #include "blst/avx/gt/glv4.h"
 #include "blst/avx/curve/matrixnok_g1.h"
 #include "blst/avx/curve/matrixnok_g2.h"
+#include "blst/avx/pairing/matrixnok_pairing.h"
 #include "blst/common/bytes.h"
 #include "blst/fft/ctFft.h"
 #include "blst/fft/primitveRoot.h"
@@ -17,6 +18,7 @@
 #include "blst/fields/Fp12.h"
 #include "blst/fields/Fr.h"
 #include "blst/scalar/curve/point.h"
+#include "blst/scalar/curve/GT.h"
 
 #include <gtest/gtest.h>
 
@@ -24,6 +26,7 @@
 #include <cstdint>
 #include <cstring>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace blst::avx::test
@@ -44,6 +47,8 @@ namespace blst::avx::test
     static_assert(std::is_empty_v<matrixnok::Fp12RingCandidate>);
     static_assert(std::is_empty_v<matrixnok::G1CurveCandidate>);
     static_assert(std::is_empty_v<matrixnok::G2CurveCandidate>);
+    static_assert(std::is_trivially_default_constructible_v<
+        matrixnok::PairingInverterCandidate>);
 
     using MatrixNoKFp12 = matrixnok::Fp12RingCandidate;
     static_assert(std::is_default_constructible_v<
@@ -1497,6 +1502,86 @@ namespace blst::avx::test
             SCOPED_TRACE("final exponentiation shift " + std::to_string(shift));
             expect_same_scalar_fp12(
                 matrixnok_fp12_to_scalar(ring, candidate_final), expected_final);
+        }
+    }
+
+    matrixnok::G1AffineCandidate matrixnok_g1_affine_from_scalar(
+        const matrixnok::FpRingCandidate& ring,
+        const blst::scalar::G1AffinePoint& point)
+    {
+        return {ring.from_scalar(point.x), ring.from_scalar(point.y)};
+    }
+
+    matrixnok::G2AffineCandidate matrixnok_g2_affine_from_scalar(
+        const matrixnok::FpRingCandidate& ring,
+        const blst::scalar::G2AffinePoint& point)
+    {
+        return {
+            matrixnok_generic_fp2_from_scalar(ring, point.x),
+            matrixnok_generic_fp2_from_scalar(ring, point.y)};
+    }
+
+    TEST(AvxMatrixNoKPrimitives, MillerAndPairingMatchScalar)
+    {
+        const matrixnok::FpRingCandidate ring;
+        const matrixnok::G2Fp2RingCandidate fp2ring(ring);
+        const matrixnok::Fp12RingCandidate fp12ring(ring);
+        const matrixnok::PairingInverterCandidate inverter{};
+
+        const auto g1_generator = blst::scalar::G1Point::generator();
+        blst::scalar::G1Point g1_double = {};
+        blst::scalar::G1Point g1_triple = {};
+        blst::scalar::G1Point::doubling(g1_double, g1_generator);
+        blst::scalar::G1Point::dadd(g1_triple, g1_double, g1_generator);
+        const auto g2_generator = blst::scalar::G2Point::generator();
+        blst::scalar::G2Point g2_double = {};
+        blst::scalar::G2Point g2_triple = {};
+        blst::scalar::G2Point::doubling(g2_double, g2_generator);
+        blst::scalar::G2Point::dadd(g2_triple, g2_double, g2_generator);
+
+        std::array<blst::scalar::G1AffinePoint, 3> g1 = {};
+        std::array<blst::scalar::G2AffinePoint, 3> g2 = {};
+        blst::scalar::G1Point::to_affine(g1[0], g1_generator);
+        blst::scalar::G1Point::to_affine(g1[1], g1_double);
+        blst::scalar::G1Point::to_affine(g1[2], g1_triple);
+        blst::scalar::G2Point::to_affine(g2[0], g2_generator);
+        blst::scalar::G2Point::to_affine(g2[1], g2_double);
+        blst::scalar::G2Point::to_affine(g2[2], g2_triple);
+
+        const std::array<std::pair<std::size_t, std::size_t>, 4> cases = {{
+            {0, 0}, {1, 0}, {0, 1}, {2, 2},
+        }};
+        for (const auto [g1_index, g2_index] : cases) {
+            SCOPED_TRACE(
+                "g1=" + std::to_string(g1_index) +
+                " g2=" + std::to_string(g2_index));
+            const auto candidate_g1 =
+                matrixnok_g1_affine_from_scalar(ring, g1[g1_index]);
+            const auto candidate_g2 =
+                matrixnok_g2_affine_from_scalar(ring, g2[g2_index]);
+
+            const matrixnok::MillerCandidate miller(
+                candidate_g1, candidate_g2, ring);
+            const auto candidate_miller =
+                miller.miller_loop(ring, fp2ring, fp12ring);
+            blst::Fp12 candidate_miller_final = {};
+            blst::Fp12::final_exp(
+                candidate_miller_final,
+                matrixnok_fp12_to_scalar(ring, candidate_miller));
+
+            blst::scalar::MillerResult expected_miller = {};
+            blst::scalar::GT::miller_loop(
+                expected_miller, &g2[g2_index], &g1[g1_index]);
+            blst::scalar::GT expected = {};
+            blst::scalar::GT::final_exp(expected, expected_miller);
+            expect_same_scalar_fp12(candidate_miller_final, expected.data);
+
+            const auto candidate_pairing = blst::avx::pairing(
+                candidate_g1, candidate_g2, inverter,
+                fp2ring, fp12ring, ring);
+            expect_same_scalar_fp12(
+                matrixnok_fp12_to_scalar(ring, candidate_pairing),
+                expected.data);
         }
     }
 } // namespace blst::avx::test

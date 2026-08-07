@@ -12,6 +12,10 @@
 #include "bench_bls12_381_common.hpp"
 #include "ec.hpp"
 #include "fp12.hpp"
+#include "miller.hpp"
+#if defined(BLST_VROOM_PAIRING_PREVIEW)
+#include "pairing.hpp"
+#endif
 #include "scalar_mult.hpp"
 
 #include <algorithm>
@@ -501,6 +505,46 @@ namespace
         }
     }
 
+    void setup_pairing_generators(
+        const Ring& ring,
+        AffinePoint<Ring::StandardElement>& g1,
+        AffinePoint<FP2Ring<Ring>::StandardElement>& g2)
+    {
+        bench_bls12_381::setup_g1_g2_generators(ring, g1, g2);
+    }
+
+    void BM_VROOM_MatrixNoK_Miller(benchmark::State& state)
+    {
+        const Ring ring(BigInt(field_modulus_decimal, 10));
+        const FP2Ring<Ring> fp2ring(ring);
+        const Fp12 fp12ring(ring);
+        AffinePoint<Ring::StandardElement> g1;
+        AffinePoint<FP2Ring<Ring>::StandardElement> g2;
+        setup_pairing_generators(ring, g1, g2);
+        const Miller<Ring> miller(g1, g2, ring);
+        for (auto _ : state) {
+            auto result = miller.miller_loop(ring, fp2ring, fp12ring);
+            benchmark::DoNotOptimize(result);
+        }
+    }
+
+#if defined(BLST_VROOM_PAIRING_PREVIEW)
+    void BM_VROOM_MatrixNoK_Pairing(benchmark::State& state)
+    {
+        const Ring ring(BigInt(field_modulus_decimal, 10));
+        const FP2Ring<Ring> fp2ring(ring);
+        const Fp12 fp12ring(ring);
+        AffinePoint<Ring::StandardElement> g1;
+        AffinePoint<FP2Ring<Ring>::StandardElement> g2;
+        setup_pairing_generators(ring, g1, g2);
+        const FP12RNS_BLSTInverter<Ring> inverter{};
+        for (auto _ : state) {
+            auto result = pairing(g1, g2, inverter, fp2ring, fp12ring, ring);
+            benchmark::DoNotOptimize(result);
+        }
+    }
+#endif
+
     Gt gt_generator(const Ring& ring)
     {
         std::array<unsigned char, 12 * 48> bytes = {};
@@ -788,6 +832,10 @@ namespace
     BENCHMARK(BM_VROOM_MatrixNoK_G2Add);
     BENCHMARK(BM_VROOM_MatrixNoK_G2Double);
     BENCHMARK(BM_VROOM_MatrixNoK_G2GlsCt);
+    BENCHMARK(BM_VROOM_MatrixNoK_Miller);
+#if defined(BLST_VROOM_PAIRING_PREVIEW)
+    BENCHMARK(BM_VROOM_MatrixNoK_Pairing);
+#endif
     BENCHMARK(BM_VROOM_MatrixNoK_FP12Mul);
     BENCHMARK(BM_VROOM_MatrixNoK_CyclotomicSquare);
     BENCHMARK(BM_VROOM_MatrixNoK_GTInverse)

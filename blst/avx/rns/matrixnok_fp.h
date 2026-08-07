@@ -264,6 +264,14 @@ namespace blst::avx::matrixnok
             return prep(element);
         }
 
+        template<int64_t lower, int64_t upper, class RNSBoundsType>
+        static INLINE auto prep_standard(const ExpandedElement<
+            BoundedElement<Bounds<lower, upper>, limbs, element_bits>,
+            RNSBoundsType>& element)
+        {
+            return prep<lower, upper, RNSBoundsType, STANDARD_BOUND>(element);
+        }
+
         template<int64_t lower, int64_t upper, class RNSBoundsType,
             int to = MULT_OK_BOUND>
         static INLINE auto prep(const SmallElement<
@@ -272,6 +280,14 @@ namespace blst::avx::matrixnok
         {
             auto m2 = detail::ReducerM2::template reduce_auto<to>(element.element);
             return SmallElement<decltype(m2), RNSBoundsType>(m2);
+        }
+
+        template<int64_t lower, int64_t upper, class RNSBoundsType>
+        static INLINE auto prep_standard(const SmallElement<
+            BoundedElement<Bounds<lower, upper>, limbs, element_bits>,
+            RNSBoundsType>& element)
+        {
+            return prep<lower, upper, RNSBoundsType, STANDARD_BOUND>(element);
         }
 
         template<int64_t upper, int64_t lower, class RNSBoundsType>

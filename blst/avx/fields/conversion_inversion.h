@@ -188,7 +188,13 @@ void convert_to_int(const Ring& ring, typename Ring::StandardElement& a, blst::F
 {
     AVXVector<8> out_hi = AVXVector<8>(0);
     AVXVector<8> out_lo = AVXVector<8>(0);
-    ring.sys.convert_from.conversion_matrix.rns_reduce_raw(a.m2.data, out_hi, out_lo);
+    if constexpr (requires {
+        Ring::convert_from_raw(a, out_hi, out_lo);
+    }) {
+        Ring::convert_from_raw(a, out_hi, out_lo);
+    } else {
+        ring.sys.convert_from.conversion_matrix.rns_reduce_raw(a.m2.data, out_hi, out_lo);
+    }
     from_vec<montgomery>(out_lo, out_hi, ret);
 }
 
@@ -202,9 +208,15 @@ auto convert_to_rns(const Ring& ring, const blst::Fp& value)
         canonical = value;
     }
 
-    const unsigned char* canonical_bytes = reinterpret_cast<const unsigned char*>(canonical.l);
-    AVXVector<8> l = to_vec<8>(canonical_bytes);
-    return ring.template convert_to_rns_batch<1>(std::array<AVXVector<8>, 1>{l})[0];
+    if constexpr (requires {
+        Ring::from_canonical_limbs(canonical);
+    }) {
+        return Ring::from_canonical_limbs(canonical);
+    } else {
+        const unsigned char* canonical_bytes = reinterpret_cast<const unsigned char*>(canonical.l);
+        AVXVector<8> l = to_vec<8>(canonical_bytes);
+        return ring.template convert_to_rns_batch<1>(std::array<AVXVector<8>, 1>{l})[0];
+    }
 }
 
 template<class Ring>
@@ -306,11 +318,10 @@ std::array<typename Ring::StandardElement, 12> invert_fp12_via_blst_bigint(
     return invert_fp12_via_blst(ring, fp12_ring);
 }
 
-template<class Ring>
+template<class Ring, class FP12R = FP12Ring<Ring>>
 class FP12BLSTInverter {
 public:
     using StandardElement = std::array<typename Ring::StandardElement, 12>;
-    using FP12R = FP12Ring<Ring>;
 
     StandardElement invert(const StandardElement& f, const FP12R&, const Ring& ring) const
     {
@@ -318,10 +329,9 @@ public:
     }
 };
 
-template<class Ring>
+template<class Ring, class FP12R = FP12Ring<Ring>>
 class FP12RNS_BLSTInverter {
 public:
-    using FP12R = FP12Ring<Ring>;
     using StandardElement = typename FP12R::StandardElement;
     using Inverter = BLSTInverter<Ring>;
 

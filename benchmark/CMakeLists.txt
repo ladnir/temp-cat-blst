@@ -160,6 +160,7 @@ if(BLST_HAVE_AVX_VALIDATION_GMP)
             target_sources(avx_group_ops_benchmarks PRIVATE
                 "avx/Avx_matrixnok_fft_preview_bench.cpp"
                 "avx/Avx_matrixnok_g2_bench.cpp"
+                "avx/Avx_matrixnok_pairing_preview_bench.cpp"
                 "avx/Vroom_matrixnok_fft_preview_bench.cpp"
             )
             target_include_directories(avx_group_ops_benchmarks PRIVATE
