@@ -9,6 +9,7 @@
 #include <benchmark/benchmark.h>
 
 #include "bls12_381_ring_params.hpp"
+#include "bench_bls12_381_common.hpp"
 #include "ec.hpp"
 #include "fp12.hpp"
 #include "scalar_mult.hpp"
@@ -30,6 +31,10 @@ namespace
     using Fp2 = FP2Ring<Ring>;
     using Curve = G1<G1Ring>;
     using Point = Curve::ProjPoint;
+    using G2Fp2 = FP2Ring<G1Ring>;
+    using G2Curve = G2<G1Ring>;
+    using G2Point = G2Curve::ProjPoint;
+    using G2Gls = GLSMult<G1Ring>;
     using Fp12 = FP12Ring<Ring>;
     using Gt = Fp12::StandardElement;
     using Scalar = std::array<uint8_t, 32>;
@@ -46,6 +51,12 @@ namespace
         "21376941196768384225520281067367950057685447020900088958748075253530378121320500655742959737591296384059004826";
     constexpr const char* fourth_decimal =
         "18909215684248729224717959251856983313292853500388512218431526433110727973298343562771608117888706823780184009";
+    constexpr Scalar dense_scalar = {
+        0xa5, 0x5a, 0xc3, 0x3c, 0x96, 0x69, 0xf0, 0x0f,
+        0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0,
+        0x0f, 0xed, 0xcb, 0xa9, 0x87, 0x65, 0x43, 0x21,
+        0x10, 0x32, 0x54, 0x76, 0x08, 0x07, 0x06, 0x3f,
+    };
 
     void BM_VROOM_MatrixNoK_ModMul(benchmark::State& state)
     {
@@ -443,6 +454,53 @@ namespace
         }
     }
 
+    G2Point g2_generator(const G1Ring& ring, const G2Fp2& fp2ring)
+    {
+        AffinePoint<G1Ring::StandardElement> g1;
+        AffinePoint<G2Fp2::StandardElement> g2;
+        bench_bls12_381::setup_g1_g2_generators(ring, g1, g2);
+        return {g2.x, g2.y, fp2ring.one()};
+    }
+
+    void BM_VROOM_MatrixNoK_G2Add(benchmark::State& state)
+    {
+        const G1Ring ring(BigInt(field_modulus_decimal, 10));
+        const G2Fp2 fp2ring(ring);
+        const G2Curve curve;
+        const auto generator = g2_generator(ring, fp2ring);
+        auto current = generator;
+        for (auto _ : state) {
+            current = curve.add_point(current, generator, fp2ring);
+            benchmark::DoNotOptimize(current);
+        }
+    }
+
+    void BM_VROOM_MatrixNoK_G2Double(benchmark::State& state)
+    {
+        const G1Ring ring(BigInt(field_modulus_decimal, 10));
+        const G2Fp2 fp2ring(ring);
+        const G2Curve curve;
+        auto current = g2_generator(ring, fp2ring);
+        for (auto _ : state) {
+            current = curve.double_point(current, fp2ring);
+            benchmark::DoNotOptimize(current);
+        }
+    }
+
+    void BM_VROOM_MatrixNoK_G2GlsCt(benchmark::State& state)
+    {
+        const G1Ring ring(BigInt(field_modulus_decimal, 10));
+        const G2Fp2 fp2ring(ring);
+        const G2Curve curve;
+        const G2Gls gls(ring);
+        auto current = g2_generator(ring, fp2ring);
+        for (auto _ : state) {
+            current = gls.multiply(
+                current, dense_scalar, fp2ring, curve, ring);
+            benchmark::DoNotOptimize(current);
+        }
+    }
+
     Gt gt_generator(const Ring& ring)
     {
         std::array<unsigned char, 12 * 48> bytes = {};
@@ -727,6 +785,9 @@ namespace
         ->UseManualTime()->Unit(benchmark::kMillisecond);
     BENCHMARK(BM_VROOM_MatrixNoK_G1Add);
     BENCHMARK(BM_VROOM_MatrixNoK_G1Double);
+    BENCHMARK(BM_VROOM_MatrixNoK_G2Add);
+    BENCHMARK(BM_VROOM_MatrixNoK_G2Double);
+    BENCHMARK(BM_VROOM_MatrixNoK_G2GlsCt);
     BENCHMARK(BM_VROOM_MatrixNoK_FP12Mul);
     BENCHMARK(BM_VROOM_MatrixNoK_CyclotomicSquare);
     BENCHMARK(BM_VROOM_MatrixNoK_GTInverse)

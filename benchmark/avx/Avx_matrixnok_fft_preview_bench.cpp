@@ -573,3 +573,8 @@ extern "C" void blst_div_by_zz(std::uint64_t val[])
 {
     blst::div_by_zz(val);
 }
+
+extern "C" void blst_div_by_z(std::uint64_t val[])
+{
+    blst::div_by_z(val);
+}
