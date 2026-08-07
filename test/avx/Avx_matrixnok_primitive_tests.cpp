@@ -5,6 +5,7 @@
 #include "blst/avx/rns/matrixnok_fp.h"
 #include "blst/avx/fields/matrixnok_fp2.h"
 #include "blst/avx/fields/matrixnok_fp12.h"
+#include "blst/avx/fields/final_exponentiation.h"
 #include "blst/avx/gt/glv4.h"
 #include "blst/avx/curve/matrixnok_g1.h"
 #include "blst/common/bytes.h"
@@ -42,9 +43,9 @@ namespace blst::avx::test
     static_assert(std::is_empty_v<matrixnok::Fp12RingCandidate>);
     static_assert(std::is_empty_v<matrixnok::G1CurveCandidate>);
 
-    using MatrixNoKFp12Scaffold = matrixnok::Fp12RingCandidate;
+    using MatrixNoKFp12 = matrixnok::Fp12RingCandidate;
     static_assert(std::is_default_constructible_v<
-        typename MatrixNoKFp12Scaffold::StandardElement>);
+        typename MatrixNoKFp12::StandardElement>);
 
     TEST(AvxMatrixNoKPrimitives, PermutationRowsAreCacheLineAligned)
     {
@@ -1073,10 +1074,10 @@ namespace blst::avx::test
         }
     }
 
-    MatrixNoKFp12Scaffold::StandardElement matrixnok_fp12_from_scalar(
+    MatrixNoKFp12::StandardElement matrixnok_fp12_from_scalar(
         const matrixnok::FpRingCandidate& ring, const blst::Fp12& value)
     {
-        MatrixNoKFp12Scaffold::StandardElement out = {};
+        MatrixNoKFp12::StandardElement out = {};
         for (std::size_t coefficient = 0; coefficient < out.size(); ++coefficient) {
             out[coefficient] = ring.from_scalar(
                 value[coefficient / 6][(coefficient % 6) / 2][coefficient % 2]);
@@ -1086,7 +1087,7 @@ namespace blst::avx::test
 
     blst::Fp12 matrixnok_fp12_to_scalar(
         const matrixnok::FpRingCandidate& ring,
-        const MatrixNoKFp12Scaffold::StandardElement& value)
+        const MatrixNoKFp12::StandardElement& value)
     {
         blst::Fp12 out = {};
         for (std::size_t coefficient = 0; coefficient < value.size(); ++coefficient) {
@@ -1107,10 +1108,18 @@ namespace blst::avx::test
         }
     }
 
-    TEST(AvxMatrixNoKPrimitives, Fp12ScaffoldMultiplyAndSquareMatchScalar)
+    FP2Ring<matrixnok::FpRingCandidate>::StandardElement
+    matrixnok_generic_fp2_from_scalar(
+        const matrixnok::FpRingCandidate& ring,
+        const blst::Fp2& value)
+    {
+        return {ring.from_scalar(value[0]), ring.from_scalar(value[1])};
+    }
+
+    TEST(AvxMatrixNoKPrimitives, Fp12MultiplyAndSquareMatchScalar)
     {
         const matrixnok::FpRingCandidate ring;
-        const MatrixNoKFp12Scaffold fp12ring(ring);
+        const MatrixNoKFp12 fp12ring(ring);
         const auto values = matrixnok_scalar_values();
         blst::Fp12 left = {};
         blst::Fp12 right = {};
@@ -1166,7 +1175,7 @@ namespace blst::avx::test
     TEST(AvxMatrixNoKPrimitives, Fp12MapsAndGtExponentiationMatchScalar)
     {
         const matrixnok::FpRingCandidate ring;
-        const MatrixNoKFp12Scaffold fp12ring(ring);
+        const MatrixNoKFp12 fp12ring(ring);
         const auto values = matrixnok_scalar_values();
         blst::Fp12 general = {};
         for (std::size_t coefficient = 0; coefficient < 12; ++coefficient) {
@@ -1178,7 +1187,7 @@ namespace blst::avx::test
         for (std::size_t power = 1; power <= 3; ++power) {
             blst::Fp12 expected = {};
             blst::Fp12::frobenius_map(expected, general, power);
-            MatrixNoKFp12Scaffold::StandardElement actual = {};
+            MatrixNoKFp12::StandardElement actual = {};
             if (power == 1) {
                 actual = fp12ring.fp12_flat_frobenius_map1(candidate_general, ring);
             } else if (power == 2) {
@@ -1227,5 +1236,64 @@ namespace blst::avx::test
             matrixnok_fp12_to_scalar(ring, candidate_ct), expected_ct);
         expect_same_scalar_fp12(
             matrixnok_fp12_to_scalar(ring, candidate_vt), expected_vt);
+    }
+
+    TEST(AvxMatrixNoKPrimitives, Fp12SparseMultiplyAndFinalExpMatchScalar)
+    {
+        const matrixnok::FpRingCandidate ring;
+        const MatrixNoKFp12 fp12ring(ring);
+        const auto values = matrixnok_scalar_values();
+
+        blst::Fp12 general = {};
+        for (std::size_t coefficient = 0; coefficient < 12; ++coefficient) {
+            general[coefficient / 6][(coefficient % 6) / 2][coefficient % 2] =
+                values[(7 * coefficient + 3) % values.size()];
+        }
+        blst::Fp6 sparse = {};
+        for (std::size_t coefficient = 0; coefficient < 6; ++coefficient) {
+            sparse[coefficient / 2][coefficient % 2] =
+                values[(5 * coefficient + 1) % values.size()];
+        }
+
+        const auto candidate_general = matrixnok_fp12_from_scalar(ring, general);
+        const auto constant_term = matrixnok_generic_fp2_from_scalar(ring, sparse[0]);
+        const auto x_term = matrixnok_generic_fp2_from_scalar(ring, sparse[1]);
+        const auto y_term = matrixnok_generic_fp2_from_scalar(ring, sparse[2]);
+
+        blst::Fp12 expected_sparse = {};
+        blst::Fp12::mul_by_xy00z0(expected_sparse, general, sparse);
+        MatrixNoKFp12::StandardElement candidate_sparse = {};
+        fp12ring.flat_mulxy00z0(candidate_sparse, candidate_general,
+            constant_term, x_term, y_term, ring);
+        expect_same_scalar_fp12(
+            matrixnok_fp12_to_scalar(ring, candidate_sparse), expected_sparse);
+
+        auto candidate_alias = candidate_general;
+        fp12ring.flat_mulxy00z0(candidate_alias, candidate_alias,
+            constant_term, x_term, y_term, ring);
+        expect_same_scalar_fp12(
+            matrixnok_fp12_to_scalar(ring, candidate_alias), expected_sparse);
+
+        for (const std::size_t shift : {0U, 1U, 3U}) {
+            blst::Fp12 final_input = {};
+            for (std::size_t coefficient = 0; coefficient < 12; ++coefficient) {
+                final_input[coefficient / 6]
+                    [(coefficient % 6) / 2][coefficient % 2] =
+                    values[(7 * coefficient + 3 + shift) % values.size()];
+            }
+            blst::Fp12 scalar_inverse = {};
+            blst::Fp12::inverse(scalar_inverse, final_input);
+            const auto candidate_input =
+                matrixnok_fp12_from_scalar(ring, final_input);
+            const auto candidate_inverse =
+                matrixnok_fp12_from_scalar(ring, scalar_inverse);
+            const auto candidate_final = final_exp_after_inverse(
+                candidate_input, candidate_inverse, fp12ring, ring);
+            blst::Fp12 expected_final = {};
+            blst::Fp12::final_exp(expected_final, final_input);
+            SCOPED_TRACE("final exponentiation shift " + std::to_string(shift));
+            expect_same_scalar_fp12(
+                matrixnok_fp12_to_scalar(ring, candidate_final), expected_final);
+        }
     }
 } // namespace blst::avx::test

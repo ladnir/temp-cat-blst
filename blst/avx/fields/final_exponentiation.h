@@ -4,8 +4,8 @@
 
 namespace blst::avx {
 
-template<class Element1, class Element2, class Ring>
-inline auto mul_n_sqr(const Element1 &a, const Element2 &b, size_t n, const FP12Ring<Ring> &fp12ring, const Ring &ring) {
+template<class Element1, class Element2, class Fp12RingType, class Ring>
+inline auto mul_n_sqr(const Element1 &a, const Element2 &b, size_t n, const Fp12RingType &fp12ring, const Ring &ring) {
     auto result = fp12ring.recast_common(fp12ring.fp12_flat_mul(a, b, ring));
     for (size_t i = 0; i < n; i++) {
         result = fp12ring.fp12_flat_cyclotomic_sqr(result, ring);
@@ -13,8 +13,8 @@ inline auto mul_n_sqr(const Element1 &a, const Element2 &b, size_t n, const FP12
     return result;
 }
 
-template<class Element, class Ring>
-inline auto raise_to_z_div_by_2(const Element &a, const FP12Ring<Ring> &fp12ring, const Ring &ring) {
+template<class Element, class Fp12RingType, class Ring>
+inline auto raise_to_z_div_by_2(const Element &a, const Fp12RingType &fp12ring, const Ring &ring) {
     auto ret = fp12ring.fp12_flat_cyclotomic_sqr(a, ring);
     ret = mul_n_sqr(ret, a, 2, fp12ring, ring);
     ret = mul_n_sqr(ret, a, 3, fp12ring, ring);
@@ -24,14 +24,18 @@ inline auto raise_to_z_div_by_2(const Element &a, const FP12Ring<Ring> &fp12ring
     return fp12ring.fp12_flat_conjugate(ret, ring);
 }
 
-template<class Element, class Ring>
-inline auto raise_to_z(const Element &b, const FP12Ring<Ring> &fp12ring, const Ring &ring) {
+template<class Element, class Fp12RingType, class Ring>
+inline auto raise_to_z(const Element &b, const Fp12RingType &fp12ring, const Ring &ring) {
     auto a = raise_to_z_div_by_2(b, fp12ring, ring);
     return fp12ring.fp12_flat_cyclotomic_sqr(a, ring);
 }
 
-template<class Ring>
-inline auto final_exp_after_inverse(const typename FP12Ring<Ring>::StandardElement &f, const typename FP12Ring<Ring>::StandardElement &f_inverse, const FP12Ring<Ring> &fp12ring, const Ring &ring) {
+template<class Fp12RingType, class Ring>
+inline auto final_exp_after_inverse(
+    const typename Fp12RingType::StandardElement &f,
+    const typename Fp12RingType::StandardElement &f_inverse,
+    const Fp12RingType &fp12ring,
+    const Ring &ring) {
     // blst pairing.c: 375
     
     auto f_conj = fp12ring.fp12_flat_conjugate(f, ring);
@@ -75,11 +79,11 @@ inline auto final_exp_after_inverse(const typename FP12Ring<Ring>::StandardEleme
 
 // The inversion provider returns a standard FP12 element and accepts the input,
 // FP12 ring, and base ring by const reference.
-template<class Ring, class FP12Inverter>
+template<class Fp12RingType, class Ring, class FP12Inverter>
 inline auto final_exp(
-    const typename FP12Ring<Ring>::StandardElement &f,
+    const typename Fp12RingType::StandardElement &f,
     const FP12Inverter& inverter,
-    const FP12Ring<Ring> &fp12ring,
+    const Fp12RingType &fp12ring,
     const Ring &ring
 ) {
     // Use the inverter provider to compute f inverse
