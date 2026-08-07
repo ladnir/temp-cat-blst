@@ -475,6 +475,15 @@ boundary set. Only the special both-enabled native/emulated AVX-512 compatibilit
 probe remains a separate test executable because it has distinct sources and
 compiler flags.
 
+Phase 18 file-by-file review has started with the public compatibility
+umbrellas. `AUD-185` records that the FFT header, added after the local binding
+split, was omitted from `blst_aux.h` even though the documented umbrella
+contract promised every supported split surface. `blst.h` and `blst_aux.h` now
+expose scalar, AVX, middle-product, and FFT declarations transitively. Strict
+MSVC C11 and C++20 consumers compile, link, and execute an n=1 FFT through only
+`blst.h`; no ABI symbol or runtime implementation changed. Both umbrella files
+are complete at `98faac3fb001f59f72fd1b131c278c101953f1a0`.
+
 No production file should be marked complete before its related implementation
 and validation evidence closes the corresponding upstream rows.
 
