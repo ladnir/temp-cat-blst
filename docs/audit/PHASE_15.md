@@ -574,3 +574,21 @@ The headers and review are complete at
 `ab212fe80784dc516ca995b6823db6227141c52c`. No benchmark, broad suite,
 sanitizer sweep, CUDA, BTx/BTE, Apple CI, or portable-AVX Release run was
 performed.
+
+## Wave 1 C-boundary lifetime packet
+
+The complete scalar C-boundary pass found `AUD-186`, `AUD-194`, and `AUD-197`.
+Caller-owned Pippenger scratch now placement-starts trivial bucket objects
+through a pointer-only Release workspace; empty scratch queries return zero;
+and the pairing and variable-tail uniqueness contexts begin the lifetime of
+each object stored in caller-provided bytes. Exact scalar/Fr conversion also
+received an `AUD-070` follow-up. The implementation is commit
+`02f5e5ff078b251ca3b5f86f4f83ea64af664bc7`.
+
+Focused scalar Release MSM tests pass 12/12, aggregate/pairing passes 9/9,
+uniqueness passes 3/3, and the standalone field-boundary probe passes. For the
+performance-sensitive `AUD-186` repair, optimized MSVC preserves the `0x108`
+core frame, reduces each core Pippenger instantiation by 16 bytes, and leaves
+the G1/G2 public tile wrappers exactly `0xE1`/`0x13D`. Placement lifetime calls
+and construction loops do not survive optimization. No benchmark, broad test,
+CUDA, BTx/BTE, Apple CI, or portable-AVX Release run was performed.

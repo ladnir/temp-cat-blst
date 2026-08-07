@@ -2,6 +2,15 @@
 
 Last updated: 2026-08-06
 
+Wave 1 of the parallel file audit is integrated. Commits `02f5e5f` and
+`aa4c7ed` close the scalar C-boundary lifetime packet and public type/contract
+packet. `AUD-186` through `AUD-197` are recorded; all implementation findings
+are validated or fixed with explicit residual evidence. The performance-
+sensitive Pippenger repair preserves the `0x108` core frame and exact G1/G2
+tile-wrapper sizes, while eliminating the C++ lifetime violation. Focused
+scalar, header, pairing, uniqueness, field-boundary, and Rust evidence passes;
+no benchmark or broad run was used.
+
 ## Current phase
 
 Phases 12-20 are the main production-audit program defined in

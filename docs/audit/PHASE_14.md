@@ -365,3 +365,18 @@ typed copy removes one useless entry pointer comparison from each function.
 Proposed broad scratch erasure (`AUD-180`) was explicitly declined. Generic
 constant-time arithmetic does not promise comprehensive transient erasure, and
 no generic hot-path zeroing was added. No benchmark or broad test ran.
+
+## Selected field-facade closure
+
+Wave 1 completed the small selected native C++ field facades `Fp.h`, `Fp2.h`,
+`Fp12.h`, and `Fr.h` at commit
+`aa4c7ed187f5a63496f0e94f9284108cbd46c7f1`. They are exact aliases and
+declaration re-exports over the owning scalar implementations; none adds a
+wrapper, conversion, dispatch layer, allocation, or executable arithmetic.
+`AUD-196` replaces the reserved Fp2 include guard, and the locally composed Fr
+facade now carries its license/provenance header. The `AUD-070` exact-alias
+follow-up is implemented at `02f5e5ff078b251ca3b5f86f4f83ea64af664bc7`.
+
+Strict C++20 parsing and the standalone Release field-boundary executable pass.
+The owning scalar field implementations retain responsibility for arithmetic,
+constant-time, sanitizer, and cross-platform evidence.

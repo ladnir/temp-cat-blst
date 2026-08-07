@@ -45,6 +45,9 @@ function Get-Classification
         $lower -match '(^|/).*cuda[^/]*\.(c|cc|cpp|cuh|h|hpp)$' -or
         $lower -like 'test/*cuda*' -or
         $lower -in @(
+            'blst/exports.h',
+            'blst/fields/fptile.h',
+            'blst/fields/parallel_prefix.h',
             'blst/common/counting_iterator.h',
             'blst/common/mdspan_compat.h',
             'blst/common/transform_iterator.h'
@@ -286,7 +289,7 @@ $rows = foreach ($path in @($paths) | Sort-Object)
         $old = $oldRows[$path]
         foreach ($column in $preservedColumns)
         {
-            if ($column -in @('audit_status', 'notes') -and
+            if ($column -in @('subsystem', 'audit_status', 'profiles', 'notes') -and
                 [string]$old.disposition -ne [string]$classification.disposition)
             {
                 continue
