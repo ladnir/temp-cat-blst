@@ -322,11 +322,11 @@ class FP2Ring {
     }
 
     INLINE auto mul(const StandardElement &a, const StandardElement &b) const {
-        return batch_reduce_expand(a.prep_left(ring) * b.prep(ring));
+        return batch_reduce_expand(a.prep_left(ring) * b.prep(ring))[0];
     }
 
     INLINE auto square(const StandardElement &a) const {
-        return batch_reduce_expand(a.prep_left(ring).square());
+        return batch_reduce_expand(a.prep_left(ring).square())[0];
     }
 
     template<class X, class Y>

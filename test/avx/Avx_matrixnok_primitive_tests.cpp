@@ -927,6 +927,67 @@ namespace blst::avx::test
         return {ring.from_scalar(value[0]), ring.from_scalar(value[1])};
     }
 
+    TEST(AvxMatrixNoKPrimitives, SelectedFp2CompletionBoundaryMatchesScalar)
+    {
+        const matrixnok::FpRingCandidate ring;
+        const FP2Ring<matrixnok::FpRingCandidate> fp2ring(ring);
+        // These canonical operands make the abstract signed real-coordinate
+        // expression land on a deliberately weak R2 rounding-margin witness.
+        // The selected physical path must apply its negative-range completion
+        // before reduction, retain scalar semantics, and return one Fp2 value
+        // rather than leaking the one-element batch used internally.
+        const blst::Fp2 left = {{
+            canonical_to_montgomery({1, 0, 0, 0, 0, 0}),
+            canonical_to_montgomery({
+                13402431016077863594ULL,
+                2210141511517208575ULL,
+                7435674573564081700ULL,
+                7239337960414712511ULL,
+                5412103778470702295ULL,
+                1873798617647539866ULL,
+            }),
+        }};
+        const blst::Fp2 right = {{
+            canonical_to_montgomery({
+                1618306854713067172ULL,
+                6995949995587336674ULL,
+                6898866514068117168ULL,
+                3807786787093763224ULL,
+                7056063295788903324ULL,
+                203523531925434294ULL,
+            }),
+            canonical_to_montgomery({
+                9396560402482380242ULL,
+                6808606215268122910ULL,
+                13634768106530980159ULL,
+                11464363280807193251ULL,
+                9602730034778851917ULL,
+                8073234691677ULL,
+            }),
+        }};
+
+        blst::Fp2 expected = {};
+        blst::Fp2::mul(expected, left, right);
+        const auto actual = fp2ring.mul(
+            matrixnok_generic_fp2_from_scalar(ring, left),
+            matrixnok_generic_fp2_from_scalar(ring, right));
+        expect_standard_residue_bounds(ring, actual.x());
+        expect_standard_residue_bounds(ring, actual.y());
+        expect_same_scalar_fp(matrixnok_to_scalar(ring, actual.x()), expected[0]);
+        expect_same_scalar_fp(matrixnok_to_scalar(ring, actual.y()), expected[1]);
+
+        blst::Fp2 expected_square = {};
+        blst::Fp2::sqr(expected_square, left);
+        const auto actual_square = fp2ring.square(
+            matrixnok_generic_fp2_from_scalar(ring, left));
+        expect_standard_residue_bounds(ring, actual_square.x());
+        expect_standard_residue_bounds(ring, actual_square.y());
+        expect_same_scalar_fp(
+            matrixnok_to_scalar(ring, actual_square.x()), expected_square[0]);
+        expect_same_scalar_fp(
+            matrixnok_to_scalar(ring, actual_square.y()), expected_square[1]);
+    }
+
     matrixnok::G2ProjectiveCandidate matrixnok_g2_from_scalar(
         const matrixnok::FpRingCandidate& ring,
         const matrixnok::G2Fp2RingCandidate& fp2ring,
