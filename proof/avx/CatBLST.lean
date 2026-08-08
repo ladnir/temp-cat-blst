@@ -19,3 +19,4 @@ import CatBLST.AVX.MatrixNoK.Pipeline
 import CatBLST.AVX.MatrixNoK.SignedPipeline
 import CatBLST.AVX.MatrixNoK.CanonicalImport
 import CatBLST.AVX.MatrixNoK.NegativeR2Counterexample
+import CatBLST.AVX.MatrixNoK.CanonicalImportRepair

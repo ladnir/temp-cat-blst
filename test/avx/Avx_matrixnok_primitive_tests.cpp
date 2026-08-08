@@ -598,8 +598,7 @@ namespace blst::avx::test
             scalar_product(values[7], values[5]));
     }
 
-    // AUD-221: enable with the ConvertTo representative-selection repair.
-    TEST(AvxMatrixNoKPrimitives, DISABLED_CanonicalImportKeepsBothRnsBasesConsistent)
+    TEST(AvxMatrixNoKPrimitives, CanonicalImportKeepsBothRnsBasesConsistent)
     {
         const matrixnok::FpRingCandidate ring;
         const auto canonical_limbs = std::to_array<uint64_t>({

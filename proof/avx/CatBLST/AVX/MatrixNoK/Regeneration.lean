@@ -151,6 +151,12 @@ def regenerateQuotientEstimates
   (shiftedFactors moduli inverses premult inputDigits inputBits).map fun shifted =>
     ceilDiv (shifted * 2 ^ 64) moduli.prod
 
+def regenerateFloorQuotientEstimates
+    (moduli inverses : List Nat)
+    (premult inputDigits inputBits : Nat) : List Nat :=
+  (shiftedFactors moduli inverses premult inputDigits inputBits).map fun shifted =>
+    (shifted * 2 ^ 64) / moduli.prod
+
 theorem r1_matrix_regenerates :
     regenerateMatrix Generated.moduli1 crtInverses1 Generated.moduli2
       Generated.r1_premult Generated.r1_postmult 1 52 1 52 =
@@ -191,7 +197,7 @@ theorem quotient_estimates_regenerate :
         Generated.r1_premult 1 52 = Generated.r1_shifted_quotient_estimations ∧
     regenerateQuotientEstimates Generated.moduli2 crtInverses2
         Generated.r2_premult 1 52 = Generated.r2_shifted_quotient_estimations ∧
-    regenerateQuotientEstimates [Generated.target_modulus] [1]
+    regenerateFloorQuotientEstimates [Generated.target_modulus] [1]
         Generated.convert_to_premult 8 50 =
           Generated.convert_to_shifted_quotient_estimations ∧
     regenerateQuotientEstimates Generated.moduli2 crtInverses2

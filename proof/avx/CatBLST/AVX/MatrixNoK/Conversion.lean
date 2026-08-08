@@ -29,6 +29,51 @@ def approximateCrtNumerator
   ∑ index, scalars index *
     ceilDiv (shiftedFactors index * uint64Modulus) modulus
 
+/-- Fixed-point CRT numerator formed by rounding every coefficient downward.
+This policy is reserved for canonical integer import, where selecting a
+nonnegative representative is part of the following conversion contract. -/
+def approximateCrtNumeratorFloor
+    (scalars shiftedFactors : Fin 8 → Nat) (modulus : Nat) : Nat :=
+  ∑ index, scalars index *
+    ((shiftedFactors index * uint64Modulus) / modulus)
+
+/-- The nonnegative error introduced by rounding one fixed-point CRT factor
+downward to 64 fractional bits. -/
+def fixedPointFloorError (shiftedFactor modulus : Nat) : Nat :=
+  shiftedFactor * uint64Modulus -
+    (shiftedFactor * uint64Modulus / modulus) * modulus
+
+theorem fixed_point_floor_error_decomposition
+    (shiftedFactor modulus : Nat) :
+    (shiftedFactor * uint64Modulus / modulus) * modulus +
+        fixedPointFloorError shiftedFactor modulus =
+      shiftedFactor * uint64Modulus := by
+  unfold fixedPointFloorError
+  exact Nat.add_sub_of_le (Nat.div_mul_le_self _ _)
+
+theorem fixed_point_floor_error_lt
+    (shiftedFactor modulus : Nat) (modulusPositive : 0 < modulus) :
+    fixedPointFloorError shiftedFactor modulus < modulus := by
+  unfold fixedPointFloorError
+  simpa [Nat.mod_eq_sub_mul_div, Nat.mul_comm] using
+    Nat.mod_lt (shiftedFactor * uint64Modulus) modulusPositive
+
+/-- Downward rounding subtracts exactly the aggregate floor error from the
+scaled exact CRT numerator. -/
+theorem aggregate_floor_error_identity
+    (scalars shiftedFactors : Fin 8 → Nat) (modulus : Nat) :
+    approximateCrtNumeratorFloor scalars shiftedFactors modulus * modulus +
+        ∑ index, scalars index *
+          fixedPointFloorError (shiftedFactors index) modulus =
+      exactCrtNumerator scalars shiftedFactors * uint64Modulus := by
+  unfold exactCrtNumerator approximateCrtNumeratorFloor
+  simp only [Finset.sum_mul, ← Finset.sum_add_distrib]
+  apply Finset.sum_congr rfl
+  intro index _
+  have decomposition := fixed_point_floor_error_decomposition
+    (shiftedFactors index) modulus
+  nlinarith
+
 /-- The nonnegative error introduced by rounding one fixed-point CRT factor
 upward to 64 fractional bits. -/
 def fixedPointCeilingError (shiftedFactor modulus : Nat) : Nat :=
@@ -138,6 +183,223 @@ def exactCrtQuotient
 def estimatedCrtQuotient
     (scalars shiftedFactors : Fin 8 → Nat) (modulus : Nat) : Nat :=
   approximateCrtNumerator scalars shiftedFactors modulus / uint64Modulus
+
+def floorEstimatedCrtQuotient
+    (scalars shiftedFactors : Fin 8 → Nat) (modulus : Nat) : Nat :=
+  approximateCrtNumeratorFloor scalars shiftedFactors modulus /
+    uint64Modulus
+
+theorem floor_estimated_quotient_le_exact
+    (scalars shiftedFactors : Fin 8 → Nat) (modulus : Nat)
+    (modulusPositive : 0 < modulus) :
+    floorEstimatedCrtQuotient scalars shiftedFactors modulus ≤
+      exactCrtQuotient scalars shiftedFactors modulus := by
+  let exact := exactCrtNumerator scalars shiftedFactors
+  let approximate := approximateCrtNumeratorFloor scalars shiftedFactors modulus
+  let exactQuotient := exactCrtQuotient scalars shiftedFactors modulus
+  let estimate := floorEstimatedCrtQuotient scalars shiftedFactors modulus
+  have errorIdentity := aggregate_floor_error_identity
+    scalars shiftedFactors modulus
+  have scaledOrder : approximate * modulus ≤ exact * uint64Modulus := by
+    calc
+      approximate * modulus ≤ approximate * modulus +
+          ∑ index, scalars index *
+            fixedPointFloorError (shiftedFactors index) modulus :=
+        Nat.le_add_right _ _
+      _ = exact * uint64Modulus := errorIdentity
+  have exactSplit := Nat.mod_add_div exact modulus
+  have exactRemainder := Nat.mod_lt exact modulusPositive
+  have approximateSplit := Nat.mod_add_div approximate uint64Modulus
+  have wordPositive : 0 < uint64Modulus := by norm_num [uint64Modulus]
+  have approximateRemainder := Nat.mod_lt approximate wordPositive
+  have exactDecomposition :
+      exact = exactQuotient * modulus + exact % modulus := by
+    dsimp [exactQuotient, exactCrtQuotient]
+    nlinarith
+  have approximateDecomposition :
+      approximate = estimate * uint64Modulus +
+        approximate % uint64Modulus := by
+    dsimp [estimate, floorEstimatedCrtQuotient]
+    nlinarith
+  by_contra contradiction
+  have quotientStep : exactQuotient + 1 ≤ estimate := by omega
+  have approximateLower : estimate * uint64Modulus ≤ approximate := by
+    rw [approximateDecomposition]
+    exact Nat.le_add_right _ _
+  have exactUpper : exact < (exactQuotient + 1) * modulus := by
+    rw [exactDecomposition]
+    nlinarith
+  have impossible : exact * uint64Modulus < approximate * modulus := by
+    have quotientScaled := Nat.mul_le_mul_right uint64Modulus quotientStep
+    have quotientScaledAgain := Nat.mul_le_mul_right modulus quotientScaled
+    have approximateScaled := Nat.mul_le_mul_right modulus approximateLower
+    have exactScaled := (Nat.mul_lt_mul_right wordPositive).2 exactUpper
+    calc
+      exact * uint64Modulus <
+          ((exactQuotient + 1) * modulus) * uint64Modulus := exactScaled
+      _ = ((exactQuotient + 1) * uint64Modulus) * modulus := by ring
+      _ ≤ (estimate * uint64Modulus) * modulus := quotientScaledAgain
+      _ ≤ approximate * modulus := approximateScaled
+  exact (not_lt_of_ge scaledOrder) impossible
+
+/-- If the aggregate floor error is less than one fixed-point quotient unit,
+the downward estimate is either the exact CRT quotient or one less. -/
+theorem floor_estimated_quotient_bracket
+    (scalars shiftedFactors : Fin 8 → Nat) (modulus : Nat)
+    (modulusPositive : 0 < modulus)
+    (scalarSumBound : (∑ index, scalars index) < uint64Modulus) :
+    floorEstimatedCrtQuotient scalars shiftedFactors modulus ≤
+        exactCrtQuotient scalars shiftedFactors modulus ∧
+      exactCrtQuotient scalars shiftedFactors modulus ≤
+        floorEstimatedCrtQuotient scalars shiftedFactors modulus + 1 := by
+  let exact := exactCrtNumerator scalars shiftedFactors
+  let approximate := approximateCrtNumeratorFloor scalars shiftedFactors modulus
+  let exactQuotient := exactCrtQuotient scalars shiftedFactors modulus
+  let estimate := floorEstimatedCrtQuotient scalars shiftedFactors modulus
+  let error := ∑ index, scalars index *
+    fixedPointFloorError (shiftedFactors index) modulus
+  have errorIdentity : approximate * modulus + error =
+      exact * uint64Modulus := by
+    exact aggregate_floor_error_identity scalars shiftedFactors modulus
+  have errorBound : error < modulus * uint64Modulus := by
+    have perIndex : ∀ index : Fin 8,
+        scalars index * fixedPointFloorError (shiftedFactors index) modulus ≤
+          scalars index * (modulus - 1) := by
+      intro index
+      apply Nat.mul_le_mul_left
+      have := fixed_point_floor_error_lt
+        (shiftedFactors index) modulus modulusPositive
+      omega
+    have aggregateBound : error ≤
+        (modulus - 1) * ∑ index, scalars index := by
+      dsimp [error]
+      calc
+        (∑ index, scalars index *
+            fixedPointFloorError (shiftedFactors index) modulus) ≤
+            ∑ index, scalars index * (modulus - 1) := by
+              apply Finset.sum_le_sum
+              intro index _
+              exact perIndex index
+        _ = (modulus - 1) * ∑ index, scalars index := by
+              rw [Finset.mul_sum]
+              apply Finset.sum_congr rfl
+              intro index _
+              ring
+    have envelope : (modulus - 1) * (uint64Modulus - 1) <
+        modulus * uint64Modulus := by
+      have wordPositive : 0 < uint64Modulus := by norm_num [uint64Modulus]
+      have modulusPred : modulus - 1 < modulus := by omega
+      calc
+        (modulus - 1) * (uint64Modulus - 1) ≤
+            (modulus - 1) * uint64Modulus :=
+          Nat.mul_le_mul_left _ (Nat.sub_le _ _)
+        _ < modulus * uint64Modulus :=
+          (Nat.mul_lt_mul_right wordPositive).2 modulusPred
+    have sumBound : (∑ index, scalars index) ≤ uint64Modulus - 1 := by omega
+    exact aggregateBound.trans_lt
+      ((Nat.mul_le_mul_left (modulus - 1) sumBound).trans_lt envelope)
+  have exactSplit := Nat.mod_add_div exact modulus
+  have exactRemainder := Nat.mod_lt exact modulusPositive
+  have approximateSplit := Nat.mod_add_div approximate uint64Modulus
+  have wordPositive : 0 < uint64Modulus := by norm_num [uint64Modulus]
+  have approximateRemainder := Nat.mod_lt approximate wordPositive
+  have exactDecomposition :
+      exact = exactQuotient * modulus + exact % modulus := by
+    dsimp [exactQuotient, exactCrtQuotient]
+    nlinarith
+  have approximateDecomposition :
+      approximate = estimate * uint64Modulus +
+        approximate % uint64Modulus := by
+    dsimp [estimate, floorEstimatedCrtQuotient]
+    nlinarith
+  constructor
+  · exact floor_estimated_quotient_le_exact
+      scalars shiftedFactors modulus modulusPositive
+  · by_contra contradiction
+    have quotientStep : estimate + 2 ≤ exactQuotient := by omega
+    have approximateUpper : approximate < (estimate + 1) * uint64Modulus := by
+      rw [approximateDecomposition]
+      nlinarith
+    have exactLower : exactQuotient * modulus ≤ exact := by
+      rw [exactDecomposition]
+      exact Nat.le_add_right _ _
+    have scaledUpper : exact * uint64Modulus <
+        (approximate + uint64Modulus) * modulus := by
+      calc
+        exact * uint64Modulus = approximate * modulus + error :=
+          errorIdentity.symm
+        _ < approximate * modulus + modulus * uint64Modulus :=
+          Nat.add_lt_add_left errorBound _
+        _ = (approximate + uint64Modulus) * modulus := by ring
+    have impossible : (approximate + uint64Modulus) * modulus ≤
+        exact * uint64Modulus := by
+      have approximateStep : approximate + uint64Modulus <
+          (estimate + 2) * uint64Modulus := by
+        calc
+          approximate + uint64Modulus <
+              (estimate + 1) * uint64Modulus + uint64Modulus :=
+            Nat.add_lt_add_right approximateUpper _
+          _ = (estimate + 2) * uint64Modulus := by ring
+      have approximateScaled := Nat.le_of_lt
+        ((Nat.mul_lt_mul_right modulusPositive).2 approximateStep)
+      have quotientScaled := Nat.mul_le_mul_right uint64Modulus quotientStep
+      have quotientScaledAgain := Nat.mul_le_mul_right modulus quotientScaled
+      have exactScaled := Nat.mul_le_mul_right uint64Modulus exactLower
+      calc
+        (approximate + uint64Modulus) * modulus ≤
+            ((estimate + 2) * uint64Modulus) * modulus := approximateScaled
+        _ ≤ (exactQuotient * uint64Modulus) * modulus := quotientScaledAgain
+        _ = (exactQuotient * modulus) * uint64Modulus := by ring
+        _ ≤ exact * uint64Modulus := exactScaled
+    exact (not_lt_of_ge impossible) scaledUpper
+
+def floorCorrectedCrtRepresentative
+    (scalars shiftedFactors : Fin 8 → Nat) (modulus : Nat) : Nat :=
+  exactCrtNumerator scalars shiftedFactors -
+    floorEstimatedCrtQuotient scalars shiftedFactors modulus * modulus
+
+/-- The downward fixed-point estimate chooses a nonnegative representative
+below two input moduli. -/
+theorem floor_corrected_representative_range
+    (scalars shiftedFactors : Fin 8 → Nat) (modulus : Nat)
+    (modulusPositive : 0 < modulus)
+    (scalarSumBound : (∑ index, scalars index) < uint64Modulus) :
+    floorCorrectedCrtRepresentative scalars shiftedFactors modulus <
+      2 * modulus := by
+  have bracket := floor_estimated_quotient_bracket scalars shiftedFactors
+    modulus modulusPositive scalarSumBound
+  have exactSplit := Nat.mod_add_div
+    (exactCrtNumerator scalars shiftedFactors) modulus
+  have exactRemainder := Nat.mod_lt
+    (exactCrtNumerator scalars shiftedFactors) modulusPositive
+  have quotientCases :
+      floorEstimatedCrtQuotient scalars shiftedFactors modulus =
+          exactCrtQuotient scalars shiftedFactors modulus ∨
+        exactCrtQuotient scalars shiftedFactors modulus =
+          floorEstimatedCrtQuotient scalars shiftedFactors modulus + 1 := by
+    omega
+  have exactDecomposition :
+      exactCrtNumerator scalars shiftedFactors =
+        exactCrtQuotient scalars shiftedFactors modulus * modulus +
+          exactCrtNumerator scalars shiftedFactors % modulus := by
+    unfold exactCrtQuotient
+    nlinarith
+  rcases quotientCases with estimateExact | estimateOneLow
+  · unfold floorCorrectedCrtRepresentative
+    rw [estimateExact, exactDecomposition]
+    simp
+    omega
+  · unfold floorCorrectedCrtRepresentative
+    rw [exactDecomposition, estimateOneLow]
+    have rearranged :
+        (floorEstimatedCrtQuotient scalars shiftedFactors modulus + 1) *
+              modulus + exactCrtNumerator scalars shiftedFactors % modulus =
+          floorEstimatedCrtQuotient scalars shiftedFactors modulus * modulus +
+            (modulus + exactCrtNumerator scalars shiftedFactors % modulus) := by
+      ring
+    rw [rearranged]
+    simp
+    omega
 
 theorem estimated_quotient_bracket
     (scalars shiftedFactors : Fin 8 → Nat) (modulus : Nat)

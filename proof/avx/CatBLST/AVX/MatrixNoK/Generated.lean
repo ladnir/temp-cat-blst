@@ -3,13 +3,13 @@ Copyright 2026 Category Labs, Inc.
 SPDX-License-Identifier: Apache-2.0
 
 Generated from blst/avx/generated_matrixnok_constants.hpp.
-Source SHA-256: d1bd0045e8d7f223cb332842bd4c9023daefc715079c0649fbce953cabdfea43
+Source SHA-256: 1643256db5038b0a643ded8053dc833ab2613d20dbc6de8122296f0a4699361a
 Do not edit by hand; run scripts/audit/generate_matrixnok_lean.py.
 -/
 
 namespace CatBLST.AVX.MatrixNoK.Generated
 
-def sourceSha256 : String := "d1bd0045e8d7f223cb332842bd4c9023daefc715079c0649fbce953cabdfea43"
+def sourceSha256 : String := "1643256db5038b0a643ded8053dc833ab2613d20dbc6de8122296f0a4699361a"
 
 def BLS12_381_RNS_DIM : Nat := 8
 def BLS12_381_PADDED_DIM : Nat := 8
@@ -310,14 +310,14 @@ def convert_to_correction : List Nat := [
 ]
 
 def convert_to_shifted_quotient_estimations : List Nat := [
-  15200713242728632729,
-  5071312072634746788,
-  2202183318995235060,
-  14108831146482428149,
-  11804639535700583262,
-  10193862267934074464,
-  11060606862882637129,
-  1523244201501942573
+  15200713242728632728,
+  5071312072634746787,
+  2202183318995235059,
+  14108831146482428148,
+  11804639535700583261,
+  10193862267934074463,
+  11060606862882637128,
+  1523244201501942572
 ]
 
 def convert_from_rns_mat : List (List Nat) := [

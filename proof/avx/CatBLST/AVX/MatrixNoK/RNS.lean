@@ -46,6 +46,15 @@ def fixedMatrixLaneValue
       ZMod outputModulus) *
       fixedCorrection inputModulus postmult outputModulus
 
+def floorFixedMatrixLaneValue
+    (scalars shiftedFactors : Fin 8 → Nat)
+    (inputModulus postmult outputModulus : Nat) : ZMod outputModulus :=
+  (∑ index, (scalars index : ZMod outputModulus) *
+      fixedMatrixEntry (shiftedFactors index) postmult outputModulus) +
+    (floorEstimatedCrtQuotient scalars shiftedFactors inputModulus :
+      ZMod outputModulus) *
+      fixedCorrection inputModulus postmult outputModulus
+
 def rawFixedMatrixLaneValue
     (scalars shiftedFactors : Fin 8 → Nat)
     (postmult outputModulus : Nat) : ZMod outputModulus :=
@@ -80,6 +89,49 @@ theorem fixed_matrix_lane_represents_corrected_crt
   push_cast
   rw [negMod_cast inputModulus outputModulus outputModulusPositive]
   unfold correctedCrtRepresentative exactCrtNumerator
+  push_cast
+  have matrixSum :
+      (∑ index, (scalars index : ZMod outputModulus) *
+        ((shiftedFactors index : ZMod outputModulus) * postmult)) =
+      (∑ index, (scalars index : ZMod outputModulus) * shiftedFactors index) *
+        postmult := by
+    rw [Finset.sum_mul]
+    apply Finset.sum_congr rfl
+    intro index _
+    ring
+  rw [matrixSum]
+  ring
+
+theorem floor_fixed_matrix_lane_represents_corrected_crt
+    (scalars shiftedFactors : Fin 8 → Nat)
+    (inputModulus postmult outputModulus : Nat)
+    (outputModulusPositive : 0 < outputModulus) :
+    floorFixedMatrixLaneValue scalars shiftedFactors
+        inputModulus postmult outputModulus =
+      (postmult : ZMod outputModulus) *
+        floorCorrectedCrtRepresentative
+          scalars shiftedFactors inputModulus := by
+  unfold floorFixedMatrixLaneValue fixedMatrixEntry fixedCorrection
+  simp only [ZMod.natCast_mod]
+  push_cast
+  rw [negMod_cast inputModulus outputModulus outputModulusPositive]
+  unfold floorCorrectedCrtRepresentative exactCrtNumerator
+  have correctionBelow :
+      floorEstimatedCrtQuotient scalars shiftedFactors inputModulus *
+          inputModulus ≤
+        ∑ index, scalars index * shiftedFactors index := by
+    by_cases inputPositive : 0 < inputModulus
+    · have quotientBound := floor_estimated_quotient_le_exact
+        scalars shiftedFactors inputModulus inputPositive
+      have productBound := Nat.mul_le_mul_right inputModulus quotientBound
+      have exactBound := Nat.div_mul_le_self
+        (∑ index, scalars index * shiftedFactors index) inputModulus
+      exact productBound.trans (by
+        simpa [exactCrtQuotient, exactCrtNumerator, Nat.mul_comm] using exactBound)
+    · simp at inputPositive
+      simp [inputPositive, floorEstimatedCrtQuotient,
+        approximateCrtNumeratorFloor]
+  rw [Nat.cast_sub correctionBelow]
   push_cast
   have matrixSum :
       (∑ index, (scalars index : ZMod outputModulus) *

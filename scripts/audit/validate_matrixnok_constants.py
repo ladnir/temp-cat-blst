@@ -191,8 +191,14 @@ def regenerate_matrix(
     input_bits: int,
     output_digits: int,
     output_bits: int,
+    round_quotient_down: bool = False,
 ) -> tuple[list[int], list[int], list[int]]:
-    """Regenerate VROOM's mathematical wide-conversion table independently."""
+    """Regenerate a mathematical wide-conversion table independently.
+
+    VROOM rounds every fixed-point quotient coefficient upward. CatBLST keeps
+    that policy for R1, R2, and ConvertFrom, but rounds ConvertTo downward so a
+    canonical integer import cannot select a negative CRT representative.
+    """
     modulus_in = product(moduli_in)
     modulus_out = product(moduli_out)
     fixed_point = 1 << 64
@@ -210,7 +216,12 @@ def regenerate_matrix(
             for lane_modulus in moduli_out:
                 row.extend(words(target % lane_modulus, output_bits, output_digits))
             matrix.extend(row)
-            estimates.append(ceil_div(shifted * fixed_point, modulus_in))
+            scaled = shifted * fixed_point
+            estimates.append(
+                scaled // modulus_in
+                if round_quotient_down
+                else ceil_div(scaled, modulus_in)
+            )
 
     correction_value = ((-modulus_in) % modulus_out) * postmult % modulus_out
     correction: list[int] = []
@@ -349,8 +360,8 @@ def validate_constants(s: dict[str, int], a: dict[str, list[int]]) -> None:
         require(modulus * factor % radix == 1, f"invalid M2 Montgomery factor for {modulus}")
 
     cases = (
-        ("r1", m1_moduli, m2_moduli, s["r1_premult"], s["r1_postmult"], 1, 52, 1, 52),
-        ("r2", m2_moduli, m1_moduli, s["r2_premult"], s["r2_postmult"], 1, 52, 1, 52),
+        ("r1", m1_moduli, m2_moduli, s["r1_premult"], s["r1_postmult"], 1, 52, 1, 52, False),
+        ("r2", m2_moduli, m1_moduli, s["r2_premult"], s["r2_postmult"], 1, 52, 1, 52, False),
         (
             "convert_to",
             [p],
@@ -361,6 +372,7 @@ def validate_constants(s: dict[str, int], a: dict[str, list[int]]) -> None:
             50,
             1,
             52,
+            True,
         ),
         (
             "convert_from",
@@ -372,9 +384,21 @@ def validate_constants(s: dict[str, int], a: dict[str, list[int]]) -> None:
             52,
             8,
             52,
+            False,
         ),
     )
-    for name, moduli_in, moduli_out, premult, postmult, in_digits, in_bits, out_digits, out_bits in cases:
+    for (
+        name,
+        moduli_in,
+        moduli_out,
+        premult,
+        postmult,
+        in_digits,
+        in_bits,
+        out_digits,
+        out_bits,
+        round_quotient_down,
+    ) in cases:
         matrix, correction, estimates = regenerate_matrix(
             moduli_in,
             moduli_out,
@@ -384,6 +408,7 @@ def validate_constants(s: dict[str, int], a: dict[str, list[int]]) -> None:
             input_bits=in_bits,
             output_digits=out_digits,
             output_bits=out_bits,
+            round_quotient_down=round_quotient_down,
         )
         require(a[f"{name}_rns_mat"] == matrix, f"{name} matrix does not regenerate")
         require(a[f"{name}_correction"] == correction, f"{name} correction does not regenerate")
