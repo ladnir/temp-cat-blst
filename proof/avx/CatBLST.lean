@@ -16,3 +16,5 @@ import CatBLST.AVX.MatrixNoK.CRT
 import CatBLST.AVX.MatrixNoK.BaseField
 import CatBLST.AVX.MatrixNoK.MatrixBounds
 import CatBLST.AVX.MatrixNoK.Pipeline
+import CatBLST.AVX.MatrixNoK.SignedPipeline
+import CatBLST.AVX.MatrixNoK.CanonicalImport

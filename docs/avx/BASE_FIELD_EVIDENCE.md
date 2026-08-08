@@ -158,18 +158,29 @@ directly affected RNS/base-field tests.
 
 ## Formal result and residual selection gates
 
-The pinned Lean workspace now proves the selected Montgomery reducers, exact
+The pinned Lean workspace proves the selected Montgomery reducers, exact
 cyclic R1 schedule, correction-free R1 relation, bound-20 fused M2 stage,
 shifted R2 expansion, fixed quotient, accumulator no-wrap conditions, and the
-complete `selected_base_field_pipeline`. The theorem accepts the actual
+`selected_base_field_pipeline` for nonnegative raw lifts. The theorem accepts the actual
 standard lane domain `<2m_i`, returns both bases below `<2m_i`, and bounds the
 raw QR output representative below `18p` within the C++ `40p` allowance.
 
+Canonical import is now mapped separately and proves that the generated
+fixed-point conversion selects a signed lift in `[-p,p)`. The signed pipeline
+then proves the R1 product relation and the closed intermediate range
+`(-p,18p)` for inputs with absolute value below `40p`. This widens the formal
+model; no C++ defect or production change is claimed.
+
 - Complete review of the in-review P2 C++ transcription rows; Lean does not
   prove compiler lowering or the x86 ISA.
-- Prove the canonical import/export representation round trip. Those matrices
-  are regenerated and their fixed arithmetic is checked, but they are not part
-  of `selected_base_field_pipeline`.
+- Prove the concrete negative-R2 quotient-complement margin, then connect the
+  signed import, selected multiplication, R2 expansion, and canonical export
+  into one reachable representation round trip.
+
+The generic quotient-complement implication and redundant-lane monotonicity
+are machine checked. The outstanding negative-R2 item is specifically the
+canonical-residue numerical margin; it is not presently a confirmed C++
+defect.
 - The isolated Fp2 candidate now passes its operation-level gate; extend the
   candidate through Fp12 and pairing-level workloads before production
   selection.

@@ -88,7 +88,7 @@ witnesses, regenerates all four matrix/correction/quotient families, bounds
 the fixed-point ceiling error, and proves the eight-lane quotient accumulator
 cannot wrap 128 bits for 52-bit inputs and 64-bit estimates.
 
-The selected base-field P1/P2 slice is now machine checked. The proof covers
+The nonnegative selected base-field P1/P2 slice is machine checked. The proof covers
 the exact product, correction-free R1, fused M2, shifted R2, and Montgomery
 reduction bounds; the cyclic R1 source schedule; fixed-quotient correctness;
 the absence of unintended 64-bit accumulator wrap; and a complete
@@ -98,12 +98,30 @@ same representative, and that representative is the field product modulo p.
 The selected raw QR representative is below `18p`, safely inside the C++
 base-redundancy allowance of `40p`.
 
-This closes the mathematical part of initial milestone item 3. The P2
+Canonical import exposed a proof-model distinction rather than a confirmed
+C++ defect: a one-high fixed-point quotient can select the signed raw lift
+`u - p`. `CanonicalImport` now proves the generated convert-to matrix and its
+corrected lift in `[-p,p)`. `SignedPipeline` models unsigned lanes carrying a
+signed common lift, proves the correction-free R1 product for
+`|a|, |b| < 40p`, and proves its result lies in `(-p,18p)`. The existing R2
+exact-quotient theorem closes the nonnegative half. The remaining signed P2
+obligation is the concrete quotient-complement margin showing that negative
+R2 inputs select the one-high quotient and retain their small signed lift. No
+production C++ change is implied.
+
+The generic one-high implication is already machine checked: the aggregate
+ceiling error is an exact sum of per-lane errors, and if that sum covers the
+negative magnitude then the quotient is one high and the corrected CRT value
+is exactly the original negative representative. Redundant residues below
+`2m_i` can only increase this margin, so the remaining numerical certificate
+needs to cover canonical M2 residues only.
+
+This reopens the full-reachability part of initial milestone item 3. The P2
 correspondence rows are in review: source hashes are unchanged from `adf2ed5`,
 the deterministic constant check passes, and the shared scalar/batch schedule
 has an explicit Lean refinement theorem. Acceptance still requires the normal
-review of the C++ transcription and existing native/portable evidence. The
-canonical import/export matrices remain a separate P2 round-trip obligation;
+review of the C++ transcription and existing native/portable evidence.
+Canonical export and the negative R2 quotient-complement lemma remain P2 obligations;
 P3 field-tower constants and formulas are not claimed by the base-field
 multiplication theorem.
 

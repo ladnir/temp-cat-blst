@@ -114,13 +114,22 @@ pairing stack.
 Current status:
 
 - items 1 and 2 are machine checked;
-- item 3 is machine checked by `selected_base_field_pipeline`, including the
-  actual `<2m_i` standard-lane contract, the `<18p` raw representative bound,
-  fixed cyclic R1 schedule equality, and selected accumulator no-wrap bounds;
+- item 3 is machine checked by `selected_base_field_pipeline` for nonnegative
+  raw lifts; canonical import is now proved to expose a signed lift in
+  `[-p,p)`, and the signed correction-free R1 stage is proved to map
+  `|a|,|b| < 40p` into `(-p,18p)`;
 - item 4 is in review against the unchanged `adf2ed5` C++ source hashes and
   existing portable/native evidence; and
-- canonical import/export remains an explicit P2 obligation before the entire
-  base-field representation round trip is called complete.
+- the negative R2 quotient-complement margin and canonical export remain
+  explicit P2 obligations before the entire reachable base-field round trip
+  is called complete.
+
+The structural part of the negative R2 result is checked: exact per-lane
+ceiling errors sum to the aggregate fixed-point error, sufficient error forces
+the quotient to be exactly one high, and that quotient reconstructs the
+original negative lift. Residues in the allowed redundant interval cannot
+reduce the margin. The remaining task is a checkable numerical certificate for
+the canonical-residue margin, not a change to the C++ algorithm.
 
 The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside
 this initial scope. The selected tower uses `FP2Ring<FpRingCandidate>`.

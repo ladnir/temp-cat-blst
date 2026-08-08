@@ -147,8 +147,10 @@ axioms at that boundary; the portable `_cc512_*` implementation and native
 differential tests are executable evidence, not the proof itself. P1 proves
 the generated constants, dimensions, coprimality, inverses, and bounds. P2
 proves the import, multiplication, reductions, and export pipeline. The
-selected multiplication/reduction theorem is complete and its C++
-correspondence is in review; canonical import/export is still pending. The
+nonnegative multiplication/reduction theorem is complete and its C++
+correspondence is in review. Canonical import now has a signed `[-p,p)` model;
+the negative R2 quotient-complement margin and canonical export are still
+pending before the full reachable pipeline is complete. The
 tower, curve, and pairing layers follow only after that base-field slice is
 stable.
 
