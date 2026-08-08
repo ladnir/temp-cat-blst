@@ -73,3 +73,6 @@ a semantic BLS12-381 translation, not a merge.
 - One separately approved serial performance comparison against the current
   CatBLST backend.
 - Formal proofs and residual assumptions recorded in `PROOF_PLAN.md`.
+
+Confirmed defects and the evidence needed for eventual upstream contributions
+are tracked separately in `VROOM_UPSTREAM_FINDINGS.md`.

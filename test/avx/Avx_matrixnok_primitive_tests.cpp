@@ -598,6 +598,43 @@ namespace blst::avx::test
             scalar_product(values[7], values[5]));
     }
 
+    // AUD-221: enable with the ConvertTo representative-selection repair.
+    TEST(AvxMatrixNoKPrimitives, DISABLED_CanonicalImportKeepsBothRnsBasesConsistent)
+    {
+        const matrixnok::FpRingCandidate ring;
+        const auto canonical_limbs = std::to_array<uint64_t>({
+            11721118646859857034ULL,
+            14515276896522647911ULL,
+            16519252582114724462ULL,
+            14272158255930264238ULL,
+            5025824079061901589ULL,
+            593286955712011240ULL,
+        });
+        const auto digits = std::to_array<uint64_t>({
+            500616628141194ULL,
+            1029601075259562ULL,
+            686812189624822ULL,
+            769198589660543ULL,
+            581522751939018ULL,
+            26173626664305ULL,
+            89497429892085ULL,
+            552541535ULL,
+        });
+        const blst::Fp expected = canonical_to_montgomery(canonical_limbs);
+        const auto imported = ring.from_canonical_50bit_digits(digits);
+
+        // Conversion back to the scalar field must preserve every canonical
+        // input. The inherited ceiling estimate selects a negative lift for
+        // this witness, outside ConvertFrom's nonnegative contract.
+        expect_same_scalar_fp(matrixnok_to_scalar(ring, imported), expected);
+
+        // Multiplication consumes both bases. Multiplying by the field identity
+        // must therefore preserve the imported value and exposes any mismatch.
+        const auto multiplied_by_one = ring.multiply(imported, ring.one());
+        expect_same_scalar_fp(
+            matrixnok_to_scalar(ring, multiplied_by_one), expected);
+    }
+
     TEST(AvxMatrixNoKPrimitives, SignedDelayedProductsMatchScalar)
     {
         const matrixnok::FpRingCandidate ring;
