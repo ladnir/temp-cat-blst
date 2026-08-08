@@ -387,6 +387,396 @@ theorem fp2_completion_constant_values :
     fp2BaseRedundantMultiple = 40 ∧ fp2MaxNegativeRns = 1932 := by
   norm_num [fp2BaseRedundantMultiple, fp2MaxNegativeRns]
 
+/--
+The generated M1 completion lanes are the exact wide-Montgomery encoding of
+the semantic offset. The second radix/premultiplier factor is intentional:
+`complete()` adds the constant before the wide M1 reduction removes one
+Montgomery radix.
+-/
+theorem fp2_max_neg_offset_m1_lane_encoding (index : Fin 8) :
+    (listAt8 Generated.max_neg_offset_m1 index.val :
+        ZMod (modulus1At index)) =
+      ((fp2CompletionOffset * ifmaRadix * ifmaRadix *
+        Generated.qr_premult * Generated.qr_premult : Nat) :
+          ZMod (modulus1At index)) := by
+  apply (ZMod.natCast_eq_natCast_iff _ _ _).2
+  fin_cases index <;>
+    norm_num [listAt8, modulus1At, Generated.max_neg_offset_m1,
+      Generated.moduli1, fp2CompletionOffset, fp2BaseRedundantMultiple,
+      fp2MaxNegativeRns, Generated.target_modulus, ifmaRadix,
+      Generated.qr_premult]
+
+/-- The corresponding generated M2 lanes use the cross-basis wide encoding. -/
+theorem fp2_max_neg_offset_m2_lane_encoding (index : Fin 8) :
+    (listAt8 Generated.max_neg_offset_m2 index.val :
+        ZMod (modulus2At index)) =
+      ((fp2CompletionOffset * ifmaRadix * ifmaRadix *
+        crossBasisInverse * crossBasisInverse : Nat) :
+          ZMod (modulus2At index)) := by
+  apply (ZMod.natCast_eq_natCast_iff _ _ _).2
+  fin_cases index <;>
+    norm_num [listAt8, modulus2At, Generated.max_neg_offset_m2,
+      Generated.moduli2, fp2CompletionOffset, fp2BaseRedundantMultiple,
+      fp2MaxNegativeRns, Generated.target_modulus, ifmaRadix,
+      crossBasisInverse, montgomeryRadix, Generated.convert_to_postmult]
+
+theorem fp2_completed_m1_wide_lane_encoding
+    (value : Int) (rawWide : Nat) (index : Fin 8)
+    (rawRepresents :
+      (rawWide : ZMod (modulus1At index)) =
+        value * ifmaRadix * ifmaRadix * Generated.qr_premult *
+          Generated.qr_premult) :
+    (rawWide + listAt8 Generated.max_neg_offset_m1 index.val :
+        ZMod (modulus1At index)) =
+      cppFp2CompletedExpression value * ifmaRadix * ifmaRadix *
+        Generated.qr_premult * Generated.qr_premult := by
+  rw [rawRepresents, fp2_max_neg_offset_m1_lane_encoding index]
+  unfold cppFp2CompletedExpression
+  push_cast
+  ring
+
+theorem fp2_completed_m2_wide_lane_encoding
+    (value : Int) (rawWide : Nat) (index : Fin 8)
+    (rawRepresents :
+      (rawWide : ZMod (modulus2At index)) =
+        value * ifmaRadix * ifmaRadix * crossBasisInverse *
+          crossBasisInverse) :
+    (rawWide + listAt8 Generated.max_neg_offset_m2 index.val :
+        ZMod (modulus2At index)) =
+      cppFp2CompletedExpression value * ifmaRadix * ifmaRadix *
+        crossBasisInverse * crossBasisInverse := by
+  rw [rawRepresents, fp2_max_neg_offset_m2_lane_encoding index]
+  unfold cppFp2CompletedExpression
+  push_cast
+  ring
+
+/--
+Source-shaped M1 composition for `complete()` followed by the selected wide
+reducer. The physical input carries two radix factors; the reducer removes one
+and produces exactly the signed-R1 residue expected by the correction-free
+reconstruction theorem.
+-/
+theorem fp2_completed_m1_reducer_represents
+    (value : Int) (rawWide high low : Nat) (index : Fin 8)
+    (rawRepresents :
+      (rawWide : ZMod (modulus1At index)) =
+        value * ifmaRadix * ifmaRadix * Generated.qr_premult *
+          Generated.qr_premult)
+    (wideSplit : high * ifmaRadix + low =
+      rawWide + listAt8 Generated.max_neg_offset_m1 index.val)
+    (wideFits : high * ifmaRadix + low ≤
+      delayedCombinedTypeBound * modulus1At index * modulus1At index) :
+    Nat.ModEq (modulus1At index)
+      (selectedReduceMasked high low (modulus1At index)
+        (reducer1FactorAt index))
+      (signedR1ReducedValue (cppFp2CompletedExpression value)) := by
+  let modulus := modulus1At index
+  have reducer := selected_delayed_reducer_contract high low modulus
+    (reducer1FactorAt index) (modulus1_member index)
+    (reducer1_factor_relation index) (by simpa [modulus] using wideFits)
+  have splitCast := congrArg
+    (fun result : Nat => (result : ZMod modulus)) wideSplit
+  push_cast at splitCast
+  have completedCast := fp2_completed_m1_wide_lane_encoding
+    value rawWide index rawRepresents
+  have targetCast := signed_r1_reduced_value_lane
+    (cppFp2CompletedExpression value) index
+  have completedCast' :
+      (rawWide + listAt8 Generated.max_neg_offset_m1 index.val :
+          ZMod modulus) =
+        cppFp2CompletedExpression value * ifmaRadix * ifmaRadix *
+          Generated.qr_premult * Generated.qr_premult := by
+    simpa [modulus] using completedCast
+  have targetCast' :
+      (signedR1ReducedValue (cppFp2CompletedExpression value) :
+          ZMod modulus) =
+        cppFp2CompletedExpression value * ifmaRadix *
+          Generated.qr_premult * Generated.qr_premult := by
+    simpa [modulus] using targetCast
+  have equalTimesRadix :
+      (selectedReduceMasked high low modulus (reducer1FactorAt index) :
+          ZMod modulus) * ifmaRadix =
+        (signedR1ReducedValue (cppFp2CompletedExpression value) :
+          ZMod modulus) * ifmaRadix := by
+    rw [reducer.1, splitCast, completedCast', targetCast']
+    ring
+  have radixUnit : IsUnit (ifmaRadix : ZMod modulus) := by
+    simpa [modulus] using ifma_radix_is_unit_modulus1 index
+  have equalCast := radixUnit.mul_right_cancel equalTimesRadix
+  exact (ZMod.natCast_eq_natCast_iff _ _ modulus).1 equalCast
+
+def cppFp2CompletedM1Residue
+    (high low : Fin 8 → Nat) (index : Fin 8) : Nat :=
+  selectedReduceMasked (high index) (low index) (modulus1At index)
+    (reducer1FactorAt index)
+
+theorem fp2_max_neg_offset_m1_lane_bound (index : Fin 8) :
+    listAt8 Generated.max_neg_offset_m1 index.val < modulus1At index := by
+  fin_cases index <;>
+    norm_num [listAt8, modulus1At, Generated.max_neg_offset_m1,
+      Generated.moduli1]
+
+theorem fp2_completed_m1_wide_fits
+    (rawWide high low : Fin 8 → Nat)
+    (rawFit : ∀ index,
+      rawWide index ≤ fp2AccumulatorBound * modulus1At index *
+        modulus1At index)
+    (wideSplit : ∀ index, high index * ifmaRadix + low index =
+      rawWide index + listAt8 Generated.max_neg_offset_m1 index.val) :
+    ∀ index, high index * ifmaRadix + low index ≤
+      delayedCombinedTypeBound * modulus1At index * modulus1At index := by
+  intro index
+  have offsetBound := fp2_max_neg_offset_m1_lane_bound index
+  have modulusPositive : 0 < modulus1At index := by
+    fin_cases index <;> norm_num [modulus1At, listAt8, Generated.moduli1]
+  have offsetSquare :
+      listAt8 Generated.max_neg_offset_m1 index.val ≤
+        modulus1At index * modulus1At index := by
+    nlinarith
+  have rawBound := rawFit index
+  have typeBound : fp2AccumulatorBound + 1 ≤ delayedCombinedTypeBound := by
+    norm_num [fp2AccumulatorBound, fp2PreparedBound,
+      delayedCombinedTypeBound, delayedInputBound, delayedR1TypeBound,
+      r1ExactAccumulationBound, multiplicationProductBound, standardBound]
+  rw [wideSplit index]
+  nlinarith
+
+theorem fp2_completed_m1_residue_represents
+    (value : Int) (rawWide high low : Fin 8 → Nat)
+    (rawRepresents : ∀ index,
+      (rawWide index : ZMod (modulus1At index)) =
+        value * ifmaRadix * ifmaRadix * Generated.qr_premult *
+          Generated.qr_premult)
+    (rawFit : ∀ index,
+      rawWide index ≤ fp2AccumulatorBound * modulus1At index *
+        modulus1At index)
+    (wideSplit : ∀ index, high index * ifmaRadix + low index =
+      rawWide index + listAt8 Generated.max_neg_offset_m1 index.val) :
+    ∀ index, Nat.ModEq (modulus1At index)
+      (cppFp2CompletedM1Residue high low index)
+      (signedR1ReducedValue (cppFp2CompletedExpression value)) := by
+  intro index
+  unfold cppFp2CompletedM1Residue
+  exact fp2_completed_m1_reducer_represents value (rawWide index)
+    (high index) (low index) index (rawRepresents index) (wideSplit index)
+    (fp2_completed_m1_wide_fits rawWide high low rawFit wideSplit index)
+
+theorem fp2_completed_m1_residue_fit
+    (rawWide high low : Fin 8 → Nat)
+    (rawFit : ∀ index,
+      rawWide index ≤ fp2AccumulatorBound * modulus1At index *
+        modulus1At index)
+    (wideSplit : ∀ index, high index * ifmaRadix + low index =
+      rawWide index + listAt8 Generated.max_neg_offset_m1 index.val) :
+    ∀ index,
+      cppFp2CompletedM1Residue high low index < 2 * modulus1At index := by
+  intro index
+  have reducer := selected_delayed_reducer_contract
+    (high index) (low index) (modulus1At index) (reducer1FactorAt index)
+    (modulus1_member index) (reducer1_factor_relation index)
+    (fp2_completed_m1_wide_fits rawWide high low rawFit wideSplit index)
+  exact reducer.2.2
+
+/-- Physical M2 accumulator after `complete()` and batched R1 change-base. -/
+def cppFp2CompletedM2CombinedWideValue
+    (rawWide m1Residues : Fin 8 → Nat) (column : Fin 8) : Nat :=
+  rawWide column + listAt8 Generated.max_neg_offset_m2 column.val +
+    matrixProductValue m1Residues Generated.r1_rns_mat column
+
+def cppFp2CompletedM2Residue
+    (rawWide m1Residues : Fin 8 → Nat) (column : Fin 8) : Nat :=
+  let wide := cppFp2CompletedM2CombinedWideValue rawWide m1Residues column
+  selectedReduceMasked (wide / ifmaRadix) (wide % ifmaRadix)
+    (modulus2At column) (reducer2FactorAt column)
+
+theorem fp2_max_neg_offset_m2_lane_bound (index : Fin 8) :
+    listAt8 Generated.max_neg_offset_m2 index.val < modulus2At index := by
+  fin_cases index <;>
+    norm_num [listAt8, modulus2At, Generated.max_neg_offset_m2,
+      Generated.moduli2]
+
+theorem fp2_completed_m2_combined_wide_lt_25_square
+    (rawWide m1Residues : Fin 8 → Nat)
+    (rawFit : ∀ index,
+      rawWide index ≤ fp2AccumulatorBound * modulus2At index *
+        modulus2At index)
+    (m1Fit : ∀ index, m1Residues index < 2 * modulus1At index)
+    (column : Fin 8) :
+    cppFp2CompletedM2CombinedWideValue rawWide m1Residues column <
+      25 * modulus2At column * modulus2At column := by
+  have matrixBound := r1_matrix_product_lt_16_square
+    m1Residues (by simpa [modulus1At] using m1Fit) column
+  have matrixBound' :
+      matrixProductValue m1Residues Generated.r1_rns_mat column <
+        16 * modulus2At column * modulus2At column := by
+    simpa [modulus2At, Nat.pow_two, Nat.mul_assoc] using matrixBound
+  have offsetBound := fp2_max_neg_offset_m2_lane_bound column
+  have modulusPositive : 0 < modulus2At column := by
+    fin_cases column <;> norm_num [modulus2At, listAt8, Generated.moduli2]
+  have offsetSquare :
+      listAt8 Generated.max_neg_offset_m2 column.val ≤
+        modulus2At column * modulus2At column := by
+    nlinarith
+  have rawBound := rawFit column
+  norm_num [fp2AccumulatorBound, fp2PreparedBound, standardBound] at rawBound
+  unfold cppFp2CompletedM2CombinedWideValue
+  nlinarith
+
+theorem fp2_cross_basis_inverse_lane (index : Fin 8) :
+    ((Generated.M1 * crossBasisInverse : Nat) :
+        ZMod (modulus2At index)) =
+      ((1 : Nat) : ZMod (modulus2At index)) := by
+  apply (ZMod.natCast_eq_natCast_iff _ (1 : Nat) _).2
+  fin_cases index <;>
+    norm_num [modulus2At, listAt8, Generated.moduli2, Generated.M1,
+      crossBasisInverse, montgomeryRadix, Generated.convert_to_postmult]
+
+/--
+The selected batched M2 path composes the completed physical accumulator with
+the R1 change-base contribution and returns the R2 input encoding of the same
+correction-free representative.
+-/
+theorem fp2_completed_m2_residue_represents
+    (value : Int) (rawWide m1Residues : Fin 8 → Nat)
+    (rawRepresents : ∀ index,
+      (rawWide index : ZMod (modulus2At index)) =
+        value * ifmaRadix * ifmaRadix * crossBasisInverse *
+          crossBasisInverse)
+    (rawFit : ∀ index,
+      rawWide index ≤ fp2AccumulatorBound * modulus2At index *
+        modulus2At index)
+    (m1Fit : ∀ index, m1Residues index < 2 * modulus1At index)
+    (m1Represent : ∀ index,
+      Nat.ModEq (modulus1At index) (m1Residues index)
+        (signedR1ReducedValue (cppFp2CompletedExpression value))) :
+    ∀ column, Nat.ModEq (modulus2At column)
+      (cppFp2CompletedM2Residue rawWide m1Residues column)
+      (signedR2InputValue (r1SignedValueFromResidues
+        (cppFp2CompletedExpression value) m1Residues)) := by
+  intro column
+  let modulus := modulus2At column
+  let completed := cppFp2CompletedExpression value
+  let representative := r1SignedValueFromResidues completed m1Residues
+  let wide := cppFp2CompletedM2CombinedWideValue rawWide m1Residues column
+  have wideBound : wide ≤ delayedCombinedTypeBound * modulus * modulus := by
+    have tight := fp2_completed_m2_combined_wide_lt_25_square
+      rawWide m1Residues rawFit m1Fit column
+    have typeBound : 25 ≤ delayedCombinedTypeBound := by
+      norm_num [delayedCombinedTypeBound, delayedInputBound,
+        delayedR1TypeBound, r1ExactAccumulationBound,
+        multiplicationProductBound, standardBound]
+    dsimp only [wide, modulus]
+    nlinarith
+  have split := Nat.mod_add_div wide ifmaRadix
+  have splitReordered :
+      (wide / ifmaRadix) * ifmaRadix + wide % ifmaRadix = wide := by
+    simpa [Nat.add_comm, Nat.mul_comm] using split
+  have reducer := selected_delayed_reducer_contract
+    (wide / ifmaRadix) (wide % ifmaRadix) modulus
+    (reducer2FactorAt column) (modulus2_member column)
+    (reducer2_factor_relation column) (by
+      rw [splitReordered]
+      exact wideBound)
+  have completedCast := fp2_completed_m2_wide_lane_encoding
+    value (rawWide column) column (rawRepresents column)
+  have matrixCast :
+      (matrixProductValue m1Residues Generated.r1_rns_mat column :
+          ZMod modulus) = generatedR1LaneValue m1Residues column := by
+    unfold matrixProductValue generatedR1LaneValue modulus modulus2At
+    push_cast
+    rfl
+  have rawMatrix := generated_r1_lane_represents_raw_crt m1Residues column
+  have combinedCast :
+      (wide : ZMod modulus) =
+        (completed + Generated.target_modulus *
+          r1RawLiftFromResidues m1Residues) * ifmaRadix * ifmaRadix *
+            crossBasisInverse * crossBasisInverse := by
+    unfold wide cppFp2CompletedM2CombinedWideValue
+    push_cast
+    rw [completedCast, matrixCast, rawMatrix]
+    unfold completed
+    rw [r1_postmult_relation]
+    unfold r1RawLiftFromResidues
+    push_cast
+    simp only [montgomeryRadix, ifmaRadix]
+    ring_nf
+    ac_rfl
+  have reconstruction := r1_signed_value_reconstruction
+    completed m1Residues (by simpa [completed] using m1Represent)
+  have reconstructionCast :
+      (representative : ZMod modulus) * Generated.M1 =
+        completed + Generated.target_modulus *
+          r1RawLiftFromResidues m1Residues := by
+    have castEquality := congrArg
+      (fun result : Int => (result : ZMod modulus)) reconstruction
+    unfold r1SignedValueNumerator at castEquality
+    push_cast at castEquality
+    simpa [representative] using castEquality
+  have inverseCast := fp2_cross_basis_inverse_lane column
+  have targetCast := signed_r2_input_lane representative column
+  have splitCast := congrArg
+    (fun result : Nat => (result : ZMod modulus)) splitReordered
+  push_cast at splitCast
+  have outputTimesRadix :
+      (cppFp2CompletedM2Residue rawWide m1Residues column : ZMod modulus) *
+          ifmaRadix =
+        (signedR2InputValue representative : ZMod modulus) * ifmaRadix := by
+    unfold cppFp2CompletedM2Residue
+    dsimp only
+    rw [reducer.1, splitCast, combinedCast, targetCast]
+    rw [← reconstructionCast]
+    change
+      (representative : ZMod modulus) * Generated.M1 * ifmaRadix *
+          ifmaRadix * crossBasisInverse * crossBasisInverse =
+        representative * ifmaRadix * crossBasisInverse * ifmaRadix
+    have inverseCast' :
+        (Generated.M1 : ZMod modulus) * crossBasisInverse = 1 := by
+      simpa only [Nat.cast_mul, Nat.cast_one] using inverseCast
+    rw [show
+      (representative : ZMod modulus) * Generated.M1 * ifmaRadix *
+          ifmaRadix * crossBasisInverse * crossBasisInverse =
+        representative * ifmaRadix * ifmaRadix * crossBasisInverse *
+          (Generated.M1 * crossBasisInverse) by ring,
+      inverseCast']
+    ring
+  have radixUnit : IsUnit (ifmaRadix : ZMod modulus) := by
+    simpa [modulus] using ifma_radix_is_unit_modulus2 column
+  have outputCast := radixUnit.mul_right_cancel outputTimesRadix
+  exact (ZMod.natCast_eq_natCast_iff _ _ modulus).1 outputCast
+
+theorem fp2_completed_m2_residue_fit
+    (rawWide m1Residues : Fin 8 → Nat)
+    (rawFit : ∀ index,
+      rawWide index ≤ fp2AccumulatorBound * modulus2At index *
+        modulus2At index)
+    (m1Fit : ∀ index, m1Residues index < 2 * modulus1At index) :
+    ∀ column,
+      cppFp2CompletedM2Residue rawWide m1Residues column <
+        2 * modulus2At column := by
+  intro column
+  let modulus := modulus2At column
+  let wide := cppFp2CompletedM2CombinedWideValue rawWide m1Residues column
+  have tight := fp2_completed_m2_combined_wide_lt_25_square
+    rawWide m1Residues rawFit m1Fit column
+  have wideBound : wide ≤ delayedCombinedTypeBound * modulus * modulus := by
+    have typeBound : 25 ≤ delayedCombinedTypeBound := by
+      norm_num [delayedCombinedTypeBound, delayedInputBound,
+        delayedR1TypeBound, r1ExactAccumulationBound,
+        multiplicationProductBound, standardBound]
+    dsimp only [wide, modulus]
+    nlinarith
+  have split := Nat.mod_add_div wide ifmaRadix
+  have splitReordered :
+      (wide / ifmaRadix) * ifmaRadix + wide % ifmaRadix = wide := by
+    simpa [Nat.add_comm, Nat.mul_comm] using split
+  have reducer := selected_delayed_reducer_contract
+    (wide / ifmaRadix) (wide % ifmaRadix) modulus
+    (reducer2FactorAt column) (modulus2_member column)
+    (reducer2_factor_relation column) (by
+      rw [splitReordered]
+      exact wideBound)
+  simpa [cppFp2CompletedM2Residue, wide, modulus] using reducer.2.2
+
 theorem fp2_completion_offset_dominates_signed_expression :
     (2 * (fp2BaseRedundantMultiple * Generated.target_modulus) ^ 2 : Int) <
       fp2CompletionOffset := by
@@ -501,5 +891,82 @@ theorem fp2_completed_r2_representative_is_exact
       m2ResiduesFit representedNat
   simpa [representative, Int.toNat_of_nonneg representativeNonnegative] using
     exact
+
+/--
+Physical completed M2 reduction followed by the fixed R2 correction returns
+the exact selected Fp2 representative. The remaining producer obligations are
+the raw two-product lane relations and their already modeled `8m²` bounds.
+-/
+theorem fp2_completed_physical_r2_representative_is_exact
+    (value : Int) (rawWide m1Residues : Fin 8 → Nat)
+    (valueBound : |value| <
+      2 * (fp2BaseRedundantMultiple * Generated.target_modulus) ^ 2)
+    (rawRepresents : ∀ index,
+      (rawWide index : ZMod (modulus2At index)) =
+        value * ifmaRadix * ifmaRadix * crossBasisInverse *
+          crossBasisInverse)
+    (rawFit : ∀ index,
+      rawWide index ≤ fp2AccumulatorBound * modulus2At index *
+        modulus2At index)
+    (m1Fit : ∀ index, m1Residues index < 2 * modulus1At index)
+    (m1Represent : ∀ index,
+      Nat.ModEq (modulus1At index) (m1Residues index)
+        (signedR1ReducedValue (cppFp2CompletedExpression value))) :
+    correctedCrtRepresentative
+        (cppFp2CompletedM2Residue rawWide m1Residues)
+        r2ShiftedFactor Generated.M2 =
+      r1SignedValueFromResidues
+        (cppFp2CompletedExpression value) m1Residues := by
+  apply fp2_completed_r2_representative_is_exact value m1Residues
+    (cppFp2CompletedM2Residue rawWide m1Residues) valueBound m1Fit
+    m1Represent
+  · exact fp2_completed_m2_residue_fit rawWide m1Residues rawFit m1Fit
+  · exact fp2_completed_m2_residue_represents value rawWide m1Residues
+      rawRepresents rawFit m1Fit m1Represent
+
+/--
+End-to-end selected completion/reduction packet for one Fp2 coordinate. The
+inputs are the raw two-product wide lanes before `complete()`; all generated
+offset, M1 reduction, R1 change-base, M2 reduction, and R2 correction steps are
+then source-shaped definitions rather than assumed residue relations.
+-/
+theorem fp2_selected_completed_reduction_is_exact
+    (value : Int)
+    (rawM1 m1High m1Low rawM2 : Fin 8 → Nat)
+    (valueBound : |value| <
+      2 * (fp2BaseRedundantMultiple * Generated.target_modulus) ^ 2)
+    (rawM1Represents : ∀ index,
+      (rawM1 index : ZMod (modulus1At index)) =
+        value * ifmaRadix * ifmaRadix * Generated.qr_premult *
+          Generated.qr_premult)
+    (rawM1Fit : ∀ index,
+      rawM1 index ≤ fp2AccumulatorBound * modulus1At index *
+        modulus1At index)
+    (m1WideSplit : ∀ index,
+      m1High index * ifmaRadix + m1Low index =
+        rawM1 index + listAt8 Generated.max_neg_offset_m1 index.val)
+    (rawM2Represents : ∀ index,
+      (rawM2 index : ZMod (modulus2At index)) =
+        value * ifmaRadix * ifmaRadix * crossBasisInverse *
+          crossBasisInverse)
+    (rawM2Fit : ∀ index,
+      rawM2 index ≤ fp2AccumulatorBound * modulus2At index *
+        modulus2At index) :
+    let m1Residues := cppFp2CompletedM1Residue m1High m1Low
+    correctedCrtRepresentative
+        (cppFp2CompletedM2Residue rawM2 m1Residues)
+        r2ShiftedFactor Generated.M2 =
+      r1SignedValueFromResidues
+        (cppFp2CompletedExpression value) m1Residues := by
+  dsimp only
+  let m1Residues := cppFp2CompletedM1Residue m1High m1Low
+  have m1Fit := fp2_completed_m1_residue_fit
+    rawM1 m1High m1Low rawM1Fit m1WideSplit
+  have m1Represent := fp2_completed_m1_residue_represents value rawM1
+    m1High m1Low rawM1Represents rawM1Fit m1WideSplit
+  exact fp2_completed_physical_r2_representative_is_exact value rawM2
+    m1Residues valueBound rawM2Represents rawM2Fit
+    (by simpa [m1Residues] using m1Fit)
+    (by simpa [m1Residues] using m1Represent)
 
 end CatBLST.AVX.MatrixNoK
