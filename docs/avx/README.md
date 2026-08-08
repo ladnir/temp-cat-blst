@@ -106,7 +106,8 @@ remains isolated while formal proof and release gates are pending.
    benchmark gate on Peach. Promote the candidate only if it is correct and
    materially faster without unacceptable regression.
 6. **Formal proof** — prove the selected arithmetic and bounds described in
-   `PROOF_PLAN.md`; bind exact constants and source hashes into the evidence.
+   `PROOF_PLAN.md`, using `MATRIXNOK_CONSTRUCTION.md` as the readable
+   construction map; bind exact constants and source hashes into the evidence.
 7. **Release evidence** — complete native, emulated, sanitizer, fuzz,
    constant-time, API, and audit records.
 

@@ -8,9 +8,9 @@
 
 namespace blst::avx::matrixnok
 {
-    // Isolated production-shaped pairing types for the fixed MatrixNoK field
-    // tower. They deliberately do not participate in public dispatch while
-    // correctness, code generation, and performance are being evaluated.
+    // Selected proof candidate for pairing over the fixed MatrixNoK field
+    // tower. It remains deliberately absent from public dispatch until the
+    // correspondence proof and release gates are complete.
     using MillerCandidate = Miller<FpRingCandidate, Fp12RingCandidate>;
     using PairingInverterCandidate =
         FP12RNS_BLSTInverter<FpRingCandidate, Fp12RingCandidate>;

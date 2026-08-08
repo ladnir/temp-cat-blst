@@ -11,13 +11,15 @@
 namespace blst::avx::matrixnok
 {
     /**
-     * Isolated BLS12-381 Fp2 candidate over the MatrixNoK base field.
+     * Comparison-only BLS12-381 Fp2 microkernel over the MatrixNoK base field.
      *
      * Elements represent `c0 + u*c1` with `u^2 = -1`. Inputs and outputs use
      * the fixed base ring's standard two-basis representation. Operations are
      * allocation-free, nonthrowing, and constant-schedule with respect to field
      * values. Exact output aliasing with either input is supported by the
-     * output-reference wrappers; partial overlap is not.
+     * output-reference wrappers; partial overlap is not. The selected G2 and
+     * pairing construction use the generic `FP2Ring<FpRingCandidate>` instead;
+     * this direct kernel remains outside the initial Lean correspondence scope.
      */
     class Fp2RingCandidate
     {
@@ -60,7 +62,7 @@ namespace blst::avx::matrixnok
             m2_low[1] = zero.mullo(left.c0.m2.data, right.c1.m2.data)
                 .mullo(left.c1.m2.data, right.c0.m2.data);
 
-            constexpr int product_bound = 2 * Fp::standard_bound * Fp::standard_bound;
+            constexpr int product_bound = 2 * Fp::multiply_product_bound;
             static_assert(product_bound == 8);
             const auto result = Fp::template finish_wide_products<product_bound>(
                 m1_high, m1_low, m2_high, m2_low);
@@ -105,7 +107,7 @@ namespace blst::avx::matrixnok
             m2_high[1] = m2_ab_high.add(m2_ab_high);
             m2_low[1] = m2_ab_low.add(m2_ab_low);
 
-            constexpr int product_bound = 2 * Fp::standard_bound * Fp::standard_bound;
+            constexpr int product_bound = 2 * Fp::multiply_product_bound;
             static_assert(product_bound == 8);
             const auto result = Fp::template finish_wide_products<product_bound>(
                 m1_high, m1_low, m2_high, m2_low);

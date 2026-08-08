@@ -10,6 +10,11 @@ or automatic equivalence between arbitrary future C++ edits and the model.
 Those boundaries are connected by explicit assumptions, exact source/constant
 hashes, code-generation inspection, native tests, and differential tests.
 
+`MATRIXNOK_CONSTRUCTION.md` is the readable specification of the selected
+construction, its representation invariants, exact bound ledger, call graph,
+and deliberately duplicated performance schedules. A correspondence theorem
+must agree with both this specification and the mapped executable source.
+
 ## Tooling
 
 Use Lean 4 with a pinned Mathlib toolchain. The proof tree will live under
@@ -105,3 +110,14 @@ The first accepted milestone is deliberately narrow:
 
 Only after that slice is stable should the proof expand into the tower and
 pairing stack.
+
+The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside
+this initial scope. The selected tower uses `FP2Ring<FpRingCandidate>`.
+
+## Semi-freeze discipline
+
+Once the preparation packet records exact hashes, changes to mapped executable
+expressions, constants, bounds, permutations, or operation schedules reopen
+the affected correspondence record. Performance-shaped scalar/batch schedules
+remain separate C++ implementations and refine one shared Lean specification;
+the proof effort is not a reason to merge hot kernels behind an abstraction.

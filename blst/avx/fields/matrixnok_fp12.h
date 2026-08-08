@@ -5,13 +5,15 @@
 #include "fp12.h"
 #include "../rns/matrixnok_fp.h"
 
+#include <algorithm>
 #include <type_traits>
 
 namespace blst::avx::matrixnok
 {
-    // Parameter-bound Fp12 constants for the MatrixNoK RNS basis. This policy
-    // owns no state: every accessor materializes directly from aligned,
-    // independently generated lane constants.
+    // Parameter-bound Fp12 constants for the selected MatrixNoK field tower.
+    // This policy owns no state: every accessor materializes directly from
+    // aligned, independently generated lane constants. Coefficient ordering is
+    // inherited unchanged from FP12Ring and documented in the construction map.
     class Fp12ConstantsCandidate
     {
         using Ring = FpRingCandidate;

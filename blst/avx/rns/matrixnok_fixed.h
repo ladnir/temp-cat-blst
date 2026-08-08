@@ -28,6 +28,13 @@ namespace blst::avx::matrixnok::detail
     inline constexpr int multiply_bits = 52;
     inline constexpr int quotient_precision = 64;
 
+    static_assert(limbs == generated::BLS12_381_RNS_DIM);
+    static_assert(limbs == generated::BLS12_381_PADDED_DIM);
+    static_assert(limbs == generated::BLS12_381_CONVERT_TO_DIGITS);
+    static_assert(element_bits == generated::BLS12_381_CONVERT_TO_RADIX_BITS);
+    static_assert(element_bits < multiply_bits);
+    static_assert(multiply_bits < 64);
+
     struct ReducerConstants
     {
         std::array<std::array<uint64_t, limbs>, log_modulus_multiples> modulus_multiples;
@@ -110,6 +117,10 @@ namespace blst::avx::matrixnok::detail
             const BoundedElement<Bounds<lower_bound, upper_bound>, limbs, element_bits>& value)
         {
             static_assert(lower_bound >= 0);
+            // Per lane, split x at 2^50 and replace each high digit by
+            // high * (2^50 - modulus). The result is congruent to x modulo
+            // the lane modulus and lies below two moduli. This is an ordinary
+            // 64-bit multiply-add, not an RNS-basis change.
             const AVXVector<limbs> t(Parameters::constants().t);
             const auto data = value.data.and_scalar(get_scalar_mask(element_bits))
                 .mullo(value.data.srli(element_bits), t);
@@ -125,6 +136,8 @@ namespace blst::avx::matrixnok::detail
             static_assert(
                 (upper_bound - stop) < (int64_t{1} << log_modulus_multiples));
             auto data = value.data;
+            // Unsigned min implements a conditional subtraction: when data is
+            // smaller, data - multiple underflows and min retains data.
             min_sub_peel<upper_bound, stop, log_modulus_multiples - 1>(data);
             return BoundedElement<Bounds<0, stop>, limbs, element_bits>(data);
         }
@@ -134,6 +147,11 @@ namespace blst::avx::matrixnok::detail
             const BoundedElement<Bounds<0, upper_bound>, limbs, element_bits>& high,
             const AVXVector<limbs>& low)
         {
+            // One radix-2^52 Montgomery step in every lane. The low half
+            // chooses q = low * modulus^-1 (mod 2^52); subtracting the high
+            // half of q*modulus cancels the low radix digit. The +modulus
+            // embedded in negative_moduli keeps the unsigned representative
+            // nonnegative. P1/P2 must prove both the congruence and this bound.
             const AVXVector<limbs> montgomery_factor(
                 Parameters::constants().montgomery_factor);
             const AVXVector<limbs> negative_moduli(
@@ -251,12 +269,18 @@ namespace blst::avx::matrixnok::detail
     template<class Parameters>
     class FixedRNSMatrix
     {
+        // All three entry points below are in/out accumulators. They add the
+        // matrix product and its approximate-quotient correction to the
+        // caller-provided high/low pair; callers pass zero for a pure basis
+        // conversion and an existing product for fused MatrixNoK reduction.
+        // The shifted variants use correction * 2^52 modulo each output
+        // modulus so IFMA high/low accumulation stays in the same radix.
         template<std::size_t index>
         static INLINE void accumulate_registers(
             AVXVector<limbs>& out_high,
             AVXVector<limbs>& out_low,
             const AVXVector<limbs>& residues,
-            uint128_t& raw_quotient)
+            uint128_t& quotient_numerator)
         {
             static_assert(index < limbs);
             const uint64_t scalar = residues.template extract<index>();
@@ -264,22 +288,22 @@ namespace blst::avx::matrixnok::detail
             const AVXVector<limbs> row(Parameters::matrix()[index]);
             out_high = out_high.mulhi_scalar(row, broadcast);
             out_low = out_low.mullo_scalar(row, broadcast);
-            raw_quotient += static_cast<uint128_t>(scalar) *
+            quotient_numerator += static_cast<uint128_t>(scalar) *
                 static_cast<uint128_t>(Parameters::quotient_estimates()[index]);
             if constexpr (index + 1 < limbs) {
                 accumulate_registers<index + 1>(
-                    out_high, out_low, residues, raw_quotient);
+                    out_high, out_low, residues, quotient_numerator);
             }
         }
 
         static INLINE void add_correction(
             AVXVector<limbs>& out_high,
             AVXVector<limbs>& out_low,
-            uint128_t raw_quotient)
+            uint128_t quotient_numerator)
         {
             const AVXVector<limbs> correction(Parameters::correction());
             AVXScalar quotient = Scalar(
-                static_cast<uint64_t>(raw_quotient >> quotient_precision));
+                static_cast<uint64_t>(quotient_numerator >> quotient_precision));
             out_high = out_high.mulhi_scalar(correction, quotient);
             out_low = out_low.mullo_scalar(correction, quotient);
             quotient = scalar_shift(quotient, multiply_bits);
@@ -297,17 +321,17 @@ namespace blst::avx::matrixnok::detail
         {
             std::array<uint64_t, limbs> scalars;
             residues.store(scalars.data());
-            uint128_t raw_quotient = 0;
+            uint128_t quotient_numerator = 0;
             BLST_UNROLL
             for (std::size_t index = 0; index < limbs; ++index) {
                 const AVXScalar broadcast = Scalar(scalars[index]);
                 const AVXVector<limbs> row(Parameters::matrix()[index]);
                 out_high = out_high.mulhi_scalar(row, broadcast);
                 out_low = out_low.mullo_scalar(row, broadcast);
-                raw_quotient += static_cast<uint128_t>(scalars[index]) *
+                quotient_numerator += static_cast<uint128_t>(scalars[index]) *
                     static_cast<uint128_t>(Parameters::quotient_estimates()[index]);
             }
-            add_correction(out_high, out_low, raw_quotient);
+            add_correction(out_high, out_low, quotient_numerator);
         }
 
         static INLINE void reduce_raw_shifted(
@@ -315,12 +339,13 @@ namespace blst::avx::matrixnok::detail
             AVXVector<limbs>& out_high,
             AVXVector<limbs>& out_low)
         {
-            uint128_t raw_quotient = 0;
-            accumulate_registers<0>(out_high, out_low, residues, raw_quotient);
+            uint128_t quotient_numerator = 0;
+            accumulate_registers<0>(
+                out_high, out_low, residues, quotient_numerator);
             const AVXVector<limbs> correction(Parameters::correction());
             const AVXVector<limbs> correction_shift(Parameters::correction_shift());
             AVXScalar quotient = Scalar(
-                static_cast<uint64_t>(raw_quotient >> quotient_precision));
+                static_cast<uint64_t>(quotient_numerator >> quotient_precision));
             out_high = out_high.mulhi_scalar(correction, quotient);
             out_low = out_low.mullo_scalar(correction, quotient);
             quotient = scalar_shift(quotient, multiply_bits);
@@ -340,13 +365,14 @@ namespace blst::avx::matrixnok::detail
             for (std::size_t item = 0; item < batch; ++item) {
                 residues[item].store(scalars[item].data());
             }
-            std::array<uint128_t, batch> raw_quotients = {};
+            std::array<uint128_t, batch> quotient_numerators = {};
             for (std::size_t index = 0; index < limbs; ++index) {
                 const AVXVector<limbs> row(Parameters::matrix()[index]);
                 BLST_UNROLL
                 for (std::size_t item = 0; item < batch; ++item) {
                     const AVXScalar broadcast = Scalar(scalars[item][index]);
-                    raw_quotients[item] += static_cast<uint128_t>(scalars[item][index]) *
+                    quotient_numerators[item] +=
+                        static_cast<uint128_t>(scalars[item][index]) *
                         static_cast<uint128_t>(Parameters::quotient_estimates()[index]);
                     out_high[item] = out_high[item].mulhi_scalar(row, broadcast);
                     out_low[item] = out_low[item].mullo_scalar(row, broadcast);
@@ -359,7 +385,8 @@ namespace blst::avx::matrixnok::detail
             BLST_UNROLL
             for (std::size_t item = 0; item < batch; ++item) {
                 quotients[item] = Scalar(
-                    static_cast<uint64_t>(raw_quotients[item] >> quotient_precision));
+                    static_cast<uint64_t>(
+                        quotient_numerators[item] >> quotient_precision));
                 out_high[item] = out_high[item].mulhi_scalar(correction, quotients[item]);
                 out_low[item] = out_low[item].mullo_scalar(correction, quotients[item]);
                 quotients[item] = scalar_shift(quotients[item], multiply_bits);

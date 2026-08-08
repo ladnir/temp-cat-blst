@@ -13,12 +13,12 @@
 namespace blst::avx::matrixnok
 {
     /**
-     * Isolated production-shaped G2 candidate over the MatrixNoK base ring.
+     * Selected proof candidate for G2 over the MatrixNoK base ring.
      *
      * The candidate reuses the shared complete homogeneous schedule and the
      * generic `FP2Ring`; this facade only fixes their parameter set. It
-     * deliberately has no public dispatch entry while correctness, code
-     * generation, and performance are being validated.
+     * deliberately has no public dispatch entry until the correspondence proof
+     * and release gates are complete.
      */
     using G2Fp2RingCandidate = FP2Ring<FpRingCandidate>;
 

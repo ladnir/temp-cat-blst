@@ -11,9 +11,9 @@
 
 namespace blst::avx::matrixnok
 {
-    // Isolated production-shaped G1 candidate. It deliberately has no public
-    // dispatch entry: callers must opt into the fixed MatrixNoK ring while its
-    // correctness, code generation, and performance gates are being closed.
+    // Selected proof candidate for G1 over the fixed MatrixNoK ring. It remains
+    // deliberately absent from public dispatch until the correspondence proof
+    // and release gates are complete.
     class G1CurveCandidate
     {
     public:

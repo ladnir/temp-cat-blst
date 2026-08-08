@@ -19,17 +19,31 @@ namespace blst::avx::matrixnok
 {
     class Fp2RingCandidate;
 
+    // A field value carries the same element of Fp in two fixed 8-lane RNS
+    // bases. Standard residues are in [0, 2*m_i) lane by lane. The separate
+    // rns_bounds metadata tracks the represented multiple of p across the two
+    // bases; it is a compile-time proof claim, not runtime validation.
     class FpRingCandidate
     {
     public:
         static constexpr int limbs = 8;
         static constexpr int element_bits = 50;
         static constexpr int standard_bound = 2;
-        static constexpr int quotient_error_bound = 16;
         static constexpr int64_t max_add = 800;
         static constexpr int64_t max_rns_multiple = 4309;
         static constexpr int64_t max_negative_rns = 1932;
         static constexpr int64_t base_redundant_multiple = 40;
+        static constexpr int multiply_product_bound =
+            standard_bound * standard_bound;
+        static constexpr int r1_accumulation_bound =
+            limbs * standard_bound;
+        static constexpr int multiply_combined_bound =
+            multiply_product_bound + r1_accumulation_bound;
+
+        static_assert(multiply_product_bound == 4);
+        static_assert(r1_accumulation_bound == 16);
+        static_assert(multiply_combined_bound == 20);
+        static_assert(multiply_combined_bound < base_redundant_multiple);
 
         static constexpr uint64_t MULT_OK_BOUND = uint64_t{1} << (52 - element_bits);
         static constexpr uint64_t STANDARD_BOUND = standard_bound;
@@ -126,9 +140,9 @@ namespace blst::avx::matrixnok
 
             r1_change_base_raw_batch(residues, m2_high, m2_low);
 
-            constexpr int change_base_bound = limbs * standard_bound;
-            constexpr int combined_bound = product_bound + change_base_bound;
-            static_assert(combined_bound < 40);
+            constexpr int combined_bound =
+                product_bound + r1_accumulation_bound;
+            static_assert(combined_bound < base_redundant_multiple);
             using CombinedBound = Bounds<0, combined_bound>;
             using CombinedElement = BoundedElement<CombinedBound, limbs, element_bits>;
             std::array<StandardResidue, batch> m2;
@@ -290,7 +304,7 @@ namespace blst::avx::matrixnok
             return prep<lower, upper, RNSBoundsType, STANDARD_BOUND>(element);
         }
 
-        template<int64_t upper, int64_t lower, class RNSBoundsType>
+        template<int64_t lower, int64_t upper, class RNSBoundsType>
         static INLINE auto negate(const ExpandedElement<
             BoundedElement<Bounds<lower, upper>, limbs, element_bits>,
             RNSBoundsType>& value)
@@ -373,7 +387,10 @@ namespace blst::avx::matrixnok
             detail::ConvertToMatrix::reduce_raw_shifted(
                 AVXVector<limbs>(digits), high, low);
 
-            using ConvertBound = Bounds<0, 800>;
+            // ConvertTo maps canonical radix-2^50 digits directly into M2.
+            // M1 is then derived from that reduced M2 value so both bases are
+            // linked by one explicit conversion path.
+            using ConvertBound = Bounds<0, max_add>;
             using ConvertElement = BoundedElement<ConvertBound, limbs, element_bits>;
             const WideElement<ConvertBound, limbs, element_bits> converted{
                 ConvertElement(high), ConvertElement(low)};
@@ -501,9 +518,7 @@ namespace blst::avx::matrixnok
             }
             r1_change_base_raw_batch(residues, high, low);
 
-            constexpr int64_t change_base_bound =
-                2 * limbs * STANDARD_BOUND;
-            constexpr int64_t combined_bound = A + change_base_bound;
+            constexpr int64_t combined_bound = A + r1_accumulation_bound;
             using CombinedBounds = Bounds<0, combined_bound>;
             using CombinedResidue =
                 BoundedElement<CombinedBounds, limbs, element_bits>;
@@ -596,13 +611,21 @@ namespace blst::avx::matrixnok
 
         static INLINE Element multiply(const Element& left, const Element& right)
         {
+            // Selected MatrixNoK multiplication pipeline:
+            //   1. form products independently in M1 and M2;
+            //   2. Montgomery-reduce M1;
+            //   3. add correction-free R1(M1) to the existing M2 product;
+            //   4. Montgomery-reduce the combined M2 value; and
+            //   5. expand reduced M2 back to M1.
+            // The batch implementation below deliberately spells out the same
+            // stages to preserve its independent throughput-oriented codegen.
             const AVXVector<limbs> zero(0);
             const AVXVector<limbs> m1_high = zero.mulhi(left.m1.data, right.m1.data);
             const AVXVector<limbs> m1_low = zero.mullo(left.m1.data, right.m1.data);
             const AVXVector<limbs> m2_high = zero.mulhi(left.m2.data, right.m2.data);
             const AVXVector<limbs> m2_low = zero.mullo(left.m2.data, right.m2.data);
 
-            using ProductBound = Bounds<0, standard_bound * standard_bound>;
+            using ProductBound = Bounds<0, multiply_product_bound>;
             using ProductElement = BoundedElement<ProductBound, limbs, element_bits>;
             const WideElement<ProductBound, limbs, element_bits> m1_product{
                 ProductElement(m1_high), ProductElement(m1_low)};
@@ -615,11 +638,7 @@ namespace blst::avx::matrixnok
             AVXVector<limbs> low = m2_low;
             r1_change_base_raw(residues, high, low);
 
-            constexpr int change_base_bound = limbs * standard_bound;
-            constexpr int combined_bound = standard_bound * standard_bound + change_base_bound;
-            static_assert(combined_bound == 20);
-            static_assert(combined_bound < 40);
-            using CombinedBound = Bounds<0, combined_bound>;
+            using CombinedBound = Bounds<0, multiply_combined_bound>;
             using CombinedElement = BoundedElement<CombinedBound, limbs, element_bits>;
             const WideElement<CombinedBound, limbs, element_bits> combined{
                 CombinedElement(high), CombinedElement(low)};
@@ -655,7 +674,7 @@ namespace blst::avx::matrixnok
                 high[index] = zero.mulhi(left[index].m2.data, right[index].m2.data);
                 low[index] = zero.mullo(left[index].m2.data, right[index].m2.data);
 
-                using ProductBound = Bounds<0, standard_bound * standard_bound>;
+                using ProductBound = Bounds<0, multiply_product_bound>;
                 using ProductElement = BoundedElement<ProductBound, limbs, element_bits>;
                 const WideElement<ProductBound, limbs, element_bits> m1_product{
                     ProductElement(m1_high), ProductElement(m1_low)};
@@ -665,11 +684,7 @@ namespace blst::avx::matrixnok
 
             r1_change_base_raw_batch(residues, high, low);
 
-            constexpr int change_base_bound = limbs * standard_bound;
-            constexpr int combined_bound = standard_bound * standard_bound + change_base_bound;
-            static_assert(combined_bound == 20);
-            static_assert(combined_bound < 40);
-            using CombinedBound = Bounds<0, combined_bound>;
+            using CombinedBound = Bounds<0, multiply_combined_bound>;
             using CombinedElement = BoundedElement<CombinedBound, limbs, element_bits>;
             std::array<StandardResidue, batch> m2;
             BLST_UNROLL
