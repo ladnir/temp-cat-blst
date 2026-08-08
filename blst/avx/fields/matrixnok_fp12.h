@@ -42,6 +42,8 @@ namespace blst::avx::matrixnok
         }
 
     public:
+        static constexpr bool split_cyclotomic_v3 = true;
+
         Fp12ConstantsCandidate() noexcept = default;
         explicit Fp12ConstantsCandidate(const Ring&) noexcept {}
 

@@ -11,6 +11,14 @@
 #include "../common/gmp_wrapper.h"
 #endif
 
+#if defined(_MSC_VER)
+#define BLST_AVX_FP12_NOINLINE __declspec(noinline)
+#elif defined(__GNUC__) || defined(__clang__)
+#define BLST_AVX_FP12_NOINLINE __attribute__((noinline))
+#else
+#define BLST_AVX_FP12_NOINLINE
+#endif
+
 namespace blst::avx {
 
 template<class Ring, int VERSION>
@@ -45,6 +53,8 @@ class FP12RuntimeConstants {
 	Offset offset_;
 
 public:
+	static constexpr bool split_cyclotomic_v3 = false;
+
 	explicit FP12RuntimeConstants(const Ring& ring)
 	{
 		one_third_ = ring.from_hex("0x11560bf17baa99bc32126fced787c88f984f87adf7ae0c7f9a208c6b4f20a4181472aaa9cb8d555526a9ffffffffc71d");
@@ -460,6 +470,15 @@ class FP12Ring : private Constants {
 		
 	template<int64_t N>
 	inline auto fp12_flat_cyclotomic_sqr_v3(const CommonElement<N> &x, const Ring &ring) const {
+		// The MatrixNoK schedule exhausts the register file when both halves are
+		// inlined together. Keep the default schedule monolithic so this opt-in
+		// does not perturb incumbent code generation.
+		if constexpr (Constants::split_cyclotomic_v3) {
+			return concat(
+				fp12_flat_cyclotomic_sqr_v3_first_split(x, ring),
+				fp12_flat_cyclotomic_sqr_v3_second_split(x, ring));
+		}
+
 		auto minus_x1 = ring.negate(x[1]);
 		auto minus_x3 = ring.negate(x[3]);
 		auto minus_x5 = ring.negate(x[5]);
@@ -499,7 +518,62 @@ class FP12Ring : private Constants {
 		auto expanded_second_half = ring.template batch_expand<6>(reduced_mult_6_cast_3);
 		return concat(expanded_first_half, expanded_second_half);
 	}
-	
+
+	template<int64_t N>
+	BLST_AVX_FP12_NOINLINE auto fp12_flat_cyclotomic_sqr_v3_first_split(
+		const CommonElement<N> &x, const Ring &ring) const {
+		// This deliberately mirrors the first half of the monolithic schedule.
+		// Sharing a common body caused measurable incumbent code growth.
+		auto minus_x1 = ring.negate(x[1]);
+		auto minus_x3 = ring.negate(x[3]);
+		auto minus_x5 = ring.negate(x[5]);
+		auto minus_x7 = ring.negate(x[7]);
+		auto minus_x9 = ring.negate(x[9]);
+		auto minus_x11 = ring.negate(x[11]);
+
+		auto poly_0_pos_shared = x[8] * x[8] + x[9] * minus_x9;
+		auto poly_0_unique = (poly_0_pos_shared + ((x[8] * minus_x9) * _2) + x[0] * x[0] + x[0] * Constants::neg_two_thirds() + x[1] * minus_x1);
+		auto poly_1_unique = (poly_0_pos_shared + ((x[0] * x[1] + x[8] * x[9]) * _2) + x[1] * Constants::neg_two_thirds());
+		auto poly_2_pos_shared = x[4] * x[4] + x[5] * minus_x5;
+		auto poly_2_unique = (poly_2_pos_shared + ((x[4] * minus_x5) * _2) + x[2] * Constants::neg_two_thirds() + x[6] * x[6] + x[7] * minus_x7);
+		auto poly_3_unique = (poly_2_pos_shared + ((x[6] * x[7] + x[4] * x[5]) * _2) + x[3] * Constants::neg_two_thirds());
+		auto poly_4_pos_shared = x[10] * x[10] + x[11] * minus_x11;
+		auto poly_4_unique = (poly_4_pos_shared + ((x[10] * minus_x11) * _2) + x[2] * x[2] + x[3] * minus_x3 + x[4] * Constants::neg_two_thirds());
+		auto poly_5_unique = (poly_4_pos_shared + ((x[2] * x[3] + x[10] * x[11]) * _2) + x[5] * Constants::neg_two_thirds());
+
+		auto reduced = batch_reduce(ring, poly_0_unique, poly_1_unique,
+			poly_2_unique, poly_3_unique, poly_4_unique, poly_5_unique);
+		auto scaled = to_common<6>(ring, reduced[0] * _3,
+			reduced[1] * _3, reduced[2] * _3, reduced[3] * _3,
+			reduced[4] * _3, reduced[5] * _3);
+		return ring.template batch_expand<6>(scaled);
+	}
+
+	template<int64_t N>
+	BLST_AVX_FP12_NOINLINE auto fp12_flat_cyclotomic_sqr_v3_second_split(
+		const CommonElement<N> &x, const Ring &ring) const {
+		// Keep this formula text aligned with the second monolithic half above.
+		auto minus_x7 = ring.negate(x[7]);
+		auto minus_x9 = ring.negate(x[9]);
+		auto minus_x11 = ring.negate(x[11]);
+
+		auto poly_6_pos_shared = (Constants::offset() + x[2] * x[10] + x[3] * minus_x11);
+		auto poly_6_neg_shared = (x[2] * x[11] + x[3] * x[10]);
+		auto poly_6_unique = (poly_6_pos_shared - poly_6_neg_shared + x[6] * Constants::one_third());
+		auto poly_7_unique = (poly_6_pos_shared + poly_6_neg_shared + x[7] * Constants::one_third());
+		auto poly_8_unique = (((x[0] * x[8] + x[1] * minus_x9)) + x[8] * Constants::one_third());
+		auto poly_9_unique = (((x[0] * x[9] + x[1] * x[8])) + x[9] * Constants::one_third());
+		auto poly_10_unique = (((x[4] * x[6] + x[5] * minus_x7)) + x[10] * Constants::one_third());
+		auto poly_11_unique = (((x[4] * x[7] + x[5] * x[6])) + x[11] * Constants::one_third());
+
+		auto reduced = batch_reduce(ring, poly_6_unique, poly_7_unique,
+			poly_8_unique, poly_9_unique, poly_10_unique, poly_11_unique);
+		auto scaled = to_common<6>(ring, reduced[0] * _6,
+			reduced[1] * _6, reduced[2] * _6, reduced[3] * _6,
+			reduced[4] * _6, reduced[5] * _6);
+		return ring.template batch_expand<6>(scaled);
+	}
+
 	template<int64_t N>
 	inline auto fp12_flat_cyclotomic_sqr_v2(const CommonElement<N> &x, const Ring &ring) const {
 		auto minus_x1 = ring.negate(x[1]);
@@ -881,3 +955,5 @@ class FP12Ring : private Constants {
 };
 
 }  // namespace blst::avx
+
+#undef BLST_AVX_FP12_NOINLINE

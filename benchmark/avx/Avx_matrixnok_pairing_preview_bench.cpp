@@ -96,8 +96,46 @@ namespace
         }
     }
 
+    void BM_CatBLST_MatrixNoKCandidate_Fp12Inverse(
+        benchmark::State& state)
+    {
+        const matrixnok::FpRingCandidate ring;
+        const matrixnok::G2Fp2RingCandidate fp2ring(ring);
+        const matrixnok::Fp12RingCandidate fp12ring(ring);
+        const auto g1 = matrixnok_g1_generator(ring);
+        const auto g2 = matrixnok_g2_generator(ring);
+        const matrixnok::MillerCandidate miller(g1, g2, ring);
+        const auto value = miller.miller_loop(ring, fp2ring, fp12ring);
+        const matrixnok::PairingInverterCandidate inverter{};
+        for (auto _ : state) {
+            auto result = inverter.invert(value, fp12ring, ring);
+            benchmark::DoNotOptimize(result);
+        }
+    }
+
+    void BM_CatBLST_MatrixNoKCandidate_FinalExponentAfterInverse(
+        benchmark::State& state)
+    {
+        const matrixnok::FpRingCandidate ring;
+        const matrixnok::G2Fp2RingCandidate fp2ring(ring);
+        const matrixnok::Fp12RingCandidate fp12ring(ring);
+        const auto g1 = matrixnok_g1_generator(ring);
+        const auto g2 = matrixnok_g2_generator(ring);
+        const matrixnok::MillerCandidate miller(g1, g2, ring);
+        const auto value = miller.miller_loop(ring, fp2ring, fp12ring);
+        const matrixnok::PairingInverterCandidate inverter{};
+        const auto inverse = inverter.invert(value, fp12ring, ring);
+        for (auto _ : state) {
+            auto result = blst::avx::final_exp_after_inverse(
+                value, inverse, fp12ring, ring);
+            benchmark::DoNotOptimize(result);
+        }
+    }
+
     BENCHMARK(BM_CatBLST_Incumbent_Miller);
     BENCHMARK(BM_CatBLST_MatrixNoKCandidate_Miller);
     BENCHMARK(BM_CatBLST_Incumbent_Pairing);
     BENCHMARK(BM_CatBLST_MatrixNoKCandidate_Pairing);
+    BENCHMARK(BM_CatBLST_MatrixNoKCandidate_Fp12Inverse);
+    BENCHMARK(BM_CatBLST_MatrixNoKCandidate_FinalExponentAfterInverse);
 } // namespace
