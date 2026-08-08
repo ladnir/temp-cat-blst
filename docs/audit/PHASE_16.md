@@ -316,3 +316,12 @@ theorems prove that both portable low/high results equal the abstract IFMA
 digits for all 52-bit inputs. Correspondence remains `in_review` because the
 C++ transcription, compiler/unsigned-word interpretation, and native x86 IFMA
 semantics are explicit residual assumptions rather than Lean-proved facts.
+
+P1 now has a deterministic full-literal binding from the generated C++ header
+to Lean, guarded by an exact source hash and a no-executable CTest check. The
+first constant theorem packet proves basis dimensions, odd/distinct/pairwise-
+coprime moduli, exact products, dynamic range, required inverse and multiplier
+relations, table shapes and ranges, and the cyclic R1 permutation map. P1 is
+still open for general matrix regeneration, fixed-point quotient bounds, and
+the field-tower encoding relations; the checked-in data snapshot and Python
+validator are not counted as proofs of those remaining claims.

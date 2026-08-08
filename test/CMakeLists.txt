@@ -180,8 +180,15 @@ if(Python3_Interpreter_FOUND)
             --self-test
     )
     set_tests_properties(audit.matrixnok_constants PROPERTIES LABELS "audit;avx512")
+
+    add_test(NAME audit.matrixnok_lean_constants
+        COMMAND ${Python3_EXECUTABLE}
+            "${PROJECT_SOURCE_DIR}/scripts/audit/generate_matrixnok_lean.py"
+            --check
+    )
+    set_tests_properties(audit.matrixnok_lean_constants PROPERTIES LABELS "audit;avx512;formal_proof")
 else()
-    message(WARNING "Python 3 not found; MatrixNoK generated constants will not be validated by CTest")
+    message(WARNING "Python 3 not found; MatrixNoK generated constants and Lean binding will not be validated by CTest")
 endif()
 
 # 5) Auto-discover TEST() cases inside blst_tests and register them with CTest

@@ -16,6 +16,7 @@ Install Elan, then run these commands from `proof/avx`:
 lake update
 lake exe cache get
 lake build
+python ../../scripts/audit/generate_matrixnok_lean.py --check
 ```
 
 Elan selects the exact version in `lean-toolchain`; do not install or select a
@@ -74,6 +75,20 @@ machine checked, but the proof still relies on reviewed source mapping, C++
 unsigned-integer semantics, compiler lowering, and the x86 IFMA specification.
 Those boundaries are intentionally not represented as Lean axioms that could
 make a later theorem appear stronger than it is.
+
+The first P1 constant slice is also machine checked. The deterministic
+`generate_matrixnok_lean.py` snapshot binds every generated C++ literal and
+its source hash. `CatBLST.AVX.MatrixNoK.Constants` proves the selected
+dimensions, modulus ranges, oddness, pairwise coprimality, exact basis
+products, dynamic range, rotation and target inverses, Montgomery factors,
+conversion multiplier relations, fixed-table shapes/ranges, and cyclic R1
+permutation relation.
+
+P1 remains open for the general matrix-regeneration formulas, fixed-point
+quotient bounds, and mathematical derivation of the encoded field-tower
+constants. The generated snapshot and Python regeneration are binding and
+independent evidence, respectively; neither is presented as a substitute for
+those remaining Lean theorems.
 
 ## Resource policy
 

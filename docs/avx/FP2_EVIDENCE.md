@@ -109,7 +109,7 @@ is therefore validated.
 - `matrixnok_change_base.h` SHA-256:
   `74eec0fc27747cb7c27ee4d062ce66c6f601d2283d267659e4a586162de0a032`
 - `generated_matrixnok_constants.hpp` SHA-256:
-  `3b4349e9e9afd763b1297d533e84dcb2ad9c04a92d04bfa557a48a67a3b34302`
+  `d1bd0045e8d7f223cb332842bd4c9023daefc715079c0649fbce953cabdfea43`
 
 Any change to these sources reopens the code-generation, performance, and
 proof correspondence.

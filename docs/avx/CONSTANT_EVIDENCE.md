@@ -10,7 +10,7 @@ tables are not connected to production arithmetic or dispatch in this packet.
 - Upstream Git blob: `d0e0437007f4dec6f193d528ce618f8b516e4fbe`
 - CatBLST path: `blst/avx/generated_matrixnok_constants.hpp`
 - Imported-header SHA-256:
-  `3b4349e9e9afd763b1297d533e84dcb2ad9c04a92d04bfa557a48a67a3b34302`
+  `d1bd0045e8d7f223cb332842bd4c9023daefc715079c0649fbce953cabdfea43`
 - Namespace: `blst::avx::matrixnok::generated`
 
 The data retains VROOM's MIT license and Simon Langowski attribution. The C++
@@ -51,6 +51,16 @@ six corruptions must be rejected.
 - `python scripts/audit/validate_matrixnok_constants.py --self-test` passed.
 - CTest registers the same validation as `audit.matrixnok_constants` when a
   Python 3 interpreter is available; this adds no test executable.
+- `generate_matrixnok_lean.py --check` validates that the committed Lean
+  snapshot contains every current C++ literal and the exact current source
+  hash. CTest registers this as `audit.matrixnok_lean_constants`; it also adds
+  no executable.
+- The initial Lean P1 proof establishes dimensions, modulus ranges, oddness,
+  pairwise coprimality, exact basis products, dynamic range, rotation and
+  target inverses, Montgomery factors, multiplier relations, fixed-table
+  shapes/ranges, and the cyclic R1 permutation relation. General matrix
+  regeneration, quotient bounds, and encoded tower-constant derivations remain
+  open and are not discharged by the generated snapshot.
 
 Native execution is not required for constant regeneration. The candidate
 arithmetic that consumes these tables will require portable differential tests
