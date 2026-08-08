@@ -144,9 +144,13 @@ schedule preserves that boundary value. It does not claim that selected C++
 reaches the value: `FpRingCandidate::complete()` first adds the generated wide
 negative-range offset. `Fp2.lean` now proves that the corresponding semantic
 completion puts every selected two-product coordinate in `[0, 22p)` and that
-R2 is exact throughout that range. The P3 row remains in review until the
-generated `max_neg_offset` lanes and the physical `complete()`/reducer path are
-composed with those semantic theorems.
+R2 is exact throughout that range. Commits `fa2af08` and `aa206e8` then prove
+the generated `max_neg_offset` lanes in both bases, compose the physical
+`complete()`/M1/R1-change-base/M2/R2 path, and prove the raw real/imaginary
+multiply and square lane producers and their tight bounds. `AVX-P3-001` is
+accepted at the exact source hashes; Fp12 and later tower layers remain P3
+work. The reviewed high/low IFMA split and native/compiler semantics remain
+the common P0 boundary rather than an Fp2-specific assumption.
 
 The generated snapshot and Python regeneration remain binding and independent
 executable evidence, respectively; Lean checks the corresponding formulas

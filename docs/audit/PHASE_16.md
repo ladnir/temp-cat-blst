@@ -395,10 +395,12 @@ causes `FpRingCandidate::complete()` to add `max_neg_offset` before reduction.
 
 Proof commit `8cbdc4c` models the semantic generator input for that completion,
 proves the completed representative lies in `[0, 22p)`, and proves exact R2
-correction throughout that range. P3 remains `in_review` because the generated
-wide lane encoding of `max_neg_offset` and the physical `complete()`/reducer
-calls are not yet source-composed with the semantic theorem. The focused
-3,014-job Lean target and trust-word scan pass.
+correction throughout that range. Commits `fa2af08` and `aa206e8` prove the
+generated wide offset lanes in M1 and M2, the raw real/imaginary multiply and
+square producers and bounds, and the complete physical M1/R1-change-base/M2/R2
+path. Selected-Fp2 correspondence row `AVX-P3-001` is accepted at the exact
+source hashes. Fp12 and later P3 layers remain pending. The focused 3,013-job
+Fp2 target, 3,026-job root target, and trust-word scan pass.
 
 The same focused investigation found `AUD-223`: internal `FP2Ring::mul` and
 `square` exposed the one-element batch returned by `batch_reduce_expand`

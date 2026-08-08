@@ -133,7 +133,7 @@ proof correspondence.
   accumulators, exact bound-24 combined values, and conservative
   `800 + 32 = 832` reducer branch are now modeled in
   `proof/avx/CatBLST/AVX/MatrixNoK/Fp2.lean` and bound to current source hashes
-  by the in-review P3 correspondence row.
+  by accepted correspondence row `AVX-P3-001`.
 - The variadic strided layout and independent per-item batch R1 recurrence are
   now checked. A split-`M1` construction demonstrates that the abstract
   uncompleted signed expression can select correction-free representative
@@ -141,9 +141,12 @@ proof correspondence.
   The selected C++ path first calls `complete()`, however, and therefore adds
   the generated wide negative-range offset. Lean now proves the corresponding
   semantic completion produces a representative in `[0, 22p)` and that R2 is
-  exact throughout that range. Bind the generated `max_neg_offset` lane
-  encoding and physical `complete()`/reducer path to these theorems before
-  accepting P3.
+  exact throughout that range. The generated lanes are now proved in both RNS
+  bases and composed through `complete()`, M1 reduction, batched R1
+  change-base, M2 reduction, and R2 correction. Separate raw real/imaginary
+  multiplication and squaring lemmas prove the exact lane relations and tight
+  `8m²` bounds. This accepts selected-Fp2 row `AVX-P3-001`; it does not accept
+  the later Fp12 tower work.
 - `FP2Ring::mul` and `square` now return the single element from their internal
   one-item batch instead of exposing `std::array<StandardElement, 1>` through
   `auto`. The focused completion-boundary regression checks both operations

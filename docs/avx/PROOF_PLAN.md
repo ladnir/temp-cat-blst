@@ -141,11 +141,13 @@ variadic strided layout and pointwise batched R1 recurrence are checked. An
 abstract uncompleted Fp2 expression can select `-1`, and Lean proves that R2
 preserves that boundary value. The selected C++ path does not feed this value
 directly to R2: its negative static range causes `complete()` to add the
-generated wide offset first. The semantic completion is now proved to produce
-a representative in `[0, 22p)`, with exact R2 correction over that whole
-range. The correspondence remains in review until the generated
-`max_neg_offset` lane encoding and physical `complete()`/reducer calls are
-source-composed with those theorems. No C++ arithmetic defect was found.
+generated wide offset first. The semantic completion is proved to produce a
+representative in `[0, 22p)`, with exact R2 correction over that whole range.
+Commits `fa2af08` and `aa206e8` close the former source-composition boundary:
+both generated offset bases, raw multiply/square producers,
+M1 reduction, R1 change-base, M2 reduction, and R2 correction are composed in
+one source-shaped theorem packet. `AVX-P3-001` is accepted; Fp12 and later
+tower layers remain pending. No C++ arithmetic defect was found.
 
 The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside
 this initial scope. The selected tower uses `FP2Ring<FpRingCandidate>`.
