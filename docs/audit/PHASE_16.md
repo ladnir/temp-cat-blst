@@ -388,16 +388,21 @@ claims or project axioms. No C++ build, benchmark, CUDA, or broad suite ran.
 The initial selected-Fp2 packet proves the source-shaped `FP2Ring` formulas,
 prepared negation, variadic strided layout, pointwise batched R1 recurrence,
 and the exact selected delayed-reducer bounds. A follow-up signed-domain review
-found that the proposed nonnegative R1 intermediate invariant is false. Two
-valid canonical field values formed from complementary four-modulus factors of
-`M1` produce the real Fp2 expression `-M1`, whose correction-free R1
-representative is `-1`.
+constructed an abstract uncompleted expression `-M1`, whose correction-free
+R1 representative is `-1`, and proved that R2 preserves that boundary value.
+This does not describe the selected physical path: its negative static range
+causes `FpRingCandidate::complete()` to add `max_neg_offset` before reduction.
 
-Proof commit `ddc6b7e` generalizes the signed R1 theorem to arbitrary signed
-expressions, formalizes that reachable `-1` witness, and proves the existing
-R2 schedule preserves it exactly. This corrects a proof assumption but does
-not establish a C++ defect. P3 remains `in_review`: the exact physical delayed
-M1 producer must still be composed with the signed theorem, and R2's
-fixed-point margin must be proved for every reachable negative representative.
-The focused 3,014-job Lean target and trust-word scan pass. No product build,
-benchmark, CUDA, or broad suite ran.
+Proof commit `8cbdc4c` models the semantic generator input for that completion,
+proves the completed representative lies in `[0, 22p)`, and proves exact R2
+correction throughout that range. P3 remains `in_review` because the generated
+wide lane encoding of `max_neg_offset` and the physical `complete()`/reducer
+calls are not yet source-composed with the semantic theorem. The focused
+3,014-job Lean target and trust-word scan pass.
+
+The same focused investigation found `AUD-223`: internal `FP2Ring::mul` and
+`square` exposed the one-element batch returned by `batch_reduce_expand`
+instead of returning its element. Commit `a01a39b` selects `[0]`, adding no
+runtime work, and the focused portable-Debug completion-boundary regression
+matches scalar Fp2 for multiplication and squaring. No benchmark, CUDA, broad
+suite, or portable-AVX Release build ran.

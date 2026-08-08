@@ -137,13 +137,15 @@ P3 is now in progress. The source-shaped selected Fp2 formulas and the exact
 generic delayed reducer branch are machine checked, including the tight
 `8m²` coordinate and `24m²` combined bounds as well as C++'s conservative
 `832m²` type allowance, `<209m` intermediate, and `<2m` output. The
-variadic strided layout and pointwise batched R1 recurrence are checked. The
-correspondence remains in review while physical delayed M1 coordinates are
-composed through the signed correction-free R1 lift and R2 fixed-point margin.
-The earlier proposed nonnegative intermediate invariant is false: a derived
-valid Fp2 input selects `-1`. Lean proves that R2 preserves this reachable
-negative case, so it is a corrected proof boundary rather than a confirmed
-C++ defect.
+variadic strided layout and pointwise batched R1 recurrence are checked. An
+abstract uncompleted Fp2 expression can select `-1`, and Lean proves that R2
+preserves that boundary value. The selected C++ path does not feed this value
+directly to R2: its negative static range causes `complete()` to add the
+generated wide offset first. The semantic completion is now proved to produce
+a representative in `[0, 22p)`, with exact R2 correction over that whole
+range. The correspondence remains in review until the generated
+`max_neg_offset` lane encoding and physical `complete()`/reducer calls are
+source-composed with those theorems. No C++ arithmetic defect was found.
 
 The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside
 this initial scope. The selected tower uses `FP2Ring<FpRingCandidate>`.

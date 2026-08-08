@@ -135,11 +135,19 @@ proof correspondence.
   `proof/avx/CatBLST/AVX/MatrixNoK/Fp2.lean` and bound to current source hashes
   by the in-review P3 correspondence row.
 - The variadic strided layout and independent per-item batch R1 recurrence are
-  now checked. A valid split-`M1` Fp2 input formally demonstrates that the
-  correction-free R1 representative can be `-1`; the existing R2 schedule is
-  also proved correct for that case. Complete the physical delayed-M1 signed
-  composition and prove the R2 fixed-point margin across every reachable
-  negative representative before accepting P3.
+  now checked. A split-`M1` construction demonstrates that the abstract
+  uncompleted signed expression can select correction-free representative
+  `-1`; the existing R2 schedule is proved correct for that boundary value.
+  The selected C++ path first calls `complete()`, however, and therefore adds
+  the generated wide negative-range offset. Lean now proves the corresponding
+  semantic completion produces a representative in `[0, 22p)` and that R2 is
+  exact throughout that range. Bind the generated `max_neg_offset` lane
+  encoding and physical `complete()`/reducer path to these theorems before
+  accepting P3.
+- `FP2Ring::mul` and `square` now return the single element from their internal
+  one-item batch instead of exposing `std::array<StandardElement, 1>` through
+  `auto`. The focused completion-boundary regression checks both operations
+  against scalar Fp2 and covers the one-result API shape (`AUD-223`).
 - Extend the isolated tower to Fp12 and measure complete pairing workloads
   before changing production dispatch.
 

@@ -138,13 +138,15 @@ implementation's conservative type path: C++ recasts to `MAX_ADD=800`, adds
 the type-level R1 allowance `32`, obtains `832`, returns `<209m` after
 `reduce_wide`, then `reduce_auto<2>` selects mask reduction and returns `<2m`.
 The variadic `x...`/`y...` layout and pointwise batched R1 recurrence are also
-checked. `Fp2SignedBoundary` disproves the proposed nonnegative intermediate
-invariant without claiming a C++ bug: two valid field values whose product is
-`M1` make the real coordinate select correction-free representative `-1`, and
-the existing R2 schedule is proved to preserve that exact value. The P3 row
-remains in review until physical delayed M1 coordinates are composed with the
-signed R1 theorem and R2's fixed-point margin is proved for the complete
-reachable negative range.
+checked. `Fp2SignedBoundary` shows that the uncompleted abstract signed formula
+can select correction-free representative `-1`, and proves the existing R2
+schedule preserves that boundary value. It does not claim that selected C++
+reaches the value: `FpRingCandidate::complete()` first adds the generated wide
+negative-range offset. `Fp2.lean` now proves that the corresponding semantic
+completion puts every selected two-product coordinate in `[0, 22p)` and that
+R2 is exact throughout that range. The P3 row remains in review until the
+generated `max_neg_offset` lanes and the physical `complete()`/reducer path are
+composed with those semantic theorems.
 
 The generated snapshot and Python regeneration remain binding and independent
 executable evidence, respectively; Lean checks the corresponding formulas
