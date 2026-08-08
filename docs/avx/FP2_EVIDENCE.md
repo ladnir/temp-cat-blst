@@ -12,6 +12,13 @@ This packet adds an isolated BLS12-381 Fp2 candidate. It does not change
 production dispatch, the incumbent AVX representation, or a public API.
 Elements represent `c0 + u*c1`, where `u^2 = -1`.
 
+This document is historical performance and differential evidence for the
+direct comparison-only owner `matrixnok_fp2.h`. The formal P3 proof instead
+targets the selected production-shaped `FP2Ring<FpRingCandidate>` in
+`fp2.h`; the two implementations have different delayed-reduction schedules
+and must not share a correspondence claim merely because their field formulas
+agree.
+
 Multiplication retains VROOM's simple four-product formula but combines those
 products into two wide output accumulators before reducing or changing base:
 
@@ -120,11 +127,16 @@ proof correspondence.
 
 ## Residual gates
 
-- Prove both Fp2 formulas over the proved base-field representation.
-- Prove the bound-8 wide accumulators, bound-24 combined second-base values,
-  and absence of unintended 64-bit IFMA accumulator wrap.
-- Bind the eventual Lean declarations to the exact retained C++ and generated
-  constant hashes.
+- The direct comparison-only microkernel retains its historical bound-8 and
+  bound-24 proof obligations if it is ever reconsidered for selection.
+- The selected generic `FP2Ring<FpRingCandidate>` formulas, tight bound-8
+  accumulators, exact bound-24 combined values, and conservative
+  `800 + 32 = 832` reducer branch are now modeled in
+  `proof/avx/CatBLST/AVX/MatrixNoK/Fp2.lean` and bound to current source hashes
+  by the in-review P3 correspondence row.
+- The variadic strided layout and independent per-item batch R1 recurrence are
+  now checked. Complete the physical delayed-M1-to-correction-free-R1 lift and
+  nonnegative R2 composition before accepting P3.
 - Extend the isolated tower to Fp12 and measure complete pairing workloads
   before changing production dispatch.
 

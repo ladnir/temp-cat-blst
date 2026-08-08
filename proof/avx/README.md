@@ -127,6 +127,21 @@ semantics, and `from_vec`'s byte-weaving/REDC transcription remain explicit
 non-Lean boundaries. P3 field-tower constants and formulas are not claimed by
 this base-field theorem.
 
+P3 now begins with the selected generic `FP2Ring<FpRingCandidate>` path, not
+the isolated comparison-only `matrixnok::Fp2RingCandidate`. `Fp2.lean` maps
+the source-shaped `prep_left`, multiply, square, multiply-accumulate,
+multiply-sub-accumulate, nonresidue, and `3b` formulas to
+`Fp[u]/(u^2 + 1)`. Standard preparation and negation retain the physical
+`<2m` component bound, so each two-product coordinate is below `8m²` and its
+exact R1-augmented value is below `24m²`. The proof separately preserves the
+implementation's conservative type path: C++ recasts to `MAX_ADD=800`, adds
+the type-level R1 allowance `32`, obtains `832`, returns `<209m` after
+`reduce_wide`, then `reduce_auto<2>` selects mask reduction and returns `<2m`.
+The variadic `x...`/`y...` layout and pointwise batched R1 recurrence are also
+checked. The P3 row remains in review until each physical delayed M1 coordinate
+is composed through the correction-free R1 lift and proved to enter the
+nonnegative R2 expansion domain.
+
 The generated snapshot and Python regeneration remain binding and independent
 executable evidence, respectively; Lean checks the corresponding formulas
 rather than accepting either tool as the mathematical proof.

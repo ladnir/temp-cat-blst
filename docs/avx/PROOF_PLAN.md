@@ -133,7 +133,13 @@ ConvertTo to floor estimates. The generic estimate is exact or one low, and
 the former exact witness now selects `p-t`, lies below `2p`, and preserves its
 canonical value. Commits `e01ee59` and `f91268d` close the reachable
 base-field P2 composition and its C++ correspondence without changing C++;
-the next milestone is P3 field-tower formulas.
+P3 is now in progress. The source-shaped selected Fp2 formulas and the exact
+generic delayed reducer branch are machine checked, including the tight
+`8m²` coordinate and `24m²` combined bounds as well as C++'s conservative
+`832m²` type allowance, `<209m` intermediate, and `<2m` output. The
+variadic strided layout and pointwise batched R1 recurrence are checked. The
+correspondence remains in review while physical delayed M1 coordinates are
+composed through the correction-free R1 lift and nonnegative R2 expansion.
 
 The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside
 this initial scope. The selected tower uses `FP2Ring<FpRingCandidate>`.
