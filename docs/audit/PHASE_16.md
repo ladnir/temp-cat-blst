@@ -351,7 +351,15 @@ fixes `AUD-222`: scalar almost-inverse output has a private `<2rR` contract,
 while public `Fr::redc` correctly retains its narrower `<rR` contract. The
 private inverse path now checks its exact bound in Debug and performs the same
 backend REDC-plus-`to_mont` sequence as Release, adding no Release work. All 18
-focused MatrixNoK tests now pass locally. No benchmark ran because neither
-repair changes the runtime instruction schedule. Native AVX-512IFMA execution
-and optimized constant-only code-generation comparison remain before
-`AUD-221` is validated.
+focused MatrixNoK tests now pass locally.
+
+Peach validation at exact commit `7a5f094` uses Clang 21.1.8 with `-O3` and
+`-march=native`, native AVX-512 plus the portable compatibility layer, and no
+CUDA, benchmark, or sanitizer target. All 18 focused MatrixNoK tests pass in
+one process. A minimal canonical-import probe compiled at pre-repair commit
+`73cf354` and at `7a5f094` has the same 209-instruction disassembly after
+normalizing immediates (normalized SHA-256
+`fc6f14e0917b310a0188aeccda1f03b2c0f65ae9dec79d5f81ca1cc6beba03c9`).
+The raw diff contains exactly eight changed `movabs` immediates, each reduced
+by one. No benchmark ran because neither repair changes the runtime instruction
+schedule. `AUD-221` is validated.

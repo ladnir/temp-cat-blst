@@ -14,7 +14,7 @@ and correctness evidence suitable for upstream review.
 
 | ID | CatBLST finding | Severity | State | Summary | VROOM paths | Upstream action |
 | --- | --- | --- | --- | --- | --- | --- |
-| VROOM-001 | `AUD-221` | high | fixed in CatBLST; upstream packet pending | MatrixNoK ConvertTo can select a negative CRT representative, violating the immediately following conversion/expansion contracts | `cpu/precompute/precompute.hpp`, `src/bounded_ring.hpp`, generated BLS12-381 MatrixNoK parameters | Submit the canonical witness, focused import/round-trip and multiply-by-one regressions, and CatBLST's floor-estimate repair |
+| VROOM-001 | `AUD-221` | high | ready for upstream PR | MatrixNoK ConvertTo can select a negative CRT representative, violating the immediately following conversion/expansion contracts | `cpu/precompute/precompute.hpp`, `src/bounded_ring.hpp`, generated BLS12-381 MatrixNoK parameters | Submit the canonical witness, focused import/round-trip and multiply-by-one regressions, and CatBLST's floor-estimate repair |
 
 ## VROOM-001: ConvertTo may emit a negative representative
 
@@ -92,9 +92,17 @@ pass, the complete Lean target builds without `sorry`, `admit`, axioms, or
 Debug contract mismatch that initially blocked the G1 FFT oracle was fixed as
 `AUD-222` without changing Release code.
 
-### Remaining evidence before upstream submission
+### Native and code-generation evidence
 
-- Pass the repaired packet on native AVX-512IFMA.
-- Confirm optimized import code differs only in embedded constants.
-- Prepare the VROOM PR against its generator and tests, not only its checked-in
-  generated BLS12-381 table.
+At exact commit `7a5f094`, Peach Clang 21.1.8 passes all 18 focused MatrixNoK
+tests with native AVX-512IFMA and portable compatibility enabled. A minimal
+canonical-import probe compiled with `-O3 -march=native` at pre-repair commit
+`73cf354` and repaired commit `7a5f094` contains 209 instructions in both
+objects. After immediate normalization, the disassemblies are identical with
+SHA-256 `fc6f14e0917b310a0188aeccda1f03b2c0f65ae9dec79d5f81ca1cc6beba03c9`.
+The raw diff contains exactly eight changed `movabs` immediates, each reduced
+by one. No benchmark is required because the instruction schedule is
+unchanged.
+
+The VROOM PR should modify its generator and tests, not only its checked-in
+generated BLS12-381 table.

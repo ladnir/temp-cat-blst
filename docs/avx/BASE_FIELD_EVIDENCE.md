@@ -179,8 +179,10 @@ exact former witness is proved to select its positive complement.
 
 The abstract negative-R2 counterexample remains useful as a boundary theorem:
 R2 is not promised for arbitrary negative representatives. Repaired canonical
-import no longer reaches that domain. `AUD-221` is fixed locally; native AVX
-execution and code-generation inspection remain before validation.
+import no longer reaches that domain. `AUD-221` is validated: all 18 focused
+tests pass locally and under Peach Clang 21 native AVX-512IFMA, and the import
+probe retains the same 209-instruction shape with only eight changed immediate
+constants.
 - The isolated Fp2 candidate now passes its operation-level gate; extend the
   candidate through Fp12 and pairing-level workloads before production
   selection.
