@@ -61,6 +61,7 @@ The fixed bound ledger is:
 | standard input residue | 2 |
 | one elementwise product | 4 |
 | eight-term correction-free R1 contribution | 16 |
+| conservative delayed-path C++ type allowance | 32 |
 | combined M2 product plus R1 contribution | 20 |
 | generated base redundant multiple | 40 |
 | delayed-addition input accepted by `batch_reduce` | 800 |
@@ -68,12 +69,15 @@ The fixed bound ledger is:
 | maximum tracked redundant multiple | 4309 |
 
 The bound 16 is exactly eight input lanes, each below two source moduli. It is
-not the more conservative 32 used by a conventional corrected change of base.
-The generated constants explicitly declare `r1_skip_correction`; the C++ owner
-statically requires that declaration. P2 must prove that omitting the quotient
-correction preserves the represented value; that the direct multiply's
-combined bound 20 is below the generated base redundant multiple 40; and that
-no 64-bit IFMA accumulator wraps.
+stronger than the generic delayed-reduction path's retained C++ type allowance
+32. The latter is deliberately conservative: narrowing it changes selected
+higher-tower code generation and is deferred until a separate benchmark gate.
+It is not the mathematical bound Lean should prove. The generated constants
+explicitly declare `r1_skip_correction`; the C++ owner statically requires that
+declaration. P2 must prove that omitting the quotient correction preserves the
+represented value; that the direct multiply's combined bound 20 is below the
+generated base redundant multiple 40; and that no 64-bit IFMA accumulator
+wraps.
 
 ## Fixed matrix semantics
 

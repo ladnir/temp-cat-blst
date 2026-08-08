@@ -37,11 +37,18 @@ namespace blst::avx::matrixnok
             standard_bound * standard_bound;
         static constexpr int r1_accumulation_bound =
             limbs * standard_bound;
+        // The generic delayed-reduction path deliberately retains its selected
+        // conservative type bound. Narrowing it to the exact R1 contribution
+        // changes template-selected tower codegen and requires a separate
+        // benchmark gate; Lean still proves the stronger bound above.
+        static constexpr int delayed_r1_type_bound =
+            2 * r1_accumulation_bound;
         static constexpr int multiply_combined_bound =
             multiply_product_bound + r1_accumulation_bound;
 
         static_assert(multiply_product_bound == 4);
         static_assert(r1_accumulation_bound == 16);
+        static_assert(delayed_r1_type_bound == 32);
         static_assert(multiply_combined_bound == 20);
         static_assert(multiply_combined_bound < base_redundant_multiple);
 
@@ -518,7 +525,7 @@ namespace blst::avx::matrixnok
             }
             r1_change_base_raw_batch(residues, high, low);
 
-            constexpr int64_t combined_bound = A + r1_accumulation_bound;
+            constexpr int64_t combined_bound = A + delayed_r1_type_bound;
             using CombinedBounds = Bounds<0, combined_bound>;
             using CombinedResidue =
                 BoundedElement<CombinedBounds, limbs, element_bits>;
