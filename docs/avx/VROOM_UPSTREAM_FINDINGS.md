@@ -83,7 +83,10 @@ The Lean packet independently regenerates the floor table and proves:
 - the repaired representative lies in `[0, 2p)` and represents the imported
   canonical field value; and
 - the exact prior witness now selects `p - t`, lies inside the existing R2
-  input range, and preserves the canonical field value.
+  input range, and preserves the canonical field value; and
+- the repaired import composes through selected multiplication and the
+  unchanged ConvertFrom table to the canonical field product, including the
+  128-bit quotient and 64-bit accumulator no-wrap obligations.
 
 The exact portable-Debug import/export and multiply-by-one regression is now
 enabled and passes. The constant validator and generated-Lean source check
@@ -91,6 +94,10 @@ pass, the complete Lean target builds without `sorry`, `admit`, axioms, or
 `native_decide`, and all 18 focused MatrixNoK tests pass. The unrelated scalar
 Debug contract mismatch that initially blocked the G1 FFT oracle was fixed as
 `AUD-222` without changing Release code.
+
+CatBLST commit `e01ee59` adds the final canonical-export and
+import/multiply/export proof. It changes no VROOM-derived C++ and strengthens
+the upstream evidence for the existing `5f0399e` repair.
 
 ### Native and code-generation evidence
 

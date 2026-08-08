@@ -147,14 +147,14 @@ axioms at that boundary; the portable `_cc512_*` implementation and native
 differential tests are executable evidence, not the proof itself. P1 proves
 the generated constants, dimensions, coprimality, inverses, and bounds. P2
 proves the import, multiplication, reductions, and export pipeline. The
-nonnegative multiplication/reduction theorem is complete and its C++
-correspondence is in review. `AUD-221` repaired canonical import by using floor
-quotient estimates only for ConvertTo; its representative is now proved to lie
-in `[0,2p)`, preserve the canonical field value, and satisfy the R2 contract.
-The R1 output characterization, canonical export, and final composition remain
-before the full pipeline is complete. The
-tower, curve, and pairing layers follow only after that base-field slice is
-stable.
+reachable base-field theorem is complete and its C++ correspondence is in
+review. `AUD-221` repaired canonical import by using floor quotient estimates
+only for ConvertTo; its representative is proved to lie in `[0,2p)`, preserve
+the canonical field value, and satisfy the R2 contract. `CanonicalExport`
+models the wide high/low ConvertFrom output, proves its no-wrap envelope, and
+composes import, selected multiplication, and export to the canonical field
+product. The tower, curve, and pairing layers follow only after this
+base-field slice and its correspondence record are stable.
 
 After the proof-facing source hash is recorded, changes to a mapped operation,
 constant, loop schedule, permutation, bound, or representation reopen its

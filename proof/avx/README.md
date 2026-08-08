@@ -114,9 +114,14 @@ correspondence rows are in review: source hashes are unchanged from `adf2ed5`,
 the deterministic constant check passes, and the shared scalar/batch schedule
 has an explicit Lean refinement theorem. Acceptance still requires the normal
 review of the C++ transcription and existing native/portable evidence.
-Canonical export remains a P2 obligation;
-P3 field-tower constants and formulas are not claimed by the base-field
-multiplication theorem.
+`CanonicalExport` closes the remaining mathematical boundary. It reconstructs
+the eight wide radix-`2^52` ConvertFrom coefficients, proves the generated
+matrix and correction represent the exact bounded R2 representative, proves
+the 128-bit quotient and both 64-bit IFMA accumulators cannot wrap, and proves
+both canonical import/export and canonical import/multiply/export. The final
+theorem is conditional only on the ordinary reduced-lane postconditions proved
+by the reducer modules. P3 field-tower constants and formulas are not claimed
+by this base-field theorem.
 
 The generated snapshot and Python regeneration remain binding and independent
 executable evidence, respectively; Lean checks the corresponding formulas

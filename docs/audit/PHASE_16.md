@@ -363,3 +363,13 @@ normalizing immediates (normalized SHA-256
 The raw diff contains exactly eight changed `movabs` immediates, each reduced
 by one. No benchmark ran because neither repair changes the runtime instruction
 schedule. `AUD-221` is validated.
+
+Follow-up proof commit `e01ee59` closes the remaining reachable base-field P2
+boundary. `CanonicalExport` models the exact eight-coefficient wide
+radix-`2^52` result produced by non-shifted ConvertFrom and recombined by
+`from_vec`; proves the quotient numerator stays below `2^128`; proves both
+high and low IFMA accumulators stay below `2^64`; proves canonical
+import/export; and composes repaired import, selected MatrixNoK multiplication,
+and export to the canonical field product. The complete 3,024-job Lean target
+passes without trust escapes. This proof-only commit changes no production
+code and therefore requires no new benchmark or native test run.

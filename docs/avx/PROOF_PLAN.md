@@ -114,21 +114,24 @@ pairing stack.
 Current status:
 
 - items 1 and 2 are machine checked;
-- item 3 is machine checked by `selected_base_field_pipeline` for nonnegative
-  raw lifts; repaired canonical import is proved to produce a representative
-  in `[0,2p)`, preserve the imported field value, and satisfy the R2 contract;
+- item 3 is machine checked by `selected_base_field_pipeline`,
+  `CanonicalImport`, and `CanonicalExport`: repaired import produces a
+  representative in `[0,2p)`, selected multiplication preserves the internal
+  `M1` scaling, and generated ConvertFrom removes that scaling to return the
+  canonical field product;
 - item 4 is in review against the unchanged `adf2ed5` C++ source hashes and
-  existing portable/native evidence; and
-- canonical export and the final end-to-end composition remain explicit P2
-  obligations before the reachable base-field round trip is called complete.
+  existing portable/native evidence. The Lean export model also proves the
+  generated quotient fits 128 bits and the non-shifted ConvertFrom high/low
+  accumulators fit 64 bits before recombination.
 
 The negative-R2 analysis remains checked as a boundary result: the inherited
 R2 schedule is not correct for every abstract representative in `(-p,0)`.
 `AUD-221` repaired the reachable source of such values by changing only
 ConvertTo to floor estimates. The generic estimate is exact or one low, and
 the former exact witness now selects `p-t`, lies below `2p`, and preserves its
-canonical value. The next P2 step is the remaining R1 and canonical-export
-composition.
+canonical value. Commit `e01ee59` closes the reachable base-field P2
+composition without changing C++; the next milestone work is the remaining
+C++ correspondence review, followed by P3 field-tower formulas.
 
 The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside
 this initial scope. The selected tower uses `FP2Ring<FpRingCandidate>`.
