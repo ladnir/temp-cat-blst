@@ -346,9 +346,12 @@ value, composes it with the R2 contract, and proves the exact former witness
 now selects the positive complement. The proof target builds without trust
 escapes.
 
-The enabled exact portable-Debug regression passes, as do the other 17
-focused MatrixNoK cases that reach their comparisons. The remaining G1 FFT
-case aborts earlier in the scalar `Fr::redc` Debug invariant and is recorded as
-`AUD-222`. No benchmark ran because the production change only replaces
-embedded constants. Native AVX-512IFMA execution and optimized constant-only
-code-generation comparison remain before `AUD-221` is validated.
+The enabled exact portable-Debug regression passes. Follow-up commit `1e286e2`
+fixes `AUD-222`: scalar almost-inverse output has a private `<2rR` contract,
+while public `Fr::redc` correctly retains its narrower `<rR` contract. The
+private inverse path now checks its exact bound in Debug and performs the same
+backend REDC-plus-`to_mont` sequence as Release, adding no Release work. All 18
+focused MatrixNoK tests now pass locally. No benchmark ran because neither
+repair changes the runtime instruction schedule. Native AVX-512IFMA execution
+and optimized constant-only code-generation comparison remain before
+`AUD-221` is validated.

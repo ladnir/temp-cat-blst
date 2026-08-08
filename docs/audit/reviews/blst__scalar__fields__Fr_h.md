@@ -6,9 +6,9 @@
 | Profiles | scalar, C, C++, Rust |
 | Review state | in review |
 | Exact review baseline | `535c4c6cdea0f6c31fafe01c305d7bb74015f610` |
-| Remediation commits | `b6a51bb62fa4e52e8349e9d7a17d51617c212e24`, `61c8cd4`, `314c186`, `535c4c6` |
+| Remediation commits | `b6a51bb62fa4e52e8349e9d7a17d51617c212e24`, `61c8cd4`, `314c186`, `535c4c6`, `1e286e2` |
 | Upstream lineage | `54e6e556:src/consts.c`, `src/exports.c`, `src/recip.c`, and `src/vect.c`; no one-to-one file |
-| Findings | `AUD-067`, `AUD-069`, `AUD-070`, `AUD-072`, `AUD-198`, `AUD-199`, `AUD-201`, `AUD-203` |
+| Findings | `AUD-067`, `AUD-069`, `AUD-070`, `AUD-072`, `AUD-198`, `AUD-199`, `AUD-201`, `AUD-203`, `AUD-222` |
 
 ## Review result
 
@@ -49,3 +49,10 @@ inverse reaches fixed-count generated assembly on x86 and fixed-iteration
 portable source; optimized MSVC/Clang/GCC wrappers add no value-dependent
 control flow. Independent-oracle and broader runtime evidence remains phase
 work.
+
+`AUD-222` distinguishes two reduction contracts that the original call graph
+conflated. Public `Fr::redc` remains restricted to `T < rR` and publishes a
+reduced field element. The private almost-inverse is bounded by the
+left-aligned modulus `2r`, may produce a first-stage value below `2r`, and is
+canonicalized by the immediately following `to_mont`. Debug now checks that
+private bound without adding Release instructions.

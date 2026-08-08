@@ -88,14 +88,12 @@ The Lean packet independently regenerates the floor table and proves:
 The exact portable-Debug import/export and multiply-by-one regression is now
 enabled and passes. The constant validator and generated-Lean source check
 pass, the complete Lean target builds without `sorry`, `admit`, axioms, or
-`native_decide`, and 17 focused MatrixNoK tests pass. The remaining G1 FFT
-test stops earlier in scalar `Fr::redc` Debug validation and is tracked
-separately as `AUD-222`; it does not reach the repaired MatrixNoK comparison.
+`native_decide`, and all 18 focused MatrixNoK tests pass. The unrelated scalar
+Debug contract mismatch that initially blocked the G1 FFT oracle was fixed as
+`AUD-222` without changing Release code.
 
 ### Remaining evidence before upstream submission
 
-- Resolve or bypass `AUD-222` with a valid scalar FFT oracle, then pass that
-  remaining focused differential.
 - Pass the repaired packet on native AVX-512IFMA.
 - Confirm optimized import code differs only in embedded constants.
 - Prepare the VROOM PR against its generator and tests, not only its checked-in
