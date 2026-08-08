@@ -76,19 +76,23 @@ unsigned-integer semantics, compiler lowering, and the x86 IFMA specification.
 Those boundaries are intentionally not represented as Lean axioms that could
 make a later theorem appear stronger than it is.
 
-The first P1 constant slice is also machine checked. The deterministic
+The first two P1 constant slices are also machine checked. The deterministic
 `generate_matrixnok_lean.py` snapshot binds every generated C++ literal and
 its source hash. `CatBLST.AVX.MatrixNoK.Constants` proves the selected
 dimensions, modulus ranges, oddness, pairwise coprimality, exact basis
 products, dynamic range, rotation and target inverses, Montgomery factors,
 conversion multiplier relations, fixed-table shapes/ranges, and cyclic R1
-permutation relation.
+permutation relation. `CatBLST.AVX.MatrixNoK.Regeneration` then defines the
+CRT generator independently of the tables, verifies explicit modular-inverse
+witnesses, regenerates all four matrix/correction/quotient families, bounds
+the fixed-point ceiling error, and proves the eight-lane quotient accumulator
+cannot wrap 128 bits for 52-bit inputs and 64-bit estimates.
 
-P1 remains open for the general matrix-regeneration formulas, fixed-point
-quotient bounds, and mathematical derivation of the encoded field-tower
-constants. The generated snapshot and Python regeneration are binding and
-independent evidence, respectively; neither is presented as a substitute for
-those remaining Lean theorems.
+P1 remains open for the complete per-kernel intermediate-bound ledger and the
+mathematical derivation of the encoded field-tower constants. The generated
+snapshot and Python regeneration remain binding and independent executable
+evidence, respectively; Lean now checks the corresponding table formulas
+rather than accepting either tool as the mathematical proof.
 
 ## Resource policy
 

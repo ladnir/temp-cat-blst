@@ -5,3 +5,4 @@ SPDX-License-Identifier: Apache-2.0
 
 import CatBLST.AVX.PortableIFMA
 import CatBLST.AVX.MatrixNoK.Constants
+import CatBLST.AVX.MatrixNoK.Regeneration

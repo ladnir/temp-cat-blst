@@ -321,7 +321,10 @@ P1 now has a deterministic full-literal binding from the generated C++ header
 to Lean, guarded by an exact source hash and a no-executable CTest check. The
 first constant theorem packet proves basis dimensions, odd/distinct/pairwise-
 coprime moduli, exact products, dynamic range, required inverse and multiplier
-relations, table shapes and ranges, and the cyclic R1 permutation map. P1 is
-still open for general matrix regeneration, fixed-point quotient bounds, and
-the field-tower encoding relations; the checked-in data snapshot and Python
-validator are not counted as proofs of those remaining claims.
+relations, table shapes and ranges, and the cyclic R1 permutation map. The
+second packet defines the CRT generator in Lean, validates its inverse
+witnesses and identity residue patterns, regenerates all four fixed table
+families, bounds each ceiling estimate, and proves the 128-bit quotient
+accumulator envelope. P1 is still open for the complete kernel-specific bound
+ledger and field-tower encoding relations; the checked-in data snapshot and
+Python validator are not counted as substitutes for these Lean claims.

@@ -58,9 +58,14 @@ six corruptions must be rejected.
 - The initial Lean P1 proof establishes dimensions, modulus ranges, oddness,
   pairwise coprimality, exact basis products, dynamic range, rotation and
   target inverses, Montgomery factors, multiplier relations, fixed-table
-  shapes/ranges, and the cyclic R1 permutation relation. General matrix
-  regeneration, quotient bounds, and encoded tower-constant derivations remain
-  open and are not discharged by the generated snapshot.
+  shapes/ranges, and the cyclic R1 permutation relation.
+- The second Lean P1 packet independently specifies CRT factors from checked
+  inverse witnesses and regenerates every r1, r2, convert-to, and convert-from
+  matrix, correction vector, and quotient-estimate vector. It proves the
+  ceiling estimate's exact one-denominator error enclosure and proves that
+  eight 52-bit inputs multiplied by 64-bit estimates cannot wrap the C++
+  `uint128_t` accumulator. Encoded tower-constant derivations and the complete
+  per-kernel intermediate-bound ledger remain open.
 
 Native execution is not required for constant regeneration. The candidate
 arithmetic that consumes these tables will require portable differential tests
