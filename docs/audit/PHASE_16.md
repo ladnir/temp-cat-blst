@@ -307,3 +307,12 @@ and generated-constant hashes, and a new fixed-Montgomery-reduction obligation.
 Mapped arithmetic is now semi-frozen: executable changes reopen the associated
 record and require focused correctness/code-generation evidence, plus a
 benchmark only when generated code materially changes.
+
+The first Lean P0 slice now builds with the pinned Lean 4.32.1/Mathlib 4.32.1
+workspace. It defines the 64-bit/eight-lane model and abstract IFMA operations,
+proves the 52-bit product split and generic no-wrap accumulation rule, and
+separately transcribes the portable C++ 26-bit-half schedule. Machine-checked
+theorems prove that both portable low/high results equal the abstract IFMA
+digits for all 52-bit inputs. Correspondence remains `in_review` because the
+C++ transcription, compiler/unsigned-word interpretation, and native x86 IFMA
+semantics are explicit residual assumptions rather than Lean-proved facts.

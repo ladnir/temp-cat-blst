@@ -55,6 +55,26 @@ microarchitectural constant-time behavior. Those assumptions are tracked by
 the native code-generation and constant-time evidence described in the main
 proof plan.
 
+## Current proof status
+
+P0 now has a checked-in, buildable foundation:
+
+- `CatBLST.AVX.Lane` defines unsigned 64-bit lanes, eight-lane vectors,
+  wrapping arithmetic, shifts, masking, variable permutation, lane-zero
+  extraction, and broadcast;
+- `CatBLST.AVX.IFMA` defines low/high IFMA semantics and proves the exact
+  radix-`2^52` product split, both digit bounds, modulo-`2^64` accumulation,
+  and generic no-wrap accumulation rules; and
+- `CatBLST.AVX.PortableIFMA` mirrors the retained 26-bit-half C++ emulation and
+  proves its low and high results equal the abstract IFMA operations for every
+  pair of 52-bit inputs.
+
+The P0 correspondence row remains in review. The arithmetic transcription is
+machine checked, but the proof still relies on reviewed source mapping, C++
+unsigned-integer semantics, compiler lowering, and the x86 IFMA specification.
+Those boundaries are intentionally not represented as Lean axioms that could
+make a later theorem appear stronger than it is.
+
 ## Resource policy
 
 Toolchain installation and Mathlib cache retrieval are explicit setup steps.
