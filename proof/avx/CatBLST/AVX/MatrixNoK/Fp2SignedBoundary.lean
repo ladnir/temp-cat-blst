@@ -8,14 +8,19 @@ import CatBLST.AVX.MatrixNoK.SignedPipeline
 import Mathlib.Tactic
 
 /-!
-# Reachable signed boundary in selected Fp2 reduction
+# Abstract signed boundary behind selected Fp2 reduction
 
-The selected Fp2 real coordinate is not guaranteed to choose a nonnegative
-correction-free R1 representative.  Splitting the eight M1 moduli into two
-four-factor field elements gives a valid multiplication whose real expression
-is exactly `-M1`; every reduced M1 residue is zero and the chosen representative
-is `-1`.  This is not a C++ failure: the existing R2 fixed-point schedule is
-proved below to preserve this reachable negative representative.
+The uncompleted signed Fp2 formula is not guaranteed to choose a nonnegative
+correction-free R1 representative. Splitting the eight M1 moduli into two
+four-factor field elements gives an abstract real expression exactly `-M1`;
+zero M1 residues then select representative `-1`. The existing R2 schedule is
+proved below to preserve that boundary value.
+
+This file deliberately does **not** claim the selected C++ path reaches that
+signed intermediate. `FpRingCandidate::complete` sees the negative static RNS
+bound and adds `max_neg_offset` before reduction. `Fp2.lean` models that
+physical completion separately and proves its resulting representative is
+nonnegative and below `22p`.
 -/
 
 namespace CatBLST.AVX.MatrixNoK
@@ -68,7 +73,7 @@ theorem fp2_negative_unit_residues_represent (index : Fin 8) :
   rw [fp2_negative_unit_reduced_value_is_zero]
   exact Nat.ModEq.refl 0
 
-theorem fp2_real_expression_reaches_negative_m1 :
+theorem fp2_abstract_real_expression_reaches_negative_m1 :
     (0 : Int) * 0 - fp2M1LeftFactor * fp2M1RightFactor =
       -(Generated.M1 : Int) := by
   push_cast
@@ -78,7 +83,7 @@ theorem fp2_real_expression_reaches_negative_m1 :
     exact_mod_cast fp2_m1_split_factors_multiply_to_m1
   rw [productCast]
 
-theorem fp2_correction_free_r1_can_select_negative_one :
+theorem fp2_abstract_correction_free_r1_can_select_negative_one :
     r1SignedValueFromResidues (-(Generated.M1 : Int))
       fp2NegativeUnitM1Residues = -1 := by
   change r1SignedValueFromResidues (-(Generated.M1 : Int))
@@ -123,7 +128,7 @@ theorem fp2_negative_one_r2_residues_are_canonical (index : Fin 8) :
     norm_num [fp2NegativeOneR2Residues, Generated.moduli2,
       modulus2At, listAt8]
 
-theorem fp2_negative_one_r2_is_preserved :
+theorem fp2_abstract_negative_one_r2_is_preserved :
     correctedCrtRepresentative fp2NegativeOneR2Residues
         r2ShiftedFactor Generated.M2 = -1 := by
   norm_num [fp2NegativeOneR2Residues, correctedCrtRepresentative,

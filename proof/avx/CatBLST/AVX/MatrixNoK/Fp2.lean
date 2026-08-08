@@ -3,7 +3,7 @@ Copyright 2026 Category Labs, Inc.
 SPDX-License-Identifier: Apache-2.0
 -/
 
-import CatBLST.AVX.MatrixNoK.Reducer
+import CatBLST.AVX.MatrixNoK.SignedPipeline
 import Mathlib.Tactic
 
 /-!
@@ -359,5 +359,147 @@ theorem selected_delayed_finish_semantics
     rw [Nat.coprime_pow_left_iff (by norm_num)]
     exact (Nat.coprime_two_left).2 (all_moduli_odd modulus modulusMember)
   exact radixUnit.mul_right_cancel equalTimesRadix
+
+/-!
+## Physical negative-range completion
+
+`FP2::prep_left` gives the real coordinate a negative static RNS lower bound.
+Before `batch_reduce` consumes that wide value, `FpRingCandidate::complete`
+therefore adds the generated wide `max_neg_offset` in both bases.  The
+semantic value below is the exact generator input for that constant; proving
+the generated lane encoding and reducer producer correspondence remains the
+last source-shaped step.
+-/
+
+def fp2BaseRedundantMultiple : Nat := 40
+
+def fp2MaxNegativeRns : Nat := 1932
+
+def fp2CompletionOffset : Nat :=
+  fp2MaxNegativeRns * fp2BaseRedundantMultiple *
+    fp2BaseRedundantMultiple * Generated.target_modulus *
+      Generated.target_modulus
+
+def cppFp2CompletedExpression (value : Int) : Int :=
+  value + fp2CompletionOffset
+
+theorem fp2_completion_constant_values :
+    fp2BaseRedundantMultiple = 40 ∧ fp2MaxNegativeRns = 1932 := by
+  norm_num [fp2BaseRedundantMultiple, fp2MaxNegativeRns]
+
+theorem fp2_completion_offset_dominates_signed_expression :
+    (2 * (fp2BaseRedundantMultiple * Generated.target_modulus) ^ 2 : Int) <
+      fp2CompletionOffset := by
+  norm_num [fp2CompletionOffset, fp2BaseRedundantMultiple,
+    fp2MaxNegativeRns]
+  have targetPositive : (0 : Int) < Generated.target_modulus := by
+    norm_num [Generated.target_modulus]
+  nlinarith [sq_pos_of_pos targetPositive]
+
+theorem fp2_completed_expression_under_five_target_products :
+    (fp2CompletionOffset : Int) +
+        2 * (fp2BaseRedundantMultiple * Generated.target_modulus) ^ 2 <
+      5 * Generated.target_modulus * Generated.M1 := by
+  have coefficientBound :
+      (3094400 : Int) * Generated.target_modulus < 5 * Generated.M1 := by
+    norm_num [Generated.target_modulus, Generated.M1]
+  have targetPositive : (0 : Int) < Generated.target_modulus := by
+    norm_num [Generated.target_modulus]
+  have scaled := mul_lt_mul_of_pos_right coefficientBound targetPositive
+  norm_num [fp2CompletionOffset, fp2BaseRedundantMultiple,
+    fp2MaxNegativeRns]
+  nlinarith
+
+/--
+The physical completion offset converts every selected two-product Fp2
+coordinate into a nonnegative correction-free R1 representative below `22p`.
+This is deliberately about the completed source value, not the wider abstract
+signed R1 domain retained in `SignedPipeline`.
+-/
+theorem fp2_completed_r1_representative_range
+    (value : Int) (residues : Fin 8 → Nat)
+    (valueBound : |value| <
+      2 * (fp2BaseRedundantMultiple * Generated.target_modulus) ^ 2)
+    (residuesFit : ∀ index,
+      residues index < 2 * listAt8 Generated.moduli1 index.val)
+    (residuesRepresent : ∀ index,
+      Nat.ModEq (modulus1At index) (residues index)
+        (signedR1ReducedValue (cppFp2CompletedExpression value))) :
+    0 ≤ r1SignedValueFromResidues
+        (cppFp2CompletedExpression value) residues ∧
+      r1SignedValueFromResidues
+          (cppFp2CompletedExpression value) residues <
+        22 * Generated.target_modulus := by
+  have valueBounds := abs_lt.mp valueBound
+  have completedNonnegative :
+      (0 : Int) ≤ cppFp2CompletedExpression value := by
+    unfold cppFp2CompletedExpression
+    have dominates := fp2_completion_offset_dominates_signed_expression
+    nlinarith
+  have completedUpper :
+      cppFp2CompletedExpression value <
+        5 * Generated.target_modulus * Generated.M1 := by
+    unfold cppFp2CompletedExpression
+    have upper := fp2_completed_expression_under_five_target_products
+    nlinarith
+  have liftBoundNat := r1_standard_raw_lift_lt_17_product residues
+    (by simpa [modulus1At] using residuesFit)
+  have liftBound :
+      (r1RawLiftFromResidues residues : Int) < 17 * Generated.M1 := by
+    exact_mod_cast liftBoundNat
+  have liftNonnegative :
+      (0 : Int) ≤ r1RawLiftFromResidues residues := by
+    exact_mod_cast Nat.zero_le (r1RawLiftFromResidues residues)
+  have reconstruction := r1_signed_value_reconstruction
+    (cppFp2CompletedExpression value) residues residuesRepresent
+  have modulusPositive : (0 : Int) < Generated.M1 := by
+    norm_num [Generated.M1]
+  unfold r1SignedValueNumerator at reconstruction
+  constructor <;> nlinarith
+
+theorem fp2_completed_r2_representative_is_exact
+    (value : Int) (m1Residues m2Residues : Fin 8 → Nat)
+    (valueBound : |value| <
+      2 * (fp2BaseRedundantMultiple * Generated.target_modulus) ^ 2)
+    (m1ResiduesFit : ∀ index,
+      m1Residues index < 2 * listAt8 Generated.moduli1 index.val)
+    (m1ResiduesRepresent : ∀ index,
+      Nat.ModEq (modulus1At index) (m1Residues index)
+        (signedR1ReducedValue (cppFp2CompletedExpression value)))
+    (m2ResiduesFit : ∀ index,
+      m2Residues index < 2 * listAt8 Generated.moduli2 index.val)
+    (m2ResiduesRepresent : ∀ index,
+      Nat.ModEq (modulus2At index) (m2Residues index)
+        (signedR2InputValue (r1SignedValueFromResidues
+          (cppFp2CompletedExpression value) m1Residues))) :
+    correctedCrtRepresentative m2Residues r2ShiftedFactor Generated.M2 =
+      r1SignedValueFromResidues
+        (cppFp2CompletedExpression value) m1Residues := by
+  let representative := r1SignedValueFromResidues
+    (cppFp2CompletedExpression value) m1Residues
+  have representativeRange := fp2_completed_r1_representative_range
+    value m1Residues valueBound m1ResiduesFit m1ResiduesRepresent
+  have representativeNonnegative : (0 : Int) ≤ representative := by
+    simpa [representative] using representativeRange.1
+  have representativeBound :
+      representative < 22 * Generated.target_modulus := by
+    simpa [representative] using representativeRange.2
+  have representativeNatBound :
+      representative.toNat < 22 * Generated.target_modulus := by
+    rw [← Int.ofNat_lt]
+    simpa [Int.toNat_of_nonneg representativeNonnegative] using
+      representativeBound
+  have representedNat : ∀ index,
+      Nat.ModEq (listAt8 Generated.moduli2 index.val)
+        (m2Residues index) (r2InputValue representative.toNat) := by
+    intro index
+    simpa [representative, modulus2At,
+      signed_r2_input_of_nonnegative representative
+        representativeNonnegative] using m2ResiduesRepresent index
+  have exact := r2_standard_corrected_representative_is_exact_22
+    representative.toNat m2Residues representativeNatBound
+      m2ResiduesFit representedNat
+  simpa [representative, Int.toNat_of_nonneg representativeNonnegative] using
+    exact
 
 end CatBLST.AVX.MatrixNoK

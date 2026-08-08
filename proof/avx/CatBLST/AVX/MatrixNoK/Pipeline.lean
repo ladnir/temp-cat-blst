@@ -434,6 +434,98 @@ theorem r2_standard_corrected_representative_is_exact
   rw [reconstructionInt]
   ring
 
+/- The selected Fp2 completion packet needs a slightly wider positive
+representative envelope than ordinary base-field multiplication.  The fixed
+R2 table has ample numerical margin at `22p`; keep this separate from the
+established `18p` theorem so existing base-field contracts do not silently
+widen. -/
+theorem r2_standard_positive_margin_22
+    (representative : Nat) (residues : Fin 8 → Nat)
+    (representativeBound : representative < 22 * Generated.target_modulus)
+    (residuesFit : ∀ index,
+      residues index < 2 * listAt8 Generated.moduli2 index.val) :
+    representative * uint64Modulus +
+        (Generated.M2 - 1) * ∑ index, residues index <
+      Generated.M2 * uint64Modulus := by
+  have sumBound := r2_standard_scalar_sum_bound residues residuesFit
+  have envelope :
+      (22 * Generated.target_modulus) * uint64Modulus +
+          (Generated.M2 - 1) * (16 * elementRadix) <
+        Generated.M2 * uint64Modulus := by
+    norm_num [Generated.target_modulus, Generated.M2,
+      uint64Modulus, elementRadix]
+  nlinarith
+
+theorem r2_standard_estimated_quotient_is_exact_22
+    (representative : Nat) (residues : Fin 8 → Nat)
+    (representativeBound : representative < 22 * Generated.target_modulus)
+    (residuesFit : ∀ index,
+      residues index < 2 * listAt8 Generated.moduli2 index.val)
+    (residuesRepresent : ∀ index,
+      Nat.ModEq (listAt8 Generated.moduli2 index.val)
+        (residues index) (r2InputValue representative)) :
+    estimatedCrtQuotient residues r2ShiftedFactor Generated.M2 =
+      exactCrtQuotient residues r2ShiftedFactor Generated.M2 := by
+  have belowM2 : representative < Generated.M2 :=
+    representativeBound.trans (by
+      norm_num [Generated.target_modulus, Generated.M2])
+  have remainder := r2_raw_lift_from_residues_remainder representative
+    residues belowM2 residuesRepresent
+  have scalarFits := r2_standard_residue_lt_ifma residues residuesFit
+  apply estimated_quotient_exact_of_margin residues r2ShiftedFactor
+    Generated.M2 (by norm_num [Generated.M2]) scalarFits
+  unfold r2RawLiftFromResidues at remainder
+  rw [remainder]
+  exact r2_standard_positive_margin_22 representative residues
+    representativeBound residuesFit
+
+theorem r2_standard_corrected_representative_is_exact_22
+    (representative : Nat) (residues : Fin 8 → Nat)
+    (representativeBound : representative < 22 * Generated.target_modulus)
+    (residuesFit : ∀ index,
+      residues index < 2 * listAt8 Generated.moduli2 index.val)
+    (residuesRepresent : ∀ index,
+      Nat.ModEq (listAt8 Generated.moduli2 index.val)
+        (residues index) (r2InputValue representative)) :
+    correctedCrtRepresentative residues r2ShiftedFactor Generated.M2 =
+      representative := by
+  have belowM2 : representative < Generated.M2 :=
+    representativeBound.trans (by
+      norm_num [Generated.target_modulus, Generated.M2])
+  have remainder := r2_raw_lift_from_residues_remainder representative
+    residues belowM2 residuesRepresent
+  have split := Nat.mod_add_div
+    (r2RawLiftFromResidues residues) Generated.M2
+  unfold correctedCrtRepresentative
+  rw [r2_standard_estimated_quotient_is_exact_22 representative residues
+    representativeBound residuesFit residuesRepresent]
+  unfold exactCrtQuotient r2RawLiftFromResidues at *
+  have reconstructionNat :
+      exactCrtNumerator residues r2ShiftedFactor =
+        representative +
+          (exactCrtNumerator residues r2ShiftedFactor / Generated.M2) *
+            Generated.M2 := by
+    calc
+      exactCrtNumerator residues r2ShiftedFactor =
+          exactCrtNumerator residues r2ShiftedFactor % Generated.M2 +
+            Generated.M2 *
+              (exactCrtNumerator residues r2ShiftedFactor / Generated.M2) :=
+        split.symm
+      _ = representative + Generated.M2 *
+          (exactCrtNumerator residues r2ShiftedFactor / Generated.M2) := by
+        rw [remainder]
+      _ = representative +
+          (exactCrtNumerator residues r2ShiftedFactor / Generated.M2) *
+            Generated.M2 := by rw [Nat.mul_comm]
+  have reconstructionInt :
+      (exactCrtNumerator residues r2ShiftedFactor : Int) =
+        (representative : Int) +
+          ((exactCrtNumerator residues r2ShiftedFactor / Generated.M2 : Nat) :
+            Int) * (Generated.M2 : Int) := by
+    exact_mod_cast reconstructionNat
+  rw [reconstructionInt]
+  ring
+
 theorem generated_r2_standard_lane_represents_input
     (representative : Nat) (residues : Fin 8 → Nat)
     (representativeBound : representative < 18 * Generated.target_modulus)
