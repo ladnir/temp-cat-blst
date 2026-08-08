@@ -143,18 +143,24 @@ mathematical operation and prove each concrete schedule refines it.
 ## Lean boundary and freeze rule
 
 P0 models the exact lane operations used here. Native intrinsic semantics are
-axioms at that boundary; the portable `_cc512_*` implementation and native
+external assumptions at that boundary, not Lean axioms; the portable
+`_cc512_*` implementation and native
 differential tests are executable evidence, not the proof itself. P1 proves
 the generated constants, dimensions, coprimality, inverses, and bounds. P2
 proves the import, multiplication, reductions, and export pipeline. The
-reachable base-field theorem is complete and its C++ correspondence is in
-review. `AUD-221` repaired canonical import by using floor quotient estimates
+reachable base-field theorem is complete and its C++ correspondence rows are
+accepted at the exact hashes in `proof/avx/CORRESPONDENCE.csv`. `AUD-221`
+repaired canonical import by using floor quotient estimates
 only for ConvertTo; its representative is proved to lie in `[0,2p)`, preserve
 the canonical field value, and satisfy the R2 contract. `CanonicalExport`
-models the wide high/low ConvertFrom output, proves its no-wrap envelope, and
-composes import, selected multiplication, and export to the canonical field
-product. The tower, curve, and pairing layers follow only after this
-base-field slice and its correspondence record are stable.
+models the wide high/low ConvertFrom output and proves its no-wrap envelope.
+The source-correspondence pass additionally reconstructs the actual split
+IFMA streams for R1, shifted R2, and ConvertTo, proves canonical ConvertTo
+below `16m²` while validating the unchanged selected `800m²` reducer, and
+composes the actual import residues, selected multiplication, and export with
+no assumed intermediate postconditions. The tower, curve, and pairing layers
+follow only after this base-field slice and its correspondence record are
+stable.
 
 After the proof-facing source hash is recorded, changes to a mapped operation,
 constant, loop schedule, permutation, bound, or representation reopen its

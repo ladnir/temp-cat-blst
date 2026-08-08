@@ -10,10 +10,13 @@ tables are not connected to production arithmetic or dispatch in this packet.
 - Upstream Git blob: `d0e0437007f4dec6f193d528ce618f8b516e4fbe`
 - CatBLST path: `blst/avx/generated_matrixnok_constants.hpp`
 - Imported-header SHA-256:
-  `d1bd0045e8d7f223cb332842bd4c9023daefc715079c0649fbce953cabdfea43`
+  `1643256db5038b0a643ded8053dc833ab2613d20dbc6de8122296f0a4699361a`
 - Namespace: `blst::avx::matrixnok::generated`
 
-The data retains VROOM's MIT license and Simon Langowski attribution. The C++
+The current CatBLST table intentionally differs from the pinned upstream blob
+in only the eight ConvertTo quotient estimates repaired by `AUD-221`; the
+independent generator and Lean snapshot reproduce that policy exactly. The
+data retains VROOM's MIT license and Simon Langowski attribution. The C++
 translation uses immutable inline constants and requires no runtime GMP,
 initialization, search, allocation, or mutable global state. Cache-line
 alignment annotations added by CatBLST change no numeric data.

@@ -108,8 +108,12 @@ is therefore validated.
   `ec900342d50040d0268660bcfa4efea3251a25a725d012990f1373aa787f0e31`
 - `matrixnok_change_base.h` SHA-256:
   `74eec0fc27747cb7c27ee4d062ce66c6f601d2283d267659e4a586162de0a032`
-- `generated_matrixnok_constants.hpp` SHA-256:
+- `generated_matrixnok_constants.hpp` SHA-256 at the measured selection commit:
   `d1bd0045e8d7f223cb332842bd4c9023daefc715079c0649fbce953cabdfea43`
+
+The current repaired constant hash is recorded in
+`proof/avx/CORRESPONDENCE.csv`; the eight ConvertTo estimate changes do not
+alter Fp2 arithmetic or this historical performance measurement.
 
 Any change to these sources reopens the code-generation, performance, and
 proof correspondence.

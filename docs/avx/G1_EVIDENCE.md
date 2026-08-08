@@ -107,8 +107,12 @@ No losing benchmark-only arithmetic variant remains in the source.
   `36143f479eee5460595bf632b5a9e803388a6549c505d9939000e7c853bfeadf`
 - `matrixnok_fixed.h` SHA-256:
   `73ba31d8a347208ac84173790a61929a34f443a0d47783cffa21559661ac026f`
-- `generated_matrixnok_constants.hpp` SHA-256:
+- `generated_matrixnok_constants.hpp` SHA-256 at the measured selection commit:
   `d1bd0045e8d7f223cb332842bd4c9023daefc715079c0649fbce953cabdfea43`
+
+The current repaired constant hash is recorded in
+`proof/avx/CORRESPONDENCE.csv`; the eight ConvertTo estimate changes do not
+alter G1 arithmetic or this historical performance measurement.
 - `scalar_mult.h` SHA-256:
   `b1a3a30196a5e1a24bcaddf9963791aba9115fdfe5ecc1abcef1b4c9d8004396`
 

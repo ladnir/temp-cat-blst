@@ -119,19 +119,21 @@ Current status:
   representative in `[0,2p)`, selected multiplication preserves the internal
   `M1` scaling, and generated ConvertFrom removes that scaling to return the
   canonical field product;
-- item 4 is in review against the unchanged `adf2ed5` C++ source hashes and
-  existing portable/native evidence. The Lean export model also proves the
-  generated quotient fits 128 bits and the non-shifted ConvertFrom high/low
-  accumulators fit 64 bits before recombination.
+- item 4 is accepted for the base-field P2 rows at the exact hashes in
+  `proof/avx/CORRESPONDENCE.csv`. The Lean model reconstructs the actual split
+  IFMA streams for R1, shifted R2, ConvertTo, and ConvertFrom; validates the
+  selected reducers; and proves the generated quotient and all mapped
+  accumulators fit their machine words before recombination. P0's compiler and
+  x86-semantic boundaries remain explicit.
 
 The negative-R2 analysis remains checked as a boundary result: the inherited
 R2 schedule is not correct for every abstract representative in `(-p,0)`.
 `AUD-221` repaired the reachable source of such values by changing only
 ConvertTo to floor estimates. The generic estimate is exact or one low, and
 the former exact witness now selects `p-t`, lies below `2p`, and preserves its
-canonical value. Commit `e01ee59` closes the reachable base-field P2
-composition without changing C++; the next milestone work is the remaining
-C++ correspondence review, followed by P3 field-tower formulas.
+canonical value. Commits `e01ee59` and `f91268d` close the reachable
+base-field P2 composition and its C++ correspondence without changing C++;
+the next milestone is P3 field-tower formulas.
 
 The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside
 this initial scope. The selected tower uses `FP2Ring<FpRingCandidate>`.

@@ -373,3 +373,12 @@ import/export; and composes repaired import, selected MatrixNoK multiplication,
 and export to the canonical field product. The complete 3,024-job Lean target
 passes without trust escapes. This proof-only commit changes no production
 code and therefore requires no new benchmark or native test run.
+
+Correspondence follow-up `f91268d` removes the last assumed-residue boundary.
+It proves exact reconstruction of the real split IFMA accumulators for R1,
+shifted R2, and ConvertTo; validates ConvertTo's selected `800/200` reducer
+with a tighter canonical-input bound below `16m²`; derives both actual import
+bases; and specializes the full multiplication/export theorem to those exact
+producers. The source review found no additional C++ defect. The 3,024-job
+Lean target and both deterministic constant checks pass, with no admitted
+claims or project axioms. No C++ build, benchmark, CUDA, or broad suite ran.

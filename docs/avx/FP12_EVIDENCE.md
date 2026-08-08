@@ -140,8 +140,12 @@ compile-time constant uses.
   `73ba31d8a347208ac84173790a61929a34f443a0d47783cffa21559661ac026f`
 - `matrixnok_fp.h` SHA-256:
   `11c172dccd76dba2d923ea205201b32a1e6bdf679f63f3d1560016d4dcc017d7`
-- `generated_matrixnok_constants.hpp` SHA-256:
+- `generated_matrixnok_constants.hpp` SHA-256 at the measured selection commit:
   `d1bd0045e8d7f223cb332842bd4c9023daefc715079c0649fbce953cabdfea43`
+
+The current repaired constant hash is recorded in
+`proof/avx/CORRESPONDENCE.csv`; the eight ConvertTo estimate changes do not
+alter Fp12 arithmetic or this historical performance measurement.
 - `glv4.h` SHA-256:
   `8765c031be885fed24b8743c7ee677ca02640c3f60423bd9d8ae53fa87cc1d31`
 

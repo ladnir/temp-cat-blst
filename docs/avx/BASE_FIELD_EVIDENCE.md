@@ -140,7 +140,7 @@ model is accepted on that evidence.
 - `avx512ifma.hpp` SHA-256:
   `9da2bd1b3fc11be3a33cdf4b336206233e9580225cc7f92425bd8737b87c64b1`
 - `generated_matrixnok_constants.hpp` SHA-256:
-  `d1bd0045e8d7f223cb332842bd4c9023daefc715079c0649fbce953cabdfea43`
+  `1643256db5038b0a643ded8053dc833ab2613d20dbc6de8122296f0a4699361a`
 
 The fixed-constant hash and regeneration record remain in
 `CONSTANT_EVIDENCE.md`. Any change to these sources or constants reopens the
@@ -170,12 +170,14 @@ inherited ceiling estimate could select a negative lift outside the next
 conversion's contract. Commit `5f0399e` rounds only ConvertTo estimates down.
 Lean now proves that a canonical import selects a representative in `[0,2p)`,
 preserves the field value, and satisfies the existing R2 input contract. The
-exact former witness is proved to select its positive complement.
-
-- Complete review of the in-review P2 C++ transcription rows; Lean does not
-  prove compiler lowering or the x86 ISA.
-- Connect repaired import, selected multiplication, R2 expansion, and
-  canonical export into one reachable representation round trip.
+exact former witness is proved to select its positive complement. Follow-up
+commit `f91268d` maps the actual split IFMA streams and selected reducer calls
+line by line. It proves canonical ConvertTo below `16m²` while retaining the
+implementation's `800m²` reducer instantiation, derives both imported residue
+bases, and closes the reachable import/multiply/export theorem without assumed
+intermediate postconditions. The P2 C++ correspondence rows are accepted.
+Lean still does not prove compiler lowering, the x86 ISA, or the scalar
+`from_vec` byte-weaving/REDC transcription.
 
 The abstract negative-R2 counterexample remains useful as a boundary theorem:
 R2 is not promised for arbitrary negative representatives. Repaired canonical
