@@ -261,5 +261,19 @@ exception-runtime, gather/scatter, or selected-vector conversion in the
 candidate Miller body.
 
 Exact evidence is in `docs/avx/PAIRING_PREVIEW_EVIDENCE.md`. MatrixNoK remains
-non-dispatched; inversion/final-exponent optimization review, formal proof,
-production selection, and release evidence remain pending.
+non-dispatched.
+
+Follow-up commit `a1c8f9f652b5ae7d8e77966c454f312e3079bd95` compared the
+inversion and hard final-exponent paths with pinned VROOM. The exponentiation
+algorithm is already the same; optimized inspection instead found excessive
+spill pressure in the monolithic MatrixNoK cyclotomic square. Two fixed
+noinline six-output halves preserve all formulas and IFMA work while reducing
+the candidate frame from 4,352 bytes to 1,408 and 512 bytes. The incumbent
+continues to compile through its original monolithic path and retains its exact
+representative symbol size.
+
+All 17 focused native tests pass on the final source and the portable-AVX Debug
+translation unit compiles. One serial seven-repetition process measured full
+pairing at 132.084 us, 21.2% faster than the incumbent and 5.5% faster than
+pinned VROOM. Performance selection is therefore complete. Formal proof,
+production dispatch review, and release evidence remain pending.

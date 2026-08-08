@@ -85,8 +85,10 @@ recorded in `FP12_EVIDENCE.md`.
 The isolated MatrixNoK Miller-loop and full-pairing preview, scalar
 differentials, native code generation, and serial incumbent/VROOM comparison
 are recorded in `PAIRING_PREVIEW_EVIDENCE.md`. Miller is 20.7% faster than the
-incumbent and 5.3% faster than VROOM; full pairing is 14.8% faster than the
-incumbent and 1.5% slower than VROOM, within the selection tolerance.
+incumbent and 5.3% faster than VROOM. After splitting the register-heavy
+MatrixNoK cyclotomic square, full pairing is 21.2% faster than the incumbent
+and 5.5% faster than VROOM. Performance selection is complete; the candidate
+remains isolated while formal proof and release gates are pending.
 
 ## Work packets
 

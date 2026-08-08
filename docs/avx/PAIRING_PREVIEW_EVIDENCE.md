@@ -3,6 +3,7 @@
 ## Packet boundary
 
 - Candidate implementation: `eaa7822431954980694341dc77cdcd8b12cce7eb`
+- Final-exponent optimization: `a1c8f9f652b5ae7d8e77966c454f312e3079bd95`
 - Upstream algorithm commit: `d6ecd534c54a41702ea80ae75b52250b6d51b372`
 - Compared VROOM head: `26bd9aee2168f167583cf096add355547a7b56d4`
 - Candidate boundary: `blst/avx/pairing/matrixnok_pairing.h`
@@ -84,6 +85,38 @@ ordinary benchmark target. The guarded committed source was separately
 compiled and linked after the measurement, and all six intended benchmark
 names were discovered. No second benchmark process ran.
 
+## Inversion and final-exponent follow-up
+
+Source comparison found no better exponentiation algorithm to import: the
+CatBLST and pinned-VROOM hard final-exponent chains are the same. Focused
+diagnostics measured candidate Fp12 inversion at 2.794 us and final exponent
+after inversion at 77.926 us. Optimized assembly instead identified excess
+register pressure in CatBLST's monolithic MatrixNoK cyclotomic square.
+
+Commit `a1c8f9f652b5ae7d8e77966c454f312e3079bd95` selects two fixed noinline
+six-output halves for the MatrixNoK policy only. Their combined text is 8,723
+bytes versus 9,498 bytes for the former candidate body. Their frames are 1,408
+and 512 bytes rather than 4,352 bytes, and their combined `vmovdqa64` count and
+stack references fall from 279 and 235 to 205 and 82. IFMA work is unchanged,
+and neither helper contains calls or dynamic memory. The incumbent remains on
+the old monolithic source path with its representative `0x2844`-byte symbol
+unchanged.
+
+Exactly one new serial benchmark process used freshly compiled pairing objects
+and seven repetitions at a 0.2-second minimum case time:
+
+| Operation | Incumbent | CatBLST split candidate | VROOM | vs incumbent | vs VROOM |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Full pairing | 167.522 us | 132.084 us | 139.728 us | -21.2% | -5.5% |
+
+The candidate coefficient of variation was 0.17%. Relative to the previous
+141.775 us candidate result, the split improves complete pairing by 6.8%.
+CPU scaling remained enabled, so this is selection evidence rather than a
+release claim. The standalone cyclotomic case in the same executable came from
+a stale object and therefore measures the former monolithic candidate; it is
+deliberately excluded as evidence for the split. No second timing process was
+run.
+
 ## Exact correspondence inputs
 
 - `miller.h` SHA-256:
@@ -99,15 +132,21 @@ names were discovered. No second benchmark process ran.
 - focused test SHA-256:
   `540acb591acdd2f9f4c6b1ba85ab09758f464ad851d01db382d5c8e6b631c9f0`
 - CatBLST pairing benchmark SHA-256:
-  `9a02d873f67507634e0d4fd842a87fc8970ea5050577fd296b641fc2df74b74c`
+  `a21c726fcf2e0c67ba1704c72c7734ed5b9ab139ed8656002fa0c746f6a7d0c7`
+- `fp12.h` SHA-256:
+  `f91f32711620f47988dddef464266bea595e620bc4fbcf5e8c8ca41432762ae2`
+- `matrixnok_fp12.h` SHA-256:
+  `ec3963f55e2e792fd4dbc149d6b4b6d94d6de892926a1cbed49350be6938d4f8`
+- `final_exponentiation.h` SHA-256:
+  `78baaa9c6dee80ddd7a0da58334f68fab5c23ebc49550f5a64477c9949eadc08`
 - VROOM preview benchmark SHA-256:
   `465ad10a9db4fc8dc8a051dbcd0ac35f676c5554e2fea26754eaf24e1a36cca3`
 
 ## Residual gates
 
 - MatrixNoK remains isolated from production dispatch.
-- The inversion/final-exponent portion should be reviewed against VROOM before
-  freezing the implementation for proof.
+- The inversion/final-exponent review and performance selection are complete;
+  the retained formulas and exact constants can now be frozen for proof.
 - The candidate Miller's larger code and stack should be reconsidered only if
   the next integration profile exposes an instruction-cache or stack issue;
   current end-to-end timing is favorable.

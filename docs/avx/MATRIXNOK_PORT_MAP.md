@@ -212,16 +212,22 @@ focused MatrixNoK tests. Four independent G1/G2 combinations compare both the
 candidate Miller result after scalar final exponentiation and the complete
 candidate pairing with scalar CatBLST.
 
-One serial Clang 21 process measured candidate Miller 20.7% faster than the
-incumbent and 5.3% faster than pinned VROOM. Complete pairing is 14.8% faster
-than the incumbent and 1.5% slower than VROOM, inside the 2% selection
-tolerance. The remaining delta lies after Miller and directs the next review
-to inversion/final exponentiation. Exact construction, code-generation,
-benchmark-link isolation, measurements, and hashes are in
+The initial serial Clang 21 process measured candidate Miller 20.7% faster than
+the incumbent and 5.3% faster than pinned VROOM. Complete pairing was 14.8%
+faster than the incumbent and 1.5% slower than VROOM, directing the next review
+to inversion and final exponentiation.
+
+That review found the same hard-exponent chain in CatBLST and VROOM but excess
+spill pressure in CatBLST's monolithic MatrixNoK cyclotomic square. The
+selected two-half schedule preserves the formulas and IFMA work while reducing
+its frames from 4,352 bytes to 1,408 and 512 bytes. One further serial process
+measured complete pairing at 132.084 us: 21.2% faster than the incumbent, 5.5%
+faster than VROOM, and 6.8% faster than the prior candidate. Exact construction,
+code-generation, benchmark-link isolation, measurements, and hashes are in
 `PAIRING_PREVIEW_EVIDENCE.md`.
 
-The candidate remains non-dispatched. Inversion/final-exponent review, formal
-proof, production selection, and release evidence remain pending.
+The candidate remains non-dispatched. Performance selection is complete;
+formal proof, production dispatch review, and release evidence remain pending.
 
 ## FFT preview packet
 

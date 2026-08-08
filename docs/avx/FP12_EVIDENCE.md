@@ -4,6 +4,7 @@
 
 - Candidate implementation: `1011916baf69a4ecb4b0e012c30a74051c8ec850`
 - Sparse/final-exponent follow-up: `3e1f99a`
+- Cyclotomic split follow-up: `a1c8f9f652b5ae7d8e77966c454f312e3079bd95`
 - Upstream algorithm commit: `d6ecd534c54a41702ea80ae75b52250b6d51b372`
 - Compared VROOM head: `26bd9aee2168f167583cf096add355547a7b56d4`
 - Generic field owner: `blst/avx/fields/fp12.h`
@@ -79,10 +80,47 @@ multiply. The cyclotomic primitive and 1,024-element FFT remain outside the
 preferred 2% VROOM tolerance and are recorded as residual optimization work;
 they do not invalidate the correctness or the decision to continue the port.
 
+## Cyclotomic split follow-up
+
+Review of inversion and hard final exponentiation found that CatBLST and pinned
+VROOM use the same exponentiation chain. A focused diagnostic measured the
+candidate inversion at 2.794 us and the final exponent after inversion at
+77.926 us, making the cyclotomic schedule and its generated code the material
+part of the remaining pairing delta.
+
+The original MatrixNoK cyclotomic body used 9,498 bytes of text, a 4,352-byte
+frame, 279 `vmovdqa64` instructions, and 235 stack-pointer references. The
+selected schedule preserves the exact formulas and 258 high plus 292 low IFMA
+operations, but emits two fixed noinline halves:
+
+| Half | Text | Frame | `vmovdqa64` | stack references |
+| --- | ---: | ---: | ---: | ---: |
+| first | 4,785 bytes | 1,408 bytes | 117 | 59 |
+| second | 3,938 bytes | 512 bytes | 88 | 23 |
+
+Neither helper contains a call relocation, gather/scatter, allocation, or
+exception-runtime reference. The incumbent remains on its original monolithic
+source path and its representative optimized symbol remains exactly `0x2844`
+bytes. A source-sharing cleanup was rejected because it grew that incumbent
+symbol by about 7%.
+
+The fresh split was selected from complete-pairing timing, where the final
+exponentiation is exercised repeatedly in its real call graph. The standalone
+cyclotomic benchmark object in that process predated the header change, so its
+207 ns result remains evidence for the old monolithic candidate only and is
+not attributed to the split implementation.
+
 ## Rejected alternatives
 
 - Splitting correction operations into a separate batch phase worsened Fp12
   multiplication from approximately 303 ns to 323 ns.
+- The existing version-2 batch schedule compiled and passed the focused native
+  tests, but grew the body to 10,630 bytes and increased `vmovdqa64` and stack
+  references to 423 and 341 without reducing IFMA work. It was rejected before
+  timing.
+- Sharing the split helper bodies with the incumbent grew incumbent code by
+  about 7%; deliberate formula-local duplication retains unchanged incumbent
+  code generation.
 - Caching cyclotomic constants in local references worsened the specialized
   square without helping multiplication.
 - Storing constants behind static reference-returning accessors reduced one
@@ -95,9 +133,9 @@ compile-time constant uses.
 ## Exact correspondence inputs
 
 - `fp12.h` SHA-256:
-  `e54d1ef61eb8ed7ee36bbcac4d4acd00327de8368462c847414248a6d17194d7`
+  `f91f32711620f47988dddef464266bea595e620bc4fbcf5e8c8ca41432762ae2`
 - `matrixnok_fp12.h` SHA-256:
-  `4cf4bd71b4387f7e52f6f1cf105d62d4943f7469800702ca0f85720528e4bcd9`
+  `ec3963f55e2e792fd4dbc149d6b4b6d94d6de892926a1cbed49350be6938d4f8`
 - `matrixnok_fixed.h` SHA-256:
   `73ba31d8a347208ac84173790a61929a34f443a0d47783cffa21559661ac026f`
 - `matrixnok_fp.h` SHA-256:
@@ -109,11 +147,12 @@ compile-time constant uses.
 
 ## Residual gates
 
-- Production dispatch remains unchanged until the retained G2, MatrixNoK
-  inversion boundary, Miller-loop, and pairing slices pass their gates. Sparse
-  Fp12 and the hard final-exponentiation arithmetic are now validated.
-- The cyclotomic and 1,024-element FFT deltas remain explicit optimization
-  targets; no benchmark claim is made under stable release conditions yet.
+- Production dispatch remains unchanged. Retained G2, inversion, Miller-loop,
+  and complete-pairing correctness and selection gates now pass, but proof and
+  release evidence remain outstanding.
+- The split closes the measured complete-pairing performance gap. A fresh
+  standalone split-cyclotomic measurement and stable release-condition timing
+  remain future evidence, not prerequisites for beginning the proof.
 - Fp12/RNS arithmetic and every bound transition remain formal proof
   obligations under `PROOF_PLAN.md`.
 - Sanitizers, fuzzing, broad suites, Apple CI, CUDA, BTx/BTE, and portable-AVX
