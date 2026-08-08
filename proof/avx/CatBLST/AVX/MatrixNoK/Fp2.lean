@@ -361,6 +361,166 @@ theorem selected_delayed_finish_semantics
   exact radixUnit.mul_right_cancel equalTimesRadix
 
 /-!
+## Raw selected Fp2 coordinate producers
+
+These definitions expose the nonnegative lane arithmetic emitted by
+`prep_left` and `FP2N`: subtraction in the real coordinate is represented by
+the prepared `2m - y` residue, while the imaginary coordinate is an ordinary
+two-product sum.
+-/
+
+def cppFp2RawMulRealLane
+    (leftX leftY rightX rightY modulus : Nat) : Nat :=
+  leftX * rightX + cppFp2PreparedNegate leftY modulus * rightY
+
+def cppFp2RawMulImagLane
+    (leftX leftY rightX rightY : Nat) : Nat :=
+  leftX * rightY + leftY * rightX
+
+def cppFp2RawSquareRealLane (x y modulus : Nat) : Nat :=
+  x * x + cppFp2PreparedNegate y modulus * y
+
+def cppFp2RawSquareImagLane (x y : Nat) : Nat :=
+  x * y + x * y
+
+theorem cpp_fp2_raw_mul_real_lane_represents
+    (leftXValue leftYValue rightXValue rightYValue : Int)
+    (leftX leftY rightX rightY modulus scale : Nat)
+    (leftYFit : leftY ≤ fp2PreparedBound * modulus)
+    (leftXRepresents : (leftX : ZMod modulus) = leftXValue * scale)
+    (leftYRepresents : (leftY : ZMod modulus) = leftYValue * scale)
+    (rightXRepresents : (rightX : ZMod modulus) = rightXValue * scale)
+    (rightYRepresents : (rightY : ZMod modulus) = rightYValue * scale) :
+    (cppFp2RawMulRealLane leftX leftY rightX rightY modulus :
+        ZMod modulus) =
+      (leftXValue * rightXValue - leftYValue * rightYValue) *
+        scale * scale := by
+  have negated := cpp_fp2_prepared_negate_semantics leftY modulus leftYFit
+  rw [leftYRepresents] at negated
+  unfold cppFp2RawMulRealLane
+  push_cast
+  rw [leftXRepresents, rightXRepresents, negated, rightYRepresents]
+  ring
+
+theorem cpp_fp2_raw_mul_imag_lane_represents
+    (leftXValue leftYValue rightXValue rightYValue : Int)
+    (leftX leftY rightX rightY modulus scale : Nat)
+    (leftXRepresents : (leftX : ZMod modulus) = leftXValue * scale)
+    (leftYRepresents : (leftY : ZMod modulus) = leftYValue * scale)
+    (rightXRepresents : (rightX : ZMod modulus) = rightXValue * scale)
+    (rightYRepresents : (rightY : ZMod modulus) = rightYValue * scale) :
+    (cppFp2RawMulImagLane leftX leftY rightX rightY : ZMod modulus) =
+      (leftXValue * rightYValue + leftYValue * rightXValue) *
+        scale * scale := by
+  unfold cppFp2RawMulImagLane
+  push_cast
+  rw [leftXRepresents, leftYRepresents, rightXRepresents,
+    rightYRepresents]
+  ring
+
+theorem cpp_fp2_raw_square_real_lane_represents
+    (xValue yValue : Int) (x y modulus scale : Nat)
+    (yFit : y ≤ fp2PreparedBound * modulus)
+    (xRepresents : (x : ZMod modulus) = xValue * scale)
+    (yRepresents : (y : ZMod modulus) = yValue * scale) :
+    (cppFp2RawSquareRealLane x y modulus : ZMod modulus) =
+      (xValue * xValue - yValue * yValue) * scale * scale := by
+  have negated := cpp_fp2_prepared_negate_semantics y modulus yFit
+  rw [yRepresents] at negated
+  unfold cppFp2RawSquareRealLane
+  push_cast
+  rw [xRepresents, negated, yRepresents]
+  ring
+
+theorem cpp_fp2_raw_square_imag_lane_represents
+    (xValue yValue : Int) (x y modulus scale : Nat)
+    (xRepresents : (x : ZMod modulus) = xValue * scale)
+    (yRepresents : (y : ZMod modulus) = yValue * scale) :
+    (cppFp2RawSquareImagLane x y : ZMod modulus) =
+      (2 * (xValue * yValue)) * scale * scale := by
+  unfold cppFp2RawSquareImagLane
+  push_cast
+  rw [xRepresents, yRepresents]
+  ring
+
+theorem cpp_fp2_raw_mul_real_lane_bound
+    (leftX leftY rightX rightY modulus : Nat)
+    (leftXFit : leftX ≤ fp2PreparedBound * modulus)
+    (rightXFit : rightX ≤ fp2PreparedBound * modulus)
+    (rightYFit : rightY ≤ fp2PreparedBound * modulus) :
+    cppFp2RawMulRealLane leftX leftY rightX rightY modulus ≤
+      fp2AccumulatorBound * modulus * modulus := by
+  unfold cppFp2RawMulRealLane
+  exact fp2_two_product_accumulator_bound leftX
+    (cppFp2PreparedNegate leftY modulus) rightX rightY modulus leftXFit
+    (cpp_fp2_prepared_negate_bound leftY modulus) rightXFit rightYFit
+
+theorem cpp_fp2_raw_mul_imag_lane_bound
+    (leftX leftY rightX rightY modulus : Nat)
+    (leftXFit : leftX ≤ fp2PreparedBound * modulus)
+    (leftYFit : leftY ≤ fp2PreparedBound * modulus)
+    (rightXFit : rightX ≤ fp2PreparedBound * modulus)
+    (rightYFit : rightY ≤ fp2PreparedBound * modulus) :
+    cppFp2RawMulImagLane leftX leftY rightX rightY ≤
+      fp2AccumulatorBound * modulus * modulus := by
+  unfold cppFp2RawMulImagLane
+  exact fp2_two_product_accumulator_bound leftX leftY rightY rightX
+    modulus leftXFit leftYFit rightYFit rightXFit
+
+theorem cpp_fp2_raw_square_real_lane_bound
+    (x y modulus : Nat)
+    (xFit : x ≤ fp2PreparedBound * modulus)
+    (yFit : y ≤ fp2PreparedBound * modulus) :
+    cppFp2RawSquareRealLane x y modulus ≤
+      fp2AccumulatorBound * modulus * modulus := by
+  unfold cppFp2RawSquareRealLane
+  exact fp2_two_product_accumulator_bound x
+    (cppFp2PreparedNegate y modulus) x y modulus xFit
+    (cpp_fp2_prepared_negate_bound y modulus) xFit yFit
+
+theorem cpp_fp2_raw_square_imag_lane_bound
+    (x y modulus : Nat)
+    (xFit : x ≤ fp2PreparedBound * modulus)
+    (yFit : y ≤ fp2PreparedBound * modulus) :
+    cppFp2RawSquareImagLane x y ≤
+      fp2AccumulatorBound * modulus * modulus := by
+  unfold cppFp2RawSquareImagLane
+  exact fp2_two_product_accumulator_bound x x y y modulus
+    xFit xFit yFit yFit
+
+theorem fp2_mul_real_expression_bound
+    (leftX leftY rightX rightY bound : Int)
+    (boundPositive : 0 < bound)
+    (leftXBound : |leftX| < bound) (leftYBound : |leftY| < bound)
+    (rightXBound : |rightX| < bound) (rightYBound : |rightY| < bound) :
+    |leftX * rightX - leftY * rightY| < 2 * bound ^ 2 := by
+  have first := signed_product_abs_bound leftX rightX bound
+    boundPositive leftXBound rightXBound
+  have second := signed_product_abs_bound leftY rightY bound
+    boundPositive leftYBound rightYBound
+  calc
+    |leftX * rightX - leftY * rightY| ≤
+        |leftX * rightX| + |leftY * rightY| := abs_sub _ _
+    _ < bound * bound + bound * bound := add_lt_add first second
+    _ = 2 * bound ^ 2 := by ring
+
+theorem fp2_mul_imag_expression_bound
+    (leftX leftY rightX rightY bound : Int)
+    (boundPositive : 0 < bound)
+    (leftXBound : |leftX| < bound) (leftYBound : |leftY| < bound)
+    (rightXBound : |rightX| < bound) (rightYBound : |rightY| < bound) :
+    |leftX * rightY + leftY * rightX| < 2 * bound ^ 2 := by
+  have first := signed_product_abs_bound leftX rightY bound
+    boundPositive leftXBound rightYBound
+  have second := signed_product_abs_bound leftY rightX bound
+    boundPositive leftYBound rightXBound
+  calc
+    |leftX * rightY + leftY * rightX| ≤
+        |leftX * rightY| + |leftY * rightX| := abs_add_le _ _
+    _ < bound * bound + bound * bound := add_lt_add first second
+    _ = 2 * bound ^ 2 := by ring
+
+/-!
 ## Physical negative-range completion
 
 `FP2::prep_left` gives the real coordinate a negative static RNS lower bound.
