@@ -149,8 +149,9 @@ the generated constants, dimensions, coprimality, inverses, and bounds. P2
 proves the import, multiplication, reductions, and export pipeline. The
 nonnegative multiplication/reduction theorem is complete and its C++
 correspondence is in review. Canonical import now has a signed `[-p,p)` model;
-the negative R2 quotient-complement margin and canonical export are still
-pending before the full reachable pipeline is complete. The
+an exact counterexample rules out an all-negative R2 contract, so the reachable
+R1 output characterization and canonical export are still pending before the
+full pipeline is complete. The
 tower, curve, and pairing layers follow only after that base-field slice is
 stable.
 

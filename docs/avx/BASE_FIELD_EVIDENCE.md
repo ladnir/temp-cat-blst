@@ -178,9 +178,11 @@ model; no C++ defect or production change is claimed.
   into one reachable representation round trip.
 
 The generic quotient-complement implication and redundant-lane monotonicity
-are machine checked. The outstanding negative-R2 item is specifically the
-canonical-residue numerical margin; it is not presently a confirmed C++
-defect.
+are machine checked. An exact counterexample shows that the proposed margin is
+false over all abstract negative values in `(-p,0)`. The outstanding item is
+now to characterize the output set of the real R1 schedule and prove the R2
+property only over that reachable set. Targeted probes have not made the
+counterexample reachable, so it is not presently a confirmed C++ defect.
 - The isolated Fp2 candidate now passes its operation-level gate; extend the
   candidate through Fp12 and pairing-level workloads before production
   selection.

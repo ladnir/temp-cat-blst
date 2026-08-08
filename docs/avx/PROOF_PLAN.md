@@ -128,8 +128,11 @@ The structural part of the negative R2 result is checked: exact per-lane
 ceiling errors sum to the aggregate fixed-point error, sufficient error forces
 the quotient to be exactly one high, and that quotient reconstructs the
 original negative lift. Residues in the allowed redundant interval cannot
-reduce the margin. The remaining task is a checkable numerical certificate for
-the canonical-residue margin, not a change to the C++ algorithm.
+reduce the margin. An exact Lean counterexample proves that the stronger
+all-negative canonical-residue margin is false. The proof must therefore
+characterize the representatives reachable from R1 and establish either their
+nonnegativity or their narrower margin. Reachability of the counterexample has
+not been established, so this is not a confirmed production defect.
 
 The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside
 this initial scope. The selected tower uses `FP2Ring<FpRingCandidate>`.

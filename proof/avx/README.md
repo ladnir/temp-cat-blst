@@ -109,12 +109,16 @@ obligation is the concrete quotient-complement margin showing that negative
 R2 inputs select the one-high quotient and retain their small signed lift. No
 production C++ change is implied.
 
-The generic one-high implication is already machine checked: the aggregate
-ceiling error is an exact sum of per-lane errors, and if that sum covers the
-negative magnitude then the quotient is one high and the corrected CRT value
-is exactly the original negative representative. Redundant residues below
-`2m_i` can only increase this margin, so the remaining numerical certificate
-needs to cover canonical M2 residues only.
+The generic one-high implication is machine checked: the aggregate ceiling
+error is an exact sum of per-lane errors, and if that sum covers the negative
+magnitude then the quotient is one high and the corrected CRT value is exactly
+the original negative representative. Redundant residues below `2m_i` can only
+increase this margin. `NegativeR2Counterexample` also proves that this margin
+does not hold for every abstract negative value in `(-p,0)`: one exact
+canonical-residue input selects the lower quotient. This narrows the remaining
+obligation to the representatives actually emitted by the preceding R1
+schedule. The counterexample is not presently known to be reachable and is not
+a confirmed C++ defect.
 
 This reopens the full-reachability part of initial milestone item 3. The P2
 correspondence rows are in review: source hashes are unchanged from `adf2ed5`,
