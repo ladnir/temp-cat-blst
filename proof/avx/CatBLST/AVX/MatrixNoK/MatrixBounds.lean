@@ -58,6 +58,22 @@ theorem r1_cyclic_lane_eq_matrix_product
       (fun source => residues source *
         matrixEntry Generated.r1_rns_mat source.val column.val)
 
+/--
+The batch C++ schedule shares the outer diagonal loop but applies the same
+rotate-and-accumulate recurrence independently to every batch item.
+-/
+def r1BatchCyclicLaneValue {batch : Nat}
+    (residues : Fin batch → Fin 8 → Nat)
+    (item : Fin batch) (column : Fin 8) : Nat :=
+  r1CyclicLaneValue (residues item) column
+
+theorem r1_batch_cyclic_lane_eq_matrix_product {batch : Nat}
+    (residues : Fin batch → Fin 8 → Nat)
+    (item : Fin batch) (column : Fin 8) :
+    r1BatchCyclicLaneValue residues item column =
+      matrixProductValue (residues item) Generated.r1_rns_mat column := by
+  exact r1_cyclic_lane_eq_matrix_product (residues item) column
+
 def lowMatrixAccumulator
     (residues : Fin 8 → Nat) (matrix : List (List Nat))
     (column : Fin 8) : Nat :=

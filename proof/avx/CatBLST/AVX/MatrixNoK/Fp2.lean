@@ -111,6 +111,37 @@ def cppFp2MulScalar {R : Type*} [Mul R]
     (a : Fp2Value R) (scalar : R) : Fp2Value R :=
   ⟨a.x * scalar, a.y * scalar⟩
 
+/-- The variadic C++ ready array layout: all `x` values, then all `y` values. -/
+def cppFp2StridedLayout {R : Type*} (values : List (Fp2Value R)) : List R :=
+  values.map Fp2Value.x ++ values.map Fp2Value.y
+
+def cppFp2StridedXAt {R : Type*} (values : List (Fp2Value R))
+    (index : Fin values.length) : R :=
+  (cppFp2StridedLayout values).get ⟨index.val, by
+    simp [cppFp2StridedLayout]
+    omega⟩
+
+def cppFp2StridedYAt {R : Type*} (values : List (Fp2Value R))
+    (index : Fin values.length) : R :=
+  (cppFp2StridedLayout values).get ⟨index.val + values.length, by
+    simp [cppFp2StridedLayout]⟩
+
+theorem cpp_fp2_strided_x {R : Type*} (values : List (Fp2Value R))
+    (index : Fin values.length) :
+    cppFp2StridedXAt values index = (values.get index).x := by
+  simp [cppFp2StridedXAt, cppFp2StridedLayout]
+
+theorem cpp_fp2_strided_y {R : Type*} (values : List (Fp2Value R))
+    (index : Fin values.length) :
+    cppFp2StridedYAt values index = (values.get index).y := by
+  simp [cppFp2StridedYAt, cppFp2StridedLayout]
+
+theorem cpp_fp2_strided_reconstruct {R : Type*}
+    (values : List (Fp2Value R)) (index : Fin values.length) :
+    ⟨cppFp2StridedXAt values index, cppFp2StridedYAt values index⟩ =
+      values.get index := by
+  rw [cpp_fp2_strided_x values index, cpp_fp2_strided_y values index]
+
 /--
 The selected multiplication construction, parameterized by the base-field
 preparation, negation, and delayed-finish operations used by C++.
@@ -196,37 +227,58 @@ theorem cpp_fp2_mul_3b_formula {R : Type*} [CommRing R]
   ext <;> simp [Fp2Value.mul3b, Fp2Value.mulByNonresidue,
     Fp2Value.map, sub_eq_add_neg] <;> ring
 
-/-- Each prepared component has the selected C++ type bound `4m`. -/
-def fp2PreparedBound : Nat := multiplicationProductBound
+/--
+Standard Fp2 inputs remain below `2m`: `prep<4>` returns its existing
+`Bounds<0,2>` input unchanged, and `elementwise_moduli<2>() - y` has the same
+bound before the second `prep`.
+-/
+def fp2PreparedBound : Nat := standardBound
 
-/-- Each two-product Fp2 accumulator fits below `32m^2`. -/
+/-- Physical lane value created by `elementwise_moduli<2>() - value`. -/
+def cppFp2PreparedNegate (value modulus : Nat) : Nat :=
+  fp2PreparedBound * modulus - value
+
+theorem cpp_fp2_prepared_negate_bound
+    (value modulus : Nat) :
+    cppFp2PreparedNegate value modulus ≤ fp2PreparedBound * modulus := by
+  exact Nat.sub_le _ _
+
+theorem cpp_fp2_prepared_negate_semantics
+    (value modulus : Nat) (_valueFit : value ≤ fp2PreparedBound * modulus) :
+    (cppFp2PreparedNegate value modulus : ZMod modulus) = -value := by
+  unfold cppFp2PreparedNegate
+  rw [Nat.cast_sub _valueFit]
+  simp [fp2PreparedBound, standardBound]
+
+/-- Each two-product Fp2 accumulator fits below `8m^2`. -/
 def fp2AccumulatorBound : Nat :=
   2 * fp2PreparedBound * fp2PreparedBound
 
+/-- The tight M2 accumulator plus the exact eight-term R1 contribution. -/
+def fp2ExactCombinedBound : Nat :=
+  fp2AccumulatorBound + r1ExactAccumulationBound
+
 theorem selected_fp2_bound_values :
-    fp2PreparedBound = 4 ∧ fp2AccumulatorBound = 32 := by
-  norm_num [fp2PreparedBound, fp2AccumulatorBound,
-    multiplicationProductBound, standardBound]
+    fp2PreparedBound = 2 ∧ fp2AccumulatorBound = 8 ∧
+      fp2ExactCombinedBound = 24 := by
+  norm_num [fp2PreparedBound, fp2AccumulatorBound, fp2ExactCombinedBound,
+    r1ExactAccumulationBound, standardBound]
 
 theorem fp2_two_product_accumulator_bound
     (left0 left1 right0 right1 modulus : Nat)
-    (left0Fit : left0 < fp2PreparedBound * modulus)
-    (left1Fit : left1 < fp2PreparedBound * modulus)
-    (right0Fit : right0 < fp2PreparedBound * modulus)
-    (right1Fit : right1 < fp2PreparedBound * modulus) :
+    (left0Fit : left0 ≤ fp2PreparedBound * modulus)
+    (left1Fit : left1 ≤ fp2PreparedBound * modulus)
+    (right0Fit : right0 ≤ fp2PreparedBound * modulus)
+    (right1Fit : right1 ≤ fp2PreparedBound * modulus) :
     left0 * right0 + left1 * right1 ≤
       fp2AccumulatorBound * modulus * modulus := by
-  have left0Le : left0 ≤ fp2PreparedBound * modulus := left0Fit.le
-  have left1Le : left1 ≤ fp2PreparedBound * modulus := left1Fit.le
-  have right0Le : right0 ≤ fp2PreparedBound * modulus := right0Fit.le
-  have right1Le : right1 ≤ fp2PreparedBound * modulus := right1Fit.le
   calc
     left0 * right0 + left1 * right1 ≤
         (fp2PreparedBound * modulus) * (fp2PreparedBound * modulus) +
           (fp2PreparedBound * modulus) * (fp2PreparedBound * modulus) := by
       exact Nat.add_le_add
-        (Nat.mul_le_mul left0Le right0Le)
-        (Nat.mul_le_mul left1Le right1Le)
+        (Nat.mul_le_mul left0Fit right0Fit)
+        (Nat.mul_le_mul left1Fit right1Fit)
     _ = fp2AccumulatorBound * modulus * modulus := by
       simp [fp2AccumulatorBound]
       ring
@@ -255,6 +307,31 @@ theorem fp2_delayed_combined_bound
     fp2_accumulator_fits_delayed_input accumulator modulus accumulatorFit
   unfold delayedCombinedTypeBound
   nlinarith
+
+theorem fp2_exact_combined_bound
+    (accumulator r1Contribution modulus : Nat)
+    (accumulatorFit : accumulator ≤
+      fp2AccumulatorBound * modulus * modulus)
+    (r1Fit : r1Contribution ≤
+      r1ExactAccumulationBound * modulus * modulus) :
+    accumulator + r1Contribution ≤
+      fp2ExactCombinedBound * modulus * modulus := by
+  unfold fp2ExactCombinedBound
+  nlinarith
+
+theorem fp2_exact_combined_fits_selected_type
+    (value modulus : Nat)
+    (valueFit : value ≤ fp2ExactCombinedBound * modulus * modulus) :
+    value ≤ delayedCombinedTypeBound * modulus * modulus := by
+  have boundLe : fp2ExactCombinedBound ≤ delayedCombinedTypeBound := by
+    norm_num [fp2ExactCombinedBound, fp2AccumulatorBound, fp2PreparedBound,
+      r1ExactAccumulationBound, delayedCombinedTypeBound, delayedInputBound,
+      delayedR1TypeBound, standardBound]
+  have scaled := Nat.mul_le_mul_right (modulus * modulus) boundLe
+  have scaled' : fp2ExactCombinedBound * modulus * modulus ≤
+      delayedCombinedTypeBound * modulus * modulus := by
+    simpa [Nat.mul_assoc] using scaled
+  exact valueFit.trans scaled'
 
 /--
 Selected delayed reduction is semantically transparent after cancelling the
