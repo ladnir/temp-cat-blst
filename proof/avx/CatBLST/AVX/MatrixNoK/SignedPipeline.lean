@@ -103,6 +103,134 @@ theorem int_mod_nat_zmod_of_dvd
     _ = (value : ZMod smallModulus) := by
       exact (ZMod.intCast_eq_intCast_iff _ _ _).2 smallCongruence
 
+/-- M1 residue represented by an arbitrary signed QR expression. -/
+def signedR1ReducedValue (value : Int) : Nat :=
+  intModNat
+    (value * ifmaRadix * Generated.qr_premult * Generated.qr_premult)
+    Generated.M1
+
+theorem signed_r1_reduced_value_lane (value : Int) (index : Fin 8) :
+    (signedR1ReducedValue value : ZMod (modulus1At index)) =
+      value * ifmaRadix * Generated.qr_premult *
+        Generated.qr_premult := by
+  unfold signedR1ReducedValue
+  have result := int_mod_nat_zmod_of_dvd
+    (value * (ifmaRadix : Int) * Generated.qr_premult *
+      Generated.qr_premult)
+    (modulus1At index) Generated.M1
+    (by norm_num [Generated.M1]) (modulus1_dvd_product index)
+  push_cast at result
+  exact result
+
+def r1SignedValueNumerator
+    (value : Int) (residues : Fin 8 → Nat) : Int :=
+  value + Generated.target_modulus * r1RawLiftFromResidues residues
+
+def r1SignedValueFromResidues
+    (value : Int) (residues : Fin 8 → Nat) : Int :=
+  r1SignedValueNumerator value residues / Generated.M1
+
+set_option maxRecDepth 10000 in
+theorem r1_signed_value_numerator_divisible
+    (value : Int) (residues : Fin 8 → Nat)
+    (residuesRepresent : ∀ index,
+      Nat.ModEq (modulus1At index) (residues index)
+        (signedR1ReducedValue value)) :
+    (Generated.M1 : Int) ∣ r1SignedValueNumerator value residues := by
+  have rawRelation := r1_raw_lift_from_residues_relation
+    residues (signedR1ReducedValue value)
+      (by simpa [modulus1At] using residuesRepresent)
+  have rawCast :
+      (r1RawLiftFromResidues residues : ZMod Generated.M1) =
+        Generated.r1_premult * signedR1ReducedValue value := by
+    have castRelation := (ZMod.natCast_eq_natCast_iff
+      (r1RawLiftFromResidues residues)
+      (Generated.r1_premult * signedR1ReducedValue value)
+      Generated.M1).2 rawRelation
+    simpa only [Nat.cast_mul] using castRelation
+  have reducedCast := int_mod_nat_zmod
+    (value * (ifmaRadix : Int) * Generated.qr_premult *
+      Generated.qr_premult)
+    Generated.M1 (by norm_num [Generated.M1])
+  change (signedR1ReducedValue value : ZMod Generated.M1) = _
+    at reducedCast
+  push_cast at reducedCast
+  have inverseCast :
+      ((Generated.qr_premult * Generated.qr_premult *
+          Generated.r1_premult *
+          (Generated.M1 - Generated.target_modulus) * ifmaRadix : Nat) :
+          ZMod Generated.M1) = 1 := by
+    apply (ZMod.natCast_eq_natCast_iff _ _ Generated.M1).2
+    change
+      (Generated.qr_premult * Generated.qr_premult *
+          Generated.r1_premult *
+          (Generated.M1 - Generated.target_modulus) * montgomeryRadix) %
+        Generated.M1 = 1 % Generated.M1
+    have oneMod : 1 % Generated.M1 = 1 :=
+      Nat.mod_eq_of_lt (by norm_num [Generated.M1])
+    rw [oneMod]
+    exact r1_premult_relation
+  have inverseCastExpanded := inverseCast
+  push_cast at inverseCastExpanded
+  have targetBelowM1 : Generated.target_modulus ≤ Generated.M1 := by
+    norm_num [Generated.target_modulus, Generated.M1]
+  have subtractionCast :
+      ((Generated.M1 - Generated.target_modulus : Nat) :
+          ZMod Generated.M1) = -Generated.target_modulus := by
+    rw [Nat.cast_sub targetBelowM1]
+    simp
+  have cancellation :
+      (Generated.target_modulus : ZMod Generated.M1) *
+          Generated.r1_premult * ifmaRadix * Generated.qr_premult *
+            Generated.qr_premult = -1 := by
+    calc
+      _ = -((Generated.qr_premult : ZMod Generated.M1) *
+          Generated.qr_premult * Generated.r1_premult *
+          ((Generated.M1 - Generated.target_modulus : Nat) :
+            ZMod Generated.M1) * ifmaRadix) := by
+        rw [subtractionCast]
+        ring
+      _ = -1 := by rw [inverseCastExpanded]
+  have numeratorCast :
+      (r1SignedValueNumerator value residues : ZMod Generated.M1) = 0 := by
+    unfold r1SignedValueNumerator
+    push_cast
+    rw [rawCast, reducedCast]
+    calc
+      _ = (value : ZMod Generated.M1) *
+          (1 + Generated.target_modulus * Generated.r1_premult *
+            ifmaRadix * Generated.qr_premult * Generated.qr_premult) := by
+        ring
+      _ = 0 := by rw [cancellation]; ring
+  exact (ZMod.intCast_zmod_eq_zero_iff_dvd _ _).1 numeratorCast
+
+theorem r1_signed_value_reconstruction
+    (value : Int) (residues : Fin 8 → Nat)
+    (residuesRepresent : ∀ index,
+      Nat.ModEq (modulus1At index) (residues index)
+        (signedR1ReducedValue value)) :
+    r1SignedValueFromResidues value residues * Generated.M1 =
+      r1SignedValueNumerator value residues := by
+  unfold r1SignedValueFromResidues
+  exact Int.ediv_mul_cancel
+    (r1_signed_value_numerator_divisible value residues residuesRepresent)
+
+theorem r1_signed_value_preserves_field
+    (value : Int) (residues : Fin 8 → Nat)
+    (residuesRepresent : ∀ index,
+      Nat.ModEq (modulus1At index) (residues index)
+        (signedR1ReducedValue value)) :
+    (r1SignedValueFromResidues value residues :
+        ZMod Generated.target_modulus) * Generated.M1 = value := by
+  have reconstruction := r1_signed_value_reconstruction
+    value residues residuesRepresent
+  have castEquality := congrArg
+    (fun result : Int => (result : ZMod Generated.target_modulus))
+    reconstruction
+  unfold r1SignedValueNumerator at castEquality
+  push_cast at castEquality
+  simpa using castEquality
+
 /-- M1 residue represented by multiplying two signed QR lifts. -/
 def signedR1ReducedProduct (left right : Int) : Nat :=
   intModNat
