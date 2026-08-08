@@ -8,6 +8,20 @@ specification of the exact selected construction and bound ledger.
 The project pins Lean and Mathlib to `v4.32.1`. Updating either pin is a
 reviewed dependency change and does not occur implicitly.
 
+## Local setup
+
+Install Elan, then run these commands from `proof/avx`:
+
+```text
+lake update
+lake exe cache get
+lake build
+```
+
+Elan selects the exact version in `lean-toolchain`; do not install or select a
+different system Lean. `lake-manifest.json` locks Mathlib's transitive
+dependencies, while the downloaded `.lake/` cache remains local and ignored.
+
 ## First milestone
 
 The first proof slice is intentionally narrow and follows the implementation
