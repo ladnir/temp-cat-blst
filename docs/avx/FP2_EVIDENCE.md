@@ -135,8 +135,11 @@ proof correspondence.
   `proof/avx/CatBLST/AVX/MatrixNoK/Fp2.lean` and bound to current source hashes
   by the in-review P3 correspondence row.
 - The variadic strided layout and independent per-item batch R1 recurrence are
-  now checked. Complete the physical delayed-M1-to-correction-free-R1 lift and
-  nonnegative R2 composition before accepting P3.
+  now checked. A valid split-`M1` Fp2 input formally demonstrates that the
+  correction-free R1 representative can be `-1`; the existing R2 schedule is
+  also proved correct for that case. Complete the physical delayed-M1 signed
+  composition and prove the R2 fixed-point margin across every reachable
+  negative representative before accepting P3.
 - Extend the isolated tower to Fp12 and measure complete pairing workloads
   before changing production dispatch.
 

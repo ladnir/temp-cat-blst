@@ -139,7 +139,11 @@ generic delayed reducer branch are machine checked, including the tight
 `832m²` type allowance, `<209m` intermediate, and `<2m` output. The
 variadic strided layout and pointwise batched R1 recurrence are checked. The
 correspondence remains in review while physical delayed M1 coordinates are
-composed through the correction-free R1 lift and nonnegative R2 expansion.
+composed through the signed correction-free R1 lift and R2 fixed-point margin.
+The earlier proposed nonnegative intermediate invariant is false: a derived
+valid Fp2 input selects `-1`. Lean proves that R2 preserves this reachable
+negative case, so it is a corrected proof boundary rather than a confirmed
+C++ defect.
 
 The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside
 this initial scope. The selected tower uses `FP2Ring<FpRingCandidate>`.

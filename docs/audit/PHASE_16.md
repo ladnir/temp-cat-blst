@@ -382,3 +382,22 @@ bases; and specializes the full multiplication/export theorem to those exact
 producers. The source review found no additional C++ defect. The 3,024-job
 Lean target and both deterministic constant checks pass, with no admitted
 claims or project axioms. No C++ build, benchmark, CUDA, or broad suite ran.
+
+## Selected Fp2 P3 proof boundary
+
+The initial selected-Fp2 packet proves the source-shaped `FP2Ring` formulas,
+prepared negation, variadic strided layout, pointwise batched R1 recurrence,
+and the exact selected delayed-reducer bounds. A follow-up signed-domain review
+found that the proposed nonnegative R1 intermediate invariant is false. Two
+valid canonical field values formed from complementary four-modulus factors of
+`M1` produce the real Fp2 expression `-M1`, whose correction-free R1
+representative is `-1`.
+
+Proof commit `ddc6b7e` generalizes the signed R1 theorem to arbitrary signed
+expressions, formalizes that reachable `-1` witness, and proves the existing
+R2 schedule preserves it exactly. This corrects a proof assumption but does
+not establish a C++ defect. P3 remains `in_review`: the exact physical delayed
+M1 producer must still be composed with the signed theorem, and R2's
+fixed-point margin must be proved for every reachable negative representative.
+The focused 3,014-job Lean target and trust-word scan pass. No product build,
+benchmark, CUDA, or broad suite ran.
