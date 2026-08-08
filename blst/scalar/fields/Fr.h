@@ -719,7 +719,20 @@ namespace blst::scalar
 		UFr temp;
 
 		ct_inverse_mod_v256(temp, inp, get_BLST_r(), rx2);
-		Fr::redc(out, temp);
+#ifndef NDEBUG
+		// The almost-inverse is bounded by the left-aligned modulus: temp < 2rR.
+		// This is wider than the public Fr::redc contract but is safe for the
+		// private REDC-then-to_mont pipeline below.
+		Fr upper;
+		for (size_t i = 0; i < num_limbs(); ++i)
+			upper[i] = temp.data[num_limbs() + i];
+		BLST_ASSERT(cc_is_redc_mod_n<NLIMBS(256)>(
+			(const byte*)upper.l, rx2.l));
+#endif
+		// The first reduction may be redundant below 2r. Multiplication by R^2
+		// consumes that bounded value and publishes a canonical Montgomery result.
+		// Do not route this private intermediate through public Fr::redc.
+		redc_mont_v256(out.l, temp.data, modulus().l, BLST_r0);
 		Fr::to_mont(out, out);
 	}
 

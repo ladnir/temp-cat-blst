@@ -1113,8 +1113,11 @@ TEST(InterfaceTests, CtInverseMod256) {
 			return;
 
 		Fr inv_asm, inv_portable, product;
-		Fr::redc(inv_asm, ret_asm);
-		Fr::redc(inv_portable, ret_portable);
+		// Almost-inverse output uses the private <2rR contract, not the public
+		// Fr::redc <rR contract. Its first reduction may remain below 2r; the
+		// following conversion publishes the canonical Montgomery value.
+		redc_mont_v256(inv_asm.l, ret_asm.data, get_BLST_r().l, BLST_r0);
+		redc_mont_v256(inv_portable.l, ret_portable.data, get_BLST_r().l, BLST_r0);
 		Fr::to_mont(inv_asm, inv_asm);
 		Fr::to_mont(inv_portable, inv_portable);
 
