@@ -199,6 +199,10 @@ if(BLST_AVX512_PORTABLE)
         "avx/Avx_matrixnok_primitive_tests.cpp"
         "${PROJECT_SOURCE_DIR}/blst/backend/backend_portable.cpp"
         "${PROJECT_SOURCE_DIR}/blst/backend/avx512/intrin_compat.cpp"
+        "${PROJECT_SOURCE_DIR}/blst/scalar/fields/Fp.cpp"
+        "${PROJECT_SOURCE_DIR}/blst/scalar/fields/Fp12.cpp"
+        "${PROJECT_SOURCE_DIR}/blst/scalar/curve/GT.cpp"
+        "${PROJECT_SOURCE_DIR}/blst/scalar/curve/point.cpp"
     )
     if(BLST_AVX512)
         list(APPEND AVX512_COMPAT_TEST_SOURCES "avx512_compat_test.cpp")
@@ -210,7 +214,12 @@ if(BLST_AVX512_PORTABLE)
         "${CMAKE_BINARY_DIR}"
         "${CMAKE_BINARY_DIR}/blst"
     )
-    target_link_libraries(blst_avx512_compat_tests PRIVATE gtest_main)
+    # MatrixNoK differentials compile the scalar field, curve, and pairing
+    # owners above as their independent oracle. Keep the focused executable
+    # independent of the configured production-default backend.
+    target_link_libraries(blst_avx512_compat_tests PRIVATE
+        gtest_main
+        blst_avx_headers)
     target_compile_features(blst_avx512_compat_tests PRIVATE cxx_std_23)
 
     if(BLST_AVX512)
