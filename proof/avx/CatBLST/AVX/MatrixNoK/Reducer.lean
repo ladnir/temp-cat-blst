@@ -190,4 +190,50 @@ theorem selected_expansion_reducer_contract
     modulusMember inverseRelation (by norm_num) wideFits (by norm_num)
     (by norm_num [elementRadix, uint64Modulus])
 
+/--
+The exact reducer selected by the generic delayed path in
+`FpRingCandidate::batch_reduce_expand`.  C++ assigns the accumulated M2 value
+the conservative bound `MAX_ADD + delayed_r1_type_bound = 800 + 32 = 832`.
+`reduce_wide` therefore returns a value below `209m`; the following
+`reduce_auto<2>` takes its mask-reduction branch and produces the value modeled
+by `selectedReduceMasked`.
+-/
+theorem selected_delayed_reducer_contract
+    (high low modulus factor : Nat)
+    (modulusMember : modulus ∈ allModuli)
+    (inverseRelation : modulus * factor % ifmaRadix = 1)
+    (wideFits : high * ifmaRadix + low ≤
+      delayedCombinedTypeBound * modulus * modulus) :
+    (selectedReduceMasked high low modulus factor : ZMod modulus) *
+        ifmaRadix = high * ifmaRadix + low ∧
+      selectedMontgomeryStep high low modulus factor <
+        reducerOutputBound * modulus ∧
+      selectedReduceMasked high low modulus factor < 2 * modulus := by
+  have modulusFacts := selected_modulus_quarter_window modulus modulusMember
+  have stepBound := selected_step_bound high low modulus factor
+    delayedCombinedTypeBound reducerReboundedHighBound
+    modulusFacts.1 modulusFacts.2
+    (by norm_num [reducerReboundedHighBound, delayedCombinedTypeBound,
+      delayedInputBound, delayedR1TypeBound, r1ExactAccumulationBound,
+      standardBound])
+    wideFits
+    (by norm_num [reducerReboundedHighBound, delayedCombinedTypeBound,
+      delayedInputBound, delayedR1TypeBound, r1ExactAccumulationBound,
+      standardBound])
+  have masked := selected_masked_reducer_contract high low modulus factor
+    delayedCombinedTypeBound reducerReboundedHighBound modulusMember
+    inverseRelation
+    (by norm_num [reducerReboundedHighBound, delayedCombinedTypeBound,
+      delayedInputBound, delayedR1TypeBound, r1ExactAccumulationBound,
+      standardBound])
+    wideFits
+    (by norm_num [reducerReboundedHighBound, delayedCombinedTypeBound,
+      delayedInputBound, delayedR1TypeBound, r1ExactAccumulationBound,
+      standardBound])
+    (by norm_num [reducerReboundedHighBound, delayedCombinedTypeBound,
+      delayedInputBound, delayedR1TypeBound, r1ExactAccumulationBound,
+      standardBound, elementRadix, uint64Modulus])
+  refine ⟨masked.1, ?_, masked.2⟩
+  simpa [reducerOutputBound] using stepBound
+
 end CatBLST.AVX.MatrixNoK
