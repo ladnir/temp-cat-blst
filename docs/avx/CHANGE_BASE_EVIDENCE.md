@@ -71,11 +71,11 @@ The resulting function contains:
 
 ## Residual proof obligations
 
-- Prove that the permuted diagonal schedule equals multiplication by the exact
-  checked-in r1 matrix for all lane values, not only tested vectors.
-- Prove the IFMA accumulator range and absence of unwanted 64-bit wrap for all
-  production input and accumulator bounds.
-- Prove the QR representation invariant that permits omission of the quotient
-  correction and establish the candidate ring's redundant-range policy.
-- Bind the eventual Lean declarations to the exact implementation and constant
-  hashes before this kernel receives a production caller.
+- Lean now proves that the complete permuted-diagonal sum equals the exact
+  checked-in R1 matrix product for every lane value.
+- Lean proves the selected fused accumulator cannot wrap and proves the QR
+  relation and `<18p`/`<40p` redundant-range envelope that permits omission of
+  the quotient correction.
+- The source and constant hashes remain unchanged from `adf2ed5`; the P2 row is
+  in review rather than accepted because C++ transcription, compiler lowering,
+  and x86 IFMA semantics remain correspondence assumptions.

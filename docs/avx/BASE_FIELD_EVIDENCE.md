@@ -23,8 +23,8 @@ to both bases. The fixed source bounds are:
 - combined second-base accumulator: bound 20, below the configured bound-40
   reduction capacity.
 
-These source bounds are checked by C++ types and assertions but remain formal
-proof obligations until the corresponding Lean theorems are complete.
+These source bounds are checked by C++ types and assertions and are now also
+proved for the selected multiplication pipeline in Lean.
 
 ## Differential oracle
 
@@ -156,15 +156,20 @@ performance-selected `e6b2995` baseline. The clean native-plus-portable focused
 target passes all 17 MatrixNoK tests; local portable Debug passes the four
 directly affected RNS/base-field tests.
 
-## Residual proof and selection gates
+## Formal result and residual selection gates
 
-- Prove lane extraction and IFMA semantics for the exact operations used.
-- Prove the fixed conversion matrices and both Montgomery reductions.
-- Prove that omission of the r1 quotient correction preserves the represented
-  value under the bound-20 input established by multiplication.
-- Prove the `< 2m_i` result bounds and absence of unintended 64-bit IFMA
-  accumulator wrap.
-- Bind the proved declarations to the source and constant hashes above.
+The pinned Lean workspace now proves the selected Montgomery reducers, exact
+cyclic R1 schedule, correction-free R1 relation, bound-20 fused M2 stage,
+shifted R2 expansion, fixed quotient, accumulator no-wrap conditions, and the
+complete `selected_base_field_pipeline`. The theorem accepts the actual
+standard lane domain `<2m_i`, returns both bases below `<2m_i`, and bounds the
+raw QR output representative below `18p` within the C++ `40p` allowance.
+
+- Complete review of the in-review P2 C++ transcription rows; Lean does not
+  prove compiler lowering or the x86 ISA.
+- Prove the canonical import/export representation round trip. Those matrices
+  are regenerated and their fixed arithmetic is checked, but they are not part
+  of `selected_base_field_pipeline`.
 - The isolated Fp2 candidate now passes its operation-level gate; extend the
   candidate through Fp12 and pairing-level workloads before production
   selection.
@@ -172,5 +177,5 @@ directly affected RNS/base-field tests.
   primary hot path.
 
 No broad suite, sanitizer run, CUDA work, or production dispatch change
-occurred in this packet. Formal proof remains deferred until the field-tower
-candidate is selected on correctness and performance evidence.
+occurred in this proof packet. Field-tower, curve, and pairing proof layers
+remain pending.

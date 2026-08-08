@@ -33,6 +33,15 @@ bases. These types make arithmetic obligations visible to C++ compilation,
 but do not validate values at runtime. Lean must prove that every producer
 satisfies the bounds claimed by its result type.
 
+The expression-level `rns_bounds` metadata and the raw QR lift bound are
+different contracts. Arithmetic metadata tracks the mathematical field
+expression through delayed operations. A concrete standard two-basis encoding
+may select a noncanonical QR lift containing several multiples of p; for
+example, the correction-free path need not choose the least nonnegative field
+representative. `base_redundant_multiple` bounds that raw lift. The selected
+multiplication theorem proves its output lift is below `18p`, while the C++
+pipeline accepts values below `40p`.
+
 Canonical import follows one path:
 
 1. split the canonical integer into eight little-endian radix-2^50 digits;
@@ -101,6 +110,10 @@ multiplied lane-wise by row `d`. The eight products reconstruct the ordinary
 matrix-vector product without horizontal reductions. Its input is scratch and
 is rotated in place; its high and low outputs are in/out accumulators.
 
+Lean theorem `r1_cyclic_lane_eq_matrix_product` proves this complete summed
+schedule, rather than only checking each table entry. The selected fused-R1
+and shifted-R2 high/low accumulator shapes also have explicit no-wrap theorems.
+
 ## Field tower layout
 
 The selected Fp2 is `c0 + u*c1` with `u^2 = -1`. Fp12 uses the existing
@@ -133,8 +146,11 @@ P0 models the exact lane operations used here. Native intrinsic semantics are
 axioms at that boundary; the portable `_cc512_*` implementation and native
 differential tests are executable evidence, not the proof itself. P1 proves
 the generated constants, dimensions, coprimality, inverses, and bounds. P2
-proves the import, multiplication, reductions, and export pipeline. The tower,
-curve, and pairing layers follow only after that base-field slice is stable.
+proves the import, multiplication, reductions, and export pipeline. The
+selected multiplication/reduction theorem is complete and its C++
+correspondence is in review; canonical import/export is still pending. The
+tower, curve, and pairing layers follow only after that base-field slice is
+stable.
 
 After the proof-facing source hash is recorded, changes to a mapped operation,
 constant, loop schedule, permutation, bound, or representation reopen its

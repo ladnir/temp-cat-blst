@@ -88,10 +88,27 @@ witnesses, regenerates all four matrix/correction/quotient families, bounds
 the fixed-point ceiling error, and proves the eight-lane quotient accumulator
 cannot wrap 128 bits for 52-bit inputs and 64-bit estimates.
 
-P1 remains open for the complete per-kernel intermediate-bound ledger and the
-mathematical derivation of the encoded field-tower constants. The generated
-snapshot and Python regeneration remain binding and independent executable
-evidence, respectively; Lean now checks the corresponding table formulas
+The selected base-field P1/P2 slice is now machine checked. The proof covers
+the exact product, correction-free R1, fused M2, shifted R2, and Montgomery
+reduction bounds; the cyclic R1 source schedule; fixed-quotient correctness;
+the absence of unintended 64-bit accumulator wrap; and a complete
+`selected_base_field_pipeline` theorem. Inputs may use either standard lane
+representative below `2m_i`. Both output bases remain below `2m_i`, encode the
+same representative, and that representative is the field product modulo p.
+The selected raw QR representative is below `18p`, safely inside the C++
+base-redundancy allowance of `40p`.
+
+This closes the mathematical part of initial milestone item 3. The P2
+correspondence rows are in review: source hashes are unchanged from `adf2ed5`,
+the deterministic constant check passes, and the shared scalar/batch schedule
+has an explicit Lean refinement theorem. Acceptance still requires the normal
+review of the C++ transcription and existing native/portable evidence. The
+canonical import/export matrices remain a separate P2 round-trip obligation;
+P3 field-tower constants and formulas are not claimed by the base-field
+multiplication theorem.
+
+The generated snapshot and Python regeneration remain binding and independent
+executable evidence, respectively; Lean checks the corresponding formulas
 rather than accepting either tool as the mathematical proof.
 
 ## Resource policy
