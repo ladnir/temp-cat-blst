@@ -2,7 +2,7 @@
 
 ## Packet boundary
 
-- Candidate implementation through: `19f37a1`
+- Candidate implementation through: `adf2ed5df84de1e4bf705561e52d7941f04833a4`
 - Upstream algorithm commit: `d6ecd534c54a41702ea80ae75b52250b6d51b372`
 - Compared VROOM head: `26bd9aee2168f167583cf096add355547a7b56d4`
 - C++ owner: `blst/avx/rns/matrixnok_fp.h`
@@ -130,21 +130,31 @@ model is accepted on that evidence.
 ## Exact correspondence inputs
 
 - `matrixnok_fp.h` SHA-256:
-  `3070239f8369e2e397026cdb5731b7af33a0b4d01a2dfccfd719cea0ca32e4bc`
+  `358ff81f7900854b5b36980eed0d12b11a96466edba2c6bf1d3a816a309b871a`
 - `matrixnok_fixed.h` SHA-256:
-  `5938d841014795e97715107ab8a1345e036be2323755890c7377e03b63309a2d`
+  `882a5aaf625cbcd5b61a8fd1e7ab6994710d38245c555167e8b2186abf323390`
 - `matrixnok_change_base.h` SHA-256:
-  `74eec0fc27747cb7c27ee4d062ce66c6f601d2283d267659e4a586162de0a032`
+  `23b6a0e8f710c4d6ab3e8958213576b7c1984bc9c600c0211d2fdcee0dd4d152`
 - `changebase.hpp` SHA-256:
   `75fcd7be6cb157e6e1ca676d8cecf702f3ae07fd899c4ba23d83568f071748af`
 - `avx512ifma.hpp` SHA-256:
   `9da2bd1b3fc11be3a33cdf4b336206233e9580225cc7f92425bd8737b87c64b1`
 - `generated_matrixnok_constants.hpp` SHA-256:
-  `3b4349e9e9afd763b1297d533e84dcb2ad9c04a92d04bfa557a48a67a3b34302`
+  `d1bd0045e8d7f223cb332842bd4c9023daefc715079c0649fbce953cabdfea43`
 
 The fixed-constant hash and regeneration record remain in
 `CONSTANT_EVIDENCE.md`. Any change to these sources or constants reopens the
 code-generation and proof correspondence.
+
+The proof-preparation pass at `adf2ed5` names these bounds and dimensions,
+documents accumulator and scratch mutation semantics at their owners, and
+adds `MATRIXNOK_CONSTRUCTION.md` as the readable construction map. A proposed
+narrowing of the delayed-path C++ type allowance from 32 to the exact R1 bound
+16 changed optimized higher-tower scheduling, so it was not selected without a
+new benchmark gate. Final Clang 21 probe assembly is byte-identical to the
+performance-selected `e6b2995` baseline. The clean native-plus-portable focused
+target passes all 17 MatrixNoK tests; local portable Debug passes the four
+directly affected RNS/base-field tests.
 
 ## Residual proof and selection gates
 

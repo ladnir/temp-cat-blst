@@ -277,3 +277,33 @@ translation unit compiles. One serial seven-repetition process measured full
 pairing at 132.084 us, 21.2% faster than the incumbent and 5.5% faster than
 pinned VROOM. Performance selection is therefore complete. Formal proof,
 production dispatch review, and release evidence remain pending.
+
+## MatrixNoK proof preparation and semi-freeze
+
+Commits `ddb26f7`, `5890075`, and `adf2ed5` prepare the performance-selected,
+still non-dispatched candidate for formal correspondence. The new
+`docs/avx/MATRIXNOK_CONSTRUCTION.md` records the selected call graph, two-base
+representation, import/export and multiplication pipelines, field-tower
+coordinate order, fixed-matrix accumulator semantics, exact bound ledger, and
+the source duplication retained for latency/throughput code generation.
+
+Source constants now name and assert the exact direct-multiply bounds 4, 16,
+and 20 and generated base redundant multiple 40. The generic delayed-reduction
+path deliberately retains its conservative C++ type allowance 32: narrowing it
+to 16 changed higher-tower optimized assembly and was rejected without a new
+benchmark gate. Lean should prove the stronger mathematical contribution 16;
+the weaker C++ type claim is not the theorem target.
+
+The pass found `AUD-219`: the focused compatibility target compiled its scalar
+differential oracle but did not link the scalar definitions. It now compiles
+the four required scalar owners directly, independent of the configured
+production-default backend. MSVC portable Debug passes the four affected RNS
+and base-field cases; a clean Peach Clang 21 native-plus-portable build passes
+all 17 MatrixNoK tests. Optimized code-generation probes are byte-identical to
+the performance-selected `e6b2995` baseline. No benchmark or broad suite ran.
+
+The correspondence ledger is rebound to exact commit `adf2ed5`, current source
+and generated-constant hashes, and a new fixed-Montgomery-reduction obligation.
+Mapped arithmetic is now semi-frozen: executable changes reopen the associated
+record and require focused correctness/code-generation evidence, plus a
+benchmark only when generated code materially changes.

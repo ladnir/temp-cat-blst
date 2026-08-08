@@ -2,7 +2,8 @@
 
 This is the machine-checked proof project for the selected BLS12-381
 MatrixNoK arithmetic. It implements the layers and claim boundary in
-`docs/avx/PROOF_PLAN.md`.
+`docs/avx/PROOF_PLAN.md`; `docs/avx/MATRIXNOK_CONSTRUCTION.md` is the readable
+specification of the exact selected construction and bound ledger.
 
 The project pins Lean and Mathlib to `v4.32.1`. Updating either pin is a
 reviewed dependency change and does not occur implicitly.
