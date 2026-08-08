@@ -179,10 +179,11 @@ model; no C++ defect or production change is claimed.
 
 The generic quotient-complement implication and redundant-lane monotonicity
 are machine checked. An exact counterexample shows that the proposed margin is
-false over all abstract negative values in `(-p,0)`. The outstanding item is
-now to characterize the output set of the real R1 schedule and prove the R2
-property only over that reachable set. Targeted probes have not made the
-counterexample reachable, so it is not presently a confirmed C++ defect.
+false over all abstract negative values in `(-p,0)`. A separate valid canonical
+input reaches the defect before multiplication: ConvertTo emits a signed lift
+whose immediate R2 expansion selects the positive M2 complement and a different
+M1 lane. `AUD-221` remains open pending a C++ regression and repair; R1
+reachability is no longer the first unresolved gate.
 - The isolated Fp2 candidate now passes its operation-level gate; extend the
   candidate through Fp12 and pairing-level workloads before production
   selection.

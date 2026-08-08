@@ -129,10 +129,11 @@ ceiling errors sum to the aggregate fixed-point error, sufficient error forces
 the quotient to be exactly one high, and that quotient reconstructs the
 original negative lift. Residues in the allowed redundant interval cannot
 reduce the margin. An exact Lean counterexample proves that the stronger
-all-negative canonical-residue margin is false. The proof must therefore
-characterize the representatives reachable from R1 and establish either their
-nonnegativity or their narrower margin. Reachability of the counterexample has
-not been established, so this is not a confirmed production defect.
+all-negative canonical-residue margin is false. A second exact witness is
+reachable directly from canonical import: ConvertTo selects `-t`, while R2
+reconstructs `M2-t` and produces a provably different M1 lane. This opens
+`AUD-221`; the next P2 step is repair selection and proof, followed by the
+remaining R1 and canonical-export composition.
 
 The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside
 this initial scope. The selected tower uses `FP2Ring<FpRingCandidate>`.

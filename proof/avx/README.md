@@ -113,12 +113,14 @@ The generic one-high implication is machine checked: the aggregate ceiling
 error is an exact sum of per-lane errors, and if that sum covers the negative
 magnitude then the quotient is one high and the corrected CRT value is exactly
 the original negative representative. Redundant residues below `2m_i` can only
-increase this margin. `NegativeR2Counterexample` also proves that this margin
-does not hold for every abstract negative value in `(-p,0)`: one exact
-canonical-residue input selects the lower quotient. This narrows the remaining
-obligation to the representatives actually emitted by the preceding R1
-schedule. The counterexample is not presently known to be reachable and is not
-a confirmed C++ defect.
+increase this margin. `NegativeR2Counterexample` first proves that this margin
+does not hold for every abstract negative value in `(-p,0)`. It then supplies a
+reachable witness: a valid canonical radix-2^50 input makes ConvertTo select
+`-t`, the M2 Montgomery boundary emits the corresponding canonical residues,
+and R2 selects the lower quotient and reconstructs `M2-t`. Generated M1 lane 0
+differs from the expected signed lift by a nonzero value. This is `AUD-221`, an
+open high-severity MatrixNoK correctness defect; the proof no longer assumes
+the current import/expansion pipeline is correct.
 
 This reopens the full-reachability part of initial milestone item 3. The P2
 correspondence rows are in review: source hashes are unchanged from `adf2ed5`,
