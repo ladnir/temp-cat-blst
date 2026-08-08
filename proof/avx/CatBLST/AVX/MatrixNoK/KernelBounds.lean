@@ -225,6 +225,14 @@ theorem digit_products_fit
   · apply (Nat.div_lt_iff_lt_mul radixPositive).2
     exact productBound.trans_lt productStrict
 
+/-- Recombine the two radix-`2^52` digits emitted by one IFMA product. -/
+theorem digit_product_reconstruction (left right : Nat) :
+    lowDigitProduct left right + ifmaRadix * highDigitProduct left right =
+      (left % ifmaRadix) * (right % ifmaRadix) := by
+  simpa [lowDigitProduct, highDigitProduct, Nat.mul_comm] using
+    Nat.mod_add_div
+      ((left % ifmaRadix) * (right % ifmaRadix)) ifmaRadix
+
 /--
 The non-shifted fixed-matrix correction is the larger of the two correction
 schedules: its upper quotient word is reconstructed in the high accumulator.

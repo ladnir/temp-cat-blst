@@ -195,13 +195,6 @@ theorem generated_convert_from_accumulators_fit_word
       (generatedConvertFromEstimatedQuotient residues)
       highFits lowFits correctionFits quotientFits
 
-theorem digit_product_reconstruction (left right : Nat) :
-    lowDigitProduct left right + ifmaRadix * highDigitProduct left right =
-      (left % ifmaRadix) * (right % ifmaRadix) := by
-  simpa [lowDigitProduct, highDigitProduct, Nat.mul_comm] using
-    Nat.mod_add_div
-      ((left % ifmaRadix) * (right % ifmaRadix)) ifmaRadix
-
 theorem generated_convert_from_accumulators_reconstruct_wide_digit
     (residues : Fin 8 → Nat)
     (residuesFit : ∀ index,
@@ -500,5 +493,61 @@ theorem canonical_import_selected_multiplication_export
         (canonicalDigitValue leftDigits : ZMod Generated.target_modulus)
         (canonicalDigitValue rightDigits : ZMod Generated.target_modulus)
         leftRepresents rightRepresents (by simpa using productCast)
+
+/--
+The exact selected C++ source path—canonical ConvertTo, its `800` reducer,
+R2 expansion, one base-field multiplication, and ConvertFrom—implements
+canonical field multiplication.  Unlike the generic theorem above, this
+statement assumes no intermediate residue postconditions.
+-/
+theorem actual_canonical_import_selected_multiplication_export
+    (leftDigits rightDigits : Fin 8 → Nat)
+    (leftDigitsFit : ∀ index, leftDigits index < 2 ^ 50)
+    (rightDigitsFit : ∀ index, rightDigits index < 2 ^ 50) :
+    let leftM1 := canonicalImportedM1Residue leftDigits
+    let rightM1 := canonicalImportedM1Residue rightDigits
+    let leftM2 := canonicalImportedM2Residue leftDigits
+    let rightM2 := canonicalImportedM2Residue rightDigits
+    let intermediateM1 := m1ProductResidues leftM1 rightM1
+    let resultM2 := m2CombinedResidues leftM2 rightM2 intermediateM1
+    (generatedConvertFromValue resultM2 :
+        ZMod Generated.target_modulus) =
+      canonicalDigitValue leftDigits * canonicalDigitValue rightDigits := by
+  dsimp only
+  apply canonical_import_selected_multiplication_export
+      leftDigits rightDigits
+      (canonicalImportedM1Residue leftDigits)
+      (canonicalImportedM1Residue rightDigits)
+      (canonicalImportedM2Residue leftDigits)
+      (canonicalImportedM2Residue rightDigits)
+      leftDigitsFit rightDigitsFit
+  · exact fun index =>
+      (canonical_imported_m1_residue_contract
+        leftDigits leftDigitsFit index).1
+  · exact fun index =>
+      (canonical_imported_m1_residue_contract
+        rightDigits rightDigitsFit index).1
+  · exact fun index =>
+      (canonical_imported_m2_residue_contract
+        leftDigits leftDigitsFit index).2
+  · exact fun index =>
+      (canonical_imported_m2_residue_contract
+        rightDigits rightDigitsFit index).2
+  · exact fun index =>
+      (canonical_imported_m1_residue_contract
+        leftDigits leftDigitsFit index).2
+  · exact fun index =>
+      (canonical_imported_m1_residue_contract
+        rightDigits rightDigitsFit index).2
+  · intro index
+    exact (canonical_imported_m2_residue_represents
+      leftDigits leftDigitsFit index).trans
+        (r2_input_represents_m2_encoding
+          (convertToCorrectedRepresentative leftDigits) index)
+  · intro index
+    exact (canonical_imported_m2_residue_represents
+      rightDigits rightDigitsFit index).trans
+        (r2_input_represents_m2_encoding
+          (convertToCorrectedRepresentative rightDigits) index)
 
 end CatBLST.AVX.MatrixNoK

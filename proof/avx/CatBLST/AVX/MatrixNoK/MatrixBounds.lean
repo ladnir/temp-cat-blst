@@ -70,6 +70,59 @@ def highMatrixAccumulator
   ∑ row, highDigitProduct (residues row)
     (matrixEntry matrix row.val column.val)
 
+/--
+Recombining the low and high IFMA accumulators gives the ordinary matrix
+product when both source lanes and matrix digits fit the radix-`2^52` input
+domain.  This is the source-level correspondence bridge for the two
+`madd52lo`/`madd52hi` streams used by every fixed MatrixNoK matrix.
+-/
+theorem matrix_accumulators_reconstruct_product
+    (residues : Fin 8 → Nat) (matrix : List (List Nat))
+    (column : Fin 8)
+    (residuesFit : ∀ row : Fin 8, residues row < ifmaRadix)
+    (matrixFits : ∀ row : Fin 8,
+      matrixEntry matrix row.val column.val < ifmaRadix) :
+    lowMatrixAccumulator residues matrix column +
+        ifmaRadix * highMatrixAccumulator residues matrix column =
+      matrixProductValue residues matrix column := by
+  unfold lowMatrixAccumulator highMatrixAccumulator matrixProductValue
+  rw [Finset.mul_sum, ← Finset.sum_add_distrib]
+  apply Finset.sum_congr rfl
+  intro row _
+  rw [digit_product_reconstruction]
+  rw [Nat.mod_eq_of_lt (residuesFit row)]
+  rw [Nat.mod_eq_of_lt (matrixFits row)]
+
+theorem generated_r1_matrix_entry_lt_radix (row column : Fin 8) :
+    matrixEntry Generated.r1_rns_mat row.val column.val < ifmaRadix := by
+  fin_cases row <;> fin_cases column <;> decide
+
+theorem generated_r2_matrix_entry_lt_radix (row column : Fin 8) :
+    matrixEntry Generated.r2_rns_mat row.val column.val < ifmaRadix := by
+  fin_cases row <;> fin_cases column <;> decide
+
+/-- The fused M2 product and correction-free R1 streams reconstruct the
+ordinary product plus the generated R1 matrix product exactly. -/
+theorem r1_fused_accumulators_reconstruct
+    (left right residues : Fin 8 → Nat) (column : Fin 8)
+    (leftFits : left column < ifmaRadix)
+    (rightFits : right column < ifmaRadix)
+    (residuesFit : ∀ row, residues row < ifmaRadix) :
+    lowDigitProduct (left column) (right column) +
+          lowMatrixAccumulator residues Generated.r1_rns_mat column +
+        ifmaRadix *
+          (highDigitProduct (left column) (right column) +
+            highMatrixAccumulator residues Generated.r1_rns_mat column) =
+      left column * right column +
+        matrixProductValue residues Generated.r1_rns_mat column := by
+  have productReconstruction :=
+    digit_product_reconstruction (left column) (right column)
+  rw [Nat.mod_eq_of_lt leftFits, Nat.mod_eq_of_lt rightFits] at productReconstruction
+  have matrixReconstruction := matrix_accumulators_reconstruct_product
+    residues Generated.r1_rns_mat column residuesFit
+    (fun row => generated_r1_matrix_entry_lt_radix row column)
+  nlinarith
+
 /-- The fused M2 product plus all eight R1 IFMA additions cannot wrap. -/
 theorem r1_fused_ifma_accumulators_fit_word
     (left right residues : Fin 8 → Nat) (column : Fin 8) :
@@ -165,6 +218,67 @@ def generatedR2ShiftedWideValue
   matrixProductValue residues Generated.r2_rns_mat column +
     listAt8 Generated.r2_correction column.val * (quotient % ifmaRadix) +
     r2CorrectionShift column * (quotient / ifmaRadix)
+
+def generatedR2FinalLow
+    (residues : Fin 8 → Nat) (column : Fin 8) : Nat :=
+  let quotient := generatedR2EstimatedQuotient residues
+  lowMatrixAccumulator residues Generated.r2_rns_mat column +
+    lowDigitProduct
+      (listAt8 Generated.r2_correction column.val) quotient +
+    lowDigitProduct (r2CorrectionShift column) (quotient / ifmaRadix)
+
+def generatedR2FinalHigh
+    (residues : Fin 8 → Nat) (column : Fin 8) : Nat :=
+  let quotient := generatedR2EstimatedQuotient residues
+  highMatrixAccumulator residues Generated.r2_rns_mat column +
+    highDigitProduct
+      (listAt8 Generated.r2_correction column.val) quotient +
+    highDigitProduct (r2CorrectionShift column) (quotient / ifmaRadix)
+
+/-- The exact split accumulators computed by `reduce_raw_shifted` reconstruct
+the mathematical shifted R2 wide value, with no implicit lane truncation. -/
+theorem generated_r2_accumulators_reconstruct_wide
+    (residues : Fin 8 → Nat)
+    (residuesFit : ∀ row,
+      residues row < 2 * listAt8 Generated.moduli2 row.val)
+    (column : Fin 8) :
+    generatedR2FinalLow residues column + ifmaRadix *
+        generatedR2FinalHigh residues column =
+      generatedR2ShiftedWideValue residues column := by
+  have residuesDigitFit : ∀ row, residues row < ifmaRadix := by
+    intro row
+    exact (residuesFit row).trans (by
+      fin_cases row <;>
+        norm_num [Generated.moduli2, listAt8, ifmaRadix])
+  have matrixReconstruction := matrix_accumulators_reconstruct_product
+    residues Generated.r2_rns_mat column residuesDigitFit
+    (fun row => generated_r2_matrix_entry_lt_radix row column)
+  have correctionFits :
+      listAt8 Generated.r2_correction column.val < ifmaRadix := by
+    fin_cases column <;>
+      norm_num [Generated.r2_correction, listAt8, ifmaRadix]
+  have shiftFits : r2CorrectionShift column < ifmaRadix := by
+    fin_cases column <;>
+      norm_num [r2CorrectionShift, Generated.r2_correction,
+        Generated.moduli1, listAt8, ifmaRadix]
+  have quotientBound := generated_r2_quotient_lt_2pow55 residues residuesFit
+  have quotientHighFits :
+      generatedR2EstimatedQuotient residues / ifmaRadix < ifmaRadix := by
+    apply (Nat.div_lt_iff_lt_mul (by norm_num [ifmaRadix])).2
+    exact quotientBound.trans (by norm_num [ifmaRadix])
+  have firstProduct := digit_product_reconstruction
+    (listAt8 Generated.r2_correction column.val)
+    (generatedR2EstimatedQuotient residues)
+  rw [Nat.mod_eq_of_lt correctionFits] at firstProduct
+  have secondProduct := digit_product_reconstruction
+    (r2CorrectionShift column)
+    (generatedR2EstimatedQuotient residues / ifmaRadix)
+  rw [Nat.mod_eq_of_lt shiftFits,
+    Nat.mod_eq_of_lt quotientHighFits] at secondProduct
+  unfold generatedR2FinalLow generatedR2FinalHigh
+    generatedR2ShiftedWideValue
+  dsimp only
+  nlinarith
 
 /-- The exact shifted R2 high/low IFMA schedules cannot wrap 64-bit lanes. -/
 theorem r2_shifted_ifma_accumulators_fit_word
