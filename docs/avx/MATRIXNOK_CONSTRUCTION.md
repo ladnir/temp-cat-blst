@@ -148,11 +148,11 @@ differential tests are executable evidence, not the proof itself. P1 proves
 the generated constants, dimensions, coprimality, inverses, and bounds. P2
 proves the import, multiplication, reductions, and export pipeline. The
 nonnegative multiplication/reduction theorem is complete and its C++
-correspondence is in review. Canonical import now has a signed `[-p,p)` model;
-an exact reachable canonical-import counterexample records `AUD-221` at the
-ConvertTo-to-R2 boundary. Repairing that boundary, the R1 output
-characterization, and canonical export are still pending before the full
-pipeline is complete. The
+correspondence is in review. `AUD-221` repaired canonical import by using floor
+quotient estimates only for ConvertTo; its representative is now proved to lie
+in `[0,2p)`, preserve the canonical field value, and satisfy the R2 contract.
+The R1 output characterization, canonical export, and final composition remain
+before the full pipeline is complete. The
 tower, curve, and pairing layers follow only after that base-field slice is
 stable.
 

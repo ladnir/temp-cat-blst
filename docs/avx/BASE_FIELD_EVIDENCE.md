@@ -165,25 +165,22 @@ shifted R2 expansion, fixed quotient, accumulator no-wrap conditions, and the
 standard lane domain `<2m_i`, returns both bases below `<2m_i`, and bounds the
 raw QR output representative below `18p` within the C++ `40p` allowance.
 
-Canonical import is now mapped separately and proves that the generated
-fixed-point conversion selects a signed lift in `[-p,p)`. The signed pipeline
-then proves the R1 product relation and the closed intermediate range
-`(-p,18p)` for inputs with absolute value below `40p`. This widens the formal
-model; no C++ defect or production change is claimed.
+Canonical import is mapped separately. Formal analysis found `AUD-221`: the
+inherited ceiling estimate could select a negative lift outside the next
+conversion's contract. Commit `5f0399e` rounds only ConvertTo estimates down.
+Lean now proves that a canonical import selects a representative in `[0,2p)`,
+preserves the field value, and satisfies the existing R2 input contract. The
+exact former witness is proved to select its positive complement.
 
 - Complete review of the in-review P2 C++ transcription rows; Lean does not
   prove compiler lowering or the x86 ISA.
-- Prove the concrete negative-R2 quotient-complement margin, then connect the
-  signed import, selected multiplication, R2 expansion, and canonical export
-  into one reachable representation round trip.
+- Connect repaired import, selected multiplication, R2 expansion, and
+  canonical export into one reachable representation round trip.
 
-The generic quotient-complement implication and redundant-lane monotonicity
-are machine checked. An exact counterexample shows that the proposed margin is
-false over all abstract negative values in `(-p,0)`. A separate valid canonical
-input reaches the defect before multiplication: ConvertTo emits a signed lift
-whose immediate R2 expansion selects the positive M2 complement and a different
-M1 lane. `AUD-221` remains open pending a C++ regression and repair; R1
-reachability is no longer the first unresolved gate.
+The abstract negative-R2 counterexample remains useful as a boundary theorem:
+R2 is not promised for arbitrary negative representatives. Repaired canonical
+import no longer reaches that domain. `AUD-221` is fixed locally; native AVX
+execution and code-generation inspection remain before validation.
 - The isolated Fp2 candidate now passes its operation-level gate; extend the
   candidate through Fp12 and pairing-level workloads before production
   selection.

@@ -85,8 +85,8 @@ conversion multiplier relations, fixed-table shapes/ranges, and cyclic R1
 permutation relation. `CatBLST.AVX.MatrixNoK.Regeneration` then defines the
 CRT generator independently of the tables, verifies explicit modular-inverse
 witnesses, regenerates all four matrix/correction/quotient families, bounds
-the fixed-point ceiling error, and proves the eight-lane quotient accumulator
-cannot wrap 128 bits for 52-bit inputs and 64-bit estimates.
+the fixed-point floor and ceiling errors, and proves the eight-lane quotient
+accumulator cannot wrap 128 bits for 52-bit inputs and 64-bit estimates.
 
 The nonnegative selected base-field P1/P2 slice is machine checked. The proof covers
 the exact product, correction-free R1, fused M2, shifted R2, and Montgomery
@@ -98,36 +98,23 @@ same representative, and that representative is the field product modulo p.
 The selected raw QR representative is below `18p`, safely inside the C++
 base-redundancy allowance of `40p`.
 
-Canonical import exposed a proof-model distinction rather than a confirmed
-C++ defect: a one-high fixed-point quotient can select the signed raw lift
-`u - p`. `CanonicalImport` now proves the generated convert-to matrix and its
-corrected lift in `[-p,p)`. `SignedPipeline` models unsigned lanes carrying a
-signed common lift, proves the correction-free R1 product for
-`|a|, |b| < 40p`, and proves its result lies in `(-p,18p)`. The existing R2
-exact-quotient theorem closes the nonnegative half. The remaining signed P2
-obligation is the concrete quotient-complement margin showing that negative
-R2 inputs select the one-high quotient and retain their small signed lift. No
-production C++ change is implied.
-
-The generic one-high implication is machine checked: the aggregate ceiling
-error is an exact sum of per-lane errors, and if that sum covers the negative
-magnitude then the quotient is one high and the corrected CRT value is exactly
-the original negative representative. Redundant residues below `2m_i` can only
-increase this margin. `NegativeR2Counterexample` first proves that this margin
-does not hold for every abstract negative value in `(-p,0)`. It then supplies a
-reachable witness: a valid canonical radix-2^50 input makes ConvertTo select
-`-t`, the M2 Montgomery boundary emits the corresponding canonical residues,
-and R2 selects the lower quotient and reconstructs `M2-t`. Generated M1 lane 0
-differs from the expected signed lift by a nonzero value. This is `AUD-221`, an
-open high-severity MatrixNoK correctness defect; the proof no longer assumes
-the current import/expansion pipeline is correct.
+Canonical import exposed `AUD-221`: VROOM's one-high ConvertTo quotient could
+select a negative raw lift even though R2 and ConvertFrom require a
+nonnegative representative. Commit `5f0399e` changes only ConvertTo to floor
+fixed-point estimates. `Conversion` proves the estimate is exact or one low;
+`CanonicalImport` proves the repaired representative lies in `[0,2p)` and
+preserves the imported field value; and `CanonicalImportRepair` proves the
+exact former counterexample now selects its positive complement and satisfies
+the R2 range. `NegativeR2Counterexample` retains only the abstract warning that
+R2 is not correct for every negative representative; repaired canonical import
+no longer reaches that domain.
 
 This reopens the full-reachability part of initial milestone item 3. The P2
 correspondence rows are in review: source hashes are unchanged from `adf2ed5`,
 the deterministic constant check passes, and the shared scalar/batch schedule
 has an explicit Lean refinement theorem. Acceptance still requires the normal
 review of the C++ transcription and existing native/portable evidence.
-Canonical export and the negative R2 quotient-complement lemma remain P2 obligations;
+Canonical export remains a P2 obligation;
 P3 field-tower constants and formulas are not claimed by the base-field
 multiplication theorem.
 

@@ -328,3 +328,27 @@ families, bounds each ceiling estimate, and proves the 128-bit quotient
 accumulator envelope. P1 is still open for the complete kernel-specific bound
 ledger and field-tower encoding relations; the checked-in data snapshot and
 Python validator are not counted as substitutes for these Lean claims.
+
+## MatrixNoK canonical-import repair
+
+Formal P2 work found `AUD-221`: VROOM's ConvertTo ceiling estimates can choose
+a negative CRT representative for a valid canonical BLS12-381 input, while the
+immediately following R2 and ConvertFrom schedules require a nonnegative
+representative. The exact witness fails both import/export and
+multiply-by-one under the inherited constants.
+
+Commit `5f0399e` changes only ConvertTo's eight fixed-point quotient constants,
+each by minus one, and updates the independent generator to use floor for that
+table. R1, R2, ConvertFrom, and all runtime schedules remain unchanged. Lean
+independently regenerates the repaired constants, proves the estimate exact or
+one low, proves the representative lies in `[0,2p)` and preserves its field
+value, composes it with the R2 contract, and proves the exact former witness
+now selects the positive complement. The proof target builds without trust
+escapes.
+
+The enabled exact portable-Debug regression passes, as do the other 17
+focused MatrixNoK cases that reach their comparisons. The remaining G1 FFT
+case aborts earlier in the scalar `Fr::redc` Debug invariant and is recorded as
+`AUD-222`. No benchmark ran because the production change only replaces
+embedded constants. Native AVX-512IFMA execution and optimized constant-only
+code-generation comparison remain before `AUD-221` is validated.
