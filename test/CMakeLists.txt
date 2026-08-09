@@ -216,6 +216,7 @@ gtest_discover_tests(blst_tests
 if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
     set(AVX512_COMPAT_TEST_SOURCES
         "avx/Avx_matrixnok_primitive_tests.cpp"
+        "avx/Avx_c_api_contract_tests.cpp"
         "${PROJECT_SOURCE_DIR}/blst/backend/backend_portable.cpp"
         "${PROJECT_SOURCE_DIR}/blst/scalar/fields/Fp.cpp"
         "${PROJECT_SOURCE_DIR}/blst/scalar/fields/Fp12.cpp"

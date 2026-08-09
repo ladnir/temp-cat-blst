@@ -129,6 +129,22 @@ inline blst::scalar::G1Point curve_g1_to_scalar(const CurveG1Projective& point)
     return out;
 }
 
+// Public observations must compare field values, not raw redundant RNS lanes.
+// Keep is_zero() above for internal owners whose representation invariant is
+// exact zero; this boundary uses the proved canonical export.
+inline bool_t is_zero_mod_field(const CurveRing::StandardElement& value)
+{
+    const blst::Fp scalar = ring_fp_to_scalar(value);
+    return blst::Fp::equal(scalar, blst::Fp::zero());
+}
+
+inline bool_t is_zero_mod_field(const CurveFp2Ring::StandardElement& value)
+{
+    const blst::Fp2 scalar = ring_fp2_to_scalar(value);
+    return blst::Fp::equal(scalar[0], blst::Fp::zero()) &
+        blst::Fp::equal(scalar[1], blst::Fp::zero());
+}
+
 inline blst::scalar::G2AffinePoint curve_g2_affine_to_scalar(const CurveG2Affine& point)
 {
     blst::scalar::G2AffinePoint out = {};
@@ -192,9 +208,10 @@ inline CurveFp2Ring::StandardElement curve_fp2_inverse(const CurveFp2Ring::Stand
 }
 
 inline CurveRing::StandardElement curve_secret_inverse(
-    const CurveRing::StandardElement& value)
+    const CurveRing::StandardElement& value, bool_t& is_zero_value)
 {
     blst::Fp scalar = ring_fp_to_scalar(value);
+    is_zero_value = blst::Fp::equal(scalar, blst::Fp::zero());
     blst::Fp inverse = {};
     blst::Fp::flt_reciprocal(inverse, scalar);
     const auto out = scalar_fp_to_ring(inverse);
@@ -204,9 +221,11 @@ inline CurveRing::StandardElement curve_secret_inverse(
 }
 
 inline CurveFp2Ring::StandardElement curve_secret_inverse(
-    const CurveFp2Ring::StandardElement& value)
+    const CurveFp2Ring::StandardElement& value, bool_t& is_zero_value)
 {
     blst::Fp2 scalar = ring_fp2_to_scalar(value);
+    is_zero_value = blst::Fp::equal(scalar[0], blst::Fp::zero()) &
+        blst::Fp::equal(scalar[1], blst::Fp::zero());
     blst::Fp2 inverse = {};
     blst::Fp2::flt_reciprocal(inverse, scalar);
     const auto out = scalar_fp2_to_ring(inverse);
@@ -217,8 +236,8 @@ inline CurveFp2Ring::StandardElement curve_secret_inverse(
 
 inline CurveG1Projective normalize_secret_projective(const CurveG1Projective& point)
 {
-    const bool is_infinity = is_zero(point.z);
-    const auto z_inverse = curve_secret_inverse(point.z);
+    bool_t is_infinity = 0;
+    const auto z_inverse = curve_secret_inverse(point.z, is_infinity);
     auto [x, y] = curve_ring().batch_reduce_expand(
         curve_ring().prep_left(point.x) * z_inverse,
         curve_ring().prep_left(point.y) * z_inverse);
@@ -229,8 +248,8 @@ inline CurveG1Projective normalize_secret_projective(const CurveG1Projective& po
 
 inline CurveG2Projective normalize_secret_projective(const CurveG2Projective& point)
 {
-    const bool is_infinity = is_zero(point.z);
-    const auto z_inverse = curve_secret_inverse(point.z);
+    bool_t is_infinity = 0;
+    const auto z_inverse = curve_secret_inverse(point.z, is_infinity);
     const auto x = curve_fp2_ring().mul(point.x, z_inverse);
     const auto y = curve_fp2_ring().mul(point.y, z_inverse);
     const auto z = curve_fp2_ring().one().ctime_select(
@@ -240,7 +259,7 @@ inline CurveG2Projective normalize_secret_projective(const CurveG2Projective& po
 
 inline CurveG1Affine projective_to_affine(const CurveG1Projective& point)
 {
-    if (is_zero(point.z)) {
+    if (is_zero_mod_field(point.z)) {
         return g1_affine_infinity();
     }
 
@@ -253,7 +272,7 @@ inline CurveG1Affine projective_to_affine(const CurveG1Projective& point)
 
 inline CurveG2Affine projective_to_affine(const CurveG2Projective& point)
 {
-    if (is_zero(point.z)) {
+    if (is_zero_mod_field(point.z)) {
         return g2_affine_infinity();
     }
 
@@ -266,7 +285,7 @@ inline CurveG2Affine projective_to_affine(const CurveG2Projective& point)
 
 inline CurveG1Projective affine_to_projective(const CurveG1Affine& point)
 {
-    if (is_zero(point.x) && is_zero(point.y)) {
+    if (is_zero_mod_field(point.x) & is_zero_mod_field(point.y)) {
         return curve_g1().zero(curve_ring());
     }
     return {point.x, point.y, curve_ring().one()};
@@ -274,7 +293,7 @@ inline CurveG1Projective affine_to_projective(const CurveG1Affine& point)
 
 inline CurveG2Projective affine_to_projective(const CurveG2Affine& point)
 {
-    if (is_zero(point.x) && is_zero(point.y)) {
+    if (is_zero_mod_field(point.x) & is_zero_mod_field(point.y)) {
         return curve_g2().zero(curve_fp2_ring());
     }
     return {point.x, point.y, curve_fp2_ring().one()};
@@ -739,7 +758,8 @@ inline int G1AffinePoint::equal(const G1AffinePoint& a, const G1AffinePoint& b)
 
 inline bool_t G1AffinePoint::is_inf(const G1AffinePoint& p)
 {
-    return PointCoordIsZero(p.X) & PointCoordIsZero(p.Y);
+    return avx_curve_detail::is_zero_mod_field(p.X) &
+        avx_curve_detail::is_zero_mod_field(p.Y);
 }
 
 inline bool_t G1AffinePoint::on_curve(const G1AffinePoint& p)
@@ -1002,7 +1022,10 @@ inline G1Point G1Point::infinity()
 }
 
 inline G1Point G1Point::identity() { return infinity(); }
-inline bool_t G1Point::is_identity(const G1Point& p) { return avx_curve_detail::is_zero(p.Z); }
+inline bool_t G1Point::is_identity(const G1Point& p)
+{
+    return avx_curve_detail::is_zero_mod_field(p.Z);
+}
 inline bool_t G1Point::is_inf(const G1Point& p) { return is_identity(p); }
 
 inline bool_t G1Point::on_curve(const G1Point& p)
@@ -1065,7 +1088,8 @@ inline int G2AffinePoint::equal(const G2AffinePoint& a, const G2AffinePoint& b)
 
 inline bool_t G2AffinePoint::is_inf(const G2AffinePoint& p)
 {
-    return PointCoordIsZero(p.X) & PointCoordIsZero(p.Y);
+    return avx_curve_detail::is_zero_mod_field(p.X) &
+        avx_curve_detail::is_zero_mod_field(p.Y);
 }
 
 inline bool_t G2AffinePoint::on_curve(const G2AffinePoint& p)
@@ -1340,7 +1364,10 @@ inline G2Point G2Point::infinity()
 }
 
 inline G2Point G2Point::identity() { return infinity(); }
-inline bool_t G2Point::is_identity(const G2Point& p) { return avx_curve_detail::is_zero(p.Z); }
+inline bool_t G2Point::is_identity(const G2Point& p)
+{
+    return avx_curve_detail::is_zero_mod_field(p.Z);
+}
 inline bool_t G2Point::is_inf(const G2Point& p) { return is_identity(p); }
 
 inline bool_t G2Point::on_curve(const G2Point& p)

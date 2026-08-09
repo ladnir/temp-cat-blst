@@ -399,6 +399,7 @@ TEST(AvxNativePointContract, UncheckedMultiplicationIsExactAndSupportsLowOrderPo
     AvxG1 avx_g1_result = {};
     AvxG1::unchecked_mult(
         avx_g1_result, avx_g1, scalar.data(), 256);
+    EXPECT_TRUE(G1::is_inf(scalar_from_avx(avx_g1_result)));
     EXPECT_TRUE(AvxG1::is_inf(avx_g1_result));
 
     scalar[0] = 12;
@@ -418,6 +419,7 @@ TEST(AvxNativePointContract, UncheckedMultiplicationIsExactAndSupportsLowOrderPo
     AvxG2 avx_g2_result = {};
     AvxG2::unchecked_mult(
         avx_g2_result, avx_g2, scalar.data(), 256);
+    EXPECT_TRUE(G2::is_inf(scalar_from_avx(avx_g2_result)));
     EXPECT_TRUE(AvxG2::is_inf(avx_g2_result));
 
     scalar[0] = 14;
@@ -574,6 +576,7 @@ TEST(AvxNativePointContract, SigningAndKeyDerivationStayNativeAndNormalizeOnce)
     AvxG1 avx_g1_identity_signature = {};
     AvxG1::sign(
         avx_g1_identity_signature, AvxG1::infinity(), key.data());
+    EXPECT_TRUE(G1::is_inf(scalar_from_avx(avx_g1_identity_signature)));
     EXPECT_TRUE(AvxG1::is_identity(avx_g1_identity_signature));
 
     G2 scalar_g2_hash = G2::generator();
@@ -594,6 +597,7 @@ TEST(AvxNativePointContract, SigningAndKeyDerivationStayNativeAndNormalizeOnce)
     AvxG2 avx_g2_identity_signature = {};
     AvxG2::sign(
         avx_g2_identity_signature, AvxG2::infinity(), key.data());
+    EXPECT_TRUE(G2::is_inf(scalar_from_avx(avx_g2_identity_signature)));
     EXPECT_TRUE(AvxG2::is_identity(avx_g2_identity_signature));
 
     std::array<blst_byte, 96> scalar_g1_bytes = {};

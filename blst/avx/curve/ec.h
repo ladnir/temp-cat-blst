@@ -262,7 +262,8 @@ INLINE bool PointCoordIsZero(const Element& value)
 template<class RingElement>
 INLINE bool PointIsZero(const AffinePoint<RingElement>& point)
 {
-    return PointCoordIsZero(point.x) & PointCoordIsZero(point.y);
+    return (static_cast<unsigned>(PointCoordIsZero(point.x)) &
+        static_cast<unsigned>(PointCoordIsZero(point.y))) != 0;
 }
 
 template<class Ring, class Element>
@@ -278,8 +279,8 @@ INLINE bool ProjectiveEqual(
     const Ring& ring,
     IsZero is_zero)
 {
-    const bool p_is_infinity = PointCoordIsZero(P.z);
-    const bool q_is_infinity = PointCoordIsZero(Q.z);
+    const bool p_is_infinity = is_zero(P.z);
+    const bool q_is_infinity = is_zero(Q.z);
     auto [u1, u2, s1, s2] = ring.batch_reduce_expand(
         ring.prep_left(P.x) * Q.z,
         ring.prep_left(Q.x) * P.z,
