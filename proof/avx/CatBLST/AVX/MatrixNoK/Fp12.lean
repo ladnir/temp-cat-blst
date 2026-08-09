@@ -116,15 +116,15 @@ def flatCoefficients (x : Fp12Value R) : List R :=
 
 end Fp12Value
 
-private def fp2Sum3 {R : Type*} [Add R]
+def fp2Sum3 {R : Type*} [Add R]
     (a b c : Fp2Value R) : Fp2Value R :=
   Fp2Value.add (Fp2Value.add a b) c
 
-private def fp2Sum5 {R : Type*} [Add R]
+def fp2Sum5 {R : Type*} [Add R]
     (a b c d e : Fp2Value R) : Fp2Value R :=
   Fp2Value.add (Fp2Value.add (Fp2Value.add (Fp2Value.add a b) c) d) e
 
-private def fp2Sum6 {R : Type*} [Add R]
+def fp2Sum6 {R : Type*} [Add R]
     (a b c d e f : Fp2Value R) : Fp2Value R :=
   Fp2Value.add (fp2Sum5 a b c d e) f
 
@@ -252,39 +252,40 @@ theorem cpp_fp12_flat_coefficient_count {R : Type*} (x : Fp12Value R) :
 ## Static bound ledger
 
 The largest general multiplication coordinate contains 22 signed scalar
-products: at most ten negative and twelve positive. The simple semantic
-standard-input sum is 88 modulus-squared units. The physical C++ ledger is
-more conservative because one operand may use the multiplication-ready bound:
-the wide offset occupies less than 81 units, twelve positive products add at
-most 96, and the resulting 177 units fit `ready<200>`. The offset's lower 80
-units dominate all ten negative products. The version-3 offset bounds are the
+products. A coordinate performs at most ten direct unsigned subtraction units
+and at most 22 unsigned addition units. Standard inputs are below `2m`, so the
+wide offset occupies less than 81 units and additions contribute at most 88.
+The square schedule doubles an offset-bearing expression in four coordinates,
+giving the overall physical bound 210. Both paths fit the actual general-field
+`MAX_ADD=800` reduction boundary. The offset's lower 80 units dominate all 40
+subtraction units. The version-3 offset bounds are the
 exact template values selected by `Fp12ConstantsCandidate`.
 -/
 
 def fp12MaximumSignedProducts : Nat := 22
 def fp12MaximumNegativeProducts : Nat := 10
-def fp12MaximumPositiveProducts : Nat := 12
+def fp12MaximumPositiveProducts : Nat := 22
 def fp12ProductAccumulatorBound : Nat :=
   fp12MaximumSignedProducts * standardBound * standardBound
-def fp12ReadyBound : Nat := 200
+def fp12ReadyBound : Nat := 800
 def fp12Version3OffsetElementBound : Nat :=
   10 * standardBound * multiplicationProductBound
 def fp12Version3OffsetRnsBound : Nat :=
   10 * standardBound * standardBound * 6 * 6
 def fp12PhysicalNegativeBound : Nat :=
-  fp12MaximumNegativeProducts * standardBound * multiplicationProductBound
+  fp12MaximumNegativeProducts * standardBound * standardBound
 def fp12PhysicalPositiveBound : Nat :=
-  fp12MaximumPositiveProducts * standardBound * multiplicationProductBound
+  fp12MaximumPositiveProducts * standardBound * standardBound
 def fp12PhysicalCompletedBound : Nat :=
-  fp12Version3OffsetElementBound + 1 + fp12PhysicalPositiveBound
+  210
 
 theorem selected_fp12_bound_values :
     fp12ProductAccumulatorBound = 88 ∧
       fp12Version3OffsetElementBound = 80 ∧
       fp12Version3OffsetRnsBound = 1440 ∧
-      fp12PhysicalNegativeBound = 80 ∧
-      fp12PhysicalPositiveBound = 96 ∧
-      fp12PhysicalCompletedBound = 177 := by
+      fp12PhysicalNegativeBound = 40 ∧
+      fp12PhysicalPositiveBound = 88 ∧
+      fp12PhysicalCompletedBound = 210 := by
   norm_num [fp12ProductAccumulatorBound, fp12MaximumSignedProducts,
     fp12Version3OffsetElementBound, fp12Version3OffsetRnsBound,
     fp12PhysicalNegativeBound, fp12PhysicalPositiveBound,
@@ -401,22 +402,25 @@ theorem fp12_physical_wide_bounds
       cppFp12PhysicalWide offset positive negative <
         fp12PhysicalCompletedBound * modulus * modulus := by
   have negativeDominated : negative ≤ offset := by
-    have ledger : fp12PhysicalNegativeBound =
+    have ledger : fp12PhysicalNegativeBound ≤
         fp12Version3OffsetElementBound := by
-      norm_num [fp12PhysicalNegativeBound,
-        fp12MaximumNegativeProducts, fp12Version3OffsetElementBound,
-        standardBound, multiplicationProductBound]
-    rw [ledger] at negativeFit
-    exact negativeFit.trans offsetLower
+      exact fp12_product_accumulator_fits_ready.1
+    have scaled := Nat.mul_le_mul_right (modulus * modulus) ledger
+    have scaled' : fp12PhysicalNegativeBound * modulus * modulus ≤
+        fp12Version3OffsetElementBound * modulus * modulus := by
+      simpa [Nat.mul_assoc] using scaled
+    exact negativeFit.trans (scaled'.trans offsetLower)
   constructor
   · exact negativeDominated.trans (Nat.le_add_right offset positive)
   · unfold cppFp12PhysicalWide
     have subtractionBound : offset + positive - negative ≤
         offset + positive := Nat.sub_le _ _
-    have ledger : fp12PhysicalCompletedBound =
-        fp12Version3OffsetElementBound + 1 +
-          fp12PhysicalPositiveBound := rfl
-    rw [ledger]
+    have ledger : fp12Version3OffsetElementBound + 1 +
+        fp12PhysicalPositiveBound = 169 := by
+      norm_num [fp12Version3OffsetElementBound, fp12PhysicalPositiveBound,
+        fp12MaximumPositiveProducts, standardBound,
+        multiplicationProductBound]
+    rw [show fp12PhysicalCompletedBound = 210 by rfl]
     nlinarith
 
 theorem fp12_physical_m1_lane_encoding
@@ -587,14 +591,14 @@ def cppFp12M2Residue
   selectedReduceMasked (wide / ifmaRadix) (wide % ifmaRadix)
     (modulus2At column) (reducer2FactorAt column)
 
-theorem fp12_m2_combined_wide_lt_193_square
+theorem fp12_m2_combined_wide_lt_226_square
     (rawWide m1Residues : Fin 8 → Nat)
     (rawFit : ∀ index, rawWide index <
       fp12PhysicalCompletedBound * modulus2At index * modulus2At index)
     (m1Fit : ∀ index, m1Residues index < 2 * modulus1At index)
     (column : Fin 8) :
     cppFp12M2CombinedWide rawWide m1Residues column <
-      193 * modulus2At column * modulus2At column := by
+      226 * modulus2At column * modulus2At column := by
   have matrixBound := r1_matrix_product_lt_16_square
     m1Residues (by simpa [modulus1At] using m1Fit) column
   have matrixBound' :
@@ -602,7 +606,7 @@ theorem fp12_m2_combined_wide_lt_193_square
         16 * modulus2At column * modulus2At column := by
     simpa [modulus2At, Nat.pow_two, Nat.mul_assoc] using matrixBound
   have rawBound := rawFit column
-  have physicalLedger : fp12PhysicalCompletedBound = 177 := by
+  have physicalLedger : fp12PhysicalCompletedBound = 210 := by
     norm_num [fp12PhysicalCompletedBound,
       fp12Version3OffsetElementBound, fp12PhysicalPositiveBound,
       fp12MaximumPositiveProducts, standardBound,
@@ -633,9 +637,9 @@ theorem fp12_m2_residue_represents
   let representative := r1SignedValueFromResidues completed m1Residues
   let wide := cppFp12M2CombinedWide rawWide m1Residues column
   have wideBound : wide ≤ delayedCombinedTypeBound * modulus * modulus := by
-    have tight := fp12_m2_combined_wide_lt_193_square
+    have tight := fp12_m2_combined_wide_lt_226_square
       rawWide m1Residues rawFit m1Fit column
-    have typeBound : 193 ≤ delayedCombinedTypeBound := by
+    have typeBound : 226 ≤ delayedCombinedTypeBound := by
       norm_num [delayedCombinedTypeBound, delayedInputBound,
         delayedR1TypeBound, r1ExactAccumulationBound,
         multiplicationProductBound, standardBound]
@@ -727,10 +731,10 @@ theorem fp12_m2_residue_fit
   intro column
   let modulus := modulus2At column
   let wide := cppFp12M2CombinedWide rawWide m1Residues column
-  have tight := fp12_m2_combined_wide_lt_193_square
+  have tight := fp12_m2_combined_wide_lt_226_square
     rawWide m1Residues rawFit m1Fit column
   have wideBound : wide ≤ delayedCombinedTypeBound * modulus * modulus := by
-    have typeBound : 193 ≤ delayedCombinedTypeBound := by
+    have typeBound : 226 ≤ delayedCombinedTypeBound := by
       norm_num [delayedCombinedTypeBound, delayedInputBound,
         delayedR1TypeBound, r1ExactAccumulationBound,
         multiplicationProductBound, standardBound]
@@ -760,7 +764,7 @@ def fp12PositiveRnsExpressionBound : Nat :=
 
 theorem selected_fp12_rns_expression_bounds :
     fp12NegativeRnsExpressionBound = 1440 ∧
-      fp12PositiveRnsExpressionBound = 1728 := by
+      fp12PositiveRnsExpressionBound = 3168 := by
   norm_num [fp12NegativeRnsExpressionBound,
     fp12PositiveRnsExpressionBound, fp12MaximumNegativeProducts,
     fp12MaximumPositiveProducts, standardBound]
@@ -778,7 +782,7 @@ theorem fp12_completed_expression_range
         Generated.target_modulus * Generated.M1 := by
   have negativeLedger : fp12NegativeRnsExpressionBound = 1440 := by
     exact selected_fp12_rns_expression_bounds.1
-  have positiveLedger : fp12PositiveRnsExpressionBound = 1728 := by
+  have positiveLedger : fp12PositiveRnsExpressionBound = 3168 := by
     exact selected_fp12_rns_expression_bounds.2
   have targetPositive : (0 : Int) < Generated.target_modulus := by
     norm_num [Generated.target_modulus]
@@ -895,7 +899,7 @@ theorem fp12_completed_r2_representative_is_exact
 /-!
 End-to-end reduction for one flattened Fp12 scalar coordinate. The formula
 packet supplies `value`; the physical unsigned packet supplies the raw M1/M2
-wide lanes and their `177m^2` bounds. This theorem then composes M1 reduction,
+wide lanes and their `210m^2` bounds. This theorem then composes M1 reduction,
 R1 change-base, M2 reduction, and fixed R2 correction without assumed
 intermediate residues.
 -/

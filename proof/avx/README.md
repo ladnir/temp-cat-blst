@@ -156,13 +156,18 @@ the common P0 boundary rather than an Fp2-specific assumption.
 fixes the exact six-Fp2 storage order, defines the extension relations
 `v^3 = 1 + u` and `w^2 = v`, and proves that the flattened multiplication and
 optimized squaring schedules implement that tower. It also checks the largest
-22-product coordinate and the exact physical `81 + 96 = 177 <= 200` ledger,
-then proves all sixteen generated wide-offset lane encodings and their
-`[80m^2,81m^2)` bounds. The selected M1 reduction, R1 change-base, M2
+22-product coordinate. The selected general-field path uses
+`ring.batch_reduce_expand` with `MAX_ADD=800`, not the cyclotomic helper's
+`ready<200>` boundary. A single-offset multiplication coordinate is below
+`169m^2`; doubled offset-bearing square coordinates are below `210m^2`.
+All sixteen generated offset lanes lie in `[80m^2,81m^2)` and carry the proved
+encoding. The selected M1 reduction, R1 change-base, M2
 reduction, `<18p` completed representative, and exact R2 correction are now
-composed in one theorem. The row remains in review until each literal C++
-positive/negative scalar polynomial is mechanically connected to the
-Fp2-level formula rather than accepted as a hand transcription. Frobenius and cyclotomic
+composed in one theorem. `Fp12Raw.lean` mechanically transcribes all twelve
+literal multiply and square polynomials and proves that adjacent scalar outputs
+reconstruct the Fp2-level formulas. The row remains in review only while the
+per-coordinate zero/one/two-offset physical representatives are connected to
+the generic reduction theorem. Frobenius and cyclotomic
 identities remain separate because they add generated-constant and input-domain
 obligations.
 

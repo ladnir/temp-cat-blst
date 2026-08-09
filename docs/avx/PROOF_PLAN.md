@@ -153,13 +153,17 @@ tower layers remain pending. No C++ arithmetic defect was found.
 whole `fp12.h` file. Its first source-shaped packet proves the exact
 six-consecutive-Fp2 layout, the `v^3 = 1 + u` / `w^2 = v` tower,
 general multiplication and optimized squaring. The semantic 22-product sum is
-88 units; the physical ledger proves that the `[80m^2,81m^2)` generated offset
-dominates 80 negative units and, with at most 96 positive units, remains below
-`177m^2 < 200m^2`. All sixteen generated offset lane encodings are checked.
+88 units. Direct unsigned subtraction contributes at most 40 units and is
+dominated by the `[80m^2,81m^2)` generated offset. General multiplication is
+below `169m^2`; square coordinates that double the offset-bearing expression
+are below `210m^2`. The actual general-field boundary is MatrixNoK
+`MAX_ADD=800`; `ready<200>` belongs only to a cyclotomic helper. All sixteen
+generated offset lane encodings are checked.
 M1 reduction, R1 change-base, M2 reduction, the `<18p` completed range, and
-R2 correction are composed without assumed intermediate residues. Acceptance
-still requires a mechanical mapping from the twelve literal scalar
-positive/negative schedules to the Fp2-level formulas. Frobenius maps form the next packet;
+R2 correction are composed without assumed intermediate residues. The twelve
+literal scalar multiply and square schedules now mechanically reconstruct the
+Fp2-level formulas. Acceptance only awaits composition of their coordinate-wise
+zero/one/two-offset representatives. Frobenius maps form the next packet;
 cyclotomic square and GT exponentiation remain a distinct narrow-domain packet.
 
 The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside

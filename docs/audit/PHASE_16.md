@@ -410,18 +410,23 @@ fixes the selected C++ layout as six consecutive Fp2 coefficients split into
 two Fp6 halves, proves the `v^3 = 1 + u` and `w^2 = v` tower interpretation,
 and proves both the flattened multiplication and optimized square schedules.
 The largest scalar coordinate has 22 signed products. Its simple semantic
-ledger is 88 units, while the physical source path uses a generated offset in
-`[80m^2,81m^2)`, which dominates all 80 negative units and remains below
-`177m^2` after the maximum 96 positive units. Thus the real path, not merely
-the offset-free expression, fits `ready<200>`. Lean checks all sixteen offset
+ledger is 88 units. The literal pass corrects the physical accounting: direct
+unsigned subtraction is at most 40 units, a single-offset coordinate is below
+`169m^2`, and square coordinates that double the offset-bearing expression are
+below `210m^2`. The actual general-field call uses MatrixNoK `MAX_ADD=800`;
+the local `ready<200>` helper is cyclotomic-only. A compile-only forced
+`ready<200>` probe correctly rejected `Bounds<128,210>`, confirming the type
+system and clearing the suspected C++ defect. Lean checks all sixteen offset
 lane encodings against `9 * 1440 * p^2` and proves their physical bounds.
 
 The physical reduction chain is now composed through selected M1 reduction,
 R1 change-base, M2 reduction, a completed representative in `[0,18p)`, and
-exact R2 correction. The correspondence row remains in review until the
-twelve literal C++ positive/negative scalar schedules are mechanically mapped
-to the proved Fp2-level formula; this transcription boundary is not being
-silently treated as proof. This packet changes no production code and runs no
+exact R2 correction. `Fp12Raw.lean` now transcribes the twelve literal scalar
+polynomials, proves both multiply and square reconstruct the six Fp2 outputs,
+and checks their operation counts and offset multiplicities. The row remains
+in review only for composition of the coordinate-wise zero/one/two-offset
+physical representatives with the generic reduction theorem. This packet
+changes no production code and runs no
 benchmark, CUDA, product build, or broad test suite.
 
 The same focused investigation found `AUD-223`: internal `FP2Ring::mul` and
