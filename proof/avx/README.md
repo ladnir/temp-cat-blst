@@ -323,8 +323,12 @@ double schedules, proves curve preservation and the identity/inverse/doubling
 checkpoints for selected Fp and Fp2, proves the exact G1 radix-`z²` and G2
 radix-`z` splits, and proves both the fixed Booth and variable-time wNAF
 executor schedules, including the exact 129/65-slot exhaustion bounds.
-`AUD-227` remains open for the concrete subgroup eigenvalue bridges for
-beta/minus-psi and final public-dispatch/full group-law composition. Canonical
+`CurveEndomorphism.lean` now proves the concrete beta and minus-psi constant
+identities, exact coordinate maps, curve preservation, and the sign bridge
+from BLST's subgroup relations to the unsigned `z²`/`z` executor bases.
+`AUD-227` remains open for connecting BLST's relation predicates to the
+prime-order subgroup definition and for final public-dispatch/full group-law
+composition. Canonical
 export followed by scalar REDC
 and byte weaving is likewise an explicit observation boundary for equality,
 infinity observation, validation, and secret normalization rather than a

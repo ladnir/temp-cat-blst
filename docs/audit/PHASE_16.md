@@ -673,8 +673,17 @@ four-way radix-`z` decompositions. `CurveBoothExecutor.lean` proves the selected
 odd-table schedule, executor recomposition, and exact 129/65-slot exhaustion
 using backward minimum-predecessor bounds.
 
+`CurveEndomorphism.lean` resolves the signed-parameter ambiguity directly
+against the source constants. The AVX G1 beta is proved to be the square of
+scalar BLST's sigma beta, making `(beta*X,-Y,Z)` the negation of `sigma²`;
+BLST's `sigma²(P)=[-|z|²]P` relation therefore yields the unsigned
+`[|z|²]P` split basis. The G2 component schedule is proved exactly equal to
+`-psi`, so BLST's signed `psi(P)=[-|z|]P` relation yields `[|z|]P`. Both maps
+are proved curve-preserving over the selected Fp/Fp2 fields, including all
+literal coefficient identities.
+
 The row remains `in_review`. Acceptance still requires concrete subgroup
-eigenvalue relations for the G1 beta and G2 minus-psi maps, plus composition
-through the selected public dispatch with a full projective group-law
-statement. No C++ source, benchmark, native build, or Peach run is part of this
-proof-only step.
+relation predicates to be connected to the prime-order subgroup definition,
+plus composition through the selected public dispatch with a full projective
+group-law statement. No C++ source, benchmark, native build, or Peach run is
+part of this proof-only step.

@@ -544,7 +544,10 @@ arithmetic probe was byte-identical and hot code generation did not regress.
 `AVX-P4-003` proves the shared public complete-add/double formulas and curve
 preservation, exact G1/G2 scalar decomposition, and the selected constant-time
 Booth executors. The variable-time wNAF source recurrence, recomposition, and
-exact 129/65-slot exhaustion bounds are also proved. Remaining closure work is
-the concrete beta/minus-psi subgroup eigenvalue bridges and final public-
-dispatch/full group-law composition. This step changes only Lean and audit
-infrastructure; it runs no benchmark or native build.
+exact 129/65-slot exhaustion bounds are also proved. The concrete beta and
+minus-psi constants, coordinate maps, curve preservation, and signed-to-
+unsigned subgroup-relation bridges are now proved as well. Remaining closure
+work is the equivalence between BLST's relation predicates and the
+prime-order subgroup definition, followed by final public-dispatch/full
+group-law composition. This step changes only Lean and audit infrastructure;
+it runs no benchmark or native build.

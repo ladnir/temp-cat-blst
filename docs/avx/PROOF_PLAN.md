@@ -266,7 +266,10 @@ generalized into a proof of every public point operation. In-review
 curve preservation, exact GLV/GLS scalar splits, and the selected constant-time
 Booth and variable-time wNAF executors. The wNAF proof includes backward
 minimum-predecessor bounds that discharge the exact 129/65-slot capacities.
-`AUD-227` remains open for the concrete subgroup eigenvalue bridges and final
+`CurveEndomorphism.lean` additionally proves the selected G1/G2 constants,
+the exact beta/minus-psi maps, curve preservation, and their unsigned-basis
+sign bridges from BLST's relation predicates. `AUD-227` remains open for a
+prime-subgroup equivalence theorem for those predicates and final
 dispatch/full group-law composition.
 The production alias validator closes source selection
 ambiguity but is not a mathematical theorem. MatrixNoK-to-scalar observation
