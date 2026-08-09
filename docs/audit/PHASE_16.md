@@ -699,6 +699,17 @@ The G1 coordinate map is also proved to commute exactly with the selected
 complete-add schedule. The G2 semilinear bridge is factored into a generic
 ring-map theorem and a diagonal-scaling theorem; complete addition after `psi`
 is one common homogeneous scale of `psi` after complete addition, and the
-literal scale is proved nonzero. The remaining concrete obligations are the
-BLS12-381 point-count/span instantiation and the final public-dispatch/full
-projective-group composition.
+literal scale is proved nonzero.
+
+`CurveGroupBridge.lean` then starts the concrete projective-group composition.
+It instantiates selected G1 as `y²z = x³ + 4z³` in Mathlib over the already
+proved-prime `ZMod p`, proves the discriminant nonzero, and maps every nonzero
+on-curve homogeneous representative to a nonsingular projective point. On that
+domain CatBLST's representative equivalence is proved iff Mathlib projective
+point equality, including the point at infinity, and the map is proved to
+preserve zero and negation. The all-zero coordinate triple is excluded
+explicitly rather than silently admitted by the homogeneous equation. The
+remaining obligations are CatBLST-complete-add/Mathlib-group-add equivalence,
+the analogous G2 field/group bridge, concrete BLS12-381 point-count/span, and
+selected public-dispatch composition. This remains a proof-only packet; no C++
+build or benchmark ran.

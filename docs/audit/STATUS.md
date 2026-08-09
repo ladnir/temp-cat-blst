@@ -559,6 +559,10 @@ source relation predicates and `[r]P=0`. Full curve cardinality and
 prime-subgroup generator span remain explicit theorem premises. Consequently
 The G2 semilinear projective-additivity bridge is now proved by composing a
 generic ring-map theorem with a diagonal-scaling theorem; the resulting common
-homogeneous scale is proved nonzero from the literal coefficient. `AUD-227` is
-not closed: concrete point-count/span instantiation and final
-public-dispatch/full projective-group composition remain.
+homogeneous scale is proved nonzero from the literal coefficient.
+`CurveGroupBridge.lean` now provides a concrete Mathlib projective
+`AddCommGroup` carrier for selected G1, proves the nonzero on-curve conversion,
+proves CatBLST homogeneous equivalence iff projective equality, and proves zero
+and negation correspondence. `AUD-227` is not closed: complete-add/group-add
+equivalence, the G2 field/group bridge, concrete point-count/span
+instantiation, and final selected public-dispatch composition remain.
