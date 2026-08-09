@@ -636,3 +636,12 @@ symbols. Because `point.h`, `GT.h`, `gt_context.h`, and the Fp2 value
 constructor are exact-hash proof inputs, the five affected correspondence rows
 are deliberately `in_review` pending one bounded native Clang reacceptance.
 No benchmark or broad build ran.
+
+The first native reacceptance run found `AUD-230` in the audit infrastructure,
+not the arithmetic: exact correspondence hashes had been captured from a
+Windows CRLF worktree and failed against Peach's LF checkout. Correspondence
+hashing now canonicalizes ordinary CRLF to Git's LF text and rejects bare CR;
+all CRLF-derived ledger hashes have been replaced by their committed LF blob
+hashes. Local validation covers all 19 rows and 51 mapped hashes. Native
+correctness had already passed 35/35 when this gate stopped the run. The
+corrected audit remains to be rerun before reaccepting the five rows.

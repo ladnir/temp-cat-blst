@@ -49,6 +49,19 @@ def resolve_repo_path(repo: Path, value: str, row_id: str) -> Path:
     return resolved
 
 
+def canonical_source_bytes(path: Path, row_id: str) -> bytes:
+    """Return the platform-independent byte stream recorded by the ledger.
+
+    Every mapped correspondence artifact is text. Git stores these files with
+    LF line endings, while a Windows worktree may materialize CRLF. Hashing the
+    raw worktree bytes would make an accepted proof row platform-dependent.
+    Reject legacy bare CR and normalize only the ordinary CRLF spelling.
+    """
+    contents = path.read_bytes().replace(b"\r\n", b"\n")
+    require(b"\r" not in contents, f"{row_id}: mapped text contains bare CR: {path}")
+    return contents
+
+
 def validate_hashes(repo: Path, row: dict[str, str], path_field: str, hash_field: str) -> int:
     row_id = row["id"]
     paths = split_field(row[path_field])
@@ -63,7 +76,7 @@ def validate_hashes(repo: Path, row: dict[str, str], path_field: str, hash_field
             f"{row_id}: invalid lowercase SHA-256 for {relative}",
         )
         path = resolve_repo_path(repo, relative, row_id)
-        actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        actual = hashlib.sha256(canonical_source_bytes(path, row_id)).hexdigest()
         require(actual == expected, f"{row_id}: stale hash for {relative}: {actual}")
     return len(paths)
 
