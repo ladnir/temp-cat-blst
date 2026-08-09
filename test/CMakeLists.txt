@@ -213,17 +213,23 @@ gtest_discover_tests(blst_tests
   # PROPERTIES LABELS "unit"
 )
 
-if(BLST_AVX512_PORTABLE)
+if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
     set(AVX512_COMPAT_TEST_SOURCES
         "avx/Avx_matrixnok_primitive_tests.cpp"
         "${PROJECT_SOURCE_DIR}/blst/backend/backend_portable.cpp"
-        "${PROJECT_SOURCE_DIR}/blst/backend/avx512/intrin_compat.cpp"
         "${PROJECT_SOURCE_DIR}/blst/scalar/fields/Fp.cpp"
         "${PROJECT_SOURCE_DIR}/blst/scalar/fields/Fp12.cpp"
         "${PROJECT_SOURCE_DIR}/blst/scalar/curve/GT.cpp"
         "${PROJECT_SOURCE_DIR}/blst/scalar/curve/point.cpp"
     )
-    if(BLST_AVX512)
+
+    if(BLST_AVX512_PORTABLE)
+        list(APPEND AVX512_COMPAT_TEST_SOURCES
+            "${PROJECT_SOURCE_DIR}/blst/backend/avx512/intrin_compat.cpp"
+        )
+    endif()
+
+    if(BLST_AVX512 AND BLST_AVX512_PORTABLE)
         list(APPEND AVX512_COMPAT_TEST_SOURCES "avx512_compat_test.cpp")
     endif()
 
@@ -234,10 +240,12 @@ if(BLST_AVX512_PORTABLE)
         "${CMAKE_BINARY_DIR}/blst"
     )
     # MatrixNoK differentials compile the scalar field, curve, and pairing
-    # owners above as their independent oracle. Keep the focused executable
-    # independent of the configured production-default backend.
+    # owners above as their independent oracle. The static archive supplies
+    # only the unresolved low-level backend symbols; its duplicate scalar
+    # objects are not extracted by the linker.
     target_link_libraries(blst_avx512_compat_tests PRIVATE
         gtest_main
+        blst_static
         blst_avx_headers)
     target_compile_features(blst_avx512_compat_tests PRIVATE cxx_std_23)
 
