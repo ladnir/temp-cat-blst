@@ -156,10 +156,11 @@ the common P0 boundary rather than an Fp2-specific assumption.
 fixes the exact six-Fp2 storage order, defines the extension relations
 `v^3 = 1 + u` and `w^2 = v`, and proves that the flattened multiplication and
 optimized squaring schedules implement that tower. It also checks the largest
-22-product coordinate against the selected `ready<200>` allowance and records
-the exact version-3 offset type bounds `80/1440`. The row remains in review
-until the generated wide offset and physical 12-coordinate reduction are
-composed with the accepted base-field/Fp2 pipeline. Frobenius and cyclotomic
+22-product coordinate and the exact physical `81 + 96 = 177 <= 200` ledger,
+then proves all sixteen generated wide-offset lane encodings and their
+`[80m^2,81m^2)` bounds. The row remains in review until the physical
+12-coordinate reduction is composed with the accepted base-field/Fp2
+pipeline. Frobenius and cyclotomic
 identities remain separate because they add generated-constant and input-domain
 obligations.
 

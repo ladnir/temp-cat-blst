@@ -409,15 +409,17 @@ Frobenius constants or GT-only cyclotomic identities. The first Lean packet
 fixes the selected C++ layout as six consecutive Fp2 coefficients split into
 two Fp6 halves, proves the `v^3 = 1 + u` and `w^2 = v` tower interpretation,
 and proves both the flattened multiplication and optimized square schedules.
-The largest scalar coordinate has 22 signed products, giving the exact
-standard-input ledger `22 * 2 * 2 = 88`, below `ready<200>`; the selected
-version-3 offset template values are `80/1440`.
+The largest scalar coordinate has 22 signed products. Its simple semantic
+ledger is 88 units, while the physical source path uses a generated offset in
+`[80m^2,81m^2)`, which dominates all 80 negative units and remains below
+`177m^2` after the maximum 96 positive units. Thus the real path, not merely
+the offset-free expression, fits `ready<200>`. Lean checks all sixteen offset
+lane encodings against `9 * 1440 * p^2` and proves their physical bounds.
 
-The correspondence row remains in review. Generated wide-offset lane
-semantics and the physical twelve-coordinate reduction still need to be
-composed with the accepted base-field/Fp2 pipeline before the row can be
-accepted. This packet changes no production code and runs no benchmark,
-CUDA, product build, or broad test suite.
+The correspondence row remains in review. The physical twelve-coordinate
+reduction still needs to be composed with the accepted base-field/Fp2 pipeline
+before the row can be accepted. This packet changes no production code and
+runs no benchmark, CUDA, product build, or broad test suite.
 
 The same focused investigation found `AUD-223`: internal `FP2Ring::mul` and
 `square` exposed the one-element batch returned by `batch_reduce_expand`

@@ -152,10 +152,12 @@ tower layers remain pending. No C++ arithmetic defect was found.
 `AVX-P3-002` is the general-Fp12 layer and is intentionally narrower than the
 whole `fp12.h` file. Its first source-shaped packet proves the exact
 six-consecutive-Fp2 layout, the `v^3 = 1 + u` / `w^2 = v` tower,
-general multiplication, optimized squaring, and the `22 * 2^2 = 88 <= 200`
-accumulator ledger. Acceptance additionally requires composing the generated
-version-3 wide offset and all twelve physical reductions with the accepted P2
-and P3-001 paths. Frobenius maps form the next generated-constant packet;
+general multiplication and optimized squaring. The semantic 22-product sum is
+88 units; the physical ledger proves that the `[80m^2,81m^2)` generated offset
+dominates 80 negative units and, with at most 96 positive units, remains below
+`177m^2 < 200m^2`. All sixteen generated offset lane encodings are checked.
+Acceptance additionally requires composing all twelve physical reductions
+with the accepted P2 and P3-001 paths. Frobenius maps form the next packet;
 cyclotomic square and GT exponentiation remain a distinct narrow-domain packet.
 
 The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside

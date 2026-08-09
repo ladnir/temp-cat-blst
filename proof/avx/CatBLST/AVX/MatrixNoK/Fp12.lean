@@ -252,13 +252,18 @@ theorem cpp_fp12_flat_coefficient_count {R : Type*} (x : Fp12Value R) :
 ## Static bound ledger
 
 The largest general multiplication coordinate contains 22 signed scalar
-products. Standard inputs have component bound two, so its absolute product
-sum is at most 88 modulus-squared units, below the C++ `ready<200>` boundary.
-The version-3 offset bounds are the exact template values selected by
-`Fp12ConstantsCandidate`.
+products: at most ten negative and twelve positive. The simple semantic
+standard-input sum is 88 modulus-squared units. The physical C++ ledger is
+more conservative because one operand may use the multiplication-ready bound:
+the wide offset occupies less than 81 units, twelve positive products add at
+most 96, and the resulting 177 units fit `ready<200>`. The offset's lower 80
+units dominate all ten negative products. The version-3 offset bounds are the
+exact template values selected by `Fp12ConstantsCandidate`.
 -/
 
 def fp12MaximumSignedProducts : Nat := 22
+def fp12MaximumNegativeProducts : Nat := 10
+def fp12MaximumPositiveProducts : Nat := 12
 def fp12ProductAccumulatorBound : Nat :=
   fp12MaximumSignedProducts * standardBound * standardBound
 def fp12ReadyBound : Nat := 200
@@ -266,18 +271,103 @@ def fp12Version3OffsetElementBound : Nat :=
   10 * standardBound * multiplicationProductBound
 def fp12Version3OffsetRnsBound : Nat :=
   10 * standardBound * standardBound * 6 * 6
+def fp12PhysicalNegativeBound : Nat :=
+  fp12MaximumNegativeProducts * standardBound * multiplicationProductBound
+def fp12PhysicalPositiveBound : Nat :=
+  fp12MaximumPositiveProducts * standardBound * multiplicationProductBound
+def fp12PhysicalCompletedBound : Nat :=
+  fp12Version3OffsetElementBound + 1 + fp12PhysicalPositiveBound
 
 theorem selected_fp12_bound_values :
     fp12ProductAccumulatorBound = 88 ∧
       fp12Version3OffsetElementBound = 80 ∧
-      fp12Version3OffsetRnsBound = 1440 := by
+      fp12Version3OffsetRnsBound = 1440 ∧
+      fp12PhysicalNegativeBound = 80 ∧
+      fp12PhysicalPositiveBound = 96 ∧
+      fp12PhysicalCompletedBound = 177 := by
   norm_num [fp12ProductAccumulatorBound, fp12MaximumSignedProducts,
     fp12Version3OffsetElementBound, fp12Version3OffsetRnsBound,
-    standardBound, multiplicationProductBound]
+    fp12PhysicalNegativeBound, fp12PhysicalPositiveBound,
+    fp12PhysicalCompletedBound, fp12MaximumNegativeProducts,
+    fp12MaximumPositiveProducts, standardBound, multiplicationProductBound]
 
 theorem fp12_product_accumulator_fits_ready :
-    fp12ProductAccumulatorBound ≤ fp12ReadyBound := by
-  norm_num [fp12ProductAccumulatorBound, fp12MaximumSignedProducts,
-    fp12ReadyBound, standardBound]
+    fp12PhysicalNegativeBound ≤ fp12Version3OffsetElementBound ∧
+      fp12PhysicalCompletedBound ≤ fp12ReadyBound := by
+  norm_num [fp12PhysicalNegativeBound, fp12Version3OffsetElementBound,
+    fp12PhysicalCompletedBound, fp12PhysicalPositiveBound,
+    fp12MaximumNegativeProducts, fp12MaximumPositiveProducts,
+    fp12ReadyBound, standardBound, multiplicationProductBound]
+
+/-!
+## Generated wide offset
+
+The source stores each offset as a high/low radix-`2^52` pair. Extra multiples
+of the auxiliary modulus make unsigned subtraction safe; modulo that modulus,
+each pair is exactly the wide selected encoding of
+`9 * 1440 * p^2`, which is zero in the target field.
+-/
+
+def fp12SemanticOffset : Nat :=
+  9 * fp12Version3OffsetRnsBound * Generated.target_modulus *
+    Generated.target_modulus
+
+def cppFp12OffsetM1Wide (index : Fin 8) : Nat :=
+  listAt8 Generated.fp12_offset_m1_high index.val * ifmaRadix +
+    listAt8 Generated.fp12_offset_m1_low index.val
+
+def cppFp12OffsetM2Wide (index : Fin 8) : Nat :=
+  listAt8 Generated.fp12_offset_m2_high index.val * ifmaRadix +
+    listAt8 Generated.fp12_offset_m2_low index.val
+
+theorem fp12_offset_m1_lane_encoding (index : Fin 8) :
+    (cppFp12OffsetM1Wide index : ZMod (modulus1At index)) =
+      ((fp12SemanticOffset * ifmaRadix * ifmaRadix *
+        Generated.qr_premult * Generated.qr_premult : Nat) :
+          ZMod (modulus1At index)) := by
+  apply (ZMod.natCast_eq_natCast_iff _ _ _).2
+  fin_cases index <;>
+    norm_num [cppFp12OffsetM1Wide, listAt8, modulus1At,
+      Generated.fp12_offset_m1_high, Generated.fp12_offset_m1_low,
+      Generated.moduli1, fp12SemanticOffset,
+      fp12Version3OffsetRnsBound, standardBound, Generated.target_modulus, ifmaRadix,
+      Generated.qr_premult]
+
+theorem fp12_offset_m2_lane_encoding (index : Fin 8) :
+    (cppFp12OffsetM2Wide index : ZMod (modulus2At index)) =
+      ((fp12SemanticOffset * ifmaRadix * ifmaRadix *
+        crossBasisInverse * crossBasisInverse : Nat) :
+          ZMod (modulus2At index)) := by
+  apply (ZMod.natCast_eq_natCast_iff _ _ _).2
+  fin_cases index <;>
+    norm_num [cppFp12OffsetM2Wide, listAt8, modulus2At,
+      Generated.fp12_offset_m2_high, Generated.fp12_offset_m2_low,
+      Generated.moduli2, fp12SemanticOffset,
+      fp12Version3OffsetRnsBound, standardBound, Generated.target_modulus, ifmaRadix,
+      crossBasisInverse, montgomeryRadix, Generated.convert_to_postmult]
+
+theorem fp12_offset_m1_lane_bounds (index : Fin 8) :
+    fp12Version3OffsetElementBound * modulus1At index * modulus1At index ≤
+        cppFp12OffsetM1Wide index ∧
+      cppFp12OffsetM1Wide index <
+        (fp12Version3OffsetElementBound + 1) *
+          modulus1At index * modulus1At index := by
+  fin_cases index <;>
+    norm_num [cppFp12OffsetM1Wide, listAt8, modulus1At,
+      Generated.fp12_offset_m1_high, Generated.fp12_offset_m1_low,
+      Generated.moduli1, fp12Version3OffsetElementBound, standardBound,
+      multiplicationProductBound, ifmaRadix]
+
+theorem fp12_offset_m2_lane_bounds (index : Fin 8) :
+    fp12Version3OffsetElementBound * modulus2At index * modulus2At index ≤
+        cppFp12OffsetM2Wide index ∧
+      cppFp12OffsetM2Wide index <
+        (fp12Version3OffsetElementBound + 1) *
+          modulus2At index * modulus2At index := by
+  fin_cases index <;>
+    norm_num [cppFp12OffsetM2Wide, listAt8, modulus2At,
+      Generated.fp12_offset_m2_high, Generated.fp12_offset_m2_low,
+      Generated.moduli2, fp12Version3OffsetElementBound, standardBound,
+      multiplicationProductBound, ifmaRadix]
 
 end CatBLST.AVX.MatrixNoK
