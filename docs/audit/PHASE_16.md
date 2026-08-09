@@ -657,3 +657,24 @@ probe is byte-identical before and after, its stack-usage rows are unchanged,
 and GLV/GLS owner frames remain `0x380`/`0x680`; Miller-loop frames are
 unchanged or smaller. Therefore no benchmark ran. The five source-bound proof
 rows are reaccepted at their canonical hashes.
+
+### AUD-227 public curve proof packet (in review)
+
+`AVX-P4-003` begins the missing public G1/G2 formal packet without broadening
+the accepted claim. `CurveComplete.lean` transcribes the shared MatrixNoK
+complete-add schedule and public Algorithm-9 doubling schedule. An offline
+polynomial certificate, rechecked by Lean, proves complete addition preserves
+the short-Weierstrass curve over a commutative ring; identity, inverse,
+commutativity, add-self/double agreement, and selected Fp/Fp2 instances are
+also proved. `CurveScalarSplit.lean` proves the exact G1 radix-`z²` and G2
+four-way radix-`z` decompositions. `CurveBoothExecutor.lean` proves the selected
+26-window and 13-window constant-time executors and their exact capacity bounds.
+`CurveWnafExecutor.lean` proves the source add/subtract-and-shift recurrence,
+odd-table schedule, executor recomposition, and exact 129/65-slot exhaustion
+using backward minimum-predecessor bounds.
+
+The row remains `in_review`. Acceptance still requires concrete subgroup
+eigenvalue relations for the G1 beta and G2 minus-psi maps, plus composition
+through the selected public dispatch with a full projective group-law
+statement. No C++ source, benchmark, native build, or Peach run is part of this
+proof-only step.

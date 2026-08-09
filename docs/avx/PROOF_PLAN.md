@@ -260,11 +260,15 @@ explicit external boundary rather than a Lean claim.
 
 Production integration at `5c4dea1` created `AVX-P4-002`; Peach native
 integration at `6ce0d44` accepts its exact-hash structural binding. The
-accepted P4-001
-theorem is the retained Miller construction; it must not be generalized into a
-proof of every public point operation. Public G1/G2 complete arithmetic and the
-GLV/GLS scalar-decomposition/executor owners remain an explicit P4 packet
-tracked by `AUD-227`. The production alias validator closes source selection
+accepted P4-001 theorem is the retained Miller construction; it must not be
+generalized into a proof of every public point operation. In-review
+`AVX-P4-003` proves the source-shaped complete-add/double field formulas and
+curve preservation, exact GLV/GLS scalar splits, and the selected constant-time
+Booth and variable-time wNAF executors. The wNAF proof includes backward
+minimum-predecessor bounds that discharge the exact 129/65-slot capacities.
+`AUD-227` remains open for the concrete subgroup eigenvalue bridges and final
+dispatch/full group-law composition.
+The production alias validator closes source selection
 ambiguity but is not a mathematical theorem. MatrixNoK-to-scalar observation
 through byte weaving and scalar REDC also remains a reviewed boundary when
 used by equality, infinity observation, validation, and secret normalization.

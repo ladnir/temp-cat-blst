@@ -318,10 +318,14 @@ and `AVX-P3-001` are accepted at their new hashes. `AUD-230` canonicalizes all
 endings. Their established Lean theorems remain unchanged.
 
 The accepted P4 theorem covers the retained Miller-specific point formulas and
-loop. It does not yet cover public G1/G2 complete arithmetic or the GLV/GLS
-decomposition and executor schedules selected through `point.h`; `AUD-227`
-tracks that formal packet. Those owners retain hand-audit and scalar
-differential evidence in the interim. Canonical export followed by scalar REDC
+loop. In-review `AVX-P4-003` now transcribes the public shared complete-add and
+double schedules, proves curve preservation and the identity/inverse/doubling
+checkpoints for selected Fp and Fp2, proves the exact G1 radix-`z²` and G2
+radix-`z` splits, and proves both the fixed Booth and variable-time wNAF
+executor schedules, including the exact 129/65-slot exhaustion bounds.
+`AUD-227` remains open for the concrete subgroup eigenvalue bridges for
+beta/minus-psi and final public-dispatch/full group-law composition. Canonical
+export followed by scalar REDC
 and byte weaving is likewise an explicit observation boundary for equality,
 infinity observation, validation, and secret normalization rather than a
 theorem silently inferred from `CanonicalExport`.

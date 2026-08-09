@@ -539,3 +539,12 @@ eliminating its BSS owners. The five exact-hash proof rows are reaccepted.
 `AUD-230` makes all 51 mapped hashes LF-canonical after Peach exposed that
 raw-worktree hashing depended on Windows CRLF. No benchmark ran because the
 arithmetic probe was byte-identical and hot code generation did not regress.
+
+`AUD-227` is now materially advanced but remains open. In-review
+`AVX-P4-003` proves the shared public complete-add/double formulas and curve
+preservation, exact G1/G2 scalar decomposition, and the selected constant-time
+Booth executors. The variable-time wNAF source recurrence, recomposition, and
+exact 129/65-slot exhaustion bounds are also proved. Remaining closure work is
+the concrete beta/minus-psi subgroup eigenvalue bridges and final public-
+dispatch/full group-law composition. This step changes only Lean and audit
+infrastructure; it runs no benchmark or native build.

@@ -39,3 +39,7 @@ import CatBLST.AVX.MatrixNoK.MillerSchedule
 import CatBLST.AVX.MatrixNoK.MillerPhysical
 import CatBLST.AVX.MatrixNoK.MillerReduction
 import CatBLST.AVX.MatrixNoK.MillerEndToEnd
+import CatBLST.AVX.MatrixNoK.CurveScalarSplit
+import CatBLST.AVX.MatrixNoK.CurveBoothExecutor
+import CatBLST.AVX.MatrixNoK.CurveWnafExecutor
+import CatBLST.AVX.MatrixNoK.CurveComplete
