@@ -31,3 +31,4 @@ import CatBLST.AVX.MatrixNoK.Fp12FinalExponentiationPhysical
 import CatBLST.AVX.MatrixNoK.GtExponentiationPhysical
 import CatBLST.AVX.MatrixNoK.GtBalancedSplit
 import CatBLST.AVX.MatrixNoK.GtCompiledPhysical
+import CatBLST.AVX.MatrixNoK.MillerDouble
