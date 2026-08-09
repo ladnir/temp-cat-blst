@@ -1,6 +1,6 @@
 # Audit Status
 
-Last updated: 2026-08-06
+Last updated: 2026-08-09
 
 Waves 1 and 2 of the parallel file audit are integrated through implementation
 commit `535c4c6`. Wave 1 closes the scalar C-boundary lifetime and public
@@ -511,3 +511,16 @@ scalar complete-operation, CT/VT GLV, and FFT round-trip oracles. The candidate
 G1 FFT is 9.4% to 9.9% faster than the incumbent and within 1.7% of pinned
 VROOM across 256 through 16,384 elements. Production dispatch is unchanged;
 formal proof and the remaining G2/Fp12/pairing slices remain open.
+
+The later production integration is now natively exercised at `6ce0d44` on
+Peach with Clang 21.1.8, native AVX-512IFMA, and one build worker. The fresh
+Release production library and focused executable build; 34/34 MatrixNoK,
+C-API-contract, and native-point tests pass, as do all three structural/formal
+audit CTests. `AUD-228` fixes redundant-RNS zero observation in public infinity
+queries and secret normalization, including G1/G2 identity signing. Identical-
+flags code-generation probes have no selected-vector/conversion symbols and
+unchanged stack usage; no benchmark ran. `AUD-210`, `AUD-225`, `AUD-226`, and
+`AUD-228` are validated, and exact-hash `AVX-P4-002` is accepted. `AUD-227`
+remains the public curve/GLV/GLS formal gap. Native object inspection opened
+`AUD-229` for function-local initialization guards around AVX owners and
+public constants.

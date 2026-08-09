@@ -30,8 +30,14 @@ cross-products and canonicalizes only the final two differences at the
 observation boundary. Affine equality canonicalizes its coordinates through
 the same scalar bridge. This adds work only to explicit equality/validation;
 curve arithmetic, GLV/GLS, MSM, FFT, Miller, and pairing kernels are unchanged.
-Internal infinity tests retain exact-zero checks because library-produced
-infinity has an exact zero coordinate by contract.
+Internal arithmetic owners may retain exact-zero checks only where their local
+representation invariant proves exact zero. Public infinity/identity
+observations and conversion boundaries use canonical field-zero observation.
+The native integration run showed why this distinction is required: valid
+low-order multiplication can produce a redundant nonzero RNS lift of zero.
+Secret projective normalization derives its zero bit from the scalar export
+already required for inversion, so identity signing remains constant-time and
+does not add a second conversion.
 
 The old GT-generator literal belonged to the incumbent RNS bases. Production
 now uses a fixed MatrixNoK literal generated from CatBLST's canonical scalar GT
@@ -48,27 +54,30 @@ initialization work and cannot throw during context construction.
 
 ## Evidence status
 
-Completed locally:
+Completed locally and on Peach:
 
 - production static library compilation under portable-AVX Debug;
-- all 22 focused MatrixNoK scalar-differential, curve, GT, FFT, pairing,
-  production-alias, and redundant-equality tests;
+- all 22 portable-Debug MatrixNoK scalar-differential tests;
+- a fresh Clang 21.1.8 native Release production build at `6ce0d44`;
+- all 34 native focused MatrixNoK, C API contract, and native-point contract
+  tests, including redundant-zero infinity and identity-signing regressions;
 - independent constant regeneration and corruption self-test;
 - generated Lean snapshot reproducibility;
 - focused `GtGeneratorConstant.lean` check; and
-- structural production-dispatch validation.
+- structural production-dispatch validation;
+- all three native MatrixNoK audit CTests; and
+- optimized native code-generation inspection with no out-of-line `_vv` or
+  conversion symbols and no stack-frame change from the preceding commit.
 
 Pending permission-gated evidence:
 
 - relink and execute the broader C API/FFT slices in the BTx-linked main test
   executable;
-- Peach Clang 21 native AVX-512IFMA integration and code-generation review;
-- accept `AVX-P4-002`, currently exact-hash-bound and `in_review`, after its
-  native evidence is recorded; and
 - any broad suite, sanitizer, or benchmark gate.
 
-No CUDA, BTx/BTE, benchmark, portable-AVX Release, or broad build belongs to
-this packet.
+`AVX-P4-002` is accepted at the exact hashes recorded in the correspondence
+ledger. No CUDA, BTx/BTE, benchmark, portable-AVX Release, or broad build
+belongs to this packet.
 
 ## Lean integration-gap audit
 
@@ -79,8 +88,8 @@ the entire AVX API. The exact current boundary is:
   reduction, Fp/Fp2/Fp12 arithmetic, GT scalar schedules, final exponentiation,
   and the retained direct/prepared Miller loop;
 - newly closed: the production GT literal's 192-lane standard encoding;
-- structurally bound but awaiting native evidence: the zero-overhead production
-  aliases in `AVX-P4-002`;
+- structurally and natively bound: the zero-overhead production aliases in
+  accepted `AVX-P4-002`;
 - differential and hand-audit evidence only: public G1/G2 complete point
   arithmetic and the GLV/GLS scalar-multiplication executors;
 - explicit non-Lean observation boundary: MatrixNoK canonical export through
@@ -95,3 +104,8 @@ the entire AVX API. The exact current boundary is:
 These are evidence gaps rather than confirmed C++ defects. `AUD-227` tracks the
 public curve/GLV/GLS formal packet so future release notes cannot imply broader
 coverage than the correspondence ledger provides.
+
+Native object inspection also found function-local dynamic initialization
+guards around several derived AVX owners and public literals. This is not an
+arithmetic failure and does not reopen `AVX-P4-002`; `AUD-229` tracks removal
+of first-use initialization and its C-boundary/performance review.

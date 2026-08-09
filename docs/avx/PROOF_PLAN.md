@@ -258,14 +258,16 @@ square—and reaches the abstract binary Miller loop. Focused Lean and three
 portable-Debug scalar differentials pass. P0 compiler/ISA lowering remains an
 explicit external boundary rather than a Lean claim.
 
-Production integration at `5c4dea1` opens `AVX-P4-002`. The accepted P4-001
+Production integration at `5c4dea1` created `AVX-P4-002`; Peach native
+integration at `6ce0d44` accepts its exact-hash structural binding. The
+accepted P4-001
 theorem is the retained Miller construction; it must not be generalized into a
 proof of every public point operation. Public G1/G2 complete arithmetic and the
 GLV/GLS scalar-decomposition/executor owners remain an explicit P4 packet
 tracked by `AUD-227`. The production alias validator closes source selection
 ambiguity but is not a mathematical theorem. MatrixNoK-to-scalar observation
 through byte weaving and scalar REDC also remains a reviewed boundary when
-used by equality and validation.
+used by equality, infinity observation, validation, and secret normalization.
 
 The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside
 this initial scope. The selected tower uses `FP2Ring<FpRingCandidate>`.

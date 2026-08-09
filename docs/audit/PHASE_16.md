@@ -606,11 +606,22 @@ The exact graph, integration repairs, completed checks, and remaining native
 release gates are recorded in `docs/avx/MATRIXNOK_INTEGRATION.md`.
 
 Integration found `AUD-225`: raw RNS equality is not semantic equality under
-MatrixNoK's redundant representatives. Equality now canonicalizes only at the
-observation boundary, leaving all arithmetic hot paths unchanged. `AUD-226`
-records the proof-to-production binding gap. A structural validator pins the
-selected aliases, and the generated Lean snapshot plus
-`GtGeneratorConstant.lean` binds the new GT literal's 192 lanes to its twelve
-canonical Fp coefficients. Final correspondence hashes, main portable-Debug
-test execution, and Peach native code-generation/runtime evidence remain
-pending; no benchmark or broad run was performed.
+MatrixNoK's redundant representatives. The Peach native run then found
+`AUD-228`: the same mistake affected public infinity observation and secret
+normalization, including signing the identity. Canonical export is now limited
+to those semantic boundaries; the secret path reuses the conversion already
+required for inversion, and every optimized arithmetic-probe frame is
+unchanged from the preceding commit.
+
+`AUD-226` closes the proof-to-production binding gap. A structural validator
+pins the selected aliases, the generated Lean snapshot plus
+`GtGeneratorConstant.lean` binds the new GT literal's 192 lanes, and accepted
+`AVX-P4-002` records final exact hashes. Peach Clang 21.1.8 builds the native
+Release production library at `6ce0d44`, passes all 34 focused tests and all
+three MatrixNoK audit CTests, and emits no out-of-line `_vv` or conversion
+symbol in the optimized probe. No benchmark or broad run was performed.
+
+Native object inspection opened `AUD-229`: several AVX owners and public
+literals still use function-local dynamic initialization guards. Removing them
+without perturbing hot code or theorem bindings is the next integration cleanup
+packet.

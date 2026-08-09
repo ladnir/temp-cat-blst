@@ -299,8 +299,9 @@ rather than accepting either tool as the mathematical proof.
 
 Commit `5c4dea1` selects the exact MatrixNoK theorem-owner types for production
 AVX point, GT, pairing, and GT-FFT dispatch. `AVX-P4-002` binds every alias and
-production owner at exact hashes and remains `in_review` until Peach native
-runtime and optimized code-generation evidence is recorded. The structural
+production owner at exact hashes and is accepted after the Clang 21.1.8 Peach
+native Release build, 34 focused tests, three structural audits, and optimized
+code-generation inspection at `6ce0d44`. The structural
 `validate_matrixnok_dispatch.py` gate prevents a production owner from silently
 falling back to the incumbent ring; it is a source-correspondence check rather
 than a mathematical theorem.
@@ -310,8 +311,9 @@ loop. It does not yet cover public G1/G2 complete arithmetic or the GLV/GLS
 decomposition and executor schedules selected through `point.h`; `AUD-227`
 tracks that formal packet. Those owners retain hand-audit and scalar
 differential evidence in the interim. Canonical export followed by scalar REDC
-and byte weaving is likewise an explicit observation boundary for equality and
-validation rather than a theorem silently inferred from `CanonicalExport`.
+and byte weaving is likewise an explicit observation boundary for equality,
+infinity observation, validation, and secret normalization rather than a
+theorem silently inferred from `CanonicalExport`.
 
 The production GT generator required a new fixed MatrixNoK literal.
 `AVX-P1-003` and `GtGeneratorConstant.lean` prove that all 192 RNS lanes are
