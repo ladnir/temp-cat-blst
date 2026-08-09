@@ -23,3 +23,4 @@ import CatBLST.AVX.MatrixNoK.NegativeR2Counterexample
 import CatBLST.AVX.MatrixNoK.CanonicalImportRepair
 import CatBLST.AVX.MatrixNoK.Fp2
 import CatBLST.AVX.MatrixNoK.Fp2SignedBoundary
+import CatBLST.AVX.MatrixNoK.Fp12

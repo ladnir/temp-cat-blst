@@ -402,6 +402,23 @@ path. Selected-Fp2 correspondence row `AVX-P3-001` is accepted at the exact
 source hashes. Fp12 and later P3 layers remain pending. The focused 3,013-job
 Fp2 target, 3,026-job root target, and trust-word scan pass.
 
+## General Fp12 P3 proof boundary
+
+`AVX-P3-002` starts with the general field operations rather than mixing in
+Frobenius constants or GT-only cyclotomic identities. The first Lean packet
+fixes the selected C++ layout as six consecutive Fp2 coefficients split into
+two Fp6 halves, proves the `v^3 = 1 + u` and `w^2 = v` tower interpretation,
+and proves both the flattened multiplication and optimized square schedules.
+The largest scalar coordinate has 22 signed products, giving the exact
+standard-input ledger `22 * 2 * 2 = 88`, below `ready<200>`; the selected
+version-3 offset template values are `80/1440`.
+
+The correspondence row remains in review. Generated wide-offset lane
+semantics and the physical twelve-coordinate reduction still need to be
+composed with the accepted base-field/Fp2 pipeline before the row can be
+accepted. This packet changes no production code and runs no benchmark,
+CUDA, product build, or broad test suite.
+
 The same focused investigation found `AUD-223`: internal `FP2Ring::mul` and
 `square` exposed the one-element batch returned by `batch_reduce_expand`
 instead of returning its element. Commit `a01a39b` selects `[0]`, adding no

@@ -149,6 +149,15 @@ M1 reduction, R1 change-base, M2 reduction, and R2 correction are composed in
 one source-shaped theorem packet. `AVX-P3-001` is accepted; Fp12 and later
 tower layers remain pending. No C++ arithmetic defect was found.
 
+`AVX-P3-002` is the general-Fp12 layer and is intentionally narrower than the
+whole `fp12.h` file. Its first source-shaped packet proves the exact
+six-consecutive-Fp2 layout, the `v^3 = 1 + u` / `w^2 = v` tower,
+general multiplication, optimized squaring, and the `22 * 2^2 = 88 <= 200`
+accumulator ledger. Acceptance additionally requires composing the generated
+version-3 wide offset and all twelve physical reductions with the accepted P2
+and P3-001 paths. Frobenius maps form the next generated-constant packet;
+cyclotomic square and GT exponentiation remain a distinct narrow-domain packet.
+
 The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside
 this initial scope. The selected tower uses `FP2Ring<FpRingCandidate>`.
 

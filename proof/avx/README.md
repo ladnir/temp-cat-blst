@@ -152,6 +152,17 @@ accepted at the exact source hashes; Fp12 and later tower layers remain P3
 work. The reviewed high/low IFMA split and native/compiler semantics remain
 the common P0 boundary rather than an Fp2-specific assumption.
 
+`AVX-P3-002` now begins the selected general-Fp12 packet. `Fp12.lean`
+fixes the exact six-Fp2 storage order, defines the extension relations
+`v^3 = 1 + u` and `w^2 = v`, and proves that the flattened multiplication and
+optimized squaring schedules implement that tower. It also checks the largest
+22-product coordinate against the selected `ready<200>` allowance and records
+the exact version-3 offset type bounds `80/1440`. The row remains in review
+until the generated wide offset and physical 12-coordinate reduction are
+composed with the accepted base-field/Fp2 pipeline. Frobenius and cyclotomic
+identities remain separate because they add generated-constant and input-domain
+obligations.
+
 The generated snapshot and Python regeneration remain binding and independent
 executable evidence, respectively; Lean checks the corresponding formulas
 rather than accepting either tool as the mathematical proof.
