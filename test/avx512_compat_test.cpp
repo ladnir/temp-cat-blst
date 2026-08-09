@@ -9,6 +9,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cstddef>
 #include <limits>
 #include <random>
 #include <type_traits>
@@ -167,6 +168,9 @@ namespace blst::test
             check_immediate_shifts<26>(a);
             check_immediate_shifts<51>(a);
             check_immediate_shifts<63>(a);
+            check_immediate_shifts<64>(a);
+            check_immediate_shifts<65>(a);
+            check_immediate_shifts<255>(a);
 
             cc512i counts = random_cc512();
             constexpr std::array<u64, 8> boundary_counts = {0, 1, 26, 51, 63, 64, 65, std::numeric_limits<u64>::max()};
@@ -206,6 +210,20 @@ namespace blst::test
         _cc512_storeu_si512(cc_unaligned.data() + 1, value);
         _mm512_storeu_si512(mm_unaligned.data() + 1, mm(value));
         EXPECT_EQ(cc_unaligned, mm_unaligned);
+
+        std::array<std::byte, 65> unaligned_bytes{};
+        for (std::size_t i = 0; i < unaligned_bytes.size(); ++i) {
+            unaligned_bytes[i] = static_cast<std::byte>(i * 37u + 11u);
+        }
+        expect_equal(
+            _mm512_loadu_si512(unaligned_bytes.data() + 1),
+            _cc512_loadu_si512(unaligned_bytes.data() + 1));
+
+        std::array<std::byte, 65> cc_unaligned_bytes{};
+        std::array<std::byte, 65> mm_unaligned_bytes{};
+        _cc512_storeu_si512(cc_unaligned_bytes.data() + 1, value);
+        _mm512_storeu_si512(mm_unaligned_bytes.data() + 1, mm(value));
+        EXPECT_EQ(cc_unaligned_bytes, mm_unaligned_bytes);
     }
 
     TEST_F(Avx512CompatTest, Masks)

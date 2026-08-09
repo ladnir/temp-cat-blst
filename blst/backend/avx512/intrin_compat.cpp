@@ -1,5 +1,7 @@
 #include "blst/backend/avx512/intrin_compat.h"
 
+#include <cstring>
+
 #if defined(BLST_AVX512_PORTABLE)
 
 namespace blst
@@ -79,6 +81,9 @@ BLST_CC_NOINLINE auto _cc512_xor_si512(const cc512i a, const cc512i b) -> cc512i
 BLST_CC_NOINLINE auto _cc512_slli_epi64(const cc512i a, int bits) -> cc512i
 {
     cc512i out{};
+    if (static_cast<unsigned>(bits) >= 64) {
+        return out;
+    }
     for (u64 i = 0; i < 8; ++i) {
         out.lane[i] = a.lane[i] << bits;
     }
@@ -88,6 +93,9 @@ BLST_CC_NOINLINE auto _cc512_slli_epi64(const cc512i a, int bits) -> cc512i
 BLST_CC_NOINLINE auto _cc512_srli_epi64(const cc512i a, int bits) -> cc512i
 {
     cc512i out{};
+    if (static_cast<unsigned>(bits) >= 64) {
+        return out;
+    }
     for (u64 i = 0; i < 8; ++i) {
         out.lane[i] = a.lane[i] >> bits;
     }
@@ -97,9 +105,18 @@ BLST_CC_NOINLINE auto _cc512_srli_epi64(const cc512i a, int bits) -> cc512i
 BLST_CC_NOINLINE auto _cc512_srai_epi64(const cc512i a, int bits) -> cc512i
 {
     cc512i out{};
+    if (static_cast<unsigned>(bits) >= 64) {
+        for (u64 i = 0; i < 8; ++i) {
+            out.lane[i] = u64{0} - (a.lane[i] >> 63);
+        }
+        return out;
+    }
+    if (bits == 0) {
+        return a;
+    }
     for (u64 i = 0; i < 8; ++i) {
-        const i64 v = static_cast<i64>(a.lane[i]);
-        out.lane[i] = static_cast<u64>(v >> bits);
+        const u64 sign = u64{0} - (a.lane[i] >> 63);
+        out.lane[i] = (a.lane[i] >> bits) | (sign << (64 - bits));
     }
     return out;
 }
@@ -117,37 +134,25 @@ BLST_CC_NOINLINE auto _cc512_sllv_epi64(const cc512i a, const cc512i bits) -> cc
 BLST_CC_NOINLINE auto _cc512_load_si512(const void* p) -> cc512i
 {
     cc512i out{};
-    const u64* src = static_cast<const u64*>(p);
-    for (u64 i = 0; i < 8; ++i) {
-        out.lane[i] = src[i];
-    }
+    std::memcpy(out.lane, p, sizeof(out.lane));
     return out;
 }
 
 BLST_CC_NOINLINE auto _cc512_loadu_si512(const void* p) -> cc512i
 {
     cc512i out{};
-    const u64* src = static_cast<const u64*>(p);
-    for (u64 i = 0; i < 8; ++i) {
-        out.lane[i] = src[i];
-    }
+    std::memcpy(out.lane, p, sizeof(out.lane));
     return out;
 }
 
 BLST_CC_NOINLINE void _cc512_store_si512(void* p, const cc512i a)
 {
-    u64* dst = static_cast<u64*>(p);
-    for (u64 i = 0; i < 8; ++i) {
-        dst[i] = a.lane[i];
-    }
+    std::memcpy(p, a.lane, sizeof(a.lane));
 }
 
 BLST_CC_NOINLINE void _cc512_storeu_si512(void* p, const cc512i a)
 {
-    u64* dst = static_cast<u64*>(p);
-    for (u64 i = 0; i < 8; ++i) {
-        dst[i] = a.lane[i];
-    }
+    std::memcpy(p, a.lane, sizeof(a.lane));
 }
 
 BLST_CC_NOINLINE auto _cc512_set_epi64(
@@ -385,7 +390,7 @@ BLST_CC_NOINLINE auto _cc128_add_epi64(const cc128i a, const cc128i b) -> cc128i
 
 BLST_CC_NOINLINE auto _cc128_srli_epi64(const cc128i a, int bits) -> cc128i
 {
-    if (bits >= 64) {
+    if (static_cast<unsigned>(bits) >= 64) {
         return cc128i{};
     }
     return cc128i{{a.lane[0] >> bits, a.lane[1] >> bits}};
