@@ -634,7 +634,8 @@ already proved constants header. All 35 focused portable-Debug tests pass, and
 MSVC production C API objects contain no thread-safe-static or dynamic-init
 symbols. Because `point.h`, `GT.h`, `gt_context.h`, and the Fp2 value
 constructor are exact-hash proof inputs, the five affected correspondence rows
-are deliberately `in_review` pending one bounded native Clang reacceptance.
+were deliberately held `in_review` pending one bounded native Clang reacceptance;
+the evidence below reaccepts them.
 No benchmark or broad build ran.
 
 The first native reacceptance run found `AUD-230` in the audit infrastructure,
@@ -644,4 +645,15 @@ hashing now canonicalizes ordinary CRLF to Git's LF text and rejects bare CR;
 all CRLF-derived ledger hashes have been replaced by their committed LF blob
 hashes. Local validation covers all 19 rows and 51 mapped hashes. Native
 correctness had already passed 35/35 when this gate stopped the run. The
-corrected audit remains to be rerun before reaccepting the five rows.
+corrected audit passes on that clean Peach checkout at `63e2feb`.
+
+The bounded Peach reacceptance validates `AUD-229` and `AUD-230`. Clang 21.1.8
+Release passes 35/35 focused native tests and all five audit gates. The old AVX
+C API object had 231 guard/atexit relocations and 11 relevant guarded owners;
+the new object has zero of each. Its text shrinks from 701,649 to 682,541 bytes
+and its BSS from 5,393 bytes to zero. Public generator and Fp12-one accessors
+reduce to direct eight-byte loads. The selected arithmetic code-generation
+probe is byte-identical before and after, its stack-usage rows are unchanged,
+and GLV/GLS owner frames remain `0x380`/`0x680`; Miller-loop frames are
+unchanged or smaller. Therefore no benchmark ran. The five source-bound proof
+rows are reaccepted at their canonical hashes.

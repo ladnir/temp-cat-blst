@@ -525,12 +525,17 @@ remains the public curve/GLV/GLS formal gap. Native object inspection opened
 `AUD-229` for function-local initialization guards around AVX owners and
 public constants.
 
-`AUD-229` is now fixed at `fe09e26`: selected curve, GLV/GLS, GT, and FFT
+`AUD-229` is validated at `fe09e26`: selected curve, GLV/GLS, GT, and FFT
 owners are constant-initialized; public C literals reference those owners
 directly; and the new aligned curve literals have an independent canonical
 regenerator and corruption self-test. The focused MSVC portable-Debug target
 passes 35/35, both constant validators and the dispatch validator pass, and
 the two production C API objects contain no MSVC dynamic-initialization
-symbols. The five exact-hash rows touched by this source-only initialization
-change are now `in_review` until native Clang runtime/code-generation evidence
-is refreshed. No benchmark ran.
+symbols. Peach Clang 21.1.8 Release also passes 35/35 focused native tests and
+all five audit gates. Native guard/atexit relocations fall from 231 to zero,
+the selected code-generation probe is byte-identical, hot owner stack frames
+are unchanged, and the AVX C API object shrinks by about 19 KiB of text while
+eliminating its BSS owners. The five exact-hash proof rows are reaccepted.
+`AUD-230` makes all 51 mapped hashes LF-canonical after Peach exposed that
+raw-worktree hashing depended on Windows CRLF. No benchmark ran because the
+arithmetic probe was byte-identical and hot code generation did not regress.

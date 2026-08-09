@@ -107,9 +107,13 @@ coverage than the correspondence ledger provides.
 
 Native object inspection also found function-local dynamic initialization
 guards around several derived AVX owners and public literals. `AUD-229` is
-fixed at `fe09e26`: selected owners are constant-initialized, public C accessors
+validated at `fe09e26`: selected owners are constant-initialized, public C accessors
 return the immutable native literals directly, and an independently regenerated
 curve-constant artifact replaces conversion during initialization. The change
 does not alter the arithmetic kernels or the established generated constants.
-Local MSVC object inspection finds no dynamic-init symbols; native Clang
-reacceptance remains the final validation gate.
+Local MSVC object inspection finds no dynamic-init symbols. Peach Clang 21.1.8
+Release passes 35 focused tests and all five audits; guard/atexit relocations
+fall to zero, the selected arithmetic probe is byte-identical, and hot owner
+stack frames are unchanged. `AUD-230` canonicalizes exact proof hashes to LF,
+closing the Windows-CRLF/Peach-LF audit-infrastructure defect exposed by this
+run. No benchmark was warranted because native code generation was unchanged.

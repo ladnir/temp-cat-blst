@@ -309,11 +309,13 @@ than a mathematical theorem.
 The constant-initialization cleanup at `fe09e26` changes exact-hash owner files
 without changing their arithmetic expressions. It also adds a separately
 regenerated curve-literal artifact so generators and endomorphism owners need
-no guarded first-use conversion. `AVX-P4-002`, `AVX-P4-001`, `AVX-P3-007`,
-`AVX-P3-006`, and `AVX-P3-001` are therefore temporarily `in_review` at their
-new hashes until the bounded native Clang runtime and code-generation check is
-repeated. Their established Lean theorems remain unchanged; this is deliberate
-source-binding discipline, not a newly discovered proof defect.
+no guarded first-use conversion. Peach Clang 21.1.8 Release reacceptance passes
+35 focused tests and all five audit gates. Native guard/atexit relocations are
+gone, the selected arithmetic probe is byte-identical, and hot owner stack
+frames are unchanged. `AVX-P4-002`, `AVX-P4-001`, `AVX-P3-007`, `AVX-P3-006`,
+and `AVX-P3-001` are accepted at their new hashes. `AUD-230` canonicalizes all
+51 mapped hashes to LF so the exact ledger is independent of worktree line
+endings. Their established Lean theorems remain unchanged.
 
 The accepted P4 theorem covers the retained Miller-specific point formulas and
 loop. It does not yet cover public G1/G2 complete arithmetic or the GLV/GLS

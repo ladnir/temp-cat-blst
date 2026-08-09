@@ -270,12 +270,15 @@ through byte weaving and scalar REDC also remains a reviewed boundary when
 used by equality, infinity observation, validation, and secret normalization.
 
 The `AUD-229` constant-initialization packet at `fe09e26` updates four mapped
-owner headers while leaving the arithmetic schedules intact. The five affected
-rows are intentionally `in_review` at their new hashes until native Clang
-reacceptance confirms the new owners remain guard-free and do not perturb hot
-code. The independently regenerated curve-literal header is now an additional
-exact-hash input to `AVX-P4-002`; the original proved constants artifact is
-unchanged.
+owner headers while leaving the arithmetic schedules intact. Peach Clang
+21.1.8 Release reacceptance passes 35 focused tests and all five audit gates;
+guard/atexit relocations are absent, the selected arithmetic probe is
+byte-identical, and hot owner stack frames are unchanged. The five affected
+rows are accepted at their new hashes. The independently regenerated
+curve-literal header is an additional exact-hash input to `AVX-P4-002`; the
+original proved constants artifact is unchanged. `AUD-230` makes the ledger's
+51 mapped hashes LF-canonical so the same proof boundary validates on Windows
+CRLF and Peach LF checkouts.
 
 The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside
 this initial scope. The selected tower uses `FP2Ring<FpRingCandidate>`.
