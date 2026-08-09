@@ -158,9 +158,11 @@ fixes the exact six-Fp2 storage order, defines the extension relations
 optimized squaring schedules implement that tower. It also checks the largest
 22-product coordinate and the exact physical `81 + 96 = 177 <= 200` ledger,
 then proves all sixteen generated wide-offset lane encodings and their
-`[80m^2,81m^2)` bounds. The row remains in review until the physical
-12-coordinate reduction is composed with the accepted base-field/Fp2
-pipeline. Frobenius and cyclotomic
+`[80m^2,81m^2)` bounds. The selected M1 reduction, R1 change-base, M2
+reduction, `<18p` completed representative, and exact R2 correction are now
+composed in one theorem. The row remains in review until each literal C++
+positive/negative scalar polynomial is mechanically connected to the
+Fp2-level formula rather than accepted as a hand transcription. Frobenius and cyclotomic
 identities remain separate because they add generated-constant and input-domain
 obligations.
 

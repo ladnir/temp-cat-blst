@@ -416,10 +416,13 @@ ledger is 88 units, while the physical source path uses a generated offset in
 the offset-free expression, fits `ready<200>`. Lean checks all sixteen offset
 lane encodings against `9 * 1440 * p^2` and proves their physical bounds.
 
-The correspondence row remains in review. The physical twelve-coordinate
-reduction still needs to be composed with the accepted base-field/Fp2 pipeline
-before the row can be accepted. This packet changes no production code and
-runs no benchmark, CUDA, product build, or broad test suite.
+The physical reduction chain is now composed through selected M1 reduction,
+R1 change-base, M2 reduction, a completed representative in `[0,18p)`, and
+exact R2 correction. The correspondence row remains in review until the
+twelve literal C++ positive/negative scalar schedules are mechanically mapped
+to the proved Fp2-level formula; this transcription boundary is not being
+silently treated as proof. This packet changes no production code and runs no
+benchmark, CUDA, product build, or broad test suite.
 
 The same focused investigation found `AUD-223`: internal `FP2Ring::mul` and
 `square` exposed the one-element batch returned by `batch_reduce_expand`

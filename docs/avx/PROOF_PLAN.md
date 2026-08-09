@@ -156,8 +156,10 @@ general multiplication and optimized squaring. The semantic 22-product sum is
 88 units; the physical ledger proves that the `[80m^2,81m^2)` generated offset
 dominates 80 negative units and, with at most 96 positive units, remains below
 `177m^2 < 200m^2`. All sixteen generated offset lane encodings are checked.
-Acceptance additionally requires composing all twelve physical reductions
-with the accepted P2 and P3-001 paths. Frobenius maps form the next packet;
+M1 reduction, R1 change-base, M2 reduction, the `<18p` completed range, and
+R2 correction are composed without assumed intermediate residues. Acceptance
+still requires a mechanical mapping from the twelve literal scalar
+positive/negative schedules to the Fp2-level formulas. Frobenius maps form the next packet;
 cyclotomic square and GT exponentiation remain a distinct narrow-domain packet.
 
 The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside
