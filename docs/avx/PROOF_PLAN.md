@@ -156,14 +156,16 @@ general multiplication and optimized squaring. The semantic 22-product sum is
 88 units. Direct unsigned subtraction contributes at most 40 units and is
 dominated by the `[80m^2,81m^2)` generated offset. General multiplication is
 below `169m^2`; square coordinates that double the offset-bearing expression
-are below `210m^2`. The actual general-field boundary is MatrixNoK
+are below `242m^2`. The actual general-field boundary is MatrixNoK
 `MAX_ADD=800`; `ready<200>` belongs only to a cyclotomic helper. All sixteen
 generated offset lane encodings are checked.
 M1 reduction, R1 change-base, M2 reduction, the `<18p` completed range, and
 R2 correction are composed without assumed intermediate residues. The twelve
 literal scalar multiply and square schedules now mechanically reconstruct the
-Fp2-level formulas. Acceptance only awaits composition of their coordinate-wise
-zero/one/two-offset representatives. Frobenius maps form the next packet;
+Fp2-level formulas. Their exact coordinate-wise zero/one/two-offset
+decomposition, unsigned lower bounds, and `4608p^2`/`5760p^2` RNS ceilings
+compose with the generic completed-representative theorem, so `AVX-P3-002` is
+accepted at the recorded source hashes. Frobenius maps form the next packet;
 cyclotomic square and GT exponentiation remain a distinct narrow-domain packet.
 
 The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside

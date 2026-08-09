@@ -162,6 +162,26 @@ def fp12SquareUnsignedSubtractionUnits : FlatFp12 Nat :=
 def fp12SquareOffsetMultiplicity : FlatFp12 Nat :=
   ![1, 1, 1, 1, 0, 0, 2, 2, 2, 2, 0, 0]
 
+theorem cpp_fp12_literal_mul_offset_decomposition
+    {R : Type*} [CommRing R] (offset : R)
+    (x y : FlatFp12 R) (index : Fin 12) :
+    cppFp12LiteralMul offset x y index =
+      cppFp12LiteralMul 0 x y index +
+        fp12MulOffsetMultiplicity index * offset := by
+  fin_cases index <;>
+    simp [cppFp12LiteralMul, fp12MulOffsetMultiplicity] <;>
+    ring
+
+theorem cpp_fp12_literal_square_offset_decomposition
+    {R : Type*} [CommRing R] (offset : R)
+    (x : FlatFp12 R) (index : Fin 12) :
+    cppFp12LiteralSquare offset x index =
+      cppFp12LiteralSquare 0 x index +
+        fp12SquareOffsetMultiplicity index * offset := by
+  fin_cases index <;>
+    simp [cppFp12LiteralSquare, fp12SquareOffsetMultiplicity] <;>
+    ring
+
 theorem fp12_literal_mul_unit_bounds (index : Fin 12) :
     fp12MulUnsignedAdditionUnits index ≤ 22 ∧
       fp12MulUnsignedSubtractionUnits index ≤ 10 ∧
@@ -177,5 +197,68 @@ theorem fp12_literal_square_unit_bounds (index : Fin 12) :
   fin_cases index <;>
     norm_num [fp12SquareUnsignedAdditionUnits,
       fp12SquareUnsignedSubtractionUnits, fp12SquareOffsetMultiplicity]
+
+theorem fp12_literal_mul_element_bounds (index : Fin 12) :
+    fp12MulUnsignedSubtractionUnits index * 4 ≤
+        fp12MulOffsetMultiplicity index * 80 ∧
+      fp12MulOffsetMultiplicity index * 81 +
+          fp12MulUnsignedAdditionUnits index * 4 ≤ 169 := by
+  fin_cases index <;>
+    norm_num [fp12MulUnsignedSubtractionUnits,
+      fp12MulUnsignedAdditionUnits, fp12MulOffsetMultiplicity]
+
+theorem fp12_literal_square_element_bounds (index : Fin 12) :
+    fp12SquareUnsignedSubtractionUnits index * 4 ≤
+        fp12SquareOffsetMultiplicity index * 80 ∧
+      fp12SquareOffsetMultiplicity index * 81 +
+          fp12SquareUnsignedAdditionUnits index * 4 ≤ 242 := by
+  fin_cases index <;>
+    norm_num [fp12SquareUnsignedSubtractionUnits,
+      fp12SquareUnsignedAdditionUnits, fp12SquareOffsetMultiplicity]
+
+def fp12MaximumInputRnsBound : Nat := 6
+def fp12ProductRnsUnit : Nat :=
+  standardBound * standardBound *
+    fp12MaximumInputRnsBound * fp12MaximumInputRnsBound
+
+def fp12MulRnsLower (index : Fin 12) : Nat :=
+  fp12MulOffsetMultiplicity index * fp12Version3OffsetRnsBound -
+    fp12MulUnsignedSubtractionUnits index * fp12ProductRnsUnit
+
+def fp12MulRnsUpper (index : Fin 12) : Nat :=
+  fp12MulOffsetMultiplicity index * fp12Version3OffsetRnsBound +
+    fp12MulUnsignedAdditionUnits index * fp12ProductRnsUnit
+
+def fp12SquareRnsLower (index : Fin 12) : Nat :=
+  fp12SquareOffsetMultiplicity index * fp12Version3OffsetRnsBound -
+    fp12SquareUnsignedSubtractionUnits index * fp12ProductRnsUnit
+
+def fp12SquareRnsUpper (index : Fin 12) : Nat :=
+  fp12SquareOffsetMultiplicity index * fp12Version3OffsetRnsBound +
+    fp12SquareUnsignedAdditionUnits index * fp12ProductRnsUnit
+
+theorem selected_fp12_product_rns_unit :
+    fp12ProductRnsUnit = 144 := by
+  norm_num [fp12ProductRnsUnit, fp12MaximumInputRnsBound, standardBound]
+
+theorem fp12_literal_mul_rns_bounds (index : Fin 12) :
+    fp12MulUnsignedSubtractionUnits index * fp12ProductRnsUnit ≤
+        fp12MulOffsetMultiplicity index * fp12Version3OffsetRnsBound ∧
+      fp12MulRnsUpper index ≤ 4608 := by
+  fin_cases index <;>
+    norm_num [fp12MulUnsignedSubtractionUnits,
+      fp12MulUnsignedAdditionUnits, fp12MulOffsetMultiplicity,
+      fp12MulRnsUpper, fp12ProductRnsUnit, fp12MaximumInputRnsBound,
+      fp12Version3OffsetRnsBound, standardBound]
+
+theorem fp12_literal_square_rns_bounds (index : Fin 12) :
+    fp12SquareUnsignedSubtractionUnits index * fp12ProductRnsUnit ≤
+        fp12SquareOffsetMultiplicity index * fp12Version3OffsetRnsBound ∧
+      fp12SquareRnsUpper index ≤ 5760 := by
+  fin_cases index <;>
+    norm_num [fp12SquareUnsignedSubtractionUnits,
+      fp12SquareUnsignedAdditionUnits, fp12SquareOffsetMultiplicity,
+      fp12SquareRnsUpper, fp12ProductRnsUnit, fp12MaximumInputRnsBound,
+      fp12Version3OffsetRnsBound, standardBound]
 
 end CatBLST.AVX.MatrixNoK

@@ -256,7 +256,7 @@ products. A coordinate performs at most ten direct unsigned subtraction units
 and at most 22 unsigned addition units. Standard inputs are below `2m`, so the
 wide offset occupies less than 81 units and additions contribute at most 88.
 The square schedule doubles an offset-bearing expression in four coordinates,
-giving the overall physical bound 210. Both paths fit the actual general-field
+giving the overall physical bound 242. Both paths fit the actual general-field
 `MAX_ADD=800` reduction boundary. The offset's lower 80 units dominate all 40
 subtraction units. The version-3 offset bounds are the
 exact template values selected by `Fp12ConstantsCandidate`.
@@ -277,7 +277,7 @@ def fp12PhysicalNegativeBound : Nat :=
 def fp12PhysicalPositiveBound : Nat :=
   fp12MaximumPositiveProducts * standardBound * standardBound
 def fp12PhysicalCompletedBound : Nat :=
-  210
+  242
 
 theorem selected_fp12_bound_values :
     fp12ProductAccumulatorBound = 88 ∧
@@ -285,7 +285,7 @@ theorem selected_fp12_bound_values :
       fp12Version3OffsetRnsBound = 1440 ∧
       fp12PhysicalNegativeBound = 40 ∧
       fp12PhysicalPositiveBound = 88 ∧
-      fp12PhysicalCompletedBound = 210 := by
+      fp12PhysicalCompletedBound = 242 := by
   norm_num [fp12ProductAccumulatorBound, fp12MaximumSignedProducts,
     fp12Version3OffsetElementBound, fp12Version3OffsetRnsBound,
     fp12PhysicalNegativeBound, fp12PhysicalPositiveBound,
@@ -420,7 +420,7 @@ theorem fp12_physical_wide_bounds
       norm_num [fp12Version3OffsetElementBound, fp12PhysicalPositiveBound,
         fp12MaximumPositiveProducts, standardBound,
         multiplicationProductBound]
-    rw [show fp12PhysicalCompletedBound = 210 by rfl]
+    rw [show fp12PhysicalCompletedBound = 242 by rfl]
     nlinarith
 
 theorem fp12_physical_m1_lane_encoding
@@ -580,6 +580,27 @@ theorem fp12_m1_residues_fit
     (modulus1_member index) (reducer1_factor_relation index) selectedFits
   simpa [cppFp12M1Residue] using reducer.2.2
 
+theorem fp12_m1_residues_represent_completed
+    (completed : Int) (rawWide high low : Fin 8 → Nat)
+    (rawRepresents : ∀ index,
+      (rawWide index : ZMod (modulus1At index)) =
+        completed * ifmaRadix * ifmaRadix *
+          Generated.qr_premult * Generated.qr_premult)
+    (wideSplit : ∀ index,
+      high index * ifmaRadix + low index = rawWide index)
+    (wideFits : ∀ index, rawWide index ≤
+      fp12ReadyBound * modulus1At index * modulus1At index) :
+    ∀ index, Nat.ModEq (modulus1At index)
+      (cppFp12M1Residue high low index)
+      (signedR1ReducedValue completed) := by
+  let value := completed - fp12SemanticOffset
+  have represented := fp12_m1_residues_represent value rawWide high low
+    (by
+      intro index
+      simpa [value, cppFp12CompletedExpression] using rawRepresents index)
+    wideSplit wideFits
+  simpa [value, cppFp12CompletedExpression] using represented
+
 def cppFp12M2CombinedWide
     (rawWide m1Residues : Fin 8 → Nat) (column : Fin 8) : Nat :=
   rawWide column +
@@ -591,14 +612,14 @@ def cppFp12M2Residue
   selectedReduceMasked (wide / ifmaRadix) (wide % ifmaRadix)
     (modulus2At column) (reducer2FactorAt column)
 
-theorem fp12_m2_combined_wide_lt_226_square
+theorem fp12_m2_combined_wide_lt_258_square
     (rawWide m1Residues : Fin 8 → Nat)
     (rawFit : ∀ index, rawWide index <
       fp12PhysicalCompletedBound * modulus2At index * modulus2At index)
     (m1Fit : ∀ index, m1Residues index < 2 * modulus1At index)
     (column : Fin 8) :
     cppFp12M2CombinedWide rawWide m1Residues column <
-      226 * modulus2At column * modulus2At column := by
+      258 * modulus2At column * modulus2At column := by
   have matrixBound := r1_matrix_product_lt_16_square
     m1Residues (by simpa [modulus1At] using m1Fit) column
   have matrixBound' :
@@ -606,7 +627,7 @@ theorem fp12_m2_combined_wide_lt_226_square
         16 * modulus2At column * modulus2At column := by
     simpa [modulus2At, Nat.pow_two, Nat.mul_assoc] using matrixBound
   have rawBound := rawFit column
-  have physicalLedger : fp12PhysicalCompletedBound = 210 := by
+  have physicalLedger : fp12PhysicalCompletedBound = 242 := by
     norm_num [fp12PhysicalCompletedBound,
       fp12Version3OffsetElementBound, fp12PhysicalPositiveBound,
       fp12MaximumPositiveProducts, standardBound,
@@ -637,9 +658,9 @@ theorem fp12_m2_residue_represents
   let representative := r1SignedValueFromResidues completed m1Residues
   let wide := cppFp12M2CombinedWide rawWide m1Residues column
   have wideBound : wide ≤ delayedCombinedTypeBound * modulus * modulus := by
-    have tight := fp12_m2_combined_wide_lt_226_square
+    have tight := fp12_m2_combined_wide_lt_258_square
       rawWide m1Residues rawFit m1Fit column
-    have typeBound : 226 ≤ delayedCombinedTypeBound := by
+    have typeBound : 258 ≤ delayedCombinedTypeBound := by
       norm_num [delayedCombinedTypeBound, delayedInputBound,
         delayedR1TypeBound, r1ExactAccumulationBound,
         multiplicationProductBound, standardBound]
@@ -731,10 +752,10 @@ theorem fp12_m2_residue_fit
   intro column
   let modulus := modulus2At column
   let wide := cppFp12M2CombinedWide rawWide m1Residues column
-  have tight := fp12_m2_combined_wide_lt_226_square
+  have tight := fp12_m2_combined_wide_lt_258_square
     rawWide m1Residues rawFit m1Fit column
   have wideBound : wide ≤ delayedCombinedTypeBound * modulus * modulus := by
-    have typeBound : 226 ≤ delayedCombinedTypeBound := by
+    have typeBound : 258 ≤ delayedCombinedTypeBound := by
       norm_num [delayedCombinedTypeBound, delayedInputBound,
         delayedR1TypeBound, r1ExactAccumulationBound,
         multiplicationProductBound, standardBound]
@@ -751,6 +772,32 @@ theorem fp12_m2_residue_fit
       rw [splitReordered]
       exact wideBound)
   simpa [cppFp12M2Residue, wide, modulus] using reducer.2.2
+
+theorem fp12_m2_residue_represents_completed
+    (completed : Int) (rawWide m1Residues : Fin 8 → Nat)
+    (rawRepresents : ∀ index,
+      (rawWide index : ZMod (modulus2At index)) =
+        completed * ifmaRadix * ifmaRadix *
+          crossBasisInverse * crossBasisInverse)
+    (rawFit : ∀ index, rawWide index <
+      fp12PhysicalCompletedBound * modulus2At index * modulus2At index)
+    (m1Fit : ∀ index, m1Residues index < 2 * modulus1At index)
+    (m1Represent : ∀ index,
+      Nat.ModEq (modulus1At index) (m1Residues index)
+        (signedR1ReducedValue completed)) :
+    ∀ column, Nat.ModEq (modulus2At column)
+      (cppFp12M2Residue rawWide m1Residues column)
+      (signedR2InputValue
+        (r1SignedValueFromResidues completed m1Residues)) := by
+  let value := completed - fp12SemanticOffset
+  have represented := fp12_m2_residue_represents value rawWide m1Residues
+    (by
+      intro index
+      simpa [value, cppFp12CompletedExpression] using rawRepresents index)
+    rawFit m1Fit (by
+      intro index
+      simpa [value, cppFp12CompletedExpression] using m1Represent index)
+  simpa [value, cppFp12CompletedExpression] using represented
 
 /-!
 ## Completed representative range and R2 correction
@@ -896,10 +943,103 @@ theorem fp12_completed_r2_representative_is_exact
   simpa [representative, Int.toNat_of_nonneg representativeNonnegative] using
     exact
 
+def fp12MaximumCompletedRnsBound : Nat := 5760
+
+theorem fp12_maximum_completed_value_below_r1_dynamic_range :
+    fp12MaximumCompletedRnsBound * Generated.target_modulus *
+        Generated.target_modulus <
+      Generated.target_modulus * Generated.M1 := by
+  norm_num [fp12MaximumCompletedRnsBound, Generated.target_modulus,
+    Generated.M1]
+
+theorem fp12_physical_r1_representative_range
+    (completed : Int) (residues : Fin 8 → Nat)
+    (completedNonnegative : 0 ≤ completed)
+    (completedBound : completed <
+      fp12MaximumCompletedRnsBound * Generated.target_modulus *
+        Generated.target_modulus)
+    (residuesFit : ∀ index,
+      residues index < 2 * listAt8 Generated.moduli1 index.val)
+    (residuesRepresent : ∀ index,
+      Nat.ModEq (modulus1At index) (residues index)
+        (signedR1ReducedValue completed)) :
+    0 ≤ r1SignedValueFromResidues completed residues ∧
+      r1SignedValueFromResidues completed residues <
+        18 * Generated.target_modulus := by
+  have dynamicRangeNat := fp12_maximum_completed_value_below_r1_dynamic_range
+  have dynamicRange :
+      (fp12MaximumCompletedRnsBound * Generated.target_modulus *
+          Generated.target_modulus : Nat) <
+        (Generated.target_modulus * Generated.M1 : Int) := by
+    exact_mod_cast dynamicRangeNat
+  have completedUpper : completed <
+      Generated.target_modulus * Generated.M1 :=
+    completedBound.trans dynamicRange
+  have liftBoundNat := r1_standard_raw_lift_lt_17_product residues
+    residuesFit
+  have liftBound :
+      (r1RawLiftFromResidues residues : Int) < 17 * Generated.M1 := by
+    exact_mod_cast liftBoundNat
+  have liftNonnegative :
+      (0 : Int) ≤ r1RawLiftFromResidues residues := by
+    exact_mod_cast Nat.zero_le (r1RawLiftFromResidues residues)
+  have reconstruction := r1_signed_value_reconstruction
+    completed residues residuesRepresent
+  have modulusPositive : (0 : Int) < Generated.M1 := by
+    norm_num [Generated.M1]
+  unfold r1SignedValueNumerator at reconstruction
+  constructor <;> nlinarith
+
+theorem fp12_physical_r2_representative_is_exact
+    (completed : Int) (m1Residues m2Residues : Fin 8 → Nat)
+    (completedNonnegative : 0 ≤ completed)
+    (completedBound : completed <
+      fp12MaximumCompletedRnsBound * Generated.target_modulus *
+        Generated.target_modulus)
+    (m1ResiduesFit : ∀ index,
+      m1Residues index < 2 * listAt8 Generated.moduli1 index.val)
+    (m1ResiduesRepresent : ∀ index,
+      Nat.ModEq (modulus1At index) (m1Residues index)
+        (signedR1ReducedValue completed))
+    (m2ResiduesFit : ∀ index,
+      m2Residues index < 2 * listAt8 Generated.moduli2 index.val)
+    (m2ResiduesRepresent : ∀ index,
+      Nat.ModEq (modulus2At index) (m2Residues index)
+        (signedR2InputValue
+          (r1SignedValueFromResidues completed m1Residues))) :
+    correctedCrtRepresentative m2Residues r2ShiftedFactor Generated.M2 =
+      r1SignedValueFromResidues completed m1Residues := by
+  let representative := r1SignedValueFromResidues completed m1Residues
+  have representativeRange := fp12_physical_r1_representative_range
+    completed m1Residues completedNonnegative completedBound
+      m1ResiduesFit m1ResiduesRepresent
+  have representativeNonnegative : (0 : Int) ≤ representative := by
+    simpa [representative] using representativeRange.1
+  have representativeBound :
+      representative < 18 * Generated.target_modulus := by
+    simpa [representative] using representativeRange.2
+  have representativeNatBound :
+      representative.toNat < 22 * Generated.target_modulus := by
+    rw [← Int.ofNat_lt]
+    simp [Int.toNat_of_nonneg representativeNonnegative]
+    nlinarith
+  have representedNat : ∀ index,
+      Nat.ModEq (listAt8 Generated.moduli2 index.val)
+        (m2Residues index) (r2InputValue representative.toNat) := by
+    intro index
+    simpa [representative, modulus2At,
+      signed_r2_input_of_nonnegative representative
+        representativeNonnegative] using m2ResiduesRepresent index
+  have exact := r2_standard_corrected_representative_is_exact_22
+    representative.toNat m2Residues representativeNatBound
+      m2ResiduesFit representedNat
+  simpa [representative, Int.toNat_of_nonneg representativeNonnegative] using
+    exact
+
 /-!
 End-to-end reduction for one flattened Fp12 scalar coordinate. The formula
 packet supplies `value`; the physical unsigned packet supplies the raw M1/M2
-wide lanes and their `210m^2` bounds. This theorem then composes M1 reduction,
+wide lanes and their `242m^2` bounds. This theorem then composes M1 reduction,
 R1 change-base, M2 reduction, and fixed R2 correction without assumed
 intermediate residues.
 -/
@@ -946,6 +1086,51 @@ theorem fp12_selected_physical_reduction_is_exact
     (by simpa [m1Residues] using m1Represent)
   exact fp12_completed_r2_representative_is_exact value m1Residues
     (cppFp12M2Residue rawM2 m1Residues) valueLower valueUpper
+    (by simpa [m1Residues, modulus1At] using m1Fit)
+    (by simpa [m1Residues] using m1Represent)
+    (by simpa [modulus2At] using m2Fit)
+    (by simpa [m1Residues] using m2Represent)
+
+theorem fp12_selected_redundant_reduction_is_exact
+    (completed : Int)
+    (rawM1 m1High m1Low rawM2 : Fin 8 → Nat)
+    (completedNonnegative : 0 ≤ completed)
+    (completedBound : completed <
+      fp12MaximumCompletedRnsBound * Generated.target_modulus *
+        Generated.target_modulus)
+    (rawM1Represents : ∀ index,
+      (rawM1 index : ZMod (modulus1At index)) =
+        completed * ifmaRadix * ifmaRadix *
+          Generated.qr_premult * Generated.qr_premult)
+    (rawM1Fit : ∀ index, rawM1 index ≤
+      fp12ReadyBound * modulus1At index * modulus1At index)
+    (m1WideSplit : ∀ index,
+      m1High index * ifmaRadix + m1Low index = rawM1 index)
+    (rawM2Represents : ∀ index,
+      (rawM2 index : ZMod (modulus2At index)) =
+        completed * ifmaRadix * ifmaRadix *
+          crossBasisInverse * crossBasisInverse)
+    (rawM2Fit : ∀ index, rawM2 index <
+      fp12PhysicalCompletedBound * modulus2At index * modulus2At index) :
+    let m1Residues := cppFp12M1Residue m1High m1Low
+    correctedCrtRepresentative
+        (cppFp12M2Residue rawM2 m1Residues)
+        r2ShiftedFactor Generated.M2 =
+      r1SignedValueFromResidues completed m1Residues := by
+  dsimp only
+  let m1Residues := cppFp12M1Residue m1High m1Low
+  have m1Fit := fp12_m1_residues_fit rawM1 m1High m1Low
+    m1WideSplit rawM1Fit
+  have m1Represent := fp12_m1_residues_represent_completed completed
+    rawM1 m1High m1Low rawM1Represents m1WideSplit rawM1Fit
+  have m2Fit := fp12_m2_residue_fit rawM2 m1Residues rawM2Fit
+    (by simpa [m1Residues, modulus1At] using m1Fit)
+  have m2Represent := fp12_m2_residue_represents_completed completed
+    rawM2 m1Residues rawM2Represents rawM2Fit
+    (by simpa [m1Residues, modulus1At] using m1Fit)
+    (by simpa [m1Residues] using m1Represent)
+  exact fp12_physical_r2_representative_is_exact completed m1Residues
+    (cppFp12M2Residue rawM2 m1Residues) completedNonnegative completedBound
     (by simpa [m1Residues, modulus1At] using m1Fit)
     (by simpa [m1Residues] using m1Represent)
     (by simpa [modulus2At] using m2Fit)

@@ -152,22 +152,24 @@ accepted at the exact source hashes; Fp12 and later tower layers remain P3
 work. The reviewed high/low IFMA split and native/compiler semantics remain
 the common P0 boundary rather than an Fp2-specific assumption.
 
-`AVX-P3-002` now begins the selected general-Fp12 packet. `Fp12.lean`
+`AVX-P3-002` accepts the selected general-Fp12 multiplication and squaring
+packet. `Fp12.lean`
 fixes the exact six-Fp2 storage order, defines the extension relations
 `v^3 = 1 + u` and `w^2 = v`, and proves that the flattened multiplication and
 optimized squaring schedules implement that tower. It also checks the largest
 22-product coordinate. The selected general-field path uses
 `ring.batch_reduce_expand` with `MAX_ADD=800`, not the cyclotomic helper's
 `ready<200>` boundary. A single-offset multiplication coordinate is below
-`169m^2`; doubled offset-bearing square coordinates are below `210m^2`.
+`169m^2`; doubled offset-bearing square coordinates are below `242m^2`.
 All sixteen generated offset lanes lie in `[80m^2,81m^2)` and carry the proved
 encoding. The selected M1 reduction, R1 change-base, M2
 reduction, `<18p` completed representative, and exact R2 correction are now
 composed in one theorem. `Fp12Raw.lean` mechanically transcribes all twelve
 literal multiply and square polynomials and proves that adjacent scalar outputs
-reconstruct the Fp2-level formulas. The row remains in review only while the
-per-coordinate zero/one/two-offset physical representatives are connected to
-the generic reduction theorem. Frobenius and cyclotomic
+reconstruct the Fp2-level formulas. It also proves the exact zero/one/two-offset
+decomposition, unsigned subtraction safety, and the respective `4608p^2` and
+`5760p^2` RNS ceilings. These feed the generalized completed-representative
+theorem, closing the physical reduction composition. Frobenius and cyclotomic
 identities remain separate because they add generated-constant and input-domain
 obligations.
 
