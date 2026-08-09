@@ -625,3 +625,14 @@ Native object inspection opened `AUD-229`: several AVX owners and public
 literals still use function-local dynamic initialization guards. Removing them
 without perturbing hot code or theorem bindings is the next integration cleanup
 packet.
+
+The `AUD-229` implementation at `fe09e26` replaces those derived first-use
+objects with constant-initialized owners and separately generated curve
+literals. The curve artifact is independently regenerated from canonical
+BLS12-381 values and the existing MatrixNoK parameters without changing the
+already proved constants header. All 35 focused portable-Debug tests pass, and
+MSVC production C API objects contain no thread-safe-static or dynamic-init
+symbols. Because `point.h`, `GT.h`, `gt_context.h`, and the Fp2 value
+constructor are exact-hash proof inputs, the five affected correspondence rows
+are deliberately `in_review` pending one bounded native Clang reacceptance.
+No benchmark or broad build ran.

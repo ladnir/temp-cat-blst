@@ -306,6 +306,15 @@ code-generation inspection at `6ce0d44`. The structural
 falling back to the incumbent ring; it is a source-correspondence check rather
 than a mathematical theorem.
 
+The constant-initialization cleanup at `fe09e26` changes exact-hash owner files
+without changing their arithmetic expressions. It also adds a separately
+regenerated curve-literal artifact so generators and endomorphism owners need
+no guarded first-use conversion. `AVX-P4-002`, `AVX-P4-001`, `AVX-P3-007`,
+`AVX-P3-006`, and `AVX-P3-001` are therefore temporarily `in_review` at their
+new hashes until the bounded native Clang runtime and code-generation check is
+repeated. Their established Lean theorems remain unchanged; this is deliberate
+source-binding discipline, not a newly discovered proof defect.
+
 The accepted P4 theorem covers the retained Miller-specific point formulas and
 loop. It does not yet cover public G1/G2 complete arithmetic or the GLV/GLS
 decomposition and executor schedules selected through `point.h`; `AUD-227`

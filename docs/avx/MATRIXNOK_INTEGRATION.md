@@ -106,6 +106,10 @@ public curve/GLV/GLS formal packet so future release notes cannot imply broader
 coverage than the correspondence ledger provides.
 
 Native object inspection also found function-local dynamic initialization
-guards around several derived AVX owners and public literals. This is not an
-arithmetic failure and does not reopen `AVX-P4-002`; `AUD-229` tracks removal
-of first-use initialization and its C-boundary/performance review.
+guards around several derived AVX owners and public literals. `AUD-229` is
+fixed at `fe09e26`: selected owners are constant-initialized, public C accessors
+return the immutable native literals directly, and an independently regenerated
+curve-constant artifact replaces conversion during initialization. The change
+does not alter the arithmetic kernels or the established generated constants.
+Local MSVC object inspection finds no dynamic-init symbols; native Clang
+reacceptance remains the final validation gate.

@@ -121,8 +121,9 @@ storage layout changed.
 
 ### 10. Concurrency
 
-Point operations use caller-owned state and immutable function-local static
-curve constants. No mutable global pool or runtime dispatch is introduced.
+Point operations use caller-owned state and immutable constant-initialized
+curve owners. No mutable global pool, guarded first-use initialization, or
+runtime dispatch is introduced.
 
 ### 11. Resource exhaustion and denial of service
 
@@ -157,8 +158,8 @@ prove AVX-512 register, spill, or instruction shape.
 
 ## Findings
 
-`AUD-088`, `AUD-089`, `AUD-093`, `AUD-094`, `AUD-160`, and `AUD-164` through
-`AUD-173`.
+`AUD-088`, `AUD-089`, `AUD-093`, `AUD-094`, `AUD-160`, `AUD-164` through
+`AUD-173`, `AUD-225`, `AUD-228`, and `AUD-229`.
 
 ## Validation
 
@@ -177,6 +178,15 @@ git diff --check
 Result: both focused test configurations passed 12/12; documentation,
 formatting, audit-manifest, and whitespace checks passed. Structural inspection finds
 no whole-point scalar conversion in AVX signing or key derivation.
+
+The `AUD-229` follow-up replaces guarded construction of the generator,
+endomorphism, A-prime, and Frobenius owners with constant-initialized MatrixNoK
+values. The separately checked curve-literal header regenerates from canonical
+BLS12-381 coordinates and the existing RNS parameters. The focused portable
+target passes 35/35, including direct scalar comparisons for both generators,
+both negative generators, both A-prime values, and Fp12 identity. MSVC
+production objects contain no dynamic-initialization symbols. Native Clang
+code-generation reacceptance remains pending.
 
 ## Automated evidence
 

@@ -269,6 +269,14 @@ ambiguity but is not a mathematical theorem. MatrixNoK-to-scalar observation
 through byte weaving and scalar REDC also remains a reviewed boundary when
 used by equality, infinity observation, validation, and secret normalization.
 
+The `AUD-229` constant-initialization packet at `fe09e26` updates four mapped
+owner headers while leaving the arithmetic schedules intact. The five affected
+rows are intentionally `in_review` at their new hashes until native Clang
+reacceptance confirms the new owners remain guard-free and do not perturb hot
+code. The independently regenerated curve-literal header is now an additional
+exact-hash input to `AVX-P4-002`; the original proved constants artifact is
+unchanged.
+
 The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside
 this initial scope. The selected tower uses `FP2Ring<FpRingCandidate>`.
 
