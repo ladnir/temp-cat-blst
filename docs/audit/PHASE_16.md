@@ -712,7 +712,10 @@ explicitly rather than silently admitted by the homogeneous equation. The
 next proof establishes the missing selected-Fp2 `Field` instance. It checks
 `p mod 4 = 3`, uses Mathlib's quadratic-residue theorem to prove that the norm
 `a² + b²` cannot vanish for a nonzero pair, and verifies the explicit
-conjugate-over-norm inverse. The remaining obligations are CatBLST-complete-add/
-Mathlib-group-add equivalence, the analogous G2 projective-group bridge,
-concrete BLS12-381 point-count/span, and selected public-dispatch composition.
-This remains a proof-only packet; no C++ build or benchmark ran.
+conjugate-over-norm inverse. The generic projective carrier is then instantiated
+for the selected G2 twist. Its discriminant is checked nonzero, and the same
+nonzero-representative conversion, exact quotient equality, zero, and negation
+theorems are proved. The remaining obligations are CatBLST-complete-add/
+Mathlib-group-add equivalence, concrete BLS12-381 point-count/span, and selected
+public-dispatch composition. This remains a proof-only packet; no C++ build or
+benchmark ran.

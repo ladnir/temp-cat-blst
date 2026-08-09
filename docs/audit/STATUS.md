@@ -565,6 +565,8 @@ homogeneous scale is proved nonzero from the literal coefficient.
 proves CatBLST homogeneous equivalence iff projective equality, and proves zero
 and negation correspondence. `Fp2Field.lean` proves the selected quadratic
 extension is a field from `p mod 4 = 3`, nonvanishing norm, and an explicit
-conjugate-over-norm inverse. `AUD-227` is not closed: complete-add/group-add
-equivalence, the G2 projective-group bridge, concrete point-count/span
-instantiation, and final selected public-dispatch composition remain.
+conjugate-over-norm inverse. The shared projective bridge is now instantiated
+for selected G2 too, with exact equality, zero, and negation correspondence.
+`AUD-227` is not closed: complete-add/group-add equivalence, concrete
+point-count/span instantiation, and final selected public-dispatch composition
+remain.

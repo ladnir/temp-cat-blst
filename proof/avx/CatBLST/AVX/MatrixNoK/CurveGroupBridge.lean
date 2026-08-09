@@ -4,6 +4,7 @@ SPDX-License-Identifier: Apache-2.0
 -/
 
 import CatBLST.AVX.MatrixNoK.CurveSubgroup
+import CatBLST.AVX.MatrixNoK.Fp2Field
 import Mathlib.AlgebraicGeometry.EllipticCurve.Projective.Point
 import Mathlib.Tactic
 
@@ -53,21 +54,23 @@ theorem selected_g1_discriminant_nonzero :
     selectedG1Weierstrass.Δ ≠ 0 := by
   native_decide
 
-instance selectedG1Elliptic : selectedG1Weierstrass.IsElliptic :=
-  ⟨selected_g1_discriminant_nonzero.isUnit⟩
+instance selectedG1Elliptic :
+    (shortWeierstrass (4 : SelectedCurveFp)).IsElliptic := by
+  change selectedG1Weierstrass.IsElliptic
+  exact ⟨selected_g1_discriminant_nonzero.isUnit⟩
 
 def HomogeneousPoint.projectivelyValid [CommRing K]
     (b : K) (point : HomogeneousPoint K) : Prop :=
   point.onCurve b ∧ (point.x ≠ 0 ∨ point.y ≠ 0 ∨ point.z ≠ 0)
 
-theorem selected_g1_valid_nonsingular
-    (point : HomogeneousPoint SelectedCurveFp)
-    (valid : point.projectivelyValid 4) :
-    selectedG1Weierstrass.toProjective.Nonsingular
+theorem projectively_valid_nonsingular [Field K] (b : K)
+    [elliptic : (shortWeierstrass b).IsElliptic]
+    (point : HomogeneousPoint K) (valid : point.projectivelyValid b) :
+    (shortWeierstrass b).toProjective.Nonsingular
       (projectiveCoordinates point) := by
-  have equation : selectedG1Weierstrass.toProjective.Equation
+  have equation : (shortWeierstrass b).toProjective.Equation
       (projectiveCoordinates point) :=
-    (projective_equation_iff 4 point).mpr valid.1
+    (projective_equation_iff b point).mpr valid.1
   by_cases zZero : point.z = 0
   · have coordinateZ : projectiveCoordinates point 2 = 0 := by
       simpa using zZero
@@ -86,8 +89,7 @@ theorem selected_g1_valid_nonsingular
         · exact yNonzero
         · exact False.elim (zNonzero zZero)
       right
-      simpa [selectedG1Weierstrass, shortWeierstrass, xZero] using
-        pow_ne_zero 2 yNonzero
+      simpa [shortWeierstrass, xZero] using pow_ne_zero 2 yNonzero
   · have coordinateZ : projectiveCoordinates point 2 ≠ 0 := by
       simpa using zZero
     apply (WeierstrassCurve.Projective.nonsingular_of_Z_ne_zero
@@ -96,22 +98,23 @@ theorem selected_g1_valid_nonsingular
     exact (WeierstrassCurve.Projective.equation_of_Z_ne_zero
       coordinateZ).mp equation
 
-def toSelectedG1Point
-    (point : HomogeneousPoint SelectedCurveFp)
-    (valid : point.projectivelyValid 4) :
-    selectedG1Weierstrass.toProjective.Point :=
+def toProjectivePoint [Field K] (b : K)
+    [elliptic : (shortWeierstrass b).IsElliptic]
+    (point : HomogeneousPoint K) (valid : point.projectivelyValid b) :
+    (shortWeierstrass b).toProjective.Point :=
   ⟨(WeierstrassCurve.Projective.nonsingularLift_iff
     (projectiveCoordinates point)).mpr
-      (selected_g1_valid_nonsingular point valid)⟩
+      (projectively_valid_nonsingular b point valid)⟩
 
-theorem mathlib_equiv_of_homogeneous_equivalent
-    (left right : HomogeneousPoint SelectedCurveFp)
-    (leftValid : left.projectivelyValid 4)
-    (rightValid : right.projectivelyValid 4)
+theorem projective_equiv_of_homogeneous_equivalent [Field K] (b : K)
+    [elliptic : (shortWeierstrass b).IsElliptic]
+    (left right : HomogeneousPoint K)
+    (leftValid : left.projectivelyValid b)
+    (rightValid : right.projectivelyValid b)
     (equivalent : left.equivalent right) :
     projectiveCoordinates left ≈ projectiveCoordinates right := by
-  have leftNonsingular := selected_g1_valid_nonsingular left leftValid
-  have rightNonsingular := selected_g1_valid_nonsingular right rightValid
+  have leftNonsingular := projectively_valid_nonsingular b left leftValid
+  have rightNonsingular := projectively_valid_nonsingular b right rightValid
   rcases equivalent with atInfinity | finite
   · apply WeierstrassCurve.Projective.equiv_of_Z_eq_zero
       leftNonsingular rightNonsingular
@@ -146,8 +149,8 @@ theorem mathlib_equiv_of_homogeneous_equivalent
       · simpa using finite.1
       · simpa using finite.2
 
-theorem homogeneous_equivalent_of_mathlib_equiv
-    (left right : HomogeneousPoint SelectedCurveFp)
+theorem homogeneous_equivalent_of_projective_equiv [Field K]
+    (left right : HomogeneousPoint K)
     (mathlibEquivalent :
       projectiveCoordinates left ≈ projectiveCoordinates right) :
     left.equivalent right := by
@@ -166,77 +169,208 @@ theorem homogeneous_equivalent_of_mathlib_equiv
     · simpa using WeierstrassCurve.Projective.X_eq_of_equiv mathlibEquivalent
     · simpa using WeierstrassCurve.Projective.Y_eq_of_equiv mathlibEquivalent
 
+theorem to_projective_point_eq_iff [Field K] (b : K)
+    [elliptic : (shortWeierstrass b).IsElliptic]
+    (left right : HomogeneousPoint K)
+    (leftValid : left.projectivelyValid b)
+    (rightValid : right.projectivelyValid b) :
+    toProjectivePoint b left leftValid =
+        toProjectivePoint b right rightValid ↔
+      left.equivalent right := by
+  constructor
+  · intro pointEqual
+    apply homogeneous_equivalent_of_projective_equiv left right
+    have classEqual := WeierstrassCurve.Projective.Point.ext_iff.mp pointEqual
+    change (⟦projectiveCoordinates left⟧ :
+      WeierstrassCurve.Projective.PointClass K) =
+        ⟦projectiveCoordinates right⟧ at classEqual
+    exact Quotient.eq.mp classEqual
+  · intro equivalent
+    apply WeierstrassCurve.Projective.Point.ext
+    change (⟦projectiveCoordinates left⟧ :
+      WeierstrassCurve.Projective.PointClass K) =
+        ⟦projectiveCoordinates right⟧
+    exact Quotient.eq.mpr
+      (projective_equiv_of_homogeneous_equivalent b left right
+        leftValid rightValid equivalent)
+
+theorem selected_g1_valid_nonsingular
+    (point : HomogeneousPoint SelectedCurveFp)
+    (valid : point.projectivelyValid 4) :
+    selectedG1Weierstrass.toProjective.Nonsingular
+      (projectiveCoordinates point) :=
+  projectively_valid_nonsingular 4 point valid
+
+def toSelectedG1Point
+    (point : HomogeneousPoint SelectedCurveFp)
+    (valid : point.projectivelyValid 4) :
+    selectedG1Weierstrass.toProjective.Point :=
+  toProjectivePoint 4 point valid
+
+theorem mathlib_equiv_of_homogeneous_equivalent
+    (left right : HomogeneousPoint SelectedCurveFp)
+    (leftValid : left.projectivelyValid 4)
+    (rightValid : right.projectivelyValid 4)
+    (equivalent : left.equivalent right) :
+    projectiveCoordinates left ≈ projectiveCoordinates right :=
+  projective_equiv_of_homogeneous_equivalent 4 left right
+    leftValid rightValid equivalent
+
+theorem homogeneous_equivalent_of_mathlib_equiv
+    (left right : HomogeneousPoint SelectedCurveFp)
+    (mathlibEquivalent :
+      projectiveCoordinates left ≈ projectiveCoordinates right) :
+    left.equivalent right :=
+  homogeneous_equivalent_of_projective_equiv left right mathlibEquivalent
+
 theorem to_selected_g1_point_eq_iff
     (left right : HomogeneousPoint SelectedCurveFp)
     (leftValid : left.projectivelyValid 4)
     (rightValid : right.projectivelyValid 4) :
     toSelectedG1Point left leftValid =
         toSelectedG1Point right rightValid ↔
-      left.equivalent right := by
-  constructor
-  · intro pointEqual
-    apply homogeneous_equivalent_of_mathlib_equiv left right
-    have classEqual := WeierstrassCurve.Projective.Point.ext_iff.mp pointEqual
-    change (⟦projectiveCoordinates left⟧ :
-      WeierstrassCurve.Projective.PointClass SelectedCurveFp) =
-        ⟦projectiveCoordinates right⟧ at classEqual
-    exact Quotient.eq.mp classEqual
-  · intro equivalent
-    apply WeierstrassCurve.Projective.Point.ext
-    change (⟦projectiveCoordinates left⟧ :
-      WeierstrassCurve.Projective.PointClass SelectedCurveFp) =
-        ⟦projectiveCoordinates right⟧
-    exact Quotient.eq.mpr
-      (mathlib_equiv_of_homogeneous_equivalent left right
-        leftValid rightValid equivalent)
+      left.equivalent right :=
+  to_projective_point_eq_iff 4 left right leftValid rightValid
 
-theorem selected_g1_zero_valid :
-    (cppProjectiveZero : HomogeneousPoint SelectedCurveFp).projectivelyValid 4 := by
+theorem projective_zero_valid [Field K] (b : K) :
+    (cppProjectiveZero : HomogeneousPoint K).projectivelyValid b := by
   constructor
-  · exact cpp_projective_zero_on_curve 4
+  · exact cpp_projective_zero_on_curve b
   · right
     left
     simp [cppProjectiveZero]
 
-theorem to_selected_g1_point_zero :
-    toSelectedG1Point cppProjectiveZero selected_g1_zero_valid = 0 := by
+theorem to_projective_point_zero [Field K] (b : K)
+    [elliptic : (shortWeierstrass b).IsElliptic] :
+    toProjectivePoint b cppProjectiveZero (projective_zero_valid b) = 0 := by
   apply WeierstrassCurve.Projective.Point.ext
   rw [WeierstrassCurve.Projective.Point.zero_point]
+  change (⟦projectiveCoordinates (cppProjectiveZero : HomogeneousPoint K)⟧ :
+    WeierstrassCurve.Projective.PointClass K) = ⟦![0, 1, 0]⟧
   rfl
 
-theorem negate_projectively_valid
-    (point : HomogeneousPoint SelectedCurveFp)
-    (valid : point.projectivelyValid 4) :
-    point.negate.projectivelyValid 4 := by
+theorem negate_projectively_valid_over [Field K] (b : K)
+    (point : HomogeneousPoint K) (valid : point.projectivelyValid b) :
+    point.negate.projectivelyValid b := by
   constructor
-  · exact cpp_negate_preserves_curve 4 point valid.1
+  · exact cpp_negate_preserves_curve b point valid.1
   · rcases valid.2 with xNonzero | yNonzero | zNonzero
     · exact Or.inl xNonzero
     · exact Or.inr (Or.inl (neg_ne_zero.mpr yNonzero))
     · exact Or.inr (Or.inr zNonzero)
 
-theorem projective_coordinates_negate
-    (point : HomogeneousPoint SelectedCurveFp) :
+theorem projective_coordinates_negate_over [Field K] (b : K)
+    (point : HomogeneousPoint K) :
     projectiveCoordinates point.negate =
-      selectedG1Weierstrass.toProjective.neg (projectiveCoordinates point) := by
+      (shortWeierstrass b).toProjective.neg (projectiveCoordinates point) := by
   funext coordinate
   fin_cases coordinate <;>
     simp [HomogeneousPoint.negate, WeierstrassCurve.Projective.neg,
-      WeierstrassCurve.Projective.negY, selectedG1Weierstrass,
-      shortWeierstrass]
+      WeierstrassCurve.Projective.negY, shortWeierstrass]
+
+theorem to_projective_point_negate [Field K] (b : K)
+    [elliptic : (shortWeierstrass b).IsElliptic]
+    (point : HomogeneousPoint K) (valid : point.projectivelyValid b) :
+    toProjectivePoint b point.negate
+        (negate_projectively_valid_over b point valid) =
+      -toProjectivePoint b point valid := by
+  apply WeierstrassCurve.Projective.Point.ext
+  rw [WeierstrassCurve.Projective.Point.neg_point]
+  change (⟦projectiveCoordinates point.negate⟧ :
+      WeierstrassCurve.Projective.PointClass K) =
+    (shortWeierstrass b).toProjective.negMap
+      ⟦projectiveCoordinates point⟧
+  rw [WeierstrassCurve.Projective.negMap_eq]
+  rw [projective_coordinates_negate_over b]
+
+theorem selected_g1_zero_valid :
+    (cppProjectiveZero : HomogeneousPoint SelectedCurveFp).projectivelyValid 4 :=
+  projective_zero_valid 4
+
+theorem to_selected_g1_point_zero :
+    toSelectedG1Point cppProjectiveZero selected_g1_zero_valid = 0 :=
+  to_projective_point_zero 4
+
+theorem negate_projectively_valid
+    (point : HomogeneousPoint SelectedCurveFp)
+    (valid : point.projectivelyValid 4) :
+    point.negate.projectivelyValid 4 :=
+  negate_projectively_valid_over 4 point valid
+
+theorem projective_coordinates_negate
+    (point : HomogeneousPoint SelectedCurveFp) :
+    projectiveCoordinates point.negate =
+      selectedG1Weierstrass.toProjective.neg (projectiveCoordinates point) :=
+  projective_coordinates_negate_over 4 point
 
 theorem to_selected_g1_point_negate
     (point : HomogeneousPoint SelectedCurveFp)
     (valid : point.projectivelyValid 4) :
     toSelectedG1Point point.negate (negate_projectively_valid point valid) =
-      -toSelectedG1Point point valid := by
-  apply WeierstrassCurve.Projective.Point.ext
-  rw [WeierstrassCurve.Projective.Point.neg_point]
-  change (⟦projectiveCoordinates point.negate⟧ :
-      WeierstrassCurve.Projective.PointClass SelectedCurveFp) =
-    selectedG1Weierstrass.toProjective.negMap
-      ⟦projectiveCoordinates point⟧
-  rw [WeierstrassCurve.Projective.negMap_eq]
-  rw [projective_coordinates_negate]
+      -toSelectedG1Point point valid :=
+  to_projective_point_negate 4 point valid
+
+def selectedG2Weierstrass : WeierstrassCurve SelectedMillerFp2 :=
+  shortWeierstrass selectedG2CurveB
+
+theorem selected_g2_discriminant_nonzero :
+    selectedG2Weierstrass.Δ ≠ 0 := by
+  native_decide
+
+instance selectedG2Elliptic :
+    (shortWeierstrass selectedG2CurveB).IsElliptic := by
+  change selectedG2Weierstrass.IsElliptic
+  exact ⟨selected_g2_discriminant_nonzero.isUnit⟩
+
+theorem selected_g2_valid_nonsingular
+    (point : HomogeneousPoint SelectedMillerFp2)
+    (valid : point.projectivelyValid selectedG2CurveB) :
+    selectedG2Weierstrass.toProjective.Nonsingular
+      (projectiveCoordinates point) :=
+  projectively_valid_nonsingular selectedG2CurveB point valid
+
+noncomputable def toSelectedG2Point
+    (point : HomogeneousPoint SelectedMillerFp2)
+    (valid : point.projectivelyValid selectedG2CurveB) :
+    selectedG2Weierstrass.toProjective.Point :=
+  toProjectivePoint selectedG2CurveB point valid
+
+theorem to_selected_g2_point_eq_iff
+    (left right : HomogeneousPoint SelectedMillerFp2)
+    (leftValid : left.projectivelyValid selectedG2CurveB)
+    (rightValid : right.projectivelyValid selectedG2CurveB) :
+    toSelectedG2Point left leftValid =
+        toSelectedG2Point right rightValid ↔
+      left.equivalent right :=
+  to_projective_point_eq_iff selectedG2CurveB left right leftValid rightValid
+
+theorem selected_g2_zero_valid :
+    (cppProjectiveZero : HomogeneousPoint SelectedMillerFp2).projectivelyValid
+      selectedG2CurveB :=
+  projective_zero_valid selectedG2CurveB
+
+theorem to_selected_g2_point_zero :
+    toSelectedG2Point cppProjectiveZero selected_g2_zero_valid = 0 :=
+  to_projective_point_zero selectedG2CurveB
+
+theorem selected_g2_negate_projectively_valid
+    (point : HomogeneousPoint SelectedMillerFp2)
+    (valid : point.projectivelyValid selectedG2CurveB) :
+    point.negate.projectivelyValid selectedG2CurveB :=
+  negate_projectively_valid_over selectedG2CurveB point valid
+
+theorem selected_g2_projective_coordinates_negate
+    (point : HomogeneousPoint SelectedMillerFp2) :
+    projectiveCoordinates point.negate =
+      selectedG2Weierstrass.toProjective.neg (projectiveCoordinates point) :=
+  projective_coordinates_negate_over selectedG2CurveB point
+
+theorem to_selected_g2_point_negate
+    (point : HomogeneousPoint SelectedMillerFp2)
+    (valid : point.projectivelyValid selectedG2CurveB) :
+    toSelectedG2Point point.negate
+        (selected_g2_negate_projectively_valid point valid) =
+      -toSelectedG2Point point valid :=
+  to_projective_point_negate selectedG2CurveB point valid
 
 end CatBLST.AVX.MatrixNoK

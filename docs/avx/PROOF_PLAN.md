@@ -281,8 +281,9 @@ Weierstrass curve over `ZMod p`; nonzero on-curve homogeneous representatives
 map to its projective `AddCommGroup`; CatBLST equivalence is proved equivalent
 to projective equality; and zero and negation commute with the map. `AUD-227`
 also proves the selected Fp2 ring is a field by showing its norm cannot vanish
-for a nonzero pair when `p mod 4 = 3`. It remains open for complete-add/group-add
-identification, the corresponding G2 projective-group bridge, concrete
+for a nonzero pair when `p mod 4 = 3`. The shared carrier bridge is instantiated
+for the selected G2 twist as well, including projective equality, zero, and
+negation. It remains open for complete-add/group-add identification, concrete
 point-count/span instantiation, and final selected dispatch composition.
 The production alias validator closes source selection
 ambiguity but is not a mathematical theorem. MatrixNoK-to-scalar observation
