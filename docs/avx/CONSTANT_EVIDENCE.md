@@ -67,8 +67,8 @@ six corruptions must be rejected.
   matrix, correction vector, and quotient-estimate vector. It proves the
   ceiling estimate's exact one-denominator error enclosure and proves that
   eight 52-bit inputs multiplied by 64-bit estimates cannot wrap the C++
-  `uint128_t` accumulator. Encoded tower-constant derivations and the complete
-  per-kernel intermediate-bound ledger remain open.
+  `uint128_t` accumulator. Encoded tower constants and their per-kernel bounds
+  are covered separately by the accepted P3 correspondence rows.
 
 Native execution is not required for constant regeneration. The candidate
 arithmetic that consumes these tables will require portable differential tests
@@ -79,3 +79,8 @@ factors, and shifted corrections at compile time from these checked constants.
 Focused tests compare its stateless operations directly with the former generic
 runtime-composed matrices and reducers. The derived-header SHA-256 is
 `5938d841014795e97715107ab8a1345e036be2323755890c7377e03b63309a2d`.
+
+The P0/P1 correspondence rows are accepted after the structured source,
+parser, intrinsic, and regeneration review in `P0_P1_REVIEW.md`. Acceptance
+keeps compiler correctness, x86 execution, and microarchitectural behavior as
+explicit external boundaries rather than Lean results.

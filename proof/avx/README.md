@@ -70,14 +70,16 @@ P0 now has a checked-in, buildable foundation:
   proves its low and high results equal the abstract IFMA operations for every
   pair of 52-bit inputs.
 
-The P0 correspondence row remains in review. The arithmetic transcription is
-machine checked, but the proof still relies on reviewed source mapping, C++
-unsigned-integer semantics, compiler lowering, and the x86 IFMA specification.
-Those boundaries are intentionally not represented as Lean axioms that could
-make a later theorem appear stronger than it is.
+The P0 correspondence rows are accepted at the exact hashes in
+`CORRESPONDENCE.csv` after the structured review in
+`docs/avx/P0_P1_REVIEW.md`. The arithmetic transcription is machine checked;
+reviewed source mapping, C++ unsigned-integer semantics, compiler lowering,
+and the x86 IFMA specification remain explicit external boundaries. They are
+intentionally not represented as Lean axioms that could make a later theorem
+appear stronger than it is.
 
-The first two P1 constant slices are also machine checked. The deterministic
-`generate_matrixnok_lean.py` snapshot binds every generated C++ literal and
+The first two P1 constant slices are accepted at their exact hashes. The
+deterministic `generate_matrixnok_lean.py` snapshot binds every generated C++ literal and
 its source hash. `CatBLST.AVX.MatrixNoK.Constants` proves the selected
 dimensions, modulus ranges, oddness, pairwise coprimality, exact basis
 products, dynamic range, rotation and target inverses, Montgomery factors,

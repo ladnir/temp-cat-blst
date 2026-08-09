@@ -114,6 +114,10 @@ pairing stack.
 Current status:
 
 - items 1 and 2 are machine checked;
+- the P0/P1 correspondence rows are accepted at the exact hashes in
+  `proof/avx/CORRESPONDENCE.csv`; `P0_P1_REVIEW.md` records the manual source
+  mapping, focused native comparisons, constant regeneration, and remaining
+  compiler/ISA trust boundary;
 - item 3 is machine checked by `selected_base_field_pipeline`,
   `CanonicalImport`, and `CanonicalExport`: repaired import produces a
   representative in `[0,2p)`, selected multiplication preserves the internal
