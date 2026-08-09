@@ -70,6 +70,7 @@ ARRAY_NAMES = (
     "convert_from_shifted_quotient_estimations",
     "reducer1_mont_factor",
     "reducer2_mont_factor",
+    "gt_generator",
 ) + FP12_STANDARD_ARRAY_NAMES
 
 INTEGER_NAMES = (
@@ -96,6 +97,27 @@ BIG_INTEGER_NAMES = (
     "convert_to_postmult",
     "convert_from_premult",
     "convert_from_postmult",
+)
+
+GT_GENERATOR_SERIALIZED_HEX = (
+    "1250ebd871fc0a92a7b2d83168d0d727272d441befa15c503dd8e90ce98db3e7"
+    "b6d194f60839c508a84305aaca1789b6089a1c5b46e5110b86750ec6a53234886"
+    "8a84045483c92b7af5af689452eafabf1a8943e50439f1d59882a98eaa0170f19f"
+    "26337d205fb469cd6bd15c3d5a04dc88784fbb3d0b2dbdea54d43b2b73f2cbb12"
+    "d58386a8703e0f948226e47ee89d06fba23eb7c5af0d9f80940ca771b6ffd5857b"
+    "aaf222eb95a7d2809d61bfe02e1bfd1b68ff02f0b8102ae1c2d5d5ab1a1368bb4"
+    "45c7c2d209703f239689ce34c0378a68e72a6b3b216da0e22a5031b54ddff57309"
+    "396b38c881c4c849ec23e87193502b86edb8857c273fa075a50512937e0794e1e6"
+    "5a7617c90d8bd66065b1fffe51d7a579973b1315021ec3c19934f11b8b424cd48b"
+    "f38fcef68083b0b0ec5c81a93b330ee1a677d0d15ff7b984e8978ef48881e32fa"
+    "c91b93b47333e2ba5703350f55a7aefcd3c31b4fcb6ce5771cc6a0e9786ab5973"
+    "320c806ad360829107ba810c5a09ffdd9be2291a0c25a99a201b2f522473d17139"
+    "1125ba84dc4007cfbf2f8da752f7c74185203fcca589ac719c34dffbbaad8431da"
+    "d1c1fb597aaa5018107154f25a764bd3c79937a45b84546da634b8f6be14a8061"
+    "e55cceba478b23f7dacaa35c8ca78beae9624045b4b604c581234d086a9902249b"
+    "64728ffd21a189e87935a954051c7cdba7b3872629a4fafc05066245cb9108f024"
+    "2d0fe3ef0f41e58663bf08cf068672cbd01a7ec73baca4d72ca93544deff686bfd"
+    "6df543d48eaa24afe47e1efde449383b676631"
 )
 
 
@@ -131,6 +153,7 @@ def parse_header(path: Path) -> tuple[dict[str, int], dict[str, list[int]]]:
         "convert_to_correction",
         "convert_from_rns_mat",
         "convert_from_correction",
+        "gt_generator",
     ) + FP12_STANDARD_ARRAY_NAMES:
         require(
             re.search(rf"alignas\s*\(\s*64\s*\).*?\b{name}\s*=", text) is not None,
@@ -292,6 +315,22 @@ def validate_constants(s: dict[str, int], a: dict[str, list[int]]) -> None:
         require(a[f"{name}_m1"] == expected_m1, f"{name} M1 encoding is invalid")
         require(a[f"{name}_m2"] == expected_m2, f"{name} M2 encoding is invalid")
 
+    serialized_coefficients = [
+        int(GT_GENERATOR_SERIALIZED_HEX[offset : offset + 96], 16)
+        for offset in range(0, len(GT_GENERATOR_SERIALIZED_HEX), 96)
+    ]
+    require(len(serialized_coefficients) == 12,
+        "GT generator serialization must contain twelve Fp coefficients")
+    internal_order = (0, 1, 4, 5, 8, 9, 2, 3, 6, 7, 10, 11)
+    expected_gt: list[int] = []
+    for serialized_index in internal_order:
+        expected_m1, expected_m2 = exact_montgomery(
+            serialized_coefficients[serialized_index])
+        expected_gt.extend(expected_m1)
+        expected_gt.extend(expected_m2)
+    require(a["gt_generator"] == expected_gt,
+        "GT generator MatrixNoK encoding is invalid")
+
     for name, value in FP12_STANDARD_VALUES.items():
         expected_m1, expected_m2 = exact_montgomery(value)
         require(
@@ -434,6 +473,7 @@ def validate_rejects_corruption(scalars: dict[str, int], arrays: dict[str, list[
         ("permutation", "array", "r1_perm_mat_fixed", 31),
         ("quotient estimate", "array", "convert_to_shifted_quotient_estimations", 3),
         ("Montgomery factor", "array", "reducer2_mont_factor", 6),
+        ("GT generator", "array", "gt_generator", 73),
     )
     for label, kind, name, index in mutations:
         changed_scalars = dict(scalars)

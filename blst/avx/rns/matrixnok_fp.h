@@ -763,4 +763,8 @@ namespace blst::avx::matrixnok
     static_assert(std::is_empty_v<FpRingCandidate>);
     static_assert(std::is_trivially_default_constructible_v<FpRingCandidate>);
     static_assert(std::is_trivially_copyable_v<FpRingCandidate>);
+
+    // Production spelling. The Candidate name remains as the exact theorem
+    // correspondence owner until the post-integration Lean audit is closed.
+    using FpRing = FpRingCandidate;
 } // namespace blst::avx::matrixnok

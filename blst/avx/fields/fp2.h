@@ -17,8 +17,10 @@ class FP2 {
     Y y_;
 
     public:
-    // Default constructor - default-constructs members
-    INLINE FP2() : x_(), y_() {}
+    // Preserve aggregate-style storage semantics: value-initialization still
+    // produces zero, while default construction remains trivial for C-owned
+    // opaque contexts that start member lifetimes with placement new.
+    FP2() = default;
     
     INLINE FP2(const X &x, const Y &y) : x_(x), y_(y) {}
 

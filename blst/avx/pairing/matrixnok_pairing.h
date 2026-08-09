@@ -8,10 +8,11 @@
 
 namespace blst::avx::matrixnok
 {
-    // Selected proof candidate for pairing over the fixed MatrixNoK field
-    // tower. It remains deliberately absent from public dispatch until the
-    // correspondence proof and release gates are complete.
+    // Exact proof-owner spellings for the selected production pairing tower.
     using MillerCandidate = Miller<FpRingCandidate, Fp12RingCandidate>;
     using PairingInverterCandidate =
         FP12RNS_BLSTInverter<FpRingCandidate, Fp12RingCandidate>;
+
+    using MillerEngine = MillerCandidate;
+    using PairingInverter = PairingInverterCandidate;
 } // namespace blst::avx::matrixnok

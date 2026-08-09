@@ -9,10 +9,10 @@
 #pragma once
 
 #include "ec.h"
+#include "matrixnok_g1.h"
+#include "matrixnok_g2.h"
 #include "scalar_mult.h"
 #include "blst/avx/fields/conversion_inversion.h"
-#include "blst/avx/fields/fp2.h"
-#include "blst/avx/rns/bounded_ring.h"
 #include "blst/scalar/curve/point.h"
 
 #include <array>
@@ -24,14 +24,16 @@ namespace blst::avx {
 
 namespace avx_curve_detail {
 
-using CurveRing = BoundedRing<381, 8, 52, -1932, 2377, 12>;
-using CurveFp2Ring = FP2Ring<CurveRing>;
-using CurveG1 = G1<CurveRing>;
-using CurveG2 = G2<CurveRing>;
-using CurveG1Projective = ProjectivePoint<typename CurveRing::StandardElement>;
-using CurveG1Affine = AffinePoint<typename CurveRing::StandardElement>;
-using CurveG2Projective = ProjectivePoint<typename CurveFp2Ring::StandardElement>;
-using CurveG2Affine = AffinePoint<typename CurveFp2Ring::StandardElement>;
+using CurveRing = matrixnok::FpRing;
+using CurveFp2Ring = matrixnok::G2Fp2Ring;
+using CurveG1 = matrixnok::G1Curve;
+using CurveG2 = matrixnok::G2Curve;
+using CurveG1Projective = matrixnok::G1Projective;
+using CurveG1Affine = matrixnok::G1Affine;
+using CurveG2Projective = matrixnok::G2Projective;
+using CurveG2Affine = matrixnok::G2Affine;
+using CurveG1GLV = matrixnok::G1GLV;
+using CurveG2GLS = matrixnok::G2GLS;
 
 inline const CurveRing& curve_ring()
 {
@@ -57,15 +59,15 @@ inline const CurveG2& curve_g2()
     return curve;
 }
 
-inline const GLVMult<CurveRing>& curve_g1_glv()
+inline const CurveG1GLV& curve_g1_glv()
 {
-    static const GLVMult<CurveRing> mult(curve_g1(), curve_ring());
+    static const CurveG1GLV mult(curve_g1(), curve_ring());
     return mult;
 }
 
-inline const GLSMult<CurveRing>& curve_g2_gls()
+inline const CurveG2GLS& curve_g2_gls()
 {
-    static const GLSMult<CurveRing> mult(curve_ring());
+    static const CurveG2GLS mult(curve_ring());
     return mult;
 }
 
@@ -137,9 +139,9 @@ inline blst::scalar::G2AffinePoint curve_g2_affine_to_scalar(const CurveG2Affine
 
 inline blst::scalar::G2Point curve_g2_to_scalar(const CurveG2Projective& point)
 {
-    const auto z_squared = curve_fp2_ring().mul(point.z, point.z)[0];
-    const auto jacobian_x = curve_fp2_ring().mul(point.x, point.z)[0];
-    const auto jacobian_y = curve_fp2_ring().mul(point.y, z_squared)[0];
+    const auto z_squared = curve_fp2_ring().mul(point.z, point.z);
+    const auto jacobian_x = curve_fp2_ring().mul(point.x, point.z);
+    const auto jacobian_y = curve_fp2_ring().mul(point.y, z_squared);
     blst::scalar::G2Point out = {};
     out.x = ring_fp2_to_scalar(jacobian_x);
     out.y = ring_fp2_to_scalar(jacobian_y);
@@ -229,8 +231,8 @@ inline CurveG2Projective normalize_secret_projective(const CurveG2Projective& po
 {
     const bool is_infinity = is_zero(point.z);
     const auto z_inverse = curve_secret_inverse(point.z);
-    const auto x = curve_fp2_ring().mul(point.x, z_inverse)[0];
-    const auto y = curve_fp2_ring().mul(point.y, z_inverse)[0];
+    const auto x = curve_fp2_ring().mul(point.x, z_inverse);
+    const auto y = curve_fp2_ring().mul(point.y, z_inverse);
     const auto z = curve_fp2_ring().one().ctime_select(
         !is_infinity, curve_fp2_ring().zero());
     return {x, y, z};
@@ -257,8 +259,8 @@ inline CurveG2Affine projective_to_affine(const CurveG2Projective& point)
 
     const auto z_inv = curve_fp2_inverse(point.z);
     return {
-        curve_fp2_ring().mul(point.x, z_inv)[0],
-        curve_fp2_ring().mul(point.y, z_inv)[0],
+        curve_fp2_ring().mul(point.x, z_inv),
+        curve_fp2_ring().mul(point.y, z_inv),
     };
 }
 
@@ -730,7 +732,9 @@ inline const G1AffinePoint& G1AffinePoint::generator()
 
 inline int G1AffinePoint::equal(const G1AffinePoint& a, const G1AffinePoint& b)
 {
-    return static_cast<int>(a.X.equal(b.X) & a.Y.equal(b.Y));
+    return blst::scalar::G1AffinePoint::equal(
+        avx_curve_detail::curve_g1_affine_to_scalar({a.X, a.Y}),
+        avx_curve_detail::curve_g1_affine_to_scalar({b.X, b.Y}));
 }
 
 inline bool_t G1AffinePoint::is_inf(const G1AffinePoint& p)
@@ -974,7 +978,11 @@ inline limb_t G1Point::equal(const G1Point& a, const G1Point& b)
     return ProjectiveEqual(
         avx_curve_detail::CurveG1Projective{a.X, a.Y, a.Z},
         avx_curve_detail::CurveG1Projective{b.X, b.Y, b.Z},
-        avx_curve_detail::curve_ring());
+        avx_curve_detail::curve_ring(),
+        [](const Field_type& value) {
+            return blst::Fp::equal(
+                avx_curve_detail::ring_fp_to_scalar(value), blst::Fp::zero());
+        });
 }
 
 inline const G1Point& G1Point::generator()
@@ -1050,7 +1058,9 @@ inline const G2AffinePoint& G2AffinePoint::generator()
 
 inline int G2AffinePoint::equal(const G2AffinePoint& a, const G2AffinePoint& b)
 {
-    return static_cast<int>(a.X.equal(b.X) & a.Y.equal(b.Y));
+    return blst::scalar::G2AffinePoint::equal(
+        avx_curve_detail::curve_g2_affine_to_scalar({a.X, a.Y}),
+        avx_curve_detail::curve_g2_affine_to_scalar({b.X, b.Y}));
 }
 
 inline bool_t G2AffinePoint::is_inf(const G2AffinePoint& p)
@@ -1305,7 +1315,12 @@ inline limb_t G2Point::equal(const G2Point& a, const G2Point& b)
     return ProjectiveEqual(
         avx_curve_detail::CurveG2Projective{a.X, a.Y, a.Z},
         avx_curve_detail::CurveG2Projective{b.X, b.Y, b.Z},
-        avx_curve_detail::curve_fp2_ring());
+        avx_curve_detail::curve_fp2_ring(),
+        [](const Field_type& value) {
+            const blst::Fp2 scalar = avx_curve_detail::ring_fp2_to_scalar(value);
+            return blst::Fp::equal(scalar[0], blst::Fp::zero()) &
+                blst::Fp::equal(scalar[1], blst::Fp::zero());
+        });
 }
 
 inline const G2Point& G2Point::generator()
@@ -1412,10 +1427,10 @@ inline void psi(G2Point& out, const G2Point& in)
 {
     out.X = avx_curve_detail::curve_fp2_ring().mul(
         avx_curve_detail::fp2_conjugate(in.X),
-        avx_curve_detail::psi_frobenius_x())[0];
+        avx_curve_detail::psi_frobenius_x());
     out.Y = avx_curve_detail::curve_fp2_ring().mul(
         avx_curve_detail::fp2_conjugate(in.Y),
-        avx_curve_detail::psi_frobenius_y())[0];
+        avx_curve_detail::psi_frobenius_y());
     out.Z = avx_curve_detail::fp2_conjugate(in.Z);
 }
 

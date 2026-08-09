@@ -11,9 +11,8 @@
 
 namespace blst::avx::matrixnok
 {
-    // Selected proof candidate for G1 over the fixed MatrixNoK ring. It remains
-    // deliberately absent from public dispatch until the correspondence proof
-    // and release gates are complete.
+    // Fixed G1 construction selected by production dispatch. The Candidate
+    // spelling remains the exact source/theorem correspondence owner.
     class G1CurveCandidate
     {
     public:
@@ -70,4 +69,9 @@ namespace blst::avx::matrixnok
 
     static_assert(std::is_empty_v<FpRingCandidate>);
     static_assert(std::is_empty_v<G1CurveCandidate>);
+
+    using G1Curve = G1CurveCandidate;
+    using G1Projective = G1ProjectiveCandidate;
+    using G1Affine = G1AffineCandidate;
+    using G1GLV = G1GLVCandidate;
 } // namespace blst::avx::matrixnok

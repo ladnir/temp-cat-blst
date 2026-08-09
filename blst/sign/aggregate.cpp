@@ -105,6 +105,10 @@ namespace blst
     void blst_pairing_init(PAIRING* ctx, int hash_or_encode,
         const void* DST, size_t DST_len)
     {
+        static_assert(std::is_trivially_default_constructible_v<MillerResult>);
+        static_assert(std::is_trivially_default_constructible_v<AggregatedSignature>);
+        static_assert(std::is_trivially_default_constructible_v<G2AffinePoint>);
+        static_assert(std::is_trivially_default_constructible_v<G1AffinePoint>);
         static_assert(std::is_trivially_default_constructible_v<PAIRING>);
         static_assert(std::is_trivially_destructible_v<PAIRING>);
         ctx = ::new (static_cast<void*>(ctx)) PAIRING;

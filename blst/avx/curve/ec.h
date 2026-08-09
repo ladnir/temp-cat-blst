@@ -271,11 +271,12 @@ INLINE typename Ring::StandardElement NormalizePointCoord(const Element& value, 
     return ring.batch_reduce_expand(ring.prep_left(value) * ring.one())[0];
 }
 
-template<class Ring>
+template<class Ring, class IsZero>
 INLINE bool ProjectiveEqual(
     const ProjectivePoint<typename Ring::StandardElement>& P,
     const ProjectivePoint<typename Ring::StandardElement>& Q,
-    const Ring& ring)
+    const Ring& ring,
+    IsZero is_zero)
 {
     const bool p_is_infinity = PointCoordIsZero(P.z);
     const bool q_is_infinity = PointCoordIsZero(Q.z);
@@ -286,8 +287,18 @@ INLINE bool ProjectiveEqual(
         ring.prep_left(Q.y) * P.z);
     const auto h = NormalizePointCoord(u2 - u1, ring);
     const auto r = NormalizePointCoord(s2 - s1, ring);
-    return PointCoordIsZero(h) & PointCoordIsZero(r) &
+    return is_zero(h) & is_zero(r) &
         (p_is_infinity ^ q_is_infinity ^ true);
+}
+
+template<class Ring>
+INLINE bool ProjectiveEqual(
+    const ProjectivePoint<typename Ring::StandardElement>& P,
+    const ProjectivePoint<typename Ring::StandardElement>& Q,
+    const Ring& ring)
+{
+    return ProjectiveEqual(P, Q, ring,
+        [](const auto& value) { return PointCoordIsZero(value); });
 }
 
 template<class Ring>

@@ -63,12 +63,12 @@ inline G2Point from_scalar(const scalar::G2Point& point)
     const auto x = avx_curve_detail::scalar_fp2_to_ring(point.x);
     const auto y = avx_curve_detail::scalar_fp2_to_ring(point.y);
     const auto z = avx_curve_detail::scalar_fp2_to_ring(point.z);
-    const auto z_squared = avx_curve_detail::curve_fp2_ring().mul(z, z)[0];
+    const auto z_squared = avx_curve_detail::curve_fp2_ring().mul(z, z);
 
     return {
-        avx_curve_detail::curve_fp2_ring().mul(x, z)[0],
+        avx_curve_detail::curve_fp2_ring().mul(x, z),
         y,
-        avx_curve_detail::curve_fp2_ring().mul(z_squared, z)[0],
+        avx_curve_detail::curve_fp2_ring().mul(z_squared, z),
     };
 }
 

@@ -646,16 +646,16 @@ TEST(Fft, GTAvx52InverseFftMatchesScalar) {
     std::vector<GT> scalar_freq_domain = time_domain;
     fft<GT, Fr, GTCoeffCtx>(scalar_freq_domain, roots, false);
 
-    std::vector<blst::avx::AvxGt52> avx_freq_domain =
-        blst::avx::scalar_gt_vector_to_avx52(std::span<const GT>(scalar_freq_domain));
-    blst::avx::AvxGt52PreparedRoots prepared_inv_roots{std::span<const Fr>(inv_roots)};
+    std::vector<blst::avx::AvxGtElement> avx_freq_domain =
+        blst::avx::scalar_gt_vector_to_avx(std::span<const GT>(scalar_freq_domain));
+    blst::avx::AvxGtPreparedRoots prepared_inv_roots{std::span<const Fr>(inv_roots)};
     prepared_inv_roots.set_scale_from_size(N);
-    blst::avx::AvxGt52CoeffCtx::ScopedRoots scoped_roots(prepared_inv_roots);
+    blst::avx::AvxGtCoeffCtx::ScopedRoots scoped_roots(prepared_inv_roots);
 
-    fft<blst::avx::AvxGt52, Fr, blst::avx::AvxGt52CoeffCtx>(avx_freq_domain, inv_roots, true);
+    fft<blst::avx::AvxGtElement, Fr, blst::avx::AvxGtCoeffCtx>(avx_freq_domain, inv_roots, true);
 
     const std::vector<GT> avx_round_trip =
-        blst::avx::avx52_vector_to_scalar_gt(std::span<const blst::avx::AvxGt52>(avx_freq_domain));
+        blst::avx::avx_vector_to_scalar_gt(std::span<const blst::avx::AvxGtElement>(avx_freq_domain));
 
     bool match = true;
     for (size_t i = 0; i < N; ++i) {

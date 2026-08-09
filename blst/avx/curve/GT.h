@@ -2,11 +2,10 @@
 
 #include "blst/avx/fields/conversion_inversion.h"
 #include "blst/avx/fields/final_exponentiation.h"
-#include "blst/avx/fields/fp12.h"
+#include "blst/avx/fields/matrixnok_fp12.h"
 #include "blst/avx/curve/point.h"
 #include "blst/avx/gt/glv4.h"
-#include "blst/avx/pairing/miller.h"
-#include "blst/avx/rns/bounded_ring.h"
+#include "blst/avx/pairing/matrixnok_pairing.h"
 #include "blst/scalar/curve/GT.h"
 
 #include <array>
@@ -20,9 +19,9 @@ namespace avx_gt_detail {
 
 inline constexpr size_t kMillerLoopNMax = 16;
 
-using Ring = BoundedRing<>;
-using FP12 = FP12Ring<Ring>;
-using PairingFp2 = FP2Ring<Ring>;
+using Ring = matrixnok::FpRing;
+using FP12 = matrixnok::Fp12Ring;
+using PairingFp2 = matrixnok::G2Fp2Ring;
 using PairingFp2Element = PairingFp2::StandardElement;
 using PairingFp2Prepared = FP2N<typename Ring::StandardElement, typename Ring::StandardElement, typename Ring::StandardElement>;
 using PairingFp2LeftPrepared = decltype(std::declval<PairingFp2Element>().prep_left(std::declval<const Ring&>()));
@@ -87,7 +86,7 @@ constexpr Ring::StandardElement literal_standard_element(
 
 constexpr FP12::StandardElement gt_generator_value()
 {
-    const auto& value = generated::fp52::gt_generator;
+    const auto& value = matrixnok::generated::gt_generator;
     return FP12::StandardElement{{
         literal_standard_element(value[0]),
         literal_standard_element(value[1]),
@@ -442,7 +441,7 @@ struct MillerResult
 {
     using Field_type = avx_gt_detail::FP12::StandardElement;
 
-    Field_type data = {};
+    Field_type data;
 
     constexpr MillerResult() = default;
     constexpr explicit MillerResult(const Field_type& value) : data(value) {}
@@ -636,7 +635,7 @@ struct GT
     /** Map a valid nonzero Miller result into GT. */
     static void final_exp(GT& out, const MillerResult& f)
     {
-        FP12RNS_BLSTInverter<avx_gt_detail::Ring> inverter;
+        matrixnok::PairingInverter inverter;
         out.data = blst::avx::final_exp(
             f.data, inverter, avx_gt_detail::fp12ring(), avx_gt_detail::ring());
     }
@@ -710,8 +709,8 @@ struct GT
             return;
         }
 
-        const FP2Ring<avx_gt_detail::Ring> fp2ring(avx_gt_detail::ring());
-        const Miller<avx_gt_detail::Ring> miller(
+        const avx_gt_detail::PairingFp2 fp2ring(avx_gt_detail::ring());
+        const matrixnok::MillerEngine miller(
             {p.X, p.Y},
             {q.X, q.Y},
             avx_gt_detail::ring());

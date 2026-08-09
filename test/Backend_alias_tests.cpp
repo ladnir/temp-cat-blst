@@ -14,8 +14,8 @@
 using namespace blst;
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-using AvxScopedRoots = blst::avx::AvxGt52CoeffCtx::ScopedRoots;
-using AvxPreparedRoots = blst::avx::AvxGt52PreparedRoots;
+using AvxScopedRoots = blst::avx::AvxGtCoeffCtx::ScopedRoots;
+using AvxPreparedRoots = blst::avx::AvxGtPreparedRoots;
 
 static_assert(std::is_constructible_v<AvxScopedRoots, const AvxPreparedRoots&>);
 static_assert(std::is_nothrow_constructible_v<
@@ -329,63 +329,63 @@ TEST(BackendAlias, MiddleProductReducedMatchesBasicOnSmallVector)
         for (std::size_t i = 0; i < avx_precomputed.inv_roots.size(); ++i) {
             const Fr& root = avx_precomputed.inv_roots.scalar_span()[i];
 
-            blst::avx::AvxGt52 via_prepared = {};
+            blst::avx::AvxGtElement via_prepared = {};
             {
-                blst::avx::AvxGt52CoeffCtx::ScopedRoots scoped_roots(avx_precomputed.inv_roots);
-                via_prepared = blst::avx::AvxGt52CoeffCtx::mult(sample, root);
+                blst::avx::AvxGtCoeffCtx::ScopedRoots scoped_roots(avx_precomputed.inv_roots);
+                via_prepared = blst::avx::AvxGtCoeffCtx::mult(sample, root);
             }
 
             Fr root_copy = root;
-            const blst::avx::AvxGt52 via_fallback = blst::avx::AvxGt52CoeffCtx::mult(sample, root_copy);
+            const blst::avx::AvxGtElement via_fallback = blst::avx::AvxGtCoeffCtx::mult(sample, root_copy);
             EXPECT_TRUE(GT::equal(
-                blst::avx::AvxGt52::to_default(via_prepared),
-                blst::avx::AvxGt52::to_default(via_fallback)))
+                blst::avx::AvxGtElement::to_default(via_prepared),
+                blst::avx::AvxGtElement::to_default(via_fallback)))
                 << "Prepared root mismatch at inverse root index " << i;
         }
 
         const std::array<Fr, 1> outer_scalars = { Fr::from_uint64(2) };
         const std::array<Fr, 1> replacement_scalars = { Fr::from_uint64(3) };
         const std::array<Fr, 1> inner_scalars = { Fr::from_uint64(5) };
-        blst::avx::AvxGt52PreparedRoots outer_roots(outer_scalars);
-        const blst::avx::AvxGt52PreparedRoots replacement_roots(
+        blst::avx::AvxGtPreparedRoots outer_roots(outer_scalars);
+        const blst::avx::AvxGtPreparedRoots replacement_roots(
             replacement_scalars);
-        const blst::avx::AvxGt52PreparedRoots inner_roots(inner_scalars);
+        const blst::avx::AvxGtPreparedRoots inner_roots(inner_scalars);
 
         // Deliberately substitute a different compiled exponent so this test
         // can distinguish prepared-table selection from the scalar fallback.
         outer_roots.compiled[0] = replacement_roots.compiled[0];
         Fr outer_scalar_copy = outer_roots.scalars[0];
-        const blst::avx::AvxGt52 fallback =
-            blst::avx::AvxGt52CoeffCtx::mult(sample, outer_scalar_copy);
+        const blst::avx::AvxGtElement fallback =
+            blst::avx::AvxGtCoeffCtx::mult(sample, outer_scalar_copy);
 
-        blst::avx::AvxGt52 selected = {};
-        blst::avx::AvxGt52 restored_after_exception = {};
+        blst::avx::AvxGtElement selected = {};
+        blst::avx::AvxGtElement restored_after_exception = {};
         {
-            blst::avx::AvxGt52CoeffCtx::ScopedRoots outer_scope(outer_roots);
-            selected = blst::avx::AvxGt52CoeffCtx::mult(
+            blst::avx::AvxGtCoeffCtx::ScopedRoots outer_scope(outer_roots);
+            selected = blst::avx::AvxGtCoeffCtx::mult(
                 sample,
                 outer_roots.scalars[0]);
             try {
-                blst::avx::AvxGt52CoeffCtx::ScopedRoots inner_scope(inner_roots);
+                blst::avx::AvxGtCoeffCtx::ScopedRoots inner_scope(inner_roots);
                 throw 1;
             } catch (int) {
             }
-            restored_after_exception = blst::avx::AvxGt52CoeffCtx::mult(
+            restored_after_exception = blst::avx::AvxGtCoeffCtx::mult(
                 sample,
                 outer_roots.scalars[0]);
         }
-        const blst::avx::AvxGt52 restored_fallback =
-            blst::avx::AvxGt52CoeffCtx::mult(sample, outer_roots.scalars[0]);
+        const blst::avx::AvxGtElement restored_fallback =
+            blst::avx::AvxGtCoeffCtx::mult(sample, outer_roots.scalars[0]);
 
         EXPECT_FALSE(GT::equal(
-            blst::avx::AvxGt52::to_default(selected),
-            blst::avx::AvxGt52::to_default(fallback)));
+            blst::avx::AvxGtElement::to_default(selected),
+            blst::avx::AvxGtElement::to_default(fallback)));
         EXPECT_TRUE(GT::equal(
-            blst::avx::AvxGt52::to_default(selected),
-            blst::avx::AvxGt52::to_default(restored_after_exception)));
+            blst::avx::AvxGtElement::to_default(selected),
+            blst::avx::AvxGtElement::to_default(restored_after_exception)));
         EXPECT_TRUE(GT::equal(
-            blst::avx::AvxGt52::to_default(fallback),
-            blst::avx::AvxGt52::to_default(restored_fallback)));
+            blst::avx::AvxGtElement::to_default(fallback),
+            blst::avx::AvxGtElement::to_default(restored_fallback)));
     }
 
     auto scalar_c_fft_full = scalar_c_fft;
@@ -399,8 +399,8 @@ TEST(BackendAlias, MiddleProductReducedMatchesBasicOnSmallVector)
         true);
 
     {
-        blst::avx::AvxGt52CoeffCtx::ScopedRoots scoped_roots(avx_precomputed.inv_roots);
-        fft<AvxCtx::GtFftElement, Fr, blst::avx::AvxGt52CoeffCtx>(
+        blst::avx::AvxGtCoeffCtx::ScopedRoots scoped_roots(avx_precomputed.inv_roots);
+        fft<AvxCtx::GtFftElement, Fr, blst::avx::AvxGtCoeffCtx>(
             std::span<AvxCtx::GtFftElement>(avx_c_fft_full_prepared),
             avx_precomputed.inv_roots.scalar_span(),
             true);
@@ -410,7 +410,7 @@ TEST(BackendAlias, MiddleProductReducedMatchesBasicOnSmallVector)
         std::vector<Fr> inv_roots_copy(
             avx_precomputed.inv_roots.scalar_span().begin(),
             avx_precomputed.inv_roots.scalar_span().end());
-        fft<AvxCtx::GtFftElement, Fr, blst::avx::AvxGt52CoeffCtx>(
+        fft<AvxCtx::GtFftElement, Fr, blst::avx::AvxGtCoeffCtx>(
             std::span<AvxCtx::GtFftElement>(avx_c_fft_full_fallback),
             std::span<const Fr>(inv_roots_copy),
             true);
@@ -437,8 +437,8 @@ TEST(BackendAlias, MiddleProductReducedMatchesBasicOnSmallVector)
 
                     const auto u_avx = avx_stage[i];
                     const auto t_avx = avx_stage[i + half];
-                    avx_stage[i] = blst::avx::AvxGt52CoeffCtx::plus(u_avx, t_avx);
-                    avx_stage[i + half] = blst::avx::AvxGt52CoeffCtx::minus(u_avx, t_avx);
+                    avx_stage[i] = blst::avx::AvxGtCoeffCtx::plus(u_avx, t_avx);
+                    avx_stage[i + half] = blst::avx::AvxGtCoeffCtx::minus(u_avx, t_avx);
                 }
 
                 for (std::size_t j = 1; j < half; ++j) {
@@ -451,14 +451,14 @@ TEST(BackendAlias, MiddleProductReducedMatchesBasicOnSmallVector)
                     const auto u_avx = avx_stage[i + j];
                     const auto base_avx = avx_stage[i + j + half];
                     const auto t_avx =
-                        blst::avx::AvxGt52CoeffCtx::mult(base_avx, w_avx);
+                        blst::avx::AvxGtCoeffCtx::mult(base_avx, w_avx);
                     const std::array<uint64_t, 4> w_limbs = blst::avx::fr_to_limbs_le(w_avx);
-                    const blst::avx::AvxGt52 t_avx_basic(
+                    const blst::avx::AvxGtElement t_avx_basic(
                         blst::avx::avx_cyclotomic_exp_basic(
                             base_avx.data,
                             w_limbs.data(),
-                            blst::avx::AvxGt52::fp12ring(),
-                            blst::avx::AvxGt52::ring()));
+                            blst::avx::AvxGtElement::fp12ring(),
+                            blst::avx::AvxGtElement::ring()));
 
                     EXPECT_TRUE(GT::equal(
                         ScalarCtx::to_public_gt(u_scalar),
@@ -484,8 +484,8 @@ TEST(BackendAlias, MiddleProductReducedMatchesBasicOnSmallVector)
 
                     scalar_stage[i + j] = ScalarCtx::GtCoeffCtx::plus(u_scalar, t_scalar);
                     scalar_stage[i + j + half] = ScalarCtx::GtCoeffCtx::minus(u_scalar, t_scalar);
-                    avx_stage[i + j] = blst::avx::AvxGt52CoeffCtx::plus(u_avx, t_avx);
-                    avx_stage[i + j + half] = blst::avx::AvxGt52CoeffCtx::minus(u_avx, t_avx);
+                    avx_stage[i + j] = blst::avx::AvxGtCoeffCtx::plus(u_avx, t_avx);
+                    avx_stage[i + j + half] = blst::avx::AvxGtCoeffCtx::minus(u_avx, t_avx);
                 }
             }
 
@@ -514,7 +514,7 @@ TEST(BackendAlias, MiddleProductReducedMatchesBasicOnSmallVector)
         std::vector<Fr> inv_roots_copy(
             avx_precomputed.inv_roots.scalar_span().begin(),
             avx_precomputed.inv_roots.scalar_span().end());
-        fft_inverse_truncated_range<AvxCtx::GtFftElement, Fr, blst::avx::AvxGt52CoeffCtx>(
+        fft_inverse_truncated_range<AvxCtx::GtFftElement, Fr, blst::avx::AvxGtCoeffCtx>(
             std::span<AvxCtx::GtFftElement>(avx_c_fft_trunc_fallback),
             std::span<const Fr>(inv_roots_copy),
             a_points.size(),
@@ -682,8 +682,8 @@ TEST(BackendAlias, AvxGtInverseFftStageReplayMatchesScalar)
 
                 const auto u_avx = avx_stage[i];
                 const auto t_avx = avx_stage[i + half];
-                avx_stage[i] = blst::avx::AvxGt52CoeffCtx::plus(u_avx, t_avx);
-                avx_stage[i + half] = blst::avx::AvxGt52CoeffCtx::minus(u_avx, t_avx);
+                avx_stage[i] = blst::avx::AvxGtCoeffCtx::plus(u_avx, t_avx);
+                avx_stage[i + half] = blst::avx::AvxGtCoeffCtx::minus(u_avx, t_avx);
             }
 
             for (std::size_t j = 1; j < half; ++j) {
@@ -695,7 +695,7 @@ TEST(BackendAlias, AvxGtInverseFftStageReplayMatchesScalar)
                     ScalarCtx::GtCoeffCtx::mult(scalar_stage[i + j + half], w_scalar);
                 const auto u_avx = avx_stage[i + j];
                 const auto t_avx =
-                    blst::avx::AvxGt52CoeffCtx::mult(avx_stage[i + j + half], w_avx);
+                    blst::avx::AvxGtCoeffCtx::mult(avx_stage[i + j + half], w_avx);
 
                 EXPECT_TRUE(GT::equal(
                     ScalarCtx::to_public_gt(u_scalar),
@@ -714,8 +714,8 @@ TEST(BackendAlias, AvxGtInverseFftStageReplayMatchesScalar)
 
                 scalar_stage[i + j] = ScalarCtx::GtCoeffCtx::plus(u_scalar, t_scalar);
                 scalar_stage[i + j + half] = ScalarCtx::GtCoeffCtx::minus(u_scalar, t_scalar);
-                avx_stage[i + j] = blst::avx::AvxGt52CoeffCtx::plus(u_avx, t_avx);
-                avx_stage[i + j + half] = blst::avx::AvxGt52CoeffCtx::minus(u_avx, t_avx);
+                avx_stage[i + j] = blst::avx::AvxGtCoeffCtx::plus(u_avx, t_avx);
+                avx_stage[i + j + half] = blst::avx::AvxGtCoeffCtx::minus(u_avx, t_avx);
             }
         }
 

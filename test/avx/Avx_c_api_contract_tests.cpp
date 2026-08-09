@@ -473,6 +473,13 @@ TEST(AvxNativePointContract, EqualityHandlesEveryInfinityRepresentation)
 {
     const auto& ring = blst::avx::avx_curve_detail::curve_ring();
     const auto& fp2ring = blst::avx::avx_curve_detail::curve_fp2_ring();
+    const blst::avx::avx_curve_detail::CurveRing::StandardElement modulus{
+        blst::avx::avx_curve_detail::CurveRing::StandardResidue(
+            blst::avx::AVXVector<8>(
+                blst::avx::matrixnok::generated::modulus_in_rns_m1)),
+        blst::avx::avx_curve_detail::CurveRing::StandardResidue(
+            blst::avx::AVXVector<8>(
+                blst::avx::matrixnok::generated::modulus_in_rns_m2))};
     const auto scale = ring.from_hex("0x2");
     const AvxG1 g1 = AvxG1::generator();
     const AvxG1 scaled_g1 = {
@@ -495,9 +502,9 @@ TEST(AvxNativePointContract, EqualityHandlesEveryInfinityRepresentation)
         scale, ring.zero());
     const AvxG2 g2 = AvxG2::generator();
     const AvxG2 scaled_g2 = {
-        fp2ring.mul(g2.X, fp2_scale)[0],
-        fp2ring.mul(g2.Y, fp2_scale)[0],
-        fp2ring.mul(g2.Z, fp2_scale)[0],
+        fp2ring.mul(g2.X, fp2_scale),
+        fp2ring.mul(g2.Y, fp2_scale),
+        fp2ring.mul(g2.Z, fp2_scale),
     };
     AvxG2 doubled_g2 = {};
     AvxG2::doubling(doubled_g2, g2);
@@ -511,15 +518,36 @@ TEST(AvxNativePointContract, EqualityHandlesEveryInfinityRepresentation)
     EXPECT_FALSE(AvxG2::equal(g2, zero_g2_infinity));
 
     const AvxG1Affine g1_affine = AvxG1Affine::generator();
+    const AvxG1Affine lifted_g1_affine(
+        blst::avx::NormalizePointCoord(g1_affine.X + modulus, ring),
+        blst::avx::NormalizePointCoord(g1_affine.Y + modulus, ring));
+    EXPECT_FALSE(g1_affine.X.equal(lifted_g1_affine.X) &
+        g1_affine.Y.equal(lifted_g1_affine.Y));
     AvxG1Affine doubled_g1_affine = {};
     AvxG1::to_affine(doubled_g1_affine, doubled_g1);
     EXPECT_TRUE(AvxG1Affine::equal(g1_affine, g1_affine));
+    EXPECT_TRUE(AvxG1Affine::equal(g1_affine, lifted_g1_affine));
     EXPECT_FALSE(AvxG1Affine::equal(g1_affine, doubled_g1_affine));
 
     const AvxG2Affine g2_affine = AvxG2Affine::generator();
+    const auto lifted_fp2 = [&modulus](const auto& value) {
+        return blst::avx::avx_curve_detail::CurveFp2Ring::StandardElement(
+            blst::avx::NormalizePointCoord(
+                value.x() + modulus,
+                blst::avx::avx_curve_detail::curve_ring()),
+            blst::avx::NormalizePointCoord(
+                value.y() + modulus,
+                blst::avx::avx_curve_detail::curve_ring()));
+    };
+    const AvxG2Affine lifted_g2_affine(
+        lifted_fp2(g2_affine.X),
+        lifted_fp2(g2_affine.Y));
+    EXPECT_FALSE(g2_affine.X.equal(lifted_g2_affine.X) &
+        g2_affine.Y.equal(lifted_g2_affine.Y));
     AvxG2Affine doubled_g2_affine = {};
     AvxG2::to_affine(doubled_g2_affine, doubled_g2);
     EXPECT_TRUE(AvxG2Affine::equal(g2_affine, g2_affine));
+    EXPECT_TRUE(AvxG2Affine::equal(g2_affine, lifted_g2_affine));
     EXPECT_FALSE(AvxG2Affine::equal(g2_affine, doubled_g2_affine));
 }
 

@@ -252,7 +252,7 @@ namespace blst {
             static GT to_public_gt(const GtFftElement& value)
             {
 #if BLST_DEFAULT_AVX
-                return avx::AvxGt52::to_default(avx::AvxGt52::from_scalar(value));
+                return avx::AvxGtElement::to_default(avx::AvxGtElement::from_scalar(value));
 #else
                 return value;
 #endif
@@ -327,8 +327,8 @@ namespace blst {
             using G2AffinePoint = avx::G2AffinePoint;
             using G1CoeffCtx = GroupFftCoeffCtx<G1Point>;
             using G2CoeffCtx = GroupFftCoeffCtx<G2Point>;
-            using GtFftElement = avx::AvxGt52;
-            using PreparedInverseRoots = avx::AvxGt52PreparedRoots;
+            using GtFftElement = avx::AvxGtElement;
+            using PreparedInverseRoots = avx::AvxGtPreparedRoots;
             using PreparedLineTable = avx::PreparedLineTable;
 
             static G1Point g1_infinity()
@@ -361,7 +361,7 @@ namespace blst {
 
             static GT to_public_gt(const GtFftElement& value)
             {
-                return avx::AvxGt52::to_default(value);
+                return avx::AvxGtElement::to_default(value);
             }
 
             static PreparedInverseRoots make_inverse_roots(std::span<const Fr> roots)
@@ -409,8 +409,8 @@ namespace blst {
                 std::size_t start,
                 std::size_t length)
             {
-                avx::AvxGt52CoeffCtx::ScopedRoots scoped_roots(inv_roots);
-                fft_inverse_truncated_range<GtFftElement, Fr, avx::AvxGt52CoeffCtx>(
+                avx::AvxGtCoeffCtx::ScopedRoots scoped_roots(inv_roots);
+                fft_inverse_truncated_range<GtFftElement, Fr, avx::AvxGtCoeffCtx>(
                     values,
                     inv_roots.scalar_span(),
                     start,
@@ -1000,7 +1000,7 @@ namespace blst {
         final_pairs.resize(millers.size());
         avx::GT::final_exp_n(final_pairs.data(), millers.data(), millers.size());
         for (std::size_t i = 0; i < millers.size(); ++i) {
-            out[i] = MiddleProductAvxContext::to_public_gt(avx::AvxGt52(final_pairs[i].data));
+            out[i] = MiddleProductAvxContext::to_public_gt(avx::AvxGtElement(final_pairs[i].data));
         }
     }
 #endif

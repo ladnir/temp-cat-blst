@@ -13,12 +13,11 @@
 namespace blst::avx::matrixnok
 {
     /**
-     * Selected proof candidate for G2 over the MatrixNoK base ring.
+     * Fixed G2 construction selected by production dispatch.
      *
      * The candidate reuses the shared complete homogeneous schedule and the
      * generic `FP2Ring`; this facade only fixes their parameter set. It
-     * deliberately has no public dispatch entry until the correspondence proof
-     * and release gates are complete.
+     * Candidate spellings remain the exact source/theorem correspondence owners.
      */
     using G2Fp2RingCandidate = FP2Ring<FpRingCandidate>;
 
@@ -79,4 +78,10 @@ namespace blst::avx::matrixnok
     using G2GLSCandidate = GLSMult<FpRingCandidate, G2CurveCandidate>;
 
     static_assert(std::is_empty_v<G2CurveCandidate>);
+
+    using G2Fp2Ring = G2Fp2RingCandidate;
+    using G2Curve = G2CurveCandidate;
+    using G2Projective = G2ProjectiveCandidate;
+    using G2Affine = G2AffineCandidate;
+    using G2GLS = G2GLSCandidate;
 } // namespace blst::avx::matrixnok

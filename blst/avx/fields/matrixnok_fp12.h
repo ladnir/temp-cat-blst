@@ -161,4 +161,6 @@ namespace blst::avx::matrixnok
     static_assert(std::is_empty_v<Fp12RingCandidate>);
     static_assert(std::is_trivially_default_constructible_v<
         Fp12RingCandidate>);
+
+    using Fp12Ring = Fp12RingCandidate;
 } // namespace blst::avx::matrixnok

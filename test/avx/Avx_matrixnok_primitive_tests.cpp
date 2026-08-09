@@ -9,6 +9,7 @@
 #include "blst/avx/gt/glv4.h"
 #include "blst/avx/curve/matrixnok_g1.h"
 #include "blst/avx/curve/matrixnok_g2.h"
+#include "blst/avx/curve/point.h"
 #include "blst/avx/pairing/matrixnok_pairing.h"
 #include "blst/common/bytes.h"
 #include "blst/fft/ctFft.h"
@@ -49,6 +50,14 @@ namespace blst::avx::test
     static_assert(std::is_empty_v<matrixnok::G2CurveCandidate>);
     static_assert(std::is_trivially_default_constructible_v<
         matrixnok::PairingInverterCandidate>);
+    static_assert(std::is_same_v<avx_curve_detail::CurveRing,
+        matrixnok::FpRingCandidate>);
+    static_assert(std::is_same_v<avx_curve_detail::CurveFp2Ring,
+        matrixnok::G2Fp2RingCandidate>);
+    static_assert(std::is_same_v<avx_curve_detail::CurveG1,
+        matrixnok::G1CurveCandidate>);
+    static_assert(std::is_same_v<avx_curve_detail::CurveG2,
+        matrixnok::G2CurveCandidate>);
 
     using MatrixNoKFp12 = matrixnok::Fp12RingCandidate;
     static_assert(std::is_default_constructible_v<
@@ -508,6 +517,74 @@ namespace blst::avx::test
             expect_standard_residue_bounds(ring, products[index]);
             expect_same_scalar_fp(matrixnok_to_scalar(ring, products[index]), expected[index]);
         }
+    }
+
+    TEST(AvxMatrixNoKPrimitives, CanonicalExportCollapsesRedundantZeroLifts)
+    {
+        const matrixnok::FpRingCandidate ring;
+        const matrixnok::FpRingCandidate::StandardElement modulus{
+            matrixnok::FpRingCandidate::StandardResidue(
+                AVXVector<8>(matrixnok_constants::modulus_in_rns_m1)),
+            matrixnok::FpRingCandidate::StandardResidue(
+                AVXVector<8>(matrixnok_constants::modulus_in_rns_m2))};
+        const auto normalized = ring.batch_reduce_expand(
+            ring.prep_left(modulus) * ring.one())[0];
+
+        EXPECT_TRUE(blst::Fp::equal(
+            matrixnok_to_scalar(ring, ring.zero()), blst::Fp::zero()));
+        EXPECT_TRUE(blst::Fp::equal(
+            matrixnok_to_scalar(ring, modulus), blst::Fp::zero()));
+        EXPECT_TRUE(blst::Fp::equal(
+            matrixnok_to_scalar(ring, normalized), blst::Fp::zero()));
+    }
+
+    TEST(AvxMatrixNoKPrimitives, ProductionPointEqualityUsesFieldSemantics)
+    {
+        const auto& ring = avx_curve_detail::curve_ring();
+        const auto& fp2ring = avx_curve_detail::curve_fp2_ring();
+        const matrixnok::FpRingCandidate::StandardElement modulus{
+            matrixnok::FpRingCandidate::StandardResidue(
+                AVXVector<8>(matrixnok_constants::modulus_in_rns_m1)),
+            matrixnok::FpRingCandidate::StandardResidue(
+                AVXVector<8>(matrixnok_constants::modulus_in_rns_m2))};
+
+        const G1Point g1 = G1Point::generator();
+        const auto scale = ring.from_hex("0x2");
+        const G1Point scaled_g1{
+            ring.modmul(g1.X, scale),
+            ring.modmul(g1.Y, scale),
+            ring.modmul(g1.Z, scale)};
+        EXPECT_TRUE(G1Point::equal(g1, scaled_g1));
+
+        const G1AffinePoint g1_affine = G1AffinePoint::generator();
+        const G1AffinePoint lifted_g1_affine(
+            NormalizePointCoord(g1_affine.X + modulus, ring),
+            NormalizePointCoord(g1_affine.Y + modulus, ring));
+        EXPECT_FALSE(g1_affine.X.equal(lifted_g1_affine.X) &
+            g1_affine.Y.equal(lifted_g1_affine.Y));
+        EXPECT_TRUE(G1AffinePoint::equal(g1_affine, lifted_g1_affine));
+
+        const G2Point g2 = G2Point::generator();
+        const auto fp2_scale = avx_curve_detail::CurveFp2Ring::StandardElement(
+            scale, ring.zero());
+        const G2Point scaled_g2{
+            fp2ring.mul(g2.X, fp2_scale),
+            fp2ring.mul(g2.Y, fp2_scale),
+            fp2ring.mul(g2.Z, fp2_scale)};
+        EXPECT_TRUE(G2Point::equal(g2, scaled_g2));
+
+        const auto lift_fp2 = [&modulus, &ring](const auto& value) {
+            return avx_curve_detail::CurveFp2Ring::StandardElement(
+                NormalizePointCoord(value.x() + modulus, ring),
+                NormalizePointCoord(value.y() + modulus, ring));
+        };
+        const G2AffinePoint g2_affine = G2AffinePoint::generator();
+        const G2AffinePoint lifted_g2_affine(
+            lift_fp2(g2_affine.X),
+            lift_fp2(g2_affine.Y));
+        EXPECT_FALSE(g2_affine.X.equal(lifted_g2_affine.X) &
+            g2_affine.Y.equal(lifted_g2_affine.Y));
+        EXPECT_TRUE(G2AffinePoint::equal(g2_affine, lifted_g2_affine));
     }
 
     TEST(AvxMatrixNoKPrimitives, BaseFieldMultiplyMatchesScalar)
@@ -1419,6 +1496,28 @@ namespace blst::avx::test
                 actual[coefficient / 6][(coefficient % 6) / 2][coefficient % 2],
                 expected[coefficient / 6][(coefficient % 6) / 2][coefficient % 2]);
         }
+    }
+
+    TEST(AvxMatrixNoKPrimitives, GtGeneratorLiteralMatchesScalar)
+    {
+        const matrixnok::FpRingCandidate ring;
+        MatrixNoKFp12::StandardElement literal = {};
+        for (std::size_t coefficient = 0; coefficient < literal.size(); ++coefficient) {
+            literal[coefficient] = matrixnok::FpRingCandidate::StandardElement(
+                matrixnok::FpRingCandidate::StandardResidue(
+                    AVXVector<8>(matrixnok_constants::gt_generator[coefficient][0])),
+                matrixnok::FpRingCandidate::StandardResidue(
+                    AVXVector<8>(matrixnok_constants::gt_generator[coefficient][1])));
+        }
+
+        const auto converted = matrixnok_fp12_from_scalar(
+            ring, blst::scalar::GT::generator().data);
+        for (std::size_t coefficient = 0; coefficient < literal.size(); ++coefficient) {
+            EXPECT_TRUE(literal[coefficient].equal(converted[coefficient]));
+        }
+        expect_same_scalar_fp12(
+            matrixnok_fp12_to_scalar(ring, literal),
+            blst::scalar::GT::generator().data);
     }
 
     TEST(AvxMatrixNoKPrimitives, Fp12MultiplyAndSquareMatchScalar)
