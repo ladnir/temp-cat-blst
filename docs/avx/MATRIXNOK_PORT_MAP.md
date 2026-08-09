@@ -226,8 +226,10 @@ faster than VROOM, and 6.8% faster than the prior candidate. Exact construction,
 code-generation, benchmark-link isolation, measurements, and hashes are in
 `PAIRING_PREVIEW_EVIDENCE.md`.
 
-The candidate remains non-dispatched. Performance selection is complete;
-formal proof, production dispatch review, and release evidence remain pending.
+This paragraph records the historical preview state. Performance selection and
+the retained arithmetic proof are complete, and production now selects these
+owners. See `MATRIXNOK_INTEGRATION.md` for the exact dispatch graph and pending
+native integration evidence.
 
 ## FFT preview packet
 

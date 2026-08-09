@@ -295,6 +295,24 @@ The generated snapshot and Python regeneration remain binding and independent
 executable evidence, respectively; Lean checks the corresponding formulas
 rather than accepting either tool as the mathematical proof.
 
+## Production integration correspondence
+
+Commit `5c4dea1` selects the exact MatrixNoK theorem-owner types for production
+AVX point, GT, pairing, and GT-FFT dispatch. `AVX-P4-002` binds every alias and
+production owner at exact hashes and remains `in_review` until Peach native
+runtime and optimized code-generation evidence is recorded. The structural
+`validate_matrixnok_dispatch.py` gate prevents a production owner from silently
+falling back to the incumbent ring; it is a source-correspondence check rather
+than a mathematical theorem.
+
+The production GT generator required a new fixed MatrixNoK literal.
+`AVX-P1-003` and `GtGeneratorConstant.lean` prove that all 192 RNS lanes are
+the exact standard encoding of the twelve canonical Fp coefficients and meet
+the selected lane contracts. The statement that those coefficients are
+CatBLST's chosen scalar GT generator remains an explicit reviewed constant
+boundary plus scalar/AVX differential test. No broader generator-order theorem
+is claimed.
+
 ## Resource policy
 
 Toolchain installation and Mathlib cache retrieval are explicit setup steps.

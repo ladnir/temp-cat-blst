@@ -594,3 +594,22 @@ clean trust-word scan, and three portable-Debug scalar differentials pass.
 `AVX-P4-001` is accepted at the recorded hashes. P0 compiler/ISA lowering is
 explicitly external, as for accepted P2/P3 rows. No broad product or other
 permission-gated run was performed.
+
+## MatrixNoK production integration
+
+Production AVX point, GT, pairing, G1/GT FFT, and middle-product dispatch now
+selects the proved MatrixNoK owners through zero-overhead semantic aliases.
+The incumbent `BoundedRing` engine remains only as an in-tree historical
+comparison implementation and is not reachable from those production owners.
+The exact graph, integration repairs, completed checks, and remaining native
+release gates are recorded in `docs/avx/MATRIXNOK_INTEGRATION.md`.
+
+Integration found `AUD-225`: raw RNS equality is not semantic equality under
+MatrixNoK's redundant representatives. Equality now canonicalizes only at the
+observation boundary, leaving all arithmetic hot paths unchanged. `AUD-226`
+records the proof-to-production binding gap. A structural validator pins the
+selected aliases, and the generated Lean snapshot plus
+`GtGeneratorConstant.lean` binds the new GT literal's 192 lanes to its twelve
+canonical Fp coefficients. Final correspondence hashes, main portable-Debug
+test execution, and Peach native code-generation/runtime evidence remain
+pending; no benchmark or broad run was performed.

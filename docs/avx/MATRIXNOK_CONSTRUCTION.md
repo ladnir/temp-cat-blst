@@ -3,10 +3,11 @@
 ## Status and scope
 
 This document is the readable specification of the selected BLS12-381
-MatrixNoK candidate. The implementation is performance-selected and is now
-semi-frozen for Lean correspondence work, but it is not part of public AVX
+MatrixNoK construction. The implementation is performance-selected,
+semi-frozen for Lean correspondence work, and now owns production AVX
 dispatch. A proof claim applies only to the exact source and generated-constant
-hashes recorded with that claim.
+hashes recorded with that claim. Production alias ownership and integration
+evidence are recorded in `MATRIXNOK_INTEGRATION.md`.
 
 The selected construction is:
 

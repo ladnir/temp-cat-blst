@@ -46,9 +46,11 @@ Explicitly excluded:
 
 ## Implementation boundary
 
-The candidate is introduced side-by-side behind an internal build option until
-it passes correctness and performance gates. Existing CatBLST APIs and semantic
-types remain the integration boundary. Upstream fallback intrinsics are
+The construction was introduced side-by-side for correctness, performance,
+and proof work. It is now selected by production AVX dispatch; exact
+integration ownership and remaining release evidence are recorded in
+`MATRIXNOK_INTEGRATION.md`. Existing CatBLST APIs and semantic types remain the
+integration boundary. Upstream fallback intrinsics are
 translated through CatBLST's `_cc512_*` emulation and `_vv512_*` selected-vector
 layer; native code must call `_mm512_*` without conversion objects or lane
 round-trips.
@@ -82,13 +84,15 @@ table construction closes `AUD-218` by reducing peak CT GLS stack from about
 The production-shaped Fp12/GT candidate, parameter-bound constant repair,
 native code generation, and same-process incumbent/VROOM comparison are
 recorded in `FP12_EVIDENCE.md`.
-The isolated MatrixNoK Miller-loop and full-pairing preview, scalar
+The historical isolated MatrixNoK Miller-loop and full-pairing preview, scalar
 differentials, native code generation, and serial incumbent/VROOM comparison
 are recorded in `PAIRING_PREVIEW_EVIDENCE.md`. Miller is 20.7% faster than the
 incumbent and 5.3% faster than VROOM. After splitting the register-heavy
 MatrixNoK cyclotomic square, full pairing is 21.2% faster than the incumbent
-and 5.5% faster than VROOM. Performance selection is complete; the candidate
-remains isolated while formal proof and release gates are pending.
+and 5.5% faster than VROOM. Performance selection and arithmetic proof are
+complete through the retained Miller construction. MatrixNoK is now
+production-selected; native integration and final correspondence evidence
+remain pending.
 
 ## Work packets
 

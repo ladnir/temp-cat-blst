@@ -112,7 +112,7 @@ required for this signature-only removal of copies.
 
 ### AUD-028 - scoped prepared-root lifetime guardrail
 
-All current `AvxGt52CoeffCtx::ScopedRoots` call sites are safe: the prepared
+All current `AvxGtCoeffCtx::ScopedRoots` call sites are safe: the prepared
 roots lvalue outlives the guard, use is synchronous, exception unwinding
 restores the prior pointer, nesting is preserved, and storage is thread-local.
 Copying or allocating the prepared vectors would add unacceptable FFT setup
@@ -127,7 +127,7 @@ the outer prepared table and final fallback behavior.
 
 ### AUD-029 - unrelated pointer ordering in AVX root lookup
 
-`AvxGt52CoeffCtx::mult` uses built-in relational comparisons between `&b` and
+`AvxGtCoeffCtx::mult` uses built-in relational comparisons between `&b` and
 the prepared vector's pointers. Ordering unrelated object pointers is not a
 portable membership test and can admit an invalid subtraction under a
 non-address-order implementation.
