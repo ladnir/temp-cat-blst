@@ -29,3 +29,4 @@ import CatBLST.AVX.MatrixNoK.Fp12FrobeniusPhysical
 import CatBLST.AVX.MatrixNoK.Fp12CyclotomicPhysical
 import CatBLST.AVX.MatrixNoK.Fp12FinalExponentiationPhysical
 import CatBLST.AVX.MatrixNoK.GtExponentiationPhysical
+import CatBLST.AVX.MatrixNoK.GtBalancedSplit
