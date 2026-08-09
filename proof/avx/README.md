@@ -305,6 +305,14 @@ runtime and optimized code-generation evidence is recorded. The structural
 falling back to the incumbent ring; it is a source-correspondence check rather
 than a mathematical theorem.
 
+The accepted P4 theorem covers the retained Miller-specific point formulas and
+loop. It does not yet cover public G1/G2 complete arithmetic or the GLV/GLS
+decomposition and executor schedules selected through `point.h`; `AUD-227`
+tracks that formal packet. Those owners retain hand-audit and scalar
+differential evidence in the interim. Canonical export followed by scalar REDC
+and byte weaving is likewise an explicit observation boundary for equality and
+validation rather than a theorem silently inferred from `CanonicalExport`.
+
 The production GT generator required a new fixed MatrixNoK literal.
 `AVX-P1-003` and `GtGeneratorConstant.lean` prove that all 192 RNS lanes are
 the exact standard encoding of the twelve canonical Fp coefficients and meet

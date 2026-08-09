@@ -598,7 +598,8 @@ permission-gated run was performed.
 ## MatrixNoK production integration
 
 Production AVX point, GT, pairing, G1/GT FFT, and middle-product dispatch now
-selects the proved MatrixNoK owners through zero-overhead semantic aliases.
+selects the exact MatrixNoK arithmetic owners through zero-overhead semantic
+aliases.
 The incumbent `BoundedRing` engine remains only as an in-tree historical
 comparison implementation and is not reachable from those production owners.
 The exact graph, integration repairs, completed checks, and remaining native

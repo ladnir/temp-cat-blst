@@ -69,3 +69,29 @@ Pending permission-gated evidence:
 
 No CUDA, BTx/BTE, benchmark, portable-AVX Release, or broad build belongs to
 this packet.
+
+## Lean integration-gap audit
+
+Production selection does not turn the existing proof into a blanket proof of
+the entire AVX API. The exact current boundary is:
+
+- proved and source-bound: IFMA/portable primitives, MatrixNoK conversion and
+  reduction, Fp/Fp2/Fp12 arithmetic, GT scalar schedules, final exponentiation,
+  and the retained direct/prepared Miller loop;
+- newly closed: the production GT literal's 192-lane standard encoding;
+- structurally bound but awaiting native evidence: the zero-overhead production
+  aliases in `AVX-P4-002`;
+- differential and hand-audit evidence only: public G1/G2 complete point
+  arithmetic and the GLV/GLS scalar-multiplication executors;
+- explicit non-Lean observation boundary: MatrixNoK canonical export through
+  scalar REDC/byte weaving for point equality and validation;
+- outside this arithmetic proof: generic FFT orchestration, map/hash-to-curve
+  protocol composition, C ABI state machines, compiler/ISA correctness, and
+  microarchitectural constant-time behavior; and
+- retained earlier residual: the concrete Fp12 inversion provider used by
+  final exponentiation is differential evidence rather than a Lean inversion
+  theorem.
+
+These are evidence gaps rather than confirmed C++ defects. `AUD-227` tracks the
+public curve/GLV/GLS formal packet so future release notes cannot imply broader
+coverage than the correspondence ledger provides.
