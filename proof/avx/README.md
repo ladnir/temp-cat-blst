@@ -254,6 +254,16 @@ All seven P3 correspondence rows are now accepted. P4 begins with the curve
 and Miller-loop algebra needed to connect accepted field-tower results to the
 complete pairing implementation.
 
+`AVX-P4-001` begins that work at proof commit `8e0dc2d`. `Fp2Algebra.lean`
+packages the accepted P3-001 `u^2 = -1` formulas as a commutative ring, and
+`MillerDouble.lean` transcribes the exact homogeneous intermediates shared by
+`Miller::double_step` and prepared `line_dbl`. For every on-curve input over
+the selected Fp2 carrier, the output remains on the curve, the emitted tangent
+line contains the input and the negation of the doubled output, and prepared
+G1 scaling equals the direct Miller line construction. The row remains
+`in_review` until sparse Fp12 line multiplication, Miller-specific RNS bounds,
+the physical call ledger, and the fixed schedule are proved and composed.
+
 The generated snapshot and Python regeneration remain binding and independent
 executable evidence, respectively; Lean checks the corresponding formulas
 rather than accepting either tool as the mathematical proof.

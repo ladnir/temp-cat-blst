@@ -237,6 +237,16 @@ and generated-constant hashes. P4 should next prove source-shaped curve or
 Miller-loop formulas while composing the accepted P2/P3 tower rather than
 reconstructing it.
 
+P4 has begun with `AVX-P4-001` at proof commit `8e0dc2d`. The first packet
+gives the accepted Fp2 carrier a concrete commutative-ring interface and
+models the literal doubling intermediates shared by direct and prepared Miller
+paths. Its theorems prove exact output and line coordinates, direct/prepared
+line-scaling equivalence, output curve membership, and tangent-line incidence
+at the input and negative doubled point. This is an algebraic subpacket, not an
+accepted full row: the next obligations are the literal sparse Fp12 line
+multiplier, Miller-specific RNS bounds and physical ledger, then the fixed
+`1 + (add + n*dbl)` schedule `[2,3,9,32,16]` and final conjugation.
+
 The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside
 this initial scope. The selected tower uses `FP2Ring<FpRingCandidate>`.
 

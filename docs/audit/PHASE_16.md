@@ -568,3 +568,17 @@ All P3 rows are accepted at exact source and generated-constant hashes. The
 next formal packet is P4 curve/Miller-loop algebra. No product build,
 benchmark, sanitizer, CUDA, BTx/BTE, Apple CI, broad suite, or portable-AVX
 Release build ran for this proof-only closure.
+
+## Miller doubling P4 proof boundary
+
+Proof commit `8e0dc2d` begins `AVX-P4-001` against exact `miller.h` and `GT.h`
+hashes. A new Fp2 algebra bridge packages the accepted P3-001 formulas without
+changing their representation. The literal shared doubling schedule then
+proves its homogeneous output remains on `y^2 = x^3 + b`, its line contains
+the input and negative doubled output, and prepared G1 line scaling equals the
+direct Miller construction. No C++ discrepancy was found.
+
+The row remains `in_review`: sparse `flat_mulxy00z0` correspondence,
+Miller-specific RNS bounds, an exact physical call ledger, and the fixed loop
+schedule remain. Focused root Lean passed; no product or permission-gated run
+was performed.
