@@ -29,10 +29,12 @@ def blsXAbs : Nat := 0xd201000000010000
 
 def cppMillerSegments : List Nat := [2, 3, 9, 32, 16]
 
+def cppMillerScheduleTail : List MillerScheduleOp :=
+  cppMillerSegments.flatMap (fun count =>
+    MillerScheduleOp.add :: List.replicate count MillerScheduleOp.double)
+
 def cppMillerSchedule : List MillerScheduleOp :=
-  MillerScheduleOp.double ::
-    cppMillerSegments.flatMap (fun count =>
-      MillerScheduleOp.add :: List.replicate count MillerScheduleOp.double)
+  MillerScheduleOp.double :: cppMillerScheduleTail
 
 def binaryMillerSchedule : List MillerScheduleOp :=
   (List.range 63).reverse.flatMap (fun bit =>

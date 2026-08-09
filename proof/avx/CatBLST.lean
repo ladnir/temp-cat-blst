@@ -37,3 +37,4 @@ import CatBLST.AVX.MatrixNoK.MillerAdd
 import CatBLST.AVX.MatrixNoK.MillerSchedule
 import CatBLST.AVX.MatrixNoK.MillerPhysical
 import CatBLST.AVX.MatrixNoK.MillerReduction
+import CatBLST.AVX.MatrixNoK.MillerEndToEnd
