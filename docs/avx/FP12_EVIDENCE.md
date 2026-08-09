@@ -149,6 +149,18 @@ alter Fp12 arithmetic or this historical performance measurement.
 - `glv4.h` SHA-256:
   `8765c031be885fed24b8743c7ee677ca02640c3f60423bd9d8ae53fa87cc1d31`
 
+## Formal correspondence
+
+Rows `AVX-P3-002` through `AVX-P3-004` bind the current source hashes rather
+than the historical performance-selection hashes above. Proof commit `256b980`
+completes the selected split cyclotomic square: all twelve literal output
+polynomials equal the general Fp12 square under exactly the scalar
+`is_cyclotomic` Frobenius relation. It also checks both generated fraction
+constants, all 32 RNS lanes, the generated offset's semantic zero, and the
+first/second split physical maxima of 28/888 and 101/2041 M1/RNS units against
+the 800/5760 reduction boundaries. The theorem intentionally accepts zero and
+does not replace the cyclotomic precondition with a narrower GT assumption.
+
 ## Residual gates
 
 - Production dispatch remains unchanged. Retained G2, inversion, Miller-loop,
@@ -157,7 +169,9 @@ alter Fp12 arithmetic or this historical performance measurement.
 - The split closes the measured complete-pairing performance gap. A fresh
   standalone split-cyclotomic measurement and stable release-condition timing
   remain future evidence, not prerequisites for beginning the proof.
-- Fp12/RNS arithmetic and every bound transition remain formal proof
-  obligations under `PROOF_PLAN.md`.
+- General Fp12 multiplication/squaring, Frobenius maps one through three, and
+  the selected cyclotomic square and their mapped bound transitions are
+  accepted by `AVX-P3-002` through `AVX-P3-004`. GT exponentiation and final-
+  exponentiation formulas remain formal obligations under `PROOF_PLAN.md`.
 - Sanitizers, fuzzing, broad suites, Apple CI, CUDA, BTx/BTE, and portable-AVX
   Release were outside this focused packet.

@@ -188,8 +188,21 @@ ledger proves the largest reduced coordinate is below `4m^2` versus the literal
 model of `standard_negate`, its generated `40p` zero offset, and the selected
 one-subtraction `reduce_auto<2>` path. The packet then specializes the accepted
 general-Fp12 completed-reduction chain. Frobenius is valid on general Fp12;
-cyclotomic square and GT exponentiation retain their narrower domains and form
-the next P3 packet.
+cyclotomic square and GT exponentiation retain their narrower domains.
+
+`AVX-P3-004` accepts the selected split cyclotomic square at proof commit
+`256b980`. The proof first shows that the scalar source predicate
+`Frob^2(x) = Frob^4(x) * x` is exactly equivalent to a literal twelve-lane
+predicate. It then proves an unconditional residual identity: optimized square
+minus ordinary square is a fixed diagonal scaling of that predicate residual.
+All twelve coordinates therefore reduce to the ordinary Fp12 square under the
+exact source predicate. Zero remains in this domain, matching C++; GT is the
+strictly narrower nonzero order-r subgroup and is not assumed. Both generated
+`1/3` and `-2/3` constants and all 32 M1/M2 lanes are tied to their exact
+`to_mont_exact` encodings and canonical field values. The two physical split
+ledgers peak at 28 M1 units / 888 RNS units and 101 M1 units / 2041 RNS units,
+respectively, below the selected 800/5760 reduction boundaries. GT
+exponentiation and final-exponentiation formulas are the remaining P3 packet.
 
 The generated snapshot and Python regeneration remain binding and independent
 executable evidence, respectively; Lean checks the corresponding formulas

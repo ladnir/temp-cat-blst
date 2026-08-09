@@ -465,3 +465,28 @@ instead of returning its element. Commit `a01a39b` selects `[0]`, adding no
 runtime work, and the focused portable-Debug completion-boundary regression
 matches scalar Fp2 for multiplication and squaring. No benchmark, CUDA, broad
 suite, or portable-AVX Release build ran.
+
+## Fp12 cyclotomic-square P3 proof boundary
+
+Proof commit `256b980` accepts `AVX-P3-004` for the policy-selected split
+cyclotomic square. The Lean model retains the exact first-six/second-six source
+polynomials, factors three and six, concatenation order, scalar Frobenius
+predicate, and general-square schedule. It proves a source-independent residual
+identity for all twelve lanes and specializes it only with the exact scalar
+`is_cyclotomic` relation. Thus zero is intentionally accepted, general Fp12 is
+not, and no GT membership assumption is smuggled into the theorem.
+
+Both generated constants are reconstructed from their canonical values and
+`to_mont_exact`; all 32 M1/M2 lanes satisfy the standard P2 contracts. The
+source-count physical ledger proves the first split is bounded by 28 M1 units
+and 888 RNS units. The offset-bearing second split peaks at 101 M1 units and
+2041 RNS units, with its sole subtraction dominated by the generated 80/1440
+lower offset; both are below the selected 800/5760 reduction boundaries. The
+post-reduction factors three and six fit the declared common bound six.
+
+The focused `CatBLST` Lean target, generated-constant reproducibility check,
+trust-word scan, and `git diff --check` pass. Existing portable and Peach native
+scalar-differential evidence remains bound by the recorded unchanged source
+hashes. No product build, benchmark, CUDA, BTx/BTE, sanitizer, Apple CI, broad
+suite, or portable-AVX Release build ran. GT exponentiation and the relevant
+final-exponentiation formulas remain P3.

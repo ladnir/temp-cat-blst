@@ -178,9 +178,21 @@ ten canonical values, all 160 physical lanes, exact `to_mont_exact` rotation,
 standard P2 encodings, and the canonical-to-MatrixNoK representative relation.
 The source-specific physical ledger is `4m^2`, well inside `MAX_ADD=800`, and
 the proof includes the literal `standard_negate`/generated-`40p`-offset path and
-specializes the accepted completed reducer. The next packet is cyclotomic
-squaring and GT exponentiation; its theorems must require the cyclotomic or GT
-precondition actually used by the C++ formulas rather than general Fp12.
+specializes the accepted completed reducer.
+
+`AVX-P3-004` accepts the policy-selected split cyclotomic square at proof commit
+`256b980`. The exact scalar source predicate is converted to an equal flat-array
+relation without projecting a normalized Fp12 product. Twelve independent
+polynomial theorems prove that the selected result differs from the literal
+general square by a fixed scaling of that relation's residual. This proves the
+shortcut for precisely the source cyclotomic relation, including zero, without
+claiming general Fp12 or narrowing the theorem to GT. The generated `1/3` and
+`-2/3` values, all 32 physical lanes, the offset's semantic zero, and both split
+bound ledgers are checked. The pre-reduction maxima are 28/888 for the first
+M1/RNS split and 101/2041 for the second, below 800/5760; post-reduction factors
+three and six fit `CommonElement<6>`. GT exponentiation and the relevant final-
+exponentiation formulas are now the remaining P3 work and must use their exact
+GT, cyclotomic, or Miller-result preconditions.
 
 The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside
 this initial scope. The selected tower uses `FP2Ring<FpRingCandidate>`.
