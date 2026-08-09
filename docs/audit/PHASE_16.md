@@ -551,3 +551,14 @@ executor used by FFT: prove four signed digits plus sign mask, the 70-byte
 schedule bound, chunked square runs, executor semantics, and its FFT call-site
 preconditions. Existing differential coverage is evidence, not a formal
 substitute for that row.
+
+Proof commit `51462b9` subsequently closes the arithmetic splitter subpacket
+of that final row. The centered remainder/rounded quotient is exact at each of
+four iterations; recomposition includes the literal remaining `z^4` term.
+Lean proves the source's `k2 += tail; k0 -= tail` fold from
+`r = z^4 - z^2 + 1`, then proves the final odd-coordinate negations reconstruct
+the scalar in the Frobenius basis. Monotonicity of the closed rounded quotient
+gives the production Debug invariant `tail <= 2`, and all adjusted digits are
+strictly inside `int64_t` for every 256-bit input. `AVX-P3-007` remains
+`in_review` only for sign-mask/MSB/schedule compilation, the 70-byte bound,
+bytecode execution, physical counts, and FFT call-site contracts.

@@ -194,6 +194,9 @@ Frobenius, conjugation, and cyclotomic results rather than broadening them.
   selected cyclotomic square, final-exponentiation formula, public GT binary
   exponentiation, and unsigned CT/VT GLV4 paths are accepted by `AVX-P3-002`
   through `AVX-P3-006`. The balanced signed schedule compiler/executor used by
-  FFT remains the final formal P3 obligation under `PROOF_PLAN.md`.
+  FFT remains the final formal P3 obligation under `PROOF_PLAN.md`. Its
+  arithmetic split, carry fold, tail bound, signed-digit bound, and Frobenius
+  reconstruction are checked by the in-review `AVX-P3-007` subpacket at
+  `51462b9`; bytecode compilation/execution and FFT contracts remain.
 - Sanitizers, fuzzing, broad suites, Apple CI, CUDA, BTx/BTE, and portable-AVX
   Release were outside this focused packet.

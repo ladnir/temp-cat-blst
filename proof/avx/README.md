@@ -236,6 +236,18 @@ GT-domain results composed through accepted Fp12 operations. The balanced
 signed schedule compiler/executor used by FFT remains a distinct P3 row rather
 than being inferred from the public unsigned executor.
 
+The first `AVX-P3-007` subpacket is checked at proof commit `51462b9`. It
+transcribes the source's remainder-centering rule as a rounded quotient,
+proves each of the four signed division identities, and reconstructs the input
+with its remaining `z^4` quotient. The exact source carry fold uses
+`r = z^4 - z^2 + 1`; negating odd coordinates then reconstructs the scalar in
+the ordinary Frobenius basis. For every 256-bit input the remaining quotient
+is at most two and all four adjusted digits lie strictly inside signed 64-bit
+range, justifying the source casts and absolute values. This row remains
+`in_review`: sign-mask encoding, MSB discovery, schedule emission/capacity,
+chunked square runs, bytecode execution, and FFT caller contracts are the
+enumerated proof obligations.
+
 The generated snapshot and Python regeneration remain binding and independent
 executable evidence, respectively; Lean checks the corresponding formulas
 rather than accepting either tool as the mathematical proof.

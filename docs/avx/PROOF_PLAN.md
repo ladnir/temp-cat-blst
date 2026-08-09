@@ -221,6 +221,17 @@ balanced signed `avx_glv4_compile` bytecode plus its trusted executor, including
 the schedule-length bound used by FFT. It is not covered by the unsigned public
 path theorem merely because differential tests compare them.
 
+Proof commit `51462b9` completes the scalar-split portion of `AVX-P3-007`.
+Four source-exact rounded divisions recompose the original scalar; the final
+quotient is proved at most two for every 256-bit input. The `z^4` carry fold,
+odd-coordinate negation, Frobenius-basis reconstruction, and strict signed
+64-bit digit bounds are all checked. The remaining obligations are now the
+sign-mask/absolute encoding, highest-bit discovery, the compiler's low/high
+nibble semantics, the 70-byte capacity bound, chunked square-only runs, the
+trusted executor, and the FFT preconditions. Acceptance still requires these
+pieces and a physical schedule ledger; the split theorem alone does not close
+the row.
+
 The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside
 this initial scope. The selected tower uses `FP2Ring<FpRingCandidate>`.
 
