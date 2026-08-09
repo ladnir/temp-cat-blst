@@ -172,6 +172,16 @@ and the repository's intentional cubed final exponent. The source ledger is
 pairing differential evidence cover the concrete inversion provider; that
 provider is explicitly outside the new algebra theorem.
 
+Proof commit `82f26c1` completes `AVX-P3-006` for public GT multiplication. It
+proves the exact canonical unsigned radix-`z` split and odd-Frobenius
+conjugation basis, the literal sixteen-entry table, fixed 64-round CT executor,
+unsigned VT skip executor, binary CT fallback, fixed 256-bit basic VT path, and
+public scalar-mask/dispatch composition. The CT ledger is 76 total Fp12
+multiplications including table construction and final normalization, 64
+cyclotomic squares, 960 table-candidate comparisons, and 11,520 coefficient
+selections. The proof domain is GT and composes the accepted general-Fp12,
+Frobenius, conjugation, and cyclotomic results rather than broadening them.
+
 ## Residual gates
 
 - Production dispatch remains unchanged. Retained G2, inversion, Miller-loop,
@@ -181,9 +191,9 @@ provider is explicitly outside the new algebra theorem.
   standalone split-cyclotomic measurement and stable release-condition timing
   remain future evidence, not prerequisites for beginning the proof.
 - General Fp12 multiplication/squaring, Frobenius maps one through three, the
-  selected cyclotomic square, final-exponentiation formula, and their mapped
-  bound transitions are accepted by `AVX-P3-002` through `AVX-P3-005`. GT
-  binary and GLV4 exponentiation remain the formal P3 obligation under
-  `PROOF_PLAN.md`.
+  selected cyclotomic square, final-exponentiation formula, public GT binary
+  exponentiation, and unsigned CT/VT GLV4 paths are accepted by `AVX-P3-002`
+  through `AVX-P3-006`. The balanced signed schedule compiler/executor used by
+  FFT remains the final formal P3 obligation under `PROOF_PLAN.md`.
 - Sanitizers, fuzzing, broad suites, Apple CI, CUDA, BTx/BTE, and portable-AVX
   Release were outside this focused packet.

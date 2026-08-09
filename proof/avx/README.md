@@ -202,7 +202,7 @@ strictly narrower nonzero order-r subgroup and is not assumed. Both generated
 `to_mont_exact` encodings and canonical field values. The two physical split
 ledgers peak at 28 M1 units / 888 RNS units and 101 M1 units / 2041 RNS units,
 respectively, below the selected 800/5760 reduction boundaries. GT
-exponentiation remains the final P3 packet.
+exponentiation remained the final P3 packet at that checkpoint.
 
 `AVX-P3-005` accepts the complete final-exponentiation formula at proof commit
 `21887f9`. The concrete conjugation schedule is proved to be Frobenius to the
@@ -219,6 +219,22 @@ unreduced expression across calls. The remaining explicit boundary is that a
 valid nonzero Miller result and its inverter output form the modeled unit; the
 concrete inverter remains covered by focused scalar differential tests rather
 than a new Lean inversion theorem.
+
+`AVX-P3-006` accepts the public GT multiplication schedules at proof commit
+`82f26c1`. The proof preserves the exact unsigned radix-`z` split performed
+after scalar preparation, proves all four digits are below `z < 2^64`, and
+checks the source basis `[1,-p,p^2,-p^3]` is `[1,z,z^2,z^3]` modulo `r`.
+It constructs the literal sixteen-entry table and proves the descending
+64-round CT state machine and the unsigned VT leading/zero-window skip machine
+both return the canonical scalar exponent. The binary CT fallback and fixed
+256-bit basic VT scan are proved from their literal square/select/skip loops;
+the public CT dispatch theorem includes byte masking and the 129-through-256
+GLV4 threshold. The exact CT ledger is 11 table multiplications, 64 squares,
+64 loop multiplications, one normalization multiplication, 960 table-candidate
+comparisons, and 11,520 coefficient selections. These theorems are strictly
+GT-domain results composed through accepted Fp12 operations. The balanced
+signed schedule compiler/executor used by FFT remains a distinct P3 row rather
+than being inferred from the public unsigned executor.
 
 The generated snapshot and Python regeneration remain binding and independent
 executable evidence, respectively; Lean checks the corresponding formulas

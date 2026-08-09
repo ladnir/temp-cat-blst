@@ -206,7 +206,20 @@ no unreduced expression crosses an accepted component boundary. The theorem's
 domain is a valid nonzero Miller-result unit with a correct supplied inverse.
 Formalizing the concrete inversion provider is an explicit residual boundary,
 not a weakened final-exponentiation contract. GT binary and GLV4 exponentiation
-are now the only remaining P3 work.
+were the only remaining P3 work at that checkpoint.
+
+`AVX-P3-006` accepts the public GT binary and unsigned GLV4 paths at proof
+commit `82f26c1`. The exact source-shaped split proves canonical reduction,
+radix-`z` recomposition, four `<z` digits, and the odd-Frobenius conjugation
+basis. A literal sixteen-entry table theorem feeds the 64-round CT scan and the
+VT skip state machine; both compute the same reduced scalar exponent. The
+binary CT and basic VT loops are also proved, and the public dispatch theorem
+models the preceding little-endian `nbits` mask and the 129-through-256 GLV4
+threshold. The physical row fixes table size, operation counts, selection
+volume, and `CommonElement<6>`. The remaining P3 work is now narrowly the
+balanced signed `avx_glv4_compile` bytecode plus its trusted executor, including
+the schedule-length bound used by FFT. It is not covered by the unsigned public
+path theorem merely because differential tests compare them.
 
 The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside
 this initial scope. The selected tower uses `FP2Ring<FpRingCandidate>`.

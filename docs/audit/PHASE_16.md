@@ -518,5 +518,36 @@ proof.
 The 3,067-job focused root Lean target, constant self-test, generated-Lean
 reproducibility check, trust-word scan, and `git diff --check` pass. No product
 build, benchmark, CUDA, BTx/BTE, sanitizer, Apple CI, broad suite, or portable-
-AVX Release build ran. GT binary and GLV4 exponentiation are the remaining P3
-packet.
+AVX Release build ran. GT binary and GLV4 exponentiation were the remaining P3
+packet at that checkpoint.
+
+## GT exponentiation P3 proof boundary
+
+Proof commit `82f26c1` accepts `AVX-P3-006` for public GT multiplication. Lean
+models the production CT/public-VT scalar preparation as reduction modulo `r`,
+the exact divide-by-`z^2` then divide-by-`z` split, all digit bounds, and exact
+recomposition. It proves `p = -z (mod r)`, so the source's conjugated odd
+Frobenius basis is precisely the unsigned radix basis.
+
+The functional packet constructs the literal sixteen table entries and the
+descending 64-round square/select/multiply loop. Its invariant proves the CT
+result, while a separate literal `started` state machine proves leading-zero
+and zero-window skipping leaves the public-scalar VT result unchanged. The
+binary CT select loop, fixed 256-bit basic VT loop, preceding `nbits` mask, and
+public 129-through-256 dispatch are included. All claims are on GT; general
+Fp12 and the broader cyclotomic relation are not admitted as inputs.
+
+The source ledger records 16 table entries, 11 table-build multiplications,
+three Frobenius maps, two conjugations, 64 fixed loop iterations, 64 squares,
+64 loop multiplications, one normalization multiplication, 960 candidate
+comparisons, 11,520 coefficient selections, and `CommonElement<6>`. The VT
+path has at most 63 loop squares and 63 loop multiplications after its first
+nonzero joint bit. Focused root Lean, constant regeneration, trust-word scan,
+and `git diff --check` pass. No product build, benchmark, CUDA, BTx/BTE,
+sanitizer, Apple CI, broad suite, or portable-AVX Release build ran.
+
+The remaining P3 item is the separate balanced signed bytecode compiler and
+executor used by FFT: prove four signed digits plus sign mask, the 70-byte
+schedule bound, chunked square runs, executor semantics, and its FFT call-site
+preconditions. Existing differential coverage is evidence, not a formal
+substitute for that row.
