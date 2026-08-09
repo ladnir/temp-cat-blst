@@ -489,4 +489,34 @@ trust-word scan, and `git diff --check` pass. Existing portable and Peach native
 scalar-differential evidence remains bound by the recorded unchanged source
 hashes. No product build, benchmark, CUDA, BTx/BTE, sanitizer, Apple CI, broad
 suite, or portable-AVX Release build ran. GT exponentiation and the relevant
-final-exponentiation formulas remain P3.
+final-exponentiation formulas remained P3 at that checkpoint.
+
+## Fp12 final-exponentiation P3 proof boundary
+
+Proof commit `21887f9` accepts `AVX-P3-005`. The new concrete theorem proves
+the selected flat conjugation is Frobenius six for every Fp12 value, preserving
+the distinction between its general-field meaning and inversion on a nonzero
+cyclotomic value. The group-level source transcription retains the exact
+`mul_n_sqr` loop, constants 2/3/9/32/15, negative BLS parameter convention,
+easy part, and all named locals and Frobenius placements in
+`final_exp_after_inverse`. The checked parameter identities show that the
+complete schedule implements CatBLST/BLST's intentional cubed production
+pairing exponent `3 * ((p^12 - 1) / r)`.
+
+The physical ledger counts 35 Fp12 multiplications, 315 cyclotomic squares,
+nine conjugations, one Frobenius-1, two Frobenius-2, one Frobenius-3, and one
+inversion. These are serial calls into accepted P3 operations; the final-
+exponentiation header introduces no fused accumulator or wider intermediate
+bound. Its `mul_n_sqr` helper explicitly recasts to `CommonElement<6>`, while
+the other multiplication calls return accepted normalized outputs. The
+precise residual boundary is the documented input
+contract: the Miller result must be nonzero and the supplied inversion provider
+must return its mathematical inverse. The concrete inverter remains supported
+by focused scalar-differential execution rather than a new formal inversion
+proof.
+
+The 3,067-job focused root Lean target, constant self-test, generated-Lean
+reproducibility check, trust-word scan, and `git diff --check` pass. No product
+build, benchmark, CUDA, BTx/BTE, sanitizer, Apple CI, broad suite, or portable-
+AVX Release build ran. GT binary and GLV4 exponentiation are the remaining P3
+packet.

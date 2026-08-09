@@ -202,7 +202,23 @@ strictly narrower nonzero order-r subgroup and is not assumed. Both generated
 `to_mont_exact` encodings and canonical field values. The two physical split
 ledgers peak at 28 M1 units / 888 RNS units and 101 M1 units / 2041 RNS units,
 respectively, below the selected 800/5760 reduction boundaries. GT
-exponentiation and final-exponentiation formulas are the remaining P3 packet.
+exponentiation remains the final P3 packet.
+
+`AVX-P3-005` accepts the complete final-exponentiation formula at proof commit
+`21887f9`. The concrete conjugation schedule is proved to be Frobenius to the
+sixth power for every selected Fp12 value; it is treated as inversion only in
+the nonzero cyclotomic group used after the easy part. The Lean schedule keeps
+the literal repeated-square loop, all five `mul_n_sqr` stages, four
+`raise_to_z` calls, the additional `raise_to_z_div_by_2`, every named hard-part
+local, and the Frobenius-1/2/3 placements. It proves the exact inherited BLST
+convention `f^(3 * ((p^12 - 1) / r))`, rather than silently substituting the
+uncubed textbook exponent. The physical ledger records 35 Fp12 multiplies, 315
+cyclotomic squares, nine conjugations, four Frobenius maps, and one inversion;
+the header serially composes accepted operations and never carries an
+unreduced expression across calls. The remaining explicit boundary is that a
+valid nonzero Miller result and its inverter output form the modeled unit; the
+concrete inverter remains covered by focused scalar differential tests rather
+than a new Lean inversion theorem.
 
 The generated snapshot and Python regeneration remain binding and independent
 executable evidence, respectively; Lean checks the corresponding formulas

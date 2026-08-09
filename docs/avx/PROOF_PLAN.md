@@ -191,8 +191,22 @@ claiming general Fp12 or narrowing the theorem to GT. The generated `1/3` and
 bound ledgers are checked. The pre-reduction maxima are 28/888 for the first
 M1/RNS split and 101/2041 for the second, below 800/5760; post-reduction factors
 three and six fit `CommonElement<6>`. GT exponentiation and the relevant final-
-exponentiation formulas are now the remaining P3 work and must use their exact
-GT, cyclotomic, or Miller-result preconditions.
+exponentiation formulas were the remaining P3 work and must use their exact GT,
+cyclotomic, or Miller-result preconditions.
+
+`AVX-P3-005` now accepts the final-exponentiation formula at proof commit
+`21887f9`. The concrete general-Fp12 conjugation is proved to equal Frobenius
+six. A literal group model then preserves the repeated-square loop, all
+`mul_n_sqr` constants, signed negative-`z` convention, easy part, and every
+hard-part local. The fixed BLS12-381 parameter identities prove that the result
+is exactly the repository's documented cubed pairing exponent
+`3 * ((p^12 - 1) / r)`. The exact source ledger is 35 multiplications, 315
+cyclotomic squares, nine conjugations, Frobenius counts 1/2/1, and one inversion;
+no unreduced expression crosses an accepted component boundary. The theorem's
+domain is a valid nonzero Miller-result unit with a correct supplied inverse.
+Formalizing the concrete inversion provider is an explicit residual boundary,
+not a weakened final-exponentiation contract. GT binary and GLV4 exponentiation
+are now the only remaining P3 work.
 
 The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside
 this initial scope. The selected tower uses `FP2Ring<FpRingCandidate>`.

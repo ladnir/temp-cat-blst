@@ -151,7 +151,7 @@ alter Fp12 arithmetic or this historical performance measurement.
 
 ## Formal correspondence
 
-Rows `AVX-P3-002` through `AVX-P3-004` bind the current source hashes rather
+Rows `AVX-P3-002` through `AVX-P3-005` bind the current source hashes rather
 than the historical performance-selection hashes above. Proof commit `256b980`
 completes the selected split cyclotomic square: all twelve literal output
 polynomials equal the general Fp12 square under exactly the scalar
@@ -161,6 +161,17 @@ first/second split physical maxima of 28/888 and 101/2041 M1/RNS units against
 the 800/5760 reduction boundaries. The theorem intentionally accepts zero and
 does not replace the cyclotomic precondition with a narrower GT assumption.
 
+Proof commit `21887f9` completes `AVX-P3-005`. It proves the concrete flat
+conjugation is the general Fp12 `p^6` map and transcribes the full final-
+exponentiation schedule over its precise nonzero-unit domain. Exact integer
+identities verify the negative BLS parameter, the 2/3/9/32/15 addition chain,
+and the repository's intentional cubed final exponent. The source ledger is
+35 multiplications, 315 cyclotomic squares, nine conjugations, Frobenius counts
+1/2/1, and one inversion. Existing
+`AvxMatrixNoKPrimitives.Fp12SparseMultiplyAndFinalExpMatchScalar` and complete-
+pairing differential evidence cover the concrete inversion provider; that
+provider is explicitly outside the new algebra theorem.
+
 ## Residual gates
 
 - Production dispatch remains unchanged. Retained G2, inversion, Miller-loop,
@@ -169,9 +180,10 @@ does not replace the cyclotomic precondition with a narrower GT assumption.
 - The split closes the measured complete-pairing performance gap. A fresh
   standalone split-cyclotomic measurement and stable release-condition timing
   remain future evidence, not prerequisites for beginning the proof.
-- General Fp12 multiplication/squaring, Frobenius maps one through three, and
-  the selected cyclotomic square and their mapped bound transitions are
-  accepted by `AVX-P3-002` through `AVX-P3-004`. GT exponentiation and final-
-  exponentiation formulas remain formal obligations under `PROOF_PLAN.md`.
+- General Fp12 multiplication/squaring, Frobenius maps one through three, the
+  selected cyclotomic square, final-exponentiation formula, and their mapped
+  bound transitions are accepted by `AVX-P3-002` through `AVX-P3-005`. GT
+  binary and GLV4 exponentiation remain the formal P3 obligation under
+  `PROOF_PLAN.md`.
 - Sanitizers, fuzzing, broad suites, Apple CI, CUDA, BTx/BTE, and portable-AVX
   Release were outside this focused packet.
