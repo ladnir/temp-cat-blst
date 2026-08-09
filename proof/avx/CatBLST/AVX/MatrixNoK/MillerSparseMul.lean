@@ -117,7 +117,7 @@ theorem selected_cpp_flat_mulxy00z0_correct
 ## Physical sparse-kernel envelope
 
 The selected MatrixNoK standard representation has element bound two and the
-Miller/Fp12 kernels admit RNS bounds through six.  Consequently one source
+Miller/Fp12 kernels allow RNS bounds through six.  Consequently one source
 product contributes at most `2 * 2 * 6 * 6 = 144` RNS units.  The three
 subtractive coordinate pairs use the same 1440-unit offset accepted in P3.
 -/
