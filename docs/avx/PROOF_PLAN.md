@@ -237,7 +237,7 @@ and generated-constant hashes. P4 should next prove source-shaped curve or
 Miller-loop formulas while composing the accepted P2/P3 tower rather than
 reconstructing it.
 
-P4 has advanced through proof commit `adc9ffc`. Direct and prepared doubling
+P4 is accepted through proof commit `4dbb3cd`. Direct and prepared doubling
 and mixed addition now share proved point/line formulas. The literal sparse
 Fp12 line multiplier is equivalent to accepted dense multiplication and has a
 checked 72-product, 2880-unit envelope. The fixed
@@ -245,12 +245,14 @@ checked 72-product, 2880-unit envelope. The fixed
 binary schedule for `|x| = 0xd201000000010000`; its point invariant and final
 Frobenius-six conjugation are composed.
 
-The next obligation is physical rather than algebraic: accumulated Miller Fp2
-coordinates contain up to four base products, but the accepted P2 completion
-proof is parameterized by the two-product `8m^2` envelope. Generalize that
-proof without changing C++, bind every addition/doubling intermediate and both
-direct/prepared call paths, then close the exact physical ledger and P0
-lowering boundary before accepting `AVX-P4-001`.
+The physical packet proves the required four-product `16m^2` bound, composes
+the exact generated completion and both reducers at that bound, checks every
+direct/prepared reduction input and the strided batch reconstruction, and
+closes exact loop ledgers. The final theorem starts from the literal flat
+square and sparse-multiply schedules—including the omitted first identity
+square—and reaches the abstract binary Miller loop. Focused Lean and three
+portable-Debug scalar differentials pass. P0 compiler/ISA lowering remains an
+explicit external boundary rather than a Lean claim.
 
 The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside
 this initial scope. The selected tower uses `FP2Ring<FpRingCandidate>`.

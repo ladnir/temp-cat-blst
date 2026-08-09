@@ -584,9 +584,13 @@ addition geometry, the exact 68-operation BLS parameter schedule, curve
 preservation across that schedule, and final Frobenius-six conjugation. The
 focused 3,079-target root Lean build passed. No C++ discrepancy was found.
 
-The row remains `in_review`: accumulated Fp2 expressions in the Miller kernels
-reach four base products per coordinate, beyond the accepted P2 theorem's
-two-product `8m^2` physical envelope. That theorem must be generalized and
-instantiated for every direct/prepared intermediate before the full physical
-call ledger and P0 lowering boundary can be accepted. No product or other
+Proof commits `e992ce1` and `4dbb3cd` close the physical and end-to-end gaps.
+Every accumulated Fp2 coordinate fits the proved four-product `16m^2`
+envelope; generated completion, M1/R1/M2/R2 reduction, batch permutation, and
+both exact loop ledgers compose at that bound. Literal flat square and sparse
+multiplication—including the omitted initial identity square—compose with the
+binary BLS-x loop and its curve invariant. The 3,082-target focused Lean build,
+clean trust-word scan, and three portable-Debug scalar differentials pass.
+`AVX-P4-001` is accepted at the recorded hashes. P0 compiler/ISA lowering is
+explicitly external, as for accepted P2/P3 rows. No broad product or other
 permission-gated run was performed.

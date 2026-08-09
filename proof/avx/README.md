@@ -254,7 +254,8 @@ All seven P3 correspondence rows are now accepted. P4 begins with the curve
 and Miller-loop algebra needed to connect accepted field-tower results to the
 complete pairing implementation.
 
-`AVX-P4-001` begins at proof commit `8e0dc2d` and advances through `adc9ffc`.
+`AVX-P4-001` begins at proof commit `8e0dc2d` and is accepted through
+`4dbb3cd`.
 The exact direct/prepared doubling and mixed-addition formulas preserve the
 curve, and their tangent/chord lines contain the required points. The literal
 `flat_mulxy00z0` schedule is proved to be dense Fp12 multiplication by the
@@ -264,20 +265,29 @@ RNS ceiling are checked independently of the dense kernel. The source's
 `0xd201000000010000`, equals the ordinary binary schedule, preserves the curve
 through the fold, and ends with the accepted Frobenius-six conjugation.
 
-The row remains `in_review`. The Miller formulas use accumulated Fp2
-expressions containing up to four base products per coordinate, while the
-accepted P2 physical theorem currently closes only the two-product `8m^2`
-envelope. P4 must generalize that completion/reduction theorem, bind every
-intermediate to the resulting envelope, finish the physical call ledger, and
-retain P0 compiler/ISA lowering as an explicit external boundary.
+The physical packet proves every accumulated Fp2 coordinate contains at most
+four base products and fits `16m^2`, generalizes the complete M1/R1/M2/R2
+reduction chain to that envelope, checks the strided batch reconstruction, and
+records exact direct and prepared ledgers. The literal C++ square/sparse paths
+are then composed with the algebraic operations, including the source's
+omitted first `one^2`. `selected_literal_cpp_miller_loop_correct` is the final
+literal-to-binary-loop theorem. P0 compiler/ISA lowering remains the same
+explicit external boundary used by accepted P2/P3 rows.
 
-Proof SHA-256 values at `adc9ffc` are
-`bfa631d464c9320f6fcd1d0945ee8d950d9afdc116d98b2bc7da1e118dc5f064`
-for `MillerSparseMul.lean`,
-`dfeab10383b959f74b052120ae1fa7e628e56d28a73edc7c6cd768248b17a4f0`
-for `MillerAdd.lean`, and
-`73bb71f21e4233693317bd5586250a9a15dab32d38046bfdd9a7a573cbe1a6de`
-for `MillerSchedule.lean`.
+The focused root Lean build passed 3,082 targets, the Miller proof trust-word
+scan is clean, and three portable-Debug scalar differentials passed:
+G2 complete operations, sparse Fp12/final exponentiation, and complete Miller
+pairing. The already recorded Peach native differential evidence remains
+bound to the unchanged C++ hashes.
+
+Proof SHA-256 values are `978e297d6bf61a6c4070829848d0dfeaa6881129878e951bd3263657b7719038`
+(`MillerDouble.lean`), `5ac59d84fe1a6543239b9b334af4e3ce79f2414354ff87101d6911f5f36e083f`
+(`MillerSparseMul.lean`), `dfeab10383b959f74b052120ae1fa7e628e56d28a73edc7c6cd768248b17a4f0`
+(`MillerAdd.lean`), `a30648e2ee74f3aa4bade730e24967db841429d62adc3d63811285c99f8703e1`
+(`MillerSchedule.lean`), `671b32356430c0d472bd42668476483eb23bd980b06c4e221469686a8884b7e7`
+(`MillerPhysical.lean`), `4db61a4a23458ca201f8743da42a8f5774f69070a02206664d08cbe9abb24eff`
+(`MillerReduction.lean`), and `c20fbb26197715668c644db44f012b593811f692a7f3c19e9dee89cfa960c499`
+(`MillerEndToEnd.lean`).
 
 The generated snapshot and Python regeneration remain binding and independent
 executable evidence, respectively; Lean checks the corresponding formulas

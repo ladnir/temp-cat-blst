@@ -144,20 +144,21 @@ run.
 
 ## Residual gates
 
-- Formal P4 work has advanced through proof commit `adc9ffc`. `AVX-P4-001`
-  now proves the exact direct/prepared doubling and mixed-addition geometry,
+- Formal P4 is accepted through proof commit `4dbb3cd`. `AVX-P4-001` proves
+  the exact direct/prepared doubling and mixed-addition geometry,
   literal sparse Fp12 line multiplication, its 72-product and 2880-unit
   envelope, the exact 68-operation BLS-x schedule, its curve invariant, and
-  final Frobenius-six conjugation. The row remains open because accumulated
-  Miller Fp2 coordinates require a four-product physical completion theorem;
-  accepted P2 evidence currently covers only the two-product `8m^2` case.
+  final Frobenius-six conjugation. The four-product `16m^2` Fp2 completion and
+  reduction chain, batch layout, exact direct/prepared ledgers, and literal
+  source-to-binary-loop composition are also proved. Focused Lean and three
+  portable-Debug scalar differentials pass; P0 lowering remains external.
 - MatrixNoK remains isolated from production dispatch.
 - The inversion/final-exponent review and performance selection are complete;
   the retained formulas and exact constants can now be frozen for proof.
 - The candidate Miller's larger code and stack should be reconsidered only if
   the next integration profile exposes an instruction-cache or stack issue;
   current end-to-end timing is favorable.
-- Formal arithmetic/bound proofs and exact C++/proof correspondence remain
-  pending.
+- P4 arithmetic, bounds, and exact C++/proof correspondence are accepted at
+  recorded hashes; production dispatch and broader release evidence remain.
 - Broad suites, sanitizers, fuzzing, Apple CI, CUDA, BTx/BTE, and portable-AVX
   Release were outside this focused packet.
