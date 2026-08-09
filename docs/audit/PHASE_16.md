@@ -709,7 +709,10 @@ domain CatBLST's representative equivalence is proved iff Mathlib projective
 point equality, including the point at infinity, and the map is proved to
 preserve zero and negation. The all-zero coordinate triple is excluded
 explicitly rather than silently admitted by the homogeneous equation. The
-remaining obligations are CatBLST-complete-add/Mathlib-group-add equivalence,
-the analogous G2 field/group bridge, concrete BLS12-381 point-count/span, and
-selected public-dispatch composition. This remains a proof-only packet; no C++
-build or benchmark ran.
+next proof establishes the missing selected-Fp2 `Field` instance. It checks
+`p mod 4 = 3`, uses Mathlib's quadratic-residue theorem to prove that the norm
+`a² + b²` cannot vanish for a nonzero pair, and verifies the explicit
+conjugate-over-norm inverse. The remaining obligations are CatBLST-complete-add/
+Mathlib-group-add equivalence, the analogous G2 projective-group bridge,
+concrete BLS12-381 point-count/span, and selected public-dispatch composition.
+This remains a proof-only packet; no C++ build or benchmark ran.

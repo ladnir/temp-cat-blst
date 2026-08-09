@@ -339,10 +339,13 @@ G1 equation as a nonsingular Mathlib Weierstrass curve over the proved prime
 field. It maps every nonzero on-curve homogeneous representative to Mathlib's
 projective `AddCommGroup`, proves that CatBLST homogeneous equivalence is exactly
 projective equality on that domain, and proves the identity and negation maps
-agree. `AUD-227` remains open because CatBLST complete addition is not yet
-identified with Mathlib group addition, the analogous G2 field/group bridge is
-not instantiated, and the concrete BLS12-381 point-count/span and selected
-public-dispatch theorems remain. Canonical
+agree. `Fp2Field.lean` proves that the selected `Fp2Value` ring is a field: the
+base modulus is `3 mod 4`, so `-1` is not a square, every nonzero pair has
+nonzero norm, and conjugate-over-norm supplies an inverse. `AUD-227` remains
+open because CatBLST complete addition is not yet identified with Mathlib group
+addition, the analogous G2 projective-group bridge is not instantiated, and
+the concrete BLS12-381 point-count/span and selected public-dispatch theorems
+remain. Canonical
 export followed by scalar REDC
 and byte weaving is likewise an explicit observation boundary for equality,
 infinity observation, validation, and secret normalization rather than a

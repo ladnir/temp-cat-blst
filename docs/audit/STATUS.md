@@ -563,6 +563,8 @@ homogeneous scale is proved nonzero from the literal coefficient.
 `CurveGroupBridge.lean` now provides a concrete Mathlib projective
 `AddCommGroup` carrier for selected G1, proves the nonzero on-curve conversion,
 proves CatBLST homogeneous equivalence iff projective equality, and proves zero
-and negation correspondence. `AUD-227` is not closed: complete-add/group-add
-equivalence, the G2 field/group bridge, concrete point-count/span
+and negation correspondence. `Fp2Field.lean` proves the selected quadratic
+extension is a field from `p mod 4 = 3`, nonvanishing norm, and an explicit
+conjugate-over-norm inverse. `AUD-227` is not closed: complete-add/group-add
+equivalence, the G2 projective-group bridge, concrete point-count/span
 instantiation, and final selected public-dispatch composition remain.
