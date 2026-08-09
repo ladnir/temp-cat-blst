@@ -35,3 +35,5 @@ import CatBLST.AVX.MatrixNoK.MillerDouble
 import CatBLST.AVX.MatrixNoK.MillerSparseMul
 import CatBLST.AVX.MatrixNoK.MillerAdd
 import CatBLST.AVX.MatrixNoK.MillerSchedule
+import CatBLST.AVX.MatrixNoK.MillerPhysical
+import CatBLST.AVX.MatrixNoK.MillerReduction
