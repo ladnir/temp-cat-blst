@@ -173,6 +173,24 @@ theorem, closing the physical reduction composition. Frobenius and cyclotomic
 identities remain separate because they add generated-constant and input-domain
 obligations.
 
+`AVX-P3-003` accepts the three selected general-Fp12 Frobenius maps. The proof
+constructs the concrete twelve-coordinate tower as a commutative ring, checks
+the BLS12-381 base modulus with a fully internal Lucas certificate, and proves
+the literal map-1 schedule equals exponentiation by `p` for every Fp12 value.
+The literal map-2 and map-3 schedules are coefficient-parametric linear maps;
+their checked twelve-basis certificates compose map 1 into universal
+`x^(p^2)` and `x^(p^3)` theorems without normalizing the 381-bit coefficients
+inside every symbolic goal. All ten canonical Frobenius coefficients and all
+160 generated M1/M2 lanes are tied to `to_mont_exact`, the standard-element P2
+contracts, and their canonical field meanings. A source-specific physical
+ledger proves the largest reduced coordinate is below `4m^2` versus the literal
+`MAX_ADD=800` boundary. The unchanged/negated coordinates include an exact
+model of `standard_negate`, its generated `40p` zero offset, and the selected
+one-subtraction `reduce_auto<2>` path. The packet then specializes the accepted
+general-Fp12 completed-reduction chain. Frobenius is valid on general Fp12;
+cyclotomic square and GT exponentiation retain their narrower domains and form
+the next P3 packet.
+
 The generated snapshot and Python regeneration remain binding and independent
 executable evidence, respectively; Lean checks the corresponding formulas
 rather than accepting either tool as the mathematical proof.

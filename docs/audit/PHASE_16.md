@@ -433,6 +433,32 @@ Fp2 prepared-negation semantics and common P0 compiler/IFMA semantics.
 This packet changes no production code and runs no
 benchmark, CUDA, product build, or broad test suite.
 
+## Fp12 Frobenius P3 proof boundary
+
+`AVX-P3-003` proves the three selected Frobenius schedules for general Fp12.
+The proof gives the exact concrete tower a commutative-ring structure, proves
+the BLS12-381 modulus prime from a Lean-checked Lucas factor tree, and derives
+the literal map-1 schedule as the `p`-power map. It factors the literal map-2
+and map-3 code into coefficient-parametric linear templates, checks their
+twelve basis images against repeated map 1, and concludes universal `p^2` and
+`p^3` exponentiation theorems. This proof split avoids oversized kernel terms;
+it does not alter or simplify the production schedule.
+
+The physical packet binds all ten canonical coefficients and all 160 generated
+M1/M2 lanes to the exact `to_mont_exact` construction, their MatrixNoK
+representatives, standard P2 encodings, and canonical field values. Frobenius
+forms at most two products per reduced coordinate: standard inputs below `2m`
+and constant lanes below `m` give a tight `<4m^2` source bound versus the
+literal `ready<MAX_ADD=800>` boundary. The proof also models
+`standard_negate`'s `2m-value`, generated `40p` standard-zero offset, and
+`reduce_auto<2>` conditional subtraction, then composes the resulting lanes
+through the already accepted completed-reduction theorem. No new C++ defect or
+contract weakening was found. Source owners and hashes are recorded in
+`CORRESPONDENCE.csv`; the common compiler/IFMA boundary remains P0. Focused
+Lean targets and deterministic constant regeneration are the validation gate;
+no product build, benchmark, CUDA, BTx/BTE, sanitizer, Apple CI, or broad suite
+is part of this packet.
+
 The same focused investigation found `AUD-223`: internal `FP2Ring::mul` and
 `square` exposed the one-element batch returned by `batch_reduce_expand`
 instead of returning its element. Commit `a01a39b` selects `[0]`, adding no

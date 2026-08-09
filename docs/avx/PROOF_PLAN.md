@@ -168,6 +168,20 @@ compose with the generic completed-representative theorem, so `AVX-P3-002` is
 accepted at the recorded source hashes. Frobenius maps form the next packet;
 cyclotomic square and GT exponentiation remain a distinct narrow-domain packet.
 
+`AVX-P3-003` now accepts Frobenius powers one through three at the literal
+selected source schedules. A checked Lucas factor tree establishes primality of
+the target modulus without an imported primality axiom. The map-1 theorem is
+universal over the concrete Fp12 tower; coefficient-parametric source templates
+and finite basis certificates prove map 2 and map 3 are its second and third
+iterates, hence `x^(p^2)` and `x^(p^3)`. The generated-constant layer checks all
+ten canonical values, all 160 physical lanes, exact `to_mont_exact` rotation,
+standard P2 encodings, and the canonical-to-MatrixNoK representative relation.
+The source-specific physical ledger is `4m^2`, well inside `MAX_ADD=800`, and
+the proof includes the literal `standard_negate`/generated-`40p`-offset path and
+specializes the accepted completed reducer. The next packet is cyclotomic
+squaring and GT exponentiation; its theorems must require the cyclotomic or GT
+precondition actually used by the C++ formulas rather than general Fp12.
+
 The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside
 this initial scope. The selected tower uses `FP2Ring<FpRingCandidate>`.
 
