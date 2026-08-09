@@ -552,13 +552,19 @@ schedule bound, chunked square runs, executor semantics, and its FFT call-site
 preconditions. Existing differential coverage is evidence, not a formal
 substitute for that row.
 
-Proof commit `51462b9` subsequently closes the arithmetic splitter subpacket
-of that final row. The centered remainder/rounded quotient is exact at each of
-four iterations; recomposition includes the literal remaining `z^4` term.
-Lean proves the source's `k2 += tail; k0 -= tail` fold from
-`r = z^4 - z^2 + 1`, then proves the final odd-coordinate negations reconstruct
-the scalar in the Frobenius basis. Monotonicity of the closed rounded quotient
-gives the production Debug invariant `tail <= 2`, and all adjusted digits are
-strictly inside `int64_t` for every 256-bit input. `AVX-P3-007` remains
-`in_review` only for sign-mask/MSB/schedule compilation, the 70-byte bound,
-bytecode execution, physical counts, and FFT call-site contracts.
+Proof commits `51462b9` and `effdb3d` close `AVX-P3-007`. The arithmetic packet
+proves the four centered divisions, `z^4` carry fold, tail at most two,
+Frobenius-basis reconstruction, and strict signed 64-bit digits. The compiled
+packet then proves sign-mask bits, absolute magnitudes, high-to-low discovery,
+literal opcode nibbles, fifteen-square chunks, trailing runs, and executor
+semantics. For every 256-bit scalar the compiled executor returns the original
+GT exponent. The physical proof bounds the schedule by 63 of 70 bytes, squares
+and post-initialization products by 62 each, and total products by 74 including
+table construction and normalization. A canonical-`Fr` corollary covers FFT
+prepared roots and inverse scales; the C++ `from_mont` representation bridge
+and P0 lowering remain explicit residual boundaries.
+
+All P3 rows are accepted at exact source and generated-constant hashes. The
+next formal packet is P4 curve/Miller-loop algebra. No product build,
+benchmark, sanitizer, CUDA, BTx/BTE, Apple CI, broad suite, or portable-AVX
+Release build ran for this proof-only closure.

@@ -190,13 +190,13 @@ Frobenius, conjugation, and cyclotomic results rather than broadening them.
 - The split closes the measured complete-pairing performance gap. A fresh
   standalone split-cyclotomic measurement and stable release-condition timing
   remain future evidence, not prerequisites for beginning the proof.
-- General Fp12 multiplication/squaring, Frobenius maps one through three, the
-  selected cyclotomic square, final-exponentiation formula, public GT binary
-  exponentiation, and unsigned CT/VT GLV4 paths are accepted by `AVX-P3-002`
-  through `AVX-P3-006`. The balanced signed schedule compiler/executor used by
-  FFT remains the final formal P3 obligation under `PROOF_PLAN.md`. Its
-  arithmetic split, carry fold, tail bound, signed-digit bound, and Frobenius
-  reconstruction are checked by the in-review `AVX-P3-007` subpacket at
-  `51462b9`; bytecode compilation/execution and FFT contracts remain.
+- General Fp12 multiplication/squaring, Frobenius maps, cyclotomic square,
+  final exponentiation, public GT exponentiation, and the balanced compiled
+  FFT exponentiation path are accepted by `AVX-P3-002` through `AVX-P3-007`.
+  Proof commits `51462b9` and `effdb3d` establish the exact signed split,
+  bytecode compiler/executor, 63-byte valid-input bound inside the 70-byte
+  owner, 62-square/62-executor-product maxima, and canonical-`Fr` FFT
+  corollary. The C++ `Fr::from_mont` representation bridge and P0
+  compiler/ISA lowering remain explicit residual boundaries.
 - Sanitizers, fuzzing, broad suites, Apple CI, CUDA, BTx/BTE, and portable-AVX
   Release were outside this focused packet.

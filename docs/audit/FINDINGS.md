@@ -244,6 +244,21 @@ identified, even if the likely fix is small.
 | AUD-222 | medium | fixed | Scalar Fr reciprocal used the public redc contract for a wider private almost-inverse | `ct_inverse_mod_v256` returns a specially structured value below `2rR`; the first reduction may remain redundant below `2r` and is canonicalized by the following `to_mont`. Routing it through public `Fr::redc`, whose correct contract is `T < rR`, caused a Debug assertion even though the Release inverse was correct | `Fr::reciprocal`, raw inverse differential, MatrixNoK G1 FFT oracle | Phase 16 formal repair follow-up | Preserve public `Fr::redc` at `<rR`; Debug-check the private inverse bound against exactly `2r`, invoke the backend reducer directly, and retain the canonicalizing `to_mont` stage | Commit `1e286e2` adds zero Release work, keeps the public REDC invariant, and corrects the raw inverse test boundary. All 18 focused portable-Debug MatrixNoK tests pass, including G1 FFT and canonical import |
 | AUD-223 | low | validated | Selected Fp2 single-result helpers exposed their internal one-element batch | `FP2Ring::mul` and `FP2Ring::square` used `auto` to return `batch_reduce_expand(...)` directly, so their source-level result was `std::array<StandardElement, 1>` rather than `StandardElement`; the methods had no known production caller, but their intended scalar-ring API shape was unusable | `blst/avx/fields/fp2.h`, selected Fp2 focused regression | MatrixNoK P3 formal proof follow-up | Return element zero from the fixed one-item batch; retain the allocation-free batch reducer and generated code shape | Commit `a01a39b` adds only compile-time indexing, and the focused portable-Debug regression compiles both helpers and matches scalar Fp2 multiplication and squaring on the completion-boundary witness |
 
+### Phase 16 P3 closure addendum
+
+`AUD-216` and `AUD-220` now include accepted `AVX-P3-007` evidence at proof
+commits `51462b9` and `effdb3d`. The exact balanced signed split, sign mask,
+absolute-value encoding, MSB discovery, bytecode nibbles, fifteen-square
+chunking, trailing runs, and executor semantics are proved for every scalar
+below `2^256`. Valid inputs occupy at most 63 of the 70 schedule bytes and use
+at most 62 executor squares, 62 post-initialization executor products, and 74
+total products including table construction and normalization. The canonical
+`Fr < r` FFT corollary closes the prepared-root arithmetic obligation. The
+C++ `Fr::from_mont` representation bridge and P0 compiler/ISA lowering remain
+explicit residual boundaries. Consequently all seven P3 rows are accepted;
+the older table-cell statements that the balanced path or field tower remains
+pending are superseded by this addendum and the exact correspondence ledger.
+
 
 
 ## Finding template

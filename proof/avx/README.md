@@ -236,17 +236,23 @@ GT-domain results composed through accepted Fp12 operations. The balanced
 signed schedule compiler/executor used by FFT remains a distinct P3 row rather
 than being inferred from the public unsigned executor.
 
-The first `AVX-P3-007` subpacket is checked at proof commit `51462b9`. It
-transcribes the source's remainder-centering rule as a rounded quotient,
-proves each of the four signed division identities, and reconstructs the input
-with its remaining `z^4` quotient. The exact source carry fold uses
-`r = z^4 - z^2 + 1`; negating odd coordinates then reconstructs the scalar in
-the ordinary Frobenius basis. For every 256-bit input the remaining quotient
-is at most two and all four adjusted digits lie strictly inside signed 64-bit
-range, justifying the source casts and absolute values. This row remains
-`in_review`: sign-mask encoding, MSB discovery, schedule emission/capacity,
-chunked square runs, bytecode execution, and FFT caller contracts are the
-enumerated proof obligations.
+`AVX-P3-007` is accepted by proof commits `51462b9` and `effdb3d`. The first
+commit transcribes the source's remainder-centering rule, four signed division
+identities, `z^4` carry fold, odd-coordinate sign change, and strict signed
+64-bit bounds. The second models the exact sign mask, absolute magnitudes,
+high-to-low MSB discovery, high/low opcode nibbles, fifteen-square chunking,
+trailing runs, and trusted executor. The composed theorem returns the original
+scalar exponent for every input below `2^256`. Physical theorems show valid
+inputs emit at most 63 of the owner's 70 bytes, execute at most 62 squares and
+62 post-initialization multiplications, and require at most 74 multiplications
+including the eleven-entry table construction and final normalization. The
+FFT corollary records the canonical `Fr < r` precondition used by prepared
+roots and inverse scales. The C++ `Fr::from_mont` representation bridge and P0
+compiler/ISA lowering remain explicit non-Lean boundaries.
+
+All seven P3 correspondence rows are now accepted. P4 begins with the curve
+and Miller-loop algebra needed to connect accepted field-tower results to the
+complete pairing implementation.
 
 The generated snapshot and Python regeneration remain binding and independent
 executable evidence, respectively; Lean checks the corresponding formulas
