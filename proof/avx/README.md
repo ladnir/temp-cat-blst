@@ -254,15 +254,30 @@ All seven P3 correspondence rows are now accepted. P4 begins with the curve
 and Miller-loop algebra needed to connect accepted field-tower results to the
 complete pairing implementation.
 
-`AVX-P4-001` begins that work at proof commit `8e0dc2d`. `Fp2Algebra.lean`
-packages the accepted P3-001 `u^2 = -1` formulas as a commutative ring, and
-`MillerDouble.lean` transcribes the exact homogeneous intermediates shared by
-`Miller::double_step` and prepared `line_dbl`. For every on-curve input over
-the selected Fp2 carrier, the output remains on the curve, the emitted tangent
-line contains the input and the negation of the doubled output, and prepared
-G1 scaling equals the direct Miller line construction. The row remains
-`in_review` until sparse Fp12 line multiplication, Miller-specific RNS bounds,
-the physical call ledger, and the fixed schedule are proved and composed.
+`AVX-P4-001` begins at proof commit `8e0dc2d` and advances through `adc9ffc`.
+The exact direct/prepared doubling and mixed-addition formulas preserve the
+curve, and their tangent/chord lines contain the required points. The literal
+`flat_mulxy00z0` schedule is proved to be dense Fp12 multiplication by the
+sparse `(c, x, 0, 0, y, 0)` line value. Its 72-product ledger and 2880-unit
+RNS ceiling are checked independently of the dense kernel. The source's
+68-operation schedule has exactly 63 doublings and five additions, reaches
+`0xd201000000010000`, equals the ordinary binary schedule, preserves the curve
+through the fold, and ends with the accepted Frobenius-six conjugation.
+
+The row remains `in_review`. The Miller formulas use accumulated Fp2
+expressions containing up to four base products per coordinate, while the
+accepted P2 physical theorem currently closes only the two-product `8m^2`
+envelope. P4 must generalize that completion/reduction theorem, bind every
+intermediate to the resulting envelope, finish the physical call ledger, and
+retain P0 compiler/ISA lowering as an explicit external boundary.
+
+Proof SHA-256 values at `adc9ffc` are
+`bfa631d464c9320f6fcd1d0945ee8d950d9afdc116d98b2bc7da1e118dc5f064`
+for `MillerSparseMul.lean`,
+`dfeab10383b959f74b052120ae1fa7e628e56d28a73edc7c6cd768248b17a4f0`
+for `MillerAdd.lean`, and
+`73bb71f21e4233693317bd5586250a9a15dab32d38046bfdd9a7a573cbe1a6de`
+for `MillerSchedule.lean`.
 
 The generated snapshot and Python regeneration remain binding and independent
 executable evidence, respectively; Lean checks the corresponding formulas

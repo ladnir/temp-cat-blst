@@ -144,11 +144,13 @@ run.
 
 ## Residual gates
 
-- Formal P4 work has begun at proof commit `8e0dc2d`. `AVX-P4-001` proves the
-  exact shared direct/prepared Miller doubling point and tangent-line algebra
-  over the selected Fp2 carrier. Sparse Fp12 line multiplication,
-  Miller-specific physical bounds, and the fixed loop schedule remain before
-  the row can be accepted.
+- Formal P4 work has advanced through proof commit `adc9ffc`. `AVX-P4-001`
+  now proves the exact direct/prepared doubling and mixed-addition geometry,
+  literal sparse Fp12 line multiplication, its 72-product and 2880-unit
+  envelope, the exact 68-operation BLS-x schedule, its curve invariant, and
+  final Frobenius-six conjugation. The row remains open because accumulated
+  Miller Fp2 coordinates require a four-product physical completion theorem;
+  accepted P2 evidence currently covers only the two-product `8m^2` case.
 - MatrixNoK remains isolated from production dispatch.
 - The inversion/final-exponent review and performance selection are complete;
   the retained formulas and exact constants can now be frozen for proof.

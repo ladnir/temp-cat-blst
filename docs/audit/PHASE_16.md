@@ -578,7 +578,15 @@ proves its homogeneous output remains on `y^2 = x^3 + b`, its line contains
 the input and negative doubled output, and prepared G1 line scaling equals the
 direct Miller construction. No C++ discrepancy was found.
 
-The row remains `in_review`: sparse `flat_mulxy00z0` correspondence,
-Miller-specific RNS bounds, an exact physical call ledger, and the fixed loop
-schedule remain. Focused root Lean passed; no product or permission-gated run
-was performed.
+Follow-up proof commit `adc9ffc` proves literal `flat_mulxy00z0` sparse
+multiplication, its 72-product ledger and 2880-unit RNS bound, complete mixed
+addition geometry, the exact 68-operation BLS parameter schedule, curve
+preservation across that schedule, and final Frobenius-six conjugation. The
+focused 3,079-target root Lean build passed. No C++ discrepancy was found.
+
+The row remains `in_review`: accumulated Fp2 expressions in the Miller kernels
+reach four base products per coordinate, beyond the accepted P2 theorem's
+two-product `8m^2` physical envelope. That theorem must be generalized and
+instantiated for every direct/prepared intermediate before the full physical
+call ledger and P0 lowering boundary can be accepted. No product or other
+permission-gated run was performed.
