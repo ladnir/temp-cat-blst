@@ -378,6 +378,12 @@ class GLVMult {
         beta = ring.from_hex("0x5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffefffe");
     }
 
+    constexpr GLVMult(
+        const G1Curve& curve,
+        const typename Ring::StandardElement& beta_value) noexcept
+        : beta(beta_value), curve(curve)
+    {}
+
     template<int batch_size>
     std::array<ProjectivePoint, batch_size> batch_endomorphism(const std::array<ProjectivePoint, batch_size> &P, const Ring &ring) const {
         static_assert(batch_size > 0);
@@ -511,6 +517,15 @@ class GLSMult {
         psi_y_r = ring.from_hex("0x135203e60180a68ee2e9c448d77a2cd91c3dedd930b1cf60ef396489f61eb45e304466cf3e67fa0af1ee7b04121bdea2");
         psi_y_i = ring.from_hex("0x06af0e0437ff400b6831e36d6bd17ffe48395dabc2d3435e77f76e17009241c5ee67992f72ec05f4c81084fbede3cc09");
     }
+
+    constexpr GLSMult(
+        const typename Ring::StandardElement& psi_x_i_value,
+        const typename Ring::StandardElement& psi_y_r_value,
+        const typename Ring::StandardElement& psi_y_i_value) noexcept
+        : psi_x_i(psi_x_i_value),
+          psi_y_r(psi_y_r_value),
+          psi_y_i(psi_y_i_value)
+    {}
    
     ProjectivePoint minus_psi(const ProjectivePoint &P, const Ring &ring) const {
         // Unroll the Fp2 products, skip multiplication by zero, and combine the

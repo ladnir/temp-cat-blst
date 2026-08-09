@@ -471,6 +471,39 @@ TEST(AvxNativePointContract, UncheckedMultiplicationIsExactAndSupportsLowOrderPo
     EXPECT_TRUE(AvxG2::is_inf(zero_g2));
 }
 
+TEST(AvxNativePointContract, GeneratedCurveLiteralsMatchScalarBackend)
+{
+    EXPECT_TRUE(G1::equal(
+        scalar_from_avx(AvxG1::generator()), G1::generator()));
+    EXPECT_TRUE(G1::equal(
+        scalar_from_avx(blst::avx::get_BLST_NEG_G1()),
+        blst::scalar::get_BLST_NEG_G1()));
+    EXPECT_TRUE(G2::equal(
+        scalar_from_avx(AvxG2::generator()), G2::generator()));
+    EXPECT_TRUE(G2::equal(
+        scalar_from_avx(blst::avx::get_BLST_NEG_G2()),
+        blst::scalar::get_BLST_NEG_G2()));
+
+    const blst::Fp aprime_e1 =
+        blst::avx::avx_curve_detail::ring_fp_to_scalar(
+            blst::avx::get_BLST_Aprime_E1());
+    EXPECT_TRUE(blst::Fp::equal(
+        aprime_e1, blst::scalar::get_BLST_Aprime_E1()));
+
+    const blst::Fp2 aprime_e2 =
+        blst::avx::avx_curve_detail::ring_fp2_to_scalar(
+            blst::avx::get_BLST_Aprime_E2());
+    const blst::Fp2& scalar_aprime_e2 =
+        blst::scalar::get_BLST_Aprime_E2();
+    EXPECT_TRUE(blst::Fp::equal(aprime_e2[0], scalar_aprime_e2[0]));
+    EXPECT_TRUE(blst::Fp::equal(aprime_e2[1], scalar_aprime_e2[1]));
+
+    blst_fp12 scalar_one = {};
+    ASSERT_TRUE(blst_fp12_from_avx(
+        &scalar_one, blst_avx_fp12_one()));
+    EXPECT_TRUE(blst_fp12_is_equal(&scalar_one, blst_fp12_one()));
+}
+
 TEST(AvxNativePointContract, EqualityHandlesEveryInfinityRepresentation)
 {
     const auto& ring = blst::avx::avx_curve_detail::curve_ring();

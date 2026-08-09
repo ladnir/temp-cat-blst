@@ -22,7 +22,7 @@ class FP2 {
     // opaque contexts that start member lifetimes with placement new.
     FP2() = default;
     
-    INLINE FP2(const X &x, const Y &y) : x_(x), y_(y) {}
+    constexpr INLINE FP2(const X& x, const Y& y) : x_(x), y_(y) {}
 
     // Const getters to access members
     INLINE const X& x() const { return x_; }
@@ -173,8 +173,7 @@ class FP2Ring {
     constexpr static auto _12 = std::integral_constant<int, 12>{};
     using StandardElement = FP2<typename Ring::StandardElement, typename Ring::StandardElement>;
 
-    // May need to remove if it is recalling the constructor for the ring.
-    INLINE FP2Ring(const Ring &r) : ring(r) {}
+    constexpr INLINE explicit FP2Ring(const Ring& r) noexcept : ring(r) {}
 
 
     // Helper to convert variadic arguments to array using index_sequence

@@ -129,11 +129,6 @@ inline const AvxGt* as_avx(const blst_avx_fp12* value)
     return reinterpret_cast<const AvxGt*>(value);
 }
 
-inline AvxMillerResult* as_miller(blst_avx_fp12* value)
-{
-    return reinterpret_cast<AvxMillerResult*>(value);
-}
-
 inline const AvxMillerResult* as_miller(const blst_avx_fp12* value)
 {
     return reinterpret_cast<const AvxMillerResult*>(value);
@@ -1188,8 +1183,7 @@ bool blst_avx_p1s_mult_pippenger(
 const blst_avx_p1* blst_avx_p1_generator(void)
 {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-    static const AvxG1 generator = AvxG1::generator();
-    return reinterpret_cast<const blst_avx_p1*>(&generator);
+    return reinterpret_cast<const blst_avx_p1*>(&AvxG1::generator());
 #else
     return nullptr;
 #endif
@@ -1626,8 +1620,7 @@ bool blst_avx_p2s_mult_pippenger(
 const blst_avx_p2* blst_avx_p2_generator(void)
 {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-    static const AvxG2 generator = AvxG2::generator();
-    return reinterpret_cast<const blst_avx_p2*>(&generator);
+    return reinterpret_cast<const blst_avx_p2*>(&AvxG2::generator());
 #else
     return nullptr;
 #endif
@@ -1822,8 +1815,7 @@ bool blst_avx_fp12_in_group(const blst_avx_fp12* a)
 const blst_avx_fp12* blst_avx_fp12_one(void)
 {
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-    static const AvxGt one = AvxGt::identity();
-    return reinterpret_cast<const blst_avx_fp12*>(&one);
+    return reinterpret_cast<const blst_avx_fp12*>(&blst::avx::kGtIdentity);
 #else
     return nullptr;
 #endif

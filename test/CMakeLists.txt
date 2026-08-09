@@ -181,6 +181,13 @@ if(Python3_Interpreter_FOUND)
     )
     set_tests_properties(audit.matrixnok_constants PROPERTIES LABELS "audit;avx512")
 
+    add_test(NAME audit.matrixnok_curve_constants
+        COMMAND ${Python3_EXECUTABLE}
+            "${PROJECT_SOURCE_DIR}/scripts/audit/validate_matrixnok_curve_constants.py"
+            --self-test
+    )
+    set_tests_properties(audit.matrixnok_curve_constants PROPERTIES LABELS "audit;avx512")
+
     add_test(NAME audit.matrixnok_lean_constants
         COMMAND ${Python3_EXECUTABLE}
             "${PROJECT_SOURCE_DIR}/scripts/audit/generate_matrixnok_lean.py"

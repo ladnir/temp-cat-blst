@@ -28,20 +28,19 @@ using PairingFp2LeftPrepared = decltype(std::declval<PairingFp2Element>().prep_l
 
 inline const Ring& ring()
 {
-    static const Ring value;
-    return value;
+    return avx_curve_detail::kCurveRing;
 }
 
 inline const PairingFp2& fp2ring()
 {
-    static const PairingFp2 value(ring());
-    return value;
+    return avx_curve_detail::kCurveFp2Ring;
 }
+
+inline constexpr FP12 kFp12Ring{};
 
 inline const FP12& fp12ring()
 {
-    static const FP12 value(ring());
-    return value;
+    return kFp12Ring;
 }
 
 inline std::array<uint64_t, 4> scalar_to_u64_le(const byte* scalar, size_t nbits)
@@ -100,6 +99,17 @@ constexpr FP12::StandardElement gt_generator_value()
         literal_standard_element(value[9]),
         literal_standard_element(value[10]),
         literal_standard_element(value[11]),
+    }};
+}
+
+constexpr FP12::StandardElement fp12_identity_value()
+{
+    return FP12::StandardElement{{
+        literal_standard_element({{
+            matrixnok::generated::one_m1,
+            matrixnok::generated::one_m2,
+        }}),
+        {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
     }};
 }
 
@@ -446,9 +456,9 @@ struct MillerResult
     constexpr MillerResult() = default;
     constexpr explicit MillerResult(const Field_type& value) : data(value) {}
 
-    static MillerResult identity()
+    static constexpr MillerResult identity()
     {
-        return MillerResult(avx_gt_detail::fp12ring().one(avx_gt_detail::ring()));
+        return MillerResult(avx_gt_detail::fp12_identity_value());
     }
 
     static void mul(MillerResult& out, const MillerResult& a, const MillerResult& b)
@@ -587,9 +597,9 @@ struct GT
 
     static const GT& generator();
 
-    static GT identity()
+    static constexpr GT identity()
     {
-        return GT(avx_gt_detail::fp12ring().one(avx_gt_detail::ring()));
+        return GT(avx_gt_detail::fp12_identity_value());
     }
 
     static int is_identity(const GT& p)
@@ -966,6 +976,7 @@ struct GT
 };
 
 inline constexpr GT kGtGenerator(avx_gt_detail::gt_generator_value());
+inline constexpr GT kGtIdentity(avx_gt_detail::fp12_identity_value());
 
 inline const GT& GT::generator()
 {

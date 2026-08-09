@@ -67,6 +67,22 @@ def main() -> int:
         "using CurveG2 = matrixnok::G2Curve;",
         "using CurveG1GLV = matrixnok::G1GLV;",
         "using CurveG2GLS = matrixnok::G2GLS;",
+        "inline constexpr CurveRing kCurveRing{};",
+        "inline constexpr CurveFp2Ring kCurveFp2Ring{kCurveRing};",
+        "inline constexpr CurveG1GLV kCurveG1Glv(",
+        "inline constexpr CurveG2GLS kCurveG2Gls(",
+        "static constexpr G1Point g{",
+        "static constexpr G2Point g{",
+    ))
+    forbid_fragments(point, (
+        "static const CurveRing ring;",
+        "static const CurveFp2Ring fp2ring(",
+        "static const CurveG1GLV mult(",
+        "static const CurveG2GLS mult(",
+        "scalar_fp_to_ring(blst::scalar::get_BLST_Aprime_E1())",
+        "scalar_fp2_to_ring(blst::scalar::get_BLST_Aprime_E2())",
+        "const blst::scalar::G1AffinePoint& scalar_g",
+        "const blst::scalar::G2AffinePoint& scalar_g",
     ))
 
     gt = avx / "curve" / "GT.h"
@@ -77,12 +93,37 @@ def main() -> int:
         "matrixnok::generated::gt_generator",
         "matrixnok::PairingInverter inverter;",
         "const matrixnok::MillerEngine miller(",
+        "inline constexpr FP12 kFp12Ring{};",
+        "inline constexpr GT kGtIdentity(",
+    ))
+    forbid_fragments(gt, (
+        "static const Ring value;",
+        "static const PairingFp2 value(",
+        "static const FP12 value(",
     ))
 
     fft = avx / "fft" / "gt_context.h"
     require_fragments(fft, (
         "using Ring = matrixnok::FpRing;",
         "using Fp12Ring = matrixnok::Fp12Ring;",
+        "inline static constexpr Ring kRing{};",
+        "inline static constexpr Fp12Ring kFp12Ring{};",
+    ))
+    forbid_fragments(fft, (
+        "static const Ring instance;",
+        "static const Fp12Ring instance(",
+    ))
+
+    avx_c_api = repo / "blst" / "avx_c_api.cpp"
+    require_fragments(avx_c_api, (
+        "&AvxG1::generator()",
+        "&AvxG2::generator()",
+        "&blst::avx::kGtIdentity",
+    ))
+    forbid_fragments(avx_c_api, (
+        "static const AvxG1 generator",
+        "static const AvxG2 generator",
+        "static const AvxGt one",
     ))
 
     for owner in (point, gt, fft):

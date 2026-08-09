@@ -12,6 +12,7 @@
 #include "matrixnok_g1.h"
 #include "matrixnok_g2.h"
 #include "scalar_mult.h"
+#include "../generated_matrixnok_curve_constants.hpp"
 #include "blst/avx/fields/conversion_inversion.h"
 #include "blst/scalar/curve/point.h"
 
@@ -35,40 +36,100 @@ using CurveG2Affine = matrixnok::G2Affine;
 using CurveG1GLV = matrixnok::G1GLV;
 using CurveG2GLS = matrixnok::G2GLS;
 
+constexpr AVXVector<CurveRing::limbs> literal_vector(
+    const std::array<uint64_t, CurveRing::limbs>& lanes)
+{
+    return AVXVector<CurveRing::limbs>(_vv512_const_u64(
+        lanes[0], lanes[1], lanes[2], lanes[3],
+        lanes[4], lanes[5], lanes[6], lanes[7]));
+}
+
+constexpr CurveRing::StandardElement literal_standard_element(
+    const std::array<uint64_t, CurveRing::limbs>& m1,
+    const std::array<uint64_t, CurveRing::limbs>& m2)
+{
+    return CurveRing::StandardElement(
+        CurveRing::StandardBoundedElement(literal_vector(m1)),
+        CurveRing::StandardBoundedElement(literal_vector(m2)));
+}
+
+constexpr CurveFp2Ring::StandardElement literal_fp2_element(
+    const std::array<uint64_t, CurveRing::limbs>& x_m1,
+    const std::array<uint64_t, CurveRing::limbs>& x_m2,
+    const std::array<uint64_t, CurveRing::limbs>& y_m1,
+    const std::array<uint64_t, CurveRing::limbs>& y_m2)
+{
+    return CurveFp2Ring::StandardElement(
+        literal_standard_element(x_m1, x_m2),
+        literal_standard_element(y_m1, y_m2));
+}
+
+inline constexpr CurveRing kCurveRing{};
+inline constexpr CurveFp2Ring kCurveFp2Ring{kCurveRing};
+inline constexpr CurveG1 kCurveG1{};
+inline constexpr CurveG2 kCurveG2{};
+inline constexpr CurveG1GLV kCurveG1Glv(
+    kCurveG1,
+    literal_standard_element(
+        matrixnok::generated::fp12_frob1_4_m1,
+        matrixnok::generated::fp12_frob1_4_m2));
+inline constexpr CurveG2GLS kCurveG2Gls(
+    literal_standard_element(
+        matrixnok::generated::fp12_frob1_3_m1,
+        matrixnok::generated::fp12_frob1_3_m2),
+    literal_standard_element(
+        matrixnok::generated::fp12_frob1_8_m1,
+        matrixnok::generated::fp12_frob1_8_m2),
+    literal_standard_element(
+        matrixnok::generated::fp12_frob1_7_m1,
+        matrixnok::generated::fp12_frob1_7_m2));
+inline constexpr CurveFp2Ring::StandardElement kPsiFrobeniusX(
+    literal_standard_element(
+        matrixnok::generated::aprime_e2_x_m1,
+        matrixnok::generated::aprime_e2_x_m2),
+    kCurveG2Gls.psi_x_i);
+inline constexpr CurveFp2Ring::StandardElement kPsiFrobeniusY(
+    kCurveG2Gls.psi_y_r,
+    kCurveG2Gls.psi_y_i);
+inline constexpr CurveRing::StandardElement kAprimeE1 =
+    literal_standard_element(
+        matrixnok::generated::aprime_e1_m1,
+        matrixnok::generated::aprime_e1_m2);
+inline constexpr CurveFp2Ring::StandardElement kAprimeE2 =
+    literal_fp2_element(
+        matrixnok::generated::aprime_e2_x_m1,
+        matrixnok::generated::aprime_e2_x_m2,
+        matrixnok::generated::aprime_e2_y_m1,
+        matrixnok::generated::aprime_e2_y_m2);
+
 inline const CurveRing& curve_ring()
 {
-    static const CurveRing ring;
-    return ring;
+    return kCurveRing;
 }
 
 inline const CurveFp2Ring& curve_fp2_ring()
 {
-    static const CurveFp2Ring fp2ring(curve_ring());
-    return fp2ring;
+    return kCurveFp2Ring;
 }
 
 inline const CurveG1& curve_g1()
 {
-    static const CurveG1 curve;
-    return curve;
+    return kCurveG1;
 }
 
 inline const CurveG2& curve_g2()
 {
-    static const CurveG2 curve;
-    return curve;
+    return kCurveG2;
 }
 
 inline const CurveG1GLV& curve_g1_glv()
 {
-    static const CurveG1GLV mult(curve_g1(), curve_ring());
-    return mult;
+    return kCurveG1Glv;
 }
 
 inline const CurveG2GLS& curve_g2_gls()
 {
-    static const CurveG2GLS mult(curve_ring());
-    return mult;
+    return kCurveG2Gls;
 }
 
 inline bool is_zero(const CurveRing::StandardElement& value)
@@ -301,16 +362,12 @@ inline CurveG2Projective affine_to_projective(const CurveG2Affine& point)
 
 inline const CurveRing::StandardElement& aprime_e1()
 {
-    static const CurveRing::StandardElement value =
-        scalar_fp_to_ring(blst::scalar::get_BLST_Aprime_E1());
-    return value;
+    return kAprimeE1;
 }
 
 inline const CurveFp2Ring::StandardElement& aprime_e2()
 {
-    static const CurveFp2Ring::StandardElement value =
-        scalar_fp2_to_ring(blst::scalar::get_BLST_Aprime_E2());
-    return value;
+    return kAprimeE2;
 }
 
 inline CurveFp2Ring::StandardElement fp2_conjugate(const CurveFp2Ring::StandardElement& value)
@@ -320,18 +377,12 @@ inline CurveFp2Ring::StandardElement fp2_conjugate(const CurveFp2Ring::StandardE
 
 inline const CurveFp2Ring::StandardElement& psi_frobenius_x()
 {
-    static const CurveFp2Ring::StandardElement value(
-        curve_ring().zero(),
-        curve_g2_gls().psi_x_i);
-    return value;
+    return kPsiFrobeniusX;
 }
 
 inline const CurveFp2Ring::StandardElement& psi_frobenius_y()
 {
-    static const CurveFp2Ring::StandardElement value(
-        curve_g2_gls().psi_y_r,
-        curve_g2_gls().psi_y_i);
-    return value;
+    return kPsiFrobeniusY;
 }
 
 inline const std::array<byte, 32>& minus_z_bytes()
@@ -498,7 +549,7 @@ struct G2AffinePoint
     Field_type Y;
 
     G2AffinePoint() = default;
-    G2AffinePoint(const Field_type& x, const Field_type& y) : X(x), Y(y) {}
+    constexpr G2AffinePoint(const Field_type& x, const Field_type& y) : X(x), Y(y) {}
 
     /// Prime-order G2 subgroup generator.
     static const G2AffinePoint& generator();
@@ -546,7 +597,10 @@ struct G2Point
     Field_type Z;
 
     G2Point() = default;
-    G2Point(const Field_type& x, const Field_type& y, const Field_type& z) : X(x), Y(y), Z(z) {}
+    constexpr G2Point(
+        const Field_type& x, const Field_type& y, const Field_type& z)
+        : X(x), Y(y), Z(z)
+    {}
 
     /// Complete add-or-double of on-curve points; subgroup membership is not required.
     static void dadd(G2Point& out, const G2Point& a, const G2Point& b);
@@ -740,12 +794,13 @@ BLST_INLINE void unchecked_mult(
 
 inline const G1AffinePoint& G1AffinePoint::generator()
 {
-    static const G1AffinePoint g = [] {
-        const blst::scalar::G1AffinePoint& scalar_g = blst::scalar::G1AffinePoint::generator();
-        return G1AffinePoint(
-            avx_curve_detail::scalar_fp_to_ring(scalar_g.x),
-            avx_curve_detail::scalar_fp_to_ring(scalar_g.y));
-    }();
+    static constexpr G1AffinePoint g(
+        avx_curve_detail::literal_standard_element(
+            matrixnok::generated::g1_generator_x_m1,
+            matrixnok::generated::g1_generator_x_m2),
+        avx_curve_detail::literal_standard_element(
+            matrixnok::generated::g1_generator_y_m1,
+            matrixnok::generated::g1_generator_y_m2));
     return g;
 }
 
@@ -1007,11 +1062,16 @@ inline limb_t G1Point::equal(const G1Point& a, const G1Point& b)
 
 inline const G1Point& G1Point::generator()
 {
-    static const G1Point g = [] {
-        G1Point out = {};
-        from_affine(out, G1AffinePoint::generator());
-        return out;
-    }();
+    static constexpr G1Point g{
+        avx_curve_detail::literal_standard_element(
+            matrixnok::generated::g1_generator_x_m1,
+            matrixnok::generated::g1_generator_x_m2),
+        avx_curve_detail::literal_standard_element(
+            matrixnok::generated::g1_generator_y_m1,
+            matrixnok::generated::g1_generator_y_m2),
+        avx_curve_detail::literal_standard_element(
+            matrixnok::generated::one_m1,
+            matrixnok::generated::one_m2)};
     return g;
 }
 
@@ -1070,12 +1130,17 @@ inline void G1Point::compress(unsigned char* out, const G1Point& in)
 
 inline const G2AffinePoint& G2AffinePoint::generator()
 {
-    static const G2AffinePoint g = [] {
-        const blst::scalar::G2AffinePoint& scalar_g = blst::scalar::G2AffinePoint::generator();
-        return G2AffinePoint(
-            avx_curve_detail::scalar_fp2_to_ring(scalar_g.x),
-            avx_curve_detail::scalar_fp2_to_ring(scalar_g.y));
-    }();
+    static constexpr G2AffinePoint g(
+        avx_curve_detail::literal_fp2_element(
+            matrixnok::generated::g2_generator_x0_m1,
+            matrixnok::generated::g2_generator_x0_m2,
+            matrixnok::generated::g2_generator_x1_m1,
+            matrixnok::generated::g2_generator_x1_m2),
+        avx_curve_detail::literal_fp2_element(
+            matrixnok::generated::g2_generator_y0_m1,
+            matrixnok::generated::g2_generator_y0_m2,
+            matrixnok::generated::g2_generator_y1_m1,
+            matrixnok::generated::g2_generator_y1_m2));
     return g;
 }
 
@@ -1349,11 +1414,22 @@ inline limb_t G2Point::equal(const G2Point& a, const G2Point& b)
 
 inline const G2Point& G2Point::generator()
 {
-    static const G2Point g = [] {
-        G2Point out = {};
-        from_affine(out, G2AffinePoint::generator());
-        return out;
-    }();
+    static constexpr G2Point g{
+        avx_curve_detail::literal_fp2_element(
+            matrixnok::generated::g2_generator_x0_m1,
+            matrixnok::generated::g2_generator_x0_m2,
+            matrixnok::generated::g2_generator_x1_m1,
+            matrixnok::generated::g2_generator_x1_m2),
+        avx_curve_detail::literal_fp2_element(
+            matrixnok::generated::g2_generator_y0_m1,
+            matrixnok::generated::g2_generator_y0_m2,
+            matrixnok::generated::g2_generator_y1_m1,
+            matrixnok::generated::g2_generator_y1_m2),
+        avx_curve_detail::literal_fp2_element(
+            matrixnok::generated::one_m1,
+            matrixnok::generated::one_m2,
+            matrixnok::generated::aprime_e2_x_m1,
+            matrixnok::generated::aprime_e2_x_m2)};
     return g;
 }
 
@@ -1432,21 +1508,37 @@ inline const G2Point& get_BLST_G2()
 
 inline const G1Point& get_BLST_NEG_G1()
 {
-    static const G1Point neg = [] {
-        G1Point out = G1Point::generator();
-        G1Point::cneg(out, 1);
-        return out;
-    }();
+    static constexpr G1Point neg{
+        avx_curve_detail::literal_standard_element(
+            matrixnok::generated::g1_generator_x_m1,
+            matrixnok::generated::g1_generator_x_m2),
+        avx_curve_detail::literal_standard_element(
+            matrixnok::generated::g1_generator_neg_y_m1,
+            matrixnok::generated::g1_generator_neg_y_m2),
+        avx_curve_detail::literal_standard_element(
+            matrixnok::generated::one_m1,
+            matrixnok::generated::one_m2)};
     return neg;
 }
 
 inline const G2Point& get_BLST_NEG_G2()
 {
-    static const G2Point neg = [] {
-        G2Point out = G2Point::generator();
-        G2Point::cneg(out, 1);
-        return out;
-    }();
+    static constexpr G2Point neg{
+        avx_curve_detail::literal_fp2_element(
+            matrixnok::generated::g2_generator_x0_m1,
+            matrixnok::generated::g2_generator_x0_m2,
+            matrixnok::generated::g2_generator_x1_m1,
+            matrixnok::generated::g2_generator_x1_m2),
+        avx_curve_detail::literal_fp2_element(
+            matrixnok::generated::g2_generator_neg_y0_m1,
+            matrixnok::generated::g2_generator_neg_y0_m2,
+            matrixnok::generated::g2_generator_neg_y1_m1,
+            matrixnok::generated::g2_generator_neg_y1_m2),
+        avx_curve_detail::literal_fp2_element(
+            matrixnok::generated::one_m1,
+            matrixnok::generated::one_m2,
+            matrixnok::generated::aprime_e2_x_m1,
+            matrixnok::generated::aprime_e2_x_m2)};
     return neg;
 }
 

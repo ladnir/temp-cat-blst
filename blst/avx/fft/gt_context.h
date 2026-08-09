@@ -27,16 +27,17 @@ struct AvxGtElement
     AvxGtElement() = default;
     explicit AvxGtElement(const Element& value) : data(value) {}
 
+    inline static constexpr Ring kRing{};
+    inline static constexpr Fp12Ring kFp12Ring{};
+
     static const Ring& ring()
     {
-        static const Ring instance;
-        return instance;
+        return kRing;
     }
 
     static const Fp12Ring& fp12ring()
     {
-        static const Fp12Ring instance(ring());
-        return instance;
+        return kFp12Ring;
     }
 
     static AvxGtElement identity()
