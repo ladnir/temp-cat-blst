@@ -696,6 +696,9 @@ cardinality premise. The converse is proved from an explicit prime-subgroup
 generator-span premise and generator relation, yielding conditional iff
 theorems without smuggling a point-count or cyclicity claim into the model.
 The G1 coordinate map is also proved to commute exactly with the selected
-complete-add schedule. The remaining concrete obligations are the BLS12-381
-point-count/span instantiation, G2 semilinear projective-add compatibility, and
-the final public-dispatch/group-law composition.
+complete-add schedule. The G2 semilinear bridge is factored into a generic
+ring-map theorem and a diagonal-scaling theorem; complete addition after `psi`
+is one common homogeneous scale of `psi` after complete addition, and the
+literal scale is proved nonzero. The remaining concrete obligations are the
+BLS12-381 point-count/span instantiation and the final public-dispatch/full
+projective-group composition.

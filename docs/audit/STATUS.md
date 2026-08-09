@@ -557,6 +557,8 @@ The subgroup-reduction packet further proves the exact `sigma³ = 1` and
 BLS cofactor gcd reductions, and conditional G1/G2 equivalences between the
 source relation predicates and `[r]P=0`. Full curve cardinality and
 prime-subgroup generator span remain explicit theorem premises. Consequently
-`AUD-227` is not closed: concrete point-count/span instantiation, the G2
-semilinear projective-additivity bridge, and final public-dispatch/full
-group-law composition remain.
+The G2 semilinear projective-additivity bridge is now proved by composing a
+generic ring-map theorem with a diagonal-scaling theorem; the resulting common
+homogeneous scale is proved nonzero from the literal coefficient. `AUD-227` is
+not closed: concrete point-count/span instantiation and final
+public-dispatch/full projective-group composition remain.

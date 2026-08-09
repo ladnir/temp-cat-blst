@@ -331,9 +331,12 @@ bases. `CurveSubgroup.lean` proves that each relation implies `[r]P = 0` from
 the explicit full curve cardinality, and proves the converse from the explicit
 generator relation and prime-subgroup spanning fact. It checks the BLS
 polynomial factorization and both cofactor gcds in Lean rather than importing
-them as arithmetic assumptions. `AUD-227` remains open because the concrete
-BLS12-381 point-count/span theorems, G2 projective additivity bridge, and final
-public-dispatch/full group-law composition are not yet instantiated. Canonical
+them as arithmetic assumptions. The G2 semilinear map is now factored into a
+ring-homomorphism step and a diagonal curve-isomorphism step; complete addition
+after `psi` is proved to be one explicitly nonzero homogeneous scale of `psi`
+after complete addition. `AUD-227` remains open because the concrete BLS12-381
+point-count/span theorems and final projective-group/public-dispatch composition
+are not yet instantiated. Canonical
 export followed by scalar REDC
 and byte weaving is likewise an explicit observation boundary for equality,
 infinity observation, validation, and secret normalization rather than a

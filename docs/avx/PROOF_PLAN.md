@@ -272,9 +272,11 @@ G1 complete-add compatibility, and the unsigned-basis sign bridges.
 `CurveSubgroup.lean` proves the abstract subgroup equivalences while exposing
 full curve cardinality and prime-subgroup generator span as named premises;
 the BLS polynomial, both cofactors, and the decisive gcds are checked in Lean.
-`AUD-227` remains open for concrete point-count/span instantiation, the G2
-semilinear projective-additivity bridge, and final dispatch/full group-law
-composition.
+The G2 semilinear projective-additivity bridge is also proved: conjugation is
+packaged as a ring homomorphism, diagonal scaling is proved against the source
+complete-add formula, and their composition differs only by a proved-nonzero
+common homogeneous scale. `AUD-227` remains open for concrete point-count/span
+instantiation and final dispatch/full projective-group composition.
 The production alias validator closes source selection
 ambiguity but is not a mathematical theorem. MatrixNoK-to-scalar observation
 through byte weaving and scalar REDC also remains a reviewed boundary when

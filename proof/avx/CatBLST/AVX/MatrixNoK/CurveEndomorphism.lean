@@ -112,6 +112,60 @@ theorem cpp_g1_sigma_complete_add
   exact complete_add_scale_x b scalarG1SigmaBeta scalar_g1_sigma_beta_cube
     left right
 
+def mapHomogeneousPoint [CommRing K] (phi : K →+* K)
+    (point : HomogeneousPoint K) : HomogeneousPoint K :=
+  ⟨phi point.x, phi point.y, phi point.z⟩
+
+theorem complete_add_map [CommRing K]
+    (phi : K →+* K) (b : K) (left right : HomogeneousPoint K) :
+    mapHomogeneousPoint phi (cppCompleteAdd b left right) =
+      cppCompleteAdd (phi b) (mapHomogeneousPoint phi left)
+        (mapHomogeneousPoint phi right) := by
+  rw [cpp_complete_add_coordinates, cpp_complete_add_coordinates]
+  ext <;>
+    simp only [mapHomogeneousPoint, map_add, map_sub, map_mul, map_ofNat]
+
+def scaleXYPoint [Mul K] (cx cy : K) (point : HomogeneousPoint K) :
+    HomogeneousPoint K :=
+  ⟨cx * point.x, cy * point.y, point.z⟩
+
+def homogeneousScale [Mul K] (scale : K) (point : HomogeneousPoint K) :
+    HomogeneousPoint K :=
+  ⟨scale * point.x, scale * point.y, scale * point.z⟩
+
+theorem complete_add_scale_xy [CommRing K]
+    (sourceB targetB cx cy : K)
+    (coefficientPowers : cy ^ 2 = cx ^ 3)
+    (curveCoefficient : targetB = cy ^ 2 * sourceB)
+    (left right : HomogeneousPoint K) :
+    cppCompleteAdd targetB (scaleXYPoint cx cy left)
+        (scaleXYPoint cx cy right) =
+      homogeneousScale (cy ^ 3)
+        (scaleXYPoint cx cy (cppCompleteAdd sourceB left right)) := by
+  subst targetB
+  rw [cpp_complete_add_coordinates, cpp_complete_add_coordinates]
+  apply HomogeneousPoint.ext
+  · simp only [scaleXYPoint, homogeneousScale]
+    ring
+  · simp only [scaleXYPoint, homogeneousScale]
+    ring_nf
+    rw [← coefficientPowers]
+    ring
+  · simp only [scaleXYPoint, homogeneousScale]
+    ring_nf
+    rw [← coefficientPowers]
+    ring
+
+theorem homogeneous_scale_equivalent [CommRing K]
+    (factor : K) (point : HomogeneousPoint K) (_factorNonzero : factor ≠ 0) :
+    (homogeneousScale factor point).equivalent point := by
+  simp only [HomogeneousPoint.equivalent, homogeneousScale]
+  by_cases atInfinity : point.z = 0
+  · left
+    exact ⟨by simp [atInfinity], atInfinity⟩
+  · right
+    constructor <;> ring
+
 theorem homogeneous_equivalent_negate [CommRing K]
     (left right : HomogeneousPoint K)
     (equivalent : left.equivalent right) :
@@ -158,6 +212,9 @@ def fp2Conjugate (value : SelectedMillerFp2) : SelectedMillerFp2 :=
 @[simp] theorem selected_fp2_neg_y (value : SelectedMillerFp2) :
     (-value).y = -value.y := rfl
 
+@[simp] theorem selected_fp2_zero_x :
+    (0 : SelectedMillerFp2).x = 0 := rfl
+
 theorem fp2_conjugate_add (left right : SelectedMillerFp2) :
     fp2Conjugate (left + right) = fp2Conjugate left + fp2Conjugate right := by
   apply Fp2Value.ext
@@ -192,6 +249,21 @@ theorem fp2_conjugate_pow (value : SelectedMillerFp2) (exponent : Nat) :
         simp
   | succ exponent ih =>
       rw [pow_succ, fp2_conjugate_mul, ih, pow_succ]
+
+def fp2ConjugateHom : SelectedMillerFp2 →+* SelectedMillerFp2 where
+  toFun := fp2Conjugate
+  map_zero' := by
+    apply Fp2Value.ext
+    · rfl
+    · change -(0 : SelectedCurveFp) = 0
+      simp
+  map_one' := by
+    apply Fp2Value.ext
+    · rfl
+    · change -(0 : SelectedCurveFp) = 0
+      simp
+  map_add' := fp2_conjugate_add
+  map_mul' := fp2_conjugate_mul
 
 def avxG2PsiXImaginary : SelectedCurveFp :=
   0x1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaad
@@ -243,12 +315,59 @@ theorem g2_psi_squared_y_coefficient_cube :
     g2PsiSquaredYCoefficient ^ 3 = -1 := by
   native_decide
 
+theorem g2_psi_y_coefficient_nonzero : g2PsiYCoefficient ≠ 0 := by
+  intro coefficientZero
+  have realZero : avxG2PsiYReal = 0 := by
+    simpa [g2PsiYCoefficient] using
+      congrArg Fp2Value.x coefficientZero
+  have realNonzero : avxG2PsiYReal ≠ 0 := by native_decide
+  exact realNonzero realZero
+
+theorem g2_psi_y_coefficient_cube_nonzero :
+    g2PsiYCoefficient ^ 3 ≠ 0 := by
+  intro cubeZero
+  have cubeRealZero : (g2PsiYCoefficient ^ 3).x = 0 := by
+    simpa using congrArg Fp2Value.x cubeZero
+  have cubeRealNonzero : (g2PsiYCoefficient ^ 3).x ≠ 0 := by
+    native_decide
+  exact cubeRealNonzero cubeRealZero
+
 /-- Scalar BLST's `psi`: conjugate each coordinate, then scale X and Y. -/
 def cppG2Psi (point : HomogeneousPoint SelectedMillerFp2) :
     HomogeneousPoint SelectedMillerFp2 :=
   ⟨g2PsiXCoefficient * fp2Conjugate point.x,
     g2PsiYCoefficient * fp2Conjugate point.y,
     fp2Conjugate point.z⟩
+
+theorem cpp_g2_psi_complete_add_scaled
+    (left right : HomogeneousPoint SelectedMillerFp2) :
+    cppCompleteAdd selectedG2CurveB (cppG2Psi left) (cppG2Psi right) =
+      homogeneousScale (g2PsiYCoefficient ^ 3)
+        (cppG2Psi (cppCompleteAdd selectedG2CurveB left right)) := by
+  change cppCompleteAdd selectedG2CurveB
+      (scaleXYPoint g2PsiXCoefficient g2PsiYCoefficient
+        (mapHomogeneousPoint fp2ConjugateHom left))
+      (scaleXYPoint g2PsiXCoefficient g2PsiYCoefficient
+        (mapHomogeneousPoint fp2ConjugateHom right)) =
+    homogeneousScale (g2PsiYCoefficient ^ 3)
+      (scaleXYPoint g2PsiXCoefficient g2PsiYCoefficient
+        (mapHomogeneousPoint fp2ConjugateHom
+          (cppCompleteAdd selectedG2CurveB left right)))
+  rw [complete_add_scale_xy
+    (fp2ConjugateHom selectedG2CurveB) selectedG2CurveB
+    g2PsiXCoefficient g2PsiYCoefficient
+    g2_psi_coefficient_square_cube
+    g2_psi_curve_coefficient_compatibility.symm]
+  rw [complete_add_map]
+
+theorem cpp_g2_psi_complete_add
+    (left right : HomogeneousPoint SelectedMillerFp2) :
+    (cppCompleteAdd selectedG2CurveB (cppG2Psi left)
+      (cppG2Psi right)).equivalent
+      (cppG2Psi (cppCompleteAdd selectedG2CurveB left right)) := by
+  rw [cpp_g2_psi_complete_add_scaled]
+  exact homogeneous_scale_equivalent _ _
+    g2_psi_y_coefficient_cube_nonzero
 
 def cppG2PsiSquaredScale (point : HomogeneousPoint SelectedMillerFp2) :
     HomogeneousPoint SelectedMillerFp2 :=
