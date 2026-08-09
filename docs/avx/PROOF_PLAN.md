@@ -267,10 +267,14 @@ curve preservation, exact GLV/GLS scalar splits, and the selected constant-time
 Booth and variable-time wNAF executors. The wNAF proof includes backward
 minimum-predecessor bounds that discharge the exact 129/65-slot capacities.
 `CurveEndomorphism.lean` additionally proves the selected G1/G2 constants,
-the exact beta/minus-psi maps, curve preservation, and their unsigned-basis
-sign bridges from BLST's relation predicates. `AUD-227` remains open for a
-prime-subgroup equivalence theorem for those predicates and final
-dispatch/full group-law composition.
+the exact beta/minus-psi maps, curve preservation, `sigma³ = 1`, `psi⁶ = -1`,
+G1 complete-add compatibility, and the unsigned-basis sign bridges.
+`CurveSubgroup.lean` proves the abstract subgroup equivalences while exposing
+full curve cardinality and prime-subgroup generator span as named premises;
+the BLS polynomial, both cofactors, and the decisive gcds are checked in Lean.
+`AUD-227` remains open for concrete point-count/span instantiation, the G2
+semilinear projective-additivity bridge, and final dispatch/full group-law
+composition.
 The production alias validator closes source selection
 ambiguity but is not a mathematical theorem. MatrixNoK-to-scalar observation
 through byte weaving and scalar REDC also remains a reviewed boundary when

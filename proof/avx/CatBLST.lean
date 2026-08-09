@@ -44,3 +44,4 @@ import CatBLST.AVX.MatrixNoK.CurveBoothExecutor
 import CatBLST.AVX.MatrixNoK.CurveWnafExecutor
 import CatBLST.AVX.MatrixNoK.CurveComplete
 import CatBLST.AVX.MatrixNoK.CurveEndomorphism
+import CatBLST.AVX.MatrixNoK.CurveSubgroup

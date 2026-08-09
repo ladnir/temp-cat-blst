@@ -551,3 +551,12 @@ work is the equivalence between BLST's relation predicates and the
 prime-order subgroup definition, followed by final public-dispatch/full
 group-law composition. This step changes only Lean and audit infrastructure;
 it runs no benchmark or native build.
+
+The subgroup-reduction packet further proves the exact `sigma³ = 1` and
+`psi⁶ = -1` coordinate identities, the G1 complete-add endomorphism law, both
+BLS cofactor gcd reductions, and conditional G1/G2 equivalences between the
+source relation predicates and `[r]P=0`. Full curve cardinality and
+prime-subgroup generator span remain explicit theorem premises. Consequently
+`AUD-227` is not closed: concrete point-count/span instantiation, the G2
+semilinear projective-additivity bridge, and final public-dispatch/full
+group-law composition remain.

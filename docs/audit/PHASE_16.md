@@ -687,3 +687,15 @@ relation predicates to be connected to the prime-order subgroup definition,
 plus composition through the selected public dispatch with a full projective
 group-law statement. No C++ source, benchmark, native build, or Peach run is
 part of this proof-only step.
+
+The next packet adds `CurveSubgroup.lean`. It proves `sigma³ = 1` and
+`psi⁶ = -1` from the literal coordinate constants, checks
+`z⁶ + 1 = r(z² + 1)`, checks both published cofactors and their required gcds,
+and derives relation-implies-`[r]P=0` for G1 and G2 from an explicit full curve
+cardinality premise. The converse is proved from an explicit prime-subgroup
+generator-span premise and generator relation, yielding conditional iff
+theorems without smuggling a point-count or cyclicity claim into the model.
+The G1 coordinate map is also proved to commute exactly with the selected
+complete-add schedule. The remaining concrete obligations are the BLS12-381
+point-count/span instantiation, G2 semilinear projective-add compatibility, and
+the final public-dispatch/group-law composition.

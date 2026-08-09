@@ -324,11 +324,16 @@ checkpoints for selected Fp and Fp2, proves the exact G1 radix-`z²` and G2
 radix-`z` splits, and proves both the fixed Booth and variable-time wNAF
 executor schedules, including the exact 129/65-slot exhaustion bounds.
 `CurveEndomorphism.lean` now proves the concrete beta and minus-psi constant
-identities, exact coordinate maps, curve preservation, and the sign bridge
-from BLST's subgroup relations to the unsigned `z²`/`z` executor bases.
-`AUD-227` remains open for connecting BLST's relation predicates to the
-prime-order subgroup definition and for final public-dispatch/full group-law
-composition. Canonical
+identities, exact coordinate maps, curve preservation, `sigma³ = 1`,
+`psi⁶ = -1`, the G1 map's exact compatibility with complete addition, and the
+sign bridge from BLST's subgroup relations to the unsigned `z²`/`z` executor
+bases. `CurveSubgroup.lean` proves that each relation implies `[r]P = 0` from
+the explicit full curve cardinality, and proves the converse from the explicit
+generator relation and prime-subgroup spanning fact. It checks the BLS
+polynomial factorization and both cofactor gcds in Lean rather than importing
+them as arithmetic assumptions. `AUD-227` remains open because the concrete
+BLS12-381 point-count/span theorems, G2 projective additivity bridge, and final
+public-dispatch/full group-law composition are not yet instantiated. Canonical
 export followed by scalar REDC
 and byte weaving is likewise an explicit observation boundary for equality,
 infinity observation, validation, and secret normalization rather than a
