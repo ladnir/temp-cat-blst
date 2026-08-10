@@ -343,10 +343,16 @@ agree. `Fp2Field.lean` proves that the selected `Fp2Value` ring is a field: the
 base modulus is `3 mod 4`, so `-1` is not a square, every nonzero pair has
 nonzero norm, and conjugate-over-norm supplies an inverse. The same generic
 bridge now instantiates the selected G2 twist over that field and proves its
-projective equality, identity, and negation correspondence. `AUD-227` remains
-open because CatBLST complete addition is not yet identified with Mathlib group
-addition, and the concrete BLS12-381 point-count/span and selected
-public-dispatch theorems remain. Canonical
+projective equality, identity, and negation correspondence.
+`CurveGroupAdd.lean` now proves the complete-add schedule is bihomogeneous,
+normalizes arbitrary valid representatives, and identifies its output with
+Mathlib group addition across infinity, doubling, inverse, and generic affine
+cases. The generic theorem exposes the exact no-affine-2-torsion and
+characteristic-not-two hypotheses. Finite-field cube criteria discharge those
+hypotheses for both selected BLS12-381 curves, yielding concrete G1 and G2
+group-addition theorems. `AUD-227` remains open only for the concrete
+BLS12-381 point-count/span premises and selected public GLV/GLS-dispatch
+theorems. Canonical
 export followed by scalar REDC
 and byte weaving is likewise an explicit observation boundary for equality,
 infinity observation, validation, and secret normalization rather than a

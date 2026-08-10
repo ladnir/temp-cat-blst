@@ -283,8 +283,12 @@ to projective equality; and zero and negation commute with the map. `AUD-227`
 also proves the selected Fp2 ring is a field by showing its norm cannot vanish
 for a nonzero pair when `p mod 4 = 3`. The shared carrier bridge is instantiated
 for the selected G2 twist as well, including projective equality, zero, and
-negation. It remains open for complete-add/group-add identification, concrete
-point-count/span instantiation, and final selected dispatch composition.
+negation. `CurveGroupAdd.lean` now proves bihomogeneous normalization and the
+full complete-add/group-add identification for arbitrary valid selected G1/G2
+representatives. It covers infinity, doubling, inverse, and generic affine
+addition, and discharges the selected curves' no-affine-2-torsion condition by
+finite-field cube criteria. It remains open for concrete point-count/span
+instantiation and final selected GLV/GLS dispatch composition.
 The production alias validator closes source selection
 ambiguity but is not a mathematical theorem. MatrixNoK-to-scalar observation
 through byte weaving and scalar REDC also remains a reviewed boundary when

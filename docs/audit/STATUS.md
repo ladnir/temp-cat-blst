@@ -567,6 +567,10 @@ and negation correspondence. `Fp2Field.lean` proves the selected quadratic
 extension is a field from `p mod 4 = 3`, nonvanishing norm, and an explicit
 conjugate-over-norm inverse. The shared projective bridge is now instantiated
 for selected G2 too, with exact equality, zero, and negation correspondence.
-`AUD-227` is not closed: complete-add/group-add equivalence, concrete
-point-count/span instantiation, and final selected public-dispatch composition
-remain.
+`CurveGroupAdd.lean` closes the complete-add/group-add equivalence for every
+valid selected G1 and G2 homogeneous representative. The proof covers
+infinity, doubling, inverse, and distinct-affine cases, proves output
+representatives nonzero, and proves the selected fields have no affine
+2-torsion by finite-field cube criteria. `AUD-227` is not closed: concrete
+point-count/span instantiation and final selected public GLV/GLS-dispatch
+composition remain.

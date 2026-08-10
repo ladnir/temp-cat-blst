@@ -715,7 +715,13 @@ next proof establishes the missing selected-Fp2 `Field` instance. It checks
 conjugate-over-norm inverse. The generic projective carrier is then instantiated
 for the selected G2 twist. Its discriminant is checked nonzero, and the same
 nonzero-representative conversion, exact quotient equality, zero, and negation
-theorems are proved. The remaining obligations are CatBLST-complete-add/
-Mathlib-group-add equivalence, concrete BLS12-381 point-count/span, and selected
-public-dispatch composition. This remains a proof-only packet; no C++ build or
+theorems are proved. `CurveGroupAdd.lean` then proves the complete formula's
+bihomogeneous scaling, reduces arbitrary representatives to affine or infinity
+normal forms, and identifies every valid selected G1/G2 result with Mathlib
+group addition. The proof separately covers infinity, doubling, inverse, and
+generic affine inputs; it also proves the selected curves have no affine
+2-torsion using finite-field cube criteria, so the RCB exceptional divisor
+cannot occur. The remaining obligations are concrete BLS12-381
+point-count/span instantiation and selected GLV/GLS public-dispatch
+composition. This remains a proof-only packet; no C++ build or
 benchmark ran.

@@ -90,8 +90,10 @@ the entire AVX API. The exact current boundary is:
 - newly closed: the production GT literal's 192-lane standard encoding;
 - structurally and natively bound: the zero-overhead production aliases in
   accepted `AVX-P4-002`;
-- differential and hand-audit evidence only: public G1/G2 complete point
-  arithmetic and the GLV/GLS scalar-multiplication executors;
+- formally proved over the selected projective groups: public G1/G2 complete
+  point addition, including infinity, doubling, inverse, and generic inputs;
+- differential and hand-audit evidence only: the selected public GLV/GLS
+  scalar-multiplication dispatch and its remaining concrete subgroup premises;
 - explicit non-Lean observation boundary: MatrixNoK canonical export through
   scalar REDC/byte weaving for point equality and validation;
 - outside this arithmetic proof: generic FFT orchestration, map/hash-to-curve
