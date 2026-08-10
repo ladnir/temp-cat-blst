@@ -15,7 +15,7 @@ using namespace blst;
 void set_Fr(Fr& v, uint64_t x) {
     for (int i = 0; i < LIMBS; ++i)
         v[i] = 0;
-    memcpy(v.data, &x, sizeof(x));
+    memcpy(v.l, &x, sizeof(x));
 }
 
 // Helper function to generate random Fr elements
@@ -64,7 +64,7 @@ static void BM_FrAddition_cc(benchmark::State& state) {
 
     for (auto _ : state) {
         //cc_add_mod_256(c, a, b, r);
-        cc_add_mod_n<NLIMBS(256)>(c.data, a.data, b.data, r.data);
+        cc_add_mod_n<NLIMBS(256)>(c.l, a.l, b.l, r.l);
         benchmark::DoNotOptimize(c);
     }
 
@@ -116,7 +116,7 @@ static void BM_FrSubtraction_cc(benchmark::State& state) {
 
     for (auto _ : state) {
         //cc_sub_mod_256(c, a, b, r);
-        cc_sub_mod_n<NLIMBS(256)>(c.data, a.data, b.data, r.data);
+        cc_sub_mod_n<NLIMBS(256)>(c.l, a.l, b.l, r.l);
         benchmark::DoNotOptimize(c);
     }
 
@@ -176,7 +176,7 @@ static void BM_FrMultiplication_cc(benchmark::State& state) {
 
     for (auto _ : state) {
         //cc_mul_mont_sparse_256(c, a, b, r, BLST_r0);
-        cc_mul_mont_n<NLIMBS(256)>(c.data, a.data, b.data, r.data, BLST_r0);
+        cc_mul_mont_n<NLIMBS(256)>(c.l, a.l, b.l, r.l, BLST_r0);
         benchmark::DoNotOptimize(c);
     }
 
@@ -235,7 +235,7 @@ static void BM_FrSquaring_cc(benchmark::State& state) {
 
     for (auto _ : state) {
         //cc_sqr_mont_sparse_256(c, a, r, BLST_r0);
-        cc_mul_mont_n<NLIMBS(256)>(c.data, a.data, a.data, r.data, BLST_r0);
+        cc_mul_mont_n<NLIMBS(256)>(c.l, a.l, a.l, r.l, BLST_r0);
 
         benchmark::DoNotOptimize(c);
     }
@@ -322,7 +322,7 @@ static void BM_FrFromMontgomery_cc(benchmark::State& state) {
 
     for (auto _ : state) {
         //cc_from_mont_256(c, a, r, BLST_r0);
-        cc_from_mont_n<NLIMBS(256)>(c.data, a.data, r.data, BLST_r0);
+        cc_from_mont_n<NLIMBS(256)>(c.l, a.l, r.l, BLST_r0);
         benchmark::DoNotOptimize(c);
     }
 

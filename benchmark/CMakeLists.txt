@@ -158,9 +158,6 @@ if(BLST_HAVE_AVX_VALIDATION_GMP)
                     "found '${BLST_VROOM_ACTUAL_COMMIT}'")
             endif()
             target_sources(avx_group_ops_benchmarks PRIVATE
-                "avx/Avx_matrixnok_fft_preview_bench.cpp"
-                "avx/Avx_matrixnok_g2_bench.cpp"
-                "avx/Avx_matrixnok_pairing_preview_bench.cpp"
                 "avx/Vroom_matrixnok_fft_preview_bench.cpp"
             )
             target_include_directories(avx_group_ops_benchmarks PRIVATE
@@ -202,6 +199,20 @@ if(BLST_HAVE_AVX_VALIDATION_GMP)
 endif()
 
 if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
+    add_executable(avx_pairing_ratio_benchmarks
+        "main.cpp"
+        "avx/Avx_pairing_ratio_bench.cpp"
+    )
+    target_include_directories(avx_pairing_ratio_benchmarks PRIVATE
+        ${CMAKE_CURRENT_LIST_DIR}
+        ${CMAKE_CURRENT_LIST_DIR}/..
+    )
+    target_link_libraries(avx_pairing_ratio_benchmarks PRIVATE
+        benchmark::benchmark
+        blst_static
+        blst_avx_headers
+    )
+
     add_executable(avx_gt_msm_benchmarks
         "main.cpp"
         "avx/Avx_gt_msm_bench.cpp"

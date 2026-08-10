@@ -299,7 +299,6 @@ inline void gen_precompute_wide_min(
     if (neg_mod < BigInt(0)) neg_mod += tgt;
     BigInt corr_src = (neg_mod * postmult_mod_out) % modulus_out;
     size_t w = 0;
-    uint64_t corr_mask = (OUTBITS >= 64) ? ~uint64_t(0) : ((uint64_t(1) << OUTBITS) - 1);
     const BigInt mask_big = (OUTBITS >= 64) ? (BigInt(1) << 64) - 1 : (BigInt(1) << OUTBITS) - 1;
     for (size_t mo = 0; mo < LIMBS_OUT; mo++) {
         BigInt m = moduli_out[mo];

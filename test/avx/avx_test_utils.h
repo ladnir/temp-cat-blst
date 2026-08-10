@@ -128,7 +128,7 @@ inline blst::Fp bigint_to_scalar_fp(const BigInt& value)
 {
     blst::Fp standard = {};
     size_t written = 0;
-    mpz_export(standard.data, &written, -1, sizeof(standard.data[0]), 0, 0, value.get_mpz().get_mpz_t());
+    mpz_export(standard.l, &written, -1, sizeof(standard.l[0]), 0, 0, value.get_mpz().get_mpz_t());
 
     blst::Fp mont = {};
     blst::Fp::to_mont(mont, standard);
@@ -141,7 +141,7 @@ inline BigInt scalar_fp_to_bigint(const blst::Fp& value)
     blst::Fp::from_mont(standard, value);
 
     mpz_class out;
-    mpz_import(out.get_mpz_t(), blst::Fp::num_limb(), -1, sizeof(standard.data[0]), 0, 0, standard.data);
+    mpz_import(out.get_mpz_t(), blst::Fp::num_limb(), -1, sizeof(standard.l[0]), 0, 0, standard.l);
     return BigInt(out);
 }
 
@@ -160,10 +160,10 @@ inline std::pair<BigInt, BigInt> scalar_fp2_to_bigints(const blst::Fp2& value)
     blst::Fp::from_mont(standard[1], value[1]);
 
     mpz_class x;
-    mpz_import(x.get_mpz_t(), blst::Fp::num_limb(), -1, sizeof(standard[0].data[0]), 0, 0, standard[0].data);
+    mpz_import(x.get_mpz_t(), blst::Fp::num_limb(), -1, sizeof(standard[0].l[0]), 0, 0, standard[0].l);
 
     mpz_class y;
-    mpz_import(y.get_mpz_t(), blst::Fp::num_limb(), -1, sizeof(standard[1].data[0]), 0, 0, standard[1].data);
+    mpz_import(y.get_mpz_t(), blst::Fp::num_limb(), -1, sizeof(standard[1].l[0]), 0, 0, standard[1].l);
 
     return {BigInt(x), BigInt(y)};
 }
@@ -177,16 +177,16 @@ inline typename FP2Ring<Ring>::StandardElement make_avx_fp2(const Ring& ring, co
 inline blst::scalar::G1AffinePoint make_scalar_g1_generator_affine()
 {
     blst::scalar::G1AffinePoint affine = {};
-    affine.X = bigint_to_scalar_fp(BigInt(kG1GeneratorX, 10));
-    affine.Y = bigint_to_scalar_fp(BigInt(kG1GeneratorY, 10));
+    affine.x = bigint_to_scalar_fp(BigInt(kG1GeneratorX, 10));
+    affine.y = bigint_to_scalar_fp(BigInt(kG1GeneratorY, 10));
     return affine;
 }
 
 inline blst::scalar::G2AffinePoint make_scalar_g2_generator_affine()
 {
     blst::scalar::G2AffinePoint affine = {};
-    affine.X = bigint_pair_to_scalar_fp2(BigInt(kG2GeneratorXC0, 10), BigInt(kG2GeneratorXC1, 10));
-    affine.Y = bigint_pair_to_scalar_fp2(BigInt(kG2GeneratorYC0, 10), BigInt(kG2GeneratorYC1, 10));
+    affine.x = bigint_pair_to_scalar_fp2(BigInt(kG2GeneratorXC0, 10), BigInt(kG2GeneratorXC1, 10));
+    affine.y = bigint_pair_to_scalar_fp2(BigInt(kG2GeneratorYC0, 10), BigInt(kG2GeneratorYC1, 10));
     return affine;
 }
 
@@ -234,8 +234,8 @@ inline AffinePoint<typename Ring::StandardElement> make_avx_g1_affine(
     const blst::scalar::G1AffinePoint& point)
 {
     return {
-        ring.from_bigint(scalar_fp_to_bigint(point.X)),
-        ring.from_bigint(scalar_fp_to_bigint(point.Y)),
+        ring.from_bigint(scalar_fp_to_bigint(point.x)),
+        ring.from_bigint(scalar_fp_to_bigint(point.y)),
     };
 }
 
@@ -244,8 +244,8 @@ inline AffinePoint<typename FP2Ring<Ring>::StandardElement> make_avx_g2_affine(
     const Ring& ring,
     const blst::scalar::G2AffinePoint& point)
 {
-    const auto x = scalar_fp2_to_bigints(point.X);
-    const auto y = scalar_fp2_to_bigints(point.Y);
+    const auto x = scalar_fp2_to_bigints(point.x);
+    const auto y = scalar_fp2_to_bigints(point.y);
     return {
         typename FP2Ring<Ring>::StandardElement(ring.from_bigint(x.first), ring.from_bigint(x.second)),
         typename FP2Ring<Ring>::StandardElement(ring.from_bigint(y.first), ring.from_bigint(y.second)),
@@ -459,9 +459,9 @@ inline AvxCurve50AffineFp2 make_random_avx_curve50_g2_affine(const AvxCurve50Rin
 inline blst::scalar::G1AffinePoint make_scalar_px2(const blst::scalar::G1AffinePoint& point)
 {
     blst::scalar::G1AffinePoint px2 = {};
-    blst::Fp::add(px2.X, point.X, point.X);
-    blst::Fp::neg(px2.X, px2.X);
-    blst::Fp::add(px2.Y, point.Y, point.Y);
+    blst::Fp::add(px2.x, point.x, point.x);
+    blst::Fp::neg(px2.x, px2.x);
+    blst::Fp::add(px2.y, point.y, point.y);
     return px2;
 }
 
@@ -478,10 +478,10 @@ inline blst::Fp12 make_scalar_miller_first_step(
     line[1] = qlines[0][1];
     line[2] = qlines[0][2];
 
-    blst::Fp::mul(line[1][0], line[1][0], px2.X);
-    blst::Fp::mul(line[1][1], line[1][1], px2.X);
-    blst::Fp::mul(line[2][0], line[2][0], px2.Y);
-    blst::Fp::mul(line[2][1], line[2][1], px2.Y);
+    blst::Fp::mul(line[1][0], line[1][0], px2.x);
+    blst::Fp::mul(line[1][1], line[1][1], px2.x);
+    blst::Fp::mul(line[2][0], line[2][0], px2.y);
+    blst::Fp::mul(line[2][1], line[2][1], px2.y);
 
     blst::Fp12 out = {};
     out[0][0] = line[0];
