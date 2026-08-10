@@ -6,7 +6,7 @@
 
 namespace blst::avx {
 
-template<class Ring, class FP12RingType = FP12Ring<Ring>>
+template<class Ring, class FP12RingType>
 class Miller {
     public:
     // Reduce the amount of typename nonsense

@@ -225,7 +225,7 @@ std::array<typename Ring::StandardElement, 12> invert_fp12_via_blst(
     return avx_blst_direct_bridge::scalar_fp12_to_ring(ring, inverse);
 }
 
-template<class Ring, class FP12R = FP12Ring<Ring>>
+template<class Ring, class FP12R>
 class FP12BLSTInverter {
 public:
     using StandardElement = std::array<typename Ring::StandardElement, 12>;
@@ -236,7 +236,7 @@ public:
     }
 };
 
-template<class Ring, class FP12R = FP12Ring<Ring>>
+template<class Ring, class FP12R>
 class FP12RNS_BLSTInverter {
 public:
     using StandardElement = typename FP12R::StandardElement;

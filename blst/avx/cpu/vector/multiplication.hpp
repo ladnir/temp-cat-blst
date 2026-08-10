@@ -3,7 +3,6 @@
 #include "vector_impl.hpp"
 #include "../reduction/montgomery.hpp"
 #include "conversion.hpp"
-#include "../../runtime_constants.h"
 #include <tuple>
 
 
@@ -101,9 +100,6 @@ class IntRNS2 {
     }
 };
 
-// Factory for Montgomery variant (single template parameter: limbs). Assumes limbs1==limbs2==limbs.
-// Generates moduli using GenRNS; aborts if target cannot be reached with the given limb count.
-
 template<class T, std::size_t l1, std::size_t l2>
 std::array<T, l1 + l2> concat(const std::array<T, l1> &a, const std::array<T, l2> &b) {
     std::array<T, l1 + l2> result;
@@ -114,60 +110,6 @@ std::array<T, l1 + l2> concat(const std::array<T, l1> &a, const std::array<T, l2
         result[l1 + i] = b[i];
     }
     return result;
-}
-
-
-template<int bits, int limbs, template <int> class Reduction=MontgomeryReduce, int convert_to_word_bits=52>
-struct IntRNS2System {
-    IntRNS2<Reduction, limbs, limbs> intrns2;
-    ConvertToRNS<bits, limbs, convert_to_word_bits> convert_to;
-    ConvertFromRNS<bits, limbs> convert_from;
-    std::array<uint64_t, limbs> moduli1;
-    std::array<uint64_t, limbs> moduli2;
-
-
-    inline IntRNS2System(
-        const IntRNS2<Reduction, limbs, limbs>& intrns2,
-        const ConvertToRNS<bits, limbs, convert_to_word_bits>& convert_to,
-        const ConvertFromRNS<bits, limbs>& convert_from,
-        const std::array<uint64_t, limbs>& moduli1,
-        const std::array<uint64_t, limbs>& moduli2
-    ) : intrns2(intrns2), convert_to(convert_to), convert_from(convert_from), moduli1(moduli1), moduli2(moduli2) {}
-
-};
-
-// Factory producing IntRNS2 plus compatible converters following python_reduction.IntRNS2
-
-template<int bits, int limbs, int convert_to_word_bits=52>
-inline IntRNS2System<bits, limbs, MontgomeryReduce, convert_to_word_bits> make_IntRNS2SystemBaked(const RuntimeConstantsView& constants)
-{
-    static_assert(bits == 381, "The baked AVX constants currently cover only the BLS12-381 field.");
-    static_assert(limbs == 8, "The baked AVX constants currently cover only the 8-limb AVX configurations.");
-
-    std::array<uint64_t, 1> moduli_out = {1};
-    IntRNS2System<bits, limbs, MontgomeryReduce, convert_to_word_bits> sys(
-        IntRNS2<MontgomeryReduce, limbs, limbs>(
-            constants.moduli1,
-            constants.moduli2,
-            constants.r1_rns_mat,
-            constants.r1_correction,
-            constants.r1_shifted_quotient_estimations,
-            constants.r2_rns_mat,
-            constants.r2_correction,
-            constants.r2_shifted_quotient_estimations),
-        ConvertToRNS<bits, limbs, convert_to_word_bits>(
-            constants.convert_to_rns_mat,
-            constants.convert_to_correction,
-            constants.convert_to_shifted_quotient_estimations,
-            constants.moduli2),
-        ConvertFromRNS<bits, limbs>(
-            constants.convert_from_rns_mat,
-            constants.convert_from_correction,
-            constants.convert_from_shifted_quotient_estimations,
-            moduli_out),
-        constants.moduli1,
-        constants.moduli2);
-    return sys;
 }
 
 }  // namespace blst::avx

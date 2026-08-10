@@ -145,7 +145,7 @@ namespace blst::avx::matrixnok
     };
 
     using Fp12RingCandidate =
-        FP12Ring<FpRingCandidate, 3, Fp12ConstantsCandidate>;
+        FP12Ring<FpRingCandidate, Fp12ConstantsCandidate, 3>;
 
     static_assert(
         10 * FpRingCandidate::STANDARD_BOUND *

@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <type_traits>
 #include <iostream>
-#include "../runtime_constants.h"
 #include "../cpu/vector/multiplication.hpp"
 #include "blst/avx/fields/fp2.h"
 
@@ -18,101 +17,7 @@
 
 namespace blst::avx {
 
-template<class Ring, int VERSION>
-class FP12RuntimeConstants {
-	using StandardElement = typename Ring::StandardElement;
-	static constexpr int offset_rns_bound =
-		10 * Ring::STANDARD_BOUND * Ring::STANDARD_BOUND *
-		(VERSION == 1 ? 1 : 6 * 6);
-	static constexpr int offset_ele_bound =
-		10 * Ring::STANDARD_BOUND *
-		std::max(Ring::STANDARD_BOUND, Ring::MULT_OK_BOUND);
-	using Offset = typename Ring::template WideOffsetElement<
-		offset_ele_bound, offset_rns_bound>;
-
-	StandardElement one_third_;
-	StandardElement neg_two_thirds_;
-	StandardElement frob1_2_;
-	StandardElement frob1_3_;
-	StandardElement frob1_4_;
-	StandardElement frob1_5_;
-	StandardElement frob1_6_;
-	StandardElement frob1_7_;
-	StandardElement frob1_8_;
-	StandardElement frob1_9_;
-	StandardElement frob1_10_;
-	StandardElement frob2_1_;
-	StandardElement frob2_2_;
-	StandardElement frob2_3_;
-	StandardElement frob2_5_;
-	StandardElement frob3_2_;
-	StandardElement frob3_3_;
-	Offset offset_;
-
-public:
-	static constexpr bool split_cyclotomic_v3 = false;
-
-	explicit FP12RuntimeConstants(const Ring& ring)
-	{
-		one_third_ = ring.from_hex("0x11560bf17baa99bc32126fced787c88f984f87adf7ae0c7f9a208c6b4f20a4181472aaa9cb8d555526a9ffffffffc71d");
-		neg_two_thirds_ = ring.from_hex("0x11560bf17baa99bc32126fced787c88f984f87adf7ae0c7f9a208c6b4f20a4181472aaa9cb8d555526a9ffffffffc71c");
-		frob1_2_ = ring.from_hex("0x1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaac");
-		frob1_3_ = ring.from_hex("0x1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaad");
-		frob1_4_ = ring.from_hex("0x5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffefffe");
-		frob1_5_ = ring.from_hex("0x1904d3bf02bb0667c231beb4202c0d1f0fd603fd3cbd5f4f7b2443d784bab9c4f67ea53d63e7813d8d0775ed92235fb8");
-		frob1_6_ = ring.from_hex("0xfc3e2b36c4e03288e9e902231f9fb854a14787b6c7b36fec0c8ec971f63c5f282d5ac14d6c7ec22cf78a126ddc4af3");
-		frob1_7_ = ring.from_hex("0x6af0e0437ff400b6831e36d6bd17ffe48395dabc2d3435e77f76e17009241c5ee67992f72ec05f4c81084fbede3cc09");
-		frob1_8_ = ring.from_hex("0x135203e60180a68ee2e9c448d77a2cd91c3dedd930b1cf60ef396489f61eb45e304466cf3e67fa0af1ee7b04121bdea2");
-		frob1_9_ = ring.from_hex("0x5b2cfd9013a5fd8df47fa6b48b1e045f39816240c0b8fee8beadf4d8e9c0566c63a3e6e257f87329b18fae980078116");
-		frob1_10_ = ring.from_hex("0x144e4211384586c16bd3ad4afa99cc9170df3560e77982d0db45f3536814f0bd5871c1908bd478cd1ee605167ff82995");
-		frob2_1_ = frob1_4_;
-		frob2_2_ = frob1_2_;
-		frob2_3_ = ring.from_hex("0x5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffeffff");
-		frob2_5_ = frob1_3_;
-		frob3_2_ = frob1_8_;
-		frob3_3_ = frob1_7_;
-
-		using OffsetElementType = BoundedElement<
-			Bounds<offset_ele_bound, offset_ele_bound + 1>,
-			Ring::StandardBoundedElement::LIMBS,
-			Ring::StandardBoundedElement::ELEMENT_BITS>;
-		using OffsetWideType = WideElement<
-			Bounds<offset_ele_bound, offset_ele_bound + 1>,
-			Ring::StandardBoundedElement::LIMBS,
-			Ring::StandardBoundedElement::ELEMENT_BITS>;
-		const auto& values =
-			runtime_constants<Ring::StandardBoundedElement::ELEMENT_BITS>();
-		offset_ = Offset(
-			OffsetWideType(
-				OffsetElementType(AVXVector<Ring::StandardBoundedElement::LIMBS>(values.fp12_offset_m1_high)),
-				OffsetElementType(AVXVector<Ring::StandardBoundedElement::LIMBS>(values.fp12_offset_m1_low))),
-			OffsetWideType(
-				OffsetElementType(AVXVector<Ring::StandardBoundedElement::LIMBS>(values.fp12_offset_m2_high)),
-				OffsetElementType(AVXVector<Ring::StandardBoundedElement::LIMBS>(values.fp12_offset_m2_low))));
-	}
-
-	INLINE const StandardElement& one_third() const { return one_third_; }
-	INLINE const StandardElement& neg_two_thirds() const { return neg_two_thirds_; }
-	INLINE const StandardElement& frob1_2() const { return frob1_2_; }
-	INLINE const StandardElement& frob1_3() const { return frob1_3_; }
-	INLINE const StandardElement& frob1_4() const { return frob1_4_; }
-	INLINE const StandardElement& frob1_5() const { return frob1_5_; }
-	INLINE const StandardElement& frob1_6() const { return frob1_6_; }
-	INLINE const StandardElement& frob1_7() const { return frob1_7_; }
-	INLINE const StandardElement& frob1_8() const { return frob1_8_; }
-	INLINE const StandardElement& frob1_9() const { return frob1_9_; }
-	INLINE const StandardElement& frob1_10() const { return frob1_10_; }
-	INLINE const StandardElement& frob2_1() const { return frob2_1_; }
-	INLINE const StandardElement& frob2_2() const { return frob2_2_; }
-	INLINE const StandardElement& frob2_3() const { return frob2_3_; }
-	INLINE const StandardElement& frob2_5() const { return frob2_5_; }
-	INLINE const StandardElement& frob3_2() const { return frob3_2_; }
-	INLINE const StandardElement& frob3_3() const { return frob3_3_; }
-	INLINE const Offset& offset() const { return offset_; }
-};
-
-template<class Ring, int VERSION=3,
-	class Constants=FP12RuntimeConstants<Ring, VERSION>>
+template<class Ring, class Constants, int VERSION=3>
 class FP12Ring : private Constants {
 
 	public:
