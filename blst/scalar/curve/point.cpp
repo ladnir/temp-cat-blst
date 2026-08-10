@@ -1198,7 +1198,9 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 
 			Point t0, t1;
 
-			/* Scott, M., https://eprint.iacr.org/2021/1130 */
+			/* Scott, M., https://eprint.iacr.org/2021/1130;
+			 * proof criterion: El Housni et al.,
+			 * https://eprint.iacr.org/2022/352, Proposition 4. */
 			times_minus_z<Point>(t0, P);
 			times_minus_z<Point>(t1, t0);
 			Point::cneg(t1, 1);             /* [-z^2]P  */
@@ -1212,7 +1214,9 @@ Fp2{ /* (0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02             */     \
 		{
 			Point t0, t1;
 
-			/* Scott, M., https://eprint.iacr.org/2021/1130 */
+			/* Scott, M., https://eprint.iacr.org/2021/1130;
+			 * corrected proof: El Housni et al.,
+			 * https://eprint.iacr.org/2022/352, Proposition 5. */
 			psi(t0, P);                         /* psi(P) */
 
 			times_minus_z<Point>(t1, P);

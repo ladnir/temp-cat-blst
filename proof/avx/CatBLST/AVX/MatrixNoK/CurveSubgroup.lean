@@ -23,6 +23,12 @@ Because `z^6 + 1 = r(z^2 + 1)` and the G1 cofactor is coprime to
 The analogous G2 proof uses `psi^6 = -1`, the same annihilator, and the G2
 cofactor.  The theorems below make the full-order and prime-subgroup spanning
 facts explicit premises; neither is silently inferred from coordinate formulas.
+
+The concrete G2 cofactor and characteristic-polynomial checks also instantiate
+Proposition 5 of El Housni, Guillevic, and Piellard, ePrint 2022/352, which
+repairs the circular argument in the original Scott G2 proof.  Their published
+BLS12 theorem supplies the external curve-family fact; Lean checks the exact
+BLS12-381 seed, cofactor polynomial, and coprimality hypothesis used here.
 -/
 
 namespace CatBLST.AVX.MatrixNoK
@@ -34,6 +40,33 @@ def g1Cofactor : Nat :=
 /-- BLS12-381 G2 cofactor. -/
 def g2Cofactor : Nat :=
   0x5d543a95414e7f1091d50792876a202cd91de4547085abaa68a205b2e5a7ddfa628f1cb4d9e82ef21537e293a6691ae1616ec6e786f0c70cf1c38e31c7238e5
+
+/-- `chi(u)` for the G2 Frobenius characteristic polynomial
+`chi(X) = X^2 - (u + 1)X + p` at the negative BLS12-381 seed `u`. -/
+def g2PsiCharacteristicAtSeed : Nat :=
+  Generated.target_modulus + curveRadix
+
+theorem target_modulus_as_bls12_polynomial :
+    3 * (Generated.target_modulus + curveRadix) =
+      (curveRadix + 1) ^ 2 * blsScalarOrder := by
+  native_decide
+
+theorem g2_psi_characteristic_at_seed :
+    blsZ ^ 2 - (blsZ + 1) * blsZ + (Generated.target_modulus : Int) =
+      (g2PsiCharacteristicAtSeed : Int) := by
+  native_decide
+
+theorem g2_cofactor_as_bls12_polynomial :
+    (9 : Int) * g2Cofactor =
+      blsZ ^ 8 - 4 * blsZ ^ 7 + 5 * blsZ ^ 6 - 4 * blsZ ^ 4 +
+        6 * blsZ ^ 3 - 4 * blsZ ^ 2 - 4 * blsZ + 13 := by
+  native_decide
+
+/-- The concrete hypothesis that excludes every cofactor eigenspace from the
+accepted `psi(P) = [u]P` relation in ePrint 2022/352, Proposition 5. -/
+theorem g2_scott_characteristic_coprime_cofactor :
+    Nat.Coprime g2PsiCharacteristicAtSeed g2Cofactor := by
+  native_decide
 
 theorem scalar_order_as_bls_polynomial :
     blsScalarOrder = curveRadix ^ 4 - curveRadix ^ 2 + 1 := by
