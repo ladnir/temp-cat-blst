@@ -48,3 +48,6 @@ import CatBLST.AVX.MatrixNoK.CurveEndomorphism
 import CatBLST.AVX.MatrixNoK.CurveSubgroup
 import CatBLST.AVX.MatrixNoK.CurveGroupBridge
 import CatBLST.AVX.MatrixNoK.CurveGroupAdd
+import CatBLST.AVX.MatrixNoK.CurveBinaryMul
+import CatBLST.AVX.MatrixNoK.CurveGenerators
+import CatBLST.AVX.MatrixNoK.CurveDispatch
