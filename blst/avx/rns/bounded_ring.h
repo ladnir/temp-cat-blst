@@ -109,15 +109,6 @@ class BoundedRing {
         return AVXVector<limbs>(digits);
     }
 
-#if BLST_AVX_VALIDATE_CONSTANTS
-    static INLINE const BigInt& base_modulus_bigint()
-    {
-        static const BigInt modulus(
-            "4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787",
-            10);
-        return modulus;
-    }
-#endif
 
     // One in RNS
     StandardElement one_;
@@ -426,18 +417,6 @@ class BoundedRing {
     }
 
 
-#if BLST_AVX_VALIDATE_CONSTANTS
-    template<int batch>
-    INLINE std::array<StandardElement, batch> from_bigint_batch(const std::array<BigInt, batch> &a) const {
-        auto [c_m2_hi, c_m2_lo] = sys.convert_to.template batch_convert_to_rns<batch>(a);
-        std::array<SmallStandardElement, batch> result;
-        using WideBoundedElement = BoundedElement<Bounds<0, MAX_ADD>, limbs, element_bits>;
-        for (int i = 0; i < batch; i++) {
-            result[i] = SmallElement<StandardBoundedElement, Bounds<0, 1>>(montgomery_reduce_m2.template reduce_auto<STANDARD_BOUND>(WideElement<Bounds<0, MAX_ADD>, limbs, element_bits>(WideBoundedElement(c_m2_hi[i]), WideBoundedElement(c_m2_lo[i]))));
-        }
-        return batch_expand<batch>(result);
-    }
-#endif
 
     template<int batch>
     INLINE std::array<StandardElement, batch> convert_to_rns_batch(const std::array<AVXVector<limbs>, batch> &c_m2) const {
@@ -452,12 +431,6 @@ class BoundedRing {
         return batch_expand<batch>(result);
     }
     
-    #if BLST_AVX_VALIDATE_CONSTANTS
-    INLINE StandardElement from_bigint(const BigInt &a) const {
-        std::array<BigInt, 1> a_array = {a};
-        return from_bigint_batch<1>(a_array)[0];
-    }
-    #endif
 
     // Helper to convert variadic arguments to array using index_sequence
     template<int64_t A, typename... Args, std::size_t... I>
@@ -519,189 +492,7 @@ class BoundedRing {
 
 
     // Find a number matching the bounds.
-#if BLST_AVX_VALIDATE_CONSTANTS
-    template<int ele_bound, int rns_bound>
-    INLINE WideOffsetElement<ele_bound, rns_bound> compute_wide_offset() const {
-        static_assert(ele_bound >= 0, "Element bound must be non-negative");
-        static_assert(ele_bound <= 1ull << (64 - 52), "Element bound must be less than or equal to 2**(64 - 52)");
-        BigInt desired_value = 9 * rns_bound * base_modulus_bigint() * base_modulus_bigint();
-        auto desired_value_rns = sys.to_mont_exact(desired_value, true);
-        std::array<uint64_t, limbs> val_m1_high;
-        std::array<uint64_t, limbs> val_m2_high;
-        std::array<uint64_t, limbs> val_m1_low;
-        std::array<uint64_t, limbs> val_m2_low;
-        uint64_t low_part_min = (1ull << 52) * ele_bound;
-        uint64_t low_mask = (1ull << 52) - 1;
-        for (int j = 0; j < limbs; j++) {
-            uint128_t val_m1 = (uint128_t)(ele_bound) * (uint128_t)(sys.moduli1[j]) * (uint128_t)(sys.moduli1[j]);
-            uint128_t val_m2 = (uint128_t)(ele_bound) * (uint128_t)(sys.moduli2[j]) * (uint128_t)(sys.moduli2[j]);
-            val_m1_low[j] = val_m1 & low_mask;
-            val_m2_low[j] = val_m2 & low_mask;
-            val_m1_high[j] = val_m1 >> 52;
-            val_m2_high[j] = val_m2 >> 52;
 
-            val_m1_low[j] += desired_value_rns.first[j];
-            val_m2_low[j] += desired_value_rns.second[j];
-            // The low bits must be at least 2**52 * ele_bound to ensure the low part is positive when subtracting low and high without borrowing.  Add multiples of the modulus to make this happen
-            val_m1_low[j] += sys.moduli1[j] * ele_bound;
-            val_m2_low[j] += sys.moduli2[j] * ele_bound;
-            // Because 2**52 - t < 2**52, may need to add a few more.
-            while (val_m1_low[j] < low_part_min) {
-                val_m1_low[j] += sys.moduli1[j];
-            }
-            while (val_m2_low[j] < low_part_min) {
-                val_m2_low[j] += sys.moduli2[j];
-            }
-        }
-        
-
-        auto val_m1_high_avx = AVXVector<limbs>(val_m1_high);
-        auto val_m2_high_avx = AVXVector<limbs>(val_m2_high);
-        auto val_m1_low_avx = AVXVector<limbs>(val_m1_low);
-        auto val_m2_low_avx = AVXVector<limbs>(val_m2_low);
-        using ElementType = BoundedElement<Bounds<ele_bound, ele_bound + 1>, limbs, element_bits>;
-        using WType = WideElement<Bounds<ele_bound, ele_bound + 1>, limbs, element_bits>;
-        auto w1 = WType(ElementType(val_m1_high_avx), ElementType(val_m1_low_avx));
-        auto w2 = WType(ElementType(val_m2_high_avx), ElementType(val_m2_low_avx));
-        return WideOffsetElement<ele_bound, rns_bound>(w1, w2);
-    }
-#endif
-
-#if BLST_AVX_VALIDATE_CONSTANTS
-    template<int64_t lower, int64_t upper, int64_t rns_lower, int64_t rns_upper>
-    INLINE auto check_bounds(const ExpandedElement<BoundedElement<Bounds<lower, upper>, limbs, element_bits>, Bounds<rns_lower, rns_upper>> &element, const std::string &context = "") const {
-        bool ok = true;
-        std::array<int64_t, limbs> moduli1;
-        std::array<int64_t, limbs> moduli2;
-        for (int i = 0; i < limbs; i++) {
-            moduli1[i] = sys.moduli1[i];
-            moduli2[i] = sys.moduli2[i];
-        }
-
-        if (!element.m1.check_bounds(moduli1, context)) {
-            std::cout << context << ": M1 bounds do not match" << std::endl;
-            ok = false;
-        }
-        if (!element.m2.check_bounds(moduli2, context)) {
-            std::cout << context << ": M2 bounds do not match" << std::endl;
-            ok = false;
-        }
-        auto result = sys.from_mont_exact(element.m1.to_array(), element.m2.to_array(), false);
-        BigInt redundance = std::get<1>(result) / 3;
-        if (redundance < rns_lower) {
-            std::cout << context << ": RNS redundance out of bounds too low: " << redundance << " < " << rns_lower << std::endl;
-            ok = false;
-        }
-        if (redundance > rns_upper) {
-            std::cout << context << ": RNS redundance out of bounds too high: " << redundance << " > " << rns_upper << std::endl;
-            ok = false;
-        }
-        return std::make_pair(std::get<0>(result), ok);
-    }
-
-
-    template<class WideElementType, class RNSBoundsType>
-    INLINE auto check_bounds(const ExpandedElement<WideElementType, RNSBoundsType> &element, const std::string &context = "") const {
-        // Extract bounds from the types
-        constexpr int64_t rns_lower = RNSBoundsType::lower;
-        constexpr int64_t rns_upper = RNSBoundsType::upper;
-        bool ok = true;
-        std::array<int64_t, limbs> moduli1;
-        std::array<int64_t, limbs> moduli2;
-        for (int i = 0; i < limbs; i++) {
-            moduli1[i] = sys.moduli1[i];
-            moduli2[i] = sys.moduli2[i];
-        }
-        if (!element.m1.check_bounds(moduli1, context + ".m1")) {
-            std::cout << context << ": M1 bounds do not match" << std::endl;
-            ok = false;
-        }
-        if (!element.m2.check_bounds(moduli2, context + ".m2")) {
-            std::cout << context << ": M2 bounds do not match" << std::endl;
-            ok = false;
-        }
-        std::array<int64_t, limbs> m1_reduced;
-        std::array<int64_t, limbs> m2_reduced;
-        auto m1_arr = element.m1.low.to_array();
-        auto m2_arr = element.m2.low.to_array();
-        auto m1_high_arr = element.m1.high.to_array();
-        auto m2_high_arr = element.m2.high.to_array();
-        for (int i = 0; i < limbs; i++) {
-            m1_reduced[i] = (((int128_t)(m1_high_arr[i]) << 52) + (int128_t)(m1_arr[i])) % sys.moduli1[i];
-            m2_reduced[i] = (((int128_t)(m2_high_arr[i]) << 52) + (int128_t)(m2_arr[i])) % sys.moduli2[i];
-        }
-        auto result = sys.from_mont_exact(m1_reduced, m2_reduced, true);
-        auto RNSVal = std::get<0>(result);
-        auto RNSRedundance = std::get<1>(result);
-        // For wide elements representing offset * modulus^2, from_mont_exact returns redundance = offset * modulus
-        // So we need to divide by target to get the offset
-        BigInt offset_value = RNSRedundance / (9 * sys.target);
-        if (offset_value < rns_lower) {
-            std::cout << context << ": RNS redundance out of bounds too low: " << RNSRedundance << " / " << 9 * sys.target << " = " << offset_value << " < " << rns_lower << std::endl;
-            ok = false;
-        }
-        if (offset_value > rns_upper) {
-            std::cout << context << ": RNS redundance out of bounds too high: " << RNSRedundance << " / " << 9 * sys.target << " = " << offset_value << " > " << rns_upper << std::endl;
-            ok = false;
-        }
-        return std::make_pair(RNSVal, ok);
-    }
-
-    template<class RNSMatrix>
-    INLINE bool check_matrix_bound(const RNSMatrix& rns_matrix, std::array<int64_t, limbs> &moduli) const {
-        std::array<uint64_t, limbs> max_input;
-        for (int i = 0; i < limbs; i++) {
-            max_input[i] = (1ull << 52) - 1;
-        }
-        auto wide_zero_val = WideZero<limbs, element_bits>();
-        // Recast wide_zero to match ReadyElement bounds - ReadyElement uses MAX_ADD bounds
-        using ReadyWideType = WideElement<Bounds<0, MAX_ADD>, limbs, element_bits>;
-        auto wide_zero_recast = ReadyWideType(
-            BoundedElement<Bounds<0, MAX_ADD>, limbs, element_bits>(wide_zero_val.low.data),
-            BoundedElement<Bounds<0, MAX_ADD>, limbs, element_bits>(wide_zero_val.high.data)
-        );
-        // ReadyElement expects StandardBoundedElement (bounds [0, standard_bound]) for the second parameter
-        auto max_input_bounded = StandardBoundedElement(AVXVector<limbs>(max_input));
-        auto ready_elem = ReadyElement<MAX_ADD>(wide_zero_recast, max_input_bounded);
-        auto result = batch_change_base<1>(std::array<ReadyElement<MAX_ADD>, 1> {ready_elem}, rns_matrix)[0];
-        return result.check_bounds(moduli, "check_matrix_bound result");
-    }
-
-
-    INLINE bool check_all() const {
-        bool ok = true;
-
-        std::array<int64_t, limbs> moduli1;
-        std::array<int64_t, limbs> moduli2;
-        std::array<int64_t, limbs> max_value_array;
-        for (int i = 0; i < limbs; i++) {
-            moduli1[i] = sys.moduli1[i];
-            moduli2[i] = sys.moduli2[i];
-            max_value_array[i] = (1ull << 52) - 1;
-        }
-        ok &= check_matrix_bound(sys.intrns2.r1, moduli2);
-        ok &= check_matrix_bound(sys.intrns2.r2, moduli1);
-        ok &= check_matrix_bound(sys.convert_to.conversion_matrix, moduli2);
-        // Convert from doesn't do modular reduction
-        ok &= check_matrix_bound(sys.convert_from.conversion_matrix, max_value_array);
-        
-        // Check negative_range_offset value is 0
-        auto neg_offset_result = check_bounds(negative_range_offset(), "negative_range_offset");
-        ok &= (neg_offset_result.first == 0) && neg_offset_result.second;
-        
-        // Check elementwise_moduli values are 0
-        auto moduli1_result = check_bounds(elementwise_moduli<1>(), "elementwise_moduli<1>");
-        ok &= (moduli1_result.first == 0) && moduli1_result.second;
-        
-        auto moduli2_result = check_bounds(elementwise_moduli<2>(), "elementwise_moduli<2>");
-        ok &= (moduli2_result.first == 0) && moduli2_result.second;
-        
-        auto moduli4_result = check_bounds(elementwise_moduli<4>(), "elementwise_moduli<4>");
-        ok &= (moduli4_result.first == 0) && moduli4_result.second;
-        
-        return ok;
-    }
-#endif
 };
 
 }  // namespace blst::avx

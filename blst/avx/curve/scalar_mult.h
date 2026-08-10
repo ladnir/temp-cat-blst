@@ -13,9 +13,6 @@
 #include "blst/common/bytes.h"
 #include "blst/common/vect.h"
 #include "blst/scalar/curve/ec_mult.h"
-#if BLST_AVX_VALIDATE_CONSTANTS
-#include "../common/gmp_wrapper.h"
-#endif
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -101,13 +98,6 @@ class ScalarForExponent {
     static constexpr int limbs = ceil_div(scalar_bits, 8);
     std::array<uint8_t, limbs> data;
 
-#if BLST_AVX_VALIDATE_CONSTANTS
-    ScalarForExponent(const BigInt &scalar) {
-        for (int i = 0; i < limbs; i++) {
-            data[i] = (scalar >> (i * 8)).to_ulong() & 255;
-        }
-    }
-#endif
 
     ScalarForExponent(const std::array<uint8_t, limbs> &raw_data) : data(raw_data) {}
 
@@ -254,63 +244,11 @@ typename Curve::ProjPoint table_msm_vartime(const std::array<ScalarForExponent<s
     return result;
 }
 
-#if BLST_AVX_VALIDATE_CONSTANTS
-template<class Curve, class Ring, int scalar_bits, int table_log_size, int num_tables>
-typename Curve::ProjPoint table_msm(const std::array<BigInt, num_tables> &scalars, const std::array<PrecomputedTable<Curve, Ring, table_log_size>, num_tables> &tables, const Curve &curve, const Ring &ring) {
-    static_assert(scalar_bits > 0);
-    static_assert(num_tables > 0);
-    constexpr int wbits = table_log_size;
-    constexpr int num_windows = (scalar_bits + wbits) / (wbits + 1);
-    constexpr int carry_possible = scalar_bits % (wbits + 1) == 0;
-    std::array<std::array<std::pair<uint8_t, bool>, num_windows>, num_tables> booth_indexes;
-    typename Curve::ProjPoint result = curve.zero(ring);
-    
-    for (int i = 0; i < num_tables; i++) {
-        bool carry = false;
-        for (int j = 0; j < num_windows; j++) {
-            uint64_t window_val = (scalars[i] >> (j * (wbits + 1))).to_ulong() & ((1ULL << (wbits + 1)) - 1);
-            window_val += carry ? 1 : 0;
-            booth_indexes[i][j] = tables[i].booth_encode(window_val);
-            carry = booth_indexes[i][j].second;
-        }
-        // A full final window may emit one additional carry digit.
-        if constexpr (carry_possible) {
-            typename Curve::ProjPoint carry_point = curve.zero(ring).ctime_replace_if(carry, tables[i].data[(1 << wbits) - 1]);
-            result = curve.add_point(result, carry_point, ring);
-        }
-        else {
-            BLST_ASSERT(!carry);
-        }
-    }
-    // Align the extra carry digit with the fixed-width windows.
-    if constexpr (carry_possible) {
-        result = curve.double_point(result, ring);
-    }
-    for (int j = num_windows - 1; j >= 0; j--) {
-        for (int i = 0; i < num_tables; i++) {
-            result = curve.add_point(result, tables[i].gather_booth(booth_indexes[i][j].first, booth_indexes[i][j].second, curve, ring), ring);
-        }
-        if (j != 0) {
-            for (int k = 0; k < wbits+1; k++) {
-                result = curve.double_point(result, ring);
-            }
-        }
-    }
-    return result;
-}
-#endif
 
-#if BLST_AVX_VALIDATE_CONSTANTS
-template<class Curve, class Ring, int scalar_bits, int table_log_size>
-typename Curve::ProjPoint scalar_mult_table(const BigInt &scalar, const typename Curve::ProjPoint &P, const Curve &curve, const Ring &ring) {
-    PrecomputedTable<Curve, Ring, table_log_size> table(P, curve, ring);
-    return table_msm<Curve, Ring, scalar_bits, table_log_size, 1>(std::array<BigInt, 1>{scalar}, std::array<PrecomputedTable<Curve, Ring, table_log_size>, 1>{table}, curve, ring);
-}
-#endif
 
 
 // Wrapper functions for blst division operations
-// Returns {remainder, quotient} to match BigInt version ordering: {sk_zz_r, sk_zz}
+// Returns {remainder, quotient}: {sk_zz_r, sk_zz}.
 using div_by_zz_result =
     std::pair<std::array<uint8_t, 16>, std::array<uint8_t, 16>>;
 
@@ -322,7 +260,7 @@ inline void div_by_zz_into(div_by_zz_result& out, const std::array<uint8_t, 32>&
     blst::le_bytes_from_limbs(val.s, val.l, 32);
 
     // blst_div_by_zz stores: val.s is remainder, val.s+16 is quotient.
-    // Preserve the BigInt result ordering: {sk_zz_r, sk_zz}.
+    // Preserve the established result ordering: {sk_zz_r, sk_zz}.
     std::memcpy(out.first.data(), val.s, 16);
     std::memcpy(out.second.data(), val.s + 16, 16);
 
@@ -336,7 +274,7 @@ inline div_by_zz_result div_by_zz(const std::array<uint8_t, 32>& a) {
     return out;
 }
 
-// Returns {remainder, quotient} to match BigInt version ordering
+// Returns {remainder, quotient}.
 using div_by_z_result =
     std::pair<std::array<uint8_t, 8>, std::array<uint8_t, 8>>;
 
@@ -351,7 +289,7 @@ inline void div_by_z_into(div_by_z_result& out, const std::array<uint8_t, 16>& a
     blst::le_bytes_from_limbs(val.s, val.l, 16);
 
     // blst_div_by_z stores: val.s is remainder, val.s+8 is quotient.
-    // Preserve the BigInt result ordering.
+    // Preserve the established result ordering.
     std::memcpy(out.first.data(), val.s, 8);
     std::memcpy(out.second.data(), val.s + 8, 8);
 
@@ -482,23 +420,6 @@ class GLVMult {
         return result;
     }
 
-#if BLST_AVX_VALIDATE_CONSTANTS
-    template<int table_log_size=4>
-    ProjectivePoint multiply(const ProjectivePoint &P, const BigInt &SK, const Ring &ring) const {
-        constexpr int table_size = 1 << table_log_size;
-        const BigInt zz("ac45a4010001a4020000000100000000", 16);
-        BigInt sk_zz = SK / zz;
-        BigInt sk_zz_r = SK % zz;
-        std::array<BigInt, 2> scalars = {sk_zz_r, sk_zz};
-        PrecomputedTable<G1Curve, Ring, table_log_size> tableP(P, curve, ring);
-        // Keep independently owned projective tables; see the production path.
-        auto table_phi_data = batch_endomorphism<table_size>(tableP.data, ring);
-        PrecomputedTable<G1Curve, Ring, table_log_size> tablePhi(table_phi_data);
-
-        std::array<PrecomputedTable<G1Curve, Ring, table_log_size>, 2> tables = {tableP, tablePhi};
-        return table_msm<G1Curve, Ring, 128, table_log_size, 2>(scalars, tables, curve, ring);
-    }
-#endif
 };
 
 template<class Ring, class Curve = G2<Ring>>
@@ -644,30 +565,6 @@ class GLSMult {
         return result;
     }
 
-#if BLST_AVX_VALIDATE_CONSTANTS
-    template<int table_log_size=4>
-    ProjectivePoint multiply(const ProjectivePoint &P, const BigInt &SK, const FP2RingType &fp2ring, const G2Curve &curve, const Ring &ring) const {
-        constexpr int table_size = 1 << table_log_size;
-        using Table = PrecomputedTable<G2Curve, FP2RingType, table_log_size>;
-        const BigInt z("d201000000010000", 16);
-        const BigInt zz("ac45a4010001a4020000000100000000", 16);
-        BigInt sk_zz_high = SK / zz;
-        BigInt sk_zz_low = SK % zz;
-        BigInt sk_z_low_low = sk_zz_low % z;
-        BigInt sk_z_low_high = sk_zz_low / z;
-        BigInt sk_z_high_low = sk_zz_high % z;
-        BigInt sk_z_high_high = sk_zz_high / z;
-        std::array<BigInt, 4> scalars = {sk_z_low_low, sk_z_low_high, sk_z_high_low, sk_z_high_high};
-        std::array<Table, 4> tables;
-        tables[0].build(P, curve, fp2ring);
-        for (int i = 0; i < table_size; i++) {
-            tables[1].data[i] = minus_psi(tables[0].data[i], ring);
-            tables[2].data[i] = minus_psi(tables[1].data[i], ring);
-            tables[3].data[i] = minus_psi(tables[2].data[i], ring);
-        }
-        return table_msm<G2Curve, FP2RingType, 64, table_log_size, 4>(scalars, tables, curve, fp2ring);
-    }
-#endif
 };
 
 }  // namespace blst::avx

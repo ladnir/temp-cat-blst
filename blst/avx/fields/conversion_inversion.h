@@ -10,92 +10,7 @@
 #include <cstddef>
 #include <cstring>
 
-#if BLST_AVX_VALIDATE_CONSTANTS
-#include "../common/gmp_wrapper.h"
-#endif
-
 namespace blst::avx {
-
-#if BLST_AVX_VALIDATE_CONSTANTS
-namespace avx_blst_scalar_bridge {
-
-inline blst::Fp bigint_to_scalar_fp(const BigInt& value)
-{
-    blst::Fp standard = {};
-    size_t written = 0;
-    mpz_export(standard.l, &written, -1, sizeof(standard.l[0]), 0, 0, value.get_mpz().get_mpz_t());
-
-    blst::Fp mont = {};
-    blst::Fp::to_mont(mont, standard);
-    return mont;
-}
-
-inline BigInt scalar_fp_to_bigint(const blst::Fp& value)
-{
-    blst::Fp standard = {};
-    blst::Fp::from_mont(standard, value);
-
-    mpz_class out;
-    mpz_import(out.get_mpz_t(), blst::Fp::num_limb(), -1, sizeof(standard.l[0]), 0, 0, standard.l);
-    return BigInt(out);
-}
-
-template<class Ring>
-inline blst::Fp ring_to_scalar_fp(const Ring& ring, const typename Ring::StandardElement& value)
-{
-    return bigint_to_scalar_fp(ring.to_bigint(value));
-}
-
-template<class Ring>
-inline typename Ring::StandardElement scalar_fp_to_ring(const Ring& ring, const blst::Fp& value)
-{
-    return ring.from_bigint(scalar_fp_to_bigint(value));
-}
-
-template<class Ring>
-inline blst::Fp12 ring_fp12_to_scalar(
-    const Ring& ring,
-    const std::array<typename Ring::StandardElement, 12>& value)
-{
-    blst::Fp12 out = {};
-    out[0][0][0] = ring_to_scalar_fp(ring, value[0]);
-    out[0][0][1] = ring_to_scalar_fp(ring, value[1]);
-    out[0][1][0] = ring_to_scalar_fp(ring, value[2]);
-    out[0][1][1] = ring_to_scalar_fp(ring, value[3]);
-    out[0][2][0] = ring_to_scalar_fp(ring, value[4]);
-    out[0][2][1] = ring_to_scalar_fp(ring, value[5]);
-    out[1][0][0] = ring_to_scalar_fp(ring, value[6]);
-    out[1][0][1] = ring_to_scalar_fp(ring, value[7]);
-    out[1][1][0] = ring_to_scalar_fp(ring, value[8]);
-    out[1][1][1] = ring_to_scalar_fp(ring, value[9]);
-    out[1][2][0] = ring_to_scalar_fp(ring, value[10]);
-    out[1][2][1] = ring_to_scalar_fp(ring, value[11]);
-    return out;
-}
-
-template<class Ring>
-inline std::array<typename Ring::StandardElement, 12> scalar_fp12_to_ring(
-    const Ring& ring,
-    const blst::Fp12& value)
-{
-    return {
-        scalar_fp_to_ring(ring, value[0][0][0]),
-        scalar_fp_to_ring(ring, value[0][0][1]),
-        scalar_fp_to_ring(ring, value[0][1][0]),
-        scalar_fp_to_ring(ring, value[0][1][1]),
-        scalar_fp_to_ring(ring, value[0][2][0]),
-        scalar_fp_to_ring(ring, value[0][2][1]),
-        scalar_fp_to_ring(ring, value[1][0][0]),
-        scalar_fp_to_ring(ring, value[1][0][1]),
-        scalar_fp_to_ring(ring, value[1][1][0]),
-        scalar_fp_to_ring(ring, value[1][1][1]),
-        scalar_fp_to_ring(ring, value[1][2][0]),
-        scalar_fp_to_ring(ring, value[1][2][1]),
-    };
-}
-
-}  // namespace avx_blst_scalar_bridge
-#endif
 
 namespace avx_blst_direct_bridge {
 
@@ -308,14 +223,6 @@ std::array<typename Ring::StandardElement, 12> invert_fp12_via_blst(
     blst::Fp12 inverse = {};
     blst::Fp12::inverse(inverse, scalar);
     return avx_blst_direct_bridge::scalar_fp12_to_ring(ring, inverse);
-}
-
-template<class Ring>
-std::array<typename Ring::StandardElement, 12> invert_fp12_via_blst_bigint(
-    const Ring& ring,
-    const std::array<typename Ring::StandardElement, 12>& fp12_ring)
-{
-    return invert_fp12_via_blst(ring, fp12_ring);
 }
 
 template<class Ring, class FP12R = FP12Ring<Ring>>

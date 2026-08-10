@@ -1008,7 +1008,7 @@ TEST(Fp12Test, CyclotomicExpGLV4_Constant_Consistency) {
 // Alternative: Reconstruct using Fp12 exponentiation which is the ground truth.
 // If k = k0 + k1*lambda ... then g^k must equal g^k0 * g^(k1*lambda)...
 // This is exactly what the GLV expander does, so testing reconstruction *algebraically*
-// is harder without a BigInt library.
+// is harder without an independent arbitrary-precision oracle.
 // We will stick to the functional test: g^k (ref) == result.
 
 TEST(Fp12Test, CyclotomicExpGLV4_EdgeCases) {

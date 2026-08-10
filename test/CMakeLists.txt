@@ -63,7 +63,6 @@ set(AUDIT_TEST_SOURCES
     "Sha256_audit_tests.cpp"
 )
 
-set(AVX_VALIDATION_TEST_SOURCES)
 set(AVX_TEST_SOURCES)
 
 set(TEST_SOURCES
@@ -74,14 +73,6 @@ set(TEST_SOURCES
 
 if(NOT BLST_DEFAULT_AVX)
     list(APPEND TEST_SOURCES ${SCALAR_BACKEND_TEST_SOURCES})
-endif()
-
-if(BLST_HAVE_AVX_VALIDATION_GMP)
-    list(APPEND AVX_VALIDATION_TEST_SOURCES
-        "avx/runtime_constants_validation_support.cpp"
-        "avx/Avx_runtime_constants_validation_tests.cpp"
-    )
-    list(APPEND TEST_SOURCES ${AVX_VALIDATION_TEST_SOURCES})
 endif()
 
 if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
@@ -150,16 +141,6 @@ target_link_libraries(blst_tests PRIVATE gtest_main blst_static blst_avx_headers
 if(NOT BLST_ASAN AND NOT BLST_UBSAN)
     target_link_libraries(blst_tests PRIVATE bte)
 endif()
-
-if(BLST_HAVE_AVX_VALIDATION_GMP AND MSVC)
-    add_custom_command(TARGET blst_tests POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<$<CONFIG:Debug>:${BLST_AVX_MPIR_DEBUG_DLL}>
-            $<$<NOT:$<CONFIG:Debug>>:${BLST_AVX_MPIR_RELEASE_DLL}>
-            $<TARGET_FILE_DIR:blst_tests>
-    )
-endif()
-
 
 # Add CUDA tests if CUDA is enabled
 if(BLST_CUDA)

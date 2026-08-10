@@ -8,8 +8,6 @@
 #cmakedefine01 BLST_DEFAULT_AVX
 #cmakedefine BLST_AVX512_PORTABLE     // enable portable avx 512 wrappers
 #cmakedefine BLST_AVX512       // enable the AVX512 instruction set
-/* enable GMP-backed validation for baked AVX constants */
-#cmakedefine01 BLST_AVX_VALIDATE_CONSTANTS
 #cmakedefine BLST_CUDA         // enable cuda kernels
 #cmakedefine BLST_CUDA_MSM     // enable cuda msm kernels
 #cmakedefine BLST_PARALLEL_MSM // enable parallel msm pipeline

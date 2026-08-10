@@ -7,9 +7,6 @@
 #include "../cpu/vector/multiplication.hpp"
 #include "blst/avx/fields/fp2.h"
 
-#if BLST_AVX_VALIDATE_CONSTANTS
-#include "../common/gmp_wrapper.h"
-#endif
 
 #if defined(_MSC_VER)
 #define BLST_AVX_FP12_NOINLINE __declspec(noinline)
@@ -220,23 +217,6 @@ class FP12Ring : private Constants {
 		return std::array<typename Ring::StandardElement, 12> {ring.one(), ring.zero(), ring.zero(), ring.zero(), ring.zero(), ring.zero(), ring.zero(), ring.zero(), ring.zero(), ring.zero(), ring.zero(), ring.zero()};
 	}
 
-#if BLST_AVX_VALIDATE_CONSTANTS
-	bool check_bounds(const Ring & ring) const {
-		auto r = ring.check_bounds(Constants::offset(), "fp12 offset");
-		if (r.first != BigInt(0)) {
-			std::cout << "Value was " << r.first.to_string(16) << " but expected 0" << std::endl;
-		}
-		return r.second;
-	}
-
-	decltype(auto) offset_value() const {
-		return Constants::offset();
-	}
-#else
-	decltype(auto) offset_value() const {
-		return Constants::offset();
-	}
-#endif
 
 	/* 
 	Polynomial 0(22) : 1 x0y0 -1 x1y1 +1 x2y4 -1 x2y5 -1 x3y4 -1 x3y5 +1 x4y2 -1 x4y3 -1 x5y2 -1 x5y3 +1 x6y10 -1 x6y11 -1 x7y10 -1 x7y11 +1 x8y8 -1 x8y9 -1 x9y8 -1 x9y9 +1 x10y6 -1 x10y7 -1 x11y6 -1 x11y7

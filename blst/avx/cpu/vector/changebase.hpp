@@ -4,9 +4,6 @@
 #include "../../common/preprocess.h"
 #include <type_traits>
 
-#if BLST_AVX_VALIDATE_CONSTANTS
-#include "../precompute/precompute.hpp"
-#endif
 
 namespace blst::avx {
 
@@ -18,10 +15,6 @@ class RNSMatrix {
         uint64_t shifted_quotient_estimations[in_limbs*IN_DIGITS];
         AVXVector<out_limbs*OUT_DIGITS> correction;
         AVXVector<out_limbs*OUT_DIGITS> correction_shift;
-#if BLST_AVX_VALIDATE_CONSTANTS
-        BigInt premult;
-        BigInt postmult;
-#endif
 
         static constexpr int precision = 64;
         static constexpr int mulbits = 52;
@@ -56,60 +49,6 @@ class RNSMatrix {
 
     public:
 
-#if BLST_AVX_VALIDATE_CONSTANTS
-    // Helper to convert uint64_t array to BigInt array
-    template<typename T, size_t N>
-    static inline std::array<BigInt, N> to_bigint_array(const std::array<T, N> &arr) {
-        if constexpr (std::is_same_v<T, BigInt>) {
-            return arr; // No conversion needed
-        } else {
-            std::array<BigInt, N> result;
-            for (size_t i = 0; i < N; i++) {
-                result[i] = BigInt(arr[i]);
-            }
-            return result;
-        }
-    }
-
-    // Template constructor that accepts both BigInt and uint64_t moduli arrays
-    template<typename ModuliInT, typename ModuliOutT>
-    inline RNSMatrix(
-        const std::array<ModuliInT, in_limbs> &moduli_in,
-        const std::array<ModuliOutT, out_limbs> &moduli_out,
-        const BigInt &target_modulus,
-        const BigInt &premult,
-        const BigInt &postmult
-    ) : premult(premult), postmult(postmult) {
-        // Convert to BigInt arrays if needed
-        std::array<BigInt, in_limbs> moduli_in_big = to_bigint_array(moduli_in);
-        std::array<BigInt, out_limbs> moduli_out_big = to_bigint_array(moduli_out);
-
-        std::array<std::array<uint64_t, out_limbs * OUT_DIGITS>, in_limbs * IN_DIGITS> rns_values_tf{};
-        std::array<uint64_t, out_limbs * OUT_DIGITS> correction_vec{};
-        std::array<uint64_t, out_limbs * OUT_DIGITS> correction_shift_vec{};
-        std::array<BigInt, in_limbs * IN_DIGITS> sqe_tf{};
-
-        gen_precompute_wide<in_limbs, out_limbs, IN_DIGITS, INBITS, OUT_DIGITS, OUTBITS, precision>(
-            moduli_in_big, moduli_out_big, target_modulus, premult, postmult,
-            rns_values_tf, correction_vec, sqe_tf, false  // Debug output disabled
-        );
-
-        // Load into members
-        for (int i = 0; i < in_limbs * IN_DIGITS; i++) {
-            rns_mat[i].load(rns_values_tf[i].data());
-            shifted_quotient_estimations[i] = sqe_tf[i].to_u64();
-        }
-        correction.load(correction_vec.data());
-       
-        // Cannot use shifted version if binary output.
-        if (moduli_out_big[0] < BigInt(1) << 64) {
-            for (int i = 0; i < out_limbs * OUT_DIGITS; i++) {
-                correction_shift_vec[i] = ((uint128_t)(correction_vec[i]) * (1ull << mulbits)) % moduli_out_big[i].to_u64();
-            }
-        }
-        correction_shift.load(correction_shift_vec.data());
-    }
-#endif
 
     inline RNSMatrix(
         const std::array<std::array<uint64_t, out_limbs * OUT_DIGITS>, in_limbs * IN_DIGITS>& rns_values_tf,
@@ -360,15 +299,6 @@ class RNSMatrix {
         }
     }
     
-#if BLST_AVX_VALIDATE_CONSTANTS
-    inline const BigInt& get_premult() const {
-        return premult;
-    }
-    
-    inline const BigInt& get_postmult() const {
-        return postmult;
-    }
-#endif
 };
 
 }  // namespace blst::avx
