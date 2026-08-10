@@ -358,10 +358,16 @@ beta/minus-psi maps give the required radix bases. `CurveDispatch.lean`
 composes public masking and reduction with the selected Booth and wNAF
 schedules over both `r`-torsion and the conventional cyclic G1/G2 subgroup
 carriers. `AUD-227` and `AVX-P4-003` are therefore accepted at proof commit
-`f1cfde9`. The separate completeness proof for relation-based runtime
-membership predicates remains `AUD-231`; it requires concrete ambient-curve
-cardinality and subgroup-span facts but is not a premise of multiplication on
-the documented cyclic subgroup domain. Canonical
+`f1cfde9`. `CurveMembership.lean` then removes the ambient-cardinality premise
+from the hard direction of the relation-based runtime membership proof. It
+packages the literal homogeneous `sigma` and conjugating `psi` maps as
+quotient-safe additive projective endomorphisms and proves, for both selected
+curves, `standard cyclic subgroup ⊆ accepted relation ⊆ r-torsion`. The
+relation-to-`r`-torsion step uses the concrete infinity/x=0 3-torsion kernels
+and `gcd(z²+1,3)=1`. `AUD-231` now retains only the global proof that the
+selected rational relation eigenspace is exactly the one-dimensional span of
+the standard generator; it is not a premise of multiplication on the
+documented cyclic subgroup domain. Canonical
 export followed by scalar REDC
 and byte weaving is likewise an explicit observation boundary for equality,
 infinity observation, validation, and secret normalization rather than a

@@ -95,9 +95,11 @@ the entire AVX API. The exact current boundary is:
 - formally proved over the conventional cyclic G1/G2 domains: public masking,
   modulo-`r` preparation, concrete generator/eigenbasis facts, and all four
   selected CT/VT GLV/GLS scalar-multiplication schedules;
-- conditional formal evidence: completeness of the relation-based public
-  membership predicates still depends on concrete full-cardinality and
-  subgroup-span premises (`AUD-231`);
+- partially closed formal evidence: the exact relation-based public membership
+  predicates now satisfy
+  `standard cyclic subgroup ⊆ accepted relation ⊆ r-torsion` without an
+  ambient-cardinality premise; identifying the accepted rational eigenspace
+  with the standard generator span remains `AUD-231`;
 - explicit non-Lean observation boundary: MatrixNoK canonical export through
   scalar REDC/byte weaving for point equality and validation;
 - outside this arithmetic proof: generic FFT orchestration, map/hash-to-curve
@@ -108,8 +110,9 @@ the entire AVX API. The exact current boundary is:
   theorem.
 
 These are evidence gaps rather than confirmed C++ defects. `AUD-227` is closed
-for selected public curve arithmetic by accepted row `AVX-P4-003`; `AUD-231`
-keeps the narrower validator-completeness claim visible so future release
+for selected public curve arithmetic by accepted row `AVX-P4-003`; proof
+commit `24de7b4` discharges relation soundness and cyclic-generator inclusion,
+while `AUD-231` keeps the final eigenspace/span claim visible so future release
 notes cannot imply broader coverage than the correspondence ledger provides.
 
 Native object inspection also found function-local dynamic initialization

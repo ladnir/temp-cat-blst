@@ -579,7 +579,12 @@ the standard BLS12-381 G1/G2 coordinates, proves both generators are killed by
 composes public masking and reduction with the exact selected Booth/wNAF
 schedules and proves all four G1/G2 CT/VT dispatches over the conventional
 cyclic subgroups. Full ambient-curve cardinality is therefore not required for
-the multiplication contract. `AUD-231` separately tracks the remaining proof
-that the runtime relation-based membership predicates accept exactly those
-cyclic subgroups. This proof-only completion ran no C++ build, Peach job, or
+the multiplication contract. Proof commit `24de7b4` adds
+`CurveMembership.lean`, packages the literal sigma/psi maps as additive maps on
+the selected projective groups, and proves
+`standard cyclic subgroup ⊆ accepted relation ⊆ r-torsion` for both G1 and G2
+without a point-count premise. `AUD-231` is narrowed to the final global fact
+that the accepted rational eigenspace is the one-dimensional span of the
+standard generator. Focused 3,090-target module and 3,119-target root Lean
+builds pass. This proof-only completion ran no C++ build, Peach job, or
 benchmark.
