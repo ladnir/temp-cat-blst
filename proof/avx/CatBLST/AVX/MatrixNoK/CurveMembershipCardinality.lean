@@ -17,8 +17,10 @@ vector space over `ZMod r` containing a point of exact order `r`; if it were
 larger than `r`, it would contain at least `r^2` points.  For BLS12-381,
 `r^2 > 2p + 1`, which is impossible.
 
-The analogous coarse bound over the G2 base field `Fp2` is not strong enough,
-so this module intentionally proves only the G1 result.
+Over the G2 base field `Fp2`, the analogous coarse bound is not strong enough
+to prove exact equality.  It does prove that the accepted kernel has dimension
+at most two over `ZMod r`, reducing the remaining G2 alternatives to exactly
+`r` or `r^2` elements.
 -/
 
 namespace CatBLST.AVX.MatrixNoK
@@ -159,8 +161,33 @@ theorem selected_g1_accepted_card_le_projective :
     (fun point : SelectedG1AcceptedSubgroup =>
       (point : selectedG1Weierstrass.toProjective.Point)) Subtype.coe_injective
 
+theorem selected_g2_projective_point_card_le :
+    Nat.card selectedG2Weierstrass.toProjective.Point ≤
+      2 * Generated.target_modulus ^ 2 + 1 := by
+  letI : selectedG2Weierstrass.IsElliptic := selectedG2Elliptic
+  rw [Nat.card_congr
+    (WeierstrassCurve.Projective.Point.toAffineAddEquiv
+      selectedG2Weierstrass).toEquiv]
+  calc
+    Nat.card selectedG2Weierstrass.toAffine.Point ≤
+        2 * Nat.card SelectedMillerFp2 + 1 :=
+      AffineCardinality.affine_point_card_le
+    _ = 2 * Generated.target_modulus ^ 2 + 1 := by
+      rw [Nat.card_eq_fintype_card, selected_fp2_card]
+
+theorem selected_g2_accepted_card_le_projective :
+    Nat.card SelectedG2AcceptedSubgroup ≤
+      Nat.card selectedG2Weierstrass.toProjective.Point := by
+  exact Nat.card_le_card_of_injective
+    (fun point : SelectedG2AcceptedSubgroup =>
+      (point : selectedG2Weierstrass.toProjective.Point)) Subtype.coe_injective
+
 theorem scalar_order_squared_gt_g1_coarse_bound :
     2 * Generated.target_modulus + 1 < blsScalarOrder ^ 2 := by
+  norm_num [Generated.target_modulus, blsScalarOrder]
+
+theorem scalar_order_cubed_gt_g2_coarse_bound :
+    2 * Generated.target_modulus ^ 2 + 1 < blsScalarOrder ^ 3 := by
   norm_num [Generated.target_modulus, blsScalarOrder]
 
 theorem selected_g1_accepted_card_le_scalar_order :
@@ -200,5 +227,51 @@ theorem selected_g1_cyclic_eq_accepted :
       SelectedG1AcceptedSubgroup :=
   selected_g1_cyclic_eq_accepted_of_card_le
     selected_g1_accepted_card_le_scalar_order
+
+theorem selected_g2_accepted_finrank_le_two :
+    Module.finrank CurveExponent SelectedG2AcceptedSubgroup ≤ 2 := by
+  by_contra rankLarge
+  have rankAtLeastThree :
+      3 ≤ Module.finrank CurveExponent SelectedG2AcceptedSubgroup := by omega
+  have cardPower : Nat.card SelectedG2AcceptedSubgroup =
+      blsScalarOrder ^ Module.finrank CurveExponent SelectedG2AcceptedSubgroup := by
+    rw [Module.natCard_eq_pow_finrank
+      (K := CurveExponent) (V := SelectedG2AcceptedSubgroup), Nat.card_zmod]
+  have cubeLeCard : blsScalarOrder ^ 3 ≤
+      Nat.card SelectedG2AcceptedSubgroup := by
+    rw [cardPower]
+    exact pow_le_pow_right' (by norm_num [blsScalarOrder]) rankAtLeastThree
+  have acceptedLeCoarse : Nat.card SelectedG2AcceptedSubgroup ≤
+      2 * Generated.target_modulus ^ 2 + 1 :=
+    selected_g2_accepted_card_le_projective.trans
+      selected_g2_projective_point_card_le
+  have coarseLtCube := scalar_order_cubed_gt_g2_coarse_bound
+  omega
+
+theorem selected_g2_accepted_card_eq_scalar_or_square :
+    Nat.card SelectedG2AcceptedSubgroup = blsScalarOrder ∨
+      Nat.card SelectedG2AcceptedSubgroup = blsScalarOrder ^ 2 := by
+  have cardPower : Nat.card SelectedG2AcceptedSubgroup =
+      blsScalarOrder ^ Module.finrank CurveExponent SelectedG2AcceptedSubgroup := by
+    rw [Module.natCard_eq_pow_finrank
+      (K := CurveExponent) (V := SelectedG2AcceptedSubgroup), Nat.card_zmod]
+  have rankPositive : 0 < Module.finrank CurveExponent SelectedG2AcceptedSubgroup := by
+    by_contra rankNotPositive
+    have rankZero : Module.finrank CurveExponent SelectedG2AcceptedSubgroup = 0 := by
+      omega
+    have lowerBound := selected_g2_scalar_order_le_accepted_card
+    rw [cardPower, rankZero, pow_zero] at lowerBound
+    have scalarOrderGreaterThanOne : 1 < blsScalarOrder := by
+      norm_num [blsScalarOrder]
+    omega
+  have rankBound := selected_g2_accepted_finrank_le_two
+  have rankCases : Module.finrank CurveExponent SelectedG2AcceptedSubgroup = 1 ∨
+      Module.finrank CurveExponent SelectedG2AcceptedSubgroup = 2 := by
+    omega
+  rcases rankCases with rankOne | rankTwo
+  · left
+    rw [cardPower, rankOne, pow_one]
+  · right
+    rw [cardPower, rankTwo]
 
 end CatBLST.AVX.MatrixNoK
