@@ -373,7 +373,12 @@ the missing span identification. `ScalarOrderPrime.lean` and
 G1/G2 generators have exact order `r`, and show their accepted relation kernels
 have at least `r` elements. `CurveMembership.lean` then proves equality with
 the standard generator span is equivalent to the upper bound
-`card accepted ≤ r`. `AUD-231` now retains only those two G1/G2 upper bounds.
+`card accepted ≤ r`. `CurveMembershipCardinality.lean` closes that bound for
+G1 without importing the published exact curve order: every affine x-coordinate
+has at most two points, so the ambient projective curve has at most `2p+1`
+points, while a larger accepted `ZMod r` kernel would have at least `r² >
+2p+1` elements. `AUD-231` now retains only the G2 upper bound; the analogous
+coarse bound over `Fp2` is not strong enough.
 Canonical
 export followed by scalar REDC
 and byte weaving is likewise an explicit observation boundary for equality,

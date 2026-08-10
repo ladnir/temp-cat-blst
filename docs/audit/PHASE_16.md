@@ -744,9 +744,11 @@ turns those exact accepted relations into `ZMod r` subgroup carriers, proves
 the selected unsigned GLV/GLS bases on them, and instantiates all four selected
 CT/VT multiplication theorems. Commit `65b54f6` proves `r` prime, proves the
 standard generators have exact order `r`, and proves span equality is
-equivalent to `card accepted ≤ r`. These two global upper bounds, not
-validator-to-arithmetic safety, remain open. `AVX-P4-003` is accepted
+equivalent to `card accepted ≤ r`. Commit `f6c251b` proves the G1 upper bound
+and exact span equality using the generic `2p+1` affine-point bound and the
+checked inequality `r² > 2p+1`. Only the G2 global upper bound, not
+validator-to-arithmetic safety, remains open. `AVX-P4-003` is accepted
 for selected arithmetic, while compiler/ISA lowering remains the same
 external P0 boundary. The new packet passes focused module and transitive root
-type-checks, a trust-word scan, and a seven-theorem axiom inventory. No C++
+type-checks, a trust-word scan, and an axiom inventory. No C++
 build or benchmark ran for this proof-only completion.

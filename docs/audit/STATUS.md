@@ -589,7 +589,9 @@ bases plus all four CT/VT multiplication schedules on those domains. The
 validator-to-optimized-arithmetic bridge is therefore formal even without the
 span theorem. Commit `65b54f6` proves `r` prime by Lucas certificate, proves
 both standard generators have exact order `r`, and reduces span equality to
-the explicit upper bounds `card accepted ≤ r`. `AUD-231` now consists exactly
-of those two G1/G2 cardinality bounds. Focused module and transitive root Lean
+the explicit upper bounds `card accepted ≤ r`. Commit `f6c251b` proves the G1
+bound and exact span equality from a generic `2p+1` curve bound and `r² >
+2p+1`. `AUD-231` now consists exactly of the remaining G2 cardinality bound.
+Focused module and transitive root Lean
 type-checks pass. This
 proof-only completion ran no C++ build, Peach job, or benchmark.

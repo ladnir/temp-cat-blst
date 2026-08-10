@@ -312,9 +312,11 @@ Proof commit `65b54f6` additionally supplies a Lucas certificate for the
 primality of `r`, proves both selected generators have exact order `r`, and
 proves each accepted kernel has at least `r` elements. Exact equality with the
 generator span is now equivalent to the single upper bound that the accepted
-kernel has at most `r` elements. The remaining `AUD-231` obligation is those
-two G1/G2 cardinality upper bounds; it is no longer an operational
-validator-to-arithmetic safety dependency.
+kernel has at most `r` elements. Proof commit `f6c251b` establishes this bound
+for G1 from the generic `2p+1` affine-point bound and `r² > 2p+1`, yielding
+exact equality between the accepted G1 kernel and the selected generator span.
+The remaining `AUD-231` obligation is only the G2 cardinality upper bound; it
+is no longer an operational validator-to-arithmetic safety dependency.
 The production alias validator closes source selection
 ambiguity but is not a mathematical theorem. MatrixNoK-to-scalar observation
 through byte weaving and scalar REDC also remains a reviewed boundary when
