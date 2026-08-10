@@ -121,9 +121,12 @@ commits `24de7b4`, `1fdc201`, `65b54f6`, `f6c251b`, and `475221a` discharge rela
 cyclic-generator inclusion, accepted-kernel closure, selected arithmetic,
 scalar-order primality, exact generator order, and the final cardinality
 reduction, including exact G1 accepted-kernel identification and the G2
-`r`/`r²` dichotomy. `AUD-231` keeps the remaining G2 rank-two exclusion visible so
-future release notes cannot imply broader mathematical set equality than the
-correspondence ledger provides.
+`r`/`r²` dichotomy. The corrected BLS12 theorem in El Housni, Guillevic, and
+Piellard, ePrint 2022/352, Proposition 5, excludes the rank-two case. Commit
+`a8075e7` checks the exact BLS12-381 seed, cofactor polynomial, and coprimality
+hypothesis in Lean. `AUD-231` is validated with the paper's curve-family
+theorem and twist-order identification retained as explicit external
+mathematics rather than a claimed foundational Lean point count.
 
 Native object inspection also found function-local dynamic initialization
 guards around several derived AVX owners and public literals. `AUD-229` is

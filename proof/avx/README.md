@@ -378,8 +378,14 @@ G1 without importing the published exact curve order: every affine x-coordinate
 has at most two points, so the ambient projective curve has at most `2p+1`
 points, while a larger accepted `ZMod r` kernel would have at least `r² >
 2p+1` elements. Over `Fp2`, `r³ > 2p²+1` proves the accepted G2 kernel has
-dimension at most two and hence exactly `r` or `r²` elements. `AUD-231` now
-retains only exclusion of that G2 rank-two case.
+dimension at most two and hence exactly `r` or `r²` elements. The remaining
+rank-two exclusion is the published BLS12 criterion in El Housni, Guillevic,
+and Piellard, ePrint 2022/352, Proposition 5, which repairs Scott's original
+G2 proof. `CurveSubgroup.lean` checks the exact BLS12-381 seed and cofactor
+polynomials and `gcd(chi(u), c2) = 1`; the paper supplies the general
+curve-family theorem and published twist-order fact. `AUD-231` is therefore
+validated with that external mathematical dependency. A foundational Lean
+derivation of the BLS12 twist order remains deliberately out of scope.
 Canonical
 export followed by scalar REDC
 and byte weaving is likewise an explicit observation boundary for equality,

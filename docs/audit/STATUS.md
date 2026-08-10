@@ -591,9 +591,14 @@ span theorem. Commit `65b54f6` proves `r` prime by Lucas certificate, proves
 both standard generators have exact order `r`, and reduces span equality to
 the explicit upper bounds `card accepted ≤ r`. Commit `f6c251b` proves the G1
 bound and exact span equality from a generic `2p+1` curve bound and `r² >
-2p+1`. `AUD-231` now consists exactly of the remaining G2 cardinality bound.
-Commit `475221a` proves the accepted G2 kernel has cardinality `r` or `r²`, so
-the remaining bound is precisely exclusion of the rank-two alternative.
+2p+1`. Commit `475221a` proves the accepted G2 kernel has cardinality `r` or
+`r²`. The corrected BLS12 criterion in El Housni, Guillevic, and Piellard,
+ePrint 2022/352, Proposition 5, excludes the rank-two alternative. Commit
+`a8075e7` binds that result to the exact CatBLST relation and checks the
+BLS12-381 seed, cofactor polynomial, and `gcd(chi(u), c2) = 1` in Lean.
+`AUD-231` is validated with the published curve-family theorem and twist order
+as an explicit external mathematical dependency; a foundational Lean point
+count is not claimed.
 Focused module and transitive root Lean
 type-checks pass. This
 proof-only completion ran no C++ build, Peach job, or benchmark.
