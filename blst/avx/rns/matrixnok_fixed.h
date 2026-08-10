@@ -381,7 +381,7 @@ namespace blst::avx::matrixnok::detail
 
             const AVXVector<limbs> correction(Parameters::correction());
             const AVXVector<limbs> correction_shift(Parameters::correction_shift());
-            std::array<AVXScalar, batch> quotients;
+            AVXScalarArray<batch> quotients;
             BLST_UNROLL
             for (std::size_t item = 0; item < batch; ++item) {
                 quotients[item] = Scalar(

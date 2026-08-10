@@ -159,7 +159,7 @@ class RNSMatrix {
 
     template<int batch>
     INLINE void add_correction_batch(OutBatchArray<batch> &out_hi, OutBatchArray<batch> &out_lo, std::array<uint128_t, batch> &k_raw, const AVXVector<out_limbs * OUT_DIGITS> &c_value) const {
-        std::array<AVXScalar, batch> sk;
+        AVXScalarArray<batch> sk;
         for (int i = 0; i < batch; i++) {
             sk[i] = Scalar(k_raw[i] >> precision);
         }
@@ -190,7 +190,7 @@ class RNSMatrix {
     
     template<int batch>
     INLINE void add_correction_batch2(OutBatchArray<batch> &out_hi, OutBatchArray<batch> &out_lo, std::array<uint128_t, batch> &k_raw, const AVXVector<out_limbs * OUT_DIGITS> &c_value, const AVXVector<out_limbs * OUT_DIGITS> &c_value_shift) const {
-        std::array<AVXScalar, batch> sk;
+        AVXScalarArray<batch> sk;
         for (int i = 0; i < batch; i++) {
             sk[i] = Scalar(k_raw[i] >> precision);
         }

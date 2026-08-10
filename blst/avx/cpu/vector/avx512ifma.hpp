@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 
@@ -14,6 +15,24 @@ inline constexpr int ceil_div(int n, int d) {
 }
 
 using AVXScalar = vv512i;
+
+// GCC diagnoses its native vector attributes when the vector type appears
+// directly as a standard-library template argument. The attributes still
+// govern the element representation; contain that template-identity warning
+// at this alias rather than suppressing it throughout AVX translation units.
+#if defined(__GNUC__) && !defined(__clang__) && defined(BLST_AVX512)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wignored-attributes"
+#endif
+template <std::size_t count>
+using AVXScalarArray = std::array<AVXScalar, count>;
+#if defined(__GNUC__) && !defined(__clang__) && defined(BLST_AVX512)
+#pragma GCC diagnostic pop
+#endif
+
+static_assert(sizeof(AVXScalar) == 64);
+static_assert(sizeof(AVXScalarArray<2>) == 2 * sizeof(AVXScalar));
+static_assert(alignof(AVXScalarArray<2>) == alignof(AVXScalar));
 
 inline AVXScalar Scalar(uint64_t v) {
     return _vv512_set1_epi64(static_cast<long long>(v));
@@ -34,7 +53,7 @@ public:
     static constexpr int LIMBS_PER_VEC = 8;
     static constexpr int VEC_LIMBS = ceil_div(limbs, LIMBS_PER_VEC);
 
-    std::array<vv512i, VEC_LIMBS> data;
+    AVXScalarArray<VEC_LIMBS> data;
 
     inline vv512i operator[] (const int idx) const {
         return data[idx];
@@ -68,7 +87,7 @@ public:
         }
     }
 
-    inline AVXVector(const std::array<vv512i, VEC_LIMBS> &array) {
+    inline AVXVector(const AVXScalarArray<VEC_LIMBS> &array) {
         for (int i = 0; i < VEC_LIMBS; i++) {
             data[i] = array[i];
         }
