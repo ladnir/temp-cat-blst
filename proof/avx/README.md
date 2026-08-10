@@ -364,10 +364,13 @@ packages the literal homogeneous `sigma` and conjugating `psi` maps as
 quotient-safe additive projective endomorphisms and proves, for both selected
 curves, `standard cyclic subgroup ⊆ accepted relation ⊆ r-torsion`. The
 relation-to-`r`-torsion step uses the concrete infinity/x=0 3-torsion kernels
-and `gcd(z²+1,3)=1`. `AUD-231` now retains only the global proof that the
-selected rational relation eigenspace is exactly the one-dimensional span of
-the standard generator; it is not a premise of multiplication on the
-documented cyclic subgroup domain. Canonical
+and `gcd(z²+1,3)=1`. The exact accepted relations are also instantiated as
+additive subgroup kernels and `ZMod r` modules. Their unsigned GLV/GLS basis
+identities and all four selected CT/VT multiplication theorems hold for every
+validator-accepted point, so the optimized arithmetic no longer depends on
+the missing span identification. `AUD-231` now retains only the global proof
+that the selected rational relation eigenspace is exactly the one-dimensional
+span of the standard generator. Canonical
 export followed by scalar REDC
 and byte weaving is likewise an explicit observation boundary for equality,
 infinity observation, validation, and secret normalization rather than a

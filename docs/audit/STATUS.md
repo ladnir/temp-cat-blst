@@ -583,8 +583,11 @@ the multiplication contract. Proof commit `24de7b4` adds
 `CurveMembership.lean`, packages the literal sigma/psi maps as additive maps on
 the selected projective groups, and proves
 `standard cyclic subgroup ⊆ accepted relation ⊆ r-torsion` for both G1 and G2
-without a point-count premise. `AUD-231` is narrowed to the final global fact
-that the accepted rational eigenspace is the one-dimensional span of the
-standard generator. Focused 3,090-target module and 3,119-target root Lean
-builds pass. This proof-only completion ran no C++ build, Peach job, or
-benchmark.
+without a point-count premise. Commit `1fdc201` then defines the exact accepted
+relation kernels as `ZMod r` modules and proves the selected unsigned GLV/GLS
+bases plus all four CT/VT multiplication schedules on those domains. The
+validator-to-optimized-arithmetic bridge is therefore formal even without the
+span theorem. `AUD-231` is narrowed to the final global fact that the accepted
+rational eigenspace is the one-dimensional span of the standard generator.
+Focused 3,090-target module and 3,119-target root Lean builds pass. This
+proof-only completion ran no C++ build, Peach job, or benchmark.

@@ -305,11 +305,13 @@ recognize exactly that domain is now substantially reduced by
 and additive on the selected projective quotient, and the exact source
 relations satisfy
 `standard cyclic subgroup ⊆ accepted relation ⊆ r-torsion` without a full
-curve-cardinality assumption. The remaining `AUD-231` obligation is only the
-global one-dimensional eigenspace/span theorem identifying those accepted
-rational `r`-torsion points with the standard generator span. It does not
-weaken the selected multiplication theorem under its documented subgroup
-precondition.
+curve-cardinality assumption. The exact accepted relation kernels are now
+`ZMod r` modules with the selected unsigned GLV/GLS basis identities, and all
+four CT/VT multiplication schedules are proved correct on those carriers.
+The remaining `AUD-231` obligation is only the global one-dimensional
+eigenspace/span theorem identifying those accepted rational `r`-torsion
+points with the standard generator span; it is no longer an operational
+validator-to-arithmetic safety dependency.
 The production alias validator closes source selection
 ambiguity but is not a mathematical theorem. MatrixNoK-to-scalar observation
 through byte weaving and scalar REDC also remains a reviewed boundary when
