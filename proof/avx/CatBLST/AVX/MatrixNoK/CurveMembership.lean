@@ -958,4 +958,167 @@ theorem selected_g2_cyclic_membership_implies_source_relation
     ← to_selected_g2_point_negate] at groupRelation
   exact (to_selected_g2_point_eq_iff _ _ _ _).mp groupRelation
 
+/-! ## Validator-accepted subgroup carriers
+
+These kernels are the exact additive domains recognized by the source
+relations after the public on-curve check.  They are intentionally distinct
+from the conventional generator spans until the final global eigenspace-size
+theorem is available.
+-/
+
+noncomputable def selectedG1RelationHom :
+    selectedG1Weierstrass.toProjective.Point →+
+      selectedG1Weierstrass.toProjective.Point :=
+  selectedG1SigmaHom.comp selectedG1SigmaHom +
+    nsmulAddMonoidHom (curveRadix ^ 2)
+
+noncomputable def selectedG2RelationHom :
+    selectedG2Weierstrass.toProjective.Point →+
+      selectedG2Weierstrass.toProjective.Point :=
+  selectedG2PsiHom + nsmulAddMonoidHom curveRadix
+
+noncomputable abbrev SelectedG1AcceptedSubgroup :=
+  selectedG1RelationHom.ker
+
+noncomputable abbrev SelectedG2AcceptedSubgroup :=
+  selectedG2RelationHom.ker
+
+theorem selected_g1_mem_accepted_iff_relation
+    (point : selectedG1Weierstrass.toProjective.Point) :
+    point ∈ SelectedG1AcceptedSubgroup ↔
+      selectedG1SigmaHom (selectedG1SigmaHom point) =
+        -((curveRadix ^ 2) • point) := by
+  rw [AddMonoidHom.mem_ker]
+  change selectedG1SigmaHom (selectedG1SigmaHom point) +
+      (curveRadix ^ 2) • point = 0 ↔ _
+  exact add_eq_zero_iff_eq_neg
+
+theorem selected_g2_mem_accepted_iff_relation
+    (point : selectedG2Weierstrass.toProjective.Point) :
+    point ∈ SelectedG2AcceptedSubgroup ↔
+      selectedG2PsiHom point = -(curveRadix • point) := by
+  rw [AddMonoidHom.mem_ker]
+  change selectedG2PsiHom point + curveRadix • point = 0 ↔ _
+  exact add_eq_zero_iff_eq_neg
+
+theorem selected_g1_source_relation_iff_accepted
+    (point : HomogeneousPoint SelectedCurveFp)
+    (valid : point.projectivelyValid 4) :
+    (cppG1Sigma (cppG1Sigma point)).equivalent
+        (cppBinaryMul 4 point (curveRadix ^ 2)).negate ↔
+      toSelectedG1Point point valid ∈ SelectedG1AcceptedSubgroup := by
+  rw [selected_g1_mem_accepted_iff_relation]
+  change _ ↔ selectedG1SigmaPoint
+      (selectedG1SigmaPoint (toSelectedG1Point point valid)) =
+    -((curveRadix ^ 2) • toSelectedG1Point point valid)
+  rw [selected_g1_sigma_point_to_selected,
+    selected_g1_sigma_point_to_selected,
+    ← to_selected_g1_point_cpp_binary_mul,
+    ← to_selected_g1_point_negate,
+    to_selected_g1_point_eq_iff]
+
+theorem selected_g2_source_relation_iff_accepted
+    (point : HomogeneousPoint SelectedMillerFp2)
+    (valid : point.projectivelyValid selectedG2CurveB) :
+    (cppG2Psi point).equivalent
+        (cppBinaryMul selectedG2CurveB point curveRadix).negate ↔
+      toSelectedG2Point point valid ∈ SelectedG2AcceptedSubgroup := by
+  rw [selected_g2_mem_accepted_iff_relation]
+  change _ ↔ selectedG2PsiPoint (toSelectedG2Point point valid) =
+    -(curveRadix • toSelectedG2Point point valid)
+  rw [selected_g2_psi_point_to_selected,
+    ← to_selected_g2_point_cpp_binary_mul,
+    ← to_selected_g2_point_negate,
+    to_selected_g2_point_eq_iff]
+
+theorem selected_g1_cyclic_le_accepted :
+    AddSubgroup.zmultiples selectedG1GeneratorPoint ≤
+      SelectedG1AcceptedSubgroup := by
+  intro point membership
+  rw [selected_g1_mem_accepted_iff_relation]
+  exact g1_integer_span_implies_relation selectedG1SigmaHom
+    selectedG1GeneratorPoint point selected_g1_generator_relation_group (by
+      rcases AddSubgroup.mem_zmultiples_iff.mp membership with ⟨scalar, span⟩
+      exact ⟨scalar, span.symm⟩)
+
+theorem selected_g2_cyclic_le_accepted :
+    AddSubgroup.zmultiples selectedG2GeneratorPoint ≤
+      SelectedG2AcceptedSubgroup := by
+  intro point membership
+  rw [selected_g2_mem_accepted_iff_relation]
+  exact g2_integer_span_implies_relation selectedG2PsiHom
+    selectedG2GeneratorPoint point selected_g2_generator_relation_group (by
+      rcases AddSubgroup.mem_zmultiples_iff.mp membership with ⟨scalar, span⟩
+      exact ⟨scalar, span.symm⟩)
+
+noncomputable instance selectedG1AcceptedSubgroupModule :
+    Module CurveExponent SelectedG1AcceptedSubgroup :=
+  AddCommGroup.zmodModule (n := blsScalarOrder) (by
+    intro point
+    apply Subtype.ext
+    change blsScalarOrder •
+      (point : selectedG1Weierstrass.toProjective.Point) = 0
+    exact g1_relation_implies_prime_order_of_small_fixed_kernel
+      selectedG1SigmaHom point selected_g1_sigma_hom_cube
+      selected_g1_sigma_hom_squared_fixed_three_torsion
+      ((selected_g1_mem_accepted_iff_relation point).mp point.property))
+
+noncomputable instance selectedG2AcceptedSubgroupModule :
+    Module CurveExponent SelectedG2AcceptedSubgroup :=
+  AddCommGroup.zmodModule (n := blsScalarOrder) (by
+    intro point
+    apply Subtype.ext
+    change blsScalarOrder •
+      (point : selectedG2Weierstrass.toProjective.Point) = 0
+    exact g2_relation_implies_prime_order_of_small_fixed_kernel
+      selectedG2PsiHom point selected_g2_psi_hom_six
+      selected_g2_psi_hom_squared_neg_fixed_three_torsion
+      ((selected_g2_mem_accepted_iff_relation point).mp point.property))
+
+theorem selected_g1_accepted_unsigned_basis
+    (point : SelectedG1AcceptedSubgroup) :
+    -selectedG1SigmaHom (selectedG1SigmaHom
+        (point : selectedG1Weierstrass.toProjective.Point)) =
+      (curveRadix ^ 2) •
+        (point : selectedG1Weierstrass.toProjective.Point) := by
+  have relation :=
+    (selected_g1_mem_accepted_iff_relation point).mp point.property
+  rw [relation]
+  exact neg_neg _
+
+theorem selected_g2_accepted_unsigned_basis
+    (point : SelectedG2AcceptedSubgroup) :
+    -selectedG2PsiHom
+        (point : selectedG2Weierstrass.toProjective.Point) =
+      curveRadix •
+        (point : selectedG2Weierstrass.toProjective.Point) := by
+  have relation :=
+    (selected_g2_mem_accepted_iff_relation point).mp point.property
+  rw [relation]
+  exact neg_neg _
+
+theorem selected_g1_accepted_mult_correct
+    (point : SelectedG1AcceptedSubgroup) (scalar nbits : Nat) :
+    selectedG1Mult point scalar nbits =
+      (curveMaskedScalar scalar nbits : CurveExponent) • point :=
+  selected_g1_mult_correct point scalar nbits
+
+theorem selected_g1_accepted_mult_vartime_correct
+    (point : SelectedG1AcceptedSubgroup) (scalar nbits : Nat) :
+    selectedG1MultVartime point scalar nbits =
+      (curveMaskedScalar scalar nbits : CurveExponent) • point :=
+  selected_g1_mult_vartime_correct point scalar nbits
+
+theorem selected_g2_accepted_mult_correct
+    (point : SelectedG2AcceptedSubgroup) (scalar nbits : Nat) :
+    selectedG2Mult point scalar nbits =
+      (curveMaskedScalar scalar nbits : CurveExponent) • point :=
+  selected_g2_mult_correct point scalar nbits
+
+theorem selected_g2_accepted_mult_vartime_correct
+    (point : SelectedG2AcceptedSubgroup) (scalar nbits : Nat) :
+    selectedG2MultVartime point scalar nbits =
+      (curveMaskedScalar scalar nbits : CurveExponent) • point :=
+  selected_g2_mult_vartime_correct point scalar nbits
+
 end CatBLST.AVX.MatrixNoK
