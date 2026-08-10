@@ -1,9 +1,9 @@
 #pragma once
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <type_traits>
 #include <iostream>
-#include "../cpu/vector/multiplication.hpp"
 #include "blst/avx/fields/fp2.h"
 
 
@@ -16,6 +16,21 @@
 #endif
 
 namespace blst::avx {
+
+template<class T, std::size_t left_size, std::size_t right_size>
+std::array<T, left_size + right_size> concat(
+	const std::array<T, left_size>& left,
+	const std::array<T, right_size>& right)
+{
+	std::array<T, left_size + right_size> result;
+	for (std::size_t i = 0; i < left_size; ++i) {
+		result[i] = left[i];
+	}
+	for (std::size_t i = 0; i < right_size; ++i) {
+		result[left_size + i] = right[i];
+	}
+	return result;
+}
 
 template<class Ring, class Constants, int VERSION=3>
 class FP12Ring : private Constants {

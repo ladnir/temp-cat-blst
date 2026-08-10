@@ -1,5 +1,4 @@
 #include "blst/avx/generated_matrixnok_constants.hpp"
-#include "blst/avx/cpu/vector/conversion.hpp"
 #include "blst/avx/rns/elementwise_reduce.h"
 #include "blst/avx/rns/matrixnok_change_base.h"
 #include "blst/avx/rns/matrixnok_fp.h"
@@ -34,10 +33,81 @@ namespace blst::avx::test
 {
     namespace matrixnok_constants = matrixnok::generated;
 
-    static_assert(ConvertToRNS<381, 8>::indigits == 8);
-    static_assert(ConvertToRNS<381, 8, 50>::indigits == 8);
-    static_assert(ConvertToRNS<401, 8>::indigits == 8);
-    static_assert(ConvertToRNS<401, 8, 50>::indigits == 9);
+    template<std::size_t lanes>
+    struct ScalarRnsAccumulators
+    {
+        std::array<uint64_t, lanes> high;
+        std::array<uint64_t, lanes> low;
+    };
+
+    static constexpr uint64_t kIfmaDigitMask =
+        (uint64_t{1} << 52) - 1;
+
+    // Scalar model of VPMADD52: multiply the low 52-bit digits and add the
+    // selected half with ordinary uint64_t accumulator wrap.
+    static void scalar_ifma_accumulate(
+        uint64_t& high, uint64_t& low, uint64_t left, uint64_t right)
+    {
+        const uint128_t product =
+            static_cast<uint128_t>(left & kIfmaDigitMask) *
+            static_cast<uint128_t>(right & kIfmaDigitMask);
+        low += static_cast<uint64_t>(product) & kIfmaDigitMask;
+        high += static_cast<uint64_t>(product >> 52) & kIfmaDigitMask;
+    }
+
+    template<bool shifted, std::size_t input_count, std::size_t output_count>
+    static ScalarRnsAccumulators<output_count> scalar_rns_accumulate(
+        const std::array<std::array<uint64_t, output_count>, input_count>& matrix,
+        const std::array<uint64_t, output_count>& correction,
+        const std::array<uint64_t, input_count>& quotient_estimates,
+        const std::array<uint64_t, input_count>& residues,
+        const std::array<uint64_t, output_count>& initial_high,
+        const std::array<uint64_t, output_count>& initial_low,
+        const std::array<uint64_t, output_count>& output_moduli)
+    {
+        // This is deliberately independent of FixedRNSMatrix and the vector
+        // wrappers. It reconstructs the matrix/correction schedule directly
+        // from scalar products and the generated constants.
+        ScalarRnsAccumulators<output_count> result{initial_high, initial_low};
+        uint128_t quotient_numerator = 0;
+        for (std::size_t input = 0; input < input_count; ++input) {
+            quotient_numerator += static_cast<uint128_t>(residues[input]) *
+                static_cast<uint128_t>(quotient_estimates[input]);
+            for (std::size_t output = 0; output < output_count; ++output) {
+                scalar_ifma_accumulate(
+                    result.high[output], result.low[output],
+                    matrix[input][output], residues[input]);
+            }
+        }
+
+        const uint64_t quotient =
+            static_cast<uint64_t>(quotient_numerator >> 64);
+        const uint64_t quotient_high = quotient >> 52;
+        for (std::size_t output = 0; output < output_count; ++output) {
+            scalar_ifma_accumulate(
+                result.high[output], result.low[output],
+                correction[output], quotient);
+            if constexpr (shifted) {
+                const uint64_t shifted_correction = mod_mul(
+                    correction[output], uint64_t{1} << 52,
+                    output_moduli[output]);
+                scalar_ifma_accumulate(
+                    result.high[output], result.low[output],
+                    shifted_correction, quotient_high);
+            } else {
+                const uint128_t high_product =
+                    static_cast<uint128_t>(correction[output]) *
+                    static_cast<uint128_t>(quotient_high);
+                result.high[output] +=
+                    static_cast<uint64_t>(high_product) & kIfmaDigitMask;
+                result.high[output] +=
+                    (static_cast<uint64_t>(high_product >> 52) &
+                        kIfmaDigitMask) << 52;
+            }
+        }
+        return result;
+    }
+
     static_assert(matrixnok_constants::BLS12_381_RNS_DIM == 8);
     static_assert(matrixnok_constants::BLS12_381_CONVERT_TO_RADIX_BITS == 50);
     static_assert(matrixnok_constants::moduli1.size() == 8);
@@ -88,26 +158,10 @@ namespace blst::avx::test
         expect_aligned(matrixnok::detail::reducer_m2_constants.montgomery_factor);
     }
 
-    TEST(AvxMatrixNoKPrimitives, StatelessFixedContextMatchesGenericHelpers)
+    TEST(AvxMatrixNoKPrimitives, FixedContextMatchesScalarAccumulatorOracle)
     {
         EXPECT_EQ(sizeof(matrixnok::FpRingCandidate), 1U);
         EXPECT_EQ(sizeof(matrixnok::Fp2RingCandidate), 1U);
-
-        const RNSMatrix<8, 8> generic_r2(
-            matrixnok_constants::r2_rns_mat,
-            matrixnok_constants::r2_correction,
-            matrixnok_constants::r2_shifted_quotient_estimations,
-            matrixnok_constants::moduli1);
-        const RNSMatrix<1, 8, 8, 1, 50> generic_convert_to(
-            matrixnok_constants::convert_to_rns_mat,
-            matrixnok_constants::convert_to_correction,
-            matrixnok_constants::convert_to_shifted_quotient_estimations,
-            matrixnok_constants::moduli2);
-        const RNSMatrix<8, 1, 1, 8> generic_convert_from(
-            matrixnok_constants::convert_from_rns_mat,
-            matrixnok_constants::convert_from_correction,
-            matrixnok_constants::convert_from_shifted_quotient_estimations,
-            std::array<uint64_t, 1>{1});
 
         std::array<uint64_t, 8> r2_input = {};
         std::array<uint64_t, 8> digit_input = {};
@@ -121,52 +175,66 @@ namespace blst::avx::test
             initial_low[lane] = 29 * lane + 5;
         }
 
-        const auto compare_shifted = [&](const auto& generic, auto fixed_reduce, const auto& input) {
-            AVXVector<8> generic_high(initial_high);
-            AVXVector<8> generic_low(initial_low);
-            AVXVector<8> fixed_high(initial_high);
-            AVXVector<8> fixed_low(initial_low);
-            generic.rns_reduce_raw_shifted(
-                AVXVector<8>(input), generic_high, generic_low);
-            fixed_reduce(AVXVector<8>(input), fixed_high, fixed_low);
-            EXPECT_EQ(fixed_high.to_array(), generic_high.to_array());
-            EXPECT_EQ(fixed_low.to_array(), generic_low.to_array());
-        };
-        compare_shifted(
-            generic_r2,
-            matrixnok::detail::R2Matrix::reduce_raw_shifted,
-            r2_input);
-        compare_shifted(
-            generic_convert_to,
-            matrixnok::detail::ConvertToMatrix::reduce_raw_shifted,
-            digit_input);
+        const auto expected_r2 = scalar_rns_accumulate<true>(
+            matrixnok_constants::r2_rns_mat,
+            matrixnok_constants::r2_correction,
+            matrixnok_constants::r2_shifted_quotient_estimations,
+            r2_input, initial_high, initial_low,
+            matrixnok_constants::moduli1);
+        AVXVector<8> fixed_r2_high(initial_high);
+        AVXVector<8> fixed_r2_low(initial_low);
+        matrixnok::detail::R2Matrix::reduce_raw_shifted(
+            AVXVector<8>(r2_input), fixed_r2_high, fixed_r2_low);
+        EXPECT_EQ(fixed_r2_high.to_array(), expected_r2.high);
+        EXPECT_EQ(fixed_r2_low.to_array(), expected_r2.low);
 
-        AVXVector<8> generic_from_high(initial_high);
-        AVXVector<8> generic_from_low(initial_low);
+        const auto expected_convert_to = scalar_rns_accumulate<true>(
+            matrixnok_constants::convert_to_rns_mat,
+            matrixnok_constants::convert_to_correction,
+            matrixnok_constants::convert_to_shifted_quotient_estimations,
+            digit_input, initial_high, initial_low,
+            matrixnok_constants::moduli2);
+        AVXVector<8> fixed_to_high(initial_high);
+        AVXVector<8> fixed_to_low(initial_low);
+        matrixnok::detail::ConvertToMatrix::reduce_raw_shifted(
+            AVXVector<8>(digit_input), fixed_to_high, fixed_to_low);
+        EXPECT_EQ(fixed_to_high.to_array(), expected_convert_to.high);
+        EXPECT_EQ(fixed_to_low.to_array(), expected_convert_to.low);
+
+        const auto expected_convert_from = scalar_rns_accumulate<false>(
+            matrixnok_constants::convert_from_rns_mat,
+            matrixnok_constants::convert_from_correction,
+            matrixnok_constants::convert_from_shifted_quotient_estimations,
+            r2_input, initial_high, initial_low,
+            std::array<uint64_t, 8>{});
         AVXVector<8> fixed_from_high(initial_high);
         AVXVector<8> fixed_from_low(initial_low);
-        generic_convert_from.rns_reduce_raw(
-            AVXVector<8>(r2_input), generic_from_high, generic_from_low);
         matrixnok::detail::ConvertFromMatrix::reduce_raw(
             AVXVector<8>(r2_input), fixed_from_high, fixed_from_low);
-        EXPECT_EQ(fixed_from_high.to_array(), generic_from_high.to_array());
-        EXPECT_EQ(fixed_from_low.to_array(), generic_from_low.to_array());
+        EXPECT_EQ(fixed_from_high.to_array(), expected_convert_from.high);
+        EXPECT_EQ(fixed_from_low.to_array(), expected_convert_from.low);
 
         std::array<AVXVector<8>, 2> batch_input = {
             AVXVector<8>(r2_input), AVXVector<8>(digit_input)};
-        std::array<AVXVector<8>, 2> generic_batch_high = {
+        std::array<AVXVector<8>, 2> initial_batch_high = {
             AVXVector<8>(initial_high), AVXVector<8>(initial_low)};
-        std::array<AVXVector<8>, 2> generic_batch_low = {
+        std::array<AVXVector<8>, 2> initial_batch_low = {
             AVXVector<8>(initial_low), AVXVector<8>(initial_high)};
-        auto fixed_batch_high = generic_batch_high;
-        auto fixed_batch_low = generic_batch_low;
-        generic_r2.rns_reduce_raw_batch_shifted<2>(
-            &batch_input, generic_batch_high, generic_batch_low);
+        auto fixed_batch_high = initial_batch_high;
+        auto fixed_batch_low = initial_batch_low;
         matrixnok::detail::R2Matrix::reduce_raw_batch_shifted<2>(
             batch_input, fixed_batch_high, fixed_batch_low);
         for (std::size_t item = 0; item < 2; ++item) {
-            EXPECT_EQ(fixed_batch_high[item].to_array(), generic_batch_high[item].to_array());
-            EXPECT_EQ(fixed_batch_low[item].to_array(), generic_batch_low[item].to_array());
+            const auto expected = scalar_rns_accumulate<true>(
+                matrixnok_constants::r2_rns_mat,
+                matrixnok_constants::r2_correction,
+                matrixnok_constants::r2_shifted_quotient_estimations,
+                batch_input[item].to_array(),
+                initial_batch_high[item].to_array(),
+                initial_batch_low[item].to_array(),
+                matrixnok_constants::moduli1);
+            EXPECT_EQ(fixed_batch_high[item].to_array(), expected.high);
+            EXPECT_EQ(fixed_batch_low[item].to_array(), expected.low);
         }
 
         using WideBound = Bounds<0, 24>;

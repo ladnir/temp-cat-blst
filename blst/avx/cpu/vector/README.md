@@ -1,7 +1,7 @@
 # cpu/vector
 
-- **`avx512ifma.hpp`** — wraps AVX intrinsics for arbitrary-length SIMD vectors through the intrinsic compatibility layer.
-- **`changebase.hpp`** — core CRNS code; dominates compute time across applications.
-- **`multiplication.hpp`** — multiplication via CRNS.
-- **`conversion.hpp`** — CRNS conversion to/from radix form.
+- **`avx512ifma.hpp`** — fixed-register vector operations routed through the selected native or portable intrinsic layer.
 - **`vector_impl.hpp`** — unified include for the AVX vector implementation.
+
+The selected BLS12-381 MatrixNoK reduction and conversion schedules live under
+`blst/avx/rns`. CatBLST does not retain the earlier generic runtime CRNS engine.
