@@ -308,9 +308,12 @@ relations satisfy
 curve-cardinality assumption. The exact accepted relation kernels are now
 `ZMod r` modules with the selected unsigned GLV/GLS basis identities, and all
 four CT/VT multiplication schedules are proved correct on those carriers.
-The remaining `AUD-231` obligation is only the global one-dimensional
-eigenspace/span theorem identifying those accepted rational `r`-torsion
-points with the standard generator span; it is no longer an operational
+Proof commit `65b54f6` additionally supplies a Lucas certificate for the
+primality of `r`, proves both selected generators have exact order `r`, and
+proves each accepted kernel has at least `r` elements. Exact equality with the
+generator span is now equivalent to the single upper bound that the accepted
+kernel has at most `r` elements. The remaining `AUD-231` obligation is those
+two G1/G2 cardinality upper bounds; it is no longer an operational
 validator-to-arithmetic safety dependency.
 The production alias validator closes source selection
 ambiguity but is not a mathematical theorem. MatrixNoK-to-scalar observation

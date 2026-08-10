@@ -368,9 +368,13 @@ and `gcd(z²+1,3)=1`. The exact accepted relations are also instantiated as
 additive subgroup kernels and `ZMod r` modules. Their unsigned GLV/GLS basis
 identities and all four selected CT/VT multiplication theorems hold for every
 validator-accepted point, so the optimized arithmetic no longer depends on
-the missing span identification. `AUD-231` now retains only the global proof
-that the selected rational relation eigenspace is exactly the one-dimensional
-span of the standard generator. Canonical
+the missing span identification. `ScalarOrderPrime.lean` and
+`CurveGeneratorOrder.lean` add a Lucas certificate for `r`, prove the selected
+G1/G2 generators have exact order `r`, and show their accepted relation kernels
+have at least `r` elements. `CurveMembership.lean` then proves equality with
+the standard generator span is equivalent to the upper bound
+`card accepted ≤ r`. `AUD-231` now retains only those two G1/G2 upper bounds.
+Canonical
 export followed by scalar REDC
 and byte weaving is likewise an explicit observation boundary for equality,
 infinity observation, validation, and secret normalization rather than a

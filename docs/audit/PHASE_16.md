@@ -742,10 +742,11 @@ establishes `standard cyclic subgroup ⊆ accepted relation ⊆ r-torsion` for
 both curves without the old full-cardinality premise. Commit `1fdc201` further
 turns those exact accepted relations into `ZMod r` subgroup carriers, proves
 the selected unsigned GLV/GLS bases on them, and instantiates all four selected
-CT/VT multiplication theorems. The remaining `AUD-231` gap is the single
-global theorem that this rational relation eigenspace is the standard
-generator span, not validator-to-arithmetic safety. `AVX-P4-003` is accepted
+CT/VT multiplication theorems. Commit `65b54f6` proves `r` prime, proves the
+standard generators have exact order `r`, and proves span equality is
+equivalent to `card accepted ≤ r`. These two global upper bounds, not
+validator-to-arithmetic safety, remain open. `AVX-P4-003` is accepted
 for selected arithmetic, while compiler/ISA lowering remains the same
-external P0 boundary. The new packet passes focused 3,090-target module and
-3,119-target root Lean builds, a trust-word scan, and a six-theorem axiom
-inventory. No C++ build or benchmark ran for this proof-only completion.
+external P0 boundary. The new packet passes focused module and transitive root
+type-checks, a trust-word scan, and a seven-theorem axiom inventory. No C++
+build or benchmark ran for this proof-only completion.

@@ -100,8 +100,9 @@ the entire AVX API. The exact current boundary is:
   `standard cyclic subgroup ⊆ accepted relation ⊆ r-torsion` without an
   ambient-cardinality premise; the accepted kernels are `ZMod r` modules and
   the selected GLV/GLS CT/VT multiplication schedules are proved on those
-  exact domains, while identifying the accepted rational eigenspace with the
-  standard generator span remains `AUD-231`;
+  exact domains; both concrete generators have proved exact order `r`, and
+  accepted-kernel equality with their spans is reduced to `card accepted ≤ r`,
+  while those two upper bounds remain `AUD-231`;
 - explicit non-Lean observation boundary: MatrixNoK canonical export through
   scalar REDC/byte weaving for point equality and validation;
 - outside this arithmetic proof: generic FFT orchestration, map/hash-to-curve
@@ -113,11 +114,12 @@ the entire AVX API. The exact current boundary is:
 
 These are evidence gaps rather than confirmed C++ defects. `AUD-227` is closed
 for selected public curve arithmetic by accepted row `AVX-P4-003`; proof
-commits `24de7b4` and `1fdc201` discharge relation soundness,
-cyclic-generator inclusion, accepted-kernel closure, and selected arithmetic
-correctness on every accepted point. `AUD-231` keeps the final
-eigenspace/span identification visible so future release notes cannot imply
-broader mathematical set equality than the correspondence ledger provides.
+commits `24de7b4`, `1fdc201`, and `65b54f6` discharge relation soundness,
+cyclic-generator inclusion, accepted-kernel closure, selected arithmetic,
+scalar-order primality, exact generator order, and the final cardinality
+reduction. `AUD-231` keeps the two accepted-kernel upper bounds visible so
+future release notes cannot imply broader mathematical set equality than the
+correspondence ledger provides.
 
 Native object inspection also found function-local dynamic initialization
 guards around several derived AVX owners and public literals. `AUD-229` is

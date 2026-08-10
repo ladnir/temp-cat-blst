@@ -587,7 +587,9 @@ without a point-count premise. Commit `1fdc201` then defines the exact accepted
 relation kernels as `ZMod r` modules and proves the selected unsigned GLV/GLS
 bases plus all four CT/VT multiplication schedules on those domains. The
 validator-to-optimized-arithmetic bridge is therefore formal even without the
-span theorem. `AUD-231` is narrowed to the final global fact that the accepted
-rational eigenspace is the one-dimensional span of the standard generator.
-Focused 3,090-target module and 3,119-target root Lean builds pass. This
+span theorem. Commit `65b54f6` proves `r` prime by Lucas certificate, proves
+both standard generators have exact order `r`, and reduces span equality to
+the explicit upper bounds `card accepted ≤ r`. `AUD-231` now consists exactly
+of those two G1/G2 cardinality bounds. Focused module and transitive root Lean
+type-checks pass. This
 proof-only completion ran no C++ build, Peach job, or benchmark.
