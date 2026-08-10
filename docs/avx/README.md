@@ -41,7 +41,7 @@ Explicitly excluded:
 - GPU/CUDA code;
 - VROOM's vendored BLST copy, examples, baselines, benchmarks, result logs,
   artifact scripts, and dependency installers;
-- runtime GMP or runtime parameter generation in production; and
+- arbitrary-precision runtime dependencies or runtime parameter generation;
 - changes to frozen BTx/BTE.
 
 ## Implementation boundary
@@ -56,8 +56,9 @@ layer; native code must call `_mm512_*` without conversion objects or lane
 round-trips.
 
 Precomputed constants are checked in as fixed compile-time data with provenance
-and reproducible validation. Production initialization performs no search,
-allocation, GMP computation, or mutable global setup.
+and reproducible standard-library validation. The live build has no GMP/MPIR
+dependency. Production initialization performs no search, allocation,
+arbitrary-precision computation, or mutable global setup.
 
 Focused evidence for the prerequisite vector and bounded-reduction packet is
 recorded in `PRIMITIVE_EVIDENCE.md`.

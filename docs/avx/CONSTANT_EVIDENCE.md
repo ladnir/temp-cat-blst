@@ -17,8 +17,8 @@ The current CatBLST table intentionally differs from the pinned upstream blob
 in only the eight ConvertTo quotient estimates repaired by `AUD-221`; the
 independent generator and Lean snapshot reproduce that policy exactly. The
 data retains VROOM's MIT license and Simon Langowski attribution. The C++
-translation uses immutable inline constants and requires no runtime GMP,
-initialization, search, allocation, or mutable global state. Cache-line
+translation uses immutable inline constants and requires no arbitrary-precision
+library, initialization, search, allocation, or mutable global state. Cache-line
 alignment annotations added by CatBLST change no numeric data.
 
 ## Independent validation

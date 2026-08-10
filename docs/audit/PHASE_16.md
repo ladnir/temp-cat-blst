@@ -758,3 +758,21 @@ for selected arithmetic, while compiler/ISA lowering remains the same
 external P0 boundary. The new packet passes focused module and transitive root
 type-checks, a trust-word scan, and an axiom inventory. No C++
 build or benchmark ran for this proof-only completion.
+
+### GMP/MPIR validation cleanup (`AUD-232`)
+
+Commit `9573d58` removes the optional GMP/MPIR build dependency and its old
+runtime-constant generator, `BigInt` overloads, validation/reference tests,
+benchmark harnesses, and remote comparison scripts. The selected MatrixNoK
+engine remains fixed-width and unchanged: its constants continue to be
+regenerated independently with Python, bound into Lean, compared against the
+scalar backend, and checked by the exact correspondence ledger.
+
+The GMP-free MSVC portable-Debug configuration rebuilt the production library
+and the single test executable. All 30 focused `AvxMatrixNoKPrimitives` and
+`AvxCApiContract` tests passed. Structural search finds no live GMP/MPIR,
+`BigInt`, or removed CMake-option references outside historical documentation.
+The audit manifest accounts for all 784 retained files. Removing disabled
+branches changed three full-file hashes, so six accepted correspondence rows
+were rebound to `9573d58`; all 20 rows and 59 mapped hashes validate. No
+benchmark, portable Release build, native run, CUDA work, or BTx audit ran.

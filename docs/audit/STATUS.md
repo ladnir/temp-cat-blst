@@ -615,3 +615,12 @@ count is not claimed.
 Focused module and transitive root Lean
 type-checks pass. This
 proof-only completion ran no C++ build, Peach job, or benchmark.
+
+The post-selection cleanup at `9573d58` removes GMP/MPIR from the live build
+and source surface. Obsolete arbitrary-precision constant validation,
+reference tests, benchmarks, and comparison scripts are deleted; selected
+MatrixNoK arithmetic remains unchanged. The GMP-free portable-Debug build and
+30 focused MatrixNoK/C API tests pass, all 784 retained files are inventoried,
+and the exact-source correspondence validator accepts 20 rows and 59 hashes
+after rebinding the six affected rows. `AUD-232` is validated. No benchmark,
+native run, CUDA work, or BTx audit was performed.
