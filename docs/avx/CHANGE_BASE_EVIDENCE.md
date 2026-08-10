@@ -53,8 +53,11 @@ Host: AMD Ryzen 9 7950X. Toolchain: GCC 15.2.0, Release, `-march=native`.
 Both native and portable support were enabled; CUDA, assembly, and benchmarks
 were disabled. Only the existing compatibility target was built, with one job.
 
-The same four focused tests passed natively. Existing `AUD-102`
-`-Wignored-attributes` warnings remained visible.
+The same four focused tests passed natively. At that checkpoint, `AUD-102`
+`-Wignored-attributes` warnings remained visible. The later `d222e05` packet
+contains GCC's template-identity diagnostic at an exact `std::array` alias;
+GCC 15.2 accepts the construct with `-Werror=ignored-attributes` and retains
+direct aligned ZMM loads and vector arithmetic.
 
 ## Optimized code generation
 

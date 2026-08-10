@@ -157,6 +157,15 @@ repeats `-Wignored-attributes` for `__m512i` aliases used as `std::array`
 template arguments in the selected AVX vector/change-base path. The build and
 focused execution pass, but the exact alignment and code generation must be
 recorded before choosing a narrow suppression or any type/layout remedy.
+`AUD-102` is validated at `d222e05`. `AVXScalarArray` remains an exact
+`std::array` alias and confines the GCC-only diagnostic suppression to that
+single alias declaration. Compile-time checks bind the 64-byte element size,
+aggregate size, and element alignment. GCC 15.2 accepts the construct with
+`-Werror=ignored-attributes` and emits a direct aligned ZMM load plus `vpaddq`;
+a full local GCC 13.3 MatrixNoK production probe also passes the warning as an
+error and retains direct IFMA/ZMM code. No wrapper, copy, runtime code, broad
+build, or benchmark was introduced. Exact correspondence rows `AVX-P0-001`
+and `AVX-P2-003` are reaccepted at the new source hashes.
 
 The focused group target now passes 10/10 in scalar MSVC Debug/Release and
 Peach native AVX-default Release; the dedicated AVX contract target passes 5/5

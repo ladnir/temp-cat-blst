@@ -63,8 +63,11 @@ variable-indexed access.
 
 ## Residuals
 
-- GCC `-Wignored-attributes` on native vector types in standard-library
-  templates remains `AUD-102`; this packet neither hides nor worsens it.
+- `AUD-102` is validated by the later `d222e05` integration packet. Direct
+  native-vector `std::array` spellings now use an exact alias whose GCC-only
+  diagnostic suppression is confined to the alias declaration. Static
+  assertions preserve element size, aggregate size, and alignment; GCC 15.2
+  emits direct ZMM code with `-Werror=ignored-attributes`.
 - The compile-time reduction coverage theorem is specified for formalization
   in `PROOF_PLAN.md`; the current evidence is exhaustive over selected boundary
   quotients, not yet machine-checked mathematics.

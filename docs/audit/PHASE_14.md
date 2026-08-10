@@ -418,3 +418,21 @@ candidate verification plus the fixed-chain fallback. The local source now
 states that purpose directly. Broader independent field oracles, fuzzing,
 sanitizers, Rust, and supported-platform runtime evidence remain Phase 14/19
 work.
+
+### AUD-102 native vector template diagnostic
+
+Commit `d222e05` validates the low-severity GCC warning without changing the
+native representation. `AVXScalarArray<N>` is exactly
+`std::array<AVXScalar, N>`; a GCC-only diagnostic push/pop surrounds only that
+alias declaration. Direct vector-array sites use the alias, and compile-time
+checks bind the 64-byte vector size, aggregate size, and alignment.
+
+A bounded Peach GCC 15.2 compile with `-Werror=ignored-attributes` accepts the
+construct and lowers a two-element access to an aligned ZMM load and direct
+`vpaddq`, with no wrapper, conversion, copy, stack work, or call. A full local
+GCC 13.3 MatrixNoK production code-generation translation unit also compiles
+with the warning promoted to an error and retains direct IFMA/ZMM operations.
+No runtime test, broad build, or benchmark was necessary because the alias is
+the identical standard-library type and the arithmetic source is unchanged.
+Exact-hash proof rows `AVX-P0-001` and `AVX-P2-003` are reaccepted at their
+`d222e05` hashes.
