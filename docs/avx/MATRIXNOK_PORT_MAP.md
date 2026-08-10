@@ -17,7 +17,7 @@ passes every correctness and performance gate.
 | 3 | Conditional reduction | `src/elementwise_reduce.hpp` | `blst/avx/rns/elementwise_reduce.h` | Generalize the fixed conditional-subtraction schedule and state the actual coverage invariant |
 | 4 | Fixed BLS12-381 parameters | `scripts/bls12_381_intrns4_params.hpp`, `src/bls12_381_*params.hpp` | Generated CatBLST constant source plus validation support | Import exact 8x50-bit constants with provenance; independently regenerate and validate them |
 | 5 | Permutation change of base | `src/{rns_reduce_perm,bls12_381_perm,change_base}.hpp` | New narrow helper under `blst/avx/rns` | Translate the BLS12-381 8x8 path only; no BN254 or generic runtime parameter surface |
-| 6 | MatrixNoK batch reduction | `src/{matrix_nok_batch,bls12_381_perm_batch}.hpp` | `blst/avx/rns/bounded_ring.h` plus a narrow helper | Keep one implementation, not the duplicate generic and BLS wrappers in VROOM |
+| 6 | MatrixNoK batch reduction | `src/{matrix_nok_batch,bls12_381_perm_batch}.hpp` | `blst/avx/rns/matrixnok_fp.h` | Keep one fixed BLS12-381 implementation; the obsolete incumbent `BoundedRing` has been removed |
 | 7 | Conversion/inversion | `src/conversion_inversion.hpp` | `blst/avx/fields/conversion_inversion.h` | Port only the 50-bit packing and selected-ring changes |
 | 8 | Field tower | `src/{fp2,fp12}.hpp` | `blst/avx/fields/{fp2,fp12}.h` | Port only changes required by the selected ring; preserve audited CatBLST contracts |
 | 9 | Curve and pairing | `src/ec.hpp` and pairing callers | `blst/avx/{curve,pairing,gt}` | Review formula deltas independently; do not import generic API or domain changes |

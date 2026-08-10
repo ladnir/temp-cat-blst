@@ -776,3 +776,21 @@ The audit manifest accounts for all 784 retained files. Removing disabled
 branches changed three full-file hashes, so six accepted correspondence rows
 were rebound to `9573d58`; all 20 rows and 59 mapped hashes validate. No
 benchmark, portable Release build, native run, CUDA work, or BTx audit ran.
+
+### Incumbent runtime-engine removal (`AUD-233`)
+
+A post-selection reachability review found that `BoundedRing`, its baked 50/52-bit
+runtime-constant tables, `RuntimeConstantsView`, `IntRNS2System`, and the default
+`FP12RuntimeConstants` policy had no live production or test consumer. Selected
+MatrixNoK code already supplied its own fixed ring and parameter-bound Fp12
+constants. Commit `b49ae14` deletes that unreachable engine while retaining the
+generic vector, RNS, Fp2, and Fp12 arithmetic templates used by production.
+Fp12, Miller, and inverter templates now require their policy types explicitly,
+so an incumbent implementation cannot be selected accidentally.
+
+MSVC portable-Debug rebuilds the production library and test executable. All 30
+focused `AvxMatrixNoKPrimitives` and `AvxCApiContract` tests pass, as do the
+MatrixNoK constants and production-dispatch validators. Structural search finds
+no live runtime-constant or incumbent-ring symbol. The exact source hashes for
+the policy-plumbing owners are rebound; selected arithmetic bodies are unchanged.
+No benchmark, native run, CUDA work, portable Release build, or BTx audit ran.

@@ -60,6 +60,11 @@ and reproducible standard-library validation. The live build has no GMP/MPIR
 dependency. Production initialization performs no search, allocation,
 arbitrary-precision computation, or mutable global setup.
 
+The obsolete pre-selection `BoundedRing` and its separate baked runtime tables
+have been removed. Reusable arithmetic remains generic, but production Fp12,
+Miller, and inversion owners must name the selected MatrixNoK policy explicitly;
+there is no hidden incumbent default engine.
+
 Focused evidence for the prerequisite vector and bounded-reduction packet is
 recorded in `PRIMITIVE_EVIDENCE.md`.
 The first fixed-parameter import and its independent regeneration evidence are

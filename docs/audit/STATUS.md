@@ -624,3 +624,13 @@ MatrixNoK arithmetic remains unchanged. The GMP-free portable-Debug build and
 and the exact-source correspondence validator accepts 20 rows and 59 hashes
 after rebinding the six affected rows. `AUD-232` is validated. No benchmark,
 native run, CUDA work, or BTx audit was performed.
+
+The follow-up reachability cleanup at `b49ae14` removes the unreachable
+pre-MatrixNoK `BoundedRing`, baked runtime-constant tables, runtime view, and
+default Fp12 policy. Production now names the selected MatrixNoK ring and Fp12
+policy explicitly while retaining the reusable arithmetic templates. The
+portable-Debug production library and test executable rebuild, 30/30 focused
+MatrixNoK/C API tests pass, and the constant and dispatch validators accept the
+result. Exact proof-owner hashes are rebound with no selected arithmetic-body
+change. `AUD-233` is validated. No benchmark, native run, CUDA work, portable
+Release build, or BTx audit was performed.
