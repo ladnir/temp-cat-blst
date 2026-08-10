@@ -135,8 +135,10 @@ model is accepted on that evidence.
   `882a5aaf625cbcd5b61a8fd1e7ab6994710d38245c555167e8b2186abf323390`
 - `matrixnok_change_base.h` SHA-256:
   `23b6a0e8f710c4d6ab3e8958213576b7c1984bc9c600c0211d2fdcee0dd4d152`
-- `changebase.hpp` SHA-256:
+- Historical generic `changebase.hpp` comparison owner SHA-256:
   `75fcd7be6cb157e6e1ca676d8cecf702f3ae07fd899c4ba23d83568f071748af`
+  (removed at `b1036f7`; the selected fixed owner was unchanged and its test
+  oracle is now an independent scalar IFMA-accumulator model)
 - `avx512ifma.hpp` SHA-256:
   `9da2bd1b3fc11be3a33cdf4b336206233e9580225cc7f92425bd8737b87c64b1`
 - `generated_matrixnok_constants.hpp` SHA-256:

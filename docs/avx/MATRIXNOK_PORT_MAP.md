@@ -13,7 +13,7 @@ passes every correctness and performance gate.
 | Order | Capability | VROOM source | CatBLST owner | Decision |
 | ---: | --- | --- | --- | --- |
 | 1 | Selected vector operations | `cpu/vector/avx512ifma.hpp` | `blst/backend/avx512/intrin_compat.*`, `blst/avx/cpu/vector/avx512ifma.hpp` | Translate only the low-128 horizontal/broadcast operations required by BLS12-381 MatrixNoK |
-| 2 | Configurable input radix | `cpu/vector/{conversion,multiplication}.hpp` | Same CatBLST paths | Parameterize the integer-to-RNS word width; preserve 52 bits as the default |
+| 2 | Fixed BLS12-381 input conversion and multiplication | `cpu/vector/{conversion,multiplication}.hpp` | `blst/avx/rns/{matrixnok_fixed,matrixnok_fp}.h` | Retain only the selected eight-lane, parameter-bound construction; the obsolete generic CatBLST templates were removed after audit |
 | 3 | Conditional reduction | `src/elementwise_reduce.hpp` | `blst/avx/rns/elementwise_reduce.h` | Generalize the fixed conditional-subtraction schedule and state the actual coverage invariant |
 | 4 | Fixed BLS12-381 parameters | `scripts/bls12_381_intrns4_params.hpp`, `src/bls12_381_*params.hpp` | Generated CatBLST constant source plus validation support | Import exact 8x50-bit constants with provenance; independently regenerate and validate them |
 | 5 | Permutation change of base | `src/{rns_reduce_perm,bls12_381_perm,change_base}.hpp` | New narrow helper under `blst/avx/rns` | Translate the BLS12-381 8x8 path only; no BN254 or generic runtime parameter surface |

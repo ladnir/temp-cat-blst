@@ -794,3 +794,32 @@ MatrixNoK constants and production-dispatch validators. Structural search finds
 no live runtime-constant or incumbent-ring symbol. The exact source hashes for
 the policy-plumbing owners are rebound; selected arithmetic bodies are unchanged.
 No benchmark, native run, CUDA work, portable Release build, or BTx audit ran.
+
+### Generic RNS surface removal (`AUD-234` through `AUD-236`)
+
+The next file-by-file pass found that the remaining generic vector RNS layer
+was neither a supported production abstraction nor a sound generic contract.
+Its matrix load/store loops transferred complete padded eight-lane registers
+through pointers to exact-size arrays, so a non-multiple-of-eight dimension
+could read or write out of bounds (`AUD-234`). The same templates accepted
+arbitrary dimensions and residue bounds even though their 128-bit quotient and
+64-bit IFMA-accumulator limits were established only for the selected fixed
+BLS12-381 parameters (`AUD-235`). The generic conversion wrappers, `IntRNS2`,
+`ele_mult`, and `batch_change_base` had no production caller; their only
+remaining role was a same-algorithm test oracle (`AUD-236`).
+
+Commit `b1036f7` removes the three obsolete generic headers and unused batch
+helper. The selected eight-lane MatrixNoK owners are unchanged. The small
+`concat` carrier helper moves unchanged into its sole Fp12 owner, and
+`change_base.h` now contains only the live, documented `ReadyToReduce` carrier.
+The generic oracle is replaced by scalar code that independently models the
+52-bit low/high IFMA accumulator streams, including nonzero initial
+accumulators and a two-item batch.
+
+The MSVC portable-Debug production library and test executable rebuild, and
+all 30 focused MatrixNoK/C API tests pass. The MatrixNoK constants and
+production-dispatch validators pass. A sequential optimized MSVC comparison
+of the representative cyclotomic-square hot body is exactly unchanged: both
+versions contain 16,768 disassembly lines and have normalized SHA-256
+`15a08370c85493427fa1795ca35d6ed4b73ecbb27582c4f5dc4fd6140c0f7f2d`.
+No benchmark, Peach run, CUDA work, portable Release build, or BTx audit ran.

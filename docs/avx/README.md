@@ -65,6 +65,14 @@ have been removed. Reusable arithmetic remains generic, but production Fp12,
 Miller, and inversion owners must name the selected MatrixNoK policy explicitly;
 there is no hidden incumbent default engine.
 
+The earlier generic conversion/multiplication RNS templates have also been
+removed. They advertised dimensions and accumulator domains beyond the fixed
+parameters that were actually proved, and their padded vector transfers were
+unsafe for non-eight-lane arrays. Production RNS construction now lives only
+in the fixed BLS12-381 MatrixNoK owners. Focused tests compare those owners
+against an independent scalar model of the IFMA accumulator streams rather
+than against a second transcription of the same generic algorithm.
+
 Focused evidence for the prerequisite vector and bounded-reduction packet is
 recorded in `PRIMITIVE_EVIDENCE.md`.
 The first fixed-parameter import and its independent regeneration evidence are

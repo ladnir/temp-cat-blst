@@ -634,3 +634,14 @@ MatrixNoK/C API tests pass, and the constant and dispatch validators accept the
 result. Exact proof-owner hashes are rebound with no selected arithmetic-body
 change. `AUD-233` is validated. No benchmark, native run, CUDA work, portable
 Release build, or BTx audit was performed.
+
+The subsequent retained-file audit at `b1036f7` removes the obsolete generic
+AVX RNS layer. `AUD-234` records padded full-register transfers that were unsafe
+for generic non-eight-lane dimensions; `AUD-235` records the template contract
+exceeding the quotient and accumulator bounds proved for the fixed engine; and
+`AUD-236` records the dead/test-only surface. The selected MatrixNoK dimensions
+were exactly eight lanes and were not affected. An independent scalar IFMA
+accumulator oracle replaces the same-algorithm generic oracle. The portable-
+Debug rebuild and 30/30 focused tests pass, as do the constant and dispatch
+validators. Representative optimized cyclotomic-square code generation is
+instruction-for-instruction identical. No benchmark or remote job ran.
