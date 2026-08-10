@@ -317,8 +317,8 @@ and `AVX-P3-001` are accepted at their new hashes. `AUD-230` canonicalizes all
 51 mapped hashes to LF so the exact ledger is independent of worktree line
 endings. Their established Lean theorems remain unchanged.
 
-The accepted P4 theorem covers the retained Miller-specific point formulas and
-loop. In-review `AVX-P4-003` now transcribes the public shared complete-add and
+The accepted P4 Miller theorem covers the retained Miller-specific point
+formulas and loop. Accepted `AVX-P4-003` transcribes the public shared complete-add and
 double schedules, proves curve preservation and the identity/inverse/doubling
 checkpoints for selected Fp and Fp2, proves the exact G1 radix-`z²` and G2
 radix-`z` splits, and proves both the fixed Booth and variable-time wNAF
@@ -350,9 +350,18 @@ Mathlib group addition across infinity, doubling, inverse, and generic affine
 cases. The generic theorem exposes the exact no-affine-2-torsion and
 characteristic-not-two hypotheses. Finite-field cube criteria discharge those
 hypotheses for both selected BLS12-381 curves, yielding concrete G1 and G2
-group-addition theorems. `AUD-227` remains open only for the concrete
-BLS12-381 point-count/span premises and selected public GLV/GLS-dispatch
-theorems. Canonical
+group-addition theorems. `CurveBinaryMul.lean` proves a logarithmic evaluator
+built from the exact complete-add owner equal to Mathlib projective scalar
+multiplication. `CurveGenerators.lean` checks the standard BLS12-381 G1/G2
+coordinates, proves both generators are killed by `r`, and proves the selected
+beta/minus-psi maps give the required radix bases. `CurveDispatch.lean`
+composes public masking and reduction with the selected Booth and wNAF
+schedules over both `r`-torsion and the conventional cyclic G1/G2 subgroup
+carriers. `AUD-227` and `AVX-P4-003` are therefore accepted at proof commit
+`f1cfde9`. The separate completeness proof for relation-based runtime
+membership predicates remains `AUD-231`; it requires concrete ambient-curve
+cardinality and subgroup-span facts but is not a premise of multiplication on
+the documented cyclic subgroup domain. Canonical
 export followed by scalar REDC
 and byte weaving is likewise an explicit observation boundary for equality,
 infinity observation, validation, and secret normalization rather than a

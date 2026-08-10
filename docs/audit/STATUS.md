@@ -520,8 +520,8 @@ audit CTests. `AUD-228` fixes redundant-RNS zero observation in public infinity
 queries and secret normalization, including G1/G2 identity signing. Identical-
 flags code-generation probes have no selected-vector/conversion symbols and
 unchanged stack usage; no benchmark ran. `AUD-210`, `AUD-225`, `AUD-226`, and
-`AUD-228` are validated, and exact-hash `AVX-P4-002` is accepted. `AUD-227`
-remains the public curve/GLV/GLS formal gap. Native object inspection opened
+`AUD-228` are validated, and exact-hash `AVX-P4-002` is accepted. At that
+checkpoint, `AUD-227` remained the public curve/GLV/GLS formal gap. Native object inspection opened
 `AUD-229` for function-local initialization guards around AVX owners and
 public constants.
 
@@ -540,8 +540,8 @@ eliminating its BSS owners. The five exact-hash proof rows are reaccepted.
 raw-worktree hashing depended on Windows CRLF. No benchmark ran because the
 arithmetic probe was byte-identical and hot code generation did not regress.
 
-`AUD-227` is now materially advanced but remains open. In-review
-`AVX-P4-003` proves the shared public complete-add/double formulas and curve
+`AUD-227` is validated at proof commit `f1cfde9`. Accepted `AVX-P4-003` proves
+the shared public complete-add/double formulas and curve
 preservation, exact G1/G2 scalar decomposition, and the selected constant-time
 Booth executors. The variable-time wNAF source recurrence, recomposition, and
 exact 129/65-slot exhaustion bounds are also proved. The concrete beta and
@@ -556,8 +556,8 @@ The subgroup-reduction packet further proves the exact `sigma³ = 1` and
 `psi⁶ = -1` coordinate identities, the G1 complete-add endomorphism law, both
 BLS cofactor gcd reductions, and conditional G1/G2 equivalences between the
 source relation predicates and `[r]P=0`. Full curve cardinality and
-prime-subgroup generator span remain explicit theorem premises. Consequently
-The G2 semilinear projective-additivity bridge is now proved by composing a
+prime-subgroup generator span remain explicit theorem premises. The G2
+semilinear projective-additivity bridge is now proved by composing a
 generic ring-map theorem with a diagonal-scaling theorem; the resulting common
 homogeneous scale is proved nonzero from the literal coefficient.
 `CurveGroupBridge.lean` now provides a concrete Mathlib projective
@@ -571,6 +571,15 @@ for selected G2 too, with exact equality, zero, and negation correspondence.
 valid selected G1 and G2 homogeneous representative. The proof covers
 infinity, doubling, inverse, and distinct-affine cases, proves output
 representatives nonzero, and proves the selected fields have no affine
-2-torsion by finite-field cube criteria. `AUD-227` is not closed: concrete
-point-count/span instantiation and final selected public GLV/GLS-dispatch
-composition remain.
+2-torsion by finite-field cube criteria. `CurveBinaryMul.lean` then proves a
+logarithmic evaluator built from that exact complete-add owner equal to
+Mathlib projective scalar multiplication. `CurveGenerators.lean` validates
+the standard BLS12-381 G1/G2 coordinates, proves both generators are killed by
+`r`, and checks the selected beta/minus-psi eigenbases. `CurveDispatch.lean`
+composes public masking and reduction with the exact selected Booth/wNAF
+schedules and proves all four G1/G2 CT/VT dispatches over the conventional
+cyclic subgroups. Full ambient-curve cardinality is therefore not required for
+the multiplication contract. `AUD-231` separately tracks the remaining proof
+that the runtime relation-based membership predicates accept exactly those
+cyclic subgroups. This proof-only completion ran no C++ build, Peach job, or
+benchmark.
