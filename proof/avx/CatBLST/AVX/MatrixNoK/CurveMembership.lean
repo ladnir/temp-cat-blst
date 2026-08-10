@@ -4,6 +4,7 @@ SPDX-License-Identifier: Apache-2.0
 -/
 
 import CatBLST.AVX.MatrixNoK.CurveDispatch
+import CatBLST.AVX.MatrixNoK.CurveGeneratorOrder
 import Mathlib.GroupTheory.OrderOfElement
 import Mathlib.Tactic
 
@@ -698,6 +699,55 @@ theorem selected_g2_point_has_homogeneous_representative
       apply WeierstrassCurve.Projective.Point.ext
       rfl
 
+private instance selectedCurveHomogeneousFinite :
+    Finite (HomogeneousPoint SelectedCurveFp) :=
+  Finite.of_injective (fun point => (point.x, point.y, point.z)) (by
+    rintro ⟨leftX, leftY, leftZ⟩ ⟨rightX, rightY, rightZ⟩ equal
+    simp only [Prod.mk.injEq] at equal
+    rcases equal with ⟨rfl, rfl, rfl⟩
+    rfl)
+
+private instance selectedMillerFp2Finite : Finite SelectedMillerFp2 :=
+  Finite.of_injective (fun value => (value.x, value.y)) (by
+    rintro ⟨leftX, leftY⟩ ⟨rightX, rightY⟩ equal
+    simp only [Prod.mk.injEq] at equal
+    rcases equal with ⟨rfl, rfl⟩
+    rfl)
+
+private instance selectedMillerHomogeneousFinite :
+    Finite (HomogeneousPoint SelectedMillerFp2) :=
+  Finite.of_injective (fun point => (point.x, point.y, point.z)) (by
+    rintro ⟨leftX, leftY, leftZ⟩ ⟨rightX, rightY, rightZ⟩ equal
+    simp only [Prod.mk.injEq] at equal
+    rcases equal with ⟨rfl, rfl, rfl⟩
+    rfl)
+
+private instance selectedG1ProjectivePointFinite :
+    Finite selectedG1Weierstrass.toProjective.Point := by
+  let toPoint :
+      {coordinates : HomogeneousPoint SelectedCurveFp //
+        coordinates.projectivelyValid 4} →
+        selectedG1Weierstrass.toProjective.Point :=
+    fun coordinates => toSelectedG1Point coordinates coordinates.property
+  apply Finite.of_surjective toPoint
+  intro point
+  rcases selected_g1_point_has_homogeneous_representative point with
+    ⟨coordinates, valid, equal⟩
+  exact ⟨⟨coordinates, valid⟩, equal.symm⟩
+
+private instance selectedG2ProjectivePointFinite :
+    Finite selectedG2Weierstrass.toProjective.Point := by
+  let toPoint :
+      {coordinates : HomogeneousPoint SelectedMillerFp2 //
+        coordinates.projectivelyValid selectedG2CurveB} →
+        selectedG2Weierstrass.toProjective.Point :=
+    fun coordinates => toSelectedG2Point coordinates coordinates.property
+  apply Finite.of_surjective toPoint
+  intro point
+  rcases selected_g2_point_has_homogeneous_representative point with
+    ⟨coordinates, valid, equal⟩
+  exact ⟨⟨coordinates, valid⟩, equal.symm⟩
+
 theorem selected_g2_psi_point_zero :
     selectedG2PsiPoint 0 = 0 := by
   rw [← to_selected_g2_point_zero,
@@ -1050,6 +1100,72 @@ theorem selected_g2_cyclic_le_accepted :
     selectedG2GeneratorPoint point selected_g2_generator_relation_group (by
       rcases AddSubgroup.mem_zmultiples_iff.mp membership with ⟨scalar, span⟩
       exact ⟨scalar, span.symm⟩)
+
+/-!
+The remaining global identification obligation is now exactly a cardinality
+upper bound. The reverse inequality is already forced by the concrete
+generator's exact order and the inclusions above.
+-/
+
+theorem selected_g1_scalar_order_le_accepted_card :
+    blsScalarOrder ≤ Nat.card SelectedG1AcceptedSubgroup := by
+  rw [← selected_g1_generator_span_natCard]
+  apply Nat.card_le_card_of_injective
+    (fun point : AddSubgroup.zmultiples selectedG1GeneratorPoint =>
+      (⟨point, selected_g1_cyclic_le_accepted point.property⟩ :
+        SelectedG1AcceptedSubgroup))
+  intro left right equal
+  apply Subtype.ext
+  exact congrArg
+    (fun point : SelectedG1AcceptedSubgroup =>
+      (point : selectedG1Weierstrass.toProjective.Point)) equal
+
+theorem selected_g2_scalar_order_le_accepted_card :
+    blsScalarOrder ≤ Nat.card SelectedG2AcceptedSubgroup := by
+  rw [← selected_g2_generator_span_natCard]
+  apply Nat.card_le_card_of_injective
+    (fun point : AddSubgroup.zmultiples selectedG2GeneratorPoint =>
+      (⟨point, selected_g2_cyclic_le_accepted point.property⟩ :
+        SelectedG2AcceptedSubgroup))
+  intro left right equal
+  apply Subtype.ext
+  exact congrArg
+    (fun point : SelectedG2AcceptedSubgroup =>
+      (point : selectedG2Weierstrass.toProjective.Point)) equal
+
+theorem selected_g1_cyclic_eq_accepted_of_card_le
+    (cardBound : Nat.card SelectedG1AcceptedSubgroup ≤ blsScalarOrder) :
+    AddSubgroup.zmultiples selectedG1GeneratorPoint =
+      SelectedG1AcceptedSubgroup := by
+  apply AddSubgroup.eq_of_le_of_card_ge selected_g1_cyclic_le_accepted
+  rw [selected_g1_generator_span_natCard]
+  exact cardBound
+
+theorem selected_g2_cyclic_eq_accepted_of_card_le
+    (cardBound : Nat.card SelectedG2AcceptedSubgroup ≤ blsScalarOrder) :
+    AddSubgroup.zmultiples selectedG2GeneratorPoint =
+      SelectedG2AcceptedSubgroup := by
+  apply AddSubgroup.eq_of_le_of_card_ge selected_g2_cyclic_le_accepted
+  rw [selected_g2_generator_span_natCard]
+  exact cardBound
+
+theorem selected_g1_cyclic_eq_accepted_iff_card_le :
+    AddSubgroup.zmultiples selectedG1GeneratorPoint =
+        SelectedG1AcceptedSubgroup ↔
+      Nat.card SelectedG1AcceptedSubgroup ≤ blsScalarOrder := by
+  constructor
+  · intro equalSubgroups
+    rw [← equalSubgroups, selected_g1_generator_span_natCard]
+  · exact selected_g1_cyclic_eq_accepted_of_card_le
+
+theorem selected_g2_cyclic_eq_accepted_iff_card_le :
+    AddSubgroup.zmultiples selectedG2GeneratorPoint =
+        SelectedG2AcceptedSubgroup ↔
+      Nat.card SelectedG2AcceptedSubgroup ≤ blsScalarOrder := by
+  constructor
+  · intro equalSubgroups
+    rw [← equalSubgroups, selected_g2_generator_span_natCard]
+  · exact selected_g2_cyclic_eq_accepted_of_card_le
 
 noncomputable instance selectedG1AcceptedSubgroupModule :
     Module CurveExponent SelectedG1AcceptedSubgroup :=
