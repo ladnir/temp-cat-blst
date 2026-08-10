@@ -51,3 +51,4 @@ import CatBLST.AVX.MatrixNoK.CurveGroupAdd
 import CatBLST.AVX.MatrixNoK.CurveBinaryMul
 import CatBLST.AVX.MatrixNoK.CurveGenerators
 import CatBLST.AVX.MatrixNoK.CurveDispatch
+import CatBLST.AVX.MatrixNoK.CurveMembership
