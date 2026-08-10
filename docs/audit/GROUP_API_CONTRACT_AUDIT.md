@@ -85,13 +85,21 @@ now evaluate the curve equation before the fast subgroup endomorphism relation.
 Those individual predicates are complete for the mathematical property named
 by the API, while protocol-specific infinity policy remains separate.
 
-The AVX batch predicates validate every point and shift as on-curve before
-evaluating caller-specified randomized relations. They are sound only when the
-shift is in the subgroup and the coefficient rows satisfy the required
-challenge model. The current public entry does not establish either condition;
-zero rounds inspect no candidates, and all-zero rows check only the shift.
-`AUD-161` therefore treats it as an expert primitive pending a safe batching
-design, not a complete validation boundary.
+The AVX expert batch predicates validate every point and shift as on-curve
+before evaluating caller-specified randomized relations. They are sound only
+when the shift is in the subgroup and coefficient rows satisfy the documented
+challenge model. Zero rounds and all-zero rows remain valid expert inputs, so
+these entries are not general validation boundaries.
+
+`blst_avx_p1s_in_g1` and `blst_avx_p2s_in_g2` provide the friendly boundary.
+They validate every curve equation, obtain one fresh unpredictable 32-byte seed
+after the immutable batch is fixed, and derive 81 independent uniform ternary
+rows with domain-separated SHA-256. CatBLST fixes the subgroup shift. Because
+the selected curves have no nontrivial 2-torsion, conditioning on all other
+coefficients leaves at most one coefficient in {-1,0,+1} that can cancel a
+fixed nonzero quotient component. Under the SHA-256 PRF model, false acceptance
+is therefore at most `(1/3)^81 < 2^-128`. `AUD-161` is fixed; supported native
+runtime and performance evidence remain its validation gate.
 
 The normal safe sequence for adversarial point bytes is:
 
@@ -306,7 +314,7 @@ and is not merely a mathematical precondition.
 | `AUD-101` | Weighted pairing permitted oversized nbits into a fixed 32-byte scalar buffer; safe Rust could reach it. | validated |
 | `AUD-103` | Selected scalar/AVX GT conditional negation is constant-time across both backends. | validated |
 | `AUD-160` | Basic on-curve primitives and subgroup-only advanced operations lacked one bounded cross-language policy. | validated |
-| `AUD-161` | AVX batch subgroup soundness is caller-controlled; zero rounds and all-zero coefficient rows can ignore every candidate. | open |
+| `AUD-161` | Expert AVX batch soundness is caller-controlled; friendly G1/G2 APIs now own fresh seeded challenge construction and target a false-accept bound below 2^-128. | fixed pending native validation |
 
 ## Incremental public documentation control
 
@@ -335,8 +343,9 @@ The remaining questions require separate review:
    variants be named explicitly?
 2. Should signing/public-key C entry points remain precondition-only void APIs,
    or gain fallible validated variants?
-3. What reviewed batching proof and challenge-generation interface should
-   replace or wrap the caller-controlled expert AVX subgroup primitive?
+3. What supported-native performance does the new friendly AVX batch
+   membership boundary deliver, and should its 81-row construction later be
+   supplemented by a separately reviewed wide-coefficient MSM design?
 `AUD-101` was independent of those semantic choices and is remediated. Legacy
 void arithmetic APIs retain documented 256-bit preconditions, while the shared
 canonicalizer now prevents a violated precondition from becoming memory

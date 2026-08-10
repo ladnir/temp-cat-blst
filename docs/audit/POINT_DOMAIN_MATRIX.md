@@ -1,8 +1,9 @@
 # Point-Domain Contract Matrix
 
-Date: 2026-08-05
+Date: 2026-08-10
 
-State: policy applied and focused cross-language validation passing; `AUD-161` open
+State: policy applied and focused cross-language validation passing; `AUD-161`
+fixed pending supported native runtime/performance evidence
 
 Scope: supported scalar and AVX C APIs, selected native C++, safe Rust helpers,
 and generated raw Rust FFI. CUDA and frozen BTx/BTE are excluded.
@@ -29,8 +30,8 @@ In the tables, `pN` expands independently to `p1` and `p2`, `gN` to `g1` and
 `G1AffinePoint` and `G2AffinePoint`. Generated raw Rust declarations inherit
 the matching C contract exactly.
 
-`GROUP_API_CONTRACTS.csv` is the machine-checked exact C inventory: all 241
-relevant scalar and AVX symbols match exactly one of its 52 disjoint families.
+`GROUP_API_CONTRACTS.csv` is the machine-checked exact C inventory: all 243
+relevant scalar and AVX symbols match exactly one of its 53 disjoint families.
 This matrix supplies the selected C++ and Rust mapping and the approved policy
 used to migrate declarations.
 
@@ -48,7 +49,8 @@ used to migrate declarations.
 | Observation | `blst_pN_is_equal`; `blst_pN_affine_is_equal`; `blst_pN_is_inf`; `blst_pN_affine_is_inf`; AVX equivalents | `equal`; `is_inf`; AVX equivalents | Raw FFI; raw-type `PartialEq` | Inputs are on-curve; subgroup membership is not required. These are not validators. |
 | Encoding | `blst_pN_serialize`; `blst_pN_compress`; `blst_pN_affine_serialize`; `blst_pN_affine_compress`; AVX equivalents | `serialize`; `compress`; AVX equivalents | Raw FFI; high-level `serialize`, `compress`, and `to_bytes` | Input is on-curve; subgroup membership is not required. Encoding does not validate or upgrade the input domain. |
 | Exact scalar multiplication | `blst_p1_unchecked_mult`; `blst_p2_unchecked_mult` | `G1Point::unchecked_mult`; `G2Point::unchecked_mult` | Raw FFI; `blst_p1::unchecked_mult`; `blst_p2::unchecked_mult` | Input is on-curve; subgroup membership is not required. Applies the exact unsigned scalar without modulo-r subgroup semantics or GLV/GLS. These are the only inherited generic-multiplication exceptions. |
-| Batch subgroup validation | `blst_avx_pN_batch_subgroup_check` | Internal AVX batch relation implementation | Raw expert AVX FFI | Candidate points are on-curve. The shift is a subgroup point. Success is probabilistic and depends on challenge generation that the current caller-controlled API does not make safe; see `AUD-161`. A safer scalar/selected API remains a separate design task. |
+| Friendly batch subgroup validation | `blst_avx_pNs_in_gN` | Internal AVX batch relation and owned challenge stream | Safe and raw AVX Rust APIs | Validator: candidates have no prior point-domain precondition. The implementation checks every curve equation, obtains one fresh unpredictable seed after the batch is fixed, and owns 81 uniform ternary rows and the subgroup shift. Under the documented SHA-256 PRF and no-2-torsion assumptions, false acceptance is below 2^-128. |
+| Expert batch subgroup relation | `blst_avx_pN_batch_subgroup_check` | Internal AVX batch relation implementation | Raw expert AVX FFI | Candidate points are on-curve and the shift is a subgroup point. Caller-provided challenge width and rows determine soundness. Zero width and all-zero rows deliberately remain possible; this is not the general validation boundary. |
 
 ## Subgroup-only families
 
@@ -78,8 +80,9 @@ focused non-subgroup evidence. A narrower subgroup promise needs no artificial
 runtime check and remains valid even if the current implementation is
 incidentally full-curve-correct.
 
-The existing AVX batch entry is not approved as a misuse-resistant validator.
-Zero rounds accept without inspecting candidates; all-zero caller coefficient
-rows ignore every candidate and test only the shift. `AUD-161` must resolve
-challenge generation and soundness before a safe scalar/selected batch API is
-documented.
+The inherited AVX batch entries remain expert relation evaluators. Zero rounds
+accept without inspecting candidates, and all-zero caller coefficient rows
+ignore every candidate and test only the shift. General callers use
+`blst_avx_p1s_in_g1` or `blst_avx_p2s_in_g2`; these entries own challenge
+generation and cannot be configured into either bypass. Their probabilistic
+bound requires a fresh unpredictable seed after the immutable batch is fixed.

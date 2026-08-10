@@ -169,4 +169,5 @@ call and scans every fixed-window table entry.
 The selected facade review is complete. The owning AVX implementation file
 remains pending its Phase 16 full-file review; native AVX-512 hardware codegen,
 sanitizer/fuzz, Apple, and full-matrix evidence remain milestone gates. The
-expert batch subgroup-check design remains open as `AUD-161`.
+friendly/expert batch subgroup-check separation is fixed under `AUD-161`, with
+supported native runtime and performance evidence still pending.

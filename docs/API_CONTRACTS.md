@@ -25,6 +25,7 @@ not implicit validation at every arithmetic boundary.
 | fallible | Reports whether the operation succeeded, normally through `BLST_ERROR`, `bool`, or a null result. |
 | infallible | Has no failure result for inputs satisfying its preconditions. This does not mean every bit pattern is accepted. |
 | fail closed | On a detected invalid condition, returns a safe documented failure result and does not accidentally continue with broader authority or corrupted state. |
+| probabilistic validation | Establishes the named property except with a documented false-accept probability under explicit randomness and cryptographic assumptions. The API must own or precisely constrain challenge generation. |
 
 Normative words have their usual meanings:
 
@@ -80,6 +81,13 @@ subgroup inputs unless they explicitly validate them. CatBLST does not promise
 incidental full-curve behavior from an advanced implementation and does not
 create parallel unchecked families for it. The exact cross-language policy is
 recorded in `audit/POINT_DOMAIN_MATRIX.md`.
+
+The AVX batch-membership APIs are probabilistic validators. The friendly
+`blst_avx_p1s_in_g1` and `blst_avx_p2s_in_g2` entries own challenge width,
+uniform ternary coefficient derivation, and the subgroup shift, and require one
+fresh unpredictable seed after the immutable batch is fixed. The expert
+`batch_subgroup_check` entries expose those choices directly and are relation
+evaluators, not misuse-resistant validation boundaries.
 
 ## Fp12, cyclotomic, and GT domains
 

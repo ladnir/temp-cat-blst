@@ -495,11 +495,13 @@ and safe Rust declarations now implement that mapping; raw Rust inherits the C
 declarations. Order-11 G1 and order-13 G2 fixtures pass scalar C/native,
 portable-AVX Debug, and both safe Rust variant tests across basic primitives,
 compressed/uncompressed decode, separate validation, and Serde. `AUD-094` and
-`AUD-160` are validated. The existing AVX batch-check challenge-generation
-review remains separate implementation work. `AUD-161`
-records that the current expert AVX entry accepts caller-controlled coefficient
-rows: zero rounds inspect no candidates, and an all-zero matrix checks only the
-supplied shift. It is not the approved future safe batch-validation interface.
+`AUD-160` are validated. The existing AVX batch-check entries remain expert
+relation evaluators whose caller-controlled rows may intentionally contain zero
+rounds or all-zero rows. `AUD-161` adds separate friendly
+`p1s_in_g1`/`p2s_in_g2` validation boundaries that own the challenge width,
+uniform ternary coefficients, and subgroup shift. Focused portable
+correctness/failure tests and compile checks pass; supported native runtime and
+performance evidence remain before validation.
 
 ## Selected-facade cleanup
 

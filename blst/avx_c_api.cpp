@@ -10,6 +10,7 @@
 #include "blst/scalar/curve/multi_scalar.h"
 #include "blst/scalar/curve/point.h"
 #include "blst/scalar/fields/Fp12.h"
+#include "blst/sign/sha256.h"
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 #include "blst/avx/curve/GT.h"
@@ -20,6 +21,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <type_traits>
 
 using blst::byte;
@@ -164,6 +166,174 @@ inline AvxG2 g2_add_complete(const AvxG2& a, const AvxG2& b)
     AvxG2 out = {};
     AvxG2::dadd(out, a, b);
     return out;
+}
+
+constexpr size_t kBatchSubgroupSeedBytes = 32;
+// The selected G1/G2 curves have no nontrivial 2-torsion. After conditioning
+// on every other coefficient, at most one of {-1,0,+1} can cancel a fixed
+// nonzero quotient component. Under the SHA-256 PRF model, the fresh seed below
+// produces independent uniform rows, so a bad batch passes with probability at
+// most (1/3)^81 < 2^-128.
+constexpr size_t kBatchSubgroupRounds = 81;
+
+inline void store_be64(byte out[8], std::uint64_t value)
+{
+    for (size_t i = 0; i < 8; ++i) {
+        out[7 - i] = static_cast<byte>(value);
+        value >>= 8;
+    }
+}
+
+inline bool fill_random_seed(
+    blst_avx_random_bytes_fn fill_random,
+    void* random_context,
+    byte seed[kBatchSubgroupSeedBytes]) noexcept
+{
+    if (fill_random == nullptr) {
+        return false;
+    }
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+    try {
+        return fill_random(random_context, seed, kBatchSubgroupSeedBytes);
+    }
+    catch (...) {
+        return false;
+    }
+#else
+    return fill_random(random_context, seed, kBatchSubgroupSeedBytes);
+#endif
+}
+
+class TernaryChallengeStream {
+    static constexpr char domain[] =
+        "CatBLST batch subgroup challenge v1";
+
+    const byte* seed_;
+    std::uint64_t count_;
+    std::uint64_t block_ = 0;
+    byte group_tag_;
+    byte digest_[32] = {};
+    size_t offset_ = sizeof(digest_);
+
+    void refill()
+    {
+        byte metadata[17];
+        metadata[0] = group_tag_;
+        store_be64(metadata + 1, count_);
+        store_be64(metadata + 9, block_++);
+
+        blst::Sha256Context ctx;
+        blst::sha256_init(&ctx);
+        blst::sha256_update(&ctx, domain, sizeof(domain) - 1);
+        blst::sha256_update(&ctx, seed_, kBatchSubgroupSeedBytes);
+        blst::sha256_update(&ctx, metadata, sizeof(metadata));
+        blst::sha256_final(digest_, &ctx);
+        blst::sha256_clear(&ctx);
+        blst::vec_zero(metadata, sizeof(metadata));
+        offset_ = 0;
+    }
+
+public:
+    TernaryChallengeStream(
+        const byte seed[kBatchSubgroupSeedBytes],
+        size_t count,
+        byte group_tag)
+        : seed_(seed), count_(static_cast<std::uint64_t>(count)),
+          group_tag_(group_tag)
+    {
+        static_assert(sizeof(size_t) == sizeof(std::uint64_t));
+    }
+
+    byte next()
+    {
+        for (;;) {
+            if (offset_ == sizeof(digest_)) {
+                BLST_ASSERT(block_ != (std::numeric_limits<std::uint64_t>::max)());
+                refill();
+            }
+            const byte candidate = digest_[offset_++];
+            if (candidate < 255) {
+                return static_cast<byte>(candidate % 3);
+            }
+        }
+    }
+
+    void clear() noexcept
+    {
+        blst::vec_zero(digest_, sizeof(digest_));
+        seed_ = nullptr;
+        count_ = 0;
+        block_ = 0;
+        group_tag_ = 0;
+        offset_ = sizeof(digest_);
+    }
+};
+
+template<typename Point, typename AddComplete, typename OnCurve, typename InSubgroup>
+inline bool friendly_batch_subgroup_check_projective(
+    const Point* const* points,
+    const size_t count,
+    blst_avx_random_bytes_fn fill_random,
+    void* random_context,
+    const Point& shift,
+    const byte group_tag,
+    AddComplete add_complete,
+    OnCurve on_curve,
+    InSubgroup in_subgroup)
+{
+    if (count == 0) {
+        return true;
+    }
+    if (points == nullptr || fill_random == nullptr) {
+        return false;
+    }
+    for (size_t i = 0; i < count; ++i) {
+        if (points[i] == nullptr || !on_curve(*points[i])) {
+            return false;
+        }
+    }
+
+    byte seed[kBatchSubgroupSeedBytes] = {};
+    if (!fill_random_seed(fill_random, random_context, seed)) {
+        blst::vec_zero(seed, sizeof(seed));
+        return false;
+    }
+
+    TernaryChallengeStream challenges(seed, count, group_tag);
+    bool accepted = true;
+    for (size_t round = 0; round < kBatchSubgroupRounds; ++round) {
+        Point sum = shift;
+        Point negative_sum = Point::identity();
+        bool has_negative = false;
+        for (size_t i = 0; i < count; ++i) {
+            switch (challenges.next()) {
+            case 0:
+                break;
+            case 1:
+                sum = add_complete(sum, *points[i]);
+                break;
+            case 2:
+                negative_sum = add_complete(negative_sum, *points[i]);
+                has_negative = true;
+                break;
+            default:
+                BLST_ASSERT(false);
+                break;
+            }
+        }
+        if (has_negative) {
+            Point::neg(negative_sum, negative_sum);
+            sum = add_complete(sum, negative_sum);
+        }
+        if (!in_subgroup(sum)) {
+            accepted = false;
+            break;
+        }
+    }
+
+    challenges.clear();
+    blst::vec_zero(seed, sizeof(seed));
+    return accepted;
 }
 
 template<typename Point, typename AddComplete, typename OnCurve, typename InSubgroup>
@@ -825,6 +995,32 @@ bool blst_avx_p1_mult_pippenger(
 #endif
 }
 
+bool blst_avx_p1s_in_g1(
+    const blst_avx_p1* const* points,
+    size_t count,
+    blst_avx_random_bytes_fn fill_random,
+    void* random_context)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    return friendly_batch_subgroup_check_projective<AvxG1>(
+        reinterpret_cast<const AvxG1* const*>(points),
+        count,
+        fill_random,
+        random_context,
+        AvxG1::generator(),
+        1,
+        g1_add_complete,
+        [](const AvxG1& point) { return AvxG1::on_curve(point); },
+        [](const AvxG1& point) { return AvxG1::in_subgroup(point); });
+#else
+    (void)points;
+    (void)count;
+    (void)fill_random;
+    (void)random_context;
+    return false;
+#endif
+}
+
 bool blst_avx_p1_mult_pippenger_glv_with_scratch(
     blst_avx_p1* out,
     const blst_avx_p1_affine* points,
@@ -1438,6 +1634,32 @@ bool blst_avx_p2_mult_pippenger(
     (void)scratch_bytes;
     (void)bucket_used;
     (void)bucket_used_bytes;
+    return false;
+#endif
+}
+
+bool blst_avx_p2s_in_g2(
+    const blst_avx_p2* const* points,
+    size_t count,
+    blst_avx_random_bytes_fn fill_random,
+    void* random_context)
+{
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    return friendly_batch_subgroup_check_projective<AvxG2>(
+        reinterpret_cast<const AvxG2* const*>(points),
+        count,
+        fill_random,
+        random_context,
+        AvxG2::generator(),
+        2,
+        g2_add_complete,
+        [](const AvxG2& point) { return AvxG2::on_curve(point); },
+        [](const AvxG2& point) { return AvxG2::in_subgroup(point); });
+#else
+    (void)points;
+    (void)count;
+    (void)fill_random;
+    (void)random_context;
     return false;
 #endif
 }

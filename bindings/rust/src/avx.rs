@@ -7,6 +7,7 @@
 use crate::*;
 use alloc::vec::Vec;
 use core::mem::{size_of, MaybeUninit};
+use core::ptr;
 
 #[repr(C, align(64))]
 #[derive(Copy, Clone)]
@@ -40,6 +41,77 @@ pub struct blst_avx_fp12 {
 
 /// Semantic alias for AVX Fp12 storage known to contain a GT element.
 pub type blst_avx_gt = blst_avx_fp12;
+
+pub type blst_avx_random_bytes_fn = Option<
+    unsafe extern "C" fn(
+        context: *mut core::ffi::c_void,
+        out: *mut blst_byte,
+        out_len: usize,
+    ) -> bool,
+>;
+
+unsafe extern "C" fn copy_batch_membership_seed(
+    context: *mut core::ffi::c_void,
+    out: *mut blst_byte,
+    out_len: usize,
+) -> bool {
+    if context.is_null() || out.is_null() || out_len != 32 {
+        return false;
+    }
+    ptr::copy_nonoverlapping(context.cast::<blst_byte>(), out, out_len);
+    true
+}
+
+/// Tests whether every AVX point belongs to G1 using CatBLST-owned challenges.
+///
+/// `random_seed` must be freshly sampled from a cryptographically secure RNG
+/// after the batch is fixed. Under the SHA-256 PRF assumption, the randomized
+/// check targets a false-accept probability below 2^-128. The seed is erased
+/// from this function's local storage before return. Empty input succeeds
+/// without consulting the seed when the AVX backend is available.
+pub fn avx_p1s_in_g1(
+    points: &[&blst_avx_p1],
+    mut random_seed: [blst_byte; 32],
+) -> bool {
+    let pointers: Vec<*const blst_avx_p1> = points
+        .iter()
+        .map(|point| *point as *const blst_avx_p1)
+        .collect();
+    let accepted = unsafe {
+        blst_avx_p1s_in_g1(
+            pointers.as_ptr(),
+            pointers.len(),
+            Some(copy_batch_membership_seed),
+            random_seed.as_mut_ptr().cast(),
+        )
+    };
+    random_seed.zeroize();
+    accepted
+}
+
+/// Tests whether every AVX point belongs to G2 using CatBLST-owned challenges.
+///
+/// The random-seed requirements and empty-input behavior match
+/// [`avx_p1s_in_g1`].
+pub fn avx_p2s_in_g2(
+    points: &[&blst_avx_p2],
+    mut random_seed: [blst_byte; 32],
+) -> bool {
+    let pointers: Vec<*const blst_avx_p2> = points
+        .iter()
+        .map(|point| *point as *const blst_avx_p2)
+        .collect();
+    let accepted = unsafe {
+        blst_avx_p2s_in_g2(
+            pointers.as_ptr(),
+            pointers.len(),
+            Some(copy_batch_membership_seed),
+            random_seed.as_mut_ptr().cast(),
+        )
+    };
+    random_seed.zeroize();
+    accepted
+}
 
 impl Default for blst_avx_p1 {
     fn default() -> Self {
@@ -278,6 +350,12 @@ extern "C" {
         width: usize,
         shift: *const blst_avx_p1,
     ) -> bool;
+    pub fn blst_avx_p1s_in_g1(
+        points: *const *const blst_avx_p1,
+        count: usize,
+        fill_random: blst_avx_random_bytes_fn,
+        random_context: *mut core::ffi::c_void,
+    ) -> bool;
     pub fn blst_avx_p1_generator() -> *const blst_avx_p1;
 
     pub fn blst_avx_p2_add(
@@ -292,6 +370,12 @@ extern "C" {
         coefficients: *const blst_byte,
         width: usize,
         shift: *const blst_avx_p2,
+    ) -> bool;
+    pub fn blst_avx_p2s_in_g2(
+        points: *const *const blst_avx_p2,
+        count: usize,
+        fill_random: blst_avx_random_bytes_fn,
+        random_context: *mut core::ffi::c_void,
     ) -> bool;
     pub fn blst_avx_p2_mult(
         out: *mut blst_avx_p2,

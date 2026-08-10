@@ -108,6 +108,114 @@ constexpr auto kG2Order13Encoded = decode_hex(
     "01b290cae398ecc1fda3d4beb248af58bd351c3d99a5b6c7"
     "70fdb54bf46b123261b55cf0762aeef2341e35e90608fc31");
 
+struct FixedRandomSource {
+    std::array<blst_byte, 32> seed = {};
+    size_t calls = 0;
+    bool succeeds = true;
+};
+
+bool fill_fixed_random(void* context, blst_byte* out, size_t out_len)
+{
+    auto& source = *static_cast<FixedRandomSource*>(context);
+    ++source.calls;
+    if (!source.succeeds || out == nullptr || out_len != source.seed.size()) {
+        return false;
+    }
+    std::memcpy(out, source.seed.data(), source.seed.size());
+    return true;
+}
+
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+bool throw_from_random_callback(void*, blst_byte*, size_t)
+{
+    throw 1;
+}
+#endif
+
+TEST(AvxCApiContract, FriendlyBatchMembershipOwnsChallengeConstruction)
+{
+    ASSERT_TRUE(blst_avx_enabled());
+
+    EXPECT_TRUE(blst_avx_p1s_in_g1(nullptr, 0, nullptr, nullptr));
+    EXPECT_TRUE(blst_avx_p2s_in_g2(nullptr, 0, nullptr, nullptr));
+
+    FixedRandomSource random;
+    random.seed[0] = 0xa5;
+    random.seed[31] = 0x5a;
+
+    const blst_avx_p1* g1_points[] = {blst_avx_p1_generator()};
+    const blst_avx_p2* g2_points[] = {blst_avx_p2_generator()};
+    EXPECT_FALSE(blst_avx_p1s_in_g1(nullptr, 1, fill_fixed_random, &random));
+    EXPECT_FALSE(blst_avx_p2s_in_g2(nullptr, 1, fill_fixed_random, &random));
+    EXPECT_EQ(random.calls, 0u);
+
+    random.succeeds = false;
+    EXPECT_FALSE(blst_avx_p1s_in_g1(
+        g1_points, 1, fill_fixed_random, &random));
+    EXPECT_FALSE(blst_avx_p2s_in_g2(
+        g2_points, 1, fill_fixed_random, &random));
+    EXPECT_EQ(random.calls, 2u);
+
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+    EXPECT_FALSE(blst_avx_p1s_in_g1(
+        g1_points, 1, throw_from_random_callback, nullptr));
+    EXPECT_FALSE(blst_avx_p2s_in_g2(
+        g2_points, 1, throw_from_random_callback, nullptr));
+#endif
+
+    random.succeeds = true;
+    EXPECT_TRUE(blst_avx_p1s_in_g1(
+        g1_points, 1, fill_fixed_random, &random));
+    EXPECT_TRUE(blst_avx_p2s_in_g2(
+        g2_points, 1, fill_fixed_random, &random));
+    EXPECT_EQ(random.calls, 4u);
+}
+
+TEST(AvxCApiContract, FriendlyBatchMembershipRejectsLowOrderPoints)
+{
+    ASSERT_TRUE(blst_avx_enabled());
+
+    G1Affine g1_affine = {};
+    ASSERT_EQ(BLST_SUCCESS,
+        blst_p1_uncompress(&g1_affine, kG1Order11Encoded.data()));
+    ASSERT_TRUE(G1Affine::on_curve(g1_affine));
+    ASSERT_FALSE(G1Affine::in_subgroup(g1_affine));
+    G1 g1 = {};
+    G1::from_affine(g1, g1_affine);
+    blst_avx_p1 avx_g1 = {};
+    ASSERT_TRUE(blst_avx_p1_from_scalar(&avx_g1, &g1));
+
+    G2Affine g2_affine = {};
+    ASSERT_EQ(BLST_SUCCESS,
+        blst_p2_uncompress(&g2_affine, kG2Order13Encoded.data()));
+    ASSERT_TRUE(G2Affine::on_curve(g2_affine));
+    ASSERT_FALSE(G2Affine::in_subgroup(g2_affine));
+    G2 g2 = {};
+    G2::from_affine(g2, g2_affine);
+    blst_avx_p2 avx_g2 = {};
+    ASSERT_TRUE(blst_avx_p2_from_scalar(&avx_g2, &g2));
+
+    FixedRandomSource random;
+    random.seed.fill(0);
+    const blst_avx_p1* g1_points[] = {&avx_g1};
+    const blst_avx_p2* g2_points[] = {&avx_g2};
+    EXPECT_FALSE(blst_avx_p1s_in_g1(
+        g1_points, 1, fill_fixed_random, &random));
+    EXPECT_FALSE(blst_avx_p2s_in_g2(
+        g2_points, 1, fill_fixed_random, &random));
+    EXPECT_EQ(random.calls, 2u);
+
+    const blst_avx_p1* mixed_g1_points[] = {
+        blst_avx_p1_generator(), &avx_g1, blst_avx_p1_generator()};
+    const blst_avx_p2* mixed_g2_points[] = {
+        blst_avx_p2_generator(), &avx_g2, blst_avx_p2_generator()};
+    EXPECT_FALSE(blst_avx_p1s_in_g1(
+        mixed_g1_points, 3, fill_fixed_random, &random));
+    EXPECT_FALSE(blst_avx_p2s_in_g2(
+        mixed_g2_points, 3, fill_fixed_random, &random));
+    EXPECT_EQ(random.calls, 4u);
+}
+
 TEST(AvxCApiContract, G1SubgroupMsmHasOneContractAcrossPointCounts)
 {
     ASSERT_TRUE(blst_avx_enabled());
@@ -253,6 +361,12 @@ TEST(AvxCApiContract, MembershipAndBatchChecksRejectOffCurveInputs)
     const blst_byte coefficient = 0;
     const blst_avx_p1* g1_points[] = {&avx_off_curve_g1};
     const blst_avx_p2* g2_points[] = {&avx_off_curve_g2};
+    FixedRandomSource random;
+    EXPECT_FALSE(blst_avx_p1s_in_g1(
+        g1_points, 1, fill_fixed_random, &random));
+    EXPECT_FALSE(blst_avx_p2s_in_g2(
+        g2_points, 1, fill_fixed_random, &random));
+    EXPECT_EQ(random.calls, 0u);
     EXPECT_FALSE(blst_avx_p1_batch_subgroup_check(
         g1_points, 1, &coefficient, 1, blst_avx_p1_generator()));
     EXPECT_FALSE(blst_avx_p2_batch_subgroup_check(
