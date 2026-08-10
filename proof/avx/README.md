@@ -377,8 +377,9 @@ the standard generator span is equivalent to the upper bound
 G1 without importing the published exact curve order: every affine x-coordinate
 has at most two points, so the ambient projective curve has at most `2p+1`
 points, while a larger accepted `ZMod r` kernel would have at least `r² >
-2p+1` elements. `AUD-231` now retains only the G2 upper bound; the analogous
-coarse bound over `Fp2` is not strong enough.
+2p+1` elements. Over `Fp2`, `r³ > 2p²+1` proves the accepted G2 kernel has
+dimension at most two and hence exactly `r` or `r²` elements. `AUD-231` now
+retains only exclusion of that G2 rank-two case.
 Canonical
 export followed by scalar REDC
 and byte weaving is likewise an explicit observation boundary for equality,

@@ -316,7 +316,10 @@ kernel has at most `r` elements. Proof commit `f6c251b` establishes this bound
 for G1 from the generic `2p+1` affine-point bound and `r² > 2p+1`, yielding
 exact equality between the accepted G1 kernel and the selected generator span.
 The remaining `AUD-231` obligation is only the G2 cardinality upper bound; it
-is no longer an operational validator-to-arithmetic safety dependency.
+is no longer an operational validator-to-arithmetic safety dependency. Proof
+commit `475221a` further proves from `r³ > 2p²+1` that the accepted G2 kernel
+has cardinality exactly `r` or `r²`, so the unresolved upper bound is precisely
+the exclusion of the rank-two alternative.
 The production alias validator closes source selection
 ambiguity but is not a mathematical theorem. MatrixNoK-to-scalar observation
 through byte weaving and scalar REDC also remains a reviewed boundary when

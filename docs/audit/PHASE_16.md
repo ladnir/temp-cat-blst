@@ -747,7 +747,9 @@ standard generators have exact order `r`, and proves span equality is
 equivalent to `card accepted ≤ r`. Commit `f6c251b` proves the G1 upper bound
 and exact span equality using the generic `2p+1` affine-point bound and the
 checked inequality `r² > 2p+1`. Only the G2 global upper bound, not
-validator-to-arithmetic safety, remains open. `AVX-P4-003` is accepted
+validator-to-arithmetic safety, remains open. Commit `475221a` narrows it
+further: `r³ > 2p²+1` forces the accepted G2 kernel to have cardinality exactly
+`r` or `r²`, leaving only the rank-two case to exclude. `AVX-P4-003` is accepted
 for selected arithmetic, while compiler/ISA lowering remains the same
 external P0 boundary. The new packet passes focused module and transitive root
 type-checks, a trust-word scan, and an axiom inventory. No C++

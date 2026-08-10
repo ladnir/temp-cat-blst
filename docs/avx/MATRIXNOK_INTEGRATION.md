@@ -103,7 +103,9 @@ the entire AVX API. The exact current boundary is:
   exact domains; both concrete generators have proved exact order `r`, and
   accepted-kernel equality with their spans is reduced to `card accepted ≤ r`;
   the G1 bound and exact span equality are proved from the generic `2p+1`
-  ambient bound and `r² > 2p+1`, while the G2 upper bound remains `AUD-231`;
+  ambient bound and `r² > 2p+1`; the analogous `Fp2` bound proves G2 has
+  exactly `r` or `r²` accepted points, while exclusion of `r²` remains
+  `AUD-231`;
 - explicit non-Lean observation boundary: MatrixNoK canonical export through
   scalar REDC/byte weaving for point equality and validation;
 - outside this arithmetic proof: generic FFT orchestration, map/hash-to-curve
@@ -115,11 +117,11 @@ the entire AVX API. The exact current boundary is:
 
 These are evidence gaps rather than confirmed C++ defects. `AUD-227` is closed
 for selected public curve arithmetic by accepted row `AVX-P4-003`; proof
-commits `24de7b4`, `1fdc201`, `65b54f6`, and `f6c251b` discharge relation soundness,
+commits `24de7b4`, `1fdc201`, `65b54f6`, `f6c251b`, and `475221a` discharge relation soundness,
 cyclic-generator inclusion, accepted-kernel closure, selected arithmetic,
 scalar-order primality, exact generator order, and the final cardinality
-reduction, including exact G1 accepted-kernel identification. `AUD-231` keeps
-the remaining G2 accepted-kernel upper bound visible so
+reduction, including exact G1 accepted-kernel identification and the G2
+`r`/`r²` dichotomy. `AUD-231` keeps the remaining G2 rank-two exclusion visible so
 future release notes cannot imply broader mathematical set equality than the
 correspondence ledger provides.
 

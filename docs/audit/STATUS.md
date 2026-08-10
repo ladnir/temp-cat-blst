@@ -592,6 +592,8 @@ both standard generators have exact order `r`, and reduces span equality to
 the explicit upper bounds `card accepted ≤ r`. Commit `f6c251b` proves the G1
 bound and exact span equality from a generic `2p+1` curve bound and `r² >
 2p+1`. `AUD-231` now consists exactly of the remaining G2 cardinality bound.
+Commit `475221a` proves the accepted G2 kernel has cardinality `r` or `r²`, so
+the remaining bound is precisely exclusion of the rank-two alternative.
 Focused module and transitive root Lean
 type-checks pass. This
 proof-only completion ran no C++ build, Peach job, or benchmark.
