@@ -1,7 +1,6 @@
 #include "blst/avx/generated_matrixnok_constants.hpp"
 #include "blst/avx/rns/matrixnok_change_base.h"
 #include "blst/avx/rns/matrixnok_fp.h"
-#include "blst/avx/fields/matrixnok_fp2.h"
 #include "blst/avx/fields/matrixnok_fp12.h"
 #include "blst/avx/fields/final_exponentiation.h"
 #include "blst/avx/gt/glv4.h"
@@ -188,7 +187,6 @@ namespace blst::avx::test
     static_assert(RingAccumulatedProduct::rns_bounds.lower == 0);
     static_assert(RingAccumulatedProduct::rns_bounds.upper == 2);
     static_assert(std::is_empty_v<matrixnok::FpRingCandidate>);
-    static_assert(std::is_empty_v<matrixnok::Fp2RingCandidate>);
     static_assert(std::is_empty_v<matrixnok::Fp12RingCandidate>);
     static_assert(std::is_empty_v<matrixnok::G1CurveCandidate>);
     static_assert(std::is_empty_v<matrixnok::G2CurveCandidate>);
@@ -332,7 +330,7 @@ namespace blst::avx::test
     TEST(AvxMatrixNoKPrimitives, FixedContextMatchesScalarAccumulatorOracle)
     {
         EXPECT_EQ(sizeof(matrixnok::FpRingCandidate), 1U);
-        EXPECT_EQ(sizeof(matrixnok::Fp2RingCandidate), 1U);
+        EXPECT_EQ(sizeof(matrixnok::G2Fp2RingCandidate), 1U);
 
         std::array<uint64_t, 8> r2_input = {};
         std::array<uint64_t, 8> digit_input = {};
@@ -1622,20 +1620,12 @@ namespace blst::avx::test
         }
     }
 
-    matrixnok::Fp2RingCandidate::Element matrixnok_fp2_from_scalar(
-        const matrixnok::FpRingCandidate& ring,
-        const blst::Fp2& value)
-    {
-        return {
-            ring.from_canonical_50bit_digits(canonical_50bit_digits(value[0])),
-            ring.from_canonical_50bit_digits(canonical_50bit_digits(value[1]))};
-    }
-
     blst::Fp2 matrixnok_fp2_to_scalar(
         const matrixnok::FpRingCandidate& ring,
-        const matrixnok::Fp2RingCandidate::Element& value)
+        const matrixnok::G2Fp2RingCandidate::StandardElement& value)
     {
-        return {{matrixnok_to_scalar(ring, value.c0), matrixnok_to_scalar(ring, value.c1)}};
+        return {{matrixnok_to_scalar(ring, value.x()),
+            matrixnok_to_scalar(ring, value.y())}};
     }
 
     void expect_same_scalar_fp2(const blst::Fp2& actual, const blst::Fp2& expected)
@@ -1646,16 +1636,16 @@ namespace blst::avx::test
 
     void expect_standard_fp2_bounds(
         const matrixnok::FpRingCandidate& ring,
-        const matrixnok::Fp2RingCandidate::Element& value)
+        const matrixnok::G2Fp2RingCandidate::StandardElement& value)
     {
-        expect_standard_residue_bounds(ring, value.c0);
-        expect_standard_residue_bounds(ring, value.c1);
+        expect_standard_residue_bounds(ring, value.x());
+        expect_standard_residue_bounds(ring, value.y());
     }
 
-    TEST(AvxMatrixNoKPrimitives, Fp2MultiplyAndSquareMatchScalar)
+    TEST(AvxMatrixNoKPrimitives, SelectedFp2MultiplyAndSquareMatchScalar)
     {
         const matrixnok::FpRingCandidate ring;
-        const matrixnok::Fp2RingCandidate fp2ring;
+        const matrixnok::G2Fp2RingCandidate fp2ring(ring);
         testing::Test::RecordProperty("fp_ring_candidate_bytes", sizeof(ring));
         testing::Test::RecordProperty("fp2_ring_candidate_bytes", sizeof(fp2ring));
 
@@ -1667,25 +1657,20 @@ namespace blst::avx::test
         }
 
         for (const blst::Fp2& value : values) {
-            const auto encoded = matrixnok_fp2_from_scalar(ring, value);
+            const auto encoded = matrixnok_generic_fp2_from_scalar(ring, value);
             const auto candidate_square = fp2ring.square(encoded);
             blst::Fp2 expected_square = {};
             blst::Fp2::sqr(expected_square, value);
             expect_standard_fp2_bounds(ring, candidate_square);
             expect_same_scalar_fp2(
                 matrixnok_fp2_to_scalar(ring, candidate_square), expected_square);
-
-            auto square_alias = encoded;
-            fp2ring.square(square_alias, square_alias);
-            expect_same_scalar_fp2(
-                matrixnok_fp2_to_scalar(ring, square_alias), expected_square);
         }
 
         for (const blst::Fp2& left : values) {
             for (const blst::Fp2& right : values) {
-                const auto candidate_left = matrixnok_fp2_from_scalar(ring, left);
-                const auto candidate_right = matrixnok_fp2_from_scalar(ring, right);
-                const auto candidate_product = fp2ring.multiply(candidate_left, candidate_right);
+                const auto candidate_left = matrixnok_generic_fp2_from_scalar(ring, left);
+                const auto candidate_right = matrixnok_generic_fp2_from_scalar(ring, right);
+                const auto candidate_product = fp2ring.mul(candidate_left, candidate_right);
                 blst::Fp2 expected_product = {};
                 blst::Fp2::mul(expected_product, left, right);
                 expect_standard_fp2_bounds(ring, candidate_product);
@@ -1694,28 +1679,28 @@ namespace blst::avx::test
             }
         }
 
-        auto right_alias = matrixnok_fp2_from_scalar(ring, values[5]);
-        const auto left_for_alias = matrixnok_fp2_from_scalar(ring, values[7]);
-        fp2ring.multiply(right_alias, left_for_alias, right_alias);
+        auto right_alias = matrixnok_generic_fp2_from_scalar(ring, values[5]);
+        const auto left_for_alias = matrixnok_generic_fp2_from_scalar(ring, values[7]);
+        right_alias = fp2ring.mul(left_for_alias, right_alias);
         blst::Fp2 expected_alias = {};
         blst::Fp2::mul(expected_alias, values[7], values[5]);
         expect_standard_fp2_bounds(ring, right_alias);
         expect_same_scalar_fp2(matrixnok_fp2_to_scalar(ring, right_alias), expected_alias);
 
-        auto left_alias = matrixnok_fp2_from_scalar(ring, values[4]);
-        const auto right_for_alias = matrixnok_fp2_from_scalar(ring, values[6]);
-        fp2ring.multiply(left_alias, left_alias, right_for_alias);
+        auto left_alias = matrixnok_generic_fp2_from_scalar(ring, values[4]);
+        const auto right_for_alias = matrixnok_generic_fp2_from_scalar(ring, values[6]);
+        left_alias = fp2ring.mul(left_alias, right_for_alias);
         blst::Fp2 expected_left_alias = {};
         blst::Fp2::mul(expected_left_alias, values[4], values[6]);
         expect_standard_fp2_bounds(ring, left_alias);
         expect_same_scalar_fp2(
             matrixnok_fp2_to_scalar(ring, left_alias), expected_left_alias);
 
-        auto candidate_product_chain = matrixnok_fp2_from_scalar(ring, values[4]);
+        auto candidate_product_chain = matrixnok_generic_fp2_from_scalar(ring, values[4]);
         blst::Fp2 scalar_product_chain = values[4];
-        const auto candidate_factor = matrixnok_fp2_from_scalar(ring, values[6]);
+        const auto candidate_factor = matrixnok_generic_fp2_from_scalar(ring, values[6]);
         for (int iteration = 0; iteration < 64; ++iteration) {
-            candidate_product_chain = fp2ring.multiply(candidate_product_chain, candidate_factor);
+            candidate_product_chain = fp2ring.mul(candidate_product_chain, candidate_factor);
             blst::Fp2 next = {};
             blst::Fp2::mul(next, scalar_product_chain, values[6]);
             scalar_product_chain = next;
@@ -1724,7 +1709,7 @@ namespace blst::avx::test
                 matrixnok_fp2_to_scalar(ring, candidate_product_chain), scalar_product_chain);
         }
 
-        auto candidate_square_chain = matrixnok_fp2_from_scalar(ring, values[5]);
+        auto candidate_square_chain = matrixnok_generic_fp2_from_scalar(ring, values[5]);
         blst::Fp2 scalar_square_chain = values[5];
         for (int iteration = 0; iteration < 16; ++iteration) {
             candidate_square_chain = fp2ring.square(candidate_square_chain);

@@ -2,7 +2,6 @@
 #include "blst/avx/cpu/vector/vector_impl.hpp"
 #include "blst/avx/rns/matrixnok_change_base.h"
 #include "blst/avx/rns/matrixnok_fp.h"
-#include "blst/avx/fields/matrixnok_fp2.h"
 #include "blst/avx/fields/matrixnok_fp12.h"
 #include "blst/avx/fields/conversion_inversion.h"
 #include "blst/avx/curve/matrixnok_g1.h"
@@ -88,23 +87,6 @@ extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_export_fp(
 {
     const blst::avx::matrixnok::FpRingCandidate ring;
     *out = blst::avx::avx_blst_direct_bridge::ring_to_scalar_fp(ring, *value);
-}
-
-extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_fp2_multiply(
-    blst::avx::matrixnok::Fp2RingCandidate::Element* out,
-    const blst::avx::matrixnok::Fp2RingCandidate::Element* left,
-    const blst::avx::matrixnok::Fp2RingCandidate::Element* right)
-{
-    const blst::avx::matrixnok::Fp2RingCandidate fp2ring;
-    fp2ring.multiply(*out, *left, *right);
-}
-
-extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_fp2_square(
-    blst::avx::matrixnok::Fp2RingCandidate::Element* out,
-    const blst::avx::matrixnok::Fp2RingCandidate::Element* value)
-{
-    const blst::avx::matrixnok::Fp2RingCandidate fp2ring;
-    fp2ring.square(*out, *value);
 }
 
 extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_fp12_multiply(

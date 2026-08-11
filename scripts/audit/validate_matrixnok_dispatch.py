@@ -61,6 +61,8 @@ def main() -> int:
             "obsolete generic elementwise reducer was restored")
     require(not (avx / "rns" / "inversion.h").exists(),
             "orphaned VROOM test-only inversion chain was restored")
+    require(not (avx / "fields" / "matrixnok_fp2.h").exists(),
+            "comparison-only MatrixNoK Fp2 microkernel was restored")
 
     bounds = avx / "rns" / "bounds.h"
     require_fragments(bounds, (
@@ -127,6 +129,24 @@ def main() -> int:
         "AVXVector<8>& out_high",
         "return batch_reduce_expand(left * right)[0];",
         "products[index] = ready<MAX_ADD>(left[index] * right[index]);",
+        "finish_wide_products(",
+        "negate_for_product(",
+        "friend class Fp2RingCandidate;",
+    ))
+
+    fp2 = avx / "fields" / "fp2.h"
+    require_fragments(fp2, (
+        "[[no_unique_address]] Ring ring;",
+        "typename std::remove_cvref_t<decltype(e.x())>::rns_bounds_type",
+        "typename std::remove_cvref_t<decltype(e.y())>::rns_bounds_type",
+        "exact-storage",
+    ))
+    forbid_fragments(fp2, (
+        "const Ring &ring;",
+        "make_element_array_impl",
+        "operator FP2<",
+        "std::remove_cv_t<decltype(e.x().rns_bounds)>",
+        "std::remove_cv_t<decltype(e.y().rns_bounds)>",
     ))
     forbid_fragments(avx / "curve" / "scalar_mult.h", (
         'ring.from_hex(',

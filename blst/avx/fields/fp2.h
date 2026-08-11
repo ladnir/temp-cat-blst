@@ -1,10 +1,16 @@
+// SPDX-License-Identifier: MIT
+// Copyright 2026 Simon Langowski
+// Copyright 2026 Category Labs
+//
+// Adapted from the VROOM Fp2 carrier at commit d6ecd534. CatBLST retains the
+// delayed two-product formulas and strided batch schedule while making their
+// ownership, representation, and observation contracts explicit.
 #pragma once
 #include "../../common/defines.h"
 #include "../rns/ring_element.h"
 #include <tuple>
 #include <array>
 #include <type_traits>
-// Forward declaration
 namespace blst::avx {
 
 template<class X, class Y, class minusY>
@@ -17,14 +23,12 @@ class FP2 {
     Y y_;
 
     public:
-    // Preserve aggregate-style storage semantics: value-initialization still
-    // produces zero, while default construction remains trivial for C-owned
-    // opaque contexts that start member lifetimes with placement new.
+    // Default initialization is overwrite-before-read. Value initialization
+    // (`FP2{}`) zero-initializes the selected trivial coordinate carriers.
     FP2() = default;
     
     constexpr BLST_FORCEINLINE FP2(const X& x, const Y& y) : x_(x), y_(y) {}
 
-    // Const getters to access members
     BLST_FORCEINLINE const X& x() const { return x_; }
     BLST_FORCEINLINE const Y& y() const { return y_; }
 
@@ -49,8 +53,8 @@ class FP2 {
         return FP2<decltype(x_resolved), decltype(y_resolved)>(x_resolved, y_resolved);
     }
 
-    // And only the negated prepared ones can do products?
-    // Basically we can reuse the negation result a lot.
+    // Prepare the left operand once, including its reusable `-y` coordinate.
+    // This lets delayed products express `ac-bd` without a signed accumulator.
     template<class Ring>
     BLST_FORCEINLINE auto prep_left(const Ring &ring) const {
         auto r_x = ring.prep(x_);
@@ -67,7 +71,7 @@ class FP2 {
     }
 
     template<class Ring, class OtherXN, class OtherYN, class OtherMinusYN, class OtherX, class OtherY>
-    BLST_FORCEINLINE auto mul_sub_accumulate(FP2N<OtherXN, OtherYN, OtherMinusYN> &other1, const FP2<OtherX, OtherY> &other2, const Ring &ring) const {
+    BLST_FORCEINLINE auto mul_sub_accumulate(const FP2N<OtherXN, OtherYN, OtherMinusYN> &other1, const FP2<OtherX, OtherY> &other2, const Ring &ring) const {
         auto minus_x = ring.prep(ring.negate(other1.x()));
         auto result_x = x_ + minus_x * other2.x() + other1.y() * other2.y();
         auto result_y = y_ + minus_x * other2.y() + other1.minus_y() * other2.x();
@@ -81,7 +85,7 @@ class FP2 {
         return FP2<decltype(result_x), decltype(result_y)>(result_x, result_y);
     }
 
-    // Multiply FP2 by a base field element (scalar multiplication in Fp)
+    // Multiply both coordinates by one base-field element.
     template<class FP>
     BLST_FORCEINLINE auto mul_fp(const FP &other) const {
        return mul_scalar(other);
@@ -103,6 +107,10 @@ class FP2 {
     BLST_FORCEINLINE bool_t equal(const FP2<X, Y> &other) const {
         return x_.equal(other.x()) & y_.equal(other.y());
     }
+
+    // `is_zero` and `equal` inherit the coordinate carrier's exact-storage
+    // semantics. They are not semantic field observations when redundant RNS
+    // representatives are possible; observation boundaries must normalize.
 
     // Clearer API: replace self with replacement if condition is true
     // ctime_select(selection, b) returns *this when selection is true, b when false
@@ -127,11 +135,9 @@ class FP2N {
     public:
     BLST_FORCEINLINE FP2N(const X &x, const Y &y, const minusY &minus_y) : x_(x), y_(y), minus_y_(minus_y) {}
 
-    // Converting constructor from another FP2N type
     template<class OtherX, class OtherY, class OtherMinusY>
     BLST_FORCEINLINE FP2N(const FP2N<OtherX, OtherY, OtherMinusY> &other) : x_(other.x()), y_(other.y()), minus_y_(other.minus_y()) {}
 
-    // Const getters to access members
     BLST_FORCEINLINE const X& x() const { return x_; }
     BLST_FORCEINLINE const Y& y() const { return y_; }
     BLST_FORCEINLINE const minusY& minus_y() const { return minus_y_; }
@@ -149,13 +155,9 @@ class FP2N {
 
     template<class FP>
     BLST_FORCEINLINE auto mul_fp(const FP &scalar) const {
-        auto fp2 = to_fp2();
-        return fp2.mul_fp(scalar);
-    }
-    
-    // Conversion operator
-    BLST_FORCEINLINE operator FP2<X, Y>() const {
-        return FP2<X, Y>(x_, y_);
+        auto result_x = x_ * scalar;
+        auto result_y = y_ * scalar;
+        return FP2<decltype(result_x), decltype(result_y)>(result_x, result_y);
     }
 
     BLST_FORCEINLINE auto square() const {
@@ -167,13 +169,17 @@ class FP2N {
 
 template<class Ring>
 class FP2Ring {
-    const Ring &ring;
+    // The selected fixed ring is empty and stateless. Owning it prevents the
+    // dangling-reference construction that a stored `const Ring&` permitted;
+    // `no_unique_address` keeps the owner at the empty-object minimum size.
+    [[no_unique_address]] Ring ring;
 
     public:
     constexpr static auto _12 = std::integral_constant<int, 12>{};
     using StandardElement = FP2<typename Ring::StandardElement, typename Ring::StandardElement>;
 
-    constexpr BLST_FORCEINLINE explicit FP2Ring(const Ring& r) noexcept : ring(r) {}
+    constexpr BLST_FORCEINLINE explicit FP2Ring(const Ring& r)
+        noexcept(std::is_nothrow_copy_constructible_v<Ring>) : ring(r) {}
 
 
     // Helper to convert variadic arguments to array using index_sequence
@@ -190,12 +196,6 @@ class FP2Ring {
         constexpr int64_t reduce_bound = 2 * Ring::MULT_OK_BOUND * Ring::MULT_OK_BOUND + 1;
         return std::array<typename Ring::template ReadyElement<reduce_bound>, 2*sizeof...(Args)>{ring.template ready<reduce_bound>(std::get<I>(args).x())..., ring.template ready<reduce_bound>(std::get<I>(args).y())...};
      }
-
-    // Helper to extract elements from SmallElement FP2 types for batch_expand
-    template<typename... Args, std::size_t... I>
-    BLST_FORCEINLINE auto make_element_array_impl(const std::tuple<Args...> &args, std::index_sequence<I...>) const {
-        return std::array<typename Ring::StandardBoundedElement, 2*sizeof...(Args)>{std::get<I>(args).x().element..., std::get<I>(args).y().element...};
-    }
 
     // Variadic template version that captures all the different arities
     template<typename... Args>
@@ -242,8 +242,10 @@ class FP2Ring {
 
     template<class E, class ExpandedX, class ExpandedY>
     BLST_FORCEINLINE auto reattach_expand_bounds(const E& e, const ExpandedX& expanded_x, const ExpandedY& expanded_y) const {
-        using OutX = ExpandedElement<typename Ring::StandardBoundedElement, std::remove_cv_t<decltype(e.x().rns_bounds)>>;
-        using OutY = ExpandedElement<typename Ring::StandardBoundedElement, std::remove_cv_t<decltype(e.y().rns_bounds)>>;
+        using OutX = ExpandedElement<typename Ring::StandardBoundedElement,
+            typename std::remove_cvref_t<decltype(e.x())>::rns_bounds_type>;
+        using OutY = ExpandedElement<typename Ring::StandardBoundedElement,
+            typename std::remove_cvref_t<decltype(e.y())>::rns_bounds_type>;
         return FP2<OutX, OutY>(OutX(expanded_x, e.x()), OutY(expanded_y, e.y()));
     }
 
