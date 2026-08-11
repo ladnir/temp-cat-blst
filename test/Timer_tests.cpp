@@ -12,6 +12,8 @@
 static_assert(noexcept(
     std::declval<blst::TimingStats&>().add("sample", 1)));
 static_assert(noexcept(
+    std::declval<blst::TimingStats&>().add("sample", ".suffix", 1)));
+static_assert(noexcept(
     std::declval<const blst::TimingStats&>().get_ns("sample")));
 static_assert(noexcept(std::declval<blst::TimingStats&>().clear()));
 static_assert(std::is_nothrow_default_constructible_v<blst::TimingStats>);
@@ -25,7 +27,9 @@ TEST(Timer, AccumulatesAndClearsWithoutARequiredSink)
     blst::TimingStats timings;
     timings.add("sample", 4);
     timings.add("sample", 6);
+    timings.add("sample", ".suffix", 7);
     EXPECT_EQ(timings.get_ns("sample"), 10);
+    EXPECT_EQ(timings.get_ns("sample.suffix"), 7);
     EXPECT_EQ(timings.get_ns("missing"), 0);
 
     {

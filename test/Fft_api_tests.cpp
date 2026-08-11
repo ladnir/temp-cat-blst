@@ -10,6 +10,7 @@
 #include <limits>
 #include <span>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 namespace
@@ -105,6 +106,21 @@ namespace
         }
         return true;
     }
+
+    bool equal(
+        const std::span<const Fr> lhs,
+        const std::span<const Fr> rhs)
+    {
+        if (lhs.size() != rhs.size()) {
+            return false;
+        }
+        for (std::size_t i = 0; i < lhs.size(); ++i) {
+            if (!Fr::equal(lhs[i], rhs[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
 }
 
 TEST(FftApi, RootPreparationRejectsEmptyDomain)
@@ -161,6 +177,112 @@ TEST(FftApi, GenericPreparedDomainMatchesGenericTransform)
         true);
     EXPECT_TRUE(equal(prepared, input));
 }
+
+TEST(FftCore, PlanConstructionRejectsInvalidAndOverflowedShapes)
+{
+    EXPECT_THROW(make_fft_truncated_forward_plan(0, 1), std::invalid_argument);
+    EXPECT_THROW(make_fft_truncated_forward_plan(3, 1), std::invalid_argument);
+    EXPECT_THROW(make_fft_truncated_forward_plan(8, 0), std::invalid_argument);
+    EXPECT_THROW(make_fft_truncated_forward_plan(8, 9), std::invalid_argument);
+
+    EXPECT_THROW(
+        make_fft_inverse_truncated_range_plan(0, 0, 1),
+        std::invalid_argument);
+    EXPECT_THROW(
+        make_fft_inverse_truncated_range_plan(8, 8, 1),
+        std::invalid_argument);
+    EXPECT_THROW(
+        make_fft_inverse_truncated_range_plan(8, 7, 2),
+        std::invalid_argument);
+    EXPECT_THROW(
+        make_fft_inverse_truncated_range_plan(
+            8,
+            7,
+            std::numeric_limits<std::size_t>::max()),
+        std::invalid_argument);
+}
+
+TEST(FftCore, ReusableTruncatedPlansMatchFullTransforms)
+{
+    constexpr std::size_t n = 16;
+    const std::vector<Fr> roots =
+        blst::fft_detail::make_roots<Fr, blst::FrCoeffCtx>(n, false);
+    const std::vector<Fr> inverse_roots =
+        blst::fft_detail::make_roots<Fr, blst::FrCoeffCtx>(n, true);
+
+    for (const std::size_t xn : { std::size_t{1}, std::size_t{5}, n }) {
+        std::array<Fr, n> expected = {};
+        for (std::size_t i = 0; i < xn; ++i) {
+            expected[i] = from_u64(17 * i + 3);
+        }
+        auto planned = expected;
+        fft<Fr, Fr, blst::FrCoeffCtx>(expected, roots, false);
+
+        const FftTruncatedForwardPlan plan =
+            make_fft_truncated_forward_plan(n, xn);
+        EXPECT_EQ(
+            plan.butterflies_executed + plan.butterflies_skipped,
+            plan.butterflies_total);
+        blst::TimingStats timings;
+        fft_forward_truncated_prefix<Fr, Fr, blst::FrCoeffCtx>(
+            planned,
+            roots,
+            xn,
+            plan,
+            &timings,
+            "fft_test");
+        EXPECT_TRUE(equal(expected, planned));
+        EXPECT_EQ(timings.get_ns("fft_test.xn"), xn);
+    }
+
+    std::array<Fr, n> frequency = {};
+    for (std::size_t i = 0; i < n; ++i) {
+        frequency[i] = from_u64(29 * i + 11);
+    }
+    auto full_inverse = frequency;
+    fft<Fr, Fr, blst::FrCoeffCtx>(full_inverse, inverse_roots, true);
+
+    for (const auto [start, length] : {
+             std::pair<std::size_t, std::size_t>{0, 1},
+             {3, 7},
+             {15, 1},
+             {0, n} }) {
+        auto planned = frequency;
+        const FftInverseTruncatedRangePlan plan =
+            make_fft_inverse_truncated_range_plan(n, start, length);
+        EXPECT_EQ(
+            plan.butterflies_executed + plan.butterflies_skipped,
+            plan.butterflies_total);
+        fft_inverse_truncated_range<Fr, Fr, blst::FrCoeffCtx>(
+            planned,
+            inverse_roots,
+            start,
+            length,
+            plan);
+        EXPECT_TRUE(equal(
+            std::span<const Fr>(planned).subspan(start, length),
+            std::span<const Fr>(full_inverse).subspan(start, length)));
+    }
+}
+
+#ifndef NDEBUG
+TEST(FftCore, DebugBuildRejectsInvalidHotTransformShapes)
+{
+    std::array<Fr, 3> non_power_of_two = {};
+    std::array<Fr, 3> roots = {};
+    EXPECT_DEATH(
+        (fft<Fr, Fr, blst::FrCoeffCtx>(non_power_of_two, roots, false)),
+        "");
+
+    std::array<Fr, 2> values = {};
+    EXPECT_DEATH(
+        (fft<Fr, Fr, blst::FrCoeffCtx>(
+            values,
+            std::span<const Fr>{},
+            false)),
+        "");
+}
+#endif
 
 TEST(FftApi, GeneralInterpolationReportsDuplicatePoints)
 {

@@ -1,14 +1,32 @@
-﻿
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Category Labs
+//
+// CatBLST radix-two FFT and shape-planned truncated-transform primitives.
+
 #pragma once
 #include <algorithm>
+#include <cstddef>
 #include <limits>
 #include <span>
 #include <stdexcept>
+#include <string_view>
 #include <vector>
 #include "blst/common/defines.h"
 #include "blst/common/timer.h"
 
-// Standard Bit-Reversal for in-place FFT
+namespace blst::fft_detail
+{
+    [[nodiscard]] constexpr bool valid_transform_size(
+        const std::size_t n) noexcept
+    {
+        return n != 0 && (n & (n - 1)) == 0 &&
+            n <= static_cast<std::size_t>(std::numeric_limits<int>::max());
+    }
+}
+
+// Applies the binary bit-reversal permutation in place. The span length must
+// fit the signed-index transform implementation; FFT callers additionally
+// require a nonzero power-of-two length.
 template<typename F>
 void bit_reverse(std::span<F> a) {
 	if (a.size() > static_cast<std::size_t>(std::numeric_limits<int>::max())) {
@@ -22,34 +40,15 @@ void bit_reverse(std::span<F> a) {
 		if (i < j) std::swap(a[i], a[j]);
 	}
 }
-struct DefaultCoeffCtx
-{
-	template<typename G, typename F>
-	static auto plus(const G& a, const F& b) {
-		return a + b;
-	}
-	template<typename G, typename F>
-	static auto minus(const G& a, const F& b) {
-		return a - b;
-	}
-	template<typename G, typename F>
-	static auto mult(const G& a, const F& b) {
-		return a * b;
-	}
-	template<typename F>
-	static auto inverse(const F& a) {
-		return a.inverse();
-	}
 
-	template<typename F>
-	static auto from_u64(std::uint64_t a) {
-		return F(a);
-	}
-
-};
-
+// In-place radix-two DIT butterflies. `a.size()` must be a supported nonzero
+// power of two. `roots` must contain at least that many consecutive powers of
+// the corresponding primitive root, starting with one, and must not overlap
+// `a`. The schedule and root accesses depend only on the public transform size.
 template <bool InverseFromForwardRoots, typename G, typename F, typename CoeffCtx>
 void fft_butterflies(std::span<G> a, std::span<const F> roots) {
+	BLST_ASSERT(blst::fft_detail::valid_transform_size(a.size()));
+	BLST_ASSERT(roots.size() >= a.size());
 	bit_reverse(a);
 	const int n = static_cast<int>(a.size());
 
@@ -92,7 +91,10 @@ void fft_scale(std::span<G> a, const F& inverse_size) {
 	}
 }
 
-template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
+// Runs an in-place transform using a direction-specific root table. Forward
+// calls require forward powers. Inverse calls require inverse powers and apply
+// the 1/n scale. `invert` does not change the supplied root direction.
+template <typename G, typename F, typename CoeffCtx>
 void fft(std::span<G> a, std::span<const F> roots, bool invert) {
 	fft_butterflies<false, G, F, CoeffCtx>(a, roots);
 
@@ -103,10 +105,10 @@ void fft(std::span<G> a, std::span<const F> roots, bool invert) {
 	}
 }
 
-// Runs a transform from one forward root table. The inverse path selects
-// reciprocal powers by index at compile time inside the butterfly loop and
-// uses the caller's prepared 1/n scale.
-template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
+// Runs an in-place transform from one forward-root table. The inverse path
+// reads reciprocal powers by index and applies the caller-prepared 1/n scale.
+// The data, root table, and scale object must not overlap.
+template <typename G, typename F, typename CoeffCtx>
 void fft_with_forward_roots(
 	std::span<G> a,
 	std::span<const F> forward_roots,
@@ -120,320 +122,12 @@ void fft_with_forward_roots(
 	}
 }
 
-// ============================================================================
-// Radix-4 FFT (DIT, in-place)
-// 
-// Reduces number of stages by half compared to radix-2.
-// Requires N to be a power of 4 for pure radix-4, or handles mixed radix.
-// ============================================================================
-template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
-void fft_radix4(std::span<G> a, std::span<const F> roots, bool invert) {
-	std::size_t n = a.size();
-	BLST_ASSERT((n & (n - 1)) == 0); // n must be power of 2
-
-	bit_reverse(a);
-
-	// Precompute i4 = ω^(N/4), which satisfies i4^2 = -1 in the field
-	// For NTT, this is the 4th root of unity
-	F i4 = roots[n / 4];
-
-	// Handle case where n is not a power of 4: do one radix-2 stage first
-	std::size_t start_len = 4;
-	if ((n & 3) != 0) {
-		// n is 2 mod 4, do a radix-2 stage
-		for (std::size_t i = 0; i < n; i += 2) {
-			G u = a[i];
-			G v = a[i + 1];
-			a[i] = CoeffCtx::plus(u, v);
-			a[i + 1] = CoeffCtx::minus(u, v);
-		}
-		start_len = 4;
-	}
-	else if (n == 2) {
-		// Special case: just radix-2
-		G u = a[0];
-		G v = a[1];
-		a[0] = CoeffCtx::plus(u, v);
-		a[1] = CoeffCtx::minus(u, v);
-		if (invert) {
-			F inv_n = CoeffCtx::inverse(CoeffCtx::template from_u64<F>(n));
-			a[0] = CoeffCtx::mult(a[0], inv_n);
-			a[1] = CoeffCtx::mult(a[1], inv_n);
-		}
-		return;
-	}
-
-	// Main radix-4 stages
-	for (std::size_t m = start_len; m <= n; m <<= 2) {
-		std::size_t m4 = m / 4;
-		std::size_t stride = n / m;
-
-		for (std::size_t k = 0; k < n; k += m) {
-			for (std::size_t j = 0; j < m4; j++) {
-				// Twiddle factors: wj = ω^(j * stride)
-				F wj = roots[j * stride];
-				F wj2 = CoeffCtx::mult(wj, wj);     // ω^(2j * stride)
-				F wj3 = CoeffCtx::mult(wj2, wj);    // ω^(3j * stride)
-
-				// Gather butterfly inputs
-				G a0 = a[k + j];
-				G a1 = a[k + j + m4];
-				G a2 = a[k + j + 2 * m4];
-				G a3 = a[k + j + 3 * m4];
-
-				// Apply twiddles to legs 1, 2, 3
-				G b0 = a0;
-				G b1 = CoeffCtx::mult(a1, wj);
-				G b2 = CoeffCtx::mult(a2, wj2);
-				G b3 = CoeffCtx::mult(a3, wj3);
-
-				// 4-point DFT kernel
-				// s0 = b0 + b2, d0 = b0 - b2
-				// s1 = b1 + b3, d1 = b1 - b3
-				// t = d1 * i4 (where i4^2 = -1)
-				G s0 = CoeffCtx::plus(b0, b2);
-				G d0 = CoeffCtx::minus(b0, b2);
-				G s1 = CoeffCtx::plus(b1, b3);
-				G d1 = CoeffCtx::minus(b1, b3);
-				G t = CoeffCtx::mult(d1, i4);
-
-				// Output
-				a[k + j] = CoeffCtx::plus(s0, s1);           // y0
-				a[k + j + m4] = CoeffCtx::minus(d0, t);      // y1
-				a[k + j + 2 * m4] = CoeffCtx::minus(s0, s1); // y2
-				a[k + j + 3 * m4] = CoeffCtx::plus(d0, t);   // y3
-			}
-		}
-	}
-
-	// Scaling for inverse FFT
-	if (invert) {
-		F inv_n = CoeffCtx::inverse(CoeffCtx::template from_u64<F>(n));
-		for (G& x : a) {
-			x = CoeffCtx::mult(x, inv_n);
-		}
-	}
-}
-
-// ============================================================================
-// Radix-8 FFT (DIT, in-place)
-// 
-// Further reduces stages compared to radix-4.
-// Requires N to be a power of 8 for pure radix-8, or handles mixed radix.
-// ============================================================================
-template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
-void fft_radix8(std::span<G> a, std::span<const F> roots, bool invert) {
-	std::size_t n = a.size();
-	BLST_ASSERT((n & (n - 1)) == 0); // n must be power of 2
-
-	bit_reverse(a);
-
-	// Precompute 8th roots needed for the radix-8 kernel
-	// z1 = ω^(N/8), z2 = ω^(N/4), z3 = ω^(3N/8)
-	F z1 = roots[n / 8];                      // ω^(N/8) - primitive 8th root
-	F z2 = roots[n / 4];                      // ω^(N/4) - i4, the 4th root
-	F z3 = CoeffCtx::mult(z1, z2);            // ω^(3N/8)
-
-	// Handle sizes that aren't powers of 8 by doing smaller radix stages first
-	std::size_t start_len = 8;
-	std::size_t log2n = 0;
-	for (std::size_t tmp = n; tmp > 1; tmp >>= 1) log2n++;
-
-	// Do radix-2 or radix-4 stages as needed to reach a power of 8
-	std::size_t remainder = log2n % 3;
-
-	if (remainder == 1) {
-		// One radix-2 stage
-		for (std::size_t i = 0; i < n; i += 2) {
-			G u = a[i];
-			G v = a[i + 1];
-			a[i] = CoeffCtx::plus(u, v);
-			a[i + 1] = CoeffCtx::minus(u, v);
-		}
-		start_len = 4;
-
-		// Then one radix-4 stage
-		if (n >= 4) {
-			std::size_t m = 4;
-			std::size_t m4 = 1;
-			std::size_t stride = n / m;
-			F i4 = z2;
-
-			for (std::size_t k = 0; k < n; k += m) {
-				for (std::size_t j = 0; j < m4; j++) {
-					F wj = roots[j * stride];
-					F wj2 = CoeffCtx::mult(wj, wj);
-					F wj3 = CoeffCtx::mult(wj2, wj);
-
-					G a0 = a[k + j];
-					G a1 = a[k + j + m4];
-					G a2 = a[k + j + 2 * m4];
-					G a3 = a[k + j + 3 * m4];
-
-					G b0 = a0;
-					G b1 = CoeffCtx::mult(a1, wj);
-					G b2 = CoeffCtx::mult(a2, wj2);
-					G b3 = CoeffCtx::mult(a3, wj3);
-
-					G s0 = CoeffCtx::plus(b0, b2);
-					G d0 = CoeffCtx::minus(b0, b2);
-					G s1 = CoeffCtx::plus(b1, b3);
-					G d1 = CoeffCtx::minus(b1, b3);
-					G t = CoeffCtx::mult(d1, i4);
-
-					a[k + j] = CoeffCtx::plus(s0, s1);
-					a[k + j + m4] = CoeffCtx::minus(d0, t);
-					a[k + j + 2 * m4] = CoeffCtx::minus(s0, s1);
-					a[k + j + 3 * m4] = CoeffCtx::plus(d0, t);
-				}
-			}
-		}
-		start_len = 8;
-	}
-	else if (remainder == 2) {
-		// One radix-4 stage (4 = 2^2)
-		std::size_t m = 4;
-		std::size_t m4 = 1;
-		std::size_t stride = n / m;
-		F i4 = z2;
-
-		for (std::size_t k = 0; k < n; k += m) {
-			for (std::size_t j = 0; j < m4; j++) {
-				F wj = roots[j * stride];
-				F wj2 = CoeffCtx::mult(wj, wj);
-				F wj3 = CoeffCtx::mult(wj2, wj);
-
-				G a0 = a[k + j];
-				G a1 = a[k + j + m4];
-				G a2 = a[k + j + 2 * m4];
-				G a3 = a[k + j + 3 * m4];
-
-				G b0 = a0;
-				G b1 = CoeffCtx::mult(a1, wj);
-				G b2 = CoeffCtx::mult(a2, wj2);
-				G b3 = CoeffCtx::mult(a3, wj3);
-
-				G s0 = CoeffCtx::plus(b0, b2);
-				G d0 = CoeffCtx::minus(b0, b2);
-				G s1 = CoeffCtx::plus(b1, b3);
-				G d1 = CoeffCtx::minus(b1, b3);
-				G t = CoeffCtx::mult(d1, i4);
-
-				a[k + j] = CoeffCtx::plus(s0, s1);
-				a[k + j + m4] = CoeffCtx::minus(d0, t);
-				a[k + j + 2 * m4] = CoeffCtx::minus(s0, s1);
-				a[k + j + 3 * m4] = CoeffCtx::plus(d0, t);
-			}
-		}
-		start_len = 8;
-	}
-
-	// Main radix-8 stages
-	for (std::size_t m = start_len; m <= n; m <<= 3) {
-		std::size_t m8 = m / 8;
-		std::size_t stride = n / m;
-
-		for (std::size_t k = 0; k < n; k += m) {
-			for (std::size_t j = 0; j < m8; j++) {
-				// Twiddle factor wj = ω^(j * stride)
-				F wj = roots[j * stride];
-
-				// Compute powers of wj for legs 1-7
-				F wj2 = CoeffCtx::mult(wj, wj);
-				F wj3 = CoeffCtx::mult(wj2, wj);
-				F wj4 = CoeffCtx::mult(wj2, wj2);
-				F wj5 = CoeffCtx::mult(wj4, wj);
-				F wj6 = CoeffCtx::mult(wj3, wj3);
-				F wj7 = CoeffCtx::mult(wj6, wj);
-
-				// Gather butterfly inputs
-				G a0 = a[k + j];
-				G a1 = a[k + j + m8];
-				G a2 = a[k + j + 2 * m8];
-				G a3 = a[k + j + 3 * m8];
-				G a4 = a[k + j + 4 * m8];
-				G a5 = a[k + j + 5 * m8];
-				G a6 = a[k + j + 6 * m8];
-				G a7 = a[k + j + 7 * m8];
-
-				// Apply twiddles
-				G b0 = a0;
-				G b1 = CoeffCtx::mult(a1, wj);
-				G b2 = CoeffCtx::mult(a2, wj2);
-				G b3 = CoeffCtx::mult(a3, wj3);
-				G b4 = CoeffCtx::mult(a4, wj4);
-				G b5 = CoeffCtx::mult(a5, wj5);
-				G b6 = CoeffCtx::mult(a6, wj6);
-				G b7 = CoeffCtx::mult(a7, wj7);
-
-				// 8-point DFT via two 4-point DFTs
-				// Evens: e0=b0, e1=b2, e2=b4, e3=b6
-				// Odds:  o0=b1, o1=b3, o2=b5, o3=b7
-
-				// DFT4 of evens
-				G es0 = CoeffCtx::plus(b0, b4);
-				G ed0 = CoeffCtx::minus(b0, b4);
-				G es1 = CoeffCtx::plus(b2, b6);
-				G ed1 = CoeffCtx::minus(b2, b6);
-				G et = CoeffCtx::mult(ed1, z2); // ed1 * i4
-
-				G E0 = CoeffCtx::plus(es0, es1);
-				G E1 = CoeffCtx::minus(ed0, et);
-				G E2 = CoeffCtx::minus(es0, es1);
-				G E3 = CoeffCtx::plus(ed0, et);
-
-				// DFT4 of odds
-				G os0 = CoeffCtx::plus(b1, b5);
-				G od0 = CoeffCtx::minus(b1, b5);
-				G os1 = CoeffCtx::plus(b3, b7);
-				G od1 = CoeffCtx::minus(b3, b7);
-				G ot = CoeffCtx::mult(od1, z2); // od1 * i4
-
-				G O0 = CoeffCtx::plus(os0, os1);
-				G O1 = CoeffCtx::minus(od0, ot);
-				G O2 = CoeffCtx::minus(os0, os1);
-				G O3 = CoeffCtx::plus(od0, ot);
-
-				// Combine with 8th roots: y[k] = E[k] + O[k] * ζ^k
-				// y[k+4] = E[k] - O[k] * ζ^k
-				G O0z0 = O0;                          // O0 * ζ^0 = O0
-				G O1z1 = CoeffCtx::mult(O1, z1);      // O1 * ζ^1
-				G O2z2 = CoeffCtx::mult(O2, z2);      // O2 * ζ^2 = O2 * i4
-				G O3z3 = CoeffCtx::mult(O3, z3);      // O3 * ζ^3
-
-				a[k + j] = CoeffCtx::plus(E0, O0z0);
-				a[k + j + m8] = CoeffCtx::plus(E1, O1z1);
-				a[k + j + 2 * m8] = CoeffCtx::plus(E2, O2z2);
-				a[k + j + 3 * m8] = CoeffCtx::plus(E3, O3z3);
-				a[k + j + 4 * m8] = CoeffCtx::minus(E0, O0z0);
-				a[k + j + 5 * m8] = CoeffCtx::minus(E1, O1z1);
-				a[k + j + 6 * m8] = CoeffCtx::minus(E2, O2z2);
-				a[k + j + 7 * m8] = CoeffCtx::minus(E3, O3z3);
-			}
-		}
-	}
-
-	// Scaling for inverse FFT
-	if (invert) {
-		F inv_n = CoeffCtx::inverse(CoeffCtx::template from_u64<F>(n));
-		for (G& x : a) {
-			x = CoeffCtx::mult(x, inv_n);
-		}
-	}
-}
-
-
-// Computes C = A * B via FFT-based polynomial multiplication
-// All vectors must be pre-sized to n (the FFT size, must be power of 2)
-// Caller is responsible for padding inputs and extracting desired output coefficients
-//
-// Template parameters:
-//   G1 - coefficient type for polynomial A
-//   G2 - coefficient type for polynomial B  
-//   GT - coefficient type for product polynomial C
-//   F  - type for FFT roots of unity
-//   CoeffCtx - context providing arithmetic operations
-template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
+// Computes the complete forward transform when only `a[0..xn)` may be
+// nonidentity. Every element in `a[xn..n)` must be the additive identity. The
+// plan depends only on public sizes, may be shared by concurrent readers, and
+// must have been created for exactly the supplied `(n, xn)` shape. Data and
+// roots must not overlap. All n outputs are valid on return.
+template <typename G, typename F, typename CoeffCtx>
 void fft_forward_truncated_prefix(
         std::span<G> a,
         std::span<const F> roots,
@@ -442,7 +136,9 @@ void fft_forward_truncated_prefix(
         blst::TimingStats* timings = nullptr,
         std::string_view metric_prefix = "fft_trunc");
 
-template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
+// Allocation-bearing convenience overload. Reuse an explicit plan when the
+// same public shape is transformed repeatedly.
+template <typename G, typename F, typename CoeffCtx>
 void fft_forward_truncated_prefix(
         std::span<G> a,
         std::span<const F> roots,
@@ -450,6 +146,8 @@ void fft_forward_truncated_prefix(
         blst::TimingStats* timings = nullptr,
         std::string_view metric_prefix = "fft_trunc");
 
+// Mutable only during construction. Callers that alter the public fields or
+// schedules violate the executor precondition.
 struct FftTruncatedForwardPlan
 {
         struct StageWork
@@ -468,6 +166,9 @@ struct FftTruncatedForwardPlan
         std::vector<StageWork> stage_work;
 };
 
+// Shape plan for an inverse transform that publishes only one output range.
+// Mutable only during construction; concurrent execution requires read-only
+// sharing of the completed plan.
 struct FftInverseTruncatedRangePlan
 {
         std::size_t n = 0;
@@ -480,7 +181,7 @@ struct FftInverseTruncatedRangePlan
         std::vector<std::vector<std::size_t>> stage_left;
 };
 
-inline std::size_t fft_log2_size(std::size_t n)
+[[nodiscard]] constexpr std::size_t fft_log2_size(std::size_t n) noexcept
 {
         std::size_t log2_n = 0;
         for (std::size_t t = n; t > 1; t >>= 1) {
@@ -491,10 +192,9 @@ inline std::size_t fft_log2_size(std::size_t n)
 
 inline FftTruncatedForwardPlan make_fft_truncated_forward_plan(std::size_t n, std::size_t xn)
 {
-        BLST_ASSERT(n > 0);
-        BLST_ASSERT((n & (n - 1)) == 0);
-        BLST_ASSERT(xn > 0);
-        BLST_ASSERT(xn <= n);
+        if (!blst::fft_detail::valid_transform_size(n) || xn == 0 || xn > n) {
+                throw std::invalid_argument("invalid truncated forward FFT shape");
+        }
 
         FftTruncatedForwardPlan plan;
         plan.n = n;
@@ -556,11 +256,10 @@ inline FftInverseTruncatedRangePlan make_fft_inverse_truncated_range_plan(
         std::size_t start,
         std::size_t length)
 {
-        BLST_ASSERT(n > 0);
-        BLST_ASSERT((n & (n - 1)) == 0);
-        BLST_ASSERT(length > 0);
-        BLST_ASSERT(start < n);
-        BLST_ASSERT(start + length <= n);
+        if (!blst::fft_detail::valid_transform_size(n) || length == 0 ||
+            start >= n || length > n - start) {
+                throw std::invalid_argument("invalid truncated inverse FFT range");
+        }
 
         FftInverseTruncatedRangePlan plan;
         plan.n = n;
@@ -604,7 +303,16 @@ inline FftInverseTruncatedRangePlan make_fft_inverse_truncated_range_plan(
         return plan;
 }
 
-template <typename G1, typename G2, typename GT, typename F, typename CoeffCtx = DefaultCoeffCtx>
+// Computes the cyclic length-n convolution by transforming A and, unless
+// `skipBFft` is true, B in place, multiplying pointwise into C, and applying
+// the inverse transform to C. All three buffers have exactly the same supported
+// power-of-two length and are disjoint. Roots contain n forward powers and
+// inv_roots contain n reciprocal powers. `xnA`/`xnB` are nonidentity prefix
+// lengths; zero selects the full length, and every omitted tail is identity.
+// With `skipBFft`, B must already be the complete transform of that padded
+// prefix. On success C contains all n cyclic coefficients; A and B remain in
+// the evaluation domain.
+template <typename G1, typename G2, typename GT, typename F, typename CoeffCtx>
 void poly_mult_fft(
 	std::span<G1> A,
 	std::span<G2> B,
@@ -617,14 +325,19 @@ void poly_mult_fft(
 	std::size_t xnB = 0)
 {
 	std::size_t n = A.size();
+	BLST_ASSERT(blst::fft_detail::valid_transform_size(n));
+	BLST_ASSERT(B.size() == n);
+	BLST_ASSERT(C.size() == n);
+	BLST_ASSERT(roots.size() >= n);
+	BLST_ASSERT(inv_roots.size() >= n);
 	if (xnA == 0) {
 		xnA = n;
 	}
 	if (xnB == 0) {
 		xnB = n;
 	}
-	BLST_ASSERT(xnA <= n);
-	BLST_ASSERT(xnB <= n);
+	BLST_ASSERT(xnA > 0 && xnA <= n);
+	BLST_ASSERT(xnB > 0 && xnB <= n);
 
 	// Forward FFT on both polynomials (in-place)
 	{
@@ -661,21 +374,22 @@ void fft_forward_truncated_prefix(
         blst::TimingStats* timings,
         std::string_view metric_prefix) {
         const std::size_t n = a.size();
-        BLST_ASSERT(n > 0);
-        BLST_ASSERT((n & (n - 1)) == 0);
+        BLST_ASSERT(blst::fft_detail::valid_transform_size(n));
         BLST_ASSERT(roots.size() >= n);
         BLST_ASSERT(xn > 0);
         BLST_ASSERT(xn <= n);
         BLST_ASSERT(plan.n == n);
         BLST_ASSERT(plan.xn == xn);
+        BLST_ASSERT(plan.log2_n == fft_log2_size(n));
+        BLST_ASSERT(xn == n || plan.stage_work.size() == plan.log2_n);
 
         if (xn == n) {
                 fft<G, F, CoeffCtx>(a, roots, false);
                 if (timings != nullptr) {
-                        timings->add(std::string(metric_prefix) + ".xn", xn);
-                        timings->add(std::string(metric_prefix) + ".butterflies_total", plan.butterflies_total);
-                        timings->add(std::string(metric_prefix) + ".butterflies_executed", plan.butterflies_executed);
-                        timings->add(std::string(metric_prefix) + ".butterflies_skipped", plan.butterflies_skipped);
+                        timings->add(metric_prefix, ".xn", xn);
+                        timings->add(metric_prefix, ".butterflies_total", plan.butterflies_total);
+                        timings->add(metric_prefix, ".butterflies_executed", plan.butterflies_executed);
+                        timings->add(metric_prefix, ".butterflies_skipped", plan.butterflies_skipped);
                 }
                 return;
         }
@@ -707,10 +421,10 @@ void fft_forward_truncated_prefix(
         }
 
         if (timings != nullptr) {
-                timings->add(std::string(metric_prefix) + ".xn", xn);
-                timings->add(std::string(metric_prefix) + ".butterflies_total", plan.butterflies_total);
-                timings->add(std::string(metric_prefix) + ".butterflies_executed", plan.butterflies_executed);
-                timings->add(std::string(metric_prefix) + ".butterflies_skipped", plan.butterflies_skipped);
+                timings->add(metric_prefix, ".xn", xn);
+                timings->add(metric_prefix, ".butterflies_total", plan.butterflies_total);
+                timings->add(metric_prefix, ".butterflies_executed", plan.butterflies_executed);
+                timings->add(metric_prefix, ".butterflies_skipped", plan.butterflies_skipped);
         }
 }
 
@@ -726,7 +440,11 @@ void fft_forward_truncated_prefix(
         fft_forward_truncated_prefix<G, F, CoeffCtx>(a, roots, xn, plan, timings, metric_prefix);
 }
 
-template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
+// Computes and normalizes only `[start, start + length)` of the inverse
+// transform. Every frequency input is consumed. The requested range is valid
+// on return; all other elements are unspecified scratch. The plan must match
+// the exact public shape and may be shared only as immutable state.
+template <typename G, typename F, typename CoeffCtx>
 void fft_inverse_truncated_range(
         std::span<G> x,
         std::span<const F> inv_roots,
@@ -737,15 +455,16 @@ void fft_inverse_truncated_range(
         std::string_view metric_prefix = "ifft_trunc_range")
 {
         const std::size_t n = x.size();
-        BLST_ASSERT(n > 0);
-        BLST_ASSERT((n & (n - 1)) == 0);
+        BLST_ASSERT(blst::fft_detail::valid_transform_size(n));
         BLST_ASSERT(inv_roots.size() >= n);
         BLST_ASSERT(length > 0);
         BLST_ASSERT(start < n);
-        BLST_ASSERT(start + length <= n);
+        BLST_ASSERT(length <= n - start);
         BLST_ASSERT(plan.n == n);
         BLST_ASSERT(plan.start == start);
         BLST_ASSERT(plan.length == length);
+        BLST_ASSERT(plan.stages == fft_log2_size(n));
+        BLST_ASSERT(plan.stage_left.size() == plan.stages);
 
         bit_reverse(x);
 
@@ -782,15 +501,17 @@ void fft_inverse_truncated_range(
         }
 
         if (timings != nullptr) {
-                timings->add(std::string(metric_prefix) + ".start", start);
-                timings->add(std::string(metric_prefix) + ".length", length);
-                timings->add(std::string(metric_prefix) + ".butterflies_total", plan.butterflies_total);
-                timings->add(std::string(metric_prefix) + ".butterflies_executed", plan.butterflies_executed);
-                timings->add(std::string(metric_prefix) + ".butterflies_skipped", plan.butterflies_skipped);
+                timings->add(metric_prefix, ".start", start);
+                timings->add(metric_prefix, ".length", length);
+                timings->add(metric_prefix, ".butterflies_total", plan.butterflies_total);
+                timings->add(metric_prefix, ".butterflies_executed", plan.butterflies_executed);
+                timings->add(metric_prefix, ".butterflies_skipped", plan.butterflies_skipped);
         }
 }
 
-template <typename G, typename F, typename CoeffCtx = DefaultCoeffCtx>
+// Allocation-bearing convenience overload. Reuse an explicit plan for
+// repeated transforms of the same public output range.
+template <typename G, typename F, typename CoeffCtx>
 void fft_inverse_truncated_range(
         std::span<G> x,
         std::span<const F> inv_roots,
@@ -800,98 +521,14 @@ void fft_inverse_truncated_range(
 	std::string_view metric_prefix = "ifft_trunc_range")
 {
 	const std::size_t n = x.size();
-	BLST_ASSERT(n > 0);
-	BLST_ASSERT((n & (n - 1)) == 0);
+	BLST_ASSERT(blst::fft_detail::valid_transform_size(n));
 	BLST_ASSERT(inv_roots.size() >= n);
 	BLST_ASSERT(length > 0);
 	BLST_ASSERT(start < n);
-	BLST_ASSERT(start + length <= n);
+	BLST_ASSERT(length <= n - start);
 
 	const FftInverseTruncatedRangePlan plan =
 			make_fft_inverse_truncated_range_plan(n, start, length);
 	fft_inverse_truncated_range<G, F, CoeffCtx>(
 			x, inv_roots, start, length, plan, timings, metric_prefix);
-}
-
-// Derive NTT of reversed-and-padded vector from NTT of original padded vector
-// Given A_hat = NTT(A_pad) where A_pad = [a[0], a[1], ..., a[n-1], 0, 0, ..., 0] (length m)
-// Computes A_rev_hat = NTT(A_rev_pad) where A_rev_pad = [a[n-1], a[n-2], ..., a[0], 0, ..., 0]
-//
-// Identity: A_rev_hat[k] = ω^((n-1)*k) * A_hat[(-k) mod m]
-//
-// Parameters:
-//   A_hat     - input: NTT of padded A, size m (in natural frequency order)
-//   A_rev_hat - output: NTT of reversed padded A, size m
-//   n         - original polynomial size (before padding)
-//   m         - FFT size (power of 2)
-//   omega     - primitive m-th root of unity
-//
-// Cost: m scalar multiplications in G, O(m) memory reads/writes
-// Saves: one full forward NTT over G of length m
-template <typename G, typename F, typename CoeffCtx>
-void derive_ntt_of_reversed(
-	std::span<const G> A_hat,
-	std::span<G> A_rev_hat,
-	std::size_t n,
-	std::size_t m,
-	const F& omega)
-{
-	BLST_ASSERT(A_hat.size() >= m);
-	BLST_ASSERT(A_rev_hat.size() >= m);
-	BLST_ASSERT(n <= m);
-	BLST_ASSERT((m & (m - 1)) == 0);
-
-	// Compute γ = ω^(n-1)
-	// We need to compute this via repeated squaring or use precomputed roots
-	F gamma = omega;
-	{
-		// Compute ω^(n-1) by repeated squaring
-		std::size_t exp = n - 1;
-		F base = omega;
-		gamma = CoeffCtx::template from_u64<F>(1);
-		while (exp > 0) {
-			if (exp & 1) {
-				gamma = CoeffCtx::mult(gamma, base);
-			}
-			base = CoeffCtx::mult(base, base);
-			exp >>= 1;
-		}
-	}
-
-	// phase accumulator, starts at ω^0 = 1
-	F phase = CoeffCtx::template from_u64<F>(1);
-
-	for (std::size_t k = 0; k < m; ++k) {
-		// src = (-k) mod m = (m - k) mod m
-		std::size_t src = (k == 0) ? 0 : (m - k);
-
-		// A_rev_hat[k] = phase * A_hat[src] where phase = ω^((n-1)*k)
-		A_rev_hat[k] = CoeffCtx::mult(A_hat[src], phase);
-
-		// Update phase: phase *= γ
-		phase = CoeffCtx::mult(phase, gamma);
-	}
-}
-
-
-// Overload that computes in-place (uses A_hat as both input and output)
-// Note: This requires a temporary buffer or careful ordering since we read from
-// indices that may be overwritten. For safety, allocates a temp copy.
-template <typename G, typename F, typename CoeffCtx>
-void derive_ntt_of_reversed_inplace(
-	std::span<G> A_hat,
-	std::size_t n,
-	std::size_t m,
-	const F& omega)
-{
-	// Need temp storage since src and dst indices overlap
-	std::vector<G> temp(m);
-	derive_ntt_of_reversed<G, F, CoeffCtx>(
-		const_span<G>(A_hat.data(), m),
-		std::span<G>(temp),
-		n, m, omega);
-
-	for (std::size_t i = 0; i < m; ++i) {
-		A_hat[i] = temp[i];
-	}
 }

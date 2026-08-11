@@ -260,16 +260,62 @@ BTx/BTE audit was performed.
 
 ## Remaining FFT decisions
 
-1. Audit `ctFft.h` as the single transform engine, including size types, root
-   shape contracts, permutations, normalization, truncated plans, and dead
-   experimental code.
-2. Audit the retained product-tree implementation and decide whether its
+1. Audit the retained product-tree implementation and decide whether its
    allocation pattern should become a contiguous reusable workspace.
-3. Evaluate the specialized suffix as an adaptive direct/Fr-middle-window
+2. Evaluate the specialized suffix as an adaptive direct/Fr-middle-window
    operation without coupling it to the pairing-specific middle-product API.
-4. Decide whether the C ABI should retain `bool` or adopt typed operation
+3. Decide whether the C ABI should retain `bool` or adopt typed operation
    statuses while pre-production breakage remains acceptable.
-5. Document the C/native Fr representation convention and evaluate a future
+4. Document the C/native Fr representation convention and evaluate a future
    unified storage definition.
-6. Complete differential oracles, fuzzing, sanitizer, native AVX-512, and Apple
+5. Complete differential oracles, fuzzing, sanitizer, native AVX-512, and Apple
    Silicon evidence during the remaining phase.
+
+## Packet 17C - Core radix-two transform audit
+
+The complete `ctFft.h` caller inventory found that the radix-4 and radix-8
+kernels were abandoned benchmark experiments rather than alternate production
+paths. Neither CatBLST nor frozen BTx/BTE source called them. A small prime-field
+oracle also showed that both disagree with the retained radix-two transform:
+the fused kernels combined binary bit reversal with radix-specific stages and
+used inconsistent root signs/output positions. Packet 17C removes them rather
+than retaining an unselected, unproved second implementation. It also removes
+the unused reversal-NTT helpers, their hidden allocating in-place wrapper, the
+unused default coefficient context, and stale disabled test/benchmark blocks.
+
+The retained engine now states its narrow native contracts explicitly:
+
+- transforms have nonzero supported power-of-two length and ordered root
+  tables of at least that length;
+- ordinary `fft` receives roots already selected for its direction, while the
+  prepared-domain operation derives reciprocal indices from forward roots;
+- mutable data, roots, and prepared inverse-size storage do not overlap;
+- forward truncation requires an additive-identity tail and produces every
+  frequency output;
+- inverse range truncation consumes the complete frequency input, publishes
+  only the requested normalized range, and leaves other elements unspecified;
+- reusable plans are immutable after construction and match the exact public
+  transform shape; and
+- polynomial FFT multiplication destructively transforms equal, disjoint
+  buffers and requires B to be pretransformed when its forward transform is
+  skipped.
+
+Allocation-bearing plan construction rejects invalid shapes before allocation
+and uses subtraction-form range checks, closing the `start + length` overflow.
+Hot executors retain zero-cost Release preconditions with Debug assertions;
+supported C entry points continue to validate before entering them. Plan
+schedules depend only on public sizes and ranges, never coefficient values.
+
+Optional FFT metrics now compose dynamic prefix/suffix keys inside
+`TimingStats`' no-throw allocation barrier. A null timing sink retains the
+previous fast path. No FFT arithmetic, butterfly count, runtime dispatch, or
+production allocation was added.
+
+Focused MSVC 19.50 scalar-default plus portable-AVX Debug validation rebuilt
+the `blst_tests` target with two workers. Eight `FftApi.*`, `FftCore.*`, and
+`Timer.*` tests passed, including invalid/overflowed plan shapes, Debug hot-path
+assertions, reusable forward and inverse plan comparisons, and composed timing
+keys. The standalone forced-allocation-failure timer probe also passed. Frozen
+BTx/BTE compiled as an unchanged dependency and confirmed reliance only on the
+retained ordinary/truncated APIs. No benchmark, CUDA, full suite, sanitizer,
+native AVX-512, remote, or Apple run was performed.

@@ -879,3 +879,21 @@ findings recorded by the current middle-product pass are now validated. The
 thresholds remain deployment-CPU evidence rather than a universal
 microarchitecture guarantee. No concurrent benchmark, CUDA, sanitizer,
 portable-AVX Release, full suite, or BTx/BTE audit ran.
+
+Phase 17 core FFT Packet 17C is remediated in the working tree pending its
+exact commit. `AUD-292` removes mathematically incorrect, uncalled radix-4 and
+radix-8 experiments plus stale registrations. `AUD-293` and `AUD-295` define
+the retained radix-two root direction, size, alias, zero-tail, destructive
+buffer, plan immutability, and output-publication contracts. `AUD-294` rejects
+unsupported plan sizes before allocation and replaces overflowable inverse
+range addition with subtraction-form validation. `AUD-296` moves composed
+timing-key allocation inside the timer's no-throw barrier. Unused reversal-NTT
+helpers, the unused default coefficient context, and disabled removed-API test
+blocks are gone.
+
+MSVC 19.50 scalar-default plus portable-AVX Debug rebuilt `blst_tests` with two
+workers. Eight focused `FftApi.*`, `FftCore.*`, and `Timer.*` tests pass, and
+the standalone simple/composed allocation-failure probe exits zero. Frozen
+BTx/BTE compiled unchanged and confirmed that it uses only retained ordinary,
+polynomial, and truncated transforms. No benchmark, CUDA, full suite,
+sanitizer, native AVX-512, remote, or Apple run was performed.

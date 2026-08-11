@@ -10,6 +10,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <utility>
 
 namespace blst {
 
@@ -26,9 +27,21 @@ public:
     void add(std::string_view key, std::uint64_t ns) noexcept
     {
         try {
-            if (!totals_)
-                totals_.emplace();
-            totals_->try_emplace(std::string(key), 0).first->second += ns;
+            add_owned(std::string(key), ns);
+        } catch (...) {
+            // Timing is diagnostic-only and must never affect product work.
+        }
+    }
+
+    void add(
+        std::string_view prefix,
+        std::string_view suffix,
+        std::uint64_t ns) noexcept
+    {
+        try {
+            std::string key(prefix);
+            key.append(suffix);
+            add_owned(std::move(key), ns);
         } catch (...) {
             // Timing is diagnostic-only and must never affect product work.
         }
@@ -55,6 +68,13 @@ public:
     }
 
 private:
+    void add_owned(std::string key, std::uint64_t ns)
+    {
+        if (!totals_)
+            totals_.emplace();
+        totals_->try_emplace(std::move(key), 0).first->second += ns;
+    }
+
     struct StringHash {
         using is_transparent = void;
 

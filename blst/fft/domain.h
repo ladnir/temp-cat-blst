@@ -4,7 +4,6 @@
 #include "blst/fft/primitveRoot.h"
 
 #include <cstddef>
-#include <limits>
 #include <span>
 #include <stdexcept>
 #include <vector>
@@ -13,8 +12,7 @@ namespace blst::fft_detail
 {
     [[nodiscard]] constexpr bool valid_size(const std::size_t n) noexcept
     {
-        return n != 0 && (n & (n - 1)) == 0 &&
-            n <= static_cast<std::size_t>(std::numeric_limits<int>::max());
+        return valid_transform_size(n);
     }
 
     [[nodiscard]] constexpr std::size_t domain_storage_len(

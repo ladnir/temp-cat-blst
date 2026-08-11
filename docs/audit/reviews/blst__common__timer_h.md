@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/common/timer.h` |
 | Roadmap phase / queue | Phase 13/17, optional FFT and middle-product diagnostics |
-| Reviewed commit | `1220043316d1253a49a41cca691c8714f23746d9` |
+| Reviewed commit | Packet 17C working tree based on `a0fe5c801090190463876bd4d2add18e22fa1235`; final commit pending |
 | Reviewer | Codex audit team |
 | Date | 2026-08-03 |
 | Disposition | `in_scope_production` |
@@ -26,7 +26,7 @@ introduce shared global state.
 ## Contracts and invariants
 
 - A null `TimingStats*` performs no clock read or bookkeeping.
-- Construction, destruction, `add`, `get_ns`, and `clear` are nonthrowing.
+- Construction, destruction, simple/composed `add`, `get_ns`, and `clear` are nonthrowing.
 - Allocation failure drops the new diagnostic sample without changing product
   output or propagating an exception.
 - Keys referenced by `ScopedTimer` must outlive that scope.
@@ -124,14 +124,14 @@ FFT mathematics is unchanged; this review covers instrumentation only.
 
 ## Findings
 
-`AUD-065` - validated.
+`AUD-065` and `AUD-296` - validated.
 
 ## Validation
 
-- `Timer.*`: 1/1 passed.
+- `Timer.*`: 1/1 passed, including composed prefix/suffix keys.
 - MSVC 19.50 `/O2 /Ob3 /W4 /WX` null probe: exact `ret`.
-- Forced global-allocation failure probe: exited zero, preserved the previous
-  sample, and propagated no exception.
+- Forced global-allocation failure probe: exited zero, preserved previous
+  simple and composed samples, and propagated no exception.
 - Single-worker MSVC Debug target build: passed.
 
 ## Automated evidence

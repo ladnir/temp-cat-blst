@@ -35,10 +35,19 @@ int main()
 {
     constexpr char key[] =
         "timer-allocation-failure-probe-key-longer-than-small-string-storage";
+    constexpr char prefix[] =
+        "timer-allocation-failure-probe-prefix-longer-than-small-string-storage";
+    constexpr char suffix[] = ".composed";
     blst::TimingStats timings;
     timings.add(key, 7);
+    timings.add(prefix, suffix, 11);
 
     fail_allocation = true;
     timings.add(key, 9);
-    return timings.get_ns(key) == 7 ? 0 : 1;
+    timings.add(prefix, suffix, 13);
+    return timings.get_ns(key) == 7 &&
+        timings.get_ns(
+            "timer-allocation-failure-probe-prefix-longer-than-small-string-storage.composed") == 11
+        ? 0
+        : 1;
 }
