@@ -113,6 +113,26 @@ namespace blst::avx::test
     static_assert(matrixnok_constants::moduli1.size() == 8);
     static_assert(matrixnok_constants::moduli2.size() == 8);
     static_assert(matrixnok_constants::r1_perm_mat_fixed.size() == 8);
+    static_assert(sizeof(uint128_t) == 16);
+    static_assert(sizeof(int128_t) == 16);
+    static constexpr int128_t kSignedAboveInt64 =
+        int128_t(INT64_MAX) + int128_t(int64_t{1});
+    static constexpr int128_t kSignedBelowInt64 =
+        int128_t(INT64_MIN) - int128_t(int64_t{1});
+    static constexpr int128_t kSignedInt64Square =
+        int128_t(INT64_MAX) * int128_t(INT64_MAX);
+    static constexpr uint128_t kUnsignedInt64Square =
+        uint128_t(UINT64_MAX) * uint128_t(UINT64_MAX);
+    static_assert(kSignedAboveInt64 > int128_t(INT64_MAX));
+    static_assert(kSignedBelowInt64 < int128_t(INT64_MIN));
+    static_assert(kSignedInt64Square > int128_t(INT64_MAX));
+    static_assert(static_cast<uint64_t>(kUnsignedInt64Square) == 1);
+    static_assert(
+        static_cast<uint64_t>(kUnsignedInt64Square >> 64) ==
+        UINT64_MAX - 1);
+    static_assert(
+        int128_t(int64_t{-7}) * int128_t(int64_t{9}) ==
+        int128_t(int64_t{-63}));
     static_assert(std::is_empty_v<matrixnok::FpRingCandidate>);
     static_assert(std::is_empty_v<matrixnok::Fp2RingCandidate>);
     static_assert(std::is_empty_v<matrixnok::Fp12RingCandidate>);
@@ -132,6 +152,46 @@ namespace blst::avx::test
     using MatrixNoKFp12 = matrixnok::Fp12RingCandidate;
     static_assert(std::is_default_constructible_v<
         typename MatrixNoKFp12::StandardElement>);
+
+    TEST(AvxMatrixNoKPrimitives, WideIntegerCompatibilityIsExact)
+    {
+        const uint128_t full_product =
+            uint128_t(UINT64_MAX) * uint128_t(UINT64_MAX);
+        EXPECT_EQ(static_cast<uint64_t>(full_product), uint64_t{1});
+        EXPECT_EQ(
+            static_cast<uint64_t>(full_product >> 64), UINT64_MAX - 1);
+
+        const uint128_t shifted =
+            (uint128_t(uint64_t{1}) << 64) + uint128_t(uint64_t{5});
+        EXPECT_EQ(shifted % uint64_t{17}, uint64_t{6});
+
+        const int128_t positive_wide =
+            int128_t(INT64_MAX) * int128_t(int64_t{2});
+        const int128_t negative_wide =
+            int128_t(INT64_MIN) * int128_t(int64_t{2});
+        EXPECT_TRUE(positive_wide > int128_t(INT64_MAX));
+        EXPECT_TRUE(negative_wide < int128_t(INT64_MIN));
+        EXPECT_EQ(
+            static_cast<int64_t>(
+                int128_t(int64_t{-1234567}) * int128_t(int64_t{17})),
+            int64_t{-20987639});
+
+#if defined(_MSC_VER) && !defined(__clang__)
+        constexpr std::array<int64_t, 8> signed_values = {
+            INT64_MIN, INT64_MIN + 1, -123456789, -1,
+            0, 1, 123456789, INT64_MAX};
+        for (const int64_t left : signed_values) {
+            for (const int64_t right : signed_values) {
+                int64_t expected_high = 0;
+                const int64_t expected_low = _mul128(
+                    left, right, &expected_high);
+                const int128_t actual = int128_t(left) * int128_t(right);
+                EXPECT_EQ(actual.lo, std::bit_cast<uint64_t>(expected_low));
+                EXPECT_EQ(actual.hi, std::bit_cast<uint64_t>(expected_high));
+            }
+        }
+#endif
+    }
 
     TEST(AvxMatrixNoKPrimitives, PermutationRowsAreCacheLineAligned)
     {

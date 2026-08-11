@@ -20,6 +20,13 @@ using blst::avx::BoundedElement;
 using blst::avx::Bounds;
 using blst::avx::MontgomeryReduce2;
 using blst::avx::ShortVector;
+using blst::avx::uint128_t;
+
+extern "C" NOINLINE void audit_avx_uint128_mul(
+    uint128_t* out, uint64_t left, uint64_t right)
+{
+    *out = blst::avx::mul_u64_u64(left, right);
+}
 
 extern "C" NOINLINE uint64_t audit_avx_extract_lane0(const AVXVector<8>* value)
 {

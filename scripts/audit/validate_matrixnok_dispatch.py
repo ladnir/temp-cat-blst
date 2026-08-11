@@ -35,6 +35,17 @@ def main() -> int:
     repo = Path(__file__).resolve().parents[2]
     avx = repo / "blst" / "avx"
 
+    require_fragments(avx / "common" / "constexpr_utils.h", (
+        "struct uint128_t",
+        "struct int128_t",
+        "std::is_constant_evaluated()",
+        "_umul128(a, b, &high)",
+        "static_assert(sizeof(int128_t) == 16);",
+    ))
+    forbid_fragments(avx / "common" / "constexpr_utils.h", (
+        "using int128_t = int64_t;",
+    ))
+
     require_fragments(avx / "rns" / "matrixnok_fp.h", (
         "using FpRing = FpRingCandidate;",
         "return multiply(left, right);",
