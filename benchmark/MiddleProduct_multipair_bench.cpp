@@ -310,7 +310,9 @@ static void bench_middle_product_one_shot_avx_multipair(benchmark::State& state)
 ->DenseRange(96, 256, 32)
 
 #define MIDDLE_PRODUCT_AUTO_CROSSOVER_SIZES \
-->Arg(2)->Arg(4)->Arg(8)->Arg(12)->Arg(16)->Arg(24)->Arg(32)->Arg(48)->Arg(64)
+->Arg(2)->Arg(4)->Arg(8)->Arg(12)->Arg(16)->Arg(20)->Arg(24)->Arg(28)->Arg(30) \
+->Arg(32)->Arg(36)->Arg(40)->Arg(44)->Arg(48)->Arg(52)->Arg(56)->Arg(64) \
+->Arg(72)->Arg(80)->Arg(88)->Arg(96)->Arg(112)->Arg(128)
 
 BENCHMARK(bench_middle_product_multipair_scalar)
 MIDDLE_PRODUCT_MULTIPAIR_SIZES
