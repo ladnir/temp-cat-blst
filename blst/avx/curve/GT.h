@@ -512,6 +512,67 @@ struct GT
 {
     using Field_type = avx_gt_detail::FP12::StandardElement;
 
+    /**
+     * Caller-owned storage for batch final exponentiation. Its six structure-
+     * of-arrays buffers retain capacity across calls and are not thread-safe.
+     */
+    struct FinalExpScratch
+    {
+        /** Establish capacity for `n` elements; may throw `std::bad_alloc`. */
+        void reserve(size_t n)
+        {
+            f6_terms_.reserve(n);
+            f2_c0_c1_c2_terms_.reserve(n);
+            f2_terms_.reserve(n);
+            f1_terms_.reserve(n);
+            prefix_products_.reserve(n);
+            f1_inverses_.reserve(n);
+        }
+
+        /** Return true when a batch of `n` needs no scratch growth. */
+        [[nodiscard]] bool has_capacity(size_t n) const noexcept
+        {
+            return f6_terms_.capacity() >= n &&
+                f2_c0_c1_c2_terms_.capacity() >= n &&
+                f2_terms_.capacity() >= n &&
+                f1_terms_.capacity() >= n &&
+                prefix_products_.capacity() >= n &&
+                f1_inverses_.capacity() >= n;
+        }
+
+    private:
+        friend struct GT;
+
+        using FieldElement = avx_gt_detail::Ring::StandardElement;
+        using Fp6Element = std::array<FieldElement, 6>;
+        using Fp2Element = std::array<FieldElement, 2>;
+
+        std::vector<Fp6Element> f6_terms_;
+        std::vector<Fp6Element> f2_c0_c1_c2_terms_;
+        std::vector<Fp2Element> f2_terms_;
+        std::vector<FieldElement> f1_terms_;
+        std::vector<FieldElement> prefix_products_;
+        std::vector<FieldElement> f1_inverses_;
+
+        template<class T>
+        static void grow_to(std::vector<T>& values, size_t n)
+        {
+            if (values.size() < n) {
+                values.resize(n);
+            }
+        }
+
+        void ensure_size(size_t n)
+        {
+            grow_to(f6_terms_, n);
+            grow_to(f2_c0_c1_c2_terms_, n);
+            grow_to(f2_terms_, n);
+            grow_to(f1_terms_, n);
+            grow_to(prefix_products_, n);
+            grow_to(f1_inverses_, n);
+        }
+    };
+
     Field_type data = {};
 
     constexpr GT() = default;
@@ -717,11 +778,17 @@ struct GT
     /**
      * Batch-map `n` valid nonzero Miller results into GT. The arrays contain at
      * least `n` elements and must not overlap. Zero is a successful no-op.
-     * This variable-time operation allocates six `n`-element work buffers and
-     * may throw `std::bad_alloc`; it publishes no output before allocation and
-     * inversion preparation complete.
+     * `scratch` must be exclusively owned by this call. Its six buffers grow
+     * to `n` and retain capacity for reuse; growth may throw `std::bad_alloc`.
+     * No output is published before scratch growth and inversion preparation
+     * complete. After sufficient capacity is established, this operation
+     * performs no allocation.
      */
-    static void final_exp_n(GT out[], const MillerResult in[], size_t n)
+    static void final_exp_n(
+        GT out[],
+        const MillerResult in[],
+        size_t n,
+        FinalExpScratch& scratch)
     {
         if (n == 0 || out == nullptr || in == nullptr) {
             return;
@@ -730,19 +797,27 @@ struct GT
         const auto& fp12 = avx_gt_detail::fp12ring();
         const auto& ring = avx_gt_detail::ring();
         ScalarFpVartimeInverter<avx_gt_detail::Ring> inverter;
-        using FieldElement = avx_gt_detail::Ring::StandardElement;
-        using FP12Element = Field_type;
-        using FP6InverseElement = decltype(fp12.fp12_flat_inverse_to_fp6(std::declval<FP12Element>(), ring));
-        using FP2InverseElement = decltype(fp12.fp6_flat_inverse_to_fp2_c0_c1_c2(std::declval<FP6InverseElement>(), ring));
-        using FP2RetElement = decltype(fp12.fp6_flat_inverse_to_fp2_ret(
-            std::declval<FP2InverseElement>(),
-            std::declval<FP6InverseElement>(),
-            ring));
+        static_assert(std::is_same_v<
+            decltype(fp12.fp12_flat_inverse_to_fp6(std::declval<Field_type>(), ring)),
+            FinalExpScratch::Fp6Element>);
+        static_assert(std::is_same_v<
+            decltype(fp12.fp6_flat_inverse_to_fp2_c0_c1_c2(
+                std::declval<FinalExpScratch::Fp6Element>(), ring)),
+            FinalExpScratch::Fp6Element>);
+        static_assert(std::is_same_v<
+            decltype(fp12.fp6_flat_inverse_to_fp2_ret(
+                std::declval<FinalExpScratch::Fp6Element>(),
+                std::declval<FinalExpScratch::Fp6Element>(),
+                ring)),
+            FinalExpScratch::Fp2Element>);
 
-        std::vector<FP6InverseElement> f6_terms(n);
-        std::vector<FP2InverseElement> f2_c0_c1_c2_terms(n);
-        std::vector<FP2RetElement> f2_terms(n);
-        std::vector<FieldElement> f1_terms(n);
+        scratch.ensure_size(n);
+        auto& f6_terms = scratch.f6_terms_;
+        auto& f2_c0_c1_c2_terms = scratch.f2_c0_c1_c2_terms_;
+        auto& f2_terms = scratch.f2_terms_;
+        auto& f1_terms = scratch.f1_terms_;
+        auto& prefix_products = scratch.prefix_products_;
+        auto& f1_inverses = scratch.f1_inverses_;
         for (size_t i = 0; i < n; ++i) {
             f6_terms[i] = fp12.fp12_flat_inverse_to_fp6(in[i].data, ring);
             f2_c0_c1_c2_terms[i] = fp12.fp6_flat_inverse_to_fp2_c0_c1_c2(f6_terms[i], ring);
@@ -751,14 +826,13 @@ struct GT
         }
 
         // Batch the base-field inversion that dominates fp12 inversion in final exponentiation.
-        std::vector<FieldElement> prefix_products(n);
         prefix_products[0] = f1_terms[0];
         for (size_t i = 1; i < n; ++i) {
             prefix_products[i] = ring.modmul(prefix_products[i - 1], f1_terms[i]);
         }
 
-        std::vector<FieldElement> f1_inverses(n);
-        FieldElement running_inverse = inverter.invert(prefix_products[n - 1], ring);
+        FinalExpScratch::FieldElement running_inverse =
+            inverter.invert(prefix_products[n - 1], ring);
         for (size_t i = n; i-- > 1;) {
             f1_inverses[i] = ring.modmul(prefix_products[i - 1], running_inverse);
             running_inverse = ring.modmul(running_inverse, f1_terms[i]);
@@ -766,7 +840,7 @@ struct GT
         f1_inverses[0] = running_inverse;
 
         for (size_t i = 0; i < n; ++i) {
-            std::array<FieldElement, 1> f1_inv = {f1_inverses[i]};
+            std::array<FinalExpScratch::FieldElement, 1> f1_inv = {f1_inverses[i]};
             const auto f2_inv = fp12.fp_flat_inverse_to_fp2(f2_terms[i], f1_inv, ring);
             const auto f6_inv = fp12.fp2_flat_inverse_to_fp6(f2_c0_c1_c2_terms[i], f2_inv, ring);
             const auto f_inverse = fp12.fp6_flat_inverse_to_fp12(in[i].data, f6_inv, ring);

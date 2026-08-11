@@ -462,6 +462,27 @@ TEST(MiddleProductMultipair, AvxPortableMatchesFft)
     }
 }
 
+TEST(MiddleProductMultipair, AvxWorkspaceReusesFinalExpScratch)
+{
+    constexpr std::size_t n = 3;
+    const std::vector<G1Point> a = make_g1_data(n);
+    const std::vector<G2Point> b = make_g2_data(n);
+    const auto precomputed = blst::precompute_middle_product_b_multipair_avx(b, n);
+    blst::MiddleProductWorkspaceMultipairAvx workspace;
+    std::vector<GT> first(n, GT::identity());
+    std::vector<GT> second(n, GT::identity());
+
+    blst::middle_product_multipair_avx(a, precomputed, first, workspace);
+    EXPECT_TRUE(workspace.final_exp_scratch.has_capacity(n));
+
+    blst::middle_product_multipair_avx(a, precomputed, second, workspace);
+
+    EXPECT_TRUE(workspace.final_exp_scratch.has_capacity(n));
+    for (std::size_t i = 0; i < n; ++i) {
+        EXPECT_TRUE(GT::equal(first[i], second[i]));
+    }
+}
+
 TEST(MiddleProductMultipair, AvxPortableUpdateAndCombineReconstructsFullResult)
 {
     const std::vector<std::size_t> sizes = { 4, 6, 10, 18 };

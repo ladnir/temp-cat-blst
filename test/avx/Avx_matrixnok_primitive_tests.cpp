@@ -2104,13 +2104,45 @@ namespace blst::avx::test
         }
 
         std::array<blst::avx::GT, cases.size()> batch_outputs{};
+        blst::avx::GT::FinalExpScratch final_exp_scratch;
+        EXPECT_FALSE(final_exp_scratch.has_capacity(batch_inputs.size()));
+        final_exp_scratch.reserve(batch_inputs.size());
+        EXPECT_TRUE(final_exp_scratch.has_capacity(batch_inputs.size()));
         blst::avx::GT::final_exp_n(
-            batch_outputs.data(), batch_inputs.data(), batch_inputs.size());
+            batch_outputs.data(),
+            batch_inputs.data(),
+            batch_inputs.size(),
+            final_exp_scratch);
+
+        EXPECT_TRUE(final_exp_scratch.has_capacity(batch_inputs.size()));
+        std::array<blst::avx::GT, cases.size()> repeated_batch_outputs{};
+        std::array<blst::avx::GT, 2> prefix_batch_outputs{};
+        blst::avx::GT::final_exp_n(
+            prefix_batch_outputs.data(),
+            batch_inputs.data(),
+            prefix_batch_outputs.size(),
+            final_exp_scratch);
+        blst::avx::GT::final_exp_n(
+            repeated_batch_outputs.data(),
+            batch_inputs.data(),
+            batch_inputs.size(),
+            final_exp_scratch);
+        blst::avx::GT::final_exp_n(nullptr, nullptr, 0, final_exp_scratch);
+
+        EXPECT_TRUE(final_exp_scratch.has_capacity(batch_inputs.size()));
         for (std::size_t case_index = 0; case_index < cases.size(); ++case_index) {
             SCOPED_TRACE("batch case " + std::to_string(case_index));
             expect_same_scalar_fp12(
                 matrixnok_fp12_to_scalar(ring, batch_outputs[case_index].data),
                 matrixnok_fp12_to_scalar(ring, individual_outputs[case_index].data));
+            expect_same_scalar_fp12(
+                matrixnok_fp12_to_scalar(ring, repeated_batch_outputs[case_index].data),
+                matrixnok_fp12_to_scalar(ring, batch_outputs[case_index].data));
+            if (case_index < prefix_batch_outputs.size()) {
+                expect_same_scalar_fp12(
+                    matrixnok_fp12_to_scalar(ring, prefix_batch_outputs[case_index].data),
+                    matrixnok_fp12_to_scalar(ring, batch_outputs[case_index].data));
+            }
         }
     }
 } // namespace blst::avx::test

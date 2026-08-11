@@ -54,6 +54,8 @@ namespace blst {
      * unsupported length throws `std::length_error`. Workspace-taking overloads
      * reuse their owned vectors after capacity is established, but backend
      * operations may still allocate as documented by their concrete context.
+     * The AVX multipair workspace also retains all six batch-final-exponentiation
+     * buffers, so that stage performs no allocation after its capacity grows.
      *
      * A precomputed object is immutable after construction and may be shared by
      * concurrent evaluations when each evaluation owns a distinct workspace and
@@ -896,6 +898,7 @@ namespace blst {
         std::vector<const avx::PreparedLine*> line_batch_avx;
         std::vector<avx::MillerResult> miller_batch;
         std::vector<avx::GT> final_batch;
+        avx::GT::FinalExpScratch final_exp_scratch;
     };
 #endif
 
@@ -1138,11 +1141,16 @@ namespace blst {
     inline void middle_product_finalize_avx_millers(
         std::span<GT> out,
         std::span<const avx::MillerResult> millers,
-        std::vector<avx::GT>& final_pairs)
+        std::vector<avx::GT>& final_pairs,
+        avx::GT::FinalExpScratch& final_exp_scratch)
     {
         BLST_ASSERT(out.size() >= millers.size());
         final_pairs.resize(millers.size());
-        avx::GT::final_exp_n(final_pairs.data(), millers.data(), millers.size());
+        avx::GT::final_exp_n(
+            final_pairs.data(),
+            millers.data(),
+            millers.size(),
+            final_exp_scratch);
         for (std::size_t i = 0; i < millers.size(); ++i) {
             out[i] = MiddleProductAvxContext::to_public_gt(avx::AvxGtElement(final_pairs[i].data));
         }
@@ -1233,7 +1241,8 @@ namespace blst {
                 middle_product_finalize_avx_millers(
                     out.first(n),
                     std::span<const avx::MillerResult>(workspace.miller_batch),
-                    workspace.final_batch);
+                    workspace.final_batch,
+                    workspace.final_exp_scratch);
 #endif
             }
         }
@@ -1307,6 +1316,7 @@ namespace blst {
                 std::vector<avx::MillerResult> millers(
                     n, avx::MillerResult::identity());
                 std::vector<avx::GT> finals;
+                avx::GT::FinalExpScratch final_exp_scratch;
                 for (std::size_t k = 0; k < n; ++k) {
                     if (precomputed_b.b_is_zero[n + k] != 0) {
                         continue;
@@ -1319,7 +1329,8 @@ namespace blst {
                 middle_product_finalize_avx_millers(
                     out.first(n),
                     std::span<const avx::MillerResult>(millers),
-                    finals);
+                    finals,
+                    final_exp_scratch);
 #endif
             }
         }
