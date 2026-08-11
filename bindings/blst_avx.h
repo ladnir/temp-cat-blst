@@ -511,9 +511,19 @@ bool blst_avx_gt_mult_pippenger(
 /**
  * Applies the final exponentiation to an AVX Miller-loop value.
  *
+ * Preconditions:
+ * - `a` represents a valid nonzero Fp12 value, normally produced by a Miller
+ *   loop. No field, nonzero, or subgroup validation is performed.
+ * - `ret` and `a` may be identical but must not partially overlap.
+ *
+ * Postcondition:
+ * - On success, `ret` contains BLST's cubed final exponent in GT.
+ * - Failure leaves `ret` unspecified.
+ *
  * Return value:
  * - `true` on success.
- * - `false` when AVX is unavailable or either pointer is null.
+ * - `false` only when AVX is unavailable or either pointer is null; this does
+ *   not report semantic input validation.
  */
 bool blst_avx_fp12_final_exp(blst_avx_fp12* ret, const blst_avx_fp12* a);
 /** Returns `true` when the two AVX GT/Fp12 values are equal. */

@@ -1926,6 +1926,19 @@ namespace blst::avx::test
         expect_same_scalar_fp12(
             matrixnok_fp12_to_scalar(ring, candidate_square), expected_square);
 
+        blst::Fp12 expected_z = {};
+        blst::Fp12 expected_z_half = {};
+        blst::Fp12::raise_to_z(expected_z, gt);
+        blst::Fp12::raise_to_z_div_by_2(expected_z_half, gt);
+        const auto candidate_z = fp12ring.narrow_to_standard(
+            raise_to_z(candidate_gt, fp12ring, ring), ring);
+        const auto candidate_z_half = fp12ring.narrow_to_standard(
+            raise_to_z_div_by_2(candidate_gt, fp12ring, ring), ring);
+        expect_same_scalar_fp12(
+            matrixnok_fp12_to_scalar(ring, candidate_z), expected_z);
+        expect_same_scalar_fp12(
+            matrixnok_fp12_to_scalar(ring, candidate_z_half), expected_z_half);
+
         const std::array<uint64_t, 4> scalar = {
             0xfedcba9876543210ULL,
             0x0123456789abcdefULL,

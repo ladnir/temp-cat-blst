@@ -4,6 +4,7 @@
 #include "blst/avx/rns/matrixnok_fp.h"
 #include "blst/avx/fields/matrixnok_fp12.h"
 #include "blst/avx/fields/conversion_inversion.h"
+#include "blst/avx/fields/final_exponentiation.h"
 #include "blst/avx/curve/matrixnok_g1.h"
 #include "blst/avx/curve/matrixnok_g2.h"
 #include "blst/avx/gt/glv4.h"
@@ -31,7 +32,7 @@ using blst::avx::uint128_t;
 extern "C" AUDIT_NOINLINE void audit_avx_uint128_mul(
     uint128_t* out, uint64_t left, uint64_t right)
 {
-    *out = blst::avx::mul_u64_u64(left, right);
+    *out = static_cast<uint128_t>(left) * right;
 }
 
 extern "C" AUDIT_NOINLINE uint64_t audit_avx_extract_lane0(const AVXVector<8>* value)
@@ -107,6 +108,17 @@ extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_fp12_cyclotomic_square(
     const blst::avx::matrixnok::Fp12Ring fp12ring{};
     *out = fp12ring.narrow_to_standard(
         fp12ring.fp12_flat_cyclotomic_sqr(*value, ring), ring);
+}
+
+extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_final_exp_after_inverse(
+    blst::avx::matrixnok::Fp12Ring::StandardElement* out,
+    const blst::avx::matrixnok::Fp12Ring::StandardElement* value,
+    const blst::avx::matrixnok::Fp12Ring::StandardElement* inverse)
+{
+    const blst::avx::matrixnok::FpRingCandidate ring;
+    const blst::avx::matrixnok::Fp12Ring fp12ring{};
+    *out = blst::avx::final_exp_after_inverse(
+        *value, *inverse, fp12ring, ring);
 }
 
 extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_gt_exp_ct(
