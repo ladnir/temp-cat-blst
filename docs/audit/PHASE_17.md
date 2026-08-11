@@ -31,7 +31,7 @@ are marked `BLST_NODISCARD`.
 The same pass records `AUD-284`, `AUD-285`, and `AUD-287` through `AUD-289`:
 inverse-root construction, repeated truncated-plan allocation, stale backend-
 independent Auto selection, avoidable AVX result serialization, and cleanup/
-provenance. Packets 17C and 17D close all except benchmark-gated `AUD-287`.
+provenance. Packets 17C through 17E close all recorded findings from this pass.
 
 Focused validation exposed two additional defects. `AUD-290` found that the
 scalar-to-AVX projective bridge preserved scalar's all-zero infinity rather
@@ -117,6 +117,49 @@ dependency and emitted its existing nodiscard warning; it was neither changed
 nor audited. No benchmark, remote run, CUDA, sanitizer, portable-AVX Release,
 or full suite ran. Only benchmark-gated `AUD-287` remains open in the current
 middle-product packet.
+
+## Packet 17E - Backend-specific Auto dispatch
+
+`AUD-287` could not be resolved from the existing benchmark because that case
+precomputed B outside the timed loop and recreated multipair workspace while
+reusing FFT workspace. The production `Auto` overload is one-shot, so commits
+`d9dc202` through `03457c7` add an isolated non-shipping executable that times
+forced scalar/AVX FFT and multipair calls including their actual precomputation
+and workspace ownership. Isolating the executable also avoids compiling or
+linking frozen BTx/BTE benchmark sources.
+
+One benchmark process at a time ran on Peach's AMD Ryzen 9 7950X, pinned to CPU
+2, with Clang 21.1.8, `Release`, native AVX-512/IFMA, five repetitions, and a
+0.10-second minimum case time. The focused boundary medians in milliseconds
+were:
+
+| n | Scalar FFT | Scalar multipair | AVX FFT | AVX multipair |
+| ---: | ---: | ---: | ---: | ---: |
+| 31 | 87.4 | 82.2 | 24.3 | 22.3 |
+| 32 | 83.1 | 88.1 | 22.9 | 23.6 |
+| 49 | 200 | 193 | 55.8 | 52.0 |
+| 50 | 200 | 201 | 55.7 | 54.0 |
+| 51 | 200 | 208 | 55.9 | 56.1 |
+| 76 | 451 | 442 | 126 | 120 |
+| 78 | 452 | 466 | 126 | 126 |
+
+The nonmonotonic result is expected: the optimized FFT size is the next power
+of two at least `2*n`, so FFT cost jumps after 16, 32, and 64 while multipair
+cost grows smoothly. Commit `e3e1a45` therefore replaces the stale `n <= 24`
+cutoff with allocation-free constexpr policies. Scalar selects multipair for
+`n <= 31`, `33..49`, and `65..76`; AVX extends the second range through 50.
+Every later size selects FFT. This introduces no runtime CPU dispatch, timing
+probe, allocation, or data-dependent cryptographic branch; `n` is public.
+
+MSVC 19.50 scalar-default plus portable-AVX Debug builds the affected target
+with two workers. Exact range-policy tests and actual scalar and portable-AVX
+Auto dispatch tests pass. Peach native Release rebuilds the isolated benchmark
+against the production selector. That build exposed one inactive scalar GT
+boundary overload in an AVX-default translation unit; commit `4dcb4fa` marks
+only that overload `[[maybe_unused]]`, after which Clang rebuilds without the
+warning. The benchmark is deployment-CPU evidence, not a universal threshold
+guarantee for every microarchitecture. No concurrent benchmark, CUDA,
+sanitizer, portable-AVX Release, full suite, or BTx/BTE audit ran.
 
 ## Packet 17A - Generic FFT boundary and isolated interpolation
 

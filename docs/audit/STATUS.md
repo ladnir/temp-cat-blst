@@ -863,3 +863,18 @@ correspondence rows and 61 mapped hashes revalidate after the ownership-only
 `GT.h` rebind. Only benchmark-gated `AUD-287` remains open in this middle-
 product packet. No benchmark, remote run, CUDA, sanitizer, portable-AVX
 Release, full suite, or BTx/BTE audit ran.
+
+`AUD-287` is validated at `e3e1a45`. The old `n <= 24` Auto cutoff did not
+represent the power-of-two FFT cost jumps and its benchmark did not time the
+one-shot production ownership model. An isolated non-shipping target now times
+forced scalar/AVX FFT and multipair calls without BTx/BTE linkage. Sequential
+Peach runs used Ryzen 9 7950X CPU 2, Clang 21.1.8, Release native
+AVX-512/IFMA, and five repetitions. Scalar selects multipair for `n <= 31`,
+`33..49`, and `65..76`; AVX extends the second range through 50. The constexpr
+policies add no allocation, timing probe, or runtime CPU dispatch. Portable-
+Debug range and actual dispatch tests pass, and native Release rebuilds cleanly
+after `4dcb4fa` marks the inactive scalar GT bridge `[[maybe_unused]]`. All
+findings recorded by the current middle-product pass are now validated. The
+thresholds remain deployment-CPU evidence rather than a universal
+microarchitecture guarantee. No concurrent benchmark, CUDA, sanitizer,
+portable-AVX Release, full suite, or BTx/BTE audit ran.
