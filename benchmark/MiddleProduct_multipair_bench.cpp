@@ -311,8 +311,9 @@ static void bench_middle_product_one_shot_avx_multipair(benchmark::State& state)
 
 #define MIDDLE_PRODUCT_AUTO_CROSSOVER_SIZES \
 ->Arg(2)->Arg(4)->Arg(8)->Arg(12)->Arg(16)->Arg(20)->Arg(24)->Arg(28)->Arg(30) \
-->Arg(32)->Arg(36)->Arg(40)->Arg(44)->Arg(48)->Arg(52)->Arg(56)->Arg(64) \
-->Arg(72)->Arg(80)->Arg(88)->Arg(96)->Arg(112)->Arg(128)
+->Arg(31)->Arg(32)->Arg(36)->Arg(40)->Arg(44)->Arg(48)->Arg(49)->Arg(50)->Arg(51) \
+->Arg(52)->Arg(56)->Arg(64)->Arg(65)->Arg(68)->Arg(70)->Arg(72)->Arg(74)->Arg(76) \
+->Arg(78)->Arg(80)->Arg(88)->Arg(96)->Arg(112)->Arg(128)
 
 BENCHMARK(bench_middle_product_multipair_scalar)
 MIDDLE_PRODUCT_MULTIPAIR_SIZES
