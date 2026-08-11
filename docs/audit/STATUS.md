@@ -813,3 +813,24 @@ versus 2.895 us for eight doublings. The candidate regressed 12.3% and 14.4%.
 Commit `7295176` removes the losing benchmark/test scaffolding. An earlier
 sequential process lacking `-DNDEBUG` was discarded; no process remained after
 the measurement.
+
+Phase 17 middle-product safety and contract packet is validated at `5e14afc`.
+`AUD-283` rejects zero, oversized, and overflow-shaped lengths before span
+construction or allocation, with a `2^30` FFT and `2^29` optimized-middle-
+product bound derived from the signed FFT index domain. `AUD-286` documents the
+exact diagonal pairing product and subgroup, GT, timing, allocation, exception,
+failure-publication, ownership, concurrency, and alias contracts across C,
+C++, and Rust. `AUD-290` fixes scalar all-zero infinity crossing into MatrixNoK
+without canonicalization; the prior bridge value was accepted by addition but
+could fail AVX multiplication inside a group FFT. `AUD-291` makes every
+backend-explicit algorithm test call its named scalar or AVX implementation.
+
+MSVC 19.50 scalar-default plus portable-AVX Debug passes seven focused sizing,
+C-boundary, scalar-differential, exact-alias, and G1/G2 bridge tests, plus the
+corrected explicit AVX FFT comparison. Rust middle-product tests pass 8/8 and
+both documentation ledgers pass. Old portable and scalar executables preserve
+the AUD-290 before/backend-isolation evidence. `AUD-282`, `AUD-284`, `AUD-285`,
+and `AUD-287` through `AUD-289` remain open for reusable final-exp scratch,
+precomputation, backend selection, direct GT conversion, and cleanup. No
+benchmark, remote run, CUDA, sanitizer, portable-AVX Release, full suite, or
+BTx/BTE audit ran.

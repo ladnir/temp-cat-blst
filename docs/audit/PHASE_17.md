@@ -6,6 +6,57 @@ Phase 17 is in progress. Packet 17A reduces and separates the FFT and
 interpolation boundaries before the deeper file-by-file algorithm audit. It
 does not mark any FFT or middle-product production file complete.
 
+## Packet 17B - Middle-product safety and public contracts
+
+The first middle-product file pass found that public length arithmetic was not
+bounded before FFT-size growth, span construction, or allocation. Because the
+shared FFT uses signed `int` indices, its largest supported power-of-two size is
+`2^30`; the optimized middle product therefore accepts `1 <= n <= 2^29`.
+`AUD-283` replaces unchecked growth with explicit `invalid_argument` and
+`length_error` failures, overflow-free admissible-size rounding, and C-boundary
+rejection before constructing the `2*n` input span. Hostile-size tests exercise
+the exact supported boundary, one past it, and `SIZE_MAX` without allocating a
+large buffer.
+
+`AUD-286` records the mathematical and cryptographic contract across native
+C++, C, and safe Rust. For `a[0..n)` and `b[0..2*n)`, output `k` is
+`product_i e(a[i], b[n+k-i])`. Inputs named G1/G2 must already be reduced,
+on-curve prime-order subgroup points; infinity is the identity. Outputs and
+`combine` operands are GT values carried in Fp12 storage. No Release membership
+validation is performed. The APIs now state variable-time and allocation
+behavior, output publication on failure, immutable handle ownership, workspace
+concurrency, and exact-versus-partial alias rules. Result-bearing C declarations
+are marked `BLST_NODISCARD`.
+
+The same pass records but does not yet repair `AUD-284`, `AUD-285`, and
+`AUD-287` through `AUD-289`: inverse-root construction, repeated truncated-plan
+allocation, stale backend-independent Auto selection, avoidable AVX result
+serialization, and cleanup/provenance. `AUD-282` remains open for reusable AVX
+batch-final-exponentiation scratch. None of those deferred items changes the
+safety packet's supported domain.
+
+Focused validation exposed two additional defects. `AUD-290` found that the
+scalar-to-AVX projective bridge preserved scalar's all-zero infinity rather
+than returning MatrixNoK's canonical identity. Addition accepted that
+representative, but scalar multiplication did not, so an infinity supplied
+through the scalar ABI could corrupt the AVX G1 FFT. The bridge now returns
+canonical G1/G2 AVX infinity before coordinate conversion. `AUD-291` corrects
+backend-explicit algorithm tests that had silently called default-backend
+wrappers in their AVX branches. The strengthened C reconstruction test compares
+finite, zero-constant, and update contributions independently against scalar
+results, and direct bridge tests require both canonicalized identities to
+remain infinity after AVX multiplication.
+
+Focused validation at implementation commit `5e14afc` used MSVC 19.50 in a
+scalar-default Debug build that also compiles portable AVX. Seven sizing,
+boundary, scalar-differential, exact-alias, and bridge tests pass; the corrected
+explicit AVX FFT comparison also passes. The safe Rust middle-product module
+passes 8/8. The 25-family public-documentation ledger and group-contract ledger
+pass. An older portable-Debug executable reproduces `AUD-290`, while an older
+scalar executable passes the same reconstruction, preserving before/after and
+backend-isolation evidence. No benchmark, remote process, CUDA, sanitizer,
+portable-AVX Release, full test sweep, or BTx/BTE audit was performed.
+
 ## Packet 17A - Generic FFT boundary and isolated interpolation
 
 The former `blst/fft_c_api.cpp` was an 866-line anonymous namespace combining
