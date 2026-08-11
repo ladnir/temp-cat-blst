@@ -141,9 +141,12 @@ coordinate `i` corresponds to scalar storage
 differential-test contract; it must not be inferred from memory layout.
 
 The MatrixNoK Fp12 constants policy binds Frobenius constants and delayed
-reduction offsets to this exact RNS basis. It contains no runtime state. The
-split cyclotomic-square schedule is the selected pairing implementation and is
-part of the eventual P3/P4 correspondence.
+reduction offsets to this exact RNS basis. It contains no runtime state, and
+`Fp12Ring` is the sole selected alias. The retained split cyclotomic-square
+schedule is accepted by `AVX-P3-004`; the source-shaped nonzero inverse lift is
+accepted separately by `AVX-P3-008` from exactly one supplied base reciprocal.
+The C++ interval algebra tracks inclusive split bounds 29 and 102, while the
+proved correlated semantic maxima are 28 and 101.
 
 ## Deliberate source duplication
 
@@ -152,7 +155,8 @@ paths and have separately inspected code generation:
 
 - register-latency and fixed-batch R1 cyclic schedules;
 - scalar and fixed-batch base-field multiplication pipelines; and
-- the incumbent monolithic and selected MatrixNoK split cyclotomic square.
+- formula-local MatrixNoK kernels whose separately inspected fixed shapes avoid
+  register exhaustion or an abstraction penalty.
 
 Do not replace these with runtime abstraction, indirect calls, dynamic loops,
 or temporary containers merely to shorten the proof. Lean should define one

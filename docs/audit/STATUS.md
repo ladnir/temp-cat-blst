@@ -382,8 +382,8 @@ Upstream progress:
   validation are completed;
 - 0 remain pending.
 
-Findings: 147 total: 120 validated, 16 fixed pending final evidence, four accepted
-risks, four need a design decision, and three remain open. `AUD-035` is validated with preserved
+Findings: 272 total: 242 validated, 23 fixed pending final evidence, four accepted
+risks, one needs a design decision, and two remain open. `AUD-035` is validated with preserved
 allocated/caller-table/precomputed modes and 10/10 focused MSVC Release, Linux
 ASan, and Linux UBSan tests. `AUD-036` is validated on native
 Apple Silicon with AppleClang 17 at commit `0b7ec47`; all 336 C/C++ tests and
@@ -748,11 +748,13 @@ only fixed-control branches. All 20 correspondence rows and 59 hashes validate
 after exact rebinding. No benchmark, remote run, broad suite, CUDA,
 portable-AVX Release, sanitizer, or BTx/BTE audit ran.
 
-The next paired file review has recorded `AUD-268` through `AUD-273` for
-`blst/avx/fields/fp12.h` and `matrixnok_fp12.h`. The selected formulas have no
-confirmed defect, but unselected arithmetic variants and obsolete ownership
-plumbing remain; the inverse decomposition needs direct proof/tests; and the
-split-cyclotomic wrapper needs a narrow optimized code-generation inspection.
-Implementation and closure evidence are pending. No build, benchmark, remote
-job, CUDA, portable-AVX Release, sanitizer, or BTx/BTE work ran for the
-read-only finding packet.
+`AUD-268` through `AUD-273` are now closed at source commits `ce22bc2`,
+`5042c1b`, and `793b542`. The selected Fp12 owner has one schedule family, one
+stateless constants policy, exact conservative split bounds, direct inversion
+proof/differentials, and explicit contracts/provenance. MSVC optimized
+inspection confirmed and then eliminated the cyclotomic concatenation copy:
+the owning wrapper fell from a 3,168-byte frame plus 1,536-byte `memcpy` to a
+40-byte frame with exactly two split-helper calls and no copy. Five focused
+portable-Debug tests pass, the focused Lean modules type-check, and all 21 AVX
+correspondence rows/61 hashes validate. No benchmark or broad/resource-heavy
+run was performed.

@@ -973,3 +973,15 @@ been inspected at the owning wrapper. These findings remain open until the
 structural cleanup, inversion proof/tests, and narrow code-generation probe
 are independently reviewable. No build, benchmark, or remote job accompanied
 this read-only audit.
+
+The selected-Fp12 remediation closes `AUD-268` through `AUD-273` at source
+commits `ce22bc2`, `5042c1b`, and `793b542`. Only the selected MatrixNoK
+formulas remain, under one stateless constants policy and one `Fp12Ring` alias.
+The inverse pipeline now has direct dense differentials and accepted
+source-shaped theorem row `AVX-P3-008`. Optimized MSVC inspection first
+confirmed that half-array concatenation survived as a 3,168-byte wrapper frame
+and 1,536-byte `memcpy`; direct final-owner writes reduce that wrapper to 40
+bytes with exactly two helper calls and no copy. Five focused portable-Debug
+Fp12/GT/pairing tests and the focused Lean modules pass. All 21 correspondence
+rows and 61 mapped hashes validate. No benchmark, remote run, broad suite,
+sanitizer, CUDA, portable-AVX Release, or BTx/BTE work ran.

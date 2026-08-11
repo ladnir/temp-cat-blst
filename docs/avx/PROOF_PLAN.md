@@ -208,9 +208,10 @@ is exactly the repository's documented cubed pairing exponent
 cyclotomic squares, nine conjugations, Frobenius counts 1/2/1, and one inversion;
 no unreduced expression crosses an accepted component boundary. The theorem's
 domain is a valid nonzero Miller-result unit with a correct supplied inverse.
-Formalizing the concrete inversion provider is an explicit residual boundary,
-not a weakened final-exponentiation contract. GT binary and GLV4 exponentiation
-were the only remaining P3 work at that checkpoint.
+At that checkpoint the concrete inverse decomposition remained an explicit
+residual boundary, not a weakened final-exponentiation contract. It is now
+accepted separately by `AVX-P3-008`; the variable-time base reciprocal provider
+and P0 lowering remain external.
 
 `AVX-P3-006` accepts the public GT binary and unsigned GLV4 paths at proof
 commit `82f26c1`. The exact source-shaped split proves canonical reduction,
@@ -236,10 +237,16 @@ and 74 products including table construction and normalization. The C++
 Montgomery-to-canonical `Fr` bridge and common P0 compiler/ISA boundary remain
 recorded assumptions rather than silently enlarged Lean claims.
 
-P3 is complete: `AVX-P3-001` through `AVX-P3-007` are accepted at exact source
-and generated-constant hashes. P4 should next prove source-shaped curve or
-Miller-loop formulas while composing the accepted P2/P3 tower rather than
-reconstructing it.
+`AVX-P3-008` accepts the nonzero Fp12 inverse decomposition at proof commit
+`5042c1b`. The source-shaped theorem takes the quadratic norm to Fp6, forms the
+cubic cofactors and Fp2 norm, takes the Fp2 norm to the base field, consumes one
+supplied correct base reciprocal, and proves the lifted value multiplies the
+input to one. It assumes exactly the selected inverter's mathematical contract;
+zero and the provider's variable-time implementation remain outside the claim.
+
+P3 is complete: `AVX-P3-001` through `AVX-P3-008` are accepted at exact source
+and generated-constant hashes. P4 composes this accepted P2/P3 tower rather
+than reconstructing it.
 
 P4 is accepted through proof commit `4dbb3cd`. Direct and prepared doubling
 and mixed addition now share proved point/line formulas. The literal sparse

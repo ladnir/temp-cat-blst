@@ -200,3 +200,31 @@ Frobenius, conjugation, and cyclotomic results rather than broadening them.
   compiler/ISA lowering remain explicit residual boundaries.
 - Sanitizers, fuzzing, broad suites, Apple CI, CUDA, BTx/BTE, and portable-AVX
   Release were outside this focused packet.
+
+## Selected-owner audit closure
+
+The final selected-owner pass removes every unselected versioned Fp12 body,
+the inherited stateless-policy shape, duplicate selected aliases, loose bound
+200 plumbing, and dead tuple/index scaffolding. The retained split formulas
+and reduction order are unchanged. C++ now names its exact conservative
+inclusive bounds 29 and 102; Lean continues to prove the tighter correlated
+semantic maxima 28 and 101.
+
+`AVX-P3-008` adds a source-shaped proof of the complete nonzero inverse
+decomposition. It follows the C++ Fp12-to-Fp6-to-Fp2-to-Fp norm pipeline and
+then lifts one caller-supplied base reciprocal back through the tower. The
+theorem assumes exactly that the computed base norm times the supplied value
+is one. Direct dense portable-AVX differentials check inverse equality,
+product equals one, inverse round trip, and individual-versus-batch final
+exponentiation.
+
+MSVC `/O2 /arch:AVX512` inspection confirmed that the old generic concatenation
+was not free: the selected square wrapper had a 3,168-byte frame, copied both
+six-coordinate returns into a twelve-coordinate stack object, and issued a
+1,536-byte `memcpy`. At `793b542`, both noinline halves write directly into the
+hidden final return owner. The wrapper has a 40-byte frame, exactly two helper
+calls, and no coordinate-copy instructions or `memcpy`. The broader
+narrow-to-standard probe falls from 27,824 to 26,032 bytes. Its one remaining
+1,536-byte final assignment is owned by the generic returned-value boundary,
+not by the cyclotomic split. No benchmark was run because the code-generation
+defect and its removal were directly established.

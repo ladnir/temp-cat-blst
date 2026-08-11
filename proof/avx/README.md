@@ -219,10 +219,11 @@ convention `f^(3 * ((p^12 - 1) / r))`, rather than silently substituting the
 uncubed textbook exponent. The physical ledger records 35 Fp12 multiplies, 315
 cyclotomic squares, nine conjugations, four Frobenius maps, and one inversion;
 the header serially composes accepted operations and never carries an
-unreduced expression across calls. The remaining explicit boundary is that a
-valid nonzero Miller result and its inverter output form the modeled unit; the
-concrete inverter remains covered by focused scalar differential tests rather
-than a new Lean inversion theorem.
+unreduced expression across calls. At that checkpoint the remaining explicit
+boundary was that a valid nonzero Miller result and its inverter output form
+the modeled unit. `AVX-P3-008` now proves the concrete tower decomposition from
+exactly one correct supplied base reciprocal; the variable-time reciprocal
+provider and P0 lowering remain external.
 
 `AVX-P3-006` accepts the public GT multiplication schedules at proof commit
 `82f26c1`. The proof preserves the exact unsigned radix-`z` split performed
@@ -254,9 +255,14 @@ FFT corollary records the canonical `Fr < r` precondition used by prepared
 roots and inverse scales. The C++ `Fr::from_mont` representation bridge and P0
 compiler/ISA lowering remain explicit non-Lean boundaries.
 
-All seven P3 correspondence rows are now accepted. P4 begins with the curve
-and Miller-loop algebra needed to connect accepted field-tower results to the
-complete pairing implementation.
+`AVX-P3-008` is accepted by proof commit `5042c1b`. It models every source stage
+from the Fp12 norm through Fp6 cofactors, Fp2 and base norms, and the lift back
+through the tower. Assuming exactly that the supplied base reciprocal satisfies
+`norm * reciprocal = 1`, the final theorem proves multiplication by the
+constructed value yields Fp12 one. Zero remains outside the contract.
+
+All eight P3 correspondence rows are now accepted. P4 composes those accepted
+field-tower results into the complete pairing implementation.
 
 `AVX-P4-001` begins at proof commit `8e0dc2d` and is accepted through
 `4dbb3cd`.
