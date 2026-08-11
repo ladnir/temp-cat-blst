@@ -1,6 +1,6 @@
 # Audit Status
 
-Last updated: 2026-08-10
+Last updated: 2026-08-11
 
 Waves 1 and 2 of the parallel file audit are integrated through implementation
 commit `535c4c6`. Wave 1 closes the scalar C-boundary lifetime and public
@@ -758,3 +758,14 @@ the owning wrapper fell from a 3,168-byte frame plus 1,536-byte `memcpy` to a
 portable-Debug tests pass, the focused Lean modules type-check, and all 21 AVX
 correspondence rows/61 hashes validate. No benchmark or broad/resource-heavy
 run was performed.
+
+The complete selected AVX final-exponentiation review is recorded at source
+commit `835ffbb`. Its formulas remain supported by the scalar BLST schedule and
+accepted Lean evidence, but `AUD-274` and `AUD-275` confirm a cross-toolchain
+hot-path ownership defect: MSVC emits at least 305 loop-level 1,536-byte copies
+per final exponent and a 38,528-byte hard-part frame, while Clang 18 retains a
+35,456-byte frame and the same repeated-copy shape. `AUD-276` records missing
+provenance and narrow contracts. The findings are open pending an explicitly
+reviewed ping-pong/accumulator repair. Only compile-time code-generation probes
+ran; no benchmark, remote job, broad build, CUDA, portable-AVX Release, or
+BTx/BTE work ran.

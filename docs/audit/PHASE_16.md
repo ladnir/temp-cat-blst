@@ -985,3 +985,17 @@ bytes with exactly two helper calls and no copy. Five focused portable-Debug
 Fp12/GT/pairing tests and the focused Lean modules pass. All 21 correspondence
 rows and 61 mapped hashes validate. No benchmark, remote run, broad suite,
 sanitizer, CUDA, portable-AVX Release, or BTx/BTE work ran.
+
+The subsequent complete `final_exponentiation.h` review opens `AUD-274`
+through `AUD-276`. No arithmetic defect is presently confirmed: the schedule
+matches scalar BLST and remains covered by accepted `AVX-P3-005`, while
+`AVX-P3-008` covers the concrete inverse lift from its base-reciprocal contract.
+Compile-only native inspection does confirm a cross-toolchain ownership defect.
+MSVC emits at least 305 loop-level 1,536-byte copies (468,480 bytes) across one
+fixed final exponent and gives `final_exp_after_inverse` a 38,528-byte frame;
+Clang 18 retains the same copy pattern and a 35,456-byte frame. Provenance and
+the nonzero/inverse/cyclotomic/timing contracts are also incomplete. The
+proposed repair uses distinct-output cyclotomic squares, two fixed ping-pong
+owners, compile-time chain counts, and a bounded mutable accumulator set. No
+source implementation, execution, benchmark, remote job, CUDA, portable-AVX
+Release build, or BTx/BTE work accompanied this audit packet.
