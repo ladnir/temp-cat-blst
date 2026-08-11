@@ -706,3 +706,14 @@ documents raw observation, initialization, delayed-product ordering, and
 producer obligations. The serial portable-AVX Debug target and direct carrier
 test pass, as do the structural and exact-correspondence validators. No
 benchmark, remote job, native build, CUDA, or portable-AVX Release build ran.
+
+The specialized `matrixnok_fp.h` review closes `AUD-253` through `AUD-257` at
+`0562a52`. The inherited `4309` ceiling is confirmed correct: it is the width
+of VROOM's reviewed `[-1932,2377]` represented-multiple interval after
+negative completion. Its full `40^2` wide encoding is now proved below the
+exact generated `M1*M2` capacity. Negative-bound preparation is constrained,
+dead runtime field-literal parsing is removed, and raw export, proof-type, and
+fixed-batch contracts are explicit. The serial portable-AVX Debug build and
+seven focused tests pass; all structural, constant, Lean, and correspondence
+checks pass. No benchmark, remote/native run, CUDA, portable-AVX Release, or
+BTx/BTE audit ran.

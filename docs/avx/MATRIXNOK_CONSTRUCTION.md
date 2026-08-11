@@ -78,6 +78,13 @@ The fixed bound ledger is:
 | signed redundant-range offset | 1932 |
 | maximum tracked redundant multiple | 4309 |
 
+The final value is the completed nonnegative range, not an unexplained
+independent allowance. VROOM tracks represented multiples in
+`[-1932,2377]`; adding the fixed `1932*p` completion offset produces
+`[0,2377-(-1932)] = [0,4309]`. CatBLST now derives these constants in C++,
+checks the exact generated-base capacity independently, and proves
+`4309 * 40^2 * p^2 < M1*M2` in `KernelBounds.lean`.
+
 The bound 16 is exactly eight input lanes, each below two source moduli. It is
 stronger than the generic delayed-reduction path's retained C++ type allowance
 32. The latter is deliberately conservative: narrowing it changes selected

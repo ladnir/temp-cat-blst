@@ -180,10 +180,13 @@ foreach ($row in $rows)
 
         if (-not [string]::IsNullOrWhiteSpace([string]$row.review_record))
         {
-            $reviewPath = Join-Path $repoRoot ([string]$row.review_record).Replace('/', '\')
-            if (-not (Test-Path -LiteralPath $reviewPath -PathType Leaf))
+            foreach ($reviewRecord in ([string]$row.review_record -split '\|'))
             {
-                $errors.Add("$path references missing review record: $($row.review_record)")
+                $reviewPath = Join-Path $repoRoot $reviewRecord.Replace('/', '\')
+                if (-not (Test-Path -LiteralPath $reviewPath -PathType Leaf))
+                {
+                    $errors.Add("$path references missing review record: $reviewRecord")
+                }
             }
         }
 

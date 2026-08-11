@@ -909,3 +909,17 @@ The serial portable-AVX Debug target compiles, the direct ring-carrier contract
 test passes, the structural validator passes, and all 20 correspondence rows
 and 59 mapped hashes remain valid. No benchmark, remote job, native build,
 CUDA, or portable-AVX Release build ran.
+
+The complete specialized Fp-owner review follows at `0562a52`. `AUD-253`
+recovers the source of the completed RNS ceiling: VROOM's tracked interval
+`[-1932,2377]` becomes `[0,4309]` after adding `1932*p`. C++ derives the value
+and checks the conservative bit envelope; the independent constants validator
+and Lean prove the exact generated-base inequality
+`4309 * 40^2 * p^2 < M1*M2`. `AUD-254` constrains negative preparation to the
+reviewed interval. `AUD-255` removes the dead runtime hex parser and legacy
+GLV/GLS constructors in favor of generated constants. `AUD-256` and `AUD-257`
+make raw export, exact proof-type attachment, and nonempty fixed-batch
+contracts explicit. The serial portable-AVX Debug target compiles and seven
+focused tests pass. All 20 correspondence rows and 59 mapped hashes validate
+after rebinding. No benchmark, remote run, native build, CUDA, portable-AVX
+Release build, or BTx/BTE audit ran.
