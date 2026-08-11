@@ -59,6 +59,8 @@ def main() -> int:
             "obsolete generic Montgomery owner was restored")
     require(not (avx / "rns" / "elementwise_reduce.h").exists(),
             "obsolete generic elementwise reducer was restored")
+    require(not (avx / "rns" / "inversion.h").exists(),
+            "orphaned VROOM test-only inversion chain was restored")
 
     bounds = avx / "rns" / "bounds.h"
     require_fragments(bounds, (
