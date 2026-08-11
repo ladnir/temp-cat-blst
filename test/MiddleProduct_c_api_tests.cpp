@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <limits>
 #include <type_traits>
 #include <vector>
 
@@ -154,11 +155,11 @@ std::vector<BoundaryGt> reduced_middle_product(
     const std::vector<PublicG1> public_a = to_public_g1(a);
     const std::vector<PublicG2> public_b = to_public_g2(b);
 
-    const auto precomputed = blst::precompute_middle_product_b(
+    const auto precomputed = blst::precompute_middle_product_b_scalar(
         std::span<const PublicG2>(public_b),
         a.size());
     std::vector<PublicGt> raw(a.size(), PublicGt::identity());
-    blst::middle_product(
+    blst::middle_product_scalar(
         std::span<const PublicG1>(public_a),
         precomputed,
         std::span<PublicGt>(raw));
@@ -203,10 +204,30 @@ TEST(MiddleProductCApi, RejectsLengthMismatch)
         blst_middle_product_precompute_b(b.data(), 2);
     ASSERT_NE(precomputed, nullptr);
 
-    std::vector<BoundaryGt> out(2);
+    std::vector<BoundaryGt> out(2, BoundaryGt::one());
+    const std::vector<BoundaryGt> before = out;
     EXPECT_FALSE(blst_middle_product(a.data(), 1, precomputed, out.data()));
+    for (std::size_t i = 0; i < out.size(); ++i) {
+        EXPECT_TRUE(blst::Fp12::equal(out[i], before[i]));
+    }
 
     blst_middle_product_precomputed_b_free(precomputed);
+}
+
+TEST(MiddleProductCApi, RejectsUnsupportedLengthBeforeReadingInput)
+{
+    const BoundaryG2 dummy = BoundaryG2::infinity();
+
+    EXPECT_EQ(
+        blst_middle_product_precompute_b(
+            &dummy,
+            blst::middle_product_max_n + 1),
+        nullptr);
+    EXPECT_EQ(
+        blst_middle_product_precompute_b(
+            &dummy,
+            std::numeric_limits<std::size_t>::max()),
+        nullptr);
 }
 
 TEST(MiddleProductCApi, UpdateAndCombineReconstructFullResult)
@@ -222,6 +243,10 @@ TEST(MiddleProductCApi, UpdateAndCombineReconstructFullResult)
         g2(13), g2(17), g2(19), g2(23),
         g2(29), g2(31), g2(37), g2(41),
     };
+    const std::vector<BoundaryGt> scalar_expected =
+        reduced_middle_product(a_full, b);
+    const std::vector<BoundaryGt> scalar_mid =
+        reduced_middle_product(a_without_constant, b);
 
     blst_middle_product_precomputed_b* precomputed =
         blst_middle_product_precompute_b(b.data(), a_full.size());
@@ -231,6 +256,7 @@ TEST(MiddleProductCApi, UpdateAndCombineReconstructFullResult)
     std::vector<BoundaryGt> mid(a_full.size());
     std::vector<BoundaryGt> cnst(a_full.size());
     std::vector<BoundaryGt> combined(a_full.size());
+    std::vector<BoundaryGt> scalar_mid_plus_native_update(a_full.size());
 
     ASSERT_TRUE(blst_middle_product(a_full.data(), a_full.size(), precomputed, expected.data()));
     ASSERT_TRUE(blst_middle_product(
@@ -240,10 +266,30 @@ TEST(MiddleProductCApi, UpdateAndCombineReconstructFullResult)
         mid.data()));
     ASSERT_TRUE(blst_middle_product_update(&a_full[0], precomputed, cnst.data()));
     ASSERT_TRUE(blst_middle_product_combine(mid.data(), cnst.data(), combined.size(), combined.data()));
+    ASSERT_TRUE(blst_middle_product_combine(
+        scalar_mid.data(),
+        cnst.data(),
+        scalar_mid_plus_native_update.size(),
+        scalar_mid_plus_native_update.data()));
+
+    std::vector<BoundaryGt> exact_alias = mid;
+    ASSERT_TRUE(blst_middle_product_combine(
+        exact_alias.data(),
+        cnst.data(),
+        exact_alias.size(),
+        exact_alias.data()));
 
     for (std::size_t i = 0; i < expected.size(); ++i) {
+        EXPECT_TRUE(blst::Fp12::equal(expected[i], scalar_expected[i]))
+            << "native full middle product differs from scalar at output index " << i;
+        EXPECT_TRUE(blst::Fp12::equal(mid[i], scalar_mid[i]))
+            << "native zero-constant middle product differs from scalar at output index " << i;
+        EXPECT_TRUE(blst::Fp12::equal(scalar_expected[i], scalar_mid_plus_native_update[i]))
+            << "native update differs from scalar contribution at output index " << i;
         EXPECT_TRUE(blst::Fp12::equal(expected[i], combined[i]))
             << "update/combine mismatch at output index " << i;
+        EXPECT_TRUE(blst::Fp12::equal(expected[i], exact_alias[i]))
+            << "exact-alias combine mismatch at output index " << i;
     }
 
     blst_middle_product_precomputed_b_free(precomputed);

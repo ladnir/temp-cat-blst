@@ -3,7 +3,9 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <span>
+#include <stdexcept>
 #include <type_traits>
 #include <vector>
 
@@ -27,6 +29,82 @@
 
 namespace blst {
 
+    /**
+     * @brief Pairing middle-product API and shared scalar/AVX implementation.
+     *
+     * For `a[0..n)` in G1 and `b[0..2*n)` in G2, evaluation returns GT values
+     *
+     * `out[k] = product_{i=0}^{n-1} e(a[i], b[n+k-i])`, for `0 <= k < n`.
+     *
+     * G1 and G2 mean the prime-order subgroups: callers must provide reduced,
+     * on-curve subgroup points. Infinity is accepted as the identity. These
+     * operations do not perform Release membership validation. Outputs are GT
+     * elements; `combine` likewise requires GT inputs rather than arbitrary
+     * Fp12 values.
+     *
+     * The algorithms are variable-time with respect to their public points and
+     * sizes. Precomputation and convenience overloads allocate and can throw
+     * `std::bad_alloc`; malformed shapes throw `std::invalid_argument`, and an
+     * unsupported length throws `std::length_error`. Workspace-taking overloads
+     * reuse their owned vectors after capacity is established, but backend
+     * operations may still allocate as documented by their concrete context.
+     *
+     * A precomputed object is immutable after construction and may be shared by
+     * concurrent evaluations when each evaluation owns a distinct workspace and
+     * output. One workspace must not be used concurrently. Unless a function
+     * explicitly says otherwise, output must not overlap its inputs. `combine`
+     * supports exact output aliasing with either input but forbids partial
+     * overlap.
+     */
+
+    // The shared FFT implementation uses signed-int indices. The largest
+    // supported transform is therefore the largest power of two below
+    // INT_MAX. A middle product of length n uses a 2*n transform.
+    inline constexpr std::size_t middle_product_max_fft_size =
+        std::size_t{1} << (std::numeric_limits<int>::digits - 1);
+    inline constexpr std::size_t middle_product_max_n =
+        middle_product_max_fft_size / 2;
+
+    [[nodiscard]] inline constexpr bool middle_product_n_is_supported(
+        std::size_t n) noexcept
+    {
+        return n != 0 && n <= middle_product_max_n;
+    }
+
+    [[nodiscard]] inline std::size_t middle_product_b_size(std::size_t n)
+    {
+        if (n == 0) {
+            throw std::invalid_argument("middle product length must be nonzero");
+        }
+        if (n > middle_product_max_n) {
+            throw std::length_error("middle product length exceeds the supported FFT index range");
+        }
+        return 2 * n;
+    }
+
+    inline void validate_middle_product_b_shape(
+        std::size_t b_size,
+        std::size_t n)
+    {
+        if (b_size != middle_product_b_size(n)) {
+            throw std::invalid_argument("middle product requires exactly 2*n G2 inputs");
+        }
+    }
+
+    inline void validate_middle_product_output_shape(
+        std::size_t n,
+        std::size_t out_size)
+    {
+        if (!middle_product_n_is_supported(n)) {
+            (void)middle_product_b_size(n);
+        }
+        if (out_size < n) {
+            throw std::invalid_argument("middle product output span is too small");
+        }
+    }
+
+    /// Explicit implementation selection. `Auto` uses a benchmark-selected
+    /// size threshold whose scalar and AVX recalibration is tracked separately.
     enum class MiddleProductAlgorithm {
         Fft,
         Multipair,
@@ -39,7 +117,15 @@ namespace blst {
 
     inline std::size_t middle_product_basic_fft_size(std::size_t n)
     {
-        BLST_ASSERT(n > 0);
+        if (n == 0) {
+            throw std::invalid_argument("middle product length must be nonzero");
+        }
+
+        // The basic oracle transforms a polynomial of length 3*n-1.
+        constexpr std::size_t max_n = (middle_product_max_fft_size + 1) / 3;
+        if (n > max_n) {
+            throw std::length_error("basic middle product length exceeds the supported FFT index range");
+        }
 
         std::size_t fft_size = 1;
         const std::size_t target = (3 * n) - 1;
@@ -51,10 +137,9 @@ namespace blst {
 
     inline std::size_t middle_product_fft_size(std::size_t n)
     {
-        BLST_ASSERT(n > 0);
+        const std::size_t target = middle_product_b_size(n);
 
         std::size_t fft_size = 1;
-        const std::size_t target = 2 * n;
         while (fft_size < target) {
             fft_size <<= 1;
         }
@@ -63,18 +148,20 @@ namespace blst {
 
     inline std::size_t fft_admissible_size(std::size_t x, std::size_t fft_size)
     {
-        BLST_ASSERT(fft_size > 0);
-        BLST_ASSERT((fft_size & (fft_size - 1)) == 0);
+        if (fft_size == 0 || (fft_size & (fft_size - 1)) != 0 ||
+            fft_size > middle_product_max_fft_size) {
+            throw std::invalid_argument("invalid middle-product FFT size");
+        }
 
         constexpr std::size_t kRoundPow2 = 16;
         if (x == 0) {
             x = 1;
         }
-
-        x = ((x + (kRoundPow2 - 1)) / kRoundPow2) * kRoundPow2;
-        if (x > fft_size) {
-            x = fft_size;
+        if (x >= fft_size) {
+            return fft_size;
         }
+
+        x = (((x - 1) / kRoundPow2) + 1) * kRoundPow2;
 
         const std::size_t near_full =
             (fft_size >= 1024) ? (fft_size - (fft_size >> 4)) : (fft_size - (fft_size >> 3));
@@ -436,6 +523,7 @@ namespace blst {
         using DefaultMiddleProductContext = ScalarMiddleProductContext;
 #endif
 
+        /// Immutable FFT precomputation for one length-`2*n` G2 operand.
         template<class Context>
         struct MiddleProductPrecomputedBImpl {
             std::size_t n = 0;
@@ -446,6 +534,7 @@ namespace blst {
             typename Context::PreparedInverseRoots inv_roots;
         };
 
+        /// Mutable, non-thread-safe FFT evaluation storage reusable at one size.
         template<class Context>
         struct MiddleProductWorkspaceImpl {
             std::vector<typename Context::G1Point> a_fft;
@@ -493,8 +582,7 @@ namespace blst {
             TimingStats* timings)
         {
             ScopedTimer total_timer(timings, "middle_product_precompute.total_ns");
-            BLST_ASSERT(n > 0);
-            BLST_ASSERT(b.size() == 2 * n);
+            validate_middle_product_b_shape(b.size(), n);
 
             MiddleProductPrecomputedBImpl<Context> precomputed;
             precomputed.n = n;
@@ -559,12 +647,16 @@ namespace blst {
         {
             ScopedTimer total_timer(timings, "middle_product_pre.total_ns");
             const std::size_t n = a.size();
-            BLST_ASSERT(n > 0);
-            BLST_ASSERT(precomputed_b.n == n);
-            BLST_ASSERT(out.size() >= n);
-            BLST_ASSERT(precomputed_b.b_fft.size() == precomputed_b.fft_size);
-            BLST_ASSERT(precomputed_b.roots.size() == precomputed_b.fft_size);
-            BLST_ASSERT(Context::inverse_roots_size(precomputed_b.inv_roots) == precomputed_b.fft_size);
+            validate_middle_product_output_shape(n, out.size());
+            if (precomputed_b.n != n) {
+                throw std::invalid_argument("middle product length does not match its precompute");
+            }
+            if (precomputed_b.fft_size != middle_product_fft_size(n) ||
+                precomputed_b.b_fft.size() != precomputed_b.fft_size ||
+                precomputed_b.roots.size() != precomputed_b.fft_size ||
+                Context::inverse_roots_size(precomputed_b.inv_roots) != precomputed_b.fft_size) {
+                throw std::invalid_argument("invalid middle-product precompute state");
+            }
 
             workspace.ensure_size(precomputed_b.fft_size);
             std::span<typename Context::G1Point> a_fft(workspace.a_fft);
@@ -617,9 +709,10 @@ namespace blst {
         {
             ScopedTimer total_timer(timings, "middle_product_update.total_ns");
             const std::size_t n = precomputed_b.n;
-            BLST_ASSERT(n > 0);
-            BLST_ASSERT(precomputed_b.b_tail.size() == n);
-            BLST_ASSERT(out.size() >= n);
+            validate_middle_product_output_shape(n, out.size());
+            if (precomputed_b.b_tail.size() != n) {
+                throw std::invalid_argument("invalid middle-product precompute state");
+            }
 
             if (Context::G1Point::is_inf(a0) != 0) {
                 std::fill(out.begin(), out.begin() + n, GT::identity());
@@ -641,6 +734,7 @@ namespace blst {
             std::size_t n,
             TimingStats* timings)
         {
+            validate_middle_product_b_shape(b.size(), n);
             const std::vector<typename Context::G2Point> converted = convert_g2_inputs<Context>(b);
             return precompute_middle_product_b_impl<Context>(
                 std::span<const typename Context::G2Point>(converted),
@@ -656,6 +750,10 @@ namespace blst {
             MiddleProductWorkspaceImpl<Context>& workspace,
             TimingStats* timings)
         {
+            validate_middle_product_output_shape(a.size(), out.size());
+            if (precomputed_b.n != a.size()) {
+                throw std::invalid_argument("middle product length does not match its precompute");
+            }
             const std::vector<typename Context::G1Point> converted_a = convert_g1_inputs<Context>(a);
             middle_product_impl<Context>(
                 std::span<const typename Context::G1Point>(converted_a),
@@ -685,9 +783,8 @@ namespace blst {
         {
             ScopedTimer total_timer(timings, "middle_product.total_ns");
             const std::size_t n = a.size();
-            BLST_ASSERT(n > 0);
-            BLST_ASSERT(b.size() == 2 * n);
-            BLST_ASSERT(out.size() >= n);
+            validate_middle_product_b_shape(b.size(), n);
+            validate_middle_product_output_shape(n, out.size());
 
             const auto precomputed =
                 precompute_middle_product_b_public<Context>(b, n, timings);
@@ -852,13 +949,13 @@ namespace blst {
         TimingStats* timings = nullptr)
     {
         ScopedTimer total_timer(timings, "middle_product_multipair_precompute.total_ns");
-        BLST_ASSERT(n > 0);
-        BLST_ASSERT(b.size() == 2 * n);
+        validate_middle_product_b_shape(b.size(), n);
+        const std::size_t b_size = middle_product_b_size(n);
 
         MiddleProductPrecomputedBMultipairImpl<Context> precomputed;
         precomputed.n = n;
-        precomputed.prepared_lines.resize(2 * n);
-        precomputed.b_is_zero.resize(2 * n);
+        precomputed.prepared_lines.resize(b_size);
+        precomputed.b_is_zero.resize(b_size);
 
         const std::vector<typename Context::G2Point> converted =
             middle_product_convert_multipair_g2_inputs<Context>(b);
@@ -1015,11 +1112,15 @@ namespace blst {
     {
         ScopedTimer total_timer(timings, "middle_product_multipair.total_ns");
         const std::size_t n = a.size();
-        BLST_ASSERT(n > 0);
-        BLST_ASSERT(precomputed_b.n == n);
-        BLST_ASSERT(precomputed_b.prepared_lines.size() == 2 * n);
-        BLST_ASSERT(precomputed_b.b_is_zero.size() == 2 * n);
-        BLST_ASSERT(out.size() >= n);
+        validate_middle_product_output_shape(n, out.size());
+        if (precomputed_b.n != n) {
+            throw std::invalid_argument("middle product length does not match its precompute");
+        }
+        const std::size_t b_size = middle_product_b_size(n);
+        if (precomputed_b.prepared_lines.size() != b_size ||
+            precomputed_b.b_is_zero.size() != b_size) {
+            throw std::invalid_argument("invalid multipair middle-product precompute state");
+        }
 
         middle_product_collect_multipair_g1_affine<Context>(
             workspace.affine_a_nonzero,
@@ -1099,6 +1200,10 @@ namespace blst {
         MiddleProductWorkspaceMultipairImpl<Context>& workspace,
         TimingStats* timings = nullptr)
     {
+        validate_middle_product_output_shape(a.size(), out.size());
+        if (precomputed_b.n != a.size()) {
+            throw std::invalid_argument("middle product length does not match its precompute");
+        }
         const std::vector<typename Context::G1Point> converted_a =
             middle_product_convert_multipair_g1_inputs<Context>(a);
         middle_product_multipair_impl<Context>(
@@ -1118,10 +1223,12 @@ namespace blst {
     {
         ScopedTimer total_timer(timings, "middle_product_multipair_update.total_ns");
         const std::size_t n = precomputed_b.n;
-        BLST_ASSERT(n > 0);
-        BLST_ASSERT(precomputed_b.prepared_lines.size() == 2 * n);
-        BLST_ASSERT(precomputed_b.b_is_zero.size() == 2 * n);
-        BLST_ASSERT(out.size() >= n);
+        validate_middle_product_output_shape(n, out.size());
+        const std::size_t b_size = middle_product_b_size(n);
+        if (precomputed_b.prepared_lines.size() != b_size ||
+            precomputed_b.b_is_zero.size() != b_size) {
+            throw std::invalid_argument("invalid multipair middle-product precompute state");
+        }
 
         if (Context::G1Point::is_inf(a0) != 0) {
             std::fill(out.begin(), out.begin() + n, GT::identity());
@@ -1171,13 +1278,20 @@ namespace blst {
         }
     }
 
+    /**
+     * @brief Precompute a length-`2*n` G2 operand for repeated evaluation.
+     * @pre `1 <= n <= middle_product_max_n` and `b.size() == 2*n`.
+     * @pre Every element of @p b is a reduced G2 subgroup point.
+     * @post The returned object is immutable and records logical length @p n.
+     * @throws std::invalid_argument for an invalid shape, std::length_error for
+     * an unsupported length, and std::bad_alloc on allocation failure.
+     */
     inline MiddleProductPrecomputedBScalar precompute_middle_product_b_scalar(
         std::span<const G2Point> b,
         std::size_t n,
         TimingStats* timings = nullptr)
     {
-        BLST_ASSERT(n > 0);
-        BLST_ASSERT(b.size() == 2 * n);
+        validate_middle_product_b_shape(b.size(), n);
         return detail::precompute_middle_product_b_public<MiddleProductScalarContext>(
             b,
             n,
@@ -1190,8 +1304,7 @@ namespace blst {
         std::size_t n,
         TimingStats* timings = nullptr)
     {
-        BLST_ASSERT(n > 0);
-        BLST_ASSERT(b.size() == 2 * n);
+        validate_middle_product_b_shape(b.size(), n);
         return detail::precompute_middle_product_b_public<MiddleProductAvxContext>(
             b,
             n,
@@ -1216,8 +1329,7 @@ namespace blst {
         std::size_t n,
         TimingStats* timings = nullptr)
     {
-        BLST_ASSERT(n > 0);
-        BLST_ASSERT(b.size() == 2 * n);
+        validate_middle_product_b_shape(b.size(), n);
         return precompute_middle_product_b_multipair_impl<MiddleProductScalarContext>(b, n, timings);
     }
 
@@ -1227,8 +1339,7 @@ namespace blst {
         std::size_t n,
         TimingStats* timings = nullptr)
     {
-        BLST_ASSERT(n > 0);
-        BLST_ASSERT(b.size() == 2 * n);
+        validate_middle_product_b_shape(b.size(), n);
         return precompute_middle_product_b_multipair_impl<MiddleProductAvxContext>(b, n, timings);
     }
 #endif
@@ -1253,11 +1364,11 @@ namespace blst {
     {
         ScopedTimer total_timer(timings, "middle_product_basic.total_ns");
         const std::size_t n = a.size();
-        BLST_ASSERT(n > 0);
-        BLST_ASSERT(b.size() == 2 * n);
-        BLST_ASSERT(out.size() >= n);
+        validate_middle_product_b_shape(b.size(), n);
+        validate_middle_product_output_shape(n, out.size());
 
         const std::size_t fft_size = middle_product_basic_fft_size(n);
+        const std::size_t b_size = middle_product_b_size(n);
         std::vector<Fr> roots;
         std::vector<Fr> inv_roots;
         {
@@ -1276,12 +1387,12 @@ namespace blst {
         for (std::size_t i = 0; i < n; ++i) {
             a_fft[i] = a[i];
         }
-        for (std::size_t i = 0; i < 2 * n; ++i) {
+        for (std::size_t i = 0; i < b_size; ++i) {
             b_fft[i] = b[i];
         }
 
         const std::size_t xn_a = fft_admissible_size(n, fft_size);
-        const std::size_t xn_b = fft_admissible_size(2 * n, fft_size);
+        const std::size_t xn_b = fft_admissible_size(b_size, fft_size);
         poly_mult_fft<G1Point, G2Point, GT, Fr, detail::BasicMiddleProductCoeffCtx>(
             a_fft,
             b_fft,
@@ -1301,6 +1412,14 @@ namespace blst {
         }
     }
 
+    /**
+     * @brief Evaluate a precomputed pairing middle product using reusable
+     * caller-owned workspace.
+     * @pre `a.size() == precomputed_b.n` and `out.size() >= a.size()`.
+     * @pre Every input is a reduced G1 subgroup point and output is disjoint
+     * from all inputs. No Release membership validation is performed.
+     * @post The first `a.size()` outputs contain GT elements.
+     */
     inline void middle_product_scalar(
         std::span<const G1Point> a,
         const MiddleProductPrecomputedBScalar& precomputed_b,
@@ -1638,6 +1757,12 @@ namespace blst {
         middle_product_multipair(a, precomputed_b, out, workspace, timings);
     }
 
+    /**
+     * @brief Evaluate the `a[0]` contribution against a precomputed B tail.
+     * @pre @p a0 is a reduced G1 subgroup point and @p out has at least
+     * `precomputed_b.n` disjoint elements.
+     * @post The first `n` outputs are `e(a0, b[n+k])` in GT.
+     */
     inline void update_scalar(
         const G1Point& a0,
         const MiddleProductPrecomputedBScalar& precomputed_b,
@@ -1710,6 +1835,12 @@ namespace blst {
 #endif
     }
 
+    /**
+     * @brief Combine two GT middle-product vectors elementwise.
+     * @pre Inputs contain reduced GT elements, sizes match, and output has
+     * sufficient length. Exact output aliasing is supported; partial overlap
+     * is forbidden. No Release membership validation is performed.
+     */
     inline void combine(
         std::span<const GT> mid,
         std::span<const GT> cnst,

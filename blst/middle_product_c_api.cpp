@@ -184,13 +184,13 @@ blst_middle_product_precomputed_b* blst_middle_product_precompute_b(
     const blst_p2* b,
     size_t n)
 {
-    if (b == nullptr || n == 0) {
+    if (b == nullptr || !blst::middle_product_n_is_supported(n)) {
         return nullptr;
     }
 
     try {
         auto precomputed = precompute_native(
-            std::span<const BoundaryG2>(b, 2 * n),
+            std::span<const BoundaryG2>(b, blst::middle_product_b_size(n)),
             n);
         return new blst_middle_product_precomputed_b(n, std::move(precomputed));
     } catch (...) {

@@ -11,6 +11,12 @@
 //! - write outputs into caller-provided `&mut [blst_fp12]`
 //! - recover the constant-term contribution with `update`
 //! - combine GT outputs with `combine`
+//!
+//! For `a.len() == n` and a precomputed `b.len() == 2*n`, output `k` is
+//! `product_i pairing(a[i], b[n + k - i])`. All G1/G2 values must already be
+//! reduced, on-curve members of their prime-order subgroups; infinity is the
+//! identity. The native implementation does not validate those properties.
+//! The returned `blst_fp12` values semantically belong to GT.
 
 use crate::*;
 
@@ -59,7 +65,9 @@ pub enum MiddleProductError {
 
 /// Opaque owner for a native precomputed-`b` handle.
 ///
-/// The underlying native object is freed automatically on drop.
+/// The underlying native object is immutable after construction and freed
+/// automatically on drop. The wrapper does not expose concurrent mutation or
+/// manual lifetime management.
 #[derive(Debug)]
 pub struct MiddleProductPrecomputedB {
     raw: *mut blst_middle_product_precomputed_b,
@@ -67,7 +75,8 @@ pub struct MiddleProductPrecomputedB {
 }
 
 impl MiddleProductPrecomputedB {
-    /// Precomputes `b`, where `b.len()` must be exactly `2 * n`.
+    /// Precomputes `b`, where `b.len()` must be exactly `2 * n` and every
+    /// element must already be a reduced G2 subgroup point.
     pub fn new(b: &[blst_p2]) -> Result<Self, MiddleProductError> {
         precompute_middle_product_b(b)
     }
@@ -92,6 +101,11 @@ impl Drop for MiddleProductPrecomputedB {
 }
 
 /// Precomputes the `b` operand for repeated middle-product evaluations.
+///
+/// Every value in `b` must be a reduced, on-curve G2 subgroup point. Infinity
+/// is accepted as the identity. The native operation is variable-time and
+/// allocates; allocation, unsupported size, and backend failures are reported
+/// as `MiddleProductError::PrecomputeFailed`.
 pub fn precompute_middle_product_b(
     b: &[blst_p2],
 ) -> Result<MiddleProductPrecomputedB, MiddleProductError> {
@@ -115,6 +129,11 @@ pub fn precompute_middle_product_b(
 ///
 /// `out` must have length at least `a.len()`, and `a.len()` must match the
 /// logical length of `precomputed_b`.
+///
+/// Every value in `a` must be a reduced, on-curve G1 subgroup point. Infinity
+/// is accepted as the identity. Results are GT elements stored as `blst_fp12`.
+/// The native operation is variable-time and can allocate on each call. On
+/// error, the first `precomputed_b.len()` elements of `out` are unchanged.
 pub fn middle_product(
     a: &[blst_p1],
     precomputed_b: &MiddleProductPrecomputedB,
@@ -144,6 +163,11 @@ pub fn middle_product(
 
 /// Computes the constant-term contribution for one G1 point against a
 /// precomputed `b` tail.
+///
+/// `a0` must be a reduced, on-curve G1 subgroup point; infinity is accepted as
+/// the identity. Results are GT elements stored as `blst_fp12`. The native
+/// operation is variable-time and can allocate on each call. On error, the
+/// first `precomputed_b.len()` elements of `out` are unchanged.
 pub fn update(
     a0: &blst_p1,
     precomputed_b: &MiddleProductPrecomputedB,
@@ -163,7 +187,12 @@ pub fn update(
     }
 }
 
-/// Combines two GT output vectors elementwise.
+/// Combines two GT output vectors elementwise without allocating.
+///
+/// Every input must be a reduced GT element stored as `blst_fp12`; arbitrary
+/// Fp12 values are outside this function's contract. This safe wrapper uses
+/// separate Rust borrows, while the underlying C operation also permits exact
+/// output aliasing and forbids partial overlap.
 pub fn combine(
     mid: &[blst_fp12],
     cnst: &[blst_fp12],

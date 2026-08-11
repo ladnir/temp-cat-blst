@@ -25,14 +25,23 @@ typedef struct blst_middle_product_precomputed_b blst_middle_product_precomputed
  *
  * Return value:
  * - Non-null opaque handle on success.
- * - Null when `b` is null, `n == 0`, allocation fails, or precomputation fails.
+ * - Null when `b` is null, `n == 0`, `n` exceeds the supported native FFT
+ *   range, allocation fails, or precomputation fails.
  *
  * Invariants:
+ * - Every input point must already be a reduced, on-curve member of the
+ *   prime-order G2 subgroup. Infinity is accepted as the identity. This
+ *   function performs no Release point or subgroup validation.
  * - The returned handle owns native resources and must be released with
  *   `blst_middle_product_precomputed_b_free`.
+ * - A successfully constructed handle is immutable. Concurrent evaluations
+ *   may share it, but freeing it must not race with an evaluation.
+ * - Precomputation allocates and is variable-time with respect to the public
+ *   points and length. Native exceptions, unsupported lengths, and allocation
+ *   failures are translated to null.
  * - The Rust-facing ABI never exposes the internal layout of the precompute.
  */
-blst_middle_product_precomputed_b* blst_middle_product_precompute_b(
+BLST_NODISCARD blst_middle_product_precomputed_b* blst_middle_product_precompute_b(
     const blst_p2* b,
     size_t n);
 
@@ -53,12 +62,21 @@ blst_middle_product_precomputed_b* blst_middle_product_precompute_b(
  *   match `n`, or the native computation throws/fails.
  *
  * Invariants:
- * - `out[i]` receives the `i`th middle-product result in scalar/public Fp12
- *   layout.
+ * - Every input point must already be a reduced, on-curve member of the
+ *   prime-order G1 subgroup. Infinity is accepted as the identity. No Release
+ *   point or subgroup validation is performed.
+ * - `out[i]` receives the `i`th GT middle-product result in scalar/public
+ *   `blst_fp12` storage.
+ * - Specifically, `out[k] = product_i e(a[i], b[n+k-i])` for
+ *   `0 <= i,k < n`, where `b` is the operand captured by `precomputed_b`.
+ * - The function is variable-time with respect to the public points and
+ *   length and may allocate on every call.
+ * - On failure no element of `out` is modified.
+ * - `out` must not overlap `a` or storage reachable through `precomputed_b`.
  * - The implementation may internally convert the scalar/public inputs to AVX
  *   values, but the exposed ABI remains scalar/public.
  */
-bool blst_middle_product(
+BLST_NODISCARD bool blst_middle_product(
     const blst_p1* a,
     size_t n,
     const blst_middle_product_precomputed_b* precomputed_b,
@@ -80,10 +98,17 @@ bool blst_middle_product(
  *   computation throws/fails.
  *
  * Invariants:
- * - `out[k]` receives the pairing result for `a0` against the stored tail
- *   point `b[n + k]`.
+ * - `a0` must already be a reduced, on-curve member of the prime-order G1
+ *   subgroup. Infinity is accepted as the identity. No Release validation is
+ *   performed.
+ * - `out[k]` receives the GT pairing result for `a0` against the stored tail
+ *   point `b[n + k]`, represented in `blst_fp12` storage.
+ * - The function is variable-time with respect to the public point and may
+ *   allocate on every call.
+ * - On failure no element of `out` is modified.
+ * - `out` must not overlap `a0` or storage reachable through `precomputed_b`.
  */
-bool blst_middle_product_update(
+BLST_NODISCARD bool blst_middle_product_update(
     const blst_p1* a0,
     const blst_middle_product_precomputed_b* precomputed_b,
     blst_fp12* out);
@@ -104,8 +129,13 @@ bool blst_middle_product_update(
  * - Combination uses the GT group law.
  * - At the `blst_fp12` storage boundary this is represented by elementwise
  *   multiplication, since GT is the cyclotomic subgroup inside Fp12.
+ * - Every input must be a reduced GT element. No Release membership validation
+ *   is performed.
+ * - Exact aliasing (`out == mid` or `out == cnst`) is supported. Partial
+ *   overlap is forbidden.
+ * - The operation allocates nothing and is nonthrowing for valid inputs.
  */
-bool blst_middle_product_combine(
+BLST_NODISCARD bool blst_middle_product_combine(
     const blst_fp12* mid,
     const blst_fp12* cnst,
     size_t n,
@@ -123,6 +153,7 @@ bool blst_middle_product_combine(
  * Invariants:
  * - Passing null is a no-op.
  * - The handle must not be used after this call returns.
+ * - The call must not race with another use of the same handle.
  */
 void blst_middle_product_precomputed_b_free(
     blst_middle_product_precomputed_b* precomputed_b);

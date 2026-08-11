@@ -45,6 +45,13 @@ inline scalar::G2Point to_scalar(const G2Point& point)
 
 inline G1Point from_scalar(const scalar::G1Point& point)
 {
+    // Scalar infinity is the all-zero Jacobian value. MatrixNoK accepts any
+    // Z=0 representative in addition, but its multiplication kernels require
+    // the canonical (0, 1, 0) identity produced by G1Point::infinity().
+    if (scalar::G1Point::is_inf(point) != 0) {
+        return G1Point::infinity();
+    }
+
     const auto x = avx_curve_detail::scalar_fp_to_ring(point.x);
     const auto y = avx_curve_detail::scalar_fp_to_ring(point.y);
     const auto z = avx_curve_detail::scalar_fp_to_ring(point.z);
@@ -60,6 +67,10 @@ inline G1Point from_scalar(const scalar::G1Point& point)
 
 inline G2Point from_scalar(const scalar::G2Point& point)
 {
+    if (scalar::G2Point::is_inf(point) != 0) {
+        return G2Point::infinity();
+    }
+
     const auto x = avx_curve_detail::scalar_fp2_to_ring(point.x);
     const auto y = avx_curve_detail::scalar_fp2_to_ring(point.y);
     const auto z = avx_curve_detail::scalar_fp2_to_ring(point.z);

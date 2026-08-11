@@ -69,6 +69,27 @@ TEST(BackendAlias, TopLevelAliasesMatchConfig)
 #endif
 }
 
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+TEST(BackendAlias, ScalarInfinityBridgeProducesMultiplicationSafeAvxIdentity)
+{
+    const avx::G1Point g1 = avx::avx_map_to_G_detail::from_scalar(
+        scalar::G1Point::infinity());
+    const avx::G2Point g2 = avx::avx_map_to_G_detail::from_scalar(
+        scalar::G2Point::infinity());
+    const byte scalar_bytes[1] = {7};
+
+    avx::G1Point g1_product = {};
+    avx::G1Point::mult_vartime(g1_product, g1, scalar_bytes, 8);
+    EXPECT_TRUE(avx::G1Point::is_inf(g1));
+    EXPECT_TRUE(avx::G1Point::is_inf(g1_product));
+
+    avx::G2Point g2_product = {};
+    avx::G2Point::mult_vartime(g2_product, g2, scalar_bytes, 8);
+    EXPECT_TRUE(avx::G2Point::is_inf(g2));
+    EXPECT_TRUE(avx::G2Point::is_inf(g2_product));
+}
+#endif
+
 TEST(BackendAlias, TopLevelHashToCurveCompilesAndProducesSubgroupPoints)
 {
     static constexpr unsigned char msg[] = "top-level backend alias";

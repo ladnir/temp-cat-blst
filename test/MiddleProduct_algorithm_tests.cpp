@@ -2,7 +2,9 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <span>
+#include <stdexcept>
 #include <type_traits>
 #include <vector>
 
@@ -83,7 +85,7 @@ auto fft_precompute_for_context(
     if constexpr (std::is_same_v<Context, blst::MiddleProductScalarContext>) {
         return blst::precompute_middle_product_b_scalar(b, n, timings);
     } else {
-        return blst::precompute_middle_product_b(b, n, timings);
+        return blst::precompute_middle_product_b_avx(b, n, timings);
     }
 }
 
@@ -96,7 +98,7 @@ auto multipair_precompute_for_context(
     if constexpr (std::is_same_v<Context, blst::MiddleProductScalarContext>) {
         return blst::precompute_middle_product_b_multipair_scalar(b, n, timings);
     } else {
-        return blst::precompute_middle_product_b_multipair(b, n, timings);
+        return blst::precompute_middle_product_b_multipair_avx(b, n, timings);
     }
 }
 
@@ -109,7 +111,7 @@ void fft_middle_product_for_context(
     if constexpr (std::is_same_v<Context, blst::MiddleProductScalarContext>) {
         blst::middle_product_scalar(a, precomputed_b, out);
     } else {
-        blst::middle_product(a, precomputed_b, out);
+        blst::middle_product_avx(a, precomputed_b, out);
     }
 }
 
@@ -122,7 +124,7 @@ void multipair_middle_product_for_context(
     if constexpr (std::is_same_v<Context, blst::MiddleProductScalarContext>) {
         blst::middle_product_multipair_scalar(a, precomputed_b, out);
     } else {
-        blst::middle_product_multipair(a, precomputed_b, out);
+        blst::middle_product_multipair_avx(a, precomputed_b, out);
     }
 }
 
@@ -154,7 +156,7 @@ void multipair_update_for_context(
     if constexpr (std::is_same_v<Context, blst::MiddleProductScalarContext>) {
         blst::update_multipair_scalar(a0, precomputed_b, out);
     } else {
-        blst::update_multipair(a0, precomputed_b, out);
+        blst::update_multipair_avx(a0, precomputed_b, out);
     }
 }
 
@@ -292,6 +294,38 @@ void expect_multipair_update_and_combine_matches_full(
 }
 
 } // namespace
+
+TEST(MiddleProductSizing, RejectsUnsupportedLengthsWithoutOverflow)
+{
+    EXPECT_THROW(blst::middle_product_fft_size(0), std::invalid_argument);
+    EXPECT_EQ(
+        blst::middle_product_fft_size(blst::middle_product_max_n),
+        blst::middle_product_max_fft_size);
+    EXPECT_THROW(
+        blst::middle_product_fft_size(blst::middle_product_max_n + 1),
+        std::length_error);
+    EXPECT_THROW(
+        blst::middle_product_fft_size(std::numeric_limits<std::size_t>::max()),
+        std::length_error);
+}
+
+TEST(MiddleProductSizing, BasicOracleAndAdmissibleSizesAreChecked)
+{
+    constexpr std::size_t basic_max_n =
+        (blst::middle_product_max_fft_size + 1) / 3;
+
+    EXPECT_EQ(
+        blst::middle_product_basic_fft_size(basic_max_n),
+        blst::middle_product_max_fft_size);
+    EXPECT_THROW(
+        blst::middle_product_basic_fft_size(basic_max_n + 1),
+        std::length_error);
+    EXPECT_EQ(
+        blst::fft_admissible_size(std::numeric_limits<std::size_t>::max(), 1024),
+        1024);
+    EXPECT_THROW(blst::fft_admissible_size(1, 0), std::invalid_argument);
+    EXPECT_THROW(blst::fft_admissible_size(1, 3), std::invalid_argument);
+}
 
 TEST(MiddleProductMultipair, ScalarMatchesFft)
 {
