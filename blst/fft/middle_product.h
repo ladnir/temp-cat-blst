@@ -1572,7 +1572,55 @@ namespace blst {
 #endif
     }
 
-    inline constexpr std::size_t middle_product_auto_multipair_max_n = 24;
+    /**
+     * Benchmark-selected one-shot dispatch for the scalar backend.
+     *
+     * The FFT cost changes discontinuously when `2*n` crosses a power of two,
+     * so a single monotone cutoff is not representative. These ranges are the
+     * measured multipair winners on the supported Peach deployment CPU.
+     */
+    [[nodiscard]] inline constexpr bool middle_product_auto_uses_multipair_scalar(
+        std::size_t n) noexcept
+    {
+        if (n <= 32) {
+            return n <= 31;
+        }
+        if (n <= 64) {
+            return n <= 49;
+        }
+        if (n <= 128) {
+            return n <= 76;
+        }
+        return false;
+    }
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    /** Benchmark-selected one-shot dispatch for the native AVX backend. */
+    [[nodiscard]] inline constexpr bool middle_product_auto_uses_multipair_avx(
+        std::size_t n) noexcept
+    {
+        if (n <= 32) {
+            return n <= 31;
+        }
+        if (n <= 64) {
+            return n <= 50;
+        }
+        if (n <= 128) {
+            return n <= 76;
+        }
+        return false;
+    }
+#endif
+
+    [[nodiscard]] inline constexpr bool middle_product_auto_uses_multipair(
+        std::size_t n) noexcept
+    {
+#if BLST_DEFAULT_AVX
+        return middle_product_auto_uses_multipair_avx(n);
+#else
+        return middle_product_auto_uses_multipair_scalar(n);
+#endif
+    }
 
     inline void middle_product_scalar(
         std::span<const G1Point> a,
@@ -1659,7 +1707,7 @@ namespace blst {
             middle_product_multipair_scalar(a, b, out, timings);
             break;
         case MiddleProductAlgorithm::Auto:
-            if (a.size() <= middle_product_auto_multipair_max_n) {
+            if (middle_product_auto_uses_multipair_scalar(a.size())) {
                 middle_product_multipair_scalar(a, b, out, timings);
             } else {
                 middle_product_scalar(a, b, out, timings);
@@ -1686,7 +1734,7 @@ namespace blst {
             middle_product_multipair_avx(a, b, out, timings);
             break;
         case MiddleProductAlgorithm::Auto:
-            if (a.size() <= middle_product_auto_multipair_max_n) {
+            if (middle_product_auto_uses_multipair_avx(a.size())) {
                 middle_product_multipair_avx(a, b, out, timings);
             } else {
                 middle_product_avx(a, b, out, timings);
@@ -1713,7 +1761,7 @@ namespace blst {
             middle_product_multipair(a, b, out, timings);
             break;
         case MiddleProductAlgorithm::Auto:
-            if (a.size() <= middle_product_auto_multipair_max_n) {
+            if (middle_product_auto_uses_multipair(a.size())) {
                 middle_product_multipair(a, b, out, timings);
             } else {
                 middle_product(a, b, out, timings);

@@ -6,6 +6,7 @@
 #include <span>
 #include <stdexcept>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "blst/fft/middle_product.h"
@@ -203,8 +204,16 @@ void expect_auto_dispatch_uses_expected_algorithm(
     std::span<const G2Point> b)
 {
     const std::size_t n = a.size();
-    const MiddleProductAlgorithm expected_algorithm =
-        (n <= blst::middle_product_auto_multipair_max_n)
+    const bool use_multipair = [&] {
+        if constexpr (std::is_same_v<Context, MiddleProductScalarContext>) {
+            return blst::middle_product_auto_uses_multipair_scalar(n);
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+        } else {
+            return blst::middle_product_auto_uses_multipair_avx(n);
+#endif
+        }
+    }();
+    const MiddleProductAlgorithm expected_algorithm = use_multipair
         ? MiddleProductAlgorithm::Multipair
         : MiddleProductAlgorithm::Fft;
 
@@ -434,10 +443,7 @@ TEST(MiddleProductAlgorithm, ScalarMultipairMatchesExplicitMultipair)
 
 TEST(MiddleProductAlgorithm, ScalarAutoUsesExpectedAlgorithm)
 {
-    const std::vector<std::size_t> sizes = {
-        blst::middle_product_auto_multipair_max_n,
-        blst::middle_product_auto_multipair_max_n + 1,
-    };
+    const std::vector<std::size_t> sizes = { 3, 32 };
 
     for (std::size_t n : sizes) {
         const std::vector<G1Point> a = make_g1_data(n);
@@ -459,6 +465,29 @@ TEST(MiddleProductMultipair, AvxPortableMatchesFft)
         expect_multipair_matches_fft<blst::MiddleProductAvxContext>(
             std::span<const G1Point>(a),
             std::span<const G2Point>(b));
+    }
+}
+
+TEST(MiddleProductAlgorithm, ScalarAutoPolicyMatchesBenchmarkRanges)
+{
+    const std::pair<std::size_t, bool> cases[] = {
+        { 1, true },
+        { 31, true },
+        { 32, false },
+        { 33, true },
+        { 49, true },
+        { 50, false },
+        { 64, false },
+        { 65, true },
+        { 76, true },
+        { 77, false },
+        { 128, false },
+        { 129, false },
+    };
+
+    for (const auto& [n, expected] : cases) {
+        EXPECT_EQ(blst::middle_product_auto_uses_multipair_scalar(n), expected)
+            << "unexpected scalar Auto policy at n=" << n;
     }
 }
 
@@ -501,7 +530,7 @@ TEST(MiddleProductAlgorithm, AvxPortableFftMatchesExplicitFft)
     const std::vector<std::size_t> sizes = {
         3,
         16,
-        blst::middle_product_auto_multipair_max_n + 1,
+        32,
     };
 
     for (std::size_t n : sizes) {
@@ -519,7 +548,7 @@ TEST(MiddleProductAlgorithm, AvxPortableMultipairMatchesExplicitMultipair)
     const std::vector<std::size_t> sizes = {
         3,
         16,
-        blst::middle_product_auto_multipair_max_n,
+        24,
     };
 
     for (std::size_t n : sizes) {
@@ -534,10 +563,7 @@ TEST(MiddleProductAlgorithm, AvxPortableMultipairMatchesExplicitMultipair)
 
 TEST(MiddleProductAlgorithm, AvxPortableAutoUsesExpectedAlgorithm)
 {
-    const std::vector<std::size_t> sizes = {
-        blst::middle_product_auto_multipair_max_n,
-        blst::middle_product_auto_multipair_max_n + 1,
-    };
+    const std::vector<std::size_t> sizes = { 3, 32 };
 
     for (std::size_t n : sizes) {
         const std::vector<G1Point> a = make_g1_data(n);
@@ -545,6 +571,29 @@ TEST(MiddleProductAlgorithm, AvxPortableAutoUsesExpectedAlgorithm)
         expect_auto_dispatch_uses_expected_algorithm<blst::MiddleProductAvxContext>(
             std::span<const G1Point>(a),
             std::span<const G2Point>(b));
+    }
+}
+
+TEST(MiddleProductAlgorithm, AvxAutoPolicyMatchesBenchmarkRanges)
+{
+    const std::pair<std::size_t, bool> cases[] = {
+        { 1, true },
+        { 31, true },
+        { 32, false },
+        { 33, true },
+        { 50, true },
+        { 51, false },
+        { 64, false },
+        { 65, true },
+        { 76, true },
+        { 77, false },
+        { 128, false },
+        { 129, false },
+    };
+
+    for (const auto& [n, expected] : cases) {
+        EXPECT_EQ(blst::middle_product_auto_uses_multipair_avx(n), expected)
+            << "unexpected AVX Auto policy at n=" << n;
     }
 }
 #endif
