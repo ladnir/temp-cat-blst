@@ -25,6 +25,7 @@ import CatBLST.AVX.MatrixNoK.Fp2
 import CatBLST.AVX.MatrixNoK.Fp2SignedBoundary
 import CatBLST.AVX.MatrixNoK.Fp2Field
 import CatBLST.AVX.MatrixNoK.Fp12
+import CatBLST.AVX.MatrixNoK.Fp12Inverse
 import CatBLST.AVX.MatrixNoK.Fp12Raw
 import CatBLST.AVX.MatrixNoK.Fp12FrobeniusPhysical
 import CatBLST.AVX.MatrixNoK.Fp12CyclotomicPhysical

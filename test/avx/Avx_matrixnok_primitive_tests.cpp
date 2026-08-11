@@ -7,6 +7,7 @@
 #include "blst/avx/curve/matrixnok_g1.h"
 #include "blst/avx/curve/matrixnok_g2.h"
 #include "blst/avx/curve/point.h"
+#include "blst/avx/curve/GT.h"
 #include "blst/avx/pairing/matrixnok_pairing.h"
 #include "blst/common/bytes.h"
 #include "blst/fft/ctFft.h"
@@ -1834,6 +1835,51 @@ namespace blst::avx::test
         }
     }
 
+    TEST(AvxMatrixNoKPrimitives, Fp12InverseDecompositionMatchesScalar)
+    {
+        const matrixnok::FpRing ring;
+        const MatrixNoKFp12 fp12ring{};
+        const matrixnok::PairingInverter inverter{};
+        const auto values = matrixnok_scalar_values();
+
+        std::array<blst::Fp12, 4> inputs{};
+        inputs[0] = blst::Fp12::one();
+        for (std::size_t input = 1; input < inputs.size(); ++input) {
+            for (std::size_t coefficient = 0; coefficient < 12; ++coefficient) {
+                inputs[input][coefficient / 6]
+                    [(coefficient % 6) / 2][coefficient % 2] =
+                    values[(5 * coefficient + 3 * input) % values.size()];
+            }
+            // State the nonzero precondition independently of the fixture mix.
+            inputs[input][0][0][0] = blst::Fp::one();
+        }
+
+        for (std::size_t input = 0; input < inputs.size(); ++input) {
+            SCOPED_TRACE("input " + std::to_string(input));
+            const auto candidate = matrixnok_fp12_from_scalar(ring, inputs[input]);
+            const auto candidate_inverse =
+                inverter.invert(candidate, fp12ring, ring);
+
+            blst::Fp12 expected_inverse = {};
+            blst::Fp12::inverse(expected_inverse, inputs[input]);
+            expect_same_scalar_fp12(
+                matrixnok_fp12_to_scalar(ring, candidate_inverse),
+                expected_inverse);
+
+            const auto candidate_product = fp12ring.fp12_flat_mul(
+                candidate, candidate_inverse, ring);
+            expect_same_scalar_fp12(
+                matrixnok_fp12_to_scalar(ring, candidate_product),
+                blst::Fp12::one());
+
+            const auto candidate_round_trip =
+                inverter.invert(candidate_inverse, fp12ring, ring);
+            expect_same_scalar_fp12(
+                matrixnok_fp12_to_scalar(ring, candidate_round_trip),
+                inputs[input]);
+        }
+    }
+
     TEST(AvxMatrixNoKPrimitives, Fp12MapsAndGtExponentiationMatchScalar)
     {
         const matrixnok::FpRingCandidate ring;
@@ -2005,7 +2051,10 @@ namespace blst::avx::test
         const std::array<std::pair<std::size_t, std::size_t>, 4> cases = {{
             {0, 0}, {1, 0}, {0, 1}, {2, 2},
         }};
-        for (const auto [g1_index, g2_index] : cases) {
+        std::array<blst::avx::MillerResult, cases.size()> batch_inputs{};
+        std::array<blst::avx::GT, cases.size()> individual_outputs{};
+        for (std::size_t case_index = 0; case_index < cases.size(); ++case_index) {
+            const auto [g1_index, g2_index] = cases[case_index];
             SCOPED_TRACE(
                 "g1=" + std::to_string(g1_index) +
                 " g2=" + std::to_string(g2_index));
@@ -2018,6 +2067,9 @@ namespace blst::avx::test
                 candidate_g1, candidate_g2, ring);
             const auto candidate_miller =
                 miller.miller_loop(ring, fp2ring, fp12ring);
+            batch_inputs[case_index] = blst::avx::MillerResult(candidate_miller);
+            blst::avx::GT::final_exp(
+                individual_outputs[case_index], batch_inputs[case_index]);
             blst::Fp12 candidate_miller_final = {};
             blst::Fp12::final_exp(
                 candidate_miller_final,
@@ -2036,6 +2088,16 @@ namespace blst::avx::test
             expect_same_scalar_fp12(
                 matrixnok_fp12_to_scalar(ring, candidate_pairing),
                 expected.data);
+        }
+
+        std::array<blst::avx::GT, cases.size()> batch_outputs{};
+        blst::avx::GT::final_exp_n(
+            batch_outputs.data(), batch_inputs.data(), batch_inputs.size());
+        for (std::size_t case_index = 0; case_index < cases.size(); ++case_index) {
+            SCOPED_TRACE("batch case " + std::to_string(case_index));
+            expect_same_scalar_fp12(
+                matrixnok_fp12_to_scalar(ring, batch_outputs[case_index].data),
+                matrixnok_fp12_to_scalar(ring, individual_outputs[case_index].data));
         }
     }
 } // namespace blst::avx::test
