@@ -1,3 +1,13 @@
+/*
+ * Copyright Supranational LLC
+ * Copyright 2026 Simon Langowski
+ * Copyright 2026 Category Labs
+ * SPDX-License-Identifier: Apache-2.0 AND MIT
+ *
+ * CatBLST AVX target-group and pairing owner. The public group contracts and
+ * cubed pairing convention follow BLST. The RNS field, prepared-line, and
+ * Miller arithmetic is adapted from VROOM commits d6ecd534 and 26bd9aee.
+ */
 #pragma once
 
 #include "blst/avx/fields/conversion_inversion.h"
@@ -157,13 +167,19 @@ inline std::array<T, N> ctime_select_value(
 
 struct PreparedLine
 {
-    PairingFp2Element c = {};
-    PairingFp2LeftPrepared x = PairingFp2Element().prep_left(ring());
-    PairingFp2LeftPrepared y = PairingFp2Element().prep_left(ring());
+    // Default initialization is overwrite-before-read. Value initialization
+    // (`PreparedLine{}`) creates initialized zero carriers without reductions.
+    // Raw zero storage is not an encoded identity line: a producer must
+    // overwrite all three members before evaluation.
+    PairingFp2Element c;
+    PairingFp2LeftPrepared x;
+    PairingFp2LeftPrepared y;
 };
 
 struct alignas(64) PreparedLineTable
 {
+    // A default table is only overwrite-before-read storage. `precompute_lines`
+    // fills every entry, including the encoded pairing-identity table.
     PreparedLine lines[68];
 };
 
@@ -463,17 +479,20 @@ struct MillerResult
     constexpr MillerResult() = default;
     constexpr explicit MillerResult(const Field_type& value) : data(value) {}
 
+    /** Return the multiplicative identity in the pre-final Miller domain. */
     static constexpr MillerResult identity()
     {
         return MillerResult(avx_gt_detail::fp12_identity_value());
     }
 
+    /** Multiply two Miller-domain values. Exact output aliasing is supported. */
     static void mul(MillerResult& out, const MillerResult& a, const MillerResult& b)
     {
         out.data = avx_gt_detail::fp12ring().fp12_flat_mul(
             a.data, b.data, avx_gt_detail::ring());
     }
 
+    /** Apply Fp12 conjugation in place. */
     static void conjugate(MillerResult& value)
     {
         value.data = avx_gt_detail::fp12ring().fp12_flat_conjugate(
@@ -501,22 +520,26 @@ struct GT
     auto operator[](size_t idx) -> decltype(data[idx]) { return data[idx]; }
     auto operator[](size_t idx) const -> decltype(data[idx]) { return data[idx]; }
 
+    /** GT group addition, represented as Fp12 multiplication. */
     static void add(GT& out, const GT& a, const GT& b)
     {
         out.data = avx_gt_detail::fp12ring().fp12_flat_mul(a.data, b.data, avx_gt_detail::ring());
     }
 
+    /** Compatibility spelling for `add`; no mixed-addition precondition. */
     static void dadd(GT& out, const GT& a, const GT& b)
     {
         add(out, a, b);
     }
 
+    /** GT group subtraction, represented as multiplication by the conjugate. */
     static void sub(GT& out, const GT& a, const GT& b)
     {
         const auto b_inv = avx_gt_detail::fp12ring().fp12_flat_conjugate(b.data, avx_gt_detail::ring());
         out.data = avx_gt_detail::fp12ring().fp12_flat_mul(a.data, b_inv, avx_gt_detail::ring());
     }
 
+    /** GT group doubling. Exact output aliasing is supported. */
     static BLST_FORCEINLINE void doubling(GT& out, const GT& a)
     {
         // The public GT representation is standard. Internal callers that can
@@ -525,6 +548,7 @@ struct GT
         add(out, a, a);
     }
 
+    /** Replace `out` with `[2^n](out + a)`. `n` is public. */
     static void add_n_dbl(GT& out, const GT& a, size_t n)
     {
         add(out, out, a);
@@ -534,9 +558,11 @@ struct GT
     }
 
     /// Constant-time GT scalar multiplication for canonical scalars at fixed
-    /// public nbits. Noncanonical inputs are accepted modulo r, but timing may
-    /// reveal that reduction was required. The input must already lie in GT;
-    /// Release does not validate it. Exact out/a aliasing is supported.
+    /// public nbits. `scalar` points to `ceil(nbits/8)` readable little-endian
+    /// bytes and may be null only when nbits is zero. Noncanonical inputs are
+    /// accepted modulo r, but timing may reveal that reduction was required.
+    /// The input must already lie in GT; Release does not validate it. Exact
+    /// out/a aliasing is supported.
     static void mult(GT& out, const GT& a, const byte* scalar, size_t nbits)
     {
         BLST_ASSERT(nbits <= 256);
@@ -548,9 +574,11 @@ struct GT
         blst::vec_zero(words.data(), sizeof(words));
     }
 
-    /// Optimized variable-time GT multiplication for public scalars only. The
-    /// input must already lie in GT; Release does not validate it. Exact out/a
-    /// aliasing is supported.
+    /// Optimized variable-time GT multiplication for public scalars only.
+    /// `scalar` points to `ceil(nbits/8)` readable little-endian bytes and may
+    /// be null only when nbits is zero. Inputs are accepted modulo r. The group
+    /// operand must already lie in GT; Release does not validate it. Exact
+    /// out/a aliasing is supported.
     static void mult_vartime(GT& out, const GT& a, const byte* scalar, size_t nbits)
     {
         BLST_ASSERT(nbits <= 256);
@@ -560,11 +588,9 @@ struct GT
         if (nbits > 128 && nbits <= 256) {
             out.data = avx_cyclotomic_exp_glv4_unsigned_vartime(
                 a.data, words.data(), avx_gt_detail::fp12ring(), avx_gt_detail::ring());
-            blst::vec_zero(words.data(), sizeof(words));
             return;
         }
         out.data = avx_cyclotomic_exp_basic(a.data, words.data(), avx_gt_detail::fp12ring(), avx_gt_detail::ring());
-        blst::vec_zero(words.data(), sizeof(words));
     }
 
     /** Constant-time conditional negation. cbit must be zero or one. */
@@ -577,24 +603,30 @@ struct GT
         }
     }
 
+    /** GT negation. `out` may exactly alias `p`. */
     static void neg(GT& out, const GT& p)
     {
         out.data = avx_gt_detail::fp12ring().fp12_flat_conjugate(p.data, avx_gt_detail::ring());
     }
 
+    /** Constant-time conditional swap. `cbit` must be zero or one. */
     static void cswap(GT& a, GT& b, bool_t cbit)
     {
+        BLST_ASSERT(cbit <= 1);
         const GT aa = a;
         const GT bb = b;
         a.data = avx_gt_detail::ctime_select_value(cbit, bb.data, aa.data);
         b.data = avx_gt_detail::ctime_select_value(cbit, aa.data, bb.data);
     }
 
+    /** Constant-time conditional copy. `cbit` must be zero or one. */
     static void ccopy(GT& a, const GT& b, bool_t cbit)
     {
+        BLST_ASSERT(cbit <= 1);
         a.data = avx_gt_detail::ctime_select_value(cbit, b.data, a.data);
     }
 
+    /** Return one exactly when `a` and `b` represent the same GT element. */
     static limb_t equal(const GT& a, const GT& b)
     {
         return blst::scalar::GT::equal(
@@ -602,33 +634,48 @@ struct GT
             blst::scalar::GT(avx_gt_detail::to_scalar(b.data)));
     }
 
+    /** Return the canonical generator of the prime-order target group. */
     static const GT& generator();
 
+    /** Return the multiplicative identity of GT. */
     static constexpr GT identity()
     {
         return GT(avx_gt_detail::fp12_identity_value());
     }
 
+    /** Return one exactly when `p` is the canonical GT identity. */
     static int is_identity(const GT& p)
     {
         return equal(p, identity());
     }
 
+    /** Perform a complete prime-order target-group membership check. */
     static bool_t in_group(const GT& p)
     {
         return blst::scalar::GT::in_group(blst::scalar::GT(avx_gt_detail::to_scalar(p.data)));
     }
 
+    /** Check the wider cyclotomic relation; this does not establish GT. */
     static bool_t is_cyclotomic(const GT& p)
     {
         return blst::scalar::GT::is_cyclotomic(blst::scalar::GT(avx_gt_detail::to_scalar(p.data)));
     }
 
+    /**
+     * Serialize a GT element as twelve canonical big-endian 48-byte field
+     * coefficients. `serialized` points to 576 writable bytes.
+     */
     static void serialize(unsigned char serialized[12 * 48], const GT& p)
     {
         blst::scalar::GT::serialize(serialized, blst::scalar::GT(avx_gt_detail::to_scalar(p.data)));
     }
 
+    /**
+     * Decode twelve canonical big-endian field coefficients and require GT
+     * membership. `serialized` points to 576 readable bytes. Failure leaves
+     * `out` unchanged; input bytes may overlap `out`. Membership validation is
+     * variable-time with respect to this public input.
+     */
     [[nodiscard]] static bool deserialize(
         GT& out, const unsigned char serialized[12 * 48])
     {
@@ -639,6 +686,13 @@ struct GT
         return true;
     }
 
+    /**
+     * Decode twelve canonical big-endian field coefficients without a GT
+     * membership check. `serialized` points to 576 readable bytes. On success
+     * `out` is only a general Fp12 value; combine candidates through the Fp12
+     * API and establish membership before any ordinary GT operation. Failure
+     * leaves `out` unchanged; input bytes may overlap `out`.
+     */
     [[nodiscard]] static bool deserialize_unchecked(
         GT& out, const unsigned char serialized[12 * 48])
     {
@@ -649,7 +703,10 @@ struct GT
         return true;
     }
 
-    /** Map a valid nonzero Miller result into GT. */
+    /**
+     * Map a valid nonzero Miller result into GT using variable-time inversion.
+     * `out` and `f` must not overlap. No allocation is performed.
+     */
     static void final_exp(GT& out, const MillerResult& f)
     {
         matrixnok::PairingInverter inverter;
@@ -657,6 +714,13 @@ struct GT
             f.data, inverter, avx_gt_detail::fp12ring(), avx_gt_detail::ring());
     }
 
+    /**
+     * Batch-map `n` valid nonzero Miller results into GT. The arrays contain at
+     * least `n` elements and must not overlap. Zero is a successful no-op.
+     * This variable-time operation allocates six `n`-element work buffers and
+     * may throw `std::bad_alloc`; it publishes no output before allocation and
+     * inversion preparation complete.
+     */
     static void final_exp_n(GT out[], const MillerResult in[], size_t n)
     {
         if (n == 0 || out == nullptr || in == nullptr) {
@@ -715,8 +779,11 @@ struct GT
      * prime-order subgroup points; infinity is accepted as the subgroup
      * identity. No Release validation is performed. Outputs are MillerResult,
      * never GT, until passed through `final_exp`. The pointer-array overload
-     * uses the compact continuation convention documented by the C API.
+     * uses the compact continuation convention documented by the C API. These
+     * operations are allocation-free and variable-time with respect to affine
+     * infinity observations and public batch shape.
      */
+    /** A null Q or P selects that group's canonical generator. */
     static void miller_loop(MillerResult& ret, const G2AffinePoint* Q, const G1AffinePoint* P)
     {
         const G2AffinePoint& q = Q ? *Q : G2AffinePoint::generator();
@@ -738,6 +805,10 @@ struct GT
             avx_gt_detail::fp12ring());
     }
 
+    /**
+     * Multiply `n` pairings from contiguous arrays. For nonzero `n`, both
+     * arrays contain at least `n` elements. Infinity pairs contribute identity.
+     */
     static void miller_loop_n(
         MillerResult& out,
         const G2AffinePoint Q[],
@@ -787,6 +858,11 @@ struct GT
         }
     }
 
+    /**
+     * Multiply `n` pairings from compact pointer arrays. The first pointer in
+     * each array is nonnull; a later null pointer advances one element from the
+     * previous resolved pointer. Infinity pairs contribute identity.
+     */
     static void miller_loop_n(
         MillerResult& out,
         const G2AffinePoint* const Qs[],
@@ -853,6 +929,10 @@ struct GT
         flush_batch();
     }
 
+    /**
+     * Fill all 68 native prepared lines for a subgroup G2 point. G2 infinity
+     * produces the encoded identity table. Every output entry is overwritten.
+     */
     static void precompute_lines(PreparedLine Qlines[68], const G2AffinePoint& Q)
     {
         if (G2AffinePoint::is_inf(Q)) {
@@ -876,6 +956,10 @@ struct GT
         avx_gt_detail::pre_add_n_dbl(&Qlines[51], t, Q, 16);
     }
 
+    /**
+     * Fill the scalar compatibility table for a subgroup G2 point. G2
+     * infinity produces the encoded identity table.
+     */
     static void precompute_lines(blst::scalar::Fp6 Qlines[68], const G2AffinePoint& Q)
     {
         blst::scalar::G2AffinePoint scalar_q = {};
@@ -884,6 +968,10 @@ struct GT
         blst::scalar::GT::precompute_lines(Qlines, scalar_q);
     }
 
+    /**
+     * Evaluate a complete native line table at a subgroup G1 point. G1
+     * infinity returns the Miller identity. `Qlines` and `ret` do not overlap.
+     */
     static void miller_loop_lines(
         MillerResult& ret,
         const PreparedLine Qlines[68],
@@ -915,6 +1003,12 @@ struct GT
         ret.data = avx_gt_detail::fp12ring().fp12_flat_conjugate(ret.data, avx_gt_detail::ring());
     }
 
+    /**
+     * Multiply prepared pairings from compact line-table and G1 pointer arrays.
+     * The first pointer in each array is nonnull; a later null line pointer
+     * advances by 68 lines and a later null point pointer advances by one point.
+     * G1 infinity contributes identity. This operation is allocation-free.
+     */
     static void miller_loop_lines_n(
         MillerResult& out,
         const PreparedLine* const Qlines[],
@@ -963,6 +1057,11 @@ struct GT
         flush_batch();
     }
 
+    /**
+     * Internal branch-free batch evaluator. Every line pointer is nonnull and
+     * references 68 initialized entries; `P` contains `n` finite subgroup G1
+     * points. Callers own filtering and batching. No allocation is performed.
+     */
     static void miller_loop_lines_n_preprocessed(
         MillerResult& out,
         const PreparedLine* const Qlines[],
@@ -988,6 +1087,7 @@ struct GT
         out.data = avx_gt_detail::fp12ring().fp12_flat_conjugate(out.data, avx_gt_detail::ring());
     }
 
+    /** Evaluate a scalar compatibility line table at a subgroup G1 point. */
     static void miller_loop_lines(
         MillerResult& ret,
         const blst::scalar::Fp6 Qlines[68],
@@ -1002,20 +1102,28 @@ struct GT
         ret.data = avx_gt_detail::from_scalar(scalar_ret.data);
     }
 
+    /** Multiply a GT element by the fixed signed BLS parameter z. */
     static void mult_by_z(GT& out, const GT& a)
     {
         out.data = avx_gt_detail::narrow_to_standard(
             raise_to_z(a.data, avx_gt_detail::fp12ring(), avx_gt_detail::ring()));
     }
 
+    /** Multiply a GT element by the exact fixed exponent z/2. */
     static void mult_by_z_div_by_2(GT& out, const GT& a)
     {
         out.data = avx_gt_detail::narrow_to_standard(
             raise_to_z_div_by_2(a.data, avx_gt_detail::fp12ring(), avx_gt_detail::ring()));
     }
 
+    /**
+     * Apply Frobenius power `n`, where `n` is one, two, or three. The input
+     * must lie in GT; Release does not validate the domain or exponent. Exact
+     * output aliasing is supported.
+     */
     static void frobenius_map(GT& out, const GT& a, size_t n)
     {
+        BLST_ASSERT(n >= 1 && n <= 3);
         switch (n) {
         case 1:
             out.data = avx_gt_detail::fp12ring().fp12_flat_frobenius_map1(a.data, avx_gt_detail::ring());
@@ -1031,6 +1139,7 @@ struct GT
         }
     }
 
+    /** Negate a GT element in place through Fp12 conjugation. */
     static void conjugate(GT& a)
     {
         a.data = avx_gt_detail::fp12ring().fp12_flat_conjugate(a.data, avx_gt_detail::ring());

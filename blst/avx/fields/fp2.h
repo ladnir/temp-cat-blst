@@ -133,6 +133,10 @@ class FP2N {
     minusY minus_y_;
 
     public:
+    // Default initialization is overwrite-before-read. Value initialization
+    // (`FP2N{}`) zero-initializes the selected trivial coordinate carriers.
+    BLST_FORCEINLINE FP2N() = default;
+
     BLST_FORCEINLINE FP2N(const X &x, const Y &y, const minusY &minus_y) : x_(x), y_(y), minus_y_(minus_y) {}
 
     template<class OtherX, class OtherY, class OtherMinusY>

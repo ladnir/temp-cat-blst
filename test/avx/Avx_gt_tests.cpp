@@ -162,6 +162,40 @@ TEST(AvxGt, PreparedLinesPreservePairingIdentityAndCompactBatching)
     EXPECT_TRUE(avx_miller_equal(batched, expected));
 }
 
+TEST(AvxGt, PreparedLineValueInitializationUsesZeroCarriers)
+{
+    const blst::avx::PreparedLine line = {};
+    EXPECT_EQ(line.c.is_zero(), 1U);
+    EXPECT_EQ(line.x.to_fp2().is_zero(), 1U);
+    EXPECT_EQ(line.y.to_fp2().is_zero(), 1U);
+}
+
+#if !defined(NDEBUG) && GTEST_HAS_DEATH_TEST
+TEST(AvxGt, RejectsInvalidConditionalBitsAndFrobeniusPowersInDebug)
+{
+    const blst::avx::GT identity = blst::avx::GT::identity();
+    EXPECT_DEATH(
+        {
+            blst::avx::GT left = identity;
+            blst::avx::GT right = identity;
+            blst::avx::GT::cswap(left, right, 2);
+        },
+        "");
+    EXPECT_DEATH(
+        {
+            blst::avx::GT out = identity;
+            blst::avx::GT::ccopy(out, identity, 2);
+        },
+        "");
+    EXPECT_DEATH(
+        {
+            blst::avx::GT out = {};
+            blst::avx::GT::frobenius_map(out, identity, 0);
+        },
+        "");
+}
+#endif
+
 TEST(AvxGt, MultByZMatchesScalar)
 {
     const blst::scalar::GT scalar_base = scalar_gt_base();
@@ -236,5 +270,21 @@ TEST(AvxGt, FullWidthScalarsMatchScalarBasicExponentiation)
         blst::avx::GT actual = {};
         blst::avx::GT::mult(actual, avx_base, scalar_bytes, 256);
         expect_same(expected, actual);
+
+        blst::avx::GT actual_vartime = {};
+        blst::avx::GT::mult_vartime(actual_vartime, avx_base, scalar_bytes, 256);
+        expect_same(expected, actual_vartime);
     }
+
+    const std::array<unsigned char, 16> scalar_128 = {
+        0x6d, 0xb4, 0x23, 0x91, 0xe5, 0x77, 0xa2, 0x0c,
+        0x3f, 0x18, 0xc8, 0x44, 0x9a, 0x52, 0x01, 0xd7,
+    };
+    blst::scalar::GT expected_128 = {};
+    blst::scalar::Fp12::cyclotomic_exp_basic(
+        expected_128.data, scalar_base.data, scalar_128.data(), 128);
+    blst::avx::GT actual_128 = {};
+    blst::avx::GT::mult_vartime(
+        actual_128, avx_base, scalar_128.data(), 128);
+    expect_same(expected_128, actual_128);
 }

@@ -5,11 +5,13 @@
 #include "blst/avx/fields/matrixnok_fp12.h"
 #include "blst/avx/fields/conversion_inversion.h"
 #include "blst/avx/fields/final_exponentiation.h"
+#include "blst/avx/curve/GT.h"
 #include "blst/avx/curve/matrixnok_g1.h"
 #include "blst/avx/curve/matrixnok_g2.h"
 #include "blst/avx/gt/glv4.h"
 
 #include <cstdint>
+#include <memory>
 
 #if defined(_MSC_VER)
 #define AUDIT_NOINLINE __declspec(noinline)
@@ -28,6 +30,12 @@ using blst::avx::BoundedElement;
 using blst::avx::Bounds;
 using blst::avx::ShortVector;
 using blst::avx::uint128_t;
+
+extern "C" AUDIT_NOINLINE void audit_avx_prepared_line_table_value_init(
+    blst::avx::PreparedLineTable* out)
+{
+    std::construct_at(out);
+}
 
 extern "C" AUDIT_NOINLINE void audit_avx_uint128_mul(
     uint128_t* out, uint64_t left, uint64_t right)
