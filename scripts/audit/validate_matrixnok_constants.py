@@ -290,6 +290,21 @@ def validate_constants(s: dict[str, int], a: dict[str, list[int]]) -> None:
     require(s["total_rotation"] * s["total_inv_rotation"] % combined == 1, "rotation inverse is invalid")
     require(s["inv_factor_target"] == pow(m1, -1, p), "target inverse factor is invalid")
 
+    # VROOM's BLS12-381 schedule tracks p-multiples in [-1932, 2377].
+    # Completion adds 1932*p, so the complete interval is [0, 4309].
+    # Its wide redundant encoding must fit strictly inside M1*M2.
+    min_tracked_rns = -1932
+    max_tracked_rns = 2377
+    completion_offset = -min_tracked_rns
+    max_completed_rns = max_tracked_rns - min_tracked_rns
+    base_redundant_multiple = 40
+    require(completion_offset == 1932, "negative RNS completion offset changed")
+    require(max_completed_rns == 4309, "completed RNS range changed")
+    require(
+        max_completed_rns * base_redundant_multiple**2 * p**2 < combined,
+        "completed wide RNS range exceeds M1*M2",
+    )
+
     def exact_montgomery(value: int, *, wide: bool = False) -> tuple[list[int], list[int]]:
         redundance = value // p
         encoded = value * m1 % p
@@ -308,7 +323,7 @@ def validate_constants(s: dict[str, int], a: dict[str, list[int]]) -> None:
         ("one", 1, False),
         ("modulus_in_rns", 40 * p, False),
         ("six_modulus_in_rns", 6 * 40 * p, False),
-        ("max_neg_offset", 1932 * 40 * 40 * p * p, True),
+        ("max_neg_offset", completion_offset * base_redundant_multiple**2 * p * p, True),
     )
     for name, value, wide in fixed_values:
         expected_m1, expected_m2 = exact_montgomery(value, wide=wide)

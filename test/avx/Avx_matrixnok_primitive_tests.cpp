@@ -819,7 +819,9 @@ namespace blst::avx::test
                 AVXVector<8>(matrixnok_constants::modulus_in_rns_m2))};
 
         const G1Point g1 = G1Point::generator();
-        const auto scale = ring.from_hex("0x2");
+        blst::Fp canonical_two = {};
+        canonical_two.l[0] = 2;
+        const auto scale = ring.from_canonical_limbs(canonical_two);
         const G1Point scaled_g1{
             ring.modmul(g1.X, scale),
             ring.modmul(g1.Y, scale),
@@ -1201,7 +1203,7 @@ namespace blst::avx::test
     {
         const matrixnok::FpRingCandidate ring;
         const matrixnok::G1CurveCandidate curve;
-        const matrixnok::G1GLVCandidate glv(curve, ring);
+        const auto& glv = avx_curve_detail::curve_g1_glv();
         const auto generator = blst::scalar::G1Point::generator();
         blst::scalar::G1Point doubled = {};
         blst::scalar::G1Point::doubling(doubled, generator);
@@ -1470,7 +1472,7 @@ namespace blst::avx::test
         const matrixnok::FpRingCandidate ring;
         const matrixnok::G2Fp2RingCandidate fp2ring(ring);
         const matrixnok::G2CurveCandidate curve;
-        const matrixnok::G2GLSCandidate gls(ring);
+        const auto& gls = avx_curve_detail::curve_g2_gls();
         const auto generator = blst::scalar::G2Point::generator();
         blst::scalar::G2Point doubled = {};
         blst::scalar::G2Point::doubling(doubled, generator);
@@ -1540,7 +1542,8 @@ namespace blst::avx::test
     {
         inline static const matrixnok::FpRingCandidate ring = {};
         inline static const matrixnok::G1CurveCandidate curve = {};
-        inline static const matrixnok::G1GLVCandidate glv = {curve, ring};
+        inline static const matrixnok::G1GLVCandidate& glv =
+            avx_curve_detail::kCurveG1Glv;
 
         static matrixnok::G1ProjectiveCandidate plus(
             const matrixnok::G1ProjectiveCandidate& left,

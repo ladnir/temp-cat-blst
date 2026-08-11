@@ -629,7 +629,9 @@ TEST(AvxNativePointContract, EqualityHandlesEveryInfinityRepresentation)
         blst::avx::avx_curve_detail::CurveRing::StandardResidue(
             blst::avx::AVXVector<8>(
                 blst::avx::matrixnok::generated::modulus_in_rns_m2))};
-    const auto scale = ring.from_hex("0x2");
+    blst::Fp canonical_two = {};
+    canonical_two.l[0] = 2;
+    const auto scale = ring.from_canonical_limbs(canonical_two);
     const AvxG1 g1 = AvxG1::generator();
     const AvxG1 scaled_g1 = {
         ring.modmul(g1.X, scale),

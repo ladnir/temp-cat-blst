@@ -313,10 +313,6 @@ class GLVMult {
     typename Ring::StandardElement beta;
     G1Curve curve;
 
-    GLVMult(const G1Curve &curve, const Ring &ring) : curve(curve) {
-        beta = ring.from_hex("0x5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffefffe");
-    }
-
     constexpr GLVMult(
         const G1Curve& curve,
         const typename Ring::StandardElement& beta_value) noexcept
@@ -433,12 +429,6 @@ class GLSMult {
     typename Ring::StandardElement psi_x_i;
     typename Ring::StandardElement psi_y_r;
     typename Ring::StandardElement psi_y_i;
-
-    GLSMult(const Ring &ring) {
-        psi_x_i = ring.from_hex("0x1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaad");
-        psi_y_r = ring.from_hex("0x135203e60180a68ee2e9c448d77a2cd91c3dedd930b1cf60ef396489f61eb45e304466cf3e67fa0af1ee7b04121bdea2");
-        psi_y_i = ring.from_hex("0x06af0e0437ff400b6831e36d6bd17ffe48395dabc2d3435e77f76e17009241c5ee67992f72ec05f4c81084fbede3cc09");
-    }
 
     constexpr GLSMult(
         const typename Ring::StandardElement& psi_x_i_value,

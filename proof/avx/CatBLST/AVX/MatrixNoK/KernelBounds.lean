@@ -37,6 +37,44 @@ def reducerReboundedHighBound : Nat :=
   (delayedCombinedTypeBound + 3) / 4
 def reducerOutputBound : Nat := reducerReboundedHighBound + 1
 
+/-!
+## Completed RNS range
+
+VROOM's BLS12-381 schedule tracks represented multiples of `p` in
+`[-1932, 2377]`.  The C++ completion step adds `1932 * p` whenever the lower
+bound is negative, translating the complete reviewed interval to `[0, 4309]`.
+The final theorem below restates VROOM's conservative two-basis capacity
+check for the specialized CatBLST constants.
+-/
+
+def minTrackedRnsMultiple : Int := -1932
+def maxTrackedRnsMultiple : Int := 2377
+def negativeCompletionMultiple : Int := -minTrackedRnsMultiple
+def maxCompletedRnsMultiple : Int :=
+  maxTrackedRnsMultiple - minTrackedRnsMultiple
+def baseRedundantMultiple : Nat := 40
+def wideRedundantMultiple : Nat :=
+  baseRedundantMultiple * baseRedundantMultiple
+def rnsBits : Nat := 50 * 8 - 1
+
+theorem completed_rns_range_values :
+    negativeCompletionMultiple = 1932 ∧
+    maxCompletedRnsMultiple = 4309 ∧
+    wideRedundantMultiple = 1600 ∧
+    rnsBits = 399 := by
+  norm_num [negativeCompletionMultiple, minTrackedRnsMultiple,
+    maxCompletedRnsMultiple, maxTrackedRnsMultiple,
+    wideRedundantMultiple, baseRedundantMultiple, rnsBits]
+
+/-- The entire completed range, including its wide redundant encoding, fits
+strictly inside the exact product of the two generated RNS bases. -/
+theorem completed_rns_range_fits_combined_bases :
+    (4309 : Nat) * wideRedundantMultiple *
+        Generated.target_modulus * Generated.target_modulus <
+      Generated.M1 * Generated.M2 := by
+  norm_num [wideRedundantMultiple, baseRedundantMultiple,
+    Generated.target_modulus, Generated.M1, Generated.M2]
+
 theorem selected_bound_values :
     multiplicationProductBound = 4 ∧
     r1ExactAccumulationBound = 16 ∧

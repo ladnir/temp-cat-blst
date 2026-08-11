@@ -11,7 +11,6 @@
 #include "matrixnok_change_base.h"
 #include "matrixnok_fixed.h"
 #include "ring_element.h"
-#include "../../common/bytes.h"
 #include "../../fields/Fp.h"
 
 #include <array>
@@ -38,9 +37,23 @@ namespace blst::avx::matrixnok
         static constexpr int element_bits = 50;
         static constexpr int standard_bound = 2;
         static constexpr int64_t max_add = 800;
-        static constexpr int64_t max_rns_multiple = 4309;
-        static constexpr int64_t max_negative_rns = 1932;
+        // VROOM's BLS12-381 bound ledger admits represented multiples in
+        // [-1932, 2377]. Negative-range completion adds 1932*p, translating
+        // that interval to [0, 4309] without changing the field value.
+        static constexpr int64_t min_tracked_rns_multiple = -1932;
+        static constexpr int64_t max_tracked_rns_multiple = 2377;
+        static constexpr int64_t max_negative_rns =
+            -min_tracked_rns_multiple;
+        static constexpr int64_t max_rns_multiple =
+            max_tracked_rns_multiple - min_tracked_rns_multiple;
         static constexpr int64_t base_redundant_multiple = 40;
+        static constexpr int modulus_bits = 381;
+        static constexpr int rns_bits = element_bits * limbs - 1;
+        static constexpr int64_t wide_redundant_multiple =
+            base_redundant_multiple * base_redundant_multiple;
+        static constexpr int combined_rns_multiple_bits = static_cast<int>(
+            blst::log2ceil(static_cast<uint64_t>(
+                max_rns_multiple * wide_redundant_multiple)));
         static constexpr int multiply_product_bound =
             standard_bound * standard_bound;
         static constexpr int r1_accumulation_bound =
@@ -58,6 +71,12 @@ namespace blst::avx::matrixnok
         static_assert(r1_accumulation_bound == 16);
         static_assert(delayed_r1_type_bound == 32);
         static_assert(multiply_combined_bound == 20);
+        static_assert(max_negative_rns == 1932);
+        static_assert(max_rns_multiple == 4309);
+        static_assert(combined_rns_multiple_bits == 23);
+        static_assert(
+            combined_rns_multiple_bits + 2 * modulus_bits <= 2 * rns_bits,
+            "tracked MatrixNoK range must fit in the combined RNS bases");
         static_assert(multiply_combined_bound < base_redundant_multiple);
 
         static constexpr uint64_t MULT_OK_BOUND = uint64_t{1} << (52 - element_bits);
@@ -105,6 +124,7 @@ namespace blst::avx::matrixnok
         static BLST_FORCEINLINE std::array<StandardResidue, batch> expand_m2_batch(
             const std::array<StandardResidue, batch>& m2)
         {
+            static_assert(batch > 0);
             std::array<AVXVector<limbs>, batch> residues;
             std::array<AVXVector<limbs>, batch> high{};
             std::array<AVXVector<limbs>, batch> low{};
@@ -215,24 +235,6 @@ namespace blst::avx::matrixnok
         {
             blst::Fp canonical = {};
             blst::Fp::from_mont(canonical, montgomery);
-            return from_canonical_limbs(canonical);
-        }
-
-        template<int bytes>
-        static BLST_FORCEINLINE Element from_hex(const char (&literal)[bytes])
-        {
-            const char* hex = literal;
-            if constexpr (bytes >= 3) {
-                if (literal[0] == '0' &&
-                    (literal[1] == 'x' || literal[1] == 'X')) {
-                    hex += 2;
-                }
-            }
-            blst::Fp canonical = {};
-            const bool parsed = blst::limbs_from_hexascii(
-                canonical.l, sizeof(canonical), hex);
-            BLST_ASSERT(parsed);
-            (void)parsed;
             return from_canonical_limbs(canonical);
         }
 
@@ -400,6 +402,10 @@ namespace blst::avx::matrixnok
         static BLST_FORCEINLINE Element from_canonical_50bit_digits(
             const std::array<uint64_t, limbs>& digits)
         {
+            // Narrow contract: each lane is a radix-2^50 digit and the
+            // reconstructed ordinary integer is in [0, p). The checks below
+            // are Debug evidence only; production constants and conversions
+            // establish this precondition before entering the hot path.
 #ifndef NDEBUG
             constexpr uint64_t mask = (uint64_t{1} << element_bits) - 1;
             blst::Fp canonical = {};
@@ -483,6 +489,9 @@ namespace blst::avx::matrixnok
             const SmallElement<ElementType, RNSBoundsType>& element)
         {
             if constexpr (RNSBoundsType::lower < 0) {
+                static_assert(
+                    RNSBoundsType::lower >= min_tracked_rns_multiple,
+                    "MatrixNoK negative RNS bound exceeds the reviewed range");
                 constexpr int offset_shift = static_cast<int>(
                     blst::log2ceil(static_cast<uint64_t>(-RNSBoundsType::lower)));
                 const auto modulus = SmallElement<
@@ -515,7 +524,7 @@ namespace blst::avx::matrixnok
         {
             return ExpandedElement<
                 StandardResidue,
-                std::remove_cv_t<decltype(small.rns_bounds)>>(expanded, small);
+                typename Small::rns_bounds_type>(expanded, small);
         }
 
         template<class... Args, std::size_t... indices>
@@ -745,11 +754,15 @@ namespace blst::avx::matrixnok
 
         static BLST_FORCEINLINE void convert_from_raw(
             const Element& value,
-            AVXVector<8>& out_high,
-            AVXVector<8>& out_low)
+            AVXVector<limbs>& out_high,
+            AVXVector<limbs>& out_low)
         {
-            out_high = AVXVector<8>(0);
-            out_low = AVXVector<8>(0);
+            // The three vector objects must be distinct. The outputs are the
+            // raw high/low radix-2^52 accumulators consumed by `from_vec`, not
+            // independently reduced field or RNS values. FixedRNSMatrix
+            // asserts the disjointness contract in Debug.
+            out_high = AVXVector<limbs>(0);
+            out_low = AVXVector<limbs>(0);
             detail::ConvertFromMatrix::reduce_raw(value.m2.data, out_high, out_low);
         }
 

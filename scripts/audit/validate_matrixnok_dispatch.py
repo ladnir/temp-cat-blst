@@ -106,12 +106,30 @@ def main() -> int:
 
     require_fragments(avx / "rns" / "matrixnok_fp.h", (
         "using FpRing = FpRingCandidate;",
+        "static constexpr int64_t min_tracked_rns_multiple = -1932;",
+        "static constexpr int64_t max_tracked_rns_multiple = 2377;",
+        "max_tracked_rns_multiple - min_tracked_rns_multiple;",
+        "combined_rns_multiple_bits + 2 * modulus_bits <= 2 * rns_bits",
+        "RNSBoundsType::lower >= min_tracked_rns_multiple",
+        "typename Small::rns_bounds_type",
+        "AVXVector<limbs>& out_high",
+        "The three vector objects must be distinct.",
+        "raw high/low radix-2^52 accumulators consumed by `from_vec`",
         "return multiply(left, right);",
         "return multiply_batch(left, right);",
     ))
     forbid_fragments(avx / "rns" / "matrixnok_fp.h", (
+        '#include "../../common/bytes.h"',
+        "from_hex(",
+        "std::remove_cv_t<decltype(small.rns_bounds)>",
+        "AVXVector<8>& out_high",
         "return batch_reduce_expand(left * right)[0];",
         "products[index] = ready<MAX_ADD>(left[index] * right[index]);",
+    ))
+    forbid_fragments(avx / "curve" / "scalar_mult.h", (
+        'ring.from_hex(',
+        'GLVMult(const G1Curve &curve, const Ring &ring)',
+        'GLSMult(const Ring &ring)',
     ))
     require_fragments(avx / "fields" / "matrixnok_fp12.h", (
         "using Fp12Ring = Fp12RingCandidate;",
