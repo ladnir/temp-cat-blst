@@ -60,19 +60,17 @@ class Bounds {
         return Bounds<(int64_t)min_val, (int64_t)max_val>{};
     }
 
-    // Unary negation: -[a, b] = [-b, -a]
-    constexpr auto operator-() const {
-        return Bounds<(-upper), (-lower)>{};
-    }
-
     template<int64_t left_shift>
     constexpr auto shift_left() const {
         static_assert(left_shift >= 0, "Left shift must be non-negative");
-        // Use multiplication by power of 2 instead of bit shift to avoid undefined behavior
-        // with negative numbers. Shifting negative numbers left is undefined in C++.
-        constexpr int64_t multiplier = static_cast<int64_t>(1) << left_shift;
-        constexpr int128_t new_lower = (int128_t)(lower) * (int128_t)(multiplier);
-        constexpr int128_t new_upper = (int128_t)(upper) * (int128_t)(multiplier);
+        static_assert(left_shift < 63, "Left shift must fit the signed 64-bit bound domain");
+        // Form a positive power of two and multiply in the wide carrier. This
+        // avoids shifting a negative bound and checks the result before the
+        // narrowing template arguments are formed.
+        constexpr int128_t multiplier =
+            (int128_t)(int64_t{1} << static_cast<int>(left_shift));
+        constexpr int128_t new_lower = (int128_t)(lower) * multiplier;
+        constexpr int128_t new_upper = (int128_t)(upper) * multiplier;
         static_assert(new_lower >= INT64_MIN, "Shift left underflows 64 bit type");
         static_assert(new_upper <= INT64_MAX, "Shift left overflows 64 bit type");
         return Bounds<(int64_t)new_lower, (int64_t)new_upper>{};

@@ -2,16 +2,14 @@
 #include "bounds.h"
 #include "../cpu/vector/vector_impl.hpp"
 #include "../../common/defines.h"
-#include <string>
-#include <iostream>
 
 // All bounds are inclusive of both the upper and lower endpoint
-// Implcit multiples
+// Implicit multiples
 // Normal: [low * modulus, upper * modulus]
 // Wide: [low * modulus**2, upper * modulus**2]
-// However, we have an additional requirement for wide that the low 52 bits are in
-// the range [2^52 * low, 2^52 * upper].  This prevents underflow when subtracting the high/low parts without borrowing.
-// Therefore, except for [0, 0], no wide element can have low == upper.
+// A wide value additionally keeps its low accumulator in the interval
+// [2^52 * low, 2^52 * upper]. WideElement enforces the corresponding capacity
+// and borrow-free subtraction requirements at compile time.
 
 namespace blst::avx {
 
@@ -23,13 +21,18 @@ class BoundedElement {
 
     static constexpr int LIMBS = limbs;
     static constexpr int ELEMENT_BITS = element_bits;
-    
-    static constexpr int64_t max_bound = (1ull << (64 - element_bits - 1));
-    // 52(50) bit number stored in 64 bit type
+
+    static_assert(limbs > 0, "A bounded element requires at least one lane");
+    static_assert(element_bits > 0 && element_bits <= 52,
+        "Bounded elements require a radix between 2^1 and the IFMA 2^52 radix");
+    static constexpr int64_t max_bound =
+        int64_t{1} << (64 - element_bits - 1);
+    // An element_bits-wide value is stored in a signed 64-bit lane.
     static_assert(BoundsType::lower > -max_bound, "Value can underflow type");
     static_assert(BoundsType::upper < max_bound, "Value can overflow type");
 
-    // Constructor
+    // Default initialization intentionally leaves the vector uninitialized for
+    // fixed arrays whose callers overwrite every element before use.
     BLST_FORCEINLINE BoundedElement() = default;
     constexpr BLST_FORCEINLINE explicit BoundedElement(const AVXVector<limbs> &d) : data(d) {}
 
@@ -55,49 +58,12 @@ class BoundedElement {
         // For 52-bit numbers: can multiply directly (bound <= 1, representing 1 * 2^52 = full 52-bit range)
         // For 50-bit numbers: can sum up to 4 numbers (bound <= 4, representing 4 * 2^50 = 2^52, still fits in 52-bit mult)
         // Any more would exceed 2^52 and overflow the 52-bit multiplication
-        static_assert(bounds.upper <= (1ull << (52 - element_bits)), "Upper bound must be <= 2^(52 - element_bits) for 52-bit multiplication");
+        static_assert(bounds.upper <= (int64_t{1} << (52 - element_bits)), "Upper bound must be <= 2^(52 - element_bits) for 52-bit multiplication");
     }
 
     BLST_FORCEINLINE static auto zero() {
-        return BoundedElement<Bounds<0, 0>, limbs, element_bits>{};
-    }
-
-    BLST_FORCEINLINE std::array<int64_t, limbs> to_array() const {
-        auto uint_array = data.to_array();
-        std::array<int64_t, limbs> result;
-        for (int i = 0; i < limbs; i++) {
-            result[i] = (int64_t)uint_array[i];
-        }
-        return result;
-    }
-
-    BLST_FORCEINLINE std::array<uint64_t, limbs> to_unsigned_array() const {
-        auto uint_array = data.to_array();
-        std::array<uint64_t, limbs> result;
-        for (int i = 0; i < limbs; i++) {
-            result[i] = uint_array[i];
-        }
-        return result;
-    }
-
-    BLST_FORCEINLINE bool check_bounds(const std::array<int64_t, limbs> &moduli, const std::string &context = "") const {
-        auto data_array = to_array();
-        for (int i = 0; i < limbs; i++) {
-            // Inclusive lower bound, inclusive upper bound
-            int64_t lower_bound = bounds.lower * moduli[i];
-            int64_t upper_bound = bounds.upper * moduli[i];
-            if (data_array[i] < lower_bound || data_array[i] > upper_bound) {
-                if (!context.empty()) {
-                    std::cerr << "check_bounds failed for " << context << ":" << std::endl;
-                    std::cerr << "  Limb " << i << ": value = " << data_array[i] 
-                              << ", expected range = [" << lower_bound << ", " << upper_bound << "]" << std::endl;
-                    std::cerr << "  Bounds: [" << bounds.lower << ", " << bounds.upper << "]" << std::endl;
-                    std::cerr << "  Modulus[" << i << "] = " << moduli[i] << std::endl;
-                }
-                return false;
-            }
-        }
-        return true;
+        using Zero = BoundedElement<Bounds<0, 0>, limbs, element_bits>;
+        return Zero(AVXVector<limbs>(0));
     }
 
     BLST_FORCEINLINE auto complete() const {
@@ -174,19 +140,37 @@ class WideElement {
     ElementType low;
     static constexpr BoundsType bounds = BoundsType{};
 
+    // The low half accumulates 52-bit IFMA contributions regardless of the
+    // input RNS radix. Keep it in the signed 64-bit envelope used by the
+    // representation and require a nonnegative, nondegenerate interval.
+    static constexpr int64_t max_wide_bound = int64_t{1} << (64 - 52 - 1);
+    static_assert(BoundsType::lower >= 0,
+        "Wide accumulators require nonnegative bounds");
+    static_assert(BoundsType::upper < max_wide_bound,
+        "Wide accumulator bound exceeds the signed 52-bit contribution capacity");
+    static_assert((BoundsType::lower == 0 && BoundsType::upper == 0) ||
+        BoundsType::lower < BoundsType::upper,
+        "Only the zero wide accumulator may have equal lower and upper bounds");
+
+    // As with BoundedElement, default initialization is overwrite-before-read.
     BLST_FORCEINLINE WideElement() = default;
     BLST_FORCEINLINE explicit WideElement(const ElementType &high, const ElementType &low) : high(high), low(low) {}
     BLST_FORCEINLINE explicit WideElement(const AVXVector<limbs> &high_data, const AVXVector<limbs> &low_data) : high(high_data), low(low_data) {}
     
-    template<class OtherElementType>
-    BLST_FORCEINLINE auto operator+(const WideElement<OtherElementType, limbs, element_bits> &other) const {
+    template<class OtherBounds>
+    BLST_FORCEINLINE auto operator+(const WideElement<OtherBounds, limbs, element_bits> &other) const {
         auto result_low = low + other.low;
         auto result_high = high + other.high;
         return WideElement<decltype(bounds + other.bounds), limbs, element_bits>(result_high, result_low);
     }
 
-    template<class OtherElementType>
-    BLST_FORCEINLINE auto operator-(const WideElement<OtherElementType, limbs, element_bits> &other) const {
+    template<class OtherBounds>
+    BLST_FORCEINLINE auto operator-(const WideElement<OtherBounds, limbs, element_bits> &other) const {
+        // Wide halves are deliberately redundant rather than normalized. The
+        // low halves can therefore be subtracted without propagating a borrow
+        // only when the left interval dominates the complete right interval.
+        static_assert(BoundsType::lower >= OtherBounds::upper,
+            "Wide subtraction requires a borrow-free low accumulator");
         auto result_low = low - other.low;
         auto result_high = high - other.high;
         return WideElement<decltype(bounds - other.bounds), limbs, element_bits>(result_high, result_low);
@@ -227,38 +211,6 @@ class WideElement {
         return WideElement<decltype(new_bounds), limbs, element_bits>(high.template recast<new_lower, new_upper>(), low.template recast<new_lower, new_upper>());
     }
 
-    BLST_FORCEINLINE std::array<int128_t, limbs> to_array() const {
-        auto low_array = low.data.to_array();
-        auto high_array = high.data.to_array();
-        std::array<int128_t, limbs> result;
-        for (int i = 0; i < limbs; i++) {
-            result[i] = (int128_t)low_array[i] + ((int128_t)high_array[i] << 52);
-        }
-        return result;
-    }
-
-    BLST_FORCEINLINE bool check_bounds(const std::array<int64_t, limbs> &moduli, const std::string &context = "") const {
-        std::array<int64_t, limbs> low_mask;
-        std::array<int128_t, limbs> reconstructed_value = to_array();
-        bool high_ok = true;
-        for (int i = 0; i < limbs; i++) {
-            int128_t lower_bound = (int128_t)high.bounds.lower * (int128_t)moduli[i] * (int128_t)moduli[i];
-            int128_t upper_bound = (int128_t)high.bounds.upper * (int128_t)moduli[i] * (int128_t)moduli[i];
-            if (reconstructed_value[i] < lower_bound || reconstructed_value[i] > upper_bound) {
-                if (!context.empty()) {
-                    std::cerr << "check_bounds failed for " << context << ":" << std::endl;
-                    std::cerr << "  Limb " << i << ":  hi value = " << high.data.to_array()[i] << ", lo value = " << low.data.to_array()[i] << std::endl;
-                    std::cerr << "  Bounds: [" << high.bounds.lower << ", " << high.bounds.upper << "]" << std::endl;
-                    std::cerr << "  Modulus[" << i << "] = " << moduli[i] << std::endl;
-                }
-                high_ok = false;
-            }
-            low_mask[i] = (1ull << 52) - 1;
-        }
-        std::string low_context = context.empty() ? "low" : context + ".low";
-        bool low_ok = low.check_bounds(low_mask, low_context);
-        return low_ok && high_ok;
-    }
 };
 
 template<int limbs, int element_bits>

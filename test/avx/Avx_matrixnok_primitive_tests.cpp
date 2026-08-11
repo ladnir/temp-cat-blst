@@ -149,6 +149,19 @@ namespace blst::avx::test
     static_assert(
         int128_t(int64_t{-7}) * int128_t(int64_t{9}) ==
         int128_t(int64_t{-63}));
+    using ShiftedSignedBounds = decltype(
+        Bounds<-2, 3>{}.template shift_left<2>());
+    static_assert(ShiftedSignedBounds::lower == -8);
+    static_assert(ShiftedSignedBounds::upper == 12);
+    using LargestSelectedWide = WideElement<Bounds<0, 832>, 8, 50>;
+    static_assert(LargestSelectedWide::max_wide_bound == 2048);
+    using BorrowFreeWideLeft = WideElement<Bounds<80, 81>, 8, 50>;
+    using BorrowFreeWideRight = WideElement<Bounds<0, 40>, 8, 50>;
+    using BorrowFreeWideDifference = decltype(
+        std::declval<BorrowFreeWideLeft>() -
+        std::declval<BorrowFreeWideRight>());
+    static_assert(BorrowFreeWideDifference::bounds.lower == 40);
+    static_assert(BorrowFreeWideDifference::bounds.upper == 81);
     static_assert(std::is_empty_v<matrixnok::FpRingCandidate>);
     static_assert(std::is_empty_v<matrixnok::Fp2RingCandidate>);
     static_assert(std::is_empty_v<matrixnok::Fp12RingCandidate>);
@@ -171,6 +184,10 @@ namespace blst::avx::test
 
     TEST(AvxMatrixNoKPrimitives, WideIntegerCompatibilityIsExact)
     {
+        const auto explicit_zero =
+            BoundedElement<Bounds<0, 1>, 8, 50>::zero().data.to_array();
+        EXPECT_EQ(explicit_zero, (std::array<uint64_t, 8>{}));
+
         const uint128_t full_product =
             uint128_t(UINT64_MAX) * uint128_t(UINT64_MAX);
         EXPECT_EQ(static_cast<uint64_t>(full_product), uint64_t{1});

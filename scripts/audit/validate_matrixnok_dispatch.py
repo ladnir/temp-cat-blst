@@ -60,6 +60,34 @@ def main() -> int:
     require(not (avx / "rns" / "elementwise_reduce.h").exists(),
             "obsolete generic elementwise reducer was restored")
 
+    bounds = avx / "rns" / "bounds.h"
+    require_fragments(bounds, (
+        'static_assert(left_shift < 63,',
+        'constexpr int128_t multiplier =',
+        'int64_t{1} << static_cast<int>(left_shift)',
+    ))
+    forbid_fragments(bounds, (
+        'constexpr auto operator-() const',
+        'static_cast<int64_t>(1) << left_shift',
+    ))
+
+    bounded = avx / "rns" / "bounded_element.h"
+    require_fragments(bounded, (
+        'static_assert(element_bits > 0 && element_bits <= 52,',
+        'static constexpr int64_t max_wide_bound = int64_t{1} << (64 - 52 - 1);',
+        'static_assert(BoundsType::lower >= 0,',
+        'static_assert(BoundsType::upper < max_wide_bound,',
+        'static_assert(BoundsType::lower >= OtherBounds::upper,',
+        'return Zero(AVXVector<limbs>(0));',
+    ))
+    forbid_fragments(bounded, (
+        '#include <iostream>',
+        '#include <string>',
+        'to_unsigned_array()',
+        'bool check_bounds(',
+        'std::array<int128_t, limbs> to_array()',
+    ))
+
     require_fragments(avx / "rns" / "matrixnok_fp.h", (
         "using FpRing = FpRingCandidate;",
         "return multiply(left, right);",
