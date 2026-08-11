@@ -64,6 +64,22 @@ void update_multipair_for_context(
     }
 }
 
+template<class Context>
+void middle_product_one_shot_for_context(
+    std::span<const G1Point> a,
+    std::span<const G2Point> b,
+    std::span<GT> out,
+    blst::MiddleProductAlgorithm algorithm)
+{
+    if constexpr (std::is_same_v<Context, blst::MiddleProductScalarContext>) {
+        blst::middle_product_scalar(a, b, out, algorithm);
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
+    } else {
+        blst::middle_product_avx(a, b, out, algorithm);
+#endif
+    }
+}
+
 G1Point make_g1_point(uint64_t scalar)
 {
     G1Point out = {};
@@ -212,6 +228,23 @@ void bench_middle_product_update_multipair_impl(
         static_cast<double>(pre_stats.get_ns("middle_product_multipair_precompute.total_ns")) / 1e6);
 }
 
+template<class Context, blst::MiddleProductAlgorithm Algorithm>
+void bench_middle_product_one_shot_impl(benchmark::State& state)
+{
+    const std::size_t n = static_cast<std::size_t>(state.range(0));
+    const std::vector<G1Point> a = make_g1_data(n, 0xA0170ULL);
+    const std::vector<G2Point> b = make_g2_data(n, 0xA1170ULL);
+    std::vector<GT> out(n, GT::identity());
+
+    for (auto _ : state) {
+        middle_product_one_shot_for_context<Context>(a, b, out, Algorithm);
+        benchmark::DoNotOptimize(out.data());
+        benchmark::ClobberMemory();
+    }
+
+    state.counters["n"] = static_cast<double>(n);
+}
+
 static void bench_middle_product_multipair_scalar(benchmark::State& state)
 {
     bench_middle_product_multipair_impl<MiddleProductScalarContext>(
@@ -224,6 +257,20 @@ static void bench_middle_product_update_multipair_scalar(benchmark::State& state
     bench_middle_product_update_multipair_impl<MiddleProductScalarContext>(
         state,
         "offline_scalar_multipair_pre_ms");
+}
+
+static void bench_middle_product_one_shot_scalar_fft(benchmark::State& state)
+{
+    bench_middle_product_one_shot_impl<
+        MiddleProductScalarContext,
+        blst::MiddleProductAlgorithm::Fft>(state);
+}
+
+static void bench_middle_product_one_shot_scalar_multipair(benchmark::State& state)
+{
+    bench_middle_product_one_shot_impl<
+        MiddleProductScalarContext,
+        blst::MiddleProductAlgorithm::Multipair>(state);
 }
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
@@ -240,6 +287,20 @@ static void bench_middle_product_update_multipair_avx(benchmark::State& state)
         state,
         "offline_avx_multipair_pre_ms");
 }
+
+static void bench_middle_product_one_shot_avx_fft(benchmark::State& state)
+{
+    bench_middle_product_one_shot_impl<
+        blst::MiddleProductAvxContext,
+        blst::MiddleProductAlgorithm::Fft>(state);
+}
+
+static void bench_middle_product_one_shot_avx_multipair(benchmark::State& state)
+{
+    bench_middle_product_one_shot_impl<
+        blst::MiddleProductAvxContext,
+        blst::MiddleProductAlgorithm::Multipair>(state);
+}
 #endif
 
 } // namespace
@@ -247,6 +308,9 @@ static void bench_middle_product_update_multipair_avx(benchmark::State& state)
 #define MIDDLE_PRODUCT_MULTIPAIR_SIZES \
 ->Arg(2)->Arg(4)->Arg(8)->Arg(12)->Arg(16)->Arg(24)->Arg(32)->Arg(48)->Arg(64) \
 ->DenseRange(96, 256, 32)
+
+#define MIDDLE_PRODUCT_AUTO_CROSSOVER_SIZES \
+->Arg(2)->Arg(4)->Arg(8)->Arg(12)->Arg(16)->Arg(24)->Arg(32)->Arg(48)->Arg(64)
 
 BENCHMARK(bench_middle_product_multipair_scalar)
 MIDDLE_PRODUCT_MULTIPAIR_SIZES
@@ -258,6 +322,16 @@ MIDDLE_PRODUCT_MULTIPAIR_SIZES
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();
 
+BENCHMARK(bench_middle_product_one_shot_scalar_fft)
+MIDDLE_PRODUCT_AUTO_CROSSOVER_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK(bench_middle_product_one_shot_scalar_multipair)
+MIDDLE_PRODUCT_AUTO_CROSSOVER_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 BENCHMARK(bench_middle_product_multipair_avx)
 MIDDLE_PRODUCT_MULTIPAIR_SIZES
@@ -266,6 +340,16 @@ MIDDLE_PRODUCT_MULTIPAIR_SIZES
 
 BENCHMARK(bench_middle_product_update_multipair_avx)
 MIDDLE_PRODUCT_MULTIPAIR_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK(bench_middle_product_one_shot_avx_fft)
+MIDDLE_PRODUCT_AUTO_CROSSOVER_SIZES
+->Unit(benchmark::kMillisecond)
+->UseRealTime();
+
+BENCHMARK(bench_middle_product_one_shot_avx_multipair)
+MIDDLE_PRODUCT_AUTO_CROSSOVER_SIZES
 ->Unit(benchmark::kMillisecond)
 ->UseRealTime();
 #endif

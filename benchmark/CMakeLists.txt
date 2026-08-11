@@ -100,6 +100,20 @@ target_link_libraries(group_scalar_mult_benchmarks PRIVATE
     blst_avx_headers
 )
 
+add_executable(middle_product_dispatch_benchmarks
+    "main.cpp"
+    "MiddleProduct_multipair_bench.cpp"
+)
+target_include_directories(middle_product_dispatch_benchmarks PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}
+    ${CMAKE_CURRENT_LIST_DIR}/..
+)
+target_link_libraries(middle_product_dispatch_benchmarks PRIVATE
+    benchmark::benchmark
+    blst_static
+    blst_avx_headers
+)
+
 if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
     add_executable(avx_pairing_ratio_benchmarks
         "main.cpp"
