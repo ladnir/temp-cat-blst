@@ -88,6 +88,22 @@ def main() -> int:
         'std::array<int128_t, limbs> to_array()',
     ))
 
+    ring = avx / "rns" / "ring_element.h"
+    require_fragments(ring, (
+        '// SPDX-License-Identifier: MIT',
+        'using rns_bounds_type = RNSBounds;',
+        'template<int64_t new_lower, int64_t new_upper>',
+        'return ExpandedElement<decltype(result_m1), RNSBounds>',
+        'Exact-representation predicates only.',
+        'overload is intentionally ordered:',
+    ))
+    forbid_fragments(ring, (
+        'template<int new_lower, int new_upper>',
+        'ExpandedElement<decltype(result_m1), decltype(rns_bounds)>',
+        'from_constant(',
+        'ElementWideZero(',
+    ))
+
     require_fragments(avx / "rns" / "matrixnok_fp.h", (
         "using FpRing = FpRingCandidate;",
         "return multiply(left, right);",

@@ -162,6 +162,31 @@ namespace blst::avx::test
         std::declval<BorrowFreeWideRight>());
     static_assert(BorrowFreeWideDifference::bounds.lower == 40);
     static_assert(BorrowFreeWideDifference::bounds.upper == 81);
+    using RingCarrierResidue = BoundedElement<Bounds<0, 1>, 8, 50>;
+    using RingSmall = SmallElement<RingCarrierResidue, Bounds<-1, 1>>;
+    using RingSmallWideRecast = decltype(
+        std::declval<RingSmall>().template recast_rns_bounds<
+            INT64_C(-2147483649), INT64_C(2147483648)>());
+    static_assert(RingSmallWideRecast::rns_bounds.lower ==
+        INT64_C(-2147483649));
+    static_assert(RingSmallWideRecast::rns_bounds.upper ==
+        INT64_C(2147483648));
+    using RingExpanded = ExpandedElement<RingCarrierResidue, Bounds<0, 1>>;
+    using RingCompleted = decltype(std::declval<RingExpanded>().complete());
+    static_assert(std::is_same_v<
+        typename RingCompleted::rns_bounds_type, Bounds<0, 1>>);
+    static_assert(!std::is_const_v<typename RingCompleted::rns_bounds_type>);
+    using RingDelayedProduct = decltype(
+        std::declval<RingExpanded>() * std::declval<RingExpanded>());
+    using RingCompletedProduct = decltype(
+        std::declval<RingDelayedProduct>().complete());
+    static_assert(RingCompletedProduct::rns_bounds.lower == 0);
+    static_assert(RingCompletedProduct::rns_bounds.upper == 1);
+    using RingAccumulatedProduct = decltype(
+        std::declval<RingCompletedProduct>() +
+        std::declval<RingDelayedProduct>());
+    static_assert(RingAccumulatedProduct::rns_bounds.lower == 0);
+    static_assert(RingAccumulatedProduct::rns_bounds.upper == 2);
     static_assert(std::is_empty_v<matrixnok::FpRingCandidate>);
     static_assert(std::is_empty_v<matrixnok::Fp2RingCandidate>);
     static_assert(std::is_empty_v<matrixnok::Fp12RingCandidate>);
@@ -181,6 +206,54 @@ namespace blst::avx::test
     using MatrixNoKFp12 = matrixnok::Fp12RingCandidate;
     static_assert(std::is_default_constructible_v<
         typename MatrixNoKFp12::StandardElement>);
+
+    TEST(AvxMatrixNoKPrimitives, RingCarrierContractsAreExact)
+    {
+        std::array<uint64_t, 8> left_lanes{};
+        std::array<uint64_t, 8> right_lanes{};
+        for (std::size_t lane = 0; lane < left_lanes.size(); ++lane) {
+            left_lanes[lane] = lane + 1;
+            right_lanes[lane] = 3 * lane + 2;
+        }
+
+        const RingExpanded left{
+            RingCarrierResidue(AVXVector<8>(left_lanes)),
+            RingCarrierResidue(AVXVector<8>(left_lanes))};
+        const RingExpanded right{
+            RingCarrierResidue(AVXVector<8>(right_lanes)),
+            RingCarrierResidue(AVXVector<8>(right_lanes))};
+
+        EXPECT_EQ(left.ctime_select(true, right).m1.data.to_array(), left_lanes);
+        EXPECT_EQ(left.ctime_select(false, right).m1.data.to_array(), right_lanes);
+        EXPECT_EQ(left.ctime_replace_if(true, right).m2.data.to_array(),
+            right_lanes);
+        EXPECT_EQ(left.ctime_replace_if(false, right).m2.data.to_array(),
+            left_lanes);
+
+        const RingExpanded value_initialized{};
+        EXPECT_EQ(value_initialized.m1.data.to_array(),
+            (std::array<uint64_t, 8>{}));
+        EXPECT_EQ(value_initialized.m2.data.to_array(),
+            (std::array<uint64_t, 8>{}));
+        EXPECT_EQ(left.is_zero(), 0);
+        EXPECT_EQ(value_initialized.is_zero(), 1);
+        EXPECT_EQ(left.equal(right), 0);
+        EXPECT_EQ(left.equal(left), 1);
+
+        const auto product = (left * right).complete();
+        const auto accumulated = product + (left * right);
+        const auto product_high = product.m1.high.data.to_array();
+        const auto product_low = product.m1.low.data.to_array();
+        const auto accumulated_high = accumulated.m1.high.data.to_array();
+        const auto accumulated_low = accumulated.m1.low.data.to_array();
+        for (std::size_t lane = 0; lane < left_lanes.size(); ++lane) {
+            const uint64_t expected = left_lanes[lane] * right_lanes[lane];
+            EXPECT_EQ(product_high[lane], expected >> 52);
+            EXPECT_EQ(product_low[lane], expected & kIfmaDigitMask);
+            EXPECT_EQ(accumulated_high[lane], (2 * expected) >> 52);
+            EXPECT_EQ(accumulated_low[lane], (2 * expected) & kIfmaDigitMask);
+        }
+    }
 
     TEST(AvxMatrixNoKPrimitives, WideIntegerCompatibilityIsExact)
     {
