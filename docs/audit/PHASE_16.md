@@ -923,3 +923,12 @@ contracts explicit. The serial portable-AVX Debug target compiles and seven
 focused tests pass. All 20 correspondence rows and 59 mapped hashes validate
 after rebinding. No benchmark, remote run, native build, CUDA, portable-AVX
 Release build, or BTx/BTE audit ran.
+
+The subsequent RNS inversion-owner review closes `AUD-258` at `81f21ac` by
+deleting `blst/avx/rns/inversion.h`. The header was an unreferenced copy of
+VROOM's standalone-test addition chain; CatBLST's active inversion boundary is
+`blst/avx/fields/conversion_inversion.h`. Independent symbolic tracing confirms
+that the orphaned fixed schedule was not an arithmetic defect: its 425 modular
+products compute exponent `3p-4`, equivalent to `p-2` for nonzero Fp inputs.
+The structural validator now rejects restoration of the dead owner. No build,
+benchmark, remote job, CUDA, portable-AVX Release, or BTx/BTE work was needed.

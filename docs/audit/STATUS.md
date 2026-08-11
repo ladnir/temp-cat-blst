@@ -717,3 +717,11 @@ fixed-batch contracts are explicit. The serial portable-AVX Debug build and
 seven focused tests pass; all structural, constant, Lean, and correspondence
 checks pass. No benchmark, remote/native run, CUDA, portable-AVX Release, or
 BTx/BTE audit ran.
+
+`AUD-258` is closed at `81f21ac`: the zero-caller VROOM test-only
+`blst/avx/rns/inversion.h` has been removed. Its 425-operation chain was
+independently checked and correctly computes `3p-4`; deletion addresses dead
+ownership and interface defects rather than an arithmetic error. Active AVX
+inversion remains in `blst/avx/fields/conversion_inversion.h`. The structural
+dispatch and audit-manifest gates pass. No build, benchmark, remote/native
+run, CUDA, portable-AVX Release, or BTx/BTE work ran.
