@@ -140,6 +140,106 @@ def selectedLiteralCppMillerLoop
     (runSelectedSourceMillerSchedule cppMillerScheduleTail
       b g1x g1y addendX addendY afterFirst).accumulator
 
+/-- CatBLST's affine boundary represents group infinity by two zero
+coordinates. This predicate belongs to the API representation layer, not to
+the finite affine Miller formulas above. -/
+def selectedAffineInfinity (x y : SelectedMillerFp2) : Prop :=
+  x = 0 ∧ y = 0
+
+/-- Source-shaped public Miller dispatch, including the observed identity bits
+that must be handled before finite affine points are converted to `(x,y,1)`.
+The C++ representation observer establishing those bits remains a P0 boundary. -/
+def selectedPublicCppMillerLoop
+    (g1Infinity g2Infinity : Bool)
+    (b g1x g1y addendX addendY : SelectedMillerFp2) : SelectedFp12 :=
+  if g1Infinity || g2Infinity then
+    1
+  else
+    selectedLiteralCppMillerLoop b g1x g1y addendX addendY
+
+theorem selected_public_cpp_miller_loop_g1_infinity
+    (g2Infinity : Bool)
+    (b g1x g1y addendX addendY : SelectedMillerFp2) :
+    selectedPublicCppMillerLoop true g2Infinity
+      b g1x g1y addendX addendY = 1 := by
+  simp [selectedPublicCppMillerLoop]
+
+theorem selected_public_cpp_miller_loop_g2_infinity
+    (g1Infinity : Bool)
+    (b g1x g1y addendX addendY : SelectedMillerFp2) :
+    selectedPublicCppMillerLoop g1Infinity true
+      b g1x g1y addendX addendY = 1 := by
+  cases g1Infinity <;> simp [selectedPublicCppMillerLoop]
+
+theorem selected_public_cpp_miller_loop_finite
+    (b g1x g1y addendX addendY : SelectedMillerFp2) :
+    selectedPublicCppMillerLoop false false
+      b g1x g1y addendX addendY =
+      selectedLiteralCppMillerLoop b g1x g1y addendX addendY := by
+  simp [selectedPublicCppMillerLoop]
+
+/-- Sparse identity line stored in all 68 slots when G2 is infinity. -/
+def selectedPreparedIdentityLine : MillerLine SelectedMillerFp2 :=
+  ⟨1, 0, 0⟩
+
+theorem selected_prepared_identity_line_scales_to_one
+    (g1x g1y : SelectedMillerFp2) :
+    (selectedPreparedIdentityLine.scaleForG1 g1x g1y).toSparseFp12 = 1 := by
+  simp only [selectedPreparedIdentityLine, MillerLine.scaleForG1,
+    MillerLine.toSparseFp12, zero_mul]
+  change packFlatFp12 (sparseMillerLineFlat
+    (1 : SelectedMillerFp2) (0 : SelectedMillerFp2)
+    (0 : SelectedMillerFp2)) = Fp12Concrete.one
+  rfl
+
+def selectedPreparedIdentityStep
+    (g1x g1y : SelectedMillerFp2)
+    (accumulator : SelectedFp12) : MillerScheduleOp → SelectedFp12
+  | .double => selectedSourceSparseMul
+      (selectedSourceFp12Square accumulator)
+      (selectedPreparedIdentityLine.scaleForG1 g1x g1y)
+  | .add => selectedSourceSparseMul accumulator
+      (selectedPreparedIdentityLine.scaleForG1 g1x g1y)
+
+theorem selected_prepared_identity_step_one
+    (g1x g1y : SelectedMillerFp2) (operation : MillerScheduleOp) :
+    selectedPreparedIdentityStep g1x g1y 1 operation = 1 := by
+  cases operation <;>
+    simp [selectedPreparedIdentityStep, selected_source_sparse_mul_correct,
+      selected_source_fp12_square_correct,
+      selected_prepared_identity_line_scales_to_one]
+
+theorem selected_prepared_identity_schedule_one
+    (schedule : List MillerScheduleOp) (g1x g1y : SelectedMillerFp2) :
+    schedule.foldl (selectedPreparedIdentityStep g1x g1y) 1 = 1 := by
+  induction schedule with
+  | nil => rfl
+  | cons operation rest inductionHyp =>
+      simp only [List.foldl_cons]
+      rw [selected_prepared_identity_step_one]
+      exact inductionHyp
+
+/-- Exact prepared-table evaluator shape: the first identity line replaces
+`one^2`, the 67 tail operations consume identity lines, and the result is
+conjugated for the negative BLS parameter. -/
+def selectedPreparedIdentityMillerLoop
+    (g1x g1y : SelectedMillerFp2) : SelectedFp12 :=
+  let afterFirst := selectedSourceSparseMul 1
+    (selectedPreparedIdentityLine.scaleForG1 g1x g1y)
+  cppFp12Conjugate
+    (cppMillerScheduleTail.foldl
+      (selectedPreparedIdentityStep g1x g1y) afterFirst)
+
+theorem selected_prepared_identity_miller_loop_one
+    (g1x g1y : SelectedMillerFp2) :
+    selectedPreparedIdentityMillerLoop g1x g1y = 1 := by
+  rw [selectedPreparedIdentityMillerLoop]
+  simp only [selected_source_sparse_mul_correct,
+    selected_prepared_identity_line_scales_to_one, mul_one]
+  rw [selected_prepared_identity_schedule_one]
+  rw [cpp_fp12_conjugate_correct]
+  simp
+
 theorem selected_literal_cpp_miller_loop_correct
     (b g1x g1y addendX addendY : SelectedMillerFp2) :
     selectedLiteralCppMillerLoop b g1x g1y addendX addendY =

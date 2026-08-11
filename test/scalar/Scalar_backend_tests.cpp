@@ -51,4 +51,24 @@ TEST(ScalarBackend, G2PrecomputedLinesMatchDirectMiller)
     EXPECT_TRUE(blst::Fp12::equal(direct.data, via_lines.data));
 }
 
+TEST(ScalarBackend, PrecomputedLinesPreservePairingIdentity)
+{
+    const G1AffinePoint p = G1AffinePoint::generator();
+    const G2AffinePoint q = G2AffinePoint::generator();
+    const G1AffinePoint p_infinity = {};
+    const G2AffinePoint q_infinity = {};
+
+    blst::Fp6 finite_lines[68] = {};
+    GT::precompute_lines(finite_lines, q);
+    MillerResult p_infinity_result = {};
+    GT::miller_loop_lines(p_infinity_result, finite_lines, p_infinity);
+    EXPECT_TRUE(blst::Fp12::is_one(p_infinity_result.data));
+
+    blst::Fp6 infinity_lines[68] = {};
+    GT::precompute_lines(infinity_lines, q_infinity);
+    MillerResult q_infinity_result = {};
+    GT::miller_loop_lines(q_infinity_result, infinity_lines, p);
+    EXPECT_TRUE(blst::Fp12::is_one(q_infinity_result.data));
+}
+
 }  // namespace

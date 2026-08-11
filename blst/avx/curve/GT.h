@@ -195,6 +195,13 @@ inline auto scale_line_xy(const PreparedLine& in, const G1AffinePoint& p)
         in.y.mul_fp(p.Y));
 }
 
+inline PreparedLine identity_prepared_line()
+{
+    const PairingFp2Element zero = fp2ring().zero();
+    const PairingFp2LeftPrepared prepared_zero = zero.prep_left(ring());
+    return PreparedLine{fp2ring().one(), prepared_zero, prepared_zero};
+}
+
 inline void apply_prepared_line(
     typename FP12::StandardElement& data,
     const PreparedLine& line,
@@ -704,8 +711,9 @@ struct GT
     }
 
     /**
-     * Pairing construction APIs. Inputs must be valid on-curve affine points;
-     * no curve or subgroup validation is performed. Outputs are MillerResult,
+     * Pairing construction APIs. Non-identity inputs must already be validated
+     * prime-order subgroup points; infinity is accepted as the subgroup
+     * identity. No Release validation is performed. Outputs are MillerResult,
      * never GT, until passed through `final_exp`. The pointer-array overload
      * uses the compact continuation convention documented by the C API.
      */
@@ -847,6 +855,14 @@ struct GT
 
     static void precompute_lines(PreparedLine Qlines[68], const G2AffinePoint& Q)
     {
+        if (G2AffinePoint::is_inf(Q)) {
+            const PreparedLine identity_line = avx_gt_detail::identity_prepared_line();
+            for (size_t i = 0; i < 68; ++i) {
+                Qlines[i] = identity_line;
+            }
+            return;
+        }
+
         G2Point t = {};
         t.X = Q.X;
         t.Y = Q.Y;
@@ -873,6 +889,22 @@ struct GT
         const PreparedLine Qlines[68],
         const G1AffinePoint& P)
     {
+        if (G1AffinePoint::is_inf(P)) {
+            ret = MillerResult::identity();
+            return;
+        }
+
+        miller_loop_lines_finite(ret, Qlines, P);
+    }
+
+    /** Internal finite-point evaluator. The caller must already have excluded
+     * G1 infinity; Release performs no observation or validation. */
+    static void miller_loop_lines_finite(
+        MillerResult& ret,
+        const PreparedLine Qlines[68],
+        const G1AffinePoint& P)
+    {
+        BLST_ASSERT(!G1AffinePoint::is_inf(P));
         const auto first_line = avx_gt_detail::scale_line_xy(Qlines[0], P);
         ret.data = avx_gt_detail::make_line_value(Qlines[0].c, first_line[0], first_line[1]);
         avx_gt_detail::apply_add_n_dbl(ret.data, &Qlines[1], P, 2);
@@ -894,16 +926,41 @@ struct GT
             return;
         }
 
-        // These offsets mirror the BLS12-381 Miller schedule segments already used by
-        // the direct batched Miller path: start with the first doubled line, then
-        // walk the fixed add+double runs 2, 3, 9, 32, and 16.
-        avx_gt_detail::start_lines_n(out.data, Qlines, Ps, n);
-        avx_gt_detail::post_add_n_dbl_n(out.data, Qlines, Ps, n, 1, 2);
-        avx_gt_detail::post_add_n_dbl_n(out.data, Qlines, Ps, n, 4, 3);
-        avx_gt_detail::post_add_n_dbl_n(out.data, Qlines, Ps, n, 8, 9);
-        avx_gt_detail::post_add_n_dbl_n(out.data, Qlines, Ps, n, 18, 32);
-        avx_gt_detail::post_add_n_dbl_n(out.data, Qlines, Ps, n, 51, 16);
-        out.data = avx_gt_detail::fp12ring().fp12_flat_conjugate(out.data, avx_gt_detail::ring());
+        const PreparedLine* line_batch[avx_gt_detail::kMillerLoopNMax] = {};
+        G1AffinePoint p_batch[avx_gt_detail::kMillerLoopNMax] = {};
+        const PreparedLine* lines_ptr = nullptr;
+        const G1AffinePoint* pptr = nullptr;
+        size_t batch = 0;
+
+        const auto flush_batch = [&]() {
+            if (batch == 0) {
+                return;
+            }
+            MillerResult chunk = {};
+            miller_loop_lines_n_preprocessed(chunk, line_batch, p_batch, batch);
+            MillerResult::mul(out, out, chunk);
+            batch = 0;
+        };
+
+        for (size_t i = 0; i < n; ++i) {
+            lines_ptr = Qlines[i] ? Qlines[i] : lines_ptr + 68;
+            pptr = Ps[i] ? Ps[i] : pptr + 1;
+            BLST_ASSERT(lines_ptr != nullptr);
+            BLST_ASSERT(pptr != nullptr);
+
+            if (G1AffinePoint::is_inf(*pptr)) {
+                continue;
+            }
+
+            line_batch[batch] = lines_ptr;
+            p_batch[batch] = *pptr;
+            ++batch;
+            if (batch == avx_gt_detail::kMillerLoopNMax) {
+                flush_batch();
+            }
+        }
+
+        flush_batch();
     }
 
     static void miller_loop_lines_n_preprocessed(
@@ -915,6 +972,11 @@ struct GT
         out = MillerResult::identity();
         if (n == 0 || Qlines == nullptr || P == nullptr || Qlines[0] == nullptr) {
             return;
+        }
+
+        for (size_t i = 0; i < n; ++i) {
+            BLST_ASSERT(Qlines[i] != nullptr);
+            BLST_ASSERT(!G1AffinePoint::is_inf(P[i]));
         }
 
         avx_gt_detail::start_lines_n(out.data, Qlines, P, n);

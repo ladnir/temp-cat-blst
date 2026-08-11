@@ -1140,7 +1140,7 @@ namespace blst {
                         continue;
                     }
                     scalar::MillerResult miller = scalar::MillerResult::identity();
-                    scalar::GT::miller_loop_lines(
+                    scalar::GT::miller_loop_lines_finite(
                         miller,
                         precomputed_b.prepared_lines[n + k].lines,
                         affine_a0);
@@ -1157,7 +1157,7 @@ namespace blst {
                     if (precomputed_b.b_is_zero[n + k] != 0) {
                         continue;
                     }
-                    avx::GT::miller_loop_lines(
+                    avx::GT::miller_loop_lines_finite(
                         millers[k],
                         precomputed_b.prepared_lines[n + k].lines,
                         affine_a0);

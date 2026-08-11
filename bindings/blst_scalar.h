@@ -805,11 +805,13 @@ void blst_miller_loop(blst_fp12* ret, const blst_p2_affine* Q, const blst_p1_aff
 void blst_miller_loop_n(blst_fp12* ret, const blst_p2_affine* const Qs[], const blst_p1_affine* const Ps[], size_t n);
 /** Precomputes the 68 line-function coefficients needed for repeated Miller
  * loops with previously validated subgroup point `Q`; when `Q` is null, the G2
- * generator is used. No point validation is performed. */
+ * generator is used. G2 infinity produces an identity table. No point
+ * validation is performed. */
 void blst_precompute_lines(blst_fp6 Qlines[68], const blst_p2_affine* Q);
 /** Runs a Miller loop using a valid precomputed `Qlines` table and previously
  * validated subgroup point `P`, producing a Miller-loop value rather than GT;
- * when `P` is null, the G1 generator is used. No point validation is performed. */
+ * when `P` is null, the G1 generator is used. G1 infinity returns the Miller
+ * identity. No point validation is performed. */
 void blst_miller_loop_lines(blst_fp12* ret, const blst_fp6 Qlines[68], const blst_p1_affine* P);
 /** Returns the exact storage size, in bytes, required for one `blst_pairing` object. */
 size_t blst_pairing_sizeof(void);

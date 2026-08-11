@@ -80,6 +80,15 @@ void expect_same_after_bound_sensitive_ops(
     expect_same(scalar_add, avx_add);
 }
 
+bool avx_miller_equal(
+    const blst::avx::MillerResult& left,
+    const blst::avx::MillerResult& right)
+{
+    return blst::Fp12::equal(
+        blst::avx::avx_gt_detail::to_scalar(left.data),
+        blst::avx::avx_gt_detail::to_scalar(right.data));
+}
+
 }  // namespace
 
 TEST(AvxGt, NarrowToStandardMatchesMulByOneReference)
@@ -109,6 +118,48 @@ TEST(AvxGt, DoublingMatchesScalar)
     blst::avx::GT::doubling(avx_out, avx_base);
 
     expect_same_after_bound_sensitive_ops(scalar_out, avx_out);
+}
+
+TEST(AvxGt, PreparedLinesPreservePairingIdentityAndCompactBatching)
+{
+    using blst::avx::G1AffinePoint;
+    using blst::avx::G2AffinePoint;
+    using blst::avx::GT;
+    using blst::avx::MillerResult;
+    using blst::avx::PreparedLine;
+
+    const G1AffinePoint p = G1AffinePoint::generator();
+    const G2AffinePoint q = G2AffinePoint::generator();
+    const G1AffinePoint p_infinity = {};
+    const G2AffinePoint q_infinity = {};
+
+    std::array<PreparedLine, 3 * 68> lines = {};
+    GT::precompute_lines(lines.data(), q);
+    GT::precompute_lines(lines.data() + 68, q_infinity);
+    GT::precompute_lines(lines.data() + 2 * 68, q);
+
+    MillerResult p_infinity_result = {};
+    GT::miller_loop_lines(p_infinity_result, lines.data(), p_infinity);
+    EXPECT_TRUE(avx_miller_equal(p_infinity_result, MillerResult::identity()));
+
+    MillerResult q_infinity_result = {};
+    GT::miller_loop_lines(q_infinity_result, lines.data() + 68, p);
+    EXPECT_TRUE(avx_miller_equal(q_infinity_result, MillerResult::identity()));
+
+    const std::array<G1AffinePoint, 3> ps = {p_infinity, p, p};
+    const std::array<const PreparedLine*, 3> line_ptrs = {
+        lines.data(), nullptr, nullptr
+    };
+    const std::array<const G1AffinePoint*, 3> p_ptrs = {
+        ps.data(), nullptr, nullptr
+    };
+    MillerResult batched = {};
+    GT::miller_loop_lines_n(
+        batched, line_ptrs.data(), p_ptrs.data(), line_ptrs.size());
+
+    MillerResult expected = {};
+    GT::miller_loop_lines(expected, lines.data() + 2 * 68, p);
+    EXPECT_TRUE(avx_miller_equal(batched, expected));
 }
 
 TEST(AvxGt, MultByZMatchesScalar)

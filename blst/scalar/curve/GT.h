@@ -325,8 +325,9 @@ namespace blst::scalar {
 			}
 
 		/**
-		 * Pairing construction APIs. Inputs must be valid on-curve affine points;
-		 * no curve or subgroup validation is performed. Outputs are MillerResult,
+		 * Pairing construction APIs. Non-identity inputs must already be validated
+		 * prime-order subgroup points; infinity is accepted as the subgroup
+		 * identity. No Release validation is performed. Outputs are MillerResult,
 		 * never GT, until passed through `final_exp`. The pointer-array overload
 		 * uses the compact continuation convention documented by the C API.
 		 */
@@ -345,9 +346,18 @@ namespace blst::scalar {
 			const G1AffinePoint* const Ps[],
 			size_t n);
 
+		/** Fill all 68 entries for a validated G2 point; infinity produces an
+		 * identity table whose evaluation is the Miller identity. */
 		static BLST_HD void precompute_lines(Fp6 Qlines[68], const G2AffinePoint& Q);
 
+		/** Evaluate a valid line table at a validated G1 point. G1 infinity
+		 * returns the Miller identity. */
 		static BLST_HD void miller_loop_lines(MillerResult& ret, const Fp6 Qlines[68],
+			const G1AffinePoint& P);
+
+		/** Internal finite-point evaluator. The caller must already have excluded
+		 * G1 infinity; Release performs no observation or validation. */
+		static BLST_HD void miller_loop_lines_finite(MillerResult& ret, const Fp6 Qlines[68],
 			const G1AffinePoint& P);
 
 		static BLST_HD void miller_loop_lines_n(

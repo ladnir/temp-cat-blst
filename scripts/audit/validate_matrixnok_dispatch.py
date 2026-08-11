@@ -256,6 +256,9 @@ def main() -> int:
         "const matrixnok::MillerEngine miller(",
         "inline constexpr FP12 kFp12Ring{};",
         "inline constexpr GT kGtIdentity(",
+        "if (G2AffinePoint::is_inf(Q)) {",
+        "if (G1AffinePoint::is_inf(P)) {",
+        "identity_prepared_line()",
     ))
     forbid_fragments(gt, (
         "static const Ring value;",

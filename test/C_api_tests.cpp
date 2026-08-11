@@ -2112,6 +2112,25 @@ TEST(CApi, LinePrecomputeHelpersUseGeneratorsForNullInputs)
     EXPECT_TRUE(blst_fp12_is_equal(&null_loop, &explicit_loop));
 }
 
+TEST(CApi, LinePrecomputeHelpersPreservePairingIdentity)
+{
+    const BoundaryG1Affine p_infinity = {};
+    const BoundaryG2Affine q_infinity = {};
+
+    BoundaryFp6 finite_lines[68] = {};
+    blst_precompute_lines(finite_lines, blst_p2_affine_generator());
+    BoundaryGt p_infinity_result = {};
+    blst_miller_loop_lines(&p_infinity_result, finite_lines, &p_infinity);
+    EXPECT_TRUE(blst_fp12_is_one(&p_infinity_result));
+
+    BoundaryFp6 infinity_lines[68] = {};
+    blst_precompute_lines(infinity_lines, &q_infinity);
+    BoundaryGt q_infinity_result = {};
+    blst_miller_loop_lines(
+        &q_infinity_result, infinity_lines, blst_p1_affine_generator());
+    EXPECT_TRUE(blst_fp12_is_one(&q_infinity_result));
+}
+
 TEST(CApi, PairingWeightedAggregateRejectsMalformedScalarWithoutMutation)
 {
     const std::array<unsigned char, 1> dst = {'D'};

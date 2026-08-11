@@ -317,6 +317,14 @@ Fp6{                                                                      \
 
     BLST_HD void GT::precompute_lines(Fp6 Qlines[68], const G2AffinePoint& Q)
     {
+        if (G2AffinePoint::is_inf(Q)) {
+            Fp6 identity_line = {};
+            vec_copy(&identity_line[0], &Fp2::one(), sizeof(Fp2));
+            for (size_t i = 0; i < 68; ++i)
+                vec_copy(&Qlines[i], &identity_line, sizeof(identity_line));
+            return;
+        }
+
         G2Point T;
 
         vec_copy(&T.x, &Q.x, 2 * sizeof(T.x));
@@ -405,6 +413,18 @@ Fp6{                                                                      \
     BLST_HD void GT::miller_loop_lines(MillerResult& ret, const Fp6 Qlines[68],
         const G1AffinePoint& P)
     {
+        if (G1AffinePoint::is_inf(P)) {
+            ret = MillerResult::identity();
+            return;
+        }
+
+        miller_loop_lines_finite(ret, Qlines, P);
+    }
+
+    BLST_HD void GT::miller_loop_lines_finite(MillerResult& ret, const Fp6 Qlines[68],
+        const G1AffinePoint& P)
+    {
+        BLST_ASSERT(!G1AffinePoint::is_inf(P));
         PreparedG1LineScale scale;
         Fp6 line; /* it's not actual fp6, but 3 packed fp2, "xy00z0"  */
 
