@@ -868,12 +868,13 @@ Release, full suite, or BTx/BTE audit ran.
 represent the power-of-two FFT cost jumps and its benchmark did not time the
 one-shot production ownership model. An isolated non-shipping target now times
 forced scalar/AVX FFT and multipair calls without BTx/BTE linkage. Sequential
-Peach runs used Ryzen 9 7950X CPU 2, Clang 21.1.8, Release native
-AVX-512/IFMA, and five repetitions. Scalar selects multipair for `n <= 31`,
-`33..49`, and `65..76`; AVX extends the second range through 50. The constexpr
-policies add no allocation, timing probe, or runtime CPU dispatch. Portable-
-Debug range and actual dispatch tests pass, and native Release rebuilds cleanly
-after `4dcb4fa` marks the inactive scalar GT bridge `[[maybe_unused]]`. All
+Peach runs used Ryzen 9 7950X CPU 2, Clang 21.1.8, separate scalar-default and
+AVX-default Release configurations, and five repetitions. Scalar selects
+multipair for `n <= 31`, `33..49`, and `65..76`; AVX extends the second range
+through 50. The constexpr policies add no allocation, timing probe, or runtime
+CPU dispatch. Portable-Debug range and actual dispatch tests pass, and both
+native Release configurations rebuild cleanly after `4dcb4fa` and `bdefea3`
+mark the inactive scalar/AVX GT bridge overloads `[[maybe_unused]]`. All
 findings recorded by the current middle-product pass are now validated. The
 thresholds remain deployment-CPU evidence rather than a universal
 microarchitecture guarantee. No concurrent benchmark, CUDA, sanitizer,

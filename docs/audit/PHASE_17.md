@@ -129,19 +129,21 @@ and workspace ownership. Isolating the executable also avoids compiling or
 linking frozen BTx/BTE benchmark sources.
 
 One benchmark process at a time ran on Peach's AMD Ryzen 9 7950X, pinned to CPU
-2, with Clang 21.1.8, `Release`, native AVX-512/IFMA, five repetitions, and a
-0.10-second minimum case time. The focused boundary medians in milliseconds
-were:
+2, with Clang 21.1.8, separate scalar-default and AVX-default `Release`
+configurations, five repetitions, and a 0.10-second minimum case time. Native
+AVX-512/IFMA was enabled in both configurations, but each backend was measured
+only in the build whose public types select that backend. The focused boundary
+medians in milliseconds were:
 
 | n | Scalar FFT | Scalar multipair | AVX FFT | AVX multipair |
 | ---: | ---: | ---: | ---: | ---: |
-| 31 | 87.4 | 82.2 | 24.3 | 22.3 |
-| 32 | 83.1 | 88.1 | 22.9 | 23.6 |
+| 31 | 87.4 | 82.5 | 24.3 | 22.3 |
+| 32 | 83.2 | 87.6 | 22.9 | 23.6 |
 | 49 | 200 | 193 | 55.8 | 52.0 |
 | 50 | 200 | 201 | 55.7 | 54.0 |
 | 51 | 200 | 208 | 55.9 | 56.1 |
-| 76 | 451 | 442 | 126 | 120 |
-| 78 | 452 | 466 | 126 | 126 |
+| 76 | 451 | 444 | 126 | 120 |
+| 78 | 452 | 467 | 126 | 126 |
 
 The nonmonotonic result is expected: the optimized FFT size is the next power
 of two at least `2*n`, so FFT cost jumps after 16, 32, and 64 while multipair
@@ -154,12 +156,13 @@ probe, allocation, or data-dependent cryptographic branch; `n` is public.
 MSVC 19.50 scalar-default plus portable-AVX Debug builds the affected target
 with two workers. Exact range-policy tests and actual scalar and portable-AVX
 Auto dispatch tests pass. Peach native Release rebuilds the isolated benchmark
-against the production selector. That build exposed one inactive scalar GT
-boundary overload in an AVX-default translation unit; commit `4dcb4fa` marks
-only that overload `[[maybe_unused]]`, after which Clang rebuilds without the
-warning. The benchmark is deployment-CPU evidence, not a universal threshold
-guarantee for every microarchitecture. No concurrent benchmark, CUDA,
-sanitizer, portable-AVX Release, full suite, or BTx/BTE audit ran.
+against the production selector. The two configurations exposed the inactive
+scalar or AVX GT boundary overload in the opposite default translation unit;
+commits `4dcb4fa` and `bdefea3` mark only those overloads `[[maybe_unused]]`,
+after which both Clang configurations rebuild without the warning. The
+benchmark is deployment-CPU evidence, not a universal threshold guarantee for
+every microarchitecture. No concurrent benchmark, CUDA, sanitizer,
+portable-AVX Release, full suite, or BTx/BTE audit ran.
 
 ## Packet 17A - Generic FFT boundary and isolated interpolation
 
