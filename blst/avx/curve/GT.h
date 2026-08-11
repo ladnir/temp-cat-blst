@@ -120,7 +120,7 @@ inline typename FP12::StandardElement to_standard(const Element& value)
 }
 
 template<int64_t N>
-INLINE typename FP12::StandardElement narrow_to_standard(const typename FP12::template CommonElement<N>& value)
+BLST_FORCEINLINE typename FP12::StandardElement narrow_to_standard(const typename FP12::template CommonElement<N>& value)
 {
     return fp12ring().narrow_to_standard(value, ring());
 }
@@ -510,7 +510,7 @@ struct GT
         out.data = avx_gt_detail::fp12ring().fp12_flat_mul(a.data, b_inv, avx_gt_detail::ring());
     }
 
-    static INLINE void doubling(GT& out, const GT& a)
+    static BLST_FORCEINLINE void doubling(GT& out, const GT& a)
     {
         // The public GT representation is standard. Internal callers that can
         // keep CommonElement<6> should prefer fp12_flat_cyclotomic_sqr and

@@ -34,7 +34,7 @@ namespace blst::avx::matrixnok
         using Offset = Ring::WideOffsetElement<
             offset_ele_bound, offset_rns_bound>;
 
-        static INLINE StandardElement standard(
+        static BLST_FORCEINLINE StandardElement standard(
             const std::array<uint64_t, Ring::limbs>& m1,
             const std::array<uint64_t, Ring::limbs>& m2)
         {
@@ -49,86 +49,86 @@ namespace blst::avx::matrixnok
         Fp12ConstantsCandidate() noexcept = default;
         explicit Fp12ConstantsCandidate(const Ring&) noexcept {}
 
-        static INLINE StandardElement one_third()
+        static BLST_FORCEINLINE StandardElement one_third()
         {
             return standard(generated::fp12_one_third_m1,
                 generated::fp12_one_third_m2);
         }
 
-        static INLINE StandardElement neg_two_thirds()
+        static BLST_FORCEINLINE StandardElement neg_two_thirds()
         {
             return standard(generated::fp12_neg_two_thirds_m1,
                 generated::fp12_neg_two_thirds_m2);
         }
 
-        static INLINE StandardElement frob1_2()
+        static BLST_FORCEINLINE StandardElement frob1_2()
         {
             return standard(generated::fp12_frob1_2_m1,
                 generated::fp12_frob1_2_m2);
         }
 
-        static INLINE StandardElement frob1_3()
+        static BLST_FORCEINLINE StandardElement frob1_3()
         {
             return standard(generated::fp12_frob1_3_m1,
                 generated::fp12_frob1_3_m2);
         }
 
-        static INLINE StandardElement frob1_4()
+        static BLST_FORCEINLINE StandardElement frob1_4()
         {
             return standard(generated::fp12_frob1_4_m1,
                 generated::fp12_frob1_4_m2);
         }
 
-        static INLINE StandardElement frob1_5()
+        static BLST_FORCEINLINE StandardElement frob1_5()
         {
             return standard(generated::fp12_frob1_5_m1,
                 generated::fp12_frob1_5_m2);
         }
 
-        static INLINE StandardElement frob1_6()
+        static BLST_FORCEINLINE StandardElement frob1_6()
         {
             return standard(generated::fp12_frob1_6_m1,
                 generated::fp12_frob1_6_m2);
         }
 
-        static INLINE StandardElement frob1_7()
+        static BLST_FORCEINLINE StandardElement frob1_7()
         {
             return standard(generated::fp12_frob1_7_m1,
                 generated::fp12_frob1_7_m2);
         }
 
-        static INLINE StandardElement frob1_8()
+        static BLST_FORCEINLINE StandardElement frob1_8()
         {
             return standard(generated::fp12_frob1_8_m1,
                 generated::fp12_frob1_8_m2);
         }
 
-        static INLINE StandardElement frob1_9()
+        static BLST_FORCEINLINE StandardElement frob1_9()
         {
             return standard(generated::fp12_frob1_9_m1,
                 generated::fp12_frob1_9_m2);
         }
 
-        static INLINE StandardElement frob1_10()
+        static BLST_FORCEINLINE StandardElement frob1_10()
         {
             return standard(generated::fp12_frob1_10_m1,
                 generated::fp12_frob1_10_m2);
         }
 
-        static INLINE StandardElement frob2_1() { return frob1_4(); }
-        static INLINE StandardElement frob2_2() { return frob1_2(); }
+        static BLST_FORCEINLINE StandardElement frob2_1() { return frob1_4(); }
+        static BLST_FORCEINLINE StandardElement frob2_2() { return frob1_2(); }
 
-        static INLINE StandardElement frob2_3()
+        static BLST_FORCEINLINE StandardElement frob2_3()
         {
             return standard(generated::fp12_frob2_3_m1,
                 generated::fp12_frob2_3_m2);
         }
 
-        static INLINE StandardElement frob2_5() { return frob1_3(); }
-        static INLINE StandardElement frob3_2() { return frob1_8(); }
-        static INLINE StandardElement frob3_3() { return frob1_7(); }
+        static BLST_FORCEINLINE StandardElement frob2_5() { return frob1_3(); }
+        static BLST_FORCEINLINE StandardElement frob3_2() { return frob1_8(); }
+        static BLST_FORCEINLINE StandardElement frob3_3() { return frob1_7(); }
 
-        static INLINE Offset offset()
+        static BLST_FORCEINLINE Offset offset()
         {
             return Offset(
                 OffsetWide(

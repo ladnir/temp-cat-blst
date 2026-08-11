@@ -1,4 +1,4 @@
-#include "blst/avx/common/preprocess.h"
+#include "blst/common/defines.h"
 #include "blst/avx/cpu/vector/vector_impl.hpp"
 #include "blst/avx/rns/elementwise_reduce.h"
 #include "blst/avx/rns/matrixnok_change_base.h"
@@ -11,6 +11,14 @@
 
 #include <cstdint>
 
+#if defined(_MSC_VER)
+#define AUDIT_NOINLINE __declspec(noinline)
+#elif defined(__GNUC__) || defined(__clang__)
+#define AUDIT_NOINLINE __attribute__((noinline))
+#else
+#define AUDIT_NOINLINE
+#endif
+
 #if !defined(BLST_AVX512)
 #error "MatrixNoK code-generation probes require native AVX-512"
 #endif
@@ -22,18 +30,18 @@ using blst::avx::MontgomeryReduce2;
 using blst::avx::ShortVector;
 using blst::avx::uint128_t;
 
-extern "C" NOINLINE void audit_avx_uint128_mul(
+extern "C" AUDIT_NOINLINE void audit_avx_uint128_mul(
     uint128_t* out, uint64_t left, uint64_t right)
 {
     *out = blst::avx::mul_u64_u64(left, right);
 }
 
-extern "C" NOINLINE uint64_t audit_avx_extract_lane0(const AVXVector<8>* value)
+extern "C" AUDIT_NOINLINE uint64_t audit_avx_extract_lane0(const AVXVector<8>* value)
 {
     return value->extract0();
 }
 
-extern "C" NOINLINE void audit_avx_broadcast_reduction_quotient(
+extern "C" AUDIT_NOINLINE void audit_avx_broadcast_reduction_quotient(
     uint64_t out[8], const AVXVector<8>* high, const AVXVector<8>* low)
 {
     const ShortVector low_part = ShortVector::from_avx_lo(*low).srli(52);
@@ -41,7 +49,7 @@ extern "C" NOINLINE void audit_avx_broadcast_reduction_quotient(
     quotient.broadcast_to_avx<8>().store(out);
 }
 
-extern "C" NOINLINE void audit_avx_reduce_bound40(
+extern "C" AUDIT_NOINLINE void audit_avx_reduce_bound40(
     uint64_t out[8], const MontgomeryReduce2<8, 50, 6>* reducer, const uint64_t in[8])
 {
     using Input = BoundedElement<Bounds<0, 40>, 8, 50>;
@@ -51,7 +59,7 @@ extern "C" NOINLINE void audit_avx_reduce_bound40(
     reduced.data.store(out);
 }
 
-extern "C" NOINLINE void audit_avx_matrixnok_r1_change_base(
+extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_r1_change_base(
     uint64_t out_hi[8], uint64_t out_lo[8], const uint64_t residues_in[8],
     const uint64_t initial_hi[8], const uint64_t initial_lo[8])
 {
@@ -66,7 +74,7 @@ extern "C" NOINLINE void audit_avx_matrixnok_r1_change_base(
     low[0].store(out_lo);
 }
 
-extern "C" NOINLINE void audit_avx_matrixnok_fp_multiply(
+extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_fp_multiply(
     blst::avx::matrixnok::FpRingCandidate::Element* out,
     const blst::avx::matrixnok::FpRingCandidate::Element* left,
     const blst::avx::matrixnok::FpRingCandidate::Element* right)
@@ -74,7 +82,7 @@ extern "C" NOINLINE void audit_avx_matrixnok_fp_multiply(
     *out = blst::avx::matrixnok::FpRingCandidate::modmul(*left, *right);
 }
 
-extern "C" NOINLINE void audit_avx_matrixnok_fp2_multiply(
+extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_fp2_multiply(
     blst::avx::matrixnok::Fp2RingCandidate::Element* out,
     const blst::avx::matrixnok::Fp2RingCandidate::Element* left,
     const blst::avx::matrixnok::Fp2RingCandidate::Element* right)
@@ -83,7 +91,7 @@ extern "C" NOINLINE void audit_avx_matrixnok_fp2_multiply(
     fp2ring.multiply(*out, *left, *right);
 }
 
-extern "C" NOINLINE void audit_avx_matrixnok_fp2_square(
+extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_fp2_square(
     blst::avx::matrixnok::Fp2RingCandidate::Element* out,
     const blst::avx::matrixnok::Fp2RingCandidate::Element* value)
 {
@@ -91,7 +99,7 @@ extern "C" NOINLINE void audit_avx_matrixnok_fp2_square(
     fp2ring.square(*out, *value);
 }
 
-extern "C" NOINLINE void audit_avx_matrixnok_fp12_multiply(
+extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_fp12_multiply(
     blst::avx::matrixnok::Fp12RingCandidate::StandardElement* out,
     const blst::avx::matrixnok::Fp12RingCandidate::StandardElement* left,
     const blst::avx::matrixnok::Fp12RingCandidate::StandardElement* right)
@@ -101,7 +109,7 @@ extern "C" NOINLINE void audit_avx_matrixnok_fp12_multiply(
     *out = fp12ring.fp12_flat_mul(*left, *right, ring);
 }
 
-extern "C" NOINLINE void audit_avx_matrixnok_fp12_cyclotomic_square(
+extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_fp12_cyclotomic_square(
     blst::avx::matrixnok::Fp12RingCandidate::StandardElement* out,
     const blst::avx::matrixnok::Fp12RingCandidate::StandardElement* value)
 {
@@ -111,7 +119,7 @@ extern "C" NOINLINE void audit_avx_matrixnok_fp12_cyclotomic_square(
         fp12ring.fp12_flat_cyclotomic_sqr(*value, ring), ring);
 }
 
-extern "C" NOINLINE void audit_avx_matrixnok_gt_exp_ct(
+extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_gt_exp_ct(
     blst::avx::matrixnok::Fp12RingCandidate::StandardElement* out,
     const blst::avx::matrixnok::Fp12RingCandidate::StandardElement* value,
     const uint64_t scalar[4])
@@ -122,7 +130,7 @@ extern "C" NOINLINE void audit_avx_matrixnok_gt_exp_ct(
         *value, scalar, fp12ring, ring);
 }
 
-extern "C" NOINLINE void audit_avx_matrixnok_g1_add(
+extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_g1_add(
     blst::avx::matrixnok::G1ProjectiveCandidate* out,
     const blst::avx::matrixnok::G1ProjectiveCandidate* left,
     const blst::avx::matrixnok::G1ProjectiveCandidate* right)
@@ -132,7 +140,7 @@ extern "C" NOINLINE void audit_avx_matrixnok_g1_add(
     *out = curve.add_point(*left, *right, ring);
 }
 
-extern "C" NOINLINE void audit_avx_matrixnok_g1_double(
+extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_g1_double(
     blst::avx::matrixnok::G1ProjectiveCandidate* out,
     const blst::avx::matrixnok::G1ProjectiveCandidate* value)
 {
@@ -141,7 +149,7 @@ extern "C" NOINLINE void audit_avx_matrixnok_g1_double(
     *out = curve.double_point(*value, ring);
 }
 
-extern "C" NOINLINE void audit_avx_matrixnok_g2_add(
+extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_g2_add(
     blst::avx::matrixnok::G2ProjectiveCandidate* out,
     const blst::avx::matrixnok::G2ProjectiveCandidate* left,
     const blst::avx::matrixnok::G2ProjectiveCandidate* right)
@@ -152,7 +160,7 @@ extern "C" NOINLINE void audit_avx_matrixnok_g2_add(
     *out = curve.add_point(*left, *right, fp2ring);
 }
 
-extern "C" NOINLINE void audit_avx_matrixnok_g2_double(
+extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_g2_double(
     blst::avx::matrixnok::G2ProjectiveCandidate* out,
     const blst::avx::matrixnok::G2ProjectiveCandidate* value)
 {
@@ -162,7 +170,7 @@ extern "C" NOINLINE void audit_avx_matrixnok_g2_double(
     *out = curve.double_point(*value, fp2ring);
 }
 
-extern "C" NOINLINE void audit_avx_matrixnok_g2_gls_ct(
+extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_g2_gls_ct(
     blst::avx::matrixnok::G2ProjectiveCandidate* out,
     const blst::avx::matrixnok::G2ProjectiveCandidate* value,
     const std::array<uint8_t, 32>* scalar,

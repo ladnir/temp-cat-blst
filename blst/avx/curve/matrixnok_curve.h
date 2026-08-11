@@ -15,7 +15,7 @@ namespace blst::avx::matrixnok::detail
      * candidates use this exact schedule.
      */
     template<class Ring>
-    static INLINE ProjectivePoint<typename Ring::StandardElement> add_point(
+    static BLST_FORCEINLINE ProjectivePoint<typename Ring::StandardElement> add_point(
         const ProjectivePoint<typename Ring::StandardElement>& left,
         const ProjectivePoint<typename Ring::StandardElement>& right,
         const Ring& ring)

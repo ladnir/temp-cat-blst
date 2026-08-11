@@ -1,5 +1,5 @@
 #pragma once
-#include "../common/preprocess.h"
+#include "../../common/defines.h"
 #include "blst/common/vect.h"
 #include <type_traits>
 
@@ -16,19 +16,19 @@ class ProjectivePoint {
     ProjectivePoint(const RingElement &x_val, const RingElement &y_val, const RingElement &z_val)
         : x(x_val), y(y_val), z(z_val) {}
 
-    INLINE ProjectivePoint ctime_select(bool selection, const ProjectivePoint &other) const {
+    BLST_FORCEINLINE ProjectivePoint ctime_select(bool selection, const ProjectivePoint &other) const {
         return ProjectivePoint(x.ctime_select(selection, other.x), y.ctime_select(selection, other.y), z.ctime_select(selection, other.z));
     }
 
     // Clearer API: replace self with replacement if condition is true
     // ctime_select(selection, b) returns *this when selection is true, b when false
     // So we need to negate: if condition is true, we want replacement (not *this)
-    INLINE ProjectivePoint ctime_replace_if(bool condition, const ProjectivePoint &replacement) const {
+    BLST_FORCEINLINE ProjectivePoint ctime_replace_if(bool condition, const ProjectivePoint &replacement) const {
         return ctime_select(!condition, replacement);
     }
 
     // Clearer API: replace self with replacement if condition is false
-    INLINE ProjectivePoint ctime_replace_unless(bool condition, const ProjectivePoint &replacement) const {
+    BLST_FORCEINLINE ProjectivePoint ctime_replace_unless(bool condition, const ProjectivePoint &replacement) const {
         return ctime_select(condition, replacement);
     }
 };
@@ -39,19 +39,19 @@ class AffinePoint {
     RingElement x;
     RingElement y;
     
-    INLINE AffinePoint ctime_select(bool selection, const AffinePoint &other) const {
+    BLST_FORCEINLINE AffinePoint ctime_select(bool selection, const AffinePoint &other) const {
         return AffinePoint(x.ctime_select(selection, other.x), y.ctime_select(selection, other.y));
     }
 
     // Clearer API: replace self with replacement if condition is true
     // ctime_select(selection, b) returns *this when selection is true, b when false
     // So we need to negate: if condition is true, we want replacement (not *this)
-    INLINE AffinePoint ctime_replace_if(bool condition, const AffinePoint &replacement) const {
+    BLST_FORCEINLINE AffinePoint ctime_replace_if(bool condition, const AffinePoint &replacement) const {
         return ctime_select(!condition, replacement);
     }
 
     // Clearer API: replace self with replacement if condition is false
-    INLINE AffinePoint ctime_replace_unless(bool condition, const AffinePoint &replacement) const {
+    BLST_FORCEINLINE AffinePoint ctime_replace_unless(bool condition, const AffinePoint &replacement) const {
         return ctime_select(condition, replacement);
     }
 };
@@ -60,10 +60,10 @@ template<class Ring>
 class FP2Ring;
 
 template<class Element>
-INLINE bool PointCoordIsZero(const Element& value);
+BLST_FORCEINLINE bool PointCoordIsZero(const Element& value);
 
 template<class RingElement>
-INLINE bool PointIsZero(const AffinePoint<RingElement>& point);
+BLST_FORCEINLINE bool PointIsZero(const AffinePoint<RingElement>& point);
 
 // https://eprint.iacr.org/2015/1060.pdf Algorithm 7
 template<class Ring>
@@ -254,26 +254,26 @@ ProjectivePoint<typename Ring::StandardElement> PointDouble(const ProjectivePoin
 }
 
 template<class Element>
-INLINE bool PointCoordIsZero(const Element& value)
+BLST_FORCEINLINE bool PointCoordIsZero(const Element& value)
 {
     return value.is_zero() != 0;
 }
 
 template<class RingElement>
-INLINE bool PointIsZero(const AffinePoint<RingElement>& point)
+BLST_FORCEINLINE bool PointIsZero(const AffinePoint<RingElement>& point)
 {
     return (static_cast<unsigned>(PointCoordIsZero(point.x)) &
         static_cast<unsigned>(PointCoordIsZero(point.y))) != 0;
 }
 
 template<class Ring, class Element>
-INLINE typename Ring::StandardElement NormalizePointCoord(const Element& value, const Ring& ring)
+BLST_FORCEINLINE typename Ring::StandardElement NormalizePointCoord(const Element& value, const Ring& ring)
 {
     return ring.batch_reduce_expand(ring.prep_left(value) * ring.one())[0];
 }
 
 template<class Ring, class IsZero>
-INLINE bool ProjectiveEqual(
+BLST_FORCEINLINE bool ProjectiveEqual(
     const ProjectivePoint<typename Ring::StandardElement>& P,
     const ProjectivePoint<typename Ring::StandardElement>& Q,
     const Ring& ring,
@@ -293,7 +293,7 @@ INLINE bool ProjectiveEqual(
 }
 
 template<class Ring>
-INLINE bool ProjectiveEqual(
+BLST_FORCEINLINE bool ProjectiveEqual(
     const ProjectivePoint<typename Ring::StandardElement>& P,
     const ProjectivePoint<typename Ring::StandardElement>& Q,
     const Ring& ring)
@@ -396,11 +396,11 @@ class G1 {
         return result.ctime_replace_if(PointCoordIsZero(P.z), Q);
     }
 
-    INLINE ProjPoint negate(const ProjPoint &P, const Ring &ring) const {
+    BLST_FORCEINLINE ProjPoint negate(const ProjPoint &P, const Ring &ring) const {
         return ProjPoint(P.x, ring.standard_negate(P.y), P.z);
     }
 
-    INLINE ProjPoint zero(const Ring &ring) const {
+    BLST_FORCEINLINE ProjPoint zero(const Ring &ring) const {
         return ProjPoint(ring.zero(), ring.one(), ring.zero());
     }
 
@@ -436,11 +436,11 @@ class G2 {
         return result.ctime_replace_if(PointCoordIsZero(P.z), Q);
     }
 
-    INLINE ProjPoint negate(const ProjPoint &P, const FP2RingType &ring) const {
+    BLST_FORCEINLINE ProjPoint negate(const ProjPoint &P, const FP2RingType &ring) const {
         return ProjPoint(P.x, ring.standard_negate(P.y), P.z);
     }
 
-    INLINE ProjPoint zero(const FP2RingType &ring) const {
+    BLST_FORCEINLINE ProjPoint zero(const FP2RingType &ring) const {
         return ProjPoint(ring.zero(), ring.one(), ring.zero());
     }
 };

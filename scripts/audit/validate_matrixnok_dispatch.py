@@ -36,10 +36,10 @@ def main() -> int:
     avx = repo / "blst" / "avx"
 
     require_fragments(avx / "common" / "constexpr_utils.h", (
-        '#include "preprocess.h"',
+        '#include "../../common/defines.h"',
         "struct uint128_t",
         "struct int128_t",
-        "constexpr INLINE uint128_t mul_u64_u64",
+        "constexpr BLST_FORCEINLINE uint128_t mul_u64_u64",
         "std::is_constant_evaluated()",
         "_umul128(a, b, &high)",
         "static_assert(sizeof(int128_t) == 16);",
@@ -47,6 +47,7 @@ def main() -> int:
     forbid_fragments(avx / "common" / "constexpr_utils.h", (
         "using int128_t = int64_t;",
         "__forceinline",
+        "preprocess.h",
     ))
 
     require_fragments(avx / "rns" / "matrixnok_fp.h", (

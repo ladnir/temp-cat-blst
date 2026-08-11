@@ -7,7 +7,7 @@
 #pragma once
 
 #include "../common/constexpr_utils.h"
-#include "../common/preprocess.h"
+#include "../../common/defines.h"
 #include "../cpu/vector/vector_impl.hpp"
 #include "../generated_matrixnok_constants.hpp"
 #include "bounded_element.h"
@@ -84,7 +84,7 @@ namespace blst::avx::matrixnok::detail
     alignas(64) inline constexpr std::array<uint64_t, limbs> convert_to_correction_shift =
         make_shifted_correction(generated::convert_to_correction, generated::moduli2);
 
-    INLINE void debug_assert_residues_below(
+    BLST_FORCEINLINE void debug_assert_residues_below(
         const AVXVector<limbs>& value,
         const std::array<uint64_t, limbs>& moduli,
         uint64_t multiple)
@@ -101,7 +101,7 @@ namespace blst::avx::matrixnok::detail
 #endif
     }
 
-    INLINE void debug_assert_radix_50_digits(const AVXVector<limbs>& value)
+    BLST_FORCEINLINE void debug_assert_radix_50_digits(const AVXVector<limbs>& value)
     {
 #ifndef NDEBUG
         constexpr uint64_t radix = uint64_t{1} << element_bits;
@@ -130,7 +130,7 @@ namespace blst::avx::matrixnok::detail
     class FixedMontgomeryReduce
     {
         template<int64_t upper_bound, int64_t stop, int index>
-        static INLINE void min_sub_peel(AVXVector<limbs>& data)
+        static BLST_FORCEINLINE void min_sub_peel(AVXVector<limbs>& data)
         {
             if constexpr (index >= 0) {
                 constexpr int64_t multiple = int64_t{1} << index;
@@ -147,7 +147,7 @@ namespace blst::avx::matrixnok::detail
 
     public:
         template<int64_t lower_bound, int64_t upper_bound>
-        static INLINE auto mask_reduce(
+        static BLST_FORCEINLINE auto mask_reduce(
             const BoundedElement<Bounds<lower_bound, upper_bound>, limbs, element_bits>& value)
         {
             static_assert(lower_bound >= 0);
@@ -162,7 +162,7 @@ namespace blst::avx::matrixnok::detail
         }
 
         template<int64_t upper_bound, int stop = 1>
-        static INLINE auto min_sub_reduce(
+        static BLST_FORCEINLINE auto min_sub_reduce(
             const BoundedElement<Bounds<0, upper_bound>, limbs, element_bits>& value)
         {
             static_assert(stop >= 1);
@@ -177,7 +177,7 @@ namespace blst::avx::matrixnok::detail
         }
 
         template<int64_t upper_bound>
-        static INLINE auto reduce_small(
+        static BLST_FORCEINLINE auto reduce_small(
             const BoundedElement<Bounds<0, upper_bound>, limbs, element_bits>& high,
             const AVXVector<limbs>& low)
         {
@@ -203,7 +203,7 @@ namespace blst::avx::matrixnok::detail
         }
 
         template<int64_t upper_bound>
-        static INLINE auto reduce_wide(
+        static BLST_FORCEINLINE auto reduce_wide(
             const WideElement<Bounds<0, upper_bound>, limbs, element_bits>& value)
         {
             if constexpr (upper_bound > 1) {
@@ -218,7 +218,7 @@ namespace blst::avx::matrixnok::detail
         }
 
         template<int index = 0>
-        static INLINE auto moduli()
+        static BLST_FORCEINLINE auto moduli()
         {
             static_assert(index >= 0 && index < log_modulus_multiples);
             return BoundedElement<Bounds<1 << index, 1 << index>, limbs, element_bits>(
@@ -226,7 +226,7 @@ namespace blst::avx::matrixnok::detail
         }
 
         template<int stop = 1, int64_t upper_bound, int64_t lower_bound>
-        static INLINE auto reduce_auto(
+        static BLST_FORCEINLINE auto reduce_auto(
             const BoundedElement<Bounds<lower_bound, upper_bound>, limbs, element_bits>& value)
         {
             if constexpr (lower_bound < 0) {
@@ -251,7 +251,7 @@ namespace blst::avx::matrixnok::detail
         }
 
         template<int stop = 1, int64_t upper_bound, int64_t lower_bound>
-        static INLINE auto reduce_auto(
+        static BLST_FORCEINLINE auto reduce_auto(
             const WideElement<Bounds<lower_bound, upper_bound>, limbs, element_bits>& value)
         {
             static_assert(lower_bound >= 0);
@@ -268,7 +268,7 @@ namespace blst::avx::matrixnok::detail
         {
             return generated::r2_shifted_quotient_estimations;
         }
-        static INLINE void debug_assert_input(const AVXVector<limbs>& value)
+        static BLST_FORCEINLINE void debug_assert_input(const AVXVector<limbs>& value)
         {
             debug_assert_residues_below(value, generated::moduli2, 2);
         }
@@ -289,7 +289,7 @@ namespace blst::avx::matrixnok::detail
         {
             return generated::convert_to_shifted_quotient_estimations;
         }
-        static INLINE void debug_assert_input(const AVXVector<limbs>& value)
+        static BLST_FORCEINLINE void debug_assert_input(const AVXVector<limbs>& value)
         {
             debug_assert_radix_50_digits(value);
         }
@@ -306,7 +306,7 @@ namespace blst::avx::matrixnok::detail
         {
             return generated::convert_from_shifted_quotient_estimations;
         }
-        static INLINE void debug_assert_input(const AVXVector<limbs>& value)
+        static BLST_FORCEINLINE void debug_assert_input(const AVXVector<limbs>& value)
         {
             debug_assert_residues_below(value, generated::moduli2, 2);
         }
@@ -322,7 +322,7 @@ namespace blst::avx::matrixnok::detail
         // The shifted variants use correction * 2^52 modulo each output
         // modulus so IFMA high/low accumulation stays in the same radix.
         template<std::size_t index>
-        static INLINE void accumulate_registers(
+        static BLST_FORCEINLINE void accumulate_registers(
             AVXVector<limbs>& out_high,
             AVXVector<limbs>& out_low,
             const AVXVector<limbs>& residues,
@@ -342,7 +342,7 @@ namespace blst::avx::matrixnok::detail
             }
         }
 
-        static INLINE void add_correction(
+        static BLST_FORCEINLINE void add_correction(
             AVXVector<limbs>& out_high,
             AVXVector<limbs>& out_low,
             uint128_t quotient_numerator)
@@ -360,7 +360,7 @@ namespace blst::avx::matrixnok::detail
         }
 
     public:
-        static INLINE void reduce_raw(
+        static BLST_FORCEINLINE void reduce_raw(
             const AVXVector<limbs>& residues,
             AVXVector<limbs>& out_high,
             AVXVector<limbs>& out_low)
@@ -387,7 +387,7 @@ namespace blst::avx::matrixnok::detail
             add_correction(out_high, out_low, quotient_numerator);
         }
 
-        static INLINE void reduce_raw_shifted(
+        static BLST_FORCEINLINE void reduce_raw_shifted(
             const AVXVector<limbs>& residues,
             AVXVector<limbs>& out_high,
             AVXVector<limbs>& out_low)
@@ -411,7 +411,7 @@ namespace blst::avx::matrixnok::detail
         }
 
         template<std::size_t batch>
-        static INLINE void reduce_raw_batch_shifted(
+        static BLST_FORCEINLINE void reduce_raw_batch_shifted(
             const std::array<AVXVector<limbs>, batch>& residues,
             std::array<AVXVector<limbs>, batch>& out_high,
             std::array<AVXVector<limbs>, batch>& out_low)

@@ -57,7 +57,7 @@ class Miller {
     }
 
     // returns point, mutates f
-    INLINE ProjectivePoint<FP2RingStandardElement> double_step(const ProjectivePoint<FP2RingStandardElement> &P, FP12RingStandardElement &f, const Ring &ring, const FP2Ring<Ring> &fp2ring, const FP12RingType &fp12ring) const {
+    BLST_FORCEINLINE ProjectivePoint<FP2RingStandardElement> double_step(const ProjectivePoint<FP2RingStandardElement> &P, FP12RingStandardElement &f, const Ring &ring, const FP2Ring<Ring> &fp2ring, const FP12RingType &fp12ring) const {
         // https://eprint.iacr.org/2015/1060.pdf Algorithm 9
         // Merged with line computation and update:
         // line_x = x^2 * (3Qx)
@@ -100,7 +100,7 @@ class Miller {
     }
 
     // Returns point, mutates f.
-    INLINE ProjectivePoint<FP2RingStandardElement> add_step(const ProjectivePoint<FP2RingStandardElement> &P, FP12RingStandardElement &f, const Ring &ring, const FP2Ring<Ring> &fp2ring, const FP12RingType &fp12ring) const {
+    BLST_FORCEINLINE ProjectivePoint<FP2RingStandardElement> add_step(const ProjectivePoint<FP2RingStandardElement> &P, FP12RingStandardElement &f, const Ring &ring, const FP2Ring<Ring> &fp2ring, const FP12RingType &fp12ring) const {
         // https://eprint.iacr.org/2015/1060.pdf Algorithm 8
         // Merged with line computation and update:
         // Line:
@@ -148,7 +148,7 @@ class Miller {
     }
 
     // Returns point, mutates f.
-    INLINE ProjectivePoint<FP2RingStandardElement> add_dbl(const ProjectivePoint<FP2RingStandardElement> &P, FP12RingStandardElement &f, const Ring &ring, const FP2Ring<Ring> &fp2ring, const FP12RingType &fp12ring, int iterations) const {
+    BLST_FORCEINLINE ProjectivePoint<FP2RingStandardElement> add_dbl(const ProjectivePoint<FP2RingStandardElement> &P, FP12RingStandardElement &f, const Ring &ring, const FP2Ring<Ring> &fp2ring, const FP12RingType &fp12ring, int iterations) const {
         auto result = add_step(P, f, ring, fp2ring, fp12ring);
 #if defined(__clang__)
         #pragma clang loop unroll(disable)

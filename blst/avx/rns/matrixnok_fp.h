@@ -87,7 +87,7 @@ namespace blst::avx::matrixnok
         using OffsetElement = ExpandedElement<FullyReducedResidue, Bounds<rns_bound, rns_bound>>;
 
     private:
-        static INLINE StandardResidue expand_m2(const StandardResidue& m2)
+        static BLST_FORCEINLINE StandardResidue expand_m2(const StandardResidue& m2)
         {
             AVXVector<limbs> high(0);
             AVXVector<limbs> low(0);
@@ -102,7 +102,7 @@ namespace blst::avx::matrixnok
         }
 
         template<std::size_t batch>
-        static INLINE std::array<StandardResidue, batch> expand_m2_batch(
+        static BLST_FORCEINLINE std::array<StandardResidue, batch> expand_m2_batch(
             const std::array<StandardResidue, batch>& m2)
         {
             std::array<AVXVector<limbs>, batch> residues;
@@ -133,7 +133,7 @@ namespace blst::avx::matrixnok
         // narrow bridge used by extension-field formulas to combine terms
         // before paying for reduction and expansion.
         template<int product_bound, std::size_t batch>
-        static INLINE std::array<Element, batch> finish_wide_products(
+        static BLST_FORCEINLINE std::array<Element, batch> finish_wide_products(
             std::array<AVXVector<limbs>, batch>& m1_high,
             std::array<AVXVector<limbs>, batch>& m1_low,
             std::array<AVXVector<limbs>, batch>& m2_high,
@@ -178,7 +178,7 @@ namespace blst::avx::matrixnok
             return result;
         }
 
-        static INLINE Element negate_for_product(const Element& value)
+        static BLST_FORCEINLINE Element negate_for_product(const Element& value)
         {
             return Element(
                 StandardResidue(
@@ -190,7 +190,7 @@ namespace blst::avx::matrixnok
     public:
         constexpr FpRingCandidate() noexcept = default;
 
-        static INLINE Element from_canonical_limbs(const blst::Fp& canonical)
+        static BLST_FORCEINLINE Element from_canonical_limbs(const blst::Fp& canonical)
         {
             // Narrow contract: canonical is an ordinary representative in
             // [0, p), not Montgomery form. The assertion has no Release cost.
@@ -211,7 +211,7 @@ namespace blst::avx::matrixnok
             return from_canonical_50bit_digits(digits);
         }
 
-        static INLINE Element from_scalar(const blst::Fp& montgomery)
+        static BLST_FORCEINLINE Element from_scalar(const blst::Fp& montgomery)
         {
             blst::Fp canonical = {};
             blst::Fp::from_mont(canonical, montgomery);
@@ -219,7 +219,7 @@ namespace blst::avx::matrixnok
         }
 
         template<int bytes>
-        static INLINE Element from_hex(const char (&literal)[bytes])
+        static BLST_FORCEINLINE Element from_hex(const char (&literal)[bytes])
         {
             const char* hex = literal;
             if constexpr (bytes >= 3) {
@@ -236,12 +236,12 @@ namespace blst::avx::matrixnok
             return from_canonical_limbs(canonical);
         }
 
-        static INLINE StandardElement zero()
+        static BLST_FORCEINLINE StandardElement zero()
         {
             return StandardElement{};
         }
 
-        static INLINE StandardElement one()
+        static BLST_FORCEINLINE StandardElement one()
         {
             return StandardElement(
                 StandardResidue(AVXVector<limbs>(generated::one_m1)),
@@ -249,7 +249,7 @@ namespace blst::avx::matrixnok
         }
 
         template<int multiple = 1>
-        static INLINE auto elementwise_moduli()
+        static BLST_FORCEINLINE auto elementwise_moduli()
         {
             static_assert(multiple >= 1);
             constexpr int index = ceil_log2(multiple);
@@ -259,7 +259,7 @@ namespace blst::avx::matrixnok
         }
 
         template<int64_t lower, int64_t upper, class RNSBoundsType>
-        static INLINE auto wideify(
+        static BLST_FORCEINLINE auto wideify(
             const ExpandedElement<
                 BoundedElement<Bounds<lower, upper>, limbs, element_bits>,
                 RNSBoundsType>& element)
@@ -271,7 +271,7 @@ namespace blst::avx::matrixnok
                 Wide(zero, element.m1), Wide(zero, element.m2));
         }
 
-        static INLINE auto negative_range_offset()
+        static BLST_FORCEINLINE auto negative_range_offset()
         {
             const auto offset = OffsetElement<max_negative_rns>(
                 FullyReducedResidue(AVXVector<limbs>(generated::max_neg_offset_m1)),
@@ -281,7 +281,7 @@ namespace blst::avx::matrixnok
 
         template<int64_t lower, int64_t upper, class RNSBoundsType,
             int to = MULT_OK_BOUND>
-        static INLINE auto prep(const ExpandedElement<
+        static BLST_FORCEINLINE auto prep(const ExpandedElement<
             BoundedElement<Bounds<lower, upper>, limbs, element_bits>,
             RNSBoundsType>& element)
         {
@@ -291,13 +291,13 @@ namespace blst::avx::matrixnok
         }
 
         template<class ElementType>
-        static INLINE auto prep_left(const ElementType& element)
+        static BLST_FORCEINLINE auto prep_left(const ElementType& element)
         {
             return prep(element);
         }
 
         template<int64_t lower, int64_t upper, class RNSBoundsType>
-        static INLINE auto prep_standard(const ExpandedElement<
+        static BLST_FORCEINLINE auto prep_standard(const ExpandedElement<
             BoundedElement<Bounds<lower, upper>, limbs, element_bits>,
             RNSBoundsType>& element)
         {
@@ -306,7 +306,7 @@ namespace blst::avx::matrixnok
 
         template<int64_t lower, int64_t upper, class RNSBoundsType,
             int to = MULT_OK_BOUND>
-        static INLINE auto prep(const SmallElement<
+        static BLST_FORCEINLINE auto prep(const SmallElement<
             BoundedElement<Bounds<lower, upper>, limbs, element_bits>,
             RNSBoundsType>& element)
         {
@@ -315,7 +315,7 @@ namespace blst::avx::matrixnok
         }
 
         template<int64_t lower, int64_t upper, class RNSBoundsType>
-        static INLINE auto prep_standard(const SmallElement<
+        static BLST_FORCEINLINE auto prep_standard(const SmallElement<
             BoundedElement<Bounds<lower, upper>, limbs, element_bits>,
             RNSBoundsType>& element)
         {
@@ -323,7 +323,7 @@ namespace blst::avx::matrixnok
         }
 
         template<int64_t lower, int64_t upper, class RNSBoundsType>
-        static INLINE auto negate(const ExpandedElement<
+        static BLST_FORCEINLINE auto negate(const ExpandedElement<
             BoundedElement<Bounds<lower, upper>, limbs, element_bits>,
             RNSBoundsType>& value)
         {
@@ -331,7 +331,7 @@ namespace blst::avx::matrixnok
         }
 
         template<int64_t lower, int64_t upper, class RNSBoundsType>
-        static INLINE auto negate(const SmallElement<
+        static BLST_FORCEINLINE auto negate(const SmallElement<
             BoundedElement<Bounds<lower, upper>, limbs, element_bits>,
             RNSBoundsType>& value)
         {
@@ -342,7 +342,7 @@ namespace blst::avx::matrixnok
         }
 
         template<int64_t lower, int64_t upper>
-        static INLINE StandardElement standard_negate(const ExpandedElement<
+        static BLST_FORCEINLINE StandardElement standard_negate(const ExpandedElement<
             BoundedElement<Bounds<lower, upper>, limbs, element_bits>,
             Bounds<0, 1>>& value)
         {
@@ -355,7 +355,7 @@ namespace blst::avx::matrixnok
         }
 
         template<int64_t lower, int64_t upper>
-        static INLINE auto standard_negate(const ExpandedElement<
+        static BLST_FORCEINLINE auto standard_negate(const ExpandedElement<
             BoundedElement<Bounds<lower, upper>, limbs, element_bits>,
             Bounds<0, 6>>& value)
         {
@@ -368,7 +368,7 @@ namespace blst::avx::matrixnok
         }
 
         template<class ElementType, int64_t rns_lower, int64_t rns_upper>
-        static INLINE auto complete(const ExpandedElement<
+        static BLST_FORCEINLINE auto complete(const ExpandedElement<
             ElementType, Bounds<rns_lower, rns_upper>>& value)
         {
             if constexpr (rns_lower < 0) {
@@ -379,7 +379,7 @@ namespace blst::avx::matrixnok
         }
 
         template<int64_t A, class ElementType, class RNSBoundsType>
-        static INLINE ReadyElement<A> ready(
+        static BLST_FORCEINLINE ReadyElement<A> ready(
             const ExpandedElement<ElementType, RNSBoundsType>& value)
         {
             const auto completed = complete(value);
@@ -397,7 +397,7 @@ namespace blst::avx::matrixnok
                 m2, m1_reduced.template recast<0, STANDARD_BOUND>());
         }
 
-        static INLINE Element from_canonical_50bit_digits(
+        static BLST_FORCEINLINE Element from_canonical_50bit_digits(
             const std::array<uint64_t, limbs>& digits)
         {
 #ifndef NDEBUG
@@ -441,7 +441,7 @@ namespace blst::avx::matrixnok
         }
 
         template<int batch, int64_t rns_bound>
-        static INLINE std::array<
+        static BLST_FORCEINLINE std::array<
             ExpandedElement<StandardResidue, Bounds<0, rns_bound>>, batch>
         batch_expand(const std::array<
             SmallElement<StandardResidue, Bounds<0, rns_bound>>, batch>& values)
@@ -464,7 +464,7 @@ namespace blst::avx::matrixnok
         }
 
         template<int batch>
-        static INLINE std::array<StandardResidue, batch> batch_expand(
+        static BLST_FORCEINLINE std::array<StandardResidue, batch> batch_expand(
             const std::array<StandardResidue, batch>& m2)
         {
             static_assert(batch > 0);
@@ -472,14 +472,14 @@ namespace blst::avx::matrixnok
         }
 
         template<class ElementType, class RNSBoundsType>
-        static INLINE auto small_m2(
+        static BLST_FORCEINLINE auto small_m2(
             const ExpandedElement<ElementType, RNSBoundsType>& element)
         {
             return SmallElement<ElementType, RNSBoundsType>(element.m2);
         }
 
         template<class ElementType, class RNSBoundsType>
-        static INLINE auto prep_expand(
+        static BLST_FORCEINLINE auto prep_expand(
             const SmallElement<ElementType, RNSBoundsType>& element)
         {
             if constexpr (RNSBoundsType::lower < 0) {
@@ -502,7 +502,7 @@ namespace blst::avx::matrixnok
 
     private:
         template<class... Args, std::size_t... indices>
-        static INLINE auto make_expand_array(
+        static BLST_FORCEINLINE auto make_expand_array(
             const std::tuple<Args...>& args, std::index_sequence<indices...>)
         {
             return std::array<StandardResidue, sizeof...(Args)>{
@@ -510,7 +510,7 @@ namespace blst::avx::matrixnok
         }
 
         template<class Small, class Expanded>
-        static INLINE auto reattach_expand_bounds(
+        static BLST_FORCEINLINE auto reattach_expand_bounds(
             const Small& small, const Expanded& expanded)
         {
             return ExpandedElement<
@@ -519,7 +519,7 @@ namespace blst::avx::matrixnok
         }
 
         template<class... Args, std::size_t... indices>
-        static INLINE auto reattach_expand_tuple(
+        static BLST_FORCEINLINE auto reattach_expand_tuple(
             const std::tuple<Args...>& args,
             const std::array<StandardResidue, sizeof...(Args)>& expanded,
             std::index_sequence<indices...>)
@@ -531,7 +531,7 @@ namespace blst::avx::matrixnok
 
     public:
         template<class... Args>
-        static INLINE auto batch_expand(const Args&... args)
+        static BLST_FORCEINLINE auto batch_expand(const Args&... args)
         {
             constexpr int batch = static_cast<int>(sizeof...(Args));
             static_assert(batch > 0);
@@ -544,7 +544,7 @@ namespace blst::avx::matrixnok
         }
 
         template<int batch, int64_t A = MAX_ADD>
-        static INLINE auto batch_reduce(
+        static BLST_FORCEINLINE auto batch_reduce(
             const std::array<ReadyElement<A>, batch>& values)
         {
             static_assert(batch > 0);
@@ -578,7 +578,7 @@ namespace blst::avx::matrixnok
         }
 
         template<int batch>
-        static INLINE std::array<StandardElement, batch> batch_reduce_expand(
+        static BLST_FORCEINLINE std::array<StandardElement, batch> batch_reduce_expand(
             const std::array<ReadyElement<MAX_ADD>, batch>& values)
         {
             const auto reduced = batch_reduce<batch>(values);
@@ -594,7 +594,7 @@ namespace blst::avx::matrixnok
 
     private:
         template<int64_t A, class... Args, std::size_t... indices>
-        static INLINE auto make_ready_array(
+        static BLST_FORCEINLINE auto make_ready_array(
             const std::tuple<Args...>& args, std::index_sequence<indices...>)
         {
             return std::array<ReadyElement<A>, sizeof...(Args)>{
@@ -603,7 +603,7 @@ namespace blst::avx::matrixnok
 
     public:
         template<class... Args>
-        static INLINE auto batch_reduce_expand(const Args&... args)
+        static BLST_FORCEINLINE auto batch_reduce_expand(const Args&... args)
         {
             constexpr int batch = static_cast<int>(sizeof...(Args));
             static_assert(batch > 0);
@@ -614,7 +614,7 @@ namespace blst::avx::matrixnok
         }
 
         template<class... Args>
-        static INLINE auto batch_reduce(const Args&... args)
+        static BLST_FORCEINLINE auto batch_reduce(const Args&... args)
         {
             constexpr int batch = static_cast<int>(sizeof...(Args));
             static_assert(batch > 0);
@@ -625,7 +625,7 @@ namespace blst::avx::matrixnok
             return batch_reduce<batch>(values);
         }
 
-        static INLINE StandardElement modmul(
+        static BLST_FORCEINLINE StandardElement modmul(
             const StandardElement& left, const StandardElement& right)
         {
             // Production one-shot multiplication uses the exact-bound,
@@ -635,7 +635,7 @@ namespace blst::avx::matrixnok
         }
 
         template<int batch>
-        static INLINE std::array<StandardElement, batch> batch_modmul(
+        static BLST_FORCEINLINE std::array<StandardElement, batch> batch_modmul(
             const std::array<StandardElement, batch>& left,
             const std::array<StandardElement, batch>& right)
         {
@@ -643,12 +643,12 @@ namespace blst::avx::matrixnok
         }
 
         template<class Value>
-        static INLINE auto mul_3b(const Value& value)
+        static BLST_FORCEINLINE auto mul_3b(const Value& value)
         {
             return value * std::integral_constant<int, 12>{};
         }
 
-        static INLINE Element multiply(const Element& left, const Element& right)
+        static BLST_FORCEINLINE Element multiply(const Element& left, const Element& right)
         {
             // Selected MatrixNoK multiplication pipeline:
             //   1. form products independently in M1 and M2;
@@ -689,14 +689,14 @@ namespace blst::avx::matrixnok
 
         // Multiply modulo p. Exact output aliasing with either input is
         // supported; partial overlap is not.
-        static INLINE void multiply(
+        static BLST_FORCEINLINE void multiply(
             Element& out, const Element& left, const Element& right)
         {
             out = multiply(left, right);
         }
 
         template<std::size_t batch>
-        static INLINE std::array<Element, batch> multiply_batch(
+        static BLST_FORCEINLINE std::array<Element, batch> multiply_batch(
             const std::array<Element, batch>& left,
             const std::array<Element, batch>& right)
         {
@@ -743,7 +743,7 @@ namespace blst::avx::matrixnok
             return result;
         }
 
-        static INLINE void convert_from_raw(
+        static BLST_FORCEINLINE void convert_from_raw(
             const Element& value,
             AVXVector<8>& out_high,
             AVXVector<8>& out_low)

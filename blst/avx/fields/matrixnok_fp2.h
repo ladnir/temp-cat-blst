@@ -34,7 +34,7 @@ namespace blst::avx::matrixnok
 
         constexpr Fp2RingCandidate() noexcept = default;
 
-        INLINE Element multiply(const Element& left, const Element& right) const
+        BLST_FORCEINLINE Element multiply(const Element& left, const Element& right) const
         {
             // (a + bu)(c + du) = (ac - bd) + (ad + bc)u.
             const Fp::Element minus_b = Fp::negate_for_product(left.c1);
@@ -69,12 +69,12 @@ namespace blst::avx::matrixnok
             return {result[0], result[1]};
         }
 
-        INLINE void multiply(Element& out, const Element& left, const Element& right) const
+        BLST_FORCEINLINE void multiply(Element& out, const Element& left, const Element& right) const
         {
             out = multiply(left, right);
         }
 
-        INLINE Element square(const Element& value) const
+        BLST_FORCEINLINE Element square(const Element& value) const
         {
             // (a + bu)^2 = (a^2 - b^2) + 2ab*u. The imaginary
             // accumulator doubles one product rather than issuing it twice.
@@ -114,7 +114,7 @@ namespace blst::avx::matrixnok
             return {result[0], result[1]};
         }
 
-        INLINE void square(Element& out, const Element& value) const
+        BLST_FORCEINLINE void square(Element& out, const Element& value) const
         {
             out = square(value);
         }

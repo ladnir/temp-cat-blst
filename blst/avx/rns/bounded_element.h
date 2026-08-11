@@ -1,7 +1,7 @@
 #pragma once
 #include "bounds.h"
 #include "../cpu/vector/vector_impl.hpp"
-#include "../common/preprocess.h"
+#include "../../common/defines.h"
 #include <string>
 #include <iostream>
 
@@ -30,26 +30,26 @@ class BoundedElement {
     static_assert(BoundsType::upper < max_bound, "Value can overflow type");
 
     // Constructor
-    INLINE BoundedElement() = default;
-    constexpr INLINE explicit BoundedElement(const AVXVector<limbs> &d) : data(d) {}
+    BLST_FORCEINLINE BoundedElement() = default;
+    constexpr BLST_FORCEINLINE explicit BoundedElement(const AVXVector<limbs> &d) : data(d) {}
 
     template<class OtherBounds>
-    INLINE auto operator+(const BoundedElement<OtherBounds, limbs, element_bits> &other) const {
+    BLST_FORCEINLINE auto operator+(const BoundedElement<OtherBounds, limbs, element_bits> &other) const {
         return BoundedElement<decltype(bounds + other.bounds), limbs, element_bits>(data.add(other.data));
     }
 
     template<class OtherBounds>
-    INLINE auto operator-(const BoundedElement<OtherBounds, limbs, element_bits> &other) const {
+    BLST_FORCEINLINE auto operator-(const BoundedElement<OtherBounds, limbs, element_bits> &other) const {
         return BoundedElement<decltype(bounds - other.bounds), limbs, element_bits>(data.sub(other.data));
     }
     
     template<int64_t left_shift>
-    INLINE auto shift_left() const {
+    BLST_FORCEINLINE auto shift_left() const {
         auto shifted_bounds = bounds.template shift_left<left_shift>();
         return BoundedElement<decltype(shifted_bounds), limbs, element_bits>(data.slli(left_shift));
     }
 
-    INLINE static void check_mult_bounds() {
+    BLST_FORCEINLINE static void check_mult_bounds() {
         static_assert(bounds.lower >= 0, "Lower bound must be non-negative for unsigned multiplication");
         // We use AVX IFMA 52-bit multiplication hardware.
         // For 52-bit numbers: can multiply directly (bound <= 1, representing 1 * 2^52 = full 52-bit range)
@@ -58,11 +58,11 @@ class BoundedElement {
         static_assert(bounds.upper <= (1ull << (52 - element_bits)), "Upper bound must be <= 2^(52 - element_bits) for 52-bit multiplication");
     }
 
-    INLINE static auto zero() {
+    BLST_FORCEINLINE static auto zero() {
         return BoundedElement<Bounds<0, 0>, limbs, element_bits>{};
     }
 
-    INLINE std::array<int64_t, limbs> to_array() const {
+    BLST_FORCEINLINE std::array<int64_t, limbs> to_array() const {
         auto uint_array = data.to_array();
         std::array<int64_t, limbs> result;
         for (int i = 0; i < limbs; i++) {
@@ -71,7 +71,7 @@ class BoundedElement {
         return result;
     }
 
-    INLINE std::array<uint64_t, limbs> to_unsigned_array() const {
+    BLST_FORCEINLINE std::array<uint64_t, limbs> to_unsigned_array() const {
         auto uint_array = data.to_array();
         std::array<uint64_t, limbs> result;
         for (int i = 0; i < limbs; i++) {
@@ -80,7 +80,7 @@ class BoundedElement {
         return result;
     }
 
-    INLINE bool check_bounds(const std::array<int64_t, limbs> &moduli, const std::string &context = "") const {
+    BLST_FORCEINLINE bool check_bounds(const std::array<int64_t, limbs> &moduli, const std::string &context = "") const {
         auto data_array = to_array();
         for (int i = 0; i < limbs; i++) {
             // Inclusive lower bound, inclusive upper bound
@@ -100,48 +100,48 @@ class BoundedElement {
         return true;
     }
 
-    INLINE auto complete() const {
+    BLST_FORCEINLINE auto complete() const {
         return *this;
     }
     
     template<int64_t new_lower, int64_t new_upper>
-    INLINE auto recast() const {
+    BLST_FORCEINLINE auto recast() const {
         auto new_bounds = bounds.template recast<new_lower, new_upper>();
         return BoundedElement<decltype(new_bounds), limbs, element_bits>(data);
     }
 
-    INLINE auto operator*(std::integral_constant<int, 1>) const {
+    BLST_FORCEINLINE auto operator*(std::integral_constant<int, 1>) const {
         return *this;
     }
 
-    INLINE auto operator*(std::integral_constant<int, 2>) const {
+    BLST_FORCEINLINE auto operator*(std::integral_constant<int, 2>) const {
         return *this + *this;
     }
 
-    INLINE auto operator*(std::integral_constant<int, 3>) const {
+    BLST_FORCEINLINE auto operator*(std::integral_constant<int, 3>) const {
         return *this + *this + *this;
     }
 
-    INLINE auto operator*(std::integral_constant<int, 6>) const {
+    BLST_FORCEINLINE auto operator*(std::integral_constant<int, 6>) const {
         return (*this * std::integral_constant<int, 3>()) * std::integral_constant<int, 2>();
     }
 
-    INLINE auto ctime_select(bool selection, const BoundedElement &other) const {
+    BLST_FORCEINLINE auto ctime_select(bool selection, const BoundedElement &other) const {
         return BoundedElement(data.ctime_select(selection, other.data));
     }
 
-    INLINE bool_t is_zero() const {
+    BLST_FORCEINLINE bool_t is_zero() const {
         return data.is_zero();
     }
 
-    INLINE bool_t equal(const BoundedElement &other) const {
+    BLST_FORCEINLINE bool_t equal(const BoundedElement &other) const {
         return data.equal(other.data);
     }
 
     // Clearer API: replace self with replacement if condition is true
     // ctime_select(selection, b) returns *this when selection is true, b when false
     // So we need to negate: if condition is true, we want replacement (not *this)
-    INLINE auto ctime_replace_if(bool condition, const BoundedElement &replacement) const {
+    BLST_FORCEINLINE auto ctime_replace_if(bool condition, const BoundedElement &replacement) const {
         return ctime_select(!condition, replacement);
     }
 };
@@ -156,9 +156,9 @@ class DelayedProduct {
     Left left;
     Right right;
 
-    INLINE DelayedProduct(Left left, Right right) : left(left), right(right) {}
+    BLST_FORCEINLINE DelayedProduct(Left left, Right right) : left(left), right(right) {}
 
-    INLINE auto complete() const {
+    BLST_FORCEINLINE auto complete() const {
         auto zero = Left::zero();
         constexpr int limbs = Left::LIMBS;
         constexpr int element_bits = Left::ELEMENT_BITS;
@@ -174,33 +174,33 @@ class WideElement {
     ElementType low;
     static constexpr BoundsType bounds = BoundsType{};
 
-    INLINE WideElement() = default;
-    INLINE explicit WideElement(const ElementType &high, const ElementType &low) : high(high), low(low) {}
-    INLINE explicit WideElement(const AVXVector<limbs> &high_data, const AVXVector<limbs> &low_data) : high(high_data), low(low_data) {}
+    BLST_FORCEINLINE WideElement() = default;
+    BLST_FORCEINLINE explicit WideElement(const ElementType &high, const ElementType &low) : high(high), low(low) {}
+    BLST_FORCEINLINE explicit WideElement(const AVXVector<limbs> &high_data, const AVXVector<limbs> &low_data) : high(high_data), low(low_data) {}
     
     template<class OtherElementType>
-    INLINE auto operator+(const WideElement<OtherElementType, limbs, element_bits> &other) const {
+    BLST_FORCEINLINE auto operator+(const WideElement<OtherElementType, limbs, element_bits> &other) const {
         auto result_low = low + other.low;
         auto result_high = high + other.high;
         return WideElement<decltype(bounds + other.bounds), limbs, element_bits>(result_high, result_low);
     }
 
     template<class OtherElementType>
-    INLINE auto operator-(const WideElement<OtherElementType, limbs, element_bits> &other) const {
+    BLST_FORCEINLINE auto operator-(const WideElement<OtherElementType, limbs, element_bits> &other) const {
         auto result_low = low - other.low;
         auto result_high = high - other.high;
         return WideElement<decltype(bounds - other.bounds), limbs, element_bits>(result_high, result_low);
     }
 
     template<int64_t left_shift>
-    INLINE auto shift_left() const {
+    BLST_FORCEINLINE auto shift_left() const {
         auto high_shifted = high.template shift_left<left_shift>();
         auto low_shifted = low.template shift_left<left_shift>();
         return WideElement<decltype(bounds.template shift_left<left_shift>()), limbs, element_bits>(high_shifted, low_shifted);
     }
 
     template<class LeftBounds, class RightBounds>
-    INLINE auto mulacc(const BoundedElement<LeftBounds, limbs, element_bits> &left, const BoundedElement<RightBounds, limbs, element_bits> &right) const {
+    BLST_FORCEINLINE auto mulacc(const BoundedElement<LeftBounds, limbs, element_bits> &left, const BoundedElement<RightBounds, limbs, element_bits> &right) const {
         left.check_mult_bounds();
         right.check_mult_bounds();
         auto result_low_data = low.data.mullo(left.data, right.data);
@@ -212,22 +212,22 @@ class WideElement {
     }
 
     template<class LeftBounds, class RightBounds>
-    INLINE auto operator+(const DelayedProduct<BoundedElement<LeftBounds, limbs, element_bits>, BoundedElement<RightBounds, limbs, element_bits>> &delayed_product) const {
+    BLST_FORCEINLINE auto operator+(const DelayedProduct<BoundedElement<LeftBounds, limbs, element_bits>, BoundedElement<RightBounds, limbs, element_bits>> &delayed_product) const {
         return mulacc(delayed_product.left, delayed_product.right);
     }
 
     // No action required for non delayed products.
-    INLINE WideElement complete() const {
+    BLST_FORCEINLINE WideElement complete() const {
         return *this;
     }
 
     template<int64_t new_lower, int64_t new_upper>
-    INLINE auto recast() const {
+    BLST_FORCEINLINE auto recast() const {
         auto new_bounds = bounds.template recast<new_lower, new_upper>();
         return WideElement<decltype(new_bounds), limbs, element_bits>(high.template recast<new_lower, new_upper>(), low.template recast<new_lower, new_upper>());
     }
 
-    INLINE std::array<int128_t, limbs> to_array() const {
+    BLST_FORCEINLINE std::array<int128_t, limbs> to_array() const {
         auto low_array = low.data.to_array();
         auto high_array = high.data.to_array();
         std::array<int128_t, limbs> result;
@@ -237,7 +237,7 @@ class WideElement {
         return result;
     }
 
-    INLINE bool check_bounds(const std::array<int64_t, limbs> &moduli, const std::string &context = "") const {
+    BLST_FORCEINLINE bool check_bounds(const std::array<int64_t, limbs> &moduli, const std::string &context = "") const {
         std::array<int64_t, limbs> low_mask;
         std::array<int128_t, limbs> reconstructed_value = to_array();
         bool high_ok = true;
@@ -262,7 +262,7 @@ class WideElement {
 };
 
 template<int limbs, int element_bits>
-INLINE auto WideZero() {
+BLST_FORCEINLINE auto WideZero() {
     auto zero = BoundedElement<Bounds<0, 0>, limbs, element_bits>::zero();
     return WideElement<Bounds<0, 0>, limbs, element_bits>(zero, zero);
 

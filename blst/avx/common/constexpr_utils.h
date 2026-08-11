@@ -1,5 +1,5 @@
 #pragma once
-#include "preprocess.h"
+#include "../../common/defines.h"
 #include <bit>
 #include <cstdint>
 #include <array>
@@ -24,31 +24,31 @@ struct uint128_t {
     constexpr operator uint64_t() const { return lo; }
 };
 
-constexpr INLINE uint128_t operator+(uint128_t a, uint128_t b) {
+constexpr BLST_FORCEINLINE uint128_t operator+(uint128_t a, uint128_t b) {
     const uint64_t low = a.lo + b.lo;
     const uint64_t carry = low < a.lo ? 1u : 0u;
     return uint128_t(a.hi + b.hi + carry, low);
 }
 
-constexpr INLINE uint128_t& operator+=(uint128_t& a, uint128_t b) {
+constexpr BLST_FORCEINLINE uint128_t& operator+=(uint128_t& a, uint128_t b) {
     a = a + b;
     return a;
 }
 
-constexpr INLINE uint128_t operator|(uint128_t a, uint128_t b) {
+constexpr BLST_FORCEINLINE uint128_t operator|(uint128_t a, uint128_t b) {
     return uint128_t(a.hi | b.hi, a.lo | b.lo);
 }
 
-constexpr INLINE uint128_t& operator|=(uint128_t& a, uint128_t b) {
+constexpr BLST_FORCEINLINE uint128_t& operator|=(uint128_t& a, uint128_t b) {
     a = a | b;
     return a;
 }
 
-constexpr INLINE uint128_t operator&(uint128_t a, uint64_t mask) {
+constexpr BLST_FORCEINLINE uint128_t operator&(uint128_t a, uint64_t mask) {
     return uint128_t(0, a.lo & mask);
 }
 
-constexpr INLINE uint128_t operator<<(uint128_t value, int shift) {
+constexpr BLST_FORCEINLINE uint128_t operator<<(uint128_t value, int shift) {
     if (shift <= 0) {
         return value;
     }
@@ -64,7 +64,7 @@ constexpr INLINE uint128_t operator<<(uint128_t value, int shift) {
     );
 }
 
-constexpr INLINE uint128_t operator>>(uint128_t value, int shift) {
+constexpr BLST_FORCEINLINE uint128_t operator>>(uint128_t value, int shift) {
     if (shift <= 0) {
         return value;
     }
@@ -80,12 +80,12 @@ constexpr INLINE uint128_t operator>>(uint128_t value, int shift) {
     );
 }
 
-constexpr INLINE uint128_t& operator>>=(uint128_t& value, int shift) {
+constexpr BLST_FORCEINLINE uint128_t& operator>>=(uint128_t& value, int shift) {
     value = value >> shift;
     return value;
 }
 
-constexpr INLINE uint128_t mul_u64_u64(uint64_t a, uint64_t b) {
+constexpr BLST_FORCEINLINE uint128_t mul_u64_u64(uint64_t a, uint64_t b) {
     if (!std::is_constant_evaluated()) {
         uint64_t high = 0;
         const uint64_t low = _umul128(a, b, &high);
@@ -108,21 +108,21 @@ constexpr INLINE uint128_t mul_u64_u64(uint64_t a, uint64_t b) {
     return uint128_t(high, low);
 }
 
-constexpr INLINE uint128_t mul_u128_u64(uint128_t a, uint64_t b) {
+constexpr BLST_FORCEINLINE uint128_t mul_u128_u64(uint128_t a, uint64_t b) {
     const uint128_t low = mul_u64_u64(a.lo, b);
     const uint128_t high = mul_u64_u64(a.hi, b);
     return uint128_t(low.hi + high.lo, low.lo);
 }
 
-constexpr INLINE uint128_t operator*(uint128_t a, uint64_t b) {
+constexpr BLST_FORCEINLINE uint128_t operator*(uint128_t a, uint64_t b) {
     return mul_u128_u64(a, b);
 }
 
-constexpr INLINE uint128_t operator*(uint64_t a, uint128_t b) {
+constexpr BLST_FORCEINLINE uint128_t operator*(uint64_t a, uint128_t b) {
     return mul_u128_u64(b, a);
 }
 
-constexpr INLINE uint128_t operator*(uint128_t a, uint128_t b) {
+constexpr BLST_FORCEINLINE uint128_t operator*(uint128_t a, uint128_t b) {
     if (a.hi == 0 && b.hi == 0) {
         return mul_u64_u64(a.lo, b.lo);
     }
@@ -163,12 +163,12 @@ struct int128_t {
 static_assert(sizeof(uint128_t) == 16);
 static_assert(sizeof(int128_t) == 16);
 
-constexpr INLINE bool operator==(int128_t a, int128_t b)
+constexpr BLST_FORCEINLINE bool operator==(int128_t a, int128_t b)
 {
     return a.hi == b.hi && a.lo == b.lo;
 }
 
-constexpr INLINE bool operator<(int128_t a, int128_t b)
+constexpr BLST_FORCEINLINE bool operator<(int128_t a, int128_t b)
 {
     const bool a_negative = (a.hi >> 63) != 0;
     const bool b_negative = (b.hi >> 63) != 0;
@@ -178,40 +178,40 @@ constexpr INLINE bool operator<(int128_t a, int128_t b)
     return a.hi != b.hi ? a.hi < b.hi : a.lo < b.lo;
 }
 
-constexpr INLINE bool operator>(int128_t a, int128_t b)
+constexpr BLST_FORCEINLINE bool operator>(int128_t a, int128_t b)
 {
     return b < a;
 }
 
-constexpr INLINE bool operator<=(int128_t a, int128_t b)
+constexpr BLST_FORCEINLINE bool operator<=(int128_t a, int128_t b)
 {
     return !(b < a);
 }
 
-constexpr INLINE bool operator>=(int128_t a, int128_t b)
+constexpr BLST_FORCEINLINE bool operator>=(int128_t a, int128_t b)
 {
     return !(a < b);
 }
 
-constexpr INLINE int128_t operator+(int128_t a, int128_t b)
+constexpr BLST_FORCEINLINE int128_t operator+(int128_t a, int128_t b)
 {
     const uint64_t low = a.lo + b.lo;
     const uint64_t carry = low < a.lo ? 1u : 0u;
     return int128_t(a.hi + b.hi + carry, low);
 }
 
-constexpr INLINE int128_t operator-(int128_t value)
+constexpr BLST_FORCEINLINE int128_t operator-(int128_t value)
 {
     const uint64_t low = ~value.lo + 1;
     return int128_t(~value.hi + (low == 0 ? 1u : 0u), low);
 }
 
-constexpr INLINE int128_t operator-(int128_t a, int128_t b)
+constexpr BLST_FORCEINLINE int128_t operator-(int128_t a, int128_t b)
 {
     return a + (-b);
 }
 
-constexpr INLINE int128_t operator<<(int128_t value, int shift)
+constexpr BLST_FORCEINLINE int128_t operator<<(int128_t value, int shift)
 {
     if (shift <= 0) {
         return value;
@@ -227,7 +227,7 @@ constexpr INLINE int128_t operator<<(int128_t value, int shift)
         value.lo << shift);
 }
 
-constexpr INLINE int128_t operator*(int128_t a, int128_t b)
+constexpr BLST_FORCEINLINE int128_t operator*(int128_t a, int128_t b)
 {
     // The low 128 bits of a two's-complement product are the unsigned low
     // product plus both cross products modulo 2^128.

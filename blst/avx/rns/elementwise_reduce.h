@@ -3,7 +3,7 @@
 #include "bounded_element.h"
 #include "ring_element.h"
 #include "../common/constexpr_utils.h"
-#include "../common/preprocess.h"
+#include "../../common/defines.h"
 #include <cassert>
 
 namespace blst::avx {
@@ -26,7 +26,7 @@ class MontgomeryReduce2 {
     // bound gap. Their sum covers the entire gap, so an input below
     // upper_bound*p finishes below stop*p without data-dependent control flow.
     template<int64_t upper_bound, int64_t stop, int index>
-    INLINE void min_sub_peel(AVXVector<limbs>& data) const {
+    BLST_FORCEINLINE void min_sub_peel(AVXVector<limbs>& data) const {
         if constexpr (index >= 0) {
             constexpr int64_t multiple = int64_t{1} << index;
             if constexpr ((upper_bound - stop) >= multiple) {
@@ -39,7 +39,7 @@ class MontgomeryReduce2 {
     }
 
     public:
-    INLINE MontgomeryReduce2(const std::array<uint64_t, limbs> &moduli) 
+    BLST_FORCEINLINE MontgomeryReduce2(const std::array<uint64_t, limbs> &moduli)
         : hi_mask(get_scalar_mask(hi_bit_shift))
         , lo_mask(get_scalar_mask(mulbits))
     {
@@ -70,14 +70,14 @@ class MontgomeryReduce2 {
     }
 
     template<int64_t lower_bound, int64_t upper_bound>
-    INLINE auto mask_reduce(const BoundedElement<Bounds<lower_bound, upper_bound>, limbs, element_bits> &a) const {
+    BLST_FORCEINLINE auto mask_reduce(const BoundedElement<Bounds<lower_bound, upper_bound>, limbs, element_bits> &a) const {
         static_assert(lower_bound >= 0, "Lower bound must be non-negative for mask reduction");
         auto data = a.data.and_scalar(get_scalar_mask(element_bits)).mullo(a.data.srli(element_bits), t);
         return BoundedElement<Bounds<0, 2>, limbs, element_bits>(data);
     }
 
     template<int64_t upper_bound, int stop = 1>
-    INLINE auto min_sub_reduce(const BoundedElement<Bounds<0, upper_bound>, limbs, element_bits> &a) const {
+    BLST_FORCEINLINE auto min_sub_reduce(const BoundedElement<Bounds<0, upper_bound>, limbs, element_bits> &a) const {
         static_assert(stop >= 1, "Stop must be at least 1");
         static_assert(upper_bound >= stop, "Upper bound must be at least stop");
         static_assert(log_multiples > 0 && log_multiples < 63, "Invalid modulus-multiple table size");
@@ -90,7 +90,7 @@ class MontgomeryReduce2 {
     }
 
     template<int64_t upper_bound>
-    INLINE auto reduce_small(const BoundedElement<Bounds<0, upper_bound>, limbs, element_bits> &high, const AVXVector<limbs> &low) const {
+    BLST_FORCEINLINE auto reduce_small(const BoundedElement<Bounds<0, upper_bound>, limbs, element_bits> &high, const AVXVector<limbs> &low) const {
         auto q = AVXVector<limbs>(0).mullo(low, mont_arr);
         // For b bits: h = q * moduli = [0, 2**b - t] because 2**52 * (2**b - t) >> 52 = 2**b - t
         // h_n = [-(2**b - t), 0] so this is [-1, 0] in the output bounds
@@ -107,7 +107,7 @@ class MontgomeryReduce2 {
     }
 
     template<int64_t upper_bound>
-    INLINE auto reduce_wide(const WideElement<Bounds<0, upper_bound>, limbs, element_bits> &a) const {
+    BLST_FORCEINLINE auto reduce_wide(const WideElement<Bounds<0, upper_bound>, limbs, element_bits> &a) const {
         if constexpr (upper_bound > 1) {
             // Move the excess lower bits to the upper bits
             // Requires unsigned interpretation (lower_bound >= 0)
@@ -122,7 +122,7 @@ class MontgomeryReduce2 {
     }
 
     template<int index=0>
-    INLINE auto moduli() const {
+    BLST_FORCEINLINE auto moduli() const {
         static_assert(index >= 0, "Index must be non-negative");
         static_assert(index < log_multiples, "Index must be less than log multiples; increase precomputed table size");
         // Returns an exact multiple of the modulus, with tight inclusive bounds.
@@ -130,7 +130,7 @@ class MontgomeryReduce2 {
     }
 
     template<int stop=1, int64_t upper_bound, int64_t lower_bound>
-    INLINE auto reduce_auto(const BoundedElement<Bounds<lower_bound, upper_bound>, limbs, element_bits> & a) const {
+    BLST_FORCEINLINE auto reduce_auto(const BoundedElement<Bounds<lower_bound, upper_bound>, limbs, element_bits> & a) const {
         if constexpr (lower_bound < 0) {
             return reduce_auto<stop>(a + moduli<ceil_log2(-lower_bound)>());
         } else if constexpr (upper_bound <= stop) {
@@ -159,19 +159,19 @@ class MontgomeryReduce2 {
     }
 
     template<int stop=1, int64_t upper_bound, int64_t lower_bound>
-    INLINE auto reduce_auto(const WideElement<Bounds<lower_bound, upper_bound>, limbs, element_bits> &a) const {
+    BLST_FORCEINLINE auto reduce_auto(const WideElement<Bounds<lower_bound, upper_bound>, limbs, element_bits> &a) const {
         static_assert(lower_bound >= 0, "Lower bound must be non-negative; add offsets to make positive");
         return reduce_auto<stop>(reduce_wide(a.template recast<0, upper_bound>()));
     }
 
-    INLINE auto to_mont(AVXVector<limbs> &a) const {
+    BLST_FORCEINLINE auto to_mont(AVXVector<limbs> &a) const {
         // Multiply and reduce
         using BoundedElementType = BoundedElement<Bounds<0, 1>, limbs, element_bits>;
         WideElement<Bounds<0, 1>, limbs, element_bits> bounded(BoundedElementType(AVXVector<limbs>(0).mulhi(a, mont_convert_factor)), BoundedElementType(AVXVector<limbs>(0).mullo(a, mont_convert_factor)));
         return min_sub_reduce<2, 1>(reduce_wide(bounded));
     }
 
-    INLINE auto from_mont(BoundedElement<Bounds<0, 1>, limbs, element_bits> &a) const {
+    BLST_FORCEINLINE auto from_mont(BoundedElement<Bounds<0, 1>, limbs, element_bits> &a) const {
         // Multiply by 1 (omitted since multiplication by 1 does nothing)
         // Then Montgomery reduce: create WideElement with high=0, low=a and reduce
         using BoundedElementType = BoundedElement<Bounds<0, 1>, limbs, element_bits>;
@@ -180,15 +180,15 @@ class MontgomeryReduce2 {
         return min_sub_reduce<2, 1>(reduce_wide(bounded)).data;
     }
 
-    INLINE void get_moduli(std::array<uint64_t, limbs>& out) const {
+    BLST_FORCEINLINE void get_moduli(std::array<uint64_t, limbs>& out) const {
         moduli_multiples[0].store(out.data());
     }
 
-    INLINE void get_mont_factor(std::array<uint64_t, limbs>& out) const {
+    BLST_FORCEINLINE void get_mont_factor(std::array<uint64_t, limbs>& out) const {
         mont_arr.store(out.data());
     }
 
-    INLINE void get_t_squared(std::array<uint64_t, limbs>& out) const {
+    BLST_FORCEINLINE void get_t_squared(std::array<uint64_t, limbs>& out) const {
         mont_convert_factor.store(out.data());
     }
 

@@ -6,7 +6,7 @@
 // is locally composed around CatBLST's selected-vector and proof interfaces.
 #pragma once
 
-#include "../common/preprocess.h"
+#include "../../common/defines.h"
 #include "../cpu/vector/vector_impl.hpp"
 #include "../generated_matrixnok_constants.hpp"
 
@@ -22,7 +22,7 @@ namespace blst::avx::matrixnok
 
     namespace detail
     {
-        INLINE void debug_assert_r1_input(const AVXVector<8>& residues)
+        BLST_FORCEINLINE void debug_assert_r1_input(const AVXVector<8>& residues)
         {
 #ifndef NDEBUG
             const auto lanes = residues.to_array();
@@ -47,7 +47,7 @@ namespace blst::avx::matrixnok
     // This batch schedule is kept separate from the latency-oriented scalar
     // schedule below so each retains its intended register/codegen shape.
     template<std::size_t batch>
-    INLINE void r1_change_base_raw_batch(
+    BLST_FORCEINLINE void r1_change_base_raw_batch(
         std::array<AVXVector<8>, batch>& residues,
         std::array<AVXVector<8>, batch>& out_hi,
         std::array<AVXVector<8>, batch>& out_lo)
@@ -80,7 +80,7 @@ namespace blst::avx::matrixnok
     }
     // Register-only latency path with the same recurrence as the batch path.
     // residues is scratch; out_hi/out_lo are in/out accumulators.
-    INLINE void r1_change_base_raw(
+    BLST_FORCEINLINE void r1_change_base_raw(
         AVXVector<8>& residues,
         AVXVector<8>& out_hi,
         AVXVector<8>& out_lo)

@@ -19,14 +19,14 @@ namespace blst::avx::matrixnok
         using ProjPoint = ProjectivePoint<FpRingCandidate::StandardElement>;
         using AffPoint = AffinePoint<FpRingCandidate::StandardElement>;
 
-        static INLINE ProjPoint add_point(
+        static BLST_FORCEINLINE ProjPoint add_point(
             const ProjPoint& left, const ProjPoint& right,
             const FpRingCandidate& ring)
         {
             return detail::add_point(left, right, ring);
         }
 
-        static INLINE ProjPoint add_mixed_point(
+        static BLST_FORCEINLINE ProjPoint add_mixed_point(
             const ProjPoint& left, const AffPoint& right,
             const FpRingCandidate& ring)
         {
@@ -34,13 +34,13 @@ namespace blst::avx::matrixnok
                 .ctime_replace_if(PointIsZero(right), left);
         }
 
-        static INLINE ProjPoint double_point(
+        static BLST_FORCEINLINE ProjPoint double_point(
             const ProjPoint& point, const FpRingCandidate& ring)
         {
             return PointDouble<FpRingCandidate>(point, ring);
         }
 
-        static INLINE ProjPoint dadd(
+        static BLST_FORCEINLINE ProjPoint dadd(
             const ProjPoint& left, const ProjPoint& right,
             const FpRingCandidate& ring,
             const FpRingCandidate::StandardElement* a4)
@@ -52,13 +52,13 @@ namespace blst::avx::matrixnok
             return result.ctime_replace_if(PointCoordIsZero(left.z), right);
         }
 
-        static INLINE ProjPoint negate(
+        static BLST_FORCEINLINE ProjPoint negate(
             const ProjPoint& point, const FpRingCandidate& ring)
         {
             return ProjPoint(point.x, ring.standard_negate(point.y), point.z);
         }
 
-        static INLINE ProjPoint zero(const FpRingCandidate& ring)
+        static BLST_FORCEINLINE ProjPoint zero(const FpRingCandidate& ring)
         {
             return ProjPoint(ring.zero(), ring.one(), ring.zero());
         }

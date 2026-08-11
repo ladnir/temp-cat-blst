@@ -58,7 +58,7 @@ class FP12Ring : private Constants {
 	FP12Ring() requires std::is_default_constructible_v<Constants> = default;
 	explicit FP12Ring(const Ring& ring) : Constants(ring) {}
 	template<int64_t upper_bound, class E1, class E2, class E3, class E4, class E5, class E6, class E7, class E8, class E9, class E10, class E11, class E12>
-	INLINE auto to_common(const Ring &ring, const E1 &e1, const E2 &e2, const E3 &e3, const E4 &e4, const E5 &e5, const E6 &e6, const E7 &e7, const E8 &e8, const E9 &e9, const E10 &e10, const E11 &e11, const E12 &e12) const {
+	BLST_FORCEINLINE auto to_common(const Ring &ring, const E1 &e1, const E2 &e2, const E3 &e3, const E4 &e4, const E5 &e5, const E6 &e6, const E7 &e7, const E8 &e8, const E9 &e9, const E10 &e10, const E11 &e11, const E12 &e12) const {
 		using ResultType = typename Ring::template SmallReducedElement<upper_bound>;
 		return std::array<ResultType, 12>{{
 			ring.prep_expand(e1).template recast_rns_bounds<0, upper_bound>(),
@@ -77,7 +77,7 @@ class FP12Ring : private Constants {
 	}
 
 	template<int64_t upper_bound, class E1, class E2, class E3, class E4, class E5, class E6>
-	INLINE auto to_common(const Ring &ring, const E1 &e1, const E2 &e2, const E3 &e3, const E4 &e4, const E5 &e5, const E6 &e6) const {
+	BLST_FORCEINLINE auto to_common(const Ring &ring, const E1 &e1, const E2 &e2, const E3 &e3, const E4 &e4, const E5 &e5, const E6 &e6) const {
 		using ResultType = typename Ring::template SmallReducedElement<upper_bound>;
 		return std::array<ResultType, 6>{{
 			ring.prep_expand(e1).template recast_rns_bounds<0, upper_bound>(),
@@ -90,7 +90,7 @@ class FP12Ring : private Constants {
 	}
 
 	template<int64_t Z>
-	INLINE auto recast_common(const CommonElement<Z> &x) const {
+	BLST_FORCEINLINE auto recast_common(const CommonElement<Z> &x) const {
 		constexpr int N = VERSION == 1 ? 1 : 6;
 		return CommonElement<N> {
 			x[0].template recast_rns_bounds<0, N>(),
@@ -109,7 +109,7 @@ class FP12Ring : private Constants {
 	}
 
 	template<int64_t Z>
-	INLINE StandardElement narrow_to_standard(const CommonElement<Z> &x, const Ring &ring) const {
+	BLST_FORCEINLINE StandardElement narrow_to_standard(const CommonElement<Z> &x, const Ring &ring) const {
 		const auto one = ring.one();
 		return ring.batch_reduce_expand(
 			ring.prep_left(x[0]) * one, ring.prep_left(x[1]) * one,
@@ -121,7 +121,7 @@ class FP12Ring : private Constants {
 	}
 
 	template<typename... Args>
-	INLINE auto batch_reduce(const Ring &ring, Args&&... args) const {
+	BLST_FORCEINLINE auto batch_reduce(const Ring &ring, Args&&... args) const {
 		constexpr int batch = sizeof...(Args);
 		auto tuple = std::tie(args...);
 		auto ready_array = make_ready_array_impl_22(tuple, std::make_index_sequence<batch>{}, ring);
@@ -129,7 +129,7 @@ class FP12Ring : private Constants {
 	}
 
 	template<typename... Args, std::size_t... I>
-	INLINE auto make_ready_array_impl_22(const std::tuple<Args...> &args, std::index_sequence<I...>, const Ring &ring) const {
+	BLST_FORCEINLINE auto make_ready_array_impl_22(const std::tuple<Args...> &args, std::index_sequence<I...>, const Ring &ring) const {
 		return std::array<typename Ring::template ReadyElement<200>, sizeof...(Args)>{ring.template ready<200>(std::get<I>(args))...};
 	}
 
@@ -230,7 +230,7 @@ class FP12Ring : private Constants {
 	*/
 	
 	template<class CX, class CY>
-        INLINE void flat_mulxy00z0(StandardElement &result, const StandardElement &x, const FP2<CX, CY> &constant_coord, const FP2StandardElement &x_coord, const FP2StandardElement &y_coord, const Ring &ring) const {
+        BLST_FORCEINLINE void flat_mulxy00z0(StandardElement &result, const StandardElement &x, const FP2<CX, CY> &constant_coord, const FP2StandardElement &x_coord, const FP2StandardElement &y_coord, const Ring &ring) const {
 		auto y0 = constant_coord.x();
 		auto y1 = constant_coord.y();
 		auto y2 = x_coord.x();
@@ -291,7 +291,7 @@ class FP12Ring : private Constants {
 
 	Polynomial 11(6) : 2 x0x11 +2 x1x10 +2 x2x9 +2 x3x8 +2 x4x7 +2 x5x6
 	*/
-	INLINE StandardElement fp12_flat_sqr(const StandardElement &x, const Ring &ring) const {
+	BLST_FORCEINLINE StandardElement fp12_flat_sqr(const StandardElement &x, const Ring &ring) const {
 		auto minus_x1 = ring.negate(x[1]);
 		auto minus_x3 = ring.negate(x[3]);
 		auto minus_x5 = ring.negate(x[5]);
