@@ -37,9 +37,10 @@ the other 950 are documented non-defects or style observations.
 
 - `map_to_G.h:709,729`: `nelem` is the non-type template argument to
   `hash_to_field<nelem>`.
-- The 18 AVX unused locals in `bounded_ring.h`, `scalar_mult.h`,
-  `change_base.h`, `bounded_element.h`, `fp2.h`, `ring_element.h`, and
-  `elementwise_reduce.h` carry compile-time bounds, sizes, or deduced types.
+- The retained AVX unused-local diagnostics in `scalar_mult.h`,
+  `change_base.h`, `bounded_element.h`, `fp2.h`, and `ring_element.h` carry
+  compile-time bounds, sizes, or deduced types. The former `bounded_ring.h` and
+  `elementwise_reduce.h` owners were later removed as unreachable.
 - `middle_product_c_api.cpp:50,157,171` is called at lines 240/266, 234, and
   260. `sign/aggregate.cpp:37` is called at line 605. The merged database
   retained mutually exclusive scalar and AVX profile variants.

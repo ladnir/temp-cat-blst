@@ -2,10 +2,9 @@
 
 ## Scope
 
-This record covers the wide-integer compatibility layer through commit
-`2d691ed`.
-The remaining constexpr parsing, division, mask, inverse, and literal helpers
-remain pending for the broader foundational RNS utility review.
+This record covers the complete retained utility through commit `049a8a1`.
+Dead parsing, inverse, mask, and duplicate sizing/log helpers were removed
+rather than assigned unsupported contracts.
 
 ## Contracts
 
@@ -25,6 +24,9 @@ remain pending for the broader foundational RNS utility review.
 - MatrixNoK quotient accumulation multiplies two 64-bit inputs. Its optimized
   production path must contain direct machine multiplies, not calls to a
   generic wide-integer operator.
+- `mod_mul(a,b,m)` returns the exact unsigned product modulo nonzero `m`.
+  Modulus zero asserts in Debug and returns fail-closed zero in Release. Every
+  production caller uses a generated nonzero MatrixNoK modulus.
 
 ## Findings
 
@@ -36,6 +38,11 @@ remain pending for the broader foundational RNS utility review.
   multiplication.
 - `AUD-241`: the inherited AVX `preprocess.h` duplicated the compiler-inline
   policy already owned by `blst/common/defines.h`.
+- `AUD-242`: duplicate common helpers, the old literal parser, and two generic
+  reducer owners remained after fixed MatrixNoK selection despite having no
+  production caller.
+- `AUD-243`: modulus-zero behavior differed between MSVC's compatibility
+  remainder and compiler-native 128-bit remainder.
 
 ## Validation
 
@@ -52,11 +59,14 @@ remain pending for the broader foundational RNS utility review.
 - The structural dispatch validator rejects the former 64-bit signed alias and
   redundant preprocessor header, and requires the 16-byte signed carrier,
   constant/runtime split, and canonical `BLST_FORCEINLINE` spelling.
+- The same validator forbids the removed sizing/log/parser/inverse helpers and
+  both obsolete reducer owners. The retained fixed reducer passes the former
+  schedule cases and an independent scalar Montgomery differential.
 
 ## Residual work
 
-The rest of `constexpr_utils.h` is not complete. In particular, its independent
-`ceil_div`, mask construction, modular inverse, modulo-zero behavior, and
-384-bit literal parser need their own contract and caller review. Native
-compiler lowering remains an external trust boundary; the inspected MSVC
-assembly is evidence, not a formal compiler proof.
+Native compiler lowering remains an external trust boundary; the inspected
+MSVC assembly is evidence, not a formal compiler proof. The generic full-width
+MSVC multiplication overload contains value-specialized source branches, but
+all retained production callers pass compiler-visible 64-bit operands and the
+inspected hot kernels contain no corresponding branch.

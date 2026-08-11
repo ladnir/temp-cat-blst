@@ -874,9 +874,13 @@ Optimized MSVC emits one `mul`, no call, and no branch for the standalone
 helper. The production Fp probe now contains eight inline `mul` instructions,
 zero calls, and zero conditional jumps where the previous probe contained
 eight custom `operator*` calls. No benchmark or remote job ran. The remaining
-non-wide helpers in `constexpr_utils.h` stay in review.
+non-wide helpers in `constexpr_utils.h` were left in review at that commit.
 
-Portability follow-up `fbaa3a9` replaces every direct MSVC `__forceinline`
-spelling with the AVX `INLINE` macro and makes the structural validator reject
-future direct spellings. The 32 focused tests and optimized one/eight-`mul`
-shapes remain unchanged.
+Portability follow-ups `2d691ed` and `049a8a1` replace the inherited AVX inline
+macro with CatBLST's canonical `BLST_FORCEINLINE`, remove duplicate common
+sizing/log helpers, and delete the dead generic reduction owners and literal
+parser. The retained reduction tests exercise the selected fixed owner against
+an independent scalar Montgomery oracle. All 39 focused portable-Debug tests
+pass. The optimized standalone and production one/eight-`mul` shapes remain
+unchanged, as do the production Fp instruction count and frame. No benchmark or
+remote job ran.

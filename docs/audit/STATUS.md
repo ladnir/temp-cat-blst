@@ -663,7 +663,8 @@ but routes runtime 64-by-64 multiplication through `_umul128`. All 32 focused
 portable-Debug tests pass. Optimized production Fp multiplication changes from
 eight compatibility calls to eight inline `mul` instructions with no call or
 conditional jump. The rest of `constexpr_utils.h` and the foundational bounds,
-carrier, and reducer owners remain the next audit packet; no benchmark ran.
+carrier, and reducer owners were left for the next audit packet; no benchmark
+ran.
 Follow-up `fbaa3a9` first expressed the same forced-inline policy through the
 inherited AVX macro. `AUD-241` then removes that duplicate preprocessor owner at
 `2d691ed` and uses CatBLST's canonical `BLST_FORCEINLINE` policy throughout the
@@ -671,4 +672,15 @@ AVX templates. A serial portable-Debug rebuild passes 39/39 focused tests and
 all structural and exact-hash correspondence checks pass after rebinding. The
 optimized native Fp probe retains 244 instructions, a 312-byte frame, eight
 inline multiplies, zero calls, and zero branches; no benchmark or remote job
+ran.
+
+The remainder of the foundational AVX utility audit is complete at `049a8a1`.
+`AUD-242` removes duplicate sizing/log helpers, the dead literal parser, both
+obsolete reducer owners, and their unused reference test. The retained bound
+and Montgomery regressions now exercise the selected fixed reducer against an
+independent scalar oracle. `AUD-243` gives the live modular-product helper one
+portable zero-modulus contract. A serial portable-Debug rebuild passes 39/39;
+the dispatch and exact correspondence validators pass after rebinding. Native
+MSVC Fp code generation remains 244 instructions, a 312-byte frame, eight
+inline multiplies, zero calls, and zero branches. No benchmark or remote job
 ran.
