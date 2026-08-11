@@ -10,7 +10,7 @@ import CatBLST.AVX.MatrixNoK.Pipeline
 # Generated Fp12 Frobenius constants
 
 This file binds each checked-in M1/M2 lane array to the exact standard-element
-encoding used by `Fp12ConstantsCandidate::standard`.  The intermediate
+encoding used by `Fp12Constants::standard`.  The intermediate
 representative is the canonical coefficient imported into MatrixNoK's
 Montgomery domain; the two lane bases then satisfy the accepted P2
 multiplication preconditions.

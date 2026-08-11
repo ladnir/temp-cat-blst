@@ -187,11 +187,11 @@ namespace blst::avx::test
     static_assert(RingAccumulatedProduct::rns_bounds.lower == 0);
     static_assert(RingAccumulatedProduct::rns_bounds.upper == 2);
     static_assert(std::is_empty_v<matrixnok::FpRingCandidate>);
-    static_assert(std::is_empty_v<matrixnok::Fp12RingCandidate>);
+    static_assert(std::is_empty_v<matrixnok::Fp12Ring>);
     static_assert(std::is_empty_v<matrixnok::G1CurveCandidate>);
     static_assert(std::is_empty_v<matrixnok::G2CurveCandidate>);
     static_assert(std::is_trivially_default_constructible_v<
-        matrixnok::PairingInverterCandidate>);
+        matrixnok::PairingInverter>);
     static_assert(std::is_same_v<avx_curve_detail::CurveRing,
         matrixnok::FpRingCandidate>);
     static_assert(std::is_same_v<avx_curve_detail::CurveFp2Ring,
@@ -201,7 +201,7 @@ namespace blst::avx::test
     static_assert(std::is_same_v<avx_curve_detail::CurveG2,
         matrixnok::G2CurveCandidate>);
 
-    using MatrixNoKFp12 = matrixnok::Fp12RingCandidate;
+    using MatrixNoKFp12 = matrixnok::Fp12Ring;
     static_assert(std::is_default_constructible_v<
         typename MatrixNoKFp12::StandardElement>);
 
@@ -1781,7 +1781,7 @@ namespace blst::avx::test
     TEST(AvxMatrixNoKPrimitives, Fp12MultiplyAndSquareMatchScalar)
     {
         const matrixnok::FpRingCandidate ring;
-        const MatrixNoKFp12 fp12ring(ring);
+        const MatrixNoKFp12 fp12ring{};
         const auto values = matrixnok_scalar_values();
         blst::Fp12 left = {};
         blst::Fp12 right = {};
@@ -1837,7 +1837,7 @@ namespace blst::avx::test
     TEST(AvxMatrixNoKPrimitives, Fp12MapsAndGtExponentiationMatchScalar)
     {
         const matrixnok::FpRingCandidate ring;
-        const MatrixNoKFp12 fp12ring(ring);
+        const MatrixNoKFp12 fp12ring{};
         const auto values = matrixnok_scalar_values();
         blst::Fp12 general = {};
         for (std::size_t coefficient = 0; coefficient < 12; ++coefficient) {
@@ -1903,7 +1903,7 @@ namespace blst::avx::test
     TEST(AvxMatrixNoKPrimitives, Fp12SparseMultiplyAndFinalExpMatchScalar)
     {
         const matrixnok::FpRingCandidate ring;
-        const MatrixNoKFp12 fp12ring(ring);
+        const MatrixNoKFp12 fp12ring{};
         const auto values = matrixnok_scalar_values();
 
         blst::Fp12 general = {};
@@ -1979,8 +1979,8 @@ namespace blst::avx::test
     {
         const matrixnok::FpRingCandidate ring;
         const matrixnok::G2Fp2RingCandidate fp2ring(ring);
-        const matrixnok::Fp12RingCandidate fp12ring(ring);
-        const matrixnok::PairingInverterCandidate inverter{};
+        const matrixnok::Fp12Ring fp12ring{};
+        const matrixnok::PairingInverter inverter{};
 
         const auto g1_generator = blst::scalar::G1Point::generator();
         blst::scalar::G1Point g1_double = {};
@@ -2014,7 +2014,7 @@ namespace blst::avx::test
             const auto candidate_g2 =
                 matrixnok_g2_affine_from_scalar(ring, g2[g2_index]);
 
-            const matrixnok::MillerCandidate miller(
+            const matrixnok::MillerEngine miller(
                 candidate_g1, candidate_g2, ring);
             const auto candidate_miller =
                 miller.miller_loop(ring, fp2ring, fp12ring);

@@ -154,7 +154,28 @@ def main() -> int:
         'GLSMult(const Ring &ring)',
     ))
     require_fragments(avx / "fields" / "matrixnok_fp12.h", (
-        "using Fp12Ring = Fp12RingCandidate;",
+        "class Fp12Constants",
+        "using Fp12Ring = FP12Ring<FpRingCandidate, Fp12Constants>;",
+    ))
+    forbid_fragments(avx / "fields" / "fp12.h", (
+        "VERSION",
+        "fp12_flat_cyclotomic_sqr_v1",
+        "fp12_flat_cyclotomic_sqr_v2",
+        "fp12_flat_cyclotomic_sqr_v3",
+        "make_ready_array_impl_22",
+        "ReadyElement<200>",
+        "#include <iostream>",
+    ))
+    require_fragments(avx / "fields" / "fp12.h", (
+        "first_cyclotomic_reduce_bound = 29",
+        "second_cyclotomic_reduce_bound = 102",
+        "fp12_flat_cyclotomic_sqr_first_split",
+        "fp12_flat_cyclotomic_sqr_second_split",
+    ))
+    forbid_fragments(avx / "fields" / "matrixnok_fp12.h", (
+        "Fp12ConstantsCandidate",
+        "Fp12RingCandidate",
+        "split_cyclotomic_v3",
     ))
     conversion = avx / "fields" / "conversion_inversion.h"
     require_fragments(conversion, (
@@ -191,8 +212,8 @@ def main() -> int:
         "using G2GLS = G2GLSCandidate;",
     ))
     require_fragments(avx / "pairing" / "matrixnok_pairing.h", (
-        "using MillerEngine = MillerCandidate;",
-        "using PairingInverter = PairingInverterCandidate;",
+        "using MillerEngine = Miller<FpRing, Fp12Ring>;",
+        "using PairingInverter = FP12RNSVartimeInverter<FpRing, Fp12Ring>;",
     ))
 
     point = avx / "curve" / "point.h"

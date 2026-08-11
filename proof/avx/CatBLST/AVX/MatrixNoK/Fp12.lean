@@ -259,7 +259,7 @@ The square schedule doubles an offset-bearing expression in four coordinates,
 giving the overall physical bound 242. Both paths fit the actual general-field
 `MAX_ADD=800` reduction boundary. The offset's lower 80 units dominate all 40
 subtraction units. The version-3 offset bounds are the
-exact template values selected by `Fp12ConstantsCandidate`.
+exact template values selected by `Fp12Constants`.
 -/
 
 def fp12MaximumSignedProducts : Nat := 22

@@ -9,11 +9,6 @@
 
 namespace blst::avx::matrixnok
 {
-    // Exact proof-owner spellings for the selected production pairing tower.
-    using MillerCandidate = Miller<FpRingCandidate, Fp12RingCandidate>;
-    using PairingInverterCandidate =
-        FP12RNSVartimeInverter<FpRingCandidate, Fp12RingCandidate>;
-
-    using MillerEngine = MillerCandidate;
-    using PairingInverter = PairingInverterCandidate;
+    using MillerEngine = Miller<FpRing, Fp12Ring>;
+    using PairingInverter = FP12RNSVartimeInverter<FpRing, Fp12Ring>;
 } // namespace blst::avx::matrixnok

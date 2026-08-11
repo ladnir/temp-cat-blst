@@ -90,32 +90,32 @@ extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_export_fp(
 }
 
 extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_fp12_multiply(
-    blst::avx::matrixnok::Fp12RingCandidate::StandardElement* out,
-    const blst::avx::matrixnok::Fp12RingCandidate::StandardElement* left,
-    const blst::avx::matrixnok::Fp12RingCandidate::StandardElement* right)
+    blst::avx::matrixnok::Fp12Ring::StandardElement* out,
+    const blst::avx::matrixnok::Fp12Ring::StandardElement* left,
+    const blst::avx::matrixnok::Fp12Ring::StandardElement* right)
 {
     const blst::avx::matrixnok::FpRingCandidate ring;
-    const blst::avx::matrixnok::Fp12RingCandidate fp12ring(ring);
+    const blst::avx::matrixnok::Fp12Ring fp12ring{};
     *out = fp12ring.fp12_flat_mul(*left, *right, ring);
 }
 
 extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_fp12_cyclotomic_square(
-    blst::avx::matrixnok::Fp12RingCandidate::StandardElement* out,
-    const blst::avx::matrixnok::Fp12RingCandidate::StandardElement* value)
+    blst::avx::matrixnok::Fp12Ring::StandardElement* out,
+    const blst::avx::matrixnok::Fp12Ring::StandardElement* value)
 {
     const blst::avx::matrixnok::FpRingCandidate ring;
-    const blst::avx::matrixnok::Fp12RingCandidate fp12ring(ring);
+    const blst::avx::matrixnok::Fp12Ring fp12ring{};
     *out = fp12ring.narrow_to_standard(
         fp12ring.fp12_flat_cyclotomic_sqr(*value, ring), ring);
 }
 
 extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_gt_exp_ct(
-    blst::avx::matrixnok::Fp12RingCandidate::StandardElement* out,
-    const blst::avx::matrixnok::Fp12RingCandidate::StandardElement* value,
+    blst::avx::matrixnok::Fp12Ring::StandardElement* out,
+    const blst::avx::matrixnok::Fp12Ring::StandardElement* value,
     const uint64_t scalar[4])
 {
     const blst::avx::matrixnok::FpRingCandidate ring;
-    const blst::avx::matrixnok::Fp12RingCandidate fp12ring(ring);
+    const blst::avx::matrixnok::Fp12Ring fp12ring{};
     *out = blst::avx::avx_cyclotomic_exp_glv4_ct(
         *value, scalar, fp12ring, ring);
 }

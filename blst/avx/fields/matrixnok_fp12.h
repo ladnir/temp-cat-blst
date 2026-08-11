@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Category Labs
+//
+// CatBLST's stateless policy binding for the selected VROOM-derived Fp12
+// schedule. Every lane literal is independently generated and validated from
+// the BLS12-381 field/tower parameters; this owner stores no runtime state.
 #pragma once
 
 #include "fp12.h"
@@ -14,7 +18,7 @@ namespace blst::avx::matrixnok
     // This policy owns no state: every accessor materializes directly from
     // aligned, independently generated lane constants. Coefficient ordering is
     // inherited unchanged from FP12Ring and documented in the construction map.
-    class Fp12ConstantsCandidate
+    class Fp12Constants
     {
         using Ring = FpRingCandidate;
         using StandardElement = Ring::StandardElement;
@@ -44,11 +48,6 @@ namespace blst::avx::matrixnok
         }
 
     public:
-        static constexpr bool split_cyclotomic_v3 = true;
-
-        Fp12ConstantsCandidate() noexcept = default;
-        explicit Fp12ConstantsCandidate(const Ring&) noexcept {}
-
         static BLST_FORCEINLINE StandardElement one_third()
         {
             return standard(generated::fp12_one_third_m1,
@@ -144,8 +143,7 @@ namespace blst::avx::matrixnok
         }
     };
 
-    using Fp12RingCandidate =
-        FP12Ring<FpRingCandidate, Fp12ConstantsCandidate, 3>;
+    using Fp12Ring = FP12Ring<FpRingCandidate, Fp12Constants>;
 
     static_assert(
         10 * FpRingCandidate::STANDARD_BOUND *
@@ -154,13 +152,11 @@ namespace blst::avx::matrixnok
         10 * FpRingCandidate::STANDARD_BOUND *
         std::max(FpRingCandidate::STANDARD_BOUND,
             FpRingCandidate::MULT_OK_BOUND) == 80);
-    static_assert(std::is_empty_v<Fp12ConstantsCandidate>);
+    static_assert(std::is_empty_v<Fp12Constants>);
     static_assert(std::is_trivially_default_constructible_v<
-        Fp12ConstantsCandidate>);
-    static_assert(std::is_trivially_copyable_v<Fp12ConstantsCandidate>);
-    static_assert(std::is_empty_v<Fp12RingCandidate>);
+        Fp12Constants>);
+    static_assert(std::is_trivially_copyable_v<Fp12Constants>);
+    static_assert(std::is_empty_v<Fp12Ring>);
     static_assert(std::is_trivially_default_constructible_v<
-        Fp12RingCandidate>);
-
-    using Fp12Ring = Fp12RingCandidate;
+        Fp12Ring>);
 } // namespace blst::avx::matrixnok

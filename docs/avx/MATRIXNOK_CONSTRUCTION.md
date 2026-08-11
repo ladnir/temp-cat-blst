@@ -13,9 +13,9 @@ The selected construction is:
 
 1. `matrixnok::FpRingCandidate` for Fp;
 2. `FP2Ring<FpRingCandidate>` for Fp2 and G2;
-3. `FP12Ring<FpRingCandidate, 3, Fp12ConstantsCandidate>` for Fp12/GT;
+3. `FP12Ring<FpRingCandidate, Fp12Constants>` for Fp12/GT;
 4. `G1CurveCandidate` and `G2CurveCandidate` for curve arithmetic; and
-5. `MillerCandidate` plus `PairingInverterCandidate` for pairing.
+5. `MillerEngine` plus `PairingInverter` for pairing.
 
 The former comparison-only `matrixnok::Fp2RingCandidate` was removed by
 `AUD-264`. The selected generic Fp2 owner is now the sole retained MatrixNoK

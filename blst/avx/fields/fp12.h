@@ -1,9 +1,15 @@
+// SPDX-License-Identifier: MIT
+// Copyright 2026 Simon Langowski
+// Copyright 2026 Category Labs
+//
+// Adapted from the VROOM Fp12 arithmetic at commit d6ecd534. CatBLST retains
+// only the selected MatrixNoK schedules and makes their representation,
+// reduction, timing, and alias contracts explicit.
 #pragma once
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <type_traits>
-#include <iostream>
 #include "blst/avx/fields/fp2.h"
 
 
@@ -32,14 +38,25 @@ std::array<T, left_size + right_size> concat(
 	return result;
 }
 
-template<class Ring, class Constants, int VERSION=3>
-class FP12Ring : private Constants {
+template<class Ring, class Constants>
+class FP12Ring {
 
 	public:
 	using FP2StandardElement = typename FP2Ring<Ring>::StandardElement;
 
-	// For simplicity we recast up to the maximum and use an array
-	// You could also use a tuple for more fine grained control.
+	// Fp12 is stored as six Fp2 coefficients in the scalar tower's established
+	// order, flattened to twelve consecutive base-field coordinates. Bounds are
+	// compile-time producer claims; constructing a CommonElement does not
+	// validate either its field value or its physical/RNS interval.
+	//
+	// General multiply, square, Frobenius, conjugation, and sparse Miller
+	// operations accept any valid Fp12 value. Cyclotomic square requires a
+	// cyclotomic/GT input. Inversion requires nonzero input and inherits the
+	// supplied inverter's timing; the selected inverter is explicitly variable
+	// time. Operations are fixed-shape and allocation-free apart from that
+	// provider contract, and perform no Release validation. Returned-value
+	// operations naturally support exact input/output storage reuse by callers;
+	// the one output-reference sparse multiply reads all inputs before assigning.
 	template<int64_t common_bound>
 	using CommonElement = std::array<typename Ring::template ReducedElement<common_bound>, 12>;
 
@@ -49,32 +66,12 @@ class FP12Ring : private Constants {
 	static constexpr auto _2 = std::integral_constant<int, 2>{};
 	static constexpr auto _3 = std::integral_constant<int, 3>{};
 	static constexpr auto _6 = std::integral_constant<int, 6>{};
+	// The source-level bound algebra is conservative by one relative to the
+	// proved correlated-value maxima (28 and 101 respectively).
+	static constexpr int64_t first_cyclotomic_reduce_bound = 29;
+	static constexpr int64_t second_cyclotomic_reduce_bound = 102;
 
-	private:
-	// We do ten subtractions, so this is 10*RNS_modulus + 10*modulus to ensure everything remains positive.
-	constexpr static int offset_rns_bound = 10 * Ring::STANDARD_BOUND * Ring::STANDARD_BOUND * (VERSION == 1 ? 1 : 6 * 6);
-	constexpr static int offset_ele_bound = 10 * Ring::STANDARD_BOUND * std::max(Ring::STANDARD_BOUND, Ring::MULT_OK_BOUND);
-	public:
-	FP12Ring() requires std::is_default_constructible_v<Constants> = default;
-	explicit FP12Ring(const Ring& ring) : Constants(ring) {}
-	template<int64_t upper_bound, class E1, class E2, class E3, class E4, class E5, class E6, class E7, class E8, class E9, class E10, class E11, class E12>
-	BLST_FORCEINLINE auto to_common(const Ring &ring, const E1 &e1, const E2 &e2, const E3 &e3, const E4 &e4, const E5 &e5, const E6 &e6, const E7 &e7, const E8 &e8, const E9 &e9, const E10 &e10, const E11 &e11, const E12 &e12) const {
-		using ResultType = typename Ring::template SmallReducedElement<upper_bound>;
-		return std::array<ResultType, 12>{{
-			ring.prep_expand(e1).template recast_rns_bounds<0, upper_bound>(),
-			ring.prep_expand(e2).template recast_rns_bounds<0, upper_bound>(),
-			ring.prep_expand(e3).template recast_rns_bounds<0, upper_bound>(),
-			ring.prep_expand(e4).template recast_rns_bounds<0, upper_bound>(),
-			ring.prep_expand(e5).template recast_rns_bounds<0, upper_bound>(),
-			ring.prep_expand(e6).template recast_rns_bounds<0, upper_bound>(),
-			ring.prep_expand(e7).template recast_rns_bounds<0, upper_bound>(),
-			ring.prep_expand(e8).template recast_rns_bounds<0, upper_bound>(),
-			ring.prep_expand(e9).template recast_rns_bounds<0, upper_bound>(),
-			ring.prep_expand(e10).template recast_rns_bounds<0, upper_bound>(),
-			ring.prep_expand(e11).template recast_rns_bounds<0, upper_bound>(),
-			ring.prep_expand(e12).template recast_rns_bounds<0, upper_bound>(),
-		}};
-	}
+	FP12Ring() noexcept = default;
 
 	template<int64_t upper_bound, class E1, class E2, class E3, class E4, class E5, class E6>
 	BLST_FORCEINLINE auto to_common(const Ring &ring, const E1 &e1, const E2 &e2, const E3 &e3, const E4 &e4, const E5 &e5, const E6 &e6) const {
@@ -91,7 +88,7 @@ class FP12Ring : private Constants {
 
 	template<int64_t Z>
 	BLST_FORCEINLINE auto recast_common(const CommonElement<Z> &x) const {
-		constexpr int N = VERSION == 1 ? 1 : 6;
+		constexpr int N = 6;
 		return CommonElement<N> {
 			x[0].template recast_rns_bounds<0, N>(),
 			x[1].template recast_rns_bounds<0, N>(),
@@ -120,17 +117,13 @@ class FP12Ring : private Constants {
 			ring.prep_left(x[10]) * one, ring.prep_left(x[11]) * one);
 	}
 
-	template<typename... Args>
-	BLST_FORCEINLINE auto batch_reduce(const Ring &ring, Args&&... args) const {
-		constexpr int batch = sizeof...(Args);
-		auto tuple = std::tie(args...);
-		auto ready_array = make_ready_array_impl_22(tuple, std::make_index_sequence<batch>{}, ring);
-		return ring.template batch_reduce<batch>(ready_array);
-	}
-
-	template<typename... Args, std::size_t... I>
-	BLST_FORCEINLINE auto make_ready_array_impl_22(const std::tuple<Args...> &args, std::index_sequence<I...>, const Ring &ring) const {
-		return std::array<typename Ring::template ReadyElement<200>, sizeof...(Args)>{ring.template ready<200>(std::get<I>(args))...};
+	template<int64_t max_bound, typename... Args>
+	BLST_FORCEINLINE auto batch_reduce(const Ring &ring, const Args&... args) const {
+		constexpr int batch = static_cast<int>(sizeof...(Args));
+		static_assert(batch > 0);
+		const std::array<typename Ring::template ReadyElement<max_bound>, batch>
+			ready{ring.template ready<max_bound>(args)...};
+		return ring.template batch_reduce<batch, max_bound>(ready);
 	}
 
 	StandardElement one(const Ring &ring) const {
@@ -355,75 +348,18 @@ class FP12Ring : private Constants {
 
 	template<int64_t N>
 	inline auto fp12_flat_cyclotomic_sqr(const CommonElement<N> &x, const Ring &ring) const {
-		if constexpr (VERSION == 1) {
-			// Old version, in case of regression
-			return fp12_flat_cyclotomic_sqr_v1(x, ring);
-		} else if constexpr (VERSION == 2) {
-			// Batch of 12, multiply half by 3 and half by 6
-			return fp12_flat_cyclotomic_sqr_v2(x, ring);
-		} else {
-			// Batch of 6 times 3, Batch of 6 times 6
-			return fp12_flat_cyclotomic_sqr_v3(x, ring);
-		}
-	}
-
-		
-	template<int64_t N>
-	inline auto fp12_flat_cyclotomic_sqr_v3(const CommonElement<N> &x, const Ring &ring) const {
-		// The MatrixNoK schedule exhausts the register file when both halves are
-		// inlined together. Keep the default schedule monolithic so this opt-in
-		// does not perturb incumbent code generation.
-		if constexpr (Constants::split_cyclotomic_v3) {
-			return concat(
-				fp12_flat_cyclotomic_sqr_v3_first_split(x, ring),
-				fp12_flat_cyclotomic_sqr_v3_second_split(x, ring));
-		}
-
-		auto minus_x1 = ring.negate(x[1]);
-		auto minus_x3 = ring.negate(x[3]);
-		auto minus_x5 = ring.negate(x[5]);
-		auto minus_x7 = ring.negate(x[7]);
-		auto minus_x9 = ring.negate(x[9]);
-		auto minus_x11 = ring.negate(x[11]);
-		
-		// 0 1
-		auto poly_0_pos_shared = x[8] * x[8] + x[9] * minus_x9;
-		auto poly_0_unique = (poly_0_pos_shared + ((x[8] * minus_x9) * _2) + x[0] * x[0] + x[0] * Constants::neg_two_thirds() + x[1] * minus_x1);
-		auto poly_1_unique = (poly_0_pos_shared + ((x[0] * x[1] + x[8] * x[9]) * _2) + x[1] * Constants::neg_two_thirds());
-		// 2 3
-		auto poly_2_pos_shared = x[4] * x[4] + x[5] * minus_x5;
-		auto poly_2_unique = (poly_2_pos_shared + ((x[4] * minus_x5) * _2) + x[2] * Constants::neg_two_thirds() + x[6] * x[6] + x[7] * minus_x7);
-		auto poly_3_unique = (poly_2_pos_shared + ((x[6] * x[7] + x[4] * x[5]) * _2) + x[3] * Constants::neg_two_thirds());
-		// 4 5
-		auto poly_4_pos_shared = x[10] * x[10] + x[11] * minus_x11;
-		auto poly_4_unique = (poly_4_pos_shared + ((x[10] * minus_x11) * _2) + x[2] * x[2] + x[3] * minus_x3 + x[4] * Constants::neg_two_thirds());
-		auto poly_5_unique = (poly_4_pos_shared + ((x[2] * x[3] + x[10] * x[11]) * _2) + x[5] * Constants::neg_two_thirds());
-
-		auto reduced_first_half = batch_reduce(ring, poly_0_unique,poly_1_unique,poly_2_unique,poly_3_unique,poly_4_unique,poly_5_unique);
-		auto reduced_mult_3_cast_6 = to_common<6>(ring, reduced_first_half[0] * _3, reduced_first_half[1] * _3, reduced_first_half[2] * _3, reduced_first_half[3] * _3, reduced_first_half[4] * _3, reduced_first_half[5] * _3);
-		auto expanded_first_half = ring.template batch_expand<6>(reduced_mult_3_cast_6);
-		// 6 7
-		auto poly_6_pos_shared = (Constants::offset() + x[2] * x[10] + x[3] * minus_x11);
-		auto poly_6_neg_shared = (x[2] * x[11] + x[3] * x[10]);
-		auto poly_6_unique = (poly_6_pos_shared - poly_6_neg_shared + x[6] * Constants::one_third());
-		auto poly_7_unique = (poly_6_pos_shared + poly_6_neg_shared + x[7] * Constants::one_third());
-		// 8 9
-		auto poly_8_unique = (((x[0] * x[8] + x[1] * minus_x9)) + x[8] * Constants::one_third());
-		auto poly_9_unique = (((x[0] * x[9] + x[1] * x[8])) + x[9] * Constants::one_third());
-		// 10 11
-		auto poly_10_unique = (((x[4] * x[6] + x[5] * minus_x7)) + x[10] * Constants::one_third());
-		auto poly_11_unique = (((x[4] * x[7] + x[5] * x[6])) + x[11] * Constants::one_third());
-		auto reduced_second_half = batch_reduce(ring, poly_6_unique,poly_7_unique,poly_8_unique,poly_9_unique,poly_10_unique,poly_11_unique);
-		auto reduced_mult_6_cast_3 = to_common<6>(ring, reduced_second_half[0] * _6, reduced_second_half[1] * _6, reduced_second_half[2] * _6, reduced_second_half[3] * _6, reduced_second_half[4] * _6, reduced_second_half[5] * _6);
-		auto expanded_second_half = ring.template batch_expand<6>(reduced_mult_6_cast_3);
-		return concat(expanded_first_half, expanded_second_half);
+		// Cyclotomic membership is a precondition. This fixed split is selected
+		// because the monolithic form exhausts the register file. It performs no
+		// validation, allocation, exception handling, or data-dependent dispatch.
+		return concat(
+			fp12_flat_cyclotomic_sqr_first_split(x, ring),
+			fp12_flat_cyclotomic_sqr_second_split(x, ring));
 	}
 
 	template<int64_t N>
-	BLST_AVX_FP12_NOINLINE auto fp12_flat_cyclotomic_sqr_v3_first_split(
+	BLST_AVX_FP12_NOINLINE auto fp12_flat_cyclotomic_sqr_first_split(
 		const CommonElement<N> &x, const Ring &ring) const {
-		// This deliberately mirrors the first half of the monolithic schedule.
-		// Sharing a common body caused measurable incumbent code growth.
+		// Keep this source text aligned with the first accepted split proof ledger.
 		auto minus_x1 = ring.negate(x[1]);
 		auto minus_x3 = ring.negate(x[3]);
 		auto minus_x5 = ring.negate(x[5]);
@@ -441,7 +377,8 @@ class FP12Ring : private Constants {
 		auto poly_4_unique = (poly_4_pos_shared + ((x[10] * minus_x11) * _2) + x[2] * x[2] + x[3] * minus_x3 + x[4] * Constants::neg_two_thirds());
 		auto poly_5_unique = (poly_4_pos_shared + ((x[2] * x[3] + x[10] * x[11]) * _2) + x[5] * Constants::neg_two_thirds());
 
-		auto reduced = batch_reduce(ring, poly_0_unique, poly_1_unique,
+		auto reduced = batch_reduce<first_cyclotomic_reduce_bound>(
+			ring, poly_0_unique, poly_1_unique,
 			poly_2_unique, poly_3_unique, poly_4_unique, poly_5_unique);
 		auto scaled = to_common<6>(ring, reduced[0] * _3,
 			reduced[1] * _3, reduced[2] * _3, reduced[3] * _3,
@@ -450,9 +387,9 @@ class FP12Ring : private Constants {
 	}
 
 	template<int64_t N>
-	BLST_AVX_FP12_NOINLINE auto fp12_flat_cyclotomic_sqr_v3_second_split(
+	BLST_AVX_FP12_NOINLINE auto fp12_flat_cyclotomic_sqr_second_split(
 		const CommonElement<N> &x, const Ring &ring) const {
-		// Keep this formula text aligned with the second monolithic half above.
+		// Keep this source text aligned with the second accepted split proof ledger.
 		auto minus_x7 = ring.negate(x[7]);
 		auto minus_x9 = ring.negate(x[9]);
 		auto minus_x11 = ring.negate(x[11]);
@@ -466,84 +403,13 @@ class FP12Ring : private Constants {
 		auto poly_10_unique = (((x[4] * x[6] + x[5] * minus_x7)) + x[10] * Constants::one_third());
 		auto poly_11_unique = (((x[4] * x[7] + x[5] * x[6])) + x[11] * Constants::one_third());
 
-		auto reduced = batch_reduce(ring, poly_6_unique, poly_7_unique,
+		auto reduced = batch_reduce<second_cyclotomic_reduce_bound>(
+			ring, poly_6_unique, poly_7_unique,
 			poly_8_unique, poly_9_unique, poly_10_unique, poly_11_unique);
 		auto scaled = to_common<6>(ring, reduced[0] * _6,
 			reduced[1] * _6, reduced[2] * _6, reduced[3] * _6,
 			reduced[4] * _6, reduced[5] * _6);
 		return ring.template batch_expand<6>(scaled);
-	}
-
-	template<int64_t N>
-	inline auto fp12_flat_cyclotomic_sqr_v2(const CommonElement<N> &x, const Ring &ring) const {
-		auto minus_x1 = ring.negate(x[1]);
-		auto minus_x3 = ring.negate(x[3]);
-		auto minus_x5 = ring.negate(x[5]);
-		auto minus_x7 = ring.negate(x[7]);
-		auto minus_x9 = ring.negate(x[9]);
-		auto minus_x11 = ring.negate(x[11]);
-		
-		// 0 1
-		auto poly_0_pos_shared = x[8] * x[8] + x[9] * minus_x9;
-		auto poly_0_unique = (poly_0_pos_shared + ((x[8] * minus_x9) * _2) + x[0] * x[0] + x[0] * Constants::neg_two_thirds() + x[1] * minus_x1);
-		auto poly_1_unique = (poly_0_pos_shared + ((x[0] * x[1] + x[8] * x[9]) * _2) + x[1] * Constants::neg_two_thirds());
-		// 2 3
-		auto poly_2_pos_shared = x[4] * x[4] + x[5] * minus_x5;
-		auto poly_2_unique = (poly_2_pos_shared + ((x[4] * minus_x5) * _2) + x[2] * Constants::neg_two_thirds() + x[6] * x[6] + x[7] * minus_x7);
-		auto poly_3_unique = (poly_2_pos_shared + ((x[6] * x[7] + x[4] * x[5]) * _2) + x[3] * Constants::neg_two_thirds());
-		// 4 5
-		auto poly_4_pos_shared = x[10] * x[10] + x[11] * minus_x11;
-		auto poly_4_unique = (poly_4_pos_shared + ((x[10] * minus_x11) * _2) + x[2] * x[2] + x[3] * minus_x3 + x[4] * Constants::neg_two_thirds());
-		auto poly_5_unique = (poly_4_pos_shared + ((x[2] * x[3] + x[10] * x[11]) * _2) + x[5] * Constants::neg_two_thirds());
-		// 6 7
-		auto poly_6_pos_shared = (Constants::offset() + x[2] * x[10] + x[3] * minus_x11);
-		auto poly_6_neg_shared = (x[2] * x[11] + x[3] * x[10]);
-		auto poly_6_unique = (poly_6_pos_shared - poly_6_neg_shared + x[6] * Constants::one_third());
-		auto poly_7_unique = (poly_6_pos_shared + poly_6_neg_shared + x[7] * Constants::one_third());
-		// 8 9
-		auto poly_8_unique = (((x[0] * x[8] + x[1] * minus_x9)) + x[8] * Constants::one_third());
-		auto poly_9_unique = (((x[0] * x[9] + x[1] * x[8])) + x[9] * Constants::one_third());
-		// 10 11
-		auto poly_10_unique = (((x[4] * x[6] + x[5] * minus_x7)) + x[10] * Constants::one_third());
-		auto poly_11_unique = (((x[4] * x[7] + x[5] * x[6])) + x[11] * Constants::one_third());
-		auto reduced = batch_reduce(ring, poly_0_unique,poly_1_unique,poly_2_unique,poly_3_unique,poly_4_unique,poly_5_unique,poly_6_unique,poly_7_unique,poly_8_unique,poly_9_unique,poly_10_unique,poly_11_unique);
-		auto reduced_mult_3 = to_common<6>(ring, reduced[0] * _3, reduced[1] * _3, reduced[2] * _3, reduced[3] * _3, reduced[4] * _3, reduced[5] * _3, reduced[6] * _6, reduced[7] * _6, reduced[8] * _6, reduced[9] * _6, reduced[10] * _6, reduced[11] * _6);
-		return ring.template batch_expand<12>(reduced_mult_3);
-	}
-
-	template<int64_t N>
-	inline auto fp12_flat_cyclotomic_sqr_v1(const CommonElement<N> &x, const Ring &ring) const {
-		auto minus_x1 = ring.negate(x[1]);
-		auto minus_x3 = ring.negate(x[3]);
-		auto minus_x5 = ring.negate(x[5]);
-		auto minus_x7 = ring.negate(x[7]);
-		auto minus_x9 = ring.negate(x[9]);
-		auto minus_x11 = ring.negate(x[11]);
-		
-		// 0 1
-		auto poly_0_pos_shared = x[8] * x[8] + x[9] * minus_x9;
-		auto poly_0_unique = (poly_0_pos_shared + ((x[8] * minus_x9) * _2) + x[0] * x[0] + x[0] * Constants::neg_two_thirds() + x[1] * minus_x1) * _3;
-		auto poly_1_unique = (poly_0_pos_shared + ((x[0] * x[1] + x[8] * x[9]) * _2) + x[1] * Constants::neg_two_thirds()) * _3;
-		// 2 3
-		auto poly_2_pos_shared = x[4] * x[4] + x[5] * minus_x5;
-		auto poly_2_unique = (poly_2_pos_shared + ((x[4] * minus_x5) * _2) + x[2] * Constants::neg_two_thirds() + x[6] * x[6] + x[7] * minus_x7) * _3;
-		auto poly_3_unique = (poly_2_pos_shared + ((x[6] * x[7] + x[4] * x[5]) * _2) + x[3] * Constants::neg_two_thirds()) * _3;
-		// 4 5
-		auto poly_4_pos_shared = x[10] * x[10] + x[11] * minus_x11;
-		auto poly_4_unique = (poly_4_pos_shared + ((x[10] * minus_x11) * _2) + x[2] * x[2] + x[3] * minus_x3 + x[4] * Constants::neg_two_thirds()) * _3;
-		auto poly_5_unique = (poly_4_pos_shared + ((x[2] * x[3] + x[10] * x[11]) * _2) + x[5] * Constants::neg_two_thirds()) * _3;
-		// 6 7
-		auto poly_6_pos_shared = (Constants::offset() + x[2] * x[10] + x[3] * minus_x11);
-		auto poly_6_neg_shared = (x[2] * x[11] + x[3] * x[10]);
-		auto poly_6_unique = (poly_6_pos_shared - poly_6_neg_shared + x[6] * Constants::one_third()) * _6;
-		auto poly_7_unique = (poly_6_pos_shared + poly_6_neg_shared + x[7] * Constants::one_third()) * _6;
-		// 8 9
-		auto poly_8_unique = (((x[0] * x[8] + x[1] * minus_x9)) + x[8] * Constants::one_third()) * _6;
-		auto poly_9_unique = (((x[0] * x[9] + x[1] * x[8])) + x[9] * Constants::one_third()) * _6;
-		// 10 11
-		auto poly_10_unique = (((x[4] * x[6] + x[5] * minus_x7)) + x[10] * Constants::one_third()) * _6;
-		auto poly_11_unique = (((x[4] * x[7] + x[5] * x[6])) + x[11] * Constants::one_third()) * _6;
-		return ring.batch_reduce_expand(poly_0_unique,poly_1_unique,poly_2_unique,poly_3_unique,poly_4_unique,poly_5_unique,poly_6_unique,poly_7_unique,poly_8_unique,poly_9_unique,poly_10_unique,poly_11_unique);
 	}
 
 	inline StandardElement fp12_flat_frobenius_map1(const StandardElement &x, const Ring &ring) const {
@@ -841,6 +707,8 @@ class FP12Ring : private Constants {
 
 	template<class Inverter>
 	inline auto fp12_flat_inverse(const StandardElement &x, const Inverter &inverter, const Ring &ring) const {
+		// Precondition: x != 0. No check is performed here. Timing and failure
+		// behavior of the base-field reciprocal are exactly those of `inverter`.
 		auto f6 = fp12_flat_inverse_to_fp6(x, ring);
 		auto f2_c0_c1_c2 = fp6_flat_inverse_to_fp2_c0_c1_c2(f6, ring);
 		auto f2 = fp6_flat_inverse_to_fp2_ret(f2_c0_c1_c2, f6, ring);

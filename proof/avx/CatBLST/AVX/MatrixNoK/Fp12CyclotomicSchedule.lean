@@ -14,7 +14,7 @@ set_option maxRecDepth 10000
 # Selected MatrixNoK cyclotomic square
 
 This file transcribes the two no-inline halves selected by
-`Fp12ConstantsCandidate::split_cyclotomic_v3`.  The semantic model retains the
+the selected split schedule. The semantic model retains the
 pre-reduction polynomials, their respective factors of three and six, and the
 source `concat` order.
 
@@ -31,11 +31,11 @@ namespace CatBLST.AVX.MatrixNoK
 
 open Fp12Concrete
 
-/-- Canonical field value loaded by `Fp12ConstantsCandidate::one_third()`. -/
+/-- Canonical field value loaded by `Fp12Constants::one_third()`. -/
 def cyclotomicOneThird : SelectedBaseField :=
   0x11560bf17baa99bc32126fced787c88f984f87adf7ae0c7f9a208c6b4f20a4181472aaa9cb8d555526a9ffffffffc71d
 
-/-- Canonical field value loaded by `Fp12ConstantsCandidate::neg_two_thirds()`. -/
+/-- Canonical field value loaded by `Fp12Constants::neg_two_thirds()`. -/
 def cyclotomicNegTwoThird : SelectedBaseField :=
   0x11560bf17baa99bc32126fced787c88f984f87adf7ae0c7f9a208c6b4f20a4181472aaa9cb8d555526a9ffffffffc71c
 
@@ -86,12 +86,12 @@ def cppFp12CyclotomicSecondPolynomials
     x 4 * x 6 + x 5 * minusX7 + x 10 * cyclotomicOneThird,
     x 4 * x 7 + x 5 * x 6 + x 11 * cyclotomicOneThird]
 
-/-- Field semantics of `fp12_flat_cyclotomic_sqr_v3_first_split`. -/
+/-- Field semantics of `fp12_flat_cyclotomic_sqr_first_split`. -/
 def cppFp12CyclotomicFirstSplit
     (x : FlatFp12 SelectedBaseField) : Fin 6 → SelectedBaseField :=
   fun i => 3 * cppFp12CyclotomicFirstPolynomials x i
 
-/-- Field semantics of `fp12_flat_cyclotomic_sqr_v3_second_split`. -/
+/-- Field semantics of `fp12_flat_cyclotomic_sqr_second_split`. -/
 def cppFp12CyclotomicSecondSplit
     (x : FlatFp12 SelectedBaseField) : Fin 6 → SelectedBaseField :=
   fun i => 6 * cppFp12CyclotomicSecondPolynomials x i

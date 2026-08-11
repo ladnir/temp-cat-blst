@@ -95,7 +95,7 @@ def unpackFlatFp12 (x : Fp12Value R) : FlatFp12 R :=
 ## Literal source schedules
 
 The definitions retain the exact twelve-coordinate order and the same shared
-constant aliases as `Fp12ConstantsCandidate`.
+constant aliases as `Fp12Constants`.
 -/
 
 def cppFp12Frobenius1Flat (x : FlatFp12 SelectedBaseField) :
