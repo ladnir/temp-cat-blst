@@ -769,3 +769,14 @@ provenance and narrow contracts. The findings are open pending an explicitly
 reviewed ping-pong/accumulator repair. Only compile-time code-generation probes
 ran; no benchmark, remote job, broad build, CUDA, portable-AVX Release, or
 BTx/BTE work ran.
+
+`AUD-274` through `AUD-276` are validated at `35516ff`. Final exponentiation
+now owns its distinct-output square locally, uses fixed ping-pong chains, and
+retains only a bounded accumulator set. MSVC hard-part stack falls from 38,528
+to 12,416 bytes with about 15.6 KiB peak nested stack; Clang 18 falls from
+35,456 to 14,720 bytes. Both compilers emit zero repeated-square `memcpy` calls,
+reducing nested chain copies from at least 305 to 25 multiply-result boundaries.
+Five focused portable-Debug differentials and the three exact final-exponent
+Lean modules pass; all 21 correspondence rows and 61 hashes validate after the
+source rebind. Public C contracts and provenance are now explicit. No benchmark
+or broad/resource-heavy run was performed.

@@ -172,6 +172,19 @@ and the repository's intentional cubed final exponent. The source ledger is
 pairing differential evidence cover the concrete inversion provider; that
 provider is explicitly outside the new algebra theorem.
 
+Implementation commit `35516ff` changes only the physical ownership and
+fixed-chain control boundaries of that accepted schedule. The general
+`fp12.h` theorem owner remains byte-for-byte at its accepted hash. A private
+distinct-output square and two ping-pong owners remove at least 305 loop-level
+1,536-byte copies; fixed template counts and noinline long-chain kernels reduce
+MSVC/Clang hard-part frames from 38,528/35,456 bytes to 12,416/14,720 bytes.
+Five focused differentials and the three final-exponentiation Lean modules pass.
+The correspondence row is rebound to SHA-256
+`cc938fcdc5f7b681168135366361575de71d377e0371a5914aa9946f1ba8f778`
+without changing the exact 35-multiply, 315-square, nine-conjugation,
+Frobenius-1/2/1, and one-inversion ledger. No benchmark ran, so no end-to-end
+speedup is claimed by this packet.
+
 Proof commit `82f26c1` completes `AVX-P3-006` for public GT multiplication. It
 proves the exact canonical unsigned radix-`z` split and odd-Frobenius
 conjugation basis, the literal sixteen-entry table, fixed 64-round CT executor,

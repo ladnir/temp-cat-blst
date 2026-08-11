@@ -999,3 +999,18 @@ proposed repair uses distinct-output cyclotomic squares, two fixed ping-pong
 owners, compile-time chain counts, and a bounded mutable accumulator set. No
 source implementation, execution, benchmark, remote job, CUDA, portable-AVX
 Release build, or BTx/BTE work accompanied this audit packet.
+
+Implementation commit `35516ff` validates `AUD-274` through `AUD-276`. A local
+distinct-output split boundary and two ping-pong owners eliminate every
+repeated-square copy without broadening the proved general Fp12 API. Fixed
+template counts replace the runtime count, and deliberately noinline long-chain
+kernels prevent aggressive inlining from inflating the final owner. MSVC
+reduces the hard-part frame from 38,528 to 12,416 bytes with about 15.6 KiB peak
+nested stack; Clang 18 reduces it from 35,456 to 14,720 bytes. Each raise kernel
+contains zero `memcpy`; only five multiply-result copies remain per chain, so
+the complete final exponent falls from at least 305 loop copies to 25 nested
+product-boundary copies. Five focused portable-Debug differentials and the
+three final-exponentiation Lean modules pass. `AVX-P3-005` is rebound to the
+exact source hash with its 35-multiply/315-square/nine-conjugation ledger
+unchanged. No benchmark, remote run, broad suite, sanitizer, CUDA,
+portable-AVX Release, or BTx/BTE work ran.
