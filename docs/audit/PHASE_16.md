@@ -897,3 +897,15 @@ and zero construction is explicit while overwrite-before-read scratch remains
 uninitialized by design. The focused arithmetic suite passes 24/24 and the
 native MSVC Fp probe retains its 312-byte frame, eight scalar multiplies, zero
 calls, and zero branches. No benchmark or remote job ran.
+
+The following packet completes `ring_element.h` at `1e0b6e1`. The carrier now
+states that RNS bounds and two-basis consistency are producer claims rather
+than runtime validation, distinguishes raw representation predicates from
+semantic field observation, and documents overwrite-before-read storage and
+ordered delayed-product accumulation. Dead unchecked constant and wide-zero
+helpers are removed. Completion preserves the exact non-cv proof type, and
+small-carrier recasting accepts the same 64-bit endpoints as the bound system.
+The serial portable-AVX Debug target compiles, the direct ring-carrier contract
+test passes, the structural validator passes, and all 20 correspondence rows
+and 59 mapped hashes remain valid. No benchmark, remote job, native build,
+CUDA, or portable-AVX Release build ran.

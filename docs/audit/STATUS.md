@@ -697,3 +697,12 @@ passes 24/24 and the structural validator passes. The optimized native MSVC Fp
 probe has a 312-byte frame, eight scalar multiplies, zero calls, and zero
 conditional branches. No benchmark, remote job, CUDA, portable-AVX Release, or
 BTx audit ran.
+
+The complete `ring_element.h` review closes `AUD-249` through `AUD-252` at
+`1e0b6e1`. Unused helpers that could attach unproved physical and cross-base
+claims are gone; completion preserves the exact proof-metadata type; RNS
+recasts consistently accept 64-bit endpoints; and the owning header now
+documents raw observation, initialization, delayed-product ordering, and
+producer obligations. The serial portable-AVX Debug target and direct carrier
+test pass, as do the structural and exact-correspondence validators. No
+benchmark, remote job, native build, CUDA, or portable-AVX Release build ran.
