@@ -849,3 +849,17 @@ two workers and passes eight focused root, plan, sizing, and C-boundary tests.
 dependency and emitted its existing nodiscard warning, but was neither changed
 nor audited. No benchmark, remote run, CUDA, sanitizer, portable-AVX Release,
 or full suite ran.
+
+`AUD-282` is validated at `30c7558`. AVX batch final exponentiation now takes
+explicit caller-owned scratch for all six decomposition and batch-inversion
+buffers. The reusable multipair middle-product workspace retains that scratch
+across evaluations; the one-shot update path owns an explicit local instance.
+Once capacity is established, smaller or equal final-exp batches perform no
+storage allocation, while growth still occurs before output publication and
+retains the existing exception boundary. Portable-AVX Debug passes direct
+batch-versus-individual, zero-length, size-oscillation, repeated-workspace, and
+existing multipair-versus-FFT cases at sizes 3, 5, 9, and 16. All 21 AVX
+correspondence rows and 61 mapped hashes revalidate after the ownership-only
+`GT.h` rebind. Only benchmark-gated `AUD-287` remains open in this middle-
+product packet. No benchmark, remote run, CUDA, sanitizer, portable-AVX
+Release, full suite, or BTx/BTE audit ran.

@@ -31,8 +31,7 @@ are marked `BLST_NODISCARD`.
 The same pass records `AUD-284`, `AUD-285`, and `AUD-287` through `AUD-289`:
 inverse-root construction, repeated truncated-plan allocation, stale backend-
 independent Auto selection, avoidable AVX result serialization, and cleanup/
-provenance. Packet 17C closes all except benchmark-gated `AUD-287`. `AUD-282`
-remains open for reusable AVX batch-final-exponentiation scratch.
+provenance. Packets 17C and 17D close all except benchmark-gated `AUD-287`.
 
 Focused validation exposed two additional defects. `AUD-290` found that the
 scalar-to-AVX projective bridge preserved scalar's all-zero infinity rather
@@ -87,6 +86,37 @@ serialization/decode path. The build recompiled frozen BTx as a dependency and
 reported its pre-existing nodiscard warning; no BTx/BTE file was changed or
 audited. No benchmark, remote process, CUDA, sanitizer, portable-AVX Release,
 or full test sweep ran.
+
+## Packet 17D - Reusable AVX batch final-exponentiation scratch
+
+Commit `30c7558` closes `AUD-282`. `avx::GT::final_exp_n` now requires an
+explicit caller-owned `GT::FinalExpScratch` instead of constructing six fresh
+vectors on every call. The scratch owns the two six-term decomposition arrays,
+the two-term inverse input, the first-component terms, prefix products, and
+inverses. Callers may reserve capacity, query it, and reuse the owner; the
+individual arithmetic buffers remain private. Buffer sizes retain their
+high-water mark, so a later smaller or equal batch performs no resize and no
+batch-final-exponentiation allocation.
+
+The reusable AVX multipair middle-product workspace owns this scratch and
+passes it through every finalization. The one-shot update path uses an explicit
+local scratch because it has no reusable workspace lifetime. Allocation growth
+still occurs before output publication and may throw to the existing native/C
+translation boundary; arithmetic, batch-inversion order, nonoverlap contract,
+and delayed publication are unchanged. This packet makes no claim that the
+entire middle-product operation is allocation-free.
+
+MSVC 19.50 scalar-default plus portable-AVX Debug builds the affected test
+target with two workers. Direct batch final exponentiation matches individual
+results across full, smaller, repeated, and zero-length calls while retaining
+capacity. Two evaluations through one multipair workspace agree and preserve
+scratch capacity. The existing AVX multipair-versus-FFT comparison passes at
+sizes 3, 5, 9, and 16. The ownership-only `GT.h` rebind validates all 21 AVX
+correspondence rows and 61 exact mapped hashes. Frozen BTx rebuilt as a header
+dependency and emitted its existing nodiscard warning; it was neither changed
+nor audited. No benchmark, remote run, CUDA, sanitizer, portable-AVX Release,
+or full suite ran. Only benchmark-gated `AUD-287` remains open in the current
+middle-product packet.
 
 ## Packet 17A - Generic FFT boundary and isolated interpolation
 
