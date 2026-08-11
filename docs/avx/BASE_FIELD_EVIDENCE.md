@@ -92,6 +92,14 @@ multiplication, batch-of-one stack adapters, and ambiguous aggregate handling.
 The retained returning operation is fully inlined; the output-reference
 wrapper delegates to it and preserves exact aliasing with either input.
 
+The native-MSVC compatibility follow-up at `33f6a8b` removes a separate source
+of out-of-line work in the quotient accumulator. Runtime 64-by-64 products now
+use `_umul128`, while constant evaluation retains portable limb arithmetic.
+The optimized production `modmul` body contains eight direct `mul`
+instructions, zero wide-integer calls, and zero conditional jumps; the prior
+body contained eight calls to the custom compatibility `operator*`. This is
+code-generation evidence only; no new benchmark ran.
+
 ## Clang 21 performance comparison
 
 Commit `47124e0` adds an optional benchmark-only reference translation unit to

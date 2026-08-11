@@ -655,3 +655,12 @@ NDEBUG control-flow cost. All 31 focused portable-Debug MatrixNoK/C API tests
 pass, and the optimized production-spelling probe fully inlines with no
 assertion branch. Seven affected correspondence rows are rebound and all 20
 AVX correspondence rows validate. No benchmark or remote job ran.
+
+The foundational MSVC wide-integer repair is complete at `33f6a8b`.
+`AUD-239` replaces the false `int128_t = int64_t` overflow-safety alias with a
+real 16-byte signed carrier. `AUD-240` preserves portable constexpr products
+but routes runtime 64-by-64 multiplication through `_umul128`. All 32 focused
+portable-Debug tests pass. Optimized production Fp multiplication changes from
+eight compatibility calls to eight inline `mul` instructions with no call or
+conditional jump. The rest of `constexpr_utils.h` and the foundational bounds,
+carrier, and reducer owners remain the next audit packet; no benchmark ran.

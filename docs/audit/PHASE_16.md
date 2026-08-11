@@ -854,3 +854,24 @@ reducer remain unchanged and are not attributed to this packet. Seven
 correspondence rows (six C++ owner mappings and one P3 provider binding) are
 rebound to `01bcec8`; all 20 correspondence rows and 59 mapped hashes validate.
 No benchmark, Peach run, CUDA work, portable Release build, or BTx audit ran.
+
+### MSVC wide-integer compatibility (`AUD-239` and `AUD-240`)
+
+The next foundational utility check found that the native-MSVC compatibility
+branch defined signed `int128_t` as `int64_t`, despite `Bounds` relying on it to
+make overflow checks wider than the represented bounds. It also found that the
+custom unsigned 32-bit partial-product implementation survived as eight
+out-of-line calls in a production MatrixNoK Fp multiplication.
+
+Commit `33f6a8b` supplies an exact two-limb signed carrier and splits unsigned
+64-by-64 multiplication by evaluation mode: portable limb arithmetic remains
+for constexpr generation, while MSVC runtime uses `_umul128`. The compatibility
+operations are forced inline. Compile-time tests cross both int64 limits and
+exercise the portable product; runtime tests compare 64 signed boundary pairs
+with `_mul128`. All 32 focused portable-Debug MatrixNoK/C API tests pass.
+
+Optimized MSVC emits one `mul`, no call, and no branch for the standalone
+helper. The production Fp probe now contains eight inline `mul` instructions,
+zero calls, and zero conditional jumps where the previous probe contained
+eight custom `operator*` calls. No benchmark or remote job ran. The remaining
+non-wide helpers in `constexpr_utils.h` stay in review.
