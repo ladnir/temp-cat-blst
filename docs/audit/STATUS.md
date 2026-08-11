@@ -800,16 +800,16 @@ prepared reductions or per-line initialization loop; public variable-time GT
 scalars are no longer wiped; and the selected AVX GT owner has explicit
 provenance plus batch, line-table, timing, allocation, alias, conditional-bit,
 and Frobenius contracts. Four focused portable-Debug tests and the affected
-middle-product object pass. `AUD-280` remains open behind its benchmark gate,
-and `AUD-282` remains open for reusable scratch during the middle-product audit,
-although its current six-buffer allocation contract is now explicit. No
-benchmark, remote job, broad build, CUDA, portable-AVX Release, sanitizer,
-Apple CI, or BTx/BTE work ran.
+middle-product object pass. `AUD-282` remains open for reusable scratch during
+the middle-product audit, although its current six-buffer allocation contract
+is now explicit. No broad build, CUDA, portable-AVX Release, sanitizer, Apple
+CI, or BTx/BTE work ran.
 
-`AUD-280` now has correctness and local code-generation evidence at `4e7c618`
-without a production dispatch change. The cyclotomic candidate matches scalar
-GT doubling across identity, deterministic GT powers, and exact aliasing; its
-unsupported-MSVC production-shaped body is about half the dense instruction
-count and substantially smaller in peak stack. The finding remains open until
-an explicitly approved single-process Clang 21 native benchmark validates the
-performance selection. No benchmark or remote job ran.
+`AUD-280` is validated with dense production doubling retained. Correctness at
+`4e7c618` showed the cyclotomic candidate is semantically admissible, but one
+valid Release process on Peach at `fa26da3` measured Clang 21.1.8 native
+AVX-512/IFMA medians of 326 ns dense versus 366 ns cyclotomic and 2.530 us
+versus 2.895 us for eight doublings. The candidate regressed 12.3% and 14.4%.
+Commit `7295176` removes the losing benchmark/test scaffolding. An earlier
+sequential process lacking `-DNDEBUG` was discarded; no process remained after
+the measurement.

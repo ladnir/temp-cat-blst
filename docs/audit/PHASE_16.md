@@ -1066,23 +1066,27 @@ Four focused portable-Debug GT tests pass, including both the 128-bit basic and
 256-bit GLV4 variable-time scalar paths, zero-carrier construction, invalid
 control assertions, and retained prepared-pairing identity. The AVX
 middle-product boundary compiles, and the public documentation, group-contract,
-and MatrixNoK dispatch checks pass. `AUD-280` remains benchmark-gated; `AUD-282`
-now has an explicit six-buffer allocation/nonoverlap/failure contract but its
-reusable-scratch design remains deferred to the Phase 17 middle-product audit.
-No benchmark, remote job, broad build, CUDA, portable-AVX Release, sanitizer,
-Apple CI, or BTx/BTE work ran.
+and MatrixNoK dispatch checks pass. `AUD-282` now has an explicit six-buffer
+allocation/nonoverlap/failure contract, but its reusable-scratch design remains
+deferred to the Phase 17 middle-product audit. No broad build, CUDA,
+portable-AVX Release, sanitizer, Apple CI, or BTx/BTE work ran.
 
-The non-timing portion of `AUD-280` is complete at `4e7c618` without changing
-production dispatch. A forced cyclotomic-doubling candidate matches scalar GT
-doubling for identity, generator, deterministic 64/128/256-bit powers, and
-exact output aliasing. The existing accepted P3 cyclotomic-square proof and
-narrowing boundary cover the candidate arithmetic. A production-shaped local
-MSVC 19.50 `/O2` comparison emits approximately 4,195 instruction lines for
-the candidate wrapper plus split helpers versus 8,215 for the dense wrapper
-plus general multiplication, with approximate peak nested stack of 52.8 KiB
-versus 127.6 KiB. This compiler is explicitly unsupported for production AVX,
-so the result is directional evidence only. Selection remains blocked on one
-approved, serial, supported Clang 21 native benchmark comparing dense and
-cyclotomic one-shot doubling and a short repeated-doubling chain. No benchmark,
-remote job, production change, broad build, CUDA, portable-AVX Release,
-sanitizer, Apple CI, or BTx/BTE work ran.
+`AUD-280` is validated with dense doubling retained. At `4e7c618`, a forced
+cyclotomic candidate matched scalar GT doubling for identity, generator,
+deterministic 64/128/256-bit powers, and exact output aliasing; the accepted P3
+cyclotomic-square proof and narrowing boundary cover its arithmetic. Local
+unsupported-MSVC code size and stack estimates favored that candidate, but the
+supported native measurement reversed the conclusion.
+
+One valid Release Google Benchmark process at `fa26da3` used Peach's AMD Ryzen
+9 7950X, Clang 21.1.8, `-O3 -DNDEBUG -march=native`, native AVX-512/IFMA, CPU
+2, nine repetitions, and a 0.2-second minimum case time. Dense multiplication
+measured 326 ns median versus 366 ns for cyclotomic square plus narrowing; an
+eight-doubling chain measured 2.530 us versus 2.895 us. The candidate therefore
+regressed 12.3% and 14.4%, respectively. An earlier sequential process omitted
+`-DNDEBUG`, announced itself as Debug, and was discarded rather than used as
+evidence. Commit `7295176` removes the losing benchmark/test scaffolding and
+leaves production dispatch unchanged. CPU scaling remained enabled, but both
+same-process comparisons were stable below 0.12% coefficient of variation and
+the losing margins are far outside the selection gate. No broad suite, CUDA,
+portable-AVX Release, sanitizer, Apple CI, or BTx/BTE work ran.
