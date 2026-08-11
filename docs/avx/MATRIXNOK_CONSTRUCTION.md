@@ -17,9 +17,9 @@ The selected construction is:
 4. `G1CurveCandidate` and `G2CurveCandidate` for curve arithmetic; and
 5. `MillerCandidate` plus `PairingInverterCandidate` for pairing.
 
-`matrixnok::Fp2RingCandidate` is a retained comparison microkernel. It is not
-in this selected call graph, is not dispatched, and is outside the first proof
-scope.
+The former comparison-only `matrixnok::Fp2RingCandidate` was removed by
+`AUD-264`. The selected generic Fp2 owner is now the sole retained MatrixNoK
+Fp2 implementation.
 
 ## Base-field representation
 

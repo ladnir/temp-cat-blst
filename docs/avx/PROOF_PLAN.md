@@ -342,8 +342,9 @@ original proved constants artifact is unchanged. `AUD-230` makes the ledger's
 51 mapped hashes LF-canonical so the same proof boundary validates on Windows
 CRLF and Peach LF checkouts.
 
-The comparison-only direct `matrixnok::Fp2RingCandidate` microkernel is outside
-this initial scope. The selected tower uses `FP2Ring<FpRingCandidate>`.
+`AUD-264` removed the comparison-only direct Fp2 microkernel. The selected
+tower and the Fp2 proof now have one C++ owner:
+`FP2Ring<FpRingCandidate>`.
 
 ## Semi-freeze discipline
 

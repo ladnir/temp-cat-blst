@@ -947,3 +947,16 @@ validation bounds raw lanes to 55 bits, adjacent joins to 56 bits, and the full
 435-bit export below the 765-bit REDC limit. A serial two-worker portable-Debug
 rebuild and 32 focused tests pass. No benchmark, remote job, CUDA,
 portable-AVX Release, sanitizer sweep, broad suite, or BTx/BTE audit ran.
+
+The selected Fp2 owner review closes `AUD-264` through `AUD-267` at
+`13fe98a`. The comparison-only direct microkernel and its privileged
+base-field hooks are removed, leaving `FP2Ring<FpRingCandidate>` as the one
+production, differential, code-generation, and formal owner. The ring now owns
+its empty policy value with `no_unique_address`, eliminating reference lifetime
+risk while retaining a one-byte object. Dead conversions and batch plumbing
+are removed, proof metadata uses its exact alias, and local representation and
+timing contracts are explicit. Three focused portable-Debug tests pass; a
+small native MSVC probe reports zero calls and only fixed-control branches.
+All 20 correspondence rows and 59 hashes validate after rebinding. No
+benchmark, remote run, broad suite, CUDA, portable-AVX Release, sanitizer, or
+BTx/BTE audit ran.

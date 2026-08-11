@@ -735,3 +735,15 @@ conversion wrapper. The independent validator proves the complete raw-export
 machine envelope through REDC. A serial portable-Debug rebuild and 32 focused
 tests pass. No benchmark, remote/native execution, CUDA, portable-AVX Release,
 sanitizer, broad suite, or BTx/BTE audit ran.
+
+`AUD-264` through `AUD-267` are closed at `13fe98a`. The selected
+`FP2Ring<FpRingCandidate>` is now the sole retained MatrixNoK Fp2 arithmetic
+owner. It owns the empty base-ring policy by value in one byte rather than
+borrowing a potentially dangling reference. Dead prepared conversions, batch
+plumbing, the comparison-only microkernel, and its private base-field hooks are
+gone; exact proof metadata, provenance, initialization, timing, and raw
+observation contracts are explicit. Three focused portable-Debug scalar and
+completion differentials pass. The small native MSVC probe has zero calls and
+only fixed-control branches. All 20 correspondence rows and 59 hashes validate
+after exact rebinding. No benchmark, remote run, broad suite, CUDA,
+portable-AVX Release, sanitizer, or BTx/BTE audit ran.

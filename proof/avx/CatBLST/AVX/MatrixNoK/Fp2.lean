@@ -9,9 +9,8 @@ import Mathlib.Tactic
 /-!
 # Selected MatrixNoK Fp2 construction
 
-This file models the selected `FP2Ring<FpRingCandidate>` implementation in
-`blst/avx/fields/fp2.h`.  It intentionally does not model the comparison-only
-`matrixnok::Fp2RingCandidate` microkernel.
+This file models the sole retained selected `FP2Ring<FpRingCandidate>`
+implementation in `blst/avx/fields/fp2.h`.
 
 The C++ representation is `x + u*y` with `u^2 = -1`.  `prep_left` retains
 `x`, `y`, and a prepared `-y`; multiplication then forms `ac - bd` and

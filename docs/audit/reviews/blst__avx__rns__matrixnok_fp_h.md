@@ -3,7 +3,7 @@
 ## Scope
 
 This record covers the complete retained BLS12-381 MatrixNoK base-field owner
-through commit `0562a52`.
+through commit `13fe98a`.
 
 ## Contracts
 
@@ -41,6 +41,9 @@ through commit `0562a52`.
   disjoint-object or raw-output contract at the field owner.
 - `AUD-257`: bound reattachment retained a stale cv-stripping workaround, and
   the private M2 batch-expansion boundary did not state its nonempty contract.
+- `AUD-264`: the comparison-only Fp2 microkernel retained two private
+  base-field completion/negation hooks and privileged friendship after the
+  selected generic Fp2 owner became the sole production implementation.
 
 ## Validation
 
@@ -55,6 +58,9 @@ through commit `0562a52`.
   tests pass.
 - All 20 accepted AVX correspondence rows and 59 mapped hashes validate after
   rebinding the Fp and scalar-multiplication owners.
+- The comparison-only Fp2 hooks and friendship are absent, while selected
+  one-shot, fixed-batch, delayed-reduction, conversion, and expansion callers
+  continue to compile and pass their focused differentials.
 
 ## Residual risk
 
