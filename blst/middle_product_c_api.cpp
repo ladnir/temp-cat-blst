@@ -30,7 +30,7 @@ static_assert(std::is_trivially_copyable_v<BoundaryG1>);
 static_assert(std::is_trivially_copyable_v<BoundaryG2>);
 static_assert(std::is_trivially_copyable_v<BoundaryFp12>);
 
-inline BoundaryFp12 gt_to_boundary(const blst::scalar::GT& value)
+[[maybe_unused]] inline BoundaryFp12 gt_to_boundary(const blst::scalar::GT& value)
 {
     return value.data;
 }
