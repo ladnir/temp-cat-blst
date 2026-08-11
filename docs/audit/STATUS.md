@@ -684,3 +684,16 @@ the dispatch and exact correspondence validators pass after rebinding. Native
 MSVC Fp code generation remains 244 instructions, a 312-byte frame, eight
 inline multiplies, zero calls, and zero branches. No benchmark or remote job
 ran.
+
+The paired `bounds.h` and `bounded_element.h` review is complete at `0471f82`.
+`AUD-244` and `AUD-245` move the already-proved selected bound and borrow-free
+wide-subtraction requirements into zero-cost C++ static assertions. All current
+production expressions compile: the maximum selected bound remains 832 below
+the 2048 accumulator limit, and every subtraction is offset-dominated.
+`AUD-246` through `AUD-248` remove unsafe dead diagnostics and unary negation,
+harden bound shifts and radix parameters, make zero construction explicit, and
+document overwrite-before-read default storage. The focused MatrixNoK suite
+passes 24/24 and the structural validator passes. The optimized native MSVC Fp
+probe has a 312-byte frame, eight scalar multiplies, zero calls, and zero
+conditional branches. No benchmark, remote job, CUDA, portable-AVX Release, or
+BTx audit ran.

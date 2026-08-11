@@ -884,3 +884,16 @@ an independent scalar Montgomery oracle. All 39 focused portable-Debug tests
 pass. The optimized standalone and production one/eight-`mul` shapes remain
 unchanged, as do the production Fp instruction count and frame. No benchmark or
 remote job ran.
+
+The next foundational packet completes `bounds.h` and `bounded_element.h` at
+`0471f82`. The accepted Lean kernel ledger already proved the selected
+`800 + 32 = 832` wide allowance and every Fp12 offset-dominated subtraction;
+the C++ carrier now independently rejects bounds at or above its signed
+radix-`2^52` capacity of 2048 and rejects any subtraction whose left lower
+bound does not dominate the right upper bound. Every existing production
+instantiation compiles under those assertions. Dead diagnostic conversions and
+iostream dependencies are removed, shifts and radix parameters are bounded,
+and zero construction is explicit while overwrite-before-read scratch remains
+uninitialized by design. The focused arithmetic suite passes 24/24 and the
+native MSVC Fp probe retains its 312-byte frame, eight scalar multiplies, zero
+calls, and zero branches. No benchmark or remote job ran.
