@@ -87,7 +87,7 @@ of the selected delayed implementation. No benchmark ran for this audit.
 ## Exact correspondence inputs
 
 - `fp2.h` SHA-256:
-  `3c2ddc12f7bc74339c331826c3e50266f67b126c1a3313cd8e5dc0c21fc015b2`
+  `a065c9ccc4e691d6322b1220c9cf56ba07ddbbb126364fd3cb59ad8e18ea47f9`
 - `matrixnok_fp.h` SHA-256:
   `f0de3ba114deea65ba0affffeb9cfefa479d1c2b72df31aa1704d6ff60698a5a`
 
@@ -99,4 +99,6 @@ GT, curve, and pairing claims remain owned by their separate accepted rows.
 x86 IFMA semantics and compiler lowering remain the shared P0 boundary.
 Milestone sanitizer, fuzzing, and statistical leakage evidence are outside
 this file review. No remote run, broad suite, CUDA, BTx/BTE audit, or
-portable-AVX Release build occurred in the `13fe98a` packet.
+portable-AVX Release build occurred in the `13fe98a` packet. Commit `65206c9`
+adds only the trivial default constructor used for value-initialized prepared
+line storage; selected Fp2 arithmetic and its accepted theorems are unchanged.

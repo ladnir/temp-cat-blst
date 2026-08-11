@@ -793,3 +793,15 @@ infinity branches and the exact 68-line identity-table schedule. Three focused
 identity regressions and four retained finite Miller tests pass. `AUD-278`
 through `AUD-282` remain open for the rest of the AVX GT owner review. No
 benchmark, remote job, CUDA, portable-AVX Release, or broad runtime suite ran.
+
+`AUD-278`, `AUD-279`, and `AUD-281` are validated at `65206c9`. Native
+prepared-line tables now value-construct as one exact zero-fill with no
+prepared reductions or per-line initialization loop; public variable-time GT
+scalars are no longer wiped; and the selected AVX GT owner has explicit
+provenance plus batch, line-table, timing, allocation, alias, conditional-bit,
+and Frobenius contracts. Four focused portable-Debug tests and the affected
+middle-product object pass. `AUD-280` remains open behind its benchmark gate,
+and `AUD-282` remains open for reusable scratch during the middle-product audit,
+although its current six-buffer allocation contract is now explicit. No
+benchmark, remote job, broad build, CUDA, portable-AVX Release, sanitizer,
+Apple CI, or BTx/BTE work ran.

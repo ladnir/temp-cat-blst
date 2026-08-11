@@ -139,6 +139,8 @@ run.
   `ec3963f55e2e792fd4dbc149d6b4b6d94d6de892926a1cbed49350be6938d4f8`
 - `final_exponentiation.h` SHA-256:
   `78baaa9c6dee80ddd7a0da58334f68fab5c23ebc49550f5a64477c9949eadc08`
+- `GT.h` canonical SHA-256:
+  `19ecdfe6f2e506fe7af8f40474ac505962e0983cfc59f5ab5f389e476a03ac74`
 - VROOM preview benchmark SHA-256:
   `465ad10a9db4fc8dc8a051dbcd0ac35f676c5554e2fea26754eaf24e1a36cca3`
 
@@ -154,7 +156,9 @@ run.
   formula path. `AUD-277` adds explicit public infinity-dispatch and prepared
   identity-table theorems plus scalar, C, and portable-AVX regressions. Focused
   Lean and scalar differentials pass; representation observation and P0
-  lowering remain external.
+  lowering remain external. Commit `65206c9` rebinds this owner after changing
+  only prepared-carrier initialization, public-scalar wiping, and contracts;
+  the mapped Miller formulas and schedules are unchanged.
 - MatrixNoK remains isolated from production dispatch.
 - The inversion/final-exponent review and performance selection are complete;
   the retained formulas and exact constants can now be frozen for proof.

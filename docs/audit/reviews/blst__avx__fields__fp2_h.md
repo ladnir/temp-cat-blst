@@ -3,7 +3,7 @@
 ## Scope
 
 This record covers the complete retained selected AVX Fp2 carrier and ring
-owner through commit `13fe98a`.
+owner through commit `65206c9`.
 
 ## Contracts
 
@@ -37,6 +37,8 @@ owner through commit `13fe98a`.
 - `AUD-267`: bound reattachment bypassed the exact metadata alias, provenance
   was missing, and raw predicate and ownership contracts were not stated at
   the Fp2 owner.
+- `AUD-278`: the prepared-left carrier lacked a trivial default constructor,
+  forcing prepared-line storage to run reduction-bearing zero preparation.
 
 ## Validation
 
@@ -49,8 +51,10 @@ owner through commit `13fe98a`.
 - The small MSVC native optimized probe compiles in isolation. Multiplication
   and square contain zero calls; their five branches are fixed-control
   matrix/permutation loops.
+- Value-initialized prepared-line tables now compile to one exact zero-fill;
+  no per-line reduction, conversion, temporary, or loop remains.
 - Accepted `AVX-P3-001` still proves the exact formulas, tight bounds, strided
-  layout, and completion pipeline. All 20 correspondence rows and 59 mapped
+  layout, and completion pipeline. All 21 correspondence rows and 61 mapped
   hashes validate after exact rebinding.
 
 ## Residual risk

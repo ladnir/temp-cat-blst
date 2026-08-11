@@ -1048,3 +1048,26 @@ prepared-line construction overhead, public-scalar wiping, GT doubling code
 generation, provenance/contracts, and reusable batch-final-exponent scratch.
 No benchmark, remote job, broad runtime suite, sanitizer, CUDA, Apple CI, or
 portable-AVX Release build ran.
+
+Commit `65206c9` validates `AUD-278`, `AUD-279`, and `AUD-281`. Prepared Fp2
+carriers now follow the selected RNS overwrite-before-read/value-initialization
+policy, so a 68-line table value-constructs directly as initialized zero
+storage without calling `prep_left`. Optimized MSVC 19.50 emits one tail call
+to `memset` for the exact 69,632-byte table and no per-line loop, reduction,
+conversion, or temporary. Variable-time GT multiplication no longer wipes its
+public four-word scalar copy; the secret-capable fixed-time entry retains its
+wipe. The AVX GT owner now records Category Labs, BLST, and VROOM lineage and
+states its GT/Miller domains, decoder behavior, compact-pointer conventions,
+prepared-table ownership, conditional-bit and Frobenius bounds, alias rules,
+allocation, and timing contracts. Debug asserts validate the new control
+preconditions with zero Release cost.
+
+Four focused portable-Debug GT tests pass, including both the 128-bit basic and
+256-bit GLV4 variable-time scalar paths, zero-carrier construction, invalid
+control assertions, and retained prepared-pairing identity. The AVX
+middle-product boundary compiles, and the public documentation, group-contract,
+and MatrixNoK dispatch checks pass. `AUD-280` remains benchmark-gated; `AUD-282`
+now has an explicit six-buffer allocation/nonoverlap/failure contract but its
+reusable-scratch design remains deferred to the Phase 17 middle-product audit.
+No benchmark, remote job, broad build, CUDA, portable-AVX Release, sanitizer,
+Apple CI, or BTx/BTE work ran.
