@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Category Labs
+//
+// Fixed BLS12-381 MatrixNoK construction adapted from the algorithm and
+// parameters in Simon Langowski's VROOM commit d6ecd534. This implementation
+// is locally composed around CatBLST's field, bound, and proof interfaces.
 #pragma once
 
 #include "../generated_matrixnok_constants.hpp"
@@ -23,6 +27,10 @@ namespace blst::avx::matrixnok
     // bases. Standard residues are in [0, 2*m_i) lane by lane. The separate
     // rns_bounds metadata tracks the represented multiple of p across the two
     // bases; it is a compile-time proof claim, not runtime validation.
+    // `is_zero()` and `equal()` on the carrier compare redundant RNS storage,
+    // not general field semantics. Internal formulas may use them only where
+    // their exact-representation invariant is established. Public observation
+    // boundaries canonicalize through ConvertFrom as required by AUD-228.
     class FpRingCandidate
     {
     public:
@@ -184,6 +192,9 @@ namespace blst::avx::matrixnok
 
         static INLINE Element from_canonical_limbs(const blst::Fp& canonical)
         {
+            // Narrow contract: canonical is an ordinary representative in
+            // [0, p), not Montgomery form. The assertion has no Release cost.
+            BLST_ASSERT(blst::Fp::is_redc(canonical));
             constexpr uint64_t mask = (uint64_t{1} << element_bits) - 1;
             std::array<uint64_t, limbs> digits = {};
             BLST_UNROLL
@@ -389,6 +400,29 @@ namespace blst::avx::matrixnok
         static INLINE Element from_canonical_50bit_digits(
             const std::array<uint64_t, limbs>& digits)
         {
+#ifndef NDEBUG
+            constexpr uint64_t mask = (uint64_t{1} << element_bits) - 1;
+            blst::Fp canonical = {};
+            for (std::size_t digit = 0; digit < digits.size(); ++digit) {
+                BLST_ASSERT((digits[digit] & ~mask) == 0);
+                const std::size_t bit = digit * element_bits;
+                const std::size_t limb = bit / 64;
+                const unsigned shift = static_cast<unsigned>(bit % 64);
+                if (limb < blst::Fp::num_limb()) {
+                    canonical.l[limb] |= digits[digit] << shift;
+                }
+                if (shift != 0) {
+                    const uint64_t upper = digits[digit] >> (64 - shift);
+                    if (limb + 1 < blst::Fp::num_limb()) {
+                        canonical.l[limb + 1] |= upper;
+                    }
+                    else {
+                        BLST_ASSERT(upper == 0);
+                    }
+                }
+            }
+            BLST_ASSERT(blst::Fp::is_redc(canonical));
+#endif
             AVXVector<limbs> high(0);
             AVXVector<limbs> low(0);
             detail::ConvertToMatrix::reduce_raw_shifted(
@@ -594,7 +628,10 @@ namespace blst::avx::matrixnok
         static INLINE StandardElement modmul(
             const StandardElement& left, const StandardElement& right)
         {
-            return batch_reduce_expand(left * right)[0];
+            // Production one-shot multiplication uses the exact-bound,
+            // register-latency MatrixNoK kernel. Delayed reduction remains for
+            // formulas that intentionally combine multiple products.
+            return multiply(left, right);
         }
 
         template<int batch>
@@ -602,12 +639,7 @@ namespace blst::avx::matrixnok
             const std::array<StandardElement, batch>& left,
             const std::array<StandardElement, batch>& right)
         {
-            std::array<ReadyElement<MAX_ADD>, batch> products;
-            BLST_UNROLL
-            for (int index = 0; index < batch; ++index) {
-                products[index] = ready<MAX_ADD>(left[index] * right[index]);
-            }
-            return batch_reduce_expand<batch>(products);
+            return multiply_batch(left, right);
         }
 
         template<class Value>

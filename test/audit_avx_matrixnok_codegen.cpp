@@ -64,7 +64,7 @@ extern "C" NOINLINE void audit_avx_matrixnok_fp_multiply(
     const blst::avx::matrixnok::FpRingCandidate::Element* left,
     const blst::avx::matrixnok::FpRingCandidate::Element* right)
 {
-    blst::avx::matrixnok::FpRingCandidate::multiply(*out, *left, *right);
+    *out = blst::avx::matrixnok::FpRingCandidate::modmul(*left, *right);
 }
 
 extern "C" NOINLINE void audit_avx_matrixnok_fp2_multiply(

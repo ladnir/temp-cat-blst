@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Category Labs
+//
+// Fixed BLS12-381 MatrixNoK construction adapted from the algorithm and
+// parameters in Simon Langowski's VROOM commit d6ecd534. This implementation
+// is locally composed around CatBLST's vector, bound, and proof interfaces.
 #pragma once
 
 #include "../common/constexpr_utils.h"
@@ -79,6 +83,36 @@ namespace blst::avx::matrixnok::detail
         make_shifted_correction(generated::r2_correction, generated::moduli1);
     alignas(64) inline constexpr std::array<uint64_t, limbs> convert_to_correction_shift =
         make_shifted_correction(generated::convert_to_correction, generated::moduli2);
+
+    INLINE void debug_assert_residues_below(
+        const AVXVector<limbs>& value,
+        const std::array<uint64_t, limbs>& moduli,
+        uint64_t multiple)
+    {
+#ifndef NDEBUG
+        const auto lanes = value.to_array();
+        for (std::size_t lane = 0; lane < limbs; ++lane) {
+            BLST_ASSERT(lanes[lane] < multiple * moduli[lane]);
+        }
+#else
+        (void)value;
+        (void)moduli;
+        (void)multiple;
+#endif
+    }
+
+    INLINE void debug_assert_radix_50_digits(const AVXVector<limbs>& value)
+    {
+#ifndef NDEBUG
+        constexpr uint64_t radix = uint64_t{1} << element_bits;
+        const auto lanes = value.to_array();
+        for (const uint64_t lane : lanes) {
+            BLST_ASSERT(lane < radix);
+        }
+#else
+        (void)value;
+#endif
+    }
 
     struct ReducerM1Parameters
     {
@@ -234,6 +268,10 @@ namespace blst::avx::matrixnok::detail
         {
             return generated::r2_shifted_quotient_estimations;
         }
+        static INLINE void debug_assert_input(const AVXVector<limbs>& value)
+        {
+            debug_assert_residues_below(value, generated::moduli2, 2);
+        }
     };
 
     struct ConvertToMatrixParameters
@@ -251,6 +289,10 @@ namespace blst::avx::matrixnok::detail
         {
             return generated::convert_to_shifted_quotient_estimations;
         }
+        static INLINE void debug_assert_input(const AVXVector<limbs>& value)
+        {
+            debug_assert_radix_50_digits(value);
+        }
     };
 
     struct ConvertFromMatrixParameters
@@ -263,6 +305,10 @@ namespace blst::avx::matrixnok::detail
         static constexpr const auto& quotient_estimates() noexcept
         {
             return generated::convert_from_shifted_quotient_estimations;
+        }
+        static INLINE void debug_assert_input(const AVXVector<limbs>& value)
+        {
+            debug_assert_residues_below(value, generated::moduli2, 2);
         }
     };
 
@@ -319,6 +365,13 @@ namespace blst::avx::matrixnok::detail
             AVXVector<limbs>& out_high,
             AVXVector<limbs>& out_low)
         {
+            // Raw matrix operations require disjoint input and accumulator
+            // objects. Their IFMA additions have uint64_t wrapping semantics;
+            // production callers separately prove that their bounds do not wrap.
+            BLST_ASSERT(&residues != &out_high);
+            BLST_ASSERT(&residues != &out_low);
+            BLST_ASSERT(&out_high != &out_low);
+            Parameters::debug_assert_input(residues);
             std::array<uint64_t, limbs> scalars;
             residues.store(scalars.data());
             uint128_t quotient_numerator = 0;
@@ -339,6 +392,10 @@ namespace blst::avx::matrixnok::detail
             AVXVector<limbs>& out_high,
             AVXVector<limbs>& out_low)
         {
+            BLST_ASSERT(&residues != &out_high);
+            BLST_ASSERT(&residues != &out_low);
+            BLST_ASSERT(&out_high != &out_low);
+            Parameters::debug_assert_input(residues);
             uint128_t quotient_numerator = 0;
             accumulate_registers<0>(
                 out_high, out_low, residues, quotient_numerator);
@@ -360,9 +417,13 @@ namespace blst::avx::matrixnok::detail
             std::array<AVXVector<limbs>, batch>& out_low)
         {
             static_assert(batch > 0);
+            BLST_ASSERT(&residues != &out_high);
+            BLST_ASSERT(&residues != &out_low);
+            BLST_ASSERT(&out_high != &out_low);
             alignas(64) std::array<std::array<uint64_t, limbs>, batch> scalars;
             BLST_UNROLL
             for (std::size_t item = 0; item < batch; ++item) {
+                Parameters::debug_assert_input(residues[item]);
                 residues[item].store(scalars[item].data());
             }
             std::array<uint128_t, batch> quotient_numerators = {};

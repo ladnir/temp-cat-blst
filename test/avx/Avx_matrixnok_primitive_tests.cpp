@@ -581,11 +581,45 @@ namespace blst::avx::test
         }
 
         const auto products = ring.multiply_batch(left, right);
+        const auto production_products = ring.batch_modmul(left, right);
         for (std::size_t index = 0; index < batch; ++index) {
             expect_standard_residue_bounds(ring, products[index]);
+            expect_standard_residue_bounds(ring, production_products[index]);
             expect_same_scalar_fp(matrixnok_to_scalar(ring, products[index]), expected[index]);
+            expect_same_scalar_fp(
+                matrixnok_to_scalar(ring, production_products[index]), expected[index]);
+            EXPECT_TRUE(products[index].equal(production_products[index]));
         }
     }
+
+#ifndef NDEBUG
+    TEST(AvxMatrixNoKPrimitives, FixedRawContractsRejectInvalidInputs)
+    {
+        const matrixnok::FpRingCandidate ring;
+
+        std::array<uint64_t, matrixnok::FpRingCandidate::limbs> oversized_digits = {};
+        oversized_digits[0] = uint64_t{1} << matrixnok::FpRingCandidate::element_bits;
+        EXPECT_DEATH((void)ring.from_canonical_50bit_digits(oversized_digits),
+            "BLST_ASSERT");
+
+        blst::Fp noncanonical = blst::get_BLST_P();
+        EXPECT_DEATH((void)ring.from_canonical_limbs(noncanonical), "BLST_ASSERT");
+
+        AVXVector<8> residues(0);
+        AVXVector<8> low(0);
+        EXPECT_DEATH(
+            matrixnok::r1_change_base_raw(residues, residues, low),
+            "BLST_ASSERT");
+
+        std::array<uint64_t, 8> invalid_r1 = {};
+        invalid_r1[0] = 2 * matrixnok::generated::moduli1[0];
+        AVXVector<8> invalid_residues(invalid_r1);
+        AVXVector<8> high(0);
+        EXPECT_DEATH(
+            matrixnok::r1_change_base_raw(invalid_residues, high, low),
+            "BLST_ASSERT");
+    }
+#endif
 
     TEST(AvxMatrixNoKPrimitives, CanonicalExportCollapsesRedundantZeroLifts)
     {

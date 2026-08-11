@@ -37,6 +37,12 @@ def main() -> int:
 
     require_fragments(avx / "rns" / "matrixnok_fp.h", (
         "using FpRing = FpRingCandidate;",
+        "return multiply(left, right);",
+        "return multiply_batch(left, right);",
+    ))
+    forbid_fragments(avx / "rns" / "matrixnok_fp.h", (
+        "return batch_reduce_expand(left * right)[0];",
+        "products[index] = ready<MAX_ADD>(left[index] * right[index]);",
     ))
     require_fragments(avx / "fields" / "matrixnok_fp12.h", (
         "using Fp12Ring = Fp12RingCandidate;",
