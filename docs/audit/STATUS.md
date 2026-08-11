@@ -782,3 +782,14 @@ source rebind. Public C contracts and provenance are now explicit. A later
 serial Peach comparison measures isolated final exponentiation 3.82% faster
 (79.176 to 76.148 us median) and complete pairing 1.95% faster (136.713 to
 134.045 us). No broad/resource-heavy run was performed.
+
+`AUD-277` is validated at `dd68a0e`. Prepared scalar and AVX Miller evaluation
+now preserves the pairing identity for both G1 and G2 infinity, and generic AVX
+prepared batches implement identity filtering plus compact continuation. The
+already-prefiltered middle-product path remains branch-free in Release. The P4
+correspondence row now distinguishes finite affine formula correctness from
+public representation dispatch; new Lean theorems prove both observed-
+infinity branches and the exact 68-line identity-table schedule. Three focused
+identity regressions and four retained finite Miller tests pass. `AUD-278`
+through `AUD-282` remain open for the rest of the AVX GT owner review. No
+benchmark, remote job, CUDA, portable-AVX Release, or broad runtime suite ran.

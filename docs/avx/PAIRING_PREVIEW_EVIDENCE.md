@@ -150,8 +150,11 @@ run.
   envelope, the exact 68-operation BLS-x schedule, its curve invariant, and
   final Frobenius-six conjugation. The four-product `16m^2` Fp2 completion and
   reduction chain, batch layout, exact direct/prepared ledgers, and literal
-  source-to-binary-loop composition are also proved. Focused Lean and three
-  portable-Debug scalar differentials pass; P0 lowering remains external.
+  source-to-binary-loop composition are also proved for the finite affine
+  formula path. `AUD-277` adds explicit public infinity-dispatch and prepared
+  identity-table theorems plus scalar, C, and portable-AVX regressions. Focused
+  Lean and scalar differentials pass; representation observation and P0
+  lowering remain external.
 - MatrixNoK remains isolated from production dispatch.
 - The inversion/final-exponent review and performance selection are complete;
   the retained formulas and exact constants can now be frozen for proof.

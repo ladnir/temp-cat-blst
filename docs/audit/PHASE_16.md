@@ -1015,3 +1015,36 @@ exact source hash with its 35-multiply/315-square/nine-conjugation ledger
 unchanged. A later one-process-at-a-time Peach comparison records a 3.82%
 isolated final-exponent improvement and a 1.95% complete-pairing improvement.
 No broad suite, sanitizer, CUDA, portable-AVX Release, or BTx/BTE work ran.
+
+## Selected AVX GT owner
+
+The `blst/avx/curve/GT.h` hand audit first found an API-domain defect rather
+than a field-formula defect. Direct Miller loops treated affine infinity as the
+pairing identity, while prepared evaluation fed G1's `(0,0)` sentinel through
+ordinary line scaling and prepared G2's `(0,0)` sentinel as invalid projective
+`(0,0,1)`. The generic AVX prepared batch also omitted scalar's infinity
+filtering and compact pointer continuation.
+
+`AUD-277` is validated at `dd68a0e`. Scalar and AVX precomputation encode G2
+infinity as 68 sparse identity lines; public prepared evaluation returns one
+for G1 infinity; and the generic AVX batch filters identity terms while
+resolving compact continuations in fixed batches of 16. Already-prefiltered
+middle-product calls use an explicit finite-only evaluator, preserving the
+Release hot kernel without an added field-zero observation.
+
+The formal boundary is corrected rather than merely rehashed. Existing P4
+theorems retain their finite affine formula and physical-ledger scope. New
+theorems model the observed public identity bits and prove that the sparse
+identity line remains one through the exact first-line, 67-operation tail, and
+final-conjugation schedule. Three new scalar/C/portable-AVX regressions and four
+retained finite Miller differentials pass. The focused Lean module, structural
+dispatch validator, public-documentation ledger, and directly affected MSVC
+translation units pass. One serial incremental test link rebuilt frozen BTx
+consumers because the single configured executable links them; no BTx source
+was changed or audited.
+
+The complete AVX GT review remains open on `AUD-278` through `AUD-282`:
+prepared-line construction overhead, public-scalar wiping, GT doubling code
+generation, provenance/contracts, and reusable batch-final-exponent scratch.
+No benchmark, remote job, broad runtime suite, sanitizer, CUDA, Apple CI, or
+portable-AVX Release build ran.

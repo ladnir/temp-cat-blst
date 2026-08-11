@@ -281,8 +281,13 @@ reduction chain to that envelope, checks the strided batch reconstruction, and
 records exact direct and prepared ledgers. The literal C++ square/sparse paths
 are then composed with the algebraic operations, including the source's
 omitted first `one^2`. `selected_literal_cpp_miller_loop_correct` is the final
-literal-to-binary-loop theorem. P0 compiler/ISA lowering remains the same
-explicit external boundary used by accepted P2/P3 rows.
+finite-coordinate literal-to-binary-loop theorem; it does not itself decode
+CatBLST's affine `(0,0)` infinity sentinel. The `AUD-277` extension models the
+public infinity observation bits separately, proves both identity branches,
+and proves that the encoded sparse identity line remains one through the exact
+first-line, 67-operation tail, and final conjugation used by prepared
+evaluation. Scalar export-based infinity observation and P0 compiler/ISA
+lowering remain explicit external boundaries.
 
 The focused root Lean build passed 3,082 targets, the Miller proof trust-word
 scan is clean, and three portable-Debug scalar differentials passed:

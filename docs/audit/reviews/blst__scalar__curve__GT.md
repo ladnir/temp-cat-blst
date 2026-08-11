@@ -6,9 +6,9 @@
 | --- | --- |
 | Paths | `blst/scalar/curve/GT.h`; `blst/scalar/curve/GT.cpp` |
 | Roadmap phase / queue | Phase 15 scalar curves and protocols, sixth packet |
-| Reviewed commit | `09722691117bfbae36baa27da0c6f6481fcd58ad` |
+| Reviewed commit | `dd68a0ecf024fed2a7bc9e33a708e629454da931` |
 | Reviewer | Codex audit team |
-| Date | 2026-08-05 |
+| Date | 2026-08-11 |
 | Disposition | in-scope production |
 | Subsystem | scalar target group, final exponentiation, and Miller loops |
 | Profiles | scalar host; selected scalar/AVX facade; CUDA excluded |
@@ -34,6 +34,9 @@ exponentiation.
   GT. Zero remains outside the legacy void API's supported domain.
 - Direct Miller inputs must be subgroup affine points. Infinity contributes
   the multiplicative identity. No curve or subgroup validation is performed.
+- Prepared G2 infinity is represented by a complete sparse-identity line table;
+  public prepared evaluation returns one for G1 infinity. Internal finite-only
+  evaluation is available only to callers that have already excluded infinity.
 - The pointer-array overload retains BLST's compact continuation convention;
   malformed nonempty heads fail closed at the public boundary.
 - Prepared scalar line evaluation stores only `(-2x, 2y)` in
@@ -89,7 +92,8 @@ the canonical unchecked form because the source was already established as GT.
 
 ## Findings
 
-`AUD-081`, `AUD-085`, `AUD-099`, `AUD-103`, and `AUD-131` through `AUD-134`.
+`AUD-081`, `AUD-085`, `AUD-099`, `AUD-103`, `AUD-131` through `AUD-134`, and
+`AUD-277`.
 
 ## Validation
 
@@ -97,6 +101,11 @@ the canonical unchecked form because the source was already established as GT.
 - Selected portable-AVX Debug passes the same decoder target 5/5.
 - Focused scalar pairing/GT/C API/precomputed-line/middle-product packet passes
   24/24.
+- Scalar, C API, and portable-AVX prepared-line infinity regressions pass 3/3;
+  four retained finite/direct Miller differentials also pass.
+- The focused `MillerEndToEnd.lean` module proves public observed-infinity
+  dispatch and that all 68 encoded identity lines remain one through the exact
+  prepared schedule.
 - MSVC portable-AVX Debug production library and five directly affected test
   translation units compile serially.
 - Native AVX-512/IFMA production library compiles serially.
@@ -107,7 +116,10 @@ the canonical unchecked form because the source was already established as GT.
 
 ## Residual risk and decision
 
-The scalar files are completely reviewed at the recorded commit. C/Rust must
+The scalar files are completely reviewed at the recorded commit. The
+`AUD-277` repair separates the public identity-safe evaluator from the
+branch-free finite evaluator used by already-prefiltered middle-product paths,
+so the valid finite hot kernel is unchanged. C/Rust must
 retain representation-only `blst_fp12` storage for compatibility, and explicit
 native raw-field construction remains an intentional expert escape hatch.
 `AUD-085` is validated by canonical-boundary, membership, failure-atomic, and
