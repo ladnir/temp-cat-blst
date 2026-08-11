@@ -880,8 +880,9 @@ thresholds remain deployment-CPU evidence rather than a universal
 microarchitecture guarantee. No concurrent benchmark, CUDA, sanitizer,
 portable-AVX Release, full suite, or BTx/BTE audit ran.
 
-Phase 17 core FFT Packet 17C is remediated in the working tree pending its
-exact commit. `AUD-292` removes mathematically incorrect, uncalled radix-4 and
+Phase 17 core FFT Packet 17C is remediated at
+`9d1e2bd60e610e88b44c1be36daea7be793898c0`. `AUD-292` removes
+mathematically incorrect, uncalled radix-4 and
 radix-8 experiments plus stale registrations. `AUD-293` and `AUD-295` define
 the retained radix-two root direction, size, alias, zero-tail, destructive
 buffer, plan immutability, and output-publication contracts. `AUD-294` rejects

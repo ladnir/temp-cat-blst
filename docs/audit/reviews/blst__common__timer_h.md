@@ -6,9 +6,9 @@
 | --- | --- |
 | Path | `blst/common/timer.h` |
 | Roadmap phase / queue | Phase 13/17, optional FFT and middle-product diagnostics |
-| Reviewed commit | Packet 17C working tree based on `a0fe5c801090190463876bd4d2add18e22fa1235`; final commit pending |
+| Reviewed commit | `9d1e2bd60e610e88b44c1be36daea7be793898c0` |
 | Reviewer | Codex audit team |
-| Date | 2026-08-03 |
+| Date | 2026-08-11 |
 | Disposition | `in_scope_production` |
 | Subsystem | Caller-owned optional timing diagnostics |
 | Profiles | scalar and AVX C++; C APIs pass a null sink |

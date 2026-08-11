@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/fft/ctFft.h` |
 | Roadmap phase / queue | Phase 17, core FFT owner after middle-product audit |
-| Reviewed commit | Remediation working tree based on `a0fe5c801090190463876bd4d2add18e22fa1235`; final commit pending |
+| Reviewed commit | `9d1e2bd60e610e88b44c1be36daea7be793898c0` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-11 |
 | Disposition | `in_scope_production` |
@@ -203,5 +203,4 @@ likewise do not validate plan internals or overlap. Public C/Rust adapters
 validate their exposed shapes. The generic names remain in the global namespace
 for compatibility with frozen BTx/BTE callers; namespace cleanup is deferred
 until that integration can move without editing frozen code. Final manifest
-closure awaits the exact remediation commit plus later sanitizer/native-AVX
-milestone evidence.
+closure awaits later sanitizer/native-AVX milestone evidence.

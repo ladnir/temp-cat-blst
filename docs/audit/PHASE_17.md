@@ -273,6 +273,9 @@ BTx/BTE audit was performed.
 
 ## Packet 17C - Core radix-two transform audit
 
+The remediated core FFT implementation is recorded at
+`9d1e2bd60e610e88b44c1be36daea7be793898c0`.
+
 The complete `ctFft.h` caller inventory found that the radix-4 and radix-8
 kernels were abandoned benchmark experiments rather than alternate production
 paths. Neither CatBLST nor frozen BTx/BTE source called them. A small prime-field
