@@ -1,6 +1,6 @@
 # Audit Status
 
-Last updated: 2026-08-09
+Last updated: 2026-08-10
 
 Waves 1 and 2 of the parallel file audit are integrated through implementation
 commit `535c4c6`. Wave 1 closes the scalar C-boundary lifetime and public
@@ -725,3 +725,13 @@ ownership and interface defects rather than an arithmetic error. Active AVX
 inversion remains in `blst/avx/fields/conversion_inversion.h`. The structural
 dispatch and audit-manifest gates pass. No build, benchmark, remote/native
 run, CUDA, portable-AVX Release, or BTx/BTE work ran.
+
+`AUD-259` through `AUD-263` are closed at `dd4e4a1`. The active MatrixNoK
+conversion/inversion owner is now const-correct, selected-backend-only, and
+explicit about variable-time nonzero inversion. A confirmed MSVC
+secret-dependent carry branch is replaced by the established carry primitive;
+optimized inspection shows `adc`/`setb`, fixed-count loops, and no out-of-line
+conversion wrapper. The independent validator proves the complete raw-export
+machine envelope through REDC. A serial portable-Debug rebuild and 32 focused
+tests pass. No benchmark, remote/native execution, CUDA, portable-AVX Release,
+sanitizer, broad suite, or BTx/BTE audit ran.

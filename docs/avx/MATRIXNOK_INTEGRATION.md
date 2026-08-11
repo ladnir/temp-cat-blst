@@ -107,7 +107,9 @@ the entire AVX API. The exact current boundary is:
   exactly `r` or `r²` accepted points, while exclusion of `r²` remains
   `AUD-231`;
 - explicit non-Lean observation boundary: MatrixNoK canonical export through
-  scalar REDC/byte weaving for point equality and validation;
+  scalar REDC/byte weaving for point equality and validation; its machine
+  envelope and MSVC carry lowering are independently validated by
+  `AUD-259`/`AUD-263`;
 - outside this arithmetic proof: generic FFT orchestration, map/hash-to-curve
   protocol composition, C ABI state machines, compiler/ISA correctness, and
   microarchitectural constant-time behavior; and

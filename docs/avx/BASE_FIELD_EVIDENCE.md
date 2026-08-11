@@ -191,7 +191,10 @@ implementation's `800m²` reducer instantiation, derives both imported residue
 bases, and closes the reachable import/multiply/export theorem without assumed
 intermediate postconditions. The P2 C++ correspondence rows are accepted.
 Lean still does not prove compiler lowering, the x86 ISA, or the scalar
-`from_vec` byte-weaving/REDC transcription.
+byte-weaving/REDC transcription. The later `AUD-259`/`AUD-263` packet
+independently proves the complete machine envelope and confirms branchless
+MSVC carry lowering; scalar REDC semantics, IFMA semantics, and native Clang
+lowering remain external.
 
 The abstract negative-R2 counterexample remains useful as a boundary theorem:
 R2 is not promised for arbitrary negative representatives. Repaired canonical

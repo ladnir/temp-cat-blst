@@ -59,7 +59,8 @@ through commit `0562a52`.
 ## Residual risk
 
 The compile-time bounds remain producer claims rather than runtime lane
-validation. Scalar REDC and byte weaving, compiler lowering, and x86 IFMA
-semantics remain the accepted external boundaries. No native code-generation
-run, benchmark, broad suite, CUDA, portable-AVX Release build, or BTx/BTE audit
-was performed for this packet.
+validation. The later `AUD-259`/`AUD-263` conversion-owner review independently
+bounds byte weaving through REDC and inspects MSVC carry lowering. Scalar REDC
+semantics, native Clang lowering, and x86 IFMA semantics remain external. No
+native code-generation run, benchmark, broad suite, CUDA, portable-AVX Release
+build, or BTx/BTE audit was performed for this original Fp-owner packet.

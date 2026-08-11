@@ -324,10 +324,12 @@ G2 cofactor polynomial, and `gcd(chi(u), c2) = 1`. `AUD-231` is validated with
 the general curve-family theorem and twist-order identification explicitly
 external. Re-proving the BLS12 twist order from foundational elliptic-curve
 theory in Lean is outside the accepted proof scope.
-The production alias validator closes source selection
-ambiguity but is not a mathematical theorem. MatrixNoK-to-scalar observation
-through byte weaving and scalar REDC also remains a reviewed boundary when
-used by equality, infinity observation, validation, and secret normalization.
+The production alias validator closes source selection ambiguity but is not a
+mathematical theorem. MatrixNoK-to-scalar observation through byte weaving and
+scalar REDC also remains outside Lean when used by equality, infinity
+observation, validation, and secret normalization. `AUD-259`/`AUD-263`
+separately prove its machine envelope and record branchless MSVC carry lowering;
+scalar REDC/IFMA semantics and native Clang lowering remain external.
 
 The `AUD-229` constant-initialization packet at `fe09e26` updates four mapped
 owner headers while leaving the arithmetic schedules intact. Peach Clang

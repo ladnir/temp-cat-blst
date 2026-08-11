@@ -124,10 +124,12 @@ intermediate residues. The theorem
 radix-`2^50` digits, follows the actual ConvertTo reducer and R2-derived M1
 path, performs selected multiplication, reconstructs ConvertFrom's eight wide
 radix-`2^52` coefficients, and returns the canonical field product. The source
-review found no further C++ arithmetic defect. Compiler lowering, x86 IFMA
-semantics, and `from_vec`'s byte-weaving/REDC transcription remain explicit
-non-Lean boundaries. P3 field-tower constants and formulas are not claimed by
-this base-field theorem.
+review found no further C++ arithmetic defect. `AUD-263` independently proves
+the byte-weaving machine envelope through REDC, and `AUD-259` records clean
+MSVC carry lowering after repairing a secret-dependent branch. Those facts are
+still outside Lean; scalar REDC semantics, x86 IFMA semantics, and native Clang
+lowering remain explicit external boundaries. P3 field-tower constants and
+formulas are not claimed by this base-field theorem.
 
 P3 now begins with the selected generic `FP2Ring<FpRingCandidate>` path, not
 the isolated comparison-only `matrixnok::Fp2RingCandidate`. `Fp2.lean` maps
@@ -386,11 +388,12 @@ polynomials and `gcd(chi(u), c2) = 1`; the paper supplies the general
 curve-family theorem and published twist-order fact. `AUD-231` is therefore
 validated with that external mathematical dependency. A foundational Lean
 derivation of the BLS12 twist order remains deliberately out of scope.
-Canonical
-export followed by scalar REDC
-and byte weaving is likewise an explicit observation boundary for equality,
-infinity observation, validation, and secret normalization rather than a
-theorem silently inferred from `CanonicalExport`.
+Canonical export followed by scalar REDC and byte weaving remains an explicit
+non-Lean observation boundary for equality, infinity observation, validation,
+and secret normalization rather than a theorem silently inferred from
+`CanonicalExport`. The independent machine-envelope validator and optimized
+MSVC carry inspection recorded in `AUD-259`/`AUD-263` cover the concrete C++
+boundary without extending the Lean theorem.
 
 The production GT generator required a new fixed MatrixNoK literal.
 `AVX-P1-003` and `GtGeneratorConstant.lean` prove that all 192 RNS lanes are

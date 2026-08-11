@@ -932,3 +932,18 @@ that the orphaned fixed schedule was not an arithmetic defect: its 425 modular
 products compute exponent `3p-4`, equivalent to `p-2` for nonzero Fp inputs.
 The structural validator now rejects restoration of the dead owner. No build,
 benchmark, remote job, CUDA, portable-AVX Release, or BTx/BTE work was needed.
+
+The active conversion/inversion boundary review closes `AUD-259` through
+`AUD-263` at `dd4e4a1`. Optimized MSVC inspection confirmed that the inherited
+short-circuit carry expression compiled to secret-dependent branches on the
+secret projective-normalization path. The repaired bridge uses CatBLST's
+established add-with-carry primitive, fully inlines, and lowers carry to
+`adc`/`setb`; only public fixed-trip loop branches remain. Const-correctness
+removes repeated complete-RNS copies. Dead generic conversion modes, direct
+scalar-Fp12 inversion, and an unused pairing wrapper are gone. The retained
+inversion providers now state their nonzero and variable-time contracts, while
+secret normalization continues to use the fixed-chain reciprocal. Independent
+validation bounds raw lanes to 55 bits, adjacent joins to 56 bits, and the full
+435-bit export below the 765-bit REDC limit. A serial two-worker portable-Debug
+rebuild and 32 focused tests pass. No benchmark, remote job, CUDA,
+portable-AVX Release, sanitizer sweep, broad suite, or BTx/BTE audit ran.
