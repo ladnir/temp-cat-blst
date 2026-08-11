@@ -1,3 +1,9 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Category Labs
+//
+// CatBLST middle-product implementation, locally composed from the BLST
+// pairing and FFT primitives with scalar and MatrixNoK AVX backends.
+
 #pragma once
 
 #include <algorithm>
@@ -177,11 +183,22 @@ namespace blst {
         return fft_detail::make_roots<Fr, FrCoeffCtx>(n, false);
     }
 
+    /**
+     * Build inverse powers from a complete ordered table
+     * `[1, omega, ..., omega^(n-1)]`, where `omega` has order `n`.
+     */
     inline std::vector<Fr> make_ifft_roots(std::span<const Fr> roots)
     {
         std::vector<Fr> inv_roots(roots.size());
-        for (std::size_t i = 0; i < roots.size(); ++i) {
-            Fr::reciprocal(inv_roots[i], roots[i]);
+        if (roots.empty()) {
+            return inv_roots;
+        }
+
+        BLST_ASSERT((roots.size() & (roots.size() - 1)) == 0);
+        BLST_ASSERT(Fr::equal(roots[0], Fr::one()));
+        inv_roots[0] = roots[0];
+        for (std::size_t i = 1; i < roots.size(); ++i) {
+            inv_roots[i] = roots[roots.size() - i];
         }
         return inv_roots;
     }
@@ -218,7 +235,11 @@ namespace blst {
                     G r;
                     F b_non_mont = {};
                     F::from_mont(b_non_mont, b);
-					G::mult_vartime(r, a, reinterpret_cast<const byte*>(&b_non_mont), 256);
+                    G::mult_vartime(
+                        r,
+                        a,
+                        reinterpret_cast<const byte*>(&b_non_mont),
+                        256);
                     return r;
                 }
             }
@@ -276,7 +297,11 @@ namespace blst {
                 Group r;
                 Fr b_non_mont = {};
                 Fr::from_mont(b_non_mont, b);
-				Group::mult_vartime(r, a, reinterpret_cast<const byte*>(&b_non_mont), 256);
+                Group::mult_vartime(
+                    r,
+                    a,
+                    reinterpret_cast<const byte*>(&b_non_mont),
+                    256);
                 return r;
             }
 
@@ -385,13 +410,15 @@ namespace blst {
                 std::span<GtFftElement> values,
                 const PreparedInverseRoots& inv_roots,
                 std::size_t start,
-                std::size_t length)
+                std::size_t length,
+                const FftInverseTruncatedRangePlan& plan)
             {
                 fft_inverse_truncated_range<GtFftElement, Fr, GtCoeffCtx>(
                     values,
                     std::span<const Fr>(inv_roots),
                     start,
-                    length);
+                    length,
+                    plan);
             }
 
             static void extract_middle_window(
@@ -494,14 +521,16 @@ namespace blst {
                 std::span<GtFftElement> values,
                 const PreparedInverseRoots& inv_roots,
                 std::size_t start,
-                std::size_t length)
+                std::size_t length,
+                const FftInverseTruncatedRangePlan& plan)
             {
                 avx::AvxGtCoeffCtx::ScopedRoots scoped_roots(inv_roots);
                 fft_inverse_truncated_range<GtFftElement, Fr, avx::AvxGtCoeffCtx>(
                     values,
                     inv_roots.scalar_span(),
                     start,
-                    length);
+                    length,
+                    plan);
             }
 
             static void extract_middle_window(
@@ -532,6 +561,8 @@ namespace blst {
             std::vector<typename Context::G2Point> b_fft;
             std::vector<Fr> roots;
             typename Context::PreparedInverseRoots inv_roots;
+            FftTruncatedForwardPlan forward_plan;
+            FftInverseTruncatedRangePlan inverse_plan;
         };
 
         /// Mutable, non-thread-safe FFT evaluation storage reusable at one size.
@@ -596,21 +627,28 @@ namespace blst {
             }
             precomputed.inv_roots = Context::make_inverse_roots(precomputed.roots);
 
-            std::vector<typename Context::G2Point> b0_fft(precomputed.fft_size, Context::g2_infinity());
             std::vector<typename Context::G2Point> b1_fft(precomputed.fft_size, Context::g2_infinity());
             for (std::size_t i = 0; i < n; ++i) {
-                b0_fft[i] = b[i];
+                precomputed.b_fft[i] = b[i];
                 precomputed.b_tail[i] = b[n + i];
                 b1_fft[i] = precomputed.b_tail[i];
             }
 
             const std::size_t xn_b = fft_admissible_size(n, precomputed.fft_size);
             {
+                ScopedTimer timer(timings, "middle_product_precompute.plans_ns");
+                precomputed.forward_plan =
+                    make_fft_truncated_forward_plan(precomputed.fft_size, xn_b);
+                precomputed.inverse_plan =
+                    make_fft_inverse_truncated_range_plan(precomputed.fft_size, n, n);
+            }
+            {
                 ScopedTimer timer(timings, "middle_product_precompute.fft_b0_ns");
                 fft_forward_truncated_prefix<typename Context::G2Point, Fr, typename Context::G2CoeffCtx>(
-                    b0_fft,
+                    precomputed.b_fft,
                     std::span<const Fr>(precomputed.roots),
                     xn_b,
+                    precomputed.forward_plan,
                     timings,
                     "middle_product_precompute.fft_b0");
             }
@@ -620,6 +658,7 @@ namespace blst {
                     b1_fft,
                     std::span<const Fr>(precomputed.roots),
                     xn_b,
+                    precomputed.forward_plan,
                     timings,
                     "middle_product_precompute.fft_b1");
             }
@@ -630,7 +669,8 @@ namespace blst {
                         (j * (n % precomputed.fft_size)) % precomputed.fft_size;
                     const Fr& zeta = precomputed.roots[idx];
                     const auto zeta_b1 = Context::G2CoeffCtx::mult(b1_fft[j], zeta);
-                    precomputed.b_fft[j] = Context::G2CoeffCtx::plus(b0_fft[j], zeta_b1);
+                    precomputed.b_fft[j] =
+                        Context::G2CoeffCtx::plus(precomputed.b_fft[j], zeta_b1);
                 }
             }
 
@@ -654,7 +694,12 @@ namespace blst {
             if (precomputed_b.fft_size != middle_product_fft_size(n) ||
                 precomputed_b.b_fft.size() != precomputed_b.fft_size ||
                 precomputed_b.roots.size() != precomputed_b.fft_size ||
-                Context::inverse_roots_size(precomputed_b.inv_roots) != precomputed_b.fft_size) {
+                Context::inverse_roots_size(precomputed_b.inv_roots) != precomputed_b.fft_size ||
+                precomputed_b.forward_plan.n != precomputed_b.fft_size ||
+                precomputed_b.forward_plan.xn != fft_admissible_size(n, precomputed_b.fft_size) ||
+                precomputed_b.inverse_plan.n != precomputed_b.fft_size ||
+                precomputed_b.inverse_plan.start != n ||
+                precomputed_b.inverse_plan.length != n) {
                 throw std::invalid_argument("invalid middle-product precompute state");
             }
 
@@ -670,10 +715,6 @@ namespace blst {
                 ScopedTimer timer(timings, "middle_product_pre.copy_a_ns");
                 std::copy(a.begin(), a.end(), a_fft.begin());
             }
-            {
-                ScopedTimer timer(timings, "middle_product_pre.fill_c_fft_ns");
-            }
-
             const std::size_t xn_a = fft_admissible_size(n, precomputed_b.fft_size);
             {
                 ScopedTimer timer(timings, "middle_product_pre.fft_a_ns");
@@ -681,6 +722,7 @@ namespace blst {
                     a_fft,
                     std::span<const Fr>(precomputed_b.roots),
                     xn_a,
+                    precomputed_b.forward_plan,
                     timings,
                     "middle_product_pre.fft_a");
             }
@@ -692,7 +734,12 @@ namespace blst {
             }
             {
                 ScopedTimer timer(timings, "middle_product_pre.ifft_ns");
-                Context::inverse_fft_middle_window(c_fft, precomputed_b.inv_roots, n, n);
+                Context::inverse_fft_middle_window(
+                    c_fft,
+                    precomputed_b.inv_roots,
+                    n,
+                    n,
+                    precomputed_b.inverse_plan);
             }
             {
                 ScopedTimer timer(timings, "middle_product_pre.extract_ns");

@@ -1,7 +1,10 @@
 /*
  * Copyright Supranational LLC
+ * Copyright 2026 Category Labs
  * Licensed under the Apache License, Version 2.0, see LICENSE for details.
  * SPDX-License-Identifier: Apache-2.0
+ *
+ * CatBLST middle-product C API, built from BLST pairing and FFT primitives.
  */
 
 #ifndef BLST_MIDDLE_PRODUCT_H

@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Category Labs
+//
+// CatBLST C ownership and exception boundary for the middle-product API.
+
 #include "bindings/blst_middle_product.h"
 
 #include "blst/fft/context.h"
@@ -25,53 +30,43 @@ static_assert(std::is_trivially_copyable_v<BoundaryG1>);
 static_assert(std::is_trivially_copyable_v<BoundaryG2>);
 static_assert(std::is_trivially_copyable_v<BoundaryFp12>);
 
-inline BoundaryFp12 gt_to_boundary(const PublicGt& value)
+inline BoundaryFp12 gt_to_boundary(const blst::scalar::GT& value)
 {
-#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-    {
-        unsigned char serialized[12 * 48] = {};
-        PublicGt::serialize(serialized, value);
-        blst::scalar::GT scalar_gt = {};
-        [[maybe_unused]] const bool decoded =
-            blst::scalar::GT::deserialize_unchecked(scalar_gt, serialized);
-        BLST_ASSERT(decoded);
-        return scalar_gt.data;
-    }
-#else
-    if constexpr (std::is_same_v<PublicGt, blst::scalar::GT>) {
-        return value.data;
-    } else {
-        unsigned char serialized[12 * 48] = {};
-        PublicGt::serialize(serialized, value);
-        blst::scalar::GT scalar_gt = {};
-        [[maybe_unused]] const bool decoded =
-            blst::scalar::GT::deserialize_unchecked(scalar_gt, serialized);
-        BLST_ASSERT(decoded);
-        return scalar_gt.data;
-    }
-#endif
+    return value.data;
 }
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-#define BLST_MIDDLE_PRODUCT_USE_AVX 1
+inline BoundaryFp12 gt_to_boundary(const blst::avx::GT& value)
+{
+    return blst::avx::avx_gt_detail::to_scalar(value.data);
+}
+
+static_assert(
+    std::is_same_v<PublicGt, blst::scalar::GT> ||
+    std::is_same_v<PublicGt, blst::avx::GT>);
+#else
+static_assert(std::is_same_v<PublicGt, blst::scalar::GT>);
+#endif
+
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 using NativeG1 = blst::avx::G1Point;
 using NativeG2 = blst::avx::G2Point;
 using NativePrecomputedB = blst::MiddleProductPrecomputedBAvx;
 using NativeWorkspace = blst::MiddleProductWorkspaceAvx;
+
+inline NativeG1 convert_g1_input(const BoundaryG1& input)
+{
+    return blst::avx::avx_map_to_G_detail::from_scalar(input);
+}
 
 inline std::vector<NativeG1> convert_g1_inputs(std::span<const BoundaryG1> input)
 {
     std::vector<NativeG1> out;
     out.reserve(input.size());
     for (const BoundaryG1& point : input) {
-        out.push_back(blst::avx::avx_map_to_G_detail::from_scalar(point));
+        out.push_back(convert_g1_input(point));
     }
     return out;
-}
-
-inline NativeG1 convert_g1_input(const BoundaryG1& input)
-{
-    return blst::avx::avx_map_to_G_detail::from_scalar(input);
 }
 
 inline std::vector<NativeG2> convert_g2_inputs(std::span<const BoundaryG2> input)
@@ -122,7 +117,6 @@ inline void run_update_native(
         nullptr);
 }
 #else
-#define BLST_MIDDLE_PRODUCT_USE_AVX 0
 using NativePrecomputedB = blst::MiddleProductPrecomputedBScalar;
 using NativeWorkspace = blst::MiddleProductWorkspaceScalar;
 

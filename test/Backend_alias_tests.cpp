@@ -525,12 +525,14 @@ TEST(BackendAlias, MiddleProductReducedMatchesBasicOnSmallVector)
         std::span<ScalarCtx::GtFftElement>(scalar_c_fft),
         scalar_precomputed.inv_roots,
         a_points.size(),
-        a_points.size());
+        a_points.size(),
+        scalar_precomputed.inverse_plan);
     AvxCtx::inverse_fft_middle_window(
         std::span<AvxCtx::GtFftElement>(avx_c_fft),
         avx_precomputed.inv_roots,
         a_points.size(),
-        a_points.size());
+        a_points.size(),
+        avx_precomputed.inverse_plan);
     {
         std::vector<Fr> inv_roots_copy(
             avx_precomputed.inv_roots.scalar_span().begin(),

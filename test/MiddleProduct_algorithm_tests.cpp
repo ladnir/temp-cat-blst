@@ -327,6 +327,57 @@ TEST(MiddleProductSizing, BasicOracleAndAdmissibleSizesAreChecked)
     EXPECT_THROW(blst::fft_admissible_size(1, 3), std::invalid_argument);
 }
 
+TEST(MiddleProductPrecompute, InverseRootsReverseForwardPowers)
+{
+    EXPECT_TRUE(blst::make_ifft_roots(std::span<const blst::Fr>{}).empty());
+
+    for (const std::size_t size : {std::size_t{1}, std::size_t{2}, std::size_t{8}}) {
+        const std::vector<blst::Fr> roots = blst::make_fft_roots(size);
+        const std::vector<blst::Fr> inv_roots = blst::make_ifft_roots(roots);
+
+        ASSERT_EQ(inv_roots.size(), roots.size());
+        EXPECT_TRUE(blst::Fr::equal(inv_roots[0], roots[0]));
+        for (std::size_t i = 1; i < size; ++i) {
+            EXPECT_TRUE(blst::Fr::equal(inv_roots[i], roots[size - i]));
+            blst::Fr product = {};
+            blst::Fr::mul(product, roots[i], inv_roots[i]);
+            EXPECT_TRUE(blst::Fr::equal(product, blst::Fr::one()));
+        }
+    }
+}
+
+TEST(MiddleProductPrecompute, ScalarPlansRemainStableAcrossEvaluations)
+{
+    constexpr std::size_t n = 3;
+    const std::vector<G1Point> a = make_g1_data(n);
+    const std::vector<G2Point> b = make_g2_data(n);
+    const auto precomputed = blst::precompute_middle_product_b_scalar(b, n);
+
+    EXPECT_EQ(precomputed.forward_plan.n, precomputed.fft_size);
+    EXPECT_EQ(
+        precomputed.forward_plan.xn,
+        blst::fft_admissible_size(n, precomputed.fft_size));
+    EXPECT_EQ(precomputed.inverse_plan.n, precomputed.fft_size);
+    EXPECT_EQ(precomputed.inverse_plan.start, n);
+    EXPECT_EQ(precomputed.inverse_plan.length, n);
+
+    const auto* const forward_storage = precomputed.forward_plan.stage_work.data();
+    const auto* const inverse_storage = precomputed.inverse_plan.stage_left.data();
+    std::vector<GT> first(n, GT::identity());
+    std::vector<GT> second(n, GT::identity());
+    blst::MiddleProductWorkspaceScalar first_workspace;
+    blst::MiddleProductWorkspaceScalar second_workspace;
+
+    blst::middle_product_scalar(a, precomputed, first, first_workspace);
+    blst::middle_product_scalar(a, precomputed, second, second_workspace);
+
+    EXPECT_EQ(precomputed.forward_plan.stage_work.data(), forward_storage);
+    EXPECT_EQ(precomputed.inverse_plan.stage_left.data(), inverse_storage);
+    for (std::size_t i = 0; i < n; ++i) {
+        EXPECT_TRUE(GT::equal(first[i], second[i]));
+    }
+}
+
 TEST(MiddleProductMultipair, ScalarMatchesFft)
 {
     const std::vector<std::size_t> sizes = { 3, 5, 9, 16 };
