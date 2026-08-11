@@ -823,3 +823,34 @@ of the representative cyclotomic-square hot body is exactly unchanged: both
 versions contain 16,768 disassembly lines and have normalized SHA-256
 `15a08370c85493427fa1795ca35d6ed4b73ecbb27582c4f5dc4fd6140c0f7f2d`.
 No benchmark, Peach run, CUDA work, portable Release build, or BTx audit ran.
+
+### Selected fixed-owner closure (`AUD-237` and `AUD-238`)
+
+The retained-file audit then reviewed the three fixed base-field owners rather
+than assuming that production reached the kernels used by the selection
+benchmark. It found that ordinary `modmul` and `batch_modmul` still entered the
+older delayed-reduction expression path. The direct MatrixNoK kernels selected
+against VROOM were called only by tests and the optimized probe (`AUD-237`).
+Commit `01bcec8` routes production one-shot and fixed-batch multiplication to
+those exact-bound kernels. Higher-tower formulas keep delayed reduction where
+they intentionally combine several products.
+
+The same pass made the proof-facing raw contracts executable in Debug
+(`AUD-238`). Fixed R1/R2/ConvertTo/ConvertFrom entry points assert the exact
+radix/residue domains and disjoint scratch/accumulator ownership; canonical
+import asserts both 50-bit digit shape and the integer range below p. These
+checks compile out under `NDEBUG`. The source now records VROOM provenance and
+distinguishes raw uint64 accumulator wrap semantics from the no-wrap envelope
+proved for production inputs.
+
+MSVC portable-Debug rebuilt the production library and the existing
+compatibility executable serially. All 31 focused `AvxMatrixNoKPrimitives` and
+`AvxCApiContract` tests pass, including the four new invalid-contract deaths
+and direct-versus-production batch equality. The dispatch validator passes. An
+optimized MSVC probe through the production `modmul` spelling contains no
+conditional jump or assertion path; the spelling is fully inlined into the
+selected body. MSVC's pre-existing out-of-line uint128 helpers inside the
+reducer remain unchanged and are not attributed to this packet. Seven
+correspondence rows (six C++ owner mappings and one P3 provider binding) are
+rebound to `01bcec8`; all 20 correspondence rows and 59 mapped hashes validate.
+No benchmark, Peach run, CUDA work, portable Release build, or BTx audit ran.

@@ -3,12 +3,16 @@
 ## Packet boundary
 
 - Implementation commit: `d8e5adceedd16b81917439d1981d746a81f5bc2e`
+- Retained-owner closure: `01bcec83fa45d80ee4bb39bdad2f8da0b96c5dd7`
 - Upstream algorithm commit: `d6ecd534c54a41702ea80ae75b52250b6d51b372`
 - C++ owner: `blst/avx/rns/matrixnok_change_base.h`
 - Constant owner: `blst/avx/generated_matrixnok_constants.hpp`
 
-This packet adds an isolated BLS12-381 r1 kernel. It has no production caller
-and does not change the incumbent AVX field representation or dispatch.
+This document began as the isolated BLS12-381 R1 packet. The fixed kernel is
+now part of the selected production AVX base-field pipeline. Commit `01bcec8`
+records its VROOM provenance and makes its exact input-domain and disjoint
+scratch/accumulator contracts executable in Debug without changing NDEBUG
+arithmetic.
 
 The kernel is specialized to one eight-lane table. Template recursion expands
 all eight diagonals, and an index-sequence fold expands every fixed batch item.
@@ -79,6 +83,8 @@ The resulting function contains:
 - Lean proves the selected fused accumulator cannot wrap and proves the QR
   relation and `<18p`/`<40p` redundant-range envelope that permits omission of
   the quotient correction.
-- The source and constant hashes remain unchanged from `adf2ed5`; the P2 row is
-  in review rather than accepted because C++ transcription, compiler lowering,
-  and x86 IFMA semantics remain correspondence assumptions.
+- The exact committed source hash is
+  `d706b60bfbbc3d77338bbf4b3015e3cdebdc30af48728d96c395922b51107d88`;
+  `AVX-P2-001` is accepted at commit `01bcec8`.
+- Compiler lowering and x86 IFMA execution remain the explicit P0 trust
+  boundary; the source-level matrix and no-wrap claims are proved.

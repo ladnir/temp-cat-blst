@@ -3,16 +3,20 @@
 ## Packet boundary
 
 - Candidate implementation through: `adf2ed5df84de1e4bf705561e52d7941f04833a4`
+- Retained-owner closure: `01bcec83fa45d80ee4bb39bdad2f8da0b96c5dd7`
 - Upstream algorithm commit: `d6ecd534c54a41702ea80ae75b52250b6d51b372`
 - Compared VROOM head: `26bd9aee2168f167583cf096add355547a7b56d4`
 - C++ owner: `blst/avx/rns/matrixnok_fp.h`
 - Fixed parameters: `blst/avx/generated_matrixnok_constants.hpp`
 
-This packet adds an isolated BLS12-381 base-field multiplication candidate.
-It has no production caller and does not change CatBLST dispatch, public types,
-or the incumbent AVX field representation.
+This document began as the isolated BLS12-381 base-field candidate packet.
+The construction is now the selected production AVX field representation.
+Commit `01bcec8` closes the retained-owner dispatch gap: ordinary one-shot and
+fixed-batch `modmul` operations call the same exact-bound `multiply` kernels
+that were compared with VROOM. Higher formulas still use delayed reduction
+when they intentionally aggregate several products.
 
-The candidate uses two eight-lane, 50-bit RNS bases. Multiplication reduces the
+The selected field uses two eight-lane, 50-bit RNS bases. Multiplication reduces the
 first-base product, accumulates the fixed MatrixNoK r1 permutation into the
 second-base product, reduces the combined value, and expands the result back
 to both bases. The fixed source bounds are:
@@ -130,11 +134,11 @@ model is accepted on that evidence.
 ## Exact correspondence inputs
 
 - `matrixnok_fp.h` SHA-256:
-  `358ff81f7900854b5b36980eed0d12b11a96466edba2c6bf1d3a816a309b871a`
+  `4a09c34fb4fe97ad23ced3e4e3736290d0912171b2205b16c6d7066121d6dd3f`
 - `matrixnok_fixed.h` SHA-256:
-  `882a5aaf625cbcd5b61a8fd1e7ab6994710d38245c555167e8b2186abf323390`
+  `0ca412ccef04a3aa45c87826fb25d02e61697404728e865de5395ecf24583c04`
 - `matrixnok_change_base.h` SHA-256:
-  `23b6a0e8f710c4d6ab3e8958213576b7c1984bc9c600c0211d2fdcee0dd4d152`
+  `d706b60bfbbc3d77338bbf4b3015e3cdebdc30af48728d96c395922b51107d88`
 - Historical generic `changebase.hpp` comparison owner SHA-256:
   `75fcd7be6cb157e6e1ca676d8cecf702f3ae07fd899c4ba23d83568f071748af`
   (removed at `b1036f7`; the selected fixed owner was unchanged and its test
@@ -187,12 +191,10 @@ import no longer reaches that domain. `AUD-221` is validated: all 18 focused
 tests pass locally and under Peach Clang 21 native AVX-512IFMA, and the import
 probe retains the same 209-instruction shape with only eight changed immediate
 constants.
-- The isolated Fp2 candidate now passes its operation-level gate; extend the
-  candidate through Fp12 and pairing-level workloads before production
-  selection.
-- Revisit the batch-8 microcase only if field-tower profiles show it on a
-  primary hot path.
-
-No broad suite, sanitizer run, CUDA work, or production dispatch change
-occurred in this proof packet. Field-tower, curve, and pairing proof layers
-remain pending.
+The later Fp2, Fp12, curve, GT, and pairing integration and proof records
+supersede the original candidate-only next steps. The retained batch-8
+microcase remains a profiling-driven optimization question, not a correctness
+gate. Commit `01bcec8` additionally makes all raw proof-domain and alias
+preconditions executable in Debug and confirms the production `modmul`
+spelling has no NDEBUG wrapper branch. No new benchmark was required because
+the routed kernel is the already selected and measured implementation.

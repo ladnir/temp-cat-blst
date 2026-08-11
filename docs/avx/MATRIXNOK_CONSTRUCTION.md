@@ -102,6 +102,16 @@ The high and low output arguments are in/out accumulators:
 - conversion callers initialize them to zero; and
 - fused MatrixNoK reduction initializes them with an existing product.
 
+The raw fixed owners have deliberately narrow C++ contracts. ConvertTo accepts
+eight radix-2^50 digits; R1, R2, and ConvertFrom accept the exact per-lane
+redundant ranges named by their parameter types. Input, high accumulator, and
+low accumulator objects are disjoint. Debug builds assert those conditions,
+while Release builds add no checks or branches. The raw IFMA additions have
+unsigned 64-bit wrap semantics; the selected production schedules separately
+prove that reachable accumulators do not wrap. Canonical Fp import likewise
+asserts an integer in `[0,p)` and rejects bits above the eight-digit 384-bit
+encoding in Debug.
+
 This accumulator contract is essential to the correspondence theorem. A model
 that treats the arguments as write-only outputs proves a different algorithm.
 
@@ -165,5 +175,8 @@ stable.
 
 After the proof-facing source hash is recorded, changes to a mapped operation,
 constant, loop schedule, permutation, bound, or representation reopen its
-correspondence record. A reviewed comment-only change may update the source
-record without reopening an unaffected theorem.
+correspondence record. A reviewed comment-only or Debug-contract change may
+update the source record without reopening an unaffected theorem once Release
+code generation confirms that it vanishes. The current exact fixed-owner
+hashes and commit are recorded in `BASE_FIELD_EVIDENCE.md` and
+`proof/avx/CORRESPONDENCE.csv`.

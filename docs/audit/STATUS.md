@@ -645,3 +645,13 @@ accumulator oracle replaces the same-algorithm generic oracle. The portable-
 Debug rebuild and 30/30 focused tests pass, as do the constant and dispatch
 validators. Representative optimized cyclotomic-square code generation is
 instruction-for-instruction identical. No benchmark or remote job ran.
+
+The fixed MatrixNoK base-field owner audit is complete at `01bcec8`.
+`AUD-237` routes production one-shot and batch Fp multiplication through the
+performance-selected exact-bound kernels instead of the older delayed path;
+the structural validator now pins that dispatch. `AUD-238` adds Debug-only
+proof-domain, canonical-import, and raw-object-disjointness checks with zero
+NDEBUG control-flow cost. All 31 focused portable-Debug MatrixNoK/C API tests
+pass, and the optimized production-spelling probe fully inlines with no
+assertion branch. Seven affected correspondence rows are rebound and all 20
+AVX correspondence rows validate. No benchmark or remote job ran.
