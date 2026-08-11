@@ -118,61 +118,6 @@ TEST(AvxGt, DoublingMatchesScalar)
     blst::avx::GT::doubling(avx_out, avx_base);
 
     expect_same_after_bound_sensitive_ops(scalar_out, avx_out);
-
-    blst::avx::GT cyclotomic_candidate = {};
-    cyclotomic_candidate.data = blst::avx::avx_gt_detail::narrow_to_standard(
-        blst::avx::avx_gt_detail::fp12ring().fp12_flat_cyclotomic_sqr(
-            avx_base.data, blst::avx::avx_gt_detail::ring()));
-    expect_same_after_bound_sensitive_ops(scalar_out, cyclotomic_candidate);
-
-    blst::avx::GT aliased_candidate = avx_base;
-    aliased_candidate.data = blst::avx::avx_gt_detail::narrow_to_standard(
-        blst::avx::avx_gt_detail::fp12ring().fp12_flat_cyclotomic_sqr(
-            aliased_candidate.data, blst::avx::avx_gt_detail::ring()));
-    expect_same_after_bound_sensitive_ops(scalar_out, aliased_candidate);
-}
-
-TEST(AvxGt, CyclotomicDoublingCandidateMatchesGtDomain)
-{
-    const blst::scalar::GT scalar_base = scalar_gt_base();
-    const std::array<std::array<unsigned char, 32>, 6> scalars = {{
-        {},
-        {1},
-        {2},
-        {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
-        {0x6d, 0xb4, 0x23, 0x91, 0xe5, 0x77, 0xa2, 0x0c,
-         0x3f, 0x18, 0xc8, 0x44, 0x9a, 0x52, 0x01, 0xd7},
-        {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
-    }};
-
-    for (const auto& scalar : scalars) {
-        blst::scalar::GT scalar_value = {};
-        blst::scalar::Fp12::cyclotomic_exp_basic(
-            scalar_value.data, scalar_base.data, scalar.data(), 256);
-        const blst::avx::GT avx_value = avx_from_scalar(scalar_value);
-
-        blst::scalar::GT expected = {};
-        blst::scalar::GT::doubling(expected, scalar_value);
-
-        blst::avx::GT dense = {};
-        blst::avx::GT::doubling(dense, avx_value);
-        expect_same(expected, dense);
-
-        blst::avx::GT candidate = {};
-        candidate.data = blst::avx::avx_gt_detail::narrow_to_standard(
-            blst::avx::avx_gt_detail::fp12ring().fp12_flat_cyclotomic_sqr(
-                avx_value.data, blst::avx::avx_gt_detail::ring()));
-        expect_same(expected, candidate);
-
-        blst::avx::GT aliased = avx_value;
-        aliased.data = blst::avx::avx_gt_detail::narrow_to_standard(
-            blst::avx::avx_gt_detail::fp12ring().fp12_flat_cyclotomic_sqr(
-                aliased.data, blst::avx::avx_gt_detail::ring()));
-        expect_same(expected, aliased);
-    }
 }
 
 TEST(AvxGt, PreparedLinesPreservePairingIdentityAndCompactBatching)

@@ -108,15 +108,6 @@ extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_fp12_multiply(
     *out = fp12ring.fp12_flat_mul(*left, *right, ring);
 }
 
-extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_gt_dense_doubling(
-    blst::avx::matrixnok::Fp12Ring::StandardElement* out,
-    const blst::avx::matrixnok::Fp12Ring::StandardElement* value)
-{
-    const blst::avx::matrixnok::FpRingCandidate ring;
-    const blst::avx::matrixnok::Fp12Ring fp12ring{};
-    *out = fp12ring.fp12_flat_mul(*value, *value, ring);
-}
-
 extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_fp12_cyclotomic_square(
     blst::avx::matrixnok::Fp12Ring::StandardElement* out,
     const blst::avx::matrixnok::Fp12Ring::StandardElement* value)

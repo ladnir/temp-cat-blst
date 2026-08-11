@@ -180,69 +180,8 @@ static void BM_GTNaiveMsm(benchmark::State& state)
     state.SetLabel("GTNaiveMsm");
 }
 
-blst::avx::GT make_avx_gt()
-{
-    return make_avx_gt_batch(1).front();
-}
-
-static void BM_AvxGTDoublingDense(benchmark::State& state)
-{
-    const blst::avx::GT input = make_avx_gt();
-    for (auto _ : state) {
-        blst::avx::GT out = {};
-        blst::avx::GT::add(out, input, input);
-        benchmark::DoNotOptimize(out);
-        benchmark::ClobberMemory();
-    }
-}
-
-static void BM_AvxGTDoublingCyclotomic(benchmark::State& state)
-{
-    const blst::avx::GT input = make_avx_gt();
-    for (auto _ : state) {
-        blst::avx::GT out = {};
-        out.data = blst::avx::avx_gt_detail::narrow_to_standard(
-            blst::avx::avx_gt_detail::fp12ring().fp12_flat_cyclotomic_sqr(
-                input.data, blst::avx::avx_gt_detail::ring()));
-        benchmark::DoNotOptimize(out);
-        benchmark::ClobberMemory();
-    }
-}
-
-static void BM_AvxGTDoublingDenseChain8(benchmark::State& state)
-{
-    const blst::avx::GT input = make_avx_gt();
-    for (auto _ : state) {
-        blst::avx::GT out = input;
-        for (size_t i = 0; i < 8; ++i) {
-            blst::avx::GT::add(out, out, out);
-        }
-        benchmark::DoNotOptimize(out);
-        benchmark::ClobberMemory();
-    }
-}
-
-static void BM_AvxGTDoublingCyclotomicChain8(benchmark::State& state)
-{
-    const blst::avx::GT input = make_avx_gt();
-    for (auto _ : state) {
-        blst::avx::GT out = input;
-        for (size_t i = 0; i < 8; ++i) {
-            out.data = blst::avx::avx_gt_detail::narrow_to_standard(
-                blst::avx::avx_gt_detail::fp12ring().fp12_flat_cyclotomic_sqr(
-                    out.data, blst::avx::avx_gt_detail::ring()));
-        }
-        benchmark::DoNotOptimize(out);
-        benchmark::ClobberMemory();
-    }
-}
-
 BENCHMARK(BM_GTScalarGenericMsm)->Arg(64)->Arg(128)->Arg(256)->Arg(512)->Arg(1024)->Arg(2048)->Arg(4096)->Arg(8192)->Arg(16384);
 BENCHMARK(BM_AvxGTMsmGLV4)->Arg(64)->Arg(128)->Arg(256)->Arg(512)->Arg(1024)->Arg(2048)->Arg(4096)->Arg(8192)->Arg(16384);
 BENCHMARK(BM_GTNaiveMsm)->Arg(16)->Arg(32)->Arg(64);
-BENCHMARK(BM_AvxGTDoublingDense);
-BENCHMARK(BM_AvxGTDoublingCyclotomic);
-BENCHMARK(BM_AvxGTDoublingDenseChain8);
-BENCHMARK(BM_AvxGTDoublingCyclotomicChain8);
 
 }  // namespace
