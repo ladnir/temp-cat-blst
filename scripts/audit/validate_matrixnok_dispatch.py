@@ -116,7 +116,7 @@ def main() -> int:
         "typename Small::rns_bounds_type",
         "AVXVector<limbs>& out_high",
         "The three vector objects must be distinct.",
-        "raw high/low radix-2^52 accumulators consumed by `from_vec`",
+        "raw high/low radix-2^52 accumulators consumed by",
         "return multiply(left, right);",
         "return multiply_batch(left, right);",
     ))
@@ -135,6 +135,27 @@ def main() -> int:
     ))
     require_fragments(avx / "fields" / "matrixnok_fp12.h", (
         "using Fp12Ring = Fp12RingCandidate;",
+    ))
+    conversion = avx / "fields" / "conversion_inversion.h"
+    require_fragments(conversion, (
+        "const AVXVector<8>& vec_lo",
+        "const typename Ring::StandardElement& value",
+        "Ring::convert_from_raw(value, out_hi, out_lo);",
+        "return Ring::from_canonical_limbs(canonical);",
+        "class ScalarFpVartimeInverter",
+        "class FP12RNSVartimeInverter",
+        "BLST_ASSERT(carry == 0);",
+    ))
+    forbid_fragments(conversion, (
+        "load_u64_unaligned(",
+        "to_vec(",
+        "convert_to_rns_batch",
+        "FP12BLSTInverter",
+        "FP12RNS_BLSTInverter",
+        "BLSTInverter",
+        "invert_fp12_via_blst",
+        "invert_via_blst",
+        "pairing_with_vartime_inverter",
     ))
     require_fragments(avx / "curve" / "matrixnok_g1.h", (
         "using G1Curve = G1CurveCandidate;",

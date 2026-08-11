@@ -4,6 +4,7 @@
 #include "blst/avx/rns/matrixnok_fp.h"
 #include "blst/avx/fields/matrixnok_fp2.h"
 #include "blst/avx/fields/matrixnok_fp12.h"
+#include "blst/avx/fields/conversion_inversion.h"
 #include "blst/avx/curve/matrixnok_g1.h"
 #include "blst/avx/curve/matrixnok_g2.h"
 #include "blst/avx/gt/glv4.h"
@@ -79,6 +80,14 @@ extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_fp_multiply(
     const blst::avx::matrixnok::FpRingCandidate::Element* right)
 {
     *out = blst::avx::matrixnok::FpRingCandidate::modmul(*left, *right);
+}
+
+extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_export_fp(
+    blst::Fp* out,
+    const blst::avx::matrixnok::FpRingCandidate::StandardElement* value)
+{
+    const blst::avx::matrixnok::FpRingCandidate ring;
+    *out = blst::avx::avx_blst_direct_bridge::ring_to_scalar_fp(ring, *value);
 }
 
 extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_fp2_multiply(

@@ -1,3 +1,11 @@
+/*
+ * Copyright 2026 Category Labs
+ * Licensed under the Apache License, Version 2.0, see LICENSE for details.
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Locally composed around the fixed RNS conversion used by the VROOM AVX
+ * backend and CatBLST's scalar field operations.
+ */
 #pragma once
 
 #include "fp12.h"
@@ -8,49 +16,28 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
+#include <limits>
 
 namespace blst::avx {
 
 namespace avx_blst_direct_bridge {
 
-inline uint64_t load_u64_unaligned(const unsigned char* src)
-{
-    uint64_t value = 0;
-    std::memcpy(&value, src, sizeof(value));
-    return value;
-}
-
-inline void store_u64_unaligned(unsigned char* dst, uint64_t value)
+BLST_FORCEINLINE void store_u64_unaligned(unsigned char* dst, uint64_t value)
 {
     std::memcpy(dst, &value, sizeof(value));
 }
 
-template<int limbs>
-AVXVector<limbs> to_vec(const unsigned char* le_buf)
-{
-    static_assert(limbs == 8, "to_vec currently only supports 8 limbs");
-
-    std::array<uint64_t, 6> limbs_64 = {};
-    for (size_t i = 0; i < limbs_64.size(); ++i) {
-        limbs_64[i] = load_u64_unaligned(le_buf + i * sizeof(uint64_t));
-    }
-    std::array<uint64_t, 8> digits = {};
-
-    digits[0] = limbs_64[0] & ((1ULL << 52) - 1);
-    digits[1] = ((limbs_64[0] >> 52) | (limbs_64[1] << 12)) & ((1ULL << 52) - 1);
-    digits[2] = ((limbs_64[1] >> 40) | (limbs_64[2] << 24)) & ((1ULL << 52) - 1);
-    digits[3] = ((limbs_64[2] >> 28) | (limbs_64[3] << 36)) & ((1ULL << 52) - 1);
-    digits[4] = ((limbs_64[3] >> 16) | (limbs_64[4] << 48)) & ((1ULL << 52) - 1);
-    digits[5] = (limbs_64[4] >> 4) & ((1ULL << 52) - 1);
-    digits[6] = ((limbs_64[4] >> 56) | (limbs_64[5] << 8)) & ((1ULL << 52) - 1);
-    digits[7] = (limbs_64[5] >> 44) & ((1ULL << 52) - 1);
-
-    return AVXVector<limbs>(digits);
-}
-
-template<bool montgomery = false>
-void from_vec(AVXVector<8>& vec_lo, AVXVector<8>& vec_hi, blst::Fp& ret)
+// Export the raw radix-2^52 accumulators produced by
+// MatrixNoKFp::convert_from_raw. The selected conversion constants guarantee
+// that the adjacent digit sums and the final 576-bit addition do not wrap,
+// and that the reconstructed integer satisfies Fp::redc's input bound.
+// The result is returned in CatBLST's ordinary Montgomery Fp representation.
+BLST_FORCEINLINE void from_raw_accumulators(
+    const AVXVector<8>& vec_lo,
+    const AVXVector<8>& vec_hi,
+    blst::Fp& ret)
 {
     std::array<uint64_t, 8> digits_lo = {};
     std::array<uint64_t, 8> digits_hi = {};
@@ -60,6 +47,10 @@ void from_vec(AVXVector<8>& vec_lo, AVXVector<8>& vec_hi, blst::Fp& ret)
     std::array<uint64_t, 9> digits = {};
     digits[0] = digits_lo[0];
     for (int i = 1; i < 8; ++i) {
+#ifndef NDEBUG
+        BLST_ASSERT(digits_hi[i - 1] <=
+            std::numeric_limits<uint64_t>::max() - digits_lo[i]);
+#endif
         digits[i] = digits_hi[i - 1] + digits_lo[i];
     }
     digits[8] = digits_hi[7];
@@ -80,73 +71,64 @@ void from_vec(AVXVector<8>& vec_lo, AVXVector<8>& vec_hi, blst::Fp& ret)
     blst::UFp sum = {};
     uint64_t carry = 0;
     for (int i = 0; i < 9; ++i) {
-        uint64_t a = n_data_even_64.data[i];
-        uint64_t b = n_data_odd_64.data[i];
-        uint64_t s = a + b + carry;
-        sum.data[i] = s;
-        carry = (s < a) || (carry && s == a) ? 1 : 0;
+        blst::wide_limb_t wide = {};
+        blst::cc_add_carry_wide_limb_limb(
+            &wide,
+            n_data_even_64.data[i],
+            n_data_odd_64.data[i],
+            carry);
+        sum.data[i] = static_cast<uint64_t>(wide.lo);
+        carry = static_cast<uint64_t>(wide.hi);
     }
+    BLST_ASSERT(carry == 0);
 
     blst::Fp temp = {};
     blst::Fp::redc(temp, sum);
     blst::Fp::mul(ret, temp, kRR);
 
-    if constexpr (montgomery) {
-        blst::Fp mont = {};
-        blst::Fp::to_mont(mont, ret);
-        ret = mont;
-    }
-}
-
-template<class Ring, bool montgomery = false>
-void convert_to_int(const Ring& ring, typename Ring::StandardElement& a, blst::Fp& ret)
-{
-    AVXVector<8> out_hi = AVXVector<8>(0);
-    AVXVector<8> out_lo = AVXVector<8>(0);
-    if constexpr (requires {
-        Ring::convert_from_raw(a, out_hi, out_lo);
-    }) {
-        Ring::convert_from_raw(a, out_hi, out_lo);
-    } else {
-        ring.sys.convert_from.conversion_matrix.rns_reduce_raw(a.m2.data, out_hi, out_lo);
-    }
-    from_vec<montgomery>(out_lo, out_hi, ret);
-}
-
-template<class Ring, bool montgomery = false>
-auto convert_to_rns(const Ring& ring, const blst::Fp& value)
-{
-    blst::Fp canonical = {};
-    if constexpr (montgomery) {
-        blst::Fp::from_mont(canonical, value);
-    } else {
-        canonical = value;
-    }
-
-    if constexpr (requires {
-        Ring::from_canonical_limbs(canonical);
-    }) {
-        return Ring::from_canonical_limbs(canonical);
-    } else {
-        const unsigned char* canonical_bytes = reinterpret_cast<const unsigned char*>(canonical.l);
-        AVXVector<8> l = to_vec<8>(canonical_bytes);
-        return ring.template convert_to_rns_batch<1>(std::array<AVXVector<8>, 1>{l})[0];
-    }
+    blst::Fp mont = {};
+    blst::Fp::to_mont(mont, ret);
+    ret = mont;
 }
 
 template<class Ring>
-blst::Fp ring_to_scalar_fp(const Ring& ring, const typename Ring::StandardElement& value)
+BLST_FORCEINLINE void convert_to_scalar_fp(
+    const Ring&,
+    const typename Ring::StandardElement& value,
+    blst::Fp& ret)
 {
-    typename Ring::StandardElement mutable_value = value;
+    AVXVector<8> out_hi = AVXVector<8>(0);
+    AVXVector<8> out_lo = AVXVector<8>(0);
+    Ring::convert_from_raw(value, out_hi, out_lo);
+    from_raw_accumulators(out_lo, out_hi, ret);
+}
+
+// Import a valid internal Montgomery Fp value into the selected MatrixNoK
+// Ring's standard representation. This performs no allocation or validation.
+template<class Ring>
+BLST_FORCEINLINE auto convert_to_rns(const Ring&, const blst::Fp& value)
+{
+    blst::Fp canonical = {};
+    blst::Fp::from_mont(canonical, value);
+    return Ring::from_canonical_limbs(canonical);
+}
+
+template<class Ring>
+BLST_FORCEINLINE blst::Fp ring_to_scalar_fp(
+    const Ring& ring,
+    const typename Ring::StandardElement& value)
+{
     blst::Fp mont = {};
-    convert_to_int<Ring, true>(ring, mutable_value, mont);
+    convert_to_scalar_fp(ring, value, mont);
     return mont;
 }
 
 template<class Ring>
-typename Ring::StandardElement scalar_fp_to_ring(const Ring& ring, const blst::Fp& value)
+BLST_FORCEINLINE typename Ring::StandardElement scalar_fp_to_ring(
+    const Ring& ring,
+    const blst::Fp& value)
 {
-    return convert_to_rns<Ring, true>(ring, value);
+    return convert_to_rns<Ring>(ring, value);
 }
 
 template<class Ring>
@@ -193,54 +175,48 @@ std::array<typename Ring::StandardElement, 12> scalar_fp12_to_ring(
 
 }  // namespace avx_blst_direct_bridge
 
+/**
+ * Invert one nonzero selected-RNS Fp element through scalar CatBLST.
+ *
+ * The operation is allocation-free and nonthrowing, but variable-time because
+ * Fp::reciprocal may take its fixed-chain fallback. The result remains in the
+ * selected Ring's standard representation. Zero is outside the contract.
+ */
 template<class Ring>
-auto invert_via_blst(const Ring& ring, typename Ring::StandardElement& a)
+auto invert_fp_vartime_via_scalar(
+    const Ring& ring,
+    const typename Ring::StandardElement& value)
 {
-    blst::Fp scalar = avx_blst_direct_bridge::ring_to_scalar_fp(ring, a);
+    blst::Fp scalar = avx_blst_direct_bridge::ring_to_scalar_fp(ring, value);
+    BLST_ASSERT(!blst::Fp::equal(scalar, blst::Fp::zero()));
     blst::Fp inverse = {};
     blst::Fp::reciprocal(inverse, scalar);
     return avx_blst_direct_bridge::scalar_fp_to_ring(ring, inverse);
 }
 
 template<class Ring>
-class BLSTInverter {
+class ScalarFpVartimeInverter {
 public:
     using StandardElement = typename Ring::StandardElement;
 
+    /** Invert a nonzero element; allocation-free, nonthrowing, variable-time. */
     StandardElement invert(const StandardElement& a, const Ring& ring) const
     {
-        StandardElement mutable_a = a;
-        return invert_via_blst(ring, mutable_a);
+        return invert_fp_vartime_via_scalar(ring, a);
     }
 };
 
-template<class Ring>
-std::array<typename Ring::StandardElement, 12> invert_fp12_via_blst(
-    const Ring& ring,
-    const std::array<typename Ring::StandardElement, 12>& fp12_ring)
-{
-    blst::Fp12 scalar = avx_blst_direct_bridge::ring_fp12_to_scalar(ring, fp12_ring);
-    blst::Fp12 inverse = {};
-    blst::Fp12::inverse(inverse, scalar);
-    return avx_blst_direct_bridge::scalar_fp12_to_ring(ring, inverse);
-}
-
+/**
+ * Decomposed inversion provider for a nonzero selected-RNS Fp12 element.
+ *
+ * This is allocation-free and nonthrowing. Its single base-field inversion is
+ * variable-time; callers must not use it for secret-dependent Fp12 values.
+ */
 template<class Ring, class FP12R>
-class FP12BLSTInverter {
-public:
-    using StandardElement = std::array<typename Ring::StandardElement, 12>;
-
-    StandardElement invert(const StandardElement& f, const FP12R&, const Ring& ring) const
-    {
-        return invert_fp12_via_blst(ring, f);
-    }
-};
-
-template<class Ring, class FP12R>
-class FP12RNS_BLSTInverter {
+class FP12RNSVartimeInverter {
 public:
     using StandardElement = typename FP12R::StandardElement;
-    using Inverter = BLSTInverter<Ring>;
+    using Inverter = ScalarFpVartimeInverter<Ring>;
 
     Inverter inverter;
 

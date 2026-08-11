@@ -4,6 +4,7 @@
 
 #include "miller.h"
 #include "pairing.h"
+#include "../fields/conversion_inversion.h"
 #include "../fields/matrixnok_fp12.h"
 
 namespace blst::avx::matrixnok
@@ -11,7 +12,7 @@ namespace blst::avx::matrixnok
     // Exact proof-owner spellings for the selected production pairing tower.
     using MillerCandidate = Miller<FpRingCandidate, Fp12RingCandidate>;
     using PairingInverterCandidate =
-        FP12RNS_BLSTInverter<FpRingCandidate, Fp12RingCandidate>;
+        FP12RNSVartimeInverter<FpRingCandidate, Fp12RingCandidate>;
 
     using MillerEngine = MillerCandidate;
     using PairingInverter = PairingInverterCandidate;

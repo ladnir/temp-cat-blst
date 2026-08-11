@@ -658,7 +658,7 @@ struct GT
 
         const auto& fp12 = avx_gt_detail::fp12ring();
         const auto& ring = avx_gt_detail::ring();
-        BLSTInverter<avx_gt_detail::Ring> inverter;
+        ScalarFpVartimeInverter<avx_gt_detail::Ring> inverter;
         using FieldElement = avx_gt_detail::Ring::StandardElement;
         using FP12Element = Field_type;
         using FP6InverseElement = decltype(fp12.fp12_flat_inverse_to_fp6(std::declval<FP12Element>(), ring));

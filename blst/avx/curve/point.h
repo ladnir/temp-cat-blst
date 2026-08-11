@@ -254,13 +254,14 @@ inline CurveG2Affine g2_affine_infinity()
     return {curve_fp2_ring().zero(), curve_fp2_ring().zero()};
 }
 
-inline CurveRing::StandardElement curve_inverse(const CurveRing::StandardElement& value)
+inline CurveRing::StandardElement curve_inverse_vartime(
+    const CurveRing::StandardElement& value)
 {
-    auto mutable_value = value;
-    return invert_via_blst(curve_ring(), mutable_value);
+    return invert_fp_vartime_via_scalar(curve_ring(), value);
 }
 
-inline CurveFp2Ring::StandardElement curve_fp2_inverse(const CurveFp2Ring::StandardElement& value)
+inline CurveFp2Ring::StandardElement curve_fp2_inverse_vartime(
+    const CurveFp2Ring::StandardElement& value)
 {
     blst::Fp2 scalar = ring_fp2_to_scalar(value);
     blst::Fp2 inverse = {};
@@ -324,7 +325,7 @@ inline CurveG1Affine projective_to_affine(const CurveG1Projective& point)
         return g1_affine_infinity();
     }
 
-    const auto z_inv = curve_inverse(point.z);
+    const auto z_inv = curve_inverse_vartime(point.z);
     auto [x, y] = curve_ring().batch_reduce_expand(
         curve_ring().prep_left(point.x) * z_inv,
         curve_ring().prep_left(point.y) * z_inv);
@@ -337,7 +338,7 @@ inline CurveG2Affine projective_to_affine(const CurveG2Projective& point)
         return g2_affine_infinity();
     }
 
-    const auto z_inv = curve_fp2_inverse(point.z);
+    const auto z_inv = curve_fp2_inverse_vartime(point.z);
     return {
         curve_fp2_ring().mul(point.x, z_inv),
         curve_fp2_ring().mul(point.y, z_inv),

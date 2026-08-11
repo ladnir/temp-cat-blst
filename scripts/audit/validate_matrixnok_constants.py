@@ -257,6 +257,81 @@ def validate_shape(name: str, values: Sequence[int], expected: int) -> None:
     require(len(values) == expected, f"{name}: expected {expected} entries, found {len(values)}")
 
 
+def validate_convert_from_export_envelope(
+    p: int,
+    moduli2: Sequence[int],
+    matrix: Sequence[int],
+    correction: Sequence[int],
+    quotient_estimates: Sequence[int],
+) -> None:
+    """Bound the selected raw RNS export through byte weaving and REDC.
+
+    MatrixNoKFp::convert_from_raw accepts residues below twice each M2
+    modulus. FixedRNSMatrix accumulates radix-2^52 low and high products,
+    including the split approximate-quotient correction. The bridge then
+    joins adjacent digits and passes the resulting 768-bit value to Fp::redc.
+    All coefficients are nonnegative, so the component-wise maximum input is
+    a valid upper envelope for every accepted residue vector.
+    """
+    dimension = 8
+    radix_bits = 52
+    radix = 1 << radix_bits
+    mask = radix - 1
+    word_limit = 1 << 64
+
+    validate_shape("convert-from moduli", moduli2, dimension)
+    validate_shape("convert-from matrix", matrix, dimension * dimension)
+    validate_shape("convert-from correction", correction, dimension)
+    validate_shape("convert-from quotient estimates", quotient_estimates, dimension)
+
+    residues = [2 * modulus - 1 for modulus in moduli2]
+    quotient_numerator = sum(
+        residue * estimate
+        for residue, estimate in zip(residues, quotient_estimates)
+    )
+    require(quotient_numerator < 1 << 128,
+        "convert-from quotient numerator exceeds uint128_t")
+    quotient = quotient_numerator >> 64
+    require(quotient < word_limit, "convert-from quotient exceeds uint64_t")
+    quotient_low = quotient & mask
+    quotient_high = quotient >> radix_bits
+
+    low: list[int] = []
+    high: list[int] = []
+    for digit in range(dimension):
+        products = [
+            residues[index] * matrix[index * dimension + digit]
+            for index in range(dimension)
+        ]
+        correction_low_product = correction[digit] * quotient_low
+        low_digit = sum(product & mask for product in products)
+        low_digit += correction_low_product & mask
+        high_digit = sum(product >> radix_bits for product in products)
+        high_digit += correction_low_product >> radix_bits
+        high_digit += correction[digit] * quotient_high
+        require(low_digit < word_limit,
+            f"convert-from low accumulator {digit} can wrap uint64_t")
+        require(high_digit < word_limit,
+            f"convert-from high accumulator {digit} can wrap uint64_t")
+        low.append(low_digit)
+        high.append(high_digit)
+
+    digits = [low[0]]
+    for digit in range(1, dimension):
+        joined = high[digit - 1] + low[digit]
+        require(joined < word_limit,
+            f"convert-from joined digit {digit} can wrap uint64_t")
+        digits.append(joined)
+    digits.append(high[-1])
+
+    reconstructed = sum(
+        digit << (radix_bits * index)
+        for index, digit in enumerate(digits)
+    )
+    require(reconstructed < p << 384,
+        "convert-from export can exceed Fp::redc's p*2^384 input bound")
+
+
 def validate_constants(s: dict[str, int], a: dict[str, list[int]]) -> None:
     require(s["BLS12_381_RNS_DIM"] == 8, "RNS dimension is not 8")
     require(s["BLS12_381_PADDED_DIM"] == 8, "padded RNS dimension is not 8")
@@ -470,6 +545,14 @@ def validate_constants(s: dict[str, int], a: dict[str, list[int]]) -> None:
             a[f"{name}_shifted_quotient_estimations"] == estimates,
             f"{name} quotient estimates do not regenerate",
         )
+
+    validate_convert_from_export_envelope(
+        p,
+        m2_moduli,
+        a["convert_from_rns_mat"],
+        a["convert_from_correction"],
+        a["convert_from_shifted_quotient_estimations"],
+    )
 
     base = a["r1_rns_mat"]
     permuted = a["r1_perm_mat_fixed"]

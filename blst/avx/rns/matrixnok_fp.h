@@ -758,8 +758,9 @@ namespace blst::avx::matrixnok
             AVXVector<limbs>& out_low)
         {
             // The three vector objects must be distinct. The outputs are the
-            // raw high/low radix-2^52 accumulators consumed by `from_vec`, not
-            // independently reduced field or RNS values. FixedRNSMatrix
+            // raw high/low radix-2^52 accumulators consumed by
+            // `from_raw_accumulators`, not independently reduced field or RNS
+            // values. FixedRNSMatrix
             // asserts the disjointness contract in Debug.
             out_high = AVXVector<limbs>(0);
             out_low = AVXVector<limbs>(0);

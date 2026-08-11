@@ -1,7 +1,6 @@
 #pragma once
 #include "miller.h"
 #include "blst/avx/fields/final_exponentiation.h"
-#include "blst/avx/fields/conversion_inversion.h"
 
 // Pairing function that combines miller loop and final exponentiation
 // Similar to blst pairing.c: blst_miller_loop followed by blst_final_exp
@@ -24,19 +23,6 @@ inline auto pairing(
     
     // Step 2: Compute final exponentiation using the inverter provider
     return final_exp(f, inverter, fp12ring, ring);
-}
-
-// Convenience wrapper using FP12BLSTInverter
-template<class Ring, class FP12RingType>
-inline auto pairing_with_blst_inverter(
-    const AffinePoint<typename Ring::StandardElement> &P,  // G1 point
-    const AffinePoint<typename FP2Ring<Ring>::StandardElement> &Q,  // G2 point
-    const FP2Ring<Ring>& fp2ring,
-    const FP12RingType& fp12ring,
-    const Ring &ring
-) {
-    FP12RNS_BLSTInverter<Ring, FP12RingType> inverter;
-    return pairing(P, Q, inverter, fp2ring, fp12ring, ring);
 }
 
 }  // namespace blst::avx
