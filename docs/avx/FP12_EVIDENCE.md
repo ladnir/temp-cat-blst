@@ -182,8 +182,15 @@ Five focused differentials and the three final-exponentiation Lean modules pass.
 The correspondence row is rebound to SHA-256
 `cc938fcdc5f7b681168135366361575de71d377e0371a5914aa9946f1ba8f778`
 without changing the exact 35-multiply, 315-square, nine-conjugation,
-Frobenius-1/2/1, and one-inversion ledger. No benchmark ran, so no end-to-end
-speedup is claimed by this packet.
+Frobenius-1/2/1, and one-inversion ledger.
+
+A later serial native comparison on Peach's AMD Ryzen 9 7950X used Clang
+21.1.8, `-O3 -march=native`, native AVX-512/IFMA, CPU 2, nine repetitions, and
+a 0.2-second minimum case time. Relative to pre-repair `bcacc2d`, current
+`cdcae0b` reduces isolated final exponentiation from 79.176 us to 76.148 us
+median (3.82%) and complete pairing from 136.713 us to 134.045 us (1.95%).
+Only one benchmark process ran at a time. CPU scaling remained enabled, so the
+result is focused selection evidence rather than a final release claim.
 
 Proof commit `82f26c1` completes `AVX-P3-006` for public GT multiplication. It
 proves the exact canonical unsigned radix-`z` split and odd-Frobenius

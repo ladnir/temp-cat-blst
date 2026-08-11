@@ -46,8 +46,8 @@ nonzero base reciprocal.
 
 ## Code-generation evidence
 
-Compile-only inspection used native AVX-512/IFMA configurations; no executable
-or benchmark ran.
+Compile-only inspection used native AVX-512/IFMA configurations before the
+focused runtime measurement below.
 
 - Before repair, MSVC emitted at least 305 loop-level copies totaling 468,480
   bytes and used a 38,528-byte hard-part frame. Clang used 35,456 bytes and
@@ -59,6 +59,27 @@ or benchmark ran.
   nested product copies rather than at least 305 square-loop copies.
 - Clang 18 gives the repaired hard part a 14,720-byte frame. Its raise kernel
   likewise has zero `memcpy`; the ownership result is cross-toolchain.
+
+## Native performance evidence
+
+A serial before/after comparison ran on Peach's AMD Ryzen 9 7950X with Clang
+21.1.8, `-O3 -march=native`, native AVX-512/IFMA, portable AVX disabled, and
+each benchmark process pinned to CPU 2. Baseline `bcacc2d` and current
+`cdcae0b` used the same narrow harness. Nine repetitions used a 0.2-second
+minimum case time and report medians:
+
+| Operation | Before | Repaired | Change |
+| --- | ---: | ---: | ---: |
+| Isolated final exponentiation | 79.176 us | 76.148 us | 3.82% faster |
+| Complete pairing | 136.713 us | 134.045 us | 1.95% faster |
+
+The isolated final-exponent coefficients of variation were 0.01% in both
+binaries; complete-pairing coefficients were 0.03% and 0.08%. Miller-only code
+was unchanged and its noisier diagnostic moved by 2.48% with 1.37%/1.14%
+coefficients of variation, so it is not attributed to this repair. CPU scaling
+remained enabled, making this focused selection evidence rather than a final
+release claim. Exactly one timing process ran at a time, and the Peach scratch
+builds were removed afterward.
 
 ## Remediation
 
@@ -75,7 +96,8 @@ Five focused portable-Debug Fp12/final-exponentiation/Miller differentials pass,
 including direct full/half fixed-z comparisons. The three focused Lean modules
 build, and `AVX-P3-005` is rebound to the exact source hash while retaining its
 35 multiplications, 315 cyclotomic squares, nine conjugations, Frobenius counts
-1/2/1, and one inversion. The audit file is complete. A serial native benchmark
-would quantify speedup but is not required to establish removal of the copies
-and oversized stack. P0 compiler/IFMA semantics, sanitizer/fuzz, Apple, and
-broad release evidence remain external milestone work.
+1/2/1, and one inversion. The audit file is complete, and the focused Peach
+measurement confirms that the ownership repair improves both isolated final
+exponentiation and complete pairing. P0 compiler/IFMA semantics,
+sanitizer/fuzz, Apple, and broad release evidence remain external milestone
+work.

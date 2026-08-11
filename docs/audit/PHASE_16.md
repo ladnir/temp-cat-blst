@@ -1012,5 +1012,6 @@ the complete final exponent falls from at least 305 loop copies to 25 nested
 product-boundary copies. Five focused portable-Debug differentials and the
 three final-exponentiation Lean modules pass. `AVX-P3-005` is rebound to the
 exact source hash with its 35-multiply/315-square/nine-conjugation ledger
-unchanged. No benchmark, remote run, broad suite, sanitizer, CUDA,
-portable-AVX Release, or BTx/BTE work ran.
+unchanged. A later one-process-at-a-time Peach comparison records a 3.82%
+isolated final-exponent improvement and a 1.95% complete-pairing improvement.
+No broad suite, sanitizer, CUDA, portable-AVX Release, or BTx/BTE work ran.

@@ -778,5 +778,7 @@ to 12,416 bytes with about 15.6 KiB peak nested stack; Clang 18 falls from
 reducing nested chain copies from at least 305 to 25 multiply-result boundaries.
 Five focused portable-Debug differentials and the three exact final-exponent
 Lean modules pass; all 21 correspondence rows and 61 hashes validate after the
-source rebind. Public C contracts and provenance are now explicit. No benchmark
-or broad/resource-heavy run was performed.
+source rebind. Public C contracts and provenance are now explicit. A later
+serial Peach comparison measures isolated final exponentiation 3.82% faster
+(79.176 to 76.148 us median) and complete pairing 1.95% faster (136.713 to
+134.045 us). No broad/resource-heavy run was performed.
