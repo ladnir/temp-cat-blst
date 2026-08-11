@@ -747,3 +747,12 @@ completion differentials pass. The small native MSVC probe has zero calls and
 only fixed-control branches. All 20 correspondence rows and 59 hashes validate
 after exact rebinding. No benchmark, remote run, broad suite, CUDA,
 portable-AVX Release, sanitizer, or BTx/BTE audit ran.
+
+The next paired file review has recorded `AUD-268` through `AUD-273` for
+`blst/avx/fields/fp12.h` and `matrixnok_fp12.h`. The selected formulas have no
+confirmed defect, but unselected arithmetic variants and obsolete ownership
+plumbing remain; the inverse decomposition needs direct proof/tests; and the
+split-cyclotomic wrapper needs a narrow optimized code-generation inspection.
+Implementation and closure evidence are pending. No build, benchmark, remote
+job, CUDA, portable-AVX Release, sanitizer, or BTx/BTE work ran for the
+read-only finding packet.

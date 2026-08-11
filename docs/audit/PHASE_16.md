@@ -960,3 +960,16 @@ small native MSVC probe reports zero calls and only fixed-control branches.
 All 20 correspondence rows and 59 hashes validate after rebinding. No
 benchmark, remote run, broad suite, CUDA, portable-AVX Release, sanitizer, or
 BTx/BTE audit ran.
+
+The paired selected-Fp12 audit records `AUD-268` through `AUD-273`. No
+arithmetic defect is presently confirmed in the selected multiplication,
+square, Frobenius, conjugation, sparse-Miller, or split-cyclotomic formulas;
+the accepted P3 proof packets cover those retained constructions. The owner
+does, however, retain unselected versioned schedules, obsolete stateful-policy
+plumbing, loose split-reduction bounds, and stale provenance/contracts. Direct
+formal and differential coverage of the inverse decomposition is missing, and
+the generated-code cost of concatenating the two cyclotomic halves has not
+been inspected at the owning wrapper. These findings remain open until the
+structural cleanup, inversion proof/tests, and narrow code-generation probe
+are independently reviewable. No build, benchmark, or remote job accompanied
+this read-only audit.
