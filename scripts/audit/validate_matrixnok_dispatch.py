@@ -159,6 +159,7 @@ def main() -> int:
     ))
     forbid_fragments(avx / "fields" / "fp12.h", (
         "VERSION",
+        "concat(",
         "fp12_flat_cyclotomic_sqr_v1",
         "fp12_flat_cyclotomic_sqr_v2",
         "fp12_flat_cyclotomic_sqr_v3",
@@ -169,6 +170,9 @@ def main() -> int:
     require_fragments(avx / "fields" / "fp12.h", (
         "first_cyclotomic_reduce_bound = 29",
         "second_cyclotomic_reduce_bound = 102",
+        "CommonElement<6> &result, const CommonElement<N> &x",
+        "result[0] = expanded[0];",
+        "result[11] = expanded[5];",
         "fp12_flat_cyclotomic_sqr_first_split",
         "fp12_flat_cyclotomic_sqr_second_split",
     ))

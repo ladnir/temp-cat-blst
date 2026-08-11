@@ -96,7 +96,7 @@ def cppFp12CyclotomicSecondSplit
     (x : FlatFp12 SelectedBaseField) : Fin 6 → SelectedBaseField :=
   fun i => 6 * cppFp12CyclotomicSecondPolynomials x i
 
-/-- Exact `concat(first_split(x), second_split(x))` coordinate order. -/
+/-- Exact coordinate order produced by the two split kernels in their final owner. -/
 def cppFp12CyclotomicSquareFlat
     (x : FlatFp12 SelectedBaseField) : FlatFp12 SelectedBaseField :=
   let first := cppFp12CyclotomicFirstSplit x

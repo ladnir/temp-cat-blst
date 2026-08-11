@@ -23,21 +23,6 @@
 
 namespace blst::avx {
 
-template<class T, std::size_t left_size, std::size_t right_size>
-std::array<T, left_size + right_size> concat(
-	const std::array<T, left_size>& left,
-	const std::array<T, right_size>& right)
-{
-	std::array<T, left_size + right_size> result;
-	for (std::size_t i = 0; i < left_size; ++i) {
-		result[i] = left[i];
-	}
-	for (std::size_t i = 0; i < right_size; ++i) {
-		result[left_size + i] = right[i];
-	}
-	return result;
-}
-
 template<class Ring, class Constants>
 class FP12Ring {
 
@@ -351,14 +336,18 @@ class FP12Ring {
 		// Cyclotomic membership is a precondition. This fixed split is selected
 		// because the monolithic form exhausts the register file. It performs no
 		// validation, allocation, exception handling, or data-dependent dispatch.
-		return concat(
-			fp12_flat_cyclotomic_sqr_first_split(x, ring),
-			fp12_flat_cyclotomic_sqr_second_split(x, ring));
+		// Both noinline halves write into this final return owner. Keeping the input
+		// distinct from that owner preserves exact caller-side storage reuse without
+		// making the second half observe coordinates written by the first half.
+		CommonElement<6> result;
+		fp12_flat_cyclotomic_sqr_first_split(result, x, ring);
+		fp12_flat_cyclotomic_sqr_second_split(result, x, ring);
+		return result;
 	}
 
 	template<int64_t N>
-	BLST_AVX_FP12_NOINLINE auto fp12_flat_cyclotomic_sqr_first_split(
-		const CommonElement<N> &x, const Ring &ring) const {
+	BLST_AVX_FP12_NOINLINE void fp12_flat_cyclotomic_sqr_first_split(
+		CommonElement<6> &result, const CommonElement<N> &x, const Ring &ring) const {
 		// Keep this source text aligned with the first accepted split proof ledger.
 		auto minus_x1 = ring.negate(x[1]);
 		auto minus_x3 = ring.negate(x[3]);
@@ -383,12 +372,18 @@ class FP12Ring {
 		auto scaled = to_common<6>(ring, reduced[0] * _3,
 			reduced[1] * _3, reduced[2] * _3, reduced[3] * _3,
 			reduced[4] * _3, reduced[5] * _3);
-		return ring.template batch_expand<6>(scaled);
+		const auto expanded = ring.template batch_expand<6>(scaled);
+		result[0] = expanded[0];
+		result[1] = expanded[1];
+		result[2] = expanded[2];
+		result[3] = expanded[3];
+		result[4] = expanded[4];
+		result[5] = expanded[5];
 	}
 
 	template<int64_t N>
-	BLST_AVX_FP12_NOINLINE auto fp12_flat_cyclotomic_sqr_second_split(
-		const CommonElement<N> &x, const Ring &ring) const {
+	BLST_AVX_FP12_NOINLINE void fp12_flat_cyclotomic_sqr_second_split(
+		CommonElement<6> &result, const CommonElement<N> &x, const Ring &ring) const {
 		// Keep this source text aligned with the second accepted split proof ledger.
 		auto minus_x7 = ring.negate(x[7]);
 		auto minus_x9 = ring.negate(x[9]);
@@ -409,7 +404,13 @@ class FP12Ring {
 		auto scaled = to_common<6>(ring, reduced[0] * _6,
 			reduced[1] * _6, reduced[2] * _6, reduced[3] * _6,
 			reduced[4] * _6, reduced[5] * _6);
-		return ring.template batch_expand<6>(scaled);
+		const auto expanded = ring.template batch_expand<6>(scaled);
+		result[6] = expanded[0];
+		result[7] = expanded[1];
+		result[8] = expanded[2];
+		result[9] = expanded[3];
+		result[10] = expanded[4];
+		result[11] = expanded[5];
 	}
 
 	inline StandardElement fp12_flat_frobenius_map1(const StandardElement &x, const Ring &ring) const {
