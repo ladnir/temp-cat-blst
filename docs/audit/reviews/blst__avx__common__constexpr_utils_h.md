@@ -2,7 +2,8 @@
 
 ## Scope
 
-This record covers the wide-integer compatibility layer at commit `33f6a8b`.
+This record covers the wide-integer compatibility layer through commit
+`fbaa3a9`.
 The remaining constexpr parsing, division, mask, inverse, and literal helpers
 remain pending for the broader foundational RNS utility review.
 
@@ -18,6 +19,8 @@ remain pending for the broader foundational RNS utility review.
   representable signed range.
 - Constant evaluation uses portable limb arithmetic. Native MSVC runtime
   64-by-64 multiplication uses `_umul128` and returns the exact low/high limbs.
+- All forced inlining is expressed through the AVX `INLINE` portability macro;
+  the utility does not spell a compiler-specific inline keyword directly.
 - MatrixNoK quotient accumulation multiplies two 64-bit inputs. Its optimized
   production path must contain direct machine multiplies, not calls to a
   generic wide-integer operator.
@@ -44,7 +47,8 @@ remain pending for the broader foundational RNS utility review.
   `mul` instructions and no wide-integer call or conditional jump; before the
   repair it emitted eight calls to the custom `uint128_t operator*`.
 - The structural dispatch validator rejects the former 64-bit signed alias and
-  requires the 16-byte signed carrier plus constant/runtime split.
+  requires the 16-byte signed carrier, constant/runtime split, and portable
+  `INLINE` spelling.
 
 ## Residual work
 

@@ -875,3 +875,8 @@ helper. The production Fp probe now contains eight inline `mul` instructions,
 zero calls, and zero conditional jumps where the previous probe contained
 eight custom `operator*` calls. No benchmark or remote job ran. The remaining
 non-wide helpers in `constexpr_utils.h` stay in review.
+
+Portability follow-up `fbaa3a9` replaces every direct MSVC `__forceinline`
+spelling with the AVX `INLINE` macro and makes the structural validator reject
+future direct spellings. The 32 focused tests and optimized one/eight-`mul`
+shapes remain unchanged.
