@@ -196,8 +196,11 @@ namespace blst::avx::matrixnok::detail
             const auto bounded_negative_high =
                 BoundedElement<Bounds<-1, 0>, limbs, element_bits>(negative_high);
             constexpr int64_t multiple = int64_t{1} << (multiply_bits - element_bits);
+            constexpr int64_t rebound = static_cast<int64_t>(blst::ceil_div(
+                static_cast<std::size_t>(upper_bound),
+                static_cast<std::size_t>(multiple)));
             const auto rebounded_high =
-                BoundedElement<Bounds<0, ceil_div(upper_bound, multiple)>, limbs, element_bits>(
+                BoundedElement<Bounds<0, rebound>, limbs, element_bits>(
                     high.data);
             return rebounded_high - bounded_negative_high;
         }
@@ -230,7 +233,8 @@ namespace blst::avx::matrixnok::detail
             const BoundedElement<Bounds<lower_bound, upper_bound>, limbs, element_bits>& value)
         {
             if constexpr (lower_bound < 0) {
-                return reduce_auto<stop>(value + moduli<ceil_log2(-lower_bound)>());
+                return reduce_auto<stop>(value + moduli<static_cast<int>(
+                    blst::log2ceil(static_cast<uint64_t>(-lower_bound)))>());
             } else if constexpr (upper_bound <= stop) {
                 return value;
             } else if constexpr (lower_bound > 0) {

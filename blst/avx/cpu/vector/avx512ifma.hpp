@@ -10,10 +10,6 @@
 
 namespace blst::avx {
 
-inline constexpr int ceil_div(int n, int d) {
-    return (n + d - 1) / d;
-}
-
 using AVXScalar = vv512i;
 
 // GCC diagnoses its native vector attributes when the vector type appears
@@ -50,8 +46,11 @@ inline AVXScalar scalar_shift(const AVXScalar &s, int bits) {
 template <int limbs>
 class AVXVector {
 public:
+    static_assert(limbs > 0);
     static constexpr int LIMBS_PER_VEC = 8;
-    static constexpr int VEC_LIMBS = ceil_div(limbs, LIMBS_PER_VEC);
+    static constexpr int VEC_LIMBS = static_cast<int>(blst::ceil_div(
+        static_cast<std::size_t>(limbs),
+        static_cast<std::size_t>(LIMBS_PER_VEC)));
 
     AVXScalarArray<VEC_LIMBS> data;
 

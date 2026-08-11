@@ -1,5 +1,4 @@
 #include "blst/avx/generated_matrixnok_constants.hpp"
-#include "blst/avx/rns/elementwise_reduce.h"
 #include "blst/avx/rns/matrixnok_change_base.h"
 #include "blst/avx/rns/matrixnok_fp.h"
 #include "blst/avx/fields/matrixnok_fp2.h"
@@ -42,6 +41,18 @@ namespace blst::avx::test
 
     static constexpr uint64_t kIfmaDigitMask =
         (uint64_t{1} << 52) - 1;
+
+    static constexpr uint64_t inverse_power_of_two(
+        uint64_t modulus, unsigned int exponent)
+    {
+        uint64_t result = 1;
+        for (unsigned int bit = 0; bit < exponent; ++bit) {
+            result = (result & 1) != 0
+                ? (result + modulus) >> 1
+                : result >> 1;
+        }
+        return result;
+    }
 
     // Scalar model of VPMADD52: multiply the low 52-bit digits and add the
     // selected half with ordinary uint64_t accumulator wrap.
@@ -123,6 +134,9 @@ namespace blst::avx::test
         int128_t(INT64_MAX) * int128_t(INT64_MAX);
     static constexpr uint128_t kUnsignedInt64Square =
         uint128_t(UINT64_MAX) * uint128_t(UINT64_MAX);
+    static constexpr uint128_t kUnsignedWideProduct =
+        (uint128_t(uint64_t{1}) << 64 | uint128_t(uint64_t{3})) *
+        (uint128_t(uint64_t{1}) << 64 | uint128_t(uint64_t{5}));
     static_assert(kSignedAboveInt64 > int128_t(INT64_MAX));
     static_assert(kSignedBelowInt64 < int128_t(INT64_MIN));
     static_assert(kSignedInt64Square > int128_t(INT64_MAX));
@@ -130,6 +144,8 @@ namespace blst::avx::test
     static_assert(
         static_cast<uint64_t>(kUnsignedInt64Square >> 64) ==
         UINT64_MAX - 1);
+    static_assert(static_cast<uint64_t>(kUnsignedWideProduct) == 15);
+    static_assert(static_cast<uint64_t>(kUnsignedWideProduct >> 64) == 8);
     static_assert(
         int128_t(int64_t{-7}) * int128_t(int64_t{9}) ==
         int128_t(int64_t{-63}));
@@ -164,6 +180,11 @@ namespace blst::avx::test
         const uint128_t shifted =
             (uint128_t(uint64_t{1}) << 64) + uint128_t(uint64_t{5});
         EXPECT_EQ(shifted % uint64_t{17}, uint64_t{6});
+#ifdef NDEBUG
+        EXPECT_EQ(mod_mul(1, 1, 0), 0);
+#else
+        EXPECT_DEATH((void)mod_mul(1, 1, 0), "");
+#endif
 
         const int128_t positive_wide =
             int128_t(INT64_MAX) * int128_t(int64_t{2});
@@ -308,15 +329,21 @@ namespace blst::avx::test
         const WideElement<WideBound, 8, 50> wide{
             WideResidue(AVXVector<8>(wide_high)),
             WideResidue(AVXVector<8>(wide_low))};
-        const MontgomeryReduce2<8, 50, 6> generic_reducer(matrixnok_constants::moduli1);
-        const auto generic_reduced = generic_reducer.template reduce_auto<2>(
-            generic_reducer.reduce_wide(wide));
         const auto fixed_reduced = matrixnok::detail::ReducerM1::template reduce_auto<2>(
             matrixnok::detail::ReducerM1::reduce_wide(wide));
-        EXPECT_EQ(fixed_reduced.data.to_array(), generic_reduced.data.to_array());
-        EXPECT_EQ(
-            matrixnok::detail::ReducerM1::template moduli<1>().data.to_array(),
-            generic_reducer.template moduli<1>().data.to_array());
+        const auto reduced_lanes = fixed_reduced.data.to_array();
+        const auto doubled_moduli =
+            matrixnok::detail::ReducerM1::template moduli<1>().data.to_array();
+        for (std::size_t lane = 0; lane < 8; ++lane) {
+            const uint64_t modulus = matrixnok_constants::moduli1[lane];
+            const uint64_t radix_inverse = inverse_power_of_two(modulus, 52);
+            const uint64_t expected =
+                (wide_high[lane] % modulus +
+                    mod_mul(wide_low[lane], radix_inverse, modulus)) % modulus;
+            EXPECT_LT(reduced_lanes[lane], 2 * modulus);
+            EXPECT_EQ(reduced_lanes[lane] % modulus, expected);
+            EXPECT_EQ(doubled_moduli[lane], 2 * modulus);
+        }
     }
 
     TEST(AvxMatrixNoKPrimitives, LowLaneExtractionAndBroadcast)
@@ -344,22 +371,12 @@ namespace blst::avx::test
         EXPECT_EQ(vector.extract<7>(), low[7]);
     }
 
-    template<int64_t upper_bound, int64_t stop, int log_multiples>
+    template<int64_t upper_bound, int64_t stop>
     void check_min_sub_schedule()
     {
         constexpr int limbs = 8;
         constexpr int element_bits = 50;
-        const std::array<uint64_t, limbs> moduli = {
-            (uint64_t{1} << element_bits) - 1,
-            (uint64_t{1} << element_bits) - 3,
-            (uint64_t{1} << element_bits) - 5,
-            (uint64_t{1} << element_bits) - 7,
-            (uint64_t{1} << element_bits) - 11,
-            (uint64_t{1} << element_bits) - 13,
-            (uint64_t{1} << element_bits) - 17,
-            (uint64_t{1} << element_bits) - 19,
-        };
-        const MontgomeryReduce2<limbs, element_bits, log_multiples> reducer(moduli);
+        const auto& moduli = matrixnok_constants::moduli1;
 
         constexpr std::array<int64_t, 16> quotient_seeds = {
             0, 1, 2, 3, 4, 5, 7, 8, 15, 16, 31, 32,
@@ -374,7 +391,8 @@ namespace blst::avx::test
             }
 
             using Input = BoundedElement<Bounds<0, upper_bound>, limbs, element_bits>;
-            const auto reduced = reducer.template min_sub_reduce<upper_bound, stop>(Input(AVXVector<limbs>(values)));
+            const auto reduced = matrixnok::detail::ReducerM1::template min_sub_reduce<
+                upper_bound, stop>(Input(AVXVector<limbs>(values)));
             const auto actual = reduced.data.to_array();
             for (int lane = 0; lane < limbs; ++lane) {
                 EXPECT_LT(actual[lane], static_cast<uint64_t>(stop) * moduli[lane]);
@@ -385,10 +403,10 @@ namespace blst::avx::test
 
     TEST(AvxMatrixNoKPrimitives, ConditionalSubtractionCoversConfiguredGap)
     {
-        check_min_sub_schedule<2, 1, 1>();
-        check_min_sub_schedule<4, 1, 2>();
-        check_min_sub_schedule<40, 1, 6>();
-        check_min_sub_schedule<100, 95, 3>();
+        check_min_sub_schedule<2, 1>();
+        check_min_sub_schedule<4, 1>();
+        check_min_sub_schedule<40, 1>();
+        check_min_sub_schedule<100, 95>();
     }
 
     struct Product52

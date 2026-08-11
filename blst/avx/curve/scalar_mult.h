@@ -95,7 +95,8 @@ template<int scalar_bits>
 class ScalarForExponent {
     public:
     static_assert(scalar_bits > 0, "ScalarForExponent requires a positive bit width");
-    static constexpr int limbs = ceil_div(scalar_bits, 8);
+    static constexpr int limbs = static_cast<int>(blst::ceil_div(
+        static_cast<std::size_t>(scalar_bits), std::size_t{8}));
     std::array<uint8_t, limbs> data;
 
 

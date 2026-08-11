@@ -1,6 +1,5 @@
 #include "blst/common/defines.h"
 #include "blst/avx/cpu/vector/vector_impl.hpp"
-#include "blst/avx/rns/elementwise_reduce.h"
 #include "blst/avx/rns/matrixnok_change_base.h"
 #include "blst/avx/rns/matrixnok_fp.h"
 #include "blst/avx/fields/matrixnok_fp2.h"
@@ -26,7 +25,6 @@
 using blst::avx::AVXVector;
 using blst::avx::BoundedElement;
 using blst::avx::Bounds;
-using blst::avx::MontgomeryReduce2;
 using blst::avx::ShortVector;
 using blst::avx::uint128_t;
 
@@ -50,12 +48,13 @@ extern "C" AUDIT_NOINLINE void audit_avx_broadcast_reduction_quotient(
 }
 
 extern "C" AUDIT_NOINLINE void audit_avx_reduce_bound40(
-    uint64_t out[8], const MontgomeryReduce2<8, 50, 6>* reducer, const uint64_t in[8])
+    uint64_t out[8], const uint64_t in[8])
 {
     using Input = BoundedElement<Bounds<0, 40>, 8, 50>;
     AVXVector<8> value;
     value.load(in);
-    const auto reduced = reducer->min_sub_reduce<40, 1>(Input(value));
+    const auto reduced =
+        blst::avx::matrixnok::detail::ReducerM1::min_sub_reduce<40, 1>(Input(value));
     reduced.data.store(out);
 }
 

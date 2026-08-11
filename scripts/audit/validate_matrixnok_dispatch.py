@@ -48,7 +48,17 @@ def main() -> int:
         "using int128_t = int64_t;",
         "__forceinline",
         "preprocess.h",
+        "constexpr int64_t ceil_div",
+        "constexpr int ceil_log2",
+        "get_mask(",
+        "mod_inverse(",
+        "read_384bit",
+        "parse_chunks",
     ))
+    require(not (avx / "cpu" / "reduction" / "montgomery.hpp").exists(),
+            "obsolete generic Montgomery owner was restored")
+    require(not (avx / "rns" / "elementwise_reduce.h").exists(),
+            "obsolete generic elementwise reducer was restored")
 
     require_fragments(avx / "rns" / "matrixnok_fp.h", (
         "using FpRing = FpRingCandidate;",

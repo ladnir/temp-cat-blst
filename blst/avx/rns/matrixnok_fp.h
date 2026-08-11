@@ -252,7 +252,7 @@ namespace blst::avx::matrixnok
         static BLST_FORCEINLINE auto elementwise_moduli()
         {
             static_assert(multiple >= 1);
-            constexpr int index = ceil_log2(multiple);
+            constexpr int index = static_cast<int>(blst::log2ceil(multiple));
             auto m1 = detail::ReducerM1::template moduli<index>();
             auto m2 = detail::ReducerM2::template moduli<index>();
             return ExpandedElement<decltype(m1), Bounds<0, 0>>(m1, m2);
@@ -483,8 +483,8 @@ namespace blst::avx::matrixnok
             const SmallElement<ElementType, RNSBoundsType>& element)
         {
             if constexpr (RNSBoundsType::lower < 0) {
-                constexpr int offset_shift =
-                    ceil_log2(-RNSBoundsType::lower);
+                constexpr int offset_shift = static_cast<int>(
+                    blst::log2ceil(static_cast<uint64_t>(-RNSBoundsType::lower)));
                 const auto modulus = SmallElement<
                     FullyReducedResidue,
                     Bounds<1, 1>>(
