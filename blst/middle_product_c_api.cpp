@@ -36,7 +36,7 @@ static_assert(std::is_trivially_copyable_v<BoundaryFp12>);
 }
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-inline BoundaryFp12 gt_to_boundary(const blst::avx::GT& value)
+[[maybe_unused]] inline BoundaryFp12 gt_to_boundary(const blst::avx::GT& value)
 {
     return blst::avx::avx_gt_detail::to_scalar(value.data);
 }
