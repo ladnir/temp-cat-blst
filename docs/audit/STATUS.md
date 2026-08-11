@@ -834,3 +834,18 @@ and `AUD-287` through `AUD-289` remain open for reusable final-exp scratch,
 precomputation, backend selection, direct GT conversion, and cleanup. No
 benchmark, remote run, CUDA, sanitizer, portable-AVX Release, full suite, or
 BTx/BTE audit ran.
+
+Phase 17 precomputation and boundary cleanup is validated at `f39063f`.
+`AUD-284` replaces one Fr inversion per inverse root with the exact reversed
+ordered-power table. `AUD-285` stores one forward and one inverse truncated FFT
+plan in the immutable B precompute and reuses them across B construction and A
+evaluations; B0 also transforms directly in final storage. `AUD-288` replaces
+the 576-byte AVX GT serialize/decode boundary with the direct typed Fp12 bridge.
+`AUD-289` removes dead selectors/instrumentation, consolidates the G1 boundary
+conversion, fixes formatting residue, and adds Category Labs, Apache-2.0, and
+upstream lineage. MSVC 19.50 scalar-default plus portable-AVX Debug builds with
+two workers and passes eight focused root, plan, sizing, and C-boundary tests.
+`AUD-282` and benchmark-gated `AUD-287` remain open. Frozen BTx rebuilt as a
+dependency and emitted its existing nodiscard warning, but was neither changed
+nor audited. No benchmark, remote run, CUDA, sanitizer, portable-AVX Release,
+or full suite ran.

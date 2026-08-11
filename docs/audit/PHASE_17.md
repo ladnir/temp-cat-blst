@@ -28,12 +28,11 @@ behavior, output publication on failure, immutable handle ownership, workspace
 concurrency, and exact-versus-partial alias rules. Result-bearing C declarations
 are marked `BLST_NODISCARD`.
 
-The same pass records but does not yet repair `AUD-284`, `AUD-285`, and
-`AUD-287` through `AUD-289`: inverse-root construction, repeated truncated-plan
-allocation, stale backend-independent Auto selection, avoidable AVX result
-serialization, and cleanup/provenance. `AUD-282` remains open for reusable AVX
-batch-final-exponentiation scratch. None of those deferred items changes the
-safety packet's supported domain.
+The same pass records `AUD-284`, `AUD-285`, and `AUD-287` through `AUD-289`:
+inverse-root construction, repeated truncated-plan allocation, stale backend-
+independent Auto selection, avoidable AVX result serialization, and cleanup/
+provenance. Packet 17C closes all except benchmark-gated `AUD-287`. `AUD-282`
+remains open for reusable AVX batch-final-exponentiation scratch.
 
 Focused validation exposed two additional defects. `AUD-290` found that the
 scalar-to-AVX projective bridge preserved scalar's all-zero infinity rather
@@ -56,6 +55,38 @@ pass. An older portable-Debug executable reproduces `AUD-290`, while an older
 scalar executable passes the same reconstruction, preserving before/after and
 backend-isolation evidence. No benchmark, remote process, CUDA, sanitizer,
 portable-AVX Release, full test sweep, or BTx/BTE audit was performed.
+
+## Packet 17C - Reusable precomputation and typed GT boundary
+
+Commit `f39063f` removes the repeated offline and per-evaluation setup recorded
+by `AUD-284` and `AUD-285`. A complete ordered root table now produces inverse
+roots as `[roots[0], roots[n-1], ..., roots[1]]`; no per-root field inversion is
+performed. One shape-only truncated-forward plan and one fixed middle-window
+inverse plan are built with the immutable B precompute. Both B transforms and
+every later A transform read the same forward plan, while every inverse reads
+the same inverse plan. Concurrent evaluations remain read-only with respect to
+the precompute and retain separate caller-owned workspaces.
+
+The B0 transform now runs directly in its final `b_fft` storage, removing one
+full temporary G2 vector without changing the butterfly or fold algorithms.
+`AUD-288` replaces the 576-byte serialize/decode C-boundary conversion with
+typed scalar-GT and AVX-GT overloads; the latter uses the already-audited direct
+MatrixNoK-to-scalar Fp12 bridge. Exact ABI layout assertions remain in place.
+
+`AUD-289` removes the unused backend-selection macro, empty timing scope,
+duplicated G1 bridge expression, and tabbed formatting residue. The three
+middle-product owners now record Apache-2.0, Category Labs, retained
+Supranational C-header copyright, and BLST primitive lineage accurately.
+
+MSVC 19.50 scalar-default plus portable-AVX Debug builds the affected library
+and test target with two workers. Eight focused inverse-root, plan-reuse,
+sizing, and C-boundary tests pass. Repeated scalar evaluations with separate
+workspaces leave both plan-storage addresses unchanged and agree exactly.
+Structural scans find no old selector macro, empty timer metric, or C-boundary
+serialization/decode path. The build recompiled frozen BTx as a dependency and
+reported its pre-existing nodiscard warning; no BTx/BTE file was changed or
+audited. No benchmark, remote process, CUDA, sanitizer, portable-AVX Release,
+or full test sweep ran.
 
 ## Packet 17A - Generic FFT boundary and isolated interpolation
 
