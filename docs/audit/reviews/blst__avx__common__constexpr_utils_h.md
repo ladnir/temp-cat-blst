@@ -3,7 +3,7 @@
 ## Scope
 
 This record covers the wide-integer compatibility layer through commit
-`fbaa3a9`.
+`2d691ed`.
 The remaining constexpr parsing, division, mask, inverse, and literal helpers
 remain pending for the broader foundational RNS utility review.
 
@@ -19,8 +19,9 @@ remain pending for the broader foundational RNS utility review.
   representable signed range.
 - Constant evaluation uses portable limb arithmetic. Native MSVC runtime
   64-by-64 multiplication uses `_umul128` and returns the exact low/high limbs.
-- All forced inlining is expressed through the AVX `INLINE` portability macro;
-  the utility does not spell a compiler-specific inline keyword directly.
+- All forced inlining is expressed through CatBLST's canonical
+  `BLST_FORCEINLINE` policy from `blst/common/defines.h`; the utility does not
+  own a second compiler-detection layer or spell a compiler-specific keyword.
 - MatrixNoK quotient accumulation multiplies two 64-bit inputs. Its optimized
   production path must contain direct machine multiplies, not calls to a
   generic wide-integer operator.
@@ -33,6 +34,8 @@ remain pending for the broader foundational RNS utility review.
 - `AUD-240`: the portable 32-bit decomposition used for MSVC unsigned products
   was emitted as eight out-of-line `operator*` calls in one production Fp
   multiplication.
+- `AUD-241`: the inherited AVX `preprocess.h` duplicated the compiler-inline
+  policy already owned by `blst/common/defines.h`.
 
 ## Validation
 
@@ -41,14 +44,14 @@ remain pending for the broader foundational RNS utility review.
 - Runtime tests compare all 64 pairs from eight signed boundary values with
   MSVC `_mul128`, and cover unsigned high/low multiplication and 128-by-64
   modulo behavior.
-- The serial portable-Debug target passes all 32 focused MatrixNoK/C API tests.
+- The serial portable-Debug target passes all 39 focused MatrixNoK/C API tests.
 - Optimized MSVC emits one `mul` and no branch or call for the standalone
   64-by-64 helper. Production MatrixNoK Fp multiplication emits eight inline
   `mul` instructions and no wide-integer call or conditional jump; before the
   repair it emitted eight calls to the custom `uint128_t operator*`.
 - The structural dispatch validator rejects the former 64-bit signed alias and
-  requires the 16-byte signed carrier, constant/runtime split, and portable
-  `INLINE` spelling.
+  redundant preprocessor header, and requires the 16-byte signed carrier,
+  constant/runtime split, and canonical `BLST_FORCEINLINE` spelling.
 
 ## Residual work
 

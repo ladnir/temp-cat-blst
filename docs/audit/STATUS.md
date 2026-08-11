@@ -664,6 +664,11 @@ portable-Debug tests pass. Optimized production Fp multiplication changes from
 eight compatibility calls to eight inline `mul` instructions with no call or
 conditional jump. The rest of `constexpr_utils.h` and the foundational bounds,
 carrier, and reducer owners remain the next audit packet; no benchmark ran.
-Follow-up `fbaa3a9` expresses the same forced-inline policy solely through the
-portable AVX `INLINE` macro; focused correctness and code generation are
-unchanged.
+Follow-up `fbaa3a9` first expressed the same forced-inline policy through the
+inherited AVX macro. `AUD-241` then removes that duplicate preprocessor owner at
+`2d691ed` and uses CatBLST's canonical `BLST_FORCEINLINE` policy throughout the
+AVX templates. A serial portable-Debug rebuild passes 39/39 focused tests and
+all structural and exact-hash correspondence checks pass after rebinding. The
+optimized native Fp probe retains 244 instructions, a 312-byte frame, eight
+inline multiplies, zero calls, and zero branches; no benchmark or remote job
+ran.
