@@ -805,3 +805,11 @@ and `AUD-282` remains open for reusable scratch during the middle-product audit,
 although its current six-buffer allocation contract is now explicit. No
 benchmark, remote job, broad build, CUDA, portable-AVX Release, sanitizer,
 Apple CI, or BTx/BTE work ran.
+
+`AUD-280` now has correctness and local code-generation evidence at `4e7c618`
+without a production dispatch change. The cyclotomic candidate matches scalar
+GT doubling across identity, deterministic GT powers, and exact aliasing; its
+unsupported-MSVC production-shaped body is about half the dense instruction
+count and substantially smaller in peak stack. The finding remains open until
+an explicitly approved single-process Clang 21 native benchmark validates the
+performance selection. No benchmark or remote job ran.

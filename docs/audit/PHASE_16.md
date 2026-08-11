@@ -1071,3 +1071,18 @@ now has an explicit six-buffer allocation/nonoverlap/failure contract but its
 reusable-scratch design remains deferred to the Phase 17 middle-product audit.
 No benchmark, remote job, broad build, CUDA, portable-AVX Release, sanitizer,
 Apple CI, or BTx/BTE work ran.
+
+The non-timing portion of `AUD-280` is complete at `4e7c618` without changing
+production dispatch. A forced cyclotomic-doubling candidate matches scalar GT
+doubling for identity, generator, deterministic 64/128/256-bit powers, and
+exact output aliasing. The existing accepted P3 cyclotomic-square proof and
+narrowing boundary cover the candidate arithmetic. A production-shaped local
+MSVC 19.50 `/O2` comparison emits approximately 4,195 instruction lines for
+the candidate wrapper plus split helpers versus 8,215 for the dense wrapper
+plus general multiplication, with approximate peak nested stack of 52.8 KiB
+versus 127.6 KiB. This compiler is explicitly unsupported for production AVX,
+so the result is directional evidence only. Selection remains blocked on one
+approved, serial, supported Clang 21 native benchmark comparing dense and
+cyclotomic one-shot doubling and a short repeated-doubling chain. No benchmark,
+remote job, production change, broad build, CUDA, portable-AVX Release,
+sanitizer, Apple CI, or BTx/BTE work ran.
