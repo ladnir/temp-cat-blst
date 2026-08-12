@@ -992,3 +992,17 @@ warning-clean, exact raw binding regeneration and 253/253 parity pass, and the
 optimized public guard is inlined. No benchmark, full suite, sanitizer, CUDA,
 BTx/BTE audit, portable-AVX Release, native AVX, Apple CI, push, or parallel
 heavy work was performed.
+
+Phase 18 Rust support-file closure is complete at `16e5b49`, `5f6c423`, and
+`51b23a5`. `AUD-338` and `AUD-339` are validated: owned affine conversion now states its
+subgroup/validation/allocation contract, and publication rejects any dirty
+source before Cargo, requires a real symbolic link, and cleans its temporary
+link and target. MSYS copy-style symlink emulation fails closed.
+The test-only Pippenger macro is reclassified as support and adds exact scalar
+width, masking, shape, and pointer-alias regressions. Scalar Release evidence
+passes multipoint 16/16, compressed infinity 1/1, conformance 2/2, and the smoke
+example; pinned binding regeneration, 253/253 parity, rustdoc, Rust API, shell
+syntax, complete dirty rejection, native POSIX injected-no-op cleanup, and MSYS
+safe-refusal gates pass. No native rebuild, benchmark, live publication, CUDA,
+BTx/BTE audit, full suite,
+sanitizer, native AVX, Apple CI, or push ran.

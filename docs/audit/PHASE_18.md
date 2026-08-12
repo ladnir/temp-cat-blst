@@ -158,3 +158,32 @@ no helper call from that boundary. No benchmark, full suite, sanitizer, CUDA,
 BTx/BTE audit, portable-AVX Release, native AVX, Apple CI, push, or parallel
 heavy work was performed. The scalar Debug target rebuilt serially; frozen
 BTx/BTE compiled unchanged only as an existing target dependency.
+
+## Wave 5: Rust support-file closure
+
+The remaining non-benchmark Rust test, example, and publication support files
+are complete at implementation commits `16e5b49`, `5f6c423`, and `51b23a5`.
+`AUD-338` documents the owned affine carriers' subgroup, validation, mutation,
+empty, and allocation responsibilities without adding validation or production
+overhead.
+`AUD-339` makes publication fail closed on checkout discovery and any tracked,
+staged, or untracked source change before creating its required source link. It
+requires a real symbolic link, verifies that link resolves to the repository
+root, and cleans its isolated target on normal or signaled exit. MSYS directory-
+copy emulation is explicitly rejected.
+
+The deterministic Pippenger support macro is correctly classified as test-only.
+It now uses direct heap buffers, forms raw pointers for the C exact-alias
+contract, and covers non-byte-aligned masking, 256-bit scalars, short buffers,
+and over-width rejection. The example states its raw Miller subgroup
+precondition, and every reviewed Rust support source has Apache-2.0/SPDX
+provenance. Compressed-infinity and conformance behavior required no change.
+
+Focused scalar Release evidence passes G1/G2 multipoint 16/16, compressed
+infinity 1/1, scalar conformance 2/2, and the full-binding smoke example. Pinned
+bindgen/Rust 1.65 regeneration is exact, C/raw Rust declarations remain 253/253,
+and rustdoc plus Rust API gates pass with warnings denied. Shell syntax, dirty
+rejection, a native POSIX injected-no-op Cargo cleanup path, and MSYS safe
+native-link refusal pass; no registry was contacted. No native rebuild,
+benchmark, full suite, sanitizer, CUDA, BTx/BTE audit, portable-AVX Release,
+native AVX, Apple CI, push, or live publication ran.

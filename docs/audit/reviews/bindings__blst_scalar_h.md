@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `bindings/blst_scalar.h` |
 | Roadmap phase / queue | Phase 18 public C/C++/Rust surface; Wave 1 Set B |
-| Reviewed commit | `dfd0740` |
+| Reviewed commit | `16e5b49` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-12 |
 | Disposition | in-scope production |
@@ -365,3 +365,11 @@ Pinned bindgen/Rust 1.65 regeneration is byte-identical and retains exact
 primitives pass 9/9 in Release, and optimized MSVC inlines the public guard
 before hashing without an out-of-line helper call. No signature, ABI layout, or
 valid-input digest changed.
+
+## Phase 18 Rust support alias follow-up
+
+At `16e5b49`, the complete G1/G2 projective add declarations state their
+existing exact output/input alias support and partial-overlap prohibition. This
+lets Rust tests exercise the C contract with raw pointers instead of overlapping
+Rust references. Pinned generation remains exact at 253/253 declarations; no
+signature, implementation, or code generation changed.

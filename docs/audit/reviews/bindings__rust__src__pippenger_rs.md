@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `bindings/rust/src/pippenger.rs` |
 | Roadmap phase / queue | Phase 15 scalar MSM supported caller review |
-| Reviewed commit | `af09f66ee9097fe35617af33fbcbc7dfd4229237` |
+| Reviewed commit | `16e5b4926e56821989a73e67ffc2e33832ffc262` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-04 |
 | Disposition | in-scope production |
@@ -29,6 +29,8 @@ confined to initialized output publication and the raw C boundary.
 - Scalars are contiguous little-endian values of `ceil(nbits/8)` bytes each.
 - `nbits <= 256`; short or overflowed buffers panic before FFI.
 - Empty points or zero bits return identity without allocation or FFI access.
+- Owned affine carriers state that conversion preserves but does not validate
+  subgroup membership and that indexed mutation can invalidate the contract.
 - FFI-written vectors use `MaybeUninit` and become initialized only after the
   C routine writes every element.
 
@@ -62,7 +64,8 @@ Local deviations are linked to AUD-003 and the current MSM contract findings.
 
 ### 4. Correctness
 
-G1/G2 multipoint multiplication and scalar-layout overflow tests pass.
+G1/G2 multipoint multiplication, addition, scalar-width/masking, short-buffer,
+empty, validation, and scalar-layout overflow tests pass.
 
 ### 5. Memory and lifetime safety
 
@@ -119,15 +122,16 @@ No benchmark or CUDA/AVX expert Rust surface is part of this file review.
 
 ## Findings
 
-`AUD-003`, `AUD-040`, `AUD-095`, `AUD-110`, `AUD-111`, and `AUD-114` through
-`AUD-116` (through the repaired C boundary).
+`AUD-003`, `AUD-040`, `AUD-095`, `AUD-110`, `AUD-111`, `AUD-114` through
+`AUD-116`, and `AUD-338` (through the repaired C boundary and public carrier
+contracts).
 
 ## Validation
 
-- `cargo test --features full-rust-bindings scalar_layout_rejects_overflow
-  --jobs 1`: 1/1 passed.
-- `cargo test --features full-rust-bindings multi_point::test_mult --jobs 1`:
-  G1/G2 2/2 passed.
+- `cargo test --release --features full-rust-bindings
+  'multi_point::test_' --jobs 1`: G1/G2 16/16 passed.
+- Full-binding rustdoc passes with warnings denied; the Rust API contract and
+  exact 253/253 raw-binding gates pass.
 
 ## Automated evidence
 
@@ -141,6 +145,5 @@ No benchmark or CUDA/AVX expert Rust surface is part of this file review.
 
 ## Residual risk and decision
 
-The file is complete at the recorded commit. Generated raw bindings remain a
-Phase 18 generator review; broader Rust and Apple validation remains a
-milestone gate.
+The file is complete at the recorded commit. Broader sanitizer/fuzz, supported
+Rust matrix, and Apple validation remain milestone gates.

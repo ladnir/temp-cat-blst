@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `bindings/rust/src/bindings.rs`; `build/generate-rust-bindings.sh`; `build/bindings_trim.pl` |
 | Roadmap phase / queue | Phase 18 generated-Rust audit |
-| Reviewed commit | `835b97d802948fabb1e88383a975df07d98cf0ee` |
+| Reviewed commit | `16e5b4926e56821989a73e67ffc2e33832ffc262` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-12 |
 | Disposition | generated production plus owning generators |
@@ -72,3 +72,8 @@ compiling the native product. The equivalent local run passed with bindgen
 0.65.1 and Clang/libclang 18.1.3. Cross-host libclang minor-version stability
 and the first hosted execution remain release evidence, but no known
 declaration, layout, or reproducibility gap remains.
+
+At `16e5b49`, the audited complete-add exact-alias wording was added to the C
+owner and regenerated through the same pinned pipeline. The artifact remains
+byte-exact and declaration parity remains 253/253; no declaration, type, ABI,
+or runtime code changed.
