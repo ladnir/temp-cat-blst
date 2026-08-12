@@ -28,6 +28,25 @@ static_assert(!std::is_copy_constructible_v<AvxScopedRoots>);
 static_assert(!std::is_copy_assignable_v<AvxScopedRoots>);
 static_assert(!std::is_move_constructible_v<AvxScopedRoots>);
 static_assert(!std::is_move_assignable_v<AvxScopedRoots>);
+
+#ifndef NDEBUG
+TEST(BackendAlias, AvxGtPreparedRootsDiagnoseInvalidInput)
+{
+    EXPECT_DEATH(
+        {
+            AvxPreparedRoots empty;
+            empty.prepare_inverse_scale();
+        },
+        "");
+
+    EXPECT_DEATH(
+        {
+            const Fr nonreduced = Fr::modulus();
+            (void)blst::avx::fr_to_limbs_le(nonreduced);
+        },
+        "");
+}
+#endif
 #endif
 
 static G1Point point_from_scalar_g1(u64 scalar)
