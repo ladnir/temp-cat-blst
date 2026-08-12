@@ -20,7 +20,6 @@ surfaces.
 | --- | --- | --- |
 | Scalar and assembly | Supported | General-purpose x86_64 and Apple Silicon deployments |
 | Native AVX-512/IFMA | Supported | High-throughput x86_64 deployments with the required ISA |
-| Portable AVX-512 | Developer only | Debugging, differential testing, and analysis |
 | CUDA | Experimental | GPU experimentation; excluded from the production support gate |
 
 The supported production platforms are little-endian 64-bit x86_64 and Apple
@@ -104,9 +103,8 @@ ctest --test-dir out/build/release --output-on-failure
 Important backend options include:
 
 - `BLST_AVX512=ON` — compile the native AVX-512 backend.
-- `BLST_DEFAULT_AVX=ON` — select AVX as the default implementation; requires a
-  native or portable AVX backend.
-- `BLST_AVX512_PORTABLE=ON` — enable developer-only AVX emulation.
+- `BLST_DEFAULT_AVX=ON` — select the native AVX backend as the default
+  implementation.
 - `BLST_CUDA=ON` — enable the experimental CUDA backend.
 
 Repository presets in [CMakePresets.json](CMakePresets.json) provide common
