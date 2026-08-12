@@ -127,7 +127,8 @@ pub fn fr_fft_with_domain(
 /// is caller-owned; no coefficient vector is returned across the FFI boundary.
 /// It is unchanged on error. The operation may allocate and is variable-time in
 /// the points and public length; for fixed points, reconstruction shape does not
-/// depend on values.
+/// depend on values. Ordinary heap storage contains value-derived intermediates
+/// and is not securely erased.
 pub fn fr_interpolate(
     points: &[blst_fr],
     values: &[blst_fr],
@@ -183,7 +184,8 @@ pub fn fr_interpolate_fft_domain_suffix_scratch_len(
 ///
 /// The operation allocates nothing. Its schedule depends on the public lengths
 /// and indices, not on values. Output is unchanged on error, while scratch may
-/// be modified after native shape validation succeeds.
+/// be modified after native shape validation succeeds. Scratch contains
+/// value-derived intermediates and must be cleared by the caller if required.
 pub fn fr_interpolate_fft_domain_suffix_with_scratch(
     indices: &[usize],
     values: &[blst_fr],

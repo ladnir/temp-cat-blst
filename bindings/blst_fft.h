@@ -88,7 +88,8 @@ bool blst_fr_fft_with_domain(
  *
  * Output is unchanged on failure and may overlap either input. The operation
  * may allocate and is variable-time in the points and public length. For fixed
- * points its reconstruction schedule does not depend on values.
+ * points its reconstruction schedule does not depend on values. Ordinary heap
+ * storage contains value-derived intermediates and is not securely erased.
  */
 BLST_NODISCARD bool blst_fr_interpolate(
     blst_fr* out_coefficients,
@@ -123,6 +124,8 @@ BLST_NODISCARD size_t blst_fr_interpolate_fft_domain_suffix_scratch_len(
  * values, but not indices or scratch. Output is unchanged on failure; scratch
  * may be modified after initial validation succeeds. The operation allocates
  * nothing and its schedule depends on public lengths and indices, not values.
+ * Scratch contains value-derived intermediates and must be cleared by the
+ * caller when that lifecycle policy is required.
  */
 BLST_NODISCARD bool blst_fr_interpolate_fft_domain_suffix_with_scratch(
     blst_fr* out_suffix,

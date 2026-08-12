@@ -36,7 +36,8 @@ namespace blst::fr_interpolation
      * published only after the complete result is available. On failure output
      * is unchanged. The operation may allocate and is variable-time in the
      * public points and length; reconstruction has a fixed shape with respect
-     * to values for a fixed point set.
+     * to values for a fixed point set. Ordinary heap storage holds
+     * value-derived intermediates and is not securely erased.
      */
     [[nodiscard]] Status interpolate(
         std::span<Fr> out_coefficients,
@@ -75,7 +76,8 @@ namespace blst::fr_interpolation
      * length `n-ell`, and scratch has at least `domain_suffix_scratch_len`
      * elements. Scratch must not overlap any other argument. Output may overlap
      * values, but not indices, and is unchanged on failure; scratch is
-     * unspecified after a call that passes initial shape validation. Execution
+     * unspecified after a call that passes initial shape validation and contains
+     * value-derived intermediates. The caller clears it if required. Execution
      * allocates nothing. Its schedule and addresses depend on public lengths and
      * indices, not on values.
      */
