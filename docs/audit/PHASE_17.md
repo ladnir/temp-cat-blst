@@ -330,14 +330,22 @@ found. General interpolation implements product-tree Lagrange reconstruction
 through `M'(x_i)`, while suffix interpolation uses the high coefficients of
 `M(X)Q(X) = (X^L - 1)P(X)`.
 
-The review records `AUD-297` through `AUD-302`. The principal correctness gap is
-that current tests never cross the naive multiplication/division thresholds.
-The principal side-channel issue is value-dependent trimming during recursive
-reconstruction. Structural cleanup will flatten node ownership, provide a
-remainder-only division path, assert the fast-division degree invariant, and
-remove the redundant inverse-root scratch table. Selecting a faster suffix
-algorithm remains benchmark-gated and will not be inferred from correctness
-tests.
+The review records `AUD-297` through `AUD-302`. Commits `087866b`, `1821c58`,
+and `baf3e45` add the independent oracle, flatten the product tree, make
+value-derived reconstruction fixed-shape, remove discarded quotients, assert
+the fast-division degree invariant, reduce suffix scratch from `3L+3n+2` to
+`2L+3n+2`, and document ordinary secret-derived storage. Selecting a faster
+suffix algorithm remains benchmark-gated under open `AUD-301` and was not
+inferred from correctness tests.
+
+Portable-enabled MSVC Debug passes eight focused native/C tests. A scalar
+Release implementation plus independently linked FFT test object passes the
+three interpolation tests. Rust Release FFT passes 9/9, and the public header
+passes strict MSVC C11 parsing. The attempted monolithic scalar-only Release
+test build exposed `AUD-303`: AVX-only helper names were parsed outside feature
+guards. Commit `2846e0a` repairs that test object in scalar-only Release and
+portable-enabled Debug. No benchmark, CUDA, full runtime suite, sanitizer,
+native AVX-512, remote, or Apple run was performed.
 
 BTx/BTE was not audited or modified. Its source has no call to the retained
 public interpolation entry points.
