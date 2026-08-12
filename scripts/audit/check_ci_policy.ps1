@@ -47,7 +47,7 @@ foreach ($workflow in $workflowFiles) {
         }
     }
 
-    if ($text -match '(?m)^\s*runs-on:\s*(ubuntu-latest|windows-latest)\s*$') {
+    if ($text -match '(?m)^\s*runs-on:\s*(ubuntu-latest|windows-latest|macos-latest)\s*$') {
         throw "$($workflow.Name): mutable latest runner alias is not allowed."
     }
 }
@@ -102,7 +102,9 @@ $dependabot = Get-Content -LiteralPath $dependabotPath -Raw
 foreach ($required in @(
     'package-ecosystem: github-actions',
     'directory: /',
-    'interval: weekly'
+    'interval: weekly',
+    'groups:',
+    '      github-actions:'
 )) {
     if (-not $dependabot.Contains($required)) {
         throw "dependabot.yml: missing retained action-update policy '$required'."
