@@ -94,6 +94,19 @@ namespace
         return out;
     }
 
+    Fr evaluate_polynomial(
+        const std::span<const Fr> coefficients,
+        const Fr& point)
+    {
+        Fr value = {};
+        for (auto coefficient = coefficients.rbegin();
+             coefficient != coefficients.rend();
+             ++coefficient) {
+            value = add(multiply(value, point), *coefficient);
+        }
+        return value;
+    }
+
     template<std::size_t N>
     bool equal(
         const std::array<Fr, N>& lhs,
@@ -322,6 +335,53 @@ TEST(FftApi, GeneralInterpolationReportsDuplicatePoints)
             values),
         InterpolationStatus::duplicate_point);
     EXPECT_TRUE(equal(recovered, sentinel));
+}
+
+TEST(FftApi, GeneralInterpolationCrossesFastPathThresholds)
+{
+    for (const std::size_t n : { 63U, 64U, 65U }) {
+        SCOPED_TRACE(n);
+        std::vector<Fr> coefficients(n);
+        std::vector<Fr> points(n);
+        std::vector<Fr> values(n);
+        for (std::size_t i = 0; i < n; ++i) {
+            coefficients[i] = (i % 7 == 3) ? Fr{} : from_u64(17 * i + 5);
+            points[i] = from_u64(i + 1);
+        }
+        for (std::size_t i = 0; i < n; ++i) {
+            values[i] = evaluate_polynomial(coefficients, points[i]);
+        }
+
+        std::vector<Fr> recovered(n, from_u64(0xBAD));
+        ASSERT_EQ(
+            blst::fr_interpolation::interpolate(recovered, points, values),
+            InterpolationStatus::success);
+        EXPECT_TRUE(equal(recovered, coefficients));
+
+        std::fill(values.begin(), values.end(), Fr{});
+        std::fill(recovered.begin(), recovered.end(), from_u64(0xBAD));
+        ASSERT_EQ(
+            blst::fr_interpolation::interpolate(recovered, points, values),
+            InterpolationStatus::success);
+        EXPECT_TRUE(std::all_of(
+            recovered.begin(),
+            recovered.end(),
+            [](const Fr& value) { return Fr::equal(value, Fr{}); }));
+    }
+
+    constexpr std::size_t n = 65;
+    std::vector<Fr> points(n);
+    std::vector<Fr> values(n, Fr::one());
+    std::vector<Fr> output(n, from_u64(0xBAD));
+    for (std::size_t i = 0; i < n; ++i) {
+        points[i] = from_u64(i + 1);
+    }
+    points.back() = points.front();
+    const std::vector<Fr> sentinel = output;
+    EXPECT_EQ(
+        blst::fr_interpolation::interpolate(output, points, values),
+        InterpolationStatus::duplicate_point);
+    EXPECT_TRUE(equal(output, sentinel));
 }
 
 TEST(FftApi, DomainSuffixUsesCallerScratchAndReportsErrors)
