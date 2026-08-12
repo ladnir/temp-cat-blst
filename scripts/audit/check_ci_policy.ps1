@@ -71,14 +71,38 @@ if ($ci -match '(?m)^\s*\*\*/Cargo\.lock\s*$') {
 if ($ci -notmatch "hashFiles\('bindings/rust/Cargo.lock'\)") {
     throw 'ci.yml: the Cargo cache key must include the committed lockfile hash.'
 }
+$cargoLockPath = Join-Path $repoRoot 'bindings\rust\Cargo.lock'
+if (-not (Test-Path -LiteralPath $cargoLockPath -PathType Leaf)) {
+    throw 'ci.yml: locked Rust CI requires the tracked bindings/rust/Cargo.lock.'
+}
+$cargoManifestPath = Join-Path $repoRoot 'bindings\rust\Cargo.toml'
+$cargoManifest = Get-Content -LiteralPath $cargoManifestPath -Raw
+if ($cargoManifest -notmatch '(?m)^rust-version\s*=\s*"1\.78"\s*$') {
+    throw 'Cargo.toml: the tested MSRV must remain Rust 1.78.'
+}
+$cargoLock = Get-Content -LiteralPath $cargoLockPath -Raw
+if ($cargoLock -notmatch '(?m)^version\s*=\s*4\s*$') {
+    throw 'Cargo.lock: the reviewed Rust 1.78 CI graph must use lockfile version 4.'
+}
 
-$cargoCommands = [regex]::Matches($ci, '(?m)^\s+cargo (test|run) .*$')
+$cargoCommands = [regex]::Matches(
+    $ci,
+    '(?m)^\s+cargo(?: \+[^\s]+)? (test|run|check) .*$')
 if ($cargoCommands.Count -eq 0) {
-    throw 'ci.yml: no retained Cargo test or smoke commands were found.'
+    throw 'ci.yml: no retained Cargo test, smoke, or MSRV check commands were found.'
 }
 foreach ($command in $cargoCommands) {
     if ($command.Value -notmatch ' --locked(?:\s|$)') {
         throw "ci.yml: Cargo command is not locked: $($command.Value.Trim())"
+    }
+}
+foreach ($required in @(
+    'rustup toolchain install 1.78.0 --profile minimal',
+    'cargo +1.78.0 check --locked --lib',
+    '--features full-rust-bindings,portable,serde-secret'
+)) {
+    if (-not $ci.Contains($required)) {
+        throw "ci.yml: missing Rust 1.78 MSRV contract '$required'."
     }
 }
 

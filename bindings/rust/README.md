@@ -61,8 +61,9 @@ the partial Fp12 products multiplied before final exponentiation. MSM work can
 be split by matching point/scalar ranges and the resulting group elements
 reduced by addition.
 
-The crate's minimum supported Rust version is 1.65. Cargo enforces this through
-the package's `rust-version` field.
+The crate's minimum supported Rust version is 1.78. Cargo enforces this through
+the package's `rust-version` field, and CI checks the locked supported feature
+surface with that exact toolchain.
 
 Cross-target native builds require an explicit `CMAKE_TOOLCHAIN_FILE`. This is
 deliberately fail-closed: target metadata alone is not enough to make CMake
