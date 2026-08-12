@@ -1,5 +1,3 @@
-[![CI](https://github.com/ladnir/blst/actions/workflows/ci.yml/badge.svg)](https://github.com/ladnir/blst/actions/workflows/ci.yml) [![CodeQL](https://github.com/ladnir/blst/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/ladnir/blst/actions/workflows/codeql-analysis.yml)
-
 # category-blst
 
 `category-blst` is a substantially modified fork of
@@ -40,11 +38,6 @@ library artifacts, and the Rust crate currently retain their established
 available in upstream BLST, and compatibility should not be interpreted as
 identical behavior for undocumented or internal interfaces.
 
-The canonical repository is
-[category-labs/category-blst](https://github.com/category-labs/category-blst).
-During the repository migration, the CI badges above continue to point to the
-legacy [`ladnir/blst`](https://github.com/ladnir/blst) remote.
-
 ## APIs and contracts
 
 - [C umbrella header](bindings/blst.h)
@@ -64,7 +57,7 @@ their associated tests are the authoritative source for individual contracts.
 
 ## Examples
 
-The maintained tests and examples are preferred over duplicated tutorial code:
+Tests and examples:
 
 - [C API tests](test/C_api_tests.cpp)
 - [Signature conformance tests](test/Conformance_tests.cpp)
@@ -78,9 +71,6 @@ The maintained tests and examples are preferred over duplicated tutorial code:
 - [AVX tests](test/avx)
 - [Rust conformance tests](bindings/rust/tests/conformance.rs)
 - [Rust smoke example](bindings/rust/examples/smoke.rs)
-
-These files are executable specifications: they are built and run with the
-library and are less likely to drift than copied snippets.
 
 ## Building
 
