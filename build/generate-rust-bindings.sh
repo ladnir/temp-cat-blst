@@ -12,6 +12,7 @@ BINDINGS="$HERE/../bindings"
 OUTPUT=$1
 BINDGEN=${BINDGEN:-bindgen}
 PERL=${PERL:-perl}
+BINDGEN_VERSION=0.65.1
 
 case "$OUTPUT" in
     /*) ;;
@@ -26,6 +27,11 @@ if ! command -v "$BINDGEN" >/dev/null 2>&1; then
     echo "Rust bindgen executable not found: $BINDGEN" >&2
     exit 1
 fi
+ACTUAL_BINDGEN_VERSION=$($BINDGEN --version 2>/dev/null || true)
+if [ "$ACTUAL_BINDGEN_VERSION" != "bindgen $BINDGEN_VERSION" ]; then
+    echo "Rust bindgen $BINDGEN_VERSION is required; found: ${ACTUAL_BINDGEN_VERSION:-unknown}" >&2
+    exit 1
+fi
 if ! command -v "$PERL" >/dev/null 2>&1; then
     echo "Perl executable not found: $PERL" >&2
     exit 1
@@ -35,14 +41,15 @@ if [ ! -d "$(dirname -- "$OUTPUT")" ]; then
     exit 1
 fi
 
-TEMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/catblst-bindings.XXXXXX")
+OUTPUT_DIR=$(dirname -- "$OUTPUT")
+TEMP_ROOT=$(mktemp -d "$OUTPUT_DIR/.catblst-bindings.XXXXXX")
 RAW="$TEMP_ROOT/bindings.raw.rs"
 GENERATED="$TEMP_ROOT/bindings.rs"
 
 cleanup()
 {
     case "$TEMP_ROOT" in
-        "${TMPDIR:-/tmp}"/catblst-bindings.*) rm -rf -- "$TEMP_ROOT" ;;
+        "$OUTPUT_DIR"/.catblst-bindings.*) rm -rf -- "$TEMP_ROOT" ;;
         *) echo "refusing to remove unexpected temporary path: $TEMP_ROOT" >&2 ;;
     esac
 }
@@ -55,8 +62,8 @@ trap cleanup EXIT HUP INT TERM
         --opaque-type blst_uniq \
         --with-derive-default \
         --with-derive-eq \
-        --rustified-enum 'BLST.*' \
-        blst.h -- -std=c99
+        --newtype-enum 'BLST.*' \
+        blst_scalar.h -- -std=c99
 ) >"$RAW"
 
 "$PERL" "$HERE/bindings_trim.pl" "$RAW" >"$GENERATED"

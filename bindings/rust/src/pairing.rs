@@ -21,11 +21,6 @@ use core::mem;
 use core::ptr::{self, NonNull};
 
 #[cfg(feature = "full-rust-bindings")]
-extern "C" {
-    fn blst_pairing_alignof() -> usize;
-}
-
-#[cfg(feature = "full-rust-bindings")]
 fn pairing_layout(
     context_size: usize,
     context_align: usize,

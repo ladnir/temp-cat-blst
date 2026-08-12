@@ -301,25 +301,6 @@ extern "C" {
     pub fn blst_fr_inverse(ret: *mut blst_fr, a: *const blst_fr);
 }
 extern "C" {
-    pub fn blst_fr_fft_domain_len(n: usize) -> usize;
-}
-extern "C" {
-    pub fn blst_fr_fft_domain_init(
-        domain: *mut blst_fr,
-        domain_len: usize,
-        n: usize,
-    ) -> bool;
-}
-extern "C" {
-    pub fn blst_fr_fft_with_domain(
-        values: *mut blst_fr,
-        n: usize,
-        domain: *const blst_fr,
-        domain_len: usize,
-        inverse: bool,
-    ) -> bool;
-}
-extern "C" {
     pub fn blst_fr_from_uint64(ret: *mut blst_fr, a: *const u64);
 }
 extern "C" {
@@ -1260,6 +1241,9 @@ fn bindgen_test_layout_blst_pairing() {
 }
 extern "C" {
     pub fn blst_pairing_sizeof() -> usize;
+}
+extern "C" {
+    pub fn blst_pairing_alignof() -> usize;
 }
 extern "C" {
     pub fn blst_pairing_init(

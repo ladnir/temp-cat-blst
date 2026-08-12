@@ -1,27 +1,62 @@
 #!/usr/bin/env perl
 
-# read whole file
-while(<>) { push @file, $_; }
+use strict;
+use warnings;
 
-# traverse and remove auto-generated PartialEq for chosen types
+my @file = <>;
+my @structs;
+my %seen;
+
+sub require_rewrite
+{
+    my ($line_ref, $pattern, $replacement, $description) = @_;
+    my $count = ($$line_ref =~ s/$pattern/$replacement/g);
+    die "bindings trim expected exactly one $description rewrite, found $count\n"
+        unless $count == 1;
+}
+
 for (my $i = 0; $i <= $#file; $i++) {
-    if (@file[$i] =~ m/pub\s+(?:struct|enum)\s+(\w+)/) {
+    $file[$i] =~ s/::std::/::core::/g;
+
+    if ($file[$i] =~ m/pub\s+(?:struct|enum)\s+(\w+)/) {
         push @structs, $1;
     }
 
-    if (@file[$i] =~ m/struct\s+blst_p[12]/) {
-        @file[$i-1] =~ s/,\s*PartialEq//;
-    } elsif (@file[$i] =~ m/struct\s+blst_fp12/) {
-        @file[$i-1] =~ s/,\s*(?:Default|PartialEq)//g;
-    } elsif (@file[$i] =~ m/struct\s+(blst_pairing|blst_uniq)/) {
-        @file[$i-1] =~ s/,\s*(?:Copy|Clone|Eq|PartialEq)//g;
-    } elsif (@file[$i] =~ m/struct\s+blst_scalar/) {
-        @file[$i-1] =~ s/,\s*Copy//;
-        @file[$i-1] =~ s/\)/, Zeroize\)/;
-        splice @file, $i, 0, "#[zeroize(drop)]\n"; $i++;
-    } else {
-        @file[$i] =~ s/::std::/::core::/g;
+    next unless $file[$i] =~ m/^pub\s+struct\s+(\w+)/;
+    my $name = $1;
+
+    if ($name =~ m/^blst_p[12](?:_affine)?$/) {
+        require_rewrite(\$file[$i - 1], qr/,\s*PartialEq/, "",
+                        "$name PartialEq");
+        $seen{point}++;
+    } elsif ($name eq "blst_fp12") {
+        require_rewrite(\$file[$i - 1], qr/,\s*Default/, "",
+                        "$name Default");
+        require_rewrite(\$file[$i - 1], qr/,\s*PartialEq/, "",
+                        "$name PartialEq");
+        $seen{fp12}++;
+    } elsif ($name eq "blst_pairing" || $name eq "blst_uniq") {
+        for my $derive (qw(Copy Clone Eq PartialEq)) {
+            require_rewrite(\$file[$i - 1], qr/,\s*$derive/, "",
+                            "$name $derive");
+        }
+        $seen{opaque}++;
+    } elsif ($name eq "blst_scalar") {
+        require_rewrite(\$file[$i - 1], qr/,\s*Copy/, "",
+                        "$name Copy");
+        require_rewrite(\$file[$i - 1], qr/\)/, ", Zeroize)",
+                        "$name Zeroize");
+        splice @file, $i, 0, "#[zeroize(drop)]\n";
+        $i++;
+        $seen{scalar}++;
     }
+}
+
+my %expected = (point => 4, fp12 => 1, opaque => 2, scalar => 1);
+for my $kind (sort keys %expected) {
+    my $actual = $seen{$kind} // 0;
+    die "bindings trim expected $expected{$kind} $kind types, found $actual\n"
+        unless $actual == $expected{$kind};
 }
 
 print @file;

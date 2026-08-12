@@ -9,6 +9,19 @@ use crate::*;
 
 extern "C" {
     fn blst_fr_fft(values: *mut blst_fr, n: usize, inverse: bool) -> bool;
+    fn blst_fr_fft_domain_len(n: usize) -> usize;
+    fn blst_fr_fft_domain_init(
+        domain: *mut blst_fr,
+        domain_len: usize,
+        n: usize,
+    ) -> bool;
+    fn blst_fr_fft_with_domain(
+        values: *mut blst_fr,
+        n: usize,
+        domain: *const blst_fr,
+        domain_len: usize,
+        inverse: bool,
+    ) -> bool;
     fn blst_fr_interpolate(
         out_coefficients: *mut blst_fr,
         points: *const blst_fr,
