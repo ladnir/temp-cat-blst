@@ -1019,3 +1019,18 @@ verification, preset parsing, and structural inspection pass. These build
 owners remain `in_review` pending hosted Linux/native-AVX and Apple evidence,
 negative cross-toolchain evidence, and Phase 20 install/shared/export design.
 No benchmark, CUDA build, full suite, remote job, or broad parallel build ran.
+
+Phase 19 Packet 19B is reviewed through `0c78650`. `AUD-347` through
+`AUD-350` are validated: supported CI consumes four audited CMake presets,
+restores pure-C++ scalar coverage, isolates portable AVX as Debug-only
+developer emulation, applies read-only permissions/concurrency/timeouts to all
+workflows, pins hosted OS generations, and makes all Rust test/smoke commands
+use the committed lockfile without caching it. A lightweight policy script
+enforces these contracts in audit-integrity CI. Checksum-verified actionlint
+1.7.12, all four upstream action-tag resolutions, preset parsing, current
+locked Cargo metadata, structural CI policy, and the 810-file/63-commit audit
+manifests pass. No workflow, product build, benchmark, CUDA job, portable-AVX
+Release build, sanitizer, or full suite ran. `AUD-351` remains open because the
+crate advertises Rust 1.65 while the committed version-4 lockfile requires
+Cargo 1.78 or newer and no MSRV lane exists. Exact hosted workflow execution
+and the Rust MSRV decision are the next release-evidence boundaries.
