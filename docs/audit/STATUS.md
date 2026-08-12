@@ -1,6 +1,6 @@
 # Audit Status
 
-Last updated: 2026-08-11
+Last updated: 2026-08-12
 
 Waves 1 and 2 of the parallel file audit are integrated through implementation
 commit `535c4c6`. Wave 1 closes the scalar C-boundary lifetime and public
@@ -1006,3 +1006,16 @@ syntax, complete dirty rejection, native POSIX injected-no-op cleanup, and MSYS
 safe-refusal gates pass. No native rebuild, benchmark, live publication, CUDA,
 BTx/BTE audit, full suite,
 sanitizer, native AVX, Apple CI, or push ran.
+
+Phase 19 Packet 19A is implemented at `20c075a` and recorded in
+`PHASE_19.md`. The root, product-target, AVX-target, preset, and GoogleTest
+configuration boundaries now fail closed for unsupported combinations, avoid
+implicit host-native tuning and public implementation-flag leakage, use C++20
+for ordinary production and C++23 only for experimental CUDA/parallel MSM,
+pin the GoogleTest fallback, and keep benchmarks, CUDA, and portable AVX out
+of visible ordinary presets. Focused serial MSVC scalar and assembly archives,
+an embedded consumer link, six negative configurations, clean dependency
+verification, preset parsing, and structural inspection pass. These build
+owners remain `in_review` pending hosted Linux/native-AVX and Apple evidence,
+negative cross-toolchain evidence, and Phase 20 install/shared/export design.
+No benchmark, CUDA build, full suite, remote job, or broad parallel build ran.
