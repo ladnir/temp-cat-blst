@@ -349,3 +349,34 @@ native AVX-512, remote, or Apple run was performed.
 
 BTx/BTE was not audited or modified. Its source has no call to the retained
 public interpolation entry points.
+
+## Packet 17G - FFT domain and coefficient-context support headers
+
+The complete `blst/fft/domain.h` and `blst/fft/context.h` owners are reviewed at
+implementation commit `0fc26d2617f74b6ef82345fee4f4400979b1534d`.
+
+`AUD-304` records that direct native prepared-domain helpers indexed their
+documented layout without diagnosing malformed spans. Allocation-bearing root
+construction now rejects unsupported lengths before allocation. Hot root fill,
+domain initialization, and prepared execution state their exact shape,
+direction, mutation, publication, content, and nonoverlap contracts and enforce
+the shapes with Debug-only assertions. Supported C and Rust adapters retain
+their existing Release validation and exact `n + 2` representation.
+
+`AUD-305` replaces the broad conditional coefficient template with explicit
+same-group and group-by-Fr semantics. G1/G2 inputs are documented subgroup
+elements, GT inputs are documented GT elements, and Fr roots/scales are public:
+the unchanged `mult_vartime` call is therefore intentional. Unsupported group
+and `from_u64` type combinations fail at compile time. Apache-2.0/Category Labs
+provenance and standalone dependencies are explicit. Fully overwritten output
+temporaries remain uninitialized as before, preserving the hot code-generation
+shape without relying on dead-store elimination.
+
+MSVC 19.50 scalar-default Debug passes the focused nine-test root, domain, G1,
+G2, GT, and pairing set. Scalar-default and portable-AVX-selected Debug each
+pass the direct four-test context/domain set, and the exact final header source
+compiles in both profiles. `domain.h` also compiles standalone. The portable
+preset regenerated and rebuilt its bounded fast target with two workers;
+frozen BTx/BTE compiled unchanged and emitted only its existing ignored-
+nodiscard warning. No benchmark, CUDA, full runtime suite, sanitizer, native
+AVX-512, remote, or Apple run was performed.

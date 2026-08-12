@@ -905,3 +905,13 @@ tree ownership, remainder-only evaluation, checked reduced scratch, and Debug
 invariants. `AUD-301` remains open because the quadratic suffix crossover needs
 explicit benchmark approval. Validation follow-up `AUD-303` is fixed at
 `2846e0a`. No benchmark or BTx/BTE change is part of this packet.
+
+Phase 17 Packet 17G completes the two small FFT support owners at implementation
+commit `0fc26d2`. `AUD-304` adds allocation-before-use validation to the root
+builder and zero-Release-cost exact shape assertions to native domain helpers.
+`AUD-305` narrows the coefficient context to G1/G2/GT-by-public-Fr and pairing,
+documents subgroup and variable-time root contracts, and preserves direct
+compile-time dispatch and fully overwritten output temporaries. Scalar and
+portable-AVX-selected Debug focused checks pass; `domain.h` compiles standalone.
+No benchmark, CUDA, full suite, sanitizer, native AVX-512, remote, Apple, or
+BTx/BTE audit/change was performed.
