@@ -16,7 +16,12 @@ sub require_rewrite
 }
 
 for (my $i = 0; $i <= $#file; $i++) {
+    $file[$i] =~ s/::std::os::raw::c_void/::core::ffi::c_void/g;
+    $file[$i] =~ s/::std::os::raw::c_uint/u32/g;
     $file[$i] =~ s/::std::/::core::/g;
+    # libclang joins adjacent Doxygen blocks with their comment delimiters.
+    # Keep both blocks as one Rust doc string without exposing those markers.
+    $file[$i] =~ s{\\n/\\n/\*\*}{\\n\\n}g;
 
     if ($file[$i] =~ m/pub\s+(?:struct|enum)\s+(\w+)/) {
         push @structs, $1;
@@ -35,8 +40,9 @@ for (my $i = 0; $i <= $#file; $i++) {
         require_rewrite(\$file[$i - 1], qr/,\s*PartialEq/, "",
                         "$name PartialEq");
         $seen{fp12}++;
-    } elsif ($name eq "blst_pairing" || $name eq "blst_uniq") {
-        for my $derive (qw(Copy Clone Eq PartialEq)) {
+    } elsif ($name eq "blst_pairing_context" ||
+             $name eq "blst_uniq_context") {
+        for my $derive (qw(Copy Clone)) {
             require_rewrite(\$file[$i - 1], qr/,\s*$derive/, "",
                             "$name $derive");
         }
@@ -62,6 +68,20 @@ for my $kind (sort keys %expected) {
 print @file;
 
 print << '___';
+#[test]
+fn bindgen_test_layout_blst_error() {
+    assert_eq!(::core::mem::size_of::<BLST_ERROR>(), 4usize);
+    assert_eq!(::core::mem::align_of::<BLST_ERROR>(), 4usize);
+    assert_eq!(BLST_ERROR(0xffff_ffff).0, 0xffff_ffff);
+}
+
+#[test]
+fn bindgen_test_layout_blst_uniq_result() {
+    assert_eq!(::core::mem::size_of::<BLST_UNIQ_RESULT>(), 4usize);
+    assert_eq!(::core::mem::align_of::<BLST_UNIQ_RESULT>(), 4usize);
+    assert_eq!(BLST_UNIQ_RESULT(0xffff_ffff).0, 0xffff_ffff);
+}
+
 #[test]
 fn bindgen_test_normal_types() {
     // from "Rust for Rustaceans" by Jon Gjengset

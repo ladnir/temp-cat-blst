@@ -1,0 +1,69 @@
+name: Rust binding regeneration
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/rust-bindings.yml'
+      - 'bindings/blst_scalar.h'
+      - 'bindings/blst_types.h'
+      - 'bindings/rust/src/bindings.rs'
+      - 'bindings/rust/rustfmt.toml'
+      - 'blst/common/error_codes.h'
+      - 'build/bindings_trim.pl'
+      - 'build/generate-rust-bindings.sh'
+      - 'scripts/audit/check_rust_bindings.ps1'
+      - 'scripts/audit/test_bindings_trim.sh'
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/rust-bindings.yml'
+      - 'bindings/blst_scalar.h'
+      - 'bindings/blst_types.h'
+      - 'bindings/rust/src/bindings.rs'
+      - 'bindings/rust/rustfmt.toml'
+      - 'blst/common/error_codes.h'
+      - 'build/bindings_trim.pl'
+      - 'build/generate-rust-bindings.sh'
+      - 'scripts/audit/check_rust_bindings.ps1'
+      - 'scripts/audit/test_bindings_trim.sh'
+  workflow_dispatch:
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install pinned generator toolchain
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes clang-18 libclang-18-dev
+          rustup toolchain install 1.65.0 --profile minimal --component rustfmt
+          cargo install bindgen-cli --version 0.65.1 --locked
+
+      - name: Regenerate and compare scalar bindings
+        shell: bash
+        env:
+          LIBCLANG_PATH: /usr/lib/llvm-18/lib
+        run: |
+          generated=$(mktemp)
+          trap 'rm -f -- "$generated"' EXIT
+          RUSTFMT=$(rustup which --toolchain 1.65.0 rustfmt) \
+            ./build/generate-rust-bindings.sh "$generated"
+          cmp bindings/rust/src/bindings.rs "$generated"
+
+      - name: Validate binding policy and transform
+        shell: bash
+        run: |
+          bash -n build/generate-rust-bindings.sh
+          perl -c build/bindings_trim.pl
+          bash scripts/audit/test_bindings_trim.sh
+          pwsh -NoProfile -File scripts/audit/check_rust_bindings.ps1

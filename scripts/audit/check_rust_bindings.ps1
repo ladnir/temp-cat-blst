@@ -89,6 +89,30 @@ foreach ($resultType in @('BLST_ERROR', 'BLST_UNIQ_RESULT'))
         $errors.Add("$resultType regressed to a closed Rust enum.")
     }
 }
+foreach ($layoutTest in @(
+    'bindgen_test_layout_blst_error',
+    'bindgen_test_layout_blst_uniq_result'
+))
+{
+    if ($rustBindings -notmatch "(?m)^fn $layoutTest\(\)")
+    {
+        $errors.Add("Generated bindings omit result-layout regression: $layoutTest")
+    }
+}
+foreach ($opaqueType in @('pairing', 'uniq'))
+{
+    $contextType = "blst_${opaqueType}_context"
+    if ($rustBindings -notmatch "(?s)#\[repr\(C\)\]\s*#\[derive\(Debug\)\]\s*pub struct $contextType\s*\{\s*_unused: \[u8; 0\],\s*\}\s*pub type blst_$opaqueType = $contextType;")
+    {
+        $errors.Add("Generated bindings do not preserve the distinct opaque $contextType tag and C alias.")
+    }
+}
+if ($rustBindings -match '(?m)^pub const _STDINT_H\b' -or
+    $rustBindings -match '(?m)^pub type __u_char\b' -or
+    $rustBindings -match '::core::os::raw::')
+{
+    $errors.Add('Generated bindings leaked implementation details from system headers.')
+}
 
 $generator = Read-Text $generatorPath
 if ($generator -notmatch 'BINDGEN_VERSION=0\.65\.1')
@@ -99,13 +123,41 @@ if ($generator -notmatch "--newtype-enum 'BLST\.\*'")
 {
     $errors.Add('Generator does not emit BLST result enums as newtypes.')
 }
+if ($generator -notmatch "RUSTFMT_VERSION='rustfmt 1\.5\.1-stable \(897e375 2022-11-02\)'")
+{
+    $errors.Add('Generator does not require the pinned Rust 1.65 formatter.')
+}
+if ($generator -notmatch '--formatter none')
+{
+    $errors.Add('Generator does not isolate bindgen from its ambient formatter.')
+}
+if ($generator -notmatch '--config-path "\$BINDINGS/rust/rustfmt\.toml"')
+{
+    $errors.Add('Generator does not pin the repository rustfmt configuration.')
+}
+if ($generator -notmatch "--allowlist-function '\^blst_\.\*'")
+{
+    $errors.Add('Generator does not restrict functions to the public blst_ C API.')
+}
+if ($generator -notmatch "--allowlist-type '\^\(blst_\.\*\|BLST_\.\*\)'")
+{
+    $errors.Add('Generator does not restrict types to public BLST names.')
+}
+if ($generator -notmatch "--blocklist-type '\^blst_\.\*_must_be_4_bytes\$'")
+{
+    $errors.Add('Generator does not exclude C-only enum-size assertion typedefs.')
+}
+if ($generator -match '--opaque-type\s+blst_(?:pairing|uniq)')
+{
+    $errors.Add('Generator erases a distinct opaque C context tag.')
+}
 if ($generator -match '--rustified-enum')
 {
     $errors.Add('Generator still permits closed rustified C result enums.')
 }
-if ($generator -notmatch 'blst_scalar\.h -- -std=c99')
+if ($generator -notmatch 'blst_scalar\.h -- -std=c99 "-I\$HERE/\.\."')
 {
-    $errors.Add('Generator input is not the scalar C99 header.')
+    $errors.Add('Generator input is not the scalar C99 header with the repository include root.')
 }
 if ($generator -match '(?m)^\s*blst\.h\s+--')
 {
