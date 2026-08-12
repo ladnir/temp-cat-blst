@@ -146,7 +146,7 @@ ctest --test-dir out/build/x64-Debug-Avx -R "(Avx|CApi\\.AvxExpert)" --output-on
 If a fresh portable build is needed:
 
 ```bash
-cmake -S . -B out/build/avx-portable -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBLST_AVX512_PORTABLE=ON
+cmake -S . -B out/build/avx-portable -DCMAKE_BUILD_TYPE=Debug -DBLST_AVX512_PORTABLE=ON
 cmake --build out/build/avx-portable --target blst_tests -j
 ctest --test-dir out/build/avx-portable -R "(Avx|CApi\\.AvxExpert)" --output-on-failure
 ```

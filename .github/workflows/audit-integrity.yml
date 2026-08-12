@@ -54,3 +54,18 @@ jobs:
           bash -n build/generate-rust-bindings.sh
           perl -c build/bindings_trim.pl
           bash scripts/audit/test_bindings_trim.sh
+
+      - name: Reject deployment portable AVX configuration
+        shell: bash
+        run: |
+          if cmake -S . -B "$RUNNER_TEMP/portable-avx-release" -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DBLST_AVX512=OFF \
+              -DBLST_AVX512_PORTABLE=ON \
+              -DBLST_DEFAULT_AVX=ON \
+              >"$RUNNER_TEMP/portable-avx-release.log" 2>&1; then
+              echo "portable AVX Release configuration unexpectedly succeeded" >&2
+              exit 1
+          fi
+          grep -q "developer-only emulation" \
+              "$RUNNER_TEMP/portable-avx-release.log"

@@ -63,15 +63,6 @@ jobs:
               -DBLST_AVX512=OFF
               -DBLST_AVX512_PORTABLE=OFF
               -DBLST_DEFAULT_AVX=OFF
-          - os: ubuntu-latest
-            mode: avx-portable-debug
-            build_dir: out/build/ci-avx-portable-debug
-            build_type: Debug
-            compiler_flags: ""
-            cmake_flags: >-
-              -DBLST_AVX512=OFF
-              -DBLST_AVX512_PORTABLE=ON
-              -DBLST_DEFAULT_AVX=OFF
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

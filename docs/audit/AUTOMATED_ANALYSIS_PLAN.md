@@ -116,6 +116,30 @@ rather than making CI nondeterministic.
 This cadence follows `VALIDATION_POLICY.md`: expensive clean sweeps are batched
 at subsystem and milestone gates, not repeated after every small edit.
 
+### CI profile separation
+
+The ordinary required workflow represents deployable configurations. It builds
+and tests scalar Release on Linux, Windows, and supported Apple Silicon, and it
+tests the retained Rust feature families. Portable AVX is deliberately absent
+from that matrix: it is emulation for differential development, not a product
+backend or release substitute.
+
+A separate path-scoped developer workflow builds portable AVX only in Debug,
+with CUDA, benchmarks, BTx/BTE, and the internal parallel pipeline disabled.
+It runs when AVX implementation/build files or their focused tests change and
+can also be launched manually. A cheap required configuration test rejects any
+attempt to configure portable AVX as Release before compilation begins; the
+headers independently reject optimized direct or multi-config compilation.
+
+Native AVX-512 remains a production profile. GitHub's hosted Ubuntu image does
+not currently provide CatBLST's supported Clang 21/GCC 15 toolchain or promise
+AVX-512/IFMA execution. Therefore portable CI must never be cited as native
+evidence. Until a qualified native runner is registered, Peach's supported-
+compiler build, execution, differential, code-generation, and approved
+benchmark evidence is required at AVX subsystem and release gates rather than
+on every small change. A hosted compile using an explicitly unsupported older
+compiler would be only a smoke check and is not treated as release evidence.
+
 ## Per-file integration
 
 Each review record must identify:

@@ -165,6 +165,14 @@ endif()
 
 add_library(blst_static ${BLST_STATIC_SRC} ${ASM_SRC} "backend/backend_portable.cpp")
 set_target_properties(blst_static PROPERTIES OUTPUT_NAME blst)
+if(BLST_AVX512_PORTABLE)
+    # Multi-config generators choose the configuration at build time, after the
+    # top-level configure-time policy check. Make every non-Debug compilation
+    # fail closed in intrin_compat.h as well.
+    target_compile_definitions(blst_static PRIVATE
+        $<$<NOT:$<CONFIG:Debug>>:BLST_AVX512_PORTABLE_NONDEBUG>
+    )
+endif()
 #message(STATUS "BLST_OPTS: ${BLST_OPTS}")
 target_compile_options(blst_static PUBLIC ${BLST_OPTS})
 target_include_directories(blst_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)

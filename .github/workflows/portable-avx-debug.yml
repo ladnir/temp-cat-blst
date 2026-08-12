@@ -1,0 +1,78 @@
+name: Portable AVX developer checks
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/portable-avx-debug.yml'
+      - 'CMakeLists.txt'
+      - 'blst/CMakeLists.txt'
+      - 'blst/config.h.in'
+      - 'blst/avx/**'
+      - 'blst/backend/avx512/**'
+      - 'test/CMakeLists.txt'
+      - 'test/avx/**'
+      - 'test/avx512_compat_test.cpp'
+      - 'test/audit_avx_matrixnok_codegen.cpp'
+      - 'test/audit_avx_matrixnok_fp2_codegen.cpp'
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/portable-avx-debug.yml'
+      - 'CMakeLists.txt'
+      - 'blst/CMakeLists.txt'
+      - 'blst/config.h.in'
+      - 'blst/avx/**'
+      - 'blst/backend/avx512/**'
+      - 'test/CMakeLists.txt'
+      - 'test/avx/**'
+      - 'test/avx512_compat_test.cpp'
+      - 'test/audit_avx_matrixnok_codegen.cpp'
+      - 'test/audit_avx_matrixnok_fp2_codegen.cpp'
+  workflow_dispatch:
+
+concurrency:
+  group: portable-avx-debug-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  portable-avx-debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Configure developer emulation
+        shell: bash
+        run: |
+          cmake -S . -B out/build/ci-avx-portable-debug \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DBLST_TEST=ON \
+            -DBLST_BENCHMARK=OFF \
+            -DBLST_CUDA=OFF \
+            -DBLST_CUDA_MSM=OFF \
+            -DBLST_PARALLEL_MSM=OFF \
+            -DBLST_CRNS_BATCH_VROOM_VENDOR=OFF \
+            -DBLST_AVX512=OFF \
+            -DBLST_AVX512_PORTABLE=ON \
+            -DBLST_DEFAULT_AVX=ON
+
+      - name: Build developer emulation
+        shell: bash
+        run: >
+          cmake --build out/build/ci-avx-portable-debug
+          --target blst_tests
+          --parallel 2
+
+      - name: Test developer emulation
+        shell: bash
+        run: >
+          ctest --test-dir out/build/ci-avx-portable-debug/test
+          --output-on-failure --parallel 2

@@ -4,6 +4,7 @@
 ".github/workflows/audit-integrity.yml","in_scope_support","ci","pending","process","","","","","","","","",""
 ".github/workflows/ci.yml","in_scope_support","ci","pending","process","Codex","docs/audit/SANITIZER_BASELINE_TRIAGE.md","","AUD-041","YAML validation; hosted generic-q Release matrix","new non-ADX scalar matrix configures, builds, and tests with assembly enabled","hosted run pending push","","Full CI file review remains pending"
 ".github/workflows/codeql-analysis.yml","in_scope_support","ci","pending","process","","","","","","","","",""
+".github/workflows/portable-avx-debug.yml","in_scope_support","ci","pending","process","","","","","","","","",""
 ".gitignore","in_scope_support","repository","pending","process","","","","","","","","",""
 ".lgtm.yml","in_scope_support","repository","pending","process","","","","","","","","",""
 ".travis.yml","in_scope_support","repository","pending","process","","","","","","","","",""

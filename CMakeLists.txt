@@ -10,7 +10,7 @@ option(BLST_DEFAULT_ASM  "Enable assembly optimizations by default" ON)
 option(BLST_ASAN         "Enable Address Sanitizer" OFF)
 option(BLST_AVX512       "Enable AVX512 code paths" OFF)
 option(BLST_DEFAULT_AVX  "Prefer AVX implementations by default when available" ${BLST_AVX512})
-option(BLST_AVX512_PORTABLE "Enable AVX512 emulation code paths" OFF)
+option(BLST_AVX512_PORTABLE "Enable developer-only Debug AVX512 emulation" OFF)
 option(BLST_ALLOW_UNSUPPORTED_AVX_COMPILER "Allow AVX builds with unsupported compilers" OFF)
 option(BLST_ALLOW_UNTESTED_ARM64 "Allow experimental, unqualified ARM64 builds" OFF)
 option(BLST_ALLOW_UNTESTED_CHERI "Allow experimental, unqualified CHERI pure-capability builds" OFF)
@@ -109,6 +109,13 @@ endif()
 
 if(BLST_DEFAULT_AVX AND NOT (BLST_AVX512 OR BLST_AVX512_PORTABLE))
     message(FATAL_ERROR "BLST_DEFAULT_AVX requires BLST_AVX512 or BLST_AVX512_PORTABLE")
+endif()
+
+if(BLST_AVX512_PORTABLE AND NOT CMAKE_CONFIGURATION_TYPES AND
+   NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    message(FATAL_ERROR
+        "BLST_AVX512_PORTABLE is developer-only emulation and may be built "
+        "only in Debug. It is not a deployment configuration.")
 endif()
 
 if(BLST_AVX512)

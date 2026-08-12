@@ -3,6 +3,11 @@
 
 #include "blst/common/defines.h"
 
+#if defined(BLST_AVX512_PORTABLE) && \
+    (defined(NDEBUG) || defined(BLST_AVX512_PORTABLE_NONDEBUG))
+#error "Portable AVX-512 emulation is developer-only and may be compiled only in Debug"
+#endif
+
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
 
 #if defined(BLST_AVX512)
