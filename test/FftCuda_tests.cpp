@@ -5,7 +5,7 @@
 #include "blst/fft/ctFft.h"
 #include "blst/fft/ctFft_cuda.h"
 #include "blst/fields/Fr.h"
-#include "blst/fft/primitveRoot.h"
+#include "blst/fft/primitive_root.h"
 #include "blst/fft/context.h"
 #include "blst/curve/point.h"
 #include "blst/curve/GT.h"

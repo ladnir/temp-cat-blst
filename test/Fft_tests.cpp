@@ -4,7 +4,7 @@
 #include "blst/fields/Fr.h"
 #include "blst/curve/point.h"
 #include "blst/curve/GT.h"
-#include "blst/fft/primitveRoot.h"
+#include "blst/fft/primitive_root.h"
 #include "blst/fft/context.h"
 #include "blst/fft/ctFft.h"
 #include "blst/fft/middle_product.h"
@@ -125,6 +125,15 @@ TEST(Fft, BlstFrRoots) {
         EXPECT_TRUE(isPrimRootOfUnity<blst::Fr>(n, w))
 			<< "isPrimRootOfUnity failed for n=2^" << k;
     }
+}
+
+TEST(Fft, BlstFrRootsRejectInvalidOrders)
+{
+    EXPECT_FALSE(isPrimRootOfUnity<Fr>(0, Fr::one()));
+    EXPECT_FALSE(isPrimRootOfUnity<Fr>(3, Fr::one()));
+    EXPECT_THROW((void)primRootOfUnity<Fr>(0), std::invalid_argument);
+    EXPECT_THROW((void)primRootOfUnity<Fr>(3), std::invalid_argument);
+    EXPECT_THROW((void)primRootOfUnity<Fr>(u64{1} << 33), std::invalid_argument);
 }
 
 

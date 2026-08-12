@@ -6,7 +6,7 @@
 #pragma once
 
 #include "blst/fft/ctFft.h"
-#include "blst/fft/primitveRoot.h"
+#include "blst/fft/primitive_root.h"
 
 #include <cstddef>
 #include <span>

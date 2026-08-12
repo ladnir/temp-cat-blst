@@ -143,11 +143,34 @@ TEST(FftApi, RootPreparationRejectsEmptyDomain)
         (blst::precomputeRootsOfUnity<RootTestField>(
             one,
             std::span<RootTestField>{})),
-        std::runtime_error);
+        std::invalid_argument);
 
     std::array<RootTestField, 1> roots = {};
     EXPECT_NO_THROW(blst::precomputeRootsOfUnity<RootTestField>(one, roots));
     EXPECT_EQ(roots[0], one);
+}
+
+TEST(FftApi, RootPreparationRejectsNonprimitiveRootWithoutWriting)
+{
+    const RootTestField one(1);
+    std::array<RootTestField, 4> roots = {
+        RootTestField(2), RootTestField(3), RootTestField(4), RootTestField(5)
+    };
+    const auto original = roots;
+
+    EXPECT_THROW(
+        blst::precomputeRootsOfUnity<RootTestField>(one, roots),
+        std::invalid_argument);
+    EXPECT_EQ(roots, original);
+}
+
+TEST(FftApi, ExplicitGeneratorProducesAnExactOrderRoot)
+{
+    const auto root = blst::primRootOfUnity<RootTestField>(8, RootTestField(3));
+    EXPECT_TRUE(blst::isPrimRootOfUnity<RootTestField>(8, root));
+    EXPECT_THROW(
+        (void)blst::primRootOfUnity<RootTestField>(4, RootTestField(1)),
+        std::invalid_argument);
 }
 
 TEST(FftApi, RootBuilderRejectsUnsupportedTransformSizes)

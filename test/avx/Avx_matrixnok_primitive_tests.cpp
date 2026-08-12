@@ -11,7 +11,7 @@
 #include "blst/avx/pairing/matrixnok_pairing.h"
 #include "blst/common/bytes.h"
 #include "blst/fft/ctFft.h"
-#include "blst/fft/primitveRoot.h"
+#include "blst/fft/primitive_root.h"
 #include "blst/fields/Fp.h"
 #include "blst/fields/Fp2.h"
 #include "blst/fields/Fp12.h"
