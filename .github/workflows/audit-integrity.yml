@@ -31,6 +31,12 @@ jobs:
           powershell.exe -NoProfile -ExecutionPolicy Bypass
           -File scripts/audit/check_audit_manifest.ps1
 
+      - name: Validate retained CI policy
+        shell: powershell
+        run: >
+          powershell.exe -NoProfile -ExecutionPolicy Bypass
+          -File scripts/audit/check_ci_policy.ps1
+
       - name: Validate raw Rust binding integrity
         shell: powershell
         run: >
