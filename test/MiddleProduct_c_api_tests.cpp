@@ -257,6 +257,7 @@ TEST(MiddleProductCApi, UpdateAndCombineReconstructFullResult)
     std::vector<BoundaryGt> cnst(a_full.size());
     std::vector<BoundaryGt> combined(a_full.size());
     std::vector<BoundaryGt> scalar_mid_plus_native_update(a_full.size());
+    std::vector<BoundaryGt> exact_alias_cnst;
 
     ASSERT_TRUE(blst_middle_product(a_full.data(), a_full.size(), precomputed, expected.data()));
     ASSERT_TRUE(blst_middle_product(
@@ -278,6 +279,12 @@ TEST(MiddleProductCApi, UpdateAndCombineReconstructFullResult)
         cnst.data(),
         exact_alias.size(),
         exact_alias.data()));
+    exact_alias_cnst = cnst;
+    ASSERT_TRUE(blst_middle_product_combine(
+        mid.data(),
+        exact_alias_cnst.data(),
+        exact_alias_cnst.size(),
+        exact_alias_cnst.data()));
 
     for (std::size_t i = 0; i < expected.size(); ++i) {
         EXPECT_TRUE(blst::Fp12::equal(expected[i], scalar_expected[i]))
@@ -290,6 +297,8 @@ TEST(MiddleProductCApi, UpdateAndCombineReconstructFullResult)
             << "update/combine mismatch at output index " << i;
         EXPECT_TRUE(blst::Fp12::equal(expected[i], exact_alias[i]))
             << "exact-alias combine mismatch at output index " << i;
+        EXPECT_TRUE(blst::Fp12::equal(expected[i], exact_alias_cnst[i]))
+            << "second-input exact-alias combine mismatch at output index " << i;
     }
 
     blst_middle_product_precomputed_b_free(precomputed);

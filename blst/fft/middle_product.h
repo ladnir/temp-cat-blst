@@ -56,13 +56,18 @@ namespace blst {
      * operations may still allocate as documented by their concrete context.
      * The AVX multipair workspace also retains all six batch-final-exponentiation
      * buffers, so that stage performs no allocation after its capacity grows.
+     * Selected-backend entry points consume their input spans directly; only
+     * an explicit call to the non-selected scalar/AVX backend allocates a point
+     * conversion vector. Validation and allocation failures occur before output
+     * publication begins.
      *
      * A precomputed object is immutable after construction and may be shared by
      * concurrent evaluations when each evaluation owns a distinct workspace and
      * output. One workspace must not be used concurrently. Unless a function
      * explicitly says otherwise, output must not overlap its inputs. `combine`
      * supports exact output aliasing with either input but forbids partial
-     * overlap.
+     * overlap. Precompute fields remain visible for expert inspection, but
+     * callers must not modify them after construction.
      */
 
     // The shared FFT implementation uses signed-int indices. The largest
@@ -113,6 +118,8 @@ namespace blst {
 
     /// Explicit implementation selection. `Auto` uses a benchmark-selected
     /// size threshold whose scalar and AVX recalibration is tracked separately.
+    /// Values outside this enumeration violate the native contract and trigger
+    /// a Debug assertion; Release performs no work for such a value.
     enum class MiddleProductAlgorithm {
         Fft,
         Multipair,
@@ -555,6 +562,8 @@ namespace blst {
 #endif
 
         /// Immutable FFT precomputation for one length-`2*n` G2 operand.
+        /// Fields are expert-visible for inspection and testing; modifying any
+        /// field after construction invalidates the object's native contract.
         template<class Context>
         struct MiddleProductPrecomputedBImpl {
             std::size_t n = 0;
@@ -784,11 +793,16 @@ namespace blst {
             TimingStats* timings)
         {
             validate_middle_product_b_shape(b.size(), n);
-            const std::vector<typename Context::G2Point> converted = convert_g2_inputs<Context>(b);
-            return precompute_middle_product_b_impl<Context>(
-                std::span<const typename Context::G2Point>(converted),
-                n,
-                timings);
+            if constexpr (std::is_same_v<typename Context::G2Point, blst::G2Point>) {
+                return precompute_middle_product_b_impl<Context>(b, n, timings);
+            } else {
+                const std::vector<typename Context::G2Point> converted =
+                    convert_g2_inputs<Context>(b);
+                return precompute_middle_product_b_impl<Context>(
+                    std::span<const typename Context::G2Point>(converted),
+                    n,
+                    timings);
+            }
         }
 
         template<class Context>
@@ -803,13 +817,18 @@ namespace blst {
             if (precomputed_b.n != a.size()) {
                 throw std::invalid_argument("middle product length does not match its precompute");
             }
-            const std::vector<typename Context::G1Point> converted_a = convert_g1_inputs<Context>(a);
-            middle_product_impl<Context>(
-                std::span<const typename Context::G1Point>(converted_a),
-                precomputed_b,
-                out,
-                workspace,
-                timings);
+            if constexpr (std::is_same_v<typename Context::G1Point, blst::G1Point>) {
+                middle_product_impl<Context>(a, precomputed_b, out, workspace, timings);
+            } else {
+                const std::vector<typename Context::G1Point> converted_a =
+                    convert_g1_inputs<Context>(a);
+                middle_product_impl<Context>(
+                    std::span<const typename Context::G1Point>(converted_a),
+                    precomputed_b,
+                    out,
+                    workspace,
+                    timings);
+            }
         }
 
         template<class Context>
@@ -867,6 +886,8 @@ namespace blst {
     using MiddleProductWorkspace =
         detail::MiddleProductWorkspaceImpl<MiddleProductDefaultContext>;
 
+    /// Immutable multipair line precomputation. Fields are expert-visible but
+    /// must not be modified after successful construction.
     template<class Context>
     struct MiddleProductPrecomputedBMultipairImpl {
         std::size_t n = 0;
@@ -874,6 +895,8 @@ namespace blst {
         std::vector<uint8_t> b_is_zero;
     };
 
+    /// Mutable, non-thread-safe multipair evaluation storage. Reuse one object
+    /// sequentially to retain temporary capacities between calls.
     template<class Context>
     struct MiddleProductWorkspaceMultipairImpl {
         std::vector<typename Context::G1AffinePoint> affine_a_nonzero;
@@ -993,8 +1016,9 @@ namespace blst {
     }
 
     template<class Context>
-    inline MiddleProductPrecomputedBMultipairImpl<Context> precompute_middle_product_b_multipair_impl(
-        std::span<const G2Point> b,
+    inline MiddleProductPrecomputedBMultipairImpl<Context>
+    precompute_middle_product_b_multipair_backend_impl(
+        std::span<const typename Context::G2Point> b,
         std::size_t n,
         TimingStats* timings = nullptr)
     {
@@ -1007,18 +1031,38 @@ namespace blst {
         precomputed.prepared_lines.resize(b_size);
         precomputed.b_is_zero.resize(b_size);
 
-        const std::vector<typename Context::G2Point> converted =
-            middle_product_convert_multipair_g2_inputs<Context>(b);
-        for (std::size_t j = 0; j < converted.size(); ++j) {
-            const bool is_zero = (Context::G2Point::is_inf(converted[j]) != 0);
+        for (std::size_t j = 0; j < b.size(); ++j) {
+            const bool is_zero = (Context::G2Point::is_inf(b[j]) != 0);
             precomputed.b_is_zero[j] = static_cast<uint8_t>(is_zero ? 1 : 0);
             if (is_zero) {
                 continue;
             }
-            Context::prepare_lines(precomputed.prepared_lines[j], converted[j]);
+            Context::prepare_lines(precomputed.prepared_lines[j], b[j]);
         }
 
         return precomputed;
+    }
+
+    template<class Context>
+    inline MiddleProductPrecomputedBMultipairImpl<Context> precompute_middle_product_b_multipair_impl(
+        std::span<const G2Point> b,
+        std::size_t n,
+        TimingStats* timings = nullptr)
+    {
+        validate_middle_product_b_shape(b.size(), n);
+        if constexpr (std::is_same_v<typename Context::G2Point, G2Point>) {
+            return precompute_middle_product_b_multipair_backend_impl<Context>(
+                b,
+                n,
+                timings);
+        } else {
+            const std::vector<typename Context::G2Point> converted =
+                middle_product_convert_multipair_g2_inputs<Context>(b);
+            return precompute_middle_product_b_multipair_backend_impl<Context>(
+                std::span<const typename Context::G2Point>(converted),
+                n,
+                timings);
+        }
     }
 
     inline GT middle_product_multipair_scalar_window_dense(
@@ -1201,6 +1245,10 @@ namespace blst {
                             workspace.line_batch_scalar);
                     }
                 } else {
+                    workspace.line_batch_scalar.reserve(
+                        workspace.affine_a_nonzero.size());
+                    workspace.line_scale_batch_scalar.reserve(
+                        workspace.affine_a_nonzero.size());
                     for (std::size_t k = 0; k < n; ++k) {
                         out[k] = middle_product_multipair_scalar_window_sparse(
                             std::span<const scalar::PreparedG1LineScale>(workspace.a_line_scales),
@@ -1260,14 +1308,23 @@ namespace blst {
         if (precomputed_b.n != a.size()) {
             throw std::invalid_argument("middle product length does not match its precompute");
         }
-        const std::vector<typename Context::G1Point> converted_a =
-            middle_product_convert_multipair_g1_inputs<Context>(a);
-        middle_product_multipair_impl<Context>(
-            std::span<const typename Context::G1Point>(converted_a),
-            precomputed_b,
-            out,
-            workspace,
-            timings);
+        if constexpr (std::is_same_v<typename Context::G1Point, G1Point>) {
+            middle_product_multipair_impl<Context>(
+                a,
+                precomputed_b,
+                out,
+                workspace,
+                timings);
+        } else {
+            const std::vector<typename Context::G1Point> converted_a =
+                middle_product_convert_multipair_g1_inputs<Context>(a);
+            middle_product_multipair_impl<Context>(
+                std::span<const typename Context::G1Point>(converted_a),
+                precomputed_b,
+                out,
+                workspace,
+                timings);
+        }
     }
 
     template<class Context>

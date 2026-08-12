@@ -410,6 +410,27 @@ TEST(MiddleProductMultipair, ScalarMatchesFft)
     }
 }
 
+TEST(MiddleProductMultipair, ScalarSparseWorkspaceReservesBeforePublication)
+{
+    constexpr std::size_t n = 10;
+    const std::vector<G1Point> a = make_g1_data(n);
+    const std::vector<G2Point> b = make_g2_data(n);
+    const auto precomputed =
+        blst::precompute_middle_product_b_multipair_scalar(b, n);
+    blst::MiddleProductWorkspaceMultipairScalar workspace;
+    std::vector<GT> out(n, GT::identity());
+
+    blst::middle_product_multipair_scalar(a, precomputed, out, workspace);
+
+    std::size_t nonzero_a = 0;
+    for (const G1Point& point : a) {
+        nonzero_a += (G1Point::is_inf(point) == 0) ? 1 : 0;
+    }
+    ASSERT_LT(nonzero_a, n);
+    EXPECT_GE(workspace.line_batch_scalar.capacity(), nonzero_a);
+    EXPECT_GE(workspace.line_scale_batch_scalar.capacity(), nonzero_a);
+}
+
 TEST(MiddleProductMultipair, ScalarUpdateAndCombineReconstructsFullResult)
 {
     const std::vector<std::size_t> sizes = { 4, 6, 10, 18 };

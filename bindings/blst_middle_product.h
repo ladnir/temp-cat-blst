@@ -76,6 +76,9 @@ BLST_NODISCARD blst_middle_product_precomputed_b* blst_middle_product_precompute
  *   length and may allocate on every call.
  * - On failure no element of `out` is modified.
  * - `out` must not overlap `a` or storage reachable through `precomputed_b`.
+ * - A non-null `precomputed_b` must be a live handle returned by this API.
+ *   Arbitrary, freed, or concurrently freed pointers are outside the contract
+ *   and cannot be validated by the C boundary.
  * - The implementation may internally convert the scalar/public inputs to AVX
  *   values, but the exposed ABI remains scalar/public.
  */
@@ -97,8 +100,7 @@ BLST_NODISCARD bool blst_middle_product(
  *
  * Return value:
  * - `true` on success.
- * - `false` when any pointer is null, the handle is invalid, or the native
- *   computation throws/fails.
+ * - `false` when any pointer is null or the native computation throws/fails.
  *
  * Invariants:
  * - `a0` must already be a reduced, on-curve member of the prime-order G1
@@ -110,6 +112,8 @@ BLST_NODISCARD bool blst_middle_product(
  *   allocate on every call.
  * - On failure no element of `out` is modified.
  * - `out` must not overlap `a0` or storage reachable through `precomputed_b`.
+ * - A non-null `precomputed_b` must be a live handle returned by this API.
+ *   Arbitrary, freed, or concurrently freed pointers are outside the contract.
  */
 BLST_NODISCARD bool blst_middle_product_update(
     const blst_p1* a0,
