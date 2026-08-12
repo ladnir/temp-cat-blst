@@ -5,9 +5,9 @@
 | Field | Value |
 | --- | --- |
 | Roadmap phase | Phase 18 expert AVX public surface |
-| Reviewed state | implementation worktree; exact commit pending |
+| Reviewed commit | `e6163cecba9a9f66a8e6ec7aed58cbf2f0ba1672` |
 | Date | 2026-08-12 |
-| Disposition | in-scope production, review complete pending commit |
+| Disposition | in-scope production, complete |
 | Profiles | C99, C++, native/portable AVX-512; CUDA and frozen BTx/BTE excluded |
 | Related findings | `AUD-091`–`AUD-095`, `AUD-160`, `AUD-161`, `AUD-276`, `AUD-316`–`AUD-322` |
 

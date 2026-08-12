@@ -967,4 +967,5 @@ the safe Rust GT precondition, opaque equality, fallible allocation, complete
 identity. Focused portable-AVX Debug C++ tests pass 2/2; Rust AVX tests pass 7/7
 and the non-AVX equality test passes 1/1. Strict C11/C++20 header parsing,
 MatrixNoK dispatch, audit manifests, and 21 proof rows/61 hashes pass. Exact
-reviewed commits remain pending; no benchmark or broad/platform sweep ran.
+the exact implementation is recorded at `e6163ce`; no benchmark or
+broad/platform sweep ran.

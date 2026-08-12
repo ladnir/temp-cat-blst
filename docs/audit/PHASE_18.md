@@ -71,5 +71,4 @@ test passes separately without the `avx` feature. Strict MSVC C11/C++20 header
 parses pass, the MatrixNoK dispatch gate passes, and all 21 accepted proof rows
 and 61 mapped hashes remain valid. No benchmark, CUDA, portable-AVX Release,
 full suite, sanitizer, native AVX-512, remote, Apple, or push was performed.
-Exact reviewed commit hashes remain to be recorded when this packet is
-committed.
+The implementation and exact review state are recorded at `e6163ce`.

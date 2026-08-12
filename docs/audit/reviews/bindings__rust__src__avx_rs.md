@@ -5,9 +5,9 @@
 | Field | Value |
 | --- | --- |
 | Roadmap phase | Phase 18 handwritten Rust AVX surface |
-| Reviewed state | implementation worktree; exact commit pending |
+| Reviewed commit | `e6163cecba9a9f66a8e6ec7aed58cbf2f0ba1672` |
 | Date | 2026-08-12 |
-| Disposition | in-scope production, review complete pending commit |
+| Disposition | in-scope production, complete |
 | Profiles | Rust with and without the `avx` feature |
 | Related findings | `AUD-040`, `AUD-161`, `AUD-318`–`AUD-323` |
 
