@@ -1,3 +1,9 @@
+/*
+ * Copyright Category Labs
+ * Licensed under the Apache License, Version 2.0, see LICENSE for details.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #include "bindings/blst_fft.h"
 
 #include "blst/fft/context.h"
@@ -39,6 +45,9 @@ namespace
 }
 
 extern "C" {
+
+// No exception may cross this C ABI. Allocation-bearing FFT functions catch
+// locally; interpolation reaches only native noexcept status entry points.
 
 bool blst_fr_fft(blst_fr* values, size_t n, bool inverse)
 {

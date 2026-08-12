@@ -425,6 +425,28 @@ TEST(BindingHeader, PreparedFrFftUsesCallerOwnedDomain)
     EXPECT_EQ(std::memcmp(values.data(), input.data(), sizeof(values)), 0);
 }
 
+TEST(BindingHeader, FrFftRoundTripsAndRejectsInvalidSizeWithoutWriting)
+{
+    std::array<blst_fr, 8> values = {};
+    for (size_t i = 0; i < values.size(); ++i) {
+        values[i] = test_fr_from_u64(i * 19 + 5);
+    }
+    const auto input = values;
+
+    ASSERT_TRUE(blst_fr_fft(values.data(), values.size(), false));
+    EXPECT_NE(std::memcmp(values.data(), input.data(), sizeof(values)), 0);
+    ASSERT_TRUE(blst_fr_fft(values.data(), values.size(), true));
+    EXPECT_EQ(std::memcmp(values.data(), input.data(), sizeof(values)), 0);
+
+    std::array<blst_fr, 3> invalid = {
+        test_fr_from_u64(1), test_fr_from_u64(2), test_fr_from_u64(3)
+    };
+    const auto invalid_input = invalid;
+    EXPECT_FALSE(blst_fr_fft(invalid.data(), invalid.size(), false));
+    EXPECT_EQ(std::memcmp(
+        invalid.data(), invalid_input.data(), sizeof(invalid)), 0);
+}
+
 TEST(BindingHeader, FrFftInterpolationRejectsOversubscribedDomain)
 {
     constexpr size_t fft_len = 8;

@@ -18,9 +18,10 @@ extern "C" {
  * Runs the owned BLST reference FFT in-place over Montgomery-form Fr values.
  *
  * Parameter interpretation:
- * - `values` points to `n` consecutive `blst_fr` values.
- * - `n` must be a non-zero power of two and fit within the BLS12-381 scalar
- *   field 2-adicity.
+ * - `values` points to `n` consecutive reduced Montgomery-form `blst_fr`
+ *   values.
+ * - `n` must be a non-zero power of two no larger than `2^30`, the largest
+ *   size supported by the signed-index radix-two engine.
  * - `inverse == false` evaluates with powers of the primitive `n`th root.
  * - `inverse == true` evaluates with reciprocal root powers and applies the
  *   usual `1/n` inverse-FFT scale.
@@ -29,18 +30,26 @@ extern "C" {
  * - `true` on success.
  * - `false` when `values` is null, `n` is invalid, or the native computation
  *   throws/fails.
+ *
+ * Root preparation may allocate and fail before modifying `values`. Once the
+ * in-place transform begins, an unexpected internal failure may leave values
+ * partially transformed. The arithmetic schedule and addresses depend on the
+ * public size and direction, not coefficient values. The function owns no
+ * global mutable state; concurrent calls are safe when their mutable ranges
+ * are disjoint.
  */
-bool blst_fr_fft(blst_fr* values, size_t n, bool inverse);
+BLST_NODISCARD bool blst_fr_fft(blst_fr* values, size_t n, bool inverse);
 
 /**
  * Returns the caller-owned `blst_fr` element count required for a prepared
  * radix-two FFT domain of size `n`.
  *
  * The prepared storage contains forward root powers, the inverse-size scale,
- * and an encoded size tag. A zero return means `n` is not a supported non-zero
- * power of two.
+ * and an encoded size tag. A zero return means `n` is not a non-zero power of
+ * two no larger than `2^30`. This query allocates nothing and cannot fail for
+ * any other reason.
  */
-size_t blst_fr_fft_domain_len(size_t n);
+BLST_NODISCARD size_t blst_fr_fft_domain_len(size_t n);
 
 /**
  * Initializes caller-owned storage for a radix-two FFT domain of size `n`.
@@ -48,9 +57,12 @@ size_t blst_fr_fft_domain_len(size_t n);
  * `domain` must point to exactly `domain_len` writable `blst_fr` elements, and
  * `domain_len` must equal `blst_fr_fft_domain_len(n)`. The prepared values
  * remain in Montgomery form and may be reused by any number of forward or
- * inverse transforms of exactly `n` values.
+ * inverse transforms of exactly `n` values. The function allocates nothing.
+ * Publish or reuse the domain only after a `true` result; on `false`, its
+ * contents are unspecified. Calls with disjoint mutable domain storage are
+ * concurrency-safe.
  */
-bool blst_fr_fft_domain_init(
+BLST_NODISCARD bool blst_fr_fft_domain_init(
     blst_fr* domain,
     size_t domain_len,
     size_t n);
@@ -64,9 +76,15 @@ bool blst_fr_fft_domain_init(
  * `blst_fr_fft_domain_len(n)`; the two ranges must not overlap. The stored size
  * tag is checked before transforming. The inverse transform uses reciprocal
  * powers derived from the stored forward roots and applies the prepared `1/n`
- * scale.
+ * scale. Every value and domain element must be a reduced Montgomery-form Fr
+ * value. Invalid pointers, shapes, or size tags are rejected before modifying
+ * `values`; an unexpected internal failure after transformation begins may
+ * leave values partially transformed. Execution schedules and addresses depend
+ * only on the public size and direction. An immutable prepared domain may be
+ * shared concurrently, while callers synchronize or separate mutable value
+ * buffers.
  */
-bool blst_fr_fft_with_domain(
+BLST_NODISCARD bool blst_fr_fft_with_domain(
     blst_fr* values,
     size_t n,
     const blst_fr* domain,
@@ -78,7 +96,7 @@ bool blst_fr_fft_with_domain(
  *
  * Parameter interpretation:
  * - `out_coefficients` points to n writable Fr values.
- * - `points` and `values` each point to n Fr values.
+ * - `points` and `values` each point to n reduced Montgomery-form Fr values.
  * - On success, `out_coefficients[i]` is the monomial coefficient of X^i.
  *
  * Return value:
@@ -90,6 +108,8 @@ bool blst_fr_fft_with_domain(
  * may allocate and is variable-time in the points and public length. For fixed
  * points its reconstruction schedule does not depend on values. Ordinary heap
  * storage contains value-derived intermediates and is not securely erased.
+ * Calls own no global mutable state and are concurrency-safe when mutable
+ * output ranges are disjoint.
  */
 BLST_NODISCARD bool blst_fr_interpolate(
     blst_fr* out_coefficients,
@@ -114,18 +134,24 @@ BLST_NODISCARD size_t blst_fr_interpolate_fft_domain_suffix_scratch_len(
  *
  * Given `n` values at FFT-domain indices and an offset `ell`, writes
  * coefficients `ell..n-1` of the unique degree-<n interpolant to `out_suffix`.
+ * Every input value must be a reduced Montgomery-form Fr element.
  * The output must contain `n-ell` writable Fr values. `scratch` must point to at
  * least
  * `blst_fr_interpolate_fft_domain_suffix_scratch_len(n, fft_len)` writable Fr
  * elements. The scratch buffer is fully caller-owned and may be reused across
  * calls with the same or smaller shape. Scratch must not overlap the output,
  * indices, or values ranges. Invalid shapes, indices, duplicate points, and
- * short scratch are rejected before writing the output. Output may overlap
+ * short scratch are rejected before writing the output. Every pointer argument
+ * must be non-null, including `out_suffix` when `ell == n` and its logical
+ * output length is zero.
+ * Output may overlap
  * values, but not indices or scratch. Output is unchanged on failure; scratch
  * may be modified after initial validation succeeds. The operation allocates
  * nothing and its schedule depends on public lengths and indices, not values.
  * Scratch contains value-derived intermediates and must be cleared by the
  * caller when that lifecycle policy is required.
+ * Calls own no global mutable state and are concurrency-safe when mutable
+ * output and scratch ranges are disjoint between calls.
  */
 BLST_NODISCARD bool blst_fr_interpolate_fft_domain_suffix_with_scratch(
     blst_fr* out_suffix,

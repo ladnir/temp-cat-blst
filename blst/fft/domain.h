@@ -43,6 +43,10 @@ namespace blst::fft_detail
         }
     }
 
+    /**
+     * Allocate and return exactly @p n ordered roots for the requested public
+     * direction. Throws on an unsupported size or allocation failure.
+     */
     template<typename F, typename CoeffCtx>
     [[nodiscard]] std::vector<F> make_roots(
         const std::size_t n,
@@ -57,11 +61,13 @@ namespace blst::fft_detail
         return roots;
     }
 
-    // Initializes exactly n + 2 elements as n ordered forward roots, 1/n, and
-    // an n tag. n must be a supported transform size. This narrow native helper
-    // performs Debug-only shape checks; supported C/Rust boundaries validate
-    // before entry. Failure during construction may leave domain partially
-    // written, so callers must not publish it until this function returns.
+    /**
+     * Initialize exactly n + 2 elements as n ordered forward roots, 1/n, and
+     * an n tag. n must be a supported transform size. This narrow native helper
+     * performs Debug-only shape checks; supported C/Rust boundaries validate
+     * before entry. Failure during construction may leave domain partially
+     * written, so callers must not publish it until this function returns.
+     */
     template<typename F, typename CoeffCtx>
     void initialize_domain(const std::span<F> domain, const std::size_t n)
     {
@@ -72,10 +78,12 @@ namespace blst::fft_detail
         domain[n + 1] = CoeffCtx::template from_u64<F>(n);
     }
 
-    // Transforms values in place using a domain produced by initialize_domain
-    // for exactly values.size(). The two spans must not overlap. Domain roots,
-    // inverse size, and tag are immutable public preparation data. The helper
-    // validates only shapes in Debug and does not authenticate domain contents.
+    /**
+     * Transform values in place using a domain produced by initialize_domain
+     * for exactly values.size(). The two spans must not overlap. Domain roots,
+     * inverse size, and tag are immutable public preparation data. The helper
+     * validates only shapes in Debug and does not authenticate domain contents.
+     */
     template<typename G, typename F, typename CoeffCtx>
     void transform_with_domain(
         const std::span<G> values,

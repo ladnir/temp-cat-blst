@@ -40,9 +40,14 @@ pub enum FftError {
 
 /// Runs the BLST reference FFT in-place over Montgomery-form Fr values.
 ///
-/// `values.len()` must be a non-zero power of two. Forward FFT uses powers of
-/// the primitive root for the size; inverse FFT uses reciprocal powers and
-/// applies the usual `1/n` scaling inside BLST.
+/// Every input must be reduced and Montgomery encoded. `values.len()` must be a
+/// non-zero power of two no larger than `2^30`. Forward FFT uses powers of the
+/// primitive root for the size; inverse FFT uses reciprocal powers and applies
+/// the usual `1/n` scaling inside BLST. Root preparation may allocate. A
+/// validation or allocation failure leaves values unchanged; an unexpected
+/// native failure after the in-place transform begins may leave them partially
+/// transformed. Work and addresses depend on public length/direction, not
+/// coefficient values.
 pub fn fr_fft(values: &mut [blst_fr], inverse: bool) -> Result<(), FftError> {
     check_fft_input(values)?;
 
@@ -55,6 +60,8 @@ pub fn fr_fft(values: &mut [blst_fr], inverse: bool) -> Result<(), FftError> {
 }
 
 /// Returns the number of `blst_fr` elements required by a prepared domain.
+/// Valid sizes are non-zero powers of two through `2^30`; the query allocates
+/// nothing.
 pub fn fr_fft_domain_len(n: usize) -> Result<usize, FftError> {
     check_fft_size(n)?;
 
@@ -70,7 +77,9 @@ pub fn fr_fft_domain_len(n: usize) -> Result<usize, FftError> {
 ///
 /// Domain construction fills forward root powers and the inverse-size scale in
 /// Montgomery form. The returned storage may be reused for any number of
-/// transforms of exactly `n` values.
+/// transforms of exactly `n` values. It allocates nothing. The domain must be
+/// treated as unspecified if initialization returns an error and may be shared
+/// immutably after success.
 pub fn fr_fft_domain_init(
     domain: &mut [blst_fr],
     n: usize,
@@ -95,6 +104,11 @@ pub fn fr_fft_domain_init(
 /// `domain` must have been initialized by `fr_fft_domain_init` for exactly the
 /// current value count. Forward and inverse transforms both reuse its one
 /// forward-root table; inverse execution includes the prepared `1/n` scale.
+/// Values must be reduced Montgomery Fr elements and must not overlap domain.
+/// The operation allocates nothing. Invalid shape/tag failures leave values
+/// unchanged; an unexpected failure after in-place work begins may leave them
+/// partially transformed. An immutable domain may be shared by concurrent calls
+/// operating on disjoint mutable value slices.
 pub fn fr_fft_with_domain(
     values: &mut [blst_fr],
     domain: &[blst_fr],
@@ -125,6 +139,7 @@ pub fn fr_fft_with_domain(
 ///
 /// `output.len()` must equal `points.len() == values.len()`. The output buffer
 /// is caller-owned; no coefficient vector is returned across the FFI boundary.
+/// Points and values must be reduced Montgomery-form Fr elements.
 /// It is unchanged on error. The operation may allocate and is variable-time in
 /// the points and public length; for fixed points, reconstruction shape does not
 /// depend on values. Ordinary heap storage contains value-derived intermediates
@@ -186,6 +201,9 @@ pub fn fr_interpolate_fft_domain_suffix_scratch_len(
 /// and indices, not on values. Output is unchanged on error, while scratch may
 /// be modified after native shape validation succeeds. Scratch contains
 /// value-derived intermediates and must be cleared by the caller if required.
+/// Values must be reduced Montgomery-form Fr elements. Independent calls are
+/// concurrency-safe because the wrapper exposes only caller-owned mutable
+/// output and scratch.
 pub fn fr_interpolate_fft_domain_suffix_with_scratch(
     indices: &[usize],
     values: &[blst_fr],
