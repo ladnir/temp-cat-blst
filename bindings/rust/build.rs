@@ -406,12 +406,8 @@ fn built_library_dir(
         candidates.push(build_dir.join("blst").join("blst.lib"));
     } else {
         candidates.push(build_dir.join("blst").join("libblst.a"));
-        candidates.push(
-            build_dir
-                .join("blst")
-                .join(build_type)
-                .join("libblst.a"),
-        );
+        candidates
+            .push(build_dir.join("blst").join(build_type).join("libblst.a"));
     }
 
     let found: Vec<_> = candidates

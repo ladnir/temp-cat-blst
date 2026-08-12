@@ -47,10 +47,11 @@ Contract policy:
   validation, and variable-time is defined in `docs/API_CONTRACTS.md` at the
   repository root.
 
-Documentation is currently incremental with the hand audit. Field arithmetic
-and the reviewed G1/G2/GT multiplication and membership families are covered;
-unaudited signature, pairing-state, decoding, FFT, and middle-product families
-retain their existing documentation until their files are reviewed.
+Documentation remains incremental with the hand audit. Field arithmetic,
+reviewed G1/G2/GT operations, the high-level signature and aggregate surface,
+pairing state, decoding, FFT, and middle product now state their reviewed
+preconditions and postconditions. Unreviewed raw declarations inherit the C
+contract and remain pending until their owning files are reviewed.
 
 Recommended entry points:
 

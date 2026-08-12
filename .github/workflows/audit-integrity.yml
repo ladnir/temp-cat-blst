@@ -31,6 +31,12 @@ jobs:
           powershell.exe -NoProfile -ExecutionPolicy Bypass
           -File scripts/audit/check_rust_bindings.ps1
 
+      - name: Validate reviewed Rust API contracts
+        shell: powershell
+        run: >
+          powershell.exe -NoProfile -ExecutionPolicy Bypass
+          -File scripts/audit/check_rust_api_contracts.ps1
+
   rust-binding-transform:
     runs-on: ubuntu-latest
     permissions:

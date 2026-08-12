@@ -28,6 +28,7 @@ use zeroize::Zeroize;
 
 include!("bindings.rs");
 mod avx;
+/// Scalar-field FFT and interpolation operations.
 pub mod fft;
 mod middle_product;
 mod pairing;
@@ -127,9 +128,14 @@ macro_rules! sig_variant_impl {
         $sig_is_inf:ident,
         $sig_aggr_in_group:ident,
     ) => {
-        /// Secret Key
+        /// A canonical nonzero BLS secret scalar.
+        ///
+        /// Construction validates or derives the invariant; there is no
+        /// `Default` implementation because the all-zero scalar is not a
+        /// secret key. Cloning deliberately duplicates secret material and
+        /// every owned copy is erased when dropped.
         #[repr(transparent)]
-        #[derive(Default, Debug, Clone, Zeroize)]
+        #[derive(Debug, Clone, Zeroize)]
         #[zeroize(drop)]
         pub struct SecretKey {
             value: blst_scalar,
@@ -153,17 +159,19 @@ macro_rules! sig_variant_impl {
                 if ikm.len() < 32 {
                     return Err(BLST_ERROR::BLST_BAD_ENCODING);
                 }
-                let mut sk = SecretKey::default();
+                let mut sk = MaybeUninit::<blst_scalar>::uninit();
                 unsafe {
                     blst_keygen(
-                        &mut sk.value,
+                        sk.as_mut_ptr(),
                         ikm.as_ptr(),
                         ikm.len(),
                         key_info.as_ptr(),
                         key_info.len(),
                     );
+                    Ok(Self {
+                        value: sk.assume_init(),
+                    })
                 }
-                Ok(sk)
             }
 
             /// Retains upstream BLST's legacy v3 derivation.
@@ -175,7 +183,7 @@ macro_rules! sig_variant_impl {
             /// # Errors
             ///
             /// Returns [`BLST_ERROR::BLST_BAD_ENCODING`] when `ikm` contains
-            /// fewer than 32 bytes.
+            /// fewer than 32 bytes or the legacy derivation produces zero.
             pub fn key_gen_v3(
                 ikm: &[u8],
                 key_info: &[u8],
@@ -183,17 +191,22 @@ macro_rules! sig_variant_impl {
                 if ikm.len() < 32 {
                     return Err(BLST_ERROR::BLST_BAD_ENCODING);
                 }
-                let mut sk = SecretKey::default();
+                let mut sk = MaybeUninit::<blst_scalar>::uninit();
                 unsafe {
                     blst_keygen_v3(
-                        &mut sk.value,
+                        sk.as_mut_ptr(),
                         ikm.as_ptr(),
                         ikm.len(),
                         key_info.as_ptr(),
                         key_info.len(),
                     );
+                    let mut value = sk.assume_init();
+                    if !blst_sk_check(&value) {
+                        value.zeroize();
+                        return Err(BLST_ERROR::BLST_BAD_ENCODING);
+                    }
+                    Ok(Self { value })
                 }
-                Ok(sk)
             }
 
             /// Derives a canonical nonzero secret key with the v4.5 interface.
@@ -213,10 +226,10 @@ macro_rules! sig_variant_impl {
                 if ikm.len() < 32 {
                     return Err(BLST_ERROR::BLST_BAD_ENCODING);
                 }
-                let mut sk = SecretKey::default();
+                let mut sk = MaybeUninit::<blst_scalar>::uninit();
                 unsafe {
                     blst_keygen_v4_5(
-                        &mut sk.value,
+                        sk.as_mut_ptr(),
                         ikm.as_ptr(),
                         ikm.len(),
                         salt.as_ptr(),
@@ -224,8 +237,10 @@ macro_rules! sig_variant_impl {
                         info.as_ptr(),
                         info.len(),
                     );
+                    Ok(Self {
+                        value: sk.assume_init(),
+                    })
                 }
-                Ok(sk)
             }
 
             /// Derives a canonical nonzero secret key with the v5 interface.
@@ -245,10 +260,10 @@ macro_rules! sig_variant_impl {
                 if ikm.len() < 32 {
                     return Err(BLST_ERROR::BLST_BAD_ENCODING);
                 }
-                let mut sk = SecretKey::default();
+                let mut sk = MaybeUninit::<blst_scalar>::uninit();
                 unsafe {
                     blst_keygen_v5(
-                        &mut sk.value,
+                        sk.as_mut_ptr(),
                         ikm.as_ptr(),
                         ikm.len(),
                         salt.as_ptr(),
@@ -256,8 +271,10 @@ macro_rules! sig_variant_impl {
                         info.as_ptr(),
                         info.len(),
                     );
+                    Ok(Self {
+                        value: sk.assume_init(),
+                    })
                 }
-                Ok(sk)
             }
 
             /// Derives a canonical nonzero EIP-2333 master secret key.
@@ -272,30 +289,34 @@ macro_rules! sig_variant_impl {
                 if ikm.len() < 32 {
                     return Err(BLST_ERROR::BLST_BAD_ENCODING);
                 }
-                let mut sk = SecretKey::default();
+                let mut sk = MaybeUninit::<blst_scalar>::uninit();
                 unsafe {
                     blst_derive_master_eip2333(
-                        &mut sk.value,
+                        sk.as_mut_ptr(),
                         ikm.as_ptr(),
                         ikm.len(),
                     );
+                    Ok(Self {
+                        value: sk.assume_init(),
+                    })
                 }
-                Ok(sk)
             }
 
             /// Derives the canonical nonzero EIP-2333 child key at
             /// `child_index`. `self` is the validated parent secret key.
             #[must_use]
             pub fn derive_child_eip2333(&self, child_index: u32) -> Self {
-                let mut sk = SecretKey::default();
+                let mut sk = MaybeUninit::<blst_scalar>::uninit();
                 unsafe {
                     blst_derive_child_eip2333(
-                        &mut sk.value,
+                        sk.as_mut_ptr(),
                         &self.value,
                         child_index,
                     );
+                    Self {
+                        value: sk.assume_init(),
+                    }
                 }
-                sk
             }
 
             /// Derives the prime-order public key corresponding to this
@@ -355,7 +376,8 @@ macro_rules! sig_variant_impl {
             // should accept reference to where to store the result, as
             // opposite to returning one.
 
-            // serialize
+            /// Returns the canonical 32-byte big-endian secret scalar.
+            #[must_use]
             pub fn serialize(&self) -> [u8; 32] {
                 let mut sk_out = [0; 32];
                 unsafe {
@@ -364,25 +386,35 @@ macro_rules! sig_variant_impl {
                 sk_out
             }
 
-            // deserialize
+            /// Decodes exactly 32 big-endian bytes as a canonical nonzero
+            /// secret key.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`BLST_ERROR::BLST_BAD_ENCODING`] for any other length,
+            /// zero, or a scalar greater than or equal to the group order.
             pub fn deserialize(sk_in: &[u8]) -> Result<Self, BLST_ERROR> {
-                let mut sk = blst_scalar::default();
                 if sk_in.len() != 32 {
                     return Err(BLST_ERROR::BLST_BAD_ENCODING);
                 }
                 unsafe {
-                    blst_scalar_from_bendian(&mut sk, sk_in.as_ptr());
+                    let mut sk = MaybeUninit::<blst_scalar>::uninit();
+                    blst_scalar_from_bendian(sk.as_mut_ptr(), sk_in.as_ptr());
+                    let sk = sk.assume_init();
                     if !blst_sk_check(&sk) {
                         return Err(BLST_ERROR::BLST_BAD_ENCODING);
                     }
+                    Ok(Self { value: sk })
                 }
-                Ok(Self { value: sk })
             }
 
+            /// Alias for [`Self::serialize`].
+            #[must_use]
             pub fn to_bytes(&self) -> [u8; 32] {
                 SecretKey::serialize(&self)
             }
 
+            /// Alias for [`Self::deserialize`].
             pub fn from_bytes(sk_in: &[u8]) -> Result<Self, BLST_ERROR> {
                 SecretKey::deserialize(sk_in)
             }
@@ -417,7 +449,7 @@ macro_rules! sig_variant_impl {
         // of the secret key material.
         impl<'a> From<&'a SecretKey> for &'a blst_scalar {
             fn from(sk: &'a SecretKey) -> Self {
-                unsafe { transmute::<&SecretKey, Self>(sk) }
+                &sk.value
             }
         }
 
@@ -429,6 +461,9 @@ macro_rules! sig_variant_impl {
                     if !blst_sk_check(sk) {
                         return Err(BLST_ERROR::BLST_BAD_ENCODING);
                     }
+                    // SAFETY: SecretKey is repr(transparent) over blst_scalar,
+                    // and blst_sk_check established its additional nonzero,
+                    // canonical-value invariant for the lifetime of `sk`.
                     Ok(transmute::<&blst_scalar, Self>(sk))
                 }
             }
@@ -472,6 +507,11 @@ macro_rules! sig_variant_impl {
                 Ok(pk)
             }
 
+            /// Converts a projective aggregate to affine form.
+            ///
+            /// `agg_pk` must represent an on-curve point. The conversion does
+            /// not validate subgroup membership.
+            #[must_use]
             pub fn from_aggregate(agg_pk: &AggregatePublicKey) -> Self {
                 let mut pk_aff = <$pk_aff>::default();
                 unsafe {
@@ -545,6 +585,8 @@ macro_rules! sig_variant_impl {
                 PublicKey::deserialize(pk_in)
             }
 
+            /// Alias for [`Self::compress`].
+            #[must_use]
             pub fn to_bytes(&self) -> [u8; $pk_comp_size] {
                 self.compress()
             }
@@ -600,6 +642,8 @@ macro_rules! sig_variant_impl {
             }
         }
 
+        /// Wraps raw affine storage without validating the curve equation,
+        /// infinity, or subgroup membership.
         impl From<$pk_aff> for PublicKey {
             fn from(point: $pk_aff) -> Self {
                 Self { point }
@@ -608,11 +652,19 @@ macro_rules! sig_variant_impl {
 
         #[repr(transparent)]
         #[derive(Debug, Clone, Copy)]
+        /// Projective public-key aggregate storage.
+        ///
+        /// The storage does not encode validation state. Operations that omit
+        /// validation require every input to have been validated previously.
         pub struct AggregatePublicKey {
             point: $pk,
         }
 
         impl AggregatePublicKey {
+            /// Converts an affine public key to projective aggregate storage.
+            ///
+            /// `pk` must be on-curve; subgroup membership is not checked.
+            #[must_use]
             pub fn from_public_key(pk: &PublicKey) -> Self {
                 let mut agg_pk = <$pk>::default();
                 unsafe {
@@ -621,6 +673,9 @@ macro_rules! sig_variant_impl {
                 Self { point: agg_pk }
             }
 
+            /// Converts this on-curve projective aggregate to affine storage.
+            /// Subgroup membership is not checked.
+            #[must_use]
             pub fn to_public_key(&self) -> PublicKey {
                 let mut pk = <$pk_aff>::default();
                 unsafe {
@@ -629,7 +684,18 @@ macro_rules! sig_variant_impl {
                 PublicKey { point: pk }
             }
 
-            // Aggregate
+            /// Adds one or more public keys into a projective aggregate.
+            ///
+            /// When `pks_validate` is true, every key is checked for subgroup
+            /// membership and infinity before it is added. Otherwise every key
+            /// must already satisfy that precondition. Work is variable-time
+            /// over public points and allocates no heap storage.
+            ///
+            /// # Errors
+            ///
+            /// Returns a validation error, or
+            /// [`BLST_ERROR::BLST_AGGR_TYPE_MISMATCH`] for empty input. No
+            /// partial aggregate is returned.
             pub fn aggregate(
                 pks: &[&PublicKey],
                 pks_validate: bool,
@@ -656,6 +722,23 @@ macro_rules! sig_variant_impl {
                 Ok(agg_pk)
             }
 
+            /// Computes a variable-time randomly weighted public-key aggregate.
+            ///
+            /// `randomness` contains one public little-endian `nbits` scalar
+            /// per key and `nbits` must not exceed 256. When
+            /// `pks_groupcheck` is false, every key must already be a validated
+            /// non-infinity subgroup element. The MSM allocates caller-sized
+            /// scratch.
+            ///
+            /// # Errors
+            ///
+            /// Returns a validation error or an aggregate-type error for empty
+            /// input.
+            ///
+            /// # Panics
+            ///
+            /// Panics when the scalar buffer is too short, its required size
+            /// overflows, or `nbits > 256`.
             pub fn aggregate_with_randomness(
                 pks: &[PublicKey],
                 randomness: &[u8],
@@ -671,6 +754,17 @@ macro_rules! sig_variant_impl {
                 Ok(pks.mult(randomness, nbits))
             }
 
+            /// Decodes and aggregates one or more serialized public keys.
+            ///
+            /// Decoding always establishes canonical on-curve points. When
+            /// `pks_validate` is true, this also rejects infinity and checks
+            /// subgroup membership. Otherwise the caller must establish those
+            /// properties before using the aggregate in a protocol.
+            ///
+            /// # Errors
+            ///
+            /// Returns the first decode/validation error, or an aggregate-type
+            /// error for empty input. No partial aggregate is returned.
             pub fn aggregate_serialized(
                 pks: &[&[u8]],
                 pks_validate: bool,
@@ -702,13 +796,17 @@ macro_rules! sig_variant_impl {
                 Ok(agg_pk)
             }
 
+            /// Adds another previously validated subgroup aggregate in place.
+            /// No validation is performed; work is variable-time over public
+            /// points.
             pub fn add_aggregate(&mut self, agg_pk: &AggregatePublicKey) {
                 unsafe {
                     $pk_add_or_dbl(&mut self.point, &self.point, &agg_pk.point);
                 }
             }
 
-            /// Subtracts `agg_pk` from this aggregate without modifying it.
+            /// Subtracts a previously validated subgroup aggregate from `self`.
+            /// `agg_pk` is not modified and no validation is performed.
             pub fn sub_aggregate(&mut self, agg_pk: &AggregatePublicKey) {
                 unsafe {
                     let mut negated = agg_pk.clone();
@@ -721,6 +819,14 @@ macro_rules! sig_variant_impl {
                 }
             }
 
+            /// Adds one affine public key to this aggregate.
+            ///
+            /// When `pk_validate` is false, `pk` must already be a validated
+            /// non-infinity subgroup element.
+            ///
+            /// # Errors
+            ///
+            /// Returns a public-key validation error before mutation.
             pub fn add_public_key(
                 &mut self,
                 pk: &PublicKey,
@@ -748,6 +854,8 @@ macro_rules! sig_variant_impl {
             }
         }
 
+        /// Wraps raw projective storage without validating the curve equation
+        /// or subgroup membership.
         impl From<$pk> for AggregatePublicKey {
             fn from(point: $pk) -> Self {
                 Self { point }
@@ -798,6 +906,12 @@ macro_rules! sig_variant_impl {
                 Ok(sig)
             }
 
+            /// Verifies one signature, public key, and message.
+            ///
+            /// When either validation flag is false, that operand must already
+            /// be a validated subgroup element; no Release validation is then
+            /// performed. `aug` is prepended to `msg` in temporary heap storage.
+            /// Returns a native [`BLST_ERROR`] result and publishes no state.
             pub fn verify(
                 &self,
                 sig_groupcheck: bool,
@@ -817,6 +931,13 @@ macro_rules! sig_variant_impl {
                 )
             }
 
+            /// Verifies this signature against matching public-key/message pairs.
+            ///
+            /// `msgs.len()` must equal `pks.len()` and be nonzero. Protocols
+            /// that require distinct messages must establish uniqueness before
+            /// calling. Disabled validation flags mean the corresponding
+            /// operands were validated previously. The pairing context owns one
+            /// allocation and all work is synchronous on the calling thread.
             pub fn aggregate_verify(
                 &self,
                 sig_groupcheck: bool,
@@ -867,8 +988,12 @@ macro_rules! sig_variant_impl {
                 }
             }
 
-            // pks are assumed to be verified for proof of possession,
-            // which implies that they are already group-checked
+            /// Verifies one message against the aggregate of several public keys.
+            ///
+            /// Every key must already have a valid proof of possession, which
+            /// also establishes non-infinity subgroup membership. This method
+            /// deliberately performs no public-key validation. Signature
+            /// membership is checked only when `sig_groupcheck` is true.
             pub fn fast_aggregate_verify(
                 &self,
                 sig_groupcheck: bool,
@@ -890,6 +1015,10 @@ macro_rules! sig_variant_impl {
                 )
             }
 
+            /// Verifies one message against a pre-aggregated public key.
+            ///
+            /// `pk` must be a previously validated subgroup aggregate. Signature
+            /// membership is checked only when `sig_groupcheck` is true.
             pub fn fast_aggregate_verify_pre_aggregated(
                 &self,
                 sig_groupcheck: bool,
@@ -900,7 +1029,19 @@ macro_rules! sig_variant_impl {
                 self.aggregate_verify(sig_groupcheck, &[msg], dst, &[pk], false)
             }
 
-            // https://ethresear.ch/t/fast-verification-of-multiple-bls-signatures/5407
+            /// Batch verifies independently aggregated signatures with public
+            /// random weights.
+            ///
+            /// All four input slices must have the same nonzero length.
+            /// `rands` must contain independently sampled, unpredictable,
+            /// nonzero scalars with sufficient soundness for the protocol;
+            /// `rand_bits` is public and must not exceed 256. Disabled group
+            /// checks mean the corresponding values were validated previously.
+            /// This function is variable-time over public data and owns one
+            /// pairing-context allocation.
+            ///
+            /// Shape errors return [`BLST_ERROR::BLST_VERIFY_FAIL`]; invalid
+            /// scalar width returns [`BLST_ERROR::BLST_BAD_SCALAR`].
             #[allow(clippy::too_many_arguments)]
             pub fn verify_multiple_aggregate_signatures(
                 msgs: &[&[u8]],
@@ -950,6 +1091,9 @@ macro_rules! sig_variant_impl {
                 }
             }
 
+            /// Converts an on-curve projective signature aggregate to affine
+            /// storage without validating subgroup membership.
+            #[must_use]
             pub fn from_aggregate(agg_sig: &AggregateSignature) -> Self {
                 let mut sig_aff = <$sig_aff>::default();
                 unsafe {
@@ -1024,6 +1168,8 @@ macro_rules! sig_variant_impl {
                 Signature::deserialize(sig_in)
             }
 
+            /// Alias for [`Self::compress`].
+            #[must_use]
             pub fn to_bytes(&self) -> [u8; $sig_comp_size] {
                 self.compress()
             }
@@ -1084,6 +1230,8 @@ macro_rules! sig_variant_impl {
             }
         }
 
+        /// Wraps raw affine storage without validating the curve equation,
+        /// infinity, or subgroup membership.
         impl From<$sig_aff> for Signature {
             fn from(point: $sig_aff) -> Self {
                 Self { point }
@@ -1092,11 +1240,17 @@ macro_rules! sig_variant_impl {
 
         #[repr(transparent)]
         #[derive(Debug, Clone, Copy)]
+        /// Projective signature aggregate storage.
+        ///
+        /// The storage does not encode validation state. Operations that omit
+        /// validation require every input to have been validated previously.
         pub struct AggregateSignature {
             point: $sig,
         }
 
         impl AggregateSignature {
+            /// Validates that this on-curve aggregate lies in the signature
+            /// subgroup. Infinity is permitted for an aggregate.
             pub fn validate(&self) -> Result<(), BLST_ERROR> {
                 unsafe {
                     if !$sig_aggr_in_group(&self.point) {
@@ -1106,6 +1260,9 @@ macro_rules! sig_variant_impl {
                 Ok(())
             }
 
+            /// Converts an on-curve affine signature to projective aggregate
+            /// storage without validating subgroup membership.
+            #[must_use]
             pub fn from_signature(sig: &Signature) -> Self {
                 let mut agg_sig = <$sig>::default();
                 unsafe {
@@ -1114,6 +1271,9 @@ macro_rules! sig_variant_impl {
                 Self { point: agg_sig }
             }
 
+            /// Converts this on-curve aggregate to affine storage without
+            /// validating subgroup membership.
+            #[must_use]
             pub fn to_signature(&self) -> Signature {
                 let mut sig = <$sig_aff>::default();
                 unsafe {
@@ -1122,7 +1282,18 @@ macro_rules! sig_variant_impl {
                 Signature { point: sig }
             }
 
-            // Aggregate
+            /// Adds one or more signatures into a projective aggregate.
+            ///
+            /// When `sigs_groupcheck` is true, every signature is checked for
+            /// subgroup membership. Infinity remains permitted because an
+            /// input may itself be an aggregate. Otherwise every input must
+            /// already satisfy the subgroup precondition. Work is variable-time
+            /// over public points and allocates no heap storage.
+            ///
+            /// # Errors
+            ///
+            /// Returns a validation error, or an aggregate-type error for empty
+            /// input. No partial aggregate is returned.
             pub fn aggregate(
                 sigs: &[&Signature],
                 sigs_groupcheck: bool,
@@ -1152,6 +1323,22 @@ macro_rules! sig_variant_impl {
                 Ok(agg_sig)
             }
 
+            /// Computes a variable-time randomly weighted signature aggregate.
+            ///
+            /// `randomness` contains one public little-endian `nbits` scalar
+            /// per signature and `nbits` must not exceed 256. When
+            /// `sigs_groupcheck` is false, every signature must already be a
+            /// subgroup element. The MSM allocates caller-sized scratch.
+            ///
+            /// # Errors
+            ///
+            /// Returns a validation error or an aggregate-type error for empty
+            /// input.
+            ///
+            /// # Panics
+            ///
+            /// Panics when the scalar buffer is too short, its required size
+            /// overflows, or `nbits > 256`.
             pub fn aggregate_with_randomness(
                 sigs: &[Signature],
                 randomness: &[u8],
@@ -1167,6 +1354,16 @@ macro_rules! sig_variant_impl {
                 Ok(sigs.mult(randomness, nbits))
             }
 
+            /// Decodes and aggregates one or more serialized signatures.
+            ///
+            /// Decoding always establishes canonical on-curve points. When
+            /// `sigs_groupcheck` is true, subgroup membership is also checked;
+            /// otherwise callers must establish it before protocol use.
+            ///
+            /// # Errors
+            ///
+            /// Returns the first decode/validation error, or an aggregate-type
+            /// error for empty input. No partial aggregate is returned.
             pub fn aggregate_serialized(
                 sigs: &[&[u8]],
                 sigs_groupcheck: bool,
@@ -1198,6 +1395,8 @@ macro_rules! sig_variant_impl {
                 Ok(agg_sig)
             }
 
+            /// Adds another previously validated subgroup aggregate in place.
+            /// No validation is performed.
             pub fn add_aggregate(&mut self, agg_sig: &AggregateSignature) {
                 unsafe {
                     $sig_add_or_dbl(
@@ -1208,6 +1407,10 @@ macro_rules! sig_variant_impl {
                 }
             }
 
+            /// Adds one affine signature to this aggregate.
+            ///
+            /// When `sig_groupcheck` is false, `sig` must already be a subgroup
+            /// element. A requested validation failure occurs before mutation.
             pub fn add_signature(
                 &mut self,
                 sig: &Signature,
@@ -1226,6 +1429,9 @@ macro_rules! sig_variant_impl {
                 Ok(())
             }
 
+            /// Returns whether this on-curve aggregate lies in the signature
+            /// subgroup. Infinity is accepted.
+            #[must_use]
             pub fn subgroup_check(&self) -> bool {
                 unsafe { $sig_aggr_in_group(&self.point) }
             }
@@ -1243,6 +1449,8 @@ macro_rules! sig_variant_impl {
             }
         }
 
+        /// Wraps raw projective storage without validating the curve equation
+        /// or subgroup membership.
         impl From<$sig> for AggregateSignature {
             fn from(point: $sig) -> Self {
                 Self { point }
@@ -1254,6 +1462,9 @@ macro_rules! sig_variant_impl {
 
             fn mult(&self, scalars: &[u8], nbits: usize) -> Self::Output {
                 Self::Output {
+                    // SAFETY: PublicKey is repr(transparent) over $pk_aff, so
+                    // the slices have identical element layout, alignment,
+                    // length, and valid bit patterns.
                     point: unsafe { transmute::<&[_], &[$pk_aff]>(self) }
                         .mult(scalars, nbits),
                 }
@@ -1261,11 +1472,15 @@ macro_rules! sig_variant_impl {
 
             fn add(&self) -> Self::Output {
                 Self::Output {
+                    // SAFETY: PublicKey is repr(transparent) over $pk_aff; see
+                    // the mult implementation above.
                     point: unsafe { transmute::<&[_], &[$pk_aff]>(self) }.add(),
                 }
             }
 
             fn validate(&self) -> Result<(), BLST_ERROR> {
+                // SAFETY: PublicKey is repr(transparent) over $pk_aff; see the
+                // mult implementation above.
                 unsafe { transmute::<&[_], &[$pk_aff]>(self) }.validate()
             }
         }
@@ -1275,6 +1490,9 @@ macro_rules! sig_variant_impl {
 
             fn mult(&self, scalars: &[u8], nbits: usize) -> Self::Output {
                 Self::Output {
+                    // SAFETY: Signature is repr(transparent) over $sig_aff, so
+                    // the slices have identical element layout, alignment,
+                    // length, and valid bit patterns.
                     point: unsafe { transmute::<&[_], &[$sig_aff]>(self) }
                         .mult(scalars, nbits),
                 }
@@ -1282,12 +1500,16 @@ macro_rules! sig_variant_impl {
 
             fn add(&self) -> Self::Output {
                 Self::Output {
+                    // SAFETY: Signature is repr(transparent) over $sig_aff; see
+                    // the mult implementation above.
                     point: unsafe { transmute::<&[_], &[$sig_aff]>(self) }
                         .add(),
                 }
             }
 
             fn validate(&self) -> Result<(), BLST_ERROR> {
+                // SAFETY: Signature is repr(transparent) over $sig_aff; see the
+                // mult implementation above.
                 unsafe { transmute::<&[_], &[$sig_aff]>(self) }.validate()
             }
         }
@@ -1652,6 +1874,43 @@ macro_rules! sig_variant_impl {
             }
 
             #[test]
+            fn test_secret_key_serialization_preserves_nonzero_invariant() {
+                let mut ikm = [0x42; 32];
+                ikm[0] = 0xa5;
+                let salt = b"CatBLST secret-key invariant test";
+
+                let assert_roundtrip = |sk: SecretKey| {
+                    let encoded = sk.serialize();
+                    let decoded = SecretKey::deserialize(&encoded).unwrap();
+                    assert_eq!(decoded.serialize(), encoded);
+                };
+                assert_roundtrip(SecretKey::key_gen(&ikm, &[]).unwrap());
+                assert_roundtrip(SecretKey::key_gen_v3(&ikm, &[]).unwrap());
+                assert_roundtrip(
+                    SecretKey::key_gen_v4_5(&ikm, salt, &[]).unwrap(),
+                );
+                assert_roundtrip(
+                    SecretKey::key_gen_v5(&ikm, salt, &[]).unwrap(),
+                );
+                let master = SecretKey::derive_master_eip2333(&ikm).unwrap();
+                assert_roundtrip(master.derive_child_eip2333(7));
+                assert_roundtrip(master);
+
+                assert_eq!(
+                    SecretKey::deserialize(&[0u8; 32]).unwrap_err(),
+                    BLST_ERROR::BLST_BAD_ENCODING
+                );
+                assert_eq!(
+                    SecretKey::deserialize(&[0xffu8; 32]).unwrap_err(),
+                    BLST_ERROR::BLST_BAD_ENCODING
+                );
+                assert_eq!(
+                    SecretKey::deserialize(&[1u8; 31]).unwrap_err(),
+                    BLST_ERROR::BLST_BAD_ENCODING
+                );
+            }
+
+            #[test]
             fn test_point_decode_requires_separate_subgroup_validation() {
                 fn decode_hex<const N: usize>(encoded: &str) -> [u8; N] {
                     assert_eq!(encoded.len(), 2 * N);
@@ -1885,6 +2144,7 @@ macro_rules! sig_variant_impl {
 }
 
 #[cfg(feature = "full-rust-bindings")]
+/// BLS signatures with public keys in G1 and signatures in G2.
 pub mod min_pk {
     use super::*;
 
@@ -1931,6 +2191,7 @@ pub mod min_pk {
 }
 
 #[cfg(feature = "full-rust-bindings")]
+/// BLS signatures with public keys in G2 and signatures in G1.
 pub mod min_sig {
     use super::*;
 
@@ -1977,12 +2238,33 @@ pub mod min_sig {
 }
 
 #[cfg(feature = "full-rust-bindings")]
+/// Variable-time batch operations over affine G1 or G2 points.
+///
+/// Implementations use the prime-order subgroup contract. Call [`Self::validate`]
+/// first for points decoded from untrusted input. These operations are intended
+/// only for public points and public scalars.
 pub trait MultiPoint {
     type Output;
 
-    /// Variable-time multi-scalar multiplication for public scalars only.
+    /// Computes a variable-time MSM over public scalar data.
+    ///
+    /// Every point must already be a non-infinity prime-order subgroup element.
+    /// Scalars are packed consecutively in little-endian order using
+    /// `ceil(nbits / 8)` bytes per point; bits above `nbits` are ignored.
+    /// Empty input or `nbits == 0` returns the identity.
+    ///
+    /// # Panics
+    ///
+    /// Panics when `nbits > 256`, the scalar buffer is too short, or its
+    /// required size overflows.
     fn mult(&self, scalars: &[u8], nbits: usize) -> Self::Output;
+
+    /// Adds public prime-order subgroup points with variable-time work.
+    /// Empty input returns the identity.
     fn add(&self) -> Self::Output;
+
+    /// Performs complete subgroup membership checks and rejects infinity for
+    /// every point, returning the first validation error.
     fn validate(&self) -> Result<(), BLST_ERROR> {
         Err(BLST_ERROR::BLST_POINT_NOT_IN_GROUP)
     }
