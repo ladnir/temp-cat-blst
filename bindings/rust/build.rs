@@ -1,24 +1,37 @@
 use std::env;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 fn main() {
-    // account for cross-compilation [by examining environment variables]
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
     let target_env = env::var("CARGO_CFG_TARGET_ENV").unwrap();
     let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+    let host = env::var("HOST").unwrap();
+    let target = env::var("TARGET").unwrap();
+    let cross_compiling = host != target;
     let target_no_std = target_os.eq("none")
         || (target_os.eq("unknown") && target_arch.eq("wasm32"))
         || target_os.eq("uefi")
         || env::var("BLST_TEST_NO_STD").is_ok();
 
+    println!("cargo:rustc-check-cfg=cfg(blst_std)");
     if !target_no_std {
-        println!("cargo:rustc-cfg=feature=\"std\"");
+        println!("cargo:rustc-cfg=blst_std");
     }
-    println!("cargo:rerun-if-env-changed=BLST_TEST_NO_STD");
-    println!("cargo:rerun-if-env-changed=BLST_ALLOW_UNTESTED_ARM64");
-    println!("cargo:rerun-if-env-changed=BLST_ALLOW_UNTESTED_CHERI");
+    for name in [
+        "BLST_TEST_NO_STD",
+        "BLST_ALLOW_UNTESTED_ARM64",
+        "BLST_ALLOW_UNTESTED_CHERI",
+        "BLST_PREBUILT_LIB",
+        "BLST_PREBUILT_CONFIG_INCLUDE",
+        "CMAKE_GENERATOR",
+        "CMAKE_TOOLCHAIN_FILE",
+        "CC",
+        "CXX",
+        "CARGO_ENCODED_RUSTFLAGS",
+    ] {
+        println!("cargo:rerun-if-env-changed={name}");
+    }
 
     let allow_untested_arm64 = env_flag("BLST_ALLOW_UNTESTED_ARM64");
     let allow_untested_cheri = env_flag("BLST_ALLOW_UNTESTED_CHERI");
@@ -42,19 +55,6 @@ fn main() {
         );
     }
 
-    /*
-     * Use pre-built libblst.a if there is one. This is primarily
-     * for trouble-shooting purposes. Idea is that libblst.a can be
-     * compiled with flags independent from cargo defaults, e.g.
-     * '../../build.sh -O1 ...'.
-     */
-    if Path::new("libblst.a").exists() {
-        println!("cargo:rustc-link-search=.");
-        println!("cargo:rustc-link-lib=blst");
-        println!("cargo:rerun-if-changed=libblst.a");
-        return;
-    }
-
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let blst_base_dir = resolve_blst_source_dir(&manifest_dir);
     println!("Using blst source directory {}", blst_base_dir.display());
@@ -73,25 +73,61 @@ fn main() {
 
     let portable = cfg!(feature = "portable");
     let enable_avx = cfg!(feature = "avx");
+    let force_adx = cfg!(feature = "force-adx");
+    let opt_level = env::var("OPT_LEVEL").unwrap_or_else(|_| "0".to_string());
+    let build_type = native_build_type(&opt_level);
+    let optimized = build_type == "Release";
+    validate_build_policy(
+        &target_arch,
+        &target_os,
+        optimized,
+        portable,
+        enable_avx,
+        force_adx,
+    )
+    .unwrap_or_else(|message| panic!("{}", message));
+
     let enable_avx_portable = enable_avx && target_os.eq("windows");
     let enable_avx_native = enable_avx && !enable_avx_portable;
-    if portable && cfg!(feature = "force-adx") {
-        panic!("cannot compile with both `portable` and `force-adx` features");
+
+    let toolchain = env::var_os("CMAKE_TOOLCHAIN_FILE").map(PathBuf::from);
+    if cross_compiling && toolchain.is_none() {
+        panic!(
+            "cross-compiling CatBLST from {} to {} requires an explicit \
+             CMAKE_TOOLCHAIN_FILE; refusing to compile a host archive for the target",
+            host, target
+        );
     }
-    if portable && enable_avx {
-        panic!("cannot compile with both `portable` and `avx` features");
+    if let Some(path) = toolchain.as_deref() {
+        if !path.is_file() {
+            panic!("CMAKE_TOOLCHAIN_FILE is not a file: {}", path.display());
+        }
+    }
+
+    if let Some(prebuilt) = env::var_os("BLST_PREBUILT_LIB") {
+        let prebuilt = PathBuf::from(prebuilt);
+        let config_include = env::var_os("BLST_PREBUILT_CONFIG_INCLUDE")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| {
+                panic!(
+                    "BLST_PREBUILT_CONFIG_INCLUDE is required with BLST_PREBUILT_LIB"
+                )
+            });
+        link_prebuilt(
+            &prebuilt,
+            &config_include,
+            &target_env,
+            &target_os,
+            &blst_base_dir,
+        );
+        return;
     }
 
     let enable_asm = !portable
         && !target_no_std
         && (target_arch.eq("x86_64") || target_arch.eq("aarch64"));
-    let enable_adx = enable_asm && should_enable_adx(&target_arch, &target_env);
-    let profile = env::var("PROFILE").unwrap_or_else(|_| "debug".to_string());
-    let build_type = if profile.eq_ignore_ascii_case("release") {
-        "Release"
-    } else {
-        "Debug"
-    };
+    let enable_adx = enable_asm
+        && should_enable_adx(&target_arch, &target_env, cross_compiling);
     let user_generator = env::var("CMAKE_GENERATOR").ok();
     let use_ninja = user_generator.is_none()
         && !target_env.eq("msvc")
@@ -101,23 +137,17 @@ fn main() {
     } else {
         None
     };
-    let build_dir_name = if use_ninja {
+    let build_dir_prefix = if use_ninja {
         "cmake-ninja"
     } else if target_env.eq("msvc") && user_generator.is_none() {
         "cmake-msvc"
     } else {
         "cmake"
     };
+    let build_dir_name =
+        format!("{}-{}", build_dir_prefix, build_type.to_ascii_lowercase());
     let build_dir =
-        PathBuf::from(env::var("OUT_DIR").unwrap()).join(build_dir_name);
-    let requested_generator = if use_ninja {
-        Some("Ninja")
-    } else if target_env.eq("msvc") && user_generator.is_none() {
-        msvc_generator
-    } else {
-        user_generator.as_deref()
-    };
-    clear_stale_cmake_cache(&build_dir, requested_generator);
+        PathBuf::from(env::var("OUT_DIR").unwrap()).join(&build_dir_name);
 
     let mut configure = Command::new("cmake");
     configure.arg("-S").arg(&blst_base_dir);
@@ -131,6 +161,10 @@ fn main() {
         if let Some(generator_arch) = msvc_cmake_arch(&target_arch) {
             configure.args(["-A", generator_arch]);
         }
+    }
+    if let Some(path) = toolchain.as_deref() {
+        configure
+            .arg(format!("-DCMAKE_TOOLCHAIN_FILE={}", path.to_string_lossy()));
     }
     configure.arg(format!("-DCMAKE_BUILD_TYPE={build_type}"));
     if target_env.eq("msvc") {
@@ -173,37 +207,45 @@ fn main() {
     }
     run(&mut build, "build blst_static");
 
-    let lib_name = if target_env.eq("msvc") {
-        "blst.lib"
+    let lib_dir = built_library_dir(&build_dir, &target_env, build_type);
+    emit_native_link(&lib_dir, &target_env, &target_os);
+    emit_metadata(&blst_base_dir, &build_dir.join("blst"));
+}
+
+fn native_build_type(opt_level: &str) -> &'static str {
+    if opt_level == "0" {
+        "Debug"
     } else {
-        "libblst.a"
-    };
-    let lib_dir = find_parent_dir_containing(&build_dir, lib_name)
-        .unwrap_or_else(|| {
-            panic!("unable to locate {lib_name} under {}", build_dir.display())
-        });
-
-    println!("cargo:rustc-link-search=native={}", lib_dir.display());
-    println!("cargo:rustc-link-lib=static=blst");
-    if !target_env.eq("msvc") {
-        let cpp_runtime = if target_os.eq("macos") || target_os.eq("ios") {
-            "c++"
-        } else {
-            "stdc++"
-        };
-        println!("cargo:rustc-link-lib={cpp_runtime}");
+        "Release"
     }
+}
 
-    // pass some DEP_BLST_* variables to dependents
-    println!(
-        "cargo:BINDINGS={}",
-        blst_base_dir.join("bindings").to_string_lossy()
-    );
-    println!(
-        "cargo:C_SRC={}",
-        blst_base_dir.join("blst").to_string_lossy()
-    );
-    println!("cargo:CONFIG_INCLUDE={}", build_dir.to_string_lossy());
+fn validate_build_policy(
+    target_arch: &str,
+    target_os: &str,
+    optimized: bool,
+    portable: bool,
+    avx: bool,
+    force_adx: bool,
+) -> Result<(), &'static str> {
+    if portable && force_adx {
+        return Err(
+            "cannot compile with both `portable` and `force-adx` features",
+        );
+    }
+    if portable && avx {
+        return Err("cannot compile with both `portable` and `avx` features");
+    }
+    if avx && target_arch != "x86_64" {
+        return Err("the `avx` feature is supported only on x86_64 targets");
+    }
+    if avx && target_os == "windows" && optimized {
+        return Err(
+            "portable AVX is a developer-only Debug configuration on Windows; \
+             optimized portable-AVX builds are not supported for deployment",
+        );
+    }
+    Ok(())
 }
 
 fn on_off(value: bool) -> &'static str {
@@ -252,7 +294,11 @@ fn resolve_blst_source_dir(manifest_dir: &Path) -> PathBuf {
         })
 }
 
-fn should_enable_adx(target_arch: &str, target_env: &str) -> bool {
+fn should_enable_adx(
+    target_arch: &str,
+    target_env: &str,
+    cross_compiling: bool,
+) -> bool {
     if target_arch != "x86_64" {
         return false;
     }
@@ -267,6 +313,9 @@ fn should_enable_adx(target_arch: &str, target_env: &str) -> bool {
             .unwrap_or_default()
             .split(',')
             .any(|feature| feature == "adx");
+    }
+    if cross_compiling {
+        return false;
     }
     #[cfg(target_arch = "x86_64")]
     {
@@ -284,48 +333,6 @@ fn command_works(command: &str, args: &[&str]) -> bool {
         .status()
         .map(|status| status.success())
         .unwrap_or(false)
-}
-
-fn clear_stale_cmake_cache(
-    build_dir: &Path,
-    requested_generator: Option<&str>,
-) {
-    let cache_path = build_dir.join("CMakeCache.txt");
-    let Ok(cache) = fs::read_to_string(&cache_path) else {
-        return;
-    };
-
-    let generator_mismatch = requested_generator
-        .and_then(|generator| {
-            cmake_cache_value(&cache, "CMAKE_GENERATOR")
-                .map(|cached_generator| cached_generator != generator)
-        })
-        .unwrap_or(false);
-    let stale_instance = cmake_cache_value(&cache, "CMAKE_GENERATOR_INSTANCE")
-        .filter(|instance| !instance.is_empty())
-        .map(|instance| !Path::new(instance).exists())
-        .unwrap_or(false);
-
-    if generator_mismatch || stale_instance {
-        println!(
-            "cargo:warning=removing stale CMake build directory {}",
-            build_dir.display()
-        );
-        fs::remove_dir_all(build_dir).unwrap_or_else(|err| {
-            panic!(
-                "failed to remove stale CMake build directory {}: {err}",
-                build_dir.display()
-            )
-        });
-    }
-}
-
-fn cmake_cache_value<'a>(cache: &'a str, key: &str) -> Option<&'a str> {
-    cache.lines().find_map(|line| {
-        let (entry, value) = line.split_once('=')?;
-        let name = entry.split_once(':').map_or(entry, |(name, _)| name);
-        (name == key).then(|| value.trim())
-    })
 }
 
 fn find_visual_studio_generator() -> Option<&'static str> {
@@ -387,20 +394,154 @@ fn run(command: &mut Command, context: &str) {
     }
 }
 
-fn find_parent_dir_containing(root: &Path, file_name: &str) -> Option<PathBuf> {
-    let mut stack = vec![root.to_path_buf()];
-    while let Some(dir) = stack.pop() {
-        let entries = fs::read_dir(&dir).ok()?;
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                stack.push(path);
-            } else if path.file_name().and_then(|name| name.to_str())
-                == Some(file_name)
-            {
-                return path.parent().map(Path::to_path_buf);
-            }
+fn built_library_dir(
+    build_dir: &Path,
+    target_env: &str,
+    build_type: &str,
+) -> PathBuf {
+    let mut candidates = Vec::new();
+    if target_env == "msvc" {
+        candidates
+            .push(build_dir.join("blst").join(build_type).join("blst.lib"));
+        candidates.push(build_dir.join("blst").join("blst.lib"));
+    } else {
+        candidates.push(build_dir.join("blst").join("libblst.a"));
+        candidates.push(
+            build_dir
+                .join("blst")
+                .join(build_type)
+                .join("libblst.a"),
+        );
+    }
+
+    let found: Vec<_> = candidates
+        .iter()
+        .filter(|candidate| candidate.is_file())
+        .collect();
+    if found.len() != 1 {
+        let expected = candidates
+            .iter()
+            .map(|path| path.display().to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        panic!(
+            "expected exactly one built CatBLST archive, found {}; candidates: {}",
+            found.len(),
+            expected
+        );
+    }
+    found[0]
+        .parent()
+        .expect("built library must have a parent directory")
+        .to_path_buf()
+}
+
+fn emit_native_link(lib_dir: &Path, target_env: &str, target_os: &str) {
+    println!("cargo:rustc-link-search=native={}", lib_dir.display());
+    println!("cargo:rustc-link-lib=static=blst");
+    if target_env != "msvc" {
+        let cpp_runtime = if target_os == "macos" || target_os == "ios" {
+            "c++"
+        } else {
+            "stdc++"
+        };
+        println!("cargo:rustc-link-lib={cpp_runtime}");
+    }
+}
+
+fn emit_metadata(blst_base_dir: &Path, config_include: &Path) {
+    println!(
+        "cargo:BINDINGS={}",
+        blst_base_dir.join("bindings").to_string_lossy()
+    );
+    println!(
+        "cargo:C_SRC={}",
+        blst_base_dir.join("blst").to_string_lossy()
+    );
+    println!("cargo:CONFIG_INCLUDE={}", config_include.to_string_lossy());
+}
+
+fn link_prebuilt(
+    library: &Path,
+    config_include: &Path,
+    target_env: &str,
+    target_os: &str,
+    blst_base_dir: &Path,
+) {
+    let expected_name = if target_env == "msvc" {
+        "blst.lib"
+    } else {
+        "libblst.a"
+    };
+    if library.file_name().and_then(|name| name.to_str()) != Some(expected_name)
+    {
+        panic!(
+            "BLST_PREBUILT_LIB must name {expected_name} for this target: {}",
+            library.display()
+        );
+    }
+    if !library.is_file() {
+        panic!("BLST_PREBUILT_LIB is not a file: {}", library.display());
+    }
+    if !config_include.join("config.h").is_file() {
+        panic!(
+            "BLST_PREBUILT_CONFIG_INCLUDE does not contain config.h: {}",
+            config_include.display()
+        );
+    }
+    println!("cargo:rerun-if-changed={}", library.display());
+    println!("cargo:rerun-if-changed={}", config_include.display());
+    emit_native_link(
+        library
+            .parent()
+            .expect("prebuilt library must have a parent directory"),
+        target_env,
+        target_os,
+    );
+    emit_metadata(blst_base_dir, config_include);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn optimized_profiles_select_release_native_code() {
+        assert_eq!(native_build_type("0"), "Debug");
+        for level in ["1", "2", "3", "s", "z"] {
+            assert_eq!(native_build_type(level), "Release");
         }
     }
-    None
+
+    #[test]
+    fn portable_avx_is_windows_debug_only() {
+        assert!(validate_build_policy(
+            "x86_64", "windows", false, false, true, false
+        )
+        .is_ok());
+        assert!(validate_build_policy(
+            "x86_64", "windows", true, false, true, false
+        )
+        .is_err());
+        assert!(validate_build_policy(
+            "aarch64", "macos", false, false, true, false
+        )
+        .is_err());
+        assert!(validate_build_policy(
+            "x86_64", "linux", true, false, true, false
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn conflicting_feature_sets_fail_closed() {
+        assert!(validate_build_policy(
+            "x86_64", "linux", false, true, true, false
+        )
+        .is_err());
+        assert!(validate_build_policy(
+            "x86_64", "linux", false, true, false, true
+        )
+        .is_err());
+    }
 }

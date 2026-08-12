@@ -18,8 +18,10 @@ Relevant Cargo features:
 - `full-rust-bindings`
   - enables the higher-level Rust API such as `min_pk`, `min_sig`, aggregation helpers, and pairing helpers
 - `avx`
-  - enables the AVX-backed native build
-  - on Windows this maps to the portable AVX implementation
+  - enables the native AVX-512 build on x86-64 Unix targets
+  - on Windows this maps only to the developer portable-AVX implementation;
+    it is accepted in Debug and rejected in optimized builds
+  - portable AVX is for differential testing and development, not deployment
   - on Linux native AVX requires Clang 21 or newer unless the native CMake build is explicitly configured to allow an unsupported compiler
 - `portable`
   - enables the portable scalar build
@@ -58,16 +60,20 @@ the partial Fp12 products multiplied before final exponentiation. MSM work can
 be split by matching point/scalar ranges and the resulting group elements
 reduced by addition.
 
-While `cargo test`'s dependencies happen to require at least Rust 1.65, the library by itself can be compiled with earlier compiler versions. Though in order to use Rust version prior 1.56 you would need to pin`zeroize` to "=1.3.0" and `zeroize_derive` to "=1.3.3" in **your** project Cargo.toml. Even `cc` might require pinning to "=1.0.79". And if you find yourself with Rust 1.56 through 1.64 as the only option and want to execute `cargo test` you'd need to pin some of `[dev-dependencies]` versions in **this** project's Cargo.toml by uncommenting following lines and commenting `criterion`:
+The crate's minimum supported Rust version is 1.65. Cargo enforces this through
+the package's `rust-version` field.
 
-```
-byteorder = "=1.4.3"
-ppv-lite86 = "=0.2.17"
-rmp = "=0.8.12"
+Cross-target native builds require an explicit `CMAKE_TOOLCHAIN_FILE`. This is
+deliberately fail-closed: target metadata alone is not enough to make CMake
+produce an archive for that target. Native Apple Silicon builds remain fully
+supported and need no override or toolchain file when Cargo itself runs on the
+Apple Silicon host.
 
-[target.'cfg(any(unix, windows))'.dev-dependencies]
-#criterion = "0.3"
-```
+Prebuilt archives are never discovered implicitly. Troubleshooting builds may
+set both `BLST_PREBUILT_LIB` and `BLST_PREBUILT_CONFIG_INCLUDE`; the caller is
+responsible for ensuring that the archive was built for the exact Cargo target
+and requested feature policy. The include directory must be the generated
+directory that directly contains `config.h`.
 
 ## Layout
 The Rust crate is split by surface area:

@@ -508,7 +508,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(blst_std)]
     #[test]
     fn owns_temporary_dst_and_moves_safely_between_threads() {
         let pairing = {
@@ -735,7 +735,7 @@ pub fn uniq(msgs: &[&[u8]]) -> bool {
 }
 
 /// Debug helper that prints a byte slice in hexadecimal.
-#[cfg(feature = "std")]
+#[cfg(blst_std)]
 pub fn print_bytes(bytes: &[u8], name: &str) {
     print!("{} ", name);
     for b in bytes.iter() {

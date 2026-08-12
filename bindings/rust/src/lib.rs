@@ -3,11 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #![doc = include_str!("../docs/overview.md")]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(not(blst_std), no_std)]
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
-#![allow(unexpected_cfgs)]
 
 extern crate alloc;
 
@@ -81,7 +80,7 @@ pub use middle_product::{
     precompute_middle_product_b, update, MiddleProductError,
     MiddleProductPrecomputedB,
 };
-#[cfg(feature = "std")]
+#[cfg(blst_std)]
 pub use pairing::print_bytes;
 #[cfg(feature = "full-rust-bindings")]
 pub use pairing::{uniq, Pairing, PairingPublicKey, PairingSignature};
@@ -407,7 +406,9 @@ macro_rules! sig_variant_impl {
             ) -> Result<Self, D::Error> {
                 let bytes: &[u8] = Deserialize::deserialize(deser)?;
                 Self::deserialize(bytes).map_err(|e| {
-                    <D::Error as serde::de::Error>::custom(format!("{:?}", e))
+                    <D::Error as serde::de::Error>::custom(alloc::format!(
+                        "{:?}", e
+                    ))
                 })
             }
         }
@@ -580,7 +581,9 @@ macro_rules! sig_variant_impl {
             ) -> Result<Self, D::Error> {
                 let bytes: &[u8] = Deserialize::deserialize(deser)?;
                 Self::deserialize(&bytes).map_err(|e| {
-                    <D::Error as serde::de::Error>::custom(format!("{:?}", e))
+                    <D::Error as serde::de::Error>::custom(alloc::format!(
+                        "{:?}", e
+                    ))
                 })
             }
         }
@@ -1062,7 +1065,9 @@ macro_rules! sig_variant_impl {
             ) -> Result<Self, D::Error> {
                 let bytes: &[u8] = Deserialize::deserialize(deser)?;
                 Self::deserialize(&bytes).map_err(|e| {
-                    <D::Error as serde::de::Error>::custom(format!("{:?}", e))
+                    <D::Error as serde::de::Error>::custom(alloc::format!(
+                        "{:?}", e
+                    ))
                 })
             }
         }
