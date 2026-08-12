@@ -77,7 +77,7 @@ The implementation and exact review state are recorded at `e6163ce`.
 
 The read-only audit of the Rust root, checked-in scalar FFI artifact, binding
 generator, Cargo package, and native build bridge identified `AUD-324` through
-`AUD-333`. Remediation is in progress in three reviewable packets:
+`AUD-333`. The implementation landed in reviewable packets:
 
 1. make the scalar raw binding exactly reproducible and keep split AVX, FFT,
    and middle-product declarations in their handwritten modules;
@@ -91,3 +91,34 @@ stale compiler-support claims, and configuration-warning suppression before a
 large native build starts. Native Apple ARM64 remains supported; unsupported
 cross builds must supply an explicit toolchain rather than silently compiling
 for the host.
+
+Implementation/evidence commits are:
+
+- `f27d7026873ce67fd721b0a0ecb5c7236cd5e88b`: scalar-only bindgen input,
+  pinned bindgen 0.65.1 policy, fail-closed transforms, exact 253/253 C/Rust
+  declaration ownership, split FFT declarations, and generated pairing
+  alignment;
+- `b2c93e9d3ec4b4478edca51c9cd67187f859eba4` and
+  `7b2ab8caf254e80611d57a1958912b93e7d7bd54`: profile/target/feature/toolchain/
+  prebuilt routing, checked `blst_std`, no-std Serde, MSRV, deterministic native
+  artifacts, and four warning-clean policy tests;
+- `778f2f60d1fd4ba19569ba0dd1d4e3f5f1a50b88`: complete reviewed high-level
+  Rust contracts, aggregate-flow guidance, non-default/nonzero `SecretKey`,
+  private FFI output construction, and focused invariant tests; and
+- `6d66fdce136ecdf86d6ba3f3ae0c169f81cfa5b1`: portable AVX removed from the
+  ordinary CI/deployment matrix, optimized emulation rejected by CMake/header,
+  and a separate path-scoped Debug developer workflow.
+
+Focused evidence passes: exact raw declaration parity, Bash/Perl transform
+fixtures, 14 bindgen layout tests, 9 FFT tests, the empty-DST pairing test,
+4/4 build-policy tests, explicit-prebuilt linking, no-std Serde with warnings
+denied, full-binding rustdoc with warnings denied, and 2/2 secret-key invariant
+tests covering all derivation families and malformed scalar decoding. CMake
+accepts portable AVX Debug configuration and rejects Release before compile.
+
+`AUD-325` through `AUD-333` are validated. `AUD-324` remains high and
+`fix_in_progress`: the generator is deterministic and structurally guarded,
+but this machine lacks bindgen 0.65.1, so byte-for-byte end-to-end regeneration
+has not yet been recorded. The generated file and its two owning scripts remain
+in review until that exact run passes. No broad native rebuild, benchmark,
+CUDA, frozen BTx/BTE audit, native AVX run, or push was performed in closure.
