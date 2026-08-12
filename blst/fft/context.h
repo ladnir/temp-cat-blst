@@ -1,118 +1,176 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Category Labs
+//
+// CatBLST scalar-field and group coefficient contexts for the generic FFT.
+
 #pragma once
-#include "blst/fields/Fr.h"
+
 #include "blst/curve/GT.h"
 #include "blst/curve/point.h"
+#include "blst/fields/Fr.h"
+
+#include <cstdint>
+#include <type_traits>
 
 namespace blst
 {
+    /**
+     * Arithmetic context for an FFT whose values and roots are both Fr.
+     *
+     * Inputs and outputs use reduced Montgomery Fr representation. Root and
+     * size inversions require a nonzero operand. These operations allocate no
+     * storage and do not throw. FFT schedules depend only on public shapes;
+     * this context does not inspect coefficient values.
+     */
+    struct FrCoeffCtx
+    {
+        [[nodiscard]] static Fr plus(const Fr& a, const Fr& b)
+        {
+            Fr result;
+            Fr::add(result, a, b);
+            return result;
+        }
 
+        [[nodiscard]] static Fr minus(const Fr& a, const Fr& b)
+        {
+            Fr result;
+            Fr::sub(result, a, b);
+            return result;
+        }
 
+        [[nodiscard]] static Fr mult(const Fr& a, const Fr& b)
+        {
+            Fr result;
+            Fr::mul(result, a, b);
+            return result;
+        }
 
+        /** @pre @p a is nonzero. */
+        [[nodiscard]] static Fr inverse(const Fr& a)
+        {
+            Fr result;
+            Fr::reciprocal(result, a);
+            return result;
+        }
 
+        template<typename F>
+        [[nodiscard]] static F from_u64(const std::uint64_t value)
+        {
+            static_assert(
+                std::is_same_v<F, Fr>,
+                "FrCoeffCtx constructs only Fr coefficients");
+            return Fr::from_uint64(value);
+        }
+    };
 
-	struct FrCoeffCtx
-	{
-		static auto plus(const Fr& a, const Fr& b) {
-			Fr r;
-			Fr::add(r, a, b);
-			return r;
-		}
-		static auto minus(const Fr& a, const Fr& b) {
-			Fr r;
-			Fr::sub(r, a, b);
-			return r;
-		}
+    /**
+     * Arithmetic context for FFTs over G1, G2, or GT with public Fr roots.
+     *
+     * G1 and G2 operands must already be on-curve prime-order subgroup points;
+     * GT operands must already satisfy GT membership. Release builds perform
+     * no membership validation. Addition, subtraction, and negation preserve
+     * those domains. Multiplication applies a public Fr root with
+     * `mult_vartime`; it must not be used when the Fr operand is secret.
+     *
+     * The G1-by-G2 overload computes the pairing into GT. Its operands have the
+     * same subgroup preconditions. All operations return a new value, allocate
+     * no storage, retain no references, and do not throw.
+     */
+    struct CoeffCtx
+    {
+    private:
+        template<typename Group>
+        static constexpr bool is_supported_group =
+            std::is_same_v<Group, G1Point> ||
+            std::is_same_v<Group, G2Point> ||
+            std::is_same_v<Group, GT>;
 
-		static auto mult(const Fr& a, const Fr& b) {
-			Fr r;
-			Fr::mul(r, a, b);
-			return r;
-		}
-		static auto inverse(const Fr& a) {
-			Fr r;
-			Fr::reciprocal(r, a);
-			return r;
-		}
+    public:
+        template<typename Group>
+        [[nodiscard]] static Group plus(const Group& a, const Group& b)
+        {
+            static_assert(
+                is_supported_group<Group>,
+                "CoeffCtx supports only G1, G2, and GT values");
+            Group result;
+            Group::dadd(result, a, b);
+            return result;
+        }
 
-		template<typename F>
-		static auto from_u64(u64 a) {
-			return Fr::from_uint64(a);
-		}
+        template<typename Group>
+        [[nodiscard]] static Group minus(const Group& a, const Group& b)
+        {
+            static_assert(
+                is_supported_group<Group>,
+                "CoeffCtx supports only G1, G2, and GT values");
+            Group negated;
+            Group::neg(negated, b);
+            Group result;
+            Group::dadd(result, a, negated);
+            return result;
+        }
 
-	};
+        template<typename Group>
+        [[nodiscard]] static Group neg(const Group& value)
+        {
+            static_assert(
+                is_supported_group<Group>,
+                "CoeffCtx supports only G1, G2, and GT values");
+            Group result;
+            Group::neg(result, value);
+            return result;
+        }
 
+        template<typename Group>
+        [[nodiscard]] static Group mult(const Group& value, const Fr& scalar)
+        {
+            static_assert(
+                is_supported_group<Group>,
+                "CoeffCtx supports only G1, G2, and GT values");
+            Fr scalar_non_montgomery;
+            Fr::from_mont(scalar_non_montgomery, scalar);
+            Group result;
+            Group::mult_vartime(
+                result,
+                value,
+                reinterpret_cast<const byte*>(&scalar_non_montgomery),
+                256);
+            return result;
+        }
 
+        [[nodiscard]] static GT mult(const G1Point& p, const G2Point& q)
+        {
+            G1AffinePoint p_affine;
+            G1Point::to_affine(p_affine, p);
+            G2AffinePoint q_affine;
+            G2Point::to_affine(q_affine, q);
 
-	// Context for benchmarks with G1, G2 -> GT via pairing
-	struct CoeffCtx
-	{
-		template<typename G, typename F>
-		static auto plus(const G& a, const F& b) {
-			G r;
-			G::dadd(r, a, b);
-			return r;
-		}
+            MillerResult miller;
+            GT::miller_loop(miller, &q_affine, &p_affine);
+            GT result;
+            GT::final_exp(result, miller);
+            return result;
+        }
 
-		template<typename G, typename F>
-		static auto minus(const G& a, const F& b) {
-			G r;
-			F neg_b;
-			F::neg(neg_b, b);
-			G::dadd(r, a, neg_b);
-			return r;
-		}
+        /** @pre @p value is nonzero. */
+        [[nodiscard]] static Fr inverse(const Fr& value)
+        {
+            Fr result;
+            Fr::reciprocal(result, value);
+            return result;
+        }
 
-		// negation
-		template<typename G>
-		static auto neg(const G& a) {
-			G r;
-			G::neg(r, a);
-			return r;
-		}
+        template<typename F>
+        [[nodiscard]] static F from_u64(const std::uint64_t value)
+        {
+            static_assert(
+                std::is_same_v<F, Fr>,
+                "CoeffCtx constructs only Fr coefficients");
+            return Fr::from_uint64(value);
+        }
+    };
 
-		template<typename G, typename F>
-		static auto mult(const G& a, const F& b) {
-			if constexpr (std::is_same<G, F>::value) {
-				G r;
-				G::mul(r, a, b);
-				return r;
-			}
-			else {
-				G r;
-				F b_non_mont;
-				F::from_mont(b_non_mont, b);
-				G::mult_vartime(r, a, reinterpret_cast<const byte*>(&b_non_mont), 256);
-				return r;
-			}
-		}
-
-		static auto mult(const G1Point& a, const G2Point& b) {
-			G1AffinePoint p_aff;
-			G1Point::to_affine(p_aff, a);
-			G2AffinePoint q_aff;
-			G2Point::to_affine(q_aff, b);
-
-			MillerResult miller;
-			GT::miller_loop(miller, &q_aff, &p_aff);
-			GT result;
-			GT::final_exp(result, miller);
-			return result;
-		}
-
-		static auto inverse(const Fr& a) {
-			Fr r;
-			Fr::reciprocal(r, a);
-			return r;
-		}
-
-		template<typename F>
-		static auto from_u64(uint64_t a) {
-			Fr r;
-			Fr::from_uint64(r, a);
-			return r;
-		}
-	};
-	using G1CoeffCtx = CoeffCtx;
-	using G2CoeffCtx = CoeffCtx;
-	using GTCoeffCtx = CoeffCtx;
+    using G1CoeffCtx = CoeffCtx;
+    using G2CoeffCtx = CoeffCtx;
+    using GTCoeffCtx = CoeffCtx;
 }

@@ -150,6 +150,18 @@ TEST(FftApi, RootPreparationRejectsEmptyDomain)
     EXPECT_EQ(roots[0], one);
 }
 
+TEST(FftApi, RootBuilderRejectsUnsupportedTransformSizes)
+{
+    EXPECT_THROW(
+        (static_cast<void>(
+            blst::fft_detail::make_roots<Fr, blst::FrCoeffCtx>(0, false))),
+        std::invalid_argument);
+    EXPECT_THROW(
+        (static_cast<void>(
+            blst::fft_detail::make_roots<Fr, blst::FrCoeffCtx>(3, false))),
+        std::invalid_argument);
+}
+
 TEST(CommonDefines, InvalidSizingIsFailClosed)
 {
 #ifdef NDEBUG
@@ -189,6 +201,36 @@ TEST(FftApi, GenericPreparedDomainMatchesGenericTransform)
         domain,
         true);
     EXPECT_TRUE(equal(prepared, input));
+}
+
+TEST(FftApi, CoefficientContextPreservesSelectedGroupOperations)
+{
+    const Fr scalar = from_u64(3);
+    Fr scalar_non_montgomery = {};
+    Fr::from_mont(scalar_non_montgomery, scalar);
+    const auto* scalar_bytes =
+        reinterpret_cast<const blst::byte*>(&scalar_non_montgomery);
+
+    const blst::G1Point& g1 = blst::G1Point::generator();
+    blst::G1Point expected_g1 = {};
+    blst::G1Point::mult_vartime(expected_g1, g1, scalar_bytes, 256);
+    const blst::G1Point actual_g1 = blst::G1CoeffCtx::mult(g1, scalar);
+    EXPECT_TRUE(blst::G1Point::equal(actual_g1, expected_g1));
+
+    const blst::G2Point& g2 = blst::G2Point::generator();
+    blst::G2Point expected_g2 = {};
+    blst::G2Point::mult_vartime(expected_g2, g2, scalar_bytes, 256);
+    const blst::G2Point actual_g2 = blst::G2CoeffCtx::mult(g2, scalar);
+    EXPECT_TRUE(blst::G2Point::equal(actual_g2, expected_g2));
+
+    const blst::GT& gt = blst::GT::generator();
+    blst::GT expected_gt = {};
+    blst::GT::mult_vartime(expected_gt, gt, scalar_bytes, 256);
+    const blst::GT actual_gt = blst::GTCoeffCtx::mult(gt, scalar);
+    EXPECT_TRUE(blst::GT::equal(actual_gt, expected_gt));
+
+    const blst::GT pairing = blst::CoeffCtx::mult(g1, g2);
+    EXPECT_TRUE(blst::GT::equal(pairing, blst::GT::generator()));
 }
 
 TEST(FftCore, PlanConstructionRejectsInvalidAndOverflowedShapes)
@@ -293,6 +335,32 @@ TEST(FftCore, DebugBuildRejectsInvalidHotTransformShapes)
             values,
             std::span<const Fr>{},
             false)),
+        "");
+
+    std::array<Fr, 3> invalid_roots = {};
+    EXPECT_DEATH(
+        (blst::fft_detail::fill_roots<Fr, blst::FrCoeffCtx>(
+            invalid_roots,
+            false)),
+        "");
+
+    std::array<Fr, 2> short_domain = {};
+    EXPECT_DEATH(
+        (blst::fft_detail::initialize_domain<Fr, blst::FrCoeffCtx>(
+            short_domain,
+            1)),
+        "");
+
+    std::array<Fr, 2> prepared_values = {};
+    std::array<Fr, 3> short_prepared_domain = {};
+    EXPECT_DEATH(
+        (blst::fft_detail::transform_with_domain<
+            Fr,
+            Fr,
+            blst::FrCoeffCtx>(
+                prepared_values,
+                short_prepared_domain,
+                false)),
         "");
 }
 #endif
