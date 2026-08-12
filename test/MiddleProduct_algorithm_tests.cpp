@@ -85,8 +85,10 @@ auto fft_precompute_for_context(
 {
     if constexpr (std::is_same_v<Context, blst::MiddleProductScalarContext>) {
         return blst::precompute_middle_product_b_scalar(b, n, timings);
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
     } else {
         return blst::precompute_middle_product_b_avx(b, n, timings);
+#endif
     }
 }
 
@@ -98,8 +100,10 @@ auto multipair_precompute_for_context(
 {
     if constexpr (std::is_same_v<Context, blst::MiddleProductScalarContext>) {
         return blst::precompute_middle_product_b_multipair_scalar(b, n, timings);
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
     } else {
         return blst::precompute_middle_product_b_multipair_avx(b, n, timings);
+#endif
     }
 }
 
@@ -111,8 +115,10 @@ void fft_middle_product_for_context(
 {
     if constexpr (std::is_same_v<Context, blst::MiddleProductScalarContext>) {
         blst::middle_product_scalar(a, precomputed_b, out);
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
     } else {
         blst::middle_product_avx(a, precomputed_b, out);
+#endif
     }
 }
 
@@ -124,8 +130,10 @@ void multipair_middle_product_for_context(
 {
     if constexpr (std::is_same_v<Context, blst::MiddleProductScalarContext>) {
         blst::middle_product_multipair_scalar(a, precomputed_b, out);
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
     } else {
         blst::middle_product_multipair_avx(a, precomputed_b, out);
+#endif
     }
 }
 
@@ -156,8 +164,10 @@ void multipair_update_for_context(
 {
     if constexpr (std::is_same_v<Context, blst::MiddleProductScalarContext>) {
         blst::update_multipair_scalar(a0, precomputed_b, out);
+#if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
     } else {
         blst::update_multipair_avx(a0, precomputed_b, out);
+#endif
     }
 }
 
