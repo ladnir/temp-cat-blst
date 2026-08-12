@@ -328,12 +328,14 @@ Exit gate: all remaining in-scope support files are complete, the full corpus
 and release matrix pass, native Apple/AVX evidence is recorded, and no
 unresolved release-blocking finding remains.
 
-## Phase 20 - CatBLST rename and selectable C ABI prefix
+## Phase 20 - category-blst identity and selectable C ABI prefix
 
-Rename the project after the audited implementation and support surfaces are
-under control. Implement build-time selection of exactly one public C prefix,
-`blst_` or `catblst_`, through generators and headers with no runtime dispatch
-or duplicate hot-path abstraction.
+Complete the project/package/build rename to **category-blst**, using **CatBlst**
+as the short human-readable/internal name and **CATBLST** for new uppercase
+identifiers. Preserve compatibility names only where explicitly selected.
+Implement build-time selection of exactly one public C prefix, `blst_` or
+`catblst_`, through generators and headers with no runtime dispatch or duplicate
+hot-path abstraction.
 
 Exit gate: both prefix modes build and pass the supported matrix separately;
 symbols, packages, documentation, and C/C++/Rust consumers match the selected

@@ -1,14 +1,23 @@
-[![Actions status](https://github.com/supranational/blst/workflows/build/badge.svg)](https://github.com/supranational/blst/actions) [![CodeQL status](https://github.com/supranational/blst/workflows/CodeQL/badge.svg)](https://github.com/supranational/blst/actions/workflows/codeql-analysis.yml)
-<div align="left">
-  <img src=blst_logo_small.png>
-</div>
+[![CI (current remote)](https://github.com/ladnir/blst/actions/workflows/ci.yml/badge.svg)](https://github.com/ladnir/blst/actions/workflows/ci.yml) [![CodeQL (current remote)](https://github.com/ladnir/blst/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/ladnir/blst/actions/workflows/codeql-analysis.yml)
 
-# blst
-blst (pronounced 'blast') is a BLS12-381 signature library focused on performance and security. It is written in C and assembly.
+# category-blst
+
+`category-blst` is Category Labs' performance- and assurance-focused BLS12-381
+cryptographic library. It is maintained at
+[category-labs/category-blst](https://github.com/category-labs/category-blst)
+and is built from the BLST code lineage.
+
+The short project name is **CatBlst** in prose and **CATBLST** in uppercase
+identifiers. Existing `blst_*` C symbols, `blst` build artifacts, and the
+[`blst`](https://crates.io/crates/blst) Rust crate name are currently retained
+for upstream compatibility. Renaming those surfaces is a separate, deliberate
+compatibility phase; new documentation should call the library
+`category-blst`, not a BLST fork.
 
 ## Table of Contents
 
   * [Status](#status)
+  * [Naming and compatibility](#naming-and-compatibility)
   * [General notes on implementation](#general-notes-on-implementation)
   * [Platform and Language Compatibility](#platform-and-language-compatibility)
   * [API](#api)
@@ -18,20 +27,31 @@ blst (pronounced 'blast') is a BLS12-381 signature library focused on performanc
     + [Signature Aggregation](#signature-aggregation)
     + [Serialization Format](#serialization-format)
   * [Build](#build)
-    + [C library](#c-static-library)
+    + [C and C++ library](#c-and-c-library)
   * [Language-specific notes](#language-specific-notes)
-    + [Go](#go)
     + [Rust](#rust)
   * [Repository Structure](#repository-structure)
   * [Performance](#performance)
   * [License](#license)
 
 ## Status
-**This library is under active development**
 
-An initial audit of this library was conducted by NCC Group in January 2021 and can be found [here](https://research.nccgroup.com/wp-content/uploads/2021/01/NCC_Group_EthereumFoundation_ETHF002_Report_2021-01-20_v1.0.pdf).
+**category-blst is under active development and is not yet release-qualified.**
 
-Formal verification of this library by Galois is on-going and can be found [here](https://github.com/GaloisInc/BLST-Verification).
+The in-depth production-readiness audit, hardening sequence, and current
+evidence are tracked under [`docs/audit`](docs/audit), starting with the
+[audit status](docs/audit/STATUS.md) and
+[hardening plan](docs/audit/HARDENING_PLAN.md).
+
+NCC Group audited the upstream BLST codebase in January 2021; the report is
+available [here](https://research.nccgroup.com/wp-content/uploads/2021/01/NCC_Group_EthereumFoundation_ETHF002_Report_2021-01-20_v1.0.pdf).
+That report predates and does not cover Category Labs' changes.
+
+Galois' formal-verification work on the upstream BLST foundation is available
+[here](https://github.com/GaloisInc/BLST-Verification). Category Labs maintains
+additional Lean proofs for the selected AVX construction under
+[`proof/avx`](proof/avx); neither effort should be interpreted as a proof of
+the entire current library.
 
 The basic signature ciphersuites use the domains and hash-to-curve behavior
 specified by
@@ -44,8 +64,29 @@ work in progress, not an IETF standard.
 
 The serialization formatting is implemented according to [the ZCash definition](#serialization-format).
 
+## Naming and compatibility
+
+- **category-blst** is the project, library, and repository name.
+- **CatBlst** is the short human-readable/internal project name.
+- **CATBLST** is the spelling reserved for new uppercase configuration and
+  preprocessor identifiers.
+- Existing **blst**, `blst_*`, and `BLST_*` names remain where compatibility or
+  staged migration requires them. Their presence does not change the project
+  name.
+
+During migration, hosted CI may still run from the legacy
+[`ladnir/blst`](https://github.com/ladnir/blst) repository; the badges above
+intentionally point there. The Category Labs repository is canonical for the
+project and will take over CI when the migration is complete.
+
 ## General notes on implementation
-The goal of the blst library is to provide a foundational component for applications and other libraries that require high performance and formally verified BLS12-381 operations. With that in mind some decisions are made to maximize the public good beyond BLS12-381. For example, the field operations are optimized for general 384-bit usage, as opposed to tuned specifically for the 381-bit BLS12-381 curve parameters. With the formal verification of these foundational components, we believe they can provide a reliable building block for other curves that would like high performance and an extra element of security.
+
+category-blst is intended as a low-level component for applications and
+libraries that require high-performance BLS12-381 operations with explicit,
+reviewable contracts. Scalar and native AVX-512 implementations are the primary
+production paths. The project combines line-by-line review, differential and
+conformance tests, automated analysis, and targeted formal verification; each
+evidence source has documented boundaries.
 
 The library deliberately abstains from dealing with memory management and
 multi-threading. The C, native C++, and Rust APIs never create threads or own a
@@ -57,10 +98,10 @@ more stringent environments like Intel SGX or ARM TrustZone straightforward.
 
 ## Platform and Language Compatibility
 
-The supported hardware targets are x86_64 and Apple Silicon macOS. CatBLST
+The supported hardware targets are x86_64 and Apple Silicon macOS. CatBlst
 requires a little-endian target and rejects other byte orders at compile time.
 Other ARM64 and Morello/CHERI sources are retained because they may work, but
-they have not completed the CatBLST release-validation gate and are not fully
+they have not completed the CatBlst release-validation gate and are not fully
 supported. They are disabled by default rather than silently shipping as
 supported targets.
 
@@ -92,7 +133,7 @@ The main scalar C API is defined in [bindings/blst.h](bindings/blst.h) together 
 
 Public preconditions, postconditions, mathematical domains, validation, and
 timing guarantees use the common terminology in
-[API Contract Vocabulary](docs/API_CONTRACTS.md). CatBLST permits fast expert
+[API Contract Vocabulary](docs/API_CONTRACTS.md). CatBlst permits fast expert
 operations with narrow contracts; callers must establish documented
 preconditions that the operation does not explicitly validate.
 
@@ -178,27 +219,43 @@ The most-significant three bits of a G1 or G2 encoding should be masked away bef
 * The third-most significant bit is set if (and only if) this point is in compressed form _and_ it is not the point at infinity _and_ its y-coordinate is the lexicographically largest of the two associated with the encoded x-coordinate.
 
 ## Build
-The build process is very simple and only requires a C compiler. It's integrated into the Go and Rust ecosystems, so that respective users would go about as they would with any other external module. Otherwise, a binary library would have to be compiled.
 
-### C library
-A library called libblst.a can be built in the current working directory of the user's choice:
+The supported native build uses CMake and a C++20 compiler. Configure a preset,
+build the required target, and run only the appropriate test scope. For example:
 
-Linux, Mac, and Windows (in MinGW or Cygwin environments)
-```
-/some/where/build.sh
+```sh
+# Windows scalar Debug
+cmake --preset x64-Debug-Scalar
+cmake --build out/build/x64-Debug-Scalar --target blst_static
+ctest --test-dir out/build/x64-Debug-Scalar
+
+# Linux/WSL Release
+cmake --preset linux
+cmake --build out/build/linux --target blst_static
+ctest --test-dir out/build/linux
 ```
 
-Windows (Visual C)
-```
-\some\where\build.bat
-```
+Build products currently retain the compatibility name `blst`/`libblst`.
+CMake options and generated configuration determine the selected scalar,
+assembly, or AVX backend; do not assume that a binary built for one x86_64 CPU
+is safe to deploy on another. Native AVX-512 requires the documented AVX-512
+and IFMA target. `BLST_AVX512_PORTABLE` is developer emulation, not a production
+fallback.
 
-If final application crashes with an "illegal instruction" exception [after copying to another system], pass <nobr>`-D__BLST_PORTABLE__`</nobr> on `build.sh` command line. If you don't use build.sh, complement the `CFLAGS` environment variable with the said command line option. If you compile a Rust application, you can pass <nobr>`--features portable`</nobr> to `cargo build`. Alternatively, if you compile on an older Intel system, but will execute application on a newer one, consider instead passing <nobr>`--features force-adx`</nobr> for better performance.
+### C and C++ library
+
+The `blst_static` target builds the native static library. Public C headers are
+under [`bindings/`](bindings), while the supported native C++ implementation
+and headers are under [`blst/`](blst). The C ABI remains `blst_*` during the
+compatibility transition described above.
 
 ## Language-specific notes
 
 ### [Rust](bindings/rust)
-[`blst`](https://crates.io/crates/blst) is the Rust binding crate.
+
+[`blst`](https://crates.io/crates/blst) is the current compatibility name of
+the Rust binding crate. Its supported build policy and feature contracts are
+documented in the Rust binding [README](bindings/rust/README.md).
 
 Low-level/raw use:
 ```
@@ -227,19 +284,17 @@ cargo test --lib --features full-rust-bindings
 cargo run --example smoke
 ```
 
-For more details see the Rust binding [readme](bindings/rust/README.md).
-
 ## Repository Structure
 
 **Root** - Contains various configuration files, documentation, licensing, and a build script
-* **Bindings** - Contains the files that define the blst interface
+* **Bindings** - Contains the files that define the compatibility C and Rust interfaces
     * blst.h - provides C API to blst library
     * blst_types.h - provides shared POD C types used across the split headers
     * blst_scalar.h - provides the scalar/public C API
     * blst_avx.h - provides the expert AVX C API
     * blst_middle_product.h - provides the middle-product C API
     * blst_aux.h - compatibility umbrella that includes the split C surfaces
-    * **Rust** - folder containing Rust bindings for blst, including tests, benchmarks, and examples
+    * **Rust** - folder containing the Rust crate, tests, benchmarks, and examples
     * **Vectors**
         * **Hash_to_curve**: folder containing test for hash_to_curve from IETF specification
 * **blst** - contains the native C++ implementation and supported C++ headers for fields, curves, pairing, hashing, and the C ABI bridge
@@ -257,4 +312,8 @@ For more details see the Rust binding [readme](bindings/rust/README.md).
 The [Rust binding](bindings/rust) provides benchmarks for a variety of signature-related operations.
 
 ## License
-The blst library is licensed under the [Apache License Version 2.0](LICENSE) software license.
+
+category-blst is licensed under the
+[Apache License Version 2.0](LICENSE) software license. Retained upstream code
+and third-party material remain subject to their recorded notices and
+attributions.
