@@ -91,18 +91,8 @@ fn main() {
     let enable_avx_native = enable_avx && !enable_avx_portable;
 
     let toolchain = env::var_os("CMAKE_TOOLCHAIN_FILE").map(PathBuf::from);
-    if cross_compiling && toolchain.is_none() {
-        panic!(
-            "cross-compiling CatBLST from {} to {} requires an explicit \
-             CMAKE_TOOLCHAIN_FILE; refusing to compile a host archive for the target",
-            host, target
-        );
-    }
-    if let Some(path) = toolchain.as_deref() {
-        if !path.is_file() {
-            panic!("CMAKE_TOOLCHAIN_FILE is not a file: {}", path.display());
-        }
-    }
+    validate_cross_toolchain(&host, &target, toolchain.as_deref())
+        .unwrap_or_else(|message| panic!("{}", message));
 
     if let Some(prebuilt) = env::var_os("BLST_PREBUILT_LIB") {
         let prebuilt = PathBuf::from(prebuilt);
@@ -244,6 +234,29 @@ fn validate_build_policy(
             "portable AVX is a developer-only Debug configuration on Windows; \
              optimized portable-AVX builds are not supported for deployment",
         );
+    }
+    Ok(())
+}
+
+fn validate_cross_toolchain(
+    host: &str,
+    target: &str,
+    toolchain: Option<&Path>,
+) -> Result<(), String> {
+    if host != target && toolchain.is_none() {
+        return Err(format!(
+            "cross-compiling CatBLST from {} to {} requires an explicit \
+             CMAKE_TOOLCHAIN_FILE; refusing to compile a host archive for the target",
+            host, target
+        ));
+    }
+    if let Some(path) = toolchain {
+        if !path.is_file() {
+            return Err(format!(
+                "CMAKE_TOOLCHAIN_FILE is not a file: {}",
+                path.display()
+            ));
+        }
     }
     Ok(())
 }
@@ -539,5 +552,33 @@ mod tests {
             "x86_64", "linux", false, true, false, true
         )
         .is_err());
+    }
+
+    #[test]
+    fn cross_builds_require_an_existing_toolchain_file() {
+        assert!(validate_cross_toolchain(
+            "x86_64-pc-windows-msvc",
+            "x86_64-pc-windows-msvc",
+            None
+        )
+        .is_ok());
+        assert!(validate_cross_toolchain(
+            "x86_64-pc-windows-msvc",
+            "aarch64-apple-darwin",
+            None
+        )
+        .is_err());
+        assert!(validate_cross_toolchain(
+            "x86_64-pc-windows-msvc",
+            "aarch64-apple-darwin",
+            Some(Path::new("definitely-not-a-toolchain.cmake"))
+        )
+        .is_err());
+        assert!(validate_cross_toolchain(
+            "x86_64-pc-windows-msvc",
+            "aarch64-apple-darwin",
+            Some(Path::new("build.rs"))
+        )
+        .is_ok());
     }
 }
