@@ -969,3 +969,14 @@ and the non-AVX equality test passes 1/1. Strict C11/C++20 header parsing,
 MatrixNoK dispatch, audit manifests, and 21 proof rows/61 hashes pass. Exact
 the exact implementation is recorded at `e6163ce`; no benchmark or
 broad/platform sweep ran.
+
+Phase 18 Rust generation and binding hardening is complete through
+`835b97d802948fabb1e88383a975df07d98cf0ee`. `AUD-324` through `AUD-333` are
+validated. The scalar raw binding now regenerates exactly with bindgen 0.65.1,
+Clang/libclang 18.1.3, pinned Rust 1.65 rustfmt, explicit repository formatting,
+public-name allowlists, distinct opaque C tags, and fail-closed normalization.
+Two output locations produced identical bytes; the 253/253 declaration gate,
+transform fixture, 13 generated tests, and 13 pairing/uniqueness wrapper tests
+pass. A path-scoped CI lane repeats the comparison without a native product
+build. No benchmark, CUDA, broad native rebuild, frozen BTx/BTE audit, native
+AVX run, push, or hosted CI wait was performed.

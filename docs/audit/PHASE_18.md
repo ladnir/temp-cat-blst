@@ -98,6 +98,10 @@ Implementation/evidence commits are:
   pinned bindgen 0.65.1 policy, fail-closed transforms, exact 253/253 C/Rust
   declaration ownership, split FFT declarations, and generated pairing
   alignment;
+- `835b97d802948fabb1e88383a975df07d98cf0ee`: exact end-to-end regeneration,
+  pinned Rust 1.65 formatting and repository configuration, public-name
+  allowlists, distinct opaque context tags, system-header exclusion, and a
+  path-scoped byte-comparison workflow;
 - `b2c93e9d3ec4b4478edca51c9cd67187f859eba4`,
   `7b2ab8caf254e80611d57a1958912b93e7d7bd54`, and
   `906fc2c6964fcff3f8d188b5d373fd25334aa828`: profile/target/feature/toolchain/
@@ -113,16 +117,17 @@ Implementation/evidence commits are:
   explicit optimized emulation remains available.
 
 Focused evidence passes: exact raw declaration parity, Bash/Perl transform
-fixtures, 14 bindgen layout tests, 9 FFT tests, the empty-DST pairing test,
+fixtures, 12 generated ABI-layout tests plus the normality test, 9 FFT tests,
+13 pairing/uniqueness wrapper tests,
 4/4 build-policy tests, explicit-prebuilt linking, no-std Serde with warnings
 denied, full-binding rustdoc with warnings denied, and 2/2 secret-key invariant
 tests covering all derivation families and malformed scalar decoding. Portable
 AVX remains covered by its focused Debug CI lane without being presented as a
 deployable backend.
 
-`AUD-325` through `AUD-333` are validated. `AUD-324` remains high and
-`fix_in_progress`: the generator is deterministic and structurally guarded,
-but this machine lacks bindgen 0.65.1, so byte-for-byte end-to-end regeneration
-has not yet been recorded. The generated file and its two owning scripts remain
-in review until that exact run passes. No broad native rebuild, benchmark,
-CUDA, frozen BTx/BTE audit, native AVX run, or push was performed in closure.
+`AUD-324` through `AUD-333` are validated. Bindgen 0.65.1 with Clang/libclang
+18.1.3 and the pinned Rust 1.65 formatter regenerated the checked artifact
+byte-for-byte from both repository and temporary output locations. The focused
+CI lane repeats that comparison only when the scalar header, generator inputs,
+artifact, or checks change. No broad native rebuild, benchmark, CUDA, frozen
+BTx/BTE audit, native AVX run, or push was performed in closure.
