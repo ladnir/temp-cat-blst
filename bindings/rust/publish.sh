@@ -8,7 +8,7 @@ CARGO=${CARGO:-cargo}
 
 cleanup()
 {
-    if [ -n "${CREATED_BLST_LINK}" ] && [ -h blst ]; then
+    if [ -n "${CREATED_BLST_LINK}" ] && [ -L blst ]; then
         rm -f blst || :
     fi
     if [ -n "${PACKAGE_TARGET}" ]; then
@@ -25,15 +25,27 @@ HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 cd -- "${HERE}"
 
 REPOSITORY_ROOT=$(git rev-parse --show-toplevel)
-if [ -n "$(git -C "${REPOSITORY_ROOT}" status --porcelain --untracked-files=no)" ]; then
-    echo "refusing to publish with tracked or staged changes" >&2
+if [ -n "$(git -C "${REPOSITORY_ROOT}" status --porcelain)" ]; then
+    echo "refusing to publish with tracked, staged, or untracked changes" >&2
     exit 1
 fi
 
-if [ ! -d blst ]; then
-    ln -s ../.. blst
+if [ ! -e blst ] && [ ! -L blst ]; then
+    # MSYS otherwise emulates a directory symlink by copying its target when
+    # native link creation is unavailable. Demand a real link so cleanup can
+    # never become a recursive repository deletion.
+    MSYS=winsymlinks:nativestrict ln -s ../.. blst
+    if [ ! -L blst ]; then
+        echo "refusing to publish without a real blst symbolic link" >&2
+        exit 1
+    fi
     CREATED_BLST_LINK=1
-elif [ "$(CDPATH= cd -- blst && pwd -P)" != "${REPOSITORY_ROOT}" ]; then
+elif [ ! -L blst ]; then
+    echo "refusing to publish with a non-symbolic blst path" >&2
+    exit 1
+fi
+
+if [ "$(CDPATH= cd -- blst && pwd -P)" != "${REPOSITORY_ROOT}" ]; then
     echo "refusing to publish with blst mapped outside the repository root" >&2
     exit 1
 fi
