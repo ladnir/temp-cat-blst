@@ -275,7 +275,12 @@ contracts are exactly the C contracts.
 
 The low-level conveniences in `primitives.rs` enforce scalar slice length and
 `nbits <= 256`, but they do not validate the receiver. Their multiplication
-documentation correctly states the subgroup/on-curve preconditions.
+documentation states the subgroup/on-curve preconditions and exact
+little-endian bit interpretation. Miller-loop helpers require previously
+validated subgroup points, matching the C/native advanced-operation policy;
+they do not promise the wider on-curve domain merely because the underlying
+formula may evaluate there. Returned cryptographic values and decisions are
+marked must-use.
 
 The higher-level BLS types behave as follows:
 

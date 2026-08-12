@@ -6,9 +6,9 @@
 | --- | --- |
 | Path | `bindings/blst_scalar.h` |
 | Roadmap phase / queue | Phase 18 public C/C++/Rust surface; Wave 1 Set B |
-| Reviewed commit | `314c186149b9cc95d85a0c54e2dd651f137e4236` |
+| Reviewed commit | `dfd0740` |
 | Reviewer | Codex audit team |
-| Date | 2026-08-06 |
+| Date | 2026-08-12 |
 | Disposition | in-scope production |
 | Subsystem | plain scalar C ABI and C++-callable compatibility surface |
 | Profiles | C99-or-later, C++20, scalar, selected AVX-512, Rust FFI |
@@ -121,8 +121,8 @@ explicitly variable-time public paths.
     canonical nonzero key and subgroup hash without Release validation.
 13. **Uniqueness and XMD:** uniqueness storage is caller-owned, externally
     synchronized, and borrows inserted messages. XMD states its RFC 9380 output
-    bound, pointer/overlap rules, oversized-output behavior, and allocation-free
-    exception contract.
+    bound, SHA-256 transcript bound, pointer/overlap rules, oversized-output and
+    oversized-input behavior, and allocation-free exception contract.
 14. **ABI queries:** point, affine-point, Fp12, pairing, and uniqueness queries
     expose exact storage requirements without constructing objects.
 
@@ -286,6 +286,8 @@ wrapper are outside this review.
 - `AUD-192` -- validated: pinned upstream C++ optional defaults are restored.
 - `AUD-193` -- validated: fallible Frobenius is nodiscard.
 - `AUD-194` -- validated: zero-point Pippenger scratch is zero.
+- `AUD-337` -- validated: XMD rejects SHA-256 transcript lengths outside the
+  fewer-than-2^64-bit domain before reading input.
 
 Related cross-file `AUD-189` is owned by the public-types/error-code reviews;
 its four-byte/forward-safe result representation is present at this commit.
@@ -353,3 +355,13 @@ families. Fr/Fp/Fp2 shift counts are explicitly public, and the sparse Fp12
 operand is documented as packed `{x,y,z}` for `((x,y,0),(0,z,0))` rather than
 an ordinary Fp6 multiplier. No signature, ABI layout, symbol, or runtime path
 changed.
+
+## Phase 18 XMD-domain follow-up
+
+At `dfd0740`, the public XMD declaration records the complete SHA-256 domain,
+including the 17-byte oversize-DST prefix, 64-byte Z_pad, and fixed b0 framing.
+Pinned bindgen/Rust 1.65 regeneration is byte-identical and retains exact
+253/253 declaration parity. Scalar Debug XMD tests pass 7/7, safe Rust
+primitives pass 9/9 in Release, and optimized MSVC inlines the public guard
+before hashing without an out-of-line helper call. No signature, ABI layout, or
+valid-input digest changed.

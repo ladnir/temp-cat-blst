@@ -131,3 +131,30 @@ byte-for-byte from both repository and temporary output locations. The focused
 CI lane repeats that comparison only when the scalar header, generator inputs,
 artifact, or checks change. No broad native rebuild, benchmark, CUDA, frozen
 BTx/BTE audit, native AVX run, or push was performed in closure.
+
+## Wave 4: low-level Rust primitives and XMD input domain
+
+The complete hand review of `bindings/rust/src/primitives.rs` traced all 23
+production unsafe blocks through the scalar C ABI. No uninitialized output,
+Rust memory-unsafety, exception escape, hidden heap allocation, or compact
+Miller-descriptor overread was found. `AUD-334` through `AUD-336` narrow the
+Miller contract to subgroup points, document little-endian scalar and
+general-Fp12/GT semantics, and make 14 inherent cryptographic results and
+decisions must-use without changing ABI or runtime validation.
+
+`AUD-337` closes the SHA-256 input-domain gap found while tracing safe scalar
+hashing. Overflow-free checks now cover both the 17-byte oversize-DST prehash
+and the full b0 transcript before reading input. The void C boundary clears a
+valid output for invalid lengths; safe Rust panics before FFI so invalid input
+cannot be confused with a legitimate reduction to zero. The public header was
+regenerated exactly into raw Rust.
+
+Implementation commits are `bd0272b` and `dfd0740`. Scalar Debug XMD tests pass
+7/7 and scalar Release safe-Rust primitives pass 9/9. Full-binding rustdoc is
+warning-clean, formatting passes, bindgen 0.65.1 plus Rust 1.65 rustfmt
+regenerates byte-for-byte, and the declaration inventory remains exactly
+253/253. Optimized MSVC inlines the public length guard before hashing and emits
+no helper call from that boundary. No benchmark, full suite, sanitizer, CUDA,
+BTx/BTE audit, portable-AVX Release, native AVX, Apple CI, push, or parallel
+heavy work was performed. The scalar Debug target rebuilt serially; frozen
+BTx/BTE compiled unchanged only as an existing target dependency.

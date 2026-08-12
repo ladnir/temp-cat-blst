@@ -980,3 +980,15 @@ transform fixture, 13 generated tests, and 13 pairing/uniqueness wrapper tests
 pass. A path-scoped CI lane repeats the comparison without a native product
 build. No benchmark, CUDA, broad native rebuild, frozen BTx/BTE audit, native
 AVX run, push, or hosted CI wait was performed.
+
+Phase 18 low-level Rust primitive review is complete through implementation
+commits `bd0272b` and `dfd0740`. `AUD-334` through `AUD-337` are validated.
+All 23 production unsafe blocks were traced; Rust now matches the subgroup-only
+Miller contract, records little-endian scalar and general-Fp12/GT domains, and
+marks 14 cryptographic values/decisions must-use. XMD rejects SHA-256 transcript
+lengths outside the fewer-than-2^64-bit domain before input reads. Scalar Debug
+XMD passes 7/7, scalar Release Rust primitives pass 9/9, rustdoc is
+warning-clean, exact raw binding regeneration and 253/253 parity pass, and the
+optimized public guard is inlined. No benchmark, full suite, sanitizer, CUDA,
+BTx/BTE audit, portable-AVX Release, native AVX, Apple CI, push, or parallel
+heavy work was performed.

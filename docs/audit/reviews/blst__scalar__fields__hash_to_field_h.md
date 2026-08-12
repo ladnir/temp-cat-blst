@@ -6,9 +6,9 @@
 | --- | --- |
 | Paths | `blst/scalar/fields/hash_to_field.h`; `blst/fields/hash_to_field.h` |
 | Roadmap phase / queue | Phase 15 curves and protocols, hash-to-field packet |
-| Reviewed commit | `ab212fe80784dc516ca995b6823db6227141c52c` |
+| Reviewed commit | `dfd0740` |
 | Reviewer | Codex audit team |
-| Date | 2026-08-06 |
+| Date | 2026-08-12 |
 | Disposition | in-scope production |
 | Subsystem | RFC 9380 XMD:SHA-256 expansion and BLS12-381 hash-to-field |
 | Profiles | scalar implementation; selected native C++ facade; C and safe/generated Rust boundaries |
@@ -38,6 +38,10 @@ backend exists and exposing it as backend-selected would be misleading.
   only when their lengths are zero. Public input and output ranges do not
   overlap.
 - DSTs longer than 255 bytes use the RFC oversize-DST transform.
+- The 17-byte oversize-DST prehash prefix and the complete b0 transcript,
+  including Z_pad and fixed XMD framing, remain within SHA-256's
+  fewer-than-2^64-bit message domain. Invalid runtime lengths clear a valid
+  output before either input is read.
 - The implementation is allocation-free and nonthrowing. It uses fixed local
   SHA-256/chaining storage and a 32-byte final-partial buffer.
 - Chaining XOR is defined over bytes. No typed limb access, alignment promise,
@@ -86,30 +90,40 @@ direct conformance evidence.
 10. No dynamic initialization, random state, runtime dispatch, or threading is
     introduced.
 11. Work and storage are bounded by the public output length and RFC maximum.
-12. Focused scalar MSVC Debug/Release and safe Rust checks pass.
-13. Optimized MSVC emits a 624-byte fixed frame and inlined unaligned vector XOR
-    with no allocator reference.
+12. Focused scalar MSVC Debug and safe Rust Release checks pass; the scalar
+    Release archive builds serially.
+13. Optimized MSVC inlines the public transcript-length guard, retains the
+    fixed core frame and unaligned byte operations, and emits no allocator or
+    guard-helper call from the public boundary.
 14. Broad sanitizers, fuzzing, Apple, and the full release matrix remain later
     milestone evidence.
 
 ## Findings
 
-`AUD-174` through `AUD-179`.
+`AUD-174` through `AUD-179` and `AUD-337`.
 
 ## Validation
 
-- MSVC scalar Debug passes 6/6 and Release passes 7/7 focused tests.
+- MSVC scalar Debug passes 7/7 focused tests; the scalar Release archive builds
+  serially and supplies the focused safe-Rust validation.
 - Official evidence includes RFC XMD:SHA-256 32-byte, 128-byte, and oversize-DST
   vectors plus BLS12-381 G1 and G2 hash-to-field intermediates.
 - Boundary cases cover zero output, exact 65-byte publication with unaligned
   destination, 8160-byte success, 8161-byte fail-closed output, and Release
   invalid pointer/length pairs.
 - Full-binding Rust scalar hashing matches an independent expected reduction;
-  the 48-byte intermediate is erased before the result branch.
-- Optimized MSVC disassembly contains inlined `vmovdqu`/`vpxor`/`vmovdqu` for
-  chaining XOR, a fixed 624-byte frame, and no malloc/calloc/realloc/free call.
+  the 48-byte intermediate is erased before the result branch. The complete
+  primitive packet passes 9/9 in Release, including exact length boundaries
+  and the safe-Rust invalid-domain panic.
+- Optimized MSVC disassembly contains inlined public length checks with no
+  helper call, retains the core's fixed `sub rsp,0x268` local allocation, and
+  contains no malloc/calloc/realloc/free call.
+- Pinned bindgen/Rust 1.65 regeneration is byte-identical and the scalar C/raw
+  Rust inventories remain exactly 253/253.
 - No benchmark, broad suite, sanitizer sweep, CUDA build, BTx/BTE work, Apple
   CI, portable-AVX Release build, or parallel heavy work ran.
+- The scalar Debug test target rebuilt serially; frozen BTx/BTE compiled
+  unchanged only because it remains in that existing target's dependency graph.
 
 ## Automated evidence
 
