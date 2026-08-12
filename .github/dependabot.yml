@@ -9,3 +9,12 @@ updates:
       github-actions:
         patterns:
           - "*"
+
+  - package-ecosystem: cargo
+    directory: /bindings/rust
+    schedule:
+      interval: weekly
+    groups:
+      rust-dependencies:
+        patterns:
+          - "*"

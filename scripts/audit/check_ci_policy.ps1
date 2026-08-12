@@ -128,7 +128,10 @@ foreach ($required in @(
     'directory: /',
     'interval: weekly',
     'groups:',
-    '      github-actions:'
+    '      github-actions:',
+    'package-ecosystem: cargo',
+    'directory: /bindings/rust',
+    '      rust-dependencies:'
 )) {
     if (-not $dependabot.Contains($required)) {
         throw "dependabot.yml: missing retained action-update policy '$required'."
