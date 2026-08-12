@@ -441,7 +441,8 @@ void blst_p1_add(blst_p1* out, const blst_p1* a, const blst_p1* b);
  * not required or validated; `out` remains on-curve. */
 void blst_p1_sub(blst_p1* out, const blst_p1* a, const blst_p1* b);
 /** Complete addition of on-curve G1 points: doubles equal inputs and returns
- * infinity for opposites. Subgroup membership is not required or validated. */
+ * infinity for opposites. Subgroup membership is not required or validated.
+ * `out` may exactly alias either input; partial overlap is unsupported. */
 void blst_p1_add_or_double(blst_p1* out, const blst_p1* a, const blst_p1* b);
 /** Adds on-curve projective and affine G1 points using a fast incomplete formula, with
  * infinity supported. Finite inputs must be distinct and not opposites; use
@@ -598,7 +599,8 @@ void blst_p2_add(blst_p2* out, const blst_p2* a, const blst_p2* b);
  * not required or validated; `out` remains on-curve. */
 void blst_p2_sub(blst_p2* out, const blst_p2* a, const blst_p2* b);
 /** Complete addition of on-curve G2 points: doubles equal inputs and returns
- * infinity for opposites. Subgroup membership is not required or validated. */
+ * infinity for opposites. Subgroup membership is not required or validated.
+ * `out` may exactly alias either input; partial overlap is unsupported. */
 void blst_p2_add_or_double(blst_p2* out, const blst_p2* a, const blst_p2* b);
 /** Adds on-curve projective and affine G2 points using a fast incomplete formula, with
  * infinity supported. Finite inputs must be distinct and not opposites; use

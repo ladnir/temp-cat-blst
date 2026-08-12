@@ -42,6 +42,13 @@ macro_rules! pippenger_mult_impl {
         $is_inf:ident,
         $in_group:ident,
     ) => {
+        /// Owned affine points for public variable-time batch operations.
+        ///
+        /// The carrier does not encode validation state. Ordinary batch
+        /// operations require every element to be on-curve and in the
+        /// prime-order subgroup. Call [`MultiPoint::validate`] after importing
+        /// untrusted points, and revalidate after mutating an element through
+        /// [`IndexMut`].
         pub struct $points {
             points: Vec<$point_affine>,
         }
@@ -62,11 +69,20 @@ macro_rules! pippenger_mult_impl {
         }
 
         impl $points {
+            /// Borrows the stored affine points without validating them.
             #[inline]
             pub fn as_slice(&self) -> &[$point_affine] {
                 self.points.as_slice()
             }
 
+            /// Batch-converts projective subgroup points into owned affine
+            /// storage.
+            ///
+            /// Every input must already be on-curve and in the prime-order
+            /// subgroup. This method preserves but does not validate that
+            /// property; behavior for other inputs is not promised. It
+            /// allocates storage proportional to `points.len()`. Empty input
+            /// returns an empty carrier without allocation or FFI access.
             pub fn from(points: &[$point]) -> Self {
                 let npoints = points.len();
                 if npoints == 0 {

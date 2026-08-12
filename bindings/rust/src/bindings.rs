@@ -976,7 +976,7 @@ extern "C" {
     pub fn blst_p1_sub(out: *mut blst_p1, a: *const blst_p1, b: *const blst_p1);
 }
 extern "C" {
-    #[doc = " Complete addition of on-curve G1 points: doubles equal inputs and returns\n infinity for opposites. Subgroup membership is not required or validated."]
+    #[doc = " Complete addition of on-curve G1 points: doubles equal inputs and returns\n infinity for opposites. Subgroup membership is not required or validated.\n `out` may exactly alias either input; partial overlap is unsupported."]
     pub fn blst_p1_add_or_double(
         out: *mut blst_p1,
         a: *const blst_p1,
@@ -1291,7 +1291,7 @@ extern "C" {
     pub fn blst_p2_sub(out: *mut blst_p2, a: *const blst_p2, b: *const blst_p2);
 }
 extern "C" {
-    #[doc = " Complete addition of on-curve G2 points: doubles equal inputs and returns\n infinity for opposites. Subgroup membership is not required or validated."]
+    #[doc = " Complete addition of on-curve G2 points: doubles equal inputs and returns\n infinity for opposites. Subgroup membership is not required or validated.\n `out` may exactly alias either input; partial overlap is unsupported."]
     pub fn blst_p2_add_or_double(
         out: *mut blst_p2,
         a: *const blst_p2,

@@ -1,3 +1,7 @@
+// Copyright Supranational LLC and Category Labs
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
 #![cfg(feature = "full-rust-bindings")]
 
 use blst::{min_pk, BLST_ERROR};

@@ -1,3 +1,7 @@
+// Copyright Supranational LLC and Category Labs
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
 use blst::{
     blst_fp12, blst_p1, blst_p1_affine, blst_p1_generator, blst_p1_in_g1,
     blst_p1_mult, blst_p1_to_affine, blst_p2, blst_p2_affine,
@@ -29,6 +33,9 @@ fn raw_pairing_smoke() {
         blst_p1_to_affine(&mut p_affine, &p);
         blst_p2_to_affine(&mut q_affine, &q);
 
+        // Miller-loop helpers require previously validated subgroup points.
+        // These points are generator multiples and the checks above make that
+        // precondition explicit for raw-API readers.
         let gt = blst_fp12::miller_loop(&q_affine, &p_affine).final_exp();
         assert!(gt.in_group());
         assert!(blst_fp12::finalverify(&gt, &gt));
