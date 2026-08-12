@@ -380,3 +380,29 @@ preset regenerated and rebuilt its bounded fast target with two workers;
 frozen BTx/BTE compiled unchanged and emitted only its existing ignored-
 nodiscard warning. No benchmark, CUDA, full runtime suite, sanitizer, native
 AVX-512, remote, or Apple run was performed.
+
+## Packet 17H - Primitive-root support header
+
+The complete primitive-root owner is reviewed at implementation commit
+`4a6e95126f6977e99b2330a6753fa66fab1034b2`. The correctly spelled
+`blst/fft/primitive_root.h` is authoritative; the historical misspelling is a
+one-include compatibility shim so frozen BTx/BTE remains unchanged.
+
+`AUD-306` makes exact power-of-two order validation a Release property before
+root-table publication. Zero and non-power-of-two orders fail, a proper-subgroup
+root fails, and invalid preparation changes no output. `AUD-307` replaces the
+guarded first-call lambda and 32 field squarings with a constant-initialized
+33-entry Montgomery table. An independent standard-library validator derives
+the table from the BLS12-381 scalar modulus, generator seven, and Montgomery
+radix and rejects deliberate corruption. `AUD-308` removes randomized generator
+discovery, trial factorization, dead predicates, leaked macros, unused includes,
+and hidden transitive dependencies. Non-Fr fields retain only deterministic
+caller-supplied generator construction.
+
+MSVC 19.50 scalar Debug and Release each pass five focused exact-root,
+invalid-order, explicit-generator, and reject-before-write tests. The header
+compiles standalone at `/W4`. Optimized Release code for a valid Fr lookup is
+public shape/range checks, `tzcnt`, and one indexed 32-byte load/copy; no guard,
+lambda, squaring loop, or valid-path call remains. Frozen BTx/BTE compiled
+through the shim without modification. No benchmark, CUDA run, full suite,
+sanitizer, native AVX-512, remote, or Apple run was performed.

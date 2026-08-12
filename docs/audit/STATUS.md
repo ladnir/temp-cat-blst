@@ -915,3 +915,16 @@ compile-time dispatch and fully overwritten output temporaries. Scalar and
 portable-AVX-selected Debug focused checks pass; `domain.h` compiles standalone.
 No benchmark, CUDA, full suite, sanitizer, native AVX-512, remote, Apple, or
 BTx/BTE audit/change was performed.
+
+Phase 17 Packet 17H completes `blst/fft/primitive_root.h` and its misspelled
+compatibility shim at implementation commit `4a6e951`. `AUD-306` enforces exact
+power-of-two root order in Release before output publication. `AUD-307` replaces
+guarded runtime table construction with 33 independently regenerated immutable
+Montgomery constants; optimized lookup has one indexed 32-byte load and no
+initialization path. `AUD-308` removes randomized generator discovery, trial
+factorization, dead helpers/macros, and transitive dependencies while retaining
+an explicit-generator generic API. Scalar Debug/Release focused tests pass 5/5,
+the independent validator and corruption self-test pass, and the header compiles
+standalone at MSVC `/W4`. Frozen BTx/BTE compiled unchanged through the shim.
+No benchmark, CUDA run, full suite, sanitizer, native AVX-512, remote, or Apple
+run was performed.

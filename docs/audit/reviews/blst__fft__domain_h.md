@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/fft/domain.h` |
 | Roadmap phase / queue | Phase 17 FFT support-header packet |
-| Reviewed commit | `0fc26d2617f74b6ef82345fee4f4400979b1534d` |
+| Reviewed commit | `4a6e95126f6977e99b2330a6753fa66fab1034b2` (only the audited primitive-root include spelling changed after `0fc26d2`) |
 | Reviewer | Codex audit team |
 | Date | 2026-08-11 |
 | Disposition | `in_scope_production` |
@@ -14,7 +14,7 @@
 | Profiles | scalar and selected AVX native C++; C/Rust Fr adapters |
 | Generation/provenance | Locally composed handwritten C++ templates; Apache-2.0 and Category Labs |
 | Upstream references | `not_applicable: upstream BLST has no corresponding FFT domain helper` |
-| Related files | `blst/fft/ctFft.h`, `blst/fft/primitveRoot.h`, `blst/fft/context.h`, `blst/fft_c_api.cpp`, `bindings/blst_fft.h`, `bindings/rust/src/fft.rs`, `test/Fft_api_tests.cpp` |
+| Related files | `blst/fft/ctFft.h`, `blst/fft/primitive_root.h`, `blst/fft/context.h`, `blst/fft_c_api.cpp`, `bindings/blst_fft.h`, `bindings/rust/src/fft.rs`, `test/Fft_api_tests.cpp` |
 
 ## Purpose and trust boundary
 
