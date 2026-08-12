@@ -76,16 +76,8 @@ fn main() {
     let force_adx = cfg!(feature = "force-adx");
     let opt_level = env::var("OPT_LEVEL").unwrap_or_else(|_| "0".to_string());
     let build_type = native_build_type(&opt_level);
-    let optimized = build_type == "Release";
-    validate_build_policy(
-        &target_arch,
-        &target_os,
-        optimized,
-        portable,
-        enable_avx,
-        force_adx,
-    )
-    .unwrap_or_else(|message| panic!("{}", message));
+    validate_build_policy(&target_arch, portable, enable_avx, force_adx)
+        .unwrap_or_else(|message| panic!("{}", message));
 
     let enable_avx_portable = enable_avx && target_os.eq("windows");
     let enable_avx_native = enable_avx && !enable_avx_portable;
@@ -212,8 +204,6 @@ fn native_build_type(opt_level: &str) -> &'static str {
 
 fn validate_build_policy(
     target_arch: &str,
-    target_os: &str,
-    optimized: bool,
     portable: bool,
     avx: bool,
     force_adx: bool,
@@ -228,12 +218,6 @@ fn validate_build_policy(
     }
     if avx && target_arch != "x86_64" {
         return Err("the `avx` feature is supported only on x86_64 targets");
-    }
-    if avx && target_os == "windows" && optimized {
-        return Err(
-            "portable AVX is a developer-only Debug configuration on Windows; \
-             optimized portable-AVX builds are not supported for deployment",
-        );
     }
     Ok(())
 }
@@ -523,39 +507,20 @@ mod tests {
     }
 
     #[test]
-    fn portable_avx_is_windows_debug_only() {
-        assert!(validate_build_policy(
-            "x86_64", "windows", false, false, true, false
-        )
-        .is_ok());
-        assert!(validate_build_policy(
-            "x86_64", "windows", true, false, true, false
-        )
-        .is_err());
-        assert!(validate_build_policy(
-            "aarch64", "macos", false, false, true, false
-        )
-        .is_err());
-        assert!(validate_build_policy(
-            "x86_64", "linux", true, false, true, false
-        )
-        .is_ok());
+    fn avx_is_x86_64_only() {
+        assert!(validate_build_policy("x86_64", false, true, false).is_ok());
+        assert!(validate_build_policy("aarch64", false, true, false).is_err());
     }
 
     #[test]
     fn conflicting_feature_sets_fail_closed() {
-        assert!(validate_build_policy(
-            "x86_64", "linux", false, true, true, false
-        )
-        .is_err());
-        assert!(validate_build_policy(
-            "x86_64", "linux", false, true, false, true
-        )
-        .is_err());
+        assert!(validate_build_policy("x86_64", true, true, false).is_err());
+        assert!(validate_build_policy("x86_64", true, false, true).is_err());
     }
 
     #[test]
     fn cross_builds_require_an_existing_toolchain_file() {
+        let existing_file = std::env::current_exe().unwrap();
         assert!(validate_cross_toolchain(
             "x86_64-pc-windows-msvc",
             "x86_64-pc-windows-msvc",
@@ -577,7 +542,7 @@ mod tests {
         assert!(validate_cross_toolchain(
             "x86_64-pc-windows-msvc",
             "aarch64-apple-darwin",
-            Some(Path::new("build.rs"))
+            Some(existing_file.as_path())
         )
         .is_ok());
     }

@@ -155,14 +155,6 @@ jobs:
           rustc --test build.rs -D warnings -o "$policy_test"
           "$policy_test"
 
-          if [ "${{ runner.os }}" = "Windows" ]; then
-              if cargo check --release --lib --features avx >portable-avx-release.log 2>&1; then
-                  echo "optimized portable AVX unexpectedly succeeded" >&2
-                  exit 1
-              fi
-              grep -q "developer-only Debug" portable-avx-release.log
-          fi
-
           cargo test --release --lib
           cargo test --release --lib --features full-rust-bindings
           cargo test --release --lib --features portable

@@ -72,10 +72,12 @@ unsupported build; they do not confer production-readiness or ABI guarantees.
 Rust builds use the same option names as environment variables with a true
 value such as `1` or `ON`.
 
-Native AVX-512 is a production x86_64 backend. `BLST_AVX512_PORTABLE` is a
-developer-only Debug emulation mode for differential tests and analysis; it is
-not a deployment fallback, and optimized configurations reject it. Production
-systems without the required AVX-512/IFMA target use the scalar backend.
+Native AVX-512 is a production x86_64 backend. `BLST_AVX512_PORTABLE` is
+emulation for differential tests and analysis, not a deployment fallback or
+native performance evidence. It is omitted from the ordinary Release presets
+and production CI matrix, but remains available through explicit configuration
+when developers need optimized emulation. Production systems without the
+required AVX-512/IFMA target use the scalar backend.
 
 The supported language surfaces are the [C API](bindings/blst.h), the native
 [C++ implementation and API](blst), and the [Rust binding](bindings/rust).

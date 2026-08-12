@@ -19,9 +19,10 @@ Relevant Cargo features:
   - enables the higher-level Rust API such as `min_pk`, `min_sig`, aggregation helpers, and pairing helpers
 - `avx`
   - enables the native AVX-512 build on x86-64 Unix targets
-  - on Windows this maps only to the developer portable-AVX implementation;
-    it is accepted in Debug and rejected in optimized builds
+  - on Windows this maps to the developer portable-AVX implementation
   - portable AVX is for differential testing and development, not deployment
+    or native performance evidence; optimized use requires an explicit feature
+    selection and is not part of the ordinary release matrix
   - on Linux native AVX requires Clang 21 or newer unless the native CMake build is explicitly configured to allow an unsupported compiler
 - `portable`
   - enables the portable scalar build
