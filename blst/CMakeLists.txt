@@ -37,21 +37,20 @@ if(BLST_AVX512_PORTABLE)
 endif()
 
 if(MSVC)
-    set(BLST_OPTS )
-    set(BLST_DEBUG_OPT /Zi /Od /DEBUG ) #/W4 /WX
-    set(BLST_RELEASE_OPT /O2 )
-    set(BLST_RELWITHDEBINFO_OPT /Zi /O2 /DEBUG)
+    set(BLST_OPTS)
+    set(BLST_DEBUG_OPT)
+    set(BLST_RELEASE_OPT)
+    set(BLST_RELWITHDEBINFO_OPT)
     if(CMAKE_SIZEOF_VOID_P EQUAL 8)
         set(ASM_PATTERN "${CMAKE_CURRENT_SOURCE_DIR}/../build/win64/*-x86_64.asm")
     else()
         set(ASM_PATTERN "${CMAKE_CURRENT_SOURCE_DIR}/../build/win64/*-armv8.asm")
     endif()
 else()
-    set(BLST_OPTS -fPIC)
-    set(BLST_DEBUG_OPT -g -O0)
-    # Match avxbls release tuning more closely for fair perf comparisons.
-    set(BLST_RELEASE_OPT -O3 -fomit-frame-pointer -fwrapv -mtune=native -Wall -Wextra)
-    set(BLST_RELWITHDEBINFO_OPT -g -O3 -fomit-frame-pointer -fwrapv -mtune=native -Wall -Wextra)
+    set(BLST_OPTS)
+    set(BLST_DEBUG_OPT)
+    set(BLST_RELEASE_OPT -fwrapv -Wall -Wextra)
+    set(BLST_RELWITHDEBINFO_OPT -fwrapv -Wall -Wextra)
 
     set(ASM_PATTERN  ${CMAKE_CURRENT_SOURCE_DIR}/../build/assembly.S)
 endif()
@@ -108,10 +107,6 @@ if(BLST_CUDA)
         cuda/curve/G2.cpp
         cuda/curve/GT.cpp
     )
-    #if(BLST_FAST_BUILD)
-    #    set(FAST_OPT  $<$<COMPILE_LANGUAGE:CUDA>:-O0>)
-    #endif()
-
     # Tell CMake to compile .c files with NVCC
     set_source_files_properties(${BLST_STATIC_SRC} PROPERTIES LANGUAGE CUDA)
     set(BLST_OPTS
@@ -163,19 +158,24 @@ else()
     )
 endif()
 
-add_library(blst_static ${BLST_STATIC_SRC} ${ASM_SRC} "backend/backend_portable.cpp")
-set_target_properties(blst_static PROPERTIES OUTPUT_NAME blst)
+add_library(blst_static ${BLST_STATIC_SRC} ${ASM_SRC})
+set_target_properties(blst_static PROPERTIES
+    OUTPUT_NAME blst
+    POSITION_INDEPENDENT_CODE ON)
 #message(STATUS "BLST_OPTS: ${BLST_OPTS}")
-target_compile_options(blst_static PUBLIC ${BLST_OPTS})
+target_compile_options(blst_static PRIVATE ${BLST_OPTS})
 target_include_directories(blst_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/..)
-target_compile_options(blst_static PUBLIC
-  # CUDA with nvcc
-  $<$<COMPILE_LANGUAGE:CUDA>:--std=c++20>
-
-  # Host C++ (MSVC vs others)
-  $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:MSVC>>:/std:c++latest>
-  $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-std=c++23>
-)
+if(BLST_CUDA OR BLST_PARALLEL_MSM)
+    target_compile_features(blst_static PUBLIC cxx_std_23)
+else()
+    target_compile_features(blst_static PUBLIC cxx_std_20)
+endif()
+if(BLST_CUDA)
+    set_target_properties(blst_static PROPERTIES
+        CUDA_STANDARD 23
+        CUDA_STANDARD_REQUIRED ON
+        CUDA_EXTENSIONS OFF)
+endif()
 # for in source builds, we need to include the build dir too (config.h)
 target_include_directories(blst_static PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/..)
 
@@ -188,9 +188,12 @@ configure_file(
 target_include_directories(blst_static PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 
 add_subdirectory(avx)
-
 if(BLST_DEFAULT_AVX)
+    # The selected native C++ facade exposes AVX types and inline operations,
+    # so its exact ISA compile contract is a legitimate consumer requirement.
     target_link_libraries(blst_static PUBLIC blst_avx_headers)
+else()
+    target_link_libraries(blst_static PRIVATE blst_avx_headers)
 endif()
 
 if(BLST_CUDA)
@@ -203,13 +206,3 @@ endif()
 if(TARGET blst_sanitizers)
     target_link_libraries(blst_static PUBLIC blst_sanitizers)
 endif()
-
-
-
-
-#arch native
-if (MSVC)
-else()
-    target_compile_options(blst_static PUBLIC -march=native)
-endif()
-

@@ -6,12 +6,16 @@ if(POLICY CMP0135)
     cmake_policy(SET CMP0135 NEW)
 endif()
 
-FetchContent_Declare(
-  googletest
-  URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
-)
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(googletest)
+find_package(GTest 1.14 QUIET)
+if(NOT TARGET GTest::gtest_main)
+    FetchContent_Declare(
+        googletest
+        URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
+        URL_HASH SHA256=1f357c27ca988c3f7c6b4bf68a9395005ac6761f034046e9dde0896e3aba00e4
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
+endif()
 
 
 # Public top-level API tests should compile against whichever backend the
@@ -137,7 +141,7 @@ endif()
 add_executable(blst_tests ${TEST_SOURCES})
 
 target_include_directories(blst_tests PRIVATE ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(blst_tests PRIVATE gtest_main blst_static blst_avx_headers)
+target_link_libraries(blst_tests PRIVATE GTest::gtest_main blst_static blst_avx_headers)
 if(NOT BLST_ASAN AND NOT BLST_UBSAN)
     target_link_libraries(blst_tests PRIVATE bte)
 endif()
@@ -233,18 +237,10 @@ if(BLST_AVX512 OR BLST_AVX512_PORTABLE)
     # only the unresolved low-level backend symbols; its duplicate scalar
     # objects are not extracted by the linker.
     target_link_libraries(blst_avx512_compat_tests PRIVATE
-        gtest_main
+        GTest::gtest_main
         blst_static
         blst_avx_headers)
     target_compile_features(blst_avx512_compat_tests PRIVATE cxx_std_23)
-
-    if(BLST_AVX512)
-        if(MSVC)
-            target_compile_options(blst_avx512_compat_tests PRIVATE /arch:AVX512)
-        else()
-            target_compile_options(blst_avx512_compat_tests PRIVATE -march=native)
-        endif()
-    endif()
 
     gtest_discover_tests(blst_avx512_compat_tests
         DISCOVERY_TIMEOUT 60

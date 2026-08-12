@@ -1,12 +1,12 @@
 # CMakeLists.txt
 cmake_minimum_required(VERSION 3.27)
-project(blst CXX)
+project(blst LANGUAGES C CXX)
 
 option(BLST_BUILD_SHARED "Build shared library" OFF)
-option(BLST_PORTABLE     "Build portable implementations and CPU-dispatched assembly fallbacks" ON)
+option(BLST_PORTABLE     "Include generic assembly fallbacks and runtime CPU dispatch" ON)
 option(BLST_ASM          "Enable assembly optimizations" ON)
-option(BLST_ADX          "Enable ADX in the c code" ON)
-option(BLST_DEFAULT_ASM  "Enable assembly optimizations by default" ON)
+option(BLST_ADX          "Enable the x86-64 ADX/BMI2 implementation (deployment CPU must support it)" OFF)
+option(BLST_DEFAULT_ASM  "Select assembly as the default scalar implementation" ${BLST_ASM})
 option(BLST_ASAN         "Enable Address Sanitizer" OFF)
 option(BLST_AVX512       "Enable AVX512 code paths" OFF)
 option(BLST_DEFAULT_AVX  "Prefer AVX implementations by default when available" ${BLST_AVX512})
@@ -18,12 +18,44 @@ if(DEFINED BLAS_UBSAN AND NOT DEFINED BLST_UBSAN)
     set(BLST_UBSAN "${BLAS_UBSAN}")
 endif()
 option(BLST_UBSAN        "Enable Undefined Behavior Sanitizer" OFF)
-option(BLST_TEST         "Build test executables" ON)
-option(BLST_BENCHMARK    "Build benchmark executables" ON)
+option(BLST_TEST         "Build test executables" ${PROJECT_IS_TOP_LEVEL})
+option(BLST_BENCHMARK    "Build benchmark executables" OFF)
 option(BLST_CUDA         "Enable CUDA support" OFF)
-option(BLST_CUDA_MSM "Enable CUDA support" ${BLST_CUDA})
+option(BLST_CUDA_MSM     "Enable experimental CUDA MSM kernels" ${BLST_CUDA})
+option(BLST_FAST_BUILD   "Reduce experimental CUDA compile time at the cost of runtime performance" OFF)
 option(BLST_PARALLEL_MSM "Enable parallel MSM pipeline sources/tests/benchmarks" OFF)
 option(BLST_CRNS_BATCH_VROOM_VENDOR "Build the vendored VROOM comparison backend" OFF)
+
+mark_as_advanced(
+    BLST_AVX512_PORTABLE
+    BLST_ALLOW_UNSUPPORTED_AVX_COMPILER
+    BLST_ALLOW_UNTESTED_ARM64
+    BLST_ALLOW_UNTESTED_CHERI
+    BLST_FAST_BUILD
+    BLST_PARALLEL_MSM
+    BLST_CRNS_BATCH_VROOM_VENDOR)
+
+if(BLST_BUILD_SHARED)
+    message(FATAL_ERROR
+        "BLST_BUILD_SHARED is not implemented. Build blst_static, or wait for "
+        "the audited shared-library/export work in the packaging phase.")
+endif()
+
+if(BLST_CRNS_BATCH_VROOM_VENDOR)
+    message(FATAL_ERROR
+        "BLST_CRNS_BATCH_VROOM_VENDOR is no longer available. The selected "
+        "AVX backend contains the retained VROOM-derived implementation.")
+endif()
+
+if(BLST_CUDA_MSM AND NOT BLST_CUDA)
+    message(FATAL_ERROR "BLST_CUDA_MSM requires BLST_CUDA=ON.")
+endif()
+
+if(BLST_FAST_BUILD AND NOT BLST_CUDA)
+    message(FATAL_ERROR
+        "BLST_FAST_BUILD is a CUDA-only compile-time/runtime tradeoff and "
+        "requires BLST_CUDA=ON.")
+endif()
 
 set(BLST_TARGET_IS_X86_64 OFF)
 set(BLST_TARGET_IS_ARM64 OFF)
@@ -81,16 +113,31 @@ elseif(BLST_TARGET_IS_ARM64 AND NOT BLST_TARGET_IS_APPLE_ARM64)
         "supported and must not be represented as production-ready.")
 endif()
 
+if(APPLE AND DEFINED CMAKE_OSX_ARCHITECTURES AND
+   CMAKE_OSX_ARCHITECTURES MATCHES ";")
+    message(FATAL_ERROR
+        "Universal/multi-architecture Apple builds are not supported by one "
+        "category-blst configuration. Configure arm64 and x86_64 separately.")
+endif()
+
+if(NOT BLST_TARGET_IS_CHERI_PURECAP AND NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
+    message(FATAL_ERROR
+        "category-blst supports only 64-bit targets; CMAKE_SIZEOF_VOID_P="
+        "${CMAKE_SIZEOF_VOID_P}.")
+endif()
+
+if(NOT BLST_TARGET_IS_X86_64 AND NOT BLST_TARGET_IS_ARM64)
+    message(FATAL_ERROR
+        "Unsupported target architecture '${CMAKE_SYSTEM_PROCESSOR}'. "
+        "Supported production targets are 64-bit x86_64 and Apple Silicon.")
+endif()
+
 if(BLST_TARGET_IS_APPLE_ARM64)
     set(BLST_APPLE_ARM64_SUPPORTED ON)
 endif()
 
 if(BLST_ADX AND NOT BLST_TARGET_IS_X86_64)
-    message(STATUS
-        "Disabling BLST_ADX for non-x86_64 target "
-        "(CMAKE_SYSTEM_PROCESSOR='${CMAKE_SYSTEM_PROCESSOR}', "
-        "CMAKE_OSX_ARCHITECTURES='${CMAKE_OSX_ARCHITECTURES}').")
-    set(BLST_ADX OFF)
+    message(FATAL_ERROR "BLST_ADX requires a 64-bit x86_64 target.")
 endif()
 
 set(BLST_LIMB_SIZE "64" CACHE STRING "CatBLST limb size (64-bit only)")
@@ -101,14 +148,16 @@ if(NOT BLST_LIMB_SIZE STREQUAL "64")
         "'${BLST_LIMB_SIZE}'.")
 endif()
 
-if (BLST_ASM)
-else()
-    set(BLST_PORTABLE ON)
-    set(BLST_DEFAULT_ASM OFF)
+if(NOT BLST_ASM AND BLST_DEFAULT_ASM)
+    message(FATAL_ERROR "BLST_DEFAULT_ASM requires BLST_ASM=ON.")
 endif()
 
 if(BLST_DEFAULT_AVX AND NOT (BLST_AVX512 OR BLST_AVX512_PORTABLE))
     message(FATAL_ERROR "BLST_DEFAULT_AVX requires BLST_AVX512 or BLST_AVX512_PORTABLE")
+endif()
+
+if(BLST_AVX512 AND NOT BLST_TARGET_IS_X86_64)
+    message(FATAL_ERROR "BLST_AVX512 requires a 64-bit x86_64 target.")
 endif()
 
 if(BLST_AVX512)
@@ -136,10 +185,6 @@ if(BLST_AVX512)
                 "Set BLST_ALLOW_UNSUPPORTED_AVX_COMPILER=ON to override this check.")
         endif()
     endif()
-endif()
-
-if(MSVC AND NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 
 if(DEFINED BLAS_UBSAN)
@@ -262,11 +307,11 @@ message("BLST_ALLOW_UNTESTED_ARM64 = ${BLST_ALLOW_UNTESTED_ARM64}")
 message("BLST_ALLOW_UNTESTED_CHERI = ${BLST_ALLOW_UNTESTED_CHERI}")
 message("BLST_ASAN            = ${BLST_ASAN}")     # enable address sanitizer
 message("BLST_UBSAN           = ${BLST_UBSAN}")    # enable undefined behavior sanitizer
-message("BLST_CUDA            = ${BLST_CUDA}")     # enable the cude impl (gpu)
-message("BLST_CUDA_MSM        = ${BLST_CUDA_MSM}")     # enable the cude impl (gpu)
+message("BLST_CUDA            = ${BLST_CUDA}")     # enable the experimental CUDA implementation
+message("BLST_CUDA_MSM        = ${BLST_CUDA_MSM}") # enable the experimental CUDA MSM kernels
 message("BLST_PARALLEL_MSM    = ${BLST_PARALLEL_MSM}") # enable parallel MSM pipeline
 message("BLST_CRNS_BATCH_VROOM_VENDOR = ${BLST_CRNS_BATCH_VROOM_VENDOR}") # build vendored VROOM comparison backend
-message("BLST_FAST_BUILD      = ${BLST_FAST_BUILD}") # make the cude build faster but slower runtime.
+message("BLST_FAST_BUILD      = ${BLST_FAST_BUILD}") # faster CUDA compile, slower runtime
 message("BLST_LIMB_SIZE       = ${BLST_LIMB_SIZE}")
 message("BLST_TEST            = ${BLST_TEST}")      # build tests
 message("BLST_BENCHMARK       = ${BLST_BENCHMARK}") # build benchmarks
@@ -277,34 +322,23 @@ message(STATUS "C++ compiler: ${CMAKE_CXX_COMPILER}")
 message(STATUS "C++ compiler ID: ${CMAKE_CXX_COMPILER_ID}")
 message(STATUS "C++ compiler version: ${CMAKE_CXX_COMPILER_VERSION}")
 
-if(BLST_CRNS_BATCH_VROOM_VENDOR)
-    message(WARNING "BLST_CRNS_BATCH_VROOM_VENDOR is temporarily unavailable during the VROOM backend reset.")
-endif()
 set(BLST_HAVE_CRNS_BATCH_VROOM_VENDOR OFF)
 
 
-# Make sure these vars are copied into the try-compile's cache.
-set(CMAKE_TRY_COMPILE_PLATFORM_VARIABLES
-    CMAKE_CUDA_FLAGS
-    CMAKE_CUDA_HOST_COMPILER
-)
-
-# Force the flag into cache so try-compile sees it.
-set(CMAKE_CUDA_FLAGS "-allow-unsupported-compiler" CACHE STRING "nvcc flags" FORCE)
-
 if(BLST_CUDA)
+    # CUDA is experimental. Keep all CUDA-specific configuration inside this
+    # opt-in branch so ordinary C/C++ configuration is not mutated.
+    list(APPEND CMAKE_TRY_COMPILE_PLATFORM_VARIABLES CMAKE_CUDA_HOST_COMPILER)
     enable_language(CUDA)
     find_package(CUDAToolkit REQUIRED)
     if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-        message(WARNING "CMAKE_CUDA_ARCHITECTURES not defined, defaulting to 89")
-    endif()
+        message(STATUS "CMAKE_CUDA_ARCHITECTURES not defined; defaulting to 89")
         set(CMAKE_CUDA_ARCHITECTURES 89)
-endif()
-
-# applies to all targets
-add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:--allow-unsupported-compiler>)
-if(MSVC)
-    add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/Zc:preprocessor>)
+    endif()
+    add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:--allow-unsupported-compiler>)
+    if(MSVC)
+        add_compile_options($<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/Zc:preprocessor>)
+    endif()
 endif()
 
 #add_subdirectory(check)

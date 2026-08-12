@@ -1,140 +1,176 @@
 {
-  "version": 2,
+  "version": 6,
   "configurePresets": [
     {
-      "name": "linux",
-      "displayName": "Linux",
-      "description": "Target the Windows Subsystem for Linux (WSL) or a remote Linux system.",
+      "name": "base",
+      "hidden": true,
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
+        "BLST_BUILD_SHARED": false,
+        "BLST_TEST": true,
+        "BLST_BENCHMARK": false,
+        "BLST_CUDA": false,
+        "BLST_CUDA_MSM": false,
+        "BLST_FAST_BUILD": false,
+        "BLST_PARALLEL_MSM": false,
+        "BLST_CRNS_BATCH_VROOM_VENDOR": false
+      }
+    },
+    {
+      "name": "scalar-base",
+      "hidden": true,
+      "inherits": "base",
+      "cacheVariables": {
+        "BLST_PORTABLE": false,
+        "BLST_ASM": false,
+        "BLST_DEFAULT_ASM": false,
+        "BLST_ADX": false,
+        "BLST_AVX512": false,
+        "BLST_DEFAULT_AVX": false
+      }
+    },
+    {
+      "name": "assembly-base",
+      "hidden": true,
+      "inherits": "base",
+      "cacheVariables": {
         "BLST_PORTABLE": true,
         "BLST_ASM": true,
         "BLST_DEFAULT_ASM": true,
-        "BLST_ADX": true,
-        "BLST_CUDA": false,
-        "CMAKE_CUDA_COMPILER": "/usr/local/cuda-13.0/bin/nvcc",
-        "CMAKE_CUDA_ARCHITECTURES": "89",
-        "CUDA_TOOLKIT_ROOT_DIR": "/usr/local/cuda-13.0",
-        "CMAKE_PREFIX_PATH": "${sourceDir}/../out/install",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
+        "BLST_ADX": false,
+        "BLST_AVX512": false,
+        "BLST_DEFAULT_AVX": false
+      }
+    },
+    {
+      "name": "windows-x64-base",
+      "hidden": true,
+      "inherits": "base",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
       },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
           "hostOS": [
-            "Linux"
+            "Windows"
           ]
-        },
-        "microsoft.com/VisualStudioRemoteSettings/CMake/1.0": {
-          "sourceDir": "$env{HOME}/.vs/$ms{projectDirName}",
-          "copySourcesOptions": {
-            "exclusionList": [
-              ".vs",
-              "out",
-              ".git"
-            ]
-          }
         }
+      }
+    },
+    {
+      "name": "linux",
+      "displayName": "Linux x86-64 Release",
+      "description": "Portable x86-64 Release build with runtime-dispatched assembly.",
+      "inherits": "assembly-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "linux-scalar",
+      "displayName": "Linux x86-64 Release (scalar C++)",
+      "description": "Release build without architecture-specific assembly or vector instructions.",
+      "inherits": "scalar-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "linux-native",
+      "displayName": "Linux x86-64 Release (ADX/BMI2)",
+      "description": "Release build requiring ADX and BMI2 on the deployment CPU.",
+      "inherits": "assembly-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BLST_PORTABLE": false,
+        "BLST_ADX": true
+      }
+    },
+    {
+      "name": "linux-avx512",
+      "displayName": "Linux x86-64 Release (AVX-512/IFMA)",
+      "description": "Release build requiring the supported AVX-512/IFMA compiler and deployment CPU.",
+      "inherits": "assembly-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BLST_PORTABLE": false,
+        "BLST_ADX": true,
+        "BLST_AVX512": true,
+        "BLST_DEFAULT_AVX": true
+      }
+    },
+    {
+      "name": "macos-apple-silicon",
+      "displayName": "macOS Apple Silicon Release",
+      "description": "Supported native arm64 macOS Release build.",
+      "inherits": "assembly-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_OSX_ARCHITECTURES": "arm64"
       }
     },
     {
       "name": "x64-Debug",
       "displayName": "Windows x64 Debug",
-      "description": "Target Windows with the Visual Studio development environment.",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/out/build/${presetName}",
-      "architecture": {
-        "value": "x64",
-        "strategy": "external"
-      },
+      "description": "Debug build with runtime-dispatched x86-64 assembly.",
+      "inherits": [
+        "assembly-base",
+        "windows-x64-base"
+      ],
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "BLST_PORTABLE": true,
-        "BLST_CUDA": false,
-        "BLST_ASM": true,
-        "BLST_ADX": true,
-        "BLST_AVX512_PORTABLE": false,
-        "BLST_DEFAULT_AVX": false,
-        "BLST_BENCHMARK": true,
-        "BLST_DEFAULT_ASM": false,
-        "BLST_ASAN": false,
-        "BLST_FAST_BUILD": true,
-        "CMAKE_VERBOSE_MAKEFILE": true,
-        "BLST_CUDA_MSM": false,
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
-      },
-      "vendor": {
-        "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": [
-            "Windows"
-          ]
-        }
+        "CMAKE_BUILD_TYPE": "Debug"
       }
     },
     {
       "name": "x64-Debug-Scalar",
-      "displayName": "Windows x64 Debug (Scalar)",
-      "description": "Windows debug build with the scalar backend selected at the top-level blst API.",
-      "inherits": "x64-Debug",
-      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "displayName": "Windows x64 Debug (scalar C++)",
+      "description": "Debug build without architecture-specific assembly or vector instructions.",
+      "inherits": [
+        "scalar-base",
+        "windows-x64-base"
+      ],
       "cacheVariables": {
-        "BLST_PORTABLE": false,
-        "BLST_DEFAULT_AVX": false,
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
-      }
-    },
-    {
-      "name": "x64-Debug-Avx",
-      "displayName": "Windows x64 Debug (portable AVX developer)",
-      "description": "Developer-only Windows Debug build with portable AVX emulation selected at the top-level API.",
-      "inherits": "x64-Debug",
-      "binaryDir": "${sourceDir}/out/build/${presetName}",
-      "cacheVariables": {
-        "BLST_AVX512_PORTABLE": true,
-        "BLST_DEFAULT_AVX": true,
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
+        "CMAKE_BUILD_TYPE": "Debug"
       }
     },
     {
       "name": "x64-Release",
       "displayName": "Windows x64 Release",
-      "description": "Target Windows with the Visual Studio development environment.",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/out/build/${presetName}",
-      "architecture": {
-        "value": "x64",
-        "strategy": "external"
-      },
+      "description": "Release build with runtime-dispatched x86-64 assembly.",
+      "inherits": [
+        "assembly-base",
+        "windows-x64-base"
+      ],
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "BLST_ASM": true,
-        "BLST_PORTABLE": true,
-        "BLST_CUDA": false,
-        "BLST_CUDA_MSM": false,
-        "BLST_BENCHMARK": true,
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
-      },
-      "vendor": {
-        "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": [
-            "Windows"
-          ]
-        }
+        "CMAKE_BUILD_TYPE": "Release"
       }
     },
     {
       "name": "x64-Release-Scalar",
-      "displayName": "Windows x64 Release (Scalar)",
-      "description": "Windows release build with the scalar backend selected at the top-level blst API.",
-      "inherits": "x64-Release",
-      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "displayName": "Windows x64 Release (scalar C++)",
+      "description": "Release build without architecture-specific assembly or vector instructions.",
+      "inherits": [
+        "scalar-base",
+        "windows-x64-base"
+      ],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "x64-Release-Native",
+      "displayName": "Windows x64 Release (ADX/BMI2)",
+      "description": "Release build requiring ADX, BMI2, and AVX2 on the deployment CPU.",
+      "inherits": [
+        "assembly-base",
+        "windows-x64-base"
+      ],
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "BLST_PORTABLE": false,
-        "BLST_DEFAULT_AVX": false,
-        "BLST_CUDA": false,
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
+        "BLST_ADX": true
       }
     }
   ]
