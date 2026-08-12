@@ -406,3 +406,29 @@ public shape/range checks, `tzcnt`, and one indexed 32-byte load/copy; no guard,
 lambda, squaring loop, or valid-path call remains. Frozen BTx/BTE compiled
 through the shim without modification. No benchmark, CUDA run, full suite,
 sanitizer, native AVX-512, remote, or Apple run was performed.
+
+## Packet 17I - FFT C boundary and public contracts
+
+The complete `blst/fft_c_api.cpp` adapter is reviewed at implementation and
+documentation commit `f4063cc34c28f0375f04908bfe5c456a128562b6`.
+
+No arithmetic, memory-safety, exception-escape, constant-time, threading, or
+allocation-contract defect was found. `AUD-309` closes the public-contract gap:
+the C and safe Rust surfaces now state reduced Montgomery representation, the
+signed-index `2^30` ceiling, domain shape and publication, allocation, failure
+mutation, timing, overlap, scratch lifecycle, and concurrency. DOC-026 maps all
+seven entry points to the native owners and supported Rust wrappers. The C
+adapter records the no-exception-across-C rule and now carries explicit Category
+Labs/Apache-2.0 provenance.
+
+`AUD-310` adds `BLST_NODISCARD` to the four FFT/domain declarations that could
+previously have their failure result silently ignored. This is compile-time
+diagnostic hardening only. The exact native `blst_fr == blst::Fr` alias remains
+proved by static assertions, so the boundary introduces no copy or aliasing
+exception. Arithmetic and hot control flow are unchanged.
+
+MSVC 19.50 strict C11 and C++20 `/W4 /WX` header parsing passes. Scalar Debug
+and Release each pass the five focused ordinary/prepared FFT, interpolation,
+alias, and scratch boundary tests. The public-documentation and audit-manifest
+checkers pass. No benchmark, CUDA, portable-AVX Release, full suite, sanitizer,
+native AVX-512, remote, Apple, or BTx/BTE audit/change was performed.

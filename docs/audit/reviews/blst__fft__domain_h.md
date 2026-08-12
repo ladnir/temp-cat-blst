@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/fft/domain.h` |
 | Roadmap phase / queue | Phase 17 FFT support-header packet |
-| Reviewed commit | `4a6e95126f6977e99b2330a6753fa66fab1034b2` (only the audited primitive-root include spelling changed after `0fc26d2`) |
+| Reviewed commit | `f4063cc34c28f0375f04908bfe5c456a128562b6` (implementation remains `0fc26d2`; later changes are the audited primitive-root include spelling and Doxygen contract conversion) |
 | Reviewer | Codex audit team |
 | Date | 2026-08-11 |
 | Disposition | `in_scope_production` |
@@ -171,3 +171,6 @@ and remains outside the narrow native contract.
 Arbitrary native domain contents and overlap are preconditions rather than hot
 Release checks. Native AVX-512 hardware, sanitizer, fuzzing, and Apple milestone
 evidence remain pending. The file is complete for line-by-line hand review.
+
+The `f4063cc` follow-up converts the existing native helper comments to Doxygen
+form for DOC-026 without changing a declaration, assertion, or code path.

@@ -382,8 +382,8 @@ Upstream progress:
   validation are completed;
 - 0 remain pending.
 
-Findings: 272 total: 242 validated, 23 fixed pending final evidence, four accepted
-risks, one needs a design decision, and two remain open. `AUD-035` is validated with preserved
+Findings: 309 total: 278 validated, 23 fixed pending final evidence, four accepted
+risks, one needs a design decision, and three remain open. `AUD-035` is validated with preserved
 allocated/caller-table/precomputed modes and 10/10 focused MSVC Release, Linux
 ASan, and Linux UBSan tests. `AUD-036` is validated on native
 Apple Silicon with AppleClang 17 at commit `0b7ec47`; all 336 C/C++ tests and
@@ -928,3 +928,14 @@ the independent validator and corruption self-test pass, and the header compiles
 standalone at MSVC `/W4`. Frozen BTx/BTE compiled unchanged through the shim.
 No benchmark, CUDA run, full suite, sanitizer, native AVX-512, remote, or Apple
 run was performed.
+
+Phase 17 Packet 17I completes the `blst/fft_c_api.cpp` line-by-line hand review
+at `f4063cc`. No arithmetic or boundary-safety defect was found. `AUD-309` and
+`AUD-310` are validated: all seven C/safe-Rust FFT and interpolation operations
+now have precise representation, size, allocation, failure-publication, alias,
+timing, scratch, and concurrency contracts; the four fallible FFT/domain C
+declarations are nodiscard. DOC-026 raises the incremental documentation ledger
+to 26 audited/focused families. Strict MSVC C11/C++20 headers and five focused
+scalar Debug/Release boundary tests pass. No benchmark, CUDA, portable-AVX
+Release, full suite, sanitizer, native AVX-512, remote, Apple, or BTx/BTE
+audit/change was performed.
