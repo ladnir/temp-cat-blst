@@ -6,6 +6,7 @@
 
 #include "blst/scalar/curve/multi_scalar.h"
 
+#include <cstdio>
 #include <type_traits>
 #if defined(_MSC_VER)
 # include <malloc.h>

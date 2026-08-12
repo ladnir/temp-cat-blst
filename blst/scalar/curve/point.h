@@ -58,6 +58,7 @@
 #include "blst/common/vect.h"
 #include "blst/common/bytes.h"
 #include "blst/common/errors.h"
+#include <cstdio>
 #include <type_traits>
 #include "blst/fields/Fr.h"
 #include "blst/fields/Fp.h"
