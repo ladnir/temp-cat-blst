@@ -1,5 +1,11 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Category Labs
+//
+// CatBLST scalar-field interpolation implementation.
+
 #include "blst/fft/fr_interpolation.h"
 
+#include "blst/common/defines.h"
 #include "blst/fft/context.h"
 #include "blst/fft/ctFft.h"
 #include "blst/fft/domain.h"
@@ -7,7 +13,6 @@
 #include <algorithm>
 #include <bit>
 #include <limits>
-#include <memory>
 #include <new>
 #include <span>
 #include <stdexcept>
@@ -138,20 +143,6 @@ namespace
         return reversed;
     }
 
-    std::vector<Fr> add_polynomials(
-        const std::span<const Fr> lhs,
-        const std::span<const Fr> rhs)
-    {
-        std::vector<Fr> out(std::max(lhs.size(), rhs.size()), fr_zero());
-        for (std::size_t i = 0; i < lhs.size(); ++i) {
-            out[i] = fr_add(out[i], lhs[i]);
-        }
-        for (std::size_t i = 0; i < rhs.size(); ++i) {
-            out[i] = fr_add(out[i], rhs[i]);
-        }
-        return trim_polynomial(std::move(out));
-    }
-
     std::vector<Fr> subtract_polynomials(
         const std::span<const Fr> lhs,
         const std::span<const Fr> rhs)
@@ -166,38 +157,45 @@ namespace
         return trim_polynomial(std::move(out));
     }
 
-    std::vector<Fr> naive_multiply(
+    void naive_multiply_into(
         const std::span<const Fr> lhs,
-        const std::span<const Fr> rhs)
+        const std::span<const Fr> rhs,
+        const std::span<Fr> out)
     {
-        if (lhs.empty() || rhs.empty()) {
-            return {};
-        }
-
         const std::size_t result_size = polynomial_product_size(lhs.size(), rhs.size());
-        std::vector<Fr> out(result_size, fr_zero());
+        if (out.size() != result_size) {
+            throw std::invalid_argument("polynomial product output shape mismatch");
+        }
+        std::fill(out.begin(), out.end(), fr_zero());
         for (std::size_t i = 0; i < lhs.size(); ++i) {
             for (std::size_t j = 0; j < rhs.size(); ++j) {
                 out[i + j] = fr_add(out[i + j], fr_mul(lhs[i], rhs[j]));
             }
         }
-        return trim_polynomial(std::move(out));
     }
 
-    std::vector<Fr> multiply_polynomials(
+    void multiply_polynomials_into(
         const std::span<const Fr> lhs,
-        const std::span<const Fr> rhs)
+        const std::span<const Fr> rhs,
+        const std::span<Fr> out)
     {
         if (lhs.empty() || rhs.empty()) {
-            return {};
-        }
-
-        constexpr std::size_t naive_threshold = 32;
-        if (std::min(lhs.size(), rhs.size()) <= naive_threshold) {
-            return naive_multiply(lhs, rhs);
+            if (!out.empty()) {
+                throw std::invalid_argument("empty polynomial product output mismatch");
+            }
+            return;
         }
 
         const std::size_t result_size = polynomial_product_size(lhs.size(), rhs.size());
+        if (out.size() != result_size) {
+            throw std::invalid_argument("polynomial product output shape mismatch");
+        }
+        constexpr std::size_t naive_threshold = 32;
+        if (std::min(lhs.size(), rhs.size()) <= naive_threshold) {
+            naive_multiply_into(lhs, rhs, out);
+            return;
+        }
+
         const std::size_t fft_size = next_power_of_two(result_size);
         if (fft_size == 0) {
             throw std::length_error("polynomial product exceeds supported FFT size");
@@ -205,25 +203,37 @@ namespace
 
         std::vector<Fr> a(fft_size, fr_zero());
         std::vector<Fr> b(fft_size, fr_zero());
-        std::vector<Fr> c(fft_size, fr_zero());
         std::copy(lhs.begin(), lhs.end(), a.begin());
         std::copy(rhs.begin(), rhs.end(), b.begin());
 
         const std::vector<Fr> roots = make_roots(fft_size, false);
-        const std::vector<Fr> inv_roots = make_roots(fft_size, true);
-        poly_mult_fft<Fr, Fr, Fr, Fr, FrCoeffCtx>(
-            a,
-            b,
-            false,
-            c,
-            roots,
-            inv_roots,
-            nullptr,
-            lhs.size(),
-            rhs.size());
+        fft<Fr, Fr, FrCoeffCtx>(a, roots, false);
+        fft<Fr, Fr, FrCoeffCtx>(b, roots, false);
+        for (std::size_t i = 0; i < fft_size; ++i) {
+            a[i] = fr_mul(a[i], b[i]);
+        }
+        const Fr inverse_size = fr_inverse(Fr::from_uint64(fft_size));
+        fft_with_forward_roots<Fr, Fr, FrCoeffCtx>(a, roots, true, inverse_size);
+        std::copy_n(a.begin(), result_size, out.begin());
+    }
 
-        c.resize(result_size);
-        return trim_polynomial(std::move(c));
+    std::vector<Fr> multiply_polynomials_exact(
+        const std::span<const Fr> lhs,
+        const std::span<const Fr> rhs)
+    {
+        if (lhs.empty() || rhs.empty()) {
+            return {};
+        }
+        std::vector<Fr> out(polynomial_product_size(lhs.size(), rhs.size()));
+        multiply_polynomials_into(lhs, rhs, out);
+        return out;
+    }
+
+    std::vector<Fr> multiply_polynomials(
+        const std::span<const Fr> lhs,
+        const std::span<const Fr> rhs)
+    {
+        return trim_polynomial(multiply_polynomials_exact(lhs, rhs));
     }
 
     std::vector<Fr> derivative_polynomial(const std::span<const Fr> polynomial)
@@ -270,7 +280,7 @@ namespace
         return inverse;
     }
 
-    std::pair<std::vector<Fr>, std::vector<Fr>> divide_remainder(
+    std::vector<Fr> polynomial_remainder(
         const std::span<const Fr> dividend,
         const std::span<const Fr> divisor)
     {
@@ -279,33 +289,30 @@ namespace
         }
 
         if (dividend.size() < divisor.size()) {
-            return { {}, trim_polynomial(std::vector<Fr>(dividend.begin(), dividend.end())) };
+            return trim_polynomial(std::vector<Fr>(dividend.begin(), dividend.end()));
         }
 
         constexpr std::size_t naive_threshold = 32;
         if (divisor.size() <= naive_threshold) {
             std::vector<Fr> remainder(dividend.begin(), dividend.end());
-            std::vector<Fr> quotient(dividend.size() - divisor.size() + 1, fr_zero());
             const Fr divisor_lead_inverse = fr_inverse(divisor.back());
+            const std::size_t quotient_size = dividend.size() - divisor.size() + 1;
 
-            for (std::size_t idx = quotient.size(); idx-- > 0;) {
+            for (std::size_t idx = quotient_size; idx-- > 0;) {
                 const std::size_t degree = idx + divisor.size() - 1;
                 if (fr_is_zero(remainder[degree])) {
                     continue;
                 }
 
-                quotient[idx] = fr_mul(remainder[degree], divisor_lead_inverse);
+                const Fr factor = fr_mul(remainder[degree], divisor_lead_inverse);
                 for (std::size_t j = 0; j < divisor.size(); ++j) {
                     remainder[idx + j] =
-                        fr_sub(remainder[idx + j], fr_mul(quotient[idx], divisor[j]));
+                        fr_sub(remainder[idx + j], fr_mul(factor, divisor[j]));
                 }
             }
 
             remainder.resize(divisor.size() - 1);
-            return {
-                trim_polynomial(std::move(quotient)),
-                trim_polynomial(std::move(remainder))
-            };
+            return trim_polynomial(std::move(remainder));
         }
 
         const std::size_t quotient_size = dividend.size() - divisor.size() + 1;
@@ -325,74 +332,159 @@ namespace
         const std::vector<Fr> product = multiply_polynomials(quotient, divisor);
         std::vector<Fr> remainder = subtract_polynomials(dividend, product);
         if (remainder.size() >= divisor.size()) {
-            remainder.resize(divisor.size() - 1);
-            remainder = trim_polynomial(std::move(remainder));
+            BLST_ASSERT(remainder.size() < divisor.size());
+            throw std::logic_error("polynomial remainder degree invariant failed");
         }
 
-        return { quotient, remainder };
+        return remainder;
     }
 
-    struct ProductTreeNode
+    struct ProductTree
     {
-        std::size_t begin = 0;
-        std::size_t end = 0;
-        std::vector<Fr> polynomial;
-        std::unique_ptr<ProductTreeNode> left;
-        std::unique_ptr<ProductTreeNode> right;
+        struct Node
+        {
+            static constexpr std::size_t no_child =
+                std::numeric_limits<std::size_t>::max();
+
+            std::size_t begin = 0;
+            std::size_t end = 0;
+            std::size_t polynomial_offset = 0;
+            std::size_t polynomial_size = 0;
+            std::size_t left = no_child;
+            std::size_t right = no_child;
+        };
+
+        std::vector<Node> nodes;
+        std::vector<Fr> coefficients;
+        std::size_t root = Node::no_child;
+
+        [[nodiscard]] std::span<const Fr> polynomial(
+            const std::size_t node_index) const noexcept
+        {
+            const Node& node = nodes[node_index];
+            return std::span<const Fr>(coefficients).subspan(
+                node.polynomial_offset,
+                node.polynomial_size);
+        }
     };
 
-    std::unique_ptr<ProductTreeNode> build_product_tree(
+    std::size_t product_tree_coefficient_count(const std::size_t point_count)
+    {
+        if (point_count == 1) {
+            return 2;
+        }
+        const std::size_t left_count = point_count >> 1;
+        const std::size_t right_count = point_count - left_count;
+        std::size_t child_coefficients = 0;
+        if (!checked_add(
+                product_tree_coefficient_count(left_count),
+                product_tree_coefficient_count(right_count),
+                child_coefficients)) {
+            throw std::length_error("product-tree coefficient size overflow");
+        }
+        std::size_t node_coefficients = 0;
+        std::size_t total_coefficients = 0;
+        if (!checked_add(point_count, 1, node_coefficients) ||
+            !checked_add(
+                child_coefficients,
+                node_coefficients,
+                total_coefficients)) {
+            throw std::length_error("product-tree coefficient size overflow");
+        }
+        return total_coefficients;
+    }
+
+    std::size_t build_product_tree_node(
+        ProductTree& tree,
         const std::span<const Fr> points,
         const std::size_t begin,
         const std::size_t end)
     {
-        auto node = std::make_unique<ProductTreeNode>();
-        node->begin = begin;
-        node->end = end;
+        const std::size_t node_index = tree.nodes.size();
+        tree.nodes.emplace_back();
+        ProductTree::Node node;
+        node.begin = begin;
+        node.end = end;
 
         if (end - begin == 1) {
-            node->polynomial = { fr_neg(points[begin]), Fr::one() };
-            return node;
+            node.polynomial_offset = tree.coefficients.size();
+            node.polynomial_size = 2;
+            tree.coefficients.push_back(fr_neg(points[begin]));
+            tree.coefficients.push_back(Fr::one());
+            tree.nodes[node_index] = node;
+            return node_index;
         }
 
         const std::size_t mid = begin + ((end - begin) >> 1);
-        node->left = build_product_tree(points, begin, mid);
-        node->right = build_product_tree(points, mid, end);
-        node->polynomial =
-            multiply_polynomials(node->left->polynomial, node->right->polynomial);
-        return node;
+        node.left = build_product_tree_node(tree, points, begin, mid);
+        node.right = build_product_tree_node(tree, points, mid, end);
+        node.polynomial_offset = tree.coefficients.size();
+        node.polynomial_size = end - begin + 1;
+        tree.coefficients.resize(
+            node.polynomial_offset + node.polynomial_size,
+            fr_zero());
+        multiply_polynomials_into(
+            tree.polynomial(node.left),
+            tree.polynomial(node.right),
+            std::span<Fr>(tree.coefficients).subspan(
+                node.polynomial_offset,
+                node.polynomial_size));
+        tree.nodes[node_index] = node;
+        return node_index;
+    }
+
+    ProductTree build_product_tree(const std::span<const Fr> points)
+    {
+        std::size_t node_count = 0;
+        if (!checked_add(points.size(), points.size(), node_count)) {
+            throw std::length_error("product-tree node count overflow");
+        }
+        --node_count;
+
+        // One topology allocation and one coefficient allocation replace the
+        // former owning allocation at every node. Polynomial spans are recovered
+        // from offsets only after any arena growth, so no pointer is retained.
+        ProductTree tree;
+        tree.nodes.reserve(node_count);
+        const std::size_t coefficient_count =
+            product_tree_coefficient_count(points.size());
+        tree.coefficients.reserve(coefficient_count);
+        tree.root = build_product_tree_node(tree, points, 0, points.size());
+        BLST_ASSERT(tree.nodes.size() == node_count);
+        BLST_ASSERT(tree.coefficients.size() == coefficient_count);
+        return tree;
     }
 
     void evaluate_many_recursive(
-        const ProductTreeNode& node,
+        const ProductTree& tree,
+        const std::size_t node_index,
         const std::span<const Fr> polynomial,
         std::vector<Fr>& out)
     {
+        const ProductTree::Node& node = tree.nodes[node_index];
         if (node.end - node.begin == 1) {
             out[node.begin] = polynomial.empty() ? fr_zero() : polynomial.front();
             return;
         }
 
-        const auto [ignored_left_q, left_remainder] =
-            divide_remainder(polynomial, node.left->polynomial);
-        const auto [ignored_right_q, right_remainder] =
-            divide_remainder(polynomial, node.right->polynomial);
-        (void)ignored_left_q;
-        (void)ignored_right_q;
-        evaluate_many_recursive(*node.left, left_remainder, out);
-        evaluate_many_recursive(*node.right, right_remainder, out);
+        const std::vector<Fr> left_remainder =
+            polynomial_remainder(polynomial, tree.polynomial(node.left));
+        const std::vector<Fr> right_remainder =
+            polynomial_remainder(polynomial, tree.polynomial(node.right));
+        evaluate_many_recursive(tree, node.left, left_remainder, out);
+        evaluate_many_recursive(tree, node.right, right_remainder, out);
     }
 
     std::vector<Fr> evaluate_many_with_tree(
-        const ProductTreeNode& tree,
+        const ProductTree& tree,
         const std::span<const Fr> polynomial)
     {
-        const auto [ignored_quotient, remainder] =
-            divide_remainder(polynomial, tree.polynomial);
-        (void)ignored_quotient;
+        const ProductTree::Node& root = tree.nodes[tree.root];
+        const std::vector<Fr> remainder =
+            polynomial_remainder(polynomial, tree.polynomial(tree.root));
 
-        std::vector<Fr> values(tree.end - tree.begin, fr_zero());
-        evaluate_many_recursive(tree, remainder, values);
+        std::vector<Fr> values(root.end - root.begin, fr_zero());
+        evaluate_many_recursive(tree, tree.root, remainder, values);
         return values;
     }
 
@@ -445,19 +537,61 @@ namespace
         }
     }
 
-    std::vector<Fr> interpolate_recursive(
-        const ProductTreeNode& node,
-        const std::span<const Fr> weights)
+    std::span<Fr> reconstruction_span(
+        const ProductTree& tree,
+        const std::size_t node_index,
+        const std::span<Fr> reconstruction) noexcept
     {
+        const ProductTree::Node& node = tree.nodes[node_index];
+        return reconstruction.subspan(
+            node.polynomial_offset,
+            node.end - node.begin);
+    }
+
+    void interpolate_recursive_into(
+        const ProductTree& tree,
+        const std::size_t node_index,
+        const std::span<const Fr> weights,
+        const std::span<Fr> reconstruction,
+        const std::span<Fr> temporary)
+    {
+        const ProductTree::Node& node = tree.nodes[node_index];
+        const std::span<Fr> out =
+            reconstruction_span(tree, node_index, reconstruction);
         if (node.end - node.begin == 1) {
-            return { weights[node.begin] };
+            out.front() = weights[node.begin];
+            return;
         }
 
-        std::vector<Fr> left = interpolate_recursive(*node.left, weights);
-        std::vector<Fr> right = interpolate_recursive(*node.right, weights);
-        left = multiply_polynomials(left, node.right->polynomial);
-        right = multiply_polynomials(right, node.left->polynomial);
-        return add_polynomials(left, right);
+        interpolate_recursive_into(
+            tree,
+            node.left,
+            weights,
+            reconstruction,
+            temporary);
+        interpolate_recursive_into(
+            tree,
+            node.right,
+            weights,
+            reconstruction,
+            temporary);
+
+        const std::span<const Fr> left =
+            reconstruction_span(tree, node.left, reconstruction);
+        const std::span<const Fr> right =
+            reconstruction_span(tree, node.right, reconstruction);
+        multiply_polynomials_into(
+            left,
+            tree.polynomial(node.right),
+            out);
+        const std::span<Fr> other = temporary.first(out.size());
+        multiply_polynomials_into(
+            right,
+            tree.polynomial(node.left),
+            other);
+        for (std::size_t i = 0; i < out.size(); ++i) {
+            out[i] = fr_add(out[i], other[i]);
+        }
     }
 
     void interpolate_polynomial(
@@ -465,11 +599,11 @@ namespace
         const std::span<const Fr> values,
         const std::span<Fr> out)
     {
-        const std::unique_ptr<ProductTreeNode> tree =
-            build_product_tree(points, 0, points.size());
-        const std::vector<Fr> derivative = derivative_polynomial(tree->polynomial);
+        const ProductTree tree = build_product_tree(points);
+        const std::vector<Fr> derivative =
+            derivative_polynomial(tree.polynomial(tree.root));
         const std::vector<Fr> denominators =
-            evaluate_many_with_tree(*tree, derivative);
+            evaluate_many_with_tree(tree, derivative);
         const std::vector<Fr> denominator_inverses =
             batch_invert_nonzero(denominators);
 
@@ -478,8 +612,20 @@ namespace
             weights[i] = fr_mul(values[i], denominator_inverses[i]);
         }
 
-        std::vector<Fr> coefficients = interpolate_recursive(*tree, weights);
-        coefficients.resize(points.size(), fr_zero());
+        // Reuse the public tree layout as offsets into one reconstruction arena.
+        // Every node retains its full mathematical width: no value-dependent
+        // trimming, allocation size, or naive/FFT dispatch is possible here.
+        std::vector<Fr> reconstruction(tree.coefficients.size(), fr_zero());
+        std::vector<Fr> temporary(points.size(), fr_zero());
+        interpolate_recursive_into(
+            tree,
+            tree.root,
+            weights,
+            reconstruction,
+            temporary);
+        const std::span<Fr> coefficients =
+            reconstruction_span(tree, tree.root, reconstruction);
+        BLST_ASSERT(coefficients.size() == out.size());
         std::copy(coefficients.begin(), coefficients.end(), out.begin());
     }
 
@@ -507,6 +653,11 @@ Status interpolate(
     if (points.empty() || points.size() != values.size() ||
         points.size() != out_coefficients.size()) {
         return Status::invalid_shape;
+    }
+    constexpr std::size_t max_points =
+        std::bit_floor(static_cast<std::size_t>(std::numeric_limits<int>::max())) - 1;
+    if (points.size() > max_points) {
+        return Status::invalid_size;
     }
 
     try {
@@ -552,8 +703,6 @@ Status interpolate_domain_suffix_with_scratch(
         Fr* cursor = scratch.data();
         const std::span<Fr> roots(cursor, fft_len);
         cursor += fft_len;
-        const std::span<Fr> inv_roots(cursor, fft_len);
-        cursor += fft_len;
         const std::span<Fr> product(cursor, n + 1);
         cursor += n + 1;
         const std::span<Fr> domain_work(cursor, fft_len);
@@ -562,7 +711,7 @@ Status interpolate_domain_suffix_with_scratch(
         cursor += n;
         const std::span<Fr> prefixes(cursor, n + 1);
 
-        fft_detail::fill_root_pair<Fr, FrCoeffCtx>(roots, inv_roots);
+        fft_detail::fill_roots<Fr, FrCoeffCtx>(roots, false);
 
         std::fill(product.begin(), product.end(), fr_zero());
         product[0] = Fr::one();
@@ -603,7 +752,12 @@ Status interpolate_domain_suffix_with_scratch(
             const Fr weighted_value = fr_mul(values[sample], prefixes[sample]);
             domain_work[index] = fr_mul(weighted_value, domain_derivative);
         }
-        fft<Fr, Fr, FrCoeffCtx>(domain_work, inv_roots, true);
+        const Fr inverse_fft_len = fr_inverse(fft_len_scalar);
+        fft_with_forward_roots<Fr, Fr, FrCoeffCtx>(
+            domain_work,
+            roots,
+            true,
+            inverse_fft_len);
 
         const std::size_t suffix_len = n - ell;
         for (std::size_t suffix_index = 0; suffix_index < suffix_len; ++suffix_index) {

@@ -446,6 +446,38 @@ TEST(BindingHeader, FrFftInterpolationRejectsOversubscribedDomain)
         scratch.size()));
 }
 
+TEST(BindingHeader, FrInterpolationPublishesAfterAliasedInputsAreConsumed)
+{
+    const std::array<blst_fr, 3> coefficients = {
+        test_fr_from_u64(9), test_fr_from_u64(2), test_fr_from_u64(7)
+    };
+    const std::array<blst_fr, 3> points = {
+        test_fr_from_u64(1), test_fr_from_u64(2), test_fr_from_u64(3)
+    };
+    std::array<blst_fr, 3> values = {};
+    for (size_t i = 0; i < points.size(); ++i) {
+        blst_fr acc = {};
+        for (size_t j = coefficients.size(); j-- > 0;) {
+            blst_fr product = {};
+            blst_fr_mul(&product, &acc, &points[i]);
+            blst_fr_add(&acc, &product, &coefficients[j]);
+        }
+        values[i] = acc;
+    }
+
+    auto points_alias = points;
+    ASSERT_TRUE(blst_fr_interpolate(
+        points_alias.data(), points_alias.data(), values.data(), points.size()));
+    EXPECT_EQ(std::memcmp(
+        points_alias.data(), coefficients.data(), sizeof(coefficients)), 0);
+
+    auto values_alias = values;
+    ASSERT_TRUE(blst_fr_interpolate(
+        values_alias.data(), points.data(), values_alias.data(), points.size()));
+    EXPECT_EQ(std::memcmp(
+        values_alias.data(), coefficients.data(), sizeof(coefficients)), 0);
+}
+
 TEST(BindingHeader, FrFftSuffixScratchLengthIsChecked)
 {
     constexpr size_t largest_supported_fft = size_t{1} << 30;
@@ -455,7 +487,7 @@ TEST(BindingHeader, FrFftSuffixScratchLengthIsChecked)
     if constexpr (sizeof(size_t) == sizeof(uint32_t)) {
         EXPECT_EQ(required, 0);
     } else {
-        EXPECT_EQ(required, static_cast<size_t>(6ULL * largest_supported_fft + 2));
+        EXPECT_EQ(required, static_cast<size_t>(5ULL * largest_supported_fft + 2));
     }
 }
 

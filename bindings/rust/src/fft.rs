@@ -1,4 +1,5 @@
 // Copyright Supranational LLC
+// Copyright Category Labs
 // Licensed under the Apache License, Version 2.0, see LICENSE for details.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -124,6 +125,9 @@ pub fn fr_fft_with_domain(
 ///
 /// `output.len()` must equal `points.len() == values.len()`. The output buffer
 /// is caller-owned; no coefficient vector is returned across the FFI boundary.
+/// It is unchanged on error. The operation may allocate and is variable-time in
+/// the points and public length; for fixed points, reconstruction shape does not
+/// depend on values.
 pub fn fr_interpolate(
     points: &[blst_fr],
     values: &[blst_fr],
@@ -176,6 +180,10 @@ pub fn fr_interpolate_fft_domain_suffix_scratch_len(
 }
 
 /// Scratch-backed suffix interpolation over FFT-domain samples.
+///
+/// The operation allocates nothing. Its schedule depends on the public lengths
+/// and indices, not on values. Output is unchanged on error, while scratch may
+/// be modified after native shape validation succeeds.
 pub fn fr_interpolate_fft_domain_suffix_with_scratch(
     indices: &[usize],
     values: &[blst_fr],

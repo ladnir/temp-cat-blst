@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Category Labs
+//
+// CatBLST FFT-domain construction helpers.
+
 #pragma once
 
 #include "blst/fft/ctFft.h"
@@ -5,7 +10,6 @@
 
 #include <cstddef>
 #include <span>
-#include <stdexcept>
 #include <vector>
 
 namespace blst::fft_detail
@@ -33,27 +37,6 @@ namespace blst::fft_detail
         for (F& root : roots) {
             root = current;
             current = CoeffCtx::mult(current, primitive);
-        }
-    }
-
-    template<typename F, typename CoeffCtx>
-    void fill_root_pair(
-        const std::span<F> forward_roots,
-        const std::span<F> inverse_roots)
-    {
-        if (forward_roots.size() != inverse_roots.size()) {
-            throw std::invalid_argument("FFT root-table shape mismatch");
-        }
-
-        F primitive = primRootOfUnity<F>(forward_roots.size());
-        const F inverse_primitive = CoeffCtx::inverse(primitive);
-        F current = CoeffCtx::template from_u64<F>(1);
-        F inverse_current = current;
-        for (std::size_t i = 0; i < forward_roots.size(); ++i) {
-            forward_roots[i] = current;
-            inverse_roots[i] = inverse_current;
-            current = CoeffCtx::mult(current, primitive);
-            inverse_current = CoeffCtx::mult(inverse_current, inverse_primitive);
         }
     }
 

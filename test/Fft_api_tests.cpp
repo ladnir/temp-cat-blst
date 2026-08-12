@@ -61,7 +61,7 @@ namespace
     static_assert(!blst::fft_detail::valid_size(3));
     static_assert(blst::fft_detail::domain_storage_len(8) == 10);
     static_assert(
-        blst::fr_interpolation::domain_suffix_scratch_len(5, 8) == 41);
+        blst::fr_interpolation::domain_suffix_scratch_len(5, 8) == 33);
     static_assert(blst::log2ceil(1) == 0);
     static_assert(blst::log2ceil(2) == 1);
     static_assert(blst::log2ceil(3) == 2);
@@ -437,6 +437,23 @@ TEST(FftApi, DomainSuffixUsesCallerScratchAndReportsErrors)
             fft_len,
             std::span<Fr>(scratch).first(required - 1)),
         InterpolationStatus::insufficient_scratch);
+    EXPECT_TRUE(equal(
+        std::span<const Fr>(suffix),
+        std::span<const Fr>(coefficients).subspan(ell)));
+
+    auto values_alias = values;
+    ASSERT_EQ(
+        blst::fr_interpolation::interpolate_domain_suffix_with_scratch(
+            std::span<Fr>(values_alias).first(n - ell),
+            indices,
+            values_alias,
+            ell,
+            fft_len,
+            scratch),
+        InterpolationStatus::success);
+    EXPECT_TRUE(equal(
+        std::span<const Fr>(values_alias).first(n - ell),
+        std::span<const Fr>(coefficients).subspan(ell)));
 
     auto invalid_indices = indices;
     invalid_indices[0] = fft_len;
@@ -463,4 +480,5 @@ TEST(FftApi, DomainSuffixUsesCallerScratchAndReportsErrors)
             fft_len,
             scratch),
         InterpolationStatus::duplicate_point);
+    EXPECT_TRUE(equal(suffix, sentinel));
 }

@@ -1,5 +1,6 @@
 /*
  * Copyright Supranational LLC
+ * Copyright Category Labs
  * Licensed under the Apache License, Version 2.0, see LICENSE for details.
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -82,10 +83,14 @@ bool blst_fr_fft_with_domain(
  *
  * Return value:
  * - `true` on success.
- * - `false` when any pointer is null, n is zero, points are not distinct, or
- *   the native computation throws/fails.
+ * - `false` when any pointer is null, n is zero or unsupported, points are not
+ *   distinct, or the native computation throws/fails.
+ *
+ * Output is unchanged on failure and may overlap either input. The operation
+ * may allocate and is variable-time in the points and public length. For fixed
+ * points its reconstruction schedule does not depend on values.
  */
-bool blst_fr_interpolate(
+BLST_NODISCARD bool blst_fr_interpolate(
     blst_fr* out_coefficients,
     const blst_fr* points,
     const blst_fr* values,
@@ -99,7 +104,9 @@ bool blst_fr_interpolate(
  * shape is invalid, including when `n` exceeds `fft_len` or the calculation
  * would overflow `size_t`.
  */
-size_t blst_fr_interpolate_fft_domain_suffix_scratch_len(size_t n, size_t fft_len);
+BLST_NODISCARD size_t blst_fr_interpolate_fft_domain_suffix_scratch_len(
+    size_t n,
+    size_t fft_len);
 
 /**
  * Interpolates a high coefficient suffix from FFT-domain samples.
@@ -112,9 +119,12 @@ size_t blst_fr_interpolate_fft_domain_suffix_scratch_len(size_t n, size_t fft_le
  * elements. The scratch buffer is fully caller-owned and may be reused across
  * calls with the same or smaller shape. Scratch must not overlap the output,
  * indices, or values ranges. Invalid shapes, indices, duplicate points, and
- * short scratch are rejected before writing the output.
+ * short scratch are rejected before writing the output. Output may overlap
+ * values, but not indices or scratch. Output is unchanged on failure; scratch
+ * may be modified after initial validation succeeds. The operation allocates
+ * nothing and its schedule depends on public lengths and indices, not values.
  */
-bool blst_fr_interpolate_fft_domain_suffix_with_scratch(
+BLST_NODISCARD bool blst_fr_interpolate_fft_domain_suffix_with_scratch(
     blst_fr* out_suffix,
     const size_t* indices,
     const blst_fr* values,
