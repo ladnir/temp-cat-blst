@@ -491,7 +491,7 @@ namespace blst {
             {
                 const std::vector<Fr> inv_roots = make_ifft_roots(roots);
                 PreparedInverseRoots prepared{std::span<const Fr>(inv_roots)};
-                prepared.set_scale_from_size(roots.size());
+                prepared.prepare_inverse_scale();
                 return prepared;
             }
 

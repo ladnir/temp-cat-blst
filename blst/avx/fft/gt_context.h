@@ -1,3 +1,9 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Category Labs
+//
+// CatBLST AVX GT FFT adapter, locally composed around the MatrixNoK field
+// engine, the CatBLST FFT coefficient interface, and the proved GLV4 executor.
+
 #pragma once
 
 #include "blst/common/defines.h"
@@ -16,6 +22,15 @@
 
 namespace blst::avx {
 
+/**
+ * MatrixNoK storage for one element of the prime-order target group GT.
+ *
+ * `data` is a standard MatrixNoK Fp12 representation, which may be redundant
+ * but must represent a cyclotomic GT element. The default all-zero state is an
+ * overwrite-before-read placeholder, not the GT identity. No operation here
+ * validates GT membership. In particular, `AvxGtCoeffCtx::minus` uses
+ * cyclotomic conjugation as inversion and is not an arbitrary-Fp12 operation.
+ */
 struct AvxGtElement
 {
     using Ring = matrixnok::FpRing;
@@ -30,12 +45,12 @@ struct AvxGtElement
     inline static constexpr Ring kRing{};
     inline static constexpr Fp12Ring kFp12Ring{};
 
-    static const Ring& ring()
+    static const Ring& ring() noexcept
     {
         return kRing;
     }
 
-    static const Fp12Ring& fp12ring()
+    static const Fp12Ring& fp12ring() noexcept
     {
         return kFp12Ring;
     }
@@ -73,10 +88,13 @@ struct AvxGtElement
     }
 };
 
-inline std::array<uint64_t, 4> fr_to_limbs_le(const Fr& value)
+/** Convert a reduced Montgomery Fr value to four canonical little-endian limbs. */
+inline std::array<uint64_t, 4> fr_to_limbs_le(const Fr& value) noexcept
 {
+    BLST_ASSERT(Fr::is_redc(value));
     Fr canonical = {};
     Fr::from_mont(canonical, value);
+    BLST_ASSERT(Fr::is_redc(canonical));
     return {
         canonical.l[0],
         canonical.l[1],
@@ -85,48 +103,71 @@ inline std::array<uint64_t, 4> fr_to_limbs_le(const Fr& value)
     };
 }
 
+/**
+ * Immutable prepared public Fr exponents for AVX GT FFT multiplication.
+ *
+ * Construction allocates, copies the reduced Montgomery scalars, and compiles
+ * one variable-time GLV4 schedule per scalar. Once a `ScopedRoots` guard can
+ * observe this object, its public fields must not be mutated, moved, or
+ * destroyed until every guard has left. Immutable objects may be shared by
+ * concurrent threads because selection state is thread-local.
+ */
 struct AvxGtPreparedRoots
 {
     std::vector<Fr> scalars;
-    std::vector<std::array<uint64_t, 4>> limbs;
     std::vector<AvxGLV4Exp> compiled;
     Fr scale_scalar = {};
-    std::array<uint64_t, 4> scale_limbs = {};
     AvxGLV4Exp scale_compiled = {};
     bool has_scale = false;
 
     explicit AvxGtPreparedRoots(std::span<const Fr> input_scalars = {})
+        : scalars(input_scalars.begin(), input_scalars.end()),
+          compiled(scalars.size())
     {
-        scalars.assign(input_scalars.begin(), input_scalars.end());
-        limbs.reserve(scalars.size());
-        compiled.reserve(scalars.size());
-        for (const Fr& scalar : scalars) {
-            limbs.push_back(fr_to_limbs_le(scalar));
-            compiled.push_back(avx_glv4_compile(limbs.back().data()));
+        for (std::size_t i = 0; i < scalars.size(); ++i) {
+            const std::array<uint64_t, 4> limbs = fr_to_limbs_le(scalars[i]);
+            compiled[i] = avx_glv4_compile(limbs.data());
         }
     }
 
-    std::span<const Fr> scalar_span() const
+    std::span<const Fr> scalar_span() const noexcept
     {
         return scalars;
     }
 
-    std::size_t size() const
+    std::size_t size() const noexcept
     {
         return scalars.size();
     }
 
-    void set_scale_from_size(std::size_t n)
+    /** Compile the inverse-FFT scale `1 / size()` for this nonempty table. */
+    void prepare_inverse_scale() noexcept
     {
-        BLST_ASSERT(n != 0);
+        BLST_ASSERT(!scalars.empty());
+        BLST_ASSERT(scalars.size() == compiled.size());
+        const std::size_t n = scalars.size();
         Fr::from_uint64(scale_scalar, static_cast<uint64_t>(n));
         Fr::reciprocal(scale_scalar, scale_scalar);
-        scale_limbs = fr_to_limbs_le(scale_scalar);
-        scale_compiled = avx_glv4_compile(scale_limbs.data());
+        const std::array<uint64_t, 4> limbs = fr_to_limbs_le(scale_scalar);
+        scale_compiled = avx_glv4_compile(limbs.data());
         has_scale = true;
     }
 };
 
+/**
+ * Variable-time GT coefficient policy for public Fr FFT roots and scales.
+ *
+ * `plus`, `minus`, and `mult` require GT operands and perform no membership
+ * validation or allocation. `mult` selects a precompiled schedule only when
+ * its Fr reference is exactly an element of the active prepared table, or its
+ * value equals the prepared inverse scale; otherwise it compiles a temporary
+ * schedule on the stack. All scalar-dependent branches and work therefore
+ * depend only on public FFT coefficients.
+ *
+ * A `ScopedRoots` object must remain on one thread during synchronous use, and
+ * its referenced table must outlive it without mutation or movement. Guards
+ * may nest; destruction restores the previous table even during unwinding.
+ */
 struct AvxGtCoeffCtx
 {
     class ScopedRoots
@@ -154,23 +195,26 @@ struct AvxGtCoeffCtx
         const AvxGtPreparedRoots* previous_;
     };
 
-    static auto plus(const AvxGtElement& a, const AvxGtElement& b)
+    static AvxGtElement plus(const AvxGtElement& a, const AvxGtElement& b)
     {
         return AvxGtElement(AvxGtElement::fp12ring().fp12_flat_mul(a.data, b.data, AvxGtElement::ring()));
     }
 
-    static auto minus(const AvxGtElement& a, const AvxGtElement& b)
+    static AvxGtElement minus(const AvxGtElement& a, const AvxGtElement& b)
     {
         const auto b_inv = AvxGtElement::fp12ring().fp12_flat_conjugate(b.data, AvxGtElement::ring());
         return AvxGtElement(AvxGtElement::fp12ring().fp12_flat_mul(a.data, b_inv, AvxGtElement::ring()));
     }
 
-    static auto mult(const AvxGtElement& a, const Fr& b)
+    static AvxGtElement mult(const AvxGtElement& a, const Fr& b)
     {
         const auto& ring = AvxGtElement::ring();
         const auto& fp12ring = AvxGtElement::fp12ring();
 
         if (prepared_roots_ != nullptr && !prepared_roots_->scalars.empty()) {
+            BLST_ASSERT(
+                prepared_roots_->scalars.size() ==
+                prepared_roots_->compiled.size());
             const Fr* base = prepared_roots_->scalars.data();
             const Fr* const end = base + prepared_roots_->scalars.size();
             const Fr* const candidate = &b;
@@ -212,7 +256,7 @@ struct AvxGtCoeffCtx
         return AvxGtElement(avx_cyclotomic_exp_glv4(a.data, scalar_limbs.data(), fp12ring, ring));
     }
 
-    static auto inverse(const Fr& a)
+    static Fr inverse(const Fr& a)
     {
         Fr r = {};
         Fr::reciprocal(r, a);
@@ -220,7 +264,7 @@ struct AvxGtCoeffCtx
     }
 
     template<typename F>
-    static auto from_u64(uint64_t a)
+    static Fr from_u64(uint64_t a)
     {
         Fr r = {};
         Fr::from_uint64(r, a);
@@ -230,25 +274,5 @@ struct AvxGtCoeffCtx
 private:
     inline static thread_local const AvxGtPreparedRoots* prepared_roots_ = nullptr;
 };
-
-inline std::vector<AvxGtElement> scalar_gt_vector_to_avx(std::span<const blst::GT> values)
-{
-    std::vector<AvxGtElement> out;
-    out.reserve(values.size());
-    for (const blst::GT& value : values) {
-        out.push_back(AvxGtElement::from_default(value));
-    }
-    return out;
-}
-
-inline std::vector<blst::GT> avx_vector_to_scalar_gt(std::span<const AvxGtElement> values)
-{
-    std::vector<blst::GT> out;
-    out.reserve(values.size());
-    for (const AvxGtElement& value : values) {
-        out.push_back(AvxGtElement::to_default(value));
-    }
-    return out;
-}
 
 }  // namespace blst::avx

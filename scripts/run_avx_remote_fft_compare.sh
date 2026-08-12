@@ -139,7 +139,7 @@ remote "rm -rf '${REMOTE_RUN_DIR}/blst_current' && mkdir -p '${REMOTE_RUN_DIR}/b
 
 remote "cd '${REMOTE_RUN_DIR}/blst_current' && cmake -S . -B out/fft-clang21 -G Ninja -DCMAKE_C_COMPILER='${CLANG_ROOT}/clang' -DCMAKE_CXX_COMPILER='${CLANG_ROOT}/clang++' -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS_RELEASE='-O3 -march=native -DNDEBUG' -DCMAKE_CXX_FLAGS_RELEASE='-O3 -march=native -DNDEBUG' -DBLST_PORTABLE=OFF -DBLST_ASM=ON -DBLST_ADX=ON -DBLST_AVX512=ON -DBLST_DEFAULT_AVX=ON -DBLST_AVX512_PORTABLE=OFF -DBLST_BENCHMARK=ON -DBLST_TEST=ON -DBLST_CUDA=OFF >/dev/null && cmake --build out/fft-clang21 --target blst_benchmarks blst_tests -j2 >/dev/null"
 
-remote "cd '${REMOTE_RUN_DIR}/blst_current' && ./out/fft-clang21/test/blst_tests --gtest_filter='Fft.GTAvx52InverseFftMatchesScalar' >/dev/null"
+remote "cd '${REMOTE_RUN_DIR}/blst_current' && ./out/fft-clang21/test/blst_tests --gtest_filter='Fft.GTAvxInverseFftMatchesScalar' >/dev/null"
 
 SCALAR_JSON="$(run_remote_json "scalar_fft" "cd '${REMOTE_RUN_DIR}/blst_current/out/fft-clang21/benchmark' && taskset -c ${PIN_CORE} ./blst_benchmarks --benchmark_filter='^bench_gt_ifft_cpu/(${FFT_SIZES_REGEX})/real_time$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"
 AVX_JSON="$(run_remote_json "avx_fft" "cd '${REMOTE_RUN_DIR}/blst_current/out/fft-clang21/benchmark' && taskset -c ${PIN_CORE} ./blst_benchmarks --benchmark_filter='^bench_gt_ifft_avx52_precomputed_cpu/(${FFT_SIZES_REGEX})/real_time$' --benchmark_repetitions=${REPETITIONS} --benchmark_report_aggregates_only=true --benchmark_min_time=${MIN_TIME} --benchmark_format=json")"

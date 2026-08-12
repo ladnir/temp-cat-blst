@@ -618,7 +618,7 @@ TEST(Fft, GTFftRoundTrip) {
 }
 
 #if defined(BLST_AVX512) || defined(BLST_AVX512_PORTABLE)
-TEST(Fft, GTAvx52InverseFftMatchesScalar) {
+TEST(Fft, GTAvxInverseFftMatchesScalar) {
     const size_t N = 16;
 
     G1AffinePoint p_aff = {};
@@ -655,16 +655,22 @@ TEST(Fft, GTAvx52InverseFftMatchesScalar) {
     std::vector<GT> scalar_freq_domain = time_domain;
     fft<GT, Fr, GTCoeffCtx>(scalar_freq_domain, roots, false);
 
-    std::vector<blst::avx::AvxGtElement> avx_freq_domain =
-        blst::avx::scalar_gt_vector_to_avx(std::span<const GT>(scalar_freq_domain));
+    std::vector<blst::avx::AvxGtElement> avx_freq_domain;
+    avx_freq_domain.reserve(scalar_freq_domain.size());
+    for (const GT& value : scalar_freq_domain) {
+        avx_freq_domain.push_back(blst::avx::AvxGtElement::from_default(value));
+    }
     blst::avx::AvxGtPreparedRoots prepared_inv_roots{std::span<const Fr>(inv_roots)};
-    prepared_inv_roots.set_scale_from_size(N);
+    prepared_inv_roots.prepare_inverse_scale();
     blst::avx::AvxGtCoeffCtx::ScopedRoots scoped_roots(prepared_inv_roots);
 
     fft<blst::avx::AvxGtElement, Fr, blst::avx::AvxGtCoeffCtx>(avx_freq_domain, inv_roots, true);
 
-    const std::vector<GT> avx_round_trip =
-        blst::avx::avx_vector_to_scalar_gt(std::span<const blst::avx::AvxGtElement>(avx_freq_domain));
+    std::vector<GT> avx_round_trip;
+    avx_round_trip.reserve(avx_freq_domain.size());
+    for (const blst::avx::AvxGtElement& value : avx_freq_domain) {
+        avx_round_trip.push_back(blst::avx::AvxGtElement::to_default(value));
+    }
 
     bool match = true;
     for (size_t i = 0; i < N; ++i) {

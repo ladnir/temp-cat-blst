@@ -272,10 +272,15 @@ def main() -> int:
         "using Fp12Ring = matrixnok::Fp12Ring;",
         "inline static constexpr Ring kRing{};",
         "inline static constexpr Fp12Ring kFp12Ring{};",
+        "void prepare_inverse_scale() noexcept",
     ))
     forbid_fragments(fft, (
         "static const Ring instance;",
         "static const Fp12Ring instance(",
+        "set_scale_from_size",
+        "scale_limbs",
+        "scalar_gt_vector_to_avx(",
+        "avx_vector_to_scalar_gt(",
     ))
 
     avx_c_api = repo / "blst" / "avx_c_api.cpp"

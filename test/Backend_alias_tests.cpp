@@ -364,6 +364,25 @@ TEST(BackendAlias, MiddleProductReducedMatchesBasicOnSmallVector)
                 << "Prepared root mismatch at inverse root index " << i;
         }
 
+        ASSERT_EQ(
+            avx_precomputed.inv_roots.scalars.size(),
+            avx_precomputed.inv_roots.compiled.size());
+        ASSERT_TRUE(avx_precomputed.inv_roots.has_scale);
+        blst::avx::AvxGtElement via_prepared_scale = {};
+        {
+            blst::avx::AvxGtCoeffCtx::ScopedRoots scoped_roots(
+                avx_precomputed.inv_roots);
+            via_prepared_scale = blst::avx::AvxGtCoeffCtx::mult(
+                sample,
+                avx_precomputed.inv_roots.scale_scalar);
+        }
+        const Fr scale_copy = avx_precomputed.inv_roots.scale_scalar;
+        const blst::avx::AvxGtElement via_fallback_scale =
+            blst::avx::AvxGtCoeffCtx::mult(sample, scale_copy);
+        EXPECT_TRUE(GT::equal(
+            blst::avx::AvxGtElement::to_default(via_prepared_scale),
+            blst::avx::AvxGtElement::to_default(via_fallback_scale)));
+
         const std::array<Fr, 1> outer_scalars = { Fr::from_uint64(2) };
         const std::array<Fr, 1> replacement_scalars = { Fr::from_uint64(3) };
         const std::array<Fr, 1> inner_scalars = { Fr::from_uint64(5) };
