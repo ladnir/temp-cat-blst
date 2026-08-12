@@ -432,3 +432,28 @@ and Release each pass the five focused ordinary/prepared FFT, interpolation,
 alias, and scratch boundary tests. The public-documentation and audit-manifest
 checkers pass. No benchmark, CUDA, portable-AVX Release, full suite, sanitizer,
 native AVX-512, remote, Apple, or BTx/BTE audit/change was performed.
+
+## Packet 17J - Middle-product owner and C boundary
+
+The complete `blst/fft/middle_product.h` owner and
+`blst/middle_product_c_api.cpp` boundary are reviewed at remediation commit
+`9e4ec59ff3ecf77a11c73688f47e3c9cc91c8ed9`.
+
+No new algebraic, indexing, subgroup-domain, integer-overflow, exception-escape,
+concurrency, or lifetime defect was found. `AUD-311` closes an output-publication
+hazard in the scalar sparse multipair path: both variable-size batches now
+reserve their known maximum before the first result is written. `AUD-312`
+removes redundant input conversion vectors from selected scalar and AVX paths
+with compile-time type identity; explicit cross-backend calls retain their
+conversion storage without runtime dispatch or abstraction. Public expert
+precomputes are immutable by contract, invalid native enum values remain a
+narrow contract violation, and the C API requires a live, non-concurrently
+freed handle. Exact output aliasing is covered for both `combine` inputs.
+
+Scalar-default portable-AVX Debug passes 22/22 focused tests, scalar-only
+Release passes 14/14, and AVX-default portable Debug passes 2/2 selected-path
+tests. Strict MSVC C11 and C++20 public-header parsing passes at `/W4 /WX`.
+No benchmark was rerun because arithmetic and dispatch are unchanged and the
+implementation strictly removes or advances allocations and copies. No CUDA,
+portable-AVX Release, full suite, sanitizer, native AVX-512, remote, Apple, or
+BTx/BTE audit/change was performed.

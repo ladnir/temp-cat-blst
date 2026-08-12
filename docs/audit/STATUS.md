@@ -382,7 +382,7 @@ Upstream progress:
   validation are completed;
 - 0 remain pending.
 
-Findings: 309 total: 278 validated, 23 fixed pending final evidence, four accepted
+Findings: 311 total: 280 validated, 23 fixed pending final evidence, four accepted
 risks, one needs a design decision, and three remain open. `AUD-035` is validated with preserved
 allocated/caller-table/precomputed modes and 10/10 focused MSVC Release, Linux
 ASan, and Linux UBSan tests. `AUD-036` is validated on native
@@ -939,3 +939,15 @@ to 26 audited/focused families. Strict MSVC C11/C++20 headers and five focused
 scalar Debug/Release boundary tests pass. No benchmark, CUDA, portable-AVX
 Release, full suite, sanitizer, native AVX-512, remote, Apple, or BTx/BTE
 audit/change was performed.
+
+Phase 17 Packet 17J completes the `blst/fft/middle_product.h` owner and
+`blst/middle_product_c_api.cpp` C-boundary reviews at `9e4ec59`. `AUD-311`
+moves all scalar sparse-batch growth before output publication. `AUD-312`
+removes selected-backend conversion vectors at compile time while retaining
+explicit cross-backend conversions. Contracts now cover immutable expert
+precomputes, invalid enum values, live C handles, and exact aliasing with either
+combine input. Focused scalar-default portable Debug passes 22/22, scalar-only
+Release passes 14/14, AVX-default portable Debug passes 2/2, and strict MSVC
+C11/C++20 header checks pass. Arithmetic and dispatch are unchanged, so no
+benchmark was run. No CUDA, portable-AVX Release, full suite, sanitizer, native
+AVX-512, remote, Apple, or BTx/BTE audit/change was performed.

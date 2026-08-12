@@ -79,7 +79,9 @@ function Test-SourceAnchors {
         }
 
         if ($documentedStatuses -contains $status) {
-            $start = [Math]::Max(0, $index - 1600)
+            # Full pre/postcondition blocks can legitimately exceed 1,600
+            # bytes; keep the check local while allowing a complete contract.
+            $start = [Math]::Max(0, $index - 4096)
             $prefix = $combined.Substring($start, $index - $start)
             if ($prefix -notmatch '(?s)(/\*\*|///|//!)') {
                 $errors.Add("$($Row.id): $Surface anchor '$anchor' lacks nearby declaration documentation")
