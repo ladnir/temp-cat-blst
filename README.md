@@ -1,4 +1,6 @@
-# category-blst
+<div align="left">
+  <img src="blst_logo_small.png" alt="category-blst">
+</div>
 
 `category-blst` is a substantially modified fork of
 [BLST](https://github.com/supranational/blst) for high-performance BLS12-381
