@@ -6,12 +6,12 @@
 | --- | --- |
 | Path | `bindings/rust/build.rs` |
 | Roadmap phase / queue | Phase 18 Rust build and packaging bridge |
-| Reviewed commit | `7b2ab8caf254e80611d57a1958912b93e7d7bd54` |
+| Reviewed commit | `906fc2c6964fcff3f8d188b5d373fd25334aa828` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-12 |
 | Disposition | in-scope production |
 | Subsystem | Rust-to-native build routing and static linkage |
-| Profiles | Rust; scalar; native AVX-512; Windows Debug portable AVX developer mode |
+| Profiles | Rust; scalar; native AVX-512; Windows portable AVX developer mode |
 | Generation/provenance | Handwritten Rust build script with upstream BLST lineage |
 | Upstream references | Common base `f48500c1fdbefa7c0bf9800bccd65d28236799c1`; local fail-closed routing intentionally diverges |
 | Related files | `Cargo.toml`, `README.md`, root `CMakeLists.txt`, `blst/config.h.in`, CI workflows |
@@ -30,8 +30,9 @@ caller assertions about target compatibility, not autodetected facts.
   native Release independently of the profile's name.
 - `HOST != TARGET` requires an existing explicit `CMAKE_TOOLCHAIN_FILE` before
   CMake starts. Native Apple Silicon (`HOST == TARGET`) remains ordinary.
-- `avx` is x86-64 only. On Windows it means portable AVX developer emulation
-  and is accepted only in Debug; elsewhere it means native AVX.
+- `avx` is x86-64 only. On Windows it means portable AVX developer emulation;
+  elsewhere it means native AVX. Optimized Windows emulation is explicit but is
+  not deployment or native-performance evidence.
 - `portable`, `avx`, and `force-adx` combinations fail closed where their
   semantics conflict. Host CPUID is never used to infer ADX for a cross build.
 - No archive is discovered implicitly. A prebuilt requires both
@@ -75,8 +76,8 @@ caller assertions about target compatibility, not autodetected facts.
 - `rustc --test build.rs -D warnings`: 4/4 passed.
 - Explicit `BLST_PREBUILT_LIB`/`BLST_PREBUILT_CONFIG_INCLUDE` full-binding
   focused Rust link/test passed.
-- Optimized Windows `cargo check --release --features avx` failed before CMake
-  with the required developer-only diagnostic.
+- Portable AVX is absent from ordinary release presets/CI and retained in the
+  path-scoped Debug developer lane; explicit optimized selection remains legal.
 - `BLST_TEST_NO_STD=1 cargo check --features serde-secret` passed with warnings
   denied.
 

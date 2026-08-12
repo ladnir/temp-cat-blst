@@ -124,12 +124,13 @@ tests the retained Rust feature families. Portable AVX is deliberately absent
 from that matrix: it is emulation for differential development, not a product
 backend or release substitute.
 
-A separate path-scoped developer workflow builds portable AVX only in Debug,
+A separate path-scoped developer workflow builds portable AVX in Debug,
 with CUDA, benchmarks, BTx/BTE, and the internal parallel pipeline disabled.
 It runs when AVX implementation/build files or their focused tests change and
-can also be launched manually. A cheap required configuration test rejects any
-attempt to configure portable AVX as Release before compilation begins; the
-headers independently reject optimized direct or multi-config compilation.
+can also be launched manually. Optimized portable AVX remains available by
+explicit configuration for developer investigation, but it is intentionally
+absent from obvious Release presets and is never deployment or native-hardware
+evidence.
 
 Native AVX-512 remains a production profile. GitHub's hosted Ubuntu image does
 not currently provide CatBLST's supported Clang 21/GCC 15 toolchain or promise

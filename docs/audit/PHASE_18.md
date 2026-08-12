@@ -82,7 +82,7 @@ generator, Cargo package, and native build bridge identified `AUD-324` through
 1. make the scalar raw binding exactly reproducible and keep split AVX, FFT,
    and middle-product declarations in their handwritten modules;
 2. make Cargo target/profile/feature/prebuilt selection fail closed, with
-   portable AVX explicitly restricted to developer Debug builds; and
+   portable AVX explicitly documented as developer emulation; and
 3. complete safe-Rust contracts and restore the nonzero `SecretKey` invariant.
 
 This wave also adds lightweight CI policy gates. They must catch declaration
@@ -98,23 +98,27 @@ Implementation/evidence commits are:
   pinned bindgen 0.65.1 policy, fail-closed transforms, exact 253/253 C/Rust
   declaration ownership, split FFT declarations, and generated pairing
   alignment;
-- `b2c93e9d3ec4b4478edca51c9cd67187f859eba4` and
-  `7b2ab8caf254e80611d57a1958912b93e7d7bd54`: profile/target/feature/toolchain/
+- `b2c93e9d3ec4b4478edca51c9cd67187f859eba4`,
+  `7b2ab8caf254e80611d57a1958912b93e7d7bd54`, and
+  `906fc2c6964fcff3f8d188b5d373fd25334aa828`: profile/target/feature/toolchain/
   prebuilt routing, checked `blst_std`, no-std Serde, MSRV, deterministic native
   artifacts, and four warning-clean policy tests;
 - `778f2f60d1fd4ba19569ba0dd1d4e3f5f1a50b88`: complete reviewed high-level
   Rust contracts, aggregate-flow guidance, non-default/nonzero `SecretKey`,
   private FFI output construction, and focused invariant tests; and
-- `6d66fdce136ecdf86d6ba3f3ae0c169f81cfa5b1`: portable AVX removed from the
-  ordinary CI/deployment matrix, optimized emulation rejected by CMake/header,
-  and a separate path-scoped Debug developer workflow.
+- `6d66fdce136ecdf86d6ba3f3ae0c169f81cfa5b1` and
+  `906fc2c6964fcff3f8d188b5d373fd25334aa828`:
+  portable AVX removed from obvious Release presets and the ordinary
+  CI/deployment matrix, with a separate path-scoped Debug developer workflow;
+  explicit optimized emulation remains available.
 
 Focused evidence passes: exact raw declaration parity, Bash/Perl transform
 fixtures, 14 bindgen layout tests, 9 FFT tests, the empty-DST pairing test,
 4/4 build-policy tests, explicit-prebuilt linking, no-std Serde with warnings
 denied, full-binding rustdoc with warnings denied, and 2/2 secret-key invariant
-tests covering all derivation families and malformed scalar decoding. CMake
-accepts portable AVX Debug configuration and rejects Release before compile.
+tests covering all derivation families and malformed scalar decoding. Portable
+AVX remains covered by its focused Debug CI lane without being presented as a
+deployable backend.
 
 `AUD-325` through `AUD-333` are validated. `AUD-324` remains high and
 `fix_in_progress`: the generator is deterministic and structurally guarded,

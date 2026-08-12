@@ -6,19 +6,20 @@
 | --- | --- |
 | Paths | `bindings/rust/Cargo.toml`, `README.md`, `docs/overview.md`, `docs/full_bindings.md` |
 | Roadmap phase / queue | Phase 18 Rust packaging and supported-user documentation |
-| Reviewed commits | Package/README `b2c93e9d3ec4b4478edca51c9cd67187f859eba4`; guides `778f2f60d1fd4ba19569ba0dd1d4e3f5f1a50b88` |
+| Reviewed commits | Cargo `b2c93e9d3ec4b4478edca51c9cd67187f859eba4`; README `906fc2c6964fcff3f8d188b5d373fd25334aa828`; guides `778f2f60d1fd4ba19569ba0dd1d4e3f5f1a50b88` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-12 |
 | Disposition | in-scope production metadata and support documentation |
-| Profiles | Rust scalar, native AVX-512, no-std alloc; Windows portable AVX Debug development only |
+| Profiles | Rust scalar, native AVX-512, no-std alloc; Windows portable AVX development only |
 | Upstream references | Common base `f48500c1fdbefa7c0bf9800bccd65d28236799c1`; local support policy intentionally narrowed |
 
 ## Reviewed behavior
 
 Cargo declares Rust 1.65 as the enforced MSRV. Serde disables default features
 and opts into `alloc`/`derive`; `serde-secret` remains explicit. Feature docs
-distinguish portable scalar from native AVX and Windows's developer-only Debug
-emulation. Cross builds require a toolchain, prebuilt use is explicit, Apple
+distinguish portable scalar from native AVX and Windows's developer emulation.
+Optimized emulation requires explicit selection and is not part of the ordinary
+release matrix. Cross builds require a toolchain, prebuilt use is explicit, Apple
 Silicon is supported, other ARM64/CHERI is experimental, and CUDA is outside
 the retained release claim.
 
