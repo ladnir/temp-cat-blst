@@ -382,7 +382,7 @@ Upstream progress:
   validation are completed;
 - 0 remain pending.
 
-Findings: 311 total: 280 validated, 23 fixed pending final evidence, four accepted
+Findings: 314 total: 283 validated, 23 fixed pending final evidence, four accepted
 risks, one needs a design decision, and three remain open. `AUD-035` is validated with preserved
 allocated/caller-table/precomputed modes and 10/10 focused MSVC Release, Linux
 ASan, and Linux UBSan tests. `AUD-036` is validated on native
@@ -951,3 +951,11 @@ Release passes 14/14, AVX-default portable Debug passes 2/2, and strict MSVC
 C11/C++20 header checks pass. Arithmetic and dispatch are unchanged, so no
 benchmark was run. No CUDA, portable-AVX Release, full suite, sanitizer, native
 AVX-512, remote, Apple, or BTx/BTE audit/change was performed.
+
+Phase 17 Packet 17K completes `blst/avx/fft/gt_context.h` at `ec18911` with
+proof/evidence rebind `52d71c1`. `AUD-313` through `AUD-315` validate exact
+GT-only/public-Fr/lifetime contracts, remove the dead canonical-limb cache and
+allocation, and derive inverse scale from the owned roots. The Release hot path
+is unchanged. Four focused portable-AVX Debug tests, the MatrixNoK dispatch
+gate, and all 21 proof rows/61 hashes pass. No benchmark, CUDA, portable-AVX
+Release, full suite, sanitizer, remote, Apple, or BTx/BTE audit/change ran.

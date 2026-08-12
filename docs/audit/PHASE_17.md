@@ -457,3 +457,31 @@ No benchmark was rerun because arithmetic and dispatch are unchanged and the
 implementation strictly removes or advances allocations and copies. No CUDA,
 portable-AVX Release, full suite, sanitizer, native AVX-512, remote, Apple, or
 BTx/BTE audit/change was performed.
+
+## Packet 17K - AVX GT FFT coefficient owner
+
+The complete `blst/avx/fft/gt_context.h` owner is reviewed at implementation
+commit `ec18911a01e097bcbdacd9f16634049b4807c998` and proof/evidence rebind
+`52d71c1a882fea3179fcb7b9a768026bf82f5404`.
+
+No new arithmetic, memory-safety, pointer-provenance, or exception-boundary
+defect was found. `AUD-313` makes the narrow algebra explicit: storage and
+operations are GT/cyclotomic only, Fr roots are reduced Montgomery values,
+roots and sizes are public and variable-time, default storage is overwrite-
+before-read, and prepared schedules are immutable with synchronous nestable
+thread-local scope. `AUD-314` removes an unread 32-byte canonical-limb vector,
+its allocation, and the equivalent retained scale field; fixed stack arrays now
+exist only while GLV4 schedules compile. `AUD-315` derives inverse scale from
+the owned nonempty root table rather than accepting an independent size.
+
+The Release GT exponentiation arithmetic and prepared/fallback selection order
+are unchanged. Accepted `AVX-P3-007` and structural `AVX-P4-002` are rebound to
+the exact source; all 21 correspondence rows, 61 hashes, and the MatrixNoK
+dispatch gate pass. MSVC 19.50 portable-AVX Debug rebuilds `blst_tests` with two
+workers and passes four focused invariant, prepared/fallback, full/truncated
+inverse FFT, and scalar/middle-product differential tests. Frozen BTx/BTE built
+unchanged and emitted its existing ignored-nodiscard warning.
+
+No benchmark ran because the hot Release path is unchanged while preparation
+strictly removes storage and allocation. No CUDA, portable-AVX Release, full
+suite, sanitizer, remote job, Apple run, or BTx/BTE audit/change was performed.

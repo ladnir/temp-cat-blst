@@ -137,3 +137,13 @@ universal microarchitecture guarantee. Native AVX-512, sanitizer, fuzz, Apple,
 and broader release evidence remain milestone gates. Public expert fields and
 invalid enum casts retain narrow native contracts. The containing file is
 complete for line-by-line hand review.
+
+## Packet 17K delta
+
+Commit `ec18911a01e097bcbdacd9f16634049b4807c998` replaces the AVX inverse-root
+call `set_scale_from_size(roots.size())` with `prepare_inverse_scale()`. The
+prepared owner now derives the identical public `1/n` value from its owned root
+count, eliminating the possibility of caller divergence without changing FFT
+arithmetic, dispatch, thresholds, allocation publication, or output behavior.
+The Packet 17K four-test scalar/AVX differential and invariant set passes, and
+the containing-file completion remains valid at this delta commit.
