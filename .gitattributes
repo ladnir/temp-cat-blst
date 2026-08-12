@@ -1,8 +1,6 @@
 /.gitattributes text eol=lf
 *.pl text eol=lf linguist-language=assembly
 *.sh text eol=lf
-*.h linguist-language=c
-*.tgo linguist-language=go
 /build/cheri/*.S text eol=lf
 /build/coff/*.S text eol=lf
 /build/coff/*.s text eol=lf
