@@ -3,73 +3,47 @@ name: build
 on:
   push:
     branches:
-      - '**'
+      - master
   workflow_dispatch:
   pull_request:
     branches:
       - master
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+concurrency:
+  group: supported-builds-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   cmake:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
 
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            mode: scalar
-            build_dir: out/build/ci-scalar
-            build_type: Release
-            compiler_flags: ""
-            cmake_flags: >-
-              -DBLST_AVX512=OFF
-              -DBLST_AVX512_PORTABLE=OFF
-              -DBLST_DEFAULT_AVX=OFF
+          - os: ubuntu-24.04
+            preset: linux-scalar
+            mode: scalar-cpp
+          - os: ubuntu-24.04
+            preset: linux
+            mode: scalar-assembly
           - os: macos-15
-            mode: scalar
-            build_dir: out/build/ci-scalar
-            build_type: Release
-            compiler_flags: ""
-            cmake_flags: >-
-              -DCMAKE_OSX_ARCHITECTURES=arm64
-              -DBLST_AVX512=OFF
-              -DBLST_AVX512_PORTABLE=OFF
-              -DBLST_DEFAULT_AVX=OFF
-          - os: ubuntu-latest
-            mode: scalar-generic-asm
-            build_dir: out/build/ci-scalar-generic-asm
-            build_type: Release
-            compiler_flags: ""
-            cmake_flags: >-
-              -DBLST_PORTABLE=ON
-              -DBLST_ASM=ON
-              -DBLST_ADX=OFF
-              -DBLST_DEFAULT_ASM=ON
-              -DBLST_AVX512=OFF
-              -DBLST_AVX512_PORTABLE=OFF
-              -DBLST_DEFAULT_AVX=OFF
-          - os: windows-latest
-            mode: scalar
-            build_dir: out/build/ci-scalar
-            build_type: Release
-            compiler_flags: >-
-              -DCMAKE_C_COMPILER=cl
-              -DCMAKE_CXX_COMPILER=cl
-            cmake_flags: >-
-              -DBLST_AVX512=OFF
-              -DBLST_AVX512_PORTABLE=OFF
-              -DBLST_DEFAULT_AVX=OFF
+            preset: macos-apple-silicon
+            mode: scalar-assembly
+          - os: windows-2025
+            preset: x64-Release
+            mode: scalar-assembly
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Verify Apple Silicon runner
-        if: matrix.os == 'macos-15'
+        if: matrix.preset == 'macos-apple-silicon'
         shell: bash
         run: |
           test "${{ runner.arch }}" = "ARM64"
@@ -81,37 +55,29 @@ jobs:
 
       - name: Configure
         shell: bash
-        run: |
-          cmake -S . -B "${{ matrix.build_dir }}" \
-            -G Ninja \
-            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-            -DBLST_TEST=ON \
-            -DBLST_BENCHMARK=OFF \
-            -DBLST_CUDA=OFF \
-            -DBLST_CUDA_MSM=OFF \
-            -DBLST_PARALLEL_MSM=OFF \
-            -DBLST_CRNS_BATCH_VROOM_VENDOR=OFF \
-            ${{ matrix.compiler_flags }} \
-            ${{ matrix.cmake_flags }}
+        run: cmake --preset "${{ matrix.preset }}"
 
       - name: Build
         shell: bash
         run: >
-          cmake --build "${{ matrix.build_dir }}"
+          cmake --build "out/build/${{ matrix.preset }}"
           --target blst_tests
           --parallel 4
 
       - name: Test
         shell: bash
-        run: ctest --test-dir "${{ matrix.build_dir }}/test" --output-on-failure --parallel 4
+        run: >
+          ctest --test-dir "out/build/${{ matrix.preset }}/test"
+          --output-on-failure --parallel 4
 
   rust:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
 
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-15]
+        os: [ubuntu-24.04, windows-2025, macos-15]
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -125,18 +91,13 @@ jobs:
           test "${{ runner.arch }}" = "ARM64"
           test "$(uname -m)" = "arm64"
 
-      - name: Get date
-        id: get-date
-        shell: bash
-        run: echo "date=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
-
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry
-            **/Cargo.lock
-            **/bindings/rust/target
-          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ steps.get-date.outputs.date }}
+            ~/.cargo/git
+            bindings/rust/target
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-${{ hashFiles('bindings/rust/Cargo.lock') }}
 
       - name: Test Rust crate
         shell: bash
@@ -155,9 +116,9 @@ jobs:
           rustc --test build.rs -D warnings -o "$policy_test"
           "$policy_test"
 
-          cargo test --release --lib
-          cargo test --release --lib --features full-rust-bindings
-          cargo test --release --lib --features portable
-          cargo test --release --lib --features serde-secret
-          cargo run --release --example smoke
-          cargo run --release --example smoke --features full-rust-bindings
+          cargo test --locked --release --lib
+          cargo test --locked --release --lib --features full-rust-bindings
+          cargo test --locked --release --lib --features portable
+          cargo test --locked --release --lib --features serde-secret
+          cargo run --locked --release --example smoke
+          cargo run --locked --release --example smoke --features full-rust-bindings

@@ -16,7 +16,7 @@ jobs:
     # This private repository does not currently have GitHub Code Security.
     # Set the repository variable CODEQL_ENABLED=true only after enabling it.
     if: vars.CODEQL_ENABLED == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
 
     permissions:
