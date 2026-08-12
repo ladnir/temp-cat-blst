@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `scripts/audit/check_ci_policy.ps1` |
 | Phase | Phase 19, Packet 19B |
-| Reviewed commit | `0c7865082575e15f779debab8186bd0eca0eea7a` |
+| Reviewed commit | `a71068a47c361c9a1edae4a706b75435023756f6` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-12 |
 | Disposition | `in_scope_support` |
@@ -42,15 +42,14 @@ presets, unsafe Rust caching, unlocked dependencies, and Release portable AVX.
 | 8 | Supply chain | Rejects mutable external actions and latest runner aliases. |
 | 9 | Permissions/resources | Requires workflow-level permissions and concurrency. |
 | 10 | CMake policy | Requires the exact ordered four-preset production matrix. |
-| 11 | Rust policy | Rejects cached lockfile and unlocked test/smoke commands. |
+| 11 | Rust policy | Requires tracked v4 lock, Rust 1.78, and seven locked test/smoke/check commands. |
 | 12 | AVX policy | Requires Debug emulation with assembly/ADX/native AVX disabled. |
-| 13 | Dependabot policy | Requires root weekly grouped GitHub Actions updates. |
+| 13 | Dependabot policy | Requires weekly grouped GitHub Actions and Cargo updates. |
 | 14 | Blind spot | Regex policy is paired with actionlint semantic YAML validation. |
 
 ## Findings and validation
 
 The positive gate reports five workflows, eight immutable external action
-uses, four supported presets, and six locked Cargo commands. actionlint 1.7.12
+uses, four supported presets, and seven locked Cargo commands. actionlint 1.7.12
 independently parses all workflow YAML. The script review is complete; hosted
 registration remains Phase 19 evidence.
-

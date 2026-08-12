@@ -84,9 +84,8 @@ claims and must not add CUDA to the supported release matrix.
 ## Packet 19B: Retained CI and dependency automation
 
 The reviewed repository state is
-`0c7865082575e15f779debab8186bd0eca0eea7a`. Findings `AUD-347` through
-`AUD-350` are validated; `AUD-351` remains open for an explicit Rust MSRV
-decision.
+`a71068a47c361c9a1edae4a706b75435023756f6`. Findings `AUD-347` through
+`AUD-351` are validated.
 
 Supported CMake CI now consumes the audited presets instead of duplicating
 their flags. Linux exercises both pure C++ scalar and runtime-dispatched
@@ -104,14 +103,22 @@ Linux and Windows runner generations are fixed to Ubuntu 24.04 and Windows
 
 Rust CI no longer restores `Cargo.lock` from cache. Registry, Git, and target
 caches are keyed by OS, architecture, and the committed lockfile hash, and all
-six retained Cargo test/smoke commands use `--locked`. This makes a lockfile
+seven retained Cargo test/smoke/check commands use `--locked`. This makes a lockfile
 change invalidate the cache without permitting CI to test a cached dependency
 graph in place of the commit under review.
+
+The formerly ignored lockfile is now a tracked CI reproducibility input. Rust
+1.78 is the declared and tested MSRV because it is the first Cargo release that
+accepts lockfile version 4. A separate Ubuntu job installs exactly Rust 1.78.0
+and checks the combined `full-rust-bindings`, `portable`, and `serde-secret`
+feature surface with two workers and a 30-minute bound. Weekly grouped Cargo
+Dependabot proposals must pass this lane before review or merge.
 
 `scripts/audit/check_ci_policy.ps1` enforces immutable external action SHAs,
 fixed runner generations, permissions, concurrency, timeouts, the exact CMake
 preset matrix, safe Cargo caching, locked Rust commands, Debug-only portable
-AVX, and the retained weekly grouped GitHub Actions Dependabot policy. It runs
+AVX, the exact Rust 1.78/v4-lock contract, and the retained weekly grouped
+GitHub Actions and Cargo Dependabot policies. It runs
 inside the lightweight audit-integrity workflow.
 
 ### Focused evidence
@@ -121,8 +128,10 @@ inside the lightweight audit-integrity workflow.
 - the checkout, cache, CodeQL, and MSVC action commits resolve to their stated
   upstream tags;
 - the structural CI policy gate passes with five workflows, four production
-  CMake presets, and six locked Cargo commands;
-- the file/upstream manifest gate passes with 810 tracked files and 63 upstream
+  CMake presets, and seven locked Cargo commands;
+- Rust/Cargo 1.78 checks the complete supported feature combination in 29.85
+  seconds locally with one build worker;
+- the file/upstream manifest gate passes with 818 tracked files and 63 upstream
   commits; and
 - CMake parses the complete ten-preset document used by the selected matrix.
 
@@ -130,20 +139,18 @@ No workflow was dispatched, pushed, or otherwise executed remotely. No local
 product build, benchmark, CUDA job, portable-AVX Release build, sanitizer, or
 full suite ran for this policy packet.
 
-### Residual decisions and evidence
+### Residual evidence
 
-- The crate advertises Rust 1.65, but the version-4 lockfile requires Cargo
-  1.78 or newer and no MSRV lane exists. `AUD-351` requires a product decision;
-  this packet does not silently raise or pretend to validate the MSRV.
 - Hosted execution of the exact Linux, Windows, Apple, portable-AVX Debug,
-  audit-integrity, and binding-regeneration workflows remains required.
+  Rust 1.78, audit-integrity, and binding-regeneration workflows remains
+  required.
 - CodeQL remains manual and service-gated until GitHub Code Security is enabled;
   local CodeQL and analyzer evidence remains the current static-analysis gate.
 - Native ADX and AVX-512/IFMA execution remains separate hardware evidence.
 
 ## Next packet after 19B
 
-Resolve `AUD-351` before the Rust packaging review, then execute the corrected
-hosted Apple/Linux/Windows CI matrix when a push is approved. The next local
+Execute the corrected hosted Apple/Linux/Windows/Rust CI matrix when a push is
+approved. The next local
 file packet should audit remaining test/build support without starting a broad
 test sweep.
