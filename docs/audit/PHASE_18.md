@@ -72,3 +72,22 @@ parses pass, the MatrixNoK dispatch gate passes, and all 21 accepted proof rows
 and 61 mapped hashes remain valid. No benchmark, CUDA, portable-AVX Release,
 full suite, sanitizer, native AVX-512, remote, Apple, or push was performed.
 The implementation and exact review state are recorded at `e6163ce`.
+
+## Wave 3: Rust generation, packaging, and high-level contracts
+
+The read-only audit of the Rust root, checked-in scalar FFI artifact, binding
+generator, Cargo package, and native build bridge identified `AUD-324` through
+`AUD-333`. Remediation is in progress in three reviewable packets:
+
+1. make the scalar raw binding exactly reproducible and keep split AVX, FFT,
+   and middle-product declarations in their handwritten modules;
+2. make Cargo target/profile/feature/prebuilt selection fail closed, with
+   portable AVX explicitly restricted to developer Debug builds; and
+3. complete safe-Rust contracts and restore the nonzero `SecretKey` invariant.
+
+This wave also adds lightweight CI policy gates. They must catch declaration
+drift, unsafe generator options, invalid feature/target/profile combinations,
+stale compiler-support claims, and configuration-warning suppression before a
+large native build starts. Native Apple ARM64 remains supported; unsupported
+cross builds must supply an explicit toolchain rather than silently compiling
+for the host.
