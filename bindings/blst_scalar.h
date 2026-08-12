@@ -1048,8 +1048,11 @@ BLST_UNIQ_RESULT blst_uniq_insert(blst_uniq* tree, const blst_byte* msg, size_t 
  * must reference their stated readable lengths and may be null only when the
  * corresponding length is zero; an invalid nonzero pointer/length pair clears
  * a valid output buffer. DSTs longer than 255 bytes are shortened as required
- * by RFC 9380. Input and output regions must not overlap. The operation is
- * allocation-free and nonthrowing; zero output length is a no-op.
+ * by RFC 9380. The complete SHA-256 transcripts, including the 17-byte
+ * oversize-DST prefix and XMD's fixed framing bytes, must remain below 2^64
+ * bits; an excessive message or DST length clears a valid output buffer before
+ * reading either input. Input and output regions must not overlap. The
+ * operation is allocation-free and nonthrowing; zero output length is a no-op.
  */
 void blst_expand_message_xmd(blst_byte* out, size_t out_len, const blst_byte* msg, size_t msg_len, const blst_byte* DST, size_t DST_len);
 /** Returns `sizeof(blst_p1)` for ABI consumers that need runtime verification. */

@@ -154,6 +154,47 @@ TEST(HashToFieldAudit, OutputLengthBoundariesFailClosed)
         [](unsigned char byte) { return byte == 0; }));
 }
 
+TEST(HashToFieldAudit, Sha256InputDomainBoundariesFailClosed)
+{
+    constexpr size_t max_bytes =
+        static_cast<size_t>(blst::sha256_max_message_bytes);
+    constexpr size_t fixed_bytes =
+        blst::scalar::hash_to_field_detail::xmd_b0_fixed_bytes;
+    constexpr size_t dst_prefix_bytes =
+        blst::scalar::hash_to_field_detail::xmd_oversize_dst_prefix_bytes;
+    using blst::scalar::hash_to_field_detail::xmd_input_lengths_valid;
+
+    EXPECT_TRUE(xmd_input_lengths_valid(0, max_bytes - fixed_bytes, 0));
+    EXPECT_FALSE(xmd_input_lengths_valid(0, max_bytes - fixed_bytes + 1, 0));
+
+    EXPECT_TRUE(xmd_input_lengths_valid(
+        max_bytes - fixed_bytes - 255, 0, 255));
+    EXPECT_FALSE(xmd_input_lengths_valid(
+        max_bytes - fixed_bytes - 255 + 1, 0, 255));
+
+    EXPECT_TRUE(xmd_input_lengths_valid(0, 0, max_bytes - dst_prefix_bytes));
+    EXPECT_FALSE(xmd_input_lengths_valid(
+        0, 0, max_bytes - dst_prefix_bytes + 1));
+
+    EXPECT_TRUE(xmd_input_lengths_valid(max_bytes - fixed_bytes, 0, 0));
+    EXPECT_FALSE(xmd_input_lengths_valid(max_bytes - fixed_bytes + 1, 0, 0));
+
+    const unsigned char dummy = 0;
+    std::array<unsigned char, 32> output;
+
+    output.fill(0xa5);
+    blst_expand_message_xmd(output.data(), output.size(),
+        &dummy, max_bytes - fixed_bytes + 1, nullptr, 0);
+    EXPECT_TRUE(std::all_of(output.begin(), output.end(),
+        [](unsigned char byte) { return byte == 0; }));
+
+    output.fill(0xa5);
+    blst_expand_message_xmd(output.data(), output.size(),
+        nullptr, 0, &dummy, max_bytes - dst_prefix_bytes + 1);
+    EXPECT_TRUE(std::all_of(output.begin(), output.end(),
+        [](unsigned char byte) { return byte == 0; }));
+}
+
 #ifdef NDEBUG
 TEST(HashToFieldAudit, InvalidInputPointerLengthPairsClearOutputInRelease)
 {

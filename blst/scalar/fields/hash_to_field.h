@@ -16,6 +16,37 @@ namespace blst::scalar
 
     namespace hash_to_field_detail
     {
+        inline constexpr size_t xmd_oversize_dst_prefix_bytes = 17;
+        inline constexpr size_t xmd_b0_fixed_bytes = 64 + 2 + 1 + 1;
+
+        /**
+         * Returns whether every SHA-256 transcript constructed by XMD remains
+         * within SHA-256's fewer-than-2^64-bit message domain.
+         *
+         * The oversize-DST transform hashes its 17-byte domain prefix followed
+         * by the original DST. The b0 transcript contains the 64-byte Z_pad,
+         * aug, msg, two-byte output length, one zero byte, normalized DST, and
+         * its one-byte length. Subtraction-ordered checks avoid size overflow.
+         */
+        BLST_HD BLST_FORCEINLINE bool xmd_input_lengths_valid(
+            size_t aug_len, size_t msg_len, size_t DST_len) noexcept
+        {
+            constexpr size_t max_bytes =
+                static_cast<size_t>(sha256_max_message_bytes);
+
+            if (DST_len > 255 &&
+                DST_len > max_bytes - xmd_oversize_dst_prefix_bytes) {
+                return false;
+            }
+
+            const size_t normalized_DST_len = DST_len > 255 ? 32 : DST_len;
+            const size_t transcript_capacity =
+                max_bytes - xmd_b0_fixed_bytes - normalized_DST_len;
+            if (aug_len > transcript_capacity)
+                return false;
+            return msg_len <= transcript_capacity - aug_len;
+        }
+
         BLST_HD BLST_INLINE void zero_bytes(unsigned char* bytes, size_t len) noexcept
         {
             vec_zero(bytes, len);
@@ -61,7 +92,8 @@ namespace blst::scalar
     /*
      * Optional upstream-compatible override. The implementation must emit
      * exactly len_in_bytes bytes, accept lengths through
-     * xmd_sha256_max_bytes, allocate no storage, and not throw.
+     * xmd_sha256_max_bytes, reject transcript lengths outside SHA-256's
+     * message domain before reading input, allocate no storage, and not throw.
      */
     BLST_HD void expand_message_xmd(unsigned char* bytes, size_t len_in_bytes,
         const unsigned char* aug, size_t aug_len,
@@ -84,7 +116,9 @@ namespace blst::scalar
         if (bytes == nullptr || len_in_bytes > xmd_sha256_max_bytes ||
             (aug == nullptr && aug_len != 0) ||
             (msg == nullptr && msg_len != 0) ||
-            (DST == nullptr && DST_len != 0)) {
+            (DST == nullptr && DST_len != 0) ||
+            !hash_to_field_detail::xmd_input_lengths_valid(
+                aug_len, msg_len, DST_len)) {
             if (bytes != nullptr && len_in_bytes <= xmd_sha256_max_bytes)
                 hash_to_field_detail::zero_bytes(bytes, len_in_bytes);
             return;
@@ -226,8 +260,9 @@ namespace blst::scalar
     /**
      * Expands msg with RFC 9380 XMD:SHA-256 and writes exactly len_in_bytes.
      * The output is allocation-free. Invalid nonzero pointer/length pairs or
-     * lengths above xmd_sha256_max_bytes clear a valid output buffer. A zero
-     * output length is a no-op and permits bytes to be null.
+     * output/input lengths outside their XMD/SHA-256 domains clear a valid
+     * output buffer before reading input. A zero output length is a no-op and
+     * permits bytes to be null.
      */
     BLST_HD BLST_INLINE void blst_expand_message_xmd(unsigned char* bytes, size_t len_in_bytes,
         const unsigned char* msg, size_t msg_len,
@@ -244,7 +279,9 @@ namespace blst::scalar
 
         if (len_in_bytes > xmd_sha256_max_bytes ||
             (msg == nullptr && msg_len != 0) ||
-            (DST == nullptr && DST_len != 0)) {
+            (DST == nullptr && DST_len != 0) ||
+            !hash_to_field_detail::xmd_input_lengths_valid(
+                0, msg_len, DST_len)) {
             hash_to_field_detail::zero_bytes(bytes, len_in_bytes);
             return;
         }
