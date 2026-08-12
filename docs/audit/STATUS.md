@@ -898,3 +898,9 @@ the standalone simple/composed allocation-failure probe exits zero. Frozen
 BTx/BTE compiled unchanged and confirmed that it uses only retained ordinary,
 polynomial, and truncated transforms. No benchmark, CUDA, full suite,
 sanitizer, native AVX-512, remote, or Apple run was performed.
+Phase 17 Packet 17F has completed the read-only interpolation/product-tree
+review. `AUD-297` through `AUD-302` cover missing threshold-crossing evidence,
+secret-value-dependent reconstruction shapes, per-node allocation churn,
+redundant inverse-root scratch, the deferred quadratic suffix crossover, and a
+silently discarded fast-division invariant. Remediation is in progress; no
+benchmark or BTx/BTE change is part of this packet.

@@ -322,3 +322,22 @@ keys. The standalone forced-allocation-failure timer probe also passed. Frozen
 BTx/BTE compiled as an unchanged dependency and confirmed reliance only on the
 retained ordinary/truncated APIs. No benchmark, CUDA, full suite, sanitizer,
 native AVX-512, remote, or Apple run was performed.
+## Packet 17F - Interpolation and product-tree hand audit
+
+The retained arbitrary-point and FFT-domain suffix interpolation implementations
+were reviewed line by line after Packet 17C. No confirmed algebraic defect was
+found. General interpolation implements product-tree Lagrange reconstruction
+through `M'(x_i)`, while suffix interpolation uses the high coefficients of
+`M(X)Q(X) = (X^L - 1)P(X)`.
+
+The review records `AUD-297` through `AUD-302`. The principal correctness gap is
+that current tests never cross the naive multiplication/division thresholds.
+The principal side-channel issue is value-dependent trimming during recursive
+reconstruction. Structural cleanup will flatten node ownership, provide a
+remainder-only division path, assert the fast-division degree invariant, and
+remove the redundant inverse-root scratch table. Selecting a faster suffix
+algorithm remains benchmark-gated and will not be inferred from correctness
+tests.
+
+BTx/BTE was not audited or modified. Its source has no call to the retained
+public interpolation entry points.
