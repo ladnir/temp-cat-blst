@@ -16,6 +16,10 @@ use core::mem::MaybeUninit;
 use core::ptr;
 use zeroize::Zeroize;
 
+const SHA256_MAX_MESSAGE_BYTES: usize = (u64::MAX / 8) as usize;
+const XMD_OVERSIZE_DST_PREFIX_BYTES: usize = 17;
+const XMD_B0_FIXED_BYTES: usize = 64 + 2 + 1 + 1;
+
 fn checked_scalar_bits(scalar: &[u8], nbits: usize) {
     assert!(nbits <= 256, "scalar bit length exceeds 256");
     assert!(
@@ -24,18 +28,40 @@ fn checked_scalar_bits(scalar: &[u8], nbits: usize) {
     );
 }
 
+fn xmd_input_lengths_valid(msg_len: usize, dst_len: usize) -> bool {
+    if dst_len > 255
+        && dst_len > SHA256_MAX_MESSAGE_BYTES - XMD_OVERSIZE_DST_PREFIX_BYTES
+    {
+        return false;
+    }
+
+    let normalized_dst_len = if dst_len > 255 { 32 } else { dst_len };
+    msg_len
+        <= SHA256_MAX_MESSAGE_BYTES - XMD_B0_FIXED_BYTES - normalized_dst_len
+}
+
+fn checked_xmd_input_lengths(msg_len: usize, dst_len: usize) {
+    assert!(
+        xmd_input_lengths_valid(msg_len, dst_len),
+        "message or DST exceeds the SHA-256 input domain"
+    );
+}
+
 impl blst_p1 {
     /// Multiplies this previously validated G1 element by `scalar mod r`.
     ///
-    /// This method does not validate that `self` is on-curve and in the
-    /// prime-order subgroup. Canonical scalars are handled in constant time for
-    /// fixed public `nbits`; noncanonical inputs are accepted, but timing may
-    /// reveal that reduction was required.
+    /// `scalar` is an unsigned little-endian bit string with exactly the lowest
+    /// `nbits` meaningful; any remaining bytes or high bits are ignored. This
+    /// method does not validate that `self` is on-curve and in the prime-order
+    /// subgroup. Canonical scalars are handled in constant time for fixed public
+    /// `nbits`; noncanonical inputs are accepted, but timing may reveal that
+    /// reduction was required. The result is a G1 subgroup element.
     ///
     /// # Panics
     ///
     /// Panics when `nbits > 256` or `scalar` is shorter than
     /// `ceil(nbits / 8)` bytes.
+    #[must_use]
     pub fn mult(&self, scalar: &[u8], nbits: usize) -> Self {
         checked_scalar_bits(scalar, nbits);
         let mut out = MaybeUninit::<Self>::uninit();
@@ -47,12 +73,16 @@ impl blst_p1 {
 
     /// Optimized variable-time subgroup multiplication for public scalars.
     ///
-    /// `self` must already be a validated prime-order G1 element. This method
-    /// does not validate membership and must not be used with a secret scalar.
+    /// `scalar` is an unsigned little-endian bit string with exactly the lowest
+    /// `nbits` meaningful and is interpreted modulo r. `self` must already be a
+    /// validated prime-order G1 element. This method does not validate
+    /// membership and must not be used with a secret scalar. The result is a G1
+    /// subgroup element.
     ///
     /// # Panics
     ///
     /// Panics when `nbits > 256` or `scalar` is too short.
+    #[must_use]
     pub fn mult_vartime(&self, scalar: &[u8], nbits: usize) -> Self {
         checked_scalar_bits(scalar, nbits);
         let mut out = MaybeUninit::<Self>::uninit();
@@ -71,11 +101,14 @@ impl blst_p1 {
     /// an on-curve point that need not belong to G1.
     ///
     /// This method performs no curve validation and applies the exact unsigned
-    /// scalar rather than reducing it as part of a subgroup contract.
+    /// little-endian scalar represented by the lowest `nbits`, rather than
+    /// reducing it as part of a subgroup contract. The output is on-curve but
+    /// is a G1 subgroup element only when the input was already in G1.
     ///
     /// # Panics
     ///
     /// Panics when `nbits > 256` or `scalar` is too short.
+    #[must_use]
     pub fn unchecked_mult(&self, scalar: &[u8], nbits: usize) -> Self {
         checked_scalar_bits(scalar, nbits);
         let mut out = MaybeUninit::<Self>::uninit();
@@ -94,15 +127,18 @@ impl blst_p1 {
 impl blst_p2 {
     /// Multiplies this previously validated G2 element by `scalar mod r`.
     ///
-    /// This method does not validate that `self` is on-curve and in the
-    /// prime-order subgroup. Canonical scalars are handled in constant time for
-    /// fixed public `nbits`; noncanonical inputs are accepted, but timing may
-    /// reveal that reduction was required.
+    /// `scalar` is an unsigned little-endian bit string with exactly the lowest
+    /// `nbits` meaningful; any remaining bytes or high bits are ignored. This
+    /// method does not validate that `self` is on-curve and in the prime-order
+    /// subgroup. Canonical scalars are handled in constant time for fixed public
+    /// `nbits`; noncanonical inputs are accepted, but timing may reveal that
+    /// reduction was required. The result is a G2 subgroup element.
     ///
     /// # Panics
     ///
     /// Panics when `nbits > 256` or `scalar` is shorter than
     /// `ceil(nbits / 8)` bytes.
+    #[must_use]
     pub fn mult(&self, scalar: &[u8], nbits: usize) -> Self {
         checked_scalar_bits(scalar, nbits);
         let mut out = MaybeUninit::<Self>::uninit();
@@ -114,12 +150,16 @@ impl blst_p2 {
 
     /// Optimized variable-time subgroup multiplication for public scalars.
     ///
-    /// `self` must already be a validated prime-order G2 element. This method
-    /// does not validate membership and must not be used with a secret scalar.
+    /// `scalar` is an unsigned little-endian bit string with exactly the lowest
+    /// `nbits` meaningful and is interpreted modulo r. `self` must already be a
+    /// validated prime-order G2 element. This method does not validate
+    /// membership and must not be used with a secret scalar. The result is a G2
+    /// subgroup element.
     ///
     /// # Panics
     ///
     /// Panics when `nbits > 256` or `scalar` is too short.
+    #[must_use]
     pub fn mult_vartime(&self, scalar: &[u8], nbits: usize) -> Self {
         checked_scalar_bits(scalar, nbits);
         let mut out = MaybeUninit::<Self>::uninit();
@@ -138,11 +178,14 @@ impl blst_p2 {
     /// an on-curve point that need not belong to G2.
     ///
     /// This method performs no curve validation and applies the exact unsigned
-    /// scalar rather than reducing it as part of a subgroup contract.
+    /// little-endian scalar represented by the lowest `nbits`, rather than
+    /// reducing it as part of a subgroup contract. The output is on-curve but
+    /// is a G2 subgroup element only when the input was already in G2.
     ///
     /// # Panics
     ///
     /// Panics when `nbits > 256` or `scalar` is too short.
+    #[must_use]
     pub fn unchecked_mult(&self, scalar: &[u8], nbits: usize) -> Self {
         checked_scalar_bits(scalar, nbits);
         let mut out = MaybeUninit::<Self>::uninit();
@@ -186,18 +229,31 @@ impl PartialEq for blst_p2_affine {
     }
 }
 
+/// Returns the multiplicative identity of Fp12, which is also the GT identity.
+///
+/// This is intentionally not the additive zero normally associated with a
+/// field type's `Default` implementation; existing BLST-compatible code uses
+/// it as the identity accumulator for products of Miller-loop values.
 impl Default for blst_fp12 {
     fn default() -> Self {
         unsafe { *blst_fp12_one() }
     }
 }
 
+/// Equality of reduced Montgomery-form Fp12 values.
+///
+/// This compares field representations and performs no reduction, validity, or
+/// GT-membership check.
 impl PartialEq for blst_fp12 {
     fn eq(&self, other: &Self) -> bool {
         unsafe { blst_fp12_is_equal(self, other) }
     }
 }
 
+/// General Fp12 multiplication over reduced Montgomery-form coefficients.
+///
+/// Neither operand need lie in GT, and the operation does not establish GT
+/// membership. Use [`blst_fp12::gt_mult`] for scalar multiplication in GT.
 impl core::ops::Mul for blst_fp12 {
     type Output = Self;
 
@@ -210,6 +266,11 @@ impl core::ops::Mul for blst_fp12 {
     }
 }
 
+/// In-place general Fp12 multiplication over reduced Montgomery-form
+/// coefficients.
+///
+/// The exact output/input alias is supported by the native boundary. Neither
+/// operand need lie in GT, and the operation does not establish GT membership.
 impl core::ops::MulAssign for blst_fp12 {
     fn mul_assign(&mut self, other: Self) {
         unsafe { blst_fp12_mul(self, self, &other) }
@@ -219,14 +280,17 @@ impl core::ops::MulAssign for blst_fp12 {
 impl blst_fp12 {
     /// Multiplies this GT element by `scalar mod r`.
     ///
-    /// `self` must already lie in GT; storage and this method do not validate
+    /// `scalar` is an unsigned little-endian bit string with exactly the lowest
+    /// `nbits` meaningful; any remaining bytes or high bits are ignored. `self`
+    /// must already lie in GT; storage and this method do not validate
     /// membership. Canonical scalars are handled in constant time for fixed
     /// public `nbits`. Noncanonical inputs are accepted, but timing may reveal
-    /// that reduction was required.
+    /// that reduction was required. The result lies in GT.
     ///
     /// # Panics
     ///
     /// Panics when `nbits > 256` or `scalar` is too short.
+    #[must_use]
     pub fn gt_mult(&self, scalar: &[u8], nbits: usize) -> Self {
         checked_scalar_bits(scalar, nbits);
         let mut out = MaybeUninit::<Self>::uninit();
@@ -238,12 +302,15 @@ impl blst_fp12 {
 
     /// Optimized variable-time GT multiplication for public scalars only.
     ///
-    /// `self` must already lie in GT. This method does not validate membership
-    /// and must not be used with a secret scalar.
+    /// `scalar` is an unsigned little-endian bit string with exactly the lowest
+    /// `nbits` meaningful and is interpreted modulo r. `self` must already lie
+    /// in GT. This method does not validate membership and must not be used with
+    /// a secret scalar. The result lies in GT.
     ///
     /// # Panics
     ///
     /// Panics when `nbits > 256` or `scalar` is too short.
+    #[must_use]
     pub fn gt_mult_vartime(&self, scalar: &[u8], nbits: usize) -> Self {
         checked_scalar_bits(scalar, nbits);
         let mut out = MaybeUninit::<Self>::uninit();
@@ -258,11 +325,13 @@ impl blst_fp12 {
         }
     }
 
-    /// Computes one Miller loop from valid on-curve affine inputs.
+    /// Computes one Miller loop from previously validated subgroup inputs.
     ///
-    /// The inputs need not be subgroup elements for the formula itself, but
-    /// this method performs no curve or subgroup validation. The result is a
-    /// general non-final-exponentiated Fp12 value, not yet a GT element.
+    /// `q` must be a G2 subgroup point and `p` a G1 subgroup point. This method
+    /// performs no curve or subgroup validation, and behavior for non-subgroup
+    /// inputs is not promised. The result is a general
+    /// non-final-exponentiated Fp12 Miller value, not yet a GT element.
+    #[must_use]
     pub fn miller_loop(q: &blst_p2_affine, p: &blst_p1_affine) -> Self {
         let mut out = MaybeUninit::<blst_fp12>::uninit();
         unsafe {
@@ -273,12 +342,15 @@ impl blst_fp12 {
 
     /// Computes the product of Miller loops over paired affine slices.
     ///
-    /// Every input must be a valid on-curve affine point. No curve or subgroup
-    /// validation is performed. Empty slices return the Fp12 identity.
+    /// Every `q` input must be a previously validated G2 subgroup point and
+    /// every `p` input a previously validated G1 subgroup point. No curve or
+    /// subgroup validation is performed, and behavior for non-subgroup inputs
+    /// is not promised. Empty slices return the Fp12 multiplicative identity.
     ///
     /// # Panics
     ///
     /// Panics when `q.len() != p.len()`.
+    #[must_use]
     pub fn miller_loop_n(q: &[blst_p2_affine], p: &[blst_p1_affine]) -> Self {
         let n_elems = q.len();
         if n_elems != p.len() {
@@ -300,6 +372,7 @@ impl blst_fp12 {
     ///
     /// The result lies in GT. Zero is outside the supported domain and is not
     /// reported through a `Result`.
+    #[must_use]
     pub fn final_exp(&self) -> Self {
         let mut out = MaybeUninit::<blst_fp12>::uninit();
         unsafe {
@@ -309,6 +382,7 @@ impl blst_fp12 {
     }
 
     /// Returns `true` when this general Fp12 value lies in GT.
+    #[must_use]
     pub fn in_group(&self) -> bool {
         unsafe { blst_fp12_in_group(self) }
     }
@@ -319,11 +393,16 @@ impl blst_fp12 {
     /// The raw `blst_fp12` storage does not encode that domain, and this method
     /// performs no independent input validation. Callers should normally pass
     /// values returned by [`Self::miller_loop`] or [`Self::miller_loop_n`].
+    #[must_use]
     pub fn finalverify(a: &Self, b: &Self) -> bool {
         unsafe { blst_fp12_finalverify(a, b) }
     }
 
-    /// Serializes this Fp12 value into its big-endian 576-byte encoding.
+    /// Serializes this reduced Montgomery-form Fp12 value into its canonical
+    /// big-endian 576-byte coefficient encoding.
+    ///
+    /// This accepts a general Fp12 value and performs no GT-membership check.
+    #[must_use]
     pub fn to_bendian(&self) -> [u8; 48 * 12] {
         let mut out = MaybeUninit::<[u8; 48 * 12]>::uninit();
         unsafe {
@@ -339,8 +418,15 @@ impl blst_scalar {
     /// canonical nonzero scalar.
     ///
     /// Returns `None` only when the reduced scalar is zero. The temporary XMD
-    /// output is erased before return. This function allocates no storage.
+    /// output is erased before return. This function performs no heap
+    /// allocation.
+    ///
+    /// # Panics
+    ///
+    /// Panics when `msg` or `dst` is too long for SHA-256's fewer-than-2^64-bit
+    /// message domain, including XMD's fixed transcript bytes.
     pub fn hash_to(msg: &[u8], dst: &[u8]) -> Option<Self> {
+        checked_xmd_input_lengths(msg.len(), dst.len());
         unsafe {
             let mut out = <Self>::default();
             let mut elem = [0u8; 48];
@@ -391,6 +477,45 @@ mod tests {
                 0xbc, 0xb2, 0x2e, 0xc5, 0xe9, 0x45, 0x50, 0x81, 0xc4, 0x8b,
                 0xc0, 0x07,
             ]
+        );
+    }
+
+    #[test]
+    fn xmd_input_domain_boundaries_are_exact() {
+        assert!(xmd_input_lengths_valid(
+            SHA256_MAX_MESSAGE_BYTES - XMD_B0_FIXED_BYTES,
+            0
+        ));
+        assert!(!xmd_input_lengths_valid(
+            SHA256_MAX_MESSAGE_BYTES - XMD_B0_FIXED_BYTES + 1,
+            0
+        ));
+        assert!(xmd_input_lengths_valid(
+            SHA256_MAX_MESSAGE_BYTES - XMD_B0_FIXED_BYTES - 255,
+            255
+        ));
+        assert!(!xmd_input_lengths_valid(
+            SHA256_MAX_MESSAGE_BYTES - XMD_B0_FIXED_BYTES - 255 + 1,
+            255
+        ));
+        assert!(xmd_input_lengths_valid(
+            0,
+            SHA256_MAX_MESSAGE_BYTES - XMD_OVERSIZE_DST_PREFIX_BYTES
+        ));
+        assert!(!xmd_input_lengths_valid(
+            0,
+            SHA256_MAX_MESSAGE_BYTES - XMD_OVERSIZE_DST_PREFIX_BYTES + 1
+        ));
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "message or DST exceeds the SHA-256 input domain"
+    )]
+    fn checked_xmd_input_domain_rejects_oversize_message() {
+        checked_xmd_input_lengths(
+            SHA256_MAX_MESSAGE_BYTES - XMD_B0_FIXED_BYTES + 1,
+            0,
         );
     }
 
