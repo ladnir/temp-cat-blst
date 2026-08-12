@@ -3,6 +3,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Expert AVX ABI bindings.
+//!
+//! The `b` fields below are public for raw FFI compatibility, not because the
+//! byte representation is a supported serialization format. Library-produced
+//! values and exact copies may be passed back to CatBLST. Inspecting or
+//! modifying the bytes requires understanding the selected AVX representation;
+//! arbitrary contents need not satisfy the bounds or algebraic preconditions
+//! of any operation other than an explicitly documented validator.
 
 use crate::*;
 use alloc::vec::Vec;
@@ -12,30 +19,35 @@ use core::ptr;
 #[repr(C, align(64))]
 #[derive(Copy, Clone)]
 pub struct blst_avx_p1 {
+    /// Opaque expert-ABI storage. Do not inspect or modify casually.
     pub b: [blst_byte; 384],
 }
 
 #[repr(C, align(64))]
 #[derive(Copy, Clone)]
 pub struct blst_avx_p1_affine {
+    /// Opaque expert-ABI storage. Do not inspect or modify casually.
     pub b: [blst_byte; 256],
 }
 
 #[repr(C, align(64))]
 #[derive(Copy, Clone)]
 pub struct blst_avx_p2 {
+    /// Opaque expert-ABI storage. Do not inspect or modify casually.
     pub b: [blst_byte; 768],
 }
 
 #[repr(C, align(64))]
 #[derive(Copy, Clone)]
 pub struct blst_avx_p2_affine {
+    /// Opaque expert-ABI storage. Do not inspect or modify casually.
     pub b: [blst_byte; 512],
 }
 
 #[repr(C, align(64))]
 #[derive(Copy, Clone)]
 pub struct blst_avx_fp12 {
+    /// Opaque expert-ABI storage. Do not inspect or modify casually.
     pub b: [blst_byte; 1536],
 }
 
@@ -68,15 +80,18 @@ unsafe extern "C" fn copy_batch_membership_seed(
 /// after the batch is fixed. Under the SHA-256 PRF assumption, the randomized
 /// check targets a false-accept probability below 2^-128. The seed is erased
 /// from this function's local storage before return. Empty input succeeds
-/// without consulting the seed when the AVX backend is available.
+/// without consulting the seed when the AVX backend is available. Pointer-list
+/// allocation failure returns `false` rather than panicking.
 pub fn avx_p1s_in_g1(
     points: &[&blst_avx_p1],
     mut random_seed: [blst_byte; 32],
 ) -> bool {
-    let pointers: Vec<*const blst_avx_p1> = points
-        .iter()
-        .map(|point| *point as *const blst_avx_p1)
-        .collect();
+    let mut pointers = Vec::new();
+    if pointers.try_reserve_exact(points.len()).is_err() {
+        random_seed.zeroize();
+        return false;
+    }
+    pointers.extend(points.iter().map(|point| *point as *const blst_avx_p1));
     let accepted = unsafe {
         blst_avx_p1s_in_g1(
             pointers.as_ptr(),
@@ -97,10 +112,12 @@ pub fn avx_p2s_in_g2(
     points: &[&blst_avx_p2],
     mut random_seed: [blst_byte; 32],
 ) -> bool {
-    let pointers: Vec<*const blst_avx_p2> = points
-        .iter()
-        .map(|point| *point as *const blst_avx_p2)
-        .collect();
+    let mut pointers = Vec::new();
+    if pointers.try_reserve_exact(points.len()).is_err() {
+        random_seed.zeroize();
+        return false;
+    }
+    pointers.extend(points.iter().map(|point| *point as *const blst_avx_p2));
     let accepted = unsafe {
         blst_avx_p2s_in_g2(
             pointers.as_ptr(),
@@ -175,11 +192,9 @@ impl core::fmt::Debug for blst_avx_fp12 {
 
 impl PartialEq for blst_avx_p1 {
     fn eq(&self, other: &Self) -> bool {
-        unsafe { blst_avx_p1_is_equal(self, other) }
+        self.b == other.b
     }
 }
-
-impl Eq for blst_avx_p1 {}
 
 impl PartialEq for blst_avx_p1_affine {
     fn eq(&self, other: &Self) -> bool {
@@ -187,15 +202,11 @@ impl PartialEq for blst_avx_p1_affine {
     }
 }
 
-impl Eq for blst_avx_p1_affine {}
-
 impl PartialEq for blst_avx_p2 {
     fn eq(&self, other: &Self) -> bool {
-        unsafe { blst_avx_p2_is_equal(self, other) }
+        self.b == other.b
     }
 }
-
-impl Eq for blst_avx_p2 {}
 
 impl PartialEq for blst_avx_p2_affine {
     fn eq(&self, other: &Self) -> bool {
@@ -203,15 +214,11 @@ impl PartialEq for blst_avx_p2_affine {
     }
 }
 
-impl Eq for blst_avx_p2_affine {}
-
 impl PartialEq for blst_avx_fp12 {
     fn eq(&self, other: &Self) -> bool {
-        unsafe { blst_avx_fp12_is_equal(self, other) }
+        self.b == other.b
     }
 }
-
-impl Eq for blst_avx_fp12 {}
 
 extern "C" {
     pub fn blst_avx_enabled() -> bool;
@@ -230,6 +237,14 @@ extern "C" {
         out: *mut blst_avx_p1,
         a: *const blst_avx_p1,
         b: *const blst_avx_p1,
+    ) -> bool;
+    pub fn blst_avx_p1_from_scalar(
+        out: *mut blst_avx_p1,
+        input: *const blst_p1,
+    ) -> bool;
+    pub fn blst_p1_from_avx(
+        out: *mut blst_p1,
+        input: *const blst_avx_p1,
     ) -> bool;
     pub fn blst_avx_p1_mult(
         out: *mut blst_avx_p1,
@@ -363,6 +378,26 @@ extern "C" {
         a: *const blst_avx_p2,
         b: *const blst_avx_p2,
     ) -> bool;
+    pub fn blst_avx_p2_from_scalar(
+        out: *mut blst_avx_p2,
+        input: *const blst_p2,
+    ) -> bool;
+    pub fn blst_p2_from_avx(
+        out: *mut blst_p2,
+        input: *const blst_avx_p2,
+    ) -> bool;
+    pub fn blst_avx_p2_affine_from_scalar(
+        out: *mut blst_avx_p2_affine,
+        input: *const blst_p2_affine,
+    ) -> bool;
+    pub fn blst_p2_affine_from_avx(
+        out: *mut blst_p2_affine,
+        input: *const blst_avx_p2_affine,
+    ) -> bool;
+    pub fn blst_avx_p2_from_affine(
+        out: *mut blst_avx_p2,
+        input: *const blst_avx_p2_affine,
+    ) -> bool;
     pub fn blst_avx_p2_cneg(p: *mut blst_avx_p2, cbit: bool) -> bool;
     pub fn blst_avx_p2_batch_subgroup_check(
         points: *const *const blst_avx_p2,
@@ -447,6 +482,21 @@ extern "C" {
         out: *mut blst_fp12,
         input: *const blst_avx_fp12,
     ) -> bool;
+    pub fn blst_avx_fp12_mul(
+        out: *mut blst_avx_fp12,
+        a: *const blst_avx_fp12,
+        b: *const blst_avx_fp12,
+    ) -> bool;
+    pub fn blst_avx_fp12_sqr(
+        out: *mut blst_avx_fp12,
+        input: *const blst_avx_fp12,
+    ) -> bool;
+    pub fn blst_avx_fp12_final_exp(
+        out: *mut blst_avx_fp12,
+        input: *const blst_avx_fp12,
+    ) -> bool;
+    pub fn blst_avx_fp12_in_group(input: *const blst_avx_fp12) -> bool;
+    pub fn blst_avx_fp12_one() -> *const blst_avx_fp12;
     pub fn blst_avx_gt_mult_pippenger_scratch_sizeof(npoints: usize) -> usize;
     pub fn blst_avx_gt_mult_pippenger_bucket_used_scratch_sizeof(
         npoints: usize,
@@ -473,6 +523,7 @@ pub enum AvxMsmError {
     AvxUnavailable,
     ScalarLengthMismatch,
     ScratchSizeOverflow,
+    AllocationFailed,
     ConversionFailed,
     BackendFailure,
 }
@@ -487,7 +538,9 @@ fn avx_fp12_storage_len(bytes: usize) -> usize {
 ///
 /// Every point must already be a GT element; this function does not validate
 /// membership. `scalars` must contain exactly one 256-bit little-endian scalar
-/// per point. Scalar contents are public and are interpreted modulo r.
+/// per point. Scalar contents are public and are interpreted modulo r. Debug
+/// builds assert GT membership before entering the native backend. Temporary
+/// allocation failure is reported as [`AvxMsmError::AllocationFailed`].
 pub fn gt_msm(
     points: &[blst_fp12],
     scalars: &[u8],
@@ -504,11 +557,22 @@ pub fn gt_msm(
         return Err(AvxMsmError::AvxUnavailable);
     }
 
-    if points.is_empty() {
-        return Ok(blst_fp12::default());
+    #[cfg(debug_assertions)]
+    for point in points {
+        debug_assert!(
+            unsafe { blst_fp12_in_group(point) },
+            "gt_msm requires every input to be a validated GT element"
+        );
     }
 
-    let mut avx_points = Vec::with_capacity(points.len());
+    if points.is_empty() {
+        return Ok(unsafe { *blst_gt_identity() });
+    }
+
+    let mut avx_points = Vec::new();
+    avx_points
+        .try_reserve_exact(points.len())
+        .map_err(|_| AvxMsmError::AllocationFailed)?;
     for point in points {
         let mut avx_point = MaybeUninit::<blst_avx_fp12>::uninit();
         let ok =
@@ -531,10 +595,14 @@ pub fn gt_msm(
     let scratch_len = avx_fp12_storage_len(scratch_bytes);
     // The foreign call owns these temporary writes. Keep the Rust lengths at
     // zero so no uninitialized element is ever claimed as an initialized value.
-    let mut scratch =
-        Vec::<MaybeUninit<blst_avx_fp12>>::with_capacity(scratch_len);
-    let mut bucket_used =
-        Vec::<MaybeUninit<u8>>::with_capacity(bucket_used_bytes);
+    let mut scratch = Vec::<MaybeUninit<blst_avx_fp12>>::new();
+    scratch
+        .try_reserve_exact(scratch_len)
+        .map_err(|_| AvxMsmError::AllocationFailed)?;
+    let mut bucket_used = Vec::<MaybeUninit<u8>>::new();
+    bucket_used
+        .try_reserve_exact(bucket_used_bytes)
+        .map_err(|_| AvxMsmError::AllocationFailed)?;
 
     let mut avx_out = MaybeUninit::<blst_avx_fp12>::uninit();
     let ok = unsafe {
@@ -584,10 +652,6 @@ mod tests {
 
     #[test]
     fn rust_layout_matches_avx_abi() {
-        if unsafe { !blst_avx_enabled() } {
-            return;
-        }
-
         assert_eq!(core::mem::size_of::<blst_avx_p1>(), unsafe {
             blst_avx_p1_sizeof()
         });
@@ -595,12 +659,26 @@ mod tests {
             core::mem::align_of::<blst_avx_p1>()
                 >= unsafe { blst_avx_p1_alignof() }
         );
+        assert_eq!(core::mem::size_of::<blst_avx_p1_affine>(), unsafe {
+            blst_avx_p1_affine_sizeof()
+        });
+        assert!(
+            core::mem::align_of::<blst_avx_p1_affine>()
+                >= unsafe { blst_avx_p1_affine_alignof() }
+        );
         assert_eq!(core::mem::size_of::<blst_avx_p2>(), unsafe {
             blst_avx_p2_sizeof()
         });
         assert!(
             core::mem::align_of::<blst_avx_p2>()
                 >= unsafe { blst_avx_p2_alignof() }
+        );
+        assert_eq!(core::mem::size_of::<blst_avx_p2_affine>(), unsafe {
+            blst_avx_p2_affine_sizeof()
+        });
+        assert!(
+            core::mem::align_of::<blst_avx_p2_affine>()
+                >= unsafe { blst_avx_p2_affine_alignof() }
         );
         assert_eq!(core::mem::size_of::<blst_avx_fp12>(), unsafe {
             blst_avx_fp12_sizeof()
@@ -633,5 +711,40 @@ mod tests {
         scalars[32] = 5;
 
         assert_eq!(gt_msm(&points, &scalars).unwrap(), identity);
+    }
+
+    #[test]
+    fn gt_msm_empty_returns_identity() {
+        if unsafe { !blst_avx_enabled() } {
+            return;
+        }
+
+        assert_eq!(gt_msm(&[], &[]).unwrap(), unsafe { *blst_gt_identity() });
+    }
+
+    #[test]
+    fn opaque_equality_is_backend_independent_storage_equality() {
+        let p1 = blst_avx_p1::default();
+        let p2 = blst_avx_p2::default();
+        let fp12 = blst_avx_fp12::default();
+        assert_eq!(p1, p1);
+        assert_eq!(p2, p2);
+        assert_eq!(fp12, fp12);
+
+        let mut different = fp12;
+        different.b[0] = 1;
+        assert_ne!(fp12, different);
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    fn gt_msm_debug_diagnoses_non_gt_input() {
+        if unsafe { !blst_avx_enabled() } {
+            return;
+        }
+
+        let invalid: blst_fp12 = unsafe { core::mem::zeroed() };
+        let result = std::panic::catch_unwind(|| gt_msm(&[invalid], &[0; 32]));
+        assert!(result.is_err());
     }
 }

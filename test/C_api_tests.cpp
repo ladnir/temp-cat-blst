@@ -1104,13 +1104,38 @@ TEST(CApi, AvxExpertFp12RoundTripAndOps)
     BlstAvxFp12 avx_miller = {};
     BlstAvxFp12 avx_expected = {};
     BlstAvxFp12 avx_product = {};
+    BlstAvxFp12 avx_square = {};
     BoundaryGt roundtrip = {};
     BoundaryGt scalar_product = {};
+    BoundaryGt scalar_square = {};
     ASSERT_TRUE(blst_avx_fp12_from_scalar(&avx_miller, &miller));
+    ASSERT_FALSE(blst_fp12_in_group(&miller));
+
+    blst_fp12_sqr(&scalar_square, &miller);
+    ASSERT_TRUE(blst_avx_fp12_sqr(&avx_square, &avx_miller));
+    ASSERT_TRUE(blst_fp12_from_avx(&roundtrip, &avx_square));
+    EXPECT_TRUE(BoundaryGt::equal(roundtrip, scalar_square));
+
+    avx_product = avx_miller;
+    ASSERT_TRUE(blst_avx_fp12_mul(&avx_product, &avx_product, &avx_miller));
+    ASSERT_TRUE(blst_fp12_from_avx(&roundtrip, &avx_product));
+    EXPECT_TRUE(BoundaryGt::equal(roundtrip, scalar_square));
+
+    avx_square = avx_miller;
+    ASSERT_TRUE(blst_avx_fp12_sqr(&avx_square, &avx_square));
+    ASSERT_TRUE(blst_fp12_from_avx(&roundtrip, &avx_square));
+    EXPECT_TRUE(BoundaryGt::equal(roundtrip, scalar_square));
+
     ASSERT_TRUE(blst_avx_fp12_final_exp(&avx_expected, &avx_miller));
     ASSERT_TRUE(blst_fp12_from_avx(&roundtrip, &avx_expected));
     EXPECT_TRUE(BoundaryGt::equal(roundtrip, expected));
     EXPECT_TRUE(blst_avx_fp12_in_group(&avx_expected));
+
+    avx_miller = {};
+    ASSERT_TRUE(blst_avx_fp12_from_scalar(&avx_miller, &miller));
+    ASSERT_TRUE(blst_avx_fp12_final_exp(&avx_miller, &avx_miller));
+    ASSERT_TRUE(blst_fp12_from_avx(&roundtrip, &avx_miller));
+    EXPECT_TRUE(BoundaryGt::equal(roundtrip, expected));
 
     const auto* avx_one = blst_avx_fp12_one();
     ASSERT_NE(avx_one, nullptr);

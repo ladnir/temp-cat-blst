@@ -52,21 +52,17 @@ static_assert(BLST_AVX_ALIGNMENT >= alignof(AvxG2));
 static_assert(BLST_AVX_P2_AFFINE_SIZE == sizeof(AvxG2Affine));
 static_assert(BLST_AVX_ALIGNMENT >= alignof(AvxG2Affine));
 static_assert(BLST_AVX_FP12_SIZE == sizeof(AvxGt));
-static_assert(sizeof(AvxMillerResult) == sizeof(AvxGt));
-static_assert(alignof(AvxMillerResult) == alignof(AvxGt));
 static_assert(BLST_AVX_ALIGNMENT >= alignof(AvxGt));
 static_assert(std::is_standard_layout_v<AvxG1>);
 static_assert(std::is_standard_layout_v<AvxG1Affine>);
 static_assert(std::is_standard_layout_v<AvxG2>);
 static_assert(std::is_standard_layout_v<AvxG2Affine>);
 static_assert(std::is_standard_layout_v<AvxGt>);
-static_assert(std::is_standard_layout_v<AvxMillerResult>);
 static_assert(std::is_trivially_copyable_v<AvxG1>);
 static_assert(std::is_trivially_copyable_v<AvxG1Affine>);
 static_assert(std::is_trivially_copyable_v<AvxG2>);
 static_assert(std::is_trivially_copyable_v<AvxG2Affine>);
 static_assert(std::is_trivially_copyable_v<AvxGt>);
-static_assert(std::is_trivially_copyable_v<AvxMillerResult>);
 static_assert(std::is_same_v<blst_avx_p1, AvxG1>);
 static_assert(std::is_same_v<blst_avx_p1_affine, AvxG1Affine>);
 static_assert(std::is_same_v<blst_avx_p2, AvxG2>);
@@ -129,11 +125,6 @@ inline AvxGt* as_avx(blst_avx_fp12* value)
 inline const AvxGt* as_avx(const blst_avx_fp12* value)
 {
     return reinterpret_cast<const AvxGt*>(value);
-}
-
-inline const AvxMillerResult* as_miller(const blst_avx_fp12* value)
-{
-    return reinterpret_cast<const AvxMillerResult*>(value);
 }
 
 template<typename Point>
@@ -697,6 +688,27 @@ inline AvxGt scalar_fp12_to_avx(const ScalarFp12& value)
 inline ScalarFp12 avx_fp12_to_scalar(const AvxGt& value)
 {
     return blst::avx::avx_gt_detail::to_scalar(value.data);
+}
+
+inline void avx_fp12_mul(
+    AvxGt& out, const AvxGt& a, const AvxGt& b)
+{
+    out.data = blst::avx::avx_gt_detail::fp12ring().fp12_flat_mul(
+        a.data, b.data, blst::avx::avx_gt_detail::ring());
+}
+
+inline void avx_fp12_sqr(AvxGt& out, const AvxGt& a)
+{
+    out.data = blst::avx::avx_gt_detail::fp12ring().fp12_flat_sqr(
+        a.data, blst::avx::avx_gt_detail::ring());
+}
+
+inline void avx_fp12_final_exp(AvxGt& out, const AvxGt& a)
+{
+    blst::avx::matrixnok::PairingInverter inverter;
+    out.data = blst::avx::final_exp(
+        a.data, inverter, blst::avx::avx_gt_detail::fp12ring(),
+        blst::avx::avx_gt_detail::ring());
 }
 #endif
 
@@ -1884,7 +1896,7 @@ bool blst_avx_fp12_mul(blst_avx_fp12* ret, const blst_avx_fp12* a, const blst_av
     if (ret == nullptr || a == nullptr || b == nullptr) {
         return false;
     }
-    AvxGt::add(*as_avx(ret), *as_avx(a), *as_avx(b));
+    avx_fp12_mul(*as_avx(ret), *as_avx(a), *as_avx(b));
     return true;
 #else
     (void)ret;
@@ -1900,7 +1912,7 @@ bool blst_avx_fp12_sqr(blst_avx_fp12* ret, const blst_avx_fp12* a)
     if (ret == nullptr || a == nullptr) {
         return false;
     }
-    AvxGt::doubling(*as_avx(ret), *as_avx(a));
+    avx_fp12_sqr(*as_avx(ret), *as_avx(a));
     return true;
 #else
     (void)ret;
@@ -2004,7 +2016,7 @@ bool blst_avx_fp12_final_exp(blst_avx_fp12* ret, const blst_avx_fp12* a)
     if (ret == nullptr || a == nullptr) {
         return false;
     }
-    AvxGt::final_exp(*as_avx(ret), *as_miller(a));
+    avx_fp12_final_exp(*as_avx(ret), *as_avx(a));
     return true;
 #else
     (void)ret;

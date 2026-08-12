@@ -959,3 +959,12 @@ allocation, and derive inverse scale from the owned roots. The Release hot path
 is unchanged. Four focused portable-AVX Debug tests, the MatrixNoK dispatch
 gate, and all 21 proof rows/61 hashes pass. No benchmark, CUDA, portable-AVX
 Release, full suite, sanitizer, remote, Apple, or BTx/BTE audit/change ran.
+
+Phase 18 expert AVX remediation is implemented in the worktree. `AUD-316`
+through `AUD-323` cover final-exponent object identity, generic Fp12 routing,
+the safe Rust GT precondition, opaque equality, fallible allocation, complete
+77/77 raw declarations, externally used GLV hook retention, and empty GT-MSM
+identity. Focused portable-AVX Debug C++ tests pass 2/2; Rust AVX tests pass 7/7
+and the non-AVX equality test passes 1/1. Strict C11/C++20 header parsing,
+MatrixNoK dispatch, audit manifests, and 21 proof rows/61 hashes pass. Exact
+reviewed commits remain pending; no benchmark or broad/platform sweep ran.

@@ -912,4 +912,84 @@ TEST(AvxCApiContract, GTNameMatchesScalarBackend)
     EXPECT_TRUE(blst_gt_is_equal(&actual, &expected));
 }
 
+TEST(AvxCApiContract, RetainedG1GlvScratchAndWindowHooksMatchScalar)
+{
+    ASSERT_TRUE(blst_avx_enabled());
+
+    constexpr size_t kCount = 2;
+    std::array<blst_avx_p1_affine, kCount> points = {};
+    for (auto& point : points) {
+        ASSERT_TRUE(blst_avx_p1_to_affine(
+            &point, blst_avx_p1_generator()));
+    }
+
+    std::array<blst_byte, 32 * kCount> scalars = {};
+    scalars[0] = 3;
+    scalars[32] = 5;
+
+    const size_t bucket_bytes =
+        blst_avx_p1_mult_pippenger_scratch_sizeof(kCount);
+    const size_t bucket_used_bytes =
+        blst_avx_p1_mult_pippenger_bucket_used_scratch_sizeof(kCount);
+    const size_t split_points_bytes =
+        blst_avx_p1_mult_pippenger_glv_points_scratch_sizeof(kCount);
+    const size_t split_scalars_bytes =
+        blst_avx_p1_mult_pippenger_glv_scalars_scratch_sizeof(kCount);
+    ASSERT_GT(bucket_bytes, 0u);
+    ASSERT_GT(bucket_used_bytes, 0u);
+    ASSERT_EQ(split_points_bytes,
+        2 * kCount * sizeof(blst_avx_p1_affine));
+    ASSERT_EQ(split_scalars_bytes, kCount * 32);
+
+    std::vector<blst_avx_p1> buckets(
+        (bucket_bytes + sizeof(blst_avx_p1) - 1) /
+        sizeof(blst_avx_p1));
+    std::vector<blst_byte> bucket_used(bucket_used_bytes);
+    std::vector<blst_avx_p1_affine> split_points(
+        split_points_bytes / sizeof(blst_avx_p1_affine));
+    std::vector<blst_byte> split_scalars(split_scalars_bytes);
+
+    blst_avx_p1 automatic = {};
+    ASSERT_TRUE(blst_avx_p1_mult_pippenger_glv_with_scratch(
+        &automatic, points.data(), scalars.data(), kCount,
+        buckets.data(), buckets.size() * sizeof(blst_avx_p1),
+        bucket_used.data(), bucket_used.size(),
+        split_points.data(), split_points_bytes,
+        split_scalars.data(), split_scalars.size()));
+
+    constexpr size_t kWindow = 4;
+    const size_t window_bucket_bytes =
+        blst_avx_p1_mult_pippenger_glv_window_scratch_sizeof(
+            kCount, kWindow);
+    const size_t window_bucket_used_bytes =
+        blst_avx_p1_mult_pippenger_glv_window_bucket_used_scratch_sizeof(
+            kCount, kWindow);
+    ASSERT_GT(window_bucket_bytes, 0u);
+    ASSERT_GT(window_bucket_used_bytes, 0u);
+
+    std::vector<blst_avx_p1> window_buckets(
+        (window_bucket_bytes + sizeof(blst_avx_p1) - 1) /
+        sizeof(blst_avx_p1));
+    std::vector<blst_byte> window_bucket_used(window_bucket_used_bytes);
+    blst_avx_p1 explicit_window = {};
+    ASSERT_TRUE(blst_avx_p1_mult_pippenger_glv_window_with_scratch(
+        &explicit_window, points.data(), scalars.data(), kCount, kWindow,
+        window_buckets.data(),
+        window_buckets.size() * sizeof(blst_avx_p1),
+        window_bucket_used.data(), window_bucket_used.size(),
+        split_points.data(), split_points_bytes,
+        split_scalars.data(), split_scalars.size()));
+
+    std::array<blst_byte, 32> eight = {};
+    eight[0] = 8;
+    G1 expected = {};
+    G1::mult_vartime(expected, G1::generator(), eight.data(), 256);
+    blst_p1 actual_automatic = {};
+    blst_p1 actual_window = {};
+    ASSERT_TRUE(blst_p1_from_avx(&actual_automatic, &automatic));
+    ASSERT_TRUE(blst_p1_from_avx(&actual_window, &explicit_window));
+    EXPECT_TRUE(G1::equal(expected, actual_automatic));
+    EXPECT_TRUE(G1::equal(expected, actual_window));
+}
+
 } // namespace

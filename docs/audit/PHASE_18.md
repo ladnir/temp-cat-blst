@@ -49,3 +49,27 @@ No full suite, sanitizer sweep, CUDA, frozen BTx/BTE audit, Apple CI, native
 AVX-512 run, or portable-AVX Release build was performed. Negative
 `-fshort-enums`, installed-SDK, cross-compiler, and full cross-language package
 evidence remains for the Phase 18 release gate.
+
+## Wave 2: expert AVX C and Rust surfaces
+
+The expert AVX header, C boundary, and handwritten Rust AVX module received a
+complete source/declaration/caller pass. `AUD-316` through `AUD-323` record the
+result. The packet removes a C++ object-identity violation at final
+exponentiation, separates generic Fp12 multiplication/squaring from the GT
+facade, diagnoses the narrow GT-MSM contract in Debug, makes Rust allocation
+fallible, repairs unavailable-backend equality and empty-MSM identity, and
+brings the raw Rust AVX declarations to exact 77/77 parity with C.
+
+The six G1 GLV scratch/window hooks remain supported: BTX-DKG production uses
+the automatic split-scratch family and its tuning benchmarks use the explicit
+window family. Local focused coverage now exercises all six without changing
+or auditing frozen BTx/BTE or the external repository.
+
+Portable-AVX Debug rebuilt the focused test executable and passed the two new
+C++ regressions. Rust AVX tests pass 7/7, and the unavailable-backend equality
+test passes separately without the `avx` feature. Strict MSVC C11/C++20 header
+parses pass, the MatrixNoK dispatch gate passes, and all 21 accepted proof rows
+and 61 mapped hashes remain valid. No benchmark, CUDA, portable-AVX Release,
+full suite, sanitizer, native AVX-512, remote, Apple, or push was performed.
+Exact reviewed commit hashes remain to be recorded when this packet is
+committed.

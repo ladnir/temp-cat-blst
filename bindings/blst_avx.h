@@ -64,6 +64,24 @@ typedef blst_avx_fp12 blst_avx_gt;
 typedef bool (*blst_avx_random_bytes_fn)(
     void* context, blst_byte* out, size_t out_len);
 
+/**
+ * Expert AVX C-boundary rules.
+ *
+ * - No exception may cross this ABI. These entry points allocate no memory;
+ *   exceptions raised by the random callback are translated to failure when
+ *   the library is built with exception support.
+ * - A `false` or non-success result does not publish a partial output. Unless
+ *   a declaration says otherwise, output storage is unchanged on failure.
+ * - Same-type arithmetic supports exact output/input aliasing. Partial overlap
+ *   is never supported. Differently typed conversion buffers must not overlap.
+ * - Scratch-size helpers return zero for empty work, an unavailable backend,
+ *   an invalid tuning parameter, or an unrepresentable size. Callers must
+ *   distinguish empty work before treating zero as failure.
+ * - The opaque byte representation is not a serialization format. Only
+ *   library-produced values and exact copies satisfy the representation
+ *   invariants required by the operations below.
+ */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -481,9 +499,17 @@ const blst_avx_p2* blst_avx_p2_generator(void);
 bool blst_avx_fp12_from_scalar(blst_avx_fp12* out, const blst_fp12* in);
 /** Converts an AVX GT/Fp12 value into the scalar/public layout. */
 bool blst_fp12_from_avx(blst_fp12* out, const blst_avx_fp12* in);
-/** Multiplies two AVX GT/Fp12 values and writes the product to `ret`. */
+/**
+ * Multiplies two well-formed AVX Fp12 values and writes the generic field
+ * product to `ret`. GT membership is neither required nor established.
+ * `ret` may exactly alias either input; partial overlap is not supported.
+ */
 bool blst_avx_fp12_mul(blst_avx_fp12* ret, const blst_avx_fp12* a, const blst_avx_fp12* b);
-/** Squares an AVX GT/Fp12 value and writes the result to `ret`. */
+/**
+ * Squares a well-formed AVX Fp12 value with the dedicated generic field-square
+ * kernel. GT membership is neither required nor established. `ret` may
+ * exactly alias `a`; partial overlap is not supported.
+ */
 bool blst_avx_fp12_sqr(blst_avx_fp12* ret, const blst_avx_fp12* a);
 
 /** Returns aggregate scratch bytes required by `blst_avx_gt_mult_pippenger`. */
