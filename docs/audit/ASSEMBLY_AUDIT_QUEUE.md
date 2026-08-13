@@ -102,3 +102,32 @@ Native ARMASM acceptance, CHERI assembly/execution, and non-Apple ARM runtime
 qualification remain target-promotion evidence rather than Batch A gaps.
 Arithmetic correctness, ABI behavior inside each routine, constant-time
 control flow, and execution proceed in Batches B through E.
+
+## Batch B inventory and findings
+
+Batch B covers five add/subtract owners, two division owners, and 31 generated
+outputs. The public field layers call the selected wrappers with reduced Fr,
+Fp, or Fp2 values. Fp12 uses the double-width routines before Montgomery
+reduction. Scalar and AVX group multiplication use the division helpers to
+split public or canonical scalars by the BLS parameter.
+
+The arithmetic inspection found no confirmed wrong result. It opened four
+findings that prevent closure:
+
+1. `AUD-365` records the zero-length prefetch range underflow.
+2. `AUD-366` records 32-bit count truncation in four raw x86 shift loops.
+3. `AUD-367` requires independent boundary and aliasing oracles.
+4. `AUD-368` requires exact range, modulus, and division-estimate contracts.
+
+The narrow arithmetic contracts are intentional. Single-width add, subtract,
+shift, and small-multiplier routines accept reduced operands. Double-width
+add and subtract accept operands below `p * 2^384` and reduce modulo that
+boundary. `div_3_limbs` accepts a normalized divisor and a dividend prefix
+strictly below that divisor. It returns an exact or one-high quotient estimate.
+The 128-bit remainder helper corrects one-high estimates. The 64-bit helper
+requires an exact estimate.
+
+Twenty focused x86-64 assembly tests passed before remediation. A separate
+integer model checked 200,000 normalized strict-bound division estimates.
+No build, benchmark, sanitizer sweep, CUDA test, or BTx/BTE work ran during
+the read-only inventory.
