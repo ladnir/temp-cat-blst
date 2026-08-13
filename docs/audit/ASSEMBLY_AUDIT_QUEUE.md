@@ -79,15 +79,26 @@ generated output bytes and do not promote any experimental target.
   available; and
 - run no benchmark or broad product test.
 
-## Batch A evidence and remaining work
+## Batch A closure
 
-At `61d3b66`, Perl syntax checks, the CHERI operand probe, translator-failure
-injection, and exact two-generation verification all pass. Verification
-reproduces every one of the 100 checked outputs byte-for-byte. A supported
-MSVC x86-64 Release configuration still selects the x86 family.
+Batch A is complete at `1642ff4` for Category-blst's checked generator corpus.
+This is not a claim that the inherited translators correctly accept arbitrary
+OpenSSL perlasm input. Perl syntax checks, the CHERI operand probe, translator
+and output-failure injection, paths containing spaces, and exact
+two-generation verification all pass. Verification reproduces every one of
+the 100 checked outputs byte-for-byte. A supported MSVC x86-64 Release
+configuration still selects the x86 family.
 
-The two translators remain in review for the complete directive/flavour corpus
-and representative object symbol/unwind inspection. Those tasks, plus native
-target qualification, are intentionally distinct from the now-validated
-generation failure boundary. Arithmetic correctness, ABI, constant-time, and
-target execution remain assigned to Batches B through E.
+The complete aggregate source cross-assembles with Clang 18 as x86-64 ELF,
+x86-64 COFF, x86-64 Mach-O, Apple ARM64 Mach-O, experimental ARM64 ELF, and
+experimental ARM64 COFF. For every object, the defined external symbol set
+exactly matches the preprocessed source declarations. ELF exposes decoded
+`.eh_frame`; COFF exposes decoded `.pdata` and `.xdata`; Mach-O applies the
+expected underscore decoration. Existing MSVC/MASM objects retain the exact
+38-entry portable fallback surface, and the representative SHA object has
+decoded SEH records for its saved general and XMM registers.
+
+Native ARMASM acceptance, CHERI assembly/execution, and non-Apple ARM runtime
+qualification remain target-promotion evidence rather than Batch A gaps.
+Arithmetic correctness, ABI behavior inside each routine, constant-time
+control flow, and execution proceed in Batches B through E.

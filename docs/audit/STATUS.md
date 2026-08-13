@@ -1097,7 +1097,22 @@ evidence gap because the local MSVC ARM64 toolset is unavailable. Translator
 directive/object inspection remains in Batch A; arithmetic correctness, ABI,
 constant-time behavior, and execution proceed in Batches B through E.
 
-The authoritative manifest now contains 178 complete, 195 in-review, and 257
-pending files. It separately records 94 experimental, 32 frozen, 29 excluded,
-and 35 catalogued files. Experimental growth is the scope correction for the
-36 retained ARM/CHERI artifacts, not new product code.
+After the initial Batch A boundary repair, the manifest contained 178 complete,
+195 in-review, and 257 pending files. Its experimental growth was the scope
+correction for 36 retained ARM/CHERI artifacts, not new product code.
+
+Assembly trust-chain Batch A is complete at `1642ff4`. The two translators and
+all 23 arithmetic owners fail closed across translator and output errors and
+use argument-list process invocation. The exact aggregate corpus assembles for
+x86-64 ELF/COFF/Mach-O, supported Apple ARM64 Mach-O, and experimental ARM64
+ELF/COFF; each object's defined external symbol set matches its preprocessed
+source declarations. ELF and COFF unwind sections decode, and the existing
+MSVC/MASM symbol and representative SEH records remain valid. All 100 checked
+outputs reproduce byte-for-byte. ARMASM, CHERI, and non-Apple ARM execution
+remain experimental target-promotion gaps. Batch B is next: add/subtract and
+division-helper arithmetic, aliasing, range, count, ABI, and constant-time
+review.
+
+The authoritative manifest now contains 185 complete, 190 in-review, and 256
+pending files across 821 tracked paths. It separately records 94 experimental,
+32 frozen, 29 excluded, and 35 catalogued files.

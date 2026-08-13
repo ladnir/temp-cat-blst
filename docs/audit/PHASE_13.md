@@ -273,3 +273,15 @@ family selection, but remains fixed pending a machine with the MSVC ARM64
 toolset. The translators' full directive/object review and arithmetic Batches
 B through E remain open. No product build, benchmark, sanitizer, CUDA, or
 BTx/BTE work was run for this packet.
+
+Batch A subsequently closed at `1642ff4`. `AUD-363` makes both translators
+report final output failures. `AUD-364` replaces all 23 shell command-string
+pipes with argument-list process invocation, including correct paths with
+spaces. The exact checked corpus cross-assembles for x86-64 ELF/COFF/Mach-O,
+Apple ARM64 Mach-O, and experimental ARM64 ELF/COFF; defined external symbols
+match source declarations exactly. ELF unwind data and COFF/Win64 unwind data
+decode successfully, including representative MSVC/MASM SHA register-save
+records. All 100 generated outputs remain byte-identical. Native ARMASM,
+CHERI, and non-Apple ARM execution remain experimental promotion gates, not
+production evidence. No product build, benchmark, sanitizer, CUDA, or BTx/BTE
+work ran.
