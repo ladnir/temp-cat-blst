@@ -7,8 +7,8 @@ BLS12-381 MatrixNoK design, preserve CatBLST's public contracts and hardening,
 and produce both native execution evidence and a machine-checked mathematical
 proof for the retained arithmetic kernels.
 
-This is a separate Phase 16 project. The audited scalar backend is the
-correctness oracle and is not refactored to accommodate the candidate.
+This work began as the separate Phase 16 project. MatrixNoK now owns the
+production AVX path. The audited scalar backend remains its correctness oracle.
 
 ## Source pins
 
@@ -105,10 +105,10 @@ incumbent and 5.3% faster than VROOM. After splitting the register-heavy
 MatrixNoK cyclotomic square, full pairing is 21.2% faster than the incumbent
 and 5.5% faster than VROOM. Performance selection and arithmetic proof are
 complete through the retained Miller construction. MatrixNoK is now
-production-selected; native integration and final correspondence evidence
-remain pending.
+production-selected. Exact-source correspondence is current; native
+reexecution remains release evidence.
 
-## Work packets
+## Completed project packets
 
 1. **Manifest and mapping** — classify every upstream commit and map each
    selected upstream file to its CatBLST owner.

@@ -4,9 +4,9 @@
 
 The MatrixNoK update is a semantic port from VROOM commit `d6ecd534`, not a
 source merge. Every selected operation is mapped onto CatBLST's existing
-owners, contracts, vector abstraction, fixed constants, and tests. The current
-AVX backend remains available as the comparison baseline until the candidate
-passes every correctness and performance gate.
+owners, contracts, vector abstraction, fixed constants, and tests. This map
+records both the historical candidate packets and the selected production
+owners. The removed incumbent remains only in historical evidence.
 
 ## Minimal dependency graph
 
@@ -112,15 +112,16 @@ kernel remains unreachable from production arithmetic in this packet.
 - Exact MatrixNoK constants and bound claims have independent executable
   validation before any candidate multiplication is enabled.
 
-## Base-field candidate packet
+## Historical base-field candidate packet
 
 `matrixnok_fp.h` now owns a side-by-side, non-dispatched BLS12-381
 multiplication candidate. It uses register-only single-item conversion and
 permutation paths while preserving the existing fixed-batch interfaces for
 real batching. Its returning operation is fully inlined, while the
 output-reference wrapper supports exact aliasing and delegates without a
-second implementation. The candidate remains unreachable from production
-field, curve, and pairing operations.
+second implementation. The candidate was unreachable from production field,
+curve, and pairing operations during this packet; its retained owner is now
+selected.
 
 Portable Debug and Peach native AVX-512IFMA compare decoded results with the
 portable scalar field implementation. Native code-generation and remaining
@@ -142,7 +143,7 @@ policy by value, eliminating borrowed lifetime while retaining the one-byte
 owner size. The delayed four-product multiplication, three-product square,
 batch layout, and completion schedule are unchanged.
 
-## Fp12 and GT candidate packet
+## Historical Fp12 and GT candidate packet
 
 `matrixnok_fp12.h` supplies a stateless constants policy to the existing Fp12
 arithmetic template. Fixed offsets and Frobenius values are bound to the exact
@@ -167,9 +168,8 @@ scalar CatBLST on three independent inputs. The production default policy
 still compiles unchanged. A MatrixNoK inversion boundary is deliberately not
 invented in this packet: the test imports an independently computed inverse.
 
-The candidate remains isolated. MatrixNoK inversion, G2 performance, Miller
-and pairing integration, formal proof, and release evidence still gate
-selection.
+The candidate remained isolated at this point. Later packets completed the
+inversion, G2, Miller, pairing, proof, and production-selection gates.
 
 ## G2 candidate packet
 
@@ -194,9 +194,9 @@ validating `AUD-218`. Exact evidence is in `G2_EVIDENCE.md`.
 ## Miller and pairing preview packet
 
 `matrixnok_pairing.h` binds the fixed MatrixNoK field tower to the existing
-Miller-loop, pairing, and RNS inversion templates without changing their
-incumbent defaults. The candidate is production-shaped but remains isolated
-from public symbols and production dispatch.
+Miller-loop, pairing, and RNS inversion templates. During this preview, the
+candidate remained isolated from public symbols and production dispatch. The
+same owner is now selected.
 
 Portable Debug compilation and Peach native AVX-512IFMA execution pass all 17
 focused MatrixNoK tests. Four independent G1/G2 combinations compare both the

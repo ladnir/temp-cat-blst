@@ -8,7 +8,8 @@ lower latency than CatBLST's incumbent 50-bit AVX path, equivalent to a
 1.10x to 1.12x speedup. Its inverse GT FFT has 15.8% to 16.9% lower latency,
 equivalent to a 1.19x to 1.20x speedup.
 
-Neither result changes production dispatch.
+These historical preview results did not change dispatch at the time. MatrixNoK
+now owns the production AVX field, G1, and GT paths.
 
 ## Construction
 
@@ -98,15 +99,14 @@ result is suitable for a port/no-port decision but not a final release claim.
 The three repeated MatrixNoK cases had reported coefficient of variation at
 or below 0.02%; the incumbent cases were also at or below 0.02%.
 
-## Interpretation and next gate
+## Historical interpretation and completed gate
 
 GT FFT is dominated by Fp12 multiplication, cyclotomic squaring, Frobenius,
 and public-root exponentiation. The consistent end-to-end gain is stronger
 evidence than the earlier isolated Fp/Fp2 timings and justifies completing the
 Fp12/GT candidate port.
 
-The next packets should port the audited CatBLST curve and Fp12/GT operations
-onto MatrixNoK, add independent scalar differential tests for every retained
-operation, and repeat these benchmarks against production-shaped code.
-VROOM's result establishes the performance target; CatBLST should preserve
-its reviewed point contracts rather than import the research API wholesale.
+Later packets ported the audited CatBLST curve and Fp12/GT operations onto
+MatrixNoK, added independent scalar differentials, and selected the resulting
+production path. VROOM established the performance target; CatBLST retained
+its reviewed point contracts rather than importing the research API wholesale.

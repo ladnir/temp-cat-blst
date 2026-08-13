@@ -1,19 +1,21 @@
-# MatrixNoK Miller and Pairing Preview Evidence
+# MatrixNoK Miller and Pairing Evidence
 
 ## Packet boundary
 
-- Candidate implementation: `eaa7822431954980694341dc77cdcd8b12cce7eb`
+- Historical selection candidate: `eaa7822431954980694341dc77cdcd8b12cce7eb`
 - Final-exponent optimization: `a1c8f9f652b5ae7d8e77966c454f312e3079bd95`
+- Selected source review: `4bb0c45a929ae1721a3fd9c942a758796e822b78`
 - Upstream algorithm commit: `d6ecd534c54a41702ea80ae75b52250b6d51b372`
 - Compared VROOM head: `26bd9aee2168f167583cf096add355547a7b56d4`
-- Candidate boundary: `blst/avx/pairing/matrixnok_pairing.h`
-- Generic owners: `blst/avx/pairing/{miller,pairing}.h`
+- Selected boundary: `blst/avx/pairing/matrixnok_pairing.h`
+- Formula owner: `blst/avx/pairing/miller.h`
 - Conversion/inversion boundary: `blst/avx/fields/conversion_inversion.h`
 
-This packet makes the existing Miller-loop and pairing templates accept the
-fixed MatrixNoK Fp12 policy. Existing one-parameter instantiations retain their
-default types and production behavior. The new aliases are deliberately
-isolated: no public symbol, selected type, or production dispatch changes.
+This document records the historical selection measurements and the current
+production evidence. MatrixNoK now owns the selected AVX Miller path. Commit
+`4bb0c45a` deletes the unused generic pairing helper; callers compose the
+selected Miller engine and final exponentiation directly. Public infinity
+handling remains in `GT`, outside the finite formula core.
 
 ## Correctness design
 
@@ -117,12 +119,16 @@ a stale object and therefore measures the former monolithic candidate; it is
 deliberately excluded as evidence for the split. No second timing process was
 run.
 
-## Exact correspondence inputs
+## Historical selection correspondence inputs
+
+The following hashes identify the original selection measurement. Current
+accepted source hashes are authoritative in `proof/avx/CORRESPONDENCE.csv`.
 
 - `miller.h` SHA-256:
   `31c02b7af7e10448195bbae90e3d65181160eb67007a2e9708cf89572d993a97`
-- `pairing.h` SHA-256:
-  `8491cbca8e7c927a661fe338e201ae2a6492359e210ec17679e07b87914be7d7`
+- The historical `pairing.h` helper had SHA-256
+  `8491cbca8e7c927a661fe338e201ae2a6492359e210ec17679e07b87914be7d7`.
+  Commit `4bb0c45a` deletes that zero-production-caller surface.
 - `matrixnok_pairing.h` SHA-256:
   `f2d9cb9eb40e6cc1ca2192de6d6d3a54c990a94a72890a2f79ed42981e220936`
 - `conversion_inversion.h` SHA-256:
@@ -159,13 +165,13 @@ run.
   lowering remain external. Commit `65206c9` rebinds this owner after changing
   only prepared-carrier initialization, public-scalar wiping, and contracts;
   the mapped Miller formulas and schedules are unchanged.
-- MatrixNoK remains isolated from production dispatch.
+- MatrixNoK is the selected production AVX Miller and pairing implementation.
 - The inversion/final-exponent review and performance selection are complete;
   the retained formulas and exact constants can now be frozen for proof.
 - The candidate Miller's larger code and stack should be reconsidered only if
   the next integration profile exposes an instruction-cache or stack issue;
   current end-to-end timing is favorable.
 - P4 arithmetic, bounds, and exact C++/proof correspondence are accepted at
-  recorded hashes; production dispatch and broader release evidence remain.
+  the current ledger hashes. Broader release evidence remains.
 - Broad suites, sanitizers, fuzzing, Apple CI, CUDA, BTx/BTE, and portable-AVX
   Release were outside this focused packet.

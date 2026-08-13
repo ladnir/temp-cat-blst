@@ -1,8 +1,8 @@
-# MatrixNoK G2 Candidate Evidence
+# MatrixNoK G2 Historical Selection Evidence
 
 ## Packet boundary
 
-- Candidate implementation: `2fc0ae98f962f5ab2259ed2d368f6328713b7310`
+- Historical candidate implementation: `2fc0ae98f962f5ab2259ed2d368f6328713b7310`
 - Focused benchmark source: `b83f967328834c727ed381bd8b868b270083f0bf`
 - Direct-table stack compression: `b6d832c421b8c569955db12941204df0e71d7972`
 - Upstream algorithm commit: `d6ecd534c54a41702ea80ae75b52250b6d51b372`
@@ -11,10 +11,11 @@
 - Shared complete-add owner: `blst/avx/curve/matrixnok_curve.h`
 - RNS/field owners: `blst/avx/{rns/matrixnok_fp.h,fields/fp2.h}`
 
-This packet adds an isolated production-shaped G2 candidate. It changes no
-public type, symbol, or production dispatch. The candidate applies CatBLST's
-complete homogeneous schedule and existing GLS executor to the fixed,
-stateless MatrixNoK Fp/Fp2 owners.
+This document records the isolated candidate packet that preceded production
+selection. MatrixNoK now owns the production AVX G2 path. The historical packet
+changed no public type, symbol, or dispatch. It evaluated CatBLST's complete
+homogeneous schedule and existing GLS executor over the fixed, stateless
+MatrixNoK Fp/Fp2 owners.
 
 ## Correctness design
 
@@ -145,10 +146,10 @@ not a release performance claim.
 
 - `AUD-218` is validated: direct final-table construction reduced peak local
   CT GLS stack to about 55 KiB and improved the serial CT measurement by 2.6%.
-- The GLS owner still parses a small fixed constant set during construction;
-  production selection should decide whether generated compile-time constants
-  are worthwhile based on measured construction and integration behavior.
-- MatrixNoK inversion, Miller-loop, pairing integration, and formal
-  arithmetic/bound proofs remain open.
+- The selected GLS owner still parses a small fixed constant set during
+  construction. Generated compile-time constants remain an optional measured
+  cleanup, not a selection gate.
+- The retained arithmetic proof and Miller/pairing integration are complete.
+  Native exact-source reexecution remains part of release evidence.
 - Broad suites, sanitizers, fuzzing, Apple CI, CUDA, BTx/BTE, and portable-AVX
   Release were outside this focused packet.

@@ -1,18 +1,19 @@
-# MatrixNoK G1 Candidate Evidence
+# MatrixNoK G1 Historical Selection Evidence
 
 ## Packet boundary
 
-- Current candidate implementation: `2fc0ae98f962f5ab2259ed2d368f6328713b7310`
+- Historical candidate implementation: `2fc0ae98f962f5ab2259ed2d368f6328713b7310`
 - Original G1 selection implementation: `7e731d999780be0723c2335a4fc44ee54afd18aa`
 - Upstream algorithm commit: `d6ecd534c54a41702ea80ae75b52250b6d51b372`
 - Compared VROOM head: `26bd9aee2168f167583cf096add355547a7b56d4`
 - C++ curve owner: `blst/avx/curve/matrixnok_g1.h`
 - RNS/field owner: `blst/avx/rns/matrixnok_fp.h`
 
-This packet adds an isolated production-shaped G1 candidate. It does not alter
-public types, symbols, or production dispatch. The candidate uses CatBLST's
-audited complete homogeneous formulas and GLV executors over the fixed,
-stateless MatrixNoK base-field owner.
+This document records the isolated candidate packet that preceded production
+selection. MatrixNoK now owns the production AVX G1 path. The historical packet
+did not alter public types, symbols, or dispatch. It evaluated CatBLST's audited
+complete homogeneous formulas and GLV executors over the fixed, stateless
+MatrixNoK base-field owner.
 
 ## Correctness design
 

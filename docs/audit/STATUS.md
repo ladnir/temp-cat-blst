@@ -1200,3 +1200,20 @@ audit, sanitizer, Apple CI, or portable-AVX Release build ran.
 The authoritative manifest now contains 272 complete, 189 in-review, and 177
 pending files across 828 tracked paths. Experimental, frozen, excluded, and
 catalogued scope is unchanged.
+
+The selected AVX curve, GT/GLV4, and Miller batch is complete at `4bb0c45a`.
+The review found no arithmetic defect. It canonicalizes the selected G1/G2
+type names, records exact curve and finite-Miller contracts, restores VROOM
+provenance, states the 256-bit GT scalar bound, and adds a direct canonical
+non-GT AVX decode regression. The zero-caller generic pairing helper is
+deleted. Its stale comparison benchmark now composes the selected Miller and
+final-exponentiation owners directly and compiles without being executed.
+
+All 43 focused portable-Debug tests pass. The MatrixNoK dispatch validator and
+all 21 AVX correspondence rows with 61 exact hashes pass after the
+documentation-only proof rebind. Native exact-hash code generation joins the
+next consolidated Peach run because no arithmetic body changed.
+
+The authoritative manifest now contains 288 complete, 184 in-review, and 170
+pending files across 832 tracked paths. Experimental, frozen, excluded, and
+catalogued scope is unchanged.
