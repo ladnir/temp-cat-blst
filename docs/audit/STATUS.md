@@ -1059,3 +1059,10 @@ regressions to batch and tail positions. Clang/GCC/MSVC focused compiles, the
 portable-only test graph, all AVX structural/proof validators, and CI policy
 pass. Hosted execution of the exact commit remains the next gate; no broad
 local build, benchmark, CUDA, sanitizer, native AVX, or frozen BTx/BTE work ran.
+
+The next supported hosted run is fully green on Linux and Windows, including
+all C++ tests, proof gates, Rust MSRV, and current Rust. Apple alone rejected
+the remaining `std::string_view` construction inside the timer `noexcept`
+assertions. `AUD-355` is corrected at `b439a49` by using unevaluated arguments
+and therefore testing only the member declarations. Local Clang C++20 and MSVC
+focused compilation pass; Apple rerun evidence remains pending.

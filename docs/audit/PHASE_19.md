@@ -202,3 +202,12 @@ Focused Clang/GCC/MSVC translation-unit compilation, portable-only CTest graph
 inspection, proof correspondence, dispatch validation, and CI structural
 policy pass. No full local build or suite, benchmark, CUDA, sanitizer, native
 AVX execution, or BTx/BTE audit ran. The exact hosted rerun remains required.
+
+The third hosted execution made Linux scalar, Linux assembly, Windows, audit
+integrity, Rust MSRV, and current Rust on every supported operating system
+green. Apple alone showed that explicitly constructing `std::string_view` was
+still part of the `noexcept` expression and is not required by the standard to
+be nonthrowing. Commit `b439a49` uses unevaluated `declval` arguments, so the
+assertions now test only `TimingStats` members. Focused Clang and MSVC
+compilation passes; the exact Apple rerun remains required. Portable AVX was
+still executing when this correction was prepared.
