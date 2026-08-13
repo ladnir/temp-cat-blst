@@ -1,3 +1,12 @@
+/*
+ * Copyright 2026 Simon Langowski
+ * Copyright 2026 Category Labs
+ * SPDX-License-Identifier: Apache-2.0 AND MIT
+ *
+ * The GLV4 decomposition and executor are adapted from VROOM commit
+ * d6ecd534. Category Labs added full-width scalar preparation, fixed-time
+ * execution, and proof correspondence.
+ */
 #pragma once
 
 #include "blst/backend/backend.h"

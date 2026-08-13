@@ -1,11 +1,35 @@
+/*
+ * Copyright 2026 Simon Langowski
+ * Copyright 2026 Category Labs
+ * SPDX-License-Identifier: Apache-2.0 AND MIT
+ *
+ * Adapted from the VROOM Miller engine at commit d6ecd534.
+ */
 #pragma once
 #include "../rns/ring_element.h"
 #include "blst/avx/fields/fp2.h"
 #include "blst/avx/fields/fp12.h"
 #include "../curve/ec.h"
 
+#include <array>
+#include <cstddef>
+#include <type_traits>
+
 namespace blst::avx {
 
+/**
+ * Fixed-schedule finite-point Miller core for the selected BLS12-381 pairing.
+ *
+ * The constructor requires validated G1 and G2 subgroup affine points. Both
+ * points must be finite; the public GT wrapper handles infinity as the pairing
+ * identity before constructing this core. No Release validation is performed.
+ * `miller_loop` returns an Fp12 value in the MillerResult domain, not GT.
+ *
+ * The core is allocation-free and nonthrowing, owns no shared mutable state,
+ * and follows a fixed public line schedule. Its variable-time classification
+ * is determined only by the caller-supplied base-field inverter used later by
+ * final exponentiation.
+ */
 template<class Ring, class FP12RingType>
 class Miller {
     public:
@@ -14,7 +38,8 @@ class Miller {
     using FP2RingStandardElement = typename FP2Ring<Ring>::StandardElement;
     using FP12RingStandardElement = typename FP12RingType::StandardElement;
 
-    // An element that is 52 bits, but the RNS bound is not [0, 1]
+    // An IFMA-lane element over the selected 50-bit MatrixNoK moduli whose RNS
+    // representative is not restricted to the standard [0, 1] bound.
     template<int lower_bound, int upper_bound>
     using ReducedElement = ExpandedElement<typename Ring::StandardBoundedElement, Bounds<lower_bound, upper_bound>>;
     private:
@@ -44,7 +69,6 @@ class Miller {
         return FP2NStandardElement(r_x, r_y, minus_y);
     }
 
-    // This function does NOT check for identity or infinity points
     public:
     Miller(const AffinePoint<FPStandardElement> &E1_point, const AffinePoint<FP2RingStandardElement> &E2_point, const Ring &ring)
         : 

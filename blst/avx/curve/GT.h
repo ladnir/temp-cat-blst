@@ -123,12 +123,6 @@ constexpr FP12::StandardElement fp12_identity_value()
     }};
 }
 
-template<class Element>
-inline typename FP12::StandardElement to_standard(const Element& value)
-{
-    return fp12ring().fp12_flat_mul(fp12ring().one(ring()), value, ring());
-}
-
 template<int64_t N>
 BLST_FORCEINLINE typename FP12::StandardElement narrow_to_standard(const typename FP12::template CommonElement<N>& value)
 {
@@ -619,7 +613,8 @@ struct GT
     }
 
     /// Constant-time GT scalar multiplication for canonical scalars at fixed
-    /// public nbits. `scalar` points to `ceil(nbits/8)` readable little-endian
+    /// public nbits, where `nbits <= 256`. `scalar` points to
+    /// `ceil(nbits/8)` readable little-endian
     /// bytes and may be null only when nbits is zero. Noncanonical inputs are
     /// accepted modulo r, but timing may reveal that reduction was required.
     /// The input must already lie in GT; Release does not validate it. Exact
@@ -636,8 +631,9 @@ struct GT
     }
 
     /// Optimized variable-time GT multiplication for public scalars only.
-    /// `scalar` points to `ceil(nbits/8)` readable little-endian bytes and may
-    /// be null only when nbits is zero. Inputs are accepted modulo r. The group
+    /// `nbits` must not exceed 256. `scalar` points to `ceil(nbits/8)` readable
+    /// little-endian bytes and may be null only when nbits is zero. Inputs are
+    /// accepted modulo r. The group
     /// operand must already lie in GT; Release does not validate it. Exact
     /// out/a aliasing is supported.
     static void mult_vartime(GT& out, const GT& a, const byte* scalar, size_t nbits)

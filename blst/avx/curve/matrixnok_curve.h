@@ -1,5 +1,12 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Category Labs
+/*
+ * Copyright 2026 Simon Langowski
+ * Copyright 2026 Category Labs
+ * SPDX-License-Identifier: Apache-2.0 AND MIT
+ *
+ * The complete-add schedule is adapted from VROOM commit d6ecd534. Category
+ * Labs integrated it with CatBLST's bounded MatrixNoK representation and
+ * proof correspondence.
+ */
 #pragma once
 
 #include "ec.h"
@@ -11,8 +18,14 @@ namespace blst::avx::matrixnok::detail
      *
      * MatrixNoK keeps the first multiplication round in m2. Signed cross
      * terms must be lifted before expansion so reconstructing m1 preserves the
-     * represented integer rather than only its residue. Both the Fp and Fp2
-     * candidates use this exact schedule.
+     * represented integer rather than only its residue. The selected Fp and
+     * Fp2 policies use this exact schedule.
+     *
+     * Both inputs must be valid homogeneous points on the same selected a=0
+     * curve. Subgroup membership is unnecessary. The fixed schedule performs
+     * no validation, allocation, or throwing operation and has no shared
+     * mutable state. Return-by-value construction permits exact outer
+     * output/input aliasing.
      */
     template<class Ring>
     static BLST_FORCEINLINE ProjectivePoint<typename Ring::StandardElement> add_point(

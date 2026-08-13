@@ -1,5 +1,10 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Category Labs
+/*
+ * Copyright 2026 Simon Langowski
+ * Copyright 2026 Category Labs
+ * SPDX-License-Identifier: Apache-2.0 AND MIT
+ *
+ * Adapted from the VROOM G1 construction at commit d6ecd534.
+ */
 #pragma once
 
 #include "ec.h"
@@ -11,9 +16,21 @@
 
 namespace blst::avx::matrixnok
 {
-    // Fixed G1 construction selected by production dispatch. The Candidate
-    // spelling remains the exact source/theorem correspondence owner.
-    class G1CurveCandidate
+    /**
+     * Selected fixed G1 construction.
+     *
+     * Arithmetic accepts valid on-curve homogeneous points; subgroup
+     * membership is unnecessary. No operation performs Release validation,
+     * allocates, throws, or uses shared mutable state. Point-data control uses
+     * fixed schedules and conditional selection. Return values permit exact
+     * outer output/input aliasing.
+     *
+     * `add_mixed_point` recognizes affine infinity only as exact `(0,0)`.
+     * `dadd` recognizes projective infinity through an exact zero RNS `z`.
+     * A null `a4` selects the a=0 complete-add schedule. Otherwise, `*a4`
+     * must be the coefficient of the curve containing both inputs.
+     */
+    class G1Curve
     {
     public:
         using ProjPoint = ProjectivePoint<FpRingCandidate::StandardElement>;
@@ -63,15 +80,10 @@ namespace blst::avx::matrixnok
             return ProjPoint(ring.zero(), ring.one(), ring.zero());
         }
     };
-    using G1ProjectiveCandidate = G1CurveCandidate::ProjPoint;
-    using G1AffineCandidate = G1CurveCandidate::AffPoint;
-    using G1GLVCandidate = GLVMult<FpRingCandidate, G1CurveCandidate>;
+    using G1Projective = G1Curve::ProjPoint;
+    using G1Affine = G1Curve::AffPoint;
+    using G1GLV = GLVMult<FpRingCandidate, G1Curve>;
 
     static_assert(std::is_empty_v<FpRingCandidate>);
-    static_assert(std::is_empty_v<G1CurveCandidate>);
-
-    using G1Curve = G1CurveCandidate;
-    using G1Projective = G1ProjectiveCandidate;
-    using G1Affine = G1AffineCandidate;
-    using G1GLV = G1GLVCandidate;
+    static_assert(std::is_empty_v<G1Curve>);
 } // namespace blst::avx::matrixnok

@@ -141,53 +141,53 @@ extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_gt_exp_ct(
 }
 
 extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_g1_add(
-    blst::avx::matrixnok::G1ProjectiveCandidate* out,
-    const blst::avx::matrixnok::G1ProjectiveCandidate* left,
-    const blst::avx::matrixnok::G1ProjectiveCandidate* right)
+    blst::avx::matrixnok::G1Projective* out,
+    const blst::avx::matrixnok::G1Projective* left,
+    const blst::avx::matrixnok::G1Projective* right)
 {
     const blst::avx::matrixnok::FpRingCandidate ring;
-    const blst::avx::matrixnok::G1CurveCandidate curve;
+    const blst::avx::matrixnok::G1Curve curve;
     *out = curve.add_point(*left, *right, ring);
 }
 
 extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_g1_double(
-    blst::avx::matrixnok::G1ProjectiveCandidate* out,
-    const blst::avx::matrixnok::G1ProjectiveCandidate* value)
+    blst::avx::matrixnok::G1Projective* out,
+    const blst::avx::matrixnok::G1Projective* value)
 {
     const blst::avx::matrixnok::FpRingCandidate ring;
-    const blst::avx::matrixnok::G1CurveCandidate curve;
+    const blst::avx::matrixnok::G1Curve curve;
     *out = curve.double_point(*value, ring);
 }
 
 extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_g2_add(
-    blst::avx::matrixnok::G2ProjectiveCandidate* out,
-    const blst::avx::matrixnok::G2ProjectiveCandidate* left,
-    const blst::avx::matrixnok::G2ProjectiveCandidate* right)
+    blst::avx::matrixnok::G2Projective* out,
+    const blst::avx::matrixnok::G2Projective* left,
+    const blst::avx::matrixnok::G2Projective* right)
 {
     const blst::avx::matrixnok::FpRingCandidate ring;
-    const blst::avx::matrixnok::G2Fp2RingCandidate fp2ring(ring);
-    const blst::avx::matrixnok::G2CurveCandidate curve;
+    const blst::avx::matrixnok::G2Fp2Ring fp2ring(ring);
+    const blst::avx::matrixnok::G2Curve curve;
     *out = curve.add_point(*left, *right, fp2ring);
 }
 
 extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_g2_double(
-    blst::avx::matrixnok::G2ProjectiveCandidate* out,
-    const blst::avx::matrixnok::G2ProjectiveCandidate* value)
+    blst::avx::matrixnok::G2Projective* out,
+    const blst::avx::matrixnok::G2Projective* value)
 {
     const blst::avx::matrixnok::FpRingCandidate ring;
-    const blst::avx::matrixnok::G2Fp2RingCandidate fp2ring(ring);
-    const blst::avx::matrixnok::G2CurveCandidate curve;
+    const blst::avx::matrixnok::G2Fp2Ring fp2ring(ring);
+    const blst::avx::matrixnok::G2Curve curve;
     *out = curve.double_point(*value, fp2ring);
 }
 
 extern "C" AUDIT_NOINLINE void audit_avx_matrixnok_g2_gls_ct(
-    blst::avx::matrixnok::G2ProjectiveCandidate* out,
-    const blst::avx::matrixnok::G2ProjectiveCandidate* value,
+    blst::avx::matrixnok::G2Projective* out,
+    const blst::avx::matrixnok::G2Projective* value,
     const std::array<uint8_t, 32>* scalar,
-    const blst::avx::matrixnok::G2GLSCandidate* gls)
+    const blst::avx::matrixnok::G2GLS* gls)
 {
     const blst::avx::matrixnok::FpRingCandidate ring;
-    const blst::avx::matrixnok::G2Fp2RingCandidate fp2ring(ring);
-    const blst::avx::matrixnok::G2CurveCandidate curve;
+    const blst::avx::matrixnok::G2Fp2Ring fp2ring(ring);
+    const blst::avx::matrixnok::G2Curve curve;
     *out = gls->multiply(*value, *scalar, fp2ring, curve, ring);
 }

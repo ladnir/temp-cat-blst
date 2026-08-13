@@ -203,18 +203,20 @@ def main() -> int:
         "pairing_with_vartime_inverter",
     ))
     require_fragments(avx / "curve" / "matrixnok_g1.h", (
-        "using G1Curve = G1CurveCandidate;",
-        "using G1Projective = G1ProjectiveCandidate;",
-        "using G1Affine = G1AffineCandidate;",
-        "using G1GLV = G1GLVCandidate;",
+        "class G1Curve",
+        "using G1Projective = G1Curve::ProjPoint;",
+        "using G1Affine = G1Curve::AffPoint;",
+        "using G1GLV = GLVMult<FpRingCandidate, G1Curve>;",
     ))
+    forbid_fragments(avx / "curve" / "matrixnok_g1.h", ("Candidate =", "G1CurveCandidate"))
     require_fragments(avx / "curve" / "matrixnok_g2.h", (
-        "using G2Fp2Ring = G2Fp2RingCandidate;",
-        "using G2Curve = G2CurveCandidate;",
-        "using G2Projective = G2ProjectiveCandidate;",
-        "using G2Affine = G2AffineCandidate;",
-        "using G2GLS = G2GLSCandidate;",
+        "using G2Fp2Ring = FP2Ring<FpRingCandidate>;",
+        "class G2Curve",
+        "using G2Projective = G2Curve::ProjPoint;",
+        "using G2Affine = G2Curve::AffPoint;",
+        "using G2GLS = GLSMult<FpRingCandidate, G2Curve>;",
     ))
+    forbid_fragments(avx / "curve" / "matrixnok_g2.h", ("Candidate =", "G2CurveCandidate"))
     require_fragments(avx / "pairing" / "matrixnok_pairing.h", (
         "using MillerEngine = Miller<FpRing, Fp12Ring>;",
         "using PairingInverter = FP12RNSVartimeInverter<FpRing, Fp12Ring>;",

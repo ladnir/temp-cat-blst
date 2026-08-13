@@ -7,7 +7,6 @@
 #include "blst/avx/curve/matrixnok_g1.h"
 #include "blst/avx/curve/matrixnok_g2.h"
 #include "blst/avx/pairing/matrixnok_pairing.h"
-#include "blst/avx/pairing/pairing.h"
 #include "blst/scalar/curve/GT.h"
 
 namespace {
@@ -67,13 +66,13 @@ static void BM_AvxPairing_Full(benchmark::State& state)
 static void BM_DirectMatrixNoKPairing_MillerLoop(benchmark::State& state)
 {
     const blst::avx::matrixnok::FpRingCandidate ring;
-    const blst::avx::matrixnok::G2Fp2RingCandidate fp2ring(ring);
-    const blst::avx::matrixnok::Fp12RingCandidate fp12ring(ring);
+    const blst::avx::matrixnok::G2Fp2Ring fp2ring(ring);
+    const blst::avx::matrixnok::Fp12Ring fp12ring{};
     const auto& public_p = blst::avx::G1AffinePoint::generator();
     const auto& public_q = blst::avx::G2AffinePoint::generator();
-    const blst::avx::matrixnok::G1AffineCandidate p{public_p.X, public_p.Y};
-    const blst::avx::matrixnok::G2AffineCandidate q{public_q.X, public_q.Y};
-    const blst::avx::matrixnok::MillerCandidate miller(p, q, ring);
+    const blst::avx::matrixnok::G1Affine p{public_p.X, public_p.Y};
+    const blst::avx::matrixnok::G2Affine q{public_q.X, public_q.Y};
+    const blst::avx::matrixnok::MillerEngine miller(p, q, ring);
 
     for (auto _ : state) {
         auto out = miller.miller_loop(ring, fp2ring, fp12ring);
@@ -84,17 +83,18 @@ static void BM_DirectMatrixNoKPairing_MillerLoop(benchmark::State& state)
 static void BM_DirectMatrixNoKPairing_Full(benchmark::State& state)
 {
     const blst::avx::matrixnok::FpRingCandidate ring;
-    const blst::avx::matrixnok::G2Fp2RingCandidate fp2ring(ring);
-    const blst::avx::matrixnok::Fp12RingCandidate fp12ring(ring);
+    const blst::avx::matrixnok::G2Fp2Ring fp2ring(ring);
+    const blst::avx::matrixnok::Fp12Ring fp12ring{};
     const auto& public_p = blst::avx::G1AffinePoint::generator();
     const auto& public_q = blst::avx::G2AffinePoint::generator();
-    const blst::avx::matrixnok::G1AffineCandidate p{public_p.X, public_p.Y};
-    const blst::avx::matrixnok::G2AffineCandidate q{public_q.X, public_q.Y};
-    const blst::avx::matrixnok::PairingInverterCandidate inverter;
+    const blst::avx::matrixnok::G1Affine p{public_p.X, public_p.Y};
+    const blst::avx::matrixnok::G2Affine q{public_q.X, public_q.Y};
+    const blst::avx::matrixnok::PairingInverter inverter{};
 
     for (auto _ : state) {
-        auto out = blst::avx::pairing(
-            p, q, inverter, fp2ring, fp12ring, ring);
+        const blst::avx::matrixnok::MillerEngine miller(p, q, ring);
+        const auto f = miller.miller_loop(ring, fp2ring, fp12ring);
+        auto out = blst::avx::final_exp(f, inverter, fp12ring, ring);
         benchmark::DoNotOptimize(out);
     }
 }

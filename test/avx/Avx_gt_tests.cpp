@@ -98,12 +98,41 @@ TEST(AvxGt, NarrowToStandardMatchesMulByOneReference)
         avx_base.data, blst::avx::avx_gt_detail::ring());
 
     blst::avx::GT reference = {};
-    reference.data = blst::avx::avx_gt_detail::to_standard(wide);
+    reference.data = blst::avx::avx_gt_detail::fp12ring().fp12_flat_mul(
+        blst::avx::avx_gt_detail::fp12ring().one(
+            blst::avx::avx_gt_detail::ring()),
+        wide,
+        blst::avx::avx_gt_detail::ring());
 
     blst::avx::GT narrowed = {};
     narrowed.data = blst::avx::avx_gt_detail::narrow_to_standard(wide);
 
     expect_same(reference, narrowed);
+}
+
+TEST(AvxGt, CheckedAndUncheckedDecodeSeparateCanonicalFp12FromGt)
+{
+    blst::scalar::Fp12 general_value = {};
+    blst::scalar::Fp::add(
+        general_value[0][0][0],
+        blst::scalar::Fp::one(),
+        blst::scalar::Fp::one());
+    ASSERT_FALSE(blst::scalar::Fp12::in_group(general_value));
+
+    std::array<unsigned char, 12 * 48> bytes = {};
+    blst::scalar::Fp12::to_bendian(bytes.data(), general_value);
+
+    blst::avx::GT unchecked = blst::avx::GT::identity();
+    ASSERT_TRUE(blst::avx::GT::deserialize_unchecked(unchecked, bytes.data()));
+    EXPECT_FALSE(blst::avx::GT::in_group(unchecked));
+    EXPECT_TRUE(blst::Fp12::equal(
+        blst::avx::avx_gt_detail::to_scalar(unchecked.data),
+        general_value));
+
+    const blst::avx::GT original = blst::avx::GT::generator();
+    blst::avx::GT checked = original;
+    EXPECT_FALSE(blst::avx::GT::deserialize(checked, bytes.data()));
+    expect_same(checked, original);
 }
 
 TEST(AvxGt, DoublingMatchesScalar)
