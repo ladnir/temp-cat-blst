@@ -34,7 +34,7 @@ static_assert(sizeof(AVXScalarArray<2>) == 2 * sizeof(AVXScalar));
 static_assert(alignof(AVXScalarArray<2>) == alignof(AVXScalar));
 
 inline AVXScalar Scalar(uint64_t v) {
-    return _vv512_set1_epi64(static_cast<long long>(v));
+    return _vv512_set1_epi64(v);
 }
 
 inline AVXScalar get_scalar_mask(int bits) {
@@ -181,17 +181,13 @@ public:
     inline bool_t is_zero() const {
         const vv512i zero = Scalar(0);
         constexpr uint64_t all_lanes = (uint64_t{1} << LIMBS_PER_VEC) - 1;
-        const uint64_t eq_mask =
-            _vv512_cmpge_epi64_mask(data[0], zero) &
-            _vv512_cmpge_epi64_mask(zero, data[0]);
+        const uint64_t eq_mask = _vv512_cmpeq_epi64_mask(data[0], zero);
         return eq_mask == all_lanes;
     }
 
     inline bool_t equal(const AVXVector &other) const {
         constexpr uint64_t all_lanes = (uint64_t{1} << LIMBS_PER_VEC) - 1;
-        const uint64_t eq_mask =
-            _vv512_cmpge_epi64_mask(data[0], other[0]) &
-            _vv512_cmpge_epi64_mask(other[0], data[0]);
+        const uint64_t eq_mask = _vv512_cmpeq_epi64_mask(data[0], other[0]);
         return eq_mask == all_lanes;
     }
 

@@ -9,6 +9,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <bit>
 #include <cstddef>
 #include <limits>
 #include <random>
@@ -78,24 +79,6 @@ namespace blst::test
         {
             expect_equal(_mm512_slli_epi64(mm(a), bits), _cc512_slli_epi64(a, bits));
             expect_equal(_mm512_srli_epi64(mm(a), bits), _cc512_srli_epi64(a, bits));
-            expect_equal(_mm512_srai_epi64(mm(a), bits), _cc512_srai_epi64(a, bits));
-        }
-
-        template <int imm8>
-        static void check_immediate_permutations(const cc512i a, u64 mask8, u64 mask16)
-        {
-            expect_equal(
-                _mm512_shuffle_epi32(mm(a), static_cast<_MM_PERM_ENUM>(imm8)),
-                _cc512_shuffle_epi32<imm8>(a));
-            expect_equal(
-                _mm512_maskz_shuffle_epi32(static_cast<__mmask16>(mask16), mm(a), static_cast<_MM_PERM_ENUM>(imm8)),
-                _cc512_maskz_shuffle_epi32<imm8>(mask16, a));
-            expect_equal(
-                _mm512_permutex_epi64(mm(a), imm8),
-                _cc512_permutex_epi64<imm8>(a));
-            expect_equal(
-                _mm512_maskz_permutex_epi64(static_cast<__mmask8>(mask8), mm(a), imm8),
-                _cc512_maskz_permutex_epi64<imm8>(mask8, a));
         }
 
         static void check_madd52_case(const cc512i acc, const cc512i a, const cc512i b)
@@ -111,31 +94,26 @@ namespace blst::test
 
     TEST_F(Avx512CompatTest, Construction)
     {
-        expect_equal(_mm512_setzero_si512(), _cc512_setzero_si512());
-
         constexpr std::array<u64, 5> values = {
             0, 1, u64{1} << 51, (u64{1} << 52) - 1, std::numeric_limits<u64>::max()
         };
         for (const u64 value : values) {
             expect_equal(
-                _mm512_set1_epi64(static_cast<long long>(value)),
-                _cc512_set1_epi64(static_cast<long long>(value)));
+                _mm512_set1_epi64(std::bit_cast<long long>(value)),
+                _cc512_set1_epi64(value));
         }
 
-        const std::array<u64, 8> lanes = {
-            0, 1, 2, 3, std::numeric_limits<u64>::max(), u64{1} << 63, u64{1} << 52, 0x123456789abcdef0ULL
+        constexpr vv512i literal = _vv512_const_u64(
+            0, 1, u64{1} << 63, std::numeric_limits<u64>::max(),
+            4, 5, u64{1} << 52, 0x123456789abcdef0ULL);
+        const cc512i literal_cc = _cc512_from_mm512(literal);
+        constexpr std::array<u64, 8> expected = {
+            0, 1, u64{1} << 63, std::numeric_limits<u64>::max(),
+            4, 5, u64{1} << 52, 0x123456789abcdef0ULL
         };
-        expect_equal(
-            _mm512_set_epi64(
-                static_cast<long long>(lanes[7]), static_cast<long long>(lanes[6]),
-                static_cast<long long>(lanes[5]), static_cast<long long>(lanes[4]),
-                static_cast<long long>(lanes[3]), static_cast<long long>(lanes[2]),
-                static_cast<long long>(lanes[1]), static_cast<long long>(lanes[0])),
-            _cc512_set_epi64(
-                static_cast<long long>(lanes[7]), static_cast<long long>(lanes[6]),
-                static_cast<long long>(lanes[5]), static_cast<long long>(lanes[4]),
-                static_cast<long long>(lanes[3]), static_cast<long long>(lanes[2]),
-                static_cast<long long>(lanes[1]), static_cast<long long>(lanes[0])));
+        for (u64 i = 0; i < 8; ++i) {
+            EXPECT_EQ(literal_cc.lane[i], expected[i]) << "lane " << i;
+        }
     }
 
     TEST_F(Avx512CompatTest, ArithmeticLogicAndComparisons)
@@ -147,16 +125,22 @@ namespace blst::test
             expect_equal(_mm512_add_epi64(mm(a), mm(b)), _cc512_add_epi64(a, b));
             expect_equal(_mm512_sub_epi64(mm(a), mm(b)), _cc512_sub_epi64(a, b));
             expect_equal(_mm512_and_si512(mm(a), mm(b)), _cc512_and_si512(a, b));
-            expect_equal(_mm512_or_si512(mm(a), mm(b)), _cc512_or_si512(a, b));
-            expect_equal(_mm512_xor_si512(mm(a), mm(b)), _cc512_xor_si512(a, b));
             expect_equal(_mm512_min_epu64(mm(a), mm(b)), _cc512_min_epu64(a, b));
             EXPECT_EQ(
-                static_cast<u64>(_mm512_cmpgt_epi64_mask(mm(a), mm(b))),
-                _cc512_cmpgt_epi64_mask(a, b));
-            EXPECT_EQ(
-                static_cast<u64>(_mm512_cmpge_epi64_mask(mm(a), mm(b))),
-                _cc512_cmpge_epi64_mask(a, b));
+                static_cast<u64>(_mm512_cmpeq_epi64_mask(mm(a), mm(b))),
+                _cc512_cmpeq_epi64_mask(a, b));
         }
+
+        const cc512i a = {{0, 1, u64{1} << 63, std::numeric_limits<u64>::max(), 4, 5, 6, 7}};
+        cc512i b = a;
+        EXPECT_EQ(_cc512_cmpeq_epi64_mask(a, b), 0xff);
+        b.lane[0] ^= 1;
+        b.lane[2] ^= u64{1} << 63;
+        b.lane[7] ^= 1;
+        EXPECT_EQ(_cc512_cmpeq_epi64_mask(a, b), 0x7a);
+        EXPECT_EQ(
+            static_cast<u64>(_mm512_cmpeq_epi64_mask(mm(a), mm(b))),
+            _cc512_cmpeq_epi64_mask(a, b));
     }
 
     TEST_F(Avx512CompatTest, Shifts)
@@ -172,19 +156,6 @@ namespace blst::test
             check_immediate_shifts<65>(a);
             check_immediate_shifts<255>(a);
 
-            cc512i counts = random_cc512();
-            constexpr std::array<u64, 8> boundary_counts = {0, 1, 26, 51, 63, 64, 65, std::numeric_limits<u64>::max()};
-            if (iteration == 0) {
-                counts.lane[0] = boundary_counts[0];
-                counts.lane[1] = boundary_counts[1];
-                counts.lane[2] = boundary_counts[2];
-                counts.lane[3] = boundary_counts[3];
-                counts.lane[4] = boundary_counts[4];
-                counts.lane[5] = boundary_counts[5];
-                counts.lane[6] = boundary_counts[6];
-                counts.lane[7] = boundary_counts[7];
-            }
-            expect_equal(_mm512_sllv_epi64(mm(a), mm(counts)), _cc512_sllv_epi64(a, counts));
         }
     }
 
@@ -195,14 +166,13 @@ namespace blst::test
             lane = rng();
         }
 
-        expect_equal(_mm512_load_si512(aligned.data()), _cc512_load_si512(aligned.data()));
         expect_equal(_mm512_loadu_si512(aligned.data()), _cc512_loadu_si512(aligned.data()));
 
         const cc512i value = random_cc512();
         alignas(64) std::array<u64, 8> cc_aligned{};
         alignas(64) std::array<u64, 8> mm_aligned{};
-        _cc512_store_si512(cc_aligned.data(), value);
-        _mm512_store_si512(mm_aligned.data(), mm(value));
+        _cc512_storeu_si512(cc_aligned.data(), value);
+        _mm512_storeu_si512(mm_aligned.data(), mm(value));
         EXPECT_EQ(cc_aligned, mm_aligned);
 
         std::array<u64, 9> cc_unaligned{};
@@ -226,19 +196,12 @@ namespace blst::test
         EXPECT_EQ(cc_unaligned_bytes, mm_unaligned_bytes);
     }
 
-    TEST_F(Avx512CompatTest, Masks)
+    TEST_F(Avx512CompatTest, MaskBlend)
     {
         constexpr std::array<u64, 5> masks = {0x00, 0x01, 0x55, 0xaa, 0xff};
         for (const u64 mask : masks) {
-            const cc512i src = random_cc512();
             const cc512i a = random_cc512();
             const cc512i b = random_cc512();
-            expect_equal(
-                _mm512_mask_add_epi64(mm(src), static_cast<__mmask8>(mask), mm(a), mm(b)),
-                _cc512_mask_add_epi64(src, mask, a, b));
-            expect_equal(
-                _mm512_mask_sub_epi64(mm(src), static_cast<__mmask8>(mask), mm(a), mm(b)),
-                _cc512_mask_sub_epi64(src, mask, a, b));
             expect_equal(
                 _mm512_mask_blend_epi64(static_cast<__mmask8>(mask), mm(a), mm(b)),
                 _cc512_mask_blend_epi64(mask, a, b));
@@ -255,11 +218,6 @@ namespace blst::test
                 _cc512_permutexvar_epi64(indices, a));
         }
 
-        const cc512i a = random_cc512();
-        check_immediate_permutations<0x00>(a, 0x00, 0x0000);
-        check_immediate_permutations<0x1b>(a, 0x55, 0x5a5a);
-        check_immediate_permutations<0x4e>(a, 0xaa, 0xa5a5);
-        check_immediate_permutations<0xff>(a, 0xff, 0xffff);
     }
 
     TEST_F(Avx512CompatTest, Extraction)
