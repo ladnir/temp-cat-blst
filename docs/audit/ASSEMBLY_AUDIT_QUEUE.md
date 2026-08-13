@@ -220,3 +220,54 @@ field shapes. No generated assembly or production arithmetic changed.
 `AUD-370` is validated. `AUD-369` and `AUD-371` are fixed pending supported
 Apple ARM64 execution and compilation. No full build, benchmark, sanitizer,
 CUDA, portable-AVX Release, or BTx/BTE work ran.
+
+## Batch D inventory and findings
+
+Batch D covers seven fixed-schedule inverse and quadratic-residue owners and
+31 generated outputs. All seven generators retain upstream arithmetic. Local
+differences before this packet were the approved fail-closed translator calls
+and the public x86 capability-symbol spelling.
+
+The schedules are fixed:
+
+- the 256-bit inverse performs `15 * 31 + 47 = 512` divsteps;
+- the generic 384-bit inverse performs `12 * 62 + 24 = 768` divsteps;
+- the ADX 384-bit inverse performs `23 * 31 + 55 = 768` divsteps; and
+- the residue test performs `24 * 30 + 48 = 768` divsteps.
+
+Secret-dependent choices use masks or conditional moves. Branches depend only
+on fixed loop counters. The additional x86 branch selects a provider from the
+public capability word. Each inverse uses a fixed stack frame with one aligned
+512-byte scratch region. The residue test uses one aligned 256-byte region.
+
+The review opened three findings. `AUD-372` records inaccurate raw contracts.
+`AUD-373` records correlated correctness evidence. `AUD-374` confines the
+experimental CHERI residue-test scratch capability to its intended region.
+No arithmetic defect was confirmed.
+
+## Batch D remediation evidence
+
+Commit `83c11ba` states the exact raw contract. For width `w` and `R=2^w`, a
+nonzero invertible input produces a bounded double-width value `T` satisfying
+`T * inp = R^2 (mod mod)`. Zero produces zero. Field callers normalize this
+private representation. The residue test accepts a reduced value modulo an
+odd prime and returns true for zero and nonzero quadratic residues.
+
+The independent oracle uses branchy byte multiplication, bitwise modular
+division, and binary modular exponentiation. It does not call portable inverse
+or residue-test code. Focused MSVC 19.50 x86-64 Release execution passes all
+five new tests for selected, portable, direct ADX, and forced-generic inverse
+providers plus assembly and portable residue tests. Three retained interface
+tests also pass.
+
+The CHERI ARM generator now bounds its scratch capability to 256 bytes and
+derives each XOR-selected peer from a bounded capability. Deterministic
+verification reproduces all 100 checked outputs. The CHERI translator fixture
+passes. Preprocessing the supported Apple ARM64 path before and after the
+change produces identical ordinary instructions.
+
+`AUD-372` is validated. `AUD-373` remains fixed pending supported Apple
+execution of the independent oracle. `AUD-374` remains fixed because CHERI is
+experimental and no Morello toolchain is available. No benchmark, broad test
+sweep, sanitizer, CUDA, portable-AVX Release, or source change under BTx/BTE
+ran. Batch E, SHA-256, is next.

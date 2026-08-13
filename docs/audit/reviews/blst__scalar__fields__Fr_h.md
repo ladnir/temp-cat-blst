@@ -64,3 +64,10 @@ trivially copyable object whose limb array starts at offset zero. The independen
 Montgomery oracle covers reduced operands, the sparse full-width second operand,
 REDC, from-Montgomery, and exact aliases. `AUD-371` remains fixed pending the
 supported Apple compile.
+
+## Batch D inverse follow-up
+
+At `83c11ba`, the private bound comment records both `temp * inp = R^2` and
+`temp < 2rR`. The existing direct REDC plus `to_mont` pipeline is unchanged.
+Independent selected and portable x86 oracles validate zero, the bound, and
+the congruence. Apple execution remains pending under `AUD-373`.

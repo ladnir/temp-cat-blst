@@ -1113,6 +1113,16 @@ remain experimental target-promotion gaps. Batch B is next: add/subtract and
 division-helper arithmetic, aliasing, range, count, ABI, and constant-time
 review.
 
-The authoritative manifest now contains 185 complete, 190 in-review, and 256
-pending files across 821 tracked paths. It separately records 94 experimental,
+The authoritative manifest now contains 192 complete, 192 in-review, and 255
+pending files across 829 tracked paths. It separately records 94 experimental,
 32 frozen, 29 excluded, and 35 catalogued files.
+
+Assembly trust-chain Batch D is implemented at `83c11ba`. The seven inverse
+and residue-test owners retain fixed, secret-independent schedules and their
+upstream arithmetic. Exact double-width almost-inverse, zero, bound, prime
+domain, alias, and timing contracts are now explicit. Independent byte and
+Euler oracles pass for all selected, portable, ADX, and forced-generic x86
+providers plus the retained interface cases. CHERI residue-test scratch is
+confined to 256 bytes without changing the supported Apple instruction
+projection. `AUD-372` is validated; `AUD-373` awaits Apple execution and
+`AUD-374` awaits experimental CHERI target evidence. Batch E SHA-256 is next.

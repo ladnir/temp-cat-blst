@@ -127,3 +127,11 @@ negation now branchlessly maps zero to false and every nonzero limb value to
 true, matching x86-64 and AArch64 assembly. Direct 256/384-bit differential
 tests pass for flags zero, one, two, and all-ones, including zero operands.
 Optimized MSVC emits `neg/or/shr` normalization and no flag-dependent branch.
+
+## Batch D inverse follow-up
+
+At `83c11ba`, the inverse and residue-test implementations retain their exact
+arithmetic and now defer to precise declarations. Independent byte arithmetic
+proves the bounded `R^2` almost-inverse relation. Independent Euler
+exponentiation proves zero, residue, and nonresidue results. `AUD-372` and the
+portable portion of `AUD-373` are validated without a production code change.

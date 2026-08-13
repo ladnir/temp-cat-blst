@@ -175,3 +175,16 @@ scope. These comments add no executable code.
 The independent byte oracle passes for the selected, forced-generic, and
 direct ADX providers on MSVC x86-64. `AUD-370` is validated. The header remains
 in review with `AUD-369` and `AUD-371` pending supported Apple ARM64 evidence.
+
+## Batch D inverse boundary follow-up
+
+The inverse and residue-test declarations were reread with all seven owners at
+`83c11ba`. The inverse functions return a bounded double-width almost-inverse,
+not a conventional inverse. For `R=2^w`, a nonzero invertible input satisfies
+`ret * inp = R^2 (mod mod)`; zero returns zero. The residue test requires a
+reduced input and odd prime modulus and includes zero among quadratic residues.
+
+These declaration changes add no instructions. Independent byte-arithmetic
+and Euler-criterion oracles pass for selected, portable, direct ADX, and
+forced-generic x86 providers. `AUD-372` is validated. Apple execution of the
+new oracle remains the production evidence gap recorded by `AUD-373`.

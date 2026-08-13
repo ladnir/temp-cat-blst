@@ -308,3 +308,17 @@ squares. Focused MSVC x86-64 Release execution passes 15/15 audit tests plus
 11/11 retained interface tests. `AUD-370` is validated. `AUD-369` and
 `AUD-371` remain fixed pending supported Apple ARM64 evidence. No benchmark,
 full build, sanitizer, CUDA, portable-AVX Release, or BTx/BTE work ran.
+
+Batch D inversion and residue-test remediation is implemented at `83c11ba`.
+All fixed schedules, correction steps, stack bounds, and callers were read.
+No arithmetic defect was confirmed. Raw contracts now identify the bounded
+double-width almost-inverse and its `R^2` congruence instead of claiming a
+conventional inverse.
+
+An independent byte model validates selected, portable, direct ADX, and
+forced-generic x86 inverse providers. A separate Euler-criterion oracle
+validates zero, residue, and nonresidue behavior. Focused MSVC x86-64 Release
+execution passes 8/8 new and retained tests. The CHERI residue-test scratch is
+now confined to 256 bytes; the ordinary Apple projection is unchanged.
+`AUD-372` is validated. `AUD-373` awaits supported Apple execution, and
+`AUD-374` awaits experimental CHERI target evidence. Batch E is next.

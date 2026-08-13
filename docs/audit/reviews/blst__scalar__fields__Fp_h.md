@@ -73,3 +73,11 @@ trivially copyable object whose limb array starts at offset zero. The independen
 Montgomery oracle covers multiplication, squaring, REDC, from-Montgomery,
 exact aliases, and the optimized repeated-square path. `AUD-371` remains fixed
 pending the supported Apple compile.
+
+## Batch D inverse follow-up
+
+At `83c11ba`, the reciprocal commentary now describes how the bounded
+double-width `R^2` almost-inverse is normalized to a canonical Montgomery Fp
+value. Selected, portable, ADX, and generic x86 providers satisfy that exact
+relation. No Fp instruction or public contract changed. Apple execution of the
+new independent oracle remains pending under `AUD-373`.

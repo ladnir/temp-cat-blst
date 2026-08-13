@@ -128,3 +128,11 @@ time and code-generation evidence is compiler/version/option-specific and must
 be refreshed for supported toolchain changes. Experimental CUDA behavior is
 not promoted by this review. Broader field/protocol correctness, sanitizer,
 fuzzer, and full release matrices remain their subsystem gates.
+
+## Batch D inverse follow-up
+
+At `83c11ba`, the declarations now distinguish the double-width
+almost-inverse from a conventional inverse. They state the reduced input,
+odd-modulus, left-aligned modulus, disjoint-array, zero, bound, congruence, and
+fixed-schedule contracts. The residue test states its odd-prime domain and
+includes zero among residues. These documentation changes add no instructions.
