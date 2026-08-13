@@ -13,7 +13,10 @@ if ($flavour && $flavour ne "void") {
     ( $xlate="${dir}../../perlasm/arm-xlate.pl" and -f $xlate) or
     die "can't locate arm-xlate.pl";
 
-    open STDOUT,"| \"$^X\" $xlate $flavour $output" or die "can't call $xlate: $!";
+    my @xlate_args = ($^X, $xlate);
+    push @xlate_args, $flavour if defined $flavour;
+    push @xlate_args, $output if defined $output;
+    open STDOUT, "|-", @xlate_args or die "can't call $xlate: $!";
 } else {
     open STDOUT,">$output" or die "can't open $output: $!";
 }

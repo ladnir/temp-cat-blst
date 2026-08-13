@@ -1629,7 +1629,7 @@ if ($masm) {
 ___
 }
 
-close STDOUT;
+close STDOUT or die "assembly translation output failed: $!";
 
 #################################################
 # Cross-reference x86_64 ABI "card"

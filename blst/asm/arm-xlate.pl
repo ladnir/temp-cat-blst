@@ -512,4 +512,4 @@ if ($flavour =~ /win/) {
 ___
 }
 
-close STDOUT;
+close STDOUT or die "assembly translation output failed: $!";

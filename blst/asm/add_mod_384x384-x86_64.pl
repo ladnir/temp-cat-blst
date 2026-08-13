@@ -15,8 +15,10 @@ $0 =~ m/(.*[\/\\])[^\/\\]+$/; $dir=$1;
 ( $xlate="${dir}../../perlasm/x86_64-xlate.pl" and -f $xlate) or
 die "can't locate x86_64-xlate.pl";
 
-open STDOUT,"| \"$^X\" \"$xlate\" $flavour \"$output\""
-    or die "can't call $xlate: $!";
+my @xlate_args = ($^X, $xlate);
+push @xlate_args, $flavour if defined $flavour;
+push @xlate_args, $output if defined $output;
+open STDOUT, "|-", @xlate_args or die "can't call $xlate: $!";
 
 # common argument layout
 ($r_ptr,$a_ptr,$b_org,$n_ptr,$n0) = ("%rdi","%rsi","%rdx","%rcx","%r8");
