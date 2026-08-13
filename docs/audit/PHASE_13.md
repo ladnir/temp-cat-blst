@@ -250,3 +250,13 @@ as `AUD-066`. Commit `79010a1` includes the dependency directly; strict
 Release-style compilation of `GT.cpp` passes locally with MSVC 19.50, Clang
 18.1.3, and GCC 13.3. Native Apple validation is intentionally deferred, so
 this evidence does not close `AUD-058`, `AUD-062`, or `AUD-066`.
+
+The scalar assembly trust-chain review resumes after Phase 19 hosted-evidence
+reconciliation at exact commit `aa7c2a777dd82cbc4ac5254bbb996e077ac98939`.
+`ASSEMBLY_AUDIT_QUEUE.md` fixes the dependency order: translation/generation,
+add/divide, Montgomery multiplication, inverse/square, then SHA-256. Batch A
+places the two translators and three handwritten generation-control files in
+review. The pinned x86 translator is byte-identical; the ARM translator has
+only the recorded CHERI operand changes. Shell syntax and the focused CHERI
+and Linux translation probes pass. No full regeneration, build, benchmark,
+CUDA, sanitizer, or BTx/BTE work ran.

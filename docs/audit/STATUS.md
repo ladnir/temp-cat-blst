@@ -1082,5 +1082,14 @@ and `AUD-066` gaps together with `AUD-352` through `AUD-357`. Related build,
 assembly, FFT, field, and test rows
 remain in review only for their still-real native AVX, generated-assembly,
 sanitizer/fuzz/oracle, combined-provider, or packaging gates. The authoritative
-manifest now contains 176 complete, 166 in-review, and 322 pending files;
+manifest now contains 176 complete, 172 in-review, and 317 pending files;
 frozen, experimental, excluded, catalogued, and benchmark scope is unchanged.
+
+The next active packet is the scalar assembly trust chain, frozen at
+`aa7c2a777dd82cbc4ac5254bbb996e077ac98939`. Batch A reviews the ARM/x86
+translators, deterministic generation wrapper, verifier, and 100-path output
+allowlist before arithmetic generator families proceed. Three questions are
+held for review before code changes: experimental ARM/CHERI output scope,
+unchecked translator-pipe failures, and the x86 MinGW compiler-environment
+probe. The queue and bounded validation plan are recorded in
+`ASSEMBLY_AUDIT_QUEUE.md`.
