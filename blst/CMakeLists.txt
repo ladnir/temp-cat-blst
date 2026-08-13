@@ -206,9 +206,17 @@ endif()
 
 
 
-#arch native
-if (MSVC)
-else()
+# The native AVX backend is selected explicitly by BLST_AVX512, so its ISA
+# must not depend on the CPU running the build. In particular, -march=native
+# on an AVX2-only builder leaves AVX512IFMA intrinsics unavailable even though
+# the resulting artifact is intended for AVX-512 deployment hosts.
+if(BLST_AVX512 AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(blst_static PUBLIC
+        $<$<COMPILE_LANGUAGE:CXX>:-mavx512f>
+        $<$<COMPILE_LANGUAGE:CXX>:-mavx512dq>
+        $<$<COMPILE_LANGUAGE:CXX>:-mavx512ifma>
+        $<$<COMPILE_LANGUAGE:CXX>:-mavx512vl>)
+elseif(NOT MSVC)
     target_compile_options(blst_static PUBLIC -march=native)
 endif()
 
