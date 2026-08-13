@@ -3,7 +3,7 @@
 ## Scope
 
 This record covers the complete retained BLS12-381 MatrixNoK base-field owner
-through commit `13fe98a`.
+through commit `d69be47`.
 
 ## Contracts
 
@@ -44,6 +44,9 @@ through commit `13fe98a`.
 - `AUD-264`: the comparison-only Fp2 microkernel retained two private
   base-field completion/negation hooks and privileged friendship after the
   selected generic Fp2 owner became the sole production implementation.
+- `AUD-354`: the fixed-array production batch API used an `int` non-type
+  parameter even though `std::array` encodes its extent as `std::size_t`, so
+  GCC could not deduce the otherwise valid compile-time batch.
 
 ## Validation
 
@@ -61,6 +64,10 @@ through commit `13fe98a`.
 - The comparison-only Fp2 hooks and friendship are absent, while selected
   one-shot, fixed-batch, delayed-reduction, conversion, and expansion callers
   continue to compile and pass their focused differentials.
+- `AUD-354` aligns the production `batch_modmul` non-type parameter with
+  `std::array`'s `std::size_t` extent. GCC 13 syntax-checks the exact
+  portable-AVX test translation unit and MSVC compiles the focused Debug object;
+  the generated operations and runtime schedule are unchanged.
 
 ## Residual risk
 

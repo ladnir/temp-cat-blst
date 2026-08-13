@@ -1034,3 +1034,15 @@ feature check pass in 29.85 seconds with one local worker, and grouped Cargo
 updates are monitored behind that gate. No workflow, product test suite,
 benchmark, CUDA job, portable-AVX Release build, or sanitizer ran. Exact hosted
 workflow execution is the next release-evidence boundary.
+
+The first hosted Packet 19B execution passed audit integrity, binding
+regeneration, Rust 1.78 and current Rust on all three supported operating
+systems, plus Linux scalar and assembly C++ jobs. Apple built the supported
+product archive before a test-only defaulted-comparison signature failed;
+Windows passed 449/450 tests before the raw-byte Lean source hash disagreed
+with its CRLF checkout; portable-AVX Debug built the product archive before a
+GCC `int`/`std::size_t` fixed-array deduction mismatch stopped its test TU.
+`AUD-352` through `AUD-354` are fixed at `d69be47`. Exact Clang/GCC/MSVC
+translation-unit checks, the Lean `--check`, and an LF/CRLF render differential
+pass locally. The exact hosted rerun remains required before these jobs count
+as complete release evidence.

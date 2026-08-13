@@ -154,3 +154,23 @@ Execute the corrected hosted Apple/Linux/Windows/Rust CI matrix when a push is
 approved. The next local
 file packet should audit remaining test/build support without starting a broad
 test sweep.
+
+## Packet 19C: First hosted execution
+
+The first hosted execution of Packet 19B established substantial positive
+evidence: audit integrity, binding regeneration, Rust 1.78 MSRV, current Rust
+on Linux/Windows/macOS, Linux pure-C++ scalar, and Linux assembly all passed.
+The supported Apple product archive also built, and the Windows C++ suite
+passed 449 of 450 tests.
+
+Three portability defects prevented complete gates and are recorded as
+`AUD-352` through `AUD-354`. Commit `d69be47` repairs the invalid C++20 test
+comparison signature, normalizes the generated-proof source hash across LF and
+CRLF checkouts, and matches the fixed-array AVX batch template parameter to
+`std::size_t`. Focused Clang, GCC, and MSVC compilation plus an LF/CRLF
+generator differential pass. No product arithmetic, runtime dispatch, or hot
+loop changed; the AVX repair is a compile-time type correction only.
+
+The exact hosted revision has not yet been rerun, so Apple, Windows, and the
+portable-AVX developer lane remain release-evidence gaps. No benchmark, CUDA,
+BTx/BTE work, full local suite, sanitizer sweep, or broad parallel build ran.
