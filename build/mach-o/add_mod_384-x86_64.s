@@ -238,7 +238,7 @@ _rshift_mod_384:
 
 L$oop_rshift_mod_384:
 	call	__rshift_mod_384
-	decl	%edx
+	decq	%rdx
 	jnz	L$oop_rshift_mod_384
 
 	movq	%r8,0(%rdi)
@@ -491,7 +491,7 @@ L$oop_lshift_mod_384:
 	cmovcq	%rbp,%r12
 	cmovcq	%rsi,%r13
 
-	decl	%edx
+	decq	%rdx
 	jnz	L$oop_lshift_mod_384
 
 	movq	%r8,0(%rdi)
@@ -2058,11 +2058,11 @@ _vec_select_288:
 #endif
 .cfi_endproc
 
-.globl	_vec_prefetch
-.private_extern	_vec_prefetch
+.globl	_vec_prefetch_asm
+.private_extern	_vec_prefetch_asm
 
 .p2align	5
-_vec_prefetch:
+_vec_prefetch_asm:
 .cfi_startproc
 	.byte	0xf3,0x0f,0x1e,0xfa
 

@@ -251,7 +251,7 @@ endif
 
 $L$oop_rshift_mod_384::
 	call	__rshift_mod_384
-	dec	edx
+	dec	rdx
 	jnz	$L$oop_rshift_mod_384
 
 	mov	QWORD PTR[rdi],r8
@@ -513,7 +513,7 @@ $L$oop_lshift_mod_384::
 	cmovc	r12,rbp
 	cmovc	r13,rsi
 
-	dec	edx
+	dec	rdx
 	jnz	$L$oop_lshift_mod_384
 
 	mov	QWORD PTR[rdi],r8
@@ -2129,11 +2129,11 @@ else
 	DB	0F3h,0C3h
 endif
 vec_select_288	ENDP
-PUBLIC	vec_prefetch
+PUBLIC	vec_prefetch_asm
 
 
 ALIGN	32
-vec_prefetch	PROC PUBLIC
+vec_prefetch_asm	PROC PUBLIC
 	DB	243,15,30,250
 
 	lea	rdx,QWORD PTR[((-1))+rdx*1+rcx]
@@ -2181,7 +2181,7 @@ ifdef	__SGX_LVI_HARDENING__
 else
 	DB	0F3h,0C3h
 endif
-vec_prefetch	ENDP
+vec_prefetch_asm	ENDP
 PUBLIC	vec_is_zero_16x
 
 

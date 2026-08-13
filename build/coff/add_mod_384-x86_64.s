@@ -248,7 +248,7 @@ rshift_mod_384:
 
 .Loop_rshift_mod_384:
 	call	__rshift_mod_384
-	decl	%edx
+	decq	%rdx
 	jnz	.Loop_rshift_mod_384
 
 	movq	%r8,0(%rdi)
@@ -508,7 +508,7 @@ lshift_mod_384:
 	cmovcq	%rbp,%r12
 	cmovcq	%rsi,%r13
 
-	decl	%edx
+	decq	%rdx
 	jnz	.Loop_lshift_mod_384
 
 	movq	%r8,0(%rdi)
@@ -2113,11 +2113,11 @@ vec_select_288:
 	.byte	0xf3,0xc3
 #endif
 
-.globl	vec_prefetch
+.globl	vec_prefetch_asm
 
-.def	vec_prefetch;	.scl 2;	.type 32;	.endef
+.def	vec_prefetch_asm;	.scl 2;	.type 32;	.endef
 .p2align	5
-vec_prefetch:
+vec_prefetch_asm:
 	.byte	0xf3,0x0f,0x1e,0xfa
 
 	leaq	-1(%rcx,%rdx,1),%rdx

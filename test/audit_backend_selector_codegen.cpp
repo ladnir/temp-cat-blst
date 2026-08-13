@@ -57,3 +57,13 @@ extern "C" void audit_vec_copy_self_48(void* value)
 {
     blst::vec_copy(value, value, 48);
 }
+
+extern "C" void audit_vec_prefetch_selected(const void* input, size_t len)
+{
+    blst::vec_prefetch(input, len);
+}
+
+extern "C" void audit_vec_prefetch_48(const void* input)
+{
+    blst::vec_prefetch(input, 48);
+}

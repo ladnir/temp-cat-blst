@@ -182,7 +182,7 @@ lshift_mod_256:
 
 .Loop_lshift_mod_256:
 	call	__lshift_mod_256
-	dec	%edx
+	dec	%rdx
 	jnz	.Loop_lshift_mod_256
 
 	mov	@acc[0], 8*0($r_ptr)
@@ -262,7 +262,7 @@ rshift_mod_256:
 	or	@acc[5], @acc[2]
 	or	@acc[4], @acc[3]
 
-	dec	%edx
+	dec	%rdx
 	jnz	.Loop_rshift_mod_256
 
 	mov	@acc[7], 8*0($r_ptr)

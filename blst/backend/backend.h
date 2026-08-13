@@ -287,14 +287,16 @@ namespace blst
 
 
 
-#ifndef BLST_ASM
 	BLST_HD BLST_FORCEINLINE void vec_prefetch(const void* ptr, size_t len)
 	{
-		cc_vec_prefetch(ptr, len);
-	}
+		if (len == 0)
+			return;
+#if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
+		::vec_prefetch_asm(ptr, len);
 #else
-	extern "C" void vec_prefetch(const void* ptr, size_t len); // linked by asm
+		cc_vec_prefetch(ptr, len);
 #endif
+	}
 
 
 
@@ -348,6 +350,9 @@ namespace blst
 
 	BLST_HD BLST_FORCEINLINE limb_t div_3_limbs_v(const limb_t dividend_top[2], limb_t d_lo, limb_t d_hi)
 	{
+		BLST_ASSERT((d_hi >> (BLST_LIMB_SIZE - 1)) == 1);
+		BLST_ASSERT(dividend_top[1] < d_hi ||
+			(dividend_top[1] == d_hi && dividend_top[0] <= d_lo));
 #if defined(BLST_ASM) && defined(BLST_DEFAULT_ASM) && !defined(__CUDA_ARCH__)
 		return div_3_limbs(dividend_top, d_lo, d_hi);
 #else

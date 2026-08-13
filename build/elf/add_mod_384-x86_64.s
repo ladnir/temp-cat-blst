@@ -238,7 +238,7 @@ rshift_mod_384:
 
 .Loop_rshift_mod_384:
 	call	__rshift_mod_384
-	decl	%edx
+	decq	%rdx
 	jnz	.Loop_rshift_mod_384
 
 	movq	%r8,0(%rdi)
@@ -491,7 +491,7 @@ lshift_mod_384:
 	cmovcq	%rbp,%r12
 	cmovcq	%rsi,%r13
 
-	decl	%edx
+	decq	%rdx
 	jnz	.Loop_lshift_mod_384
 
 	movq	%r8,0(%rdi)
@@ -2058,11 +2058,11 @@ vec_select_288:
 #endif
 .cfi_endproc
 .size	vec_select_288,.-vec_select_288
-.globl	vec_prefetch
-.hidden	vec_prefetch
-.type	vec_prefetch,@function
+.globl	vec_prefetch_asm
+.hidden	vec_prefetch_asm
+.type	vec_prefetch_asm,@function
 .align	32
-vec_prefetch:
+vec_prefetch_asm:
 .cfi_startproc
 	.byte	0xf3,0x0f,0x1e,0xfa
 
@@ -2112,7 +2112,7 @@ vec_prefetch:
 	.byte	0xf3,0xc3
 #endif
 .cfi_endproc
-.size	vec_prefetch,.-vec_prefetch
+.size	vec_prefetch_asm,.-vec_prefetch_asm
 .globl	vec_is_zero_16x
 .hidden	vec_is_zero_16x
 .type	vec_is_zero_16x,@function

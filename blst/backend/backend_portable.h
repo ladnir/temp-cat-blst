@@ -386,10 +386,11 @@ namespace blst
 	BLST_HD void cc_mul_mont_n(limb_t* ret, const limb_t* a, const limb_t* b,
 		const limb_t* p, limb_t n0);
 
-	/** * @brief Adds two large integers modulo a given modulus.
+	/** * @brief Adds two reduced large integers modulo an odd modulus.
 	 *
-	 * Computes `(a + b) mod p` and stores the result in `ret`. Handles carry propagation
-	 * and ensures the result is reduced modulo `p`. Assumes `n > 0`.
+	 * @pre `n > 0` and `0 <= a,b < p`.
+	 * @post `ret = (a+b) mod p` and `0 <= ret < p`.
+	 * @note `ret` may exactly alias `a` or `b`. Partial overlap is unsupported.
 	 */
 	template<size_t n>
 	BLST_HD void cc_add_mod_n(limb_t ret[], const limb_t a[], const limb_t b[],
@@ -398,8 +399,9 @@ namespace blst
 	/**
 	 * @brief Subtracts two large integers modulo a given modulus.
 	 *
-	 * Computes `(a - b) mod p` and stores the result in `ret`. Handles borrow propagation
-	 * and ensures the result is reduced modulo `p`. Assumes `n > 0`.
+	 * @pre `n > 0` and `0 <= a,b < p`.
+	 * @post `ret = (a-b) mod p` and `0 <= ret < p`.
+	 * @note `ret` may exactly alias `a` or `b`. Partial overlap is unsupported.
 	 */
 	template<size_t n>
 	BLST_HD  void cc_sub_mod_n(limb_t ret[], const limb_t a[], const limb_t b[],
@@ -408,8 +410,9 @@ namespace blst
 	/**
 	 * @brief Multiplies a large integer by 3 modulo a given modulus.
 	 *
-	 * Computes `(3 * a) mod p` and stores the result in `ret`. Handles carry propagation
-	 * and ensures the result is reduced modulo `p`. Assumes `n > 0`.
+	 * @pre `n > 0` and `0 <= a < p`.
+	 * @post `ret = 3a mod p` and `0 <= ret < p`.
+	 * @note `ret` may exactly alias `a`. Partial overlap is unsupported.
 	 */
 	template<size_t n>
 	BLST_HD  void cc_mul_by_3_mod_n(limb_t ret[], const limb_t a[], const limb_t p[]);
@@ -417,8 +420,9 @@ namespace blst
 	/**
 	 * @brief Performs a left shift modulo operation on a large integer.
 	 *
-	 * Computes `(a << count) mod p` iteratively, ensuring the result remains within
-	 * the range `[0, p)`. Assumes `count > 0` and `n > 0`.
+	 * @pre `n > 0`, `count > 0`, and `0 <= a < p`.
+	 * @post `ret = a * 2^count mod p` and `0 <= ret < p`.
+	 * @note `ret` may exactly alias `a`. Partial overlap is unsupported.
 	 */
 	template<size_t n>
 	BLST_HD  void cc_lshift_mod_n(limb_t ret[], const limb_t a[], size_t count,
@@ -427,8 +431,9 @@ namespace blst
 	/**
 	 * @brief Conditionally negates a large integer modulo a given modulus.
 	 *
-	 * If `flag` is true, computes `(-a) mod p`; otherwise, returns `a mod p`.
-	 * The result is stored in `ret`. Assumes `n > 0`.
+	 * @pre `n > 0` and `0 <= a < p`.
+	 * @post Nonzero `flag` yields `-a mod p`; zero `flag` copies `a`.
+	 * @note `ret` may exactly alias `a`. Partial overlap is unsupported.
 	 */
 	template<size_t n>
 	BLST_HD  void cc_cneg_mod_n(limb_t ret[], const limb_t a[], bool_t flag,
@@ -439,8 +444,7 @@ namespace blst
 	 * @brief Checks if a large integer `a` is reduced modulo a given modulus
 	 * and not zero.
 	 *
-	 * Returns 0 if `a` is greater than or equal to `p`, otherwise returns 1.
-	 * Assumes `n > 0`.
+	 * Returns one exactly when `0 < a < p`. Assumes `n > 0`.
 	 */
 	template<size_t n>
 	BLST_HD  limb_t cc_check_mod_n(const byte a[], const limb_t p[]);
@@ -458,8 +462,10 @@ namespace blst
 	/**
 	 * @brief Adds two large integers modulo a given modulus and checks if the result is zero.
 	 *
-	 * Computes `(a + b) mod p` and stores the result in `ret`. Returns 1 if the result is nonzero,
-	 * otherwise returns 0. Assumes `n > 0`.
+	 * Interprets @p a and @p b as canonical little-endian byte strings in
+	 * `[0,p)`. Stores `(a + b) mod p` in little-endian form and returns one
+	 * exactly when the result is nonzero. Exact output aliasing with either
+	 * input is supported; partial overlap is not. Assumes `n > 0`.
 	 */
 	template<size_t n>
 	BLST_HD  limb_t cc_add_n_check_mod_n(byte ret[], const byte a[], const byte b[],
@@ -469,8 +475,10 @@ namespace blst
 	/**
 	 * @brief Subtracts two large integers modulo a given modulus and checks if the result is zero.
 	 *
-	 * Computes `(a - b) mod p` and stores the result in `ret`. Returns 1 if the result is nonzero,
-	 * otherwise returns 0. Assumes `n > 0`.
+	 * Interprets @p a and @p b as canonical little-endian byte strings in
+	 * `[0,p)`. Stores `(a - b) mod p` in little-endian form and returns one
+	 * exactly when the result is nonzero. Exact output aliasing with either
+	 * input is supported; partial overlap is not. Assumes `n > 0`.
 	 */
 	template<size_t n>
 	BLST_HD  limb_t cc_sub_n_check_mod_n(byte ret[], const byte a[], const byte b[],
@@ -505,18 +513,16 @@ namespace blst
 	/**
 	 * @brief Performs a right shift modulo operation on a large integer.
 	 *
-	 * This function computes `(a / 2^count) mod p` iteratively, ensuring the result
-	 * remains within the range `[0, p)`. For each bit shifted, the modulus `p` is
-	 * conditionally added back if the least significant bit of `a` is set before
-	 * the shift. This ensures the result is non-negative and properly reduced.
+	 * Computes `a * 2^(-count) mod p`. The operand must be in `[0,p)`, and
+	 * @p p must be odd. The result is in `[0,p)`. Exact output aliasing with
+	 * @p a is supported; partial overlap is not.
 	 *
 	 * @param[out] ret The output array to store the result.
 	 * @param[in]  a   The input array representing the large integer.
 	 * @param[in]  count The number of bits to shift.
 	 * @param[in]  p   The modulus array.
-	 * @param[in]  n   The number of limb_ts in `a` and `p`.
-	 *
-	 * @note Assumes `count > 0`, `n > 0`, and `n` is even.
+	 * @note Assumes `count > 0`, `n > 0`, and `n` is even. The selected
+	 * boundary in `backend.h` defines a zero count as an exact copy.
 	 */
 	template<size_t n>
 	BLST_HD  void cc_rshift_mod_n(limb_t ret[], const limb_t a[], size_t count,
@@ -831,8 +837,11 @@ namespace blst
 	/*
 	 * @brief Divides a 3-limb_t dividend by a 2-limb divisor.
 	 *
-	 * Computes the quotient of a 3-limb dividend divided by a 2-limb divisor.
-	 * Assumes the divisor is left-aligned and the dividend is not larger than the divisor.
+	 * Estimates one quotient limb for `(div_top * 2^64) / divisor`.
+	 * The divisor is normalized and `div_top <= divisor`. Equality saturates
+	 * an overflowing quotient to `UINT64_MAX`. Long division supplies the
+	 * stricter `div_top < divisor` condition and receives an exact or one-high
+	 * estimate.
 	 *
 	 * |div_top| points at two most significant limbs of the dividend, |d_hi|
 	 * and |d_lo| are two most significant limbs of the divisor. If divisor
@@ -856,8 +865,11 @@ namespace blst
 	/**
 	 * @brief Computes the quotient and remainder of a large integer division.
 	 *
-	 * Computes `quotient = dividend / divisor` and updates `div_rem` with the remainder.
-	 * Assumes `n > 0` and `n` is even.
+	 * @pre `n` is one or two. `div_rem` contains an `(n+1)`-limb dividend.
+	 * The supplied estimate is exact or one too high. For `n == 1`, selected
+	 * assembly callers must supply the exact quotient.
+	 * @post The low `n` limbs contain the remainder. `div_rem[n]` and the return
+	 * value contain the corrected quotient.
 	 */
 	template<size_t n>
 	BLST_HD  limb_t cc_quot_rem_n(limb_t* div_rem, const limb_t* divisor,

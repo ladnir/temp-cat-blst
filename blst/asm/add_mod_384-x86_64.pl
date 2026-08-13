@@ -214,7 +214,7 @@ rshift_mod_384:
 
 .Loop_rshift_mod_384:
 	call	__rshift_mod_384
-	dec	%edx
+	dec	%rdx
 	jnz	.Loop_rshift_mod_384
 
 	mov	@acc[0], 8*0($r_ptr)
@@ -421,7 +421,7 @@ lshift_mod_384:
 	cmovc	@acc[10], @acc[4]
 	cmovc	@acc[11], @acc[5]
 
-	dec	%edx
+	dec	%rdx
 	jnz	.Loop_lshift_mod_384
 
 	mov	@acc[0], 8*0($r_ptr)
@@ -1444,11 +1444,11 @@ vec_select(288);
 my ($inp, $end) = $win64 ? ("%rcx", "%rdx") : ("%rdi", "%rsi");
 
 $code.=<<___;
-.globl	vec_prefetch
-.hidden	vec_prefetch
-.type	vec_prefetch,\@abi-omnipotent
+.globl	vec_prefetch_asm
+.hidden	vec_prefetch_asm
+.type	vec_prefetch_asm,\@abi-omnipotent
 .align	32
-vec_prefetch:
+vec_prefetch_asm:
 	leaq		-1($inp,$end), $end
 	mov		\$64, %rax
 	xor		%r8, %r8
@@ -1486,7 +1486,7 @@ vec_prefetch:
 	cmova		$end, $inp
 	prefetchnta	($inp)
 	ret
-.size	vec_prefetch,.-vec_prefetch
+.size	vec_prefetch_asm,.-vec_prefetch_asm
 ___
 my $len = $win64 ? "%rdx" : "%rsi";
 

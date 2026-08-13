@@ -915,9 +915,9 @@ __SIZEOF_POINTER__ SETA 64/8
 	ENDP
 
 
-	EXPORT	|vec_prefetch|[FUNC]
+	EXPORT	|vec_prefetch_asm|[FUNC]
 	ALIGN	32
-|vec_prefetch| PROC
+|vec_prefetch_asm| PROC
 	hint	#34
 	add	x1, x1, x0
 	sub	x1, x1, #1

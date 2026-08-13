@@ -219,7 +219,7 @@ endif
 
 $L$oop_lshift_mod_256::
 	call	__lshift_mod_256
-	dec	edx
+	dec	rdx
 	jnz	$L$oop_lshift_mod_256
 
 	mov	QWORD PTR[rdi],r8
@@ -322,7 +322,7 @@ $L$oop_rshift_mod_256::
 	or	r10,rsi
 	or	r11,rax
 
-	dec	edx
+	dec	rdx
 	jnz	$L$oop_rshift_mod_256
 
 	mov	QWORD PTR[rdi],rbp

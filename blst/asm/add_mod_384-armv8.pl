@@ -849,11 +849,11 @@ vec_select(288);
 my ($inp, $end, $step) = map("x$_", (0..2));
 
 $code.=<<___;
-.globl	vec_prefetch
-.hidden	vec_prefetch
-.type	vec_prefetch,%function
+.globl	vec_prefetch_asm
+.hidden	vec_prefetch_asm
+.type	vec_prefetch_asm,%function
 .align	5
-vec_prefetch:
+vec_prefetch_asm:
 	hint	#34
 	add	$end, $end, $inp
 	sub	$end, $end, #1
@@ -889,7 +889,7 @@ vec_prefetch:
 	csel	$inp, $end, $inp, hi
 	prfm	pldl1keep, [$inp]
 	ret
-.size	vec_prefetch,.-vec_prefetch
+.size	vec_prefetch_asm,.-vec_prefetch_asm
 ___
 my $len = $end;
 

@@ -919,11 +919,11 @@ vec_select_288:
 	st1	{v16.2d, v17.2d, v18.2d}, [x0]
 	ret
 .size	vec_select_288,.-vec_select_288
-.globl	vec_prefetch
-.hidden	vec_prefetch
-.type	vec_prefetch,%function
+.globl	vec_prefetch_asm
+.hidden	vec_prefetch_asm
+.type	vec_prefetch_asm,%function
 .align	5
-vec_prefetch:
+vec_prefetch_asm:
 	hint	#34
 	add	x1, x1, x0
 	sub	x1, x1, #1
@@ -959,7 +959,7 @@ vec_prefetch:
 	csel	x0, x1, x0, hi
 	prfm	pldl1keep, [x0]
 	ret
-.size	vec_prefetch,.-vec_prefetch
+.size	vec_prefetch_asm,.-vec_prefetch_asm
 .globl	vec_is_zero_16x
 .hidden	vec_is_zero_16x
 .type	vec_is_zero_16x,%function

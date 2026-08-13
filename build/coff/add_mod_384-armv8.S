@@ -961,13 +961,13 @@ vec_select_288:
 	st1	{v16.2d, v17.2d, v18.2d}, [x0]
 	ret
 
-.globl	vec_prefetch
+.globl	vec_prefetch_asm
 
-.def	vec_prefetch;
+.def	vec_prefetch_asm;
 .type	32;
 .endef
 .p2align	5
-vec_prefetch:
+vec_prefetch_asm:
 	hint	#34
 	add	x1, x1, x0
 	sub	x1, x1, #1

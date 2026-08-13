@@ -216,7 +216,7 @@ lshift_mod_256:
 
 .Loop_lshift_mod_256:
 	call	__lshift_mod_256
-	decl	%edx
+	decq	%rdx
 	jnz	.Loop_lshift_mod_256
 
 	movq	%r8,0(%rdi)
@@ -318,7 +318,7 @@ rshift_mod_256:
 	orq	%rsi,%r10
 	orq	%rax,%r11
 
-	decl	%edx
+	decq	%rdx
 	jnz	.Loop_rshift_mod_256
 
 	movq	%rbp,0(%rdi)

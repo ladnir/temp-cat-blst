@@ -45,21 +45,42 @@ namespace blst::scalar
 	 * faster pairing depending on platform...
 	 */
 
+#ifndef NDEBUG
+	BLST_HD BLST_INLINE bool fp_wide_is_bounded(const UFp& a)
+	{
+		Fp upper;
+		for (size_t i = 0; i < Fp::num_limb(); ++i)
+			upper[i] = a.data[Fp::num_limb() + i];
+		return Fp::is_redc(upper) != 0;
+	}
+
+	BLST_HD BLST_INLINE bool fp2_wide_is_bounded(const UFp2& a)
+	{
+		return fp_wide_is_bounded(a[0]) && fp_wide_is_bounded(a[1]);
+	}
+#endif
+
 	BLST_HD BLST_INLINE void add_fp2x2(UFp2& ret, const UFp2& a, const UFp2& b)
 	{
+		BLST_ASSERT(fp2_wide_is_bounded(a));
+		BLST_ASSERT(fp2_wide_is_bounded(b));
 		add_mod_384x384(&ret[0], &a[0], &b[0], &get_BLST_P());
 		add_mod_384x384(&ret[1], &a[1], &b[1], &get_BLST_P());
 	}
 
 	BLST_HD BLST_INLINE void sub_fp2x2(UFp2& ret, const UFp2& a, const UFp2& b)
 	{
+		BLST_ASSERT(fp2_wide_is_bounded(a));
+		BLST_ASSERT(fp2_wide_is_bounded(b));
 		sub_mod_384x384(&ret[0], &a[0], &b[0], &get_BLST_P());
 		sub_mod_384x384(&ret[1], &a[1], &b[1], &get_BLST_P());
 	}
 
 	BLST_HD BLST_INLINE void mul_by_u_plus_1_fp2x2(UFp2& ret, const UFp2& a)
 	{
-		/* caveat lector! |ret| may not be same as |a| */
+		BLST_ASSERT(fp2_wide_is_bounded(a));
+		BLST_ASSERT(&ret != &a);
+		/* The two output components overwrite inputs needed by the other. */
 		sub_mod_384x384(&ret[0], &a[0], &a[1], &get_BLST_P());
 		add_mod_384x384(&ret[1], &a[0], &a[1], &get_BLST_P());
 	}

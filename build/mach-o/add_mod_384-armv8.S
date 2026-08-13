@@ -911,11 +911,11 @@ _vec_select_288:
 	st1	{v16.2d, v17.2d, v18.2d}, [x0]
 	ret
 
-.globl	_vec_prefetch
-.private_extern	_vec_prefetch
+.globl	_vec_prefetch_asm
+.private_extern	_vec_prefetch_asm
 
 .align	5
-_vec_prefetch:
+_vec_prefetch_asm:
 	hint	#34
 	add	x1, x1, x0
 	sub	x1, x1, #1

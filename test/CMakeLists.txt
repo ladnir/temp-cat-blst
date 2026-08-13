@@ -58,6 +58,7 @@ set(SCALAR_BACKEND_TEST_SOURCES
 set(AUDIT_TEST_SOURCES
     "Addchain_audit_tests.cpp"
     "Aggregate_audit_tests.cpp"
+    "Assembly_arithmetic_audit_tests.cpp"
     "Group_scalar_mult_tests.cpp"
     "Gt_deserialize_audit_tests.cpp"
     "Hash_to_field_audit_tests.cpp"

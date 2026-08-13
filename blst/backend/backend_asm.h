@@ -70,6 +70,13 @@ blst::limb_t check_mod_256(const asm_pow256 a, const asm_Fr p);
 blst::bool_t vec_is_zero_16x(const void* a, size_t num);
 blst::bool_t vec_is_equal_16x(const void* a, const void* b, size_t num);
 
+/*
+ * Single-width modular operations require reduced operands in [0,p). The
+ * modulus is odd. Exact output aliasing with either input is supported;
+ * partial overlap is not. Raw shift counts must be positive and are public.
+ * Every operation uses data-independent control flow for fixed public sizes.
+ */
+
 void add_mod_384(asm_Fp ret, const asm_Fp a, const asm_Fp b, const asm_Fp p);
 void sub_mod_384(asm_Fp ret, const asm_Fp a, const asm_Fp b, const asm_Fp p);
 void mul_by_8_mod_384(asm_Fp ret, const asm_Fp a, const asm_Fp p);
@@ -80,6 +87,9 @@ void lshift_mod_384(asm_Fp ret, const asm_Fp a, size_t count, const asm_Fp p);
 void div_by_2_mod_384(asm_Fp ret, const asm_Fp a, const asm_Fp p);
 blst::limb_t sgn0_pty_mod_384(const asm_Fp a, const asm_Fp p);
 blst::limb_t sgn0_pty_mod_384x(const asm_Fp2 a, const asm_Fp p);
+
+/* Raw prefetch requires len > 0. The selected C++ boundary handles zero. */
+void vec_prefetch_asm(const void* ptr, size_t len);
 
 void add_mod_384x(asm_Fp2 ret, const asm_Fp2 a, const asm_Fp2 b,
     const asm_Fp p);
@@ -100,13 +110,34 @@ void blst_sha256_hcopy(unsigned int dst[8], const unsigned int src[8]);
 void blst_sha256_emit(unsigned char md[32], const unsigned int h[8]);
 void blst_sha256_bcopy(void* dst, const void* src, size_t len);
 
+/*
+ * Estimate one quotient limb for (dividend_top * 2^64) / divisor.
+ * The two-limb divisor is normalized: bit 127 is set. dividend_top is at
+ * most divisor. Equality saturates an overflowing quotient to UINT64_MAX.
+ * For the long-division correction contract, dividend_top is strictly less
+ * than divisor and the returned estimate is exact or one too high.
+ */
 blst::limb_t div_3_limbs(const blst::limb_t dividend_top[2],
     blst::limb_t d_lo, blst::limb_t d_hi);
+/*
+ * div_rem initially contains a 192-bit dividend. quotient is exact or one
+ * too high. The routine writes the 128-bit remainder followed by the corrected
+ * quotient. Exact div_rem/dividend storage reuse is required by the contract.
+ */
 blst::limb_t quot_rem_128(blst::limb_t* quot_rem,
     const blst::limb_t* divisor, blst::limb_t quotient);
+/*
+ * div_rem initially contains a 128-bit dividend. quotient must be exact. The
+ * routine writes the 64-bit remainder followed by the unchanged quotient.
+ */
 blst::limb_t quot_rem_64(blst::limb_t* quot_rem,
     const blst::limb_t* divisor, blst::limb_t quotient);
 
+/*
+ * Double-width operations reduce modulo p * 2^384. Each operand must be below
+ * that boundary. Exact output aliasing with either input is supported;
+ * partial overlap is not.
+ */
 void add_mod_384x384(asm_UFp ret, const asm_UFp a, const asm_UFp b,
     const asm_Fp p);
 void sub_mod_384x384(asm_UFp ret, const asm_UFp a, const asm_UFp b,
