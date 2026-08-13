@@ -48,7 +48,8 @@ namespace
             return *this;
         }
 
-        friend constexpr bool operator==(const RootTestField, const RootTestField) = default;
+        friend constexpr bool operator==(
+            const RootTestField&, const RootTestField&) = default;
         friend constexpr bool operator==(const RootTestField lhs, const std::uint64_t rhs)
         {
             return lhs.value == rhs % order();

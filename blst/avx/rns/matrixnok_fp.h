@@ -582,7 +582,7 @@ namespace blst::avx::matrixnok
             return multiply(left, right);
         }
 
-        template<int batch>
+        template<std::size_t batch>
         static BLST_FORCEINLINE std::array<StandardElement, batch> batch_modmul(
             const std::array<StandardElement, batch>& left,
             const std::array<StandardElement, batch>& right)

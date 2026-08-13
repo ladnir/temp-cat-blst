@@ -54,7 +54,10 @@ def render(header: Path) -> str:
     if skip_match is None:
         raise ValueError("missing r1_skip_correction")
 
-    source_hash = hashlib.sha256(header.read_bytes()).hexdigest()
+    # Hash the parsed text, not the checkout's byte representation. Git may
+    # materialize this header with either LF or CRLF line endings, but the
+    # generated Lean constants must be identical on every host.
+    source_hash = hashlib.sha256(text.encode("ascii")).hexdigest()
     lines = [
         "/-",
         "Copyright 2026 Category Labs, Inc.",
