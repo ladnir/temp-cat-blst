@@ -65,3 +65,11 @@ upstream added it for reported almost-inverse corner cases. Optimized
 MSVC/Clang/GCC probes retain that branch, while `flt_reciprocal` calls only the
 fixed chain. `AUD-201` is validated with the Euclidean operation documented as
 variable-time rather than promoted to a stronger contract.
+
+## Assembly-layout follow-up
+
+At `a29895f`, Fp is required at compile time to remain a 48-byte standard-layout,
+trivially copyable object whose limb array starts at offset zero. The independent
+Montgomery oracle covers multiplication, squaring, REDC, from-Montgomery,
+exact aliases, and the optimized repeated-square path. `AUD-371` remains fixed
+pending the supported Apple compile.

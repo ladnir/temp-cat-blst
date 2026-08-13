@@ -160,8 +160,8 @@ widened Fp12 path accepts the new operand and alias assertions. The optimized
 selector probe compiles under `/O2 /Ob3 /DNDEBUG /W4 /WX`; its object hash is
 `C99F5717D45703F738134FA65C73FEB61A3BF57B0FCEA63A7C3529E2D3819C58`.
 
-`AUD-366` and `AUD-368` are validated. `AUD-365` and `AUD-367` are fixed but
-retain Apple ARM64 execution as supported-platform evidence. No benchmark,
+`AUD-365` through `AUD-368` are validated. Apple scalar-assembly run
+`31712201574` supplies the supported Apple evidence for the shared owners. No benchmark,
 sanitizer, CUDA, portable-AVX Release, full test sweep, or BTx/BTE work ran.
 
 ## Batch C inventory and findings
@@ -192,3 +192,31 @@ the model checks the unique reduced solution through
 congruence. Fp2 and 382x checks derive both component equations independently.
 No production arithmetic, generator instruction, runtime check, or benchmark
 change is part of this packet.
+
+## Batch C remediation evidence
+
+Commit `a29895f` replaces closure comparisons with an independent branchy
+byte model. The oracle uses schoolbook byte multiplication and bitwise modular
+division. It does not call portable limb or Montgomery arithmetic. It covers:
+
+- selected, forced-generic, and direct ADX 256-bit and 384-bit providers;
+- the sparse multiplier's full-width second operand;
+- reduced sparse squares and valid `T < mR` REDC inputs;
+- from-Montgomery over the complete radix width;
+- exact output aliasing at every supported boundary;
+- Fp2 real and imaginary component equations;
+- unreduced 382x component equations; and
+- repeated-square counts 0, 1, 2, and 5, including the optimized 383-bit path.
+
+The generic x86 test clears only the public ADX capability bit for its scope,
+then restores the process capability word. This forces the q implementation
+on ADX hardware. The direct x implementation remains separately exercised.
+
+Focused MSVC 19.50 x86-64 Release execution passes 15/15 assembly-audit tests.
+Eleven retained Montgomery interface tests also pass after their invalid input
+generators were corrected. Compile-time assertions pin all six assembly-visible
+field shapes. No generated assembly or production arithmetic changed.
+
+`AUD-370` is validated. `AUD-369` and `AUD-371` are fixed pending supported
+Apple ARM64 execution and compilation. No full build, benchmark, sanitizer,
+CUDA, portable-AVX Release, or BTx/BTE work ran.

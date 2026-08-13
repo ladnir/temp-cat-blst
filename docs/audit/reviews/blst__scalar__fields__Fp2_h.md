@@ -193,3 +193,12 @@ counts retain the original component calls. Fp2 Euclidean inversion inherits
 Fp's intentional candidate-check/fallback branch and is documented
 variable-time. Its fixed inverse uses the fixed Fp addition chain. Optimized
 MSVC/Clang/GCC probes preserve that split, validating `AUD-201`.
+
+## Assembly-layout and arithmetic-oracle follow-up
+
+At `a29895f`, Fp2 is required at compile time to remain a contiguous 96-byte
+standard-layout, trivially copyable pair of Fp components. Independent byte
+equations now cover Montgomery multiplication and squaring, exact aliases, and
+the unreduced 382x outputs for selected, generic, and ADX providers. This closes
+the prior local arithmetic-oracle gap. `AUD-371` remains fixed pending the
+supported Apple compile; sanitizer evidence remains a later milestone gate.

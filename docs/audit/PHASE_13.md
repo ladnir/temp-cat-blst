@@ -292,6 +292,19 @@ calls. The four x86 modular-shift loops now consume the full `size_t` count.
 An independent byte-level oracle covers reduced and dense boundaries, exact
 aliases, double-width arithmetic modulo `p * 2^384`, and division correction.
 Focused MSVC x86-64 Release tests pass 6/6. The affected Debug widened-Fp12
-path also compiles with its new zero-cost Release invariants. `AUD-366` and
-`AUD-368` are validated. `AUD-365` and `AUD-367` remain fixed pending native
-Apple ARM64 execution. No benchmark or broad test sweep ran.
+path also compiles with its new zero-cost Release invariants. `AUD-365` through
+`AUD-368` are validated after Apple scalar-assembly run `31712201574` passed.
+No benchmark or broad test sweep ran.
+
+Batch C Montgomery remediation is implemented at `a29895f`. The six generator
+owners remain arithmetic-equivalent to pinned upstream; no assembly instruction
+changed. Raw operand, REDC, alias, count, timing, and Fp2 layout contracts are
+now explicit. Compile-time assertions pin Fr, Fp, Fp2, UFr, UFp, and UFp2.
+
+An independent byte oracle validates selected, forced-generic, and direct ADX
+Montgomery arithmetic. It covers sparse 256-bit asymmetry, 384-bit arithmetic,
+REDC, from-Montgomery, Fp2, 382x intermediates, exact aliases, and repeated
+squares. Focused MSVC x86-64 Release execution passes 15/15 audit tests plus
+11/11 retained interface tests. `AUD-370` is validated. `AUD-369` and
+`AUD-371` remain fixed pending supported Apple ARM64 evidence. No benchmark,
+full build, sanitizer, CUDA, portable-AVX Release, or BTx/BTE work ran.

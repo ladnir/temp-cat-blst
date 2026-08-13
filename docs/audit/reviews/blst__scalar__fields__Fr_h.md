@@ -56,3 +56,11 @@ reduced field element. The private almost-inverse is bounded by the
 left-aligned modulus `2r`, may produce a first-stage value below `2r`, and is
 canonicalized by the immediately following `to_mont`. Debug now checks that
 private bound without adding Release instructions.
+
+## Assembly-layout follow-up
+
+At `a29895f`, Fr is required at compile time to remain a 32-byte standard-layout,
+trivially copyable object whose limb array starts at offset zero. The independent
+Montgomery oracle covers reduced operands, the sparse full-width second operand,
+REDC, from-Montgomery, and exact aliases. `AUD-371` remains fixed pending the
+supported Apple compile.

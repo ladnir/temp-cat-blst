@@ -163,3 +163,15 @@ Independent x86-64 arithmetic tests pass 6/6. Apple ARM64 execution remains
 required for the changed shared ARM prefetch owner. Non-Apple ARM64 and CHERI
 remain experimental, and CUDA is outside this review. The manifest row remains
 `in_review` until the generated assembly packet receives that evidence.
+
+## Batch C Montgomery boundary follow-up
+
+The declaration boundary was reread with all six Montgomery generators and
+their selected callers at `a29895f`. It now states the sparse 256-bit operand
+asymmetry, REDC and from-Montgomery bounds, exact alias rules, positive public
+repeated-square count, Fp2 component order, 382x output shape, and timing
+scope. These comments add no executable code.
+
+The independent byte oracle passes for the selected, forced-generic, and
+direct ADX providers on MSVC x86-64. `AUD-370` is validated. The header remains
+in review with `AUD-369` and `AUD-371` pending supported Apple ARM64 evidence.

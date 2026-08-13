@@ -222,3 +222,10 @@ production precondition primitive; every use must be justified during its
 consumer's file review. Two 32-bit branches outside this file remain deferred
 to `backend_portable.h`, and broader arithmetic/caller safety is not implied by
 completion of the common definitions.
+
+## Assembly-layout follow-up
+
+`AUD-371` pins the double-width assembly shapes at `a29895f`. UFr, UFp, and
+UFp2 now require their exact sizes, standard layout, trivial copyability, and
+leading array offset at compile time. MSVC Release compilation passes. The
+finding remains fixed pending compilation by the supported Apple toolchain.
