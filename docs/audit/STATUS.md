@@ -1172,3 +1172,20 @@ retained and deferred.
 After Batch F reconciliation, the authoritative manifest contains 267 complete,
 189 in-review, and 181 pending files across 827 tracked paths. Experimental,
 frozen, excluded, and catalogued scope is unchanged.
+
+The selected-vector boundary follow-up validates `AUD-384` through `AUD-386`
+at `9e237456`. The abandoned packed-layout layer and 16 zero-consumer
+compatibility operations are removed. Exact equality replaces two signed
+comparisons, eliminating one `vpcmpq` from GCC 15.2 while avoiding unsigned to
+signed conversion in portable Debug. The retained `vv` surface maps directly
+to native intrinsics, and vector `cc` is explicitly a developer-only AVX
+emulator; scalar `cc` remains the supported C/C++ production implementation.
+
+The focused Peach combined target passes 10/10 tests. Optimized GCC selected
+equality and IFMA are identical to direct intrinsic probes. Local portable-only
+Clang and GCC warning builds pass. No broad suite, benchmark, CUDA, BTx/BTE
+audit, sanitizer, Apple CI, or portable-AVX Release build ran.
+
+The authoritative manifest now contains 272 complete, 189 in-review, and 177
+pending files across 828 tracked paths. Experimental, frozen, excluded, and
+catalogued scope is unchanged.

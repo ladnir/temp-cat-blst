@@ -1107,3 +1107,26 @@ linked runtime probe pass. Optimized MSVC selection, equality, and IFMA probes
 contain no conditional branch or wrapper call. No benchmark, broad build,
 remote job, CUDA, BTx/BTE audit, sanitizer, Apple CI, or portable-AVX Release
 build ran.
+
+## Selected-vector compatibility boundary
+
+`AUD-384` through `AUD-386` are validated at `9e237456`. The former packed
+base-field layout file had 50 helpers and no consumer after the packed backend
+was removed. It is deleted. Sixteen selected/emulated operations that remained
+test-only are also deleted, leaving one auditable operation set driven by
+production MatrixNoK callers.
+
+The retained names now distinguish the three domains precisely. Native
+`_mm512_*` names are Intel intrinsics. Vector `_cc512_*` names are pure C/C++
+AVX emulation for developer testing. Selected `_vv512_*` names map directly to
+native intrinsics when native AVX-512 is enabled and otherwise map to the
+portable Debug emulator. This vector-emulation policy does not affect scalar
+`cc`, which remains a supported production implementation.
+
+Equality now uses exact lane equality instead of intersecting two signed
+comparison masks. Ten combined native-versus-portable tests pass on Peach GCC
+15.2. Optimized selected equality and IFMA match direct-intrinsic bodies, with
+one instruction each and no conversion, call, spill, or memory round trip.
+Portable-only Clang 18 and GCC 13 warning builds also pass. No benchmark, broad
+suite, CUDA, BTx/BTE audit, sanitizer, Apple CI, or portable-AVX Release build
+ran.

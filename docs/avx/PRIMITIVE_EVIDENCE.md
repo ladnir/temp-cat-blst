@@ -88,3 +88,9 @@ MSVC 19.50 emits `vpblendmq` for selection, vector compares and mask tests for
 equality, and direct `vpmadd52luq` for IFMA, with no conditional branch or
 wrapper call. `AVX-P0-001` is rebound to the exact source hash. No benchmark,
 remote job, broad build, or portable AVX Release build ran.
+
+The boundary was reaccepted at `9e237456` after exact equality replaced two
+signed comparison masks and zero-consumer compatibility operations were
+removed. Mapped extraction, broadcast, and IFMA arithmetic are unchanged.
+Peach GCC 15.2 emits selected equality and low IFMA identically to direct
+intrinsics, and 10/10 retained-surface differential tests pass.

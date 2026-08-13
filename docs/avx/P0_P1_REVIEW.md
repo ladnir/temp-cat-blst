@@ -111,7 +111,10 @@ hash and reopens the affected row. Constant-time machine behavior remains a
 separate code-generation and leakage-testing claim; it is not established by
 this closure.
 
-The `AVX-P0-001` row was reaccepted at `6cc9e753` after the selected carrier
-was narrowed to its exact eight-lane construction. The Lean lane type already
-modeled that width. Focused portable execution and optimized native inspection
-confirmed the retained selection, comparison, extraction, and IFMA behavior.
+The `AVX-P0-001` row was reaccepted at `9e237456`. The selected carrier remains
+the exact eight-lane construction modeled by Lean. Exact lane equality replaces
+two signed comparison masks, while mapped extraction, broadcast, and IFMA
+arithmetic are unchanged. Focused portable execution and optimized native
+inspection confirm the retained behavior. `AVX-P0-002` is rebound to the same
+commit after removal of zero-consumer emulation operations; its reviewed IFMA
+decomposition is unchanged.

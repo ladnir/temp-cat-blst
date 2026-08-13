@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/avx/cpu/vector/avx512ifma.hpp`; `blst/avx/cpu/vector/vector_impl.hpp` |
 | Roadmap phase / queue | Phase 16 MatrixNoK primitive owner follow-up |
-| Reviewed commit | `6cc9e753150adf68d03544d5052ccee52b9c0c69` |
+| Reviewed commit | `9e237456a946abe827aa55a8a122e4a040114ffc` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-13 |
 | Disposition | `in_scope_production` |
@@ -167,12 +167,12 @@ Peach evidence remain attached to the accepted P0-P4 correspondence rows.
 ### Specialized additions
 
 The exact source SHA-256 is
-`d7dda9a8054fec44d3c16980bee316f57084729c14ec1927fadb50671ae53b28`.
+`608bb008bdd147f8c5d4970a76350b1a6020806425ba3a40a3f40fab19f995ed`.
 Changing the implementation reopens `AVX-P0-001`.
 
 ## Findings
 
-`AUD-037`, `AUD-102`, `AUD-242`, and `AUD-379`.
+`AUD-037`, `AUD-102`, `AUD-242`, `AUD-379`, and `AUD-385`.
 
 ## Validation
 
@@ -186,6 +186,10 @@ Changing the implementation reopens `AVX-P0-001`.
   probes contain no conditional branch or call. IFMA is a direct
   `vpmadd52luq`. The object SHA-256 is
   `441836bad8faa7548a33f2ed9ff14a017b9b84b21250e5aa45dd845822fd77b8`.
+- Native Peach GCC 15.2 `-O3 -DNDEBUG -march=native`: selected equality is one
+  `vpcmpq` and selected low IFMA is one `vpmadd52luq`. Both bodies are
+  identical to direct-intrinsic probes and contain no call, spill, conversion,
+  or memory access.
 - No benchmark, broad build, CUDA, BTx/BTE audit, portable AVX Release build,
   sanitizer, remote run, or Apple job was performed.
 
