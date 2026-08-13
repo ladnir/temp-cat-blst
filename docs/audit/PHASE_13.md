@@ -322,3 +322,26 @@ execution passes 8/8 new and retained tests. The CHERI residue-test scratch is
 now confined to 256 bytes; the ordinary Apple projection is unchanged.
 `AUD-372` is validated. `AUD-373` awaits supported Apple execution, and
 `AUD-374` awaits experimental CHERI target evidence. Batch E is next.
+
+Batch E SHA remediation is implemented at `2f59883`. The x86 public entry now
+selects SHA-NI, then SSSE3, then portable C from independent capability bits.
+The preferred SHA-NI body is unchanged; its added dispatch cost is one public
+capability test and a direct tail jump. The unreachable scalar x86 assembly
+owner is removed, leaving one maintained no-ISA implementation.
+
+Forced C, SSSE3, and available SHA-NI providers pass identical single- and
+multi-block known-answer tests. Six focused MSVC Release SHA tests and five
+nonportable ADX SHA tests pass. The optimized dispatcher is stackless. The raw
+block, overlap, count, and timing contracts are explicit.
+
+The ARM hardware/NEON provider policy is unchanged. CHERI schedule
+capabilities are restricted to the 64-byte schedule region. The supported
+Apple ARM64 nonblank preprocessed instruction projection remains identical, so
+the prior hosted Apple SHA execution remains applicable. Deterministic
+verification reproduces all 97 retained outputs, and aggregate x86-64 and
+ARM64 object translation passes.
+
+`AUD-375`, `AUD-377`, and `AUD-378` are validated. `AUD-376` remains fixed
+pending experimental CHERI execution. Batch E completes the handwritten
+scalar assembly-family audit. No benchmark, broad suite, sanitizer, CUDA,
+portable-AVX Release, or BTx/BTE work ran.

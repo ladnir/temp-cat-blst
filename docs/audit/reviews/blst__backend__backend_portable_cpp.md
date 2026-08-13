@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/backend/backend_portable.cpp` |
 | Roadmap phase / queue | Phase 13, portable-backend trust chain |
-| Reviewed commit | `2333650dcd3017f34e169c79bc8dc86e27d7305e` |
+| Reviewed commit | `2f59883caf67191aae95abb905598f405f8139e8` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-13 |
 | Disposition | `in_scope_production` |
@@ -135,3 +135,13 @@ arithmetic and now defer to precise declarations. Independent byte arithmetic
 proves the bounded `R^2` almost-inverse relation. Independent Euler
 exponentiation proves zero, residue, and nonresidue results. `AUD-372` and the
 portable portion of `AUD-373` are validated without a production code change.
+
+## Batch E SHA fallback follow-up
+
+At `2f59883`, the existing portable compression routine gains one internal C
+linkage entry for the x86 no-ISA fallback. The entry calls the same fixed-width
+portable implementation directly. It allocates nothing, throws nothing, and
+adds no branch or wrapper to arithmetic callers.
+
+Forced fallback tests pass the `abc` and deterministic two-block known-answer
+vectors. `AUD-375` is validated for the portable provider.

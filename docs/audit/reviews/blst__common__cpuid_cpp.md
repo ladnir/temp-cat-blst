@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/common/cpuid.cpp` |
 | Roadmap phase / queue | Phase 13, common platform-selection foundation |
-| Reviewed commit | `8e4924f379370f4a5d6e39710ed316cbcaaa7556` |
+| Reviewed commit | `2f59883caf67191aae95abb905598f405f8139e8` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-03 |
 | Disposition | `in_scope_production` |
@@ -29,7 +29,8 @@ proven.
 - The only externally visible object is `blst_platform_cap`, with C linkage.
 - Project-owned identifiers do not use reserved double-underscore names.
 - Query and initialization helpers have translation-unit-local linkage.
-- x86-64 bits are enabled only after the required CPUID and XCR0 checks.
+- x86-64 bits are enabled only after the corresponding CPUID leaf and feature
+  bit are present.
 - AArch64 Linux reads `AT_HWCAP`; Apple uses the platform feature policy in
   the retained upstream-derived branch.
 - Initialization allocates nothing, throws nothing, and performs no dispatch
@@ -69,9 +70,8 @@ linkage changes are local integration repairs rather than feature changes.
 
 ### 4. Correctness
 
-x86 AVX state is not advertised without OSXSAVE and the required XCR0 state.
-ADX/SHA bits follow their corresponding leaves. Unsupported cases preserve a
-zero capability word.
+ADX, SHA-NI, and SSSE3 bits follow their corresponding leaves. Unsupported
+cases preserve a zero capability word.
 
 ### 5. Memory and lifetime safety
 
@@ -160,3 +160,13 @@ The file review is complete at the recorded source commit. Hosted run
 execution evidence, so `AUD-058` is validated and this file is complete.
 Future supported OS/compiler additions must add a conservative feature probe
 rather than assuming availability.
+
+## Batch E SHA capability follow-up
+
+The x86 initializer was reread at `2f59883`. CPUID leaf 1 ECX bit 9 now maps
+to capability bit 2 for SSSE3. Existing capability bits 0 and 1 retain ADX and
+SHA-NI. Unsupported CPUID leaves leave their capability bits clear.
+
+Forced provider tests demonstrate that the three resulting states select C,
+SSSE3, and SHA-NI correctly. Capability discovery remains one-time public
+initialization and adds no secret-dependent behavior. `AUD-375` is validated.

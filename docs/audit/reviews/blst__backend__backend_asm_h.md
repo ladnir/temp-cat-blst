@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `blst/backend/backend_asm.h` |
 | Roadmap phase / queue | Phase 13, scalar assembly interface |
-| Reviewed commit | `2333650dcd3017f34e169c79bc8dc86e27d7305e` |
+| Reviewed commit | `2f59883caf67191aae95abb905598f405f8139e8` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-13 |
 | Disposition | `in_scope_production` |
@@ -65,14 +65,14 @@ The 16 x-provider and 16 q-provider declarations cover 256-bit Montgomery
 operations, 384-bit/Fp2 Montgomery operations, inverse, sign/parity, repeated
 squaring, and 382-bit wide multiplication/squaring. Forty-three common
 declarations cover fixed modular operations, vector helpers, SHA, division,
-and wide add/subtract. The optional SHA-extension declaration brings the exact
-inventory to 76.
+and wide add/subtract. The optional SHA-extension declaration and internal C
+fallback bring the exact inventory to 77.
 
 ## Checklist evidence
 
 ### Identity, history, and provenance
 
-The file, its complete history, all 76 declarations, generated providers,
+The file, its complete history, all 77 declarations, generated providers,
 direct production/test callers, and upstream declaration shapes were inspected.
 The header now carries Apache-2.0/SPDX and explicit local/upstream provenance.
 
@@ -133,7 +133,7 @@ thread-local state, and creates no worker or synchronization behavior.
   quotient/remainder.
 - Win64 portable assembly objects passed their exact 38-entry fallback-symbol
   allowlist; non-portable objects exposed zero fallback `$1` entries.
-- The declaration inventory is exactly 76.
+- The declaration inventory is exactly 77.
 - Structural checks find no provider-renaming macros, `_MSC_VER` typo, stale
   commented declarations, or temporary ABI annotation leak.
 - Native and portable MSVC `/W4 /WX` selector probes compile. Fixed native
@@ -188,3 +188,17 @@ These declaration changes add no instructions. Independent byte-arithmetic
 and Euler-criterion oracles pass for selected, portable, direct ADX, and
 forced-generic x86 providers. `AUD-372` is validated. Apple execution of the
 new oracle remains the production evidence gap recorded by `AUD-373`.
+
+## Batch E SHA boundary follow-up
+
+The SHA declarations were reread with both retained generator owners at
+`2f59883`. The raw compression contract now requires positive consecutive
+blocks, a count at most `SIZE_MAX/64`, and disjoint state and message storage.
+Copy and emit helpers permit disjoint or exact-alias storage, but not partial
+overlap. Lengths and CPU capabilities are public; message bytes do not select
+control flow or addresses.
+
+The internal portable-C provider is declared as the x86 no-ISA fallback.
+Forced C, SSSE3, and available SHA-NI known-answer tests pass. These comments
+and the fallback declaration add no hot-path conversion or allocation.
+`AUD-377` is validated.

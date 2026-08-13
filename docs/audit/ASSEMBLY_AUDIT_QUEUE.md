@@ -3,13 +3,16 @@
 ## Freeze and scope
 
 The assembly audit resumes from commit
-`aa7c2a777dd82cbc4ac5254bbb996e077ac98939`. It covers the 25 handwritten
+`aa7c2a777dd82cbc4ac5254bbb996e077ac98939`. It began with 25 handwritten
 Perl owners under `blst/asm`, the generation/verification control files under
 `build`, and every checked-in generated output named by
 `build/assembly-output-manifest.txt`.
 
-The manifest names 100 outputs: 23 COFF, 23 ELF, 23 Mach-O, 22 Win64, and 9
-CHERI files. Generated files are reviewed with their owning generator and
+Batch E removed one unreachable scalar x86 SHA owner. The retained tree has 24
+handwritten Perl owners.
+
+The manifest now names 97 outputs: 22 COFF, 22 ELF, 22 Mach-O, 22 Win64, and
+9 CHERI files. Generated files are reviewed with their owning generator and
 translator; deterministic byte reproduction alone does not establish
 arithmetic, ABI, constant-time, or memory-safety correctness.
 
@@ -25,7 +28,7 @@ deployment evidence.
 | B. Add/subtract and division helpers | five `add_mod*` owners and two `div3w*` owners | 31 | exact modular ranges, borrow/carry behavior, aliasing, count bounds, constant-time control flow |
 | C. Montgomery multiplication | two ARM `mul_mont*` and four x86 q/x `mul*_mont*` owners | 26 | reduction bounds, ADX versus generic equivalence, Fp/Fp2 layout, repeated-square loops, aliasing |
 | D. Inversion and square testing | seven `ct*inverse*`/`ct_is_square*` owners | 31 | fixed iteration schedules, scratch bounds, zero behavior, sign/correction steps, CHERI capability bounds |
-| E. SHA-256 | ARM, x86 SHA-extension, and portable-x86 owners | 12 | block-count preconditions, dispatch symbols, endian loads, SHA-extension fallback, constant-time behavior |
+| E. SHA-256 | ARM and x86 SHA owners | 9 | block-count preconditions, dispatch symbols, endian loads, hardware selection, no-ISA fallback, constant-time behavior |
 
 The two translators are reviewed before arithmetic owners because every output
 passes through one of them. Arithmetic batches may proceed independently only
@@ -271,3 +274,55 @@ execution of the independent oracle. `AUD-374` remains fixed because CHERI is
 experimental and no Morello toolchain is available. No benchmark, broad test
 sweep, sanitizer, CUDA, portable-AVX Release, or source change under BTx/BTE
 ran. Batch E, SHA-256, is next.
+
+## Batch E inventory and findings
+
+Batch E covers the ARM and x86 SHA-256 owners and nine generated outputs. The
+compression arithmetic retains the upstream SHA-extension, SSSE3, and NEON
+implementations. The inspection confirmed one dispatch defect: x86 selected
+SSSE3 whenever SHA-NI was unavailable, even when the CPU lacked SSSE3. The
+separate scalar x86 generator was unreachable because its only guard,
+`BLST_PORTABLE_2`, was never defined.
+
+Four findings define the remediation:
+
+1. `AUD-375` requires a safe x86 provider chain for every supported CPU.
+2. `AUD-376` confines the experimental CHERI message schedule capability.
+3. `AUD-377` states the raw SHA block, alias, and timing contracts.
+4. `AUD-378` requires provider-specific known-answer evidence.
+
+## Batch E remediation evidence
+
+Commit `2f59883` gives x86 SHA compression three explicit providers. SHA-NI
+wins when CPUID leaf 7 advertises it. SSSE3 is selected only when CPUID leaf 1
+advertises SSSE3. The portable C compression routine is the no-ISA fallback.
+`BLST_PORTABLE` continues to govern generic arithmetic assembly; it no longer
+implies a SHA fallback policy. SGX-LVI builds preserve the inherited policy of
+not selecting SHA-NI.
+
+The public dispatcher is stackless. Its normal SHA-NI path performs one public
+capability test and a direct tail jump. SSSE3 adds one test. The fallback adds
+no call frame, allocation, conversion, or message-dependent access. The dead
+scalar x86 generator and its three generated outputs are removed, reducing the
+checked corpus from 100 to 97 files.
+
+The ARM owner retains its existing public capability dispatch: hardware SHA
+instructions are preferred, and the generic NEON implementation remains the
+fallback. CHERI schedule pointers are now bounded to the 64-byte schedule
+region. Preprocessing removes those bounds from ordinary Apple ARM64 code. The
+nonblank Apple instruction projection is byte-identical before and after the
+change, with SHA-256 hash
+`93565BB099430E735001EB1BF968B4D0AC51C617FC1B90912C08B345716EAA0D`.
+
+Forced x86 C, SSSE3, and available SHA-NI providers pass the `abc` and
+two-block deterministic known-answer vectors. Six focused SHA tests pass in
+the supported MSVC Release configuration. Five pass in the nonportable ADX
+configuration. Deterministic generation reproduces all 97 outputs, and the
+aggregate x86-64 and ARM64 translator-object checks pass. The prior supported
+Apple Silicon run remains applicable because the Apple instruction projection
+did not change.
+
+`AUD-375`, `AUD-377`, and `AUD-378` are validated. `AUD-376` is fixed; CHERI
+execution remains an experimental platform-promotion requirement. No
+benchmark, broad test sweep, sanitizer, CUDA, portable-AVX Release, or BTx/BTE
+work ran. Batch E completes the handwritten scalar assembly-family audit.

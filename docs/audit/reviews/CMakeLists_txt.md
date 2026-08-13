@@ -6,7 +6,7 @@
 | --- | --- |
 | Path | `CMakeLists.txt` |
 | Roadmap phase / queue | Phase 19, Packet 19A root configuration owner |
-| Reviewed commit | `20c075a5000b8f7c29bb06a714112b1c8f0f9742` |
+| Reviewed commit | `2f59883caf67191aae95abb905598f405f8139e8` |
 | Reviewer | Codex audit team |
 | Date | 2026-08-12 |
 | Disposition | `in_scope_support` |
@@ -139,3 +139,10 @@ Status remains `in_review` until native AVX and negative cross-toolchain
 evidence execute. Linux scalar/assembly, Windows assembly, and Apple Silicon
 are green in run `31665323681`. CUDA remains experimental, and final
 install/shared/export behavior is deferred to `AUD-016` and Phase 20.
+
+## Batch E SHA option follow-up
+
+At `2f59883`, the `BLST_PORTABLE` description now refers specifically to
+generic arithmetic assembly. SHA always retains a safe provider chain and no
+longer depends on that option for its no-ISA fallback. This is a documentation
+correction; supported option defaults and generated build flags are unchanged.

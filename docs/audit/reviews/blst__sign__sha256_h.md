@@ -97,3 +97,12 @@ reviewed with `blst/sign/keygen.cpp` next.
 
 Complete Phase 15 file review at implementation commit
 `5c69ad63c76d9e63e9cf75a708ac84ede45b5eb6`.
+
+## Batch E backend follow-up
+
+The streaming interface and padding logic are unchanged at `2f59883`. Its
+selected compression boundary now has an explicit provider chain: SHA-NI,
+SSSE3, then portable C on x86; hardware SHA then NEON on ARM64. Every provider
+retains the same state and block contract. Focused known-answer tests exercise
+each executable x86 provider. Supported Apple instructions are unchanged from
+the prior hosted run.

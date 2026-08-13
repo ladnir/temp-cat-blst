@@ -1126,3 +1126,20 @@ providers plus the retained interface cases. CHERI residue-test scratch is
 confined to 256 bytes without changing the supported Apple instruction
 projection. `AUD-372` is validated; `AUD-373` awaits Apple execution and
 `AUD-374` awaits experimental CHERI target evidence. Batch E SHA-256 is next.
+
+Assembly trust-chain Batch E is implemented at `2f59883`. x86 SHA compression
+now selects SHA-NI, SSSE3, or portable C from explicit capability bits. The
+dead scalar x86 assembly owner and its three outputs are removed. Forced C,
+SSSE3, and available SHA-NI providers pass identical known-answer vectors. The
+optimized dispatcher is a stackless direct tail-jump chain.
+
+ARM retains its hardware-SHA and NEON providers. CHERI schedule capabilities
+are confined to 64 bytes without changing the supported Apple ARM64
+instruction projection. All 97 retained generated outputs reproduce
+deterministically. `AUD-375`, `AUD-377`, and `AUD-378` are validated;
+`AUD-376` awaits experimental CHERI target execution. The handwritten scalar
+assembly-family audit is complete.
+
+The authoritative manifest now contains 196 complete, 189 in-review, and 252
+pending files across 827 tracked paths. It separately records 94 experimental,
+32 frozen, 29 excluded, and 35 catalogued files.
